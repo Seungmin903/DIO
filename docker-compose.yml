@@ -1,0 +1,22 @@
+# 로컬 개발용 인프라. 실행: docker compose up -d
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: dio-mysql
+    restart: unless-stopped
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root1234}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-dio}
+      MYSQL_USER: ${MYSQL_USER:-dio}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-dio1234}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  mysql-data:

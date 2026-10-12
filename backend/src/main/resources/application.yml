@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: dio
+  profiles:
+    default: local
+  jpa:
+    open-in-view: false
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
