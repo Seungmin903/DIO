@@ -10,6 +10,7 @@
 
 - Backend: Spring Boot 4.1, Java 17, Gradle, Spring Data JPA, MySQL 8.4
 - Frontend: React 19, Vite (JavaScript), oxlint
+- AI: Python 3.12, FastAPI, SAM 2.1 (uv)
 - Local infra: Docker Compose (MySQL)
 
 ## 개발 명령어
@@ -21,6 +22,7 @@
 | 백엔드 빌드/테스트 | `./gradlew build` / `./gradlew test` (테스트는 H2 인메모리 DB 사용) |
 | 프론트 실행 | `npm install && npm run dev` (frontend/, http://localhost:5173) |
 | 프론트 빌드/린트 | `npm run build` / `npm run lint` |
+| AI 서버 실행 | `uv sync && uv run uvicorn app.main:app --port 8000` (ai/, http://localhost:8000) |
 
 - 프론트의 `/api/**` 요청은 Vite proxy를 통해 `http://localhost:8080` 으로 전달됩니다. API 경로는 `/api` 로 시작하게 만드세요.
 - 백엔드 기본 패키지: `com.ssafy.dio`
@@ -30,7 +32,7 @@
 브랜치 전략, 커밋 메시지 형식, MR 규칙은 [GIT_CONVENTION.md](./GIT_CONVENTION.md)에 정의되어 있습니다. **모든 git 작업은 반드시 이 문서를 따르세요.**
 
 핵심 요약:
-- `master`, `develop`에 직접 커밋/푸시 금지. 항상 `feature/{be|fe}/{ISSUE-KEY}-{설명}` 또는 `fix/{be|fe}/{ISSUE-KEY}-{설명}` 브랜치를 만들어 작업하고 MR로 병합합니다.
+- `master`, `develop`에 직접 커밋/푸시 금지. 항상 `feature/{be|fe|ai}/{ISSUE-KEY}-{설명}` 또는 `fix/{be|fe|ai}/{ISSUE-KEY}-{설명}` 브랜치를 만들어 작업하고 MR로 병합합니다.
 - 커밋 메시지는 Conventional Commits 형식(`type(scope): subject`)을 사용합니다. `type`은 `feat/fix/docs/style/refactor/test/chore/build/ci/perf` 중 하나. "a", "wip" 같은 의미 없는 메시지는 사용하지 않습니다.
 - `master`, `develop`는 protected branch이므로 force-push가 불가능합니다. 히스토리를 되돌려야 할 때는 `git revert`를 우선 고려하세요.
 - 사용자가 명시적으로 요청하지 않으면 커밋/푸시/MR 생성을 먼저 하지 않습니다.
@@ -42,6 +44,7 @@
 S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
 ├── frontend/            # 프론트엔드 (React 19 + Vite)
+├── ai/                  # AI 서버 (FastAPI + SAM 2, 스티커 누끼)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
 ├── docker-compose.yml   # 로컬 개발용 MySQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)

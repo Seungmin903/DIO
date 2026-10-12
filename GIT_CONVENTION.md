@@ -9,6 +9,7 @@
 S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
 ├── frontend/            # 프론트엔드 (React 19 + Vite)
+├── ai/                  # AI 서버 (FastAPI + SAM 2, 스티커 누끼)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
 ├── docker-compose.yml   # 로컬 개발용 MySQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)
@@ -18,8 +19,8 @@ S15P31F106/
 └── GIT_CONVENTION.md
 ```
 
-- `backend/`, `frontend/`는 각자 독립적으로 빌드/실행 가능해야 합니다.
-- 공통 문서·설정은 루트에 둡니다. 새로운 최상위 폴더(`ai/`, `infra/` 등)를 추가할 때는 이 문서도 함께 갱신합니다.
+- `backend/`, `frontend/`, `ai/`는 각자 독립적으로 빌드/실행 가능해야 합니다.
+- 공통 문서·설정은 루트에 둡니다. 새로운 최상위 폴더(`infra/` 등)를 추가할 때는 이 문서도 함께 갱신합니다.
 
 ## 2. 브랜치 전략 (Git Flow)
 
@@ -32,7 +33,7 @@ S15P31F106/
 | `release/{version}` | 배포 준비 (버전 고정, QA) | → `master` (+ `develop`로 백머지) |
 | `hotfix/{ISSUE-KEY}-{설명}` | 운영 중 긴급 수정 | → `master` (+ `develop`로 백머지) |
 
-- `scope`는 `be`(backend) 또는 `fe`(frontend)를 사용합니다.
+- `scope`는 `be`(backend), `fe`(frontend), `ai`(ai) 중 하나를 사용합니다.
 - `ISSUE-KEY`는 지라(Jira) 이슈 번호를 그대로 사용합니다. (팀 Jira 프로젝트 키에 맞춰 예시를 갱신하세요)
 - 예: `feature/be/F106-12-login-api`, `fix/fe/F106-20-button-click-error`, `hotfix/F106-30-payment-null-error`
 

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B안 붓 스티커</title>
+<style>
+  :root { --bg:#faf7f2; --fg:#2b2622; --muted:#8a8077; --line:#e5ddd2; --keep:#2f9e6b; --drop:#d64545; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:1100px; margin:0 auto; padding:24px 16px 48px; }
+  nav { font-size:13px; margin-bottom:8px; } nav a { color:var(--muted); }
+  h1 { font-size:20px; margin:0 0 4px; }
+  p.hint { color:var(--muted); margin:0 0 16px; font-size:14px; line-height:1.5; }
+  kbd { font:12px ui-monospace,monospace; border:1px solid var(--line); border-radius:4px; padding:0 4px; background:#fff; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; }
+  button, label.btn { border:1px solid var(--line); background:#fff; color:var(--fg); padding:8px 14px; border-radius:999px; font-size:14px; cursor:pointer; }
+  button.on.keep { background:var(--keep); border-color:var(--keep); color:#fff; }
+  button.on.drop { background:var(--drop); border-color:var(--drop); color:#fff; }
+  button:disabled { opacity:.4; cursor:default; }
+  .size { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); }
+  .grid { display:grid; grid-template-columns:3fr 2fr; gap:16px; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; min-height:240px; }
+  .panel h2 { font-size:13px; color:var(--muted); font-weight:500; margin:0 0 8px; }
+  #stage { position:relative; display:inline-block; max-width:100%; }
+  #photo { display:block; max-width:100%; max-height:70vh; border-radius:8px; user-select:none; -webkit-user-drag:none; }
+  #paint { position:absolute; inset:0; width:100%; height:100%; border-radius:8px; cursor:none; touch-action:none; }
+  #result { min-height:200px; display:flex; align-items:center; justify-content:center; border-radius:8px;
+    background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 20px 20px; }
+  #sticker { max-width:100%; max-height:50vh; }
+  #status { font-size:13px; color:var(--muted); min-height:18px; margin-top:8px; }
+  .empty { color:var(--muted); font-size:14px; padding:40px 0; text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <nav><a href="/">← 버전 선택</a> · <a href="/tap">A안(탭)으로 가기</a></nav>
+  <h1>B안 · 붓으로 칠해서 스티커 만들기</h1>
+  <p class="hint">
+    <b>선택 붓</b>으로 원하는 대상을 대충 칠하면 AI가 경계를 찾아요. 더 넣고 싶은 부분은 더 칠하고,
+    빼고 싶은 부분은 <b>지우개</b>로 칠하세요. 탭 한 번도 동작해요.<br>
+    단축키: <kbd>B</kbd> 선택 붓 · <kbd>E</kbd> 지우개 · <kbd>[</kbd> <kbd>]</kbd> 붓 크기 · <kbd>Ctrl+Z</kbd> 되돌리기 · 우클릭 드래그 = 지우개
+  </p>
+  <div class="bar">
+    <label class="btn">사진 선택<input id="file" type="file" accept="image/*" hidden></label>
+    <button id="keep" class="keep on">선택 붓</button>
+    <button id="drop" class="drop">지우개</button>
+    <label class="size">붓 크기 <input id="size" type="range" min="3" max="60" value="14"></label>
+    <button id="undo" disabled>되돌리기</button>
+    <button id="reset" disabled>초기화</button>
+    <button id="save" disabled>PNG 저장</button>
+  </div>
+  <div class="grid">
+    <div class="panel"><h2>원본</h2>
+      <div id="stage"><div class="empty" id="placeholder">사진을 선택하세요</div>
+        <img id="photo" hidden alt=""><canvas id="paint" hidden></canvas></div>
+    </div>
+    <div class="panel"><h2>스티커</h2>
+      <div id="result"><img id="sticker" hidden alt="스티커 결과"></div>
+      <div id="status"></div>
+    </div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const photo = $('photo'), canvas = $('paint'), ctx = canvas.getContext('2d');
+const COLORS = { include: 'rgba(47,158,107,0.45)', exclude: 'rgba(214,69,69,0.45)' };
+
+let imageId = null, strokes = [], tool = 'include', current = null, cursor = null;
+let preview = null, stickerUrl = null, seq = 0;
+
+// ---------- 도구 ----------
+function setTool(t) { tool = t; $('keep').classList.toggle('on', t === 'include'); $('drop').classList.toggle('on', t === 'exclude'); draw(); }
+$('keep').onclick = () => setTool('include');
+$('drop').onclick = () => setTool('exclude');
+$('size').oninput = draw;
+$('undo').onclick = () => { strokes.pop(); refresh(); };
+$('reset').onclick = () => { strokes = []; refresh(); };
+$('save').onclick = () => { const a = document.createElement('a'); a.href = stickerUrl; a.download = 'sticker.png'; a.click(); };
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+  if (e.key === 'b' || e.key === 'B') setTool('include');
+  else if (e.key === 'e' || e.key === 'E') setTool('exclude');
+  else if (e.key === '[') { $('size').value = +$('size').value - 2; draw(); }
+  else if (e.key === ']') { $('size').value = +$('size').value + 2; draw(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); if (strokes.length) $('undo').click(); }
+});
+const brushPx = () => +$('size').value; // 화면 기준 붓 반지름(px)
+
+// ---------- 사진 업로드 ----------
+$('file').onchange = async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  imageId = null; strokes = []; preview = null; refresh();
+  photo.src = URL.createObjectURL(file);
+  photo.hidden = canvas.hidden = false; $('placeholder').hidden = true;
+  $('status').textContent = '사진 분석 중… (첫 실행은 모델 로딩 때문에 더 걸려요)';
+  const form = new FormData(); form.append('file', file);
+  const res = await fetch('/api/stickers/images', { method: 'POST', body: form });
+  if (!res.ok) { $('status').textContent = '업로드 실패: ' + (await res.text()); return; }
+  const data = await res.json(); imageId = data.imageId;
+  $('status').textContent = `분석 완료 (${data.embedMs}ms). 대상을 칠해 보세요.`;
+};
+photo.onload = resize;
+window.addEventListener('resize', resize);
+function resize() {
+  const r = photo.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+  draw();
+}
+
+// ---------- 붓질 ----------
+function pos(e) { const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, px: e.clientX - r.left, py: e.clientY - r.top }; }
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+canvas.addEventListener('pointerdown', (e) => {
+  if (!imageId) return;
+  canvas.setPointerCapture(e.pointerId);
+  const p = pos(e), width = canvas.getBoundingClientRect().width;
+  current = { mode: e.button === 2 ? 'exclude' : tool, size: brushPx() / width, points: [{ x: p.x, y: p.y }], last: p };
+  cursor = p; draw();
+});
+canvas.addEventListener('pointermove', (e) => {
+  const p = pos(e); cursor = p;
+  if (current && Math.hypot(p.px - current.last.px, p.py - current.last.py) >= 3) {
+    current.points.push({ x: Math.min(Math.max(p.x, 0), 1), y: Math.min(Math.max(p.y, 0), 1) });
+    current.last = p;
+  }
+  draw();
+});
+canvas.addEventListener('pointerup', () => {
+  if (!current) return;
+  const { last, ...stroke } = current; current = null;
+  strokes.push(stroke); refresh();
+});
+canvas.addEventListener('pointerleave', () => { cursor = null; draw(); });
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1, W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  if (preview) ctx.drawImage(preview, 0, 0, W, H);
+  for (const s of current ? [...strokes, current] : strokes) {
+    ctx.strokeStyle = ctx.fillStyle = COLORS[s.mode];
+    ctx.lineWidth = s.size * W * 2; ctx.lineCap = ctx.lineJoin = 'round';
+    ctx.beginPath();
+    s.points.forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, p.x * W, p.y * H));
+    if (s.points.length === 1) { ctx.arc(s.points[0].x * W, s.points[0].y * H, s.size * W, 0, Math.PI * 2); ctx.fill(); }
+    else ctx.stroke();
+  }
+  if (cursor) { // 붓 커서
+    ctx.lineWidth = 1.5 * dpr; ctx.strokeStyle = tool === 'include' ? '#2f9e6b' : '#d64545';
+    ctx.beginPath(); ctx.arc(cursor.px * dpr, cursor.py * dpr, brushPx() * dpr, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
+// ---------- 서버 요청 ----------
+async function refresh() {
+  $('undo').disabled = $('reset').disabled = strokes.length === 0;
+  if (!strokes.some((s) => s.mode === 'include')) {
+    preview = null; $('sticker').hidden = true; $('save').disabled = true; draw();
+    if (strokes.length) $('status').textContent = '선택 붓으로 먼저 칠해 주세요.';
+    return;
+  }
+  draw();
+  const my = ++seq, t0 = performance.now();
+  $('status').textContent = '자르는 중…';
+  const res = await fetch('/api/stickers/segment', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageId, strokes }),
+  });
+  if (my !== seq) return; // 더 최근 요청이 있으면 무시
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => ({}))).detail;
+    $('status').textContent = '실패: ' + (typeof detail === 'string' ? detail
+      : `요청 형식이 서버와 맞지 않아요. 서버를 재시작했는지 확인하세요. (${res.status})`);
+    console.error(detail);
+    return;
+  }
+  const data = await res.json();
+  stickerUrl = data.sticker;
+  $('sticker').src = stickerUrl; $('sticker').hidden = false; $('save').disabled = false;
+  const img = new Image();
+  img.onload = () => { if (my === seq) { preview = img; draw(); } };
+  img.src = data.preview;
+  $('status').textContent = `모델 ${data.segmentMs}ms · 힌트 점 ${data.promptPoints}개 · 전체 ${Math.round(performance.now() - t0)}ms`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+[project]
+name = "dio-ai"
+description = "SAM 2 탭해서 고르기 스티커 PoC"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.143.0",
+    "numpy>=2.5.4",
+    "opencv-python-headless>=5.0.0.93",
+    "pillow>=12.3.0",
+    "python-multipart>=0.0.32",
+    "torch>=2.14.1",
+    "torchvision>=0.29.1",
+    "transformers>=5.19.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+# 서버(EC2)에는 GPU가 없으므로 CPU 전용 torch 사용 (Linux 기본 torch는 CUDA 포함이라 수 GB)
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
