@@ -4,6 +4,19 @@ import { registerHooks } from 'node:module'
 import { indexedDB } from 'fake-indexeddb'
 import { collectMediaIds, createMediaRegistry, mediaId } from '../src/editor/utils/mediaReferences.js'
 
+test('30개 이미지를 조회해도 다른 ID의 스냅샷은 변경되지 않는다', async () => {
+  const registry = createMediaRegistry({ load: async (id) => ({ uri: `blob:${id}` }) })
+  registry.seed('visible', { uri: 'blob:visible' })
+  const visible = registry.get('visible')
+  let ownSnapshotChanges = 0
+  registry.subscribe(() => {
+    if (!Object.is(visible, registry.get('visible'))) ownSnapshotChanges++
+  })
+  await Promise.all(Array.from({ length: 30 }, (_, i) => registry.ensure(`other-${i}`)))
+  assert.equal(ownSnapshotChanges, 0)
+  assert.equal(registry.get('visible'), visible)
+})
+
 test('ID가 src보다 우선하고 이전 media 참조·보관함을 중복 없이 수집한다', () => {
   assert.equal(mediaId({ mediaFileId: 'actual', src: 'media:stale' }), 'actual')
   assert.equal(mediaId({ src: 'media:legacy' }), 'legacy')
@@ -84,6 +97,7 @@ test('실제 IndexedDB에서 ID만 있는 사진·GIF와 표시본을 새 세션
   ] }
   const geometry = JSON.stringify(page)
   const store = await import('../src/editor/utils/mediaStore.js')
+  assert.deepEqual(await store.hydrateMedia(), { loaded: [], failures: [] })
   const hydrated = await store.hydrateMedia({ pages: [page] })
   assert.deepEqual(hydrated.loaded, ['photo', 'gif', 'legacy'])
   assert.equal(hydrated.failures[0].mediaFileId, 'missing')
