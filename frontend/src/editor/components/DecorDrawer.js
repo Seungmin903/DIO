@@ -7,6 +7,7 @@ import { STICKER_GROUPS, stickerSource } from '../stickerAssets'
 import Svg, { Path } from 'react-native-svg'
 import { usePan } from '../hooks/usePan'
 import { clamp } from '../utils/common'
+import { mediaFailureMessage } from '../utils/mediaRecovery.js'
 import { pickImages } from '../utils/image'
 import { useMediaUri } from '../hooks/useMediaUri'
 import { MEDIA_FORMATS } from '../utils/mediaPolicy'
@@ -113,7 +114,7 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
       )
       if (images.length) onToast('내 스티커에 추가했어요.')
     } catch (error) {
-      onToast(error.message)
+      onToast(mediaFailureMessage(error), () => addCustom(kind))
     } finally {
       setBusy(false)
     }

@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Directory, File, FileMode, Paths } from 'expo-file-system'
 import { MediaError, storageError } from './mediaPolicy.js'
-export { decode, createDisplay, dispose } from './mediaProcessing.native.js'
+import { validateStoredOriginal } from './mediaRecovery.js'
+export { decode, createDisplay, dispose, verifyDisplay } from './mediaProcessing.native.js'
 
 const KEY = 'dio:media:v1:'
 const directory = () => new Directory(Paths.document, 'dio-media')
@@ -43,9 +44,13 @@ export async function get(id) {
   try {
     const raw = await AsyncStorage.getItem(KEY + id)
     if (!raw) throw new MediaError('MEDIA_NOT_FOUND', '저장된 원본 이미지를 찾을 수 없어요.')
-    const media = JSON.parse(raw)
+    let media
+    try { media = JSON.parse(raw); if (!media?.extension || media.mediaFileId !== id) throw new Error('Invalid metadata') }
+    catch (error) { throw new MediaError('MEDIA_CORRUPT', '저장된 이미지 정보가 손상되었어요. 원본 파일을 다시 선택해 주세요.', error) }
     const blob = original(media)
     if (!blob.exists) throw new MediaError('MEDIA_NOT_FOUND', '저장된 원본 이미지를 찾을 수 없어요.')
+    const handle = blob.open(FileMode.ReadOnly)
+    try { validateStoredOriginal(handle.readBytes(64), blob.size, media) } finally { handle.close() }
     const preview = displayFile(media)
     return { media, blob, displayBlob: preview?.exists ? preview : null }
   } catch (error) { throw storageError(error, 'STORAGE_READ_FAILED') }

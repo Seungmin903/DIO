@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../theme'
+import MediaNotice from './components/MediaNotice'
+import { mediaFailureMessage } from './utils/mediaRecovery.js'
 import Canvas from './components/Canvas'
 import CropPanel from './components/CropPanel'
 import DecorDrawer from './components/DecorDrawer'
@@ -37,6 +39,7 @@ export default function EditorScreen() {
   const [focusMode, setFocusMode] = useState(false)
   const [cropId, setCropId] = useState(null)
   const [recentPhotos, setRecentPhotos] = useState([])
+  const [importFailure, setImportFailure] = useState(null)
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
   const clipboard = useRef([]) // Ctrl+C 로 복사한 오브젝트 (다른 페이지에도 붙여 넣기)
@@ -54,11 +57,14 @@ export default function EditorScreen() {
   const zoom = zoomSetting === 'fit' ? fitZoom : zoomSetting
 
   const cropTarget = cropId ? page.objects.find((o) => o.id === cropId && o.type === 'photo') : null
-  const tapeCrop = tapeCropId ? page.objects.find((o) => o.id === tapeCropId && o.src && o.imageWidth) : null
+  const tapeCrop = tapeCropId ? page.objects.find((o) => o.id === tapeCropId && (o.src || o.mediaFileId) && o.imageWidth) : null
   const selectedObjects = page.objects.filter((o) => state.selectedIds.includes(o.id))
   const showMore = moreOpen && selectedObjects.length > 0 && !cropId
 
-  const showToast = useCallback((message) => setToast({ message, key: createId() }), [setToast])
+  const showToast = useCallback((message, retry) => {
+    if (retry) setImportFailure({ message, retry })
+    else setToast({ message, key: createId() })
+  }, [setToast])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -86,6 +92,7 @@ export default function EditorScreen() {
 
   const addPhotos = async (style) => {
     try {
+      setImportFailure(null)
       const images = await pickImages()
       if (!images.length) return
       const photos = images.map((image) => ({
@@ -104,13 +111,14 @@ export default function EditorScreen() {
       )
       dispatch({ type: 'addObjects', objects })
     } catch (error) {
-      showToast(error.message)
+      showToast(mediaFailureMessage(error), () => addPhotos(style))
     }
   }
 
   // 틀·자르기 설정은 두고 사진만 바꾼다.
   const replacePhoto = async (id) => {
     try {
+      setImportFailure(null)
       const [image] = await pickImages({ multiple: false })
       if (!image) return
       dispatch({
@@ -129,7 +137,7 @@ export default function EditorScreen() {
       })
       showToast('사진을 바꿨어요.')
     } catch (error) {
-      showToast(error.message)
+      showToast(mediaFailureMessage(error), () => replacePhoto(id))
     }
   }
 
@@ -340,7 +348,7 @@ export default function EditorScreen() {
 
           {tapeCrop && (
             <TapeCropper
-              image={{ src: tapeCrop.src, width: tapeCrop.imageWidth, height: tapeCrop.imageHeight }}
+              image={{ src: tapeCrop.src, mediaFileId: tapeCrop.mediaFileId, width: tapeCrop.imageWidth, height: tapeCrop.imageHeight }}
               initialCrop={tapeCrop.crop}
               initialEdge={tapeCrop.edge}
               title="테이프 다시 자르기"
@@ -353,6 +361,7 @@ export default function EditorScreen() {
             />
           )}
 
+          <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
           {toast && (
             <View key={toast.key} style={styles.toast} pointerEvents="none">
               <Text style={styles.toastText}>{toast.message}</Text>

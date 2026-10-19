@@ -9,6 +9,11 @@ async function withImage(source, work) {
   } finally { image.src = ''; URL.revokeObjectURL(url) }
 }
 
+export async function verifyDisplay(source) {
+  try { await withImage(source, () => {}) }
+  catch (error) { throw new MediaError('MEDIA_CORRUPT', '저장된 이미지를 표시할 수 없어요. 원본 파일을 다시 선택해 주세요.', error) }
+}
+
 export async function decode(input, format) {
   if (format.extension === 'heic') {
     try {

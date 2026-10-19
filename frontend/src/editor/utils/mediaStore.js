@@ -3,13 +3,19 @@ import { Platform } from 'react-native'
 import { randomUUID } from 'expo-crypto'
 import * as repository from './mediaRepository'
 import { createMediaImporter } from './mediaImport.js'
+import { MediaError } from './mediaPolicy.js'
 import { collectMediaIds, createMediaRegistry, isMediaRef, mediaId, mediaReference } from './mediaReferences.js'
 
 export { isMediaRef }
+export function reportMediaDisplayError(item) {
+  const id = mediaId(item)
+  if (id) mediaRegistry.fail(id, new MediaError('MEDIA_CORRUPT', '이미지를 표시하지 못했어요. 원본 파일을 다시 선택해 주세요.'))
+}
 export const mediaRegistry = createMediaRegistry({
   async load(id) {
     const { media, blob, displayBlob } = await repository.get(id)
     const source = displayBlob ?? blob
+    await repository.verifyDisplay(source)
     return { media, uri: Platform.OS === 'web' ? URL.createObjectURL(source) : source.uri }
   },
   release(uri) { if (Platform.OS === 'web') URL.revokeObjectURL(uri) },
@@ -18,7 +24,10 @@ export const mediaRegistry = createMediaRegistry({
 export function mediaUri(item, { still = false } = {}) {
   const source = still && item?.poster ? item.poster : item
   const id = mediaId(source)
-  if (id) return mediaRegistry.get(id)?.uri ?? null
+  if (id) {
+    const entry = mediaRegistry.get(id)
+    return entry?.status === 'ready' ? entry.uri : null
+  }
   return typeof source === 'string' ? source : source?.src ?? null
 }
 

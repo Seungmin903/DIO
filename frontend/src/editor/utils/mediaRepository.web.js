@@ -1,5 +1,6 @@
 import { MediaError, storageError } from './mediaPolicy.js'
-export { decode, createDisplay, dispose } from './mediaProcessing.web.js'
+import { validateStoredOriginal } from './mediaRecovery.js'
+export { decode, createDisplay, dispose, verifyDisplay } from './mediaProcessing.web.js'
 
 const DB_NAME = 'dio-media'
 let opening
@@ -63,6 +64,8 @@ export async function get(id) {
       blob: tx.objectStore('blobs').get(id), media: tx.objectStore('metadata').get(id), displayBlob: tx.objectStore('displays').get(id),
     }))
     if (!requests.blob.result) throw new MediaError('MEDIA_NOT_FOUND', '저장된 원본 이미지를 찾을 수 없어요.')
+    const original = requests.blob.result
+    validateStoredOriginal(new Uint8Array(await original.slice(0, 64).arrayBuffer()), original.size, requests.media.result)
     return { blob: requests.blob.result, media: requests.media.result ?? null, displayBlob: requests.displayBlob.result ?? null }
   } catch (error) { throw storageError(error, 'STORAGE_READ_FAILED') }
 }
