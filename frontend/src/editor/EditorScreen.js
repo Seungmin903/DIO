@@ -28,7 +28,8 @@ const TOAST_MS = 2000
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 
-export default function EditorScreen() {
+// 전환 UI 확정 전까지 기본 편집 모드. 상위 화면에서 readOnly를 전달할 수 있다.
+export default function EditorScreen({ readOnly = false }) {
   const { state, dispatch, saveStatus } = useEditor()
   const page = getCurrentPage(state)
   const pageIndex = state.doc.pages.indexOf(page)
@@ -37,6 +38,7 @@ export default function EditorScreen() {
   const [stageSize, setStageSize] = useState(null)
   const [zoomSetting, setZoomSetting] = useState('fit') // 'fit' | number
   const [drawerTab, setDrawerTab] = useState(null)
+  const [activeTool, setActiveTool] = useState('select')
   const [moreOpen, setMoreOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(true)
   const [pagesOpen, setPagesOpen] = useState(true)
@@ -47,6 +49,16 @@ export default function EditorScreen() {
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
   const clipboard = useRef([]) // Ctrl+C 로 복사한 오브젝트 (다른 페이지에도 붙여 넣기)
+
+  useEffect(() => {
+    if (!readOnly) return
+    if (cropId) dispatch({ type: 'revertToCheckpoint' })
+    setCropId(null)
+    setTapeCropId(null)
+    setDrawerTab(null)
+    setMoreOpen(false)
+    dispatch({ type: 'select', ids: [] })
+  }, [readOnly, cropId, dispatch])
 
   const fitZoom = stageSize
     ? clamp(
@@ -173,7 +185,7 @@ export default function EditorScreen() {
 
   // 웹(키보드)에서의 단축키
   useEffect(() => {
-    if (Platform.OS !== 'web') return undefined
+    if (Platform.OS !== 'web' || readOnly || activeTool !== 'select') return undefined
     const handleKey = (event) => {
       const target = event.target
       if (target?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target?.tagName)) return
@@ -246,6 +258,7 @@ export default function EditorScreen() {
         layersOpen={showLayers}
         pagesOpen={showPages}
         focusMode={focusMode}
+        readOnly={readOnly}
         onHome={() => showToast('다이어리 홈은 다른 화면에서 연결될 예정이에요.')}
         onCloseTab={() => showToast('다이어리 탭 닫기는 홈 화면과 함께 연결될 예정이에요.')}
         onTogglePages={() => {
@@ -274,6 +287,7 @@ export default function EditorScreen() {
       <View style={styles.body}>
         {showPages && (
           <PageList
+            readOnly={readOnly}
             pages={state.doc.pages}
             currentId={page.id}
             onSelect={(id) => {
@@ -292,6 +306,8 @@ export default function EditorScreen() {
           <ScrollView horizontal contentContainerStyle={styles.scrollX} showsHorizontalScrollIndicator={false}>
             <ScrollView contentContainerStyle={styles.scrollY} showsVerticalScrollIndicator={false}>
               <Canvas
+                activeTool={activeTool}
+                readOnly={readOnly}
                 page={page}
                 zoom={zoom}
                 selectedIds={state.selectedIds}
@@ -309,18 +325,27 @@ export default function EditorScreen() {
             </ScrollView>
           </ScrollView>
 
-          <View style={styles.ribbonWrap} pointerEvents="box-none">
+          {!readOnly && <View style={styles.ribbonWrap} pointerEvents="box-none">
             <Ribbon
+              activeTool={activeTool}
               drawerTab={drawerTab}
               onOpenDrawer={(tab) => {
                 if (cropId) finishCrop(false)
                 setMoreOpen(false)
+                setActiveTool('select')
                 setDrawerTab(drawerTab === tab ? null : tab)
               }}
-              onSelectTool={() => setDrawerTab(null)}
+              onSelectTool={(tool) => {
+                if (cropId) finishCrop(false)
+                setTapeCropId(null)
+                setDrawerTab(null)
+                setMoreOpen(false)
+                dispatch({ type: 'select', ids: [] })
+                setActiveTool(tool)
+              }}
               onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
             />
-          </View>
+          </View>}
 
           {showMore && !drawerTab && (
             <View style={styles.drawerWrap} pointerEvents="box-none">
@@ -343,9 +368,9 @@ export default function EditorScreen() {
           )}
 
           <View style={[styles.floating, styles.floatingLeft]}>
-            <RoundButton icon="undo" label="되돌리기" disabled={!state.past.length} onPress={undo} />
+            <RoundButton icon="undo" label="되돌리기" disabled={readOnly || !state.past.length} onPress={undo} />
             <View style={styles.floatingDivider} />
-            <RoundButton icon="redo" label="다시 실행" disabled={!state.future.length} onPress={redo} />
+            <RoundButton icon="redo" label="다시 실행" disabled={readOnly || !state.future.length} onPress={redo} />
             <View style={styles.floatingDivider} />
             <SaveIndicator status={saveStatus} onInfo={showToast} />
           </View>
@@ -383,7 +408,7 @@ export default function EditorScreen() {
         {cropTarget ? (
           <CropPanel photo={cropTarget} dispatch={dispatch} onApply={() => finishCrop(true)} onCancel={() => finishCrop(false)} />
         ) : (
-          showLayers && (
+          showLayers && !readOnly && (
             <LayerPanel
               objects={page.objects}
               selectedIds={state.selectedIds}
