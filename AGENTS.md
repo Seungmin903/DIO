@@ -34,9 +34,12 @@
 - Git 명령을 실행하기 전에는 최신 `GIT_CONVENTION.md`를 다시 확인합니다.
 
 핵심 요약:
-- `master`, `develop`에 직접 커밋/푸시 금지. 항상 `feature/{be|fe}/{ISSUE-KEY}-{설명}` 또는 `fix/{be|fe}/{ISSUE-KEY}-{설명}` 브랜치를 만들어 작업하고 MR로 병합합니다.
-- 커밋 메시지는 Conventional Commits 형식(`type(scope): subject`)을 사용합니다. `type`은 `feat/fix/docs/style/refactor/test/chore/build/ci/perf` 중 하나. "a", "wip" 같은 의미 없는 메시지는 사용하지 않습니다.
-- `master`, `develop`는 protected branch이므로 force-push가 불가능합니다. 히스토리를 되돌려야 할 때는 `git revert`를 우선 고려하세요.
+- `master`, `develop`에 직접 커밋/푸시 금지. 새 작업 브랜치는 `feature/S15P31F106-번호-설명`, `fix/...`, `refactor/...`, `docs/...`, `chore/...` 형식입니다. 진행 중인 `feature/fe/...`, `feature/be/...` 등은 해당 MR까지 유지할 수 있습니다.
+- Jira의 에픽→태스크 구조와 태스크당 최대 3시간 규칙을 따릅니다. 기본은 태스크 하나·브랜치 하나·MR 하나이며, 연관 태스크를 묶는 조건은 Git 컨벤션을 확인합니다.
+- 커밋은 `type(scope): 한국어 설명` 형식입니다. type은 `feat/fix/docs/style/refactor/test/chore/build/ci/perf/merge/revert`를 사용합니다. scope는 선택 사항입니다.
+- 일반 커밋에는 Jira 키를 반복하지 않고 브랜치와 MR 제목에 실제 `S15P31F106-번호`를 씁니다. 최종 Squash 메시지는 MR 제목과 맞춥니다.
+- 일반 작업은 develop에 Squash merge하고 release/hotfix는 master에 Merge commit합니다. 작성자 외 최소 1명의 승인과 검증 기록이 필요합니다.
+- 공유 브랜치 force-push를 금지하며, 히스토리를 되돌릴 때는 `git revert`를 우선 고려합니다. 원격 보호·승인·CI 설정은 실제 GitLab 설정을 확인합니다.
 - 사용자가 명시적으로 요청하지 않으면 커밋/푸시/MR 생성을 먼저 하지 않습니다.
 - `.env`, 루트의 PDF(기획 자료) 등 `.gitignore` 대상 파일은 절대 커밋하지 않습니다.
 
