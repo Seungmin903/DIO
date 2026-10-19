@@ -8,7 +8,7 @@
 ```
 S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
-├── frontend/            # 프론트엔드 (React 19 + Vite)
+├── frontend/            # 모바일 프론트엔드 (Expo + React Native)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
 ├── docker-compose.yml   # 로컬 개발용 MySQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)

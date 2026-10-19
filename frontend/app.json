@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "DIO",
+    "slug": "dio",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#FFF8F4"
+    }
+  }
+}
