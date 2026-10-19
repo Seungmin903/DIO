@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createId } from '../utils/common'
 import { hydrateMedia } from '../utils/mediaStore'
+import { mediaId } from '../utils/mediaReferences.js'
 import { loadJSON, saveJSON, STORAGE_KEYS } from '../utils/storage'
 
 const EMPTY = { stickers: [], tapes: [], recentStickers: [] }
@@ -12,12 +13,15 @@ export function useCustomDecor() {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    hydrateMedia()
-      .then(() => loadJSON(STORAGE_KEYS.customDecor, EMPTY))
-      .then((saved) => {
+    let cancelled = false
+    loadJSON(STORAGE_KEYS.customDecor, EMPTY)
+      .then(async (saved) => {
+        await hydrateMedia(saved)
+        if (cancelled) return
         setItems({ ...EMPTY, ...saved })
         setLoaded(true)
       })
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
@@ -56,4 +60,4 @@ export function useCustomDecor() {
 }
 
 // 기본 스티커는 asset, 내 스티커는 src, 예전 문서의 이모지는 emoji 로 구분한다.
-export const stickerKey = (sticker) => sticker.asset ?? sticker.src ?? sticker.emoji
+export const stickerKey = (sticker) => sticker.asset ?? mediaId(sticker) ?? sticker.src ?? sticker.emoji

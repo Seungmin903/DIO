@@ -16,10 +16,10 @@ export function useEditor() {
   // 저장된 문서가 있으면 불러온다. (AsyncStorage 는 비동기라 첫 화면은 데모로 그린 뒤 교체)
   useEffect(() => {
     let cancelled = false
-    // GIF 원본(보관소) 주소를 먼저 만들어 둔 뒤 문서를 불러온다.
-    hydrateMedia()
-      .then(() => loadJSON(STORAGE_KEYS.doc, null))
-      .then((saved) => {
+    // 문서가 참조하는 ID만 먼저 연결한다. 일부 누락이 다른 페이지 복원을 막지 않는다.
+    loadJSON(STORAGE_KEYS.doc, null)
+      .then(async (saved) => {
+        await hydrateMedia(saved)
         if (cancelled) return
         if (saved?.pages?.length) dispatch({ type: 'load', doc: saved })
         setLoaded(true)

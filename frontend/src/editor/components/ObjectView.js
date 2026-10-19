@@ -2,7 +2,7 @@ import { Image, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { FRAME_COLORS } from '../constants'
 import { stickerSource } from '../stickerAssets'
-import { mediaUri } from '../utils/mediaStore'
+import { useMediaUri } from '../hooks/useMediaUri'
 import { coverLayout, photoInnerBox } from '../utils/objects'
 import { shapePath } from '../utils/shapes'
 import { useSvgId } from '../utils/svgId'
@@ -24,6 +24,7 @@ export default function ObjectContent({ object, zoom, still = false }) {
           <TapeView
             pattern={object.pattern}
             src={object.src}
+            mediaFileId={object.mediaFileId}
             crop={object.crop}
             imageWidth={object.imageWidth}
             imageHeight={object.imageHeight}
@@ -93,7 +94,8 @@ function StickerContent({ object, width, height, still }) {
   const edge = stroke + Math.max(1, height * 0.014)
   const drop = Math.max(0.8, height * 0.012)
   const box = { width, height }
-  const source = stickerSource(object, still)
+  const uri = useMediaUri(object, { still })
+  const source = stickerSource(object, still, uri)
 
   const silhouette = source
     ? (key, color, dx, dy, opacity = 1) => (
@@ -151,7 +153,7 @@ const emojiText = (height) => ({ fontSize: height * 0.72, lineHeight: height })
 
 // still: 페이지 썸네일처럼 움직일 필요 없는 곳에서는 GIF 대신 첫 장면을 그린다.
 export function PhotoContent({ photo, zoom, still = false }) {
-  const uri = mediaUri(still && photo.poster ? photo.poster : photo.src)
+  const uri = useMediaUri(photo, { still })
   const clipId = useSvgId('photo-clip')
   const inner = photoInnerBox(photo)
   const box = { width: inner.width * zoom, height: inner.height * zoom }
@@ -171,7 +173,7 @@ export function PhotoContent({ photo, zoom, still = false }) {
       // 그림자는 잘라 내지 않는 바깥 View 에, 사진은 안쪽 View 에서 자른다.
       <View style={[shapeStyle, shadow && styles.shadow]}>
         <View style={[styles.shapeClip, shapeStyle, { borderWidth: border, transform: flip }]}>
-          <Image source={{ uri }} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" />
+          <Image source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" />
         </View>
       </View>
     )
@@ -187,7 +189,7 @@ export function PhotoContent({ photo, zoom, still = false }) {
           </ClipPath>
         </Defs>
         <SvgImage
-          href={{ uri }}
+          href={uri ? { uri } : undefined}
           x={layout.left}
           y={layout.top}
           width={layout.width}
@@ -223,7 +225,7 @@ export function PhotoContent({ photo, zoom, still = false }) {
           },
         ]}
       >
-        <Image source={{ uri }} style={[styles.photoImage, layout]} resizeMode="stretch" />
+        <Image source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" />
       </View>
     </View>
   )
