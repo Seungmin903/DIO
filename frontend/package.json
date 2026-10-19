@@ -1,30 +1,26 @@
 {
-  "name": "dio-frontend",
-  "version": "0.1.0",
+  "name": "dio-mobile",
   "private": true,
-  "main": "index.js",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "expo/AppEntry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web",
-    "lint": "oxlint"
+    "web": "expo start --web"
   },
   "dependencies": {
-    "@expo/metro-runtime": "~58.0.14",
+    "@expo/metro-runtime": "~57.0.17",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "expo": "~58.0.14",
-    "expo-image-manipulator": "~58.0.14",
-    "expo-image-picker": "~58.0.10",
-    "expo-screen-orientation": "~58.0.3",
-    "expo-status-bar": "~58.0.3",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "react-native": "0.88.0",
-    "react-native-svg": "15.16.0",
-    "react-native-web": "^0.21.4"
-  },
-  "devDependencies": {
-    "oxlint": "^1.81.0"
+    "expo": "~57.0.10",
+    "expo-image-manipulator": "~57.0.21",
+    "expo-image-picker": "~57.0.20",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-svg": "15.15.4",
+    "react-native-web": "~0.21.0"
   }
 }

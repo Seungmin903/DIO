@@ -2,25 +2,17 @@
   "expo": {
     "name": "DIO",
     "slug": "dio",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "landscape",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#CED9EE",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#CED9EE"
+    },
     "ios": {
       "supportsTablet": true,
       "requireFullScreen": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#CED9EE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [

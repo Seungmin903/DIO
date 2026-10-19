@@ -8,6 +8,7 @@
 |---|---|
 | JDK | 17 (Gradle toolchain이 17을 사용합니다. 설치돼 있지 않으면 빌드가 실패합니다) |
 | Node.js | 24 LTS 이상 (`frontend/.nvmrc`) |
+| pnpm | 10 이상 (모바일 프론트엔드 의존성 관리) |
 | Docker Desktop | 최신 (로컬 MySQL 용) |
 
 ## 시작하기
@@ -27,14 +28,17 @@ docker compose up -d
 cd backend
 ./gradlew bootRun          # Windows CMD/PowerShell: .\gradlew.bat bootRun
 
-# 4) 프론트 실행 (새 터미널) → 웹은 http://localhost:8081
+# 4) 모바일 프론트 실행 (새 터미널)
 cd frontend
-npm install
-npm run web                # 태블릿/폰: npm start 후 Expo Go 앱으로 QR 스캔
+cp .env.example .env     # Windows PowerShell: Copy-Item .env.example .env
+pnpm install
+pnpm android             # Android 에뮬레이터 또는 연결된 Android 기기에서 실행
+# macOS에서는 pnpm ios 로 iOS 시뮬레이터에서 실행 가능
+# 브라우저로 빠르게 확인하려면 pnpm web → http://localhost:8081
 ```
 
-- 프론트는 Expo(React Native) 앱이며, 16:10 가로형 태블릿을 기준으로 합니다. 웹 브라우저에서도 같은 코드가 동작합니다.
-- 백엔드 연동은 아직 없습니다. 연동할 때 API 주소 설정 방식을 정해 이 문서에 추가하세요.
+- 모바일 앱은 Expo 기반 React Native 앱입니다. 개발 서버만 열려면 `pnpm start`를 실행하고 Expo Go 또는 에뮬레이터에서 연결하세요.
+- 모바일 환경에서는 `/api` 같은 상대 경로를 사용할 수 없습니다. `EXPO_PUBLIC_API_BASE_URL`에 API 전체 주소를 설정하세요. Android 에뮬레이터에서는 `http://10.0.2.2:8080/api`, 실제 기기에서는 개발 PC의 LAN IP를 사용합니다.
 - IntelliJ에서는 `backend/` 폴더를 Gradle 프로젝트로 열고, Project SDK를 17로 지정하세요.
 - 백엔드 테스트(`./gradlew test`)는 H2 인메모리 DB를 사용하므로 Docker 없이도 실행됩니다.
 
@@ -43,7 +47,7 @@ npm run web                # 태블릿/폰: npm start 후 Expo Go 앱으로 QR �
 ```
 S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
-├── frontend/            # 프론트엔드 (Expo · React Native, 웹 겸용)
+├── frontend/            # 모바일 프론트엔드 (Expo + React Native)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
 ├── docker-compose.yml   # 로컬 개발용 MySQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)
