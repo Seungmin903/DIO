@@ -3,6 +3,8 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { colors, shadow } from '../theme'
 import MediaNotice from './components/MediaNotice'
 import { mediaFailureMessage } from './utils/mediaRecovery.js'
+import PageExportPreview from './components/PageExportPreview'
+import { createExportSnapshot } from './utils/pageExport.js'
 import Canvas from './components/Canvas'
 import CropPanel from './components/CropPanel'
 import DecorDrawer from './components/DecorDrawer'
@@ -30,6 +32,7 @@ export default function EditorScreen() {
   const page = getCurrentPage(state)
   const pageIndex = state.doc.pages.indexOf(page)
 
+  const [exportSnapshot, setExportSnapshot] = useState(null)
   const [stageSize, setStageSize] = useState(null)
   const [zoomSetting, setZoomSetting] = useState('fit') // 'fit' | number
   const [drawerTab, setDrawerTab] = useState(null)
@@ -256,9 +259,14 @@ export default function EditorScreen() {
           setFocusMode(!focusMode)
           if (!focusMode) showToast('집중 편집 · 양옆 패널을 닫았어요.')
         }}
-        onShare={() => showToast('공유는 백엔드 연결 후 사용할 수 있어요.')}
+        shareLabel="PNG 미리보기"
+        onShare={() => {
+          try { setExportSnapshot(createExportSnapshot(page, { width: PAGE_WIDTH, height: PAGE_HEIGHT })) }
+          catch (error) { showToast(error.message) }
+        }}
       />
 
+      {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onClose={() => setExportSnapshot(null)} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={styles.body}>
         {showPages && (

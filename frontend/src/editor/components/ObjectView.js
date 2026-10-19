@@ -16,7 +16,7 @@ import TapeView from './TapeView'
  * 오브젝트 하나의 생김새. 위치·회전·투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
-export default function ObjectContent({ object, zoom, still = false }) {
+export default function ObjectContent({ object, zoom, still = false, onAssetLoad, onAssetError }) {
   const width = object.w * zoom
   const height = object.h * zoom
   const uri = useMediaUri(object, { still })
@@ -28,7 +28,7 @@ export default function ObjectContent({ object, zoom, still = false }) {
   )
   switch (object.type) {
     case 'sticker':
-      return <StickerContent object={object} width={width} height={height} still={still} />
+      return <StickerContent object={object} width={width} height={height} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'tape':
       return (
         <View style={{ transform: flipTransform(object) }}>
@@ -43,11 +43,12 @@ export default function ObjectContent({ object, zoom, still = false }) {
             width={width}
             height={height}
             scale={zoom}
+            onAssetLoad={onAssetLoad}
           />
         </View>
       )
     case 'photo':
-      return <PhotoContent photo={object} zoom={zoom} still={still} />
+      return <PhotoContent photo={object} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     default:
       return null
   }
@@ -98,7 +99,7 @@ const EDGE_COLOR = '#0B1957'
  * - 흰 테두리: 흰 실루엣 16장
  * - 그림자: 테두리(또는 스티커) 바깥을 감싸는 옅은 남색 가장자리. 살짝 아래로 내려 바닥에 뜬 느낌을 준다.
  */
-function StickerContent({ object, width, height, still }) {
+function StickerContent({ object, width, height, still, onAssetLoad, onAssetError }) {
   const outline = outlineOn(object)
   const shadow = shadowOn(object)
   const stroke = outline ? Math.max(2, height * 0.05) : 0
@@ -150,7 +151,7 @@ function StickerContent({ object, width, height, still }) {
       {shadow && DIRECTIONS.map(([dx, dy], i) => silhouette(`s${i}`, EDGE_COLOR, dx * edge, dy * edge + drop, 0.1))}
       {outline && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, '#FFFFFF', dx * stroke, dy * stroke))}
       {source ? (
-        <Image onError={() => reportMediaDisplayError(object)} source={source} style={box} resizeMode="contain" />
+        <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>
       )}
@@ -163,7 +164,7 @@ const emojiText = (height) => ({ fontSize: height * 0.72, lineHeight: height })
 /* ---------- 사진 ---------- */
 
 // still: 페이지 썸네일처럼 움직일 필요 없는 곳에서는 GIF 대신 첫 장면을 그린다.
-export function PhotoContent({ photo, zoom, still = false }) {
+export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetError }) {
   const uri = useMediaUri(photo, { still })
   const clipId = useSvgId('photo-clip')
   const inner = photoInnerBox(photo)
@@ -184,7 +185,7 @@ export function PhotoContent({ photo, zoom, still = false }) {
       // 그림자는 잘라 내지 않는 바깥 View 에, 사진은 안쪽 View 에서 자른다.
       <View style={[shapeStyle, shadow && styles.shadow]}>
         <View style={[styles.shapeClip, shapeStyle, { borderWidth: border, transform: flip }]}>
-          <Image onError={() => reportMediaDisplayError(photo)} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" />
+          <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" />
         </View>
       </View>
     )
@@ -200,7 +201,7 @@ export function PhotoContent({ photo, zoom, still = false }) {
           </ClipPath>
         </Defs>
         <SvgImage
-          onError={() => reportMediaDisplayError(photo)}
+          onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }}
           href={uri ? { uri } : undefined}
           x={layout.left}
           y={layout.top}
@@ -237,7 +238,7 @@ export function PhotoContent({ photo, zoom, still = false }) {
           },
         ]}
       >
-        <Image onError={() => reportMediaDisplayError(photo)} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" />
+        <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" />
       </View>
     </View>
   )
