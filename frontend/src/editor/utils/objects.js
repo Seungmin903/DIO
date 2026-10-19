@@ -28,6 +28,7 @@ export function createSticker(item, center) {
     const w = aspect >= 1 ? 110 : 110 * aspect
     return base('sticker', center, w, w / aspect, {
       src: item.src,
+      mediaFileId: item.mediaFileId,
       poster: item.poster,
       name: item.name,
     })
@@ -43,6 +44,7 @@ export function createTape(item, center) {
   if (item.src) {
     return base('tape', center, 180, 34, {
       src: item.src,
+      mediaFileId: item.mediaFileId,
       name: item.name,
       imageWidth: item.imageWidth,
       imageHeight: item.imageHeight,
@@ -59,6 +61,7 @@ export function createTape(item, center) {
 export function createPhoto(item, center) {
   const photo = {
     src: item.src,
+    mediaFileId: item.mediaFileId,
     poster: item.poster,
     name: item.name,
     imageWidth: item.imageWidth,
