@@ -38,12 +38,6 @@ export const mediaService = {
 }
 
 export async function hydrateMedia(references) {
-  if (references === undefined) {
-    // 기존 무인자 호출 호환용. 앱의 문서 복원은 참조 목록을 전달한다.
-    const entries = await repository.entries()
-    entries.forEach(({ id, uri }) => mediaRegistry.seed(id, { uri }))
-    return { loaded: entries.map(({ id }) => id), failures: [] }
-  }
   const ids = collectMediaIds(references)
   const results = await Promise.allSettled(ids.map((id) => mediaRegistry.ensure(id)))
   return {
