@@ -21,6 +21,8 @@ export default function TopBar({
   onTogglePages,
   onToggleFocus,
   onShare,
+  shareLabel = '공유',
+  shareIcon = 'share',
 }) {
   return (
     <View style={styles.bar}>
@@ -57,8 +59,8 @@ export default function TopBar({
             </View>
           ))}
         </View>
-        <Pressable onPress={onShare} style={styles.share} accessibilityLabel="공유">
-          <Icon name="share" size={19} color={colors.surface} />
+        <Pressable onPress={onShare} style={styles.share} accessibilityLabel={shareLabel}>
+          <Icon name={shareIcon} size={19} color={colors.surface} />
         </Pressable>
         <IconToggle icon="focus" label="집중 편집" active={focusMode} onPress={onToggleFocus} />
       </View>
