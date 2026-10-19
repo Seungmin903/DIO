@@ -1,15 +1,16 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useMemo, useState, useSyncExternalStore } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { mediaRegistry, mediaService } from '../utils/mediaStore'
 import { collectMediaIds } from '../utils/mediaReferences.js'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
+import { colors } from '../../theme'
 
 /** 요소와 원본을 지우지 않고 복원/가져오기 실패를 안내한다. */
 export default function MediaNotice({ references, importFailure, onDismissImport }) {
-  useSyncExternalStore(mediaRegistry.subscribe, mediaRegistry.getRevision, mediaRegistry.getRevision)
+  const errors = useSyncExternalStore(mediaRegistry.subscribe, mediaRegistry.getErrorSnapshot, mediaRegistry.getErrorSnapshot)
   const [busy, setBusy] = useState(false)
-  const ids = new Set(collectMediaIds(references))
-  const failures = mediaRegistry.failures().filter(({ id }) => ids.has(id))
+  const ids = useMemo(() => new Set(collectMediaIds(references)), [references])
+  const failures = useMemo(() => errors.filter(({ id }) => ids.has(id)), [errors, ids])
   const failureMessages = [...new Set(failures.map(({ error }) => mediaFailureMessage(error)))].join(' ')
   if (!importFailure && !failures.length) return null
   const retry = async () => {
@@ -31,7 +32,7 @@ export default function MediaNotice({ references, importFailure, onDismissImport
 }
 
 const styles = StyleSheet.create({
-  notice: { position: 'absolute', top: 88, left: 16, right: 16, backgroundColor: '#FFF1C2', borderColor: '#D9B98F', borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 80 },
-  text: { flex: 1, color: '#0B1957', fontSize: 13 },
-  button: { backgroundColor: '#FFFFFF', padding: 10, borderRadius: 8 },
+  notice: { backgroundColor: colors.surfaceSoft, borderColor: colors.primary, borderWidth: 1, borderRadius: 12, marginHorizontal: 16, marginTop: 8, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  text: { flex: 1, color: colors.text, fontSize: 13 },
+  button: { backgroundColor: colors.surface, padding: 10, borderRadius: 8 },
 })

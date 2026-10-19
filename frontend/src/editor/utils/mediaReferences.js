@@ -36,7 +36,13 @@ export function createMediaRegistry({ load, release = () => {}, idleMs = 30000, 
   const timers = new Map()
   const listeners = new Set()
   let revision = 0
-  const notify = () => { revision += 1; listeners.forEach((listener) => listener()) }
+  let errorSnapshot = []
+  const notify = () => {
+    revision += 1
+    const next = [...entries].filter(([, entry]) => entry.status === 'error').map(([id, entry]) => ({ id, error: entry.error }))
+    if (next.length !== errorSnapshot.length || next.some((entry, i) => entry.id !== errorSnapshot[i].id || entry.error !== errorSnapshot[i].error)) errorSnapshot = next
+    listeners.forEach((listener) => listener())
+  }
   const idle = (id) => {
     if (owners.get(id) || timers.has(id)) return
     const timer = schedule(() => {
@@ -45,7 +51,9 @@ export function createMediaRegistry({ load, release = () => {}, idleMs = 30000, 
       const entry = entries.get(id)
       if (entry?.status === 'loading') return
       if (entry?.uri) release(entry.uri)
-      entries.delete(id)
+      // 오류 안내는 페이지 밖에서도 유지한다. 파일을 지우지 않고 URL만 정리한다.
+      if (entry?.status === 'error') entries.set(id, { status: 'error', error: entry.error, uri: null })
+      else entries.delete(id)
       notify()
     }, idleMs)
     timer?.unref?.()
@@ -66,6 +74,7 @@ export function createMediaRegistry({ load, release = () => {}, idleMs = 30000, 
   return {
     get: (id) => entries.get(id),
     getRevision: () => revision,
+    getErrorSnapshot: () => errorSnapshot,
     subscribe: (listener) => { listeners.add(listener); return () => listeners.delete(listener) },
     retain(id) {
       if (!id) return () => {}

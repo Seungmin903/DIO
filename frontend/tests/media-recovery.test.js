@@ -17,6 +17,32 @@ function fixture() {
   return { registry, released, flush: () => { const jobs = [...pending.values()]; pending.clear(); jobs.forEach((fn) => fn()) } }
 }
 
+test('다른 ID의 로딩/완료는 해당 이미지와 오류 목록 스냅샷을 변경하지 않는다', async () => {
+  const { registry } = fixture()
+  registry.seed('visible', { uri: 'blob:visible' })
+  const visible = registry.get('visible')
+  const errors = registry.getErrorSnapshot()
+  let changed = 0
+  registry.subscribe(() => { if (!Object.is(visible, registry.get('visible'))) changed++ })
+  await Promise.all(Array.from({ length: 30 }, (_, i) => registry.ensure(`other-${i}`)))
+  assert.equal(changed, 0)
+  assert.equal(registry.getErrorSnapshot(), errors)
+})
+
+test('화면 밖 오류는 유휴 정리 뒤에도 안내 스냅샷에 남고 재조회 성공으로 해소된다', async () => {
+  const { registry, released, flush } = fixture()
+  await registry.ensure('off-page')
+  registry.fail('off-page', { code: 'MEDIA_CORRUPT' })
+  const errors = registry.getErrorSnapshot()
+  flush()
+  assert.deepEqual(released, ['blob:1'])
+  assert.equal(registry.get('off-page').status, 'error')
+  assert.equal(registry.getErrorSnapshot(), errors)
+  await registry.ensure('off-page')
+  assert.equal(registry.get('off-page').status, 'ready')
+  assert.deepEqual(registry.getErrorSnapshot(), [])
+})
+
 test('같은 파일의 마지막 화면 참조가 끝난 뒤만 URL을 해제하고 다음 조회로 복원한다', async () => {
   const { registry, released, flush } = fixture()
   const first = registry.retain('shared'), second = registry.retain('shared')

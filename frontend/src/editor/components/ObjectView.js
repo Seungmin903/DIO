@@ -3,6 +3,8 @@ import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { FRAME_COLORS } from '../constants'
 import { stickerSource } from '../stickerAssets'
 import { reportMediaDisplayError } from '../utils/mediaStore'
+import { mediaRegistry } from '../utils/mediaStore'
+import { colors } from '../../theme'
 import { mediaId } from '../utils/mediaReferences.js'
 import { useMediaUri } from '../hooks/useMediaUri'
 import { coverLayout, photoInnerBox } from '../utils/objects'
@@ -18,9 +20,10 @@ export default function ObjectContent({ object, zoom, still = false }) {
   const width = object.w * zoom
   const height = object.h * zoom
   const uri = useMediaUri(object, { still })
+  const failed = mediaRegistry.get(mediaId(object))?.status === 'error'
   if (mediaId(object) && !uri) return (
-    <View style={{ width, height, backgroundColor: '#FFF1C2', borderWidth: 1, borderStyle: 'dashed', borderColor: '#D9B98F', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: Math.max(8, 12 * zoom), color: '#0B1957' }}>이미지 확인 필요</Text>
+    <View style={{ width, height, backgroundColor: failed ? colors.surfaceSoft : colors.surface, borderWidth: failed ? 1 : 0, borderStyle: 'dashed', borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: Math.max(8, 12 * zoom), color: failed ? colors.text : colors.textMuted }}>{failed ? '이미지 확인 필요' : '이미지 불러오는 중…'}</Text>
     </View>
   )
   switch (object.type) {

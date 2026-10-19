@@ -259,6 +259,7 @@ export default function EditorScreen() {
         onShare={() => showToast('공유는 백엔드 연결 후 사용할 수 있어요.')}
       />
 
+      <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={styles.body}>
         {showPages && (
           <PageList
@@ -361,7 +362,6 @@ export default function EditorScreen() {
             />
           )}
 
-          <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
           {toast && (
             <View key={toast.key} style={styles.toast} pointerEvents="none">
               <Text style={styles.toastText}>{toast.message}</Text>
