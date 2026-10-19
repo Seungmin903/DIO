@@ -42,6 +42,7 @@ export function useCustomDecor() {
           asset: sticker.asset,
           emoji: sticker.emoji,
           src: sticker.src,
+          mediaFileId: sticker.mediaFileId,
           poster: sticker.poster,
           name: sticker.name,
           aspect: sticker.aspect,

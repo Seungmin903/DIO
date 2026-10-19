@@ -91,6 +91,7 @@ export default function EditorScreen() {
       const photos = images.map((image) => ({
         id: createId(),
         src: image.src,
+        mediaFileId: image.mediaFileId,
         poster: image.poster,
         name: image.name,
         imageWidth: image.width,
@@ -118,6 +119,7 @@ export default function EditorScreen() {
         record: true,
         patch: {
           src: image.src,
+          mediaFileId: image.mediaFileId,
           poster: image.poster,
           name: image.name,
           imageWidth: image.width,
