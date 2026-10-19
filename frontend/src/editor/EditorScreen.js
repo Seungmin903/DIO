@@ -20,8 +20,8 @@ const TOAST_MS = 2000
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 
-export default function EditorScreen() {
-  const { state, dispatch, saveStatus } = useEditor()
+export default function EditorScreen({ onHome, diary }) {
+  const { state, dispatch, saveStatus } = useEditor(diary)
   const page = getCurrentPage(state)
   const pageIndex = state.doc.pages.indexOf(page)
 
@@ -165,7 +165,10 @@ export default function EditorScreen() {
         layersOpen={showLayers}
         pagesOpen={showPages}
         focusMode={focusMode}
-        onHome={() => showToast('다이어리 홈은 다른 화면에서 연결될 예정이에요.')}
+        onHome={() => {
+          if (onHome) onHome()
+          else showToast('다이어리 홈은 다른 화면에서 연결될 예정이에요.')
+        }}
         onTogglePages={() => {
           setFocusMode(false)
           setPagesOpen(!showPages)

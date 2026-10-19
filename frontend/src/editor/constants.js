@@ -1,8 +1,8 @@
-// 편집기 정적 데이터
+import { TABLET_HEIGHT, TABLET_WIDTH } from '../layout'
 
-// 페이지 논리 크기 (가로형). 화면에는 zoom 배율을 곱해서 그린다.
-export const PAGE_WIDTH = 1188
-export const PAGE_HEIGHT = 840
+// MVP1 기준 캔버스(16:10). 화면에는 zoom 배율을 곱해서 그린다.
+export const PAGE_WIDTH = TABLET_WIDTH
+export const PAGE_HEIGHT = TABLET_HEIGHT
 
 export const ZOOM_MIN = 0.3
 export const ZOOM_MAX = 2
@@ -80,11 +80,3 @@ export const POLAROID_INSETS = { top: 0.06, side: 0.06, bottom: 0.2 }
 export const CROP_ZOOM_MIN = 1
 export const CROP_ZOOM_MAX = 3
 
-// 백엔드 연결 전 데모용 샘플 사진
-export const SAMPLE_PHOTOS = ['cafe-latte', 'sea-trip', 'flower-shop', 'night-city', 'bakery', 'forest-walk'].map((seed) => ({
-  id: `sample-${seed}`,
-  name: '샘플 사진',
-  src: `https://picsum.photos/seed/${seed}/600/750`,
-  imageWidth: 600,
-  imageHeight: 750,
-}))

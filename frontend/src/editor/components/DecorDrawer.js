@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, radius, shadow } from '../../theme'
-import { SAMPLE_PHOTOS, STICKER_GROUPS, TAPES } from '../constants'
+import { STICKER_GROUPS, TAPES } from '../constants'
 import { useCustomDecor } from '../hooks/useCustomDecor'
 import { pickImages } from '../utils/image'
 import Icon from './Icon'
@@ -137,7 +137,6 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
               <Text style={styles.uploadHint}>추가한 뒤 선택하면 자르기·크기·회전을 편집할 수 있어요.</Text>
             </Pressable>
             {recentPhotos.length > 0 && <PhotoGrid title="최근 불러온 사진" photos={recentPhotos} onAdd={onAdd} />}
-            <PhotoGrid title="샘플 사진" photos={SAMPLE_PHOTOS} onAdd={onAdd} />
           </>
         )}
       </ScrollView>
