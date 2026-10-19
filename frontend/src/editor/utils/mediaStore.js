@@ -3,37 +3,47 @@ import { Platform } from 'react-native'
 import { randomUUID } from 'expo-crypto'
 import * as repository from './mediaRepository'
 import { createMediaImporter } from './mediaImport.js'
+import { collectMediaIds, createMediaRegistry, isMediaRef, mediaId, mediaReference } from './mediaReferences.js'
 
-const PREFIX = 'media:'
-const urls = new Map()
-export const isMediaRef = (src) => typeof src === 'string' && src.startsWith(PREFIX)
-export function mediaUri(src) {
-  return isMediaRef(src) ? urls.get(src.slice(PREFIX.length)) ?? null : src
+export { isMediaRef }
+export const mediaRegistry = createMediaRegistry({
+  async load(id) {
+    const { media, blob, displayBlob } = await repository.get(id)
+    const source = displayBlob ?? blob
+    return { media, uri: Platform.OS === 'web' ? URL.createObjectURL(source) : source.uri }
+  },
+  release(uri) { if (Platform.OS === 'web') URL.revokeObjectURL(uri) },
+})
+
+export function mediaUri(item, { still = false } = {}) {
+  const source = still && item?.poster ? item.poster : item
+  const id = mediaId(source)
+  if (id) return mediaRegistry.get(id)?.uri ?? null
+  return typeof source === 'string' ? source : source?.src ?? null
 }
 
 const importer = createMediaImporter({ ...repository, createId: randomUUID })
 export async function importMedia(assets, options) {
   const items = await importer(assets, options)
   return items.map(({ uri, ...media }) => {
-    urls.set(media.mediaFileId, uri)
-    return { ...media, src: PREFIX + media.mediaFileId }
+    mediaRegistry.seed(media.mediaFileId, { uri, media })
+    return { ...media, src: mediaReference(media.mediaFileId) }
   })
 }
 
 export const mediaService = {
   async import(asset) { return (await importMedia([asset]))[0] },
   get: repository.get,
+  resolveDisplay: (id) => mediaRegistry.ensure(id),
 }
 
-let hydrating = null
-export function hydrateMedia() {
-  if (!hydrating) hydrating = repository.entries().then((items) => {
-    items.forEach(({ id, uri }) => {
-      if (!urls.has(id)) urls.set(id, uri)
-      else if (Platform.OS === 'web') URL.revokeObjectURL(uri)
-    })
-  }).catch(() => { hydrating = null }) // 기존 문서는 열되 조회 API는 오류를 반환한다.
-  return hydrating
+export async function hydrateMedia(references) {
+  const ids = collectMediaIds(references)
+  const results = await Promise.allSettled(ids.map((id) => mediaRegistry.ensure(id)))
+  return {
+    loaded: ids.filter((_, index) => results[index].status === 'fulfilled'),
+    failures: ids.flatMap((id, index) => results[index].status === 'rejected' ? [{ mediaFileId: id, error: results[index].reason }] : []),
+  }
 }
 
 // 보관함용 파생 썸네일. 원본이나 최종 PNG 내보내기용 데이터가 아니다.

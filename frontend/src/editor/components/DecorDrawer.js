@@ -8,7 +8,7 @@ import Svg, { Path } from 'react-native-svg'
 import { usePan } from '../hooks/usePan'
 import { clamp } from '../utils/common'
 import { pickImages } from '../utils/image'
-import { mediaUri } from '../utils/mediaStore'
+import { useMediaUri } from '../hooks/useMediaUri'
 import { MEDIA_FORMATS } from '../utils/mediaPolicy'
 import ChipScroller, { justDragged } from './ChipScroller'
 import Icon from './Icon'
@@ -262,6 +262,7 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
                       >
                         <TapeView
                           src={item.src}
+                          mediaFileId={item.mediaFileId}
                           crop={item.crop}
                           imageWidth={item.imageWidth}
                           imageHeight={item.imageHeight}
@@ -316,11 +317,7 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
                           style={({ pressed }) => [styles.photoTile, pressed && styles.photoPressed]}
                           accessibilityLabel={`${photo.name ?? '사진'} 붙이기`}
                         >
-                          <Image
-                            source={{ uri: mediaUri(photo.poster ?? photo.src) }}
-                            style={styles.photoImage}
-                            resizeMode="cover"
-                          />
+                          <RecentPhotoThumb photo={photo} />
                         </Pressable>
                       </View>
                     ))}
@@ -361,12 +358,18 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
 }
 
 function StickerThumb({ item }) {
-  const source = stickerSource(item, true)
+  const uri = useMediaUri(item, { still: true })
+  const source = stickerSource(item, true, uri)
   return source ? (
     <Image source={source} style={styles.tileImage} resizeMode="contain" />
   ) : (
     <Text style={styles.tileEmoji}>{item.emoji}</Text>
   )
+}
+
+function RecentPhotoThumb({ photo }) {
+  const uri = useMediaUri(photo, { still: true })
+  return <Image source={uri ? { uri } : null} style={styles.photoImage} resizeMode="cover" />
 }
 
 function Section({ title, badge, children }) {
