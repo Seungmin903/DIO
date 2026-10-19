@@ -3,6 +3,11 @@ import { File } from 'expo-file-system'
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
 import { displayDimensions, MediaError } from './mediaPolicy.js'
 
+export async function verifyDisplay(source) {
+  try { await new Promise((resolve, reject) => Image.getSize(source.uri, resolve, reject)) }
+  catch (error) { throw new MediaError('MEDIA_CORRUPT', '저장된 이미지를 표시할 수 없어요. 원본 파일을 다시 선택해 주세요.', error) }
+}
+
 async function manipulate(uri, size, format, compress = 0.92) {
   const context = ImageManipulator.manipulate(uri)
   let rendered

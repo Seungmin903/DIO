@@ -63,6 +63,10 @@ test('누락된 원본과 다른 사진을 독립 복원하고 재시도 성공�
 
 test('실제 IndexedDB에서 ID만 있는 사진·GIF와 표시본을 새 세션 캐시로 복원한다', async (t) => {
   globalThis.indexedDB = indexedDB
+  // Node에는 브라우저 이미지 디코더가 없으므로 이 IO 경계만 대체한다.
+  const previousImage = globalThis.Image
+  globalThis.Image = class { set src(value) { if (value) queueMicrotask(() => this.onload?.()) } }
+  t.after(() => { globalThis.Image = previousImage })
   const hooks = registerHooks({
     resolve(specifier, context, next) {
       if (specifier === 'react-native') return { url: 'binding-test:platform', shortCircuit: true }
@@ -79,7 +83,7 @@ test('실제 IndexedDB에서 ID만 있는 사진·GIF와 표시본을 새 세션
   t.after(() => hooks.deregister())
   const repository = await import('../src/editor/utils/mediaRepository.web.js')
   const records = [
-    { id: 'photo', bytes: 'original-heic', type: 'image/heic', display: new Blob(['display-jpeg'], { type: 'image/jpeg' }) },
+    { id: 'photo', bytes: '\x00\x00\x00\x18ftypheic\x00\x00\x00\x00heicpayload', type: 'image/heic', display: new Blob(['display-jpeg'], { type: 'image/jpeg' }) },
     { id: 'gif', bytes: 'GIF89a-original-frames', type: 'image/gif' },
     { id: 'legacy', bytes: 'GIF89a-legacy', type: 'image/gif' },
   ]
@@ -99,7 +103,7 @@ test('실제 IndexedDB에서 ID만 있는 사진·GIF와 표시본을 새 세션
   assert.equal(hydrated.failures[0].mediaFileId, 'missing')
   const uri = store.mediaUri({ mediaFileId: 'photo', src: 'media:wrong' })
   assert.equal(await (await fetch(uri)).text(), 'display-jpeg')
-  assert.equal(await (await store.mediaService.get('photo')).blob.text(), 'original-heic')
+  assert.equal(await (await store.mediaService.get('photo')).blob.text(), records[0].bytes)
   assert.equal(await (await fetch(store.mediaUri({ mediaFileId: 'gif' }))).text(), 'GIF89a-original-frames')
   assert.equal(store.mediaUri('data:image/png;base64,AA=='), 'data:image/png;base64,AA==')
   assert.equal(store.mediaUri({ mediaFileId: 'photo', poster: 'data:poster' }, { still: true }), 'data:poster')

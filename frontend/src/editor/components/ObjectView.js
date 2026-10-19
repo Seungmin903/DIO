@@ -2,6 +2,10 @@ import { Image, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { FRAME_COLORS } from '../constants'
 import { stickerSource } from '../stickerAssets'
+import { reportMediaDisplayError } from '../utils/mediaStore'
+import { mediaRegistry } from '../utils/mediaStore'
+import { colors } from '../../theme'
+import { mediaId } from '../utils/mediaReferences.js'
 import { useMediaUri } from '../hooks/useMediaUri'
 import { coverLayout, photoInnerBox } from '../utils/objects'
 import { shapePath } from '../utils/shapes'
@@ -15,6 +19,13 @@ import TapeView from './TapeView'
 export default function ObjectContent({ object, zoom, still = false }) {
   const width = object.w * zoom
   const height = object.h * zoom
+  const uri = useMediaUri(object, { still })
+  const failed = mediaRegistry.get(mediaId(object))?.status === 'error'
+  if (mediaId(object) && !uri) return (
+    <View style={{ width, height, backgroundColor: failed ? colors.surfaceSoft : colors.surface, borderWidth: failed ? 1 : 0, borderStyle: 'dashed', borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: Math.max(8, 12 * zoom), color: failed ? colors.text : colors.textMuted }}>{failed ? '이미지 확인 필요' : '이미지 불러오는 중…'}</Text>
+    </View>
+  )
   switch (object.type) {
     case 'sticker':
       return <StickerContent object={object} width={width} height={height} still={still} />
@@ -139,7 +150,7 @@ function StickerContent({ object, width, height, still }) {
       {shadow && DIRECTIONS.map(([dx, dy], i) => silhouette(`s${i}`, EDGE_COLOR, dx * edge, dy * edge + drop, 0.1))}
       {outline && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, '#FFFFFF', dx * stroke, dy * stroke))}
       {source ? (
-        <Image source={source} style={box} resizeMode="contain" />
+        <Image onError={() => reportMediaDisplayError(object)} source={source} style={box} resizeMode="contain" />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>
       )}
@@ -173,7 +184,7 @@ export function PhotoContent({ photo, zoom, still = false }) {
       // 그림자는 잘라 내지 않는 바깥 View 에, 사진은 안쪽 View 에서 자른다.
       <View style={[shapeStyle, shadow && styles.shadow]}>
         <View style={[styles.shapeClip, shapeStyle, { borderWidth: border, transform: flip }]}>
-          <Image source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" />
+          <Image onError={() => reportMediaDisplayError(photo)} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" />
         </View>
       </View>
     )
@@ -189,6 +200,7 @@ export function PhotoContent({ photo, zoom, still = false }) {
           </ClipPath>
         </Defs>
         <SvgImage
+          onError={() => reportMediaDisplayError(photo)}
           href={uri ? { uri } : undefined}
           x={layout.left}
           y={layout.top}
@@ -225,7 +237,7 @@ export function PhotoContent({ photo, zoom, still = false }) {
           },
         ]}
       >
-        <Image source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" />
+        <Image onError={() => reportMediaDisplayError(photo)} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" />
       </View>
     </View>
   )
