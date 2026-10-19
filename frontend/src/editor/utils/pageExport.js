@@ -33,7 +33,7 @@ export async function prepareExportSnapshot(snapshot, resolveImage) {
       if (!resource) {
         try { resource = await resolveImage(object, usages.get(key)) }
         catch (error) {
-          if (error?.code === 'EXPORT_GIF_PENDING') throw new PageExportError(error.code, `‘${object.name || object.asset || object.id}’ GIF는 첫 프레임 내보내기를 준비 중이에요. 이 요소를 숨긴 뒤 다시 시도해 주세요.`, error)
+          if (['EXPORT_GIF_DECODE_FAILED', 'EXPORT_GIF_TOO_LARGE'].includes(error?.code)) throw new PageExportError(error.code, `‘${object.name || object.asset || object.id}’ ${error.message}`, error)
           throw error
         }
         resources.push(resource)

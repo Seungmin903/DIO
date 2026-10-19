@@ -3,7 +3,12 @@ import { PageExportError } from './pageExport.js'
 
 export async function exportImage({ blob, media, size }) {
   const format = detectMediaType(new Uint8Array(await blob.slice(0, 64).arrayBuffer()))
-  if (format.extension === 'gif') throw new PageExportError('EXPORT_GIF_PENDING', 'GIF의 첫 프레임 내보내기는 준비 중이에요. GIF를 숨긴 뒤 다시 시도해 주세요.')
+  if (format.extension === 'gif') {
+    const { gifFirstFramePng } = await import('./gifFirstFrame.js')
+    const { png } = gifFirstFramePng(await blob.arrayBuffer(), { size })
+    const uri = URL.createObjectURL(new Blob([png], { type: 'image/png' }))
+    return { uri, dispose: () => URL.revokeObjectURL(uri) }
+  }
   let source = blob
   if (format.extension === 'heic') {
     if (media?.width * media?.height > 8000000) throw new PageExportError('EXPORT_RASTER_TOO_LARGE', '이 HEIC 원본은 너무 커요. 확대나 출력 배율을 줄여 주세요.')

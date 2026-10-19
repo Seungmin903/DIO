@@ -12,6 +12,7 @@ export function exportRasterSize(objects, snapshot, dimensions) {
 export function selectExportRaster(record, objects, snapshot) {
   const media = record.media ?? { width: objects[0].imageWidth, height: objects[0].imageHeight }
   const size = exportRasterSize(objects, snapshot, media)
+  if (media.mimeType === 'image/gif' || media.extension === 'gif') return { blob: record.blob, media, size, selected: 'original' }
   const display = media.display
   if (size && record.displayBlob && display?.width >= size.width && display?.height >= size.height) {
     return { blob: record.displayBlob, media: display, size, selected: 'display' }

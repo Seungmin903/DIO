@@ -22,7 +22,7 @@
 | `createExportSnapshot` | 최신 페이지를 분리하고 크기·요소 검증 |
 | `prepareExportSnapshot` | 원본 준비 중복 제거, 실패 롤백, 출력 자원 소유권 |
 | `preparePageExport` | 로컬 미디어 ID·기본 asset·기존 src를 플랫폼 원본으로 해석 |
-| `exportImage.web/native` | 원본 준비, HEIC 변환, GIF 임시 중단 |
+| `exportImage.web/native` | 원본 준비, HEIC 변환, GIF 첫 프레임 PNG 변환 |
 | `PageExportPreview` | 전용 영역 마운트, 이미지 로드·레이아웃 후 캡처, 결과 미리보기 |
 | `capturePage.web` | html-to-image로 전용 DOM 영역을 PNG Blob으로 생성 |
 | `capturePage.native` | Expo 호환 view-shot으로 전용 View를 임시 PNG로 생성 |
@@ -33,7 +33,7 @@
 
 ## 후속 범위와 제한
 
-- GIF는 73번에서 원본의 첫 표시 프레임을 연결한다. 현재는 `EXPORT_GIF_PENDING`으로 명시 중단한다. 움직이는 기본 Noto asset도 같은 규칙이다.
+- GIF는 73번에서 원본의 첫 표시 프레임을 정지 PNG로 준비한다. 움직이는 기본 Noto asset도 같은 규칙이다. 세부 계약은 [GIF 첫 프레임 명세](./gif-first-frame-export.md)를 따른다.
 - 필기 경로·부분 텍스트 스타일, 폰트 준비, 변형의 종합 일치 검증은 72번 범위다. `skipFonts`는 현재 지원하는 이미지/기본 소재 렌더링에 한정한 웹 설정이다.
 - 문서·보관함 복원/누락 안내는 69·70번을 유지한다.
 - 실제 iPhone/iPad·Android의 캡처 영역, 메모리, 앱 백그라운드 전환 검증이 필요하다. Android 번들 성공은 실기기 캡처 성공을 뜻하지 않는다.
