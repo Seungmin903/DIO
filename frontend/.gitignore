@@ -26,6 +26,7 @@ web-build/
 
 # Expo
 dist/
+dist-android/
 expo-env.d.ts
 .metro-health-check*
 /ios
