@@ -4,11 +4,12 @@ import { mediaId } from './mediaReferences.js'
 import { STICKER_ASSETS } from '../stickerAssets'
 import { exportImage, readLegacyExportImage } from './exportImage'
 import { prepareExportSnapshot, PageExportError } from './pageExport.js'
+import { selectExportRaster } from './exportSampling.js'
 
 export function preparePageExport(snapshot) {
-  return prepareExportSnapshot(snapshot, async (object) => {
+  return prepareExportSnapshot(snapshot, async (object, usages) => {
     const id = mediaId(object)
-    if (id) return exportImage(await mediaService.get(id))
+    if (id) return exportImage(selectExportRaster(await mediaService.get(id), usages, snapshot))
     let uri = object.src
     if (object.asset) {
       const module = STICKER_ASSETS[object.asset]
@@ -18,6 +19,10 @@ export function preparePageExport(snapshot) {
       uri = asset.localUri ?? asset.uri
     }
     if (!uri) throw new PageExportError('EXPORT_MEDIA_MISSING', '요소의 원본 이미지를 찾을 수 없어요.')
-    return exportImage(await readLegacyExportImage(uri))
+    const input = await readLegacyExportImage(uri)
+    try {
+      const resource = await exportImage(selectExportRaster(input, usages, snapshot))
+      return { ...resource, dispose() { try { resource.dispose?.() } finally { input.dispose?.() } } }
+    } catch (error) { input.dispose?.(); throw error }
   })
 }

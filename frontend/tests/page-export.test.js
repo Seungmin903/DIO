@@ -3,6 +3,63 @@ import assert from 'node:assert/strict'
 import { createExportSnapshot, prepareExportSnapshot } from '../src/editor/utils/pageExport.js'
 import { exportImage } from '../src/editor/utils/exportImage.web.js'
 import { registerHooks } from 'node:module'
+import { exportRasterSize, selectExportRaster, parseImageDataUri } from '../src/editor/utils/exportSampling.js'
+
+test('48MP 사진은 출력 배율과 자르기 확대에 충분한 표시본을 선택한다', () => {
+  const record = { blob: 'original-48mp', displayBlob: 'display-2048', media: { width: 8000, height: 6000, display: { width: 2048, height: 1536 } } }
+  const snapshot = { width: 1188, height: 840, pixelWidth: 1188, pixelHeight: 840 }
+  const objects = [{ w: 260, h: 195, crop: { zoom: 2 } }]
+  assert.deepEqual(exportRasterSize(objects, snapshot, record.media), { width: 520, height: 390 })
+  const selected = selectExportRaster(record, objects, snapshot)
+  assert.equal(selected.blob, 'display-2048')
+  assert.equal(selected.selected, 'display')
+  assert.throws(() => selectExportRaster(record, [{ w: 260, h: 195, crop: { zoom: 20 } }], snapshot), { code: 'EXPORT_RASTER_TOO_LARGE' })
+})
+
+test('중복 소재는 가장 큰 출력 사용처까지 전달하고 GIF 안내에 요소 이름을 남긴다', async () => {
+  const snapshot = createExportSnapshot({ objects: [object('one', { name: '고양이', w: 100 }), object('copy', { mediaFileId: 'one', w: 500 })] })
+  let widths
+  await assert.rejects(prepareExportSnapshot(snapshot, async (_, usages) => {
+    widths = usages.map((o) => o.w)
+    throw Object.assign(new Error('GIF'), { code: 'EXPORT_GIF_PENDING' })
+  }), (error) => error.code === 'EXPORT_GIF_PENDING' && error.message.includes('고양이'))
+  assert.deepEqual(widths, [100, 500])
+})
+
+test('이전 문서 data URI는 base64 이미지만 허용한다', () => {
+  assert.equal(parseImageDataUri('data:image/png;base64,aGVsbG8=').base64, 'aGVsbG8=')
+  assert.throws(() => parseImageDataUri('data:text/html;base64,aGVsbG8='), { code: 'EXPORT_DATA_URI_INVALID' })
+  assert.throws(() => parseImageDataUri('data:image/png;base64,%%%'), { code: 'EXPORT_DATA_URI_INVALID' })
+})
+
+test('네이티브 data URI를 임시 파일로 읽고 작업 종료 시 그 파일만 지운다', async (t) => {
+  const files = new Map()
+  class File {
+    constructor(...parts) { this.uri = parts.join('/') }
+    get exists() { return files.has(this.uri) }
+    create() { files.set(this.uri, '') }
+    write(value, options) { assert.equal(options.encoding, 'base64'); files.set(this.uri, value) }
+    delete() { files.delete(this.uri) }
+  }
+  const sources = {
+    'expo-file-system': 'export const {File,Paths}=globalThis.__legacyExport;export const FileMode={ReadOnly:"r"}',
+    'expo-crypto': 'export const randomUUID=()=>"test-legacy"',
+    'react-native': 'export const Image={}',
+    'expo-image-manipulator': 'export const ImageManipulator={},SaveFormat={JPEG:"jpeg",PNG:"png"}',
+  }
+  globalThis.__legacyExport = { File, Paths: { cache: 'file:///cache' } }
+  const hooks = registerHooks({
+    resolve(s, c, next) { return sources[s] ? { url: 'legacy-export:' + s, shortCircuit: true } : next(s, c) },
+    load(u, c, next) { return u.startsWith('legacy-export:') ? { format: 'module', source: sources[u.slice(14)], shortCircuit: true } : next(u, c) },
+  })
+  t.after(() => { hooks.deregister(); delete globalThis.__legacyExport })
+  const { readLegacyExportImage } = await import('../src/editor/utils/exportImage.native.js')
+  const input = await readLegacyExportImage('data:image/png;base64,aGVsbG8=')
+  assert.ok(input.blob.uri.startsWith('file:///cache/dio-export-'))
+  assert.equal(files.size, 1)
+  input.dispose()
+  assert.equal(files.size, 0)
+})
 
 const object = (id, patch = {}) => ({ id, type: 'photo', x: 10, y: 20, w: 100, h: 200, rotation: 12, mediaFileId: id, ...patch })
 

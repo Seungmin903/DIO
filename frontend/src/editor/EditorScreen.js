@@ -260,6 +260,7 @@ export default function EditorScreen() {
           if (!focusMode) showToast('집중 편집 · 양옆 패널을 닫았어요.')
         }}
         shareLabel="PNG 미리보기"
+        shareIcon="image"
         onShare={() => {
           try { setExportSnapshot(createExportSnapshot(page, { width: PAGE_WIDTH, height: PAGE_HEIGHT })) }
           catch (error) { showToast(error.message) }

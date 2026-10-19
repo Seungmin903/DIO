@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../theme'
 import { preparePageExport } from '../utils/preparePageExport'
 import { capturePage } from '../utils/capturePage'
@@ -12,6 +12,8 @@ export default function PageExportPreview({ snapshot, onClose }) {
   const [imagesReady, setImagesReady] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const [area, setArea] = useState(null)
+  const renderScale = Platform.OS === 'web' || !area ? 1 : Math.min(1, area.width / snapshot.width, area.height / snapshot.height)
   const surface = useRef(null)
   const loaded = useRef(new Set())
   const alive = useRef(true)
@@ -80,15 +82,17 @@ export default function PageExportPreview({ snapshot, onClose }) {
         ) : (
           <>
             <Text style={styles.message}>페이지를 이미지로 만들고 있어요…</Text>
+            <View style={{ flex: 1 }} onLayout={(event) => setArea(event.nativeEvent.layout)}>
             <ScrollView horizontal removeClippedSubviews={false}>
               <ScrollView removeClippedSubviews={false}>
-                {prepared && <View ref={surface} collapsable={false} onLayout={() => setLaidOut(true)} testID="page-export-surface" style={{ width: prepared.width, height: prepared.height, backgroundColor: prepared.background, overflow: 'hidden' }}>
-                  {prepared.objects.map((object) => <View key={object.id} style={{ position: 'absolute', left: object.x, top: object.y, width: object.w, height: object.h, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectOpacity(object) }}>
-                    <ObjectContent object={object} zoom={1} still onAssetLoad={() => onLoad(object.id)} onAssetError={() => setError('이미지를 표시하지 못했어요. 원본을 확인해 주세요.')} />
+                {prepared && (Platform.OS === 'web' || area?.width > 0 && area?.height > 0) && <View ref={surface} collapsable={false} onLayout={() => setLaidOut(true)} testID="page-export-surface" style={{ width: prepared.width * renderScale, height: prepared.height * renderScale, backgroundColor: prepared.background, overflow: 'hidden' }}>
+                  {prepared.objects.map((object) => <View key={object.id} style={{ position: 'absolute', left: object.x * renderScale, top: object.y * renderScale, width: object.w * renderScale, height: object.h * renderScale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectOpacity(object) }}>
+                    <ObjectContent object={object} zoom={renderScale} still onAssetLoad={() => onLoad(object.id)} onAssetError={() => setError('이미지를 표시하지 못했어요. 원본을 확인해 주세요.')} />
                   </View>)}
                 </View>}
               </ScrollView>
             </ScrollView>
+            </View>
           </>
         )}
       </View>

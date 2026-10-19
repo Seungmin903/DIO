@@ -21,14 +21,21 @@ export function createExportSnapshot(page, { width = 1188, height = 840, scale =
 export async function prepareExportSnapshot(snapshot, resolveImage) {
   const resources = []
   const cache = new Map()
+  const keyOf = (o) => o.mediaFileId ? `media:${o.mediaFileId}` : o.asset ? `asset:${o.asset}` : o.src
+  const usages = new Map()
+  snapshot.objects.forEach((o) => { const key = keyOf(o); if (key) usages.set(key, [...(usages.get(key) ?? []), o]) })
   try {
     const objects = []
     for (const object of snapshot.objects) {
-      const key = object.mediaFileId ? `media:${object.mediaFileId}` : object.asset ? `asset:${object.asset}` : object.src
+      const key = keyOf(object)
       if (!key) { objects.push(object); continue }
       let resource = cache.get(key)
       if (!resource) {
-        resource = await resolveImage(object)
+        try { resource = await resolveImage(object, usages.get(key)) }
+        catch (error) {
+          if (error?.code === 'EXPORT_GIF_PENDING') throw new PageExportError(error.code, `‘${object.name || object.asset || object.id}’ GIF는 첫 프레임 내보내기를 준비 중이에요. 이 요소를 숨긴 뒤 다시 시도해 주세요.`, error)
+          throw error
+        }
         resources.push(resource)
         cache.set(key, resource)
       }
