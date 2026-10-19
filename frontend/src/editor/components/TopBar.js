@@ -2,7 +2,19 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../theme'
 import Icon from './Icon'
 
-export default function TopBar({ doc, pageNumber, layersOpen, pagesOpen, focusMode, onHome, onToggleLayers, onTogglePages, onToggleFocus, onShare }) {
+export default function TopBar({
+  doc,
+  pageNumber,
+  layersOpen,
+  pagesOpen,
+  focusMode,
+  onCloseTab,
+  onHome,
+  onToggleLayers,
+  onTogglePages,
+  onToggleFocus,
+  onShare,
+}) {
   return (
     <View style={styles.bar}>
       <Pressable onPress={onHome} accessibilityLabel="다이어리 홈" hitSlop={6}>
@@ -18,6 +30,9 @@ export default function TopBar({ doc, pageNumber, layersOpen, pagesOpen, focusMo
           </Text>
           <Text style={styles.tabPage}>PAGE {pageNumber}</Text>
         </View>
+        <Pressable onPress={onCloseTab} hitSlop={8} style={styles.tabClose} accessibilityLabel="다이어리 탭 닫기">
+          <Icon name="close" size={15} color={colors.textMuted} />
+        </Pressable>
       </View>
 
       <View style={styles.right}>
@@ -73,10 +88,18 @@ const styles = StyleSheet.create({
   cover: { width: 11, height: 15, borderTopRightRadius: 4, borderBottomRightRadius: 4 },
   tabTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
   tabPage: { fontSize: 9.5, fontWeight: '800', color: colors.primary, marginTop: 1 },
+  tabClose: { marginLeft: 6, padding: 4, borderRadius: 8 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 'auto' },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 10, borderRadius: 12 },
   toggleActive: { backgroundColor: colors.surfaceSoft },
   togglePressed: { backgroundColor: colors.primarySoft },
   toggleText: { fontSize: 13, fontWeight: '700', color: colors.text },
-  share: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  share: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+  },
 })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../theme'
 import Canvas from './components/Canvas'
@@ -6,8 +6,11 @@ import CropPanel from './components/CropPanel'
 import DecorDrawer from './components/DecorDrawer'
 import Icon from './components/Icon'
 import LayerPanel from './components/LayerPanel'
+import MorePanel from './components/MorePanel'
 import PageList from './components/PageList'
 import Ribbon from './components/Ribbon'
+import SaveIndicator from './components/SaveIndicator'
+import TapeCropper from './components/TapeCropper'
 import TopBar from './components/TopBar'
 import { PAGE_HEIGHT, PAGE_WIDTH, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from './constants'
 import { useEditor } from './hooks/useEditor'
@@ -28,12 +31,15 @@ export default function EditorScreen({ onHome, diary }) {
   const [stageSize, setStageSize] = useState(null)
   const [zoomSetting, setZoomSetting] = useState('fit') // 'fit' | number
   const [drawerTab, setDrawerTab] = useState(null)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(true)
   const [pagesOpen, setPagesOpen] = useState(true)
   const [focusMode, setFocusMode] = useState(false)
   const [cropId, setCropId] = useState(null)
   const [recentPhotos, setRecentPhotos] = useState([])
   const [toast, setToast] = useState(null)
+  const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
+  const clipboard = useRef([]) // Ctrl+C 로 복사한 오브젝트 (다른 페이지에도 붙여 넣기)
 
   const fitZoom = stageSize
     ? clamp(
@@ -48,6 +54,9 @@ export default function EditorScreen({ onHome, diary }) {
   const zoom = zoomSetting === 'fit' ? fitZoom : zoomSetting
 
   const cropTarget = cropId ? page.objects.find((o) => o.id === cropId && o.type === 'photo') : null
+  const tapeCrop = tapeCropId ? page.objects.find((o) => o.id === tapeCropId && o.src && o.imageWidth) : null
+  const selectedObjects = page.objects.filter((o) => state.selectedIds.includes(o.id))
+  const showMore = moreOpen && selectedObjects.length > 0 && !cropId
 
   const showToast = useCallback((message) => setToast({ message, key: createId() }), [setToast])
 
@@ -75,13 +84,14 @@ export default function EditorScreen({ onHome, diary }) {
     dispatch({ type: 'addObjects', objects: [createObjectFromDecor(item, randomCenter())] })
   }
 
-  const addPhotos = async () => {
+  const addPhotos = async (style) => {
     try {
       const images = await pickImages()
       if (!images.length) return
       const photos = images.map((image) => ({
         id: createId(),
         src: image.src,
+        poster: image.poster,
         name: image.name,
         imageWidth: image.width,
         imageHeight: image.height,
@@ -89,9 +99,33 @@ export default function EditorScreen({ onHome, diary }) {
       setRecentPhotos((prev) => [...photos, ...prev].slice(0, 12))
       const center = randomCenter()
       const objects = photos.map((photo, index) =>
-        createObjectFromDecor({ kind: 'photo', ...photo }, { x: center.x + index * 24, y: center.y + index * 24 }),
+        createObjectFromDecor({ kind: 'photo', style, ...photo }, { x: center.x + index * 24, y: center.y + index * 24 }),
       )
       dispatch({ type: 'addObjects', objects })
+    } catch (error) {
+      showToast(error.message)
+    }
+  }
+
+  // 틀·자르기 설정은 두고 사진만 바꾼다.
+  const replacePhoto = async (id) => {
+    try {
+      const [image] = await pickImages({ multiple: false })
+      if (!image) return
+      dispatch({
+        type: 'updateObject',
+        id,
+        record: true,
+        patch: {
+          src: image.src,
+          poster: image.poster,
+          name: image.name,
+          imageWidth: image.width,
+          imageHeight: image.height,
+          crop: { fx: 0.5, fy: 0.5, zoom: 1 },
+        },
+      })
+      showToast('사진을 바꿨어요.')
     } catch (error) {
       showToast(error.message)
     }
@@ -131,6 +165,11 @@ export default function EditorScreen({ onHome, diary }) {
       if (target?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target?.tagName)) return
       const mod = event.ctrlKey || event.metaKey
       const key = event.key.toLowerCase()
+      const selected = page.objects.filter((o) => state.selectedIds.includes(o.id))
+      const editable = selected.filter((o) => !o.locked)
+      const ids = selected.map((o) => o.id)
+      const NUDGE = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] }
+
       if (mod && key === 'z') {
         event.preventDefault()
         if (event.shiftKey) redo()
@@ -141,13 +180,41 @@ export default function EditorScreen({ onHome, diary }) {
       } else if (key === 'escape') {
         if (cropId) finishCrop(false)
         else dispatch({ type: 'select', ids: [] })
-      } else if (!cropId && state.selectedIds.length && (key === 'delete' || key === 'backspace')) {
+      } else if (cropId) {
+        // 자르기 중에는 아래 단축키를 쓰지 않는다.
+      } else if (mod && key === 'a') {
         event.preventDefault()
-        const ids = page.objects.filter((o) => state.selectedIds.includes(o.id) && !o.locked).map((o) => o.id)
-        dispatch({ type: 'removeObjects', ids })
-      } else if (!cropId && mod && key === 'd' && state.selectedIds.length) {
+        dispatch({ type: 'selectAll' })
+      } else if (mod && (key === 'c' || key === 'x') && selected.length) {
         event.preventDefault()
-        dispatch({ type: 'duplicateObjects', ids: state.selectedIds })
+        clipboard.current = selected
+        if (key === 'x') dispatch({ type: 'removeObjects', ids: editable.map((o) => o.id) })
+        showToast(key === 'x' ? '잘라 냈어요.' : `${selected.length}개를 복사했어요.`)
+      } else if (mod && key === 'v' && clipboard.current.length) {
+        event.preventDefault()
+        dispatch({ type: 'pasteObjects', objects: clipboard.current })
+      } else if (mod && key === 'g' && selected.length > 1) {
+        event.preventDefault()
+        dispatch({ type: event.shiftKey ? 'ungroup' : 'group', ids })
+      } else if (mod && key === 'd' && selected.length) {
+        event.preventDefault()
+        dispatch({ type: 'duplicateObjects', ids })
+      } else if ((key === ']' || key === '[') && selected.length) {
+        event.preventDefault()
+        dispatch({ type: 'reorder', ids, mode: key === ']' ? (mod ? 'front' : 'forward') : mod ? 'back' : 'backward' })
+      } else if (NUDGE[key] && editable.length) {
+        // 화살표 1px, Shift 와 함께 10px
+        event.preventDefault()
+        const step = event.shiftKey ? 10 : 1
+        const [dx, dy] = NUDGE[key]
+        dispatch({
+          type: 'updateMany',
+          record: true,
+          patches: Object.fromEntries(editable.map((o) => [o.id, { x: o.x + dx * step, y: o.y + dy * step }])),
+        })
+      } else if (selected.length && (key === 'delete' || key === 'backspace')) {
+        event.preventDefault()
+        dispatch({ type: 'removeObjects', ids: editable.map((o) => o.id) })
       }
     }
     window.addEventListener('keydown', handleKey)
@@ -166,6 +233,10 @@ export default function EditorScreen({ onHome, diary }) {
         pagesOpen={showPages}
         focusMode={focusMode}
         onHome={() => {
+          if (onHome) onHome()
+          else showToast('다이어리 홈은 다른 화면에서 연결될 예정이에요.')
+        }}
+        onCloseTab={() => {
           if (onHome) onHome()
           else showToast('다이어리 홈은 다른 화면에서 연결될 예정이에요.')
         }}
@@ -210,7 +281,13 @@ export default function EditorScreen({ onHome, diary }) {
                 selectedIds={state.selectedIds}
                 cropId={cropTarget?.id ?? null}
                 dispatch={dispatch}
-                onCrop={startCrop}
+                moreOpen={showMore}
+                onToggleMore={() => {
+                  setDrawerTab(null)
+                  setMoreOpen(!showMore)
+                }}
+                onCrop={(id) => (page.objects.find((o) => o.id === id)?.type === 'tape' ? setTapeCropId(id) : startCrop(id))}
+                onReplacePhoto={replacePhoto}
                 onToast={showToast}
               />
             </ScrollView>
@@ -221,6 +298,7 @@ export default function EditorScreen({ onHome, diary }) {
               drawerTab={drawerTab}
               onOpenDrawer={(tab) => {
                 if (cropId) finishCrop(false)
+                setMoreOpen(false)
                 setDrawerTab(drawerTab === tab ? null : tab)
               }}
               onSelectTool={() => setDrawerTab(null)}
@@ -228,8 +306,14 @@ export default function EditorScreen({ onHome, diary }) {
             />
           </View>
 
+          {showMore && !drawerTab && (
+            <View style={styles.drawerWrap} pointerEvents="box-none">
+              <MorePanel objects={selectedObjects} dispatch={dispatch} onClose={() => setMoreOpen(false)} />
+            </View>
+          )}
+
           {drawerTab && (
-            <View style={styles.drawerWrap}>
+            <View style={styles.drawerWrap} pointerEvents="box-none">
               <DecorDrawer
                 tab={drawerTab}
                 onTabChange={setDrawerTab}
@@ -246,6 +330,8 @@ export default function EditorScreen({ onHome, diary }) {
             <RoundButton icon="undo" label="되돌리기" disabled={!state.past.length} onPress={undo} />
             <View style={styles.floatingDivider} />
             <RoundButton icon="redo" label="다시 실행" disabled={!state.future.length} onPress={redo} />
+            <View style={styles.floatingDivider} />
+            <SaveIndicator status={saveStatus} onInfo={showToast} />
           </View>
 
           <View style={[styles.floating, styles.floatingRight]}>
@@ -255,6 +341,21 @@ export default function EditorScreen({ onHome, diary }) {
             <View style={styles.floatingDivider} />
             <RoundButton icon="fit" label="화면에 맞춤" active={zoomSetting === 'fit'} onPress={() => changeZoom('fit')} />
           </View>
+
+          {tapeCrop && (
+            <TapeCropper
+              image={{ src: tapeCrop.src, width: tapeCrop.imageWidth, height: tapeCrop.imageHeight }}
+              initialCrop={tapeCrop.crop}
+              initialEdge={tapeCrop.edge}
+              title="테이프 다시 자르기"
+              confirmLabel="적용"
+              onCancel={() => setTapeCropId(null)}
+              onConfirm={({ crop, edge }) => {
+                dispatch({ type: 'updateObject', id: tapeCrop.id, record: true, patch: { crop, edge } })
+                setTapeCropId(null)
+              }}
+            />
+          )}
 
           {toast && (
             <View key={toast.key} style={styles.toast} pointerEvents="none">
@@ -266,7 +367,14 @@ export default function EditorScreen({ onHome, diary }) {
         {cropTarget ? (
           <CropPanel photo={cropTarget} dispatch={dispatch} onApply={() => finishCrop(true)} onCancel={() => finishCrop(false)} />
         ) : (
-          showLayers && <LayerPanel objects={page.objects} selectedIds={state.selectedIds} saveStatus={saveStatus} dispatch={dispatch} />
+          showLayers && (
+            <LayerPanel
+              objects={page.objects}
+              selectedIds={state.selectedIds}
+              dispatch={dispatch}
+              onClose={() => setLayersOpen(false)}
+            />
+          )
         )}
       </View>
     </View>
@@ -279,7 +387,12 @@ function RoundButton({ icon, label, disabled, active, onPress }) {
       onPress={onPress}
       disabled={disabled}
       accessibilityLabel={label}
-      style={({ pressed }) => [styles.roundButton, active && styles.roundActive, pressed && styles.roundPressed, disabled && styles.roundDisabled]}
+      style={({ pressed }) => [
+        styles.roundButton,
+        active && styles.roundActive,
+        pressed && styles.roundPressed,
+        disabled && styles.roundDisabled,
+      ]}
     >
       <Icon name={icon} size={19} />
     </Pressable>
@@ -300,7 +413,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: STAGE_PADDING.side,
   },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
-  drawerWrap: { position: 'absolute', top: 76, right: 12, bottom: 12 },
+  // 보관함은 스테이지 안에서만 펼쳐지고, 내용이 길면 안에서 스크롤한다. (하단 확대 컨트롤은 가리지 않음)
+  drawerWrap: { position: 'absolute', top: 76, right: 12, bottom: 64, left: 12, alignItems: 'flex-end' },
   floating: {
     position: 'absolute',
     bottom: 12,

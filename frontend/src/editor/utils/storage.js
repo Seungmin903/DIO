@@ -2,7 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 export const STORAGE_KEYS = {
-  doc: 'dio:editor:doc:v2',
+  doc: 'dio:editor:doc:v4', // v4: 기본 스티커를 이모지 → 이미지 스티커로 바꾼 데모 문서
   customDecor: 'dio:editor:custom-decor:v2',
 }
 

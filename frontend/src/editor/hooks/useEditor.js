@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState } from 'react'
 import { createDefaultDoc } from '../state/defaultDoc'
 import { createInitialState, editorReducer } from '../state/editorReducer'
+import { hydrateMedia } from '../utils/mediaStore'
 import { loadJSON, saveJSON, STORAGE_KEYS } from '../utils/storage'
 
 const SAVE_DELAY_MS = 600
@@ -16,17 +17,20 @@ export function useEditor(diary) {
   // 다이어리마다 별도 저장소를 사용해 다른 표지의 작업이 섞이지 않게 한다.
   useEffect(() => {
     let cancelled = false
-    loadJSON(storageKey, null).then((saved) => {
-      if (cancelled) return
-      if (saved?.pages?.length) {
-        // 표지에서 바꾼 제목·색상은 기존 페이지 작업을 유지한 채 편집기에도 반영한다.
-        const restored = diary
-          ? { ...saved, id: diary.id, title: diary.title, coverColor: diary.color }
-          : saved
-        dispatch({ type: 'load', doc: restored })
-      }
-      setLoaded(true)
-    })
+    // GIF 원본(보관소) 주소를 먼저 만들어 둔 뒤 문서를 불러온다.
+    hydrateMedia()
+      .then(() => loadJSON(storageKey, null))
+      .then((saved) => {
+        if (cancelled) return
+        if (saved?.pages?.length) {
+          // 표지에서 바꾼 제목·색상은 기존 페이지 작업을 유지한 채 편집기에도 반영한다.
+          const restored = diary
+            ? { ...saved, id: diary.id, title: diary.title, coverColor: diary.color }
+            : saved
+          dispatch({ type: 'load', doc: restored })
+        }
+        setLoaded(true)
+      })
     return () => {
       cancelled = true
     }
