@@ -9,7 +9,7 @@
 ## 기술 스택
 
 - Backend: Spring Boot 4.1, Java 17, Gradle, Spring Data JPA, MySQL 8.4
-- Frontend: Expo SDK 57, React Native 0.86 (JavaScript)
+- Frontend: Expo SDK 57, React Native 0.86 (JavaScript) — 16:10 가로형 태블릿 기준, react-native-web으로 브라우저 확인 가능
 - Local infra: Docker Compose (MySQL)
 
 ## 개발 명령어
@@ -22,6 +22,7 @@
 | 프론트 의존성 설치 | `pnpm install` (frontend/) |
 | Android 실행 | `pnpm android` (frontend/, Android 에뮬레이터 또는 기기 필요) |
 | iOS 실행 | `pnpm ios` (frontend/, macOS 필요) |
+| 웹에서 확인 | `pnpm web` (frontend/, http://localhost:8081 · react-native-web) |
 
 - React Native 앱은 Vite proxy를 사용하지 않습니다. API 요청에는 `EXPO_PUBLIC_API_BASE_URL`로 설정한 전체 주소(예: Android 에뮬레이터의 `http://10.0.2.2:8080/api`)를 사용하세요. 실제 기기에서는 개발 PC의 LAN IP를 지정합니다.
 - 백엔드 기본 패키지: `com.ssafy.dio`

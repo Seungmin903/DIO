@@ -23,3 +23,10 @@ web-build/
 *.njsproj
 *.sln
 *.sw?
+
+# Expo
+dist/
+expo-env.d.ts
+.metro-health-check*
+/ios
+/android

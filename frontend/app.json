@@ -3,12 +3,24 @@
     "name": "DIO",
     "slug": "dio",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "landscape",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#FFF8F4"
-    }
+      "backgroundColor": "#CED9EE"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "requireFullScreen": true
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "다이어리에 사진을 붙이기 위해 사진 보관함에 접근해요."
+        }
+      ]
+    ]
   }
 }

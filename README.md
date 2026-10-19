@@ -34,6 +34,7 @@ cp .env.example .env     # Windows PowerShell: Copy-Item .env.example .env
 pnpm install
 pnpm android             # Android 에뮬레이터 또는 연결된 Android 기기에서 실행
 # macOS에서는 pnpm ios 로 iOS 시뮬레이터에서 실행 가능
+# 브라우저로 빠르게 확인하려면 pnpm web → http://localhost:8081
 ```
 
 - 모바일 앱은 Expo 기반 React Native 앱입니다. 개발 서버만 열려면 `pnpm start`를 실행하고 Expo Go 또는 에뮬레이터에서 연결하세요.
