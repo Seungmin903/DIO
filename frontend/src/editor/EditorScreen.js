@@ -5,6 +5,7 @@ import MediaNotice from './components/MediaNotice'
 import { mediaFailureMessage } from './utils/mediaRecovery.js'
 import PageExportPreview from './components/PageExportPreview'
 import { createExportSnapshot } from './utils/pageExport.js'
+import { pngFileName } from './utils/pngFileSave.js'
 import Canvas from './components/Canvas'
 import CropPanel from './components/CropPanel'
 import DecorDrawer from './components/DecorDrawer'
@@ -259,11 +260,12 @@ export default function EditorScreen() {
           setFocusMode(!focusMode)
           if (!focusMode) showToast('집중 편집 · 양옆 패널을 닫았어요.')
         }}
-        shareLabel="PNG 미리보기"
+        shareLabel="PNG 내보내기"
         shareIcon="image"
         onShare={() => {
-          try { setExportSnapshot(createExportSnapshot(page, { width: PAGE_WIDTH, height: PAGE_HEIGHT })) }
-          catch (error) { showToast(error.message) }
+          if (exportSnapshot) return
+          try { setExportSnapshot({ ...createExportSnapshot(page, { width: PAGE_WIDTH, height: PAGE_HEIGHT }), fileName: pngFileName(state.doc.title, state.doc.pages.findIndex((p) => p.id === page.id) + 1) }) }
+          catch (error) { setExportSnapshot({ errorMessage: error.message }) }
         }}
       />
 
