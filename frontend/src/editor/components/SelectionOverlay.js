@@ -7,6 +7,7 @@ import { centerOf, normalizeAngle, rotateVector } from '../utils/common'
 // 핸들이 박스 바깥에 걸쳐도 터치를 받도록 오버레이를 이만큼 넓게 잡는다. (Android 는 부모 밖 터치를 받지 않음)
 const MARGIN = 52
 const HANDLE = 18
+const EDGE_THICKNESS = 20 // 변 전체가 보이지 않는 크기 조절 영역
 const ROTATE_OFFSET = 34
 const MIN_SIZE = 20
 
@@ -26,6 +27,7 @@ const SIDES = [
 /** 오브젝트 종류별로 쓸 수 있는 크기 조절 핸들 */
 function handlesFor(object) {
   if (object.type === 'sticker') return CORNERS
+  if (object.type === 'tape') return CORNERS // 테이프는 비율을 유지한 채 크기만 바꾼다.
   if (object.type === 'photo' && object.frame === 'polaroid') return CORNERS // 폴라로이드 비율은 자르기에서 정한다.
   return [...CORNERS, ...SIDES]
 }
@@ -59,7 +61,10 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
       />
       {!object.locked && (
         <>
-          <View pointerEvents="none" style={[styles.rotateStem, { left: MARGIN + width / 2 - 0.75, top: MARGIN - ROTATE_OFFSET }]} />
+          <View
+            pointerEvents="none"
+            style={[styles.rotateStem, { left: MARGIN + width / 2 - 0.75, top: MARGIN - ROTATE_OFFSET }]}
+          />
           <Handle
             kind="rotate"
             object={object}
@@ -67,27 +72,42 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
             dispatch={dispatch}
             onRotation={onRotation}
             onInteracting={onInteracting}
-            style={[styles.rotateHandle, { left: MARGIN + width / 2 - HANDLE / 2, top: MARGIN - ROTATE_OFFSET - HANDLE / 2 }]}
+            style={[
+              styles.handleBase,
+              styles.rotateHandle,
+              { left: MARGIN + width / 2 - HANDLE / 2, top: MARGIN - ROTATE_OFFSET - HANDLE / 2 },
+            ]}
           />
-          {handlesFor(object).map((handle) => (
-            <Handle
-              key={handle.key}
-              kind="resize"
-              handle={handle}
-              object={object}
-              zoom={zoom}
-              dispatch={dispatch}
-              onInteracting={onInteracting}
-              style={[
-                handle.sx && handle.sy ? styles.cornerHandle : handle.sx ? styles.sideHandleV : styles.sideHandleH,
-                {
-                  left: MARGIN + ((handle.sx + 1) / 2) * width - (handle.sx && handle.sy ? HANDLE : handle.sx ? 10 : 26) / 2,
-                  top: MARGIN + ((handle.sy + 1) / 2) * height - (handle.sx && handle.sy ? HANDLE : handle.sx ? 26 : 10) / 2,
-                },
-                Platform.OS === 'web' && { cursor: cursorFor(handle, object.rotation) },
-              ]}
-            />
-          ))}
+          {handlesFor(object).map((handle) => {
+            const corner = Boolean(handle.sx && handle.sy)
+            // 변 핸들은 눈에 보이지 않게 변을 따라 깔고, 꼭짓점 핸들 자리는 비워 둔다.
+            const edgeLength = Math.max((handle.sx ? height : width) - HANDLE * 2, 12)
+            const size = corner
+              ? { width: HANDLE, height: HANDLE }
+              : handle.sx
+                ? { width: EDGE_THICKNESS, height: edgeLength }
+                : { width: edgeLength, height: EDGE_THICKNESS }
+            return (
+              <Handle
+                key={handle.key}
+                kind="resize"
+                handle={handle}
+                object={object}
+                zoom={zoom}
+                dispatch={dispatch}
+                onInteracting={onInteracting}
+                style={[
+                  corner ? [styles.handleBase, styles.cornerHandle] : styles.edgeHandle,
+                  {
+                    ...size,
+                    left: MARGIN + ((handle.sx + 1) / 2) * width - size.width / 2,
+                    top: MARGIN + ((handle.sy + 1) / 2) * height - size.height / 2,
+                  },
+                  Platform.OS === 'web' && { cursor: cursorFor(handle, object.rotation) },
+                ]}
+              />
+            )
+          })}
         </>
       )}
     </View>
@@ -106,7 +126,12 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
           ? { x: 0, y: -object.h / 2 - ROTATE_OFFSET / zoom }
           : { x: (handle.sx * object.w) / 2, y: (handle.sy * object.h) / 2 }
       const offset = rotateVector(local.x, local.y, object.rotation)
-      gesture.current = { start: object, center, pointer: { x: center.x + offset.x, y: center.y + offset.y }, checkpointed: false }
+      gesture.current = {
+        start: object,
+        center,
+        pointer: { x: center.x + offset.x, y: center.y + offset.y },
+        checkpointed: false,
+      }
       onInteracting(true)
     },
     onMove: (dx, dy) => {
@@ -128,7 +153,7 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
     },
   })
 
-  return <View {...panHandlers} hitSlop={10} style={[styles.handleBase, style]} />
+  return <View {...panHandlers} hitSlop={10} style={[styles.handle, style]} />
 }
 
 /** 수평 기준 0–360°. 0·90·180·270° 근처(±3°)에서는 붙는다. */
@@ -172,8 +197,8 @@ function resizePatch(g, handle, pointer) {
 const styles = StyleSheet.create({
   frame: { position: 'absolute', borderWidth: 1.5, borderColor: colors.primary },
   frameLocked: { borderStyle: 'dashed', borderColor: colors.textMuted },
+  handle: { position: 'absolute' },
   handleBase: {
-    position: 'absolute',
     backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.primary,
@@ -183,9 +208,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
   },
-  cornerHandle: { width: HANDLE, height: HANDLE, borderRadius: HANDLE / 2 },
-  sideHandleV: { width: 10, height: 26, borderRadius: 5 },
-  sideHandleH: { width: 26, height: 10, borderRadius: 5 },
-  rotateHandle: { width: HANDLE, height: HANDLE, borderRadius: HANDLE / 2, backgroundColor: colors.primary, borderColor: colors.surface },
+  cornerHandle: { borderRadius: HANDLE / 2 },
+  edgeHandle: { backgroundColor: 'transparent' },
+  rotateHandle: {
+    width: HANDLE,
+    height: HANDLE,
+    borderRadius: HANDLE / 2,
+    backgroundColor: colors.primary,
+    borderColor: colors.surface,
+  },
   rotateStem: { position: 'absolute', width: 1.5, height: ROTATE_OFFSET, backgroundColor: colors.primary },
 })

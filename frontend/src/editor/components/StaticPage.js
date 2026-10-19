@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native'
 import { PAGE_HEIGHT, PAGE_WIDTH } from '../constants'
-import ObjectContent from './ObjectView'
+import ObjectContent, { objectOpacity } from './ObjectView'
 
 /** 상호작용 없이 페이지를 그린다. (페이지 썸네일용) */
 export default function StaticPage({ page, zoom }) {
@@ -18,9 +18,10 @@ export default function StaticPage({ page, zoom }) {
               width: object.w * zoom,
               height: object.h * zoom,
               transform: [{ rotate: `${object.rotation}deg` }],
+              opacity: objectOpacity(object),
             }}
           >
-            <ObjectContent object={object} zoom={zoom} />
+            <ObjectContent object={object} zoom={zoom} still />
           </View>
         ))}
     </View>

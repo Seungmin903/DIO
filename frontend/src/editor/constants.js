@@ -14,29 +14,6 @@ export const OBJECT_TYPE_LABELS = {
   photo: '사진',
 }
 
-export const STICKER_GROUPS = [
-  {
-    id: 'basic',
-    title: '기본',
-    items: [
-      ['🌷', '튤립'], ['🍓', '딸기'], ['☕', '커피'], ['🎀', '리본'], ['⭐', '별'], ['🧸', '곰돌이'],
-      ['🌈', '무지개'], ['🍰', '케이크'], ['📷', '카메라'], ['✈️', '비행기'], ['🐱', '고양이'], ['🌙', '달'],
-      ['🍀', '네잎클로버'], ['💌', '편지'], ['🎧', '헤드폰'], ['🍒', '체리'], ['🌻', '해바라기'], ['🐰', '토끼'],
-    ],
-  },
-  {
-    id: 'autumn',
-    title: '가을 피크닉',
-    badge: 'NEW',
-    items: [['🍂', '낙엽'], ['🍁', '단풍'], ['🍄', '버섯'], ['🌰', '밤'], ['🧺', '바구니'], ['🥐', '크루아상'], ['🍎', '사과'], ['🎃', '호박']],
-  },
-  {
-    id: 'mood',
-    title: '오늘의 기분',
-    items: [['😊', '웃음'], ['🥹', '감동'], ['😴', '졸림'], ['🥰', '행복'], ['😎', '멋짐'], ['🫠', '녹음']],
-  },
-].map((group) => ({ ...group, items: group.items.map(([emoji, name]) => ({ emoji, name })) }))
-
 export const TAPES = [
   { pattern: 'mint-stripe', name: '민트 스트라이프' },
   { pattern: 'pink-dot', name: '핑크 도트' },
@@ -47,10 +24,10 @@ export const TAPES = [
   { pattern: 'sky-wave', name: '스카이 웨이브' },
 ]
 
-// 명세: 테이프는 절취선형 또는 일자형
+// 명세: 테이프 끝은 절취선형 또는 직선형
 export const TAPE_EDGES = [
   { id: 'torn', name: '절취선' },
-  { id: 'straight', name: '일자' },
+  { id: 'straight', name: '직선' },
 ]
 
 // 명세: 사진 자르기는 폴라로이드 · 도형 두 방식만 (자유 오리기는 MVP2)
@@ -59,12 +36,17 @@ export const CROP_MODES = [
   { id: 'shape', name: '도형' },
 ]
 
+// value 가 null 인 '원본'은 사진 원래 비율 (ratioValueOf 로 계산)
 export const POLAROID_RATIOS = [
+  { id: 'original', name: '원본', value: null },
   { id: '1:1', name: '1:1', value: 1 },
   { id: '4:5', name: '4:5', value: 4 / 5 },
   { id: '3:4', name: '3:4', value: 3 / 4 },
   { id: '4:3', name: '4:3', value: 4 / 3 },
 ]
+
+// 사각·라운드 사진 자르기 비율. 정해진 비율 없이 자르려면 캔버스의 자르기 손잡이를 끈다. (PPT 자르기처럼, ratio: 'free')
+export const CROP_RATIOS = [...POLAROID_RATIOS, { id: '16:9', name: '16:9', value: 16 / 9 }]
 
 export const PHOTO_SHAPES = [
   { id: 'rect', name: '사각형', square: false },
@@ -74,17 +56,26 @@ export const PHOTO_SHAPES = [
   { id: 'star', name: '별', square: true },
 ]
 
+// 사진 보관함에서 고르는 '붙일 모양' (붙인 뒤에도 자르기에서 바꿀 수 있다)
+export const PHOTO_STYLES = [
+  { id: 'rect', name: '사각' },
+  { id: 'polaroid', name: '폴라로이드' },
+  { id: 'round', name: '라운드' },
+  { id: 'circle', name: '원형' },
+  { id: 'heart', name: '하트' },
+]
+
 // 폴라로이드 틀 여백 (사진 너비 대비)
 export const POLAROID_INSETS = { top: 0.06, side: 0.06, bottom: 0.2 }
 
 export const CROP_ZOOM_MIN = 1
 export const CROP_ZOOM_MAX = 3
 
-// 백엔드 연결 전 데모용 샘플 사진
-export const SAMPLE_PHOTOS = ['cafe-latte', 'sea-trip', 'flower-shop', 'night-city', 'bakery', 'forest-walk'].map((seed) => ({
-  id: `sample-${seed}`,
-  name: '샘플 사진',
-  src: `https://picsum.photos/seed/${seed}/600/750`,
-  imageWidth: 600,
-  imageHeight: 750,
-}))
+// 폴라로이드 틀 색 (사진 선택 → 더보기)
+export const FRAME_COLORS = [
+  { id: 'white', name: '화이트', value: '#FFFFFF' },
+  { id: 'cream', name: '크림', value: '#FBF3E1' },
+  { id: 'sky', name: '하늘', value: '#CED9EE' },
+  { id: 'pink', name: '핑크', value: '#F9DDE2' },
+  { id: 'black', name: '블랙', value: '#22262F' },
+]

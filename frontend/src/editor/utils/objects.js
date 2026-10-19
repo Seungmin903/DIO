@@ -2,10 +2,8 @@
 // 공통 필드: { id, type, x, y, w, h, rotation, hidden?, locked?, groupId?, name? }
 // x, y 는 회전 전 박스의 좌상단, 회전은 박스 중심 기준이다.
 
-import { OBJECT_TYPE_LABELS, POLAROID_INSETS, POLAROID_RATIOS, TAPES } from '../constants'
+import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_SHAPES, POLAROID_INSETS, TAPES } from '../constants'
 import { clamp, createId } from './common'
-
-const randomTilt = (range) => Math.round((Math.random() * 2 - 1) * range)
 
 const base = (type, center, w, h, extra) => ({
   id: createId(),
@@ -19,35 +17,79 @@ const base = (type, center, w, h, extra) => ({
 })
 
 export function createSticker(item, center) {
+  if (item.asset) {
+    return base('sticker', center, 96, 96, {
+      asset: item.asset,
+      name: item.name,
+    })
+  }
   if (item.src) {
     const aspect = item.aspect ?? 1
     const w = aspect >= 1 ? 110 : 110 * aspect
-    return base('sticker', center, w, w / aspect, { src: item.src, name: item.name, rotation: randomTilt(8) })
+    return base('sticker', center, w, w / aspect, {
+      src: item.src,
+      poster: item.poster,
+      name: item.name,
+    })
   }
-  return base('sticker', center, 84, 84, { emoji: item.emoji, name: item.name, rotation: randomTilt(8) })
+  return base('sticker', center, 84, 84, {
+    emoji: item.emoji,
+    name: item.name,
+  })
 }
 
 export function createTape(item, center) {
+  // 이미지 테이프도 기본 테이프와 같은 네모 틀에 꽉 채워(cover) 넣어 테이프 비율을 유지한다.
   if (item.src) {
-    const h = clamp(200 / (item.aspect ?? 6), 18, 70)
-    return base('tape', center, 200, h, { src: item.src, name: item.name, edge: 'straight', rotation: randomTilt(6) })
+    return base('tape', center, 180, 34, {
+      src: item.src,
+      name: item.name,
+      imageWidth: item.imageWidth,
+      imageHeight: item.imageHeight,
+      crop: item.crop,
+      edge: item.edge ?? 'torn',
+    })
   }
-  return base('tape', center, 180, 34, { pattern: item.pattern, edge: 'torn', rotation: randomTilt(6) })
+  return base('tape', center, 180, 34, {
+    pattern: item.pattern,
+    edge: item.edge ?? 'torn',
+  })
 }
 
 export function createPhoto(item, center) {
   const photo = {
     src: item.src,
+    poster: item.poster,
     name: item.name,
     imageWidth: item.imageWidth,
     imageHeight: item.imageHeight,
     crop: { fx: 0.5, fy: 0.5, zoom: 1 },
     frame: 'polaroid',
-    ratio: '4:5',
+    ratio: 'original',
     shape: 'rect',
   }
+  const rotation = item.rotation ?? 0
+  // 기본은 원본 비율 그대로의 사각 사진. 정사각 도형(원형·하트·별)은 정사각으로 붙인다.
+  const style = item.style ?? 'rect'
+  if (style !== 'polaroid') {
+    const square = PHOTO_SHAPES.find((s) => s.id === style)?.square
+    const aspect = item.imageWidth / item.imageHeight
+    // 긴 변을 260 으로 맞춘다.
+    const w = square ? 220 : aspect >= 1 ? 260 : clamp(260 * aspect, 60, 260)
+    const h = square ? 220 : w / aspect
+    return base('photo', center, w, h, {
+      ...photo,
+      frame: 'shape',
+      shape: style,
+      rotation,
+    })
+  }
   const w = item.w ?? 240
-  return base('photo', center, w, polaroidHeight(w, '4:5'), { ...photo, ...item.extra, rotation: item.rotation ?? randomTilt(4) })
+  return base('photo', center, w, polaroidHeight(w, 'original', photo), {
+    ...photo,
+    ...item.extra,
+    rotation,
+  })
 }
 
 export function createObjectFromDecor(item, center) {
@@ -64,8 +106,14 @@ export function getObjectName(object) {
 
 /* ---------- 사진 ---------- */
 
-export function polaroidHeight(w, ratioId) {
-  const ratio = POLAROID_RATIOS.find((item) => item.id === ratioId)?.value ?? 4 / 5
+/** 비율 id → 가로:세로 값. '원본'은 사진 원래 비율, '자유'·모르는 값은 null */
+export function ratioValueOf(ratioId, photo) {
+  if (ratioId === 'original') return photo?.imageWidth && photo?.imageHeight ? photo.imageWidth / photo.imageHeight : null
+  return CROP_RATIOS.find((item) => item.id === ratioId)?.value ?? null
+}
+
+export function polaroidHeight(w, ratioId, photo) {
+  const ratio = ratioValueOf(ratioId, photo) ?? 4 / 5
   const innerW = w * (1 - POLAROID_INSETS.side * 2)
   return innerW / ratio + w * (POLAROID_INSETS.top + POLAROID_INSETS.bottom)
 }
@@ -76,7 +124,12 @@ export function photoInnerBox(photo) {
   const side = photo.w * POLAROID_INSETS.side
   const top = photo.w * POLAROID_INSETS.top
   const bottom = photo.w * POLAROID_INSETS.bottom
-  return { left: side, top, width: photo.w - side * 2, height: Math.max(1, photo.h - top - bottom) }
+  return {
+    left: side,
+    top,
+    width: photo.w - side * 2,
+    height: Math.max(1, photo.h - top - bottom),
+  }
 }
 
 /**
@@ -97,5 +150,10 @@ export function coverLayout(photo, boxWidth, boxHeight) {
 
 /** 중심을 유지하면서 크기를 바꾸는 패치 */
 export function resizeAroundCenter(object, w, h) {
-  return { w, h, x: object.x + (object.w - w) / 2, y: object.y + (object.h - h) / 2 }
+  return {
+    w,
+    h,
+    x: object.x + (object.w - w) / 2,
+    y: object.y + (object.h - h) / 2,
+  }
 }

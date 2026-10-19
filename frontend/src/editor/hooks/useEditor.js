@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState } from 'react'
 import { createDefaultDoc } from '../state/defaultDoc'
 import { createInitialState, editorReducer } from '../state/editorReducer'
+import { hydrateMedia } from '../utils/mediaStore'
 import { loadJSON, saveJSON, STORAGE_KEYS } from '../utils/storage'
 
 const SAVE_DELAY_MS = 600
@@ -15,11 +16,14 @@ export function useEditor() {
   // 저장된 문서가 있으면 불러온다. (AsyncStorage 는 비동기라 첫 화면은 데모로 그린 뒤 교체)
   useEffect(() => {
     let cancelled = false
-    loadJSON(STORAGE_KEYS.doc, null).then((saved) => {
-      if (cancelled) return
-      if (saved?.pages?.length) dispatch({ type: 'load', doc: saved })
-      setLoaded(true)
-    })
+    // GIF 원본(보관소) 주소를 먼저 만들어 둔 뒤 문서를 불러온다.
+    hydrateMedia()
+      .then(() => loadJSON(STORAGE_KEYS.doc, null))
+      .then((saved) => {
+        if (cancelled) return
+        if (saved?.pages?.length) dispatch({ type: 'load', doc: saved })
+        setLoaded(true)
+      })
     return () => {
       cancelled = true
     }
