@@ -9,7 +9,7 @@
 ## 기술 스택
 
 - Backend: Spring Boot 4.1, Java 17, Gradle, Spring Data JPA, MySQL 8.4
-- Frontend: React 19, Vite (JavaScript), oxlint
+- Frontend: Expo SDK 58 (React Native 0.88, React 19, JavaScript), react-native-web, oxlint — 16:10 가로형 태블릿 기준
 - Local infra: Docker Compose (MySQL)
 
 ## 개발 명령어
@@ -19,10 +19,10 @@
 | DB 실행 | `docker compose up -d` (루트) |
 | 백엔드 실행 | `./gradlew bootRun` (backend/, 기본 프로필 `local`) |
 | 백엔드 빌드/테스트 | `./gradlew build` / `./gradlew test` (테스트는 H2 인메모리 DB 사용) |
-| 프론트 실행 | `npm install && npm run dev` (frontend/, http://localhost:5173) |
-| 프론트 빌드/린트 | `npm run build` / `npm run lint` |
+| 프론트 실행 | `npm install && npm run web` (frontend/, http://localhost:8081) · 기기는 `npm start` 후 Expo Go |
+| 프론트 린트 | `npm run lint` |
 
-- 프론트의 `/api/**` 요청은 Vite proxy를 통해 `http://localhost:8080` 으로 전달됩니다. API 경로는 `/api` 로 시작하게 만드세요.
+- 백엔드 API 경로는 `/api` 로 시작하게 만드세요. 프론트(Expo)에는 아직 API 연동이 없습니다. 기기에서는 localhost 를 쓸 수 없으니 연동 시 API 주소를 환경변수로 받도록 하세요.
 - 백엔드 기본 패키지: `com.ssafy.dio`
 
 ## Git 작업 규칙
@@ -41,7 +41,7 @@
 ```
 S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
-├── frontend/            # 프론트엔드 (React 19 + Vite)
+├── frontend/            # 프론트엔드 (Expo · React Native, 웹 겸용)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
 ├── docker-compose.yml   # 로컬 개발용 MySQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)

@@ -27,13 +27,14 @@ docker compose up -d
 cd backend
 ./gradlew bootRun          # Windows CMD/PowerShell: .\gradlew.bat bootRun
 
-# 4) 프론트 실행 (새 터미널) → http://localhost:5173
+# 4) 프론트 실행 (새 터미널) → 웹은 http://localhost:8081
 cd frontend
 npm install
-npm run dev
+npm run web                # 태블릿/폰: npm start 후 Expo Go 앱으로 QR 스캔
 ```
 
-- 프론트에서 `fetch('/api/...')` 로 호출하면 Vite proxy가 백엔드(8080)로 전달합니다.
+- 프론트는 Expo(React Native) 앱이며, 16:10 가로형 태블릿을 기준으로 합니다. 웹 브라우저에서도 같은 코드가 동작합니다.
+- 백엔드 연동은 아직 없습니다. 연동할 때 API 주소 설정 방식을 정해 이 문서에 추가하세요.
 - IntelliJ에서는 `backend/` 폴더를 Gradle 프로젝트로 열고, Project SDK를 17로 지정하세요.
 - 백엔드 테스트(`./gradlew test`)는 H2 인메모리 DB를 사용하므로 Docker 없이도 실행됩니다.
 
@@ -42,7 +43,7 @@ npm run dev
 ```
 S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
-├── frontend/            # 프론트엔드 (React 19 + Vite)
+├── frontend/            # 프론트엔드 (Expo · React Native, 웹 겸용)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
 ├── docker-compose.yml   # 로컬 개발용 MySQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)

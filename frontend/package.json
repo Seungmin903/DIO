@@ -1,23 +1,30 @@
 {
   "name": "dio-frontend",
+  "version": "0.1.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "main": "index.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "oxlint"
   },
   "dependencies": {
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "@expo/metro-runtime": "~58.0.14",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~58.0.14",
+    "expo-image-manipulator": "~58.0.14",
+    "expo-image-picker": "~58.0.10",
+    "expo-screen-orientation": "~58.0.3",
+    "expo-status-bar": "~58.0.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-svg": "15.16.0",
+    "react-native-web": "^0.21.4"
   },
   "devDependencies": {
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
-    "@vitejs/plugin-react": "^6.1.1",
-    "oxlint": "^1.81.0",
-    "vite": "^8.3.0"
+    "oxlint": "^1.81.0"
   }
 }
