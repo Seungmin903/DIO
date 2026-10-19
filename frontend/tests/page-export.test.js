@@ -21,8 +21,8 @@ test('중복 소재는 가장 큰 출력 사용처까지 전달하고 GIF 안내
   let widths
   await assert.rejects(prepareExportSnapshot(snapshot, async (_, usages) => {
     widths = usages.map((o) => o.w)
-    throw Object.assign(new Error('GIF'), { code: 'EXPORT_GIF_PENDING' })
-  }), (error) => error.code === 'EXPORT_GIF_PENDING' && error.message.includes('고양이'))
+    throw Object.assign(new Error('GIF'), { code: 'EXPORT_GIF_DECODE_FAILED' })
+  }), (error) => error.code === 'EXPORT_GIF_DECODE_FAILED' && error.message.includes('고양이') && !error.message.includes('GIF:'))
   assert.deepEqual(widths, [100, 500])
 })
 
@@ -113,8 +113,8 @@ test('보이는 필수 원본 하나라도 실패하면 이전 출력 자원을 
   assert.equal(JSON.stringify(page), before)
 })
 
-test('GIF는 재생 화면이나 작은 poster를 출력하지 않고 명시적으로 중단한다', async () => {
-  await assert.rejects(exportImage({ blob: new Blob(['GIF89a-frames']) }), { code: 'EXPORT_GIF_PENDING' })
+test('손상된 GIF는 첫 프레임 오류로 중단한다', async () => {
+  await assert.rejects(exportImage({ blob: new Blob(['GIF89a']) }), { code: 'EXPORT_GIF_DECODE_FAILED' })
 })
 
 test('네이티브는 전용 영역을 지정한 PNG 픽셀 크기로 캡처하고 임시 결과만 해제한다', async (t) => {

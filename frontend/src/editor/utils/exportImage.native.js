@@ -10,7 +10,17 @@ export async function exportImage({ blob, media, size }) {
   const handle = blob.open(FileMode.ReadOnly)
   let format
   try { format = detectMediaType(handle.readBytes(64)) } finally { handle.close() }
-  if (format.extension === 'gif') throw new PageExportError('EXPORT_GIF_PENDING', 'GIF의 첫 프레임 내보내기는 준비 중이에요. GIF를 숨긴 뒤 다시 시도해 주세요.')
+  if (format.extension === 'gif') {
+    const { gifFirstFramePng } = await import('./gifFirstFrame.js')
+    const { png } = gifFirstFramePng(await blob.bytes(), { size })
+    const file = new File(Paths.cache, `dio-gif-${randomUUID()}.png`)
+    const dispose = () => { if (file.exists) file.delete() }
+    try {
+      file.create()
+      file.write(png)
+      return { uri: file.uri, dispose }
+    } catch (error) { dispose(); throw error }
+  }
   const resize = size && (!media?.width || media.width > size.width || media.height > size.height)
   if (format.extension !== 'heic' && !resize) {
     await new Promise((resolve, reject) => Image.getSize(blob.uri, resolve, reject))
