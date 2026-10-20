@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.ssafy.dio.diary.dto.DiaryCreateRequest;
 import com.ssafy.dio.diary.dto.DiaryCreateResponse;
+import com.ssafy.dio.diary.dto.DiaryListResponse;
 import com.ssafy.dio.diary.service.DiaryService;
 
 @RestController
@@ -41,5 +42,13 @@ public class DiaryController {
 	public ResponseEntity<DiaryCreateResponse> createDiary(@Valid @RequestBody DiaryCreateRequest request) {
 		DiaryCreateResponse response = diaryService.createDiary(request);
 		return ResponseEntity.created(URI.create("/api/v1/diaries/" + response.diary().diaryId())).body(response);
+	}
+
+	@GetMapping
+	@Operation(summary = "다이어리 목록 조회", description = "저장된 다이어리를 생성 시각 내림차순으로 조회합니다. 같은 시각이면 ID 내림차순입니다. 데이터가 없으면 items는 빈 배열입니다. 현재 기기별·사용자별 구분은 없습니다.")
+	@ApiResponse(responseCode = "200", description = "다이어리 목록 조회 성공 (local 프로필)", content = @Content(
+		mediaType = "application/json", schema = @Schema(implementation = DiaryListResponse.class)))
+	public DiaryListResponse getDiaries() {
+		return diaryService.getDiaries();
 	}
 }

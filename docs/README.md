@@ -6,6 +6,7 @@
 |---|---|
 | [local-postgresql.md](./local-postgresql.md) | 로컬 PostgreSQL 실행·Spring 연결·환경변수 안내 |
 | [diary-create-persistence.md](./diary-create-persistence.md) | 비회원 다이어리 생성의 실제 PostgreSQL 저장·규격·스키마·테스트 |
+| [diary-list-persistence.md](./diary-list-persistence.md) | 비회원 다이어리 목록의 실제 PostgreSQL 조회·정렬·테스트 |
 | [GIT_CONVENTION.md](../GIT_CONVENTION.md) | DIO 브랜치·커밋·MR·리뷰·검증 기준 |
 | [MR 기본 템플릿](../.gitlab/merge_request_templates/Default.md) | GitLab MR 생성 시 사용할 본문 양식 |
 | [local-media-import.md](./local-media-import.md) | 67·68 이미지 가져오기·로컬 원본 저장 계약 및 검증 |
