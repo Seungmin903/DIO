@@ -14,6 +14,7 @@
 | [png-file-export.md](./png-file-export.md) | 74 PNG 파일 저장·진행·오류·재시도 계약 |
 | [pdf-export-contract.md](./pdf-export-contract.md) | 108 PDF 범위·출력 규격·순차 생성·저장·실패 처리 계약 |
 | [pen-stroke.md](./pen-stroke.md) | 88·89 펜 획 입력·종류·굵기·색상 설정·저장 형식 및 검증 |
+| [highlighter.md](./highlighter.md) | 90 형광펜 끝 모양·굵기·색상·반투명 렌더링 및 검증 |
 | [mvp1-ui-spec.md](./mvp1-ui-spec.md) | MVP1 UI/UX 범위, 디자인 토큰, 화면·상호작용 명세 |
 | [full-schema.mysql.sql](./full-schema.mysql.sql) | MySQL 8.4 기준 경량 DDL — 공유 다이어리, 캔버스, 미디어·GIF·오디오, 템플릿, AI 손글씨 폰트 포함 |
 | [api.md](./api.md) | REST·WebSocket API 초안 — 인증, 다이어리, 미디어, 캔버스, 사용자별 undo/redo, 알림함 |

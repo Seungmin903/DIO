@@ -5,6 +5,9 @@ export const PEN_TYPES = [
   { id: 'brush', label: '붓펜' }, { id: 'pencil', label: '연필' },
 ]
 export const DEFAULT_PEN_SETTINGS = { kind: 'fountain', color: '#1D1D1F', width: 2.5 }
+export const HIGHLIGHTER_COLORS = ['#FFE066', '#FFB3C7', '#B5EAD7', '#A0C4FF', '#D0B8FF', '#FFD6A5', '#C7F0A0']
+export const DEFAULT_HIGHLIGHTER_SETTINGS = { kind: 'highlighter', color: '#FFE066', width: 18, lineCap: 'square' }
+export const HIGHLIGHTER_OPACITY = 0.42
 export function normalizeHex(value) {
   const hex = value.trim().replace(/^#/, '')
   if (/^[0-9a-f]{3}$/i.test(hex)) return '#' + hex.split('').map((c) => c + c).join('').toUpperCase()

@@ -15,7 +15,7 @@ import MorePanel from '../components/panels/MorePanel'
 import PageList from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
 import PenSettings from '../components/PenSettings'
-import { DEFAULT_PEN_SETTINGS } from '../utils/penSettings'
+import { DEFAULT_PEN_SETTINGS, DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
 import SaveIndicator from '../components/controls/SaveIndicator'
 import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
@@ -46,6 +46,7 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
   const [drawerTab, setDrawerTab] = useState(null)
   const [activeTool, setActiveTool] = useState('select')
   const [penSettings, setPenSettings] = useState(DEFAULT_PEN_SETTINGS)
+  const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(true)
@@ -383,6 +384,7 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
               <Canvas
                 activeTool={activeTool}
                 penSettings={penSettings}
+                highlighterSettings={highlighterSettings}
                 readOnly={readOnly}
                 page={page}
                 zoom={zoom}
@@ -412,7 +414,7 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
                 setDrawerTab(drawerTab === tab ? null : tab)
               }}
               onSelectTool={(tool) => {
-                setPenSettingsOpen(tool === 'pen' ? !penSettingsOpen : false)
+                setPenSettingsOpen(['pen', 'highlighter'].includes(tool) ? tool !== activeTool || !penSettingsOpen : false)
                 if (cropId) finishCrop(false)
                 setTapeCropId(null)
                 setDrawerTab(null)
@@ -424,9 +426,9 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
             />
           </View>}
 
-          {!readOnly && activeTool === 'pen' && penSettingsOpen && !drawerTab && (
+          {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
             <View style={styles.penSettingsWrap} pointerEvents="box-none" {...markInside}>
-              <PenSettings settings={penSettings} onChange={setPenSettings} onClose={() => setPenSettingsOpen(false)} />
+              <PenSettings key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => setPenSettingsOpen(false)} />
             </View>
           )}
 

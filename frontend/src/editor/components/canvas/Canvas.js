@@ -38,6 +38,7 @@ export default function Canvas({
   onToast,
   activeTool = 'select',
   penSettings,
+  highlighterSettings,
   readOnly = false,
 }) {
   const canSelect = !readOnly && activeTool === 'select'
@@ -129,9 +130,9 @@ export default function Canvas({
         ))}
       </View>
 
-      {!readOnly && activeTool === 'pen' && (
+      {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
-          <PenInput key={`${page.id}-${zoom}`} zoom={zoom} dispatch={dispatch} settings={penSettings} />
+          <PenInput key={`${page.id}-${zoom}-${activeTool}`} zoom={zoom} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
         </View>
       )}
 
