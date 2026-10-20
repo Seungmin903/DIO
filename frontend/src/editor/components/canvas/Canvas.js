@@ -43,8 +43,8 @@ export default function Canvas({
   dispatch,
   moreOpen,
   onToggleMore,
+  contextBarInside,
   onCrop,
-  onReplacePhoto,
   onToast,
   activeTool = 'select',
   penSettings,
@@ -234,8 +234,8 @@ export default function Canvas({
           moreOpen={moreOpen}
           onToggleMore={onToggleMore}
           onCrop={onCrop}
-          onReplacePhoto={onReplacePhoto}
           onToast={onToast}
+          insideHandlers={contextBarInside}
         />
       )}
     </View>

@@ -21,9 +21,15 @@ export default function StaticPage({ page, zoom, still = false, cropId = null, b
       {showBackground && <PageBackground page={page} zoom={zoom} compact />}
       {page.objects
         .filter((object) => !object.hidden)
-        .map((object) => (
+        .map((object) => {
+          const opacity = objectOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1)
+          return (
           <View
             key={object.id}
+            // Android: 투명도를 요소 하나로 합쳐서 적용한다. 그렇지 않으면 사진처럼 잘라 그리는(overflow hidden) 겹들이
+            // 따로따로 비쳐서 투명도를 낮출수록 사진이 까맣게 보였다.
+            needsOffscreenAlphaCompositing={opacity < 1}
+            renderToHardwareTextureAndroid={opacity < 1}
             style={{
               position: 'absolute',
               left: object.x * zoom,
@@ -31,13 +37,14 @@ export default function StaticPage({ page, zoom, still = false, cropId = null, b
               width: object.w * zoom,
               height: object.h * zoom,
               transform: [{ rotate: `${object.rotation}deg` }],
-              opacity: objectOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1),
+              opacity,
             }}
           >
             <ObjectContent object={object} zoom={zoom} still={still} />
             {object.id === cropId && <View style={[styles.cropRing, { margin: -Math.min(6, Math.max(1, 12 * zoom)) }]} />}
           </View>
-        ))}
+          )
+        })}
     </View>
   )
 }

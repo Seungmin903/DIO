@@ -73,7 +73,11 @@ export default function ColorPicker({ value, onChange, onStart, label = '색' })
     <View style={styles.wrap}>
       <View
         style={styles.sv}
-        onLayout={(e) => setSize((prev) => ({ ...prev, sv: e.nativeEvent.layout.width }))}
+        // 크기는 먼저 꺼내 둔다. (Android 는 이벤트를 핸들러가 끝나면 비워서, setState 콜백 안에서 읽으면 null 이었다)
+        onLayout={(e) => {
+          const width = e.nativeEvent.layout.width
+          setSize((prev) => ({ ...prev, sv: width }))
+        }}
         accessibilityLabel={`${label} 채도·밝기`}
         {...svPan}
       >
@@ -106,7 +110,10 @@ export default function ColorPicker({ value, onChange, onStart, label = '색' })
 
       <View
         style={styles.hue}
-        onLayout={(e) => setSize((prev) => ({ ...prev, hue: e.nativeEvent.layout.width }))}
+        onLayout={(e) => {
+          const width = e.nativeEvent.layout.width
+          setSize((prev) => ({ ...prev, hue: width }))
+        }}
         accessibilityLabel={`${label} 색상`}
         {...huePan}
       >

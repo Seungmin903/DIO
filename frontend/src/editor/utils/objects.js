@@ -2,7 +2,7 @@
 // 공통 필드: { id, type, x, y, w, h, rotation, hidden?, locked?, groupId?, name? }
 // x, y 는 회전 전 박스의 좌상단, 회전은 박스 중심 기준이다.
 
-import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_SHAPES, LEGACY_TAPE_NAMES, POLAROID_INSETS, TAPE_DEFAULT_OPACITY, TAPE_SIZES, TAPES } from '../constants'
+import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_SHAPES, LEGACY_TAPE_NAMES, FRAME_INSETS, TAPE_DEFAULT_OPACITY, TAPE_SIZES, TAPES } from '../constants'
 import { clamp, createId } from './common'
 
 const base = (type, center, w, h, extra) => ({
@@ -126,18 +126,27 @@ export function ratioValueOf(ratioId, photo) {
   return CROP_RATIOS.find((item) => item.id === ratioId)?.value ?? null
 }
 
-export function polaroidHeight(w, ratioId, photo) {
+/** 여백 있는 틀(폴라로이드·필름·우표·찢은 종이)인지 */
+export const isBorderFrame = (frame) => FRAME_INSETS[frame] != null
+
+/** 틀 너비 w, 안쪽 사진 비율 ratioId 일 때의 틀 높이 */
+export function framedHeight(w, ratioId, photo, frame = photo.frame) {
+  const insets = FRAME_INSETS[frame] ?? FRAME_INSETS.polaroid
   const ratio = ratioValueOf(ratioId, photo) ?? 4 / 5
-  const innerW = w * (1 - POLAROID_INSETS.side * 2)
-  return innerW / ratio + w * (POLAROID_INSETS.top + POLAROID_INSETS.bottom)
+  const innerW = w * (1 - insets.side * 2)
+  return innerW / ratio + w * (insets.top + insets.bottom)
+}
+export function polaroidHeight(w, ratioId, photo) {
+  return framedHeight(w, ratioId, photo, 'polaroid')
 }
 
 /** 사진이 실제로 보이는 안쪽 영역 (오브젝트 좌상단 기준, 논리 좌표) */
 export function photoInnerBox(photo) {
-  if (photo.frame !== 'polaroid') return { left: 0, top: 0, width: photo.w, height: photo.h }
-  const side = photo.w * POLAROID_INSETS.side
-  const top = photo.w * POLAROID_INSETS.top
-  const bottom = photo.w * POLAROID_INSETS.bottom
+  const insets = FRAME_INSETS[photo.frame]
+  if (!insets) return { left: 0, top: 0, width: photo.w, height: photo.h }
+  const side = photo.w * insets.side
+  const top = photo.w * insets.top
+  const bottom = photo.w * insets.bottom
   return {
     left: side,
     top,

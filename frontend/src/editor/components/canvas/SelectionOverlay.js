@@ -37,7 +37,8 @@ function handlesFor(object) {
   if (object.type === 'sticker') return CORNERS
   // 테이프: 폭은 규격으로 정해져 있고 길이만 늘이고 줄인다. 양쪽 끝 동그라미 손잡이 두 개.
   if (object.type === 'tape') return LENGTH_KNOBS
-  if (object.type === 'photo' && object.frame === 'polaroid') return CORNERS // 폴라로이드 비율은 자르기에서 정한다.
+  // 사진: 비율은 '자르기'에서 정하고, 캔버스에서는 모서리로 크기만 바꾼다 (변을 끌어 비율이 바뀌지 않게)
+  if (object.type === 'photo') return CORNERS
   return [...CORNERS, ...SIDES]
 }
 

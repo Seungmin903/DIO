@@ -8,12 +8,10 @@ export default function TopBar({
   doc,
   layersOpen,
   pagesOpen,
-  focusMode,
   onCloseTab,
   onHome,
   onToggleLayers,
   onTogglePages,
-  onToggleFocus,
   onShare,
   onRename,
   readOnly,
@@ -38,10 +36,11 @@ export default function TopBar({
 
       <View style={styles.right}>
         {!readOnly && <IconToggle icon="layers" label="레이어" text="레이어" active={layersOpen} onPress={onToggleLayers} />}
+        {/* 내보내기: 아이콘 옆에 글자도 쓴다 (전체 화면 보기 버튼은 뺐다) */}
         <Pressable onPress={onShare} style={styles.share} accessibilityLabel={shareLabel}>
-          <Icon name={shareIcon} size={19} color={colors.surface} />
+          <Icon name={shareIcon} size={18} color={colors.surface} />
+          <Text style={styles.shareText}>내보내기</Text>
         </Pressable>
-        <IconToggle icon="focus" label="집중 편집" active={focusMode} onPress={onToggleFocus} />
       </View>
     </View>
   )
@@ -157,11 +156,14 @@ const styles = StyleSheet.create({
   togglePressed: { backgroundColor: colors.primarySoft },
   toggleText: { fontSize: 13, fontWeight: '700', color: colors.text },
   share: {
-    width: 42,
+    flexDirection: 'row',
+    gap: 6,
     height: 42,
+    paddingHorizontal: 14,
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
   },
+  shareText: { fontSize: 13, fontWeight: '800', color: colors.surface },
 })
