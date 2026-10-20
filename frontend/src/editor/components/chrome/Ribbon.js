@@ -7,7 +7,7 @@ import Icon from '../controls/Icon'
 const NAV_TOOLS = [
   { id: 'hand', icon: 'hand', label: '손바닥 (화면 이동)' },
   { id: 'select', icon: 'cursor', label: '선택' },
-  { id: 'lasso', icon: 'lasso', label: '올가미 선택', pending: true },
+  { id: 'lasso', icon: 'lasso', label: '올가미 선택' },
 ]
 
 // 그리기·쓰기 도구

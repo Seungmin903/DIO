@@ -18,6 +18,7 @@ import MorePanel from '../components/panels/MorePanel'
 import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
 import PenSettings from '../components/PenSettings'
+import LassoSettings from '../components/LassoSettings'
 import TextSettings from '../components/TextSettings'
 import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch } from '../utils/text'
 import { createText } from '../utils/text'
@@ -59,6 +60,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [view, setView] = useState({ scale: 1, x: null, y: null })
   const [drawerTab, setDrawerTab] = useState(null)
   const [activeTool, setActiveTool] = useState('select')
+  const [lassoSettingsOpen, setLassoSettingsOpen] = useState(false)
+  const [lasso, setLasso] = useState({ shape: 'rectangle', mode: 'replace' })
+  useEffect(() => { setLasso(current => ({ ...current, mode: 'replace' })) }, [page.id])
   const [textEditing, setTextEditing] = useState(null)
   const textBoundary = useRef(null)
   const textPaletteBounds = useRef(null)
@@ -86,6 +90,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setCropId(null)
     setTapeCropId(null)
     setTemplatePickerOpen(false)
+    setLassoSettingsOpen(false)
     setDrawerTab(null)
     setTextEditing(null)
     setTextSettingsOpen(false)
@@ -258,7 +263,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
   // 웹(키보드)에서의 단축키
   useEffect(() => {
-    if (Platform.OS !== 'web' || readOnly || exportOpen || regionOpen || activeTool !== 'select') return undefined
+    if (Platform.OS !== 'web' || readOnly || exportOpen || regionOpen || (activeTool !== 'select' && !(activeTool === 'lasso' && state.selectedIds.length > 0))) return undefined
     const handleKey = (event) => {
       const target = event.target
       if (target?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target?.tagName)) return
@@ -323,13 +328,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   // 빈 곳 탭: 선택 해제 + 키보드(이름 입력 등) 내리기. 자르기 중에는 선택을 유지한다.
   const clearSelection = () => {
     Keyboard.dismiss()
-    if (!cropId) dispatch({ type: 'select', ids: [] })
+    if (!cropId && activeTool !== 'lasso') dispatch({ type: 'select', ids: [] })
   }
 
-  // 툴바에서 연 창(보관함·더보기·펜 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
+  // 툴바에서 연 창(보관함·더보기·펜/텍스트/올가미 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
   // 터치를 가로채지 않고(목록 스크롤과 다투지 않게) 누른 위치만 본다:
   // 창·툴바 안의 터치는 그 영역이 먼저 표시하고, 바깥(root)에서는 표시가 없을 때만 닫는다.
-  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen)
+  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || (activeTool === 'lasso' && lassoSettingsOpen))
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
@@ -339,6 +344,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         setDrawerTab(null)
         setMoreOpen(false)
         setPenSettingsOpen(false)
+        setLassoSettingsOpen(false)
         setTextSettingsOpen(false)
       }
       touchInside.current = false
@@ -442,6 +448,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           >
               <Canvas
                 activeTool={activeTool}
+                lassoShape={lasso.shape}
+                lassoMode={lasso.mode}
+                onLassoCommit={(ids) => {
+                  dispatch({ type: 'selectExact', ids })
+                  if (!ids.length) setLasso(current => ({ ...current, mode: 'replace' }))
+                }}
+                onLassoModeChange={(mode) => setLasso(current => ({ ...current, mode: current.mode === mode ? 'replace' : mode }))}
                 penSettings={penSettings}
                 highlighterSettings={highlighterSettings}
                 textBoundary={textBoundary}
@@ -485,6 +498,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               activeTool={activeTool}
               drawerTab={drawerTab}
               onOpenDrawer={(tab) => {
+                setLassoSettingsOpen(false)
                 setTextSettingsOpen(false)
                 setPenSettingsOpen(false)
                 if (cropId) finishCrop(false)
@@ -493,18 +507,30 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 setDrawerTab(drawerTab === tab ? null : tab)
               }}
               onSelectTool={(tool) => {
+                setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
                 setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
                 setPenSettingsOpen(['pen', 'highlighter'].includes(tool) ? tool !== activeTool || !penSettingsOpen : false)
                 if (cropId) finishCrop(false)
                 setTapeCropId(null)
                 setDrawerTab(null)
                 setMoreOpen(false)
-                if (tool !== 'text') dispatch({ type: 'select', ids: [] })
+                const keepSelection = tool === 'text' || tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')
+                if (!keepSelection) dispatch({ type: 'select', ids: [] })
+                if (tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')) {
+                  setTextEditing(null)
+                  if (activeTool !== 'lasso') setLasso({ shape: 'rectangle', mode: 'replace' })
+                }
                 setActiveTool(tool)
               }}
               onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
             />
           </View>}
+          {!readOnly && activeTool === 'lasso' && lassoSettingsOpen && !drawerTab && (
+            <View style={styles.lassoSettingsWrap} pointerEvents="box-none" {...markInside}>
+              <LassoSettings shape={lasso.shape} onClose={() => setLassoSettingsOpen(false)}
+                onShapeChange={(shape) => setLasso(current => ({ ...current, shape }))} />
+            </View>
+          )}
           {!readOnly && textEditing && textPalette && <View style={[styles.textPaletteWrap, {
             left: Math.max(8, Math.min((textPalette.anchor?.x ?? stageOrigin.x) - stageOrigin.x, (stageSize?.width ?? 600) - 268)),
             top: Math.max(84, Math.min((textPalette.anchor?.y ?? stageOrigin.y) - stageOrigin.y + (textPalette.anchor?.height ?? 0) + 6, (stageSize?.height ?? 500) - 164)),
@@ -680,6 +706,7 @@ const styles = StyleSheet.create({
   stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 18 },
   textPaletteWrap: { position: 'absolute', maxWidth: '100%' },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
+  lassoSettingsWrap: { position: 'absolute', top: 76, left: 12, right: 12, alignItems: 'center' },
   penSettingsWrap: { position: 'absolute', top: 76, left: 16, right: 16, bottom: 64, alignItems: 'flex-start' },
   // 보관함은 스테이지 안에서만 펼쳐지고, 내용이 길면 안에서 스크롤한다. (하단 확대 컨트롤은 가리지 않음)
   drawerWrap: { position: 'absolute', top: 76, right: 12, bottom: 64, left: 12, alignItems: 'flex-end' },

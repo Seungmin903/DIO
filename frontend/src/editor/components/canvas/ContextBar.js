@@ -4,6 +4,7 @@ import { colors, shadow } from '../../../shared/theme'
 import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
 import { clamp, unionBounds } from '../../utils/common'
 import Icon from '../controls/Icon'
+import LassoSelectionMenu from '../LassoSelectionMenu'
 
 
 const BAR_HEIGHT = 52
@@ -14,6 +15,7 @@ const MENU_WIDTH = 148
 export default function ContextBar({
   objects,
   allObjects,
+  lassoActions = null,
   pageWidth = PAGE_WIDTH,
   pageHeight = PAGE_HEIGHT,
   zoom,
@@ -53,6 +55,7 @@ export default function ContextBar({
     objects.length > 1 || (single && !single.locked && (single.type === 'photo' || (single.type === 'tape' && single.src && single.imageWidth)))
 
   return (
+    <>
     <View
       style={[styles.bar, { top, left, opacity: barWidth ? 1 : 0 }]}
       onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
@@ -123,6 +126,10 @@ export default function ContextBar({
         />
       )}
     </View>
+    {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode}
+      onModeChange={lassoActions.onModeChange} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight}
+      anchor={{ top, height: BAR_HEIGHT }} />}
+    </>
   )
 }
 

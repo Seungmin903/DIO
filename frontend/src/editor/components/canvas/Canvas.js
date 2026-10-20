@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { PHOTO_SHAPES } from '../../constants'
@@ -14,6 +14,7 @@ import CropHandles from './CropHandles'
 import StaticPage from './StaticPage'
 import SelectionOverlay from './SelectionOverlay'
 import PenInput from '../PenInput'
+import LassoInput from '../LassoInput'
 import TextEditor from '../TextEditor'
 import TextBoxInput from '../TextBoxInput'
 
@@ -49,6 +50,10 @@ export default function Canvas({
   activeTool = 'select',
   penSettings,
   highlighterSettings,
+  lassoShape = 'rectangle',
+  lassoMode = 'replace',
+  onLassoCommit,
+  onLassoModeChange,
   onCreateText,
   onEditText,
   textEditing,
@@ -60,12 +65,17 @@ export default function Canvas({
   readOnly = false,
 }) {
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
-  const canSelect = !readOnly && activeTool === 'select' && !textEditing
+  const [lassoDrawing, setLassoDrawing] = useState(false)
+  const [lassoCapture, setLassoCapture] = useState(false)
+  useEffect(() => { setLassoDrawing(false); setLassoCapture(false) }, [page.id, activeTool])
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
   const visible = page.objects.filter((o) => !o.hidden)
   const selected = visible.filter((o) => selectedIds.includes(o.id))
+  const lassoEditing = activeTool === 'lasso' && selected.length > 0 && !lassoDrawing && !lassoCapture
+  const canSelect = !readOnly && !textEditing && (activeTool === 'select' || lassoEditing)
+  const showSelection = canSelect || (!readOnly && !textEditing && activeTool === 'lasso')
   const cropping = Boolean(cropId)
   // 사각·라운드 사진은 PPT 처럼 테두리 손잡이로 자유롭게 자른다.
   const freeCropTarget = visible.find(
@@ -128,9 +138,9 @@ export default function Canvas({
 
   return (
     <View
-      accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', text: '텍스트' }[activeTool]} 캔버스`}
+      accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', text: '텍스트', lasso: '올가미' }[activeTool]} 캔버스`}
       style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
-      {...(canSelect ? backgroundHandlers : {})}
+      {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
     >
       <PageBackground page={page} zoom={zoom} />
       {/*
@@ -140,8 +150,16 @@ export default function Canvas({
       <View style={styles.clip} pointerEvents="none">
         <StaticPage page={page} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} />
       </View>
+      {!readOnly && activeTool === 'lasso' && !textEditing && (
+        <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
+          selectedIds={selectedIds} shape={lassoShape} mode={lassoMode} zoom={zoom}
+          pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} captureAll={!lassoEditing}
+          onDrawingChange={setLassoDrawing}
+          onClearSelection={() => dispatch({ type: 'selectExact', ids: [] })}
+          onCommit={(ids) => { setLassoCapture(false); onLassoCommit(ids) }} />
+      )}
       {/* 터치 층: 요소마다 같은 자리에 투명한 상자를 두고 선택·이동을 받는다. */}
-      <View style={styles.hitLayer} pointerEvents={canSelect ? 'box-none' : 'none'}>
+      <View style={[styles.hitLayer, activeTool === 'lasso' && { zIndex: 1 }]} pointerEvents={canSelect ? 'box-none' : 'none'}>
         {visible.map((object) => (
           <CanvasObject
             key={object.id}
@@ -172,12 +190,13 @@ export default function Canvas({
         <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => onEditText(object)} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}
       {!readOnly && textEditing && <TextEditor onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
 
-      {freeCropTarget && <CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} />}
+      {freeCropTarget && <View pointerEvents="box-none" style={styles.selectionControls}><CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} /></View>}
 
       {guides?.x != null && <View style={[styles.guideV, { left: guides.x * zoom }]} pointerEvents="none" />}
       {guides?.y != null && <View style={[styles.guideH, { top: guides.y * zoom }]} pointerEvents="none" />}
 
-      {canSelect && selected.length === 1 && !cropping && !marquee && (
+      {showSelection && selected.length === 1 && !cropping && !marquee && (
+        <View pointerEvents={canSelect ? "box-none" : "none"} style={styles.selectionControls}>
         <SelectionOverlay
           object={selected[0]}
           zoom={zoom}
@@ -185,6 +204,7 @@ export default function Canvas({
           onRotation={setRotationLabel}
           onInteracting={setInteracting}
         />
+        </View>
       )}
       {selected.length > 1 && !marquee && <GroupFrame objects={selected} zoom={zoom} />}
       {selected.length === 1 && selected[0].groupId && !cropping && !marquee && (
@@ -223,10 +243,12 @@ export default function Canvas({
       )}
 
       {canSelect && selected.length > 0 && !cropping && !interacting && !marquee && (
+        <View pointerEvents="box-none" style={styles.selectionMenu}>
         <ContextBar
           key={selectedIds.join(',')}
           objects={selected}
           allObjects={page.objects}
+          lassoActions={activeTool === 'lasso' ? { mode: lassoMode, onModeChange: (mode) => { setLassoCapture(true); onLassoModeChange(mode) } } : null}
           pageWidth={PAGE_WIDTH}
           pageHeight={PAGE_HEIGHT}
           zoom={zoom}
@@ -237,6 +259,7 @@ export default function Canvas({
           onToast={onToast}
           insideHandlers={contextBarInside}
         />
+        </View>
       )}
     </View>
   )
@@ -515,6 +538,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   hitLayer: { ...StyleSheet.absoluteFillObject },
+  selectionControls: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
+  selectionMenu: { ...StyleSheet.absoluteFillObject, zIndex: 4 },
   penClip: {
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',

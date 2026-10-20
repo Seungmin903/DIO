@@ -26,6 +26,7 @@
 | [multi-page-pdf.md](./multi-page-pdf.md) | 110 PDF 페이지 선택·순차 조립·RGB·한도·취소 및 검증 |
 | [pen-stroke.md](./pen-stroke.md) | 88·89 펜 획 입력·종류·굵기·색상 설정·저장 형식 및 검증 |
 | [highlighter.md](./highlighter.md) | 90 형광펜 끝 모양·굵기·색상·반투명 렌더링 및 검증 |
+| [lasso-selection.md](./lasso-selection.md) | 네모·자유형 올가미 선택·추가·제외 및 사용자 확인 항목 |
 | [text-editing.md](./text-editing.md) | 91 텍스트 생성·한글 입력·재편집 및 저장 계약 |
 | [diary-library-storage.md](./diary-library-storage.md) | 121 다이어리 목록 로컬 저장·복원·편집 문서만 남은 다이어리 복구 |
 | [qa-local-media-export.md](./qa-local-media-export.md) | 75 로컬 미디어 저장·복원·PNG 수치 검증 및 남은 항목 |
