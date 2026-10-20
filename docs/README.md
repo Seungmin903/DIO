@@ -28,6 +28,7 @@
 | [highlighter.md](./highlighter.md) | 90 형광펜 끝 모양·굵기·색상·반투명 렌더링 및 검증 |
 | [text-editing.md](./text-editing.md) | 91 텍스트 생성·한글 입력·재편집 및 저장 계약 |
 | [diary-library-storage.md](./diary-library-storage.md) | 121 다이어리 목록 로컬 저장·복원·편집 문서만 남은 다이어리 복구 |
+| [qa-local-media-export.md](./qa-local-media-export.md) | 75 로컬 미디어 저장·복원·PNG 수치 검증 및 남은 항목 |
 | [mvp1-ui-spec.md](./mvp1-ui-spec.md) | MVP1 UI/UX 범위, 디자인 토큰, 화면·상호작용 명세 |
 | [full-schema.mysql.sql](./full-schema.mysql.sql) | MySQL 8.4 기준 경량 DDL — 공유 다이어리, 캔버스, 미디어·GIF·오디오, 템플릿, AI 손글씨 폰트 포함 |
 | [api.md](./api.md) | REST·WebSocket API 초안 — 인증, 다이어리, 미디어, 캔버스, 사용자별 undo/redo, 알림함 |

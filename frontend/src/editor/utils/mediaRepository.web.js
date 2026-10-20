@@ -1,13 +1,13 @@
 import { MediaError, storageError } from './mediaPolicy.js'
 import { validateStoredOriginal } from './mediaRecovery.js'
+import { MEDIA_DB } from './storageContract.js'
 export { decode, createDisplay, dispose, verifyDisplay } from './mediaProcessing.web.js'
 
-const DB_NAME = 'dio-media'
 let opening
 function openDb() {
   if (!opening) opening = new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') return reject(new MediaError('STORAGE_UNAVAILABLE', '이 브라우저에서는 로컬 이미지 저장을 사용할 수 없어요.'))
-    const request = indexedDB.open(DB_NAME, 3)
+    const request = indexedDB.open(MEDIA_DB.name, MEDIA_DB.version)
     request.onupgradeneeded = () => {
       const db = request.result
       if (!db.objectStoreNames.contains('blobs')) db.createObjectStore('blobs')
