@@ -3,6 +3,7 @@ import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-nat
 import { colors, shadow } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
+import ExportMenu from '../components/ExportMenu'
 import PageExportPreview from '../components/PageExportPreview'
 import { createExportSnapshot } from '../utils/pageExport.js'
 import { pngFileName } from '../utils/pngFileSave.js'
@@ -34,11 +35,12 @@ const ZOOM_HUD_MS = 900
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
-export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false }) {
+export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport }) {
   const { state, dispatch, saveStatus } = useEditor(diary)
   const page = getCurrentPage(state)
 
   const [exportSnapshot, setExportSnapshot] = useState(null)
+  const [exportOpen, setExportOpen] = useState(false)
   const [stageSize, setStageSize] = useState(null)
   // scale: 화면에 맞춤 대비 배율, x·y: 페이지 왼쪽 위 위치 (null 이면 가운데)
   const [view, setView] = useState({ scale: 1, x: null, y: null })
@@ -218,7 +220,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
   // 웹(키보드)에서의 단축키
   useEffect(() => {
-    if (Platform.OS !== 'web' || readOnly || activeTool !== 'select') return undefined
+    if (Platform.OS !== 'web' || readOnly || exportOpen || activeTool !== 'select') return undefined
     const handleKey = (event) => {
       const target = event.target
       if (target?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target?.tagName)) return
@@ -339,15 +341,21 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           setFocusMode(!focusMode)
           if (!focusMode) showToast('집중 편집 · 양옆 패널을 닫았어요.')
         }}
-        shareLabel="PNG 내보내기"
-        shareIcon="image"
+        shareLabel="공유 및 내보내기"
+        shareIcon="share"
         onShare={() => {
-          if (exportSnapshot) return
-          try { setExportSnapshot({ ...createExportSnapshot(page, { width: PAGE_WIDTH, height: PAGE_HEIGHT }), fileName: pngFileName(state.doc.title, state.doc.pages.findIndex((p) => p.id === page.id) + 1) }) }
-          catch (error) { setExportSnapshot({ errorMessage: error.message }) }
+          if (cropId || tapeCropId) { showToast('자르기를 마친 뒤 내보내 주세요.'); return }
+          Keyboard.dismiss()
+          setExportOpen(true)
         }}
       />
 
+      {exportOpen && <ExportMenu doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport} onPng={(id) => {
+        const target = state.doc.pages.find((p) => p.id === id)
+        setExportOpen(false)
+        try { setExportSnapshot({ ...createExportSnapshot(target, { width: PAGE_WIDTH, height: PAGE_HEIGHT }), fileName: pngFileName(state.doc.title, state.doc.pages.findIndex((p) => p.id === id) + 1) }) }
+        catch (error) { setExportSnapshot({ errorMessage: error.message }) }
+      }} />}
       {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onClose={() => setExportSnapshot(null)} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={styles.body}>
