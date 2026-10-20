@@ -14,6 +14,9 @@ export default function TopBar({
   onTogglePages,
   onToggleFocus,
   onShare,
+  readOnly,
+  shareLabel = '공유',
+  shareIcon = 'share',
 }) {
   return (
     <View style={styles.bar}>
@@ -36,9 +39,22 @@ export default function TopBar({
       </View>
 
       <View style={styles.right}>
-        <IconToggle icon="layers" label="레이어" text="레이어" active={layersOpen} onPress={onToggleLayers} />
-        <Pressable onPress={onShare} style={styles.share} accessibilityLabel="공유">
-          <Icon name="share" size={19} color={colors.surface} />
+        {!readOnly && <IconToggle icon="layers" label="레이어" text="레이어" active={layersOpen} onPress={onToggleLayers} />}
+        <View style={styles.avatars}>
+          {MEMBERS.map((member, index) => (
+            <View
+              key={member.initial}
+              style={[
+                styles.avatar,
+                { backgroundColor: member.color, opacity: member.active ? 1 : 0.45, marginLeft: index ? -8 : 0 },
+              ]}
+            >
+              <Text style={styles.avatarText}>{member.initial}</Text>
+            </View>
+          ))}
+        </View>
+        <Pressable onPress={onShare} style={styles.share} accessibilityLabel={shareLabel}>
+          <Icon name={shareIcon} size={19} color={colors.surface} />
         </Pressable>
         <IconToggle icon="focus" label="집중 편집" active={focusMode} onPress={onToggleFocus} />
       </View>
@@ -51,7 +67,9 @@ function IconToggle({ icon, label, text, active, onPress }) {
     <Pressable
       onPress={onPress}
       accessibilityLabel={label}
+      accessibilityRole="button"
       accessibilityState={{ selected: active }}
+      aria-pressed={Boolean(active)}
       style={({ pressed }) => [styles.toggle, active && styles.toggleActive, pressed && styles.togglePressed]}
     >
       <Icon name={icon} size={19} />

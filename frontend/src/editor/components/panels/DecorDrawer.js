@@ -7,8 +7,10 @@ import { STICKER_GROUPS, stickerSource } from '../../assets/stickerAssets'
 import Svg, { Path } from 'react-native-svg'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
+import { mediaFailureMessage } from '../../utils/mediaRecovery.js'
 import { pickImages } from '../../services/image'
-import { mediaUri } from '../../services/mediaStore'
+import { useMediaUri } from '../../hooks/useMediaUri'
+import { MEDIA_FORMATS } from '../../utils/mediaPolicy'
 import ChipScroller, { justDragged } from '../controls/ChipScroller'
 import Icon from '../controls/Icon'
 import TapeCropper from './TapeCropper'
@@ -20,9 +22,6 @@ export const DRAWER_TABS = [
   { id: 'photo', name: '사진', icon: 'image' },
 ]
 
-const CUSTOM_STICKER_PX = 360
-// 테이프는 사진 일부를 확대해 쓰므로 넉넉하게 받는다.
-const CUSTOM_TAPE_PX = 1400
 // 보관함 미리보기 테이프 크기 (실제 테이프 기본 크기 180×34 와 같은 비율)
 const TAPE_PREVIEW = { width: 236, height: 44 }
 
@@ -99,17 +98,15 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
     try {
       // 테이프는 한 장씩 골라 테이프 틀에 들어갈 부분을 먼저 정한 뒤 추가한다.
       if (kind === 'tapes') {
-        const [image] = await pickImages({ maxSize: CUSTOM_TAPE_PX, multiple: false, keepAlpha: true })
+        const [image] = await pickImages({ multiple: false, usage: 'tape' })
         if (image) setPendingTape(image)
         return
       }
-      const images = await pickImages({
-        maxSize: kind === 'stickers' ? CUSTOM_STICKER_PX : CUSTOM_TAPE_PX,
-        keepAlpha: true,
-      })
+      const images = await pickImages({ usage: 'sticker' })
       images.forEach((image) =>
         custom.add(kind, {
           src: image.src,
+          mediaFileId: image.mediaFileId,
           poster: image.poster,
           name: image.name,
           aspect: image.width / image.height,
@@ -117,7 +114,7 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
       )
       if (images.length) onToast('내 스티커에 추가했어요.')
     } catch (error) {
-      onToast(error.message)
+      onToast(mediaFailureMessage(error), () => addCustom(kind))
     } finally {
       setBusy(false)
     }
@@ -266,6 +263,7 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
                       >
                         <TapeView
                           src={item.src}
+                          mediaFileId={item.mediaFileId}
                           crop={item.crop}
                           imageWidth={item.imageWidth}
                           imageHeight={item.imageHeight}
@@ -292,15 +290,22 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
           {tab === 'photo' && (
             <>
               <Pressable
-                onPress={() => onAddPhotos(photoStyle)}
+                onPress={async () => {
+                  if (busy) return
+                  setBusy(true)
+                  try { await onAddPhotos(photoStyle) } finally { setBusy(false) }
+                }}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: busy, busy }}
                 style={({ pressed }) => [styles.upload, pressed && styles.pressed]}
               >
                 <View style={styles.uploadIcon}>
                   <Icon name="image" size={24} color={colors.primary} />
                 </View>
-                <Text style={styles.uploadTitle}>사진 · GIF 불러오기</Text>
+                <Text style={styles.uploadTitle}>{busy ? '원본을 저장하고 있어요…' : '사진 · GIF 불러오기'}</Text>
                 <Text style={styles.uploadHint}>
-                  여러 장을 한 번에 고를 수 있어요. 붙인 뒤 선택하면 자르기·크기·회전을 바꿀 수 있어요.
+                  {MEDIA_FORMATS}{'\n'}사진 50MiB · 6,400만 화소 / GIF 10MiB · 4,096px
                 </Text>
               </Pressable>
               {recentPhotos.length > 0 && (
@@ -313,11 +318,7 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
                           style={({ pressed }) => [styles.photoTile, pressed && styles.photoPressed]}
                           accessibilityLabel={`${photo.name ?? '사진'} 붙이기`}
                         >
-                          <Image
-                            source={{ uri: mediaUri(photo.poster ?? photo.src) }}
-                            style={styles.photoImage}
-                            resizeMode="cover"
-                          />
+                          <RecentPhotoThumb photo={photo} />
                         </Pressable>
                       </View>
                     ))}
@@ -334,8 +335,8 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
           initialEdge={tapeEdge}
           onCancel={() => setPendingTape(null)}
           onConfirm={({ crop, edge }) => {
-            const { src, poster, name, width, height } = pendingTape
-            custom.add('tapes', { src, poster, name, imageWidth: width, imageHeight: height, crop })
+            const { src, mediaFileId, poster, name, width, height } = pendingTape
+            custom.add('tapes', { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop })
             setTapeEdge(edge)
             setPendingTape(null)
             onToast('내 테이프에 추가했어요. 붙인 뒤에도 자르기로 다시 고를 수 있어요.')
@@ -358,12 +359,18 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
 }
 
 function StickerThumb({ item }) {
-  const source = stickerSource(item, true)
+  const uri = useMediaUri(item, { still: true })
+  const source = stickerSource(item, true, uri)
   return source ? (
     <Image source={source} style={styles.tileImage} resizeMode="contain" />
   ) : (
     <Text style={styles.tileEmoji}>{item.emoji}</Text>
   )
+}
+
+function RecentPhotoThumb({ photo }) {
+  const uri = useMediaUri(photo, { still: true })
+  return <Image source={uri ? { uri } : null} style={styles.photoImage} resizeMode="cover" />
 }
 
 function Section({ title, badge, children }) {

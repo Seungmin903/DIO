@@ -1,90 +1,72 @@
-// 큰 이미지(GIF) 보관소. 문서에는 'media:{id}' 참조만 남기고 원본은 따로 둔다.
-// - 웹: IndexedDB 에 Blob 으로 저장하고, 화면에는 짧은 blob: URL 을 쓴다.
-//   data URI 를 문서에 넣으면 편집할 때마다 수 MB 문자열을 JSON 으로 다시 써서 화면이 멈추고 저장 공간도 넘친다.
-// - 네이티브: 아직 파일 저장소 연결 전이라 data URI 를 그대로 쓴다. (백엔드 업로드가 붙으면 서버 URL 로 바뀔 자리)
+// 문서에는 media:{UUID} 참조만, 원본·메타데이터는 플랫폼 보관소에 저장한다.
 import { Platform } from 'react-native'
-import { createId } from '../utils/common'
+import { randomUUID } from 'expo-crypto'
+import * as repository from '../utils/mediaRepository'
+import { createMediaImporter } from '../utils/mediaImport.js'
+import { MediaError } from '../utils/mediaPolicy.js'
+import { collectMediaIds, createMediaRegistry, isMediaRef, mediaId, mediaReference } from '../utils/mediaReferences.js'
 
-const PREFIX = 'media:'
-const DB_NAME = 'dio-media'
-const STORE = 'blobs'
-const urls = new Map() // id → blob: URL
+export { isMediaRef }
+export function reportMediaDisplayError(item) {
+  const id = mediaId(item)
+  if (id) mediaRegistry.fail(id, new MediaError('MEDIA_CORRUPT', '이미지를 표시하지 못했어요. 원본 파일을 다시 선택해 주세요.'))
+}
+export const mediaRegistry = createMediaRegistry({
+  async load(id) {
+    const { media, blob, displayBlob } = await repository.get(id)
+    const source = displayBlob ?? blob
+    await repository.verifyDisplay(source)
+    return { media, uri: Platform.OS === 'web' ? URL.createObjectURL(source) : source.uri }
+  },
+  release(uri) { if (Platform.OS === 'web') URL.revokeObjectURL(uri) },
+})
 
-export const isMediaRef = (src) => typeof src === 'string' && src.startsWith(PREFIX)
-export const mediaSupported = Platform.OS === 'web' && typeof indexedDB !== 'undefined'
-
-/** 화면에 쓸 주소. 보관소 참조가 아니면 그대로 돌려준다. */
-export function mediaUri(src) {
-  if (!isMediaRef(src)) return src
-  return urls.get(src.slice(PREFIX.length)) ?? null
+export function mediaUri(item, { still = false } = {}) {
+  const source = still && item?.poster ? item.poster : item
+  const id = mediaId(source)
+  if (id) {
+    const entry = mediaRegistry.get(id)
+    return entry?.status === 'ready' ? entry.uri : null
+  }
+  return typeof source === 'string' ? source : source?.src ?? null
 }
 
-/** Blob 을 보관하고 'media:{id}' 참조를 돌려준다. */
-export async function putMedia(blob) {
-  const id = createId()
-  const db = await openDb()
-  await request(db.transaction(STORE, 'readwrite').objectStore(STORE).put(blob, id))
-  urls.set(id, URL.createObjectURL(blob))
-  return PREFIX + id
+const importer = createMediaImporter({ ...repository, createId: randomUUID })
+export async function importMedia(assets, options) {
+  const items = await importer(assets, options)
+  return items.map(({ uri, ...media }) => {
+    mediaRegistry.seed(media.mediaFileId, { uri, media })
+    return { ...media, src: mediaReference(media.mediaFileId) }
+  })
 }
 
-/** 앱을 열 때 한 번: 저장된 Blob 을 모두 blob: URL 로 만들어 둔다. (디코딩은 하지 않아 가볍다) */
-let hydrating = null
-export function hydrateMedia() {
-  if (!hydrating) hydrating = loadAll()
-  return hydrating
+export const mediaService = {
+  async import(asset) { return (await importMedia([asset]))[0] },
+  get: repository.get,
+  resolveDisplay: (id) => mediaRegistry.ensure(id),
 }
 
-async function loadAll() {
-  if (!mediaSupported) return
-  try {
-    const db = await openDb()
-    const store = db.transaction(STORE, 'readonly').objectStore(STORE)
-    const [keys, blobs] = await Promise.all([request(store.getAllKeys()), request(store.getAll())])
-    keys.forEach((id, index) => {
-      if (!urls.has(id)) urls.set(id, URL.createObjectURL(blobs[index]))
-    })
-  } catch {
-    // 보관소를 못 열면 해당 이미지만 빈 칸으로 보인다.
+export async function hydrateMedia(references) {
+  const ids = collectMediaIds(references)
+  const results = await Promise.allSettled(ids.map((id) => mediaRegistry.ensure(id)))
+  return {
+    loaded: ids.filter((_, index) => results[index].status === 'fulfilled'),
+    failures: ids.flatMap((id, index) => results[index].status === 'rejected' ? [{ mediaFileId: id, error: results[index].reason }] : []),
   }
 }
 
-/**
- * 첫 장면만 뽑은 작은 PNG (썸네일·레이어 목록용). 움직이는 GIF 를 여러 곳에서 동시에 돌리지 않으려고 쓴다.
- * 만들 수 없으면 null.
- */
+// 보관함용 파생 썸네일. 원본이나 최종 PNG 내보내기용 데이터가 아니다.
 export async function makePoster(blob, maxSize = 160) {
   if (Platform.OS !== 'web' || typeof createImageBitmap === 'undefined') return null
   try {
     const bitmap = await createImageBitmap(blob)
-    const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height))
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
-    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-    bitmap.close?.()
-    return canvas.toDataURL('image/png')
-  } catch {
-    return null
-  }
-}
-
-let dbPromise = null
-function openDb() {
-  if (!dbPromise) {
-    dbPromise = new Promise((resolve, reject) => {
-      const open = indexedDB.open(DB_NAME, 1)
-      open.onupgradeneeded = () => open.result.createObjectStore(STORE)
-      open.onsuccess = () => resolve(open.result)
-      open.onerror = () => reject(open.error)
-    })
-  }
-  return dbPromise
-}
-
-function request(req) {
-  return new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
-  })
+    try {
+      const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+      return canvas.toDataURL('image/png')
+    } finally { bitmap.close?.() }
+  } catch { return null }
 }

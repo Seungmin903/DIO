@@ -277,8 +277,8 @@ export const STICKER_GROUPS = GROUPS.map((group) => ({
  * 스티커 이미지 소스: 기본 스티커는 asset id, 사용자 스티커는 src(data URI 또는 보관소 참조).
  * still 이면 GIF 대신 첫 장면(poster)을 쓴다. (썸네일·목록용)
  */
-export function stickerSource(item, still = false) {
+export function stickerSource(item, still = false, resolvedUri) {
   if (item.asset) return STICKER_ASSETS[item.asset]
-  const src = still && item.poster ? item.poster : item.src
-  return src ? { uri: mediaUri(src) } : null
+  const uri = resolvedUri === undefined ? mediaUri(item, { still }) : resolvedUri
+  return uri ? { uri } : null
 }

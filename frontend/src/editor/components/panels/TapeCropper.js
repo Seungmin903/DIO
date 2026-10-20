@@ -4,7 +4,7 @@ import { colors, shadow } from '../../../shared/theme'
 import { CROP_ZOOM_MAX, CROP_ZOOM_MIN, TAPE_EDGES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
-import { mediaUri } from '../../services/mediaStore'
+import { useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout } from '../../utils/objects'
 import Icon from '../controls/Icon'
 import Slider from '../controls/Slider'
@@ -27,6 +27,7 @@ export default function TapeCropper({
   onCancel,
 }) {
   const window = useWindowDimensions()
+  const uri = useMediaUri(image)
   const [crop, setCrop] = useState(initialCrop ?? { fx: 0.5, fy: 0.5, zoom: 1 })
   const [edge, setEdge] = useState(initialEdge)
   const start = useRef(crop)
@@ -68,7 +69,7 @@ export default function TapeCropper({
           <View style={[styles.stage, { height: frameHeight + CONTEXT_PX * 2 }]} {...panHandlers}>
             {/* 틀 밖까지 이어지는 사진 (흐리게) */}
             <Image
-              source={{ uri: mediaUri(image.src) }}
+              source={uri ? { uri } : null}
               style={[
                 styles.context,
                 { left: 20 + layout.left, top: CONTEXT_PX + layout.top, width: layout.width, height: layout.height },
@@ -82,6 +83,7 @@ export default function TapeCropper({
             >
               <TapeView
                 src={image.src}
+                mediaFileId={image.mediaFileId}
                 crop={crop}
                 imageWidth={image.width}
                 imageHeight={image.height}

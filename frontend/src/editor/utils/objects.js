@@ -23,11 +23,12 @@ export function createSticker(item, center) {
       name: item.name,
     })
   }
-  if (item.src) {
+  if (item.mediaFileId || item.src) {
     const aspect = item.aspect ?? 1
     const w = aspect >= 1 ? 110 : 110 * aspect
     return base('sticker', center, w, w / aspect, {
       src: item.src,
+      mediaFileId: item.mediaFileId,
       poster: item.poster,
       name: item.name,
     })
@@ -40,9 +41,10 @@ export function createSticker(item, center) {
 
 export function createTape(item, center) {
   // 이미지 테이프도 기본 테이프와 같은 네모 틀에 꽉 채워(cover) 넣어 테이프 비율을 유지한다.
-  if (item.src) {
+  if (item.mediaFileId || item.src) {
     return base('tape', center, 180, 34, {
       src: item.src,
+      mediaFileId: item.mediaFileId,
       name: item.name,
       imageWidth: item.imageWidth,
       imageHeight: item.imageHeight,
@@ -59,6 +61,7 @@ export function createTape(item, center) {
 export function createPhoto(item, center) {
   const photo = {
     src: item.src,
+    mediaFileId: item.mediaFileId,
     poster: item.poster,
     name: item.name,
     imageWidth: item.imageWidth,

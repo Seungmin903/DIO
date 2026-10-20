@@ -3,7 +3,7 @@ import { Image, Platform, StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { usePan } from '../../hooks/usePan'
 import { clamp, rotateVector } from '../../utils/common'
-import { mediaUri } from '../../services/mediaStore'
+import { useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout } from '../../utils/objects'
 
 const MIN_SIZE = 24 // 논리 좌표
@@ -60,13 +60,14 @@ export default function CropHandles({ photo, zoom, dispatch }) {
 
 /** 잘려 나간 부분까지 사진 전체를 흐리게 보여 준다. (어디까지 다시 늘릴 수 있는지 보이도록) */
 function TrimmedArea({ photo, zoom }) {
+  const uri = useMediaUri(photo)
   const image = coverLayout(photo, photo.w * zoom, photo.h * zoom)
   const left = photo.flipX ? photo.w * zoom - image.left - image.width : image.left
   const top = photo.flipY ? photo.h * zoom - image.top - image.height : image.top
   const transform = [photo.flipX && { scaleX: -1 }, photo.flipY && { scaleY: -1 }].filter(Boolean)
   return (
     <Image
-      source={{ uri: mediaUri(photo.src) }}
+      source={uri ? { uri } : null}
       pointerEvents="none"
       resizeMode="stretch"
       style={[styles.trimmed, { left, top, width: image.width, height: image.height }, transform.length > 0 && { transform }]}

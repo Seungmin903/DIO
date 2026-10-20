@@ -35,7 +35,10 @@ export default function Canvas({
   onCrop,
   onReplacePhoto,
   onToast,
+  activeTool = 'select',
+  readOnly = false,
 }) {
+  const canSelect = !readOnly && activeTool === 'select'
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
@@ -51,6 +54,7 @@ export default function Canvas({
   const marqueeRef = useRef(null)
   const backgroundHandlers = usePan({
     onStart: (event) => {
+      if (!canSelect) return
       marqueeRef.current = {
         x: event.locationX / zoom,
         y: event.locationY / zoom,
@@ -91,8 +95,12 @@ export default function Canvas({
   })
 
   return (
-    <View style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }]} {...backgroundHandlers}>
-      <View style={styles.clip} pointerEvents="box-none">
+    <View
+      accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ select: '선택', pen: '펜', highlighter: '형광펜', text: '텍스트' }[activeTool]} 캔버스`}
+      style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
+      {...(canSelect ? backgroundHandlers : {})}
+    >
+      <View style={styles.clip} pointerEvents={canSelect ? 'box-none' : 'none'}>
         {visible.map((object) => (
           <CanvasObject
             key={object.id}
@@ -114,7 +122,7 @@ export default function Canvas({
       {guides?.x != null && <View style={[styles.guideV, { left: guides.x * zoom }]} pointerEvents="none" />}
       {guides?.y != null && <View style={[styles.guideH, { top: guides.y * zoom }]} pointerEvents="none" />}
 
-      {selected.length === 1 && !cropping && !marquee && (
+      {canSelect && selected.length === 1 && !cropping && !marquee && (
         <SelectionOverlay
           object={selected[0]}
           zoom={zoom}
@@ -159,7 +167,7 @@ export default function Canvas({
         </View>
       )}
 
-      {selected.length > 0 && !cropping && !interacting && !marquee && (
+      {canSelect && selected.length > 0 && !cropping && !interacting && !marquee && (
         <ContextBar
           key={selectedIds.join(',')}
           objects={selected}

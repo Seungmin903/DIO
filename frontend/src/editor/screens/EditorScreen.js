@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../shared/theme'
+import MediaNotice from '../components/MediaNotice'
+import { mediaFailureMessage } from '../utils/mediaRecovery.js'
+import PageExportPreview from '../components/PageExportPreview'
+import { createExportSnapshot } from '../utils/pageExport.js'
+import { pngFileName } from '../utils/pngFileSave.js'
 import Canvas from '../components/canvas/Canvas'
 import CropPanel from '../components/panels/CropPanel'
 import DecorDrawer from '../components/panels/DecorDrawer'
@@ -23,23 +28,37 @@ const TOAST_MS = 2000
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 
-export default function EditorScreen({ onHome, diary }) {
+// 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
+export default function EditorScreen({ onHome, diary, readOnly = false }) {
   const { state, dispatch, saveStatus } = useEditor(diary)
   const page = getCurrentPage(state)
   const pageIndex = state.doc.pages.indexOf(page)
 
+  const [exportSnapshot, setExportSnapshot] = useState(null)
   const [stageSize, setStageSize] = useState(null)
   const [zoomSetting, setZoomSetting] = useState('fit') // 'fit' | number
   const [drawerTab, setDrawerTab] = useState(null)
+  const [activeTool, setActiveTool] = useState('select')
   const [moreOpen, setMoreOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(true)
   const [pagesOpen, setPagesOpen] = useState(true)
   const [focusMode, setFocusMode] = useState(false)
   const [cropId, setCropId] = useState(null)
   const [recentPhotos, setRecentPhotos] = useState([])
+  const [importFailure, setImportFailure] = useState(null)
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
   const clipboard = useRef([]) // Ctrl+C 로 복사한 오브젝트 (다른 페이지에도 붙여 넣기)
+
+  useEffect(() => {
+    if (!readOnly) return
+    if (cropId) dispatch({ type: 'revertToCheckpoint' })
+    setCropId(null)
+    setTapeCropId(null)
+    setDrawerTab(null)
+    setMoreOpen(false)
+    dispatch({ type: 'select', ids: [] })
+  }, [readOnly, cropId, dispatch])
 
   const fitZoom = stageSize
     ? clamp(
@@ -54,11 +73,14 @@ export default function EditorScreen({ onHome, diary }) {
   const zoom = zoomSetting === 'fit' ? fitZoom : zoomSetting
 
   const cropTarget = cropId ? page.objects.find((o) => o.id === cropId && o.type === 'photo') : null
-  const tapeCrop = tapeCropId ? page.objects.find((o) => o.id === tapeCropId && o.src && o.imageWidth) : null
+  const tapeCrop = tapeCropId ? page.objects.find((o) => o.id === tapeCropId && (o.src || o.mediaFileId) && o.imageWidth) : null
   const selectedObjects = page.objects.filter((o) => state.selectedIds.includes(o.id))
   const showMore = moreOpen && selectedObjects.length > 0 && !cropId
 
-  const showToast = useCallback((message) => setToast({ message, key: createId() }), [setToast])
+  const showToast = useCallback((message, retry) => {
+    if (retry) setImportFailure({ message, retry })
+    else setToast({ message, key: createId() })
+  }, [setToast])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -86,11 +108,13 @@ export default function EditorScreen({ onHome, diary }) {
 
   const addPhotos = async (style) => {
     try {
+      setImportFailure(null)
       const images = await pickImages()
       if (!images.length) return
       const photos = images.map((image) => ({
         id: createId(),
         src: image.src,
+        mediaFileId: image.mediaFileId,
         poster: image.poster,
         name: image.name,
         imageWidth: image.width,
@@ -103,13 +127,14 @@ export default function EditorScreen({ onHome, diary }) {
       )
       dispatch({ type: 'addObjects', objects })
     } catch (error) {
-      showToast(error.message)
+      showToast(mediaFailureMessage(error), () => addPhotos(style))
     }
   }
 
   // 틀·자르기 설정은 두고 사진만 바꾼다.
   const replacePhoto = async (id) => {
     try {
+      setImportFailure(null)
       const [image] = await pickImages({ multiple: false })
       if (!image) return
       dispatch({
@@ -118,6 +143,7 @@ export default function EditorScreen({ onHome, diary }) {
         record: true,
         patch: {
           src: image.src,
+          mediaFileId: image.mediaFileId,
           poster: image.poster,
           name: image.name,
           imageWidth: image.width,
@@ -127,7 +153,7 @@ export default function EditorScreen({ onHome, diary }) {
       })
       showToast('사진을 바꿨어요.')
     } catch (error) {
-      showToast(error.message)
+      showToast(mediaFailureMessage(error), () => replacePhoto(id))
     }
   }
 
@@ -159,7 +185,7 @@ export default function EditorScreen({ onHome, diary }) {
 
   // 웹(키보드)에서의 단축키
   useEffect(() => {
-    if (Platform.OS !== 'web') return undefined
+    if (Platform.OS !== 'web' || readOnly || activeTool !== 'select') return undefined
     const handleKey = (event) => {
       const target = event.target
       if (target?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target?.tagName)) return
@@ -240,6 +266,7 @@ export default function EditorScreen({ onHome, diary }) {
           if (onHome) onHome()
           else showToast('다이어리 홈은 다른 화면에서 연결될 예정이에요.')
         }}
+        readOnly={readOnly}
         onTogglePages={() => {
           setFocusMode(false)
           setPagesOpen(!showPages)
@@ -252,12 +279,21 @@ export default function EditorScreen({ onHome, diary }) {
           setFocusMode(!focusMode)
           if (!focusMode) showToast('집중 편집 · 양옆 패널을 닫았어요.')
         }}
-        onShare={() => showToast('공유는 백엔드 연결 후 사용할 수 있어요.')}
+        shareLabel="PNG 내보내기"
+        shareIcon="image"
+        onShare={() => {
+          if (exportSnapshot) return
+          try { setExportSnapshot({ ...createExportSnapshot(page, { width: PAGE_WIDTH, height: PAGE_HEIGHT }), fileName: pngFileName(state.doc.title, state.doc.pages.findIndex((p) => p.id === page.id) + 1) }) }
+          catch (error) { setExportSnapshot({ errorMessage: error.message }) }
+        }}
       />
 
+      {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onClose={() => setExportSnapshot(null)} />}
+      <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={styles.body}>
         {showPages && (
           <PageList
+            readOnly={readOnly}
             pages={state.doc.pages}
             currentId={page.id}
             onSelect={(id) => {
@@ -276,6 +312,8 @@ export default function EditorScreen({ onHome, diary }) {
           <ScrollView horizontal contentContainerStyle={styles.scrollX} showsHorizontalScrollIndicator={false}>
             <ScrollView contentContainerStyle={styles.scrollY} showsVerticalScrollIndicator={false}>
               <Canvas
+                activeTool={activeTool}
+                readOnly={readOnly}
                 page={page}
                 zoom={zoom}
                 selectedIds={state.selectedIds}
@@ -293,18 +331,27 @@ export default function EditorScreen({ onHome, diary }) {
             </ScrollView>
           </ScrollView>
 
-          <View style={styles.ribbonWrap} pointerEvents="box-none">
+          {!readOnly && <View style={styles.ribbonWrap} pointerEvents="box-none">
             <Ribbon
+              activeTool={activeTool}
               drawerTab={drawerTab}
               onOpenDrawer={(tab) => {
                 if (cropId) finishCrop(false)
                 setMoreOpen(false)
+                setActiveTool('select')
                 setDrawerTab(drawerTab === tab ? null : tab)
               }}
-              onSelectTool={() => setDrawerTab(null)}
+              onSelectTool={(tool) => {
+                if (cropId) finishCrop(false)
+                setTapeCropId(null)
+                setDrawerTab(null)
+                setMoreOpen(false)
+                dispatch({ type: 'select', ids: [] })
+                setActiveTool(tool)
+              }}
               onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
             />
-          </View>
+          </View>}
 
           {showMore && !drawerTab && (
             <View style={styles.drawerWrap} pointerEvents="box-none">
@@ -327,9 +374,9 @@ export default function EditorScreen({ onHome, diary }) {
           )}
 
           <View style={[styles.floating, styles.floatingLeft]}>
-            <RoundButton icon="undo" label="되돌리기" disabled={!state.past.length} onPress={undo} />
+            <RoundButton icon="undo" label="되돌리기" disabled={readOnly || !state.past.length} onPress={undo} />
             <View style={styles.floatingDivider} />
-            <RoundButton icon="redo" label="다시 실행" disabled={!state.future.length} onPress={redo} />
+            <RoundButton icon="redo" label="다시 실행" disabled={readOnly || !state.future.length} onPress={redo} />
             <View style={styles.floatingDivider} />
             <SaveIndicator status={saveStatus} onInfo={showToast} />
           </View>
@@ -344,7 +391,7 @@ export default function EditorScreen({ onHome, diary }) {
 
           {tapeCrop && (
             <TapeCropper
-              image={{ src: tapeCrop.src, width: tapeCrop.imageWidth, height: tapeCrop.imageHeight }}
+              image={{ src: tapeCrop.src, mediaFileId: tapeCrop.mediaFileId, width: tapeCrop.imageWidth, height: tapeCrop.imageHeight }}
               initialCrop={tapeCrop.crop}
               initialEdge={tapeCrop.edge}
               title="테이프 다시 자르기"
@@ -367,7 +414,7 @@ export default function EditorScreen({ onHome, diary }) {
         {cropTarget ? (
           <CropPanel photo={cropTarget} dispatch={dispatch} onApply={() => finishCrop(true)} onCancel={() => finishCrop(false)} />
         ) : (
-          showLayers && (
+          showLayers && !readOnly && (
             <LayerPanel
               objects={page.objects}
               selectedIds={state.selectedIds}

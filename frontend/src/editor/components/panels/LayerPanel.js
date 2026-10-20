@@ -3,7 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { colors } from '../../../shared/theme'
 import { OBJECT_TYPE_LABELS } from '../../constants'
 import { stickerSource } from '../../assets/stickerAssets'
-import { mediaUri } from '../../services/mediaStore'
+import { useMediaUri } from '../../hooks/useMediaUri'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
@@ -353,22 +353,24 @@ function LayerRow({ object, nested, selected, renamable, dispatch, ...drag }) {
 }
 
 function LayerThumb({ object }) {
+  const uri = useMediaUri(object, { still: true })
   let content = null
   if (object.type === 'sticker') {
-    const source = stickerSource(object, true)
+    const source = stickerSource(object, true, uri)
     content = source ? (
       <Image source={source} style={styles.thumbImage} resizeMode="contain" />
     ) : (
       <Text style={styles.thumbEmoji}>{object.emoji}</Text>
     )
   } else if (object.type === 'photo') {
-    content = <Image source={{ uri: mediaUri(object.poster ?? object.src) }} style={styles.thumbPhoto} resizeMode="cover" />
+    content = <Image source={uri ? { uri } : null} style={styles.thumbPhoto} resizeMode="cover" />
   } else {
     content = (
       <View style={styles.thumbTape}>
         <TapeView
           pattern={object.pattern}
           src={object.src}
+          mediaFileId={object.mediaFileId}
           crop={object.crop}
           imageWidth={object.imageWidth}
           imageHeight={object.imageHeight}

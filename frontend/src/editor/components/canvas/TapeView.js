@@ -1,4 +1,4 @@
-import { mediaUri } from '../../services/mediaStore'
+import { useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout } from '../../utils/objects'
 import { useSvgId } from '../../utils/svgId'
 import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Line, Path, Pattern, Polygon, Rect } from 'react-native-svg'
@@ -91,21 +91,23 @@ function tornPolygon(w, h) {
  * 마스킹테이프. 기본 패턴은 SVG 무늬로 채우고, 사용자가 올린 이미지는 테이프 네모 틀에 꽉 채워(cover) 넣는다.
  * 어느 쪽이든 끝 모양(절취선·직선)으로 자르고 테이프처럼 살짝 비치게 그린다.
  */
-export default function TapeView({ pattern, src, crop, imageWidth, imageHeight, edge = 'torn', width, height, scale = 1 }) {
+export default function TapeView({ pattern, src, mediaFileId, crop, imageWidth, imageHeight, edge = 'torn', width, height, scale = 1, onAssetLoad }) {
+  const uri = useMediaUri({ src, mediaFileId })
+  const hasImage = Boolean(mediaFileId || src)
   const svgId = useSvgId('tape')
   const patternId = `${svgId}-pattern`
   const clipId = `${svgId}-clip`
   return (
     <Svg width={width} height={height}>
       <Defs>
-        {!src && <PatternTile id={patternId} pattern={pattern} scale={scale} />}
+        {!hasImage && <PatternTile id={patternId} pattern={pattern} scale={scale} />}
         <ClipPath id={clipId}>
           {edge === 'torn' ? <Polygon points={tornPolygon(width, height)} /> : <Rect width={width} height={height} />}
         </ClipPath>
       </Defs>
       <G clipPath={`url(#${clipId})`} opacity={TAPE_OPACITY}>
-        {src ? (
-          <TapeImage src={src} crop={crop} imageWidth={imageWidth} imageHeight={imageHeight} width={width} height={height} />
+        {hasImage ? (
+          <TapeImage onAssetLoad={onAssetLoad} uri={uri} crop={crop} imageWidth={imageWidth} imageHeight={imageHeight} width={width} height={height} />
         ) : (
           <Rect width={width} height={height} fill={`url(#${patternId})`} />
         )}
@@ -115,13 +117,14 @@ export default function TapeView({ pattern, src, crop, imageWidth, imageHeight, 
 }
 
 /** 이미지 테이프: 고른 영역(crop)을 틀에 꽉 채운다. crop 이 없던 예전 테이프는 가운데 기준으로 채운다. */
-function TapeImage({ src, crop, imageWidth, imageHeight, width, height }) {
-  const href = { uri: mediaUri(src) }
+function TapeImage({ onAssetLoad, uri, crop, imageWidth, imageHeight, width, height }) {
+  if (!uri) return null
+  const href = { uri }
   if (!crop || !imageWidth || !imageHeight) {
-    return <SvgImage href={href} width={width} height={height} preserveAspectRatio="xMidYMid slice" />
+    return <SvgImage onLoad={onAssetLoad} href={href} width={width} height={height} preserveAspectRatio="xMidYMid slice" />
   }
   const layout = coverLayout({ imageWidth, imageHeight, crop }, width, height)
   return (
-    <SvgImage href={href} x={layout.left} y={layout.top} width={layout.width} height={layout.height} preserveAspectRatio="none" />
+    <SvgImage onLoad={onAssetLoad} href={href} x={layout.left} y={layout.top} width={layout.width} height={layout.height} preserveAspectRatio="none" />
   )
 }

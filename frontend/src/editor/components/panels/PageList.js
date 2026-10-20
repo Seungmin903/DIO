@@ -7,7 +7,7 @@ import StaticPage from '../canvas/StaticPage'
 const THUMB_WIDTH = 124
 const THUMB_ZOOM = THUMB_WIDTH / PAGE_WIDTH
 
-export default function PageList({ pages, currentId, onSelect, onAdd, onRemove }) {
+export default function PageList({ pages, currentId, onSelect, onAdd, onRemove, readOnly = false }) {
   return (
     <View style={styles.panel}>
       <ScrollView contentContainerStyle={styles.list}>
@@ -23,7 +23,7 @@ export default function PageList({ pages, currentId, onSelect, onAdd, onRemove }
                 <StaticPage page={page} zoom={THUMB_ZOOM} />
               </Pressable>
               <Text style={[styles.number, active && styles.numberActive]}>{index + 1}</Text>
-              {pages.length > 1 && active && (
+              {!readOnly && pages.length > 1 && active && (
                 <Pressable onPress={() => onRemove(page.id)} style={styles.remove} hitSlop={6} accessibilityLabel="페이지 삭제">
                   <Icon name="trash" size={13} color={colors.danger} />
                 </Pressable>
@@ -32,9 +32,9 @@ export default function PageList({ pages, currentId, onSelect, onAdd, onRemove }
           )
         })}
       </ScrollView>
-      <Pressable onPress={onAdd} style={({ pressed }) => [styles.add, pressed && styles.addPressed]} accessibilityLabel="페이지 추가">
+      {!readOnly && <Pressable onPress={onAdd} style={({ pressed }) => [styles.add, pressed && styles.addPressed]} accessibilityLabel="페이지 추가">
         <Icon name="plus" size={20} />
-      </Pressable>
+      </Pressable>}
     </View>
   )
 }

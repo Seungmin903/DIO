@@ -17,10 +17,10 @@ export function useEditor(diary) {
   // 다이어리마다 별도 저장소를 사용해 다른 표지의 작업이 섞이지 않게 한다.
   useEffect(() => {
     let cancelled = false
-    // GIF 원본(보관소) 주소를 먼저 만들어 둔 뒤 문서를 불러온다.
-    hydrateMedia()
-      .then(() => loadJSON(storageKey, null))
-      .then((saved) => {
+    // 문서가 참조하는 ID만 먼저 연결한다. 일부 누락이 다른 페이지 복원을 막지 않는다.
+    loadJSON(storageKey, null)
+      .then(async (saved) => {
+        await hydrateMedia(saved)
         if (cancelled) return
         if (saved?.pages?.length) {
           // 표지에서 바꾼 제목·색상은 기존 페이지 작업을 유지한 채 편집기에도 반영한다.
