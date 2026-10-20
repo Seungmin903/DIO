@@ -38,6 +38,8 @@
 | [region-presets-ui.md](./region-presets-ui.md) | 117 내보내기 영역 비율·출력 프리셋 및 검증 |
 | [region-png-export.md](./region-png-export.md) | 118 선택 영역 스냅샷·클리핑·PNG 생성·저장 연결 및 검증 |
 | [region-png-qa.md](./region-png-qa.md) | 119 영역 PNG QA 재현 명령·픽셀·회귀·실기기 미검증 항목 |
+| [pdf-file-save.md](./pdf-file-save.md) | 112 PDF 웹 저장·모바일 공유·24시간 캐시 및 검증 |
+| [pdf-export-qa.md](./pdf-export-qa.md) | 113 PDF 면 구성·메타데이터·저장·취소 QA 및 실기기 미검증 |
 | (예정) requirements.md | 기능 요구사항 |
 | (예정) api.md | API 명세 |
 | (예정) erd.md | DB 설계 |

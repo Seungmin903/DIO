@@ -45,3 +45,7 @@ pnpm qa:region --skip-build
 !36 리뷰 재검증에서는 11개 시나리오를 실행한다. 닫기/재선택 구분, Modal 내부 확정 오류, 동적 규격의 SVG 속지 클리핑 비교를 추가했다. fixture는 canvasWidth/canvasHeight를 명시하고 템플릿 참조는 앱 catalog에서 읽는다.
 
 기존 실행 환경에서 `frontend/qa/node_modules`를 설치한 경우 이 폴더를 먼저 제거해야 한다. 남아 있으면 Node의 가까운 패키지 우선 탐색 때문에 qa:media까지 예전 Playwright를 불러올 수 있다. 이전 npm 전용 package.json/package-lock.json은 제거했다.
+
+## PDF 생성·저장 QA (113)
+
+`pnpm qa:pdf`는 공통 localhost 실행기를 재사용해 `.out/pdf`에 결과와 화면을 남긴다. 기본 실행은 웹 번들부터 생성한다. 같은 코드의 직전 번들만 재사용하려면 `pnpm qa:pdf --skip-build`를 사용한다. 번들은 스위트마다 따로 만든다(`qa:region`은 `.out/web`, `qa:pdf`는 `.out/pdf/web`). `--skip-build`로 실행했는데 해당 스위트의 번들이 없으면 시나리오를 시작하지 않고 바로 실패한다. PDF 면 수·순서·A4/RGB/메타데이터·사진/스티커/테이프/GIF·기본 필기와 텍스트, 저장 취소/실패/재시도·생성 취소·20/21페이지·중간 면 실패를 확인한다. 실제 모바일 공유와 72번 전체 검증은 포함하지 않는다.
