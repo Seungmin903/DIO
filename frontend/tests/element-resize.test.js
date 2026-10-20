@@ -17,6 +17,7 @@ const { code } = expo('@babel/core').transformSync(source + '\nexport { Handle, 
 function fixture(object, zoom = 1) {
   let handlers
   const actions = []
+  const angles = []
   let state = reducer.createInitialState({ pages: [{ id: 'page', objects: [object] }] })
   const dispatch = (action) => { actions.push(action); state = reducer.editorReducer(state, action) }
   const module = { exports: {} }
@@ -27,13 +28,14 @@ function fixture(object, zoom = 1) {
     if (id.endsWith('/common')) return common
     if (id.endsWith('/text')) return text
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
+    if (id === '../controls/Icon') return { __esModule: true, default: () => null }
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
   return {
-    api: module.exports, actions, state: () => state,
-    handle: (handle) => {
-      module.exports.Handle({ kind: 'resize', handle, object, zoom, dispatch, onInteracting() {} })
+    api: module.exports, actions, angles, state: () => state,
+    handle: (handle, kind = 'resize') => {
+      module.exports.Handle({ kind, handle, object, zoom, dispatch, onInteracting() {}, onRotation: (angle) => angles.push(angle) })
       return handlers
     },
     overlay: () => module.exports.default({ object, zoom, dispatch, onInteracting() {} }),
@@ -138,4 +140,65 @@ test('텍스트 모서리는 글씨와 박스를 함께 확대하고 옆면 조�
   const cancelled = fixture(start), side = cancelled.handle({ sx: 1, sy: 0 })
   side.onStart(); side.onMove(-120, 0); side.onEnd({ cancelled: true })
   assert.deepEqual(cancelled.state().doc.pages[0].objects[0], start)
+})
+
+function rotationInput(start, zoom = 1) {
+  const f = fixture(start, zoom), input = f.handle(undefined, 'rotate')
+  const radius = start.h / 2 + 34 / zoom
+  const first = common.rotateVector(0, -radius, start.rotation)
+  input.onStart()
+  return { ...f, input, move: (angle) => {
+    const next = common.rotateVector(0, -radius, angle)
+    input.onMove((next.x - first.x) * zoom, (next.y - first.y) * zoom)
+  } }
+}
+
+test('회전은 확대 배율과 시작 각도에 관계없이 0~360도 범위로 저장하고 표시한다', () => {
+  for (const zoom of [0.5, 1, 2.5]) for (const initial of [0, 37, 180, 315]) {
+    for (const target of [0, 45, 90, 135, 180, 225, 270, 315, 355]) {
+      const start = object({ rotation: initial }), f = rotationInput(start, zoom)
+      assert.equal(f.angles[0], initial)
+      f.move(target)
+      const result = f.state().doc.pages[0].objects[0]
+      close(result.rotation, target)
+      assert.ok(result.rotation >= 0 && result.rotation < 360)
+      assert.deepEqual([result.x, result.y, result.w, result.h], [start.x, start.y, start.w, start.h])
+      f.input.onEnd({ cancelled: false })
+      assert.equal(f.angles.at(-1), null)
+      close(f.state().doc.pages[0].objects[0].rotation, target)
+    }
+  }
+})
+
+test('회전은 직각 근처에서 붙고 경계를 넘으면 각도가 순환한다', () => {
+  const f = rotationInput(object())
+  for (const [target, expected] of [[88, 90], [182, 180], [268, 270], [358, 0], [362, 0], [-5, 355], [365, 5]]) {
+    f.move(target)
+    close(f.state().doc.pages[0].objects[0].rotation, expected)
+    close(f.angles.at(-1), expected)
+  }
+  assert.equal(f.state().past.length, 1)
+})
+
+test('회전 핸들 단순 탭은 현재 각도만 표시하고 이력을 추가하지 않는다', () => {
+  const f = rotationInput(object({ rotation: 37 }))
+  f.input.onEnd({ cancelled: false })
+  assert.deepEqual(f.angles, [37, null])
+  assert.equal(f.state().past.length, 0)
+})
+
+test('회전 종료는 값을 유지하고 취소는 원래 각도를 복원한다', () => {
+  for (const cancelled of [false, true]) {
+    const start = object({ rotation: 37 }), f = rotationInput(start)
+    f.move(100); f.move(230)
+    f.input.onEnd({ cancelled })
+    assert.equal(f.angles.at(-1), null)
+    close(f.state().doc.pages[0].objects[0].rotation, cancelled ? 37 : 230)
+    assert.equal(f.state().past.length, cancelled ? 0 : 1)
+    if (!cancelled) {
+      const restored = reducer.editorReducer(f.state(), { type: 'undo' })
+      close(restored.doc.pages[0].objects[0].rotation, 37)
+      close(reducer.editorReducer(restored, { type: 'redo' }).doc.pages[0].objects[0].rotation, 230)
+    }
+  }
 })

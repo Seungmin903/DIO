@@ -4,6 +4,7 @@ import { colors } from '../../../shared/theme'
 import { usePan } from '../../hooks/usePan'
 import { centerOf, normalizeAngle, rotateVector } from '../../utils/common'
 import { textPatch, textSettings } from '../../utils/text'
+import Icon from '../controls/Icon'
 
 // 핸들이 박스 바깥에 걸쳐도 터치를 받도록 오버레이를 이만큼 넓게 잡는다. (Android 는 부모 밖 터치를 받지 않음)
 const MARGIN = 52
@@ -12,6 +13,7 @@ const EDGE_THICKNESS = 20 // 변 전체가 보이지 않는 크기 조절 영역
 // 변 영역은 대부분 박스 바깥에 두고 안쪽으로는 이만큼만 들어온다. (가운데를 눌러 옮기는 영역을 넓게 남긴다)
 const EDGE_INSET = 4
 const ROTATE_OFFSET = 34
+const ROTATE_HANDLE = 28
 const MIN_SIZE = 20
 
 const CORNERS = [
@@ -86,7 +88,8 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
             style={[
               styles.handleBase,
               styles.rotateHandle,
-              { left: MARGIN + width / 2 - HANDLE / 2, top: MARGIN - ROTATE_OFFSET - HANDLE / 2 },
+              { left: MARGIN + width / 2 - ROTATE_HANDLE / 2, top: MARGIN - ROTATE_OFFSET - ROTATE_HANDLE / 2 },
+              Platform.OS === 'web' && { cursor: 'grab' },
             ]}
           />
           {handlesFor(object).map((handle) => {
@@ -176,6 +179,7 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
         checkpointed: false,
       }
       onInteracting(true)
+      if (kind === 'rotate') onRotation(object.rotation)
     },
     onMove: (dx, dy) => {
       const g = gesture.current
@@ -200,7 +204,9 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
     },
   })
 
-  return <View {...panHandlers} hitSlop={10} style={[styles.handle, style]} />
+  return <View {...panHandlers} accessibilityLabel={kind === 'rotate' ? '요소 회전 손잡이' : undefined} hitSlop={10} style={[styles.handle, style]}>
+    {kind === 'rotate' && <View pointerEvents="none"><Icon name="rotate" size={19} strokeWidth={1.5} color={colors.surface} /></View>}
+  </View>
 }
 
 /** 수평 기준 0–360°. 0·90·180·270° 근처(±3°)에서는 붙는다. */
@@ -271,11 +277,18 @@ const styles = StyleSheet.create({
   cornerHandle: { borderRadius: HANDLE / 2 },
   edgeHandle: { backgroundColor: 'transparent' },
   rotateHandle: {
-    width: HANDLE,
-    height: HANDLE,
-    borderRadius: HANDLE / 2,
+    width: ROTATE_HANDLE,
+    height: ROTATE_HANDLE,
+    borderRadius: ROTATE_HANDLE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.primary,
     borderColor: colors.surface,
+    borderWidth: 1,
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
   },
   rotateStem: { position: 'absolute', width: 1.5, height: ROTATE_OFFSET, backgroundColor: colors.primary },
 })
