@@ -18,7 +18,7 @@ git clone https://lab.ssafy.com/s15-final/S15P31F106.git
 cd S15P31F106
 git switch develop
 
-# 1) 환경변수 (선택: 기본값을 바꿀 때만 수정)
+# 1) 환경변수 (필수: 복사 후 POSTGRES_PASSWORD 설정)
 cp .env.example .env
 
 # 2) DB 실행 (Docker Desktop 켜둔 상태에서)
