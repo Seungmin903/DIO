@@ -10,13 +10,14 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test:export": "node --test tests/region-export.test.js tests/export-selection.test.js tests/region-geometry.test.js tests/region-selection.test.js tests/page-image-renderer.test.js tests/pdf-export.test.js tests/pdf-menu.test.js tests/page-export.test.js tests/gif-first-frame.test.js tests/png-file-save.test.js",
+    "test:export": "node --test tests/pdf-file-save.test.js tests/region-export.test.js tests/export-selection.test.js tests/region-geometry.test.js tests/region-selection.test.js tests/page-image-renderer.test.js tests/pdf-export.test.js tests/pdf-menu.test.js tests/page-export.test.js tests/gif-first-frame.test.js tests/png-file-save.test.js",
     "test:media": "node --test tests/media.test.js tests/native-media.test.js tests/media-binding.test.js tests/media-recovery.test.js",
     "test:templates": "node --test tests/templates.test.js",
     "test:templates:browser": "node tests/templates-browser.cjs",
     "test:templates:readonly": "node tests/templates-readonly.cjs",
     "qa:media": "node qa/run-local-media-qa.mjs",
-    "qa:region": "node qa/run-region-qa.mjs"
+    "qa:region": "node qa/run-region-qa.mjs",
+    "qa:pdf": "node qa/run-pdf-qa.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.17",
@@ -29,6 +30,7 @@
     "expo-image-manipulator": "~57.0.21",
     "expo-image-picker": "~57.0.20",
     "expo-media-library": "~57.0.5",
+    "expo-sharing": "~57.0.23",
     "expo-status-bar": "~57.0.1",
     "heic-to": "~1.6.6",
     "html-to-image": "~1.11.13",

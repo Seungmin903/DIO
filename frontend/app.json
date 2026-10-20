@@ -33,7 +33,8 @@
           "granularPermissions": [],
           "isAccessMediaLocationEnabled": false
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "eas": {
