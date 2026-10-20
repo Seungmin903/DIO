@@ -10,7 +10,7 @@ import { coverLayout, photoInnerBox } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
-import { strokePath } from '../utils/strokes'
+import StrokeContent from '../StrokeContent'
 
 /**
  * 오브젝트 하나의 생김새. 위치·회전·투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
@@ -28,11 +28,7 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
   )
   switch (object.type) {
     case 'stroke':
-      return (
-        <Svg width={width} height={height} viewBox={`0 0 ${object.baseWidth} ${object.baseHeight}`} preserveAspectRatio="none" style={{ transform: flipTransform(object) }}>
-          <Path d={strokePath(object.points)} fill="none" stroke={object.color} strokeWidth={object.strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-      )
+      return <StrokeContent object={object} zoom={zoom} transform={flipTransform(object)} />
     case 'sticker':
       return <StickerContent object={object} width={width} height={height} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'tape':
