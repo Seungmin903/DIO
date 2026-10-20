@@ -2,7 +2,7 @@
 // baseWidth/baseHeight는 원래 좌표계이므로 공통 이동·회전·리사이즈를 재사용한다.
 export const DEFAULT_PEN = { color: '#0B1957', width: 3 }
 
-export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball' } = {}) {
+export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball', lineCap = 'round' } = {}) {
   if (!points.length) return null
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const p of points) {
@@ -10,13 +10,15 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
     minX = Math.min(minX, p.x); minY = Math.min(minY, p.y)
     maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y)
   }
-  const padding = width * points.reduce((max, p) => Math.max(max, p.pressure ?? 1), 1)
+  // 스퀘어 끝은 대각선에서도 경계에 잘리지 않도록 여백을 확보한다.
+  const padding = width * points.reduce((max, p) => Math.max(max, p.pressure ?? 1), 1) * (kind === 'highlighter' && lineCap === 'square' ? Math.SQRT2 : 1)
   const w = Math.max(20, maxX - minX + padding)
   const h = Math.max(20, maxY - minY + padding)
   const x = (minX + maxX - w) / 2, y = (minY + maxY - h) / 2
   return {
-    id, type: 'stroke', name: '펜 획', x, y, w, h, rotation: 0,
+    id, type: 'stroke', name: kind === 'highlighter' ? '형광펜 획' : '펜 획', x, y, w, h, rotation: 0,
     baseWidth: w, baseHeight: h, color, strokeWidth: width, penKind: kind, renderVersion: 2,
+    ...(kind === 'highlighter' && { lineCap }),
     points: points.map((p) => ({ x: p.x - x, y: p.y - y, ...(p.pressure != null && { pressure: p.pressure }) })),
   }
 }
