@@ -1,9 +1,9 @@
 import { Text, View } from 'react-native';
 import { styles as s } from '../styles';
 
-export default function Cover({ diary, small = false, preview = false, carousel = false }) {
+export default function Cover({ diary, small = false, preview = false, carousel = false, grid = false }) {
   return (
-    <View style={[s.cover, small && s.coverSmall, preview && s.coverPreview, carousel && s.coverCarousel, { backgroundColor: diary.color }]}>
+    <View style={[s.cover, small && s.coverSmall, preview && s.coverPreview, carousel && s.coverCarousel, grid && s.coverGrid, { backgroundColor: diary.color }]}>
       <View style={s.coverLine} />
       <View style={s.coverRing} />
       <Text style={[s.coverKicker, small && s.coverKickerSmall]}>DIO DIARY</Text>

@@ -1,10 +1,11 @@
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useRef } from 'react';
+import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
 import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS } from '../constants';
+import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
+import CreateDiaryCard from '../components/CreateDiaryCard';
 import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
-import Header from '../components/Header';
-import IconButton from '../components/IconButton';
 
 export default function LibraryScreen({
   diaries,
@@ -19,45 +20,91 @@ export default function LibraryScreen({
   onCarouselViewportLayout,
   onOpen,
   onFavorite,
+  onEdit,
   onCreate,
-  onSearch,
 }) {
+  const scrollX = useRef(new Animated.Value(0)).current;
   const shown = diaries.filter((diary) =>
     filter === 'all'
       || (filter === 'personal' && diary.type === '개인')
-      || (filter === 'shared' && diary.type === '공유')
       || (filter === 'favorite' && diary.favorite),
   );
   const label = FILTERS.find((item) => item.id === filter)?.label || '전체';
-  const activeIndex = Math.max(0, Math.min(carousel, Math.max(0, shown.length - 1)));
+  const canCreate = filter === 'all';
+  const carouselItems = canCreate ? [...shown, { id: 'new-diary' }] : shown;
+  const activeIndex = Math.max(0, Math.min(carousel, Math.max(0, carouselItems.length - 1)));
   const carouselSidePadding = Math.max(0, (carouselViewportWidth - CAROUSEL_ITEM_WIDTH) / 2);
 
   const moveCarousel = (nextIndex) => {
-    const next = Math.max(0, Math.min(nextIndex, shown.length - 1));
+    const next = Math.max(0, Math.min(nextIndex, carouselItems.length - 1));
     onCarouselChange(next);
     carouselRef.current?.scrollTo({ x: next * CAROUSEL_STEP, animated: true });
   };
 
   const syncCarouselIndex = ({ nativeEvent }) => {
-    onCarouselChange(Math.max(0, Math.min(Math.round(nativeEvent.contentOffset.x / CAROUSEL_STEP), shown.length - 1)));
+    onCarouselChange(Math.max(0, Math.min(Math.round(nativeEvent.contentOffset.x / CAROUSEL_STEP), carouselItems.length - 1)));
   };
 
-  return (
-    <ScrollView contentContainerStyle={s.screen} showsVerticalScrollIndicator={false}>
-      <Header
-        eyebrow="MY DIARY LIBRARY"
-        title="내 다이어리"
-        right={(
-          <View style={s.headerActions}>
-            <IconButton label="검색" icon="⌕" onPress={onSearch} />
-            <Pressable accessibilityRole="button" onPress={onCreate} style={({ pressed }) => [s.headerCreate, pressed && s.pressed]}>
-              <Text style={s.headerCreateText}>+ 새 다이어리</Text>
-            </Pressable>
-          </View>
-        )}
-      />
+  const carouselMotion = (index) => ({
+    zIndex: index === activeIndex ? 2 : 1,
+    opacity: scrollX.interpolate({
+      inputRange: [(index - 1) * CAROUSEL_STEP, index * CAROUSEL_STEP, (index + 1) * CAROUSEL_STEP],
+      outputRange: [0.36, 1, 0.36],
+      extrapolate: 'clamp',
+    }),
+    transform: [
+      {
+        scale: scrollX.interpolate({
+          inputRange: [(index - 1) * CAROUSEL_STEP, index * CAROUSEL_STEP, (index + 1) * CAROUSEL_STEP],
+          outputRange: [0.84, 1.06, 0.84],
+          extrapolate: 'clamp',
+        }),
+      },
+      {
+        translateY: scrollX.interpolate({
+          inputRange: [(index - 1) * CAROUSEL_STEP, index * CAROUSEL_STEP, (index + 1) * CAROUSEL_STEP],
+          outputRange: [30, -12, 30],
+          extrapolate: 'clamp',
+        }),
+      },
+      { perspective: 900 },
+      {
+        rotateY: scrollX.interpolate({
+          inputRange: [(index - 1) * CAROUSEL_STEP, index * CAROUSEL_STEP, (index + 1) * CAROUSEL_STEP],
+          outputRange: ['8deg', '0deg', '-8deg'],
+          extrapolate: 'clamp',
+        }),
+      },
+    ],
+  });
 
-      <View style={s.toolbar}>
+  return (
+    <ScrollView contentContainerStyle={s.libraryScreen} showsVerticalScrollIndicator={false}>
+      <View style={s.libraryHeader}>
+        <Text style={s.libraryTitle}>내 다이어리</Text>
+        <View style={s.libraryViewSwitch} accessibilityRole="tablist">
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected: view === 'carousel' }}
+            onPress={() => onViewChange('carousel')}
+            style={({ pressed }) => [s.libraryViewOption, view === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
+          >
+            <AppIcon name="swap" size={18} color="#40517D" />
+            <Text style={s.libraryViewText}>스와이프</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected: view === 'grid' }}
+            onPress={() => onViewChange('grid')}
+            style={({ pressed }) => [s.libraryViewOption, view === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
+          >
+            <AppIcon name="grid" size={17} color="#40517D" />
+            <Text style={s.libraryViewText}>한눈에</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={s.libraryToolbar}>
         <View style={s.filters}>
           {FILTERS.map((item) => (
             <Pressable
@@ -71,27 +118,25 @@ export default function LibraryScreen({
             </Pressable>
           ))}
         </View>
-        <View style={s.viewSwitch}>
-          <IconButton label="스와이프 보기" icon="▤" compact selected={view === 'carousel'} onPress={() => onViewChange('carousel')} />
-          <IconButton label="한눈에 보기" icon="▦" compact selected={view === 'grid'} onPress={() => onViewChange('grid')} />
-        </View>
       </View>
 
-      {!shown.length ? (
+      {!carouselItems.length ? (
         <EmptyState
-          title={filter === 'all' ? '아직 만든 다이어리가 없어요' : `${label} 다이어리가 없어요`}
-          copy={filter === 'all' ? '첫 표지를 만들면 이 보관함에 차곡차곡 쌓여요.' : '다른 보관함을 보거나 새 다이어리를 만들어 보세요.'}
-          onCreate={filter === 'all' ? onCreate : null}
+          title={`${label} 다이어리가 없어요`}
+          copy="다른 보관함을 보거나 새 다이어리를 만들어 보세요."
         />
       ) : view === 'carousel' ? (
         <View style={s.carouselShell}>
-          <View style={s.carouselInfo}>
-            <Text style={s.carouselHint}>표지를 눌러 다이어리를 열어 보세요</Text>
-            <Text style={s.carouselCount}>{activeIndex + 1} / {shown.length}</Text>
-          </View>
           <View style={s.carouselRow}>
-            <IconButton label="이전 다이어리" icon="‹" onPress={() => moveCarousel(activeIndex - 1)} />
-            <ScrollView
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="이전 다이어리"
+              onPress={() => moveCarousel(activeIndex - 1)}
+              style={({ pressed }) => [s.carouselArrow, s.carouselArrowLeft, pressed && s.pressed]}
+            >
+              <AppIcon name="chevron-left" size={24} color="#0B1957" strokeWidth={2.1} />
+            </Pressable>
+            <Animated.ScrollView
               ref={carouselRef}
               horizontal
               directionalLockEnabled
@@ -101,34 +146,57 @@ export default function LibraryScreen({
               snapToAlignment="start"
               contentOffset={{ x: activeIndex * CAROUSEL_STEP, y: 0 }}
               showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
               style={s.carouselViewport}
               contentContainerStyle={[s.carouselCards, { paddingHorizontal: carouselSidePadding, gap: CAROUSEL_GAP }]}
               onLayout={({ nativeEvent: { layout } }) => onCarouselViewportLayout(layout.width)}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                { useNativeDriver: true },
+              )}
               onMomentumScrollEnd={syncCarouselIndex}
             >
-              {shown.map((diary, index) => (
-                <DiaryCard
-                  key={diary.id}
-                  diary={diary}
-                  layout="carousel"
-                  carouselActive={index === activeIndex}
-                  onOpen={() => onOpen(diary)}
-                  onFavorite={() => onFavorite(diary.id)}
-                />
+              {carouselItems.map((item, index) => (
+                item.id === 'new-diary' ? (
+                  <CreateDiaryCard
+                    key={item.id}
+                    layout="carousel"
+                    carouselActive={index === activeIndex}
+                    animatedStyle={carouselMotion(index)}
+                    onCreate={onCreate}
+                  />
+                ) : (
+                  <DiaryCard
+                    key={item.id}
+                    diary={item}
+                    layout="carousel"
+                    carouselActive={index === activeIndex}
+                    animatedStyle={carouselMotion(index)}
+                    onOpen={() => onOpen(item)}
+                    onFavorite={() => onFavorite(item.id)}
+                    onEdit={() => onEdit(item)}
+                  />
+                )
               ))}
-            </ScrollView>
-            <IconButton label="다음 다이어리" icon="›" onPress={() => moveCarousel(activeIndex + 1)} />
+            </Animated.ScrollView>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="다음 다이어리"
+              onPress={() => moveCarousel(activeIndex + 1)}
+              style={({ pressed }) => [s.carouselArrow, s.carouselArrowRight, pressed && s.pressed]}
+            >
+              <AppIcon name="chevron-right" size={24} color="#0B1957" strokeWidth={2.1} />
+            </Pressable>
           </View>
           <View style={s.carouselFoot}>
             <Text style={s.swipeHint}>← 옆으로 밀어 다이어리를 넘겨보세요 →</Text>
-            <View style={s.carouselDots}>
-              {shown.map((diary, index) => <View key={diary.id} style={[s.carouselDot, index === activeIndex && s.carouselDotActive]} />)}
-            </View>
+            <Text style={s.carouselCount}>{activeIndex + 1} / {carouselItems.length}</Text>
           </View>
         </View>
       ) : (
         <View style={s.grid}>
-          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} onOpen={() => onOpen(diary)} onFavorite={() => onFavorite(diary.id)} />)}
+          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} onOpen={() => onOpen(diary)} onFavorite={() => onFavorite(diary.id)} onEdit={() => onEdit(diary)} />)}
+          {canCreate && <CreateDiaryCard layout="grid" onCreate={onCreate} />}
         </View>
       )}
     </ScrollView>

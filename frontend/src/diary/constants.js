@@ -25,10 +25,9 @@ export const COLORS = [
 export const FILTERS = [
   { id: 'all', label: '전체' },
   { id: 'personal', label: '개인' },
-  { id: 'shared', label: '공유' },
   { id: 'favorite', label: '즐겨찾기' },
 ];
 
-export const CAROUSEL_ITEM_WIDTH = 224;
+export const CAROUSEL_ITEM_WIDTH = 238;
 export const CAROUSEL_GAP = 42;
 export const CAROUSEL_STEP = CAROUSEL_ITEM_WIDTH + CAROUSEL_GAP;

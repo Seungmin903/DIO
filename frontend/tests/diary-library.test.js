@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatUpdatedAt, normalizeDiaries, recoverOrphanDiaries } from '../src/diary/utils/diaryLibrary.js';
+import { formatUpdatedAt, normalizeDiaries, recoverOrphanDiaries, sortByCreated } from '../src/diary/utils/diaryLibrary.js';
 
 const PREFIX = 'dio:editor:doc:v4';
 
@@ -48,4 +48,15 @@ test('수정 시각은 상대 시간으로 보여주고 알 수 없으면 기록
   // 이전 버전이 저장한 표시용 문자열이나 빈 값
   assert.equal(formatUpdatedAt('방금 전', now), '기록 없음');
   assert.equal(formatUpdatedAt(null, now), '기록 없음');
+});
+
+test('다이어리는 먼저 만든 순서대로 정렬하고 ID 형식이 다르면 기존 순서를 유지한다', () => {
+  const sorted = sortByCreated([
+    { id: 'diary-300' },
+    { id: 'legacy-a' },
+    { id: 'diary-100' },
+    { id: 'legacy-b' },
+    { id: 'diary-200' },
+  ]);
+  assert.deepEqual(sorted.map((d) => d.id), ['legacy-a', 'legacy-b', 'diary-100', 'diary-200', 'diary-300']);
 });

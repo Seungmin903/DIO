@@ -22,6 +22,14 @@ export function normalizeDiaries(raw) {
   });
 }
 
+// 새 다이어리 ID는 `diary-<생성 시각(ms)>` 형식이다. 형식이 다르면 0으로 보고 기존 순서를 유지한다.
+const createdTime = (diary) => Number(/^diary-(\d+)$/.exec(diary.id)?.[1]) || 0;
+
+/** 먼저 만든 다이어리가 앞(왼쪽)에 오도록 생성 순으로 정렬한다. */
+export function sortByCreated(diaries) {
+  return [...diaries].sort((a, b) => createdTime(a) - createdTime(b));
+}
+
 /**
  * 목록에 없지만 편집 문서만 남은 다이어리를 되살린다.
  * docEntries는 [저장 키, 문서 JSON 문자열] 배열이고, docKeyPrefix 뒤의 값을 다이어리 ID로 쓴다.

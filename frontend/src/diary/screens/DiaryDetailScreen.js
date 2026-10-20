@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
 import Cover from '../components/Cover';
 import IconButton from '../components/IconButton';
@@ -9,7 +10,7 @@ export default function DiaryDetailScreen({ diary, onBack, onEditCover, onFavori
     <ScrollView contentContainerStyle={s.detailScreen} showsVerticalScrollIndicator={false}>
       <View style={s.detailTop}>
         <Pressable accessibilityRole="button" onPress={onBack} style={({ pressed }) => [s.back, pressed && s.pressed]}>
-          <Text style={s.backArrow}>‹</Text>
+          <AppIcon name="chevron-left" size={24} color="#0B1957" strokeWidth={2.1} />
           <Text style={s.backText}>보관함</Text>
         </Pressable>
         <View style={s.detailActions}>
@@ -18,7 +19,8 @@ export default function DiaryDetailScreen({ diary, onBack, onEditCover, onFavori
           </Pressable>
           <IconButton
             label={diary.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
-            icon={diary.favorite ? '★' : '☆'}
+            iconName="star"
+            iconFill={diary.favorite ? '#FFFFFF' : 'none'}
             selected={diary.favorite}
             onPress={onFavorite}
           />
@@ -28,9 +30,9 @@ export default function DiaryDetailScreen({ diary, onBack, onEditCover, onFavori
       <View style={s.detailHero}>
         <View style={s.detailCover}><Cover diary={diary} preview /></View>
         <View style={s.detailInfo}>
-          <Text style={s.detailEyebrow}>{diary.type === '공유' ? 'SHARED DIARY' : 'PERSONAL DIARY'}</Text>
+          <Text style={s.detailEyebrow}>PERSONAL DIARY</Text>
           <Text style={s.detailTitle}>{diary.title}</Text>
-          <Text style={s.detailCopy}>{diary.type === '공유' ? '함께 남기는 기록을 시작해 보세요.' : '나만의 순간을 페이지에 차곡차곡 남겨 보세요.'}</Text>
+          <Text style={s.detailCopy}>나만의 순간을 페이지에 차곡차곡 남겨 보세요.</Text>
           <View style={s.metaRow}>
             <Text style={s.meta}>마지막 수정 {formatUpdatedAt(diary.updatedAt)}</Text>
             <View style={s.dot} />

@@ -4,7 +4,6 @@ import Header from '../components/Header';
 
 export default function ProfileScreen({ diaries }) {
   const favorites = diaries.filter((diary) => diary.favorite).length;
-  const shared = diaries.filter((diary) => diary.type === '공유').length;
 
   return (
     <ScrollView contentContainerStyle={s.screen} showsVerticalScrollIndicator={false}>
@@ -20,13 +19,11 @@ export default function ProfileScreen({ diaries }) {
         <Stat value={diaries.length} label="만든 다이어리" />
         <View style={s.statLine} />
         <Stat value={favorites} label="즐겨찾기" />
-        <View style={s.statLine} />
-        <Stat value={shared} label="공유 다이어리" />
       </View>
       <View style={s.tip}>
         <Text style={s.tipKicker}>TIP</Text>
-        <Text style={s.tipTitle}>공유 초대는 다이어리 상세 화면에서 준비됩니다.</Text>
-        <Text style={s.tipCopy}>지금은 개인 다이어리를 만들고 표지부터 시작할 수 있어요.</Text>
+        <Text style={s.tipTitle}>표지 색상으로 다이어리를 구분해 보세요.</Text>
+        <Text style={s.tipCopy}>자주 여는 다이어리는 즐겨찾기에 추가할 수 있어요.</Text>
       </View>
     </ScrollView>
   );
