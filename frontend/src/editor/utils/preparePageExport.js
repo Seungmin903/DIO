@@ -1,5 +1,5 @@
 import { Asset } from 'expo-asset'
-import { mediaService } from './mediaStore'
+import { mediaService } from '../services/mediaStore'
 import { mediaId } from './mediaReferences.js'
 import { STICKER_ASSETS } from '../stickerAssets'
 import { exportImage, readLegacyExportImage } from './exportImage'

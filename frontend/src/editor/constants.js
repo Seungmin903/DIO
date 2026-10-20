@@ -1,8 +1,8 @@
-// 편집기 정적 데이터
+import { TABLET_HEIGHT, TABLET_WIDTH } from '../shared/layout'
 
-// 페이지 논리 크기 (가로형). 화면에는 zoom 배율을 곱해서 그린다.
-export const PAGE_WIDTH = 1188
-export const PAGE_HEIGHT = 840
+// MVP1 기준 캔버스(16:10). 화면에는 zoom 배율을 곱해서 그린다.
+export const PAGE_WIDTH = TABLET_WIDTH
+export const PAGE_HEIGHT = TABLET_HEIGHT
 
 export const ZOOM_MIN = 0.3
 export const ZOOM_MAX = 2

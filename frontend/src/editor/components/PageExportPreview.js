@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { colors } from '../../theme'
+import { colors } from '../../shared/theme'
 import { preparePageExport } from '../utils/preparePageExport'
 import { capturePage } from '../utils/capturePage'
 import { savePngFile } from '../utils/savePngFile'
 import { createSaveGate, pngSaveError } from '../utils/pngFileSave.js'
-import ObjectContent, { objectOpacity } from './ObjectView'
+import ObjectContent, { objectOpacity } from './canvas/ObjectView'
 
 /** 선택/격자/패널이 존재하지 않는 별도 렌더링 영역만 캡처한다. */
 export default function PageExportPreview({ snapshot, onClose }) {
