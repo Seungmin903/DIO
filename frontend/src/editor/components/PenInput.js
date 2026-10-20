@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { PAGE_HEIGHT, PAGE_WIDTH } from '../constants'
-import { usePan } from '../hooks/usePan'
+import { usePalmRejectingPan } from '../hooks/usePalmRejection'
 import { clamp, createId } from '../utils/common'
 import { createStroke } from '../utils/strokes'
 import ObjectContent from './canvas/ObjectView'
@@ -12,9 +12,10 @@ export default function PenInput({ zoom, dispatch, settings = DEFAULT_PEN_SETTIN
   const gesture = useRef(null)
   const [preview, setPreview] = useState(null)
   const point = (x, y) => ({ x: clamp(x, 0, PAGE_WIDTH), y: clamp(y, 0, PAGE_HEIGHT) })
-  const handlers = usePan({
+  // 펜과 손바닥이 함께 닿아도 한 터치만 따라간다 (hooks/usePalmRejection)
+  const handlers = usePalmRejectingPan({
     onStart: (event) => {
-      if ((event.button != null && event.button !== 0) || event.touches?.length > 1) return
+      if (event.button != null && event.button !== 0) return
       const start = point(event.locationX / zoom, event.locationY / zoom)
       const first = { ...start, pressure: penPressure(settings.kind) }
       gesture.current = { start, points: [first], id: createId(), settings: { ...settings }, time: Date.now() }
@@ -23,11 +24,6 @@ export default function PenInput({ zoom, dispatch, settings = DEFAULT_PEN_SETTIN
     onMove: (dx, dy, event) => {
       const g = gesture.current
       if (!g) return
-      if (event.touches?.length > 1) {
-        gesture.current = null
-        setPreview(null)
-        return
-      }
       const next = point(g.start.x + dx / zoom, g.start.y + dy / zoom)
       const last = g.points[g.points.length - 1]
       if (Math.hypot(next.x - last.x, next.y - last.y) * zoom < 0.75) return

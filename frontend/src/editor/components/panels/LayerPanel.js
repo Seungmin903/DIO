@@ -386,6 +386,7 @@ function LayerThumb({ object }) {
         <TapeView
           pattern={object.pattern}
           palette={object.palette}
+          segmentRatio={object.segmentW ? object.segmentW / object.h : undefined}
           src={object.src}
           mediaFileId={object.mediaFileId}
           crop={object.crop}

@@ -26,10 +26,17 @@ const SIDES = [
   { key: 'e', sx: 1, sy: 0 },
 ]
 
+const LENGTH_KNOBS = [
+  { key: 'w', sx: -1, sy: 0, knob: true },
+  { key: 'e', sx: 1, sy: 0, knob: true },
+]
+const KNOB = HANDLE // 회전 손잡이와 같은 크기
+
 /** 오브젝트 종류별로 쓸 수 있는 크기 조절 핸들 */
 function handlesFor(object) {
   if (object.type === 'sticker') return CORNERS
-  if (object.type === 'tape') return CORNERS // 테이프는 비율을 유지한 채 크기만 바꾼다.
+  // 테이프: 폭은 규격으로 정해져 있고 길이만 늘이고 줄인다. 양쪽 끝 동그라미 손잡이 두 개.
+  if (object.type === 'tape') return LENGTH_KNOBS
   if (object.type === 'photo' && object.frame === 'polaroid') return CORNERS // 폴라로이드 비율은 자르기에서 정한다.
   return [...CORNERS, ...SIDES]
 }
@@ -82,6 +89,29 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
           />
           {handlesFor(object).map((handle) => {
             const corner = Boolean(handle.sx && handle.sy)
+            // 테이프 길이 손잡이: 변 가운데에 보이는 동그라미
+            if (handle.knob) {
+              return (
+                <Handle
+                  key={handle.key}
+                  kind="resize"
+                  handle={handle}
+                  object={object}
+                  zoom={zoom}
+                  dispatch={dispatch}
+                  onInteracting={onInteracting}
+                  style={[
+                    styles.handleBase,
+                    styles.knob,
+                    {
+                      left: MARGIN + ((handle.sx + 1) / 2) * width - KNOB / 2,
+                      top: MARGIN + height / 2 - KNOB / 2,
+                    },
+                    Platform.OS === 'web' && { cursor: cursorFor(handle, object.rotation) },
+                  ]}
+                />
+              )
+            }
             // 변 핸들은 눈에 보이지 않게 변을 따라 깔고, 꼭짓점 핸들 자리는 비워 둔다.
             const edgeLength = Math.max((handle.sx ? height : width) - HANDLE * 2, 12)
             const size = corner
@@ -218,6 +248,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
   },
+  knob: { width: KNOB, height: KNOB, borderRadius: KNOB / 2 },
   cornerHandle: { borderRadius: HANDLE / 2 },
   edgeHandle: { backgroundColor: 'transparent' },
   rotateHandle: {

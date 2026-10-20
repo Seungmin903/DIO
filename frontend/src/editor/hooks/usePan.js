@@ -8,7 +8,9 @@ function createResponder(handlersRef) {
   let moved = false
   return PanResponder.create({
     onStartShouldSetPanResponder: () => !handlersRef.current.disabled,
-    onMoveShouldSetPanResponder: () => !handlersRef.current.disabled,
+    // 움직일 때 새로 터치를 가져가지 않는다. (true 면 손가락이 조금만 움직여도 안쪽 버튼의 누름을 빼앗아
+    // Android 에서 편집 바 같은 버튼이 하나도 눌리지 않았다. 끌기는 처음 닿을 때 이미 잡는다)
+    onMoveShouldSetPanResponder: () => false,
     // 두 번째 손가락이 닿으면(확대·축소, 화면 이동) 보는 영역에 넘긴다. 한 손가락 동작은 끝까지 지킨다.
     onPanResponderTerminationRequest: (event) => (event.nativeEvent.touches?.length ?? 0) > 1,
     onPanResponderGrant: (event) => {

@@ -2,11 +2,12 @@ import { Image, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { FRAME_COLORS } from '../../constants'
 import { stickerSource } from '../../stickerAssets'
+import { boxShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
 import { reportMediaDisplayError, mediaRegistry } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { useMediaUri } from '../../hooks/useMediaUri'
-import { coverLayout, photoInnerBox } from '../../utils/objects'
+import { coverLayout, photoInnerBox, tapeSizeOf } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
@@ -30,13 +31,14 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
     case 'stroke':
       return <StrokeContent object={object} zoom={zoom} transform={flipTransform(object)} />
     case 'sticker':
-      return <StickerContent object={object} width={width} height={height} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
+      return <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'tape':
       return (
         <View style={{ transform: flipTransform(object) }}>
           <TapeView
             pattern={object.pattern}
             palette={object.palette}
+            segmentRatio={object.segmentW ? object.segmentW / object.h : undefined}
             src={object.src}
             mediaFileId={object.mediaFileId}
             crop={object.crop}
@@ -45,7 +47,8 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
             edge={object.edge}
             width={width}
             height={height}
-            scale={zoom}
+            // 테이프를 키우면 무늬도 같은 배율로 커지게 (규격 기본 높이 대비)
+            scale={(zoom * object.h) / tapeSizeOf(object).h}
             onAssetLoad={onAssetLoad}
           />
         </View>
@@ -59,10 +62,9 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
 
 /* ---------- 꾸미기 옵션 (값이 없으면 기본값) ---------- */
 
-// 흰 테두리: 스티커·도형 사진 기본 켬
-export const outlineOn = (object) => object.outline !== false
-// 그림자: 스티커 기본 끔, 사진 기본 켬
-export const shadowOn = (object) => object.shadow ?? object.type === 'photo'
+// 테두리·그림자: 기본은 둘 다 꺼짐. 색·두께·위치 등은 utils/effects 의 outlineOf·shadowOf
+export const outlineOn = (object) => outlineOf(object).on
+export const shadowOn = (object) => shadowOf(object).on
 export const objectOpacity = (object) => object.opacity ?? 1
 // 사진 그림자는 View 로 그리는 틀(폴라로이드·사각·라운드·원형)에서만 지원
 export const photoSupportsShadow = (photo) => photo.frame === 'polaroid' || VIEW_CLIP_SHAPES[photo.shape] != null
@@ -95,19 +97,19 @@ const DIRECTIONS = [
   [0.38, -0.92],
   [-0.38, -0.92],
 ]
-const EDGE_COLOR = '#0B1957'
 
 /**
- * RN 에는 drop-shadow·외곽선 필터가 없어서, 같은 모양의 단색 실루엣을 여러 방향으로 밀어 겹쳐 그린다.
- * - 흰 테두리: 흰 실루엣 16장
- * - 그림자: 테두리(또는 스티커) 바깥을 감싸는 옅은 남색 가장자리. 살짝 아래로 내려 바닥에 뜬 느낌을 준다.
+ * RN 에는 모양을 따라가는 외곽선·그림자 필터가 (iOS 에) 없어서, 같은 모양의 단색 실루엣을 여러 장 겹쳐 그린다.
+ * - 테두리: 테두리 색 실루엣 16장을 두께만큼 사방으로 민다.
+ * - 그림자: 그림자 색 실루엣을 방향·거리만큼 옮기고, 흐림만큼 둥글게 퍼뜨려 옅게 겹친다.
+ *   테두리가 있으면 테두리 바깥 끝을 기준으로 그린다. (사진은 테두리가 상자 안쪽에 그려져 boxShadow 가 원래 테두리 끝 기준)
  */
-function StickerContent({ object, width, height, still, onAssetLoad, onAssetError }) {
-  const outline = outlineOn(object)
-  const shadow = shadowOn(object)
-  const stroke = outline ? Math.max(2, height * 0.05) : 0
-  const edge = stroke + Math.max(1, height * 0.014)
-  const drop = Math.max(0.8, height * 0.012)
+function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAssetError }) {
+  const outline = outlineOf(object)
+  const shadow = shadowOf(object)
+  const stroke = outline.on ? Math.max(0.75, outline.width * zoom) : 0
+  const offset = shadowOffset(shadow)
+  const blurSpread = shadow.blur * zoom * 0.45
   const box = { width, height }
   const uri = useMediaUri(object, { still })
   const source = stickerSource(object, still, uri)
@@ -129,8 +131,8 @@ function StickerContent({ object, width, height, still, onAssetLoad, onAssetErro
           resizeMode="contain"
         />
       )
-    : (key, color, dx, dy, opacity = 1) => (
-        // 투명한 글자에 반경 1짜리 그림자만 남기면 이모지가 단색 실루엣이 된다.
+    : (key, color, dx, dy, opacity = 1, radius = 1) => (
+        // 투명한 글자에 그림자만 남기면 이모지가 단색 실루엣이 된다.
         <Text
           key={key}
           style={[
@@ -141,7 +143,7 @@ function StickerContent({ object, width, height, still, onAssetLoad, onAssetErro
               opacity,
               textShadowColor: color,
               textShadowOffset: { width: dx, height: dy },
-              textShadowRadius: 1,
+              textShadowRadius: radius,
             },
           ]}
         >
@@ -149,10 +151,32 @@ function StickerContent({ object, width, height, still, onAssetLoad, onAssetErro
         </Text>
       )
 
+  const sx = offset.x * zoom
+  const sy = offset.y * zoom
+  // 겹친 장수만큼 진해지므로 한 장의 진하기를 나눈다. 테두리 바깥 가장자리는 서너 장만 겹치므로
+  // 그 정도가 겹쳤을 때 정한 진하기가 되게 맞춘다. (16장 기준으로 나누면 가장자리 그림자가 안 보였다)
+  const perLayer = (opacity, n) => 1 - Math.pow(1 - opacity, 1 / n)
+  const EDGE_OVERLAP = 4
+  // 그림자 몸통: 테두리가 있으면 테두리 바깥 끝(스티커를 테두리 두께만큼 키운 모양)에서 시작한다.
+  const body = stroke > 0
+    ? DIRECTIONS.map(([dx, dy], i) => silhouette(`sb${i}`, shadow.color, sx + dx * stroke, sy + dy * stroke, perLayer(shadow.opacity, EDGE_OVERLAP)))
+    : [silhouette('sb', shadow.color, sx, sy, shadow.opacity)]
+  // 흐림: 몸통 바깥으로 둥글게 더 옅은 그림자를 퍼뜨린다.
+  const blurRing = blurSpread > 0.5
+    ? DIRECTIONS.map(([dx, dy], i) =>
+        silhouette(`sr${i}`, shadow.color, sx + dx * (stroke + blurSpread), sy + dy * (stroke + blurSpread), perLayer(shadow.opacity * 0.5, EDGE_OVERLAP)),
+      )
+    : []
+  const shadowLayers = !shadow.on
+    ? null
+    : !source
+      ? silhouette('s', shadow.color, sx, sy, Math.min(1, shadow.opacity * 2), Math.max(1, stroke + shadow.blur * zoom))
+      : [...blurRing, ...body]
+
   return (
     <View style={[styles.center, box, { transform: flipTransform(object) }]}>
-      {shadow && DIRECTIONS.map(([dx, dy], i) => silhouette(`s${i}`, EDGE_COLOR, dx * edge, dy * edge + drop, 0.1))}
-      {outline && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, '#FFFFFF', dx * stroke, dy * stroke))}
+      {shadowLayers}
+      {outline.on && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, outline.color, dx * stroke, dy * stroke))}
       {source ? (
         <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
       ) : (
@@ -174,8 +198,9 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
   const box = { width: inner.width * zoom, height: inner.height * zoom }
   const layout = coverLayout(photo, box.width, box.height)
   const flip = flipTransform(photo)
-  const shadow = shadowOn(photo) && photoSupportsShadow(photo)
-  const border = outlineOn(photo) ? Math.max(0.75, 2 * zoom) : 0
+  const outline = outlineOf(photo)
+  const shadow = { ...shadowOf(photo), on: shadowOf(photo).on && photoSupportsShadow(photo) }
+  const border = outline.on ? Math.max(0.75, outline.width * zoom) : 0
 
   // 사각·라운드·원형은 View 로 잘라 그린다. RN Image 라서 GIF 도 움직인다. (SVG 이미지는 첫 장면만 나옴)
   if (photo.frame === 'shape' && VIEW_CLIP_SHAPES[photo.shape] != null) {
@@ -186,8 +211,8 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
     }
     return (
       // 그림자는 잘라 내지 않는 바깥 View 에, 사진은 안쪽 View 에서 자른다.
-      <View style={[shapeStyle, shadow ? styles.shadow : styles.noShadow]}>
-        <View style={[styles.shapeClip, shapeStyle, { borderWidth: border, transform: flip }]}>
+      <View style={[shapeStyle, boxShadowStyle(shadow, zoom)]}>
+        <View style={[styles.shapeClip, shapeStyle, { borderWidth: border, borderColor: outline.color, transform: flip }]}>
           <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" />
         </View>
       </View>
@@ -213,7 +238,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
           preserveAspectRatio="none"
           clipPath={`url(#${clipId})`}
         />
-        {border > 0 && <Path d={d} fill="none" stroke="#FFFFFF" strokeWidth={border * 2} />}
+        {border > 0 && <Path d={d} fill="none" stroke={outline.color} strokeWidth={border * 2} />}
       </Svg>
     )
   }
@@ -226,7 +251,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
           height: photo.h * zoom,
           backgroundColor: frameColorOf(photo),
         },
-        shadow ? styles.shadow : styles.noShadow,
+        boxShadowStyle(shadow, zoom),
       ]}
     >
       <View
@@ -271,15 +296,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   layer: { position: 'absolute', left: 0, top: 0 },
-  shadow: {
-    shadowColor: '#0B1957',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 4,
-  },
-  // 그림자를 끌 때도 값을 0 으로 분명히 준다. (속성만 빼면 Android 가 예전 그림자를 남기는 경우가 있다)
-  noShadow: { shadowOpacity: 0, elevation: 0 },
   photoInner: {
     position: 'absolute',
     overflow: 'hidden',

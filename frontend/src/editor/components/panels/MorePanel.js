@@ -1,11 +1,13 @@
+import { useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
-import { FRAME_COLORS, TAPE_PALETTES } from '../../constants'
+import { FRAME_COLORS } from '../../constants'
 import { normalizeAngle } from '../../utils/common'
 import Icon from '../controls/Icon'
-import { frameColorOf, objectOpacity } from '../canvas/ObjectView'
+import { frameColorOf, objectOpacity, photoSupportsShadow } from '../canvas/ObjectView'
 import Slider from '../controls/Slider'
-import { tapeLook } from '../canvas/TapeView'
+import EffectOptions from './EffectOptions'
+import TapeOptions from './TapeOptions'
 
 const ALIGN_ACTIONS = [
   { mode: 'left', label: '왼쪽' },
@@ -16,31 +18,90 @@ const ALIGN_ACTIONS = [
   { mode: 'bottom', label: '아래' },
 ]
 
+const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테이프' }
+
 /**
  * 선택한 요소의 세부 옵션 (편집 바의 '더보기').
  * 캔버스 위에 띄우면 요소·편집 바를 가리기 쉬워서 보관함처럼 편집 영역 오른쪽에 붙인다.
+ * 탭 두 개: '꾸미기'(테두리·그림자, 테이프 디자인, 폴라로이드 틀 색)를 먼저, '배치'(투명도·반전·회전·정렬)는 뒤에.
+ * 꾸밀 것이 없는 요소(이미지 테이프 등)는 배치만 보여 준다.
  */
 export default function MorePanel({ objects, dispatch, onClose }) {
+  const [tab, setTab] = useState('style')
   const ids = objects.map((o) => o.id)
   const editable = objects.filter((o) => !o.locked)
   const single = objects.length === 1 ? objects[0] : null
   const isPolaroid = single?.type === 'photo' && single.frame === 'polaroid' && !single.locked
-  const isPatternTape = single?.type === 'tape' && !single.src && !single.mediaFileId && !single.locked
+  const isTape = single?.type === 'tape' && !single.locked
+  const isPatternTape = isTape && !single.src && !single.mediaFileId
+  const hasEffects = editable.some(
+    (o) => o.type === 'sticker' || (o.type === 'photo' && (o.frame === 'shape' || photoSupportsShadow(o))),
+  )
+  const hasStyle = hasEffects || isPatternTape || isPolaroid
+  const current = hasStyle ? tab : 'layout'
+  const title = objects.length > 1 ? `${objects.length}개 요소` : `${TYPE_TITLES[single?.type] ?? '요소'} 옵션`
   const updateEach = (makePatch, record = true) =>
     dispatch({ type: 'updateMany', record, patches: Object.fromEntries(editable.map((o) => [o.id, makePatch(o)])) })
 
   return (
     <View style={styles.panel}>
       <View style={styles.header}>
-        <Text style={styles.title}>{objects.length > 1 ? `${objects.length}개 요소` : '요소 옵션'}</Text>
+        <Text style={styles.title}>{title}</Text>
         <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityLabel="옵션 닫기">
           <Icon name="close" size={18} />
         </Pressable>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
+      {hasStyle && editable.length > 0 && (
+        <View style={styles.tabs} accessibilityRole="tablist">
+          {[
+            { id: 'style', label: '꾸미기' },
+            { id: 'layout', label: '배치' },
+          ].map((item) => (
+            <Pressable
+              key={item.id}
+              onPress={() => setTab(item.id)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: current === item.id }}
+              style={[styles.tab, current === item.id && styles.tabActive]}
+            >
+              <Text style={[styles.tabText, current === item.id && styles.tabTextActive]}>{item.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {!editable.length ? (
           <Text style={styles.hint}>잠긴 요소예요. 잠금을 풀면 편집할 수 있어요.</Text>
+        ) : current === 'style' ? (
+          <>
+            <EffectOptions objects={editable} dispatch={dispatch} />
+
+            {isTape && <TapeOptions tape={single} dispatch={dispatch} />}
+
+            {isPolaroid && (
+              <Section title="폴라로이드 틀 색">
+                <View style={styles.chips}>
+                  {FRAME_COLORS.map((color) => (
+                    <Pressable
+                      key={color.id}
+                      onPress={() =>
+                        dispatch({ type: 'updateObject', id: single.id, record: true, patch: { frameColor: color.id } })
+                      }
+                      accessibilityLabel={`틀 색 ${color.name}`}
+                      accessibilityState={{ selected: frameColorOf(single) === color.value }}
+                      style={[
+                        styles.swatch,
+                        { backgroundColor: color.value },
+                        frameColorOf(single) === color.value && styles.swatchActive,
+                      ]}
+                    />
+                  ))}
+                </View>
+              </Section>
+            )}
+          </>
         ) : (
           <>
             <Section title={`투명도 ${Math.round(objectOpacity(editable[0]) * 100)}%`}>
@@ -89,57 +150,6 @@ export default function MorePanel({ objects, dispatch, onClose }) {
                 )}
               </View>
             </Section>
-
-            {isPatternTape && (
-              <Section title="테이프 색 · 무늬는 그대로">
-                <View style={styles.chips}>
-                  {TAPE_PALETTES.map((color) => {
-                    const look = tapeLook(single.pattern, single.palette)
-                    const active = look.palette === color.id
-                    return (
-                      <Pressable
-                        key={color.id}
-                        onPress={() =>
-                          dispatch({
-                            type: 'updateObject',
-                            id: single.id,
-                            record: true,
-                            patch: { pattern: look.pattern, palette: color.id },
-                          })
-                        }
-                        accessibilityLabel={`테이프 색 ${color.name}`}
-                        accessibilityState={{ selected: active }}
-                        style={[styles.swatch, { backgroundColor: color.bg }, active && styles.swatchActive]}
-                      >
-                        <View style={[styles.swatchInner, { backgroundColor: color.fg }]} />
-                      </Pressable>
-                    )
-                  })}
-                </View>
-              </Section>
-            )}
-
-            {isPolaroid && (
-              <Section title="폴라로이드 틀 색">
-                <View style={styles.chips}>
-                  {FRAME_COLORS.map((color) => (
-                    <Pressable
-                      key={color.id}
-                      onPress={() =>
-                        dispatch({ type: 'updateObject', id: single.id, record: true, patch: { frameColor: color.id } })
-                      }
-                      accessibilityLabel={`틀 색 ${color.name}`}
-                      accessibilityState={{ selected: frameColorOf(single) === color.value }}
-                      style={[
-                        styles.swatch,
-                        { backgroundColor: color.value },
-                        frameColorOf(single) === color.value && styles.swatchActive,
-                      ]}
-                    />
-                  ))}
-                </View>
-              </Section>
-            )}
           </>
         )}
       </ScrollView>
@@ -178,6 +188,18 @@ const styles = StyleSheet.create({
     ...shadow.float,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14 },
+  tabs: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 3,
+    borderRadius: 12,
+    backgroundColor: '#EEF2F9',
+  },
+  tab: { flex: 1, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 9 },
+  tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.14)' },
+  tabText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
+  tabTextActive: { color: colors.text, fontWeight: '800' },
   title: { fontSize: 15, fontWeight: '800', color: colors.text },
   close: { padding: 6 },
   scroll: { flexShrink: 1 },
@@ -198,6 +220,5 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.primarySoft },
   chipText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
-  swatchInner: { position: 'absolute', right: 6, bottom: 6, width: 14, height: 14, borderRadius: 7 },
   swatchActive: { borderWidth: 3, borderColor: colors.primary },
 })
