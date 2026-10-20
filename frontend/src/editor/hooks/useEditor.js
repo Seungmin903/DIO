@@ -1,8 +1,8 @@
 import { useEffect, useReducer, useState } from 'react'
 import { createDefaultDoc } from '../state/defaultDoc'
 import { createInitialState, editorReducer } from '../state/editorReducer'
-import { hydrateMedia } from '../utils/mediaStore'
-import { loadJSON, saveJSON, STORAGE_KEYS } from '../utils/storage'
+import { hydrateMedia } from '../services/mediaStore'
+import { loadJSON, saveJSON, STORAGE_KEYS } from '../services/storage'
 
 const SAVE_DELAY_MS = 600
 

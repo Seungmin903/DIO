@@ -1,4 +1,4 @@
-import { TABLET_HEIGHT, TABLET_WIDTH } from '../layout'
+import { TABLET_HEIGHT, TABLET_WIDTH } from '../shared/layout'
 
 // MVP1 기준 캔버스(16:10). 화면에는 zoom 배율을 곱해서 그린다.
 export const PAGE_WIDTH = TABLET_WIDTH
