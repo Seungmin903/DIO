@@ -96,12 +96,14 @@ export default function TapeView({ pattern, src, mediaFileId, crop, imageWidth, 
   const hasImage = Boolean(mediaFileId || src)
   const svgId = useSvgId('tape')
   const patternId = `${svgId}-pattern`
-  const clipId = `${svgId}-clip`
+  // 끝 모양마다 다른 id 를 쓴다. 같은 id 로 ClipPath 안 도형만 바꾸면 웹·iOS 가 이전 잘림을 그대로 써서
+  // 절취선↔직선을 바꿔도 미리보기가 안 바뀌었다.
+  const clipId = `${svgId}-clip-${edge}`
   return (
     <Svg width={width} height={height}>
       <Defs>
         {!hasImage && <PatternTile id={patternId} pattern={pattern} scale={scale} />}
-        <ClipPath id={clipId}>
+        <ClipPath id={clipId} key={clipId}>
           {edge === 'torn' ? <Polygon points={tornPolygon(width, height)} /> : <Rect width={width} height={height} />}
         </ClipPath>
       </Defs>
