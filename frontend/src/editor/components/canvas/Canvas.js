@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Keyboard, Platform, StyleSheet, Text, View } from 'react-native'
+import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { PAGE_HEIGHT, PAGE_WIDTH, PHOTO_SHAPES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
@@ -12,6 +12,8 @@ import CropHandles from './CropHandles'
 import StaticPage from './StaticPage'
 import SelectionOverlay from './SelectionOverlay'
 import PenInput from '../PenInput'
+import TextEditor from '../TextEditor'
+import TextBoxInput from '../TextBoxInput'
 
 const SNAP_SCREEN_PX = 6
 const LONG_PRESS_MS = 450
@@ -43,9 +45,15 @@ export default function Canvas({
   activeTool = 'select',
   penSettings,
   highlighterSettings,
+  onCreateText,
+  onEditText,
+  textEditing,
+  textBoundary,
+  onSaveText,
+  onCancelText,
   readOnly = false,
 }) {
-  const canSelect = !readOnly && activeTool === 'select'
+  const canSelect = !readOnly && activeTool === 'select' && !textEditing
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
@@ -134,6 +142,7 @@ export default function Canvas({
             dispatch={dispatch}
             onGuides={setGuides}
             onInteracting={setInteracting}
+            onEditText={onEditText}
           />
         ))}
       </View>
@@ -144,6 +153,10 @@ export default function Canvas({
           <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
         </View>
       )}
+      {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} onCreate={onCreateText} />}
+      {!readOnly && activeTool === 'text' && !textEditing && visible.filter((o) => o.type === 'text' && !o.locked).map((object) =>
+        <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => onEditText(object)} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}
+      {!readOnly && textEditing && <TextEditor boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
 
       {freeCropTarget && <CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} />}
 
@@ -324,7 +337,7 @@ function containsPoint(object, point) {
   return Math.abs(local.x) <= object.w / 2 && Math.abs(local.y) <= object.h / 2
 }
 
-function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting }) {
+function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onEditText }) {
   const gesture = useRef(null)
 
   const panHandlers = usePan({
@@ -410,6 +423,11 @@ function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarg
       // 이미 선택된 그룹을 한 번 더 탭하면 그 요소만 골라 따로 고칠 수 있다. (빈 곳을 누르면 다시 그룹 단위)
       if (g?.mode === 'move' && !moved && g.groupSelected) {
         dispatch({ type: 'selectExact', ids: [object.id] })
+        return
+      }
+      // 겹침이 없는 선택 텍스트는 재탭으로 편집한다. 겹친 요소의 순환 선택은 유지한다.
+      if (g?.mode === 'move' && !moved && g.wasSelected && g.stack.length === 1 && object.type === 'text' && !object.locked) {
+        onEditText(object)
         return
       }
       // 겹친 자리에서 선택된 요소를 한 번 더 탭하면 그 아래 요소 → 그 아래 → … → 다시 맨 위 순서로 고른다.
