@@ -41,12 +41,13 @@ function LibraryScreen({
   // 사이드 메뉴 애니메이션 중에는 매 프레임 바뀌므로 App이 아닌 이 화면 안에서만 들고 있는다.
   const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
   const shown = useMemo(() => diaries.filter((diary) =>
-    filter === 'all'
-      || (filter === 'personal' && diary.type === '개인')
+    (filter === 'shared' && diary.type === '공유')
+      || (filter === 'personal' && diary.type !== '공유')
       || (filter === 'favorite' && diary.favorite),
   ), [diaries, filter]);
-  const label = FILTERS.find((item) => item.id === filter)?.label || '전체';
-  const canCreate = filter === 'all';
+  const current = FILTERS.find((item) => item.id === filter) || FILTERS[0];
+  // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 카드는 개인 다이어리 탭에만 둔다.
+  const canCreate = filter === 'personal';
   const carouselItems = useMemo(() => (canCreate ? [...shown, { id: 'new-diary' }] : shown), [canCreate, shown]);
   const itemCount = carouselItems.length;
   // 카드 수가 바뀔 때만 애니메이션 노드를 새로 만든다. 매 렌더마다 만들면 스와이프마다 모든 카드가 다시 연결된다.
@@ -79,7 +80,7 @@ function LibraryScreen({
   return (
     <ScrollView contentContainerStyle={s.libraryScreen} showsVerticalScrollIndicator={false}>
       <View style={s.libraryHeader}>
-        <Text style={s.libraryTitle}>내 다이어리</Text>
+        <Text style={s.libraryTitle}>{current.label}</Text>
         <View style={s.libraryViewSwitch} accessibilityRole="tablist">
           <Pressable
             accessibilityRole="tab"
@@ -119,10 +120,7 @@ function LibraryScreen({
       </View>
 
       {!carouselItems.length ? (
-        <EmptyState
-          title={`${label} 다이어리가 없어요`}
-          copy="다른 보관함을 보거나 새 다이어리를 만들어 보세요."
-        />
+        <EmptyState title={current.empty} copy={current.emptyCopy} />
       ) : view === 'carousel' ? (
         <View style={s.carouselShell}>
           <View style={s.carouselRow}>

@@ -7,7 +7,7 @@ import { styles as s } from '../styles';
 const RAIL_WIDTH = { collapsed: 78, expanded: 218 };
 const RAIL_PADDING = { collapsed: 15, expanded: 20 };
 
-function SideRail({ page, filter, navigate, create, bottomInset, collapsed, onToggle }) {
+function SideRail({ page, filter, navigate, create, collapsed, onToggle }) {
   // 0 = 접힘, 1 = 펼침. 너비·여백·글자 투명도를 한 값으로 함께 움직인다.
   const progress = useRef(new Animated.Value(collapsed ? 0 : 1)).current;
 
@@ -26,7 +26,7 @@ function SideRail({ page, filter, navigate, create, bottomInset, collapsed, onTo
 
   const item = (id, label, icon, nextFilter) => {
     const selected = id === 'library'
-      ? page === 'library' && filter === (nextFilter || 'all')
+      ? page === 'library' && filter === nextFilter
       : page === id;
     return (
       <Pressable
@@ -49,12 +49,12 @@ function SideRail({ page, filter, navigate, create, bottomInset, collapsed, onTo
     <Animated.View
       style={[
         s.rail,
-        { width: between(RAIL_WIDTH.collapsed, RAIL_WIDTH.expanded), paddingHorizontal: between(RAIL_PADDING.collapsed, RAIL_PADDING.expanded), paddingBottom: 24 + bottomInset },
+        { width: between(RAIL_WIDTH.collapsed, RAIL_WIDTH.expanded), paddingHorizontal: between(RAIL_PADDING.collapsed, RAIL_PADDING.expanded), paddingBottom: 24 },
       ]}
     >
       <Animated.View style={[s.brandRow, { marginBottom: between(18, 25) }]}>
         <Animated.View pointerEvents={collapsed ? 'none' : 'auto'} style={[s.brandSlot, { opacity: labelOpacity }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="내 다이어리" onPress={() => navigate('library', 'all')} style={s.brand}>
+          <Pressable accessibilityRole="button" accessibilityLabel="내 다이어리" onPress={() => navigate('library', 'personal')} style={s.brand}>
             <View style={s.brandMark}><Text style={s.brandMarkText}>D</Text></View>
             <Text numberOfLines={1} style={s.brandText}>DIO</Text>
           </Pressable>
@@ -82,17 +82,12 @@ function SideRail({ page, filter, navigate, create, bottomInset, collapsed, onTo
         <Animated.View style={[s.railSectionSlot, { height: between(0, 23), opacity: labelOpacity }]}>
           <Text numberOfLines={1} style={s.railSection}>보관함</Text>
         </Animated.View>
-        {item('library', '모든 다이어리', 'grid', 'all')}
-        {item('profile', '내 공간', 'person')}
+        {item('library', '개인 다이어리', 'book', 'personal')}
+        {item('library', '공유 다이어리', 'people', 'shared')}
         {item('library', '즐겨찾기', 'star', 'favorite')}
+        {item('profile', '내 공간', 'person')}
         {item('trash', '휴지통', 'trash')}
       </Animated.View>
-      <View style={s.railBottom}>
-        <View accessibilityLabel="다크 모드 준비 중" style={s.railItem}>
-          <View style={s.railIconSlot}><AppIcon name="moon" size={20} color={C.muted} /></View>
-          <Animated.Text numberOfLines={1} style={[s.railLabel, { opacity: labelOpacity }]}>다크 모드</Animated.Text>
-        </View>
-      </View>
     </Animated.View>
   );
 }

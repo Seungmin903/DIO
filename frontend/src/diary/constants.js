@@ -58,11 +58,14 @@ export const DIARY_DEFAULTS = {
   firstPage: 'blank',
 };
 
+// 홈 화면 보관함 탭. 고른 탭 이름이 화면 제목이 된다.
 export const FILTERS = [
-  { id: 'all', label: '전체' },
-  { id: 'personal', label: '개인' },
-  { id: 'favorite', label: '즐겨찾기' },
+  { id: 'personal', label: '개인 다이어리', empty: '개인 다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
+  { id: 'shared', label: '공유 다이어리', empty: '공유 다이어리가 없어요', emptyCopy: '다이어리 안에서 친구를 초대하면 이곳에 모여요.' },
+  { id: 'favorite', label: '즐겨찾기', empty: '즐겨찾기한 다이어리가 없어요', emptyCopy: '다이어리 카드의 별을 눌러 즐겨찾기에 추가해 보세요.' },
 ];
+
+export const DEFAULT_FILTER = 'personal';
 
 export const CAROUSEL_ITEM_WIDTH = 238;
 export const CAROUSEL_GAP = 42;

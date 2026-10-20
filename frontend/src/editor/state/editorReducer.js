@@ -111,6 +111,27 @@ function cloneObjects(objects, offset) {
 }
 
 /**
+ * 페이지 복제본은 원본과 같은 소재(mediaFileId)는 참조하되, 편집 대상인
+ * 페이지·요소·그룹 ID는 모두 새로 만든다. 따라서 한쪽 페이지의 요소를
+ * 이동·삭제·수정해도 다른 페이지에는 영향을 주지 않는다.
+ */
+function clonePage(page) {
+  const groupMap = new Map()
+  return {
+    id: createId(),
+    objects: page.objects.map((object) => {
+      const copy = JSON.parse(JSON.stringify(object))
+      let groupId = copy.groupId
+      if (groupId) {
+        if (!groupMap.has(groupId)) groupMap.set(groupId, createId())
+        groupId = groupMap.get(groupId)
+      }
+      return { ...copy, id: createId(), groupId }
+    }),
+  }
+}
+
+/**
  * 정렬: 여러 개면 선택 영역 기준, 하나면 페이지 기준.
  * mode: left | hcenter | right | top | vcenter | bottom | hspace | vspace (간격 맞추기, 3개 이상)
  */
@@ -334,6 +355,37 @@ export function editorReducer(state, action) {
         doc: { ...state.doc, pages },
         pageId: page.id,
         selectedIds: [],
+      }
+    }
+
+    // 현재 페이지 바로 다음에 복제본을 넣고, 복제본으로 이동한다.
+    // 요소 ID를 새로 만들어 두 페이지의 편집 상태가 서로 섞이지 않게 한다.
+    case 'duplicatePage': {
+      const source = state.doc.pages.find((page) => page.id === (action.id ?? state.pageId))
+      if (!source) return state
+      const page = clonePage(source)
+      const index = state.doc.pages.findIndex((item) => item.id === source.id)
+      const pages = [...state.doc.pages]
+      pages.splice(index + 1, 0, page)
+      return {
+        ...withHistory(state),
+        doc: { ...state.doc, pages },
+        pageId: page.id,
+        selectedIds: [],
+      }
+    }
+
+    // 인덱스는 페이지 자체에 저장한다. 같은 다이어리를 다시 열어도 상단 인덱스에서 바로 찾을 수 있다.
+    case 'togglePageIndex': {
+      const id = action.id ?? state.pageId
+      if (!state.doc.pages.some((page) => page.id === id)) return state
+      const next = withHistory(state)
+      return {
+        ...next,
+        doc: {
+          ...next.doc,
+          pages: next.doc.pages.map((page) => (page.id === id ? { ...page, indexed: !page.indexed } : page)),
+        },
       }
     }
 

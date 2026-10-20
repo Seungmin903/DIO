@@ -28,6 +28,9 @@
 | [text-editing.md](./text-editing.md) | 91 텍스트 생성·한글 입력·재편집 및 저장 계약 |
 | [diary-library-storage.md](./diary-library-storage.md) | 121 다이어리 목록 로컬 저장·복원·편집 문서만 남은 다이어리 복구 |
 | [mvp1-ui-spec.md](./mvp1-ui-spec.md) | MVP1 UI/UX 범위, 디자인 토큰, 화면·상호작용 명세 |
+| [dakku-mockup-mobile.html](./dakku-mockup-mobile.html) | iPhone 비율을 반영한 DIO 인터랙티브 모바일 목업 |
+| [mockups/](./mockups/) | iPhone 주요 화면별 디자인 목업 PNG 6종 |
+| [DIO-iPhone-screen-mockups.zip](./DIO-iPhone-screen-mockups.zip) | iPhone 주요 화면 목업 PNG 6종 압축 파일 |
 | [full-schema.mysql.sql](./full-schema.mysql.sql) | MySQL 8.4 기준 경량 DDL — 공유 다이어리, 캔버스, 미디어·GIF·오디오, 템플릿, AI 손글씨 폰트 포함 |
 | [api.md](./api.md) | REST·WebSocket API 초안 — 인증, 다이어리, 미디어, 캔버스, 사용자별 undo/redo, 알림함 |
 | [prototypes/dakku-mvp1-palette-applied.html](./prototypes/dakku-mvp1-palette-applied.html) | MVP1 팔레트·범위 적용본 인터랙티브 목업 |

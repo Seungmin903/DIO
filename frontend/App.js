@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Alert, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditorScreen from './src/editor/screens/EditorScreen';
+import { DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail from './src/diary/components/SideRail';
@@ -25,7 +26,7 @@ function DiaryApp() {
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
   const [railCollapsed, setRailCollapsed] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState(DEFAULT_FILTER);
   const [view, setView] = useState('carousel');
   const [carousel, setCarousel] = useState(0);
   const { diaries, setDiaries, loaded } = useDiaries();
@@ -34,6 +35,8 @@ function DiaryApp() {
   const [form, setForm] = useState(null);
 
   const tablet = fitTabletFrame(viewport.width, viewport.height);
+  // 프레임이 세로로 가운데 정렬되므로, 아래 빈 공간이 내비게이션 바보다 작을 때 겹치는 만큼만 올린다.
+  const bottomOverlap = Math.max(0, insets.bottom - (viewport.height - tablet.height) / 2);
 
   // 하위 컴포넌트가 memo로 다시 그리기를 건너뛸 수 있도록 콜백은 안정된 참조로 유지한다.
   const open = useCallback((diary) => {
@@ -48,13 +51,13 @@ function DiaryApp() {
 
   const navigate = useCallback((next, nextFilter) => {
     if (next === 'library') {
-      setFilter(nextFilter || 'all');
+      setFilter(nextFilter || DEFAULT_FILTER);
       setCarousel(0);
     }
     setPage(next);
   }, []);
 
-  const goHome = useCallback(() => navigate('library', 'all'), [navigate]);
+  const goHome = useCallback(() => navigate('library', DEFAULT_FILTER), [navigate]);
   const create = useCallback(() => setForm({ diary: null }), []);
   const edit = useCallback((diary) => setForm({ diary }), []);
   const closeForm = useCallback(() => setForm(null), []);
@@ -115,6 +118,8 @@ function DiaryApp() {
     setForm(null);
     if (!original) {
       setActive(diary);
+      // 새 다이어리는 개인 다이어리이므로 홈으로 돌아오면 개인 다이어리 탭을 보여준다.
+      setFilter('personal');
       setCarousel(0);
       setPage('editor');
     }
@@ -159,7 +164,9 @@ function DiaryApp() {
       <StatusBar hidden />
       <SafeAreaView style={s.safe} edges={['left', 'right']}>
         <View style={s.viewport} onLayout={measureViewport}>
-          <View style={[s.app, { width: tablet.width, height: tablet.height }]}>
+          {/* 16:10 프레임은 화면 전체 기준으로 유지하고, 안쪽 내용만 하단 시스템 내비게이션 바(뒤로가기 등) 위로 올린다.
+              SafeAreaView에 bottom을 주면 높이가 줄어든 만큼 프레임 폭까지 줄어 좌우에 빈 띠가 생긴다. */}
+          <View style={[s.app, { width: tablet.width, height: tablet.height, paddingBottom: bottomOverlap }]}>
             {page === 'editor' ? content : (
               <View style={s.shell}>
                 <SideRail
@@ -167,11 +174,10 @@ function DiaryApp() {
                   filter={filter}
                   navigate={navigate}
                   create={create}
-                  bottomInset={insets.bottom}
                   collapsed={railCollapsed}
                   onToggle={toggleRail}
                 />
-                <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
+                <View style={s.workspace}>
                   {content}
                   {form && (
                     <DiaryCreateModal

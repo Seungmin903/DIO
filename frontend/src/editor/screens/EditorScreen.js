@@ -314,6 +314,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
   const showPages = pagesOpen && !focusMode
   const showLayers = layersOpen && !focusMode
+  const togglePageIndex = (id = page.id) => {
+    const target = state.doc.pages.find((item) => item.id === id)
+    dispatch({ type: 'togglePageIndex', id })
+    showToast(target?.indexed ? '인덱스에서 내렸어요.' : '인덱스를 페이지 위로 올렸어요.')
+  }
 
   return (
     <View style={styles.root} {...closeOnOutside} onStartShouldSetResponderCapture={(event) => Boolean(textEditing && textBoundary.current?.(event))} onResponderTerminationRequest={() => false}>
@@ -381,6 +386,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               dispatch({ type: 'selectPage', id })
             }}
             onAdd={() => dispatch({ type: 'addPage' })}
+            onDuplicate={(id) => {
+              dispatch({ type: 'duplicatePage', id })
+              showToast('페이지를 복제했어요.')
+            }}
+            onToggleIndex={(id) => {
+              togglePageIndex(id)
+            }}
             onRemove={(id) => {
               dispatch({ type: 'removePage', id })
               showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.')
@@ -528,7 +540,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           <CropPanel photo={cropTarget} dispatch={dispatch} onApply={() => finishCrop(true)} onCancel={() => finishCrop(false)} />
         ) : (
           showLayers && !readOnly && (
-            <LayerPanel
+          <LayerPanel
               objects={page.objects}
               selectedIds={state.selectedIds}
               dispatch={dispatch}

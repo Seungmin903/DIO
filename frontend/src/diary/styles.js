@@ -31,7 +31,6 @@ export const styles = StyleSheet.create({
   railIconSelected: { color: C.ink },
   railLabel: { flexShrink: 0, color: C.inkSoft, fontSize: 13, fontWeight: '650' },
   railLabelSelected: { color: C.ink, fontWeight: '850' },
-  railBottom: { marginTop: 'auto', paddingTop: 20, borderTopWidth: 1, borderTopColor: C.line },
 
   screen: { flexGrow: 1, paddingHorizontal: 48, paddingTop: 43, paddingBottom: 44 },
   libraryScreen: { flexGrow: 1, paddingHorizontal: 30, paddingTop: 38, paddingBottom: 34 },
