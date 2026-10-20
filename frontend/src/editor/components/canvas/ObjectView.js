@@ -28,11 +28,7 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
   )
   switch (object.type) {
     case 'stroke':
-      return (
-        <Svg width={width} height={height} viewBox={`0 0 ${object.baseWidth} ${object.baseHeight}`} preserveAspectRatio="none" style={{ transform: flipTransform(object) }}>
-          <Path d={strokePath(object.points)} fill="none" stroke={object.color} strokeWidth={object.strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-      )
+      return <StrokeContent object={object} zoom={zoom} transform={flipTransform(object)} />
     case 'sticker':
       return <StickerContent object={object} width={width} height={height} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'tape':
