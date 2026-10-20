@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import { styles as s } from '../styles';
+import { formatUpdatedAt } from '../utils/diaryLibrary';
 import Cover from './Cover';
 
 export default function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, carouselActive = false }) {
@@ -32,7 +33,7 @@ export default function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, 
             <Text style={[s.favoriteIcon, diary.favorite && s.favoriteOn]}>{diary.favorite ? '★' : '☆'}</Text>
           </Pressable>
         </View>
-        <Text style={s.cardDate}>{diary.updatedAt}</Text>
+        <Text style={s.cardDate}>{formatUpdatedAt(diary.updatedAt)}</Text>
       </View>
     </Pressable>
   );
