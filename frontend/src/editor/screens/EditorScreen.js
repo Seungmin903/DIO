@@ -18,7 +18,9 @@ import MorePanel from '../components/panels/MorePanel'
 import PageList from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
 import PenSettings from '../components/PenSettings'
-import { createText, textPatch } from '../utils/text'
+import TextSettings from '../components/TextSettings'
+import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch } from '../utils/text'
+import { createText } from '../utils/text'
 import { DEFAULT_PEN_SETTINGS, DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
 import SaveIndicator from '../components/controls/SaveIndicator'
 import TapeCropper from '../components/panels/TapeCropper'
@@ -51,12 +53,18 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [exportOpen, setExportOpen] = useState(false)
   const [regionOpen, setRegionOpen] = useState(false)
   const [stageSize, setStageSize] = useState(null)
+  const stageRef = useRef(null)
+  const [stageOrigin, setStageOrigin] = useState({ x: 0, y: 0 })
   // scale: 화면에 맞춤 대비 배율, x·y: 페이지 왼쪽 위 위치 (null 이면 가운데)
   const [view, setView] = useState({ scale: 1, x: null, y: null })
   const [drawerTab, setDrawerTab] = useState(null)
   const [activeTool, setActiveTool] = useState('select')
   const [textEditing, setTextEditing] = useState(null)
   const textBoundary = useRef(null)
+  const textPaletteBounds = useRef(null)
+  const [textPalette, setTextPalette] = useState(null)
+  const [textDefaults, setTextDefaults] = useState(DEFAULT_TEXT_SETTINGS)
+  const [textSettingsOpen, setTextSettingsOpen] = useState(false)
   const [penSettings, setPenSettings] = useState(DEFAULT_PEN_SETTINGS)
   const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
@@ -79,6 +87,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setTemplatePickerOpen(false)
     setDrawerTab(null)
     setTextEditing(null)
+    setTextSettingsOpen(false)
     setPenSettingsOpen(false)
     setMoreOpen(false)
     dispatch({ type: 'select', ids: [] })
@@ -118,6 +127,14 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const cropTarget = cropId ? page.objects.find((o) => o.id === cropId && o.type === 'photo') : null
   const tapeCrop = tapeCropId ? page.objects.find((o) => o.id === tapeCropId && (o.src || o.mediaFileId) && o.imageWidth) : null
   const selectedObjects = page.objects.filter((o) => state.selectedIds.includes(o.id))
+  const selectedText = selectedObjects.length === 1 && selectedObjects[0].type === 'text' && !selectedObjects[0].locked ? selectedObjects[0] : null
+  const currentTextSettings = textSettings(selectedText ?? textDefaults)
+  const changeTextSettings = (patch) => {
+    if (Object.entries(patch).every(([key, value]) => currentTextSettings[key] === value)) return
+    const next = { ...currentTextSettings, ...patch }
+    setTextDefaults(next)
+    if (selectedText) dispatch({ type: 'updateObject', id: selectedText.id, record: true, patch: { ...textFormatPatch(selectedText, next), ...('color' in patch && { colorRanges: [] }) } })
+  }
   const showMore = moreOpen && selectedObjects.length > 0 && !cropId
 
   const showToast = useCallback((message, retry) => {
@@ -304,7 +321,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   // 툴바에서 연 창(보관함·더보기·펜 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
   // 터치를 가로채지 않고(목록 스크롤과 다투지 않게) 누른 위치만 본다:
   // 창·툴바 안의 터치는 그 영역이 먼저 표시하고, 바깥(root)에서는 표시가 없을 때만 닫는다.
-  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen)
+  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen)
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
@@ -314,6 +331,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         setDrawerTab(null)
         setMoreOpen(false)
         setPenSettingsOpen(false)
+        setTextSettingsOpen(false)
       }
       touchInside.current = false
     },
@@ -398,7 +416,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           />
         )}
 
-        <View style={styles.stage}>
+        <View ref={stageRef} collapsable={false} style={styles.stage}
+          onLayout={() => stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y }))}>
           <Viewport
             zoom={zoom}
             scale={view.scale}
@@ -407,29 +426,31 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             onPan={panBy}
             onTapEmpty={clearSelection}
             dragToPan={activeTool === 'hand'}
-            onLayout={(event) => setStageSize(event.nativeEvent.layout)}
+            onLayout={(event) => { setStageSize(event.nativeEvent.layout); stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y })) }}
           >
               <Canvas
                 activeTool={activeTool}
                 penSettings={penSettings}
                 highlighterSettings={highlighterSettings}
                 textBoundary={textBoundary}
+                onTextPaletteChange={setTextPalette}
+                textPaletteBounds={textPaletteBounds}
                 textEditing={textEditing?.pageId === page.id ? textEditing : null}
-                onEditText={(object) => setTextEditing({ ...object, pageId: page.id, existing: true })}
+                onEditText={(object) => { setTextSettingsOpen(false); setTextEditing({ ...object, pageId: page.id, existing: true }) }}
                 onCancelText={() => setTextEditing(null)}
-                onSaveText={(text) => {
+                onSaveText={(text, colorRanges = []) => {
         if (textEditing.pageId === page.id) {
           if (textEditing.existing) {
-            if (text !== textEditing.text) {
+            if (text !== textEditing.text || JSON.stringify(colorRanges) !== JSON.stringify(textEditing.colorRanges ?? [])) {
               if (!text.trim()) dispatch({ type: 'removeObjects', ids: [textEditing.id] })
-              else dispatch({ type: 'updateObject', id: textEditing.id, record: true, patch: textPatch(text, textEditing.baseWidth) })
+              else dispatch({ type: 'updateObject', id: textEditing.id, record: true, patch: { ...textFormatPatch({ ...textEditing, text }, textSettings(textEditing)), colorRanges } })
             }
-          } else if (text.trim()) dispatch({ type: 'addObjects', objects: [createText({ ...textEditing, text })] })
+          } else if (text.trim()) dispatch({ type: 'addObjects', objects: [createText({ ...textEditing, text, colorRanges })] })
         }
         setTextEditing(null)
         setActiveTool('select')
       }}
-                onCreateText={(box) => setTextEditing({ ...box, id: createId(), pageId: page.id, text: '' })}
+                onCreateText={(box) => { setTextSettingsOpen(false); setTextEditing({ ...box, ...textDefaults, id: createId(), pageId: page.id, text: '' }) }}
                 readOnly={readOnly}
                 page={page}
                 zoom={zoom}
@@ -452,6 +473,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               activeTool={activeTool}
               drawerTab={drawerTab}
               onOpenDrawer={(tab) => {
+                setTextSettingsOpen(false)
                 setPenSettingsOpen(false)
                 if (cropId) finishCrop(false)
                 setMoreOpen(false)
@@ -459,17 +481,29 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 setDrawerTab(drawerTab === tab ? null : tab)
               }}
               onSelectTool={(tool) => {
+                setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
                 setPenSettingsOpen(['pen', 'highlighter'].includes(tool) ? tool !== activeTool || !penSettingsOpen : false)
                 if (cropId) finishCrop(false)
                 setTapeCropId(null)
                 setDrawerTab(null)
                 setMoreOpen(false)
-                dispatch({ type: 'select', ids: [] })
+                if (tool !== 'text') dispatch({ type: 'select', ids: [] })
                 setActiveTool(tool)
               }}
               onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
             />
           </View>}
+          {!readOnly && textEditing && textPalette && <View style={[styles.textPaletteWrap, {
+            left: Math.max(8, Math.min((textPalette.anchor?.x ?? stageOrigin.x) - stageOrigin.x, (stageSize?.width ?? 600) - 268)),
+            top: Math.max(84, Math.min((textPalette.anchor?.y ?? stageOrigin.y) - stageOrigin.y + (textPalette.anchor?.height ?? 0) + 6, (stageSize?.height ?? 500) - 164)),
+          }]} {...markInside}>
+            {textPalette.content}
+          </View>}
+          {!readOnly && textSettingsOpen && !textEditing && !drawerTab && (
+            <View style={[styles.penSettingsWrap, { left: Math.max(8, Math.min((stageSize?.width ?? 600) / 2 - 30, (stageSize?.width ?? 600) - 288)), right: 8 }]} pointerEvents="box-none" {...markInside}>
+              <TextSettings settings={currentTextSettings} onChange={changeTextSettings} />
+            </View>
+          )}
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
             <View style={styles.penSettingsWrap} pointerEvents="box-none" {...markInside}>
               <PenSettings key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => setPenSettingsOpen(false)} />
@@ -584,6 +618,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
   body: { flex: 1, flexDirection: 'row', gap: 16, padding: 16 },
   stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 18 },
+  textPaletteWrap: { position: 'absolute', maxWidth: '100%' },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
   penSettingsWrap: { position: 'absolute', top: 76, left: 16, right: 16, bottom: 64, alignItems: 'flex-start' },
   // 보관함은 스테이지 안에서만 펼쳐지고, 내용이 길면 안에서 스크롤한다. (하단 확대 컨트롤은 가리지 않음)

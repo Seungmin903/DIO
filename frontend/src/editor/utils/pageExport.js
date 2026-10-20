@@ -14,6 +14,12 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
   const objects = page.objects.filter((o) => !o.hidden && o.opacity !== 0).map((object) => {
     if (!['photo', 'sticker', 'tape', 'stroke', 'text'].includes(object.type)) throw new PageExportError('EXPORT_ELEMENT_UNSUPPORTED', '아직 내보낼 수 없는 요소가 있어요.')
     if (object.type === 'text' && (typeof object.text !== 'string' || !Number.isFinite(object.baseWidth) || object.baseWidth <= 0)) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '텍스트 내용을 확인해 주세요.')
+    if (object.type === 'text' && (
+      (object.colorRanges != null && (!Array.isArray(object.colorRanges) || object.colorRanges.some((r, i, list) => !r || !Number.isInteger(r.start) || !Number.isInteger(r.end) || r.start < 0 || r.end > object.text.length || r.start >= r.end || !/^#[0-9a-f]{6}$/i.test(r.color) || (i > 0 && list[i - 1].end > r.start)))) ||
+      (object.fontSize != null && (!Number.isFinite(object.fontSize) || object.fontSize < 8 || object.fontSize > 96)) ||
+      (object.font != null && !['sans', 'serif', 'mono'].includes(object.font)) ||
+      (object.textAlign != null && !['left', 'center', 'right'].includes(object.textAlign))
+    )) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '텍스트 서식을 확인해 주세요.')
     if (object.type === 'stroke' && (
       !Array.isArray(object.points) || !object.points.length ||
       object.points.some((p) => !Number.isFinite(p?.x) || !Number.isFinite(p?.y) || (p.pressure != null && (!Number.isFinite(p.pressure) || p.pressure <= 0 || p.pressure > 2.3))) ||
