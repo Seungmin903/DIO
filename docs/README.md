@@ -18,10 +18,13 @@
 | [multi-page-pdf.md](./multi-page-pdf.md) | 110 PDF 페이지 선택·순차 조립·RGB·한도·취소 및 검증 |
 | [pen-stroke.md](./pen-stroke.md) | 88·89 펜 획 입력·종류·굵기·색상 설정·저장 형식 및 검증 |
 | [highlighter.md](./highlighter.md) | 90 형광펜 끝 모양·굵기·색상·반투명 렌더링 및 검증 |
+| [diary-library-storage.md](./diary-library-storage.md) | 121 다이어리 목록 로컬 저장·복원·편집 문서만 남은 다이어리 복구 |
 | [mvp1-ui-spec.md](./mvp1-ui-spec.md) | MVP1 UI/UX 범위, 디자인 토큰, 화면·상호작용 명세 |
 | [full-schema.mysql.sql](./full-schema.mysql.sql) | MySQL 8.4 기준 경량 DDL — 공유 다이어리, 캔버스, 미디어·GIF·오디오, 템플릿, AI 손글씨 폰트 포함 |
 | [api.md](./api.md) | REST·WebSocket API 초안 — 인증, 다이어리, 미디어, 캔버스, 사용자별 undo/redo, 알림함 |
 | [prototypes/dakku-mvp1-palette-applied.html](./prototypes/dakku-mvp1-palette-applied.html) | MVP1 팔레트·범위 적용본 인터랙티브 목업 |
+| [export-menu-pdf-ui.md](./export-menu-pdf-ui.md) | 111 공유 메뉴·페이지 선택·PDF 생성 연결 및 검증 |
+| [region-selection-ui.md](./region-selection-ui.md) | 116 내보내기 영역 드래그·이동·크기 조절 및 검증 |
 | (예정) requirements.md | 기능 요구사항 |
 | (예정) api.md | API 명세 |
 | (예정) erd.md | DB 설계 |

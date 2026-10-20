@@ -1,6 +1,7 @@
 import { Animated, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
+import { formatUpdatedAt } from '../utils/diaryLibrary';
 import Cover from './Cover';
 
 export default function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, onEdit, carouselActive = false, animatedStyle }) {
@@ -46,7 +47,7 @@ export default function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, 
             <Text style={s.cardType}>나만의 다이어리</Text>
           </View>
         </View>
-        <Text style={s.cardDate}>{diary.updatedAt}</Text>
+        <Text style={s.cardDate}>{formatUpdatedAt(diary.updatedAt)}</Text>
       </View>
     </Pressable>
   );

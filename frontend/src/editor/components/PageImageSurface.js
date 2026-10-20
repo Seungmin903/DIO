@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Platform, View } from 'react-native'
+import { PixelRatio, Platform, View } from 'react-native'
 import ObjectContent, { objectOpacity } from './canvas/ObjectView'
+import { pageImageQuality } from '../utils/pageImageQuality.js'
 import { capturePage } from '../utils/capturePage'
 import { PageExportError } from '../utils/pageExport.js'
 
@@ -24,7 +25,7 @@ export default function PageImageSurface({ job }) {
         try {
           const result = await capturePage(surface.current, snapshot)
           // 늦은 결과의 소유권/취소 처리는 요청 bridge가 한 곳에서 담당한다.
-          resolve(result)
+          resolve({ ...result, diagnostics: pageImageQuality(snapshot, { platform: Platform.OS, scale, pixelRatio: PixelRatio.get() }) })
         } catch (error) { reject(error) }
       })
     })

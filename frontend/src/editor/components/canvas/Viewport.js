@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Platform, StyleSheet, View } from 'react-native'
+import { createPinchGate } from '../../hooks/usePalmRejection'
 
 /**
  * 편집 화면의 보는 영역. 페이지를 offset 위치에 zoom 배율로 둔다.
  * - 두 손가락: 벌리고 오므려 확대·축소(손가락 사이 지점 기준), 끌어서 화면 이동
+ *   두 손가락이 거의 동시에 닿았을 때만이다. 펜·손가락으로 쓰는 중에 나중에 닿은 손바닥은 확대·축소로 보지 않는다.
  * - 한 손가락은 그대로 캔버스(선택·이동·펜)에 넘긴다.
  * - 웹: 휠·트랙패드로 이동, Ctrl(⌘)+휠·트랙패드 핀치로 확대·축소
  * 예전의 가로·세로 ScrollView 는 기기에서 요소를 끄는 손가락을 스크롤이 먼저 가져가서 쓰지 않는다.
@@ -17,6 +19,7 @@ export default function Viewport({ zoom, offset, scale, onPinch, onPan, onTapEmp
   const origin = useRef({ x: 0, y: 0 })
   const nodeRef = useRef(null)
   const tap = useRef(null) // 페이지 밖 여백을 한 손가락으로 누른 위치
+  const [gate] = useState(createPinchGate)
   const latest = useRef({ zoom, offset, scale, onPinch, onPan, onTapEmpty })
   latest.current = { zoom, offset, scale, onPinch, onPan, onTapEmpty }
 
@@ -24,7 +27,7 @@ export default function Viewport({ zoom, offset, scale, onPinch, onPan, onTapEmp
   const measure = () => nodeRef.current?.measureInWindow?.((x, y) => (origin.current = { x, y }))
   const local = (touch) => ({ x: touch.pageX - origin.current.x, y: touch.pageY - origin.current.y })
 
-  const twoFingers = (event) => (event.nativeEvent.touches?.length ?? 0) >= 2
+  const twoFingers = (event) => gate.isPinch(event)
   const startPinch = (event) => {
     const [a, b] = event.nativeEvent.touches
     const p = local(a)
@@ -40,12 +43,19 @@ export default function Viewport({ zoom, offset, scale, onPinch, onPan, onTapEmp
   }
 
   const responder = {
-    onStartShouldSetResponderCapture: twoFingers,
+    onStartShouldSetResponderCapture: (event) => {
+      gate.note(event)
+      return twoFingers(event)
+    },
     onMoveShouldSetResponderCapture: twoFingers,
     // 페이지가 받지 않은 한 손가락 터치(= 페이지 밖 여백)도 여기서 받는다. 떼면 선택 해제.
     onStartShouldSetResponder: () => true,
-    onResponderTerminationRequest: () => false,
+    // 확대·축소 중에는 놓지 않는다. 여백에 얹힌 한 손가락(손바닥)이면 페이지(펜·선택)가 새 터치를 가져가게 한다.
+    onResponderTerminationRequest: () => !pinch.current,
+    // 응답 중에 새로 닿은 터치도 시각을 적어 둔다 (capture 단계를 거치지 않는다)
+    onResponderStart: (event) => gate.note(event),
     onResponderGrant: (event) => {
+      gate.note(event)
       measure()
       if (twoFingers(event)) startPinch(event)
       else tap.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }

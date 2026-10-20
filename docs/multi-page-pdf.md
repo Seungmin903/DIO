@@ -4,7 +4,7 @@
 
 현재/개별/범위 선택을 문서 순서의 스냅샷으로 고정하고, 전달받은 공통 페이지 이미지 생성 함수로 **한 장씩** PNG를 만든 뒤 A4 가로 PDF 한 파일로 조립한다. 메뉴/선택 화면은111번, 저장·공유는112번이다. 이번 작업은 기존 PNG 버튼을 PDF 버튼으로 바꾸지 않는다.
 
-109번이 아직 develop에 병합되지 않아 해당 브랜치 커밋을 이 작업에 섞지 않았다. `renderPageImage(snapshot,{signal})`를 주입받는 경계로 구현했다. 111번에서는109번 hook의 surface를 마운트하고 반환 함수를 연결해야 한다.
+최초 구현은 `renderPageImage(snapshot,{signal})` 주입 경계로 분리했다. 109·110번 병합 후 111번에서 공통 hook의 surface를 마운트하고 실제 메뉴에 연결했다. 진행·취소·재시도 및 결과 수명은 [메뉴 UI 기록](./export-menu-pdf-ui.md)을 따른다. 앱 PDF 저장·공유는 112번 범위다.
 
 ```js
 import { createPdfExportSnapshot, pdfSelectAllPolicy } from './pdfSnapshot.js'

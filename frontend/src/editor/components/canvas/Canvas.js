@@ -16,6 +16,10 @@ import PenInput from '../PenInput'
 const SNAP_SCREEN_PX = 6
 const LONG_PRESS_MS = 450
 const MARQUEE_MIN_PX = 6
+// 빈 곳을 탭했을 때 이 거리(화면 px) 안의 가장 가까운 요소를 고른다. 손가락 끝 반지름 정도 (터치 목표 최소 44~48pt 의 절반)
+const TAP_SLOP_PX = 24
+// 요소를 누를 수 있는 최소 크기(화면 px). Apple 44pt · Material 48dp 기준
+const MIN_TARGET_PX = 44
 
 /**
  * 편집 캔버스. 논리 좌표(PAGE_WIDTH × PAGE_HEIGHT)에 zoom 을 곱해 그린다.
@@ -92,10 +96,14 @@ export default function Canvas({
       }
     },
     onEnd: ({ moved, cancelled }) => {
+      const start = marqueeRef.current
       marqueeRef.current = null
       setMarquee(null)
       // 두 손가락 제스처로 넘어간 경우에는 선택을 건드리지 않는다.
-      if (!moved && !cancelled && !cropping) dispatch({ type: 'select', ids: [] })
+      if (moved || cancelled || cropping) return
+      // 요소를 살짝 빗나가게 눌렀으면 가장 가까운 요소를 고른다 (지도 게임·노트 앱의 '가까운 것 고르기').
+      const near = start && nearestObject(visible, start, TAP_SLOP_PX / zoom)
+      dispatch({ type: 'select', ids: near ? [near.id] : [] })
     },
   })
 
@@ -132,7 +140,8 @@ export default function Canvas({
 
       {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
-          <PenInput key={`${page.id}-${zoom}-${activeTool}`} zoom={zoom} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
+          {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
+          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
         </View>
       )}
 
@@ -273,12 +282,54 @@ function nearest(values, target, threshold) {
   return best
 }
 
+/** 터치 위치 → 페이지 좌표. locationX·Y 는 회전 전 요소 상자 기준이다. */
+function pagePoint(object, event, zoom) {
+  const c = centerOf(object)
+  const local = rotateVector(event.locationX / zoom - object.w / 2, event.locationY / zoom - object.h / 2, object.rotation)
+  return { x: c.x + local.x, y: c.y + local.y }
+}
+
+/** 화면에서 MIN_TARGET_PX 보다 작은 요소의 터치 여유 */
+function touchSlop(object, zoom) {
+  const x = Math.max(0, (MIN_TARGET_PX - object.w * zoom) / 2)
+  const y = Math.max(0, (MIN_TARGET_PX - object.h * zoom) / 2)
+  return x || y ? { left: x, right: x, top: y, bottom: y } : undefined
+}
+
+/** 회전된 요소 상자 밖의 점에서 상자까지의 거리 (안이면 0) */
+function distanceToObject(object, point) {
+  const c = centerOf(object)
+  const local = rotateVector(point.x - c.x, point.y - c.y, -object.rotation)
+  return Math.hypot(Math.max(Math.abs(local.x) - object.w / 2, 0), Math.max(Math.abs(local.y) - object.h / 2, 0))
+}
+
+/** maxDistance 안에서 가장 가까운 요소. 거리가 같으면 위(앞)에 있는 요소 */
+function nearestObject(objects, point, maxDistance) {
+  let best = null
+  let bestDistance = maxDistance
+  for (let i = objects.length - 1; i >= 0; i -= 1) {
+    const d = distanceToObject(objects[i], point)
+    if (d < bestDistance - 0.01 || (d <= bestDistance && !best)) {
+      best = objects[i]
+      bestDistance = d
+    }
+  }
+  return best
+}
+
+/** 회전된 요소 상자 안에 점이 있는지 */
+function containsPoint(object, point) {
+  const c = centerOf(object)
+  const local = rotateVector(point.x - c.x, point.y - c.y, -object.rotation)
+  return Math.abs(local.x) <= object.w / 2 && Math.abs(local.y) <= object.h / 2
+}
+
 function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting }) {
   const gesture = useRef(null)
 
   const panHandlers = usePan({
     disabled: cropping && !isCropTarget,
-    onStart: () => {
+    onStart: (event) => {
       onInteracting(true)
       if (isCropTarget) {
         gesture.current = { mode: 'crop', crop: object.crop }
@@ -293,7 +344,11 @@ function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarg
       // 그룹 안에 들어가 있는 중(같은 그룹 요소 하나만 선택)이면 형제 요소도 하나씩 고른다.
       const members = object.groupId ? objects.filter((o) => o.groupId === object.groupId).map((o) => o.id) : []
       const insideGroup = members.length > 1 && selectedIds.length === 1 && members.includes(selectedIds[0])
-      const wasSelected = selectedIds.includes(object.id)
+      // 누른 자리에 겹쳐 있는 요소들(위에서부터). 이미 선택된 요소가 그 아래에 있으면 그 요소를 잡는다.
+      const point = pagePoint(object, event, zoom)
+      const stack = [...objects].reverse().filter((o) => !o.hidden && containsPoint(o, point))
+      const underneath = stack.find((o) => o.id !== object.id && selectedIds.includes(o.id))
+      const wasSelected = selectedIds.includes(object.id) || Boolean(underneath)
       const ids = wasSelected ? selectedIds : insideGroup ? [object.id] : expandGroups(objects, [object.id])
       const moving = objects.filter((o) => ids.includes(o.id) && !o.locked)
       gesture.current = {
@@ -306,6 +361,7 @@ function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarg
         bounds: moving.length ? unionBounds(moving) : null,
         others: objects.filter((o) => !ids.includes(o.id) && !o.hidden),
         checkpointed: false,
+        stack,
       }
       if (!wasSelected) dispatch({ type: insideGroup ? 'selectExact' : 'select', ids: [object.id] })
     },
@@ -352,7 +408,22 @@ function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarg
         return
       }
       // 이미 선택된 그룹을 한 번 더 탭하면 그 요소만 골라 따로 고칠 수 있다. (빈 곳을 누르면 다시 그룹 단위)
-      if (g?.mode === 'move' && !moved && g.groupSelected) dispatch({ type: 'selectExact', ids: [object.id] })
+      if (g?.mode === 'move' && !moved && g.groupSelected) {
+        dispatch({ type: 'selectExact', ids: [object.id] })
+        return
+      }
+      // 겹친 자리에서 선택된 요소를 한 번 더 탭하면 그 아래 요소 → 그 아래 → … → 다시 맨 위 순서로 고른다.
+      if (g?.mode === 'move' && !moved && g.wasSelected && g.stack.length > 1) {
+        const current = g.stack.findIndex((o) => g.previousSelection.includes(o.id))
+        for (let step = 1; step < g.stack.length; step += 1) {
+          const next = g.stack[(current + step) % g.stack.length]
+          // 같은 묶음(그룹) 안의 요소는 건너뛴다.
+          if (!g.previousSelection.includes(next.id)) {
+            dispatch({ type: 'select', ids: [next.id] })
+            break
+          }
+        }
+      }
     },
   })
 
@@ -360,6 +431,8 @@ function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarg
   return (
     <View
       {...panHandlers}
+      // 작은 요소도 손가락으로 잡기 쉽게 터치 영역을 최소 MIN_TARGET_PX 로 넓힌다 (Android·iOS)
+      hitSlop={touchSlop(object, zoom)}
       style={{
         position: 'absolute',
         left: object.x * zoom,

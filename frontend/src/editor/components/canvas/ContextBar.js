@@ -7,12 +7,11 @@ import { clamp, unionBounds } from '../../utils/common'
 import Icon from '../controls/Icon'
 import { outlineOn, photoSupportsShadow, shadowOn } from './ObjectView'
 
-// 무늬 바꾸기 순서
-const TAPE_PATTERNS = ['solid', 'stripe', 'dot', 'check', 'grid', 'wave', 'gingham', 'heart', 'star', 'plaid', 'kraft']
 
 const BAR_HEIGHT = 52
 const EDGE = 8 // 페이지 가장자리와 바 사이 여백
 const GAP = 18
+const MENU_WIDTH = 148
 /** 선택한 요소 근처에 뜨는 빠른 편집 바. 세부 옵션은 '더보기'(MorePanel) 에서 */
 export default function ContextBar({
   objects,
@@ -27,6 +26,7 @@ export default function ContextBar({
 }) {
   const [barWidth, setBarWidth] = useState(0)
   const [orderOpen, setOrderOpen] = useState(false)
+  const [orderRight, setOrderRight] = useState(0) // 순서 버튼 오른쪽 끝 (바 기준). 순서 메뉴를 여기에 맞춘다.
   const ids = objects.map((o) => o.id)
   const editable = objects.filter((o) => !o.locked)
   const single = objects.length === 1 ? objects[0] : null
@@ -46,6 +46,11 @@ export default function ContextBar({
   const left = clamp(bounds.cx * zoom - barWidth / 2, 8, Math.max(8, pageW - barWidth - 8))
 
   const update = (patch) => single && dispatch({ type: 'updateObject', id: single.id, patch, record: true })
+  // 테두리·그림자를 켜면 세부 옵션(두께·색·위치)이 바로 보이도록 옵션 패널도 연다.
+  const toggleEffect = (key, on) => {
+    update({ [key]: !on })
+    if (!on && !moreOpen) onToggleMore()
+  }
   const allLocked = objects.every((o) => o.locked)
   const grouped = objects.length > 1 && objects.every((o) => o.groupId && o.groupId === objects[0].groupId)
 
@@ -62,17 +67,17 @@ export default function ContextBar({
           <BarButton icon="crop" label="자르기" primary onPress={() => onCrop(single.id)} />
           <IconButton icon="swap" label="사진 바꾸기" onPress={() => onReplacePhoto(single.id)} />
           {single.frame === 'shape' && (
-            <Chip label="흰 테두리" active={outlineOn(single)} onPress={() => update({ outline: !outlineOn(single) })} />
+            <Chip label="테두리" active={outlineOn(single)} onPress={() => toggleEffect('outline', outlineOn(single))} />
           )}
           {photoSupportsShadow(single) && (
-            <Chip label="그림자" active={shadowOn(single)} onPress={() => update({ shadow: !shadowOn(single) })} />
+            <Chip label="그림자" active={shadowOn(single)} onPress={() => toggleEffect('shadow', shadowOn(single))} />
           )}
         </>
       )}
       {single?.type === 'sticker' && !single.locked && (
         <>
-          <Chip label="흰 테두리" active={outlineOn(single)} onPress={() => update({ outline: !outlineOn(single) })} />
-          <Chip label="그림자" active={shadowOn(single)} onPress={() => update({ shadow: !shadowOn(single) })} />
+          <Chip label="테두리" active={outlineOn(single)} onPress={() => toggleEffect('outline', outlineOn(single))} />
+          <Chip label="그림자" active={shadowOn(single)} onPress={() => toggleEffect('shadow', shadowOn(single))} />
         </>
       )}
       {single?.type === 'tape' && !single.locked && (
@@ -80,25 +85,15 @@ export default function ContextBar({
           {single.src && single.imageWidth && <BarButton icon="crop" label="자르기" primary onPress={() => onCrop(single.id)} />}
           {!single.src && (
             <>
-              {/* 무늬만 다음 것으로 (색은 그대로) */}
-              <BarButton
-                icon="tape"
-                label="무늬"
-                onPress={() => {
-                  const look = tapeLook(single.pattern, single.palette)
-                  const index = TAPE_PATTERNS.indexOf(look.pattern)
-                  update({ pattern: TAPE_PATTERNS[(index + 1) % TAPE_PATTERNS.length], palette: look.palette })
-                }}
-              />
-              {/* 색: 더보기 패널의 '테이프 색'에서 고른다 */}
+              {/* 디자인: 규격·무늬·색을 한 곳에서 바꾼다 (더보기 패널의 테이프 디자인) */}
               <Pressable
                 onPress={onToggleMore}
                 accessibilityRole="button"
-                accessibilityLabel="테이프 색"
+                accessibilityLabel="테이프 디자인"
                 style={({ pressed }) => [styles.button, pressed && styles.pressed]}
               >
                 <View style={[styles.colorDot, { backgroundColor: tapeLook(single.pattern, single.palette).fg }]} />
-                <Text style={styles.buttonText}>색</Text>
+                <Text style={styles.buttonText}>디자인</Text>
               </Pressable>
             </>
           )}
@@ -120,8 +115,11 @@ export default function ContextBar({
       )}
 
       <View style={styles.divider} />
-      <IconButton icon="layers" label="순서" active={orderOpen} onPress={() => setOrderOpen(!orderOpen)} />
-      <IconButton icon="more" label="더보기" active={moreOpen} onPress={onToggleMore} />
+      <View onLayout={(event) => setOrderRight(event.nativeEvent.layout.x + event.nativeEvent.layout.width)}>
+        <IconButton icon="layers" label="순서" active={orderOpen} onPress={() => setOrderOpen(!orderOpen)} />
+      </View>
+      {/* 세부 옵션(꾸미기·배치). 아이콘만 있으면 잘 안 보여서 글자를 함께 쓴다. */}
+      <BarButton icon="more" label="옵션" active={moreOpen} onPress={onToggleMore} />
       <IconButton
         icon={allLocked ? 'unlock' : 'lock'}
         label={allLocked ? '잠금 해제' : '잠그기'}
@@ -149,6 +147,7 @@ export default function ContextBar({
       {orderOpen && (
         <OrderMenu
           placement={menuBelow ? 'below' : 'above'}
+          right={orderRight}
           objects={objects}
           allObjects={allObjects}
           onPick={(mode) => dispatch({ type: 'reorder', ids, mode })}
@@ -169,13 +168,13 @@ const ORDER_ACTIONS = [
  * 순서 메뉴. 선택한 요소 반대쪽(바 너머)으로 펼쳐 요소를 가리지 않는다.
  * 이미 맨 앞/맨 뒤면 그쪽 항목은 흐리게 막아 둔다. 메뉴는 열어 둔 채 여러 번 누를 수 있다.
  */
-function OrderMenu({ placement, objects, allObjects, onPick }) {
+function OrderMenu({ placement, right, objects, allObjects, onPick }) {
   const selected = new Set(objects.map((o) => o.id))
   const indexes = allObjects.map((o, i) => (selected.has(o.id) ? i : -1)).filter((i) => i >= 0)
   const atFront = indexes.every((index, k) => index === allObjects.length - indexes.length + k)
   const atBack = indexes.every((index, k) => index === k)
   return (
-    <View style={[styles.menu, placement === 'below' ? { top: BAR_HEIGHT + 6 } : { bottom: BAR_HEIGHT + 6 }]}>
+    <View style={[styles.menu, { left: right - MENU_WIDTH }, placement === 'below' ? { top: BAR_HEIGHT + 6 } : { bottom: BAR_HEIGHT + 6 }]}>
       {ORDER_ACTIONS.map((action) => {
         const disabled = action.toward === 'front' ? atFront : atBack
         return (
@@ -196,13 +195,14 @@ function OrderMenu({ placement, objects, allObjects, onPick }) {
   )
 }
 
-function BarButton({ icon, label, primary, onPress }) {
+function BarButton({ icon, label, primary, active, onPress }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [styles.button, primary && styles.buttonPrimary, pressed && styles.pressed]}
+      accessibilityState={active != null ? { selected: active } : undefined}
+      style={({ pressed }) => [styles.button, primary && styles.buttonPrimary, active && styles.chipActive, pressed && styles.pressed]}
     >
       <Icon name={icon} size={17} color={primary ? colors.surface : colors.text} />
       <Text style={[styles.buttonText, primary && styles.buttonTextPrimary]}>{label}</Text>
@@ -250,8 +250,7 @@ const styles = StyleSheet.create({
   },
   menu: {
     position: 'absolute',
-    right: 181, // '순서' 버튼 오른쪽 끝에 맞춤 (뒤의 아이콘 4개 × 44 + 바 안쪽 여백 5)
-    width: 148,
+    width: MENU_WIDTH,
     padding: 5,
     borderRadius: 14,
     backgroundColor: colors.surface,

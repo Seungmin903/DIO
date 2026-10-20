@@ -221,6 +221,12 @@ export function editorReducer(state, action) {
       return { ...state, selectedIds }
     }
 
+    // 다이어리 이름 바꾸기 (상단바). 되돌리기로 돌아갈 수 있다.
+    case 'renameDoc': {
+      const next = withHistory(state)
+      return { ...next, doc: { ...next.doc, title: action.title } }
+    }
+
     case 'selectPage':
       return { ...state, pageId: action.id, selectedIds: [] }
 

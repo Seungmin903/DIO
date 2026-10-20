@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { COLORS } from './src/diary/constants';
-import { loadDiaryLibrary, saveDiaryLibrary } from './src/diary/libraryStorage';
+import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail from './src/diary/components/SideRail';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
@@ -31,8 +31,7 @@ function DiaryApp() {
   const [view, setView] = useState('carousel');
   const [carousel, setCarousel] = useState(0);
   const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
-  const [diaries, setDiaries] = useState([]);
-  const [diaryLibraryLoaded, setDiaryLibraryLoaded] = useState(false);
+  const { diaries, setDiaries, loaded } = useDiaries();
   const [active, setActive] = useState(null);
   const [formTitle, setFormTitle] = useState('');
   const [formColor, setFormColor] = useState(COLORS[0].value);
@@ -41,21 +40,6 @@ function DiaryApp() {
   const [editingDiaryId, setEditingDiaryId] = useState(null);
 
   const tablet = fitTabletFrame(viewport.width, viewport.height);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadDiaryLibrary().then((saved) => {
-      if (cancelled) return;
-      setDiaries(saved);
-      setDiaryLibraryLoaded(true);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (!diaryLibraryLoaded) return;
-    void saveDiaryLibrary(diaries);
-  }, [diaries, diaryLibraryLoaded]);
 
   const open = (diary) => {
     setActive(diary);
@@ -103,14 +87,8 @@ function DiaryApp() {
         {
           text: '삭제',
           style: 'destructive',
-          onPress: async () => {
-            const nextDiaries = diaries.filter((item) => item.id !== diary.id);
-            const saved = await saveDiaryLibrary(nextDiaries);
-            if (!saved) {
-              setError('기기에서 다이어리를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.');
-              return;
-            }
-            setDiaries(nextDiaries);
+          onPress: () => {
+            setDiaries((current) => current.filter((item) => item.id !== diary.id));
             setActive((current) => (current?.id === diary.id ? null : current));
             setCreateOpen(false);
             setEditingDiaryId(null);
@@ -120,7 +98,7 @@ function DiaryApp() {
     );
   };
 
-  const save = async () => {
+  const save = () => {
     const title = formTitle.trim();
     if (!title) {
       setError('다이어리 이름을 입력해 주세요.');
@@ -133,25 +111,21 @@ function DiaryApp() {
       return;
     }
 
+    const updatedAt = new Date().toISOString();
     const diary = original
-      ? { ...original, title, color: formColor, updatedAt: '방금 전' }
+      ? { ...original, title, color: formColor, updatedAt }
       : {
         id: `diary-${Date.now()}`,
         title,
         color: formColor,
         type: '개인',
         favorite: false,
-        updatedAt: '방금 전',
+        updatedAt,
       };
-    const nextDiaries = original
-      ? diaries.map((item) => (item.id === diary.id ? diary : item))
-      : [...diaries, diary];
-    const saved = await saveDiaryLibrary(nextDiaries);
-    if (!saved) {
-      setError('기기에 다이어리를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
-      return;
-    }
-    setDiaries(nextDiaries);
+    // 먼저 만든 다이어리가 앞(왼쪽)에 오도록 새 다이어리는 뒤에 붙인다.
+    setDiaries((current) => (original
+      ? current.map((item) => (item.id === diary.id ? diary : item))
+      : [...current, diary]));
     setActive((current) => (current?.id === diary.id ? diary : current));
     setCreateOpen(false);
     setEditingDiaryId(null);
@@ -181,7 +155,8 @@ function DiaryApp() {
     />
   );
 
-  let content = libraryScreen;
+  // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
+  let content = loaded ? libraryScreen : null;
   if (page === 'editor') {
     content = <EditorScreen key={active?.id || 'new'} diary={active} onHome={() => navigate('library', 'all')} />;
   } else if (page === 'trash') {
