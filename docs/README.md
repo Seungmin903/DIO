@@ -10,6 +10,7 @@
 | [local-media-binding.md](./local-media-binding.md) | 69 로컬 미디어 조회·캔버스 연결 및 검증 |
 | [local-media-recovery.md](./local-media-recovery.md) | 70 누락·손상·저장 실패 안내 및 표시 URL 수명 |
 | [page-export-renderer.md](./page-export-renderer.md) | 71 전용 페이지 PNG 렌더러·미리보기·검증 |
+| [page-image-renderer.md](./page-image-renderer.md) | 109 공통 이미지 생성 함수·전용 surface·취소·자원 수명 |
 | [gif-first-frame-export.md](./gif-first-frame-export.md) | 73 GIF 첫 프레임 PNG 변환·원본 보존·검증 |
 | [png-file-export.md](./png-file-export.md) | 74 PNG 파일 저장·진행·오류·재시도 계약 |
 | [region-png-export-contract.md](./region-png-export-contract.md) | 115 선택 영역 PNG 좌표·비율·출력·저장 계약 |
