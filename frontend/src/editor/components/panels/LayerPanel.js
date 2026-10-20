@@ -10,6 +10,7 @@ import { isMultiSelectKey } from '../../utils/modifiers'
 import { getObjectName } from '../../utils/objects'
 import Icon from '../controls/Icon'
 import TapeView from '../canvas/TapeView'
+import ObjectContent from '../canvas/ObjectView'
 
 const ROW_HEIGHT = 62
 const ROW_GAP = 2
@@ -355,7 +356,9 @@ function LayerRow({ object, nested, selected, renamable, dispatch, ...drag }) {
 function LayerThumb({ object }) {
   const uri = useMediaUri(object, { still: true })
   let content = null
-  if (object.type === 'sticker') {
+  if (object.type === 'stroke') {
+    content = <ObjectContent object={object} zoom={Math.min(30 / object.w, 30 / object.h)} still />
+  } else if (object.type === 'sticker') {
     const source = stickerSource(object, true, uri)
     content = source ? (
       <Image source={source} style={styles.thumbImage} resizeMode="contain" />

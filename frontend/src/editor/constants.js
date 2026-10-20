@@ -9,6 +9,7 @@ export const ZOOM_MAX = 2
 export const ZOOM_STEP = 0.1
 
 export const OBJECT_TYPE_LABELS = {
+  stroke: '필기',
   sticker: '스티커',
   tape: '마스킹테이프',
   photo: '사진',
