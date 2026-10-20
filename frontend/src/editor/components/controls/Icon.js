@@ -1,20 +1,23 @@
-import Svg, { Path } from 'react-native-svg'
+import Svg, { G, Path } from 'react-native-svg'
 import { colors } from '../../../shared/theme'
 
 // 24x24 라인 아이콘 (목업 아이콘 세트 기준)
 const PATHS = {
   panel: 'M4 4h16v16H4z M9 4v16',
   home: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z',
-  cursor: 'M5 3l14 7.5-6.2 1.8L10 19z',
+  // 화살표 끝(왼쪽 위)과 몸통이 대각선 위에 오도록 24칸 가운데에 맞춘 커서
+  cursor: 'M5 5l14.5 6-6.2 1.9L11.4 19z',
   // 올가미: 점선 고리(DASHED_PARTS) + 매듭 + 늘어진 끈 (Lucide lasso 모양 참고, ISC)
   lasso: 'M7 22a5 5 0 0 1-2-4 M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
   pen: 'M4 20l4.2-1 11-11a2.1 2.1 0 0 0-3-3l-11 11z M14.5 6.5l3 3',
-  highlighter: 'M5 21h7 M8.5 14.5l-2 2.5 2.5 2.5 2.5-2 M8.5 14.5l7.5-10 4 3-7.5 10z',
+  // 형광펜: 펜과 같은 몸통에 납작한 촉·촉 띠, 지우개처럼 바닥 줄이 이어진다 (Tabler highlight 모양 참고, MIT)
+  highlighter: 'M3 19h17 M7 19l10.5-10.5a2.83 2.83 0 1 0-4-4L3 15v4 M12.5 5.5l4 4 M4.5 13.5l4 4',
   eraser: 'M8 20h12 M4.6 14.6l9-9a2 2 0 0 1 2.8 0l2.8 2.8a2 2 0 0 1 0 2.8L11 19.4H8.4z M9 10l5 5',
   text: 'M5 7V5h14v2 M12 5v14 M9 19h6',
   sticker: 'M12 21a9 9 0 1 1 9-9v.5L12.5 21z M12.5 21v-4.5a4 4 0 0 1 4-4H21 M8.5 14.5s1.2 1.5 3.5 1.5 M9 9.5h.01 M15 9.5h.01',
   // 테이프 롤 + 풀려 나온 테이프 (끝은 절취선)
-  tape: 'M3 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0 M7.5 11a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0 M15.7 14H21l-1 1 1 1-1 1 1 1H10',
+  // 스티커 동그라미(반지름 9)와 같은 크기로 보이게 롤을 반지름 8 로 키우고 전체를 2~22 칸에 맞춤
+  tape: 'M2 12a8 8 0 1 0 16 0a8 8 0 1 0-16 0 M7.2 12a2.8 2.8 0 1 0 5.6 0a2.8 2.8 0 1 0-5.6 0 M16.6 16.5H22l-1 .875 1 .875-1 .875 1 .875H10',
   image: 'M4 5h16v14H4z M4 16l5-5 4 4 2.5-2.5L20 17 M15 9.5h.01',
   grid: 'M4 4h16v16H4z M4 9h16 M4 14h16 M9 4v16 M14 4v16',
   link: 'M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2 M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2',
@@ -57,27 +60,46 @@ const PATHS = {
   saved: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M8.5 12.2l2.4 2.4 4.6-5',
   saving: 'M12 3a9 9 0 1 0 9 9 M12 7v5l3 2',
   alert: 'M12 3l9.5 17h-19z M12 10v4.5 M12 17.5h.01',
+  // 손바닥(화면 이동): 손가락 폭을 좁혀 다른 아이콘과 비슷한 폭(약 15)으로
+  hand: 'M8 13V6.5a1.5 1.5 0 0 1 3 0V12 M11 11.5V4.5a1.5 1.5 0 0 1 3 0V12 M14 12V6a1.5 1.5 0 0 1 3 0v6.5 M17 9.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.5a5.5 5.5 0 0 1-4.3-2l-3-3.6a1.5 1.5 0 0 1 2.3-1.9L8 15',
+  // 동그라미 안 물음표 (Lucide circle-help 모양 참고, ISC)
+  help: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3 M12 17h.01',
   chevronRight: 'M9 6l6 6-6 6',
   chevronLeft: 'M15 6l-6 6 6 6',
 }
 
 const DOT_ICONS = new Set(['grip', 'more'])
+// 툴바에서 위아래 높이·가운데를 맞추는 보정 (대부분 아이콘은 세로 4~20, 가운데 12)
+// 올가미는 세로 2~22 로 커서 줄이고, 형광펜은 가로로, 지우개는 세로로 조금 치우쳐 있어 가운데로 옮긴다.
+// 크기 보정(scale)은 선 굵기가 같아 보이도록 SCALE 로 나눠 준다.
+const SCALE = { lasso: 0.84, cursor: 1.1 }
+const FIT = {
+  lasso: 'translate(12 12) scale(0.84) translate(-12 -12)',
+  // 테두리만 있는 화살표는 같은 칸에서 작아 보여 조금 키운다
+  cursor: 'translate(12 12) scale(1.1) translate(-12.25 -12)',
+  highlighter: 'translate(0 0.6)', // 세로 3.7~19 → 가운데 12
+  eraser: 'translate(0 -0.6)',
+}
 // 점선으로 그리는 부분 (같은 아이콘의 실선 path 와 겹쳐 그린다)
 const DASHED_PARTS = { lasso: 'M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1' }
 
 export default function Icon({ name, size = 22, color = colors.text, strokeWidth = 1.8 }) {
+  // 줄여 그린 아이콘도 선 굵기는 같게
+  const width = strokeWidth / (SCALE[name] ?? 1)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <G transform={FIT[name]}>
       {DASHED_PARTS[name] && (
-        <Path d={DASHED_PARTS[name]} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray="3 2.6" />
+        <Path d={DASHED_PARTS[name]} stroke={color} strokeWidth={width} strokeLinecap="round" strokeDasharray="3 2.6" />
       )}
       <Path
         d={PATHS[name]}
         stroke={color}
-        strokeWidth={DOT_ICONS.has(name) ? 3 : strokeWidth}
+        strokeWidth={DOT_ICONS.has(name) ? 3 : width}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      </G>
     </Svg>
   )
 }

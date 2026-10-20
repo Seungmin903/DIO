@@ -3,9 +3,15 @@ import { colors } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 
 // 도구 상태는 EditorScreen이 소유하고 캔버스와 공유한다.
-const INPUT_TOOLS = [
+// 화면 이동·고르기 도구
+const NAV_TOOLS = [
+  { id: 'hand', icon: 'hand', label: '손바닥 (화면 이동)' },
   { id: 'select', icon: 'cursor', label: '선택' },
   { id: 'lasso', icon: 'lasso', label: '올가미 선택', pending: true },
+]
+
+// 그리기·쓰기 도구
+const INPUT_TOOLS = [
   { id: 'pen', icon: 'pen', label: '펜' },
   { id: 'highlighter', icon: 'highlighter', label: '형광펜' },
   { id: 'eraser', icon: 'eraser', label: '지우개', pending: true },
@@ -21,6 +27,12 @@ const DECOR_TOOLS = [
 export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTool, onPlaceholder }) {
   return (
     <View style={styles.ribbon}>
+      {NAV_TOOLS.map((tool) => (
+        <Tool key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
+          active={!drawerTab && activeTool === tool.id}
+          onPress={() => tool.pending ? onPlaceholder(tool.label) : onSelectTool(tool.id)} />
+      ))}
+      <View style={styles.divider} />
       {INPUT_TOOLS.map((tool) => (
         <Tool key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
           active={!drawerTab && activeTool === tool.id}

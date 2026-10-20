@@ -1,6 +1,6 @@
 import { Image, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
-import { FRAME_COLORS } from '../../constants'
+import { FRAME_COLORS, TAPE_DEFAULT_OPACITY } from '../../constants'
 import { stickerSource } from '../../stickerAssets'
 import { boxShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
 import { reportMediaDisplayError, mediaRegistry } from '../../services/mediaStore'
@@ -14,7 +14,7 @@ import TapeView from './TapeView'
 import StrokeContent from '../StrokeContent'
 
 /**
- * 오브젝트 하나의 생김새. 위치·회전·투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
+ * 오브젝트 하나의 생김새. 위치·회전·불투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
 export default function ObjectContent({ object, zoom, still = false, onAssetLoad, onAssetError }) {
@@ -65,7 +65,8 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
 // 테두리·그림자: 기본은 둘 다 꺼짐. 색·두께·위치 등은 utils/effects 의 outlineOf·shadowOf
 export const outlineOn = (object) => outlineOf(object).on
 export const shadowOn = (object) => shadowOf(object).on
-export const objectOpacity = (object) => object.opacity ?? 1
+// 테이프는 기본 80% (살짝 비치는 마스킹테이프). 100% 면 완전히 불투명하다.
+export const objectOpacity = (object) => object.opacity ?? (object.type === 'tape' ? TAPE_DEFAULT_OPACITY : 1)
 // 사진 그림자는 View 로 그리는 틀(폴라로이드·사각·라운드·원형)에서만 지원
 export const photoSupportsShadow = (photo) => photo.frame === 'polaroid' || VIEW_CLIP_SHAPES[photo.shape] != null
 export const frameColorOf = (photo) => FRAME_COLORS.find((c) => c.id === photo.frameColor)?.value ?? '#FFFFFF'

@@ -15,7 +15,9 @@ import PenInput from '../PenInput'
 
 const SNAP_SCREEN_PX = 6
 const LONG_PRESS_MS = 450
-const MARQUEE_MIN_PX = 6
+// 빈 곳 터치: 이만큼(화면 px) 안에서 움직였으면 탭(선택 해제), 넘으면 영역 선택. 손가락 탭은 3~8px 쯤 흔들린다.
+const TAP_MOVE_PX = 10
+const MARQUEE_MIN_PX = TAP_MOVE_PX
 // 빈 곳을 탭했을 때 이 거리(화면 px) 안의 가장 가까운 요소를 고른다. 손가락 끝 반지름 정도 (터치 목표 최소 44~48pt 의 절반)
 const TAP_SLOP_PX = 24
 // 요소를 누를 수 있는 최소 크기(화면 px). Apple 44pt · Material 48dp 기준
@@ -67,12 +69,14 @@ export default function Canvas({
         x: event.locationX / zoom,
         y: event.locationY / zoom,
         base: isMultiSelectKey() ? selectedIds : [],
-        key: '',
+        key: null, // 영역 선택이 시작되면 빈 결과라도 한 번은 반영한다
+        maxMove: 0,
       }
     },
     onMove: (dx, dy) => {
       const m = marqueeRef.current
-      if (!m || cropping || Math.hypot(dx, dy) < MARQUEE_MIN_PX) return
+      if (m) m.maxMove = Math.max(m.maxMove, Math.hypot(dx, dy))
+      if (!m || cropping || m.maxMove < MARQUEE_MIN_PX) return
       const rect = {
         left: Math.min(m.x, m.x + dx / zoom),
         right: Math.max(m.x, m.x + dx / zoom),
@@ -95,22 +99,24 @@ export default function Canvas({
         dispatch({ type: 'selectExact', ids })
       }
     },
-    onEnd: ({ moved, cancelled }) => {
+    onEnd: ({ cancelled }) => {
       const start = marqueeRef.current
       marqueeRef.current = null
       setMarquee(null)
       // 두 손가락 제스처로 넘어간 경우에는 선택을 건드리지 않는다.
-      if (moved || cancelled || cropping) return
+      // 조금 흔들린 탭도 탭으로 본다. (usePan 의 moved 는 3px 만 넘어도 true 라 기기에서 선택 해제가 자주 안 됐다)
+      if (!start || cancelled || cropping || start.maxMove >= TAP_MOVE_PX) return
       // 요소를 살짝 빗나가게 눌렀으면 가장 가까운 요소를 고른다 (지도 게임·노트 앱의 '가까운 것 고르기').
+      // 이미 선택된 요소 근처를 누른 것은 '선택 풀기'로 본다. (요소가 하나뿐일 때 빈 곳을 눌러도 안 풀리던 문제)
       const near = start && nearestObject(visible, start, TAP_SLOP_PX / zoom)
-      dispatch({ type: 'select', ids: near ? [near.id] : [] })
+      dispatch({ type: 'select', ids: near && !selectedIds.includes(near.id) ? [near.id] : [] })
     },
   })
 
   return (
     <View
-      accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ select: '선택', pen: '펜', highlighter: '형광펜', text: '텍스트' }[activeTool]} 캔버스`}
-      style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
+      accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', text: '텍스트' }[activeTool]} 캔버스`}
+      style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect ? backgroundHandlers : {})}
     >
       {/*

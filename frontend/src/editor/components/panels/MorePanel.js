@@ -23,7 +23,7 @@ const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테
 /**
  * 선택한 요소의 세부 옵션 (편집 바의 '더보기').
  * 캔버스 위에 띄우면 요소·편집 바를 가리기 쉬워서 보관함처럼 편집 영역 오른쪽에 붙인다.
- * 탭 두 개: '꾸미기'(테두리·그림자, 테이프 디자인, 폴라로이드 틀 색)를 먼저, '배치'(투명도·반전·회전·정렬)는 뒤에.
+ * 탭 두 개: '꾸미기'(테두리·그림자, 테이프 디자인, 폴라로이드 틀 색)를 먼저, '배치'(불투명도·반전·회전·정렬)는 뒤에.
  * 꾸밀 것이 없는 요소(이미지 테이프 등)는 배치만 보여 준다.
  */
 export default function MorePanel({ objects, dispatch, onClose }) {
@@ -104,14 +104,14 @@ export default function MorePanel({ objects, dispatch, onClose }) {
           </>
         ) : (
           <>
-            <Section title={`투명도 ${Math.round(objectOpacity(editable[0]) * 100)}%`}>
+            <Section title={`불투명도 ${Math.round(objectOpacity(editable[0]) * 100)}%`}>
               <Slider
                 value={objectOpacity(editable[0])}
                 min={0.1}
                 max={1}
                 step={0.1}
-                minusLabel="더 투명하게"
-                plusLabel="덜 투명하게"
+                minusLabel="불투명도 낮추기"
+                plusLabel="불투명도 높이기"
                 onStart={() => dispatch({ type: 'checkpoint' })}
                 onChange={(value) => updateEach(() => ({ opacity: Math.round(value * 100) / 100 }), false)}
               />

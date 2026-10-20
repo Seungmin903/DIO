@@ -381,6 +381,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             onPinch={zoomAround}
             onPan={panBy}
             onTapEmpty={clearSelection}
+            dragToPan={activeTool === 'hand'}
             onLayout={(event) => setStageSize(event.nativeEvent.layout)}
           >
               <Canvas
@@ -444,7 +445,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             <View style={styles.drawerWrap} pointerEvents="box-none" {...markInside}>
               <DecorDrawer
                 tab={drawerTab}
-                onTabChange={setDrawerTab}
                 onAdd={addDecor}
                 onAddPhotos={addPhotos}
                 recentPhotos={recentPhotos}

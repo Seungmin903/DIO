@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Platform, StyleSheet, View } from 'react-native'
-import { createPinchGate } from '../../hooks/usePalmRejection'
 
 /**
  * 편집 화면의 보는 영역. 페이지를 offset 위치에 zoom 배율로 둔다.
  * - 두 손가락: 벌리고 오므려 확대·축소(손가락 사이 지점 기준), 끌어서 화면 이동
- *   두 손가락이 거의 동시에 닿았을 때만이다. 펜·손가락으로 쓰는 중에 나중에 닿은 손바닥은 확대·축소로 보지 않는다.
- * - 한 손가락은 그대로 캔버스(선택·이동·펜)에 넘긴다.
+ * - 한 손가락은 그대로 캔버스(선택·이동·펜)에 넘긴다. 손바닥 도구(dragToPan)일 때는 한 손가락으로 화면을 옮긴다.
  * - 웹: 휠·트랙패드로 이동, Ctrl(⌘)+휠·트랙패드 핀치로 확대·축소
  * 예전의 가로·세로 ScrollView 는 기기에서 요소를 끄는 손가락을 스크롤이 먼저 가져가서 쓰지 않는다.
  *
@@ -14,20 +12,20 @@ import { createPinchGate } from '../../hooks/usePalmRejection'
  * onPinch(scale, pagePoint, screenPoint): pagePoint(페이지 좌표)가 screenPoint 에 오도록 scale 로 맞춰 달라는 요청
  * onPan(dx, dy): 화면 이동 요청. 배율·위치 제한은 부모가 한다.
  */
-export default function Viewport({ zoom, offset, scale, onPinch, onPan, onTapEmpty, children, style, onLayout }) {
+export default function Viewport({ zoom, offset, scale, onPinch, onPan, onTapEmpty, dragToPan = false, children, style, onLayout }) {
   const pinch = useRef(null)
   const origin = useRef({ x: 0, y: 0 })
   const nodeRef = useRef(null)
   const tap = useRef(null) // 페이지 밖 여백을 한 손가락으로 누른 위치
-  const [gate] = useState(createPinchGate)
-  const latest = useRef({ zoom, offset, scale, onPinch, onPan, onTapEmpty })
-  latest.current = { zoom, offset, scale, onPinch, onPan, onTapEmpty }
+  const panFrom = useRef(null) // 손바닥 도구: 지난번 손가락 위치
+  const latest = useRef({ zoom, offset, scale, onPinch, onPan, onTapEmpty, dragToPan })
+  latest.current = { zoom, offset, scale, onPinch, onPan, onTapEmpty, dragToPan }
 
   // 화면(창) 좌표 → 보는 영역 안 좌표
   const measure = () => nodeRef.current?.measureInWindow?.((x, y) => (origin.current = { x, y }))
   const local = (touch) => ({ x: touch.pageX - origin.current.x, y: touch.pageY - origin.current.y })
 
-  const twoFingers = (event) => gate.isPinch(event)
+  const twoFingers = (event) => (event.nativeEvent.touches?.length ?? 0) >= 2
   const startPinch = (event) => {
     const [a, b] = event.nativeEvent.touches
     const p = local(a)
@@ -43,27 +41,30 @@ export default function Viewport({ zoom, offset, scale, onPinch, onPan, onTapEmp
   }
 
   const responder = {
-    onStartShouldSetResponderCapture: (event) => {
-      gate.note(event)
-      return twoFingers(event)
-    },
+    onStartShouldSetResponderCapture: twoFingers,
     onMoveShouldSetResponderCapture: twoFingers,
     // 페이지가 받지 않은 한 손가락 터치(= 페이지 밖 여백)도 여기서 받는다. 떼면 선택 해제.
     onStartShouldSetResponder: () => true,
-    // 확대·축소 중에는 놓지 않는다. 여백에 얹힌 한 손가락(손바닥)이면 페이지(펜·선택)가 새 터치를 가져가게 한다.
-    onResponderTerminationRequest: () => !pinch.current,
-    // 응답 중에 새로 닿은 터치도 시각을 적어 둔다 (capture 단계를 거치지 않는다)
-    onResponderStart: (event) => gate.note(event),
+    onResponderTerminationRequest: () => false,
     onResponderGrant: (event) => {
-      gate.note(event)
       measure()
+      panFrom.current = latest.current.dragToPan ? { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY } : null
       if (twoFingers(event)) startPinch(event)
       else tap.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }
     },
     onResponderMove: (event) => {
-      if (tap.current && Math.hypot(event.nativeEvent.pageX - tap.current.x, event.nativeEvent.pageY - tap.current.y) > 8)
+      if (tap.current && Math.hypot(event.nativeEvent.pageX - tap.current.x, event.nativeEvent.pageY - tap.current.y) > 10)
         tap.current = null
-      if (!twoFingers(event)) return
+      if (!twoFingers(event)) {
+        // 손바닥 도구: 한 손가락으로 끌어 화면 이동 (두 손가락에서 한 손가락으로 돌아오면 그 자리부터 다시)
+        if (latest.current.dragToPan && (event.nativeEvent.touches?.length ?? 1) === 1) {
+          const { pageX, pageY } = event.nativeEvent
+          if (panFrom.current) latest.current.onPan(pageX - panFrom.current.x, pageY - panFrom.current.y)
+          panFrom.current = { x: pageX, y: pageY }
+        }
+        return
+      }
+      panFrom.current = null
       tap.current = null
       if (!pinch.current) startPinch(event)
       const [a, b] = event.nativeEvent.touches
@@ -75,11 +76,13 @@ export default function Viewport({ zoom, offset, scale, onPinch, onPan, onTapEmp
     },
     onResponderRelease: () => {
       pinch.current = null
+      panFrom.current = null
       if (tap.current) latest.current.onTapEmpty?.()
       tap.current = null
     },
     onResponderTerminate: () => {
       pinch.current = null
+      panFrom.current = null
       tap.current = null
     },
   }

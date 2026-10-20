@@ -25,6 +25,9 @@ export const TAPE_SIZES = [
   { id: 'wide', name: '와이드', hint: '30mm', w: 200, h: 68 },
 ]
 
+// 마스킹테이프 기본 불투명도 (살짝 비친다). 100% 는 완전히 불투명
+export const TAPE_DEFAULT_OPACITY = 0.8
+
 // 테이프 색: 바탕(bg) + 무늬(fg) 한 쌍. 무늬는 그대로 두고 색만 바꿀 수 있다.
 export const TAPE_PALETTES = [
   { id: 'pink', name: '핑크', bg: '#FAD3DC', fg: '#F59AB2' },
