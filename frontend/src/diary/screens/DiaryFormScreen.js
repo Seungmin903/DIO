@@ -12,7 +12,7 @@ export default function DiaryFormScreen({ editing, title, color, error, onTitleC
       <Header
         eyebrow={editing ? 'UPDATE COVER' : 'CREATE A NEW DIARY'}
         title={editing ? '표지 수정' : '새 다이어리 만들기'}
-        right={<IconButton label="취소" icon="×" onPress={onCancel} />}
+        right={<IconButton label="취소" iconName="close" onPress={onCancel} />}
       />
       <View style={s.formContent}>
         <View style={s.previewArea}>
@@ -54,7 +54,7 @@ export default function DiaryFormScreen({ editing, title, color, error, onTitleC
             ))}
           </View>
           <View style={s.formDivider} />
-          <Text style={s.formTip}>공유는 다이어리를 만든 뒤 상세 화면에서 초대할 수 있어요.</Text>
+          <Text style={s.formTip}>표지와 제목은 나중에도 언제든 바꿀 수 있어요.</Text>
           <Pressable accessibilityRole="button" onPress={onSave} style={({ pressed }) => [s.primary, pressed && s.pressed]}>
             <Text style={s.primaryText}>{editing ? '표지 저장하기' : '다이어리 만들기'}</Text>
             <Text style={s.primaryArrow}>→</Text>

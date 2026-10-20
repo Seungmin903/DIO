@@ -1,14 +1,13 @@
-import { useRef, useState } from 'react';
-import { StatusBar, View, useWindowDimensions } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { COLORS } from './src/diary/constants';
+import { loadDiaryLibrary, saveDiaryLibrary } from './src/diary/libraryStorage';
+import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail from './src/diary/components/SideRail';
-import DiaryDetailScreen from './src/diary/screens/DiaryDetailScreen';
-import DiaryFormScreen from './src/diary/screens/DiaryFormScreen';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
-import SearchScreen from './src/diary/screens/SearchScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { fitTabletFrame } from './src/shared/layout';
@@ -27,24 +26,40 @@ function DiaryApp() {
   const carouselRef = useRef(null);
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
-  const [railCollapsed, setRailCollapsed] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(true);
   const [filter, setFilter] = useState('all');
   const [view, setView] = useState('carousel');
   const [carousel, setCarousel] = useState(0);
   const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
   const [diaries, setDiaries] = useState([]);
+  const [diaryLibraryLoaded, setDiaryLibraryLoaded] = useState(false);
   const [active, setActive] = useState(null);
-  const [query, setQuery] = useState('');
   const [formTitle, setFormTitle] = useState('');
   const [formColor, setFormColor] = useState(COLORS[0].value);
-  const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingDiaryId, setEditingDiaryId] = useState(null);
 
   const tablet = fitTabletFrame(viewport.width, viewport.height);
 
+  useEffect(() => {
+    let cancelled = false;
+    loadDiaryLibrary().then((saved) => {
+      if (cancelled) return;
+      setDiaries(saved);
+      setDiaryLibraryLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!diaryLibraryLoaded) return;
+    void saveDiaryLibrary(diaries);
+  }, [diaries, diaryLibraryLoaded]);
+
   const open = (diary) => {
     setActive(diary);
-    setPage('detail');
+    setPage('editor');
   };
 
   const favorite = (id) => {
@@ -61,49 +76,90 @@ function DiaryApp() {
   };
 
   const create = () => {
-    setEditingId(null);
     setFormTitle('');
     setFormColor(COLORS[0].value);
     setError('');
-    setPage('create');
+    setEditingDiaryId(null);
+    setCreateOpen(true);
   };
 
-  const editCover = () => {
-    if (!active) return;
-    setEditingId(active.id);
-    setFormTitle(active.title);
-    setFormColor(active.color);
+  const edit = (diary) => {
+    setFormTitle(diary.title);
+    setFormColor(diary.color);
     setError('');
-    setPage('cover');
+    setEditingDiaryId(diary.id);
+    setCreateOpen(true);
   };
 
-  const save = () => {
+  const remove = () => {
+    const diary = diaries.find((item) => item.id === editingDiaryId);
+    if (!diary) return;
+
+    Alert.alert(
+      '다이어리를 삭제할까요?',
+      `“${diary.title}”와 연결된 로컬 기록을 삭제합니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: async () => {
+            const nextDiaries = diaries.filter((item) => item.id !== diary.id);
+            const saved = await saveDiaryLibrary(nextDiaries);
+            if (!saved) {
+              setError('기기에서 다이어리를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.');
+              return;
+            }
+            setDiaries(nextDiaries);
+            setActive((current) => (current?.id === diary.id ? null : current));
+            setCreateOpen(false);
+            setEditingDiaryId(null);
+          },
+        },
+      ],
+    );
+  };
+
+  const save = async () => {
     const title = formTitle.trim();
     if (!title) {
       setError('다이어리 이름을 입력해 주세요.');
       return;
     }
 
-    if (editingId) {
-      const next = { ...active, title, color: formColor, updatedAt: '방금 전' };
-      setDiaries((current) => current.map((diary) => (diary.id === editingId ? next : diary)));
-      setActive(next);
-      setPage('detail');
+    const original = editingDiaryId ? diaries.find((diary) => diary.id === editingDiaryId) : null;
+    if (editingDiaryId && !original) {
+      setError('수정할 다이어리를 찾지 못했어요. 목록에서 다시 시도해 주세요.');
       return;
     }
 
-    const diary = {
-      id: `diary-${Date.now()}`,
-      title,
-      color: formColor,
-      type: '개인',
-      favorite: false,
-      updatedAt: '방금 전',
-    };
-    setDiaries((current) => [diary, ...current]);
-    setActive(diary);
-    setCarousel(0);
-    setPage('detail');
+    const diary = original
+      ? { ...original, title, color: formColor, updatedAt: '방금 전' }
+      : {
+        id: `diary-${Date.now()}`,
+        title,
+        color: formColor,
+        type: '개인',
+        favorite: false,
+        updatedAt: '방금 전',
+      };
+    const nextDiaries = original
+      ? diaries.map((item) => (item.id === diary.id ? diary : item))
+      : [...diaries, diary];
+    const saved = await saveDiaryLibrary(nextDiaries);
+    if (!saved) {
+      setError('기기에 다이어리를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    setDiaries(nextDiaries);
+    setActive((current) => (current?.id === diary.id ? diary : current));
+    setCreateOpen(false);
+    setEditingDiaryId(null);
+    if (!original) {
+      setActive(diary);
+      setCarousel(0);
+      setPage('editor');
+    }
   };
 
   const libraryScreen = (
@@ -120,32 +176,14 @@ function DiaryApp() {
       onCarouselViewportLayout={setCarouselViewportWidth}
       onOpen={open}
       onFavorite={favorite}
+      onEdit={edit}
       onCreate={create}
-      onSearch={() => setPage('search')}
     />
   );
 
   let content = libraryScreen;
   if (page === 'editor') {
     content = <EditorScreen key={active?.id || 'new'} diary={active} onHome={() => navigate('library', 'all')} />;
-  } else if (page === 'search') {
-    content = <SearchScreen diaries={diaries} query={query} onQueryChange={setQuery} onOpen={open} onFavorite={favorite} onCreate={create} onClose={() => navigate('library', 'all')} />;
-  } else if (page === 'create' || page === 'cover') {
-    const editing = page === 'cover';
-    content = (
-      <DiaryFormScreen
-        editing={editing}
-        title={formTitle}
-        color={formColor}
-        error={error}
-        onTitleChange={(value) => { setFormTitle(value); setError(''); }}
-        onColorChange={setFormColor}
-        onSave={save}
-        onCancel={() => setPage(editing ? 'detail' : 'library')}
-      />
-    );
-  } else if (page === 'detail' && active) {
-    content = <DiaryDetailScreen diary={active} onBack={() => navigate('library', 'all')} onEditCover={editCover} onFavorite={() => favorite(active.id)} onOpenEditor={() => setPage('editor')} />;
   } else if (page === 'trash') {
     content = <TrashScreen />;
   } else if (page === 'profile') {
@@ -176,7 +214,22 @@ function DiaryApp() {
                   collapsed={railCollapsed}
                   onToggle={() => setRailCollapsed((current) => !current)}
                 />
-                <View style={[s.workspace, { paddingBottom: insets.bottom }]}>{content}</View>
+                <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
+                  {content}
+                  {createOpen && (
+                    <DiaryCreateModal
+                      title={formTitle}
+                      color={formColor}
+                      error={error}
+                      editing={Boolean(editingDiaryId)}
+                      onTitleChange={(value) => { setFormTitle(value); setError(''); }}
+                      onColorChange={setFormColor}
+                      onSave={save}
+                      onDelete={remove}
+                      onCancel={() => { setCreateOpen(false); setError(''); setEditingDiaryId(null); }}
+                    />
+                  )}
+                </View>
               </View>
             )}
           </View>

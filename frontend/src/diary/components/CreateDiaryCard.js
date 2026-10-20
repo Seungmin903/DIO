@@ -1,0 +1,31 @@
+import { Animated, Pressable, Text, View } from 'react-native';
+import AppIcon from '../../shared/AppIcon';
+import { styles as s } from '../styles';
+
+export default function CreateDiaryCard({ layout = 'grid', carouselActive = false, animatedStyle, onCreate }) {
+  const carousel = layout === 'carousel';
+
+  const card = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="새 다이어리 만들기"
+      accessibilityState={carousel ? { selected: carouselActive } : undefined}
+      onPress={onCreate}
+      style={({ pressed }) => [
+        s.createCard,
+        carousel ? s.createCardCarousel : s.createCardGrid,
+        pressed && s.pressed,
+      ]}
+    >
+      <View style={[s.createCardPanel, carousel && s.createCardPanelCarousel]}>
+        <View style={s.createCardPlus}>
+          <AppIcon name="add" size={27} color="#536999" strokeWidth={1.7} />
+        </View>
+        <Text style={s.createCardTitle}>새 다이어리</Text>
+        <Text style={s.createCardCopy}>새 기록을 시작해 보세요</Text>
+      </View>
+    </Pressable>
+  );
+
+  return carousel ? <Animated.View style={animatedStyle}>{card}</Animated.View> : card;
+}
