@@ -14,6 +14,7 @@ import CropHandles from './CropHandles'
 import StaticPage from './StaticPage'
 import SelectionOverlay from './SelectionOverlay'
 import PenInput from '../PenInput'
+import EraserInput from '../EraserInput'
 import LassoInput from '../LassoInput'
 import TextEditor from '../TextEditor'
 import TextBoxInput from '../TextBoxInput'
@@ -50,6 +51,7 @@ export default function Canvas({
   activeTool = 'select',
   penSettings,
   highlighterSettings,
+  eraserSize,
   lassoShape = 'rectangle',
   lassoMode = 'replace',
   onLassoCommit,
@@ -71,6 +73,9 @@ export default function Canvas({
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
+  const [erasingIds, setErasingIds] = useState([])
+  const drawingPage = activeTool === 'eraser' && erasingIds.length
+    ? { ...page, objects: page.objects.filter((object) => !erasingIds.includes(object.id)) } : page
   const visible = page.objects.filter((o) => !o.hidden)
   const selected = visible.filter((o) => selectedIds.includes(o.id))
   const lassoEditing = activeTool === 'lasso' && selected.length > 0 && !lassoDrawing && !lassoCapture
@@ -139,7 +144,7 @@ export default function Canvas({
 
   return (
     <View
-      accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', text: '텍스트', lasso: '올가미' }[activeTool]} 캔버스`}
+      accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', eraser: '지우개', text: '텍스트', lasso: '올가미' }[activeTool]} 캔버스`}
       style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
     >
@@ -149,7 +154,7 @@ export default function Canvas({
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <StaticPage page={page} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} />
+        <StaticPage page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} />
       </View>
       {!readOnly && activeTool === 'lasso' && !textEditing && (
         <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
@@ -186,6 +191,9 @@ export default function Canvas({
           <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
         </View>
       )}
+      {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
+        <EraserInput key={`${page.id}-${zoom}-${eraserSize}`} objects={page.objects} diameter={eraserSize} zoom={zoom} dispatch={dispatch} onPreview={setErasingIds} />
+      </View>}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} onCreate={onCreateText} />}
       {!readOnly && activeTool === 'text' && !textEditing && visible.filter((o) => o.type === 'text' && !o.locked).map((object) =>
         <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => onEditText(object)} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}

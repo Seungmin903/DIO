@@ -14,7 +14,7 @@ const NAV_TOOLS = [
 const INPUT_TOOLS = [
   { id: 'pen', icon: 'pen', label: '펜' },
   { id: 'highlighter', icon: 'highlighter', label: '형광펜' },
-  { id: 'eraser', icon: 'eraser', label: '지우개', pending: true },
+  { id: 'eraser', icon: 'eraser', label: '지우개' },
   { id: 'text', icon: 'text', label: '텍스트' },
 ]
 

@@ -18,6 +18,8 @@ import MorePanel from '../components/panels/MorePanel'
 import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
 import PenSettings from '../components/PenSettings'
+import EraserSettings from '../components/EraserSettings'
+import { ERASER_RADIUS } from '../utils/eraser.js'
 import LassoSettings from '../components/LassoSettings'
 import TextSettings from '../components/TextSettings'
 import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch } from '../utils/text'
@@ -71,6 +73,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [textSettingsOpen, setTextSettingsOpen] = useState(false)
   const [penSettings, setPenSettings] = useState(DEFAULT_PEN_SETTINGS)
   const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
+  const [eraserSize, setEraserSize] = useState(ERASER_RADIUS * 2)
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(true)
@@ -458,6 +461,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 onLassoModeChange={(mode) => setLasso(current => ({ ...current, mode: current.mode === mode ? 'replace' : mode }))}
                 penSettings={penSettings}
                 highlighterSettings={highlighterSettings}
+                eraserSize={eraserSize}
                 textBoundary={textBoundary}
                 onTextPaletteChange={setTextPalette}
                 textPaletteBounds={textPaletteBounds}
@@ -510,7 +514,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               onSelectTool={(tool) => {
                 setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
                 setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
-                setPenSettingsOpen(['pen', 'highlighter'].includes(tool) ? tool !== activeTool || !penSettingsOpen : false)
+                setPenSettingsOpen(['pen', 'highlighter', 'eraser'].includes(tool) ? tool !== activeTool || !penSettingsOpen : false)
                 if (cropId) finishCrop(false)
                 setTapeCropId(null)
                 setDrawerTab(null)
@@ -546,6 +550,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
             <View style={styles.penSettingsWrap} pointerEvents="box-none" {...markInside}>
               <PenSettings key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => setPenSettingsOpen(false)} />
+            </View>
+          )}
+          {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
+            <View style={styles.penSettingsWrap} pointerEvents="box-none" {...markInside}>
+              <EraserSettings size={eraserSize} onChange={setEraserSize} onClose={() => setPenSettingsOpen(false)} />
             </View>
           )}
 
