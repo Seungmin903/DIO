@@ -11,6 +11,7 @@ import ContextBar from './ContextBar'
 import CropHandles from './CropHandles'
 import ObjectContent, { objectOpacity } from './ObjectView'
 import SelectionOverlay from './SelectionOverlay'
+import PenInput from './PenInput'
 
 const SNAP_SCREEN_PX = 6
 const LONG_PRESS_MS = 450
@@ -116,6 +117,12 @@ export default function Canvas({
           />
         ))}
       </View>
+
+      {!readOnly && activeTool === 'pen' && (
+        <View style={styles.penClip}>
+          <PenInput key={`${page.id}-${zoom}`} zoom={zoom} dispatch={dispatch} />
+        </View>
+      )}
 
       {freeCropTarget && <CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} />}
 
@@ -382,6 +389,10 @@ const styles = StyleSheet.create({
   },
   clip: {
     ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  penClip: {
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   guideV: {

@@ -9,7 +9,12 @@ export function createExportSnapshot(page, { width = 1188, height = 840, scale =
   const pixelWidth = Math.max(1, Math.floor(width * ratio)), pixelHeight = Math.max(1, Math.floor(height * ratio))
   if (!page || !Array.isArray(page.objects)) throw new PageExportError('EXPORT_PAGE_INVALID', '페이지를 읽지 못했어요.')
   const objects = page.objects.filter((o) => !o.hidden && o.opacity !== 0).map((object) => {
-    if (!['photo', 'sticker', 'tape'].includes(object.type)) throw new PageExportError('EXPORT_ELEMENT_UNSUPPORTED', '아직 내보낼 수 없는 요소가 있어요.')
+    if (!['photo', 'sticker', 'tape', 'stroke'].includes(object.type)) throw new PageExportError('EXPORT_ELEMENT_UNSUPPORTED', '아직 내보낼 수 없는 요소가 있어요.')
+    if (object.type === 'stroke' && (
+      !Array.isArray(object.points) || !object.points.length ||
+      object.points.some((p) => !Number.isFinite(p?.x) || !Number.isFinite(p?.y)) ||
+      ![object.baseWidth, object.baseHeight, object.strokeWidth].every((n) => Number.isFinite(n) && n > 0)
+    )) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '필기 좌표를 확인해 주세요.')
     if (![object.x, object.y, object.w, object.h, object.rotation ?? 0].every(Number.isFinite) || object.w <= 0 || object.h <= 0) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '요소의 위치와 크기를 확인해 주세요.')
     return JSON.parse(JSON.stringify(object))
   })
