@@ -5,6 +5,10 @@
     "version": "1.0.0",
     "orientation": "landscape",
     "userInterfaceStyle": "light",
+    "androidStatusBar": {
+      "hidden": true,
+      "translucent": true
+    },
     "newArchEnabled": true,
     "splash": {
       "resizeMode": "contain",
