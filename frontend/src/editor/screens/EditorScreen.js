@@ -17,6 +17,7 @@ import MorePanel from '../components/panels/MorePanel'
 import PageList from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
 import PenSettings from '../components/PenSettings'
+import { createText, textPatch } from '../utils/text'
 import { DEFAULT_PEN_SETTINGS, DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
 import SaveIndicator from '../components/controls/SaveIndicator'
 import TapeCropper from '../components/panels/TapeCropper'
@@ -48,6 +49,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [view, setView] = useState({ scale: 1, x: null, y: null })
   const [drawerTab, setDrawerTab] = useState(null)
   const [activeTool, setActiveTool] = useState('select')
+  const [textEditing, setTextEditing] = useState(null)
+  const textBoundary = useRef(null)
   const [penSettings, setPenSettings] = useState(DEFAULT_PEN_SETTINGS)
   const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
@@ -68,6 +71,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setCropId(null)
     setTapeCropId(null)
     setDrawerTab(null)
+    setTextEditing(null)
     setPenSettingsOpen(false)
     setMoreOpen(false)
     dispatch({ type: 'select', ids: [] })
@@ -312,7 +316,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const showLayers = layersOpen && !focusMode
 
   return (
-    <View style={styles.root} {...closeOnOutside}>
+    <View style={styles.root} {...closeOnOutside} onStartShouldSetResponderCapture={(event) => Boolean(textEditing && textBoundary.current?.(event))} onResponderTerminationRequest={() => false}>
       <TopBar
         doc={state.doc}
         onRename={(title) => {
@@ -398,6 +402,23 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 activeTool={activeTool}
                 penSettings={penSettings}
                 highlighterSettings={highlighterSettings}
+                textBoundary={textBoundary}
+                textEditing={textEditing?.pageId === page.id ? textEditing : null}
+                onEditText={(object) => setTextEditing({ ...object, pageId: page.id, existing: true })}
+                onCancelText={() => setTextEditing(null)}
+                onSaveText={(text) => {
+        if (textEditing.pageId === page.id) {
+          if (textEditing.existing) {
+            if (text !== textEditing.text) {
+              if (!text.trim()) dispatch({ type: 'removeObjects', ids: [textEditing.id] })
+              else dispatch({ type: 'updateObject', id: textEditing.id, record: true, patch: textPatch(text, textEditing.baseWidth) })
+            }
+          } else if (text.trim()) dispatch({ type: 'addObjects', objects: [createText({ ...textEditing, text })] })
+        }
+        setTextEditing(null)
+        setActiveTool('select')
+      }}
+                onCreateText={(box) => setTextEditing({ ...box, id: createId(), pageId: page.id, text: '' })}
                 readOnly={readOnly}
                 page={page}
                 zoom={zoom}
@@ -438,7 +459,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
             />
           </View>}
-
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
             <View style={styles.penSettingsWrap} pointerEvents="box-none" {...markInside}>
               <PenSettings key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => setPenSettingsOpen(false)} />
