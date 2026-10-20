@@ -22,6 +22,7 @@
 | [full-schema.mysql.sql](./full-schema.mysql.sql) | MySQL 8.4 기준 경량 DDL — 공유 다이어리, 캔버스, 미디어·GIF·오디오, 템플릿, AI 손글씨 폰트 포함 |
 | [api.md](./api.md) | REST·WebSocket API 초안 — 인증, 다이어리, 미디어, 캔버스, 사용자별 undo/redo, 알림함 |
 | [prototypes/dakku-mvp1-palette-applied.html](./prototypes/dakku-mvp1-palette-applied.html) | MVP1 팔레트·범위 적용본 인터랙티브 목업 |
+| [export-menu-pdf-ui.md](./export-menu-pdf-ui.md) | 111 공유 메뉴·페이지 선택·PDF 생성 연결 및 검증 |
 | (예정) requirements.md | 기능 요구사항 |
 | (예정) api.md | API 명세 |
 | (예정) erd.md | DB 설계 |
