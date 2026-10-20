@@ -53,6 +53,8 @@ export default function Canvas({
   onEditText,
   textEditing,
   textBoundary,
+  onTextPaletteChange,
+  textPaletteBounds,
   onSaveText,
   onCancelText,
   readOnly = false,
@@ -168,7 +170,7 @@ export default function Canvas({
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} onCreate={onCreateText} />}
       {!readOnly && activeTool === 'text' && !textEditing && visible.filter((o) => o.type === 'text' && !o.locked).map((object) =>
         <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => onEditText(object)} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}
-      {!readOnly && textEditing && <TextEditor boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
+      {!readOnly && textEditing && <TextEditor onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
 
       {freeCropTarget && <CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} />}
 
