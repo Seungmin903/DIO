@@ -18,9 +18,10 @@ import PenSettings from '../components/PenSettings'
 import { DEFAULT_PEN_SETTINGS } from '../utils/penSettings'
 import SaveIndicator from '../components/controls/SaveIndicator'
 import TapeCropper from '../components/panels/TapeCropper'
+import TapCatcher from '../components/controls/TapCatcher'
 import TopBar from '../components/chrome/TopBar'
 import Viewport from '../components/canvas/Viewport'
-import { PAGE_HEIGHT, PAGE_WIDTH, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../constants'
+import { PAGE_HEIGHT, PAGE_WIDTH, ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId } from '../utils/common'
@@ -28,6 +29,7 @@ import { pickImages } from '../services/image'
 import { createObjectFromDecor } from '../utils/objects'
 
 const TOAST_MS = 2000
+const ZOOM_HUD_MS = 900
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 
@@ -54,7 +56,6 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
   const [importFailure, setImportFailure] = useState(null)
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
-  const tapStart = useRef(null)
   const clipboard = useRef([]) // Ctrl+C 로 복사한 오브젝트 (다른 페이지에도 붙여 넣기)
 
   useEffect(() => {
@@ -92,6 +93,7 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
   }
   // pagePoint(페이지 좌표)가 화면의 screenPoint 에 오도록 배율을 바꾼다. (손가락 사이·휠 위치 기준 확대)
   const zoomAround = (nextScale, pagePoint, screenPoint) => {
+    showZoomHud()
     const scale = clamp(nextScale, ZOOM_MIN, ZOOM_MAX)
     const z = fitZoom * scale
     setView({ scale, ...clampOffset({ x: screenPoint.x - pagePoint.x * z, y: screenPoint.y - pagePoint.y * z }, z) })
@@ -117,18 +119,16 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
   // 자르던 사진이 되돌리기 등으로 사라지면 자르기를 끝낸다.
   if (cropId && !cropTarget) setCropId(null)
 
-  // 버튼 확대·축소는 보는 영역 가운데 기준
-  const changeZoom = (next) => {
-    if (next === 'fit') {
-      setView({ scale: 1, x: null, y: null })
-      showToast('화면에 맞췄어요')
-      return
-    }
-    const scale = clamp(Math.round(next * 100) / 100, ZOOM_MIN, ZOOM_MAX)
-    const center = stageSize ? { x: stageSize.width / 2, y: stageSize.height / 2 } : { x: 0, y: 0 }
-    zoomAround(scale, { x: (center.x - offset.x) / zoom, y: (center.y - offset.y) / zoom }, center)
-    showToast(`${Math.round(scale * 100)}%`)
+  // 확대·축소하는 동안에만 오른쪽 아래에 배율을 보여 주고, 손을 멈추면 잠시 뒤 숨긴다.
+  const [zoomHud, setZoomHud] = useState(false)
+  const hudTimer = useRef(null)
+  const showZoomHud = () => {
+    setZoomHud(true)
+    clearTimeout(hudTimer.current)
+    hudTimer.current = setTimeout(() => setZoomHud(false), ZOOM_HUD_MS)
   }
+  useEffect(() => () => clearTimeout(hudTimer.current), [])
+  const fitToScreen = () => setView({ scale: 1, x: null, y: null })
 
   const randomCenter = () => ({
     x: PAGE_WIDTH / 2 + (Math.random() - 0.5) * 160,
@@ -285,15 +285,22 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
     Keyboard.dismiss()
     if (!cropId) dispatch({ type: 'select', ids: [] })
   }
-  const emptyTap = {
-    onStartShouldSetResponder: () => true,
-    onResponderGrant: (event) => {
-      tapStart.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }
-    },
-    onResponderRelease: (event) => {
-      const start = tapStart.current
-      tapStart.current = null
-      if (start && Math.hypot(event.nativeEvent.pageX - start.x, event.nativeEvent.pageY - start.y) < 8) clearSelection()
+
+  // 툴바에서 연 창(보관함·더보기·펜 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
+  // 터치를 가로채지 않고(목록 스크롤과 다투지 않게) 누른 위치만 본다:
+  // 창·툴바 안의 터치는 그 영역이 먼저 표시하고, 바깥(root)에서는 표시가 없을 때만 닫는다.
+  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen)
+  const touchInside = useRef(false)
+  const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
+  const markInside = { [pressEvent]: () => (touchInside.current = true) }
+  const closeOnOutside = {
+    [pressEvent]: () => {
+      if (bubbleOpen && !touchInside.current) {
+        setDrawerTab(null)
+        setMoreOpen(false)
+        setPenSettingsOpen(false)
+      }
+      touchInside.current = false
     },
   }
 
@@ -301,7 +308,7 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
   const showLayers = layersOpen && !focusMode
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} {...closeOnOutside}>
       <TopBar
         doc={state.doc}
         pageNumber={pageIndex + 1}
@@ -340,8 +347,9 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
 
       {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onClose={() => setExportSnapshot(null)} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
-      {/* 흰 페이지 밖 어디든(패널 빈 곳·패널 사이 틈) 눌러도 선택을 푼다. 버튼·목록 항목은 자기 터치를 먼저 받는다. */}
-      <View style={styles.body} {...emptyTap}>
+      <View style={styles.body}>
+        {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
+        <TapCatcher onTap={clearSelection} style={StyleSheet.absoluteFill} />
         {showPages && (
           <PageList
             readOnly={readOnly}
@@ -349,6 +357,7 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
             currentId={page.id}
             cropId={cropTarget?.id ?? null}
             onMove={(id, toIndex) => dispatch({ type: 'movePage', id, toIndex })}
+            onEmptyTap={clearSelection}
             onSelect={(id) => {
               if (cropId) finishCrop(false)
               dispatch({ type: 'selectPage', id })
@@ -391,7 +400,7 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
               />
           </Viewport>
 
-          {!readOnly && <View style={styles.ribbonWrap} pointerEvents="box-none">
+          {!readOnly && <View style={styles.ribbonWrap} pointerEvents="box-none" {...markInside}>
             <Ribbon
               activeTool={activeTool}
               drawerTab={drawerTab}
@@ -416,19 +425,19 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
           </View>}
 
           {!readOnly && activeTool === 'pen' && penSettingsOpen && !drawerTab && (
-            <View style={styles.penSettingsWrap} pointerEvents="box-none">
+            <View style={styles.penSettingsWrap} pointerEvents="box-none" {...markInside}>
               <PenSettings settings={penSettings} onChange={setPenSettings} onClose={() => setPenSettingsOpen(false)} />
             </View>
           )}
 
           {showMore && !drawerTab && (
-            <View style={styles.drawerWrap} pointerEvents="box-none">
+            <View style={styles.drawerWrap} pointerEvents="box-none" {...markInside}>
               <MorePanel objects={selectedObjects} dispatch={dispatch} onClose={() => setMoreOpen(false)} />
             </View>
           )}
 
           {drawerTab && (
-            <View style={styles.drawerWrap} pointerEvents="box-none">
+            <View style={styles.drawerWrap} pointerEvents="box-none" {...markInside}>
               <DecorDrawer
                 tab={drawerTab}
                 onTabChange={setDrawerTab}
@@ -449,24 +458,24 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
             <SaveIndicator status={saveStatus} onInfo={showToast} />
           </View>
 
-          <View style={[styles.floating, styles.floatingRight]}>
-            <RoundButton icon="minus" label="축소" disabled={view.scale <= ZOOM_MIN} onPress={() => changeZoom(view.scale - ZOOM_STEP)} />
-            <Text style={styles.zoomValue}>{Math.round(view.scale * 100)}%</Text>
-            <RoundButton icon="plus" label="확대" disabled={view.scale >= ZOOM_MAX} onPress={() => changeZoom(view.scale + ZOOM_STEP)} />
-            <View style={styles.floatingDivider} />
-            <RoundButton icon="fit" label="화면에 맞춤" active={fitted} onPress={() => changeZoom('fit')} />
-          </View>
+          {/* 배율 숫자는 확대·축소하는 동안에만, 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. */}
+          {(zoomHud || !fitted) && (
+            <View style={[styles.floating, styles.floatingRight]} pointerEvents="box-none">
+              {zoomHud && <Text style={styles.zoomValue}>{Math.round(view.scale * 100)}%</Text>}
+              {zoomHud && !fitted && <View style={styles.floatingDivider} />}
+              {!fitted && <RoundButton icon="fit" label="화면에 맞춤" onPress={fitToScreen} />}
+            </View>
+          )}
 
           {tapeCrop && (
             <TapeCropper
               image={{ src: tapeCrop.src, mediaFileId: tapeCrop.mediaFileId, width: tapeCrop.imageWidth, height: tapeCrop.imageHeight }}
               initialCrop={tapeCrop.crop}
-              initialEdge={tapeCrop.edge}
               title="테이프 다시 자르기"
               confirmLabel="적용"
               onCancel={() => setTapeCropId(null)}
-              onConfirm={({ crop, edge }) => {
-                dispatch({ type: 'updateObject', id: tapeCrop.id, record: true, patch: { crop, edge } })
+              onConfirm={({ crop }) => {
+                dispatch({ type: 'updateObject', id: tapeCrop.id, record: true, patch: { crop } })
                 setTapeCropId(null)
               }}
             />
@@ -488,7 +497,8 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
               selectedIds={state.selectedIds}
               dispatch={dispatch}
               onClose={() => setLayersOpen(false)}
-            />
+              onEmptyTap={clearSelection}
+              />
           )
         )}
       </View>
@@ -546,7 +556,7 @@ const styles = StyleSheet.create({
   floatingLeft: { left: 12 },
   floatingRight: { right: 12 },
   floatingDivider: { width: 1, height: 20, backgroundColor: colors.border },
-  zoomValue: { minWidth: 52, textAlign: 'center', fontSize: 13, fontWeight: '800', color: colors.text },
+  zoomValue: { minWidth: 52, lineHeight: 36, textAlign: 'center', fontSize: 13, fontWeight: '800', color: colors.text },
   roundButton: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   roundActive: { backgroundColor: colors.surfaceSoft },
   roundPressed: { backgroundColor: colors.primarySoft },

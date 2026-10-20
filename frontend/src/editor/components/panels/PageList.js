@@ -5,6 +5,7 @@ import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import Icon from '../controls/Icon'
+import TapCatcher from '../controls/TapCatcher'
 import StaticPage from '../canvas/StaticPage'
 
 const THUMB_WIDTH = 124
@@ -17,7 +18,7 @@ const TAP_SLOP = 8
  * - 탭: 그 페이지로 이동
  * - 길게 눌러 끌기: 페이지 순서 바꾸기 (놓을 자리에 선이 보인다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onRemove, onMove, readOnly = false }) {
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onRemove, onMove, onEmptyTap, readOnly = false }) {
   const [drag, setDrag] = useState(null) // { id, from, dy }
   const layouts = useRef({}) // id → { y, height } (목록 안 위치)
   const target = drag ? dropIndex(pages, layouts.current, drag) : null
@@ -53,6 +54,8 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
             />
           )
         })}
+        {/* 목록 아래 빈 곳을 누르면 선택 해제 */}
+        {onEmptyTap && <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} />}
       </ScrollView>
       {!readOnly && (
         <Pressable onPress={onAdd} style={({ pressed }) => [styles.add, pressed && styles.addPressed]} accessibilityLabel="페이지 추가">
@@ -136,7 +139,8 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
 
 const styles = StyleSheet.create({
   panel: { width: 156, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'hidden' },
-  list: { alignItems: 'center', gap: 16, paddingVertical: 16 },
+  list: { flexGrow: 1, alignItems: 'center', gap: 16, paddingVertical: 16 },
+  emptyArea: { flexGrow: 1, alignSelf: 'stretch', minHeight: 24 },
   item: { alignItems: 'center', gap: 6 },
   thumb: {
     width: THUMB_WIDTH,

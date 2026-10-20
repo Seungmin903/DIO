@@ -9,6 +9,7 @@ import { clamp } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
 import { getObjectName } from '../../utils/objects'
 import Icon from '../controls/Icon'
+import TapCatcher from '../controls/TapCatcher'
 import TapeView from '../canvas/TapeView'
 import ObjectContent from '../canvas/ObjectView'
 
@@ -26,7 +27,7 @@ const ROW_STEP = ROW_HEIGHT + ROW_GAP
  * - 선택된 항목(그룹)의 이름을 한 번 더 누르면 이름 바꾸기
  * - 오른쪽 손잡이를 끌어 순서 변경. 그룹 사이에 놓으면 그 그룹에 들어가고, 밖으로 빼면 그룹에서 빠진다.
  */
-export default function LayerPanel({ objects, selectedIds, dispatch, onClose }) {
+export default function LayerPanel({ objects, selectedIds, dispatch, onClose, onEmptyTap }) {
   const layers = [...objects].reverse()
   const [drag, setDrag] = useState(null) // { key, from, dy }
   const [collapsed, setCollapsed] = useState(() => new Set())
@@ -123,6 +124,8 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose }) 
             />
           )
         })}
+        {/* 행 아래 빈 곳을 누르면 선택 해제 */}
+        {onEmptyTap && <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} />}
       </ScrollView>
     </View>
   )
@@ -382,6 +385,7 @@ function LayerThumb({ object }) {
       <View style={styles.thumbTape}>
         <TapeView
           pattern={object.pattern}
+          palette={object.palette}
           src={object.src}
           mediaFileId={object.mediaFileId}
           crop={object.crop}
@@ -437,7 +441,8 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   list: { flex: 1 },
-  listContent: { paddingBottom: 12 },
+  listContent: { flexGrow: 1, paddingBottom: 12 },
+  emptyArea: { flexGrow: 1, minHeight: 24 },
   empty: {
     paddingVertical: 36,
     textAlign: 'center',
