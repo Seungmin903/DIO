@@ -1,5 +1,5 @@
 import { chromium } from 'playwright'
-import { STORAGE_KEYS } from '../src/editor/utils/storageContract.js'
+import { STORAGE_KEYS, MEDIA_DB } from '../src/editor/utils/storageContract.js'
 import { runRegionQa } from './region-qa.mjs'
 import { runPdfQa } from './pdf-qa.mjs'
 import { readFile, mkdir, writeFile } from 'node:fs/promises'
@@ -32,7 +32,7 @@ let browser
 try{
  const channel=value('--channel',undefined)
  browser=await chromium.launch({...(channel ? {channel} : {}),headless:true})
- const result=await (suite==='pdf'?runPdfQa:runRegionQa)(browser,{baseURL:`http://127.0.0.1:${server.address().port}`,keys,gif,screenshotDir:out})
+ const result=await (suite==='pdf'?runPdfQa:runRegionQa)(browser,{baseURL:`http://127.0.0.1:${server.address().port}`,keys,mediaDb:MEDIA_DB,gif,screenshotDir:out})
  try{result.commit=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim()}catch{}
  await writeFile(resolve(out,`${suite}-results.json`),JSON.stringify(result,null,2)+'\n')
  console.log(JSON.stringify({passed:result.passed,report:resolve(out,`${suite}-results.json`),records:result.records.map(r=>({name:r.name,passed:r.passed,error:r.error}))},null,2))

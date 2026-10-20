@@ -393,6 +393,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         shareLabel="공유 및 내보내기"
         shareIcon="share"
         onShare={() => {
+          if (textEditing) { showToast('텍스트 편집을 완료한 뒤 내보내 주세요.'); return }
           if (cropId || tapeCropId) { showToast('자르기를 마친 뒤 내보내 주세요.'); return }
           Keyboard.dismiss()
           setExportOpen(true)

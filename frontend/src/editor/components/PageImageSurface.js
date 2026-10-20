@@ -28,7 +28,7 @@ export default function PageImageSurface({ job }) {
         try {
           const result = await capturePage(surface.current, snapshot)
           // 늦은 결과의 소유권/취소 처리는 요청 bridge가 한 곳에서 담당한다.
-          resolve({ ...result, diagnostics: pageImageQuality(snapshot, { platform: Platform.OS, scale, pixelRatio: PixelRatio.get() }) })
+          resolve({ ...result, diagnostics: { ...pageImageQuality(snapshot, { platform: Platform.OS, scale, pixelRatio: PixelRatio.get() }), rasterWarnings: snapshot.rasterWarnings ?? [] } })
         } catch (error) { reject(error) }
       })
     })
