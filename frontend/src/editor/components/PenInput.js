@@ -4,7 +4,7 @@ import { PAGE_HEIGHT, PAGE_WIDTH } from '../constants'
 import { usePan } from '../hooks/usePan'
 import { clamp, createId } from '../utils/common'
 import { createStroke } from '../utils/strokes'
-import ObjectContent from './ObjectView'
+import ObjectContent from './canvas/ObjectView'
 
 // 입력 중에는 문서/이력을 변경하지 않고 손을 뗄 때 한 획으로 확정한다.
 export default function PenInput({ zoom, dispatch }) {

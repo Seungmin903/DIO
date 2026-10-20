@@ -11,7 +11,7 @@ import ContextBar from './ContextBar'
 import CropHandles from './CropHandles'
 import ObjectContent, { objectOpacity } from './ObjectView'
 import SelectionOverlay from './SelectionOverlay'
-import PenInput from './PenInput'
+import PenInput from '../PenInput'
 
 const SNAP_SCREEN_PX = 6
 const LONG_PRESS_MS = 450
