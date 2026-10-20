@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { PixelRatio, Platform, View } from 'react-native'
+import PageBackground from './PageBackground'
 import ObjectContent, { objectOpacity } from './canvas/ObjectView'
 import { pageImageQuality } from '../utils/pageImageQuality.js'
 import { capturePage } from '../utils/capturePage'
@@ -11,11 +12,12 @@ export default function PageImageSurface({ job }) {
   const [area, setArea] = useState(null)
   const [laidOut, setLaidOut] = useState(false)
   const [loaded, setLoaded] = useState(() => new Set())
+  const [backgroundReady, setBackgroundReady] = useState(!snapshot.template)
   const surface = useRef(null), started = useRef(false), failed = useRef(false)
   const scale = Platform.OS === 'web' || !area ? 1 : Math.min(1, area.width / snapshot.width, area.height / snapshot.height)
   const ready = snapshot.objects.filter((o) => o.src).every((o) => loaded.has(o.id))
   useEffect(() => {
-    if (!ready || !laidOut || started.current || signal.aborted || failed.current) return
+    if (!ready || !backgroundReady || !laidOut || started.current || signal.aborted || failed.current) return
     started.current = true
     let frame1, frame2
     frame1 = requestAnimationFrame(() => {
@@ -30,13 +32,18 @@ export default function PageImageSurface({ job }) {
       })
     })
     return () => { cancelAnimationFrame(frame1); if (frame2 != null) cancelAnimationFrame(frame2) }
-  }, [ready, laidOut, snapshot, signal, resolve, reject])
+  }, [ready, backgroundReady, laidOut, snapshot, signal, resolve, reject])
+  const backgroundError = () => {
+    failed.current = true
+    reject(new PageExportError('EXPORT_TEMPLATE_FAILED', '속지를 표시하지 못했어요. 다시 시도해 주세요.'))
+  }
   const assetError = () => {
     failed.current = true
     reject(new PageExportError('EXPORT_MEDIA_FAILED', '이미지를 표시하지 못했어요. 원본을 확인해 주세요.'))
   }
   return <View style={{ flex: 1 }} onLayout={(event) => setArea(event.nativeEvent.layout)}>
     {(Platform.OS === 'web' || area?.width > 0 && area?.height > 0) && <View ref={surface} collapsable={false} testID="page-export-surface" onLayout={() => setLaidOut(true)} style={{ width: snapshot.width * scale, height: snapshot.height * scale, backgroundColor: snapshot.background, overflow: 'hidden' }}>
+      {snapshot.template && <PageBackground page={{ id: snapshot.pageId, ...snapshot.template, canvasWidth: snapshot.width, canvasHeight: snapshot.height }} zoom={scale} preparedXml={snapshot.backgroundXml} onReady={() => setBackgroundReady(true)} onError={backgroundError} />}
       {snapshot.objects.map((object) => <View key={object.id} style={{ position: 'absolute', left: object.x * scale, top: object.y * scale, width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectOpacity(object) }}>
         <ObjectContent object={object} zoom={scale} still onAssetLoad={() => setLoaded((previous) => new Set(previous).add(object.id))} onAssetError={assetError} />
       </View>)}
