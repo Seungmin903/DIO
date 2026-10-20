@@ -19,6 +19,7 @@ import com.ssafy.dio.diary.dto.DiaryCreateRequest;
 import com.ssafy.dio.diary.dto.DiaryCreateResponse;
 import com.ssafy.dio.diary.dto.DiaryListResponse;
 import com.ssafy.dio.diary.dto.DiaryResponse;
+import com.ssafy.dio.diary.dto.DiaryUpdateRequest;
 import com.ssafy.dio.diary.service.DiaryService;
 
 @RestController
@@ -61,5 +62,16 @@ public class DiaryController {
 		mediaType = "application/problem+json", schema = @Schema(implementation = org.springframework.http.ProblemDetail.class)))
 	public DiaryResponse getDiary(@PathVariable @Positive Long diaryId) {
 		return diaryService.getDiary(diaryId);
+	}
+
+	@PatchMapping("/{diaryId}")
+	@Operation(summary = "다이어리 수정", description = "이름·표지색·패턴·제본 중 하나 이상 전달합니다. 생략한 값은 유지하며 명시적인 null과 미지원 필드는 거절합니다.")
+	@ApiResponse(responseCode = "200", description = "다이어리 수정 및 저장 성공 (local 프로필)", content = @Content(
+		mediaType = "application/json", schema = @Schema(implementation = DiaryResponse.class)))
+	@ApiResponse(responseCode = "404", description = "다이어리 없음", content = @Content(
+		mediaType = "application/problem+json", schema = @Schema(implementation = org.springframework.http.ProblemDetail.class)))
+	public DiaryResponse updateDiary(@PathVariable @Positive Long diaryId,
+		@Valid @RequestBody DiaryUpdateRequest request) {
+		return diaryService.updateDiary(diaryId, request);
 	}
 }

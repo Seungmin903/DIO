@@ -67,6 +67,14 @@ public class Diary {
 		this.defaultPageTemplate = defaultPageTemplate;
 	}
 
+	public void updateSettings(String title, String coverColor, String coverStyle, String coverBinding) {
+		if (title != null) { this.title = title; }
+		if (coverColor != null) { this.coverColor = coverColor; }
+		if (coverStyle != null) { this.coverStyle = coverStyle; }
+		if (coverBinding != null) { this.coverBinding = coverBinding; }
+		updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+	}
+
 	@PrePersist
 	void initializeTimestamps() {
 		Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
