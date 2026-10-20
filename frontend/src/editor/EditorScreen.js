@@ -303,8 +303,8 @@ export default function EditorScreen({ readOnly = false }) {
         )}
 
         <View style={styles.stage} onLayout={(event) => setStageSize(event.nativeEvent.layout)}>
-          <ScrollView horizontal contentContainerStyle={styles.scrollX} showsHorizontalScrollIndicator={false}>
-            <ScrollView contentContainerStyle={styles.scrollY} showsVerticalScrollIndicator={false}>
+          <ScrollView horizontal scrollEnabled={readOnly || activeTool !== 'pen'} contentContainerStyle={styles.scrollX} showsHorizontalScrollIndicator={false}>
+            <ScrollView scrollEnabled={readOnly || activeTool !== 'pen'} contentContainerStyle={styles.scrollY} showsVerticalScrollIndicator={false}>
               <Canvas
                 activeTool={activeTool}
                 readOnly={readOnly}
