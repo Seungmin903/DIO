@@ -3,16 +3,16 @@ import { createRequire } from 'node:module'
 import { release } from 'node:os'
 const { PDFDocument, PDFName, PDFDict, decodePDFRawStream } = createRequire(new URL('../package.json', import.meta.url))('pdf-lib')
 
-export async function runPdfQa(browser,{baseURL,keys,gif,screenshotDir}) {
+export async function runPdfQa(browser,{baseURL,keys,mediaDb,gif,screenshotDir}) {
  const records=[]
  const colors=[[230,80,80],[80,180,80],[80,100,230],[230,180,60],[170,90,200]]
- async function scenario(name,count,action,{broken=false,viewport={width:1280,height:800}}={}){
+ async function scenario(name,count,action,{broken=false,highres=false,viewport={width:1280,height:800}}={}){
   const ctx=await browser.newContext({viewport,acceptDownloads:true}),page=await ctx.newPage(),errors=[]
   page.on('pageerror',e=>errors.push(e.message))
-  const record={name,count,viewport,input:{canvas:[1024,768],photoRaster:[32,32],gifRaster:[4,4],photos:count,gifs:1,stickers:1,tapes:1,text:1,strokes:1},passed:false,save:{saved:0,cancelled:0,failed:0,downloadStarted:0}}
+  const record={name,count,viewport,input:{canvas:[1024,768],photoRaster:[32,32],gifRaster:[4,4],photos:count,gifs:1,stickers:1,tapes:1,text:1,strokes:2},passed:false,save:{saved:0,cancelled:0,failed:0,downloadStarted:0}}
   try{
    await page.goto(baseURL)
-   const original=await page.evaluate(({keys,gif,colors,count,broken})=>{
+   const original=await page.evaluate(async ({keys,gif,colors,count,broken,highres,mediaDb})=>{
     const pages=Array.from({length:count},(_,i)=>{
      const c=document.createElement('canvas');c.width=c.height=32;const x=c.getContext('2d');x.fillStyle=`rgb(${colors[i%5].join(',')})`;x.fillRect(0,0,32,32)
      const photo={id:`photo${i}`,type:'photo',x:0,y:0,w:1024,h:768,rotation:0,frame:'shape',shape:'rect',src:c.toDataURL(),imageWidth:32,imageHeight:32,crop:{zoom:1,fx:.5,fy:.5}}
@@ -20,16 +20,24 @@ export async function runPdfQa(browser,{baseURL,keys,gif,screenshotDir}) {
      if(i===0)objects.push(
        {...photo,id:'gif',x:900,y:40,w:80,h:80,imageWidth:4,imageHeight:4,src:gif},
        {...photo,id:'sticker',type:'sticker',x:800,y:650,w:40,h:40,imageWidth:4,imageHeight:4,src:gif},
-       {id:'tape',type:'tape',x:100,y:650,w:160,h:34,rotation:0,pattern:'solid',palette:'custom:#000000:#00ffff',opacity:1,edge:'straight'},
-       {id:'text',type:'text',x:100,y:550,w:200,h:70,rotation:0,baseWidth:200,text:'PDF QA 기록',color:'#111111'},
-       {id:'stroke',type:'stroke',x:400,y:650,w:150,h:30,rotation:0,baseWidth:150,baseHeight:30,strokeWidth:6,penKind:'ballpoint',color:'#663399',points:[{x:5,y:15},{x:145,y:15}]},
+       {id:'tape',type:'tape',x:100,y:650,w:160,h:34,rotation:0,pattern:'solid',palette:'custom:#00ffff:#00ffff',opacity:1,edge:'straight'},
+       {id:'text',type:'text',x:100,y:550,w:200,h:70,rotation:0,baseWidth:200,text:'PDF QA 기록',font:'serif',fontSize:28,bold:true,underline:true,color:'#111111',colorRanges:[{start:0,end:3,color:'#0000ff'},{start:4,end:6,color:'#00ff00'}]},
+       {id:'highlight',type:'stroke',x:600,y:650,w:100,h:40,rotation:0,baseWidth:100,baseHeight:40,strokeWidth:20,penKind:'highlighter',lineCap:'square',color:'#00ffff',points:[{x:10,y:20},{x:90,y:20}]},
+       {id:'stroke',type:'stroke',x:400,y:650,w:150,h:30,rotation:0,baseWidth:150,baseHeight:30,strokeWidth:6,penKind:'ball',color:'#663399',points:[{x:5,y:15},{x:145,y:15}]},
      )
      if(broken&&i===1)objects.push({...photo,id:'missing',src:'media:pdf-missing',mediaFileId:'pdf-missing'})
      return {id:`p${i+1}`,canvasWidth:1024,canvasHeight:768,objects}
     })
+    if(highres){
+     const c=document.createElement('canvas');c.width=4000;c.height=3000;const x=c.getContext('2d');x.fillStyle='rgb(230,80,80)';x.fillRect(0,0,4000,3000)
+     const blob=await new Promise(ok=>c.toBlob(ok,'image/jpeg'));c.width=2048;c.height=1536;x.fillStyle='rgb(230,80,80)';x.fillRect(0,0,2048,1536);const display=await new Promise(ok=>c.toBlob(ok,'image/jpeg'))
+     const db=await new Promise((ok,fail)=>{const q=indexedDB.open(mediaDb.name,mediaDb.version);q.onupgradeneeded=()=>{for(const n of ['blobs','metadata','displays'])if(!q.result.objectStoreNames.contains(n))q.result.createObjectStore(n)};q.onsuccess=()=>ok(q.result);q.onerror=()=>fail(q.error)})
+     await new Promise((ok,fail)=>{const tx=db.transaction(['blobs','metadata','displays'],'readwrite');tx.objectStore('blobs').put(blob,'highres');tx.objectStore('displays').put(display,'highres');tx.objectStore('metadata').put({mediaFileId:'highres',width:4000,height:3000,mimeType:'image/jpeg',fileSize:blob.size,display:{width:2048,height:1536,mimeType:'image/jpeg'}},'highres');tx.oncomplete=ok;tx.onabort=()=>fail(tx.error)});db.close()
+     Object.assign(pages[0].objects[0],{src:'media:highres',mediaFileId:'highres',imageWidth:4000,imageHeight:3000,crop:{zoom:2,fx:.5,fy:.5}})
+    }
     const doc=JSON.stringify({id:'pdfqa',title:'PDF QA',pages})
     localStorage.setItem(keys.diaries,JSON.stringify([{id:'pdfqa',title:'PDF QA',color:'#CED9EE'}]));localStorage.setItem(keys.doc+':pdfqa',doc);return doc
-   },{keys,gif,colors,count,broken})
+   },{keys,gif,colors,count,broken,highres,mediaDb})
    await page.reload();await page.getByText('PDF QA',{exact:true}).first().click();await page.getByLabel('공유 및 내보내기',{exact:true}).click()
    await action(page,record)
    assert.equal(await page.evaluate(k=>localStorage.getItem(k),keys.doc+':pdfqa'),original)
@@ -51,18 +59,22 @@ export async function runPdfQa(browser,{baseURL,keys,gif,screenshotDir}) {
    const objects=p.node.Resources().lookup(PDFName.of('XObject'),PDFDict),stream=objects.lookup(objects.keys()[0])
    assert.equal(stream.dict.get(PDFName.of('SMask')),undefined);assert.equal(stream.dict.get(PDFName.of('ColorSpace')).toString(),'/DeviceRGB')
    const width=stream.dict.get(PDFName.of('Width')).asNumber(),height=stream.dict.get(PDFName.of('Height')).asNumber(),raw=decodePDFRawStream(stream).decode(),k=(Math.floor(height/2)*width+Math.floor(width/2))*3
-   const rgb=Array.from(raw.slice(k,k+3));assert.deepEqual(rgb,colors[(expected[i]-1)%5]);record.colors.push(rgb)
+   const rgb=Array.from(raw.slice(k,k+3));assert.ok(rgb.every((v,j)=>Math.abs(v-colors[(expected[i]-1)%5][j])<=2));record.colors.push(rgb)
   }
   if(expected[0]===1){
    const p=pages[0],objects=p.node.Resources().lookup(PDFName.of('XObject'),PDFDict),stream=objects.lookup(objects.keys()[0]),raw=decodePDFRawStream(stream).decode(),width=stream.dict.get(PDFName.of('Width')).asNumber()
    const k=(160*width+1880)*3;assert.deepEqual(Array.from(raw.slice(k,k+3)),[255,0,0]);record.gifFirstFrame=true
    const pixel=(x,y)=>Array.from(raw.slice((y*width+x)*3,(y*width+x)*3+3))
    assert.deepEqual(pixel(1630,1330),[255,0,0]);assert.deepEqual(pixel(360,1334),[0,255,255]);assert.deepEqual(pixel(950,1330),[102,51,153])
+   let blueInk=0,greenInk=0;for(let y=1100;y<1240;y++)for(let x=200;x<600;x++){const [r,g,b]=pixel(x,y);if(b>200&&r<40&&g<40)blueInk++;if(g>200&&r<40&&b<40)greenInk++}assert.ok(blueInk>20);assert.ok(greenInk>20);record.partialText={blueInk,greenInk};const highlighted=pixel(1300,1340);assert.ok(Math.abs(highlighted[0]-133)<=2&&Math.abs(highlighted[1]-154)<=2&&Math.abs(highlighted[2]-154)<=2);record.highlighter=highlighted;
    let textInk=0;for(let y=1100;y<1240;y++)for(let x=200;x<600;x++){const rgb=pixel(x,y);if(rgb.every(v=>v<50))textInk++}assert.ok(textInk>20)
    record.contentPixels={sticker:[255,0,0],tape:[0,255,255],stroke:[102,51,153],textInk}
   }
   return record.output.fileName
  }
+ await scenario('highres-display-fallback',1,async(page,record)=>{
+  await page.getByRole('button',{name:'현재 페이지 내보내기',exact:true}).click();await page.getByRole('button',{name:'PDF',exact:true}).click();await inspect(page,record,[1]);await page.getByText('확대 출력으로 사진이나 글씨가 흐릴 수 있어요. 미리보기를 확인한 뒤 저장해 주세요.',{exact:true}).waitFor();record.input.photoRaster=[4000,3000];record.synthetic=true
+ },{highres:true})
  await scenario('current-save',5,async(page,record)=>{
   await page.getByRole('button',{name:'현재 페이지 내보내기',exact:true}).click();await page.getByRole('button',{name:'PDF',exact:true}).click();const name=await inspect(page,record,[1]);assert.match(name,/_p01_/)
   const src=await page.locator('iframe').getAttribute('src')

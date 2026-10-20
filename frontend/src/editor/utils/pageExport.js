@@ -69,7 +69,7 @@ export async function prepareExportSnapshot(snapshot, resolveImage, resolveTempl
       objects.push({ ...object, src: resource.uri, mediaFileId: undefined, asset: undefined, poster: undefined })
     }
     let active = true
-    return { ...snapshot, backgroundXml, objects, dispose() { if (!active) return; active = false; resources.forEach((r) => r.dispose?.()) } }
+    return { ...snapshot, backgroundXml, objects, rasterWarnings: [...cache.entries()].filter(([, resource]) => resource.qualityWarning).map(([key, resource]) => ({ key, reason: resource.qualityWarning })), dispose() { if (!active) return; active = false; resources.forEach((r) => r.dispose?.()) } }
   } catch (error) {
     resources.forEach((r) => r.dispose?.())
     if (error instanceof PageExportError) throw error

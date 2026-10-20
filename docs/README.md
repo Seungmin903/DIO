@@ -41,6 +41,7 @@
 | [region-png-qa.md](./region-png-qa.md) | 119 영역 PNG QA 재현 명령·픽셀·회귀·실기기 미검증 항목 |
 | [pdf-file-save.md](./pdf-file-save.md) | 112 PDF 웹 저장·모바일 공유·24시간 캐시 및 검증 |
 | [pdf-export-qa.md](./pdf-export-qa.md) | 113 PDF 면 구성·메타데이터·저장·취소 QA 및 실기기 미검증 |
+| [export-content-and-resolution.md](./export-content-and-resolution.md) | 72 필기·부분 색상·폰트 준비와 122 표시본 대체 정책 및 QA |
 | (예정) requirements.md | 기능 요구사항 |
 | (예정) api.md | API 명세 |
 | (예정) erd.md | DB 설계 |

@@ -10,6 +10,7 @@ export function pageImageQuality(snapshot, { platform, scale = 1, pixelRatio = 1
 
 /** 추정치 경고이며 실제 기기 해상도 보장이나 생성 차단을 뜻하지 않는다. */
 export function pngQualityWarning(diagnostics) {
+  if (diagnostics?.rasterWarnings?.length) return '일부 사진은 기기 메모리 보호를 위해 표시용 이미지를 확대했어요. 사진이 흐릴 수 있으니 미리보기를 확인한 뒤 저장해 주세요.'
   if (!diagnostics?.upscaled || diagnostics.platform === 'web') return null
   return `이 기기에서는 약 ${diagnostics.physicalWidth} × ${diagnostics.physicalHeight}px로 그린 이미지를 ${diagnostics.requestedWidth} × ${diagnostics.requestedHeight}px로 확대해 저장해요. 글씨나 사진이 흐릴 수 있어요. 더 넓은 영역을 선택하거나 웹에서 내보내면 화질을 개선할 수 있어요.`
 }

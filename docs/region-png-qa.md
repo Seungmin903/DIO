@@ -89,3 +89,7 @@ pnpm qa:media
 - `pnpm install --frozen-lockfile --ignore-scripts`, `pnpm exec playwright install chromium` 후 기본 명령 `pnpm qa:region`(11개) 및 `pnpm qa:media`가 모두 통과했다. 각 명령은 웹 번들부터 새로 생성했다. 전체 node 테스트 133개도 통과했다.
 - 위의 Playwright 1.56.1/설치 Chrome 수치는 이전 실행의 기록이며 현재 재현 환경은 공통 1.64.1이다. 실기기 미검증 항목은 유지한다.
 - 이 수정은 기존 MR !36에 반영하며, 실제 기기 검증이 남아 Jira 119는 진행 중으로 유지한다.
+
+## 72·122 후속 검증
+
+필기·부분 색상 텍스트와 고해상도 표시본 대체의 최신 검증은 [연결 및 정책 기록](./export-content-and-resolution.md)을 따른다. 실제 카메라 12MP/48MP·HEIC로 PDF 2배와 영역 프리셋/자유 출력의 성공 횟수·생성 시간·파일 크기·메모리를 추가 확인한다. 실기기 미검증 상태는 유지한다.

@@ -1,7 +1,9 @@
+import { waitForExportFonts } from './exportFonts.js'
 import { toBlob } from 'html-to-image'
 import { PageExportError } from './pageExport.js'
 
 export async function capturePage(node, snapshot) {
+  await waitForExportFonts(snapshot.objects, document.fonts)
   const blob = await toBlob(node, {
     width: snapshot.width, height: snapshot.height, canvasWidth: snapshot.pixelWidth, canvasHeight: snapshot.pixelHeight,
     pixelRatio: 1, skipAutoScale: true, backgroundColor: snapshot.background, skipFonts: true,
