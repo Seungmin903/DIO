@@ -15,6 +15,7 @@
 | [png-file-export.md](./png-file-export.md) | 74 PNG 파일 저장·진행·오류·재시도 계약 |
 | [region-png-export-contract.md](./region-png-export-contract.md) | 115 선택 영역 PNG 좌표·비율·출력·저장 계약 |
 | [pdf-export-contract.md](./pdf-export-contract.md) | 108 PDF 범위·출력 규격·순차 생성·저장·실패 처리 계약 |
+| [multi-page-pdf.md](./multi-page-pdf.md) | 110 PDF 페이지 선택·순차 조립·RGB·한도·취소 및 검증 |
 | [pen-stroke.md](./pen-stroke.md) | 88·89 펜 획 입력·종류·굵기·색상 설정·저장 형식 및 검증 |
 | [highlighter.md](./highlighter.md) | 90 형광펜 끝 모양·굵기·색상·반투명 렌더링 및 검증 |
 | [mvp1-ui-spec.md](./mvp1-ui-spec.md) | MVP1 UI/UX 범위, 디자인 토큰, 화면·상호작용 명세 |
