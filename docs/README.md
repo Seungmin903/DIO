@@ -4,7 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
-| [element-selection.md](./element-selection.md) | 94 요소 선택·이동·취소 복원·숨김 및 잠금 보호 검증 |
+| [element-selection.md](./element-selection.md) | 94·95 요소 선택·이동·크기 조절·취소 복원 및 보호 검증 |
 | [diary-delete-persistence.md](./diary-delete-persistence.md) | 비회원 다이어리 실제 PostgreSQL 삭제·204·404·테스트 |
 | [diary-update-persistence.md](./diary-update-persistence.md) | 비회원 다이어리 수정의 PostgreSQL 반영·부분 수정·테스트 |
 | [diary-detail-persistence.md](./diary-detail-persistence.md) | 비회원 다이어리 상세의 PostgreSQL 조회·404·테스트 |

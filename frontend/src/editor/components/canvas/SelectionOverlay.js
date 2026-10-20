@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { usePan } from '../../hooks/usePan'
 import { centerOf, normalizeAngle, rotateVector } from '../../utils/common'
+import { textPatch, textSettings } from '../../utils/text'
 
 // 핸들이 박스 바깥에 걸쳐도 터치를 받도록 오버레이를 이만큼 넓게 잡는다. (Android 는 부모 밖 터치를 받지 않음)
 const MARGIN = 52
@@ -170,6 +171,7 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
       gesture.current = {
         start: object,
         center,
+        zoom,
         pointer: { x: center.x + offset.x, y: center.y + offset.y },
         checkpointed: false,
       }
@@ -178,17 +180,21 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
     onMove: (dx, dy) => {
       const g = gesture.current
       if (!g) return
+      const pointer = { x: g.pointer.x + dx / g.zoom, y: g.pointer.y + dy / g.zoom }
+      const patch = kind === 'rotate' ? rotatePatch(g, pointer) : resizePatch(g, handle, pointer)
+      // 단순 탭이나 최소 크기에서 더 줄이는 입력은 빈 실행 취소 단계를 만들지 않는다.
+      if (!g.checkpointed && Object.entries(patch).every(([key, value]) => Math.abs(value - g.start[key]) < 1e-8)) return
       if (!g.checkpointed) {
         dispatch({ type: 'checkpoint' })
         g.checkpointed = true
       }
-      const pointer = { x: g.pointer.x + dx / zoom, y: g.pointer.y + dy / zoom }
-      const patch = kind === 'rotate' ? rotatePatch(g, pointer) : resizePatch(g, handle, pointer)
       if (kind === 'rotate') onRotation(patch.rotation)
       dispatch({ type: 'updateObject', id: object.id, patch })
     },
-    onEnd: () => {
+    onEnd: ({ cancelled }) => {
+      const g = gesture.current
       gesture.current = null
+      if (cancelled && g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
       onRotation?.(null)
       onInteracting(false)
     },
@@ -230,9 +236,21 @@ function resizePatch(g, handle, pointer) {
     h = Math.max(MIN_SIZE, sy * (q.y - anchor.y))
   }
 
-  const localCenter = { x: sx ? anchor.x + (sx * w) / 2 : 0, y: sy ? anchor.y + (sy * h) / 2 : 0 }
+  let baseWidth
+  const reflowText = start.type === 'text' && sx && !sy
+  if (reflowText) {
+    if (Math.abs(w - start.w) < 1e-8) return { x: start.x, y: start.y, w: start.w, h: start.h, baseWidth: start.baseWidth ?? start.w }
+    const scale = start.w / (start.baseWidth ?? start.w)
+    baseWidth = w / scale
+    h = textPatch(start.text, baseWidth, textSettings(start)).h * scale
+  }
+  const localCenter = {
+    x: sx ? anchor.x + (sx * w) / 2 : 0,
+    // 텍스트 폭 조절은 윗줄을 고정하고 아래로 줄바꿈한다.
+    y: reflowText ? (h - start.h) / 2 : sy ? anchor.y + (sy * h) / 2 : 0,
+  }
   const offset = rotateVector(localCenter.x, localCenter.y, start.rotation)
-  return { w, h, x: center.x + offset.x - w / 2, y: center.y + offset.y - h / 2 }
+  return { w, h, x: center.x + offset.x - w / 2, y: center.y + offset.y - h / 2, ...(baseWidth != null ? { baseWidth } : {}) }
 }
 
 const styles = StyleSheet.create({
