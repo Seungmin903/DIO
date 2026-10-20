@@ -221,6 +221,12 @@ export function editorReducer(state, action) {
       return { ...state, selectedIds }
     }
 
+    // 다이어리 이름 바꾸기 (상단바). 되돌리기로 돌아갈 수 있다.
+    case 'renameDoc': {
+      const next = withHistory(state)
+      return { ...next, doc: { ...next.doc, title: action.title } }
+    }
+
     case 'selectPage':
       return { ...state, pageId: action.id, selectedIds: [] }
 
@@ -329,6 +335,17 @@ export function editorReducer(state, action) {
         pageId: page.id,
         selectedIds: [],
       }
+    }
+
+    // 페이지 목록에서 썸네일을 끌어 순서를 바꾼다. (지금 보던 페이지는 그대로)
+    case 'movePage': {
+      const from = state.doc.pages.findIndex((p) => p.id === action.id)
+      const to = clamp(action.toIndex, 0, state.doc.pages.length - 1)
+      if (from < 0 || from === to) return state
+      const pages = [...state.doc.pages]
+      const [moved] = pages.splice(from, 1)
+      pages.splice(to, 0, moved)
+      return { ...withHistory(state), doc: { ...state.doc, pages } }
     }
 
     case 'removePage': {

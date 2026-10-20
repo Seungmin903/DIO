@@ -16,7 +16,6 @@ test('30개 이미지를 조회해도 다른 ID의 스냅샷은 변경되지 않
   assert.equal(ownSnapshotChanges, 0)
   assert.equal(registry.get('visible'), visible)
 })
-
 test('ID가 src보다 우선하고 이전 media 참조·보관함을 중복 없이 수집한다', () => {
   assert.equal(mediaId({ mediaFileId: 'actual', src: 'media:stale' }), 'actual')
   assert.equal(mediaId({ src: 'media:legacy' }), 'legacy')
@@ -71,7 +70,7 @@ test('실제 IndexedDB에서 ID만 있는 사진·GIF와 표시본을 새 세션
     resolve(specifier, context, next) {
       if (specifier === 'react-native') return { url: 'binding-test:platform', shortCircuit: true }
       if (specifier === 'expo-crypto') return { url: 'binding-test:crypto', shortCircuit: true }
-      if (specifier === './mediaRepository') return next('./mediaRepository.web.js', context)
+      if (specifier === '../utils/mediaRepository') return next('../utils/mediaRepository.web.js', context)
       return next(specifier, context)
     },
     load(url, context, next) {
@@ -96,7 +95,7 @@ test('실제 IndexedDB에서 ID만 있는 사진·GIF와 표시본을 새 세션
     { mediaFileId: 'gif' }, { src: 'media:legacy' }, { mediaFileId: 'missing' },
   ] }
   const geometry = JSON.stringify(page)
-  const store = await import('../src/editor/utils/mediaStore.js')
+  const store = await import('../src/editor/services/mediaStore.js')
   assert.deepEqual(await store.hydrateMedia(), { loaded: [], failures: [] })
   const hydrated = await store.hydrateMedia({ pages: [page] })
   assert.deepEqual(hydrated.loaded, ['photo', 'gif', 'legacy'])
@@ -110,7 +109,7 @@ test('실제 IndexedDB에서 ID만 있는 사진·GIF와 표시본을 새 세션
   assert.equal(JSON.stringify(page), geometry)
 
   // 앱 재시작에 해당하도록 세션 캐시를 새로 만들고 저장된 원본을 다시 조회한다.
-  const restarted = await import('../src/editor/utils/mediaStore.js?new-session')
+  const restarted = await import('../src/editor/services/mediaStore.js?new-session')
   assert.equal(restarted.mediaUri({ mediaFileId: 'photo' }), null)
   await restarted.hydrateMedia({ pages: [page] })
   assert.equal(await (await fetch(restarted.mediaUri({ mediaFileId: 'photo' }))).text(), 'display-jpeg')
@@ -120,4 +119,3 @@ test('실제 IndexedDB에서 ID만 있는 사진·GIF와 표시본을 새 세션
     URL.revokeObjectURL(restarted.mediaUri({ mediaFileId: item.id }))
   }
 })
-

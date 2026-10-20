@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { mediaId } from '../utils/mediaReferences.js'
-import { mediaService, mediaUri, mediaRegistry } from '../utils/mediaStore'
+import { mediaService, mediaUri, mediaRegistry } from '../services/mediaStore'
 
 /** 화면 구독 수로 표시 URL 수명을 관리한다. 원본 파일은 삭제하지 않는다. */
 export function useMediaUri(item, options) {

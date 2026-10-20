@@ -3,7 +3,7 @@
 // - Google Noto Animated Emoji (CC BY 4.0) — 움직이는 GIF, assets/stickers/noto/
 // 이미지는 Metro 가 정적 require 로만 묶을 수 있어서 id → 이미지 표를 따로 둔다. 문서에는 id(asset)만 저장한다.
 
-import { mediaUri } from './utils/mediaStore'
+import { mediaUri } from './services/mediaStore'
 
 export const STICKER_ASSETS = {
   coffee: require('../../assets/stickers/coffee.png'),

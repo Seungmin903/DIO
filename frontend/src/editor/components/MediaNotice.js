@@ -1,9 +1,9 @@
 import { useMemo, useState, useSyncExternalStore } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { mediaRegistry, mediaService } from '../utils/mediaStore'
+import { mediaRegistry, mediaService } from '../services/mediaStore'
 import { collectMediaIds } from '../utils/mediaReferences.js'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
-import { colors } from '../../theme'
+import { colors } from '../../shared/theme'
 
 /** 요소와 원본을 지우지 않고 복원/가져오기 실패를 안내한다. */
 export default function MediaNotice({ references, importFailure, onDismissImport }) {

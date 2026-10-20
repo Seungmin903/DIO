@@ -1,10 +1,11 @@
-// 편집기 정적 데이터
+import { TABLET_HEIGHT, TABLET_WIDTH } from '../shared/layout'
 
-// 페이지 논리 크기 (가로형). 화면에는 zoom 배율을 곱해서 그린다.
-export const PAGE_WIDTH = 1188
-export const PAGE_HEIGHT = 840
+// MVP1 기준 캔버스(16:10). 화면에는 zoom 배율을 곱해서 그린다.
+export const PAGE_WIDTH = TABLET_WIDTH
+export const PAGE_HEIGHT = TABLET_HEIGHT
 
-export const ZOOM_MIN = 0.3
+// 화면 배율: '화면에 맞춤'을 100% 로 보고 50% ~ 200% (손가락 확대·축소, 확대 버튼 공통)
+export const ZOOM_MIN = 0.5
 export const ZOOM_MAX = 2
 export const ZOOM_STEP = 0.1
 
@@ -15,15 +16,95 @@ export const OBJECT_TYPE_LABELS = {
   photo: '사진',
 }
 
-export const TAPES = [
-  { pattern: 'mint-stripe', name: '민트 스트라이프' },
-  { pattern: 'pink-dot', name: '핑크 도트' },
-  { pattern: 'butter-check', name: '버터 체크' },
-  { pattern: 'lavender', name: '라벤더' },
-  { pattern: 'kraft', name: '크라프트' },
-  { pattern: 'blue-grid', name: '블루 모눈' },
-  { pattern: 'sky-wave', name: '스카이 웨이브' },
+// 마스킹테이프 폭 규격. 다꾸에서 흔히 부르는 이름을 따른다.
+// 슬림(5mm, 선처럼 가는 테이프) · 기본(15mm, 가장 흔한 폭) · 와이드(30mm)
+// w·h 는 페이지 논리 좌표의 처음 붙는 크기. 기본 15mm = 높이 34 를 기준으로 폭을 비례해 정했다. (1mm ≈ 2.27)
+export const TAPE_SIZES = [
+  { id: 'slim', name: '슬림', hint: '5mm', w: 200, h: 11 },
+  { id: 'standard', name: '기본', hint: '15mm', w: 180, h: 34 },
+  { id: 'wide', name: '와이드', hint: '30mm', w: 200, h: 68 },
 ]
+
+// 테이프 색: 바탕(bg) + 무늬(fg) 한 쌍. 무늬는 그대로 두고 색만 바꿀 수 있다.
+export const TAPE_PALETTES = [
+  { id: 'pink', name: '핑크', bg: '#FAD3DC', fg: '#F59AB2' },
+  { id: 'coral', name: '코랄', bg: '#FDE0D8', fg: '#F2917C' },
+  { id: 'butter', name: '버터', bg: '#FFF1C2', fg: '#EFC04F' },
+  { id: 'mint', name: '민트', bg: '#E3F4EC', fg: '#8FD3B6' },
+  { id: 'sky', name: '스카이', bg: '#DCEBFA', fg: '#6E92C6' },
+  { id: 'lavender', name: '라벤더', bg: '#ECE5FB', fg: '#B39DED' },
+  { id: 'kraft', name: '크라프트', bg: '#D9B98F', fg: '#A27B4E' },
+  { id: 'charcoal', name: '차콜', bg: '#3E4350', fg: '#F3F1EA' },
+  { id: 'ivory', name: '아이보리', bg: '#F3F1EA', fg: '#3E4350' }, // 차콜을 뒤집은 흰 바탕 + 검은 무늬
+]
+
+// 기본 테이프: 규격마다 6종, 18종 모두 다른 무늬. pattern 은 무늬 모양(TapeView), palette 는 처음 색
+// 바탕·무늬 두 색만 쓰는 심플·모던한 기하 무늬. 슬림은 가는 폭에 맞는 선·점, 와이드는 큼직한 도형.
+// 테이프 폭은 규격으로 정해지고 길이만 늘이고 줄인다. 이름에는 색을 넣지 않는다. (색은 바꿀 수 있음)
+export const TAPES = [
+  { id: 'slim-solid', size: 'slim', pattern: 'solid', palette: 'coral', name: '무지' },
+  { id: 'slim-dash', size: 'slim', pattern: 'dash', palette: 'charcoal', name: '대시' },
+  { id: 'slim-dotline', size: 'slim', pattern: 'dotline', palette: 'pink', name: '도트 라인' },
+  { id: 'slim-double', size: 'slim', pattern: 'doubleline', palette: 'sky', name: '더블 라인' },
+  { id: 'slim-zigzag', size: 'slim', pattern: 'zigzag', palette: 'mint', name: '지그재그' },
+  { id: 'slim-pin', size: 'slim', pattern: 'pinstripe', palette: 'butter', name: '핀스트라이프' },
+  { id: 'std-stripe', size: 'standard', pattern: 'stripe', palette: 'mint', name: '사선 스트라이프' },
+  { id: 'std-dot', size: 'standard', pattern: 'dot', palette: 'pink', name: '도트' },
+  { id: 'std-gingham', size: 'standard', pattern: 'gingham', palette: 'sky', name: '깅엄' },
+  { id: 'std-grid', size: 'standard', pattern: 'grid', palette: 'lavender', name: '모눈' },
+  { id: 'std-wave', size: 'standard', pattern: 'wave', palette: 'butter', name: '웨이브' },
+  { id: 'std-plaid', size: 'standard', pattern: 'plaid', palette: 'coral', name: '플래드' },
+  { id: 'wide-checker', size: 'wide', pattern: 'checker', palette: 'charcoal', name: '체커보드' },
+  { id: 'wide-houndstooth', size: 'wide', pattern: 'houndstooth', palette: 'sky', name: '하운드투스' },
+  { id: 'wide-plus', size: 'wide', pattern: 'plus', palette: 'mint', name: '플러스' },
+  { id: 'wide-star', size: 'wide', pattern: 'star', palette: 'charcoal', name: '별' },
+  { id: 'wide-awning', size: 'wide', pattern: 'awning', palette: 'butter', name: '어닝 스트라이프' },
+  { id: 'wide-border', size: 'wide', pattern: 'border', palette: 'lavender', name: '보더' },
+]
+
+// 테이프 무늬 18종 (붙인 뒤 어떤 규격에서도 고를 수 있다)
+export const TAPE_PATTERN_NAMES = {
+  solid: '무지',
+  dash: '대시',
+  dotline: '도트 라인',
+  doubleline: '더블 라인',
+  zigzag: '지그재그',
+  pinstripe: '핀스트라이프',
+  stripe: '사선 스트라이프',
+  dot: '도트',
+  gingham: '깅엄',
+  grid: '모눈',
+  wave: '웨이브',
+  plaid: '플래드',
+  checker: '체커보드',
+  houndstooth: '하운드투스',
+  plus: '플러스',
+  star: '별',
+  awning: '어닝 스트라이프',
+  border: '보더',
+}
+
+// 예전 문서에서 이름 없이 저장된 테이프의 이름
+export const LEGACY_TAPE_NAMES = {
+  'mint-stripe': '스트라이프',
+  'pink-dot': '도트',
+  'butter-check': '체크',
+  lavender: '무지',
+  kraft: '크라프트',
+  'blue-grid': '모눈',
+  'sky-wave': '웨이브',
+}
+
+// 예전 문서의 테이프 무늬 이름 → 지금의 무늬 + 색
+export const LEGACY_TAPE_PATTERNS = {
+  'mint-stripe': { pattern: 'stripe', palette: 'mint' },
+  'pink-dot': { pattern: 'dot', palette: 'pink' },
+  'butter-check': { pattern: 'check', palette: 'butter' },
+  lavender: { pattern: 'solid', palette: 'lavender' },
+  kraft: { pattern: 'kraft', palette: 'kraft' },
+  'blue-grid': { pattern: 'grid', palette: 'sky' },
+  'sky-wave': { pattern: 'wave', palette: 'sky' },
+}
 
 // 명세: 테이프 끝은 절취선형 또는 직선형
 export const TAPE_EDGES = [
