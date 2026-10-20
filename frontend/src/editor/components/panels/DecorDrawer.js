@@ -23,6 +23,11 @@ export const DRAWER_TABS = [
 ]
 
 // 보관함 미리보기 테이프 크기 (실제 테이프 기본 크기 180×34 와 같은 비율)
+// 규격 비율대로 그린 미리보기 높이
+const tapePreviewHeight = (sizeId) => {
+  const size = TAPE_SIZES.find((s) => s.id === sizeId) ?? TAPE_SIZES[1]
+  return (TAPE_PREVIEW.width * size.h) / size.w
+}
 const TAPE_PREVIEW = { width: 236, height: 44 }
 
 // 분류 칩: 전체 + 스티커 묶음별. 움직이는 스티커 묶음은 하나로 모은다.
@@ -261,7 +266,8 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
                           imageWidth={item.imageWidth}
                           imageHeight={item.imageHeight}
                           edge="straight"
-                          {...TAPE_PREVIEW}
+                          width={TAPE_PREVIEW.width}
+                          height={tapePreviewHeight(item.size)}
                         />
                       </TapeRow>
                     ))}
@@ -279,7 +285,8 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
                           palette={tape.palette}
                           edge="straight"
                           width={TAPE_PREVIEW.width}
-                          height={(TAPE_PREVIEW.width * size.h) / size.w}
+                          height={tapePreviewHeight(size.id)}
+                          scale={TAPE_PREVIEW.width / size.w}
                         />
                       </TapeRow>
                     ))}
@@ -335,9 +342,9 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
         <TapeCropper
           image={pendingTape}
           onCancel={() => setPendingTape(null)}
-          onConfirm={({ crop }) => {
+          onConfirm={({ crop, size }) => {
             const { src, mediaFileId, poster, name, width, height } = pendingTape
-            custom.add('tapes', { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop })
+            custom.add('tapes', { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop, size })
             setPendingTape(null)
             onToast('내 테이프에 추가했어요. 붙인 뒤에도 자르기로 다시 고를 수 있어요.')
           }}

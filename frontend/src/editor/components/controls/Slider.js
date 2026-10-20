@@ -5,6 +5,8 @@ import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import Icon from './Icon'
 
+const THUMB = 26
+
 /**
  * RN 기본 컴포넌트에는 슬라이더가 없어서 직접 만든다.
  * onStart 는 끌기를 시작할 때 한 번 (되돌리기 지점을 만들 때 쓴다).
@@ -12,7 +14,9 @@ import Icon from './Icon'
 export default function Slider({ value, min, max, step, onChange, onStart, minusLabel = '줄이기', plusLabel = '늘리기' }) {
   const [trackWidth, setTrackWidth] = useState(1)
   const startRef = useRef(0)
-  const toValue = (x) => min + clamp(x / trackWidth, 0, 1) * (max - min)
+  // 손잡이가 막대 양 끝(−·+ 버튼) 밖으로 나가지 않도록 손잡이 반지름만큼 안쪽에서 움직인다.
+  const travel = Math.max(1, trackWidth - THUMB)
+  const toValue = (x) => min + clamp((x - THUMB / 2) / travel, 0, 1) * (max - min)
   const ratio = clamp((value - min) / (max - min), 0, 1)
 
   const panHandlers = usePan({
@@ -36,8 +40,8 @@ export default function Slider({ value, min, max, step, onChange, onStart, minus
       </Pressable>
       <View style={styles.track} onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)} {...panHandlers}>
         <View style={styles.trackLine} pointerEvents="none" />
-        <View style={[styles.trackFill, { width: `${ratio * 100}%` }]} pointerEvents="none" />
-        <View style={[styles.thumb, { left: ratio * trackWidth - 13 }]} pointerEvents="none" />
+        <View style={[styles.trackFill, { width: THUMB / 2 + ratio * travel }]} pointerEvents="none" />
+        <View style={[styles.thumb, { left: ratio * travel }]} pointerEvents="none" />
       </View>
       <Pressable onPress={() => nudge(step)} style={styles.stepButton} accessibilityLabel={plusLabel}>
         <Icon name="plus" size={16} />
@@ -61,9 +65,9 @@ const styles = StyleSheet.create({
   trackFill: { position: 'absolute', left: 0, height: 4, borderRadius: 2, backgroundColor: colors.primary },
   thumb: {
     position: 'absolute',
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: THUMB,
+    height: THUMB,
+    borderRadius: THUMB / 2,
     backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.primary,

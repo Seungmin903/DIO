@@ -34,10 +34,9 @@ const ZOOM_HUD_MS = 900
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
-export default function EditorScreen({ onHome, diary, readOnly = false }) {
+export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false }) {
   const { state, dispatch, saveStatus } = useEditor(diary)
   const page = getCurrentPage(state)
-  const pageIndex = state.doc.pages.indexOf(page)
 
   const [exportSnapshot, setExportSnapshot] = useState(null)
   const [stageSize, setStageSize] = useState(null)
@@ -312,7 +311,10 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
     <View style={styles.root} {...closeOnOutside}>
       <TopBar
         doc={state.doc}
-        pageNumber={pageIndex + 1}
+        onRename={(title) => {
+          dispatch({ type: 'renameDoc', title })
+          onRenameDiary?.(title)
+        }}
         layersOpen={showLayers}
         pagesOpen={showPages}
         focusMode={focusMode}
@@ -473,6 +475,7 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
             <TapeCropper
               image={{ src: tapeCrop.src, mediaFileId: tapeCrop.mediaFileId, width: tapeCrop.imageWidth, height: tapeCrop.imageHeight }}
               initialCrop={tapeCrop.crop}
+              ratio={(tapeCrop.segmentW ?? tapeCrop.w) / tapeCrop.h}
               title="테이프 다시 자르기"
               confirmLabel="적용"
               onCancel={() => setTapeCropId(null)}

@@ -2,7 +2,7 @@
 // 공통 필드: { id, type, x, y, w, h, rotation, hidden?, locked?, groupId?, name? }
 // x, y 는 회전 전 박스의 좌상단, 회전은 박스 중심 기준이다.
 
-import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_SHAPES, POLAROID_INSETS, TAPE_SIZES, TAPES } from '../constants'
+import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_SHAPES, LEGACY_TAPE_NAMES, POLAROID_INSETS, TAPE_SIZES, TAPES } from '../constants'
 import { clamp, createId } from './common'
 
 const base = (type, center, w, h, extra) => ({
@@ -42,7 +42,11 @@ export function createSticker(item, center) {
 export function createTape(item, center) {
   // 이미지 테이프도 기본 테이프와 같은 네모 틀에 꽉 채워(cover) 넣어 테이프 비율을 유지한다.
   if (item.mediaFileId || item.src) {
-    return base('tape', center, 180, 34, {
+    const imageSize = TAPE_SIZES.find((s) => s.id === item.size) ?? TAPE_SIZES[1]
+    return base('tape', center, imageSize.w, imageSize.h, {
+      size: imageSize.id,
+      // 잘라서 등록한 이미지 한 조각의 길이. 테이프가 이보다 길어지면 조각을 옆으로 반복한다.
+      segmentW: imageSize.w,
       src: item.src,
       mediaFileId: item.mediaFileId,
       name: item.name,
@@ -56,6 +60,7 @@ export function createTape(item, center) {
   return base('tape', center, size.w, size.h, {
     pattern: item.pattern,
     palette: item.palette,
+    size: size.id,
     name: item.name,
     edge: item.edge ?? 'straight',
   })
@@ -107,7 +112,7 @@ export function createObjectFromDecor(item, center) {
 export function getObjectName(object) {
   if (object.name) return object.name
   // 예전 문서의 테이프는 무늬 이름이 곧 테이프 id 였다.
-  if (object.type === 'tape') return TAPES.find((tape) => tape.id === object.pattern)?.name ?? '마스킹테이프'
+  if (object.type === 'tape') return LEGACY_TAPE_NAMES[object.pattern] ?? TAPES.find((tape) => tape.id === object.pattern)?.name ?? '마스킹테이프'
   return OBJECT_TYPE_LABELS[object.type]
 }
 
@@ -153,6 +158,14 @@ export function coverLayout(photo, boxWidth, boxHeight) {
     left: -(width - boxWidth) * photo.crop.fx,
     top: -(height - boxHeight) * photo.crop.fy,
   }
+}
+
+/** 테이프 규격. 규격 정보가 없는 예전 테이프는 가로:세로 비율이 가장 가까운 규격 */
+export function tapeSizeOf(tape) {
+  const known = TAPE_SIZES.find((s) => s.id === tape.size)
+  if (known) return known
+  const ratio = tape.w / tape.h
+  return TAPE_SIZES.reduce((best, size) => (Math.abs(size.w / size.h - ratio) < Math.abs(best.w / best.h - ratio) ? size : best))
 }
 
 /** 중심을 유지하면서 크기를 바꾸는 패치 */

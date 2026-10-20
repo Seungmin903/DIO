@@ -1,17 +1,11 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { useState } from 'react'
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 
-// 공유 상태 표시는 다른 담당 범위. 명세의 아바타 불투명도(활성 100%, 비활성 45%)만 반영한 정적 표시다.
-const MEMBERS = [
-  { initial: '나', color: '#6E92C6', active: true },
-  { initial: '지', color: '#F07A5A', active: true },
-  { initial: '서', color: '#3BAF7E', active: false },
-]
 
 export default function TopBar({
   doc,
-  pageNumber,
   layersOpen,
   pagesOpen,
   focusMode,
@@ -21,6 +15,7 @@ export default function TopBar({
   onTogglePages,
   onToggleFocus,
   onShare,
+  onRename,
   readOnly,
   shareLabel = '공유',
   shareIcon = 'share',
@@ -33,13 +28,9 @@ export default function TopBar({
       <IconToggle icon="panel" label="페이지 목록" active={pagesOpen} onPress={onTogglePages} />
 
       <View style={styles.tab}>
-        <View style={[styles.cover, { backgroundColor: doc.coverColor }]} />
-        <View>
-          <Text style={styles.tabTitle} numberOfLines={1}>
-            {doc.title}
-          </Text>
-          <Text style={styles.tabPage}>PAGE {pageNumber}</Text>
-        </View>
+        {/* 인덱스 스티커 모양: 표지 색의 둥근 머리 + 이름을 적는 흰 몸통 */}
+        <View style={[styles.spine, { backgroundColor: doc.coverColor }]} />
+        <TitleField title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} />
         <Pressable onPress={onCloseTab} hitSlop={8} style={styles.tabClose} accessibilityLabel="다이어리 탭 닫기">
           <Icon name="close" size={15} color={colors.textMuted} />
         </Pressable>
@@ -47,25 +38,56 @@ export default function TopBar({
 
       <View style={styles.right}>
         {!readOnly && <IconToggle icon="layers" label="레이어" text="레이어" active={layersOpen} onPress={onToggleLayers} />}
-        <View style={styles.avatars}>
-          {MEMBERS.map((member, index) => (
-            <View
-              key={member.initial}
-              style={[
-                styles.avatar,
-                { backgroundColor: member.color, opacity: member.active ? 1 : 0.45, marginLeft: index ? -8 : 0 },
-              ]}
-            >
-              <Text style={styles.avatarText}>{member.initial}</Text>
-            </View>
-          ))}
-        </View>
         <Pressable onPress={onShare} style={styles.share} accessibilityLabel={shareLabel}>
           <Icon name={shareIcon} size={19} color={colors.surface} />
         </Pressable>
         <IconToggle icon="focus" label="집중 편집" active={focusMode} onPress={onToggleFocus} />
       </View>
     </View>
+  )
+}
+
+/** 다이어리 이름. 연필(레이어 이름 바꾸기와 같은 모양)을 누르면 그 자리에서 고친다. */
+function TitleField({ title, renamable, onCommit }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  function commit() {
+    setEditing(false)
+    const next = draft.trim()
+    if (next && next !== title) onCommit(next)
+  }
+  if (editing) {
+    return (
+      <TextInput
+        value={draft}
+        onChangeText={setDraft}
+        autoFocus
+        maxLength={30}
+        selectTextOnFocus
+        onSubmitEditing={commit}
+        onBlur={commit}
+        style={styles.titleInput}
+        accessibilityLabel="다이어리 이름"
+      />
+    )
+  }
+  return (
+    <Pressable
+      disabled={!renamable}
+      onPress={() => {
+        setDraft(title)
+        setEditing(true)
+      }}
+      hitSlop={6}
+      accessibilityRole={renamable ? 'button' : undefined}
+      accessibilityLabel={renamable ? '다이어리 이름 바꾸기' : undefined}
+      style={styles.titleRow}
+    >
+      <Text style={styles.tabTitle} numberOfLines={1}>
+        {title}
+      </Text>
+      {renamable && <Icon name="edit" size={13} strokeWidth={2} color={colors.textMuted} />}
+    </Pressable>
   )
 }
 
@@ -103,29 +125,33 @@ const styles = StyleSheet.create({
     gap: 9,
     maxWidth: 280,
     marginLeft: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 12,
+    height: 38,
+    paddingLeft: 30,
+    paddingRight: 6,
+    borderRadius: 10,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(11,25,87,0.1)',
+    boxShadow: '0px 1px 2px rgba(11, 25, 87, 0.12)',
+    overflow: 'hidden',
   },
-  cover: { width: 11, height: 15, borderTopRightRadius: 4, borderBottomRightRadius: 4 },
-  tabTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
-  tabPage: { fontSize: 9.5, fontWeight: '800', color: colors.primary, marginTop: 1 },
-  tabClose: { marginLeft: 6, padding: 4, borderRadius: 8 },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 'auto' },
-  avatars: { flexDirection: 'row' },
-  avatar: {
-    width: 30,
+  spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
+  tabTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: colors.text },
+  titleInput: {
+    minWidth: 140,
     height: 30,
-    borderRadius: 15,
-    borderWidth: 2,
-    borderColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 0,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
   },
-  avatarText: { fontSize: 11.5, fontWeight: '800', color: colors.surface },
+  tabClose: { marginLeft: 2, padding: 4, borderRadius: 8 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 'auto' },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 10, borderRadius: 12 },
   toggleActive: { backgroundColor: colors.surfaceSoft },
   togglePressed: { backgroundColor: colors.primarySoft },
