@@ -3,6 +3,7 @@ import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-nat
 import { colors, shadow } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
+import { createRegionExportSnapshot } from '../utils/regionExport.js'
 import RegionExportSelector from '../components/RegionExportSelector'
 import ExportMenu from '../components/ExportMenu'
 import PageExportPreview from '../components/PageExportPreview'
@@ -368,8 +369,10 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         try { setExportSnapshot({ ...createExportSnapshot(target), fileName: pngFileName(state.doc.title, state.doc.pages.findIndex((p) => p.id === id) + 1) }) }
         catch (error) { setExportSnapshot({ errorMessage: error.message }) }
       }} />}
-      {regionOpen && <RegionExportSelector page={page} onCancel={() => { setRegionOpen(false); setExportOpen(true) }} />}
-      {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onClose={() => setExportSnapshot(null)} />}
+      {regionOpen && <RegionExportSelector page={page} visible={!exportSnapshot} onConfirm={(selection) => {
+        setExportSnapshot(createRegionExportSnapshot(page, { ...selection, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, title: state.doc.title, pageNumber: state.doc.pages.findIndex((p) => p.id === page.id) + 1 }))
+      }} onCancel={() => { setRegionOpen(false); setExportOpen(true) }} />}
+      {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onReselect={exportSnapshot.region ? () => setExportSnapshot(null) : undefined} onClose={() => { setExportSnapshot(null); setRegionOpen(false) }} />}
       {templatePickerOpen && !readOnly && <TemplatePicker onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={styles.body}>
