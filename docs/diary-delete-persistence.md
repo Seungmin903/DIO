@@ -1,0 +1,33 @@
+# 비회원 다이어리 삭제: PostgreSQL 반영
+
+`DELETE /api/v1/diaries/{diaryId}`는 local 프로필에서 해당 다이어리 행을 실제 삭제한다. 인증·Query·Body·Content-Type 요청 헤더는 필요 없다.
+
+| 결과 | 상태 |
+|---|---|
+| 삭제 성공 | 204 No Content, 응답 본문 없음 |
+| 없는 ID 또는 이미 삭제한 ID | 404, DIARY_NOT_FOUND |
+| 0·음수·숫자가 아닌 값·Long 범위 밖 ID | 400 |
+
+## 처리 규칙
+
+```text
+DiaryController → DiaryService → DiaryModificationService (@Transactional)
+  → findById → delete → flush → 본문 없는 204
+```
+
+- 현재 로컬 스키마에는 deleted_at과 하위 페이지 테이블이 없으므로 논리 삭제가 아닌 행 삭제다. 삭제 복구 기능은 제공하지 않는다.
+- 삭제한 ID는 목록에 포함되지 않으며 상세 조회도 404다. 다른 다이어리는 변경하지 않는다.
+- 현재 비회원 로컬 개발은 사용자·기기별 접근 구분 없이 동작한다. 인증은 추가하지 않는다.
+- 새 스키마 변경 없이 기존 diaries 테이블을 사용한다. 페이지·요소·미디어 관계가 추가되면 그때 FK와 하위 데이터 삭제 정책을 별도로 구현해야 한다.
+
+## 확인
+
+local 서버의 Swagger에서 검증용 다이어리를 POST로 만든 뒤 해당 ID로 DELETE를 호출한다. 성공 시 204이며 GET 상세·다시 DELETE는 404, GET 목록에서는 제거된다. 확인용 서버는 http://localhost:8080/swagger-ui.html 이다.
+
+backend에서 `gradlew.bat test postgresTest`로 검증한다. H2에서는 실제 행 삭제·다른 다이어리 유지·미존재 및 재삭제 404·목록 제거를, PostgreSQL에서는 SQL 행 수와 HTTP 조회로 같은 동작을 확인한다. PostgreSQL 자동 검증의 생성 행은 롤백하며 기존 다이어리는 삭제하지 않는다.
+
+## 2026-10-20 검증 결과
+
+- `gradlew.bat test postgresTest`: 기본 테스트 81건과 PostgreSQL 테스트 9건, 총 90건 통과. PostgreSQL 전용 9건은 기본 test에서 건너뛰고 postgresTest에서 실행한다.
+- 실제 local 서버 18080에서 검증용 항목 생성→DELETE 204(빈 본문)→상세 GET 404→재삭제 404를 확인했다. 목록에서 제외되고 별도 SQL 연결에서도 행 수 0이었다.
+- 기존 다이어리는 유지했다. 검증용 행만 삭제했으며 서버는 최신 빌드로 실행 중이다.

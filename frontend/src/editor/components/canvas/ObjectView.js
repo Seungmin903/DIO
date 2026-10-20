@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Text, View } from 'react-native'
+import { Image, Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
 import { stickerSource } from '../../stickerAssets'
@@ -13,6 +13,8 @@ import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
 import FrameBackdrop from './PhotoFrame'
 import StrokeContent from '../StrokeContent'
+import { textSegments } from '../../utils/textRanges'
+import { textStyle } from '../../utils/text'
 
 /**
  * 오브젝트 하나의 생김새. 위치·회전·불투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
@@ -29,6 +31,10 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
     </View>
   )
   switch (object.type) {
+    case 'text': {
+      const scale = width / (object.baseWidth ?? object.w)
+      return <Text style={{ width, height, ...textStyle(object, scale, Platform.OS) }}>{textSegments(object.text, object.colorRanges).map((segment, index) => <Text key={index} style={segment.color ? { color: segment.color } : undefined}>{segment.text}</Text>)}</Text>
+    }
     case 'stroke':
       return <StrokeContent object={object} zoom={zoom} transform={flipTransform(object)} />
     case 'sticker':

@@ -83,7 +83,7 @@ test('출력 배율과 안전 상한은 화면 DPR과 독립적이며 잘못된 
   assert.ok(limited.pixelWidth <= 4096 && limited.pixelWidth * limited.pixelHeight <= 8000000)
   assert.throws(() => createExportSnapshot(page, { scale: Infinity }), { code: 'EXPORT_SIZE_INVALID' })
   assert.throws(() => createExportSnapshot({ objects: [object('broken', { x: NaN })] }), { code: 'EXPORT_GEOMETRY_INVALID' })
-  assert.throws(() => createExportSnapshot({ objects: [object('text', { type: 'text' })] }), { code: 'EXPORT_ELEMENT_UNSUPPORTED' })
+  assert.throws(() => createExportSnapshot({ objects: [object('unsupported', { type: 'unsupported' })] }), { code: 'EXPORT_ELEMENT_UNSUPPORTED' })
 })
 
 test('중복 원본은 한 번 준비하고 출력 작업 자원만 한 번 해제한다', async () => {

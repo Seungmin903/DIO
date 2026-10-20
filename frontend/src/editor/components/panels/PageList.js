@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, radius } from '../../../shared/theme'
-import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
+import { pageSize } from '../../utils/pageGeometry.js'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import Icon from '../controls/Icon'
@@ -9,7 +9,7 @@ import TapCatcher from '../controls/TapCatcher'
 import StaticPage from '../canvas/StaticPage'
 
 const THUMB_WIDTH = 124
-const THUMB_ZOOM = THUMB_WIDTH / PAGE_WIDTH
+const CellContext = createContext(null)
 const HOLD_MS = 280 // 이만큼 누르고 있으면 끌어서 순서 바꾸기 시작 (그 전에 움직이면 목록 스크롤)
 const TAP_SLOP = 8
 
@@ -24,42 +24,56 @@ export const PAGE_LIST_WIDTH = 156
 export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onRemove, onMove, onEmptyTap, readOnly = false }) {
   const [drag, setDrag] = useState(null) // { id, from, dy }
   const layouts = useRef({}) // id → { y, height } (목록 안 위치)
+  const recordLayout = useCallback((id, layout) => { layouts.current[id] = layout }, [])
+  const forgetLayout = useCallback(id => { delete layouts.current[id] }, [])
   const target = drag ? dropIndex(pages, layouts.current, drag) : null
 
   return (
     <View style={styles.panel}>
-      <ScrollView contentContainerStyle={styles.list} scrollEnabled={!drag}>
-        {pages.map((page, index) => {
-          const active = page.id === currentId
-          const dragging = drag?.id === page.id
-          return (
-            <PageItem
-              key={page.id}
-              page={page}
-              index={index}
-              active={active}
-              dragging={dragging}
-              dy={dragging ? drag.dy : 0}
-              dropLine={drag && !dragging && target === index ? (target < drag.from ? 'before' : 'after') : null}
-              cropId={active ? cropId : null}
-              readOnly={readOnly}
-              canRemove={!readOnly && pages.length > 1 && active && !drag}
-              onLayout={(layout) => (layouts.current[page.id] = layout)}
-              onSelect={() => onSelect(page.id)}
-              onRemove={() => onRemove(page.id)}
-              onDragStart={() => setDrag({ id: page.id, from: index, dy: 0 })}
-              onDragMove={(dy) => setDrag({ id: page.id, from: index, dy })}
-              onDragEnd={(dy) => {
-                const to = dropIndex(pages, layouts.current, { id: page.id, from: index, dy })
-                setDrag(null)
-                if (to !== index) onMove(page.id, to)
-              }}
-            />
-          )
-        })}
-        {/* 목록 아래 빈 곳을 누르면 선택 해제 */}
-        {onEmptyTap && <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} />}
-      </ScrollView>
+      <CellContext.Provider value={{ recordLayout, forgetLayout, dragId: drag?.id }}>
+        <FlatList
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.list}
+          scrollEnabled={!drag}
+          data={pages}
+          extraData={[currentId, cropId, readOnly, drag]}
+          keyExtractor={page => page.id}
+          initialNumToRender={6}
+          maxToRenderPerBatch={4}
+          windowSize={3}
+          removeClippedSubviews={false}
+          CellRendererComponent={PageCell}
+          ItemSeparatorComponent={PageSeparator}
+          ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
+          renderItem={({ item: page, index }) => {
+            const active = page.id === currentId
+            const dragging = drag?.id === page.id
+            return (
+              <PageItem
+                key={page.id}
+                page={page}
+                index={index}
+                active={active}
+                dragging={dragging}
+                dy={dragging ? drag.dy : 0}
+                dropLine={drag && !dragging && target === index ? (target < drag.from ? 'before' : 'after') : null}
+                cropId={active ? cropId : null}
+                readOnly={readOnly}
+                canRemove={!readOnly && pages.length > 1 && active && !drag}
+                onSelect={() => onSelect(page.id)}
+                onRemove={() => onRemove(page.id)}
+                onDragStart={() => setDrag({ id: page.id, from: index, dy: 0 })}
+                onDragMove={(dy) => setDrag({ id: page.id, from: index, dy })}
+                onDragEnd={(dy) => {
+                  const to = dropIndex(pages, layouts.current, { id: page.id, from: index, dy })
+                  setDrag(null)
+                  if (to !== index) onMove(page.id, to)
+                }}
+              />
+            )
+          }}
+        />
+      </CellContext.Provider>
       {!readOnly && (
         <Pressable onPress={onAdd} style={({ pressed }) => [styles.add, pressed && styles.addPressed]} accessibilityLabel="페이지 추가">
           <Icon name="plus" size={20} />
@@ -67,6 +81,19 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
       )}
     </View>
   )
+}
+
+function PageSeparator() { return <View style={{ height: 16 }} /> }
+
+// 가상화 셀의 목록 기준 좌표를 기록한다. 드래그 중인 셀은 이웃 셀 위에 그린다.
+function PageCell({ item, onLayout, onCellFocusCapture, style, children }) {
+  const { recordLayout, forgetLayout, dragId } = useContext(CellContext)
+  useEffect(() => () => forgetLayout(item.id), [item.id, forgetLayout])
+  return <View
+    onLayout={event => { recordLayout(item.id, event.nativeEvent.layout); onLayout?.(event) }}
+    onFocusCapture={onCellFocusCapture}
+    style={[style, dragId === item.id && { zIndex: 2 }]}
+  >{children}</View>
 }
 
 /** 끌고 있는 썸네일의 가운데가 들어간 자리 */
@@ -84,7 +111,9 @@ function dropIndex(pages, layouts, drag) {
   return clamp(index, 0, pages.length - 1)
 }
 
-function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnly, canRemove, onLayout, onSelect, onRemove, onDragStart, onDragMove, onDragEnd }) {
+function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnly, canRemove, onSelect, onRemove, onDragStart, onDragMove, onDragEnd }) {
+  const { width, height } = pageSize(page)
+  const thumbZoom = THUMB_WIDTH / width
   const press = useRef(null)
   const handlers = usePan({
     onStart: () => {
@@ -117,7 +146,6 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
   return (
     <View
       style={[styles.item, dragging && { zIndex: 2, transform: [{ translateY: dy }, { scale: 1.04 }] }]}
-      onLayout={(event) => onLayout(event.nativeEvent.layout)}
     >
       {dropLine && <View style={[styles.dropLine, dropLine === 'before' ? styles.dropBefore : styles.dropAfter]} />}
       <View
@@ -125,10 +153,10 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
         accessibilityRole="button"
         accessibilityLabel={`${index + 1}페이지`}
         accessibilityHint={readOnly ? undefined : '길게 눌러 끌면 순서를 바꿔요'}
-        style={[styles.thumb, active && styles.thumbActive, dragging && styles.thumbDragging]}
+        style={[styles.thumb, { height: height * thumbZoom }, active && styles.thumbActive, dragging && styles.thumbDragging]}
       >
         {/* 지금 편집 중인 페이지는 움직이는 GIF·자르기 표시까지 편집 화면과 똑같이, 나머지는 첫 장면으로 */}
-        <StaticPage page={page} zoom={THUMB_ZOOM} still={!active} cropId={cropId} />
+        <StaticPage page={page} zoom={thumbZoom} still={!active} cropId={cropId} />
       </View>
       <Text style={[styles.number, active && styles.numberActive]}>{index + 1}</Text>
       {canRemove && (
@@ -141,13 +169,12 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
 }
 
 const styles = StyleSheet.create({
-  panel: { width: PAGE_LIST_WIDTH, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'hidden' },
-  list: { flexGrow: 1, alignItems: 'center', gap: 16, paddingVertical: 16 },
+  panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'hidden' },
+  list: { flexGrow: 1, paddingVertical: 16 },
   emptyArea: { flexGrow: 1, alignSelf: 'stretch', minHeight: 24 },
   item: { alignItems: 'center', gap: 6 },
   thumb: {
     width: THUMB_WIDTH,
-    height: PAGE_HEIGHT * THUMB_ZOOM,
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,

@@ -8,17 +8,18 @@
 
 ## 기술 스택
 
-- Backend: Spring Boot 4.1, Java 17, Gradle, Spring Data JPA, MySQL 8.4
+- Backend: Spring Boot 4.1, Java 17, Gradle, Spring Data JPA, PostgreSQL 17, Flyway
 - Frontend: Expo SDK 57, React Native 0.86 (JavaScript) — 16:10 가로형 태블릿 기준, react-native-web으로 브라우저 확인 가능
-- Local infra: Docker Compose (MySQL)
+- Local infra: Docker Compose (PostgreSQL)
 
 ## 개발 명령어
 
 | 작업 | 명령어 (해당 폴더에서 실행) |
 |---|---|
-| DB 실행 | `docker compose up -d` (루트) |
+| DB 실행 | `docker compose up -d --wait postgres` (루트) |
 | 백엔드 실행 | `./gradlew bootRun` (backend/, 기본 프로필 `local`) |
 | 백엔드 빌드/테스트 | `./gradlew build` / `./gradlew test` (테스트는 H2 인메모리 DB 사용) |
+| 실제 PostgreSQL 다이어리 CRUD 테스트 | `./gradlew postgresTest` (backend/, 로컬 DB 필요, 테스트 행 롤백) |
 | 프론트 의존성 설치 | `pnpm install` (frontend/) |
 | Android 실행 | `pnpm android` (frontend/, Android 에뮬레이터 또는 기기 필요) |
 | iOS 실행 | `pnpm ios` (frontend/, macOS 필요) |
@@ -34,10 +35,10 @@
 - Git 명령을 실행하기 전에는 최신 `GIT_CONVENTION.md`를 다시 확인합니다.
 
 핵심 요약:
-- `master`, `develop`에 직접 커밋/푸시 금지. 새 작업 브랜치는 `feature/S15P31F106-번호-설명`, `fix/...`, `refactor/...`, `docs/...`, `chore/...` 형식입니다. 진행 중인 `feature/fe/...`, `feature/be/...` 등은 해당 MR까지 유지할 수 있습니다.
-- Jira의 에픽→태스크 구조와 태스크당 최대 3시간 규칙을 따릅니다. 기본은 태스크 하나·브랜치 하나·MR 하나이며, 연관 태스크를 묶는 조건은 Git 컨벤션을 확인합니다.
+- `master`, `develop`에 직접 커밋/푸시 금지. 새 작업 브랜치는 Jira 키 없이 `종류/포지션/기능-이름` 형식입니다(예: `feature/fe/diary-landing`, `fix/be/...`). 포지션은 `fe`·`be`, 그 외는 `infra`·`common`을 씁니다. 진행 중인 이전 형식 브랜치는 해당 MR까지 유지할 수 있습니다.
+- Jira의 에픽→태스크 구조와 태스크당 최대 3시간 규칙을 따릅니다. 브랜치·MR은 기능 하나 단위이며, 같은 기능의 태스크는 한 브랜치에서 이어서 작업하고 기능이 모두 완성되면 MR을 올려 병합합니다.
 - 커밋은 `type(scope): 한국어 설명` 형식입니다. type은 `feat/fix/docs/style/refactor/test/chore/build/ci/perf/merge/revert`를 사용합니다. scope는 선택 사항입니다.
-- 일반 커밋에는 Jira 키를 반복하지 않고 브랜치와 MR 제목에 실제 `S15P31F106-번호`를 씁니다. 최종 Squash 메시지는 MR 제목과 맞춥니다.
+- 일반 커밋에는 Jira 키를 반복하지 않고 MR 제목에 실제 `S15P31F106-번호`를 씁니다. 최종 Squash 메시지는 MR 제목과 맞춥니다.
 - 일반 작업은 develop에 Squash merge하고 release/hotfix는 master에 Merge commit합니다. 작성자 외 최소 1명의 승인과 검증 기록이 필요합니다.
 - 공유 브랜치 force-push를 금지하며, 히스토리를 되돌릴 때는 `git revert`를 우선 고려합니다. 원격 보호·승인·CI 설정은 실제 GitLab 설정을 확인합니다.
 - 사용자가 명시적으로 요청하지 않으면 커밋/푸시/MR 생성을 먼저 하지 않습니다.
@@ -50,7 +51,7 @@ S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
 ├── frontend/            # 모바일 프론트엔드 (Expo + React Native)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
-├── docker-compose.yml   # 로컬 개발용 MySQL
+├── docker-compose.yml   # 로컬 개발용 PostgreSQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)
 ├── README.md
 ├── AGENTS.md            # AI 에이전트 공통 지침

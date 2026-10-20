@@ -427,7 +427,9 @@ function LayerRow({ object, nested, selected, renamable, dispatch, onRangeStart,
 function LayerThumb({ object }) {
   const uri = useMediaUri(object, { still: true })
   let content = null
-  if (object.type === 'stroke') {
+  if (object.type === 'text') {
+    content = <Text style={{ color: object.color, fontSize: 22 }}>T</Text>
+  } else if (object.type === 'stroke') {
     content = <ObjectContent object={object} zoom={Math.min(30 / object.w, 30 / object.h)} still />
   } else if (object.type === 'sticker') {
     const source = stickerSource(object, true, uri)

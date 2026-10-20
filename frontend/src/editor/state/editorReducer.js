@@ -6,9 +6,9 @@
 // 드래그처럼 연속된 변경은 시작할 때 'checkpoint' 를 한 번 보내고
 // 이후 update 를 record 없이 보내서 한 번의 되돌리기 단위로 묶는다.
 
-import { clamp, createId, rotatedBounds, unionBounds } from '../utils/common'
-import { PAGE_HEIGHT, PAGE_WIDTH } from '../constants'
-import { createBlankPage } from './defaultDoc'
+import { clamp, createId, rotatedBounds, unionBounds } from '../utils/common.js'
+import { pageSize } from '../utils/pageGeometry.js'
+import { createBlankPage, createTemplatePage } from './defaultDoc.js'
 
 const HISTORY_LIMIT = 80
 const PASTE_OFFSET = 24
@@ -114,7 +114,8 @@ function cloneObjects(objects, offset) {
  * 정렬: 여러 개면 선택 영역 기준, 하나면 페이지 기준.
  * mode: left | hcenter | right | top | vcenter | bottom | hspace | vspace (간격 맞추기, 3개 이상)
  */
-function alignObjects(objects, ids, mode) {
+function alignObjects(objects, ids, mode, page) {
+  const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   const targets = objects.filter((o) => ids.includes(o.id) && !o.locked)
   if (!targets.length) return objects
   const frame =
@@ -272,7 +273,7 @@ export function editorReducer(state, action) {
     }
 
     case 'align':
-      return updateObjects(withHistory(state), (list) => alignObjects(list, action.ids, action.mode))
+      return updateObjects(withHistory(state), (list) => alignObjects(list, action.ids, action.mode, getCurrentPage(state)))
 
     case 'reorder':
       if (!action.ids.length) return state
@@ -325,7 +326,7 @@ export function editorReducer(state, action) {
       )
 
     case 'addPage': {
-      const page = createBlankPage()
+      const page = action.backgroundAssetId ? createTemplatePage(action.backgroundAssetId) : createBlankPage()
       const index = state.doc.pages.findIndex((p) => p.id === getCurrentPage(state).id)
       const pages = [...state.doc.pages]
       pages.splice(index + 1, 0, page)

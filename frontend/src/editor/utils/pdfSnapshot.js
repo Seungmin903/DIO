@@ -26,7 +26,7 @@ export function createPdfExportSnapshot(doc, { scope, currentPageId, selectedPag
   const selected = new Set(wanted)
   const pages = doc.pages.flatMap((page, index) => {
     if (!selected.has(page.id)) return []
-    try { return [{ ...createExportSnapshot(page, { width, height, scale: 2 }), documentPageNumber: index + 1 }] }
+    try { return [{ ...createExportSnapshot(page, { width: page.canvasWidth ?? width, height: page.canvasHeight ?? height, scale: 2 }), documentPageNumber: index + 1 }] }
     catch (error) { throw Object.assign(error, { documentPageNumber: index + 1, phase: 'preparing' }) }
   })
   if (pages.reduce((sum, p) => sum + p.pixelWidth * p.pixelHeight, 0) > PDF_LIMITS.pixels) throw pdfError('EXPORT_PDF_LIMIT_EXCEEDED', 'PDF의 합계 출력 픽셀이 상한을 초과해요.')
@@ -43,9 +43,9 @@ export function pdfSelectAllPolicy(doc, { width, height }) {
   let maxPages = PDF_LIMITS.pages
   try {
     if (!Array.isArray(doc?.pages) || !doc.pages.length || ![width, height].every((n) => Number.isFinite(n) && n > 0)) throw invalid()
-    const page = createExportSnapshot({ objects: [] }, { width, height, scale: 2 })
+    const pixels = Math.max(...doc.pages.map(page => { const snapshot = createExportSnapshot({ objects: [] }, { width: page.canvasWidth ?? width, height: page.canvasHeight ?? height, scale: 2 }); return snapshot.pixelWidth * snapshot.pixelHeight }))
     // 페이지 수 상한과 픽셀 예산 중 작은 값이 실제 최대 면 수다. (1280×800의 2배는 19면)
-    maxPages = Math.min(PDF_LIMITS.pages, Math.floor(PDF_LIMITS.pixels / (page.pixelWidth * page.pixelHeight)))
+    maxPages = Math.min(PDF_LIMITS.pages, Math.floor(PDF_LIMITS.pixels / pixels))
     if (doc.pages.length > maxPages) throw pdfError('EXPORT_PDF_LIMIT_EXCEEDED', `전체 선택은 최대 ${maxPages}페이지까지 가능해요. 일부 페이지를 선택해 주세요.`)
     return { enabled: true, maxPages, totalPages: doc.pages.length }
   } catch (error) {

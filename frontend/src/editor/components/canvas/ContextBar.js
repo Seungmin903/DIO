@@ -14,6 +14,8 @@ const MENU_WIDTH = 148
 export default function ContextBar({
   objects,
   allObjects,
+  pageWidth = PAGE_WIDTH,
+  pageHeight = PAGE_HEIGHT,
   zoom,
   dispatch,
   moreOpen,
@@ -29,8 +31,8 @@ export default function ContextBar({
   const editable = objects.filter((o) => !o.locked)
   const single = objects.length === 1 ? objects[0] : null
   const bounds = unionBounds(objects)
-  const pageW = PAGE_WIDTH * zoom
-  const pageH = PAGE_HEIGHT * zoom
+  const pageW = pageWidth * zoom
+  const pageH = pageHeight * zoom
   // 바는 늘 페이지 안쪽에 둔다. Android·iOS 는 부모(페이지) 영역 밖으로 나간 버튼에 터치를 전달하지 않는다.
   // 요소 아래에 자리가 있으면 아래, 없으면 위, 둘 다 없으면 페이지 안에서 가능한 가까운 곳(요소와 겹칠 수 있음).
   const below = bounds.bottom * zoom + GAP + BAR_HEIGHT < pageH - EDGE
