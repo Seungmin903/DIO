@@ -3,7 +3,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } fr
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { colors } from '../../shared/theme'
 import { usePan } from '../hooks/usePan'
-import { EDITOR_COLORS, normalizeHex, PEN_TYPES, penPressure } from '../utils/penSettings'
+import { EDITOR_COLORS, HIGHLIGHTER_COLORS, normalizeHex, PEN_TYPES, penPressure } from '../utils/penSettings'
 import { createStroke } from '../utils/strokes'
 import ObjectContent from './canvas/ObjectView'
 
@@ -12,7 +12,7 @@ const PRESET_KEY = 'dio-editor-color-presets-v1'
 export function PenSample({ settings, small = false }) {
   const points = Array.from({ length: 41 }, (_, i) => {
     const t = i / 40
-    return { x: 12 + t * 240, y: 24 + Math.sin(t * Math.PI * 2) * 12, pressure: penPressure(settings.kind, 0.5 + Math.sin(t * Math.PI) * 1.1) }
+    return { x: 12 + t * 240, y: settings.kind === 'highlighter' ? 24 : 24 + Math.sin(t * Math.PI * 2) * 12, pressure: penPressure(settings.kind, 0.5 + Math.sin(t * Math.PI) * 1.1) }
   })
   const stroke = createStroke(points, settings)
   return <View pointerEvents="none" style={{ height: small ? 26 : 54, justifyContent: 'center', alignItems: 'center' }}>
@@ -20,29 +20,33 @@ export function PenSample({ settings, small = false }) {
   </View>
 }
 
-function Thickness({ value, onChange }) {
+function Thickness({ value, onChange, highlighter = false }) {
+  const min = highlighter ? 8 : 1, max = highlighter ? 40 : 16
+  const limit = (n) => Math.max(min, Math.min(max, n))
   const width = useRef(1), start = useRef(0)
-  const update = (x) => onChange(Math.max(1, Math.min(16, Math.round((1 + x / width.current * 15) * 2) / 2)))
+  const update = (x) => onChange(limit(Math.round((min + x / width.current * (max - min)) * 2) / 2))
   const handlers = usePan({
     onStart: (event) => { start.current = event.locationX; update(start.current) },
     onMove: (dx) => update(start.current + dx),
   })
-  return <View accessibilityRole="adjustable" accessibilityLabel="펜 굵기" accessibilityValue={{ min: 1, max: 16, now: value }}
-    aria-valuemin={1} aria-valuemax={16} aria-valuenow={value} tabIndex={0}
+  return <View accessibilityRole="adjustable" accessibilityLabel={highlighter ? '형광펜 굵기' : '펜 굵기'} accessibilityValue={{ min, max, now: value }}
+    aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} tabIndex={0}
     {...(Platform.OS === 'web' && { onKeyDown: (e) => {
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return
       e.preventDefault()
-      onChange(e.key === 'Home' ? 1 : e.key === 'End' ? 16 : Math.max(1, Math.min(16, value + (['ArrowRight', 'ArrowUp'].includes(e.key) ? 0.5 : -0.5))))
+      onChange(e.key === 'Home' ? min : e.key === 'End' ? max : limit(value + (['ArrowRight', 'ArrowUp'].includes(e.key) ? 0.5 : -0.5)))
     } })}
     accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-    onAccessibilityAction={(e) => onChange(Math.max(1, Math.min(16, value + (e.nativeEvent.actionName === 'increment' ? 0.5 : -0.5))))}
+    onAccessibilityAction={(e) => onChange(limit(value + (e.nativeEvent.actionName === 'increment' ? 0.5 : -0.5)))}
     onLayout={(e) => { width.current = e.nativeEvent.layout.width }} style={styles.slider} {...handlers}>
     <View pointerEvents="none" style={styles.track} />
-    <View pointerEvents="none" style={[styles.thumb, { left: `${(value - 1) / 15 * 100}%` }]} />
+    <View pointerEvents="none" style={[styles.thumb, { left: `${(value - min) / (max - min) * 100}%` }]} />
   </View>
 }
 
 export default function PenSettings({ settings, onChange, onClose }) {
+  const highlighter = settings.kind === 'highlighter'
+  const label = highlighter ? '형광펜' : '펜'
   const [hex, setHex] = useState(settings.color)
   const [presets, setPresets] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -72,21 +76,22 @@ export default function PenSettings({ settings, onChange, onClose }) {
     {preset && <Pressable accessibilityRole="button" accessibilityLabel={`${color} 프리셋 삭제`} onPress={() => savePresets(presets.filter((c) => c !== color))} style={styles.remove}><Text>×</Text></Pressable>}
   </View>
   return <View style={styles.card}>
-    <View style={styles.heading}><Text style={styles.title}>펜 설정</Text><Pressable accessibilityRole="button" accessibilityLabel="펜 설정 닫기" onPress={onClose} style={styles.close}><Text style={styles.title}>×</Text></Pressable></View>
+    <View style={styles.heading}><Text style={styles.title}>{label} 설정</Text><Pressable accessibilityRole="button" accessibilityLabel={`${label} 설정 닫기`} onPress={onClose} style={styles.close}><Text style={styles.title}>×</Text></Pressable></View>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-      <Text style={styles.label}>펜 종류</Text>
-      <View style={styles.types}>{PEN_TYPES.map((type) => <Pressable key={type.id} accessibilityRole="button" accessibilityLabel={type.label} accessibilityState={{ selected: settings.kind === type.id }}
+      <Text style={styles.label}>{highlighter ? '획 끝 모양' : '펜 종류'}</Text>
+      <View style={styles.types}>{highlighter ? [{ id: 'round', label: '라운드' }, { id: 'square', label: '스퀘어' }].map((cap) => <Pressable key={cap.id} accessibilityRole="button" accessibilityLabel={cap.label} accessibilityState={{ selected: settings.lineCap === cap.id }} onPress={() => onChange({ ...settings, lineCap: cap.id })} style={[styles.type, settings.lineCap === cap.id && styles.typeSelected]}><PenSample settings={{ ...settings, lineCap: cap.id }} small /><Text style={styles.typeText}>{cap.label}</Text></Pressable>) : PEN_TYPES.map((type) => <Pressable key={type.id} accessibilityRole="button" accessibilityLabel={type.label} accessibilityState={{ selected: settings.kind === type.id }}
         onPress={() => onChange({ ...settings, kind: type.id })} style={[styles.type, settings.kind === type.id && styles.typeSelected]}>
         <PenSample settings={{ ...settings, kind: type.id, width: 10 }} small /><Text style={styles.typeText}>{type.label}</Text>
       </Pressable>)}</View>
-      <View accessibilityLabel="펜 미리보기" style={styles.preview}><PenSample settings={settings} /></View>
-      <View style={styles.row}><Text style={styles.label}>굵기</Text><Thickness value={settings.width} onChange={(width) => onChange({ ...settings, width })} /><Text style={styles.value}>{settings.width}</Text></View>
-      <Text style={styles.label}>기본 색상</Text><View style={styles.palette}>{EDITOR_COLORS.map((c) => swatch(c))}</View>
+      <View accessibilityLabel={`${label} 미리보기`} style={styles.preview}><PenSample settings={settings} /></View>
+      {highlighter && <Text style={styles.empty}>끝점에서 잠시 누르면 직선으로 바뀌어요.</Text>}
+      <View style={styles.row}><Text style={styles.label}>굵기</Text><Thickness highlighter={highlighter} value={settings.width} onChange={(width) => onChange({ ...settings, width })} /><Text style={styles.value}>{settings.width}</Text></View>
+      <Text style={styles.label}>기본 색상</Text><View style={styles.palette}>{(highlighter ? HIGHLIGHTER_COLORS : EDITOR_COLORS).map((c) => swatch(c))}</View>
       <Text style={styles.label}>내 색상 프리셋</Text>
       <View style={styles.palette}>{presets.length ? presets.map((c) => swatch(c, true)) : <Text style={styles.empty}>{loaded ? '아직 저장한 색상이 없어요.' : '색상을 불러오는 중…'}</Text>}</View>
       <View style={styles.row}>
         <View style={[styles.colorChip, { backgroundColor: settings.color }]} />
-        <TextInput accessibilityLabel="펜 색상 HEX 코드" value={hex} maxLength={7} autoCapitalize="characters" autoCorrect={false} style={styles.input}
+        <TextInput accessibilityLabel={`${label} 색상 HEX 코드`} value={hex} maxLength={7} autoCapitalize="characters" autoCorrect={false} style={styles.input}
           onChangeText={(value) => { setHex(value); if (/^#?[0-9a-f]{6}$/i.test(value)) onChange({ ...settings, color: normalizeHex(value) }) }}
           onBlur={() => { const color = normalizeHex(hex); if (color) chooseColor(color); else { setHex(settings.color); setNotice('HEX 색상 코드를 확인해 주세요.') } }} />
         <Pressable accessibilityRole="button" disabled={!loaded} style={styles.save} onPress={() => {

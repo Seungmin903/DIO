@@ -42,6 +42,7 @@ export default function Canvas({
   onToast,
   activeTool = 'select',
   penSettings,
+  highlighterSettings,
   readOnly = false,
 }) {
   const canSelect = !readOnly && activeTool === 'select'
@@ -137,10 +138,10 @@ export default function Canvas({
         ))}
       </View>
 
-      {!readOnly && activeTool === 'pen' && (
+      {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
           {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
-          <PenInput key={page.id} zoom={zoom} dispatch={dispatch} settings={penSettings} />
+          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
         </View>
       )}
 

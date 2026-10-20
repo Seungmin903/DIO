@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Image, Linking, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../shared/theme'
-import { preparePageExport } from '../utils/preparePageExport'
-import { capturePage } from '../utils/capturePage'
+import { usePageImageRenderer } from '../hooks/usePageImageRenderer'
 import { savePngFile } from '../utils/savePngFile'
 import { createSaveGate, pngSaveError } from '../utils/pngFileSave.js'
-import ObjectContent, { objectOpacity } from './canvas/ObjectView'
 
 /** 선택/격자/패널이 존재하지 않는 별도 렌더링 영역만 캡처한다. */
 export default function PageExportPreview({ snapshot, onClose }) {
@@ -14,73 +12,34 @@ export default function PageExportPreview({ snapshot, onClose }) {
 }
 
 function ExportAttempt({ snapshot, onClose, onRetry }) {
-  const [prepared, setPrepared] = useState(null)
-  const [laidOut, setLaidOut] = useState(false)
-  const [imagesReady, setImagesReady] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(snapshot.errorMessage || null)
   const [saveState, setSaveState] = useState({ status: 'idle', message: '' })
   const saving = useRef(false)
   const saveGate = useRef(createSaveGate())
-  const [area, setArea] = useState(null)
-  const renderScale = Platform.OS === 'web' || !area ? 1 : Math.min(1, area.width / snapshot.width, area.height / snapshot.height)
-  const surface = useRef(null)
-  const loaded = useRef(new Set())
-  const alive = useRef(true)
-  const sourceRef = useRef(null), resultRef = useRef(null)
-  const started = useRef(false)
-  const failed = useRef(false)
+  const { renderPageImage, surface } = usePageImageRenderer()
+  const alive = useRef(true), resultRef = useRef(null)
 
   useEffect(() => {
-    if (snapshot.errorMessage) return
     alive.current = true
-    let cancelled = false
-    const timer = setTimeout(() => {
-      if (alive.current && !resultRef.current) {
-        failed.current = true
-        setError((previous) => previous || '이미지 준비가 오래 걸리고 있어요. 닫은 뒤 다시 시도해 주세요.')
-      }
-    }, 30000)
-    preparePageExport(snapshot).then((value) => {
-      if (cancelled || failed.current) { value.dispose(); return }
-      sourceRef.current = value
-      setPrepared(value)
-      if (!value.objects.some((o) => o.src)) setImagesReady(true)
-    }).catch((failure) => { if (alive.current) setError(failure.message) })
+    const controller = new AbortController()
+    if (!snapshot.errorMessage) renderPageImage(snapshot, { signal: controller.signal }).then((output) => {
+      if (controller.signal.aborted) { output.dispose(); return }
+      resultRef.current = output
+      setResult(output)
+    }).catch((failure) => {
+      if (!controller.signal.aborted) setError(failure.message || 'PNG를 만들지 못했어요.')
+    })
     return () => {
-      cancelled = true
       alive.current = false
-      clearTimeout(timer)
-      sourceRef.current?.dispose()
+      controller.abort()
       resultRef.current?.dispose()
     }
-  }, [snapshot])
-
-  useEffect(() => {
-    if (!prepared || !laidOut || !imagesReady || error || started.current) return
-    started.current = true
-    // 이미지의 로드 이벤트 후 레이아웃/합성 프레임을 기다린다.
-    requestAnimationFrame(() => requestAnimationFrame(async () => {
-      if (!alive.current) return
-      try {
-        const output = await capturePage(surface.current, prepared)
-        if (!alive.current || failed.current) { output.dispose(); return }
-        resultRef.current = output
-        setResult(output)
-        sourceRef.current.dispose()
-        sourceRef.current = null
-      } catch (failure) { if (alive.current) { failed.current = true; setError(failure.message || 'PNG를 만들지 못했어요.') } }
-    }))
-  }, [prepared, laidOut, imagesReady, error])
-
-  const onLoad = (id) => {
-    loaded.current.add(id)
-    if (prepared?.objects.filter((o) => o.src).every((o) => loaded.current.has(o.id))) setImagesReady(true)
-  }
+  }, [snapshot, renderPageImage])
 
   const close = () => { if (!saving.current) onClose() }
   const save = () => saveGate.current(async () => {
-    if (!result || error || failed.current || saveState.status === 'saved') return
+    if (!result || error || saveState.status === 'saved') return
     saving.current = true
     setSaveState({ status: 'saving', message: Platform.OS === 'web' ? '저장 위치를 선택하고 PNG를 저장하고 있어요…' : '사진첩에 PNG를 저장하고 있어요…' })
     try {
@@ -120,17 +79,7 @@ function ExportAttempt({ snapshot, onClose, onRetry }) {
         ) : (
           <>
             <Text style={styles.message}>페이지를 이미지로 만들고 있어요…</Text>
-            <View style={{ flex: 1 }} onLayout={(event) => setArea(event.nativeEvent.layout)}>
-            <ScrollView horizontal removeClippedSubviews={false}>
-              <ScrollView removeClippedSubviews={false}>
-                {prepared && (Platform.OS === 'web' || area?.width > 0 && area?.height > 0) && <View ref={surface} collapsable={false} onLayout={() => setLaidOut(true)} testID="page-export-surface" style={{ width: prepared.width * renderScale, height: prepared.height * renderScale, backgroundColor: prepared.background, overflow: 'hidden' }}>
-                  {prepared.objects.map((object) => <View key={object.id} style={{ position: 'absolute', left: object.x * renderScale, top: object.y * renderScale, width: object.w * renderScale, height: object.h * renderScale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectOpacity(object) }}>
-                    <ObjectContent object={object} zoom={renderScale} still onAssetLoad={() => onLoad(object.id)} onAssetError={() => { failed.current = true; setError('이미지를 표시하지 못했어요. 원본을 확인해 주세요.') }} />
-                  </View>)}
-                </View>}
-              </ScrollView>
-            </ScrollView>
-            </View>
+            {surface}
           </>
         )}
       </View>
