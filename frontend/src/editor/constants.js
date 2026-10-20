@@ -27,6 +27,8 @@ export const TAPE_SIZES = [
 
 // 마스킹테이프 기본 불투명도 (살짝 비친다). 100% 는 완전히 불투명
 export const TAPE_DEFAULT_OPACITY = 0.8
+// 마스킹테이프 기본값 (색을 고르지 않고 무늬를 고르면 이 색으로 붙는다)
+export const TAPE_DEFAULT = { size: 'standard', pattern: 'solid', palette: 'pink', name: '무지' }
 
 // 테이프 색: 바탕(bg) + 무늬(fg) 한 쌍. 무늬는 그대로 두고 색만 바꿀 수 있다.
 export const TAPE_PALETTES = [
@@ -110,9 +112,11 @@ export const LEGACY_TAPE_PATTERNS = {
 }
 
 // 명세: 테이프 끝은 절취선형 또는 직선형
+// 테이프 끝선 (옵션 패널 '꾸미기'의 끝선)
 export const TAPE_EDGES = [
   { id: 'torn', name: '절취선' },
   { id: 'straight', name: '직선' },
+  { id: 'diagonal', name: '사선' }, // 가위로 비스듬히 자른 끝
 ]
 
 // 명세: 사진 자르기는 폴라로이드 · 도형 두 방식만 (자유 오리기는 MVP2)
@@ -150,17 +154,29 @@ export const PHOTO_STYLES = [
   { id: 'heart', name: '하트' },
 ]
 
-// 폴라로이드 틀 여백 (사진 너비 대비)
-export const POLAROID_INSETS = { top: 0.06, side: 0.06, bottom: 0.2 }
+// 여백이 있는 사진 프레임: 틀 여백 (사진 너비 대비). 안쪽 사진은 네모로 들어간다.
+export const FRAME_INSETS = {
+  polaroid: { top: 0.06, side: 0.06, bottom: 0.2 },
+  film: { top: 0.13, side: 0.03, bottom: 0.13 }, // 위아래 필름 구멍 띠
+  stamp: { top: 0.09, side: 0.09, bottom: 0.09 }, // 톱니 가장자리 우표
+  frame: { top: 0.13, side: 0.13, bottom: 0.13 }, // 액자 (틀 띠 + 흰 매트)
+}
+export const POLAROID_INSETS = FRAME_INSETS.polaroid
+
+// 프레임 고르기 (옵션 패널 '꾸미기'). shape 는 사진 자체를 그 모양으로 자르고, border 는 여백 있는 틀에 넣는다.
+export const PHOTO_FRAMES = [
+  { id: 'rect', name: '없음', kind: 'shape' },
+  { id: 'round', name: '라운드', kind: 'shape' },
+  { id: 'circle', name: '원형', kind: 'shape' },
+  { id: 'heart', name: '하트', kind: 'shape' },
+  { id: 'star', name: '별', kind: 'shape' },
+  { id: 'polaroid', name: '폴라로이드', kind: 'border', colored: true },
+  { id: 'film', name: '필름', kind: 'border' },
+  { id: 'stamp', name: '우표', kind: 'border', colored: true },
+  { id: 'frame', name: '액자', kind: 'border', colored: true },
+]
 
 export const CROP_ZOOM_MIN = 1
-export const CROP_ZOOM_MAX = 3
+// 사진·테이프 자르기 확대는 900% 까지 (자유 자르기도 같은 한도)
+export const CROP_ZOOM_MAX = 9
 
-// 폴라로이드 틀 색 (사진 선택 → 더보기)
-export const FRAME_COLORS = [
-  { id: 'white', name: '화이트', value: '#FFFFFF' },
-  { id: 'cream', name: '크림', value: '#FBF3E1' },
-  { id: 'sky', name: '하늘', value: '#CED9EE' },
-  { id: 'pink', name: '핑크', value: '#F9DDE2' },
-  { id: 'black', name: '블랙', value: '#22262F' },
-]

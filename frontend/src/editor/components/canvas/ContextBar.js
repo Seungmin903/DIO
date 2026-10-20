@@ -1,18 +1,16 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
-import { PAGE_HEIGHT, PAGE_WIDTH, TAPE_EDGES } from '../../constants'
-import { tapeLook } from './TapeView'
+import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
 import { clamp, unionBounds } from '../../utils/common'
 import Icon from '../controls/Icon'
-import { outlineOn, photoSupportsShadow, shadowOn } from './ObjectView'
 
 
 const BAR_HEIGHT = 52
 const EDGE = 8 // 페이지 가장자리와 바 사이 여백
 const GAP = 18
 const MENU_WIDTH = 148
-/** 선택한 요소 근처에 뜨는 빠른 편집 바. 세부 옵션은 '더보기'(MorePanel) 에서 */
+/** 선택한 요소 근처에 뜨는 빠른 편집 바. 자르기·그룹·순서·잠금·복제·삭제만 두고, 꾸미기는 '옵션'(MorePanel) 에서 */
 export default function ContextBar({
   objects,
   allObjects,
@@ -21,8 +19,8 @@ export default function ContextBar({
   moreOpen,
   onToggleMore,
   onCrop,
-  onReplacePhoto,
   onToast,
+  insideHandlers, // 이 바를 누른 것은 패널 '바깥 누르기'로 치지 않는다 (옵션 버튼으로 패널을 다시 닫을 수 있게)
 }) {
   const [barWidth, setBarWidth] = useState(0)
   const [orderOpen, setOrderOpen] = useState(false)
@@ -45,60 +43,29 @@ export default function ContextBar({
   const menuBelow = pageH - (top + BAR_HEIGHT) >= top
   const left = clamp(bounds.cx * zoom - barWidth / 2, 8, Math.max(8, pageW - barWidth - 8))
 
-  const update = (patch) => single && dispatch({ type: 'updateObject', id: single.id, patch, record: true })
   // 테두리·그림자를 켜면 세부 옵션(두께·색·위치)이 바로 보이도록 옵션 패널도 연다.
-  const toggleEffect = (key, on) => {
-    update({ [key]: !on })
-    if (!on && !moreOpen) onToggleMore()
-  }
   const allLocked = objects.every((o) => o.locked)
   const grouped = objects.length > 1 && objects.every((o) => o.groupId && o.groupId === objects[0].groupId)
+  // 바에는 모드·묶기만 둔다 (자르기, 그룹). 테두리·그림자·프레임·사진 바꾸기 등은 옵션 패널 안에.
+  const hasLeading =
+    objects.length > 1 || (single && !single.locked && (single.type === 'photo' || (single.type === 'tape' && single.src && single.imageWidth)))
 
   return (
     <View
       style={[styles.bar, { top, left, opacity: barWidth ? 1 : 0 }]}
       onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
       onStartShouldSetResponder={() => true}
+      {...insideHandlers}
     >
 
       {single?.type === 'photo' && !single.locked && (
         <>
-          <BarButton icon="crop" label="자르기" primary onPress={() => onCrop(single.id)} />
-          <IconButton icon="swap" label="사진 바꾸기" onPress={() => onReplacePhoto(single.id)} />
-          {single.frame === 'shape' && (
-            <Chip label="테두리" active={outlineOn(single)} onPress={() => toggleEffect('outline', outlineOn(single))} />
-          )}
-          {photoSupportsShadow(single) && (
-            <Chip label="그림자" active={shadowOn(single)} onPress={() => toggleEffect('shadow', shadowOn(single))} />
-          )}
-        </>
-      )}
-      {single?.type === 'sticker' && !single.locked && (
-        <>
-          <Chip label="테두리" active={outlineOn(single)} onPress={() => toggleEffect('outline', outlineOn(single))} />
-          <Chip label="그림자" active={shadowOn(single)} onPress={() => toggleEffect('shadow', shadowOn(single))} />
+          <BarButton icon="crop" label="자르기" onPress={() => onCrop(single.id)} />
         </>
       )}
       {single?.type === 'tape' && !single.locked && (
         <>
-          {single.src && single.imageWidth && <BarButton icon="crop" label="자르기" primary onPress={() => onCrop(single.id)} />}
-          {!single.src && (
-            <>
-              {/* 디자인: 규격·무늬·색을 한 곳에서 바꾼다 (더보기 패널의 테이프 디자인) */}
-              <Pressable
-                onPress={onToggleMore}
-                accessibilityRole="button"
-                accessibilityLabel="테이프 디자인"
-                style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-              >
-                <View style={[styles.colorDot, { backgroundColor: tapeLook(single.pattern, single.palette).fg }]} />
-                <Text style={styles.buttonText}>디자인</Text>
-              </Pressable>
-            </>
-          )}
-          {TAPE_EDGES.map((edge) => (
-            <Chip key={edge.id} label={edge.name} active={single.edge === edge.id} onPress={() => update({ edge: edge.id })} />
-          ))}
+          {single.src && single.imageWidth && <BarButton icon="crop" label="자르기" onPress={() => onCrop(single.id)} />}
         </>
       )}
 
@@ -113,7 +80,8 @@ export default function ContextBar({
         />
       )}
 
-      <View style={styles.divider} />
+      {/* 앞쪽 버튼이 하나도 없으면(무늬 테이프 등) 구분선도 뺀다 */}
+      {hasLeading && <View style={styles.divider} />}
       <View onLayout={(event) => setOrderRight(event.nativeEvent.layout.x + event.nativeEvent.layout.width)}>
         <IconButton icon="layers" label="순서" active={orderOpen} onPress={() => setOrderOpen(!orderOpen)} />
       </View>
@@ -194,17 +162,17 @@ function OrderMenu({ placement, right, objects, allObjects, onPick }) {
   )
 }
 
-function BarButton({ icon, label, primary, active, onPress }) {
+function BarButton({ icon, label, active, onPress }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={active != null ? { selected: active } : undefined}
-      style={({ pressed }) => [styles.button, primary && styles.buttonPrimary, active && styles.chipActive, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.button, active && styles.chipActive, pressed && styles.pressed]}
     >
-      <Icon name={icon} size={17} color={primary ? colors.surface : colors.text} />
-      <Text style={[styles.buttonText, primary && styles.buttonTextPrimary]}>{label}</Text>
+      <Icon name={icon} size={17} color={colors.text} />
+      <Text style={styles.buttonText}>{label}</Text>
     </Pressable>
   )
 }
@@ -222,18 +190,6 @@ function IconButton({ icon, label, danger, active, onPress }) {
   )
 }
 
-function Chip({ label, active, boxed, onPress }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      style={({ pressed }) => [styles.chip, boxed && styles.chipBoxed, active && styles.chipActive, pressed && styles.pressed]}
-    >
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-    </Pressable>
-  )
-}
 
 const styles = StyleSheet.create({
   bar: {
@@ -258,17 +214,10 @@ const styles = StyleSheet.create({
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, paddingHorizontal: 10, borderRadius: 10 },
   menuText: { fontSize: 13, fontWeight: '700', color: colors.text },
   menuTextDisabled: { color: 'rgba(11,25,87,0.3)' },
-  colorDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(11,25,87,0.2)' },
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
-  buttonPrimary: { backgroundColor: colors.primary },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
-  buttonTextPrimary: { color: colors.surface },
   iconButton: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: colors.primarySoft },
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },
-  chip: { minHeight: 40, paddingHorizontal: 11, borderRadius: 9, justifyContent: 'center' },
-  chipBoxed: { borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.surfaceSoft },
-  chipText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
-  chipTextActive: { color: colors.text, fontWeight: '800' },
 })

@@ -15,7 +15,7 @@ export const SHADOW_DIRECTIONS = [
 ]
 
 export const OUTLINE_WIDTH = { min: 1, max: 12 }
-export const SHADOW_LIMITS = { distance: 20, blur: 24, opacityMin: 0.05, opacityMax: 0.5 }
+export const SHADOW_LIMITS = { distance: 20, blur: 24, spread: 20, opacityMin: 0.05, opacityMax: 0.5 }
 
 export function outlineOf(object) {
   return {
@@ -31,13 +31,21 @@ export function shadowOf(object) {
     color: object.shadowColor ?? '#000000',
     opacity: object.shadowOpacity ?? 0.18,
     blur: object.shadowBlur ?? 8,
+    // 크기: 그림자가 모양보다 얼마나 더 퍼지는지 (boxShadow 의 spread)
+    spread: object.shadowSpread ?? 0,
     distance: object.shadowDistance ?? 5,
     direction: object.shadowDirection ?? 'b',
+    // 예전 위치 패드로 정한 x·y (없으면 방향·거리로 계산)
+    x: object.shadowX,
+    y: object.shadowY,
+    // 안쪽 그림자(사진이 오목하게 들어가 보이게). 사진만 지원
+    inset: object.shadowInset === true,
   }
 }
 
 /** 방향·거리 → 이동량 (대각선도 같은 거리가 되도록 맞춘다) */
 export function shadowOffset(shadow) {
+  if (shadow.x != null && shadow.y != null) return { x: shadow.x, y: shadow.y }
   const dir = SHADOW_DIRECTIONS.find((d) => d.id === shadow.direction) ?? SHADOW_DIRECTIONS[7]
   const length = Math.hypot(dir.x, dir.y) || 1
   return { x: (dir.x / length) * shadow.distance, y: (dir.y / length) * shadow.distance }
@@ -54,7 +62,18 @@ export function rgba(hex, alpha) {
  * (예전 shadow*·elevation 은 플랫폼마다 달라 Android 에서 배경 없는 View 에 그림자가 안 나오거나 남았다)
  */
 export function boxShadowStyle(shadow, zoom) {
-  if (!shadow.on) return null
+  if (!shadow.on || shadow.inset) return null
   const { x, y } = shadowOffset(shadow)
-  return { boxShadow: `${(x * zoom).toFixed(2)}px ${(y * zoom).toFixed(2)}px ${(shadow.blur * zoom).toFixed(2)}px ${rgba(shadow.color, shadow.opacity)}` }
+  return {
+    boxShadow: `${(x * zoom).toFixed(2)}px ${(y * zoom).toFixed(2)}px ${(shadow.blur * zoom).toFixed(2)}px ${(shadow.spread * zoom).toFixed(2)}px ${rgba(shadow.color, shadow.opacity)}`,
+  }
+}
+
+/** 안쪽 그림자: 사진 위에 덮는 투명 View 에 inset boxShadow 를 건다 (사진에 가려지지 않게) */
+export function insetShadowStyle(shadow, zoom) {
+  if (!shadow.on || !shadow.inset) return null
+  const { x, y } = shadowOffset(shadow)
+  return {
+    boxShadow: `inset ${(x * zoom).toFixed(2)}px ${(y * zoom).toFixed(2)}px ${(shadow.blur * zoom).toFixed(2)}px ${(shadow.spread * zoom).toFixed(2)}px ${rgba(shadow.color, Math.min(1, shadow.opacity * 1.6))}`,
+  }
 }

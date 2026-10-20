@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react'
-import { Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
+import { Image, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { CROP_ZOOM_MAX, CROP_ZOOM_MIN, TAPE_SIZES } from '../../constants'
-import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout } from '../../utils/objects'
@@ -15,7 +14,7 @@ const CONTEXT_PX = 70 // 테이프 틀 위아래로 보여 주는 사진 여유
 
 /**
  * 사진으로 테이프를 만들 때(또는 붙인 이미지 테이프를 다시 자를 때) 테이프 틀 안에 들어갈 부분을 고른다.
- * 틀 밖 사진은 흐리게 보여 주고, 끌어서 위치를, 슬라이더로 확대를 정한다. 확정하면 crop 값만 넘긴다.
+ * 틀 밖 사진은 흐리게 보여 주고, 끌어서 위치를, 두 손가락이나 슬라이더로 확대를 정한다. 확정하면 crop 값만 넘긴다.
  * image: { src, poster?, width, height }  crop: { fx, fy, zoom }
  */
 export default function TapeCropper({
@@ -32,7 +31,6 @@ export default function TapeCropper({
   const window = useWindowDimensions()
   const uri = useMediaUri(image)
   const [crop, setCrop] = useState(initialCrop ?? { fx: 0.5, fy: 0.5, zoom: 1 })
-  const start = useRef(crop)
   const [sizeId, setSizeId] = useState(initialSize)
   const size = TAPE_SIZES.find((s) => s.id === sizeId) ?? TAPE_SIZES[1]
   const ratio = fixedRatio ?? size.w / size.h
@@ -43,24 +41,59 @@ export default function TapeCropper({
   const photo = { imageWidth: image.width, imageHeight: image.height, crop }
   const layout = coverLayout(photo, frameWidth, frameHeight)
 
-  const panHandlers = usePan({
-    onStart: () => {
-      start.current = crop
+  // 한 손가락: 끌어서 위치 / 두 손가락: 벌리고 오므려 확대·축소 + 함께 끌어 이동.
+  // 손가락 수가 바뀔 때마다 그 순간의 crop·손가락 위치를 기준으로 다시 잡는다.
+  const cropRef = useRef(crop)
+  cropRef.current = crop
+  const gesture = useRef(null)
+  const touchesOf = (event) => {
+    const list = event.nativeEvent.touches?.length ? event.nativeEvent.touches : [event.nativeEvent]
+    const c = list.reduce((acc, t) => ({ x: acc.x + t.pageX / list.length, y: acc.y + t.pageY / list.length }), { x: 0, y: 0 })
+    const dist = list.length > 1 ? Math.hypot(list[0].pageX - list[1].pageX, list[0].pageY - list[1].pageY) : 0
+    return { count: list.length, c, dist }
+  }
+  const rebase = (event) => {
+    gesture.current = { crop: cropRef.current, ...touchesOf(event) }
+  }
+  const stageHandlers = {
+    onStartShouldSetResponder: () => true,
+    onMoveShouldSetResponder: () => true,
+    onResponderTerminationRequest: () => false,
+    onResponderGrant: rebase,
+    onResponderStart: rebase,
+    onResponderEnd: (event) => {
+      if (event.nativeEvent.touches?.length) rebase(event)
     },
-    onMove: (dx, dy) => {
-      const from = coverLayout({ ...photo, crop: start.current }, frameWidth, frameHeight)
-      const overflowX = from.width - frameWidth
-      const overflowY = from.height - frameHeight
+    onResponderMove: (event) => {
+      const g = gesture.current
+      if (!g) return
+      const now = touchesOf(event)
+      if (now.count !== g.count) {
+        rebase(event)
+        return
+      }
+      const zoom = now.count > 1 && g.dist > 0 ? clamp(g.crop.zoom * (now.dist / g.dist), CROP_ZOOM_MIN, CROP_ZOOM_MAX) : g.crop.zoom
+      const next = coverLayout({ ...photo, crop: { ...g.crop, zoom } }, frameWidth, frameHeight)
+      const overflowX = next.width - frameWidth
+      const overflowY = next.height - frameHeight
+      const dx = now.c.x - g.c.x
+      const dy = now.c.y - g.c.y
       setCrop({
-        ...start.current,
-        fx: overflowX > 0 ? clamp(start.current.fx - dx / overflowX, 0, 1) : start.current.fx,
-        fy: overflowY > 0 ? clamp(start.current.fy - dy / overflowY, 0, 1) : start.current.fy,
+        zoom: Math.round(zoom * 100) / 100,
+        fx: overflowX > 0 ? clamp(g.crop.fx - dx / overflowX, 0, 1) : g.crop.fx,
+        fy: overflowY > 0 ? clamp(g.crop.fy - dy / overflowY, 0, 1) : g.crop.fy,
       })
     },
-  })
+    onResponderRelease: () => {
+      gesture.current = null
+    },
+    onResponderTerminate: () => {
+      gesture.current = null
+    },
+  }
 
   return (
-    <Modal transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal transparent animationType="none" onRequestClose={onCancel}>
       <View style={styles.backdrop}>
         <View style={[styles.card, { width: cardWidth }]}>
           <View style={styles.header}>
@@ -72,9 +105,9 @@ export default function TapeCropper({
               <Icon name="close" size={20} />
             </Pressable>
           </View>
-          {help.open && <Text style={styles.hint}>사진을 끌어서 테이프에 들어갈 위치를 맞추고, 아래에서 확대해 보세요.</Text>}
+          {help.open && <Text style={styles.hint}>사진을 끌어서 테이프에 들어갈 위치를 맞추고, 두 손가락으로 벌리거나 아래 막대로 확대해 보세요.</Text>}
 
-          <View style={[styles.stage, { height: frameHeight + CONTEXT_PX * 2 }]} {...panHandlers}>
+          <View style={[styles.stage, { height: frameHeight + CONTEXT_PX * 2 }]} {...stageHandlers}>
             {/* 틀 밖까지 이어지는 사진 (흐리게) */}
             <Image
               source={uri ? { uri } : null}
@@ -116,6 +149,9 @@ export default function TapeCropper({
                 step={0.1}
                 minusLabel="축소"
                 plusLabel="확대"
+                scale={100}
+                unit="%"
+                label="확대"
                 onChange={(zoom) => setCrop((prev) => ({ ...prev, zoom: Math.round(zoom * 100) / 100 }))}
               />
             </View>
@@ -147,9 +183,9 @@ export default function TapeCropper({
             </Pressable>
             <Pressable
               onPress={() => onConfirm({ crop, size: sizeId })}
-              style={({ pressed }) => [styles.button, styles.primary, pressed && styles.primaryPressed]}
+              style={({ pressed }) => [styles.button, styles.confirm, pressed && styles.pressed]}
             >
-              <Text style={[styles.buttonText, styles.primaryText]}>{confirmLabel}</Text>
+              <Text style={[styles.buttonText, styles.confirmText]}>{confirmLabel}</Text>
             </Pressable>
           </View>
         </View>
@@ -165,7 +201,7 @@ const styles = StyleSheet.create({
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   title: { fontSize: 18, fontWeight: '800', color: colors.text },
   hint: { marginTop: 6, fontSize: 12.5, color: colors.textMuted },
-  stage: { marginTop: 16, borderRadius: 16, overflow: 'hidden', backgroundColor: '#EEF2F9' },
+  stage: { marginTop: 16, borderRadius: 16, overflow: 'hidden', backgroundColor: '#EEF2F9', ...Platform.select({ web: { touchAction: 'none' }, default: {} }) },
   context: { position: 'absolute', opacity: 0.32 },
   frame: { position: 'absolute' },
   frameLine: { position: 'absolute', borderWidth: 2, borderStyle: 'dashed', borderColor: colors.primary, borderRadius: 3 },
@@ -188,7 +224,7 @@ const styles = StyleSheet.create({
   },
   pressed: { backgroundColor: colors.primarySoft },
   buttonText: { fontSize: 13.5, fontWeight: '700', color: colors.text },
-  primary: { backgroundColor: colors.primary, borderColor: colors.primary },
-  primaryPressed: { opacity: 0.85 },
-  primaryText: { color: colors.surface },
+  // 확정: 흰 바탕에 남색 글씨 (사진 자르기 창과 같게)
+  confirm: { borderColor: colors.text },
+  confirmText: { color: colors.text, fontWeight: '800' },
 })

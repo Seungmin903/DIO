@@ -18,6 +18,9 @@ const TAP_SLOP = 8
  * - 탭: 그 페이지로 이동
  * - 길게 눌러 끌기: 페이지 순서 바꾸기 (놓을 자리에 선이 보인다)
  */
+// 왼쪽 페이지 목록 폭. 열고 닫을 때 작업창 크기를 한 번에 맞추는 데도 쓴다 (EditorScreen)
+export const PAGE_LIST_WIDTH = 156
+
 export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onRemove, onMove, onEmptyTap, readOnly = false }) {
   const [drag, setDrag] = useState(null) // { id, from, dy }
   const layouts = useRef({}) // id → { y, height } (목록 안 위치)
@@ -138,7 +141,7 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
 }
 
 const styles = StyleSheet.create({
-  panel: { width: 156, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'hidden' },
+  panel: { width: PAGE_LIST_WIDTH, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'hidden' },
   list: { flexGrow: 1, alignItems: 'center', gap: 16, paddingVertical: 16 },
   emptyArea: { flexGrow: 1, alignSelf: 'stretch', minHeight: 24 },
   item: { alignItems: 'center', gap: 6 },

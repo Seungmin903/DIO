@@ -7,12 +7,12 @@ import PageExportPreview from '../components/PageExportPreview'
 import { createExportSnapshot } from '../utils/pageExport.js'
 import { pngFileName } from '../utils/pngFileSave.js'
 import Canvas from '../components/canvas/Canvas'
-import CropPanel from '../components/panels/CropPanel'
+import PhotoCropper from '../components/panels/PhotoCropper'
 import DecorDrawer from '../components/panels/DecorDrawer'
 import Icon from '../components/controls/Icon'
 import LayerPanel from '../components/panels/LayerPanel'
 import MorePanel from '../components/panels/MorePanel'
-import PageList from '../components/panels/PageList'
+import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
 import PenSettings from '../components/PenSettings'
 import { DEFAULT_PEN_SETTINGS, DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
@@ -24,7 +24,7 @@ import Viewport from '../components/canvas/Viewport'
 import { PAGE_HEIGHT, PAGE_WIDTH, ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
 import { getCurrentPage } from '../state/editorReducer'
-import { clamp, createId } from '../utils/common'
+import { clamp, createId, unionBounds } from '../utils/common'
 import { pickImages } from '../services/image'
 import { createObjectFromDecor } from '../utils/objects'
 
@@ -56,6 +56,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [importFailure, setImportFailure] = useState(null)
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
+  const [photoCropId, setPhotoCropId] = useState(null) // 자르기 창을 연 사진
   const clipboard = useRef([]) // Ctrl+C 로 복사한 오브젝트 (다른 페이지에도 붙여 넣기)
 
   useEffect(() => {
@@ -136,10 +137,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   })
 
   const addDecor = (item) => {
-    dispatch({ type: 'addObjects', objects: [createObjectFromDecor(item, randomCenter())] })
+    const object = createObjectFromDecor(item, randomCenter())
+    dispatch({ type: 'addObjects', objects: [object] })
+    // 사진은 붙이자마자 자르기를 연다 (틀·모양·영역을 여기서 고른다)
+    if (object.type === 'photo') startCrop(object.id)
   }
 
-  const addPhotos = async (style) => {
+  const addPhotos = async () => {
     try {
       setImportFailure(null)
       const images = await pickImages()
@@ -156,11 +160,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       setRecentPhotos((prev) => [...photos, ...prev].slice(0, 12))
       const center = randomCenter()
       const objects = photos.map((photo, index) =>
-        createObjectFromDecor({ kind: 'photo', style, ...photo }, { x: center.x + index * 24, y: center.y + index * 24 }),
+        createObjectFromDecor({ kind: 'photo', ...photo }, { x: center.x + index * 24, y: center.y + index * 24 }),
       )
       dispatch({ type: 'addObjects', objects })
+      // 한 장이면 붙이자마자 자르기를 연다 (틀·모양·영역을 여기서 고른다)
+      if (objects.length === 1) startCrop(objects[0].id)
     } catch (error) {
-      showToast(mediaFailureMessage(error), () => addPhotos(style))
+      showToast(mediaFailureMessage(error), () => addPhotos())
     }
   }
 
@@ -190,12 +196,14 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     }
   }
 
+  // 사진 자르기: 화면 가운데 자르기 창을 연다. '적용'할 때만 사진이 바뀐다.
   const startCrop = (id) => {
     setDrawerTab(null)
+    setMoreOpen(false)
     dispatch({ type: 'select', ids: [id] })
-    dispatch({ type: 'checkpoint' })
-    setCropId(id)
+    setPhotoCropId(id)
   }
+  const photoCrop = photoCropId ? page.objects.find((o) => o.id === photoCropId && o.type === 'photo') : null
 
   const finishCrop = (apply) => {
     if (!apply) dispatch({ type: 'revertToCheckpoint' })
@@ -330,6 +338,10 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         onTogglePages={() => {
           setFocusMode(false)
           setPagesOpen(!showPages)
+          // 작업창 왼쪽 끝이 움직이므로 새 크기를 같은 화면에서 바로 써서 한 번에 맞춘다.
+          // (측정값을 기다리면 페이지가 왼쪽 끝을 따라 한 번 밀렸다가 다시 가운데로 와서 두 번 움직였다)
+          const delta = PAGE_LIST_WIDTH + BODY_GAP
+          setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) })
         }}
         onToggleLayers={() => {
           setFocusMode(false)
@@ -400,8 +412,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                   setMoreOpen(!showMore)
                 }}
                 onCrop={(id) => (page.objects.find((o) => o.id === id)?.type === 'tape' ? setTapeCropId(id) : startCrop(id))}
-                onReplacePhoto={replacePhoto}
                 onToast={showToast}
+                contextBarInside={markInside}
               />
           </Viewport>
 
@@ -435,9 +447,10 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             </View>
           )}
 
-          {showMore && !drawerTab && (
-            <View style={styles.drawerWrap} pointerEvents="box-none" {...markInside}>
-              <MorePanel objects={selectedObjects} dispatch={dispatch} onClose={() => setMoreOpen(false)} />
+          {showMore && !drawerTab && stageSize && (
+            // 옵션 패널은 고른 요소 옆(가리지 않는 쪽)에 띄운다
+            <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)]} pointerEvents="box-none" {...markInside}>
+              <MorePanel objects={selectedObjects} dispatch={dispatch} onReplacePhoto={replacePhoto} onClose={() => setMoreOpen(false)} />
             </View>
           )}
 
@@ -445,6 +458,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             <View style={styles.drawerWrap} pointerEvents="box-none" {...markInside}>
               <DecorDrawer
                 tab={drawerTab}
+                // 테이프를 넣으면 보관함을 닫고 그 테이프 옆에 옵션 패널을 연다
+                onTapeInserted={() => {
+                  setDrawerTab(null)
+                  setMoreOpen(true)
+                }}
                 onAdd={addDecor}
                 onAddPhotos={addPhotos}
                 recentPhotos={recentPhotos}
@@ -471,6 +489,18 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             </View>
           )}
 
+          {photoCrop && (
+            <PhotoCropper
+              key={photoCrop.id}
+              photo={photoCrop}
+              onCancel={() => setPhotoCropId(null)}
+              onApply={(patch) => {
+                dispatch({ type: 'updateObject', id: photoCrop.id, record: true, patch })
+                setPhotoCropId(null)
+                showToast('사진 자르기를 적용했어요.')
+              }}
+            />
+          )}
           {tapeCrop && (
             <TapeCropper
               image={{ src: tapeCrop.src, mediaFileId: tapeCrop.mediaFileId, width: tapeCrop.imageWidth, height: tapeCrop.imageHeight }}
@@ -493,10 +523,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           )}
         </View>
 
-        {cropTarget ? (
-          <CropPanel photo={cropTarget} dispatch={dispatch} onApply={() => finishCrop(true)} onCancel={() => finishCrop(false)} />
-        ) : (
-          showLayers && !readOnly && (
+        {showLayers && !readOnly && (
             <LayerPanel
               objects={page.objects}
               selectedIds={state.selectedIds}
@@ -504,7 +531,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               onClose={() => setLayersOpen(false)}
               onEmptyTap={clearSelection}
               />
-          )
         )}
       </View>
     </View>
@@ -512,6 +538,40 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 }
 
 /** 화면에 맞춤 위치: 리본바·하단 컨트롤 여백을 뺀 영역의 가운데 */
+const BODY_GAP = 16 // 페이지 목록·작업창·레이어 사이 간격
+const OPTIONS_WIDTH = 300
+const OPTIONS_GAP = 16
+const OPTIONS_TOP = 76 // 툴바 아래부터
+const OPTIONS_MARGIN = 12
+const OPTIONS_BOTTOM = 64 // 아래쪽 되돌리기 바 위까지
+const CONTEXT_BAR_HALF = 180 // 요소 아래·위에 뜨는 편집 바 폭의 절반 (바도 가리지 않게)
+
+/**
+ * 옵션 패널 자리: 고른 요소의 화면 상자 오른쪽에 자리가 있으면 오른쪽, 없으면 왼쪽,
+ * 둘 다 모자라면 더 넓은 쪽 가장자리에 붙인다. 위쪽은 요소 위 끝에 맞추되 화면 안으로.
+ */
+function optionsPlacement(objects, zoom, offset, stage) {
+  const b = unionBounds(objects)
+  const cx = offset.x + b.cx * zoom
+  // 요소와 그 아래·위의 편집 바를 함께 피한다
+  const rect = {
+    left: Math.min(offset.x + b.left * zoom, cx - CONTEXT_BAR_HALF),
+    right: Math.max(offset.x + b.right * zoom, cx + CONTEXT_BAR_HALF),
+    top: offset.y + b.top * zoom,
+  }
+  const roomRight = stage.width - OPTIONS_MARGIN - rect.right
+  const roomLeft = rect.left - OPTIONS_MARGIN
+  const need = OPTIONS_WIDTH + OPTIONS_GAP
+  let left
+  if (roomRight >= need) left = rect.right + OPTIONS_GAP
+  else if (roomLeft >= need) left = rect.left - need
+  else left = roomRight >= roomLeft ? stage.width - OPTIONS_MARGIN - OPTIONS_WIDTH : OPTIONS_MARGIN
+  left = clamp(left, OPTIONS_MARGIN, Math.max(OPTIONS_MARGIN, stage.width - OPTIONS_MARGIN - OPTIONS_WIDTH))
+  const minHeight = Math.min(420, stage.height - OPTIONS_TOP - OPTIONS_BOTTOM)
+  const top = clamp(rect.top, OPTIONS_TOP, Math.max(OPTIONS_TOP, stage.height - OPTIONS_BOTTOM - minHeight))
+  return { left, top, height: stage.height - OPTIONS_BOTTOM - top }
+}
+
 function centeredOffset(stageSize, zoom) {
   if (!stageSize) return { x: STAGE_PADDING.side, y: STAGE_PADDING.top }
   const available = stageSize.height - STAGE_PADDING.top - STAGE_PADDING.bottom
@@ -541,12 +601,13 @@ function RoundButton({ icon, label, disabled, active, onPress }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
-  body: { flex: 1, flexDirection: 'row', gap: 16, padding: 16 },
+  body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: 16 },
   stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 18 },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
   penSettingsWrap: { position: 'absolute', top: 76, left: 16, right: 16, bottom: 64, alignItems: 'flex-start' },
   // 보관함은 스테이지 안에서만 펼쳐지고, 내용이 길면 안에서 스크롤한다. (하단 확대 컨트롤은 가리지 않음)
   drawerWrap: { position: 'absolute', top: 76, right: 12, bottom: 64, left: 12, alignItems: 'flex-end' },
+  optionsWrap: { position: 'absolute', width: OPTIONS_WIDTH },
   floating: {
     position: 'absolute',
     bottom: 12,
