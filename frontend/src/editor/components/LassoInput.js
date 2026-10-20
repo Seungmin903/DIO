@@ -36,7 +36,7 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
       g.points = shape === 'freeform' ? [...g.points, next] : [g.start, next]
       const polygon = lassoPolygon(shape, g.start, g.points)
       const valid = g.maxMove >= MIN_MOVEMENT && hasLassoArea(polygon)
-      const ids = valid ? applyLassoSelection(objects, g.base, lassoHitIds(objects, polygon), mode) : g.base
+      const ids = valid ? applyLassoSelection(objects, g.base, lassoHitIds(objects, polygon), mode) : mode === 'replace' ? [] : g.base
       g.result = valid ? ids : null
       setDraft({ polygon, ids })
     },
@@ -45,7 +45,7 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
       cancel()
       if (!cancelled && g && g.objects === objects) {
         if (g.result !== null) onCommit(g.result)
-        else if (!g.captureAll && g.maxMove < MIN_MOVEMENT) onClearSelection?.()
+        else if (g.maxMove < MIN_MOVEMENT && (!g.captureAll || !lassoHitIds(objects, [g.start]).length)) onClearSelection?.()
       }
     },
   }
@@ -62,7 +62,7 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
     onResponderRelease: () => input.onEnd({ cancelled: false }),
     onResponderTerminate: () => input.onEnd({ cancelled: true }),
   }
-  const previewIds = new Set(draft?.ids ?? selectedIds)
+  const previewIds = new Set(draft?.ids ?? (mode === 'replace' ? [] : selectedIds))
   const polygon = draft?.polygon ?? []
   const path = polygon.length ? 'M' + polygon.map(p => p.x + ' ' + p.y).join('L') + 'Z' : ''
   return (

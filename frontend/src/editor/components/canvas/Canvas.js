@@ -75,7 +75,8 @@ export default function Canvas({
   const selected = visible.filter((o) => selectedIds.includes(o.id))
   const lassoEditing = activeTool === 'lasso' && selected.length > 0 && !lassoDrawing && !lassoCapture
   const canSelect = !readOnly && !textEditing && (activeTool === 'select' || lassoEditing)
-  const showSelection = canSelect || (!readOnly && !textEditing && activeTool === 'lasso')
+  const replacingLasso = activeTool === 'lasso' && lassoDrawing && lassoMode === 'replace'
+  const showSelection = !replacingLasso && (canSelect || (!readOnly && !textEditing && activeTool === 'lasso'))
   const cropping = Boolean(cropId)
   // 사각·라운드 사진은 PPT 처럼 테두리 손잡이로 자유롭게 자른다.
   const freeCropTarget = visible.find(
@@ -155,7 +156,7 @@ export default function Canvas({
           selectedIds={selectedIds} shape={lassoShape} mode={lassoMode} zoom={zoom}
           pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} captureAll={!lassoEditing}
           onDrawingChange={setLassoDrawing}
-          onClearSelection={() => dispatch({ type: 'selectExact', ids: [] })}
+          onClearSelection={() => { setLassoCapture(false); onLassoCommit([]) }}
           onCommit={(ids) => { setLassoCapture(false); onLassoCommit(ids) }} />
       )}
       {/* 터치 층: 요소마다 같은 자리에 투명한 상자를 두고 선택·이동을 받는다. */}
@@ -206,8 +207,8 @@ export default function Canvas({
         />
         </View>
       )}
-      {selected.length > 1 && !marquee && <GroupFrame objects={selected} zoom={zoom} />}
-      {selected.length === 1 && selected[0].groupId && !cropping && !marquee && (
+      {!replacingLasso && selected.length > 1 && !marquee && <GroupFrame objects={selected} zoom={zoom} />}
+      {!replacingLasso && selected.length === 1 && selected[0].groupId && !cropping && !marquee && (
         <GroupFrame objects={visible.filter((o) => o.groupId === selected[0].groupId)} zoom={zoom} inside />
       )}
       {/* 영역 선택 중: 지금 네모 안에 들어와 선택될 요소마다 테두리와 옅은 칠을 보여 준다. */}

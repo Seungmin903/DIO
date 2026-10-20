@@ -452,7 +452,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 lassoMode={lasso.mode}
                 onLassoCommit={(ids) => {
                   dispatch({ type: 'selectExact', ids })
-                  if (!ids.length) setLasso(current => ({ ...current, mode: 'replace' }))
+                  setLasso(current => ({ ...current, mode: 'replace' }))
                 }}
                 onLassoModeChange={(mode) => setLasso(current => ({ ...current, mode: current.mode === mode ? 'replace' : mode }))}
                 penSettings={penSettings}
@@ -514,7 +514,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 setTapeCropId(null)
                 setDrawerTab(null)
                 setMoreOpen(false)
-                const keepSelection = tool === 'text' || tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')
+                const keepSelection = (tool === 'text' && activeTool !== 'lasso') || tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')
                 if (!keepSelection) dispatch({ type: 'select', ids: [] })
                 if (tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')) {
                   setTextEditing(null)
