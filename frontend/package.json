@@ -10,7 +10,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test:export": "node --test tests/export-selection.test.js tests/page-image-renderer.test.js tests/pdf-export.test.js tests/pdf-menu.test.js tests/page-export.test.js tests/gif-first-frame.test.js tests/png-file-save.test.js",
+    "test:export": "node --test tests/export-selection.test.js tests/region-selection.test.js tests/page-image-renderer.test.js tests/pdf-export.test.js tests/pdf-menu.test.js tests/page-export.test.js tests/gif-first-frame.test.js tests/png-file-save.test.js",
     "test:media": "node --test tests/media.test.js tests/native-media.test.js tests/media-binding.test.js tests/media-recovery.test.js"
   },
   "dependencies": {
