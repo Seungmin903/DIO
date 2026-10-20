@@ -9,6 +9,13 @@ spring:
 server:
   port: 8080
 
+springdoc:
+  paths-to-match: /api/v1/diaries/**, /api/v1/diaries
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    persist-authorization: false
+
 management:
   endpoints:
     web:

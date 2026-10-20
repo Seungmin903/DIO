@@ -8,17 +8,18 @@
 
 ## 기술 스택
 
-- Backend: Spring Boot 4.1, Java 17, Gradle, Spring Data JPA, MySQL 8.4
+- Backend: Spring Boot 4.1, Java 17, Gradle, Spring Data JPA, PostgreSQL 17, Flyway
 - Frontend: Expo SDK 57, React Native 0.86 (JavaScript) — 16:10 가로형 태블릿 기준, react-native-web으로 브라우저 확인 가능
-- Local infra: Docker Compose (MySQL)
+- Local infra: Docker Compose (PostgreSQL)
 
 ## 개발 명령어
 
 | 작업 | 명령어 (해당 폴더에서 실행) |
 |---|---|
-| DB 실행 | `docker compose up -d` (루트) |
+| DB 실행 | `docker compose up -d --wait postgres` (루트) |
 | 백엔드 실행 | `./gradlew bootRun` (backend/, 기본 프로필 `local`) |
 | 백엔드 빌드/테스트 | `./gradlew build` / `./gradlew test` (테스트는 H2 인메모리 DB 사용) |
+| 실제 PostgreSQL 다이어리 CRUD 테스트 | `./gradlew postgresTest` (backend/, 로컬 DB 필요, 테스트 행 롤백) |
 | 프론트 의존성 설치 | `pnpm install` (frontend/) |
 | Android 실행 | `pnpm android` (frontend/, Android 에뮬레이터 또는 기기 필요) |
 | iOS 실행 | `pnpm ios` (frontend/, macOS 필요) |
@@ -50,7 +51,7 @@ S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
 ├── frontend/            # 모바일 프론트엔드 (Expo + React Native)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
-├── docker-compose.yml   # 로컬 개발용 MySQL
+├── docker-compose.yml   # 로컬 개발용 PostgreSQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)
 ├── README.md
 ├── AGENTS.md            # AI 에이전트 공통 지침
