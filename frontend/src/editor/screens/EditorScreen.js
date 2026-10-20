@@ -14,6 +14,8 @@ import LayerPanel from '../components/panels/LayerPanel'
 import MorePanel from '../components/panels/MorePanel'
 import PageList from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
+import PenSettings from '../components/PenSettings'
+import { DEFAULT_PEN_SETTINGS } from '../utils/penSettings'
 import SaveIndicator from '../components/controls/SaveIndicator'
 import TapeCropper from '../components/panels/TapeCropper'
 import TopBar from '../components/chrome/TopBar'
@@ -41,6 +43,8 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
   const [view, setView] = useState({ scale: 1, x: null, y: null })
   const [drawerTab, setDrawerTab] = useState(null)
   const [activeTool, setActiveTool] = useState('select')
+  const [penSettings, setPenSettings] = useState(DEFAULT_PEN_SETTINGS)
+  const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(true)
   const [pagesOpen, setPagesOpen] = useState(true)
@@ -59,6 +63,7 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
     setCropId(null)
     setTapeCropId(null)
     setDrawerTab(null)
+    setPenSettingsOpen(false)
     setMoreOpen(false)
     dispatch({ type: 'select', ids: [] })
   }, [readOnly, cropId, dispatch])
@@ -368,6 +373,7 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
           >
               <Canvas
                 activeTool={activeTool}
+                penSettings={penSettings}
                 readOnly={readOnly}
                 page={page}
                 zoom={zoom}
@@ -390,12 +396,14 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
               activeTool={activeTool}
               drawerTab={drawerTab}
               onOpenDrawer={(tab) => {
+                setPenSettingsOpen(false)
                 if (cropId) finishCrop(false)
                 setMoreOpen(false)
                 setActiveTool('select')
                 setDrawerTab(drawerTab === tab ? null : tab)
               }}
               onSelectTool={(tool) => {
+                setPenSettingsOpen(tool === 'pen' ? !penSettingsOpen : false)
                 if (cropId) finishCrop(false)
                 setTapeCropId(null)
                 setDrawerTab(null)
@@ -406,6 +414,12 @@ export default function EditorScreen({ onHome, diary, readOnly = false }) {
               onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
             />
           </View>}
+
+          {!readOnly && activeTool === 'pen' && penSettingsOpen && !drawerTab && (
+            <View style={styles.penSettingsWrap} pointerEvents="box-none">
+              <PenSettings settings={penSettings} onChange={setPenSettings} onClose={() => setPenSettingsOpen(false)} />
+            </View>
+          )}
 
           {showMore && !drawerTab && (
             <View style={styles.drawerWrap} pointerEvents="box-none">
@@ -515,6 +529,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, flexDirection: 'row', gap: 16, padding: 16 },
   stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 18 },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
+  penSettingsWrap: { position: 'absolute', top: 76, left: 16, right: 16, bottom: 64, alignItems: 'flex-start' },
   // 보관함은 스테이지 안에서만 펼쳐지고, 내용이 길면 안에서 스크롤한다. (하단 확대 컨트롤은 가리지 않음)
   drawerWrap: { position: 'absolute', top: 76, right: 12, bottom: 64, left: 12, alignItems: 'flex-end' },
   floating: {

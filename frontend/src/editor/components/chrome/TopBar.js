@@ -2,6 +2,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 
+// 공유 상태 표시는 다른 담당 범위. 명세의 아바타 불투명도(활성 100%, 비활성 45%)만 반영한 정적 표시다.
+const MEMBERS = [
+  { initial: '나', color: '#6E92C6', active: true },
+  { initial: '지', color: '#F07A5A', active: true },
+  { initial: '서', color: '#3BAF7E', active: false },
+]
+
 export default function TopBar({
   doc,
   pageNumber,
@@ -108,6 +115,17 @@ const styles = StyleSheet.create({
   tabPage: { fontSize: 9.5, fontWeight: '800', color: colors.primary, marginTop: 1 },
   tabClose: { marginLeft: 6, padding: 4, borderRadius: 8 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 'auto' },
+  avatars: { flexDirection: 'row' },
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { fontSize: 11.5, fontWeight: '800', color: colors.surface },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 10, borderRadius: 12 },
   toggleActive: { backgroundColor: colors.surfaceSoft },
   togglePressed: { backgroundColor: colors.primarySoft },

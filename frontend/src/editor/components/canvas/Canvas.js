@@ -11,7 +11,7 @@ import ContextBar from './ContextBar'
 import CropHandles from './CropHandles'
 import StaticPage from './StaticPage'
 import SelectionOverlay from './SelectionOverlay'
-import PenInput from './PenInput'
+import PenInput from '../PenInput'
 
 const SNAP_SCREEN_PX = 6
 const LONG_PRESS_MS = 450
@@ -37,6 +37,7 @@ export default function Canvas({
   onReplacePhoto,
   onToast,
   activeTool = 'select',
+  penSettings,
   readOnly = false,
 }) {
   const canSelect = !readOnly && activeTool === 'select'
@@ -130,7 +131,7 @@ export default function Canvas({
 
       {!readOnly && activeTool === 'pen' && (
         <View style={styles.penClip}>
-          <PenInput key={`${page.id}-${zoom}`} zoom={zoom} dispatch={dispatch} />
+          <PenInput key={`${page.id}-${zoom}`} zoom={zoom} dispatch={dispatch} settings={penSettings} />
         </View>
       )}
 
