@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createId } from '../utils/common'
-import { hydrateMedia } from '../utils/mediaStore'
+import { hydrateMedia } from '../services/mediaStore'
 import { mediaId } from '../utils/mediaReferences.js'
-import { loadJSON, saveJSON, STORAGE_KEYS } from '../utils/storage'
+import { loadJSON, saveJSON, STORAGE_KEYS } from '../services/storage'
 
 const EMPTY = { stickers: [], tapes: [], recentStickers: [] }
 const RECENT_LIMIT = 12
