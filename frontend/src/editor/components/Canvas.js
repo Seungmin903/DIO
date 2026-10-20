@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Platform, StyleSheet, Text, View } from 'react-native'
+import { Keyboard, Platform, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../theme'
 import { PAGE_HEIGHT, PAGE_WIDTH, PHOTO_SHAPES } from '../constants'
 import { usePan } from '../hooks/usePan'
@@ -9,7 +9,7 @@ import { isMultiSelectKey } from '../utils/modifiers'
 import { coverLayout, photoInnerBox } from '../utils/objects'
 import ContextBar from './ContextBar'
 import CropHandles from './CropHandles'
-import ObjectContent, { objectOpacity } from './ObjectView'
+import StaticPage from './StaticPage'
 import SelectionOverlay from './SelectionOverlay'
 import PenInput from './PenInput'
 
@@ -55,6 +55,7 @@ export default function Canvas({
   const marqueeRef = useRef(null)
   const backgroundHandlers = usePan({
     onStart: (event) => {
+      Keyboard.dismiss()
       if (!canSelect) return
       marqueeRef.current = {
         x: event.locationX / zoom,
@@ -88,10 +89,11 @@ export default function Canvas({
         dispatch({ type: 'selectExact', ids })
       }
     },
-    onEnd: ({ moved }) => {
+    onEnd: ({ moved, cancelled }) => {
       marqueeRef.current = null
       setMarquee(null)
-      if (!moved && !cropping) dispatch({ type: 'select', ids: [] })
+      // 두 손가락 제스처로 넘어간 경우에는 선택을 건드리지 않는다.
+      if (!moved && !cancelled && !cropping) dispatch({ type: 'select', ids: [] })
     },
   })
 
@@ -101,7 +103,15 @@ export default function Canvas({
       style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect ? backgroundHandlers : {})}
     >
-      <View style={styles.clip} pointerEvents={canSelect ? 'box-none' : 'none'}>
+      {/*
+        그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
+        iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
+      */}
+      <View style={styles.clip} pointerEvents="none">
+        <StaticPage page={page} zoom={zoom} cropId={cropId} background="transparent" />
+      </View>
+      {/* 터치 층: 요소마다 같은 자리에 투명한 상자를 두고 선택·이동을 받는다. */}
+      <View style={styles.hitLayer} pointerEvents={canSelect ? 'box-none' : 'none'}>
         {visible.map((object) => (
           <CanvasObject
             key={object.id}
@@ -323,11 +333,16 @@ function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarg
       const patches = Object.fromEntries(Object.entries(g.starts).map(([id, s]) => [id, { x: s.x + ox, y: s.y + oy }]))
       dispatch({ type: 'updateMany', patches })
     },
-    onEnd: ({ moved, duration }) => {
+    onEnd: ({ moved, duration, cancelled }) => {
       const g = gesture.current
       gesture.current = null
       onGuides(null)
       onInteracting(false)
+      // 끄는 도중 두 번째 손가락이 닿아 화면 확대·이동으로 넘어가면, 옮기던 요소는 제자리로 돌린다.
+      if (cancelled) {
+        if (g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
+        return
+      }
       // 움직이지 않고 길게 누르면 누르기 전 선택에 이 요소를 넣거나 뺀다.
       if (g?.mode === 'move' && !moved && duration >= LONG_PRESS_MS) {
         dispatch({ type: 'select', ids: g.previousSelection })
@@ -339,6 +354,7 @@ function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarg
     },
   })
 
+  // 보이는 모습은 그림 층이 그린다. 여기는 같은 자리·각도의 투명한 터치 상자다.
   return (
     <View
       {...panHandlers}
@@ -349,12 +365,8 @@ function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarg
         width: object.w * zoom,
         height: object.h * zoom,
         transform: [{ rotate: `${object.rotation}deg` }],
-        opacity: objectOpacity(object) * (cropping && !isCropTarget ? 0.45 : 1),
       }}
-    >
-      <ObjectContent object={object} zoom={zoom} />
-      {isCropTarget && <View style={styles.cropRing} pointerEvents="none" />}
-    </View>
+    />
   )
 }
 
@@ -388,9 +400,12 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   clip: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    left: 0,
+    top: 0,
     overflow: 'hidden',
   },
+  hitLayer: { ...StyleSheet.absoluteFillObject },
   penClip: {
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',
@@ -459,11 +474,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.text,
   },
   angleText: { color: colors.surface, fontSize: 13, fontWeight: '800' },
-  cropRing: {
-    ...StyleSheet.absoluteFillObject,
-    borderWidth: 3,
-    borderColor: colors.primary,
-    margin: -6,
-    borderRadius: 6,
-  },
 })

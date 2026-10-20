@@ -4,7 +4,8 @@
 export const PAGE_WIDTH = 1188
 export const PAGE_HEIGHT = 840
 
-export const ZOOM_MIN = 0.3
+// 화면 배율: '화면에 맞춤'을 100% 로 보고 50% ~ 200% (손가락 확대·축소, 확대 버튼 공통)
+export const ZOOM_MIN = 0.5
 export const ZOOM_MAX = 2
 export const ZOOM_STEP = 0.1
 

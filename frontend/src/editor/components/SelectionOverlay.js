@@ -8,6 +8,8 @@ import { centerOf, normalizeAngle, rotateVector } from '../utils/common'
 const MARGIN = 52
 const HANDLE = 18
 const EDGE_THICKNESS = 20 // 변 전체가 보이지 않는 크기 조절 영역
+// 변 영역은 대부분 박스 바깥에 두고 안쪽으로는 이만큼만 들어온다. (가운데를 눌러 옮기는 영역을 넓게 남긴다)
+const EDGE_INSET = 4
 const ROTATE_OFFSET = 34
 const MIN_SIZE = 20
 
@@ -100,8 +102,16 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
                   corner ? [styles.handleBase, styles.cornerHandle] : styles.edgeHandle,
                   {
                     ...size,
-                    left: MARGIN + ((handle.sx + 1) / 2) * width - size.width / 2,
-                    top: MARGIN + ((handle.sy + 1) / 2) * height - size.height / 2,
+                    left:
+                      MARGIN +
+                      ((handle.sx + 1) / 2) * width -
+                      size.width / 2 +
+                      (corner ? 0 : handle.sx * (EDGE_THICKNESS / 2 - EDGE_INSET)),
+                    top:
+                      MARGIN +
+                      ((handle.sy + 1) / 2) * height -
+                      size.height / 2 +
+                      (corner ? 0 : handle.sy * (EDGE_THICKNESS / 2 - EDGE_INSET)),
                   },
                   Platform.OS === 'web' && { cursor: cursorFor(handle, object.rotation) },
                 ]}

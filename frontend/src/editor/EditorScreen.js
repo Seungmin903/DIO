@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../theme'
 import MediaNotice from './components/MediaNotice'
 import { mediaFailureMessage } from './utils/mediaRecovery.js'
@@ -17,6 +17,7 @@ import Ribbon from './components/Ribbon'
 import SaveIndicator from './components/SaveIndicator'
 import TapeCropper from './components/TapeCropper'
 import TopBar from './components/TopBar'
+import Viewport from './components/Viewport'
 import { PAGE_HEIGHT, PAGE_WIDTH, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from './constants'
 import { useEditor } from './hooks/useEditor'
 import { getCurrentPage } from './state/editorReducer'
@@ -36,7 +37,8 @@ export default function EditorScreen({ readOnly = false }) {
 
   const [exportSnapshot, setExportSnapshot] = useState(null)
   const [stageSize, setStageSize] = useState(null)
-  const [zoomSetting, setZoomSetting] = useState('fit') // 'fit' | number
+  // scale: 화면에 맞춤 대비 배율, x·y: 페이지 왼쪽 위 위치 (null 이면 가운데)
+  const [view, setView] = useState({ scale: 1, x: null, y: null })
   const [drawerTab, setDrawerTab] = useState(null)
   const [activeTool, setActiveTool] = useState('select')
   const [moreOpen, setMoreOpen] = useState(false)
@@ -48,6 +50,7 @@ export default function EditorScreen({ readOnly = false }) {
   const [importFailure, setImportFailure] = useState(null)
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
+  const tapStart = useRef(null)
   const clipboard = useRef([]) // Ctrl+C 로 복사한 오브젝트 (다른 페이지에도 붙여 넣기)
 
   useEffect(() => {
@@ -61,16 +64,34 @@ export default function EditorScreen({ readOnly = false }) {
   }, [readOnly, cropId, dispatch])
 
   const fitZoom = stageSize
-    ? clamp(
+    ? Math.max(
+        0.05,
         Math.min(
           (stageSize.width - STAGE_PADDING.side * 2) / PAGE_WIDTH,
           (stageSize.height - STAGE_PADDING.top - STAGE_PADDING.bottom) / PAGE_HEIGHT,
         ),
-        ZOOM_MIN,
-        ZOOM_MAX,
       )
     : 0.6
-  const zoom = zoomSetting === 'fit' ? fitZoom : zoomSetting
+  const zoom = fitZoom * view.scale
+  const fitted = view.scale === 1 && view.x == null
+  const offset = view.x == null ? centeredOffset(stageSize, zoom) : { x: view.x, y: view.y }
+
+  // 페이지가 화면 밖으로 다 사라지지 않게 가장자리 80px 은 남긴다.
+  const clampOffset = (next, z) => {
+    if (!stageSize) return next
+    const keep = 80
+    return {
+      x: clamp(next.x, keep - PAGE_WIDTH * z, stageSize.width - keep),
+      y: clamp(next.y, keep - PAGE_HEIGHT * z, stageSize.height - keep),
+    }
+  }
+  // pagePoint(페이지 좌표)가 화면의 screenPoint 에 오도록 배율을 바꾼다. (손가락 사이·휠 위치 기준 확대)
+  const zoomAround = (nextScale, pagePoint, screenPoint) => {
+    const scale = clamp(nextScale, ZOOM_MIN, ZOOM_MAX)
+    const z = fitZoom * scale
+    setView({ scale, ...clampOffset({ x: screenPoint.x - pagePoint.x * z, y: screenPoint.y - pagePoint.y * z }, z) })
+  }
+  const panBy = (dx, dy) => setView((prev) => ({ scale: prev.scale, ...clampOffset({ x: offset.x + dx, y: offset.y + dy }, zoom) }))
 
   const cropTarget = cropId ? page.objects.find((o) => o.id === cropId && o.type === 'photo') : null
   const tapeCrop = tapeCropId ? page.objects.find((o) => o.id === tapeCropId && (o.src || o.mediaFileId) && o.imageWidth) : null
@@ -91,10 +112,17 @@ export default function EditorScreen({ readOnly = false }) {
   // 자르던 사진이 되돌리기 등으로 사라지면 자르기를 끝낸다.
   if (cropId && !cropTarget) setCropId(null)
 
+  // 버튼 확대·축소는 보는 영역 가운데 기준
   const changeZoom = (next) => {
-    const value = next === 'fit' ? 'fit' : clamp(Math.round(next * 100) / 100, ZOOM_MIN, ZOOM_MAX)
-    setZoomSetting(value)
-    showToast(value === 'fit' ? '화면에 맞췄어요' : `${Math.round(value * 100)}%`)
+    if (next === 'fit') {
+      setView({ scale: 1, x: null, y: null })
+      showToast('화면에 맞췄어요')
+      return
+    }
+    const scale = clamp(Math.round(next * 100) / 100, ZOOM_MIN, ZOOM_MAX)
+    const center = stageSize ? { x: stageSize.width / 2, y: stageSize.height / 2 } : { x: 0, y: 0 }
+    zoomAround(scale, { x: (center.x - offset.x) / zoom, y: (center.y - offset.y) / zoom }, center)
+    showToast(`${Math.round(scale * 100)}%`)
   }
 
   const randomCenter = () => ({
@@ -247,6 +275,23 @@ export default function EditorScreen({ readOnly = false }) {
     return () => window.removeEventListener('keydown', handleKey)
   })
 
+  // 빈 곳 탭: 선택 해제 + 키보드(이름 입력 등) 내리기. 자르기 중에는 선택을 유지한다.
+  const clearSelection = () => {
+    Keyboard.dismiss()
+    if (!cropId) dispatch({ type: 'select', ids: [] })
+  }
+  const emptyTap = {
+    onStartShouldSetResponder: () => true,
+    onResponderGrant: (event) => {
+      tapStart.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }
+    },
+    onResponderRelease: (event) => {
+      const start = tapStart.current
+      tapStart.current = null
+      if (start && Math.hypot(event.nativeEvent.pageX - start.x, event.nativeEvent.pageY - start.y) < 8) clearSelection()
+    },
+  }
+
   const showPages = pagesOpen && !focusMode
   const showLayers = layersOpen && !focusMode
 
@@ -284,12 +329,15 @@ export default function EditorScreen({ readOnly = false }) {
 
       {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onClose={() => setExportSnapshot(null)} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
-      <View style={styles.body}>
+      {/* 흰 페이지 밖 어디든(패널 빈 곳·패널 사이 틈) 눌러도 선택을 푼다. 버튼·목록 항목은 자기 터치를 먼저 받는다. */}
+      <View style={styles.body} {...emptyTap}>
         {showPages && (
           <PageList
             readOnly={readOnly}
             pages={state.doc.pages}
             currentId={page.id}
+            cropId={cropTarget?.id ?? null}
+            onMove={(id, toIndex) => dispatch({ type: 'movePage', id, toIndex })}
             onSelect={(id) => {
               if (cropId) finishCrop(false)
               dispatch({ type: 'selectPage', id })
@@ -302,9 +350,16 @@ export default function EditorScreen({ readOnly = false }) {
           />
         )}
 
-        <View style={styles.stage} onLayout={(event) => setStageSize(event.nativeEvent.layout)}>
-          <ScrollView horizontal scrollEnabled={readOnly || activeTool !== 'pen'} contentContainerStyle={styles.scrollX} showsHorizontalScrollIndicator={false}>
-            <ScrollView scrollEnabled={readOnly || activeTool !== 'pen'} contentContainerStyle={styles.scrollY} showsVerticalScrollIndicator={false}>
+        <View style={styles.stage}>
+          <Viewport
+            zoom={zoom}
+            scale={view.scale}
+            offset={offset}
+            onPinch={zoomAround}
+            onPan={panBy}
+            onTapEmpty={clearSelection}
+            onLayout={(event) => setStageSize(event.nativeEvent.layout)}
+          >
               <Canvas
                 activeTool={activeTool}
                 readOnly={readOnly}
@@ -322,8 +377,7 @@ export default function EditorScreen({ readOnly = false }) {
                 onReplacePhoto={replacePhoto}
                 onToast={showToast}
               />
-            </ScrollView>
-          </ScrollView>
+          </Viewport>
 
           {!readOnly && <View style={styles.ribbonWrap} pointerEvents="box-none">
             <Ribbon
@@ -376,11 +430,11 @@ export default function EditorScreen({ readOnly = false }) {
           </View>
 
           <View style={[styles.floating, styles.floatingRight]}>
-            <RoundButton icon="minus" label="축소" onPress={() => changeZoom(zoom - ZOOM_STEP)} />
-            <Text style={styles.zoomValue}>{Math.round(zoom * 100)}%</Text>
-            <RoundButton icon="plus" label="확대" onPress={() => changeZoom(zoom + ZOOM_STEP)} />
+            <RoundButton icon="minus" label="축소" disabled={view.scale <= ZOOM_MIN} onPress={() => changeZoom(view.scale - ZOOM_STEP)} />
+            <Text style={styles.zoomValue}>{Math.round(view.scale * 100)}%</Text>
+            <RoundButton icon="plus" label="확대" disabled={view.scale >= ZOOM_MAX} onPress={() => changeZoom(view.scale + ZOOM_STEP)} />
             <View style={styles.floatingDivider} />
-            <RoundButton icon="fit" label="화면에 맞춤" active={zoomSetting === 'fit'} onPress={() => changeZoom('fit')} />
+            <RoundButton icon="fit" label="화면에 맞춤" active={fitted} onPress={() => changeZoom('fit')} />
           </View>
 
           {tapeCrop && (
@@ -422,6 +476,16 @@ export default function EditorScreen({ readOnly = false }) {
   )
 }
 
+/** 화면에 맞춤 위치: 리본바·하단 컨트롤 여백을 뺀 영역의 가운데 */
+function centeredOffset(stageSize, zoom) {
+  if (!stageSize) return { x: STAGE_PADDING.side, y: STAGE_PADDING.top }
+  const available = stageSize.height - STAGE_PADDING.top - STAGE_PADDING.bottom
+  return {
+    x: (stageSize.width - PAGE_WIDTH * zoom) / 2,
+    y: STAGE_PADDING.top + (available - PAGE_HEIGHT * zoom) / 2,
+  }
+}
+
 function RoundButton({ icon, label, disabled, active, onPress }) {
   return (
     <Pressable
@@ -444,15 +508,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
   body: { flex: 1, flexDirection: 'row', gap: 16, padding: 16 },
   stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 18 },
-  scrollX: { flexGrow: 1, justifyContent: 'center' },
-  scrollY: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: STAGE_PADDING.top,
-    paddingBottom: STAGE_PADDING.bottom,
-    paddingHorizontal: STAGE_PADDING.side,
-  },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
   // 보관함은 스테이지 안에서만 펼쳐지고, 내용이 길면 안에서 스크롤한다. (하단 확대 컨트롤은 가리지 않음)
   drawerWrap: { position: 'absolute', top: 76, right: 12, bottom: 64, left: 12, alignItems: 'flex-end' },

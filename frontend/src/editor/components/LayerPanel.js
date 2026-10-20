@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../theme'
 import { OBJECT_TYPE_LABELS } from '../constants'
 import { stickerSource } from '../stickerAssets'
@@ -187,6 +187,11 @@ function NameField({ name, renamable, onCommit }) {
     const next = draft.trim()
     if (next && next !== name) onCommit(next)
   }
+  // 다른 행·캔버스를 눌러 이 항목 선택이 풀리면(=포커스가 나가면) 편집을 끝낸다.
+  // iPad 는 입력창 밖을 눌러도 포커스가 자동으로 빠지지 않아서 직접 닫는다.
+  useEffect(() => {
+    if (editing && !renamable) commit()
+  })
   if (editing) {
     return (
       <TextInput
@@ -211,10 +216,12 @@ function NameField({ name, renamable, onCommit }) {
       }}
       accessibilityLabel={renamable ? '이름 바꾸기' : undefined}
     >
-      <Text style={styles.rowName} numberOfLines={1}>
-        {name}
-        {renamable ? '  ✎' : ''}
-      </Text>
+      <View style={styles.nameRow}>
+        <Text style={styles.rowName} numberOfLines={1}>
+          {name}
+        </Text>
+        {renamable && <Icon name="edit" size={13} strokeWidth={2} color={colors.textMuted} />}
+      </View>
     </Pressable>
   )
 }
@@ -262,7 +269,10 @@ function GroupRow({ row, selected, renamable, collapsed, onToggleCollapsed, disp
   return (
     <RowShell {...drag}>
       <Pressable
-        onPress={() => dispatch({ type: 'select', ids: memberIds })}
+        onPress={() => {
+          Keyboard.dismiss()
+          dispatch({ type: 'select', ids: memberIds })
+        }}
         onLongPress={() => dispatch({ type: 'toggleSelect', id: memberIds[0] })}
         delayLongPress={350}
         style={[styles.row, selected && styles.rowSelected, drag.dragging && styles.rowDragging, hidden && styles.rowHidden]}
@@ -298,11 +308,11 @@ function LayerRow({ object, nested, selected, renamable, dispatch, ...drag }) {
   return (
     <RowShell {...drag}>
       <Pressable
-        onPress={() =>
-          isMultiSelectKey()
-            ? dispatch({ type: 'toggleSelect', id: object.id, exact: nested })
-            : dispatch({ type: nested ? 'selectExact' : 'select', ids: [object.id] })
-        }
+        onPress={() => {
+          Keyboard.dismiss()
+          if (isMultiSelectKey()) dispatch({ type: 'toggleSelect', id: object.id, exact: nested })
+          else dispatch({ type: nested ? 'selectExact' : 'select', ids: [object.id] })
+        }}
         onLongPress={() => dispatch({ type: 'toggleSelect', id: object.id, exact: nested })}
         delayLongPress={350}
         style={[
@@ -487,7 +497,8 @@ const styles = StyleSheet.create({
   thumbPhoto: { width: 40, height: 40 },
   thumbTape: { transform: [{ rotate: '-12deg' }] },
   rowText: { flex: 1, minWidth: 0 },
-  rowName: { fontSize: 12.5, fontWeight: '700', color: colors.text },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  rowName: { flexShrink: 1, fontSize: 12.5, fontWeight: '700', color: colors.text },
   rowType: { marginTop: 2, fontSize: 10.5, color: colors.textMuted },
   toggle: { padding: 7 },
   grip: { paddingHorizontal: 8, paddingVertical: 14 },
