@@ -12,6 +12,7 @@
 | [page-export-renderer.md](./page-export-renderer.md) | 71 전용 페이지 PNG 렌더러·미리보기·검증 |
 | [gif-first-frame-export.md](./gif-first-frame-export.md) | 73 GIF 첫 프레임 PNG 변환·원본 보존·검증 |
 | [png-file-export.md](./png-file-export.md) | 74 PNG 파일 저장·진행·오류·재시도 계약 |
+| [pdf-export-contract.md](./pdf-export-contract.md) | 108 PDF 범위·출력 규격·순차 생성·저장·실패 처리 계약 |
 | [pen-stroke.md](./pen-stroke.md) | 88 펜 획 입력·저장 형식·렌더링 및 검증 |
 | [mvp1-ui-spec.md](./mvp1-ui-spec.md) | MVP1 UI/UX 범위, 디자인 토큰, 화면·상호작용 명세 |
 | [full-schema.mysql.sql](./full-schema.mysql.sql) | MySQL 8.4 기준 경량 DDL — 공유 다이어리, 캔버스, 미디어·GIF·오디오, 템플릿, AI 손글씨 폰트 포함 |
