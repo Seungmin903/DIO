@@ -6,6 +6,7 @@ import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout } from '../../utils/objects'
+import HelpButton, { useHelp } from '../controls/HelpButton'
 import Icon from '../controls/Icon'
 import Slider from '../controls/Slider'
 import TapeView from '../canvas/TapeView'
@@ -27,6 +28,7 @@ export default function TapeCropper({
   onConfirm,
   onCancel,
 }) {
+  const help = useHelp()
   const window = useWindowDimensions()
   const uri = useMediaUri(image)
   const [crop, setCrop] = useState(initialCrop ?? { fx: 0.5, fy: 0.5, zoom: 1 })
@@ -62,12 +64,15 @@ export default function TapeCropper({
       <View style={styles.backdrop}>
         <View style={[styles.card, { width: cardWidth }]}>
           <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
+            <View style={styles.titleGroup}>
+              <Text style={styles.title}>{title}</Text>
+              <HelpButton {...help} label="테이프 자르기 도움말" />
+            </View>
             <Pressable onPress={onCancel} hitSlop={10} accessibilityLabel="취소">
               <Icon name="close" size={20} />
             </Pressable>
           </View>
-          <Text style={styles.hint}>사진을 끌어서 테이프에 들어갈 위치를 맞추고, 아래에서 확대해 보세요.</Text>
+          {help.open && <Text style={styles.hint}>사진을 끌어서 테이프에 들어갈 위치를 맞추고, 아래에서 확대해 보세요.</Text>}
 
           <View style={[styles.stage, { height: frameHeight + CONTEXT_PX * 2 }]} {...panHandlers}>
             {/* 틀 밖까지 이어지는 사진 (흐리게) */}
@@ -157,6 +162,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.overlay },
   card: { padding: 24, borderRadius: 24, backgroundColor: colors.surface, ...shadow.float },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   title: { fontSize: 18, fontWeight: '800', color: colors.text },
   hint: { marginTop: 6, fontSize: 12.5, color: colors.textMuted },
   stage: { marginTop: 16, borderRadius: 16, overflow: 'hidden', backgroundColor: '#EEF2F9' },

@@ -4,6 +4,7 @@ import { colors, radius } from '../../../shared/theme'
 import { CROP_MODES, CROP_RATIOS, CROP_ZOOM_MAX, CROP_ZOOM_MIN, PHOTO_SHAPES, POLAROID_RATIOS } from '../../constants'
 import { polaroidHeight, ratioValueOf, resizeAroundCenter } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
+import HelpButton, { useHelp } from '../controls/HelpButton'
 import Icon from '../controls/Icon'
 import Slider from '../controls/Slider'
 
@@ -16,6 +17,7 @@ import Slider from '../controls/Slider'
  */
 export default function CropPanel({ photo, dispatch, onApply, onCancel }) {
   const update = (patch) => dispatch({ type: 'updateObject', id: photo.id, patch })
+  const help = useHelp()
   const freeCrop = photo.frame === 'shape' && !PHOTO_SHAPES.find((s) => s.id === photo.shape)?.square
   // 폴라로이드 안쪽 사진 비율 (자유로 잘랐던 사진을 폴라로이드로 바꾸면 원본 비율로)
   const polaroidRatio = POLAROID_RATIOS.some((r) => r.id === photo.ratio) ? photo.ratio : 'original'
@@ -63,12 +65,15 @@ export default function CropPanel({ photo, dispatch, onApply, onCancel }) {
   return (
     <View style={styles.panel}>
       <View style={styles.header}>
-        <Text style={styles.title}>사진 자르기</Text>
+        <View style={styles.titleGroup}>
+          <Text style={styles.title}>사진 자르기</Text>
+          <HelpButton {...help} label="사진 자르기 도움말" />
+        </View>
         <Pressable onPress={onCancel} hitSlop={8} accessibilityLabel="닫기">
           <Icon name="close" size={20} />
         </Pressable>
       </View>
-      <Text style={styles.hint}>페이지의 사진을 직접 끌어서 보이는 위치를 옮기고, 아래에서 확대해 보세요.</Text>
+      {help.open && <Text style={styles.hint}>페이지의 사진을 직접 끌어서 보이는 위치를 옮기고, 아래에서 확대해 보세요.</Text>}
 
       <View style={styles.segment}>
         {CROP_MODES.map((mode) => (
@@ -180,6 +185,7 @@ function Chip({ label, active, onPress }) {
 const styles = StyleSheet.create({
   panel: { width: 300, padding: 16, borderRadius: radius.lg, backgroundColor: colors.surface },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   title: { fontSize: 17, fontWeight: '800', color: colors.text },
   hint: {
     marginTop: 10,

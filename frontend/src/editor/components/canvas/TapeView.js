@@ -4,7 +4,6 @@ import { LEGACY_TAPE_PATTERNS, TAPE_PALETTES } from '../../constants'
 import { useSvgId } from '../../utils/svgId'
 import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Line, Path, Pattern, Polygon, Rect } from 'react-native-svg'
 
-const TAPE_OPACITY = 0.88
 // 기본 테이프 크기(180×34)의 가로:세로. 이미지 테이프 자르기 틀도 이 비율을 쓴다.
 export const TAPE_RATIO = 180 / 34
 
@@ -436,7 +435,7 @@ function tornPolygon(w, h) {
 
 /**
  * 마스킹테이프. 기본 패턴은 SVG 무늬로 채우고, 사용자가 올린 이미지는 테이프 네모 틀에 꽉 채워(cover) 넣는다.
- * 어느 쪽이든 끝 모양(절취선·직선)으로 자르고 테이프처럼 살짝 비치게 그린다.
+ * 어느 쪽이든 끝 모양(절취선·직선)으로 자른다. 비치는 정도는 요소 불투명도(기본 80%)로 정한다.
  */
 export default function TapeView({ pattern, palette, segmentRatio, src, mediaFileId, crop, imageWidth, imageHeight, edge = 'torn', width, height, scale = 1, onAssetLoad }) {
   const uri = useMediaUri({ src, mediaFileId })
@@ -457,14 +456,14 @@ export default function TapeView({ pattern, palette, segmentRatio, src, mediaFil
         <Defs>
           <PatternTile id={patternId} pattern={look.pattern} bg={look.bg} fg={look.fg} scale={scale} />
         </Defs>
-        <Polygon points={points} fill={`url(#${patternId})`} opacity={TAPE_OPACITY} />
+        <Polygon points={points} fill={`url(#${patternId})`} />
       </Svg>
     )
   }
   // 이미지 테이프는 모양으로 잘라야 해서 ClipPath 를 이미지에 직접 건다.
   return (
     <Svg key={variant} width={width} height={height}>
-      <G opacity={TAPE_OPACITY}>
+      <G>
         <TapeImage
           onAssetLoad={onAssetLoad}
           uri={uri}

@@ -2,7 +2,7 @@
 // 공통 필드: { id, type, x, y, w, h, rotation, hidden?, locked?, groupId?, name? }
 // x, y 는 회전 전 박스의 좌상단, 회전은 박스 중심 기준이다.
 
-import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_SHAPES, LEGACY_TAPE_NAMES, POLAROID_INSETS, TAPE_SIZES, TAPES } from '../constants'
+import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_SHAPES, LEGACY_TAPE_NAMES, POLAROID_INSETS, TAPE_DEFAULT_OPACITY, TAPE_SIZES, TAPES } from '../constants'
 import { clamp, createId } from './common'
 
 const base = (type, center, w, h, extra) => ({
@@ -54,6 +54,7 @@ export function createTape(item, center) {
       imageHeight: item.imageHeight,
       crop: item.crop,
       edge: item.edge ?? 'straight',
+      opacity: TAPE_DEFAULT_OPACITY,
     })
   }
   const size = TAPE_SIZES.find((s) => s.id === item.size) ?? TAPE_SIZES[1]
@@ -63,6 +64,7 @@ export function createTape(item, center) {
     size: size.id,
     name: item.name,
     edge: item.edge ?? 'straight',
+    opacity: TAPE_DEFAULT_OPACITY,
   })
 }
 

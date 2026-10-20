@@ -12,13 +12,14 @@ import { pickImages } from '../../services/image'
 import { useMediaUri } from '../../hooks/useMediaUri'
 import { MEDIA_FORMATS } from '../../utils/mediaPolicy'
 import ChipScroller, { justDragged } from '../controls/ChipScroller'
+import HelpButton, { useHelp } from '../controls/HelpButton'
 import Icon from '../controls/Icon'
 import TapeCropper from './TapeCropper'
 import TapeView from '../canvas/TapeView'
 
 export const DRAWER_TABS = [
   { id: 'sticker', name: '스티커', icon: 'sticker' },
-  { id: 'tape', name: '테이프', icon: 'tape' },
+  { id: 'tape', name: '마스킹테이프', icon: 'tape' },
   { id: 'photo', name: '사진', icon: 'image' },
 ]
 
@@ -53,7 +54,8 @@ const ColumnsContext = createContext(4)
  * 스티커·테이프·사진 보관함. 항목을 누르면 페이지 가운데에 붙는다.
  * 검색·분류(스티커), 끝 모양(테이프), 붙일 모양(사진) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다.
  */
-export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, recentPhotos, onToast, onClose }) {
+export default function DecorDrawer({ tab, onAdd, onAddPhotos, recentPhotos, onToast, onClose }) {
+  const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]
   const custom = useCustomDecor()
   const [busy, setBusy] = useState(false)
   const [photoStyle, setPhotoStyle] = useState('rect')
@@ -131,23 +133,11 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
         measured.current = event.nativeEvent.layout.height
       }}
     >
+      {/* 툴바에서 고른 보관함만 보여 준다 (서랍 안에서 스티커·테이프·사진을 오가지 않는다) */}
       <View style={styles.tabs}>
-        <View style={styles.tabTrack}>
-          {DRAWER_TABS.map((item) => {
-            const active = tab === item.id
-            return (
-              <Pressable
-                key={item.id}
-                onPress={() => onTabChange(item.id)}
-                style={[styles.tab, active && styles.tabActive]}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-              >
-                <Icon name={item.icon} size={16} color={active ? colors.text : colors.textMuted} />
-                <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.name}</Text>
-              </Pressable>
-            )
-          })}
+        <View style={styles.titleRow} accessibilityRole="header">
+          <Icon name={current.icon} size={18} color={colors.text} />
+          <Text style={styles.title}>{current.name}</Text>
         </View>
         <Pressable onPress={onClose} style={styles.close} hitSlop={8} accessibilityLabel="보관함 닫기">
           <Icon name="close" size={18} />
@@ -393,16 +383,21 @@ function Section({ title, badge, children }) {
 }
 
 function CustomSection({ title, hint, onAdd, busy, children }) {
+  const help = useHelp()
   return (
     <View style={styles.custom}>
       <View style={styles.sectionHead}>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <View style={styles.titleGroup}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          <HelpButton {...help} label={`${title} 도움말`} />
+        </View>
         <Pressable onPress={onAdd} disabled={busy} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
           <Icon name="plus" size={13} />
           <Text style={styles.addText}>{busy ? '불러오는 중' : '추가'}</Text>
         </Pressable>
       </View>
-      {children || <Text style={styles.customHint}>{hint}</Text>}
+      {help.open && <Text style={styles.customHint}>{hint}</Text>}
+      {children}
     </View>
   )
 }
@@ -493,31 +488,8 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
   },
-  tabTrack: {
-    flex: 1,
-    flexDirection: 'row',
-    padding: 3,
-    borderRadius: 13,
-    backgroundColor: '#EEF2F9',
-  },
-  tab: {
-    flex: 1,
-    height: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    borderRadius: 10,
-  },
-  tabActive: {
-    backgroundColor: colors.surface,
-    ...shadow.card,
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  tabText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
-  tabTextActive: { color: colors.text, fontWeight: '800' },
+  titleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 38 },
+  title: { fontSize: 15, fontWeight: '800', color: colors.text },
   close: { padding: 8 },
   fixed: { paddingHorizontal: BODY_X, paddingBottom: 8, gap: 8 },
   optionRow: {
@@ -580,6 +552,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionTitle: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   badge: {
     paddingHorizontal: 6,
     paddingVertical: 2,

@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { View } from 'react-native'
 
-const TAP_SLOP = 8
+const TAP_SLOP = 10 // 손가락 탭의 흔들림 (캔버스 빈 곳 탭과 같은 기준)
 
 /**
  * 빈 곳 탭을 받는 조각. 다른 요소를 감싸지 않고(자식 없음) 빈 자리에만 깔아 둔다.

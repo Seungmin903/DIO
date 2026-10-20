@@ -60,7 +60,6 @@ export default function ContextBar({
       onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
       onStartShouldSetResponder={() => true}
     >
-      {objects.length > 1 && <Text style={styles.count}>{objects.length}개 선택</Text>}
 
       {single?.type === 'photo' && !single.locked && (
         <>
@@ -260,7 +259,6 @@ const styles = StyleSheet.create({
   menuText: { fontSize: 13, fontWeight: '700', color: colors.text },
   menuTextDisabled: { color: 'rgba(11,25,87,0.3)' },
   colorDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(11,25,87,0.2)' },
-  count: { paddingHorizontal: 10, fontSize: 12, fontWeight: '800', color: colors.primary },
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   buttonPrimary: { backgroundColor: colors.primary },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
