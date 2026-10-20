@@ -1,10 +1,11 @@
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
-import { FRAME_COLORS } from '../../constants'
+import { FRAME_COLORS, TAPE_PALETTES } from '../../constants'
 import { normalizeAngle } from '../../utils/common'
 import Icon from '../controls/Icon'
 import { frameColorOf, objectOpacity } from '../canvas/ObjectView'
 import Slider from '../controls/Slider'
+import { tapeLook } from '../canvas/TapeView'
 
 const ALIGN_ACTIONS = [
   { mode: 'left', label: '왼쪽' },
@@ -24,6 +25,7 @@ export default function MorePanel({ objects, dispatch, onClose }) {
   const editable = objects.filter((o) => !o.locked)
   const single = objects.length === 1 ? objects[0] : null
   const isPolaroid = single?.type === 'photo' && single.frame === 'polaroid' && !single.locked
+  const isPatternTape = single?.type === 'tape' && !single.src && !single.mediaFileId && !single.locked
   const updateEach = (makePatch, record = true) =>
     dispatch({ type: 'updateMany', record, patches: Object.fromEntries(editable.map((o) => [o.id, makePatch(o)])) })
 
@@ -87,6 +89,35 @@ export default function MorePanel({ objects, dispatch, onClose }) {
                 )}
               </View>
             </Section>
+
+            {isPatternTape && (
+              <Section title="테이프 색 · 무늬는 그대로">
+                <View style={styles.chips}>
+                  {TAPE_PALETTES.map((color) => {
+                    const look = tapeLook(single.pattern, single.palette)
+                    const active = look.palette === color.id
+                    return (
+                      <Pressable
+                        key={color.id}
+                        onPress={() =>
+                          dispatch({
+                            type: 'updateObject',
+                            id: single.id,
+                            record: true,
+                            patch: { pattern: look.pattern, palette: color.id },
+                          })
+                        }
+                        accessibilityLabel={`테이프 색 ${color.name}`}
+                        accessibilityState={{ selected: active }}
+                        style={[styles.swatch, { backgroundColor: color.bg }, active && styles.swatchActive]}
+                      >
+                        <View style={[styles.swatchInner, { backgroundColor: color.fg }]} />
+                      </Pressable>
+                    )
+                  })}
+                </View>
+              </Section>
+            )}
 
             {isPolaroid && (
               <Section title="폴라로이드 틀 색">
@@ -167,5 +198,6 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.primarySoft },
   chipText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
+  swatchInner: { position: 'absolute', right: 6, bottom: 6, width: 14, height: 14, borderRadius: 7 },
   swatchActive: { borderWidth: 3, borderColor: colors.primary },
 })

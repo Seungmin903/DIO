@@ -6,7 +6,8 @@ const PATHS = {
   panel: 'M4 4h16v16H4z M9 4v16',
   home: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z',
   cursor: 'M5 3l14 7.5-6.2 1.8L10 19z',
-  lasso: 'M6 5c-4 2-4 8 0 11 4 3 12 2 14-2 2-4-1-8-5-10-4-2-9-1-10 2-1 3 3 6 8 7 4 1 8 0 8-3 0-2-4-3-5-1-2 2 0 4 3 3',
+  // 올가미: 점선 고리(DASHED_PARTS) + 매듭 + 늘어진 끈 (Lucide lasso 모양 참고, ISC)
+  lasso: 'M7 22a5 5 0 0 1-2-4 M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
   pen: 'M4 20l4.2-1 11-11a2.1 2.1 0 0 0-3-3l-11 11z M14.5 6.5l3 3',
   highlighter: 'M5 21h7 M8.5 14.5l-2 2.5 2.5 2.5 2.5-2 M8.5 14.5l7.5-10 4 3-7.5 10z',
   eraser: 'M8 20h12 M4.6 14.6l9-9a2 2 0 0 1 2.8 0l2.8 2.8a2 2 0 0 1 0 2.8L11 19.4H8.4z M9 10l5 5',
@@ -51,6 +52,8 @@ const PATHS = {
   forward: 'M12 19V6 M7 11l5-5 5 5',
   backward: 'M12 5v13 M7 13l5 5 5-5',
   toBack: 'M12 4v11 M7 10.5l5 5 5-5 M5 19.5h14',
+  // 이름 바꾸기: 끝이 왼쪽 아래를 향한 단순한 연필
+  edit: 'M4 20l1.2-4.2L15.5 5.5l3 3L8.2 18.8z M13.5 7.5l3 3',
   saved: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M8.5 12.2l2.4 2.4 4.6-5',
   saving: 'M12 3a9 9 0 1 0 9 9 M12 7v5l3 2',
   alert: 'M12 3l9.5 17h-19z M12 10v4.5 M12 17.5h.01',
@@ -59,10 +62,15 @@ const PATHS = {
 }
 
 const DOT_ICONS = new Set(['grip', 'more'])
+// 점선으로 그리는 부분 (같은 아이콘의 실선 path 와 겹쳐 그린다)
+const DASHED_PARTS = { lasso: 'M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1' }
 
 export default function Icon({ name, size = 22, color = colors.text, strokeWidth = 1.8 }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {DASHED_PARTS[name] && (
+        <Path d={DASHED_PARTS[name]} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray="3 2.6" />
+      )}
       <Path
         d={PATHS[name]}
         stroke={color}

@@ -2,7 +2,7 @@
 // 공통 필드: { id, type, x, y, w, h, rotation, hidden?, locked?, groupId?, name? }
 // x, y 는 회전 전 박스의 좌상단, 회전은 박스 중심 기준이다.
 
-import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_SHAPES, POLAROID_INSETS, TAPES } from '../constants'
+import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_SHAPES, POLAROID_INSETS, TAPE_SIZES, TAPES } from '../constants'
 import { clamp, createId } from './common'
 
 const base = (type, center, w, h, extra) => ({
@@ -49,12 +49,15 @@ export function createTape(item, center) {
       imageWidth: item.imageWidth,
       imageHeight: item.imageHeight,
       crop: item.crop,
-      edge: item.edge ?? 'torn',
+      edge: item.edge ?? 'straight',
     })
   }
-  return base('tape', center, 180, 34, {
+  const size = TAPE_SIZES.find((s) => s.id === item.size) ?? TAPE_SIZES[1]
+  return base('tape', center, size.w, size.h, {
     pattern: item.pattern,
-    edge: item.edge ?? 'torn',
+    palette: item.palette,
+    name: item.name,
+    edge: item.edge ?? 'straight',
   })
 }
 
@@ -103,7 +106,8 @@ export function createObjectFromDecor(item, center) {
 
 export function getObjectName(object) {
   if (object.name) return object.name
-  if (object.type === 'tape') return TAPES.find((tape) => tape.pattern === object.pattern)?.name ?? '마스킹테이프'
+  // 예전 문서의 테이프는 무늬 이름이 곧 테이프 id 였다.
+  if (object.type === 'tape') return TAPES.find((tape) => tape.id === object.pattern)?.name ?? '마스킹테이프'
   return OBJECT_TYPE_LABELS[object.type]
 }
 

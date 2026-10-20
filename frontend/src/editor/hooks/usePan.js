@@ -9,7 +9,8 @@ function createResponder(handlersRef) {
   return PanResponder.create({
     onStartShouldSetPanResponder: () => !handlersRef.current.disabled,
     onMoveShouldSetPanResponder: () => !handlersRef.current.disabled,
-    onPanResponderTerminationRequest: () => false,
+    // 두 번째 손가락이 닿으면(확대·축소, 화면 이동) 보는 영역에 넘긴다. 한 손가락 동작은 끝까지 지킨다.
+    onPanResponderTerminationRequest: (event) => (event.nativeEvent.touches?.length ?? 0) > 1,
     onPanResponderGrant: (event) => {
       startTime = Date.now()
       moved = false

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
-import { CROP_ZOOM_MAX, CROP_ZOOM_MIN, TAPE_EDGES } from '../../constants'
+import { CROP_ZOOM_MAX, CROP_ZOOM_MIN } from '../../constants'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { useMediaUri } from '../../hooks/useMediaUri'
@@ -20,7 +20,6 @@ const CONTEXT_PX = 70 // 테이프 틀 위아래로 보여 주는 사진 여유
 export default function TapeCropper({
   image,
   initialCrop,
-  initialEdge = 'torn',
   title = '테이프로 쓸 부분 고르기',
   confirmLabel = '테이프 만들기',
   onConfirm,
@@ -29,7 +28,6 @@ export default function TapeCropper({
   const window = useWindowDimensions()
   const uri = useMediaUri(image)
   const [crop, setCrop] = useState(initialCrop ?? { fx: 0.5, fy: 0.5, zoom: 1 })
-  const [edge, setEdge] = useState(initialEdge)
   const start = useRef(crop)
 
   const cardWidth = Math.min(720, window.width - 48)
@@ -87,7 +85,7 @@ export default function TapeCropper({
                 crop={crop}
                 imageWidth={image.width}
                 imageHeight={image.height}
-                edge={edge}
+                edge="straight"
                 width={frameWidth}
                 height={frameHeight}
               />
@@ -112,28 +110,12 @@ export default function TapeCropper({
               />
             </View>
           </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>테이프 끝</Text>
-            <View style={styles.segment}>
-              {TAPE_EDGES.map((item) => (
-                <Pressable
-                  key={item.id}
-                  onPress={() => setEdge(item.id)}
-                  style={[styles.segmentItem, edge === item.id && styles.segmentActive]}
-                  accessibilityState={{ selected: edge === item.id }}
-                >
-                  <Text style={[styles.segmentText, edge === item.id && styles.segmentTextActive]}>{item.name}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
           <View style={styles.actions}>
             <Pressable onPress={onCancel} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
               <Text style={styles.buttonText}>취소</Text>
             </Pressable>
             <Pressable
-              onPress={() => onConfirm({ crop, edge })}
+              onPress={() => onConfirm({ crop })}
               style={({ pressed }) => [styles.button, styles.primary, pressed && styles.primaryPressed]}
             >
               <Text style={[styles.buttonText, styles.primaryText]}>{confirmLabel}</Text>

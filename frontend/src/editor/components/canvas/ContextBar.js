@@ -1,12 +1,17 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
-import { PAGE_HEIGHT, PAGE_WIDTH, TAPE_EDGES, TAPES } from '../../constants'
+import { PAGE_HEIGHT, PAGE_WIDTH, TAPE_EDGES } from '../../constants'
+import { tapeLook } from './TapeView'
 import { clamp, unionBounds } from '../../utils/common'
 import Icon from '../controls/Icon'
 import { outlineOn, photoSupportsShadow, shadowOn } from './ObjectView'
 
+// 무늬 바꾸기 순서
+const TAPE_PATTERNS = ['solid', 'stripe', 'dot', 'check', 'grid', 'wave', 'gingham', 'heart', 'star', 'plaid', 'kraft']
+
 const BAR_HEIGHT = 52
+const EDGE = 8 // 페이지 가장자리와 바 사이 여백
 const GAP = 18
 /** 선택한 요소 근처에 뜨는 빠른 편집 바. 세부 옵션은 '더보기'(MorePanel) 에서 */
 export default function ContextBar({
@@ -28,8 +33,16 @@ export default function ContextBar({
   const bounds = unionBounds(objects)
   const pageW = PAGE_WIDTH * zoom
   const pageH = PAGE_HEIGHT * zoom
-  const below = bounds.bottom * zoom + GAP + BAR_HEIGHT < pageH
-  const top = Math.max(-BAR_HEIGHT - 8, below ? bounds.bottom * zoom + GAP : bounds.top * zoom - GAP - BAR_HEIGHT)
+  // 바는 늘 페이지 안쪽에 둔다. Android·iOS 는 부모(페이지) 영역 밖으로 나간 버튼에 터치를 전달하지 않는다.
+  // 요소 아래에 자리가 있으면 아래, 없으면 위, 둘 다 없으면 페이지 안에서 가능한 가까운 곳(요소와 겹칠 수 있음).
+  const below = bounds.bottom * zoom + GAP + BAR_HEIGHT < pageH - EDGE
+  const top = clamp(
+    below ? bounds.bottom * zoom + GAP : bounds.top * zoom - GAP - BAR_HEIGHT,
+    EDGE,
+    Math.max(EDGE, pageH - BAR_HEIGHT - EDGE),
+  )
+  // 순서 메뉴는 바 위·아래 중 페이지 안에 더 넉넉한 쪽으로 편다.
+  const menuBelow = pageH - (top + BAR_HEIGHT) >= top
   const left = clamp(bounds.cx * zoom - barWidth / 2, 8, Math.max(8, pageW - barWidth - 8))
 
   const update = (patch) => single && dispatch({ type: 'updateObject', id: single.id, patch, record: true })
@@ -66,14 +79,28 @@ export default function ContextBar({
         <>
           {single.src && single.imageWidth && <BarButton icon="crop" label="자르기" primary onPress={() => onCrop(single.id)} />}
           {!single.src && (
-            <BarButton
-              icon="tape"
-              label="패턴"
-              onPress={() => {
-                const index = TAPES.findIndex((t) => t.pattern === single.pattern)
-                update({ pattern: TAPES[(index + 1) % TAPES.length].pattern })
-              }}
-            />
+            <>
+              {/* 무늬만 다음 것으로 (색은 그대로) */}
+              <BarButton
+                icon="tape"
+                label="무늬"
+                onPress={() => {
+                  const look = tapeLook(single.pattern, single.palette)
+                  const index = TAPE_PATTERNS.indexOf(look.pattern)
+                  update({ pattern: TAPE_PATTERNS[(index + 1) % TAPE_PATTERNS.length], palette: look.palette })
+                }}
+              />
+              {/* 색: 더보기 패널의 '테이프 색'에서 고른다 */}
+              <Pressable
+                onPress={onToggleMore}
+                accessibilityRole="button"
+                accessibilityLabel="테이프 색"
+                style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+              >
+                <View style={[styles.colorDot, { backgroundColor: tapeLook(single.pattern, single.palette).fg }]} />
+                <Text style={styles.buttonText}>색</Text>
+              </Pressable>
+            </>
           )}
           {TAPE_EDGES.map((edge) => (
             <Chip key={edge.id} label={edge.name} active={single.edge === edge.id} onPress={() => update({ edge: edge.id })} />
@@ -121,7 +148,7 @@ export default function ContextBar({
       />
       {orderOpen && (
         <OrderMenu
-          placement={below ? 'below' : 'above'}
+          placement={menuBelow ? 'below' : 'above'}
           objects={objects}
           allObjects={allObjects}
           onPick={(mode) => dispatch({ type: 'reorder', ids, mode })}
@@ -233,6 +260,7 @@ const styles = StyleSheet.create({
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, paddingHorizontal: 10, borderRadius: 10 },
   menuText: { fontSize: 13, fontWeight: '700', color: colors.text },
   menuTextDisabled: { color: 'rgba(11,25,87,0.3)' },
+  colorDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(11,25,87,0.2)' },
   count: { paddingHorizontal: 10, fontSize: 12, fontWeight: '800', color: colors.primary },
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   buttonPrimary: { backgroundColor: colors.primary },

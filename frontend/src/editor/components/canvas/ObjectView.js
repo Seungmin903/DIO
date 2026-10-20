@@ -36,6 +36,7 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
         <View style={{ transform: flipTransform(object) }}>
           <TapeView
             pattern={object.pattern}
+            palette={object.palette}
             src={object.src}
             mediaFileId={object.mediaFileId}
             crop={object.crop}
@@ -185,7 +186,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
     }
     return (
       // 그림자는 잘라 내지 않는 바깥 View 에, 사진은 안쪽 View 에서 자른다.
-      <View style={[shapeStyle, shadow && styles.shadow]}>
+      <View style={[shapeStyle, shadow ? styles.shadow : styles.noShadow]}>
         <View style={[styles.shapeClip, shapeStyle, { borderWidth: border, transform: flip }]}>
           <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" />
         </View>
@@ -225,7 +226,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
           height: photo.h * zoom,
           backgroundColor: frameColorOf(photo),
         },
-        shadow && styles.shadow,
+        shadow ? styles.shadow : styles.noShadow,
       ]}
     >
       <View
@@ -277,6 +278,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     elevation: 4,
   },
+  // 그림자를 끌 때도 값을 0 으로 분명히 준다. (속성만 빼면 Android 가 예전 그림자를 남기는 경우가 있다)
+  noShadow: { shadowOpacity: 0, elevation: 0 },
   photoInner: {
     position: 'absolute',
     overflow: 'hidden',

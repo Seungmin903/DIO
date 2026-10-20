@@ -1,7 +1,7 @@
 import { createContext, useContext, useRef, useState } from 'react'
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, radius, shadow } from '../../../shared/theme'
-import { PHOTO_STYLES, TAPE_EDGES, TAPES } from '../../constants'
+import { PHOTO_STYLES, TAPE_SIZES, TAPES } from '../../constants'
 import { stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
 import { STICKER_GROUPS, stickerSource } from '../../stickerAssets'
 import Svg, { Path } from 'react-native-svg'
@@ -51,7 +51,6 @@ const ColumnsContext = createContext(4)
 export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, recentPhotos, onToast, onClose }) {
   const custom = useCustomDecor()
   const [busy, setBusy] = useState(false)
-  const [tapeEdge, setTapeEdge] = useState('torn')
   const [photoStyle, setPhotoStyle] = useState('rect')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('all')
@@ -177,12 +176,6 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
           )}
         </View>
       )}
-      {tab === 'tape' && (
-        <View style={[styles.fixed, styles.optionRow]}>
-          <Text style={styles.optionLabel}>테이프 끝</Text>
-          <Segment options={TAPE_EDGES} value={tapeEdge} onChange={setTapeEdge} />
-        </View>
-      )}
       {tab === 'photo' && (
         <View style={styles.fixed}>
           <Text style={styles.optionLabel}>붙일 모양</Text>
@@ -258,7 +251,7 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
                       <TapeRow
                         key={item.id}
                         name={item.name}
-                        onPress={() => onAdd({ kind: 'tape', ...item, edge: tapeEdge })}
+                        onPress={() => onAdd({ kind: 'tape', ...item })}
                         onRemove={() => custom.remove('tapes', item.id)}
                       >
                         <TapeView
@@ -267,7 +260,7 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
                           crop={item.crop}
                           imageWidth={item.imageWidth}
                           imageHeight={item.imageHeight}
-                          edge={tapeEdge}
+                          edge="straight"
                           {...TAPE_PREVIEW}
                         />
                       </TapeRow>
@@ -275,15 +268,24 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
                   </View>
                 )}
               </CustomSection>
-              <Section title="마스킹테이프">
-                <View style={styles.tapeList}>
-                  {TAPES.map((tape) => (
-                    <TapeRow key={tape.pattern} name={tape.name} onPress={() => onAdd({ kind: 'tape', ...tape, edge: tapeEdge })}>
-                      <TapeView pattern={tape.pattern} edge={tapeEdge} {...TAPE_PREVIEW} />
-                    </TapeRow>
-                  ))}
-                </View>
-              </Section>
+              {/* 폭 규격별(슬림·기본·와이드) 6종. 미리보기 높이도 실제 폭 비율대로 */}
+              {TAPE_SIZES.map((size) => (
+                <Section key={size.id} title={`${size.name} · ${size.hint}`}>
+                  <View style={styles.tapeList}>
+                    {TAPES.filter((tape) => tape.size === size.id).map((tape) => (
+                      <TapeRow key={tape.id} name={tape.name} onPress={() => onAdd({ kind: 'tape', ...tape })}>
+                        <TapeView
+                          pattern={tape.pattern}
+                          palette={tape.palette}
+                          edge="straight"
+                          width={TAPE_PREVIEW.width}
+                          height={(TAPE_PREVIEW.width * size.h) / size.w}
+                        />
+                      </TapeRow>
+                    ))}
+                  </View>
+                </Section>
+              ))}
             </>
           )}
 
@@ -332,12 +334,10 @@ export default function DecorDrawer({ tab, onTabChange, onAdd, onAddPhotos, rece
       {pendingTape && (
         <TapeCropper
           image={pendingTape}
-          initialEdge={tapeEdge}
           onCancel={() => setPendingTape(null)}
-          onConfirm={({ crop, edge }) => {
+          onConfirm={({ crop }) => {
             const { src, mediaFileId, poster, name, width, height } = pendingTape
             custom.add('tapes', { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop })
-            setTapeEdge(edge)
             setPendingTape(null)
             onToast('내 테이프에 추가했어요. 붙인 뒤에도 자르기로 다시 고를 수 있어요.')
           }}
@@ -410,23 +410,6 @@ function Pill({ label, active, onPress }) {
     >
       <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
     </Pressable>
-  )
-}
-
-function Segment({ options, value, onChange }) {
-  return (
-    <View style={styles.segment}>
-      {options.map((option) => (
-        <Pressable
-          key={option.id}
-          onPress={() => onChange(option.id)}
-          style={[styles.segmentItem, value === option.id && styles.segmentActive]}
-          accessibilityState={{ selected: value === option.id }}
-        >
-          <Text style={[styles.segmentText, value === option.id && styles.segmentTextActive]}>{option.name}</Text>
-        </Pressable>
-      ))}
-    </View>
   )
 }
 
