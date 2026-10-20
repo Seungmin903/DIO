@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { STORAGE_KEYS, MEDIA_DB } from '../src/editor/utils/storageContract.js'
 
 // 외부 Playwright 실행기에서 runLocalMediaQa(browser, options)를 호출한다.
@@ -8,7 +10,10 @@ export async function runLocalMediaQa(browser, { baseUrl, fixtureDir, outputDir,
   const path={join:(...parts)=>parts.join('/')}
   const context=await browser.newContext({viewport:{width:1280,height:800},acceptDownloads:true})
   let page=await context.newPage()
-  const report={baseCommit,dateKST,fixtureKind:'synthetic PNG quadrants / generated two-frame GIFs',cases:[],pending:['iPhone/iPad/Android 실기기 사진첩 저장·권한·강제 종료','72번 필기·텍스트 데이터 모델/구현'],scope:'실제 가져오기·자동 저장·웹 재실행·PNG 다운로드. 변형 좌표는 고정 fixture를 저장소에 넣어 렌더러를 검증하며 편집 제스처 검증은 아님.'}
+  const report={baseCommit,dateKST,fixtureKind:'synthetic PNG quadrants / generated two-frame GIFs',cases:[],pending:['iPhone/iPad/Android 실기기 사진첩 저장·권한·강제 종료','실제 12MP/48MP·HEIC 사진 성능·기기 메모리', '필압 센서·IME 조합·OS 공유 시트 실제 기기 검증'],scope:'실제 가져오기·자동 저장·웹 재실행·PNG 다운로드. 변형 좌표는 고정 fixture를 저장소에 넣어 렌더러를 검증하며 편집 제스처 검증은 아님.'}
+  report.pageErrors=[]
+  const trackErrors=p=>p.on('pageerror',e=>report.pageErrors.push(e.message))
+  trackErrors(page);context.on('page',trackErrors)
   report.fixtures=manifest
   // 보관함에서 만든 다이어리의 편집 문서는 doc 키 뒤에 `:<diaryId>`를 붙여 저장된다.
   // 출력 크기는 페이지마다 다르므로(114번 속지: canvasWidth/canvasHeight) 실제 문서에서 읽는다.
@@ -60,33 +65,58 @@ export async function runLocalMediaQa(browser, { baseUrl, fixtureDir, outputDir,
       await page.evaluate(()=>{HTMLInputElement.prototype.click=window.__qaOriginalInputClick;delete window.__qaOriginalInputClick})
     }
   }
-  async function exportPng(name) {
+  async function exportPng(name, region = false) {
     await page.evaluate(()=>{window.showSaveFilePicker=undefined})
     const started=Date.now()
     await share().click({timeout:10000})
-    await page.getByRole('button',{name:'현재 페이지 내보내기',exact:true}).click()
-    await page.getByRole('button',{name:'PNG 미리보기',exact:true}).click()
+    if(region){
+      await page.getByRole('button',{name:'영역 선택 내보내기',exact:true}).click()
+      await page.getByRole('button',{name:'영역 수치 조정',exact:true}).click()
+      for(const [k,v] of Object.entries({x:50,y:600,width:900,height:150}))await page.getByLabel(`영역 ${k}`,{exact:true}).fill(String(v))
+      await page.getByRole('button',{name:'영역 수치 적용',exact:true}).click()
+      await page.getByRole('button',{name:'선택 영역 확정',exact:true}).click()
+    }else{
+      await page.getByRole('button',{name:'현재 페이지 내보내기',exact:true}).click()
+      await page.getByRole('button',{name:'PNG 미리보기',exact:true}).click()
+    }
     await page.getByLabel('PNG 파일 저장',{exact:true}).waitFor({state:'visible',timeout:35000})
     const generationMs=Date.now()-started
-    const pixels=await page.evaluate(async()=>{
+    const pixels=await page.evaluate(async(region)=>{
       const node=document.querySelector('[aria-label="완성 페이지 PNG"]'),image=node.matches('img')?node:node.querySelector('img')
       await image.decode()
       const canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight
       const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0)
       const data=ctx.getImageData(0,0,canvas.width,canvas.height).data
       const pixel=(x,y)=>[...data.slice((y*canvas.width+x)*4,(y*canvas.width+x)*4+4)]
+      const scale=region?2:1, ox=region?50:0, oy=region?600:0
+      const logical=(x,y)=>pixel(Math.floor((x-ox)*scale),Math.floor((y-oy)*scale))
+      const colored={blue:0,green:0,black:0}
+      for(let y=610;y<710;y++)for(let x=50;x<450;x++){
+        const [r,g,b]=logical(x,y);if(b>200&&r<40&&g<40)colored.blue++;if(g>200&&r<40&&b<40)colored.green++;if(r<50&&g<50&&b<50)colored.black++
+      }
+      const content={...colored,pen:logical(650,640),highlighter:logical(870,640)}
       const binary=await (await fetch(image.src)).arrayBuffer()
-      return {pngBytes:binary.byteLength,pngHeader:[...new Uint8Array(binary).slice(0,8)],width:canvas.width,height:canvas.height,hash:[...new Uint8Array(await crypto.subtle.digest('SHA-256',data))].map(v=>v.toString(16).padStart(2,'0')).join(''),samples:{quadRed:pixel(100,100),quadGreen:pixel(400,100),quadBlue:pixel(100,300),crop:pixel(630,147),gifRed:pixel(110,495),gifGreen:pixel(180,530),outsideRotated:pixel(79,430),overlapFront:pixel(165,510)}}
-    })
+      return {content,pngBytes:binary.byteLength,pngHeader:[...new Uint8Array(binary).slice(0,8)],width:canvas.width,height:canvas.height,fileHash:[...new Uint8Array(await crypto.subtle.digest('SHA-256',binary))].map(v=>v.toString(16).padStart(2,'0')).join(''),hash:[...new Uint8Array(await crypto.subtle.digest('SHA-256',data))].map(v=>v.toString(16).padStart(2,'0')).join(''),samples:{quadRed:pixel(100,100),quadGreen:pixel(400,100),quadBlue:pixel(100,300),crop:pixel(630,147),gifRed:pixel(110,495),gifGreen:pixel(180,530),outsideRotated:pixel(79,430),overlapFront:pixel(165,510)}}
+    },region)
+    const qualityNotice=page.getByText('일부 사진은 기기 메모리 보호를 위해 표시용 이미지를 확대했어요. 사진이 흐릴 수 있으니 미리보기를 확인한 뒤 저장해 주세요.',{exact:true})
+    const qualityWarning=await qualityNotice.isVisible()
+    const jsHeapBytes=await page.evaluate(()=>performance.memory?.usedJSHeapSize??null)
     const downloading=page.waitForEvent('download')
     await page.getByLabel('PNG 파일 저장',{exact:true}).click()
     const download=await downloading
     const destination=path.join(outputDir,name+'.png');await download.saveAs(destination)
+    const bytes=await readFile(destination)
+    ensure(createHash('sha256').update(bytes).digest('hex')===pixels.fileHash,'Downloaded PNG differs from preview bytes')
     ensure(pixels.pngHeader.join(',')==='137,80,78,71,13,10,26,10','Downloaded source is not PNG')
-    ensure(pixels.width===PAGE.width&&pixels.height===PAGE.height,'Incorrect output dimensions')
+    ensure(pixels.width===(region?1800:PAGE.width)&&pixels.height===(region?300:PAGE.height),'Incorrect output dimensions')
     await page.getByText('다운로드를 시작했어요.',{exact:false}).waitFor()
     await page.getByLabel('PNG 내보내기 닫기',{exact:true}).click()
-    return {generationMs,downloadName:download.suggestedFilename(),downloadBytes:pixels.pngBytes,pixels}
+    return {generationMs,qualityWarning,jsHeapBytes,downloadName:download.suggestedFilename(),downloadBytes:pixels.pngBytes,pixels}
+  }
+  function checkContent(c){
+    ensure(c.blue>20&&c.green>20&&c.black>20,'Partial text colors missing')
+    ensure(c.pen.join(',')==='102,51,153,255','Pen stroke color mismatch')
+    ensure(Math.abs(c.highlighter[0]-148)<=2&&c.highlighter[1]===255&&c.highlighter[2]===255&&c.highlighter[3]===255,'Highlighter alpha mismatch')
   }
   try {
     await page.goto(baseUrl)
@@ -108,6 +138,10 @@ export async function runLocalMediaQa(browser, { baseUrl, fixtureDir, outputDir,
         {...byName['photo-large'],x:500,y:50,w:260,h:195,rotation:30,frame:'shape',shape:'rect',crop:{fx:0.75,fy:0.25,zoom:2}},
         {...byName['first-red'],x:80,y:450,w:100,h:100,rotation:25,frame:'shape',shape:'rect'},
         {...byName['first-green'],x:130,y:480,w:100,h:100,rotation:-15,frame:'shape',shape:'rect'},
+        {id:'qa-text',type:'text',name:'부분 색상',x:50,y:610,w:400,h:100,baseWidth:400,rotation:0,text:'ABC DEF 한글 기록',font:'serif',fontSize:28,bold:true,underline:true,color:'#111111',colorRanges:[{start:0,end:3,color:'#0000ff'},{start:4,end:7,color:'#00ff00'}]},
+        {id:'qa-pen',type:'stroke',name:'펜',x:550,y:610,w:200,h:60,baseWidth:200,baseHeight:60,rotation:0,penKind:'ball',strokeWidth:8,color:'#663399',points:[{x:10,y:30,pressure:1},{x:190,y:30,pressure:1}]},
+        {id:'qa-marker',type:'stroke',name:'형광펜',x:800,y:610,w:150,h:60,baseWidth:150,baseHeight:60,rotation:0,penKind:'highlighter',lineCap:'square',strokeWidth:24,color:'#00ffff',points:[{x:10,y:30},{x:140,y:30}]},
+        {id:'qa-rotated-text',type:'text',x:500,y:710,w:250,h:60,baseWidth:250,rotation:-12,text:'회전된 기록',font:'mono',fontSize:20,color:'#111111'},
       ];localStorage.setItem(key,JSON.stringify(doc));return JSON.stringify(doc)
     },key)
     for(let round=1;round<=3;round++) {
@@ -121,16 +155,33 @@ export async function runLocalMediaQa(browser, { baseUrl, fixtureDir, outputDir,
       ensure(restored.length===4&&restored.every(m=>report.savedMedia.find(v=>v.mediaFileId===m.mediaFileId)?.sha256===m.sha256),'Original changed during reload')
       if(round===2)await zoomEditor()
       const result=await exportPng('tablet-'+round)
+      checkContent(result.pixels.content)
       const rgb=(name)=>result.pixels.samples[name].join(',')
       ensure(rgb('quadRed')==='224,48,48,255'&&rgb('quadGreen')==='32,176,80,255'&&rgb('quadBlue')==='40,88,224,255','Photo quadrant mismatch')
       ensure(rgb('crop')==='32,176,80,255','Crop/rotation mismatch')
       ensure(rgb('gifRed')==='255,0,0,255'&&rgb('gifGreen')==='0,255,0,255','GIF first frame mismatch')
       ensure(rgb('outsideRotated')==='255,255,255,255'&&rgb('overlapFront')==='0,255,0,255','Rotation boundary or z-order mismatch')
-      report.cases.push({name:'tablet-'+round,restartMode:round===3?'close-and-new-tab':'reload',viewport:[1280,800],objects:4,gifs:2,restoreMs,...result})
+      report.cases.push({name:'tablet-'+round,restartMode:round===3?'close-and-new-tab':'reload',viewport:[1280,800],objects:8,gifs:2,restoreMs,...result})
       if(round>1)ensure(result.pixels.hash===report.cases[0].pixels.hash,'Output changed after replay/reload/zoom')
     }
+    const regionResult=await exportPng('content-region',true)
+    checkContent(regionResult.pixels.content)
+    ensure(await page.evaluate(key=>localStorage.getItem(key),key)===expected,'Region export changed document')
+    report.cases.push({name:'content-region',objects:8,gifs:2,region:{x:50,y:600,width:900,height:150},...regionResult})
+    // 실제 importer가 저장한 12.6MP 원본/표시본으로 높은 크롭 확대와 경고를 확인한다.
+    const highExpected=await page.evaluate(key=>{
+      const d=JSON.parse(localStorage.getItem(key));d.pages[0].objects[1].crop.zoom=20;const value=JSON.stringify(d);localStorage.setItem(key,value);return value
+    },key)
+    await page.reload();await openDiary()
+    for(const region of [false,true]){
+      const result=await exportPng(region?'highres-region':'highres-page',region)
+      checkContent(result.pixels.content);ensure(result.qualityWarning,'Missing high resolution fallback warning')
+      ensure(await page.evaluate(key=>localStorage.getItem(key),key)===highExpected,'High resolution export changed document')
+      report.cases.push({name:region?'highres-region':'highres-page',synthetic:true,inputRaster:[4096,3072],cropZoom:20,objects:8,...result})
+    }
+    await page.evaluate(({key,expected})=>localStorage.setItem(key,expected),{key,expected});await page.reload();await openDiary()
     await page.setViewportSize({width:412,height:892})
-    try {const result=await exportPng('narrow-web');report.cases.push({name:'narrow-web',viewport:[412,892],objects:4,gifs:2,...result});ensure(result.pixels.hash===report.cases[0].pixels.hash,'Viewport changed output')}
+    try {const result=await exportPng('narrow-web');checkContent(result.pixels.content);report.cases.push({name:'narrow-web',viewport:[412,892],objects:8,gifs:2,...result});ensure(result.pixels.hash===report.cases[0].pixels.hash,'Viewport changed output')}
     catch(error){report.cases.push({name:'narrow-web',status:'failed',error:error.message})}
     await page.setViewportSize({width:1280,height:800})
     // UI 오류로 모달이 남았으면 닫는다.
@@ -148,6 +199,7 @@ export async function runLocalMediaQa(browser, { baseUrl, fixtureDir, outputDir,
     const afterMedia=await readMedia()
     report.corruptBatch={documentPreserved:before===after,originalCount:afterMedia.length,persistentRetry:await page.getByRole('button',{name:'이미지 다시 선택',exact:true}).isVisible()}
     ensure(before===after&&afterMedia.length===4,'Invalid batch left partial data')
+    ensure(report.pageErrors.length===0,'Uncaught browser exception: '+report.pageErrors.join('; '))
   } catch(error) {report.fatal={message:error.message,stack:error.stack};await page.screenshot({path:path.join(outputDir,'failure.png'),fullPage:true}).catch(()=>{})}
   finally {
     await context.close()
