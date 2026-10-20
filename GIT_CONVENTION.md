@@ -30,7 +30,7 @@
 - 브랜치와 MR은 기능 하나 단위로 만든다. 같은 기능에 속한 여러 태스크는 한 브랜치에서 이어서 작업하고, MR에는 관련 태스크를 모두 적는다.
 - 기능이 모두 완성되고 검증까지 끝난 뒤에 MR을 올려 `develop`에 병합한다. 기능 일부만 끝난 상태로는 병합하지 않는다(리뷰가 필요하면 Draft MR 사용).
 - 기반 작업(저장소·공통 오류·환경 설정)은 관심사와 완료 조건으로 나눈다.
-- 풀스택 담당자도 같은 사용자 기능 안의 FE·BE 변경을 한 브랜치에서 다룰 수 있다. Jira 제목의 `[FE]`·`[BE]`는 각 태스크의 작업 영역을 나타낸다.
+- 풀스택 담당자도 같은 사용자 기능 안의 FE·BE 변경을 한 브랜치에서 다룰 수 있다. 이때 브랜치의 포지션은 주된 작업 영역으로 정한다. Jira 제목의 `[FE]`·`[BE]`는 각 태스크의 작업 영역을 나타낸다.
 - 신규 에픽 생성·parent 연결·중복 검색·담당자·SP는 `JIRA_RULES.md`를 따른다.
 
 ## 2. 브랜치
@@ -38,27 +38,27 @@
 ### 이름
 
 ```text
-<종류>/<영문-기능-이름>
+<종류>/<포지션>/<영문-기능-이름>
 ```
 
-브랜치 이름에는 기능 이름만 쓴다. Jira 키, `fe`·`be` 같은 scope 경로, 작업자 이름은 넣지 않는다.
-FE·BE 구분은 폴더와 Jira 태스크에서 확인하고, Jira 추적은 MR 제목과 본문에서 한다.
-이미 진행 중인 `feature/fe/...`, `feature/S15P31F106-...` 등 이전 형식 브랜치는 해당 MR까지 사용해도 된다.
+브랜치 이름은 종류·포지션·기능 이름 세 부분으로 쓴다. Jira 키와 작업자 이름은 넣지 않는다.
+포지션은 `fe`(frontend/), `be`(backend/)를 기본으로 하고, 그 외 작업은 `infra`(Docker·CI·배포 설정), `common`(루트 문서·여러 영역에 걸친 설정)을 쓴다. Jira 추적은 MR 제목과 본문에서 한다.
+이미 진행 중인 `feature/S15P31F106-...` 등 이전 형식 브랜치는 해당 MR까지 사용해도 된다.
 
 | 브랜치 | 시작점 | 용도 / 대상 |
 | --- | --- | --- |
 | `master` | — | 실제 배포 가능한 버전 |
 | `develop` | — | 다음 배포에 포함할 개발 통합 |
-| `feature/image-import` | 최신 `develop` | 기능 추가 → `develop` |
-| `fix/missing-media` | 최신 `develop` | 결함 수정 → `develop` |
-| `refactor/media-service` | 최신 `develop` | 동작 변화 없는 구조 개선 → `develop` |
-| `docs/git-convention` | 최신 `develop` | 문서만 변경 → `develop` |
-| `chore/project-config` | 최신 `develop` | 설정·의존성 작업 → `develop` |
+| `feature/fe/image-import` | 최신 `develop` | 기능 추가 → `develop` |
+| `fix/fe/missing-media` | 최신 `develop` | 결함 수정 → `develop` |
+| `refactor/be/media-service` | 최신 `develop` | 동작 변화 없는 구조 개선 → `develop` |
+| `docs/common/git-convention` | 최신 `develop` | 문서만 변경 → `develop` |
+| `chore/infra/project-config` | 최신 `develop` | 설정·의존성 작업 → `develop` |
 | `release/v1.0.0` | 최신 `develop` | 릴리스 준비 → `master`, 변경을 `develop`에도 반영 |
-| `hotfix/image-open-error` | 최신 `master` | 운영 긴급 수정 → `master`, 변경을 `develop`에도 반영 |
+| `hotfix/fe/image-open-error` | 최신 `master` | 운영 긴급 수정 → `master`, 변경을 `develop`에도 반영 |
 
 - 기능 브랜치는 `feat/` 대신 `feature/`를 사용한다.
-- 기능 이름은 영어 소문자·숫자·하이픈으로 짧게 쓴다. 예: `feature/diary-landing`, `feature/pdf-export`
+- 기능 이름은 영어 소문자·숫자·하이픈으로 짧게 쓴다. 예: `feature/fe/diary-landing`, `feature/be/diary-api`
 - 같은 기능의 후속 태스크를 위해 새 브랜치를 만들지 않는다. 기능 브랜치가 남아 있으면 그 브랜치에서 이어서 작업한다.
 - 브랜치 이름에 Jira 키를 넣지 않아도 Jira 이슈 없는 작업은 하지 않는다. 일반 문서·설정 변경도 태스크로 관리한다.
 - `master`, `develop`에는 직접 커밋·푸시하지 않는다.
@@ -70,7 +70,7 @@ FE·BE 구분은 폴더와 Jira 태스크에서 확인하고, Jira 추적은 MR 
 ```sh
 git switch develop
 git pull --ff-only origin develop
-git switch -c feature/image-import
+git switch -c feature/fe/image-import
 ```
 
 작업 도중 최신 통합 내용을 반영할 때:

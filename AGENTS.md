@@ -34,7 +34,7 @@
 - Git 명령을 실행하기 전에는 최신 `GIT_CONVENTION.md`를 다시 확인합니다.
 
 핵심 요약:
-- `master`, `develop`에 직접 커밋/푸시 금지. 새 작업 브랜치는 Jira 키 없이 기능 이름만 쓰는 `feature/기능-이름`, `fix/...`, `refactor/...`, `docs/...`, `chore/...` 형식입니다. 진행 중인 이전 형식 브랜치는 해당 MR까지 유지할 수 있습니다.
+- `master`, `develop`에 직접 커밋/푸시 금지. 새 작업 브랜치는 Jira 키 없이 `종류/포지션/기능-이름` 형식입니다(예: `feature/fe/diary-landing`, `fix/be/...`). 포지션은 `fe`·`be`, 그 외는 `infra`·`common`을 씁니다. 진행 중인 이전 형식 브랜치는 해당 MR까지 유지할 수 있습니다.
 - Jira의 에픽→태스크 구조와 태스크당 최대 3시간 규칙을 따릅니다. 브랜치·MR은 기능 하나 단위이며, 같은 기능의 태스크는 한 브랜치에서 이어서 작업하고 기능이 모두 완성되면 MR을 올려 병합합니다.
 - 커밋은 `type(scope): 한국어 설명` 형식입니다. type은 `feat/fix/docs/style/refactor/test/chore/build/ci/perf/merge/revert`를 사용합니다. scope는 선택 사항입니다.
 - 일반 커밋에는 Jira 키를 반복하지 않고 MR 제목에 실제 `S15P31F106-번호`를 씁니다. 최종 Squash 메시지는 MR 제목과 맞춥니다.
