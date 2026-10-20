@@ -36,6 +36,8 @@
 | [export-menu-pdf-ui.md](./export-menu-pdf-ui.md) | 111 공유 메뉴·페이지 선택·PDF 생성 연결 및 검증 |
 | [region-selection-ui.md](./region-selection-ui.md) | 116 내보내기 영역 드래그·이동·크기 조절 및 검증 |
 | [region-presets-ui.md](./region-presets-ui.md) | 117 내보내기 영역 비율·출력 프리셋 및 검증 |
+| [region-png-export.md](./region-png-export.md) | 118 선택 영역 스냅샷·클리핑·PNG 생성·저장 연결 및 검증 |
+| [region-png-qa.md](./region-png-qa.md) | 119 영역 PNG QA 재현 명령·픽셀·회귀·실기기 미검증 항목 |
 | (예정) requirements.md | 기능 요구사항 |
 | (예정) api.md | API 명세 |
 | (예정) erd.md | DB 설계 |
