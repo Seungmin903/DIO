@@ -34,6 +34,14 @@
           "isAccessMediaLocationEnabled": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b8670a89-0b9a-4d1f-8d98-ef421e8f5c47"
+      }
+    },
+    "android": {
+      "package": "com.f106.DIO"
+    }
   }
 }
