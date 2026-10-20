@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { Modal, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../shared/theme'
-import { PAGE_WIDTH, PAGE_HEIGHT } from '../constants'
+import { pageSize as readPageSize } from '../utils/pageGeometry.js'
 import StaticPage from './canvas/StaticPage'
 import RegionOverlay from './RegionOverlay'
 import { ExportButton } from './ExportMenu'
 import { REGION_PRESETS, fitRegionPreset, regionOutput, regionPublishWarning, validRegion } from '../utils/regionGeometry.js'
-const pageSize = {
-  width: PAGE_WIDTH,
-  height: PAGE_HEIGHT
-}
 export default function RegionExportSelector({
   page,
   onCancel,
   onConfirm
 }) {
+  const pageSize = readPageSize(page)
+  const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize
   const [region, setRegion] = useState({
       x: 0,
       y: 0,

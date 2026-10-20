@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../shared/theme'
-import { PAGE_WIDTH, PAGE_HEIGHT } from '../constants'
+import { pageSize } from '../utils/pageGeometry.js'
 import PdfGeneration, { PdfGeneratedPreview } from './PdfGeneration'
 import { createMenuPdfSnapshot, menuPdfPolicy, pdfMenuFailure } from '../utils/pdfMenu.js'
 import StaticPage from './canvas/StaticPage'
@@ -21,7 +21,8 @@ export default function ExportMenu({ doc, currentId, onClose, onRegion, onPng })
   const [job, setJob] = useState({ status: 'idle' }), gate = useRef(false)
   const [attempt, setAttempt] = useState(0)
   const resultRef = useRef(null)
-  const policy = menuPdfPolicy(doc, { width: PAGE_WIDTH, height: PAGE_HEIGHT })
+  const exportDoc = useMemo(() => ({ ...doc, pages: doc.pages.map(page => ({ ...page, canvasWidth: pageSize(page).width, canvasHeight: pageSize(page).height })) }), [doc])
+  const policy = menuPdfPolicy(exportDoc, pageSize(doc.pages.find(page => page.id === currentId)))
   const maxPages = policy.maxPages
   const request = useRef(null)
   const selectionKey = JSON.stringify([mode, currentId, selected, from, to, format, key])
@@ -52,7 +53,7 @@ export default function ExportMenu({ doc, currentId, onClose, onRegion, onPng })
     if (!retry && format === 'png') { gate.current = true; onPng(ids[0]); return }
     try {
       if (!retry) request.current = null
-      if (!retry) request.current = createMenuPdfSnapshot(doc, { mode, currentId, selectedIds: selected, from, to }, { width: PAGE_WIDTH, height: PAGE_HEIGHT })
+      if (!retry) request.current = createMenuPdfSnapshot(exportDoc, { mode, currentId, selectedIds: selected, from, to }, pageSize(doc.pages.find(page => page.id === currentId)))
       if (!request.current) throw new Error('대상 페이지를 다시 선택해 주세요.')
       resetResult()
       gate.current = true
@@ -87,7 +88,7 @@ export default function ExportMenu({ doc, currentId, onClose, onRegion, onPng })
             <View style={styles.row}><ExportButton title="전체 선택" disabled={busy || !policy.enabled} onPress={() => setSelected(doc.pages.map((p) => p.id))} /><ExportButton title="전체 해제" disabled={busy} onPress={() => setSelected([])} /></View>
             {!policy.enabled && <Text style={styles.hint}>{policy.reason}</Text>}
             <View style={styles.tiles}>{doc.pages.map((page, index) => <Pressable key={page.id} accessibilityRole="checkbox" accessibilityLabel={`${index + 1}페이지 선택`} accessibilityState={{ checked: selected.includes(page.id), disabled: busy || (!selected.includes(page.id) && selected.length >= maxPages) }} disabled={busy || (!selected.includes(page.id) && selected.length >= maxPages)} onPress={() => setSelected((ids) => ids.includes(page.id) ? ids.filter((id) => id !== page.id) : [...ids, page.id])} style={[styles.tile, selected.includes(page.id) && styles.selected]}>
-              <StaticPage page={page} zoom={112 / PAGE_WIDTH} still /><Text style={styles.text}>{selected.includes(page.id) ? '✓ ' : ''}{index + 1}페이지</Text>
+              <StaticPage page={page} zoom={112 / pageSize(page).width} still /><Text style={styles.text}>{selected.includes(page.id) ? '✓ ' : ''}{index + 1}페이지</Text>
             </Pressable>)}</View>
           </>}
           {mode === 'range' && <View style={styles.row}><Text style={styles.text}>시작</Text><TextInput accessibilityLabel="시작 페이지" value={from} editable={!busy} keyboardType="number-pad" onChangeText={setFrom} style={styles.input} /><Text style={styles.text}>끝</Text><TextInput accessibilityLabel="끝 페이지" value={to} editable={!busy} keyboardType="number-pad" onChangeText={setTo} style={styles.input} /></View>}

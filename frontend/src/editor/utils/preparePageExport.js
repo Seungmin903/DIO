@@ -1,4 +1,5 @@
 import { Asset } from 'expo-asset'
+import { loadTemplate } from '../templates/loadTemplate'
 import { mediaService } from '../services/mediaStore'
 import { mediaId } from './mediaReferences.js'
 import { STICKER_ASSETS } from '../stickerAssets'
@@ -24,5 +25,5 @@ export function preparePageExport(snapshot) {
       const resource = await exportImage(selectExportRaster(input, usages, snapshot))
       return { ...resource, dispose() { try { resource.dispose?.() } finally { input.dispose?.() } } }
     } catch (error) { input.dispose?.(); throw error }
-  })
+  }, loadTemplate)
 }

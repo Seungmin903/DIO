@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
-import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
+import { pageSize } from '../../utils/pageGeometry.js'
+import PageBackground from '../PageBackground'
 import ObjectContent, { objectOpacity } from './ObjectView'
 
 /**
@@ -10,12 +11,14 @@ import ObjectContent, { objectOpacity } from './ObjectView'
  * - cropId: 자르는 중인 사진. 나머지 요소는 흐리게, 자르는 사진에는 테두리를 둘러 편집 화면과 똑같이 보여 준다.
  * - background: 편집 화면은 페이지 바탕을 Canvas 가 따로 그려서 투명으로 둔다.
  */
-export default function StaticPage({ page, zoom, still = false, cropId = null, background = '#FFFFFF' }) {
+export default function StaticPage({ page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true }) {
+  const { width, height } = pageSize(page)
   return (
     <View
-      style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom, backgroundColor: background }]}
+      style={[styles.page, { width: width * zoom, height: height * zoom, backgroundColor: background }]}
       pointerEvents="none"
     >
+      {showBackground && <PageBackground page={page} zoom={zoom} compact />}
       {page.objects
         .filter((object) => !object.hidden)
         .map((object) => (

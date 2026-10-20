@@ -24,12 +24,15 @@ import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
 import TopBar from '../components/chrome/TopBar'
 import Viewport from '../components/canvas/Viewport'
-import { PAGE_HEIGHT, PAGE_WIDTH, ZOOM_MAX, ZOOM_MIN } from '../constants'
+import { ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId } from '../utils/common'
 import { pickImages } from '../services/image'
 import { createObjectFromDecor } from '../utils/objects'
+
+import TemplatePicker from '../components/TemplatePicker'
+import { pageSize } from '../utils/pageGeometry.js'
 
 const TOAST_MS = 2000
 const ZOOM_HUD_MS = 900
@@ -40,6 +43,8 @@ const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport }) {
   const { state, dispatch, saveStatus } = useEditor(diary)
   const page = getCurrentPage(state)
+  const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
   const [exportSnapshot, setExportSnapshot] = useState(null)
   const [exportOpen, setExportOpen] = useState(false)
@@ -70,6 +75,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     if (cropId) dispatch({ type: 'revertToCheckpoint' })
     setCropId(null)
     setTapeCropId(null)
+    setTemplatePickerOpen(false)
     setDrawerTab(null)
     setTextEditing(null)
     setPenSettingsOpen(false)
@@ -88,7 +94,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     : 0.6
   const zoom = fitZoom * view.scale
   const fitted = view.scale === 1 && view.x == null
-  const offset = view.x == null ? centeredOffset(stageSize, zoom) : { x: view.x, y: view.y }
+  const offset = view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT) : { x: view.x, y: view.y }
 
   // 페이지가 화면 밖으로 다 사라지지 않게 가장자리 80px 은 남긴다.
   const clampOffset = (next, z) => {
@@ -359,11 +365,12 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       {exportOpen && <ExportMenu doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => {
         const target = state.doc.pages.find((p) => p.id === id)
         setExportOpen(false)
-        try { setExportSnapshot({ ...createExportSnapshot(target, { width: PAGE_WIDTH, height: PAGE_HEIGHT }), fileName: pngFileName(state.doc.title, state.doc.pages.findIndex((p) => p.id === id) + 1) }) }
+        try { setExportSnapshot({ ...createExportSnapshot(target), fileName: pngFileName(state.doc.title, state.doc.pages.findIndex((p) => p.id === id) + 1) }) }
         catch (error) { setExportSnapshot({ errorMessage: error.message }) }
       }} />}
       {regionOpen && <RegionExportSelector page={page} onCancel={() => { setRegionOpen(false); setExportOpen(true) }} />}
       {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onClose={() => setExportSnapshot(null)} />}
+      {templatePickerOpen && !readOnly && <TemplatePicker onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={styles.body}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
@@ -380,7 +387,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               if (cropId) finishCrop(false)
               dispatch({ type: 'selectPage', id })
             }}
-            onAdd={() => dispatch({ type: 'addPage' })}
+            onAdd={() => { if (cropId) finishCrop(false); setTemplatePickerOpen(true) }}
             onRemove={(id) => {
               dispatch({ type: 'removePage', id })
               showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.')
@@ -543,12 +550,12 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 }
 
 /** 화면에 맞춤 위치: 리본바·하단 컨트롤 여백을 뺀 영역의 가운데 */
-function centeredOffset(stageSize, zoom) {
+function centeredOffset(stageSize, zoom, pageWidth, pageHeight) {
   if (!stageSize) return { x: STAGE_PADDING.side, y: STAGE_PADDING.top }
   const available = stageSize.height - STAGE_PADDING.top - STAGE_PADDING.bottom
   return {
-    x: (stageSize.width - PAGE_WIDTH * zoom) / 2,
-    y: STAGE_PADDING.top + (available - PAGE_HEIGHT * zoom) / 2,
+    x: (stageSize.width - pageWidth * zoom) / 2,
+    y: STAGE_PADDING.top + (available - pageHeight * zoom) / 2,
   }
 }
 

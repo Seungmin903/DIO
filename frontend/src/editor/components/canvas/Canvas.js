@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../../shared/theme'
-import { PAGE_HEIGHT, PAGE_WIDTH, PHOTO_SHAPES } from '../../constants'
+import { PHOTO_SHAPES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
 import { expandGroups } from '../../state/editorReducer'
 import { centerOf, clamp, rotateVector, unionBounds } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
 import { coverLayout, photoInnerBox } from '../../utils/objects'
+import { pageSize } from '../../utils/pageGeometry.js'
+import PageBackground from '../PageBackground'
 import ContextBar from './ContextBar'
 import CropHandles from './CropHandles'
 import StaticPage from './StaticPage'
@@ -55,6 +57,7 @@ export default function Canvas({
   onCancelText,
   readOnly = false,
 }) {
+  const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   const canSelect = !readOnly && activeTool === 'select' && !textEditing
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
@@ -127,12 +130,13 @@ export default function Canvas({
       style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect ? backgroundHandlers : {})}
     >
+      <PageBackground page={page} zoom={zoom} />
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <StaticPage page={page} zoom={zoom} cropId={cropId} background="transparent" />
+        <StaticPage page={page} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} />
       </View>
       {/* 터치 층: 요소마다 같은 자리에 투명한 상자를 두고 선택·이동을 받는다. */}
       <View style={styles.hitLayer} pointerEvents={canSelect ? 'box-none' : 'none'}>
@@ -140,6 +144,8 @@ export default function Canvas({
           <CanvasObject
             key={object.id}
             object={object}
+            pageWidth={PAGE_WIDTH}
+            pageHeight={PAGE_HEIGHT}
             objects={page.objects}
             zoom={zoom}
             selectedIds={selectedIds}
@@ -156,7 +162,7 @@ export default function Canvas({
       {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
           {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
-          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
+          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
         </View>
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} onCreate={onCreateText} />}
@@ -219,6 +225,8 @@ export default function Canvas({
           key={selectedIds.join(',')}
           objects={selected}
           allObjects={page.objects}
+          pageWidth={PAGE_WIDTH}
+          pageHeight={PAGE_HEIGHT}
           zoom={zoom}
           dispatch={dispatch}
           moreOpen={moreOpen}
@@ -343,7 +351,7 @@ function containsPoint(object, point) {
   return Math.abs(local.x) <= object.w / 2 && Math.abs(local.y) <= object.h / 2
 }
 
-function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onEditText }) {
+function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onEditText }) {
   const gesture = useRef(null)
 
   const panHandlers = usePan({
