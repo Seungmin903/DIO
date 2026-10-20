@@ -24,6 +24,7 @@
 | [api.md](./api.md) | REST·WebSocket API 초안 — 인증, 다이어리, 미디어, 캔버스, 사용자별 undo/redo, 알림함 |
 | [prototypes/dakku-mvp1-palette-applied.html](./prototypes/dakku-mvp1-palette-applied.html) | MVP1 팔레트·범위 적용본 인터랙티브 목업 |
 | [export-menu-pdf-ui.md](./export-menu-pdf-ui.md) | 111 공유 메뉴·페이지 선택·PDF 생성 연결 및 검증 |
+| [region-selection-ui.md](./region-selection-ui.md) | 116 내보내기 영역 드래그·이동·크기 조절 및 검증 |
 | (예정) requirements.md | 기능 요구사항 |
 | (예정) api.md | API 명세 |
 | (예정) erd.md | DB 설계 |

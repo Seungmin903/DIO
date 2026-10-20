@@ -3,6 +3,7 @@ import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-nat
 import { colors, shadow } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
+import RegionExportSelector from '../components/RegionExportSelector'
 import ExportMenu from '../components/ExportMenu'
 import PageExportPreview from '../components/PageExportPreview'
 import { createExportSnapshot } from '../utils/pageExport.js'
@@ -41,6 +42,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
   const [exportSnapshot, setExportSnapshot] = useState(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [regionOpen, setRegionOpen] = useState(false)
   const [stageSize, setStageSize] = useState(null)
   // scale: 화면에 맞춤 대비 배율, x·y: 페이지 왼쪽 위 위치 (null 이면 가운데)
   const [view, setView] = useState({ scale: 1, x: null, y: null })
@@ -220,7 +222,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
   // 웹(키보드)에서의 단축키
   useEffect(() => {
-    if (Platform.OS !== 'web' || readOnly || exportOpen || activeTool !== 'select') return undefined
+    if (Platform.OS !== 'web' || readOnly || exportOpen || regionOpen || activeTool !== 'select') return undefined
     const handleKey = (event) => {
       const target = event.target
       if (target?.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target?.tagName)) return
@@ -350,12 +352,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         }}
       />
 
-      {exportOpen && <ExportMenu doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport} onPng={(id) => {
+      {exportOpen && <ExportMenu doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => {
         const target = state.doc.pages.find((p) => p.id === id)
         setExportOpen(false)
         try { setExportSnapshot({ ...createExportSnapshot(target, { width: PAGE_WIDTH, height: PAGE_HEIGHT }), fileName: pngFileName(state.doc.title, state.doc.pages.findIndex((p) => p.id === id) + 1) }) }
         catch (error) { setExportSnapshot({ errorMessage: error.message }) }
       }} />}
+      {regionOpen && <RegionExportSelector page={page} onCancel={() => { setRegionOpen(false); setExportOpen(true) }} />}
       {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onClose={() => setExportSnapshot(null)} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={styles.body}>
