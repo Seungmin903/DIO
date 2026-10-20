@@ -15,7 +15,9 @@ public class DiaryService {
 	private final DiaryQueryService queryService;
 	private final DiaryModificationService modificationService;
 
-	public DiaryService(DiaryCreationService creationService, DiaryQueryService queryService, DiaryModificationService modificationService) {
+	public DiaryService(DiaryCreationService creationService,
+		DiaryQueryService queryService,
+		DiaryModificationService modificationService) {
 		this.creationService = creationService;
 		this.queryService = queryService;
 		this.modificationService = modificationService;
@@ -35,5 +37,9 @@ public class DiaryService {
 
 	public DiaryResponse updateDiary(Long diaryId, DiaryUpdateRequest request) {
 		return modificationService.update(diaryId, request);
+	}
+
+	public void deleteDiary(Long diaryId) {
+		modificationService.delete(diaryId);
 	}
 }

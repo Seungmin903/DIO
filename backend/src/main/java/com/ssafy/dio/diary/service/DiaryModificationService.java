@@ -26,4 +26,10 @@ public class DiaryModificationService {
 		return new DiaryResponse(DiaryMapper.toData(diary));
 	}
 
+	@Transactional
+	public void delete(Long diaryId) {
+		Diary diary = diaryRepository.findById(diaryId).orElseThrow(DiaryNotFoundException::new);
+		diaryRepository.delete(diary);
+		diaryRepository.flush();
+	}
 }

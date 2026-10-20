@@ -24,7 +24,7 @@ import com.ssafy.dio.diary.service.DiaryService;
 
 @RestController
 @RequestMapping("/api/v1/diaries")
-@Tag(name = "다이어리", description = "비회원 다이어리 API")
+@Tag(name = "다이어리", description = "비회원 개발 API. local에서 다섯 API 모두 실제 DB를 사용합니다.")
 @ApiResponses({
 	@ApiResponse(responseCode = "400", description = "잘못된 요청 또는 ID", content = @Content(
 		mediaType = "application/problem+json", schema = @Schema(implementation = org.springframework.http.ProblemDetail.class)))
@@ -73,5 +73,15 @@ public class DiaryController {
 	public DiaryResponse updateDiary(@PathVariable @Positive Long diaryId,
 		@Valid @RequestBody DiaryUpdateRequest request) {
 		return diaryService.updateDiary(diaryId, request);
+	}
+
+	@DeleteMapping("/{diaryId}")
+	@Operation(summary = "다이어리 삭제", description = "해당 다이어리 행을 DB에서 실제 삭제합니다. 없는 ID 및 재삭제는 404입니다.")
+	@ApiResponse(responseCode = "204", description = "삭제 성공, 본문 없음", content = @Content)
+	@ApiResponse(responseCode = "404", description = "다이어리 없음", content = @Content(
+		mediaType = "application/problem+json", schema = @Schema(implementation = org.springframework.http.ProblemDetail.class)))
+	public ResponseEntity<Void> deleteDiary(@PathVariable @Positive Long diaryId) {
+		diaryService.deleteDiary(diaryId);
+		return ResponseEntity.noContent().build();
 	}
 }
