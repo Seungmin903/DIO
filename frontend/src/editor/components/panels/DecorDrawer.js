@@ -811,6 +811,7 @@ function EditRow({ item, hidden, dragging, offset, onToggleHidden, onDelete, onD
   )
 }
 
+/** 내 테이프 한 줄. 이름은 화면에 쓰지 않고 읽어 주기에만 쓴다 */
 function TapeRow({ name, onPress, onRemove, children }) {
   return (
     <Pressable
@@ -827,7 +828,6 @@ function TapeRow({ name, onPress, onRemove, children }) {
           </Pressable>
         )}
       </View>
-      <Text style={styles.tapeName}>{name}</Text>
     </Pressable>
   )
 }
