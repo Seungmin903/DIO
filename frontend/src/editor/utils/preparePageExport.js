@@ -1,7 +1,7 @@
 import { Asset } from 'expo-asset'
 import { mediaService } from '../services/mediaStore'
 import { mediaId } from './mediaReferences.js'
-import { STICKER_ASSETS } from '../assets/stickerAssets'
+import { STICKER_ASSETS } from '../stickerAssets'
 import { exportImage, readLegacyExportImage } from './exportImage'
 import { prepareExportSnapshot, PageExportError } from './pageExport.js'
 import { selectExportRaster } from './exportSampling.js'

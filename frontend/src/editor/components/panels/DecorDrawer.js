@@ -3,7 +3,7 @@ import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, Vi
 import { colors, radius, shadow } from '../../../shared/theme'
 import { PHOTO_STYLES, TAPE_EDGES, TAPES } from '../../constants'
 import { stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
-import { STICKER_GROUPS, stickerSource } from '../../assets/stickerAssets'
+import { STICKER_GROUPS, stickerSource } from '../../stickerAssets'
 import Svg, { Path } from 'react-native-svg'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
