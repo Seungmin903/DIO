@@ -9,7 +9,7 @@
 | JDK | 17 (Gradle toolchain이 17을 사용합니다. 설치돼 있지 않으면 빌드가 실패합니다) |
 | Node.js | 24 LTS 이상 (`frontend/.nvmrc`) |
 | pnpm | 10 이상 (모바일 프론트엔드 의존성 관리) |
-| Docker Desktop | 최신 (로컬 MySQL 용) |
+| Docker Desktop | 최신 (로컬 PostgreSQL 용) |
 
 ## 시작하기
 
@@ -22,7 +22,7 @@ git switch develop
 cp .env.example .env
 
 # 2) DB 실행 (Docker Desktop 켜둔 상태에서)
-docker compose up -d
+docker compose up -d --wait postgres
 
 # 3) 백엔드 실행 → http://localhost:8080/api/health
 cd backend
@@ -41,6 +41,7 @@ pnpm android             # Android 에뮬레이터 또는 연결된 Android 기�
 - 모바일 환경에서는 `/api` 같은 상대 경로를 사용할 수 없습니다. `EXPO_PUBLIC_API_BASE_URL`에 API 전체 주소를 설정하세요. Android 에뮬레이터에서는 `http://10.0.2.2:8080/api`, 실제 기기에서는 개발 PC의 LAN IP를 사용합니다.
 - IntelliJ에서는 `backend/` 폴더를 Gradle 프로젝트로 열고, Project SDK를 17로 지정하세요.
 - 백엔드 테스트(`./gradlew test`)는 H2 인메모리 DB를 사용하므로 Docker 없이도 실행됩니다.
+- PostgreSQL 설정·연결 확인은 [로컬 DB 안내](docs/local-postgresql.md)를 참고하세요. Swagger는 http://localhost:8080/swagger-ui.html 에서 확인합니다.
 
 ## 폴더 구조
 
@@ -49,7 +50,7 @@ S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
 ├── frontend/            # 모바일 프론트엔드 (Expo + React Native)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
-├── docker-compose.yml   # 로컬 개발용 MySQL
+├── docker-compose.yml   # 로컬 개발용 PostgreSQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)
 ├── README.md
 ├── AGENTS.md            # AI 에이전트 공통 지침
