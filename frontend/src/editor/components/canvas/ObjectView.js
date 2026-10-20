@@ -10,7 +10,7 @@ import { coverLayout, photoInnerBox } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
-import StrokeContent from '../StrokeContent'
+import { strokePath } from '../../utils/strokes'
 
 /**
  * 오브젝트 하나의 생김새. 위치·회전·투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
