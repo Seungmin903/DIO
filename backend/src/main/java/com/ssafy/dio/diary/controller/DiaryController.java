@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import com.ssafy.dio.diary.dto.DiaryCreateRequest;
 import com.ssafy.dio.diary.dto.DiaryCreateResponse;
 import com.ssafy.dio.diary.dto.DiaryListResponse;
+import com.ssafy.dio.diary.dto.DiaryResponse;
 import com.ssafy.dio.diary.service.DiaryService;
 
 @RestController
@@ -50,5 +51,15 @@ public class DiaryController {
 		mediaType = "application/json", schema = @Schema(implementation = DiaryListResponse.class)))
 	public DiaryListResponse getDiaries() {
 		return diaryService.getDiaries();
+	}
+
+	@GetMapping("/{diaryId}")
+	@Operation(summary = "다이어리 상세 조회", description = "ID에 해당하는 저장된 다이어리를 조회합니다. 현재 기기별·사용자별 구분은 없습니다.")
+	@ApiResponse(responseCode = "200", description = "다이어리 상세 조회 성공 (local 프로필)", content = @Content(
+		mediaType = "application/json", schema = @Schema(implementation = DiaryResponse.class)))
+	@ApiResponse(responseCode = "404", description = "다이어리 없음", content = @Content(
+		mediaType = "application/problem+json", schema = @Schema(implementation = org.springframework.http.ProblemDetail.class)))
+	public DiaryResponse getDiary(@PathVariable @Positive Long diaryId) {
+		return diaryService.getDiary(diaryId);
 	}
 }

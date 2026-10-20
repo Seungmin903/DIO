@@ -11,6 +11,14 @@ import com.ssafy.dio.diary.controller.DiaryController;
 @RestControllerAdvice(assignableTypes = DiaryController.class)
 public class DiaryExceptionHandler extends ResponseEntityExceptionHandler {
 
+	@ExceptionHandler(DiaryNotFoundException.class)
+	public ProblemDetail handleNotFound(DiaryNotFoundException exception) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+		problem.setTitle("Diary not found");
+		problem.setProperty("code", "DIARY_NOT_FOUND");
+		return problem;
+	}
+
 	@ExceptionHandler(InvalidDiaryFormatException.class)
 	public ProblemDetail handleInvalidFormat(InvalidDiaryFormatException exception) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());

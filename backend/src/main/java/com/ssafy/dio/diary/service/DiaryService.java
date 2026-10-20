@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import com.ssafy.dio.diary.dto.DiaryCreateRequest;
 import com.ssafy.dio.diary.dto.DiaryCreateResponse;
 import com.ssafy.dio.diary.dto.DiaryListResponse;
+import com.ssafy.dio.diary.dto.DiaryResponse;
 
 @Service
 public class DiaryService {
@@ -23,5 +24,9 @@ public class DiaryService {
 
 	public DiaryListResponse getDiaries() {
 		return queryService.list();
+	}
+
+	public DiaryResponse getDiary(Long diaryId) {
+		return queryService.detail(diaryId);
 	}
 }

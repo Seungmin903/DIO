@@ -61,6 +61,12 @@ class DiaryValidationTests {
 			.content(VALID_REQUEST.replace("여행 일기", "a".repeat(101)))).andExpect(status().isBadRequest());
 	}
 
+	@ParameterizedTest
+	@ValueSource(strings = {"0", "-1", "abc", "9223372036854775808"})
+	void invalidIdIsRejected(String id) throws Exception {
+		mvc.perform(get("/api/v1/diaries/" + id)).andExpect(status().isBadRequest());
+	}
+
 	@Test
 	void malformedJsonIsRejected() throws Exception {
 		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON).content("{"))

@@ -4,7 +4,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ssafy.dio.diary.dto.DiaryListResponse;
+import com.ssafy.dio.diary.dto.DiaryResponse;
 import com.ssafy.dio.diary.repository.DiaryRepository;
+import com.ssafy.dio.diary.support.DiaryNotFoundException;
 
 @Service
 public class DiaryQueryService {
@@ -21,4 +23,9 @@ public class DiaryQueryService {
 			.stream().map(DiaryMapper::toData).toList());
 	}
 
+	@Transactional(readOnly = true)
+	public DiaryResponse detail(Long diaryId) {
+		return new DiaryResponse(DiaryMapper.toData(diaryRepository.findById(diaryId)
+			.orElseThrow(DiaryNotFoundException::new)));
+	}
 }
