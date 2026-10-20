@@ -23,9 +23,9 @@ Android 기기·에뮬레이터는 `pnpm android`, 웹은 `pnpm web`으로 실�
 ```text
 frontend/
 ├── App.js                         # 앱 진입점, 화면 전환·공통 상태
+├── assets/                         # 앱 번들에 포함되는 이미지·GIF·라이선스
+│   └── stickers/                   # 기본 스티커 원본 파일
 └── src/
-    ├── assets/                    # 앱 번들에 포함되는 이미지·GIF·라이선스
-    │   └── stickers/              # 기본 스티커 원본 파일
     ├── shared/                    # 모든 기능에서 재사용하는 기반 코드
     │   ├── layout.js               # 16:10 태블릿 프레임 계산
     │   └── theme.js                # 에디터 공통 색상·모서리·그림자 토큰

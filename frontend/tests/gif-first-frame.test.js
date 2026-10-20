@@ -67,7 +67,7 @@ test('웹 출력은 정지 PNG URL을 만들고 해제하며 원본은 그대로
 })
 
 test('배포 기본 GIF 스티커 전체의 첫 프레임을 PNG로 변환한다', async () => {
-  const directory = new URL('../src/assets/stickers/noto/', import.meta.url)
+  const directory = new URL('../assets/stickers/noto/', import.meta.url)
   const files = (await readdir(directory)).filter((name) => name.endsWith('.gif'))
   assert.ok(files.length >= 36)
   for (const name of files) {
