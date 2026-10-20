@@ -14,13 +14,49 @@ export const C = {
   yellow: '#EDCF70',
 };
 
+// 새 다이어리 표지 색상. 기존 다이어리에 저장된 색은 이 목록에 없어도 그대로 표시한다.
 export const COLORS = [
-  { label: '하늘', value: C.blue },
-  { label: '민트', value: C.green },
-  { label: '살구', value: C.coral },
-  { label: '라일락', value: C.violet },
-  { label: '레몬', value: C.yellow },
+  { label: '세이지', value: '#A9BFA6' },
+  { label: '로즈', value: '#F0B0AA' },
+  { label: '페리윙클', value: '#9DABD8' },
+  { label: '머스터드', value: '#EBC56F' },
+  { label: '라벤더', value: '#C3AEDD' },
+  { label: '차콜', value: '#474F55' },
+  { label: '카멜', value: '#D9A87F' },
+  { label: '크림', value: '#EAE3D4' },
 ];
+
+export const COVER_PATTERNS = [
+  { id: 'linen', label: '린넨' },
+  { id: 'leather', label: '레더' },
+  { id: 'dot', label: '도트' },
+  { id: 'gingham', label: '깅엄' },
+  { id: 'stripe', label: '스트라이프' },
+];
+
+// 페이지 크기는 만든 뒤에 바꿀 수 없다.
+export const PAGE_SIZES = [
+  { id: 'landscape', label: '가로형' },
+  { id: 'portrait', label: '세로형' },
+];
+
+// 첫 페이지 서식. 지금은 선택값만 저장하고, 편집기 속지가 준비되면 첫 페이지에 반영한다.
+export const FIRST_PAGES = [
+  { id: 'monthly', label: '먼슬리' },
+  { id: 'weekly', label: '위클리' },
+  { id: 'blank', label: '무지' },
+  { id: 'lined', label: '줄노트' },
+  { id: 'grid', label: '모눈' },
+  { id: 'dot', label: '도트' },
+];
+
+export const DIARY_DEFAULTS = {
+  title: '새 다이어리',
+  color: '#9DABD8',
+  pattern: 'linen',
+  pageSize: 'landscape',
+  firstPage: 'blank',
+};
 
 export const FILTERS = [
   { id: 'all', label: '전체' },

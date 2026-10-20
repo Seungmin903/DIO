@@ -15,14 +15,14 @@ test('저장된 목록은 잘못된 항목과 중복 ID를 버리고 기본값�
   ]);
   assert.deepEqual(list.map((d) => d.id), ['a', 'c']);
   assert.equal(list[0].type, '공유');
-  assert.deepEqual(list[1], { id: 'c', title: '일기', color: '#CED9EE', type: '개인', favorite: false, updatedAt: null });
+  assert.deepEqual(list[1], { id: 'c', title: '일기', color: '#CED9EE', type: '개인', favorite: false, updatedAt: null, pattern: null, pageSize: 'landscape', firstPage: 'blank' });
   assert.deepEqual(normalizeDiaries({ not: 'array' }), []);
   assert.deepEqual(normalizeDiaries(undefined), []);
 });
 
 test('편집 문서만 남은 다이어리를 목록 뒤에 되살린다', () => {
   const doc = (title, coverColor) => JSON.stringify({ id: 'x', title, coverColor, pages: [{ id: 'p', objects: [] }] });
-  const list = [{ id: 'kept', title: '기존', color: '#000000', type: '개인', favorite: false, updatedAt: null }];
+  const list = [{ id: 'kept', title: '기존', color: '#000000', type: '개인', favorite: false, updatedAt: null, pattern: null, pageSize: 'landscape', firstPage: 'blank' }];
   const result = recoverOrphanDiaries(list, [
     [`${PREFIX}:kept`, doc('기존 문서', '#000000')],
     [`${PREFIX}:orphan`, doc('남은 문서', '#ABCDEF')],
@@ -32,7 +32,7 @@ test('편집 문서만 남은 다이어리를 목록 뒤에 되살린다', () =>
     ['dio:editor:custom-decor:v2', '[]'],
   ], PREFIX);
   assert.deepEqual(result.map((d) => d.id), ['kept', 'orphan']);
-  assert.deepEqual(result[1], { id: 'orphan', title: '남은 문서', color: '#ABCDEF', type: '개인', favorite: false, updatedAt: null });
+  assert.deepEqual(result[1], { id: 'orphan', title: '남은 문서', color: '#ABCDEF', type: '개인', favorite: false, updatedAt: null, pattern: null, pageSize: 'landscape', firstPage: 'blank' });
   // 되살릴 것이 없으면 같은 배열을 그대로 돌려준다.
   assert.equal(recoverOrphanDiaries(list, [], PREFIX), list);
 });
@@ -59,4 +59,13 @@ test('다이어리는 먼저 만든 순서대로 정렬하고 ID 형식이 다�
     { id: 'diary-200' },
   ]);
   assert.deepEqual(sorted.map((d) => d.id), ['legacy-a', 'legacy-b', 'diary-100', 'diary-200', 'diary-300']);
+});
+
+test('표지 무늬·페이지 크기·첫 페이지 서식은 허용된 값만 남기고 나머지는 기본값을 쓴다', () => {
+  const [valid, invalid] = normalizeDiaries([
+    { id: 'a', title: '봄', pattern: 'gingham', pageSize: 'portrait', firstPage: 'monthly' },
+    { id: 'b', title: '여름', pattern: 'plaid', pageSize: 'square', firstPage: 'calendar' },
+  ]);
+  assert.deepEqual([valid.pattern, valid.pageSize, valid.firstPage], ['gingham', 'portrait', 'monthly']);
+  assert.deepEqual([invalid.pattern, invalid.pageSize, invalid.firstPage], [null, 'landscape', 'blank']);
 });

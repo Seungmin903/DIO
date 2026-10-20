@@ -1,8 +1,17 @@
 // 다이어리 목록 저장 형식. React/저장소를 모르는 순수 함수만 둔다.
+import { COVER_PATTERNS, FIRST_PAGES, PAGE_SIZES } from '../constants.js';
 
 const DEFAULT_COLOR = '#CED9EE';
 
 const isText = (value) => typeof value === 'string' && value.trim().length > 0;
+const oneOf = (options, value, fallback) => (options.some((option) => option.id === value) ? value : fallback);
+
+// 표지 무늬가 없던 이전 다이어리는 무늬 없이(null) 그대로 둔다.
+const coverOptions = (item) => ({
+  pattern: oneOf(COVER_PATTERNS, item.pattern, null),
+  pageSize: oneOf(PAGE_SIZES, item.pageSize, 'landscape'),
+  firstPage: oneOf(FIRST_PAGES, item.firstPage, 'blank'),
+});
 
 /** 저장소에서 읽은 값을 화면에서 쓸 수 있는 목록으로 정리한다. 잘못된 항목과 중복 ID는 버린다. */
 export function normalizeDiaries(raw) {
@@ -18,6 +27,7 @@ export function normalizeDiaries(raw) {
       type: item.type === '공유' ? '공유' : '개인',
       favorite: item.favorite === true,
       updatedAt: isText(item.updatedAt) ? item.updatedAt : null,
+      ...coverOptions(item),
     }];
   });
 }
@@ -52,6 +62,7 @@ export function recoverOrphanDiaries(diaries, docEntries, docKeyPrefix) {
       type: '개인',
       favorite: false,
       updatedAt: null,
+      ...coverOptions({}),
     });
   }
   return recovered.length ? [...diaries, ...recovered] : diaries;

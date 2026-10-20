@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { C } from '../constants';
@@ -7,7 +7,7 @@ import { styles as s } from '../styles';
 const RAIL_WIDTH = { collapsed: 78, expanded: 218 };
 const RAIL_PADDING = { collapsed: 15, expanded: 20 };
 
-export default function SideRail({ page, filter, navigate, create, bottomInset, collapsed, onToggle }) {
+function SideRail({ page, filter, navigate, create, bottomInset, collapsed, onToggle }) {
   // 0 = 접힘, 1 = 펼침. 너비·여백·글자 투명도를 한 값으로 함께 움직인다.
   const progress = useRef(new Animated.Value(collapsed ? 0 : 1)).current;
 
@@ -96,3 +96,5 @@ export default function SideRail({ page, filter, navigate, create, bottomInset, 
     </Animated.View>
   );
 }
+
+export default memo(SideRail);
