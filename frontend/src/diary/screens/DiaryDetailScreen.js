@@ -2,6 +2,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { styles as s } from '../styles';
 import Cover from '../components/Cover';
 import IconButton from '../components/IconButton';
+import { formatUpdatedAt } from '../utils/diaryLibrary';
 
 export default function DiaryDetailScreen({ diary, onBack, onEditCover, onFavorite, onOpenEditor }) {
   return (
@@ -31,7 +32,7 @@ export default function DiaryDetailScreen({ diary, onBack, onEditCover, onFavori
           <Text style={s.detailTitle}>{diary.title}</Text>
           <Text style={s.detailCopy}>{diary.type === '공유' ? '함께 남기는 기록을 시작해 보세요.' : '나만의 순간을 페이지에 차곡차곡 남겨 보세요.'}</Text>
           <View style={s.metaRow}>
-            <Text style={s.meta}>마지막 수정 {diary.updatedAt}</Text>
+            <Text style={s.meta}>마지막 수정 {formatUpdatedAt(diary.updatedAt)}</Text>
             <View style={s.dot} />
             <Text style={s.meta}>0 페이지</Text>
           </View>

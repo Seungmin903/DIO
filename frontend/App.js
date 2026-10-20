@@ -3,6 +3,7 @@ import { StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { COLORS } from './src/diary/constants';
+import { useDiaries } from './src/diary/hooks/useDiaries';
 import SideRail from './src/diary/components/SideRail';
 import DiaryDetailScreen from './src/diary/screens/DiaryDetailScreen';
 import DiaryFormScreen from './src/diary/screens/DiaryFormScreen';
@@ -32,7 +33,7 @@ function DiaryApp() {
   const [view, setView] = useState('carousel');
   const [carousel, setCarousel] = useState(0);
   const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
-  const [diaries, setDiaries] = useState([]);
+  const { diaries, setDiaries, loaded } = useDiaries();
   const [active, setActive] = useState(null);
   const [query, setQuery] = useState('');
   const [formTitle, setFormTitle] = useState('');
@@ -85,7 +86,7 @@ function DiaryApp() {
     }
 
     if (editingId) {
-      const next = { ...active, title, color: formColor, updatedAt: '방금 전' };
+      const next = { ...active, title, color: formColor, updatedAt: new Date().toISOString() };
       setDiaries((current) => current.map((diary) => (diary.id === editingId ? next : diary)));
       setActive(next);
       setPage('detail');
@@ -98,7 +99,7 @@ function DiaryApp() {
       color: formColor,
       type: '개인',
       favorite: false,
-      updatedAt: '방금 전',
+      updatedAt: new Date().toISOString(),
     };
     setDiaries((current) => [diary, ...current]);
     setActive(diary);
@@ -125,7 +126,8 @@ function DiaryApp() {
     />
   );
 
-  let content = libraryScreen;
+  // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
+  let content = loaded ? libraryScreen : null;
   if (page === 'editor') {
     content = <EditorScreen key={active?.id || 'new'} diary={active} onHome={() => navigate('library', 'all')} />;
   } else if (page === 'search') {
