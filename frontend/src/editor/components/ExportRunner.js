@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { StyleSheet, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../shared/theme'
 import PageImageSurface from './PageImageSurface'
 import { usePageImageRenderer } from '../hooks/usePageImageRenderer'
@@ -21,6 +21,7 @@ const savedMessage = (outcome, what) => outcome.destination === 'photos' ? `${wh
  */
 export default function ExportRunner({ job, onProgress, onFinish }) {
   const { renderPageImage, surface } = usePageImageRenderer()
+  const screen = useWindowDimensions()
   const [frameJob, setFrameJob] = useState(null)
   const nextId = useRef(0), alive = useRef(true)
   const callbacks = useRef({ onProgress, onFinish })
@@ -77,7 +78,10 @@ export default function ExportRunner({ job, onProgress, onFinish }) {
   }, [job, renderPageImage, renderFrame])
 
   if (!job) return null
-  return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+  // 찍는 영역을 페이지보다 크게 둔다. 화면 크기에 맞춰 줄여 그린 뒤 키워 찍으면 흐려진다 (화면 밖은 어차피 가려져 있다)
+  const pages = job.snapshots ? job.snapshots.flatMap((s) => s.pages) : [job.snapshot]
+  const area = { width: Math.max(screen.width, ...pages.map((p) => p.width)), height: Math.max(screen.height, ...pages.map((p) => p.height)) }
+  return <View pointerEvents="none" style={[styles.stage, area]}>
     {surface}
     {frameJob && <PageImageSurface key={frameJob.id} job={frameJob} />}
     {/* 찍는 페이지가 비쳐 보이지 않게 편집 화면 바탕색으로 덮는다 (캡처는 페이지 영역만 찍어서 영향이 없다) */}
@@ -86,5 +90,6 @@ export default function ExportRunner({ job, onProgress, onFinish }) {
 }
 
 const styles = StyleSheet.create({
+  stage: { position: 'absolute', left: 0, top: 0 },
   cover: { backgroundColor: colors.surfaceSoft },
 })

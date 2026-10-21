@@ -81,6 +81,7 @@ const binOf = (rgba, i) => (rgba[i] >> 3) << 10 | (rgba[i + 1] >> 3) << 5 | rgba
 /**
  * 찍은 페이지 장면들을 GIF 로 묶는다. 1단계: 모든 장면의 색을 모아(addColors) 255색 팔레트를 만든다(median cut).
  * 2단계: 장면마다 팔레트 번호로 바꾸고, 앞 장면과 달라진 사각형만 저장한다(나머지는 투명 → 앞 장면이 그대로 보임).
+ * 첫 장면은 페이지 전체, 그다음부터는 움직이는 곳만 찍은 사각형(rect: { x, y, width, height }, rgba 는 그 크기)을 받을 수 있다.
  */
 export function createGifAssembler(width, height) {
   const histogram = new Uint32Array(32768)
@@ -168,34 +169,39 @@ export function createGifAssembler(width, height) {
       if (palette) throw new Error('Palette already built')
       for (let i = 0; i < rgba.length; i += 4) histogram[binOf(rgba, i)]++
     },
-    addFrame(rgba, delay) {
+    addFrame(rgba, delay, rect = { x: 0, y: 0, width, height }) {
       if (!palette) {
         buildPalette()
         scratch = new Uint8Array(width * height * 2 + 4096)
         writer = new GifWriter(scratch, width, height, { palette, loop: 0 })
         chunks.push(scratch.slice(0, writer.getOutputBufferPosition()))
       }
-      const indexed = new Uint8Array(width * height)
-      for (let p = 0, i = 0; p < indexed.length; p++, i += 4) { const bin = binOf(rgba, i); indexed[p] = lut[bin] >= 0 ? lut[bin] : nearest(bin) }
+      const index = (i) => { const bin = binOf(rgba, i); return lut[bin] >= 0 ? lut[bin] : nearest(bin) }
       if (!previous) {
-        previous = indexed
-        pending = { x: 0, y: 0, w: width, h: height, pixels: indexed, delay, first: true }
+        if (rect.width !== width || rect.height !== height) throw new Error('First GIF frame must cover the page')
+        previous = new Uint8Array(width * height)
+        for (let p = 0; p < previous.length; p++) previous[p] = index(p * 4)
+        pending = { x: 0, y: 0, w: width, h: height, pixels: previous.slice(), delay, first: true }
         return
       }
+      // 사각형 안만 번호로 바꿔 앞 장면과 비교한다
+      const indexed = new Uint8Array(rect.width * rect.height)
       let left = width, top = height, right = -1, bottom = -1
-      for (let y = 0; y < height; y++) for (let x = 0, p = y * width; x < width; x++, p++) {
-        if (indexed[p] === previous[p]) continue
-        if (x < left) left = x; if (x > right) right = x; if (y < top) top = y; bottom = y
+      for (let y = 0; y < rect.height; y++) for (let x = 0; x < rect.width; x++) {
+        const q = y * rect.width + x, n = indexed[q] = index(q * 4)
+        if (n === previous[(rect.y + y) * width + rect.x + x]) continue
+        const px = rect.x + x, py = rect.y + y
+        if (px < left) left = px; if (px > right) right = px; if (py < top) top = py; bottom = py
       }
       // 달라진 곳이 없으면 앞 장면을 더 오래 보여 준다
       if (right < 0) { pending.delay += delay; return }
       flush(false)
       const w = right - left + 1, h = bottom - top + 1, pixels = new Uint8Array(w * h)
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        const p = (top + y) * width + left + x
-        pixels[y * w + x] = indexed[p] === previous[p] ? TRANSPARENT : indexed[p]
+        const p = (top + y) * width + left + x, n = indexed[(top + y - rect.y) * rect.width + left + x - rect.x]
+        pixels[y * w + x] = n === previous[p] ? TRANSPARENT : n
+        previous[p] = n
       }
-      previous = indexed
       pending = { x: left, y: top, w, h, pixels, delay }
     },
     end() {
@@ -207,4 +213,45 @@ export function createGifAssembler(width, height) {
       return out
     },
   }
+}
+
+/** RGBA 를 면적 평균으로 줄인다 (알파를 먼저 곱해 투명 가장자리가 어둡게 번지지 않게) */
+export function downscaleRgba(rgba, width, height, targetWidth, targetHeight) {
+  if (targetWidth >= width && targetHeight >= height) return { rgba, width, height }
+  const out = new Uint8Array(targetWidth * targetHeight * 4)
+  const sx = width / targetWidth, sy = height / targetHeight
+  for (let y = 0; y < targetHeight; y++) for (let x = 0; x < targetWidth; x++) {
+    const left = x * sx, right = (x + 1) * sx, top = y * sy, bottom = (y + 1) * sy
+    let alpha = 0, red = 0, green = 0, blue = 0
+    for (let iy = Math.floor(top); iy < Math.min(height, Math.ceil(bottom)); iy++) {
+      const wy = Math.min(bottom, iy + 1) - Math.max(top, iy)
+      for (let ix = Math.floor(left); ix < Math.min(width, Math.ceil(right)); ix++) {
+        const weight = wy * (Math.min(right, ix + 1) - Math.max(left, ix)), i = (iy * width + ix) * 4, a = rgba[i + 3] * weight
+        alpha += a; red += rgba[i] * a; green += rgba[i + 1] * a; blue += rgba[i + 2] * a
+      }
+    }
+    const o = (y * targetWidth + x) * 4
+    if (alpha > 0) { out[o] = Math.round(red / alpha); out[o + 1] = Math.round(green / alpha); out[o + 2] = Math.round(blue / alpha); out[o + 3] = Math.round(alpha / (sx * sy)) }
+  }
+  return { rgba: out, width: targetWidth, height: targetHeight }
+}
+
+/**
+ * 움직이는 요소들이 차지하는 페이지 영역(회전·테두리·그림자 여유 포함)을 출력 픽셀 사각형으로.
+ * 페이지 대부분이면 null (그때는 장면마다 페이지 전체를 찍는다)
+ */
+export function animatedRegion(objects, { width, height, pixelWidth, pixelHeight }) {
+  let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity
+  for (const o of objects) {
+    const angle = (o.rotation ?? 0) * Math.PI / 180, cos = Math.abs(Math.cos(angle)), sin = Math.abs(Math.sin(angle))
+    const halfW = (o.w * cos + o.h * sin) / 2, halfH = (o.w * sin + o.h * cos) / 2, cx = o.x + o.w / 2, cy = o.y + o.h / 2
+    const margin = 6 + 0.2 * Math.max(o.w, o.h)
+    left = Math.min(left, cx - halfW - margin); right = Math.max(right, cx + halfW + margin)
+    top = Math.min(top, cy - halfH - margin); bottom = Math.max(bottom, cy + halfH + margin)
+  }
+  const rx = pixelWidth / width, ry = pixelHeight / height
+  const x = Math.max(0, Math.floor(left * rx)), y = Math.max(0, Math.floor(top * ry))
+  const x2 = Math.min(pixelWidth, Math.ceil(right * rx)), y2 = Math.min(pixelHeight, Math.ceil(bottom * ry))
+  if (!(x2 > x && y2 > y) || (x2 - x) * (y2 - y) > pixelWidth * pixelHeight * 0.6) return null
+  return { x, y, width: x2 - x, height: y2 - y }
 }
