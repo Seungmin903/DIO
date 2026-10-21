@@ -2,11 +2,25 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
 import AppIcon from '../../shared/AppIcon';
-import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, FIRST_PAGES, PAGE_SIZES } from '../constants';
+import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, FIRST_PAGES } from '../constants';
 import { styles as s } from '../styles';
 import CoverPattern from './CoverPattern';
 
 const TITLE_LIMIT = 24;
+const CALENDAR_YEAR = 2026;
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+const dateParts = (value) => {
+  const match = /^(2026)-(\d{2})-(\d{2})$/.exec(value ?? '');
+  return match ? { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) } : { year: CALENDAR_YEAR, month: 1, day: 1 };
+};
+const dateValue = (month, day) => `${CALENDAR_YEAR}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+const mondayOf = (value) => {
+  const { year, month, day } = dateParts(value);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+  return date.toISOString().slice(0, 10);
+};
 
 // 왼쪽 미리보기의 책 모양 표지
 function BookPreview({ title, color, pattern }) {
@@ -88,11 +102,12 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel }
   const [title, setTitle] = useState(diary?.title ?? DIARY_DEFAULTS.title);
   const [color, setColor] = useState(diary?.color ?? DIARY_DEFAULTS.color);
   const [pattern, setPattern] = useState(diary ? diary.pattern ?? null : DIARY_DEFAULTS.pattern);
-  const [pageSize, setPageSize] = useState(diary?.pageSize ?? DIARY_DEFAULTS.pageSize);
-  const [firstPage, setFirstPage] = useState(DIARY_DEFAULTS.firstPage);
+  const [firstPage, setFirstPage] = useState(diary?.firstPage ?? DIARY_DEFAULTS.firstPage);
+  const [firstPageDate, setFirstPageDate] = useState(diary?.firstPageDate ?? DIARY_DEFAULTS.firstPageDate);
+  const [calendarMonth, setCalendarMonth] = useState(dateParts(diary?.firstPageDate ?? DIARY_DEFAULTS.firstPageDate).month);
   const [error, setError] = useState('');
   const actionLabel = editing ? '완료하기' : '다이어리 만들기';
-  const pageSizeLabel = PAGE_SIZES.find((item) => item.id === pageSize)?.label;
+  const pageSizeLabel = '가로형';
 
   const onTitleChange = (value) => {
     setTitle(value);
@@ -105,7 +120,14 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel }
       setError('다이어리 이름을 입력해 주세요.');
       return;
     }
-    const failure = onSubmit({ title: trimmed, color, pattern, pageSize, firstPage });
+    const failure = onSubmit({
+      title: trimmed,
+      color,
+      pattern,
+      pageSize: 'landscape',
+      firstPage,
+      firstPageDate: firstPage === 'monthly' || firstPage === 'weekly' ? firstPageDate : null,
+    });
     if (failure) setError(failure);
   };
 
@@ -180,18 +202,6 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel }
               ))}
             </View>
 
-            <View style={s.createLabelRow}>
-              <Text style={[s.createLabel, s.createLabelInline]}>페이지 크기</Text>
-              <Text style={s.createLabelNote}>만든 뒤에는 유지돼요</Text>
-            </View>
-            <View style={s.createChips}>
-              {PAGE_SIZES.map((item) => (
-                <Chip key={item.id} label={item.label} selected={pageSize === item.id} disabled={editing} onPress={() => setPageSize(item.id)}>
-                  <View style={[s.pageSizeIcon, item.id === 'portrait' ? s.pageSizeIconPortrait : s.pageSizeIconLandscape]} />
-                </Chip>
-              ))}
-            </View>
-
             {!editing && (
               <>
                 <Text style={s.createLabel}>첫 페이지 서식</Text>
@@ -210,6 +220,15 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel }
                     </Pressable>
                   ))}
                 </View>
+                {(firstPage === 'monthly' || firstPage === 'weekly') && (
+                  <DateCalendar
+                    month={calendarMonth}
+                    selected={firstPageDate}
+                    weekly={firstPage === 'weekly'}
+                    onMonthChange={setCalendarMonth}
+                    onSelect={setFirstPageDate}
+                  />
+                )}
               </>
             )}
           </ScrollView>
@@ -237,6 +256,60 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel }
             </Pressable>
           </View>
         </View>
+      </View>
+    </View>
+  );
+}
+
+function DateCalendar({ month, selected, weekly, onMonthChange, onSelect }) {
+  const days = new Date(Date.UTC(CALENDAR_YEAR, month, 0)).getUTCDate();
+  const leading = new Date(Date.UTC(CALENDAR_YEAR, month - 1, 1)).getUTCDay();
+  const cells = [...Array.from({ length: leading }, () => null), ...Array.from({ length: days }, (_, index) => index + 1)];
+  const selectedWeek = mondayOf(selected);
+
+  return (
+    <View style={s.calendar}>
+      <View style={s.calendarHeader}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="이전 달"
+          disabled={month === 1}
+          onPress={() => onMonthChange(month - 1)}
+          style={({ pressed }) => [s.calendarArrow, month === 1 && s.calendarArrowDisabled, pressed && s.pressed]}
+        >
+          <AppIcon name="chevron-left" size={17} color="#40517D" />
+        </Pressable>
+        <Text style={s.calendarTitle}>{CALENDAR_YEAR}년 {month}월</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="다음 달"
+          disabled={month === 12}
+          onPress={() => onMonthChange(month + 1)}
+          style={({ pressed }) => [s.calendarArrow, month === 12 && s.calendarArrowDisabled, pressed && s.pressed]}
+        >
+          <AppIcon name="chevron-right" size={17} color="#40517D" />
+        </Pressable>
+      </View>
+      <Text style={s.calendarCopy}>{weekly ? '원하는 주에 포함된 날짜를 선택해 주세요.' : '원하는 달의 날짜를 선택해 주세요.'}</Text>
+      <View style={s.calendarGrid}>
+        {WEEKDAYS.map((day) => <Text key={day} style={s.calendarWeekday}>{day}</Text>)}
+        {cells.map((day, index) => {
+          if (!day) return <View key={`empty-${index}`} style={s.calendarDay} />;
+          const value = dateValue(month, day);
+          const selectedDay = weekly ? mondayOf(value) === selectedWeek : value === selected;
+          return (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityLabel={`${month}월 ${day}일`}
+              accessibilityState={{ selected: selectedDay }}
+              onPress={() => onSelect(value)}
+              style={({ pressed }) => [s.calendarDay, selectedDay && s.calendarDaySelected, pressed && s.pressed]}
+            >
+              <Text style={[s.calendarDayText, selectedDay && s.calendarDayTextSelected]}>{day}</Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
