@@ -16,12 +16,13 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
       style={({ pressed }) => [
         s.card,
         layout === 'list' ? s.cardList : layout === 'carousel' ? s.cardCarousel : s.cardGrid,
+        compact && layout === 'carousel' && s.cardCarouselCompact,
         compact && layout === 'grid' && s.cardGridCompact,
         pressed && s.pressed,
       ]}
     >
       <View style={s.cardCoverWrap}>
-        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact && layout === 'grid'} />
+        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact} />
         <View style={s.cardActions}>
           <Pressable
             accessibilityRole="button"
@@ -43,7 +44,7 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
           </Pressable>
         </View>
       </View>
-      <View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, layout === 'grid' && s.cardInfoGrid]}>
+      <View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid]}>
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
             <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>

@@ -10,7 +10,7 @@ export default function ProfileScreen({ diaries, compact = false }) {
       <Header eyebrow="MY SPACE" title="내 공간" />
       <View style={[s.profileHero, compact && s.profileHeroCompact]}>
         <View style={s.profileBadge}><Text style={s.profileBadgeText}>D</Text></View>
-        <View>
+        <View style={s.profileHeroText}>
           <Text style={s.profileTitle}>나의 기록 공간</Text>
           <Text style={s.profileCopy}>하루의 장면을 다이어리에 남겨 보세요.</Text>
         </View>

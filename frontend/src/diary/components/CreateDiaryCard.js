@@ -15,11 +15,12 @@ function CreateDiaryCard({ layout = 'grid', compact = false, carouselActive = fa
       style={({ pressed }) => [
         s.createCard,
         carousel ? s.createCardCarousel : s.createCardGrid,
+        compact && carousel && s.createCardCarouselCompact,
         compact && !carousel && s.createCardGridCompact,
         pressed && s.pressed,
       ]}
     >
-      <View style={[s.createCardPanel, carousel && s.createCardPanelCarousel, compact && !carousel && s.createCardPanelCompact]}>
+      <View style={[s.createCardPanel, carousel && s.createCardPanelCarousel, compact && carousel && s.createCardPanelCarouselCompact, compact && !carousel && s.createCardPanelCompact]}>
         <View style={s.createCardPlus}>
           <AppIcon name="add" size={27} color="#536999" strokeWidth={1.7} />
         </View>

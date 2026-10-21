@@ -5,7 +5,7 @@ import CoverPattern from './CoverPattern';
 
 function Cover({ diary, small = false, preview = false, carousel = false, grid = false, compact = false }) {
   return (
-    <View style={[s.cover, small && s.coverSmall, preview && s.coverPreview, carousel && s.coverCarousel, grid && s.coverGrid, compact && s.coverGridCompact, { backgroundColor: diary.color }]}>
+    <View style={[s.cover, small && s.coverSmall, preview && s.coverPreview, carousel && s.coverCarousel, compact && carousel && s.coverCarouselCompact, grid && s.coverGrid, compact && grid && s.coverGridCompact, { backgroundColor: diary.color }]}>
       <CoverPattern pattern={diary.pattern} />
       <View style={s.coverLine} />
       <View style={s.coverRing} />
