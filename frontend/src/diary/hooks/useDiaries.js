@@ -76,6 +76,8 @@ export function useDiaries() {
       const allKeys = await AsyncStorage.getAllKeys();
       const referenceKeys = allKeys.filter((key) => (
         (key.startsWith(`${STORAGE_KEYS.doc}:`) && key !== targetKey)
+        // 다이어리 ID 없이 저장된 예전 단일 편집 문서도 같은 원본을 쓸 수 있다.
+        || key === STORAGE_KEYS.doc
         || key === STORAGE_KEYS.customDecor
       ));
       const references = referenceKeys.length ? await AsyncStorage.multiGet(referenceKeys) : [];

@@ -23,6 +23,8 @@ export function useEditor(diary) {
     initial?.doc ? withDiary(initial.doc, diary) : createDefaultDoc(diary),
   ))
   const [loaded, setLoaded] = useState(initial !== null)
+  // 저장 문서를 읽지 못했으면 기존 문서를 빈 문서로 덮어쓰지 않도록 이번에는 저장하지 않는다.
+  const [writable, setWritable] = useState(true)
   const diaryRef = useRef(diary)
   diaryRef.current = diary
   const [lastSave, setLastSave] = useState({ doc: null, ok: true })
@@ -70,6 +72,10 @@ export function useEditor(diary) {
       if (cancelled) return
       if (saved) dispatch({ type: 'load', doc: withDiary(saved, diaryRef.current) })
       setLoaded(true)
+    }, () => {
+      if (cancelled) return
+      setWritable(false)
+      setLoaded(true)
     })
     return () => {
       cancelled = true
@@ -79,7 +85,7 @@ export function useEditor(diary) {
   // 연속 입력은 마지막 변경 1.2초 뒤에 합쳐 저장한다. 편집이 계속되더라도 5초 안에는
   // 한 번 저장하며, 저장 작업은 제스처·애니메이션이 끝난 뒤로 미룬다.
   useEffect(() => {
-    if (!loaded || !edited) return undefined
+    if (!loaded || !edited || !writable) return undefined
     rememberEditorDoc(storageKey, state.doc)
     pendingSave.current = { key: storageKey, doc: state.doc }
     if (!dirtySince.current) dirtySince.current = Date.now()
@@ -91,7 +97,7 @@ export function useEditor(diary) {
       saveTimer.current = setTimeout(flushSave, SAVE_INTERACTION_WAIT_MS)
     }, delay)
     return clearSchedule
-  }, [clearSchedule, edited, flushSave, loaded, state.doc, storageKey])
+  }, [clearSchedule, edited, flushSave, loaded, state.doc, storageKey, writable])
 
   // 화면 이동·문서 전환·앱 백그라운드에서도 마지막 편집을 잃지 않는다.
   useEffect(() => () => flushSave(), [flushSave, storageKey])
@@ -103,7 +109,8 @@ export function useEditor(diary) {
   }, [flushSave])
 
   let saveStatus = 'saved'
-  if (lastSave.doc === state.doc) saveStatus = lastSave.ok ? 'saved' : 'error'
+  if (!writable && edited) saveStatus = 'load-error'
+  else if (lastSave.doc === state.doc) saveStatus = lastSave.ok ? 'saved' : 'error'
   else if (edited) saveStatus = 'saving'
 
   return { state, dispatch, saveStatus, loaded }
