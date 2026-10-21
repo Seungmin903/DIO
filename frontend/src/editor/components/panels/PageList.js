@@ -180,7 +180,13 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
           accessibilityState={{ selected: Boolean(page.indexed) }}
           style={styles.indexBadge}
         >
-          <Icon name="bookmark" size={16} color={page.indexed ? colors.primary : colors.textMuted} strokeWidth={2.2} />
+          <Icon
+            name="bookmark"
+            size={17}
+            color={page.indexed ? colors.primary : colors.textMuted}
+            fill={page.indexed ? colors.primary : 'none'}
+            strokeWidth={2.2}
+          />
         </Pressable>
       )}
       <Text style={[styles.number, active && styles.numberActive]}>{index + 1}</Text>

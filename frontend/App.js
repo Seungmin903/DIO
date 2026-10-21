@@ -14,6 +14,7 @@ import { styles as s } from './src/diary/styles';
 import { fitTabletFrame } from './src/shared/layout';
 
 export default function App() {
+  // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   return (
     <SafeAreaProvider style={s.safe}>

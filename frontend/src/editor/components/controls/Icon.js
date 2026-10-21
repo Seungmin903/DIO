@@ -89,7 +89,7 @@ const FIT = {
 // 점선으로 그리는 부분 (같은 아이콘의 실선 path 와 겹쳐 그린다)
 const DASHED_PARTS = { lasso: 'M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1' }
 
-export default function Icon({ name, size = 22, color = colors.text, strokeWidth = 1.8 }) {
+export default function Icon({ name, size = 22, color = colors.text, strokeWidth = 1.8, fill = 'none' }) {
   // 줄여 그린 아이콘도 선 굵기는 같게
   const width = strokeWidth / (SCALE[name] ?? 1)
   return (
@@ -101,6 +101,7 @@ export default function Icon({ name, size = 22, color = colors.text, strokeWidth
       <Path
         d={PATHS[name]}
         stroke={color}
+        fill={fill}
         strokeWidth={DOT_ICONS.has(name) ? 3 : width}
         strokeLinecap="round"
         strokeLinejoin="round"
