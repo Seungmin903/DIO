@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveJSON, STORAGE_KEYS } from '../../editor/services/storage';
+import { forgetEditorDoc } from '../../editor/services/editorDocs';
 import { collectMediaIds } from '../../editor/utils/mediaReferences';
 import * as mediaRepository from '../../editor/utils/mediaRepository';
 import { normalizeDiaries, recoverOrphanDiaries, sortByCreated } from '../utils/diaryLibrary';
@@ -81,6 +82,7 @@ export function useDiaries() {
       const retainedMedia = new Set(references.flatMap(([, raw]) => collectMediaIds(readStoredValue(raw))));
 
       await AsyncStorage.removeItem(targetKey);
+      forgetEditorDoc(targetKey);
       setDiaries((current) => current.filter((diary) => diary.id !== id));
 
       // 다른 문서나 사용자 스티커가 함께 쓰는 원본은 남긴다. 미디어 정리 실패는

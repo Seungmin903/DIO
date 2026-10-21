@@ -32,6 +32,7 @@ import TopBar from '../components/chrome/TopBar'
 import Viewport from '../components/canvas/Viewport'
 import { ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
+import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
 import { pickImages } from '../services/image'
@@ -51,6 +52,16 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
+  // 앞뒤 페이지 속지를 미리 해석해 두어 페이지를 넘길 때 빈 속지가 보이지 않게 한다.
+  useEffect(() => {
+    const pages = state.doc.pages
+    const index = pages.findIndex((item) => item.id === page.id)
+    const timer = setTimeout(() => {
+      prefetchPageTemplate(pages[index + 1])
+      prefetchPageTemplate(pages[index - 1])
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [page.id, state.doc.pages])
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
   const [exportSnapshot, setExportSnapshot] = useState(null)
