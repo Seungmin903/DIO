@@ -80,7 +80,9 @@ test('획 색상만 바꾸고 종류·좌표는 보존하며 잠금·사진은 �
   const stroke = { id: 'stroke', type: 'stroke', x: 10, y: 20, w: 200, h: 40, rotation: 30, penKind: 'highlighter' }
   const f = fixture(stroke)
   assert.equal(f.nodes.filter(n => n.props?.accessibilityLabel === '복제').length, 1)
-  assert.ok(!f.nodes.some(n => n.props?.accessibilityLabel === '복사'))
+  // 필기 바에는 글자 수정이 없고, 요소 복사·붙여넣기(복사한 게 없으면 꺼짐)가 있다
+  assert.ok(!f.nodes.some(n => n.props?.accessibilityLabel === '수정'))
+  assert.equal(f.nodes.find(n => n.props?.accessibilityLabel === '붙여넣기')?.props.disabled, true)
   assert.ok(!f.nodes.some(n => n.props?.children === '펜 선'))
   f.press(`선택 요소 색상 ${pen.EDITOR_COLORS[0]}`)
   assert.deepEqual(f.state().doc.pages[0].objects[0], { ...stroke, color: pen.EDITOR_COLORS[0] })

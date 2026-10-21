@@ -20,6 +20,7 @@ import Ribbon from '../components/chrome/Ribbon'
 import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail, PhoneMoreTools } from '../components/chrome/PhoneToolbar'
 import PenSettings from '../components/PenSettings'
 import EraserSettings from '../components/EraserSettings'
+import { normalizePaperAppearance } from '../templates/appearance.js'
 import { ERASER_RADIUS } from '../utils/eraser.js'
 import LassoSettings from '../components/LassoSettings'
 import TextSettings from '../components/TextSettings'
@@ -31,6 +32,7 @@ import { DEFAULT_GUIDES, hasGuides } from '../components/canvas/GridOverlay'
 import { TEXT_ACTION_BAR_WIDTH } from '../components/TextActionBar'
 import { formatTextRange } from '../utils/textFormats'
 import { copyText } from '../services/textClipboard'
+import { objectClipboard, useObjectClipboard } from '../services/objectClipboard'
 import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch } from '../utils/text'
 import { createText } from '../utils/text'
 import { DEFAULT_PEN_SETTINGS, DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
@@ -66,7 +68,7 @@ const PHONE_STAGE_PADDING = { top: 16, bottom: 68, side: 12 }
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
 // compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 상단 도구 막대),
 // 가로는 정밀 편집(왼쪽 화면 막대 + 오른쪽 전체 도구 막대 + 확대·축소). onToggleOrientation이 있으면 세로·가로를 버튼으로 바꾼다.
-export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation }) {
+export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, onNewTab }) {
   // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
@@ -158,7 +160,19 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
   const [photoCropId, setPhotoCropId] = useState(null) // 자르기 창을 연 사진
-  const clipboard = useRef([]) // Ctrl+C 로 복사한 오브젝트 (다른 페이지에도 붙여 넣기)
+  // 복사한 요소: 다른 페이지·다른 다이어리 탭에도 붙여 넣는다 (services/objectClipboard)
+  const copiedObjects = useObjectClipboard()
+  // at({ x, y }): 빈 곳을 길게 누른 자리. 주면 복사한 요소들의 가운데를 그 자리에 맞춰 붙인다
+  const paste = (at) => {
+    const objects = objectClipboard.get()
+    if (!objects.length || readOnly) return
+    if (at?.x != null) {
+      const box = unionBounds(objects)
+      const dx = at.x - (box.left + box.right) / 2, dy = at.y - (box.top + box.bottom) / 2
+      dispatch({ type: 'pasteObjects', objects: objects.map((o) => ({ ...o, x: o.x + dx, y: o.y + dy })), offset: 0 })
+    } else dispatch({ type: 'pasteObjects', objects })
+    showToast(`${objects.length}개를 붙여 넣었어요.`)
+  }
 
   useEffect(() => {
     if (!readOnly) return
@@ -368,12 +382,12 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         dispatch({ type: 'selectAll' })
       } else if (mod && (key === 'c' || key === 'x') && selected.length) {
         event.preventDefault()
-        clipboard.current = selected
+        objectClipboard.set(selected)
         if (key === 'x') dispatch({ type: 'removeObjects', ids: editable.map((o) => o.id) })
         showToast(key === 'x' ? '잘라 냈어요.' : `${selected.length}개를 복사했어요.`)
-      } else if (mod && key === 'v' && clipboard.current.length) {
+      } else if (mod && key === 'v' && objectClipboard.get().length) {
         event.preventDefault()
-        dispatch({ type: 'pasteObjects', objects: clipboard.current })
+        paste()
       } else if (mod && key === 'g' && selected.length > 1) {
         event.preventDefault()
         dispatch({ type: event.shiftKey ? 'ungroup' : 'group', ids })
@@ -592,7 +606,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         pagesOpen={showPages}
         focusMode={focusMode}
         onHome={goHome}
-        onCloseTab={goHome}
+        onCloseTab={onCloseTab ?? goHome}
+        tabs={tabs}
+        activeTabId={diary?.id}
+        onSelectTab={onSelectTab}
+        onNewTab={onNewTab}
         readOnly={readOnly}
         onTogglePages={togglePages}
         onToggleLayers={switchLayers}
@@ -695,13 +713,18 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 eraserSize={eraserSize}
                 eraserMode={eraserMode}
                 textBoundary={textBoundary}
+                onRevealText={(dy) => commitView(resolvePan({ scale: view.scale, zoom, x: offset.x, y: offset.y }, 0, -dy))}
                 onTextPaletteChange={setTextPalette}
                 textPaletteBounds={textPaletteBounds}
                 textEditing={textEditing?.pageId === page.id ? textEditing : null}
                 onEditText={(object) => { setTextSettingsOpen(false); setTextEditing({ ...object, pageId: page.id, existing: true }) }}
                 onTextSettings={() => { setTextSettingsOpen(current => !current); setMoreOpen(false) }}
-                onCopy={(objects) => { clipboard.current = objects; showToast(`${objects.length}개를 복사했어요.`) }}
-                onCut={(objects) => { clipboard.current = objects; dispatch({ type: 'removeObjects', ids: objects.filter(o => !o.locked).map(o => o.id) }); showToast('잘라 냈어요.') }}
+                onCopy={(objects) => { objectClipboard.set(objects); showToast(`${objects.length}개를 복사했어요.`) }}
+                onPaste={paste}
+                canPaste={copiedObjects.length > 0}
+                paperAppearance={normalizePaperAppearance(page.paperAppearance)}
+                onPaperAppearance={(appearance, all) => dispatch({ type: 'setPaperAppearance', appearance, all })}
+                onCut={(objects) => { objectClipboard.set(objects); dispatch({ type: 'removeObjects', ids: objects.filter(o => !o.locked).map(o => o.id) }); showToast('잘라 냈어요.') }}
                 onCopyText={(text) => copyText(text).then(() => showToast('텍스트를 복사했어요.')).catch(() => showToast('텍스트를 복사하지 못했어요.'))}
                 onTextLink={setTextLinkTarget}
                 onObjectLink={setObjectLinkTarget}
@@ -710,16 +733,19 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 linkBadges={linkBadges}
                 textSettingsOpen={textSettingsOpen}
                 onCancelText={() => setTextEditing(null)}
-                onSaveText={(text, colorRanges = [], styleRanges = [], measuredHeight = null) => {
-        // 상자 높이는 실제로 그려진 글자 높이에 맞춘다 (위아래 여백 없이)
-        const fitted = Number.isFinite(measuredHeight) && measuredHeight > 0 ? { h: measuredHeight } : {}
+                onSaveText={(text, colorRanges = [], styleRanges = [], measuredHeight = null, measuredWidth = null) => {
+        // 상자 높이는 실제로 그려진 글자 높이에 맞춘다 (위아래 여백 없이). 글자만큼 넓어지는 상자는 폭도 맞춘다.
+        const fitted = {
+          ...(Number.isFinite(measuredHeight) && measuredHeight > 0 && { h: measuredHeight }),
+          ...(Number.isFinite(measuredWidth) && measuredWidth > 0 && { w: measuredWidth, baseWidth: measuredWidth }),
+        }
         if (textEditing.pageId === page.id) {
           if (textEditing.existing) {
-            if (text !== textEditing.text || JSON.stringify(colorRanges) !== JSON.stringify(textEditing.colorRanges ?? []) || JSON.stringify(styleRanges) !== JSON.stringify(textEditing.styleRanges ?? []) || (fitted.h && Math.abs(fitted.h - textEditing.h) > 0.5)) {
+            if (text !== textEditing.text || JSON.stringify(colorRanges) !== JSON.stringify(textEditing.colorRanges ?? []) || JSON.stringify(styleRanges) !== JSON.stringify(textEditing.styleRanges ?? []) || (fitted.h && Math.abs(fitted.h - textEditing.h) > 0.5) || (fitted.w && Math.abs(fitted.w - textEditing.w) > 0.5)) {
               if (!text.trim()) dispatch({ type: 'removeObjects', ids: [textEditing.id] })
-              else dispatch({ type: 'updateObject', id: textEditing.id, record: true, patch: { ...textFormatPatch({ ...textEditing, text, styleRanges }, textSettings(textEditing)), colorRanges, styleRanges, ...fitted } })
+              else dispatch({ type: 'updateObject', id: textEditing.id, record: true, patch: { ...textFormatPatch({ ...textEditing, ...fitted, text, styleRanges }, textSettings(textEditing)), colorRanges, styleRanges, ...fitted } })
             }
-          } else if (text.trim()) dispatch({ type: 'addObjects', objects: [{ ...createText({ ...textEditing, text, colorRanges, styleRanges }), ...fitted }] })
+          } else if (text.trim()) dispatch({ type: 'addObjects', objects: [{ ...createText({ ...textEditing, ...(fitted.w && { width: fitted.w }), text, colorRanges, styleRanges }), ...fitted }] })
         }
         setTextEditing(null)
         setActiveTool('select')

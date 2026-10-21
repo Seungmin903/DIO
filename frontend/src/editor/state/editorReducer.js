@@ -9,6 +9,7 @@
 import { clamp, createId, rotatedBounds, unionBounds } from '../utils/common.js'
 import { pageSize } from '../utils/pageGeometry.js'
 import { createBlankPage, createTemplatePage } from './defaultDoc.js'
+import { normalizePaperAppearance } from '../templates/appearance.js'
 
 const HISTORY_LIMIT = 80
 const PASTE_OFFSET = 24
@@ -410,6 +411,14 @@ export function editorReducer(state, action) {
 
     // 페이지 목록에서 썸네일을 끌어 순서를 바꾼다. (지금 보던 페이지는 그대로)
     // 여러 페이지를 순서 그대로 anchorId 페이지 앞(before)이나 뒤(after)로 함께 옮긴다. 되돌리기 한 번.
+    // 속지 색: all 이면 모든 페이지와 문서 기본값(새로 추가할 페이지)에, 아니면 지금 페이지에만. 되돌리기 한 번.
+    case 'setPaperAppearance': {
+      const pageId = getCurrentPage(state).id
+      const appearance = normalizePaperAppearance(action.appearance)
+      const pages = state.doc.pages.map((page) => (action.all || page.id === pageId ? { ...page, paperAppearance: appearance } : page))
+      return { ...withHistory(state), doc: { ...state.doc, pages, ...(action.all && { paperAppearance: appearance }) } }
+    }
+
     case 'movePages': {
       const moving = new Set(action.ids)
       if (moving.has(action.anchorId)) return state

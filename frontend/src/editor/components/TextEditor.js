@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import { colorTextRange, normalizeRanges, remapTextRanges, textSegments } from '../utils/textRanges'
-import { TEXT_COLORS, TEXT_LINE_HEIGHT, textStyle } from '../utils/text'
+import { TEXT_AUTO_MAX_WIDTH, TEXT_AUTO_MIN_WIDTH, TEXT_COLORS, TEXT_LINE_HEIGHT, textStyle, TEXT_FRAME_PAD } from '../utils/text'
 import { textSettings } from '../utils/text'
 import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle } from '../utils/textFormats'
 import { copyText } from '../services/textClipboard'
@@ -10,7 +10,7 @@ import TextActionBar from './TextActionBar'
 import TextLinkDialog from './TextLinkDialog'
 
 // Android는 TextInput의 styled children으로 선택 범위 색상을 즉시 표시한다.
-export default function TextEditor({ object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast }) {
+export default function TextEditor({ object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast, onReveal }) {
   const input = useRef(null), draft = useRef(object.text ?? ''), composing = useRef(false), saving = useRef(false)
   const cancelled = useRef(false)
   const ranges = useRef(normalizeRanges(object.text ?? '', object.colorRanges))
@@ -80,6 +80,26 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
   const cancel = () => { cancelled.current = true; Keyboard.dismiss(); onCancel() }
   const [height, setHeight] = useState(Math.max(40, (object.h ?? TEXT_LINE_HEIGHT) * zoom))
   const scale = (object.w ?? 320) / (object.baseWidth ?? object.w ?? 320) * zoom
+  // 글자만큼 넓어지는 상자: 줄바꿈 없이 잰 가장 긴 줄 폭(화면 px)에 맞추고 최대 폭에서 줄을 바꾼다
+  const [naturalWidth, setNaturalWidth] = useState(null)
+  const autoMax = Math.min(TEXT_AUTO_MAX_WIDTH, object.maxWidth ?? TEXT_AUTO_MAX_WIDTH) * zoom
+  const boxWidth = object.autoWidth && naturalWidth != null
+    ? Math.min(autoMax, Math.max(TEXT_AUTO_MIN_WIDTH * zoom, naturalWidth + 2))
+    : (object.w ?? 320) * zoom
+  // 키보드가 글상자를 가리면 그만큼 화면을 올린다 (onReveal(dy): 화면 px)
+  const keyboardTop = useRef(null)
+  const reveal = () => {
+    if (keyboardTop.current == null || !onReveal) return
+    input.current?.measureInWindow?.((x, y, width, h) => {
+      const overlap = y + h + TEXT_FRAME_PAD + 16 - keyboardTop.current
+      if (overlap > 0) onReveal(overlap)
+    })
+  }
+  useEffect(() => {
+    const show = Keyboard.addListener?.('keyboardDidShow', (event) => { keyboardTop.current = event.endCoordinates?.screenY ?? null; reveal() })
+    const hide = Keyboard.addListener?.('keyboardDidHide', () => { keyboardTop.current = null })
+    return () => { show?.remove?.(); hide?.remove?.() }
+  }, [])
   const save = () => {
     if (composing.current || saving.current || linkEditing.current) return
     saving.current = true
@@ -90,9 +110,11 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
     // 실제로 그려진 글자 높이(페이지 좌표). 글자 수로 어림한 높이는 아래에 빈칸이 남아서 편집을 마칠 때 잰 값으로 맞춘다.
     const lines = textLines.current
     const measured = lines.length ? Math.max(...lines.map((line) => line.y + line.height)) / zoom : null
-    onSave(value, finalRanges, finalFormats, ...(measured ? [measured] : []))
+    // 잰 높이, 글자만큼 넓어지는 상자면 그 폭(페이지 좌표)도 넘긴다
+    const width = object.autoWidth ? boxWidth / zoom : null
+    onSave(value, finalRanges, finalFormats, ...(measured || width ? [measured ?? null] : []), ...(width ? [width] : []))
   }
-  useEffect(() => { const frame = requestAnimationFrame(measure); return () => cancelAnimationFrame(frame) }, [height, zoom, object.x, object.y])
+  useEffect(() => { const frame = requestAnimationFrame(() => { measure(); reveal() }); return () => cancelAnimationFrame(frame) }, [height, zoom, object.x, object.y])
   // 선택 끝 글자가 있는 줄에 붙이되 화면 오버레이로 표시한다.
   useEffect(() => {
     if (!selected) paletteBounds.current = null
@@ -109,7 +131,12 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
   }, [selected, anchor, rendered, onPaletteChange, paletteBounds])
   useEffect(() => () => { paletteBounds.current = null; onPaletteChange(null) }, [onPaletteChange, paletteBounds])
   const top = object.y * zoom
-  return <View style={{ position: 'absolute', left: object.x * zoom, top, width: (object.w ?? 320) * zoom, transform: [{ rotate: `${object.rotation ?? 0}deg` }] }}>
+  return <View style={{ position: 'absolute', left: object.x * zoom, top, width: boxWidth, transform: [{ rotate: `${object.rotation ?? 0}deg` }] }}>
+    {object.autoWidth && <View pointerEvents="none" style={styles.widthProbe}>
+      <Text accessible={false} onLayout={(event) => setNaturalWidth(event.nativeEvent.layout.width)} style={[styles.widthProbeText, textStyle(object, scale, Platform.OS)]}>
+        {rendered.text ? richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>) : '텍스트 입력'}
+      </Text>
+    </View>}
     <Text pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
       onTextLayout={(event) => { textLines.current = event.nativeEvent.lines; updateAnchor() }}
       style={[styles.measureText, textStyle(object, scale, Platform.OS)]}>
@@ -119,6 +146,9 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
       placeholder="텍스트 입력" textAlignVertical="top" scrollEnabled={false} showSoftInputOnFocus
       submitBehavior="newline" returnKeyType="default"
       onLayout={measure} onFocus={measure}
+      placeholderTextColor={colors.textMuted}
+      selectionColor={colors.primary}
+      cursorColor={colors.primary}
       style={[styles.input, { height, ...textStyle(object, scale, Platform.OS) }]}
       onContentSizeChange={(event) => setHeight(Math.max(40, event.nativeEvent.contentSize.height))}
       onSelectionChange={(event) => { selection.current = event.nativeEvent.selection; setSelected(selection.current.start !== selection.current.end); measure() }}
@@ -153,13 +183,18 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
         formats.current = formatTextRange(draft.current, formats.current, linkSelection, { href: href || null })
         refresh(); linkEditing.current = false; setLinkSelection(null); input.current?.focus()
       }} />}
+    <View pointerEvents="none" style={styles.editFrame} />
   </View>
 }
 
 const styles = StyleSheet.create({
   palette: { maxWidth: '100%' },
   label: { color: colors.textMuted, fontSize: 12 }, swatches: { flexDirection: 'row', gap: 10 }, swatch: { width: 30, height: 30, borderRadius: 15 },
+  // 글자 폭 재기: 아주 넓은 칸에 줄바꿈 없이 그려 가장 긴 줄 폭을 잰다 (보이지 않음)
+  widthProbe: { position: 'absolute', left: 0, top: 0, width: 4000, opacity: 0 },
+  widthProbeText: { alignSelf: 'flex-start', includeFontPadding: false },
   measureText: { position: 'absolute', top: 1, left: 1, right: 1, opacity: 0, padding: 0, includeFontPadding: false },
-  // 입력 중에도 뒤의 속지·요소가 비치도록 채우기 없이 테두리만 둔다
-  input: { width: '100%', borderWidth: 1, borderColor: colors.primary, padding: 0, margin: 0, includeFontPadding: false, backgroundColor: 'transparent' },
+  // 입력 중에도 뒤의 속지·요소가 비치도록 채우지 않는다. 테두리는 editFrame 이 글자 바깥에 따로 그린다 (웹 기본 포커스 테두리도 끈다)
+  input: { width: '100%', borderWidth: 0, padding: 0, margin: 0, includeFontPadding: false, backgroundColor: 'transparent', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
+  editFrame: { position: 'absolute', left: -TEXT_FRAME_PAD, top: -TEXT_FRAME_PAD, right: -TEXT_FRAME_PAD, bottom: -TEXT_FRAME_PAD, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 6 },
 })
