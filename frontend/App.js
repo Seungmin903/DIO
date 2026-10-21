@@ -397,7 +397,7 @@ function DiaryApp() {
   return (
     <>
       <StatusBar hidden />
-      {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. */}
+      {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 하단 inset은 각 화면에서 처리해 16:10 프레임을 유지한다. */}
       <SafeAreaView style={s.safe} edges={isPhone ? ['top', 'left', 'right'] : ['left', 'right']}>
         <View style={s.viewport} onLayout={measureViewport}>
           <View style={[s.app, frame ? { width: frame.width, height: frame.height } : s.appFill]}>

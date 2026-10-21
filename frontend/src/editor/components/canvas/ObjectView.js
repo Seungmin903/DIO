@@ -20,7 +20,7 @@ import { textSettings, textStyle } from '../../utils/text'
 
 /**
  * 텍스트가 실제로 그려진 높이를 알려 받는 곳 (id, 논리 높이). 편집 화면 캔버스만 주고, 썸네일은 null 이다.
- * 텍스트 상자 높이는 글자 폭을 어림해서 정하는데, 글꼴·단어 줄바꿈에 따라 실제 줄 수와 달라질 수 있어 그려진 높이로 맞춘다.
+ * 글꼴·줄바꿈을 반영한 실제 내용 높이를 측정해 상자 축소의 하한으로 사용한다.
  */
 export const TextMeasure = createContext(null)
 
@@ -42,7 +42,7 @@ function ObjectContent({ object, zoom, still = false, onAssetLoad, onAssetError 
   switch (object.type) {
     case 'text': {
       const scale = width / (object.baseWidth ?? object.w)
-      // 높이를 고정하지 않고 글자대로 그려, 그 높이를 상자 높이로 쓴다 (TextMeasure)
+      // 상자의 빈 공간과 별개로 실제 내용 높이를 측정한다 (TextMeasure).
       return <Text onLayout={onTextMeasure ? (event) => onTextMeasure(object.id, event.nativeEvent.layout.height / zoom) : undefined} style={{ width, minHeight: onTextMeasure ? undefined : height, ...textStyle(object, scale, Platform.OS) }}>{richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text>
     }
     case 'stroke':

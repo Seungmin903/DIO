@@ -6,7 +6,7 @@ import { DEFAULT_PAPER_APPEARANCE } from '../../editor/templates/appearance.js';
 import DiaryTemplateSettings from './DiaryTemplateSettings';
 import { defaultTemplateConfig, templatePageCount } from '../../editor/templates/creation.js';
 import AppIcon from '../../shared/AppIcon';
-import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, PAGE_SIZES } from '../constants';
+import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, PAGE_SIZES, C } from '../constants';
 import { styles as s } from '../styles';
 import CoverPattern from './CoverPattern';
 
@@ -124,7 +124,6 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
           <View style={s.createPreviewPane}>
             {coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <BookPreview title={title} color={color} pattern={pattern} />}
             <Text style={s.createPreviewMeta}>{pageSizeLabel}</Text>
-            <Text style={s.createPreviewCopy}>{coloring ? '추천 색상과 직접 지정한 색을 바로 확인하세요.' : '표지 색상과 패턴은 만든 뒤에도 바꿀 수 있어요.'}</Text>
           </View>
         )}
 
@@ -141,7 +140,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
               onPress={onCancel}
               style={({ pressed }) => [s.createClose, pressed && s.pressed]}
             >
-              <AppIcon name="close" size={20} color="#0B1957" />
+              <AppIcon name="close" size={20} color={C.ink} />
             </Pressable>
           </View>
 
@@ -156,13 +155,13 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
               value={title}
               onChangeText={onTitleChange}
               placeholder="예: 2026 봄의 기록"
-              placeholderTextColor="#98A4BB"
+              placeholderTextColor={C.muted}
               maxLength={TITLE_LIMIT}
               selectTextOnFocus
               style={[s.createField, error && s.fieldError]}
             />
             <View style={s.createHelperRow}>
-              <Text style={error ? s.error : s.helper}>{error || `${TITLE_LIMIT}자 이내로 입력해 주세요.`}</Text>
+              {error ? <Text accessibilityRole="alert" style={s.error}>{error}</Text> : null}
               <Text style={s.helper}>{title.length}/{TITLE_LIMIT}</Text>
             </View>
 
@@ -219,7 +218,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
               onPress={() => { setStep(step - 1); setError(''); }}
               style={({ pressed }) => [s.createBack, pressed && s.pressed, saving && { opacity: 0.5 }]}
             >
-              <AppIcon name="chevron-left" size={18} color="#40517D" />
+              <AppIcon name="chevron-left" size={18} color={C.inkSoft} />
               <Text style={s.createBackText}>{coloring ? '속지 구성' : '이름과 표지'}</Text>
             </Pressable>}
             <Pressable

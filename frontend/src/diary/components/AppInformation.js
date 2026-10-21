@@ -35,7 +35,6 @@ export default function AppInformation() {
         style={({ pressed }) => [styles.policy, pressed && styles.pressed]}>
         <View style={styles.copy}>
           <Text style={styles.label}>개인정보 처리방침</Text>
-          <Text style={styles.hint}>브라우저에서 확인해요.</Text>
         </View>
         <AppIcon name="chevron-right" size={18} color={C.muted} />
       </Pressable>

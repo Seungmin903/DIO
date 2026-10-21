@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, FlatList, Pressable, ScrollView, Text, View } from 'react-native';
-import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS } from '../constants';
+import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS, C } from '../constants';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
 import CreateDiaryCard from '../components/CreateDiaryCard';
@@ -127,7 +127,7 @@ function LibraryScreen({
             onPress={() => onViewChange('carousel')}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, view === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
-            <AppIcon name="swap" size={18} color="#40517D" />
+            <AppIcon name="swap" size={18} color={C.inkSoft} />
             {!compact && <Text style={s.libraryViewText}>스와이프</Text>}
           </Pressable>
           <Pressable
@@ -137,7 +137,7 @@ function LibraryScreen({
             onPress={() => onViewChange('grid')}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, view === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
-            <AppIcon name="grid" size={17} color="#40517D" />
+            <AppIcon name="grid" size={17} color={C.inkSoft} />
             {!compact && <Text style={s.libraryViewText}>한눈에</Text>}
           </Pressable>
         </View>
@@ -171,7 +171,7 @@ function LibraryScreen({
               onPress={() => moveCarousel(activeIndex - 1)}
               style={({ pressed }) => [s.carouselArrow, s.carouselArrowLeft, pressed && s.pressed]}
             >
-              <AppIcon name="chevron-left" size={24} color="#0B1957" strokeWidth={2.1} />
+              <AppIcon name="chevron-left" size={24} color={C.ink} strokeWidth={2.1} />
             </Pressable>}
             <AnimatedFlatList
               ref={carouselRef}
@@ -229,12 +229,12 @@ function LibraryScreen({
               onPress={() => moveCarousel(activeIndex + 1)}
               style={({ pressed }) => [s.carouselArrow, s.carouselArrowRight, pressed && s.pressed]}
             >
-              <AppIcon name="chevron-right" size={24} color="#0B1957" strokeWidth={2.1} />
+              <AppIcon name="chevron-right" size={24} color={C.ink} strokeWidth={2.1} />
             </Pressable>}
           </View>
           <View style={[s.carouselFoot, compact && s.carouselFootCompact]}>
-            {!compact && <Text style={s.swipeHint}>← 옆으로 밀어 다이어리를 넘겨보세요 →</Text>}
-            <Text style={s.carouselCount}>{activeIndex + 1} / {carouselItems.length}</Text>
+            {/* 개수는 다이어리만 센다. 맨 끝 "새 다이어리" 카드에서는 비워 둔다 (줄 높이는 유지) */}
+            <Text style={s.carouselCount}>{activeIndex < shown.length ? `${activeIndex + 1} / ${shown.length}` : ' '}</Text>
           </View>
         </View>
       ) : (

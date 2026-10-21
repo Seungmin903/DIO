@@ -9,7 +9,6 @@ import { clamp } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
 import { getObjectName, tapeSizeOf } from '../../utils/objects'
 import { buildLayerRows } from '../../utils/layerRows'
-import HelpButton, { useHelp } from '../controls/HelpButton'
 import Icon from '../controls/Icon'
 import TapCatcher from '../controls/TapCatcher'
 import TapeView from '../canvas/TapeView'
@@ -34,7 +33,6 @@ const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
  */
 export default function LayerPanel({ objects, selectedIds, dispatch, onClose, onEmptyTap }) {
   const layers = useMemo(() => [...objects].reverse(), [objects])
-  const help = useHelp()
   const [drag, setDrag] = useState(null) // { key, from, dy }
   const [collapsed, setCollapsed] = useState(() => new Set())
   const rows = useMemo(() => buildLayerRows(layers, collapsed), [layers, collapsed])
@@ -247,20 +245,13 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
           ) : (
             <View style={styles.titleGroup}>
               <Text style={styles.title}>레이어</Text>
-              <HelpButton {...help} label="레이어 도움말" />
             </View>
           )}
           <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityLabel="레이어 패널 닫기">
             <Icon name="close" size={18} />
           </Pressable>
         </View>
-        {/* 설명은 물음표를 눌렀을 때만 */}
-        {help.open && (
-          <Text style={styles.hint}>
-            위쪽이 앞에 보여요. 손잡이를 끌어 순서를 바꿔요. 길게 누르면 여러 개 고르기가 시작되고, 그다음은 탭으로 넣고 빼요. 길게 누른 채 위아래로 끌면 그 사이를 한꺼번에 고르고, 고른 행을 다시 길게 눌러 끌면 함께 옮겨요.
-            {'\n'}펜·형광펜 획은 목록에서만 숨겨요. 혼합 그룹을 고르면 획도 함께 선택돼요.
-          </Text>
-        )}
+
       </View>
 
       <View style={styles.listWrap} {...rangeHandlers}>
@@ -279,7 +270,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
         maxToRenderPerBatch={8}
         windowSize={5}
         scrollEnabled={!drag && !ranging}
-        ListEmptyComponent={<Text style={styles.empty}>목록에 표시할 요소가 없어요.{'\n'}펜·형광펜 획은 캔버스에서 확인해 주세요.</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>표시할 요소 없음</Text>}
         ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
         renderItem={({ item: row, index }) => {
           const key = row.kind === 'group' ? `g-${row.groupId}` : row.object.id

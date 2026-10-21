@@ -79,12 +79,11 @@ export default function PdfGeneration({
     setCancelled(true)
     controller.current?.abort()
   }
-  const ratio = progress.totalPages ? progress.completedPages / progress.totalPages : 0
+  const ratio = progress.ratio ?? 0
   return <ExportScreen title="PDF 만드는 중" onClose={cancel} closeLabel="PDF 만들기 닫기" closeDisabled={cancelled} preview={<StageFill>{surface}</StageFill>}>
     <Note>{progress.completedPages} / {progress.totalPages}페이지 {progress.phase === 'assembling' ? '조립 중…' : '만드는 중…'}</Note>
     <View style={styles.track}><View style={[styles.bar, { width: `${Math.round(ratio * 100)}%` }]} /></View>
     {!!qualityPages.length && <Note>확대 출력으로 사진이나 글씨가 흐릴 수 있어요. 미리보기를 확인한 뒤 저장해 주세요.</Note>}
-    <Note>선택한 페이지를 순서대로 만들고 있어요. 편집 내용은 변경되지 않아요.</Note>
     <ExportButton title="PDF 생성 취소" label={cancelled ? '취소 중…' : '만들기 취소'} disabled={cancelled} onPress={cancel} />
   </ExportScreen>
 }
@@ -112,13 +111,12 @@ export function PdfGeneratedPreview({
   return <ExportScreen title="PDF 내보내기" onClose={close} closeLabel="PDF 결과 닫기" closeDisabled={saveState.status === 'saving'}
     preview={Platform.OS === 'web'
       ? <StageFill><iframe title="생성된 PDF 미리보기" src={result.uri} style={{ flex: 1, width: '100%', minHeight: 200, border: 0, borderRadius: 12, background: '#FFFFFF' }} /></StageFill>
-      : <Note>이미지로 만든 PDF예요. 오른쪽 저장·공유 버튼에서 파일 앱이나 다른 앱을 골라 주세요.</Note>}>
+      : null}>
     <InfoRow label="파일 이름" value={result.fileName} selectable />
     <InfoRow label="정보" value={`${result.pageCount}페이지 · ${paper} · ${(result.byteLength / 1024).toFixed(1)}KB`} />
     {result.captureDiagnostics?.some(item => item.upscaled || item.rasterWarnings?.length) && <Note tone="alert">확대 출력으로 사진이나 글씨가 흐릴 수 있어요. 미리보기를 확인한 뒤 저장해 주세요.</Note>}
     <ExportButton primary title={Platform.OS === 'web' ? 'PDF 파일 저장' : 'PDF 파일 저장·공유'} disabled={['saving', 'saved'].includes(saveState.status)} onPress={save} />
     {!!saveState.message && <Note tone={saveState.status === 'error' ? 'alert' : undefined}>{saveState.message}</Note>}
-    {['error', 'cancelled'].includes(saveState.status) && <Note>PDF를 다시 만들지 않고 같은 파일로 다시 저장할 수 있어요.</Note>}
     <ExportButton title="페이지 다시 선택" onPress={selectAgain} disabled={saveState.status === 'saving'} />
   </ExportScreen>
 }

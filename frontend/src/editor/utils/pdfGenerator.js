@@ -31,6 +31,13 @@ export async function generatePdf(snapshot, { renderPageImage, readImage, create
   signal?.addEventListener('abort', cancel, { once: true })
   if (signal?.aborted) cancel()
   const timer = setTimeout(() => controller.abort(pdfError('EXPORT_PDF_TIMEOUT', 'PDF 생성 시간이 초과됐어요.')), timeoutMs)
+  // 실제 처리 단계가 바뀔 때만 알리고, 무거운 동기 처리 전에 UI와 취소 입력에 양보한다.
+  const report = async (event) => {
+    check()
+    onProgress(event)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    check()
+  }
   const work = (async () => {
     let doc, documentPageNumber, phase = 'preparing'
     try {
@@ -46,14 +53,16 @@ export async function generatePdf(snapshot, { renderPageImage, readImage, create
         let imageResult
         try {
           // 면마다 이벤트 루프에 양보해 진행률 표시와 취소 입력이 반영되게 한다.
-          await new Promise((resolve) => setTimeout(resolve, 0))
           check(); phase = 'rendering'
-          onProgress({ phase, completedPages: index, totalPages: input.pages.length, documentPageNumber })
+          await report({ phase, completedPages: index, totalPages: input.pages.length, documentPageNumber, ratio: 0.9 * index / input.pages.length })
           imageResult = await renderPageImage(page, { signal: controller.signal }); check()
-          phase = 'assembling'
+          phase = 'reading'
+          await report({ phase, completedPages: index, totalPages: input.pages.length, documentPageNumber, ratio: 0.9 * (index + 0.55) / input.pages.length })
           const bytes = await readImage(imageResult); check()
           // 합성한 RGB 픽셀을 PNG 로 다시 만들지 않고 바로 무손실(Flate) 그림으로 넣는다.
           // (예전에는 PNG 로 다시 압축한 뒤 pdf-lib 가 그 PNG 를 또 풀고 압축해서 면마다 두 배 넘게 걸렸다)
+          phase = 'assembling'
+          await report({ phase, completedPages: index, totalPages: input.pages.length, documentPageNumber, ratio: 0.9 * (index + 0.7) / input.pages.length })
           const raster = opaquePdfRgb(bytes, page); check()
           const stream = doc.context.flateStream(raster.rgb, { Type: 'XObject', Subtype: 'Image', Width: raster.width, Height: raster.height, BitsPerComponent: 8, ColorSpace: 'DeviceRGB' })
           totalBytes += stream.getContentsSize()
@@ -68,17 +77,19 @@ export async function generatePdf(snapshot, { renderPageImage, readImage, create
           // page.drawImage 와 같은 명령: 그림 한 장을 이 크기·위치로 그린다
           const name = pdfPage.node.newXObject('Image', image)
           pdfPage.pushOperators(pushGraphicsState(), concatTransformationMatrix(width, 0, 0, height, (pw - width) / 2, (ph - height) / 2), drawObject(name), popGraphicsState())
-          onProgress({ phase, completedPages: index + 1, totalPages: input.pages.length, documentPageNumber })
+          await report({ phase, completedPages: index + 1, totalPages: input.pages.length, documentPageNumber, ratio: 0.9 * (index + 1) / input.pages.length })
         } finally { imageResult?.dispose() }
       }
       documentPageNumber = undefined
       check(); phase = 'serializing'
-      onProgress({ phase: 'assembling', completedPages: input.pages.length, totalPages: input.pages.length })
+      await report({ phase, completedPages: input.pages.length, totalPages: input.pages.length, ratio: 0.9 })
       const bytes = await doc.save(); check()
       if (bytes.byteLength > PDF_LIMITS.bytes) throw pdfError('EXPORT_PDF_LIMIT_EXCEEDED', '최종 PDF가 50MiB를 초과해요.')
       phase = 'result'
+      await report({ phase, completedPages: input.pages.length, totalPages: input.pages.length, ratio: 0.97 })
       const output = await createResult(bytes, { pageCount: input.pages.length, fileName: input.fileName });
       if (controller.signal.aborted) { output.dispose(); check() }
+      onProgress({ phase: 'complete', completedPages: input.pages.length, totalPages: input.pages.length, ratio: 1 })
       let disposed = false
       const orientations = new Set(input.pages.map(page => page.height > page.width ? 'portrait' : 'landscape'))
       const paperOrientation = orientations.size > 1 ? 'mixed' : [...orientations][0]

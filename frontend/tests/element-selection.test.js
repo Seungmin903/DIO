@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import * as common from '../src/editor/utils/common.js'
+import * as text from '../src/editor/utils/text.js'
 import * as reducer from '../src/editor/state/editorReducer.js'
 import { pageSize } from '../src/editor/utils/pageGeometry.js'
 
@@ -27,6 +28,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
     if (id.endsWith('/editorReducer')) return reducer
     if (id.endsWith('/common')) return common
+    if (id.endsWith('/text')) return text
     if (id.endsWith('/modifiers')) return { isMultiSelectKey: () => multi }
     if (id.endsWith('/pageGeometry.js')) return { pageSize }
     if (id.endsWith('/theme')) return { colors: {} }
