@@ -1,7 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveJSON, STORAGE_KEYS } from '../../editor/services/storage';
+import { collectMediaIds } from '../../editor/utils/mediaReferences';
+import * as mediaRepository from '../../editor/utils/mediaRepository';
 import { normalizeDiaries, recoverOrphanDiaries, sortByCreated } from '../utils/diaryLibrary';
+
+const readStoredValue = (raw) => {
+  try { return raw ? JSON.parse(raw) : null; } catch { return null; }
+};
 
 /** 다이어리 목록 + 기기 저장소 자동 저장. 편집 문서만 남은 다이어리는 목록에 되살린다. */
 export function useDiaries() {
@@ -47,5 +53,54 @@ export function useDiaries() {
     if (writable) saveJSON(STORAGE_KEYS.diaries, diaries);
   }, [writable, diaries]);
 
-  return { diaries, setDiaries, loaded };
+  const moveToTrash = useCallback((id) => {
+    const trashedAt = new Date().toISOString();
+    setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, trashedAt } : diary)));
+  }, []);
+
+  const restoreFromTrash = useCallback((id) => {
+    setDiaries((current) => sortByCreated(current.map((diary) => (diary.id === id ? { ...diary, trashedAt: null } : diary))));
+  }, []);
+
+  const renameDiary = useCallback((id, title) => {
+    const updatedAt = new Date().toISOString();
+    setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, title, updatedAt } : diary)));
+  }, []);
+
+  const deletePermanently = useCallback(async (id) => {
+    const targetKey = `${STORAGE_KEYS.doc}:${id}`;
+    try {
+      const targetRaw = await AsyncStorage.getItem(targetKey);
+      const targetMedia = new Set(collectMediaIds(readStoredValue(targetRaw)));
+      const allKeys = await AsyncStorage.getAllKeys();
+      const referenceKeys = allKeys.filter((key) => (
+        (key.startsWith(`${STORAGE_KEYS.doc}:`) && key !== targetKey)
+        || key === STORAGE_KEYS.customDecor
+      ));
+      const references = referenceKeys.length ? await AsyncStorage.multiGet(referenceKeys) : [];
+      const retainedMedia = new Set(references.flatMap(([, raw]) => collectMediaIds(readStoredValue(raw))));
+
+      await AsyncStorage.removeItem(targetKey);
+      setDiaries((current) => current.filter((diary) => diary.id !== id));
+
+      // 다른 문서나 사용자 스티커가 함께 쓰는 원본은 남긴다. 미디어 정리 실패는
+      // 다이어리 삭제를 되돌리지 않고 다음 정리 기회까지 고아 파일로 보존한다.
+      await Promise.allSettled([...targetMedia]
+        .filter((mediaId) => !retainedMedia.has(mediaId))
+        .map((mediaId) => mediaRepository.remove(mediaId)));
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  return {
+    diaries,
+    setDiaries,
+    loaded,
+    moveToTrash,
+    restoreFromTrash,
+    deletePermanently,
+    renameDiary,
+  };
 }

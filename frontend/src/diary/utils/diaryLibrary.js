@@ -5,6 +5,12 @@ const DEFAULT_COLOR = '#CED9EE';
 
 const isText = (value) => typeof value === 'string' && value.trim().length > 0;
 const oneOf = (options, value, fallback) => (options.some((option) => option.id === value) ? value : fallback);
+const dateOnly = (value, fallback = null) => {
+  if (typeof value !== 'string' || !/^2026-\d{2}-\d{2}$/.test(value)) return fallback;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? value : fallback;
+};
 
 // 표지 무늬가 없던 이전 다이어리는 무늬 없이(null) 그대로 둔다.
 const coverOptions = (item) => ({
@@ -27,6 +33,8 @@ export function normalizeDiaries(raw) {
       type: item.type === '공유' ? '공유' : '개인',
       favorite: item.favorite === true,
       updatedAt: isText(item.updatedAt) ? item.updatedAt : null,
+      trashedAt: isText(item.trashedAt) ? item.trashedAt : null,
+      firstPageDate: dateOnly(item.firstPageDate),
       ...coverOptions(item),
     }];
   });
@@ -62,6 +70,8 @@ export function recoverOrphanDiaries(diaries, docEntries, docKeyPrefix) {
       type: '개인',
       favorite: false,
       updatedAt: null,
+      trashedAt: null,
+      firstPageDate: null,
       ...coverOptions({}),
     });
   }

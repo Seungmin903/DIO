@@ -53,11 +53,9 @@ frontend/
 
 | 화면 | 시작 파일 | 함께 보는 폴더 |
 | --- | --- | --- |
-| 내 다이어리 / 캐러셀 / 그리드 | `diary/screens/LibraryScreen.js` | `diary/components/DiaryCard.js`, `Cover.js` |
-| 기록 찾기 | `diary/screens/SearchScreen.js` | `diary/components/DiaryCard.js` |
-| 새 다이어리 / 표지 수정 | `diary/screens/DiaryFormScreen.js` | `diary/components/Cover.js` |
-| 다이어리 상세 | `diary/screens/DiaryDetailScreen.js` | `diary/components/Cover.js` |
-| 휴지통 | `diary/screens/TrashScreen.js` | `diary/components/EmptyState.js` |
+| 홈(모든 다이어리·즐겨찾기) / 캐러셀 / 그리드 | `diary/screens/LibraryScreen.js` | `diary/components/DiaryCard.js`, `Cover.js` |
+| 새 다이어리 / 표지 수정 | `diary/components/DiaryCreateModal.js` | `diary/components/Cover.js` |
+| 휴지통(복원·영구 삭제) | `diary/screens/TrashScreen.js` | `diary/hooks/useDiaries.js` |
 | 내 공간 | `diary/screens/ProfileScreen.js` | 없음 |
 | 다이어리 편집 | `editor/screens/EditorScreen.js` | `editor/components/*` |
 

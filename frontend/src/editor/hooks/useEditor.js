@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useState } from 'react'
-import { createDefaultDoc } from '../state/defaultDoc'
+import { createDefaultDoc, migrateUntouchedAnnualDoc } from '../state/defaultDoc'
 import { createInitialState, editorReducer } from '../state/editorReducer'
 import { hydrateMedia } from '../services/mediaStore'
 import { loadJSON, saveJSON, STORAGE_KEYS } from '../services/storage'
@@ -20,13 +20,17 @@ export function useEditor(diary) {
     // 문서가 참조하는 ID만 먼저 연결한다. 일부 누락이 다른 페이지 복원을 막지 않는다.
     loadJSON(storageKey, null)
       .then(async (saved) => {
-        await hydrateMedia(saved)
+        const migrated = migrateUntouchedAnnualDoc(saved, diary)
+        // 내용 없는 예전 연간 기본 문서는 한 페이지로 정리해 다음 실행부터도
+        // 불필요한 78개 속지를 다시 불러오지 않는다.
+        if (migrated !== saved) await saveJSON(storageKey, migrated)
+        await hydrateMedia(migrated)
         if (cancelled) return
-        if (saved?.pages?.length) {
+        if (migrated?.pages?.length) {
           // 표지에서 바꾼 제목·색상은 기존 페이지 작업을 유지한 채 편집기에도 반영한다.
           const restored = diary
-            ? { ...saved, id: diary.id, title: diary.title, coverColor: diary.color }
-            : saved
+            ? { ...migrated, id: diary.id, title: diary.title, coverColor: diary.color }
+            : migrated
           dispatch({ type: 'load', doc: restored })
         }
         setLoaded(true)

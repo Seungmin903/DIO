@@ -9,11 +9,16 @@
 | `dio:diary:list:v1` | 다이어리 목록 배열. 먼저 만든 다이어리가 앞에 오는 생성 순으로 저장한다. 이전 버전처럼 최근 생성이 앞에 저장돼 있으면 불러올 때 ID(`diary-<생성 시각>`) 기준으로 다시 정렬한다. |
 | `dio:editor:doc:v4:<diaryId>` | 다이어리별 편집 문서(기존 `useEditor` 저장 형식, 변경 없음). |
 
-목록 항목은 `{ id, title, color, type: '개인' | '공유', favorite, updatedAt, pattern, pageSize, firstPage }`이다.
+목록 항목은 `{ id, title, color, type: '개인' | '공유', favorite, updatedAt, trashedAt, pattern, pageSize, firstPage, firstPageDate }`이다.
 
 - `pattern`: 표지 무늬 `linen | leather | dot | gingham | stripe`. 무늬가 없던 이전 다이어리는 `null`(무늬 없음)로 둔다.
-- `pageSize`: `landscape | portrait`. 만들 때만 고르고 이후에는 바꿀 수 없다. 값이 없으면 `landscape`.
-- `firstPage`: 첫 페이지 서식 `monthly | weekly | blank | lined | grid | dot`. 값이 없으면 `blank`. 편집기 속지가 준비되기 전까지는 값만 저장하고 화면에는 반영하지 않는다.
+- `pageSize`: 편집기가 가로형만 지원하므로 항상 `landscape`. 예전에 저장된 `portrait`도 `landscape`로 읽는다.
+- `firstPage`: 첫 페이지 서식 `monthly | weekly | blank | lined | grid | dot`. 값이 없으면 `blank`. 새 다이어리의 편집 문서는 이 서식의 속지 한 장으로 시작한다.
+  - `blank | lined | grid | dot` → 공용 속지 `2026-reusable-note-{plain|ruled|grid|dots}-landscape`
+  - `monthly` → `firstPageDate`가 속한 달의 `2026-monthly-MM-landscape`
+  - `weekly` → `firstPageDate`가 포함된 주(월요일 시작)의 `2026-weekly-blocks-<월요일>-landscape`
+- `firstPageDate`: `YYYY-MM-DD`, 먼슬리·위클리일 때만 저장하고 나머지는 `null`. 속지 자료가 2026년뿐이라 2026년 날짜만 허용한다. 값이 없거나 잘못되면 속지를 만들 때 `2026-01-01`을 기준으로 한다.
+- `trashedAt`: 휴지통으로 옮긴 ISO 시각, 보관함에 있으면 `null`.
 - 허용되지 않은 값은 위 기본값으로 바꾼다.
 
 `updatedAt`은 ISO 시각이며 화면에서 `formatUpdatedAt`으로 "방금 전 / N분 전 / N시간 전 / N일 전 / YYYY.MM.DD"로 표시한다. 이전 버전처럼 표시용 문자열이 들어 있거나 값이 없으면 "기록 없음"으로 표시한다.
@@ -25,14 +30,27 @@
 - **저장소 읽기 자체가 실패하면 이번 실행 동안 목록을 저장하지 않는다.** 일시적인 읽기 오류 때문에 기존 목록을 빈 목록으로 덮어쓰지 않기 위함이다.
 - **목록에 없고 편집 문서만 남은 다이어리는 목록 뒤에 되살린다.** 이 수정 전에 만든 다이어리(목록이 저장되지 않던 시기)를 잃지 않기 위함이다. 문서의 `title`·`coverColor`를 사용하고, 페이지가 없거나 JSON이 손상된 문서와 다이어리 ID가 없는 이전 단일 문서 키(`dio:editor:doc:v4`)는 복구하지 않는다.
 
+## 휴지통
+
+- 수정 모달의 삭제는 목록에서 지우지 않고 `trashedAt`만 기록한다. 홈·내 공간에서는 숨기고 휴지통에만 보인다.
+- 복원하면 `trashedAt`을 `null`로 되돌리고 생성 순으로 다시 정렬해 원래 자리로 돌아온다.
+- 영구 삭제하면 목록 항목과 편집 문서(`dio:editor:doc:v4:<diaryId>`)를 지운다. 문서가 쓰던 미디어 원본은 다른 다이어리 문서나 사용자 스티커(`customDecor`)가 참조하지 않을 때만 지운다. 미디어 정리에 실패해도 다이어리 삭제는 되돌리지 않는다.
+- 휴지통 항목은 목록에 남아 있으므로 앱을 다시 열어도 고아 문서 복구로 되살아나지 않는다.
+- 웹은 `Alert.alert`가 창을 띄우지 않아 확인 창을 브라우저 `confirm`으로 띄운다(`shared/dialogs.js`).
+
 ## 범위 밖
 
-- 편집기에서 내용을 수정해도 목록의 `updatedAt`은 갱신하지 않는다(표지 수정 시에만 갱신). 상세 화면의 페이지 수 표시도 그대로다.
-- 휴지통·삭제가 아직 없으므로 목록 항목 삭제와 그에 따른 편집 문서·미디어 정리는 다루지 않는다.
+- 편집기에서 내용을 수정해도 목록의 `updatedAt`은 갱신하지 않는다(표지 수정·편집기 제목 변경 시에만 갱신).
+- 휴지통 자동 비우기(보관 기간)는 없다.
 
 ## 검증
 
-- `node --test tests/*.test.js`: 목록 정리·복구·시각 표시 단위 테스트 3개 포함 78개 통과.
-- 웹 Expo 번들 생성 통과.
-- 웹 브라우저(Playwright Chromium, 1280×800, 새 BrowserContext)에서 다이어리 생성 → 편집기 진입 → 새로고침 → 목록 유지·재진입, 편집 문서만 남은 다이어리 복구를 확인했다. 같은 시나리오에서 수정 전 develop은 목록이 저장되지 않고 새로고침 후 다이어리가 사라지는 것을 재현했다.
-- iOS/Android 실기기의 AsyncStorage 동작은 확인하지 않았다.
+- `node --test tests/*.test.js`: 195개 통과(목록 정리·휴지통 필드·2026 날짜, 첫 속지 SVG ID 매핑과 연간 78쪽 빈 문서 이전 포함).
+- Expo 웹·Android 번들 생성 통과.
+- 웹 브라우저(1024×768, 빈 저장소)에서 확인한 흐름
+  - 빈 홈 → 새 다이어리(위클리, 2026-12-31) → 편집기 1페이지 진입, 속지 `2026-weekly-blocks-2026-12-28-landscape`
+  - 편집기에서 제목 변경 → 홈 카드·목록 반영 → 새로고침 후 재진입해도 제목 유지
+  - 수정 모달에서 표지 패턴·색상 변경 저장, 첫 속지 값은 유지
+  - 삭제 → 휴지통 이동 → 새로고침 후에도 휴지통 유지 → 복원 → 다시 삭제 → 영구 삭제 → 새로고침 후 목록·문서 모두 없음(고아 복구로 되살아나지 않음)
+  - 홈 탭·사이드 메뉴에 공유 항목 없음
+- 확인하지 못한 것: iOS/Android 실기기 AsyncStorage·확인 창, 기존 78쪽 문서 이전의 실제 기기 데이터, 미디어가 있는 문서의 영구 삭제 시 미디어 정리.

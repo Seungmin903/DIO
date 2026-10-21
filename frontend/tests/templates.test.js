@@ -4,7 +4,7 @@ import { readFile, readdir } from 'node:fs/promises'
 import { catalog, annualBook } from '../src/editor/templates/data.js'
 import { REUSABLE_TEMPLATES, getTemplate, templateReference } from '../src/editor/templates/catalog.js'
 import { createTemplateCache } from '../src/editor/templates/cache.js'
-import { createDefaultDoc, createTemplatePage } from '../src/editor/state/defaultDoc.js'
+import { createDefaultDoc, createTemplatePage, firstPageAssetId, migrateUntouchedAnnualDoc } from '../src/editor/state/defaultDoc.js'
 import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js'
 import { pageSize } from '../src/editor/utils/pageGeometry.js'
 import { createExportSnapshot, prepareExportSnapshot } from '../src/editor/utils/pageExport.js'
@@ -31,21 +31,44 @@ test('가로형 SVG 138개가 원본 ID·4:3 좌표로 모두 번들 매핑되�
   }
 })
 
-test('새 다이어리는 표지·월간·블록형 주간 순서의 78페이지이며 페이지별 ID는 독립적이다', () => {
+test('새 다이어리는 빈 속지 한 페이지로 시작하며 페이지 ID는 독립적이다', () => {
   const doc = createDefaultDoc()
   assert.equal(doc.title, '2026 다이어리')
-  assert.equal(doc.pages.length, 78)
-  assert.equal(new Set(doc.pages.map(p => p.id)).size, 78)
-  assert.deepEqual(doc.pages.map(p => p.backgroundAssetId), annualBook.pages)
-  const types = doc.pages.map(p => getTemplate(p.backgroundAssetId).type)
-  assert.equal(types.filter(t => t === 'cover').length, 1)
-  assert.equal(types.filter(t => t === 'divider').length, 12)
-  assert.equal(types.filter(t => t === 'monthly').length, 12)
-  assert.equal(types.filter(t => t === 'weekly').length, 53)
-  assert.equal(doc.pages[3].backgroundAssetId, '2026-weekly-blocks-2025-12-29-landscape')
-  assert.equal(doc.pages.at(-1).backgroundAssetId, '2026-weekly-blocks-2026-12-28-landscape')
+  assert.equal(doc.pages.length, 1)
+  assert.equal(new Set(doc.pages.map(p => p.id)).size, 1)
+  assert.equal(doc.pages[0].backgroundAssetId, '2026-reusable-note-plain-landscape')
   for (const page of doc.pages) { assert.deepEqual(page.objects, []); assert.deepEqual(pageSize(page), { width: 1024, height: 768 }) }
   assert.notEqual(createDefaultDoc().id, doc.id)
+})
+
+test('첫 페이지 서식과 날짜를 정확한 가로형 SVG 한 장으로 연결한다', () => {
+  assert.equal(firstPageAssetId('blank'), '2026-reusable-note-plain-landscape')
+  assert.equal(firstPageAssetId('lined'), '2026-reusable-note-ruled-landscape')
+  assert.equal(firstPageAssetId('grid'), '2026-reusable-note-grid-landscape')
+  assert.equal(firstPageAssetId('dot'), '2026-reusable-note-dots-landscape')
+  assert.equal(firstPageAssetId('monthly', '2026-10-21'), '2026-monthly-10-landscape')
+  assert.equal(firstPageAssetId('weekly', '2026-01-01'), '2026-weekly-blocks-2025-12-29-landscape')
+  assert.equal(firstPageAssetId('weekly', '2026-12-31'), '2026-weekly-blocks-2026-12-28-landscape')
+  for (const id of [
+    firstPageAssetId('monthly', '2026-02-14'),
+    firstPageAssetId('weekly', '2026-07-08'),
+  ]) assert.equal(getTemplate(id).orientation, 'landscape')
+})
+
+test('내용 없는 이전 연간 기본 문서만 한 페이지로 이전하고, 편집한 문서는 보존한다', () => {
+  const legacy = {
+    id: 'legacy',
+    pages: annualBook.pages.map((backgroundAssetId, index) => ({ id: `page-${index}`, backgroundAssetId, objects: [] })),
+  }
+  const migrated = migrateUntouchedAnnualDoc(legacy)
+  assert.equal(migrated.pages.length, 1)
+  assert.notEqual(migrated.pages[0].id, legacy.pages[0].id)
+
+  const edited = {
+    ...legacy,
+    pages: legacy.pages.map((page, index) => (index === 2 ? { ...page, objects: [{ id: 'note' }] } : page)),
+  }
+  assert.equal(migrateUntouchedAnnualDoc(edited), edited)
 })
 
 test('공용 속지 7종은 현재 페이지 다음에 추가되며 취소 이력·재실행·JSON 복원이 유지된다', () => {
@@ -53,20 +76,20 @@ test('공용 속지 7종은 현재 페이지 다음에 추가되며 취소 이�
   for (const item of REUSABLE_TEMPLATES) {
     const doc = createDefaultDoc()
     let state = createInitialState(doc)
-    state = editorReducer(state, { type: 'selectPage', id: doc.pages[5].id })
+    state = editorReducer(state, { type: 'selectPage', id: doc.pages[0].id })
     state = editorReducer(state, { type: 'addPage', backgroundAssetId: item.assetId })
     const added = getCurrentPage(state)
-    assert.equal(state.doc.pages[6], added)
+    assert.equal(state.doc.pages[1], added)
     assert.equal(added.backgroundAssetId, item.assetId)
-    assert.equal(state.doc.pages.length, 79)
+    assert.equal(state.doc.pages.length, 2)
     assert.notEqual(createTemplatePage(item.assetId).id, added.id)
     const undo = editorReducer(state, { type: 'undo' })
     assert.deepEqual(undo.doc, doc)
     state = editorReducer(undo, { type: 'redo' })
-    assert.deepEqual(state.doc.pages[6], added)
+    assert.deepEqual(state.doc.pages[1], added)
     const restored = editorReducer(state, { type: 'load', doc: JSON.parse(JSON.stringify(state.doc)) })
     assert.deepEqual(restored.doc, state.doc)
-    assert.equal('xml' in restored.doc.pages[6], false)
+    assert.equal('xml' in restored.doc.pages[1], false)
   }
 })
 
@@ -93,7 +116,7 @@ test('삭제·실행 취소는 배경 참조를 복구하고 마지막 한 페�
   const doc = createDefaultDoc()
   let state = createInitialState(doc)
   state = editorReducer(state, { type: 'removePage', id: doc.pages[0].id })
-  assert.equal(state.doc.pages.length, 77)
+  assert.equal(state.doc.pages.length, 1)
   assert.deepEqual(editorReducer(state, { type: 'undo' }).doc, doc)
   const one = createInitialState({ pages: [doc.pages[0]] })
   assert.equal(editorReducer(one, { type: 'removePage', id: one.pageId }), one)
@@ -170,24 +193,28 @@ test('웹 SVG 읽기는 HTTP 오류를 성공한 XML로 돌려주지 않는다',
 })
 
 
-test('보관함에서 전달한 ID·제목·색상을 유지하면서 연간 78페이지를 생성한다', () => {
+test('보관함에서 전달한 ID·제목·색상을 유지하면서 빈 첫 페이지를 생성한다', () => {
   const diary = { id: 'diary-123', title: '나의 기록', color: '#6E92C6' }
   const doc = createDefaultDoc(diary)
   assert.equal(doc.id, diary.id)
   assert.equal(doc.title, diary.title)
   assert.equal(doc.coverColor, diary.color)
-  assert.deepEqual(doc.pages.map(page => page.backgroundAssetId), annualBook.pages)
+  assert.equal(doc.pages.length, 1)
+  assert.equal(doc.pages[0].backgroundAssetId, '2026-reusable-note-plain-landscape')
 })
 
 test('페이지 순서를 바꾸고 되돌려도 속지·크기·요소와 현재 페이지를 유지한다', () => {
   const doc = createDefaultDoc()
-  const selected = doc.pages[2]
+  const selected = doc.pages[0]
   let state = editorReducer(createInitialState(doc), { type: 'selectPage', id: selected.id })
-  state = editorReducer(state, { type: 'movePage', id: selected.id, toIndex: 4 })
-  assert.equal(state.doc.pages[4], selected)
+  state = editorReducer(state, { type: 'addPage', backgroundAssetId: REUSABLE_TEMPLATES[0].assetId })
+  state = editorReducer(state, { type: 'selectPage', id: selected.id })
+  const beforeMove = state.doc
+  state = editorReducer(state, { type: 'movePage', id: selected.id, toIndex: 1 })
+  assert.equal(state.doc.pages[1], selected)
   assert.equal(getCurrentPage(state), selected)
-  assert.deepEqual(editorReducer(state, { type: 'undo' }).doc, doc)
-  assert.deepEqual(JSON.parse(JSON.stringify(state.doc.pages[4])), selected)
+  assert.deepEqual(editorReducer(state, { type: 'undo' }).doc, beforeMove)
+  assert.deepEqual(JSON.parse(JSON.stringify(state.doc.pages[1])), selected)
 })
 
 

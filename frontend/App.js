@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { Alert, StatusBar, View, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
-import { COLORS } from './src/diary/constants';
+import { DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail from './src/diary/components/SideRail';
@@ -11,6 +11,7 @@ import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
+import { confirmAction, notify } from './src/shared/dialogs';
 import { fitTabletFrame } from './src/shared/layout';
 
 export default function App() {
@@ -26,104 +27,87 @@ export default function App() {
 function DiaryApp() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const carouselRef = useRef(null);
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
   const [railCollapsed, setRailCollapsed] = useState(true);
-  const [filter, setFilter] = useState('all');
+  // FILTERS에 없는 all을 초기값으로 쓰면 새 다이어리 카드가 제외되어 빈 안내만 보인다.
+  const [filter, setFilter] = useState(DEFAULT_FILTER);
   const [view, setView] = useState('carousel');
   const [carousel, setCarousel] = useState(0);
-  const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
-  const { diaries, setDiaries, loaded } = useDiaries();
+  const {
+    diaries,
+    setDiaries,
+    loaded,
+    moveToTrash,
+    restoreFromTrash,
+    deletePermanently,
+    renameDiary,
+  } = useDiaries();
   const [active, setActive] = useState(null);
-  const [formTitle, setFormTitle] = useState('');
-  const [formColor, setFormColor] = useState(COLORS[0].value);
-  const [error, setError] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingDiaryId, setEditingDiaryId] = useState(null);
+  const [editingDiary, setEditingDiary] = useState(null);
 
   const tablet = fitTabletFrame(viewport.width, viewport.height);
 
-  const open = (diary) => {
+  const open = useCallback((diary) => {
     setActive(diary);
     setPage('editor');
-  };
+  }, []);
 
-  const favorite = (id) => {
+  const favorite = useCallback((id) => {
     setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, favorite: !diary.favorite } : diary)));
     setActive((current) => (current?.id === id ? { ...current, favorite: !current.favorite } : current));
-  };
+  }, [setDiaries]);
 
-  const navigate = (next, nextFilter) => {
+  const navigate = useCallback((next, nextFilter) => {
     if (next === 'library') {
-      setFilter(nextFilter || 'all');
+      setFilter(nextFilter || DEFAULT_FILTER);
       setCarousel(0);
     }
     setPage(next);
-  };
+  }, []);
 
-  const create = () => {
-    setFormTitle('');
-    setFormColor(COLORS[0].value);
-    setError('');
-    setEditingDiaryId(null);
+  const create = useCallback(() => {
+    setEditingDiary(null);
     setCreateOpen(true);
-  };
+  }, []);
 
-  const edit = (diary) => {
-    setFormTitle(diary.title);
-    setFormColor(diary.color);
-    setError('');
-    setEditingDiaryId(diary.id);
+  const edit = useCallback((diary) => {
+    setEditingDiary(diary);
     setCreateOpen(true);
-  };
+  }, []);
 
   const remove = () => {
-    const diary = diaries.find((item) => item.id === editingDiaryId);
+    const diary = diaries.find((item) => item.id === editingDiary?.id);
     if (!diary) return;
 
-    Alert.alert(
-      '다이어리를 삭제할까요?',
-      `“${diary.title}”와 연결된 로컬 기록을 삭제합니다.`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: () => {
-            setDiaries((current) => current.filter((item) => item.id !== diary.id));
-            setActive((current) => (current?.id === diary.id ? null : current));
-            setCreateOpen(false);
-            setEditingDiaryId(null);
-          },
-        },
-      ],
-    );
+    confirmAction({
+      title: '휴지통으로 옮길까요?',
+      message: `“${diary.title}”는 휴지통에서 복원하거나 영구 삭제할 수 있어요.`,
+      confirmLabel: '휴지통으로',
+      onConfirm: () => {
+        moveToTrash(diary.id);
+        setActive((current) => (current?.id === diary.id ? null : current));
+        setCreateOpen(false);
+        setEditingDiary(null);
+      },
+    });
   };
 
-  const save = () => {
-    const title = formTitle.trim();
-    if (!title) {
-      setError('다이어리 이름을 입력해 주세요.');
-      return;
-    }
-
-    const original = editingDiaryId ? diaries.find((diary) => diary.id === editingDiaryId) : null;
-    if (editingDiaryId && !original) {
-      setError('수정할 다이어리를 찾지 못했어요. 목록에서 다시 시도해 주세요.');
-      return;
-    }
+  const save = (values) => {
+    const original = editingDiary ? diaries.find((diary) => diary.id === editingDiary.id) : null;
+    if (editingDiary && !original) return '수정할 다이어리를 찾지 못했어요. 목록에서 다시 시도해 주세요.';
 
     const updatedAt = new Date().toISOString();
     const diary = original
-      ? { ...original, title, color: formColor, updatedAt }
+      ? { ...original, ...values, firstPage: original.firstPage, firstPageDate: original.firstPageDate, updatedAt }
       : {
         id: `diary-${Date.now()}`,
-        title,
-        color: formColor,
+        ...values,
         type: '개인',
         favorite: false,
         updatedAt,
+        trashedAt: null,
       };
     // 먼저 만든 다이어리가 앞(왼쪽)에 오도록 새 다이어리는 뒤에 붙인다.
     setDiaries((current) => (original
@@ -131,41 +115,69 @@ function DiaryApp() {
       : [...current, diary]));
     setActive((current) => (current?.id === diary.id ? diary : current));
     setCreateOpen(false);
-    setEditingDiaryId(null);
+    setEditingDiary(null);
     if (!original) {
       setActive(diary);
       setCarousel(0);
       setPage('editor');
     }
+    return undefined;
   };
 
-  const libraryScreen = (
+  const changeFilter = useCallback((nextFilter) => {
+    setFilter(nextFilter);
+    setCarousel(0);
+  }, []);
+
+  const visibleDiaries = useMemo(() => diaries.filter((diary) => !diary.trashedAt), [diaries]);
+  const trashedDiaries = useMemo(() => diaries.filter((diary) => diary.trashedAt), [diaries]);
+
+  const libraryScreen = useMemo(() => (
     <LibraryScreen
-      diaries={diaries}
+      diaries={visibleDiaries}
       filter={filter}
       view={view}
       carousel={carousel}
-      carouselRef={carouselRef}
-      carouselViewportWidth={carouselViewportWidth}
-      onFilterChange={(nextFilter) => { setFilter(nextFilter); setCarousel(0); }}
+      onFilterChange={changeFilter}
       onViewChange={setView}
       onCarouselChange={setCarousel}
-      onCarouselViewportLayout={setCarouselViewportWidth}
       onOpen={open}
       onFavorite={favorite}
       onEdit={edit}
       onCreate={create}
     />
-  );
+  ), [carousel, changeFilter, create, edit, favorite, filter, open, view, visibleDiaries]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
   if (page === 'editor') {
-    content = <EditorScreen key={active?.id || 'new'} diary={active} onHome={() => navigate('library', 'all')} />;
+    content = (
+      <EditorScreen
+        key={active?.id || 'new'}
+        diary={active}
+        onHome={() => navigate('library', DEFAULT_FILTER)}
+        onRenameDiary={(title) => active?.id && renameDiary(active.id, title)}
+      />
+    );
   } else if (page === 'trash') {
-    content = <TrashScreen />;
+    content = (
+      <TrashScreen
+        diaries={trashedDiaries}
+        onRestore={restoreFromTrash}
+        onDeletePermanently={(diary) => {
+          confirmAction({
+            title: '영구 삭제할까요?',
+            message: `“${diary.title}”의 페이지와 로컬 기록은 복구할 수 없어요.`,
+            confirmLabel: '영구 삭제',
+            onConfirm: async () => {
+              if (!await deletePermanently(diary.id)) notify('삭제하지 못했어요', '저장소를 확인한 뒤 다시 시도해 주세요.');
+            },
+          });
+        }}
+      />
+    );
   } else if (page === 'profile') {
-    content = <ProfileScreen diaries={diaries} />;
+    content = <ProfileScreen diaries={visibleDiaries} />;
   }
 
   const measureViewport = ({ nativeEvent: { layout } }) => {
@@ -196,15 +208,11 @@ function DiaryApp() {
                   {content}
                   {createOpen && (
                     <DiaryCreateModal
-                      title={formTitle}
-                      color={formColor}
-                      error={error}
-                      editing={Boolean(editingDiaryId)}
-                      onTitleChange={(value) => { setFormTitle(value); setError(''); }}
-                      onColorChange={setFormColor}
-                      onSave={save}
+                      key={editingDiary?.id ?? 'new'}
+                      diary={editingDiary}
+                      onSubmit={save}
                       onDelete={remove}
-                      onCancel={() => { setCreateOpen(false); setError(''); setEditingDiaryId(null); }}
+                      onCancel={() => { setCreateOpen(false); setEditingDiary(null); }}
                     />
                   )}
                 </View>
