@@ -17,7 +17,7 @@ import LayerPanel, { LAYER_PANEL_WIDTH } from '../components/panels/LayerPanel'
 import MorePanel from '../components/panels/MorePanel'
 import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
-import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail, PhoneMoreTools } from '../components/chrome/PhoneToolbar'
+import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail } from '../components/chrome/PhoneToolbar'
 import PenSettings from '../components/PenSettings'
 import EraserSettings from '../components/EraserSettings'
 import { normalizePaperAppearance } from '../templates/appearance.js'
@@ -101,8 +101,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [drawerWidth, setDrawerWidth] = useState(320)
   const [stageOrigin, setStageOrigin] = useState({ x: 0, y: 0 })
   const toolPopoverStyle = (width = 320) => {
-    // 폰: 설정 창은 작업 영역 안에 띄우고 아래 되돌리기 바는 가리지 않는다.
-    if (compact) return { left: 8, right: 8, top: 8, bottom: 60, alignItems: landscape ? 'flex-end' : 'center', justifyContent: 'flex-end' }
+    // 폰: 세로 리본 바로 아래, 가로 리본의 상단 옆에 설정 창을 붙인다.
+    // 작업 영역 안에서만 펼쳐지게 해 하단 되돌리기 바도 가리지 않는다.
+    if (compact) return { left: 8, right: 8, top: 8, bottom: 60, alignItems: landscape ? 'flex-end' : 'center', justifyContent: 'flex-start' }
     const stageWidth = stageSize?.width ?? 600
     const left = Math.max(8, Math.min((toolAnchor?.x ?? stageOrigin.x + stageWidth / 2) - stageOrigin.x + (toolAnchor?.width ?? 0) / 2 - width / 2, stageWidth - width - 8))
     return { left, right: 8, top: Math.max(76, (toolAnchor?.y ?? stageOrigin.y + 24) - stageOrigin.y + (toolAnchor?.height ?? 44) + 8), bottom: 64, alignItems: 'flex-start' }
@@ -143,7 +144,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setLayersOpen(!compact)
     setPagesOpen(!compact)
   }
-  const [phoneMoreOpen, setPhoneMoreOpen] = useState(false)
   const stagePadding = compact ? PHONE_STAGE_PADDING : STAGE_PADDING
   const [focusMode, setFocusMode] = useState(false)
   const phoneLandscape = compact && landscape
@@ -424,10 +424,10 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     if (!cropId && activeTool !== 'lasso') dispatch({ type: 'select', ids: [] })
   }
 
-  // 툴바에서 연 창(보관함·더보기·펜/텍스트/올가미 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
+  // 툴바에서 연 창(보관함·펜/텍스트/올가미 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
   // 터치를 가로채지 않고(목록 스크롤과 다투지 않게) 누른 위치만 본다:
   // 창·툴바 안의 터치는 그 영역이 먼저 표시하고, 바깥(root)에서는 표시가 없을 때만 닫는다.
-  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || guidesOpen || phoneMoreOpen || (activeTool === 'lasso' && lassoSettingsOpen))
+  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || guidesOpen || (activeTool === 'lasso' && lassoSettingsOpen))
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
@@ -438,7 +438,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setLassoSettingsOpen(false)
     setTextSettingsOpen(false)
     setGuidesOpen(false)
-    setPhoneMoreOpen(false)
   }
   const closeOnOutside = {
     [pressEvent]: () => {
@@ -467,7 +466,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setGuidesOpen(false)
     setTextSettingsOpen(false)
     setPenSettingsOpen(false)
-    setPhoneMoreOpen(false)
     if (cropId) finishCrop(false)
     setMoreOpen(false)
     setActiveTool('select')
@@ -478,7 +476,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
     setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
     setPenSettingsOpen(['pen', 'highlighter', 'eraser'].includes(tool) ? tool !== activeTool || !penSettingsOpen : false)
-    setPhoneMoreOpen(false)
     if (cropId) finishCrop(false)
     setTapeCropId(null)
     setDrawerTab(null)
@@ -493,7 +490,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   }
   const openExport = () => {
     if (!exportEnabled) return
-    setPhoneMoreOpen(false)
     if (textEditing) { showToast('텍스트 편집을 완료한 뒤 내보내 주세요.'); return }
     if (cropId || tapeCropId) { showToast('자르기를 마친 뒤 내보내 주세요.'); return }
     Keyboard.dismiss()
@@ -529,6 +525,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setFocusMode(true)
     if (!landscape) onToggleOrientation?.()
     showToast('집중 편집 · 두 손가락으로 이동하고 확대하세요.')
+  }
+  const toggleGuides = () => {
+    const next = !guidesOpen
+    closeBubbles()
+    setGuidesOpen(next)
   }
 
   // 모든 화면 규격의 Android 뒤로가기는 현재 편집 상태를 한 단계씩 닫는다.
@@ -566,19 +567,14 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       bottomInset={landscape ? bottomInset : 0}
       activeTool={activeTool}
       drawerTab={drawerTab}
-      moreOpen={phoneMoreOpen}
+      guidesActive={guidesOpen || hasGuides(guides)}
       penColor={penSettings.color}
       highlighterColor={highlighterSettings.color}
+      exportEnabled={exportEnabled}
       onSelectTool={selectTool}
       onOpenDrawer={openDrawer}
-      onToggleMore={() => {
-        setDrawerTab(null)
-        setMoreOpen(false)
-        setPenSettingsOpen(false)
-        setTextSettingsOpen(false)
-        setLassoSettingsOpen(false)
-        setPhoneMoreOpen((open) => !open)
-      }}
+      onOpenGuides={toggleGuides}
+      onExport={openExport}
     />
   ) : null
 
@@ -792,11 +788,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               onSelectTool={selectTool}
               onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
               guidesActive={guidesOpen || hasGuides(guides)}
-              onOpenGuides={() => {
-                const next = !guidesOpen
-                closeBubbles()
-                setGuidesOpen(next)
-              }}
+              onOpenGuides={toggleGuides}
             />
           </View>}
           {!readOnly && activeTool === 'lasso' && lassoSettingsOpen && !drawerTab && (
@@ -846,12 +838,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             // 옵션 패널은 고른 요소 옆(가리지 않는 쪽)에 띄운다
             <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)]} pointerEvents="box-none" {...markInside}>
               <MorePanel objects={selectedObjects} dispatch={dispatch} onReplacePhoto={replacePhoto} onClose={() => setMoreOpen(false)} />
-            </View>
-          )}
-
-          {!readOnly && compact && phoneMoreOpen && (
-            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <PhoneMoreTools exportEnabled={exportEnabled} activeTool={activeTool} drawerTab={drawerTab} onSelectTool={selectTool} onOpenDrawer={openDrawer} onExport={openExport} onFocus={startPhoneFocus} onClose={() => setPhoneMoreOpen(false)} />
             </View>
           )}
 

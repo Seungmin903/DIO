@@ -33,15 +33,19 @@ const tablet = components('../src/editor/components/chrome/TopBar.js')
 for (const readOnly of [false, true]) test(`공통 표시 설정으로 태블릿·폰 가로·폰 세로에서 내보내기를 숨긴다 (readOnly=${readOnly})`, () => {
   for (const exportEnabled of [false, true]) {
     const rail = labels(phone.PhoneEditorRail({ readOnly, exportEnabled }))
-    const more = labels(phone.PhoneMoreTools({ exportEnabled }))
+    const toolbar = labels(phone.default({ exportEnabled }))
     const top = labels(tablet.default({ doc: { title: '일기' }, readOnly, exportEnabled, shareLabel: '공유 및 내보내기' }))
     assert.equal(rail.includes('내보내기'), exportEnabled)
-    assert.equal(more.includes('내보내기'), exportEnabled)
+    assert.equal(toolbar.includes('내보내기'), exportEnabled)
     assert.equal(top.includes('공유 및 내보내기'), exportEnabled)
     assert.ok(rail.includes('페이지 목록'))
     assert.ok(rail.includes('집중 편집'))
-    assert.ok(more.includes('사진·GIF'))
-    assert.ok(more.includes('테이프'))
+    assert.ok(toolbar.includes('손바닥 (화면 이동)'))
+    assert.ok(toolbar.includes('사진·GIF'))
+    assert.ok(toolbar.includes('마스킹테이프'))
+    assert.ok(toolbar.includes('격자 가이드'))
+    assert.ok(!toolbar.includes('집중 편집'))
+    assert.ok(!toolbar.includes('추가 도구'))
   }
 })
 
@@ -64,10 +68,10 @@ test('공통 openExport 핸들러는 비활성일 때 직접 호출해도 메뉴
   assert.ok(handler)
   for (const enabled of [false, true]) {
     const events = []
-    const fn = new Function('exportEnabled', 'setPhoneMoreOpen', 'textEditing', 'cropId', 'tapeCropId', 'showToast', 'Keyboard', 'setExportOpen', `return (${source.slice(handler.start, handler.end)})`)(
-      enabled, value => events.push(['more', value]), null, null, null, () => events.push(['toast']), { dismiss: () => events.push(['keyboard']) }, value => events.push(['export', value]),
+    const fn = new Function('exportEnabled', 'textEditing', 'cropId', 'tapeCropId', 'showToast', 'Keyboard', 'setExportOpen', `return (${source.slice(handler.start, handler.end)})`)(
+      enabled, null, null, null, () => events.push(['toast']), { dismiss: () => events.push(['keyboard']) }, value => events.push(['export', value]),
     )
     fn()
-    assert.deepEqual(events, enabled ? [['more', false], ['keyboard'], ['export', true]] : [])
+    assert.deepEqual(events, enabled ? [['keyboard'], ['export', true]] : [])
   }
 })
