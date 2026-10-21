@@ -288,7 +288,7 @@ export default function Canvas({
       {!outlinePaths && !replacingLasso && selected.length === 1 && selected[0].groupId && !cropping && !marquee && (
         <GroupFrame objects={visible.filter((o) => o.groupId === selected[0].groupId)} zoom={zoom} inside />
       )}
-      {/* 영역 선택 중: 지금 네모 안에 들어와 선택될 요소마다 테두리와 옅은 칠을 보여 준다. */}
+      {/* 영역 선택 중: 지금 네모 안에 들어와 선택될 요소마다 선택 테두리 모양의 선을 보여 준다. */}
       {marquee && selected.map((object) => <HitOutline key={object.id} object={object} zoom={zoom} />)}
       {marquee && (
         <View
@@ -359,10 +359,10 @@ function HitOutline({ object, zoom }) {
       style={[
         styles.hit,
         {
-          left: object.x * zoom - 3,
-          top: object.y * zoom - 3,
-          width: object.w * zoom + 6,
-          height: object.h * zoom + 6,
+          left: object.x * zoom - 1.5,
+          top: object.y * zoom - 1.5,
+          width: object.w * zoom + 3,
+          height: object.h * zoom + 3,
           transform: [{ rotate: `${object.rotation}deg` }],
         },
       ]}
@@ -686,12 +686,11 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderStyle: 'dashed',
   },
+  // 영역 선택 중 걸린 요소 표시: 선택 테두리와 같은 모양(채우지 않은 1.5 실선, 요소 바로 바깥)
   hit: {
     position: 'absolute',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.primary,
-    borderRadius: 4,
-    backgroundColor: 'rgba(110,146,198,0.14)',
   },
   marquee: {
     position: 'absolute',

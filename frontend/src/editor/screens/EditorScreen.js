@@ -640,6 +640,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             currentId={page.id}
             cropId={cropTarget?.id ?? null}
             onMove={(id, toIndex) => dispatch({ type: 'movePage', id, toIndex })}
+            onMovePages={(ids, anchorId, place) => dispatch({ type: 'movePages', ids, anchorId, place })}
             onEmptyTap={clearSelection}
             onSelect={(id) => {
               if (cropId) finishCrop(false)

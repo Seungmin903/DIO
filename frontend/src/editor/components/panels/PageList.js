@@ -22,13 +22,30 @@ export const PAGE_LIST_WIDTH = 156
 
 /**
  * 페이지 목록. 썸네일은 편집 화면과 같은 StaticPage 로 그려 편집 내용을 그대로 비춘다.
- * - 탭: 그 페이지로 이동
- * - 길게 눌러 끌기: 페이지 순서 바꾸기 (놓을 자리에 선이 보인다)
+ * - 탭: 그 페이지로 이동 (고른 페이지도 그 하나만)
+ * - 고른 페이지(지금 페이지 포함)를 길게 눌러 끌기: 순서 바꾸기. 여러 개 골라 두었으면 함께 옮긴다 (놓을 자리에 선이 보인다)
+ * - 고르지 않은 페이지를 길게 누르기: 여러 개 고르기 모드에 들어가 그 페이지를 넣는다. 이어서 위아래로 끌면 그 사이를 모두 고른다
+ *   모드 중에는 탭으로 넣고 빼고, 위쪽이 'N개 선택 · 해제' 로 바뀐다. 함께 끄는 페이지에는 개수가 붙는다 (레이어 패널과 같다)
+ * - 끄는 손가락이 목록 위·아래 끝 근처나 바깥으로 나가면 목록이 그쪽으로 넘어간다
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onMove, onEmptyTap, onOpenOverview, readOnly = false }) {
-  const [drag, setDrag] = useState(null) // { id, from, dy }
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onMove, onMovePages, onEmptyTap, onOpenOverview, readOnly = false }) {
+  const [drag, setDrag] = useState(null) // { id, from, dy, group } — 끌어서 옮기는 중
+  // 고른 페이지들. 평소에는 지금 페이지 하나이고, 길게 눌러 여러 개를 고른다.
+  const [picked, setPicked] = useState([currentId])
+  const [ranging, setRanging] = useState(false) // 길게 눌러 범위 고르는 중 (목록이 손가락을 스크롤로 가져가지 않게)
+  const [pickMode, setPickMode] = useState(false) // 여러 개 고르기 모드: 탭으로 넣고 뺀다
+  const endPickMode = () => { setPickMode(false); setPicked([currentId]) }
+  // 모드 중 탭: 넣거나 뺀다. 다 빼면 모드를 끝낸다
+  const togglePick = (id) => {
+    const next = pickedRef.current.includes(id) ? pickedRef.current.filter((p) => p !== id) : [...pickedRef.current, id]
+    if (next.length) setPicked(next)
+    else endPickMode()
+  }
+  const pickedRef = useRef(picked)
+  pickedRef.current = picked
+  useEffect(() => { if (!pickedRef.current.includes(currentId)) setPicked([currentId]) }, [currentId])
   const [menuId, setMenuId] = useState(null)
   const [filter, setFilter] = useState('all') // 'all' | 'bookmarked'
   const shown = filter === 'bookmarked' ? pages.filter((page) => page.indexed) : pages
@@ -56,12 +73,22 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
     autoScroll.current = null
   }
   useEffect(() => stopAutoScroll, [])
+  // 범위 고르기: 길게 누른 페이지(from)부터 손가락이 있는 페이지까지를 처음 고른 것(base)에 더한다
+  const pickRange = (info) => {
+    const to = dropIndex(pages, layouts.current, { id: info.id, from: info.from, dy: effectiveDy(info) })
+    const ids = pages.slice(Math.min(info.from, to), Math.max(info.from, to) + 1).map((page) => page.id)
+    setPicked([...new Set([...info.base, ...ids])])
+  }
   const startDrag = (id, from) => {
     const height = layouts.current[id]?.height ?? 0
     // 손가락 위치(목록 화면 기준)는 끄는 썸네일 가운데에서 시작한다고 본다
     const pointerStart = LIST_PADDING + itemTop(pages, layouts.current, id) - scrollOffset.current + height / 2
-    dragInfo.current = { id, from, finger: 0, scrollStart: scrollOffset.current, pointerStart }
-    setDrag({ id, from, dy: 0 })
+    const current = pickedRef.current
+    const mode = current.includes(id) ? 'move' : 'range'
+    const base = mode === 'range' ? [...current, id] : current
+    dragInfo.current = { id, from, finger: 0, scrollStart: scrollOffset.current, pointerStart, mode, base }
+    if (mode === 'range') { setPicked(base); setRanging(true); setPickMode(true) }
+    else setDrag({ id, from, dy: 0, group: current.length > 1 })
     stopAutoScroll()
     autoScroll.current = setInterval(() => {
       const info = dragInfo.current
@@ -76,23 +103,37 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
       if (next === scrollOffset.current) return
       scrollOffset.current = next
       listRef.current?.scrollToOffset({ offset: next, animated: false })
-      setDrag({ id: info.id, from: info.from, dy: effectiveDy(info) })
+      if (info.mode === 'range') pickRange(info)
+      else setDrag({ id: info.id, from: info.from, dy: effectiveDy(info), group: pickedRef.current.length > 1 })
     }, 16)
   }
   const moveDrag = (fingerDy) => {
     const info = dragInfo.current
     if (!info) return
     info.finger = fingerDy
-    setDrag({ id: info.id, from: info.from, dy: effectiveDy(info) })
+    if (info.mode === 'range') pickRange(info)
+    else setDrag({ id: info.id, from: info.from, dy: effectiveDy(info), group: pickedRef.current.length > 1 })
   }
   const endDrag = (fingerDy, cancelled) => {
     const info = dragInfo.current
     dragInfo.current = null
     stopAutoScroll()
     setDrag(null)
-    if (!info || cancelled) return
+    setRanging(false)
+    if (!info || cancelled || info.mode === 'range') return
     info.finger = fingerDy
     const to = dropIndex(pages, layouts.current, { id: info.id, from: info.from, dy: effectiveDy(info) })
+    const group = pickedRef.current
+    if (group.length > 1) {
+      // 고른 페이지를 모두 놓은 자리로 함께 옮긴다. 놓은 자리가 함께 옮기는 페이지면 같은 방향으로 처음 만나는 다른 페이지에 붙인다
+      const place = to < info.from ? 'before' : 'after'
+      const step = place === 'before' ? -1 : 1
+      let i = to
+      while (i >= 0 && i < pages.length && group.includes(pages[i].id)) i += step
+      if (to === info.from || i < 0 || i >= pages.length) return
+      onMovePages?.(pages.filter((page) => group.includes(page.id)).map((page) => page.id), pages[i].id, place)
+      return
+    }
     if (to !== info.from) onMove(info.id, to)
   }
   const target = drag ? dropIndex(pages, layouts.current, drag) : null
@@ -111,11 +152,20 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   return (
     <View style={styles.panel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
       <View style={styles.header} onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}>
+        {/* 여러 개 고르기 중에는 탭 줄이 'N개 선택 · 해제' 로 바뀐다 (같은 높이라 목록이 밀리지 않는다) */}
+        {pickMode ? (
+          <View style={styles.pickBar}>
+            <Text style={styles.pickText}>{picked.length}개 선택</Text>
+            <Pressable onPress={endPickMode} hitSlop={8} accessibilityRole="button" accessibilityLabel="여러 페이지 선택 해제" style={styles.pickDone}>
+              <Text style={styles.pickDoneText}>해제</Text>
+            </Pressable>
+          </View>
+        ) : (
         <View style={styles.tabs}>
           {[['all', '전체'], ['bookmarked', '북마크']].map(([id, label]) => (
             <Pressable
               key={id}
-              onPress={() => { setMenuId(null); setFilter(id) }}
+              onPress={() => { setMenuId(null); endPickMode(); setFilter(id) }}
               accessibilityRole="button"
               accessibilityLabel={`${label} 페이지 보기`}
               accessibilityState={{ selected: filter === id }}
@@ -125,7 +175,8 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
             </Pressable>
           ))}
         </View>
-        {onOpenOverview && (
+        )}
+        {!pickMode && onOpenOverview && (
           <Pressable onPress={() => onOpenOverview(filter)} hitSlop={6} accessibilityRole="button" accessibilityLabel="페이지 넓게 보기" style={({ pressed }) => [styles.expand, pressed && styles.addPressed]}>
             <Icon name="pages" size={16} color={colors.textMuted} />
           </Pressable>
@@ -136,8 +187,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         data={shown}
         keyExtractor={(page) => page.id}
         contentContainerStyle={styles.list}
-        scrollEnabled={!drag}
-        extraData={filter}
+        scrollEnabled={!drag && !ranging}
         onScroll={(event) => {
           scrollOffset.current = event.nativeEvent.contentOffset.y
           setScrollY(event.nativeEvent.contentOffset.y)
@@ -150,9 +200,11 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         windowSize={5}
         // 끄는 동안에는 원래 칸이 스크롤로 화면 밖에 나가도 끄는 썸네일이 잘려 사라지지 않게 끈다
         removeClippedSubviews={!drag}
+        extraData={[filter, picked]}
         renderItem={({ item: page, index }) => {
           const active = page.id === currentId
           const dragging = drag?.id === page.id
+          const multi = pickMode && picked.includes(page.id)
           return <PageItem
             page={page}
             index={index}
@@ -160,6 +212,11 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
             // 북마크만 볼 때는 끌어서 순서를 바꾸지 않는다 (사이에 숨은 페이지가 있어서)
             canDrag={filter === 'all'}
             active={active}
+            picked={multi}
+            pickMode={pickMode}
+            // 여러 개를 함께 옮기는 중: 끄는 페이지 말고 고른 페이지들은 흐리게
+            carried={Boolean(drag?.group && multi && !dragging)}
+            dragCount={dragging && drag.group ? picked.length : 0}
             dragging={dragging}
             dy={dragging ? drag.dy : 0}
             dropLine={drag && !dragging && target === index ? (target < drag.from ? 'before' : 'after') : null}
@@ -170,7 +227,12 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
             canOpenMenu={!readOnly && !drag}
             canToggleIndex={!readOnly && !drag}
             onLayout={(layout) => (layouts.current[page.id] = layout)}
-            onSelect={() => { setMenuId(null); onSelect(page.id) }}
+            onSelect={() => {
+              setMenuId(null)
+              if (pickMode) return togglePick(page.id)
+              setPicked([page.id])
+              onSelect(page.id)
+            }}
             onMenu={() => openMenu(page.id)}
             onToggleIndex={() => onToggleIndex(page.id)}
             onDragStart={() => startDrag(page.id, index)}
@@ -240,7 +302,7 @@ function dropIndex(pages, layouts, drag) {
   return clamp(index, 0, pages.length - 1)
 }
 
-const PageItem = memo(function PageItem({ page, index, number, canDrag = true, active, showBackground, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
+const PageItem = memo(function PageItem({ page, index, number, canDrag = true, active, picked = false, carried = false, dragCount = 0, pickMode = false, showBackground, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
   const { width, height } = pageSize(page)
   // 썸네일 그림은 테두리(1px) 안쪽 크기에 정확히 맞춘다. 넘치면 Android 에서 아래쪽 테두리를 덮었다.
   const thumbZoom = (THUMB_WIDTH - THUMB_BORDER * 2) / width
@@ -275,10 +337,11 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
 
   return (
     <View
-      style={[styles.item, dragging && { zIndex: 2, transform: [{ translateY: dy }, { scale: 1.04 }] }]}
+      style={[styles.item, dragging && { zIndex: 2, transform: [{ translateY: dy }, { scale: 1.04 }] }, carried && styles.carried]}
       onLayout={(event) => onLayout(event.nativeEvent.layout)}
     >
       {dropLine && <View style={[styles.dropLine, dropLine === 'before' ? styles.dropBefore : styles.dropAfter]} />}
+      {dragCount > 1 && <View style={styles.countBadge} pointerEvents="none"><Text style={styles.countText}>{dragCount}</Text></View>}
       <View
         {...handlers}
         accessibilityRole="button"
@@ -291,7 +354,8 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
           <StaticPage page={page} zoom={thumbZoom} still cropId={cropId} showBackground={showBackground} />
         </View>
         {/* 선택 테두리는 썸네일 위에 겹쳐 그린다 (썸네일에 아래쪽 선이 가려지던 문제) */}
-        {active && <View style={styles.activeRing} pointerEvents="none" />}
+        {(pickMode ? picked : active) && <View style={styles.activeRing} pointerEvents="none" />}
+        {picked && <View style={styles.pickedCheck} pointerEvents="none"><Icon name="check" size={12} color={colors.surface} strokeWidth={3} /></View>}
       </View>
       {canToggleIndex && (
         <Pressable
@@ -325,6 +389,10 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
   && previous.number === next.number
   && previous.canDrag === next.canDrag
   && previous.active === next.active
+  && previous.picked === next.picked
+  && previous.pickMode === next.pickMode
+  && previous.dragCount === next.dragCount
+  && previous.carried === next.carried
   && previous.showBackground === next.showBackground
   && previous.dragging === next.dragging
   && previous.dy === next.dy
@@ -351,6 +419,14 @@ const styles = StyleSheet.create({
   },
   thumbPage: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', borderRadius: 7, backgroundColor: '#FFFFFF' },
   thumbActive: { borderColor: 'transparent' },
+  carried: { opacity: 0.4 },
+  pickBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 32, paddingLeft: 10, paddingRight: 3, borderRadius: 9, backgroundColor: 'rgba(11,25,87,0.06)' },
+  pickText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
+  pickDone: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 7, backgroundColor: colors.surface },
+  pickDoneText: { fontSize: 12.5, fontWeight: '800', color: colors.primary },
+  countBadge: { position: 'absolute', top: -8, right: 4, zIndex: 3, minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  countText: { fontSize: 12, fontWeight: '800', color: colors.surface },
+  pickedCheck: { position: 'absolute', right: 6, bottom: 6, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   activeRing: { position: 'absolute', top: -THUMB_BORDER, left: -THUMB_BORDER, right: -THUMB_BORDER, bottom: -THUMB_BORDER, borderRadius: 8, borderWidth: 2, borderColor: colors.primary },
   header: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingTop: 10 },
   tabs: { flex: 1, flexDirection: 'row', padding: 2, borderRadius: 9, backgroundColor: 'rgba(11,25,87,0.06)' },

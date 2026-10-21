@@ -17,6 +17,9 @@ import ObjectContent from '../canvas/ObjectView'
 const ROW_HEIGHT = 62
 const ROW_GAP = 2
 const ROW_STEP = ROW_HEIGHT + ROW_GAP
+// 끌기 중 자동 스크롤: 목록 위·아래 끝에서 이만큼 안쪽부터, 끝에 가까울수록(바깥으로 나갈수록) 빨리 넘긴다 (페이지 목록과 같다)
+const AUTO_SCROLL_EDGE = 56
+const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
 
 /**
  * 레이어 패널. 위쪽 항목이 앞(objects 배열의 뒤쪽)에 보인다.
@@ -35,22 +38,92 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
   const [collapsed, setCollapsed] = useState(() => new Set())
   const rows = useMemo(() => buildRows(layers, collapsed), [layers, collapsed])
   const dropIndex = drag ? clamp(drag.from + Math.round(drag.dy / ROW_STEP), 0, rows.length - 1) : null
-  // 길게 누른 채 끌어 여러 개 고르기: { anchor, base, startY, captured, last }
+  // 길게 누른 채 끌기. mode 'range': 여러 개 고르기 { anchor, base, startY, captured, last }
+  // mode 'move': 여러 개 고른 상태에서 고른 행을 다시 길게 눌러 끌면 고른 것을 모두 함께 옮긴다 { anchor, startY, dy, ids }
   const rangeRef = useRef(null)
   const [ranging, setRanging] = useState(false)
+  // 여러 개 고르기 모드 (굿노트·삼성노트의 선택 모드처럼): 길게 눌러 들어가고, 그동안은 탭 한 번으로 넣고 뺀다.
+  // 위쪽 'N개 선택 · 해제' 로 끝내고, 고른 것이 하나도 없어도 끝난다.
+  const [multi, setMulti] = useState(false)
+  useEffect(() => { if (!selectedIds.length) setMulti(false) }, [selectedIds.length])
   const idsOfRow = (row) => (row.kind === 'group' ? row.members.map((o) => o.id) : [row.object.id])
+  const keyOfRow = (row) => (row.kind === 'group' ? `g-${row.groupId}` : row.object.id)
+
+  // 끌기(손잡이 끌기·범위 고르기·함께 옮기기) 공통: 손가락이 움직인 만큼(finger)에 자동 스크롤로 넘어간 만큼을 더해 행 위치를 정한다.
+  const listRef = useRef(null)
+  const scrollOffset = useRef(0)
+  const listHeight = useRef(0)
+  const contentHeight = useRef(0)
+  const gripRef = useRef(null) // 손잡이 끌기 { key, from, finger, scrollStart, pointerStart }
+  const autoScroll = useRef(null)
+  const follow = (index) => ({ finger: 0, scrollStart: scrollOffset.current, pointerStart: index * ROW_STEP - scrollOffset.current + ROW_STEP / 2 })
+  const effectiveDy = (g) => g.finger + scrollOffset.current - g.scrollStart
+  const stopAutoScroll = () => {
+    clearInterval(autoScroll.current)
+    autoScroll.current = null
+  }
+  useEffect(() => stopAutoScroll, [])
+  const startAutoScroll = () => {
+    stopAutoScroll()
+    autoScroll.current = setInterval(() => {
+      const g = rangeRef.current ?? gripRef.current
+      if (!g) return
+      const pointer = g.pointerStart + g.finger
+      const bottomEdge = listHeight.current - AUTO_SCROLL_EDGE
+      const depth = pointer < AUTO_SCROLL_EDGE ? pointer - AUTO_SCROLL_EDGE : pointer > bottomEdge ? pointer - bottomEdge : 0
+      if (!depth) return
+      const speed = clamp((depth / AUTO_SCROLL_EDGE) * AUTO_SCROLL_MAX_SPEED, -AUTO_SCROLL_MAX_SPEED, AUTO_SCROLL_MAX_SPEED)
+      const next = clamp(scrollOffset.current + speed, 0, Math.max(0, contentHeight.current - listHeight.current))
+      if (next === scrollOffset.current) return
+      scrollOffset.current = next
+      listRef.current?.scrollToOffset({ offset: next, animated: false })
+      followGesture(g)
+    }, 16)
+  }
+  // 손가락·스크롤 위치에 맞춰 끄는 행 위치나 고른 범위를 고친다
+  function followGesture(g) {
+    const dy = effectiveDy(g)
+    if (g === gripRef.current || g.mode === 'move') {
+      g.dy = dy
+      setDrag({ key: g.key ?? keyOfRow(rows[g.anchor]), from: g.anchor ?? g.from, dy })
+      return
+    }
+    const index = clamp(g.anchor + Math.round(dy / ROW_STEP), 0, rows.length - 1)
+    if (index === g.last) return
+    g.last = index
+    const ids = rows.slice(Math.min(g.anchor, index), Math.max(g.anchor, index) + 1).flatMap(idsOfRow)
+    dispatch({ type: 'selectExact', ids: [...new Set([...g.base, ...ids])] })
+  }
 
   function startRange(index, event) {
-    // 길게 누르면 그 행을 넣거나 뺀다(기존과 같다). 이어서 끌면 그 결과에 끈 범위를 더한다.
     const ids = idsOfRow(rows[index])
     const wasSelected = ids.every((id) => selectedIds.includes(id))
+    const startY = event.nativeEvent.pageY
+    if (wasSelected && selectedIds.length > ids.length) {
+      setMulti(true)
+      rangeRef.current = { mode: 'move', anchor: index, startY, dy: 0, ids, captured: false, ...follow(index) }
+      setDrag({ key: keyOfRow(rows[index]), from: index, dy: 0 })
+      setRanging(true)
+      startAutoScroll()
+      return
+    }
+    // 길게 누르면 그 행을 넣거나 뺀다(기존과 같다). 이어서 끌면 그 결과에 끈 범위를 더한다.
     const base = wasSelected ? selectedIds.filter((id) => !ids.includes(id)) : [...new Set([...selectedIds, ...ids])]
-    rangeRef.current = { anchor: index, base, startY: event.nativeEvent.pageY, captured: false, last: index }
+    dispatch({ type: 'selectExact', ids: base })
+    setMulti(true)
+    rangeRef.current = { mode: 'range', anchor: index, base, startY, captured: false, last: index, ...follow(index) }
     setRanging(true)
+    startAutoScroll()
   }
   function endRange() {
+    const r = rangeRef.current
     rangeRef.current = null
     setRanging(false)
+    stopAutoScroll()
+    if (r?.mode !== 'move') return
+    setDrag(null)
+    // 끌지 않고 떼면 아무것도 바꾸지 않는다 (고른 목록에서 빼기는 선택 모드에서 탭으로 한다)
+    if (Math.abs(effectiveDy(r)) >= ROW_STEP / 2) drop(r.anchor, clamp(r.anchor + Math.round(effectiveDy(r) / ROW_STEP), 0, rows.length - 1))
   }
   const rangeHandlers = {
     // 길게 누른 뒤 손가락이 움직이면 목록이 터치를 이어받는다. (그 전에는 목록 스크롤·행 누르기를 건드리지 않는다)
@@ -63,13 +136,8 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
     onResponderMove: (event) => {
       const r = rangeRef.current
       if (!r) return
-      const index = clamp(r.anchor + Math.round((event.nativeEvent.pageY - r.startY) / ROW_STEP), 0, rows.length - 1)
-      if (index === r.last) return
-      r.last = index
-      const from = Math.min(r.anchor, index)
-      const to = Math.max(r.anchor, index)
-      const ids = rows.slice(from, to + 1).flatMap(idsOfRow)
-      dispatch({ type: 'selectExact', ids: [...new Set([...r.base, ...ids])] })
+      r.finger = event.nativeEvent.pageY - r.startY
+      followGesture(r)
     },
     onResponderRelease: endRange,
     onResponderTerminate: endRange,
@@ -86,13 +154,31 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
   // 행 동작. 매번 새 함수를 넘기면 요소 하나만 움직여도 모든 행이 다시 그려져서, 고정된 객체 하나로 넘기고 최신 값은 ref 로 읽는다.
   const rowActionsRef = useRef(null)
   rowActionsRef.current = {
-    dragStart: (key, index) => setDrag({ key, from: index, dy: 0 }),
-    dragMove: (key, index, dy) => setDrag({ key, from: index, dy }),
-    dragEnd: (index, dy) => {
+    dragStart: (key, index) => {
+      gripRef.current = { key, from: index, ...follow(index) }
+      setDrag({ key, from: index, dy: 0 })
+      startAutoScroll()
+    },
+    dragMove: (key, index, dy) => {
+      const g = gripRef.current
+      if (!g) return
+      g.finger = dy
+      followGesture(g)
+    },
+    dragEnd: (index) => {
+      const g = gripRef.current
+      gripRef.current = null
+      stopAutoScroll()
       setDrag(null)
-      drop(index, clamp(index + Math.round(dy / ROW_STEP), 0, rows.length - 1))
+      if (g) drop(index, clamp(index + Math.round(effectiveDy(g) / ROW_STEP), 0, rows.length - 1))
     },
     rangeStart: (index, event) => startRange(index, event),
+    // 선택 모드에서 탭: 그 행을 고른 목록에 넣거나 뺀다
+    toggle: (index) => {
+      const ids = idsOfRow(rows[index])
+      const on = ids.every((id) => selectedIds.includes(id))
+      dispatch({ type: 'selectExact', ids: on ? selectedIds.filter((id) => !ids.includes(id)) : [...new Set([...selectedIds, ...ids])] })
+    },
     // 길게 누르고 끌지 않은 채 떼면 범위 고르기를 끝낸다. (끌었으면 목록이 이어받아 거기서 끝낸다)
     pressOut: () => {
       if (rangeRef.current && !rangeRef.current.captured) endRange()
@@ -103,12 +189,27 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
   )
 
   // 화면 목록에서 from → to 로 끌어 놓은 결과를 reducer 의 moveLayers 로 바꾼다.
+  // 고른 행을 끌었고 여러 개를 골라 두었으면 고른 것을 모두 그 자리로 함께 옮긴다. (순서는 그대로)
   function drop(from, to) {
     if (from === to) return
     const row = rows[from]
-    const target = rows[to]
     const place = to < from ? 'above' : 'below'
-    const movingIds = row.kind === 'group' ? row.members.map((o) => o.id) : [row.object.id]
+    const rowIds = idsOfRow(row)
+    if (rowIds.every((id) => selectedIds.includes(id)) && selectedIds.length > rowIds.length) {
+      const moving = new Set(selectedIds)
+      const step = place === 'above' ? -1 : 1
+      // 놓은 자리가 함께 옮기는 행이면 같은 방향으로 처음 만나는 다른 행에 붙인다
+      let i = to
+      while (i >= 0 && i < rows.length && idsOfRow(rows[i]).every((id) => moving.has(id))) i += step
+      if (i < 0 || i >= rows.length) return
+      const target = rows[i]
+      const targetIds = idsOfRow(target)
+      const anchorId = place === 'above' ? targetIds[0] : targetIds.at(-1)
+      dispatch({ type: 'moveLayers', ids: selectedIds, anchorId, place })
+      return
+    }
+    const target = rows[to]
+    const movingIds = rowIds
     let anchorId
     if (target.kind === 'group') {
       // 그룹 머리 위로 → 그룹 전체 위, 아래로 → 펼쳐져 있으면 그룹 안 맨 위, 아니면 그룹 전체 아래
@@ -127,11 +228,27 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
   return (
     <View style={styles.panel}>
       <View style={styles.header}>
+        {/* 여러 개 고르기 중에는 제목 줄이 'N개 선택 · 해제' 로 바뀐다. 줄을 새로 끼우면 목록이 밀려 누르려던 행이 바뀌어서 같은 자리를 쓴다 */}
         <View style={styles.titleRow}>
-          <View style={styles.titleGroup}>
-            <Text style={styles.title}>레이어</Text>
-            <HelpButton {...help} label="레이어 도움말" />
-          </View>
+          {multi ? (
+            <View style={styles.multiBar}>
+              <Text style={styles.multiText}>{selectedIds.length}개 선택</Text>
+              <Pressable
+                onPress={() => { setMulti(false); dispatch({ type: 'selectExact', ids: [] }) }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="여러 개 선택 해제"
+                style={styles.multiDone}
+              >
+                <Text style={styles.multiDoneText}>해제</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.titleGroup}>
+              <Text style={styles.title}>레이어</Text>
+              <HelpButton {...help} label="레이어 도움말" />
+            </View>
+          )}
           <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityLabel="레이어 패널 닫기">
             <Icon name="close" size={18} />
           </Pressable>
@@ -139,13 +256,18 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
         {/* 설명은 물음표를 눌렀을 때만 */}
         {help.open && (
           <Text style={styles.hint}>
-            위쪽이 앞에 보여요. 손잡이를 끌어 순서를 바꾸고, 길게 누른 채 위아래로 끌면 여러 개를 한꺼번에 골라요.
+            위쪽이 앞에 보여요. 손잡이를 끌어 순서를 바꿔요. 길게 누르면 여러 개 고르기가 시작되고, 그다음은 탭으로 넣고 빼요. 길게 누른 채 위아래로 끌면 그 사이를 한꺼번에 고르고, 고른 행을 다시 길게 눌러 끌면 함께 옮겨요.
           </Text>
         )}
       </View>
 
       <View style={styles.listWrap} {...rangeHandlers}>
       <FlatList
+        ref={listRef}
+        onScroll={(event) => (scrollOffset.current = event.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={32}
+        onLayout={(event) => (listHeight.current = event.nativeEvent.layout.height)}
+        onContentSizeChange={(_, height) => (contentHeight.current = height)}
         style={styles.list}
         contentContainerStyle={styles.listContent}
         data={rows}
@@ -162,7 +284,13 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
           const common = {
             index,
             dispatch,
+            multi,
             dragging: drag?.key === key,
+            // 여러 개를 함께 끄는 중이면 끄는 행에 옮기는 개수를 보여 준다 (키노트·굿노트의 겹친 카드 개수처럼)
+            dragCount: drag?.key === key && selectedIds.length > idsOfRow(row).length && idsOfRow(row).every((id) => selectedIds.includes(id)) ? selectedIds.length : 0,
+            // 여러 개를 함께 옮기는 중: 끄는 행 말고 고른 다른 행들은 흐리게 보여 같이 간다는 걸 알린다
+            carried: Boolean(drag && drag.key !== key && selectedIds.length > 1 && idsOfRow(row).every((id) => selectedIds.includes(id))
+              && idsOfRow(rows[drag.from] ?? row).every((id) => selectedIds.includes(id))),
             dragOffset: drag?.key === key ? drag.dy : 0,
             dropLine: drag && drag.key !== key && dropIndex === index ? (dropIndex < drag.from ? 'before' : 'after') : null,
           }
@@ -242,9 +370,10 @@ function useRowDrag({ onDragStart, onDragMove, onDragEnd }) {
   })
 }
 
-function RowShell({ dragging, dragOffset, dropLine, children }) {
+function RowShell({ dragging, dragOffset, dropLine, carried, dragCount = 0, children }) {
   return (
-    <View style={[styles.rowWrap, dragging && { zIndex: 2, transform: [{ translateY: dragOffset }] }]}>
+    <View style={[styles.rowWrap, dragging && { zIndex: 2, transform: [{ translateY: dragOffset }] }, carried && styles.rowCarried]}>
+      {dragCount > 1 && <View style={styles.countBadge} pointerEvents="none"><Text style={styles.countText}>{dragCount}</Text></View>}
       {dropLine && <View style={[styles.dropLine, dropLine === 'before' ? styles.dropBefore : styles.dropAfter]} />}
       {children}
     </View>
@@ -326,7 +455,7 @@ function ToggleButtons({ show, hidden, locked, onToggle }) {
   )
 }
 
-function GroupRow({ row, selected, renamable, collapsed, onToggleCollapsed, dispatch, onRangeStart, onPressOut, ...drag }) {
+function GroupRow({ row, selected, renamable, collapsed, onToggleCollapsed, dispatch, multi, onToggle, onRangeStart, onPressOut, ...drag }) {
   const gripHandlers = useRowDrag(drag)
   const memberIds = row.members.map((o) => o.id)
   const hidden = row.members.every((o) => o.hidden)
@@ -343,12 +472,10 @@ function GroupRow({ row, selected, renamable, collapsed, onToggleCollapsed, disp
       <Pressable
         onPress={() => {
           Keyboard.dismiss()
-          dispatch({ type: 'select', ids: memberIds })
+          if (multi) onToggle()
+          else dispatch({ type: 'select', ids: memberIds })
         }}
-        onLongPress={(event) => {
-          dispatch({ type: 'toggleSelect', id: memberIds[0] })
-          onRangeStart(event)
-        }}
+        onLongPress={onRangeStart}
         onPressOut={onPressOut}
         delayLongPress={350}
         style={[styles.row, selected && styles.rowSelected, drag.dragging && styles.rowDragging, hidden && styles.rowHidden]}
@@ -386,6 +513,7 @@ function rowHandlers(actions, key, index) {
     onDragMove: (dy) => actions.dragMove(key, index, dy),
     onDragEnd: (dy) => actions.dragEnd(index, dy),
     onRangeStart: (event) => actions.rangeStart(index, event),
+    onToggle: () => actions.toggle(index),
     onPressOut: actions.pressOut,
   }
 }
@@ -395,20 +523,18 @@ const MemoLayerRow = memo(function MemoLayerRow({ rowKey, actions, index, ...pro
   return <LayerRow index={index} {...props} {...rowHandlers(actions, rowKey, index)} />
 })
 
-function LayerRow({ object, nested, selected, renamable, dispatch, onRangeStart, onPressOut, ...drag }) {
+function LayerRow({ object, nested, selected, renamable, dispatch, multi, onToggle, onRangeStart, onPressOut, ...drag }) {
   const gripHandlers = useRowDrag(drag)
   return (
     <RowShell {...drag}>
       <Pressable
         onPress={() => {
           Keyboard.dismiss()
-          if (isMultiSelectKey()) dispatch({ type: 'toggleSelect', id: object.id, exact: nested })
+          if (multi) onToggle()
+          else if (isMultiSelectKey()) dispatch({ type: 'toggleSelect', id: object.id, exact: nested })
           else dispatch({ type: nested ? 'selectExact' : 'select', ids: [object.id] })
         }}
-        onLongPress={(event) => {
-          dispatch({ type: 'toggleSelect', id: object.id, exact: nested })
-          onRangeStart(event)
-        }}
+        onLongPress={onRangeStart}
         onPressOut={onPressOut}
         delayLongPress={350}
         style={[
@@ -505,6 +631,13 @@ const LayerThumb = memo(function LayerThumb({ object }) {
 export const LAYER_PANEL_WIDTH = 280
 
 const styles = StyleSheet.create({
+  rowCarried: { opacity: 0.4 },
+  multiBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: 10, paddingVertical: 2, paddingLeft: 12, paddingRight: 4, borderRadius: 10, backgroundColor: '#EEF2F9' },
+  multiText: { fontSize: 13, fontWeight: '700', color: colors.text },
+  multiDone: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.surface },
+  multiDoneText: { fontSize: 13, fontWeight: '800', color: colors.primary },
+  countBadge: { position: 'absolute', top: -6, right: 8, zIndex: 3, minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  countText: { fontSize: 12, fontWeight: '800', color: colors.surface },
   // 화면 오른쪽 끝에 붙는 패널 (EditorScreen 의 바깥 여백을 음수 여백으로 덮는다)
   panel: {
     width: LAYER_PANEL_WIDTH,
@@ -522,6 +655,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 2,
+    height: 36, // 여러 개 고르기 막대로 바뀌어도 높이가 같아 목록이 밀리지 않게
   },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   title: { fontSize: 19, fontWeight: '800', color: colors.text },
