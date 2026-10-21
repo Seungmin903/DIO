@@ -18,7 +18,7 @@ function edgesIntersect(a, b, c, d) {
 }
 
 // SVG fillRule="evenodd"와 동일한 내부 판정. 경계 접촉도 포함한다.
-function containsPoint(points, point) {
+export function containsLassoPoint(points, point) {
   let inside = false
   for (let i = 0; i < points.length; i++) {
     const a = points[i], b = edgeAt(points, i)
@@ -88,7 +88,7 @@ function polygonsIntersect(a, b) {
       if (edgesIntersect(a[i], edgeAt(a, i), b[j], edgeAt(b, j))) return true
     }
   }
-  return a.some(p => containsPoint(b, p)) || b.some(p => containsPoint(a, p))
+  return a.some(p => containsLassoPoint(b, p)) || b.some(p => containsLassoPoint(a, p))
 }
 
 export function lassoHitIds(objects, polygon) {
