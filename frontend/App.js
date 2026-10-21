@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { COLORS } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
@@ -13,6 +14,8 @@ import { styles as s } from './src/diary/styles';
 import { fitTabletFrame } from './src/shared/layout';
 
 export default function App() {
+  // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
+  useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   return (
     <SafeAreaProvider style={s.safe}>
       <DiaryApp />
