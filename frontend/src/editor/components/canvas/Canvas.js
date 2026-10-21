@@ -99,6 +99,7 @@ export default function Canvas({
         x: event.locationX / zoom,
         y: event.locationY / zoom,
         base: isMultiSelectKey() ? selectedIds : [],
+        previousSelection: selectedIds,
         key: null, // 영역 선택이 시작되면 빈 결과라도 한 번은 반영한다
         maxMove: 0,
       }
@@ -133,6 +134,9 @@ export default function Canvas({
       const start = marqueeRef.current
       marqueeRef.current = null
       setMarquee(null)
+      if (cancelled && start?.key != null) {
+        dispatch({ type: 'selectExact', ids: start.previousSelection })
+      }
       // 두 손가락 제스처로 넘어간 경우에는 선택을 건드리지 않는다.
       // 조금 흔들린 탭도 탭으로 본다. (usePan 의 moved 는 3px 만 넘어도 true 라 기기에서 선택 해제가 자주 안 됐다)
       if (!start || cancelled || cropping || start.maxMove >= TAP_MOVE_PX) return
@@ -412,7 +416,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
       const underneath = stack.find((o) => o.id !== object.id && selectedIds.includes(o.id))
       const wasSelected = selectedIds.includes(object.id) || Boolean(underneath)
       const ids = wasSelected ? selectedIds : insideGroup ? [object.id] : expandGroups(objects, [object.id])
-      const moving = objects.filter((o) => ids.includes(o.id) && !o.locked)
+      const moving = objects.filter((o) => ids.includes(o.id) && !o.locked && !o.hidden)
       gesture.current = {
         mode: 'move',
         wasSelected,

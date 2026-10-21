@@ -18,6 +18,7 @@ export function createInitialState(doc) {
     doc,
     past: [],
     future: [],
+    pendingCheckpoint: null,
     pageId: doc.pages[0].id,
     selectedIds: [],
   }
@@ -31,6 +32,7 @@ const withHistory = (state) => ({
   ...state,
   past: [...state.past, state.doc].slice(-HISTORY_LIMIT),
   future: [],
+  pendingCheckpoint: null,
 })
 
 function updateObjects(state, updater) {
@@ -185,10 +187,19 @@ export function editorReducer(state, action) {
 
   switch (action.type) {
     case 'checkpoint':
-      return withHistory(state)
+      return {
+        ...withHistory(state),
+        // 취소한 드래그는 새 편집이 아니므로 이전 Redo와 이력 상한 이전의 Past도 복원한다.
+        pendingCheckpoint: { doc: state.doc, past: state.past, future: state.future },
+      }
 
     // 자르기 취소처럼 checkpoint 이후의 변경을 버리고 그 시점으로 돌아간다.
     case 'revertToCheckpoint': {
+      if (state.pendingCheckpoint) return normalizeSelection({
+        ...state,
+        ...state.pendingCheckpoint,
+        pendingCheckpoint: null,
+      })
       if (!state.past.length) return state
       return normalizeSelection({
         ...state,
@@ -368,6 +379,7 @@ export function editorReducer(state, action) {
         doc: state.past[state.past.length - 1],
         past: state.past.slice(0, -1),
         future: [state.doc, ...state.future],
+        pendingCheckpoint: null,
       })
 
     case 'redo':
@@ -377,6 +389,7 @@ export function editorReducer(state, action) {
         doc: state.future[0],
         past: [...state.past, state.doc],
         future: state.future.slice(1),
+        pendingCheckpoint: null,
       })
 
     case 'load':
