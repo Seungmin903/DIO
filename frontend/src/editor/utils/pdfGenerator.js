@@ -1,9 +1,9 @@
 import * as PDFLib from 'pdf-lib/dist/pdf-lib.js'
 import { A4_LANDSCAPE, A4_PORTRAIT, PDF_LIMITS, pdfError } from './pdfSnapshot.js'
-import { opaquePdfPng } from './pdfRaster.js'
+import { opaquePdfRgb } from './pdfRaster.js'
 
 // 배포 UMD 진입점은 Metro의 tslib 1.x import 조건 충돌을 피한다.
-const { PDFDocument, rgb } = PDFLib
+const { PDFDocument, rgb, pushGraphicsState, popGraphicsState, concatTransformationMatrix, drawObject } = PDFLib
 
 /** 렌더러·플랫폼 IO는 주입한다. UI/저장 대화상자 없이 PDF 한 파일을 생성한다. */
 export async function generatePdf(snapshot, { renderPageImage, readImage, createResult, signal, onProgress = () => {}, timeoutMs = PDF_LIMITS.timeoutMs } = {}) {
@@ -52,19 +52,22 @@ export async function generatePdf(snapshot, { renderPageImage, readImage, create
           imageResult = await renderPageImage(page, { signal: controller.signal }); check()
           phase = 'assembling'
           const bytes = await readImage(imageResult); check()
-          const png = opaquePdfPng(bytes, page); check()
-          totalBytes += png.byteLength
+          // 합성한 RGB 픽셀을 PNG 로 다시 만들지 않고 바로 무손실(Flate) 그림으로 넣는다.
+          // (예전에는 PNG 로 다시 압축한 뒤 pdf-lib 가 그 PNG 를 또 풀고 압축해서 면마다 두 배 넘게 걸렸다)
+          const raster = opaquePdfRgb(bytes, page); check()
+          const stream = doc.context.flateStream(raster.rgb, { Type: 'XObject', Subtype: 'Image', Width: raster.width, Height: raster.height, BitsPerComponent: 8, ColorSpace: 'DeviceRGB' })
+          totalBytes += stream.getContentsSize()
           if (totalBytes > PDF_LIMITS.bytes) throw pdfError('EXPORT_PDF_LIMIT_EXCEEDED', 'PDF 이미지 합계 용량이 50MiB를 초과해요.')
-          const image = await doc.embedPng(png); check()
-          // PNG 디코딩 데이터를 누적 보관하지 않고 면마다 압축 스트림으로 변환한다.
-          await image.embed(); check()
+          const image = doc.context.register(stream)
           const [pw, ph] = page.height > page.width ? A4_PORTRAIT : A4_LANDSCAPE
           const pdfPage = doc.addPage([pw, ph])
           const bg = /^#[0-9a-f]{6}$/i.test(page.background) ? [1,3,5].map((i) => parseInt(page.background.slice(i, i + 2), 16) / 255) : [1,1,1]
           pdfPage.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: rgb(...bg) })
           const scale = Math.min(pw / page.width, ph / page.height)
           const width = page.width * scale, height = page.height * scale
-          pdfPage.drawImage(image, { x: (pw - width) / 2, y: (ph - height) / 2, width, height })
+          // page.drawImage 와 같은 명령: 그림 한 장을 이 크기·위치로 그린다
+          const name = pdfPage.node.newXObject('Image', image)
+          pdfPage.pushOperators(pushGraphicsState(), concatTransformationMatrix(width, 0, 0, height, (pw - width) / 2, (ph - height) / 2), drawObject(name), popGraphicsState())
           onProgress({ phase, completedPages: index + 1, totalPages: input.pages.length, documentPageNumber })
         } finally { imageResult?.dispose() }
       }

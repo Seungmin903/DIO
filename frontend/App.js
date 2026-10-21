@@ -314,7 +314,6 @@ function DiaryApp() {
         tabs={tabs}
         onSelectTab={selectTab}
         onCloseTab={closeTab}
-        onNewTab={returnToLibrary}
       />
     );
   } else if (page === 'trash') {

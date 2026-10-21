@@ -1,6 +1,24 @@
 import { PDF_LIMITS } from './pdfSnapshot.js'
 
 export const MAX_EXPORT_PAGES = PDF_LIMITS.pages
+
+/**
+ * 인쇄 창처럼 적은 페이지 지정('1-3, 5, 8')을 페이지 번호 목록(1부터, 작은 순, 겹침 없음)으로 읽는다.
+ * 잘못 적으면 고칠 곳을 알려 주는 오류를 던진다.
+ */
+export function parsePageSpec(spec, pageCount) {
+  const parts = String(spec ?? '').replace(/\s*[-~]\s*/g, '-').split(/[,\s]+/).filter(Boolean)
+  if (!parts.length) throw new Error('내보낼 페이지를 적어 주세요. 예: 1-3, 5')
+  const numbers = new Set()
+  for (const part of parts) {
+    const match = part.match(/^(\d+)(?:-(\d+))?$/)
+    if (!match) throw new Error(`'${part}'를 읽지 못했어요. 예: 1-3, 5`)
+    const start = Number(match[1]), end = match[2] ? Number(match[2]) : start
+    if (start < 1 || end < start || end > pageCount) throw new Error(`1부터 ${pageCount} 사이로 적어 주세요.`)
+    for (let n = start; n <= end; n += 1) numbers.add(n)
+  }
+  return [...numbers].sort((a, b) => a - b)
+}
 export const pageListKey = (pages) => JSON.stringify(pages.map((page) => page.id))
 
 /** UI에서 받은 페이지 번호는 1부터 시작하며 결과는 문서 순서를 따른다. */
