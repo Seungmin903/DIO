@@ -1,0 +1,158 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import * as text from '../src/editor/utils/text.js'
+import * as formats from '../src/editor/utils/textFormats.js'
+import * as ranges from '../src/editor/utils/textRanges.js'
+import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js'
+
+const require = createRequire(import.meta.url)
+const expoRequire = createRequire(require.resolve('expo/package.json'))
+const babel = expoRequire('@babel/core')
+function load(file, mocks, exportName = 'default') {
+  const { code } = babel.transformSync(readFileSync(new URL(file, import.meta.url), 'utf8'), {
+    configFile: false, babelrc: false,
+    plugins: [[expoRequire.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expoRequire.resolve('@babel/plugin-transform-modules-commonjs')],
+  })
+  const module = { exports: {} }
+  new Function('require', 'module', 'exports', code)((id) => mocks[id] ?? require(id), module, module.exports)
+  return module.exports[exportName]
+}
+function find(node, predicate) {
+  if (!node || typeof node !== 'object') return null
+  if (predicate(node)) return node
+  return [node.props?.children].flat(Infinity).map((child) => find(child, predicate)).find(Boolean)
+}
+
+test('클립보드 존재 여부는 변경·앱 복귀에 갱신되고 실제 문자열은 읽지 않는다', async () => {
+  let effect, available = false, hasText = false, changed, resumed, removed = 0
+  const useAvailable = load('../src/editor/services/textClipboard.js', {
+    react: { useState: () => [false, (value) => { available = value }], useEffect: (callback) => { effect = callback } },
+    'react-native': { AppState: { addEventListener: (_event, callback) => { resumed = callback; return { remove() { removed++ } } } } },
+    'expo-clipboard': { hasStringAsync: async () => hasText,
+      getStringAsync: () => assert.fail('표시 여부 확인 시 문자열을 읽으면 안 된다'),
+      addClipboardListener: (callback) => { changed = callback; return { remove() { removed++ } } },
+    },
+  }, 'useTextClipboardAvailable')
+  assert.equal(useAvailable(), false)
+  const cleanup = effect()
+  await Promise.resolve()
+  assert.equal(available, false)
+  hasText = true
+  await changed()
+  assert.equal(available, true)
+  hasText = false
+  resumed('active')
+  await Promise.resolve()
+  assert.equal(available, false)
+  cleanup()
+  assert.equal(removed, 2)
+})
+function editor(readText = async () => '붙임😀\n둘째 줄', canPaste = true) {
+  const effects = [], cleanups = [], saves = [], messages = []
+  let palette, nativeValue
+  const hooks = {
+    useRef: (current) => ({ current }),
+    useState: (value) => [value, () => {}],
+    useEffect: (effect) => effects.push(effect),
+  }
+  const Editor = load('../src/editor/components/TextEditor.js', {
+    react: hooks,
+    'react-native': { Platform: { OS: 'ios' }, Keyboard: { dismiss() {}, addListener() {} }, StyleSheet: { create: (s) => s }, View: 'View', Text: 'Text', TextInput: 'TextInput' },
+    '../../shared/theme': { colors: {} }, '../utils/text': text, '../hooks/useTextFont': { useTextFont: () => 0 },
+    '../utils/textRanges': ranges, '../utils/textFormats': formats,
+    '../services/textClipboard': { readText, copyText: async () => {}, useTextClipboardAvailable: () => canPaste },
+    './TextActionBar': { default: 'ActionBar', __esModule: true }, './TextLinkDialog': { default: 'LinkDialog', __esModule: true },
+  })
+  const node = Editor({ object: { id: 't', text: '앞뒤', x: 0, y: 0, w: 320, h: 40 }, zoom: 1,
+    boundary: {}, paletteBounds: {}, onPaletteChange: (value) => { palette = value },
+    onSave: (...args) => saves.push(args), onToast: (message) => messages.push(message), onCancel() {},
+  })
+  const input = find(node, (n) => n.type === 'TextInput').props
+  input.ref.current = { focus() {}, setNativeProps: (props) => { nativeValue = props }, measureInWindow() {} }
+  const oldRAF = globalThis.requestAnimationFrame
+  globalThis.requestAnimationFrame = () => 0
+  try { effects.forEach((effect) => { const cleanup = effect(); if (cleanup) cleanups.push(cleanup) }) }
+  finally { globalThis.requestAnimationFrame = oldRAF }
+  const actions = palette ? find(palette.content, (n) => n.type === 'ActionBar').props : null
+  return { input, actions, saves, messages, value: () => nativeValue }
+}
+
+test('복사한 텍스트가 있으면 커서에서 붙여넣고 없으면 편집 바를 숨긴다', async () => {
+  assert.equal(editor(async () => '', false).actions, null)
+  const e = editor()
+  assert.equal(e.actions.canPaste, true)
+  assert.equal(e.actions.hasSelection, false)
+  e.input.onSelectionChange({ nativeEvent: { selection: { start: 1, end: 1 } } })
+  await e.actions.onPaste()
+  assert.equal(e.value().text, '앞붙임😀\n둘째 줄뒤')
+  assert.deepEqual(e.value().selection, { start: 10, end: 10 })
+  e.input.onEndEditing({ nativeEvent: { text: e.value().text } })
+  assert.equal(e.saves[0][0], e.value().text)
+})
+
+test('선택 문자열을 교체하고 빈 클립보드와 접근 거부는 내용을 변경하지 않는다', async () => {
+  const e = editor(async () => '새 글')
+  e.input.onSelectionChange({ nativeEvent: { selection: { start: 0, end: 2 } } })
+  await e.actions.onPaste()
+  assert.equal(e.value().text, '새 글')
+  for (const read of [async () => '', async () => { throw new Error('denied') }]) {
+    const failed = editor(read)
+    await failed.actions.onPaste()
+    assert.equal(failed.value(), undefined)
+    assert.equal(failed.messages.length, 1)
+  }
+})
+
+test('클립보드 응답 전 커서 이동·편집 완료 시 늦은 붙여넣기를 차단한다', async () => {
+  for (const finish of [false, true]) {
+    let resolve
+    const e = editor(() => new Promise((done) => { resolve = done }))
+    const pending = e.actions.onPaste()
+    if (finish) e.input.onEndEditing({ nativeEvent: { text: '앞뒤' } })
+    else e.input.onSelectionChange({ nativeEvent: { selection: { start: 1, end: 1 } } })
+    resolve('늦은 글')
+    await pending
+    assert.equal(e.value(), undefined)
+  }
+})
+
+test('상자 전체 복제는 서식·회전·크기를 보존하고 Undo/Redo·문서 직렬화 후 유지된다', () => {
+  const original = { ...text.createText({ id: 't', text: '서식😀', x: 100, y: 100 }), rotation: 25,
+    colorRanges: [{ start: 0, end: 2, color: '#DD887A' }], styleRanges: [{ start: 0, end: 2, fontSize: 32 }] }
+  const before = createInitialState({ id: 'doc', pages: [{ id: 'page', objects: [original] }] })
+  const next = editorReducer(before, { type: 'duplicateObjects', ids: ['t'] })
+  const copy = getCurrentPage(next).objects[1]
+  assert.notEqual(copy.id, original.id)
+  assert.notEqual(copy.x, original.x)
+  assert.notEqual(copy.y, original.y)
+  const { id, x, y, locked, groupId, ...rest } = copy
+  const { id: oldId, x: oldX, y: oldY, ...expected } = original
+  assert.deepEqual(rest, expected)
+  assert.deepEqual(getCurrentPage(editorReducer(next, { type: 'undo' })).objects, [original])
+  const restored = editorReducer(editorReducer(next, { type: 'undo' }), { type: 'redo' })
+  assert.deepEqual(restored.doc, next.doc)
+  assert.deepEqual(JSON.parse(JSON.stringify(createInitialState(JSON.parse(JSON.stringify(next.doc))).doc)), JSON.parse(JSON.stringify(next.doc)))
+})
+
+test('텍스트 상자 선택 바의 복제 버튼은 문자열 복사를 호출하지 않는다', () => {
+  const actions = []
+  const ContextBar = load('../src/editor/components/canvas/ContextBar.js', {
+    react: { useState: (value) => [value, () => {}] },
+    'react-native': { Linking: {}, StyleSheet: { create: (s) => s }, View: 'View', ScrollView: 'ScrollView' },
+    '../../../shared/theme': { colors: {}, shadow: {} },
+    '../../constants': { PAGE_WIDTH: 1280, PAGE_HEIGHT: 800 },
+    '../../utils/common': { clamp: (value, min, max) => Math.max(min, Math.min(max, value)), unionBounds: () => ({ left: 10, right: 330, top: 10, bottom: 50, cx: 170 }) },
+    '../controls/Icon': { __esModule: true, default: 'Icon' },
+    '../LassoSelectionMenu': { __esModule: true, default: 'Lasso' },
+    '../../utils/penSettings': { EDITOR_COLORS: [] },
+    '../../utils/textFormats': formats,
+  })
+  const tree = ContextBar({ objects: [{ id: 'text', type: 'text', text: '원문' }], zoom: 1,
+    dispatch: (action) => actions.push(action), onCopyText: () => assert.fail('문자열 복사를 호출하면 안 된다'),
+  })
+  assert.equal(find(tree, (n) => n.props?.label === '복사'), undefined)
+  find(tree, (n) => n.props?.label === '복제').props.onPress()
+  assert.deepEqual(actions, [{ type: 'duplicateObjects', ids: ['text'] }])
+})

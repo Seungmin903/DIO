@@ -10,21 +10,24 @@ export const TEXT_ACTION_BAR_WIDTH = 420
 const keepFocus = { onMouseDown: (event) => event.preventDefault?.() }
 
 /**
- * 텍스트 안에서 고른 글자의 편집 바. 텍스트 요소를 골랐을 때의 선택 바와 같은 모양(서식·링크 | 복사·삭제)이다.
+ * 커서에서는 붙여넣기를, 문자열 선택 시에는 서식·링크·복사·삭제도 제공한다.
  * '서식'을 누르면 아래에 고른 글자의 색·크기를 바꾸는 줄이 열린다.
  */
-export default function TextActionBar({ onColor, onIncrease, onDecrease, onCopy, onDelete, onLink, colorLabel = '선택 요소 색상', currentColor, linked = false }) {
+export default function TextActionBar({ onColor, onIncrease, onDecrease, onCopy, onPaste, onDelete, onLink, hasSelection = true, canPaste = false, colorLabel = '선택 요소 색상', currentColor, linked = false }) {
   const [formatOpen, setFormatOpen] = useState(false)
   return (
     <View style={styles.wrap}>
       <View style={styles.bar}>
-        <LabeledButton icon="text" label="서식" active={formatOpen} onPress={() => setFormatOpen(!formatOpen)} />
-        <LabeledButton icon="link" label="링크" active={linked} onPress={onLink} />
-        <View style={styles.divider} />
-        <IconButton icon="copy" label="복사" onPress={onCopy} />
-        <IconButton icon="trash" label="삭제" danger onPress={onDelete} />
+        {hasSelection && <>
+          <LabeledButton icon="text" label="서식" active={formatOpen} onPress={() => setFormatOpen(!formatOpen)} />
+          <LabeledButton icon="link" label="링크" active={linked} onPress={onLink} />
+          <View style={styles.divider} />
+          <IconButton icon="copy" label="복사" onPress={onCopy} />
+          <IconButton icon="trash" label="삭제" danger onPress={onDelete} />
+        </>}
+        {canPaste && <LabeledButton icon="clipboard" label="붙여넣기" onPress={onPaste} />}
       </View>
-      {formatOpen && (
+      {hasSelection && formatOpen && (
         <View style={[styles.bar, styles.formatRow]}>
           {TEXT_COLORS.map((color) => (
             <Pressable

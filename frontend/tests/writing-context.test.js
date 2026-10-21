@@ -65,14 +65,23 @@ test('텍스트 바는 빠른 색·글씨 크기 대신 서식 창을 열어 색
   assert.deepEqual(f.events, [['settings']])
 })
 
-test('텍스트 바는 수정·서식·링크·복사·삭제를 연결한다', () => {
+test('텍스트 바는 서식·링크·복제·삭제를 연결한다', () => {
   const original = text.createText({ id: 'text', x: 100, y: 100, text: '한글', fontSize: 28 })
   const f = fixture(original)
-  f.press('복사'); f.press('링크')
-  assert.deepEqual(f.events, [['copyText', '한글'], ['link', 'text']])
-  f.press('삭제')
-  assert.equal(f.state().doc.pages[0].objects.length, 0)
-  assert.equal(editorReducer(f.state(), { type: 'undo' }).doc.pages[0].objects[0].text, '한글')
+  assert.ok(!f.nodes.some(n => n.props?.accessibilityLabel === '복사'))
+  f.press('링크')
+  assert.deepEqual(f.events, [['link', 'text']])
+  f.press('복제')
+  const [source, copy] = f.state().doc.pages[0].objects
+  assert.notEqual(copy.id, source.id)
+  for (const key of ['type', 'text', 'fontSize', 'color', 'w', 'h', 'rotation']) assert.equal(copy[key], source[key], key)
+  assert.ok(copy.x !== source.x || copy.y !== source.y)
+  assert.deepEqual(f.state().selectedIds, [copy.id])
+  assert.equal(editorReducer(f.state(), { type: 'undo' }).doc.pages[0].objects.length, 1)
+  const removed = fixture(original)
+  removed.press('삭제')
+  assert.equal(removed.state().doc.pages[0].objects.length, 0)
+  assert.equal(editorReducer(removed.state(), { type: 'undo' }).doc.pages[0].objects[0].text, '한글')
   assert.ok(!f.nodes.some(n => n.props?.accessibilityLabel === '내용 편집'))
 })
 
