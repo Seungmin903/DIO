@@ -55,9 +55,10 @@ export function useEditor(diary) {
       .then(async (saved) => {
         const migrated = migrateUntouchedAnnualDoc(saved, diary)
         // 내용 없는 예전 연간 기본 문서는 한 페이지로 정리해 다음 실행부터도
-        // 불필요한 78개 속지를 다시 불러오지 않는다.
-        if (migrated !== saved) await saveJSON(storageKey, migrated)
-        await hydrateMedia(migrated)
+        // 불필요한 78개 속지를 다시 불러오지 않는다. 저장은 화면 표시를 기다리게 하지 않는다.
+        if (migrated !== saved) saveJSON(storageKey, migrated)
+        // 사진·GIF 연결은 화면을 먼저 띄운 뒤 진행한다. 각 요소는 준비되는 대로 표시된다(useMediaUri 구독).
+        hydrateMedia(migrated).catch(() => {})
         if (cancelled) return
         if (migrated?.pages?.length) {
           // 표지에서 바꾼 제목·색상은 기존 페이지 작업을 유지한 채 편집기에도 반영한다.
@@ -102,5 +103,5 @@ export function useEditor(diary) {
   if (lastSave.doc === state.doc) saveStatus = lastSave.ok ? 'saved' : 'error'
   else if (edited) saveStatus = 'saving'
 
-  return { state, dispatch, saveStatus }
+  return { state, dispatch, saveStatus, loaded }
 }

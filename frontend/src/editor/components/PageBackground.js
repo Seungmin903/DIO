@@ -1,8 +1,8 @@
 import { Component, memo, useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { SvgXml } from 'react-native-svg'
+import { SvgAst, SvgXml } from 'react-native-svg'
 import { templateReference } from '../templates/catalog.js'
-import { loadTemplate } from '../templates/loadTemplate'
+import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { pageSize } from '../utils/pageGeometry.js'
 
 class SvgBoundary extends Component {
@@ -13,16 +13,31 @@ class SvgBoundary extends Component {
 }
 
 function throwSvgError(error) { throw error }
-function RenderedSvg({ xml, width, height, onReady }) {
+function RenderedSvg({ xml, ast, width, height, onReady }) {
   const callback = useRef(onReady)
   callback.current = onReady
   // 렌더링이 성공해 커밋된 다음에만 출력 준비 완료를 알린다.
-  useEffect(() => { callback.current?.() }, [xml])
-  return <SvgXml xml={xml} width={width} height={height} onError={throwSvgError} />
+  useEffect(() => { callback.current?.() }, [xml, ast])
+  // 내보내기는 준비된 XML을, 편집 화면·썸네일은 캐시의 해석된 SVG(AST)를 그린다.
+  return ast
+    ? <SvgAst ast={ast} override={{ width, height }} />
+    : <SvgXml xml={xml} width={width} height={height} onError={throwSvgError} />
+}
+
+function cachedAst(page) {
+  try {
+    const reference = templateReference(page)
+    return reference ? peekTemplateAst(reference) ?? null : null
+  } catch { return null }
 }
 
 function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry, compact }) {
-  const [xml, setXml] = useState(preparedXml ?? null)
+  // svg: 내보내기면 { xml }(준비된 원본), 화면 표시면 { ast }(캐시의 해석 결과)
+  const [svg, setSvg] = useState(() => {
+    if (preparedXml != null) return { xml: preparedXml }
+    const ast = cachedAst(page)
+    return ast ? { ast } : null
+  })
   const [error, setError] = useState(null)
   const callbacks = useRef({ onReady, onError })
   callbacks.current = { onReady, onError }
@@ -30,21 +45,21 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   const fail = failure => { setError(failure); callbacks.current.onError?.(failure) }
   useEffect(() => {
     let active = true
-    if (preparedXml != null) return undefined
+    if (preparedXml != null || svg) return undefined
     let reference
     try { reference = templateReference(page) }
     catch (failure) { fail(failure); return undefined }
     if (!reference) { callbacks.current.onReady?.(); return undefined }
-    loadTemplate(reference).then(value => { if (active) setXml(value) }).catch(failure => { if (active) fail(failure) })
+    loadTemplateAst(reference).then(ast => { if (active) setSvg({ ast }) }).catch(failure => { if (active) fail(failure) })
     return () => { active = false }
   }, [page.backgroundAssetId, page.templateVersion, preparedXml])
 
   if (page.backgroundAssetId == null) return null
   return <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-    {xml && !error && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <SvgBoundary onError={fail}><RenderedSvg xml={xml} width={width * zoom} height={height * zoom} onReady={() => callbacks.current.onReady?.()} /></SvgBoundary>
+    {svg && !error && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <SvgBoundary onError={fail}><RenderedSvg xml={svg.xml} ast={svg.ast} width={width * zoom} height={height * zoom} onReady={() => callbacks.current.onReady?.()} /></SvgBoundary>
     </View>}
-    {!xml && !error && <Text pointerEvents="none" style={styles.notice}>속지 로딩 중…</Text>}
+    {!svg && !error && <Text pointerEvents="none" style={styles.notice}>속지 로딩 중…</Text>}
     {error && <View style={styles.error} accessibilityRole="alert">
       <Text style={styles.notice}>{compact ? '속지 로딩 실패' : error.message}</Text>
       {onRetry && <Pressable accessibilityRole="button" accessibilityLabel="속지 다시 불러오기" onPress={onRetry} style={styles.retry}><Text>다시 시도</Text></Pressable>}

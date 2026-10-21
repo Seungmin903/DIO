@@ -1,4 +1,4 @@
-import { memo, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, radius } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
@@ -11,6 +11,7 @@ import StaticPage from '../canvas/StaticPage'
 const THUMB_WIDTH = 124
 const HOLD_MS = 280 // 이만큼 누르고 있으면 끌어서 순서 바꾸기 시작 (그 전에 움직이면 목록 스크롤)
 const TAP_SLOP = 8
+const THUMB_BACKGROUND_DELAY_MS = 250
 
 // 왼쪽 페이지 목록 폭. 열고 닫을 때 작업창 크기를 한 번에 맞추는 데도 쓴다 (EditorScreen)
 export const PAGE_LIST_WIDTH = 156
@@ -25,6 +26,13 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   const [menuId, setMenuId] = useState(null)
   const [scrollY, setScrollY] = useState(0)
   const [panelHeight, setPanelHeight] = useState(0)
+  // 썸네일 속지(80KB 안팎 SVG)는 편집 화면 속지가 먼저 그려지도록 잠시 뒤에 그린다.
+  // InteractionManager는 편집기의 열린 제스처 핸들 때문에 끝내 실행되지 않을 수 있어 타이머를 쓴다.
+  const [thumbBackgrounds, setThumbBackgrounds] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setThumbBackgrounds(true), THUMB_BACKGROUND_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [])
   const layouts = useRef({}) // id → { y, height } (목록 안 위치)
   const target = drag ? dropIndex(pages, layouts.current, drag) : null
   const menuPage = menuId ? pages.find((page) => page.id === menuId) : null
@@ -61,6 +69,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
             dy={dragging ? drag.dy : 0}
             dropLine={drag && !dragging && target === index ? (target < drag.from ? 'before' : 'after') : null}
             cropId={active ? cropId : null}
+            showBackground={thumbBackgrounds}
             readOnly={readOnly}
             menuOpen={!readOnly && menuId === page.id}
             canOpenMenu={!readOnly && !drag}
@@ -127,7 +136,7 @@ function dropIndex(pages, layouts, drag) {
   return clamp(index, 0, pages.length - 1)
 }
 
-const PageItem = memo(function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
+const PageItem = memo(function PageItem({ page, index, active, showBackground, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
   const { width, height } = pageSize(page)
   const thumbZoom = THUMB_WIDTH / width
   const press = useRef(null)
@@ -174,7 +183,7 @@ const PageItem = memo(function PageItem({ page, index, active, dragging, dy, dro
       >
         {/* 지금 편집 중인 페이지는 움직이는 GIF·자르기 표시까지 편집 화면과 똑같이, 나머지는 첫 장면으로 */}
         <View style={styles.thumbPage} pointerEvents="none">
-          <StaticPage page={page} zoom={thumbZoom} still={!active} cropId={cropId} />
+          <StaticPage page={page} zoom={thumbZoom} still={!active} cropId={cropId} showBackground={showBackground} />
         </View>
       </View>
       {canToggleIndex && (
@@ -207,6 +216,7 @@ const PageItem = memo(function PageItem({ page, index, active, dragging, dy, dro
   previous.page === next.page
   && previous.index === next.index
   && previous.active === next.active
+  && previous.showBackground === next.showBackground
   && previous.dragging === next.dragging
   && previous.dy === next.dy
   && previous.dropLine === next.dropLine

@@ -47,7 +47,8 @@ const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
 export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport }) {
-  const { state, dispatch, saveStatus } = useEditor(diary)
+  // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
+  const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
@@ -418,7 +419,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       <View style={styles.body}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
         <TapCatcher onTap={clearSelection} style={StyleSheet.absoluteFill} />
-        {showPages && (
+        {showPages && loaded && (
           <PageList
             readOnly={readOnly}
             pages={state.doc.pages}
@@ -456,6 +457,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             onLayout={(event) => { setStageSize(event.nativeEvent.layout); stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y })) }}
           >
               <Canvas
+                showBackground={loaded}
                 activeTool={activeTool}
                 lassoShape={lasso.shape}
                 lassoMode={lasso.mode}
