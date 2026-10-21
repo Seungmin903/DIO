@@ -68,8 +68,8 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
     </View>}
     {/* 속지는 기기에 있는 파일이라 곧바로 준비된다. 준비 전에는 빈 종이로 두고 로딩 문구를 띄우지 않는다. */}
     {error && <View style={styles.error} accessibilityRole="alert">
-      <Text style={styles.notice}>{compact ? '속지 로딩 실패' : error.message}</Text>
-      {onRetry && <Pressable accessibilityRole="button" accessibilityLabel="속지 다시 불러오기" onPress={onRetry} style={styles.retry}><Text>다시 시도</Text></Pressable>}
+      <Text style={styles.notice}>{compact ? '내지 로딩 실패' : error.message}</Text>
+      {onRetry && <Pressable accessibilityRole="button" accessibilityLabel="내지 다시 불러오기" onPress={onRetry} style={styles.retry}><Text>다시 시도</Text></Pressable>}
     </View>}
   </View>
 }

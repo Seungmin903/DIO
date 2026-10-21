@@ -13,7 +13,7 @@ function Cover({ diary, small = false, preview = false, carousel = false, grid =
       <Text numberOfLines={2} style={[s.coverTitle, small && s.coverTitleSmall, compact && grid && s.coverTitleGridCompact]}>{diary.title}</Text>
       <View style={s.coverFooter}>
         <View style={s.coverRule} />
-        <Text style={[s.coverYear, small && s.coverYearSmall]}>2026</Text>
+        <Text style={[s.coverYear, small && s.coverYearSmall]}>{diary.templateConfig?.dateMode === 'undated' ? '만년형' : '2026'}</Text>
       </View>
     </View>
   );
