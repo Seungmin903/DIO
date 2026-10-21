@@ -5,14 +5,19 @@ import { colorTextRange, normalizeRanges, remapTextRanges, textSegments } from '
 import { TEXT_AUTO_MAX_WIDTH, TEXT_AUTO_MIN_WIDTH, TEXT_COLORS, TEXT_LINE_HEIGHT, textStyle, TEXT_FRAME_PAD } from '../utils/text'
 import { textSettings } from '../utils/text'
 import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle } from '../utils/textFormats'
-import { copyText } from '../services/textClipboard'
+import { copyText, readText, useTextClipboardAvailable } from '../services/textClipboard'
 import TextActionBar from './TextActionBar'
 import TextLinkDialog from './TextLinkDialog'
+import { useTextFont } from '../hooks/useTextFont'
 
 // Android는 TextInput의 styled children으로 선택 범위 색상을 즉시 표시한다.
 export default function TextEditor({ object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast, onReveal }) {
+  useTextFont(object.font)
   const input = useRef(null), draft = useRef(object.text ?? ''), composing = useRef(false), saving = useRef(false)
   const cancelled = useRef(false)
+  const canPaste = useTextClipboardAvailable()
+  const mounted = useRef(true), pasting = useRef(false)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   const ranges = useRef(normalizeRanges(object.text ?? '', object.colorRanges))
   const formats = useRef(normalizeTextFormats(object.text ?? '', object.styleRanges))
   const linkEditing = useRef(false)
@@ -39,6 +44,34 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
     if (Platform.OS === 'web' && input.current) {
       input.current.value = next; input.current.setSelectionRange?.(start, start)
     } else input.current?.setNativeProps?.({ text: next, selection: selection.current })
+  }
+  const pasteText = async () => {
+    if (composing.current || saving.current || pasting.current) return
+    const before = draft.current
+    const { start, end } = safeTextSelection(before, selection.current)
+    pasting.current = true
+    try {
+      const text = await readText()
+      if (!mounted.current || cancelled.current || saving.current || composing.current) return
+      const current = safeTextSelection(draft.current, selection.current)
+      if (draft.current !== before || current.start !== start || current.end !== end) {
+        onToast?.('입력 위치가 바뀌었어요. 붙여넣기를 다시 눌러 주세요.')
+        return
+      }
+      if (!text) { onToast?.('붙여넣을 텍스트가 없어요.'); return }
+      const next = before.slice(0, start) + text + before.slice(end)
+      updateDraft(next)
+      selection.current = { start: start + text.length, end: start + text.length }
+      setSelected(false)
+      if (Platform.OS === 'web' && input.current) {
+        input.current.value = next
+        input.current.setSelectionRange?.(selection.current.start, selection.current.end)
+      } else input.current?.setNativeProps?.({ text: next, selection: selection.current })
+      input.current?.focus()
+      onToast?.('텍스트를 붙여넣었어요.')
+    } catch {
+      if (mounted.current) onToast?.('텍스트를 붙여넣지 못했어요. 클립보드 접근을 확인해 주세요.')
+    } finally { pasting.current = false }
   }
   const bounds = useRef(null), textLines = useRef([])
   const updateAnchor = () => {
@@ -91,7 +124,7 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
   const reveal = () => {
     if (keyboardTop.current == null || !onReveal) return
     input.current?.measureInWindow?.((x, y, width, h) => {
-      const overlap = y + h + TEXT_FRAME_PAD + 16 - keyboardTop.current
+      const overlap = y + h + TEXT_FRAME_PAD + 80 - keyboardTop.current
       if (overlap > 0) onReveal(overlap)
     })
   }
@@ -117,9 +150,9 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
   useEffect(() => { const frame = requestAnimationFrame(() => { measure(); reveal() }); return () => cancelAnimationFrame(frame) }, [height, zoom, object.x, object.y])
   // 선택 끝 글자가 있는 줄에 붙이되 화면 오버레이로 표시한다.
   useEffect(() => {
-    if (!selected) paletteBounds.current = null
-    onPaletteChange(selected ? { anchor, content: (<View ref={palette} onLayout={() => palette.current?.measureInWindow?.((x, y, width, height) => { paletteBounds.current = { x, y, width, height } })} style={styles.palette}>
-      <TextActionBar colorLabel="선택 문자열 색상" linked={formats.current.some(r => r.href && r.start < selection.current.end && r.end > selection.current.start)}
+    if (!selected && !canPaste) { paletteBounds.current = null; onPaletteChange(null); return }
+    onPaletteChange({ anchor, content: (<View ref={palette} onLayout={() => palette.current?.measureInWindow?.((x, y, width, height) => { paletteBounds.current = { x, y, width, height } })} style={styles.palette}>
+      <TextActionBar hasSelection={selected} canPaste={canPaste} onPaste={pasteText} colorLabel="선택 문자열 색상" linked={formats.current.some(r => r.href && r.start < selection.current.end && r.end > selection.current.start)}
         onColor={(color) => {
           if (composing.current) return
           ranges.current = colorTextRange(draft.current, ranges.current, selection.current, color)
@@ -127,8 +160,8 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
         }} onIncrease={() => resizeSelected(2)} onDecrease={() => resizeSelected(-2)} onDelete={deleteSelected}
         onCopy={() => { const { start, end } = safeTextSelection(draft.current, selection.current); copyText(draft.current.slice(start, end)).then(() => onToast?.('선택한 글자를 복사했어요.')).catch(() => onToast?.('복사하지 못했어요.')) }}
         onLink={() => { if (composing.current) return; linkEditing.current = true; setLinkSelection(safeTextSelection(draft.current, selection.current)) }} />
-    </View>) } : null)
-  }, [selected, anchor, rendered, onPaletteChange, paletteBounds])
+    </View>) })
+  }, [selected, canPaste, anchor, rendered, onPaletteChange, paletteBounds])
   useEffect(() => () => { paletteBounds.current = null; onPaletteChange(null) }, [onPaletteChange, paletteBounds])
   const top = object.y * zoom
   return <View style={{ position: 'absolute', left: object.x * zoom, top, width: boxWidth, transform: [{ rotate: `${object.rotation ?? 0}deg` }] }}>

@@ -4,6 +4,10 @@
 
 | 문서 | 설명 |
 |---|---|
+| [animated-sticker-effects.md](./animated-sticker-effects.md) | 193 iPad 움직이는 스티커 효과의 프레임 공유·자원 제한·검증과 실기기 QA |
+| [text-link-keyboard.md](./text-link-keyboard.md) | 182 링크 입력창 키보드 회피·스크롤 및 iPad 확인 항목 |
+| [pencil-graphite.md](./pencil-graphite.md) | 178 거친 스케치 연필 질감·변경 전후 비교·브라우저 검증과 남은 iPad 확인 |
+| [text-font-styles.md](./text-font-styles.md) | 181 실제 Bold face 등록·미지원 서식 안내와 글꼴별 검증 |
 | [text-box-height.md](./text-box-height.md) | 180 텍스트 상하 조절 복원·내용 최소 높이·여백 저장 및 검증 |
 | [grid-template-order.md](./grid-template-order.md) | 174 격자·보조선과 속지 글씨의 합성 순서 및 브라우저 픽셀 검증 |
 | [layer-stroke-visibility.md](./layer-stroke-visibility.md) | 167 펜·형광펜 획의 레이어 목록 숨김과 혼합 그룹 멤버 보존 |

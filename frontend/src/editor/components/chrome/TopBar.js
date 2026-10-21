@@ -6,7 +6,7 @@ import ChipScroller from '../controls/ChipScroller'
 import BrandLogo from '../../../shared/BrandLogo'
 
 
-// compact: 폰 세로 배치. 인덱스 탭 대신 이름과 쪽수를 두 줄로 보이고, 닫기·내보내기는 뺀다. (내보내기는 정책이 켜지면 스크롤 도구 막대에 표시한다)
+// compact: 폰 세로 배치. 이름·쪽수를 두 줄로 보이고 내보내기는 상단 맨 오른쪽에 둔다.
 // onToggleOrientation이 있으면 가로 정밀 편집으로 바꾸는 버튼을 둔다.
 export default function TopBar({
   compact = false,
@@ -45,9 +45,12 @@ export default function TopBar({
           <TitleField compact title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} />
           {pageLabel ? <Text style={styles.pageLabel} numberOfLines={1}>{pageLabel}</Text> : null}
         </View>
-        <View style={styles.right}>
+        <View style={[styles.right, styles.rightCompact]}>
           {onToggleOrientation && <IconToggle compact icon="rotate" label="가로 정밀 편집으로 전환" onPress={onToggleOrientation} />}
           {!readOnly && <IconToggle compact icon="layers" label="레이어" active={layersOpen} onPress={onToggleLayers} />}
+          {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} style={({ pressed }) => [styles.toggle, styles.toggleCompact, pressed && styles.togglePressed]} accessibilityRole="button" accessibilityLabel={shareLabel}>
+            <Icon name={shareIcon} size={20} />
+          </Pressable>}
         </View>
       </View>
     )
@@ -233,6 +236,7 @@ const styles = StyleSheet.create({
   },
   tabClose: { marginLeft: 2, padding: 4, borderRadius: 8 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 'auto', zIndex: 2 },
+  rightCompact: { gap: 2 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 10, borderRadius: 12 },
   toggleCompact: { width: 44, height: 44, justifyContent: 'center', paddingHorizontal: 0 },
   toggleActive: { backgroundColor: colors.surfaceSoft },

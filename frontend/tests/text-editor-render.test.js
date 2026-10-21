@@ -39,9 +39,10 @@ function renderEditor(platform) {
     if (id === 'react-native') return native
     if (id === '../../shared/theme') return { colors: {} }
     if (id === '../utils/text') return text
+    if (id === '../hooks/useTextFont') return require('../src/editor/hooks/useTextFont.js')
     if (id === '../utils/textRanges') return textRanges
     if (id === '../utils/textFormats') return textFormats
-    if (id === '../services/textClipboard') return { copyText: async () => {} }
+    if (id === '../services/textClipboard') return { copyText: async () => {}, useTextClipboardAvailable: () => false }
     if (id === './TextActionBar' || id === './TextLinkDialog') return { __esModule: true, default: () => null }
     return require(id)
   }

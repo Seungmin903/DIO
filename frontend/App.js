@@ -7,7 +7,7 @@ import { prepareEditor, rememberEditorDoc } from './src/editor/services/editorDo
 import { DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
-import SideRail from './src/diary/components/SideRail';
+import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
@@ -47,6 +47,10 @@ function DiaryApp() {
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
   const [railCollapsed, setRailCollapsed] = useState(true);
+  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
+  // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
+  const railWidthRef = useRef(RAIL_WIDTH.collapsed);
+  useEffect(() => { railWidthRef.current = railCollapsed ? RAIL_WIDTH.collapsed : RAIL_WIDTH.expanded; }, [railCollapsed]);
   // FILTERS에 없는 all을 초기값으로 쓰면 새 다이어리 카드가 제외되어 빈 안내만 보인다.
   const [filter, setFilter] = useState(DEFAULT_FILTER);
   const [view, setView] = useState('carousel');
@@ -295,6 +299,7 @@ function DiaryApp() {
       onEdit={edit}
       onDelete={moveDiaryToTrash}
       onCreate={create}
+      railWidthRef={isPhone ? null : railWidthRef}
     />
   ), [carousel, changeFilter, create, edit, favorite, filter, isPhone, moveDiaryToTrash, open, view, visibleDiaries]);
 

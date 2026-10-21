@@ -39,7 +39,8 @@ export const styles = StyleSheet.create({
   railLabel: { flexShrink: 0, color: C.inkSoft, fontSize: 13, fontWeight: '650' },
   railLabelSelected: { color: C.ink, fontWeight: '850' },
 
-  screen: { flexGrow: 1, paddingHorizontal: 48, paddingTop: 43, paddingBottom: 44 },
+  // 태블릿 내 공간·휴지통도 보관함과 같은 여백으로 두어 탭을 바꿔도 제목 자리가 같다.
+  screen: { flexGrow: 1, paddingHorizontal: 30, paddingTop: 38, paddingBottom: 44 },
   screenCompact: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 48 },
   libraryScreen: { flexGrow: 1, paddingHorizontal: 30, paddingTop: 38, paddingBottom: 34 },
   // 폰의 모든 탭은 위 여백·제목 줄 높이를 같게 둬서 탭을 바꿔도 제목이 움직이지 않는다.
@@ -59,9 +60,8 @@ export const styles = StyleSheet.create({
   libraryViewText: { color: C.inkSoft, fontSize: 12, fontWeight: '850' },
   libraryToolbar: { minHeight: 47, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24 },
   libraryToolbarCompact: { marginTop: 8 },
-  header: { minHeight: 70, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 },
-  eyebrow: { color: C.blue, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 8 },
-  headerTitle: { color: C.ink, fontSize: 31, fontWeight: '900', letterSpacing: -1.35 },
+  header: { minHeight: 45, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
+  headerTitle: { color: C.ink, fontSize: 29, fontWeight: '900', letterSpacing: -1.35 },
   headerCompact: { minHeight: 48, alignItems: 'center', marginBottom: 16 },
   headerTitleCompact: { fontSize: 30, letterSpacing: -1.2 },
   headerRight: { alignItems: 'flex-end' },
@@ -84,8 +84,9 @@ export const styles = StyleSheet.create({
   chipCompact: { minHeight: 44, paddingHorizontal: 18 },
   chipTextCompact: { fontSize: 13.5 },
 
-  empty: { flex: 1, minHeight: 380, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30, borderRadius: 24, borderWidth: 1, borderColor: C.line, borderStyle: 'dashed', backgroundColor: 'rgba(255,255,255,.55)' },
-  emptyCompact: { minHeight: 280, borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent' },
+  // 빈 화면은 폰·태블릿 모두 테두리 상자 없이 아이콘과 문구만 둔다.
+  empty: { flex: 1, minHeight: 380, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
+  emptyCompact: { minHeight: 280 },
   emptyIcon: { width: 68, height: 68, alignItems: 'center', justifyContent: 'center', borderRadius: 25, backgroundColor: C.white, borderWidth: 1, borderColor: C.line, marginBottom: 17 },
   emptyIconText: { color: C.blue, fontSize: 31, lineHeight: 35, fontWeight: '300' },
   emptyTitle: { color: C.ink, fontSize: 19, fontWeight: '850', letterSpacing: -0.5 },
@@ -96,11 +97,15 @@ export const styles = StyleSheet.create({
 
   carouselShell: { minHeight: 510, flex: 1, paddingTop: 31, paddingBottom: 17, overflow: 'hidden' },
   carouselShellCompact: { minHeight: 0, paddingTop: 4, paddingBottom: 0, marginHorizontal: -18 },
-  carouselRow: { height: 412, position: 'relative', flexDirection: 'row', alignItems: 'center' },
+  carouselRow: { height: 412, position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   carouselRowCompact: { flex: 1, height: 'auto', minHeight: 0 },
   carouselCardTop: { zIndex: 2 },
   carouselViewport: { flex: 1, minWidth: 0, overflow: 'visible' },
-  carouselCards: { alignItems: 'center', gap: 42, paddingVertical: 17 },
+  // 잰 폭으로 고정한 목록. 늘거나 줄지 않게 막는다(ScrollView 기본 flexGrow: 1). flex: 1과 겹쳐 쓰면 웹에서 flex-basis가 폭을 덮어써서 따로 둔다.
+  carouselViewportFixed: { flexGrow: 0, flexShrink: 0, overflow: 'visible' },
+  // 가운데 카드가 커지고(1.06) 위로 올라가는(-12) 만큼 위아래 여백을 둬야 카드 윗부분이 잘리지 않는다.
+  // 카드는 윗변을 맞춘다. 가운데 정렬이면 짧은 '새 다이어리' 카드만 아래로 처져 계단처럼 보인다.
+  carouselCards: { alignItems: 'flex-start', gap: 42, paddingVertical: 28 },
   // 가운데 카드가 커지고(1.06) 위로 올라가는(-12) 만큼 위아래 여백을 둬야 카드 윗부분이 잘리지 않는다.
   carouselCardsCompact: { paddingVertical: 28 },
   carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
@@ -130,7 +135,6 @@ export const styles = StyleSheet.create({
   cardDelete: { width: 44, height: 44, marginTop: -8, marginRight: -8, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   cardTitle: { color: C.ink, fontSize: 14, fontWeight: '850', letterSpacing: -0.35 },
   cardType: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
-  cardDate: { color: C.muted, fontSize: 10.5, fontWeight: '650' },
 
   cover: { height: 219, padding: 19, overflow: 'hidden', justifyContent: 'center' },
   coverCarousel: { height: 318, borderTopLeftRadius: 9, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 9 },
@@ -216,7 +220,6 @@ export const styles = StyleSheet.create({
   createFormScroll: { flex: 1 },
   createFormBody: { paddingBottom: 16 },
   createDialogHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 22 },
-  createDialogEyebrow: { color: C.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
   createDialogTitle: { color: C.ink, fontSize: 22, fontWeight: '900', letterSpacing: -0.6, marginTop: 4 },
   createClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
   createLabel: { color: C.inkSoft, fontSize: 12, fontWeight: '800', marginBottom: 9 },
@@ -225,6 +228,8 @@ export const styles = StyleSheet.create({
   createLabelNote: { color: C.muted, fontSize: 10.5, fontWeight: '600' },
   createField: { height: 46, paddingHorizontal: 14, color: C.ink, fontSize: 14, fontWeight: '700', borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: '#F6F9FD' },
   createHelperRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, marginBottom: 16 },
+  // 오류 문구가 없어도 글자 수는 늘 오른쪽 끝에 둔다.
+  createCount: { marginLeft: 'auto' },
   createColors: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 18 },
   createColorChoice: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, borderWidth: 2, borderColor: 'transparent' },
   createColorSelected: { borderColor: C.ink },

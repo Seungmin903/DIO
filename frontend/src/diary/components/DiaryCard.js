@@ -3,7 +3,6 @@ import { C } from '../constants';
 import { Animated, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
-import { formatUpdatedAt } from '../utils/diaryLibrary';
 import Cover from './Cover';
 
 // onOpen·onFavorite·onEdit·onDelete는 다이어리를 인자로 받는 공용 콜백이다.
@@ -50,7 +49,8 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
           <View style={s.cardTitleWrap}>
             <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>
           </View>
-          <Pressable
+          {/* 스와이프 화면의 옆 카드는 넘기려고 누르는 자리라 가운데 카드에만 둔다. */}
+          {(layout !== 'carousel' || carouselActive) && <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 휴지통으로 이동`}
             hitSlop={4}
@@ -58,9 +58,8 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
             style={({ pressed }) => [s.cardDelete, pressed && s.pressed]}
           >
             <AppIcon name="trash" size={19} color={C.danger} />
-          </Pressable>
+          </Pressable>}
         </View>
-        <Text style={s.cardDate}>{formatUpdatedAt(diary.updatedAt)}</Text>
       </View>
     </Pressable>
   );

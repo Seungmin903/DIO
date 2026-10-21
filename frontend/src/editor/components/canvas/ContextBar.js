@@ -40,7 +40,6 @@ export default function ContextBar({
   onPaste, // 복사해 둔 요소 붙여넣기 (다른 페이지·다이어리 탭에서 복사한 것도)
   canPaste = false,
   onTextLink,
-  onCopyText,
   onCopyLink, // 링크 카드의 복사
   onObjectLink, // 스티커·테이프·사진에 링크 걸기
   textSettingsOpen = false, // 텍스트 서식 창이 열려 있음 ('서식' 버튼 표시)
@@ -91,7 +90,7 @@ export default function ContextBar({
   const linkable = single && !single.locked && LINKABLE_TYPES.includes(single.type)
   const hasLeading = objects.length > 1 || linkable
 
-  // 텍스트: 다른 바와 같은 모양으로 수정·서식(색·크기·굵게·기울임·밑줄·취소선·자간·줄간격 등)·링크 + 복사·삭제
+  // 텍스트 요소 선택: 문자열 복사는 편집 모드에서, 여기서는 상자 전체를 복제한다.
   if (single?.type === 'text' && !single.locked) return <>
     <View accessibilityLabel="텍스트 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
@@ -99,7 +98,7 @@ export default function ContextBar({
         <BarButton icon="text" label="서식" active={textSettingsOpen} onPress={() => onTextSettings?.()} />
         <BarButton icon="link" label="링크" active={single.styleRanges?.some((r) => r.href)} onPress={() => onTextLink?.(single)} />
         <View style={styles.divider} />
-        <BarButton icon="copy" label="복사" onPress={() => onCopyText?.(single.text)} />
+        <BarButton icon="duplicate" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
         <BarButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
       </ScrollView>
     </View>

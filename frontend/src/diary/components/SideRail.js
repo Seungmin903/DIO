@@ -5,7 +5,7 @@ import AppIcon from '../../shared/AppIcon';
 import { C } from '../constants';
 import { styles as s } from '../styles';
 
-const RAIL_WIDTH = { collapsed: 78, expanded: 218 };
+export const RAIL_WIDTH = { collapsed: 78, expanded: 218 };
 const RAIL_PADDING = { collapsed: 15, expanded: 20 };
 
 function SideRail({ page, filter, navigate, create, bottomInset = 0, collapsed, onToggle }) {

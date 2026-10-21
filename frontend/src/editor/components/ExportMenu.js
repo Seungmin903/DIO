@@ -1,7 +1,8 @@
+import EditorModal from './controls/EditorModal'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { ExportButton } from './ExportScreen'
 import { useEffect, useMemo, useState } from 'react'
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../shared/theme'
 import { pageSize } from '../utils/pageGeometry.js'
 import { createMenuPdfSnapshot, menuPdfPolicy, pdfMenuFailure } from '../utils/pdfMenu.js'
@@ -74,7 +75,7 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
     // 현재 페이지는 PNG 부터, 여러 페이지는 PDF 한 파일, 영역은 PNG
     setFormat(value === 'current' ? 'png' : 'pdf')
   }
-  return <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+  return <EditorModal visible transparent animationType="fade" onRequestClose={onClose}>
     {/* 화면을 어둡게 덮지 않는다 (덮으면 뒤의 요소가 반투명해 보였다). 바깥을 누르면 닫는다 */}
     <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="내보내기 닫기" />
     {/* 꼬리는 카드 바깥에 그린다 (카드 안에 두면 둥근 모서리 자르기에 가려졌다) */}
@@ -106,7 +107,7 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
         <ExportButton primary title={RUN_TITLES[format]} onPress={() => run()} disabled={!!invalid || changed} />
       </ScrollView>
     </View>
-  </Modal>
+  </EditorModal>
 }
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface }, // 둥글기·그림자는 공용 옵션 창(카드)을 따른다

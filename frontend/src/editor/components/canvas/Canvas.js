@@ -82,7 +82,6 @@ export default function Canvas({
   canPaste,
   paperAppearance, // 지금 페이지 속지 색 { backgroundColor, layoutColor }
   onPaperAppearance, // (appearance, all) => 속지 색 바꾸기
-  onCopyText,
   onTextLink,
   onObjectLink,
   onCopyLink,
@@ -409,7 +408,6 @@ export default function Canvas({
       {canTouch && selected.length > 0 && !cropping && !interacting && !marquee && (
         <View pointerEvents="box-none" style={styles.selectionMenu}>
         <ContextBar
-          onCopyText={onCopyText}
           onTextLink={onTextLink}
           onObjectLink={onObjectLink}
           onCopyLink={onCopyLink}

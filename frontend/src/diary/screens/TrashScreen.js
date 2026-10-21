@@ -12,7 +12,7 @@ import { isTrashExpired, trashStatus } from '../utils/trashRetention';
 export default function TrashScreen({ diaries, onRestore, onDeletePermanently, compact = false, now = Date.now(), cleanupError, onRetryCleanup }) {
   return (
     <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
-      <Header eyebrow={compact ? null : 'TRASH'} title="휴지통" compact={compact} />
+      <Header title="휴지통" compact={compact} />
       <Text style={s.trashPolicy}>삭제한 다이어리는 30일 동안 복원할 수 있어요. 기한이 지나면 영구 삭제되며, 앱이 꺼져 있으면 다음 실행 시 정리해요.</Text>
       {cleanupError && <View accessibilityRole="alert" style={s.trashNotice}>
         <Text style={s.trashPolicy}>{cleanupError}</Text>
@@ -26,7 +26,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, c
         <View style={[s.trashGrid, compact && s.trashGridCompact]}>
           {diaries.map((diary) => (
             <View key={diary.id} style={[s.trashCard, compact && s.trashCardCompact]}>
-              <View style={[s.trashCover, compact && s.trashCoverCompact]}><Cover diary={diary} grid /></View>
+              <View style={[s.trashCover, compact && s.trashCoverCompact]}><Cover diary={diary} grid compact={compact} /></View>
               <Text numberOfLines={1} style={s.trashTitle}>{diary.title}</Text>
               <Text style={s.trashDate}>삭제 {formatUpdatedAt(diary.trashedAt)}</Text>
               <Text style={s.trashDate}>{trashStatus(diary, now)}</Text>

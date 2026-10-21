@@ -588,11 +588,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       guidesActive={guidesOpen || hasGuides(guides)}
       penColor={penSettings.color}
       highlighterColor={highlighterSettings.color}
-      exportEnabled={exportEnabled}
       onSelectTool={selectTool}
       onOpenDrawer={openDrawer}
       onOpenGuides={toggleGuides}
-      onExport={openExport}
     />
   ) : null
 
@@ -752,7 +750,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 paperAppearance={normalizePaperAppearance(page.paperAppearance)}
                 onPaperAppearance={(appearance, all) => dispatch({ type: 'setPaperAppearance', appearance, all })}
                 onCut={(objects) => { objectClipboard.set(objects); dispatch({ type: 'removeObjects', ids: objects.filter(o => !o.locked).map(o => o.id) }); showToast('잘라 냈어요.') }}
-                onCopyText={(text) => copyText(text).then(() => showToast('텍스트를 복사했어요.')).catch(() => showToast('텍스트를 복사하지 못했어요.'))}
                 onTextLink={setTextLinkTarget}
                 onObjectLink={setObjectLinkTarget}
                 onCopyLink={(href) => copyText(href).then(() => showToast('링크를 복사했어요.')).catch(() => showToast('링크를 복사하지 못했어요.'))}

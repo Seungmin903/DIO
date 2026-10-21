@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import DiaryPaperColors, { DiaryPaperPreview } from './DiaryPaperColors';
-import { templateIdForOrientation } from '../../editor/templates/catalog.js';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { Animated, Easing, Modal, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import DiaryPaperColors, { DiaryPaperColorButton, DiaryPaperPreview } from './DiaryPaperColors';
+import DiaryMonthPreview from './DiaryMonthPreview';
 import { DEFAULT_PAPER_APPEARANCE } from '../../editor/templates/appearance.js';
 import DiaryTemplateSettings from './DiaryTemplateSettings';
-import { defaultTemplateConfig, templatePageCount } from '../../editor/templates/creation.js';
+import { templatePageCount } from '../../editor/templates/creation.js';
+import { activeCreationConfig, creationFlowReducer, initialCreationFlow } from '../utils/creationFlow.js';
+import DiaryPresets, { CompositionSummary } from './DiaryPresets';
 import AppIcon from '../../shared/AppIcon';
 import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, PAGE_SIZES, C } from '../constants';
 import { styles as s } from '../styles';
@@ -14,7 +16,7 @@ const TITLE_LIMIT = 24;
 const SHEET_SLIDE = 600;
 
 // 왼쪽 미리보기의 책 모양 표지
-function BookPreview({ title, color, pattern }) {
+function BookPreview({ title, color, pattern, dateMode }) {
   return (
     <View style={[s.bookPreview, { backgroundColor: color }]}>
       <CoverPattern pattern={pattern} />
@@ -22,7 +24,7 @@ function BookPreview({ title, color, pattern }) {
       <View style={s.bookBand} />
       <View style={s.bookLabel}>
         <Text numberOfLines={1} style={s.bookLabelTitle}>{title.trim() || DIARY_DEFAULTS.title}</Text>
-        <Text style={s.bookLabelMeta}>DIARY · 2026</Text>
+        <Text style={s.bookLabelMeta}>DIARY · {dateMode === 'undated' ? '만년형' : '2026'}</Text>
       </View>
     </View>
   );
@@ -33,7 +35,8 @@ function Chip({ label, selected, disabled, onPress, children }) {
     <Pressable
       accessibilityRole="radio"
       accessibilityLabel={label}
-      accessibilityState={{ selected, disabled }}
+      accessibilityState={{ selected, checked: selected, disabled }}
+      aria-checked={selected}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [s.formChip, selected && s.formChipSelected, disabled && s.formChipDisabled, pressed && s.pressed]}
@@ -51,12 +54,14 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [title, setTitle] = useState(diary?.title ?? DIARY_DEFAULTS.title);
   const [color, setColor] = useState(diary?.color ?? DIARY_DEFAULTS.color);
   const [pattern, setPattern] = useState(diary ? diary.pattern ?? null : DIARY_DEFAULTS.pattern);
-  const [pageSize, setPageSize] = useState(diary?.pageSize ?? 'landscape');
-  const [step, setStep] = useState(0);
-  const [templateConfig, setTemplateConfig] = useState(defaultTemplateConfig);
+  const [flow, changeFlow] = useReducer(creationFlowReducer, diary?.pageSize, initialCreationFlow);
+  const { step, orientation: pageSize } = flow;
+  const templateConfig = useMemo(() => activeCreationConfig(flow), [flow]);
   const submitting = useRef(false);
-  const configuring = !editing && step === 1;
-  const coloring = !editing && step === 2;
+  const recommending = !editing && step === 'recommend';
+  const configuring = !editing && step === 'custom';
+  const coloring = !editing && step === 'colors';
+  const choosing = !editing && step !== 'cover';
   const [paperAppearance, setPaperAppearance] = useState(() => ({ ...DEFAULT_PAPER_APPEARANCE }));
   const [error, setError] = useState('');
   const formScroll = useRef(null);
@@ -66,16 +71,13 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     formScroll.current?.setNativeProps?.({ scrollEnabled: !active });
     setPaletteDragging(active);
   }, []);
-  const actionLabel = saving ? '저장 중…' : editing ? '완료하기' : coloring ? '다이어리 만들기' : configuring ? '내지 색상 선택하기' : '속지 선택하기';
+  const actionLabel = saving ? '저장 중…' : editing ? '완료하기' : choosing ? '이 구성으로 시작' : '내지 구성 선택하기';
   let count = null, configError = '';
-  if (!editing && step > 0) {
+  if (choosing) {
     try { count = templatePageCount(templateConfig); } catch (failure) { configError = failure.message; }
   }
   const changePageSize = orientation => {
-    setPageSize(orientation);
-    setTemplateConfig(current => ({ ...current, orientation,
-      ...Object.fromEntries(['dailyTemplates', 'reusable', 'legacyEndPages'].map(key => [key, current[key].map(item => ({ ...item, assetId: templateIdForOrientation(item.assetId, orientation) }))])),
-    }));
+    changeFlow({ type: 'orientation', value: orientation });
   };
   const pageSizeLabel = PAGE_SIZES.find((item) => item.id === pageSize)?.label;
   const slide = useRef(new Animated.Value(sheet ? 1 : 0)).current;
@@ -94,7 +96,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     const trimmed = title.trim();
     if (!trimmed) { setError('다이어리 이름을 입력해 주세요.'); return; }
     if (configError) { setError(configError); return; }
-    if (!editing && step < 2) { setError(''); setStep(step + 1); return; }
+    if (!editing && step === 'cover') { setError(''); changeFlow({ type: 'next' }); return; }
     submitting.current = true;
     try {
       const failure = await onSubmit({ title: trimmed, color, pattern, pageSize, templateConfig, paperAppearance });
@@ -105,13 +107,18 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   };
 
   return (
+    // Android Modal은 앱과 다른 창이라 앱에서 숨긴 상태 바가 다시 나타나고, 그 높이만큼 창 전체가 아래로 밀렸다.
+    // 상태 바·내비게이션 바 위까지 그리게 하고 상태 바는 계속 숨긴다. 아래 시스템 바 높이만큼은 여백으로 비운다.
     <Modal
       visible
       transparent
       presentationStyle="overFullScreen"
+      statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={() => { if (!saving) onCancel(); }}
     >
-    <View accessibilityViewIsModal style={[s.createOverlay, sheet && s.createOverlaySheet]}>
+    <StatusBar hidden />
+    <View accessibilityViewIsModal style={[s.createOverlay, sheet && s.createOverlaySheet, !sheet && { paddingBottom: 16 + bottomInset }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${actionLabel} 닫기`}
@@ -121,8 +128,9 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       />
       <Animated.View style={[s.createDialog, sheet && s.createSheet, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
         {sheet ? <View style={s.sheetHandle} /> : (
-          <View style={s.createPreviewPane}>
-            {coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <BookPreview title={title} color={color} pattern={pattern} />}
+          <View style={[s.createPreviewPane, recommending && { width: 300, paddingHorizontal: 20, paddingVertical: 24 }]}>
+            {recommending ? <DiaryMonthPreview config={templateConfig} appearance={paperAppearance} />
+              : coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <BookPreview title={title} color={color} pattern={pattern} dateMode={editing ? diary.templateConfig?.dateMode : flow.dateMode} />}
             <Text style={s.createPreviewMeta}>{pageSizeLabel}</Text>
           </View>
         )}
@@ -130,8 +138,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         <View style={[s.createFormPane, sheet && s.createFormPaneSheet]}>
           <View style={s.createDialogHeader}>
             <View>
-              {!sheet && <Text style={s.createDialogEyebrow}>{editing ? 'EDIT DIARY' : 'YOUR NEXT CHAPTER'}</Text>}
-              <Text style={s.createDialogTitle}>{editing ? '다이어리 수정' : coloring ? '내지 색상' : configuring ? '속지 구성' : '새 다이어리 만들기'}</Text>
+              <Text style={s.createDialogTitle}>{editing ? '다이어리 수정' : coloring ? '내지 색상' : configuring ? '직접 구성하기' : recommending ? '어떻게 기록할까요?' : '새 다이어리 만들기'}</Text>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -144,10 +151,21 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             </Pressable>
           </View>
 
+          {choosing && !coloring && <DiaryPaperColorButton appearance={paperAppearance} disabled={saving || Boolean(configError)}
+            onPress={() => { changeFlow({ type: 'colors' }); setError(''); }} />}
+          {choosing && !coloring && <View style={{ marginBottom: 12 }}>
+            <View style={s.createChips}>
+              <Chip label="날짜형 · 1년" selected={flow.dateMode === 'dated'} disabled={saving}
+                onPress={() => { changeFlow({ type: 'dateMode', value: 'dated' }); setError(''); }} />
+              <Chip label="만년형 · 1개월" selected={flow.dateMode === 'undated'} disabled={saving}
+                onPress={() => { changeFlow({ type: 'dateMode', value: 'undated' }); setError(''); }} />
+            </View>
+            <Text style={s.helper}>{flow.dateMode === 'undated' ? '날짜를 직접 쓰는 한 달 구성이에요. 달력은 6주 칸, 주간 계획은 포함 시 6장이에요.' : '2026년 1~12월의 날짜가 적힌 일 년 구성이에요.'}</Text>
+          </View>}
           <ScrollView ref={formScroll} scrollEnabled={!paletteDragging} style={s.createFormScroll} contentContainerStyle={s.createFormBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View pointerEvents={saving ? 'none' : 'auto'}>
-            {!editing && <Text style={[s.helper, { marginBottom: 12 }]}>{coloring ? '3 / 3 · 내지 색상' : configuring ? '2 / 3 · 속지 구성' : '1 / 3 · 이름과 표지'}</Text>}
-            {!configuring && !coloring && <>
+            {!editing && <Text style={[s.helper, { marginBottom: 12 }]}>{coloring ? '선택 사항 · 내지 색상' : choosing ? '2 / 2 · 내지 구성' : '1 / 2 · 이름과 표지'}</Text>}
+            {!choosing && <>
             <Text style={s.createLabel}>이름</Text>
             <TextInput
               accessibilityLabel="다이어리 이름"
@@ -162,7 +180,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             />
             <View style={s.createHelperRow}>
               {error ? <Text accessibilityRole="alert" style={s.error}>{error}</Text> : null}
-              <Text style={s.helper}>{title.length}/{TITLE_LIMIT}</Text>
+              <Text style={[s.helper, s.createCount]}>{title.length}/{TITLE_LIMIT}</Text>
             </View>
 
             <Text style={s.createLabel}>표지 색상</Text>
@@ -201,25 +219,35 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             </View>
 
             </>}
-            {configuring && <DiaryTemplateSettings value={templateConfig} onChange={value => { setTemplateConfig(value); setError(''); }} />}
-            {coloring && <DiaryPaperColors onInteractionChange={onPaletteInteraction} value={paperAppearance} onChange={setPaperAppearance} />}
+            {recommending && sheet && <DiaryMonthPreview config={templateConfig} appearance={paperAppearance} compact />}
+            {recommending && <DiaryPresets selected={flow.preset} orientation={pageSize} dateMode={flow.dateMode} appearance={paperAppearance}
+              onSelect={id => { changeFlow({ type: 'preset', id }); setError(''); }}
+              onCustomize={() => { changeFlow({ type: 'custom' }); setError(''); }} />}
+            {configuring && <>
+              <CompositionSummary config={templateConfig} />
+              <DiaryTemplateSettings value={templateConfig} onChange={value => { changeFlow({ type: 'configure', value }); setError(''); }} />
+            </>}
+            {coloring && <>
+              {sheet && <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} />}
+              <DiaryPaperColors onInteractionChange={onPaletteInteraction} value={paperAppearance} onChange={setPaperAppearance} />
+            </>}
             </View>
           </ScrollView>
 
-          {!editing && step > 0 && <View>
-            <Text style={s.createLabel}>총 {count == null ? '—' : count}페이지</Text>
+          {choosing && <View>
+            <Text accessibilityLiveRegion="polite" style={s.createLabel}>전체 페이지 수 · {count == null ? '—' : count}페이지</Text>
             {(error || configError) ? <Text accessibilityRole="alert" style={[s.error, { marginBottom: 8 }]}>{error || configError}</Text> : null}
           </View>}
           <View style={[s.createFooter, sheet && { paddingBottom: 16 + bottomInset }]}>
-            {!editing && step > 0 && <Pressable
+            {choosing && <Pressable
               accessibilityRole="button"
-              accessibilityLabel={coloring ? '속지 구성으로 돌아가기' : '이름과 표지로 돌아가기'}
+              accessibilityLabel={coloring ? '내지 구성으로 돌아가기' : configuring ? '추천 구성으로 돌아가기' : '이름과 표지로 돌아가기'}
               disabled={saving}
-              onPress={() => { setStep(step - 1); setError(''); }}
+              onPress={() => { changeFlow({ type: 'back' }); onPaletteInteraction(false); setError(''); }}
               style={({ pressed }) => [s.createBack, pressed && s.pressed, saving && { opacity: 0.5 }]}
             >
               <AppIcon name="chevron-left" size={18} color={C.inkSoft} />
-              <Text style={s.createBackText}>{coloring ? '속지 구성' : '이름과 표지'}</Text>
+              <Text style={s.createBackText}>{coloring ? '내지 구성' : configuring ? '추천 구성' : '이름과 표지'}</Text>
             </Pressable>}
             <Pressable
               accessibilityRole="button"
