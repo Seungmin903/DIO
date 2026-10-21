@@ -49,7 +49,6 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
             <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>
-            <Text style={s.cardType}>나만의 다이어리</Text>
           </View>
           <Pressable
             accessibilityRole="button"

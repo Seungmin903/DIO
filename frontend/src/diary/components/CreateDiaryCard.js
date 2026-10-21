@@ -26,7 +26,6 @@ function CreateDiaryCard({ layout = 'grid', compact = false, carouselActive = fa
           <AppIcon name="add" size={27} color={C.muted} strokeWidth={1.7} />
         </View>
         <Text style={s.createCardTitle}>새 다이어리</Text>
-        <Text style={s.createCardCopy}>새 기록을 시작해 보세요</Text>
       </View>
     </Pressable>
   );

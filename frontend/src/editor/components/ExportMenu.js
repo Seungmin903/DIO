@@ -17,7 +17,6 @@ const MODES = [
   { id: 'custom', label: '페이지 지정' },
 ]
 const FORMATS = [{ id: 'png', label: 'PNG' }, { id: 'pdf', label: 'PDF' }, { id: 'gif', label: 'GIF' }]
-const FORMAT_HINTS = { png: 'PNG 이미지 (기본 1배)', pdf: 'PDF 한 파일', gif: '움직이는 GIF (최대 6초 반복)' }
 const RUN_TITLES = { png: 'PNG 만들기', pdf: 'PDF 만들기', gif: 'GIF 만들기' }
 const BUBBLE_WIDTH = 380
 
@@ -90,20 +89,19 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
         {mode === 'current' && <>
           <Text style={toolPanelStyles.label}>형식</Text>
           <Segmented items={FORMATS} selected={(id) => format === id} onPress={setFormat} />
-          <Text style={styles.hint}>{number}페이지 · {FORMAT_HINTS[format]}</Text>
+
         </>}
 
-        {mode === 'all' && <Text style={styles.hint}>{doc.pages.length}페이지 전체를 PDF로 만들어요.</Text>}
+
 
         {mode === 'custom' && <>
           <Text style={toolPanelStyles.label}>페이지</Text>
           <TextInput accessibilityLabel="내보낼 페이지" value={spec} onChangeText={setSpec} placeholder="예: 1-3, 5, 8" placeholderTextColor={colors.textMuted} keyboardType="numbers-and-punctuation" style={styles.spec} />
-          <Text style={styles.hint}>{invalid ? '' : `${numbers.length}페이지 · `}쉼표로 나누고 범위는 - 로 적어요. 고른 페이지를 PDF로 만들어요.</Text>
+
         </>}
 
         {format === 'pdf' && !invalid && parts.length > 1 && <Text style={styles.hint}>{policy.maxPages}페이지씩 나눠 PDF {parts.length}개로 만들어요. ({parts.map((part) => part.length > 1 && part.at(-1) - part[0] === part.length - 1 ? `${part[0]}-${part.at(-1)}` : part.length === 1 ? part[0] : `${part.length}장`).join(' · ')})</Text>}
         {!!invalid && <Text accessibilityRole="alert" style={styles.hint}>{invalid}</Text>}
-        {format === 'pdf' && <Text style={styles.hint}>PDF는 이미지로 만든 문서라 글자를 검색하거나 선택할 수 없어요. {policy.maxPages}페이지가 넘으면 파일을 나눠 만들어요.</Text>}
         {!!failure && <Text accessibilityRole="alert" style={styles.hint}>{failure}</Text>}
         <ExportButton primary title={RUN_TITLES[format]} onPress={() => run()} disabled={!!invalid || changed} />
       </ScrollView>

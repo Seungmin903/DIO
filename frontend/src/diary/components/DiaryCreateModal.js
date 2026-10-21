@@ -124,7 +124,6 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
           <View style={s.createPreviewPane}>
             {coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <BookPreview title={title} color={color} pattern={pattern} />}
             <Text style={s.createPreviewMeta}>{pageSizeLabel}</Text>
-            <Text style={s.createPreviewCopy}>{coloring ? '추천 색상과 직접 지정한 색을 바로 확인하세요.' : '표지 색상과 패턴은 만든 뒤에도 바꿀 수 있어요.'}</Text>
           </View>
         )}
 
@@ -162,7 +161,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
               style={[s.createField, error && s.fieldError]}
             />
             <View style={s.createHelperRow}>
-              <Text style={error ? s.error : s.helper}>{error || `${TITLE_LIMIT}자 이내로 입력해 주세요.`}</Text>
+              {error ? <Text accessibilityRole="alert" style={s.error}>{error}</Text> : null}
               <Text style={s.helper}>{title.length}/{TITLE_LIMIT}</Text>
             </View>
 

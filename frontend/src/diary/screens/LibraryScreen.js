@@ -233,7 +233,6 @@ function LibraryScreen({
             </Pressable>}
           </View>
           <View style={[s.carouselFoot, compact && s.carouselFootCompact]}>
-            {!compact && <Text style={s.swipeHint}>← 옆으로 밀어 다이어리를 넘겨보세요 →</Text>}
             {/* 개수는 다이어리만 센다. 맨 끝 "새 다이어리" 카드에서는 비워 둔다 (줄 높이는 유지) */}
             <Text style={s.carouselCount}>{activeIndex < shown.length ? `${activeIndex + 1} / ${shown.length}` : ' '}</Text>
           </View>

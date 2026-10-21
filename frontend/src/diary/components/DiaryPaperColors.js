@@ -21,7 +21,6 @@ export function DiaryPaperPreview({ config, appearance }) {
     <View onLayout={event => setWidth(event.nativeEvent.layout.width)} style={[s.preview, { aspectRatio: page.canvasWidth / page.canvasHeight }]}>
       <PageBackground page={page} zoom={width / page.canvasWidth} compact />
     </View>
-    <Text style={s.hint}>선택한 색상을 모든 내지에 적용해요.</Text>
   </View>
 }
 
@@ -29,7 +28,6 @@ export default function DiaryPaperColors({ value, onChange, onInteractionChange 
   const [palette, setPalette] = useState(null)
   return <View>
     <Text style={s.intro}>내지의 분위기를 골라 주세요</Text>
-    <Text style={s.hint}>추천 색상을 고르거나 +를 눌러 원하는 색을 지정하세요. 왼쪽 첫 페이지에 바로 반영돼요.</Text>
     {[['backgroundColor', '배경색', BACKGROUNDS], ['layoutColor', '레이아웃 색상', LAYOUTS]].map(([key, label, presets]) => {
       const selected = value[key]
       const custom = !presets.some(([, color]) => color === selected)
@@ -50,7 +48,6 @@ export default function DiaryPaperColors({ value, onChange, onInteractionChange 
         </View>}
       </View>
     })}
-    <Text style={s.hint}>레이아웃의 글자와 선은 기존 농도 차이를 유지해요. 배경과 너무 비슷한 색을 고르면 잘 보이지 않을 수 있어요.</Text>
   </View>
 }
 const s = StyleSheet.create({
