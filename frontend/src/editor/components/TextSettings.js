@@ -1,3 +1,4 @@
+import { useFormFactor } from '../../shared/useFormFactor'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { useEffect, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
@@ -26,6 +27,7 @@ const ALIGNS = [['left', '왼쪽 정렬'], ['center', '가운데 정렬'], ['rig
 
 /** 텍스트 서식. 스티커·마테·사진 옵션과 같은 모양(구역 제목·세그먼트 버튼·막대·색 줄)으로 만든다 */
 export default function TextSettings({ settings, onChange, onClose }) {
+  const { isPhone } = useFormFactor()
   const [fontsOpen, setFontsOpen] = useState(false)
   const [size, setSize] = useState(String(settings.fontSize))
   useEffect(() => setSize(String(settings.fontSize)), [settings.fontSize])
@@ -50,7 +52,7 @@ export default function TextSettings({ settings, onChange, onClose }) {
             </Pressable>
           ))}</ScrollView>}
         </View>
-        <TextInput accessibilityLabel="글자 크기" keyboardType="numeric" value={size} onChangeText={(raw) => { setSize(raw); const value = Number(raw); if (raw.trim() && Number.isFinite(value) && value >= 8 && value <= 96) onChange({ fontSize: value }) }} onEndEditing={(event) => commitSize(event.nativeEvent.text)} onSubmitEditing={(event) => commitSize(event.nativeEvent.text)} selectTextOnFocus style={[styles.field, styles.size]} />
+        <TextInput accessibilityLabel="글자 크기" keyboardType="numeric" value={size} onChangeText={(raw) => { setSize(raw); const value = Number(raw); if (raw.trim() && Number.isFinite(value) && value >= 8 && value <= 96) onChange({ fontSize: value }) }} onEndEditing={(event) => commitSize(event.nativeEvent.text)} onSubmitEditing={(event) => commitSize(event.nativeEvent.text)} selectTextOnFocus style={[styles.field, styles.size, isPhone && styles.phoneSize]} />
       </View>
 
       <Text style={toolPanelStyles.label}>스타일</Text>
@@ -84,6 +86,7 @@ const styles = StyleSheet.create({
   field: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 42, paddingHorizontal: 12, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   fieldText: { flexShrink: 1, color: colors.text, fontSize: 14 },
   size: { width: 60, color: colors.text, fontSize: 14, textAlign: 'center' },
+  phoneSize: { fontSize: 13, fontWeight: '700' },
   options: { position: 'absolute', top: '100%', marginTop: 4, left: 0, right: 0, maxHeight: 280, zIndex: 20, elevation: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 11 },
   option: { paddingHorizontal: 12, paddingVertical: 10 },
   optionSelected: { backgroundColor: '#EEF2F9' },
