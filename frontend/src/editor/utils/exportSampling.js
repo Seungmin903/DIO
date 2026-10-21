@@ -18,6 +18,9 @@ export function selectExportRaster(record, objects, snapshot) {
     return { blob: record.displayBlob, media: display, size, selected: 'display' }
   }
   // 큰 원본을 무조건 디코딩하지 않는다. 타일 디코딩 지원 전에는 안전하게 중단한다.
+  if (media.width * media.height > 8000000 && record.displayBlob && display?.width > 0 && display?.height > 0 && display.width * display.height <= 8000000) {
+    return { blob: record.displayBlob, media: display, size: exportRasterSize(objects, snapshot, display), selected: 'display', qualityWarning: 'display-upscaled' }
+  }
   if (media.width * media.height > 8000000) throw new PageExportError('EXPORT_RASTER_TOO_LARGE', '확대된 부분에 필요한 이미지가 너무 커요. 자르기 확대나 출력 배율을 줄여 주세요.')
   return { blob: record.blob, media, size, selected: 'original' }
 }

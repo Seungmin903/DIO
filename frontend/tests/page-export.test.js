@@ -13,7 +13,7 @@ test('48MP 사진은 출력 배율과 자르기 확대에 충분한 표시본을
   const selected = selectExportRaster(record, objects, snapshot)
   assert.equal(selected.blob, 'display-2048')
   assert.equal(selected.selected, 'display')
-  assert.throws(() => selectExportRaster(record, [{ w: 260, h: 195, crop: { zoom: 20 } }], snapshot), { code: 'EXPORT_RASTER_TOO_LARGE' })
+  assert.equal(selectExportRaster(record, [{ w: 260, h: 195, crop: { zoom: 20 } }], snapshot).qualityWarning, 'display-upscaled')
 })
 
 test('중복 소재는 가장 큰 출력 사용처까지 전달하고 GIF 안내에 요소 이름을 남긴다', async () => {

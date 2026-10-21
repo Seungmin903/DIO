@@ -1,9 +1,13 @@
-# 로컬 PostgreSQL. 루트 .env는 Spring에서 자동으로 읽지 않는다.
+# 로컬 PostgreSQL. 저장소 루트 또는 backend 작업 디렉터리에서 루트 .env를 읽는다.
 spring:
+  config:
+    import:
+      - "optional:file:./.env[.properties]"
+      - "optional:file:../.env[.properties]"
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:dio}}
     username: ${POSTGRES_USER:dio}
-    password: ${POSTGRES_PASSWORD:dio1234}
+    password: ${POSTGRES_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate

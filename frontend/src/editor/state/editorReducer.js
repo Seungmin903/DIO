@@ -6,9 +6,9 @@
 // 드래그처럼 연속된 변경은 시작할 때 'checkpoint' 를 한 번 보내고
 // 이후 update 를 record 없이 보내서 한 번의 되돌리기 단위로 묶는다.
 
-import { clamp, createId, rotatedBounds, unionBounds } from '../utils/common'
-import { PAGE_HEIGHT, PAGE_WIDTH } from '../constants'
-import { createBlankPage } from './defaultDoc'
+import { clamp, createId, rotatedBounds, unionBounds } from '../utils/common.js'
+import { pageSize } from '../utils/pageGeometry.js'
+import { createBlankPage, createTemplatePage } from './defaultDoc.js'
 
 const HISTORY_LIMIT = 80
 const PASTE_OFFSET = 24
@@ -18,6 +18,7 @@ export function createInitialState(doc) {
     doc,
     past: [],
     future: [],
+    pendingCheckpoint: null,
     pageId: doc.pages[0].id,
     selectedIds: [],
   }
@@ -31,6 +32,7 @@ const withHistory = (state) => ({
   ...state,
   past: [...state.past, state.doc].slice(-HISTORY_LIMIT),
   future: [],
+  pendingCheckpoint: null,
 })
 
 function updateObjects(state, updater) {
@@ -135,7 +137,8 @@ function clonePage(page) {
  * 정렬: 여러 개면 선택 영역 기준, 하나면 페이지 기준.
  * mode: left | hcenter | right | top | vcenter | bottom | hspace | vspace (간격 맞추기, 3개 이상)
  */
-function alignObjects(objects, ids, mode) {
+function alignObjects(objects, ids, mode, page) {
+  const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   const targets = objects.filter((o) => ids.includes(o.id) && !o.locked)
   if (!targets.length) return objects
   const frame =
@@ -205,10 +208,19 @@ export function editorReducer(state, action) {
 
   switch (action.type) {
     case 'checkpoint':
-      return withHistory(state)
+      return {
+        ...withHistory(state),
+        // 취소한 드래그는 새 편집이 아니므로 이전 Redo와 이력 상한 이전의 Past도 복원한다.
+        pendingCheckpoint: { doc: state.doc, past: state.past, future: state.future },
+      }
 
     // 자르기 취소처럼 checkpoint 이후의 변경을 버리고 그 시점으로 돌아간다.
     case 'revertToCheckpoint': {
+      if (state.pendingCheckpoint) return normalizeSelection({
+        ...state,
+        ...state.pendingCheckpoint,
+        pendingCheckpoint: null,
+      })
       if (!state.past.length) return state
       return normalizeSelection({
         ...state,
@@ -293,7 +305,7 @@ export function editorReducer(state, action) {
     }
 
     case 'align':
-      return updateObjects(withHistory(state), (list) => alignObjects(list, action.ids, action.mode))
+      return updateObjects(withHistory(state), (list) => alignObjects(list, action.ids, action.mode, getCurrentPage(state)))
 
     case 'reorder':
       if (!action.ids.length) return state
@@ -346,7 +358,7 @@ export function editorReducer(state, action) {
       )
 
     case 'addPage': {
-      const page = createBlankPage()
+      const page = action.backgroundAssetId ? createTemplatePage(action.backgroundAssetId) : createBlankPage()
       const index = state.doc.pages.findIndex((p) => p.id === getCurrentPage(state).id)
       const pages = [...state.doc.pages]
       pages.splice(index + 1, 0, page)
@@ -419,6 +431,7 @@ export function editorReducer(state, action) {
         doc: state.past[state.past.length - 1],
         past: state.past.slice(0, -1),
         future: [state.doc, ...state.future],
+        pendingCheckpoint: null,
       })
 
     case 'redo':
@@ -428,6 +441,7 @@ export function editorReducer(state, action) {
         doc: state.future[0],
         past: [...state.past, state.doc],
         future: state.future.slice(1),
+        pendingCheckpoint: null,
       })
 
     case 'load':

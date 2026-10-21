@@ -1,4 +1,5 @@
 import { Asset } from 'expo-asset'
+import { loadTemplate } from '../templates/loadTemplate'
 import { mediaService } from '../services/mediaStore'
 import { mediaId } from './mediaReferences.js'
 import { STICKER_ASSETS } from '../stickerAssets'
@@ -9,7 +10,10 @@ import { selectExportRaster } from './exportSampling.js'
 export function preparePageExport(snapshot) {
   return prepareExportSnapshot(snapshot, async (object, usages) => {
     const id = mediaId(object)
-    if (id) return exportImage(selectExportRaster(await mediaService.get(id), usages, snapshot))
+    if (id) {
+      const selected = selectExportRaster(await mediaService.get(id), usages, snapshot)
+      return { ...await exportImage(selected), qualityWarning: selected.qualityWarning }
+    }
     let uri = object.src
     if (object.asset) {
       const module = STICKER_ASSETS[object.asset]
@@ -24,5 +28,5 @@ export function preparePageExport(snapshot) {
       const resource = await exportImage(selectExportRaster(input, usages, snapshot))
       return { ...resource, dispose() { try { resource.dispose?.() } finally { input.dispose?.() } } }
     } catch (error) { input.dispose?.(); throw error }
-  })
+  }, loadTemplate)
 }

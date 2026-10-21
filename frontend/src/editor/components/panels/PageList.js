@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, radius } from '../../../shared/theme'
-import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
+import { pageSize } from '../../utils/pageGeometry.js'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import Icon from '../controls/Icon'
@@ -9,9 +9,11 @@ import TapCatcher from '../controls/TapCatcher'
 import StaticPage from '../canvas/StaticPage'
 
 const THUMB_WIDTH = 124
-const THUMB_ZOOM = THUMB_WIDTH / PAGE_WIDTH
 const HOLD_MS = 280 // 이만큼 누르고 있으면 끌어서 순서 바꾸기 시작 (그 전에 움직이면 목록 스크롤)
 const TAP_SLOP = 8
+
+// 왼쪽 페이지 목록 폭. 열고 닫을 때 작업창 크기를 한 번에 맞추는 데도 쓴다 (EditorScreen)
+export const PAGE_LIST_WIDTH = 156
 
 /**
  * 페이지 목록. 썸네일은 편집 화면과 같은 StaticPage 로 그려 편집 내용을 그대로 비춘다.
@@ -120,6 +122,8 @@ function dropIndex(pages, layouts, drag) {
 }
 
 function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
+  const { width, height } = pageSize(page)
+  const thumbZoom = THUMB_WIDTH / width
   const press = useRef(null)
   const handlers = usePan({
     onStart: () => {
@@ -160,11 +164,11 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
         accessibilityRole="button"
         accessibilityLabel={`${index + 1}페이지`}
         accessibilityHint={readOnly ? undefined : '길게 눌러 끌면 순서를 바꿔요'}
-        style={[styles.thumb, active && styles.thumbActive, dragging && styles.thumbDragging]}
+        style={[styles.thumb, { height: height * thumbZoom }, active && styles.thumbActive, dragging && styles.thumbDragging]}
       >
         {/* 지금 편집 중인 페이지는 움직이는 GIF·자르기 표시까지 편집 화면과 똑같이, 나머지는 첫 장면으로 */}
         <View style={styles.thumbPage} pointerEvents="none">
-          <StaticPage page={page} zoom={THUMB_ZOOM} still={!active} cropId={cropId} />
+          <StaticPage page={page} zoom={thumbZoom} still={!active} cropId={cropId} />
         </View>
       </View>
       {canToggleIndex && (
@@ -190,13 +194,12 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
 }
 
 const styles = StyleSheet.create({
-  panel: { width: 156, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'visible', zIndex: 3 },
+  panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'visible', zIndex: 3 },
   list: { flexGrow: 1, alignItems: 'center', gap: 16, paddingVertical: 16 },
   emptyArea: { flexGrow: 1, alignSelf: 'stretch', minHeight: 24 },
   item: { position: 'relative', alignItems: 'center', gap: 6 },
   thumb: {
     width: THUMB_WIDTH,
-    height: PAGE_HEIGHT * THUMB_ZOOM,
     borderRadius: 8,
     overflow: 'visible',
     borderWidth: 1,

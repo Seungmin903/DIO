@@ -1,6 +1,7 @@
+import { cloneElement } from 'react'
 import { useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout } from '../../utils/objects'
-import { LEGACY_TAPE_PATTERNS, TAPE_PALETTES } from '../../constants'
+import { LEGACY_TAPE_PATTERNS, TAPE_DEFAULT, TAPE_PALETTES } from '../../constants'
 import { useSvgId } from '../../utils/svgId'
 import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Line, Path, Pattern, Polygon, Rect } from 'react-native-svg'
 
@@ -10,7 +11,8 @@ export const TAPE_RATIO = 180 / 34
 /** 무늬 + 색 정하기. 예전 문서의 무늬 이름(mint-stripe 등)도 지금 방식으로 바꿔 읽는다. */
 export function tapeLook(pattern, palette) {
   const legacy = LEGACY_TAPE_PATTERNS[pattern]
-  const look = { pattern: legacy?.pattern ?? pattern ?? 'solid', palette: palette ?? legacy?.palette ?? 'lavender' }
+  // 색을 아직 안 골랐으면 기본색(핑크). 미리보기와 실제로 붙는 색이 같도록 TAPE_DEFAULT 를 쓴다.
+  const look = { pattern: legacy?.pattern ?? pattern ?? 'solid', palette: palette ?? legacy?.palette ?? TAPE_DEFAULT.palette }
   // 사용자 지정 색: 'custom:#바탕:#무늬'
   if (look.palette.startsWith('custom:')) {
     const [, bg, fg] = look.palette.split(':')
@@ -402,13 +404,26 @@ function PatternTile({ id, pattern, bg, fg, scale }) {
         </Pattern>
       )
     default:
-      // solid: 무늬 없이 한 가지 색(진한 쪽)
+      // solid: 무늬 없이 한 가지 색. 색 칸의 큰 원(바탕색)과 같은 색이라 고른 색 그대로 보인다
       return (
         <Pattern id={id} patternUnits="userSpaceOnUse" width={s(10)} height={s(10)}>
-          <Rect width={s(10)} height={s(10)} fill={fg} />
+          <Rect width={s(10)} height={s(10)} fill={bg} />
         </Pattern>
       )
   }
+}
+
+/** 양 끝을 같은 방향으로 비스듬히 자른 테이프 (평행사변형) */
+function diagonalPolygon(w, h) {
+  const slant = Math.min(h * 0.6, w * 0.25)
+  return `${slant.toFixed(2)},0 ${w},0 ${(w - slant).toFixed(2)},${h} 0,${h}`
+}
+
+/** 무늬 타일을 테이프 세로 가운데에 맞춘다 (타일 한 장이 테이프 높이 한가운데 오게 위쪽을 민다) */
+function centeredTile(tile, height) {
+  const tileHeight = Number(tile.props.height)
+  if (!tileHeight) return tile
+  return cloneElement(tile, { y: (height - tileHeight) / 2 })
 }
 
 /**
@@ -447,14 +462,19 @@ export default function TapeView({ pattern, palette, segmentRatio, src, mediaFil
   const patternId = `${svgId}-pattern-${variant}`
   const clipId = `${svgId}-clip-${variant}`
   // 테이프 모양(직선은 네모, 절취선은 톱니 다각형)
-  const points = edge === 'torn' ? tornPolygon(width, height) : `0,0 ${width},0 ${width},${height} 0,${height}`
+  const points =
+    edge === 'torn'
+      ? tornPolygon(width, height)
+      : edge === 'diagonal'
+        ? diagonalPolygon(width, height)
+        : `0,0 ${width},0 ${width},${height} 0,${height}`
   if (!hasImage) {
     // 무늬 테이프는 잘라내기(ClipPath) 대신 테이프 모양 자체를 무늬로 채운다.
     // Android 의 SVG 는 G 에 건 ClipPath 를 무시하는 경우가 있어 절취선↔직선이 안 바뀌었다.
     return (
       <Svg key={variant} width={width} height={height}>
         <Defs>
-          <PatternTile id={patternId} pattern={look.pattern} bg={look.bg} fg={look.fg} scale={scale} />
+          {centeredTile(PatternTile({ id: patternId, pattern: look.pattern, bg: look.bg, fg: look.fg, scale }), height)}
         </Defs>
         <Polygon points={points} fill={`url(#${patternId})`} />
       </Svg>

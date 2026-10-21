@@ -1,20 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { Modal, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../shared/theme'
-import { PAGE_WIDTH, PAGE_HEIGHT } from '../constants'
+import { pageSize as readPageSize } from '../utils/pageGeometry.js'
 import StaticPage from './canvas/StaticPage'
 import RegionOverlay from './RegionOverlay'
 import { ExportButton } from './ExportMenu'
 import { REGION_PRESETS, fitRegionPreset, regionOutput, regionPublishWarning, validRegion } from '../utils/regionGeometry.js'
-const pageSize = {
-  width: PAGE_WIDTH,
-  height: PAGE_HEIGHT
-}
 export default function RegionExportSelector({
   page,
   onCancel,
-  onConfirm
+  onConfirm,
+  visible = true
 }) {
+  const pageSize = readPageSize(page)
+  const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize
   const [region, setRegion] = useState({
       x: 0,
       y: 0,
@@ -23,9 +22,9 @@ export default function RegionExportSelector({
     [preset, setPreset] = useState('free')
   const [scale, setScale] = useState(1),
     [confirmed, setConfirmed] = useState(false),
-    [review, setReview] = useState(false),
     [drawing, setDrawing] = useState(false)
   const [panning, setPanning] = useState(true)
+  const [confirmError, setConfirmError] = useState('')
   const [fields, setFields] = useState(null),
     [fieldError, setFieldError] = useState(''),
     [destination, setDestination] = useState('feed')
@@ -50,7 +49,7 @@ export default function RegionExportSelector({
   const change = next => {
     setRegion(next)
     setConfirmed(false)
-    setReview(false)
+    setConfirmError('')
   }
   const switchPreset = id => {
     const next = fitRegionPreset(region, id, pageSize)
@@ -75,7 +74,7 @@ export default function RegionExportSelector({
     setFields(null)
     setFieldError('')
   }
-  return <Modal visible animationType="fade" onRequestClose={onCancel}><View style={styles.root}>
+  return <Modal visible={visible} animationType="fade" onRequestClose={onCancel}><View style={styles.root}>
     <View style={styles.row}><Text style={styles.title}>내보낼 구역 선택</Text><ExportButton title="영역 선택 취소" onPress={onCancel} /></View>
     <ScrollView contentContainerStyle={styles.body}>
       <Text style={styles.hint}>화면 이동에서는 손가락으로 스크롤하세요. 새 영역 그리기로 범위를 정하고, 영역 조정에서 안쪽·모서리를 끌어 고치세요.</Text>
@@ -119,8 +118,7 @@ export default function RegionExportSelector({
       {output.blocked && <Text accessibilityRole="alert" style={styles.hint}>확대가 6배를 넘어요. 더 넓게 선택하거나 자유 비율로 전환해 주세요.</Text>}
       {output.needsConfirmation && <View><Text style={styles.hint}>3배를 넘게 확대하면 사진·글씨가 흐릴 수 있어요.</Text><ExportButton title="화질 안내 확인 후 계속" selected={confirmed} onPress={() => setConfirmed(true)} /></View>}
       <ExportButton title="선택 영역 확정" disabled={!valid || output.blocked || output.needsConfirmation && !confirmed} onPress={() => {
-          setReview(true)
-          onConfirm?.({
+          try { onConfirm?.({
             pageId: page.id,
             region: {
               ...region
@@ -128,9 +126,9 @@ export default function RegionExportSelector({
             preset,
             output,
             upscaleConfirmed: confirmed
-          })
+          }); setConfirmError('') } catch (error) { setConfirmError(error.message || '선택 영역을 확인한 뒤 다시 시도해 주세요.') }
         }} />
-      {review && <Text accessibilityLiveRegion="polite" style={styles.hint}>영역을 확정했어요. 영역 PNG 생성·저장 연결을 준비 중이며 아직 파일은 생성되지 않았어요. 선택을 조정하거나 취소할 수 있어요.</Text>}
+      {!!confirmError && <Text accessibilityRole="alert" style={styles.hint}>{confirmError}</Text>}
     </ScrollView>
   </View></Modal>
 }

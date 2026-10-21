@@ -7,14 +7,14 @@ import Icon from '../controls/Icon'
 const NAV_TOOLS = [
   { id: 'hand', icon: 'hand', label: '손바닥 (화면 이동)' },
   { id: 'select', icon: 'cursor', label: '선택' },
-  { id: 'lasso', icon: 'lasso', label: '올가미 선택', pending: true },
+  { id: 'lasso', icon: 'lasso', label: '올가미 선택' },
 ]
 
 // 그리기·쓰기 도구
 const INPUT_TOOLS = [
   { id: 'pen', icon: 'pen', label: '펜' },
   { id: 'highlighter', icon: 'highlighter', label: '형광펜' },
-  { id: 'eraser', icon: 'eraser', label: '지우개', pending: true },
+  { id: 'eraser', icon: 'eraser', label: '지우개' },
   { id: 'text', icon: 'text', label: '텍스트' },
 ]
 

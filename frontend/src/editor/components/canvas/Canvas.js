@@ -1,17 +1,21 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../../shared/theme'
-import { PAGE_HEIGHT, PAGE_WIDTH, PHOTO_SHAPES } from '../../constants'
+import { PHOTO_SHAPES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
 import { expandGroups } from '../../state/editorReducer'
 import { centerOf, clamp, rotateVector, unionBounds } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
 import { coverLayout, photoInnerBox } from '../../utils/objects'
+import { pageSize } from '../../utils/pageGeometry.js'
+import PageBackground from '../PageBackground'
 import ContextBar from './ContextBar'
 import CropHandles from './CropHandles'
 import StaticPage from './StaticPage'
 import SelectionOverlay from './SelectionOverlay'
 import PenInput from '../PenInput'
+import EraserInput from '../EraserInput'
+import LassoInput from '../LassoInput'
 import TextEditor from '../TextEditor'
 import TextBoxInput from '../TextBoxInput'
 
@@ -41,26 +45,44 @@ export default function Canvas({
   dispatch,
   moreOpen,
   onToggleMore,
+  contextBarInside,
   onCrop,
-  onReplacePhoto,
   onToast,
   activeTool = 'select',
   penSettings,
   highlighterSettings,
+  eraserSize,
+  lassoShape = 'rectangle',
+  lassoMode = 'replace',
+  onLassoCommit,
+  onLassoModeChange,
   onCreateText,
   onEditText,
   textEditing,
   textBoundary,
+  onTextPaletteChange,
+  textPaletteBounds,
   onSaveText,
   onCancelText,
   readOnly = false,
 }) {
-  const canSelect = !readOnly && activeTool === 'select' && !textEditing
+  const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
+  const [lassoDrawing, setLassoDrawing] = useState(false)
+  const [lassoCapture, setLassoCapture] = useState(false)
+  useEffect(() => { setLassoDrawing(false); setLassoCapture(false) }, [page.id, activeTool])
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
+  const [erasingIds, setErasingIds] = useState([])
+  const drawingPage = activeTool === 'eraser' && erasingIds.length
+    ? { ...page, objects: page.objects.filter((object) => !erasingIds.includes(object.id)) } : page
   const visible = page.objects.filter((o) => !o.hidden)
+  const touchSelectable = visible.filter((o) => o.type !== 'stroke')
   const selected = visible.filter((o) => selectedIds.includes(o.id))
+  const lassoEditing = activeTool === 'lasso' && selected.length > 0 && !lassoDrawing && !lassoCapture
+  const canSelect = !readOnly && !textEditing && (activeTool === 'select' || lassoEditing)
+  const replacingLasso = activeTool === 'lasso' && lassoDrawing && lassoMode === 'replace'
+  const showSelection = !replacingLasso && (canSelect || (!readOnly && !textEditing && activeTool === 'lasso'))
   const cropping = Boolean(cropId)
   // 사각·라운드 사진은 PPT 처럼 테두리 손잡이로 자유롭게 자른다.
   const freeCropTarget = visible.find(
@@ -77,6 +99,7 @@ export default function Canvas({
         x: event.locationX / zoom,
         y: event.locationY / zoom,
         base: isMultiSelectKey() ? selectedIds : [],
+        previousSelection: selectedIds,
         key: null, // 영역 선택이 시작되면 빈 결과라도 한 번은 반영한다
         maxMove: 0,
       }
@@ -94,7 +117,7 @@ export default function Canvas({
       setMarquee(rect)
       // 점선 네모 안에 완전히 들어간 요소만 고른다. 그룹은 구성 요소가 모두 들어갔을 때만 통째로 고른다.
       // (예전에는 회전 전 외곽 상자가 조금만 걸쳐도, 또 그룹 하나만 걸쳐도 그룹 전체가 선택됐다)
-      const inside = new Set(visible.filter((o) => cornersOf(o).every((p) => contains(rect, p))).map((o) => o.id))
+      const inside = new Set(touchSelectable.filter((o) => cornersOf(o).every((p) => contains(rect, p))).map((o) => o.id))
       const hits = [...inside].filter((id) => {
         const groupId = visible.find((o) => o.id === id).groupId
         return !groupId || visible.every((o) => o.groupId !== groupId || inside.has(o.id))
@@ -111,35 +134,49 @@ export default function Canvas({
       const start = marqueeRef.current
       marqueeRef.current = null
       setMarquee(null)
+      if (cancelled && start?.key != null) {
+        dispatch({ type: 'selectExact', ids: start.previousSelection })
+      }
       // 두 손가락 제스처로 넘어간 경우에는 선택을 건드리지 않는다.
       // 조금 흔들린 탭도 탭으로 본다. (usePan 의 moved 는 3px 만 넘어도 true 라 기기에서 선택 해제가 자주 안 됐다)
       if (!start || cancelled || cropping || start.maxMove >= TAP_MOVE_PX) return
       // 요소를 살짝 빗나가게 눌렀으면 가장 가까운 요소를 고른다 (지도 게임·노트 앱의 '가까운 것 고르기').
       // 이미 선택된 요소 근처를 누른 것은 '선택 풀기'로 본다. (요소가 하나뿐일 때 빈 곳을 눌러도 안 풀리던 문제)
-      const near = start && nearestObject(visible, start, TAP_SLOP_PX / zoom)
+      const near = start && nearestObject(touchSelectable, start, TAP_SLOP_PX / zoom)
       dispatch({ type: 'select', ids: near && !selectedIds.includes(near.id) ? [near.id] : [] })
     },
   })
 
   return (
     <View
-      accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', text: '텍스트' }[activeTool]} 캔버스`}
+      accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', eraser: '지우개', text: '텍스트', lasso: '올가미' }[activeTool]} 캔버스`}
       style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
-      {...(canSelect ? backgroundHandlers : {})}
+      {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
     >
+      <PageBackground page={page} zoom={zoom} />
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <StaticPage page={page} zoom={zoom} cropId={cropId} background="transparent" />
+        <StaticPage page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} />
       </View>
+      {!readOnly && activeTool === 'lasso' && !textEditing && (
+        <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
+          selectedIds={selectedIds} shape={lassoShape} mode={lassoMode} zoom={zoom}
+          pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} captureAll={!lassoEditing}
+          onDrawingChange={setLassoDrawing}
+          onClearSelection={() => { setLassoCapture(false); onLassoCommit([]) }}
+          onCommit={(ids) => { setLassoCapture(false); onLassoCommit(ids) }} />
+      )}
       {/* 터치 층: 요소마다 같은 자리에 투명한 상자를 두고 선택·이동을 받는다. */}
-      <View style={styles.hitLayer} pointerEvents={canSelect ? 'box-none' : 'none'}>
-        {visible.map((object) => (
+      <View style={[styles.hitLayer, activeTool === 'lasso' && { zIndex: 1 }]} pointerEvents={canSelect ? 'box-none' : 'none'}>
+        {visible.filter((object) => object.type !== 'stroke' || selectedIds.includes(object.id)).map((object) => (
           <CanvasObject
             key={object.id}
             object={object}
+            pageWidth={PAGE_WIDTH}
+            pageHeight={PAGE_HEIGHT}
             objects={page.objects}
             zoom={zoom}
             selectedIds={selectedIds}
@@ -156,20 +193,24 @@ export default function Canvas({
       {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
           {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
-          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
+          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
         </View>
       )}
+      {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
+        <EraserInput key={`${page.id}-${zoom}-${eraserSize}`} objects={page.objects} diameter={eraserSize} zoom={zoom} dispatch={dispatch} onPreview={setErasingIds} />
+      </View>}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} onCreate={onCreateText} />}
       {!readOnly && activeTool === 'text' && !textEditing && visible.filter((o) => o.type === 'text' && !o.locked).map((object) =>
         <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => onEditText(object)} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}
-      {!readOnly && textEditing && <TextEditor boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
+      {!readOnly && textEditing && <TextEditor onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
 
-      {freeCropTarget && <CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} />}
+      {freeCropTarget && <View pointerEvents="box-none" style={styles.selectionControls}><CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} /></View>}
 
       {guides?.x != null && <View style={[styles.guideV, { left: guides.x * zoom }]} pointerEvents="none" />}
       {guides?.y != null && <View style={[styles.guideH, { top: guides.y * zoom }]} pointerEvents="none" />}
 
-      {canSelect && selected.length === 1 && !cropping && !marquee && (
+      {showSelection && selected.length === 1 && !cropping && !marquee && (
+        <View pointerEvents={canSelect ? "box-none" : "none"} style={styles.selectionControls}>
         <SelectionOverlay
           object={selected[0]}
           zoom={zoom}
@@ -177,9 +218,10 @@ export default function Canvas({
           onRotation={setRotationLabel}
           onInteracting={setInteracting}
         />
+        </View>
       )}
-      {selected.length > 1 && !marquee && <GroupFrame objects={selected} zoom={zoom} />}
-      {selected.length === 1 && selected[0].groupId && !cropping && !marquee && (
+      {!replacingLasso && selected.length > 1 && !marquee && <GroupFrame objects={selected} zoom={zoom} />}
+      {!replacingLasso && selected.length === 1 && selected[0].groupId && !cropping && !marquee && (
         <GroupFrame objects={visible.filter((o) => o.groupId === selected[0].groupId)} zoom={zoom} inside />
       )}
       {/* 영역 선택 중: 지금 네모 안에 들어와 선택될 요소마다 테두리와 옅은 칠을 보여 준다. */}
@@ -215,18 +257,23 @@ export default function Canvas({
       )}
 
       {canSelect && selected.length > 0 && !cropping && !interacting && !marquee && (
+        <View pointerEvents="box-none" style={styles.selectionMenu}>
         <ContextBar
           key={selectedIds.join(',')}
           objects={selected}
           allObjects={page.objects}
+          lassoActions={activeTool === 'lasso' ? { mode: lassoMode, onModeChange: (mode) => { setLassoCapture(true); onLassoModeChange(mode) } } : null}
+          pageWidth={PAGE_WIDTH}
+          pageHeight={PAGE_HEIGHT}
           zoom={zoom}
           dispatch={dispatch}
           moreOpen={moreOpen}
           onToggleMore={onToggleMore}
           onCrop={onCrop}
-          onReplacePhoto={onReplacePhoto}
           onToast={onToast}
+          insideHandlers={contextBarInside}
         />
+        </View>
       )}
     </View>
   )
@@ -343,7 +390,7 @@ function containsPoint(object, point) {
   return Math.abs(local.x) <= object.w / 2 && Math.abs(local.y) <= object.h / 2
 }
 
-function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onEditText }) {
+function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onEditText }) {
   const gesture = useRef(null)
 
   const panHandlers = usePan({
@@ -365,11 +412,11 @@ function CanvasObject({ object, objects, zoom, selectedIds, cropping, isCropTarg
       const insideGroup = members.length > 1 && selectedIds.length === 1 && members.includes(selectedIds[0])
       // 누른 자리에 겹쳐 있는 요소들(위에서부터). 이미 선택된 요소가 그 아래에 있으면 그 요소를 잡는다.
       const point = pagePoint(object, event, zoom)
-      const stack = [...objects].reverse().filter((o) => !o.hidden && containsPoint(o, point))
+      const stack = [...objects].reverse().filter((o) => !o.hidden && (o.type !== 'stroke' || selectedIds.includes(o.id)) && containsPoint(o, point))
       const underneath = stack.find((o) => o.id !== object.id && selectedIds.includes(o.id))
       const wasSelected = selectedIds.includes(object.id) || Boolean(underneath)
       const ids = wasSelected ? selectedIds : insideGroup ? [object.id] : expandGroups(objects, [object.id])
-      const moving = objects.filter((o) => ids.includes(o.id) && !o.locked)
+      const moving = objects.filter((o) => ids.includes(o.id) && !o.locked && !o.hidden)
       gesture.current = {
         mode: 'move',
         wasSelected,
@@ -505,6 +552,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   hitLayer: { ...StyleSheet.absoluteFillObject },
+  selectionControls: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
+  selectionMenu: { ...StyleSheet.absoluteFillObject, zIndex: 4 },
   penClip: {
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',

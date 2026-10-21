@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
 import { colors } from '../../../shared/theme'
 import Icon from './Icon'
 
@@ -14,13 +13,16 @@ export const justDragged = () => Date.now() - draggedAt < 150
 /**
  * 가로로 넘기는 칩 줄.
  * - 터치는 손가락으로 밀고, 웹 마우스는 끌어서 넘긴다. (웹 ScrollView 는 마우스 끌기로 움직이지 않는다)
- * - 넘칠 때 양 끝을 흐리게 하고 ‹ › 버튼을 둬서 더 있다는 걸 알려 준다.
+ * - 넘칠 때 ‹ › 버튼을 칩 줄 바깥 양옆에 둔다. 칩은 두 버튼 사이에서만 보이고 눌린다.
+ *   (예전에는 버튼이 칩 위에 떠 있어서 버튼 바깥으로 칩이 비치고 눌렸다)
  */
-export default function ChipScroller({ style, contentContainerStyle, background = '#FFFFFF', children }) {
+export default function ChipScroller({ style, contentContainerStyle, children }) {
   const ref = useRef(null)
   const [metrics, setMetrics] = useState({ x: 0, view: 0, content: 0 })
   const canLeft = metrics.x > 2
   const canRight = metrics.x + metrics.view < metrics.content - 2
+  // 넘치면 양쪽 버튼을 함께 두고, 더 갈 수 없는 쪽은 흐리게 막는다. (버튼이 나타났다 사라지며 칩 줄이 흔들리지 않게)
+  const overflow = canLeft || canRight
 
   useEffect(() => {
     if (Platform.OS !== 'web') return undefined
@@ -53,9 +55,11 @@ export default function ChipScroller({ style, contentContainerStyle, background 
   const scrollBy = (dx) => ref.current?.scrollTo({ x: Math.max(0, metrics.x + dx), animated: true })
 
   return (
-    <View style={style}>
+    <View style={[style, styles.row]}>
+      {overflow && <EdgeButton side="left" disabled={!canLeft} onPress={() => scrollBy(-STEP_PX)} />}
       <ScrollView
         ref={ref}
+        style={styles.scroll}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={contentContainerStyle}
@@ -72,30 +76,22 @@ export default function ChipScroller({ style, contentContainerStyle, background 
       >
         {children}
       </ScrollView>
-      {canLeft && <EdgeButton side="left" background={background} onPress={() => scrollBy(-STEP_PX)} />}
-      {canRight && <EdgeButton side="right" background={background} onPress={() => scrollBy(STEP_PX)} />}
+      {overflow && <EdgeButton side="right" disabled={!canRight} onPress={() => scrollBy(STEP_PX)} />}
     </View>
   )
 }
 
-function EdgeButton({ side, background, onPress }) {
+function EdgeButton({ side, disabled, onPress }) {
   const left = side === 'left'
   return (
-    <View style={[styles.edge, left ? styles.edgeLeft : styles.edgeRight]} pointerEvents="box-none">
-      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
-        <Defs>
-          <LinearGradient id={`chip-fade-${side}`} x1={left ? '1' : '0'} y1="0" x2={left ? '0' : '1'} y2="0">
-            <Stop offset="0" stopColor={background} stopOpacity="0" />
-            <Stop offset="0.55" stopColor={background} stopOpacity="1" />
-          </LinearGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill={`url(#chip-fade-${side})`} />
-      </Svg>
+    <View style={[styles.edge, left ? styles.edgeLeft : styles.edgeRight]}>
       <Pressable
         onPress={onPress}
+        disabled={disabled}
         hitSlop={6}
-        style={({ pressed }) => [styles.arrow, pressed && styles.arrowPressed]}
+        style={({ pressed }) => [styles.arrow, pressed && styles.arrowPressed, disabled && styles.arrowDisabled]}
         accessibilityLabel={left ? '앞 분류 보기' : '다음 분류 보기'}
+        accessibilityState={{ disabled }}
       >
         <Icon name={left ? 'chevronLeft' : 'chevronRight'} size={16} />
       </Pressable>
@@ -104,9 +100,12 @@ function EdgeButton({ side, background, onPress }) {
 }
 
 const styles = StyleSheet.create({
-  edge: { position: 'absolute', top: 0, bottom: 0, width: 64, justifyContent: 'center' },
-  edgeLeft: { left: 0, alignItems: 'flex-start', paddingLeft: 6 },
-  edgeRight: { right: 0, alignItems: 'flex-end', paddingRight: 6 },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  // 칩은 이 안에서만 보이고 눌린다
+  scroll: { flex: 1, overflow: 'hidden' },
+  edge: { justifyContent: 'center' },
+  edgeLeft: { paddingRight: 4 },
+  edgeRight: { paddingLeft: 4 },
   arrow: {
     width: 30,
     height: 30,
@@ -118,4 +117,5 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   arrowPressed: { backgroundColor: colors.primarySoft },
+  arrowDisabled: { opacity: 0.35 },
 })
