@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Linking, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { colors, shadow } from '../../shared/theme'
 import { PANEL_RADIUS } from './ToolPanel'
 import { normalizeTextLink } from '../utils/textFormats'
@@ -9,7 +9,8 @@ export default function TextLinkDialog({ initialValue = '', onSave, onCancel, ba
   const [value, setValue] = useState(initialValue), [error, setError] = useState('')
   const normalized = normalizeTextLink(value)
   return <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
-    <View style={styles.backdrop}>
+    <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" automaticallyAdjustKeyboardInsets={false}>
       <View style={styles.card} accessibilityLabel="텍스트 링크 편집">
         <View style={styles.titleRow}>
           <Text style={styles.title}>링크</Text>
@@ -29,13 +30,16 @@ export default function TextLinkDialog({ initialValue = '', onSave, onCancel, ba
           <Pressable accessibilityRole="button" onPress={() => normalized === null ? setError('http 또는 https 주소를 입력해 주세요.') : onSave(normalized)} style={[styles.button, styles.primary]}><Text style={styles.text}>적용</Text></Pressable>
         </View>
       </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   </Modal>
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(11,25,87,0.2)', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  card: { width: 380, maxWidth: '100%', gap: 16, padding: 20, borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
+  backdrop: { flex: 1, backgroundColor: 'rgba(11,25,87,0.2)' },
+  scroll: { flex: 1 },
+  content: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  card: { width: '100%', maxWidth: 380, flexShrink: 0, gap: 16, padding: 20, borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
   title: { color: colors.text, fontSize: 16, fontWeight: '700' },
   titleRow: { flexDirection: 'row', alignItems: 'center' }, badgeToggle: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 6 }, badgeLabel: { color: colors.textMuted, fontSize: 13, fontWeight: '700' }, input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, color: colors.text },
   row: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 6 }, button: { padding: 10, borderRadius: 10 }, primary: { backgroundColor: colors.primarySoft }, text: { color: colors.text }, error: { color: colors.danger },
