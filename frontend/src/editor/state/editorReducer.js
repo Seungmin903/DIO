@@ -358,7 +358,8 @@ export function editorReducer(state, action) {
       )
 
     case 'addPage': {
-      const page = action.backgroundAssetId ? createTemplatePage(action.backgroundAssetId) : createBlankPage()
+      const created = action.backgroundAssetId ? createTemplatePage(action.backgroundAssetId, state.doc.paperAppearance) : createBlankPage()
+      const page = state.doc.paperAppearance ? { ...created, paperAppearance: state.doc.paperAppearance } : created
       const index = state.doc.pages.findIndex((p) => p.id === getCurrentPage(state).id)
       const pages = [...state.doc.pages]
       pages.splice(index + 1, 0, page)

@@ -1,8 +1,9 @@
-import { Component, memo, useEffect, useRef, useState } from 'react'
+import { Component, memo, useMemo, useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SvgAst, SvgXml } from 'react-native-svg'
 import { templateReference } from '../templates/catalog.js'
 import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
+import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
 
 class SvgBoundary extends Component {
@@ -54,10 +55,12 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
     return () => { active = false }
   }, [page.backgroundAssetId, page.templateVersion, preparedXml])
 
-  if (page.backgroundAssetId == null) return null
-  return <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+  const appearance = normalizePaperAppearance(page.paperAppearance)
+  const styledAst = useMemo(() => svg?.ast ? colorTemplateAst(svg.ast, appearance) : null, [svg?.ast, appearance.backgroundColor, appearance.layoutColor])
+  if (page.backgroundAssetId == null) return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]} />
+  return <View style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]} pointerEvents="box-none">
     {svg && !error && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <SvgBoundary onError={fail}><RenderedSvg xml={svg.xml} ast={svg.ast} width={width * zoom} height={height * zoom} onReady={() => callbacks.current.onReady?.()} /></SvgBoundary>
+      <SvgBoundary onError={fail}><RenderedSvg xml={svg.xml} ast={styledAst} width={width * zoom} height={height * zoom} onReady={() => callbacks.current.onReady?.()} /></SvgBoundary>
     </View>}
     {/* 속지는 기기에 있는 파일이라 곧바로 준비된다. 준비 전에는 빈 종이로 두고 로딩 문구를 띄우지 않는다. */}
     {error && <View style={styles.error} accessibilityRole="alert">

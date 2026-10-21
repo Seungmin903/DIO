@@ -1,3 +1,4 @@
+import { normalizePaperAppearance } from '../templates/appearance.js'
 import { createId } from '../utils/common.js'
 import { TEMPLATE_VERSION, getTemplate } from '../templates/catalog.js'
 import { configuredPageIds, normalizeTemplateConfig } from '../templates/creation.js'
@@ -35,14 +36,15 @@ export function createFirstPage(diary) {
   return createTemplatePage(firstPageAssetId(diary?.firstPage, diary?.firstPageDate))
 }
 
-export function createTemplatePage(backgroundAssetId) {
+export function createTemplatePage(backgroundAssetId, paperAppearance) {
   const template = getTemplate(backgroundAssetId)
-  return { id: createId(), backgroundAssetId: template.id, templateVersion: template.templateVersion, canvasWidth: 1024, canvasHeight: 768, objects: [] }
+  return { id: createId(), ...(paperAppearance ? { paperAppearance: normalizePaperAppearance(paperAppearance) } : {}), backgroundAssetId: template.id, templateVersion: template.templateVersion, canvasWidth: 1024, canvasHeight: 768, objects: [] }
 }
 
 export function createDefaultDoc(diary) {
   const templateConfig = normalizeTemplateConfig(diary?.templateConfig)
   const ids = configuredPageIds(templateConfig)
+  const paperAppearance = normalizePaperAppearance(diary?.paperAppearance)
   return {
     id: diary?.id ?? createId(),
     title: diary?.title ?? '2026 다이어리',
@@ -52,8 +54,9 @@ export function createDefaultDoc(diary) {
     orientation: 'landscape',
     weeklyStyle: templateConfig.weeklyStyle,
     templateConfig,
+    paperAppearance,
     templateVersion: TEMPLATE_VERSION,
-    pages: ids.length ? ids.map(createTemplatePage) : [createBlankPage()],
+    pages: ids.length ? ids.map(id => createTemplatePage(id, paperAppearance)) : [{ ...createBlankPage(), paperAppearance }],
   }
 }
 

@@ -14,6 +14,7 @@ import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
 import { fitTabletFrame } from './src/shared/layout';
+import { normalizePaperAppearance } from './src/editor/templates/appearance.js';
 import { normalizeTemplateConfig } from './src/editor/templates/creation.js';
 import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
 import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
@@ -143,6 +144,7 @@ function DiaryApp() {
       : {
         id: pendingCreateId.current ?? `diary-${Date.now()}`,
         templateConfig: config,
+        paperAppearance: normalizePaperAppearance(form.paperAppearance),
         title,
         color: form.color,
         pattern: form.pattern,

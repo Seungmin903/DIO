@@ -1,0 +1,80 @@
+import { useMemo, useState } from 'react'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+import PageBackground from '../../editor/components/PageBackground'
+import ColorPicker from '../../editor/components/controls/ColorPicker'
+import { configuredPageIds } from '../../editor/templates/creation.js'
+import { TEMPLATE_VERSION } from '../../editor/templates/catalog.js'
+import { colors } from '../../shared/theme'
+
+const BACKGROUNDS = [
+  ['화이트', '#FFFFFF'], ['크림', '#FFF8E7'], ['세이지', '#EDF3EA'],
+  ['로즈', '#FBEFF0'], ['아이스 블루', '#EDF3FA'], ['웜 그레이', '#F1EFEB'],
+]
+const LAYOUTS = [
+  ['차콜', '#292929'], ['네이비', '#33476B'], ['브라운', '#72533E'],
+  ['포레스트', '#486653'], ['플럼', '#75546F'], ['슬레이트', '#596875'],
+]
+
+export function DiaryPaperPreview({ config, appearance }) {
+  const assetId = useMemo(() => configuredPageIds(config)[0], [config])
+  const [width, setWidth] = useState(200)
+  const page = useMemo(() => ({ id: 'creation-first-page', backgroundAssetId: assetId, templateVersion: TEMPLATE_VERSION,
+    canvasWidth: assetId ? 1024 : 1188, canvasHeight: assetId ? 768 : 840, paperAppearance: appearance }), [assetId, appearance])
+  return <View style={s.previewWrap}>
+    <Text style={s.previewTitle}>첫 페이지 미리보기</Text>
+    <View onLayout={event => setWidth(event.nativeEvent.layout.width)} style={[s.preview, { aspectRatio: page.canvasWidth / page.canvasHeight }]}>
+      <PageBackground page={page} zoom={width / page.canvasWidth} compact />
+    </View>
+    <Text style={s.hint}>선택한 색상을 모든 내지에 적용해요.</Text>
+  </View>
+}
+
+export default function DiaryPaperColors({ value, onChange, onInteractionChange }) {
+  const [palette, setPalette] = useState(null)
+  return <View>
+    <Text style={s.intro}>내지의 분위기를 골라 주세요</Text>
+    <Text style={s.hint}>추천 색상을 고르거나 +를 눌러 원하는 색을 지정하세요. 왼쪽 첫 페이지에 바로 반영돼요.</Text>
+    {[['backgroundColor', '배경색', BACKGROUNDS], ['layoutColor', '레이아웃 색상', LAYOUTS]].map(([key, label, presets]) => {
+      const selected = value[key]
+      const custom = !presets.some(([, color]) => color === selected)
+      return <View key={key} style={s.section}>
+        <View style={s.heading}><Text style={s.title}>{label}</Text><Text style={s.hex}>{selected}</Text></View>
+        <View style={s.swatches}>
+          {presets.map(([name, color]) => <Pressable key={color} accessibilityRole="radio" accessibilityLabel={label + ' ' + name} accessibilityState={{ selected: selected === color }} onPress={() => onChange({ ...value, [key]: color })} style={[s.swatchButton, selected === color && s.selected]}>
+            <View style={[s.swatch, { backgroundColor: color }]} />
+            <Text style={s.name}>{name}</Text>
+          </Pressable>)}
+          <Pressable accessibilityRole="button" accessibilityLabel={label + ' 직접 지정 팔레트'} accessibilityState={{ expanded: palette === key }} onPress={() => setPalette(palette === key ? null : key)} style={[s.swatchButton, (palette === key || custom) && s.selected]}>
+            <View style={[s.swatch, s.add, custom && { backgroundColor: selected }]}><Text style={[s.plus, custom && { color: parseInt(selected.slice(1, 3), 16) * 0.299 + parseInt(selected.slice(3, 5), 16) * 0.587 + parseInt(selected.slice(5, 7), 16) * 0.114 < 150 ? '#FFFFFF' : colors.text }]}>+</Text></View><Text style={s.name}>직접 지정</Text>
+          </Pressable>
+        </View>
+        {palette === key && <View style={s.picker}>
+          <View style={s.heading}><Text style={s.title}>{label} 팔레트</Text><Pressable accessibilityRole="button" accessibilityLabel={label + ' 팔레트 닫기'} onPress={() => setPalette(null)} style={s.close}><Text style={s.closeText}>닫기 ×</Text></Pressable></View>
+          <ColorPicker onInteractionChange={onInteractionChange} value={selected} label={label} onChange={color => onChange({ ...value, [key]: color })} />
+        </View>}
+      </View>
+    })}
+    <Text style={s.hint}>레이아웃의 글자와 선은 기존 농도 차이를 유지해요. 배경과 너무 비슷한 색을 고르면 잘 보이지 않을 수 있어요.</Text>
+  </View>
+}
+const s = StyleSheet.create({
+  intro: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: 8 },
+  hint: { color: colors.textMuted, fontSize: 12, lineHeight: 19, marginTop: 10, marginBottom: 10 },
+  section: { marginTop: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
+  title: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  hex: { color: colors.textMuted, fontSize: 12 },
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  swatchButton: { alignItems: 'center', justifyContent: 'center', padding: 6, minWidth: 62, minHeight: 66, borderRadius: 12, borderWidth: 2, borderColor: 'transparent', gap: 5 },
+  selected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(11,25,87,0.15)' },
+  name: { fontSize: 10, color: colors.text },
+  add: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  plus: { color: colors.text, fontSize: 24, lineHeight: 28 },
+  picker: { marginTop: 12, padding: 12, backgroundColor: colors.surfaceSoft, borderRadius: 12 },
+  close: { minHeight: 44, minWidth: 60, alignItems: 'center', justifyContent: 'center' },
+  closeText: { color: colors.textMuted, fontSize: 12 },
+  previewWrap: { width: '100%' },
+  previewTitle: { color: colors.text, fontSize: 13, fontWeight: '800', marginBottom: 14 },
+  preview: { width: '100%', overflow: 'hidden', borderRadius: 5, borderWidth: 1, borderColor: colors.border, backgroundColor: '#FFFFFF' },
+})
