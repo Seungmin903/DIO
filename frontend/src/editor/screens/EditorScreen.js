@@ -439,6 +439,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   // 패널은 오른쪽 바깥 여백(16)을 덮으므로 작업창 폭은 패널 폭 + 간격 - 16 만큼 바뀐다.
   const toggleLayers = (open) => {
     if (open === showLayers) return
+    if (compact && open) setPagesOpen(false)
     setLayersOpen(open)
     // 폰은 레이어를 작업창 위에 띄우므로 작업창 크기가 그대로다.
     if (compact) return
@@ -490,7 +491,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   }
   const togglePages = () => {
     setFocusMode(false)
-    setPagesOpen(!showPages)
+    const open = !showPages
+    if (compact && open) setLayersOpen(false)
+    setPagesOpen(open)
     // 작업창 왼쪽 끝이 움직이므로 새 크기를 같은 화면에서 바로 써서 한 번에 맞춘다.
     // (측정값을 기다리면 페이지가 왼쪽 끝을 따라 한 번 밀렸다가 다시 가운데로 와서 두 번 움직였다)
     // 폰은 페이지 목록을 작업창 위에 띄우므로 작업창 크기가 그대로다.
@@ -869,7 +872,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         </View>
 
         {showLayers && !readOnly && (
-          <PhonePanelSlot compact={compact} side={styles.phonePanelRight}>
+          <PhonePanelSlot compact={compact} side={phoneLandscape ? styles.phonePanelLeft : styles.phonePanelRight}>
             <LayerPanel
               objects={page.objects}
               selectedIds={state.selectedIds}
@@ -886,7 +889,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           <Text style={styles.focusExitText}>집중 모드 종료</Text>
         </Pressable>
       )}
-      {!readOnly && compact && !phoneFocus && (
+      {!readOnly && compact && (
         <PhoneToolbar
           {...markInside}
           vertical={landscape}
@@ -989,7 +992,7 @@ const styles = StyleSheet.create({
   zoomFit: { minWidth: 56, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
   orientationHint: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 44, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   orientationHintText: { fontSize: 11.5, fontWeight: '700', color: colors.text },
-  focusExit: { position: 'absolute', top: 10, right: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
+  focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   focusExitText: { fontSize: 12.5, fontWeight: '800', color: colors.text },
   body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: BODY_PADDING },
   bodyCompact: { padding: 8 },
