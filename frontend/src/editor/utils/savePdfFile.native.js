@@ -1,12 +1,17 @@
 import { Directory, File, FileMode, Paths } from 'expo-file-system'
 import { randomUUID } from 'expo-crypto'
-import { isAvailableAsync, shareAsync } from 'expo-sharing'
 import { createPdfShareService, pdfSaveFailure } from './pdfFileSave.js'
 
 const root = () => new Directory(Paths.cache, 'dio-pdf-share-v1')
 const lease = dir => new File(dir, 'lease.json')
 const expiry = (entry, expiresAt) => lease(entry.directory).write(JSON.stringify({ expiresAt }))
-const service = createPdfShareService({
+let servicePromise
+
+// Expo Go 또는 이전 개발 빌드에 expo-sharing 네이티브 모듈이 없을 수 있다.
+// 앱을 여는 단계에서는 해당 모듈을 평가하지 않고, PDF 공유를 실제로 요청했을 때만 불러온다.
+const getService = async () => {
+  if (servicePromise) return servicePromise
+  servicePromise = import('expo-sharing').then(({ isAvailableAsync, shareAsync }) => createPdfShareService({
   isAvailable: isAvailableAsync,
   share: shareAsync,
   list: async () => {
@@ -39,7 +44,9 @@ const service = createPdfShareService({
       return { directory, uri: file.uri, cacheKey: directory.uri }
     } catch (error) { try { directory.delete() } catch {}; throw error }
   },
-})
+  }))
+  return servicePromise
+}
 
-export const savePdfFile = result => service.save(result)
-export const cleanupPdfShareCache = () => service.cleanup()
+export const savePdfFile = async result => (await getService()).save(result)
+export const cleanupPdfShareCache = async () => (await getService()).cleanup()

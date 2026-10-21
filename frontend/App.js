@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { COLORS } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
@@ -14,7 +13,6 @@ import { styles as s } from './src/diary/styles';
 import { fitTabletFrame } from './src/shared/layout';
 
 export default function App() {
-  useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   return (
     <SafeAreaProvider style={s.safe}>
       <DiaryApp />
