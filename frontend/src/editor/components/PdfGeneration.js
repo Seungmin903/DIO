@@ -120,7 +120,7 @@ export function PdfGeneratedPreview({
   return <Modal visible animationType="fade" onRequestClose={close}><View style={styles.root}>
     <View style={styles.row}><Text accessibilityRole="header" style={styles.title}>PDF 생성 완료</Text><Action title="PDF 결과 닫기" onPress={close} disabled={saveState.status === 'saving'} /></View>
     <Text selectable testID="pdf-result-name" style={styles.message}>{result.fileName}</Text>
-    <Text style={styles.message}>{result.pageCount}페이지 · A4 가로 · {(result.byteLength / 1024).toFixed(1)}KB · PDF</Text>
+    <Text style={styles.message}>{result.pageCount}페이지 · {result.paperOrientation === 'portrait' ? 'A4 세로' : result.paperOrientation === 'mixed' ? 'A4 가로·세로 혼합' : 'A4 가로'} · {(result.byteLength / 1024).toFixed(1)}KB · PDF</Text>
     {result.captureDiagnostics?.some(item => item.upscaled || item.rasterWarnings?.length) && <Text style={styles.message}>확대 출력으로 사진이나 글씨가 흐릴 수 있어요. 미리보기를 확인한 뒤 저장해 주세요.</Text>}
     <Action title={Platform.OS === 'web' ? 'PDF 파일 저장' : 'PDF 파일 저장·공유'} disabled={['saving', 'saved'].includes(saveState.status)} onPress={save} />
     {!!saveState.message && <Text accessibilityRole={saveState.status === 'error' ? 'alert' : undefined} accessibilityLiveRegion="polite" style={styles.message}>{saveState.message}</Text>}

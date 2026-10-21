@@ -3,6 +3,7 @@ import { pngFileName } from './pngFileSave.js'
 
 export const PDF_LIMITS = Object.freeze({ pages: 20, pixels: 80000000, bytes: 50 * 1024 * 1024, timeoutMs: 180000 })
 export const A4_LANDSCAPE = [297 * 72 / 25.4, 210 * 72 / 25.4]
+export const A4_PORTRAIT = [210 * 72 / 25.4, 297 * 72 / 25.4]
 export const pdfError = (code, message, extra = {}) => Object.assign(new PageExportError(code, message), extra)
 const invalid = () => pdfError('EXPORT_PDF_INPUT_INVALID', '페이지 선택과 크기를 확인해 주세요.')
 

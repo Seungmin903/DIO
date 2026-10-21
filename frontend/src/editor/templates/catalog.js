@@ -1,8 +1,13 @@
-import { catalog, annualBook, reusableMenu } from './data.js'
+import { catalog, annualBook, portraitAnnualBook, reusableMenu } from './data.js'
 
 export const TEMPLATE_VERSION = catalog.templateVersion
 export const ANNUAL_PAGE_IDS = annualBook.pages
-export const REUSABLE_TEMPLATES = reusableMenu.map(item => ({ ...item, assetId: item.assets[0].assetId }))
+export const normalizeOrientation = value => value === 'portrait' ? 'portrait' : 'landscape'
+export const templateIdForOrientation = (id, orientation) => id.replace(/-(landscape|portrait)$/, '-' + normalizeOrientation(orientation))
+export const annualPageIds = orientation => normalizeOrientation(orientation) === 'portrait' ? portraitAnnualBook.pages : annualBook.pages
+export const templateCanvasSize = orientation => catalog.coordinateSystems[normalizeOrientation(orientation)]
+export const reusableTemplates = (orientation = 'landscape') => reusableMenu.map(item => ({ ...item, assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId }))
+export const REUSABLE_TEMPLATES = reusableTemplates()
 const assets = new Map(catalog.assets.map(asset => [asset.id, asset]))
 
 export class TemplateError extends Error {
@@ -13,7 +18,7 @@ export class TemplateError extends Error {
 
 export function getTemplate(id, version = TEMPLATE_VERSION) {
   const asset = assets.get(id)
-  if (!asset || asset.orientation !== 'landscape' || version !== asset.templateVersion) {
+  if (!asset || !['landscape', 'portrait'].includes(asset.orientation) || version !== asset.templateVersion) {
     throw new TemplateError('이 페이지의 속지 또는 버전을 찾을 수 없어요.')
   }
   return asset
