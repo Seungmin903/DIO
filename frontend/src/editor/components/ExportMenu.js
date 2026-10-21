@@ -110,7 +110,7 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
 }
 const styles = StyleSheet.create({
   scrim: { flex: 1, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  card: { backgroundColor: colors.surface, width: '100%', maxWidth: 600, maxHeight: '92%', borderRadius: 20 },
+  card: { backgroundColor: colors.surface, width: '100%', maxWidth: 600, maxHeight: '92%' }, // 둥글기는 공용 카드(24)를 따른다
   row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   title: { flex: 1, color: colors.text, fontSize: 21, fontWeight: '700' },
   text: { color: colors.text, fontSize: 14 },

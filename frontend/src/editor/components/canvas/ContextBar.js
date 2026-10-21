@@ -1,19 +1,24 @@
 import { useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
 import { clamp, unionBounds } from '../../utils/common'
 import Icon from '../controls/Icon'
 import LassoSelectionMenu from '../LassoSelectionMenu'
 import { EDITOR_COLORS } from '../../utils/penSettings'
-import { resizeTextObject } from '../../utils/textFormats'
-import TextActionBar from '../TextActionBar'
+import { normalizeTextLink } from '../../utils/textFormats'
 
 
 const BAR_HEIGHT = 52
+const CHIP_HEIGHT = 40 // 링크 카드 높이
+const ROTATE_CLEARANCE = 56 // 요소 위쪽 회전 손잡이(34 + 반지름 9)와 겹치지 않게 비우는 높이
 const EDGE = 8 // 페이지 가장자리와 바 사이 여백
 const GAP = 18
 const MENU_WIDTH = 148
+/** 요소에 걸린 링크 (스티커·테이프·사진은 href, 텍스트는 글자 서식의 첫 링크) */
+const linkOf = (object) => object?.href ?? object?.styleRanges?.find((range) => range.href)?.href ?? null
+// 요소 전체에 하이퍼링크를 거는 요소 (텍스트는 글자 서식 링크로 따로 건다)
+export const LINKABLE_TYPES = ['sticker', 'tape', 'photo']
 /** 선택한 요소 근처에 뜨는 빠른 편집 바. 자르기·그룹·순서·잠금·복제·삭제만 두고, 꾸미기는 '옵션'(MorePanel) 에서 */
 export default function ContextBar({
   objects,
@@ -32,10 +37,17 @@ export default function ContextBar({
   onTextSettings,
   onCopy,
   onCut,
-  onCopyText,
   onTextLink,
+  onCopyText,
+  onCopyLink, // 링크 카드의 복사
+  onObjectLink, // 스티커·테이프·사진에 링크 걸기
+  textSettingsOpen = false, // 텍스트 서식 창이 열려 있음 ('서식' 버튼 표시)
 }) {
   const [barWidth, setBarWidth] = useState(0)
+  const [chipWidth, setChipWidth] = useState(0)
+  // 링크가 걸린 요소를 고르면 바에 '링크 열기' 를 바로 보여 준다
+  const href = objects.length === 1 ? linkOf(objects[0]) : null
+  const openLink = () => Linking.openURL(normalizeTextLink(href)).catch(() => onToast?.('링크를 열지 못했어요.'))
   const [orderOpen, setOrderOpen] = useState(false)
   const [orderRight, setOrderRight] = useState(0) // 순서 버튼 오른쪽 끝 (바 기준). 순서 메뉴를 여기에 맞춘다.
   const ids = objects.map((o) => o.id)
@@ -55,28 +67,47 @@ export default function ContextBar({
   // 순서 메뉴는 바 위·아래 중 페이지 안에 더 넉넉한 쪽으로 편다.
   const menuBelow = pageH - (top + BAR_HEIGHT) >= top
   const left = clamp(bounds.cx * zoom - barWidth / 2, 8, Math.max(8, pageW - barWidth - 8))
+  // 링크 카드: Google 슬라이드처럼 편집 바와 따로, 요소의 반대쪽(바가 아래면 위)에 띄운다. 주소를 누르면 열린다.
+  const chipTop = clamp(below ? bounds.top * zoom - ROTATE_CLEARANCE - CHIP_HEIGHT : bounds.bottom * zoom + GAP, EDGE, Math.max(EDGE, pageH - CHIP_HEIGHT - EDGE))
+  const chipLeft = clamp(bounds.cx * zoom - chipWidth / 2, 8, Math.max(8, pageW - chipWidth - 8))
+  const linkCard = href && single && !single.locked && (
+    <View style={[styles.chip, { top: chipTop, left: chipLeft, opacity: chipWidth ? 1 : 0 }]} onLayout={(event) => setChipWidth(event.nativeEvent.layout.width)} onStartShouldSetResponder={() => true} {...insideHandlers}>
+      <Pressable onPress={openLink} accessibilityRole="link" accessibilityLabel="링크 열기" style={({ pressed }) => [styles.chipLink, pressed && styles.pressed]}>
+        <Icon name="external" size={15} color={colors.primary} />
+        <Text style={styles.chipText} numberOfLines={1}>{href.replace(/^https?:\/\//, '')}</Text>
+      </Pressable>
+      <View style={styles.chipDivider} />
+      <IconButton icon="copy" label="링크 복사" onPress={() => onCopyLink?.(href)} />
+      <IconButton icon="edit" label="링크 편집" onPress={() => (single.type === 'text' ? onTextLink?.(single) : onObjectLink?.(single))} />
+    </View>
+  )
 
   // 테두리·그림자를 켜면 세부 옵션(두께·색·위치)이 바로 보이도록 옵션 패널도 연다.
   const allLocked = objects.every((o) => o.locked)
   const grouped = objects.length > 1 && objects.every((o) => o.groupId && o.groupId === objects[0].groupId)
   // 바에는 모드·묶기만 둔다 (자르기, 그룹). 테두리·그림자·프레임·사진 바꾸기 등은 옵션 패널 안에.
-  const hasLeading =
-    objects.length > 1 || (single && !single.locked && (single.type === 'photo' || (single.type === 'tape' && single.src && single.imageWidth)))
+  const linkable = single && !single.locked && LINKABLE_TYPES.includes(single.type)
+  const hasLeading = objects.length > 1 || linkable
 
+  // 텍스트: 다른 바와 같은 모양으로 수정·서식(색·크기·굵게·기울임·밑줄·취소선·자간·줄간격 등)·링크 + 복사·삭제
   if (single?.type === 'text' && !single.locked) return <>
-    <View style={{ position: 'absolute', top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
-      <TextActionBar currentColor={single.color} linked={single.styleRanges?.some((r) => r.href)}
-        onColor={(color) => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color, colorRanges: [] } })}
-        onIncrease={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: resizeTextObject(single, 2) })}
-        onDecrease={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: resizeTextObject(single, -2) })}
-        onCopy={() => onCopyText?.(single.text)} onDelete={() => dispatch({ type: 'removeObjects', ids })} onLink={() => onTextLink?.(single)} />
+    <View accessibilityLabel="텍스트 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
+        <BarButton icon="edit" label="수정" onPress={() => onEditText?.(single)} />
+        <BarButton icon="text" label="서식" active={textSettingsOpen} onPress={() => onTextSettings?.()} />
+        <BarButton icon="link" label="링크" active={single.styleRanges?.some((r) => r.href)} onPress={() => onTextLink?.(single)} />
+        <View style={styles.divider} />
+        <IconButton icon="copy" label="복사" onPress={() => onCopyText?.(single.text)} />
+        <IconButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
+      </ScrollView>
     </View>
+    {linkCard}
     {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} anchor={{ top, height: BAR_HEIGHT }} />}
   </>
 
   if (single?.type === 'stroke' && !single.locked) return <>
-    <View accessibilityLabel="필기 빠른 편집" style={[styles.bar, styles.writingBar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.writingContent}>
+    <View accessibilityLabel="필기 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
         {EDITOR_COLORS.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 요소 색상 ${color}`} accessibilityState={{ selected: single.color?.toUpperCase() === color.toUpperCase() }}
           onPress={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color } })}
           style={[styles.swatch, { backgroundColor: color }, single.color?.toUpperCase() === color.toUpperCase() && styles.swatchChosen]} />)}
@@ -110,6 +141,7 @@ export default function ContextBar({
           {single.src && single.imageWidth && <BarButton icon="crop" label="자르기" onPress={() => onCrop(single.id)} />}
         </>
       )}
+      {linkable && <BarButton icon="link" label="링크" active={Boolean(single.href)} onPress={() => onObjectLink?.(single)} />}
 
       {objects.length > 1 && (
         <BarButton
@@ -163,6 +195,7 @@ export default function ContextBar({
         />
       )}
     </View>
+    {linkCard}
     {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode}
       onModeChange={lassoActions.onModeChange} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight}
       anchor={{ top, height: BAR_HEIGHT }} />}
@@ -238,6 +271,20 @@ function IconButton({ icon, label, danger, active, onPress }) {
 
 
 const styles = StyleSheet.create({
+  chip: {
+    position: 'absolute',
+    height: CHIP_HEIGHT,
+    maxWidth: 300,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    ...shadow.float,
+  },
+  chipLink: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 8, borderRadius: 9 },
+  chipText: { flexShrink: 1, fontSize: 12.5, fontWeight: '600', color: colors.primary, textDecorationLine: 'underline' },
+  chipDivider: { width: 1, height: 18, marginHorizontal: 2, backgroundColor: colors.border },
   bar: {
     position: 'absolute',
     height: BAR_HEIGHT,
@@ -266,8 +313,8 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.primarySoft },
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },
   chipActive: { backgroundColor: colors.surfaceSoft },
-  writingBar: { borderRadius: 26, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 5 },
-  writingContent: { alignItems: 'center', gap: 6 },
+  // 텍스트·필기 바도 스티커·마테·사진 바(bar)와 같은 모양: 둥글기 16, 테두리 없음, 버튼 간격 2
+  barContent: { alignItems: 'center', gap: 2 },
   kind: { alignSelf: 'stretch', justifyContent: 'center', paddingHorizontal: 12, marginVertical: 5, borderRadius: 20, backgroundColor: colors.text },
   kindText: { color: colors.surface, fontSize: 12, fontWeight: '700' },
   swatch: { width: 27, height: 27, borderRadius: 14, borderWidth: 1, borderColor: colors.border },

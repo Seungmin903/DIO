@@ -8,6 +8,21 @@ importers:
 
   .:
     dependencies:
+      '@expo-google-fonts/black-han-sans':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/nanum-gothic':
+        specifier: ^0.4.0
+        version: 0.4.0
+      '@expo-google-fonts/nanum-myeongjo':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/nanum-pen-script':
+        specifier: ^0.4.0
+        version: 0.4.0
+      '@expo-google-fonts/poor-story':
+        specifier: ^0.4.1
+        version: 0.4.1
       '@expo/metro-runtime':
         specifier: ~57.0.17
         version: 57.0.17(@expo/log-box@57.0.4)(expo@57.0.30)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)
@@ -32,6 +47,9 @@ importers:
       expo-file-system:
         specifier: ~57.0.7
         version: 57.0.7(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1))
+      expo-font:
+        specifier: ~57.0.4
+        version: 57.0.4(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)
       expo-image-manipulator:
         specifier: ~57.0.21
         version: 57.0.21(expo@57.0.30)
@@ -447,6 +465,21 @@ packages:
   '@babel/types@7.29.8':
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
+
+  '@expo-google-fonts/black-han-sans@0.4.1':
+    resolution: {integrity: sha512-82C84aqDOb/tzWj7fkfchAg/RreBlWuvl8nLO6FPFgG6bCxeUDWocxoRqzW3p2VLLPPM6mwHJOQGuQMTpyHqNA==}
+
+  '@expo-google-fonts/nanum-gothic@0.4.0':
+    resolution: {integrity: sha512-BQls1DxrlrE0dn+lt9lbKOOBd44E3SmQNza6yHFcKVDl4L5/ecVwRcc6betnM00NkObHB99yqnc2aXbkQd31ww==}
+
+  '@expo-google-fonts/nanum-myeongjo@0.4.1':
+    resolution: {integrity: sha512-TS8PRPoimFYTmJQqsFsU3E361T4L3p/+aJa5/d1GpBOi8XAvPJDlYrtySg+sipjXYcFU84B7gIYWO4ir3NhgAw==}
+
+  '@expo-google-fonts/nanum-pen-script@0.4.0':
+    resolution: {integrity: sha512-Gvu4TjorCmhLVN/+xX2OAaX2bNAHbUN5L7qBFOlrk8AYbt/OsUufLCaQn1B8J8NcQg2e166YiTcahFS9Rjg06A==}
+
+  '@expo-google-fonts/poor-story@0.4.1':
+    resolution: {integrity: sha512-7dKY/dkN24XYURKN9qiuN0bJyOzJRXd6lBxsCIr/tClAV1gokJ4Gyp3nsiYgF30cBpM7kPMJo4dXcpNu09Ct0g==}
 
   '@expo/cli@57.0.31':
     resolution: {integrity: sha512-NPTMPGQ9i3KzULyP1bzp8hMggoe3QlkfICw388zJuj0UhqfGHEZURkJFuHBksb/ndTjfrCrCBOO0HQz/9QzXIw==}
@@ -3064,6 +3097,16 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
+
+  '@expo-google-fonts/black-han-sans@0.4.1': {}
+
+  '@expo-google-fonts/nanum-gothic@0.4.0': {}
+
+  '@expo-google-fonts/nanum-myeongjo@0.4.1': {}
+
+  '@expo-google-fonts/nanum-pen-script@0.4.0': {}
+
+  '@expo-google-fonts/poor-story@0.4.1': {}
 
   '@expo/cli@57.0.31(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.17)(expo-constants@57.0.22(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1))(supports-color@8.1.1))(expo-font@57.0.4(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1))(react@19.2.3))(expo@57.0.30)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1)':
     dependencies:

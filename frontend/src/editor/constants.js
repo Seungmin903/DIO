@@ -32,14 +32,15 @@ export const TAPE_DEFAULT_OPACITY = 0.8
 export const TAPE_DEFAULT = { size: 'standard', pattern: 'solid', palette: 'pink', name: '무지' }
 
 // 테이프 색: 바탕(bg) + 무늬(fg) 한 쌍. 무늬는 그대로 두고 색만 바꿀 수 있다.
+// hidden: 이미 붙인 테이프는 그대로 그리되 색 고르기에서는 뺀 색 (코랄·크라프트)
 export const TAPE_PALETTES = [
   { id: 'pink', name: '핑크', bg: '#FAD3DC', fg: '#F59AB2' },
-  { id: 'coral', name: '코랄', bg: '#FDE0D8', fg: '#F2917C' },
+  { id: 'coral', name: '코랄', bg: '#FDE0D8', fg: '#F2917C', hidden: true },
   { id: 'butter', name: '버터', bg: '#FFF1C2', fg: '#EFC04F' },
   { id: 'mint', name: '민트', bg: '#E3F4EC', fg: '#8FD3B6' },
   { id: 'sky', name: '스카이', bg: '#DCEBFA', fg: '#6E92C6' },
   { id: 'lavender', name: '라벤더', bg: '#ECE5FB', fg: '#B39DED' },
-  { id: 'kraft', name: '크라프트', bg: '#D9B98F', fg: '#A27B4E' },
+  { id: 'kraft', name: '크라프트', bg: '#D9B98F', fg: '#A27B4E', hidden: true },
   { id: 'charcoal', name: '차콜', bg: '#3E4350', fg: '#F3F1EA' },
   { id: 'ivory', name: '아이보리', bg: '#F3F1EA', fg: '#3E4350' }, // 차콜을 뒤집은 흰 바탕 + 검은 무늬
 ]

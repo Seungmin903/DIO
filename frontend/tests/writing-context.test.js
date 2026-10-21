@@ -56,21 +56,18 @@ function fixture(object) {
   } }
 }
 
-test('텍스트 빠른 색상은 전체 글자에 적용되고 Undo로 부분 색상까지 복원된다', () => {
+test('텍스트 바는 빠른 색·글씨 크기 대신 서식 창을 열어 색·크기·자간 등을 바꾼다', () => {
   const original = text.createText({ id: 'text', x: 100, y: 100, text: '한글 편집', colorRanges: [{ start: 0, end: 2, color: '#DD887A' }] })
   const f = fixture(original)
-  f.press(`선택 요소 색상 ${text.TEXT_COLORS[0]}`)
-  assert.equal(f.state().doc.pages[0].objects[0].color, text.TEXT_COLORS[0])
-  assert.deepEqual(f.state().doc.pages[0].objects[0].colorRanges, [])
-  const restored = editorReducer(f.state(), { type: 'undo' })
-  assert.deepEqual(restored.doc.pages[0].objects[0], original)
+  assert.ok(!f.nodes.some((n) => String(n.props?.accessibilityLabel ?? '').startsWith('선택 요소 색상')))
+  assert.ok(!f.nodes.some((n) => n.props?.accessibilityLabel === '글씨 확대'))
+  f.press('서식')
+  assert.deepEqual(f.events, [['settings']])
 })
 
-test('텍스트 바는 전체 크기·복사·삭제·링크만 연결한다', () => {
+test('텍스트 바는 수정·서식·링크·복사·삭제를 연결한다', () => {
   const original = text.createText({ id: 'text', x: 100, y: 100, text: '한글', fontSize: 28 })
   const f = fixture(original)
-  f.press('글씨 확대')
-  assert.equal(f.state().doc.pages[0].objects[0].fontSize, 30)
   f.press('복사'); f.press('링크')
   assert.deepEqual(f.events, [['copyText', '한글'], ['link', 'text']])
   f.press('삭제')

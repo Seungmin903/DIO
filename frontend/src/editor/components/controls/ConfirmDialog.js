@@ -1,5 +1,6 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
+import { PANEL_RADIUS } from '../ToolPanel'
 
 /**
  * 한 번 묻는 확인 창 (취소 / 확정). 웹에서도 같은 모양이 나오도록 RN Alert 대신 직접 그린다.
@@ -34,7 +35,7 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = '�
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: 'rgba(11,25,87,0.28)' },
-  card: { width: 320, maxWidth: '100%', padding: 20, borderRadius: 20, backgroundColor: colors.surface, ...shadow.float },
+  card: { width: 320, maxWidth: '100%', padding: 20, borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
   title: { fontSize: 16, fontWeight: '800', color: colors.text },
   message: { marginTop: 8, fontSize: 13, lineHeight: 19, color: colors.textMuted },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 18 },

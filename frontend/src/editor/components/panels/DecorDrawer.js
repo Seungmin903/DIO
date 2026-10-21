@@ -5,7 +5,7 @@ import { colors, radius, shadow } from '../../../shared/theme'
 import { TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
 import { RECENT_LIMIT, stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
 import { STICKER_GROUPS, stickerSource } from '../../stickerAssets'
-import Svg, { Path } from 'react-native-svg'
+import Svg, { Path, Polygon } from 'react-native-svg'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { mediaFailureMessage } from '../../utils/mediaRecovery.js'
@@ -78,7 +78,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
   const ask = (title, message, action) => setConfirm({ title, message, action })
 
   // 테이프 넣기: 보관함에는 넣을 때 정하는 것(규격·색상·무늬)만 둔다. 규격·색을 골라 두고 무늬를 고르면 붙인다.
-  // 붙인 뒤에 바꾸는 옵션(불투명도·끝선 등)은 테이프 옆에 뜨는 옵션 패널에서 고친다. (onTapeInserted)
+  // 붙이면 보관함이 닫힌다(onTapeInserted). 붙인 뒤에 바꾸는 옵션(불투명도·끝선 등)은 선택 바의 옵션 창에서 고친다.
   function updateTape(patch) {
     const next = { ...tapeDraft, ...patch }
     if (!patch.pattern) {
@@ -141,8 +141,9 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
   }
   const sorted = orderable.map((item, index) => ({ item, r: rank(item, index) })).sort((a, b) => a.r - b.r).map((x) => x.item)
   const hidden = new Set(custom.items.hiddenCategories)
+  // 즐겨찾기는 비어 있어도 맨 앞에 두고 처음 열면 여기부터 보여 준다
   const chips = [
-    ...(favorites.length ? [{ id: 'favorites', name: '즐겨찾기' }] : []),
+    { id: 'favorites', name: '즐겨찾기' },
     ...(recents.length ? [{ id: 'recent', name: '최근' }] : []),
     ...sorted.filter((c) => !hidden.has(c.id)),
   ]
@@ -333,8 +334,9 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
                   }}
                 />
               )}
-              {!editingList && !keyword && active === 'favorites' && (
-                <Section title="즐겨찾기">
+              {/* 저장된 목록을 읽기 전에는 비워 둔다 (빈 즐겨찾기 안내가 잠깐 비치지 않게) */}
+              {!editingList && !keyword && active === 'favorites' && custom.loaded && (
+                <Section title="즐겨찾기" hint="스티커를 길게 누르면 즐겨찾기에 담기고, 한 번 더 길게 누르면 빠져요.">
                   <View style={styles.grid}>
                     {favorites.map((item) => (
                       <Tile key={stickerKey(item)} {...tileProps(item)}>
@@ -535,13 +537,19 @@ function RecentPhotoThumb({ photo }) {
   return <Image source={uri ? { uri } : null} style={styles.photoImage} resizeMode="cover" />
 }
 
-function Section({ title, badge, children }) {
+// hint 가 있으면 제목 옆 ? 를 눌렀을 때만 설명을 보여 준다 (레이어 패널처럼)
+function Section({ title, badge, hint, children }) {
+  const help = useHelp()
   return (
     <View style={styles.section}>
       <View style={styles.sectionHead}>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <View style={styles.titleGroup}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          {hint && <HelpButton {...help} label={`${title} 도움말`} />}
+        </View>
         {badge && <Text style={styles.badge}>{badge}</Text>}
       </View>
+      {hint && help.open && <Text style={styles.customHint}>{hint}</Text>}
       {children}
     </View>
   )
@@ -678,7 +686,7 @@ function Tile({ onPress, onLongPress, onRemove, favorite, label, children }) {
       </Pressable>
       {favorite && (
         <View style={styles.favorite} pointerEvents="none">
-          <Text style={styles.favoriteStar}>★</Text>
+          <FavoriteStar />
         </View>
       )}
       {onRemove && (
@@ -832,7 +840,7 @@ const BODY_X = 16
 // 목록 편집 한 줄 높이 + 줄 간격 (끌어서 옮길 때 몇 칸 움직였는지 계산)
 const EDIT_ROW = 46
 const EDIT_STEP = EDIT_ROW + 6
-const DRAWER_RADIUS = 20
+const DRAWER_RADIUS = 24 // 다른 옵션 창과 같은 둥글기 (ToolPanel 의 PANEL_RADIUS)
 // 크기 조절 손잡이: 왼쪽 아래 모서리 곡선(반경 24)과 중심이 같은 호를 안쪽으로 7px 들여 그린다.
 const GRIP = 44
 const GRIP_ARC = (() => {
@@ -844,6 +852,19 @@ const GRIP_ARC = (() => {
   const [x2, y2] = point(78)
   return `M${x1} ${y1} A${r} ${r} 0 0 0 ${x2} ${y2}`
 })()
+// 즐겨찾기 별: 글자 ★ 대신 그림으로 그려 꼭짓점을 살짝 둥글게 (같은 색 테두리 + 둥근 이음)
+const STAR_POINTS = Array.from({ length: 10 }, (_, i) => {
+  const angle = (Math.PI / 5) * i - Math.PI / 2
+  const radius = i % 2 ? 2.6 : 6
+  return `${(7 + radius * Math.cos(angle)).toFixed(2)},${(7.3 + radius * Math.sin(angle)).toFixed(2)}`
+}).join(' ')
+function FavoriteStar() {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 14 14">
+      <Polygon points={STAR_POINTS} fill="#F2B705" stroke="#F2B705" strokeWidth={1.6} strokeLinejoin="round" />
+    </Svg>
+  )
+}
 const TILE_GAP = 3
 
 const styles = StyleSheet.create({
@@ -956,8 +977,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(110,146,198,0.06)',
   },
   addTileBusy: { opacity: 0.5 },
-  favorite: { position: 'absolute', top: 2, left: 4 },
-  favoriteStar: { fontSize: 13, color: '#F2B705', textShadowColor: 'rgba(255,255,255,0.9)', textShadowRadius: 2 },
+  // 칸 테두리(TILE_GAP 안쪽)에서 위·왼쪽 모두 4 만큼 들어온 자리
+  favorite: { position: 'absolute', top: TILE_GAP + 4, left: TILE_GAP + 4 },
   editRow: {
     flexDirection: 'row',
     alignItems: 'center',

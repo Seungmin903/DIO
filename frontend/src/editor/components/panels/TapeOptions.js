@@ -1,11 +1,9 @@
-import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { TAPE_EDGES, TAPE_PALETTES, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
 import { resizeAroundCenter, tapeSizeOf } from '../../utils/objects'
 import TapeView, { tapeLook } from '../canvas/TapeView'
-import ColorPicker from '../controls/ColorPicker'
-import Icon from '../controls/Icon'
+import MyColorPresets from '../controls/MyColorPresets'
 
 /**
  * 마스킹테이프 옵션. 붙인 테이프(옵션 패널)에는 끝선만, 보관함(draft)에는 넣을 때 정하는 규격·색상·무늬만 보인다.
@@ -13,6 +11,13 @@ import Icon from '../controls/Icon'
  * 무늬를 고르면 보관함이 그 설정으로 테이프를 붙인다. 이미지 테이프는 잘라서 등록한 규격 그대로라 끝선만 바꾼다.
  */
 const PREVIEW_W = 76
+
+/** 바탕색보다 진한 무늬 색 (내 색상으로 고른 테이프) */
+function deeper(hex) {
+  const n = parseInt(hex.slice(1), 16)
+  const channel = (shift) => Math.round(((n >> shift) & 255) * 0.7)
+  return `#${[16, 8, 0].map((shift) => channel(shift).toString(16).padStart(2, '0')).join('')}`.toUpperCase()
+}
 
 export default function TapeOptions({ tape, dispatch, onUpdate, draft = false }) {
   const update = (patch, record = true) =>
@@ -23,8 +28,6 @@ export default function TapeOptions({ tape, dispatch, onUpdate, draft = false })
   const activePattern = draft ? tape.pattern : look.pattern
   const activePalette = draft ? tape.palette : look.palette
   const isCustom = Boolean(tape.palette?.startsWith('custom:'))
-  const [customOpen, setCustomOpen] = useState(false)
-  const [customTarget, setCustomTarget] = useState('bg')
   const currentSize = tapeSizeOf(tape).id
   // 무늬 미리보기 높이: 고른 규격의 실제 폭:길이 비율대로 (슬림은 가늘게, 와이드는 두껍게)
   const sizeInfo = tapeSizeOf(tape)
@@ -82,7 +85,7 @@ export default function TapeOptions({ tape, dispatch, onUpdate, draft = false })
       {draft && !isImage && (
         <Section title="색상">
           <View style={styles.swatches}>
-            {TAPE_PALETTES.map((color) => {
+            {TAPE_PALETTES.filter((color) => !color.hidden).map((color) => {
               const active = activePalette === color.id
               return (
                 <Pressable
@@ -96,53 +99,18 @@ export default function TapeOptions({ tape, dispatch, onUpdate, draft = false })
                 </Pressable>
               )
             })}
-            {/* 마지막 칸: 사용자 지정. 누르면 지금 색에서 시작해 바탕·무늬 색을 따로 고른다 (이 테이프에만, 따로 저장하지 않음) */}
-            <Pressable
-              onPress={() => {
-                if (!isCustom) update({ palette: `custom:${look.bg}:${look.fg}` })
-                setCustomOpen(isCustom ? !customOpen : true)
-              }}
-              accessibilityLabel="테이프 색 사용자 지정"
-              accessibilityState={{ selected: isCustom, expanded: customOpen }}
-              style={[styles.swatch, isCustom ? { backgroundColor: look.bg } : styles.swatchCustom, isCustom && styles.swatchActive]}
-            >
-              {isCustom ? (
-                <View style={[styles.swatchInner, { backgroundColor: look.fg }]} />
-              ) : (
-                // 저장되는 '추가'가 아니라 이 테이프 색만 직접 고르는 칸이라 + 대신 ···
-                <Icon name="more" size={18} color={colors.textMuted} />
-              )}
-            </Pressable>
           </View>
-          {isCustom && customOpen && (
-            <View style={styles.custom}>
-              <View style={styles.segment}>
-                {[
-                  { id: 'bg', label: '바탕색', value: look.bg },
-                  { id: 'fg', label: '무늬색', value: look.fg },
-                ].map((item) => (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => setCustomTarget(item.id)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: customTarget === item.id }}
-                    style={[styles.segmentItem, styles.customItem, customTarget === item.id && styles.segmentActive]}
-                  >
-                    <View style={[styles.customDot, { backgroundColor: item.value }]} />
-                    <Text style={[styles.segmentText, customTarget === item.id && styles.segmentTextActive]}>{item.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <ColorPicker
-                key={customTarget}
-                value={customTarget === 'bg' ? look.bg : look.fg}
-                label={customTarget === 'bg' ? '테이프 바탕색' : '테이프 무늬색'}
-                onChange={(hex) =>
-                  update({ palette: customTarget === 'bg' ? `custom:${hex}:${look.fg}` : `custom:${look.bg}:${hex}` })
-                }
-              />
-            </View>
-          )}
+        </Section>
+      )}
+
+      {/* 내 색상: 펜·글자와 같은 저장 목록. 고른 색이 테이프 바탕, 그보다 진한 색이 무늬가 된다 */}
+      {draft && !isImage && (
+        <Section title="내 색상">
+          <MyColorPresets
+            value={isCustom ? look.bg : null}
+            label="테이프 색"
+            onPick={(hex) => update({ palette: `custom:${hex}:${deeper(hex)}` })}
+          />
         </Section>
       )}
 
@@ -211,18 +179,19 @@ const styles = StyleSheet.create({
   patternActive: { borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.primarySoft },
   patternName: { fontSize: 11, fontWeight: '600', color: colors.text },
   // 46 칸 5개가 패널 안쪽 폭(268)에 꼭 맞는 간격. 마지막 줄이 덜 차도 칸이 위 줄과 줄 맞춰 놓인다.
-  swatches: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 9.5, rowGap: 10 },
-  // 46 이면 패널 안쪽 폭(268)에 한 줄 5칸 (6칸은 넘친다)
+  // 펜·형광펜·글자 색처럼 한 줄에 같은 간격, 같은 크기(30)로
+  swatches: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   swatch: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  swatchInner: { position: 'absolute', right: 6, bottom: 6, width: 14, height: 14, borderRadius: 7 },
+  // 무늬 색: 오른쪽 아래 작은 점
+  swatchInner: { position: 'absolute', right: 3, bottom: 3, width: 8, height: 8, borderRadius: 4 },
   swatchActive: { borderWidth: 3, borderColor: colors.primary },
   swatchCustom: { backgroundColor: colors.surface, borderStyle: 'dashed', borderWidth: 1.5, borderColor: 'rgba(11,25,87,0.35)' },
   custom: { marginTop: 12, gap: 10 },

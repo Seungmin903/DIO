@@ -20,6 +20,8 @@ import TextEditor from '../TextEditor'
 import TextBoxInput from '../TextBoxInput'
 import TextLinkOverlay from '../TextLinkOverlay'
 import PalmRejectionArea from './PalmRejectionArea'
+import GridOverlay, { DEFAULT_GUIDES } from './GridOverlay'
+import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
 const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
@@ -72,6 +74,11 @@ export default function Canvas({
   onCut,
   onCopyText,
   onTextLink,
+  onObjectLink,
+  onCopyLink,
+  linkBadges = true, // 링크가 걸린 요소에 배지 표시
+  textSettingsOpen = false, // 텍스트 서식 창이 열려 있음 (선택 바의 '서식' 버튼 표시)
+  gridGuides = DEFAULT_GUIDES, // 격자·보조선 표시 (편집 화면에만. 끌 때 뜨는 맞춤선 guides 와 다르다)
   textEditing,
   textBoundary,
   onTextPaletteChange,
@@ -89,8 +96,9 @@ export default function Canvas({
   const [interacting, setInteracting] = useState(false)
   const [draggingIds, setDraggingIds] = useState(null) // 끌어서 옮기는 중인 스티커·테이프·사진 (놓기 전까지 반투명)
   const [erasingIds, setErasingIds] = useState([])
-  const drawingPage = activeTool === 'eraser' && erasingIds.length
-    ? { ...page, objects: page.objects.filter((object) => !erasingIds.includes(object.id)) } : page
+  // 그림 층에서 빼는 요소: 지우개로 지우는 중인 획, 편집 중인 텍스트(입력창이 투명이라 원래 글자가 겹쳐 보이지 않게)
+  const hiddenIds = [...(activeTool === 'eraser' ? erasingIds : []), ...(textEditing?.id ? [textEditing.id] : [])]
+  const drawingPage = hiddenIds.length ? { ...page, objects: page.objects.filter((object) => !hiddenIds.includes(object.id)) } : page
   const visible = page.objects.filter((o) => !o.hidden)
   const touchSelectable = visible.filter((o) => o.type !== 'stroke')
   const selected = visible.filter((o) => selectedIds.includes(o.id))
@@ -169,6 +177,7 @@ export default function Canvas({
       {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
     >
       {showBackground && <PageBackground page={page} zoom={zoom} />}
+      {!readOnly && <GridOverlay guides={gridGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />}
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
@@ -177,6 +186,9 @@ export default function Canvas({
         <StaticPage page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} />
       </View>
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
+      {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
+      {!readOnly && <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />}
+      {!readOnly && linkBadges && <LinkBadges objects={page.objects} zoom={zoom} selectedIds={selectedIds} onSelect={(id) => dispatch({ type: 'select', ids: [id] })} />}
       {!readOnly && activeTool === 'lasso' && !textEditing && (
         <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
           selectedIds={selectedIds} shape={lassoShape} mode={lassoMode} zoom={zoom}
@@ -225,7 +237,7 @@ export default function Canvas({
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} onCreate={onCreateText} />}
       {!readOnly && activeTool === 'text' && !textEditing && visible.filter((o) => o.type === 'text' && !o.locked).map((object) =>
-        <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => onEditText(object)} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}
+        <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => (selectedIds.includes(object.id) || isDoubleTap(object.id) ? onEditText(object) : dispatch({ type: 'select', ids: [object.id] }))} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}
       {!readOnly && textEditing && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
 
       {freeCropTarget && <View pointerEvents="box-none" style={styles.selectionControls}><CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} /></View>}
@@ -285,8 +297,11 @@ export default function Canvas({
         <ContextBar
           onCopyText={onCopyText}
           onTextLink={onTextLink}
+          onObjectLink={onObjectLink}
+          onCopyLink={onCopyLink}
           onEditText={onEditText}
           onTextSettings={onTextSettings}
+          textSettingsOpen={textSettingsOpen}
           onCopy={onCopy}
           onCut={onCut}
           key={selectedIds.join(',')}
@@ -421,6 +436,17 @@ function containsPoint(object, point) {
 }
 
 const FADE_WHILE_DRAGGING = ['sticker', 'tape', 'photo']
+// 텍스트: 한 번 누르면 선택, 선택된 채 다시 누르거나 두 번 빠르게 누르면(더블 탭) 내용 수정
+const DOUBLE_TAP_MS = 350
+const lastTextTap = { id: null, time: 0 }
+/** 이 텍스트를 방금 전에도 눌렀으면 true (더블 탭) */
+function isDoubleTap(id) {
+  const now = Date.now()
+  const double = lastTextTap.id === id && now - lastTextTap.time < DOUBLE_TAP_MS
+  lastTextTap.id = double ? null : id
+  lastTextTap.time = now
+  return double
+}
 
 function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onDragging, onEditText }) {
   const gesture = useRef(null)
@@ -528,6 +554,11 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
       // 이미 선택된 그룹을 한 번 더 탭하면 그 요소만 골라 따로 고칠 수 있다. (빈 곳을 누르면 다시 그룹 단위)
       if (g?.mode === 'move' && !moved && g.groupSelected) {
         dispatch({ type: 'selectExact', ids: [object.id] })
+        return
+      }
+      // 텍스트 더블 탭은 겹친 요소가 있어도 바로 수정한다.
+      if (g?.mode === 'move' && !moved && object.type === 'text' && !object.locked && isDoubleTap(object.id)) {
+        onEditText(object)
         return
       }
       // 겹침이 없는 선택 텍스트는 재탭으로 편집한다. 겹친 요소의 순환 선택은 유지한다.

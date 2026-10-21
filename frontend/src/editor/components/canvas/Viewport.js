@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Platform, StyleSheet, View } from 'react-native'
+import { Platform, StyleSheet, Text, View } from 'react-native'
+import { colors, shadow } from '../../../shared/theme'
 import { notePointerDown, notePointerUp, touchKind } from '../../utils/stylus'
 
 const WHEEL_IDLE_MS = 160 // 휠이 이만큼 멈추면 확대·이동을 확정한다
@@ -167,6 +168,12 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       >
         {children}
       </View>
+      {/* 확대·축소하는 동안에만 배율을 보여 주고, 손을 떼면(확정하면) 바로 숨긴다 */}
+      {live && live.scale !== scale && (
+        <View style={styles.zoomBadge} pointerEvents="none">
+          <Text style={styles.zoomText}>{Math.round(live.scale * 100)}%</Text>
+        </View>
+      )}
     </View>
   )
 }
@@ -174,4 +181,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
 const styles = StyleSheet.create({
   // 웹 터치: 브라우저 자체 확대·스크롤 대신 이 영역이 두 손가락 제스처를 받는다.
   viewport: { flex: 1, overflow: 'hidden', ...Platform.select({ web: { touchAction: 'none' }, default: {} }) },
+  // 툴바 바로 아래 가운데
+  zoomBadge: { position: 'absolute', top: 84, alignSelf: 'center', paddingHorizontal: 14, height: 34, justifyContent: 'center', borderRadius: 17, backgroundColor: colors.surface, ...shadow.float },
+  zoomText: { fontSize: 13, fontWeight: '800', color: colors.text },
 })

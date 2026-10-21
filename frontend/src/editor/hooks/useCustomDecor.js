@@ -10,12 +10,16 @@ const EMPTY = { stickers: [], tapes: [], recentStickers: [], folders: [], favori
 // 최근 사용 스티커는 8개 (보관함 기본 폭 4칸 × 2줄)
 export const RECENT_LIMIT = 8
 
+// 한 번 읽은 목록은 메모리에 두고 보관함을 다시 열 때 바로 쓴다 (열 때마다 빈 목록 → 저장소 읽기로 화면이 바뀌지 않게)
+let cached = null
+
 /** 사용자가 직접 추가한 스티커·테이프 목록 + 최근 쓴 스티커 */
 export function useCustomDecor() {
-  const [items, setItems] = useState(EMPTY)
-  const [loaded, setLoaded] = useState(false)
+  const [items, setItems] = useState(() => cached ?? EMPTY)
+  const [loaded, setLoaded] = useState(cached != null)
 
   useEffect(() => {
+    if (cached) return undefined
     let cancelled = false
     loadJSON(STORAGE_KEYS.customDecor, EMPTY)
       .then(async (saved) => {
@@ -34,7 +38,9 @@ export function useCustomDecor() {
   }, [])
 
   useEffect(() => {
-    if (loaded) saveJSON(STORAGE_KEYS.customDecor, items)
+    if (!loaded) return
+    cached = items
+    saveJSON(STORAGE_KEYS.customDecor, items)
   }, [items, loaded])
 
   const add = useCallback((kind, item) => {
@@ -108,6 +114,7 @@ export function useCustomDecor() {
 
   return {
     items,
+    loaded,
     add,
     remove,
     markRecent,
