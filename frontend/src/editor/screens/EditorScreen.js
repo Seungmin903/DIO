@@ -38,6 +38,7 @@ import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
 import TopBar from '../components/chrome/TopBar'
 import Viewport from '../components/canvas/Viewport'
+import { ViewportMotion } from '../components/canvas/StaticPage'
 import { ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
 import { prefetchPageTemplate } from '../services/editorDocs'
@@ -82,6 +83,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [exportOpen, setExportOpen] = useState(false)
   const [regionOpen, setRegionOpen] = useState(false)
   const [stageSize, setStageSize] = useState(null)
+  const [viewMoving, setViewMoving] = useState(false) // 확대·이동 중 (그동안 GIF 를 멈춘다)
   const stageRef = useRef(null)
   const [toolAnchor, setToolAnchor] = useState(null)
   const [drawerWidth, setDrawerWidth] = useState(320)
@@ -510,10 +512,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             resolveZoom={resolveZoom}
             resolvePan={resolvePan}
             onView={commitView}
+            onMovingChange={setViewMoving}
             onTapEmpty={clearSelection}
             dragToPan={activeTool === 'hand'}
             onLayout={(event) => { setStageSize(event.nativeEvent.layout); stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y })) }}
           >
+            {/* 확대·이동 중이거나 화면 밖에 있는 GIF 는 첫 장면으로 멈춘다 (StaticPage) */}
+            <ViewportMotion.Provider value={{ moving: viewMoving, visible: stageSize ? { x: -offset.x / zoom, y: -offset.y / zoom, width: stageSize.width / zoom, height: stageSize.height / zoom } : null }}>
               <Canvas
                 showBackground={loaded}
                 activeTool={activeTool}
@@ -576,6 +581,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 onToast={showToast}
                 contextBarInside={markInside}
               />
+            </ViewportMotion.Provider>
           </Viewport>
 
           {!readOnly && <View style={styles.ribbonWrap} pointerEvents="box-none" {...markInside}>

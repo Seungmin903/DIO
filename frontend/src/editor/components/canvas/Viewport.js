@@ -1,17 +1,9 @@
-import { createContext, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { notePointerDown, notePointerUp, touchKind } from '../../utils/stylus'
 
 const WHEEL_IDLE_MS = 160 // 휠이 이만큼 멈추면 확대·이동을 확정한다
-
-/**
- * 보는 영역 안의 페이지 그림(StaticPage)이 GIF 를 멈출지 정하는 데 쓰는 값.
- * - moving: 확대·축소·이동 중 (transform 으로 늘이는 동안은 GIF 를 첫 장면으로 멈춘다)
- * - visible: 지금 화면에 보이는 페이지 범위 (논리 좌표). 범위 밖 GIF 는 멈춘다.
- * 보는 영역 밖(페이지 목록 썸네일 등)에서는 기본값이라 아무것도 바뀌지 않는다.
- */
-export const ViewportMotion = createContext({ moving: false, visible: null })
 
 /**
  * 편집 화면의 보는 영역. 페이지를 offset 위치에 zoom 배율로 둔다.
@@ -25,8 +17,9 @@ export const ViewportMotion = createContext({ moving: false, visible: null })
  * 손가락으로 확대·축소·이동하는 동안에는 부모 상태를 바꾸지 않고 페이지를 transform 으로만 늘이고 옮긴다.
  * (매 프레임 배율이 바뀌면 속지 SVG·요소·썸네일이 전부 다시 그려져 버벅였다) 손을 떼면 onView 로 한 번만 확정한다.
  * resolveZoom(scale, pagePoint, screenPoint) / resolvePan(view, dx, dy): 부모의 배율·위치 제한을 적용한 보기 { scale, zoom, x, y }
+ * onMovingChange(moving): 확대·이동을 시작할 때 true, 확정할 때 false (그동안 GIF 를 멈추는 데 쓴다)
  */
-export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan, onView, onTapEmpty, dragToPan = false, children, style, onLayout }) {
+export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan = false, children, style, onLayout }) {
   const pinch = useRef(null)
   const [live, setLive] = useState(null) // 손가락으로 움직이는 중인 보기 (확정 전)
   const liveRef = useRef(null)
@@ -34,11 +27,11 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
   const nodeRef = useRef(null)
   const tap = useRef(null) // 페이지 밖 여백을 한 손가락으로 누른 위치
   const panFrom = useRef(null) // 손바닥 도구: 지난번 손가락 위치
-  const [size, setSize] = useState(null) // 보는 영역 크기 (보이는 페이지 범위 계산용)
   const latest = useRef({})
-  latest.current = { zoom, offset, scale, resolveZoom, resolvePan, onView, onTapEmpty, dragToPan }
+  latest.current = { zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan }
   const currentView = () => liveRef.current ?? { scale: latest.current.scale, zoom: latest.current.zoom, x: latest.current.offset.x, y: latest.current.offset.y }
   const preview = (view) => {
+    if (!liveRef.current) latest.current.onMovingChange?.(true)
     liveRef.current = view
     setLive(view)
   }
@@ -47,7 +40,10 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
     const view = liveRef.current
     liveRef.current = null
     setLive(null)
-    if (view) latest.current.onView?.(view)
+    if (view) {
+      latest.current.onView?.(view)
+      latest.current.onMovingChange?.(false)
+    }
   }
 
   // 화면(창) 좌표 → 보는 영역 안 좌표
@@ -158,7 +154,6 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       style={[styles.viewport, style]}
       onLayout={(event) => {
         measure()
-        setSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })
         onLayout?.(event)
       }}
       {...responder}
@@ -176,7 +171,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
           },
         ]}
       >
-        <ViewportMotion.Provider value={motionValue(Boolean(live), size, offset, zoom)}>{children}</ViewportMotion.Provider>
+        {children}
       </View>
       {/* 확대·축소하는 동안에만 배율을 보여 주고, 손을 떼면(확정하면) 바로 숨긴다 */}
       {live && live.scale !== scale && (
@@ -186,17 +181,6 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       )}
     </View>
   )
-}
-
-// 같은 값이면 같은 객체를 돌려줘 안쪽이 다시 그려지지 않게 한다. (손가락이 움직이는 매 프레임 이 컴포넌트가 다시 그려진다)
-let lastMotion = { key: '', value: { moving: false, visible: null } }
-function motionValue(moving, size, offset, zoom) {
-  const visible = size && zoom > 0
-    ? { x: -offset.x / zoom, y: -offset.y / zoom, width: size.width / zoom, height: size.height / zoom }
-    : null
-  const key = `${moving}|${visible ? [visible.x, visible.y, visible.width, visible.height].map(Math.round).join(',') : ''}`
-  if (key !== lastMotion.key) lastMotion = { key, value: { moving, visible } }
-  return lastMotion.value
 }
 
 const styles = StyleSheet.create({

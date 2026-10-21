@@ -3,7 +3,8 @@
 // - Google Noto Animated Emoji (CC BY 4.0) — 움직이는 GIF, assets/stickers/noto/
 // 이미지는 Metro 가 정적 require 로만 묶을 수 있어서 id → 이미지 표를 따로 둔다. 문서에는 id(asset)만 저장한다.
 
-import { mediaUri } from './services/mediaStore'
+import { mediaRegistry, mediaUri } from './services/mediaStore'
+import { mediaId } from './utils/mediaReferences.js'
 
 export const STICKER_ASSETS = {
   coffee: require('../../assets/stickers/coffee.png'),
@@ -317,6 +318,13 @@ export const STICKER_GROUPS = GROUPS.map((group) => ({
  * 스티커 이미지 소스: 기본 스티커는 asset id, 사용자 스티커는 src(data URI 또는 보관소 참조).
  * still 이면 GIF 대신 첫 장면(poster)을 쓴다. (썸네일·목록용)
  */
+/** 움직이는 GIF 인지: 기본 GIF 스티커이거나, 가져온 파일이 GIF 일 때 */
+export function isAnimatedMedia(item) {
+  if (item?.asset) return Boolean(STICKER_STILLS[item.asset])
+  const id = mediaId(item)
+  return Boolean(id && mediaRegistry.get(id)?.media?.extension === 'gif')
+}
+
 export function stickerSource(item, still = false, resolvedUri) {
   if (item.asset) return (still && STICKER_STILLS[item.asset]) || STICKER_ASSETS[item.asset]
   const uri = resolvedUri === undefined ? mediaUri(item, { still }) : resolvedUri
