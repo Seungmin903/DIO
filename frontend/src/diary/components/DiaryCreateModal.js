@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import DiaryPaperColors, { DiaryPaperColorButton, DiaryPaperPreview } from './DiaryPaperColors';
 import DiaryMonthPreview from './DiaryMonthPreview';
 import { DEFAULT_PAPER_APPEARANCE } from '../../editor/templates/appearance.js';
@@ -107,13 +107,18 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   };
 
   return (
+    // Android Modal은 앱과 다른 창이라 앱에서 숨긴 상태 바가 다시 나타나고, 그 높이만큼 창 전체가 아래로 밀렸다.
+    // 상태 바·내비게이션 바 위까지 그리게 하고 상태 바는 계속 숨긴다. 아래 시스템 바 높이만큼은 여백으로 비운다.
     <Modal
       visible
       transparent
       presentationStyle="overFullScreen"
+      statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={() => { if (!saving) onCancel(); }}
     >
-    <View accessibilityViewIsModal style={[s.createOverlay, sheet && s.createOverlaySheet]}>
+    <StatusBar hidden />
+    <View accessibilityViewIsModal style={[s.createOverlay, sheet && s.createOverlaySheet, !sheet && { paddingBottom: 16 + bottomInset }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${actionLabel} 닫기`}
