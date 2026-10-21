@@ -142,14 +142,14 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [eraserMode, setEraserMode] = useState('stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
-  // 폰은 화면이 좁아 페이지 목록·레이어를 닫은 채 시작한다. 창 크기가 바뀌어 배치가 달라지면 다시 맞춘다.
-  const [layersOpen, setLayersOpen] = useState(!compact)
-  const [pagesOpen, setPagesOpen] = useState(!compact)
+  // 편집기는 캔버스에 집중할 수 있도록 보조 패널을 모두 닫은 상태로 시작한다.
+  const [layersOpen, setLayersOpen] = useState(false)
+  const [pagesOpen, setPagesOpen] = useState(false)
   const [layoutCompact, setLayoutCompact] = useState(compact)
   if (layoutCompact !== compact) {
     setLayoutCompact(compact)
-    setLayersOpen(!compact)
-    setPagesOpen(!compact)
+    setLayersOpen(false)
+    setPagesOpen(false)
   }
   const stagePadding = compact ? PHONE_STAGE_PADDING : STAGE_PADDING
   const [focusMode, setFocusMode] = useState(false)
@@ -605,7 +605,12 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
   return (
     <View
-      style={[styles.root, phoneLandscape && !phoneFocus && styles.rootBetweenRails, phoneLandscape && !phoneFocus && readOnly && styles.rootReadOnlyRail]}
+      style={[
+        styles.root,
+        !compact && bottomInset > 0 && { paddingBottom: bottomInset },
+        phoneLandscape && !phoneFocus && styles.rootBetweenRails,
+        phoneLandscape && !phoneFocus && readOnly && styles.rootReadOnlyRail,
+      ]}
       {...closeOnOutside}
       onStartShouldSetResponderCapture={(event) => Boolean(textEditing && textBoundary.current?.(event))}
       onResponderTerminationRequest={() => false}
