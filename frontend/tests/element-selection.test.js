@@ -84,13 +84,23 @@ test('단일 선택·수정키 다중 선택·빈 곳 해제는 문서와 작업
 })
 
 test('영역 선택 도중 두 손가락 조작으로 취소하면 이전 다중 선택을 복원한다', () => {
-  const f = fixture([object('a'), object('b', 'text', { x: 300 })], ['b'])
+  const f = fixture([object('a', 'text'), object('b', 'text', { x: 300 })], ['b'])
   const input = f.background()
   input.onStart({ locationX: 80, locationY: 80 })
   input.onMove(80, 80)
   assert.deepEqual(f.state().selectedIds, ['a'])
   input.onEnd({ cancelled: true })
   assert.deepEqual(f.state().selectedIds, ['b'])
+  assert.equal(f.state().past.length, 0)
+})
+
+test('일반 영역 선택은 미선택 필기 획을 제외하고 텍스트만 선택한다', () => {
+  const f = fixture([object('stroke'), object('text', 'text', { x: 160 })])
+  const input = f.background()
+  input.onStart({ locationX: 80, locationY: 80 })
+  input.onMove(140, 100)
+  input.onEnd({ cancelled: false })
+  assert.deepEqual(f.state().selectedIds, ['text'])
   assert.equal(f.state().past.length, 0)
 })
 
