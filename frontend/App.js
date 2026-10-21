@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StatusBar, View, useWindowDimensions } from 'react-native';
+import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
@@ -99,6 +99,26 @@ function DiaryApp() {
     }
     setPage(next);
   }, []);
+
+  // Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
+  // 편집기는 열린 도구·패널을 먼저 닫아야 하므로 EditorScreen에서 별도로 처리한다.
+  useEffect(() => {
+    if (!isPhone || Platform.OS !== 'android' || page === 'editor') return undefined;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (createOpen) {
+        if (savingRef.current) return true;
+        setCreateOpen(false);
+        setEditingDiaryId(null);
+        return true;
+      }
+      if (page !== 'library' || filter !== DEFAULT_FILTER) {
+        navigate('library', DEFAULT_FILTER);
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [createOpen, filter, isPhone, navigate, page]);
 
   const create = useCallback(() => {
     if (savingRef.current) return;

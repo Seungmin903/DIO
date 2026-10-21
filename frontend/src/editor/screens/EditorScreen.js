@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { BackHandler, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
@@ -512,6 +512,27 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     if (!landscape) onToggleOrientation?.()
     showToast('집중 편집 · 두 손가락으로 이동하고 확대하세요.')
   }
+
+  // Android 뒤로가기는 현재 편집 상태를 한 단계씩 닫는다. 모두 닫혀 있을 때만 보관함으로 이동한다.
+  useEffect(() => {
+    if (!compact || Platform.OS !== 'android') return undefined
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (exportSnapshot) { setExportSnapshot(null); setRegionOpen(false); return true }
+      if (regionOpen) { setRegionOpen(false); return true }
+      if (exportOpen) { setExportOpen(false); return true }
+      if (overviewFilter) { setOverviewFilter(null); return true }
+      if (templatePickerOpen) { setTemplatePickerOpen(false); return true }
+      if (textLinkTarget) { setTextLinkTarget(null); return true }
+      if (objectLinkTarget) { setObjectLinkTarget(null); return true }
+      if (bubbleOpen) { closeBubbles(); return true }
+      if (focusMode) { setFocusMode(false); return true }
+      if (pagesOpen) { setPagesOpen(false); return true }
+      if (layersOpen) { setLayersOpen(false); return true }
+      goHome()
+      return true
+    })
+    return () => subscription.remove()
+  }, [bubbleOpen, compact, exportOpen, exportSnapshot, focusMode, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, regionOpen, templatePickerOpen, textLinkTarget])
 
   return (
     <View
