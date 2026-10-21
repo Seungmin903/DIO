@@ -21,6 +21,7 @@ export default function TopBar({
   onShareAnchor,
   onRename,
   readOnly,
+  exportEnabled = true,
   shareLabel = '공유',
   shareIcon = 'share',
 }) {
@@ -62,11 +63,10 @@ export default function TopBar({
 
       <View style={styles.right}>
         {!readOnly && <IconToggle icon="layers" label="레이어" text="레이어" active={layersOpen} onPress={onToggleLayers} />}
-        {/* 내보내기: 아이콘 옆에 글자도 쓴다 (전체 화면 보기 버튼은 뺐다) */}
-        <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} style={styles.share} accessibilityLabel={shareLabel}>
+        {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} style={styles.share} accessibilityLabel={shareLabel}>
           <Icon name={shareIcon} size={18} color={colors.surface} />
           <Text style={styles.shareText}>내보내기</Text>
-        </Pressable>
+        </Pressable>}
       </View>
     </View>
   )

@@ -86,7 +86,7 @@ export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, dr
 }
 
 /** 폰 가로 배치의 왼쪽 막대: 홈·페이지 목록 / 세로 전환·레이어·내보내기·집중 편집 */
-export function PhoneEditorRail({ pagesOpen, layersOpen, readOnly, onHome, onTogglePages, onToggleOrientation, onToggleLayers, onExport, onFocus, ...touch }) {
+export function PhoneEditorRail({ pagesOpen, layersOpen, readOnly, onHome, onTogglePages, onToggleOrientation, onToggleLayers, onExport, onFocus, exportEnabled = true, ...touch }) {
   return (
     <View style={[styles.rail, styles.railLeft]} {...touch}>
       <ScrollView style={styles.railBar} contentContainerStyle={[styles.railColumn, styles.railSpread]} showsVerticalScrollIndicator={false}>
@@ -97,7 +97,7 @@ export function PhoneEditorRail({ pagesOpen, layersOpen, readOnly, onHome, onTog
         <View style={styles.railGroup}>
           {onToggleOrientation && <Tool icon="rotate" label="세로 간편 편집으로 전환" onPress={onToggleOrientation} />}
           {!readOnly && <Tool icon="layers" label="레이어" active={layersOpen} onPress={onToggleLayers} />}
-          <Tool icon="share" label="내보내기" onPress={onExport} />
+          {exportEnabled && <Tool icon="share" label="내보내기" onPress={onExport} />}
           <Tool icon="focus" label="집중 편집" onPress={onFocus} />
         </View>
       </ScrollView>
@@ -106,7 +106,7 @@ export function PhoneEditorRail({ pagesOpen, layersOpen, readOnly, onHome, onTog
 }
 
 /** 더보기에서 고르는 도구 묶음. 편집 화면 위(도구 막대 쪽)에 시트로 띄운다. */
-export function PhoneMoreTools({ activeTool, drawerTab, onSelectTool, onOpenDrawer, onExport, onFocus, onClose }) {
+export function PhoneMoreTools({ activeTool, drawerTab, onSelectTool, onOpenDrawer, onExport, onFocus, onClose, exportEnabled = true }) {
   return (
     <View style={styles.sheet}>
       <View style={styles.sheetHeader}>
@@ -116,7 +116,7 @@ export function PhoneMoreTools({ activeTool, drawerTab, onSelectTool, onOpenDraw
         </Pressable>
       </View>
       <View style={styles.sheetGrid}>
-        {MORE_TOOLS.map((item) => {
+        {MORE_TOOLS.filter(item => exportEnabled || item.action !== 'export').map((item) => {
           const active = isActive(item, activeTool, drawerTab)
           const press = () => {
             if (item.tool) onSelectTool(item.tool)
