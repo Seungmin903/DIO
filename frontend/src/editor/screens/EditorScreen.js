@@ -101,8 +101,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [drawerWidth, setDrawerWidth] = useState(320)
   const [stageOrigin, setStageOrigin] = useState({ x: 0, y: 0 })
   const toolPopoverStyle = (width = 320) => {
-    // 폰: 설정 창은 작업 영역 안에 띄우고 아래 되돌리기 바는 가리지 않는다.
-    if (compact) return { left: 8, right: 8, top: 8, bottom: 60, alignItems: landscape ? 'flex-end' : 'center', justifyContent: 'flex-end' }
+    // 폰: 세로 리본 바로 아래, 가로 리본의 상단 옆에 설정 창을 붙인다.
+    // 작업 영역 안에서만 펼쳐지게 해 하단 되돌리기 바도 가리지 않는다.
+    if (compact) return { left: 8, right: 8, top: 8, bottom: 60, alignItems: landscape ? 'flex-end' : 'center', justifyContent: 'flex-start' }
     const stageWidth = stageSize?.width ?? 600
     const left = Math.max(8, Math.min((toolAnchor?.x ?? stageOrigin.x + stageWidth / 2) - stageOrigin.x + (toolAnchor?.width ?? 0) / 2 - width / 2, stageWidth - width - 8))
     return { left, right: 8, top: Math.max(76, (toolAnchor?.y ?? stageOrigin.y + 24) - stageOrigin.y + (toolAnchor?.height ?? 44) + 8), bottom: 64, alignItems: 'flex-start' }
