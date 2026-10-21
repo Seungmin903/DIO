@@ -1,3 +1,4 @@
+import { ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import { ERASER_MAX_SIZE, ERASER_MIN_SIZE, normalizeEraserSize } from '../utils/eraser.js'
@@ -6,11 +7,9 @@ import ToolSizeSlider from './controls/ToolSizeSlider'
 export default function EraserSettings({ size, onChange, onClose }) {
   const value = normalizeEraserSize(size)
   const update = (next) => onChange(normalizeEraserSize(next))
-  return <View style={styles.panel}>
-    <View style={styles.header}>
-      <Text style={styles.title}>지우개 설정</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="지우개 설정 닫기" onPress={onClose} style={styles.close}><Text style={styles.title}>×</Text></Pressable>
-    </View>
+  return <View style={toolPanelStyles.card}>
+    <ToolPanelHeader icon="eraser" title="지우개" closeLabel="지우개 설정 닫기" onClose={onClose} />
+    <View style={toolPanelStyles.content}>
     <View style={styles.preview} pointerEvents="none">
       <View style={[styles.circle, { width: value, height: value, borderRadius: value / 2 }]} />
     </View>
@@ -18,6 +17,7 @@ export default function EraserSettings({ size, onChange, onClose }) {
       <Text style={styles.label}>크기</Text>
       <ToolSizeSlider label="지우개 크기" value={value} min={ERASER_MIN_SIZE} max={ERASER_MAX_SIZE} step={1} onChange={update} />
       <Text style={styles.value}>{value}</Text>
+    </View>
     </View>
   </View>
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import Icon from '../controls/Icon'
@@ -13,11 +13,13 @@ export default function TopBar({
   onToggleLayers,
   onTogglePages,
   onShare,
+  onShareAnchor,
   onRename,
   readOnly,
   shareLabel = '공유',
   shareIcon = 'share',
 }) {
+  const shareRef = useRef(null)
   return (
     <View style={styles.bar}>
       <Pressable onPress={onHome} accessibilityLabel="다이어리 홈" hitSlop={6}>
@@ -37,7 +39,7 @@ export default function TopBar({
       <View style={styles.right}>
         {!readOnly && <IconToggle icon="layers" label="레이어" text="레이어" active={layersOpen} onPress={onToggleLayers} />}
         {/* 내보내기: 아이콘 옆에 글자도 쓴다 (전체 화면 보기 버튼은 뺐다) */}
-        <Pressable onPress={onShare} style={styles.share} accessibilityLabel={shareLabel}>
+        <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} style={styles.share} accessibilityLabel={shareLabel}>
           <Icon name={shareIcon} size={18} color={colors.surface} />
           <Text style={styles.shareText}>내보내기</Text>
         </Pressable>

@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
 import { clamp, unionBounds } from '../../utils/common'
 import Icon from '../controls/Icon'
 import LassoSelectionMenu from '../LassoSelectionMenu'
+import { EDITOR_COLORS } from '../../utils/penSettings'
+import { resizeTextObject } from '../../utils/textFormats'
+import TextActionBar from '../TextActionBar'
 
 
 const BAR_HEIGHT = 52
@@ -25,6 +28,12 @@ export default function ContextBar({
   onCrop,
   onToast,
   insideHandlers, // 이 바를 누른 것은 패널 '바깥 누르기'로 치지 않는다 (옵션 버튼으로 패널을 다시 닫을 수 있게)
+  onEditText,
+  onTextSettings,
+  onCopy,
+  onCut,
+  onCopyText,
+  onTextLink,
 }) {
   const [barWidth, setBarWidth] = useState(0)
   const [orderOpen, setOrderOpen] = useState(false)
@@ -53,6 +62,34 @@ export default function ContextBar({
   // 바에는 모드·묶기만 둔다 (자르기, 그룹). 테두리·그림자·프레임·사진 바꾸기 등은 옵션 패널 안에.
   const hasLeading =
     objects.length > 1 || (single && !single.locked && (single.type === 'photo' || (single.type === 'tape' && single.src && single.imageWidth)))
+
+  if (single?.type === 'text' && !single.locked) return <>
+    <View style={{ position: 'absolute', top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
+      <TextActionBar currentColor={single.color} linked={single.styleRanges?.some((r) => r.href)}
+        onColor={(color) => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color, colorRanges: [] } })}
+        onIncrease={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: resizeTextObject(single, 2) })}
+        onDecrease={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: resizeTextObject(single, -2) })}
+        onCopy={() => onCopyText?.(single.text)} onDelete={() => dispatch({ type: 'removeObjects', ids })} onLink={() => onTextLink?.(single)} />
+    </View>
+    {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} anchor={{ top, height: BAR_HEIGHT }} />}
+  </>
+
+  if (single?.type === 'stroke' && !single.locked) return <>
+    <View accessibilityLabel="필기 빠른 편집" style={[styles.bar, styles.writingBar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.writingContent}>
+        {EDITOR_COLORS.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 요소 색상 ${color}`} accessibilityState={{ selected: single.color?.toUpperCase() === color.toUpperCase() }}
+          onPress={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color } })}
+          style={[styles.swatch, { backgroundColor: color }, single.color?.toUpperCase() === color.toUpperCase() && styles.swatchChosen]} />)}
+        <View style={styles.divider} />
+        <IconButton icon="copy" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
+        <IconButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
+        <View style={styles.divider} />
+        <BarButton icon="crop" label="잘라내기" onPress={() => onCut?.(objects)} />
+        <BarButton icon="more" label="정렬·보정" active={moreOpen} onPress={onToggleMore} />
+      </ScrollView>
+    </View>
+    {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} anchor={{ top, height: BAR_HEIGHT }} />}
+  </>
 
   return (
     <>
@@ -229,4 +266,10 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.primarySoft },
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },
   chipActive: { backgroundColor: colors.surfaceSoft },
+  writingBar: { borderRadius: 26, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 5 },
+  writingContent: { alignItems: 'center', gap: 6 },
+  kind: { alignSelf: 'stretch', justifyContent: 'center', paddingHorizontal: 12, marginVertical: 5, borderRadius: 20, backgroundColor: colors.text },
+  kindText: { color: colors.surface, fontSize: 12, fontWeight: '700' },
+  swatch: { width: 27, height: 27, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
+  swatchChosen: { borderWidth: 3, borderColor: colors.primary },
 })

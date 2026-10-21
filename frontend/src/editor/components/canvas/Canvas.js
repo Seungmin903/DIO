@@ -18,6 +18,7 @@ import EraserInput from '../EraserInput'
 import LassoInput from '../LassoInput'
 import TextEditor from '../TextEditor'
 import TextBoxInput from '../TextBoxInput'
+import TextLinkOverlay from '../TextLinkOverlay'
 
 const SNAP_SCREEN_PX = 6
 const LONG_PRESS_MS = 450
@@ -51,6 +52,7 @@ export default function Canvas({
   activeTool = 'select',
   penSettings,
   highlighterSettings,
+  straightAssist = true,
   eraserSize,
   lassoShape = 'rectangle',
   lassoMode = 'replace',
@@ -58,6 +60,11 @@ export default function Canvas({
   onLassoModeChange,
   onCreateText,
   onEditText,
+  onTextSettings,
+  onCopy,
+  onCut,
+  onCopyText,
+  onTextLink,
   textEditing,
   textBoundary,
   onTextPaletteChange,
@@ -161,6 +168,7 @@ export default function Canvas({
       <View style={styles.clip} pointerEvents="none">
         <StaticPage page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} />
       </View>
+      {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
       {!readOnly && activeTool === 'lasso' && !textEditing && (
         <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
           selectedIds={selectedIds} shape={lassoShape} mode={lassoMode} zoom={zoom}
@@ -193,7 +201,7 @@ export default function Canvas({
       {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
           {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
-          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
+          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
@@ -202,7 +210,7 @@ export default function Canvas({
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} onCreate={onCreateText} />}
       {!readOnly && activeTool === 'text' && !textEditing && visible.filter((o) => o.type === 'text' && !o.locked).map((object) =>
         <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => onEditText(object)} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}
-      {!readOnly && textEditing && <TextEditor onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
+      {!readOnly && textEditing && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
 
       {freeCropTarget && <View pointerEvents="box-none" style={styles.selectionControls}><CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} /></View>}
 
@@ -259,6 +267,12 @@ export default function Canvas({
       {canSelect && selected.length > 0 && !cropping && !interacting && !marquee && (
         <View pointerEvents="box-none" style={styles.selectionMenu}>
         <ContextBar
+          onCopyText={onCopyText}
+          onTextLink={onTextLink}
+          onEditText={onEditText}
+          onTextSettings={onTextSettings}
+          onCopy={onCopy}
+          onCut={onCut}
           key={selectedIds.join(',')}
           objects={selected}
           allObjects={page.objects}

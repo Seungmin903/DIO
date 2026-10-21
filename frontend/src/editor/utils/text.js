@@ -12,7 +12,8 @@ export function textPatch(text, width = 320, settings = {}) {
 }
 
 export function createText({ id, x, y, text, width = 320, ...settings }) {
-  return { id, type: 'text', name: '텍스트', x, y, w: width, rotation: 0, color: '#0B1957', ...settings, ...textPatch(text, width, settings) }
+  const largest = Math.max(settings.fontSize ?? TEXT_FONT_SIZE, ...(settings.styleRanges ?? []).map((range) => range.fontSize ?? 0))
+  return { id, type: 'text', name: '텍스트', x, y, w: width, rotation: 0, color: '#0B1957', ...settings, ...textPatch(text, width, { ...settings, fontSize: largest }) }
 }
 
 export const TEXT_FONTS = [
@@ -33,6 +34,7 @@ export function textStyle(object, scale = 1, platform = 'android') {
 
 export function textFormatPatch(object, settings) {
   const baseWidth = object.baseWidth ?? object.w
-  const patch = textPatch(object.text, baseWidth, settings)
+  const largest = Math.max(settings.fontSize ?? TEXT_FONT_SIZE, ...(object.styleRanges ?? []).map((range) => range.fontSize ?? 0))
+  const patch = textPatch(object.text, baseWidth, { ...settings, fontSize: largest })
   return { ...settings, text: patch.text, h: patch.h * object.w / baseWidth }
 }

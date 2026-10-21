@@ -1,5 +1,7 @@
+import ColorPicker from './controls/ColorPicker'
+import { ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { useEffect, useRef, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, Switch } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { colors } from '../../shared/theme'
 import ToolSizeSlider from './controls/ToolSizeSlider'
@@ -20,9 +22,11 @@ export function PenSample({ settings, small = false }) {
   </View>
 }
 
-export default function PenSettings({ settings, onChange, onClose }) {
+export default function PenSettings({ settings, onChange, onClose, straightAssist = true, onStraightAssistChange }) {
   const highlighter = settings.kind === 'highlighter'
   const label = highlighter ? '형광펜' : '펜'
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const scroll = useRef(null)
   const [hex, setHex] = useState(settings.color)
   const [presets, setPresets] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -51,22 +55,29 @@ export default function PenSettings({ settings, onChange, onClose }) {
       onPress={() => chooseColor(color)} style={[styles.swatch, { backgroundColor: color }, settings.color === color && styles.chosen]} />
     {preset && <Pressable accessibilityRole="button" accessibilityLabel={`${color} 프리셋 삭제`} onPress={() => savePresets(presets.filter((c) => c !== color))} style={styles.remove}><Text>×</Text></Pressable>}
   </View>
-  return <View style={styles.card}>
-    <View style={styles.heading}><Text style={styles.title}>{label} 설정</Text><Pressable accessibilityRole="button" accessibilityLabel={`${label} 설정 닫기`} onPress={onClose} style={styles.close}><Text style={styles.title}>×</Text></Pressable></View>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+  return <View style={[styles.card, toolPanelStyles.card]}>
+    <ToolPanelHeader icon={highlighter ? 'highlighter' : 'pen'} title={label} closeLabel={`${label} 설정 닫기`} onClose={onClose} />
+    <ScrollView ref={scroll} onContentSizeChange={() => { if (pickerOpen) scroll.current?.scrollToEnd({ animated: true }) }} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, toolPanelStyles.content]}>
       <Text style={styles.label}>{highlighter ? '획 끝 모양' : '펜 종류'}</Text>
       <View style={styles.types}>{highlighter ? [{ id: 'round', label: '라운드' }, { id: 'square', label: '스퀘어' }].map((cap) => <Pressable key={cap.id} accessibilityRole="button" accessibilityLabel={cap.label} accessibilityState={{ selected: settings.lineCap === cap.id }} onPress={() => onChange({ ...settings, lineCap: cap.id })} style={[styles.type, settings.lineCap === cap.id && styles.typeSelected]}><PenSample settings={{ ...settings, lineCap: cap.id }} small /><Text style={styles.typeText}>{cap.label}</Text></Pressable>) : PEN_TYPES.map((type) => <Pressable key={type.id} accessibilityRole="button" accessibilityLabel={type.label} accessibilityState={{ selected: settings.kind === type.id }}
         onPress={() => onChange({ ...settings, kind: type.id })} style={[styles.type, settings.kind === type.id && styles.typeSelected]}>
         <PenSample settings={{ ...settings, kind: type.id, width: 10 }} small /><Text style={styles.typeText}>{type.label}</Text>
       </Pressable>)}</View>
+      <View style={styles.assist}>
+        <Text style={[styles.label, { flex: 1 }]}>길게 눌러 직선 보정</Text>
+        <Switch accessibilityLabel="끝점에서 길게 눌러 직선 만들기" value={straightAssist} onValueChange={onStraightAssistChange} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.surface} />
+      </View>
       <View accessibilityLabel={`${label} 미리보기`} style={styles.preview}><PenSample settings={settings} /></View>
-      {highlighter && <Text style={styles.empty}>끝점에서 잠시 누르면 직선으로 바뀌어요.</Text>}
       <View style={styles.row}><Text style={styles.label}>굵기</Text><ToolSizeSlider label={highlighter ? '형광펜 굵기' : '펜 굵기'} min={highlighter ? 8 : 1} max={highlighter ? 40 : 16} step={0.5} value={settings.width} onChange={(width) => onChange({ ...settings, width })} /><Text style={styles.value}>{settings.width}</Text></View>
       <Text style={styles.label}>기본 색상</Text><View style={styles.palette}>{(highlighter ? HIGHLIGHTER_COLORS : EDITOR_COLORS).map((c) => swatch(c))}</View>
       <Text style={styles.label}>내 색상 프리셋</Text>
       <View style={styles.palette}>{presets.length ? presets.map((c) => swatch(c, true)) : <Text style={styles.empty}>{loaded ? '아직 저장한 색상이 없어요.' : '색상을 불러오는 중…'}</Text>}</View>
+      {pickerOpen && <View style={{ gap: 10 }}>
+        <Text style={styles.label}>직접 색상 선택</Text>
+        <ColorPicker value={settings.color} onChange={chooseColor} label={label} showHex={false} />
+      </View>}
       <View style={styles.row}>
-        <View style={[styles.colorChip, { backgroundColor: settings.color }]} />
+        <Pressable accessibilityRole="button" accessibilityLabel={`${label} 색상 팔레트 ${pickerOpen ? '닫기' : '열기'}`} accessibilityState={{ expanded: pickerOpen }} hitSlop={8} onPress={() => setPickerOpen(!pickerOpen)} style={[styles.colorChip, { backgroundColor: settings.color }]} />
         <TextInput accessibilityLabel={`${label} 색상 HEX 코드`} value={hex} maxLength={7} autoCapitalize="characters" autoCorrect={false} style={styles.input}
           onChangeText={(value) => { setHex(value); if (/^#?[0-9a-f]{6}$/i.test(value)) onChange({ ...settings, color: normalizeHex(value) }) }}
           onBlur={() => { const color = normalizeHex(hex); if (color) chooseColor(color); else { setHex(settings.color); setNotice('HEX 색상 코드를 확인해 주세요.') } }} />
@@ -91,6 +102,7 @@ const styles = StyleSheet.create({
   types: { flexDirection: 'row', gap: 4 }, type: { flex: 1, borderWidth: 1.5, borderColor: 'transparent', borderRadius: 12, paddingVertical: 7 },
   typeSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft }, typeText: { textAlign: 'center', color: colors.text, fontSize: 11, fontWeight: '700' },
   preview: { backgroundColor: '#FAFAF7', borderRadius: 12 }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  assist: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 40 },
   value: { width: 28, color: colors.text, fontWeight: '700', fontSize: 12 }, palette: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   swatchWrap: { position: 'relative' }, swatch: { width: 31, height: 31, borderRadius: 18, borderWidth: 1, borderColor: colors.border }, chosen: { borderWidth: 3, borderColor: colors.text },
   remove: { position: 'absolute', right: -5, top: -7, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.surfaceSoft, alignItems: 'center', justifyContent: 'center' },

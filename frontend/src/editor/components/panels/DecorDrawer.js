@@ -1,3 +1,4 @@
+import { ToolPanelHeader, toolPanelStyles } from '../ToolPanel'
 import { createContext, useContext, useRef, useState } from 'react'
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, radius, shadow } from '../../../shared/theme'
@@ -48,7 +49,7 @@ const BASE_GROUPS = [
 // 보관함 크기: 왼쪽 아래 손잡이로 넓히고 늘린다. 닫았다 열어도 유지되도록 모듈에 기억해 둔다.
 const SIZE_LIMITS = { minWidth: 280, maxWidth: 640, minHeight: 260 }
 const TILE_MIN_PX = 68
-let rememberedSize = { width: 300, height: null }
+let rememberedSize = { width: 320, height: null }
 // 넓이에 맞춘 스티커 칸 수 (Tile 이 읽는다)
 const ColumnsContext = createContext(4)
 
@@ -56,7 +57,7 @@ const ColumnsContext = createContext(4)
  * 스티커·테이프·사진 보관함. 항목을 누르면 페이지 가운데에 붙는다.
  * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다. 사진은 붙인 뒤 자르기에서 틀·모양을 고른다.
  */
-export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, recentPhotos, onToast, onClose }) {
+export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, recentPhotos, onToast, onClose, onPanelWidth }) {
   const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]
   const custom = useCustomDecor()
   const [busy, setBusy] = useState(false)
@@ -226,17 +227,14 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
 
   return (
     <View
-      style={[styles.drawer, { width: size.width }, size.height != null && { height: size.height }]}
+      style={[styles.drawer, toolPanelStyles.card, { width: size.width }, size.height != null && { height: size.height }]}
       onLayout={(event) => {
         measured.current = event.nativeEvent.layout.height
+        onPanelWidth?.(event.nativeEvent.layout.width)
       }}
     >
       {/* 툴바에서 고른 보관함만 보여 준다 (서랍 안에서 스티커·테이프·사진을 오가지 않는다) */}
-      <View style={styles.tabs}>
-        <View style={styles.titleRow} accessibilityRole="header">
-          <Icon name={current.icon} size={18} color={colors.text} />
-          <Text style={styles.title}>{current.name}</Text>
-        </View>
+      <ToolPanelHeader icon={current.icon} title={current.name} onClose={onClose} closeLabel="보관함 닫기">
         {/* 스티커: 분류·폴더 목록 편집은 제목 줄 오른쪽(닫기 왼쪽)에 */}
         {tab === 'sticker' && (
           <Pressable
@@ -251,10 +249,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
             <Text style={[styles.headerButtonText, editingList && styles.headerButtonTextActive]}>{editingList ? '편집 완료' : '목록 편집'}</Text>
           </Pressable>
         )}
-        <Pressable onPress={onClose} style={styles.close} hitSlop={8} accessibilityLabel="보관함 닫기">
-          <Icon name="close" size={18} />
-        </Pressable>
-      </View>
+      </ToolPanelHeader>
 
       {tab === 'sticker' && (
         <View style={styles.fixed}>
@@ -832,11 +827,11 @@ function TapeRow({ name, onPress, onRemove, children }) {
   )
 }
 
-const BODY_X = 14
+const BODY_X = 16
 // 목록 편집 한 줄 높이 + 줄 간격 (끌어서 옮길 때 몇 칸 움직였는지 계산)
 const EDIT_ROW = 46
 const EDIT_STEP = EDIT_ROW + 6
-const DRAWER_RADIUS = 24
+const DRAWER_RADIUS = 20
 // 크기 조절 손잡이: 왼쪽 아래 모서리 곡선(반경 24)과 중심이 같은 호를 안쪽으로 7px 들여 그린다.
 const GRIP = 44
 const GRIP_ARC = (() => {

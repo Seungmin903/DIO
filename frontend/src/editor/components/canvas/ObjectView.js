@@ -13,7 +13,7 @@ import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
 import FrameBackdrop from './PhotoFrame'
 import StrokeContent from '../StrokeContent'
-import { textSegments } from '../../utils/textRanges'
+import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
 import { textStyle } from '../../utils/text'
 
 /**
@@ -33,7 +33,7 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
   switch (object.type) {
     case 'text': {
       const scale = width / (object.baseWidth ?? object.w)
-      return <Text style={{ width, height, ...textStyle(object, scale, Platform.OS) }}>{textSegments(object.text, object.colorRanges).map((segment, index) => <Text key={index} style={segment.color ? { color: segment.color } : undefined}>{segment.text}</Text>)}</Text>
+      return <Text style={{ width, height, ...textStyle(object, scale, Platform.OS) }}>{richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale)}>{segment.text}</Text>)}</Text>
     }
     case 'stroke':
       return <StrokeContent object={object} zoom={zoom} transform={flipTransform(object)} />

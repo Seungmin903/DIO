@@ -1,5 +1,6 @@
+import { ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../shared/theme'
 import { pageSize } from '../utils/pageGeometry.js'
 import PdfGeneration, { PdfGeneratedPreview } from './PdfGeneration'
@@ -11,7 +12,11 @@ export function ExportButton({ title, onPress, disabled, selected, ...props }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: !!disabled, selected: !!selected }} disabled={disabled} onPress={onPress} style={[styles.button, selected && styles.selected, disabled && styles.disabled]} {...props}><Text style={styles.text}>{title}</Text></Pressable>
 }
 
-export default function ExportMenu({ doc, currentId, onClose, onRegion, onPng }) {
+export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, onPng }) {
+  const viewport = useWindowDimensions()
+  const panelWidth = Math.min(600, viewport.width - 32)
+  const panelTop = Math.min(anchor ? anchor.y + anchor.height + 8 : 80, Math.max(16, viewport.height - 200))
+  const placement = { position: 'absolute', width: panelWidth, left: Math.max(16, Math.min(anchor ? anchor.x + anchor.width - panelWidth : (viewport.width - panelWidth) / 2, viewport.width - panelWidth - 16)), top: panelTop, maxHeight: viewport.height - panelTop - 16 }
   const [mode, setMode] = useState(null), [format, setFormat] = useState('png')
   const [selected, setSelected] = useState([currentId])
   const number = doc.pages.findIndex((p) => p.id === currentId) + 1
@@ -68,9 +73,9 @@ export default function ExportMenu({ doc, currentId, onClose, onRegion, onPng })
   }} onFailure={(error) => { gate.current = false; setJob(pdfMenuFailure(error)) }} />
   if (job.status === 'ready' && resultRef.current) return <PdfGeneratedPreview result={resultRef.current} onClose={onClose} onSelectAgain={resetResult} />
   return <Modal visible transparent animationType="fade" onRequestClose={close}>
-    <View style={styles.scrim}><View style={styles.card} accessibilityViewIsModal>
-      <View style={styles.row}><Text style={styles.title}>내보내기</Text><ExportButton title="내보내기 닫기" onPress={close} disabled={busy} /></View>
-      <ScrollView>
+    <View style={styles.scrim}><View style={[toolPanelStyles.card, styles.card, placement]} accessibilityViewIsModal>
+      <ToolPanelHeader icon="share" title="내보내기" onClose={close} disabled={busy} />
+      <ScrollView contentContainerStyle={toolPanelStyles.content}>
         {!mode ? <>
           <Text style={styles.hint}>꾸민 추억을 원하는 방식으로 가져가세요.</Text>
           {[
@@ -105,7 +110,7 @@ export default function ExportMenu({ doc, currentId, onClose, onRegion, onPng })
 }
 const styles = StyleSheet.create({
   scrim: { flex: 1, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  card: { backgroundColor: colors.surface, width: '100%', maxWidth: 600, maxHeight: '92%', borderRadius: 22, padding: 20 },
+  card: { backgroundColor: colors.surface, width: '100%', maxWidth: 600, maxHeight: '92%', borderRadius: 20 },
   row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   title: { flex: 1, color: colors.text, fontSize: 21, fontWeight: '700' },
   text: { color: colors.text, fontSize: 14 },

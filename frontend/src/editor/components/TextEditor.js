@@ -3,18 +3,43 @@ import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from
 import { colors } from '../../shared/theme'
 import { colorTextRange, normalizeRanges, remapTextRanges, textSegments } from '../utils/textRanges'
 import { TEXT_COLORS, TEXT_LINE_HEIGHT, textStyle } from '../utils/text'
+import { textSettings } from '../utils/text'
+import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle } from '../utils/textFormats'
+import { copyText } from '../services/textClipboard'
+import TextActionBar from './TextActionBar'
+import TextLinkDialog from './TextLinkDialog'
 
 // Android는 TextInput의 styled children으로 선택 범위 색상을 즉시 표시한다.
-export default function TextEditor({ object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds }) {
+export default function TextEditor({ object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast }) {
   const input = useRef(null), draft = useRef(object.text ?? ''), composing = useRef(false), saving = useRef(false)
   const cancelled = useRef(false)
   const ranges = useRef(normalizeRanges(object.text ?? '', object.colorRanges))
+  const formats = useRef(normalizeTextFormats(object.text ?? '', object.styleRanges))
+  const linkEditing = useRef(false)
+  const [linkSelection, setLinkSelection] = useState(null)
   const selection = useRef({ start: 0, end: 0 })
   const [selected, setSelected] = useState(false)
   const palette = useRef(null)
-  const [rendered, setRendered] = useState({ text: draft.current, ranges: ranges.current })
+  const [rendered, setRendered] = useState({ text: draft.current, ranges: ranges.current, formats: formats.current })
   const [anchor, setAnchor] = useState(null)
-  const updateDraft = (value) => { ranges.current = remapTextRanges(draft.current, value, ranges.current); draft.current = value; setRendered({ text: value, ranges: ranges.current }) }
+  const refresh = () => setRendered({ text: draft.current, ranges: ranges.current, formats: formats.current })
+  const updateDraft = (value) => { ranges.current = remapTextRanges(draft.current, value, ranges.current); formats.current = remapTextFormats(draft.current, value, formats.current); draft.current = value; refresh() }
+  const resizeSelected = (delta) => {
+    if (composing.current) return
+    formats.current = resizeTextRange(draft.current, formats.current, selection.current, textSettings(object).fontSize, delta)
+    refresh()
+  }
+  const deleteSelected = () => {
+    if (composing.current) return
+    const { start, end } = safeTextSelection(draft.current, selection.current)
+    const next = draft.current.slice(0, start) + draft.current.slice(end)
+    updateDraft(next)
+    selection.current = { start, end: start }
+    setSelected(false)
+    if (Platform.OS === 'web' && input.current) {
+      input.current.value = next; input.current.setSelectionRange?.(start, start)
+    } else input.current?.setNativeProps?.({ text: next, selection: selection.current })
+  }
   const bounds = useRef(null), textLines = useRef([])
   const updateAnchor = () => {
     const box = bounds.current
@@ -56,35 +81,36 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
   const [height, setHeight] = useState(Math.max(40, (object.h ?? TEXT_LINE_HEIGHT) * zoom))
   const scale = (object.w ?? 320) / (object.baseWidth ?? object.w ?? 320) * zoom
   const save = () => {
-    if (composing.current || saving.current) return
+    if (composing.current || saving.current || linkEditing.current) return
     saving.current = true
     const value = Platform.OS === 'web' && typeof input.current?.value === 'string' ? input.current.value : draft.current
     Keyboard.dismiss()
     const finalRanges = remapTextRanges(draft.current, value, ranges.current)
-    onSave(value, finalRanges)
+    const finalFormats = remapTextFormats(draft.current, value, formats.current)
+    onSave(value, finalRanges, finalFormats)
   }
   useEffect(() => { const frame = requestAnimationFrame(measure); return () => cancelAnimationFrame(frame) }, [height, zoom, object.x, object.y])
   // 선택 끝 글자가 있는 줄에 붙이되 화면 오버레이로 표시한다.
   useEffect(() => {
     if (!selected) paletteBounds.current = null
     onPaletteChange(selected ? { anchor, content: (<View ref={palette} onLayout={() => palette.current?.measureInWindow?.((x, y, width, height) => { paletteBounds.current = { x, y, width, height } })} style={styles.palette}>
-      <Text style={styles.label}>선택 글자 색상</Text>
-      <View style={styles.swatches}>{TEXT_COLORS.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 문자열 색상 ${color}`}
-        {...(Platform.OS === 'web' && { onMouseDown: (event) => event.preventDefault() })}
-        onPress={() => {
+      <TextActionBar colorLabel="선택 문자열 색상" linked={formats.current.some(r => r.href && r.start < selection.current.end && r.end > selection.current.start)}
+        onColor={(color) => {
           if (composing.current) return
           ranges.current = colorTextRange(draft.current, ranges.current, selection.current, color)
-          setRendered({ text: draft.current, ranges: ranges.current })
-        }} style={[styles.swatch, { backgroundColor: color }]} />)}</View>
+          refresh()
+        }} onIncrease={() => resizeSelected(2)} onDecrease={() => resizeSelected(-2)} onDelete={deleteSelected}
+        onCopy={() => { const { start, end } = safeTextSelection(draft.current, selection.current); copyText(draft.current.slice(start, end)).then(() => onToast?.('선택한 글자를 복사했어요.')).catch(() => onToast?.('복사하지 못했어요.')) }}
+        onLink={() => { if (composing.current) return; linkEditing.current = true; setLinkSelection(safeTextSelection(draft.current, selection.current)) }} />
     </View>) } : null)
-  }, [selected, anchor, onPaletteChange, paletteBounds])
+  }, [selected, anchor, rendered, onPaletteChange, paletteBounds])
   useEffect(() => () => { paletteBounds.current = null; onPaletteChange(null) }, [onPaletteChange, paletteBounds])
   const top = object.y * zoom
   return <View style={{ position: 'absolute', left: object.x * zoom, top, width: (object.w ?? 320) * zoom, transform: [{ rotate: `${object.rotation ?? 0}deg` }] }}>
     <Text pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
       onTextLayout={(event) => { textLines.current = event.nativeEvent.lines; updateAnchor() }}
       style={[styles.measureText, textStyle(object, scale, Platform.OS)]}>
-      {textSegments(rendered.text, rendered.ranges).map((segment, index) => <Text key={index} style={segment.color ? { color: segment.color } : undefined}>{segment.text}</Text>)}
+      {richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale)}>{segment.text}</Text>)}
     </Text>
     <TextInput ref={input} autoFocus multiline {...(Platform.OS !== 'android' && { defaultValue: object.text ?? '' })} accessibilityLabel="캔버스 텍스트 내용"
       placeholder="텍스트 입력" textAlignVertical="top" scrollEnabled={false} showSoftInputOnFocus
@@ -116,13 +142,19 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
           if (event.key === 'Escape') cancel()
         },
       })} >
-      {Platform.OS === 'android' ? <Text>{textSegments(rendered.text, rendered.ranges).map((segment, index) => <Text key={index} style={segment.color ? { color: segment.color } : undefined}>{segment.text}</Text>)}</Text> : null}
+      {Platform.OS === 'android' ? <Text>{richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale)}>{segment.text}</Text>)}</Text> : null}
     </TextInput>
+    {linkSelection && <TextLinkDialog initialValue={formats.current.find(r => r.href && r.start < linkSelection.end && r.end > linkSelection.start)?.href ?? ''}
+      onCancel={() => { linkEditing.current = false; setLinkSelection(null); input.current?.focus() }}
+      onSave={(href) => {
+        formats.current = formatTextRange(draft.current, formats.current, linkSelection, { href: href || null })
+        refresh(); linkEditing.current = false; setLinkSelection(null); input.current?.focus()
+      }} />}
   </View>
 }
 
 const styles = StyleSheet.create({
-  palette: { width: 260, maxWidth: '100%', padding: 12, gap: 8, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, elevation: 8 },
+  palette: { maxWidth: '100%' },
   label: { color: colors.textMuted, fontSize: 12 }, swatches: { flexDirection: 'row', gap: 10 }, swatch: { width: 30, height: 30, borderRadius: 15 },
   measureText: { position: 'absolute', top: 1, left: 1, right: 1, opacity: 0, padding: 0, includeFontPadding: false },
   input: { width: '100%', borderWidth: 1, borderColor: colors.primary, padding: 0, margin: 0, includeFontPadding: false, backgroundColor: 'white' },
