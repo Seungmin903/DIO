@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [grid-template-order.md](./grid-template-order.md) | 174 격자·보조선과 속지 글씨의 합성 순서 및 브라우저 픽셀 검증 |
 | [layer-stroke-visibility.md](./layer-stroke-visibility.md) | 167 펜·형광펜 획의 레이어 목록 숨김과 혼합 그룹 멤버 보존 |
 | [export-entry-visibility.md](./export-entry-visibility.md) | 164 태블릿·폰 가로·폰 더보기의 내보내기 진입 임시 숨김 |
 | [trash-retention.md](./trash-retention.md) | 165 휴지통 30일 보관·만료 자동 정리·중단 복구와 남은 기기 확인 |

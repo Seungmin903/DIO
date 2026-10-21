@@ -32,7 +32,7 @@ function cachedAst(page) {
   } catch { return null }
 }
 
-function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry, compact }) {
+function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry, compact, underlay }) {
   // svg: 내보내기면 { xml }(준비된 원본), 화면 표시면 { ast }(캐시의 해석 결과)
   const [svg, setSvg] = useState(() => {
     if (preparedXml != null) return { xml: preparedXml }
@@ -56,9 +56,13 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   }, [page.backgroundAssetId, page.templateVersion, preparedXml])
 
   const appearance = normalizePaperAppearance(page.paperAppearance)
-  const styledAst = useMemo(() => svg?.ast ? colorTemplateAst(svg.ast, appearance) : null, [svg?.ast, appearance.backgroundColor, appearance.layoutColor])
-  if (page.backgroundAssetId == null) return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]} />
+  // 가이드는 종이 바탕과 속지 글씨 사이에만 넣는다. 출력용 XML 경로에는 가이드를 넣지 않는다.
+  const guideUnderlay = preparedXml == null ? underlay : null
+  const transparentPaper = Boolean(guideUnderlay)
+  const styledAst = useMemo(() => svg?.ast ? colorTemplateAst(svg.ast, appearance, { transparentPaper }) : null, [svg?.ast, appearance.backgroundColor, appearance.layoutColor, transparentPaper])
+  if (page.backgroundAssetId == null) return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]}>{guideUnderlay}</View>
   return <View style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]} pointerEvents="box-none">
+    {guideUnderlay}
     {svg && !error && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <SvgBoundary onError={fail}><RenderedSvg xml={svg.xml} ast={styledAst} width={width * zoom} height={height * zoom} onReady={() => callbacks.current.onReady?.()} /></SvgBoundary>
     </View>}

@@ -23,7 +23,7 @@ import TextEditor from '../TextEditor'
 import TextBoxInput from '../TextBoxInput'
 import TextLinkOverlay from '../TextLinkOverlay'
 import PalmRejectionArea from './PalmRejectionArea'
-import GridOverlay, { DEFAULT_GUIDES } from './GridOverlay'
+import GridOverlay, { DEFAULT_GUIDES, hasGuides } from './GridOverlay'
 import PaperColorSettings from '../PaperColorSettings'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 
@@ -213,16 +213,18 @@ export default function Canvas({
     },
   })
 
+  const guideUnderlay = !readOnly && hasGuides(gridGuides) ? <>
+    <GridOverlay guides={gridGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
+    <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
+  </> : null
+
   return (
     <View
       accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', eraser: '지우개', text: '텍스트', lasso: '올가미' }[activeTool]} 캔버스`}
       style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
     >
-      {showBackground && <PageBackground page={page} zoom={zoom} />}
-      {!readOnly && <GridOverlay guides={gridGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />}
-      {/* 보조선(가운데·3등분·여백)도 격자처럼 속지 바로 위, 모든 요소 아래에 둔다. 아무것도 가리지 않는다 */}
-      {!readOnly && <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />}
+      {showBackground ? <PageBackground page={page} zoom={zoom} underlay={guideUnderlay} /> : guideUnderlay}
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
