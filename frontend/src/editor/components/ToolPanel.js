@@ -14,7 +14,7 @@ export function ToolPanelHeader({ icon, title, onClose, closeLabel, disabled = f
 
 /**
  * 스티커·마테·사진 옵션과 같은 세그먼트 버튼. 회색 바탕 위에 고른 칸만 흰색으로 뜬다.
- * items: [{ id, label?, icon?, a11y?, textStyle? }], selected(id) → 고른 칸인지, onPress(id)
+ * items: [{ id, label?, icon?, a11y?, textStyle?, disabled? }], selected(id) → 고른 칸인지, onPress(id)
  * 한 칸만 고르는 경우(정렬)와 여러 칸을 켜고 끄는 경우(굵게·기울임) 모두 같은 모양으로 쓴다.
  * separate: 글자 칸을 여러 개 켜고 끄는 줄(보조선)은 켜진 칸끼리 붙어 보여 간격이 달라 보이므로, 칸마다 바탕을 두고 같은 간격으로 띄운다.
  */
@@ -22,16 +22,17 @@ export function Segmented({ items, selected, onPress, disabled = false, separate
   return (
     <View style={[separate ? toolPanelStyles.chips : toolPanelStyles.segment, disabled && toolPanelStyles.dim]}>
       {items.map((item) => {
-        const on = selected(item.id)
+        const itemDisabled = disabled || Boolean(item.disabled)
+        const on = !item.disabled && selected(item.id)
         return (
           <Pressable
             key={item.id}
             accessibilityRole="button"
             accessibilityLabel={item.a11y ?? item.label}
-            accessibilityState={{ selected: on, disabled }}
-            disabled={disabled}
+            accessibilityState={{ selected: on, disabled: itemDisabled }}
+            disabled={itemDisabled}
             onPress={() => onPress(item.id)}
-            style={[toolPanelStyles.segmentItem, separate && toolPanelStyles.chip, on && (separate ? toolPanelStyles.chipActive : toolPanelStyles.segmentActive)]}
+            style={[toolPanelStyles.segmentItem, separate && toolPanelStyles.chip, on && (separate ? toolPanelStyles.chipActive : toolPanelStyles.segmentActive), item.disabled && toolPanelStyles.dim]}
           >
             {item.icon ? item.icon : <Text style={[toolPanelStyles.segmentText, on && toolPanelStyles.segmentTextActive, item.textStyle]}>{item.label}</Text>}
           </Pressable>

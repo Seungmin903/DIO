@@ -8,9 +8,11 @@ import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRang
 import { copyText } from '../services/textClipboard'
 import TextActionBar from './TextActionBar'
 import TextLinkDialog from './TextLinkDialog'
+import { useTextFont } from '../hooks/useTextFont'
 
 // Android는 TextInput의 styled children으로 선택 범위 색상을 즉시 표시한다.
 export default function TextEditor({ object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast, onReveal }) {
+  useTextFont(object.font)
   const input = useRef(null), draft = useRef(object.text ?? ''), composing = useRef(false), saving = useRef(false)
   const cancelled = useRef(false)
   const ranges = useRef(normalizeRanges(object.text ?? '', object.colorRanges))
