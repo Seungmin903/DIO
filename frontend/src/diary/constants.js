@@ -40,8 +40,8 @@ export const PAGE_SIZES = [{ id: 'landscape', label: '가로형' }, { id: 'portr
 
 // 첫 페이지 서식. 지금은 선택값만 저장하고, 편집기 속지가 준비되면 첫 페이지에 반영한다.
 export const FIRST_PAGES = [
-  { id: 'monthly', label: '먼슬리' },
-  { id: 'weekly', label: '위클리' },
+  { id: 'monthly', label: '월간 달력' },
+  { id: 'weekly', label: '주간 계획' },
   { id: 'blank', label: '무지' },
   { id: 'lined', label: '줄노트' },
   { id: 'grid', label: '모눈' },

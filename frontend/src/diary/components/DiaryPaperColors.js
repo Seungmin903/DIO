@@ -6,9 +6,22 @@ import { configuredPageIds } from '../../editor/templates/creation.js'
 import { TEMPLATE_VERSION, getTemplate, templateCanvasSize } from '../../editor/templates/catalog.js'
 import { colors } from '../../shared/theme'
 import { PAPER_BACKGROUNDS, PAPER_LAYOUTS } from '../../editor/templates/appearance.js'
+import AppIcon from '../../shared/AppIcon'
 
 const BACKGROUNDS = PAPER_BACKGROUNDS
 const LAYOUTS = PAPER_LAYOUTS
+
+export function DiaryPaperColorButton({ appearance, disabled, onPress }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel="내지 색상 변경 (선택)" disabled={disabled} onPress={onPress}
+    style={({ pressed }) => [s.colorEntry, pressed && { opacity: 0.8 }, disabled && { opacity: 0.4 }]}>
+    <View style={s.colorDots}>
+      <View style={[s.colorDot, { backgroundColor: appearance.backgroundColor }]} />
+      <View style={[s.colorDot, s.inkDot, { backgroundColor: appearance.layoutColor }]} />
+    </View>
+    <View style={{ flex: 1, gap: 4 }}><Text style={s.title}>내지 색상 변경</Text><Text style={s.entryHint}>배경·레이아웃 색상을 골라 보세요 · 선택</Text></View>
+    <AppIcon name="chevron-right" size={20} />
+  </Pressable>
+}
 
 export function DiaryPaperPreview({ config, appearance }) {
   const assetId = useMemo(() => configuredPageIds(config)[0], [config])
@@ -29,7 +42,7 @@ export default function DiaryPaperColors({ value, onChange, onInteractionChange 
   const [palette, setPalette] = useState(null)
   return <View>
     <Text style={s.intro}>내지의 분위기를 골라 주세요</Text>
-    <Text style={s.hint}>추천 색상을 고르거나 +를 눌러 원하는 색을 지정하세요. 왼쪽 첫 페이지에 바로 반영돼요.</Text>
+    <Text style={s.hint}>추천 색상을 고르거나 +를 눌러 원하는 색을 지정하세요. 첫 페이지 미리보기에 바로 반영돼요.</Text>
     {[['backgroundColor', '배경색', BACKGROUNDS], ['layoutColor', '레이아웃 색상', LAYOUTS]].map(([key, label, presets]) => {
       const selected = value[key]
       const custom = !presets.some(([, color]) => color === selected)
@@ -54,6 +67,11 @@ export default function DiaryPaperColors({ value, onChange, onInteractionChange 
   </View>
 }
 const s = StyleSheet.create({
+  colorEntry: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, minHeight: 64, borderWidth: 1, borderColor: colors.primary, borderRadius: 14, backgroundColor: colors.primarySoft, marginBottom: 14 },
+  colorDots: { width: 46, height: 34, justifyContent: 'center' },
+  colorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border },
+  inkDot: { position: 'absolute', right: 0, top: 4, borderColor: '#FFFFFF', borderWidth: 2 },
+  entryHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16 },
   intro: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: 8 },
   hint: { color: colors.textMuted, fontSize: 12, lineHeight: 19, marginTop: 10, marginBottom: 10 },
   section: { marginTop: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },

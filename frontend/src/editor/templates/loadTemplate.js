@@ -14,7 +14,7 @@ const load = createTemplateCache(async id => {
   // HTML 오류 응답이나 빈 파일이 정상 배경으로 처리되지 않도록 검사한다.
   const ast = parse(xml)
   const { width, height } = templateCanvasSize(getTemplate(id).orientation)
-  if (ast?.tag !== 'svg' || ast.props.viewBox !== `0 0 ${width} ${height}`) throw new TemplateError('속지 파일의 형식이나 크기가 올바르지 않아요.')
+  if (ast?.tag !== 'svg' || ast.props.viewBox !== `0 0 ${width} ${height}`) throw new TemplateError('내지 파일의 형식이나 크기가 올바르지 않아요.')
   // 속지 SVG는 80KB 안팎이라 해석 비용이 크다. 검증하며 만든 AST를 화면 표시에 그대로 쓴다.
   return { xml, ast }
 })

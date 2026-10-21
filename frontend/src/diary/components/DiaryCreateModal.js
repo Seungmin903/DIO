@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import DiaryPaperColors, { DiaryPaperPreview } from './DiaryPaperColors';
-import { templateIdForOrientation } from '../../editor/templates/catalog.js';
+import DiaryPaperColors, { DiaryPaperColorButton, DiaryPaperPreview } from './DiaryPaperColors';
+import DiaryMonthPreview from './DiaryMonthPreview';
 import { DEFAULT_PAPER_APPEARANCE } from '../../editor/templates/appearance.js';
 import DiaryTemplateSettings from './DiaryTemplateSettings';
-import { defaultTemplateConfig, templatePageCount } from '../../editor/templates/creation.js';
+import { templatePageCount } from '../../editor/templates/creation.js';
+import { activeCreationConfig, creationFlowReducer, initialCreationFlow } from '../utils/creationFlow.js';
+import DiaryPresets, { CompositionSummary } from './DiaryPresets';
 import AppIcon from '../../shared/AppIcon';
 import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, PAGE_SIZES } from '../constants';
 import { styles as s } from '../styles';
@@ -51,12 +53,14 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [title, setTitle] = useState(diary?.title ?? DIARY_DEFAULTS.title);
   const [color, setColor] = useState(diary?.color ?? DIARY_DEFAULTS.color);
   const [pattern, setPattern] = useState(diary ? diary.pattern ?? null : DIARY_DEFAULTS.pattern);
-  const [pageSize, setPageSize] = useState(diary?.pageSize ?? 'landscape');
-  const [step, setStep] = useState(0);
-  const [templateConfig, setTemplateConfig] = useState(defaultTemplateConfig);
+  const [flow, changeFlow] = useReducer(creationFlowReducer, diary?.pageSize, initialCreationFlow);
+  const { step, orientation: pageSize } = flow;
+  const templateConfig = useMemo(() => activeCreationConfig(flow), [flow]);
   const submitting = useRef(false);
-  const configuring = !editing && step === 1;
-  const coloring = !editing && step === 2;
+  const recommending = !editing && step === 'recommend';
+  const configuring = !editing && step === 'custom';
+  const coloring = !editing && step === 'colors';
+  const choosing = !editing && step !== 'cover';
   const [paperAppearance, setPaperAppearance] = useState(() => ({ ...DEFAULT_PAPER_APPEARANCE }));
   const [error, setError] = useState('');
   const formScroll = useRef(null);
@@ -66,16 +70,13 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     formScroll.current?.setNativeProps?.({ scrollEnabled: !active });
     setPaletteDragging(active);
   }, []);
-  const actionLabel = saving ? '저장 중…' : editing ? '완료하기' : coloring ? '다이어리 만들기' : configuring ? '내지 색상 선택하기' : '속지 선택하기';
+  const actionLabel = saving ? '저장 중…' : editing ? '완료하기' : choosing ? '이 구성으로 시작' : '내지 구성 선택하기';
   let count = null, configError = '';
-  if (!editing && step > 0) {
+  if (choosing) {
     try { count = templatePageCount(templateConfig); } catch (failure) { configError = failure.message; }
   }
   const changePageSize = orientation => {
-    setPageSize(orientation);
-    setTemplateConfig(current => ({ ...current, orientation,
-      ...Object.fromEntries(['dailyTemplates', 'reusable', 'legacyEndPages'].map(key => [key, current[key].map(item => ({ ...item, assetId: templateIdForOrientation(item.assetId, orientation) }))])),
-    }));
+    changeFlow({ type: 'orientation', value: orientation });
   };
   const pageSizeLabel = PAGE_SIZES.find((item) => item.id === pageSize)?.label;
   const slide = useRef(new Animated.Value(sheet ? 1 : 0)).current;
@@ -94,7 +95,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     const trimmed = title.trim();
     if (!trimmed) { setError('다이어리 이름을 입력해 주세요.'); return; }
     if (configError) { setError(configError); return; }
-    if (!editing && step < 2) { setError(''); setStep(step + 1); return; }
+    if (!editing && step === 'cover') { setError(''); changeFlow({ type: 'next' }); return; }
     submitting.current = true;
     try {
       const failure = await onSubmit({ title: trimmed, color, pattern, pageSize, templateConfig, paperAppearance });
@@ -121,10 +122,11 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       />
       <Animated.View style={[s.createDialog, sheet && s.createSheet, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
         {sheet ? <View style={s.sheetHandle} /> : (
-          <View style={s.createPreviewPane}>
-            {coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <BookPreview title={title} color={color} pattern={pattern} />}
+          <View style={[s.createPreviewPane, recommending && { width: 300, paddingHorizontal: 20, paddingVertical: 24 }]}>
+            {recommending ? <DiaryMonthPreview config={templateConfig} appearance={paperAppearance} />
+              : coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <BookPreview title={title} color={color} pattern={pattern} />}
             <Text style={s.createPreviewMeta}>{pageSizeLabel}</Text>
-            <Text style={s.createPreviewCopy}>{coloring ? '추천 색상과 직접 지정한 색을 바로 확인하세요.' : '표지 색상과 패턴은 만든 뒤에도 바꿀 수 있어요.'}</Text>
+            <Text style={s.createPreviewCopy}>{recommending ? '추천 구성을 고르면 한 달의 내지가 바뀌어요.' : coloring ? '추천 색상과 직접 지정한 색을 바로 확인하세요.' : '표지 색상과 패턴은 만든 뒤에도 바꿀 수 있어요.'}</Text>
           </View>
         )}
 
@@ -132,7 +134,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
           <View style={s.createDialogHeader}>
             <View>
               {!sheet && <Text style={s.createDialogEyebrow}>{editing ? 'EDIT DIARY' : 'YOUR NEXT CHAPTER'}</Text>}
-              <Text style={s.createDialogTitle}>{editing ? '다이어리 수정' : coloring ? '내지 색상' : configuring ? '속지 구성' : '새 다이어리 만들기'}</Text>
+              <Text style={s.createDialogTitle}>{editing ? '다이어리 수정' : coloring ? '내지 색상' : configuring ? '직접 구성하기' : recommending ? '어떻게 기록할까요?' : '새 다이어리 만들기'}</Text>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -145,10 +147,12 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             </Pressable>
           </View>
 
+          {choosing && !coloring && <DiaryPaperColorButton appearance={paperAppearance} disabled={saving || Boolean(configError)}
+            onPress={() => { changeFlow({ type: 'colors' }); setError(''); }} />}
           <ScrollView ref={formScroll} scrollEnabled={!paletteDragging} style={s.createFormScroll} contentContainerStyle={s.createFormBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View pointerEvents={saving ? 'none' : 'auto'}>
-            {!editing && <Text style={[s.helper, { marginBottom: 12 }]}>{coloring ? '3 / 3 · 내지 색상' : configuring ? '2 / 3 · 속지 구성' : '1 / 3 · 이름과 표지'}</Text>}
-            {!configuring && !coloring && <>
+            {!editing && <Text style={[s.helper, { marginBottom: 12 }]}>{coloring ? '선택 사항 · 내지 색상' : choosing ? '2 / 2 · 내지 구성' : '1 / 2 · 이름과 표지'}</Text>}
+            {!choosing && <>
             <Text style={s.createLabel}>이름</Text>
             <TextInput
               accessibilityLabel="다이어리 이름"
@@ -202,25 +206,35 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             </View>
 
             </>}
-            {configuring && <DiaryTemplateSettings value={templateConfig} onChange={value => { setTemplateConfig(value); setError(''); }} />}
-            {coloring && <DiaryPaperColors onInteractionChange={onPaletteInteraction} value={paperAppearance} onChange={setPaperAppearance} />}
+            {recommending && sheet && <DiaryMonthPreview config={templateConfig} appearance={paperAppearance} compact />}
+            {recommending && <DiaryPresets selected={flow.preset} orientation={pageSize} appearance={paperAppearance}
+              onSelect={id => { changeFlow({ type: 'preset', id }); setError(''); }}
+              onCustomize={() => { changeFlow({ type: 'custom' }); setError(''); }} />}
+            {configuring && <>
+              <CompositionSummary config={templateConfig} />
+              <DiaryTemplateSettings value={templateConfig} onChange={value => { changeFlow({ type: 'configure', value }); setError(''); }} />
+            </>}
+            {coloring && <>
+              {sheet && <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} />}
+              <DiaryPaperColors onInteractionChange={onPaletteInteraction} value={paperAppearance} onChange={setPaperAppearance} />
+            </>}
             </View>
           </ScrollView>
 
-          {!editing && step > 0 && <View>
-            <Text style={s.createLabel}>총 {count == null ? '—' : count}페이지</Text>
+          {choosing && <View>
+            <Text accessibilityLiveRegion="polite" style={s.createLabel}>전체 페이지 수 · {count == null ? '—' : count}페이지</Text>
             {(error || configError) ? <Text accessibilityRole="alert" style={[s.error, { marginBottom: 8 }]}>{error || configError}</Text> : null}
           </View>}
           <View style={[s.createFooter, sheet && { paddingBottom: 16 + bottomInset }]}>
-            {!editing && step > 0 && <Pressable
+            {choosing && <Pressable
               accessibilityRole="button"
-              accessibilityLabel={coloring ? '속지 구성으로 돌아가기' : '이름과 표지로 돌아가기'}
+              accessibilityLabel={coloring ? '내지 구성으로 돌아가기' : configuring ? '추천 구성으로 돌아가기' : '이름과 표지로 돌아가기'}
               disabled={saving}
-              onPress={() => { setStep(step - 1); setError(''); }}
+              onPress={() => { changeFlow({ type: 'back' }); onPaletteInteraction(false); setError(''); }}
               style={({ pressed }) => [s.createBack, pressed && s.pressed, saving && { opacity: 0.5 }]}
             >
               <AppIcon name="chevron-left" size={18} color="#40517D" />
-              <Text style={s.createBackText}>{coloring ? '속지 구성' : '이름과 표지'}</Text>
+              <Text style={s.createBackText}>{coloring ? '내지 구성' : configuring ? '추천 구성' : '이름과 표지'}</Text>
             </Pressable>}
             <Pressable
               accessibilityRole="button"

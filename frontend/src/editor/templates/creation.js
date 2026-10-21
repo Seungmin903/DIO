@@ -45,7 +45,7 @@ export function normalizeTemplateConfig(input, orientation = input?.orientation)
   const templates = creationTemplates(direction)
   const source = input ?? defaultTemplateConfig(direction)
   const weeklyStyle = source.weeklyStyle ?? 'blocks'
-  if (!WEEKLY_CHOICES.some(item => item.id === weeklyStyle)) throw new Error('위클리 양식을 다시 골라 주세요.')
+  if (!WEEKLY_CHOICES.some(item => item.id === weeklyStyle)) throw new Error('주간 계획 양식을 다시 골라 주세요.')
   const legacy = source.version !== 2
   const config = {
     version: 2, orientation: direction,
@@ -80,25 +80,35 @@ export function templatePageCount(input) { return countConfiguredPages(normalize
 
 // 주간 페이지의 월 배정은 제공된 연간 순서를 유지하고 중복하지 않는다.
 export function configuredPageIds(input) {
-  const config = normalizeTemplateConfig(input)
+  return collectConfiguredPages(normalizeTemplateConfig(input))
+}
+
+// 연간 생성과 같은 배치 규칙으로 한 달만 읽는다. 첫 장 표지와 맨 뒤 구형 추가 내지는 제외한다.
+export function configuredMonthPageIds(input, month = 1) {
+  if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error('미리 볼 월을 1~12월 중에서 골라 주세요.')
+  return collectConfiguredPages(normalizeTemplateConfig(input), month)
+}
+
+function collectConfiguredPages(config, previewMonth = null) {
   const ids = []
   let month = null
   const appendChoices = choices => {
     for (const item of choices) if (item.enabled) for (let i = 0; i < item.count; i++) ids.push(item.assetId)
   }
   const appendMonthPages = () => {
-    if (month == null) return
+    if (month == null || previewMonth != null && month !== previewMonth) return
     if (config.daily) appendChoices(config.dailyTemplates)
     appendChoices(config.reusable)
   }
   for (const id of annualPageIds(config.orientation)) {
     const asset = getTemplate(id)
     if (asset.type === 'divider') { appendMonthPages(); month = asset.month }
+    if (previewMonth != null && month !== previewMonth) continue
     if (asset.type === 'cover' && config.cover || asset.type === 'divider' && config.dividers || asset.type === 'monthly' && config.monthly) ids.push(id)
     if (asset.type === 'weekly' && config.weekly) ids.push(id.replace('weekly-blocks-', 'weekly-' + config.weeklyStyle + '-'))
   }
   appendMonthPages()
-  appendChoices(config.legacyEndPages)
+  if (previewMonth == null) appendChoices(config.legacyEndPages)
   ids.forEach(id => getTemplate(id))
   return ids
 }
