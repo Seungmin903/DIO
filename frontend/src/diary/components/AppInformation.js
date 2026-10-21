@@ -4,12 +4,14 @@ import * as Clipboard from 'expo-clipboard';
 import AppIcon from '../../shared/AppIcon';
 import { notify } from '../../shared/dialogs';
 import { C } from '../constants';
+import ContentLicenses from './ContentLicenses';
 
 const PRIVACY_POLICY_URL = 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVThQYxck0l_bwzg33FxGShE6rpqd0/edit?usp=sharing';
 const SUPPORT_EMAIL = 'dioapp.official@gmail.com';
 
 export default function AppInformation() {
   const [copyMessage, setCopyMessage] = useState('');
+  const [licensesOpen, setLicensesOpen] = useState(false);
 
   const openPrivacyPolicy = async () => {
     try {
@@ -48,6 +50,12 @@ export default function AppInformation() {
           <Text style={styles.copyLabel}>복사</Text>
         </Pressable>
       </View>
+      <Pressable accessibilityRole="button" accessibilityLabel="오픈소스 및 콘텐츠 라이선스" onPress={() => setLicensesOpen(true)}
+        style={({ pressed }) => [styles.licenses, pressed && styles.pressed]}>
+        <Text style={[styles.label, { flex: 1 }]}>오픈소스 및 콘텐츠 라이선스</Text>
+        <AppIcon name="chevron-right" size={18} color={C.muted} />
+      </Pressable>
+      <ContentLicenses visible={licensesOpen} onClose={() => setLicensesOpen(false)} />
       {!!copyMessage && <Text accessibilityLiveRegion="polite" role="status" style={styles.status}>{copyMessage}</Text>}
     </View>
   );
@@ -57,6 +65,7 @@ const styles = StyleSheet.create({
   card: { marginTop: 20, padding: 25, borderRadius: 20, backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
   title: { color: C.ink, fontSize: 18, fontWeight: '900', marginBottom: 8 },
   policy: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.line },
+  licenses: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 18, paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line },
   contact: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingTop: 18 },
   copy: { flex: 1, minWidth: 180, gap: 6 },
   label: { color: C.ink, fontSize: 15, fontWeight: '700' },
