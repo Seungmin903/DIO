@@ -1,8 +1,9 @@
 import { createContext, useContext } from 'react'
-import { Image, Platform, StyleSheet, Text, View } from 'react-native'
+import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
-import { stickerSource } from '../../stickerAssets'
+import { isAnimatedMedia, stickerSource } from '../../stickerAssets'
+import MediaImage from './MediaImage'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
 import { reportMediaDisplayError, mediaRegistry } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
@@ -138,10 +139,12 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   const box = { width, height }
   const uri = useMediaUri(object, { still })
   const source = stickerSource(object, still, uri)
+  const animated = !still && isAnimatedMedia(object)
 
   const silhouette = source
     ? (key, color, dx, dy, opacity = 1) => (
-        <Image
+        <MediaImage
+          animated={animated}
           key={key}
           source={source}
           style={[
@@ -204,7 +207,7 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
       {shadowLayers}
       {outline.on && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, outline.color, dx * stroke, dy * stroke))}
       {source ? (
-        <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
+        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>
       )}
@@ -219,6 +222,7 @@ const emojiText = (height) => ({ fontSize: height * 0.72, lineHeight: height })
 // still: 페이지 썸네일처럼 움직일 필요 없는 곳에서는 GIF 대신 첫 장면을 그린다.
 export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetError }) {
   const uri = useMediaUri(photo, { still })
+  const animated = !still && isAnimatedMedia(photo)
   const clipId = useSvgId('photo-clip')
   const inner = photoInnerBox(photo)
   const box = { width: inner.width * zoom, height: inner.height * zoom }
@@ -228,7 +232,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
   const shadow = { ...shadowOf(photo), on: shadowOf(photo).on && photoSupportsShadow(photo) }
   const border = outline.on ? Math.max(0.75, outline.width * zoom) : 0
 
-  // 사각·라운드·원형은 View 로 잘라 그린다. RN Image 라서 GIF 도 움직인다. (SVG 이미지는 첫 장면만 나옴)
+  // 사각·라운드·원형은 View 로 잘라 그린다. RN Image·expo-image(GIF) 라서 GIF 도 움직인다. (SVG 이미지는 첫 장면만 나옴)
   // resizeMethod="scale": Android 는 기본값(auto)이면 처음 놓인 크기로 줄여 풀고, 사진을 키우거나 확대해도 다시 풀지 않아 흐려진다.
   // 표시본(긴 변 3072px)을 그대로 풀어 두고 화면 크기에 맞춰 그리게 한다. (iOS·웹은 이 값을 쓰지 않는다)
   if (photo.frame === 'shape' && VIEW_CLIP_SHAPES[photo.shape] != null) {
@@ -241,7 +245,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
       // 그림자는 잘라 내지 않는 바깥 View 에, 사진은 안쪽 View 에서 자른다.
       <View style={[shapeStyle, boxShadowStyle(shadow, zoom)]}>
         <View style={[styles.shapeClip, shapeStyle, { borderWidth: border, borderColor: outline.color, transform: flip }]}>
-          <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" resizeMethod="scale" />
+          <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" resizeMethod="scale" />
           {shadow.inset && <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: shapeStyle.borderRadius }, insetShadowStyle(shadow, zoom)]} />}
         </View>
       </View>
@@ -307,7 +311,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
           },
         ]}
       >
-        <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" resizeMethod="scale" />
+        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" resizeMethod="scale" />
         {/* 안쪽 그림자: 틀 안 사진이 오목하게 들어가 보이게 */}
         {shadow.inset && <View pointerEvents="none" style={[StyleSheet.absoluteFill, insetShadowStyle(shadow, zoom)]} />}
       </View>

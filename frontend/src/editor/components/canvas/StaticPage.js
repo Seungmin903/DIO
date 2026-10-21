@@ -1,12 +1,19 @@
-import { memo, useContext } from 'react'
+import { createContext, memo, useContext } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
 import PageBackground from '../PageBackground'
 import ObjectContent, { objectOpacity, TextMeasure } from './ObjectView'
-import { ViewportMotion } from './Viewport'
 
 const DRAG_OPACITY = 0.5
+
+/**
+ * 편집 화면이 페이지 그림에 알려 GIF 를 멈출지 정하는 값. (EditorScreen 이 Viewport 안쪽에 준다)
+ * - moving: 확대·축소·이동 중 (transform 으로 늘이는 동안은 GIF 를 첫 장면으로 멈춘다)
+ * - visible: 지금 화면에 보이는 페이지 범위 (논리 좌표). 범위 밖 GIF 는 멈춘다.
+ * 페이지 목록 썸네일 등에서는 기본값이라 아무것도 바뀌지 않는다.
+ */
+export const ViewportMotion = createContext({ moving: false, visible: null })
 
 /**
  * 페이지 그림. 편집 화면(Canvas 의 그림 층)과 페이지 썸네일이 이 컴포넌트 하나를 같이 써서
@@ -17,7 +24,7 @@ const DRAG_OPACITY = 0.5
  * - fadeIds: 끌어서 옮기는 중인 요소. 놓기 전까지 반투명하게 그린다.
  * - stillIds: 크기 조절·회전 중인 요소. GIF 를 첫 장면으로 멈춘다.
  * - onTextMeasure(id, h): 편집 화면에서 텍스트가 실제로 그려진 높이를 받는다. (상자 높이를 줄 수에 맞춤)
- * 편집 화면에서는 확대·이동하는 동안과 화면 밖에 있는 GIF 도 멈춘다 (Viewport 의 ViewportMotion).
+ * 편집 화면에서는 확대·이동하는 동안과 화면 밖에 있는 GIF 도 멈춘다 (ViewportMotion).
  * 편집 화면의 GIF 는 움직여야 하므로, 손대지 않고 보이는 것만 재생한다.
  */
 const StaticPage = memo(function StaticPage({ page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true, fadeIds = null, stillIds = null, onTextMeasure = null }) {
