@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react'
+import { createContext, memo, useContext } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
@@ -28,7 +28,7 @@ export const TextMeasure = createContext(null)
  * 오브젝트 하나의 생김새. 위치·회전·불투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
-export default function ObjectContent({ object, zoom, still = false, onAssetLoad, onAssetError }) {
+function ObjectContent({ object, zoom, still = false, onAssetLoad, onAssetError }) {
   const width = object.w * zoom
   const height = object.h * zoom
   const uri = useMediaUri(object, { still })
@@ -76,6 +76,9 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
       return null
   }
 }
+
+// 새 획·선택·저장 상태가 바뀌어도 같은 요소의 그림은 재사용한다.
+export default memo(ObjectContent)
 
 /* ---------- 꾸미기 옵션 (값이 없으면 기본값) ---------- */
 
