@@ -2,7 +2,7 @@
 export function createTemplateCache(read, limit = 16) {
   const completed = new Map()
   const pending = new Map()
-  return async function load(key) {
+  async function load(key) {
     if (completed.has(key)) {
       const value = completed.get(key)
       completed.delete(key); completed.set(key, value)
@@ -17,4 +17,7 @@ export function createTemplateCache(read, limit = 16) {
     pending.set(key, request)
     return request
   }
+  // 이미 읽어 둔 값은 기다리지 않고 바로 돌려준다. (첫 렌더에서 "로딩 중"을 거치지 않게)
+  load.peek = (key) => completed.get(key)
+  return load
 }

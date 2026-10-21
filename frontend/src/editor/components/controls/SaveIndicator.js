@@ -6,6 +6,8 @@ const SAVE_INFO = {
   saving: '이 기기에 저장하는 중이에요.',
   saved: '모든 변경 사항을 이 기기에 자동 저장했어요.',
   error: '저장 공간이 부족해 이 기기에 저장하지 못했어요. 큰 GIF나 사진을 지우면 다시 저장돼요.',
+  // 저장된 문서를 읽지 못해 기존 기록을 지키려고 저장을 멈춘 상태
+  'load-error': '저장된 기록을 불러오지 못해 기존 기록을 지키려고 저장하지 않았어요. 앱을 다시 열어 주세요.',
 }
 
 /**
@@ -13,7 +15,7 @@ const SAVE_INFO = {
  * 아이콘 옆에 늘 상태 글자(자동 저장됨 · 저장 중 · 저장 안 됨)를 쓴다. 누르면 자세한 안내.
  */
 export default function SaveIndicator({ status, onInfo }) {
-  const error = status === 'error'
+  const error = status === 'error' || status === 'load-error'
   // 늘 글자를 함께 보여 준다 (아이콘만으로는 무슨 버튼인지 알기 어려웠다)
   const text = error ? '저장 안 됨' : status === 'saving' ? '저장 중' : '자동 저장됨'
   return (

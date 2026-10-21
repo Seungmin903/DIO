@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
+import { prepareEditor } from './src/editor/services/editorDocs';
 import { DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
@@ -13,6 +14,13 @@ import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
 import { fitTabletFrame } from './src/shared/layout';
+
+// 속지 캐시(16개)를 넘지 않도록 앞쪽 다이어리만 미리 준비한다.
+const PREFETCH_DIARIES = 8;
+const PREFETCH_DELAY_MS = 400;
+// 편집기 진입 전 준비를 기다리는 최대 시간. 보통은 이보다 훨씬 빨리 끝난다.
+const EDITOR_PREPARE_LIMIT_MS = 500;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function App() {
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
@@ -49,10 +57,20 @@ function DiaryApp() {
 
   const tablet = fitTabletFrame(viewport.width, viewport.height);
 
-  const open = useCallback((diary) => {
-    setActive(diary);
-    setPage('editor');
+  // 편집 문서·첫 속지·사진을 기기 저장소에서 미리 준비한 뒤 편집기로 넘어가 로딩 화면이 보이지 않게 한다.
+  // 준비가 늦어져도 정해진 시간 안에는 넘어가고, 그사이 다른 다이어리를 고르면 마지막 요청을 연다.
+  const opening = useRef(null);
+  const enterEditor = useCallback((diary) => {
+    const request = {};
+    opening.current = request;
+    Promise.race([prepareEditor(diary), wait(EDITOR_PREPARE_LIMIT_MS)]).finally(() => {
+      if (opening.current !== request) return;
+      opening.current = null;
+      setActive(diary);
+      setPage('editor');
+    });
   }, []);
+  const open = enterEditor;
 
   const favorite = useCallback((id) => {
     setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, favorite: !diary.favorite } : diary)));
@@ -117,9 +135,8 @@ function DiaryApp() {
     setCreateOpen(false);
     setEditingDiary(null);
     if (!original) {
-      setActive(diary);
       setCarousel(0);
-      setPage('editor');
+      enterEditor(diary);
     }
     return undefined;
   };
@@ -131,6 +148,24 @@ function DiaryApp() {
 
   const visibleDiaries = useMemo(() => diaries.filter((diary) => !diary.trashedAt), [diaries]);
   const trashedDiaries = useMemo(() => diaries.filter((diary) => diary.trashedAt), [diaries]);
+
+  // 홈에 있는 동안 앞쪽 다이어리의 문서와 첫 속지를 차례로 미리 읽어 둔다. (사진은 열 때 준비)
+  // 즐겨찾기 등 목록 내용만 바뀔 때는 다시 돌지 않도록 대상 다이어리 ID가 바뀔 때만 실행한다.
+  const prefetchTargets = useMemo(() => visibleDiaries.slice(0, PREFETCH_DIARIES), [visibleDiaries]);
+  const prefetchKey = prefetchTargets.map((diary) => diary.id).join(',');
+  const prefetchRef = useRef(prefetchTargets);
+  prefetchRef.current = prefetchTargets;
+  useEffect(() => {
+    if (!loaded || page !== 'library') return undefined;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      for (const diary of prefetchRef.current) {
+        if (cancelled) return;
+        await prepareEditor(diary, { media: false });
+      }
+    }, PREFETCH_DELAY_MS);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [loaded, page, prefetchKey]);
 
   const libraryScreen = useMemo(() => (
     <LibraryScreen

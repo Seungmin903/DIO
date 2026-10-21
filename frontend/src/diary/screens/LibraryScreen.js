@@ -157,8 +157,8 @@ function LibraryScreen({
               onMomentumScrollEnd={syncCarouselIndex}
               initialNumToRender={3}
               maxToRenderPerBatch={3}
+              // 카드가 확대·기울기로 자기 영역 밖까지 그려져서 removeClippedSubviews는 쓰지 않는다.
               windowSize={5}
-              removeClippedSubviews
               renderItem={({ item, index }) => (
                 item.id === 'new-diary' ? (
                   <CreateDiaryCard

@@ -10,10 +10,14 @@ let sharingModule
 // Expo Go 또는 이전 개발 빌드에 expo-sharing 네이티브 모듈이 없을 수 있다.
 // 앱을 여는 단계(캐시 정리 포함)에서는 해당 모듈을 평가하지 않고, PDF 공유를 실제로 요청했을 때만 불러온다.
 // 캐시 정리는 파일 시스템만 쓰므로 공유 모듈 없이 동작한다.
-const sharing = () => (sharingModule ??= import('expo-sharing'))
+// 불러오기에 실패하면 다음 요청에서 다시 시도한다.
+const sharing = () => (sharingModule ??= import('expo-sharing').catch((error) => { sharingModule = null; throw error }))
 
 const service = createPdfShareService({
-  isAvailable: async () => (await sharing()).isAvailableAsync(),
+  // 모듈이 없는 빌드는 "공유를 쓸 수 없음"(EXPORT_PDF_SHARE_UNAVAILABLE)으로 안내한다.
+  isAvailable: async () => {
+    try { return await (await sharing()).isAvailableAsync() } catch { return false }
+  },
   share: async (uri, options) => (await sharing()).shareAsync(uri, options),
   list: async () => {
     const directory = root()

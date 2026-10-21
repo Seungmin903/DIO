@@ -21,6 +21,10 @@ import TextBoxInput from '../TextBoxInput'
 import TextLinkOverlay from '../TextLinkOverlay'
 import PalmRejectionArea from './PalmRejectionArea'
 
+// 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
+const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
+const cancelFrame = (id) => { if (id && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id) }
+
 const SNAP_SCREEN_PX = 6
 const LONG_PRESS_MS = 450
 // 빈 곳 터치: 이만큼(화면 px) 안에서 움직였으면 탭(선택 해제), 넘으면 영역 선택. 손가락 탭은 3~8px 쯤 흔들린다.
@@ -40,6 +44,7 @@ const MIN_TARGET_PX = 44
  * - 자르기 중인 사진은 드래그하면 보이는 영역이 움직인다.
  */
 export default function Canvas({
+  showBackground = true,
   page,
   zoom,
   selectedIds,
@@ -161,7 +166,7 @@ export default function Canvas({
       style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
     >
-      <PageBackground page={page} zoom={zoom} />
+      {showBackground && <PageBackground page={page} zoom={zoom} />}
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
@@ -410,6 +415,23 @@ function containsPoint(object, point) {
 
 function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onEditText }) {
   const gesture = useRef(null)
+  const moveFrame = useRef(null)
+  const pendingPatches = useRef(null)
+  const flushMove = () => {
+    if (moveFrame.current) cancelFrame(moveFrame.current)
+    moveFrame.current = null
+    const patches = pendingPatches.current
+    pendingPatches.current = null
+    if (patches) dispatch({ type: 'updateMany', patches })
+  }
+  const queueMove = (patches) => {
+    pendingPatches.current = patches
+    if (moveFrame.current) return
+    moveFrame.current = requestFrame(flushMove)
+  }
+  useEffect(() => () => {
+    if (moveFrame.current) cancelFrame(moveFrame.current)
+  }, [])
 
   const panHandlers = usePan({
     disabled: cropping && !isCropTarget,
@@ -473,11 +495,12 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
       if (guideY != null) oy += guideY - cy
       onGuides(guideX == null && guideY == null ? null : { x: guideX, y: guideY })
       const patches = Object.fromEntries(Object.entries(g.starts).map(([id, s]) => [id, { x: s.x + ox, y: s.y + oy }]))
-      dispatch({ type: 'updateMany', patches })
+      queueMove(patches)
     },
     onEnd: ({ moved, duration, cancelled }) => {
       const g = gesture.current
       gesture.current = null
+      if (g?.mode === 'move') flushMove()
       onGuides(null)
       onInteracting(false)
       // 끄는 도중 두 번째 손가락이 닿아 화면 확대·이동으로 넘어가면, 옮기던 요소는 제자리로 돌린다.

@@ -5,16 +5,43 @@ import { colors } from '../../shared/theme'
 import { clamp } from '../utils/common'
 import { applyLassoSelection, hasLassoArea, lassoHitIds, lassoPolygon, objectLassoCorners } from '../utils/lassoGeometry.js'
 
+// 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
+const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
+const cancelFrame = (id) => { if (id && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id) }
+
 const MIN_MOVEMENT = 10
 const SAMPLE_DISTANCE = 2
 
 // 선택·문서 상태는 드래그 종료 때 한 번만 반영한다. 이 입력층은 객체 위에서도 동작한다.
 export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pageWidth, pageHeight, onCommit, captureAll = true, onDrawingChange, onClearSelection }) {
   const gesture = useRef(null)
-  useLayoutEffect(() => () => { gesture.current = null; onDrawingChange?.(false) }, [onDrawingChange])
+  const frame = useRef(null)
+  const pendingDraft = useRef(null)
+  useLayoutEffect(() => () => {
+    gesture.current = null
+    if (frame.current) cancelFrame(frame.current)
+    onDrawingChange?.(false)
+  }, [onDrawingChange])
   const [draft, setDraft] = useState(null)
   const [drawing, setDrawing] = useState(false)
-  const cancel = () => { gesture.current = null; setDraft(null); setDrawing(false); onDrawingChange?.(false) }
+  const cancel = () => {
+    gesture.current = null
+    if (frame.current) cancelFrame(frame.current)
+    frame.current = null
+    pendingDraft.current = null
+    setDraft(null)
+    setDrawing(false)
+    onDrawingChange?.(false)
+  }
+  const scheduleDraft = (next) => {
+    pendingDraft.current = next
+    if (frame.current) return
+    frame.current = requestFrame(() => {
+      frame.current = null
+      setDraft(pendingDraft.current)
+      pendingDraft.current = null
+    })
+  }
   const input = {
     onStart: event => {
       cancel()
@@ -38,7 +65,7 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
       const valid = g.maxMove >= MIN_MOVEMENT && hasLassoArea(polygon)
       const ids = valid ? applyLassoSelection(objects, g.base, lassoHitIds(objects, polygon), mode) : mode === 'replace' ? [] : g.base
       g.result = valid ? ids : null
-      setDraft({ polygon, ids })
+      scheduleDraft({ polygon, ids })
     },
     onEnd: ({ cancelled }) => {
       const g = gesture.current
