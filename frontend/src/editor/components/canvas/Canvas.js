@@ -8,9 +8,11 @@ import { centerOf, clamp, rotateVector, unionBounds } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
 import { coverLayout, photoInnerBox } from '../../utils/objects'
 import { pageSize } from '../../utils/pageGeometry.js'
+import { createLassoOutline, resolveLassoOutline } from '../../utils/lassoOutline.js'
 import PageBackground from '../PageBackground'
 import ContextBar from './ContextBar'
 import CropHandles from './CropHandles'
+import LassoOutline from './LassoOutline'
 import StaticPage from './StaticPage'
 import SelectionOverlay from './SelectionOverlay'
 import PenInput from '../PenInput'
@@ -90,6 +92,12 @@ export default function Canvas({
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   const [lassoDrawing, setLassoDrawing] = useState(false)
   const [lassoCapture, setLassoCapture] = useState(false)
+  const [lassoOutline, setLassoOutline] = useState(null)
+  const outlinePaths = activeTool === 'lasso' && lassoShape === 'freeform'
+    ? resolveLassoOutline(lassoOutline, page.id, selectedIds, page.objects) : null
+  useEffect(() => {
+    if (lassoOutline && !outlinePaths) setLassoOutline(null)
+  }, [lassoOutline, outlinePaths])
   useEffect(() => { setLassoDrawing(false); setLassoCapture(false) }, [page.id, activeTool])
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
@@ -194,8 +202,13 @@ export default function Canvas({
           selectedIds={selectedIds} shape={lassoShape} mode={lassoMode} zoom={zoom}
           pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} captureAll={!lassoEditing}
           onDrawingChange={setLassoDrawing}
-          onClearSelection={() => { setLassoCapture(false); onLassoCommit([]) }}
-          onCommit={(ids) => { setLassoCapture(false); onLassoCommit(ids) }} />
+          onClearSelection={() => { setLassoOutline(null); setLassoCapture(false); onLassoCommit([]) }}
+          onCommit={(ids, result) => {
+            setLassoOutline(result?.shape === 'freeform'
+              ? createLassoOutline(lassoOutline, page.id, selectedIds, ids, page.objects, result.polygon, result.mode) : null)
+            setLassoCapture(false)
+            onLassoCommit(ids)
+          }} />
       )}
       {/* 터치 층: 요소마다 같은 자리에 투명한 상자를 두고 선택·이동을 받는다. */}
       <View style={[styles.hitLayer, activeTool === 'lasso' && { zIndex: 1 }]} pointerEvents={canSelect ? 'box-none' : 'none'}>
@@ -245,7 +258,10 @@ export default function Canvas({
       {guides?.x != null && <View style={[styles.guideV, { left: guides.x * zoom }]} pointerEvents="none" />}
       {guides?.y != null && <View style={[styles.guideH, { top: guides.y * zoom }]} pointerEvents="none" />}
 
-      {showSelection && selected.length === 1 && !cropping && !marquee && (
+      {outlinePaths && !replacingLasso && !cropping && !marquee && (
+        <LassoOutline paths={outlinePaths} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} />
+      )}
+      {showSelection && !outlinePaths && selected.length === 1 && !cropping && !marquee && (
         <View pointerEvents={canSelect ? "box-none" : "none"} style={styles.selectionControls}>
         <SelectionOverlay
           object={selected[0]}
@@ -256,8 +272,8 @@ export default function Canvas({
         />
         </View>
       )}
-      {!replacingLasso && selected.length > 1 && !marquee && <GroupFrame objects={selected} zoom={zoom} />}
-      {!replacingLasso && selected.length === 1 && selected[0].groupId && !cropping && !marquee && (
+      {!outlinePaths && !replacingLasso && selected.length > 1 && !marquee && <GroupFrame objects={selected} zoom={zoom} />}
+      {!outlinePaths && !replacingLasso && selected.length === 1 && selected[0].groupId && !cropping && !marquee && (
         <GroupFrame objects={visible.filter((o) => o.groupId === selected[0].groupId)} zoom={zoom} inside />
       )}
       {/* 영역 선택 중: 지금 네모 안에 들어와 선택될 요소마다 테두리와 옅은 칠을 보여 준다. */}
