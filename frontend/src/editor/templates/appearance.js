@@ -27,14 +27,14 @@ function isPaper(tag, props) {
   return tag === 'rect' && (width === 1024 && height === 768 || width === 768 && height === 1024) && Number(props.x ?? 0) === 0 && Number(props.y ?? 0) === 0
 }
 /** 원본 캐시를 변경하지 않고 표시용 AST를 복제한다. */
-export function colorTemplateAst(ast, value) {
+export function colorTemplateAst(ast, value, { transparentPaper = false } = {}) {
   const appearance = normalizePaperAppearance(value)
-  if (appearance.backgroundColor === '#FFFFFF' && appearance.layoutColor === '#292929') return ast
+  if (!transparentPaper && appearance.backgroundColor === '#FFFFFF' && appearance.layoutColor === '#292929') return ast
   // react-native-svg의 parse 결과는 루트 아래에 React 요소를 보관한다.
   const visit = (node, depth = 1) => {
     if (!isValidElement(node)) return node
     const props = { ...node.props }
-    if (depth === 1 && isPaper('rect', props) && String(props.fill).toLowerCase() === '#ffffff') props.fill = appearance.backgroundColor
+    if (depth === 1 && isPaper('rect', props) && String(props.fill).toLowerCase() === '#ffffff') props.fill = transparentPaper ? 'none' : appearance.backgroundColor
     else for (const key of ['fill', 'stroke']) if (props[key]) props[key] = layoutPaint(props[key], appearance)
     if (props.children != null) props.children = Children.map(props.children, child => visit(child, depth + 1))
     return cloneElement(node, props)

@@ -32,6 +32,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     if (id.endsWith('/theme')) return { colors: {} }
     if (id.endsWith('/constants')) return { PHOTO_SHAPES: [] }
     if (id.endsWith('/objects')) return {}
+    if (id.endsWith('/GridOverlay')) return { __esModule: true, default: () => null, DEFAULT_GUIDES: { grid: 'none' }, hasGuides: () => false }
     if (id.startsWith('.')) return { __esModule: true, default: () => null }
     return require(id)
   }

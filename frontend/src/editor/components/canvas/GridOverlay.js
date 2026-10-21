@@ -25,7 +25,7 @@ const GRID_COLOR = '#DCE5F1'
 const GUIDE_COLOR = 'rgba(232,93,140,0.7)'
 
 /**
- * 격자(layer="grid")는 요소 아래, 보조선(layer="guides")은 요소 위에 그린다.
+ * 격자(layer="grid")와 보조선(layer="guides")은 종이 바탕 위, 속지 글씨·사용자 요소 아래에 그린다.
  * 격자는 무늬(Pattern) 하나로 채워서 간격이 좁아도 그림 요소가 늘지 않는다.
  */
 function GridOverlay({ guides, layer, width, height, zoom }) {
