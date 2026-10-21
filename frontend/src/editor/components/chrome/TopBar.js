@@ -54,13 +54,16 @@ export default function TopBar({
   }
   return (
     <View style={styles.bar}>
-      {/* 페이지 버튼은 아래 페이지 목록 오른쪽 끝에 맞추고, 로고는 화면 왼쪽 끝과 페이지 버튼 사이 가운데에 둔다 */}
-      <View style={[styles.lead, pagesWidth && { width: LIST_LEFT + pagesWidth }]}>
-        <View style={[styles.logoSlot, !pagesWidth && { flex: 0, paddingHorizontal: 16 }]}>
-          <Pressable onPress={onHome} accessibilityLabel="다이어리 홈" hitSlop={6} style={styles.home}>
-            <BrandLogo size={LOGO_SIZE} />
-          </Pressable>
-        </View>
+      {/*
+        아래 페이지 목록과 양 끝을 맞춘다: ‹ + 로고(보관함으로 돌아가기)는 목록 왼쪽 끝, 페이지 버튼은 목록 오른쪽 끝.
+        ‹ 는 아이패드 문서 앱(노트·Pages·굿노트)처럼 왼쪽 위에서 돌아가기를 알려 준다.
+      */}
+      <View style={[styles.lead, pagesWidth && { width: LIST_LEFT + pagesWidth, gap: 0, paddingLeft: LIST_LEFT - CHEVRON_INSET + HOME_SHIFT }]}>
+        <Pressable onPress={onHome} accessibilityRole="button" accessibilityLabel="다이어리 홈" hitSlop={6} style={({ pressed }) => [styles.home, pressed && styles.homePressed]}>
+          <Icon name="chevronLeft" size={CHEVRON_SIZE} />
+          <BrandLogo size={LOGO_SIZE} />
+        </Pressable>
+        <View style={{ flex: 1 }} />
         <IconToggle icon="panel" label="페이지 목록" text="페이지" active={pagesOpen} onPress={onTogglePages} />
       </View>
 
@@ -166,6 +169,10 @@ function IconToggle({ icon, label, text, active, onPress, compact }) {
 }
 
 const LOGO_SIZE = 30, LIST_LEFT = 16 // 페이지 목록의 왼쪽 여백
+// ‹ 아이콘(24칸 중 9부터 그려짐)의 왼쪽 빈 곳. 이만큼 당겨서 ‹ 의 선이 목록 왼쪽 끝에 오게 한다
+const CHEVRON_SIZE = 20, CHEVRON_INSET = Math.round(CHEVRON_SIZE * 8 / 24)
+// 목록 왼쪽 끝보다 살짝 안쪽에서 시작하게 (끝에 딱 붙으면 답답해 보였다)
+const HOME_SHIFT = 4
 const styles = StyleSheet.create({
   bar: {
     height: 64,
@@ -180,9 +187,9 @@ const styles = StyleSheet.create({
   },
   barCompact: { height: 60, gap: 4, paddingHorizontal: 8 },
   homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 2 },
-  home: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  lead: { flexDirection: 'row', alignItems: 'center' },
-  logoSlot: { flex: 1, alignItems: 'center' },
+  home: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 },
+  homePressed: { opacity: 0.6 },
+  lead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16 },
   // 탭 줄: 왼쪽 버튼들과 오른쪽 버튼들 사이를 채우고, 넘치면 ‹ › 로 넘긴다
   tabStrip: { flex: 1, minWidth: 0, marginLeft: 6 },
   tabStripContent: { alignItems: 'center', gap: 6, paddingVertical: 4, paddingRight: 4 },
