@@ -3,7 +3,7 @@ import { Keyboard, Platform, StyleSheet, View } from 'react-native'
 import Svg, { Path, Polygon } from 'react-native-svg'
 import { colors } from '../../shared/theme'
 import { clamp } from '../utils/common'
-import { applyLassoSelection, hasLassoArea, lassoHitIds, lassoPolygon, objectLassoCorners } from '../utils/lassoGeometry.js'
+import { applyLassoSelection, containsLassoPoint, hasLassoArea, lassoHitIds, lassoPolygon, objectLassoCorners } from '../utils/lassoGeometry.js'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
 const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
@@ -12,12 +12,24 @@ const cancelFrame = (id) => { if (id && typeof cancelAnimationFrame === 'functio
 const MIN_MOVEMENT = 10
 const SAMPLE_DISTANCE = 2
 
-// 선택·문서 상태는 드래그 종료 때 한 번만 반영한다. 이 입력층은 객체 위에서도 동작한다.
-export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pageWidth, pageHeight, onCommit, captureAll = true, onDrawingChange, onClearSelection }) {
+// 범위 선택은 종료 때 반영하고, 확정한 점선 안쪽의 드래그는 기존 선택을 이동한다.
+export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pageWidth, pageHeight, onCommit, captureAll = true, onDrawingChange, onClearSelection,
+  selectionPaths, onSelectionMoveStart, onSelectionMove, onSelectionMoveEnd }) {
   const gesture = useRef(null)
   const frame = useRef(null)
   const pendingDraft = useRef(null)
+  const pendingMove = useRef(null)
+  const moveCallbacks = useRef(null)
+  moveCallbacks.current = { onSelectionMoveStart, onSelectionMove, onSelectionMoveEnd }
+  const flushMove = () => {
+    if (frame.current) cancelFrame(frame.current)
+    frame.current = null
+    const move = pendingMove.current
+    pendingMove.current = null
+    if (move) moveCallbacks.current.onSelectionMove?.(...move)
+  }
   useLayoutEffect(() => () => {
+    if (gesture.current?.kind === 'move') moveCallbacks.current.onSelectionMoveEnd?.(true)
     gesture.current = null
     if (frame.current) cancelFrame(frame.current)
     onDrawingChange?.(false)
@@ -25,10 +37,12 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
   const [draft, setDraft] = useState(null)
   const [drawing, setDrawing] = useState(false)
   const cancel = () => {
+    if (gesture.current?.kind === 'move') moveCallbacks.current.onSelectionMoveEnd?.(true)
     gesture.current = null
     if (frame.current) cancelFrame(frame.current)
     frame.current = null
     pendingDraft.current = null
+    pendingMove.current = null
     setDraft(null)
     setDrawing(false)
     onDrawingChange?.(false)
@@ -55,14 +69,25 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
       cancel()
       if ((Platform.OS === 'web' && event.button != null && event.button !== 0) || event.touches?.length > 1) return
       Keyboard.dismiss()
+      const start = { x: clamp(event.locationX / zoom, 0, pageWidth), y: clamp(event.locationY / zoom, 0, pageHeight) }
+      if (selectionPaths?.some(path => containsLassoPoint(path.points, start))) {
+        gesture.current = { kind: 'move', identifier: event.identifier, pageX: event.pageX, pageY: event.pageY }
+        moveCallbacks.current.onSelectionMoveStart?.()
+        return
+      }
       setDrawing(true)
       onDrawingChange?.(true)
-      const start = { x: clamp(event.locationX / zoom, 0, pageWidth), y: clamp(event.locationY / zoom, 0, pageHeight) }
-      gesture.current = { start, captureAll, identifier: event.identifier, pageX: event.pageX, pageY: event.pageY, points: [start], base: [...selectedIds], objects, maxMove: 0, result: null }
+      gesture.current = { start, captureAll, clearOnTap: Boolean(selectionPaths?.length), identifier: event.identifier, pageX: event.pageX, pageY: event.pageY, points: [start], base: [...selectedIds], objects, maxMove: 0, result: null }
     },
     onMove: (dx, dy, event) => {
       const g = gesture.current
       if (!g) return
+      if (g.kind === 'move') {
+        if (event.touches?.length > 1) { cancel(); return }
+        pendingMove.current = [dx / zoom, dy / zoom]
+        if (!frame.current) frame.current = requestFrame(flushMove)
+        return
+      }
       if (event.touches?.length > 1 || g.objects !== objects) { cancel(); return }
       g.maxMove = Math.max(g.maxMove, Math.hypot(dx, dy))
       const next = { x: clamp(g.start.x + dx / zoom, 0, pageWidth), y: clamp(g.start.y + dy / zoom, 0, pageHeight) }
@@ -74,12 +99,19 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
     },
     onEnd: ({ cancelled }) => {
       const g = gesture.current
+      if (g?.kind === 'move') {
+        if (!cancelled) flushMove()
+        gesture.current = null
+        cancel()
+        moveCallbacks.current.onSelectionMoveEnd?.(cancelled)
+        return
+      }
       cancel()
       if (!cancelled && g && g.objects === objects) {
         // 마지막 입력 뒤 프레임이 아직 오지 않았어도 전체 좌표로 선택을 확정한다.
         const final = buildDraft(g)
         if (g.result !== null) onCommit(g.result, { polygon: final.polygon, shape, mode })
-        else if (g.maxMove < MIN_MOVEMENT && (!g.captureAll || !lassoHitIds(objects, [g.start]).length)) onClearSelection?.()
+        else if (g.maxMove < MIN_MOVEMENT && (g.clearOnTap || !g.captureAll || !lassoHitIds(objects, [g.start]).length)) onClearSelection?.()
       }
     },
   }

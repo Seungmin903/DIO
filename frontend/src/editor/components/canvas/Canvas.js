@@ -101,7 +101,7 @@ export default function Canvas({
   const [lassoDrawing, setLassoDrawing] = useState(false)
   const [lassoCapture, setLassoCapture] = useState(false)
   const [lassoOutline, setLassoOutline] = useState(null)
-  const outlinePaths = activeTool === 'lasso' && lassoShape === 'freeform'
+  const outlinePaths = activeTool === 'lasso'
     ? resolveLassoOutline(lassoOutline, page.id, selectedIds, page.objects) : null
   useEffect(() => {
     if (lassoOutline && !outlinePaths) setLassoOutline(null)
@@ -137,6 +137,40 @@ export default function Canvas({
   const replacingLasso = activeTool === 'lasso' && lassoDrawing && lassoMode === 'replace'
   const showSelection = !replacingLasso && (canTouch || (!readOnly && !textEditing && activeTool === 'lasso'))
   const cropping = Boolean(cropId)
+  const lassoMove = useRef(null)
+  const startLassoMove = () => {
+    Keyboard.dismiss()
+    const moving = selected.filter(object => !object.locked)
+    lassoMove.current = {
+      starts: Object.fromEntries(moving.map(object => [object.id, { x: object.x, y: object.y }])),
+      bounds: moving.length ? unionBounds(moving) : null,
+      others: visible.filter(object => !selectedIds.includes(object.id)),
+      checkpointed: false,
+    }
+    setInteracting(true)
+  }
+  const moveLassoSelection = (dx, dy) => {
+    const move = lassoMove.current
+    if (!move?.bounds || (!move.checkpointed && Math.hypot(dx, dy) * zoom < 3)) return
+    if (!move.checkpointed) {
+      dispatch({ type: 'checkpoint' })
+      move.checkpointed = true
+      setDraggingIds(selected.filter(object => move.starts[object.id] && FADE_WHILE_DRAGGING.includes(object.type)).map(object => object.id))
+    }
+    const guideX = nearest([PAGE_WIDTH / 2, ...move.others.map(object => centerOf(object).x)], move.bounds.cx + dx, SNAP_SCREEN_PX / zoom)
+    const guideY = nearest([PAGE_HEIGHT / 2, ...move.others.map(object => centerOf(object).y)], move.bounds.cy + dy, SNAP_SCREEN_PX / zoom)
+    const ox = dx + (guideX == null ? 0 : guideX - move.bounds.cx - dx)
+    const oy = dy + (guideY == null ? 0 : guideY - move.bounds.cy - dy)
+    setGuides(guideX == null && guideY == null ? null : { x: guideX, y: guideY })
+    dispatch({ type: 'updateMany', patches: Object.fromEntries(Object.entries(move.starts).map(([id, start]) => [id, { x: start.x + ox, y: start.y + oy }])) })
+  }
+  const endLassoMove = cancelled => {
+    if (cancelled && lassoMove.current?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
+    lassoMove.current = null
+    setInteracting(false)
+    setDraggingIds(null)
+    setGuides(null)
+  }
   // 사각·라운드 사진은 PPT 처럼 테두리 손잡이로 자유롭게 자른다.
   const freeCropTarget = visible.find(
     (o) => o.id === cropId && o.frame === 'shape' && !PHOTO_SHAPES.find((s) => s.id === o.shape)?.square,
@@ -236,18 +270,20 @@ export default function Canvas({
       {!readOnly && activeTool === 'lasso' && !textEditing && (
         <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
           selectedIds={selectedIds} shape={lassoShape} mode={lassoMode} zoom={zoom}
-          pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} captureAll={!lassoEditing}
+          pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} captureAll={!lassoEditing || Boolean(outlinePaths)}
+          selectionPaths={!lassoCapture && !cropping ? outlinePaths : null}
+          onSelectionMoveStart={startLassoMove} onSelectionMove={moveLassoSelection} onSelectionMoveEnd={endLassoMove}
           onDrawingChange={setLassoDrawing}
           onClearSelection={() => { setLassoOutline(null); setLassoCapture(false); onLassoCommit([]) }}
           onCommit={(ids, result) => {
-            setLassoOutline(result?.shape === 'freeform'
+            setLassoOutline(result
               ? createLassoOutline(lassoOutline, page.id, selectedIds, ids, page.objects, result.polygon, result.mode) : null)
             setLassoCapture(false)
             onLassoCommit(ids)
           }} />
       )}
       {/* 터치 층: 요소마다 같은 자리에 투명한 상자를 두고 선택·이동을 받는다. */}
-      <View style={[styles.hitLayer, (activeTool === 'lasso' || textTool) && { zIndex: 1 }]} pointerEvents={canTouch ? 'box-none' : 'none'}>
+      <View style={[styles.hitLayer, (activeTool === 'lasso' || textTool) && { zIndex: 1 }]} pointerEvents={canTouch && !outlinePaths ? 'box-none' : 'none'}>
         {visible.filter((object) => (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
           <CanvasObject
             key={object.id}
