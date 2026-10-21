@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
+import BrandLogo from '../../shared/BrandLogo';
 import AppIcon from '../../shared/AppIcon';
 import { C } from '../constants';
 import { styles as s } from '../styles';
@@ -55,8 +56,7 @@ function SideRail({ page, filter, navigate, create, collapsed, onToggle }) {
       <Animated.View style={[s.brandRow, { marginBottom: between(18, 25) }]}>
         <Animated.View pointerEvents={collapsed ? 'none' : 'auto'} style={[s.brandSlot, { opacity: labelOpacity }]}>
           <Pressable accessibilityRole="button" accessibilityLabel="내 다이어리" onPress={() => navigate('library', 'personal')} style={s.brand}>
-            <View style={s.brandMark}><Text style={s.brandMarkText}>D</Text></View>
-            <Text numberOfLines={1} style={s.brandText}>DIO</Text>
+            <BrandLogo size={32} />
           </Pressable>
         </Animated.View>
         <Pressable

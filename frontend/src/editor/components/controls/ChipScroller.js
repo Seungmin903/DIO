@@ -13,10 +13,11 @@ export const justDragged = () => Date.now() - draggedAt < 150
 /**
  * 가로로 넘기는 칩 줄.
  * - 터치는 손가락으로 밀고, 웹 마우스는 끌어서 넘긴다. (웹 ScrollView 는 마우스 끌기로 움직이지 않는다)
+ * - reveal({ x, width }): 이 칸이 보이게 넘긴다 (예: 상단 바에서 지금 보는 다이어리 탭). arrowLabels: ‹ › 의 읽어 주는 이름
  * - 넘칠 때 ‹ › 버튼을 칩 줄 바깥 양옆에 둔다. 칩은 두 버튼 사이에서만 보이고 눌린다.
  *   (예전에는 버튼이 칩 위에 떠 있어서 버튼 바깥으로 칩이 비치고 눌렸다)
  */
-export default function ChipScroller({ style, contentContainerStyle, children }) {
+export default function ChipScroller({ style, contentContainerStyle, children, reveal = null, arrowLabels = ['앞 분류 보기', '다음 분류 보기'] }) {
   const ref = useRef(null)
   const [metrics, setMetrics] = useState({ x: 0, view: 0, content: 0 })
   const canLeft = metrics.x > 2
@@ -52,11 +53,18 @@ export default function ChipScroller({ style, contentContainerStyle, children })
     }
   }, [])
 
+  // 보여야 할 칸이 화면 밖이면 그 칸이 보이는 만큼만 넘긴다
+  useEffect(() => {
+    if (!reveal || !metrics.view) return
+    if (reveal.x < metrics.x) ref.current?.scrollTo({ x: Math.max(0, reveal.x - 8), y: 0, animated: false })
+    else if (reveal.x + reveal.width > metrics.x + metrics.view) ref.current?.scrollTo({ x: reveal.x + reveal.width - metrics.view + 8, y: 0, animated: false })
+  }, [reveal?.x, reveal?.width, metrics.view, metrics.content])
+
   const scrollBy = (dx) => ref.current?.scrollTo({ x: Math.max(0, metrics.x + dx), animated: true })
 
   return (
     <View style={[style, styles.row]}>
-      {overflow && <EdgeButton side="left" disabled={!canLeft} onPress={() => scrollBy(-STEP_PX)} />}
+      {overflow && <EdgeButton side="left" label={arrowLabels[0]} disabled={!canLeft} onPress={() => scrollBy(-STEP_PX)} />}
       <ScrollView
         ref={ref}
         style={styles.scroll}
@@ -76,12 +84,12 @@ export default function ChipScroller({ style, contentContainerStyle, children })
       >
         {children}
       </ScrollView>
-      {overflow && <EdgeButton side="right" disabled={!canRight} onPress={() => scrollBy(STEP_PX)} />}
+      {overflow && <EdgeButton side="right" label={arrowLabels[1]} disabled={!canRight} onPress={() => scrollBy(STEP_PX)} />}
     </View>
   )
 }
 
-function EdgeButton({ side, disabled, onPress }) {
+function EdgeButton({ side, label, disabled, onPress }) {
   const left = side === 'left'
   return (
     <View style={[styles.edge, left ? styles.edgeLeft : styles.edgeRight]}>
@@ -90,7 +98,7 @@ function EdgeButton({ side, disabled, onPress }) {
         disabled={disabled}
         hitSlop={6}
         style={({ pressed }) => [styles.arrow, pressed && styles.arrowPressed, disabled && styles.arrowDisabled]}
-        accessibilityLabel={left ? '앞 분류 보기' : '다음 분류 보기'}
+        accessibilityLabel={label}
         accessibilityState={{ disabled }}
       >
         <Icon name={left ? 'chevronLeft' : 'chevronRight'} size={16} />

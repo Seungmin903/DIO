@@ -65,6 +65,8 @@ function DiaryApp() {
     cleanupTrash,
   } = useDiaries();
   const [active, setActive] = useState(null);
+  // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.
+  const [tabIds, setTabIds] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingDiaryId, setEditingDiaryId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -87,6 +89,7 @@ function DiaryApp() {
       opening.current = null;
       setEditorOrientation(null);
       setActive(diary);
+      setTabIds((current) => (current.includes(diary.id) ? current : [...current, diary.id]));
       setPage('editor');
     });
   }, []);
@@ -150,6 +153,7 @@ function DiaryApp() {
       onConfirm: () => {
         moveToTrash(diary.id);
         setActive((current) => (current?.id === diary.id ? null : current));
+        setTabIds((current) => current.filter((id) => id !== diary.id));
         setCreateOpen(false);
         setEditingDiaryId(null);
       },
@@ -223,6 +227,13 @@ function DiaryApp() {
   const visibleDiaries = useMemo(() => diaries.filter((diary) => !diary.trashedAt), [diaries]);
   const trashedDiaries = useMemo(() => diaries.filter((diary) => diary.trashedAt), [diaries]);
 
+  // 열린 탭 (휴지통으로 간 다이어리는 뺀다)
+  const tabs = useMemo(() => tabIds
+    .map((id) => visibleDiaries.find((diary) => diary.id === id))
+    .filter(Boolean)
+    // 다이어리 목록의 표지 색 이름은 color (편집 문서에서는 coverColor)
+    .map((diary) => ({ id: diary.id, title: diary.title, coverColor: diary.color })), [tabIds, visibleDiaries]);
+
   // 편집하던 다이어리를 모든 다이어리 목록에서 찾아 홈의 중심 카드로 복원한다.
   const returnToLibrary = useCallback(() => {
     const index = visibleDiaries.findIndex(diary => diary.id === active?.id);
@@ -230,6 +241,23 @@ function DiaryApp() {
     setCarousel(Math.max(0, index));
     setPage('library');
   }, [active?.id, visibleDiaries]);
+
+  const selectTab = useCallback((id) => {
+    if (id === active?.id) return;
+    const diary = visibleDiaries.find((item) => item.id === id);
+    if (diary) enterEditor(diary);
+  }, [active?.id, enterEditor, visibleDiaries]);
+  // 탭 닫기: 지금 보던 탭을 닫으면 오른쪽(없으면 왼쪽) 탭으로, 남은 탭이 없으면 보관함으로 간다.
+  const closeTab = useCallback((id) => {
+    const index = tabIds.indexOf(id);
+    const rest = tabIds.filter((tabId) => tabId !== id);
+    setTabIds(rest);
+    if (id !== active?.id) return;
+    const nextId = rest[Math.min(index, rest.length - 1)];
+    const next = nextId && visibleDiaries.find((item) => item.id === nextId);
+    if (next) enterEditor(next);
+    else returnToLibrary();
+  }, [active?.id, enterEditor, returnToLibrary, tabIds, visibleDiaries]);
 
   // 홈에 있는 동안 앞쪽 다이어리의 문서와 첫 속지를 차례로 미리 읽어 둔다. (사진은 열 때 준비)
   // 즐겨찾기 등 목록 내용만 바뀔 때는 다시 돌지 않도록 대상 다이어리 ID가 바뀔 때만 실행한다.
@@ -279,6 +307,10 @@ function DiaryApp() {
         onToggleOrientation={isPhone && CAN_LOCK_ORIENTATION ? () => setEditorOrientation(isLandscape ? 'portrait' : 'landscape') : undefined}
         onHome={returnToLibrary}
         onRenameDiary={(title) => active?.id && renameDiary(active.id, title)}
+        tabs={tabs}
+        onSelectTab={selectTab}
+        onCloseTab={closeTab}
+        onNewTab={returnToLibrary}
       />
     );
   } else if (page === 'trash') {

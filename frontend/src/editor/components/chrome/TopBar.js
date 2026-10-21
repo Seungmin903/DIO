@@ -2,6 +2,8 @@ import { useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import Icon from '../controls/Icon'
+import ChipScroller from '../controls/ChipScroller'
+import BrandLogo from '../../../shared/BrandLogo'
 
 
 // compact: 폰 세로 배치. 인덱스 탭 대신 이름과 쪽수를 두 줄로 보이고, 닫기·내보내기는 뺀다. (내보내기는 도구 막대의 더보기에 있다)
@@ -14,6 +16,10 @@ export default function TopBar({
   layersOpen,
   pagesOpen,
   onCloseTab,
+  tabs,
+  activeTabId,
+  onSelectTab,
+  onNewTab,
   onHome,
   onToggleLayers,
   onTogglePages,
@@ -26,12 +32,13 @@ export default function TopBar({
   shareIcon = 'share',
 }) {
   const shareRef = useRef(null)
+  const [activeTabBox, setActiveTabBox] = useState(null) // 지금 보는 탭 자리 (탭이 많아 넘칠 때 그 탭이 보이게 넘긴다)
   if (compact) {
     return (
       <View style={[styles.bar, styles.barCompact]}>
         <Pressable onPress={onHome} accessibilityRole="button" accessibilityLabel="다이어리 홈" hitSlop={6} style={styles.homeCompact}>
           <Icon name="chevronLeft" size={20} />
-          <Text style={[styles.logo, styles.logoCompact]}>DIO</Text>
+          <BrandLogo size={24} />
         </Pressable>
         <IconToggle compact icon="panel" label="페이지 목록" active={pagesOpen} onPress={onTogglePages} />
         <View style={styles.docTitle}>
@@ -47,19 +54,45 @@ export default function TopBar({
   }
   return (
     <View style={styles.bar}>
-      <Pressable onPress={onHome} accessibilityLabel="다이어리 홈" hitSlop={6}>
-        <Text style={styles.logo}>DIO</Text>
+      <Pressable onPress={onHome} accessibilityLabel="다이어리 홈" hitSlop={6} style={styles.home}>
+        <BrandLogo size={30} />
       </Pressable>
       <IconToggle icon="panel" label="페이지 목록" active={pagesOpen} onPress={onTogglePages} />
 
-      <View style={styles.tab}>
-        {/* 인덱스 스티커 모양: 표지 색의 둥근 머리 + 이름을 적는 흰 몸통 */}
-        <View style={[styles.spine, { backgroundColor: doc.coverColor }]} />
-        <TitleField title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} />
-        <Pressable onPress={onCloseTab} hitSlop={8} style={styles.tabClose} accessibilityLabel="다이어리 탭 닫기">
-          <Icon name="close" size={15} color={colors.textMuted} />
-        </Pressable>
-      </View>
+      {/*
+        열린 다이어리 탭들. 이름은 탭 하나에 알맞은 길이에서 … 로 줄인다.
+        탭이 많아 넘치면 양옆 ‹ › 로 넘긴다 (ChipScroller). 맨 끝 + 는 보관함에서 다른 다이어리를 연다.
+      */}
+      <ChipScroller style={styles.tabStrip} contentContainerStyle={styles.tabStripContent} reveal={activeTabBox} arrowLabels={['앞 탭 보기', '다음 탭 보기']}>
+        {(tabs?.length ? tabs : [{ id: activeTabId, title: doc.title, coverColor: doc.coverColor }]).map((tab) => {
+          const active = tab.id === activeTabId
+          return (
+            <View
+              key={tab.id ?? 'current'}
+              style={[styles.tab, !active && styles.tabInactive]}
+              onLayout={active ? (event) => { const { x, width } = event.nativeEvent.layout; setActiveTabBox((prev) => (prev?.x === x && prev?.width === width ? prev : { x, width })) } : undefined}
+            >
+              {/* 인덱스 스티커 모양: 표지 색의 둥근 머리 + 이름을 적는 흰 몸통 */}
+              <View style={[styles.spine, { backgroundColor: (active ? doc.coverColor : tab.coverColor) ?? colors.primary }, !active && styles.spineInactive]} />
+              {active ? (
+                <TitleField title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} />
+              ) : (
+                <Pressable onPress={() => onSelectTab?.(tab.id)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${tab.title} 탭으로`} style={styles.titleRow}>
+                  <Text style={[styles.tabTitle, styles.tabTitleInactive]} numberOfLines={1}>{tab.title}</Text>
+                </Pressable>
+              )}
+              <Pressable onPress={() => onCloseTab?.(tab.id)} hitSlop={8} style={styles.tabClose} accessibilityLabel={`${active ? doc.title : tab.title} 탭 닫기`}>
+                <Icon name="close" size={14} color={colors.textMuted} />
+              </Pressable>
+            </View>
+          )
+        })}
+        {onNewTab && (
+          <Pressable onPress={onNewTab} hitSlop={6} accessibilityRole="button" accessibilityLabel="다른 다이어리 열기" style={({ pressed }) => [styles.newTab, pressed && styles.togglePressed]}>
+            <Icon name="plus" size={16} color={colors.textMuted} />
+          </Pressable>
+        )}
+      </ChipScroller>
 
       <View style={styles.right}>
         {!readOnly && <IconToggle icon="layers" label="레이어" text="레이어" active={layersOpen} onPress={onToggleLayers} />}
@@ -144,15 +177,21 @@ const styles = StyleSheet.create({
     // 그림자는 뺀다: Android 는 반투명 바탕에 elevation 그림자를 주면 편집 영역 위에 회색 줄로 보였다
   },
   barCompact: { height: 60, gap: 4, paddingHorizontal: 8 },
-  logo: { fontSize: 25, fontWeight: '900', letterSpacing: -1.2, color: colors.text },
-  homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', paddingRight: 2 },
-  logoCompact: { fontSize: 21 },
+  homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 2 },
+  home: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  // 탭 줄: 왼쪽 버튼들과 오른쪽 버튼들 사이를 채우고, 넘치면 ‹ › 로 넘긴다
+  tabStrip: { flex: 1, minWidth: 0, marginLeft: 6 },
+  tabStripContent: { alignItems: 'center', gap: 6, paddingVertical: 4, paddingRight: 4 },
+  tabInactive: { backgroundColor: 'rgba(255,255,255,0.55)', boxShadow: 'none' },
+  spineInactive: { opacity: 0.45 },
+  tabTitleInactive: { color: colors.textMuted, fontWeight: '600' },
+  newTab: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-    maxWidth: 280,
-    marginLeft: 6,
+    // 이름이 길면 이 폭에서 … 로 줄인다 (한글 8~9자 정도)
+    maxWidth: 190,
     height: 38,
     paddingLeft: 30,
     paddingRight: 6,

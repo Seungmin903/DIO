@@ -37,7 +37,9 @@ export default function TextBoxInput({ zoom, onCreate, pageWidth: PAGE_WIDTH = D
       // 손가락 탭은 몇 px 흔들리므로 아주 짧게 끈 것도 탭으로 본다
       else if (tapAt && (!result || result.width < MIN_DRAG_WIDTH / 2)) {
         const width = Math.min(TAP_BOX_WIDTH, PAGE_WIDTH)
-        onCreate({ x: clamp(tapAt.x, 0, PAGE_WIDTH - width), y: tapAt.y, width, h: 38, w: width, baseWidth: width })
+        const x = clamp(tapAt.x, 0, PAGE_WIDTH - width)
+        // autoWidth: 입력하는 동안 글자만큼 넓어지고, maxWidth(페이지 오른쪽 끝까지)에서 줄을 바꾼다
+        onCreate({ x, y: tapAt.y, width, h: 38, w: width, baseWidth: width, autoWidth: true, maxWidth: Math.max(width, PAGE_WIDTH - x - 8) })
       }
     },
   })

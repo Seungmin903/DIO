@@ -37,6 +37,8 @@ export default function ContextBar({
   onTextSettings,
   onCopy,
   onCut,
+  onPaste, // 복사해 둔 요소 붙여넣기 (다른 페이지·다이어리 탭에서 복사한 것도)
+  canPaste = false,
   onTextLink,
   onCopyText,
   onCopyLink, // 링크 카드의 복사
@@ -97,8 +99,8 @@ export default function ContextBar({
         <BarButton icon="text" label="서식" active={textSettingsOpen} onPress={() => onTextSettings?.()} />
         <BarButton icon="link" label="링크" active={single.styleRanges?.some((r) => r.href)} onPress={() => onTextLink?.(single)} />
         <View style={styles.divider} />
-        <IconButton icon="copy" label="복사" onPress={() => onCopyText?.(single.text)} />
-        <IconButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
+        <BarButton icon="copy" label="복사" onPress={() => onCopyText?.(single.text)} />
+        <BarButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
       </ScrollView>
     </View>
     {linkCard}
@@ -112,8 +114,10 @@ export default function ContextBar({
           onPress={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color } })}
           style={[styles.swatch, { backgroundColor: color }, single.color?.toUpperCase() === color.toUpperCase() && styles.swatchChosen]} />)}
         <View style={styles.divider} />
-        <IconButton icon="copy" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
-        <IconButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
+        <BarButton icon="clipboard" label="복사" onPress={() => onCopy?.(objects)} />
+        <BarButton icon="clipboard" label="붙여넣기" disabled={!canPaste} onPress={onPaste} />
+        <BarButton icon="copy" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
+        <BarButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
         <View style={styles.divider} />
         <BarButton icon="crop" label="잘라내기" onPress={() => onCut?.(objects)} />
         <BarButton icon="more" label="정렬·보정" active={moreOpen} onPress={onToggleMore} />
@@ -157,13 +161,13 @@ export default function ContextBar({
       {/* 앞쪽 버튼이 하나도 없으면(무늬 테이프 등) 구분선도 뺀다 */}
       {hasLeading && <View style={styles.divider} />}
       <View onLayout={(event) => setOrderRight(event.nativeEvent.layout.x + event.nativeEvent.layout.width)}>
-        <IconButton icon="layers" label="순서" active={orderOpen} onPress={() => setOrderOpen(!orderOpen)} />
+        <BarButton icon="layers" label="순서" active={orderOpen} onPress={() => setOrderOpen(!orderOpen)} />
       </View>
       {/* 세부 옵션(꾸미기·배치). 아이콘만 있으면 잘 안 보여서 글자를 함께 쓴다. */}
       <BarButton icon="more" label="옵션" active={moreOpen} onPress={onToggleMore} />
-      <IconButton
+      <BarButton
         icon={allLocked ? 'unlock' : 'lock'}
-        label={allLocked ? '잠금 해제' : '잠그기'}
+        label={allLocked ? '잠금 해제' : '잠금'}
         onPress={() =>
           dispatch({
             type: 'updateMany',
@@ -172,8 +176,11 @@ export default function ContextBar({
           })
         }
       />
-      <IconButton icon="copy" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
-      <IconButton
+      {/* 복사·붙여넣기: 다른 페이지·다른 다이어리 탭으로 옮긴다 (복사한 게 없으면 붙여넣기는 흐리게). 복제는 이 자리에 바로 하나 더 */}
+      <BarButton icon="clipboard" label="복사" onPress={() => onCopy?.(objects)} />
+      <BarButton icon="clipboard" label="붙여넣기" disabled={!canPaste} onPress={onPaste} />
+      <BarButton icon="copy" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
+      <BarButton
         icon="trash"
         label="삭제"
         danger
@@ -241,17 +248,19 @@ function OrderMenu({ placement, right, objects, allObjects, onPick }) {
   )
 }
 
-function BarButton({ icon, label, active, onPress }) {
+function BarButton({ icon, label, active, danger, disabled, onPress }) {
+  const color = danger ? colors.danger : colors.text
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={active != null ? { selected: active } : undefined}
-      style={({ pressed }) => [styles.button, active && styles.chipActive, pressed && styles.pressed]}
+      accessibilityState={{ ...(active != null && { selected: active }), disabled: Boolean(disabled) }}
+      style={({ pressed }) => [styles.button, active && styles.chipActive, pressed && styles.pressed, disabled && styles.buttonDisabled]}
     >
-      <Icon name={icon} size={17} color={colors.text} />
-      <Text style={styles.buttonText}>{label}</Text>
+      <Icon name={icon} size={17} color={color} />
+      <Text style={[styles.buttonText, { color }]}>{label}</Text>
     </Pressable>
   )
 }
@@ -309,6 +318,7 @@ const styles = StyleSheet.create({
   menuTextDisabled: { color: 'rgba(11,25,87,0.3)' },
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
+  buttonDisabled: { opacity: 0.35 },
   iconButton: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: colors.primarySoft },
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },

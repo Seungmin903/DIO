@@ -1,6 +1,15 @@
 import { Children, cloneElement, isValidElement } from 'react'
 // 사용자 요소와 분리한 속지 전용 색상. 기존 문서는 기본 팔레트를 그대로 쓴다.
 export const DEFAULT_PAPER_APPEARANCE = { backgroundColor: '#FFFFFF', layoutColor: '#292929' }
+// 고를 수 있는 속지 배경색·레이아웃(글자·선) 색 [이름, 색]
+export const PAPER_BACKGROUNDS = [
+  ['화이트', '#FFFFFF'], ['크림', '#FFF8E7'], ['세이지', '#EDF3EA'],
+  ['로즈', '#FBEFF0'], ['아이스 블루', '#EDF3FA'], ['웜 그레이', '#F1EFEB'],
+]
+export const PAPER_LAYOUTS = [
+  ['차콜', '#292929'], ['네이비', '#33476B'], ['브라운', '#72533E'],
+  ['포레스트', '#486653'], ['플럼', '#75546F'], ['슬레이트', '#596875'],
+]
 const palette = new Set(['#292929', '#666666', '#aeb3b8', '#bfc1c4', '#d7d9dc', '#e8e9eb'])
 const hex = (value, fallback) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : fallback
 export function normalizePaperAppearance(value) {

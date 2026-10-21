@@ -1,4 +1,4 @@
-import { ToolPanelHeader, toolPanelStyles } from './ToolPanel'
+import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../shared/theme'
@@ -8,16 +8,32 @@ import { createMenuPdfSnapshot, menuPdfPolicy, pdfMenuFailure } from '../utils/p
 import StaticPage from './canvas/StaticPage'
 import { exportPageIds, pageListKey } from '../utils/exportSelection.js'
 
-export function ExportButton({ title, onPress, disabled, selected, ...props }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: !!disabled, selected: !!selected }} disabled={disabled} onPress={onPress} style={[styles.button, selected && styles.selected, disabled && styles.disabled]} {...props}><Text style={styles.text}>{title}</Text></Pressable>
+export function ExportButton({ title, onPress, disabled, selected, primary, ...props }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: !!disabled, selected: !!selected }} disabled={disabled} onPress={onPress}
+    style={({ pressed }) => [styles.button, primary && styles.primary, selected && styles.selected, pressed && styles.pressed, disabled && styles.disabled]} {...props}>
+    <Text style={[styles.buttonText, primary && styles.primaryText]}>{title}</Text>
+  </Pressable>
 }
+
+// 무엇을 내보낼지 (도구 옵션 창처럼 한 화면에서 고른다)
+const MODES = [
+  { id: 'current', label: '현재 페이지' },
+  { id: 'pages', label: '페이지 선택' },
+  { id: 'range', label: '범위' },
+  { id: 'region', label: '영역' },
+]
+const FORMATS = [{ id: 'png', label: 'PNG' }, { id: 'pdf', label: 'PDF' }]
+const BUBBLE_WIDTH = 380
 
 export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, onPng }) {
   const viewport = useWindowDimensions()
-  const panelWidth = Math.min(600, viewport.width - 32)
-  const panelTop = Math.min(anchor ? anchor.y + anchor.height + 8 : 80, Math.max(16, viewport.height - 200))
-  const placement = { position: 'absolute', width: panelWidth, left: Math.max(16, Math.min(anchor ? anchor.x + anchor.width - panelWidth : (viewport.width - panelWidth) / 2, viewport.width - panelWidth - 16)), top: panelTop, maxHeight: viewport.height - panelTop - 16 }
-  const [mode, setMode] = useState(null), [format, setFormat] = useState('png')
+  // 말풍선: 내보내기 버튼 바로 아래, 오른쪽 끝을 버튼에 맞추고 꼬리가 버튼 가운데를 가리킨다
+  const panelWidth = Math.min(BUBBLE_WIDTH, viewport.width - 32)
+  const panelTop = Math.min(anchor ? anchor.y + anchor.height + 12 : 80, Math.max(16, viewport.height - 200))
+  const panelLeft = Math.max(16, Math.min(anchor ? anchor.x + anchor.width - panelWidth : (viewport.width - panelWidth) / 2, viewport.width - panelWidth - 16))
+  const tailLeft = anchor ? Math.min(panelWidth - 28, Math.max(16, anchor.x + anchor.width / 2 - panelLeft - 8)) : null
+  const placement = { position: 'absolute', width: panelWidth, left: panelLeft, top: panelTop, maxHeight: viewport.height - panelTop - 16 }
+  const [mode, setMode] = useState('current'), [format, setFormat] = useState('png')
   const [selected, setSelected] = useState([currentId])
   const number = doc.pages.findIndex((p) => p.id === currentId) + 1
   const [from, setFrom] = useState(String(number)), [to, setTo] = useState(String(number))
@@ -44,7 +60,7 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
   useEffect(() => () => resultRef.current?.dispose(), [])
   useEffect(() => { setSelected((ids) => ids.filter((id) => doc.pages.some((p) => p.id === id))) }, [key])
   let ids = [], invalid = ''
-  if (mode) { try { ids = exportPageIds(doc.pages, { mode, currentId, selectedIds: selected, from, to }) } catch (e) { invalid = e.message } }
+  if (mode && mode !== 'region') { try { ids = exportPageIds(doc.pages, { mode, currentId, selectedIds: selected, from, to }) } catch (e) { invalid = e.message } }
   if (format === 'pdf' && ids.length > maxPages) invalid = `현재 출력 크기에서는 최대 ${maxPages}페이지까지 만들 수 있어요.`
   const busy = job.status === 'running'
   const close = () => { if (!gate.current) onClose() }
@@ -72,53 +88,91 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
     setJob({ status: 'ready' })
   }} onFailure={(error) => { gate.current = false; setJob(pdfMenuFailure(error)) }} />
   if (job.status === 'ready' && resultRef.current) return <PdfGeneratedPreview result={resultRef.current} onClose={onClose} onSelectAgain={resetResult} />
+  const chooseMode = (value) => {
+    setMode(value)
+    setFormat(value === 'current' ? format : value === 'region' ? 'png' : 'pdf')
+    setJob({ status: 'idle' })
+  }
   return <Modal visible transparent animationType="fade" onRequestClose={close}>
-    <View style={styles.scrim}><View style={[toolPanelStyles.card, styles.card, placement]} accessibilityViewIsModal>
-      <ToolPanelHeader icon="share" title="내보내기" onClose={close} disabled={busy} />
+    {/* 화면을 어둡게 덮지 않는다 (덮으면 뒤의 요소가 반투명해 보였다). 바깥을 누르면 닫는다 */}
+    <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="내보내기 닫기" />
+    {/* 꼬리는 카드 바깥에 그린다 (카드 안에 두면 둥근 모서리 자르기에 가려졌다) */}
+    {tailLeft != null && <View pointerEvents="none" style={[styles.tail, { left: panelLeft + tailLeft, top: panelTop - 7 }]} />}
+    <View style={[toolPanelStyles.card, styles.card, placement]} accessibilityViewIsModal>
+      <ToolPanelHeader icon="share" title="내보내기" closeLabel="내보내기 창 닫기" onClose={close} disabled={busy} />
       <ScrollView contentContainerStyle={toolPanelStyles.content}>
-        {!mode ? <>
-          <Text style={styles.hint}>꾸민 추억을 원하는 방식으로 가져가세요.</Text>
-          {[
-            ['current', '현재 페이지 내보내기', '전체 페이지 · PNG 기본 1배 / PDF'],
-            ['pages', '페이지 골라 내보내기', '원하는 페이지를 PDF 한 파일로'],
-            ['range', '페이지 범위 내보내기', '시작부터 끝까지 PDF 한 파일로'],
-          ].map(([value, label, hint]) => <View key={value}><ExportButton title={label} onPress={() => { setMode(value); setFormat(value === 'current' ? 'png' : 'pdf'); setJob({ status: 'idle' }) }} /><Text style={styles.hint}>{hint}</Text></View>)}
-          <ExportButton title="영역 선택 내보내기" onPress={onRegion} disabled={!onRegion} /><Text style={styles.hint}>선택 구역 · PNG · 자유 기본 2배 / 프리셋 지정 크기{!onRegion ? ' · 준비 중' : ''}</Text>
-        </> : <>
-          <ExportButton title="내보내기 방식으로 돌아가기" disabled={busy} onPress={() => { setMode(null); setJob({ status: 'idle' }) }} />
-          {changed && <View><Text accessibilityRole="alert" style={styles.hint}>페이지 목록이나 순서가 바뀌었어요. 선택·범위를 다시 확인해 주세요.</Text><ExportButton title="변경된 페이지 목록 확인" onPress={() => setConfirmedKey(key)} disabled={busy} /></View>}
-          {mode === 'current' && <><Text style={styles.hint}>현재 {number}페이지</Text><View style={styles.row}>{['png', 'pdf'].map((value) => <ExportButton key={value} title={value.toUpperCase()} selected={format === value} disabled={busy} onPress={() => { setFormat(value); setJob({ status: 'idle' }) }} />)}</View></>}
-          {mode === 'pages' && <>
-            <Text style={styles.hint}>선택 {selected.length} / 최대 {maxPages}페이지 · 상한 20장 / 80MP</Text>
-            <View style={styles.row}><ExportButton title="전체 선택" disabled={busy || !policy.enabled} onPress={() => setSelected(doc.pages.map((p) => p.id))} /><ExportButton title="전체 해제" disabled={busy} onPress={() => setSelected([])} /></View>
-            {!policy.enabled && <Text style={styles.hint}>{policy.reason}</Text>}
-            <View style={styles.tiles}>{doc.pages.map((page, index) => <Pressable key={page.id} accessibilityRole="checkbox" accessibilityLabel={`${index + 1}페이지 선택`} accessibilityState={{ checked: selected.includes(page.id), disabled: busy || (!selected.includes(page.id) && selected.length >= maxPages) }} disabled={busy || (!selected.includes(page.id) && selected.length >= maxPages)} onPress={() => setSelected((ids) => ids.includes(page.id) ? ids.filter((id) => id !== page.id) : [...ids, page.id])} style={[styles.tile, selected.includes(page.id) && styles.selected]}>
-              <StaticPage page={page} zoom={112 / pageSize(page).width} still /><Text style={styles.text}>{selected.includes(page.id) ? '✓ ' : ''}{index + 1}페이지</Text>
-            </Pressable>)}</View>
-          </>}
-          {mode === 'range' && <View style={styles.row}><Text style={styles.text}>시작</Text><TextInput accessibilityLabel="시작 페이지" value={from} editable={!busy} keyboardType="number-pad" onChangeText={setFrom} style={styles.input} /><Text style={styles.text}>끝</Text><TextInput accessibilityLabel="끝 페이지" value={to} editable={!busy} keyboardType="number-pad" onChangeText={setTo} style={styles.input} /></View>}
-          {!!invalid && <Text accessibilityRole="alert" style={styles.hint}>{invalid}</Text>}
-          {format === 'pdf' && <Text style={styles.hint}>PDF · {ids.length}페이지 · 이미지 기반 문서입니다. 텍스트를 검색하거나 선택할 수 없어요.</Text>}
-          {job.status === 'error' && <Text accessibilityRole="alert" style={styles.hint}>{job.message} 파일은 저장되지 않았어요.</Text>}
-          {job.status === 'cancelled' && <Text style={styles.hint}>PDF 생성을 취소했어요. 편집 내용은 그대로예요.</Text>}
-          {format === 'pdf' && request.current && ['error', 'cancelled'].includes(job.status) && <ExportButton title="같은 내용으로 다시 만들기" onPress={() => run(true)} />}
-          <ExportButton title={format === 'png' ? 'PNG 미리보기' : 'PDF 만들기'} onPress={() => run()} disabled={!!invalid || changed} />
+        <Text style={toolPanelStyles.label}>내보낼 범위</Text>
+        <Segmented items={MODES.map((item) => (item.id === 'region' && !onRegion ? { ...item, label: '영역' } : item))} selected={(id) => mode === id} onPress={chooseMode} disabled={busy} />
+        {changed && mode !== 'region' && <View style={styles.notice}><Text accessibilityRole="alert" style={styles.hint}>페이지 목록이나 순서가 바뀌었어요. 선택·범위를 다시 확인해 주세요.</Text><ExportButton title="변경된 페이지 목록 확인" onPress={() => setConfirmedKey(key)} disabled={busy} /></View>}
+
+        {mode === 'current' && <>
+          <Text style={toolPanelStyles.label}>형식</Text>
+          <Segmented items={FORMATS} selected={(id) => format === id} onPress={(value) => { setFormat(value); setJob({ status: 'idle' }) }} disabled={busy} />
+          <Text style={styles.hint}>{number}페이지 · {format === 'png' ? 'PNG 이미지 (기본 1배)' : 'PDF 한 파일'}</Text>
         </>}
+
+        {mode === 'pages' && <>
+          <View style={styles.between}>
+            <Text style={toolPanelStyles.label}>페이지 {selected.length} / 최대 {maxPages}</Text>
+            <View style={styles.row}><ExportButton title="전체 선택" disabled={busy || !policy.enabled} onPress={() => setSelected(doc.pages.map((p) => p.id))} /><ExportButton title="전체 해제" disabled={busy} onPress={() => setSelected([])} /></View>
+          </View>
+          {!policy.enabled && <Text style={styles.hint}>{policy.reason}</Text>}
+          <View style={styles.tiles}>{doc.pages.map((page, index) => {
+            const on = selected.includes(page.id), blocked = busy || (!on && selected.length >= maxPages)
+            return <Pressable key={page.id} accessibilityRole="checkbox" accessibilityLabel={`${index + 1}페이지 선택`} accessibilityState={{ checked: on, disabled: blocked }} disabled={blocked}
+              onPress={() => setSelected((list) => list.includes(page.id) ? list.filter((id) => id !== page.id) : [...list, page.id])} style={[styles.tile, on && styles.tileOn]}>
+              <View style={styles.tileThumb} pointerEvents="none"><StaticPage page={page} zoom={96 / pageSize(page).width} still /></View>
+              <Text style={[styles.tileText, on && styles.tileTextOn]}>{index + 1}</Text>
+            </Pressable>
+          })}</View>
+          <Text style={styles.hint}>고른 페이지를 PDF 한 파일로 만들어요.</Text>
+        </>}
+
+        {mode === 'range' && <>
+          <Text style={toolPanelStyles.label}>페이지 범위</Text>
+          <View style={styles.row}>
+            <TextInput accessibilityLabel="시작 페이지" value={from} editable={!busy} keyboardType="number-pad" onChangeText={setFrom} style={styles.input} />
+            <Text style={styles.hint}>쪽부터</Text>
+            <TextInput accessibilityLabel="끝 페이지" value={to} editable={!busy} keyboardType="number-pad" onChangeText={setTo} style={styles.input} />
+            <Text style={styles.hint}>쪽까지 · PDF 한 파일</Text>
+          </View>
+        </>}
+
+        {mode === 'region' && <Text style={styles.hint}>페이지에서 원하는 구역만 PNG 로 내보내요. 자유 크기(기본 2배)나 피드·스토리 비율을 고를 수 있어요.{!onRegion ? ' 준비 중이에요.' : ''}</Text>}
+
+        {!!invalid && mode !== 'region' && <Text accessibilityRole="alert" style={styles.hint}>{invalid}</Text>}
+        {format === 'pdf' && mode !== 'region' && <Text style={styles.hint}>PDF는 이미지로 만든 문서라 글자를 검색하거나 선택할 수 없어요.</Text>}
+        {job.status === 'error' && <Text accessibilityRole="alert" style={styles.hint}>{job.message} 파일은 저장되지 않았어요.</Text>}
+        {job.status === 'cancelled' && <Text style={styles.hint}>PDF 생성을 취소했어요. 편집 내용은 그대로예요.</Text>}
+        {format === 'pdf' && request.current && ['error', 'cancelled'].includes(job.status) && <ExportButton title="같은 내용으로 다시 만들기" onPress={() => run(true)} />}
+        {mode === 'region'
+          ? <ExportButton primary title="영역 고르기" onPress={onRegion} disabled={!onRegion} />
+          : <ExportButton primary title={format === 'png' ? 'PNG 미리보기' : 'PDF 만들기'} onPress={() => run()} disabled={!!invalid || changed} />}
       </ScrollView>
-    </View></View>
+    </View>
   </Modal>
 }
 const styles = StyleSheet.create({
-  scrim: { flex: 1, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  card: { backgroundColor: colors.surface, width: '100%', maxWidth: 600, maxHeight: '92%' }, // 둥글기는 공용 카드(24)를 따른다
-  row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  title: { flex: 1, color: colors.text, fontSize: 21, fontWeight: '700' },
-  text: { color: colors.text, fontSize: 14 },
-  button: { borderRadius: 12, minHeight: 44, justifyContent: 'center', padding: 12, marginVertical: 4, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.border },
-  selected: { backgroundColor: colors.surfaceSoft, borderColor: colors.primary, borderWidth: 2 },
-  disabled: { opacity: 0.45 },
-  hint: { color: colors.textMuted, paddingVertical: 8, lineHeight: 21 },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  tile: { width: 128, padding: 6, gap: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 8 },
-  input: { minWidth: 60, minHeight: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, color: colors.text },
+  card: { backgroundColor: colors.surface }, // 둥글기·그림자는 공용 옵션 창(카드)을 따른다
+  // 말풍선 꼬리: 카드 위쪽에서 내보내기 버튼 가운데를 가리킨다
+  tail: { position: 'absolute', width: 16, height: 16, borderRadius: 3, backgroundColor: colors.surface, transform: [{ rotate: '45deg' }] },
+  row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  notice: { gap: 6 },
+  // 옵션 창의 칩 버튼과 같은 모양
+  button: { minHeight: 36, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: '#EEF2F9', borderWidth: 1.5, borderColor: 'transparent' },
+  buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
+  selected: { backgroundColor: colors.surface, borderColor: colors.primary },
+  pressed: { opacity: 0.75 },
+  disabled: { opacity: 0.4 },
+  primary: { minHeight: 44, marginTop: 4, backgroundColor: colors.primary },
+  primaryText: { fontSize: 14, fontWeight: '800', color: colors.surface },
+  hint: { color: colors.textMuted, fontSize: 12.5, lineHeight: 19 },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tile: { width: 104, padding: 4, gap: 4, alignItems: 'center', borderRadius: 10, borderWidth: 1.5, borderColor: 'transparent', backgroundColor: '#EEF2F9' },
+  tileOn: { borderColor: colors.primary, backgroundColor: colors.surface },
+  tileThumb: { width: 96, overflow: 'hidden', borderRadius: 4 },
+  tileText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  tileTextOn: { color: colors.primary },
+  input: { width: 56, height: 38, borderWidth: 1, borderColor: colors.border, borderRadius: 10, textAlign: 'center', color: colors.text, fontSize: 14, fontWeight: '700' },
 })

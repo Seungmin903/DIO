@@ -44,6 +44,12 @@ export function createText({ id, x, y, text, width = 320, ...settings }) {
 // family 가 있는 글꼴은 앱에 넣은 한국어 글꼴(Google Fonts, OFL 라이선스로 상업 이용 가능). services/textFonts.js 가 불러온다.
 // 기기 글꼴(sans·serif)은 목록에 실제 글꼴 이름을 기기별로 적는다 (Android 는 기기 글꼴 설정을 바꾸면 그 글꼴이 쓰인다)
 // Android 의 Noto Sans·Serif 는 한글이 CJK 판, 영문은 고딕이 Roboto·명조가 Noto Serif 로 그려진다 (영문도 지원)
+// 텍스트 상자 테두리(편집 중·선택)는 글자에서 이만큼(화면 px) 떨어진 바깥에 그린다. 글자 자리는 편집할 때와 볼 때 같다.
+export const TEXT_FRAME_PAD = 6
+// 글자만큼 넓어지는 새 글상자의 폭 범위 (페이지 좌표)
+export const TEXT_AUTO_MIN_WIDTH = 60
+export const TEXT_AUTO_MAX_WIDTH = 480
+
 export const TEXT_FONTS = [
   { id: 'sans', label: '기본 고딕', systemNames: { ios: 'Apple SD 산돌고딕 Neo', android: 'Noto Sans', web: '맑은 고딕' } },
   { id: 'serif', label: '기본 명조', systemNames: { ios: 'AppleMyungjo', android: 'Noto Serif', web: '바탕' } },

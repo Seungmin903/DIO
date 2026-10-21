@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Keyboard, Platform, StyleSheet, Text, View } from 'react-native'
+import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import Icon from '../controls/Icon'
 import { colors } from '../../../shared/theme'
 import { PHOTO_SHAPES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
@@ -23,6 +24,7 @@ import TextBoxInput from '../TextBoxInput'
 import TextLinkOverlay from '../TextLinkOverlay'
 import PalmRejectionArea from './PalmRejectionArea'
 import GridOverlay, { DEFAULT_GUIDES } from './GridOverlay'
+import PaperColorSettings from '../PaperColorSettings'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
@@ -75,6 +77,10 @@ export default function Canvas({
   onTextSettings,
   onCopy,
   onCut,
+  onPaste,
+  canPaste,
+  paperAppearance, // 지금 페이지 속지 색 { backgroundColor, layoutColor }
+  onPaperAppearance, // (appearance, all) => 속지 색 바꾸기
   onCopyText,
   onTextLink,
   onObjectLink,
@@ -84,6 +90,7 @@ export default function Canvas({
   gridGuides = DEFAULT_GUIDES, // 격자·보조선 표시 (편집 화면에만. 끌 때 뜨는 맞춤선 guides 와 다르다)
   textEditing,
   textBoundary,
+  onRevealText, // (dy) 키보드에 가린 글상자가 보이게 화면을 올린다
   onTextPaletteChange,
   textPaletteBounds,
   onSaveText,
@@ -137,11 +144,14 @@ export default function Canvas({
 
   const [marquee, setMarquee] = useState(null) // 논리 좌표 { left, top, right, bottom }
   const marqueeRef = useRef(null)
+  // 빈 곳을 길게 누르면 뜨는 메뉴: 붙여넣기 · 속지 색. { x, y } 는 페이지 좌표, panel: 'paper' 면 그 자리에 속지 색 말풍선
+  const [emptyMenu, setEmptyMenu] = useState(null)
   const backgroundHandlers = usePan({
     onStart: (event) => {
       Keyboard.dismiss()
+      setEmptyMenu(null)
       if (!canSelect) return
-      marqueeRef.current = {
+      const m = {
         x: event.locationX / zoom,
         y: event.locationY / zoom,
         base: isMultiSelectKey() ? selectedIds : [],
@@ -149,10 +159,18 @@ export default function Canvas({
         key: null, // 영역 선택이 시작되면 빈 결과라도 한 번은 반영한다
         maxMove: 0,
       }
+      marqueeRef.current = m
+      // 움직이지 않고 오래 누르면 메뉴를 띄우고, 이 터치는 영역 선택·탭으로 쓰지 않는다
+      m.holdTimer = setTimeout(() => {
+        if (marqueeRef.current !== m || m.maxMove >= TAP_MOVE_PX) return
+        m.longPressed = true
+        setEmptyMenu({ x: m.x, y: m.y })
+      }, LONG_PRESS_MS)
     },
     onMove: (dx, dy) => {
       const m = marqueeRef.current
       if (m) m.maxMove = Math.max(m.maxMove, Math.hypot(dx, dy))
+      if (m?.longPressed) return
       if (!m || cropping || m.maxMove < MARQUEE_MIN_PX) return
       const rect = {
         left: Math.min(m.x, m.x + dx / zoom),
@@ -179,7 +197,9 @@ export default function Canvas({
     onEnd: ({ cancelled }) => {
       const start = marqueeRef.current
       marqueeRef.current = null
+      clearTimeout(start?.holdTimer)
       setMarquee(null)
+      if (start?.longPressed) return
       if (cancelled && start?.key != null) {
         dispatch({ type: 'selectExact', ids: start.previousSelection })
       }
@@ -201,6 +221,8 @@ export default function Canvas({
     >
       {showBackground && <PageBackground page={page} zoom={zoom} />}
       {!readOnly && <GridOverlay guides={gridGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />}
+      {/* 보조선(가운데·3등분·여백)도 격자처럼 속지 바로 위, 모든 요소 아래에 둔다. 아무것도 가리지 않는다 */}
+      {!readOnly && <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />}
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
@@ -210,7 +232,6 @@ export default function Canvas({
       </View>
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
       {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
-      {!readOnly && <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />}
       {!readOnly && linkBadges && <LinkBadges objects={page.objects} zoom={zoom} selectedIds={selectedIds} onSelect={(id) => dispatch({ type: 'select', ids: [id] })} />}
       {!readOnly && activeTool === 'lasso' && !textEditing && (
         <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
@@ -264,7 +285,7 @@ export default function Canvas({
         <View style={StyleSheet.absoluteFill} onStartShouldSetResponder={() => true} {...inputBlocker} accessibilityElementsHidden />
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={onCreateText} />}
-      {!readOnly && textEditing && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
+      {!readOnly && textEditing && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
 
       {freeCropTarget && <View pointerEvents="box-none" style={styles.selectionControls}><CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} /></View>}
 
@@ -291,6 +312,24 @@ export default function Canvas({
       )}
       {/* 영역 선택 중: 지금 네모 안에 들어와 선택될 요소마다 선택 테두리 모양의 선을 보여 준다. */}
       {marquee && selected.map((object) => <HitOutline key={object.id} object={object} zoom={zoom} />)}
+      {emptyMenu?.panel === 'paper' && canSelect && (
+        <PaperColorSettings
+          appearance={paperAppearance}
+          onChange={(appearance, all) => onPaperAppearance?.(appearance, all)}
+          onClose={() => setEmptyMenu(null)}
+          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT)}
+        />
+      )}
+      {emptyMenu && !emptyMenu.panel && canSelect && (
+        <EmptyMenu
+          at={emptyMenu}
+          zoom={zoom}
+          pageWidth={PAGE_WIDTH}
+          canPaste={canPaste}
+          onPaste={() => { setEmptyMenu(null); onPaste?.(emptyMenu) }}
+          onPaperColor={() => setEmptyMenu({ ...emptyMenu, panel: 'paper' })}
+        />
+      )}
       {marquee && (
         <View
           pointerEvents="none"
@@ -333,6 +372,8 @@ export default function Canvas({
           textSettingsOpen={textSettingsOpen}
           onCopy={onCopy}
           onCut={onCut}
+          onPaste={onPaste}
+          canPaste={canPaste}
           key={selectedIds.join(',')}
           objects={selected}
           allObjects={page.objects}
@@ -350,6 +391,38 @@ export default function Canvas({
         </View>
       )}
     </View>
+  )
+}
+
+/** 빈 곳 길게 누르기 메뉴. 요소 편집 바와 같은 모양으로 누른 자리 위에 띄운다 */
+// 속지 색 말풍선: 누른 자리 아래(아래가 좁으면 위)에, 페이지 밖으로 나가지 않게
+const PAPER_BUBBLE = { width: 300, height: 290 }
+function paperBubblePosition(at, zoom, pageWidth, pageHeight) {
+  const x = at.x * zoom, y = at.y * zoom, w = pageWidth * zoom, h = pageHeight * zoom
+  const left = clamp(x - PAPER_BUBBLE.width / 2, 8, Math.max(8, w - PAPER_BUBBLE.width - 8))
+  const below = y + 16 + PAPER_BUBBLE.height <= h
+  return { position: 'absolute', zIndex: 6, width: PAPER_BUBBLE.width, left, top: below ? y + 16 : Math.max(8, y - 16 - PAPER_BUBBLE.height) }
+}
+
+function EmptyMenu({ at, zoom, pageWidth, canPaste, onPaste, onPaperColor }) {
+  const width = 210
+  const left = clamp(at.x * zoom - width / 2, 8, Math.max(8, pageWidth * zoom - width - 8))
+  const top = Math.max(8, at.y * zoom - 64)
+  return (
+    <View style={[styles.emptyMenu, { left, top, width }]} accessibilityLabel="빈 곳 메뉴">
+      <MenuButton icon="clipboard" label="붙여넣기" disabled={!canPaste} onPress={onPaste} />
+      <MenuButton icon="roller" label="속지 색" onPress={onPaperColor} />
+    </View>
+  )
+}
+
+function MenuButton({ icon, label, disabled, onPress }) {
+  return (
+    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }}
+      style={({ pressed }) => [styles.menuButton, pressed && styles.menuPressed, disabled && styles.menuDisabled]}>
+      <Icon name={icon} size={17} color={colors.text} />
+      <Text style={styles.menuText}>{label}</Text>
+    </Pressable>
   )
 }
 
@@ -663,6 +736,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   hitLayer: { ...StyleSheet.absoluteFillObject },
+  emptyMenu: { position: 'absolute', zIndex: 6, flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(110,146,198,0.2)', boxShadow: '0px 6px 14px rgba(11, 25, 87, 0.16)' },
+  menuButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
+  menuPressed: { backgroundColor: colors.primarySoft },
+  menuDisabled: { opacity: 0.35 },
+  menuText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   selectionControls: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
   selectionMenu: { ...StyleSheet.absoluteFillObject, zIndex: 4 },
   penClip: {

@@ -14,7 +14,7 @@ export default function GuideSettings({ guides, onChange, onClose }) {
   const gridOff = guides.grid === 'none'
   return (
     <View style={toolPanelStyles.card} accessibilityLabel="격자 가이드 설정">
-      <ToolPanelHeader icon="grid" title="격자 가이드" closeLabel="격자 가이드 설정 닫기" onClose={onClose} />
+      <ToolPanelHeader icon="ruler" title="격자 가이드" closeLabel="격자 가이드 설정 닫기" onClose={onClose} />
       <View style={toolPanelStyles.content}>
         {/* 격자는 모눈 하나라 켜고 끄기만 한다 */}
         <View style={styles.switchRow}>

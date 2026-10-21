@@ -3,7 +3,7 @@ import { Platform, StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { usePan } from '../../hooks/usePan'
 import { centerOf, normalizeAngle, rotateVector } from '../../utils/common'
-import { textFormatPatch, textSettings } from '../../utils/text'
+import { textFormatPatch, textSettings, TEXT_FRAME_PAD } from '../../utils/text'
 import Icon from '../controls/Icon'
 
 // 핸들이 박스 바깥에 걸쳐도 터치를 받도록 오버레이를 이만큼 넓게 잡는다. (Android 는 부모 밖 터치를 받지 않음)
@@ -43,6 +43,8 @@ function handlesFor(object) {
   if (object.type === 'tape') return LENGTH_KNOBS
   // 사진: 비율은 '자르기'에서 정하고, 캔버스에서는 모서리로 크기만 바꾼다 (변을 끌어 비율이 바뀌지 않게)
   if (object.type === 'photo') return CORNERS
+  // 텍스트: 굿노트·노타빌리티·키노트처럼 좌우 손잡이로 폭만 바꾸고 글자 크기는 그대로 둔다. 높이는 줄 수대로 저절로 맞춘다.
+  if (object.type === 'text') return SIDES.filter((handle) => handle.sx)
   return [...CORNERS, ...SIDES]
 }
 
@@ -55,15 +57,17 @@ function cursorFor(handle, rotation) {
 
 /** 선택된 오브젝트 하나의 테두리 + 크기·회전 핸들 */
 export default function SelectionOverlay({ object, zoom, dispatch, onRotation, onInteracting }) {
-  const width = object.w * zoom
-  const height = object.h * zoom
+  // 보이는 상자: 텍스트는 편집 중 테두리와 같이 글자에서 TEXT_FRAME_PAD 만큼 띄운다. (크기 계산은 요소 상자 그대로)
+  const pad = object.type === 'text' ? TEXT_FRAME_PAD : 0
+  const width = object.w * zoom + pad * 2
+  const height = object.h * zoom + pad * 2
   return (
     <View
       pointerEvents="box-none"
       style={{
         position: 'absolute',
-        left: object.x * zoom - MARGIN,
-        top: object.y * zoom - MARGIN,
+        left: object.x * zoom - pad - MARGIN,
+        top: object.y * zoom - pad - MARGIN,
         width: width + MARGIN * 2,
         height: height + MARGIN * 2,
         transform: [{ rotate: `${object.rotation}deg` }],
@@ -208,6 +212,8 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
 
   return <View {...panHandlers} accessibilityLabel={kind === 'rotate' ? '요소 회전 손잡이' : undefined} hitSlop={10} style={[styles.handle, style]}>
     {kind === 'rotate' && <View pointerEvents="none"><Icon name="rotate" size={11} strokeWidth={2.6} color={colors.surface} /></View>}
+    {/* 텍스트는 좌우 손잡이만 있어서, 보이지 않던 변 손잡이 가운데에 작은 막대를 보여 준다 (키노트·굿노트 텍스트 상자처럼) */}
+    {kind === 'resize' && object.type === 'text' && handle?.sx && !handle.sy && <View pointerEvents="none" style={styles.sideGrip} />}
   </View>
 }
 
@@ -261,7 +267,7 @@ function resizePatch(g, handle, pointer) {
     y: reflowText ? (h - start.h) / 2 : sy ? anchor.y + (sy * h) / 2 : 0,
   }
   const offset = rotateVector(localCenter.x, localCenter.y, start.rotation)
-  return { w, h, x: center.x + offset.x - w / 2, y: center.y + offset.y - h / 2, ...(baseWidth != null ? { baseWidth } : {}) }
+  return { w, h, x: center.x + offset.x - w / 2, y: center.y + offset.y - h / 2, ...(baseWidth != null ? { baseWidth } : {}), ...(reflowText && start.autoWidth ? { autoWidth: false } : {}) }
 }
 
 const styles = StyleSheet.create({
@@ -280,7 +286,8 @@ const styles = StyleSheet.create({
   },
   knob: { width: KNOB, height: KNOB, borderRadius: KNOB / 2 },
   cornerHandle: { borderRadius: HANDLE / 2 },
-  edgeHandle: { backgroundColor: 'transparent' },
+  edgeHandle: { backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  sideGrip: { width: 8, height: 24, borderRadius: 4, borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.surface },
   rotateHandle: {
     width: ROTATE_HANDLE,
     height: ROTATE_HANDLE,

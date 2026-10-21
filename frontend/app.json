@@ -15,7 +15,9 @@
     },
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#CED9EE"
+      "backgroundColor": "#CED9EE",
+      "image": "./assets/images/splash-icon.png",
+      "imageWidth": 160
     },
     "ios": {
       "supportsTablet": true,
@@ -53,7 +55,15 @@
       }
     },
     "android": {
-      "package": "com.f106.DIO"
+      "package": "com.f106.DIO",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "icon": "./assets/images/icon.png",
+    "web": {
+      "favicon": "./assets/images/favicon.png"
     }
   }
 }
