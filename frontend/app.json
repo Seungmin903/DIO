@@ -38,7 +38,8 @@
         }
       ],
       "expo-sharing",
-      "./plugins/withPointerEvents"
+      "./plugins/withPointerEvents",
+      "expo-image"
     ],
     "extra": {
       "eas": {
