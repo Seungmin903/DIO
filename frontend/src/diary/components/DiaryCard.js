@@ -5,8 +5,8 @@ import { styles as s } from '../styles';
 import { formatUpdatedAt } from '../utils/diaryLibrary';
 import Cover from './Cover';
 
-// onOpen·onFavorite·onEdit은 다이어리를 인자로 받는 공용 콜백이라, 카드마다 새 함수를 만들지 않아도 된다.
-function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, carouselActive = false, animatedStyle }) {
+// onOpen·onFavorite·onEdit·onDelete는 다이어리를 인자로 받는 공용 콜백이다.
+function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle }) {
   const card = (
     <Pressable
       accessibilityRole="button"
@@ -50,6 +50,15 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
             <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>
             <Text style={s.cardType}>나만의 다이어리</Text>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${diary.title} 휴지통으로 이동`}
+            hitSlop={4}
+            onPress={(event) => { event.stopPropagation(); onDelete?.(diary); }}
+            style={({ pressed }) => [s.cardDelete, pressed && s.pressed]}
+          >
+            <AppIcon name="trash" size={19} color="#BD5B58" />
+          </Pressable>
         </View>
         <Text style={s.cardDate}>{formatUpdatedAt(diary.updatedAt)}</Text>
       </View>

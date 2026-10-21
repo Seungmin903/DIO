@@ -14,7 +14,7 @@ const TABS = [
 // 폰 홈의 하단 탭. 태블릿 사이드 메뉴(SideRail)와 같은 navigate를 쓴다.
 function BottomTabs({ page, filter, navigate, bottomInset = 0 }) {
   return (
-    <View style={[s.tabBarWrap, { paddingBottom: Math.max(bottomInset, 10) }]}>
+    <View style={[s.tabBarWrap, { paddingBottom: Math.max(bottomInset, 10) + 8 }]}>
       <View style={s.tabBar} accessibilityRole="tablist">
         {TABS.map((tab) => {
           const selected = page === tab.id && (!tab.filter || filter === tab.filter);
