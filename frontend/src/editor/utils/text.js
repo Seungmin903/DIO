@@ -53,8 +53,8 @@ export const TEXT_AUTO_MAX_WIDTH = 480
 export const TEXT_FONTS = [
   { id: 'sans', label: '기본 고딕', systemNames: { ios: 'Apple SD 산돌고딕 Neo', android: 'Noto Sans', web: '맑은 고딕' } },
   { id: 'serif', label: '기본 명조', systemNames: { ios: 'AppleMyungjo', android: 'Noto Serif', web: '바탕' } },
-  { id: 'nanum-gothic', label: '나눔고딕', family: 'NanumGothic' },
-  { id: 'nanum-myeongjo', label: '나눔명조', family: 'NanumMyeongjo' },
+  { id: 'nanum-gothic', label: '나눔고딕', family: 'NanumGothic', boldFamily: 'NanumGothicBold' },
+  { id: 'nanum-myeongjo', label: '나눔명조', family: 'NanumMyeongjo', boldFamily: 'NanumMyeongjoBold' },
   { id: 'nanum-pen', label: '나눔손글씨 펜', family: 'NanumPenScript' },
   { id: 'poor-story', label: '푸어스토리', family: 'PoorStory' },
 ]
@@ -69,11 +69,43 @@ export function fontLabel(font, platform = 'android') {
 }
 // 불러온 앱 글꼴. 아직 불러오지 못한 글꼴은 기본 고딕으로 그린다 (없는 글꼴 이름을 쓰면 iOS 에서 오류가 난다)
 const loadedFamilies = new Set()
-export const markTextFontLoaded = (family) => loadedFamilies.add(family)
+const failedFamilies = new Set()
+const fontListeners = new Set()
+export const subscribeTextFonts = (listener) => { fontListeners.add(listener); return () => fontListeners.delete(listener) }
+export function markTextFontLoaded(family) {
+  loadedFamilies.add(family); failedFamilies.delete(family)
+  fontListeners.forEach(listener => listener())
+}
+export function markTextFontFailed(family) {
+  failedFamilies.add(family)
+  fontListeners.forEach(listener => listener())
+}
+export function textFontSnapshot(id) {
+  const font = TEXT_FONTS.find(f => f.id === id)
+  return [font?.family, font?.boldFamily].filter(Boolean).map(f => `${f}:${loadedFamilies.has(f) ? 'loaded' : failedFamilies.has(f) ? 'error' : 'loading'}`).join('|')
+}
 /** 글꼴 id → 지금 쓸 수 있는 fontFamily. 앱 글꼴이 아니거나 아직 불러오기 전이면 null */
-export function loadedFontFamily(id) {
-  const family = TEXT_FONTS.find((font) => font.id === id)?.family
+export function loadedFontFamily(id, bold = false) {
+  const font = TEXT_FONTS.find((font) => font.id === id)
+  const family = bold && font?.boldFamily && loadedFamilies.has(font.boldFamily) ? font.boldFamily : font?.family
   return family && loadedFamilies.has(family) ? family : null
+}
+
+export function textStyleSupport(id, platform = 'android') {
+  const font = TEXT_FONTS.find(f => f.id === id)
+  if (font?.family) return { bold: Boolean(font.boldFamily), italic: false }
+  // AppleMyungjo는 단일 Regular 서체다. System은 iOS의 시스템 서식 선택을 사용한다.
+  return platform === 'ios' && id === 'serif' ? { bold: false, italic: false } : { bold: true, italic: true }
+}
+
+export function textStyleReady(id, style) {
+  const font = TEXT_FONTS.find(f => f.id === id)
+  return !font?.family || (loadedFamilies.has(font.family) && (style !== 'bold' || !font.boldFamily || loadedFamilies.has(font.boldFamily)))
+}
+
+export function textFontChangePatch(settings, id, platform) {
+  const support = textStyleSupport(id, platform)
+  return { font: id, bold: Boolean(settings.bold && support.bold), italic: Boolean(settings.italic && support.italic) }
 }
 // 펜·형광펜·마스킹테이프처럼 한 줄 7색 (같은 톤의 라벤더를 더했다)
 export const TEXT_COLORS = ['#1D1D1F', '#8D96A8', '#DD887A', '#E1B4CA', '#A3C5F0', '#96B49F', '#B4A3E0']
@@ -88,7 +120,10 @@ export function textStyle(object, scale = 1, platform = 'android') {
   const s = textSettings(object)
   const families = platform === 'ios' ? { sans: 'System', serif: 'AppleMyungjo', mono: 'Courier' } : { sans: 'sans-serif', serif: 'serif', mono: 'monospace' }
   const decoration = [s.underline && 'underline', s.strike && 'line-through'].filter(Boolean).join(' ') || 'none'
-  return { fontFamily: families[s.font] ?? loadedFontFamily(s.font) ?? families.sans, fontSize: s.fontSize * scale, lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: s.bold ? '700' : '400', fontStyle: s.italic ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
+  const support = textStyleSupport(s.font, platform)
+  const family = loadedFontFamily(s.font, s.bold && support.bold)
+  // 등록한 단일 face를 직접 선택한다. 파일에 없는 weight/style을 다시 요청하지 않는다.
+  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: s.fontSize * scale, lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && support.italic ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
 }
 
 export function textFormatPatch(object, settings) {

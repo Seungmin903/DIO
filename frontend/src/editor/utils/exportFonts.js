@@ -1,9 +1,9 @@
 import { textStyle } from './text.js'
 import { PageExportError } from './pageExport.js'
 
-/** 현재 편집기는 OS 기본 폰트 세 종류만 사용한다. 웹은 실제 문자열의 글리프 준비를 기다린다. */
+/** 공통 textStyle의 실제 face와 문자열로 웹 글리프 준비를 기다린다. */
 export async function waitForExportFonts(objects, fonts) {
-  if (!fonts) return // 네이티브는 별도 다운로드 없는 OS 기본 폰트다.
+  if (!fonts) return // 네이티브 face는 앱의 preloadTextFonts에서 준비한다.
   try {
     const requests = objects.filter(o => o.type === 'text' && o.text).map(o => {
       const s = textStyle(o, 1, 'web')

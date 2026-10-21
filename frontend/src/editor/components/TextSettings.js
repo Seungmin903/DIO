@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import Svg, { Path } from 'react-native-svg'
-import { fontLabel, TEXT_COLORS, TEXT_FONTS, textStyle } from '../utils/text'
+import { fontLabel, TEXT_COLORS, TEXT_FONTS, textStyle, textStyleSupport, textStyleReady, textFontChangePatch } from '../utils/text'
+import { useTextFont } from '../hooks/useTextFont'
 import MyColorPresets from './controls/MyColorPresets'
 import Slider from './controls/Slider'
 
@@ -27,6 +28,10 @@ const ALIGNS = [['left', '왼쪽 정렬'], ['center', '가운데 정렬'], ['rig
 
 /** 텍스트 서식. 스티커·마테·사진 옵션과 같은 모양(구역 제목·세그먼트 버튼·막대·색 줄)으로 만든다 */
 export default function TextSettings({ settings, onChange, onClose }) {
+  const fontStatus = useTextFont(settings.font)
+  const support = textStyleSupport(settings.font, Platform.OS)
+  const styleItems = STYLE_TOGGLES.map(item => ({ ...item, disabled: ['bold', 'italic'].includes(item.id) && (!support[item.id] || !textStyleReady(settings.font, item.id)) }))
+  const unavailable = [['bold', '굵게'], ['italic', '기울임']].filter(([id]) => !support[id]).map(([, label]) => label)
   const { isPhone } = useFormFactor()
   const [fontsOpen, setFontsOpen] = useState(false)
   const [size, setSize] = useState(String(settings.fontSize))
@@ -47,7 +52,7 @@ export default function TextSettings({ settings, onChange, onClose }) {
             <Svg width={12} height={12} viewBox="0 0 24 24"><Path d={fontsOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'} fill="none" stroke={colors.text} strokeWidth={2} /></Svg>
           </Pressable>
           {fontsOpen && <ScrollView style={styles.options} nestedScrollEnabled keyboardShouldPersistTaps="handled">{TEXT_FONTS.map((font) => (
-            <Pressable key={font.id} accessibilityRole="button" accessibilityLabel={fontLabel(font, Platform.OS)} accessibilityState={{ selected: settings.font === font.id }} onPress={() => { onChange({ font: font.id }); setFontsOpen(false) }} style={[styles.option, settings.font === font.id && styles.optionSelected]}>
+            <Pressable key={font.id} accessibilityRole="button" accessibilityLabel={fontLabel(font, Platform.OS)} accessibilityState={{ selected: settings.font === font.id }} onPress={() => { onChange(textFontChangePatch(settings, font.id, Platform.OS)); setFontsOpen(false) }} style={[styles.option, settings.font === font.id && styles.optionSelected]}>
               <Text style={[styles.optionText, previewFont(font.id)]} numberOfLines={1}>{fontLabel(font, Platform.OS)}</Text>
             </Pressable>
           ))}</ScrollView>}
@@ -56,7 +61,9 @@ export default function TextSettings({ settings, onChange, onClose }) {
       </View>
 
       <Text style={toolPanelStyles.label}>스타일</Text>
-      <Segmented items={STYLE_TOGGLES} selected={(id) => Boolean(settings[id])} onPress={(id) => onChange({ [id]: !settings[id] })} />
+      <Segmented items={styleItems} selected={(id) => Boolean(settings[id])} onPress={(id) => { if (!styleItems.find(item => item.id === id)?.disabled) onChange({ [id]: !settings[id] }) }} />
+      {unavailable.length > 0 && <Text style={styles.styleNotice}>이 글꼴은 {unavailable.join('·')}을 지원하지 않아요.</Text>}
+      {fontStatus.includes(':error') ? <Text style={styles.styleNotice}>글꼴 일부를 불러오지 못했어요. 사용할 수 없는 서식은 꺼져 있어요.</Text> : fontStatus.includes(':loading') ? <Text style={styles.styleNotice}>글꼴을 준비하고 있어요.</Text> : null}
 
       <Text style={toolPanelStyles.label}>정렬</Text>
       <Segmented
@@ -82,6 +89,7 @@ export default function TextSettings({ settings, onChange, onClose }) {
 }
 
 const styles = StyleSheet.create({
+  styleNotice: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   field: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 42, paddingHorizontal: 12, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   fieldText: { flexShrink: 1, color: colors.text, fontSize: 14 },
