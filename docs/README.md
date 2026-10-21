@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [text-link-keyboard.md](./text-link-keyboard.md) | 182 링크 입력창 키보드 회피·스크롤 및 iPad 확인 항목 |
 | [pencil-graphite.md](./pencil-graphite.md) | 178 거친 스케치 연필 질감·변경 전후 비교·브라우저 검증과 남은 iPad 확인 |
 | [text-font-styles.md](./text-font-styles.md) | 181 실제 Bold face 등록·미지원 서식 안내와 글꼴별 검증 |
 | [text-box-height.md](./text-box-height.md) | 180 텍스트 상하 조절 복원·내용 최소 높이·여백 저장 및 검증 |
