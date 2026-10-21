@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import DiaryPaperColors, { DiaryPaperPreview } from './DiaryPaperColors';
 import { templateIdForOrientation } from '../../editor/templates/catalog.js';
 import { DEFAULT_PAPER_APPEARANCE } from '../../editor/templates/appearance.js';
@@ -11,6 +11,7 @@ import { styles as s } from '../styles';
 import CoverPattern from './CoverPattern';
 
 const TITLE_LIMIT = 24;
+const SHEET_SLIDE = 600;
 
 // 왼쪽 미리보기의 책 모양 표지
 function BookPreview({ title, color, pattern }) {
@@ -44,7 +45,8 @@ function Chip({ label, selected, disabled, onPress, children }) {
 }
 
 // 입력 상태를 모달 안에 두어 글자를 칠 때마다 홈 화면 전체가 다시 그려지지 않게 한다.
-export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, saving = false }) {
+// sheet: 폰에서는 가운데 창 대신 아래에서 올라오는 시트로 띄운다.
+export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, saving = false, sheet = false, bottomInset = 0 }) {
   const editing = Boolean(diary);
   const [title, setTitle] = useState(diary?.title ?? DIARY_DEFAULTS.title);
   const [color, setColor] = useState(diary?.color ?? DIARY_DEFAULTS.color);
@@ -76,6 +78,11 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
     }));
   };
   const pageSizeLabel = PAGE_SIZES.find((item) => item.id === pageSize)?.label;
+  const slide = useRef(new Animated.Value(sheet ? 1 : 0)).current;
+  useEffect(() => {
+    if (!sheet) return;
+    Animated.timing(slide, { toValue: 0, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [sheet, slide]);
 
   const onTitleChange = (value) => {
     setTitle(value);
@@ -104,7 +111,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
       presentationStyle="overFullScreen"
       onRequestClose={() => { if (!saving) onCancel(); }}
     >
-    <View accessibilityViewIsModal style={s.createOverlay}>
+    <View accessibilityViewIsModal style={[s.createOverlay, sheet && s.createOverlaySheet]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${actionLabel} 닫기`}
@@ -112,14 +119,16 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
         onPress={onCancel}
         style={s.createBackdrop}
       />
-      <View style={s.createDialog}>
-        <View style={s.createPreviewPane}>
-          {coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <BookPreview title={title} color={color} pattern={pattern} />}
-          <Text style={s.createPreviewMeta}>{pageSizeLabel}</Text>
-          <Text style={s.createPreviewCopy}>{coloring ? '추천 색상과 직접 지정한 색을 바로 확인하세요.' : '표지 색상과 패턴은 만든 뒤에도 바꿀 수 있어요.'}</Text>
-        </View>
+      <Animated.View style={[s.createDialog, sheet && s.createSheet, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
+        {sheet ? <View style={s.sheetHandle} /> : (
+          <View style={s.createPreviewPane}>
+            {coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <BookPreview title={title} color={color} pattern={pattern} />}
+            <Text style={s.createPreviewMeta}>{pageSizeLabel}</Text>
+            <Text style={s.createPreviewCopy}>{coloring ? '추천 색상과 직접 지정한 색을 바로 확인하세요.' : '표지 색상과 패턴은 만든 뒤에도 바꿀 수 있어요.'}</Text>
+          </View>
+        )}
 
-        <View style={s.createFormPane}>
+        <View style={[s.createFormPane, sheet && s.createFormPaneSheet]}>
           <View style={s.createDialogHeader}>
             <View>
               <Text style={s.createDialogEyebrow}>{editing ? 'EDIT DIARY' : 'YOUR NEXT CHAPTER'}</Text>
@@ -166,7 +175,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
                   accessibilityLabel={`${choice.label} 표지 색상`}
                   accessibilityState={{ selected: color === choice.value }}
                   onPress={() => setColor(choice.value)}
-                  style={({ pressed }) => [s.createColorChoice, color === choice.value && s.createColorSelected, pressed && s.pressed]}
+                  style={({ pressed }) => [s.createColorChoice, sheet && s.createColorChoiceSheet, color === choice.value && s.createColorSelected, pressed && s.pressed]}
                 >
                   <View style={[s.createColorDot, { backgroundColor: choice.value }]} />
                 </Pressable>
@@ -202,7 +211,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
             <Text style={s.createLabel}>총 {count == null ? '—' : count}페이지</Text>
             {(error || configError) ? <Text accessibilityRole="alert" style={[s.error, { marginBottom: 8 }]}>{error || configError}</Text> : null}
           </View>}
-          <View style={s.createFooter}>
+          <View style={[s.createFooter, sheet && { paddingBottom: 16 + bottomInset }]}>
             {!editing && step > 0 && <Pressable
               accessibilityRole="button"
               accessibilityLabel={coloring ? '속지 구성으로 돌아가기' : '이름과 표지로 돌아가기'}
@@ -236,7 +245,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
             </Pressable>
           </View>
         </View>
-      </View>
+      </Animated.View>
     </View>
     </Modal>
   );

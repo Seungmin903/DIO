@@ -3,7 +3,7 @@ import { Animated, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
 
-function CreateDiaryCard({ layout = 'grid', carouselActive = false, animatedStyle, onCreate }) {
+function CreateDiaryCard({ layout = 'grid', compact = false, carouselActive = false, animatedStyle, onCreate }) {
   const carousel = layout === 'carousel';
 
   const card = (
@@ -15,10 +15,12 @@ function CreateDiaryCard({ layout = 'grid', carouselActive = false, animatedStyl
       style={({ pressed }) => [
         s.createCard,
         carousel ? s.createCardCarousel : s.createCardGrid,
+        compact && carousel && s.createCardCarouselCompact,
+        compact && !carousel && s.createCardGridCompact,
         pressed && s.pressed,
       ]}
     >
-      <View style={[s.createCardPanel, carousel && s.createCardPanelCarousel]}>
+      <View style={[s.createCardPanel, carousel && s.createCardPanelCarousel, compact && carousel && s.createCardPanelCarouselCompact, compact && !carousel && s.createCardPanelCompact]}>
         <View style={s.createCardPlus}>
           <AppIcon name="add" size={27} color="#536999" strokeWidth={1.7} />
         </View>

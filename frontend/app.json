@@ -3,7 +3,7 @@
     "name": "DIO",
     "slug": "dio",
     "version": "1.0.0",
-    "orientation": "landscape",
+    "orientation": "default",
     "userInterfaceStyle": "light",
     "androidStatusBar": {
       "hidden": true,
@@ -19,7 +19,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "requireFullScreen": true
+      "requireFullScreen": false
     },
     "plugins": [
       [
@@ -38,6 +38,12 @@
         }
       ],
       "expo-sharing",
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "DEFAULT"
+        }
+      ],
       "./plugins/withPointerEvents",
       "expo-image"
     ],

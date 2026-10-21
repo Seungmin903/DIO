@@ -3,15 +3,15 @@ import { styles as s } from '../styles';
 import Header from '../components/Header';
 import AppInformation from '../components/AppInformation';
 
-export default function ProfileScreen({ diaries }) {
+export default function ProfileScreen({ diaries, compact = false }) {
   const favorites = diaries.filter((diary) => diary.favorite).length;
 
   return (
-    <ScrollView contentContainerStyle={s.screen} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
       <Header eyebrow="MY SPACE" title="내 공간" />
-      <View style={s.profileHero}>
+      <View style={[s.profileHero, compact && s.profileHeroCompact]}>
         <View style={s.profileBadge}><Text style={s.profileBadgeText}>D</Text></View>
-        <View>
+        <View style={s.profileHeroText}>
           <Text style={s.profileTitle}>나의 기록 공간</Text>
           <Text style={s.profileCopy}>하루의 장면을 다이어리에 남겨 보세요.</Text>
         </View>

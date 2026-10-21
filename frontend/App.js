@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StatusBar, View, useWindowDimensions } from 'react-native';
+import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
@@ -8,6 +8,7 @@ import { DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail from './src/diary/components/SideRail';
+import BottomTabs from './src/diary/components/BottomTabs';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
@@ -15,6 +16,8 @@ import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
 import { fitTabletFrame } from './src/shared/layout';
 import { normalizePaperAppearance } from './src/editor/templates/appearance.js';
+import { useFormFactor } from './src/shared/useFormFactor';
+import { CAN_LOCK_ORIENTATION, useOrientationLock } from './src/shared/useOrientationLock';
 import { normalizeTemplateConfig } from './src/editor/templates/creation.js';
 import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
 import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
@@ -39,6 +42,8 @@ export default function App() {
 function DiaryApp() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  // 폰은 화면 전체를 쓰고, 태블릿만 16:10 프레임 안에 맞춘다. 데이터·상태는 두 배치가 함께 쓴다.
+  const { isPhone, isLandscape } = useFormFactor();
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
   const [railCollapsed, setRailCollapsed] = useState(true);
@@ -62,7 +67,10 @@ function DiaryApp() {
   const savingRef = useRef(false);
   const pendingCreateId = useRef(null);
 
-  const tablet = fitTabletFrame(viewport.width, viewport.height);
+  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height);
+  // 폰 편집기에서 세로(간편)·가로(정밀) 전환 버튼으로 고른 방향. 편집기를 새로 열면 다시 기기 방향을 따른다.
+  const [editorOrientation, setEditorOrientation] = useState(null);
+  useOrientationLock(isPhone ? 'phone' : 'tablet', page === 'editor', editorOrientation);
 
   // 편집 문서·첫 속지·사진을 기기 저장소에서 미리 준비한 뒤 편집기로 넘어가 로딩 화면이 보이지 않게 한다.
   // 준비가 늦어져도 정해진 시간 안에는 넘어가고, 그사이 다른 다이어리를 고르면 마지막 요청을 연다.
@@ -73,6 +81,7 @@ function DiaryApp() {
     Promise.race([prepareEditor(diary), wait(EDITOR_PREPARE_LIMIT_MS)]).finally(() => {
       if (opening.current !== request) return;
       opening.current = null;
+      setEditorOrientation(null);
       setActive(diary);
       setPage('editor');
     });
@@ -91,6 +100,26 @@ function DiaryApp() {
     }
     setPage(next);
   }, []);
+
+  // Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
+  // 편집기는 열린 도구·패널을 먼저 닫아야 하므로 EditorScreen에서 별도로 처리한다.
+  useEffect(() => {
+    if (!isPhone || Platform.OS !== 'android' || page === 'editor') return undefined;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (createOpen) {
+        if (savingRef.current) return true;
+        setCreateOpen(false);
+        setEditingDiaryId(null);
+        return true;
+      }
+      if (page !== 'library' || filter !== DEFAULT_FILTER) {
+        navigate('library', DEFAULT_FILTER);
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [createOpen, filter, isPhone, navigate, page]);
 
   const create = useCallback(() => {
     if (savingRef.current) return;
@@ -220,6 +249,7 @@ function DiaryApp() {
 
   const libraryScreen = useMemo(() => (
     <LibraryScreen
+      compact={isPhone}
       diaries={visibleDiaries}
       filter={filter}
       view={view}
@@ -232,7 +262,7 @@ function DiaryApp() {
       onEdit={edit}
       onCreate={create}
     />
-  ), [carousel, changeFilter, create, edit, favorite, filter, open, view, visibleDiaries]);
+  ), [carousel, changeFilter, create, edit, favorite, filter, isPhone, open, view, visibleDiaries]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
@@ -241,6 +271,10 @@ function DiaryApp() {
       <EditorScreen
         key={active?.id || 'new'}
         diary={active}
+        compact={isPhone}
+        landscape={isLandscape}
+        bottomInset={insets.bottom}
+        onToggleOrientation={isPhone && CAN_LOCK_ORIENTATION ? () => setEditorOrientation(isLandscape ? 'portrait' : 'landscape') : undefined}
         onHome={returnToLibrary}
         onRenameDiary={(title) => active?.id && renameDiary(active.id, title)}
       />
@@ -248,6 +282,7 @@ function DiaryApp() {
   } else if (page === 'trash') {
     content = (
       <TrashScreen
+        compact={isPhone}
         diaries={trashedDiaries}
         onRestore={restoreFromTrash}
         onDeletePermanently={(diary) => {
@@ -263,7 +298,7 @@ function DiaryApp() {
       />
     );
   } else if (page === 'profile') {
-    content = <ProfileScreen diaries={visibleDiaries} />;
+    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} />;
   }
 
   const measureViewport = ({ nativeEvent: { layout } }) => {
@@ -273,38 +308,59 @@ function DiaryApp() {
     ));
   };
 
+  const createModal = createOpen && (
+    <DiaryCreateModal
+      key={editingDiaryId ?? 'new'}
+      sheet={isPhone}
+      bottomInset={insets.bottom}
+      diary={editingDiaryId ? diaries.find(item => item.id === editingDiaryId) : null}
+      saving={saving}
+      onSubmit={save}
+      onDelete={remove}
+      onCancel={() => { if (savingRef.current) return; setCreateOpen(false); setEditingDiaryId(null); }}
+    />
+  );
+
+  let shell;
+  if (page === 'editor') {
+    shell = content;
+  } else if (isPhone) {
+    // 폰: 사이드 메뉴 대신 하단 탭. 새 다이어리 시트는 탭까지 덮도록 셸 위에 띄운다.
+    shell = (
+      <View style={s.phoneShell}>
+        <View style={s.workspace}>{content}</View>
+        <BottomTabs page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
+        {createModal}
+      </View>
+    );
+  } else {
+    shell = (
+      <View style={s.shell}>
+        <SideRail
+          page={page}
+          filter={filter}
+          navigate={navigate}
+          create={create}
+          bottomInset={insets.bottom}
+          collapsed={railCollapsed}
+          onToggle={() => setRailCollapsed((current) => !current)}
+        />
+        <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
+          {content}
+          {createModal}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <>
       <StatusBar hidden />
-      <SafeAreaView style={s.safe} edges={['left', 'right']}>
+      {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. */}
+      <SafeAreaView style={s.safe} edges={isPhone ? ['top', 'left', 'right'] : ['left', 'right']}>
         <View style={s.viewport} onLayout={measureViewport}>
-          <View style={[s.app, { width: tablet.width, height: tablet.height }]}>
-            {page === 'editor' ? content : (
-              <View style={s.shell}>
-                <SideRail
-                  page={page}
-                  filter={filter}
-                  navigate={navigate}
-                  create={create}
-                  bottomInset={insets.bottom}
-                  collapsed={railCollapsed}
-                  onToggle={() => setRailCollapsed((current) => !current)}
-                />
-                <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
-                  {content}
-                  {createOpen && (
-                    <DiaryCreateModal
-                      key={editingDiaryId ?? 'new'}
-                      diary={editingDiaryId ? diaries.find(item => item.id === editingDiaryId) : null}
-                      saving={saving}
-                      onSubmit={save}
-                      onDelete={remove}
-                      onCancel={() => { if (savingRef.current) return; setCreateOpen(false); setEditingDiaryId(null); }}
-                    />
-                  )}
-                </View>
-              </View>
-            )}
+          <View style={[s.app, frame ? { width: frame.width, height: frame.height } : s.appFill]}>
+            {shell}
           </View>
         </View>
       </SafeAreaView>

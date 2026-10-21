@@ -27,7 +27,9 @@ frontend/
 │   └── stickers/                   # 기본 스티커 원본 파일
 └── src/
     ├── shared/                    # 모든 기능에서 재사용하는 기반 코드
-    │   ├── layout.js               # 16:10 태블릿 프레임 계산
+    │   ├── layout.js               # 폰·태블릿 판단(짧은 변 600dp), 16:10 태블릿 프레임 계산
+    │   ├── useFormFactor.js        # 창 크기로 폰/태블릿·가로/세로를 고르는 훅
+    │   ├── useOrientationLock.js   # 폰 세로 고정·편집기 가로 허용 (expo-screen-orientation)
     │   └── theme.js                # 에디터 공통 색상·모서리·그림자 토큰
     ├── diary/                     # 다이어리 보관함(랜딩) 기능
     │   ├── screens/               # 한 파일 = 한 화면
@@ -38,7 +40,7 @@ frontend/
         ├── screens/               # 편집기 전체 화면
         ├── components/
         │   ├── canvas/            # 페이지 위 오브젝트·선택·자르기 렌더링
-        │   ├── chrome/            # 상단바·도구 리본
+        │   ├── chrome/            # 상단바·도구 리본, 폰 도구 막대(PhoneToolbar)
         │   ├── controls/          # 아이콘·슬라이더·저장 표시 등 작은 공통 조작 UI
         │   └── panels/            # 레이어·페이지·사진·자르기 등 열리고 닫히는 패널
         ├── assets/                # 기본 스티커 정의와 앱 번들 자산 연결
@@ -55,7 +57,8 @@ frontend/
 | --- | --- | --- |
 | 홈(모든 다이어리·즐겨찾기) / 캐러셀 / 그리드 | `diary/screens/LibraryScreen.js` | `diary/components/DiaryCard.js`, `Cover.js` |
 | 새 다이어리 / 표지 수정 | `diary/components/DiaryCreateModal.js` | `diary/components/Cover.js` |
-| 휴지통(복원·영구 삭제) | `diary/screens/TrashScreen.js` | `diary/hooks/useDiaries.js` |
+| 휴지통(복원·영구 삭제) | `diary/screens/TrashScreen.js` | `diary/hooks/useDiaries.js`, 폰은 `diary/components/TrashSwipeRow.js` |
+| 폰 하단 탭 | `diary/components/BottomTabs.js` | `App.js` |
 | 내 공간 | `diary/screens/ProfileScreen.js` | 없음 |
 | 다이어리 편집 | `editor/screens/EditorScreen.js` | `editor/components/*` |
 

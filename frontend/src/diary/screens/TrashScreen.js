@@ -3,15 +3,26 @@ import { styles as s } from '../styles';
 import EmptyState from '../components/EmptyState';
 import Header from '../components/Header';
 import Cover from '../components/Cover';
+import TrashSwipeRow from '../components/TrashSwipeRow';
 import AppIcon from '../../shared/AppIcon';
 import { formatUpdatedAt } from '../utils/diaryLibrary';
 
-export default function TrashScreen({ diaries, onRestore, onDeletePermanently }) {
+// compact: 폰에서는 카드 대신 쓸어서 복원·삭제하는 한 줄 목록으로 보여 준다.
+export default function TrashScreen({ diaries, onRestore, onDeletePermanently, compact = false }) {
   return (
-    <ScrollView contentContainerStyle={s.screen} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
       <Header eyebrow="TRASH" title="휴지통" />
       {!diaries.length ? (
         <EmptyState title="휴지통이 비어 있어요" copy="삭제한 다이어리는 이곳에서 복원하거나 영구 삭제할 수 있어요." />
+      ) : compact ? (
+        <>
+          <Text style={s.trashHint}>왼쪽으로 쓸어 복원하거나 영구 삭제하세요.</Text>
+          <View style={s.trashList}>
+            {diaries.map((diary) => (
+              <TrashSwipeRow key={diary.id} diary={diary} onRestore={onRestore} onDelete={onDeletePermanently} />
+            ))}
+          </View>
+        </>
       ) : (
         <View style={s.trashGrid}>
           {diaries.map((diary) => (

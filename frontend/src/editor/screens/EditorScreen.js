@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { BackHandler, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
@@ -17,6 +17,7 @@ import LayerPanel, { LAYER_PANEL_WIDTH } from '../components/panels/LayerPanel'
 import MorePanel from '../components/panels/MorePanel'
 import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
+import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail, PhoneMoreTools } from '../components/chrome/PhoneToolbar'
 import PenSettings from '../components/PenSettings'
 import EraserSettings from '../components/EraserSettings'
 import { ERASER_RADIUS } from '../utils/eraser.js'
@@ -55,11 +56,17 @@ import { pageSize, pageTemplateOrientation } from '../utils/pageGeometry.js'
 preloadTextFonts()
 
 const TOAST_MS = 2000
+const ZOOM_STEP = 1.25
+const ORIENTATION_HINT_MS = 6500
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
+// 폰: 도구 막대가 작업창 밖(위·오른쪽)에 있어서 스테이지에는 되돌리기 바 여백만 남긴다.
+const PHONE_STAGE_PADDING = { top: 16, bottom: 68, side: 12 }
 
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
-export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport }) {
+// compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 상단 도구 막대),
+// 가로는 정밀 편집(왼쪽 화면 막대 + 오른쪽 전체 도구 막대 + 확대·축소). onToggleOrientation이 있으면 세로·가로를 버튼으로 바꾼다.
+export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation }) {
   // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
@@ -90,6 +97,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [drawerWidth, setDrawerWidth] = useState(320)
   const [stageOrigin, setStageOrigin] = useState({ x: 0, y: 0 })
   const toolPopoverStyle = (width = 320) => {
+    // 폰: 설정 창은 작업 영역 안에 띄우고 아래 되돌리기 바는 가리지 않는다.
+    if (compact) return { left: 8, right: 8, top: 8, bottom: 60, alignItems: landscape ? 'flex-end' : 'center', justifyContent: 'flex-end' }
     const stageWidth = stageSize?.width ?? 600
     const left = Math.max(8, Math.min((toolAnchor?.x ?? stageOrigin.x + stageWidth / 2) - stageOrigin.x + (toolAnchor?.width ?? 0) / 2 - width / 2, stageWidth - width - 8))
     return { left, right: 8, top: Math.max(76, (toolAnchor?.y ?? stageOrigin.y + 24) - stageOrigin.y + (toolAnchor?.height ?? 44) + 8), bottom: 64, alignItems: 'flex-start' }
@@ -121,9 +130,28 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [eraserMode, setEraserMode] = useState('stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
-  const [layersOpen, setLayersOpen] = useState(true)
-  const [pagesOpen, setPagesOpen] = useState(true)
+  // 폰은 화면이 좁아 페이지 목록·레이어를 닫은 채 시작한다. 창 크기가 바뀌어 배치가 달라지면 다시 맞춘다.
+  const [layersOpen, setLayersOpen] = useState(!compact)
+  const [pagesOpen, setPagesOpen] = useState(!compact)
+  const [layoutCompact, setLayoutCompact] = useState(compact)
+  if (layoutCompact !== compact) {
+    setLayoutCompact(compact)
+    setLayersOpen(!compact)
+    setPagesOpen(!compact)
+  }
+  const [phoneMoreOpen, setPhoneMoreOpen] = useState(false)
+  const stagePadding = compact ? PHONE_STAGE_PADDING : STAGE_PADDING
   const [focusMode, setFocusMode] = useState(false)
+  const phoneLandscape = compact && landscape
+  // 폰 집중 편집: 막대를 모두 숨기고 종료 버튼만 남긴다.
+  const phoneFocus = compact && focusMode
+  // 폰 세로에서 처음 몇 초 동안 가로 정밀 편집을 알려 준다.
+  const [orientationHint, setOrientationHint] = useState(Boolean(compact && !landscape && onToggleOrientation))
+  useEffect(() => {
+    if (!orientationHint) return undefined
+    const timer = setTimeout(() => setOrientationHint(false), ORIENTATION_HINT_MS)
+    return () => clearTimeout(timer)
+  }, [orientationHint])
   const [cropId, setCropId] = useState(null)
   const [recentPhotos, setRecentPhotos] = useState([])
   const [importFailure, setImportFailure] = useState(null)
@@ -151,14 +179,14 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     ? Math.max(
         0.05,
         Math.min(
-          (stageSize.width - STAGE_PADDING.side * 2) / PAGE_WIDTH,
-          (stageSize.height - STAGE_PADDING.top - STAGE_PADDING.bottom) / PAGE_HEIGHT,
+          (stageSize.width - stagePadding.side * 2) / PAGE_WIDTH,
+          (stageSize.height - stagePadding.top - stagePadding.bottom) / PAGE_HEIGHT,
         ),
       )
     : 0.6
   const zoom = fitZoom * view.scale
   const fitted = view.scale === 1 && view.x == null
-  const offset = view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT, STAGE_PADDING) : { x: view.x, y: view.y }
+  const offset = view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) : { x: view.x, y: view.y }
 
   // 페이지가 화면 밖으로 다 사라지지 않게 가장자리 80px 은 남긴다.
   const clampOffset = (next, z) => clampViewportOffset(next, z, stageSize, PAGE_WIDTH, PAGE_HEIGHT)
@@ -169,7 +197,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     const z = fitZoom * scale
     return { scale, zoom: z, ...clampOffset({ x: screenPoint.x - pagePoint.x * z, y: screenPoint.y - pagePoint.y * z }, z) }
   }
-  const resolvePan = (from, dx, dy) => ({ ...from, ...panView(from, dx, dy, fitZoom, stageSize, PAGE_WIDTH, PAGE_HEIGHT, STAGE_PADDING) })
+  const resolvePan = (from, dx, dy) => ({ ...from, ...panView(from, dx, dy, fitZoom, stageSize, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) })
   const commitView = (next) => {
     setView({ scale: next.scale, x: next.x, y: next.y })
   }
@@ -202,6 +230,12 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   if (cropId && !cropTarget) setCropId(null)
 
   const fitToScreen = () => setView({ scale: 1, x: null, y: null })
+  // 확대·축소 버튼: 작업창 가운데를 기준으로 배율을 바꾼다.
+  const zoomBy = (factor) => {
+    if (!stageSize) return
+    const center = { x: stageSize.width / 2, y: stageSize.height / 2 }
+    commitView(resolveZoom(view.scale * factor, { x: (center.x - offset.x) / zoom, y: (center.y - offset.y) / zoom }, center))
+  }
 
   const randomCenter = () => ({
     x: PAGE_WIDTH / 2 + (Math.random() - 0.5) * 160,
@@ -377,7 +411,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   // 툴바에서 연 창(보관함·더보기·펜/텍스트/올가미 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
   // 터치를 가로채지 않고(목록 스크롤과 다투지 않게) 누른 위치만 본다:
   // 창·툴바 안의 터치는 그 영역이 먼저 표시하고, 바깥(root)에서는 표시가 없을 때만 닫는다.
-  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || guidesOpen || (activeTool === 'lasso' && lassoSettingsOpen))
+  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || guidesOpen || phoneMoreOpen || (activeTool === 'lasso' && lassoSettingsOpen))
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
@@ -388,6 +422,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setLassoSettingsOpen(false)
     setTextSettingsOpen(false)
     setGuidesOpen(false)
+    setPhoneMoreOpen(false)
   }
   const closeOnOutside = {
     [pressEvent]: () => {
@@ -402,14 +437,152 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   // 패널은 오른쪽 바깥 여백(16)을 덮으므로 작업창 폭은 패널 폭 + 간격 - 16 만큼 바뀐다.
   const toggleLayers = (open) => {
     if (open === showLayers) return
+    if (compact && open) setPagesOpen(false)
     setLayersOpen(open)
+    // 폰은 레이어를 작업창 위에 띄우므로 작업창 크기가 그대로다.
+    if (compact) return
     const delta = LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING
     setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) })
   }
 
+  // 리본(태블릿)과 폰 도구 막대가 함께 쓰는 도구·보관함·내보내기 동작
+  const openDrawer = (tab) => {
+    setLassoSettingsOpen(false)
+    setGuidesOpen(false)
+    setTextSettingsOpen(false)
+    setPenSettingsOpen(false)
+    setPhoneMoreOpen(false)
+    if (cropId) finishCrop(false)
+    setMoreOpen(false)
+    setActiveTool('select')
+    setDrawerTab(drawerTab === tab ? null : tab)
+  }
+  const selectTool = (tool) => {
+    setGuidesOpen(false)
+    setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
+    setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
+    setPenSettingsOpen(['pen', 'highlighter', 'eraser'].includes(tool) ? tool !== activeTool || !penSettingsOpen : false)
+    setPhoneMoreOpen(false)
+    if (cropId) finishCrop(false)
+    setTapeCropId(null)
+    setDrawerTab(null)
+    setMoreOpen(false)
+    const keepSelection = (tool === 'text' && activeTool !== 'lasso') || tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')
+    if (!keepSelection) dispatch({ type: 'select', ids: [] })
+    if (tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')) {
+      setTextEditing(null)
+      if (activeTool !== 'lasso') setLasso({ shape: 'rectangle', mode: 'replace' })
+    }
+    setActiveTool(tool)
+  }
+  const openExport = () => {
+    setPhoneMoreOpen(false)
+    if (textEditing) { showToast('텍스트 편집을 완료한 뒤 내보내 주세요.'); return }
+    if (cropId || tapeCropId) { showToast('자르기를 마친 뒤 내보내 주세요.'); return }
+    Keyboard.dismiss()
+    setExportOpen(true)
+  }
+
+  const goHome = () => {
+    if (onHome) onHome()
+    else showToast('다이어리 홈은 다른 화면에서 연결될 예정이에요.')
+  }
+  const togglePages = () => {
+    setFocusMode(false)
+    const open = !showPages
+    if (compact && open) setLayersOpen(false)
+    setPagesOpen(open)
+    // 작업창 왼쪽 끝이 움직이므로 새 크기를 같은 화면에서 바로 써서 한 번에 맞춘다.
+    // (측정값을 기다리면 페이지가 왼쪽 끝을 따라 한 번 밀렸다가 다시 가운데로 와서 두 번 움직였다)
+    // 폰은 페이지 목록을 작업창 위에 띄우므로 작업창 크기가 그대로다.
+    const delta = compact ? 0 : PAGE_LIST_WIDTH + BODY_GAP
+    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) })
+  }
+  const switchLayers = () => {
+    setFocusMode(false)
+    toggleLayers(!showLayers)
+  }
+  const toggleOrientation = onToggleOrientation && (() => {
+    setOrientationHint(false)
+    onToggleOrientation()
+  })
+  // 폰 집중 편집은 가로 화면에서 한다.
+  const startPhoneFocus = () => {
+    closeBubbles()
+    setFocusMode(true)
+    if (!landscape) onToggleOrientation?.()
+    showToast('집중 편집 · 두 손가락으로 이동하고 확대하세요.')
+  }
+
+  // Android 뒤로가기는 현재 편집 상태를 한 단계씩 닫는다. 모두 닫혀 있을 때만 보관함으로 이동한다.
+  useEffect(() => {
+    if (!compact || Platform.OS !== 'android') return undefined
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (exportSnapshot) { setExportSnapshot(null); setRegionOpen(false); return true }
+      if (regionOpen) { setRegionOpen(false); return true }
+      if (exportOpen) { setExportOpen(false); return true }
+      if (overviewFilter) { setOverviewFilter(null); return true }
+      if (templatePickerOpen) { setTemplatePickerOpen(false); return true }
+      if (textLinkTarget) { setTextLinkTarget(null); return true }
+      if (objectLinkTarget) { setObjectLinkTarget(null); return true }
+      if (bubbleOpen) { closeBubbles(); return true }
+      if (focusMode) { setFocusMode(false); return true }
+      if (pagesOpen) { setPagesOpen(false); return true }
+      if (layersOpen) { setLayersOpen(false); return true }
+      goHome()
+      return true
+    })
+    return () => subscription.remove()
+  }, [bubbleOpen, compact, exportOpen, exportSnapshot, focusMode, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, regionOpen, templatePickerOpen, textLinkTarget])
+
+  const phoneToolbar = !readOnly && compact ? (
+    <PhoneToolbar
+      {...markInside}
+      vertical={landscape}
+      bottomInset={landscape ? bottomInset : 0}
+      activeTool={activeTool}
+      drawerTab={drawerTab}
+      moreOpen={phoneMoreOpen}
+      penColor={penSettings.color}
+      highlighterColor={highlighterSettings.color}
+      onSelectTool={selectTool}
+      onOpenDrawer={openDrawer}
+      onToggleMore={() => {
+        setDrawerTab(null)
+        setMoreOpen(false)
+        setPenSettingsOpen(false)
+        setTextSettingsOpen(false)
+        setLassoSettingsOpen(false)
+        setPhoneMoreOpen((open) => !open)
+      }}
+    />
+  ) : null
+
   return (
-    <View style={styles.root} {...closeOnOutside} onStartShouldSetResponderCapture={(event) => Boolean(textEditing && textBoundary.current?.(event))} onResponderTerminationRequest={() => false}>
-      <TopBar
+    <View
+      style={[styles.root, phoneLandscape && !phoneFocus && styles.rootBetweenRails, phoneLandscape && !phoneFocus && readOnly && styles.rootReadOnlyRail]}
+      {...closeOnOutside}
+      onStartShouldSetResponderCapture={(event) => Boolean(textEditing && textBoundary.current?.(event))}
+      onResponderTerminationRequest={() => false}
+    >
+      {phoneLandscape && !phoneFocus && (
+        <PhoneEditorRail
+          {...markInside}
+          pagesOpen={showPages}
+          layersOpen={showLayers}
+          readOnly={readOnly}
+          onHome={goHome}
+          onTogglePages={togglePages}
+          onToggleOrientation={toggleOrientation}
+          onToggleLayers={switchLayers}
+          onExport={openExport}
+          onFocus={startPhoneFocus}
+        />
+      )}
+      {!phoneLandscape && !phoneFocus && <TopBar
+        compact={compact}
+        pageLabel={`PAGE ${pageIndex + 1} / ${state.doc.pages.length}`}
+        onToggleOrientation={toggleOrientation}
         doc={state.doc}
         onRename={(title) => {
           dispatch({ type: 'renameDoc', title })
@@ -418,27 +591,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         layersOpen={showLayers}
         pagesOpen={showPages}
         focusMode={focusMode}
-        onHome={() => {
-          if (onHome) onHome()
-          else showToast('다이어리 홈은 다른 화면에서 연결될 예정이에요.')
-        }}
-        onCloseTab={() => {
-          if (onHome) onHome()
-          else showToast('다이어리 홈은 다른 화면에서 연결될 예정이에요.')
-        }}
+        onHome={goHome}
+        onCloseTab={goHome}
         readOnly={readOnly}
-        onTogglePages={() => {
-          setFocusMode(false)
-          setPagesOpen(!showPages)
-          // 작업창 왼쪽 끝이 움직이므로 새 크기를 같은 화면에서 바로 써서 한 번에 맞춘다.
-          // (측정값을 기다리면 페이지가 왼쪽 끝을 따라 한 번 밀렸다가 다시 가운데로 와서 두 번 움직였다)
-          const delta = PAGE_LIST_WIDTH + BODY_GAP
-          setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) })
-        }}
-        onToggleLayers={() => {
-          setFocusMode(false)
-          toggleLayers(!showLayers)
-        }}
+        onTogglePages={togglePages}
+        onToggleLayers={switchLayers}
         onToggleFocus={() => {
           setFocusMode(!focusMode)
           if (!focusMode) showToast('집중 편집 · 양옆 패널을 닫았어요.')
@@ -446,13 +603,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         shareLabel="공유 및 내보내기"
         shareIcon="share"
         onShareAnchor={setExportAnchor}
-        onShare={() => {
-          if (textEditing) { showToast('텍스트 편집을 완료한 뒤 내보내 주세요.'); return }
-          if (cropId || tapeCropId) { showToast('자르기를 마친 뒤 내보내 주세요.'); return }
-          Keyboard.dismiss()
-          setExportOpen(true)
-        }}
-      />
+        onShare={openExport}
+      />}
+      {!landscape && phoneToolbar}
 
       {exportOpen && <ExportMenu anchor={exportAnchor} doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => {
         const target = state.doc.pages.find((p) => p.id === id)
@@ -476,10 +629,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       )}
       {templatePickerOpen && !readOnly && <TemplatePicker orientation={templateOrientation} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 }} onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
-      <View style={styles.body}>
+      <View style={[styles.body, compact && styles.bodyCompact]}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
         <TapCatcher onTap={clearSelection} style={StyleSheet.absoluteFill} />
         {showPages && loaded && (
+          <PhonePanelSlot compact={compact} side={styles.phonePanelLeft}>
           <PageList
             readOnly={readOnly}
             pages={state.doc.pages}
@@ -503,6 +657,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.')
             }}
           />
+          </PhonePanelSlot>
         )}
 
         <View ref={stageRef} collapsable={false} style={styles.stage}
@@ -587,43 +742,15 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             </ViewportMotion.Provider>
           </Viewport>
 
-          {!readOnly && <View style={styles.ribbonWrap} pointerEvents="box-none" {...markInside}>
+          {!readOnly && !compact && <View style={styles.ribbonWrap} pointerEvents="box-none" {...markInside}>
             <Ribbon
               onAnchor={setToolAnchor}
               penColor={penSettings.color}
               highlighterColor={highlighterSettings.color}
               activeTool={activeTool}
               drawerTab={drawerTab}
-              onOpenDrawer={(tab) => {
-                setLassoSettingsOpen(false)
-                setGuidesOpen(false)
-                setTextSettingsOpen(false)
-                setPenSettingsOpen(false)
-                if (cropId) finishCrop(false)
-                setMoreOpen(false)
-                setActiveTool('select')
-                setDrawerTab(drawerTab === tab ? null : tab)
-              }}
-              onSelectTool={(pressed) => {
-                // 옵션 창이 열린 도구를 한 번 더 누르면 창을 닫으면서 도구 선택도 풀고 선택 도구로 돌아간다.
-                const panelOpen = { lasso: lassoSettingsOpen, text: textSettingsOpen, pen: penSettingsOpen, highlighter: penSettingsOpen, eraser: penSettingsOpen }[pressed]
-                const tool = pressed === activeTool && panelOpen ? 'select' : pressed
-                setGuidesOpen(false)
-                setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
-                setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
-                setPenSettingsOpen(['pen', 'highlighter', 'eraser'].includes(tool) ? tool !== activeTool || !penSettingsOpen : false)
-                if (cropId) finishCrop(false)
-                setTapeCropId(null)
-                setDrawerTab(null)
-                setMoreOpen(false)
-                const keepSelection = (tool === 'text' && activeTool !== 'lasso') || tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')
-                if (!keepSelection) dispatch({ type: 'select', ids: [] })
-                if (tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')) {
-                  setTextEditing(null)
-                  if (activeTool !== 'lasso') setLasso({ shape: 'rectangle', mode: 'replace' })
-                }
-                setActiveTool(tool)
-              }}
+              onOpenDrawer={openDrawer}
+              onSelectTool={selectTool}
               onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
               guidesActive={guidesOpen || hasGuides(guides)}
               onOpenGuides={() => {
@@ -683,6 +810,12 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             </View>
           )}
 
+          {!readOnly && compact && phoneMoreOpen && (
+            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
+              <PhoneMoreTools activeTool={activeTool} drawerTab={drawerTab} onSelectTool={selectTool} onOpenDrawer={openDrawer} onExport={openExport} onFocus={startPhoneFocus} onClose={() => setPhoneMoreOpen(false)} />
+            </View>
+          )}
+
           {drawerTab && (
             <View style={[styles.drawerWrap, toolPopoverStyle(drawerWidth)]} pointerEvents="box-none" {...markInside}>
               <DecorDrawer
@@ -707,8 +840,18 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             <SaveIndicator status={saveStatus} onInfo={showToast} />
           </View>
 
+          {phoneLandscape && !phoneFocus && (
+            // 폰 가로(정밀 편집): 확대·축소 버튼을 늘 보인다. 배율을 누르면 화면에 맞춘다.
+            <View style={[styles.floating, styles.floatingRight]}>
+              <RoundButton icon="minus" label="축소" disabled={view.scale <= ZOOM_MIN} onPress={() => zoomBy(1 / ZOOM_STEP)} />
+              <Pressable onPress={fitToScreen} accessibilityRole="button" accessibilityLabel={`배율 ${Math.round(view.scale * 100)}%, 화면에 맞춤`} style={styles.zoomFit}>
+                <Text style={styles.zoomValue}>{Math.round(view.scale * 100)}%</Text>
+              </Pressable>
+              <RoundButton icon="plus" label="확대" disabled={view.scale >= ZOOM_MAX} onPress={() => zoomBy(ZOOM_STEP)} />
+            </View>
+          )}
           {/* 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. (배율 숫자는 확대·축소하는 동안 Viewport 가 띄운다) */}
-          {!fitted && (
+          {!phoneLandscape && !fitted && (
             <View style={[styles.floating, styles.floatingRight]} pointerEvents="box-none">
               <RoundButton icon="fit" label="화면에 맞춤" onPress={fitToScreen} />
             </View>
@@ -741,6 +884,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             />
           )}
 
+          {orientationHint && toggleOrientation && !landscape && !phoneFocus && (
+            <Pressable onPress={toggleOrientation} accessibilityRole="button" accessibilityLabel="가로 정밀 편집으로 전환" style={styles.orientationHint}>
+              <Icon name="rotate" size={15} />
+              <Text style={styles.orientationHintText}>정밀 편집은 가로 화면</Text>
+            </Pressable>
+          )}
+
           {toast && (
             <View key={toast.key} style={styles.toast} pointerEvents="none">
               <Text style={styles.toastText}>{toast.message}</Text>
@@ -749,6 +899,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         </View>
 
         {showLayers && !readOnly && (
+          <PhonePanelSlot compact={compact} side={phoneLandscape ? styles.phonePanelLeft : styles.phonePanelRight}>
             <LayerPanel
               objects={page.objects}
               selectedIds={state.selectedIds}
@@ -756,8 +907,16 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               onClose={() => toggleLayers(false)}
               onEmptyTap={clearSelection}
               />
+          </PhonePanelSlot>
         )}
       </View>
+      {phoneFocus && (
+        <Pressable onPress={() => setFocusMode(false)} accessibilityRole="button" accessibilityLabel="집중 편집 모드 종료" style={[styles.focusExit, !landscape && styles.focusExitPortrait]}>
+          <Icon name="focus" size={17} />
+          <Text style={styles.focusExitText}>집중 모드 종료</Text>
+        </Pressable>
+      )}
+      {landscape && phoneToolbar}
     </View>
   )
 }
@@ -798,6 +957,12 @@ function optionsPlacement(objects, zoom, offset, stage) {
   return { left, top, height: stage.height - OPTIONS_BOTTOM - top }
 }
 
+// 폰에서만 패널을 작업창 위에 띄우는 틀로 감싼다. 태블릿은 감싸지 않아 기존 배치·겹침 순서를 그대로 쓴다.
+function PhonePanelSlot({ compact, side, children }) {
+  if (!compact) return children
+  return <View style={[styles.phonePanel, side]} pointerEvents="box-none">{children}</View>
+}
+
 function RoundButton({ icon, label, disabled, active, onPress }) {
   return (
     <Pressable
@@ -818,7 +983,21 @@ function RoundButton({ icon, label, disabled, active, onPress }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
+  // 폰 가로: 양옆에 세운 막대만큼 작업창을 비켜 둔다. (읽기 전용이면 오른쪽 도구 막대가 없다)
+  rootBetweenRails: { paddingLeft: PHONE_TOOLBAR_RAIL, paddingRight: PHONE_TOOLBAR_RAIL },
+  rootReadOnlyRail: { paddingRight: 0 },
+  zoomFit: { minWidth: 56, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
+  orientationHint: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 44, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
+  orientationHintText: { fontSize: 11.5, fontWeight: '700', color: colors.text },
+  focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
+  focusExitPortrait: { top: 72 },
+  focusExitText: { fontSize: 12.5, fontWeight: '800', color: colors.text },
   body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: BODY_PADDING },
+  bodyCompact: { padding: 8 },
+  // 폰: 페이지 목록·레이어는 작업창을 줄이지 않고 그 위에 띄운다.
+  phonePanel: { position: 'absolute', top: 8, bottom: 8, zIndex: 20, flexDirection: 'row', ...shadow.float },
+  phonePanelLeft: { left: 8 },
+  phonePanelRight: { right: 8, maxWidth: '86%' },
   stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 18 },
   textPaletteWrap: { position: 'absolute', maxWidth: '100%' },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },

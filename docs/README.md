@@ -26,6 +26,7 @@
 | [page-image-renderer.md](./page-image-renderer.md) | 109 공통 이미지 생성 함수·전용 surface·취소·자원 수명 |
 | [gif-first-frame-export.md](./gif-first-frame-export.md) | 73 GIF 첫 프레임 PNG 변환·원본 보존·검증 |
 | [png-file-export.md](./png-file-export.md) | 74 PNG 파일 저장·진행·오류·재시도 계약 |
+| [phone-tablet-layout.md](./phone-tablet-layout.md) | 77 창 크기 기준 폰·태블릿 배치, 화면 방향 잠금, 폰 홈·편집기 구성 |
 | [diary-template-creation.md](./diary-template-creation.md) | 다이어리 생성 속지 포함 여부·양식·장수 선택과 저장 호환 |
 | [landscape-svg-templates.md](./landscape-svg-templates.md) | 114 가로형 SVG 속지·페이지 좌표·저장 호환·검증 |
 | [region-png-export-contract.md](./region-png-export-contract.md) | 115 선택 영역 PNG 좌표·비율·출력·저장 계약 |
