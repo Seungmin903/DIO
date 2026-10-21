@@ -13,7 +13,7 @@ const EDGE_THICKNESS = 20 // 변 전체가 보이지 않는 크기 조절 영역
 // 변 영역은 대부분 박스 바깥에 두고 안쪽으로는 이만큼만 들어온다. (가운데를 눌러 옮기는 영역을 넓게 남긴다)
 const EDGE_INSET = 4
 const ROTATE_OFFSET = 34
-const ROTATE_HANDLE = 28
+const ROTATE_HANDLE = HANDLE // 꼭짓점 손잡이와 같은 크기
 const MIN_SIZE = 20
 
 const CORNERS = [
@@ -205,7 +205,7 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
   })
 
   return <View {...panHandlers} accessibilityLabel={kind === 'rotate' ? '요소 회전 손잡이' : undefined} hitSlop={10} style={[styles.handle, style]}>
-    {kind === 'rotate' && <View pointerEvents="none"><Icon name="rotate" size={19} strokeWidth={1.5} color={colors.surface} /></View>}
+    {kind === 'rotate' && <View pointerEvents="none"><Icon name="rotate" size={11} strokeWidth={2.6} color={colors.surface} /></View>}
   </View>
 }
 

@@ -146,7 +146,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
 
       <View style={styles.listWrap} {...rangeHandlers}>
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent} scrollEnabled={!drag && !ranging}>
-        {layers.length === 0 && <Text style={styles.empty}>아직 올린 요소가 없어요.{'\n'}스티커나 사진을 붙여 보세요.</Text>}
+        {layers.length === 0 && <Text style={styles.empty}>아직 올린 요소가 없어요.</Text>}
         {rows.map((row, index) => {
           const key = row.kind === 'group' ? `g-${row.groupId}` : row.object.id
           const common = {
@@ -493,10 +493,13 @@ function LayerThumb({ object }) {
   return <View style={styles.thumb}>{content}</View>
 }
 
+// 레이어 패널 폭. 열고 닫을 때 작업창 크기를 한 번에 맞추는 데도 쓴다 (EditorScreen)
+export const LAYER_PANEL_WIDTH = 280
+
 const styles = StyleSheet.create({
   // 화면 오른쪽 끝에 붙는 패널 (EditorScreen 의 바깥 여백을 음수 여백으로 덮는다)
   panel: {
-    width: 280,
+    width: LAYER_PANEL_WIDTH,
     marginTop: -16,
     marginBottom: -16,
     marginRight: -16,

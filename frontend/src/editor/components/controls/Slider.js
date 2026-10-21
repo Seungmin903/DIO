@@ -49,7 +49,10 @@ export default function Slider({
   }
 
   // 숫자 칸: 입력 중에는 친 글자를 그대로 두고, 확정(엔터·포커스 아웃) 때 범위 안으로 맞춰 반영한다.
-  const shown = String(Math.round(value * scale))
+  // 칸에 보이는 숫자: 한 칸(step × scale)이 1보다 작으면 소수 한 자리까지 (예: 펜 굵기 2.5)
+  const decimals = step * scale < 1 ? 1 : 0
+  const format = (v) => String(Number((v * scale).toFixed(decimals)))
+  const shown = format(value)
   const [draft, setDraft] = useState(shown)
   const [editing, setEditing] = useState(false)
   useEffect(() => {
@@ -69,7 +72,7 @@ export default function Slider({
       onStart?.()
       onChange(next)
     }
-    setDraft(String(Math.round(next * scale)))
+    setDraft(format(next))
   }
 
   return (

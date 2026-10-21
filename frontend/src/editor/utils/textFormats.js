@@ -92,8 +92,9 @@ export function richTextSegments(text, colors, formats) {
   })
 }
 
-export function segmentTextStyle(segment, scale = 1) {
-  return { ...(segment.color && { color: segment.color }), ...(segment.fontSize && { fontSize: segment.fontSize * scale, lineHeight: segment.fontSize * 38 / 28 * scale }), ...(segment.href && { textDecorationLine: 'underline' }) }
+// 링크는 자동 밑줄 없이 표시한다 (밑줄이 필요하면 서식의 밑줄을 쓴다). lineSpacing: 텍스트 전체 줄간격(글자 크기 대비)
+export function segmentTextStyle(segment, scale = 1, lineSpacing = 38 / 28) {
+  return { ...(segment.color && { color: segment.color }), ...(segment.fontSize && { fontSize: segment.fontSize * scale, lineHeight: segment.fontSize * lineSpacing * scale }) }
 }
 
 export function resizeTextObject(object, delta) {

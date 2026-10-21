@@ -87,7 +87,10 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
     Keyboard.dismiss()
     const finalRanges = remapTextRanges(draft.current, value, ranges.current)
     const finalFormats = remapTextFormats(draft.current, value, formats.current)
-    onSave(value, finalRanges, finalFormats)
+    // 실제로 그려진 글자 높이(페이지 좌표). 글자 수로 어림한 높이는 아래에 빈칸이 남아서 편집을 마칠 때 잰 값으로 맞춘다.
+    const lines = textLines.current
+    const measured = lines.length ? Math.max(...lines.map((line) => line.y + line.height)) / zoom : null
+    onSave(value, finalRanges, finalFormats, ...(measured ? [measured] : []))
   }
   useEffect(() => { const frame = requestAnimationFrame(measure); return () => cancelAnimationFrame(frame) }, [height, zoom, object.x, object.y])
   // 선택 끝 글자가 있는 줄에 붙이되 화면 오버레이로 표시한다.
@@ -110,7 +113,7 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
     <Text pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
       onTextLayout={(event) => { textLines.current = event.nativeEvent.lines; updateAnchor() }}
       style={[styles.measureText, textStyle(object, scale, Platform.OS)]}>
-      {richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale)}>{segment.text}</Text>)}
+      {richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}
     </Text>
     <TextInput ref={input} autoFocus multiline {...(Platform.OS !== 'android' && { defaultValue: object.text ?? '' })} accessibilityLabel="캔버스 텍스트 내용"
       placeholder="텍스트 입력" textAlignVertical="top" scrollEnabled={false} showSoftInputOnFocus
@@ -142,7 +145,7 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
           if (event.key === 'Escape') cancel()
         },
       })} >
-      {Platform.OS === 'android' ? <Text>{richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale)}>{segment.text}</Text>)}</Text> : null}
+      {Platform.OS === 'android' ? <Text>{richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text> : null}
     </TextInput>
     {linkSelection && <TextLinkDialog initialValue={formats.current.find(r => r.href && r.start < linkSelection.end && r.end > linkSelection.start)?.href ?? ''}
       onCancel={() => { linkEditing.current = false; setLinkSelection(null); input.current?.focus() }}
@@ -157,5 +160,6 @@ const styles = StyleSheet.create({
   palette: { maxWidth: '100%' },
   label: { color: colors.textMuted, fontSize: 12 }, swatches: { flexDirection: 'row', gap: 10 }, swatch: { width: 30, height: 30, borderRadius: 15 },
   measureText: { position: 'absolute', top: 1, left: 1, right: 1, opacity: 0, padding: 0, includeFontPadding: false },
-  input: { width: '100%', borderWidth: 1, borderColor: colors.primary, padding: 0, margin: 0, includeFontPadding: false, backgroundColor: 'white' },
+  // 입력 중에도 뒤의 속지·요소가 비치도록 채우기 없이 테두리만 둔다
+  input: { width: '100%', borderWidth: 1, borderColor: colors.primary, padding: 0, margin: 0, includeFontPadding: false, backgroundColor: 'transparent' },
 })

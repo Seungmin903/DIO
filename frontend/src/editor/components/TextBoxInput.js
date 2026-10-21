@@ -4,6 +4,10 @@ import { PAGE_HEIGHT, PAGE_WIDTH } from '../constants'
 import { usePan } from '../hooks/usePan'
 import { clamp } from '../utils/common'
 
+// 끌지 않고 탭만 하면 이 폭(페이지 좌표)의 상자를 그 자리에 만든다 (GoodNotes 처럼 탭해서 바로 입력)
+const TAP_BOX_WIDTH = 240
+const MIN_DRAG_WIDTH = 40
+
 export default function TextBoxInput({ zoom, onCreate }) {
   const start = useRef(null)
   const latest = useRef(null)
@@ -23,11 +27,18 @@ export default function TextBoxInput({ zoom, onCreate }) {
       setBox(latest.current)
     },
     onEnd: ({ cancelled }) => {
+      const tapAt = start.current
       start.current = null
       const result = latest.current
       latest.current = null
-      if (!cancelled && result?.width >= 40) onCreate({ ...result, w: result.width, baseWidth: result.width })
       setBox(null)
+      if (cancelled) return
+      if (result?.width >= MIN_DRAG_WIDTH) onCreate({ ...result, w: result.width, baseWidth: result.width })
+      // 손가락 탭은 몇 px 흔들리므로 아주 짧게 끈 것도 탭으로 본다
+      else if (tapAt && (!result || result.width < MIN_DRAG_WIDTH / 2)) {
+        const width = Math.min(TAP_BOX_WIDTH, PAGE_WIDTH)
+        onCreate({ x: clamp(tapAt.x, 0, PAGE_WIDTH - width), y: tapAt.y, width, h: 38, w: width, baseWidth: width })
+      }
     },
   })
   return <View accessibilityLabel="드래그하여 텍스트 상자 만들기" style={StyleSheet.absoluteFill} {...handlers}>

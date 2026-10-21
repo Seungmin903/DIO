@@ -13,7 +13,7 @@ import Canvas from '../components/canvas/Canvas'
 import PhotoCropper from '../components/panels/PhotoCropper'
 import DecorDrawer from '../components/panels/DecorDrawer'
 import Icon from '../components/controls/Icon'
-import LayerPanel from '../components/panels/LayerPanel'
+import LayerPanel, { LAYER_PANEL_WIDTH } from '../components/panels/LayerPanel'
 import MorePanel from '../components/panels/MorePanel'
 import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
@@ -24,6 +24,10 @@ import { ERASER_RADIUS } from '../utils/eraser.js'
 import LassoSettings from '../components/LassoSettings'
 import TextSettings from '../components/TextSettings'
 import TextLinkDialog from '../components/TextLinkDialog'
+import GuideSettings from '../components/GuideSettings'
+import PageOverview from '../components/panels/PageOverview'
+import { preloadTextFonts } from '../services/textFonts'
+import { DEFAULT_GUIDES, hasGuides } from '../components/canvas/GridOverlay'
 import { TEXT_ACTION_BAR_WIDTH } from '../components/TextActionBar'
 import { formatTextRange } from '../utils/textFormats'
 import { copyText } from '../services/textClipboard'
@@ -46,8 +50,10 @@ import { createObjectFromDecor } from '../utils/objects'
 import TemplatePicker from '../components/TemplatePicker'
 import { pageSize } from '../utils/pageGeometry.js'
 
+// 텍스트 글꼴은 앱이 켜질 때(이 화면 모듈을 불러올 때) 미리 불러오기 시작한다. 편집기를 열 즈음에는 대부분 준비된다.
+preloadTextFonts()
+
 const TOAST_MS = 2000
-const ZOOM_HUD_MS = 900
 const ZOOM_STEP = 1.25
 const ORIENTATION_HINT_MS = 6500
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
@@ -108,6 +114,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [textDefaults, setTextDefaults] = useState(DEFAULT_TEXT_SETTINGS)
   const [textSettingsOpen, setTextSettingsOpen] = useState(false)
   const [textLinkTarget, setTextLinkTarget] = useState(null)
+  const [objectLinkTarget, setObjectLinkTarget] = useState(null) // 링크를 거는 중인 스티커·테이프·사진
+  const [linkBadges, setLinkBadges] = useState(true) // 링크가 걸린 요소에 배지를 보일지 (링크 창 오른쪽 위 스위치)
+  const [guides, setGuides] = useState(DEFAULT_GUIDES) // 격자·보조선 (화면에만 보인다)
+  const [guidesOpen, setGuidesOpen] = useState(false)
+  const [overviewFilter, setOverviewFilter] = useState(null) // 페이지 넓게 보기: 'all' | 'bookmarked' (null 이면 닫힘)
   const [penSettings, setPenSettings] = useState(DEFAULT_PEN_SETTINGS)
   const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
   const [straightAssist, setStraightAssist] = useState(true)
@@ -190,7 +201,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   }
   const resolvePan = (from, dx, dy) => ({ ...from, ...clampOffset({ x: from.x + dx, y: from.y + dy }, from.zoom) })
   const commitView = (next) => {
-    if (next.scale !== view.scale) showZoomHud()
     setView({ scale: next.scale, x: next.x, y: next.y })
   }
 
@@ -221,15 +231,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   // 자르던 사진이 되돌리기 등으로 사라지면 자르기를 끝낸다.
   if (cropId && !cropTarget) setCropId(null)
 
-  // 확대·축소하는 동안에만 오른쪽 아래에 배율을 보여 주고, 손을 멈추면 잠시 뒤 숨긴다.
-  const [zoomHud, setZoomHud] = useState(false)
-  const hudTimer = useRef(null)
-  const showZoomHud = () => {
-    setZoomHud(true)
-    clearTimeout(hudTimer.current)
-    hudTimer.current = setTimeout(() => setZoomHud(false), ZOOM_HUD_MS)
-  }
-  useEffect(() => () => clearTimeout(hudTimer.current), [])
   const fitToScreen = () => setView({ scale: 1, x: null, y: null })
   // 확대·축소 버튼: 작업창 가운데를 기준으로 배율을 바꾼다.
   const zoomBy = (factor) => {
@@ -243,9 +244,16 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     y: PAGE_HEIGHT / 2 + (Math.random() - 0.5) * 120,
   })
 
+  // 스티커·테이프·사진을 넣으면 보관함·옵션 창을 닫는다 (넣은 요소는 선택된 채라 선택 바의 '옵션'으로 바로 열 수 있다)
+  const closeAfterInsert = () => {
+    setDrawerTab(null)
+    setMoreOpen(false)
+  }
+
   const addDecor = (item) => {
     const object = createObjectFromDecor(item, randomCenter())
     dispatch({ type: 'addObjects', objects: [object] })
+    closeAfterInsert()
     // 사진은 붙이자마자 자르기를 연다 (틀·모양·영역을 여기서 고른다)
     if (object.type === 'photo') startCrop(object.id)
   }
@@ -270,6 +278,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         createObjectFromDecor({ kind: 'photo', ...photo }, { x: center.x + index * 24, y: center.y + index * 24 }),
       )
       dispatch({ type: 'addObjects', objects })
+      closeAfterInsert()
       // 한 장이면 붙이자마자 자르기를 연다 (틀·모양·영역을 여기서 고른다)
       if (objects.length === 1) startCrop(objects[0].id)
     } catch (error) {
@@ -404,7 +413,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   // 툴바에서 연 창(보관함·더보기·펜/텍스트/올가미 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
   // 터치를 가로채지 않고(목록 스크롤과 다투지 않게) 누른 위치만 본다:
   // 창·툴바 안의 터치는 그 영역이 먼저 표시하고, 바깥(root)에서는 표시가 없을 때만 닫는다.
-  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || phoneMoreOpen || (activeTool === 'lasso' && lassoSettingsOpen))
+  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || guidesOpen || phoneMoreOpen || (activeTool === 'lasso' && lassoSettingsOpen))
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
@@ -414,6 +423,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setPenSettingsOpen(false)
     setLassoSettingsOpen(false)
     setTextSettingsOpen(false)
+    setGuidesOpen(false)
     setPhoneMoreOpen(false)
   }
   const closeOnOutside = {
@@ -425,10 +435,21 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
   const showPages = pagesOpen && !focusMode
   const showLayers = layersOpen && !focusMode
+  // 레이어 패널을 열고 닫을 때도 페이지 목록처럼 새 작업창 크기를 바로 써서 툴바와 페이지가 한 번에 같이 움직이게 한다.
+  // 패널은 오른쪽 바깥 여백(16)을 덮으므로 작업창 폭은 패널 폭 + 간격 - 16 만큼 바뀐다.
+  const toggleLayers = (open) => {
+    if (open === showLayers) return
+    setLayersOpen(open)
+    // 폰은 레이어를 작업창 위에 띄우므로 작업창 크기가 그대로다.
+    if (compact) return
+    const delta = LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING
+    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) })
+  }
 
   // 리본(태블릿)과 폰 도구 막대가 함께 쓰는 도구·보관함·내보내기 동작
   const openDrawer = (tab) => {
     setLassoSettingsOpen(false)
+    setGuidesOpen(false)
     setTextSettingsOpen(false)
     setPenSettingsOpen(false)
     setPhoneMoreOpen(false)
@@ -438,6 +459,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setDrawerTab(drawerTab === tab ? null : tab)
   }
   const selectTool = (tool) => {
+    setGuidesOpen(false)
     setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
     setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
     setPenSettingsOpen(['pen', 'highlighter', 'eraser'].includes(tool) ? tool !== activeTool || !penSettingsOpen : false)
@@ -475,9 +497,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     const delta = compact ? 0 : PAGE_LIST_WIDTH + BODY_GAP
     if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) })
   }
-  const toggleLayers = () => {
+  const switchLayers = () => {
     setFocusMode(false)
-    setLayersOpen(!showLayers)
+    toggleLayers(!showLayers)
   }
   const toggleOrientation = onToggleOrientation && (() => {
     setOrientationHint(false)
@@ -507,7 +529,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           onHome={goHome}
           onTogglePages={togglePages}
           onToggleOrientation={toggleOrientation}
-          onToggleLayers={toggleLayers}
+          onToggleLayers={switchLayers}
           onExport={openExport}
           onFocus={startPhoneFocus}
         />
@@ -528,7 +550,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         onCloseTab={goHome}
         readOnly={readOnly}
         onTogglePages={togglePages}
-        onToggleLayers={toggleLayers}
+        onToggleLayers={switchLayers}
         onToggleFocus={() => {
           setFocusMode(!focusMode)
           if (!focusMode) showToast('집중 편집 · 양옆 패널을 닫았어요.')
@@ -549,7 +571,17 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         setExportSnapshot(createRegionExportSnapshot(page, { ...selection, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, title: state.doc.title, pageNumber: state.doc.pages.findIndex((p) => p.id === page.id) + 1 }))
       }} onCancel={() => { setRegionOpen(false); setExportOpen(true) }} />}
       {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onReselect={exportSnapshot.region ? () => setExportSnapshot(null) : undefined} onClose={() => { setExportSnapshot(null); setRegionOpen(false) }} />}
-      {templatePickerOpen && !readOnly && <TemplatePicker onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
+      {overviewFilter && (
+        <PageOverview
+          pages={state.doc.pages}
+          currentId={page.id}
+          initialFilter={overviewFilter}
+          onSelect={(id) => { if (cropId) finishCrop(false); dispatch({ type: 'selectPage', id }) }}
+          onToggleIndex={readOnly ? null : (id) => dispatch({ type: 'togglePageIndex', id })}
+          onClose={() => setOverviewFilter(null)}
+        />
+      )}
+      {templatePickerOpen && !readOnly && <TemplatePicker anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 }} onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={[styles.body, compact && styles.bodyCompact]}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
@@ -573,6 +605,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               showToast('페이지를 복제했어요.')
             }}
             onToggleIndex={(id) => dispatch({ type: 'togglePageIndex', id })}
+            onOpenOverview={setOverviewFilter}
             onRemove={(id) => {
               dispatch({ type: 'removePage', id })
               showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.')
@@ -620,15 +653,22 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 onCut={(objects) => { clipboard.current = objects; dispatch({ type: 'removeObjects', ids: objects.filter(o => !o.locked).map(o => o.id) }); showToast('잘라 냈어요.') }}
                 onCopyText={(text) => copyText(text).then(() => showToast('텍스트를 복사했어요.')).catch(() => showToast('텍스트를 복사하지 못했어요.'))}
                 onTextLink={setTextLinkTarget}
+                onObjectLink={setObjectLinkTarget}
+                onCopyLink={(href) => copyText(href).then(() => showToast('링크를 복사했어요.')).catch(() => showToast('링크를 복사하지 못했어요.'))}
+                gridGuides={guides}
+                linkBadges={linkBadges}
+                textSettingsOpen={textSettingsOpen}
                 onCancelText={() => setTextEditing(null)}
-                onSaveText={(text, colorRanges = [], styleRanges = []) => {
+                onSaveText={(text, colorRanges = [], styleRanges = [], measuredHeight = null) => {
+        // 상자 높이는 실제로 그려진 글자 높이에 맞춘다 (위아래 여백 없이)
+        const fitted = Number.isFinite(measuredHeight) && measuredHeight > 0 ? { h: measuredHeight } : {}
         if (textEditing.pageId === page.id) {
           if (textEditing.existing) {
-            if (text !== textEditing.text || JSON.stringify(colorRanges) !== JSON.stringify(textEditing.colorRanges ?? []) || JSON.stringify(styleRanges) !== JSON.stringify(textEditing.styleRanges ?? [])) {
+            if (text !== textEditing.text || JSON.stringify(colorRanges) !== JSON.stringify(textEditing.colorRanges ?? []) || JSON.stringify(styleRanges) !== JSON.stringify(textEditing.styleRanges ?? []) || (fitted.h && Math.abs(fitted.h - textEditing.h) > 0.5)) {
               if (!text.trim()) dispatch({ type: 'removeObjects', ids: [textEditing.id] })
-              else dispatch({ type: 'updateObject', id: textEditing.id, record: true, patch: { ...textFormatPatch({ ...textEditing, text, styleRanges }, textSettings(textEditing)), colorRanges, styleRanges } })
+              else dispatch({ type: 'updateObject', id: textEditing.id, record: true, patch: { ...textFormatPatch({ ...textEditing, text, styleRanges }, textSettings(textEditing)), colorRanges, styleRanges, ...fitted } })
             }
-          } else if (text.trim()) dispatch({ type: 'addObjects', objects: [createText({ ...textEditing, text, colorRanges, styleRanges })] })
+          } else if (text.trim()) dispatch({ type: 'addObjects', objects: [{ ...createText({ ...textEditing, text, colorRanges, styleRanges }), ...fitted }] })
         }
         setTextEditing(null)
         setActiveTool('select')
@@ -661,6 +701,12 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               onOpenDrawer={openDrawer}
               onSelectTool={selectTool}
               onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
+              guidesActive={guidesOpen || hasGuides(guides)}
+              onOpenGuides={() => {
+                const next = !guidesOpen
+                closeBubbles()
+                setGuidesOpen(next)
+              }}
             />
           </View>}
           {!readOnly && activeTool === 'lasso' && lassoSettingsOpen && !drawerTab && (
@@ -679,8 +725,19 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             dispatch({ type: 'updateObject', id: textLinkTarget.id, record: true, patch: { styleRanges: formatTextRange(textLinkTarget.text, textLinkTarget.styleRanges, { start: 0, end: textLinkTarget.text.length }, { href: href || null }) } })
             setTextLinkTarget(null)
           }} />}
-          {!readOnly && textSettingsOpen && !textEditing && !drawerTab && (
+          {!readOnly && objectLinkTarget && <TextLinkDialog badge={{ value: linkBadges, onChange: setLinkBadges }} initialValue={objectLinkTarget.href ?? ''} onCancel={() => setObjectLinkTarget(null)} onSave={(href) => {
+            dispatch({ type: 'updateObject', id: objectLinkTarget.id, record: true, patch: { href: href || null } })
+            setObjectLinkTarget(null)
+            showToast(href ? '링크를 걸었어요. 읽기 모드에서 누르면 열려요.' : '링크를 지웠어요.')
+          }} />}
+          {!readOnly && guidesOpen && !drawerTab && (
             <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
+              <GuideSettings guides={guides} onChange={setGuides} onClose={() => setGuidesOpen(false)} />
+            </View>
+          )}
+          {/* 텍스트 서식: 고른 텍스트를 고칠 때는 다른 옵션 창처럼 요소 옆에, 텍스트 도구의 기본값을 정할 때는 툴바 아래에 */}
+          {!readOnly && textSettingsOpen && !textEditing && !drawerTab && (
+            <View style={selectedText ? [styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)] : [styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
               <TextSettings settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
             </View>
           )}
@@ -713,11 +770,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               <DecorDrawer
                 onPanelWidth={setDrawerWidth}
                 tab={drawerTab}
-                // 테이프를 넣으면 보관함을 닫고 그 테이프 옆에 옵션 패널을 연다
-                onTapeInserted={() => {
-                  setDrawerTab(null)
-                  setMoreOpen(true)
-                }}
+                // 테이프를 넣으면 보관함을 닫는다 (옵션 창은 자동으로 열지 않는다)
+                onTapeInserted={closeAfterInsert}
                 onAdd={addDecor}
                 onAddPhotos={addPhotos}
                 recentPhotos={recentPhotos}
@@ -735,7 +789,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             <SaveIndicator status={saveStatus} onInfo={showToast} />
           </View>
 
-          {/* 배율 숫자는 확대·축소하는 동안에만, 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. */}
           {phoneLandscape && !phoneFocus && (
             // 폰 가로(정밀 편집): 확대·축소 버튼을 늘 보인다. 배율을 누르면 화면에 맞춘다.
             <View style={[styles.floating, styles.floatingRight]}>
@@ -746,11 +799,10 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               <RoundButton icon="plus" label="확대" disabled={view.scale >= ZOOM_MAX} onPress={() => zoomBy(ZOOM_STEP)} />
             </View>
           )}
-          {!phoneLandscape && (zoomHud || !fitted) && (
+          {/* 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. (배율 숫자는 확대·축소하는 동안 Viewport 가 띄운다) */}
+          {!phoneLandscape && !fitted && (
             <View style={[styles.floating, styles.floatingRight]} pointerEvents="box-none">
-              {zoomHud && <Text style={styles.zoomValue}>{Math.round(view.scale * 100)}%</Text>}
-              {zoomHud && !fitted && <View style={styles.floatingDivider} />}
-              {!fitted && <RoundButton icon="fit" label="화면에 맞춤" onPress={fitToScreen} />}
+              <RoundButton icon="fit" label="화면에 맞춤" onPress={fitToScreen} />
             </View>
           )}
 
@@ -801,7 +853,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               objects={page.objects}
               selectedIds={state.selectedIds}
               dispatch={dispatch}
-              onClose={() => setLayersOpen(false)}
+              onClose={() => toggleLayers(false)}
               onEmptyTap={clearSelection}
               />
           </PhonePanelSlot>
@@ -841,6 +893,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
 /** 화면에 맞춤 위치: 리본바·하단 컨트롤 여백을 뺀 영역의 가운데 */
 const BODY_GAP = 16 // 페이지 목록·작업창·레이어 사이 간격
+const BODY_PADDING = 16 // styles.body 의 padding
 const OPTIONS_WIDTH = 300
 const OPTIONS_GAP = 16
 const OPTIONS_TOP = 76 // 툴바 아래부터
@@ -917,7 +970,7 @@ const styles = StyleSheet.create({
   orientationHintText: { fontSize: 11.5, fontWeight: '700', color: colors.text },
   focusExit: { position: 'absolute', top: 10, right: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   focusExitText: { fontSize: 12.5, fontWeight: '800', color: colors.text },
-  body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: 16 },
+  body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: BODY_PADDING },
   bodyCompact: { padding: 8 },
   // 폰: 페이지 목록·레이어는 작업창을 줄이지 않고 그 위에 띄운다.
   phonePanel: { position: 'absolute', top: 8, bottom: 8, zIndex: 20, flexDirection: 'row', ...shadow.float },
@@ -945,7 +998,6 @@ const styles = StyleSheet.create({
   floatingLeft: { left: 12 },
   floatingRight: { right: 12 },
   floatingDivider: { width: 1, height: 20, backgroundColor: colors.border },
-  zoomValue: { minWidth: 52, lineHeight: 36, textAlign: 'center', fontSize: 13, fontWeight: '800', color: colors.text },
   roundButton: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   roundActive: { backgroundColor: colors.surfaceSoft },
   roundPressed: { backgroundColor: colors.primarySoft },
