@@ -181,3 +181,45 @@ test('네이티브 File 입출력은 PDF 캐시만 쓰고 실패/종료 시 정�
   await assert.rejects(native.createPdfResult(new Uint8Array([1])), /disk full/)
   assert.equal(files.size, 1)
 })
+
+
+for (const count of [1, 3]) test(`${count}페이지 PDF는 실제 처리 단계별로 진행률을 알리고 파일 생성 전 100%가 되지 않는다`, async () => {
+  const s = snapshot(document(count), { scope: 'range', range: { start: 1, end: count } })
+  const events = []
+  let resultCreated = false
+  const output = await generatePdf(s, {
+    ...io,
+    renderPageImage: async page => ({ bytes: image(page), dispose() {} }),
+    createResult: async bytes => {
+      assert.equal(events.at(-1).phase, 'result')
+      assert.ok(events.at(-1).ratio < 1)
+      resultCreated = true
+      return { bytes, dispose() {} }
+    },
+    onProgress: event => {
+      if (event.ratio === 1) assert.ok(resultCreated)
+      if (events.length) assert.ok(event.ratio >= events.at(-1).ratio)
+      events.push(event)
+    },
+  })
+  assert.ok(events.filter(event => event.ratio > 0 && event.ratio < 1).length >= 4)
+  assert.equal(events.at(-1).ratio, 1)
+  assert.equal(events.at(-1).completedPages, count)
+  assert.equal((await PDFDocument.load(output.bytes)).getPageCount(), count)
+  output.dispose()
+})
+
+test('단계 갱신 뒤 이벤트 루프에 양보해 이미지 조립 전 취소를 처리한다', async () => {
+  const s = snapshot(document(1), { scope: 'current', currentPageId: '1' })
+  const controller = new AbortController()
+  let reads = 0, disposed = 0
+  await assert.rejects(generatePdf(s, {
+    ...io, signal: controller.signal,
+    renderPageImage: async page => ({ bytes: image(page), dispose() { disposed++ } }),
+    readImage: async result => { reads++; return result.bytes },
+    onProgress: event => { if (event.phase === 'reading') setTimeout(() => controller.abort(), 0) },
+  }), { code: 'EXPORT_CANCELLED' })
+  await new Promise(resolve => setTimeout(resolve, 10))
+  assert.equal(reads, 0)
+  assert.equal(disposed, 1)
+})

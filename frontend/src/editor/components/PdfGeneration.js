@@ -79,7 +79,7 @@ export default function PdfGeneration({
     setCancelled(true)
     controller.current?.abort()
   }
-  const ratio = progress.totalPages ? progress.completedPages / progress.totalPages : 0
+  const ratio = progress.ratio ?? 0
   return <ExportScreen title="PDF 만드는 중" onClose={cancel} closeLabel="PDF 만들기 닫기" closeDisabled={cancelled} preview={<StageFill>{surface}</StageFill>}>
     <Note>{progress.completedPages} / {progress.totalPages}페이지 {progress.phase === 'assembling' ? '조립 중…' : '만드는 중…'}</Note>
     <View style={styles.track}><View style={[styles.bar, { width: `${Math.round(ratio * 100)}%` }]} /></View>

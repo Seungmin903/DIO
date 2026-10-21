@@ -60,14 +60,19 @@ export default function ExportRunner({ job, onProgress, onFinish }) {
       let before = 0
       const outputs = []
       for (const snapshot of job.snapshots) {
-        const output = await generatePdf(snapshot, { signal, renderPageImage, onProgress: ({ completedPages }) => progress((before + completedPages) / total) })
+        const output = await generatePdf(snapshot, { signal, renderPageImage, onProgress: ({ ratio }) => progress(0.95 * (before + ratio * snapshot.pages.length) / total) })
         owned.push(output); outputs.push(output)
         before += snapshot.pages.length
       }
       let outcome
-      for (const output of outputs) {
+      for (const [index, output] of outputs.entries()) {
+        progress(0.95 + 0.05 * index / outputs.length)
+        await new Promise(resolve => setTimeout(resolve, 0))
+        if (signal.aborted) return
+
         try { outcome = await savePdfFile(output, { picker: false }) } catch (error) { throw new Error(pdfSaveError(error)) }
         if (outcome.status === 'cancelled') return pdfSaveMessage(outcome)
+        progress(0.95 + 0.05 * (index + 1) / outputs.length)
       }
       return outputs.length > 1 ? `PDF ${outputs.length}개 · ${pdfSaveMessage(outcome)}` : pdfSaveMessage(outcome)
     }
