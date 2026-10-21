@@ -1,0 +1,179 @@
+{
+  "results": [
+    {
+      "zoom": 0.5,
+      "paper": "#FFFFFF",
+      "width": 1,
+      "ink": 524,
+      "deviation": 19.681040399412577,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 0.5,
+      "paper": "#FFFFFF",
+      "width": 8,
+      "ink": 2106,
+      "deviation": 24.25112849375287,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 0.5,
+      "paper": "#FFFFFF",
+      "width": 16,
+      "ink": 4281,
+      "deviation": 24.68794905014207,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 0.5,
+      "paper": "#FAF8F2",
+      "width": 1,
+      "ink": 524,
+      "deviation": 19.27027712950647,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 0.5,
+      "paper": "#FAF8F2",
+      "width": 8,
+      "ink": 2106,
+      "deviation": 23.548554932947685,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 0.5,
+      "paper": "#FAF8F2",
+      "width": 16,
+      "ink": 4281,
+      "deviation": 24.02626015006267,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 1,
+      "paper": "#FFFFFF",
+      "width": 1,
+      "ink": 1329,
+      "deviation": 30.698057333331207,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 1,
+      "paper": "#FFFFFF",
+      "width": 8,
+      "ink": 8410,
+      "deviation": 27.136996164451055,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 1,
+      "paper": "#FFFFFF",
+      "width": 16,
+      "ink": 17213,
+      "deviation": 27.827428822377534,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 1,
+      "paper": "#FAF8F2",
+      "width": 1,
+      "ink": 1329,
+      "deviation": 29.86904384153216,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 1,
+      "paper": "#FAF8F2",
+      "width": 8,
+      "ink": 8410,
+      "deviation": 26.461295345358028,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 1,
+      "paper": "#FAF8F2",
+      "width": 16,
+      "ink": 17213,
+      "deviation": 27.161454083513046,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 2.5,
+      "paper": "#FFFFFF",
+      "width": 1,
+      "ink": 6962,
+      "deviation": 36.83064716288938,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 2.5,
+      "paper": "#FFFFFF",
+      "width": 8,
+      "ink": 51773,
+      "deviation": 37.31043513810053,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 2.5,
+      "paper": "#FFFFFF",
+      "width": 16,
+      "ink": 105078,
+      "deviation": 37.35811326987844,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 2.5,
+      "paper": "#FAF8F2",
+      "width": 1,
+      "ink": 6962,
+      "deviation": 35.910399380853825,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 2.5,
+      "paper": "#FAF8F2",
+      "width": 8,
+      "ink": 51773,
+      "deviation": 36.42394214339961,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    },
+    {
+      "zoom": 2.5,
+      "paper": "#FAF8F2",
+      "width": 16,
+      "ink": 105078,
+      "deviation": 36.473954528831484,
+      "restoreMaxDelta": 0,
+      "restoreMeanDelta": 0
+    }
+  ],
+  "buildupDarkness": [
+    50.0696140481509,
+    96.76177711590965,
+    122.22183544303797
+  ],
+  "dotInk": 3463,
+  "tonalRange": 136,
+  "stress": {
+    "strokes": 500,
+    "elapsedMs": 167.9341000000004,
+    "environment": "desktop Edge headless; fixture update only; not iPad input latency"
+  },
+  "errors": []
+}
