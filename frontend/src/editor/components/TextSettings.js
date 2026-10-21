@@ -52,7 +52,7 @@ export default function TextSettings({ settings, onChange, onClose }) {
             </Pressable>
           ))}</ScrollView>}
         </View>
-        <TextInput accessibilityLabel="글자 크기" keyboardType="numeric" value={size} onChangeText={(raw) => { setSize(raw); const value = Number(raw); if (raw.trim() && Number.isFinite(value) && value >= 8 && value <= 96) onChange({ fontSize: value }) }} onEndEditing={(event) => commitSize(event.nativeEvent.text)} onSubmitEditing={(event) => commitSize(event.nativeEvent.text)} selectTextOnFocus style={[styles.field, styles.size, isPhone && styles.phoneSize]} />
+        <TextInput accessibilityLabel="글자 크기" keyboardType="numeric" value={size} onChangeText={(raw) => { setSize(raw); const value = Number(raw); if (raw.trim() && Number.isFinite(value) && value >= 8 && value <= 96) onChange({ fontSize: value }) }} onEndEditing={(event) => commitSize(event.nativeEvent.text)} onSubmitEditing={(event) => commitSize(event.nativeEvent.text)} selectTextOnFocus style={[styles.size, isPhone && styles.phoneSize]} />
       </View>
 
       <Text style={toolPanelStyles.label}>스타일</Text>
@@ -65,11 +65,11 @@ export default function TextSettings({ settings, onChange, onClose }) {
         onPress={(id) => onChange({ textAlign: id })}
       />
 
-      {/* 자간·줄간격: Canva 의 '간격' 처럼 막대와 숫자로 (글자 크기 대비 %) */}
+      {/* 자간·줄간격: Canva 의 '간격' 처럼 막대와 숫자로 (글자 크기 대비 백분율 값, 단위 표시는 뺀다) */}
       <Text style={toolPanelStyles.label}>자간</Text>
-      <Slider value={settings.letterSpacing} min={-0.1} max={0.5} step={0.01} scale={100} unit="%" label="자간" minusLabel="자간 좁게" plusLabel="자간 넓게" onChange={(value) => onChange({ letterSpacing: Math.round(value * 100) / 100 })} />
+      <Slider value={settings.letterSpacing} min={-0.1} max={0.5} step={0.01} scale={100} label="자간" minusLabel="자간 좁게" plusLabel="자간 넓게" onChange={(value) => onChange({ letterSpacing: Math.round(value * 100) / 100 })} />
       <Text style={toolPanelStyles.label}>줄간격</Text>
-      <Slider value={settings.lineSpacing} min={1} max={2.5} step={0.05} scale={100} unit="%" label="줄간격" minusLabel="줄간격 좁게" plusLabel="줄간격 넓게" onChange={(value) => onChange({ lineSpacing: Math.round(value * 100) / 100 })} />
+      <Slider value={settings.lineSpacing} min={1} max={2.5} step={0.05} scale={100} label="줄간격" minusLabel="줄간격 좁게" plusLabel="줄간격 넓게" onChange={(value) => onChange({ lineSpacing: Math.round(value * 100) / 100 })} />
 
       <Text style={toolPanelStyles.label}>글자 색상</Text>
       <View style={styles.colors}>
@@ -85,8 +85,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   field: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 42, paddingHorizontal: 12, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   fieldText: { flexShrink: 1, color: colors.text, fontSize: 14 },
-  size: { width: 60, color: colors.text, fontSize: 14, textAlign: 'center' },
-  phoneSize: { fontSize: 13, fontWeight: '700' },
+  // 글자 크기 칸: 자간·줄간격 막대의 숫자 칸과 같은 모양 (태블릿은 오른쪽, 폰은 가운데 정렬)
+  size: { width: 52, height: 40, paddingHorizontal: 6, borderRadius: 9, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, color: colors.text, fontSize: 13, fontWeight: '700', textAlign: 'right', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
+  phoneSize: { textAlign: 'center' },
   options: { position: 'absolute', top: '100%', marginTop: 4, left: 0, right: 0, maxHeight: 280, zIndex: 20, elevation: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 11 },
   option: { paddingHorizontal: 12, paddingVertical: 10 },
   optionSelected: { backgroundColor: '#EEF2F9' },

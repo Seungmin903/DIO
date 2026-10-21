@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useRef, useState } from 'react'
 import { BackHandler, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
@@ -7,6 +7,7 @@ import { createRegionExportSnapshot } from '../utils/regionExport.js'
 import RegionExportSelector from '../components/RegionExportSelector'
 import ExportMenu from '../components/ExportMenu'
 import PageExportPreview from '../components/PageExportPreview'
+import ExportRunner from '../components/ExportRunner'
 import { createExportSnapshot } from '../utils/pageExport.js'
 import { pngFileName } from '../utils/pngFileSave.js'
 import Canvas from '../components/canvas/Canvas'
@@ -60,8 +61,8 @@ preloadTextFonts()
 const TOAST_MS = 2000
 const ZOOM_STEP = 1.25
 const ORIENTATION_HINT_MS = 6500
-// 정책 회의 후 이 값 하나로 태블릿·폰의 내보내기 진입을 다시 활성화한다.
-const exportEnabled = false
+// 태블릿·폰의 내보내기 진입. 정책 결정으로 다시 켰다 (false 로 바꾸면 모든 진입을 숨긴다).
+const exportEnabled = true
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 // 폰: 도구 막대가 작업창 밖(위·오른쪽)에 있어서 스테이지에는 되돌리기 바 여백만 남긴다.
@@ -70,10 +71,13 @@ const PHONE_STAGE_PADDING = { top: 16, bottom: 68, side: 12 }
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
 // compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 상단 도구 막대),
 // 가로는 정밀 편집(왼쪽 화면 막대 + 오른쪽 전체 도구 막대 + 확대·축소). onToggleOrientation이 있으면 세로·가로를 버튼으로 바꾼다.
-export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, onNewTab }) {
+export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab }) {
   // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
+  // 페이지 목록·레이어는 캔버스를 먼저 그린 뒤 따라 그린다 (지우개·이동을 끝내고 손을 뗄 때 한꺼번에 다시 그려 멈칫하던 것)
+  const deferredPages = useDeferredValue(state.doc.pages)
+  const deferredObjects = useDeferredValue(page.objects)
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   const templateOrientation = pageTemplateOrientation(state.doc, page)
   // 앞뒤 페이지 속지를 미리 해석해 두어 페이지를 넘길 때 빈 속지가 보이지 않게 한다.
@@ -91,6 +95,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
   const [exportSnapshot, setExportSnapshot] = useState(null)
+  // 화면 없이 진행하는 내보내기 (ExportRunner). 진행률은 아래쪽 작은 알림으로 보여 준다
+  const [exportJob, setExportJob] = useState(null)
+  const [exportProgress, setExportProgress] = useState(0)
   const [exportAnchor, setExportAnchor] = useState(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [regionOpen, setRegionOpen] = useState(false)
@@ -173,7 +180,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       const dx = at.x - (box.left + box.right) / 2, dy = at.y - (box.top + box.bottom) / 2
       dispatch({ type: 'pasteObjects', objects: objects.map((o) => ({ ...o, x: o.x + dx, y: o.y + dy })), offset: 0 })
     } else dispatch({ type: 'pasteObjects', objects })
-    showToast(`${objects.length}개를 붙여 넣었어요.`)
+    showToast(`${objects.length}개를 붙여넣었어요.`)
   }
 
   useEffect(() => {
@@ -235,6 +242,24 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     if (retry) setImportFailure({ message, retry })
     else setToast({ message, key: createId() })
   }, [setToast])
+
+  const startExport = (job) => {
+    setExportOpen(false)
+    if (exportJob) { showToast('이미 내보내고 있어요. 끝난 뒤 다시 시도해 주세요.'); return }
+    setExportProgress(0)
+    setExportJob(job)
+  }
+  const startPageExport = (kind, id) => {
+    const index = state.doc.pages.findIndex((p) => p.id === id)
+    try {
+      const fileName = pngFileName(state.doc.title, index + 1).replace(/.png$/, `.${kind}`)
+      startExport({ kind, snapshot: { ...createExportSnapshot(state.doc.pages[index]), fileName } })
+    } catch (error) { setExportOpen(false); showToast(error.message) }
+  }
+  const finishExport = ({ message, error }) => {
+    setExportJob(null)
+    showToast(error ?? message)
+  }
 
   useEffect(() => {
     if (!toast) return undefined
@@ -585,6 +610,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       onStartShouldSetResponderCapture={(event) => Boolean(textEditing && textBoundary.current?.(event))}
       onResponderTerminationRequest={() => false}
     >
+      {/* 내보낼 페이지는 편집 화면 맨 아래(가려진 곳)에 그려 찍는다 */}
+      <ExportRunner job={exportJob} onProgress={setExportProgress} onFinish={finishExport} />
       {phoneLandscape && !phoneFocus && (
         <PhoneEditorRail
           {...markInside}
@@ -611,13 +638,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         }}
         layersOpen={showLayers}
         pagesOpen={showPages}
+        pagesWidth={PAGE_LIST_WIDTH}
         focusMode={focusMode}
         onHome={goHome}
         onCloseTab={onCloseTab ?? goHome}
         tabs={tabs}
         activeTabId={diary?.id}
         onSelectTab={onSelectTab}
-        onNewTab={onNewTab}
         readOnly={readOnly}
         onTogglePages={togglePages}
         onToggleLayers={switchLayers}
@@ -633,12 +660,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       />}
       {!landscape && phoneToolbar}
 
-      {exportOpen && <ExportMenu anchor={exportAnchor} doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => {
-        const target = state.doc.pages.find((p) => p.id === id)
-        setExportOpen(false)
-        try { setExportSnapshot({ ...createExportSnapshot(target), fileName: pngFileName(state.doc.title, state.doc.pages.findIndex((p) => p.id === id) + 1) }) }
-        catch (error) { setExportSnapshot({ errorMessage: error.message }) }
-      }} />}
+      {exportOpen && <ExportMenu anchor={exportAnchor} doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => startPageExport('png', id)} onGif={(id) => startPageExport('gif', id)} onPdf={(snapshots) => startExport({ kind: 'pdf', snapshots })} />}
       {regionOpen && <RegionExportSelector page={page} visible={!exportSnapshot} onConfirm={(selection) => {
         setExportSnapshot(createRegionExportSnapshot(page, { ...selection, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, title: state.doc.title, pageNumber: state.doc.pages.findIndex((p) => p.id === page.id) + 1 }))
       }} onCancel={() => { setRegionOpen(false); setExportOpen(true) }} />}
@@ -662,7 +684,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           <PhonePanelSlot compact={compact} side={styles.phonePanelLeft}>
           <PageList
             readOnly={readOnly}
-            pages={state.doc.pages}
+            pages={deferredPages}
             currentId={page.id}
             cropId={cropTarget?.id ?? null}
             onMove={(id, toIndex) => dispatch({ type: 'movePage', id, toIndex })}
@@ -678,7 +700,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               showToast('페이지를 복제했어요.')
             }}
             onToggleIndex={(id) => dispatch({ type: 'togglePageIndex', id })}
-            onOpenOverview={setOverviewFilter}
             onRemove={(id) => {
               dispatch({ type: 'removePage', id })
               showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.')
@@ -916,9 +937,17 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             </Pressable>
           )}
 
-          {toast && (
+          {toast && !exportJob && (
             <View key={toast.key} style={styles.toast} pointerEvents="none">
               <Text style={styles.toastText}>{toast.message}</Text>
+            </View>
+          )}
+          {exportJob && (
+            <View style={[styles.toast, styles.exportPill]} accessibilityLiveRegion="polite">
+              <Text style={styles.toastText}>{exportJob.kind.toUpperCase()} 만드는 중 {Math.round(exportProgress * 100)}%</Text>
+              <Pressable onPress={() => { setExportJob(null); showToast('내보내기를 취소했어요.') }} hitSlop={8} accessibilityRole="button" accessibilityLabel="내보내기 취소">
+                <Icon name="close" size={14} color={colors.surface} />
+              </Pressable>
             </View>
           )}
         </View>
@@ -926,7 +955,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         {showLayers && !readOnly && (
           <PhonePanelSlot compact={compact} side={phoneLandscape ? styles.phonePanelLeft : styles.phonePanelRight}>
             <LayerPanel
-              objects={page.objects}
+              objects={deferredObjects}
               selectedIds={state.selectedIds}
               dispatch={dispatch}
               onClose={() => toggleLayers(false)}
@@ -1059,4 +1088,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.text,
   },
   toastText: { fontSize: 13, fontWeight: '700', color: colors.surface },
+  exportPill: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 })

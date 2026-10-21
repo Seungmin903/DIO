@@ -46,7 +46,7 @@ export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTo
         ))}
         <View style={styles.divider} />
         {/* 하이퍼링크는 요소를 누르면 뜨는 옵션 바에서 건다 */}
-        <Tool onAnchor={onAnchor} icon="ruler" label="격자 가이드" active={guidesActive} onPress={onOpenGuides} />
+        <Tool onAnchor={onAnchor} icon="guides" label="격자 가이드" active={guidesActive} onPress={onOpenGuides} />
       </ScrollView>
     </View>
   )

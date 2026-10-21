@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image, Linking, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image, Linking, Platform, StyleSheet, Text } from 'react-native'
 import { colors } from '../../shared/theme'
 import { usePageImageRenderer } from '../hooks/usePageImageRenderer'
 import { savePngFile } from '../utils/savePngFile'
 import { pngQualityWarning } from '../utils/pageImageQuality.js'
 import { createSaveGate, pngSaveError } from '../utils/pngFileSave.js'
+import ExportScreen, { ExportButton, InfoRow, Note, StageFill } from './ExportScreen'
 
 /** 선택/격자/패널이 존재하지 않는 별도 렌더링 영역만 캡처한다. */
 export default function PageExportPreview({ snapshot, onClose, onReselect }) {
@@ -55,54 +56,39 @@ function ExportAttempt({ snapshot, onClose, onRetry, onReselect }) {
     } finally { saving.current = false }
   })
 
+  const busy = saveState.status === 'saving'
+  const saveDone = ['saving', 'saved'].includes(saveState.status)
+  const saveTitle = Platform.OS === 'web' ? 'PNG 파일 저장' : '사진첩에 저장'
+  const saveLabel = saveState.status === 'saving' ? '저장 중…' : saveState.status === 'saved' ? '저장 완료' : saveState.status === 'error' || saveState.status === 'cancelled' ? '다시 저장' : saveState.status === 'download-started' ? '다시 다운로드' : saveTitle
+  const quality = result && pngQualityWarning(result.diagnostics)
   return (
-    <Modal visible animationType="fade" onRequestClose={close}>
-      <View style={styles.root}>
-        <View style={styles.heading}>
-          <Text style={styles.title}>{snapshot.region ? '선택 영역 PNG 내보내기' : 'PNG 내보내기'}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="PNG 내보내기 닫기" onPress={close} disabled={saveState.status === 'saving'} accessibilityState={{ disabled: saveState.status === 'saving' }} style={styles.button}><Text>닫기</Text></Pressable>
-        </View>
-        {snapshot.region && <View>
-          <Text style={styles.message}>영역 {snapshot.region.x.toFixed(1)}, {snapshot.region.y.toFixed(1)} · {snapshot.region.width.toFixed(1)} × {snapshot.region.height.toFixed(1)} · {snapshot.preset} · PNG {snapshot.pixelWidth} × {snapshot.pixelHeight}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="영역 다시 선택" disabled={saveState.status === 'saving'} onPress={() => { if (!saving.current) onReselect?.() }} style={styles.button}><Text>영역 다시 선택</Text></Pressable>
-        </View>}
-        {error ? <View>
-          <Text accessibilityRole="alert" style={styles.message}>{error}</Text>
-          <Text style={styles.message}>파일은 저장되지 않았어요. 편집 내용은 그대로 유지돼요.</Text>
-          {snapshot.errorMessage ? <Text style={styles.message}>닫고 해당 요소를 확인한 뒤 다시 내보내 주세요.</Text> : <Pressable accessibilityRole="button" accessibilityLabel="PNG 다시 만들기" onPress={onRetry} style={styles.button}><Text>다시 만들기</Text></Pressable>}
-        </View> : result ? (
-          <View style={styles.preview}>
-            <Text style={styles.message}>{result.width} × {result.height} · PNG</Text>
-            {!!pngQualityWarning(result.diagnostics) && <Text accessibilityRole="alert" style={styles.message}>{pngQualityWarning(result.diagnostics)}</Text>}
-            <Text style={styles.filename} numberOfLines={2}>{snapshot.fileName}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel={Platform.OS === 'web' ? 'PNG 파일 저장' : '사진첩에 저장'} accessibilityState={{ disabled: ['saving', 'saved'].includes(saveState.status), busy: saveState.status === 'saving' }} disabled={['saving', 'saved'].includes(saveState.status)} onPress={save} style={[styles.button, styles.saveButton, ['saving', 'saved'].includes(saveState.status) && styles.disabled]}>
-              <Text style={styles.saveLabel}>{saveState.status === 'saving' ? '저장 중…' : saveState.status === 'saved' ? '저장 완료' : saveState.status === 'error' || saveState.status === 'cancelled' ? '다시 저장' : saveState.status === 'download-started' ? '다시 다운로드' : Platform.OS === 'web' ? 'PNG 파일 저장' : '사진첩에 저장'}</Text>
-            </Pressable>
-            {!!saveState.message && <Text accessibilityRole={saveState.status === 'error' ? 'alert' : undefined} accessibilityLiveRegion="polite" style={styles.message}>{saveState.message}</Text>}
-            {saveState.needsSettings && <Pressable accessibilityRole="button" accessibilityLabel="사진첩 권한 설정 열기" onPress={() => Linking.openSettings().catch(() => setSaveState((previous) => ({ ...previous, message: '설정을 열지 못했어요. 기기 설정에서 DIO의 사진 추가 권한을 허용해 주세요.' })))} style={styles.button}><Text>설정 열기</Text></Pressable>}
-            <Image accessibilityLabel="완성 페이지 PNG" source={{ uri: result.uri }} style={styles.image} resizeMode="contain" />
-          </View>
-        ) : (
-          <>
-            <Text style={styles.message}>페이지를 이미지로 만들고 있어요…</Text>
-            {surface}
-          </>
-        )}
-      </View>
-    </Modal>
+    <ExportScreen
+      title={snapshot.region ? '선택 영역 PNG 내보내기' : 'PNG 내보내기'}
+      onClose={close}
+      closeLabel="PNG 내보내기 닫기"
+      closeDisabled={busy}
+      preview={error ? <Note tone="alert">{error}</Note>
+        : result ? <StageFill><Image accessibilityLabel="완성 페이지 PNG" source={{ uri: result.uri }} style={styles.image} resizeMode="contain" /></StageFill>
+          : <StageFill>{surface}<Text style={styles.making}>페이지를 이미지로 만들고 있어요…</Text></StageFill>}
+    >
+      {error ? <>
+        <Note>파일은 저장되지 않았어요. 편집 내용은 그대로 유지돼요.</Note>
+        {snapshot.errorMessage ? <Note>닫고 해당 요소를 확인한 뒤 다시 내보내 주세요.</Note> : <ExportButton primary title="PNG 다시 만들기" label="다시 만들기" onPress={onRetry} />}
+      </> : <>
+        {result && <InfoRow label="크기" value={`${result.width} × ${result.height}px · PNG`} />}
+        <InfoRow label="파일 이름" value={snapshot.fileName} selectable />
+        {snapshot.region && <InfoRow label="영역" value={`${snapshot.region.width.toFixed(0)} × ${snapshot.region.height.toFixed(0)} · ${snapshot.preset}`} />}
+        {!!quality && <Note tone="alert">{quality}</Note>}
+        <ExportButton primary title={saveTitle} label={saveLabel} disabled={!result || saveDone} onPress={save} />
+        {!!saveState.message && <Note tone={saveState.status === 'error' ? 'alert' : undefined}>{saveState.message}</Note>}
+        {saveState.needsSettings && <ExportButton title="사진첩 권한 설정 열기" label="설정 열기" onPress={() => Linking.openSettings().catch(() => setSaveState((previous) => ({ ...previous, message: '설정을 열지 못했어요. 기기 설정에서 DIO의 사진 추가 권한을 허용해 주세요.' })))} />}
+        {snapshot.region && <ExportButton title="영역 다시 선택" disabled={busy} onPress={() => { if (!saving.current) onReselect?.() }} />}
+      </>}
+    </ExportScreen>
   )
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surfaceSoft, padding: 16 },
-  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 18, fontWeight: '700', color: colors.text },
-  button: { padding: 12, backgroundColor: colors.surface, borderRadius: 12 },
-  message: { padding: 12, color: colors.text },
-  preview: { flex: 1 },
-  filename: { paddingHorizontal: 12, color: colors.textMuted, fontSize: 12 },
-  saveButton: { alignSelf: 'flex-start', margin: 12, backgroundColor: colors.primary },
-  saveLabel: { color: colors.surface, fontWeight: '700' },
-  disabled: { opacity: 0.55 },
   image: { flex: 1, width: '100%' },
+  making: { position: 'absolute', alignSelf: 'center', top: '45%', fontSize: 13, fontWeight: '700', color: colors.textMuted },
 })

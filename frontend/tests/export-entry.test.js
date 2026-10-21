@@ -64,7 +64,8 @@ test('공통 openExport 핸들러는 비활성일 때 직접 호출해도 메뉴
     },
   })
   assert.deepEqual(bindings, ['exportEnabled', 'exportEnabled', 'exportEnabled'])
-  assert.equal(policy, false)
+  // 정책 결정으로 내보내기를 다시 켰다 (숨김 여부는 이 값 하나로 정한다)
+  assert.equal(policy, true)
   assert.ok(handler)
   for (const enabled of [false, true]) {
     const events = []

@@ -114,9 +114,9 @@ export default function ContextBar({
           onPress={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color } })}
           style={[styles.swatch, { backgroundColor: color }, single.color?.toUpperCase() === color.toUpperCase() && styles.swatchChosen]} />)}
         <View style={styles.divider} />
-        <BarButton icon="clipboard" label="복사" onPress={() => onCopy?.(objects)} />
+        <BarButton icon="copy" label="복사" onPress={() => onCopy?.(objects)} />
         <BarButton icon="clipboard" label="붙여넣기" disabled={!canPaste} onPress={onPaste} />
-        <BarButton icon="copy" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
+        <BarButton icon="duplicate" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
         <BarButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
         <View style={styles.divider} />
         <BarButton icon="crop" label="잘라내기" onPress={() => onCut?.(objects)} />
@@ -177,9 +177,9 @@ export default function ContextBar({
         }
       />
       {/* 복사·붙여넣기: 다른 페이지·다른 다이어리 탭으로 옮긴다 (복사한 게 없으면 붙여넣기는 흐리게). 복제는 이 자리에 바로 하나 더 */}
-      <BarButton icon="clipboard" label="복사" onPress={() => onCopy?.(objects)} />
+      <BarButton icon="copy" label="복사" onPress={() => onCopy?.(objects)} />
       <BarButton icon="clipboard" label="붙여넣기" disabled={!canPaste} onPress={onPaste} />
-      <BarButton icon="copy" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
+      <BarButton icon="duplicate" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
       <BarButton
         icon="trash"
         label="삭제"

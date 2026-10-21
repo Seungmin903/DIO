@@ -30,7 +30,7 @@ export const PAGE_LIST_WIDTH = 156
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onMove, onMovePages, onEmptyTap, onOpenOverview, readOnly = false }) {
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onMove, onMovePages, onEmptyTap, readOnly = false }) {
   const [drag, setDrag] = useState(null) // { id, from, dy, group } — 끌어서 옮기는 중
   // 고른 페이지들. 평소에는 지금 페이지 하나이고, 길게 눌러 여러 개를 고른다.
   const [picked, setPicked] = useState([currentId])
@@ -175,11 +175,6 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
             </Pressable>
           ))}
         </View>
-        )}
-        {!pickMode && onOpenOverview && (
-          <Pressable onPress={() => onOpenOverview(filter)} hitSlop={6} accessibilityRole="button" accessibilityLabel="페이지 넓게 보기" style={({ pressed }) => [styles.expand, pressed && styles.addPressed]}>
-            <Icon name="pages" size={16} color={colors.textMuted} />
-          </Pressable>
         )}
       </View>
       <FlatList
@@ -428,13 +423,13 @@ const styles = StyleSheet.create({
   countText: { fontSize: 12, fontWeight: '800', color: colors.surface },
   pickedCheck: { position: 'absolute', right: 6, bottom: 6, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   activeRing: { position: 'absolute', top: -THUMB_BORDER, left: -THUMB_BORDER, right: -THUMB_BORDER, bottom: -THUMB_BORDER, borderRadius: 8, borderWidth: 2, borderColor: colors.primary },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingTop: 10 },
+  // 탭 줄은 아래 썸네일보다 양쪽으로 조금(6) 더 넓게
+  header: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: (PAGE_LIST_WIDTH - THUMB_WIDTH) / 2 - 6, paddingTop: 10 },
   tabs: { flex: 1, flexDirection: 'row', padding: 2, borderRadius: 9, backgroundColor: 'rgba(11,25,87,0.06)' },
   tab: { flex: 1, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
   tabActive: { backgroundColor: colors.surface },
   tabText: { fontSize: 11.5, fontWeight: '700', color: colors.textMuted },
   tabTextActive: { color: colors.text },
-  expand: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   thumbDragging: {
     shadowColor: '#0B1957',
     shadowOpacity: 0.25,
