@@ -25,7 +25,7 @@ const DECOR_TOOLS = [
   { tab: 'photo', icon: 'image', label: '사진' },
 ]
 
-export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTool, onPlaceholder, onAnchor, penColor, highlighterColor }) {
+export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTool, onPlaceholder, onAnchor, penColor, highlighterColor, guidesActive, onOpenGuides }) {
   return (
     <View style={styles.ribbon}>
       {NAV_TOOLS.map((tool) => (
@@ -44,8 +44,8 @@ export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTo
         <Tool onAnchor={onAnchor} key={tool.tab} icon={tool.icon} label={tool.label} active={drawerTab === tool.tab} onPress={() => onOpenDrawer(tool.tab)} />
       ))}
       <View style={styles.divider} />
-      <Tool icon="link" label="하이퍼링크" dim onPress={() => onPlaceholder('하이퍼링크')} />
-      <Tool icon="grid" label="격자 가이드" dim onPress={() => onPlaceholder('격자 가이드')} />
+      {/* 하이퍼링크는 요소를 누르면 뜨는 옵션 바에서 건다 */}
+      <Tool onAnchor={onAnchor} icon="grid" label="격자 가이드" active={guidesActive} onPress={onOpenGuides} />
     </View>
   )
 }

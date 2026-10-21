@@ -1,5 +1,6 @@
 // 격자와 펜이 함께 사용하는 MVP1 색상 체계.
-export const EDITOR_COLORS = ['#92CCFA', '#D1E8FF', '#0B1957', '#B9D7EE', '#6F9FC6', '#365C7A', '#14B8A6', '#22A06B', '#F59E0B', '#EF476F', '#9B6BDF', '#6B7280']
+// 앱 테마 파랑 계열 6색은 빼고, 기본 펜 색(검정)을 맨 앞에 둔다. 형광펜과 같은 7색이라 옵션 창에서 한 줄로 보인다.
+export const EDITOR_COLORS = ['#1D1D1F', '#14B8A6', '#22A06B', '#F59E0B', '#EF476F', '#9B6BDF', '#6B7280']
 export const PEN_TYPES = [
   { id: 'ball', label: '볼펜' }, { id: 'fountain', label: '만년필' },
   { id: 'brush', label: '붓펜' }, { id: 'pencil', label: '연필' },

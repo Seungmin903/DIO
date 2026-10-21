@@ -14,7 +14,7 @@ import TapeView from './TapeView'
 import FrameBackdrop from './PhotoFrame'
 import StrokeContent from '../StrokeContent'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
-import { textStyle } from '../../utils/text'
+import { textSettings, textStyle } from '../../utils/text'
 
 /**
  * 오브젝트 하나의 생김새. 위치·회전·불투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
@@ -33,7 +33,7 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
   switch (object.type) {
     case 'text': {
       const scale = width / (object.baseWidth ?? object.w)
-      return <Text style={{ width, height, ...textStyle(object, scale, Platform.OS) }}>{richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale)}>{segment.text}</Text>)}</Text>
+      return <Text style={{ width, height, ...textStyle(object, scale, Platform.OS) }}>{richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text>
     }
     case 'stroke':
       return <StrokeContent object={object} zoom={zoom} transform={flipTransform(object)} />
