@@ -14,6 +14,7 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, diamet
   const frame = useRef(null)
   const pending = useRef(null)
   const [cursor, setCursor] = useState(null)
+  const shown = useRef({ key: '', pieces: null }) // 마지막으로 캔버스에 넘긴 지울 목록
   const preview = (point, ids) => {
     pending.current = { point, ids }
     if (frame.current) return
@@ -23,7 +24,11 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, diamet
       pending.current = null
       if (!next) return
       setCursor(next.point)
-      if (mode === 'area') onPreview(next.ids, gesture.current?.session.replacements?.() ?? null)
+      const pieces = mode === 'area' ? gesture.current?.session.replacements?.() ?? null : null
+      const key = next.ids.join(',')
+      if (key === shown.current.key && pieces === shown.current.pieces) return
+      shown.current = { key, pieces }
+      if (mode === 'area') onPreview(next.ids, pieces)
       else onPreview(next.ids)
     })
   }
@@ -33,6 +38,7 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, diamet
     frame.current = null
     pending.current = null
     setCursor(null)
+    shown.current = { key: '', pieces: null }
     onPreview([])
   }
   useEffect(() => () => { gesture.current?.session.finish(true); reset() }, [])
