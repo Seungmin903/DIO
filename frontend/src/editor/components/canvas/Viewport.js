@@ -87,6 +87,8 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       if (tap.current && Math.hypot(event.nativeEvent.pageX - tap.current.x, event.nativeEvent.pageY - tap.current.y) > 10)
         tap.current = null
       if (!twoFingers(event)) {
+        // 한 손가락으로 줄어든 뒤의 새 핀치는 현재 배율과 새 거리에서 시작한다.
+        pinch.current = null
         // 손바닥 도구: 한 손가락으로 끌어 화면 이동 (두 손가락에서 한 손가락으로 돌아오면 그 자리부터 다시)
         if (latest.current.dragToPan && (event.nativeEvent.touches?.length ?? 1) === 1) {
           const { pageX, pageY } = event.nativeEvent
@@ -104,6 +106,9 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }
       const g = pinch.current
       preview(latest.current.resolveZoom(g.scale * (Math.hypot(p.x - q.x, p.y - q.y) / g.distance), g.point, mid))
+    },
+    onResponderEnd: (event) => {
+      if (!twoFingers(event)) { pinch.current = null; panFrom.current = null }
     },
     onResponderRelease: () => {
       pinch.current = null

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { PAGE_HEIGHT, PAGE_WIDTH } from '../constants'
 import { usePan } from '../hooks/usePan'
@@ -17,13 +17,15 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
   const gesture = useRef(null)
   const previewFrame = useRef(null)
   const pendingPreview = useRef(null)
-  const schedulePreview = (stroke) => {
-    pendingPreview.current = stroke
+  // 좌표는 모두 보존하고 전체 획 변환은 화면 프레임당 한 번만 한다.
+  const schedulePreview = (g) => {
+    pendingPreview.current = g
     if (previewFrame.current) return
     previewFrame.current = requestFrame(() => {
       previewFrame.current = null
-      setPreview(pendingPreview.current)
+      const next = pendingPreview.current
       pendingPreview.current = null
+      if (next && gesture.current === next) setPreview(createStroke(next.points, { ...next.settings, id: next.id }))
     })
   }
   useEffect(() => () => {
@@ -32,10 +34,23 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
     if (previewFrame.current) cancelFrame(previewFrame.current)
   }, [])
   const [preview, setPreview] = useState(null)
+  const cancelPendingPreview = () => {
+    cancelFrame(previewFrame.current)
+    previewFrame.current = null
+    pendingPreview.current = null
+  }
+  // 같은 입력 View를 유지하되 좌표계·도구 정책이 바뀌면 진행 획만 취소한다.
+  useLayoutEffect(() => {
+    gesture.current?.hold?.cancel()
+    gesture.current = null
+    cancelPendingPreview()
+    setPreview(null)
+  }, [zoom, pageWidth, pageHeight, settings.kind, straightAssist])
   const handlers = usePan({
     onStart: (event) => {
       gesture.current?.hold?.cancel()
       gesture.current = null
+      cancelPendingPreview()
       setPreview(null)
       if ((event.button != null && event.button !== 0) || event.touches?.length > 1) return
       const start = { x: event.locationX / zoom, y: event.locationY / zoom }
@@ -46,9 +61,9 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
         if (gesture.current !== g) return
         g.straight = true
         g.points = points
-        schedulePreview(createStroke(points, { ...g.settings, id: g.id }))
+        schedulePreview(g)
       } })
-      schedulePreview(createStroke([first], { ...gesture.current.settings, id: gesture.current.id }))
+      schedulePreview(g)
     },
     onMove: (dx, dy, event) => {
       const g = gesture.current
@@ -56,6 +71,7 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
       if (event.touches?.length > 1) {
         g.hold?.cancel()
         gesture.current = null
+        cancelPendingPreview()
         setPreview(null)
         return
       }
@@ -73,7 +89,7 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
       if (g.straight) g.points = [g.points[0], sample]
       else g.points = g.rawPoints
       if (!outside) g.hold?.move(sample)
-      schedulePreview(createStroke(g.points, { ...g.settings, id: g.id }))
+      schedulePreview(g)
     },
     onEnd: ({ cancelled }) => {
       const g = gesture.current

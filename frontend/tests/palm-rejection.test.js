@@ -39,7 +39,7 @@ function setup(os) {
   }
   const pointer = (id, pointerType) => stylus.notePointerDown({ nativeEvent: { pointerId: id, pointerType } })
   return {
-    stylus, log, pointer,
+    stylus, log, pointer, responder,
     down(id, x, extra = {}) {
       const first = touches.size === 0
       touches.set(id, { identifier: id, pageX: x, pageY: 0, locationX: x, locationY: 0, ...extra })
@@ -135,4 +135,36 @@ test('iOS: Apple Pencil(force > 0)이 보이면 손가락으로는 그리지 않
   t.down(2, 30, { force: 0 })
   t.move(2, 60)
   assert.deepEqual(t.log.map((e) => e[0]), ['start', 'end'])
+})
+
+
+for (const os of ['android', 'ios']) test(`${os}: 마지막 move가 빠져도 end 좌표를 전달하고 release에서는 중복 확정하지 않는다`, () => {
+  const t = setup(os)
+  t.down(0, 10, { force: 0.5 })
+  t.move(0, 20)
+  const end = { nativeEvent: { touches: [], changedTouches: [{ identifier: 0, pageX: 90, pageY: 0 }] } }
+  t.responder.onResponderEnd(end)
+  t.responder.onResponderRelease(end)
+  assert.deepEqual(t.log, [['start', 1, 10], ['move', 10, 1], ['move', 80, 1], ['end', false]])
+})
+
+test('짧은 획은 move 없이 release만 와도 끝점을 남긴다', () => {
+  const t = setup('android')
+  t.down(0, 10)
+  t.responder.onResponderRelease({ nativeEvent: { identifier: 0, pageX: 80, pageY: 0, touches: [] } })
+  assert.deepEqual(t.log, [['start', 1, 10], ['move', 70, 1], ['end', false]])
+})
+
+test('손바닥 해제 좌표는 펜 끝점에 섞이지 않고 취소된 획도 확정하지 않는다', () => {
+  const t = setup('android')
+  t.pointer(0, 'pen'); t.down(0, 10); t.move(0, 30)
+  t.pointer(1, 'touch'); t.down(1, 200)
+  t.responder.onResponderEnd({ nativeEvent: {
+    touches: [{ identifier: 0, pageX: 30, pageY: 0 }],
+    changedTouches: [{ identifier: 1, pageX: 999, pageY: 0 }],
+  } })
+  assert.equal(t.log.length, 2)
+  t.responder.onResponderTerminate({ nativeEvent: { identifier: 0, pageX: 90, pageY: 0 } })
+  assert.deepEqual(t.log.at(-1), ['end', true])
+  assert.equal(t.log.length, 3)
 })
