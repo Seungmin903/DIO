@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
+import { C } from '../constants';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
 
@@ -6,7 +7,7 @@ export default function EmptyState({ title, onCreate, search = false, compact = 
   return (
     <View style={[s.empty, compact && s.emptyCompact]}>
       <View style={s.emptyIcon}>
-        <AppIcon name={search ? 'search' : 'book'} size={30} color="#6E92C6" strokeWidth={1.7} />
+        <AppIcon name={search ? 'search' : 'book'} size={30} color={C.blue} strokeWidth={1.7} />
       </View>
       <Text style={s.emptyTitle}>{title}</Text>
       {onCreate && (

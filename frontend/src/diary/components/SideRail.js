@@ -8,7 +8,7 @@ import { styles as s } from '../styles';
 const RAIL_WIDTH = { collapsed: 78, expanded: 218 };
 const RAIL_PADDING = { collapsed: 15, expanded: 20 };
 
-function SideRail({ page, filter, navigate, create, collapsed, onToggle }) {
+function SideRail({ page, filter, navigate, create, bottomInset = 0, collapsed, onToggle }) {
   // 0 = 접힘, 1 = 펼침. 너비·여백·글자 투명도를 한 값으로 함께 움직인다.
   const progress = useRef(new Animated.Value(collapsed ? 0 : 1)).current;
 
@@ -50,7 +50,7 @@ function SideRail({ page, filter, navigate, create, collapsed, onToggle }) {
     <Animated.View
       style={[
         s.rail,
-        { width: between(RAIL_WIDTH.collapsed, RAIL_WIDTH.expanded), paddingHorizontal: between(RAIL_PADDING.collapsed, RAIL_PADDING.expanded), paddingBottom: 24 },
+        { width: between(RAIL_WIDTH.collapsed, RAIL_WIDTH.expanded), paddingHorizontal: between(RAIL_PADDING.collapsed, RAIL_PADDING.expanded), paddingBottom: 24 + bottomInset },
       ]}
     >
       <Animated.View style={[s.brandRow, { marginBottom: between(18, 25) }]}>

@@ -1,4 +1,18 @@
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
+import EditorIcon from '../editor/components/controls/Icon';
+
+// 편집 화면에도 있는 아이콘은 편집 화면 모양으로 그린다 (휴지통·더하기·연필 등이 화면마다 달라 보이지 않게)
+const EDITOR_ICONS = {
+  add: 'plus',
+  edit: 'edit',
+  search: 'search',
+  trash: 'trash',
+  grid: 'pages',
+  swap: 'swap',
+  'chevron-left': 'chevronLeft',
+  'chevron-right': 'chevronRight',
+  close: 'close',
+};
 
 const common = (color, strokeWidth) => ({
   fill: 'none',
@@ -10,6 +24,7 @@ const common = (color, strokeWidth) => ({
 
 /** 앱 전반에서 쓰는 기기 독립적 선형 아이콘 */
 export default function AppIcon({ name, size = 24, color = '#0B1957', strokeWidth = 1.9, fill = 'none' }) {
+  if (EDITOR_ICONS[name]) return <EditorIcon name={EDITOR_ICONS[name]} size={size} color={color} strokeWidth={strokeWidth} />;
   const line = common(color, strokeWidth);
 
   let graphic = null;

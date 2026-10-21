@@ -97,3 +97,14 @@ export function textFormatPatch(object, settings) {
   const patch = textPatch(object.text, baseWidth, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) })
   return { ...settings, text: patch.text, h: patch.h * object.w / baseWidth }
 }
+
+// 높이·위치를 제외하고 줄바꿈·글자 실측 크기를 바꾸는 값으로 측정 결과를 구분한다.
+export function textLayoutKey(object) {
+  return JSON.stringify([object.text, object.w, object.baseWidth ?? object.w, textSettings(object), object.styleRanges ?? []])
+}
+
+// 수동으로 늘린 여백은 유지하고, 이전 문서나 줄바꿈 증가로 부족한 높이만 보완한다.
+export function fitTextHeightPatch(object, measuredHeight) {
+  if (object?.type !== 'text' || !Number.isFinite(measuredHeight) || measuredHeight <= 0) return null
+  return measuredHeight > object.h + 0.5 ? { h: Math.ceil(measuredHeight * 100) / 100 } : null
+}

@@ -43,7 +43,7 @@ import TapCatcher from '../components/controls/TapCatcher'
 import TopBar from '../components/chrome/TopBar'
 import Viewport from '../components/canvas/Viewport'
 import { ViewportMotion } from '../components/canvas/StaticPage'
-import { ZOOM_MAX, ZOOM_MIN } from '../constants'
+import { PHONE_ZOOM_MAX, ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
@@ -141,14 +141,14 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [eraserMode, setEraserMode] = useState('stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
-  // 폰은 화면이 좁아 페이지 목록·레이어를 닫은 채 시작한다. 창 크기가 바뀌어 배치가 달라지면 다시 맞춘다.
-  const [layersOpen, setLayersOpen] = useState(!compact)
-  const [pagesOpen, setPagesOpen] = useState(!compact)
+  // 편집기는 캔버스에 집중할 수 있도록 보조 패널을 모두 닫은 상태로 시작한다.
+  const [layersOpen, setLayersOpen] = useState(false)
+  const [pagesOpen, setPagesOpen] = useState(false)
   const [layoutCompact, setLayoutCompact] = useState(compact)
   if (layoutCompact !== compact) {
     setLayoutCompact(compact)
-    setLayersOpen(!compact)
-    setPagesOpen(!compact)
+    setLayersOpen(false)
+    setPagesOpen(false)
   }
   const stagePadding = compact ? PHONE_STAGE_PADDING : STAGE_PADDING
   const [focusMode, setFocusMode] = useState(false)
@@ -207,8 +207,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const clampOffset = (next, z) => clampViewportOffset(next, z, stageSize, PAGE_WIDTH, PAGE_HEIGHT)
   // pagePoint(페이지 좌표)가 화면의 screenPoint 에 오도록 배율을 바꾼다. (손가락 사이·휠 위치 기준 확대)
   // resolve*: 제한을 적용한 보기 { scale, zoom, x, y } 만 계산한다. 손가락 제스처 중에는 Viewport 가 이것으로 미리 보여 주고 손을 뗄 때 확정한다.
+  const maxZoomScale = compact ? PHONE_ZOOM_MAX : ZOOM_MAX
   const resolveZoom = (nextScale, pagePoint, screenPoint) => {
-    const scale = clamp(nextScale, ZOOM_MIN, ZOOM_MAX)
+    const scale = clamp(nextScale, ZOOM_MIN, maxZoomScale)
     const z = fitZoom * scale
     return { scale, zoom: z, ...clampOffset({ x: screenPoint.x - pagePoint.x * z, y: screenPoint.y - pagePoint.y * z }, z) }
   }
@@ -597,7 +598,12 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
   return (
     <View
-      style={[styles.root, phoneLandscape && !phoneFocus && styles.rootBetweenRails, phoneLandscape && !phoneFocus && readOnly && styles.rootReadOnlyRail]}
+      style={[
+        styles.root,
+        !compact && bottomInset > 0 && { paddingBottom: bottomInset },
+        phoneLandscape && !phoneFocus && styles.rootBetweenRails,
+        phoneLandscape && !phoneFocus && readOnly && styles.rootReadOnlyRail,
+      ]}
       {...closeOnOutside}
       onStartShouldSetResponderCapture={(event) => Boolean(textEditing && textBoundary.current?.(event))}
       onResponderTerminationRequest={() => false}
@@ -885,7 +891,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               <Pressable onPress={fitToScreen} accessibilityRole="button" accessibilityLabel={`배율 ${Math.round(view.scale * 100)}%, 화면에 맞춤`} style={styles.zoomFit}>
                 <Text style={styles.zoomValue}>{Math.round(view.scale * 100)}%</Text>
               </Pressable>
-              <RoundButton icon="plus" label="확대" disabled={view.scale >= ZOOM_MAX} onPress={() => zoomBy(ZOOM_STEP)} />
+              <RoundButton icon="plus" label="확대" disabled={view.scale >= maxZoomScale} onPress={() => zoomBy(ZOOM_STEP)} />
             </View>
           )}
           {/* 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. (배율 숫자는 확대·축소하는 동안 Viewport 가 띄운다) */}
