@@ -386,7 +386,7 @@ function DiaryApp() {
           collapsed={railCollapsed}
           onToggle={() => setRailCollapsed((current) => !current)}
         />
-        <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
+        <View style={s.workspace}>
           {content}
           {createModal}
         </View>
@@ -397,8 +397,8 @@ function DiaryApp() {
   return (
     <>
       <StatusBar hidden />
-      {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. */}
-      <SafeAreaView style={s.safe} edges={isPhone ? ['top', 'left', 'right'] : ['left', 'right']}>
+      {/* 폰은 하단 탭에서 시스템 바 여백을 처리하고, 태블릿은 16:10 프레임 자체를 시스템 바 위에 둔다. */}
+      <SafeAreaView style={s.safe} edges={isPhone ? ['top', 'left', 'right'] : ['left', 'right', 'bottom']}>
         <View style={s.viewport} onLayout={measureViewport}>
           <View style={[s.app, frame ? { width: frame.width, height: frame.height } : s.appFill]}>
             {shell}
