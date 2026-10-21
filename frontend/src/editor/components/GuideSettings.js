@@ -37,7 +37,7 @@ export default function GuideSettings({ guides, onChange, onClose }) {
         />
         {/* 다른 옵션 창처럼 작은 회색 구역 제목. 보조선은 여러 개를 함께 켤 수 있다. */}
         <Text style={toolPanelStyles.label}>보조선</Text>
-        <Segmented items={GUIDE_LINES} selected={(id) => guides[id]} onPress={(id) => onChange({ ...guides, [id]: !guides[id] })} />
+        <Segmented separate items={GUIDE_LINES} selected={(id) => guides[id]} onPress={(id) => onChange({ ...guides, [id]: !guides[id] })} />
       </View>
     </View>
   )

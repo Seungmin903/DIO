@@ -118,20 +118,32 @@ test('손상된 GIF는 첫 프레임 오류로 중단한다', async () => {
 })
 
 test('네이티브는 전용 영역을 지정한 PNG 픽셀 크기로 캡처하고 임시 결과만 해제한다', async (t) => {
-  let captured, released
+  let captured, released, closed = false
+  const header = new Uint8Array(24)
+  header.set([137,80,78,71,13,10,26,10])
+  const data = new DataView(header.buffer)
+  data.setUint32(8,13); data.setUint32(12,0x49484452); data.setUint32(16,1188); data.setUint32(20,840)
   globalThis.__exportNative = {
     captureRef: async (node, options) => { captured = { node, options }; return 'file:///export.png' },
     releaseCapture: (uri) => { released = uri },
+    Platform: { OS:'ios' }, PixelRatio: {get:()=>2}, FileMode: {ReadOnly:'r'},
+    File: class {open(){return {readBytes:()=>header,close:()=>{closed=true}}}},
+  }
+  const sources = {
+    'react-native-view-shot':'export const {captureRef,releaseCapture}=globalThis.__exportNative',
+    'react-native':'export const {Platform,PixelRatio}=globalThis.__exportNative',
+    'expo-file-system':'export const {File,FileMode}=globalThis.__exportNative',
   }
   const hooks = registerHooks({
-    resolve(specifier, context, next) { return specifier === 'react-native-view-shot' ? { url: 'export-test:view-shot', shortCircuit: true } : next(specifier, context) },
-    load(url, context, next) { return url === 'export-test:view-shot' ? { format: 'module', source: 'export const {captureRef,releaseCapture}=globalThis.__exportNative', shortCircuit: true } : next(url, context) },
+    resolve(specifier, context, next) { return sources[specifier] ? { url: 'export-test:'+specifier, shortCircuit: true } : next(specifier, context) },
+    load(url, context, next) { return url.startsWith('export-test:') ? { format: 'module', source: sources[url.slice(12)], shortCircuit: true } : next(url, context) },
   })
   t.after(() => { hooks.deregister(); delete globalThis.__exportNative })
   const { capturePage } = await import('../src/editor/utils/capturePage.native.js')
   const output = await capturePage('export-surface', createExportSnapshot({ objects: [] }))
   assert.equal(captured.node, 'export-surface')
-  assert.deepEqual(captured.options, { format: 'png', result: 'tmpfile', width: 1188, height: 840 })
+  assert.deepEqual(captured.options, { format: 'png', result: 'tmpfile', width: 594, height: 420 })
+  assert.equal(output.width,1188);assert.equal(output.height,840);assert.equal(closed,true)
   output.dispose()
   assert.equal(released, 'file:///export.png')
 })

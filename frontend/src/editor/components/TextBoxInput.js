@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
-import { PAGE_HEIGHT, PAGE_WIDTH } from '../constants'
+import { PAGE_HEIGHT as DEFAULT_PAGE_HEIGHT, PAGE_WIDTH as DEFAULT_PAGE_WIDTH } from '../constants'
 import { usePan } from '../hooks/usePan'
 import { clamp } from '../utils/common'
 
@@ -8,7 +8,7 @@ import { clamp } from '../utils/common'
 const TAP_BOX_WIDTH = 240
 const MIN_DRAG_WIDTH = 40
 
-export default function TextBoxInput({ zoom, onCreate }) {
+export default function TextBoxInput({ zoom, onCreate, pageWidth: PAGE_WIDTH = DEFAULT_PAGE_WIDTH, pageHeight: PAGE_HEIGHT = DEFAULT_PAGE_HEIGHT }) {
   const start = useRef(null)
   const latest = useRef(null)
   const [box, setBox] = useState(null)

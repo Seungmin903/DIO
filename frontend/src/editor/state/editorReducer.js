@@ -279,6 +279,12 @@ export function editorReducer(state, action) {
         list.map((o) => (action.patches[o.id] ? { ...o, ...action.patches[o.id] } : o)),
       )
 
+    // replacements: { [id]: 바꿀 요소들 } — 영역 지우개처럼 한 요소를 같은 층 위치의 여러 조각(또는 없음)으로 바꾼다. 되돌리기 한 번.
+    case 'replaceObjects': {
+      const next = updateObjects(withHistory(state), (list) => list.flatMap((o) => action.replacements[o.id] ?? [o]))
+      return { ...next, selectedIds: state.selectedIds.filter((id) => !action.replacements[id]) }
+    }
+
     case 'removeObjects': {
       const removing = new Set(action.ids)
       const next = updateObjects(withHistory(state), (list) => list.filter((o) => !removing.has(o.id)))
@@ -358,7 +364,8 @@ export function editorReducer(state, action) {
       )
 
     case 'addPage': {
-      const page = action.backgroundAssetId ? createTemplatePage(action.backgroundAssetId) : createBlankPage()
+      const created = action.backgroundAssetId ? createTemplatePage(action.backgroundAssetId, state.doc.paperAppearance) : createBlankPage()
+      const page = state.doc.paperAppearance ? { ...created, paperAppearance: state.doc.paperAppearance } : created
       const index = state.doc.pages.findIndex((p) => p.id === getCurrentPage(state).id)
       const pages = [...state.doc.pages]
       pages.splice(index + 1, 0, page)

@@ -8,6 +8,7 @@ import Icon from '../controls/Icon'
 
 // 핸들이 박스 바깥에 걸쳐도 터치를 받도록 오버레이를 이만큼 넓게 잡는다. (Android 는 부모 밖 터치를 받지 않음)
 const MARGIN = 52
+const FRAME_WIDTH = 1.5 // 선택 테두리 굵기
 const HANDLE = 18
 const EDGE_THICKNESS = 20 // 변 전체가 보이지 않는 크기 조절 영역
 // 변 영역은 대부분 박스 바깥에 두고 안쪽으로는 이만큼만 들어온다. (가운데를 눌러 옮기는 영역을 넓게 남긴다)
@@ -70,13 +71,14 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
     >
       <View
         pointerEvents="none"
-        style={[styles.frame, object.locked && styles.frameLocked, { left: MARGIN, top: MARGIN, width, height }]}
+        // 테두리는 요소 바깥에 그린다. 안쪽에 그리면 기기에서 픽셀을 반올림할 때 사진 가장자리가 선 밖으로 살짝 튀어나와 보였다.
+        style={[styles.frame, object.locked && styles.frameLocked, { left: MARGIN - FRAME_WIDTH, top: MARGIN - FRAME_WIDTH, width: width + FRAME_WIDTH * 2, height: height + FRAME_WIDTH * 2 }]}
       />
       {!object.locked && (
         <>
           <View
             pointerEvents="none"
-            style={[styles.rotateStem, { left: MARGIN + width / 2 - 0.75, top: MARGIN - ROTATE_OFFSET }]}
+            style={[styles.rotateStem, { left: MARGIN + width / 2 - FRAME_WIDTH / 2, top: MARGIN - ROTATE_OFFSET }]}
           />
           <Handle
             kind="rotate"
@@ -263,7 +265,7 @@ function resizePatch(g, handle, pointer) {
 }
 
 const styles = StyleSheet.create({
-  frame: { position: 'absolute', borderWidth: 1.5, borderColor: colors.primary },
+  frame: { position: 'absolute', borderWidth: FRAME_WIDTH, borderColor: colors.primary },
   frameLocked: { borderStyle: 'dashed', borderColor: colors.textMuted },
   handle: { position: 'absolute' },
   handleBase: {
@@ -293,5 +295,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
   },
-  rotateStem: { position: 'absolute', width: 1.5, height: ROTATE_OFFSET, backgroundColor: colors.primary },
+  // 회전 손잡이 선은 선택 테두리 바깥 선에서 멈춘다 (테두리를 요소 바깥에 그리므로 그만큼 짧게)
+  rotateStem: { position: 'absolute', width: FRAME_WIDTH, height: ROTATE_OFFSET - FRAME_WIDTH, backgroundColor: colors.primary },
 })

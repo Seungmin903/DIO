@@ -120,6 +120,29 @@ export function usePalmRejectingPan(handlers) {
     }
   }
 
+  // move가 생략되어도 뗀 위치까지 확정한다. 다른 손가락의 좌표는 쓰지 않는다.
+  const moveTracked = (s, t) => {
+    if (!s.track || !t || !Number.isFinite(t.pageX) || !Number.isFinite(t.pageY)) return
+    const dx = t.pageX - s.track.startX
+    const dy = t.pageY - s.track.startY
+    if (s.track.dx == null && dx === 0 && dy === 0) return
+    // 다른 터치(손바닥)만 움직인 이벤트에서는 획을 다시 그리지 않는다
+    if (dx === s.track.dx && dy === s.track.dy) return
+    s.track.dx = dx
+    s.track.dy = dy
+    s.track.moved = Math.max(s.track.moved, Math.hypot(dx, dy))
+    call('onMove', dx, dy, asEvent(s, t))
+  }
+  const finishAt = (s, event) => {
+    const e = event?.nativeEvent
+    const id = s.track?.id
+    if (id == null) return
+    const last = e?.changedTouches?.find((t) => t.identifier === id)
+      ?? (e?.identifier === id ? e : null)
+    moveTracked(s, last)
+    finish(s, false)
+  }
+
   const responder = useRef({
     onStartShouldSetResponder: () => !handlersRef.current.disabled,
     onMoveShouldSetResponder: () => false,
@@ -168,14 +191,7 @@ export function usePalmRejectingPan(handlers) {
       if (!s.track) return
       const t = (event.nativeEvent.touches ?? []).find((touch) => touch.identifier === s.track.id)
       if (!t) return
-      const dx = t.pageX - s.track.startX
-      const dy = t.pageY - s.track.startY
-      // 다른 터치(손바닥)만 움직인 이벤트에서는 획을 다시 그리지 않는다
-      if (dx === s.track.dx && dy === s.track.dy) return
-      s.track.dx = dx
-      s.track.dy = dy
-      s.track.moved = Math.max(s.track.moved, Math.hypot(dx, dy))
-      call('onMove', dx, dy, asEvent(s, t))
+      moveTracked(s, t)
     },
     // 터치 하나가 떨어질 때. 따라가던 터치면 그 획을 확정한다. (손바닥이 남아 있어도 다음 펜 터치로 새 획을 시작할 수 있다)
     onResponderEnd: (event) => {
@@ -187,11 +203,11 @@ export function usePalmRejectingPan(handlers) {
         s.seen.delete(id)
         s.ignored.delete(id)
         s.pending.delete(id)
-        if (s.track?.id === id) finish(s, false)
+        if (s.track?.id === id) finishAt(s, event)
       }
     },
-    onResponderRelease: () => {
-      if (state.current) finish(state.current, false)
+    onResponderRelease: (event) => {
+      if (state.current) finishAt(state.current, event)
       state.current = null
     },
     onResponderTerminate: () => {

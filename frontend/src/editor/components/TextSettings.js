@@ -74,7 +74,7 @@ export default function TextSettings({ settings, onChange, onClose }) {
         {TEXT_COLORS.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`글자 전체 색상 ${color}`} accessibilityState={{ selected: settings.color === color }} onPress={() => onChange({ color })} style={[styles.swatch, { backgroundColor: color }, settings.color === color && styles.chosen]} />)}
       </View>
       <Text style={toolPanelStyles.label}>내 색상</Text>
-      <MyColorPresets value={settings.color} label="글자 색상" onPick={(color) => onChange({ color })} />
+      <MyColorPresets scope="text" value={settings.color} label="글자 색상" onPick={(color) => onChange({ color })} />
     </ScrollView>
   </View>
 }

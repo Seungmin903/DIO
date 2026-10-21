@@ -39,11 +39,13 @@ import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
 import TopBar from '../components/chrome/TopBar'
 import Viewport from '../components/canvas/Viewport'
+import { ViewportMotion } from '../components/canvas/StaticPage'
 import { ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
+import { centeredOffset, clampOffset as clampViewportOffset, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { createObjectFromDecor } from '../utils/objects'
 
@@ -88,6 +90,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [exportOpen, setExportOpen] = useState(false)
   const [regionOpen, setRegionOpen] = useState(false)
   const [stageSize, setStageSize] = useState(null)
+  const [viewMoving, setViewMoving] = useState(false) // 확대·이동 중 (그동안 GIF 를 멈춘다)
   const stageRef = useRef(null)
   const [toolAnchor, setToolAnchor] = useState(null)
   const [drawerWidth, setDrawerWidth] = useState(320)
@@ -123,6 +126,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
   const [straightAssist, setStraightAssist] = useState(true)
   const [eraserSize, setEraserSize] = useState(ERASER_RADIUS * 2)
+  const [eraserMode, setEraserMode] = useState('stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   // 폰은 화면이 좁아 페이지 목록·레이어를 닫은 채 시작한다. 창 크기가 바뀌어 배치가 달라지면 다시 맞춘다.
@@ -184,14 +188,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const offset = view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) : { x: view.x, y: view.y }
 
   // 페이지가 화면 밖으로 다 사라지지 않게 가장자리 80px 은 남긴다.
-  const clampOffset = (next, z) => {
-    if (!stageSize) return next
-    const keep = 80
-    return {
-      x: clamp(next.x, keep - PAGE_WIDTH * z, stageSize.width - keep),
-      y: clamp(next.y, keep - PAGE_HEIGHT * z, stageSize.height - keep),
-    }
-  }
+  const clampOffset = (next, z) => clampViewportOffset(next, z, stageSize, PAGE_WIDTH, PAGE_HEIGHT)
   // pagePoint(페이지 좌표)가 화면의 screenPoint 에 오도록 배율을 바꾼다. (손가락 사이·휠 위치 기준 확대)
   // resolve*: 제한을 적용한 보기 { scale, zoom, x, y } 만 계산한다. 손가락 제스처 중에는 Viewport 가 이것으로 미리 보여 주고 손을 뗄 때 확정한다.
   const resolveZoom = (nextScale, pagePoint, screenPoint) => {
@@ -199,7 +196,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     const z = fitZoom * scale
     return { scale, zoom: z, ...clampOffset({ x: screenPoint.x - pagePoint.x * z, y: screenPoint.y - pagePoint.y * z }, z) }
   }
-  const resolvePan = (from, dx, dy) => ({ ...from, ...clampOffset({ x: from.x + dx, y: from.y + dy }, from.zoom) })
+  const resolvePan = (from, dx, dy) => ({ ...from, ...panView(from, dx, dy, fitZoom, stageSize, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) })
   const commitView = (next) => {
     setView({ scale: next.scale, x: next.x, y: next.y })
   }
@@ -671,10 +668,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             resolveZoom={resolveZoom}
             resolvePan={resolvePan}
             onView={commitView}
+            onMovingChange={setViewMoving}
             onTapEmpty={clearSelection}
             dragToPan={activeTool === 'hand'}
             onLayout={(event) => { setStageSize(event.nativeEvent.layout); stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y })) }}
           >
+            {/* 확대·이동 중이거나 화면 밖에 있는 GIF 는 첫 장면으로 멈춘다 (StaticPage) */}
+            <ViewportMotion.Provider value={{ moving: viewMoving, visible: stageSize ? { x: -offset.x / zoom, y: -offset.y / zoom, width: stageSize.width / zoom, height: stageSize.height / zoom } : null }}>
               <Canvas
                 showBackground={loaded}
                 activeTool={activeTool}
@@ -691,6 +691,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 highlighterSettings={highlighterSettings}
                 straightAssist={straightAssist}
                 eraserSize={eraserSize}
+                eraserMode={eraserMode}
                 textBoundary={textBoundary}
                 onTextPaletteChange={setTextPalette}
                 textPaletteBounds={textPaletteBounds}
@@ -737,6 +738,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 onToast={showToast}
                 contextBarInside={markInside}
               />
+            </ViewportMotion.Provider>
           </Viewport>
 
           {!readOnly && !compact && <View style={styles.ribbonWrap} pointerEvents="box-none" {...markInside}>
@@ -796,7 +798,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           )}
           {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
             <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <EraserSettings size={eraserSize} onChange={setEraserSize} onClose={() => setPenSettingsOpen(false)} />
+              <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} onClose={() => setPenSettingsOpen(false)} />
             </View>
           )}
 
@@ -952,15 +954,6 @@ function optionsPlacement(objects, zoom, offset, stage) {
   const minHeight = Math.min(420, stage.height - OPTIONS_TOP - OPTIONS_BOTTOM)
   const top = clamp(rect.top, OPTIONS_TOP, Math.max(OPTIONS_TOP, stage.height - OPTIONS_BOTTOM - minHeight))
   return { left, top, height: stage.height - OPTIONS_BOTTOM - top }
-}
-
-function centeredOffset(stageSize, zoom, pageWidth, pageHeight, padding = STAGE_PADDING) {
-  if (!stageSize) return { x: padding.side, y: padding.top }
-  const available = stageSize.height - padding.top - padding.bottom
-  return {
-    x: (stageSize.width - pageWidth * zoom) / 2,
-    y: padding.top + (available - pageHeight * zoom) / 2,
-  }
 }
 
 // 폰에서만 패널을 작업창 위에 띄우는 틀로 감싼다. 태블릿은 감싸지 않아 기존 배치·겹침 순서를 그대로 쓴다.

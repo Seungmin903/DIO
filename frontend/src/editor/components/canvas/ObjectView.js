@@ -1,7 +1,9 @@
-import { Image, Platform, StyleSheet, Text, View } from 'react-native'
+import { createContext, memo, useContext } from 'react'
+import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
-import { stickerSource } from '../../stickerAssets'
+import { isAnimatedMedia, stickerSource } from '../../stickerAssets'
+import MediaImage from './MediaImage'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
 import { reportMediaDisplayError, mediaRegistry } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
@@ -17,13 +19,20 @@ import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
 import { textSettings, textStyle } from '../../utils/text'
 
 /**
+ * 텍스트가 실제로 그려진 높이를 알려 받는 곳 (id, 논리 높이). 편집 화면 캔버스만 주고, 썸네일은 null 이다.
+ * 텍스트 상자 높이는 글자 폭을 어림해서 정하는데, 글꼴·단어 줄바꿈에 따라 실제 줄 수와 달라질 수 있어 그려진 높이로 맞춘다.
+ */
+export const TextMeasure = createContext(null)
+
+/**
  * 오브젝트 하나의 생김새. 위치·회전·불투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
-export default function ObjectContent({ object, zoom, still = false, onAssetLoad, onAssetError }) {
+function ObjectContent({ object, zoom, still = false, onAssetLoad, onAssetError }) {
   const width = object.w * zoom
   const height = object.h * zoom
   const uri = useMediaUri(object, { still })
+  const onTextMeasure = useContext(TextMeasure)
   const failed = mediaRegistry.get(mediaId(object))?.status === 'error'
   if (mediaId(object) && !uri) return (
     <View style={{ width, height, backgroundColor: failed ? colors.surfaceSoft : colors.surface, borderWidth: failed ? 1 : 0, borderStyle: 'dashed', borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
@@ -33,7 +42,8 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
   switch (object.type) {
     case 'text': {
       const scale = width / (object.baseWidth ?? object.w)
-      return <Text style={{ width, height, ...textStyle(object, scale, Platform.OS) }}>{richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text>
+      // 높이를 고정하지 않고 글자대로 그려, 그 높이를 상자 높이로 쓴다 (TextMeasure)
+      return <Text onLayout={onTextMeasure ? (event) => onTextMeasure(object.id, event.nativeEvent.layout.height / zoom) : undefined} style={{ width, minHeight: onTextMeasure ? undefined : height, ...textStyle(object, scale, Platform.OS) }}>{richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text>
     }
     case 'stroke':
       return <StrokeContent object={object} zoom={zoom} transform={flipTransform(object)} />
@@ -66,6 +76,9 @@ export default function ObjectContent({ object, zoom, still = false, onAssetLoad
       return null
   }
 }
+
+// 새 획·선택·저장 상태가 바뀌어도 같은 요소의 그림은 재사용한다.
+export default memo(ObjectContent)
 
 /* ---------- 꾸미기 옵션 (값이 없으면 기본값) ---------- */
 
@@ -129,10 +142,12 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   const box = { width, height }
   const uri = useMediaUri(object, { still })
   const source = stickerSource(object, still, uri)
+  const animated = !still && isAnimatedMedia(object)
 
   const silhouette = source
     ? (key, color, dx, dy, opacity = 1) => (
-        <Image
+        <MediaImage
+          animated={animated}
           key={key}
           source={source}
           style={[
@@ -195,7 +210,7 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
       {shadowLayers}
       {outline.on && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, outline.color, dx * stroke, dy * stroke))}
       {source ? (
-        <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
+        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>
       )}
@@ -210,6 +225,7 @@ const emojiText = (height) => ({ fontSize: height * 0.72, lineHeight: height })
 // still: 페이지 썸네일처럼 움직일 필요 없는 곳에서는 GIF 대신 첫 장면을 그린다.
 export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetError }) {
   const uri = useMediaUri(photo, { still })
+  const animated = !still && isAnimatedMedia(photo)
   const clipId = useSvgId('photo-clip')
   const inner = photoInnerBox(photo)
   const box = { width: inner.width * zoom, height: inner.height * zoom }
@@ -219,7 +235,9 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
   const shadow = { ...shadowOf(photo), on: shadowOf(photo).on && photoSupportsShadow(photo) }
   const border = outline.on ? Math.max(0.75, outline.width * zoom) : 0
 
-  // 사각·라운드·원형은 View 로 잘라 그린다. RN Image 라서 GIF 도 움직인다. (SVG 이미지는 첫 장면만 나옴)
+  // 사각·라운드·원형은 View 로 잘라 그린다. RN Image·expo-image(GIF) 라서 GIF 도 움직인다. (SVG 이미지는 첫 장면만 나옴)
+  // resizeMethod="scale": Android 는 기본값(auto)이면 처음 놓인 크기로 줄여 풀고, 사진을 키우거나 확대해도 다시 풀지 않아 흐려진다.
+  // 표시본(긴 변 3072px)을 그대로 풀어 두고 화면 크기에 맞춰 그리게 한다. (iOS·웹은 이 값을 쓰지 않는다)
   if (photo.frame === 'shape' && VIEW_CLIP_SHAPES[photo.shape] != null) {
     const shapeStyle = {
       width: box.width,
@@ -230,7 +248,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
       // 그림자는 잘라 내지 않는 바깥 View 에, 사진은 안쪽 View 에서 자른다.
       <View style={[shapeStyle, boxShadowStyle(shadow, zoom)]}>
         <View style={[styles.shapeClip, shapeStyle, { borderWidth: border, borderColor: outline.color, transform: flip }]}>
-          <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" />
+          <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, shiftForBorder(layout, border)]} resizeMode="stretch" resizeMethod="scale" />
           {shadow.inset && <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: shapeStyle.borderRadius }, insetShadowStyle(shadow, zoom)]} />}
         </View>
       </View>
@@ -296,7 +314,7 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
           },
         ]}
       >
-        <Image onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" />
+        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" resizeMethod="scale" />
         {/* 안쪽 그림자: 틀 안 사진이 오목하게 들어가 보이게 */}
         {shadow.inset && <View pointerEvents="none" style={[StyleSheet.absoluteFill, insetShadowStyle(shadow, zoom)]} />}
       </View>

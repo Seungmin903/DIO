@@ -20,7 +20,7 @@ export function PenSample({ settings, small = false }) {
 
 /**
  * 펜·형광펜 설정. 스티커·마테·사진 옵션과 같은 모양: 구역 제목, 세그먼트 버튼, 막대(−·+·숫자), 색 한 줄, 내 색상.
- * 내 색상은 글자·마스킹테이프와 같은 저장 목록을 쓴다 (controls/MyColorPresets).
+ * 내 색상은 펜·형광펜이 각자 따로 저장한다 (controls/MyColorPresets).
  */
 export default function PenSettings({ settings, onChange, onClose, straightAssist = true, onStraightAssistChange }) {
   const highlighter = settings.kind === 'highlighter'
@@ -55,7 +55,7 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
           onPress={() => chooseColor(color)} style={[styles.swatch, { backgroundColor: color }, settings.color === color && styles.chosen]} />
       ))}</View>
       <Text style={toolPanelStyles.label}>내 색상</Text>
-      <MyColorPresets value={settings.color} label={`${label} 색상`} onPick={chooseColor} />
+      <MyColorPresets scope={highlighter ? 'highlighter' : 'pen'} value={settings.color} label={`${label} 색상`} onPick={chooseColor} />
       <View style={styles.assist}>
         <Text style={styles.assistText}>끝점을 길게 눌러 직선 만들기</Text>
         <Switch accessibilityLabel="끝점에서 길게 눌러 직선 만들기" value={straightAssist} onValueChange={onStraightAssistChange} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.surface} activeThumbColor={colors.surface} />

@@ -50,16 +50,18 @@ export async function runEditorQa(browser, { baseURL, keys, screenshotDir }) {
       await page.mouse.up()
     }
     try {
-      await page.goto(baseURL)
-      await page.evaluate(({ keys, doc }) => {
+      await page.addInitScript(({ keys, doc }) => {
+        if (localStorage.getItem(`qa98-seeded:${doc.id}`)) return
         const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
         canvas.getContext('2d').fillRect(0, 0, 1, 1)
         doc.pages[0].objects.push({ id: 'protected-photo', type: 'photo', x: 870, y: 350, w: 80, h: 40, rotation: 0,
           src: canvas.toDataURL(), imageWidth: 1, imageHeight: 1, frame: 'shape', shape: 'rect', crop: { zoom: 1, fx: 0.5, fy: 0.5 } })
         localStorage.setItem(keys.diaries, JSON.stringify([{ id: doc.id, title: doc.title, color: '#CED9EE' }]))
         localStorage.setItem(`${keys.doc}:${doc.id}`, JSON.stringify(doc))
+        localStorage.setItem(`qa98-seeded:${doc.id}`, '1')
       }, { keys, doc })
-      await page.reload()
+      await page.goto(baseURL)
+      if (await page.getByRole('button', { name: '개인 다이어리', exact: true }).count()) await page.getByRole('button', { name: '개인 다이어리', exact: true }).last().click()
       await page.getByText(doc.title, { exact: true }).first().click()
       await page.locator('[aria-label$=" 캔버스"]').waitFor()
 
@@ -97,6 +99,13 @@ export async function runEditorQa(browser, { baseURL, keys, screenshotDir }) {
       await page.getByRole('button', { name: '내보내기 닫기', exact: true }).click()
       record.checks.push('8개 도구 옵션 공통 폭·아이콘 기준 위치·닫기 및 내보내기 닫기')
       await tool('펜')
+      const cancelledStart = await point(100, 100), cancelledEnd = await point(180, 180)
+      await page.mouse.move(cancelledStart.x, cancelledStart.y); await page.mouse.down()
+      await page.mouse.move(cancelledEnd.x, cancelledEnd.y, { steps: 4 })
+      await page.keyboard.down('Control'); await page.mouse.wheel(0, -20); await page.keyboard.up('Control')
+      await page.waitForTimeout(150); await page.mouse.up(); await page.waitForTimeout(750)
+      assert.equal((await stored()).pages[0].objects.length, 6)
+      record.checks.push('진행 필기 중 배율 변경·직선 보정 대기 후에도 취소 획 미저장')
       const a = await point(100, 160), mid = await point(200, 230), end = await point(400, 160)
       await page.mouse.move(a.x, a.y); await page.mouse.down()
       await page.mouse.move(mid.x, mid.y, { steps: 5 }); await page.mouse.move(end.x, end.y, { steps: 5 })
@@ -199,6 +208,7 @@ export async function runEditorQa(browser, { baseURL, keys, screenshotDir }) {
       for (let i = 0; i < 2; i++) {
         const start = performance.now()
         await page.reload()
+        if (await page.getByRole('button', { name: '개인 다이어리', exact: true }).count()) await page.getByRole('button', { name: '개인 다이어리', exact: true }).last().click()
         await page.getByText(doc.title, { exact: true }).first().click()
         await page.locator('[aria-label$=" 캔버스"]').waitFor()
         await page.getByText('부분 색상과 줄바꿈', { exact: false }).first().waitFor()

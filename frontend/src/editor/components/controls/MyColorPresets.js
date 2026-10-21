@@ -6,58 +6,68 @@ import { normalizeHex } from '../../utils/penSettings'
 import ColorPicker from './ColorPicker'
 import Icon from './Icon'
 
-// 펜 설정의 '내 색상 프리셋'과 같은 저장소를 쓴다. 펜·형광펜·글자·마스킹테이프에서 저장한 색을 함께 쓴다.
-const PRESET_KEY = 'dio-editor-color-presets-v1'
+// 내 색상은 쓰는 곳(scope)마다 따로 저장한다. 펜은 예전부터 쓰던 저장소를 그대로 이어 쓴다.
+const PRESET_KEYS = {
+  pen: 'dio-editor-color-presets-v1',
+  highlighter: 'dio-editor-color-presets-v1:highlighter',
+  text: 'dio-editor-color-presets-v1:text',
+  tape: 'dio-editor-color-presets-v1:tape',
+}
 const MAX_PRESETS = 20
 
-let cache = null
-const listeners = new Set()
-const publish = (next) => {
-  cache = next
-  listeners.forEach((listener) => listener(next))
+// scope 별 목록 캐시와 구독자. 같은 scope 를 쓰는 창끼리만 바로 맞춰진다.
+const stores = {}
+const storeOf = (scope) => (stores[scope] ??= { cache: null, listeners: new Set() })
+const publish = (store, next) => {
+  store.cache = next
+  store.listeners.forEach((listener) => listener(next))
 }
 
-/** 저장한 색 목록과 저장·삭제 함수 */
-export function useColorPresets() {
-  const [presets, setPresets] = useState(cache ?? [])
-  const [loaded, setLoaded] = useState(cache != null)
+/** scope(pen·highlighter·text·tape)에 저장한 색 목록과 저장·삭제 함수 */
+export function useColorPresets(scope = 'pen') {
+  const store = storeOf(scope)
+  const key = PRESET_KEYS[scope] ?? PRESET_KEYS.pen
+  const [presets, setPresets] = useState(store.cache ?? [])
+  const [loaded, setLoaded] = useState(store.cache != null)
   useEffect(() => {
-    listeners.add(setPresets)
-    if (cache == null) {
-      AsyncStorage.getItem(PRESET_KEY)
+    setPresets(store.cache ?? [])
+    store.listeners.add(setPresets)
+    if (store.cache == null) {
+      AsyncStorage.getItem(key)
         .then((raw) => {
           const stored = raw ? JSON.parse(raw) : []
-          publish(Array.isArray(stored) ? [...new Set(stored.filter((c) => typeof c === 'string').map(normalizeHex).filter(Boolean))].slice(0, MAX_PRESETS) : [])
+          publish(store, Array.isArray(stored) ? [...new Set(stored.filter((c) => typeof c === 'string').map(normalizeHex).filter(Boolean))].slice(0, MAX_PRESETS) : [])
         })
-        .catch(() => publish([]))
+        .catch(() => publish(store, []))
         .finally(() => setLoaded(true))
-    }
-    return () => listeners.delete(setPresets)
-  }, [])
+    } else setLoaded(true)
+    return () => store.listeners.delete(setPresets)
+  }, [store, key])
   const save = (next) => {
-    publish(next)
-    AsyncStorage.setItem(PRESET_KEY, JSON.stringify(next)).catch(() => {})
+    publish(store, next)
+    AsyncStorage.setItem(key, JSON.stringify(next)).catch(() => {})
   }
   return {
     presets,
     loaded,
     add: (color) => {
       const hex = color ? normalizeHex(color) : null
-      if (!hex || (cache ?? []).includes(hex) || (cache ?? []).length >= MAX_PRESETS) return false
-      save([...(cache ?? []), hex])
+      const current = store.cache ?? []
+      if (!hex || current.includes(hex) || current.length >= MAX_PRESETS) return false
+      save([...current, hex])
       return true
     },
-    remove: (color) => save((cache ?? []).filter((c) => c !== color)),
+    remove: (color) => save((store.cache ?? []).filter((c) => c !== color)),
   }
 }
 
 /**
  * '내 색상' 줄: 저장한 색을 누르면 그 색으로 바꾸고, ×로 지운다.
  * 맨 끝 + 를 누르면 색 피커가 열려 새 색을 고르고(바로 적용), '내 색상에 저장' 으로 목록에 넣는다.
- * value: 지금 색, onPick(color)
+ * value: 지금 색, onPick(color), scope: 저장 목록 구분 (pen·highlighter·text·tape)
  */
-export default function MyColorPresets({ value, onPick, label = '색상' }) {
-  const { presets, loaded, add, remove } = useColorPresets()
+export default function MyColorPresets({ value, onPick, label = '색상', scope = 'pen' }) {
+  const { presets, loaded, add, remove } = useColorPresets(scope)
   const [pickerOpen, setPickerOpen] = useState(false)
   const current = value ? normalizeHex(value) : null // 아직 내 색을 고르지 않았으면 null (예: 기본 색 테이프)
   const saved = Boolean(current && presets.includes(current))

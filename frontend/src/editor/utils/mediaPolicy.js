@@ -1,7 +1,9 @@
 export const MEDIA_POLICY = Object.freeze({
   maxBytes: 50 * 1024 * 1024, maxDimension: 12000, maxPixels: 64000000,
-  gifMaxBytes: 10 * 1024 * 1024, gifMaxDimension: 4096,
-  displayMaxDimension: { photo: 2048, sticker: 512, tape: 1400 },
+  // GIF 파일 크기는 사진과 같이 50MiB까지. 가로·세로는 내보내기(첫 장면 PNG)가 4096px 까지라 그대로 둔다.
+  gifMaxBytes: 50 * 1024 * 1024, gifMaxDimension: 4096,
+  // 사진 표시본은 태블릿 화면(2560px)을 꽉 채워도 흐려지지 않게 긴 변 3072px. 캔버스는 이 표시본을 줄이지 않고 그대로 푼다(ObjectView).
+  displayMaxDimension: { photo: 3072, sticker: 512, tape: 1400 },
 })
 export const MEDIA_FORMATS = 'JPEG · PNG · WebP · HEIC · GIF'
 
@@ -17,7 +19,7 @@ export class MediaError extends Error {
 export function checkSize(size, format) {
   if (!Number.isSafeInteger(size) || size <= 0) throw new MediaError('INVALID_MEDIA', '비어 있거나 읽을 수 없는 파일이에요.')
   const limit = format?.extension === 'gif' ? MEDIA_POLICY.gifMaxBytes : MEDIA_POLICY.maxBytes
-  if (size > limit) throw new MediaError('FILE_TOO_LARGE', format?.extension === 'gif' ? 'GIF는 한 장에 10MiB까지 가져올 수 있어요.' : '이미지는 한 장에 50MiB까지 가져올 수 있어요.')
+  if (size > limit) throw new MediaError('FILE_TOO_LARGE', format?.extension === 'gif' ? 'GIF는 한 장에 50MiB까지 가져올 수 있어요.' : '이미지는 한 장에 50MiB까지 가져올 수 있어요.')
 }
 
 export function checkDimensions({ width, height }, format) {

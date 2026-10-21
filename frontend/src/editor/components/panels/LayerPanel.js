@@ -1,5 +1,5 @@
-import { memo, useEffect, useRef, useState } from 'react'
-import { Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { Image, Keyboard, Pressable, FlatList, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { OBJECT_TYPE_LABELS } from '../../constants'
 import { stickerSource } from '../../stickerAssets'
@@ -29,11 +29,11 @@ const ROW_STEP = ROW_HEIGHT + ROW_GAP
  * - 오른쪽 손잡이를 끌어 순서 변경. 그룹 사이에 놓으면 그 그룹에 들어가고, 밖으로 빼면 그룹에서 빠진다.
  */
 export default function LayerPanel({ objects, selectedIds, dispatch, onClose, onEmptyTap }) {
-  const layers = [...objects].reverse()
+  const layers = useMemo(() => [...objects].reverse(), [objects])
   const help = useHelp()
   const [drag, setDrag] = useState(null) // { key, from, dy }
   const [collapsed, setCollapsed] = useState(() => new Set())
-  const rows = buildRows(layers, collapsed)
+  const rows = useMemo(() => buildRows(layers, collapsed), [layers, collapsed])
   const dropIndex = drag ? clamp(drag.from + Math.round(drag.dy / ROW_STEP), 0, rows.length - 1) : null
   // 길게 누른 채 끌어 여러 개 고르기: { anchor, base, startY, captured, last }
   const rangeRef = useRef(null)
@@ -145,9 +145,19 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
       </View>
 
       <View style={styles.listWrap} {...rangeHandlers}>
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent} scrollEnabled={!drag && !ranging}>
-        {layers.length === 0 && <Text style={styles.empty}>아직 올린 요소가 없어요.</Text>}
-        {rows.map((row, index) => {
+      <FlatList
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        data={rows}
+        keyExtractor={(row) => row.kind === 'group' ? `g-${row.groupId}` : row.object.id}
+        getItemLayout={(_, index) => ({ length: ROW_STEP, offset: ROW_STEP * index, index })}
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        scrollEnabled={!drag && !ranging}
+        ListEmptyComponent={<Text style={styles.empty}>아직 올린 요소가 없어요.{'\n'}스티커나 사진을 붙여 보세요.</Text>}
+        ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
+        renderItem={({ item: row, index }) => {
           const key = row.kind === 'group' ? `g-${row.groupId}` : row.object.id
           const common = {
             index,
@@ -183,10 +193,8 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
               renamable={selectedIds.length === 1 && selectedIds[0] === row.object.id}
             />
           )
-        })}
-        {/* 행 아래 빈 곳을 누르면 선택 해제 */}
-        {onEmptyTap && <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} />}
-      </ScrollView>
+        }}
+      />
       </View>
     </View>
   )
@@ -451,7 +459,7 @@ function LayerRow({ object, nested, selected, renamable, dispatch, onRangeStart,
   )
 }
 
-function LayerThumb({ object }) {
+const LayerThumb = memo(function LayerThumb({ object }) {
   const uri = useMediaUri(object, { still: true })
   let content = null
   if (object.type === 'text') {
@@ -491,7 +499,7 @@ function LayerThumb({ object }) {
     )
   }
   return <View style={styles.thumb}>{content}</View>
-}
+})
 
 // 레이어 패널 폭. 열고 닫을 때 작업창 크기를 한 번에 맞추는 데도 쓴다 (EditorScreen)
 export const LAYER_PANEL_WIDTH = 280

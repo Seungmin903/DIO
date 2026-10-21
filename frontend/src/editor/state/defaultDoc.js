@@ -1,6 +1,7 @@
+import { normalizePaperAppearance } from '../templates/appearance.js'
 import { createId } from '../utils/common.js'
-import { TEMPLATE_VERSION, getTemplate } from '../templates/catalog.js'
-import { configuredPageIds, normalizeTemplateConfig } from '../templates/creation.js'
+import { ANNUAL_PAGE_IDS, TEMPLATE_VERSION, getTemplate } from '../templates/catalog.js'
+import { normalizeTemplateConfig } from '../templates/creation.js'
 
 const FIRST_PAGE_ASSETS = {
   blank: '2026-reusable-note-plain-landscape',
@@ -32,17 +33,20 @@ export function firstPageAssetId(firstPage = 'blank', firstPageDate = '2026-01-0
 }
 
 export function createFirstPage(diary) {
-  return createTemplatePage(firstPageAssetId(diary?.firstPage, diary?.firstPageDate))
+  return createTemplatePage(
+    firstPageAssetId(diary?.firstPage, diary?.firstPageDate),
+    normalizePaperAppearance(diary?.paperAppearance),
+  )
 }
 
-export function createTemplatePage(backgroundAssetId) {
+export function createTemplatePage(backgroundAssetId, paperAppearance) {
   const template = getTemplate(backgroundAssetId)
-  return { id: createId(), backgroundAssetId: template.id, templateVersion: template.templateVersion, canvasWidth: 1024, canvasHeight: 768, objects: [] }
+  return { id: createId(), ...(paperAppearance ? { paperAppearance: normalizePaperAppearance(paperAppearance) } : {}), backgroundAssetId: template.id, templateVersion: template.templateVersion, canvasWidth: 1024, canvasHeight: 768, objects: [] }
 }
 
 export function createDefaultDoc(diary) {
   const templateConfig = normalizeTemplateConfig(diary?.templateConfig)
-  const ids = configuredPageIds(templateConfig)
+  const paperAppearance = normalizePaperAppearance(diary?.paperAppearance)
   return {
     id: diary?.id ?? createId(),
     title: diary?.title ?? '2026 다이어리',
@@ -52,13 +56,30 @@ export function createDefaultDoc(diary) {
     orientation: 'landscape',
     weeklyStyle: templateConfig.weeklyStyle,
     templateConfig,
+    paperAppearance,
     templateVersion: TEMPLATE_VERSION,
-    pages: ids.length ? ids.map(createTemplatePage) : [createBlankPage()],
+    // 연간 속지 전체를 한 번에 만들면 첫 진입과 페이지 목록이 무거워진다.
+    // 선택한 첫 속지 한 장만 만들고 필요한 페이지는 편집기에서 추가한다.
+    pages: [createFirstPage({ ...diary, paperAppearance })],
   }
 }
 
 // 기존 호출자와 저장 문서용 흰 종이. 새 UI는 공용 속지를 명시해서 추가한다.
 export function createBlankPage() { return { id: createId(), objects: [] } }
 
-/** 기존 호출자와 호환하면서 저장된 페이지를 축소하거나 재구성하지 않는다. */
-export function migrateUntouchedAnnualDoc(doc) { return doc }
+/**
+ * 이전 버전이 자동 생성한 연간 78쪽이 전부 비어 있을 때만 한 장으로 줄인다.
+ * 한 페이지라도 편집했다면 사용자의 기록을 지우지 않고 그대로 보존한다.
+ */
+export function migrateUntouchedAnnualDoc(doc, diary) {
+  const pages = doc?.pages
+  const isUntouchedAnnualBook = Array.isArray(pages)
+    && pages.length === ANNUAL_PAGE_IDS.length
+    && pages.every((page, index) => (
+      page?.backgroundAssetId === ANNUAL_PAGE_IDS[index]
+      && Array.isArray(page.objects)
+      && page.objects.length === 0
+    ))
+
+  return isUntouchedAnnualBook ? { ...doc, pages: [createFirstPage(diary)] } : doc
+}

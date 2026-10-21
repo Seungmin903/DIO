@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { PanResponder, StyleSheet, Text, View } from 'react-native'
 import PenSafeTextInput from './PenSafeTextInput'
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
 import { colors } from '../../../shared/theme'
-import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { useSvgId } from '../../utils/svgId'
 
@@ -12,16 +11,76 @@ const HUE_HEIGHT = 22
 const THUMB = 22
 const HUE_STOPS = ['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF', '#FF0000']
 
+/** 팔레트 전용 입력: 화면 좌표를 측정한 팔레트 좌표로 바꾸고 스크롤에 터치를 넘기지 않는다. */
+function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }) {
+  const view = useRef(null)
+  const drag = useRef(null)
+  const handlers = useRef(null)
+  handlers.current = { width, height, onStart, onPoint, onInteractionChange }
+  const [responder] = useState(() => {
+    const point = event => {
+      const native = event.nativeEvent
+      const touches = [...(native.touches ?? []), ...(native.changedTouches ?? [])]
+      return touches.find(touch => touch.identifier === drag.current?.identifier) ?? native
+    }
+    const apply = () => {
+      const current = drag.current
+      if (!current) return
+      const { x, y, width: w, height: h } = current.bounds
+      handlers.current.onPoint(clamp((current.pageX - x) / Math.max(1, w), 0, 1), clamp((current.pageY - y) / Math.max(1, h), 0, 1))
+    }
+    const finish = () => {
+      if (!drag.current) return
+      drag.current = null
+      handlers.current.onInteractionChange?.(false)
+    }
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
+      onPanResponderGrant: event => {
+        const touch = event.nativeEvent.touches?.[0] ?? event.nativeEvent
+        const { width: w, height: h } = handlers.current
+        const current = { identifier: touch.identifier, pageX: touch.pageX, pageY: touch.pageY,
+          bounds: { x: touch.pageX - touch.locationX, y: touch.pageY - touch.locationY, width: w, height: h } }
+        drag.current = current
+        handlers.current.onInteractionChange?.(true)
+        handlers.current.onStart?.()
+        apply()
+        view.current?.measureInWindow((x, y, width, height) => {
+          if (drag.current !== current || width <= 0 || height <= 0) return
+          current.bounds = { x, y, width, height }
+          // 측정이 비동기로 끝나도 시작점 대신 가장 최근 손 위치를 사용한다.
+          apply()
+        })
+      },
+      onPanResponderMove: event => {
+        if (!drag.current) return
+        const touch = point(event)
+        drag.current.pageX = touch.pageX
+        drag.current.pageY = touch.pageY
+        apply()
+      },
+      onPanResponderRelease: finish,
+      onPanResponderTerminate: finish,
+    })
+  })
+  useEffect(() => () => {
+    if (drag.current) { drag.current = null; handlers.current.onInteractionChange?.(false) }
+  }, [])
+  return { ref: view, ...responder.panHandlers }
+}
+
 /**
  * 색을 직접 고르는 피커. 위 네모에서 채도(가로)·밝기(세로), 아래 막대에서 색상(hue)을 고르고 HEX 로도 넣을 수 있다.
  * onStart 는 끌기·입력을 시작할 때 한 번 (되돌리기 지점), onChange(hex) 는 바뀔 때마다.
  */
-export default function ColorPicker({ value, onChange, onStart, label = '색', showHex = true }) {
+export default function ColorPicker({ value, onChange, onStart, label = '색', showHex = true, onInteractionChange }) {
   const [hsv, setHsv] = useState(() => hexToHsv(value))
   const [size, setSize] = useState({ sv: 1, hue: 1 })
   const [draft, setDraft] = useState(value)
-  const svStart = useRef({ x: 0, y: 0 })
-  const hueStart = useRef(0)
   const id = useSvgId('picker')
 
   // 다른 요소를 고르는 등 밖에서 값이 바뀌면 따라간다. (회색·검정은 색상 정보가 없어 지금 hue 를 지킨다)
@@ -38,23 +97,13 @@ export default function ColorPicker({ value, onChange, onStart, label = '색', s
     setHsv(next)
     onChange(hsvToHex(next))
   }
-  const fromSv = (x, y) => ({ ...hsv, s: clamp(x / size.sv, 0, 1), v: clamp(1 - y / SV_HEIGHT, 0, 1) })
-
-  const svPan = usePan({
-    onStart: (event) => {
-      onStart?.()
-      svStart.current = { x: event.locationX, y: event.locationY }
-      apply(fromSv(event.locationX, event.locationY))
-    },
-    onMove: (dx, dy) => apply(fromSv(svStart.current.x + dx, svStart.current.y + dy)),
+  const svPan = usePaletteDrag({
+    width: size.sv, height: SV_HEIGHT, onStart, onInteractionChange,
+    onPoint: (x, y) => apply({ ...hsv, s: x, v: 1 - y }),
   })
-  const huePan = usePan({
-    onStart: (event) => {
-      onStart?.()
-      hueStart.current = event.locationX
-      apply({ ...hsv, h: clamp(event.locationX / size.hue, 0, 1) * 360 })
-    },
-    onMove: (dx) => apply({ ...hsv, h: clamp((hueStart.current + dx) / size.hue, 0, 1) * 360 }),
+  const huePan = usePaletteDrag({
+    width: size.hue, height: HUE_HEIGHT + 8, onStart, onInteractionChange,
+    onPoint: x => apply({ ...hsv, h: x * 360 }),
   })
 
   const commitDraft = () => {
@@ -190,9 +239,9 @@ function hsvToHex({ h, s, v }) {
 
 const styles = StyleSheet.create({
   wrap: { gap: 10 },
-  sv: { height: SV_HEIGHT },
+  sv: { height: SV_HEIGHT, touchAction: 'none' },
   svFill: { borderRadius: 10, overflow: 'hidden' },
-  hue: { height: HUE_HEIGHT + 8, justifyContent: 'center' },
+  hue: { height: HUE_HEIGHT + 8, justifyContent: 'center', touchAction: 'none' },
   hueTrack: { top: 4, bottom: 4, borderRadius: HUE_HEIGHT / 2, overflow: 'hidden' },
   thumb: {
     position: 'absolute',

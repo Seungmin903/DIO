@@ -8,11 +8,19 @@ import { parseImageDataUri } from './exportSampling.js'
 
 export async function exportImage({ blob, media, size }) {
   const handle = blob.open(FileMode.ReadOnly)
-  let format
-  try { format = detectMediaType(handle.readBytes(64)) } finally { handle.close() }
+  let format, png
+  try {
+    format = detectMediaType(handle.readBytes(64))
+    if (format.extension === 'gif') {
+      // 50MiB GIF 를 통째로 읽지 않고 첫 장면이 끝나는 곳까지만 읽는다. 크기를 모르면 예전처럼 전부 읽는다.
+      const { gifFirstFramePng, gifFirstFramePngFromHead } = await import('./gifFirstFrame.js')
+      const total = handle.size ?? blob.size
+      ;({ png } = Number.isFinite(total)
+        ? await gifFirstFramePngFromHead((length) => { handle.offset = 0; return handle.readBytes(length) }, total, { size })
+        : gifFirstFramePng(await blob.bytes(), { size }))
+    }
+  } finally { handle.close() }
   if (format.extension === 'gif') {
-    const { gifFirstFramePng } = await import('./gifFirstFrame.js')
-    const { png } = gifFirstFramePng(await blob.bytes(), { size })
     const file = new File(Paths.cache, `dio-gif-${randomUUID()}.png`)
     const dispose = () => { if (file.exists) file.delete() }
     try {

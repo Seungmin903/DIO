@@ -15,6 +15,7 @@ import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
 import { fitTabletFrame } from './src/shared/layout';
+import { normalizePaperAppearance } from './src/editor/templates/appearance.js';
 import { useFormFactor } from './src/shared/useFormFactor';
 import { CAN_LOCK_ORIENTATION, useOrientationLock } from './src/shared/useOrientationLock';
 import { normalizeTemplateConfig } from './src/editor/templates/creation.js';
@@ -172,6 +173,7 @@ function DiaryApp() {
       : {
         id: pendingCreateId.current ?? `diary-${Date.now()}`,
         templateConfig: config,
+        paperAppearance: normalizePaperAppearance(form.paperAppearance),
         title,
         color: form.color,
         pattern: form.pattern,
@@ -219,6 +221,14 @@ function DiaryApp() {
   const visibleDiaries = useMemo(() => diaries.filter((diary) => !diary.trashedAt), [diaries]);
   const trashedDiaries = useMemo(() => diaries.filter((diary) => diary.trashedAt), [diaries]);
 
+  // 편집하던 다이어리를 모든 다이어리 목록에서 찾아 홈의 중심 카드로 복원한다.
+  const returnToLibrary = useCallback(() => {
+    const index = visibleDiaries.findIndex(diary => diary.id === active?.id);
+    setFilter(DEFAULT_FILTER);
+    setCarousel(Math.max(0, index));
+    setPage('library');
+  }, [active?.id, visibleDiaries]);
+
   // 홈에 있는 동안 앞쪽 다이어리의 문서와 첫 속지를 차례로 미리 읽어 둔다. (사진은 열 때 준비)
   // 즐겨찾기 등 목록 내용만 바뀔 때는 다시 돌지 않도록 대상 다이어리 ID가 바뀔 때만 실행한다.
   const prefetchTargets = useMemo(() => visibleDiaries.slice(0, PREFETCH_DIARIES), [visibleDiaries]);
@@ -265,7 +275,7 @@ function DiaryApp() {
         landscape={isLandscape}
         bottomInset={insets.bottom}
         onToggleOrientation={isPhone && CAN_LOCK_ORIENTATION ? () => setEditorOrientation(isLandscape ? 'portrait' : 'landscape') : undefined}
-        onHome={() => navigate('library', DEFAULT_FILTER)}
+        onHome={returnToLibrary}
         onRenameDiary={(title) => active?.id && renameDiary(active.id, title)}
       />
     );

@@ -17,8 +17,9 @@ const WHEEL_IDLE_MS = 160 // 휠이 이만큼 멈추면 확대·이동을 확정
  * 손가락으로 확대·축소·이동하는 동안에는 부모 상태를 바꾸지 않고 페이지를 transform 으로만 늘이고 옮긴다.
  * (매 프레임 배율이 바뀌면 속지 SVG·요소·썸네일이 전부 다시 그려져 버벅였다) 손을 떼면 onView 로 한 번만 확정한다.
  * resolveZoom(scale, pagePoint, screenPoint) / resolvePan(view, dx, dy): 부모의 배율·위치 제한을 적용한 보기 { scale, zoom, x, y }
+ * onMovingChange(moving): 확대·이동을 시작할 때 true, 확정할 때 false (그동안 GIF 를 멈추는 데 쓴다)
  */
-export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan, onView, onTapEmpty, dragToPan = false, children, style, onLayout }) {
+export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan = false, children, style, onLayout }) {
   const pinch = useRef(null)
   const [live, setLive] = useState(null) // 손가락으로 움직이는 중인 보기 (확정 전)
   const liveRef = useRef(null)
@@ -27,9 +28,10 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
   const tap = useRef(null) // 페이지 밖 여백을 한 손가락으로 누른 위치
   const panFrom = useRef(null) // 손바닥 도구: 지난번 손가락 위치
   const latest = useRef({})
-  latest.current = { zoom, offset, scale, resolveZoom, resolvePan, onView, onTapEmpty, dragToPan }
+  latest.current = { zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan }
   const currentView = () => liveRef.current ?? { scale: latest.current.scale, zoom: latest.current.zoom, x: latest.current.offset.x, y: latest.current.offset.y }
   const preview = (view) => {
+    if (!liveRef.current) latest.current.onMovingChange?.(true)
     liveRef.current = view
     setLive(view)
   }
@@ -38,7 +40,10 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
     const view = liveRef.current
     liveRef.current = null
     setLive(null)
-    if (view) latest.current.onView?.(view)
+    if (view) {
+      latest.current.onView?.(view)
+      latest.current.onMovingChange?.(false)
+    }
   }
 
   // 화면(창) 좌표 → 보는 영역 안 좌표
@@ -82,6 +87,8 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       if (tap.current && Math.hypot(event.nativeEvent.pageX - tap.current.x, event.nativeEvent.pageY - tap.current.y) > 10)
         tap.current = null
       if (!twoFingers(event)) {
+        // 한 손가락으로 줄어든 뒤의 새 핀치는 현재 배율과 새 거리에서 시작한다.
+        pinch.current = null
         // 손바닥 도구: 한 손가락으로 끌어 화면 이동 (두 손가락에서 한 손가락으로 돌아오면 그 자리부터 다시)
         if (latest.current.dragToPan && (event.nativeEvent.touches?.length ?? 1) === 1) {
           const { pageX, pageY } = event.nativeEvent
@@ -99,6 +106,9 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }
       const g = pinch.current
       preview(latest.current.resolveZoom(g.scale * (Math.hypot(p.x - q.x, p.y - q.y) / g.distance), g.point, mid))
+    },
+    onResponderEnd: (event) => {
+      if (!twoFingers(event)) { pinch.current = null; panFrom.current = null }
     },
     onResponderRelease: () => {
       pinch.current = null

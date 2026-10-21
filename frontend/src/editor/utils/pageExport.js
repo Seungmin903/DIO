@@ -1,7 +1,8 @@
+import { colorTemplateXml, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from './pageGeometry.js'
 import { templateReference } from '../templates/catalog.js'
 import { normalizeTextLink } from './textFormats.js'
-import { TEXT_FONTS } from './text.js'
+import { RETIRED_TEXT_FONTS, TEXT_FONTS } from './text.js'
 
 /** 화면 줌·선택 상태·저장 지연과 독립적인 출력 입력. 현재 로컬 요소 배열은 뒤→앞 순서다. */
 export class PageExportError extends Error {
@@ -21,7 +22,7 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
       (object.styleRanges != null && (!Array.isArray(object.styleRanges) || object.styleRanges.some((r, i, list) => !r || !Number.isInteger(r.start) || !Number.isInteger(r.end) || r.start < 0 || r.end > object.text.length || r.start >= r.end || (i > 0 && list[i - 1].end > r.start) || (r.fontSize == null && !r.href) || (r.fontSize != null && (!Number.isFinite(r.fontSize) || r.fontSize < 8 || r.fontSize > 96)) || (r.href != null && (typeof r.href !== 'string' || !normalizeTextLink(r.href)))))) ||
       (object.fontSize != null && (!Number.isFinite(object.fontSize) || object.fontSize < 8 || object.fontSize > 96)) ||
       // 글꼴 목록의 글꼴(앱에 넣은 한국어 글꼴 포함)과 예전 문서의 고정폭(mono)만 받는다
-      (object.font != null && object.font !== 'mono' && !TEXT_FONTS.some((font) => font.id === object.font)) ||
+      (object.font != null && !RETIRED_TEXT_FONTS.includes(object.font) && !TEXT_FONTS.some((font) => font.id === object.font)) ||
       (object.textAlign != null && !['left', 'center', 'right', 'justify'].includes(object.textAlign))
     )) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '텍스트 서식을 확인해 주세요.')
     if (object.type === 'stroke' && (
@@ -37,7 +38,7 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
   try { template = templateReference(page) }
   catch (error) { throw new PageExportError('EXPORT_TEMPLATE_FAILED', error.message, error) }
   // 종이색과 SVG 참조를 분리한다. 배경은 사용자 요소나 보조 UI가 아니다.
-  return { pageId: page.id, width, height, pixelWidth, pixelHeight, background: '#FFFFFF', template, objects }
+  return { pageId: page.id, width, height, pixelWidth, pixelHeight, background: normalizePaperAppearance(page.paperAppearance).backgroundColor, paperAppearance: normalizePaperAppearance(page.paperAppearance), template, objects }
 }
 
 /** 출력 작업이 만든 임시 참조만 소유한다. 화면 표시 캐시/원본 파일은 건드리지 않는다. */
@@ -54,6 +55,7 @@ export async function prepareExportSnapshot(snapshot, resolveImage, resolveTempl
         if (!resolveTemplate) throw new Error('Missing template resolver')
         backgroundXml = await resolveTemplate(snapshot.template)
         if (!backgroundXml) throw new Error('Empty template')
+        backgroundXml = colorTemplateXml(backgroundXml, snapshot.paperAppearance)
       } catch (error) { throw new PageExportError('EXPORT_TEMPLATE_FAILED', '속지를 준비하지 못했어요. 다시 시도해 주세요.', error) }
     }
     const objects = []

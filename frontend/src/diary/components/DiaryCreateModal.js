@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import DiaryPaperColors, { DiaryPaperPreview } from './DiaryPaperColors';
+import { DEFAULT_PAPER_APPEARANCE } from '../../editor/templates/appearance.js';
 import DiaryTemplateSettings from './DiaryTemplateSettings';
 import { defaultTemplateConfig, templatePageCount } from '../../editor/templates/creation.js';
 import AppIcon from '../../shared/AppIcon';
@@ -53,10 +55,19 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
   const [templateConfig, setTemplateConfig] = useState(defaultTemplateConfig);
   const submitting = useRef(false);
   const configuring = !editing && step === 1;
+  const coloring = !editing && step === 2;
+  const [paperAppearance, setPaperAppearance] = useState(() => ({ ...DEFAULT_PAPER_APPEARANCE }));
   const [error, setError] = useState('');
-  const actionLabel = saving ? '저장 중…' : editing ? '완료하기' : configuring ? '다이어리 만들기' : '속지 선택하기';
+  const formScroll = useRef(null);
+  const [paletteDragging, setPaletteDragging] = useState(false);
+  const onPaletteInteraction = useCallback(active => {
+    // 네이티브 스크롤도 즉시 막아 다음 렌더 전의 움직임을 방지한다.
+    formScroll.current?.setNativeProps?.({ scrollEnabled: !active });
+    setPaletteDragging(active);
+  }, []);
+  const actionLabel = saving ? '저장 중…' : editing ? '완료하기' : coloring ? '다이어리 만들기' : configuring ? '내지 색상 선택하기' : '속지 선택하기';
   let count = null, configError = '';
-  if (configuring) {
+  if (!editing && step > 0) {
     try { count = templatePageCount(templateConfig); } catch (failure) { configError = failure.message; }
   }
   const pageSizeLabel = PAGE_SIZES.find((item) => item.id === pageSize)?.label;
@@ -75,11 +86,11 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
     if (saving || submitting.current) return;
     const trimmed = title.trim();
     if (!trimmed) { setError('다이어리 이름을 입력해 주세요.'); return; }
-    if (!editing && !configuring) { setError(''); setStep(1); return; }
     if (configError) { setError(configError); return; }
+    if (!editing && step < 2) { setError(''); setStep(step + 1); return; }
     submitting.current = true;
     try {
-      const failure = await onSubmit({ title: trimmed, color, pattern, pageSize, templateConfig });
+      const failure = await onSubmit({ title: trimmed, color, pattern, pageSize, templateConfig, paperAppearance });
       if (failure) setError(failure);
     } catch {
       setError('다이어리를 저장하지 못했어요. 다시 시도해 주세요.');
@@ -87,6 +98,12 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
   };
 
   return (
+    <Modal
+      visible
+      transparent
+      presentationStyle="overFullScreen"
+      onRequestClose={() => { if (!saving) onCancel(); }}
+    >
     <View accessibilityViewIsModal style={[s.createOverlay, sheet && s.createOverlaySheet]}>
       <Pressable
         accessibilityRole="button"
@@ -98,9 +115,9 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
       <Animated.View style={[s.createDialog, sheet && s.createSheet, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
         {sheet ? <View style={s.sheetHandle} /> : (
           <View style={s.createPreviewPane}>
-            <BookPreview title={title} color={color} pattern={pattern} />
+            {coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <BookPreview title={title} color={color} pattern={pattern} />}
             <Text style={s.createPreviewMeta}>{pageSizeLabel}</Text>
-            <Text style={s.createPreviewCopy}>색상과 표지는 언제든 바꿀 수 있어요.</Text>
+            <Text style={s.createPreviewCopy}>{coloring ? '추천 색상과 직접 지정한 색을 바로 확인하세요.' : '표지 색상과 패턴은 만든 뒤에도 바꿀 수 있어요.'}</Text>
           </View>
         )}
 
@@ -108,7 +125,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
           <View style={s.createDialogHeader}>
             <View>
               <Text style={s.createDialogEyebrow}>{editing ? 'EDIT DIARY' : 'YOUR NEXT CHAPTER'}</Text>
-              <Text style={s.createDialogTitle}>{editing ? '다이어리 수정' : configuring ? '속지 구성' : '새 다이어리 만들기'}</Text>
+              <Text style={s.createDialogTitle}>{editing ? '다이어리 수정' : coloring ? '내지 색상' : configuring ? '속지 구성' : '새 다이어리 만들기'}</Text>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -121,10 +138,10 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
             </Pressable>
           </View>
 
-          <ScrollView style={s.createFormScroll} contentContainerStyle={s.createFormBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView ref={formScroll} scrollEnabled={!paletteDragging} style={s.createFormScroll} contentContainerStyle={s.createFormBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View pointerEvents={saving ? 'none' : 'auto'}>
-            {!editing && <Text style={[s.helper, { marginBottom: 12 }]}>{configuring ? '2 / 2 · 속지 구성' : '1 / 2 · 이름과 표지'}</Text>}
-            {!configuring && <>
+            {!editing && <Text style={[s.helper, { marginBottom: 12 }]}>{coloring ? '3 / 3 · 내지 색상' : configuring ? '2 / 3 · 속지 구성' : '1 / 3 · 이름과 표지'}</Text>}
+            {!configuring && !coloring && <>
             <Text style={s.createLabel}>이름</Text>
             <TextInput
               accessibilityLabel="다이어리 이름"
@@ -179,15 +196,25 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
 
             </>}
             {configuring && <DiaryTemplateSettings value={templateConfig} onChange={value => { setTemplateConfig(value); setError(''); }} />}
+            {coloring && <DiaryPaperColors onInteractionChange={onPaletteInteraction} value={paperAppearance} onChange={setPaperAppearance} />}
             </View>
           </ScrollView>
 
-          {configuring && <View>
+          {!editing && step > 0 && <View>
             <Text style={s.createLabel}>총 {count == null ? '—' : count}페이지</Text>
             {(error || configError) ? <Text accessibilityRole="alert" style={[s.error, { marginBottom: 8 }]}>{error || configError}</Text> : null}
-            <Pressable accessibilityRole="button" accessibilityLabel="이름과 표지로 돌아가기" disabled={saving} onPress={() => { setStep(0); setError(''); }} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={s.helper}>← 이름과 표지</Text></Pressable>
           </View>}
           <View style={[s.createFooter, sheet && { paddingBottom: 16 + bottomInset }]}>
+            {!editing && step > 0 && <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={coloring ? '속지 구성으로 돌아가기' : '이름과 표지로 돌아가기'}
+              disabled={saving}
+              onPress={() => { setStep(step - 1); setError(''); }}
+              style={({ pressed }) => [s.createBack, pressed && s.pressed, saving && { opacity: 0.5 }]}
+            >
+              <AppIcon name="chevron-left" size={18} color="#40517D" />
+              <Text style={s.createBackText}>{coloring ? '속지 구성' : '이름과 표지'}</Text>
+            </Pressable>}
             {editing && (
               <Pressable
                 accessibilityRole="button"
@@ -213,5 +240,6 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
         </View>
       </Animated.View>
     </View>
+    </Modal>
   );
 }

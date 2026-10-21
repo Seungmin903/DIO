@@ -3,6 +3,10 @@ import { selectImages } from '../utils/mediaPicker'
 import { importMedia, makePoster, mediaService } from './mediaStore'
 import { MediaError } from '../utils/mediaPolicy.js'
 import { attachMediaPreviews } from '../utils/mediaImport.js'
+import { createPoster } from '../utils/mediaProcessing'
+
+// 정지 이미지 긴 변. 페이지 썸네일뿐 아니라 캔버스에서 끄는 동안에도 보여서 너무 작으면 흐리다.
+const POSTER_SIZE = 320
 
 let picking = false
 /** 선택 → 실제 파일 검사 → 원본 영구 보관. 취소하면 []이며 저장하지 않는다. */
@@ -15,10 +19,14 @@ export async function pickImages({ multiple = true, usage = 'photo' } = {}) {
     if (result.canceled) return []
     const items = await importMedia(result.assets ?? [], { usage })
     return await attachMediaPreviews(items, async (media) => {
-      // 네이티브는 아직 poster를 생성하지 않으므로 불필요한 원본 재조회를 생략한다.
-      if (Platform.OS !== 'web') return null
+      // 네이티브는 움직이는 GIF 만 첫 장면을 만든다. 정지 사진은 원본(표시본)을 그대로 써도 가볍다.
+      if (Platform.OS !== 'web') {
+        if (media.extension !== 'gif') return null
+        const { blob } = await mediaService.get(media.mediaFileId)
+        return createPoster(blob.uri, POSTER_SIZE)
+      }
       const { blob, displayBlob } = await mediaService.get(media.mediaFileId)
-      return makePoster(displayBlob ?? blob)
+      return makePoster(displayBlob ?? blob, POSTER_SIZE)
     })
   } catch (error) {
     if (error instanceof MediaError) throw error
