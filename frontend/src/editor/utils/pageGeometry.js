@@ -4,3 +4,10 @@ export function pageSize(page) {
   const height = page?.canvasHeight ?? 840
   return { width, height }
 }
+
+// 새 속지는 문서 방향을 따르고, 방향이 없던 문서만 현재 페이지 비율로 판단한다.
+export function pageTemplateOrientation(doc, page) {
+  if (doc?.orientation === 'portrait' || doc?.orientation === 'landscape') return doc.orientation
+  const { width, height } = pageSize(page)
+  return height > width ? 'portrait' : 'landscape'
+}

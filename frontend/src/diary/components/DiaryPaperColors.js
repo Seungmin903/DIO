@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import PageBackground from '../../editor/components/PageBackground'
 import ColorPicker from '../../editor/components/controls/ColorPicker'
 import { configuredPageIds } from '../../editor/templates/creation.js'
-import { TEMPLATE_VERSION } from '../../editor/templates/catalog.js'
+import { TEMPLATE_VERSION, getTemplate, templateCanvasSize } from '../../editor/templates/catalog.js'
 import { colors } from '../../shared/theme'
 
 const BACKGROUNDS = [
@@ -18,8 +18,9 @@ const LAYOUTS = [
 export function DiaryPaperPreview({ config, appearance }) {
   const assetId = useMemo(() => configuredPageIds(config)[0], [config])
   const [width, setWidth] = useState(200)
+  const dimensions = assetId ? templateCanvasSize(getTemplate(assetId).orientation) : config.orientation === 'portrait' ? templateCanvasSize('portrait') : { width: 1188, height: 840 }
   const page = useMemo(() => ({ id: 'creation-first-page', backgroundAssetId: assetId, templateVersion: TEMPLATE_VERSION,
-    canvasWidth: assetId ? 1024 : 1188, canvasHeight: assetId ? 768 : 840, paperAppearance: appearance }), [assetId, appearance])
+    canvasWidth: dimensions.width, canvasHeight: dimensions.height, paperAppearance: appearance }), [assetId, appearance, dimensions.width, dimensions.height])
   return <View style={s.previewWrap}>
     <Text style={s.previewTitle}>첫 페이지 미리보기</Text>
     <View onLayout={event => setWidth(event.nativeEvent.layout.width)} style={[s.preview, { aspectRatio: page.canvasWidth / page.canvasHeight }]}>

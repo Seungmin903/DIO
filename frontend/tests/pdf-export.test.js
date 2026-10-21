@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import UPNG from 'upng-js'
 import { PDFDocument, PDFName, PDFRawStream, decodePDFRawStream } from 'pdf-lib'
-import { createPdfExportSnapshot, pdfSelectAllPolicy, PDF_LIMITS, A4_LANDSCAPE } from '../src/editor/utils/pdfSnapshot.js'
+import { createPdfExportSnapshot, pdfSelectAllPolicy, PDF_LIMITS, A4_LANDSCAPE, A4_PORTRAIT } from '../src/editor/utils/pdfSnapshot.js'
 import { opaquePdfPng } from '../src/editor/utils/pdfRaster.js'
 import { generatePdf } from '../src/editor/utils/pdfGenerator.js'
 import { generatePdf as generateWeb } from '../src/editor/utils/pdfExport.web.js'
@@ -84,6 +84,23 @@ test('실제 PDF의 면 수·A4·RGB·그림 순서·메타데이터와 페이�
   assert.deepEqual(pixels, [[255,0,0],[0,0,255]])
   assert.equal(events.at(-1).completedPages, 2)
   result.dispose(); result.dispose()
+})
+
+test('세로형과 혼합 PDF는 각 페이지 방향에 맞는 A4 용지와 결과 정보를 사용한다', async () => {
+  for (const sizes of [[[8, 10]], [[10, 8], [8, 10]]]) {
+    const doc = { pages: sizes.map(([canvasWidth, canvasHeight], index) => ({ id: String(index), canvasWidth, canvasHeight, objects: [] })) }
+    const s = snapshot(doc, { selectedPageIds: doc.pages.map(page => page.id) })
+    const result = await generatePdf(s, { ...io, renderPageImage: async page => ({ bytes: image(page), dispose() {} }) })
+    try {
+      assert.equal(result.paperOrientation, sizes.length === 1 ? 'portrait' : 'mixed')
+      const pdf = await PDFDocument.load(result.bytes)
+      pdf.getPages().forEach((page, index) => {
+        const expected = sizes[index][1] > sizes[index][0] ? A4_PORTRAIT : A4_LANDSCAPE
+        assert.ok(Math.abs(page.getWidth() - expected[0]) < .001)
+        assert.ok(Math.abs(page.getHeight() - expected[1]) < .001)
+      })
+    } finally { result.dispose() }
+  }
 })
 
 test('20개의 빈 페이지도 생략하지 않고 PDF 한 파일로 만든다', async () => {

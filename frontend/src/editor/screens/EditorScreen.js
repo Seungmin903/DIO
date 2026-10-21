@@ -50,7 +50,7 @@ import { pickImages } from '../services/image'
 import { createObjectFromDecor } from '../utils/objects'
 
 import TemplatePicker from '../components/TemplatePicker'
-import { pageSize } from '../utils/pageGeometry.js'
+import { pageSize, pageTemplateOrientation } from '../utils/pageGeometry.js'
 
 // 텍스트 글꼴은 앱이 켜질 때(이 화면 모듈을 불러올 때) 미리 불러오기 시작한다. 편집기를 열 즈음에는 대부분 준비된다.
 preloadTextFonts()
@@ -71,6 +71,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
+  const templateOrientation = pageTemplateOrientation(state.doc, page)
   // 앞뒤 페이지 속지를 미리 해석해 두어 페이지를 넘길 때 빈 속지가 보이지 않게 한다.
   // 필기마다 pages 배열이 바뀌므로, 앞뒤 페이지의 속지가 바뀔 때만 다시 실행한다.
   const pageIndex = state.doc.pages.findIndex((item) => item.id === page.id)
@@ -626,7 +627,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           onClose={() => setOverviewFilter(null)}
         />
       )}
-      {templatePickerOpen && !readOnly && <TemplatePicker anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 }} onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
+      {templatePickerOpen && !readOnly && <TemplatePicker orientation={templateOrientation} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 }} onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={[styles.body, compact && styles.bodyCompact]}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
