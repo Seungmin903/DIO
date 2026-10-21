@@ -6,7 +6,8 @@ export const PAGE_HEIGHT = TABLET_HEIGHT
 
 // 화면 배율: '화면에 맞춤'을 100% 로 보고 50% ~ 200% (손가락 확대·축소, 확대 버튼 공통)
 export const ZOOM_MIN = 0.5
-export const ZOOM_MAX = 2
+export const ZOOM_MAX = 3
+export const PHONE_ZOOM_MAX = 4
 export const ZOOM_STEP = 0.1
 
 export const OBJECT_TYPE_LABELS = {
