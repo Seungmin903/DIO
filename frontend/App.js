@@ -134,9 +134,8 @@ function DiaryApp() {
     setCreateOpen(true);
   }, []);
 
-  const remove = () => {
+  const remove = useCallback((diary) => {
     if (savingRef.current) return;
-    const diary = diaries.find((item) => item.id === editingDiaryId);
     if (!diary) return;
 
     confirmAction({
@@ -150,7 +149,7 @@ function DiaryApp() {
         setEditingDiaryId(null);
       },
     });
-  };
+  }, [moveToTrash]);
 
   const save = async (form) => {
     if (savingRef.current) return;
@@ -260,9 +259,10 @@ function DiaryApp() {
       onOpen={open}
       onFavorite={favorite}
       onEdit={edit}
+      onDelete={remove}
       onCreate={create}
     />
-  ), [carousel, changeFilter, create, edit, favorite, filter, isPhone, open, view, visibleDiaries]);
+  ), [carousel, changeFilter, create, edit, favorite, filter, isPhone, open, remove, view, visibleDiaries]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
@@ -316,7 +316,6 @@ function DiaryApp() {
       diary={editingDiaryId ? diaries.find(item => item.id === editingDiaryId) : null}
       saving={saving}
       onSubmit={save}
-      onDelete={remove}
       onCancel={() => { if (savingRef.current) return; setCreateOpen(false); setEditingDiaryId(null); }}
     />
   );

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../../shared/theme'
+import DioLogo from '../../../shared/DioLogo'
 import Icon from '../controls/Icon'
 
 
@@ -30,7 +31,7 @@ export default function TopBar({
       <View style={[styles.bar, styles.barCompact]}>
         <Pressable onPress={onHome} accessibilityRole="button" accessibilityLabel="다이어리 홈" hitSlop={6} style={styles.homeCompact}>
           <Icon name="chevronLeft" size={20} />
-          <Text style={[styles.logo, styles.logoCompact]}>DIO</Text>
+          <DioLogo height={30} />
         </Pressable>
         <IconToggle compact icon="panel" label="페이지 목록" active={pagesOpen} onPress={onTogglePages} />
         <View style={styles.docTitle}>
@@ -46,8 +47,8 @@ export default function TopBar({
   }
   return (
     <View style={styles.bar}>
-      <Pressable onPress={onHome} accessibilityLabel="다이어리 홈" hitSlop={6}>
-        <Text style={styles.logo}>DIO</Text>
+      <Pressable onPress={onHome} accessibilityRole="button" accessibilityLabel="다이어리 홈" hitSlop={6}>
+        <DioLogo />
       </Pressable>
       <IconToggle icon="panel" label="페이지 목록" active={pagesOpen} onPress={onTogglePages} />
 
@@ -144,9 +145,7 @@ const styles = StyleSheet.create({
     // 그림자는 뺀다: Android 는 반투명 바탕에 elevation 그림자를 주면 편집 영역 위에 회색 줄로 보였다
   },
   barCompact: { height: 60, gap: 4, paddingHorizontal: 8 },
-  logo: { fontSize: 25, fontWeight: '900', letterSpacing: -1.2, color: colors.text },
   homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', paddingRight: 2 },
-  logoCompact: { fontSize: 21 },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',

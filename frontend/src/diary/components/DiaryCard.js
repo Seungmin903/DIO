@@ -6,7 +6,7 @@ import { formatUpdatedAt } from '../utils/diaryLibrary';
 import Cover from './Cover';
 
 // onOpen·onFavorite·onEdit은 다이어리를 인자로 받는 공용 콜백이라, 카드마다 새 함수를 만들지 않아도 된다.
-function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, carouselActive = false, animatedStyle }) {
+function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle }) {
   const card = (
     <Pressable
       accessibilityRole="button"
@@ -44,14 +44,26 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
           </Pressable>
         </View>
       </View>
-      <View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid]}>
-        <View style={s.cardHeading}>
-          <View style={s.cardTitleWrap}>
-            <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>
-            <Text style={s.cardType}>나만의 다이어리</Text>
+      <View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && [s.cardInfoCarousel, s.cardInfoRow], compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid]}>
+        <View style={s.cardMetadata}>
+          <View style={s.cardHeading}>
+            <View style={s.cardTitleWrap}>
+              <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>
+              <Text style={s.cardType}>나만의 다이어리</Text>
+            </View>
           </View>
+          <Text style={s.cardDate}>{formatUpdatedAt(diary.updatedAt)}</Text>
         </View>
-        <Text style={s.cardDate}>{formatUpdatedAt(diary.updatedAt)}</Text>
+        {layout === 'carousel' && carouselActive && onDelete && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${diary.title} 삭제`}
+            onPress={(event) => { event.stopPropagation(); onDelete(diary); }}
+            style={({ pressed }) => [s.cardDelete, pressed && s.pressed]}
+          >
+            <AppIcon name="trash" size={19} color="#BD5B58" />
+          </Pressable>
+        )}
       </View>
     </Pressable>
   );

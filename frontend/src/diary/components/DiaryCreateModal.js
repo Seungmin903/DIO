@@ -46,7 +46,7 @@ function Chip({ label, selected, disabled, onPress, children }) {
 
 // 입력 상태를 모달 안에 두어 글자를 칠 때마다 홈 화면 전체가 다시 그려지지 않게 한다.
 // sheet: 폰에서는 가운데 창 대신 아래에서 올라오는 시트로 띄운다.
-export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, saving = false, sheet = false, bottomInset = 0 }) {
+export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, bottomInset = 0 }) {
   const editing = Boolean(diary);
   const [title, setTitle] = useState(diary?.title ?? DIARY_DEFAULTS.title);
   const [color, setColor] = useState(diary?.color ?? DIARY_DEFAULTS.color);
@@ -222,17 +222,6 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
               <AppIcon name="chevron-left" size={18} color="#40517D" />
               <Text style={s.createBackText}>{coloring ? '속지 구성' : '이름과 표지'}</Text>
             </Pressable>}
-            {editing && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="다이어리 삭제"
-                onPress={onDelete}
-                style={({ pressed }) => [s.createDelete, pressed && s.pressed]}
-              >
-                <AppIcon name="trash" size={17} color="#BD5B58" />
-                <Text style={s.createDeleteText}>삭제</Text>
-              </Pressable>
-            )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={actionLabel}

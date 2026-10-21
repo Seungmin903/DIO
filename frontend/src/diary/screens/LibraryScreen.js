@@ -37,6 +37,7 @@ function LibraryScreen({
   onOpen,
   onFavorite,
   onEdit,
+  onDelete,
   onCreate,
 }) {
   const scrollX = useRef(new Animated.Value(Math.max(0, carousel) * CAROUSEL_STEP)).current;
@@ -217,6 +218,7 @@ function LibraryScreen({
                     onOpen={onOpen}
                     onFavorite={onFavorite}
                     onEdit={onEdit}
+                    onDelete={onDelete}
                   />
                 )
               )}
