@@ -15,6 +15,13 @@ const PRESET_KEYS = {
 }
 const MAX_PRESETS = 20
 
+// 저장 값은 '#RRGGBB' 하나, 또는 마스킹테이프처럼 두 색 '#바탕/#무늬' 한 쌍
+const normalizeEntry = (value) => {
+  if (typeof value !== 'string') return null
+  const parts = value.split('/').map(normalizeHex)
+  return parts.length <= 2 && parts.every(Boolean) ? parts.join('/') : null
+}
+
 // scope 별 목록 캐시와 구독자. 같은 scope 를 쓰는 창끼리만 바로 맞춰진다.
 const stores = {}
 const storeOf = (scope) => (stores[scope] ??= { cache: null, listeners: new Set() })
@@ -36,7 +43,7 @@ export function useColorPresets(scope = 'pen') {
       AsyncStorage.getItem(key)
         .then((raw) => {
           const stored = raw ? JSON.parse(raw) : []
-          publish(store, Array.isArray(stored) ? [...new Set(stored.filter((c) => typeof c === 'string').map(normalizeHex).filter(Boolean))].slice(0, MAX_PRESETS) : [])
+          publish(store, Array.isArray(stored) ? [...new Set(stored.map(normalizeEntry).filter(Boolean))].slice(0, MAX_PRESETS) : [])
         })
         .catch(() => publish(store, []))
         .finally(() => setLoaded(true))
@@ -51,7 +58,7 @@ export function useColorPresets(scope = 'pen') {
     presets,
     loaded,
     add: (color) => {
-      const hex = color ? normalizeHex(color) : null
+      const hex = color ? normalizeEntry(color) : null
       const current = store.cache ?? []
       if (!hex || current.includes(hex) || current.length >= MAX_PRESETS) return false
       save([...current, hex])
@@ -65,11 +72,16 @@ export function useColorPresets(scope = 'pen') {
  * '내 색상' 줄: 저장한 색을 누르면 그 색으로 바꾸고, ×로 지운다.
  * 맨 끝 + 를 누르면 색 피커가 열려 새 색을 고르고(바로 적용), '내 색상에 저장' 으로 목록에 넣는다.
  * value: 지금 색, onPick(color), scope: 저장 목록 구분 (pen·highlighter·text·tape)
+ * pickerTop: 피커가 열렸을 때 피커 위에 둘 것 (예: 마스킹테이프의 바탕색·무늬색 고르기). onPickerOpenChange(open)
+ * entry: 저장·선택 표시에 쓰는 값 (기본은 value). 두 색 '#바탕/#무늬' 이면 기본 테이프 색처럼 원 안에 작은 원으로 보인다.
+ *   저장한 두 색을 누르면 onPick('#바탕/#무늬'), 피커에서 고르면 onPick('#색')
  */
-export default function MyColorPresets({ value, onPick, label = '색상', scope = 'pen' }) {
+export default function MyColorPresets({ value, entry = value, onPick, label = '색상', scope = 'pen', pickerTop = null, onPickerOpenChange }) {
   const { presets, loaded, add, remove } = useColorPresets(scope)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const current = value ? normalizeHex(value) : null // 아직 내 색을 고르지 않았으면 null (예: 기본 색 테이프)
+  const [pickerOpen, setOpen] = useState(false)
+  const setPickerOpen = (open) => { setOpen(open); onPickerOpenChange?.(open) }
+  const current = entry ? normalizeEntry(entry) : null // 아직 내 색을 고르지 않았으면 null (예: 기본 색 테이프)
+  const pickerColor = value ? normalizeHex(value) : null
   const saved = Boolean(current && presets.includes(current))
   const full = presets.length >= MAX_PRESETS
   return (
@@ -82,8 +94,10 @@ export default function MyColorPresets({ value, onPick, label = '색상', scope 
               accessibilityLabel={`저장한 ${label} ${color}`}
               accessibilityState={{ selected: current === color }}
               onPress={() => onPick(color)}
-              style={[styles.swatch, { backgroundColor: color }, current === color && styles.chosen]}
-            />
+              style={[styles.swatch, { backgroundColor: color.split('/')[0] }, current === color && styles.chosen]}
+            >
+              {color.includes('/') && <View style={[styles.inner, { backgroundColor: color.split('/')[1] }]} />}
+            </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={`${color} 저장한 색 지우기`} hitSlop={6} onPress={() => remove(color)} style={styles.remove}>
               <Icon name="close" size={9} strokeWidth={2.6} color={colors.textMuted} />
             </Pressable>
@@ -102,11 +116,12 @@ export default function MyColorPresets({ value, onPick, label = '색상', scope 
       </View>
       {pickerOpen && (
         <>
-          <ColorPicker value={current ?? '#000000'} label={label} onChange={onPick} />
+          {pickerTop}
+          <ColorPicker value={pickerColor ?? '#000000'} label={label} onChange={onPick} />
           <Pressable
             accessibilityRole="button"
             disabled={saved || full || !current}
-            onPress={() => { if (add(value)) setPickerOpen(false) }}
+            onPress={() => { if (add(entry)) setPickerOpen(false) }}
             style={[styles.saveButton, (saved || full) && styles.dim]}
           >
             <Text style={styles.saveText}>{saved ? '이미 저장한 색이에요' : full ? `최대 ${MAX_PRESETS}개까지 저장해요` : '내 색상에 저장'}</Text>
@@ -123,6 +138,8 @@ const styles = StyleSheet.create({
   wrap: { position: 'relative' },
   swatch: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border },
   chosen: { borderWidth: 3, borderColor: colors.primary },
+  // 두 색(바탕/무늬) 값의 무늬색: 기본 테이프 색 동그라미와 같은 자리·크기
+  inner: { position: 'absolute', right: 3, bottom: 3, width: 8, height: 8, borderRadius: 4 },
   remove: { position: 'absolute', right: -5, top: -5, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   add: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', backgroundColor: colors.surface },
   addOpen: { backgroundColor: '#EEF2F9' },
