@@ -58,6 +58,8 @@ preloadTextFonts()
 const TOAST_MS = 2000
 const ZOOM_STEP = 1.25
 const ORIENTATION_HINT_MS = 6500
+// 정책 회의 후 이 값 하나로 태블릿·폰의 내보내기 진입을 다시 활성화한다.
+const exportEnabled = false
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 // 폰: 도구 막대가 작업창 밖(위·오른쪽)에 있어서 스테이지에는 되돌리기 바 여백만 남긴다.
@@ -476,6 +478,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setActiveTool(tool)
   }
   const openExport = () => {
+    if (!exportEnabled) return
     setPhoneMoreOpen(false)
     if (textEditing) { showToast('텍스트 편집을 완료한 뒤 내보내 주세요.'); return }
     if (cropId || tapeCropId) { showToast('자르기를 마친 뒤 내보내 주세요.'); return }
@@ -576,6 +579,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           onToggleOrientation={toggleOrientation}
           onToggleLayers={switchLayers}
           onExport={openExport}
+          exportEnabled={exportEnabled}
           onFocus={startPhoneFocus}
         />
       )}
@@ -600,6 +604,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           setFocusMode(!focusMode)
           if (!focusMode) showToast('집중 편집 · 양옆 패널을 닫았어요.')
         }}
+        exportEnabled={exportEnabled}
         shareLabel="공유 및 내보내기"
         shareIcon="share"
         onShareAnchor={setExportAnchor}
@@ -813,7 +818,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
           {!readOnly && compact && phoneMoreOpen && (
             <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <PhoneMoreTools activeTool={activeTool} drawerTab={drawerTab} onSelectTool={selectTool} onOpenDrawer={openDrawer} onExport={openExport} onFocus={startPhoneFocus} onClose={() => setPhoneMoreOpen(false)} />
+              <PhoneMoreTools exportEnabled={exportEnabled} activeTool={activeTool} drawerTab={drawerTab} onSelectTool={selectTool} onOpenDrawer={openDrawer} onExport={openExport} onFocus={startPhoneFocus} onClose={() => setPhoneMoreOpen(false)} />
             </View>
           )}
 
