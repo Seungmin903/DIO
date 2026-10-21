@@ -233,7 +233,6 @@ function LibraryScreen({
             </Pressable>}
           </View>
           <View style={[s.carouselFoot, compact && s.carouselFootCompact]}>
-            {!compact && <Text style={s.swipeHint}>← 옆으로 밀어 다이어리를 넘겨보세요 →</Text>}
             <Text style={s.carouselCount}>{activeIndex + 1} / {carouselItems.length}</Text>
           </View>
         </View>

@@ -7,7 +7,6 @@ import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { coverLayout, framedHeight, isBorderFrame, ratioValueOf, resizeAroundCenter } from '../../utils/objects'
 import { photoCornerRadius } from '../canvas/ObjectView'
-import HelpButton, { useHelp } from '../controls/HelpButton'
 import Icon from '../controls/Icon'
 import Slider from '../controls/Slider'
 
@@ -30,7 +29,6 @@ const BAR_SHORT = 8
  * '적용'을 눌러야 사진에 반영된다 (취소하면 그대로).
  */
 export default function PhotoCropper({ photo, onApply, onCancel }) {
-  const help = useHelp()
   const window = useWindowDimensions()
   const uri = useMediaUri(photo)
   const bordered = isBorderFrame(photo.frame)
@@ -208,15 +206,12 @@ export default function PhotoCropper({ photo, onApply, onCancel }) {
           <View style={styles.header}>
             <View style={styles.titleGroup}>
               <Text style={styles.cardTitle}>사진 자르기</Text>
-              <HelpButton {...help} label="사진 자르기 도움말" />
             </View>
             <Pressable onPress={onCancel} hitSlop={10} accessibilityLabel="자르기 닫기">
               <Icon name="close" size={20} />
             </Pressable>
           </View>
-          {help.open && (
-            <Text style={styles.hint}>사진을 끌어서 보이는 위치를 맞추고, 두 손가락으로 벌리거나 아래 막대로 확대해 보세요.</Text>
-          )}
+
 
           {free ? (
             <View style={[styles.stage, { height: stageHeight }]} {...freeStageHandlers}>

@@ -11,10 +11,8 @@ import { clamp } from '../../utils/common'
 import { mediaFailureMessage } from '../../utils/mediaRecovery.js'
 import { pickImages } from '../../services/image'
 import { useMediaUri } from '../../hooks/useMediaUri'
-import { MEDIA_FORMATS } from '../../utils/mediaPolicy'
 import ChipScroller, { justDragged } from '../controls/ChipScroller'
 import ConfirmDialog from '../controls/ConfirmDialog'
-import HelpButton, { useHelp } from '../controls/HelpButton'
 import Icon from '../controls/Icon'
 import PenSafeTextInput from '../controls/PenSafeTextInput'
 import TapeCropper from './TapeCropper'
@@ -336,7 +334,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
               )}
               {/* 저장된 목록을 읽기 전에는 비워 둔다 (빈 즐겨찾기 안내가 잠깐 비치지 않게) */}
               {!editingList && !keyword && active === 'favorites' && custom.loaded && (
-                <Section title="즐겨찾기" hint="스티커를 길게 누르면 즐겨찾기에 담기고, 한 번 더 길게 누르면 빠져요.">
+                <Section title="즐겨찾기">
                   <View style={styles.grid}>
                     {favorites.map((item) => (
                       <Tile key={stickerKey(item)} {...tileProps(item)}>
@@ -410,7 +408,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
             <>
               <CustomSection
                 title="내 테이프"
-                hint="사진이나 무늬 이미지를 고른 뒤, 테이프 틀에 들어갈 부분을 직접 정해요."
+
                 onAdd={() => addCustom('tapes')}
                 busy={busy}
               >
@@ -460,9 +458,6 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
                   <Icon name="image" size={24} color={colors.primary} />
                 </View>
                 <Text style={styles.uploadTitle}>{busy ? '원본을 저장하고 있어요…' : '사진 · GIF 불러오기'}</Text>
-                <Text style={styles.uploadHint}>
-                  {MEDIA_FORMATS}{'\n'}사진 50MiB · 6,400만 화소 / GIF 50MiB · 4,096px
-                </Text>
               </Pressable>
               {recentPhotos.length > 0 && (
                 <Section title="최근 불러온 사진">
@@ -537,42 +532,35 @@ function RecentPhotoThumb({ photo }) {
   return <Image source={uri ? { uri } : null} style={styles.photoImage} resizeMode="cover" />
 }
 
-// hint 가 있으면 제목 옆 ? 를 눌렀을 때만 설명을 보여 준다 (레이어 패널처럼)
-function Section({ title, badge, hint, children }) {
-  const help = useHelp()
+function Section({ title, badge, children }) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHead}>
         <View style={styles.titleGroup}>
           <Text style={styles.sectionTitle}>{title}</Text>
-          {hint && <HelpButton {...help} label={`${title} 도움말`} />}
         </View>
         {badge && <Text style={styles.badge}>{badge}</Text>}
       </View>
-      {hint && help.open && <Text style={styles.customHint}>{hint}</Text>}
       {children}
     </View>
   )
 }
 
-function CustomSection({ title, hint, onAdd, busy, children }) {
-  const help = useHelp()
+function CustomSection({ title, onAdd, busy, children }) {
   return (
     <View style={styles.custom}>
       {/* 비어 있을 때 '추가' 버튼 위아래 회색 여백이 같도록 머리줄 아래 여백은 내용이 있을 때만 */}
       <View style={[styles.sectionHead, styles.customHead]}>
         <View style={styles.titleGroup}>
           <Text style={styles.sectionTitle}>{title}</Text>
-          <HelpButton {...help} label={`${title} 도움말`} />
         </View>
         <Pressable onPress={onAdd} disabled={busy} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
           <Icon name="plus" size={13} />
           <Text style={styles.addText}>{busy ? '불러오는 중' : '추가'}</Text>
         </Pressable>
       </View>
-      {(help.open || children) && (
+      {children && (
         <View style={styles.customBody}>
-          {help.open && <Text style={styles.customHint}>{hint}</Text>}
           {children}
         </View>
       )}

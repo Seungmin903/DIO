@@ -60,7 +60,6 @@ preloadTextFonts()
 
 const TOAST_MS = 2000
 const ZOOM_STEP = 1.25
-const ORIENTATION_HINT_MS = 6500
 // 태블릿·폰의 내보내기 진입. 정책 결정으로 다시 켰다 (false 로 바꾸면 모든 진입을 숨긴다).
 const exportEnabled = true
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
@@ -156,13 +155,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const phoneLandscape = compact && landscape
   // 폰 집중 편집: 막대를 모두 숨기고 종료 버튼만 남긴다.
   const phoneFocus = compact && focusMode
-  // 폰 세로에서 처음 몇 초 동안 가로 정밀 편집을 알려 준다.
-  const [orientationHint, setOrientationHint] = useState(Boolean(compact && !landscape && onToggleOrientation))
-  useEffect(() => {
-    if (!orientationHint) return undefined
-    const timer = setTimeout(() => setOrientationHint(false), ORIENTATION_HINT_MS)
-    return () => clearTimeout(timer)
-  }, [orientationHint])
   const [cropId, setCropId] = useState(null)
   const [recentPhotos, setRecentPhotos] = useState([])
   const [importFailure, setImportFailure] = useState(null)
@@ -542,7 +534,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     toggleLayers(!showLayers)
   }
   const toggleOrientation = onToggleOrientation && (() => {
-    setOrientationHint(false)
     onToggleOrientation()
   })
   // 폰 집중 편집은 가로 화면에서 한다.
@@ -931,12 +922,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             />
           )}
 
-          {orientationHint && toggleOrientation && !landscape && !phoneFocus && (
-            <Pressable onPress={toggleOrientation} accessibilityRole="button" accessibilityLabel="가로 정밀 편집으로 전환" style={styles.orientationHint}>
-              <Icon name="rotate" size={15} />
-              <Text style={styles.orientationHintText}>정밀 편집은 가로 화면</Text>
-            </Pressable>
-          )}
 
           {toast && !exportJob && (
             <View key={toast.key} style={styles.toast} pointerEvents="none">
@@ -1042,8 +1027,6 @@ const styles = StyleSheet.create({
   rootBetweenRails: { paddingLeft: PHONE_TOOLBAR_RAIL, paddingRight: PHONE_TOOLBAR_RAIL },
   rootReadOnlyRail: { paddingRight: 0 },
   zoomFit: { minWidth: 56, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
-  orientationHint: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 44, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
-  orientationHintText: { fontSize: 11.5, fontWeight: '700', color: colors.text },
   focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   focusExitPortrait: { top: 72 },
   focusExitText: { fontSize: 12.5, fontWeight: '800', color: colors.text },
