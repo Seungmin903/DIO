@@ -9,7 +9,7 @@ export default function ProfileScreen({ diaries, compact = false }) {
   return (
     <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
       {/* 폰은 영문 보조 제목 없이 한글 제목만 보여 준다. */}
-      <Header eyebrow={compact ? null : 'MY SPACE'} title="내 공간" compact={compact} />
+      <Header title="내 공간" compact={compact} />
       <View style={[s.profileHero, compact && s.profileHeroCompact]}>
         <View style={s.profileBadge}><Text style={s.profileBadgeText}>D</Text></View>
         <View style={s.profileHeroText}>

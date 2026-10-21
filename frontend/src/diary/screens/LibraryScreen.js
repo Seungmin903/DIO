@@ -8,19 +8,22 @@ import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+// 줄 폭 변화가 이만큼 멈춰 있어야 새 폭으로 다시 그린다 (사이드 메뉴 애니메이션 240ms가 끝난 뒤).
+const CAROUSEL_RESIZE_SETTLE_MS = 120;
 
-// 카드 위치(index)마다 스크롤 위치에 따라 투명도·크기·기울기가 바뀌는 애니메이션 스타일.
+// 카드 위치(index)마다 스크롤 위치에 따라 투명도·크기·높이가 바뀌는 애니메이션 스타일.
+// 3D 기울기(rotateY)는 쓰지 않는다. 위를 기준으로 줄이면 기울기 축도 위로 가서 옆 카드 아랫변이 비뚤게 보인다.
 function carouselMotion(scrollX, index, step) {
   const inputRange = [(index - 1) * step, index * step, (index + 1) * step];
   const along = (outputRange) => scrollX.interpolate({ inputRange, outputRange, extrapolate: 'clamp' });
   return {
     zIndex: 1,
     opacity: along([0.36, 1, 0.36]),
+    // 카드 높이가 달라도(맨 끝 '새 다이어리' 카드는 정보 줄이 없어 짧다) 윗변이 한 줄에 오도록 위를 기준으로 줄이고 키운다.
+    transformOrigin: 'center top',
     transform: [
       { scale: along([0.84, 1.06, 0.84]) },
       { translateY: along([30, -12, 30]) },
-      { perspective: 900 },
-      { rotateY: along(['8deg', '0deg', '-8deg']) },
     ],
   };
 }
@@ -39,6 +42,7 @@ function LibraryScreen({
   onEdit,
   onDelete,
   onCreate,
+  railWidthRef = null, // 태블릿: 메뉴가 다 열리거나 닫혔을 때의 폭 (ref라 바뀌어도 다시 그리지 않는다)
 }) {
   const scrollX = useRef(new Animated.Value(Math.max(0, carousel) * CAROUSEL_STEP)).current;
   const carouselRef = useRef(null);
@@ -102,9 +106,26 @@ function LibraryScreen({
     onCarouselChange(index);
   }, [carouselStep, carouselViewportWidth, contentWidth, filter, itemCount, onCarouselChange, view]);
 
+  // 사이드 메뉴가 열리고 닫히는 동안 줄 폭이 매 프레임 바뀐다. 그때마다 화면을 다시 그리면 메뉴 애니메이션과
+  // 같은 JS 스레드를 두고 다퉈 둘 다 끊긴다. 처음 잰 폭만 바로 쓰고, 이후 변화는 멈춘 뒤 한 번만 반영한다.
+  // 태블릿은 목록 폭을 '줄 폭 + 메뉴 폭'으로 잡는다. 이 값은 메뉴를 열든 닫든 같아서, 메뉴를 움직여도 목록 폭이 바뀌지 않는다.
+  // (열 때 목록이 좁아지면 Android 가로 스크롤이 잠깐 위치를 고쳐 잡으면서 끝에 한 번 흔들렸다)
+  const settleTimer = useRef(null);
+  useEffect(() => () => clearTimeout(settleTimer.current), []);
+  const appliedWidth = useRef(0);
   const measureCarousel = useCallback(({ nativeEvent: { layout } }) => {
-    setCarouselViewportWidth((current) => (current === layout.width ? current : layout.width));
-  }, []);
+    const span = () => layout.width + (railWidthRef?.current ?? 0);
+    const apply = () => {
+      const width = span();
+      if (width === appliedWidth.current) return;
+      appliedWidth.current = width;
+      setCarouselViewportWidth(width);
+    };
+    clearTimeout(settleTimer.current);
+    if (span() === appliedWidth.current) return;
+    if (appliedWidth.current > 0) settleTimer.current = setTimeout(apply, CAROUSEL_RESIZE_SETTLE_MS);
+    else apply();
+  }, [railWidthRef]);
 
   const onScroll = useMemo(() => Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -163,7 +184,8 @@ function LibraryScreen({
         <EmptyState compact={compact} title={current.empty} copy={current.emptyCopy} />
       ) : view === 'carousel' ? (
         <View style={[s.carouselShell, compact && s.carouselShellCompact]}>
-          <View style={[s.carouselRow, compact && s.carouselRowCompact]}>
+          {/* 목록은 잰 폭으로 고정하고 줄 가운데에 둔다. 줄 폭이 바뀌어도 가운데 카드는 늘 줄 가운데에 머문다. */}
+          <View style={[s.carouselRow, compact && s.carouselRowCompact]} onLayout={measureCarousel}>
             {/* 폰은 화면이 좁아 화살표 대신 밀어서 넘긴다. */}
             {!compact && <Pressable
               accessibilityRole="button"
@@ -188,9 +210,8 @@ function LibraryScreen({
               contentOffset={{ x: activeIndex * carouselStep, y: 0 }}
               showsHorizontalScrollIndicator={false}
               scrollEventThrottle={16}
-              style={s.carouselViewport}
+              style={[carouselViewportWidth > 0 ? [s.carouselViewportFixed, { width: carouselViewportWidth }] : s.carouselViewport]}
               contentContainerStyle={[s.carouselCards, compact && s.carouselCardsCompact, { paddingHorizontal: carouselSidePadding, minWidth: contentWidth, gap: 0 }]}
-              onLayout={measureCarousel}
               onScroll={onScroll}
               onMomentumScrollEnd={syncCarouselIndex}
               initialNumToRender={3}
