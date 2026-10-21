@@ -3,7 +3,7 @@ import { StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
-import { prepareEditor } from './src/editor/services/editorDocs';
+import { prepareEditor, rememberEditorDoc } from './src/editor/services/editorDocs';
 import { DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
@@ -14,6 +14,9 @@ import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
 import { fitTabletFrame } from './src/shared/layout';
+import { normalizeTemplateConfig } from './src/editor/templates/creation.js';
+import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
+import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
 
 // 속지 캐시(16개)를 넘지 않도록 앞쪽 다이어리만 미리 준비한다.
 const PREFETCH_DIARIES = 8;
@@ -53,7 +56,10 @@ function DiaryApp() {
   } = useDiaries();
   const [active, setActive] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingDiary, setEditingDiary] = useState(null);
+  const [editingDiaryId, setEditingDiaryId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const pendingCreateId = useRef(null);
 
   const tablet = fitTabletFrame(viewport.width, viewport.height);
 
@@ -86,17 +92,21 @@ function DiaryApp() {
   }, []);
 
   const create = useCallback(() => {
-    setEditingDiary(null);
+    if (savingRef.current) return;
+    pendingCreateId.current = null;
+    setEditingDiaryId(null);
     setCreateOpen(true);
   }, []);
 
   const edit = useCallback((diary) => {
-    setEditingDiary(diary);
+    if (savingRef.current) return;
+    setEditingDiaryId(diary.id);
     setCreateOpen(true);
   }, []);
 
   const remove = () => {
-    const diary = diaries.find((item) => item.id === editingDiary?.id);
+    if (savingRef.current) return;
+    const diary = diaries.find((item) => item.id === editingDiaryId);
     if (!diary) return;
 
     confirmAction({
@@ -107,33 +117,64 @@ function DiaryApp() {
         moveToTrash(diary.id);
         setActive((current) => (current?.id === diary.id ? null : current));
         setCreateOpen(false);
-        setEditingDiary(null);
+        setEditingDiaryId(null);
       },
     });
   };
 
-  const save = (values) => {
-    const original = editingDiary ? diaries.find((diary) => diary.id === editingDiary.id) : null;
-    if (editingDiary && !original) return '수정할 다이어리를 찾지 못했어요. 목록에서 다시 시도해 주세요.';
+  const save = async (form) => {
+    if (savingRef.current) return;
+    const title = form.title.trim();
+    if (!title) return '다이어리 이름을 입력해 주세요.';
 
+    const original = editingDiaryId ? diaries.find((diary) => diary.id === editingDiaryId) : null;
+    if (editingDiaryId && !original) {
+      return '수정할 다이어리를 찾지 못했어요. 목록에서 다시 시도해 주세요.';
+    }
+
+    let config;
+    if (!original) {
+      try { config = normalizeTemplateConfig(form.templateConfig); }
+      catch (failure) { return failure.message; }
+    }
     const updatedAt = new Date().toISOString();
     const diary = original
-      ? { ...original, ...values, firstPage: original.firstPage, firstPageDate: original.firstPageDate, updatedAt }
+      ? { ...original, title, color: form.color, pattern: form.pattern, updatedAt }
       : {
-        id: `diary-${Date.now()}`,
-        ...values,
+        id: pendingCreateId.current ?? `diary-${Date.now()}`,
+        templateConfig: config,
+        title,
+        color: form.color,
+        pattern: form.pattern,
+        pageSize: 'landscape',
         type: '개인',
         favorite: false,
         updatedAt,
         trashedAt: null,
       };
+    if (!original) {
+      pendingCreateId.current = diary.id;
+      savingRef.current = true;
+      setSaving(true);
+      try {
+        const doc = createDefaultDoc(diary);
+        if (!await saveJSON(STORAGE_KEYS.doc + ':' + diary.id, doc)) throw new Error('다이어리를 저장하지 못했어요. 다시 시도해 주세요.');
+        if (!await saveJSON(STORAGE_KEYS.diaries, [...diaries, diary])) throw new Error('보관함을 저장하지 못했어요. 다시 시도해 주세요.');
+        rememberEditorDoc(STORAGE_KEYS.doc + ':' + diary.id, doc);
+      } catch (failure) {
+        return failure.message;
+      } finally {
+        savingRef.current = false;
+        setSaving(false);
+      }
+    }
     // 먼저 만든 다이어리가 앞(왼쪽)에 오도록 새 다이어리는 뒤에 붙인다.
     setDiaries((current) => (original
       ? current.map((item) => (item.id === diary.id ? diary : item))
       : [...current, diary]));
     setActive((current) => (current?.id === diary.id ? diary : current));
     setCreateOpen(false);
-    setEditingDiary(null);
+    setEditingDiaryId(null);
     if (!original) {
       setCarousel(0);
       enterEditor(diary);
@@ -243,11 +284,12 @@ function DiaryApp() {
                   {content}
                   {createOpen && (
                     <DiaryCreateModal
-                      key={editingDiary?.id ?? 'new'}
-                      diary={editingDiary}
+                      key={editingDiaryId ?? 'new'}
+                      diary={editingDiaryId ? diaries.find(item => item.id === editingDiaryId) : null}
+                      saving={saving}
                       onSubmit={save}
                       onDelete={remove}
-                      onCancel={() => { setCreateOpen(false); setEditingDiary(null); }}
+                      onCancel={() => { if (savingRef.current) return; setCreateOpen(false); setEditingDiaryId(null); }}
                     />
                   )}
                 </View>

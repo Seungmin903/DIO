@@ -12,7 +12,7 @@
 목록 항목은 `{ id, title, color, type: '개인' | '공유', favorite, updatedAt, trashedAt, pattern, pageSize, firstPage, firstPageDate }`이다.
 
 - `pattern`: 표지 무늬 `linen | leather | dot | gingham | stripe`. 무늬가 없던 이전 다이어리는 `null`(무늬 없음)로 둔다.
-- `pageSize`: 편집기가 가로형만 지원하므로 항상 `landscape`. 예전에 저장된 `portrait`도 `landscape`로 읽는다.
+- `pageSize`: 새 생성은 `landscape`만 지원한다. 기존 `portrait` 메타데이터는 그대로 보존하며 생성 화면의 세로형은 준비 중으로 비활성화한다.
 - `firstPage`: 첫 페이지 서식 `monthly | weekly | blank | lined | grid | dot`. 값이 없으면 `blank`. 새 다이어리의 편집 문서는 이 서식의 속지 한 장으로 시작한다.
   - `blank | lined | grid | dot` → 공용 속지 `2026-reusable-note-{plain|ruled|grid|dots}-landscape`
   - `monthly` → `firstPageDate`가 속한 달의 `2026-monthly-MM-landscape`
