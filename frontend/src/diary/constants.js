@@ -1,12 +1,17 @@
+import { colors } from '../shared/theme.js';
+
+// 화면 틀 색은 편집 화면과 같은 디자인 토큰(shared/theme)을 쓴다. 표지·꾸밈 색은 아래에 따로 둔다.
 export const C = {
-  ink: '#0B1957',
-  inkSoft: '#40517D',
-  muted: '#7583A1',
-  line: '#D9E2F0',
-  canvas: '#EEF3FB',
-  blue: '#6E92C6',
-  pale: '#E8F0FB',
-  white: '#FFFFFF',
+  ink: colors.text,
+  inkSoft: colors.textMuted,
+  muted: colors.textMuted,
+  line: colors.border,
+  canvas: colors.surfaceSoft, // 편집 화면 작업 영역과 같은 바탕
+  blue: colors.primary,
+  pale: '#EEF2F9', // 편집 옵션 창의 회색 칩·세그먼트 판
+  active: colors.surfaceSoft, // 흰 막대에서 고른 항목 (편집 상단의 켜진 페이지·레이어 버튼과 같게)
+  danger: colors.danger,
+  white: colors.surface,
   navy: '#152965',
   green: '#71B99D',
   coral: '#E9938B',

@@ -8,7 +8,7 @@ import { templatePageCount } from '../../editor/templates/creation.js';
 import { activeCreationConfig, creationFlowReducer, initialCreationFlow } from '../utils/creationFlow.js';
 import DiaryPresets, { CompositionSummary } from './DiaryPresets';
 import AppIcon from '../../shared/AppIcon';
-import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, PAGE_SIZES } from '../constants';
+import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, PAGE_SIZES, C } from '../constants';
 import { styles as s } from '../styles';
 import CoverPattern from './CoverPattern';
 
@@ -143,7 +143,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
               onPress={onCancel}
               style={({ pressed }) => [s.createClose, pressed && s.pressed]}
             >
-              <AppIcon name="close" size={20} color="#0B1957" />
+              <AppIcon name="close" size={20} color={C.ink} />
             </Pressable>
           </View>
 
@@ -160,7 +160,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
               value={title}
               onChangeText={onTitleChange}
               placeholder="예: 2026 봄의 기록"
-              placeholderTextColor="#98A4BB"
+              placeholderTextColor={C.muted}
               maxLength={TITLE_LIMIT}
               selectTextOnFocus
               style={[s.createField, error && s.fieldError]}
@@ -233,7 +233,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
               onPress={() => { changeFlow({ type: 'back' }); onPaletteInteraction(false); setError(''); }}
               style={({ pressed }) => [s.createBack, pressed && s.pressed, saving && { opacity: 0.5 }]}
             >
-              <AppIcon name="chevron-left" size={18} color="#40517D" />
+              <AppIcon name="chevron-left" size={18} color={C.inkSoft} />
               <Text style={s.createBackText}>{coloring ? '내지 구성' : configuring ? '추천 구성' : '이름과 표지'}</Text>
             </Pressable>}
             <Pressable
