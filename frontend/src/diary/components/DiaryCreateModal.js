@@ -130,7 +130,6 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         <View style={[s.createFormPane, sheet && s.createFormPaneSheet]}>
           <View style={s.createDialogHeader}>
             <View>
-              {!sheet && <Text style={s.createDialogEyebrow}>{editing ? 'EDIT DIARY' : 'YOUR NEXT CHAPTER'}</Text>}
               <Text style={s.createDialogTitle}>{editing ? '다이어리 수정' : coloring ? '내지 색상' : configuring ? '속지 구성' : '새 다이어리 만들기'}</Text>
             </View>
             <Pressable
@@ -162,7 +161,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             />
             <View style={s.createHelperRow}>
               {error ? <Text accessibilityRole="alert" style={s.error}>{error}</Text> : null}
-              <Text style={s.helper}>{title.length}/{TITLE_LIMIT}</Text>
+              <Text style={[s.helper, s.createCount]}>{title.length}/{TITLE_LIMIT}</Text>
             </View>
 
             <Text style={s.createLabel}>표지 색상</Text>
