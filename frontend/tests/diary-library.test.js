@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { formatUpdatedAt, normalizeDiaries, recoverOrphanDiaries, sortByCreated } from '../src/diary/utils/diaryLibrary.js';
+import { createId } from '../src/editor/utils/common.js';
 
 const PREFIX = 'dio:editor:doc:v4';
 
@@ -59,6 +60,27 @@ test('다이어리는 먼저 만든 순서대로 정렬하고 ID 형식이 다�
     { id: 'diary-200' },
   ]);
   assert.deepEqual(sorted.map((d) => d.id), ['legacy-a', 'legacy-b', 'diary-100', 'diary-200', 'diary-300']);
+});
+
+test('UUID 다이어리는 createdAt으로 정렬하고 이전 diary-<시각> 다이어리와 섞여도 생성 순서를 지킨다', () => {
+  const sorted = sortByCreated([
+    { id: '9b2f1c4e-0000-4000-8000-000000000002', createdAt: '2026-10-22T10:00:00.000Z' },
+    { id: `diary-${Date.parse('2026-10-22T09:00:00.000Z')}` },
+    { id: '1a7d3e5f-0000-4000-8000-000000000001', createdAt: '2026-10-22T08:00:00.000Z' },
+  ]);
+  assert.deepEqual(sorted.map((d) => d.createdAt ?? d.id), [
+    '2026-10-22T08:00:00.000Z',
+    `diary-${Date.parse('2026-10-22T09:00:00.000Z')}`,
+    '2026-10-22T10:00:00.000Z',
+  ]);
+  const [kept] = normalizeDiaries([{ id: 'a', title: '봄', createdAt: '2026-10-22T08:00:00.000Z' }]);
+  assert.equal(kept.createdAt, '2026-10-22T08:00:00.000Z');
+});
+
+test('createId는 매번 다른 UUID v4를 만든다', () => {
+  const ids = Array.from({ length: 1000 }, () => createId());
+  assert.equal(new Set(ids).size, ids.length);
+  for (const id of ids) assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 });
 
 test('표지 무늬·가로/세로 방향·첫 페이지 서식과 2026 날짜를 보존한다', () => {

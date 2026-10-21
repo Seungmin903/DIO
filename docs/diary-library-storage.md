@@ -6,10 +6,10 @@
 
 | 키 | 값 |
 | --- | --- |
-| `dio:diary:list:v1` | 다이어리 목록 배열. 먼저 만든 다이어리가 앞에 오는 생성 순으로 저장한다. 이전 버전처럼 최근 생성이 앞에 저장돼 있으면 불러올 때 ID(`diary-<생성 시각>`) 기준으로 다시 정렬한다. |
+| `dio:diary:list:v1` | 다이어리 목록 배열. 먼저 만든 다이어리가 앞에 오는 생성 순으로 저장한다. 불러올 때 `createdAt` 기준으로 다시 정렬하고, `createdAt`이 없는 이전 다이어리는 ID(`diary-<생성 시각>`)의 시각을 쓴다. |
 | `dio:editor:doc:v4:<diaryId>` | 다이어리별 편집 문서(기존 `useEditor` 저장 형식, 변경 없음). |
 
-목록 항목은 `{ id, title, color, type: '개인' | '공유', favorite, updatedAt, trashedAt, pattern, pageSize, firstPage, firstPageDate }`이다.
+목록 항목은 `{ id, title, color, type: '개인' | '공유', favorite, createdAt, updatedAt, trashedAt, pattern, pageSize, firstPage, firstPageDate }`이다.
 
 - `pattern`: 표지 무늬 `linen | leather | dot | gingham | stripe`. 무늬가 없던 이전 다이어리는 `null`(무늬 없음)로 둔다.
 - `pageSize`: 새 생성은 `landscape`만 지원한다. 기존 `portrait` 메타데이터는 그대로 보존하며 생성 화면의 세로형은 준비 중으로 비활성화한다.
@@ -18,6 +18,8 @@
   - `monthly` → `firstPageDate`가 속한 달의 `2026-monthly-MM-landscape`
   - `weekly` → `firstPageDate`가 포함된 주(월요일 시작)의 `2026-weekly-blocks-<월요일>-landscape`
 - `firstPageDate`: `YYYY-MM-DD`, 먼슬리·위클리일 때만 저장하고 나머지는 `null`. 속지 자료가 2026년뿐이라 2026년 날짜만 허용한다. 값이 없거나 잘못되면 속지를 만들 때 `2026-01-01`을 기준으로 한다.
+- `id`: 새 다이어리는 UUID v4다. 나중에 서버로 올려도 기기끼리 겹치지 않게 하려는 것이며, 페이지·요소 ID(`createId`)도 같은 UUID를 쓴다. 이전 버전이 만든 `diary-<생성 시각(ms)>` ID는 그대로 둔다.
+- `createdAt`: 다이어리를 만든 ISO 시각. 생성 순 정렬에 쓴다. 이전 다이어리에는 없다.
 - `trashedAt`: 휴지통으로 옮긴 ISO 시각, 보관함에 있으면 `null`.
 - 허용되지 않은 값은 위 기본값으로 바꾼다.
 

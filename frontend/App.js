@@ -21,6 +21,11 @@ import { CAN_LOCK_ORIENTATION, useOrientationLock } from './src/shared/useOrient
 import { normalizeTemplateConfig } from './src/editor/templates/creation.js';
 import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
 import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
+import { randomUUID } from 'expo-crypto';
+import { createId, setUuidGenerator } from './src/editor/utils/common';
+
+// 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
+if (Platform.OS !== 'web') setUuidGenerator(randomUUID);
 
 // 속지 캐시(16개)를 넘지 않도록 앞쪽 다이어리만 미리 준비한다.
 const PREFETCH_DIARIES = 8;
@@ -186,7 +191,8 @@ function DiaryApp() {
     const diary = original
       ? { ...original, title, color: form.color, pattern: form.pattern, updatedAt }
       : {
-        id: pendingCreateId.current ?? `diary-${Date.now()}`,
+        id: pendingCreateId.current ?? createId(),
+        createdAt: updatedAt,
         templateConfig: config,
         paperAppearance: normalizePaperAppearance(form.paperAppearance),
         title,
