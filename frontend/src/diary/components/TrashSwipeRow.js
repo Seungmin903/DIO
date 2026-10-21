@@ -1,4 +1,5 @@
 import { memo, useRef, useState } from 'react';
+import { C } from '../constants';
 import { Animated, PanResponder, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
@@ -62,7 +63,7 @@ function TrashSwipeRow({ diary, onRestore, onDelete, now = Date.now() }) {
             <Text style={s.trashRowDate}>삭제 {formatUpdatedAt(diary.trashedAt)}</Text>
             <Text style={s.trashRowDate}>{trashStatus(diary, now)}</Text>
           </View>
-          <AppIcon name="chevron-left" size={20} color="#A3AFC5" />
+          <AppIcon name="chevron-left" size={20} color={C.muted} />
         </Pressable>
       </Animated.View>
     </View>

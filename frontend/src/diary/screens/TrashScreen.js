@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { C } from '../constants';
 import { styles as s } from '../styles';
 import EmptyState from '../components/EmptyState';
 import Header from '../components/Header';
@@ -46,7 +47,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, c
                   onPress={() => onDeletePermanently(diary)}
                   style={({ pressed }) => [s.trashDelete, pressed && s.pressed]}
                 >
-                  <AppIcon name="trash" size={17} color="#BD5B58" />
+                  <AppIcon name="trash" size={17} color={C.danger} />
                 </Pressable>
               </View>
             </View>

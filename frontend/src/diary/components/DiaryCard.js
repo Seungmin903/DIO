@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { C } from '../constants';
 import { Animated, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
@@ -31,7 +32,7 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
             onPress={(event) => { event.stopPropagation(); onEdit?.(diary); }}
             style={({ pressed }) => [s.cardAction, pressed && s.pressed]}
           >
-            <AppIcon name="edit" size={17} color="#0B1957" />
+            <AppIcon name="edit" size={17} color={C.ink} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -40,7 +41,7 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
             onPress={(event) => { event.stopPropagation(); onFavorite(diary.id); }}
             style={({ pressed }) => [s.cardAction, pressed && s.pressed]}
           >
-            <AppIcon name="star" size={18} color={diary.favorite ? '#E8AF45' : '#40517D'} fill={diary.favorite ? '#E8AF45' : 'none'} />
+            <AppIcon name="star" size={18} color={diary.favorite ? '#E8AF45' : C.inkSoft} fill={diary.favorite ? '#E8AF45' : 'none'} />
           </Pressable>
         </View>
       </View>
@@ -57,7 +58,7 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
             onPress={(event) => { event.stopPropagation(); onDelete?.(diary); }}
             style={({ pressed }) => [s.cardDelete, pressed && s.pressed]}
           >
-            <AppIcon name="trash" size={19} color="#BD5B58" />
+            <AppIcon name="trash" size={19} color={C.danger} />
           </Pressable>
         </View>
         <Text style={s.cardDate}>{formatUpdatedAt(diary.updatedAt)}</Text>
