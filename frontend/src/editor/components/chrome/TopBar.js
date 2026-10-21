@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   tabClose: { marginLeft: 2, padding: 4, borderRadius: 8 },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 'auto' },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 'auto', zIndex: 2 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 10, borderRadius: 12 },
   toggleActive: { backgroundColor: colors.surfaceSoft },
   togglePressed: { backgroundColor: colors.primarySoft },

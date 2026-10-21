@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
 import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS } from '../constants';
 import AppIcon from '../../shared/AppIcon';
@@ -7,81 +7,80 @@ import CreateDiaryCard from '../components/CreateDiaryCard';
 import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
 
-export default function LibraryScreen({
+// 카드 위치(index)마다 스크롤 위치에 따라 투명도·크기·기울기가 바뀌는 애니메이션 스타일.
+function carouselMotion(scrollX, index) {
+  const inputRange = [(index - 1) * CAROUSEL_STEP, index * CAROUSEL_STEP, (index + 1) * CAROUSEL_STEP];
+  const along = (outputRange) => scrollX.interpolate({ inputRange, outputRange, extrapolate: 'clamp' });
+  return {
+    zIndex: 1,
+    opacity: along([0.36, 1, 0.36]),
+    transform: [
+      { scale: along([0.84, 1.06, 0.84]) },
+      { translateY: along([30, -12, 30]) },
+      { perspective: 900 },
+      { rotateY: along(['8deg', '0deg', '-8deg']) },
+    ],
+  };
+}
+
+function LibraryScreen({
   diaries,
   filter,
   view,
   carousel,
-  carouselRef,
-  carouselViewportWidth,
   onFilterChange,
   onViewChange,
   onCarouselChange,
-  onCarouselViewportLayout,
   onOpen,
   onFavorite,
   onEdit,
   onCreate,
 }) {
   const scrollX = useRef(new Animated.Value(0)).current;
-  const shown = diaries.filter((diary) =>
-    filter === 'all'
-      || (filter === 'personal' && diary.type === '개인')
+  const carouselRef = useRef(null);
+  // 사이드 메뉴 애니메이션 중에는 매 프레임 바뀌므로 App이 아닌 이 화면 안에서만 들고 있는다.
+  const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
+  const shown = useMemo(() => diaries.filter((diary) =>
+    (filter === 'shared' && diary.type === '공유')
+      || (filter === 'personal' && diary.type !== '공유')
       || (filter === 'favorite' && diary.favorite),
+  ), [diaries, filter]);
+  const current = FILTERS.find((item) => item.id === filter) || FILTERS[0];
+  // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 카드는 개인 다이어리 탭에만 둔다.
+  const canCreate = filter === 'personal';
+  const carouselItems = useMemo(() => (canCreate ? [...shown, { id: 'new-diary' }] : shown), [canCreate, shown]);
+  const itemCount = carouselItems.length;
+  // 카드 수가 바뀔 때만 애니메이션 노드를 새로 만든다. 매 렌더마다 만들면 스와이프마다 모든 카드가 다시 연결된다.
+  const motions = useMemo(
+    () => Array.from({ length: itemCount }, (_, index) => carouselMotion(scrollX, index)),
+    [itemCount, scrollX],
   );
-  const label = FILTERS.find((item) => item.id === filter)?.label || '전체';
-  const canCreate = filter === 'all';
-  const carouselItems = canCreate ? [...shown, { id: 'new-diary' }] : shown;
-  const activeIndex = Math.max(0, Math.min(carousel, Math.max(0, carouselItems.length - 1)));
+  const activeIndex = Math.max(0, Math.min(carousel, Math.max(0, itemCount - 1)));
   const carouselSidePadding = Math.max(0, (carouselViewportWidth - CAROUSEL_ITEM_WIDTH) / 2);
 
   const moveCarousel = (nextIndex) => {
-    const next = Math.max(0, Math.min(nextIndex, carouselItems.length - 1));
+    const next = Math.max(0, Math.min(nextIndex, itemCount - 1));
     onCarouselChange(next);
     carouselRef.current?.scrollTo({ x: next * CAROUSEL_STEP, animated: true });
   };
 
-  const syncCarouselIndex = ({ nativeEvent }) => {
-    onCarouselChange(Math.max(0, Math.min(Math.round(nativeEvent.contentOffset.x / CAROUSEL_STEP), carouselItems.length - 1)));
-  };
+  const syncCarouselIndex = useCallback(({ nativeEvent }) => {
+    onCarouselChange(Math.max(0, Math.min(Math.round(nativeEvent.contentOffset.x / CAROUSEL_STEP), itemCount - 1)));
+  }, [itemCount, onCarouselChange]);
 
-  const carouselMotion = (index) => ({
-    zIndex: index === activeIndex ? 2 : 1,
-    opacity: scrollX.interpolate({
-      inputRange: [(index - 1) * CAROUSEL_STEP, index * CAROUSEL_STEP, (index + 1) * CAROUSEL_STEP],
-      outputRange: [0.36, 1, 0.36],
-      extrapolate: 'clamp',
-    }),
-    transform: [
-      {
-        scale: scrollX.interpolate({
-          inputRange: [(index - 1) * CAROUSEL_STEP, index * CAROUSEL_STEP, (index + 1) * CAROUSEL_STEP],
-          outputRange: [0.84, 1.06, 0.84],
-          extrapolate: 'clamp',
-        }),
-      },
-      {
-        translateY: scrollX.interpolate({
-          inputRange: [(index - 1) * CAROUSEL_STEP, index * CAROUSEL_STEP, (index + 1) * CAROUSEL_STEP],
-          outputRange: [30, -12, 30],
-          extrapolate: 'clamp',
-        }),
-      },
-      { perspective: 900 },
-      {
-        rotateY: scrollX.interpolate({
-          inputRange: [(index - 1) * CAROUSEL_STEP, index * CAROUSEL_STEP, (index + 1) * CAROUSEL_STEP],
-          outputRange: ['8deg', '0deg', '-8deg'],
-          extrapolate: 'clamp',
-        }),
-      },
-    ],
-  });
+  const measureCarousel = useCallback(({ nativeEvent: { layout } }) => {
+    setCarouselViewportWidth((current) => (current === layout.width ? current : layout.width));
+  }, []);
+
+  const onScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    { useNativeDriver: true },
+  ), [scrollX]);
 
   return (
     <ScrollView contentContainerStyle={s.libraryScreen} showsVerticalScrollIndicator={false}>
       <View style={s.libraryHeader}>
-        <Text style={s.libraryTitle}>내 다이어리</Text>
+        <Text style={s.libraryTitle}>{current.label}</Text>
         <View style={s.libraryViewSwitch} accessibilityRole="tablist">
           <Pressable
             accessibilityRole="tab"
@@ -121,10 +120,7 @@ export default function LibraryScreen({
       </View>
 
       {!carouselItems.length ? (
-        <EmptyState
-          title={`${label} 다이어리가 없어요`}
-          copy="다른 보관함을 보거나 새 다이어리를 만들어 보세요."
-        />
+        <EmptyState title={current.empty} copy={current.emptyCopy} />
       ) : view === 'carousel' ? (
         <View style={s.carouselShell}>
           <View style={s.carouselRow}>
@@ -149,11 +145,8 @@ export default function LibraryScreen({
               scrollEventThrottle={16}
               style={s.carouselViewport}
               contentContainerStyle={[s.carouselCards, { paddingHorizontal: carouselSidePadding, gap: CAROUSEL_GAP }]}
-              onLayout={({ nativeEvent: { layout } }) => onCarouselViewportLayout(layout.width)}
-              onScroll={Animated.event(
-                [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-                { useNativeDriver: true },
-              )}
+              onLayout={measureCarousel}
+              onScroll={onScroll}
               onMomentumScrollEnd={syncCarouselIndex}
             >
               {carouselItems.map((item, index) => (
@@ -162,7 +155,7 @@ export default function LibraryScreen({
                     key={item.id}
                     layout="carousel"
                     carouselActive={index === activeIndex}
-                    animatedStyle={carouselMotion(index)}
+                    animatedStyle={motions[index]}
                     onCreate={onCreate}
                   />
                 ) : (
@@ -171,10 +164,10 @@ export default function LibraryScreen({
                     diary={item}
                     layout="carousel"
                     carouselActive={index === activeIndex}
-                    animatedStyle={carouselMotion(index)}
-                    onOpen={() => onOpen(item)}
-                    onFavorite={() => onFavorite(item.id)}
-                    onEdit={() => onEdit(item)}
+                    animatedStyle={motions[index]}
+                    onOpen={onOpen}
+                    onFavorite={onFavorite}
+                    onEdit={onEdit}
                   />
                 )
               ))}
@@ -195,10 +188,12 @@ export default function LibraryScreen({
         </View>
       ) : (
         <View style={s.grid}>
-          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} onOpen={() => onOpen(diary)} onFavorite={() => onFavorite(diary.id)} onEdit={() => onEdit(diary)} />)}
+          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} />)}
           {canCreate && <CreateDiaryCard layout="grid" onCreate={onCreate} />}
         </View>
       )}
     </ScrollView>
   );
 }
+
+export default memo(LibraryScreen);

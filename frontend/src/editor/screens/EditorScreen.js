@@ -431,6 +431,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               dispatch({ type: 'selectPage', id })
             }}
             onAdd={() => { if (cropId) finishCrop(false); setTemplatePickerOpen(true) }}
+            onDuplicate={(id) => {
+              dispatch({ type: 'duplicatePage', id })
+              showToast('페이지를 복제했어요.')
+            }}
+            onToggleIndex={(id) => dispatch({ type: 'togglePageIndex', id })}
             onRemove={(id) => {
               dispatch({ type: 'removePage', id })
               showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.')

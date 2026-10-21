@@ -6,10 +6,17 @@
 
 | 키 | 값 |
 | --- | --- |
-| `dio:diary:list:v1` | 다이어리 목록 배열. 화면 순서(최근 생성이 앞) 그대로 저장한다. |
+| `dio:diary:list:v1` | 다이어리 목록 배열. 먼저 만든 다이어리가 앞에 오는 생성 순으로 저장한다. 이전 버전처럼 최근 생성이 앞에 저장돼 있으면 불러올 때 ID(`diary-<생성 시각>`) 기준으로 다시 정렬한다. |
 | `dio:editor:doc:v4:<diaryId>` | 다이어리별 편집 문서(기존 `useEditor` 저장 형식, 변경 없음). |
 
-목록 항목은 `{ id, title, color, type: '개인' | '공유', favorite, updatedAt }`이다. `updatedAt`은 ISO 시각이며 화면에서 `formatUpdatedAt`으로 "방금 전 / N분 전 / N시간 전 / N일 전 / YYYY.MM.DD"로 표시한다. 이전 버전처럼 표시용 문자열이 들어 있거나 값이 없으면 "기록 없음"으로 표시한다.
+목록 항목은 `{ id, title, color, type: '개인' | '공유', favorite, updatedAt, pattern, pageSize, firstPage }`이다.
+
+- `pattern`: 표지 무늬 `linen | leather | dot | gingham | stripe`. 무늬가 없던 이전 다이어리는 `null`(무늬 없음)로 둔다.
+- `pageSize`: `landscape | portrait`. 만들 때만 고르고 이후에는 바꿀 수 없다. 값이 없으면 `landscape`.
+- `firstPage`: 첫 페이지 서식 `monthly | weekly | blank | lined | grid | dot`. 값이 없으면 `blank`. 편집기 속지가 준비되기 전까지는 값만 저장하고 화면에는 반영하지 않는다.
+- 허용되지 않은 값은 위 기본값으로 바꾼다.
+
+`updatedAt`은 ISO 시각이며 화면에서 `formatUpdatedAt`으로 "방금 전 / N분 전 / N시간 전 / N일 전 / YYYY.MM.DD"로 표시한다. 이전 버전처럼 표시용 문자열이 들어 있거나 값이 없으면 "기록 없음"으로 표시한다.
 
 ## 복원 규칙
 

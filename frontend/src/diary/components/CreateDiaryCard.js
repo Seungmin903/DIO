@@ -1,8 +1,9 @@
+import { memo } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
 
-export default function CreateDiaryCard({ layout = 'grid', carouselActive = false, animatedStyle, onCreate }) {
+function CreateDiaryCard({ layout = 'grid', carouselActive = false, animatedStyle, onCreate }) {
   const carousel = layout === 'carousel';
 
   const card = (
@@ -27,5 +28,7 @@ export default function CreateDiaryCard({ layout = 'grid', carouselActive = fals
     </Pressable>
   );
 
-  return carousel ? <Animated.View style={animatedStyle}>{card}</Animated.View> : card;
+  return carousel ? <Animated.View style={[animatedStyle, carouselActive && s.carouselCardTop]}>{card}</Animated.View> : card;
 }
+
+export default memo(CreateDiaryCard);

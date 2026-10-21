@@ -29,6 +29,9 @@ export default function AppIcon({ name, size = 24, color = '#0B1957', strokeWidt
     case 'person':
       graphic = <><Circle {...line} cx="12" cy="8" r="3.2" /><Path {...line} d="M5.5 20c.6-3.6 3.1-5.6 6.5-5.6s5.9 2 6.5 5.6" /></>;
       break;
+    case 'people':
+      graphic = <><Circle {...line} cx="9" cy="8.5" r="2.9" /><Path {...line} d="M3.5 19c.5-3.2 2.6-5 5.5-5s5 1.8 5.5 5" /><Path {...line} d="M15.2 5.9a2.8 2.8 0 0 1 0 5.3" /><Path {...line} d="M16.6 14.2c2.2.5 3.6 2.2 3.9 4.8" /></>;
+      break;
     case 'star':
       graphic = <Path {...line} fill={fill} d="m12 3.8 2.48 5.02 5.54.81-4.01 3.91.95 5.52L12 16.43l-4.96 2.61.95-5.52-4.01-3.91 5.54-.81L12 3.8Z" />;
       break;

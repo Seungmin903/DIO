@@ -1,16 +1,18 @@
+import { memo } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
 import { formatUpdatedAt } from '../utils/diaryLibrary';
 import Cover from './Cover';
 
-export default function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, onEdit, carouselActive = false, animatedStyle }) {
+// onOpen·onFavorite·onEdit은 다이어리를 인자로 받는 공용 콜백이라, 카드마다 새 함수를 만들지 않아도 된다.
+function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, onEdit, carouselActive = false, animatedStyle }) {
   const card = (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${diary.title} 열기`}
       accessibilityState={layout === 'carousel' ? { selected: carouselActive } : undefined}
-      onPress={onOpen}
+      onPress={() => onOpen(diary)}
       style={({ pressed }) => [
         s.card,
         layout === 'list' ? s.cardList : layout === 'carousel' ? s.cardCarousel : s.cardGrid,
@@ -24,7 +26,7 @@ export default function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, 
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 수정`}
             hitSlop={6}
-            onPress={(event) => { event.stopPropagation(); onEdit?.(); }}
+            onPress={(event) => { event.stopPropagation(); onEdit?.(diary); }}
             style={({ pressed }) => [s.cardAction, pressed && s.pressed]}
           >
             <AppIcon name="edit" size={17} color="#0B1957" />
@@ -33,7 +35,7 @@ export default function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, 
             accessibilityRole="button"
             accessibilityLabel={diary.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
             hitSlop={6}
-            onPress={(event) => { event.stopPropagation(); onFavorite(); }}
+            onPress={(event) => { event.stopPropagation(); onFavorite(diary.id); }}
             style={({ pressed }) => [s.cardAction, pressed && s.pressed]}
           >
             <AppIcon name="star" size={18} color={diary.favorite ? '#E8AF45' : '#40517D'} fill={diary.favorite ? '#E8AF45' : 'none'} />
@@ -44,7 +46,7 @@ export default function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, 
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
             <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>
-            <Text style={s.cardType}>나만의 다이어리</Text>
+            <Text style={s.cardType}>{diary.type === '공유' ? '함께 쓰는 다이어리' : '나만의 다이어리'}</Text>
           </View>
         </View>
         <Text style={s.cardDate}>{formatUpdatedAt(diary.updatedAt)}</Text>
@@ -52,5 +54,7 @@ export default function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, 
     </Pressable>
   );
 
-  return layout === 'carousel' ? <Animated.View style={animatedStyle}>{card}</Animated.View> : card;
+  return layout === 'carousel' ? <Animated.View style={[animatedStyle, carouselActive && s.carouselCardTop]}>{card}</Animated.View> : card;
 }
+
+export default memo(DiaryCard);

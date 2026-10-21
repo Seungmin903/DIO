@@ -180,4 +180,3 @@ export const PHOTO_FRAMES = [
 export const CROP_ZOOM_MIN = 1
 // 사진·테이프 자르기 확대는 900% 까지 (자유 자르기도 같은 한도)
 export const CROP_ZOOM_MAX = 9
-
