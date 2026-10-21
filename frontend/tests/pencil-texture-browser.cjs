@@ -53,7 +53,8 @@ function inkStats(buffer, paper) {
         assert.ok(stats.ink > 0, `visible ink width=${width}, zoom=${zoom}`);
         assert.ok(stats.columns.length > 2);
         for (let i = 1; i < stats.columns.length; i++) assert.equal(stats.columns[i] - stats.columns[i-1], 1, 'no fully empty interior column');
-        assert.equal(await locator.locator('pattern path').count(), 3, 'bounded SVG grain nodes');
+        assert.equal(await locator.locator('pattern path').count(), 2, 'bounded SVG grain nodes');
+        assert.ok((await locator.evaluate(node => [...node.querySelectorAll('pattern path')].reduce((sum, path) => sum + path.getAttribute('d').length, 0))) < 20000, 'per-stroke grain path stays compact');
         await configure({ ...config, restored: true });
         assert.equal(await locator.evaluate(node => node.outerHTML), markup, 'JSON restore preserves exact SVG geometry and grain');
         const restored = image(await locator.screenshot()).data, original = image(before).data;
