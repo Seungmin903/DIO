@@ -11,12 +11,19 @@ let sharingModule
 // 앱을 여는 단계(캐시 정리 포함)에서는 해당 모듈을 평가하지 않고, PDF 공유를 실제로 요청했을 때만 불러온다.
 // 캐시 정리는 파일 시스템만 쓰므로 공유 모듈 없이 동작한다.
 // 불러오기에 실패하면 다음 요청에서 다시 시도한다.
-const sharing = () => (sharingModule ??= import('expo-sharing').catch((error) => { sharingModule = null; throw error }))
+// import() 는 개발 앱에서 별도 묶음을 개발 서버에서 따로 받아와야 해서, 받아오지 못하면 모듈이 있어도 공유를 못 쓰는 것으로 보였다.
+// 같은 묶음 안에 두되 호출할 때만 평가하도록 require 를 쓴다.
+const sharing = async () => {
+  if (sharingModule) return sharingModule
+  // Node 테스트(ESM)에는 require 가 없어서 그때만 import() 를 쓴다
+  try { sharingModule = typeof require === 'function' ? require('expo-sharing') : await import('expo-sharing'); return sharingModule }
+  catch (error) { console.warn('expo-sharing 을 불러오지 못했어요', error); throw error }
+}
 
 const service = createPdfShareService({
   // 모듈이 없는 빌드는 "공유를 쓸 수 없음"(EXPORT_PDF_SHARE_UNAVAILABLE)으로 안내한다.
   isAvailable: async () => {
-    try { return await (await sharing()).isAvailableAsync() } catch { return false }
+    try { return await (await sharing()).isAvailableAsync() } catch (error) { console.warn('PDF 공유 사용 불가', error); return false }
   },
   share: async (uri, options) => (await sharing()).shareAsync(uri, options),
   list: async () => {

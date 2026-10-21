@@ -253,7 +253,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     const index = state.doc.pages.findIndex((p) => p.id === id)
     try {
       const fileName = pngFileName(state.doc.title, index + 1).replace(/.png$/, `.${kind}`)
-      startExport({ kind, snapshot: { ...createExportSnapshot(state.doc.pages[index]), fileName } })
+      // PNG·GIF 도 PDF 처럼 2배로 만든다 (1배는 태블릿 화면에서 흐려 보였다)
+      startExport({ kind, snapshot: { ...createExportSnapshot(state.doc.pages[index], { scale: 2 }), fileName } })
     } catch (error) { setExportOpen(false); showToast(error.message) }
   }
   const finishExport = ({ message, error }) => {
