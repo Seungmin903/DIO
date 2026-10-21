@@ -1,4 +1,4 @@
-import { ANNUAL_PAGE_IDS, REUSABLE_TEMPLATES, getTemplate } from './catalog.js'
+import { annualPageIds, REUSABLE_TEMPLATES, getTemplate, normalizeOrientation, reusableTemplates, templateIdForOrientation } from './catalog.js'
 
 export const WEEKLY_CHOICES = [
   { id: 'blocks', name: '4열 블록형', assetId: '2026-weekly-blocks-2026-01-05-landscape' },
@@ -7,13 +7,22 @@ export const WEEKLY_CHOICES = [
 export const DAILY_TEMPLATES = REUSABLE_TEMPLATES.filter(item => ['daily', 'diary', 'scrap'].includes(item.type))
 export const EXTRA_TEMPLATES = REUSABLE_TEMPLATES.filter(item => item.type === 'note')
 export const DAILY_ASSET_ID = DAILY_TEMPLATES[0].assetId
-const legacyExtras = REUSABLE_TEMPLATES.filter(item => item.type !== 'daily')
+export function creationTemplates(orientation = 'landscape') {
+  const templates = reusableTemplates(orientation)
+  return {
+    weekly: WEEKLY_CHOICES.map(item => ({ ...item, assetId: templateIdForOrientation(item.assetId, orientation) })),
+    daily: templates.filter(item => ['daily', 'diary', 'scrap'].includes(item.type)),
+    extra: templates.filter(item => item.type === 'note'),
+    legacy: templates.filter(item => item.type !== 'daily'),
+  }
+}
 const defaultChoices = templates => templates.map(item => ({ assetId: item.assetId, enabled: false, count: 1 }))
 
-export function defaultTemplateConfig() {
-  return { version: 2, cover: true, dividers: true, monthly: true, weekly: true, weeklyStyle: 'blocks',
-    daily: false, dailyTemplates: DAILY_TEMPLATES.map(item => ({ assetId: item.assetId, enabled: item.type === 'daily', count: 1 })),
-    reusable: defaultChoices(EXTRA_TEMPLATES), legacyEndPages: [] }
+export function defaultTemplateConfig(orientation = 'landscape') {
+  const { daily, extra } = creationTemplates(orientation)
+  return { version: 2, orientation: normalizeOrientation(orientation), cover: true, dividers: true, monthly: true, weekly: true, weeklyStyle: 'blocks',
+    daily: false, dailyTemplates: daily.map(item => ({ assetId: item.assetId, enabled: item.type === 'daily', count: 1 })),
+    reusable: defaultChoices(extra), legacyEndPages: [] }
 }
 
 function positiveCount(value, label) {
@@ -25,35 +34,37 @@ function positiveCount(value, label) {
 
 function normalizeChoices(templates, choices, label, active = true) {
   return templates.map(item => {
-    const choice = choices?.find(entry => entry.assetId === item.assetId)
+    const choice = choices?.find(entry => typeof entry?.assetId === 'string' && templateIdForOrientation(entry.assetId, getTemplate(item.assetId).orientation) === item.assetId)
     return { assetId: item.assetId, enabled: choice?.enabled === true,
       count: choice?.enabled === true && active ? positiveCount(choice.count, label + item.name) : 1 }
   })
 }
 
-export function normalizeTemplateConfig(input) {
-  const source = input ?? defaultTemplateConfig()
+export function normalizeTemplateConfig(input, orientation = input?.orientation) {
+  const direction = normalizeOrientation(orientation)
+  const templates = creationTemplates(direction)
+  const source = input ?? defaultTemplateConfig(direction)
   const weeklyStyle = source.weeklyStyle ?? 'blocks'
   if (!WEEKLY_CHOICES.some(item => item.id === weeklyStyle)) throw new Error('위클리 양식을 다시 골라 주세요.')
   const legacy = source.version !== 2
   const config = {
-    version: 2,
+    version: 2, orientation: direction,
     cover: source.cover === true, dividers: source.dividers === true,
     monthly: source.monthly === true, weekly: source.weekly === true, weeklyStyle,
     daily: source.daily === true,
-    dailyTemplates: normalizeChoices(DAILY_TEMPLATES, legacy
+    dailyTemplates: normalizeChoices(templates.daily, legacy
       ? [{ assetId: DAILY_ASSET_ID, enabled: true, count: source.dailyCount }]
       : source.dailyTemplates, '매월 ', source.daily === true),
-    reusable: normalizeChoices(EXTRA_TEMPLATES, legacy ? [] : source.reusable, '매월 '),
+    reusable: normalizeChoices(templates.extra, legacy ? [] : source.reusable, '매월 '),
     // 이전 설정의 맨 뒤 공용 속지를 매월 12번 복제하지 않고 종전 배치를 보존한다.
-    legacyEndPages: normalizeChoices(legacyExtras, legacy ? source.reusable : source.legacyEndPages, ''),
+    legacyEndPages: normalizeChoices(templates.legacy, legacy ? source.reusable : source.legacyEndPages, ''),
   }
   if (!Number.isSafeInteger(countConfiguredPages(config))) throw new Error('총 페이지 수가 너무 커요. 장수를 줄여 주세요.')
   return config
 }
 
 function annualIds(config) {
-  return ANNUAL_PAGE_IDS.filter(id => {
+  return annualPageIds(config.orientation).filter(id => {
     const type = getTemplate(id).type
     return type === 'cover' ? config.cover : type === 'divider' ? config.dividers : type === 'monthly' ? config.monthly : config.weekly
   }).map(id => getTemplate(id).type === 'weekly' ? id.replace('weekly-blocks-', 'weekly-' + config.weeklyStyle + '-') : id)
@@ -80,7 +91,7 @@ export function configuredPageIds(input) {
     if (config.daily) appendChoices(config.dailyTemplates)
     appendChoices(config.reusable)
   }
-  for (const id of ANNUAL_PAGE_IDS) {
+  for (const id of annualPageIds(config.orientation)) {
     const asset = getTemplate(id)
     if (asset.type === 'divider') { appendMonthPages(); month = asset.month }
     if (asset.type === 'cover' && config.cover || asset.type === 'divider' && config.dividers || asset.type === 'monthly' && config.monthly) ids.push(id)

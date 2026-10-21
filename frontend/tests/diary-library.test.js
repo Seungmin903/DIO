@@ -61,12 +61,12 @@ test('다이어리는 먼저 만든 순서대로 정렬하고 ID 형식이 다�
   assert.deepEqual(sorted.map((d) => d.id), ['legacy-a', 'legacy-b', 'diary-100', 'diary-200', 'diary-300']);
 });
 
-test('표지 무늬·가로 페이지·첫 페이지 서식과 2026 날짜만 저장한다', () => {
+test('표지 무늬·가로/세로 방향·첫 페이지 서식과 2026 날짜를 보존한다', () => {
   const [valid, invalid] = normalizeDiaries([
     { id: 'a', title: '봄', pattern: 'gingham', pageSize: 'landscape', firstPage: 'monthly', firstPageDate: '2026-10-21', trashedAt: '2026-10-22T00:00:00.000Z' },
     { id: 'b', title: '여름', pattern: 'plaid', pageSize: 'portrait', firstPage: 'calendar', firstPageDate: '2027-01-01' },
   ]);
   assert.deepEqual([valid.pattern, valid.pageSize, valid.firstPage, valid.firstPageDate], ['gingham', 'landscape', 'monthly', '2026-10-21']);
   assert.equal(valid.trashedAt, '2026-10-22T00:00:00.000Z');
-  assert.deepEqual([invalid.pattern, invalid.pageSize, invalid.firstPage, invalid.firstPageDate], [null, 'landscape', 'blank', null]);
+  assert.deepEqual([invalid.pattern, invalid.pageSize, invalid.firstPage, invalid.firstPageDate], [null, 'portrait', 'blank', null]);
 });

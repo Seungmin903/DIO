@@ -135,7 +135,7 @@ function DiaryApp() {
 
     let config;
     if (!original) {
-      try { config = normalizeTemplateConfig(form.templateConfig); }
+      try { config = normalizeTemplateConfig(form.templateConfig, form.pageSize); }
       catch (failure) { return failure.message; }
     }
     const updatedAt = new Date().toISOString();
@@ -148,7 +148,7 @@ function DiaryApp() {
         title,
         color: form.color,
         pattern: form.pattern,
-        pageSize: 'landscape',
+        pageSize: config.orientation,
         type: '개인',
         favorite: false,
         updatedAt,

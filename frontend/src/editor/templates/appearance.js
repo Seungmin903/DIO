@@ -14,7 +14,8 @@ function layoutPaint(value, appearance) {
   return '#' + source.map((channel, index) => Math.round(Math.max(0, Math.min(255, paper[index] + (ink[index] - paper[index]) * (255 - channel) / 214))).toString(16).padStart(2, '0')).join('')
 }
 function isPaper(tag, props) {
-  return tag === 'rect' && String(props.width) === '1024' && String(props.height) === '768' && Number(props.x ?? 0) === 0 && Number(props.y ?? 0) === 0
+  const width = Number(props.width), height = Number(props.height)
+  return tag === 'rect' && (width === 1024 && height === 768 || width === 768 && height === 1024) && Number(props.x ?? 0) === 0 && Number(props.y ?? 0) === 0
 }
 /** 원본 캐시를 변경하지 않고 표시용 AST를 복제한다. */
 export function colorTemplateAst(ast, value) {

@@ -1,10 +1,14 @@
-// 2026 속지 납품 카탈로그에서 가로형만 추출. ID와 버전은 원본을 유지한다.
+// 원본 카탈로그의 가로·세로형 ID와 버전을 유지한다.
 export const catalog = {
   "schemaVersion": 1,
   "templateVersion": "1.0.0",
   "year": 2026,
   "defaultWeeklyStyle": "blocks",
   "coordinateSystems": {
+    "portrait": {
+      "width": 768,
+      "height": 1024
+    },
     "landscape": {
       "width": 1024,
       "height": 768
@@ -12,13 +16,1740 @@ export const catalog = {
   },
   "assets": [
     {
+      "id": "2026-cover-portrait",
+      "name": "2026 표지",
+      "templateVersion": "1.0.0",
+      "type": "cover",
+      "orientation": "portrait",
+      "year": 2026,
+      "svg": "SVG/2026-cover-portrait.svg",
+      "png": "PNG/2026-cover-portrait.png"
+    },
+    {
+      "id": "2026-divider-01-portrait",
+      "name": "1월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 1,
+      "svg": "SVG/2026-divider-01-portrait.svg",
+      "png": "PNG/2026-divider-01-portrait.png"
+    },
+    {
+      "id": "2026-monthly-01-portrait",
+      "name": "1월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 1,
+      "svg": "SVG/2026-monthly-01-portrait.svg",
+      "png": "PNG/2026-monthly-01-portrait.png"
+    },
+    {
+      "id": "2026-divider-02-portrait",
+      "name": "2월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 2,
+      "svg": "SVG/2026-divider-02-portrait.svg",
+      "png": "PNG/2026-divider-02-portrait.png"
+    },
+    {
+      "id": "2026-monthly-02-portrait",
+      "name": "2월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 2,
+      "svg": "SVG/2026-monthly-02-portrait.svg",
+      "png": "PNG/2026-monthly-02-portrait.png"
+    },
+    {
+      "id": "2026-divider-03-portrait",
+      "name": "3월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 3,
+      "svg": "SVG/2026-divider-03-portrait.svg",
+      "png": "PNG/2026-divider-03-portrait.png"
+    },
+    {
+      "id": "2026-monthly-03-portrait",
+      "name": "3월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 3,
+      "svg": "SVG/2026-monthly-03-portrait.svg",
+      "png": "PNG/2026-monthly-03-portrait.png"
+    },
+    {
+      "id": "2026-divider-04-portrait",
+      "name": "4월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 4,
+      "svg": "SVG/2026-divider-04-portrait.svg",
+      "png": "PNG/2026-divider-04-portrait.png"
+    },
+    {
+      "id": "2026-monthly-04-portrait",
+      "name": "4월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 4,
+      "svg": "SVG/2026-monthly-04-portrait.svg",
+      "png": "PNG/2026-monthly-04-portrait.png"
+    },
+    {
+      "id": "2026-divider-05-portrait",
+      "name": "5월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 5,
+      "svg": "SVG/2026-divider-05-portrait.svg",
+      "png": "PNG/2026-divider-05-portrait.png"
+    },
+    {
+      "id": "2026-monthly-05-portrait",
+      "name": "5월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 5,
+      "svg": "SVG/2026-monthly-05-portrait.svg",
+      "png": "PNG/2026-monthly-05-portrait.png"
+    },
+    {
+      "id": "2026-divider-06-portrait",
+      "name": "6월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 6,
+      "svg": "SVG/2026-divider-06-portrait.svg",
+      "png": "PNG/2026-divider-06-portrait.png"
+    },
+    {
+      "id": "2026-monthly-06-portrait",
+      "name": "6월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 6,
+      "svg": "SVG/2026-monthly-06-portrait.svg",
+      "png": "PNG/2026-monthly-06-portrait.png"
+    },
+    {
+      "id": "2026-divider-07-portrait",
+      "name": "7월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 7,
+      "svg": "SVG/2026-divider-07-portrait.svg",
+      "png": "PNG/2026-divider-07-portrait.png"
+    },
+    {
+      "id": "2026-monthly-07-portrait",
+      "name": "7월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 7,
+      "svg": "SVG/2026-monthly-07-portrait.svg",
+      "png": "PNG/2026-monthly-07-portrait.png"
+    },
+    {
+      "id": "2026-divider-08-portrait",
+      "name": "8월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 8,
+      "svg": "SVG/2026-divider-08-portrait.svg",
+      "png": "PNG/2026-divider-08-portrait.png"
+    },
+    {
+      "id": "2026-monthly-08-portrait",
+      "name": "8월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 8,
+      "svg": "SVG/2026-monthly-08-portrait.svg",
+      "png": "PNG/2026-monthly-08-portrait.png"
+    },
+    {
+      "id": "2026-divider-09-portrait",
+      "name": "9월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 9,
+      "svg": "SVG/2026-divider-09-portrait.svg",
+      "png": "PNG/2026-divider-09-portrait.png"
+    },
+    {
+      "id": "2026-monthly-09-portrait",
+      "name": "9월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 9,
+      "svg": "SVG/2026-monthly-09-portrait.svg",
+      "png": "PNG/2026-monthly-09-portrait.png"
+    },
+    {
+      "id": "2026-divider-10-portrait",
+      "name": "10월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 10,
+      "svg": "SVG/2026-divider-10-portrait.svg",
+      "png": "PNG/2026-divider-10-portrait.png"
+    },
+    {
+      "id": "2026-monthly-10-portrait",
+      "name": "10월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 10,
+      "svg": "SVG/2026-monthly-10-portrait.svg",
+      "png": "PNG/2026-monthly-10-portrait.png"
+    },
+    {
+      "id": "2026-divider-11-portrait",
+      "name": "11월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 11,
+      "svg": "SVG/2026-divider-11-portrait.svg",
+      "png": "PNG/2026-divider-11-portrait.png"
+    },
+    {
+      "id": "2026-monthly-11-portrait",
+      "name": "11월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 11,
+      "svg": "SVG/2026-monthly-11-portrait.svg",
+      "png": "PNG/2026-monthly-11-portrait.png"
+    },
+    {
+      "id": "2026-divider-12-portrait",
+      "name": "12월 구분지",
+      "templateVersion": "1.0.0",
+      "type": "divider",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 12,
+      "svg": "SVG/2026-divider-12-portrait.svg",
+      "png": "PNG/2026-divider-12-portrait.png"
+    },
+    {
+      "id": "2026-monthly-12-portrait",
+      "name": "12월",
+      "templateVersion": "1.0.0",
+      "type": "monthly",
+      "orientation": "portrait",
+      "year": 2026,
+      "month": 12,
+      "svg": "SVG/2026-monthly-12-portrait.svg",
+      "png": "PNG/2026-monthly-12-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2025-12-29-portrait",
+      "name": "12월 5주차 & 1월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2025-12-29",
+      "ownerMonth": 1,
+      "svg": "SVG/2026-weekly-blocks-2025-12-29-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2025-12-29-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-01-05-portrait",
+      "name": "1월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-01-05",
+      "ownerMonth": 1,
+      "svg": "SVG/2026-weekly-blocks-2026-01-05-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-01-05-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-01-12-portrait",
+      "name": "1월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-01-12",
+      "ownerMonth": 1,
+      "svg": "SVG/2026-weekly-blocks-2026-01-12-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-01-12-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-01-19-portrait",
+      "name": "1월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-01-19",
+      "ownerMonth": 1,
+      "svg": "SVG/2026-weekly-blocks-2026-01-19-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-01-19-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-01-26-portrait",
+      "name": "1월 5주차 & 2월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-01-26",
+      "ownerMonth": 1,
+      "svg": "SVG/2026-weekly-blocks-2026-01-26-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-01-26-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-02-02-portrait",
+      "name": "2월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-02-02",
+      "ownerMonth": 2,
+      "svg": "SVG/2026-weekly-blocks-2026-02-02-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-02-02-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-02-09-portrait",
+      "name": "2월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-02-09",
+      "ownerMonth": 2,
+      "svg": "SVG/2026-weekly-blocks-2026-02-09-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-02-09-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-02-16-portrait",
+      "name": "2월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-02-16",
+      "ownerMonth": 2,
+      "svg": "SVG/2026-weekly-blocks-2026-02-16-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-02-16-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-02-23-portrait",
+      "name": "2월 5주차 & 3월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-02-23",
+      "ownerMonth": 2,
+      "svg": "SVG/2026-weekly-blocks-2026-02-23-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-02-23-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-03-02-portrait",
+      "name": "3월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-03-02",
+      "ownerMonth": 3,
+      "svg": "SVG/2026-weekly-blocks-2026-03-02-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-03-02-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-03-09-portrait",
+      "name": "3월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-03-09",
+      "ownerMonth": 3,
+      "svg": "SVG/2026-weekly-blocks-2026-03-09-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-03-09-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-03-16-portrait",
+      "name": "3월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-03-16",
+      "ownerMonth": 3,
+      "svg": "SVG/2026-weekly-blocks-2026-03-16-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-03-16-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-03-23-portrait",
+      "name": "3월 5주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-03-23",
+      "ownerMonth": 3,
+      "svg": "SVG/2026-weekly-blocks-2026-03-23-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-03-23-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-03-30-portrait",
+      "name": "3월 6주차 & 4월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-03-30",
+      "ownerMonth": 3,
+      "svg": "SVG/2026-weekly-blocks-2026-03-30-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-03-30-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-04-06-portrait",
+      "name": "4월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-04-06",
+      "ownerMonth": 4,
+      "svg": "SVG/2026-weekly-blocks-2026-04-06-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-04-06-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-04-13-portrait",
+      "name": "4월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-04-13",
+      "ownerMonth": 4,
+      "svg": "SVG/2026-weekly-blocks-2026-04-13-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-04-13-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-04-20-portrait",
+      "name": "4월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-04-20",
+      "ownerMonth": 4,
+      "svg": "SVG/2026-weekly-blocks-2026-04-20-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-04-20-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-04-27-portrait",
+      "name": "4월 5주차 & 5월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-04-27",
+      "ownerMonth": 4,
+      "svg": "SVG/2026-weekly-blocks-2026-04-27-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-04-27-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-05-04-portrait",
+      "name": "5월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-05-04",
+      "ownerMonth": 5,
+      "svg": "SVG/2026-weekly-blocks-2026-05-04-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-05-04-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-05-11-portrait",
+      "name": "5월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-05-11",
+      "ownerMonth": 5,
+      "svg": "SVG/2026-weekly-blocks-2026-05-11-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-05-11-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-05-18-portrait",
+      "name": "5월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-05-18",
+      "ownerMonth": 5,
+      "svg": "SVG/2026-weekly-blocks-2026-05-18-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-05-18-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-05-25-portrait",
+      "name": "5월 5주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-05-25",
+      "ownerMonth": 5,
+      "svg": "SVG/2026-weekly-blocks-2026-05-25-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-05-25-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-06-01-portrait",
+      "name": "6월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-06-01",
+      "ownerMonth": 6,
+      "svg": "SVG/2026-weekly-blocks-2026-06-01-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-06-01-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-06-08-portrait",
+      "name": "6월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-06-08",
+      "ownerMonth": 6,
+      "svg": "SVG/2026-weekly-blocks-2026-06-08-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-06-08-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-06-15-portrait",
+      "name": "6월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-06-15",
+      "ownerMonth": 6,
+      "svg": "SVG/2026-weekly-blocks-2026-06-15-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-06-15-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-06-22-portrait",
+      "name": "6월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-06-22",
+      "ownerMonth": 6,
+      "svg": "SVG/2026-weekly-blocks-2026-06-22-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-06-22-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-06-29-portrait",
+      "name": "6월 5주차 & 7월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-06-29",
+      "ownerMonth": 6,
+      "svg": "SVG/2026-weekly-blocks-2026-06-29-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-06-29-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-07-06-portrait",
+      "name": "7월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-07-06",
+      "ownerMonth": 7,
+      "svg": "SVG/2026-weekly-blocks-2026-07-06-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-07-06-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-07-13-portrait",
+      "name": "7월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-07-13",
+      "ownerMonth": 7,
+      "svg": "SVG/2026-weekly-blocks-2026-07-13-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-07-13-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-07-20-portrait",
+      "name": "7월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-07-20",
+      "ownerMonth": 7,
+      "svg": "SVG/2026-weekly-blocks-2026-07-20-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-07-20-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-07-27-portrait",
+      "name": "7월 5주차 & 8월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-07-27",
+      "ownerMonth": 7,
+      "svg": "SVG/2026-weekly-blocks-2026-07-27-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-07-27-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-08-03-portrait",
+      "name": "8월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-08-03",
+      "ownerMonth": 8,
+      "svg": "SVG/2026-weekly-blocks-2026-08-03-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-08-03-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-08-10-portrait",
+      "name": "8월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-08-10",
+      "ownerMonth": 8,
+      "svg": "SVG/2026-weekly-blocks-2026-08-10-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-08-10-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-08-17-portrait",
+      "name": "8월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-08-17",
+      "ownerMonth": 8,
+      "svg": "SVG/2026-weekly-blocks-2026-08-17-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-08-17-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-08-24-portrait",
+      "name": "8월 5주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-08-24",
+      "ownerMonth": 8,
+      "svg": "SVG/2026-weekly-blocks-2026-08-24-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-08-24-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-08-31-portrait",
+      "name": "8월 6주차 & 9월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-08-31",
+      "ownerMonth": 8,
+      "svg": "SVG/2026-weekly-blocks-2026-08-31-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-08-31-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-09-07-portrait",
+      "name": "9월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-09-07",
+      "ownerMonth": 9,
+      "svg": "SVG/2026-weekly-blocks-2026-09-07-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-09-07-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-09-14-portrait",
+      "name": "9월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-09-14",
+      "ownerMonth": 9,
+      "svg": "SVG/2026-weekly-blocks-2026-09-14-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-09-14-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-09-21-portrait",
+      "name": "9월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-09-21",
+      "ownerMonth": 9,
+      "svg": "SVG/2026-weekly-blocks-2026-09-21-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-09-21-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-09-28-portrait",
+      "name": "9월 5주차 & 10월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-09-28",
+      "ownerMonth": 9,
+      "svg": "SVG/2026-weekly-blocks-2026-09-28-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-09-28-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-10-05-portrait",
+      "name": "10월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-10-05",
+      "ownerMonth": 10,
+      "svg": "SVG/2026-weekly-blocks-2026-10-05-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-10-05-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-10-12-portrait",
+      "name": "10월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-10-12",
+      "ownerMonth": 10,
+      "svg": "SVG/2026-weekly-blocks-2026-10-12-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-10-12-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-10-19-portrait",
+      "name": "10월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-10-19",
+      "ownerMonth": 10,
+      "svg": "SVG/2026-weekly-blocks-2026-10-19-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-10-19-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-10-26-portrait",
+      "name": "10월 5주차 & 11월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-10-26",
+      "ownerMonth": 10,
+      "svg": "SVG/2026-weekly-blocks-2026-10-26-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-10-26-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-11-02-portrait",
+      "name": "11월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-11-02",
+      "ownerMonth": 11,
+      "svg": "SVG/2026-weekly-blocks-2026-11-02-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-11-02-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-11-09-portrait",
+      "name": "11월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-11-09",
+      "ownerMonth": 11,
+      "svg": "SVG/2026-weekly-blocks-2026-11-09-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-11-09-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-11-16-portrait",
+      "name": "11월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-11-16",
+      "ownerMonth": 11,
+      "svg": "SVG/2026-weekly-blocks-2026-11-16-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-11-16-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-11-23-portrait",
+      "name": "11월 5주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-11-23",
+      "ownerMonth": 11,
+      "svg": "SVG/2026-weekly-blocks-2026-11-23-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-11-23-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-11-30-portrait",
+      "name": "11월 6주차 & 12월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-11-30",
+      "ownerMonth": 11,
+      "svg": "SVG/2026-weekly-blocks-2026-11-30-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-11-30-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-12-07-portrait",
+      "name": "12월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-12-07",
+      "ownerMonth": 12,
+      "svg": "SVG/2026-weekly-blocks-2026-12-07-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-12-07-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-12-14-portrait",
+      "name": "12월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-12-14",
+      "ownerMonth": 12,
+      "svg": "SVG/2026-weekly-blocks-2026-12-14-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-12-14-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-12-21-portrait",
+      "name": "12월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-12-21",
+      "ownerMonth": 12,
+      "svg": "SVG/2026-weekly-blocks-2026-12-21-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-12-21-portrait.png"
+    },
+    {
+      "id": "2026-weekly-blocks-2026-12-28-portrait",
+      "name": "12월 5주차 & 1월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "blocks",
+      "weekStart": "2026-12-28",
+      "ownerMonth": 12,
+      "svg": "SVG/2026-weekly-blocks-2026-12-28-portrait.svg",
+      "png": "PNG/2026-weekly-blocks-2026-12-28-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2025-12-29-portrait",
+      "name": "12월 5주차 & 1월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2025-12-29",
+      "ownerMonth": 1,
+      "svg": "SVG/2026-weekly-journal-2025-12-29-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2025-12-29-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-01-05-portrait",
+      "name": "1월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-01-05",
+      "ownerMonth": 1,
+      "svg": "SVG/2026-weekly-journal-2026-01-05-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-01-05-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-01-12-portrait",
+      "name": "1월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-01-12",
+      "ownerMonth": 1,
+      "svg": "SVG/2026-weekly-journal-2026-01-12-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-01-12-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-01-19-portrait",
+      "name": "1월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-01-19",
+      "ownerMonth": 1,
+      "svg": "SVG/2026-weekly-journal-2026-01-19-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-01-19-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-01-26-portrait",
+      "name": "1월 5주차 & 2월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-01-26",
+      "ownerMonth": 1,
+      "svg": "SVG/2026-weekly-journal-2026-01-26-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-01-26-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-02-02-portrait",
+      "name": "2월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-02-02",
+      "ownerMonth": 2,
+      "svg": "SVG/2026-weekly-journal-2026-02-02-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-02-02-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-02-09-portrait",
+      "name": "2월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-02-09",
+      "ownerMonth": 2,
+      "svg": "SVG/2026-weekly-journal-2026-02-09-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-02-09-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-02-16-portrait",
+      "name": "2월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-02-16",
+      "ownerMonth": 2,
+      "svg": "SVG/2026-weekly-journal-2026-02-16-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-02-16-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-02-23-portrait",
+      "name": "2월 5주차 & 3월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-02-23",
+      "ownerMonth": 2,
+      "svg": "SVG/2026-weekly-journal-2026-02-23-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-02-23-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-03-02-portrait",
+      "name": "3월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-03-02",
+      "ownerMonth": 3,
+      "svg": "SVG/2026-weekly-journal-2026-03-02-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-03-02-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-03-09-portrait",
+      "name": "3월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-03-09",
+      "ownerMonth": 3,
+      "svg": "SVG/2026-weekly-journal-2026-03-09-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-03-09-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-03-16-portrait",
+      "name": "3월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-03-16",
+      "ownerMonth": 3,
+      "svg": "SVG/2026-weekly-journal-2026-03-16-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-03-16-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-03-23-portrait",
+      "name": "3월 5주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-03-23",
+      "ownerMonth": 3,
+      "svg": "SVG/2026-weekly-journal-2026-03-23-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-03-23-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-03-30-portrait",
+      "name": "3월 6주차 & 4월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-03-30",
+      "ownerMonth": 3,
+      "svg": "SVG/2026-weekly-journal-2026-03-30-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-03-30-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-04-06-portrait",
+      "name": "4월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-04-06",
+      "ownerMonth": 4,
+      "svg": "SVG/2026-weekly-journal-2026-04-06-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-04-06-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-04-13-portrait",
+      "name": "4월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-04-13",
+      "ownerMonth": 4,
+      "svg": "SVG/2026-weekly-journal-2026-04-13-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-04-13-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-04-20-portrait",
+      "name": "4월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-04-20",
+      "ownerMonth": 4,
+      "svg": "SVG/2026-weekly-journal-2026-04-20-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-04-20-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-04-27-portrait",
+      "name": "4월 5주차 & 5월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-04-27",
+      "ownerMonth": 4,
+      "svg": "SVG/2026-weekly-journal-2026-04-27-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-04-27-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-05-04-portrait",
+      "name": "5월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-05-04",
+      "ownerMonth": 5,
+      "svg": "SVG/2026-weekly-journal-2026-05-04-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-05-04-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-05-11-portrait",
+      "name": "5월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-05-11",
+      "ownerMonth": 5,
+      "svg": "SVG/2026-weekly-journal-2026-05-11-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-05-11-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-05-18-portrait",
+      "name": "5월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-05-18",
+      "ownerMonth": 5,
+      "svg": "SVG/2026-weekly-journal-2026-05-18-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-05-18-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-05-25-portrait",
+      "name": "5월 5주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-05-25",
+      "ownerMonth": 5,
+      "svg": "SVG/2026-weekly-journal-2026-05-25-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-05-25-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-06-01-portrait",
+      "name": "6월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-06-01",
+      "ownerMonth": 6,
+      "svg": "SVG/2026-weekly-journal-2026-06-01-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-06-01-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-06-08-portrait",
+      "name": "6월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-06-08",
+      "ownerMonth": 6,
+      "svg": "SVG/2026-weekly-journal-2026-06-08-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-06-08-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-06-15-portrait",
+      "name": "6월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-06-15",
+      "ownerMonth": 6,
+      "svg": "SVG/2026-weekly-journal-2026-06-15-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-06-15-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-06-22-portrait",
+      "name": "6월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-06-22",
+      "ownerMonth": 6,
+      "svg": "SVG/2026-weekly-journal-2026-06-22-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-06-22-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-06-29-portrait",
+      "name": "6월 5주차 & 7월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-06-29",
+      "ownerMonth": 6,
+      "svg": "SVG/2026-weekly-journal-2026-06-29-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-06-29-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-07-06-portrait",
+      "name": "7월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-07-06",
+      "ownerMonth": 7,
+      "svg": "SVG/2026-weekly-journal-2026-07-06-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-07-06-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-07-13-portrait",
+      "name": "7월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-07-13",
+      "ownerMonth": 7,
+      "svg": "SVG/2026-weekly-journal-2026-07-13-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-07-13-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-07-20-portrait",
+      "name": "7월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-07-20",
+      "ownerMonth": 7,
+      "svg": "SVG/2026-weekly-journal-2026-07-20-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-07-20-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-07-27-portrait",
+      "name": "7월 5주차 & 8월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-07-27",
+      "ownerMonth": 7,
+      "svg": "SVG/2026-weekly-journal-2026-07-27-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-07-27-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-08-03-portrait",
+      "name": "8월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-08-03",
+      "ownerMonth": 8,
+      "svg": "SVG/2026-weekly-journal-2026-08-03-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-08-03-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-08-10-portrait",
+      "name": "8월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-08-10",
+      "ownerMonth": 8,
+      "svg": "SVG/2026-weekly-journal-2026-08-10-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-08-10-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-08-17-portrait",
+      "name": "8월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-08-17",
+      "ownerMonth": 8,
+      "svg": "SVG/2026-weekly-journal-2026-08-17-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-08-17-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-08-24-portrait",
+      "name": "8월 5주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-08-24",
+      "ownerMonth": 8,
+      "svg": "SVG/2026-weekly-journal-2026-08-24-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-08-24-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-08-31-portrait",
+      "name": "8월 6주차 & 9월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-08-31",
+      "ownerMonth": 8,
+      "svg": "SVG/2026-weekly-journal-2026-08-31-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-08-31-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-09-07-portrait",
+      "name": "9월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-09-07",
+      "ownerMonth": 9,
+      "svg": "SVG/2026-weekly-journal-2026-09-07-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-09-07-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-09-14-portrait",
+      "name": "9월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-09-14",
+      "ownerMonth": 9,
+      "svg": "SVG/2026-weekly-journal-2026-09-14-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-09-14-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-09-21-portrait",
+      "name": "9월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-09-21",
+      "ownerMonth": 9,
+      "svg": "SVG/2026-weekly-journal-2026-09-21-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-09-21-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-09-28-portrait",
+      "name": "9월 5주차 & 10월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-09-28",
+      "ownerMonth": 9,
+      "svg": "SVG/2026-weekly-journal-2026-09-28-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-09-28-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-10-05-portrait",
+      "name": "10월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-10-05",
+      "ownerMonth": 10,
+      "svg": "SVG/2026-weekly-journal-2026-10-05-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-10-05-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-10-12-portrait",
+      "name": "10월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-10-12",
+      "ownerMonth": 10,
+      "svg": "SVG/2026-weekly-journal-2026-10-12-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-10-12-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-10-19-portrait",
+      "name": "10월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-10-19",
+      "ownerMonth": 10,
+      "svg": "SVG/2026-weekly-journal-2026-10-19-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-10-19-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-10-26-portrait",
+      "name": "10월 5주차 & 11월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-10-26",
+      "ownerMonth": 10,
+      "svg": "SVG/2026-weekly-journal-2026-10-26-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-10-26-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-11-02-portrait",
+      "name": "11월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-11-02",
+      "ownerMonth": 11,
+      "svg": "SVG/2026-weekly-journal-2026-11-02-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-11-02-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-11-09-portrait",
+      "name": "11월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-11-09",
+      "ownerMonth": 11,
+      "svg": "SVG/2026-weekly-journal-2026-11-09-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-11-09-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-11-16-portrait",
+      "name": "11월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-11-16",
+      "ownerMonth": 11,
+      "svg": "SVG/2026-weekly-journal-2026-11-16-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-11-16-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-11-23-portrait",
+      "name": "11월 5주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-11-23",
+      "ownerMonth": 11,
+      "svg": "SVG/2026-weekly-journal-2026-11-23-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-11-23-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-11-30-portrait",
+      "name": "11월 6주차 & 12월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-11-30",
+      "ownerMonth": 11,
+      "svg": "SVG/2026-weekly-journal-2026-11-30-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-11-30-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-12-07-portrait",
+      "name": "12월 2주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-12-07",
+      "ownerMonth": 12,
+      "svg": "SVG/2026-weekly-journal-2026-12-07-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-12-07-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-12-14-portrait",
+      "name": "12월 3주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-12-14",
+      "ownerMonth": 12,
+      "svg": "SVG/2026-weekly-journal-2026-12-14-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-12-14-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-12-21-portrait",
+      "name": "12월 4주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-12-21",
+      "ownerMonth": 12,
+      "svg": "SVG/2026-weekly-journal-2026-12-21-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-12-21-portrait.png"
+    },
+    {
+      "id": "2026-weekly-journal-2026-12-28-portrait",
+      "name": "12월 5주차 & 1월 1주차",
+      "templateVersion": "1.0.0",
+      "type": "weekly",
+      "orientation": "portrait",
+      "year": 2026,
+      "weeklyStyle": "journal",
+      "weekStart": "2026-12-28",
+      "ownerMonth": 12,
+      "svg": "SVG/2026-weekly-journal-2026-12-28-portrait.svg",
+      "png": "PNG/2026-weekly-journal-2026-12-28-portrait.png"
+    },
+    {
+      "id": "2026-reusable-daily-portrait",
+      "name": "데일리 플래너",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "portrait",
+      "type": "daily",
+      "svg": "SVG/2026-reusable-daily-portrait.svg",
+      "png": "PNG/2026-reusable-daily-portrait.png"
+    },
+    {
+      "id": "2026-reusable-diary-portrait",
+      "name": "일기",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "portrait",
+      "type": "diary",
+      "svg": "SVG/2026-reusable-diary-portrait.svg",
+      "png": "PNG/2026-reusable-diary-portrait.png"
+    },
+    {
+      "id": "2026-reusable-scrap-portrait",
+      "name": "포토·스크랩",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "portrait",
+      "type": "scrap",
+      "svg": "SVG/2026-reusable-scrap-portrait.svg",
+      "png": "PNG/2026-reusable-scrap-portrait.png"
+    },
+    {
+      "id": "2026-reusable-note-plain-portrait",
+      "name": "자유 노트 · 무지",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "portrait",
+      "type": "note",
+      "background": "plain",
+      "svg": "SVG/2026-reusable-note-plain-portrait.svg",
+      "png": "PNG/2026-reusable-note-plain-portrait.png"
+    },
+    {
+      "id": "2026-reusable-note-ruled-portrait",
+      "name": "자유 노트 · 줄",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "portrait",
+      "type": "note",
+      "background": "ruled",
+      "svg": "SVG/2026-reusable-note-ruled-portrait.svg",
+      "png": "PNG/2026-reusable-note-ruled-portrait.png"
+    },
+    {
+      "id": "2026-reusable-note-grid-portrait",
+      "name": "자유 노트 · 모눈",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "portrait",
+      "type": "note",
+      "background": "grid",
+      "svg": "SVG/2026-reusable-note-grid-portrait.svg",
+      "png": "PNG/2026-reusable-note-grid-portrait.png"
+    },
+    {
+      "id": "2026-reusable-note-dots-portrait",
+      "name": "자유 노트 · 도트",
+      "templateVersion": "1.0.0",
+      "year": 2026,
+      "orientation": "portrait",
+      "type": "note",
+      "background": "dots",
+      "svg": "SVG/2026-reusable-note-dots-portrait.svg",
+      "png": "PNG/2026-reusable-note-dots-portrait.png"
+    },
+    {
       "id": "2026-cover-landscape",
       "name": "2026 표지",
       "templateVersion": "1.0.0",
       "type": "cover",
       "orientation": "landscape",
       "year": 2026,
-      "svg": "SVG/2026-cover-landscape.svg"
+      "svg": "SVG/2026-cover-landscape.svg",
+      "png": "PNG/2026-cover-landscape.png"
     },
     {
       "id": "2026-divider-01-landscape",
@@ -28,7 +1759,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 1,
-      "svg": "SVG/2026-divider-01-landscape.svg"
+      "svg": "SVG/2026-divider-01-landscape.svg",
+      "png": "PNG/2026-divider-01-landscape.png"
     },
     {
       "id": "2026-monthly-01-landscape",
@@ -38,7 +1770,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 1,
-      "svg": "SVG/2026-monthly-01-landscape.svg"
+      "svg": "SVG/2026-monthly-01-landscape.svg",
+      "png": "PNG/2026-monthly-01-landscape.png"
     },
     {
       "id": "2026-divider-02-landscape",
@@ -48,7 +1781,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 2,
-      "svg": "SVG/2026-divider-02-landscape.svg"
+      "svg": "SVG/2026-divider-02-landscape.svg",
+      "png": "PNG/2026-divider-02-landscape.png"
     },
     {
       "id": "2026-monthly-02-landscape",
@@ -58,7 +1792,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 2,
-      "svg": "SVG/2026-monthly-02-landscape.svg"
+      "svg": "SVG/2026-monthly-02-landscape.svg",
+      "png": "PNG/2026-monthly-02-landscape.png"
     },
     {
       "id": "2026-divider-03-landscape",
@@ -68,7 +1803,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 3,
-      "svg": "SVG/2026-divider-03-landscape.svg"
+      "svg": "SVG/2026-divider-03-landscape.svg",
+      "png": "PNG/2026-divider-03-landscape.png"
     },
     {
       "id": "2026-monthly-03-landscape",
@@ -78,7 +1814,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 3,
-      "svg": "SVG/2026-monthly-03-landscape.svg"
+      "svg": "SVG/2026-monthly-03-landscape.svg",
+      "png": "PNG/2026-monthly-03-landscape.png"
     },
     {
       "id": "2026-divider-04-landscape",
@@ -88,7 +1825,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 4,
-      "svg": "SVG/2026-divider-04-landscape.svg"
+      "svg": "SVG/2026-divider-04-landscape.svg",
+      "png": "PNG/2026-divider-04-landscape.png"
     },
     {
       "id": "2026-monthly-04-landscape",
@@ -98,7 +1836,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 4,
-      "svg": "SVG/2026-monthly-04-landscape.svg"
+      "svg": "SVG/2026-monthly-04-landscape.svg",
+      "png": "PNG/2026-monthly-04-landscape.png"
     },
     {
       "id": "2026-divider-05-landscape",
@@ -108,7 +1847,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 5,
-      "svg": "SVG/2026-divider-05-landscape.svg"
+      "svg": "SVG/2026-divider-05-landscape.svg",
+      "png": "PNG/2026-divider-05-landscape.png"
     },
     {
       "id": "2026-monthly-05-landscape",
@@ -118,7 +1858,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 5,
-      "svg": "SVG/2026-monthly-05-landscape.svg"
+      "svg": "SVG/2026-monthly-05-landscape.svg",
+      "png": "PNG/2026-monthly-05-landscape.png"
     },
     {
       "id": "2026-divider-06-landscape",
@@ -128,7 +1869,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 6,
-      "svg": "SVG/2026-divider-06-landscape.svg"
+      "svg": "SVG/2026-divider-06-landscape.svg",
+      "png": "PNG/2026-divider-06-landscape.png"
     },
     {
       "id": "2026-monthly-06-landscape",
@@ -138,7 +1880,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 6,
-      "svg": "SVG/2026-monthly-06-landscape.svg"
+      "svg": "SVG/2026-monthly-06-landscape.svg",
+      "png": "PNG/2026-monthly-06-landscape.png"
     },
     {
       "id": "2026-divider-07-landscape",
@@ -148,7 +1891,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 7,
-      "svg": "SVG/2026-divider-07-landscape.svg"
+      "svg": "SVG/2026-divider-07-landscape.svg",
+      "png": "PNG/2026-divider-07-landscape.png"
     },
     {
       "id": "2026-monthly-07-landscape",
@@ -158,7 +1902,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 7,
-      "svg": "SVG/2026-monthly-07-landscape.svg"
+      "svg": "SVG/2026-monthly-07-landscape.svg",
+      "png": "PNG/2026-monthly-07-landscape.png"
     },
     {
       "id": "2026-divider-08-landscape",
@@ -168,7 +1913,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 8,
-      "svg": "SVG/2026-divider-08-landscape.svg"
+      "svg": "SVG/2026-divider-08-landscape.svg",
+      "png": "PNG/2026-divider-08-landscape.png"
     },
     {
       "id": "2026-monthly-08-landscape",
@@ -178,7 +1924,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 8,
-      "svg": "SVG/2026-monthly-08-landscape.svg"
+      "svg": "SVG/2026-monthly-08-landscape.svg",
+      "png": "PNG/2026-monthly-08-landscape.png"
     },
     {
       "id": "2026-divider-09-landscape",
@@ -188,7 +1935,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 9,
-      "svg": "SVG/2026-divider-09-landscape.svg"
+      "svg": "SVG/2026-divider-09-landscape.svg",
+      "png": "PNG/2026-divider-09-landscape.png"
     },
     {
       "id": "2026-monthly-09-landscape",
@@ -198,7 +1946,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 9,
-      "svg": "SVG/2026-monthly-09-landscape.svg"
+      "svg": "SVG/2026-monthly-09-landscape.svg",
+      "png": "PNG/2026-monthly-09-landscape.png"
     },
     {
       "id": "2026-divider-10-landscape",
@@ -208,7 +1957,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 10,
-      "svg": "SVG/2026-divider-10-landscape.svg"
+      "svg": "SVG/2026-divider-10-landscape.svg",
+      "png": "PNG/2026-divider-10-landscape.png"
     },
     {
       "id": "2026-monthly-10-landscape",
@@ -218,7 +1968,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 10,
-      "svg": "SVG/2026-monthly-10-landscape.svg"
+      "svg": "SVG/2026-monthly-10-landscape.svg",
+      "png": "PNG/2026-monthly-10-landscape.png"
     },
     {
       "id": "2026-divider-11-landscape",
@@ -228,7 +1979,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 11,
-      "svg": "SVG/2026-divider-11-landscape.svg"
+      "svg": "SVG/2026-divider-11-landscape.svg",
+      "png": "PNG/2026-divider-11-landscape.png"
     },
     {
       "id": "2026-monthly-11-landscape",
@@ -238,7 +1990,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 11,
-      "svg": "SVG/2026-monthly-11-landscape.svg"
+      "svg": "SVG/2026-monthly-11-landscape.svg",
+      "png": "PNG/2026-monthly-11-landscape.png"
     },
     {
       "id": "2026-divider-12-landscape",
@@ -248,7 +2001,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 12,
-      "svg": "SVG/2026-divider-12-landscape.svg"
+      "svg": "SVG/2026-divider-12-landscape.svg",
+      "png": "PNG/2026-divider-12-landscape.png"
     },
     {
       "id": "2026-monthly-12-landscape",
@@ -258,7 +2012,8 @@ export const catalog = {
       "orientation": "landscape",
       "year": 2026,
       "month": 12,
-      "svg": "SVG/2026-monthly-12-landscape.svg"
+      "svg": "SVG/2026-monthly-12-landscape.svg",
+      "png": "PNG/2026-monthly-12-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2025-12-29-landscape",
@@ -270,7 +2025,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2025-12-29",
       "ownerMonth": 1,
-      "svg": "SVG/2026-weekly-blocks-2025-12-29-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2025-12-29-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2025-12-29-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-01-05-landscape",
@@ -282,7 +2038,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-01-05",
       "ownerMonth": 1,
-      "svg": "SVG/2026-weekly-blocks-2026-01-05-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-01-05-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-01-05-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-01-12-landscape",
@@ -294,7 +2051,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-01-12",
       "ownerMonth": 1,
-      "svg": "SVG/2026-weekly-blocks-2026-01-12-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-01-12-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-01-12-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-01-19-landscape",
@@ -306,7 +2064,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-01-19",
       "ownerMonth": 1,
-      "svg": "SVG/2026-weekly-blocks-2026-01-19-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-01-19-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-01-19-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-01-26-landscape",
@@ -318,7 +2077,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-01-26",
       "ownerMonth": 1,
-      "svg": "SVG/2026-weekly-blocks-2026-01-26-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-01-26-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-01-26-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-02-02-landscape",
@@ -330,7 +2090,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-02-02",
       "ownerMonth": 2,
-      "svg": "SVG/2026-weekly-blocks-2026-02-02-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-02-02-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-02-02-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-02-09-landscape",
@@ -342,7 +2103,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-02-09",
       "ownerMonth": 2,
-      "svg": "SVG/2026-weekly-blocks-2026-02-09-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-02-09-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-02-09-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-02-16-landscape",
@@ -354,7 +2116,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-02-16",
       "ownerMonth": 2,
-      "svg": "SVG/2026-weekly-blocks-2026-02-16-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-02-16-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-02-16-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-02-23-landscape",
@@ -366,7 +2129,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-02-23",
       "ownerMonth": 2,
-      "svg": "SVG/2026-weekly-blocks-2026-02-23-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-02-23-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-02-23-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-03-02-landscape",
@@ -378,7 +2142,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-03-02",
       "ownerMonth": 3,
-      "svg": "SVG/2026-weekly-blocks-2026-03-02-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-03-02-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-03-02-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-03-09-landscape",
@@ -390,7 +2155,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-03-09",
       "ownerMonth": 3,
-      "svg": "SVG/2026-weekly-blocks-2026-03-09-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-03-09-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-03-09-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-03-16-landscape",
@@ -402,7 +2168,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-03-16",
       "ownerMonth": 3,
-      "svg": "SVG/2026-weekly-blocks-2026-03-16-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-03-16-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-03-16-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-03-23-landscape",
@@ -414,7 +2181,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-03-23",
       "ownerMonth": 3,
-      "svg": "SVG/2026-weekly-blocks-2026-03-23-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-03-23-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-03-23-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-03-30-landscape",
@@ -426,7 +2194,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-03-30",
       "ownerMonth": 3,
-      "svg": "SVG/2026-weekly-blocks-2026-03-30-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-03-30-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-03-30-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-04-06-landscape",
@@ -438,7 +2207,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-04-06",
       "ownerMonth": 4,
-      "svg": "SVG/2026-weekly-blocks-2026-04-06-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-04-06-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-04-06-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-04-13-landscape",
@@ -450,7 +2220,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-04-13",
       "ownerMonth": 4,
-      "svg": "SVG/2026-weekly-blocks-2026-04-13-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-04-13-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-04-13-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-04-20-landscape",
@@ -462,7 +2233,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-04-20",
       "ownerMonth": 4,
-      "svg": "SVG/2026-weekly-blocks-2026-04-20-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-04-20-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-04-20-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-04-27-landscape",
@@ -474,7 +2246,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-04-27",
       "ownerMonth": 4,
-      "svg": "SVG/2026-weekly-blocks-2026-04-27-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-04-27-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-04-27-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-05-04-landscape",
@@ -486,7 +2259,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-05-04",
       "ownerMonth": 5,
-      "svg": "SVG/2026-weekly-blocks-2026-05-04-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-05-04-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-05-04-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-05-11-landscape",
@@ -498,7 +2272,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-05-11",
       "ownerMonth": 5,
-      "svg": "SVG/2026-weekly-blocks-2026-05-11-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-05-11-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-05-11-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-05-18-landscape",
@@ -510,7 +2285,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-05-18",
       "ownerMonth": 5,
-      "svg": "SVG/2026-weekly-blocks-2026-05-18-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-05-18-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-05-18-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-05-25-landscape",
@@ -522,7 +2298,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-05-25",
       "ownerMonth": 5,
-      "svg": "SVG/2026-weekly-blocks-2026-05-25-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-05-25-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-05-25-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-06-01-landscape",
@@ -534,7 +2311,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-06-01",
       "ownerMonth": 6,
-      "svg": "SVG/2026-weekly-blocks-2026-06-01-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-06-01-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-06-01-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-06-08-landscape",
@@ -546,7 +2324,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-06-08",
       "ownerMonth": 6,
-      "svg": "SVG/2026-weekly-blocks-2026-06-08-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-06-08-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-06-08-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-06-15-landscape",
@@ -558,7 +2337,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-06-15",
       "ownerMonth": 6,
-      "svg": "SVG/2026-weekly-blocks-2026-06-15-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-06-15-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-06-15-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-06-22-landscape",
@@ -570,7 +2350,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-06-22",
       "ownerMonth": 6,
-      "svg": "SVG/2026-weekly-blocks-2026-06-22-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-06-22-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-06-22-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-06-29-landscape",
@@ -582,7 +2363,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-06-29",
       "ownerMonth": 6,
-      "svg": "SVG/2026-weekly-blocks-2026-06-29-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-06-29-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-06-29-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-07-06-landscape",
@@ -594,7 +2376,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-07-06",
       "ownerMonth": 7,
-      "svg": "SVG/2026-weekly-blocks-2026-07-06-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-07-06-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-07-06-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-07-13-landscape",
@@ -606,7 +2389,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-07-13",
       "ownerMonth": 7,
-      "svg": "SVG/2026-weekly-blocks-2026-07-13-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-07-13-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-07-13-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-07-20-landscape",
@@ -618,7 +2402,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-07-20",
       "ownerMonth": 7,
-      "svg": "SVG/2026-weekly-blocks-2026-07-20-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-07-20-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-07-20-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-07-27-landscape",
@@ -630,7 +2415,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-07-27",
       "ownerMonth": 7,
-      "svg": "SVG/2026-weekly-blocks-2026-07-27-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-07-27-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-07-27-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-08-03-landscape",
@@ -642,7 +2428,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-08-03",
       "ownerMonth": 8,
-      "svg": "SVG/2026-weekly-blocks-2026-08-03-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-08-03-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-08-03-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-08-10-landscape",
@@ -654,7 +2441,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-08-10",
       "ownerMonth": 8,
-      "svg": "SVG/2026-weekly-blocks-2026-08-10-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-08-10-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-08-10-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-08-17-landscape",
@@ -666,7 +2454,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-08-17",
       "ownerMonth": 8,
-      "svg": "SVG/2026-weekly-blocks-2026-08-17-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-08-17-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-08-17-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-08-24-landscape",
@@ -678,7 +2467,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-08-24",
       "ownerMonth": 8,
-      "svg": "SVG/2026-weekly-blocks-2026-08-24-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-08-24-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-08-24-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-08-31-landscape",
@@ -690,7 +2480,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-08-31",
       "ownerMonth": 8,
-      "svg": "SVG/2026-weekly-blocks-2026-08-31-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-08-31-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-08-31-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-09-07-landscape",
@@ -702,7 +2493,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-09-07",
       "ownerMonth": 9,
-      "svg": "SVG/2026-weekly-blocks-2026-09-07-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-09-07-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-09-07-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-09-14-landscape",
@@ -714,7 +2506,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-09-14",
       "ownerMonth": 9,
-      "svg": "SVG/2026-weekly-blocks-2026-09-14-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-09-14-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-09-14-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-09-21-landscape",
@@ -726,7 +2519,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-09-21",
       "ownerMonth": 9,
-      "svg": "SVG/2026-weekly-blocks-2026-09-21-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-09-21-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-09-21-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-09-28-landscape",
@@ -738,7 +2532,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-09-28",
       "ownerMonth": 9,
-      "svg": "SVG/2026-weekly-blocks-2026-09-28-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-09-28-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-09-28-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-10-05-landscape",
@@ -750,7 +2545,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-10-05",
       "ownerMonth": 10,
-      "svg": "SVG/2026-weekly-blocks-2026-10-05-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-10-05-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-10-05-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-10-12-landscape",
@@ -762,7 +2558,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-10-12",
       "ownerMonth": 10,
-      "svg": "SVG/2026-weekly-blocks-2026-10-12-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-10-12-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-10-12-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-10-19-landscape",
@@ -774,7 +2571,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-10-19",
       "ownerMonth": 10,
-      "svg": "SVG/2026-weekly-blocks-2026-10-19-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-10-19-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-10-19-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-10-26-landscape",
@@ -786,7 +2584,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-10-26",
       "ownerMonth": 10,
-      "svg": "SVG/2026-weekly-blocks-2026-10-26-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-10-26-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-10-26-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-11-02-landscape",
@@ -798,7 +2597,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-11-02",
       "ownerMonth": 11,
-      "svg": "SVG/2026-weekly-blocks-2026-11-02-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-11-02-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-11-02-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-11-09-landscape",
@@ -810,7 +2610,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-11-09",
       "ownerMonth": 11,
-      "svg": "SVG/2026-weekly-blocks-2026-11-09-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-11-09-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-11-09-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-11-16-landscape",
@@ -822,7 +2623,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-11-16",
       "ownerMonth": 11,
-      "svg": "SVG/2026-weekly-blocks-2026-11-16-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-11-16-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-11-16-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-11-23-landscape",
@@ -834,7 +2636,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-11-23",
       "ownerMonth": 11,
-      "svg": "SVG/2026-weekly-blocks-2026-11-23-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-11-23-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-11-23-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-11-30-landscape",
@@ -846,7 +2649,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-11-30",
       "ownerMonth": 11,
-      "svg": "SVG/2026-weekly-blocks-2026-11-30-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-11-30-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-11-30-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-12-07-landscape",
@@ -858,7 +2662,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-12-07",
       "ownerMonth": 12,
-      "svg": "SVG/2026-weekly-blocks-2026-12-07-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-12-07-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-12-07-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-12-14-landscape",
@@ -870,7 +2675,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-12-14",
       "ownerMonth": 12,
-      "svg": "SVG/2026-weekly-blocks-2026-12-14-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-12-14-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-12-14-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-12-21-landscape",
@@ -882,7 +2688,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-12-21",
       "ownerMonth": 12,
-      "svg": "SVG/2026-weekly-blocks-2026-12-21-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-12-21-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-12-21-landscape.png"
     },
     {
       "id": "2026-weekly-blocks-2026-12-28-landscape",
@@ -894,7 +2701,8 @@ export const catalog = {
       "weeklyStyle": "blocks",
       "weekStart": "2026-12-28",
       "ownerMonth": 12,
-      "svg": "SVG/2026-weekly-blocks-2026-12-28-landscape.svg"
+      "svg": "SVG/2026-weekly-blocks-2026-12-28-landscape.svg",
+      "png": "PNG/2026-weekly-blocks-2026-12-28-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2025-12-29-landscape",
@@ -906,7 +2714,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2025-12-29",
       "ownerMonth": 1,
-      "svg": "SVG/2026-weekly-journal-2025-12-29-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2025-12-29-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2025-12-29-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-01-05-landscape",
@@ -918,7 +2727,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-01-05",
       "ownerMonth": 1,
-      "svg": "SVG/2026-weekly-journal-2026-01-05-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-01-05-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-01-05-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-01-12-landscape",
@@ -930,7 +2740,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-01-12",
       "ownerMonth": 1,
-      "svg": "SVG/2026-weekly-journal-2026-01-12-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-01-12-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-01-12-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-01-19-landscape",
@@ -942,7 +2753,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-01-19",
       "ownerMonth": 1,
-      "svg": "SVG/2026-weekly-journal-2026-01-19-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-01-19-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-01-19-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-01-26-landscape",
@@ -954,7 +2766,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-01-26",
       "ownerMonth": 1,
-      "svg": "SVG/2026-weekly-journal-2026-01-26-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-01-26-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-01-26-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-02-02-landscape",
@@ -966,7 +2779,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-02-02",
       "ownerMonth": 2,
-      "svg": "SVG/2026-weekly-journal-2026-02-02-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-02-02-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-02-02-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-02-09-landscape",
@@ -978,7 +2792,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-02-09",
       "ownerMonth": 2,
-      "svg": "SVG/2026-weekly-journal-2026-02-09-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-02-09-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-02-09-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-02-16-landscape",
@@ -990,7 +2805,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-02-16",
       "ownerMonth": 2,
-      "svg": "SVG/2026-weekly-journal-2026-02-16-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-02-16-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-02-16-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-02-23-landscape",
@@ -1002,7 +2818,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-02-23",
       "ownerMonth": 2,
-      "svg": "SVG/2026-weekly-journal-2026-02-23-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-02-23-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-02-23-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-03-02-landscape",
@@ -1014,7 +2831,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-03-02",
       "ownerMonth": 3,
-      "svg": "SVG/2026-weekly-journal-2026-03-02-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-03-02-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-03-02-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-03-09-landscape",
@@ -1026,7 +2844,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-03-09",
       "ownerMonth": 3,
-      "svg": "SVG/2026-weekly-journal-2026-03-09-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-03-09-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-03-09-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-03-16-landscape",
@@ -1038,7 +2857,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-03-16",
       "ownerMonth": 3,
-      "svg": "SVG/2026-weekly-journal-2026-03-16-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-03-16-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-03-16-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-03-23-landscape",
@@ -1050,7 +2870,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-03-23",
       "ownerMonth": 3,
-      "svg": "SVG/2026-weekly-journal-2026-03-23-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-03-23-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-03-23-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-03-30-landscape",
@@ -1062,7 +2883,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-03-30",
       "ownerMonth": 3,
-      "svg": "SVG/2026-weekly-journal-2026-03-30-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-03-30-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-03-30-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-04-06-landscape",
@@ -1074,7 +2896,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-04-06",
       "ownerMonth": 4,
-      "svg": "SVG/2026-weekly-journal-2026-04-06-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-04-06-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-04-06-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-04-13-landscape",
@@ -1086,7 +2909,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-04-13",
       "ownerMonth": 4,
-      "svg": "SVG/2026-weekly-journal-2026-04-13-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-04-13-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-04-13-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-04-20-landscape",
@@ -1098,7 +2922,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-04-20",
       "ownerMonth": 4,
-      "svg": "SVG/2026-weekly-journal-2026-04-20-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-04-20-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-04-20-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-04-27-landscape",
@@ -1110,7 +2935,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-04-27",
       "ownerMonth": 4,
-      "svg": "SVG/2026-weekly-journal-2026-04-27-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-04-27-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-04-27-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-05-04-landscape",
@@ -1122,7 +2948,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-05-04",
       "ownerMonth": 5,
-      "svg": "SVG/2026-weekly-journal-2026-05-04-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-05-04-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-05-04-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-05-11-landscape",
@@ -1134,7 +2961,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-05-11",
       "ownerMonth": 5,
-      "svg": "SVG/2026-weekly-journal-2026-05-11-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-05-11-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-05-11-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-05-18-landscape",
@@ -1146,7 +2974,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-05-18",
       "ownerMonth": 5,
-      "svg": "SVG/2026-weekly-journal-2026-05-18-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-05-18-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-05-18-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-05-25-landscape",
@@ -1158,7 +2987,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-05-25",
       "ownerMonth": 5,
-      "svg": "SVG/2026-weekly-journal-2026-05-25-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-05-25-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-05-25-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-06-01-landscape",
@@ -1170,7 +3000,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-06-01",
       "ownerMonth": 6,
-      "svg": "SVG/2026-weekly-journal-2026-06-01-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-06-01-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-06-01-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-06-08-landscape",
@@ -1182,7 +3013,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-06-08",
       "ownerMonth": 6,
-      "svg": "SVG/2026-weekly-journal-2026-06-08-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-06-08-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-06-08-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-06-15-landscape",
@@ -1194,7 +3026,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-06-15",
       "ownerMonth": 6,
-      "svg": "SVG/2026-weekly-journal-2026-06-15-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-06-15-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-06-15-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-06-22-landscape",
@@ -1206,7 +3039,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-06-22",
       "ownerMonth": 6,
-      "svg": "SVG/2026-weekly-journal-2026-06-22-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-06-22-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-06-22-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-06-29-landscape",
@@ -1218,7 +3052,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-06-29",
       "ownerMonth": 6,
-      "svg": "SVG/2026-weekly-journal-2026-06-29-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-06-29-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-06-29-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-07-06-landscape",
@@ -1230,7 +3065,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-07-06",
       "ownerMonth": 7,
-      "svg": "SVG/2026-weekly-journal-2026-07-06-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-07-06-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-07-06-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-07-13-landscape",
@@ -1242,7 +3078,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-07-13",
       "ownerMonth": 7,
-      "svg": "SVG/2026-weekly-journal-2026-07-13-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-07-13-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-07-13-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-07-20-landscape",
@@ -1254,7 +3091,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-07-20",
       "ownerMonth": 7,
-      "svg": "SVG/2026-weekly-journal-2026-07-20-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-07-20-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-07-20-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-07-27-landscape",
@@ -1266,7 +3104,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-07-27",
       "ownerMonth": 7,
-      "svg": "SVG/2026-weekly-journal-2026-07-27-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-07-27-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-07-27-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-08-03-landscape",
@@ -1278,7 +3117,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-08-03",
       "ownerMonth": 8,
-      "svg": "SVG/2026-weekly-journal-2026-08-03-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-08-03-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-08-03-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-08-10-landscape",
@@ -1290,7 +3130,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-08-10",
       "ownerMonth": 8,
-      "svg": "SVG/2026-weekly-journal-2026-08-10-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-08-10-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-08-10-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-08-17-landscape",
@@ -1302,7 +3143,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-08-17",
       "ownerMonth": 8,
-      "svg": "SVG/2026-weekly-journal-2026-08-17-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-08-17-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-08-17-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-08-24-landscape",
@@ -1314,7 +3156,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-08-24",
       "ownerMonth": 8,
-      "svg": "SVG/2026-weekly-journal-2026-08-24-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-08-24-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-08-24-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-08-31-landscape",
@@ -1326,7 +3169,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-08-31",
       "ownerMonth": 8,
-      "svg": "SVG/2026-weekly-journal-2026-08-31-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-08-31-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-08-31-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-09-07-landscape",
@@ -1338,7 +3182,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-09-07",
       "ownerMonth": 9,
-      "svg": "SVG/2026-weekly-journal-2026-09-07-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-09-07-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-09-07-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-09-14-landscape",
@@ -1350,7 +3195,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-09-14",
       "ownerMonth": 9,
-      "svg": "SVG/2026-weekly-journal-2026-09-14-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-09-14-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-09-14-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-09-21-landscape",
@@ -1362,7 +3208,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-09-21",
       "ownerMonth": 9,
-      "svg": "SVG/2026-weekly-journal-2026-09-21-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-09-21-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-09-21-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-09-28-landscape",
@@ -1374,7 +3221,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-09-28",
       "ownerMonth": 9,
-      "svg": "SVG/2026-weekly-journal-2026-09-28-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-09-28-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-09-28-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-10-05-landscape",
@@ -1386,7 +3234,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-10-05",
       "ownerMonth": 10,
-      "svg": "SVG/2026-weekly-journal-2026-10-05-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-10-05-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-10-05-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-10-12-landscape",
@@ -1398,7 +3247,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-10-12",
       "ownerMonth": 10,
-      "svg": "SVG/2026-weekly-journal-2026-10-12-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-10-12-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-10-12-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-10-19-landscape",
@@ -1410,7 +3260,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-10-19",
       "ownerMonth": 10,
-      "svg": "SVG/2026-weekly-journal-2026-10-19-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-10-19-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-10-19-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-10-26-landscape",
@@ -1422,7 +3273,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-10-26",
       "ownerMonth": 10,
-      "svg": "SVG/2026-weekly-journal-2026-10-26-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-10-26-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-10-26-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-11-02-landscape",
@@ -1434,7 +3286,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-11-02",
       "ownerMonth": 11,
-      "svg": "SVG/2026-weekly-journal-2026-11-02-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-11-02-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-11-02-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-11-09-landscape",
@@ -1446,7 +3299,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-11-09",
       "ownerMonth": 11,
-      "svg": "SVG/2026-weekly-journal-2026-11-09-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-11-09-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-11-09-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-11-16-landscape",
@@ -1458,7 +3312,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-11-16",
       "ownerMonth": 11,
-      "svg": "SVG/2026-weekly-journal-2026-11-16-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-11-16-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-11-16-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-11-23-landscape",
@@ -1470,7 +3325,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-11-23",
       "ownerMonth": 11,
-      "svg": "SVG/2026-weekly-journal-2026-11-23-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-11-23-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-11-23-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-11-30-landscape",
@@ -1482,7 +3338,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-11-30",
       "ownerMonth": 11,
-      "svg": "SVG/2026-weekly-journal-2026-11-30-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-11-30-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-11-30-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-12-07-landscape",
@@ -1494,7 +3351,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-12-07",
       "ownerMonth": 12,
-      "svg": "SVG/2026-weekly-journal-2026-12-07-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-12-07-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-12-07-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-12-14-landscape",
@@ -1506,7 +3364,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-12-14",
       "ownerMonth": 12,
-      "svg": "SVG/2026-weekly-journal-2026-12-14-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-12-14-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-12-14-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-12-21-landscape",
@@ -1518,7 +3377,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-12-21",
       "ownerMonth": 12,
-      "svg": "SVG/2026-weekly-journal-2026-12-21-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-12-21-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-12-21-landscape.png"
     },
     {
       "id": "2026-weekly-journal-2026-12-28-landscape",
@@ -1530,7 +3390,8 @@ export const catalog = {
       "weeklyStyle": "journal",
       "weekStart": "2026-12-28",
       "ownerMonth": 12,
-      "svg": "SVG/2026-weekly-journal-2026-12-28-landscape.svg"
+      "svg": "SVG/2026-weekly-journal-2026-12-28-landscape.svg",
+      "png": "PNG/2026-weekly-journal-2026-12-28-landscape.png"
     },
     {
       "id": "2026-reusable-daily-landscape",
@@ -1539,7 +3400,8 @@ export const catalog = {
       "year": 2026,
       "orientation": "landscape",
       "type": "daily",
-      "svg": "SVG/2026-reusable-daily-landscape.svg"
+      "svg": "SVG/2026-reusable-daily-landscape.svg",
+      "png": "PNG/2026-reusable-daily-landscape.png"
     },
     {
       "id": "2026-reusable-diary-landscape",
@@ -1548,7 +3410,8 @@ export const catalog = {
       "year": 2026,
       "orientation": "landscape",
       "type": "diary",
-      "svg": "SVG/2026-reusable-diary-landscape.svg"
+      "svg": "SVG/2026-reusable-diary-landscape.svg",
+      "png": "PNG/2026-reusable-diary-landscape.png"
     },
     {
       "id": "2026-reusable-scrap-landscape",
@@ -1557,7 +3420,8 @@ export const catalog = {
       "year": 2026,
       "orientation": "landscape",
       "type": "scrap",
-      "svg": "SVG/2026-reusable-scrap-landscape.svg"
+      "svg": "SVG/2026-reusable-scrap-landscape.svg",
+      "png": "PNG/2026-reusable-scrap-landscape.png"
     },
     {
       "id": "2026-reusable-note-plain-landscape",
@@ -1567,7 +3431,8 @@ export const catalog = {
       "orientation": "landscape",
       "type": "note",
       "background": "plain",
-      "svg": "SVG/2026-reusable-note-plain-landscape.svg"
+      "svg": "SVG/2026-reusable-note-plain-landscape.svg",
+      "png": "PNG/2026-reusable-note-plain-landscape.png"
     },
     {
       "id": "2026-reusable-note-ruled-landscape",
@@ -1577,7 +3442,8 @@ export const catalog = {
       "orientation": "landscape",
       "type": "note",
       "background": "ruled",
-      "svg": "SVG/2026-reusable-note-ruled-landscape.svg"
+      "svg": "SVG/2026-reusable-note-ruled-landscape.svg",
+      "png": "PNG/2026-reusable-note-ruled-landscape.png"
     },
     {
       "id": "2026-reusable-note-grid-landscape",
@@ -1587,7 +3453,8 @@ export const catalog = {
       "orientation": "landscape",
       "type": "note",
       "background": "grid",
-      "svg": "SVG/2026-reusable-note-grid-landscape.svg"
+      "svg": "SVG/2026-reusable-note-grid-landscape.svg",
+      "png": "PNG/2026-reusable-note-grid-landscape.png"
     },
     {
       "id": "2026-reusable-note-dots-landscape",
@@ -1597,32 +3464,12 @@ export const catalog = {
       "orientation": "landscape",
       "type": "note",
       "background": "dots",
-      "svg": "SVG/2026-reusable-note-dots-landscape.svg"
+      "svg": "SVG/2026-reusable-note-dots-landscape.svg",
+      "png": "PNG/2026-reusable-note-dots-landscape.png"
     }
-  ],
-  "books": [
-    "books/2026-blocks-portrait.json",
-    "books/2026-journal-portrait.json",
-    "books/2026-blocks-landscape.json",
-    "books/2026-journal-landscape.json"
-  ],
-  "reusableAssetIds": [
-    "2026-reusable-daily-portrait",
-    "2026-reusable-diary-portrait",
-    "2026-reusable-scrap-portrait",
-    "2026-reusable-note-plain-portrait",
-    "2026-reusable-note-ruled-portrait",
-    "2026-reusable-note-grid-portrait",
-    "2026-reusable-note-dots-portrait",
-    "2026-reusable-daily-landscape",
-    "2026-reusable-diary-landscape",
-    "2026-reusable-scrap-landscape",
-    "2026-reusable-note-plain-landscape",
-    "2026-reusable-note-ruled-landscape",
-    "2026-reusable-note-grid-landscape",
-    "2026-reusable-note-dots-landscape"
   ]
 }
+
 export const annualBook = {
   "schemaVersion": 1,
   "id": "2026-blocks-landscape",
@@ -1711,11 +3558,105 @@ export const annualBook = {
     "2026-weekly-blocks-2026-12-28-landscape"
   ]
 }
+
+export const portraitAnnualBook = {
+  "schemaVersion": 1,
+  "id": "2026-blocks-portrait",
+  "year": 2026,
+  "orientation": "portrait",
+  "weeklyStyle": "blocks",
+  "pageCount": 78,
+  "pages": [
+    "2026-cover-portrait",
+    "2026-divider-01-portrait",
+    "2026-monthly-01-portrait",
+    "2026-weekly-blocks-2025-12-29-portrait",
+    "2026-weekly-blocks-2026-01-05-portrait",
+    "2026-weekly-blocks-2026-01-12-portrait",
+    "2026-weekly-blocks-2026-01-19-portrait",
+    "2026-weekly-blocks-2026-01-26-portrait",
+    "2026-divider-02-portrait",
+    "2026-monthly-02-portrait",
+    "2026-weekly-blocks-2026-02-02-portrait",
+    "2026-weekly-blocks-2026-02-09-portrait",
+    "2026-weekly-blocks-2026-02-16-portrait",
+    "2026-weekly-blocks-2026-02-23-portrait",
+    "2026-divider-03-portrait",
+    "2026-monthly-03-portrait",
+    "2026-weekly-blocks-2026-03-02-portrait",
+    "2026-weekly-blocks-2026-03-09-portrait",
+    "2026-weekly-blocks-2026-03-16-portrait",
+    "2026-weekly-blocks-2026-03-23-portrait",
+    "2026-weekly-blocks-2026-03-30-portrait",
+    "2026-divider-04-portrait",
+    "2026-monthly-04-portrait",
+    "2026-weekly-blocks-2026-04-06-portrait",
+    "2026-weekly-blocks-2026-04-13-portrait",
+    "2026-weekly-blocks-2026-04-20-portrait",
+    "2026-weekly-blocks-2026-04-27-portrait",
+    "2026-divider-05-portrait",
+    "2026-monthly-05-portrait",
+    "2026-weekly-blocks-2026-05-04-portrait",
+    "2026-weekly-blocks-2026-05-11-portrait",
+    "2026-weekly-blocks-2026-05-18-portrait",
+    "2026-weekly-blocks-2026-05-25-portrait",
+    "2026-divider-06-portrait",
+    "2026-monthly-06-portrait",
+    "2026-weekly-blocks-2026-06-01-portrait",
+    "2026-weekly-blocks-2026-06-08-portrait",
+    "2026-weekly-blocks-2026-06-15-portrait",
+    "2026-weekly-blocks-2026-06-22-portrait",
+    "2026-weekly-blocks-2026-06-29-portrait",
+    "2026-divider-07-portrait",
+    "2026-monthly-07-portrait",
+    "2026-weekly-blocks-2026-07-06-portrait",
+    "2026-weekly-blocks-2026-07-13-portrait",
+    "2026-weekly-blocks-2026-07-20-portrait",
+    "2026-weekly-blocks-2026-07-27-portrait",
+    "2026-divider-08-portrait",
+    "2026-monthly-08-portrait",
+    "2026-weekly-blocks-2026-08-03-portrait",
+    "2026-weekly-blocks-2026-08-10-portrait",
+    "2026-weekly-blocks-2026-08-17-portrait",
+    "2026-weekly-blocks-2026-08-24-portrait",
+    "2026-weekly-blocks-2026-08-31-portrait",
+    "2026-divider-09-portrait",
+    "2026-monthly-09-portrait",
+    "2026-weekly-blocks-2026-09-07-portrait",
+    "2026-weekly-blocks-2026-09-14-portrait",
+    "2026-weekly-blocks-2026-09-21-portrait",
+    "2026-weekly-blocks-2026-09-28-portrait",
+    "2026-divider-10-portrait",
+    "2026-monthly-10-portrait",
+    "2026-weekly-blocks-2026-10-05-portrait",
+    "2026-weekly-blocks-2026-10-12-portrait",
+    "2026-weekly-blocks-2026-10-19-portrait",
+    "2026-weekly-blocks-2026-10-26-portrait",
+    "2026-divider-11-portrait",
+    "2026-monthly-11-portrait",
+    "2026-weekly-blocks-2026-11-02-portrait",
+    "2026-weekly-blocks-2026-11-09-portrait",
+    "2026-weekly-blocks-2026-11-16-portrait",
+    "2026-weekly-blocks-2026-11-23-portrait",
+    "2026-weekly-blocks-2026-11-30-portrait",
+    "2026-divider-12-portrait",
+    "2026-monthly-12-portrait",
+    "2026-weekly-blocks-2026-12-07-portrait",
+    "2026-weekly-blocks-2026-12-14-portrait",
+    "2026-weekly-blocks-2026-12-21-portrait",
+    "2026-weekly-blocks-2026-12-28-portrait"
+  ]
+}
+
 export const reusableMenu = [
   {
     "type": "daily",
     "name": "데일리 플래너",
     "assets": [
+      {
+        "orientation": "portrait",
+        "assetId": "2026-reusable-daily-portrait"
+      },
       {
         "orientation": "landscape",
         "assetId": "2026-reusable-daily-landscape"
@@ -1727,6 +3668,10 @@ export const reusableMenu = [
     "name": "일기",
     "assets": [
       {
+        "orientation": "portrait",
+        "assetId": "2026-reusable-diary-portrait"
+      },
+      {
         "orientation": "landscape",
         "assetId": "2026-reusable-diary-landscape"
       }
@@ -1736,6 +3681,10 @@ export const reusableMenu = [
     "type": "scrap",
     "name": "포토·스크랩",
     "assets": [
+      {
+        "orientation": "portrait",
+        "assetId": "2026-reusable-scrap-portrait"
+      },
       {
         "orientation": "landscape",
         "assetId": "2026-reusable-scrap-landscape"
@@ -1748,6 +3697,10 @@ export const reusableMenu = [
     "name": "자유 노트 · 무지",
     "assets": [
       {
+        "orientation": "portrait",
+        "assetId": "2026-reusable-note-plain-portrait"
+      },
+      {
         "orientation": "landscape",
         "assetId": "2026-reusable-note-plain-landscape"
       }
@@ -1758,6 +3711,10 @@ export const reusableMenu = [
     "background": "ruled",
     "name": "자유 노트 · 줄",
     "assets": [
+      {
+        "orientation": "portrait",
+        "assetId": "2026-reusable-note-ruled-portrait"
+      },
       {
         "orientation": "landscape",
         "assetId": "2026-reusable-note-ruled-landscape"
@@ -1770,6 +3727,10 @@ export const reusableMenu = [
     "name": "자유 노트 · 모눈",
     "assets": [
       {
+        "orientation": "portrait",
+        "assetId": "2026-reusable-note-grid-portrait"
+      },
+      {
         "orientation": "landscape",
         "assetId": "2026-reusable-note-grid-landscape"
       }
@@ -1780,6 +3741,10 @@ export const reusableMenu = [
     "background": "dots",
     "name": "자유 노트 · 도트",
     "assets": [
+      {
+        "orientation": "portrait",
+        "assetId": "2026-reusable-note-dots-portrait"
+      },
       {
         "orientation": "landscape",
         "assetId": "2026-reusable-note-dots-landscape"

@@ -364,7 +364,7 @@ export function editorReducer(state, action) {
       )
 
     case 'addPage': {
-      const created = action.backgroundAssetId ? createTemplatePage(action.backgroundAssetId, state.doc.paperAppearance) : createBlankPage()
+      const created = action.backgroundAssetId ? createTemplatePage(action.backgroundAssetId, state.doc.paperAppearance) : createBlankPage(state.doc.orientation)
       const page = state.doc.paperAppearance ? { ...created, paperAppearance: state.doc.paperAppearance } : created
       const index = state.doc.pages.findIndex((p) => p.id === getCurrentPage(state).id)
       const pages = [...state.doc.pages]

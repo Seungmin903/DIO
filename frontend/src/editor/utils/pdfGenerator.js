@@ -1,5 +1,5 @@
 import * as PDFLib from 'pdf-lib/dist/pdf-lib.js'
-import { A4_LANDSCAPE, PDF_LIMITS, pdfError } from './pdfSnapshot.js'
+import { A4_LANDSCAPE, A4_PORTRAIT, PDF_LIMITS, pdfError } from './pdfSnapshot.js'
 import { opaquePdfPng } from './pdfRaster.js'
 
 // 배포 UMD 진입점은 Metro의 tslib 1.x import 조건 충돌을 피한다.
@@ -58,7 +58,7 @@ export async function generatePdf(snapshot, { renderPageImage, readImage, create
           const image = await doc.embedPng(png); check()
           // PNG 디코딩 데이터를 누적 보관하지 않고 면마다 압축 스트림으로 변환한다.
           await image.embed(); check()
-          const [pw, ph] = A4_LANDSCAPE
+          const [pw, ph] = page.height > page.width ? A4_PORTRAIT : A4_LANDSCAPE
           const pdfPage = doc.addPage([pw, ph])
           const bg = /^#[0-9a-f]{6}$/i.test(page.background) ? [1,3,5].map((i) => parseInt(page.background.slice(i, i + 2), 16) / 255) : [1,1,1]
           pdfPage.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: rgb(...bg) })
@@ -77,7 +77,9 @@ export async function generatePdf(snapshot, { renderPageImage, readImage, create
       const output = await createResult(bytes, { pageCount: input.pages.length, fileName: input.fileName });
       if (controller.signal.aborted) { output.dispose(); check() }
       let disposed = false
-      return { ...output, byteLength: bytes.byteLength, pageCount: input.pages.length, fileName: input.fileName, mimeType: 'application/pdf', dispose() { if (!disposed) { disposed = true; output.dispose() } } }
+      const orientations = new Set(input.pages.map(page => page.height > page.width ? 'portrait' : 'landscape'))
+      const paperOrientation = orientations.size > 1 ? 'mixed' : [...orientations][0]
+      return { ...output, paperOrientation, byteLength: bytes.byteLength, pageCount: input.pages.length, fileName: input.fileName, mimeType: 'application/pdf', dispose() { if (!disposed) { disposed = true; output.dispose() } } }
     } catch (cause) {
       const error = cause?.code ? cause : pdfError('EXPORT_PDF_ASSEMBLY_FAILED', 'PDF를 만들지 못했어요.', { cause })
       throw Object.assign(error, { phase, documentPageNumber })

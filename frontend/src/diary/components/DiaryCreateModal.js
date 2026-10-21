@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import DiaryPaperColors, { DiaryPaperPreview } from './DiaryPaperColors';
+import { templateIdForOrientation } from '../../editor/templates/catalog.js';
 import { DEFAULT_PAPER_APPEARANCE } from '../../editor/templates/appearance.js';
 import DiaryTemplateSettings from './DiaryTemplateSettings';
 import { defaultTemplateConfig, templatePageCount } from '../../editor/templates/creation.js';
@@ -48,7 +49,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
   const [title, setTitle] = useState(diary?.title ?? DIARY_DEFAULTS.title);
   const [color, setColor] = useState(diary?.color ?? DIARY_DEFAULTS.color);
   const [pattern, setPattern] = useState(diary ? diary.pattern ?? null : DIARY_DEFAULTS.pattern);
-  const pageSize = diary?.pageSize ?? 'landscape';
+  const [pageSize, setPageSize] = useState(diary?.pageSize ?? 'landscape');
   const [step, setStep] = useState(0);
   const [templateConfig, setTemplateConfig] = useState(defaultTemplateConfig);
   const submitting = useRef(false);
@@ -68,6 +69,12 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
   if (!editing && step > 0) {
     try { count = templatePageCount(templateConfig); } catch (failure) { configError = failure.message; }
   }
+  const changePageSize = orientation => {
+    setPageSize(orientation);
+    setTemplateConfig(current => ({ ...current, orientation,
+      ...Object.fromEntries(['dailyTemplates', 'reusable', 'legacyEndPages'].map(key => [key, current[key].map(item => ({ ...item, assetId: templateIdForOrientation(item.assetId, orientation) }))])),
+    }));
+  };
   const pageSizeLabel = PAGE_SIZES.find((item) => item.id === pageSize)?.label;
 
   const onTitleChange = (value) => {
@@ -175,11 +182,11 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
 
             <View style={s.createLabelRow}>
               <Text style={[s.createLabel, s.createLabelInline]}>페이지 크기</Text>
-              <Text style={s.createLabelNote}>만든 뒤에는 유지돼요</Text>
+              <Text style={s.createLabelNote}>다이어리 생성 후 변경 불가</Text>
             </View>
             <View style={s.createChips}>
               {PAGE_SIZES.map((item) => (
-                <Chip key={item.id} label={item.label + (!editing && item.id === 'portrait' ? ' · 준비 중' : '')} selected={pageSize === item.id} disabled={editing || item.id === 'portrait'} onPress={() => {}}>
+                <Chip key={item.id} label={item.label} selected={pageSize === item.id} disabled={editing} onPress={() => changePageSize(item.id)}>
                   <View style={[s.pageSizeIcon, item.id === 'portrait' ? s.pageSizeIconPortrait : s.pageSizeIconLandscape]} />
                 </Chip>
               ))}
