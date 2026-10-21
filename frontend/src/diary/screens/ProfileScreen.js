@@ -2,13 +2,13 @@ import { ScrollView, Text, View } from 'react-native';
 import { styles as s } from '../styles';
 import Header from '../components/Header';
 
-export default function ProfileScreen({ diaries }) {
+export default function ProfileScreen({ diaries, compact = false }) {
   const favorites = diaries.filter((diary) => diary.favorite).length;
 
   return (
-    <ScrollView contentContainerStyle={s.screen} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
       <Header eyebrow="MY SPACE" title="내 공간" />
-      <View style={s.profileHero}>
+      <View style={[s.profileHero, compact && s.profileHeroCompact]}>
         <View style={s.profileBadge}><Text style={s.profileBadgeText}>D</Text></View>
         <View>
           <Text style={s.profileTitle}>나의 기록 공간</Text>

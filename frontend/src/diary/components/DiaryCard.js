@@ -6,7 +6,7 @@ import { formatUpdatedAt } from '../utils/diaryLibrary';
 import Cover from './Cover';
 
 // onOpen·onFavorite·onEdit은 다이어리를 인자로 받는 공용 콜백이라, 카드마다 새 함수를 만들지 않아도 된다.
-function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, onEdit, carouselActive = false, animatedStyle }) {
+function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, carouselActive = false, animatedStyle }) {
   const card = (
     <Pressable
       accessibilityRole="button"
@@ -16,11 +16,12 @@ function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, onEdit, carouse
       style={({ pressed }) => [
         s.card,
         layout === 'list' ? s.cardList : layout === 'carousel' ? s.cardCarousel : s.cardGrid,
+        compact && layout === 'grid' && s.cardGridCompact,
         pressed && s.pressed,
       ]}
     >
       <View style={s.cardCoverWrap}>
-        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} />
+        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact && layout === 'grid'} />
         <View style={s.cardActions}>
           <Pressable
             accessibilityRole="button"

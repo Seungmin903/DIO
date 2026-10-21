@@ -13,3 +13,11 @@ export function fitTabletFrame(windowWidth, windowHeight) {
     height: TABLET_HEIGHT * scale,
   }
 }
+
+// 창의 짧은 변이 이 값(dp) 이상이면 태블릿 화면으로 본다. (Android sw600dp와 같은 기준)
+export const TABLET_MIN_SHORT_SIDE = 600
+
+// 기기 종류가 아니라 지금 창 크기로 판단해야 iPad Split View·접이식 폰·웹 창 크기 변경에도 맞게 바뀐다.
+export function formFactorFor(windowWidth, windowHeight) {
+  return Math.min(windowWidth, windowHeight) >= TABLET_MIN_SHORT_SIDE ? 'tablet' : 'phone'
+}

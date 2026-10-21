@@ -4,7 +4,12 @@ import { colors, shadow } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 
 
+// compact: 폰 세로 배치. 인덱스 탭 대신 이름과 쪽수를 두 줄로 보이고, 닫기·내보내기는 뺀다. (내보내기는 도구 막대의 더보기에 있다)
+// onToggleOrientation이 있으면 가로 정밀 편집으로 바꾸는 버튼을 둔다.
 export default function TopBar({
+  compact = false,
+  pageLabel,
+  onToggleOrientation,
   doc,
   layersOpen,
   pagesOpen,
@@ -20,6 +25,25 @@ export default function TopBar({
   shareIcon = 'share',
 }) {
   const shareRef = useRef(null)
+  if (compact) {
+    return (
+      <View style={[styles.bar, styles.barCompact]}>
+        <Pressable onPress={onHome} accessibilityRole="button" accessibilityLabel="다이어리 홈" hitSlop={6} style={styles.homeCompact}>
+          <Icon name="chevronLeft" size={20} />
+          <Text style={[styles.logo, styles.logoCompact]}>DIO</Text>
+        </Pressable>
+        <IconToggle compact icon="panel" label="페이지 목록" active={pagesOpen} onPress={onTogglePages} />
+        <View style={styles.docTitle}>
+          <TitleField compact title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} />
+          {pageLabel ? <Text style={styles.pageLabel} numberOfLines={1}>{pageLabel}</Text> : null}
+        </View>
+        <View style={styles.right}>
+          {onToggleOrientation && <IconToggle compact icon="rotate" label="가로 정밀 편집으로 전환" onPress={onToggleOrientation} />}
+          {!readOnly && <IconToggle compact icon="layers" label="레이어" active={layersOpen} onPress={onToggleLayers} />}
+        </View>
+      </View>
+    )
+  }
   return (
     <View style={styles.bar}>
       <Pressable onPress={onHome} accessibilityLabel="다이어리 홈" hitSlop={6}>
@@ -49,7 +73,7 @@ export default function TopBar({
 }
 
 /** 다이어리 이름. 연필(레이어 이름 바꾸기와 같은 모양)을 누르면 그 자리에서 고친다. */
-function TitleField({ title, renamable, onCommit }) {
+function TitleField({ title, renamable, onCommit, compact }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   function commit() {
@@ -67,7 +91,7 @@ function TitleField({ title, renamable, onCommit }) {
         selectTextOnFocus
         onSubmitEditing={commit}
         onBlur={commit}
-        style={styles.titleInput}
+        style={[styles.titleInput, compact && styles.titleInputCompact]}
         accessibilityLabel="다이어리 이름"
       />
     )
@@ -84,7 +108,7 @@ function TitleField({ title, renamable, onCommit }) {
       accessibilityLabel={renamable ? '다이어리 이름 바꾸기' : undefined}
       style={styles.titleRow}
     >
-      <Text style={styles.tabTitle} numberOfLines={1}>
+      <Text style={[styles.tabTitle, compact && styles.docTitleText]} numberOfLines={1}>
         {title}
       </Text>
       {renamable && <Icon name="edit" size={13} strokeWidth={2} color={colors.textMuted} />}
@@ -92,7 +116,7 @@ function TitleField({ title, renamable, onCommit }) {
   )
 }
 
-function IconToggle({ icon, label, text, active, onPress }) {
+function IconToggle({ icon, label, text, active, onPress, compact }) {
   return (
     <Pressable
       onPress={onPress}
@@ -100,7 +124,7 @@ function IconToggle({ icon, label, text, active, onPress }) {
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       aria-pressed={Boolean(active)}
-      style={({ pressed }) => [styles.toggle, active && styles.toggleActive, pressed && styles.togglePressed]}
+      style={({ pressed }) => [styles.toggle, compact && styles.toggleCompact, active && styles.toggleActive, pressed && styles.togglePressed]}
     >
       <Icon name={icon} size={19} />
       {text && <Text style={styles.toggleText}>{text}</Text>}
@@ -119,7 +143,10 @@ const styles = StyleSheet.create({
     zIndex: 10,
     ...shadow.card,
   },
+  barCompact: { height: 60, gap: 4, paddingHorizontal: 8 },
   logo: { fontSize: 25, fontWeight: '900', letterSpacing: -1.2, color: colors.text },
+  homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', paddingRight: 2 },
+  logoCompact: { fontSize: 21 },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -136,6 +163,10 @@ const styles = StyleSheet.create({
     boxShadow: '0px 1px 2px rgba(11, 25, 87, 0.12)',
     overflow: 'hidden',
   },
+  docTitle: { flex: 1, minWidth: 0, marginLeft: 4, justifyContent: 'center' },
+  docTitleText: { fontSize: 15, fontWeight: '850', letterSpacing: -0.3 },
+  pageLabel: { marginTop: 2, fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, color: colors.textMuted },
+  titleInputCompact: { minWidth: 0, alignSelf: 'stretch' },
   spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
   tabTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: colors.text },
@@ -154,6 +185,7 @@ const styles = StyleSheet.create({
   tabClose: { marginLeft: 2, padding: 4, borderRadius: 8 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 'auto', zIndex: 2 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 10, borderRadius: 12 },
+  toggleCompact: { width: 44, height: 44, justifyContent: 'center', paddingHorizontal: 0 },
   toggleActive: { backgroundColor: colors.surfaceSoft },
   togglePressed: { backgroundColor: colors.primarySoft },
   toggleText: { fontSize: 13, fontWeight: '700', color: colors.text },

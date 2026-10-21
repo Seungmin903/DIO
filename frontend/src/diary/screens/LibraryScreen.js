@@ -26,6 +26,7 @@ function carouselMotion(scrollX, index) {
 }
 
 function LibraryScreen({
+  compact = false,
   diaries,
   filter,
   view,
@@ -83,15 +84,15 @@ function LibraryScreen({
   ), [scrollX]);
 
   return (
-    <ScrollView contentContainerStyle={s.libraryScreen} showsVerticalScrollIndicator={false}>
-      <View style={s.libraryHeader}>
-        <Text style={s.libraryTitle}>{current.label}</Text>
-        <View style={s.libraryViewSwitch} accessibilityRole="tablist">
+    <ScrollView contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact]} showsVerticalScrollIndicator={false}>
+      <View style={[s.libraryHeader, compact && s.libraryHeaderCompact]}>
+        <Text style={[s.libraryTitle, compact && s.libraryTitleCompact]}>{current.label}</Text>
+        <View style={[s.libraryViewSwitch, compact && s.libraryViewSwitchCompact]} accessibilityRole="tablist">
           <Pressable
             accessibilityRole="tab"
             accessibilityState={{ selected: view === 'carousel' }}
             onPress={() => onViewChange('carousel')}
-            style={({ pressed }) => [s.libraryViewOption, view === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
+            style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, view === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
             <AppIcon name="swap" size={18} color="#40517D" />
             <Text style={s.libraryViewText}>스와이프</Text>
@@ -100,7 +101,7 @@ function LibraryScreen({
             accessibilityRole="tab"
             accessibilityState={{ selected: view === 'grid' }}
             onPress={() => onViewChange('grid')}
-            style={({ pressed }) => [s.libraryViewOption, view === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
+            style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, view === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
             <AppIcon name="grid" size={17} color="#40517D" />
             <Text style={s.libraryViewText}>한눈에</Text>
@@ -108,7 +109,7 @@ function LibraryScreen({
         </View>
       </View>
 
-      <View style={s.libraryToolbar}>
+      <View style={[s.libraryToolbar, compact && s.libraryToolbarCompact]}>
         <View style={s.filters}>
           {FILTERS.map((item) => (
             <Pressable
@@ -116,9 +117,9 @@ function LibraryScreen({
               accessibilityRole="tab"
               accessibilityState={{ selected: filter === item.id }}
               onPress={() => onFilterChange(item.id)}
-              style={({ pressed }) => [s.chip, filter === item.id && s.chipSelected, pressed && s.pressed]}
+              style={({ pressed }) => [s.chip, compact && s.chipCompact, filter === item.id && s.chipSelected, pressed && s.pressed]}
             >
-              <Text style={[s.chipText, filter === item.id && s.chipTextSelected]}>{item.label}</Text>
+              <Text style={[s.chipText, compact && s.chipTextCompact, filter === item.id && s.chipTextSelected]}>{item.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -127,16 +128,17 @@ function LibraryScreen({
       {!carouselItems.length ? (
         <EmptyState title={current.empty} copy={current.emptyCopy} />
       ) : view === 'carousel' ? (
-        <View style={s.carouselShell}>
+        <View style={[s.carouselShell, compact && s.carouselShellCompact]}>
           <View style={s.carouselRow}>
-            <Pressable
+            {/* 폰은 화면이 좁아 화살표 대신 밀어서 넘긴다. */}
+            {!compact && <Pressable
               accessibilityRole="button"
               accessibilityLabel="이전 다이어리"
               onPress={() => moveCarousel(activeIndex - 1)}
               style={({ pressed }) => [s.carouselArrow, s.carouselArrowLeft, pressed && s.pressed]}
             >
               <AppIcon name="chevron-left" size={24} color="#0B1957" strokeWidth={2.1} />
-            </Pressable>
+            </Pressable>}
             <AnimatedFlatList
               ref={carouselRef}
               data={carouselItems}
@@ -182,24 +184,24 @@ function LibraryScreen({
                 )
               )}
             />
-            <Pressable
+            {!compact && <Pressable
               accessibilityRole="button"
               accessibilityLabel="다음 다이어리"
               onPress={() => moveCarousel(activeIndex + 1)}
               style={({ pressed }) => [s.carouselArrow, s.carouselArrowRight, pressed && s.pressed]}
             >
               <AppIcon name="chevron-right" size={24} color="#0B1957" strokeWidth={2.1} />
-            </Pressable>
+            </Pressable>}
           </View>
           <View style={s.carouselFoot}>
-            <Text style={s.swipeHint}>← 옆으로 밀어 다이어리를 넘겨보세요 →</Text>
+            {!compact && <Text style={s.swipeHint}>← 옆으로 밀어 다이어리를 넘겨보세요 →</Text>}
             <Text style={s.carouselCount}>{activeIndex + 1} / {carouselItems.length}</Text>
           </View>
         </View>
       ) : (
-        <View style={s.grid}>
-          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} />)}
-          {canCreate && <CreateDiaryCard layout="grid" onCreate={onCreate} />}
+        <View style={[s.grid, compact && s.gridCompact]}>
+          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} />)}
+          {canCreate && <CreateDiaryCard layout="grid" compact={compact} onCreate={onCreate} />}
         </View>
       )}
     </ScrollView>
