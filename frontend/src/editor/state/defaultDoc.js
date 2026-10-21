@@ -48,10 +48,10 @@ export function createDefaultDoc(diary) {
   const paperAppearance = normalizePaperAppearance(diary?.paperAppearance)
   return {
     id: diary?.id ?? createId(),
-    title: diary?.title ?? '2026 다이어리',
+    title: diary?.title ?? (templateConfig.dateMode === 'undated' ? '만년형 다이어리' : '2026 다이어리'),
     coverColor: diary?.color ?? '#F2A7A0',
     coverPattern: diary?.pattern ?? null,
-    year: 2026,
+    year: templateConfig.dateMode === 'undated' ? null : 2026,
     orientation: templateConfig.orientation,
     weeklyStyle: templateConfig.weeklyStyle,
     templateConfig,
