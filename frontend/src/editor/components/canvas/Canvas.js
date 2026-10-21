@@ -19,6 +19,7 @@ import LassoInput from '../LassoInput'
 import TextEditor from '../TextEditor'
 import TextBoxInput from '../TextBoxInput'
 import TextLinkOverlay from '../TextLinkOverlay'
+import PalmRejectionArea from './PalmRejectionArea'
 
 const SNAP_SCREEN_PX = 6
 const LONG_PRESS_MS = 450
@@ -198,6 +199,8 @@ export default function Canvas({
         ))}
       </View>
 
+      {/* 펜·형광펜·지우개: 손바닥은 거르고 펜(또는 첫 손가락) 하나만 따라 그린다 */}
+      <PalmRejectionArea>
       {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
           {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
@@ -207,6 +210,7 @@ export default function Canvas({
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
         <EraserInput key={`${page.id}-${zoom}-${eraserSize}`} objects={page.objects} diameter={eraserSize} zoom={zoom} dispatch={dispatch} onPreview={setErasingIds} />
       </View>}
+      </PalmRejectionArea>
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} onCreate={onCreateText} />}
       {!readOnly && activeTool === 'text' && !textEditing && visible.filter((o) => o.type === 'text' && !o.locked).map((object) =>
         <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => onEditText(object)} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}

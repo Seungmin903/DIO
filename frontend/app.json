@@ -34,7 +34,8 @@
           "isAccessMediaLocationEnabled": false
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "./plugins/withPointerEvents"
     ],
     "extra": {
       "eas": {

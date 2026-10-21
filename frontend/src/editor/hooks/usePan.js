@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useContext, useLayoutEffect, useRef, useState } from 'react'
 import { PanResponder } from 'react-native'
+import { PalmRejectionContext, usePalmRejectingPan } from './usePalmRejection'
 
 const MOVE_THRESHOLD = 3
 
@@ -34,6 +35,7 @@ function createResponder(handlersRef) {
 /**
  * PanResponder 를 감싼 훅. 핸들러는 최신 값을 쓰도록 ref 로 보관한다.
  * onStart(event) / onMove(dx, dy, event) / onEnd({ moved, duration })
+ * PalmRejectionContext 안(펜·지우개 입력 영역)에서는 손바닥을 거르는 끌기를 쓴다.
  */
 export function usePan(handlers) {
   const handlersRef = useRef(handlers)
@@ -41,5 +43,7 @@ export function usePan(handlers) {
     handlersRef.current = handlers
   })
   const [responder] = useState(() => createResponder(handlersRef))
-  return responder.panHandlers
+  const palm = useContext(PalmRejectionContext)
+  const palmHandlers = usePalmRejectingPan(handlers)
+  return palm ? palmHandlers : responder.panHandlers
 }

@@ -16,6 +16,7 @@ import ChipScroller, { justDragged } from '../controls/ChipScroller'
 import ConfirmDialog from '../controls/ConfirmDialog'
 import HelpButton, { useHelp } from '../controls/HelpButton'
 import Icon from '../controls/Icon'
+import PenSafeTextInput from '../controls/PenSafeTextInput'
 import TapeCropper from './TapeCropper'
 import TapeOptions from './TapeOptions'
 import TapeView from '../canvas/TapeView'
@@ -255,7 +256,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
         <View style={styles.fixed}>
           <View style={styles.search}>
             <Icon name="search" size={16} color={colors.textMuted} />
-            <TextInput
+            <PenSafeTextInput
               value={query}
               onChangeText={setQuery}
               placeholder="스티커 검색 (예: 하트, 고양이)"

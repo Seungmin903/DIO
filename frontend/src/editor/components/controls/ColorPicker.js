@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { StyleSheet, Text, TextInput, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
+import PenSafeTextInput from './PenSafeTextInput'
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
 import { colors } from '../../../shared/theme'
 import { usePan } from '../../hooks/usePan'
@@ -138,7 +139,7 @@ export default function ColorPicker({ value, onChange, onStart, label = '색', s
       {showHex && <View style={styles.hexRow}>
         <View style={[styles.preview, { backgroundColor: value }]} />
         <Text style={styles.hash}>HEX</Text>
-        <TextInput
+        <PenSafeTextInput
           value={draft}
           onChangeText={setDraft}
           onSubmitEditing={commitDraft}

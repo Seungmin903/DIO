@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+import PenSafeTextInput from './PenSafeTextInput'
 import { colors } from '../../../shared/theme'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
@@ -85,7 +86,7 @@ export default function Slider({
         <Icon name="plus" size={16} />
       </Pressable>
       <View style={styles.inputBox}>
-        <TextInput
+        <PenSafeTextInput
           value={draft}
           onChangeText={setDraft}
           onFocus={() => setEditing(true)}
