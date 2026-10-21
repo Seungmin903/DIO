@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import * as text from '../src/editor/utils/text.js'
+import * as textFormats from '../src/editor/utils/textFormats.js'
 import * as textRanges from '../src/editor/utils/textRanges.js'
 
 const require = createRequire(import.meta.url)
@@ -39,6 +40,9 @@ function renderEditor(platform) {
     if (id === '../../shared/theme') return { colors: {} }
     if (id === '../utils/text') return text
     if (id === '../utils/textRanges') return textRanges
+    if (id === '../utils/textFormats') return textFormats
+    if (id === '../services/textClipboard') return { copyText: async () => {} }
+    if (id === './TextActionBar' || id === './TextLinkDialog') return { __esModule: true, default: () => null }
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(editorRequire, module, module.exports)
@@ -71,7 +75,7 @@ test('web: blur는 최종 문자열·범위를 한 번만 저장하며 취소 �
   const { inputProps, saves } = renderEditor('web')
   inputProps.onBlur({ target: { value: '한글 RED\n완료' } })
   inputProps.onBlur({ target: { value: '한글 RED\n완료' } })
-  assert.deepEqual(saves, [['한글 RED\n완료', [{ start: 3, end: 9, color: '#DD887A' }]]])
+  assert.deepEqual(saves, [['한글 RED\n완료', [{ start: 3, end: 9, color: '#DD887A' }], []]])
   const cancelled = renderEditor('web')
   cancelled.inputProps.onKeyDown({ key: 'Escape', stopPropagation() {} })
   cancelled.inputProps.onBlur({ target: { value: '취소할 내용' } })

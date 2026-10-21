@@ -3,7 +3,7 @@ import { Platform, StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { usePan } from '../../hooks/usePan'
 import { centerOf, normalizeAngle, rotateVector } from '../../utils/common'
-import { textPatch, textSettings } from '../../utils/text'
+import { textFormatPatch, textSettings } from '../../utils/text'
 import Icon from '../controls/Icon'
 
 // 핸들이 박스 바깥에 걸쳐도 터치를 받도록 오버레이를 이만큼 넓게 잡는다. (Android 는 부모 밖 터치를 받지 않음)
@@ -248,7 +248,7 @@ function resizePatch(g, handle, pointer) {
     if (Math.abs(w - start.w) < 1e-8) return { x: start.x, y: start.y, w: start.w, h: start.h, baseWidth: start.baseWidth ?? start.w }
     const scale = start.w / (start.baseWidth ?? start.w)
     baseWidth = w / scale
-    h = textPatch(start.text, baseWidth, textSettings(start)).h * scale
+    h = textFormatPatch({ ...start, w, baseWidth }, textSettings(start)).h
   }
   const localCenter = {
     x: sx ? anchor.x + (sx * w) / 2 : 0,

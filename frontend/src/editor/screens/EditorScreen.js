@@ -22,6 +22,10 @@ import EraserSettings from '../components/EraserSettings'
 import { ERASER_RADIUS } from '../utils/eraser.js'
 import LassoSettings from '../components/LassoSettings'
 import TextSettings from '../components/TextSettings'
+import TextLinkDialog from '../components/TextLinkDialog'
+import { TEXT_ACTION_BAR_WIDTH } from '../components/TextActionBar'
+import { formatTextRange } from '../utils/textFormats'
+import { copyText } from '../services/textClipboard'
 import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch } from '../utils/text'
 import { createText } from '../utils/text'
 import { DEFAULT_PEN_SETTINGS, DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
@@ -53,11 +57,20 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
   const [exportSnapshot, setExportSnapshot] = useState(null)
+  const [exportAnchor, setExportAnchor] = useState(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [regionOpen, setRegionOpen] = useState(false)
   const [stageSize, setStageSize] = useState(null)
   const stageRef = useRef(null)
+  const [toolAnchor, setToolAnchor] = useState(null)
+  const [drawerWidth, setDrawerWidth] = useState(320)
   const [stageOrigin, setStageOrigin] = useState({ x: 0, y: 0 })
+  const toolPopoverStyle = (width = 320) => {
+    const stageWidth = stageSize?.width ?? 600
+    const left = Math.max(8, Math.min((toolAnchor?.x ?? stageOrigin.x + stageWidth / 2) - stageOrigin.x + (toolAnchor?.width ?? 0) / 2 - width / 2, stageWidth - width - 8))
+    return { left, right: 8, top: Math.max(76, (toolAnchor?.y ?? stageOrigin.y + 24) - stageOrigin.y + (toolAnchor?.height ?? 44) + 8), bottom: 64, alignItems: 'flex-start' }
+  }
+
   // scale: 화면에 맞춤 대비 배율, x·y: 페이지 왼쪽 위 위치 (null 이면 가운데)
   const [view, setView] = useState({ scale: 1, x: null, y: null })
   const [drawerTab, setDrawerTab] = useState(null)
@@ -71,8 +84,10 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [textPalette, setTextPalette] = useState(null)
   const [textDefaults, setTextDefaults] = useState(DEFAULT_TEXT_SETTINGS)
   const [textSettingsOpen, setTextSettingsOpen] = useState(false)
+  const [textLinkTarget, setTextLinkTarget] = useState(null)
   const [penSettings, setPenSettings] = useState(DEFAULT_PEN_SETTINGS)
   const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
+  const [straightAssist, setStraightAssist] = useState(true)
   const [eraserSize, setEraserSize] = useState(ERASER_RADIUS * 2)
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -395,6 +410,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         }}
         shareLabel="공유 및 내보내기"
         shareIcon="share"
+        onShareAnchor={setExportAnchor}
         onShare={() => {
           if (textEditing) { showToast('텍스트 편집을 완료한 뒤 내보내 주세요.'); return }
           if (cropId || tapeCropId) { showToast('자르기를 마친 뒤 내보내 주세요.'); return }
@@ -403,7 +419,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         }}
       />
 
-      {exportOpen && <ExportMenu doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => {
+      {exportOpen && <ExportMenu anchor={exportAnchor} doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => {
         const target = state.doc.pages.find((p) => p.id === id)
         setExportOpen(false)
         try { setExportSnapshot({ ...createExportSnapshot(target), fileName: pngFileName(state.doc.title, state.doc.pages.findIndex((p) => p.id === id) + 1) }) }
@@ -466,21 +482,27 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 onLassoModeChange={(mode) => setLasso(current => ({ ...current, mode: current.mode === mode ? 'replace' : mode }))}
                 penSettings={penSettings}
                 highlighterSettings={highlighterSettings}
+                straightAssist={straightAssist}
                 eraserSize={eraserSize}
                 textBoundary={textBoundary}
                 onTextPaletteChange={setTextPalette}
                 textPaletteBounds={textPaletteBounds}
                 textEditing={textEditing?.pageId === page.id ? textEditing : null}
                 onEditText={(object) => { setTextSettingsOpen(false); setTextEditing({ ...object, pageId: page.id, existing: true }) }}
+                onTextSettings={() => { setTextSettingsOpen(current => !current); setMoreOpen(false) }}
+                onCopy={(objects) => { clipboard.current = objects; showToast(`${objects.length}개를 복사했어요.`) }}
+                onCut={(objects) => { clipboard.current = objects; dispatch({ type: 'removeObjects', ids: objects.filter(o => !o.locked).map(o => o.id) }); showToast('잘라 냈어요.') }}
+                onCopyText={(text) => copyText(text).then(() => showToast('텍스트를 복사했어요.')).catch(() => showToast('텍스트를 복사하지 못했어요.'))}
+                onTextLink={setTextLinkTarget}
                 onCancelText={() => setTextEditing(null)}
-                onSaveText={(text, colorRanges = []) => {
+                onSaveText={(text, colorRanges = [], styleRanges = []) => {
         if (textEditing.pageId === page.id) {
           if (textEditing.existing) {
-            if (text !== textEditing.text || JSON.stringify(colorRanges) !== JSON.stringify(textEditing.colorRanges ?? [])) {
+            if (text !== textEditing.text || JSON.stringify(colorRanges) !== JSON.stringify(textEditing.colorRanges ?? []) || JSON.stringify(styleRanges) !== JSON.stringify(textEditing.styleRanges ?? [])) {
               if (!text.trim()) dispatch({ type: 'removeObjects', ids: [textEditing.id] })
-              else dispatch({ type: 'updateObject', id: textEditing.id, record: true, patch: { ...textFormatPatch({ ...textEditing, text }, textSettings(textEditing)), colorRanges } })
+              else dispatch({ type: 'updateObject', id: textEditing.id, record: true, patch: { ...textFormatPatch({ ...textEditing, text, styleRanges }, textSettings(textEditing)), colorRanges, styleRanges } })
             }
-          } else if (text.trim()) dispatch({ type: 'addObjects', objects: [createText({ ...textEditing, text, colorRanges })] })
+          } else if (text.trim()) dispatch({ type: 'addObjects', objects: [createText({ ...textEditing, text, colorRanges, styleRanges })] })
         }
         setTextEditing(null)
         setActiveTool('select')
@@ -505,6 +527,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
           {!readOnly && <View style={styles.ribbonWrap} pointerEvents="box-none" {...markInside}>
             <Ribbon
+              onAnchor={setToolAnchor}
+              penColor={penSettings.color}
+              highlighterColor={highlighterSettings.color}
               activeTool={activeTool}
               drawerTab={drawerTab}
               onOpenDrawer={(tab) => {
@@ -536,29 +561,33 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             />
           </View>}
           {!readOnly && activeTool === 'lasso' && lassoSettingsOpen && !drawerTab && (
-            <View style={styles.lassoSettingsWrap} pointerEvents="box-none" {...markInside}>
+            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
               <LassoSettings shape={lasso.shape} onClose={() => setLassoSettingsOpen(false)}
                 onShapeChange={(shape) => setLasso(current => ({ ...current, shape }))} />
             </View>
           )}
           {!readOnly && textEditing && textPalette && <View style={[styles.textPaletteWrap, {
-            left: Math.max(8, Math.min((textPalette.anchor?.x ?? stageOrigin.x) - stageOrigin.x, (stageSize?.width ?? 600) - 268)),
+            left: Math.max(8, Math.min((textPalette.anchor?.x ?? stageOrigin.x) - stageOrigin.x, (stageSize?.width ?? 600) - TEXT_ACTION_BAR_WIDTH - 8)),
             top: Math.max(84, Math.min((textPalette.anchor?.y ?? stageOrigin.y) - stageOrigin.y + (textPalette.anchor?.height ?? 0) + 6, (stageSize?.height ?? 500) - 164)),
           }]} {...markInside}>
             {textPalette.content}
           </View>}
+          {!readOnly && textLinkTarget && <TextLinkDialog initialValue={textLinkTarget.styleRanges?.find(r => r.href)?.href ?? ''} onCancel={() => setTextLinkTarget(null)} onSave={(href) => {
+            dispatch({ type: 'updateObject', id: textLinkTarget.id, record: true, patch: { styleRanges: formatTextRange(textLinkTarget.text, textLinkTarget.styleRanges, { start: 0, end: textLinkTarget.text.length }, { href: href || null }) } })
+            setTextLinkTarget(null)
+          }} />}
           {!readOnly && textSettingsOpen && !textEditing && !drawerTab && (
-            <View style={[styles.penSettingsWrap, { left: Math.max(8, Math.min((stageSize?.width ?? 600) / 2 - 30, (stageSize?.width ?? 600) - 288)), right: 8 }]} pointerEvents="box-none" {...markInside}>
-              <TextSettings settings={currentTextSettings} onChange={changeTextSettings} />
+            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
+              <TextSettings settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
             </View>
           )}
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
-            <View style={styles.penSettingsWrap} pointerEvents="box-none" {...markInside}>
-              <PenSettings key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => setPenSettingsOpen(false)} />
+            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
+              <PenSettings key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => setPenSettingsOpen(false)} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} />
             </View>
           )}
           {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
-            <View style={styles.penSettingsWrap} pointerEvents="box-none" {...markInside}>
+            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
               <EraserSettings size={eraserSize} onChange={setEraserSize} onClose={() => setPenSettingsOpen(false)} />
             </View>
           )}
@@ -571,8 +600,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           )}
 
           {drawerTab && (
-            <View style={styles.drawerWrap} pointerEvents="box-none" {...markInside}>
+            <View style={[styles.drawerWrap, toolPopoverStyle(drawerWidth)]} pointerEvents="box-none" {...markInside}>
               <DecorDrawer
+                onPanelWidth={setDrawerWidth}
                 tab={drawerTab}
                 // 테이프를 넣으면 보관함을 닫고 그 테이프 옆에 옵션 패널을 연다
                 onTapeInserted={() => {

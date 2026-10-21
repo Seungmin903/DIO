@@ -9,7 +9,7 @@ import { DEFAULT_PEN_SETTINGS, penPressure } from '../utils/penSettings'
 import { createHighlighterHold } from '../utils/strokeAssist'
 
 // 입력 중에는 문서/이력을 변경하지 않고 손을 뗄 때 한 획으로 확정한다.
-export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageHeight = PAGE_HEIGHT, settings = DEFAULT_PEN_SETTINGS }) {
+export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageHeight = PAGE_HEIGHT, settings = DEFAULT_PEN_SETTINGS, straightAssist = true }) {
   const gesture = useRef(null)
   useEffect(() => () => { gesture.current?.hold?.cancel(); gesture.current = null }, [])
   const [preview, setPreview] = useState(null)
@@ -23,7 +23,7 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
       const first = { ...start, pressure: penPressure(settings.kind) }
       gesture.current = { start, points: [first], rawPoints: [first], id: createId(), settings: { ...settings }, time: Date.now() }
       const g = gesture.current
-      if (settings.kind === 'highlighter') g.hold = createHighlighterHold({ start: first, zoom, onStraight: (points) => {
+      if (straightAssist) g.hold = createHighlighterHold({ start: first, zoom, onStraight: (points) => {
         if (gesture.current !== g) return
         g.straight = true
         g.points = points

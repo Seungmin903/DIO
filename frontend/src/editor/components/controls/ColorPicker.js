@@ -15,7 +15,7 @@ const HUE_STOPS = ['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00
  * 색을 직접 고르는 피커. 위 네모에서 채도(가로)·밝기(세로), 아래 막대에서 색상(hue)을 고르고 HEX 로도 넣을 수 있다.
  * onStart 는 끌기·입력을 시작할 때 한 번 (되돌리기 지점), onChange(hex) 는 바뀔 때마다.
  */
-export default function ColorPicker({ value, onChange, onStart, label = '색' }) {
+export default function ColorPicker({ value, onChange, onStart, label = '색', showHex = true }) {
   const [hsv, setHsv] = useState(() => hexToHsv(value))
   const [size, setSize] = useState({ sv: 1, hue: 1 })
   const [draft, setDraft] = useState(value)
@@ -135,7 +135,7 @@ export default function ColorPicker({ value, onChange, onStart, label = '색' })
         />
       </View>
 
-      <View style={styles.hexRow}>
+      {showHex && <View style={styles.hexRow}>
         <View style={[styles.preview, { backgroundColor: value }]} />
         <Text style={styles.hash}>HEX</Text>
         <TextInput
@@ -149,7 +149,7 @@ export default function ColorPicker({ value, onChange, onStart, label = '색' })
           style={styles.hexInput}
           accessibilityLabel={`${label} HEX 코드`}
         />
-      </View>
+      </View>}
     </View>
   )
 }

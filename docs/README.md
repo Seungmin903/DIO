@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [qa-editor-integration.md](./qa-editor-integration.md) | 98 편집·저장 복원 통합 QA, 횟수·시간·미검증 환경 |
 | [element-selection.md](./element-selection.md) | 94~97 요소 선택·이동·크기 조절·회전·Undo/Redo 검증 |
 | [diary-delete-persistence.md](./diary-delete-persistence.md) | 비회원 다이어리 실제 PostgreSQL 삭제·204·404·테스트 |
 | [diary-update-persistence.md](./diary-update-persistence.md) | 비회원 다이어리 수정의 PostgreSQL 반영·부분 수정·테스트 |
@@ -45,6 +46,7 @@
 | [pdf-file-save.md](./pdf-file-save.md) | 112 PDF 웹 저장·모바일 공유·24시간 캐시 및 검증 |
 | [pdf-export-qa.md](./pdf-export-qa.md) | 113 PDF 면 구성·메타데이터·저장·취소 QA 및 실기기 미검증 |
 | [export-content-and-resolution.md](./export-content-and-resolution.md) | 72 필기·부분 색상·폰트 준비와 122 표시본 대체 정책 및 QA |
+| [tool-options-ui.md](./tool-options-ui.md) | 139 툴바 옵션 위치·헤더·표면 통일 및 검증 |
 | (예정) requirements.md | 기능 요구사항 |
 | (예정) api.md | API 명세 |
 | (예정) erd.md | DB 설계 |

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import Icon from '../controls/Icon'
@@ -24,23 +25,23 @@ const DECOR_TOOLS = [
   { tab: 'photo', icon: 'image', label: '사진' },
 ]
 
-export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTool, onPlaceholder }) {
+export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTool, onPlaceholder, onAnchor, penColor, highlighterColor }) {
   return (
     <View style={styles.ribbon}>
       {NAV_TOOLS.map((tool) => (
-        <Tool key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
+        <Tool onAnchor={onAnchor} key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
           active={!drawerTab && activeTool === tool.id}
           onPress={() => tool.pending ? onPlaceholder(tool.label) : onSelectTool(tool.id)} />
       ))}
       <View style={styles.divider} />
       {INPUT_TOOLS.map((tool) => (
-        <Tool key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
+        <Tool color={tool.id === 'pen' ? penColor : tool.id === 'highlighter' ? highlighterColor : undefined} onAnchor={onAnchor} key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
           active={!drawerTab && activeTool === tool.id}
           onPress={() => tool.pending ? onPlaceholder(tool.label) : onSelectTool(tool.id)} />
       ))}
       <View style={styles.divider} />
       {DECOR_TOOLS.map((tool) => (
-        <Tool key={tool.tab} icon={tool.icon} label={tool.label} active={drawerTab === tool.tab} onPress={() => onOpenDrawer(tool.tab)} />
+        <Tool onAnchor={onAnchor} key={tool.tab} icon={tool.icon} label={tool.label} active={drawerTab === tool.tab} onPress={() => onOpenDrawer(tool.tab)} />
       ))}
       <View style={styles.divider} />
       <Tool icon="link" label="하이퍼링크" dim onPress={() => onPlaceholder('하이퍼링크')} />
@@ -49,10 +50,14 @@ export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTo
   )
 }
 
-function Tool({ icon, label, active, dim, onPress }) {
+function Tool({ icon, label, active, dim, onPress, onAnchor, color }) {
+  const ref = useRef(null)
+  const measure = () => ref.current?.measureInWindow?.((x, y, width, height) => onAnchor?.({ x, y, width, height }))
   return (
     <Pressable
-      onPress={onPress}
+      ref={ref}
+      onLayout={active ? measure : undefined}
+      onPress={() => { measure(); onPress() }}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
@@ -60,11 +65,13 @@ function Tool({ icon, label, active, dim, onPress }) {
       style={({ pressed }) => [styles.tool, active && styles.toolActive, pressed && styles.toolPressed, dim && styles.toolDim]}
     >
       <Icon name={icon} size={21} />
+      {color && <View pointerEvents="none" accessible={false} style={[styles.colorDot, { backgroundColor: color }]} />}
     </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
+  colorDot: { position: 'absolute', right: 3, bottom: 3, width: 6, height: 6, borderRadius: 3, borderWidth: 1, borderColor: colors.surface, shadowColor: colors.text, shadowOpacity: 0.18, shadowRadius: 1, shadowOffset: { width: 0, height: 0 } },
   ribbon: {
     flexDirection: 'row',
     alignItems: 'center',

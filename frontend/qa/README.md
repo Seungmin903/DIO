@@ -1,5 +1,9 @@
 # 선택 영역 PNG QA 실행기 (119)
 
+## 담당 편집·저장 복원 QA (98)
+
+`frontend/`에서 `node qa/run-editor-qa.mjs --channel chrome`으로 설치된 Chrome의 격리된 1280×800 컨텍스트에서 실행한다. 제품 웹 번들을 생성하고 펜·형광펜 직선 보정, 텍스트 빠른 편집/한글/부분 색상/변형, 확대 지우개 보호·취소·Undo/Redo, 자동 저장·재진입을 3회 검사한다. 이미지 원본 저장·PNG 내보내기는 제외한다. 결과·화면은 `.out/editor/`에 남긴다. 같은 제품 코드의 직전 번들만 `--skip-build`로 재사용하며 실제 Android/iOS 검증과 구분한다.
+
 ## 재실행
 
 앱 의존성은 `frontend/package.json`과 `pnpm-lock.yaml`로 통일한다. `qa/` 아래 별도 npm 프로젝트나 node_modules를 만들지 않는다. 영역·미디어 QA 모두 같은 Playwright와 번들 Chromium을 사용한다.

@@ -1,10 +1,12 @@
+import { ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../shared/theme'
 
 // 형태 선택은 리본 아래에, 선택 후 작업 메뉴는 캔버스의 선택 영역 아래에 표시한다.
 export default function LassoSettings({ shape, onShapeChange, onClose }) {
-  return <View style={styles.panel} accessibilityLabel="올가미 형태 설정">
-    <Text style={styles.label}>올가미</Text>
+  return <View style={toolPanelStyles.card} accessibilityLabel="올가미 형태 설정">
+    <ToolPanelHeader icon="lasso" title="올가미" closeLabel="올가미 설정 닫기" onClose={onClose} />
+    <View style={[toolPanelStyles.content, { flexDirection: 'row' }]}>
     {[['rectangle', '네모'], ['freeform', '자유형']].map(([id, label]) => (
       <Pressable key={id} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: shape === id }}
         aria-pressed={shape === id} onPress={() => onShapeChange(id)}
@@ -12,10 +14,7 @@ export default function LassoSettings({ shape, onShapeChange, onClose }) {
         <Text style={styles.label}>{label}</Text>
       </Pressable>
     ))}
-    <Pressable accessibilityRole="button" accessibilityLabel="올가미 설정 닫기" onPress={onClose}
-      style={({ pressed }) => [styles.close, pressed && styles.pressed]}>
-      <Text style={styles.closeText}>×</Text>
-    </Pressable>
+    </View>
   </View>
 }
 
