@@ -1,6 +1,7 @@
 import { ScrollView, Text, View } from 'react-native';
 import { styles as s } from '../styles';
 import Header from '../components/Header';
+import AppInformation from '../components/AppInformation';
 
 export default function ProfileScreen({ diaries }) {
   const favorites = diaries.filter((diary) => diary.favorite).length;
@@ -25,6 +26,7 @@ export default function ProfileScreen({ diaries }) {
         <Text style={s.tipTitle}>표지 색상으로 다이어리를 구분해 보세요.</Text>
         <Text style={s.tipCopy}>자주 여는 다이어리는 즐겨찾기에 추가할 수 있어요.</Text>
       </View>
+      <AppInformation />
     </ScrollView>
   );
 }
