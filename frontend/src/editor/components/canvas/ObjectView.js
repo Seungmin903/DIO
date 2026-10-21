@@ -17,6 +17,7 @@ import FrameBackdrop from './PhotoFrame'
 import StrokeContent from '../StrokeContent'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
 import { textSettings, textStyle } from '../../utils/text'
+import { useTextFont } from '../../hooks/useTextFont'
 
 /**
  * 텍스트가 실제로 그려진 높이를 알려 받는 곳 (id, 논리 높이). 편집 화면 캔버스만 주고, 썸네일은 null 이다.
@@ -29,6 +30,7 @@ export const TextMeasure = createContext(null)
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
 function ObjectContent({ object, zoom, still = false, onAssetLoad, onAssetError }) {
+  useTextFont(object.type === 'text' ? object.font : null)
   const width = object.w * zoom
   const height = object.h * zoom
   const uri = useMediaUri(object, { still })

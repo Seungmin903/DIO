@@ -39,6 +39,7 @@ function renderEditor(platform) {
     if (id === 'react-native') return native
     if (id === '../../shared/theme') return { colors: {} }
     if (id === '../utils/text') return text
+    if (id === '../hooks/useTextFont') return require('../src/editor/hooks/useTextFont.js')
     if (id === '../utils/textRanges') return textRanges
     if (id === '../utils/textFormats') return textFormats
     if (id === '../services/textClipboard') return { copyText: async () => {} }
