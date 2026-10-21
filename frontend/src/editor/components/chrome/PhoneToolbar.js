@@ -4,7 +4,7 @@ import { colors, shadow } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 
 // 폰 편집기의 도구 막대. 도구 상태는 태블릿 리본(Ribbon)과 같이 EditorScreen이 소유한다.
-// 세로(간편 편집): 자주 쓰는 도구만 아래 막대에 두고 나머지는 더보기 시트로 보낸다.
+// 세로(간편 편집): 자주 쓰는 도구만 상단 막대에 두고 나머지는 더보기 시트로 보낸다.
 // 가로(정밀 편집): 오른쪽에 세운 막대에 모든 도구를 둔다.
 const QUICK_TOOLS = [
   { tool: 'select', icon: 'cursor', label: '선택' },

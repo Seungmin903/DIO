@@ -58,11 +58,11 @@ const ZOOM_STEP = 1.25
 const ORIENTATION_HINT_MS = 6500
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
-// 폰: 도구 막대가 작업창 밖(아래·오른쪽)에 있어서 위 여백이 작고, 아래에는 되돌리기 바만 남긴다.
+// 폰: 도구 막대가 작업창 밖(위·오른쪽)에 있어서 스테이지에는 되돌리기 바 여백만 남긴다.
 const PHONE_STAGE_PADDING = { top: 16, bottom: 68, side: 12 }
 
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
-// compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 하단 도구 막대),
+// compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 상단 도구 막대),
 // 가로는 정밀 편집(왼쪽 화면 막대 + 오른쪽 전체 도구 막대 + 확대·축소). onToggleOrientation이 있으면 세로·가로를 버튼으로 바꾼다.
 export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation }) {
   // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
@@ -93,7 +93,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [drawerWidth, setDrawerWidth] = useState(320)
   const [stageOrigin, setStageOrigin] = useState({ x: 0, y: 0 })
   const toolPopoverStyle = (width = 320) => {
-    // 폰: 도구 막대 쪽(세로면 아래, 가로면 오른쪽)에 붙이되 아래 되돌리기 바는 가리지 않는다.
+    // 폰: 설정 창은 작업 영역 안에 띄우고 아래 되돌리기 바는 가리지 않는다.
     if (compact) return { left: 8, right: 8, top: 8, bottom: 60, alignItems: landscape ? 'flex-end' : 'center', justifyContent: 'flex-end' }
     const stageWidth = stageSize?.width ?? 600
     const left = Math.max(8, Math.min((toolAnchor?.x ?? stageOrigin.x + stageWidth / 2) - stageOrigin.x + (toolAnchor?.width ?? 0) / 2 - width / 2, stageWidth - width - 8))
@@ -537,6 +537,29 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     return () => subscription.remove()
   }, [bubbleOpen, compact, exportOpen, exportSnapshot, focusMode, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, regionOpen, templatePickerOpen, textLinkTarget])
 
+  const phoneToolbar = !readOnly && compact ? (
+    <PhoneToolbar
+      {...markInside}
+      vertical={landscape}
+      bottomInset={landscape ? bottomInset : 0}
+      activeTool={activeTool}
+      drawerTab={drawerTab}
+      moreOpen={phoneMoreOpen}
+      penColor={penSettings.color}
+      highlighterColor={highlighterSettings.color}
+      onSelectTool={selectTool}
+      onOpenDrawer={openDrawer}
+      onToggleMore={() => {
+        setDrawerTab(null)
+        setMoreOpen(false)
+        setPenSettingsOpen(false)
+        setTextSettingsOpen(false)
+        setLassoSettingsOpen(false)
+        setPhoneMoreOpen((open) => !open)
+      }}
+    />
+  ) : null
+
   return (
     <View
       style={[styles.root, phoneLandscape && !phoneFocus && styles.rootBetweenRails, phoneLandscape && !phoneFocus && readOnly && styles.rootReadOnlyRail]}
@@ -584,6 +607,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         onShareAnchor={setExportAnchor}
         onShare={openExport}
       />}
+      {!landscape && phoneToolbar}
 
       {exportOpen && <ExportMenu anchor={exportAnchor} doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => {
         const target = state.doc.pages.find((p) => p.id === id)
@@ -884,33 +908,12 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         )}
       </View>
       {phoneFocus && (
-        <Pressable onPress={() => setFocusMode(false)} accessibilityRole="button" accessibilityLabel="집중 편집 모드 종료" style={styles.focusExit}>
+        <Pressable onPress={() => setFocusMode(false)} accessibilityRole="button" accessibilityLabel="집중 편집 모드 종료" style={[styles.focusExit, !landscape && styles.focusExitPortrait]}>
           <Icon name="focus" size={17} />
           <Text style={styles.focusExitText}>집중 모드 종료</Text>
         </Pressable>
       )}
-      {!readOnly && compact && (
-        <PhoneToolbar
-          {...markInside}
-          vertical={landscape}
-          bottomInset={bottomInset}
-          activeTool={activeTool}
-          drawerTab={drawerTab}
-          moreOpen={phoneMoreOpen}
-          penColor={penSettings.color}
-          highlighterColor={highlighterSettings.color}
-          onSelectTool={selectTool}
-          onOpenDrawer={openDrawer}
-          onToggleMore={() => {
-            setDrawerTab(null)
-            setMoreOpen(false)
-            setPenSettingsOpen(false)
-            setTextSettingsOpen(false)
-            setLassoSettingsOpen(false)
-            setPhoneMoreOpen((open) => !open)
-          }}
-        />
-      )}
+      {landscape && phoneToolbar}
     </View>
   )
 }
@@ -993,6 +996,7 @@ const styles = StyleSheet.create({
   orientationHint: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 44, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   orientationHintText: { fontSize: 11.5, fontWeight: '700', color: colors.text },
   focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
+  focusExitPortrait: { top: 72 },
   focusExitText: { fontSize: 12.5, fontWeight: '800', color: colors.text },
   body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: BODY_PADDING },
   bodyCompact: { padding: 8 },
