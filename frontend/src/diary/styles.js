@@ -297,6 +297,8 @@ export const styles = StyleSheet.create({
   tipTitle: { color: C.ink, fontSize: 16, fontWeight: '900', marginTop: 8 },
   tipCopy: { color: C.inkSoft, fontSize: 12, marginTop: 8 },
   trashGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 22 },
+  trashPolicy: { color: C.muted, fontSize: 13, lineHeight: 21, marginBottom: 16 },
+  trashNotice: { padding: 16, borderRadius: 12, backgroundColor: C.pale, marginBottom: 16 },
   trashCard: { width: 210, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
   trashCover: { height: 180, overflow: 'hidden', borderRadius: 12, opacity: 0.72 },
   trashTitle: { color: C.ink, fontSize: 14, fontWeight: '850', marginTop: 12 },

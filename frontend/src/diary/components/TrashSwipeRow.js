@@ -3,12 +3,14 @@ import { Animated, PanResponder, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
 import { formatUpdatedAt } from '../utils/diaryLibrary';
+import { isTrashExpired, trashStatus } from '../utils/trashRetention';
 
 const ACTION_WIDTH = 74;
 const OPEN_X = -ACTION_WIDTH * 2;
 
 // 폰 휴지통의 한 줄. 왼쪽으로 쓸면(또는 누르면) 복원·삭제 버튼이 드러난다.
-function TrashSwipeRow({ diary, onRestore, onDelete }) {
+function TrashSwipeRow({ diary, onRestore, onDelete, now = Date.now() }) {
+  const expired = isTrashExpired(diary, now);
   const x = useRef(new Animated.Value(0)).current;
   const openRef = useRef(false);
   const [open, setOpen] = useState(false);
@@ -27,7 +29,7 @@ function TrashSwipeRow({ diary, onRestore, onDelete }) {
     onPanResponderTerminate: () => settle(openRef.current),
   })).current;
 
-  const restore = () => { settle(false); onRestore(diary.id); };
+  const restore = () => { if (!expired) { settle(false); onRestore(diary.id); } };
   const remove = () => { settle(false); onDelete(diary); };
 
   return (
@@ -37,7 +39,7 @@ function TrashSwipeRow({ diary, onRestore, onDelete }) {
         accessibilityElementsHidden={!open}
         importantForAccessibility={open ? 'auto' : 'no-hide-descendants'}
       >
-        <Pressable accessibilityRole="button" accessibilityLabel={`${diary.title} 복원`} onPress={restore} style={({ pressed }) => [s.trashRowAction, s.trashRowRestore, pressed && s.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${diary.title} 복원`} disabled={expired} accessibilityState={{ disabled: expired }} onPress={restore} style={({ pressed }) => [s.trashRowAction, s.trashRowRestore, expired && { opacity: 0.45 }, pressed && s.pressed]}>
           <Text style={s.trashRowActionText}>복원</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`${diary.title} 영구 삭제`} onPress={remove} style={({ pressed }) => [s.trashRowAction, s.trashRowDelete, pressed && s.pressed]}>
@@ -49,7 +51,7 @@ function TrashSwipeRow({ diary, onRestore, onDelete }) {
           accessibilityRole="button"
           accessibilityLabel={`${diary.title}, 삭제 ${formatUpdatedAt(diary.trashedAt)}`}
           accessibilityHint={open ? '복원·삭제 버튼을 닫아요.' : '복원·삭제 버튼을 열어요.'}
-          accessibilityActions={[{ name: 'restore', label: '복원' }, { name: 'delete', label: '영구 삭제' }]}
+          accessibilityActions={[...(expired ? [] : [{ name: 'restore', label: '복원' }]), { name: 'delete', label: '영구 삭제' }]}
           onAccessibilityAction={({ nativeEvent }) => (nativeEvent.actionName === 'restore' ? restore() : remove())}
           onPress={() => settle(!open)}
           style={s.trashRowMain}
@@ -58,6 +60,7 @@ function TrashSwipeRow({ diary, onRestore, onDelete }) {
           <View style={s.trashRowInfo}>
             <Text numberOfLines={1} style={s.trashRowTitle}>{diary.title}</Text>
             <Text style={s.trashRowDate}>삭제 {formatUpdatedAt(diary.trashedAt)}</Text>
+            <Text style={s.trashRowDate}>{trashStatus(diary, now)}</Text>
           </View>
           <AppIcon name="chevron-left" size={20} color="#A3AFC5" />
         </Pressable>

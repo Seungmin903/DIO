@@ -44,6 +44,7 @@ export function normalizeDiaries(raw) {
       favorite: item.favorite === true,
       updatedAt: isText(item.updatedAt) ? item.updatedAt : null,
       trashedAt: isText(item.trashedAt) ? item.trashedAt : null,
+      ...(item.purgePending === true && item.trashedAt ? { purgePending: true } : {}),
       firstPageDate: dateOnly(item.firstPageDate),
       ...coverOptions(item),
     }];
