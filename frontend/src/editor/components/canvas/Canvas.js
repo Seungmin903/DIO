@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Keyboard, Platform, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { PHOTO_SHAPES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
@@ -65,6 +65,7 @@ export default function Canvas({
   highlighterSettings,
   straightAssist = true,
   eraserSize,
+  eraserMode = 'stroke',
   lassoShape = 'rectangle',
   lassoMode = 'replace',
   onLassoCommit,
@@ -109,16 +110,24 @@ export default function Canvas({
     if (object?.type === 'text' && h > 0 && Math.abs(object.h - h) > 1) dispatch({ type: 'updateObject', id, patch: { h } })
   }
   const [erasingIds, setErasingIds] = useState([])
+  const [erasingPieces, setErasingPieces] = useState(null) // 영역 지우기 중: 원래 획 id → 남은 조각
+  const previewErase = (ids, pieces = null) => { setErasingIds(ids); setErasingPieces(pieces) }
   // 그림 층에서 빼는 요소: 지우개로 지우는 중인 획, 편집 중인 텍스트(입력창이 투명이라 원래 글자가 겹쳐 보이지 않게)
   const hiddenIds = [...(activeTool === 'eraser' ? erasingIds : []), ...(textEditing?.id ? [textEditing.id] : [])]
-  const drawingPage = hiddenIds.length ? { ...page, objects: page.objects.filter((object) => !hiddenIds.includes(object.id)) } : page
+  const pieces = activeTool === 'eraser' ? erasingPieces : null
+  const drawingPage = hiddenIds.length
+    ? { ...page, objects: page.objects.flatMap((object) => pieces?.[object.id] ?? (hiddenIds.includes(object.id) ? [] : [object])) }
+    : page
   const visible = page.objects.filter((o) => !o.hidden)
   const touchSelectable = visible.filter((o) => o.type !== 'stroke')
   const selected = visible.filter((o) => selectedIds.includes(o.id))
   const lassoEditing = activeTool === 'lasso' && selected.length > 0 && !lassoDrawing && !lassoCapture
   const canSelect = !readOnly && !textEditing && (activeTool === 'select' || lassoEditing)
+  // 텍스트 도구에서도 글자는 선택 도구처럼 누르면 선택, 다시 누르면 수정, 끌면 이동한다. (빈 곳을 누르면 새 글상자)
+  const textTool = !readOnly && !textEditing && activeTool === 'text'
+  const canTouch = canSelect || textTool
   const replacingLasso = activeTool === 'lasso' && lassoDrawing && lassoMode === 'replace'
-  const showSelection = !replacingLasso && (canSelect || (!readOnly && !textEditing && activeTool === 'lasso'))
+  const showSelection = !replacingLasso && (canTouch || (!readOnly && !textEditing && activeTool === 'lasso'))
   const cropping = Boolean(cropId)
   // 사각·라운드 사진은 PPT 처럼 테두리 손잡이로 자유롭게 자른다.
   const freeCropTarget = visible.find(
@@ -191,8 +200,6 @@ export default function Canvas({
     >
       {showBackground && <PageBackground page={page} zoom={zoom} />}
       {!readOnly && <GridOverlay guides={gridGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />}
-      {/* 종이 테두리: 안쪽 공간을 줄이지 않게 겹쳐 그린다. (페이지에 borderWidth 를 주면 종이·요소가 1px 씩 밀린다) */}
-      <View pointerEvents="none" style={styles.pageBorder} />
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
@@ -218,8 +225,8 @@ export default function Canvas({
           }} />
       )}
       {/* 터치 층: 요소마다 같은 자리에 투명한 상자를 두고 선택·이동을 받는다. */}
-      <View style={[styles.hitLayer, activeTool === 'lasso' && { zIndex: 1 }]} pointerEvents={canSelect ? 'box-none' : 'none'}>
-        {visible.filter((object) => object.type !== 'stroke' || selectedIds.includes(object.id)).map((object) => (
+      <View style={[styles.hitLayer, (activeTool === 'lasso' || textTool) && { zIndex: 1 }]} pointerEvents={canTouch ? 'box-none' : 'none'}>
+        {visible.filter((object) => (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
           <CanvasObject
             key={object.id}
             object={object}
@@ -248,7 +255,7 @@ export default function Canvas({
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
-        <EraserInput key={`${page.id}-${zoom}-${eraserSize}`} objects={page.objects} diameter={eraserSize} zoom={zoom} dispatch={dispatch} onPreview={setErasingIds} />
+        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}`} objects={page.objects} diameter={eraserSize} mode={eraserMode} zoom={zoom} dispatch={dispatch} onPreview={previewErase} />
       </View>}
       </PalmRejectionArea>
       {/* 창을 닫으려고 누른 터치는 여기서 삼키고 창만 닫는다. 펜·형광펜에 점이 찍히던 문제 */}
@@ -256,8 +263,6 @@ export default function Canvas({
         <View style={StyleSheet.absoluteFill} onStartShouldSetResponder={() => true} {...inputBlocker} accessibilityElementsHidden />
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={onCreateText} />}
-      {!readOnly && activeTool === 'text' && !textEditing && visible.filter((o) => o.type === 'text' && !o.locked).map((object) =>
-        <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => (selectedIds.includes(object.id) || isDoubleTap(object.id) ? onEditText(object) : dispatch({ type: 'select', ids: [object.id] }))} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}
       {!readOnly && textEditing && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
 
       {freeCropTarget && <View pointerEvents="box-none" style={styles.selectionControls}><CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} /></View>}
@@ -269,7 +274,7 @@ export default function Canvas({
         <LassoOutline paths={outlinePaths} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} />
       )}
       {showSelection && !outlinePaths && selected.length === 1 && !cropping && !marquee && (
-        <View pointerEvents={canSelect ? "box-none" : "none"} style={styles.selectionControls}>
+        <View pointerEvents={canTouch ? "box-none" : "none"} style={styles.selectionControls}>
         <SelectionOverlay
           object={selected[0]}
           zoom={zoom}
@@ -315,7 +320,7 @@ export default function Canvas({
         </View>
       )}
 
-      {canSelect && selected.length > 0 && !cropping && !interacting && !marquee && (
+      {canTouch && selected.length > 0 && !cropping && !interacting && !marquee && (
         <View pointerEvents="box-none" style={styles.selectionMenu}>
         <ContextBar
           onCopyText={onCopyText}
@@ -643,13 +648,13 @@ const styles = StyleSheet.create({
     // 웹 터치: 페이지 위 드래그를 브라우저가 스크롤·뒤로 가기 스와이프로 가져가지 않게 한다. (영역 선택·이동용)
     ...Platform.select({ web: { touchAction: 'none' }, default: {} }),
     backgroundColor: colors.surface,
+    // 테두리 선은 두지 않는다: 태블릿에서 종이 위쪽에 회색 띠처럼 보였다. 종이와 바탕은 그림자로 구분한다.
     shadowColor: '#0B1957',
     shadowOpacity: 0.16,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
     elevation: 6,
   },
-  pageBorder: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: 'rgba(11,25,87,0.08)' },
   clip: {
     position: 'absolute',
     left: 0,

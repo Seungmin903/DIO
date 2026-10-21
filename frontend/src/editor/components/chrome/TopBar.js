@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
-import { colors, shadow } from '../../../shared/theme'
+import { colors } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 
 
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     backgroundColor: 'rgba(255,255,255,0.9)',
     zIndex: 10,
-    ...shadow.card,
+    // 그림자는 뺀다: Android 는 반투명 바탕에 elevation 그림자를 주면 편집 영역 위에 회색 줄로 보였다
   },
   logo: { fontSize: 25, fontWeight: '900', letterSpacing: -1.2, color: colors.text },
   tab: {
