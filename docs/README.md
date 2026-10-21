@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [hand-pan.md](./hand-pan.md) | 159 손바닥 이동 좌표 누적·경계 공통화와 회귀 검증 |
 | [qa-editor-integration.md](./qa-editor-integration.md) | 98 편집·저장 복원 통합 QA, 횟수·시간·미검증 환경 |
 | [element-selection.md](./element-selection.md) | 94~97 요소 선택·이동·크기 조절·회전·Undo/Redo 검증 |
 | [diary-delete-persistence.md](./diary-delete-persistence.md) | 비회원 다이어리 실제 PostgreSQL 삭제·204·404·테스트 |
