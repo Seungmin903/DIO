@@ -8,10 +8,29 @@ import ObjectContent from './canvas/ObjectView'
 import { DEFAULT_PEN_SETTINGS, penPressure } from '../utils/penSettings'
 import { createHighlighterHold } from '../utils/strokeAssist'
 
+// 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
+const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
+const cancelFrame = (id) => { if (id && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id) }
+
 // 입력 중에는 문서/이력을 변경하지 않고 손을 뗄 때 한 획으로 확정한다.
 export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageHeight = PAGE_HEIGHT, settings = DEFAULT_PEN_SETTINGS, straightAssist = true }) {
   const gesture = useRef(null)
-  useEffect(() => () => { gesture.current?.hold?.cancel(); gesture.current = null }, [])
+  const previewFrame = useRef(null)
+  const pendingPreview = useRef(null)
+  const schedulePreview = (stroke) => {
+    pendingPreview.current = stroke
+    if (previewFrame.current) return
+    previewFrame.current = requestFrame(() => {
+      previewFrame.current = null
+      setPreview(pendingPreview.current)
+      pendingPreview.current = null
+    })
+  }
+  useEffect(() => () => {
+    gesture.current?.hold?.cancel()
+    gesture.current = null
+    if (previewFrame.current) cancelFrame(previewFrame.current)
+  }, [])
   const [preview, setPreview] = useState(null)
   const handlers = usePan({
     onStart: (event) => {
@@ -27,9 +46,9 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
         if (gesture.current !== g) return
         g.straight = true
         g.points = points
-        setPreview(createStroke(points, { ...g.settings, id: g.id }))
+        schedulePreview(createStroke(points, { ...g.settings, id: g.id }))
       } })
-      setPreview(createStroke([first], { ...gesture.current.settings, id: gesture.current.id }))
+      schedulePreview(createStroke([first], { ...gesture.current.settings, id: gesture.current.id }))
     },
     onMove: (dx, dy, event) => {
       const g = gesture.current
@@ -54,12 +73,17 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
       if (g.straight) g.points = [g.points[0], sample]
       else g.points = g.rawPoints
       if (!outside) g.hold?.move(sample)
-      setPreview(createStroke(g.points, { ...g.settings, id: g.id }))
+      schedulePreview(createStroke(g.points, { ...g.settings, id: g.id }))
     },
     onEnd: ({ cancelled }) => {
       const g = gesture.current
       g?.hold?.cancel()
       gesture.current = null
+      if (previewFrame.current) {
+        cancelFrame(previewFrame.current)
+        previewFrame.current = null
+      }
+      pendingPreview.current = null
       setPreview(null)
       if (g && !cancelled) {
         dispatch({ type: 'addObjects', objects: [createStroke(g.points, { ...g.settings, id: g.id })] })

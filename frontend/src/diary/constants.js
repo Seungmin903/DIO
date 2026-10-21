@@ -35,10 +35,7 @@ export const COVER_PATTERNS = [
 ];
 
 // 페이지 크기는 만든 뒤에 바꿀 수 없다.
-export const PAGE_SIZES = [
-  { id: 'landscape', label: '가로형' },
-  { id: 'portrait', label: '세로형' },
-];
+export const PAGE_SIZES = [{ id: 'landscape', label: '가로형' }];
 
 // 첫 페이지 서식. 지금은 선택값만 저장하고, 편집기 속지가 준비되면 첫 페이지에 반영한다.
 export const FIRST_PAGES = [
@@ -56,12 +53,12 @@ export const DIARY_DEFAULTS = {
   pattern: 'linen',
   pageSize: 'landscape',
   firstPage: 'blank',
+  firstPageDate: '2026-01-01',
 };
 
 // 홈 화면 보관함 탭. 고른 탭 이름이 화면 제목이 된다.
 export const FILTERS = [
-  { id: 'personal', label: '개인 다이어리', empty: '개인 다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
-  { id: 'shared', label: '공유 다이어리', empty: '공유 다이어리가 없어요', emptyCopy: '다이어리 안에서 친구를 초대하면 이곳에 모여요.' },
+  { id: 'personal', label: '모든 다이어리', empty: '다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
   { id: 'favorite', label: '즐겨찾기', empty: '즐겨찾기한 다이어리가 없어요', emptyCopy: '다이어리 카드의 별을 눌러 즐겨찾기에 추가해 보세요.' },
 ];
 

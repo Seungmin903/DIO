@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { memo, useEffect, useRef, useState } from 'react'
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, radius } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
 import { usePan } from '../../hooks/usePan'
@@ -11,6 +11,7 @@ import StaticPage from '../canvas/StaticPage'
 const THUMB_WIDTH = 124
 const HOLD_MS = 280 // 이만큼 누르고 있으면 끌어서 순서 바꾸기 시작 (그 전에 움직이면 목록 스크롤)
 const TAP_SLOP = 8
+const THUMB_BACKGROUND_DELAY_MS = 250
 
 // 왼쪽 페이지 목록 폭. 열고 닫을 때 작업창 크기를 한 번에 맞추는 데도 쓴다 (EditorScreen)
 export const PAGE_LIST_WIDTH = 156
@@ -25,6 +26,13 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   const [menuId, setMenuId] = useState(null)
   const [scrollY, setScrollY] = useState(0)
   const [panelHeight, setPanelHeight] = useState(0)
+  // 썸네일 속지(80KB 안팎 SVG)는 편집 화면 속지가 먼저 그려지도록 잠시 뒤에 그린다.
+  // InteractionManager는 편집기의 열린 제스처 핸들 때문에 끝내 실행되지 않을 수 있어 타이머를 쓴다.
+  const [thumbBackgrounds, setThumbBackgrounds] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setThumbBackgrounds(true), THUMB_BACKGROUND_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [])
   const layouts = useRef({}) // id → { y, height } (목록 안 위치)
   const target = drag ? dropIndex(pages, layouts.current, drag) : null
   const menuPage = menuId ? pages.find((page) => page.id === menuId) : null
@@ -39,41 +47,48 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
 
   return (
     <View style={styles.panel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
-      <ScrollView contentContainerStyle={styles.list} scrollEnabled={!drag} onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)} scrollEventThrottle={16}>
-        {pages.map((page, index) => {
+      <FlatList
+        data={pages}
+        keyExtractor={(page) => page.id}
+        contentContainerStyle={styles.list}
+        scrollEnabled={!drag}
+        onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={32}
+        initialNumToRender={4}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+        removeClippedSubviews
+        renderItem={({ item: page, index }) => {
           const active = page.id === currentId
           const dragging = drag?.id === page.id
-          return (
-            <PageItem
-              key={page.id}
-              page={page}
-              index={index}
-              active={active}
-              dragging={dragging}
-              dy={dragging ? drag.dy : 0}
-              dropLine={drag && !dragging && target === index ? (target < drag.from ? 'before' : 'after') : null}
-              cropId={active ? cropId : null}
-              readOnly={readOnly}
-              menuOpen={!readOnly && menuId === page.id}
-              canOpenMenu={!readOnly && !drag}
-              canToggleIndex={!readOnly && !drag}
-              onLayout={(layout) => (layouts.current[page.id] = layout)}
-              onSelect={() => { setMenuId(null); onSelect(page.id) }}
-              onMenu={() => setMenuId((id) => (id === page.id ? null : page.id))}
-              onToggleIndex={() => onToggleIndex(page.id)}
-              onDragStart={() => setDrag({ id: page.id, from: index, dy: 0 })}
-              onDragMove={(dy) => setDrag({ id: page.id, from: index, dy })}
-              onDragEnd={(dy) => {
-                const to = dropIndex(pages, layouts.current, { id: page.id, from: index, dy })
-                setDrag(null)
-                if (to !== index) onMove(page.id, to)
-              }}
-            />
-          )
-        })}
-        {/* 목록 아래 빈 곳을 누르면 선택 해제 */}
-        {onEmptyTap && <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} />}
-      </ScrollView>
+          return <PageItem
+            page={page}
+            index={index}
+            active={active}
+            dragging={dragging}
+            dy={dragging ? drag.dy : 0}
+            dropLine={drag && !dragging && target === index ? (target < drag.from ? 'before' : 'after') : null}
+            cropId={active ? cropId : null}
+            showBackground={thumbBackgrounds}
+            readOnly={readOnly}
+            menuOpen={!readOnly && menuId === page.id}
+            canOpenMenu={!readOnly && !drag}
+            canToggleIndex={!readOnly && !drag}
+            onLayout={(layout) => (layouts.current[page.id] = layout)}
+            onSelect={() => { setMenuId(null); onSelect(page.id) }}
+            onMenu={() => setMenuId((id) => (id === page.id ? null : page.id))}
+            onToggleIndex={() => onToggleIndex(page.id)}
+            onDragStart={() => setDrag({ id: page.id, from: index, dy: 0 })}
+            onDragMove={(dy) => setDrag({ id: page.id, from: index, dy })}
+            onDragEnd={(dy) => {
+              const to = dropIndex(pages, layouts.current, { id: page.id, from: index, dy })
+              setDrag(null)
+              if (to !== index) onMove(page.id, to)
+            }}
+          />
+        }}
+        ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
+      />
       {menuPage && (
         <View style={[styles.actionMenu, { top: menuTop }]}>
           <Text style={styles.actionMenuTitle}>{pages.findIndex((page) => page.id === menuId) + 1}페이지</Text>
@@ -121,7 +136,7 @@ function dropIndex(pages, layouts, drag) {
   return clamp(index, 0, pages.length - 1)
 }
 
-function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
+const PageItem = memo(function PageItem({ page, index, active, showBackground, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
   const { width, height } = pageSize(page)
   const thumbZoom = THUMB_WIDTH / width
   const press = useRef(null)
@@ -168,7 +183,7 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
       >
         {/* 지금 편집 중인 페이지는 움직이는 GIF·자르기 표시까지 편집 화면과 똑같이, 나머지는 첫 장면으로 */}
         <View style={styles.thumbPage} pointerEvents="none">
-          <StaticPage page={page} zoom={thumbZoom} still={!active} cropId={cropId} />
+          <StaticPage page={page} zoom={thumbZoom} still={!active} cropId={cropId} showBackground={showBackground} />
         </View>
       </View>
       {canToggleIndex && (
@@ -180,7 +195,13 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
           accessibilityState={{ selected: Boolean(page.indexed) }}
           style={styles.indexBadge}
         >
-          <Icon name="bookmark" size={16} color={page.indexed ? colors.primary : colors.textMuted} strokeWidth={2.2} />
+          <Icon
+            name="bookmark"
+            size={17}
+            color={page.indexed ? colors.primary : colors.textMuted}
+            fill={page.indexed ? colors.primary : 'none'}
+            strokeWidth={2.2}
+          />
         </Pressable>
       )}
       <Text style={[styles.number, active && styles.numberActive]}>{index + 1}</Text>
@@ -191,7 +212,20 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
       )}
     </View>
   )
-}
+}, (previous, next) => (
+  previous.page === next.page
+  && previous.index === next.index
+  && previous.active === next.active
+  && previous.showBackground === next.showBackground
+  && previous.dragging === next.dragging
+  && previous.dy === next.dy
+  && previous.dropLine === next.dropLine
+  && previous.cropId === next.cropId
+  && previous.readOnly === next.readOnly
+  && previous.menuOpen === next.menuOpen
+  && previous.canOpenMenu === next.canOpenMenu
+  && previous.canToggleIndex === next.canToggleIndex
+))
 
 const styles = StyleSheet.create({
   panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'visible', zIndex: 3 },

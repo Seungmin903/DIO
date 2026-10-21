@@ -82,8 +82,7 @@ function SideRail({ page, filter, navigate, create, collapsed, onToggle }) {
         <Animated.View style={[s.railSectionSlot, { height: between(0, 23), opacity: labelOpacity }]}>
           <Text numberOfLines={1} style={s.railSection}>보관함</Text>
         </Animated.View>
-        {item('library', '개인 다이어리', 'book', 'personal')}
-        {item('library', '공유 다이어리', 'people', 'shared')}
+        {item('library', '모든 다이어리', 'book', 'personal')}
         {item('library', '즐겨찾기', 'star', 'favorite')}
         {item('profile', '내 공간', 'person')}
         {item('trash', '휴지통', 'trash')}

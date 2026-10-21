@@ -36,6 +36,7 @@ import TopBar from '../components/chrome/TopBar'
 import Viewport from '../components/canvas/Viewport'
 import { ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
+import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
 import { pickImages } from '../services/image'
@@ -51,9 +52,22 @@ const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
 export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport }) {
-  const { state, dispatch, saveStatus } = useEditor(diary)
+  // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
+  const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
+  // 앞뒤 페이지 속지를 미리 해석해 두어 페이지를 넘길 때 빈 속지가 보이지 않게 한다.
+  // 필기마다 pages 배열이 바뀌므로, 앞뒤 페이지의 속지가 바뀔 때만 다시 실행한다.
+  const pageIndex = state.doc.pages.findIndex((item) => item.id === page.id)
+  const nextPage = state.doc.pages[pageIndex + 1]
+  const previousPage = state.doc.pages[pageIndex - 1]
+  const neighborTemplates = [nextPage, previousPage].map((item) => (item ? `${item.backgroundAssetId}@${item.templateVersion}` : '')).join('|')
+  const neighborsRef = useRef([nextPage, previousPage])
+  neighborsRef.current = [nextPage, previousPage]
+  useEffect(() => {
+    const timer = setTimeout(() => neighborsRef.current.forEach(prefetchPageTemplate), 300)
+    return () => clearTimeout(timer)
+  }, [neighborTemplates])
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
 
   const [exportSnapshot, setExportSnapshot] = useState(null)
@@ -434,7 +448,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       <View style={styles.body}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
         <TapCatcher onTap={clearSelection} style={StyleSheet.absoluteFill} />
-        {showPages && (
+        {showPages && loaded && (
           <PageList
             readOnly={readOnly}
             pages={state.doc.pages}
@@ -472,6 +486,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             onLayout={(event) => { setStageSize(event.nativeEvent.layout); stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y })) }}
           >
               <Canvas
+                showBackground={loaded}
                 activeTool={activeTool}
                 lassoShape={lasso.shape}
                 lassoMode={lasso.mode}

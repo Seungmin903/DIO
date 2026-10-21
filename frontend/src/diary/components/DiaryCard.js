@@ -46,7 +46,7 @@ function DiaryCard({ diary, layout = 'grid', onOpen, onFavorite, onEdit, carouse
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
             <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>
-            <Text style={s.cardType}>{diary.type === '공유' ? '함께 쓰는 다이어리' : '나만의 다이어리'}</Text>
+            <Text style={s.cardType}>나만의 다이어리</Text>
           </View>
         </View>
         <Text style={s.cardDate}>{formatUpdatedAt(diary.updatedAt)}</Text>

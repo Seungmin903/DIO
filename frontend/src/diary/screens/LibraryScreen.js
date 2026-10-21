@@ -1,11 +1,13 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS } from '../constants';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
 import CreateDiaryCard from '../components/CreateDiaryCard';
 import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
+
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
 // 카드 위치(index)마다 스크롤 위치에 따라 투명도·크기·기울기가 바뀌는 애니메이션 스타일.
 function carouselMotion(scrollX, index) {
@@ -41,8 +43,7 @@ function LibraryScreen({
   // 사이드 메뉴 애니메이션 중에는 매 프레임 바뀌므로 App이 아닌 이 화면 안에서만 들고 있는다.
   const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
   const shown = useMemo(() => diaries.filter((diary) =>
-    (filter === 'shared' && diary.type === '공유')
-      || (filter === 'personal' && diary.type !== '공유')
+    (filter === 'personal')
       || (filter === 'favorite' && diary.favorite),
   ), [diaries, filter]);
   const current = FILTERS.find((item) => item.id === filter) || FILTERS[0];
@@ -58,10 +59,14 @@ function LibraryScreen({
   const activeIndex = Math.max(0, Math.min(carousel, Math.max(0, itemCount - 1)));
   const carouselSidePadding = Math.max(0, (carouselViewportWidth - CAROUSEL_ITEM_WIDTH) / 2);
 
+  useEffect(() => {
+    if (carousel !== activeIndex) onCarouselChange(activeIndex);
+  }, [activeIndex, carousel, onCarouselChange]);
+
   const moveCarousel = (nextIndex) => {
     const next = Math.max(0, Math.min(nextIndex, itemCount - 1));
     onCarouselChange(next);
-    carouselRef.current?.scrollTo({ x: next * CAROUSEL_STEP, animated: true });
+    carouselRef.current?.scrollToOffset?.({ offset: next * CAROUSEL_STEP, animated: true });
   };
 
   const syncCarouselIndex = useCallback(({ nativeEvent }) => {
@@ -132,8 +137,10 @@ function LibraryScreen({
             >
               <AppIcon name="chevron-left" size={24} color="#0B1957" strokeWidth={2.1} />
             </Pressable>
-            <Animated.ScrollView
+            <AnimatedFlatList
               ref={carouselRef}
+              data={carouselItems}
+              keyExtractor={(item) => item.id}
               horizontal
               directionalLockEnabled
               decelerationRate="fast"
@@ -148,8 +155,11 @@ function LibraryScreen({
               onLayout={measureCarousel}
               onScroll={onScroll}
               onMomentumScrollEnd={syncCarouselIndex}
-            >
-              {carouselItems.map((item, index) => (
+              initialNumToRender={3}
+              maxToRenderPerBatch={3}
+              // 카드가 확대·기울기로 자기 영역 밖까지 그려져서 removeClippedSubviews는 쓰지 않는다.
+              windowSize={5}
+              renderItem={({ item, index }) => (
                 item.id === 'new-diary' ? (
                   <CreateDiaryCard
                     key={item.id}
@@ -170,8 +180,8 @@ function LibraryScreen({
                     onEdit={onEdit}
                   />
                 )
-              ))}
-            </Animated.ScrollView>
+              )}
+            />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="다음 다이어리"
