@@ -127,7 +127,8 @@ test('편집기 모달은 공통 방향 정책을 사용하며 새 직접 사용
   assert.equal(closed, 1)
   const TabletModal = components('../src/editor/components/controls/EditorModal.js', false).default
   const tablet = TabletModal({ visible: true, children: 'content' })
-  assert.equal(Object.hasOwn(tablet.props, 'supportedOrientations'), false)
+  // iOS Modal 기본값(세로 전용)으로는 가로 고정 태블릿에서 앱이 종료되므로 태블릿도 두 방향을 지정한다.
+  assert.deepEqual(tablet.props.supportedOrientations, ['portrait', 'landscape'])
   assert.equal(tablet.props.visible, true)
   assert.equal(tablet.props.children, 'content')
 })
