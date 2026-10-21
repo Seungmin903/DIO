@@ -1,5 +1,7 @@
-import { memo, useState } from 'react'
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useFormFactor } from '../../../shared/useFormFactor'
+import { Fragment, memo, useState } from 'react'
+import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors, shadow } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
 import StaticPage from '../canvas/StaticPage'
@@ -17,15 +19,20 @@ const FILTERS = [['all', '전체'], ['bookmarked', '북마크']]
  * - 책갈피: 북마크 넣기·빼기
  */
 export default function PageOverview({ pages, currentId, initialFilter = 'all', onSelect, onToggleIndex, onClose }) {
+  const { isPhone } = useFormFactor()
   const [filter, setFilter] = useState(initialFilter)
   const [width, setWidth] = useState(0)
   const columns = Math.max(1, Math.floor((width - GAP) / (THUMB_WIDTH + GAP)))
+  const gridWidth = columns * THUMB_WIDTH + (columns - 1) * GAP
+  const gridInset = Math.max(GAP, (width - gridWidth) / 2)
   const shown = filter === 'bookmarked' ? pages.filter((page) => page.indexed) : pages
-  return (
-    <View style={styles.backdrop} accessibilityViewIsModal>
+  const Contents = isPhone ? SafeAreaView : View
+  const HeaderSide = isPhone ? View : Fragment
+  const content = (
+    <Contents style={[styles.backdrop, isPhone && styles.phoneBackdrop]} accessibilityViewIsModal>
       <View style={styles.sheet} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
-        <View style={styles.header}>
-          <Text style={styles.title}>페이지</Text>
+        <View style={[styles.header, isPhone && styles.phoneHeader]}>
+          <HeaderSide {...(isPhone ? { style: styles.headerSide } : {})}><Text style={styles.title}>페이지</Text></HeaderSide>
           <View style={styles.tabs}>
             {FILTERS.map(([id, label]) => (
               <Pressable
@@ -34,16 +41,18 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
                 accessibilityRole="button"
                 accessibilityLabel={`넓게 보기 ${label}`}
                 accessibilityState={{ selected: filter === id }}
-                style={[styles.tab, filter === id && styles.tabActive]}
+                style={[styles.tab, isPhone && styles.phoneTab, filter === id && styles.tabActive]}
               >
                 <Text style={[styles.tabText, filter === id && styles.tabTextActive]}>{label}</Text>
               </Pressable>
             ))}
           </View>
-          <Text style={styles.count}>{shown.length}장</Text>
+          <HeaderSide {...(isPhone ? { style: [styles.headerSide, styles.headerActions] } : {})}>
+          <Text style={[styles.count, isPhone && styles.phoneCount]}>{shown.length}장</Text>
           <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="넓게 보기 닫기" style={styles.close}>
             <Icon name="close" size={20} />
           </Pressable>
+          </HeaderSide>
         </View>
         {filter === 'bookmarked' && !shown.length ? (
           <Text style={styles.empty}>북마크한 페이지가 없어요.</Text>
@@ -54,7 +63,7 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
               data={shown}
               numColumns={columns}
               keyExtractor={(page) => page.id}
-              contentContainerStyle={styles.grid}
+              contentContainerStyle={[styles.grid, isPhone && { paddingHorizontal: gridInset }]}
               columnWrapperStyle={columns > 1 ? styles.row : undefined}
               initialNumToRender={columns * 3}
               windowSize={5}
@@ -71,8 +80,9 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
           )
         )}
       </View>
-    </View>
+    </Contents>
   )
+  return isPhone ? <Modal visible transparent animationType="fade" onRequestClose={onClose}>{content}</Modal> : content
 }
 
 const OverviewItem = memo(function OverviewItem({ page, number, active, onSelect, onToggleIndex }) {
@@ -107,6 +117,12 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 50, elevation: 50, padding: 24, backgroundColor: 'rgba(11,25,87,0.28)' },
   sheet: { flex: 1, borderRadius: PANEL_RADIUS, backgroundColor: '#EEF2FA', overflow: 'hidden', ...shadow.float },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: colors.surface },
+  phoneBackdrop: { position: 'relative', top: undefined, bottom: undefined, left: undefined, right: undefined, flex: 1, padding: 12 },
+  phoneHeader: { gap: 6, paddingHorizontal: 16 },
+  phoneTab: { paddingHorizontal: 10 },
+  phoneCount: { marginLeft: 0 },
+  headerSide: { flex: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
   title: { fontSize: 17, fontWeight: '800', color: colors.text },
   tabs: { flexDirection: 'row', padding: 3, borderRadius: 10, backgroundColor: 'rgba(11,25,87,0.06)' },
   tab: { paddingHorizontal: 16, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
