@@ -35,7 +35,8 @@ export const COVER_PATTERNS = [
 ];
 
 // 페이지 크기는 만든 뒤에 바꿀 수 없다.
-export const PAGE_SIZES = [{ id: 'landscape', label: '가로형' }];
+// 기존 세로형 메타데이터는 보존하고, 새 생성 화면에서는 준비 중으로 비활성화한다.
+export const PAGE_SIZES = [{ id: 'landscape', label: '가로형' }, { id: 'portrait', label: '세로형' }];
 
 // 첫 페이지 서식. 지금은 선택값만 저장하고, 편집기 속지가 준비되면 첫 페이지에 반영한다.
 export const FIRST_PAGES = [

@@ -1,6 +1,13 @@
 // 다이어리 목록 저장 형식. React/저장소를 모르는 순수 함수만 둔다.
 import { COVER_PATTERNS, FIRST_PAGES, PAGE_SIZES } from '../constants.js';
 
+import { normalizeTemplateConfig } from '../../editor/templates/creation.js';
+
+function restoredTemplateConfig(value) {
+  if (!value) return {};
+  try { return { templateConfig: normalizeTemplateConfig(value) }; } catch { return {}; }
+}
+
 const DEFAULT_COLOR = '#CED9EE';
 
 const isText = (value) => typeof value === 'string' && value.trim().length > 0;
@@ -28,6 +35,7 @@ export function normalizeDiaries(raw) {
     seen.add(item.id);
     return [{
       id: item.id,
+      ...restoredTemplateConfig(item.templateConfig),
       title: item.title,
       color: isText(item.color) ? item.color : DEFAULT_COLOR,
       type: item.type === '공유' ? '공유' : '개인',
@@ -65,6 +73,7 @@ export function recoverOrphanDiaries(diaries, docEntries, docKeyPrefix) {
     known.add(id);
     recovered.push({
       id,
+      ...restoredTemplateConfig(doc.templateConfig),
       title: isText(doc.title) ? doc.title : '복구한 다이어리',
       color: isText(doc.coverColor) ? doc.coverColor : DEFAULT_COLOR,
       type: '개인',
@@ -72,7 +81,7 @@ export function recoverOrphanDiaries(diaries, docEntries, docKeyPrefix) {
       updatedAt: null,
       trashedAt: null,
       firstPageDate: null,
-      ...coverOptions({}),
+      ...coverOptions({ pattern: doc.coverPattern, pageSize: doc.orientation }),
     });
   }
   return recovered.length ? [...diaries, ...recovered] : diaries;
