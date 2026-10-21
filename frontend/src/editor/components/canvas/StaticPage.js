@@ -23,7 +23,7 @@ export const ViewportMotion = createContext({ moving: false, visible: null })
  * - background: 편집 화면은 페이지 바탕을 Canvas 가 따로 그려서 투명으로 둔다.
  * - fadeIds: 끌어서 옮기는 중인 요소. 놓기 전까지 반투명하게 그린다.
  * - stillIds: 크기 조절·회전 중인 요소. GIF 를 첫 장면으로 멈춘다.
- * - onTextMeasure(id, h): 편집 화면에서 텍스트가 실제로 그려진 높이를 받는다. (상자 높이를 줄 수에 맞춤)
+ * - onTextMeasure(id, h): 편집 화면에서 실제 텍스트 높이를 받아 상자 최소 높이를 정한다.
  * 편집 화면에서는 확대·이동하는 동안과 화면 밖에 있는 GIF 도 멈춘다 (ViewportMotion).
  * 편집 화면의 GIF 는 움직여야 하므로, 손대지 않고 보이는 것만 재생한다.
  */
