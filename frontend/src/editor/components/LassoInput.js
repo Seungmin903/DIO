@@ -33,12 +33,20 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
     setDrawing(false)
     onDrawingChange?.(false)
   }
-  const scheduleDraft = (next) => {
-    pendingDraft.current = next
+  const buildDraft = (g) => {
+    // 프리뷰는 좌표 배열을 복사해, 다음 입력이 이미 표시 중인 경로를 바꾸지 않게 한다.
+    const polygon = lassoPolygon(shape, g.start, g.points.slice())
+    const valid = g.maxMove >= MIN_MOVEMENT && hasLassoArea(polygon)
+    const ids = valid ? applyLassoSelection(objects, g.base, lassoHitIds(objects, polygon), mode) : mode === 'replace' ? [] : g.base
+    g.result = valid ? ids : null
+    return { polygon, ids }
+  }
+  const scheduleDraft = (g) => {
+    pendingDraft.current = g
     if (frame.current) return
     frame.current = requestFrame(() => {
       frame.current = null
-      setDraft(pendingDraft.current)
+      if (pendingDraft.current) setDraft(buildDraft(pendingDraft.current))
       pendingDraft.current = null
     })
   }
@@ -50,7 +58,7 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
       setDrawing(true)
       onDrawingChange?.(true)
       const start = { x: clamp(event.locationX / zoom, 0, pageWidth), y: clamp(event.locationY / zoom, 0, pageHeight) }
-      gesture.current = { start, captureAll, pageX: event.pageX, pageY: event.pageY, points: [start], base: [...selectedIds], objects, maxMove: 0, result: null }
+      gesture.current = { start, captureAll, identifier: event.identifier, pageX: event.pageX, pageY: event.pageY, points: [start], base: [...selectedIds], objects, maxMove: 0, result: null }
     },
     onMove: (dx, dy, event) => {
       const g = gesture.current
@@ -60,18 +68,17 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
       const next = { x: clamp(g.start.x + dx / zoom, 0, pageWidth), y: clamp(g.start.y + dy / zoom, 0, pageHeight) }
       const last = g.points[g.points.length - 1]
       if (Math.hypot(next.x - last.x, next.y - last.y) * zoom < SAMPLE_DISTANCE) return
-      g.points = shape === 'freeform' ? [...g.points, next] : [g.start, next]
-      const polygon = lassoPolygon(shape, g.start, g.points)
-      const valid = g.maxMove >= MIN_MOVEMENT && hasLassoArea(polygon)
-      const ids = valid ? applyLassoSelection(objects, g.base, lassoHitIds(objects, polygon), mode) : mode === 'replace' ? [] : g.base
-      g.result = valid ? ids : null
-      scheduleDraft({ polygon, ids })
+      if (shape === 'freeform') g.points.push(next)
+      else g.points = [g.start, next]
+      scheduleDraft(g)
     },
     onEnd: ({ cancelled }) => {
       const g = gesture.current
       cancel()
       if (!cancelled && g && g.objects === objects) {
-        if (g.result !== null) onCommit(g.result)
+        // 마지막 입력 뒤 프레임이 아직 오지 않았어도 전체 좌표로 선택을 확정한다.
+        const final = buildDraft(g)
+        if (g.result !== null) onCommit(g.result, { polygon: final.polygon, shape, mode })
         else if (g.maxMove < MIN_MOVEMENT && (!g.captureAll || !lassoHitIds(objects, [g.start]).length)) onClearSelection?.()
       }
     },
@@ -86,7 +93,15 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
       const g = gesture.current
       if (g) input.onMove(event.nativeEvent.pageX - g.pageX, event.nativeEvent.pageY - g.pageY, event.nativeEvent)
     },
-    onResponderRelease: () => input.onEnd({ cancelled: false }),
+    onResponderRelease: event => {
+      const g = gesture.current
+      const e = event.nativeEvent
+      const last = e.changedTouches?.find(t => t.identifier === g?.identifier) ?? e
+      if (g && Number.isFinite(last.pageX) && Number.isFinite(last.pageY)) {
+        input.onMove(last.pageX - g.pageX, last.pageY - g.pageY, { touches: [] })
+      }
+      input.onEnd({ cancelled: false })
+    },
     onResponderTerminate: () => input.onEnd({ cancelled: true }),
   }
   const previewIds = new Set(draft?.ids ?? (mode === 'replace' ? [] : selectedIds))

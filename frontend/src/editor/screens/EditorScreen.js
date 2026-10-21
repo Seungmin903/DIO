@@ -43,6 +43,7 @@ import { useEditor } from '../hooks/useEditor'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
+import { centeredOffset, clampOffset as clampViewportOffset, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { createObjectFromDecor } from '../utils/objects'
 
@@ -153,17 +154,10 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     : 0.6
   const zoom = fitZoom * view.scale
   const fitted = view.scale === 1 && view.x == null
-  const offset = view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT) : { x: view.x, y: view.y }
+  const offset = view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT, STAGE_PADDING) : { x: view.x, y: view.y }
 
   // 페이지가 화면 밖으로 다 사라지지 않게 가장자리 80px 은 남긴다.
-  const clampOffset = (next, z) => {
-    if (!stageSize) return next
-    const keep = 80
-    return {
-      x: clamp(next.x, keep - PAGE_WIDTH * z, stageSize.width - keep),
-      y: clamp(next.y, keep - PAGE_HEIGHT * z, stageSize.height - keep),
-    }
-  }
+  const clampOffset = (next, z) => clampViewportOffset(next, z, stageSize, PAGE_WIDTH, PAGE_HEIGHT)
   // pagePoint(페이지 좌표)가 화면의 screenPoint 에 오도록 배율을 바꾼다. (손가락 사이·휠 위치 기준 확대)
   // resolve*: 제한을 적용한 보기 { scale, zoom, x, y } 만 계산한다. 손가락 제스처 중에는 Viewport 가 이것으로 미리 보여 주고 손을 뗄 때 확정한다.
   const resolveZoom = (nextScale, pagePoint, screenPoint) => {
@@ -171,7 +165,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     const z = fitZoom * scale
     return { scale, zoom: z, ...clampOffset({ x: screenPoint.x - pagePoint.x * z, y: screenPoint.y - pagePoint.y * z }, z) }
   }
-  const resolvePan = (from, dx, dy) => ({ ...from, ...clampOffset({ x: from.x + dx, y: from.y + dy }, from.zoom) })
+  const resolvePan = (from, dx, dy) => ({ ...from, ...panView(from, dx, dy, fitZoom, stageSize, PAGE_WIDTH, PAGE_HEIGHT, STAGE_PADDING) })
   const commitView = (next) => {
     setView({ scale: next.scale, x: next.x, y: next.y })
   }
@@ -793,15 +787,6 @@ function optionsPlacement(objects, zoom, offset, stage) {
   const minHeight = Math.min(420, stage.height - OPTIONS_TOP - OPTIONS_BOTTOM)
   const top = clamp(rect.top, OPTIONS_TOP, Math.max(OPTIONS_TOP, stage.height - OPTIONS_BOTTOM - minHeight))
   return { left, top, height: stage.height - OPTIONS_BOTTOM - top }
-}
-
-function centeredOffset(stageSize, zoom, pageWidth, pageHeight) {
-  if (!stageSize) return { x: STAGE_PADDING.side, y: STAGE_PADDING.top }
-  const available = stageSize.height - STAGE_PADDING.top - STAGE_PADDING.bottom
-  return {
-    x: (stageSize.width - pageWidth * zoom) / 2,
-    y: STAGE_PADDING.top + (available - pageHeight * zoom) / 2,
-  }
 }
 
 function RoundButton({ icon, label, disabled, active, onPress }) {
