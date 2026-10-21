@@ -113,7 +113,8 @@ export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pa
       <Svg pointerEvents="none" width={pageWidth * zoom} height={pageHeight * zoom} viewBox={'0 0 ' + pageWidth + ' ' + pageHeight}>
         {drawing && objects.filter(object => !object.hidden && previewIds.has(object.id)).map(object => (
           <Polygon key={object.id} points={objectLassoCorners(object).map(p => p.x + ',' + p.y).join(' ')}
-            fill={colors.primarySoft} stroke={colors.primary} strokeWidth={1.5 / zoom} />
+            // 고른 요소 표시는 선택 테두리와 같은 모양: 채우지 않은 파란 실선
+            fill="none" stroke={colors.primary} strokeWidth={1.5 / zoom} />
         ))}
         {path ? <Path d={path} fill={colors.primarySoft} fillRule="evenodd" stroke={colors.primary}
           strokeWidth={1.5 / zoom} strokeDasharray={[6 / zoom, 4 / zoom]} /> : null}

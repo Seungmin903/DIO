@@ -409,6 +409,18 @@ export function editorReducer(state, action) {
     }
 
     // 페이지 목록에서 썸네일을 끌어 순서를 바꾼다. (지금 보던 페이지는 그대로)
+    // 여러 페이지를 순서 그대로 anchorId 페이지 앞(before)이나 뒤(after)로 함께 옮긴다. 되돌리기 한 번.
+    case 'movePages': {
+      const moving = new Set(action.ids)
+      if (moving.has(action.anchorId)) return state
+      const picked = state.doc.pages.filter((p) => moving.has(p.id))
+      const rest = state.doc.pages.filter((p) => !moving.has(p.id))
+      const anchor = rest.findIndex((p) => p.id === action.anchorId)
+      if (anchor < 0 || !picked.length) return state
+      const at = action.place === 'before' ? anchor : anchor + 1
+      return { ...withHistory(state), doc: { ...state.doc, pages: [...rest.slice(0, at), ...picked, ...rest.slice(at)] } }
+    }
+
     case 'movePage': {
       const from = state.doc.pages.findIndex((p) => p.id === action.id)
       const to = clamp(action.toIndex, 0, state.doc.pages.length - 1)
