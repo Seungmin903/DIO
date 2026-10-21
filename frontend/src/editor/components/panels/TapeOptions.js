@@ -103,10 +103,11 @@ export default function TapeOptions({ tape, dispatch, onUpdate, draft = false })
         </Section>
       )}
 
-      {/* 내 색상: 펜·글자와 같은 저장 목록. 고른 색이 테이프 바탕, 그보다 진한 색이 무늬가 된다 */}
+      {/* 내 색상: 테이프만의 저장 목록. 고른 색이 테이프 바탕, 그보다 진한 색이 무늬가 된다 */}
       {draft && !isImage && (
         <Section title="내 색상">
           <MyColorPresets
+            scope="tape"
             value={isCustom ? look.bg : null}
             label="테이프 색"
             onPick={(hex) => update({ palette: `custom:${hex}:${deeper(hex)}` })}

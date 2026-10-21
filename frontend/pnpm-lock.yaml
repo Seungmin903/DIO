@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@expo-google-fonts/black-han-sans':
-        specifier: ^0.4.1
-        version: 0.4.1
       '@expo-google-fonts/nanum-gothic':
         specifier: ^0.4.0
         version: 0.4.0
@@ -465,9 +462,6 @@ packages:
   '@babel/types@7.29.8':
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
-
-  '@expo-google-fonts/black-han-sans@0.4.1':
-    resolution: {integrity: sha512-82C84aqDOb/tzWj7fkfchAg/RreBlWuvl8nLO6FPFgG6bCxeUDWocxoRqzW3p2VLLPPM6mwHJOQGuQMTpyHqNA==}
 
   '@expo-google-fonts/nanum-gothic@0.4.0':
     resolution: {integrity: sha512-BQls1DxrlrE0dn+lt9lbKOOBd44E3SmQNza6yHFcKVDl4L5/ecVwRcc6betnM00NkObHB99yqnc2aXbkQd31ww==}
@@ -3097,8 +3091,6 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
-
-  '@expo-google-fonts/black-han-sans@0.4.1': {}
 
   '@expo-google-fonts/nanum-gothic@0.4.0': {}
 

@@ -69,7 +69,7 @@ test('빈 파일·초과 용량·초과 해상도를 거부하고 경계값은 �
   assert.throws(() => checkDimensions({ width: 12001, height: 1 }), code('IMAGE_TOO_LARGE'))
   assert.throws(() => checkDimensions({ width: 9000, height: 8000 }), code('IMAGE_TOO_LARGE'))
   assert.throws(() => checkDimensions({ width: 4097, height: 1 }, { extension: 'gif' }), code('IMAGE_TOO_LARGE'))
-  assert.throws(() => checkSize(11 * 1024 * 1024, { extension: 'gif' }), code('FILE_TOO_LARGE'))
+  assert.throws(() => checkSize(51 * 1024 * 1024, { extension: 'gif' }), code('FILE_TOO_LARGE'))
   assert.throws(() => checkDimensions({ width: NaN, height: 1 }), code('MEDIA_DECODE_FAILED'))
 })
 
@@ -98,7 +98,7 @@ test('여러 장 중 손상 파일이 있으면 앞서 저장한 원본·표시�
 })
 
 test('화면용 크기는 용도별 제한을 적용하고 작은 소재는 확대하지 않는다', () => {
-  assert.deepEqual(displayDimensions({ width: 8064, height: 6048 }), { width: 2048, height: 1536 })
+  assert.deepEqual(displayDimensions({ width: 8064, height: 6048 }), { width: 3072, height: 2304 })
   assert.deepEqual(displayDimensions({ width: 4000, height: 2000 }, 'sticker'), { width: 512, height: 256 })
   assert.deepEqual(displayDimensions({ width: 4000, height: 2000 }, 'tape'), { width: 1400, height: 700 })
   assert.deepEqual(displayDimensions({ width: 100, height: 200 }), { width: 100, height: 200 })

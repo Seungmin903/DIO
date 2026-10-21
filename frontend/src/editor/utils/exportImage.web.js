@@ -4,8 +4,8 @@ import { PageExportError } from './pageExport.js'
 export async function exportImage({ blob, media, size }) {
   const format = detectMediaType(new Uint8Array(await blob.slice(0, 64).arrayBuffer()))
   if (format.extension === 'gif') {
-    const { gifFirstFramePng } = await import('./gifFirstFrame.js')
-    const { png } = gifFirstFramePng(await blob.arrayBuffer(), { size })
+    const { gifFirstFramePngFromHead } = await import('./gifFirstFrame.js')
+    const { png } = await gifFirstFramePngFromHead(async (length) => new Uint8Array(await blob.slice(0, length).arrayBuffer()), blob.size, { size })
     const uri = URL.createObjectURL(new Blob([png], { type: 'image/png' }))
     return { uri, dispose: () => URL.revokeObjectURL(uri) }
   }

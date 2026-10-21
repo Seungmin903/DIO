@@ -50,10 +50,12 @@ export const TEXT_FONTS = [
   { id: 'nanum-gothic', label: '나눔고딕', family: 'NanumGothic' },
   { id: 'nanum-myeongjo', label: '나눔명조', family: 'NanumMyeongjo' },
   { id: 'nanum-pen', label: '나눔손글씨 펜', family: 'NanumPenScript' },
-  { id: 'black-han-sans', label: '검은고딕', family: 'BlackHanSans' },
   { id: 'poor-story', label: '푸어스토리', family: 'PoorStory' },
 ]
-// 예전 문서의 '고정폭'(mono)은 목록에서 뺐다. 한글 글리프가 없어 실제로는 고딕으로 보였다. 저장된 글자는 그대로 그린다.
+// 목록에서 뺀 글꼴. 저장된 글자는 기본 고딕으로 그리고 내보내기도 막지 않는다.
+// - mono(고정폭): 한글 글리프가 없어 실제로는 고딕으로 보였다.
+// - black-han-sans(검은고딕): 한글 11,172자 중 2,581자만 있어 드문 글자는 다른 글꼴로 섞여 보였다.
+export const RETIRED_TEXT_FONTS = ['mono', 'black-han-sans']
 
 /** 글꼴 목록에 보일 이름. 기기 글꼴은 그 기기의 실제 글꼴 이름(예: Noto Sans)으로 보여 준다 */
 export function fontLabel(font, platform = 'android') {

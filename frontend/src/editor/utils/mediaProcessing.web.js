@@ -41,10 +41,13 @@ export async function createDisplay(input, format, dimensions, usage) {
       const ctx = canvas.getContext('2d')
       ctx.imageSmoothingQuality = 'high'
       ctx.drawImage(image, 0, 0, size.width, size.height)
-      const source = await new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Empty preview')), mimeType, 0.92))
+      const source = await new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Empty preview')), mimeType, 0.95))
       return { source, metadata: { ...size, mimeType, extension: jpeg ? 'jpg' : 'png', fileSize: source.size } }
     } finally { canvas.width = canvas.height = 0 }
   })
 }
+
+// 웹은 services/mediaStore 의 makePoster 로 만든다.
+export async function createPoster() { return null }
 
 export function dispose(input) { input.decodedSource = null }

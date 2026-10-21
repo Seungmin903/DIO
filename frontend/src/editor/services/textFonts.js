@@ -6,7 +6,6 @@ const FONT_FILES = {
   NanumGothic: require('@expo-google-fonts/nanum-gothic/400Regular/NanumGothic_400Regular.ttf'),
   NanumMyeongjo: require('@expo-google-fonts/nanum-myeongjo/400Regular/NanumMyeongjo_400Regular.ttf'),
   NanumPenScript: require('@expo-google-fonts/nanum-pen-script/400Regular/NanumPenScript_400Regular.ttf'),
-  BlackHanSans: require('@expo-google-fonts/black-han-sans/400Regular/BlackHanSans_400Regular.ttf'),
   PoorStory: require('@expo-google-fonts/poor-story/400Regular/PoorStory_400Regular.ttf'),
 }
 

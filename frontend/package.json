@@ -20,7 +20,6 @@
     "qa:pdf": "node qa/run-pdf-qa.mjs"
   },
   "dependencies": {
-    "@expo-google-fonts/black-han-sans": "^0.4.1",
     "@expo-google-fonts/nanum-gothic": "^0.4.0",
     "@expo-google-fonts/nanum-myeongjo": "^0.4.1",
     "@expo-google-fonts/nanum-pen-script": "^0.4.0",

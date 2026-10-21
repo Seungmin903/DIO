@@ -108,6 +108,46 @@ export const STICKER_ASSETS = {
   'n-tulip': require('../../assets/stickers/noto/n-tulip.gif'),
 }
 
+// 움직이는 기본 스티커의 첫 장면 (썸네일·보관함·끄는 중에 쓴다). assets/stickers/noto/still 은 GIF 의 0번 장면을 그대로 PNG 로 뽑은 것.
+const STICKER_STILLS = {
+  'n-balloon': require('../../assets/stickers/noto/still/n-balloon.png'),
+  'n-butterfly': require('../../assets/stickers/noto/still/n-butterfly.png'),
+  'n-cake': require('../../assets/stickers/noto/still/n-cake.png'),
+  'n-cat': require('../../assets/stickers/noto/still/n-cat.png'),
+  'n-check': require('../../assets/stickers/noto/still/n-check.png'),
+  'n-clap': require('../../assets/stickers/noto/still/n-clap.png'),
+  'n-coffee': require('../../assets/stickers/noto/still/n-coffee.png'),
+  'n-cry': require('../../assets/stickers/noto/still/n-cry.png'),
+  'n-dog': require('../../assets/stickers/noto/still/n-dog.png'),
+  'n-exhale': require('../../assets/stickers/noto/still/n-exhale.png'),
+  'n-fire': require('../../assets/stickers/noto/still/n-fire.png'),
+  'n-gift': require('../../assets/stickers/noto/still/n-gift.png'),
+  'n-glowstar': require('../../assets/stickers/noto/still/n-glowstar.png'),
+  'n-heart-eyes': require('../../assets/stickers/noto/still/n-heart-eyes.png'),
+  'n-heart': require('../../assets/stickers/noto/still/n-heart.png'),
+  'n-hundred': require('../../assets/stickers/noto/still/n-hundred.png'),
+  'n-joy': require('../../assets/stickers/noto/still/n-joy.png'),
+  'n-love': require('../../assets/stickers/noto/still/n-love.png'),
+  'n-melting': require('../../assets/stickers/noto/still/n-melting.png'),
+  'n-party': require('../../assets/stickers/noto/still/n-party.png'),
+  'n-pleading': require('../../assets/stickers/noto/still/n-pleading.png'),
+  'n-popper': require('../../assets/stickers/noto/still/n-popper.png'),
+  'n-rabbit': require('../../assets/stickers/noto/still/n-rabbit.png'),
+  'n-rain': require('../../assets/stickers/noto/still/n-rain.png'),
+  'n-rainbow': require('../../assets/stickers/noto/still/n-rainbow.png'),
+  'n-sleep': require('../../assets/stickers/noto/still/n-sleep.png'),
+  'n-smile': require('../../assets/stickers/noto/still/n-smile.png'),
+  'n-snow': require('../../assets/stickers/noto/still/n-snow.png'),
+  'n-sparkheart': require('../../assets/stickers/noto/still/n-sparkheart.png'),
+  'n-sparkles': require('../../assets/stickers/noto/still/n-sparkles.png'),
+  'n-starstruck': require('../../assets/stickers/noto/still/n-starstruck.png'),
+  'n-sun': require('../../assets/stickers/noto/still/n-sun.png'),
+  'n-think': require('../../assets/stickers/noto/still/n-think.png'),
+  'n-thumbsup': require('../../assets/stickers/noto/still/n-thumbsup.png'),
+  'n-tulip': require('../../assets/stickers/noto/still/n-tulip.png'),
+  'n-twohearts': require('../../assets/stickers/noto/still/n-twohearts.png'),
+}
+
 const GROUPS = [
   {
     id: 'daily',
@@ -278,7 +318,7 @@ export const STICKER_GROUPS = GROUPS.map((group) => ({
  * still 이면 GIF 대신 첫 장면(poster)을 쓴다. (썸네일·목록용)
  */
 export function stickerSource(item, still = false, resolvedUri) {
-  if (item.asset) return STICKER_ASSETS[item.asset]
+  if (item.asset) return (still && STICKER_STILLS[item.asset]) || STICKER_ASSETS[item.asset]
   const uri = resolvedUri === undefined ? mediaUri(item, { still }) : resolvedUri
   return uri ? { uri } : null
 }

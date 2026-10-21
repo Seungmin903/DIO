@@ -95,6 +95,11 @@ export default function Canvas({
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
   const [draggingIds, setDraggingIds] = useState(null) // 끌어서 옮기는 중인 스티커·테이프·사진 (놓기 전까지 반투명)
+  // 텍스트 상자 높이를 실제로 그려진 줄 수에 맞춘다. 되돌리기 이력에는 남기지 않는다. (크기 조절·편집 중에는 그쪽이 높이를 정한다)
+  const fitTextHeight = (id, h) => {
+    const object = page.objects.find((o) => o.id === id)
+    if (object?.type === 'text' && h > 0 && Math.abs(object.h - h) > 1) dispatch({ type: 'updateObject', id, patch: { h } })
+  }
   const [erasingIds, setErasingIds] = useState([])
   // 그림 층에서 빼는 요소: 지우개로 지우는 중인 획, 편집 중인 텍스트(입력창이 투명이라 원래 글자가 겹쳐 보이지 않게)
   const hiddenIds = [...(activeTool === 'eraser' ? erasingIds : []), ...(textEditing?.id ? [textEditing.id] : [])]
@@ -178,12 +183,14 @@ export default function Canvas({
     >
       {showBackground && <PageBackground page={page} zoom={zoom} />}
       {!readOnly && <GridOverlay guides={gridGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />}
+      {/* 종이 테두리: 안쪽 공간을 줄이지 않게 겹쳐 그린다. (페이지에 borderWidth 를 주면 종이·요소가 1px 씩 밀린다) */}
+      <View pointerEvents="none" style={styles.pageBorder} />
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <StaticPage page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} />
+        <StaticPage page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting ? null : fitTextHeight} />
       </View>
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
       {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
@@ -235,7 +242,7 @@ export default function Canvas({
       {inputBlocker && ['pen', 'highlighter', 'eraser'].includes(activeTool) && (
         <View style={StyleSheet.absoluteFill} onStartShouldSetResponder={() => true} {...inputBlocker} accessibilityElementsHidden />
       )}
-      {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} onCreate={onCreateText} />}
+      {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={onCreateText} />}
       {!readOnly && activeTool === 'text' && !textEditing && visible.filter((o) => o.type === 'text' && !o.locked).map((object) =>
         <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => (selectedIds.includes(object.id) || isDoubleTap(object.id) ? onEditText(object) : dispatch({ type: 'select', ids: [object.id] }))} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}
       {!readOnly && textEditing && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} />}
@@ -620,14 +627,13 @@ const styles = StyleSheet.create({
     // 웹 터치: 페이지 위 드래그를 브라우저가 스크롤·뒤로 가기 스와이프로 가져가지 않게 한다. (영역 선택·이동용)
     ...Platform.select({ web: { touchAction: 'none' }, default: {} }),
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: 'rgba(11,25,87,0.08)',
     shadowColor: '#0B1957',
     shadowOpacity: 0.16,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
     elevation: 6,
   },
+  pageBorder: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: 'rgba(11,25,87,0.08)' },
   clip: {
     position: 'absolute',
     left: 0,

@@ -601,7 +601,10 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 setActiveTool('select')
                 setDrawerTab(drawerTab === tab ? null : tab)
               }}
-              onSelectTool={(tool) => {
+              onSelectTool={(pressed) => {
+                // 옵션 창이 열린 도구를 한 번 더 누르면 창을 닫으면서 도구 선택도 풀고 선택 도구로 돌아간다.
+                const panelOpen = { lasso: lassoSettingsOpen, text: textSettingsOpen, pen: penSettingsOpen, highlighter: penSettingsOpen, eraser: penSettingsOpen }[pressed]
+                const tool = pressed === activeTool && panelOpen ? 'select' : pressed
                 setGuidesOpen(false)
                 setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
                 setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)

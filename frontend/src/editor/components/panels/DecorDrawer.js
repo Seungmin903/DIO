@@ -461,7 +461,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
                 </View>
                 <Text style={styles.uploadTitle}>{busy ? '원본을 저장하고 있어요…' : '사진 · GIF 불러오기'}</Text>
                 <Text style={styles.uploadHint}>
-                  {MEDIA_FORMATS}{'\n'}사진 50MiB · 6,400만 화소 / GIF 10MiB · 4,096px
+                  {MEDIA_FORMATS}{'\n'}사진 50MiB · 6,400만 화소 / GIF 50MiB · 4,096px
                 </Text>
               </Pressable>
               {recentPhotos.length > 0 && (
