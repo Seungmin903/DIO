@@ -8,6 +8,7 @@ import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
 import { getObjectName, tapeSizeOf } from '../../utils/objects'
+import { buildLayerRows } from '../../utils/layerRows'
 import HelpButton, { useHelp } from '../controls/HelpButton'
 import Icon from '../controls/Icon'
 import TapCatcher from '../controls/TapCatcher'
@@ -36,7 +37,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
   const help = useHelp()
   const [drag, setDrag] = useState(null) // { key, from, dy }
   const [collapsed, setCollapsed] = useState(() => new Set())
-  const rows = useMemo(() => buildRows(layers, collapsed), [layers, collapsed])
+  const rows = useMemo(() => buildLayerRows(layers, collapsed), [layers, collapsed])
   const dropIndex = drag ? clamp(drag.from + Math.round(drag.dy / ROW_STEP), 0, rows.length - 1) : null
   // 길게 누른 채 끌기. mode 'range': 여러 개 고르기 { anchor, base, startY, captured, last }
   // mode 'move': 여러 개 고른 상태에서 고른 행을 다시 길게 눌러 끌면 고른 것을 모두 함께 옮긴다 { anchor, startY, dy, ids }
@@ -257,6 +258,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
         {help.open && (
           <Text style={styles.hint}>
             위쪽이 앞에 보여요. 손잡이를 끌어 순서를 바꿔요. 길게 누르면 여러 개 고르기가 시작되고, 그다음은 탭으로 넣고 빼요. 길게 누른 채 위아래로 끌면 그 사이를 한꺼번에 고르고, 고른 행을 다시 길게 눌러 끌면 함께 옮겨요.
+            {'\n'}펜·형광펜 획은 목록에서만 숨겨요. 혼합 그룹을 고르면 획도 함께 선택돼요.
           </Text>
         )}
       </View>
@@ -277,7 +279,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
         maxToRenderPerBatch={8}
         windowSize={5}
         scrollEnabled={!drag && !ranging}
-        ListEmptyComponent={<Text style={styles.empty}>아직 올린 요소가 없어요.{'\n'}스티커나 사진을 붙여 보세요.</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>목록에 표시할 요소가 없어요.{'\n'}펜·형광펜 획은 캔버스에서 확인해 주세요.</Text>}
         ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
         renderItem={({ item: row, index }) => {
           const key = row.kind === 'group' ? `g-${row.groupId}` : row.object.id
@@ -326,33 +328,6 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
       </View>
     </View>
   )
-}
-
-/** 화면 목록 행: 그룹은 머리 행 + (펼쳐져 있으면) 들여 쓴 요소 행들. 그룹 번호는 위에서부터 매긴다. */
-function buildRows(layers, collapsed) {
-  const rows = []
-  let groupNo = 0
-  for (let i = 0; i < layers.length;) {
-    const object = layers[i]
-    if (!object.groupId) {
-      rows.push({ kind: 'object', object })
-      i += 1
-      continue
-    }
-    let end = i
-    while (end < layers.length && layers[end].groupId === object.groupId) end += 1
-    const members = layers.slice(i, end)
-    groupNo += 1
-    rows.push({
-      kind: 'group',
-      groupId: object.groupId,
-      members,
-      name: object.groupName ?? `그룹 ${groupNo}`,
-    })
-    if (!collapsed.has(object.groupId)) members.forEach((m) => rows.push({ kind: 'object', object: m, nested: true }))
-    i = end
-  }
-  return rows
 }
 
 function useRowDrag({ onDragStart, onDragMove, onDragEnd }) {
