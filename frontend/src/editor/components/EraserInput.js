@@ -8,7 +8,8 @@ import { createEraserSession, ERASER_RADIUS, normalizeEraserSize } from '../util
 const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
 const cancelFrame = (id) => { if (id && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id) }
 
-export default function EraserInput({ objects, zoom, dispatch, onPreview, diameter = ERASER_RADIUS * 2 }) {
+/** mode: 'stroke'(획 지우기) | 'area'(영역 지우기). 영역 지우기는 onPreview(ids, 남은 조각) 로 지우는 중 모습을 넘긴다 */
+export default function EraserInput({ objects, zoom, dispatch, onPreview, diameter = ERASER_RADIUS * 2, mode = 'stroke' }) {
   const gesture = useRef(null)
   const frame = useRef(null)
   const pending = useRef(null)
@@ -22,7 +23,8 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, diamet
       pending.current = null
       if (!next) return
       setCursor(next.point)
-      onPreview(next.ids)
+      if (mode === 'area') onPreview(next.ids, gesture.current?.session.replacements?.() ?? null)
+      else onPreview(next.ids)
     })
   }
   const reset = () => {
@@ -39,7 +41,7 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, diamet
       reset()
       if ((event.button != null && event.button !== 0) || event.touches?.length > 1 || !Number.isFinite(zoom) || zoom <= 0) return
       const start = { x: event.locationX / zoom, y: event.locationY / zoom }
-      const session = createEraserSession(objects, normalizeEraserSize(diameter) / 2)
+      const session = createEraserSession(objects, normalizeEraserSize(diameter) / 2, mode)
       gesture.current = { start, previous: start, session }
       preview(start, session.move(start))
     },

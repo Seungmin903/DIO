@@ -1,5 +1,5 @@
 import { rotateVector } from './common.js'
-import { penContour, strokeOutline } from './strokes.js'
+import { createStroke, penContour, strokeOutline } from './strokes.js'
 
 // 실행 목업의 기본 지름 24. 사용자 크기 설정은 페이지 좌표이며 화면에서는 zoom을 곱한다.
 export const ERASER_RADIUS = 12
@@ -7,6 +7,8 @@ export const ERASER_MIN_SIZE = 8
 export const ERASER_MAX_SIZE = 80
 export const normalizeEraserSize = (value) => Number.isFinite(value)
   ? Math.max(ERASER_MIN_SIZE, Math.min(ERASER_MAX_SIZE, Math.round(value))) : ERASER_RADIUS * 2
+// 획 지우기: 닿은 획을 통째로 지운다. 영역 지우기: 지우개가 지나간 부분만 지우고 남은 부분은 따로 남긴다.
+export const ERASER_MODES = [{ id: 'stroke', label: '획 지우기' }, { id: 'area', label: '영역 지우기' }]
 
 const distanceToSegment = (p, a, b) => {
   const dx = b.x - a.x, dy = b.y - a.y
@@ -97,11 +99,35 @@ function eraserTarget(object) {
     const points = shape.map(project)
     return { points, bounds: boundsOf(points) }
   })
-  return { id: object.id, polygons, bounds: boundsOf(polygons.flatMap((shape) => shape.points)) }
+  return { id: object.id, object, project, polygons, bounds: boundsOf(polygons.flatMap((shape) => shape.points)) }
+}
+
+// 점 사이가 지우개보다 넓으면 그 사이를 그대로 건너뛰므로, 지우개 반지름의 절반 간격 이하로 점을 채운다.
+function densify(points, step) {
+  const result = [points[0]]
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i], count = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / step)
+    for (let n = 1; n < count; n++) {
+      const t = n / count
+      result.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, ...(a.pressure != null && b.pressure != null && { pressure: a.pressure + (b.pressure - a.pressure) * t }) })
+    }
+    result.push(b)
+  }
+  return result
+}
+
+// 남은 조각을 원래 획과 같은 모양의 획으로 만든다. 돌리거나 늘이지 않은 획은 조각 크기에 맞게 경계를 다시 잡는다.
+function fragmentStroke(source, points, id) {
+  const plain = !source.rotation && !source.flipX && !source.flipY && source.w === source.baseWidth && source.h === source.baseHeight
+  if (!plain) return { ...source, id, points }
+  const stroke = createStroke(points.map((p) => ({ ...p, x: p.x + source.x, y: p.y + source.y })), { id, color: source.color, width: source.strokeWidth, kind: source.penKind, lineCap: source.lineCap })
+  return { ...source, ...stroke, renderVersion: source.renderVersion, name: source.name }
 }
 
 // 문서는 바꾸지 않고 후보만 누적하며, 확정 시 기존 단일 삭제 액션을 반환한다.
-export function createEraserSession(objects, radius = ERASER_RADIUS) {
+// mode 'area' 는 영역 지우기: 닿은 부분만 지우고, 확정 시 원래 획을 남은 조각들로 바꾸는 replaceObjects 한 번을 반환한다.
+export function createEraserSession(objects, radius = ERASER_RADIUS, mode = 'stroke') {
+  if (mode === 'area') return createAreaEraserSession(objects, radius)
   const targets = objects.map(eraserTarget).filter(Boolean), removed = new Set()
   let finished = false
   return {
@@ -119,6 +145,65 @@ export function createEraserSession(objects, radius = ERASER_RADIUS) {
       if (finished) return null
       finished = true
       return cancelled || !removed.size ? null : { type: 'removeObjects', ids: [...removed] }
+    },
+  }
+}
+
+function createAreaEraserSession(objects, radius) {
+  const targets = objects.map(eraserTarget).filter(Boolean)
+  const pieces = new Map() // 원래 획 id → 남은 조각들 [{ points(요소 좌표), page(페이지 좌표) }]
+  let finished = false, serial = 0
+  const piecesOf = (target) => {
+    if (!pieces.has(target.id)) {
+      const { object, project } = target
+      const scale = Math.max(object.w / object.baseWidth, object.h / object.baseHeight) || 1
+      const points = object.points.length > 1 ? densify(object.points, Math.max(0.5, radius / 2 / scale)) : object.points
+      pieces.set(target.id, [{ points, page: points.map(project), reach: radius + object.strokeWidth * scale / 2 }])
+    }
+    return pieces.get(target.id)
+  }
+  return {
+    move(from, to = from) {
+      if (finished || ![from.x, from.y, to.x, to.y, radius].every(Number.isFinite) || radius < 0) return [...pieces.keys()]
+      const sweep = { left: Math.min(from.x, to.x) - radius, right: Math.max(from.x, to.x) + radius, top: Math.min(from.y, to.y) - radius, bottom: Math.max(from.y, to.y) + radius }
+      for (const target of targets) {
+        if (!overlaps(sweep, target.bounds)) continue
+        const before = pieces.get(target.id) ?? null
+        const current = before ?? piecesOf(target)
+        let changed = false
+        const next = current.flatMap((piece) => {
+          const hit = piece.page.map((p) => distanceToSegment(p, from, to) <= piece.reach)
+          if (!hit.some(Boolean)) return [piece]
+          changed = true
+          // 지워지지 않은 점끼리 이어진 구간만 남긴다. 점 하나만 남은 구간은 버린다.
+          const runs = []
+          let start = -1
+          hit.concat(true).forEach((erased, i) => {
+            if (!erased && start < 0) start = i
+            if (erased && start >= 0) { if (i - start > 1) runs.push([start, i]); start = -1 }
+          })
+          return runs.map(([a, b]) => ({ points: piece.points.slice(a, b), page: piece.page.slice(a, b), reach: piece.reach }))
+        })
+        if (changed) pieces.set(target.id, next)
+        else if (!before) pieces.delete(target.id)
+      }
+      return [...pieces.keys()]
+    },
+    /** 미리보기·확정용: 원래 획 id → 남은 조각 획들 */
+    replacements() {
+      const result = {}
+      for (const [id, list] of pieces) {
+        const source = targets.find((t) => t.id === id).object
+        result[id] = list.map((piece, i) => fragmentStroke(source, piece.points, `${id}-${i}-${serial}`))
+      }
+      return result
+    },
+    finish(cancelled = false) {
+      if (finished) return null
+      finished = true
+      if (cancelled || !pieces.size) return null
+      serial = Date.now().toString(36)
+      return { type: 'replaceObjects', replacements: this.replacements() }
     },
   }
 }

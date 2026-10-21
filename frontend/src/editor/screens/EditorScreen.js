@@ -117,6 +117,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
   const [straightAssist, setStraightAssist] = useState(true)
   const [eraserSize, setEraserSize] = useState(ERASER_RADIUS * 2)
+  const [eraserMode, setEraserMode] = useState('stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(true)
@@ -535,6 +536,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 highlighterSettings={highlighterSettings}
                 straightAssist={straightAssist}
                 eraserSize={eraserSize}
+                eraserMode={eraserMode}
                 textBoundary={textBoundary}
                 onTextPaletteChange={setTextPalette}
                 textPaletteBounds={textPaletteBounds}
@@ -669,7 +671,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           )}
           {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
             <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <EraserSettings size={eraserSize} onChange={setEraserSize} onClose={() => setPenSettingsOpen(false)} />
+              <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} onClose={() => setPenSettingsOpen(false)} />
             </View>
           )}
 
