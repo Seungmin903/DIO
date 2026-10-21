@@ -1,20 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Platform, StyleSheet, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import { usePageImageRenderer } from '../hooks/usePageImageRenderer'
 import { savePdfFile } from '../utils/savePdfFile'
 import { createSaveGate } from '../utils/pngFileSave.js'
 import { pdfSaveMessage, pdfSaveError } from '../utils/pdfFileSave.js'
 import { generatePdf } from '../utils/pdfExport'
-function Action({
-  title,
-  onPress,
-  disabled
-}) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{
-    disabled: !!disabled
-  }} disabled={disabled} onPress={onPress} style={styles.button}><Text style={styles.text}>{title}</Text></Pressable>
-}
+import ExportScreen, { ExportButton, InfoRow, Note, StageFill } from './ExportScreen'
 
 /** 매 시도마다 새 작업기를 마운트한다. 이전 시도의 늦은 결과는 현재 화면에 게시하지 않는다. */
 export default function PdfGeneration({
@@ -87,15 +79,14 @@ export default function PdfGeneration({
     setCancelled(true)
     controller.current?.abort()
   }
-  return <Modal visible animationType="fade" onRequestClose={cancel}>
-    <View style={styles.root}>
-      <View style={styles.row}><Text accessibilityRole="header" style={styles.title}>PDF 생성 중</Text><Action title={cancelled ? '취소 중…' : 'PDF 생성 취소'} disabled={cancelled} onPress={cancel} /></View>
-      <Text accessibilityLiveRegion="polite" style={styles.message}>{progress.completedPages} / {progress.totalPages}페이지 {progress.phase === 'assembling' ? '조립 중…' : '생성 중…'}</Text>
-      {!!qualityPages.length && <Text accessibilityLiveRegion="polite" style={styles.message}>확대 출력으로 사진이나 글씨가 흐릴 수 있어요. 미리보기를 확인한 뒤 저장해 주세요.</Text>}
-      <View style={styles.surface}>{surface}</View>
-      <Text style={styles.message}>선택한 페이지를 순서대로 만들고 있어요. 편집 내용은 변경되지 않아요.</Text>
-    </View>
-  </Modal>
+  const ratio = progress.totalPages ? progress.completedPages / progress.totalPages : 0
+  return <ExportScreen title="PDF 만드는 중" onClose={cancel} closeLabel="PDF 만들기 닫기" closeDisabled={cancelled} preview={<StageFill>{surface}</StageFill>}>
+    <Note>{progress.completedPages} / {progress.totalPages}페이지 {progress.phase === 'assembling' ? '조립 중…' : '만드는 중…'}</Note>
+    <View style={styles.track}><View style={[styles.bar, { width: `${Math.round(ratio * 100)}%` }]} /></View>
+    {!!qualityPages.length && <Note>확대 출력으로 사진이나 글씨가 흐릴 수 있어요. 미리보기를 확인한 뒤 저장해 주세요.</Note>}
+    <Note>선택한 페이지를 순서대로 만들고 있어요. 편집 내용은 변경되지 않아요.</Note>
+    <ExportButton title="PDF 생성 취소" label={cancelled ? '취소 중…' : '만들기 취소'} disabled={cancelled} onPress={cancel} />
+  </ExportScreen>
 }
 export function PdfGeneratedPreview({
   result,
@@ -117,58 +108,22 @@ export function PdfGeneratedPreview({
     } catch (error) { if (alive.current) setSaveState({ status: 'error', message: pdfSaveError(error) }) }
     finally { saving.current = false }
   })
-  return <Modal visible animationType="fade" onRequestClose={close}><View style={styles.root}>
-    <View style={styles.row}><Text accessibilityRole="header" style={styles.title}>PDF 생성 완료</Text><Action title="PDF 결과 닫기" onPress={close} disabled={saveState.status === 'saving'} /></View>
-    <Text selectable testID="pdf-result-name" style={styles.message}>{result.fileName}</Text>
-    <Text style={styles.message}>{result.pageCount}페이지 · {result.paperOrientation === 'portrait' ? 'A4 세로' : result.paperOrientation === 'mixed' ? 'A4 가로·세로 혼합' : 'A4 가로'} · {(result.byteLength / 1024).toFixed(1)}KB · PDF</Text>
-    {result.captureDiagnostics?.some(item => item.upscaled || item.rasterWarnings?.length) && <Text style={styles.message}>확대 출력으로 사진이나 글씨가 흐릴 수 있어요. 미리보기를 확인한 뒤 저장해 주세요.</Text>}
-    <Action title={Platform.OS === 'web' ? 'PDF 파일 저장' : 'PDF 파일 저장·공유'} disabled={['saving', 'saved'].includes(saveState.status)} onPress={save} />
-    {!!saveState.message && <Text accessibilityRole={saveState.status === 'error' ? 'alert' : undefined} accessibilityLiveRegion="polite" style={styles.message}>{saveState.message}</Text>}
-    {['error', 'cancelled'].includes(saveState.status) && <Text style={styles.message}>PDF를 다시 만들지 않고 같은 파일로 다시 저장할 수 있어요.</Text>}
-    {Platform.OS === 'web' ? <iframe title="생성된 PDF 미리보기" src={result.uri} style={{
-        flex: 1,
-        width: '100%',
-        minHeight: 200,
-        border: 0
-      }} /> : <ScrollView><Text style={styles.message}>이미지 기반 PDF입니다. 위의 PDF 파일 저장·공유 버튼에서 파일 앱이나 다른 앱을 선택해 주세요.</Text></ScrollView>}
-    <Action title="페이지 다시 선택" onPress={selectAgain} disabled={saveState.status === 'saving'} />
-  </View></Modal>
+  const paper = result.paperOrientation === 'portrait' ? 'A4 세로' : result.paperOrientation === 'mixed' ? 'A4 가로·세로 혼합' : 'A4 가로'
+  return <ExportScreen title="PDF 내보내기" onClose={close} closeLabel="PDF 결과 닫기" closeDisabled={saveState.status === 'saving'}
+    preview={Platform.OS === 'web'
+      ? <StageFill><iframe title="생성된 PDF 미리보기" src={result.uri} style={{ flex: 1, width: '100%', minHeight: 200, border: 0, borderRadius: 12, background: '#FFFFFF' }} /></StageFill>
+      : <Note>이미지로 만든 PDF예요. 오른쪽 저장·공유 버튼에서 파일 앱이나 다른 앱을 골라 주세요.</Note>}>
+    <InfoRow label="파일 이름" value={result.fileName} selectable />
+    <InfoRow label="정보" value={`${result.pageCount}페이지 · ${paper} · ${(result.byteLength / 1024).toFixed(1)}KB`} />
+    {result.captureDiagnostics?.some(item => item.upscaled || item.rasterWarnings?.length) && <Note tone="alert">확대 출력으로 사진이나 글씨가 흐릴 수 있어요. 미리보기를 확인한 뒤 저장해 주세요.</Note>}
+    <ExportButton primary title={Platform.OS === 'web' ? 'PDF 파일 저장' : 'PDF 파일 저장·공유'} disabled={['saving', 'saved'].includes(saveState.status)} onPress={save} />
+    {!!saveState.message && <Note tone={saveState.status === 'error' ? 'alert' : undefined}>{saveState.message}</Note>}
+    {['error', 'cancelled'].includes(saveState.status) && <Note>PDF를 다시 만들지 않고 같은 파일로 다시 저장할 수 있어요.</Note>}
+    <ExportButton title="페이지 다시 선택" onPress={selectAgain} disabled={saveState.status === 'saving'} />
+  </ExportScreen>
 }
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: colors.surface
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12
-  },
-  title: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text
-  },
-  message: {
-    color: colors.textMuted,
-    paddingVertical: 8,
-    lineHeight: 21
-  },
-  text: {
-    color: colors.text
-  },
-  button: {
-    minHeight: 44,
-    padding: 12,
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 12
-  },
-  surface: {
-    flex: 1,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceSoft
-  }
+  // 진행 막대
+  track: { height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#EEF2F9' },
+  bar: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
 })

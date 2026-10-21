@@ -15,11 +15,11 @@ export default function TopBar({
   doc,
   layersOpen,
   pagesOpen,
+  pagesWidth,
   onCloseTab,
   tabs,
   activeTabId,
   onSelectTab,
-  onNewTab,
   onHome,
   onToggleLayers,
   onTogglePages,
@@ -54,10 +54,15 @@ export default function TopBar({
   }
   return (
     <View style={styles.bar}>
-      <Pressable onPress={onHome} accessibilityLabel="다이어리 홈" hitSlop={6} style={styles.home}>
-        <BrandLogo size={30} />
-      </Pressable>
-      <IconToggle icon="panel" label="페이지 목록" active={pagesOpen} onPress={onTogglePages} />
+      {/* 페이지 버튼은 아래 페이지 목록 오른쪽 끝에 맞추고, 로고는 화면 왼쪽 끝과 페이지 버튼 사이 가운데에 둔다 */}
+      <View style={[styles.lead, pagesWidth && { width: LIST_LEFT + pagesWidth }]}>
+        <View style={[styles.logoSlot, !pagesWidth && { flex: 0, paddingHorizontal: 16 }]}>
+          <Pressable onPress={onHome} accessibilityLabel="다이어리 홈" hitSlop={6} style={styles.home}>
+            <BrandLogo size={LOGO_SIZE} />
+          </Pressable>
+        </View>
+        <IconToggle icon="panel" label="페이지 목록" text="페이지" active={pagesOpen} onPress={onTogglePages} />
+      </View>
 
       {/*
         열린 다이어리 탭들. 이름은 탭 하나에 알맞은 길이에서 … 로 줄인다.
@@ -87,11 +92,6 @@ export default function TopBar({
             </View>
           )
         })}
-        {onNewTab && (
-          <Pressable onPress={onNewTab} hitSlop={6} accessibilityRole="button" accessibilityLabel="다른 다이어리 열기" style={({ pressed }) => [styles.newTab, pressed && styles.togglePressed]}>
-            <Icon name="plus" size={16} color={colors.textMuted} />
-          </Pressable>
-        )}
       </ChipScroller>
 
       <View style={styles.right}>
@@ -165,13 +165,15 @@ function IconToggle({ icon, label, text, active, onPress, compact }) {
   )
 }
 
+const LOGO_SIZE = 30, LIST_LEFT = 16 // 페이지 목록의 왼쪽 여백
 const styles = StyleSheet.create({
   bar: {
     height: 64,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 22,
+    paddingLeft: 0,
+    paddingRight: 22,
     backgroundColor: 'rgba(255,255,255,0.9)',
     zIndex: 10,
     // 그림자는 뺀다: Android 는 반투명 바탕에 elevation 그림자를 주면 편집 영역 위에 회색 줄로 보였다
@@ -179,13 +181,14 @@ const styles = StyleSheet.create({
   barCompact: { height: 60, gap: 4, paddingHorizontal: 8 },
   homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 2 },
   home: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  lead: { flexDirection: 'row', alignItems: 'center' },
+  logoSlot: { flex: 1, alignItems: 'center' },
   // 탭 줄: 왼쪽 버튼들과 오른쪽 버튼들 사이를 채우고, 넘치면 ‹ › 로 넘긴다
   tabStrip: { flex: 1, minWidth: 0, marginLeft: 6 },
   tabStripContent: { alignItems: 'center', gap: 6, paddingVertical: 4, paddingRight: 4 },
   tabInactive: { backgroundColor: 'rgba(255,255,255,0.55)', boxShadow: 'none' },
   spineInactive: { opacity: 0.45 },
   tabTitleInactive: { color: colors.textMuted, fontWeight: '600' },
-  newTab: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -228,12 +231,13 @@ const styles = StyleSheet.create({
   toggleActive: { backgroundColor: colors.surfaceSoft },
   togglePressed: { backgroundColor: colors.primarySoft },
   toggleText: { fontSize: 13, fontWeight: '700', color: colors.text },
+  // 내보내기: 크기·둥글기는 레이어 버튼과 같게 (색은 강조색 그대로)
   share: {
     flexDirection: 'row',
     gap: 6,
-    height: 42,
-    paddingHorizontal: 14,
-    borderRadius: 13,
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,

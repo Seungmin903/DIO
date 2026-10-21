@@ -14,3 +14,7 @@
 `cd frontend` 후 `node --test tests/export-entry.test.js`: 3개 통과. 실제 컴포넌트의 표시 결과와 공통 진입 함수 호출을 검사하며 OS 화면·실기기 실행 검증은 아니다. 폰 가로·세로 및 태블릿에서 실제 표시 확인은 남아 있다.
 
 기존 폼팩터 회귀를 함께 실행한 `node --test tests/export-entry.test.js tests/form-factor.test.js`도 6개 모두 통과했다.
+
+## 다시 켜기
+
+정책 결정에 따라 `exportEnabled = true`로 내보내기 진입을 다시 켰다. 함께 바뀐 내보내기 흐름(형식 PNG·PDF·GIF, 결과 화면 없이 바로 저장, 20페이지 초과 PDF 자동 분할)은 같은 커밋에 있다. `tests/export-entry.test.js`는 켜진 상태를 확인하도록 바꿨다.
