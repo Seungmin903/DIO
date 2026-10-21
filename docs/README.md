@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [animated-sticker-effects.md](./animated-sticker-effects.md) | 193 iPad 움직이는 스티커 효과의 프레임 공유·자원 제한·검증과 실기기 QA |
 | [text-link-keyboard.md](./text-link-keyboard.md) | 182 링크 입력창 키보드 회피·스크롤 및 iPad 확인 항목 |
 | [pencil-graphite.md](./pencil-graphite.md) | 178 거친 스케치 연필 질감·변경 전후 비교·브라우저 검증과 남은 iPad 확인 |
 | [text-font-styles.md](./text-font-styles.md) | 181 실제 Bold face 등록·미지원 서식 안내와 글꼴별 검증 |

@@ -18,6 +18,7 @@ import StrokeContent from '../StrokeContent'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
 import { textSettings, textStyle } from '../../utils/text'
 import { useTextFont } from '../../hooks/useTextFont'
+import { useStickerPlayback } from '../../hooks/useStickerPlayback'
 
 /**
  * 텍스트가 실제로 그려진 높이를 알려 받는 곳 (id, 논리 높이). 편집 화면 캔버스만 주고, 썸네일은 null 이다.
@@ -143,8 +144,14 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   const blurSpread = shadow.blur * zoom * 0.45
   const box = { width, height }
   const uri = useMediaUri(object, { still })
-  const source = stickerSource(object, still, uri)
-  const animated = !still && isAnimatedMedia(object)
+  const originalSource = stickerSource(object, still, uri)
+  const originalAnimated = !still && isAnimatedMedia(object)
+  const synchronized = Platform.OS === 'ios' && originalAnimated && (outline.on || shadow.on)
+  const playback = useStickerPlayback(synchronized ? originalSource : null)
+  const posterUri = useMediaUri(object, { still: true })
+  // 준비 중에도 원본과 효과를 같은 첫 장면으로 표시한다. 출력(still)은 기존 경로를 쓴다.
+  const source = synchronized ? playback.source ?? stickerSource(object, true, posterUri) : originalSource
+  const animated = originalAnimated && !synchronized
 
   const silhouette = source
     ? (key, color, dx, dy, opacity = 1) => (
@@ -212,10 +219,11 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
       {shadowLayers}
       {outline.on && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, outline.color, dx * stroke, dy * stroke))}
       {source ? (
-        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
+        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized) reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>
       )}
+      {synchronized && playback.error && <Text accessibilityLiveRegion="polite" style={{ color: colors.danger, fontSize: 11 }}>움직이는 효과를 불러오지 못했어요.</Text>}
     </View>
   )
 }
