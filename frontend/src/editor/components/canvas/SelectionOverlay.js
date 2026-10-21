@@ -209,11 +209,14 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
   </View>
 }
 
-/** 수평 기준 0–360°. 0·90·180·270° 근처(±3°)에서는 붙는다. */
+// 0·90·180·270° 에서 한 번씩 걸리는 범위 (PPT 처럼). 5° 떨어진 각도(355° 등)는 그대로 둘 수 있어야 해서 5° 보다 작게.
+const ROTATE_SNAP_DEG = 4.5
+
+/** 수평 기준 0–360°. 0·90·180·270° 근처(±ROTATE_SNAP_DEG)에서는 붙는다. */
 function rotatePatch(g, pointer) {
   const raw = (Math.atan2(pointer.y - g.center.y, pointer.x - g.center.x) * 180) / Math.PI + 90
   const snapped = Math.round(raw / 90) * 90
-  const angle = Math.abs(snapped - raw) <= 3 ? snapped : raw
+  const angle = Math.abs(snapped - raw) <= ROTATE_SNAP_DEG ? snapped : raw
   return { rotation: normalizeAngle(angle) }
 }
 
