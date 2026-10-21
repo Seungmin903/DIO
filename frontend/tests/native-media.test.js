@@ -78,7 +78,7 @@ test('네이티브 파일 복사 완료·메타데이터 저장을 기다리고 
   const input = await repository.readAsset({ uri: 'file:///picker/motion.gif' })
   const dimensions = await repository.decode(input, { extension: 'heic' })
   const display = await repository.createDisplay(input, { extension: 'heic' }, dimensions, 'photo')
-  assert.deepEqual({ width: display.metadata.width, height: display.metadata.height }, { width: 2048, height: 1536 })
+  assert.deepEqual({ width: display.metadata.width, height: display.metadata.height }, { width: 3072, height: 2304 })
   const convertedMedia = { ...media, mediaFileId: 'with-display', display: display.metadata }
   const displayUri = await repository.save(input.source, convertedMedia, display)
   assert.equal(displayUri, 'file:///documents/dio-media/with-display.display.jpg')

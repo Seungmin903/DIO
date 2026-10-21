@@ -16,10 +16,11 @@ export function ToolPanelHeader({ icon, title, onClose, closeLabel, disabled = f
  * 스티커·마테·사진 옵션과 같은 세그먼트 버튼. 회색 바탕 위에 고른 칸만 흰색으로 뜬다.
  * items: [{ id, label?, icon?, a11y?, textStyle? }], selected(id) → 고른 칸인지, onPress(id)
  * 한 칸만 고르는 경우(정렬)와 여러 칸을 켜고 끄는 경우(굵게·기울임) 모두 같은 모양으로 쓴다.
+ * separate: 글자 칸을 여러 개 켜고 끄는 줄(보조선)은 켜진 칸끼리 붙어 보여 간격이 달라 보이므로, 칸마다 바탕을 두고 같은 간격으로 띄운다.
  */
-export function Segmented({ items, selected, onPress, disabled = false }) {
+export function Segmented({ items, selected, onPress, disabled = false, separate = false }) {
   return (
-    <View style={[toolPanelStyles.segment, disabled && toolPanelStyles.dim]}>
+    <View style={[separate ? toolPanelStyles.chips : toolPanelStyles.segment, disabled && toolPanelStyles.dim]}>
       {items.map((item) => {
         const on = selected(item.id)
         return (
@@ -30,7 +31,7 @@ export function Segmented({ items, selected, onPress, disabled = false }) {
             accessibilityState={{ selected: on, disabled }}
             disabled={disabled}
             onPress={() => onPress(item.id)}
-            style={[toolPanelStyles.segmentItem, on && toolPanelStyles.segmentActive]}
+            style={[toolPanelStyles.segmentItem, separate && toolPanelStyles.chip, on && (separate ? toolPanelStyles.chipActive : toolPanelStyles.segmentActive)]}
           >
             {item.icon ? item.icon : <Text style={[toolPanelStyles.segmentText, on && toolPanelStyles.segmentTextActive, item.textStyle]}>{item.label}</Text>}
           </Pressable>
@@ -67,6 +68,9 @@ export const toolPanelStyles = StyleSheet.create({
   segment: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 11, backgroundColor: '#EEF2F9' },
   segmentItem: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   segmentActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.14)' },
+  chips: { flexDirection: 'row', gap: 8 },
+  chip: { backgroundColor: '#EEF2F9', borderWidth: 1.5, borderColor: 'transparent', borderRadius: 11 },
+  chipActive: { backgroundColor: colors.surface, borderColor: colors.primary },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
   segmentTextActive: { color: colors.text, fontWeight: '800' },
   dim: { opacity: 0.4 },

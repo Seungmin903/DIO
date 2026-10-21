@@ -8,7 +8,7 @@ export async function verifyDisplay(source) {
   catch (error) { throw new MediaError('MEDIA_CORRUPT', '저장된 이미지를 표시할 수 없어요. 원본 파일을 다시 선택해 주세요.', error) }
 }
 
-async function manipulate(uri, size, format, compress = 0.92) {
+async function manipulate(uri, size, format, compress = 0.95) {
   const context = ImageManipulator.manipulate(uri)
   let rendered
   try {
@@ -42,6 +42,20 @@ export async function createDisplay(input, format, dimensions, usage) {
     width: result.width, height: result.height, mimeType: jpeg ? 'image/jpeg' : 'image/png',
     extension: jpeg ? 'jpg' : 'png', fileSize: input.displaySource.size,
   } }
+}
+
+/** GIF 첫 장면을 긴 변 maxSize 의 PNG data URL 로. 썸네일·끌기 중 미리보기용이라 문서에 같이 저장된다. */
+export async function createPoster(uri, maxSize) {
+  const size = await new Promise((resolve, reject) => Image.getSize(uri, (width, height) => resolve({ width, height }), reject))
+  const scale = Math.min(1, maxSize / Math.max(size.width, size.height))
+  const context = ImageManipulator.manipulate(uri)
+  let rendered
+  try {
+    context.resize({ width: Math.max(1, Math.round(size.width * scale)), height: Math.max(1, Math.round(size.height * scale)) })
+    rendered = await context.renderAsync()
+    const result = await rendered.saveAsync({ format: SaveFormat.PNG, base64: true })
+    return result.base64 ? `data:image/png;base64,${result.base64}` : null
+  } finally { rendered?.release?.(); context.release?.() }
 }
 
 export function dispose(input) {

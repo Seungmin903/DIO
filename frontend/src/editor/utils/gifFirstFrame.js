@@ -2,7 +2,7 @@ import { GifReader } from 'omggif'
 import UPNG from 'upng-js'
 import { PageExportError } from './pageExport.js'
 
-const MAX_BYTES = 10 * 1024 * 1024
+const MAX_BYTES = 50 * 1024 * 1024 // 가져오기 제한(mediaPolicy 의 gifMaxBytes)과 같게
 const MAX_PIXELS = 8000000
 
 /** 첫 이미지 블록까지만 검사/읽는다. 이후 프레임은 파싱·디코딩하지 않는다. */
@@ -67,11 +67,26 @@ function firstImageData(bytes) {
   throw new Error('GIF has no first image')
 }
 
+/**
+ * 파일 앞부분만 읽어 첫 장면 PNG 를 만든다. 1MiB 부터 4배씩 늘려 읽고, 첫 장면이 다 들어오면 멈춘다.
+ * (큰 GIF 도 첫 장면은 보통 앞쪽 몇 MiB 안에 있다) readHead(n): 앞 n 바이트, total: 파일 크기
+ */
+export async function gifFirstFramePngFromHead(readHead, total, options) {
+  for (let length = Math.min(total, 1 << 20); ; length = Math.min(total, length * 4)) {
+    try {
+      return gifFirstFramePng(await readHead(length), options)
+    } catch (error) {
+      // 크기 초과는 더 읽어도 같고, 파일 끝까지 읽었는데도 안 되면 정말 깨진 파일이다.
+      if (length >= total || error?.code === 'EXPORT_GIF_TOO_LARGE') throw error
+    }
+  }
+}
+
 /** 재생 상태와 무관하게 원본 0번 프레임을 논리 화면에 합성해 정지 PNG로 만든다. */
 export function gifFirstFramePng(input, { size } = {}) {
   try {
     const bytes = input instanceof Uint8Array ? input : new Uint8Array(input)
-    if (!bytes.length || bytes.length > MAX_BYTES) throw new PageExportError('EXPORT_GIF_TOO_LARGE', 'GIF는 10MiB 이내에서 내보낼 수 있어요.')
+    if (!bytes.length || bytes.length > MAX_BYTES) throw new PageExportError('EXPORT_GIF_TOO_LARGE', 'GIF는 50MiB 이내에서 내보낼 수 있어요.')
     const header = firstImageData(bytes)
     const reader = new GifReader(header.data)
     const frame = reader.frameInfo(0)

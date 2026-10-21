@@ -288,7 +288,7 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
       >
         {/* 지금 편집 중인 페이지는 움직이는 GIF·자르기 표시까지 편집 화면과 똑같이, 나머지는 첫 장면으로 */}
         <View style={styles.thumbPage} pointerEvents="none">
-          <StaticPage page={page} zoom={thumbZoom} still={!active} cropId={cropId} showBackground={showBackground} />
+          <StaticPage page={page} zoom={thumbZoom} still cropId={cropId} showBackground={showBackground} />
         </View>
         {/* 선택 테두리는 썸네일 위에 겹쳐 그린다 (썸네일에 아래쪽 선이 가려지던 문제) */}
         {active && <View style={styles.activeRing} pointerEvents="none" />}
