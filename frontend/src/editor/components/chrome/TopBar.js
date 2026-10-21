@@ -6,7 +6,7 @@ import ChipScroller from '../controls/ChipScroller'
 import BrandLogo from '../../../shared/BrandLogo'
 
 
-// compact: 폰 세로 배치. 인덱스 탭 대신 이름과 쪽수를 두 줄로 보이고, 닫기·내보내기는 뺀다. (내보내기는 도구 막대의 더보기에 있다)
+// compact: 폰 세로 배치. 인덱스 탭 대신 이름과 쪽수를 두 줄로 보이고, 닫기·내보내기는 뺀다. (내보내기는 정책이 켜지면 스크롤 도구 막대에 표시한다)
 // onToggleOrientation이 있으면 가로 정밀 편집으로 바꾸는 버튼을 둔다.
 export default function TopBar({
   compact = false,

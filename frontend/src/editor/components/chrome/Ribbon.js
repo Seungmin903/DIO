@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 
@@ -27,25 +27,27 @@ const DECOR_TOOLS = [
 
 export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTool, onPlaceholder, onAnchor, penColor, highlighterColor, guidesActive, onOpenGuides }) {
   return (
-    <View style={styles.ribbon}>
-      {NAV_TOOLS.map((tool) => (
-        <Tool onAnchor={onAnchor} key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
-          active={!drawerTab && activeTool === tool.id}
-          onPress={() => tool.pending ? onPlaceholder(tool.label) : onSelectTool(tool.id)} />
-      ))}
-      <View style={styles.divider} />
-      {INPUT_TOOLS.map((tool) => (
-        <Tool color={tool.id === 'pen' ? penColor : tool.id === 'highlighter' ? highlighterColor : undefined} onAnchor={onAnchor} key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
-          active={!drawerTab && activeTool === tool.id}
-          onPress={() => tool.pending ? onPlaceholder(tool.label) : onSelectTool(tool.id)} />
-      ))}
-      <View style={styles.divider} />
-      {DECOR_TOOLS.map((tool) => (
-        <Tool onAnchor={onAnchor} key={tool.tab} icon={tool.icon} label={tool.label} active={drawerTab === tool.tab} onPress={() => onOpenDrawer(tool.tab)} />
-      ))}
-      <View style={styles.divider} />
-      {/* 하이퍼링크는 요소를 누르면 뜨는 옵션 바에서 건다 */}
-      <Tool onAnchor={onAnchor} icon="ruler" label="격자 가이드" active={guidesActive} onPress={onOpenGuides} />
+    <View style={styles.shell}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ribbon} accessibilityLabel="편집 도구" keyboardShouldPersistTaps="handled">
+        {NAV_TOOLS.map((tool) => (
+          <Tool onAnchor={onAnchor} key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
+            active={!drawerTab && activeTool === tool.id}
+            onPress={() => tool.pending ? onPlaceholder(tool.label) : onSelectTool(tool.id)} />
+        ))}
+        <View style={styles.divider} />
+        {INPUT_TOOLS.map((tool) => (
+          <Tool color={tool.id === 'pen' ? penColor : tool.id === 'highlighter' ? highlighterColor : undefined} onAnchor={onAnchor} key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
+            active={!drawerTab && activeTool === tool.id}
+            onPress={() => tool.pending ? onPlaceholder(tool.label) : onSelectTool(tool.id)} />
+        ))}
+        <View style={styles.divider} />
+        {DECOR_TOOLS.map((tool) => (
+          <Tool onAnchor={onAnchor} key={tool.tab} icon={tool.icon} label={tool.label} active={drawerTab === tool.tab} onPress={() => onOpenDrawer(tool.tab)} />
+        ))}
+        <View style={styles.divider} />
+        {/* 하이퍼링크는 요소를 누르면 뜨는 옵션 바에서 건다 */}
+        <Tool onAnchor={onAnchor} icon="ruler" label="격자 가이드" active={guidesActive} onPress={onOpenGuides} />
+      </ScrollView>
     </View>
   )
 }
@@ -72,10 +74,9 @@ function Tool({ icon, label, active, dim, onPress, onAnchor, color }) {
 
 const styles = StyleSheet.create({
   colorDot: { position: 'absolute', right: 3, bottom: 3, width: 6, height: 6, borderRadius: 3, borderWidth: 1, borderColor: colors.surface, shadowColor: colors.text, shadowOpacity: 0.18, shadowRadius: 1, shadowOffset: { width: 0, height: 0 } },
-  ribbon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
+  shell: {
+    maxWidth: '100%',
+    flexShrink: 1,
     padding: 6,
     borderRadius: 15,
     borderWidth: 1,
@@ -86,7 +87,9 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
     elevation: 5,
+    overflow: 'hidden',
   },
+  ribbon: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   tool: { width: 42, height: 42, borderRadius: 11, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   toolActive: { backgroundColor: colors.surfaceSoft, borderColor: colors.primary },
   toolPressed: { backgroundColor: colors.primarySoft },

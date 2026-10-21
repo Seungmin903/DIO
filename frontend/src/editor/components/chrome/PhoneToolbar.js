@@ -1,21 +1,11 @@
 import { Fragment } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 
 // 폰 편집기의 도구 막대. 도구 상태는 태블릿 리본(Ribbon)과 같이 EditorScreen이 소유한다.
-// 세로(간편 편집): 자주 쓰는 도구만 상단 막대에 두고 나머지는 더보기 시트로 보낸다.
+// 세로(간편 편집): 모든 도구를 상단 가로 스크롤 막대에 둔다.
 // 가로(정밀 편집): 오른쪽에 세운 막대에 모든 도구를 둔다.
-const QUICK_TOOLS = [
-  { tool: 'select', icon: 'cursor', label: '선택' },
-  { tool: 'lasso', icon: 'lasso', label: '올가미 선택' },
-  { tool: 'pen', icon: 'pen', label: '펜' },
-  { tool: 'highlighter', icon: 'highlighter', label: '형광펜' },
-  { tool: 'eraser', icon: 'eraser', label: '지우개' },
-  { tool: 'text', icon: 'text', label: '텍스트' },
-  { tab: 'sticker', icon: 'sticker', label: '스티커' },
-]
-
 // 가로 막대: 이동·고르기 / 그리기·쓰기 / 꾸미기 묶음
 const FULL_TOOLS = [
   [
@@ -36,34 +26,36 @@ const FULL_TOOLS = [
   ],
 ]
 
-// 세로 더보기 시트: tool은 도구 선택, tab은 꾸미기 보관함, action은 화면 동작
-const MORE_TOOLS = [
-  { tool: 'hand', icon: 'hand', label: '손바닥' },
-  { action: 'export', icon: 'share', label: '내보내기' },
-  { tab: 'tape', icon: 'tape', label: '테이프' },
-  { tab: 'photo', icon: 'image', label: '사진·GIF' },
-  { action: 'focus', icon: 'focus', label: '집중 편집' },
-]
+const GUIDE_TOOL = { action: 'guides', icon: 'grid', label: '격자 가이드' }
+const EXPORT_TOOL = { action: 'export', icon: 'share', label: '내보내기' }
 
 // 가로 배치에서 양옆에 세운 막대의 폭 (버튼 44 + 막대 안쪽 여백·테두리 10 + 바깥 여백 8)
 export const PHONE_TOOLBAR_RAIL = 62
 
-const isActive = (item, activeTool, drawerTab) => (item.tab ? drawerTab === item.tab : Boolean(item.tool && !drawerTab && activeTool === item.tool))
+const isActive = (item, activeTool, drawerTab, guidesActive) => (
+  item.action === 'guides' ? guidesActive : item.tab ? drawerTab === item.tab : Boolean(item.tool && !drawerTab && activeTool === item.tool)
+)
 
-export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, drawerTab, moreOpen, penColor, highlighterColor, onSelectTool, onOpenDrawer, onToggleMore, ...touch }) {
+export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, drawerTab, guidesActive, penColor, highlighterColor, exportEnabled = true, onSelectTool, onOpenDrawer, onOpenGuides, onExport, ...touch }) {
   const colorOf = (tool) => (tool === 'pen' ? penColor : tool === 'highlighter' ? highlighterColor : undefined)
-  const press = (item) => (item.tab ? onOpenDrawer(item.tab) : onSelectTool(item.tool))
+  const press = (item) => {
+    if (item.tab) onOpenDrawer(item.tab)
+    else if (item.tool) onSelectTool(item.tool)
+    else if (item.action === 'export') onExport?.()
+    else onOpenGuides?.()
+  }
   const renderTool = (item) => (
     <Tool key={item.label} icon={item.icon} label={item.label} color={colorOf(item.tool)}
-      active={isActive(item, activeTool, drawerTab)} onPress={() => press(item)} />
+      active={isActive(item, activeTool, drawerTab, guidesActive)} onPress={() => press(item)} />
   )
+  const toolGroups = [...FULL_TOOLS, [GUIDE_TOOL]]
 
   if (vertical) {
     // 키가 낮은 기기에서는 넘칠 수 있어 스크롤되게 한다.
     return (
       <View style={[styles.rail, styles.railRight, { bottom: Math.max(bottomInset, 8) }]} {...touch}>
         <ScrollView style={styles.railBar} contentContainerStyle={styles.railColumn} showsVerticalScrollIndicator={false}>
-          {FULL_TOOLS.map((group, index) => (
+          {toolGroups.map((group, index) => (
             <Fragment key={index}>
               {index > 0 && <View style={styles.railDivider} />}
               {group.map(renderTool)}
@@ -74,12 +66,24 @@ export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, dr
     )
   }
 
-  const moreActive = moreOpen || MORE_TOOLS.some((item) => isActive(item, activeTool, drawerTab))
+  const portraitGroups = exportEnabled ? [...toolGroups, [EXPORT_TOOL]] : toolGroups
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(bottomInset, 8) }]} {...touch}>
-      <View style={[styles.bar, styles.barRow]}>
-        {QUICK_TOOLS.map(renderTool)}
-        <Tool icon="more" label="추가 도구" active={moreActive} onPress={onToggleMore} />
+      <View style={[styles.bar, styles.barViewport]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.barRow}
+          accessibilityLabel="편집 도구"
+          keyboardShouldPersistTaps="handled"
+        >
+          {portraitGroups.map((group, index) => (
+            <Fragment key={index}>
+              {index > 0 && <View style={styles.rowDivider} />}
+              {group.map(renderTool)}
+            </Fragment>
+          ))}
+        </ScrollView>
       </View>
     </View>
   )
@@ -101,38 +105,6 @@ export function PhoneEditorRail({ pagesOpen, layersOpen, readOnly, onHome, onTog
           <Tool icon="focus" label="집중 편집" onPress={onFocus} />
         </View>
       </ScrollView>
-    </View>
-  )
-}
-
-/** 더보기에서 고르는 도구 묶음. 편집 화면 위(도구 막대 쪽)에 시트로 띄운다. */
-export function PhoneMoreTools({ activeTool, drawerTab, onSelectTool, onOpenDrawer, onExport, onFocus, onClose, exportEnabled = true }) {
-  return (
-    <View style={styles.sheet}>
-      <View style={styles.sheetHeader}>
-        <Text style={styles.sheetTitle}>추가 도구</Text>
-        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="추가 도구 닫기" style={styles.sheetClose}>
-          <Icon name="close" size={18} />
-        </Pressable>
-      </View>
-      <View style={styles.sheetGrid}>
-        {MORE_TOOLS.filter(item => exportEnabled || item.action !== 'export').map((item) => {
-          const active = isActive(item, activeTool, drawerTab)
-          const press = () => {
-            if (item.tool) onSelectTool(item.tool)
-            else if (item.tab) onOpenDrawer(item.tab)
-            else if (item.action === 'export') onExport()
-            else onFocus()
-          }
-          return (
-            <Pressable key={item.label} onPress={press} accessibilityRole="button" accessibilityLabel={item.label} accessibilityState={{ selected: active }}
-              style={({ pressed }) => [styles.sheetItem, active && styles.toolActive, pressed && styles.toolPressed]}>
-              <Icon name={item.icon} size={22} />
-              <Text style={styles.sheetLabel}>{item.label}</Text>
-            </Pressable>
-          )
-        })}
-      </View>
     </View>
   )
 }
@@ -165,7 +137,9 @@ const card = {
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 8, paddingTop: 6 },
   bar: card,
-  barRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  barViewport: { overflow: 'hidden' },
+  barRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 },
+  rowDivider: { width: 1, height: 28, marginHorizontal: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
   // 가로 배치의 양옆 막대
   rail: { position: 'absolute', top: 8, width: PHONE_TOOLBAR_RAIL - 8 },
   railLeft: { left: 8, bottom: 8 },
@@ -181,11 +155,4 @@ const styles = StyleSheet.create({
   toolActive: { backgroundColor: colors.surfaceSoft, borderColor: colors.primary },
   toolPressed: { backgroundColor: colors.primarySoft },
   colorLine: { position: 'absolute', bottom: 5, width: 16, height: 3, borderRadius: 2 },
-  sheet: { width: '100%', maxWidth: 420, padding: 18, borderRadius: 22, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, ...shadow.float },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sheetTitle: { fontSize: 17, fontWeight: '900', color: colors.text },
-  sheetClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
-  sheetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  sheetItem: { width: '23%', minWidth: 72, minHeight: 72, alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
-  sheetLabel: { fontSize: 11.5, fontWeight: '700', color: colors.text },
 })
