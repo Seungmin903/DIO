@@ -1,6 +1,7 @@
 // 다이어리 목록 저장 형식. React/저장소를 모르는 순수 함수만 둔다.
 import { COVER_PATTERNS, FIRST_PAGES, PAGE_SIZES } from '../constants.js';
 
+import { normalizePaperAppearance } from '../../editor/templates/appearance.js';
 import { normalizeTemplateConfig } from '../../editor/templates/creation.js';
 
 function restoredTemplateConfig(value) {
@@ -36,6 +37,7 @@ export function normalizeDiaries(raw) {
     return [{
       id: item.id,
       ...restoredTemplateConfig(item.templateConfig),
+      ...(item.paperAppearance ? { paperAppearance: normalizePaperAppearance(item.paperAppearance) } : {}),
       title: item.title,
       color: isText(item.color) ? item.color : DEFAULT_COLOR,
       type: item.type === '공유' ? '공유' : '개인',
@@ -74,6 +76,7 @@ export function recoverOrphanDiaries(diaries, docEntries, docKeyPrefix) {
     recovered.push({
       id,
       ...restoredTemplateConfig(doc.templateConfig),
+      ...(doc.paperAppearance ? { paperAppearance: normalizePaperAppearance(doc.paperAppearance) } : {}),
       title: isText(doc.title) ? doc.title : '복구한 다이어리',
       color: isText(doc.coverColor) ? doc.coverColor : DEFAULT_COLOR,
       type: '개인',

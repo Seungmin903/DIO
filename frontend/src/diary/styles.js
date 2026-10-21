@@ -207,6 +207,8 @@ export const styles = StyleSheet.create({
   calendarDayText: { color: C.inkSoft, fontSize: 11.5, fontWeight: '650' },
   calendarDayTextSelected: { color: C.ink, fontWeight: '900' },
   createFooter: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#EDF1F7' },
+  createBack: { minHeight: 50, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
+  createBackText: { color: C.inkSoft, fontSize: 13, fontWeight: '800' },
   createDelete: { minHeight: 50, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 14, borderWidth: 1, borderColor: '#F0D5D4' },
   createDeleteText: { color: '#BD5B58', fontSize: 13, fontWeight: '800' },
   createSubmit: { flex: 1, minHeight: 50, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 14, backgroundColor: C.ink },
