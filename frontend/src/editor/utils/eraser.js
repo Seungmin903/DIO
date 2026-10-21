@@ -95,11 +95,22 @@ function eraserTarget(object) {
     )
     return { x: object.x + object.w / 2 + local.x, y: object.y + object.h / 2 + local.y }
   }
-  const polygons = strokePolygons(object).filter((shape) => shape.length >= 3).map((shape) => {
-    const points = shape.map(project)
-    return { points, bounds: boundsOf(points) }
-  })
-  return { id: object.id, object, project, polygons, bounds: boundsOf(polygons.flatMap((shape) => shape.points)) }
+  // 대략의 범위: 요소 상자 네 모서리(회전 반영)에 획 굵기만큼 여유. 정확한 도형(polygons)은 이 범위에 지우개가 닿을 때 만든다.
+  const pad = object.strokeWidth * object.points.reduce((max, p) => Math.max(max, p.pressure ?? 1), 1) * Math.max(object.w / object.baseWidth, object.h / object.baseHeight)
+  const corners = [[0, 0], [object.baseWidth, 0], [0, object.baseHeight], [object.baseWidth, object.baseHeight]].map(([x, y]) => project({ x, y }))
+  const box = boundsOf(corners)
+  let polygons = null
+  return {
+    id: object.id, object, project,
+    bounds: { left: box.left - pad, right: box.right + pad, top: box.top - pad, bottom: box.bottom + pad },
+    get polygons() {
+      polygons ??= strokePolygons(object).filter((shape) => shape.length >= 3).map((shape) => {
+        const points = shape.map(project)
+        return { points, bounds: boundsOf(points) }
+      })
+      return polygons
+    },
+  }
 }
 
 // 점 사이가 지우개보다 넓으면 그 사이를 그대로 건너뛰므로, 지우개 반지름의 절반 간격 이하로 점을 채운다.
@@ -152,7 +163,8 @@ export function createEraserSession(objects, radius = ERASER_RADIUS, mode = 'str
 function createAreaEraserSession(objects, radius) {
   const targets = objects.map(eraserTarget).filter(Boolean)
   const pieces = new Map() // 원래 획 id → 남은 조각들 [{ points(요소 좌표), page(페이지 좌표) }]
-  let finished = false, serial = 0
+  const built = new Map() // 원래 획 id → 만들어 둔 조각 획들 (바뀐 획만 다시 만든다)
+  let finished = false, serial = 0, cached = null
   const piecesOf = (target) => {
     if (!pieces.has(target.id)) {
       const { object, project } = target
@@ -184,25 +196,33 @@ function createAreaEraserSession(objects, radius) {
           })
           return runs.map(([a, b]) => ({ points: piece.points.slice(a, b), page: piece.page.slice(a, b), reach: piece.reach }))
         })
-        if (changed) pieces.set(target.id, next)
+        if (changed) { pieces.set(target.id, next); built.delete(target.id); cached = null }
         else if (!before) pieces.delete(target.id)
       }
       return [...pieces.keys()]
     },
     /** 미리보기·확정용: 원래 획 id → 남은 조각 획들 */
     replacements() {
+      if (cached) return cached
       const result = {}
       for (const [id, list] of pieces) {
-        const source = targets.find((t) => t.id === id).object
-        result[id] = list.map((piece, i) => fragmentStroke(source, piece.points, `${id}-${i}-${serial}`))
+        if (!built.has(id)) {
+          const source = targets.find((t) => t.id === id).object
+          built.set(id, list.map((piece, i) => fragmentStroke(source, piece.points, `${id}-${i}-${serial}`)))
+        }
+        result[id] = built.get(id)
       }
+      cached = result
       return result
     },
     finish(cancelled = false) {
       if (finished) return null
       finished = true
       if (cancelled || !pieces.size) return null
+      // 확정한 조각은 미리보기와 겹치지 않는 새 id 로 만든다
       serial = Date.now().toString(36)
+      built.clear()
+      cached = null
       return { type: 'replaceObjects', replacements: this.replacements() }
     },
   }

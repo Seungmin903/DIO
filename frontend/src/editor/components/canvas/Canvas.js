@@ -115,8 +115,9 @@ export default function Canvas({
   // 그림 층에서 빼는 요소: 지우개로 지우는 중인 획, 편집 중인 텍스트(입력창이 투명이라 원래 글자가 겹쳐 보이지 않게)
   const hiddenIds = [...(activeTool === 'eraser' ? erasingIds : []), ...(textEditing?.id ? [textEditing.id] : [])]
   const pieces = activeTool === 'eraser' ? erasingPieces : null
+  const hiddenSet = new Set(hiddenIds)
   const drawingPage = hiddenIds.length
-    ? { ...page, objects: page.objects.flatMap((object) => pieces?.[object.id] ?? (hiddenIds.includes(object.id) ? [] : [object])) }
+    ? { ...page, objects: page.objects.flatMap((object) => pieces?.[object.id] ?? (hiddenSet.has(object.id) ? [] : [object])) }
     : page
   const visible = page.objects.filter((o) => !o.hidden)
   const touchSelectable = visible.filter((o) => o.type !== 'stroke')
