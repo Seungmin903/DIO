@@ -9,6 +9,7 @@ import { centerOf, clamp, rotateVector, unionBounds } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
 import { coverLayout, photoInnerBox } from '../../utils/objects'
 import { pageSize } from '../../utils/pageGeometry.js'
+import { fitTextHeightPatch, textLayoutKey } from '../../utils/text'
 import { createLassoOutline, resolveLassoOutline } from '../../utils/lassoOutline.js'
 import PageBackground from '../PageBackground'
 import ContextBar from './ContextBar'
@@ -111,10 +112,16 @@ export default function Canvas({
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
   const [draggingIds, setDraggingIds] = useState(null) // 끌어서 옮기는 중인 스티커·테이프·사진 (놓기 전까지 반투명)
-  // 텍스트 상자 높이를 실제로 그려진 줄 수에 맞춘다. 되돌리기 이력에는 남기지 않는다. (크기 조절·편집 중에는 그쪽이 높이를 정한다)
+  const [textMeasurements, setTextMeasurements] = useState({})
+  useEffect(() => { setTextMeasurements({}) }, [page.id])
+  // 내용의 실제 높이는 최소 높이로만 사용한다. 사용자가 늘린 빈 공간은 유지한다.
   const fitTextHeight = (id, h) => {
     const object = page.objects.find((o) => o.id === id)
-    if (object?.type === 'text' && h > 0 && Math.abs(object.h - h) > 1) dispatch({ type: 'updateObject', id, patch: { h } })
+    if (object?.type !== 'text' || !Number.isFinite(h) || h <= 0) return
+    const key = textLayoutKey(object)
+    setTextMeasurements(current => current[id]?.key === key && Math.abs(current[id].h - h) < 0.01 ? current : { ...current, [id]: { key, h } })
+    const patch = fitTextHeightPatch(object, h)
+    if (patch) dispatch({ type: 'updateObject', id, patch })
   }
   const [erasingIds, setErasingIds] = useState([])
   const [erasingPieces, setErasingPieces] = useState(null) // 영역 지우기 중: 원래 획 id → 남은 조각
@@ -337,6 +344,7 @@ export default function Canvas({
         <View pointerEvents={canTouch ? "box-none" : "none"} style={styles.selectionControls}>
         <SelectionOverlay
           object={selected[0]}
+          textMinHeight={selected[0].type === 'text' && textMeasurements[selected[0].id]?.key === textLayoutKey(selected[0]) ? textMeasurements[selected[0].id].h : null}
           zoom={zoom}
           dispatch={dispatch}
           onRotation={setRotationLabel}

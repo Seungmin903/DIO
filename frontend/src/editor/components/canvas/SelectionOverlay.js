@@ -43,8 +43,8 @@ function handlesFor(object) {
   if (object.type === 'tape') return LENGTH_KNOBS
   // 사진: 비율은 '자르기'에서 정하고, 캔버스에서는 모서리로 크기만 바꾼다 (변을 끌어 비율이 바뀌지 않게)
   if (object.type === 'photo') return CORNERS
-  // 텍스트: 굿노트·노타빌리티·키노트처럼 좌우 손잡이로 폭만 바꾸고 글자 크기는 그대로 둔다. 높이는 줄 수대로 저절로 맞춘다.
-  if (object.type === 'text') return SIDES.filter((handle) => handle.sx)
+  // 텍스트: 좌우는 줄바꿈 폭, 상하는 내용보다 작아지지 않는 상자 높이를 조절한다.
+  if (object.type === 'text') return SIDES
   return [...CORNERS, ...SIDES]
 }
 
@@ -56,7 +56,7 @@ function cursorFor(handle, rotation) {
 }
 
 /** 선택된 오브젝트 하나의 테두리 + 크기·회전 핸들 */
-export default function SelectionOverlay({ object, zoom, dispatch, onRotation, onInteracting }) {
+export default function SelectionOverlay({ object, zoom, dispatch, onRotation, onInteracting, textMinHeight = null }) {
   // 보이는 상자: 텍스트는 편집 중 테두리와 같이 글자에서 TEXT_FRAME_PAD 만큼 띄운다. (크기 계산은 요소 상자 그대로)
   const pad = object.type === 'text' ? TEXT_FRAME_PAD : 0
   const width = object.w * zoom + pad * 2
@@ -107,6 +107,7 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
                   key={handle.key}
                   kind="resize"
                   handle={handle}
+                  textMinHeight={textMinHeight}
                   object={object}
                   zoom={zoom}
                   dispatch={dispatch}
@@ -135,6 +136,7 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
                 key={handle.key}
                 kind="resize"
                 handle={handle}
+                textMinHeight={textMinHeight}
                 object={object}
                 zoom={zoom}
                 dispatch={dispatch}
@@ -165,7 +167,7 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
   )
 }
 
-function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteracting, style }) {
+function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteracting, style, textMinHeight = null }) {
   const gesture = useRef(null)
 
   const panHandlers = usePan({
@@ -179,6 +181,7 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
       const offset = rotateVector(local.x, local.y, object.rotation)
       gesture.current = {
         start: object,
+        textMinHeight: Number.isFinite(textMinHeight) && textMinHeight > 0 ? textMinHeight : null,
         center,
         zoom,
         pointer: { x: center.x + offset.x, y: center.y + offset.y },
@@ -210,10 +213,9 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
     },
   })
 
-  return <View {...panHandlers} accessibilityLabel={kind === 'rotate' ? '요소 회전 손잡이' : undefined} hitSlop={10} style={[styles.handle, style]}>
+  return <View {...panHandlers} accessibilityLabel={kind === 'rotate' ? '요소 회전 손잡이' : object.type === 'text' ? handle.sy ? `텍스트 높이 조절 ${handle.sy < 0 ? '위쪽' : '아래쪽'}` : `텍스트 너비 조절 ${handle.sx < 0 ? '왼쪽' : '오른쪽'}` : undefined} hitSlop={10} style={[styles.handle, style]}>
     {kind === 'rotate' && <View pointerEvents="none"><Icon name="rotate" size={11} strokeWidth={2.6} color={colors.surface} /></View>}
-    {/* 텍스트는 좌우 손잡이만 있어서, 보이지 않던 변 손잡이 가운데에 작은 막대를 보여 준다 (키노트·굿노트 텍스트 상자처럼) */}
-    {kind === 'resize' && object.type === 'text' && handle?.sx && !handle.sy && <View pointerEvents="none" style={styles.sideGrip} />}
+    {kind === 'resize' && object.type === 'text' && <View pointerEvents="none" style={[styles.sideGrip, handle?.sy && { width: 24, height: 8 }]} />}
   </View>
 }
 
@@ -250,7 +252,9 @@ function resizePatch(g, handle, pointer) {
   } else if (sx) {
     w = Math.max(MIN_SIZE, sx * (q.x - anchor.x))
   } else {
-    h = Math.max(MIN_SIZE, sy * (q.y - anchor.y))
+    // 실측 전에는 현재 높이를 더 줄이지 않아 글꼴별 폭 추정 오차로 인한 잘림을 막는다.
+    const contentHeight = start.type === 'text' ? g.textMinHeight ?? Math.max(start.h, textFormatPatch(start, textSettings(start)).h) : 0
+    h = Math.max(MIN_SIZE, contentHeight, sy * (q.y - anchor.y))
   }
 
   let baseWidth

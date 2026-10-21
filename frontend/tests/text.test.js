@@ -1,7 +1,26 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createText, textPatch } from '../src/editor/utils/text.js'
+import { createText, textPatch, textLayoutKey, fitTextHeightPatch } from '../src/editor/utils/text.js'
 import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
+
+test('실측 높이 보정은 사용자 여백을 보존하고 내용 부족만 보완한다', () => {
+  const object = createText({ id: 'text', x: 20, y: 40, text: '두 줄\n텍스트' })
+  assert.deepEqual(fitTextHeightPatch({ ...object, h: 10 }, 76), { h: 76 })
+  assert.equal(fitTextHeightPatch({ ...object, h: 120 }, 76), null)
+  const restored = JSON.parse(JSON.stringify({ ...object, h: 120 }))
+  assert.equal(fitTextHeightPatch(restored, 76), null)
+  for (const value of [NaN, Infinity, -1, 0]) assert.equal(fitTextHeightPatch(object, value), null)
+  assert.equal(fitTextHeightPatch({ ...object, type: 'photo' }, 100), null)
+})
+
+test('이전 내용·폭·글꼴의 측정은 재사용하지 않고 위치·상자 높이만 달라지면 재사용한다', () => {
+  const object = createText({ id: 'text', x: 20, y: 40, text: 'Dynamic\n한글' })
+  const key = textLayoutKey(object)
+  for (const patch of [{ text: '변경' }, { w: 100 }, { baseWidth: 100 }, { font: 'serif' }, { fontSize: 40 }, { lineSpacing: 2 }, { styleRanges: [{ start: 0, end: 2, fontSize: 50 }] }]) {
+    assert.notEqual(textLayoutKey({ ...object, ...patch }), key)
+  }
+  assert.equal(textLayoutKey({ ...object, x: 80, y: 70, h: 200, rotation: 90 }), key)
+})
 
 test('한글·자모·줄바꿈·공백·이모지를 변경하지 않고 저장하고 재편집한다', () => {
   const value = '한글 조합 ㄱㅏ\n둘째 줄 👩‍💻  '
