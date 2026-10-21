@@ -54,11 +54,15 @@ function DiaryApp() {
   const {
     diaries,
     setDiaries,
+    addDiary,
     loaded,
     moveToTrash,
     restoreFromTrash,
     deletePermanently,
     renameDiary,
+    trashNow,
+    trashError,
+    cleanupTrash,
   } = useDiaries();
   const [active, setActive] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -141,7 +145,7 @@ function DiaryApp() {
 
     confirmAction({
       title: '휴지통으로 옮길까요?',
-      message: `“${diary.title}”는 휴지통에서 복원하거나 영구 삭제할 수 있어요.`,
+      message: `“${diary.title}”는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요. 앱이 꺼져 있으면 다음 실행 시 정리해요.`,
       confirmLabel: '휴지통으로',
       onConfirm: () => {
         moveToTrash(diary.id);
@@ -190,7 +194,7 @@ function DiaryApp() {
       try {
         const doc = createDefaultDoc(diary);
         if (!await saveJSON(STORAGE_KEYS.doc + ':' + diary.id, doc)) throw new Error('다이어리를 저장하지 못했어요. 다시 시도해 주세요.');
-        if (!await saveJSON(STORAGE_KEYS.diaries, [...diaries, diary])) throw new Error('보관함을 저장하지 못했어요. 다시 시도해 주세요.');
+        if (!await addDiary(diary)) throw new Error('보관함을 저장하지 못했어요. 다시 시도해 주세요.');
         rememberEditorDoc(STORAGE_KEYS.doc + ':' + diary.id, doc);
       } catch (failure) {
         return failure.message;
@@ -200,9 +204,7 @@ function DiaryApp() {
       }
     }
     // 먼저 만든 다이어리가 앞(왼쪽)에 오도록 새 다이어리는 뒤에 붙인다.
-    setDiaries((current) => (original
-      ? current.map((item) => (item.id === diary.id ? diary : item))
-      : [...current, diary]));
+    if (original) setDiaries((current) => current.map((item) => (item.id === diary.id ? diary : item)));
     setActive((current) => (current?.id === diary.id ? diary : current));
     setCreateOpen(false);
     setEditingDiaryId(null);
@@ -284,7 +286,12 @@ function DiaryApp() {
       <TrashScreen
         compact={isPhone}
         diaries={trashedDiaries}
-        onRestore={restoreFromTrash}
+        now={trashNow}
+        cleanupError={trashError}
+        onRetryCleanup={cleanupTrash}
+        onRestore={(id) => {
+          if (!restoreFromTrash(id)) notify('복원할 수 없어요', '보관 기한이 지났거나 영구 삭제 중인 다이어리예요.');
+        }}
         onDeletePermanently={(diary) => {
           confirmAction({
             title: '영구 삭제할까요?',

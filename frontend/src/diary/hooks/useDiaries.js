@@ -1,18 +1,32 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveJSON, STORAGE_KEYS } from '../../editor/services/storage';
 import { forgetEditorDoc } from '../../editor/services/editorDocs';
 import { collectMediaIds } from '../../editor/utils/mediaReferences';
 import * as mediaRepository from '../../editor/utils/mediaRepository';
 import { normalizeDiaries, recoverOrphanDiaries, sortByCreated } from '../utils/diaryLibrary';
-
-const readStoredValue = (raw) => {
-  try { return raw ? JSON.parse(raw) : null; } catch { return null; }
-};
+import { isTrashExpired, purgeTrashedDiary } from '../utils/trashRetention';
 
 /** 다이어리 목록 + 기기 저장소 자동 저장. 편집 문서만 남은 다이어리는 목록에 되살린다. */
 export function useDiaries() {
-  const [diaries, setDiaries] = useState([]);
+  const [diaries, setDiaryState] = useState([]);
+  const currentDiaries = useRef([]);
+  const writeQueue = useRef(Promise.resolve());
+  const deleting = useRef(new Set());
+  const sweeping = useRef(false);
+  const [trashNow, setTrashNow] = useState(Date.now);
+  const [trashError, setTrashError] = useState(null);
+  const setDiaries = useCallback((next) => {
+    const value = typeof next === 'function' ? next(currentDiaries.current) : next;
+    currentDiaries.current = value;
+    setDiaryState(value);
+  }, []);
+  const enqueue = useCallback((action) => {
+    const result = writeQueue.current.then(action);
+    writeQueue.current = result.catch(() => {});
+    return result;
+  }, []);
   const [loaded, setLoaded] = useState(false);
   // 저장소를 읽지 못했으면 기존 목록을 빈 목록으로 덮어쓰지 않도록 이번 실행 동안 저장하지 않는다.
   const [writable, setWritable] = useState(false);
@@ -48,63 +62,83 @@ export function useDiaries() {
       setLoaded(true);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [setDiaries]);
 
   useEffect(() => {
-    if (writable) saveJSON(STORAGE_KEYS.diaries, diaries);
-  }, [writable, diaries]);
+    if (writable) enqueue(() => saveJSON(STORAGE_KEYS.diaries, currentDiaries.current));
+  }, [writable, diaries, enqueue]);
 
   const moveToTrash = useCallback((id) => {
+    setTrashNow(Date.now());
     const trashedAt = new Date().toISOString();
-    setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, trashedAt } : diary)));
-  }, []);
+    setDiaries((current) => current.map((diary) => (diary.id === id && !diary.trashedAt ? { ...diary, trashedAt } : diary)));
+  }, [setDiaries]);
 
   const restoreFromTrash = useCallback((id) => {
+    const target = currentDiaries.current.find(diary => diary.id === id);
+    if (!target?.trashedAt || deleting.current.has(id) || isTrashExpired(target)) return false;
     setDiaries((current) => sortByCreated(current.map((diary) => (diary.id === id ? { ...diary, trashedAt: null } : diary))));
-  }, []);
+    return true;
+  }, [setDiaries]);
 
   const renameDiary = useCallback((id, title) => {
     const updatedAt = new Date().toISOString();
     setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, title, updatedAt } : diary)));
-  }, []);
+  }, [setDiaries]);
+
+  const addDiary = useCallback((diary) => enqueue(async () => {
+    if (!writable) return false;
+    const append = current => sortByCreated([...current.filter(item => item.id !== diary.id), diary]);
+    if (!await saveJSON(STORAGE_KEYS.diaries, append(currentDiaries.current))) return false;
+    setDiaries(append);
+    return true;
+  }), [enqueue, setDiaries, writable]);
 
   const deletePermanently = useCallback(async (id) => {
-    const targetKey = `${STORAGE_KEYS.doc}:${id}`;
+    if (!writable || deleting.current.has(id)) return false;
+    deleting.current.add(id);
     try {
-      const targetRaw = await AsyncStorage.getItem(targetKey);
-      const targetMedia = new Set(collectMediaIds(readStoredValue(targetRaw)));
-      const allKeys = await AsyncStorage.getAllKeys();
-      const referenceKeys = allKeys.filter((key) => (
-        (key.startsWith(`${STORAGE_KEYS.doc}:`) && key !== targetKey)
-        // 다이어리 ID 없이 저장된 예전 단일 편집 문서도 같은 원본을 쓸 수 있다.
-        || key === STORAGE_KEYS.doc
-        || key === STORAGE_KEYS.customDecor
-      ));
-      const references = referenceKeys.length ? await AsyncStorage.multiGet(referenceKeys) : [];
-      const retainedMedia = new Set(references.flatMap(([, raw]) => collectMediaIds(readStoredValue(raw))));
+      return await enqueue(() => purgeTrashedDiary({
+        id, storage: AsyncStorage, keys: STORAGE_KEYS,
+        getDiaries: () => currentDiaries.current, updateDiaries: setDiaries,
+        forgetDoc: forgetEditorDoc, collectMediaIds, removeMedia: mediaRepository.remove,
+      }));
+    } finally { deleting.current.delete(id); }
+  }, [enqueue, setDiaries, writable]);
 
-      await AsyncStorage.removeItem(targetKey);
-      forgetEditorDoc(targetKey);
-      setDiaries((current) => current.filter((diary) => diary.id !== id));
+  const cleanupTrash = useCallback(async () => {
+    if (!loaded || !writable || sweeping.current) return;
+    sweeping.current = true;
+    const now = Date.now();
+    setTrashNow(now);
+    try {
+      const expired = currentDiaries.current.filter(diary => isTrashExpired(diary, now));
+      const results = [];
+      for (const diary of expired) results.push(await deletePermanently(diary.id));
+      setTrashError(results.includes(false) ? '기한이 지난 다이어리를 정리하지 못했어요. 저장 공간과 권한을 확인하고 다시 시도해 주세요.' : null);
+    } finally { sweeping.current = false; }
+  }, [loaded, writable, deletePermanently]);
 
-      // 다른 문서나 사용자 스티커가 함께 쓰는 원본은 남긴다. 미디어 정리 실패는
-      // 다이어리 삭제를 되돌리지 않고 다음 정리 기회까지 고아 파일로 보존한다.
-      await Promise.allSettled([...targetMedia]
-        .filter((mediaId) => !retainedMedia.has(mediaId))
-        .map((mediaId) => mediaRepository.remove(mediaId)));
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
+  useEffect(() => {
+    if (!loaded || !writable) return undefined;
+    cleanupTrash();
+    // 닫힌 앱에서 백그라운드 실행을 약속하지 않는다. 복귀 시 즉시, 실행 중에는 1분마다 점검한다.
+    const timer = setInterval(() => { if (AppState.currentState === 'active') cleanupTrash(); }, 60000);
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') cleanupTrash(); });
+    return () => { clearInterval(timer); subscription.remove(); };
+  }, [loaded, writable, cleanupTrash]);
 
   return {
     diaries,
     setDiaries,
+    addDiary,
     loaded,
     moveToTrash,
     restoreFromTrash,
     deletePermanently,
     renameDiary,
+    trashNow,
+    trashError,
+    cleanupTrash,
   };
 }
