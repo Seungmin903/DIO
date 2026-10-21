@@ -154,13 +154,17 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     }
   }
   // pagePoint(페이지 좌표)가 화면의 screenPoint 에 오도록 배율을 바꾼다. (손가락 사이·휠 위치 기준 확대)
-  const zoomAround = (nextScale, pagePoint, screenPoint) => {
-    showZoomHud()
+  // resolve*: 제한을 적용한 보기 { scale, zoom, x, y } 만 계산한다. 손가락 제스처 중에는 Viewport 가 이것으로 미리 보여 주고 손을 뗄 때 확정한다.
+  const resolveZoom = (nextScale, pagePoint, screenPoint) => {
     const scale = clamp(nextScale, ZOOM_MIN, ZOOM_MAX)
     const z = fitZoom * scale
-    setView({ scale, ...clampOffset({ x: screenPoint.x - pagePoint.x * z, y: screenPoint.y - pagePoint.y * z }, z) })
+    return { scale, zoom: z, ...clampOffset({ x: screenPoint.x - pagePoint.x * z, y: screenPoint.y - pagePoint.y * z }, z) }
   }
-  const panBy = (dx, dy) => setView((prev) => ({ scale: prev.scale, ...clampOffset({ x: offset.x + dx, y: offset.y + dy }, zoom) }))
+  const resolvePan = (from, dx, dy) => ({ ...from, ...clampOffset({ x: from.x + dx, y: from.y + dy }, from.zoom) })
+  const commitView = (next) => {
+    if (next.scale !== view.scale) showZoomHud()
+    setView({ scale: next.scale, x: next.x, y: next.y })
+  }
 
   const cropTarget = cropId ? page.objects.find((o) => o.id === cropId && o.type === 'photo') : null
   const tapeCrop = tapeCropId ? page.objects.find((o) => o.id === tapeCropId && (o.src || o.mediaFileId) && o.imageWidth) : null
@@ -370,15 +374,16 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
+  const closeBubbles = () => {
+    setDrawerTab(null)
+    setMoreOpen(false)
+    setPenSettingsOpen(false)
+    setLassoSettingsOpen(false)
+    setTextSettingsOpen(false)
+  }
   const closeOnOutside = {
     [pressEvent]: () => {
-      if (bubbleOpen && !touchInside.current) {
-        setDrawerTab(null)
-        setMoreOpen(false)
-        setPenSettingsOpen(false)
-        setLassoSettingsOpen(false)
-        setTextSettingsOpen(false)
-      }
+      if (bubbleOpen && !touchInside.current) closeBubbles()
       touchInside.current = false
     },
   }
@@ -479,8 +484,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             zoom={zoom}
             scale={view.scale}
             offset={offset}
-            onPinch={zoomAround}
-            onPan={panBy}
+            resolveZoom={resolveZoom}
+            resolvePan={resolvePan}
+            onView={commitView}
             onTapEmpty={clearSelection}
             dragToPan={activeTool === 'hand'}
             onLayout={(event) => { setStageSize(event.nativeEvent.layout); stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y })) }}
@@ -488,6 +494,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               <Canvas
                 showBackground={loaded}
                 activeTool={activeTool}
+                // 창이 열린 채 펜·형광펜·지우개로 캔버스를 누르면 그 터치로 그리지 않고 창만 닫는다
+                inputBlocker={bubbleOpen ? { ...markInside, onResponderRelease: closeBubbles } : null}
                 lassoShape={lasso.shape}
                 lassoMode={lasso.mode}
                 onLassoCommit={(ids) => {

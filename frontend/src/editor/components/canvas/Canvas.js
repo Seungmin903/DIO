@@ -56,6 +56,7 @@ export default function Canvas({
   onCrop,
   onToast,
   activeTool = 'select',
+  inputBlocker = null, // 툴바에서 연 창이 열려 있을 때 캔버스 터치를 대신 받을 핸들러 (그 터치로 그리지 않는다)
   penSettings,
   highlighterSettings,
   straightAssist = true,
@@ -86,6 +87,7 @@ export default function Canvas({
   const [guides, setGuides] = useState(null)
   const [rotationLabel, setRotationLabel] = useState(null)
   const [interacting, setInteracting] = useState(false)
+  const [draggingIds, setDraggingIds] = useState(null) // 끌어서 옮기는 중인 스티커·테이프·사진 (놓기 전까지 반투명)
   const [erasingIds, setErasingIds] = useState([])
   const drawingPage = activeTool === 'eraser' && erasingIds.length
     ? { ...page, objects: page.objects.filter((object) => !erasingIds.includes(object.id)) } : page
@@ -172,7 +174,7 @@ export default function Canvas({
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <StaticPage page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} />
+        <StaticPage page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} />
       </View>
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
       {!readOnly && activeTool === 'lasso' && !textEditing && (
@@ -199,6 +201,7 @@ export default function Canvas({
             dispatch={dispatch}
             onGuides={setGuides}
             onInteracting={setInteracting}
+            onDragging={setDraggingIds}
             onEditText={onEditText}
           />
         ))}
@@ -216,6 +219,10 @@ export default function Canvas({
         <EraserInput key={`${page.id}-${zoom}-${eraserSize}`} objects={page.objects} diameter={eraserSize} zoom={zoom} dispatch={dispatch} onPreview={setErasingIds} />
       </View>}
       </PalmRejectionArea>
+      {/* 창을 닫으려고 누른 터치는 여기서 삼키고 창만 닫는다. 펜·형광펜에 점이 찍히던 문제 */}
+      {inputBlocker && ['pen', 'highlighter', 'eraser'].includes(activeTool) && (
+        <View style={StyleSheet.absoluteFill} onStartShouldSetResponder={() => true} {...inputBlocker} accessibilityElementsHidden />
+      )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} onCreate={onCreateText} />}
       {!readOnly && activeTool === 'text' && !textEditing && visible.filter((o) => o.type === 'text' && !o.locked).map((object) =>
         <Pressable key={object.id} accessibilityLabel="텍스트 내용 편집" onPress={() => onEditText(object)} style={{ position: 'absolute', left: object.x * zoom, top: object.y * zoom, width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }] }} />)}
@@ -413,7 +420,9 @@ function containsPoint(object, point) {
   return Math.abs(local.x) <= object.w / 2 && Math.abs(local.y) <= object.h / 2
 }
 
-function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onEditText }) {
+const FADE_WHILE_DRAGGING = ['sticker', 'tape', 'photo']
+
+function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onDragging, onEditText }) {
   const gesture = useRef(null)
   const moveFrame = useRef(null)
   const pendingPatches = useRef(null)
@@ -483,6 +492,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
       if (!g.checkpointed) {
         dispatch({ type: 'checkpoint' })
         g.checkpointed = true
+        onDragging?.(objects.filter((o) => g.starts[o.id] && FADE_WHILE_DRAGGING.includes(o.type)).map((o) => o.id))
       }
       let ox = dx / zoom
       let oy = dy / zoom
@@ -503,6 +513,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
       if (g?.mode === 'move') flushMove()
       onGuides(null)
       onInteracting(false)
+      onDragging?.(null)
       // 끄는 도중 두 번째 손가락이 닿아 화면 확대·이동으로 넘어가면, 옮기던 요소는 제자리로 돌린다.
       if (cancelled) {
         if (g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
