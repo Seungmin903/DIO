@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
@@ -11,7 +12,7 @@ import ObjectContent, { objectOpacity } from './ObjectView'
  * - cropId: 자르는 중인 사진. 나머지 요소는 흐리게, 자르는 사진에는 테두리를 둘러 편집 화면과 똑같이 보여 준다.
  * - background: 편집 화면은 페이지 바탕을 Canvas 가 따로 그려서 투명으로 둔다.
  */
-export default function StaticPage({ page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true }) {
+const StaticPage = memo(function StaticPage({ page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true }) {
   const { width, height } = pageSize(page)
   return (
     <View
@@ -47,7 +48,16 @@ export default function StaticPage({ page, zoom, still = false, cropId = null, b
         })}
     </View>
   )
-}
+}, (previous, next) => (
+  previous.page === next.page
+  && previous.zoom === next.zoom
+  && previous.still === next.still
+  && previous.cropId === next.cropId
+  && previous.background === next.background
+  && previous.showBackground === next.showBackground
+))
+
+export default StaticPage
 
 const styles = StyleSheet.create({
   page: { overflow: 'hidden' },

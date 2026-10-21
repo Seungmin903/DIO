@@ -41,7 +41,9 @@ function updateObjects(state, updater) {
     ...state,
     doc: {
       ...state.doc,
-      pages: state.doc.pages.map((page) => (page.id === pageId ? { ...page, objects: updater(page.objects) } : page)),
+      pages: state.doc.pages.map((page) => (page.id === pageId
+        ? { ...page, objects: updater(page.objects), thumbnailRevision: (page.thumbnailRevision ?? 0) + 1 }
+        : page)),
     },
   }
 }
@@ -121,6 +123,7 @@ function clonePage(page) {
   const groupMap = new Map()
   return {
     id: createId(),
+    thumbnailRevision: 0,
     objects: page.objects.map((object) => {
       const copy = JSON.parse(JSON.stringify(object))
       let groupId = copy.groupId

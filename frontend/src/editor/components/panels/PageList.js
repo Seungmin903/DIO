@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { memo, useRef, useState } from 'react'
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, radius } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
 import { usePan } from '../../hooks/usePan'
@@ -39,41 +39,47 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
 
   return (
     <View style={styles.panel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
-      <ScrollView contentContainerStyle={styles.list} scrollEnabled={!drag} onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)} scrollEventThrottle={16}>
-        {pages.map((page, index) => {
+      <FlatList
+        data={pages}
+        keyExtractor={(page) => page.id}
+        contentContainerStyle={styles.list}
+        scrollEnabled={!drag}
+        onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={32}
+        initialNumToRender={4}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+        removeClippedSubviews
+        renderItem={({ item: page, index }) => {
           const active = page.id === currentId
           const dragging = drag?.id === page.id
-          return (
-            <PageItem
-              key={page.id}
-              page={page}
-              index={index}
-              active={active}
-              dragging={dragging}
-              dy={dragging ? drag.dy : 0}
-              dropLine={drag && !dragging && target === index ? (target < drag.from ? 'before' : 'after') : null}
-              cropId={active ? cropId : null}
-              readOnly={readOnly}
-              menuOpen={!readOnly && menuId === page.id}
-              canOpenMenu={!readOnly && !drag}
-              canToggleIndex={!readOnly && !drag}
-              onLayout={(layout) => (layouts.current[page.id] = layout)}
-              onSelect={() => { setMenuId(null); onSelect(page.id) }}
-              onMenu={() => setMenuId((id) => (id === page.id ? null : page.id))}
-              onToggleIndex={() => onToggleIndex(page.id)}
-              onDragStart={() => setDrag({ id: page.id, from: index, dy: 0 })}
-              onDragMove={(dy) => setDrag({ id: page.id, from: index, dy })}
-              onDragEnd={(dy) => {
-                const to = dropIndex(pages, layouts.current, { id: page.id, from: index, dy })
-                setDrag(null)
-                if (to !== index) onMove(page.id, to)
-              }}
-            />
-          )
-        })}
-        {/* 목록 아래 빈 곳을 누르면 선택 해제 */}
-        {onEmptyTap && <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} />}
-      </ScrollView>
+          return <PageItem
+            page={page}
+            index={index}
+            active={active}
+            dragging={dragging}
+            dy={dragging ? drag.dy : 0}
+            dropLine={drag && !dragging && target === index ? (target < drag.from ? 'before' : 'after') : null}
+            cropId={active ? cropId : null}
+            readOnly={readOnly}
+            menuOpen={!readOnly && menuId === page.id}
+            canOpenMenu={!readOnly && !drag}
+            canToggleIndex={!readOnly && !drag}
+            onLayout={(layout) => (layouts.current[page.id] = layout)}
+            onSelect={() => { setMenuId(null); onSelect(page.id) }}
+            onMenu={() => setMenuId((id) => (id === page.id ? null : page.id))}
+            onToggleIndex={() => onToggleIndex(page.id)}
+            onDragStart={() => setDrag({ id: page.id, from: index, dy: 0 })}
+            onDragMove={(dy) => setDrag({ id: page.id, from: index, dy })}
+            onDragEnd={(dy) => {
+              const to = dropIndex(pages, layouts.current, { id: page.id, from: index, dy })
+              setDrag(null)
+              if (to !== index) onMove(page.id, to)
+            }}
+          />
+        }}
+        ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
+      />
       {menuPage && (
         <View style={[styles.actionMenu, { top: menuTop }]}>
           <Text style={styles.actionMenuTitle}>{pages.findIndex((page) => page.id === menuId) + 1}페이지</Text>
@@ -121,7 +127,7 @@ function dropIndex(pages, layouts, drag) {
   return clamp(index, 0, pages.length - 1)
 }
 
-function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
+const PageItem = memo(function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
   const { width, height } = pageSize(page)
   const thumbZoom = THUMB_WIDTH / width
   const press = useRef(null)
@@ -197,7 +203,19 @@ function PageItem({ page, index, active, dragging, dy, dropLine, cropId, readOnl
       )}
     </View>
   )
-}
+}, (previous, next) => (
+  previous.page === next.page
+  && previous.index === next.index
+  && previous.active === next.active
+  && previous.dragging === next.dragging
+  && previous.dy === next.dy
+  && previous.dropLine === next.dropLine
+  && previous.cropId === next.cropId
+  && previous.readOnly === next.readOnly
+  && previous.menuOpen === next.menuOpen
+  && previous.canOpenMenu === next.canOpenMenu
+  && previous.canToggleIndex === next.canToggleIndex
+))
 
 const styles = StyleSheet.create({
   panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'visible', zIndex: 3 },
