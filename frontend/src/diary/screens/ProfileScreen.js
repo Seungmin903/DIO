@@ -8,7 +8,8 @@ export default function ProfileScreen({ diaries, compact = false }) {
 
   return (
     <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
-      <Header eyebrow="MY SPACE" title="내 공간" />
+      {/* 폰은 영문 보조 제목 없이 한글 제목만 보여 준다. */}
+      <Header eyebrow={compact ? null : 'MY SPACE'} title="내 공간" compact={compact} />
       <View style={[s.profileHero, compact && s.profileHeroCompact]}>
         <View style={s.profileBadge}><Text style={s.profileBadgeText}>D</Text></View>
         <View style={s.profileHeroText}>
@@ -22,8 +23,8 @@ export default function ProfileScreen({ diaries, compact = false }) {
         <Stat value={favorites} label="즐겨찾기" />
       </View>
       <View style={s.tip}>
-        <Text style={s.tipKicker}>TIP</Text>
-        <Text style={s.tipTitle}>표지 색상으로 다이어리를 구분해 보세요.</Text>
+        {!compact && <Text style={s.tipKicker}>TIP</Text>}
+        <Text style={[s.tipTitle, compact && s.tipTitleCompact]}>표지 색상으로 다이어리를 구분해 보세요.</Text>
         <Text style={s.tipCopy}>자주 여는 다이어리는 즐겨찾기에 추가할 수 있어요.</Text>
       </View>
       <AppInformation />

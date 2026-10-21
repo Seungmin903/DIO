@@ -108,15 +108,19 @@ function DiaryApp() {
     setPage(next);
   }, []);
 
-  // Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
+  // 모든 화면 규격의 Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
   // 편집기는 열린 도구·패널을 먼저 닫아야 하므로 EditorScreen에서 별도로 처리한다.
   useEffect(() => {
-    if (!isPhone || Platform.OS !== 'android' || page === 'editor') return undefined;
+    if (Platform.OS !== 'android' || page === 'editor') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (createOpen) {
         if (savingRef.current) return true;
         setCreateOpen(false);
         setEditingDiaryId(null);
+        return true;
+      }
+      if (!isPhone && !railCollapsed) {
+        setRailCollapsed(true);
         return true;
       }
       if (page !== 'library' || filter !== DEFAULT_FILTER) {
@@ -126,7 +130,7 @@ function DiaryApp() {
       return false;
     });
     return () => subscription.remove();
-  }, [createOpen, filter, isPhone, navigate, page]);
+  }, [createOpen, filter, isPhone, navigate, page, railCollapsed]);
 
   const create = useCallback(() => {
     if (savingRef.current) return;
@@ -141,9 +145,8 @@ function DiaryApp() {
     setCreateOpen(true);
   }, []);
 
-  const remove = () => {
+  const moveDiaryToTrash = useCallback((diary) => {
     if (savingRef.current) return;
-    const diary = diaries.find((item) => item.id === editingDiaryId);
     if (!diary) return;
 
     confirmAction({
@@ -158,7 +161,7 @@ function DiaryApp() {
         setEditingDiaryId(null);
       },
     });
-  };
+  }, [moveToTrash]);
 
   const save = async (form) => {
     if (savingRef.current) return;
@@ -290,9 +293,10 @@ function DiaryApp() {
       onOpen={open}
       onFavorite={favorite}
       onEdit={edit}
+      onDelete={moveDiaryToTrash}
       onCreate={create}
     />
-  ), [carousel, changeFilter, create, edit, favorite, filter, isPhone, open, view, visibleDiaries]);
+  ), [carousel, changeFilter, create, edit, favorite, filter, isPhone, moveDiaryToTrash, open, view, visibleDiaries]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
@@ -355,7 +359,6 @@ function DiaryApp() {
       diary={editingDiaryId ? diaries.find(item => item.id === editingDiaryId) : null}
       saving={saving}
       onSubmit={save}
-      onDelete={remove}
       onCancel={() => { if (savingRef.current) return; setCreateOpen(false); setEditingDiaryId(null); }}
     />
   );

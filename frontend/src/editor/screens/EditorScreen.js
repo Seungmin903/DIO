@@ -531,10 +531,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     showToast('집중 편집 · 두 손가락으로 이동하고 확대하세요.')
   }
 
-  // Android 뒤로가기는 현재 편집 상태를 한 단계씩 닫는다. 모두 닫혀 있을 때만 보관함으로 이동한다.
+  // 모든 화면 규격의 Android 뒤로가기는 현재 편집 상태를 한 단계씩 닫는다.
+  // 모달·도구·선택·보조 패널이 모두 닫혀 있을 때만 보관함으로 이동한다.
   useEffect(() => {
-    if (!compact || Platform.OS !== 'android') return undefined
+    if (Platform.OS !== 'android') return undefined
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (photoCropId) { setPhotoCropId(null); return true }
+      if (tapeCropId) { setTapeCropId(null); return true }
       if (exportSnapshot) { setExportSnapshot(null); setRegionOpen(false); return true }
       if (regionOpen) { setRegionOpen(false); return true }
       if (exportOpen) { setExportOpen(false); return true }
@@ -542,15 +545,19 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       if (templatePickerOpen) { setTemplatePickerOpen(false); return true }
       if (textLinkTarget) { setTextLinkTarget(null); return true }
       if (objectLinkTarget) { setObjectLinkTarget(null); return true }
+      if (textEditing) { Keyboard.dismiss(); setTextEditing(null); return true }
+      if (cropId) { finishCrop(false); return true }
+      if (importFailure) { setImportFailure(null); return true }
       if (bubbleOpen) { closeBubbles(); return true }
       if (focusMode) { setFocusMode(false); return true }
-      if (pagesOpen) { setPagesOpen(false); return true }
-      if (layersOpen) { setLayersOpen(false); return true }
+      if (state.selectedIds.length) { dispatch({ type: 'select', ids: [] }); return true }
+      if (pagesOpen) { togglePages(); return true }
+      if (layersOpen) { toggleLayers(false); return true }
       goHome()
       return true
     })
     return () => subscription.remove()
-  }, [bubbleOpen, compact, exportOpen, exportSnapshot, focusMode, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, regionOpen, templatePickerOpen, textLinkTarget])
+  }, [bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget])
 
   const phoneToolbar = !readOnly && compact ? (
     <PhoneToolbar

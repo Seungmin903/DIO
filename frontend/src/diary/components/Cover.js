@@ -10,7 +10,7 @@ function Cover({ diary, small = false, preview = false, carousel = false, grid =
       <View style={s.coverLine} />
       <View style={s.coverRing} />
       <Text style={[s.coverKicker, small && s.coverKickerSmall]}>DIO DIARY</Text>
-      <Text numberOfLines={2} style={[s.coverTitle, small && s.coverTitleSmall]}>{diary.title}</Text>
+      <Text numberOfLines={2} style={[s.coverTitle, small && s.coverTitleSmall, compact && grid && s.coverTitleGridCompact]}>{diary.title}</Text>
       <View style={s.coverFooter}>
         <View style={s.coverRule} />
         <Text style={[s.coverYear, small && s.coverYearSmall]}>2026</Text>

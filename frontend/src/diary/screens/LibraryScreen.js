@@ -37,6 +37,7 @@ function LibraryScreen({
   onOpen,
   onFavorite,
   onEdit,
+  onDelete,
   onCreate,
 }) {
   const scrollX = useRef(new Animated.Value(Math.max(0, carousel) * CAROUSEL_STEP)).current;
@@ -159,7 +160,7 @@ function LibraryScreen({
       </View>
 
       {!carouselItems.length ? (
-        <EmptyState title={current.empty} copy={current.emptyCopy} />
+        <EmptyState compact={compact} title={current.empty} copy={current.emptyCopy} />
       ) : view === 'carousel' ? (
         <View style={[s.carouselShell, compact && s.carouselShellCompact]}>
           <View style={[s.carouselRow, compact && s.carouselRowCompact]}>
@@ -217,6 +218,7 @@ function LibraryScreen({
                     onOpen={onOpen}
                     onFavorite={onFavorite}
                     onEdit={onEdit}
+                    onDelete={onDelete}
                   />
                 )
               )}
@@ -237,7 +239,7 @@ function LibraryScreen({
         </View>
       ) : (
         <View style={[s.grid, compact && s.gridCompact]}>
-          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} />)}
+          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} />)}
           {canCreate && <CreateDiaryCard layout="grid" compact={compact} onCreate={onCreate} />}
         </View>
       )}
