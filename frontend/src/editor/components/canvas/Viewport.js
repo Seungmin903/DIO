@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Platform, StyleSheet, View } from 'react-native'
+import { notePointerDown, notePointerUp, touchKind } from '../../utils/stylus'
 
 /**
  * 편집 화면의 보는 영역. 페이지를 offset 위치에 zoom 배율로 둔다.
@@ -25,7 +26,11 @@ export default function Viewport({ zoom, offset, scale, onPinch, onPan, onTapEmp
   const measure = () => nodeRef.current?.measureInWindow?.((x, y) => (origin.current = { x, y }))
   const local = (touch) => ({ x: touch.pageX - origin.current.x, y: touch.pageY - origin.current.y })
 
-  const twoFingers = (event) => (event.nativeEvent.touches?.length ?? 0) >= 2
+  // 두 손가락 확대·축소·이동. 펜이 함께 닿아 있으면(손바닥 + 펜) 제스처가 아니다.
+  const twoFingers = (event) => {
+    const touches = event.nativeEvent.touches ?? []
+    return touches.length >= 2 && !touches.some((t) => touchKind(t) === 'pen')
+  }
   const startPinch = (event) => {
     const [a, b] = event.nativeEvent.touches
     const p = local(a)
@@ -45,7 +50,8 @@ export default function Viewport({ zoom, offset, scale, onPinch, onPan, onTapEmp
     onMoveShouldSetResponderCapture: twoFingers,
     // 페이지가 받지 않은 한 손가락 터치(= 페이지 밖 여백)도 여기서 받는다. 떼면 선택 해제.
     onStartShouldSetResponder: () => true,
-    onResponderTerminationRequest: () => false,
+    // 여백에 얹힌 손바닥(탭 대기 중)이 펜 입력을 막지 않게, 확대·축소나 손바닥 도구로 옮기는 중이 아니면 넘긴다.
+    onResponderTerminationRequest: () => !pinch.current && !latest.current.dragToPan,
     onResponderGrant: (event) => {
       measure()
       panFrom.current = latest.current.dragToPan ? { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY } : null
@@ -116,6 +122,10 @@ export default function Viewport({ zoom, offset, scale, onPinch, onPan, onTapEmp
         onLayout?.(event)
       }}
       {...responder}
+      // 펜·손가락 구분: 포인터 이벤트의 pointerType 을 터치 identifier 별로 적어 둔다 (utils/stylus)
+      onPointerDownCapture={notePointerDown}
+      onPointerUpCapture={notePointerUp}
+      onPointerCancelCapture={notePointerUp}
     >
       <View style={{ position: 'absolute', left: offset.x, top: offset.y }}>{children}</View>
     </View>
