@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { OBJECT_TYPE_LABELS } from '../../constants'
@@ -83,6 +83,25 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
       return next
     })
 
+  // 행 동작. 매번 새 함수를 넘기면 요소 하나만 움직여도 모든 행이 다시 그려져서, 고정된 객체 하나로 넘기고 최신 값은 ref 로 읽는다.
+  const rowActionsRef = useRef(null)
+  rowActionsRef.current = {
+    dragStart: (key, index) => setDrag({ key, from: index, dy: 0 }),
+    dragMove: (key, index, dy) => setDrag({ key, from: index, dy }),
+    dragEnd: (index, dy) => {
+      setDrag(null)
+      drop(index, clamp(index + Math.round(dy / ROW_STEP), 0, rows.length - 1))
+    },
+    rangeStart: (index, event) => startRange(index, event),
+    // 길게 누르고 끌지 않은 채 떼면 범위 고르기를 끝낸다. (끌었으면 목록이 이어받아 거기서 끝낸다)
+    pressOut: () => {
+      if (rangeRef.current && !rangeRef.current.captured) endRange()
+    },
+  }
+  const [rowActions] = useState(() =>
+    Object.fromEntries(Object.keys(rowActionsRef.current).map((key) => [key, (...args) => rowActionsRef.current[key](...args)])),
+  )
+
   // 화면 목록에서 from → to 로 끌어 놓은 결과를 reducer 의 moveLayers 로 바꾼다.
   function drop(from, to) {
     if (from === to) return
@@ -136,17 +155,6 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
             dragging: drag?.key === key,
             dragOffset: drag?.key === key ? drag.dy : 0,
             dropLine: drag && drag.key !== key && dropIndex === index ? (dropIndex < drag.from ? 'before' : 'after') : null,
-            onDragStart: () => setDrag({ key, from: index, dy: 0 }),
-            onDragMove: (dy) => setDrag({ key, from: index, dy }),
-            onDragEnd: (dy) => {
-              setDrag(null)
-              drop(index, clamp(index + Math.round(dy / ROW_STEP), 0, rows.length - 1))
-            },
-            onRangeStart: (event) => startRange(index, event),
-            // 길게 누르고 끌지 않은 채 떼면 범위 고르기를 끝낸다. (끌었으면 목록이 이어받아 거기서 끝낸다)
-            onPressOut: () => {
-              if (rangeRef.current && !rangeRef.current.captured) endRange()
-            },
           }
           if (row.kind === 'group') {
             const allSelected = row.members.every((o) => selectedIds.includes(o.id))
@@ -154,6 +162,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
               <GroupRow
                 key={key}
                 {...common}
+                {...rowHandlers(rowActions, key, index)}
                 row={row}
                 selected={allSelected}
                 renamable={allSelected && selectedIds.length === row.members.length}
@@ -163,8 +172,10 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
             )
           }
           return (
-            <LayerRow
+            <MemoLayerRow
               key={key}
+              rowKey={key}
+              actions={rowActions}
               {...common}
               object={row.object}
               nested={row.nested}
@@ -359,6 +370,22 @@ function GroupRow({ row, selected, renamable, collapsed, onToggleCollapsed, disp
     </RowShell>
   )
 }
+
+/** 행 하나의 끌기·범위 고르기 핸들러 (고정된 actions 에 행 key·위치를 붙인다) */
+function rowHandlers(actions, key, index) {
+  return {
+    onDragStart: () => actions.dragStart(key, index),
+    onDragMove: (dy) => actions.dragMove(key, index, dy),
+    onDragEnd: (dy) => actions.dragEnd(index, dy),
+    onRangeStart: (event) => actions.rangeStart(index, event),
+    onPressOut: actions.pressOut,
+  }
+}
+
+// 요소 행은 그 요소·선택·끌기 상태가 바뀔 때만 다시 그린다.
+const MemoLayerRow = memo(function MemoLayerRow({ rowKey, actions, index, ...props }) {
+  return <LayerRow index={index} {...props} {...rowHandlers(actions, rowKey, index)} />
+})
 
 function LayerRow({ object, nested, selected, renamable, dispatch, onRangeStart, onPressOut, ...drag }) {
   const gripHandlers = useRowDrag(drag)
