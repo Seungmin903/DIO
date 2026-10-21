@@ -52,3 +52,11 @@ Jira는 진행 중으로 유지한다. 기기 모델·iPadOS·Expo/앱 버전·A
 - 같은 문서를 웹 편집 화면(deviceScaleFactor 2)에서 비교한 평균 어두움(0~255)과 질감 표준편차는 굵기 1/3/8/16에서 56.3/70.7/75.5/79.2 → 58.5/71.8/76.0/78.7, 1/3/6회 겹침에서 79.2/149.3/188.3 → 78.8/149.5/188.6이다. 300% 확대 화면도 육안으로 차이가 거의 없다.
 - `node tests/pencil-texture-browser.cjs`(Metro 8097, Playwright Chromium)를 재통과했다. 18개 조합, 복원 픽셀 차이 0, 겹침 어두움 50/99/125, 단일 탭, 패턴 ID 중복 없음, 획당 무늬 경로 20,000자 미만 검사를 포함한다. 비교 이미지와 원시 결과를 이 실행 결과로 교체했다.
 - iPad 실기기 성능은 아직 확인하지 않았다. 연필 획이 많은 페이지의 필기 지연·확대/이동·메모리를 기기에서 확인해야 한다.
+
+## MR 리뷰 후 최신 코드 번들 확인
+
+- 검증 기준: MR !89 최신 커밋 `781edf2911692e806f2e7f04f102a2f3fbefb130`. 질감 조정·무늬 경로 축소 이후 코드다.
+- `frontend`에서 `node node_modules/expo/bin/cli export --platform ios --no-bytecode --max-workers 2 --output-dir .expo/pencil-review-ios-final` 실행: exit 0. 생성된 iOS JavaScript 번들에 `GRAPHITE_GRAINS`, `GRAPHITE_FIBERS`, `GRAPHITE_VIEWBOX`, `pencilTextureSettings`가 포함됨을 확인했다.
+- 공유 node_modules의 진입점 경로에 의존하지 않도록 `.expo/pencil-review-entry.js`에서 `../App`과 Expo의 registerRootComponent를 가져오고 검증 중에만 package.json의 main으로 지정했다. 종료 후 package.json 원본은 복원했다. 출력과 임시 진입점은 ignore 대상이다.
+- 이번 검증은 Windows의 JavaScript 번들 생성이며 Hermes 바이트코드·iOS 네이티브 앱 빌드·실기기 실행·실제 PNG/PDF 파일 저장 검증은 아니다. 위 초기 Hermes 번들 기록 및 기존 브라우저/테스트 결과와 구분한다.
+- MR은 현재 Ready 상태다. 실제 캔버스와 페이지 썸네일이 함께 보이는 누적 획 문서에서 iPad 연속 필기·확대·이동 지연·메모리 확인, 실제 PNG/PDF 저장은 남은 항목으로 유지한다. Jira도 진행 중으로 유지한다.
