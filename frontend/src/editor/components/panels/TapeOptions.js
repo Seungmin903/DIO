@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import { TAPE_EDGES, TAPE_PALETTES, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
@@ -28,6 +29,17 @@ export default function TapeOptions({ tape, dispatch, onUpdate, draft = false })
   const activePattern = draft ? tape.pattern : look.pattern
   const activePalette = draft ? tape.palette : look.palette
   const isCustom = Boolean(tape.palette?.startsWith('custom:'))
+  // 내 색상으로 바꿀 색: 바탕(bg) 또는 무늬(fg). + 로 피커를 열었을 때만 고를 수 있고, 닫혀 있으면 바탕색이다.
+  // 처음 고르는 바탕색에는 그보다 진한 무늬색을 짝지어 준다.
+  const [colorSlot, setColorSlot] = useState('bg')
+  const [customOpen, setCustomOpen] = useState(false)
+  const slotColor = colorSlot === 'bg' ? look.bg : look.fg
+  const pickCustom = (hex) => {
+    // 저장한 두 색(바탕/무늬)은 그대로 쓴다
+    if (hex.includes('/')) return update({ palette: `custom:${hex.replace('/', ':')}` })
+    if (colorSlot === 'bg') update({ palette: `custom:${hex}:${isCustom ? look.fg : deeper(hex)}` })
+    else update({ palette: `custom:${look.bg}:${hex}` })
+  }
   const currentSize = tapeSizeOf(tape).id
   // 무늬 미리보기 높이: 고른 규격의 실제 폭:길이 비율대로 (슬림은 가늘게, 와이드는 두껍게)
   const sizeInfo = tapeSizeOf(tape)
@@ -103,14 +115,37 @@ export default function TapeOptions({ tape, dispatch, onUpdate, draft = false })
         </Section>
       )}
 
-      {/* 내 색상: 테이프만의 저장 목록. 고른 색이 테이프 바탕, 그보다 진한 색이 무늬가 된다 */}
+      {/* 내 색상: 테이프만의 저장 목록. 저장한 색은 바탕색으로, + 로 연 피커에서는 바탕색·무늬색을 골라 바꾼다 */}
       {draft && !isImage && (
         <Section title="내 색상">
           <MyColorPresets
             scope="tape"
-            value={isCustom ? look.bg : null}
-            label="테이프 색"
-            onPick={(hex) => update({ palette: `custom:${hex}:${deeper(hex)}` })}
+            // 피커는 지금 테이프 색에서 시작한다. 닫혀 있을 때는 내 색상을 쓴 테이프만 저장한 색을 표시한다
+            value={isCustom || customOpen ? slotColor : null}
+            entry={isCustom || customOpen ? `${look.bg}/${look.fg}` : null}
+            label={customOpen ? (colorSlot === 'bg' ? '테이프 바탕색' : '테이프 무늬색') : '테이프 색'}
+            onPick={pickCustom}
+            onPickerOpenChange={(open) => { setCustomOpen(open); if (!open) setColorSlot('bg') }}
+            pickerTop={(
+              <View style={styles.segment}>
+                {[{ id: 'bg', name: '바탕색', color: look.bg }, { id: 'fg', name: '무늬색', color: look.fg }].map((slot) => {
+                  const active = colorSlot === slot.id
+                  return (
+                    <Pressable
+                      key={slot.id}
+                      onPress={() => setColorSlot(slot.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${slot.name} 바꾸기`}
+                      accessibilityState={{ selected: active }}
+                      style={[styles.segmentItem, styles.slotItem, active && styles.segmentActive]}
+                    >
+                      <View style={[styles.slotSwatch, { backgroundColor: slot.color }]} />
+                      <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{slot.name}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            )}
           />
         </Section>
       )}
@@ -158,6 +193,8 @@ const styles = StyleSheet.create({
   section: { marginTop: 14 },
   title: { marginBottom: 8, fontSize: 12, fontWeight: '700', color: colors.textMuted },
   segment: { flexDirection: 'row', padding: 3, borderRadius: 11, backgroundColor: '#EEF2F9' },
+  slotItem: { flexDirection: 'row', gap: 6 },
+  slotSwatch: { width: 14, height: 14, borderRadius: 7, borderWidth: 1, borderColor: 'rgba(11,25,87,0.15)' },
   segmentItem: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   segmentActive: { backgroundColor: colors.surface },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
