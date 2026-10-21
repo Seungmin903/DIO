@@ -192,6 +192,14 @@ function DiaryApp() {
   const visibleDiaries = useMemo(() => diaries.filter((diary) => !diary.trashedAt), [diaries]);
   const trashedDiaries = useMemo(() => diaries.filter((diary) => diary.trashedAt), [diaries]);
 
+  // 편집하던 다이어리를 모든 다이어리 목록에서 찾아 홈의 중심 카드로 복원한다.
+  const returnToLibrary = useCallback(() => {
+    const index = visibleDiaries.findIndex(diary => diary.id === active?.id);
+    setFilter(DEFAULT_FILTER);
+    setCarousel(Math.max(0, index));
+    setPage('library');
+  }, [active?.id, visibleDiaries]);
+
   // 홈에 있는 동안 앞쪽 다이어리의 문서와 첫 속지를 차례로 미리 읽어 둔다. (사진은 열 때 준비)
   // 즐겨찾기 등 목록 내용만 바뀔 때는 다시 돌지 않도록 대상 다이어리 ID가 바뀔 때만 실행한다.
   const prefetchTargets = useMemo(() => visibleDiaries.slice(0, PREFETCH_DIARIES), [visibleDiaries]);
@@ -233,7 +241,7 @@ function DiaryApp() {
       <EditorScreen
         key={active?.id || 'new'}
         diary={active}
-        onHome={() => navigate('library', DEFAULT_FILTER)}
+        onHome={returnToLibrary}
         onRenameDiary={(title) => active?.id && renameDiary(active.id, title)}
       />
     );

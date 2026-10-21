@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import DiaryPaperColors, { DiaryPaperPreview } from './DiaryPaperColors';
 import { DEFAULT_PAPER_APPEARANCE } from '../../editor/templates/appearance.js';
 import DiaryTemplateSettings from './DiaryTemplateSettings';
@@ -91,6 +91,12 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
   };
 
   return (
+    <Modal
+      visible
+      transparent
+      presentationStyle="overFullScreen"
+      onRequestClose={() => { if (!saving) onCancel(); }}
+    >
     <View accessibilityViewIsModal style={s.createOverlay}>
       <Pressable
         accessibilityRole="button"
@@ -225,5 +231,6 @@ export default function DiaryCreateModal({ diary, onSubmit, onDelete, onCancel, 
         </View>
       </View>
     </View>
+    </Modal>
   );
 }

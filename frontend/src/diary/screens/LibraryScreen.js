@@ -8,6 +8,7 @@ import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+const CarouselSeparator = () => <View style={{ width: CAROUSEL_GAP }} />;
 
 // 카드 위치(index)마다 스크롤 위치에 따라 투명도·크기·기울기가 바뀌는 애니메이션 스타일.
 function carouselMotion(scrollX, index) {
@@ -38,8 +39,9 @@ function LibraryScreen({
   onEdit,
   onCreate,
 }) {
-  const scrollX = useRef(new Animated.Value(0)).current;
+  const scrollX = useRef(new Animated.Value(Math.max(0, carousel) * CAROUSEL_STEP)).current;
   const carouselRef = useRef(null);
+  const positioned = useRef(null);
   // 사이드 메뉴 애니메이션 중에는 매 프레임 바뀌므로 App이 아닌 이 화면 안에서만 들고 있는다.
   const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
   const shown = useMemo(() => diaries.filter((diary) =>
@@ -58,6 +60,25 @@ function LibraryScreen({
   );
   const activeIndex = Math.max(0, Math.min(carousel, Math.max(0, itemCount - 1)));
   const carouselSidePadding = Math.max(0, (carouselViewportWidth - CAROUSEL_ITEM_WIDTH) / 2);
+  // 웹의 콘텐츠 크기 이벤트를 기다리지 않고 고정 카드·간격·양쪽 여백으로 이동 공간을 확보한다.
+  const contentWidth = carouselSidePadding * 2 + itemCount * CAROUSEL_ITEM_WIDTH + Math.max(0, itemCount - 1) * CAROUSEL_GAP;
+  const positionKey = index => [filter, view, carouselViewportWidth, contentWidth, index].join(':');
+
+  // 뷰포트 측정 후 계산된 최소 너비가 배치되는 다음 프레임에 복귀 위치로 이동한다.
+  useEffect(() => {
+    if (view !== 'carousel' || carouselViewportWidth <= 0 || !itemCount) return undefined;
+    const offset = activeIndex * CAROUSEL_STEP;
+    const key = [filter, view, carouselViewportWidth, contentWidth, activeIndex].join(':');
+    if (positioned.current === key) return undefined;
+    const frame = requestAnimationFrame(() => {
+      if (!carouselRef.current) return;
+      carouselRef.current.scrollToOffset({ offset, animated: false });
+      scrollX.setValue(offset);
+      positioned.current = key;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeIndex, carouselViewportWidth, contentWidth, filter, itemCount, scrollX, view]);
+
 
   useEffect(() => {
     if (carousel !== activeIndex) onCarouselChange(activeIndex);
@@ -65,13 +86,16 @@ function LibraryScreen({
 
   const moveCarousel = (nextIndex) => {
     const next = Math.max(0, Math.min(nextIndex, itemCount - 1));
+    positioned.current = positionKey(next);
     onCarouselChange(next);
     carouselRef.current?.scrollToOffset?.({ offset: next * CAROUSEL_STEP, animated: true });
   };
 
   const syncCarouselIndex = useCallback(({ nativeEvent }) => {
-    onCarouselChange(Math.max(0, Math.min(Math.round(nativeEvent.contentOffset.x / CAROUSEL_STEP), itemCount - 1)));
-  }, [itemCount, onCarouselChange]);
+    const index = Math.max(0, Math.min(Math.round(nativeEvent.contentOffset.x / CAROUSEL_STEP), itemCount - 1));
+    positioned.current = [filter, view, carouselViewportWidth, contentWidth, index].join(':');
+    onCarouselChange(index);
+  }, [carouselViewportWidth, contentWidth, filter, itemCount, onCarouselChange, view]);
 
   const measureCarousel = useCallback(({ nativeEvent: { layout } }) => {
     setCarouselViewportWidth((current) => (current === layout.width ? current : layout.width));
@@ -140,18 +164,19 @@ function LibraryScreen({
             <AnimatedFlatList
               ref={carouselRef}
               data={carouselItems}
+              ItemSeparatorComponent={CarouselSeparator}
               keyExtractor={(item) => item.id}
               horizontal
+              getItemLayout={(_, index) => ({ length: CAROUSEL_ITEM_WIDTH, offset: carouselSidePadding + index * CAROUSEL_STEP, index })}
               directionalLockEnabled
               decelerationRate="fast"
               disableIntervalMomentum
               snapToInterval={CAROUSEL_STEP}
               snapToAlignment="start"
-              contentOffset={{ x: activeIndex * CAROUSEL_STEP, y: 0 }}
               showsHorizontalScrollIndicator={false}
               scrollEventThrottle={16}
               style={s.carouselViewport}
-              contentContainerStyle={[s.carouselCards, { paddingHorizontal: carouselSidePadding, gap: CAROUSEL_GAP }]}
+              contentContainerStyle={[s.carouselCards, { paddingHorizontal: carouselSidePadding, minWidth: contentWidth, gap: 0 }]}
               onLayout={measureCarousel}
               onScroll={onScroll}
               onMomentumScrollEnd={syncCarouselIndex}
