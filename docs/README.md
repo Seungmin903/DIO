@@ -14,6 +14,7 @@
 | [diary-api.md](./diary-api.md) | 58 비회원 다이어리 CRUD API 계약·실행 방법 |
 | [GIT_CONVENTION.md](../GIT_CONVENTION.md) | DIO 브랜치·커밋·MR·리뷰·검증 기준 |
 | [MR 기본 템플릿](../.gitlab/merge_request_templates/Default.md) | GitLab MR 생성 시 사용할 본문 양식 |
+| [mvp1-media-export-contract.md](./mvp1-media-export-contract.md) | 56 속지 기준 규격·로컬 미디어·공통 출력·오류·수명 및 API 연동 차이 |
 | [local-media-import.md](./local-media-import.md) | 67·68 이미지 가져오기·로컬 원본 저장 계약 및 검증 |
 | [local-media-binding.md](./local-media-binding.md) | 69 로컬 미디어 조회·캔버스 연결 및 검증 |
 | [local-media-recovery.md](./local-media-recovery.md) | 70 누락·손상·저장 실패 안내 및 표시 URL 수명 |

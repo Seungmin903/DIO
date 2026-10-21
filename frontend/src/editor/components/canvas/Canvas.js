@@ -77,6 +77,7 @@ export default function Canvas({
   const drawingPage = activeTool === 'eraser' && erasingIds.length
     ? { ...page, objects: page.objects.filter((object) => !erasingIds.includes(object.id)) } : page
   const visible = page.objects.filter((o) => !o.hidden)
+  const touchSelectable = visible.filter((o) => o.type !== 'stroke')
   const selected = visible.filter((o) => selectedIds.includes(o.id))
   const lassoEditing = activeTool === 'lasso' && selected.length > 0 && !lassoDrawing && !lassoCapture
   const canSelect = !readOnly && !textEditing && (activeTool === 'select' || lassoEditing)
@@ -116,7 +117,7 @@ export default function Canvas({
       setMarquee(rect)
       // 점선 네모 안에 완전히 들어간 요소만 고른다. 그룹은 구성 요소가 모두 들어갔을 때만 통째로 고른다.
       // (예전에는 회전 전 외곽 상자가 조금만 걸쳐도, 또 그룹 하나만 걸쳐도 그룹 전체가 선택됐다)
-      const inside = new Set(visible.filter((o) => cornersOf(o).every((p) => contains(rect, p))).map((o) => o.id))
+      const inside = new Set(touchSelectable.filter((o) => cornersOf(o).every((p) => contains(rect, p))).map((o) => o.id))
       const hits = [...inside].filter((id) => {
         const groupId = visible.find((o) => o.id === id).groupId
         return !groupId || visible.every((o) => o.groupId !== groupId || inside.has(o.id))
@@ -141,7 +142,7 @@ export default function Canvas({
       if (!start || cancelled || cropping || start.maxMove >= TAP_MOVE_PX) return
       // 요소를 살짝 빗나가게 눌렀으면 가장 가까운 요소를 고른다 (지도 게임·노트 앱의 '가까운 것 고르기').
       // 이미 선택된 요소 근처를 누른 것은 '선택 풀기'로 본다. (요소가 하나뿐일 때 빈 곳을 눌러도 안 풀리던 문제)
-      const near = start && nearestObject(visible, start, TAP_SLOP_PX / zoom)
+      const near = start && nearestObject(touchSelectable, start, TAP_SLOP_PX / zoom)
       dispatch({ type: 'select', ids: near && !selectedIds.includes(near.id) ? [near.id] : [] })
     },
   })
@@ -170,7 +171,7 @@ export default function Canvas({
       )}
       {/* 터치 층: 요소마다 같은 자리에 투명한 상자를 두고 선택·이동을 받는다. */}
       <View style={[styles.hitLayer, activeTool === 'lasso' && { zIndex: 1 }]} pointerEvents={canSelect ? 'box-none' : 'none'}>
-        {visible.map((object) => (
+        {visible.filter((object) => object.type !== 'stroke' || selectedIds.includes(object.id)).map((object) => (
           <CanvasObject
             key={object.id}
             object={object}
@@ -411,7 +412,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
       const insideGroup = members.length > 1 && selectedIds.length === 1 && members.includes(selectedIds[0])
       // 누른 자리에 겹쳐 있는 요소들(위에서부터). 이미 선택된 요소가 그 아래에 있으면 그 요소를 잡는다.
       const point = pagePoint(object, event, zoom)
-      const stack = [...objects].reverse().filter((o) => !o.hidden && containsPoint(o, point))
+      const stack = [...objects].reverse().filter((o) => !o.hidden && (o.type !== 'stroke' || selectedIds.includes(o.id)) && containsPoint(o, point))
       const underneath = stack.find((o) => o.id !== object.id && selectedIds.includes(o.id))
       const wasSelected = selectedIds.includes(object.id) || Boolean(underneath)
       const ids = wasSelected ? selectedIds : insideGroup ? [object.id] : expandGroups(objects, [object.id])
