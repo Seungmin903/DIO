@@ -1,5 +1,6 @@
+import EditorModal from './controls/EditorModal'
 import { useState } from 'react'
-import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { colors, shadow } from '../../shared/theme'
 import { PANEL_RADIUS } from './ToolPanel'
@@ -9,7 +10,7 @@ import { normalizeTextLink } from '../utils/textFormats'
 export default function TextLinkDialog({ initialValue = '', onSave, onCancel, badge = null }) {
   const [value, setValue] = useState(initialValue), [error, setError] = useState('')
   const normalized = normalizeTextLink(value)
-  return <Modal visible transparent animationType="fade" supportedOrientations={['portrait', 'landscape']} onRequestClose={onCancel}>
+  return <EditorModal visible transparent animationType="fade" supportedOrientations={['portrait', 'landscape']} onRequestClose={onCancel}>
     <SafeAreaProvider>
       <SafeAreaView style={styles.backdrop}>
         <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -37,7 +38,7 @@ export default function TextLinkDialog({ initialValue = '', onSave, onCancel, ba
         </KeyboardAvoidingView>
       </SafeAreaView>
     </SafeAreaProvider>
-  </Modal>
+  </EditorModal>
 }
 
 const styles = StyleSheet.create({

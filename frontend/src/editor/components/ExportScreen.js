@@ -1,4 +1,5 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import EditorModal from './controls/EditorModal'
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../shared/theme'
 import Icon from './controls/Icon'
 import { toolPanelStyles } from './ToolPanel'
@@ -31,7 +32,7 @@ export function Note({ children, tone }) {
 export default function ExportScreen({ title, onClose, closeLabel, closeDisabled = false, preview, children, visible = true }) {
   const { width } = useWindowDimensions()
   const wide = width >= 720
-  return <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
+  return <EditorModal visible={visible} animationType="fade" onRequestClose={onClose}>
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={onClose} disabled={closeDisabled} hitSlop={8} accessibilityRole="button" accessibilityLabel={closeLabel ?? `${title} 닫기`} accessibilityState={{ disabled: closeDisabled }}
@@ -47,7 +48,7 @@ export default function ExportScreen({ title, onClose, closeLabel, closeDisabled
         </View>
       </View>
     </View>
-  </Modal>
+  </EditorModal>
 }
 
 const styles = StyleSheet.create({

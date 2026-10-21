@@ -17,6 +17,7 @@ function load(path, isPhone = true) {
     if (id === 'react-native-safe-area-context') return { SafeAreaView: 'safe-area' }
     if (id.endsWith('/theme')) return { colors: {}, shadow: {} }
     if (id.endsWith('/pageGeometry.js')) return { pageSize: () => ({ width: 1280, height: 800 }) }
+    if (id.endsWith('/EditorModal')) return { __esModule: true, default: 'modal' }
     if (id.endsWith('/ToolPanel')) return { PANEL_RADIUS: 20 }
     if (id.endsWith('/usePan')) return { usePan: () => ({}) }
     if (id.endsWith('/common')) return { clamp: (v,a,b) => Math.min(b,Math.max(a,v)) }

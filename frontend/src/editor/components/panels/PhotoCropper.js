@@ -1,5 +1,7 @@
+import CropViewport from '../controls/CropViewport'
+import EditorModal from '../controls/EditorModal'
 import { useRef, useState } from 'react'
-import { Image, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
+import { Image, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { CROP_RATIOS, CROP_ZOOM_MAX, CROP_ZOOM_MIN, PHOTO_SHAPES, POLAROID_RATIOS } from '../../constants'
 import { useMediaUri } from '../../hooks/useMediaUri'
@@ -200,8 +202,9 @@ export default function PhotoCropper({ photo, onApply, onCancel }) {
   }
 
   return (
-    <Modal transparent animationType="none" onRequestClose={onCancel}>
+    <EditorModal transparent animationType="none" onRequestClose={onCancel}>
       <View style={styles.backdrop}>
+        <CropViewport>
         <View style={[styles.card, { width: cardWidth }]}>
           <View style={styles.header}>
             <View style={styles.titleGroup}>
@@ -322,8 +325,9 @@ export default function PhotoCropper({ photo, onApply, onCancel }) {
             </View>
           </View>
         </View>
+        </CropViewport>
       </View>
-    </Modal>
+    </EditorModal>
   )
 }
 

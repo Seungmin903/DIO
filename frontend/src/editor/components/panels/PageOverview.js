@@ -1,6 +1,7 @@
+import EditorModal from '../controls/EditorModal'
 import { useFormFactor } from '../../../shared/useFormFactor'
 import { Fragment, memo, useState } from 'react'
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors, shadow } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
@@ -82,7 +83,7 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
       </View>
     </Contents>
   )
-  return isPhone ? <Modal visible transparent animationType="fade" onRequestClose={onClose}>{content}</Modal> : content
+  return isPhone ? <EditorModal visible transparent animationType="fade" onRequestClose={onClose}>{content}</EditorModal> : content
 }
 
 const OverviewItem = memo(function OverviewItem({ page, number, active, onSelect, onToggleIndex }) {

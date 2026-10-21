@@ -588,11 +588,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       guidesActive={guidesOpen || hasGuides(guides)}
       penColor={penSettings.color}
       highlighterColor={highlighterSettings.color}
-      exportEnabled={exportEnabled}
       onSelectTool={selectTool}
       onOpenDrawer={openDrawer}
       onOpenGuides={toggleGuides}
-      onExport={openExport}
     />
   ) : null
 

@@ -27,7 +27,6 @@ const FULL_TOOLS = [
 ]
 
 const GUIDE_TOOL = { action: 'guides', icon: 'grid', label: '격자 가이드' }
-const EXPORT_TOOL = { action: 'export', icon: 'share', label: '내보내기' }
 
 // 가로 배치에서 양옆에 세운 막대의 폭 (버튼 44 + 막대 안쪽 여백·테두리 10 + 바깥 여백 8)
 export const PHONE_TOOLBAR_RAIL = 62
@@ -36,13 +35,12 @@ const isActive = (item, activeTool, drawerTab, guidesActive) => (
   item.action === 'guides' ? guidesActive : item.tab ? drawerTab === item.tab : Boolean(item.tool && !drawerTab && activeTool === item.tool)
 )
 
-export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, drawerTab, guidesActive, penColor, highlighterColor, exportEnabled = true, onSelectTool, onOpenDrawer, onOpenGuides, onExport, ...touch }) {
+export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, drawerTab, guidesActive, penColor, highlighterColor, onSelectTool, onOpenDrawer, onOpenGuides, ...touch }) {
   const colorOf = (tool) => (tool === 'pen' ? penColor : tool === 'highlighter' ? highlighterColor : undefined)
   const press = (item) => {
     if (item.tab) onOpenDrawer(item.tab)
     else if (item.tool) onSelectTool(item.tool)
-    else if (item.action === 'export') onExport?.()
-    else onOpenGuides?.()
+    else if (item.action === 'guides') onOpenGuides?.()
   }
   const renderTool = (item) => (
     <Tool key={item.label} icon={item.icon} label={item.label} color={colorOf(item.tool)}
@@ -66,7 +64,6 @@ export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, dr
     )
   }
 
-  const portraitGroups = exportEnabled ? [...toolGroups, [EXPORT_TOOL]] : toolGroups
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(bottomInset, 8) }]} {...touch}>
       <View style={[styles.bar, styles.barViewport]}>
@@ -77,7 +74,7 @@ export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, dr
           accessibilityLabel="편집 도구"
           keyboardShouldPersistTaps="handled"
         >
-          {portraitGroups.map((group, index) => (
+          {toolGroups.map((group, index) => (
             <Fragment key={index}>
               {index > 0 && <View style={styles.rowDivider} />}
               {group.map(renderTool)}

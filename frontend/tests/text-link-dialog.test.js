@@ -26,6 +26,7 @@ function render(platform, initialValue = '') {
     'react-native-safe-area-context': { SafeAreaProvider: 'SafeAreaProvider', SafeAreaView: 'SafeAreaView' },
     '../../shared/theme': { colors: {}, shadow: {} }, './ToolPanel': { PANEL_RADIUS: 16 },
     '../utils/textFormats': { normalizeTextLink },
+    './controls/EditorModal': { __esModule: true, default: 'Modal' },
   }
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)((id) => mocks[id] ?? require(id), module, module.exports)

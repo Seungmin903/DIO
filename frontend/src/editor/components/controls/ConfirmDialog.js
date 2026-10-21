@@ -1,4 +1,5 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import EditorModal from './EditorModal'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { PANEL_RADIUS } from '../ToolPanel'
 
@@ -9,7 +10,7 @@ import { PANEL_RADIUS } from '../ToolPanel'
 export default function ConfirmDialog({ open, title, message, confirmLabel = '삭제', danger = true, onConfirm, onCancel }) {
   if (!open) return null
   return (
-    <Modal transparent animationType="none" onRequestClose={onCancel}>
+    <EditorModal transparent animationType="none" onRequestClose={onCancel}>
       <Pressable style={styles.backdrop} onPress={onCancel} accessibilityLabel="닫기">
         {/* 카드 안을 눌러도 닫히지 않게 터치를 여기서 받는다 */}
         <Pressable style={styles.card} onPress={() => {}} accessibilityRole="alert">
@@ -29,7 +30,7 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = '�
           </View>
         </Pressable>
       </Pressable>
-    </Modal>
+    </EditorModal>
   )
 }
 
