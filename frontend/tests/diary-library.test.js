@@ -77,6 +77,27 @@ test('UUID 다이어리는 createdAt으로 정렬하고 이전 diary-<시각> �
   assert.equal(kept.createdAt, '2026-10-22T08:00:00.000Z');
 });
 
+test('목록 저장에 실패한 UUID 다이어리는 문서 createdAt으로 복구해 생성 순서를 지킨다', () => {
+  const existing = [{
+    id: '1a7d3e5f-0000-4000-8000-000000000001',
+    title: '기존 다이어리',
+    createdAt: '2026-10-22T08:00:00.000Z',
+  }];
+  const orphanId = '9b2f1c4e-0000-4000-8000-000000000002';
+  const doc = JSON.stringify({
+    id: orphanId,
+    title: '새 다이어리',
+    createdAt: '2026-10-22T10:00:00.000Z',
+    pages: [{ id: 'page-1', objects: [] }],
+  });
+
+  const recovered = recoverOrphanDiaries(existing, [[`${PREFIX}:${orphanId}`, doc]], PREFIX);
+  const sorted = sortByCreated(recovered);
+
+  assert.equal(recovered[1].createdAt, '2026-10-22T10:00:00.000Z');
+  assert.deepEqual(sorted.map((diary) => diary.id), [existing[0].id, orphanId]);
+});
+
 test('createId는 매번 다른 UUID v4를 만든다', () => {
   const ids = Array.from({ length: 1000 }, () => createId());
   assert.equal(new Set(ids).size, ids.length);

@@ -83,6 +83,7 @@ export function recoverOrphanDiaries(diaries, docEntries, docKeyPrefix) {
       color: isText(doc.coverColor) ? doc.coverColor : DEFAULT_COLOR,
       type: '개인',
       favorite: false,
+      ...(isText(doc.createdAt) ? { createdAt: doc.createdAt } : {}),
       updatedAt: null,
       trashedAt: null,
       firstPageDate: null,

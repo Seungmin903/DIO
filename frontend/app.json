@@ -23,7 +23,6 @@
     "ios": {
       "bundleIdentifier": "com.f106.DIO",
       "supportsTablet": true,
-      "isTabletOnly": true,
       "requireFullScreen": true,
       "config": {
         "usesNonExemptEncryption": false
