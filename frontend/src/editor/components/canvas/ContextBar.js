@@ -100,32 +100,49 @@ export default function ContextBar({
   const linkable = single && !single.locked && LINKABLE_TYPES.includes(single.type)
   const hasLeading = objects.length > 1 || linkable
 
-  if (compact && single?.type !== 'text' && single?.type !== 'stroke') return <>
-    <View accessibilityLabel="객체 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]}
-      onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} onStartShouldSetResponder={() => true} {...insideHandlers}>
-      {single?.type === 'photo' && !single.locked && <BarButton icon="crop" label="자르기" onPress={() => onCrop(single.id)} />}
-      {single?.type === 'tape' && !single.locked && single.src && single.imageWidth && <BarButton icon="crop" label="자르기" onPress={() => onCrop(single.id)} />}
-      {linkable && <BarButton icon="link" label="링크" active={Boolean(single.href)} onPress={() => onObjectLink?.(single)} />}
-      {objects.length > 1 && <BarButton icon="folder" label={grouped ? '그룹 해제' : '그룹'} onPress={() => {
+  if (compact && single?.type !== 'text' && single?.type !== 'stroke') {
+    const cropable = !single?.locked && (single?.type === 'photo' || (single?.type === 'tape' && single.src && single.imageWidth))
+    const leading = [
+      cropable && { icon: 'crop', label: '자르기', onPress: () => onCrop(single.id) },
+      linkable && { icon: 'link', label: '링크', active: Boolean(single.href), onPress: () => onObjectLink?.(single) },
+      objects.length > 1 && { icon: 'folder', label: grouped ? '그룹 해제' : '그룹', onPress: () => {
         dispatch({ type: grouped ? 'ungroup' : 'group', ids })
         onToast(grouped ? '그룹을 풀었어요.' : '그룹으로 묶었어요. 레이어에서 폴더로 보여요.')
-      }} />}
-      {hasLeading && <View style={styles.divider} />}
-      <BarButton icon="more" label="더보기" active={compactMenuOpen} onPress={() => { setCompactMenuOpen(!compactMenuOpen); setOrderOpen(false) }} />
-      {orderOpen && <OrderMenu placement={menuBelow ? 'below' : 'above'} right={Math.max(MENU_WIDTH, barWidth - 5)} objects={objects} allObjects={allObjects} onPick={(mode) => dispatch({ type: 'reorder', ids, mode })} />}
-    </View>
-    {/* 메뉴를 52px 높이 바 밖의 형제로 둬서 네이티브에서도 전체 영역이 스크롤 터치를 받는다. */}
-    {compactMenuOpen && <CompactMenu position={compactMenuPosition} maxHeight={compactMenuHeight} insideHandlers={insideHandlers}
-      onOrder={() => { setCompactMenuOpen(false); setOrderOpen(true) }} onOptions={() => { setCompactMenuOpen(false); onToggleMore?.() }}
-      allLocked={allLocked} onLock={() => { setCompactMenuOpen(false); dispatch({ type: 'updateMany', record: true, patches: Object.fromEntries(ids.map((id) => [id, { locked: !allLocked }])) }) }}
-      onCopy={() => { setCompactMenuOpen(false); onCopy?.(objects) }} canPaste={canPaste} onPaste={() => { setCompactMenuOpen(false); onPaste?.() }}
-      onDuplicate={() => { setCompactMenuOpen(false); dispatch({ type: 'duplicateObjects', ids }) }} onDelete={() => {
-        setCompactMenuOpen(false)
+      } },
+    ].filter(Boolean)
+    // 태블릿 바와 같은 순서. 바에 들어가는 만큼 앞에서부터 보이고, 넘치는 뒤쪽은 더보기 메뉴로 옮긴다.
+    const actions = [
+      { icon: 'layers', label: '순서', active: orderOpen, onPress: () => setOrderOpen(!orderOpen) },
+      { icon: 'more', label: '옵션', active: moreOpen, onPress: () => onToggleMore?.() },
+      { icon: allLocked ? 'unlock' : 'lock', label: allLocked ? '잠금 해제' : '잠금', onPress: () => dispatch({ type: 'updateMany', record: true, patches: Object.fromEntries(ids.map((id) => [id, { locked: !allLocked }])) }) },
+      { icon: 'copy', label: '복사', onPress: () => onCopy?.(objects) },
+      { icon: 'clipboard', label: '붙여넣기', disabled: !canPaste, onPress: () => onPaste?.() },
+      { icon: 'duplicate', label: '복제', onPress: () => dispatch({ type: 'duplicateObjects', ids }) },
+      { icon: 'trash', label: '삭제', danger: true, onPress: () => {
         if (allLocked) return onToast('잠긴 요소예요. 잠금을 풀고 지워 주세요.')
         dispatch({ type: 'removeObjects', ids: editable.map((o) => o.id) })
-      }} />}
-    {linkCard}
-  </>
+      } },
+    ]
+    const inlineCount = fitInline(leading, actions, Math.max(120, pageW - EDGE * 2))
+    const overflow = actions.slice(inlineCount).map((action) => ({ ...action, onPress: () => {
+      setCompactMenuOpen(false)
+      if (action.label === '순서') return setOrderOpen(true)
+      action.onPress()
+    } }))
+    return <>
+      <View accessibilityLabel="객체 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]}
+        onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} onStartShouldSetResponder={() => true} {...insideHandlers}>
+        {leading.map((action) => <BarButton key={action.label} {...action} />)}
+        {leading.length > 0 && <View style={styles.divider} />}
+        {actions.slice(0, inlineCount).map((action) => <BarButton key={action.label} {...action} onPress={() => { setCompactMenuOpen(false); action.onPress() }} />)}
+        {overflow.length > 0 && <BarButton icon="more" label="더보기" active={compactMenuOpen} onPress={() => { setCompactMenuOpen(!compactMenuOpen); setOrderOpen(false) }} />}
+        {orderOpen && <OrderMenu placement={menuBelow ? 'below' : 'above'} right={Math.max(MENU_WIDTH, barWidth - 5)} objects={objects} allObjects={allObjects} onPick={(mode) => dispatch({ type: 'reorder', ids, mode })} />}
+      </View>
+      {/* 메뉴를 52px 높이 바 밖의 형제로 둬서 네이티브에서도 전체 영역이 스크롤 터치를 받는다. */}
+      {compactMenuOpen && overflow.length > 0 && <CompactMenu position={compactMenuPosition} maxHeight={compactMenuHeight} insideHandlers={insideHandlers} actions={overflow} />}
+      {linkCard}
+    </>
+  }
 
   // 텍스트 요소 선택: 문자열 복사는 편집 모드에서, 여기서는 상자 전체를 복제한다.
   if (single?.type === 'text' && !single.locked) return <>
@@ -246,13 +263,20 @@ export default function ContextBar({
   )
 }
 
-function CompactMenu({ position, maxHeight, insideHandlers, onOrder, onOptions, allLocked, onLock, onCopy, canPaste, onPaste, onDuplicate, onDelete }) {
-  const actions = [
-    { icon: 'layers', label: '순서', onPress: onOrder }, { icon: 'more', label: '옵션', onPress: onOptions },
-    { icon: allLocked ? 'unlock' : 'lock', label: allLocked ? '잠금 해제' : '잠금', onPress: onLock },
-    { icon: 'copy', label: '복사', onPress: onCopy }, { icon: 'clipboard', label: '붙여넣기', onPress: onPaste, disabled: !canPaste },
-    { icon: 'duplicate', label: '복제', onPress: onDuplicate }, { icon: 'trash', label: '삭제', onPress: onDelete, danger: true },
-  ]
+// 바 버튼 너비 어림값: 좌우 여백 20 + 아이콘 17 + 간격 5 + 글자(12.5px 굵은 한글 ≈ 13px) + 버튼 사이 2
+const barButtonWidth = (label) => 44 + label.length * 13
+const BAR_DIVIDER = 11 // 구분선 1 + 좌우 4 + 버튼 사이 2
+/** 바(좌우 안쪽 여백 10)에 앞쪽 버튼과 함께 넣을 수 있는 동작 수. 다 못 넣으면 더보기 버튼 자리를 남긴다. */
+export function fitInline(leading, actions, barMax) {
+  const space = barMax - 10 - leading.reduce((sum, action) => sum + barButtonWidth(action.label), 0) - (leading.length ? BAR_DIVIDER : 0)
+  const widths = actions.map((action) => barButtonWidth(action.label))
+  if (widths.reduce((sum, w) => sum + w, 0) <= space) return actions.length
+  let used = barButtonWidth('더보기'), count = 0
+  while (count < actions.length && used + widths[count] <= space) used += widths[count++]
+  return count
+}
+
+function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
   // 메뉴 안(버튼 사이 여백 포함)을 누른 터치가 아래 캔버스·화면 이동으로 새지 않게 메뉴가 받는다.
   // '바깥 누르기'로도 치지 않아야 열린 옵션 창이 닫히거나 선택이 풀리지 않는다.
   return <View accessibilityLabel="객체 편집 더보기" style={[styles.compactMenu, position, { maxHeight }]}
