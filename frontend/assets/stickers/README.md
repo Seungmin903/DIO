@@ -4,7 +4,7 @@
 |---|---|---|---|
 | `*.png` (64종) | [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) — 3D 스타일 | MIT ([LICENSE-fluentui-emoji.txt](./LICENSE-fluentui-emoji.txt)) | 원본 256px PNG 그대로 사용 |
 | `noto/*.gif` (36종) | [Google Noto Emoji Animation](https://googlefonts.github.io/noto-emoji-animation/) | CC BY 4.0 ([LICENSE-CC-BY-4.0.txt](./noto/LICENSE-CC-BY-4.0.txt)) | 원본 512px GIF를 128px·프레임 절반으로 줄임 |
-| `twemoji/*.png` (64종) | [Twemoji 14.0.2](https://github.com/twitter/twemoji/tree/v14.0.2) — Twitter, Inc and other contributors | CC BY 4.0 ([LICENSE-GRAPHICS.txt](./twemoji/LICENSE-GRAPHICS.txt)) | 원본 72px PNG, 변경 없음. 파일별 출처와 SHA-256은 twemoji/manifest.json |
+| `twemoji/*.png` (64종) | [Twemoji 14.0.2](https://github.com/twitter/twemoji/tree/v14.0.2) — Twitter, Inc and other contributors | CC BY 4.0 ([LICENSE-GRAPHICS.txt](./twemoji/LICENSE-GRAPHICS.txt)) | 공식 SVG를 512px PNG로 변환(디자인 변경 없음). SVG 원본은 twemoji/svg에 보관. 파일별 출처와 SHA-256은 twemoji/manifest.json |
 
 - 위 라이선스 모두 상업적 이용이 가능합니다.
 - CC BY 4.0은 저작자 표시가 필요합니다. 앱의 오픈소스·라이선스 화면에 아래 문구를 넣어 주세요.

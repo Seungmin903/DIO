@@ -36,11 +36,20 @@
 ## Twemoji 추가
 
 - Twemoji 14.0.2 정지 PNG 64종을 Twemoji 카테고리로 추가한다. 기존 100종의 ID·순서·출처 분류를 유지한다. 기본 소재 총 164종.
-- 공식 twitter/twemoji v14.0.2의 assets/72x72 원본을 번들한다. 원본 바이트·파일별 URL·SHA-256·LICENSE-GRAPHICS·README를 보관하며 실행 중 CDN 요청은 없다.
-- 라이선스 화면에 Twitter, Inc and other contributors, CC BY 4.0, 출처와 라이선스 링크, 원본 이미지 무변경, 전문을 추가한다. JS 라이브러리는 사용하지 않는다.
-- 사진·GIF 등 기존 내보내기 규칙을 사용한다. 원본이 72px이므로 크게 확대하면 흐릴 수 있다.
+- 공식 twitter/twemoji v14.0.2의 assets/svg 원본을 512×512 PNG로 변환해 번들한다. 원본 바이트·파일별 URL·SHA-256·LICENSE-GRAPHICS·README를 보관하며 실행 중 CDN 요청은 없다.
+- 라이선스 화면에 Twitter, Inc and other contributors, CC BY 4.0, 출처와 라이선스 링크, SVG에서 512px PNG로 변환(디자인 변경 없음), 전문을 추가한다. JS 라이브러리는 사용하지 않는다.
+- 사진·GIF 등 기존 내보내기 규칙을 사용한다. 512px을 넘어서 확대하면 래스터 이미지의 한계로 흐릴 수 있다.
 
 ### Twemoji 확인 기록
 
-- 공식 원본 64종의 PNG 디코딩·72px 크기·SHA-256 확인, 전체 164개 asset 경로와 고유 ID 및 세 카테고리의 64/36/64 구성을 확인했다.
+- 공식 원본 64종의 PNG 디코딩·512px 크기·SHA-256 확인, 전체 164개 asset 경로와 고유 ID 및 세 카테고리의 64/36/64 구성을 확인했다.
 - 웹에서 Twemoji 목록, 캔버스 삽입과 실행 취소, 라이선스 정보·전문 펼치기를 확인했다. Android/iOS 실기기와 출력 파일 저장은 미검증.
+
+### MR 리뷰 반영
+
+- 라이선스 화면은 EditorModal을 사용하며 iPad에서도 portrait/landscape를 명시한다. Android 모달 상태바 영역은 statusBarTranslucent로 처리하고 모달이 보일 때 StatusBar hidden을 적용한다.
+- Twemoji 공식 SVG 64종과 SHA-256을 보관하며 512px PNG로 변환한다. asset ID와 경로는 유지한다.
+- 출처별 분류는 유지한다. 기존 주제별 순서·숨김은 승계하지 않으며 새 출처별 설정은 custom-decor:v2의 categoryOrder/hiddenCategories에 저장한다.
+
+- 검증: 라이선스 모달 props·닫기, 실제 useCustomDecor와 저장 함수를 통한 순서·숨김 저장/재마운트 복원/숨김 해제, 64종 SVG·PNG 해시와 512px 크기 및 기존 스티커 회귀 테스트 및 실제 EditorModal 전달 검증 총 18개 통과. Expo 웹 export 성공.
+- 한계: Android 상태바와 iPad 실제 회전은 네이티브 기기에서 최종 확인이 필요하다. 훅 저장 테스트는 AsyncStorage의 기기 어댑터 대신 메모리 어댑터를 사용한다.

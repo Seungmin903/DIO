@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import EditorModal from '../../editor/components/controls/EditorModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppIcon from '../../shared/AppIcon';
 import { notify } from '../../shared/dialogs';
@@ -36,7 +37,8 @@ function LicenseCard({ entry }) {
 }
 
 export default function ContentLicenses({ visible, onClose }) {
-  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+  return <EditorModal visible={visible} animationType="slide" supportedOrientations={['portrait', 'landscape']} statusBarTranslucent onRequestClose={onClose}>
+    {visible && <StatusBar hidden />}
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
         <View style={styles.header}>
@@ -50,7 +52,7 @@ export default function ContentLicenses({ visible, onClose }) {
         </ScrollView>
       </View>
     </SafeAreaView>
-  </Modal>;
+  </EditorModal>;
 }
 
 const styles = StyleSheet.create({
