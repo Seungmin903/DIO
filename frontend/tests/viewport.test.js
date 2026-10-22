@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { centeredOffset, clampOffset, panView } from '../src/editor/utils/viewport.js'
+import { automaticPageTurn, centeredOffset, clampOffset, panView, shouldTurnToNextPage, shouldTurnToPreviousPage } from '../src/editor/utils/viewport.js'
 
 const padding = { top: 84, bottom: 76, side: 28 }
 const page = { width: 1188, height: 840 }
@@ -41,4 +41,52 @@ test('제스처 중 배율은 마지막 렌더링 배율보다 우선하고 View
   const edge = panView(view, -10000, -10000, 0.4, stage, page.width, page.height, padding)
   assert.equal(edge.x, 80 - page.width * 1.5)
   assert.equal(edge.y, 80 - page.height * 1.5)
+})
+
+test('페이지가 위로 거의 사라질 때만 다음 페이지 전환 조건을 만족한다', () => {
+  const stage = { width: 700, height: 700 }
+  const almostHidden = { zoom: 1, x: 0, y: 80 - page.height }
+  const stillVisible = { zoom: 1, x: 0, y: 160 - page.height }
+  assert.equal(shouldTurnToNextPage({ panY: -72 }, almostHidden, stage, page.height, padding.bottom), true)
+  assert.equal(shouldTurnToNextPage({ panY: -72 }, stillVisible, stage, page.height, padding.bottom), false)
+  assert.equal(shouldTurnToNextPage({ panY: -71 }, almostHidden, stage, page.height, padding.bottom), false)
+  assert.equal(shouldTurnToNextPage({ panY: 100 }, almostHidden, stage, page.height, padding.bottom), false)
+})
+
+test('페이지가 아래로 거의 사라질 때만 이전 페이지 전환 조건을 만족한다', () => {
+  const stage = { width: 700, height: 700 }
+  const almostHidden = { zoom: 1, x: 0, y: stage.height - 80 }
+  const stillVisible = { zoom: 1, x: 0, y: stage.height - 160 }
+  assert.equal(shouldTurnToPreviousPage({ panY: 72 }, almostHidden, stage), true)
+  assert.equal(shouldTurnToPreviousPage({ panY: 72 }, stillVisible, stage), false)
+  assert.equal(shouldTurnToPreviousPage({ panY: 71 }, almostHidden, stage), false)
+  assert.equal(shouldTurnToPreviousPage({ panY: -100 }, almostHidden, stage), false)
+})
+
+test('확대·취소된 제스처면 페이지를 넘기지 않는다', () => {
+  const stage = { width: 700, height: 700 }
+  const topEdge = { zoom: 1, x: 0, y: stage.height - 80 }
+  const bottomEdge = { zoom: 1, x: 0, y: 80 - page.height }
+  assert.equal(shouldTurnToNextPage({ panY: -100, zoomed: true }, bottomEdge, stage, page.height, padding.bottom), false)
+  assert.equal(shouldTurnToNextPage({ panY: -100, cancelled: true }, bottomEdge, stage, page.height, padding.bottom), false)
+  assert.equal(shouldTurnToPreviousPage({ panY: 100, zoomed: true }, topEdge, stage), false)
+  assert.equal(shouldTurnToPreviousPage({ panY: 100, cancelled: true }, topEdge, stage), false)
+})
+
+test('기존 텍스트를 편집하며 포커스를 유지한 동안에는 이전·다음 페이지로 자동 전환하지 않는다', () => {
+  const stage = { width: 700, height: 700 }
+  const editing = { id: 'text-1', pageId: 'page-1', existing: true, text: '저장 전 수정 내용' }
+  const common = { stage, pageHeight: page.height, bottomPadding: padding.bottom, hasPrevious: true, hasNext: true, textEditing: editing }
+  assert.equal(automaticPageTurn({ ...common, motion: { panY: -100 }, view: { zoom: 1, y: 80 - page.height } }), null)
+  assert.equal(automaticPageTurn({ ...common, motion: { panY: 100 }, view: { zoom: 1, y: stage.height - 80 } }), null)
+  assert.equal(editing.text, '저장 전 수정 내용')
+})
+
+test('새 텍스트 입력 중에는 이전·다음 페이지로 자동 전환하지 않는다', () => {
+  const stage = { width: 700, height: 700 }
+  const editing = { id: 'draft-1', pageId: 'page-1', existing: false, text: '새 초안' }
+  const common = { stage, pageHeight: page.height, bottomPadding: padding.bottom, hasPrevious: true, hasNext: true, textEditing: editing }
+  assert.equal(automaticPageTurn({ ...common, motion: { panY: -100 }, view: { zoom: 1, y: 80 - page.height } }), null)
+  assert.equal(automaticPageTurn({ ...common, motion: { panY: 100 }, view: { zoom: 1, y: stage.height - 80 } }), null)
+  assert.equal(editing.text, '새 초안')
 })

@@ -1,5 +1,30 @@
 import { clamp } from './common.js'
 
+export const PAGE_TURN_PAN_THRESHOLD = 72
+export const PAGE_VISIBLE_EDGE = 80
+
+// 페이지를 위로 끝까지 밀어 아래쪽 끝 80px 정도만 남았을 때 다음 페이지로 넘긴다.
+// panY는 콘텐츠가 움직인 거리라 다음 페이지 방향은 음수다.
+export function shouldTurnToNextPage({ panY = 0, zoomed = false, cancelled = false }, view, stage, pageHeight, bottomPadding = 0) {
+  if (cancelled || zoomed || !stage || !view || panY > -PAGE_TURN_PAN_THRESHOLD) return false
+  const pageBottom = view.y + pageHeight * view.zoom
+  return pageBottom <= Math.max(PAGE_VISIBLE_EDGE, bottomPadding) + 1
+}
+
+// 페이지를 아래로 끝까지 밀어 위쪽 끝 80px 정도만 남았을 때 이전 페이지로 돌아간다.
+export function shouldTurnToPreviousPage({ panY = 0, zoomed = false, cancelled = false }, view, stage) {
+  if (cancelled || zoomed || !stage || !view || panY < PAGE_TURN_PAN_THRESHOLD) return false
+  return view.y >= stage.height - PAGE_VISIBLE_EDGE - 1
+}
+
+// TextEditor 초안은 포커스를 잃을 때 저장되므로 편집 중에는 페이지를 바꾸지 않는다.
+export function automaticPageTurn({ motion, view, stage, pageHeight, bottomPadding, hasPrevious, hasNext, textEditing }) {
+  if (textEditing) return null
+  if (hasPrevious && shouldTurnToPreviousPage(motion, view, stage)) return 'previous'
+  if (hasNext && shouldTurnToNextPage(motion, view, stage, pageHeight, bottomPadding)) return 'next'
+  return null
+}
+
 export function centeredOffset(stage, zoom, pageWidth, pageHeight, padding) {
   if (!stage) return { x: padding.side, y: padding.top }
   return {
@@ -10,7 +35,7 @@ export function centeredOffset(stage, zoom, pageWidth, pageHeight, padding) {
 
 export function clampOffset(next, zoom, stage, pageWidth, pageHeight) {
   if (!stage) return next
-  const keep = 80
+  const keep = PAGE_VISIBLE_EDGE
   return {
     x: clamp(next.x, keep - pageWidth * zoom, stage.width - keep),
     y: clamp(next.y, keep - pageHeight * zoom, stage.height - keep),
