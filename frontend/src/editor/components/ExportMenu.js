@@ -29,7 +29,10 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
   const panelTop = Math.min(anchor ? anchor.y + anchor.height + 12 : 80, Math.max(16, viewport.height - 200))
   const panelLeft = Math.max(16, Math.min(anchor ? anchor.x + anchor.width - panelWidth : (viewport.width - panelWidth) / 2, viewport.width - panelWidth - 16))
   const tailLeft = anchor ? Math.min(panelWidth - 28, Math.max(16, anchor.x + anchor.width / 2 - panelLeft - 8)) : null
-  const placement = { position: 'absolute', width: panelWidth, left: panelLeft, top: panelTop, maxHeight: viewport.height - panelTop - 16 }
+  // 기준 버튼이 없으면(폰) 말풍선 대신 화면 가운데 창으로 띄운다.
+  const placement = anchor
+    ? { position: 'absolute', width: panelWidth, left: panelLeft, top: panelTop, maxHeight: viewport.height - panelTop - 16 }
+    : { width: panelWidth, maxHeight: viewport.height - 32 }
   const [mode, setMode] = useState('current'), [format, setFormat] = useState('png')
   const number = doc.pages.findIndex((p) => p.id === currentId) + 1
   const [spec, setSpec] = useState(String(number)) // 페이지 지정: '1-3, 5'
@@ -80,6 +83,7 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
     <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="내보내기 닫기" />
     {/* 꼬리는 카드 바깥에 그린다 (카드 안에 두면 둥근 모서리 자르기에 가려졌다) */}
     {tailLeft != null && <View pointerEvents="none" style={[styles.tail, { left: panelLeft + tailLeft, top: panelTop - 7 }]} />}
+    <View style={anchor ? StyleSheet.absoluteFill : styles.center} pointerEvents="box-none">
     <View style={[toolPanelStyles.card, styles.card, placement]} accessibilityViewIsModal>
       <ToolPanelHeader icon="share" title="내보내기" closeLabel="내보내기 창 닫기" onClose={onClose} />
       <ScrollView contentContainerStyle={toolPanelStyles.content}>
@@ -107,10 +111,12 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
         <ExportButton primary title={RUN_TITLES[format]} onPress={() => run()} disabled={!!invalid || changed} />
       </ScrollView>
     </View>
+    </View>
   </EditorModal>
 }
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface }, // 둥글기·그림자는 공용 옵션 창(카드)을 따른다
+  center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 16 },
   // 말풍선 꼬리: 카드 위쪽에서 내보내기 버튼 가운데를 가리킨다
   tail: { position: 'absolute', width: 16, height: 16, borderRadius: 3, backgroundColor: colors.surface, transform: [{ rotate: '45deg' }] },
   notice: { gap: 6 },
