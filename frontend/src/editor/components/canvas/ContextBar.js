@@ -284,20 +284,20 @@ export function fitInline(leading, actions, barMax) {
 }
 
 function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
-  // 메뉴 안(버튼 사이 여백 포함)을 누른 터치가 아래 캔버스·화면 이동으로 새지 않게 메뉴가 받는다.
-  // '바깥 누르기'로도 치지 않아야 열린 옵션 창이 닫히거나 선택이 풀리지 않는다.
-  return <View accessibilityLabel="객체 편집 더보기" style={[styles.compactMenu, position, { maxHeight }]}
-    onStartShouldSetResponder={() => true} onResponderTerminationRequest={() => true} {...insideHandlers}>
+  // 바깥 상자는 터치를 먼저 잡지 않는다: 상자가 responder 가 되면 Android 에서 안쪽 ScrollView 가 끌기를 넘겨받지 못해 스크롤이 안 됐다.
+  // 항목(Pressable)이 상자 폭을 다 채우므로 터치는 항목 → 끌면 ScrollView 로 넘어가고, 캔버스까지 새지 않는다.
+  // '바깥 누르기'로 치지 않게 insideHandlers 만 얹는다 (열린 옵션 창이 닫히거나 선택이 풀리지 않게).
+  return <View accessibilityLabel="객체 편집 더보기" style={[styles.compactMenu, position, { maxHeight }]} {...insideHandlers}>
     {/* 스크롤 영역 높이를 직접 정해 두어야 Android·iOS 에서도 항목이 메뉴 안에서 스크롤된다 (바깥 maxHeight 만으로는 펼쳐질 수 있다). */}
-    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" style={{ maxHeight: maxHeight - 10 }} contentContainerStyle={styles.compactMenuContent}>
-      {actions.map((action) => <MenuAction key={action.label} {...action} />)}
+    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" style={{ maxHeight }} contentContainerStyle={styles.compactMenuContent}>
+      {actions.map((action) => <MenuAction key={action.label} {...action} style={styles.compactMenuItem} />)}
     </ScrollView>
   </View>
 }
 
-function MenuAction({ icon, label, danger, disabled, onPress }) {
+function MenuAction({ icon, label, danger, disabled, onPress, style }) {
   const color = danger ? colors.danger : disabled ? colors.border : colors.text
-  return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+  return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.menuItem, style, pressed && styles.pressed]}>
     <Icon name={icon} size={18} color={color} /><Text style={[styles.menuText, { color }]}>{label}</Text>
   </Pressable>
 }
@@ -405,8 +405,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     ...shadow.float,
   },
-  compactMenu: { position: 'absolute', width: 166, padding: 5, borderRadius: 14, backgroundColor: colors.surface, zIndex: 8, overflow: 'hidden', ...shadow.float },
-  compactMenuContent: { paddingBottom: 2 },
+  compactMenu: { position: 'absolute', width: 166, borderRadius: 14, backgroundColor: colors.surface, zIndex: 8, overflow: 'hidden', ...shadow.float },
+  compactMenuContent: { paddingVertical: 5 },
+  compactMenuItem: { paddingHorizontal: 15, borderRadius: 0 },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, paddingHorizontal: 10, borderRadius: 10 },
   menuText: { fontSize: 13, fontWeight: '700', color: colors.text },
   menuTextDisabled: { color: 'rgba(11,25,87,0.3)' },
