@@ -11,10 +11,11 @@ DIO는 기기 종류가 아니라 **지금 창 크기**로 폰 배치와 태블�
 |---|---|---|
 | 폰 / 태블릿 | 창의 짧은 변이 600dp 이상이면 태블릿, 아니면 폰 (Android `sw600dp`와 같은 기준) | `frontend/src/shared/layout.js` `formFactorFor` |
 | 가로 / 세로 | 창 너비 > 높이면 가로 | `frontend/src/shared/useFormFactor.js` |
-| 태블릿 프레임 | 1280×800(16:10) 프레임 안에 맞춰 그린다 | `fitTabletFrame` |
+| 태블릿 프레임 | iOS/iPad는 1024×768(4:3), Android·웹은 1280×800(16:10) 기준 프레임을 현재 창 안에 맞춘다 | `TABLET_FRAME_SPECS`, `fitTabletFrame` |
 | 폰 프레임 | 프레임 없이 화면 전체를 쓰고, 노치·다이내믹 아일랜드 아래부터 그린다 | `App.js` |
 
 창 크기로 판단하므로 iPad Split View, 접이식 폰, 웹 창 크기 조절에도 배치가 바로 바뀐다.
+플랫폼별 값은 UI 프레임 기준일 뿐이며, 다이어리 저장·내보내기 좌표계는 기존 1280×800을 공통으로 유지한다.
 
 ## 2. 화면 방향
 

@@ -82,7 +82,7 @@ function DiaryApp() {
   const savingRef = useRef(false);
   const pendingCreateId = useRef(null);
 
-  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height);
+  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height, Platform.OS);
   // 폰 편집기에서 세로(간편)·가로(정밀) 전환 버튼으로 고른 방향. 편집기를 새로 열면 다시 기기 방향을 따른다.
   const [editorOrientation, setEditorOrientation] = useState(null);
   useOrientationLock(isPhone ? 'phone' : 'tablet', page === 'editor', editorOrientation);
