@@ -788,7 +788,8 @@ const styles = StyleSheet.create({
   menuDisabled: { opacity: 0.35 },
   menuText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   selectionControls: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
-  selectionMenu: { ...StyleSheet.absoluteFillObject, zIndex: 4 },
+  // overflow visible: 폰 더보기 메뉴가 페이지 아래로 삐져나가도 Android 에서 터치를 받게 한다.
+  selectionMenu: { ...StyleSheet.absoluteFillObject, zIndex: 4, overflow: 'visible' },
   penClip: {
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',
