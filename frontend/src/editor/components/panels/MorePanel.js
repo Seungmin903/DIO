@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { normalizeAngle, rotateVector, unionBounds } from '../../utils/common'
@@ -8,6 +8,7 @@ import Slider from '../controls/Slider'
 import EffectOptions from './EffectOptions'
 import TapeOptions from './TapeOptions'
 import FrameOptions from './FrameOptions'
+import { PaletteInteractionContext } from '../controls/ColorPicker'
 
 const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테이프' }
 
@@ -19,6 +20,13 @@ const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테
  */
 export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }) {
   const [tab, setTab] = useState('style')
+  const scrollRef = useRef(null)
+  const [paletteDragging, setPaletteDragging] = useState(false)
+  const onPaletteInteraction = useCallback(active => {
+    // 다음 렌더 전에도 네이티브 스크롤이 팔레트 제스처를 가져가지 않게 한다.
+    scrollRef.current?.setNativeProps?.({ scrollEnabled: !active })
+    setPaletteDragging(active)
+  }, [])
   const pivotRef = useRef(null)
   const editable = objects.filter((o) => !o.locked)
   const single = objects.length === 1 ? objects[0] : null
@@ -74,7 +82,8 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }
         </View>
       )}
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <PaletteInteractionContext.Provider value={onPaletteInteraction}>
+      <ScrollView ref={scrollRef} scrollEnabled={!paletteDragging} style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {!editable.length ? (
           <Text style={styles.hint}>잠긴 요소예요. 잠금을 풀면 편집할 수 있어요.</Text>
         ) : current === 'style' ? (
@@ -145,6 +154,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }
           </>
         )}
       </ScrollView>
+      </PaletteInteractionContext.Provider>
     </View>
   )
 }
