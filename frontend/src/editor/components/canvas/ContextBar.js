@@ -288,11 +288,13 @@ function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
   // 누르기는 항목(Pressable)이 먼저 받고, 손가락이 세로로 움직이면 메뉴가 responder 를 넘겨받아 스크롤한다.
   const [scroll, setScroll] = useState({ offset: 0, contentHeight: 0, startY: null, startOffset: 0 })
   const maxOffset = Math.max(0, scroll.contentHeight - maxHeight)
-  const moved = (event) => scroll.startY != null && Math.abs(event.nativeEvent.pageY - scroll.startY) > 6
-  const drag = (event) => setScroll((prev) => ({ ...prev, offset: clamp(prev.startOffset + (prev.startY - event.nativeEvent.pageY), 0, maxOffset) }))
+  // pageY 가 없는 이벤트(손가락을 뗄 때 등)로는 움직이지 않는다. NaN 이 transform 에 들어가면 Android 가 죽는다.
+  const pageY = (event) => { const y = event.nativeEvent.pageY ?? event.nativeEvent.touches?.[0]?.pageY; return Number.isFinite(y) ? y : null }
+  const moved = (event) => { const y = pageY(event); return scroll.startY != null && y != null && Math.abs(y - scroll.startY) > 6 }
+  const drag = (event) => { const y = pageY(event); if (y != null) setScroll((prev) => (prev.startY == null ? prev : { ...prev, offset: clamp(prev.startOffset + (prev.startY - y), 0, maxOffset) })) }
   return <View accessibilityLabel="객체 편집 더보기" style={[styles.compactMenu, position, { height: Math.min(maxHeight, scroll.contentHeight || maxHeight) }]}
     // 누른 자리를 기억만 하고(캡처 단계는 모든 터치·마우스에 불린다) responder 는 항목에 양보한다
-    onStartShouldSetResponderCapture={(event) => { setScroll((prev) => ({ ...prev, startY: event.nativeEvent.pageY, startOffset: prev.offset })); return false }}
+    onStartShouldSetResponderCapture={(event) => { const y = pageY(event); setScroll((prev) => ({ ...prev, startY: y, startOffset: prev.offset })); return false }}
     onStartShouldSetResponder={() => true} // 항목 사이 여백을 눌러도 캔버스로 새지 않게
     onMoveShouldSetResponder={moved} onMoveShouldSetResponderCapture={moved}
     onResponderTerminationRequest={() => false}
