@@ -68,7 +68,7 @@ const ColumnsContext = createContext(4)
  * 스티커·테이프·사진 보관함. 항목을 누르면 페이지 가운데에 붙는다.
  * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다. 사진은 붙인 뒤 자르기에서 틀·모양을 고른다.
  */
-export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, recentPhotos, onToast, onClose, onPanelWidth }) {
+export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPhoto, onTapeInserted, recentPhotos, onToast, onClose, onPanelWidth }) {
   const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]
   const custom = useCustomDecor()
   const [busy, setBusy] = useState(false)
@@ -482,6 +482,14 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
                           accessibilityLabel={`${photo.name ?? '사진'} 붙이기`}
                         >
                           <RecentPhotoThumb photo={photo} />
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${photo.name ?? '사진'} 최근 목록에서 삭제`}
+                          onPress={() => ask('최근 사진 목록에서 삭제할까요?', '목록에서만 삭제돼요. 캔버스에 붙인 사진은 그대로 유지돼요.', () => onRemoveRecentPhoto(photo.id))}
+                          style={({ pressed }) => [styles.photoRemove, pressed && styles.photoPressed]}
+                        >
+                          <Icon name="trash" size={18} color={colors.danger} />
                         </Pressable>
                       </View>
                     ))}
@@ -1153,5 +1161,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#E7EEF7',
   },
   photoPressed: { opacity: 0.7 },
+  photoRemove: { position: 'absolute', right: TILE_GAP + 4, bottom: TILE_GAP + 4, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   photoImage: { width: '100%', height: '100%' },
 })
