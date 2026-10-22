@@ -66,9 +66,13 @@ export default function ContextBar({
   const pageH = pageHeight * zoom
   // 바는 늘 페이지 안쪽에 둔다. Android·iOS 는 부모(페이지) 영역 밖으로 나간 버튼에 터치를 전달하지 않는다.
   // 요소 아래에 자리가 있으면 아래, 없으면 위, 둘 다 없으면 페이지 안에서 가능한 가까운 곳(요소와 겹칠 수 있음).
-  const below = bounds.bottom * zoom + GAP + BAR_HEIGHT < pageH - EDGE
+  const belowFits = bounds.bottom * zoom + GAP + BAR_HEIGHT < pageH - EDGE
+  const aboveFitsWithoutCoveringRotate = bounds.top * zoom - ROTATE_CLEARANCE - BAR_HEIGHT >= EDGE
+  // 아래 공간이 부족해도 회전 손잡이를 가릴 만큼 위쪽 공간이 좁으면 바는 아래에 둔다.
+  const below = belowFits || !aboveFitsWithoutCoveringRotate
   const top = clamp(
-    below ? bounds.bottom * zoom + GAP : bounds.top * zoom - GAP - BAR_HEIGHT,
+    // 위쪽에 바를 띄울 때 회전 손잡이(요소 상단에서 34px + 손잡이 반지름 9px)를 덮지 않도록 간격을 둔다.
+    below ? bounds.bottom * zoom + GAP : bounds.top * zoom - ROTATE_CLEARANCE - BAR_HEIGHT,
     EDGE,
     Math.max(EDGE, pageH - BAR_HEIGHT - EDGE),
   )
