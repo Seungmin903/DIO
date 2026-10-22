@@ -28,10 +28,18 @@ export function useStickerPlayback(source) {
     setPrepared(null)
     if (!key) return
     let active = true
-    const lease = cache.acquire(key, source)
-    lease.promise.then((clip) => { if (active) { setIndex(0); setPrepared({ key, clip }) } },
-      () => { if (active) setPrepared({ key, error: true }) })
-    return () => { active = false; lease.release() }
+    let lease = cache.acquire(key, source)
+    const accept = (current) => current.promise.then((clip) => {
+      if (active) { setIndex(0); setPrepared({ key, clip }) }
+    }, () => { if (active) setPrepared({ key, error: true }) })
+    accept(lease)
+    const unsubscribe = cache.subscribe(key, (readyPromise) => {
+      if (!active || lease.promise === readyPromise) return
+      const previous = lease
+      lease = cache.acquire(key, source)
+      accept(lease).then(() => previous.release())
+    })
+    return () => { active = false; unsubscribe(); lease.release() }
   }, [key])
   const clip = prepared?.key === key && !prepared.clip?.disposed ? prepared.clip : null
   useEffect(() => {

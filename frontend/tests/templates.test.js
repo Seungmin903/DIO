@@ -233,10 +233,11 @@ test('웹 SVG 읽기는 HTTP 오류를 성공한 XML로 돌려주지 않는다',
 })
 
 
-test('보관함에서 전달한 ID·제목·색상을 유지하면서 연간 문서를 생성한다', () => {
-  const diary = { id: 'diary-123', title: '나의 기록', color: '#6E92C6' }
+test('보관함에서 전달한 ID·생성 시각·제목·색상을 유지하면서 연간 문서를 생성한다', () => {
+  const diary = { id: 'diary-123', createdAt: '2026-10-22T08:00:00.000Z', title: '나의 기록', color: '#6E92C6' }
   const doc = createDefaultDoc(diary)
   assert.equal(doc.id, diary.id)
+  assert.equal(doc.createdAt, diary.createdAt)
   assert.equal(doc.title, diary.title)
   assert.equal(doc.coverColor, diary.color)
   assert.equal(doc.pages.length, 78)

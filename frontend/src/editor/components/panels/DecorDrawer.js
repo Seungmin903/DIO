@@ -33,16 +33,28 @@ const tapePreviewHeight = (sizeId) => {
 }
 const TAPE_PREVIEW = { width: 236, height: 44 }
 
-// 기본 분류: 스티커 묶음별. 움직이는 스티커 묶음(GIF)은 세부로 나누지 않고 하나로 합친다.
+// 기본 스티커는 출처별로 묶는다. 저장된 asset ID와 표시 순서는 유지한다.
+// Noto의 기존 motion ID는 분류 숨김·순서 설정 호환을 위해 유지한다.
 const BASE_GROUPS = [
   {
+    id: 'fluent-emoji',
+    title: 'Fluent Emoji',
+    name: 'Fluent Emoji',
+    items: STICKER_GROUPS.filter((g) => !g.id.startsWith('motion') && g.id !== 'twemoji').flatMap((g) => g.items),
+  },
+  {
     id: 'motion',
-    title: '움직이는',
-    name: '움직이는',
+    title: 'Noto Animated Emoji',
+    name: 'Noto Animated Emoji',
     badge: 'GIF',
     items: STICKER_GROUPS.filter((g) => g.id.startsWith('motion')).flatMap((g) => g.items),
   },
-  ...STICKER_GROUPS.filter((g) => !g.id.startsWith('motion')).map((g) => ({ ...g, name: g.title.split(' · ')[0] })),
+  {
+    id: 'twemoji',
+    title: 'Twemoji',
+    name: 'Twemoji',
+    items: STICKER_GROUPS.find((g) => g.id === 'twemoji').items,
+  },
 ]
 
 // 보관함 크기: 왼쪽 아래 손잡이로 넓히고 늘린다. 닫았다 열어도 유지되도록 모듈에 기억해 둔다.
@@ -147,7 +159,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, r
   ]
   const active = chips.some((c) => c.id === category) ? category : chips[0]?.id
   const folder = !keyword && active?.startsWith('folder:') ? folders.find((f) => `folder:${f.id}` === active) : null
-  // 검색: 기본 분류 전체 + 폴더. 그룹 이름으로도 찾는다. (예: '동물' → 동물 전체)
+  // 검색: 출처별 기본 분류 전체 + 폴더. 스티커 이름과 출처 이름으로 찾는다.
   const groups = keyword
     ? BASE_GROUPS.map((group) => ({
         ...group,

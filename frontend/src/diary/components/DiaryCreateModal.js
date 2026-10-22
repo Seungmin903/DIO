@@ -8,27 +8,13 @@ import { templatePageCount } from '../../editor/templates/creation.js';
 import { activeCreationConfig, creationFlowReducer, initialCreationFlow } from '../utils/creationFlow.js';
 import DiaryPresets, { CompositionSummary } from './DiaryPresets';
 import AppIcon from '../../shared/AppIcon';
+import { MODAL_ORIENTATIONS } from '../../editor/components/controls/EditorModal';
 import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, PAGE_SIZES, C } from '../constants';
 import { styles as s } from '../styles';
-import CoverPattern from './CoverPattern';
+import Cover from './Cover';
 
 const TITLE_LIMIT = 24;
 const SHEET_SLIDE = 600;
-
-// 왼쪽 미리보기의 책 모양 표지
-function BookPreview({ title, color, pattern, dateMode }) {
-  return (
-    <View style={[s.bookPreview, { backgroundColor: color }]}>
-      <CoverPattern pattern={pattern} />
-      <View style={s.bookSpine} />
-      <View style={s.bookBand} />
-      <View style={s.bookLabel}>
-        <Text numberOfLines={1} style={s.bookLabelTitle}>{title.trim() || DIARY_DEFAULTS.title}</Text>
-        <Text style={s.bookLabelMeta}>DIARY · {dateMode === 'undated' ? '만년형' : '2026'}</Text>
-      </View>
-    </View>
-  );
-}
 
 function Chip({ label, selected, disabled, onPress, children }) {
   return (
@@ -109,9 +95,11 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   return (
     // Android Modal은 앱과 다른 창이라 앱에서 숨긴 상태 바가 다시 나타나고, 그 높이만큼 창 전체가 아래로 밀렸다.
     // 상태 바·내비게이션 바 위까지 그리게 하고 상태 바는 계속 숨긴다. 아래 시스템 바 높이만큼은 여백으로 비운다.
+    // iOS Modal 기본값은 세로 전용이라 가로로 고정한 태블릿에서 열면 앱이 종료된다. 두 방향을 모두 허용한다.
     <Modal
       visible
       transparent
+      supportedOrientations={MODAL_ORIENTATIONS}
       presentationStyle="overFullScreen"
       statusBarTranslucent
       navigationBarTranslucent
@@ -130,7 +118,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         {sheet ? <View style={s.sheetHandle} /> : (
           <View style={[s.createPreviewPane, recommending && { width: 300, paddingHorizontal: 20, paddingVertical: 24 }]}>
             {recommending ? <DiaryMonthPreview config={templateConfig} appearance={paperAppearance} />
-              : coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <BookPreview title={title} color={color} pattern={pattern} dateMode={editing ? diary.templateConfig?.dateMode : flow.dateMode} />}
+              : coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <Cover preview diary={{ title, color, pattern, templateConfig: { dateMode: editing ? diary.templateConfig?.dateMode : flow.dateMode } }} />}
             <Text style={s.createPreviewMeta}>{pageSizeLabel}</Text>
           </View>
         )}

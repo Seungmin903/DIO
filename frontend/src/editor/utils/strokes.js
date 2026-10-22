@@ -46,20 +46,27 @@ export function strokePath(points) {
 }
 
 // 입력 간격과 무관한 거리 기반 테이퍼와 45도 펜촉을 적용한다.
-export function penContour(points, width, kind) {
+export function penContour(points, width, kind, { startDistance = 0, continueEnd = false, maxSamples } = {}) {
   if (points.length < 2) return ''
   // 빠른 입력으로 두 끝점만 들어와도 중간 몸통이 테이퍼에 소실되지 않게 한다.
   const sampled = [points[0]]
+  // 실시간 미리보기만 재표본 수를 제한한다. 저장·내보내기 윤곽은 기존 간격 그대로다.
+  let spacing = 2
+  if (maxSamples) {
+    let length = 0
+    for (let i = 1; i < points.length; i++) length += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+    spacing = Math.max(spacing, length / maxSamples)
+  }
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1], b = points[i]
-    const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 2))
+    const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / spacing))
     for (let j = 1; j <= steps; j++) {
       const t = j / steps
       sampled.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, pressure: (a.pressure ?? 1) + ((b.pressure ?? 1) - (a.pressure ?? 1)) * t })
     }
   }
   points = sampled
-  const distances = [0]
+  const distances = [startDistance]
   for (let i = 1; i < points.length; i++) distances.push(distances[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y))
   const total = distances[distances.length - 1]
   const left = [], right = []
@@ -69,7 +76,7 @@ export function penContour(points, width, kind) {
     const nx = -dy / length, ny = dx / length
     const pressure = (a.pressure ?? 1) * 0.25 + (p.pressure ?? 1) * 0.5 + (b.pressure ?? 1) * 0.25
     const nib = kind === 'fountain' ? 0.28 + 0.72 * Math.abs((nx + ny) / Math.SQRT2) : 1
-    const taper = kind === 'brush' ? Math.max(0.06, Math.min(1, distances[i] / Math.max(6, width), (total - distances[i]) / Math.max(12, width * 2))) : 1
+    const taper = kind === 'brush' ? Math.max(0.06, Math.min(1, distances[i] / Math.max(6, width), continueEnd ? 1 : (total - distances[i]) / Math.max(12, width * 2))) : 1
     const radius = width * pressure * nib * taper / 2
     left.push({ x: p.x + nx * radius, y: p.y + ny * radius })
     right.push({ x: p.x - nx * radius, y: p.y - ny * radius })

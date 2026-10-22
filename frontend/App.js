@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Platform, StatusBar, View } from 'react-native';
+import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
@@ -15,12 +15,18 @@ import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
 import { normalizePaperAppearance } from './src/editor/templates/appearance.js';
+import { fitTabletFrame } from './src/shared/layout';
 import { useFormFactor } from './src/shared/useFormFactor';
 import { CAN_LOCK_ORIENTATION, useOrientationLock } from './src/shared/useOrientationLock';
 import { useHiddenNavigationBar } from './src/shared/useHiddenNavigationBar';
 import { normalizeTemplateConfig } from './src/editor/templates/creation.js';
 import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
 import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
+import { randomUUID } from 'expo-crypto';
+import { createId, setUuidGenerator } from './src/editor/utils/common';
+
+// 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
+if (Platform.OS !== 'web') setUuidGenerator(randomUUID);
 
 // 속지 캐시(16개)를 넘지 않도록 앞쪽 다이어리만 미리 준비한다.
 const PREFETCH_DIARIES = 8;
@@ -43,7 +49,10 @@ export default function App() {
 function DiaryApp() {
   const insets = useSafeAreaInsets();
   // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // 폰은 화면 전체를 쓰고, 태블릿만 플랫폼별 비율(Android 16:10, iPad 4:3) 프레임 안에 맞춘다. 데이터·상태는 두 배치가 함께 쓴다.
   const { isPhone, isLandscape } = useFormFactor();
+  const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
   const [railCollapsed, setRailCollapsed] = useState(true);
   // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
@@ -76,6 +85,7 @@ function DiaryApp() {
   const savingRef = useRef(false);
   const pendingCreateId = useRef(null);
 
+  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height, Platform.OS);
   // 폰 편집기에서 세로(간편)·가로(정밀) 전환 버튼으로 고른 방향. 편집기를 새로 열면 다시 기기 방향을 따른다.
   const [editorOrientation, setEditorOrientation] = useState(null);
   useOrientationLock(isPhone ? 'phone' : 'tablet', page === 'editor', editorOrientation);
@@ -184,7 +194,8 @@ function DiaryApp() {
     const diary = original
       ? { ...original, title, color: form.color, pattern: form.pattern, updatedAt }
       : {
-        id: pendingCreateId.current ?? `diary-${Date.now()}`,
+        id: pendingCreateId.current ?? createId(),
+        createdAt: updatedAt,
         templateConfig: config,
         paperAppearance: normalizePaperAppearance(form.paperAppearance),
         title,
@@ -397,6 +408,13 @@ function DiaryApp() {
     right: C.canvas,
   };
 
+  const measureViewport = ({ nativeEvent: { layout } }) => {
+    const { width: nextWidth, height: nextHeight } = layout;
+    setViewport((current) => (
+      current.width === nextWidth && current.height === nextHeight ? current : { width: nextWidth, height: nextHeight }
+    ));
+  };
+
   return (
     <>
       <StatusBar hidden />
@@ -405,8 +423,8 @@ function DiaryApp() {
         {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}
         <View style={s.safeRow}>
           {insets.left > 0 && <View style={{ width: insets.left, backgroundColor: safeAreaColors.left }} />}
-          <View style={s.viewport}>
-            <View style={[s.app, s.appFill]}>
+          <View style={s.viewport} onLayout={measureViewport}>
+            <View style={[s.app, frame ? { width: frame.width, height: frame.height } : s.appFill]}>
               {shell}
             </View>
           </View>

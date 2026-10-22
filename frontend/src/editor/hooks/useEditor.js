@@ -12,7 +12,13 @@ const SAVE_MAX_DELAY_MS = 5000
 const SAVE_INTERACTION_WAIT_MS = 1000
 
 // 표지에서 바꾼 제목·색상은 기존 페이지 작업을 유지한 채 편집기에도 반영한다.
-const withDiary = (doc, diary) => (diary ? { ...doc, id: diary.id, title: diary.title, coverColor: diary.color } : doc)
+const withDiary = (doc, diary) => (diary ? {
+  ...doc,
+  id: diary.id,
+  ...(diary.createdAt ? { createdAt: diary.createdAt } : {}),
+  title: diary.title,
+  coverColor: diary.color,
+} : doc)
 
 /** 편집기 상태 + 기기 저장소 자동 저장 */
 export function useEditor(diary) {

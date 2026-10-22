@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { PanResponder, StyleSheet, Text, View } from 'react-native'
 import PenSafeTextInput from './PenSafeTextInput'
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
@@ -11,9 +11,10 @@ const HUE_HEIGHT = 22
 const THUMB = 22
 const HUE_STOPS = ['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF', '#FF0000']
 
+export const PaletteInteractionContext = createContext(null)
+
 /** 팔레트 전용 입력: 화면 좌표를 측정한 팔레트 좌표로 바꾸고 스크롤에 터치를 넘기지 않는다. */
 function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }) {
-  const view = useRef(null)
   const drag = useRef(null)
   const handlers = useRef(null)
   handlers.current = { width, height, onStart, onPoint, onInteractionChange }
@@ -26,8 +27,11 @@ function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }
     const apply = () => {
       const current = drag.current
       if (!current) return
-      const { x, y, width: w, height: h } = current.bounds
-      handlers.current.onPoint(clamp((current.pageX - x) / Math.max(1, w), 0, 1), clamp((current.pageY - y) / Math.max(1, h), 0, 1))
+      // 시작점은 팔레트 내부 좌표, 이동량은 동일한 page 좌표끼리 계산한다.
+      // measureInWindow와 page 좌표를 섞으면 모달·안전영역의 원점 차이만큼 선택점이 튄다.
+      const x = current.localX + current.pageX - current.startX
+      const y = current.localY + current.pageY - current.startY
+      handlers.current.onPoint(clamp(x / Math.max(1, current.width), 0, 1), clamp(y / Math.max(1, current.height), 0, 1))
     }
     const finish = () => {
       if (!drag.current) return
@@ -44,17 +48,11 @@ function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }
         const touch = event.nativeEvent.touches?.[0] ?? event.nativeEvent
         const { width: w, height: h } = handlers.current
         const current = { identifier: touch.identifier, pageX: touch.pageX, pageY: touch.pageY,
-          bounds: { x: touch.pageX - touch.locationX, y: touch.pageY - touch.locationY, width: w, height: h } }
+          startX: touch.pageX, startY: touch.pageY, localX: touch.locationX, localY: touch.locationY, width: w, height: h }
         drag.current = current
         handlers.current.onInteractionChange?.(true)
         handlers.current.onStart?.()
         apply()
-        view.current?.measureInWindow((x, y, width, height) => {
-          if (drag.current !== current || width <= 0 || height <= 0) return
-          current.bounds = { x, y, width, height }
-          // 측정이 비동기로 끝나도 시작점 대신 가장 최근 손 위치를 사용한다.
-          apply()
-        })
       },
       onPanResponderMove: event => {
         if (!drag.current) return
@@ -63,14 +61,22 @@ function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }
         drag.current.pageY = touch.pageY
         apply()
       },
-      onPanResponderRelease: finish,
+      onPanResponderRelease: event => {
+        if (drag.current) {
+          const touch = point(event)
+          drag.current.pageX = touch.pageX
+          drag.current.pageY = touch.pageY
+          apply()
+        }
+        finish()
+      },
       onPanResponderTerminate: finish,
     })
   })
   useEffect(() => () => {
     if (drag.current) { drag.current = null; handlers.current.onInteractionChange?.(false) }
   }, [])
-  return { ref: view, ...responder.panHandlers }
+  return responder.panHandlers
 }
 
 /**
@@ -78,6 +84,8 @@ function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }
  * onStart 는 끌기·입력을 시작할 때 한 번 (되돌리기 지점), onChange(hex) 는 바뀔 때마다.
  */
 export default function ColorPicker({ value, onChange, onStart, label = '색', showHex = true, onInteractionChange }) {
+  const panelInteraction = useContext(PaletteInteractionContext)
+  const interactionChange = onInteractionChange ?? panelInteraction
   const [hsv, setHsv] = useState(() => hexToHsv(value))
   const [size, setSize] = useState({ sv: 1, hue: 1 })
   const [draft, setDraft] = useState(value)
@@ -98,11 +106,11 @@ export default function ColorPicker({ value, onChange, onStart, label = '색', s
     onChange(hsvToHex(next))
   }
   const svPan = usePaletteDrag({
-    width: size.sv, height: SV_HEIGHT, onStart, onInteractionChange,
+    width: size.sv, height: SV_HEIGHT, onStart, onInteractionChange: interactionChange,
     onPoint: (x, y) => apply({ ...hsv, s: x, v: 1 - y }),
   })
   const huePan = usePaletteDrag({
-    width: size.hue, height: HUE_HEIGHT + 8, onStart, onInteractionChange,
+    width: size.hue, height: HUE_HEIGHT + 8, onStart, onInteractionChange: interactionChange,
     onPoint: x => apply({ ...hsv, h: x * 360 }),
   })
 

@@ -18,9 +18,21 @@ export function snapStraightEnd(start, end) {
 }
 
 // 화면 픽셀 기준으로 정지 여부를 판단해 확대 배율에 따라 감도가 달라지지 않게 한다.
-export function createHighlighterHold({ start, zoom, onStraight, schedule = setTimeout, unschedule = clearTimeout }) {
+export function createHighlighterHold({ start, zoom, onStraight, schedule = setTimeout, unschedule = clearTimeout, now = Date.now }) {
   let timer = null, anchor = null, last = start, straight = false, cancelled = false
   const clear = () => { if (timer !== null) unschedule(timer); timer = null }
+  const arm = () => {
+    const scheduledAt = now()
+    timer = schedule(() => {
+      timer = null
+      if (cancelled) return
+      // JS 정체·앱 배경으로 늦게 도착한 타이머를 손의 정지로 오인하지 않는다.
+      // 밀린 이동 이벤트가 처리될 시간을 준 뒤 정상적인 600ms 유지를 다시 확인한다.
+      if (now() - scheduledAt > STRAIGHT_HOLD_MS + 150) { arm(); return }
+      straight = true
+      onStraight([{ ...start }, snapStraightEnd(start, last)])
+    }, STRAIGHT_HOLD_MS)
+  }
   return {
     move(point) {
       if (cancelled) return
@@ -32,12 +44,7 @@ export function createHighlighterHold({ start, zoom, onStraight, schedule = setT
       if (anchor && Math.hypot(last.x - anchor.x, last.y - anchor.y) * zoom <= HOLD_TOLERANCE_PX) return
       clear()
       anchor = last
-      timer = schedule(() => {
-        timer = null
-        if (cancelled) return
-        straight = true
-        onStraight([{ ...start }, snapStraightEnd(start, last)])
-      }, STRAIGHT_HOLD_MS)
+      arm()
     },
     cancel() { cancelled = true; clear() },
   }

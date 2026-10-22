@@ -44,16 +44,22 @@ export function playbackGifBytes(bytes) {
 
 export function playbackSteps(delays, maxFrames = STICKER_PLAYBACK_LIMITS.frames) {
   if (!delays.length || delays.some((d) => !Number.isFinite(d) || d <= 0)) throw new Error('Invalid GIF timing')
+  if (!Number.isInteger(maxFrames) || maxFrames < 1) throw new Error('Invalid frame limit')
   if (delays.length <= maxFrames) return delays.map((duration, index) => ({ index, duration }))
   const total = delays.reduce((sum, d) => sum + d, 0), steps = []
+  const last = delays.length - 1
+  if (maxFrames === 1) return [{ index: last, duration: total }]
+  // 마지막 장면과 표시 시간을 예약해 유한 반복 종료 시 원본 끝 장면을 보존한다.
+  const sampledDuration = total - delays[last], samples = maxFrames - 1
   let index = 0, end = delays[0]
-  for (let i = 0; i < maxFrames; i++) {
-    const time = i * total / maxFrames
+  for (let i = 0; i < samples; i++) {
+    const time = i * sampledDuration / samples
     while (time >= end && index < delays.length - 1) end += delays[++index]
-    const duration = total / maxFrames
+    const duration = sampledDuration / samples
     if (steps.at(-1)?.index === index) steps.at(-1).duration += duration
     else steps.push({ index, duration })
   }
+  steps.push({ index: last, duration: delays[last] })
   return steps
 }
 
@@ -122,8 +128,9 @@ export function createStickerPlayer(clip, show, { now = Date.now, schedule = set
   }
 }
 
-export function createStickerPlaybackCache(load) {
+export function createStickerPlaybackCache(load, { failureTtlMs = 5000, schedule = setTimeout, cancel = clearTimeout } = {}) {
   const entries = new Map()
+  const listeners = new Map()
   return {
     acquire(key, source) {
       let entry = entries.get(key)
@@ -132,7 +139,20 @@ export function createStickerPlaybackCache(load) {
         entry.promise = Promise.resolve().then(() => load(source, entry.controller.signal)).then((clip) => {
           entry.clip = clip
           if (!entry.refs) clip.dispose()
+          listeners.get(key)?.forEach((listener) => listener(entry.promise))
           return clip
+        }).catch((error) => {
+          // 손상되었거나 일시적으로 읽지 못한 GIF를 즉시 다시 디코딩하지 않도록 잠깐 기억한다.
+          // 취소된 요청은 실패 캐시로 남기지 않는다.
+          if (entries.get(key) === entry) {
+            if (entry.controller.signal.aborted || failureTtlMs <= 0) entries.delete(key)
+            else {
+              entry.failureTimer = schedule(() => {
+                if (entries.get(key) === entry) entries.delete(key)
+              }, failureTtlMs)
+            }
+          }
+          throw error
         })
         entries.set(key, entry)
       }
@@ -142,11 +162,24 @@ export function createStickerPlaybackCache(load) {
         if (released) return
         released = true
         if (--entry.refs === 0) {
-          if (entries.get(key) === entry) entries.delete(key)
-          entry.controller.abort()
-          entry.clip?.dispose()
+          if (entries.get(key) === entry) {
+            if (entry.clip || !entry.failureTimer) entries.delete(key)
+          }
+          if (entry.clip || !entry.failureTimer) {
+            entry.controller.abort()
+            entry.clip?.dispose()
+          }
         }
       } }
+    },
+    subscribe(key, listener) {
+      let subscribers = listeners.get(key)
+      if (!subscribers) listeners.set(key, subscribers = new Set())
+      subscribers.add(listener)
+      return () => {
+        subscribers.delete(listener)
+        if (!subscribers.size) listeners.delete(key)
+      }
     },
   }
 }

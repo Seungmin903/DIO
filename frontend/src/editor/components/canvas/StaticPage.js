@@ -1,9 +1,10 @@
 import { createContext, memo, useContext } from 'react'
 import { StyleSheet, View } from 'react-native'
-import { colors } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
 import PageBackground from '../PageBackground'
-import ObjectContent, { objectOpacity, TextMeasure } from './ObjectView'
+import { objectOpacity, TextMeasure } from './ObjectView'
+import PageObject from './PageObject'
+import CompletedStrokeLayer from './CompletedStrokeLayer'
 
 const DRAG_OPACITY = 0.5
 
@@ -27,9 +28,13 @@ export const ViewportMotion = createContext({ moving: false, visible: null })
  * 편집 화면에서는 확대·이동하는 동안과 화면 밖에 있는 GIF 도 멈춘다 (ViewportMotion).
  * 편집 화면의 GIF 는 움직여야 하므로, 손대지 않고 보이는 것만 재생한다.
  */
-const StaticPage = memo(function StaticPage({ page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true, fadeIds = null, stillIds = null, onTextMeasure = null }) {
+const StaticPage = memo(function StaticPage({ page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true, fadeIds = null, stillIds = null, onTextMeasure = null, cacheStrokes = false }) {
   const { width, height } = pageSize(page)
   const motion = useContext(ViewportMotion)
+  const renderObject = object => <PageObject key={object.id} object={object} zoom={zoom}
+    opacity={objectOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1) * (fadeIds?.includes(object.id) ? DRAG_OPACITY : 1)}
+    still={still || motion.moving || Boolean(fadeIds?.includes(object.id) || stillIds?.includes(object.id)) || offscreen(object, motion.visible)}
+    crop={object.id === cropId} />
   return (
     <View
       style={[styles.page, { width: width * zoom, height: height * zoom, backgroundColor: background }]}
@@ -37,37 +42,9 @@ const StaticPage = memo(function StaticPage({ page, zoom, still = false, cropId 
     >
       {showBackground && <PageBackground page={page} zoom={zoom} compact />}
       <TextMeasure.Provider value={onTextMeasure}>
-      {page.objects
-        .filter((object) => !object.hidden)
-        .map((object) => {
-          const opacity = objectOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1) * (fadeIds?.includes(object.id) ? DRAG_OPACITY : 1)
-          return (
-          <View
-            key={object.id}
-            // Android: 투명도를 요소 하나로 합쳐서 적용한다. 그렇지 않으면 사진처럼 잘라 그리는(overflow hidden) 겹들이
-            // 따로따로 비쳐서 투명도를 낮출수록 사진이 까맣게 보였다.
-            needsOffscreenAlphaCompositing={opacity < 1}
-            renderToHardwareTextureAndroid={opacity < 1}
-            style={{
-              position: 'absolute',
-              left: object.x * zoom,
-              top: object.y * zoom,
-              width: object.w * zoom,
-              height: object.h * zoom,
-              transform: [{ rotate: `${object.rotation}deg` }],
-              opacity,
-            }}
-          >
-            {/* 끌어서 옮기는 동안(반투명)·크기 조절 중·확대 이동 중·화면 밖이면 GIF 를 첫 장면으로 멈춰 매 장면 다시 그리지 않는다 */}
-            <ObjectContent
-              object={object}
-              zoom={zoom}
-              still={still || motion.moving || Boolean(fadeIds?.includes(object.id) || stillIds?.includes(object.id)) || offscreen(object, motion.visible)}
-            />
-            {object.id === cropId && <View style={[styles.cropRing, { margin: -Math.min(6, Math.max(1, 12 * zoom)) }]} />}
-          </View>
-          )
-        })}
+      {cacheStrokes && !cropId && !fadeIds?.length && !stillIds?.length
+        ? <CompletedStrokeLayer objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} />
+        : page.objects.filter(object => !object.hidden).map(renderObject)}
       </TextMeasure.Provider>
     </View>
   )
@@ -80,6 +57,7 @@ const StaticPage = memo(function StaticPage({ page, zoom, still = false, cropId 
   && previous.showBackground === next.showBackground
   && previous.fadeIds === next.fadeIds
   && previous.stillIds === next.stillIds
+  && previous.cacheStrokes === next.cacheStrokes
   // 높이를 받는 함수는 페이지가 바뀔 때 함께 바뀌므로 있고 없음만 비교한다
   && Boolean(previous.onTextMeasure) === Boolean(next.onTextMeasure)
 ))
@@ -97,5 +75,4 @@ function offscreen(object, visible) {
 
 const styles = StyleSheet.create({
   page: { overflow: 'hidden' },
-  cropRing: { ...StyleSheet.absoluteFillObject, borderWidth: 3, borderColor: colors.primary, borderRadius: 6 },
 })

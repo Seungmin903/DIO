@@ -16,9 +16,19 @@ test('iPad Split View처럼 좁아진 창은 폰 배치로 바뀐다', () => {
   assert.equal(formFactorFor(678, 1024), 'tablet')
 })
 
-test('모든 플랫폼은 실제 안전 영역을 빈 공간 없이 채운다', () => {
-  for (const platform of ['ios', 'android', 'web']) assert.deepEqual(tabletFrameSpec(platform), { mode: 'window' })
-  assert.deepEqual(fitTabletFrame(1280, 1000, 'android'), { width: 1280, height: 1000 })
-  assert.deepEqual(fitTabletFrame(1194, 834, 'ios'), { width: 1194, height: 834 })
-  assert.deepEqual(fitTabletFrame(640, 800, 'web'), { width: 640, height: 800 })
+test('Android 태블릿 프레임은 16:10 비율 안에서 가장 크게 맞춘다', () => {
+  assert.deepEqual(tabletFrameSpec('android'), { width: 1280, height: 800 })
+  assert.deepEqual(fitTabletFrame(1280, 1000, 'android'), { width: 1280, height: 800 })
+  assert.deepEqual(fitTabletFrame(640, 800, 'android'), { width: 640, height: 400 })
+})
+
+test('iPad 프레임은 4:3 비율 안에서 가장 크게 맞춘다', () => {
+  assert.deepEqual(tabletFrameSpec('ios'), { width: 1024, height: 768 })
+  assert.deepEqual(fitTabletFrame(1366, 1024, 'ios'), { width: 1365.3333333333333, height: 1024 })
+  assert.deepEqual(fitTabletFrame(1024, 768, 'ios'), { width: 1024, height: 768 })
+})
+
+test('알 수 없는 플랫폼은 Android 16:10 기준을 사용한다', () => {
+  assert.deepEqual(tabletFrameSpec('unknown'), { width: 1280, height: 800 })
+  assert.deepEqual(fitTabletFrame(1280, 800, 'unknown'), { width: 1280, height: 800 })
 })
