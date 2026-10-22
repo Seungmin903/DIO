@@ -53,6 +53,7 @@ const MIN_TARGET_PX = 44
 export default function Canvas({
   showBackground = true,
   compact = false,
+  menuBounds = null,
   page,
   zoom,
   selectedIds,
@@ -410,6 +411,7 @@ export default function Canvas({
         <View pointerEvents="box-none" style={styles.selectionMenu}>
         <ContextBar
           compact={compact}
+          menuBounds={menuBounds}
           onTextLink={onTextLink}
           onObjectLink={onObjectLink}
           onCopyLink={onCopyLink}

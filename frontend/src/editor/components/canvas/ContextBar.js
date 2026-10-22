@@ -23,6 +23,7 @@ export const LINKABLE_TYPES = ['sticker', 'tape', 'photo']
 /** 선택한 요소 근처에 뜨는 빠른 편집 바. 자르기·그룹·순서·잠금·복제·삭제만 두고, 꾸미기는 '옵션'(MorePanel) 에서 */
 export default function ContextBar({
   compact = false,
+  menuBounds = null, // 더보기 메뉴를 넣을 수 있는 세로 범위(페이지 좌표). 없으면 페이지 전체
   objects,
   allObjects,
   lassoActions = null,
@@ -75,9 +76,14 @@ export default function ContextBar({
   // 순서 메뉴는 바 위·아래 중 페이지 안에 더 넉넉한 쪽으로 편다.
   const menuBelow = pageH - (top + BAR_HEIGHT) >= top
   const left = clamp(bounds.cx * zoom - barWidth / 2, 8, Math.max(8, pageW - barWidth - 8))
-  // 더보기 메뉴는 늘 바 아래, 오른쪽 끝에 맞춰 편다. 페이지 아래로 삐져나가도 되고(바탕 위), 항목은 안에서 스크롤한다.
-  const compactMenuHeight = COMPACT_MENU_HEIGHT
-  const compactMenuPosition = { left: Math.max(EDGE, left + barWidth - 166), top: top + BAR_HEIGHT + 6 }
+  // 더보기 메뉴는 바 오른쪽 끝에 맞춰 아래로 편다. 아래(화면 하단 막대 위까지)에 자리가 모자라면 위로 펴고, 항목은 안에서 스크롤한다.
+  const menuFloor = menuBounds ? menuBounds.bottom * zoom : pageH // 페이지 아래로 삐져나가도 된다 (화면 하단 막대 위까지)
+  const menuCeil = menuBounds ? Math.max(0, menuBounds.top * zoom) : 0
+  const spaceBelow = menuFloor - (top + BAR_HEIGHT + 6)
+  const spaceAbove = top - 6 - menuCeil
+  const compactMenuBelow = spaceBelow >= Math.min(COMPACT_MENU_HEIGHT, spaceAbove)
+  const compactMenuHeight = clamp(compactMenuBelow ? spaceBelow : spaceAbove, 88, COMPACT_MENU_HEIGHT)
+  const compactMenuPosition = { left: Math.max(EDGE, left + barWidth - 166), ...(compactMenuBelow ? { top: top + BAR_HEIGHT + 6 } : { bottom: pageH - top + 6 }) }
   // 링크 카드: Google 슬라이드처럼 편집 바와 따로, 요소의 반대쪽(바가 아래면 위)에 띄운다. 주소를 누르면 열린다.
   const chipTop = clamp(below ? bounds.top * zoom - ROTATE_CLEARANCE - CHIP_HEIGHT : bounds.bottom * zoom + GAP, EDGE, Math.max(EDGE, pageH - CHIP_HEIGHT - EDGE))
   const chipLeft = clamp(bounds.cx * zoom - chipWidth / 2, 8, Math.max(8, pageW - chipWidth - 8))

@@ -739,6 +739,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               <Canvas
                 showBackground={loaded}
                 compact={compact}
+                // 폰 더보기 메뉴가 화면·하단 되돌리기 막대 밖으로 나가지 않게, 보이는 영역(페이지 좌표)을 넘긴다
+                menuBounds={stageSize ? { top: -offset.y / zoom + 8 / zoom, bottom: (stageSize.height - offset.y - (12 + 44 + 8)) / zoom } : null}
                 activeTool={activeTool}
                 // 창이 열린 채 펜·형광펜·지우개로 캔버스를 누르면 그 터치로 그리지 않고 창만 닫는다
                 inputBlocker={bubbleOpen ? { ...markInside, onResponderRelease: closeBubbles } : null}
