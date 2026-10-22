@@ -5,6 +5,9 @@ import { readFileSync } from 'node:fs'
 import * as strokes from '../src/editor/utils/strokes.js'
 import * as assist from '../src/editor/utils/strokeAssist.js'
 import * as settings from '../src/editor/utils/penSettings.js'
+import * as preview from '../src/editor/utils/strokePreview.js'
+import * as measurement from '../src/editor/utils/penPerformance.js'
+import * as previewStore from '../src/editor/utils/penPreviewStore.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/PenInput.js', import.meta.url), 'utf8'), {
@@ -12,7 +15,7 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
 function fixture(kind, zoom = 1, straightAssist = true) {
-  let handlers, timer, cursor = 0
+  let handlers, timer, cursor = 0, tree
   const refs = [], effects = [], cleanups = []
   const actions = [], converted = []
   const module = { exports: {} }
@@ -28,6 +31,11 @@ function fixture(kind, zoom = 1, straightAssist = true) {
     if (id.endsWith('/common')) return { createId: () => 'stroke' }
     if (id.endsWith('/strokes')) return { ...strokes, createStroke: (...args) => { converted.push(args[0].length); return strokes.createStroke(...args) } }
     if (id.endsWith('/penSettings')) return settings
+    if (id.endsWith('/strokePreview.js')) return preview
+    if (id.endsWith('/penPerformance.js')) return measurement
+    if (id.endsWith('/penPreviewStore.js')) return previewStore
+    if (id.endsWith('/PenPreview')) return { __esModule: true, default: () => null }
+    if (id.endsWith('/StrokePreview')) return { __esModule: true, default: () => null }
     if (id.endsWith('/strokeAssist')) return { createHighlighterHold: (options) => assist.createHighlighterHold({ ...options,
       schedule: (callback) => { timer = callback; return 1 }, unschedule: () => { timer = null },
     }) }
@@ -35,9 +43,9 @@ function fixture(kind, zoom = 1, straightAssist = true) {
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
-  const render = (next = {}) => { cursor = 0; module.exports.default({ zoom, straightAssist, dispatch: (a) => actions.push(a), settings: { kind, color: '#123456', width: 4 }, ...next }) }
+  const render = (next = {}) => { cursor = 0; tree = module.exports.default({ zoom, straightAssist, dispatch: (a) => actions.push(a), settings: { kind, color: '#123456', width: 4 }, ...next }) }
   render()
-  return { get handlers() { return handlers }, actions, converted, render, unmount: () => cleanups.forEach(fn => fn()), hold: () => { const callback = timer; timer = null; callback?.() } }
+  return { get handlers() { return handlers }, get store() { return tree.props.children.props.store }, actions, converted, render, unmount: () => cleanups.forEach(fn => fn()), hold: () => { const callback = timer; timer = null; callback?.() } }
 }
 
 test('모든 펜과 형광펜은 끝점 유지 후 직선 하나로 확정하고 설정·선택 해제를 유지한다', () => {
@@ -150,26 +158,60 @@ test('팀원의 프레임 미리보기 예약도 배율 변경·두 손가락 �
 })
 
 
-test('한 프레임 안의 100개 입력을 모두 저장하되 전체 획 변환은 한 번만 한다', () => {
+test('한 프레임 안의 입력을 모두 보존하고 전체 획 변환은 확정할 때만 한다', () => {
   const request = globalThis.requestAnimationFrame, cancel = globalThis.cancelAnimationFrame
   const frames = new Map(); let id = 0
   globalThis.requestAnimationFrame = fn => { frames.set(++id, fn); return id }
   globalThis.cancelAnimationFrame = key => frames.delete(key)
   try {
     const f = fixture('fountain', 1, false)
+    const store = f.store, seen = []
+    store.subscribe(() => seen.push(store.getSnapshot()))
     f.handlers.onStart({ locationX: 10, locationY: 20 })
     for (let x = 1; x <= 100; x++) f.handlers.onMove(x, x / 2, {})
     assert.equal(frames.size, 1)
     assert.deepEqual(f.converted, [], '화면 프레임 전에 O(n) 변환을 반복하지 않는다')
     const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(fn => fn())
-    assert.deepEqual(f.converted, [101])
+    assert.equal(seen.length, 1, '한 프레임의 미리보기만 표시 층 구독자에게 전달한다')
+    assert.equal(new Set(store.getSnapshot().parts.flatMap(part => part.points.map(point => `${point.x},${point.y}`))).size, 101)
+    assert.deepEqual(f.actions, [], '미리보기 갱신은 문서를 변경하지 않는다')
+    assert.deepEqual(f.converted, [], '미리보기는 전체 저장 좌표 변환을 호출하지 않는다')
     f.handlers.onMove(110, 55, {})
     f.handlers.onEnd({ cancelled: false })
     assert.equal(frames.size, 0)
+    assert.equal(store.getSnapshot(), null, '확정 시 미리보기만 비우고 원본 획으로 인계한다')
     const stroke = f.actions[0].objects[0]
     assert.equal(stroke.points.length, 102)
     assert.equal(stroke.points.at(-1).x - stroke.points[0].x, 110)
-    assert.deepEqual(f.converted, [101, 102], '마지막 프레임을 기다리지 않고 전체 좌표를 확정한다')
+    assert.deepEqual(f.converted, [102], '마지막 프레임을 기다리지 않고 전체 좌표를 한 번 확정한다')
+  } finally {
+    if (request) globalThis.requestAnimationFrame = request; else delete globalThis.requestAnimationFrame
+    if (cancel) globalThis.cancelAnimationFrame = cancel; else delete globalThis.cancelAnimationFrame
+  }
+})
+
+test('모든 펜의 긴 필기에서도 프레임마다 전체 좌표를 복사하지 않고 한 획으로 확정한다', () => {
+  const request = globalThis.requestAnimationFrame, cancel = globalThis.cancelAnimationFrame
+  const frames = new Map(); let id = 0
+  globalThis.requestAnimationFrame = fn => { frames.set(++id, fn); return id }
+  globalThis.cancelAnimationFrame = key => frames.delete(key)
+  try {
+    for (const kind of [...settings.PEN_TYPES.map(item => item.id), 'highlighter']) {
+      const f = fixture(kind, 1, false)
+      f.handlers.onStart({ locationX: 10, locationY: 20 })
+      for (let i = 1; i <= 5000; i++) {
+        f.handlers.onMove(i, Math.sin(i / 10) * 40, {})
+        if (i % 8 === 0) {
+          const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(fn => fn())
+        }
+      }
+      assert.deepEqual(f.converted, [])
+      f.handlers.onEnd({ cancelled: false })
+      assert.deepEqual(f.converted, [5001])
+      assert.equal(f.actions[0].objects[0].points.length, 5001)
+      assert.equal(f.actions[0].objects[0].points.at(-1).x - f.actions[0].objects[0].points[0].x, 5000)
+      assert.equal(frames.size, 0)
+    }
   } finally {
     if (request) globalThis.requestAnimationFrame = request; else delete globalThis.requestAnimationFrame
     if (cancel) globalThis.cancelAnimationFrame = cancel; else delete globalThis.cancelAnimationFrame

@@ -13,7 +13,7 @@ export default function StrokeContent({ object, zoom, transform }) {
   const outline = useMemo(() => variable && points.length > 1
     ? modern ? penContour(points, width, kind) : strokeOutline(points, width)
     : '', [points, width, kind, variable, modern])
-  const path = useMemo(() => strokePath(points), [points])
+  const path = useMemo(() => outline ? '' : strokePath(points), [points, outline])
   const pencil = kind === 'pencil'
   const highlighter = kind === 'highlighter'
   const dotWidth = width * (points[0]?.pressure ?? 1)
