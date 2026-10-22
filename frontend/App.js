@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'react-native';
-import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackHandler, Platform, StatusBar, View } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { prepareEditor, rememberEditorDoc } from './src/editor/services/editorDocs';
-import { DEFAULT_FILTER } from './src/diary/constants';
+import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
@@ -14,10 +14,10 @@ import ProfileScreen from './src/diary/screens/ProfileScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
-import { fitTabletFrame } from './src/shared/layout';
 import { normalizePaperAppearance } from './src/editor/templates/appearance.js';
 import { useFormFactor } from './src/shared/useFormFactor';
 import { CAN_LOCK_ORIENTATION, useOrientationLock } from './src/shared/useOrientationLock';
+import { useHiddenNavigationBar } from './src/shared/useHiddenNavigationBar';
 import { normalizeTemplateConfig } from './src/editor/templates/creation.js';
 import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
 import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
@@ -32,19 +32,18 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export default function App() {
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
+  useHiddenNavigationBar();
   return (
-    <SafeAreaProvider style={s.safe}>
+    <SafeAreaProvider style={s.provider}>
       <DiaryApp />
     </SafeAreaProvider>
   );
 }
 
 function DiaryApp() {
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  // 폰은 화면 전체를 쓰고, 태블릿만 16:10 프레임 안에 맞춘다. 데이터·상태는 두 배치가 함께 쓴다.
+  // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
   const { isPhone, isLandscape } = useFormFactor();
-  const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
   const [railCollapsed, setRailCollapsed] = useState(true);
   // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
@@ -77,7 +76,6 @@ function DiaryApp() {
   const savingRef = useRef(false);
   const pendingCreateId = useRef(null);
 
-  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height);
   // 폰 편집기에서 세로(간편)·가로(정밀) 전환 버튼으로 고른 방향. 편집기를 새로 열면 다시 기기 방향을 따른다.
   const [editorOrientation, setEditorOrientation] = useState(null);
   useOrientationLock(isPhone ? 'phone' : 'tablet', page === 'editor', editorOrientation);
@@ -348,13 +346,6 @@ function DiaryApp() {
     content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} />;
   }
 
-  const measureViewport = ({ nativeEvent: { layout } }) => {
-    const { width: nextWidth, height: nextHeight } = layout;
-    setViewport((current) => (
-      current.width === nextWidth && current.height === nextHeight ? current : { width: nextWidth, height: nextHeight }
-    ));
-  };
-
   const createModal = createOpen && (
     <DiaryCreateModal
       key={editingDiaryId ?? 'new'}
@@ -399,17 +390,29 @@ function DiaryApp() {
     );
   }
 
+  // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 태블릿 보관함은 흰 사이드 메뉴. 오른쪽: 보관함·편집기 바탕.
+  const safeAreaColors = {
+    top: page === 'editor' && !isLandscape ? C.white : C.canvas,
+    left: !isPhone && page !== 'editor' ? C.white : C.canvas,
+    right: C.canvas,
+  };
+
   return (
     <>
       <StatusBar hidden />
-      {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 하단 inset은 각 화면에서 처리해 16:10 프레임을 유지한다. */}
-      <SafeAreaView style={s.safe} edges={isPhone ? ['top', 'left', 'right'] : ['left', 'right']}>
-        <View style={s.viewport} onLayout={measureViewport}>
-          <View style={[s.app, frame ? { width: frame.width, height: frame.height } : s.appFill]}>
-            {shell}
+      {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
+      <View style={s.safe}>
+        {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}
+        <View style={s.safeRow}>
+          {insets.left > 0 && <View style={{ width: insets.left, backgroundColor: safeAreaColors.left }} />}
+          <View style={s.viewport}>
+            <View style={[s.app, s.appFill]}>
+              {shell}
+            </View>
           </View>
+          {insets.right > 0 && <View style={{ width: insets.right, backgroundColor: safeAreaColors.right }} />}
         </View>
-      </SafeAreaView>
+      </View>
     </>
   );
 }
