@@ -27,6 +27,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
   const nodeRef = useRef(null)
   const tap = useRef(null) // 페이지 밖 여백을 한 손가락으로 누른 위치
   const panFrom = useRef(null) // 손바닥 도구: 지난번 손가락 위치
+  const motion = useRef({ panY: 0, zoomed: false, cancelled: false })
   const latest = useRef({})
   latest.current = { zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan }
   const currentView = () => liveRef.current ?? { scale: latest.current.scale, zoom: latest.current.zoom, x: latest.current.offset.x, y: latest.current.offset.y }
@@ -36,14 +37,16 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
     setLive(view)
   }
   // 손을 떼면 움직인 결과를 부모에 한 번만 넘긴다. (같은 이벤트 안이라 transform 해제와 함께 한 번에 그려진다)
-  const commit = () => {
+  const resetMotion = () => { motion.current = { panY: 0, zoomed: false, cancelled: false } }
+  const commit = (cancelled = false) => {
     const view = liveRef.current
     liveRef.current = null
     setLive(null)
     if (view) {
-      latest.current.onView?.(view)
+      latest.current.onView?.(view, { ...motion.current, cancelled })
       latest.current.onMovingChange?.(false)
     }
+    resetMotion()
   }
 
   // 화면(창) 좌표 → 보는 영역 안 좌표
@@ -67,6 +70,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       distance: Math.max(1, Math.hypot(p.x - q.x, p.y - q.y)),
       scale: s,
       point: { x: (mid.x - o.x) / z, y: (mid.y - o.y) / z },
+      mid,
     }
   }
 
@@ -79,6 +83,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
     onResponderTerminationRequest: () => !pinch.current && !latest.current.dragToPan,
     onResponderGrant: (event) => {
       measure()
+      resetMotion()
       panFrom.current = latest.current.dragToPan ? { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY } : null
       if (twoFingers(event)) startPinch(event)
       else tap.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }
@@ -92,7 +97,11 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
         // 손바닥 도구: 한 손가락으로 끌어 화면 이동 (두 손가락에서 한 손가락으로 돌아오면 그 자리부터 다시)
         if (latest.current.dragToPan && (event.nativeEvent.touches?.length ?? 1) === 1) {
           const { pageX, pageY } = event.nativeEvent
-          if (panFrom.current) preview(latest.current.resolvePan(currentView(), pageX - panFrom.current.x, pageY - panFrom.current.y))
+          if (panFrom.current) {
+            const dy = pageY - panFrom.current.y
+            motion.current.panY += dy
+            preview(latest.current.resolvePan(currentView(), pageX - panFrom.current.x, dy))
+          }
           panFrom.current = { x: pageX, y: pageY }
         }
         return
@@ -105,7 +114,10 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       const q = local(b)
       const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }
       const g = pinch.current
-      preview(latest.current.resolveZoom(g.scale * (Math.hypot(p.x - q.x, p.y - q.y) / g.distance), g.point, mid))
+      const distanceRatio = Math.hypot(p.x - q.x, p.y - q.y) / g.distance
+      motion.current.panY = mid.y - g.mid.y
+      if (Math.abs(distanceRatio - 1) > 0.04) motion.current.zoomed = true
+      preview(latest.current.resolveZoom(g.scale * distanceRatio, g.point, mid))
     },
     onResponderEnd: (event) => {
       if (!twoFingers(event)) { pinch.current = null; panFrom.current = null }
@@ -120,7 +132,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
     onResponderTerminate: () => {
       pinch.current = null
       panFrom.current = null
-      commit()
+      commit(true)
       tap.current = null
     },
   }
@@ -136,11 +148,14 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       event.preventDefault()
       const { resolveZoom: zoomTo, resolvePan: panTo } = latest.current
       const view = currentView()
+      if (!liveRef.current) resetMotion()
       if (event.ctrlKey || event.metaKey) {
+        motion.current.zoomed = true
         const rect = node.getBoundingClientRect()
         const at = { x: event.clientX - rect.left, y: event.clientY - rect.top }
         preview(zoomTo(view.scale * Math.exp(-event.deltaY * 0.01), { x: (at.x - view.x) / view.zoom, y: (at.y - view.y) / view.zoom }, at))
       } else {
+        motion.current.panY -= event.deltaY
         preview(panTo(view, -event.deltaX, -event.deltaY))
       }
       clearTimeout(idle)

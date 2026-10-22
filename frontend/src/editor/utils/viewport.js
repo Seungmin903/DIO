@@ -1,5 +1,16 @@
 import { clamp } from './common.js'
 
+export const PAGE_TURN_PAN_THRESHOLD = 72
+
+// 페이지 하단이 보이는 상태에서 충분히 아래로 스크롤했을 때만 다음 페이지로 넘긴다.
+// panY는 콘텐츠가 움직인 거리라 아래로 읽는 스크롤은 음수다.
+export function shouldTurnToNextPage({ panY = 0, zoomed = false, cancelled = false }, view, stage, pageHeight, bottomPadding = 0) {
+  if (cancelled || zoomed || !stage || !view || panY > -PAGE_TURN_PAN_THRESHOLD) return false
+  const pageBottom = view.y + pageHeight * view.zoom
+  const viewportBottom = stage.height - bottomPadding
+  return pageBottom <= viewportBottom + 1
+}
+
 export function centeredOffset(stage, zoom, pageWidth, pageHeight, padding) {
   if (!stage) return { x: padding.side, y: padding.top }
   return {

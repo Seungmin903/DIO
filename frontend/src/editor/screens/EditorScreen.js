@@ -48,7 +48,7 @@ import { useEditor } from '../hooks/useEditor'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
-import { centeredOffset, clampOffset as clampViewportOffset, panView } from '../utils/viewport.js'
+import { centeredOffset, clampOffset as clampViewportOffset, panView, shouldTurnToNextPage } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { createObjectFromDecor } from '../utils/objects'
 
@@ -214,7 +214,12 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     return { scale, zoom: z, ...clampOffset({ x: screenPoint.x - pagePoint.x * z, y: screenPoint.y - pagePoint.y * z }, z) }
   }
   const resolvePan = (from, dx, dy) => ({ ...from, ...panView(from, dx, dy, fitZoom, stageSize, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) })
-  const commitView = (next) => {
+  const commitView = (next, motion = {}) => {
+    if (nextPage && shouldTurnToNextPage(motion, next, stageSize, PAGE_HEIGHT, stagePadding.bottom)) {
+      dispatch({ type: 'selectPage', id: nextPage.id })
+      setView({ scale: 1, x: null, y: null })
+      return
+    }
     setView({ scale: next.scale, x: next.x, y: next.y })
   }
 

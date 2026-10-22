@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { centeredOffset, clampOffset, panView } from '../src/editor/utils/viewport.js'
+import { centeredOffset, clampOffset, panView, shouldTurnToNextPage } from '../src/editor/utils/viewport.js'
 
 const padding = { top: 84, bottom: 76, side: 28 }
 const page = { width: 1188, height: 840 }
@@ -41,4 +41,21 @@ test('제스처 중 배율은 마지막 렌더링 배율보다 우선하고 View
   const edge = panView(view, -10000, -10000, 0.4, stage, page.width, page.height, padding)
   assert.equal(edge.x, 80 - page.width * 1.5)
   assert.equal(edge.y, 80 - page.height * 1.5)
+})
+
+test('페이지 하단에서 아래 방향으로 72px 이상 이동하면 다음 페이지 전환 조건을 만족한다', () => {
+  const stage = { width: 700, height: 700 }
+  const bottomView = { zoom: 1, x: 0, y: -300 }
+  assert.equal(shouldTurnToNextPage({ panY: -72 }, bottomView, stage, page.height, padding.bottom), true)
+  assert.equal(shouldTurnToNextPage({ panY: -71 }, bottomView, stage, page.height, padding.bottom), false)
+  assert.equal(shouldTurnToNextPage({ panY: 100 }, bottomView, stage, page.height, padding.bottom), false)
+})
+
+test('페이지 하단 전이 아니거나 확대·취소된 제스처면 다음 페이지로 넘기지 않는다', () => {
+  const stage = { width: 700, height: 700 }
+  const middleView = { zoom: 1, x: 0, y: -100 }
+  const bottomView = { zoom: 1, x: 0, y: -300 }
+  assert.equal(shouldTurnToNextPage({ panY: -100 }, middleView, stage, page.height, padding.bottom), false)
+  assert.equal(shouldTurnToNextPage({ panY: -100, zoomed: true }, bottomView, stage, page.height, padding.bottom), false)
+  assert.equal(shouldTurnToNextPage({ panY: -100, cancelled: true }, bottomView, stage, page.height, padding.bottom), false)
 })
