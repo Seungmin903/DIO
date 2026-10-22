@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [design-guide.md](./design-guide.md) | **DIO 디자인 가이드(BI·CI·인앱 UI)** — 새 화면·기능은 이 문서를 기준으로 만든다. Word·PDF 본: `design-guide.docx`, `design-guide.pdf` |
 | [animated-sticker-effects.md](./animated-sticker-effects.md) | 193 iPad 움직이는 스티커 효과의 프레임 공유·자원 제한·검증과 실기기 QA |
 | [text-link-keyboard.md](./text-link-keyboard.md) | 182 링크 입력창 키보드 회피·스크롤 및 iPad 확인 항목 |
 | [pencil-graphite.md](./pencil-graphite.md) | 178 거친 스케치 연필 질감·변경 전후 비교·브라우저 검증과 남은 iPad 확인 |
