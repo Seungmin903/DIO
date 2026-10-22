@@ -59,7 +59,6 @@ import { pageSize, pageTemplateOrientation } from '../utils/pageGeometry.js'
 preloadTextFonts()
 
 const TOAST_MS = 2000
-const ZOOM_STEP = 1.25
 // 태블릿·폰의 내보내기 진입. 정책 결정으로 다시 켰다 (false 로 바꾸면 모든 진입을 숨긴다).
 const exportEnabled = true
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
@@ -285,12 +284,6 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   if (cropId && !cropTarget) setCropId(null)
 
   const fitToScreen = () => setView({ scale: 1, x: null, y: null })
-  // 확대·축소 버튼: 작업창 가운데를 기준으로 배율을 바꾼다.
-  const zoomBy = (factor) => {
-    if (!stageSize) return
-    const center = { x: stageSize.width / 2, y: stageSize.height / 2 }
-    commitView(resolveZoom(view.scale * factor, { x: (center.x - offset.x) / zoom, y: (center.y - offset.y) / zoom }, center))
-  }
 
   const randomCenter = () => ({
     x: PAGE_WIDTH / 2 + (Math.random() - 0.5) * 160,
@@ -487,6 +480,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
   const showPages = pagesOpen && !focusMode
   const showLayers = layersOpen && !focusMode
+  // 폰: 페이지 목록(가로에서는 레이어도)은 왼쪽, 세로 레이어는 오른쪽에서 열린다.
+  const undoOnRight = compact && (showPages || (landscape && showLayers))
   // 레이어 패널을 열고 닫을 때도 페이지 목록처럼 새 작업창 크기를 바로 써서 툴바와 페이지가 한 번에 같이 움직이게 한다.
   // 패널은 오른쪽 바깥 여백(16)을 덮으므로 작업창 폭은 패널 폭 + 간격 - 16 만큼 바뀐다.
   const toggleLayers = (open) => {
@@ -743,6 +738,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             <ViewportMotion.Provider value={{ moving: viewMoving, visible: stageSize ? { x: -offset.x / zoom, y: -offset.y / zoom, width: stageSize.width / zoom, height: stageSize.height / zoom } : null }}>
               <Canvas
                 showBackground={loaded}
+                compact={compact}
                 activeTool={activeTool}
                 // 창이 열린 채 펜·형광펜·지우개로 캔버스를 누르면 그 터치로 그리지 않고 창만 닫는다
                 inputBlocker={bubbleOpen ? { ...markInside, onResponderRelease: closeBubbles } : null}
@@ -894,7 +890,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             </View>
           )}
 
-          <View style={[styles.floating, styles.floatingLeft]}>
+          {/* 폰은 패널이 작업창 위를 덮으므로, 되돌리기·저장 상태 막대를 열린 패널의 반대쪽으로 옮긴다. */}
+          <View style={[styles.floating, undoOnRight ? styles.floatingRight : styles.floatingLeft]}>
             <RoundButton icon="undo" label="되돌리기" disabled={readOnly || !state.past.length} onPress={undo} />
             <View style={styles.floatingDivider} />
             <RoundButton icon="redo" label="다시 실행" disabled={readOnly || !state.future.length} onPress={redo} />
@@ -902,19 +899,10 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             <SaveIndicator status={saveStatus} onInfo={showToast} />
           </View>
 
-          {phoneLandscape && !phoneFocus && (
-            // 폰 가로(정밀 편집): 확대·축소 버튼을 늘 보인다. 배율을 누르면 화면에 맞춘다.
-            <View style={[styles.floating, styles.floatingRight]}>
-              <RoundButton icon="minus" label="축소" disabled={view.scale <= ZOOM_MIN} onPress={() => zoomBy(1 / ZOOM_STEP)} />
-              <Pressable onPress={fitToScreen} accessibilityRole="button" accessibilityLabel={`배율 ${Math.round(view.scale * 100)}%, 화면에 맞춤`} style={styles.zoomFit}>
-                <Text style={styles.zoomValue}>{Math.round(view.scale * 100)}%</Text>
-              </Pressable>
-              <RoundButton icon="plus" label="확대" disabled={view.scale >= maxZoomScale} onPress={() => zoomBy(ZOOM_STEP)} />
-            </View>
-          )}
-          {/* 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. (배율 숫자는 확대·축소하는 동안 Viewport 가 띄운다) */}
-          {!phoneLandscape && !fitted && (
-            <View style={[styles.floating, styles.floatingRight]} pointerEvents="box-none">
+          {/* 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. 폰 가로도 −/+ 버튼 없이 손가락으로 확대하고 이 버튼으로 되돌린다.
+              (배율 숫자는 확대·축소하는 동안 Viewport 가 띄운다) */}
+          {!fitted && (
+            <View style={[styles.floating, styles.floatingRight, undoOnRight && styles.floatingStacked]} pointerEvents="box-none">
               <RoundButton icon="fit" label="화면에 맞춤" onPress={fitToScreen} />
             </View>
           )}
@@ -1050,7 +1038,6 @@ const styles = StyleSheet.create({
   // 폰 가로: 양옆에 세운 막대만큼 작업창을 비켜 둔다. (읽기 전용이면 오른쪽 도구 막대가 없다)
   rootBetweenRails: { paddingLeft: PHONE_TOOLBAR_RAIL, paddingRight: PHONE_TOOLBAR_RAIL },
   rootReadOnlyRail: { paddingRight: 0 },
-  zoomFit: { minWidth: 56, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
   focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   focusExitPortrait: { top: 72 },
   focusExitText: { fontSize: 12.5, fontWeight: '800', color: colors.text },
@@ -1081,6 +1068,8 @@ const styles = StyleSheet.create({
   },
   floatingLeft: { left: 12 },
   floatingRight: { right: 12 },
+  // 되돌리기 막대가 오른쪽으로 오면 확대·맞춤 막대는 그 위로 올린다 (막대 높이 44 + 간격 8)
+  floatingStacked: { bottom: 12 + 44 + 8 },
   floatingDivider: { width: 1, height: 20, backgroundColor: colors.border },
   roundButton: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   roundActive: { backgroundColor: colors.surfaceSoft },
