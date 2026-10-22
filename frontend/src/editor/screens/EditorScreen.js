@@ -11,6 +11,7 @@ import ExportRunner from '../components/ExportRunner'
 import { createExportSnapshot } from '../utils/pageExport.js'
 import { pngFileName } from '../utils/pngFileSave.js'
 import Canvas from '../components/canvas/Canvas'
+import { CompactMenu, placeCompactMenu } from '../components/canvas/ContextBar'
 import PhotoCropper from '../components/panels/PhotoCropper'
 import DecorDrawer from '../components/panels/DecorDrawer'
 import Icon from '../components/controls/Icon'
@@ -141,6 +142,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   // 편집기는 캔버스에 집중할 수 있도록 보조 패널을 모두 닫은 상태로 시작한다.
+  const [compactMenu, setCompactMenu] = useState(null)
   const [layersOpen, setLayersOpen] = useState(false)
   const [pagesOpen, setPagesOpen] = useState(false)
   const [layoutCompact, setLayoutCompact] = useState(compact)
@@ -482,6 +484,15 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const showLayers = layersOpen && !focusMode
   // 폰: 페이지 목록(가로에서는 레이어도)은 왼쪽, 세로 레이어는 오른쪽에서 열린다.
   const undoOnRight = compact && (showPages || (landscape && showLayers))
+  // 폰 객체 바의 더보기 메뉴. 페이지 밖까지 터치를 받아야 해서 Canvas 가 아니라 stage 위에 그린다.
+  // 다른 요소를 고르거나 페이지·확대·이동이 바뀌면 닫는다 (바 위치가 달라지므로).
+  const compactMenuLive = compactMenu && compactMenu.pageId === page.id && compactMenu.key === selectedObjects.map((o) => o.id).join(',')
+    && compactMenu.zoom === zoom && compactMenu.ox === offset.x && compactMenu.oy === offset.y
+  useEffect(() => { if (compactMenu && !compactMenuLive) setCompactMenu(null) }, [compactMenu, compactMenuLive])
+  const compactMenuLayout = compactMenuLive && stageSize && placeCompactMenu({
+    bar: { left: offset.x + compactMenu.anchor.left, top: offset.y + compactMenu.anchor.top, width: compactMenu.anchor.width, height: compactMenu.anchor.height },
+    floor: stageSize.height - (12 + 44 + 8), ceil: 8, stageWidth: stageSize.width,
+  })
   // 레이어 패널을 열고 닫을 때도 페이지 목록처럼 새 작업창 크기를 바로 써서 툴바와 페이지가 한 번에 같이 움직이게 한다.
   // 패널은 오른쪽 바깥 여백(16)을 덮으므로 작업창 폭은 패널 폭 + 간격 - 16 만큼 바뀐다.
   const toggleLayers = (open) => {
@@ -739,8 +750,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               <Canvas
                 showBackground={loaded}
                 compact={compact}
-                // 폰 더보기 메뉴가 화면·하단 되돌리기 막대 밖으로 나가지 않게, 보이는 영역(페이지 좌표)을 넘긴다
-                menuBounds={stageSize ? { top: -offset.y / zoom + 8 / zoom, bottom: (stageSize.height - offset.y - (12 + 44 + 8)) / zoom } : null}
+                compactMenu={compactMenu}
+                onCompactMenu={(spec) => setCompactMenu(spec && { ...spec, pageId: page.id, zoom, ox: offset.x, oy: offset.y })}
                 activeTool={activeTool}
                 // 창이 열린 채 펜·형광펜·지우개로 캔버스를 누르면 그 터치로 그리지 않고 창만 닫는다
                 inputBlocker={bubbleOpen ? { ...markInside, onResponderRelease: closeBubbles } : null}
@@ -891,6 +902,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               />
             </View>
           )}
+
+          {compactMenuLayout && <CompactMenu {...compactMenuLayout} actions={compactMenu.actions} insideHandlers={markInside} />}
 
           {/* 폰은 패널이 작업창 위를 덮으므로, 되돌리기·저장 상태 막대를 열린 패널의 반대쪽으로 옮긴다. */}
           <View style={[styles.floating, undoOnRight ? styles.floatingRight : styles.floatingLeft]}>

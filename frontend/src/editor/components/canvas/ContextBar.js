@@ -23,7 +23,8 @@ export const LINKABLE_TYPES = ['sticker', 'tape', 'photo']
 /** 선택한 요소 근처에 뜨는 빠른 편집 바. 자르기·그룹·순서·잠금·복제·삭제만 두고, 꾸미기는 '옵션'(MorePanel) 에서 */
 export default function ContextBar({
   compact = false,
-  menuBounds = null, // 더보기 메뉴를 넣을 수 있는 세로 범위(페이지 좌표). 없으면 페이지 전체
+  compactMenu = null, // 폰 더보기 메뉴 상태 (EditorScreen 이 stage 위에 그린다. 페이지 밖까지 터치를 받게)
+  onCompactMenu, // 더보기 메뉴 열기(명세 전달)·닫기(null)
   objects,
   allObjects,
   lassoActions = null,
@@ -55,9 +56,7 @@ export default function ContextBar({
   const [orderOpen, setOrderOpen] = useState(false)
   // 더보기 메뉴는 연 선택에서만 열린 것으로 본다. 다른 요소를 고르면 저절로 닫힌다.
   const selectionKey = objects.map((o) => o.id).join(',')
-  const [compactMenuFor, setCompactMenuFor] = useState(null)
-  const compactMenuOpen = compactMenuFor === selectionKey
-  const setCompactMenuOpen = (open) => setCompactMenuFor(open ? selectionKey : null)
+  const compactMenuOpen = compactMenu?.key === selectionKey
   const [orderRight, setOrderRight] = useState(0) // 순서 버튼 오른쪽 끝 (바 기준). 순서 메뉴를 여기에 맞춘다.
   const ids = objects.map((o) => o.id)
   const editable = objects.filter((o) => !o.locked)
@@ -76,15 +75,6 @@ export default function ContextBar({
   // 순서 메뉴는 바 위·아래 중 페이지 안에 더 넉넉한 쪽으로 편다.
   const menuBelow = pageH - (top + BAR_HEIGHT) >= top
   const left = clamp(bounds.cx * zoom - barWidth / 2, 8, Math.max(8, pageW - barWidth - 8))
-  // 더보기 메뉴는 바 오른쪽 끝에 맞춰 아래로 편다. 아래(화면 하단 막대 위까지)에 자리가 모자라면 위로 펴고, 항목은 안에서 스크롤한다.
-  const menuFloor = menuBounds ? menuBounds.bottom * zoom : pageH // 페이지 아래로 삐져나가도 된다 (화면 하단 막대 위까지)
-  const menuCeil = menuBounds ? Math.max(0, menuBounds.top * zoom) : 0
-  const spaceBelow = menuFloor - (top + BAR_HEIGHT + 6)
-  const spaceAbove = top - 6 - menuCeil
-  // 아래 자리가 두 항목(88)도 안 될 때만 위로 올린다. 위로 가도 바에 붙어서(bottom 기준) 펴진다.
-  const compactMenuBelow = spaceBelow >= 88 || spaceBelow >= spaceAbove
-  const compactMenuHeight = clamp(compactMenuBelow ? spaceBelow : spaceAbove, 88, COMPACT_MENU_HEIGHT)
-  const compactMenuPosition = { left: Math.max(EDGE, left + barWidth - 166), top: compactMenuBelow ? top + BAR_HEIGHT + 6 : top - 6 - compactMenuHeight }
   // 링크 카드: Google 슬라이드처럼 편집 바와 따로, 요소의 반대쪽(바가 아래면 위)에 띄운다. 주소를 누르면 열린다.
   const chipTop = clamp(below ? bounds.top * zoom - ROTATE_CLEARANCE - CHIP_HEIGHT : bounds.bottom * zoom + GAP, EDGE, Math.max(EDGE, pageH - CHIP_HEIGHT - EDGE))
   const chipLeft = clamp(bounds.cx * zoom - chipWidth / 2, 8, Math.max(8, pageW - chipWidth - 8))
@@ -132,22 +122,23 @@ export default function ContextBar({
     ]
     const inlineCount = fitInline(leading, actions, Math.max(120, pageW - EDGE * 2))
     const overflow = actions.slice(inlineCount).map((action) => ({ ...action, onPress: () => {
-      setCompactMenuOpen(false)
+      onCompactMenu?.(null)
       if (action.label === '순서') return setOrderOpen(true)
       action.onPress()
     } }))
+    // 메뉴는 페이지(캔버스) 밖, stage 위에 그린다. Android 는 부모 경계 밖에 그려진 자식에 터치를 주지 않아서 페이지 안에 두면 아래로 삐져나간 항목을 누를 수 없다.
+    const openCompactMenu = () => onCompactMenu?.(compactMenuOpen ? null : { key: selectionKey, anchor: { left, top, width: barWidth, height: BAR_HEIGHT }, actions: overflow })
     return <>
       <View accessibilityLabel="객체 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]}
         onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} onStartShouldSetResponder={() => true} {...insideHandlers}>
         {leading.map((action) => <BarButton key={action.label} {...action} />)}
         {leading.length > 0 && <View style={styles.divider} />}
-        {actions.slice(0, inlineCount).map((action) => <BarButton key={action.label} {...action} onPress={() => { setCompactMenuOpen(false); action.onPress() }} />)}
-        {overflow.length > 0 && <BarButton icon="more" label="더보기" active={compactMenuOpen} onPress={() => { setCompactMenuOpen(!compactMenuOpen); setOrderOpen(false) }} />}
+        {actions.slice(0, inlineCount).map((action) => <BarButton key={action.label} {...action} onPress={() => { onCompactMenu?.(null); action.onPress() }} />)}
+        {overflow.length > 0 && <BarButton icon="more" label="더보기" active={compactMenuOpen} onPress={() => { openCompactMenu(); setOrderOpen(false) }} />}
         {orderOpen && <OrderMenu placement={menuBelow ? 'below' : 'above'} right={Math.max(MENU_WIDTH, barWidth - 5)} objects={objects} allObjects={allObjects} onPick={(mode) => dispatch({ type: 'reorder', ids, mode })} />}
       </View>
-      {/* 메뉴를 52px 높이 바 밖의 형제로 둬서 네이티브에서도 전체 영역이 스크롤 터치를 받는다. */}
-      {compactMenuOpen && overflow.length > 0 && <CompactMenu position={compactMenuPosition} maxHeight={compactMenuHeight} insideHandlers={insideHandlers} actions={overflow} />}
       {linkCard}
+      {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} anchor={{ top, height: BAR_HEIGHT }} />}
     </>
   }
 
@@ -283,7 +274,20 @@ export function fitInline(leading, actions, barMax) {
   return count
 }
 
-function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
+/**
+ * 폰 더보기 메뉴. ContextBar 가 넘긴 명세(anchor: 바의 페이지 좌표·크기, actions)로 EditorScreen 이 stage 위에 그린다.
+ * stage 좌표의 바 위치와 위·아래 한계(floor/ceil)를 받아, 바 오른쪽 끝에 맞춰 아래로 펴고 자리가 모자라면 바 바로 위로 편다.
+ */
+export function placeCompactMenu({ bar, floor, ceil, stageWidth }) {
+  const spaceBelow = floor - (bar.top + bar.height + 6)
+  const spaceAbove = bar.top - 6 - ceil
+  // 아래 자리가 두 항목(88)도 안 될 때만 위로 올린다.
+  const below = spaceBelow >= 88 || spaceBelow >= spaceAbove
+  const maxHeight = clamp(below ? spaceBelow : spaceAbove, 88, COMPACT_MENU_HEIGHT)
+  return { maxHeight, position: { left: clamp(bar.left + bar.width - 166, EDGE, Math.max(EDGE, stageWidth - 166 - EDGE)), top: below ? bar.top + bar.height + 6 : bar.top - 6 - maxHeight } }
+}
+
+export function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
   // 기기에서 ScrollView 는 캔버스(Viewport) 터치 처리에 밀려 끌기를 받지 못했다. 그래서 메뉴가 직접 끌기를 받아 항목을 위아래로 옮긴다.
   // 누르기는 항목(Pressable)이 먼저 받고, 손가락이 세로로 움직이면 메뉴가 responder 를 넘겨받아 스크롤한다.
   const [scroll, setScroll] = useState({ offset: 0, contentHeight: 0, startY: null, startOffset: 0 })

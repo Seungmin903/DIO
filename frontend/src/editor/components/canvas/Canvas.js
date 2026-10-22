@@ -53,7 +53,8 @@ const MIN_TARGET_PX = 44
 export default function Canvas({
   showBackground = true,
   compact = false,
-  menuBounds = null,
+  compactMenu = null,
+  onCompactMenu,
   page,
   zoom,
   selectedIds,
@@ -411,7 +412,8 @@ export default function Canvas({
         <View pointerEvents="box-none" style={styles.selectionMenu}>
         <ContextBar
           compact={compact}
-          menuBounds={menuBounds}
+          compactMenu={compactMenu}
+          onCompactMenu={onCompactMenu}
           onTextLink={onTextLink}
           onObjectLink={onObjectLink}
           onCopyLink={onCopyLink}
@@ -790,8 +792,7 @@ const styles = StyleSheet.create({
   menuDisabled: { opacity: 0.35 },
   menuText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   selectionControls: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
-  // overflow visible: 폰 더보기 메뉴가 페이지 아래로 삐져나가도 Android 에서 터치를 받게 한다.
-  selectionMenu: { ...StyleSheet.absoluteFillObject, zIndex: 4, overflow: 'visible' },
+  selectionMenu: { ...StyleSheet.absoluteFillObject, zIndex: 4 },
   penClip: {
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',
