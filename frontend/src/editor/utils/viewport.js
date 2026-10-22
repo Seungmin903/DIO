@@ -17,6 +17,14 @@ export function shouldTurnToPreviousPage({ panY = 0, zoomed = false, cancelled =
   return view.y >= stage.height - PAGE_VISIBLE_EDGE - 1
 }
 
+// TextEditor 초안은 포커스를 잃을 때 저장되므로 편집 중에는 페이지를 바꾸지 않는다.
+export function automaticPageTurn({ motion, view, stage, pageHeight, bottomPadding, hasPrevious, hasNext, textEditing }) {
+  if (textEditing) return null
+  if (hasPrevious && shouldTurnToPreviousPage(motion, view, stage)) return 'previous'
+  if (hasNext && shouldTurnToNextPage(motion, view, stage, pageHeight, bottomPadding)) return 'next'
+  return null
+}
+
 export function centeredOffset(stage, zoom, pageWidth, pageHeight, padding) {
   if (!stage) return { x: padding.side, y: padding.top }
   return {

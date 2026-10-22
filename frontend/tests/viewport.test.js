@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { centeredOffset, clampOffset, panView, shouldTurnToNextPage, shouldTurnToPreviousPage } from '../src/editor/utils/viewport.js'
+import { automaticPageTurn, centeredOffset, clampOffset, panView, shouldTurnToNextPage, shouldTurnToPreviousPage } from '../src/editor/utils/viewport.js'
 
 const padding = { top: 84, bottom: 76, side: 28 }
 const page = { width: 1188, height: 840 }
@@ -71,4 +71,22 @@ test('확대·취소된 제스처면 페이지를 넘기지 않는다', () => {
   assert.equal(shouldTurnToNextPage({ panY: -100, cancelled: true }, bottomEdge, stage, page.height, padding.bottom), false)
   assert.equal(shouldTurnToPreviousPage({ panY: 100, zoomed: true }, topEdge, stage), false)
   assert.equal(shouldTurnToPreviousPage({ panY: 100, cancelled: true }, topEdge, stage), false)
+})
+
+test('기존 텍스트를 편집하며 포커스를 유지한 동안에는 이전·다음 페이지로 자동 전환하지 않는다', () => {
+  const stage = { width: 700, height: 700 }
+  const editing = { id: 'text-1', pageId: 'page-1', existing: true, text: '저장 전 수정 내용' }
+  const common = { stage, pageHeight: page.height, bottomPadding: padding.bottom, hasPrevious: true, hasNext: true, textEditing: editing }
+  assert.equal(automaticPageTurn({ ...common, motion: { panY: -100 }, view: { zoom: 1, y: 80 - page.height } }), null)
+  assert.equal(automaticPageTurn({ ...common, motion: { panY: 100 }, view: { zoom: 1, y: stage.height - 80 } }), null)
+  assert.equal(editing.text, '저장 전 수정 내용')
+})
+
+test('새 텍스트 입력 중에는 이전·다음 페이지로 자동 전환하지 않는다', () => {
+  const stage = { width: 700, height: 700 }
+  const editing = { id: 'draft-1', pageId: 'page-1', existing: false, text: '새 초안' }
+  const common = { stage, pageHeight: page.height, bottomPadding: padding.bottom, hasPrevious: true, hasNext: true, textEditing: editing }
+  assert.equal(automaticPageTurn({ ...common, motion: { panY: -100 }, view: { zoom: 1, y: 80 - page.height } }), null)
+  assert.equal(automaticPageTurn({ ...common, motion: { panY: 100 }, view: { zoom: 1, y: stage.height - 80 } }), null)
+  assert.equal(editing.text, '새 초안')
 })
