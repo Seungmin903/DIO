@@ -36,6 +36,7 @@ export default function TapeCropper({
   const ratio = fixedRatio ?? size.w / size.h
 
   const cardWidth = Math.min(720, window.width - 48)
+  const compactSizePicker = cardWidth < 480
   const frameWidth = cardWidth - 48 - 40
   const frameHeight = frameWidth / ratio
   const photo = { imageWidth: image.width, imageHeight: image.height, crop }
@@ -156,20 +157,21 @@ export default function TapeCropper({
             </View>
           </View>
           {!fixedRatio && (
-            <View style={styles.row}>
+            <View style={[styles.row, compactSizePicker && styles.sizeRowCompact]}>
               <Text style={styles.label}>규격</Text>
-              <View style={styles.segment}>
+              <View style={[styles.segment, compactSizePicker && styles.segmentCompact]}>
                 {TAPE_SIZES.map((item) => (
                   <Pressable
                     key={item.id}
                     onPress={() => setSizeId(item.id)}
-                    style={[styles.segmentItem, sizeId === item.id && styles.segmentActive]}
+                    style={[styles.segmentItem, compactSizePicker && styles.segmentItemCompact, sizeId === item.id && styles.segmentActive]}
                     accessibilityRole="button"
                     accessibilityState={{ selected: sizeId === item.id }}
                   >
-                    <Text style={[styles.segmentText, sizeId === item.id && styles.segmentTextActive]}>
-                      {item.name} {item.hint}
+                    <Text style={[styles.segmentText, compactSizePicker && styles.segmentTextCompact, sizeId === item.id && styles.segmentTextActive]}>
+                      {item.name}{!compactSizePicker && ` ${item.hint}`}
                     </Text>
+                    {compactSizePicker && <Text style={styles.segmentHint}>{item.hint}</Text>}
                   </Pressable>
                 ))}
               </View>
@@ -213,6 +215,11 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: colors.surface, ...shadow.card },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
   segmentTextActive: { color: colors.text, fontWeight: '800' },
+  sizeRowCompact: { flexDirection: 'column', alignItems: 'stretch', gap: 8 },
+  segmentCompact: { width: '100%' },
+  segmentTextCompact: { textAlign: 'center' },
+  segmentHint: { fontSize: 10, color: colors.textMuted },
+  segmentItemCompact: { flex: 1, minWidth: 0, height: 'auto', minHeight: 48, paddingHorizontal: 4, paddingVertical: 6, alignItems: 'center' },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 20 },
   button: {
     height: 44,
