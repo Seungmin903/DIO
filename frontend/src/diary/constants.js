@@ -8,7 +8,7 @@ export const C = {
   line: colors.border,
   canvas: colors.surfaceSoft, // 편집 화면 작업 영역과 같은 바탕
   blue: colors.primary,
-  pale: '#EEF2F9', // 편집 옵션 창의 회색 칩·세그먼트 판
+  pale: colors.surfaceMuted, // 편집 옵션 창의 회색 칩·세그먼트 판
   active: colors.surfaceSoft, // 흰 막대에서 고른 항목 (편집 상단의 켜진 페이지·레이어 버튼과 같게)
   danger: colors.danger,
   white: colors.surface,

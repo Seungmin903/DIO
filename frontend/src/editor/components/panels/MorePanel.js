@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     padding: 3,
     borderRadius: 12,
-    backgroundColor: '#EEF2F9',
+    backgroundColor: colors.surfaceMuted,
   },
   tab: { flex: 1, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 9 },
   tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.14)' },

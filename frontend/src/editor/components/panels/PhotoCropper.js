@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#EEF2F9',
+    backgroundColor: colors.surfaceMuted,
     // 웹: 두 손가락 확대가 브라우저 화면 확대로 새지 않게
     ...Platform.select({ web: { touchAction: 'none' }, default: {} }),
   },

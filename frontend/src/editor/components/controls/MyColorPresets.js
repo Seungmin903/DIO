@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { colors } from '../../../shared/theme'
+import { colors, DISABLED_OPACITY } from '../../../shared/theme'
 import { normalizeHex } from '../../utils/penSettings'
 import ColorPicker from './ColorPicker'
 import Icon from './Icon'
@@ -142,8 +142,8 @@ const styles = StyleSheet.create({
   inner: { position: 'absolute', right: 3, bottom: 3, width: 8, height: 8, borderRadius: 4 },
   remove: { position: 'absolute', right: -5, top: -5, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   add: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', backgroundColor: colors.surface },
-  addOpen: { backgroundColor: '#EEF2F9' },
+  addOpen: { backgroundColor: colors.surfaceMuted },
   saveButton: { height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors.primary },
   saveText: { fontSize: 13, fontWeight: '800', color: colors.surface },
-  dim: { opacity: 0.4 },
+  dim: { opacity: DISABLED_OPACITY },
 })

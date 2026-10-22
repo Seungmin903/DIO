@@ -1,7 +1,7 @@
 import { ToolPanelHeader, toolPanelStyles } from '../ToolPanel'
 import { createContext, useContext, useRef, useState } from 'react'
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { colors, radius, shadow } from '../../../shared/theme'
+import { colors, radius, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import { TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
 import { RECENT_LIMIT, stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
 import { STICKER_GROUPS, stickerSource } from '../../stickerAssets'
@@ -257,7 +257,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
             accessibilityState={{ selected: editingList }}
             style={({ pressed }) => [styles.headerButton, editingList && styles.headerButtonActive, pressed && styles.pressed]}
           >
-            <Icon name={editingList ? 'check' : 'grip'} size={14} color={editingList ? colors.surface : colors.textMuted} />
+            <Icon name={editingList ? 'check' : 'grip'} size={14} color={editingList ? colors.text : colors.textMuted} />
             <Text style={[styles.headerButtonText, editingList && styles.headerButtonTextActive]}>{editingList ? '편집 완료' : '목록 편집'}</Text>
           </Pressable>
         )}
@@ -597,7 +597,7 @@ function Pill({ label, icon, dashed, active, onPress }) {
       accessibilityState={{ selected: active }}
       style={({ pressed }) => [styles.pill, icon && styles.pillWithIcon, dashed && styles.pillDashed, active && styles.pillActive, pressed && !active && styles.pressed]}
     >
-      {icon && <Icon name={icon} size={13} strokeWidth={2} color={active ? colors.surface : colors.textMuted} />}
+      {icon && <Icon name={icon} size={13} strokeWidth={2} color={active ? colors.text : colors.textMuted} />}
       <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
     </Pressable>
   )
@@ -900,9 +900,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: '800', color: colors.text },
   close: { padding: 8 },
   headerButton: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 32, paddingHorizontal: 10, borderRadius: 9 },
-  headerButtonActive: { backgroundColor: colors.text },
+  headerButtonActive: { backgroundColor: colors.surfaceSoft },
   headerButtonText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
-  headerButtonTextActive: { color: colors.surface },
+  headerButtonTextActive: { color: colors.text },
   fixed: { paddingHorizontal: BODY_X, paddingBottom: 8, gap: 8 },
   optionRow: {
     flexDirection: 'row',
@@ -918,7 +918,7 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: '#EEF2F9',
+    backgroundColor: colors.surfaceMuted,
   },
   searchInput: {
     flex: 1,
@@ -943,13 +943,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     justifyContent: 'center',
     borderRadius: 17,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    backgroundColor: colors.surfaceMuted,
   },
-  pillActive: { backgroundColor: colors.text, borderColor: colors.text },
+  // 선택: 흰 바탕 + 파란 테두리 (docs/design-guide.md 7장)
+  pillActive: { backgroundColor: colors.surface, borderColor: colors.primary },
   pillWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  pillDashed: { borderStyle: 'dashed', backgroundColor: 'transparent' },
+  pillDashed: { borderStyle: 'dashed', borderWidth: 1, borderColor: colors.border, backgroundColor: 'transparent' },
   folderInputRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   folderInput: {
     flex: 1,
@@ -969,7 +970,7 @@ const styles = StyleSheet.create({
   },
   folderInputButton: { height: 38, paddingHorizontal: 12, borderRadius: 10, justifyContent: 'center' },
   folderOk: { backgroundColor: colors.primary },
-  folderOkDisabled: { opacity: 0.35 },
+  folderOkDisabled: { opacity: DISABLED_OPACITY },
   folderCancelText: { fontSize: 12.5, fontWeight: '700', color: colors.textMuted },
   folderOkText: { fontSize: 12.5, fontWeight: '800', color: colors.surface },
   folderAction: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
@@ -1006,7 +1007,7 @@ const styles = StyleSheet.create({
   editName: { flex: 1, fontSize: 13, fontWeight: '700', color: colors.text },
   editButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 9 },
   pillText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
-  pillTextActive: { color: colors.surface, fontWeight: '800' },
+  pillTextActive: { color: colors.text, fontWeight: '800' },
   empty: {
     paddingVertical: 20,
     textAlign: 'center',
@@ -1101,7 +1102,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 3,
     borderRadius: 11,
-    backgroundColor: '#EEF2F9',
+    backgroundColor: colors.surfaceMuted,
   },
   segmentItem: {
     height: 36,

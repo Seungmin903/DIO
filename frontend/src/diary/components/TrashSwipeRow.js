@@ -1,5 +1,6 @@
 import { memo, useRef, useState } from 'react';
 import { C } from '../constants';
+import { DISABLED_OPACITY } from '../../shared/theme';
 import { Animated, PanResponder, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
@@ -40,7 +41,7 @@ function TrashSwipeRow({ diary, onRestore, onDelete, now = Date.now() }) {
         accessibilityElementsHidden={!open}
         importantForAccessibility={open ? 'auto' : 'no-hide-descendants'}
       >
-        <Pressable accessibilityRole="button" accessibilityLabel={`${diary.title} 복원`} disabled={expired} accessibilityState={{ disabled: expired }} onPress={restore} style={({ pressed }) => [s.trashRowAction, s.trashRowRestore, expired && { opacity: 0.45 }, pressed && s.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${diary.title} 복원`} disabled={expired} accessibilityState={{ disabled: expired }} onPress={restore} style={({ pressed }) => [s.trashRowAction, s.trashRowRestore, expired && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}>
           <Text style={s.trashRowActionText}>복원</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`${diary.title} 영구 삭제`} onPress={remove} style={({ pressed }) => [s.trashRowAction, s.trashRowDelete, pressed && s.pressed]}>

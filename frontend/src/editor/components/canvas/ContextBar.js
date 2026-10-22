@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { colors, shadow } from '../../../shared/theme'
+import { colors, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
 import { clamp, unionBounds } from '../../utils/common'
 import Icon from '../controls/Icon'
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   menuTextDisabled: { color: 'rgba(11,25,87,0.3)' },
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
-  buttonDisabled: { opacity: 0.35 },
+  buttonDisabled: { opacity: DISABLED_OPACITY },
   iconButton: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: colors.primarySoft },
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },

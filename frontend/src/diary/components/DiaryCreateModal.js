@@ -10,6 +10,7 @@ import DiaryPresets, { CompositionSummary } from './DiaryPresets';
 import AppIcon from '../../shared/AppIcon';
 import { MODAL_ORIENTATIONS } from '../../editor/components/controls/EditorModal';
 import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, PAGE_SIZES, C } from '../constants';
+import { DISABLED_OPACITY } from '../../shared/theme';
 import { styles as s } from '../styles';
 import Cover from './Cover';
 
@@ -232,7 +233,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
               accessibilityLabel={coloring ? '내지 구성으로 돌아가기' : configuring ? '추천 구성으로 돌아가기' : '이름과 표지로 돌아가기'}
               disabled={saving}
               onPress={() => { changeFlow({ type: 'back' }); onPaletteInteraction(false); setError(''); }}
-              style={({ pressed }) => [s.createBack, pressed && s.pressed, saving && { opacity: 0.5 }]}
+              style={({ pressed }) => [s.createBack, pressed && s.pressed, saving && { opacity: DISABLED_OPACITY }]}
             >
               <AppIcon name="chevron-left" size={18} color={C.inkSoft} />
               <Text style={s.createBackText}>{coloring ? '내지 구성' : configuring ? '추천 구성' : '이름과 표지'}</Text>
@@ -242,7 +243,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
               accessibilityLabel={actionLabel}
               disabled={saving || Boolean(configError)}
               onPress={onSave}
-              style={({ pressed }) => [s.createSubmit, pressed && s.pressed, (saving || Boolean(configError)) && { opacity: 0.5 }]}
+              style={({ pressed }) => [s.createSubmit, pressed && s.pressed, (saving || Boolean(configError)) && { opacity: DISABLED_OPACITY }]}
             >
               <Text style={s.createSubmitText}>{actionLabel}</Text>
               <AppIcon name="chevron-right" size={20} color="#FFFFFF" />

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Icon from '../controls/Icon'
-import { colors } from '../../../shared/theme'
+import { colors, DISABLED_OPACITY } from '../../../shared/theme'
 import { PHOTO_SHAPES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
 import { expandGroups } from '../../state/editorReducer'
@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { touchAction: 'none' }, default: {} }),
     backgroundColor: colors.surface,
     // 테두리 선은 두지 않는다: 태블릿에서 종이 위쪽에 회색 띠처럼 보였다. 종이와 바탕은 그림자로 구분한다.
-    shadowColor: '#0B1957',
+    shadowColor: colors.text,
     shadowOpacity: 0.16,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
   emptyMenu: { position: 'absolute', zIndex: 6, flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(110,146,198,0.2)', boxShadow: '0px 6px 14px rgba(11, 25, 87, 0.16)' },
   menuButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   menuPressed: { backgroundColor: colors.primarySoft },
-  menuDisabled: { opacity: 0.35 },
+  menuDisabled: { opacity: DISABLED_OPACITY },
   menuText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   selectionControls: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
   selectionMenu: { ...StyleSheet.absoluteFillObject, zIndex: 4 },

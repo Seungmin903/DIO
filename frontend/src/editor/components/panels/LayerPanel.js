@@ -598,7 +598,7 @@ export const LAYER_PANEL_WIDTH = 280
 
 const styles = StyleSheet.create({
   rowCarried: { opacity: 0.4 },
-  multiBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: 10, paddingVertical: 2, paddingLeft: 12, paddingRight: 4, borderRadius: 10, backgroundColor: '#EEF2F9' },
+  multiBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: 10, paddingVertical: 2, paddingLeft: 12, paddingRight: 4, borderRadius: 10, backgroundColor: colors.surfaceMuted },
   multiText: { fontSize: 13, fontWeight: '700', color: colors.text },
   multiDone: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.surface },
   multiDoneText: { fontSize: 13, fontWeight: '800', color: colors.primary },
@@ -675,7 +675,7 @@ const styles = StyleSheet.create({
   rowSelected: { backgroundColor: 'rgba(110,146,198,0.24)' },
   rowDragging: {
     backgroundColor: '#F4F7FC',
-    shadowColor: '#0B1957',
+    shadowColor: colors.text,
     shadowOpacity: 0.18,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },

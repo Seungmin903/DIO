@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   notice: { gap: 6 },
   hint: { color: colors.textMuted, fontSize: 12.5, lineHeight: 19 },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tile: { width: 104, padding: 4, gap: 4, alignItems: 'center', borderRadius: 10, borderWidth: 1.5, borderColor: 'transparent', backgroundColor: '#EEF2F9' },
+  tile: { width: 104, padding: 4, gap: 4, alignItems: 'center', borderRadius: 10, borderWidth: 1.5, borderColor: 'transparent', backgroundColor: colors.surfaceMuted },
   tileOn: { borderColor: colors.primary, backgroundColor: colors.surface },
   tileThumb: { width: 96, overflow: 'hidden', borderRadius: 4, backgroundColor: colors.surface },
   tileText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },

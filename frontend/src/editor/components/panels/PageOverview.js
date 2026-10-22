@@ -115,7 +115,7 @@ const OverviewItem = memo(function OverviewItem({ page, number, active, onSelect
 }, (previous, next) => previous.page === next.page && previous.number === next.number && previous.active === next.active)
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 50, elevation: 50, padding: 24, backgroundColor: 'rgba(11,25,87,0.28)' },
+  backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 50, elevation: 50, padding: 24, backgroundColor: colors.scrim },
   sheet: { flex: 1, borderRadius: PANEL_RADIUS, backgroundColor: '#EEF2FA', overflow: 'hidden', ...shadow.float },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: colors.surface },
   phoneBackdrop: { position: 'relative', top: undefined, bottom: undefined, left: undefined, right: undefined, flex: 1, padding: 12 },

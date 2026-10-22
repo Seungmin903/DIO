@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   docTitle: { flex: 1, minWidth: 0, marginLeft: 4, justifyContent: 'center' },
-  docTitleText: { fontSize: 15, fontWeight: '850', letterSpacing: -0.3 },
+  docTitleText: { fontSize: 15, fontWeight: '800', letterSpacing: -0.3 },
   pageLabel: { marginTop: 2, fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, color: colors.textMuted },
   titleInputCompact: { minWidth: 0, alignSelf: 'stretch' },
   spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92 },

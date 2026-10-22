@@ -1,6 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useRef, useState } from 'react'
 import { BackHandler, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, shadow } from '../../shared/theme'
+import { colors, shadow, DISABLED_OPACITY } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
 import { createRegionExportSnapshot } from '../utils/regionExport.js'
@@ -1091,7 +1091,7 @@ const styles = StyleSheet.create({
   roundButton: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   roundActive: { backgroundColor: colors.surfaceSoft },
   roundPressed: { backgroundColor: colors.primarySoft },
-  roundDisabled: { opacity: 0.3 },
+  roundDisabled: { opacity: DISABLED_OPACITY },
   toast: {
     position: 'absolute',
     bottom: 64,
