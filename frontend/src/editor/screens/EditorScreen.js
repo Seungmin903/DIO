@@ -692,7 +692,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           onClose={() => setOverviewFilter(null)}
         />
       )}
-      {templatePickerOpen && !readOnly && <TemplatePicker orientation={templateOrientation} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 }} onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
+      {templatePickerOpen && !readOnly && <TemplatePicker compact={compact} orientation={templateOrientation} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 }} onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={[styles.body, compact && styles.bodyCompact]}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
