@@ -1,7 +1,7 @@
 import EditorModal from './controls/EditorModal'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { ExportButton } from './ExportScreen'
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../shared/theme'
 import { pageSize } from '../utils/pageGeometry.js'
@@ -22,17 +22,20 @@ const RUN_TITLES = { png: 'PNG 만들기', pdf: 'PDF 만들기', gif: 'GIF 만�
 const BUBBLE_WIDTH = 380
 
 /** 무엇을·어떤 형식으로 내보낼지 고르는 말풍선. 만들기를 누르면 닫히고, 만들기·저장은 편집 화면이 화면 없이 진행한다 (ExportRunner) */
-export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, onPng, onGif, onPdf }) {
+export default function ExportMenu({ mobilePortrait = false, anchor, doc, currentId, onClose, onRegion, onPng, onGif, onPdf }) {
   const viewport = useWindowDimensions()
+  const Root = mobilePortrait ? View : Fragment
+  const [modalHeight, setModalHeight] = useState(null)
+  const centered = mobilePortrait || !anchor
   // 말풍선: 내보내기 버튼 바로 아래, 오른쪽 끝을 버튼에 맞추고 꼬리가 버튼 가운데를 가리킨다
   const panelWidth = Math.min(BUBBLE_WIDTH, viewport.width - 32)
   const panelTop = Math.min(anchor ? anchor.y + anchor.height + 12 : 80, Math.max(16, viewport.height - 200))
   const panelLeft = Math.max(16, Math.min(anchor ? anchor.x + anchor.width - panelWidth : (viewport.width - panelWidth) / 2, viewport.width - panelWidth - 16))
   const tailLeft = anchor ? Math.min(panelWidth - 28, Math.max(16, anchor.x + anchor.width / 2 - panelLeft - 8)) : null
   // 기준 버튼이 없으면(폰) 말풍선 대신 화면 가운데 창으로 띄운다.
-  const placement = anchor
+  const placement = !centered
     ? { position: 'absolute', width: panelWidth, left: panelLeft, top: panelTop, maxHeight: viewport.height - panelTop - 16 }
-    : { width: panelWidth, maxHeight: viewport.height - 32 }
+    : { width: panelWidth, maxHeight: Math.max(1, (mobilePortrait ? modalHeight ?? viewport.height : viewport.height) - 32) }
   const [mode, setMode] = useState('current'), [format, setFormat] = useState('png')
   const number = doc.pages.findIndex((p) => p.id === currentId) + 1
   const [spec, setSpec] = useState(String(number)) // 페이지 지정: '1-3, 5'
@@ -79,11 +82,12 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
     setFormat(value === 'current' ? 'png' : 'pdf')
   }
   return <EditorModal visible transparent animationType="fade" onRequestClose={onClose}>
+    <Root {...(mobilePortrait ? { style: styles.portraitRoot, onLayout: (event) => setModalHeight(event.nativeEvent.layout.height) } : {})}>
     {/* 화면을 어둡게 덮지 않는다 (덮으면 뒤의 요소가 반투명해 보였다). 바깥을 누르면 닫는다 */}
     <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="내보내기 닫기" />
     {/* 꼬리는 카드 바깥에 그린다 (카드 안에 두면 둥근 모서리 자르기에 가려졌다) */}
-    {tailLeft != null && <View pointerEvents="none" style={[styles.tail, { left: panelLeft + tailLeft, top: panelTop - 7 }]} />}
-    <View style={anchor ? StyleSheet.absoluteFill : styles.center} pointerEvents="box-none">
+    {!centered && tailLeft != null && <View pointerEvents="none" style={[styles.tail, { left: panelLeft + tailLeft, top: panelTop - 7 }]} />}
+    <View style={mobilePortrait ? styles.portraitCenter : anchor ? StyleSheet.absoluteFill : styles.center} pointerEvents="box-none">
     <View style={[toolPanelStyles.card, styles.card, placement]} accessibilityViewIsModal>
       <ToolPanelHeader icon="share" title="내보내기" closeLabel="내보내기 창 닫기" onClose={onClose} />
       <ScrollView contentContainerStyle={toolPanelStyles.content}>
@@ -112,10 +116,13 @@ export default function ExportMenu({ anchor, doc, currentId, onClose, onRegion, 
       </ScrollView>
     </View>
     </View>
+    </Root>
   </EditorModal>
 }
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface }, // 둥글기·그림자는 공용 옵션 창(카드)을 따른다
+  portraitRoot: { flex: 1 },
+  portraitCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 16 },
   // 말풍선 꼬리: 카드 위쪽에서 내보내기 버튼 가운데를 가리킨다
   tail: { position: 'absolute', width: 16, height: 16, borderRadius: 3, backgroundColor: colors.surface, transform: [{ rotate: '45deg' }] },
