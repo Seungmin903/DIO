@@ -188,7 +188,8 @@ const styles = StyleSheet.create({
     zIndex: 10,
     // 그림자는 뺀다: Android 는 반투명 바탕에 elevation 그림자를 주면 편집 영역 위에 회색 줄로 보였다
   },
-  barCompact: { height: 60, gap: 4, paddingHorizontal: 8 },
+  // 모바일은 상태 표시줄의 Safe Area와 같은 단색을 사용해 경계가 생기지 않게 한다.
+  barCompact: { height: 60, gap: 4, paddingHorizontal: 8, backgroundColor: colors.surface },
   homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 2 },
   home: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 },
   homePressed: { opacity: 0.6 },

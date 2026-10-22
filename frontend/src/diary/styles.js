@@ -2,7 +2,9 @@ import { StyleSheet } from 'react-native';
 import { C } from './constants';
 
 export const styles = StyleSheet.create({
+  provider: { flex: 1, backgroundColor: C.white },
   safe: { flex: 1, backgroundColor: C.canvas },
+  safeRow: { flex: 1, flexDirection: 'row' },
   viewport: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.canvas },
   app: { overflow: 'hidden', backgroundColor: C.canvas },
   shell: { flex: 1, flexDirection: 'row' },

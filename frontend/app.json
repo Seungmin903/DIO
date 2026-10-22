@@ -6,6 +6,7 @@
     "version": "1.0.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#FFFFFF",
     "androidStatusBar": {
       "hidden": true,
       "translucent": true
@@ -52,7 +53,13 @@
         }
       ],
       "./plugins/withPointerEvents",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-navigation-bar",
+        {
+          "hidden": true
+        }
+      ]
     ],
     "extra": {
       "eas": {

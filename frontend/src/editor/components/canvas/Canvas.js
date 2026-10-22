@@ -52,6 +52,9 @@ const MIN_TARGET_PX = 44
  */
 export default function Canvas({
   showBackground = true,
+  compact = false,
+  compactMenu = null,
+  onCompactMenu,
   page,
   zoom,
   selectedIds,
@@ -408,6 +411,9 @@ export default function Canvas({
       {canTouch && selected.length > 0 && !cropping && !interacting && !marquee && (
         <View pointerEvents="box-none" style={styles.selectionMenu}>
         <ContextBar
+          compact={compact}
+          compactMenu={compactMenu}
+          onCompactMenu={onCompactMenu}
           onTextLink={onTextLink}
           onObjectLink={onObjectLink}
           onCopyLink={onCopyLink}

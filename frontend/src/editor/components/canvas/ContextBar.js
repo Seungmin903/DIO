@@ -15,12 +15,16 @@ const ROTATE_CLEARANCE = 56 // 요소 위쪽 회전 손잡이(34 + 반지름 9)�
 const EDGE = 8 // 페이지 가장자리와 바 사이 여백
 const GAP = 18
 const MENU_WIDTH = 148
+const COMPACT_MENU_HEIGHT = 4.5 * 44 + 10 // 더보기 메뉴: 항목 네 개 반이 보이고 나머지는 스크롤
 /** 요소에 걸린 링크 (스티커·테이프·사진은 href, 텍스트는 글자 서식의 첫 링크) */
 const linkOf = (object) => object?.href ?? object?.styleRanges?.find((range) => range.href)?.href ?? null
 // 요소 전체에 하이퍼링크를 거는 요소 (텍스트는 글자 서식 링크로 따로 건다)
 export const LINKABLE_TYPES = ['sticker', 'tape', 'photo']
 /** 선택한 요소 근처에 뜨는 빠른 편집 바. 자르기·그룹·순서·잠금·복제·삭제만 두고, 꾸미기는 '옵션'(MorePanel) 에서 */
 export default function ContextBar({
+  compact = false,
+  compactMenu = null, // 폰 더보기 메뉴 상태 (EditorScreen 이 stage 위에 그린다. 페이지 밖까지 터치를 받게)
+  onCompactMenu, // 더보기 메뉴 열기(명세 전달)·닫기(null)
   objects,
   allObjects,
   lassoActions = null,
@@ -50,6 +54,9 @@ export default function ContextBar({
   const href = objects.length === 1 ? linkOf(objects[0]) : null
   const openLink = () => Linking.openURL(normalizeTextLink(href)).catch(() => onToast?.('링크를 열지 못했어요.'))
   const [orderOpen, setOrderOpen] = useState(false)
+  // 더보기 메뉴는 연 선택에서만 열린 것으로 본다. 다른 요소를 고르면 저절로 닫힌다.
+  const selectionKey = objects.map((o) => o.id).join(',')
+  const compactMenuOpen = compactMenu?.key === selectionKey
   const [orderRight, setOrderRight] = useState(0) // 순서 버튼 오른쪽 끝 (바 기준). 순서 메뉴를 여기에 맞춘다.
   const ids = objects.map((o) => o.id)
   const editable = objects.filter((o) => !o.locked)
@@ -90,6 +97,51 @@ export default function ContextBar({
   const linkable = single && !single.locked && LINKABLE_TYPES.includes(single.type)
   const hasLeading = objects.length > 1 || linkable
 
+  if (compact && single?.type !== 'text' && single?.type !== 'stroke') {
+    const cropable = !single?.locked && (single?.type === 'photo' || (single?.type === 'tape' && single.src && single.imageWidth))
+    const leading = [
+      cropable && { icon: 'crop', label: '자르기', onPress: () => onCrop(single.id) },
+      linkable && { icon: 'link', label: '링크', active: Boolean(single.href), onPress: () => onObjectLink?.(single) },
+      objects.length > 1 && { icon: 'folder', label: grouped ? '그룹 해제' : '그룹', onPress: () => {
+        dispatch({ type: grouped ? 'ungroup' : 'group', ids })
+        onToast(grouped ? '그룹을 풀었어요.' : '그룹으로 묶었어요. 레이어에서 폴더로 보여요.')
+      } },
+    ].filter(Boolean)
+    // 태블릿 바와 같은 순서. 바에 들어가는 만큼 앞에서부터 보이고, 넘치는 뒤쪽은 더보기 메뉴로 옮긴다.
+    const actions = [
+      { icon: 'layers', label: '순서', active: orderOpen, onPress: () => setOrderOpen(!orderOpen) },
+      { icon: 'more', label: '옵션', active: moreOpen, onPress: () => onToggleMore?.() },
+      { icon: allLocked ? 'unlock' : 'lock', label: allLocked ? '잠금 해제' : '잠금', onPress: () => dispatch({ type: 'updateMany', record: true, patches: Object.fromEntries(ids.map((id) => [id, { locked: !allLocked }])) }) },
+      { icon: 'copy', label: '복사', onPress: () => onCopy?.(objects) },
+      { icon: 'clipboard', label: '붙여넣기', disabled: !canPaste, onPress: () => onPaste?.() },
+      { icon: 'duplicate', label: '복제', onPress: () => dispatch({ type: 'duplicateObjects', ids }) },
+      { icon: 'trash', label: '삭제', danger: true, onPress: () => {
+        if (allLocked) return onToast('잠긴 요소예요. 잠금을 풀고 지워 주세요.')
+        dispatch({ type: 'removeObjects', ids: editable.map((o) => o.id) })
+      } },
+    ]
+    const inlineCount = fitInline(leading, actions, Math.max(120, pageW - EDGE * 2))
+    const overflow = actions.slice(inlineCount).map((action) => ({ ...action, onPress: () => {
+      onCompactMenu?.(null)
+      if (action.label === '순서') return setOrderOpen(true)
+      action.onPress()
+    } }))
+    // 메뉴는 페이지(캔버스) 밖, stage 위에 그린다. Android 는 부모 경계 밖에 그려진 자식에 터치를 주지 않아서 페이지 안에 두면 아래로 삐져나간 항목을 누를 수 없다.
+    const openCompactMenu = () => onCompactMenu?.(compactMenuOpen ? null : { key: selectionKey, anchor: { left, top, width: barWidth, height: BAR_HEIGHT }, actions: overflow })
+    return <>
+      <View accessibilityLabel="객체 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]}
+        onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} onStartShouldSetResponder={() => true} {...insideHandlers}>
+        {leading.map((action) => <BarButton key={action.label} {...action} />)}
+        {leading.length > 0 && <View style={styles.divider} />}
+        {actions.slice(0, inlineCount).map((action) => <BarButton key={action.label} {...action} onPress={() => { onCompactMenu?.(null); action.onPress() }} />)}
+        {overflow.length > 0 && <BarButton icon="more" label="더보기" active={compactMenuOpen} onPress={() => { openCompactMenu(); setOrderOpen(false) }} />}
+        {orderOpen && <OrderMenu placement={menuBelow ? 'below' : 'above'} right={Math.max(MENU_WIDTH, barWidth - 5)} objects={objects} allObjects={allObjects} onPick={(mode) => dispatch({ type: 'reorder', ids, mode })} />}
+      </View>
+      {linkCard}
+      {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} anchor={{ top, height: BAR_HEIGHT }} />}
+    </>
+  }
+
   // 텍스트 요소 선택: 문자열 복사는 편집 모드에서, 여기서는 상자 전체를 복제한다.
   if (single?.type === 'text' && !single.locked) return <>
     <View accessibilityLabel="텍스트 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
@@ -128,7 +180,7 @@ export default function ContextBar({
   return (
     <>
     <View
-      style={[styles.bar, { top, left, opacity: barWidth ? 1 : 0 }]}
+      style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]}
       onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
       onStartShouldSetResponder={() => true}
       {...insideHandlers}
@@ -207,6 +259,63 @@ export default function ContextBar({
       anchor={{ top, height: BAR_HEIGHT }} />}
     </>
   )
+}
+
+// 바 버튼 너비 어림값: 좌우 여백 20 + 아이콘 17 + 간격 5 + 글자(12.5px 굵은 한글 ≈ 13px) + 버튼 사이 2
+const barButtonWidth = (label) => 44 + label.length * 13
+const BAR_DIVIDER = 11 // 구분선 1 + 좌우 4 + 버튼 사이 2
+/** 바(좌우 안쪽 여백 10)에 앞쪽 버튼과 함께 넣을 수 있는 동작 수. 다 못 넣으면 더보기 버튼 자리를 남긴다. */
+export function fitInline(leading, actions, barMax) {
+  const space = barMax - 10 - leading.reduce((sum, action) => sum + barButtonWidth(action.label), 0) - (leading.length ? BAR_DIVIDER : 0)
+  const widths = actions.map((action) => barButtonWidth(action.label))
+  if (widths.reduce((sum, w) => sum + w, 0) <= space) return actions.length
+  let used = barButtonWidth('더보기'), count = 0
+  while (count < actions.length && used + widths[count] <= space) used += widths[count++]
+  return count
+}
+
+/**
+ * 폰 더보기 메뉴. ContextBar 가 넘긴 명세(anchor: 바의 페이지 좌표·크기, actions)로 EditorScreen 이 stage 위에 그린다.
+ * stage 좌표의 바 위치와 위·아래 한계(floor/ceil)를 받아, 바 오른쪽 끝에 맞춰 아래로 펴고 자리가 모자라면 바 바로 위로 편다.
+ */
+export function placeCompactMenu({ bar, floor, ceil, stageWidth }) {
+  const spaceBelow = floor - (bar.top + bar.height + 6)
+  const spaceAbove = bar.top - 6 - ceil
+  // 아래 자리가 두 항목(88)도 안 될 때만 위로 올린다.
+  const below = spaceBelow >= 88 || spaceBelow >= spaceAbove
+  const maxHeight = clamp(below ? spaceBelow : spaceAbove, 88, COMPACT_MENU_HEIGHT)
+  return { maxHeight, position: { left: clamp(bar.left + bar.width - 166, EDGE, Math.max(EDGE, stageWidth - 166 - EDGE)), top: below ? bar.top + bar.height + 6 : bar.top - 6 - maxHeight } }
+}
+
+export function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
+  // 기기에서 ScrollView 는 캔버스(Viewport) 터치 처리에 밀려 끌기를 받지 못했다. 그래서 메뉴가 직접 끌기를 받아 항목을 위아래로 옮긴다.
+  // 누르기는 항목(Pressable)이 먼저 받고, 손가락이 세로로 움직이면 메뉴가 responder 를 넘겨받아 스크롤한다.
+  const [scroll, setScroll] = useState({ offset: 0, contentHeight: 0, startY: null, startOffset: 0 })
+  const maxOffset = Math.max(0, scroll.contentHeight - maxHeight)
+  // pageY 가 없는 이벤트(손가락을 뗄 때 등)로는 움직이지 않는다. NaN 이 transform 에 들어가면 Android 가 죽는다.
+  const pageY = (event) => { const y = event.nativeEvent.pageY ?? event.nativeEvent.touches?.[0]?.pageY; return Number.isFinite(y) ? y : null }
+  const moved = (event) => { const y = pageY(event); return scroll.startY != null && y != null && Math.abs(y - scroll.startY) > 6 }
+  const drag = (event) => { const y = pageY(event); if (y != null) setScroll((prev) => (prev.startY == null ? prev : { ...prev, offset: clamp(prev.startOffset + (prev.startY - y), 0, maxOffset) })) }
+  return <View accessibilityLabel="객체 편집 더보기" style={[styles.compactMenu, position, { height: Math.min(maxHeight, scroll.contentHeight || maxHeight) }]}
+    // 누른 자리를 기억만 하고(캡처 단계는 모든 터치·마우스에 불린다) responder 는 항목에 양보한다
+    onStartShouldSetResponderCapture={(event) => { const y = pageY(event); setScroll((prev) => ({ ...prev, startY: y, startOffset: prev.offset })); return false }}
+    onStartShouldSetResponder={() => true} // 항목 사이 여백을 눌러도 캔버스로 새지 않게
+    onMoveShouldSetResponder={moved} onMoveShouldSetResponderCapture={moved}
+    onResponderTerminationRequest={() => false}
+    onResponderMove={drag} onResponderRelease={drag}
+    {...insideHandlers}>
+    <View style={[styles.compactMenuContent, { transform: [{ translateY: -scroll.offset }] }]} onLayout={(event) => setScroll((prev) => ({ ...prev, contentHeight: event.nativeEvent.layout.height }))}>
+      {actions.map((action) => <MenuAction key={action.label} {...action} style={styles.compactMenuItem} />)}
+    </View>
+    {maxOffset > 0 && <View pointerEvents="none" style={[styles.compactMenuThumb, { height: Math.max(18, maxHeight * maxHeight / scroll.contentHeight), top: 4 + (maxHeight - 8 - Math.max(18, maxHeight * maxHeight / scroll.contentHeight)) * (scroll.offset / maxOffset) }]} />}
+  </View>
+}
+
+function MenuAction({ icon, label, danger, disabled, onPress, style }) {
+  const color = danger ? colors.danger : disabled ? colors.border : colors.text
+  return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.menuItem, style, pressed && styles.pressed]}>
+    <Icon name={icon} size={18} color={color} /><Text style={[styles.menuText, { color }]}>{label}</Text>
+  </Pressable>
 }
 
 const ORDER_ACTIONS = [
@@ -312,6 +421,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     ...shadow.float,
   },
+  compactMenu: { position: 'absolute', width: 166, borderRadius: 14, backgroundColor: colors.surface, zIndex: 8, overflow: 'hidden', ...shadow.float },
+  compactMenuContent: { paddingVertical: 5 },
+  compactMenuItem: { paddingHorizontal: 15, borderRadius: 0 },
+  compactMenuThumb: { position: 'absolute', right: 3, width: 3, borderRadius: 2, backgroundColor: 'rgba(11,25,87,0.25)' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, paddingHorizontal: 10, borderRadius: 10 },
   menuText: { fontSize: 13, fontWeight: '700', color: colors.text },
   menuTextDisabled: { color: 'rgba(11,25,87,0.3)' },
