@@ -81,9 +81,10 @@ export default function ContextBar({
   const menuCeil = menuBounds ? Math.max(0, menuBounds.top * zoom) : 0
   const spaceBelow = menuFloor - (top + BAR_HEIGHT + 6)
   const spaceAbove = top - 6 - menuCeil
-  const compactMenuBelow = spaceBelow >= Math.min(COMPACT_MENU_HEIGHT, spaceAbove)
+  // 아래 자리가 두 항목(88)도 안 될 때만 위로 올린다. 위로 가도 바에 붙어서(bottom 기준) 펴진다.
+  const compactMenuBelow = spaceBelow >= 88 || spaceBelow >= spaceAbove
   const compactMenuHeight = clamp(compactMenuBelow ? spaceBelow : spaceAbove, 88, COMPACT_MENU_HEIGHT)
-  const compactMenuPosition = { left: Math.max(EDGE, left + barWidth - 166), ...(compactMenuBelow ? { top: top + BAR_HEIGHT + 6 } : { bottom: pageH - top + 6 }) }
+  const compactMenuPosition = { left: Math.max(EDGE, left + barWidth - 166), top: compactMenuBelow ? top + BAR_HEIGHT + 6 : top - 6 - compactMenuHeight }
   // 링크 카드: Google 슬라이드처럼 편집 바와 따로, 요소의 반대쪽(바가 아래면 위)에 띄운다. 주소를 누르면 열린다.
   const chipTop = clamp(below ? bounds.top * zoom - ROTATE_CLEARANCE - CHIP_HEIGHT : bounds.bottom * zoom + GAP, EDGE, Math.max(EDGE, pageH - CHIP_HEIGHT - EDGE))
   const chipLeft = clamp(bounds.cx * zoom - chipWidth / 2, 8, Math.max(8, pageW - chipWidth - 8))
