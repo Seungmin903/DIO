@@ -284,14 +284,24 @@ export function fitInline(leading, actions, barMax) {
 }
 
 function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
-  // 바깥 상자는 터치를 먼저 잡지 않는다: 상자가 responder 가 되면 Android 에서 안쪽 ScrollView 가 끌기를 넘겨받지 못해 스크롤이 안 됐다.
-  // 항목(Pressable)이 상자 폭을 다 채우므로 터치는 항목 → 끌면 ScrollView 로 넘어가고, 캔버스까지 새지 않는다.
-  // '바깥 누르기'로 치지 않게 insideHandlers 만 얹는다 (열린 옵션 창이 닫히거나 선택이 풀리지 않게).
-  return <View accessibilityLabel="객체 편집 더보기" style={[styles.compactMenu, position, { maxHeight }]} {...insideHandlers}>
-    {/* 스크롤 영역 높이를 직접 정해 두어야 Android·iOS 에서도 항목이 메뉴 안에서 스크롤된다 (바깥 maxHeight 만으로는 펼쳐질 수 있다). */}
-    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" style={{ maxHeight }} contentContainerStyle={styles.compactMenuContent}>
+  // 기기에서 ScrollView 는 캔버스(Viewport) 터치 처리에 밀려 끌기를 받지 못했다. 그래서 메뉴가 직접 끌기를 받아 항목을 위아래로 옮긴다.
+  // 누르기는 항목(Pressable)이 먼저 받고, 손가락이 세로로 움직이면 메뉴가 responder 를 넘겨받아 스크롤한다.
+  const [scroll, setScroll] = useState({ offset: 0, contentHeight: 0, startY: null, startOffset: 0 })
+  const maxOffset = Math.max(0, scroll.contentHeight - maxHeight)
+  const moved = (event) => scroll.startY != null && Math.abs(event.nativeEvent.pageY - scroll.startY) > 6
+  const drag = (event) => setScroll((prev) => ({ ...prev, offset: clamp(prev.startOffset + (prev.startY - event.nativeEvent.pageY), 0, maxOffset) }))
+  return <View accessibilityLabel="객체 편집 더보기" style={[styles.compactMenu, position, { height: Math.min(maxHeight, scroll.contentHeight || maxHeight) }]}
+    // 누른 자리를 기억만 하고(캡처 단계는 모든 터치·마우스에 불린다) responder 는 항목에 양보한다
+    onStartShouldSetResponderCapture={(event) => { setScroll((prev) => ({ ...prev, startY: event.nativeEvent.pageY, startOffset: prev.offset })); return false }}
+    onStartShouldSetResponder={() => true} // 항목 사이 여백을 눌러도 캔버스로 새지 않게
+    onMoveShouldSetResponder={moved} onMoveShouldSetResponderCapture={moved}
+    onResponderTerminationRequest={() => false}
+    onResponderMove={drag} onResponderRelease={drag}
+    {...insideHandlers}>
+    <View style={[styles.compactMenuContent, { transform: [{ translateY: -scroll.offset }] }]} onLayout={(event) => setScroll((prev) => ({ ...prev, contentHeight: event.nativeEvent.layout.height }))}>
       {actions.map((action) => <MenuAction key={action.label} {...action} style={styles.compactMenuItem} />)}
-    </ScrollView>
+    </View>
+    {maxOffset > 0 && <View pointerEvents="none" style={[styles.compactMenuThumb, { height: Math.max(18, maxHeight * maxHeight / scroll.contentHeight), top: 4 + (maxHeight - 8 - Math.max(18, maxHeight * maxHeight / scroll.contentHeight)) * (scroll.offset / maxOffset) }]} />}
   </View>
 }
 
@@ -408,6 +418,7 @@ const styles = StyleSheet.create({
   compactMenu: { position: 'absolute', width: 166, borderRadius: 14, backgroundColor: colors.surface, zIndex: 8, overflow: 'hidden', ...shadow.float },
   compactMenuContent: { paddingVertical: 5 },
   compactMenuItem: { paddingHorizontal: 15, borderRadius: 0 },
+  compactMenuThumb: { position: 'absolute', right: 3, width: 3, borderRadius: 2, backgroundColor: 'rgba(11,25,87,0.25)' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, paddingHorizontal: 10, borderRadius: 10 },
   menuText: { fontSize: 13, fontWeight: '700', color: colors.text },
   menuTextDisabled: { color: 'rgba(11,25,87,0.3)' },
