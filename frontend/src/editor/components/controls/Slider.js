@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF2F9',
+    backgroundColor: colors.surfaceMuted,
   },
   track: { flex: 1, height: 44, justifyContent: 'center' },
   trackLine: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2, backgroundColor: colors.surfaceSoft },

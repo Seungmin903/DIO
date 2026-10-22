@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { C } from '../constants';
+import { DISABLED_OPACITY } from '../../shared/theme';
 import { styles as s } from '../styles';
 import EmptyState from '../components/EmptyState';
 import Header from '../components/Header';
@@ -37,7 +38,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, c
                   disabled={isTrashExpired(diary, now)}
                   accessibilityState={{ disabled: isTrashExpired(diary, now) }}
                   onPress={() => onRestore(diary.id)}
-                  style={({ pressed }) => [s.trashRestore, isTrashExpired(diary, now) && { opacity: 0.45 }, pressed && s.pressed]}
+                  style={({ pressed }) => [s.trashRestore, isTrashExpired(diary, now) && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
                 >
                   <Text style={s.trashRestoreText}>복원</Text>
                 </Pressable>

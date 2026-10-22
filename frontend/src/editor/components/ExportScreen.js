@@ -1,6 +1,6 @@
 import EditorModal from './controls/EditorModal'
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
-import { colors } from '../../shared/theme'
+import { colors, DISABLED_OPACITY } from '../../shared/theme'
 import Icon from './controls/Icon'
 import { toolPanelStyles } from './ToolPanel'
 
@@ -64,11 +64,11 @@ const styles = StyleSheet.create({
   sideContent: { paddingTop: 18, paddingBottom: 18 },
   side: { width: 320, alignSelf: 'flex-start', maxHeight: '100%' },
   sideNarrow: { width: '100%', maxHeight: '45%' },
-  button: { minHeight: 36, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: '#EEF2F9', borderWidth: 1.5, borderColor: 'transparent' },
+  button: { minHeight: 36, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors.surfaceMuted, borderWidth: 1.5, borderColor: 'transparent' },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   selected: { backgroundColor: colors.surface, borderColor: colors.primary },
   pressed: { opacity: 0.75 },
-  disabled: { opacity: 0.4 },
+  disabled: { opacity: DISABLED_OPACITY },
   primary: { minHeight: 44, backgroundColor: colors.primary },
   primaryText: { fontSize: 14, fontWeight: '800', color: colors.surface },
   info: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },

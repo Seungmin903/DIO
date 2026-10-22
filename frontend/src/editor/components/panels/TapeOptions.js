@@ -192,7 +192,7 @@ function Section({ title, children }) {
 const styles = StyleSheet.create({
   section: { marginTop: 14 },
   title: { marginBottom: 8, fontSize: 12, fontWeight: '700', color: colors.textMuted },
-  segment: { flexDirection: 'row', padding: 3, borderRadius: 11, backgroundColor: '#EEF2F9' },
+  segment: { flexDirection: 'row', padding: 3, borderRadius: 11, backgroundColor: colors.surfaceMuted },
   slotItem: { flexDirection: 'row', gap: 6 },
   slotSwatch: { width: 14, height: 14, borderRadius: 7, borderWidth: 1, borderColor: 'rgba(11,25,87,0.15)' },
   segmentItem: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },

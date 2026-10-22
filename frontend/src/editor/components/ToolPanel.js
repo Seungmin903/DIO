@@ -1,5 +1,5 @@
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, shadow } from '../../shared/theme'
+import { colors, shadow, DISABLED_OPACITY } from '../../shared/theme'
 import Icon from './controls/Icon'
 
 // 도구 옵션·보관함·내보내기가 공유하는 제목과 표면 기준.
@@ -8,7 +8,7 @@ export function ToolPanelHeader({ icon, title, onClose, closeLabel, disabled = f
   return <View style={toolPanelStyles.heading}>
     <View style={toolPanelStyles.titleRow}><Icon name={icon} size={18} /><Text style={toolPanelStyles.title}>{title}</Text></View>
     {children}
-    <Pressable accessibilityRole="button" accessibilityLabel={closeLabel ?? `${title} 닫기`} disabled={disabled} onPress={onClose} style={[toolPanelStyles.close, disabled && { opacity: 0.4 }]}><Icon name="close" size={18} /></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel={closeLabel ?? `${title} 닫기`} disabled={disabled} onPress={onClose} style={[toolPanelStyles.close, disabled && { opacity: DISABLED_OPACITY }]}><Icon name="close" size={18} /></Pressable>
   </View>
 }
 
@@ -66,13 +66,13 @@ export const toolPanelStyles = StyleSheet.create({
   // 구역 제목 (MorePanel 의 sectionTitle 과 같다)
   label: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   // 칸 사이 3 간격: 여러 칸을 함께 켰을 때(보조선·굵게/기울임) 흰 칸끼리 붙어 보이지 않게
-  segment: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 11, backgroundColor: '#EEF2F9' },
+  segment: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 11, backgroundColor: colors.surfaceMuted },
   segmentItem: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   segmentActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.14)' },
   chips: { flexDirection: 'row', gap: 8 },
-  chip: { backgroundColor: '#EEF2F9', borderWidth: 1.5, borderColor: 'transparent', borderRadius: 11 },
+  chip: { backgroundColor: colors.surfaceMuted, borderWidth: 1.5, borderColor: 'transparent', borderRadius: 11 },
   chipActive: { backgroundColor: colors.surface, borderColor: colors.primary },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
   segmentTextActive: { color: colors.text, fontWeight: '800' },
-  dim: { opacity: 0.4 },
+  dim: { opacity: DISABLED_OPACITY },
 })

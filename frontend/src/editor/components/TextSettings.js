@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   phoneSize: { textAlign: 'center' },
   options: { position: 'absolute', top: '100%', marginTop: 4, left: 0, right: 0, maxHeight: 280, zIndex: 20, elevation: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 11 },
   option: { paddingHorizontal: 12, paddingVertical: 10 },
-  optionSelected: { backgroundColor: '#EEF2F9' },
+  optionSelected: { backgroundColor: colors.surfaceMuted },
   optionText: { color: colors.text, fontSize: 16 },
   // 한 줄에 같은 간격으로 (양 끝 여백도 같게)
   colors: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

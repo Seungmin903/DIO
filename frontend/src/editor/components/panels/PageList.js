@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 11.5, fontWeight: '700', color: colors.textMuted },
   tabTextActive: { color: colors.text },
   thumbDragging: {
-    shadowColor: '#0B1957',
+    shadowColor: colors.text,
     shadowOpacity: 0.25,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },

@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   section: { marginTop: 14 },
   title: { marginBottom: 8, fontSize: 12, fontWeight: '700', color: colors.textMuted },
   label: { marginTop: 10, marginBottom: 4, fontSize: 12, fontWeight: '700', color: colors.textMuted },
-  segment: { flexDirection: 'row', padding: 3, marginBottom: 2, borderRadius: 11, backgroundColor: '#EEF2F9' },
+  segment: { flexDirection: 'row', padding: 3, marginBottom: 2, borderRadius: 11, backgroundColor: colors.surfaceMuted },
   segmentItem: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   segmentActive: { backgroundColor: colors.surface },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },

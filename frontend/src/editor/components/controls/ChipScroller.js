@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
-import { colors } from '../../../shared/theme'
+import { colors, DISABLED_OPACITY } from '../../../shared/theme'
 import Icon from './Icon'
 
 const STEP_PX = 160
@@ -125,5 +125,5 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   arrowPressed: { backgroundColor: colors.primarySoft },
-  arrowDisabled: { opacity: 0.35 },
+  arrowDisabled: { opacity: DISABLED_OPACITY },
 })

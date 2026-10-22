@@ -65,24 +65,26 @@
 | `text` | `#0B1957` | 기본 글자 · 아이콘 (네이비). 토스트 · 진행 알약 바탕 |
 | `textMuted` | `rgba(11,25,87,0.68)` | 보조 글자, 섹션 제목, 선택 안 된 세그먼트 글자 |
 | `border` | `rgba(11,25,87,0.16)` | 구분선, 입력칸 테두리 |
-| `primarySoft` | `rgba(110,146,198,0.18)` | 눌림(pressed) 바탕 |
+| `primarySoft` | `rgba(110,146,198,0.18)` | 눌림(pressed) 바탕, 선택된 그림 타일 바탕 |
+| `surfaceMuted` | `#EEF2F9` | **회색 판** — 선택 안 된 칩 · 세그먼트 판 · 슬라이더 ± 버튼 · 보조 버튼 바탕 |
 | `danger` | `#E5484D` | 삭제 버튼, 휴지통 아이콘, 오류 |
 | `overlay` | `rgba(11,25,87,0.34)` | 자르기 · 영역 선택 화면의 어둡게 덮기 |
+| `scrim` | `rgba(11,25,87,0.28)` | 대화상자 · 시트 뒤 어둡게 덮기 |
 
-다이어리 화면(`src/diary`)은 `src/diary/constants.js`의 `C`(위 토큰의 별칭)를 쓴다: `ink=text`, `muted=textMuted`, `line=border`, `canvas=surfaceSoft`, `blue=primary`, `active=surfaceSoft`, `pale=#EEF2F9`.
+같은 파일의 `DISABLED_OPACITY`(0.4)는 누를 수 없는 상태의 투명도다.
+
+다이어리 화면(`src/diary`)은 `src/diary/constants.js`의 `C`(위 토큰의 별칭)를 쓴다: `ink=text`, `muted=textMuted`, `line=border`, `canvas=surfaceSoft`, `blue=primary`, `active=surfaceSoft`, `pale=surfaceMuted`.
 
 ### 2.2 보조 값 (토큰 밖에서 쓰는 것은 이것만)
 
 | 값 | 쓰는 곳 |
 |---|---|
-| `#EEF2F9` | **회색 판** — 선택 안 된 칩 · 세그먼트 판 · 슬라이더 ± 버튼 · 보조 버튼 바탕 |
 | `rgba(255,255,255,0.97)` | 떠 있는 패널(도구 옵션 · 더보기 · 보관함). 웹은 `0.86` + `backdrop-filter: blur(18px)` |
 | `rgba(255,255,255,0.9)` | 편집기 상단 바(태블릿). 폰은 `surface` |
 | `rgba(255,255,255,0.95)` | 리본(도구 막대). 테두리 `rgba(110,146,198,0.2)` |
 | `rgba(255,255,255,0.58)` | 페이지 목록 패널 |
 | `#E4ECF7` | 레이어 패널 바탕. 선택 행 `rgba(110,146,198,0.24)` |
 | `rgba(11,25,87,0.12)` | 도구 막대 안 구분선 |
-| `rgba(11,25,87,0.28)` | 확인 대화상자 뒤 어둡게 덮기 |
 | `#E8AF45` | 즐겨찾기 별 |
 | `#DCE5F1` / `rgba(232,93,140,0.7)` | 격자 선 / 정렬 보조선 |
 | `#F0D5D4` | 영구 삭제 버튼 테두리 |
@@ -133,7 +135,7 @@
 
 규칙
 
-- 굵기는 **600 · 700 · 800 · 900만** 쓴다. (기존 코드의 650 · 750 · 850은 기기마다 반올림되므로 새 코드에서 쓰지 않는다.)
+- 굵기는 **600 · 700 · 800 · 900만** 쓴다. 650 · 750 · 850 같은 중간 값은 기기마다 반올림되어 다르게 보인다.
 - 선택된 상태는 굵기를 한 단계 올린다(예: 세그먼트 600 → 800).
 - 숫자 입력칸은 13 / 700, 단위는 11 / 700. 자간 · 줄간격 같은 비율 값에도 `%`를 붙이지 않는다.
 
@@ -241,13 +243,15 @@
 | 선택된 도구 (리본) | 바탕 `surfaceSoft` + 테두리 1 `primary` |
 | 켜진 토글 (상단 바) | 바탕 `surfaceSoft`, 테두리 없음 |
 | 눌림 | 바탕 `primarySoft` (홈 화면은 투명도 0.76 + 크기 0.985) |
-| 선택된 세그먼트 | 회색 판(`#EEF2F9`, 안쪽 3, 모서리 11) 위 흰 칸 + 작은 그림자, 글자 800 |
-| 선택된 칩 · 타일 | 흰 바탕 + 테두리 **1.5 `primary`** (선택 안 됨: `#EEF2F9`) |
+| 선택된 세그먼트 | 회색 판(`surfaceMuted`, 안쪽 3, 모서리 11) 위 흰 칸 + 작은 그림자, 글자 800 |
+| 선택된 칩 · 글자 버튼 | 흰 바탕 + 테두리 **1.5 `primary`**, 글자 800 (선택 안 됨: `surfaceMuted`, 테두리 없음) |
+| 선택된 그림 타일 (패턴 · 틀 · 방향 · 프리셋 카드) | 바탕 `primarySoft` + 테두리 2 `primary` |
+| 켜진 편집 토글 (목록 편집 등) | 바탕 `surfaceSoft`, 글자 · 아이콘 `text` |
 | 선택된 색 견본 | 테두리 3 `primary` |
 | 선택된 페이지 썸네일 | 테두리 2 `primary` |
 | 캔버스 선택 상자 | 선 1.5 `primary`, 손잡이 18 흰색 + 테두리 2 `primary`. 잠금은 점선 `textMuted` |
 | 끌어서 여러 개 선택 | 점선 1.5 `primary`, 안쪽 `rgba(110,146,198,0.12)` |
-| 비활성 | 투명도 **0.4** |
+| 비활성 | 투명도 **0.4** (`DISABLED_OPACITY`) |
 | 오류 | 글자 · 아이콘 `danger`, 바탕 `rgba(229,72,77,0.1)` |
 
 ## 8. 글쓰기 (UX 문구)
@@ -281,7 +285,7 @@
 | `Icon` / `AppIcon` | `editor/.../controls/Icon.js`, `shared/AppIcon.js` | 6장 참고 |
 | `ToolPanelHeader` · `toolPanelStyles` | `editor/components/ToolPanel.js` | 아이콘 18 + 제목 15/800 + (추가 버튼 자리) + 닫기 40. 패널 폭 300, 모서리 24, 안쪽 16, 요소 사이 12, `shadow.float` |
 | `Segmented` | 같은 파일 | 회색 판 + 흰 선택 칸. `separate`를 주면 떨어진 칩(사이 8, 선택 = 흰색 + 1.5 primary) |
-| `Slider` | `controls/Slider.js` | ± 40×40(모서리 9, `#EEF2F9`) · 트랙 4 · 손잡이 26(흰색 + 2 primary) · 숫자칸 **52 × 40** 모서리 9 |
+| `Slider` | `controls/Slider.js` | ± 40×40(모서리 9, `surfaceMuted`) · 트랙 4 · 손잡이 26(흰색 + 2 primary) · 숫자칸 **52 × 40** 모서리 9 |
 | `ToolSizeSlider` | `controls/ToolSizeSlider.js` | 높이 40, 트랙 5, 손잡이 20 primary |
 | `Switch` (RN 기본) | — | 꺼짐 `border`, 켜짐 `primary`, 손잡이 흰색 |
 | `ColorPicker` · `MyColorPresets` | `controls/` | 채도 · 밝기 판 높이 112, 색상 막대 22, HEX 칸 높이 38. 내 색상 견본 30 |
@@ -319,7 +323,7 @@
 - [ ] 글자 크기 · 굵기가 3.2 표 안에 있고 굵기는 600/700/800/900이다.
 - [ ] 폰에서 누르는 곳이 44 이상이다.
 - [ ] 아이콘은 `Icon.js`의 것이고, 없으면 같은 규칙으로 추가했다.
-- [ ] 선택 상태가 색 + 테두리(또는 그림자)로 보인다. 비활성은 투명도 0.4.
+- [ ] 선택 상태가 색 + 테두리(또는 그림자)로 보인다. 비활성은 `DISABLED_OPACITY`.
 - [ ] 문구는 해요체이고 짧다. 접근성 이름과 역할 · 상태를 붙였다.
 - [ ] 패널 · 대화상자는 9장 공용 컴포넌트로 만들었고 `Modal` 대신 `EditorModal`을 썼다.
 - [ ] 태블릿 가로(1280×800, 1024×768)와 폰 세로 · 가로에서 모두 확인했다.
@@ -334,4 +338,4 @@
 | 내보내기 창 | 최대 폭 600, 4가지 범위 (`tool-options-ui.md`, `export-menu-pdf-ui.md`) | 말풍선 폭 380, 현재 · 전체 · 지정 3가지(영역 내보내기는 빠짐), 화면 없이 바로 저장 |
 | 태블릿 방향 | 모든 방향 허용 (`phone-tablet-layout.md`) | 가로 고정 |
 | iPad 분할 화면 | `requireFullScreen: false` | `true` (분할 화면 미지원) |
-| `secondary` | 칩 · 호버 배경 (`mvp1-ui-spec.md`) | 로고 테마 원 위주. 칩은 `#EEF2F9` / 흰색 + primary |
+| `secondary` | 칩 · 호버 배경 (`mvp1-ui-spec.md`) | 로고 테마 원 위주. 칩은 `surfaceMuted` / 흰색 + primary |

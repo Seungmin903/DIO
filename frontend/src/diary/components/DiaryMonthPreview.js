@@ -5,7 +5,7 @@ import { isUndated } from '../../editor/templates/undated.js'
 import { getTemplate } from '../../editor/templates/catalog.js'
 import { TemplatePreview } from './DiaryTemplateSettings'
 import AppIcon from '../../shared/AppIcon'
-import { colors } from '../../shared/theme'
+import { colors, DISABLED_OPACITY } from '../../shared/theme'
 
 export default function DiaryMonthPreview({ config, appearance, compact = false }) {
   const [month, setMonth] = useState(1)
@@ -51,7 +51,7 @@ const s = StyleSheet.create({
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   month: { color: colors.text, fontSize: 13, fontWeight: '700' },
   arrow: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.surface },
-  disabled: { opacity: 0.3 },
+  disabled: { opacity: DISABLED_OPACITY },
   hint: { fontSize: 11, lineHeight: 17, color: colors.textMuted },
   scroll: { flex: 1, minHeight: 0 },
   pages: { paddingBottom: 12, paddingRight: 8 },
