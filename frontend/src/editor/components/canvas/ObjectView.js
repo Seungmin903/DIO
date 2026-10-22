@@ -103,10 +103,9 @@ export const frameColorOf = (photo) =>
     : LEGACY_FRAME_COLORS[photo.frameColor] ?? FRAME_DEFAULT_COLORS[photo.frame] ?? '#FFFFFF'
 
 export function flipTransform(object) {
-  const transform = []
-  if (object.flipX) transform.push({ scaleX: -1 })
-  if (object.flipY) transform.push({ scaleY: -1 })
-  return transform.length ? transform : undefined
+  // 반전 해제도 명시적인 기본 배율로 전달한다. undefined는 RN 속성 갱신에서
+  // null로 바뀌어 개발 모드 processTransform의 배열 검사에서 실패할 수 있다.
+  return [{ scaleX: object.flipX ? -1 : 1 }, { scaleY: object.flipY ? -1 : 1 }]
 }
 
 /* ---------- 스티커 ---------- */
