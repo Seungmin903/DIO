@@ -1,11 +1,9 @@
 import { Modal } from 'react-native'
-import { useFormFactor } from '../../../shared/useFormFactor'
 
-const PHONE_ORIENTATIONS = ['portrait', 'landscape']
+// iOS 새 아키텍처 Modal은 기본값이 세로 전용이라, 가로로 고정한 화면(태블릿·폰 가로 편집기)에서 열면 앱이 종료된다.
+// 실제 방향은 앱의 방향 잠금(useOrientationLock)이 정하므로 모달은 두 방향을 모두 허용한다.
+export const MODAL_ORIENTATIONS = ['portrait', 'landscape']
 
 export default function EditorModal(props) {
-  const { isPhone } = useFormFactor()
-  // 태블릿은 기존 네이티브 기본값을 그대로 사용한다.
-  const orientationProps = isPhone ? { supportedOrientations: PHONE_ORIENTATIONS } : {}
-  return <Modal {...props} {...orientationProps} />
+  return <Modal {...props} supportedOrientations={MODAL_ORIENTATIONS} />
 }

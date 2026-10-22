@@ -1,7 +1,27 @@
 export const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 
+// 웹·Node는 표준 crypto를 쓴다. 네이티브에는 전역 crypto가 없어 App.js가 expo-crypto의 randomUUID를 연결한다.
+function standardUuid() {
+  const crypto = globalThis.crypto
+  if (crypto?.randomUUID) return crypto.randomUUID()
+  const bytes = crypto?.getRandomValues
+    ? crypto.getRandomValues(new Uint8Array(16))
+    : Uint8Array.from({ length: 16 }, () => Math.random() * 256)
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+let generateUuid = standardUuid
+
+export function setUuidGenerator(generate) {
+  generateUuid = generate
+}
+
+/** 다이어리·페이지·요소 ID. 나중에 서버로 올려도 기기끼리 겹치지 않도록 UUID v4를 쓴다. */
 export function createId() {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+  return generateUuid()
 }
 
 export const toRadians = (deg) => (deg * Math.PI) / 180

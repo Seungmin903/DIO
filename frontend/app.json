@@ -2,6 +2,7 @@
   "expo": {
     "name": "DIO",
     "slug": "dio",
+    "owner": "choihans-team",
     "version": "1.0.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
@@ -20,8 +21,12 @@
       "imageWidth": 160
     },
     "ios": {
+      "bundleIdentifier": "com.f106.DIO",
       "supportsTablet": true,
-      "requireFullScreen": true
+      "requireFullScreen": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "plugins": [
       [

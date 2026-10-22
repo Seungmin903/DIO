@@ -42,6 +42,7 @@ export function normalizeDiaries(raw) {
       color: isText(item.color) ? item.color : DEFAULT_COLOR,
       type: item.type === '공유' ? '공유' : '개인',
       favorite: item.favorite === true,
+      ...(isText(item.createdAt) ? { createdAt: item.createdAt } : {}),
       updatedAt: isText(item.updatedAt) ? item.updatedAt : null,
       trashedAt: isText(item.trashedAt) ? item.trashedAt : null,
       ...(item.purgePending === true && item.trashedAt ? { purgePending: true } : {}),
@@ -51,8 +52,8 @@ export function normalizeDiaries(raw) {
   });
 }
 
-// 새 다이어리 ID는 `diary-<생성 시각(ms)>` 형식이다. 형식이 다르면 0으로 보고 기존 순서를 유지한다.
-const createdTime = (diary) => Number(/^diary-(\d+)$/.exec(diary.id)?.[1]) || 0;
+// 생성 시각은 createdAt에 둔다. 이전 다이어리는 ID(`diary-<생성 시각(ms)>`)에서 읽고, 둘 다 없으면 0으로 보고 기존 순서를 유지한다.
+const createdTime = (diary) => Date.parse(diary.createdAt) || Number(/^diary-(\d+)$/.exec(diary.id)?.[1]) || 0;
 
 /** 먼저 만든 다이어리가 앞(왼쪽)에 오도록 생성 순으로 정렬한다. */
 export function sortByCreated(diaries) {
@@ -82,6 +83,7 @@ export function recoverOrphanDiaries(diaries, docEntries, docKeyPrefix) {
       color: isText(doc.coverColor) ? doc.coverColor : DEFAULT_COLOR,
       type: '개인',
       favorite: false,
+      ...(isText(doc.createdAt) ? { createdAt: doc.createdAt } : {}),
       updatedAt: null,
       trashedAt: null,
       firstPageDate: null,
