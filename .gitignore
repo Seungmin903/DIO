@@ -6,6 +6,10 @@
 .env.*
 !.env.example
 
+# 앱 서명 키 (EAS 크리덴셜에서 내려받은 keystore. 저장소에 올리지 않음)
+*.jks
+*.keystore
+
 # OS
 .DS_Store
 Thumbs.db
