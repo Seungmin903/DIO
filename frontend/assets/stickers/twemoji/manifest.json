@@ -1,0 +1,525 @@
+{
+  "version": "14.0.2",
+  "source": "https://github.com/twitter/twemoji/tree/v14.0.2",
+  "items": [
+    {
+      "codepoint": "1f600",
+      "name": "웃음",
+      "asset": "tw-1f600",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f600.svg",
+      "sha256": "11abf94ba6b29eb66912a8cc8ff3708e27b098211e810b2a9706af7e8d31ee10",
+      "sourceSha256": "41478e547c5b6ad66bfcf91ead5350fa0bc247956c3ff912020327e3e9ad0d2b"
+    },
+    {
+      "codepoint": "1f602",
+      "name": "웃음 눈물",
+      "asset": "tw-1f602",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f602.svg",
+      "sha256": "a3868fae8b3aaa84efd778ae7341ec3229f7525da440d55924326972f74c83fc",
+      "sourceSha256": "1752c287f6fbbb65e1c982399584bbc9b1e0c46f0dc181cda9b8028dc60c4c01"
+    },
+    {
+      "codepoint": "1f60d",
+      "name": "반함",
+      "asset": "tw-1f60d",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f60d.svg",
+      "sha256": "e28155f1f011e8f02b3e849fcd6edceb7025d74358f090eecc2303bb57b55b19",
+      "sourceSha256": "e17d4d0339ce34ba1ee3274fdc98a1bd5ca4a8f309861b63b746970a609d7d63"
+    },
+    {
+      "codepoint": "1f970",
+      "name": "사랑",
+      "asset": "tw-1f970",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f970.svg",
+      "sha256": "5628b42571c56533731f5467dc561305bf73b4b91f1c51a1ab33d70b7ecac6b1",
+      "sourceSha256": "303d516f1985e3bc62aa92d1a55c2140a14435b255a32b4c3bc776a2395f056d"
+    },
+    {
+      "codepoint": "1f60e",
+      "name": "멋짐",
+      "asset": "tw-1f60e",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f60e.svg",
+      "sha256": "7336ac8bc9671a14e1b5ae43c16d4c025937dd27466b4d63bec3c4fc22857ffd",
+      "sourceSha256": "d32bd9f51b2a54f620f9693e833935c5e2cb2304cbf89aab75fd10f054711ce5"
+    },
+    {
+      "codepoint": "1f62d",
+      "name": "엉엉",
+      "asset": "tw-1f62d",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f62d.svg",
+      "sha256": "317353d9539cb4d8942997d209ce53c6a1dc9b337d62d9372014f6ab53461082",
+      "sourceSha256": "d0333b5cb416ad6545055766fc8128566874ab5ead272e5a691a24704048f077"
+    },
+    {
+      "codepoint": "1f634",
+      "name": "졸림",
+      "asset": "tw-1f634",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f634.svg",
+      "sha256": "6bd8b280db114a40aaa4e1325e4b0aa246e2a4af91f7f53c8190aa552cc5dbbf",
+      "sourceSha256": "f3f17ba0097e1445616e4540132d3f7ef3c203936cb250de9228aec8234630a3"
+    },
+    {
+      "codepoint": "1f973",
+      "name": "파티",
+      "asset": "tw-1f973",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f973.svg",
+      "sha256": "bfe6051dcc2d4c00fcf49c5cdb78599a3a50ae499f27ce82a3a4c20b0a2a8947",
+      "sourceSha256": "5198b19dace96c24b864a00d646ebaf1b666f0e6cc1a7a4f97b84c0eeb159d6d"
+    },
+    {
+      "codepoint": "1f97a",
+      "name": "부탁해",
+      "asset": "tw-1f97a",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f97a.svg",
+      "sha256": "22ad1b3fe77268a6301a6115de0d6b101f84ea13385cbeaf55c91a292731d423",
+      "sourceSha256": "a61b36016fdf2fb6b8bb86d61e600121bc92bf76f5e1ab83763cc28e66714a59"
+    },
+    {
+      "codepoint": "1f914",
+      "name": "고민",
+      "asset": "tw-1f914",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f914.svg",
+      "sha256": "5bdc3ac9e7e125a06206ccd1a6681e596598423531b001ce011a87f2c32e0296",
+      "sourceSha256": "3a19c77ff33f8ea325055b8563e7415ffd2ae37f0bb50a12898801613037721e"
+    },
+    {
+      "codepoint": "1fae0",
+      "name": "녹음",
+      "asset": "tw-1fae0",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1fae0.svg",
+      "sha256": "ced6c6ef7d8943957ed681131c98af4ad49101404bd36cf6b0df976e3b1954ec",
+      "sourceSha256": "b96b03a9b5ac70d0c9b530fa11a318927abfab37db6214a7439ef6f48c07ff7a"
+    },
+    {
+      "codepoint": "1f917",
+      "name": "포옹",
+      "asset": "tw-1f917",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f917.svg",
+      "sha256": "8606de110454f8f08a175bd4d0cba107ec258836c23054dd78c767f72b5a0636",
+      "sourceSha256": "b54b9c6db7ef1328acb939f4d5fe03040f6d28fd6a706180278d2a51e9a0435d"
+    },
+    {
+      "codepoint": "2764",
+      "name": "하트",
+      "asset": "tw-2764",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/2764.svg",
+      "sha256": "3786b4ae73ffa6237418a5cab14d30829c5c62d9b384e3e918ddb219218c7eaa",
+      "sourceSha256": "09a743ee0c32ca57c9be64b13b29c396310d1dd309cb4d7d3be722e47db95f27"
+    },
+    {
+      "codepoint": "1f9e1",
+      "name": "오렌지 하트",
+      "asset": "tw-1f9e1",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f9e1.svg",
+      "sha256": "debf32ff1b806adc1f0a41e4a0dd44e04a5470fa7337813728980acf6c9d6b84",
+      "sourceSha256": "fe2e02935144ec1d4768e0322153899587b1e005100a3d455131636efe0e6657"
+    },
+    {
+      "codepoint": "1f49b",
+      "name": "노란 하트",
+      "asset": "tw-1f49b",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f49b.svg",
+      "sha256": "0a8ba9513e8f5df32e965dc035a23e1c02895b73fabda9c6b5a6141950750c66",
+      "sourceSha256": "e0ddd13f3b241f80fb2990df48d67d628de79514c712a48eaea8c77767196ad4"
+    },
+    {
+      "codepoint": "1f49a",
+      "name": "초록 하트",
+      "asset": "tw-1f49a",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f49a.svg",
+      "sha256": "f97b475543687613c10fed5a8f5822e053961d4f49d9fda0dbf02a851ff3f8bd",
+      "sourceSha256": "1aae46e2790e4c3d5eaf2d588b7d91f667d10e90e090f8d08867dafce808974e"
+    },
+    {
+      "codepoint": "1f499",
+      "name": "파란 하트",
+      "asset": "tw-1f499",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f499.svg",
+      "sha256": "8eef7039f6f7b97fa9acf859f6d3d739494cefe851d5a01db3adb4d31dc44c2e",
+      "sourceSha256": "44cb18486c627b7e38f3d6fd9bb5c3609ef8193d66046933230ec104420bf314"
+    },
+    {
+      "codepoint": "1f49c",
+      "name": "보라 하트",
+      "asset": "tw-1f49c",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f49c.svg",
+      "sha256": "93cb84055a59d1eb34399f2e2afd7cf0fdd3866e02e03d5c0e69662d5d632132",
+      "sourceSha256": "8b9e2ea52d39785bade667af9bdb0363fb5f949a413805ccb297c7be44a9b9cd"
+    },
+    {
+      "codepoint": "1f90d",
+      "name": "흰 하트",
+      "asset": "tw-1f90d",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f90d.svg",
+      "sha256": "0694eac4ce972cdd8ccf2a516d5ca0f9d943f505846e4568a3290c28563a9b00",
+      "sourceSha256": "51a00ee7247f707d292238195dee7683340b034c7843a9e6297d395bda0ee941"
+    },
+    {
+      "codepoint": "1f496",
+      "name": "반짝 하트",
+      "asset": "tw-1f496",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f496.svg",
+      "sha256": "ce17842b244260dfbabb3aa6a4bf44f66c419e2ef71c30d5d5499ee9c78f0ec8",
+      "sourceSha256": "7c8e5bf3548debdb0c58e2ccf3be92fb508c8334620139f5635caac252aa05b1"
+    },
+    {
+      "codepoint": "1f495",
+      "name": "두 하트",
+      "asset": "tw-1f495",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f495.svg",
+      "sha256": "cda22109e12b079a9b619626b4484cfd0734f4749dfb2db56ffb3ae8bf992e80",
+      "sourceSha256": "3195319076d73360822f6a169fb1f5b88dc8d52b64e60471b804fa51079f252c"
+    },
+    {
+      "codepoint": "2728",
+      "name": "반짝",
+      "asset": "tw-2728",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/2728.svg",
+      "sha256": "42c1a4deddb1fa93483671605b03d18e79f120dff0c6f4c1afdb25da2b11e52b",
+      "sourceSha256": "9271962e9fc8257ce9e008bde83ac1408a2f196db6142548769f290873b70b93"
+    },
+    {
+      "codepoint": "2b50",
+      "name": "별",
+      "asset": "tw-2b50",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/2b50.svg",
+      "sha256": "8cd2d6b2b6064e201ce5323adcca1cb43686ce3ee95acdb141fa755eb05c3d44",
+      "sourceSha256": "2bf5907894a70b877089c24817fcc65db655cfed28840aa16c8f3810cd412620"
+    },
+    {
+      "codepoint": "1f31f",
+      "name": "빛나는 별",
+      "asset": "tw-1f31f",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f31f.svg",
+      "sha256": "3b9d0d777486ac5a2bd37d852ccb9690c2754ddf6226333f7ffe4874046c7172",
+      "sourceSha256": "417f2724229cce0e9f529aab4634f23e7d2a2fc517ac7c2dd63962f529759d2d"
+    },
+    {
+      "codepoint": "1f338",
+      "name": "벚꽃",
+      "asset": "tw-1f338",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f338.svg",
+      "sha256": "3288a3045f2dd38cbcc32aadecec01c6f43c91660c6e30d928aaf81c91825b54",
+      "sourceSha256": "ff7f12f30aa1e6821bbbd96871fcda9b7f581bd30dad075171a82a328b111fe7"
+    },
+    {
+      "codepoint": "1f337",
+      "name": "튤립",
+      "asset": "tw-1f337",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f337.svg",
+      "sha256": "56d6521606ba45667beb6589004db5c03b42d96b27a0aad5ac37cff127bc225d",
+      "sourceSha256": "05254c2227ef2b6687508aa90bd06b4a789b771f3dad7ca702df5b9d9876fdae"
+    },
+    {
+      "codepoint": "1f33b",
+      "name": "해바라기",
+      "asset": "tw-1f33b",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f33b.svg",
+      "sha256": "078ba67a91bb4953f911be0d31bb4e9a60e2151764c056da1cf312f1005306bd",
+      "sourceSha256": "a8fc55b2149272c096cde2ed6c1481e7a2b6c8d20ae7657bf39c6f4117dd2f2a"
+    },
+    {
+      "codepoint": "1f340",
+      "name": "네잎클로버",
+      "asset": "tw-1f340",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f340.svg",
+      "sha256": "a29171e438ca0213a8b6407d0f1ae0859bd89d7c4e3a202306cc0f81dacc0044",
+      "sourceSha256": "762a21a73ce5607534f037e439debaf601dc84f319a5c318d1a71c855c3bb0fc"
+    },
+    {
+      "codepoint": "1f341",
+      "name": "단풍",
+      "asset": "tw-1f341",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f341.svg",
+      "sha256": "3db79cdc50b01f377a5396fabebe81170fd00764e10bb185bfa4ac6dd55fd2f7",
+      "sourceSha256": "511e2c451e8e463b177f49fa1dc4b06d42a823cdc43e291b4c13039b9f677f46"
+    },
+    {
+      "codepoint": "1f344",
+      "name": "버섯",
+      "asset": "tw-1f344",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f344.svg",
+      "sha256": "c295183d36c2446b325bb05f15bf48644b96e2e8ed6e6fc4b072e394b8181801",
+      "sourceSha256": "a860eafef10242b3b82012394910768a5f03c2fd6be66d4815bf0ad23bc9c245"
+    },
+    {
+      "codepoint": "1f308",
+      "name": "무지개",
+      "asset": "tw-1f308",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f308.svg",
+      "sha256": "2d9e7cdf173ca3601014eb85daf8bfae09a6c880eecb483968899a9f8e058e23",
+      "sourceSha256": "555858f907bda45e059201a8a3d8910876ef8d830b9b82cfc0ca9aa55c7b029a"
+    },
+    {
+      "codepoint": "1f319",
+      "name": "달",
+      "asset": "tw-1f319",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f319.svg",
+      "sha256": "3437a19eaf2108f3e616ec7b3f800da18db733acc98ad8333e78035d9a98df1b",
+      "sourceSha256": "aafb5b77ba9325aa6139eb5229ed862fd93b44bfc91e34801998c1dd9fde72d8"
+    },
+    {
+      "codepoint": "2600",
+      "name": "해",
+      "asset": "tw-2600",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/2600.svg",
+      "sha256": "dff706f4d281195f102e51cdcdc7b92d0ed563a66e3703b11740fd0b6c74cf5e",
+      "sourceSha256": "8f08ac47cae81db8f28d8845c09d0dade8c42d152449a0e11de302e6b2f17661"
+    },
+    {
+      "codepoint": "2601",
+      "name": "구름",
+      "asset": "tw-2601",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/2601.svg",
+      "sha256": "34997365e039588ef25e1727957f8b08a681c4fe2840b26036d9ca44811d4c44",
+      "sourceSha256": "dcc39caa0f9e698689671444e35d5e5938816717dcf719cba9abb30dc0379e5e"
+    },
+    {
+      "codepoint": "2744",
+      "name": "눈송이",
+      "asset": "tw-2744",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/2744.svg",
+      "sha256": "5c446db9968443b61fca57507beed024a9f30f858600a086a8b4075781e172c6",
+      "sourceSha256": "9d51dd37d9ca180799c29c8a14e2079d01d2d3b576a096f3edcabe8bb8bcde0d"
+    },
+    {
+      "codepoint": "1f98b",
+      "name": "나비",
+      "asset": "tw-1f98b",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f98b.svg",
+      "sha256": "612a2c6e44dcb8ab38c30897819b90c68b8bc92b2bd4bf9410c6a28612660b69",
+      "sourceSha256": "6ce1f664bbdfbcf69732b00f55cc257469a26c115b8891526193e0ea837f836a"
+    },
+    {
+      "codepoint": "1f431",
+      "name": "고양이",
+      "asset": "tw-1f431",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f431.svg",
+      "sha256": "4006db1b0a24ae60aa6101a58a397975169cad0703e322e5c82c95ee0c35a357",
+      "sourceSha256": "a7f61fb700b3a7d3cd6b6839e8574c330fe7baff59f0a964614a2cb324f95abf"
+    },
+    {
+      "codepoint": "1f436",
+      "name": "강아지",
+      "asset": "tw-1f436",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f436.svg",
+      "sha256": "1b2f159e1ed6bac0672ac932e09750dbdebad1d60c72fb39648a089a78b05792",
+      "sourceSha256": "52acbb8b0f2d817937b6de1581e298217887e62fb1265055fdcbacae10c669c3"
+    },
+    {
+      "codepoint": "1f430",
+      "name": "토끼",
+      "asset": "tw-1f430",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f430.svg",
+      "sha256": "f191be6a14ac43a49b7ee640588db85244332c1de483219cd40e4deb8125658c",
+      "sourceSha256": "19f213da129217b424595228e6f25eadf8c737a6128827a1e36058fba237f1d2"
+    },
+    {
+      "codepoint": "1f43b",
+      "name": "곰",
+      "asset": "tw-1f43b",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f43b.svg",
+      "sha256": "1f78299c3d0fc0832e7efe07fe036b8d498ea85207edcb748a9022452528892c",
+      "sourceSha256": "01203c85604edcc900adab2c45324174e6771db767345d53aebd0469a4c21a5a"
+    },
+    {
+      "codepoint": "1f43c",
+      "name": "판다",
+      "asset": "tw-1f43c",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f43c.svg",
+      "sha256": "b075463f34e1cbf5669e5c3465062e63d60478ad60c89d2461d0594e4973725e",
+      "sourceSha256": "f62d0a2b082c192743e4ea6e3ec841c76efb17fe882c068e00d5264e9ad42128"
+    },
+    {
+      "codepoint": "1f439",
+      "name": "햄스터",
+      "asset": "tw-1f439",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f439.svg",
+      "sha256": "0179384323550593ebec6220f18758eef6a44e23fb4063c67293b3636d261d29",
+      "sourceSha256": "de2c5a5ca1be8fa8f768efee6b1ced41e7c6152671a207d58f077a24ecfa0cb3"
+    },
+    {
+      "codepoint": "1f424",
+      "name": "병아리",
+      "asset": "tw-1f424",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f424.svg",
+      "sha256": "546b762af68ec55d6c7630a33de436f1b3e1fea3b2dc6196a2be5294d912d441",
+      "sourceSha256": "fe6ab1766371c0d585eb4c17e4638f3dcb69e761bfd91767ef31be9a60f36df0"
+    },
+    {
+      "codepoint": "1f427",
+      "name": "펭귄",
+      "asset": "tw-1f427",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f427.svg",
+      "sha256": "dfd40526b344d8b0192890ca53c88a3e98c6c04db6dc8ceceabcf30fc33325bf",
+      "sourceSha256": "68dc119e054a8660c1d0e7ee999b649be22309e050a7f68ba9458f36eb2db489"
+    },
+    {
+      "codepoint": "1f984",
+      "name": "유니콘",
+      "asset": "tw-1f984",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f984.svg",
+      "sha256": "cb1b56e8d1d17c7458b5075566e70ead14d6a0b758005964cc282cee94b0b5f7",
+      "sourceSha256": "6063b1ca7021881784eb5a8110997357026fb7376785e639850335a9c422a639"
+    },
+    {
+      "codepoint": "1f9f8",
+      "name": "곰인형",
+      "asset": "tw-1f9f8",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f9f8.svg",
+      "sha256": "f7336fe05213adfb9534f48a4d1443210312e0cde212252d67b76a747f3eab0a",
+      "sourceSha256": "695cee7e0cbc768ff80e30000d9d7e292ec9d8f85e59bcf779bbe1fa3a21335f"
+    },
+    {
+      "codepoint": "2615",
+      "name": "커피",
+      "asset": "tw-2615",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/2615.svg",
+      "sha256": "2910a587d7b05238b04489594bcb054e0fc6d57be3a21dcb14b7f170988fc4f0",
+      "sourceSha256": "8b8afd8f60833ca51907899d4a3279cdfd355282858ba8a73cd1034d2a1e31ff"
+    },
+    {
+      "codepoint": "1f370",
+      "name": "조각 케이크",
+      "asset": "tw-1f370",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f370.svg",
+      "sha256": "b77f359e7eb478c3d1193789afcb0661034f6fd9914dedd8530bc8505568fb2e",
+      "sourceSha256": "ab54ce36cb1dc1395ca8aeacff356a78e8dc82f854fa0275fb4f963b434f5b12"
+    },
+    {
+      "codepoint": "1f382",
+      "name": "생일 케이크",
+      "asset": "tw-1f382",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f382.svg",
+      "sha256": "f1c7c9c5128e4a6ed763114dc0c1e671e0ac7f4506f44cbabb5c9f8f8ede380f",
+      "sourceSha256": "ad38cf5ad3543ba3fe2e12df581ca0362ff9ba7c588eed5f8dda9d4999da7bd6"
+    },
+    {
+      "codepoint": "1f353",
+      "name": "딸기",
+      "asset": "tw-1f353",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f353.svg",
+      "sha256": "c58d1f99568dfcef29fa8799fcad8f87bf20e73119c611aab63fb98bbf479e9b",
+      "sourceSha256": "8fc89f2be1a50a72d5c44f28d2f84b642f7065bc4f97c6540ee3ae86d2eda2fc"
+    },
+    {
+      "codepoint": "1f352",
+      "name": "체리",
+      "asset": "tw-1f352",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f352.svg",
+      "sha256": "81fc207c12d16bdf6dee261424505a3be695babccef5d4e89b6e223cf32becb2",
+      "sourceSha256": "55169c27fc03a0e20bec5144194584685bbc44f4bd92ce6be21e5aa429c7b137"
+    },
+    {
+      "codepoint": "1f34e",
+      "name": "사과",
+      "asset": "tw-1f34e",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f34e.svg",
+      "sha256": "d80e0af3609a2818b18471326164568caf8358c7bf305bbd177b67859d2275f0",
+      "sourceSha256": "b55a6ab3403f37e8404dab174ed26b5997f48a67df2ac317c442b86916343d3e"
+    },
+    {
+      "codepoint": "1f950",
+      "name": "크루아상",
+      "asset": "tw-1f950",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f950.svg",
+      "sha256": "8b4b8441db7116fe985cb3d40246853c37b3261549b24c8d026f25797cfca5ff",
+      "sourceSha256": "eb3500e968fa39c7a79a2ebd5ecfb0289d874e01a75cbe1b3c843d746598e33c"
+    },
+    {
+      "codepoint": "1f369",
+      "name": "도넛",
+      "asset": "tw-1f369",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f369.svg",
+      "sha256": "27c917e6778244769c56e8f65b77c74818589622abd99c99b32b9764d58ba3d8",
+      "sourceSha256": "396a0bcd67359b5b022a36879f3e04ca070ec267beedcc72474739de7b53fd2a"
+    },
+    {
+      "codepoint": "1f366",
+      "name": "아이스크림",
+      "asset": "tw-1f366",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f366.svg",
+      "sha256": "83a051057b8c06648f3dea9107a0c0aabc740b31edc979d1ef1fbc16d8249968",
+      "sourceSha256": "d7ac9b50cc187c218801caddbc1a9b728022c5c00f44a3bd2cd0920af808bc5f"
+    },
+    {
+      "codepoint": "1f36a",
+      "name": "쿠키",
+      "asset": "tw-1f36a",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f36a.svg",
+      "sha256": "d230b9443788423c9619c684fe9cad6fffbc689914f48eed7f07814f928646d2",
+      "sourceSha256": "88724da3173eaf855fc8b8094480d1d923f69c420107501da8d40b503163bcf2"
+    },
+    {
+      "codepoint": "1f95e",
+      "name": "팬케이크",
+      "asset": "tw-1f95e",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f95e.svg",
+      "sha256": "99855824571aedf458568c167b4fba530806a17ae65b3fa2f1213e24e7985f9c",
+      "sourceSha256": "d50bea97af2d27abe42cf81c052849edcb222f984c02c1fa2093e497ffb0892b"
+    },
+    {
+      "codepoint": "1f9cb",
+      "name": "버블티",
+      "asset": "tw-1f9cb",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f9cb.svg",
+      "sha256": "ca67318096b55a48b9db41ba664bb33200823a6021b4bf4a2af1b17a4985a028",
+      "sourceSha256": "3f5a533148a15b49f06efcd232935842f3d8d1e2b032fe56721b611768f19876"
+    },
+    {
+      "codepoint": "1f380",
+      "name": "리본",
+      "asset": "tw-1f380",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f380.svg",
+      "sha256": "04fcaccd72bc4dcfdfb95a7913fc3620e8acaf3ff7aaadcdbde26c441b095ea0",
+      "sourceSha256": "eb48df1cae357dd22640d42beccb277f56098ee9d19b46a24028b660ddc81fec"
+    },
+    {
+      "codepoint": "1f381",
+      "name": "선물",
+      "asset": "tw-1f381",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f381.svg",
+      "sha256": "aafa7717a4eb176f8c2876e505bfefc9476281b70a3d8f44f0419be5ffa9295b",
+      "sourceSha256": "05a6562177e8e5f89852e08f7bbd6b62597b35d70c92238fcab4d6674ec76048"
+    },
+    {
+      "codepoint": "1f388",
+      "name": "풍선",
+      "asset": "tw-1f388",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f388.svg",
+      "sha256": "177a04ae38bfc24b5aea2f25b04f3f6446fde59ba19d4a1930d65a88caf03764",
+      "sourceSha256": "57ccb51903834dfeedd2809b2ae4775eb0751945d3f75ab2e5942b5c25b2aa27"
+    },
+    {
+      "codepoint": "1f48c",
+      "name": "편지",
+      "asset": "tw-1f48c",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f48c.svg",
+      "sha256": "ef6020feb86ad48d7cd207639cf9229efba5f998c8779f076a82da2ba9870d3e",
+      "sourceSha256": "2a71dbb62dd1fd47aca9ad674d313194d5103ad8cd09ec68b9f2b228df397cfc"
+    },
+    {
+      "codepoint": "1f4f7",
+      "name": "카메라",
+      "asset": "tw-1f4f7",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/1f4f7.svg",
+      "sha256": "029d6ebabd42e9993ad74fa8dd4ba9bf55ffaed039e6e15b5fd221c169eb096b",
+      "sourceSha256": "d53afdbf8189af1d63c0b666b339e3d1116503eef12f9319278f7243c38bcb1d"
+    },
+    {
+      "codepoint": "2708",
+      "name": "비행기",
+      "asset": "tw-2708",
+      "url": "https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/2708.svg",
+      "sha256": "09b18b995d88e8612b6199864462052157888d44c517328890c1b21cfa55647b",
+      "sourceSha256": "7bd37697525860cea3841d9a6e52bb978539c927d9bace4cbfce5639d923ae78"
+    }
+  ],
+  "rendering": {
+    "width": 512,
+    "height": 512,
+    "format": "png",
+    "sourceFormat": "svg",
+    "renderer": "sharp 0.35.5"
+  }
+}

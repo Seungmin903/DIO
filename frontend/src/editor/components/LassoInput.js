@@ -1,0 +1,159 @@
+import { useLayoutEffect, useRef, useState } from 'react'
+import { Keyboard, Platform, StyleSheet, View } from 'react-native'
+import Svg, { Path, Polygon } from 'react-native-svg'
+import { colors } from '../../shared/theme'
+import { clamp } from '../utils/common'
+import { applyLassoSelection, containsLassoPoint, hasLassoArea, lassoHitIds, lassoPolygon, objectLassoCorners } from '../utils/lassoGeometry.js'
+
+// 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
+const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
+const cancelFrame = (id) => { if (id && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id) }
+
+const MIN_MOVEMENT = 10
+const SAMPLE_DISTANCE = 2
+
+// 범위 선택은 종료 때 반영하고, 확정한 점선 안쪽의 드래그는 기존 선택을 이동한다.
+export default function LassoInput({ objects, selectedIds, shape, mode, zoom, pageWidth, pageHeight, onCommit, captureAll = true, onDrawingChange, onClearSelection,
+  selectionPaths, onSelectionMoveStart, onSelectionMove, onSelectionMoveEnd }) {
+  const gesture = useRef(null)
+  const frame = useRef(null)
+  const pendingDraft = useRef(null)
+  const pendingMove = useRef(null)
+  const moveCallbacks = useRef(null)
+  moveCallbacks.current = { onSelectionMoveStart, onSelectionMove, onSelectionMoveEnd }
+  const flushMove = () => {
+    if (frame.current) cancelFrame(frame.current)
+    frame.current = null
+    const move = pendingMove.current
+    pendingMove.current = null
+    if (move) moveCallbacks.current.onSelectionMove?.(...move)
+  }
+  useLayoutEffect(() => () => {
+    if (gesture.current?.kind === 'move') moveCallbacks.current.onSelectionMoveEnd?.(true)
+    gesture.current = null
+    if (frame.current) cancelFrame(frame.current)
+    onDrawingChange?.(false)
+  }, [onDrawingChange])
+  const [draft, setDraft] = useState(null)
+  const [drawing, setDrawing] = useState(false)
+  const cancel = () => {
+    if (gesture.current?.kind === 'move') moveCallbacks.current.onSelectionMoveEnd?.(true)
+    gesture.current = null
+    if (frame.current) cancelFrame(frame.current)
+    frame.current = null
+    pendingDraft.current = null
+    pendingMove.current = null
+    setDraft(null)
+    setDrawing(false)
+    onDrawingChange?.(false)
+  }
+  const buildDraft = (g) => {
+    // 프리뷰는 좌표 배열을 복사해, 다음 입력이 이미 표시 중인 경로를 바꾸지 않게 한다.
+    const polygon = lassoPolygon(shape, g.start, g.points.slice())
+    const valid = g.maxMove >= MIN_MOVEMENT && hasLassoArea(polygon)
+    const ids = valid ? applyLassoSelection(objects, g.base, lassoHitIds(objects, polygon), mode) : mode === 'replace' ? [] : g.base
+    g.result = valid ? ids : null
+    return { polygon, ids }
+  }
+  const scheduleDraft = (g) => {
+    pendingDraft.current = g
+    if (frame.current) return
+    frame.current = requestFrame(() => {
+      frame.current = null
+      if (pendingDraft.current) setDraft(buildDraft(pendingDraft.current))
+      pendingDraft.current = null
+    })
+  }
+  const input = {
+    onStart: event => {
+      cancel()
+      if ((Platform.OS === 'web' && event.button != null && event.button !== 0) || event.touches?.length > 1) return
+      Keyboard.dismiss()
+      const start = { x: clamp(event.locationX / zoom, 0, pageWidth), y: clamp(event.locationY / zoom, 0, pageHeight) }
+      if (selectionPaths?.some(path => containsLassoPoint(path.points, start))) {
+        gesture.current = { kind: 'move', identifier: event.identifier, pageX: event.pageX, pageY: event.pageY }
+        moveCallbacks.current.onSelectionMoveStart?.()
+        return
+      }
+      setDrawing(true)
+      onDrawingChange?.(true)
+      gesture.current = { start, captureAll, clearOnTap: Boolean(selectionPaths?.length), identifier: event.identifier, pageX: event.pageX, pageY: event.pageY, points: [start], base: [...selectedIds], objects, maxMove: 0, result: null }
+    },
+    onMove: (dx, dy, event) => {
+      const g = gesture.current
+      if (!g) return
+      if (g.kind === 'move') {
+        if (event.touches?.length > 1) { cancel(); return }
+        pendingMove.current = [dx / zoom, dy / zoom]
+        if (!frame.current) frame.current = requestFrame(flushMove)
+        return
+      }
+      if (event.touches?.length > 1 || g.objects !== objects) { cancel(); return }
+      g.maxMove = Math.max(g.maxMove, Math.hypot(dx, dy))
+      const next = { x: clamp(g.start.x + dx / zoom, 0, pageWidth), y: clamp(g.start.y + dy / zoom, 0, pageHeight) }
+      const last = g.points[g.points.length - 1]
+      if (Math.hypot(next.x - last.x, next.y - last.y) * zoom < SAMPLE_DISTANCE) return
+      if (shape === 'freeform') g.points.push(next)
+      else g.points = [g.start, next]
+      scheduleDraft(g)
+    },
+    onEnd: ({ cancelled }) => {
+      const g = gesture.current
+      if (g?.kind === 'move') {
+        if (!cancelled) flushMove()
+        gesture.current = null
+        cancel()
+        moveCallbacks.current.onSelectionMoveEnd?.(cancelled)
+        return
+      }
+      cancel()
+      if (!cancelled && g && g.objects === objects) {
+        // 마지막 입력 뒤 프레임이 아직 오지 않았어도 전체 좌표로 선택을 확정한다.
+        const final = buildDraft(g)
+        if (g.result !== null) onCommit(g.result, { polygon: final.polygon, shape, mode })
+        else if (g.maxMove < MIN_MOVEMENT && (g.clearOnTap || !g.captureAll || !lassoHitIds(objects, [g.start]).length)) onClearSelection?.()
+      }
+    },
+  }
+  // 올가미 입력 면 자체가 터치를 받는다. SVG·상세 창의 갱신과 독립적으로 화면 좌표 차이를 추적한다.
+  const handlers = {
+    onStartShouldSetResponder: () => true,
+    onStartShouldSetResponderCapture: event => (event.nativeEvent.touches?.length ?? 1) === 1,
+    onResponderTerminationRequest: event => (event.nativeEvent.touches?.length ?? 0) > 1,
+    onResponderGrant: event => input.onStart(event.nativeEvent),
+    onResponderMove: event => {
+      const g = gesture.current
+      if (g) input.onMove(event.nativeEvent.pageX - g.pageX, event.nativeEvent.pageY - g.pageY, event.nativeEvent)
+    },
+    onResponderRelease: event => {
+      const g = gesture.current
+      const e = event.nativeEvent
+      const last = e.changedTouches?.find(t => t.identifier === g?.identifier) ?? e
+      if (g && Number.isFinite(last.pageX) && Number.isFinite(last.pageY)) {
+        input.onMove(last.pageX - g.pageX, last.pageY - g.pageY, { touches: [] })
+      }
+      input.onEnd({ cancelled: false })
+    },
+    onResponderTerminate: () => input.onEnd({ cancelled: true }),
+  }
+  const previewIds = new Set(draft?.ids ?? (mode === 'replace' ? [] : selectedIds))
+  const polygon = draft?.polygon ?? []
+  const path = polygon.length ? 'M' + polygon.map(p => p.x + ' ' + p.y).join('L') + 'Z' : ''
+  return (
+    <View style={[styles.layer, { width: pageWidth * zoom, height: pageHeight * zoom, zIndex: captureAll ? 3 : 0 }]} pointerEvents="box-none" collapsable={false}>
+      <View accessibilityLabel={shape === 'freeform' ? '자유형 올가미 입력 영역' : '네모 올가미 입력 영역'} style={StyleSheet.absoluteFill} pointerEvents="box-only" collapsable={false} {...handlers}>
+      <Svg pointerEvents="none" width={pageWidth * zoom} height={pageHeight * zoom} viewBox={'0 0 ' + pageWidth + ' ' + pageHeight}>
+        {drawing && objects.filter(object => !object.hidden && previewIds.has(object.id)).map(object => (
+          <Polygon key={object.id} points={objectLassoCorners(object).map(p => p.x + ',' + p.y).join(' ')}
+            // 고른 요소 표시는 선택 테두리와 같은 모양: 채우지 않은 파란 실선
+            fill="none" stroke={colors.primary} strokeWidth={1.5 / zoom} />
+        ))}
+        {path ? <Path d={path} fill={colors.primarySoft} fillRule="evenodd" stroke={colors.primary}
+          strokeWidth={1.5 / zoom} strokeDasharray={[6 / zoom, 4 / zoom]} /> : null}
+      </Svg>
+      </View>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({ layer: { position: 'absolute', left: 0, top: 0, overflow: 'hidden' } })

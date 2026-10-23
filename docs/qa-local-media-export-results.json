@@ -1,0 +1,567 @@
+{
+  "baseCommit": "37bd642",
+  "dateKST": "2026-10-20",
+  "fixtureKind": "synthetic PNG quadrants / generated two-frame GIFs",
+  "cases": [
+    {
+      "name": "tablet-1",
+      "restartMode": "reload",
+      "viewport": [
+        1280,
+        800
+      ],
+      "objects": 4,
+      "gifs": 2,
+      "restoreMs": 138,
+      "generationMs": 219,
+      "downloadName": "DIO_QA 75 저장 복원_p01_20261020_063717_683.png",
+      "downloadBytes": 75806,
+      "pixels": {
+        "pngBytes": 75806,
+        "pngHeader": [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10
+        ],
+        "width": 1188,
+        "height": 840,
+        "hash": "3d3e74b2a57f239d862875a2b04f8007237f29b8016225c81fb427868c84b737",
+        "samples": {
+          "quadRed": [
+            224,
+            48,
+            48,
+            255
+          ],
+          "quadGreen": [
+            32,
+            176,
+            80,
+            255
+          ],
+          "quadBlue": [
+            40,
+            88,
+            224,
+            255
+          ],
+          "crop": [
+            32,
+            176,
+            80,
+            255
+          ],
+          "gifRed": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "gifGreen": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "outsideRotated": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "overlapFront": [
+            0,
+            255,
+            0,
+            255
+          ]
+        }
+      }
+    },
+    {
+      "name": "tablet-2",
+      "restartMode": "reload",
+      "viewport": [
+        1280,
+        800
+      ],
+      "objects": 4,
+      "gifs": 2,
+      "restoreMs": 181,
+      "generationMs": 235,
+      "downloadName": "DIO_QA 75 저장 복원_p01_20261020_063718_366.png",
+      "downloadBytes": 75806,
+      "pixels": {
+        "pngBytes": 75806,
+        "pngHeader": [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10
+        ],
+        "width": 1188,
+        "height": 840,
+        "hash": "3d3e74b2a57f239d862875a2b04f8007237f29b8016225c81fb427868c84b737",
+        "samples": {
+          "quadRed": [
+            224,
+            48,
+            48,
+            255
+          ],
+          "quadGreen": [
+            32,
+            176,
+            80,
+            255
+          ],
+          "quadBlue": [
+            40,
+            88,
+            224,
+            255
+          ],
+          "crop": [
+            32,
+            176,
+            80,
+            255
+          ],
+          "gifRed": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "gifGreen": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "outsideRotated": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "overlapFront": [
+            0,
+            255,
+            0,
+            255
+          ]
+        }
+      }
+    },
+    {
+      "name": "tablet-3",
+      "restartMode": "close-and-new-tab",
+      "viewport": [
+        1280,
+        800
+      ],
+      "objects": 4,
+      "gifs": 2,
+      "restoreMs": 557,
+      "generationMs": 369,
+      "downloadName": "DIO_QA 75 저장 복원_p01_20261020_063719_405.png",
+      "downloadBytes": 75806,
+      "pixels": {
+        "pngBytes": 75806,
+        "pngHeader": [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10
+        ],
+        "width": 1188,
+        "height": 840,
+        "hash": "3d3e74b2a57f239d862875a2b04f8007237f29b8016225c81fb427868c84b737",
+        "samples": {
+          "quadRed": [
+            224,
+            48,
+            48,
+            255
+          ],
+          "quadGreen": [
+            32,
+            176,
+            80,
+            255
+          ],
+          "quadBlue": [
+            40,
+            88,
+            224,
+            255
+          ],
+          "crop": [
+            32,
+            176,
+            80,
+            255
+          ],
+          "gifRed": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "gifGreen": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "outsideRotated": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "overlapFront": [
+            0,
+            255,
+            0,
+            255
+          ]
+        }
+      }
+    },
+    {
+      "name": "narrow-web",
+      "viewport": [
+        412,
+        892
+      ],
+      "objects": 4,
+      "gifs": 2,
+      "generationMs": 327,
+      "downloadName": "DIO_QA 75 저장 복원_p01_20261020_063720_059.png",
+      "downloadBytes": 75806,
+      "pixels": {
+        "pngBytes": 75806,
+        "pngHeader": [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10
+        ],
+        "width": 1188,
+        "height": 840,
+        "hash": "3d3e74b2a57f239d862875a2b04f8007237f29b8016225c81fb427868c84b737",
+        "samples": {
+          "quadRed": [
+            224,
+            48,
+            48,
+            255
+          ],
+          "quadGreen": [
+            32,
+            176,
+            80,
+            255
+          ],
+          "quadBlue": [
+            40,
+            88,
+            224,
+            255
+          ],
+          "crop": [
+            32,
+            176,
+            80,
+            255
+          ],
+          "gifRed": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "gifGreen": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "outsideRotated": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "overlapFront": [
+            0,
+            255,
+            0,
+            255
+          ]
+        }
+      }
+    },
+    {
+      "name": "20-elements",
+      "viewport": [
+        1280,
+        800
+      ],
+      "objects": 20,
+      "gifs": 10,
+      "generationMs": 1058,
+      "downloadName": "DIO_QA 75 저장 복원_p01_20261020_063720_895.png",
+      "downloadBytes": 222081,
+      "pixels": {
+        "pngBytes": 222081,
+        "pngHeader": [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10
+        ],
+        "width": 1188,
+        "height": 840,
+        "hash": "6d9460f9b05804d2c3651b44bcd2621ff97aef9782330c97ca11aaf1c1d62237",
+        "samples": {
+          "quadRed": [
+            40,
+            88,
+            224,
+            255
+          ],
+          "quadGreen": [
+            32,
+            176,
+            80,
+            255
+          ],
+          "quadBlue": [
+            32,
+            176,
+            80,
+            255
+          ],
+          "crop": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "gifRed": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "gifGreen": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "outsideRotated": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "overlapFront": [
+            255,
+            0,
+            0,
+            255
+          ]
+        }
+      }
+    }
+  ],
+  "pending": [
+    "iPhone/iPad/Android 실기기 사진첩 저장·권한·강제 종료",
+    "72번 필기·텍스트 데이터 모델/구현"
+  ],
+  "scope": "실제 가져오기·자동 저장·웹 재실행·PNG 다운로드. 변형 좌표는 고정 fixture를 저장소에 넣어 렌더러를 검증하며 편집 제스처 검증은 아님.",
+  "fixtures": [
+    {
+      "name": "photo-quadrants.png",
+      "width": 2048,
+      "height": 1536,
+      "frames": 1,
+      "bytes": 8976,
+      "sha256": "55a4cd2a7fb2cb7a39c07815b7c86e3b4d49ea6328bc9d6b24e4e653acad02af"
+    },
+    {
+      "name": "photo-large.png",
+      "width": 4096,
+      "height": 3072,
+      "frames": 1,
+      "bytes": 21665,
+      "sha256": "f37ecde8bf2a6793d4fbab2896d68f345f151935d43412b82503ba0bad6b234c"
+    },
+    {
+      "name": "first-red.gif",
+      "width": 128,
+      "height": 128,
+      "frames": 2,
+      "bytes": 391,
+      "sha256": "01705d80d87d6f4c2ac2033672c2925077ecde049862594bffaf019f0ed8c202"
+    },
+    {
+      "name": "first-green.gif",
+      "width": 128,
+      "height": 128,
+      "frames": 2,
+      "bytes": 391,
+      "sha256": "d376c936e1899c06edd8b876f282148c3c95bd49d2c86bdb45ba3876d0914d0f"
+    },
+    {
+      "name": "corrupt.png",
+      "width": 0,
+      "height": 0,
+      "frames": 1,
+      "bytes": 8,
+      "sha256": "4c4b6a3be1314ab86138bef4314dde022e600960d8689a2c8f8631802d20dab6"
+    }
+  ],
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "import": {
+    "success": 1,
+    "attempts": 1,
+    "ms": 935
+  },
+  "savedMedia": [
+    {
+      "mediaFileId": "25ad0de5-d847-4d11-8ae2-198c8cf6a1aa",
+      "originalName": "first-green.gif",
+      "mimeType": "image/gif",
+      "extension": "gif",
+      "fileSize": 391,
+      "width": 128,
+      "height": 128,
+      "createdAt": "2026-10-19T21:37:16.833Z",
+      "sha256": "d376c936e1899c06edd8b876f282148c3c95bd49d2c86bdb45ba3876d0914d0f"
+    },
+    {
+      "mediaFileId": "749db778-255a-45db-848e-8d408b92c30b",
+      "originalName": "first-red.gif",
+      "mimeType": "image/gif",
+      "extension": "gif",
+      "fileSize": 391,
+      "width": 128,
+      "height": 128,
+      "createdAt": "2026-10-19T21:37:16.829Z",
+      "sha256": "01705d80d87d6f4c2ac2033672c2925077ecde049862594bffaf019f0ed8c202"
+    },
+    {
+      "mediaFileId": "8b6811b9-6eec-4b80-8d59-4c0b288a7441",
+      "originalName": "photo-large.png",
+      "mimeType": "image/png",
+      "extension": "png",
+      "fileSize": 21665,
+      "width": 4096,
+      "height": 3072,
+      "createdAt": "2026-10-19T21:37:16.824Z",
+      "display": {
+        "width": 2048,
+        "height": 1536,
+        "mimeType": "image/png",
+        "extension": "png",
+        "fileSize": 66651
+      },
+      "sha256": "f37ecde8bf2a6793d4fbab2896d68f345f151935d43412b82503ba0bad6b234c"
+    },
+    {
+      "mediaFileId": "bf276e4c-4c73-4e11-b353-1ab35bd1d538",
+      "originalName": "photo-quadrants.png",
+      "mimeType": "image/png",
+      "extension": "png",
+      "fileSize": 8976,
+      "width": 2048,
+      "height": 1536,
+      "createdAt": "2026-10-19T21:37:16.719Z",
+      "sha256": "55a4cd2a7fb2cb7a39c07815b7c86e3b4d49ea6328bc9d6b24e4e653acad02af"
+    }
+  ],
+  "mediaAfter": [
+    {
+      "mediaFileId": "25ad0de5-d847-4d11-8ae2-198c8cf6a1aa",
+      "originalName": "first-green.gif",
+      "mimeType": "image/gif",
+      "extension": "gif",
+      "fileSize": 391,
+      "width": 128,
+      "height": 128,
+      "createdAt": "2026-10-19T21:37:16.833Z",
+      "sha256": "d376c936e1899c06edd8b876f282148c3c95bd49d2c86bdb45ba3876d0914d0f"
+    },
+    {
+      "mediaFileId": "749db778-255a-45db-848e-8d408b92c30b",
+      "originalName": "first-red.gif",
+      "mimeType": "image/gif",
+      "extension": "gif",
+      "fileSize": 391,
+      "width": 128,
+      "height": 128,
+      "createdAt": "2026-10-19T21:37:16.829Z",
+      "sha256": "01705d80d87d6f4c2ac2033672c2925077ecde049862594bffaf019f0ed8c202"
+    },
+    {
+      "mediaFileId": "8b6811b9-6eec-4b80-8d59-4c0b288a7441",
+      "originalName": "photo-large.png",
+      "mimeType": "image/png",
+      "extension": "png",
+      "fileSize": 21665,
+      "width": 4096,
+      "height": 3072,
+      "createdAt": "2026-10-19T21:37:16.824Z",
+      "display": {
+        "width": 2048,
+        "height": 1536,
+        "mimeType": "image/png",
+        "extension": "png",
+        "fileSize": 66651
+      },
+      "sha256": "f37ecde8bf2a6793d4fbab2896d68f345f151935d43412b82503ba0bad6b234c"
+    },
+    {
+      "mediaFileId": "bf276e4c-4c73-4e11-b353-1ab35bd1d538",
+      "originalName": "photo-quadrants.png",
+      "mimeType": "image/png",
+      "extension": "png",
+      "fileSize": 8976,
+      "width": 2048,
+      "height": 1536,
+      "createdAt": "2026-10-19T21:37:16.719Z",
+      "sha256": "55a4cd2a7fb2cb7a39c07815b7c86e3b4d49ea6328bc9d6b24e4e653acad02af"
+    }
+  ],
+  "corruptBatch": {
+    "documentPreserved": true,
+    "originalCount": 4,
+    "persistentRetry": true
+  }
+}

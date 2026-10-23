@@ -1,0 +1,74 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { registerHooks } from 'node:module'
+
+// Expo 번들러는 확장자 없는 내부 import를 해석한다. Node 회귀 테스트에서도
+// 같은 모듈을 읽을 수 있게 상대 경로에 .js를 보완한다.
+const hooks = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier.startsWith('.') && !specifier.endsWith('.js')) return nextResolve(`${specifier}.js`, context)
+    return nextResolve(specifier, context)
+  },
+})
+const { createInitialState, editorReducer } = await import('../src/editor/state/editorReducer.js')
+hooks.deregister()
+
+const doc = {
+  id: 'diary-a',
+  title: '테스트 다이어리',
+  pages: [
+    {
+      id: 'page-a',
+      objects: [
+        { id: 'text-a', type: 'text', x: 10, y: 20, text: '첫 기록', style: { color: '#112233' }, groupId: 'group-a' },
+        { id: 'photo-a', type: 'photo', x: 30, y: 40, mediaFileId: 'media-a', crop: { zoom: 1 }, groupId: 'group-a' },
+      ],
+    },
+  ],
+}
+
+test('페이지 복제는 요소와 그룹 ID를 분리하고 원본 바로 뒤로 이동한다', () => {
+  const state = editorReducer(createInitialState(doc), { type: 'duplicatePage' })
+  const [original, copy] = state.doc.pages
+
+  assert.equal(state.doc.pages.length, 2)
+  assert.equal(state.pageId, copy.id)
+  assert.notEqual(copy.id, original.id)
+  assert.deepEqual(copy.objects.map((object) => object.text ?? object.mediaFileId), ['첫 기록', 'media-a'])
+  assert.notEqual(copy.objects[0].id, original.objects[0].id)
+  assert.notEqual(copy.objects[1].id, original.objects[1].id)
+  assert.notEqual(copy.objects[0].groupId, original.objects[0].groupId)
+  assert.equal(copy.objects[0].groupId, copy.objects[1].groupId)
+
+  const changed = editorReducer(state, {
+    type: 'updateObject',
+    record: true,
+    id: copy.objects[0].id,
+    patch: { x: 999, style: { color: '#FFFFFF' } },
+  })
+  assert.equal(changed.doc.pages[0].objects[0].x, 10)
+  assert.equal(changed.doc.pages[0].objects[0].style.color, '#112233')
+})
+
+test('페이지 삭제 뒤 되돌리기는 삭제한 페이지와 요소를 복구한다', () => {
+  const withSecondPage = editorReducer(createInitialState(doc), { type: 'addPage' })
+  const secondId = withSecondPage.pageId
+  const removed = editorReducer(withSecondPage, { type: 'removePage', id: secondId })
+  const restored = editorReducer(removed, { type: 'undo' })
+
+  assert.equal(removed.doc.pages.length, 1)
+  assert.equal(restored.doc.pages.length, 2)
+  assert.equal(restored.doc.pages[0].objects[0].text, '첫 기록')
+  assert.equal(restored.doc.pages[1].id, secondId)
+})
+
+test('인덱스 표식은 페이지별로 저장되고 되돌리기로 해제할 수 있다', () => {
+  const indexed = editorReducer(createInitialState(doc), { type: 'togglePageIndex', id: 'page-a' })
+  assert.equal(indexed.doc.pages[0].indexed, true)
+
+  const unindexed = editorReducer(indexed, { type: 'togglePageIndex', id: 'page-a' })
+  assert.equal(unindexed.doc.pages[0].indexed, false)
+
+  const restored = editorReducer(unindexed, { type: 'undo' })
+  assert.equal(restored.doc.pages[0].indexed, true)
+})

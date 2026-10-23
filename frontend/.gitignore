@@ -8,8 +8,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
-dist-ssr
+.expo/
+web-build/
+.env
 *.local
 
 # Editor directories and files
@@ -22,3 +23,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Expo
+dist/
+dist-android/
+expo-env.d.ts
+.metro-health-check*
+/ios
+/android
+
+# Generated QA fixtures, reports and downloads
+/qa/.out/
