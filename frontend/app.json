@@ -11,15 +11,8 @@
       "hidden": true,
       "translucent": true
     },
-    "newArchEnabled": true,
     "experiments": {
       "reactCompiler": true
-    },
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#CED9EE",
-      "image": "./assets/images/splash-icon.png",
-      "imageWidth": 160
     },
     "ios": {
       "bundleIdentifier": "com.f106.DIO",
@@ -58,6 +51,15 @@
         "expo-navigation-bar",
         {
           "hidden": true
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#CED9EE"
         }
       ]
     ],
