@@ -4,6 +4,7 @@ import { colors } from '../../../shared/theme'
 import { usePan } from '../../hooks/usePan'
 import { centerOf, normalizeAngle, rotateVector } from '../../utils/common'
 import { textFormatPatch, textSettings, TEXT_FRAME_PAD } from '../../utils/text'
+import { ROTATE_HANDLE as ROTATE_HANDLE_SIZE, ROTATE_OFFSET } from '../../utils/popoverPlacement'
 import Icon from '../controls/Icon'
 
 // 핸들이 박스 바깥에 걸쳐도 터치를 받도록 오버레이를 이만큼 넓게 잡는다. (Android 는 부모 밖 터치를 받지 않음)
@@ -13,8 +14,7 @@ const HANDLE = 18
 const EDGE_THICKNESS = 20 // 변 전체가 보이지 않는 크기 조절 영역
 // 변 영역은 대부분 박스 바깥에 두고 안쪽으로는 이만큼만 들어온다. (가운데를 눌러 옮기는 영역을 넓게 남긴다)
 const EDGE_INSET = 4
-const ROTATE_OFFSET = 34
-const ROTATE_HANDLE = HANDLE // 꼭짓점 손잡이와 같은 크기
+const ROTATE_HANDLE = ROTATE_HANDLE_SIZE // 꼭짓점 손잡이와 같은 크기 (떠 있는 메뉴가 이 자리를 피한다)
 const MIN_SIZE = 20
 
 const CORNERS = [

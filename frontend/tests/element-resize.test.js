@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import * as common from '../src/editor/utils/common.js'
 import * as reducer from '../src/editor/state/editorReducer.js'
+import * as placement from '../src/editor/utils/popoverPlacement.js'
 import * as text from '../src/editor/utils/text.js'
 
 const require = createRequire(import.meta.url)
@@ -26,6 +27,7 @@ function fixture(object, zoom = 1, textMinHeight = null) {
     if (id === 'react-native') return { View: 'view', Platform: { OS: 'web' }, StyleSheet: { create: (value) => value } }
     if (id.endsWith('/theme')) return { colors: {} }
     if (id.endsWith('/common')) return common
+    if (id.endsWith('/popoverPlacement')) return placement
     if (id.endsWith('/text')) return text
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
     if (id === '../controls/Icon') return { __esModule: true, default: () => null }

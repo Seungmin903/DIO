@@ -9,6 +9,7 @@ import { centerOf, clamp, rotateVector, unionBounds } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
 import { coverLayout, photoInnerBox } from '../../utils/objects'
 import { pageSize } from '../../utils/pageGeometry.js'
+import { placeHorizontal, placeVertical } from '../../utils/popoverPlacement'
 import { fitTextHeightPatch, textLayoutKey } from '../../utils/text'
 import { createLassoOutline, resolveLassoOutline } from '../../utils/lassoOutline.js'
 import PageBackground from '../PageBackground'
@@ -373,6 +374,7 @@ export default function Canvas({
           at={emptyMenu}
           zoom={zoom}
           pageWidth={PAGE_WIDTH}
+          pageHeight={PAGE_HEIGHT}
           canPaste={canPaste}
           onPaste={() => { setEmptyMenu(null); onPaste?.(emptyMenu) }}
           onPaperColor={() => setEmptyMenu({ ...emptyMenu, panel: 'paper' })}
@@ -444,20 +446,22 @@ export default function Canvas({
   )
 }
 
-/** 빈 곳 길게 누르기 메뉴. 요소 편집 바와 같은 모양으로 누른 자리 위에 띄운다 */
-// 속지 색 말풍선: 누른 자리 아래(아래가 좁으면 위)에, 페이지 밖으로 나가지 않게
+// 누른 자리 기준 메뉴도 선택 바와 같은 규칙(utils/popoverPlacement): 누른 자리 위 먼저, 안 되면 아래, 가로는 가운데 맞춤
+const pointBox = (at, zoom) => ({ top: at.y * zoom, bottom: at.y * zoom, handleY: null })
+// 속지 색 말풍선
 const PAPER_BUBBLE = { width: 300, height: 290 }
 function paperBubblePosition(at, zoom, pageWidth, pageHeight) {
-  const x = at.x * zoom, y = at.y * zoom, w = pageWidth * zoom, h = pageHeight * zoom
-  const left = clamp(x - PAPER_BUBBLE.width / 2, 8, Math.max(8, w - PAPER_BUBBLE.width - 8))
-  const below = y + 16 + PAPER_BUBBLE.height <= h
-  return { position: 'absolute', zIndex: 6, width: PAPER_BUBBLE.width, left, top: below ? y + 16 : Math.max(8, y - 16 - PAPER_BUBBLE.height) }
+  const left = placeHorizontal(at.x * zoom, PAPER_BUBBLE.width, pageWidth * zoom)
+  const { top } = placeVertical(pointBox(at, zoom), PAPER_BUBBLE.height, pageHeight * zoom)
+  return { position: 'absolute', zIndex: 6, width: PAPER_BUBBLE.width, left, top }
 }
 
-function EmptyMenu({ at, zoom, pageWidth, canPaste, onPaste, onPaperColor }) {
-  const width = 210
-  const left = clamp(at.x * zoom - width / 2, 8, Math.max(8, pageWidth * zoom - width - 8))
-  const top = Math.max(8, at.y * zoom - 64)
+/** 빈 곳 길게 누르기 메뉴. 요소 편집 바와 같은 모양으로 누른 자리 위에 띄운다 */
+const EMPTY_MENU = { width: 210, height: 52 }
+function EmptyMenu({ at, zoom, pageWidth, pageHeight, canPaste, onPaste, onPaperColor }) {
+  const { width } = EMPTY_MENU
+  const left = placeHorizontal(at.x * zoom, width, pageWidth * zoom)
+  const { top } = placeVertical(pointBox(at, zoom), EMPTY_MENU.height, pageHeight * zoom)
   return (
     <View style={[styles.emptyMenu, { left, top, width }]} accessibilityLabel="빈 곳 메뉴">
       <MenuButton icon="clipboard" label="붙여넣기" disabled={!canPaste} onPress={onPaste} />

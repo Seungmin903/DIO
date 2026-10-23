@@ -3,6 +3,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import { colors, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
 import { clamp, unionBounds } from '../../utils/common'
+import { keepOutBox, placeHorizontal, placeVertical, POPOVER_EDGE } from '../../utils/popoverPlacement'
 import Icon from '../controls/Icon'
 import LassoSelectionMenu from '../LassoSelectionMenu'
 import { EDITOR_COLORS } from '../../utils/penSettings'
@@ -11,9 +12,7 @@ import { normalizeTextLink } from '../../utils/textFormats'
 
 const BAR_HEIGHT = 52
 const CHIP_HEIGHT = 40 // 링크 카드 높이
-const ROTATE_CLEARANCE = 56 // 요소 위쪽 회전 손잡이(34 + 반지름 9)와 겹치지 않게 비우는 높이
-const EDGE = 8 // 페이지 가장자리와 바 사이 여백
-const GAP = 18
+const EDGE = POPOVER_EDGE // 페이지 가장자리와 바 사이 여백
 const MENU_WIDTH = 148
 const COMPACT_MENU_HEIGHT = 4.5 * 44 + 10 // 더보기 메뉴: 항목 네 개 반이 보이고 나머지는 스크롤
 /** 요소에 걸린 링크 (스티커·테이프·사진은 href, 텍스트는 글자 서식의 첫 링크) */
@@ -65,23 +64,16 @@ export default function ContextBar({
   const pageW = pageWidth * zoom
   const pageH = pageHeight * zoom
   // 바는 늘 페이지 안쪽에 둔다. Android·iOS 는 부모(페이지) 영역 밖으로 나간 버튼에 터치를 전달하지 않는다.
-  // 요소 아래에 자리가 있으면 아래, 없으면 위, 둘 다 없으면 페이지 안에서 가능한 가까운 곳(요소와 겹칠 수 있음).
-  const belowFits = bounds.bottom * zoom + GAP + BAR_HEIGHT < pageH - EDGE
-  const aboveFitsWithoutCoveringRotate = bounds.top * zoom - ROTATE_CLEARANCE - BAR_HEIGHT >= EDGE
-  // 아래 공간이 부족해도 회전 손잡이를 가릴 만큼 위쪽 공간이 좁으면 바는 아래에 둔다.
-  const below = belowFits || !aboveFitsWithoutCoveringRotate
-  const top = clamp(
-    // 위쪽에 바를 띄울 때 회전 손잡이(요소 상단에서 34px + 손잡이 반지름 9px)를 덮지 않도록 간격을 둔다.
-    below ? bounds.bottom * zoom + GAP : bounds.top * zoom - ROTATE_CLEARANCE - BAR_HEIGHT,
-    EDGE,
-    Math.max(EDGE, pageH - BAR_HEIGHT - EDGE),
-  )
+  // 자리 규칙은 utils/popoverPlacement: 선택 상자 + 회전 손잡이(돌린 방향 그대로)를 피해 위 먼저, 안 되면 아래,
+  // 둘 다 안 되면 손잡이 반대쪽에 붙인다. 회전 손잡이는 잠기지 않은 요소 하나를 골랐을 때만 보인다.
+  const keepOut = keepOutBox(bounds, zoom, single && !single.locked ? single : null)
+  const { top, side } = placeVertical(keepOut, BAR_HEIGHT, pageH)
   // 순서 메뉴는 바 위·아래 중 페이지 안에 더 넉넉한 쪽으로 편다.
   const menuBelow = pageH - (top + BAR_HEIGHT) >= top
-  const left = clamp(bounds.cx * zoom - barWidth / 2, 8, Math.max(8, pageW - barWidth - 8))
-  // 링크 카드: Google 슬라이드처럼 편집 바와 따로, 요소의 반대쪽(바가 아래면 위)에 띄운다. 주소를 누르면 열린다.
-  const chipTop = clamp(below ? bounds.top * zoom - ROTATE_CLEARANCE - CHIP_HEIGHT : bounds.bottom * zoom + GAP, EDGE, Math.max(EDGE, pageH - CHIP_HEIGHT - EDGE))
-  const chipLeft = clamp(bounds.cx * zoom - chipWidth / 2, 8, Math.max(8, pageW - chipWidth - 8))
+  const left = placeHorizontal(bounds.cx * zoom, barWidth, pageW)
+  // 링크 카드: Google 슬라이드처럼 편집 바와 따로, 요소의 반대쪽(바가 위면 아래)에 띄운다. 주소를 누르면 열린다.
+  const chipTop = placeVertical(keepOut, CHIP_HEIGHT, pageH, { prefer: side === 'above' ? 'below' : 'above' }).top
+  const chipLeft = placeHorizontal(bounds.cx * zoom, chipWidth, pageW)
   const linkCard = href && single && !single.locked && (
     <View style={[styles.chip, { top: chipTop, left: chipLeft, opacity: chipWidth ? 1 : 0 }]} onLayout={(event) => setChipWidth(event.nativeEvent.layout.width)} onStartShouldSetResponder={() => true} {...insideHandlers}>
       <Pressable onPress={openLink} accessibilityRole="link" accessibilityLabel="링크 열기" style={({ pressed }) => [styles.chipLink, pressed && styles.pressed]}>
