@@ -6,6 +6,7 @@ import * as common from '../src/editor/utils/common.js'
 import * as pen from '../src/editor/utils/penSettings.js'
 import * as formats from '../src/editor/utils/textFormats.js'
 import * as text from '../src/editor/utils/text.js'
+import * as placement from '../src/editor/utils/popoverPlacement.js'
 import { createInitialState, editorReducer } from '../src/editor/state/editorReducer.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
@@ -20,6 +21,7 @@ function fixture(object) {
     if (id === 'react') return { useState: (value) => [value, () => {}] }
     if (id === 'react-native') return { View: 'view', Text: 'text', Pressable: 'button', ScrollView: 'scroll', StyleSheet: { create: (s) => s } }
     if (id.endsWith('/common')) return common
+    if (id.endsWith('/popoverPlacement')) return placement
     if (id.endsWith('/penSettings')) return pen
     if (id.endsWith('/text')) return text
     if (id.endsWith('/textFormats')) return formats

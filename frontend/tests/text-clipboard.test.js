@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import * as text from '../src/editor/utils/text.js'
 import * as formats from '../src/editor/utils/textFormats.js'
 import * as ranges from '../src/editor/utils/textRanges.js'
+import * as placement from '../src/editor/utils/popoverPlacement.js'
 import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js'
 
 const require = createRequire(import.meta.url)
@@ -147,6 +148,7 @@ test('텍스트 상자 선택 바의 복제 버튼은 문자열 복사를 호출
     '../controls/Icon': { __esModule: true, default: 'Icon' },
     '../LassoSelectionMenu': { __esModule: true, default: 'Lasso' },
     '../../utils/penSettings': { EDITOR_COLORS: [] },
+    '../../utils/popoverPlacement': placement,
     '../../utils/textFormats': formats,
   })
   const tree = ContextBar({ objects: [{ id: 'text', type: 'text', text: '원문' }], zoom: 1,
