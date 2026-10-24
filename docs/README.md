@@ -14,6 +14,7 @@
 | [grid-template-order.md](./grid-template-order.md) | 174 격자·보조선과 속지 글씨의 합성 순서 및 브라우저 픽셀 검증 |
 | [layer-stroke-visibility.md](./layer-stroke-visibility.md) | 167 펜·형광펜 획의 레이어 목록 숨김과 혼합 그룹 멤버 보존 |
 | [export-entry-visibility.md](./export-entry-visibility.md) | 164 태블릿·폰 가로·폰 더보기의 내보내기 진입 임시 숨김 |
+| [diary-multi-select.md](./diary-multi-select.md) | 204 다이어리 여러 개 선택·일괄 휴지통 이동, 저장 실패 시 목록 유지와 기기 확인 항목 |
 | [trash-retention.md](./trash-retention.md) | 165 휴지통 30일 보관·만료 자동 정리·중단 복구와 남은 기기 확인 |
 | [ios-export-pixels.md](./ios-export-pixels.md) | 162 iOS 기기 배율 중복 보정·실제 PNG 픽셀 검증 및 재확인 항목 |
 | [app-information.md](./app-information.md) | 내 공간의 개인정보 처리방침 링크·문의 이메일 복사와 미검증 범위 |

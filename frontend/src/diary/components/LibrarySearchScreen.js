@@ -12,7 +12,7 @@ const HISTORY_KEY = 'dio:diary:search-history:v1';
 const cleanHistory = values => Array.isArray(values)
   ? [...new Set(values.filter(value => typeof value === 'string').map(value => value.trim()).filter(Boolean))].slice(0, 10) : [];
 
-export default function LibrarySearchScreen({ compact, query, onQueryChange, onBack, diaries, onOpen, onFavorite, onEdit, onDelete }) {
+export default function LibrarySearchScreen({ compact, query, onQueryChange, onBack, diaries, onOpen, onFavorite, onEdit, onDelete, optionsMenu = null, selectionBar = null, selecting = false, selected = [], onToggleSelect }) {
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -46,18 +46,20 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
   const searching = Boolean(query.trim());
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact]}>
     <View style={s.librarySearchHeading}>
-      <IconButton label="검색 닫기" iconName="chevron-left" onPress={onBack} />
-      <Text style={[s.libraryTitle, compact && s.libraryTitleCompact]}>다이어리 검색</Text>
+      <IconButton label={selecting ? '편집 완료' : '검색 닫기'} iconName="chevron-left" onPress={onBack} />
+      <Text style={[s.libraryTitle, compact && s.libraryTitleCompact, { flex: 1 }]}>다이어리 검색</Text>
+      {optionsMenu}
     </View>
     <View style={[s.librarySearchBar, s.librarySearchPageInput]}>
       <AppIcon name="search" size={20} color={C.muted} />
-      <TextInput autoFocus accessibilityLabel="다이어리 제목 검색" placeholder="다이어리 이름을 검색해 주세요" placeholderTextColor={C.muted} value={query} onChangeText={onQueryChange} onSubmitEditing={() => remember(query)} returnKeyType="search" style={s.librarySearchInput} />
+      <TextInput autoFocus editable={!selecting} accessibilityLabel="다이어리 제목 검색" placeholder="다이어리 이름을 검색해 주세요" placeholderTextColor={C.muted} value={query} onChangeText={onQueryChange} onSubmitEditing={() => remember(query)} returnKeyType="search" style={s.librarySearchInput} />
       <View style={s.librarySearchClearSlot}>
-        {!!query && <Pressable accessibilityRole="button" accessibilityLabel="검색어 지우기" onPress={() => onQueryChange('')} style={({ pressed }) => [s.librarySearchClear, pressed && s.pressed]}>
+        {!!query && !selecting && <Pressable accessibilityRole="button" accessibilityLabel="검색어 지우기" onPress={() => onQueryChange('')} style={({ pressed }) => [s.librarySearchClear, pressed && s.pressed]}>
           <AppIcon name="close" size={20} color={C.muted} />
         </Pressable>}
       </View>
     </View>
+    {selectionBar}
     {!searching ? <View style={s.librarySearchHistory}>
       <View style={s.librarySearchHistoryHeading}>
         <Text style={s.chipText}>최근 검색어</Text>
@@ -74,7 +76,7 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
     </View> : <View style={s.librarySearchResults}>
       <Text accessibilityLiveRegion="polite" style={s.chipText}>{`‘${query.trim()}’ 검색 결과 ${diaries.length}개`}</Text>
       {!diaries.length ? <EmptyState compact={compact} search title="검색 결과가 없어요." /> : <View style={[s.grid, compact && s.gridCompact]}>
-        {diaries.map(diary => <DiaryCard key={diary.id} diary={diary} compact={compact} layout="grid" onOpen={item => { remember(query); onOpen(item); }} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} />)}
+        {diaries.map(diary => <DiaryCard key={diary.id} diary={diary} compact={compact} layout="grid" onOpen={item => { remember(query); onOpen(item); }} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={onToggleSelect} />)}
       </View>}
     </View>}
   </ScrollView>;
