@@ -4,6 +4,7 @@ import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
 import { isAnimatedMedia, stickerSource } from '../../stickerAssets'
 import MediaImage from './MediaImage'
+import StickerFrame from './StickerFrame'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
 import { reportMediaDisplayError, mediaRegistry } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
@@ -145,14 +146,18 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   const uri = useMediaUri(object, { still })
   const originalSource = stickerSource(object, still, uri)
   const originalAnimated = !still && isAnimatedMedia(object)
-  const synchronized = Platform.OS === 'ios' && originalAnimated && (outline.on || shadow.on)
+  const synchronized = (Platform.OS === 'ios' || Platform.OS === 'android') && originalAnimated && (outline.on || shadow.on)
   const playback = useStickerPlayback(synchronized ? originalSource : null)
   const posterUri = useMediaUri(object, { still: true })
   // 준비 중에도 원본과 효과를 같은 첫 장면으로 표시한다. 출력(still)은 기존 경로를 쓴다.
-  const source = synchronized ? playback.source ?? stickerSource(object, true, posterUri) : originalSource
+  // Bundled GIFs have a PNG poster; do not fall back to an animated imported GIF.
+  const fallback = object.asset || object.poster ? stickerSource(object, true, posterUri) : null
+  const source = synchronized ? playback.source ?? fallback : originalSource
   const animated = originalAnimated && !synchronized
 
-  const silhouette = source
+  const silhouette = synchronized
+    ? (key, color, dx, dy, opacity = 1) => ({ key, color, dx, dy, opacity })
+    : source
     ? (key, color, dx, dy, opacity = 1) => (
         <MediaImage
           animated={animated}
@@ -213,10 +218,17 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
       ? silhouette('s', shadow.color, sx, sy, Math.min(1, shadow.opacity * 2), Math.max(1, grow + shadow.blur * zoom))
       : [...blurRing, ...body]
 
+  const outlineLayers = outline.on && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, outline.color, dx * stroke, dy * stroke))
+  if (synchronized) return <View style={[styles.center, box, { transform: flipTransform(object) }]}>
+    {source && <StickerFrame source={source} width={width} height={height}
+      layers={[shadowLayers, outlineLayers].flat().filter(Boolean)} />}
+    {playback.error && <Text accessibilityLiveRegion="polite" style={{ color: colors.danger, fontSize: 11 }}>움직이는 효과를 불러오지 못했어요.</Text>}
+  </View>
+
   return (
     <View style={[styles.center, box, { transform: flipTransform(object) }]}>
       {shadowLayers}
-      {outline.on && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, outline.color, dx * stroke, dy * stroke))}
+      {outlineLayers}
       {source ? (
         <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized) reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
       ) : (
