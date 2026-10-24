@@ -695,6 +695,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           initialFilter={overviewFilter}
           onSelect={(id) => { if (cropId) finishCrop(false); dispatch({ type: 'selectPage', id }) }}
           onToggleIndex={readOnly ? null : (id) => dispatch({ type: 'togglePageIndex', id })}
+          onReset={readOnly ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
+          onDelete={readOnly ? null : (ids) => { if (cropId) finishCrop(false); dispatch({ type: 'removePages', ids }); showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.') }}
           onClose={() => setOverviewFilter(null)}
         />
       )}
@@ -723,6 +725,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               showToast('페이지를 복제했어요.')
             }}
             onToggleIndex={(id) => dispatch({ type: 'togglePageIndex', id })}
+            onReset={readOnly ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
+            onRemovePages={(ids) => { if (cropId) finishCrop(false); dispatch({ type: 'removePages', ids }); showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.') }}
             onRemove={(id) => {
               dispatch({ type: 'removePage', id })
               showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.')
