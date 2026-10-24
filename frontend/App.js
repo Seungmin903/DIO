@@ -10,6 +10,8 @@ import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
+import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
+import MockLibraryApp from './src/diary/screens/MockLibraryApp';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
 import { queryDiaries } from './src/diary/utils/libraryQuery';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
@@ -41,9 +43,12 @@ export default function App() {
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
+  if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-library') {
+    return <SafeAreaProvider style={s.provider}><MockLibraryApp /></SafeAreaProvider>;
+  }
   return (
     <SafeAreaProvider style={s.provider}>
-      <DiaryApp />
+      {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : <DiaryApp />}
     </SafeAreaProvider>
   );
 }

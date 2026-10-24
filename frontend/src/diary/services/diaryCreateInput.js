@@ -1,0 +1,24 @@
+import { configuredPageIds, normalizeTemplateConfig } from '../../editor/templates/creation.js';
+import { getTemplate, templateCanvasSize, TEMPLATE_VERSION } from '../../editor/templates/catalog.js';
+import { normalizePaperAppearance } from '../../editor/templates/appearance.js';
+
+// 실제 생성 UI 값 → 목 계약 입력. 카탈로그의 파일 ID는 서버 template PK와 합의 후 매핑한다.
+// 편집 문서·로컬 ID·파일은 만들지 않는다.
+export function diaryCreateInput(form) {
+  const title = form.title?.trim();
+  if (!title) throw new Error('다이어리 이름을 입력해 주세요.');
+  const templateConfig = normalizeTemplateConfig(form.templateConfig, form.pageSize);
+  const paperAppearance = normalizePaperAppearance(form.paperAppearance);
+  const ids = configuredPageIds(templateConfig);
+  const initialPages = ids.map(id => {
+    const template = getTemplate(id);
+    const dimensions = templateCanvasSize(template.orientation);
+    return { templateId: template.id, templateVersion: template.templateVersion,
+      templateConfig: { ...dimensions, paperAppearance: { ...paperAppearance } } };
+  });
+  // 기존 로컬 생성과 같이 모든 내지가 꺼져 있으면 빈 페이지 1장을 유지한다.
+  if (!initialPages.length) initialPages.push({ templateId: null, templateVersion: TEMPLATE_VERSION,
+    templateConfig: { ...templateCanvasSize(templateConfig.orientation), paperAppearance: { ...paperAppearance }, blank: true } });
+  return { title, color: form.color, pattern: form.pattern ?? null, pageSize: templateConfig.orientation,
+    templateConfig, paperAppearance, initialPages };
+}
