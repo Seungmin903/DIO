@@ -898,7 +898,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 onAddPhotos={addPhotos}
                 recentPhotos={recentPhotos}
                 // 최근 목록만 변경한다. 캔버스 문서·편집 이력과 공유 원본 미디어는 유지한다.
-                onRemoveRecentPhoto={(id) => setRecentPhotos((photos) => photos.filter((photo) => photo.id !== id))}
+                onRemoveRecentPhoto={(ids) => setRecentPhotos((photos) => photos.filter((photo) => !ids.includes(photo.id)))}
                 onToast={showToast}
                 onClose={() => setDrawerTab(null)}
               />

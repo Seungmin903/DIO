@@ -64,6 +64,7 @@
 | [export-content-and-resolution.md](./export-content-and-resolution.md) | 72 필기·부분 색상·폰트 준비와 122 표시본 대체 정책 및 QA |
 | [tool-options-ui.md](./tool-options-ui.md) | 139 툴바 옵션 위치·헤더·표면 통일 및 검증 |
 | [pen-input-conflict.md](./pen-input-conflict.md) | 145·160 필기 입력 충돌·끝점 보존·레이어 가상 목록 및 검증 범위 |
+| [recent-photo-bulk-delete.md](./recent-photo-bulk-delete.md) | 203 최근 사진 다중 선택 및 목록 삭제 검증 |
 | (예정) requirements.md | 기능 요구사항 |
 | (예정) api.md | API 명세 |
 | (예정) erd.md | DB 설계 |
