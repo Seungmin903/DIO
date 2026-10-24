@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { scheduleIdleTask } from '../src/editor/utils/idleTask.js';
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'));
 const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/hooks/useEditor.js', import.meta.url), 'utf8'), {
@@ -23,7 +24,8 @@ test('열람은 수정 시각을 만들지 않고 편집 저장은 시각과 저
   };
   const mocks = {
     react,
-    'react-native': { AppState: { addEventListener: (_, fn) => { listeners.push(fn); return { remove() {} }; } }, InteractionManager: {} },
+    'react-native': { AppState: { addEventListener: (_, fn) => { listeners.push(fn); return { remove() {} }; } } },
+    '../utils/idleTask': { scheduleIdleTask },
     '../state/defaultDoc': { createDefaultDoc: () => doc },
     '../state/editorReducer': {},
     '../services/editorDocs': { editorDocKey: () => 'doc:a', peekEditorDoc: () => ({ doc }), rememberEditorDoc: (_, value) => cached.push(value) },
