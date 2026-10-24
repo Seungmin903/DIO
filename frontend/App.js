@@ -10,6 +10,8 @@ import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
+import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
+import { queryDiaries } from './src/diary/utils/libraryQuery';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
@@ -63,6 +65,10 @@ function DiaryApp() {
   const [filter, setFilter] = useState(DEFAULT_FILTER);
   const [view, setView] = useState('carousel');
   const [carousel, setCarousel] = useState(0);
+  const [librarySort, setLibrarySort] = useState('updated');
+  const returnDiaryId = useRef(null);
+  const changeLibrarySort = useCallback(value => { returnDiaryId.current = null; setLibrarySort(value); }, []);
+  const changeCarousel = useCallback(index => { returnDiaryId.current = null; setCarousel(index); }, []);
   const {
     diaries,
     setDiaries,
@@ -236,11 +242,18 @@ function DiaryApp() {
   };
 
   const changeFilter = useCallback((nextFilter) => {
+    returnDiaryId.current = null;
     setFilter(nextFilter);
     setCarousel(0);
   }, []);
 
   const visibleDiaries = useMemo(() => diaries.filter((diary) => !diary.trashedAt), [diaries]);
+  const libraryMetadata = useLibraryMetadata(visibleDiaries, page);
+  useEffect(() => {
+    if (page !== 'library' || !returnDiaryId.current) return;
+    const ordered = queryDiaries(visibleDiaries, { sort: librarySort, metadata: libraryMetadata });
+    setCarousel(Math.max(0, ordered.findIndex(diary => diary.id === returnDiaryId.current)));
+  }, [libraryMetadata, librarySort, page, visibleDiaries]);
   const trashedDiaries = useMemo(() => diaries.filter((diary) => diary.trashedAt), [diaries]);
 
   // 열린 탭 (휴지통으로 간 다이어리는 뺀다)
@@ -252,11 +265,12 @@ function DiaryApp() {
 
   // 편집하던 다이어리를 모든 다이어리 목록에서 찾아 홈의 중심 카드로 복원한다.
   const returnToLibrary = useCallback(() => {
-    const index = visibleDiaries.findIndex(diary => diary.id === active?.id);
+    returnDiaryId.current = active?.id;
+    const index = queryDiaries(visibleDiaries, { sort: librarySort, metadata: libraryMetadata }).findIndex(diary => diary.id === active?.id);
     setFilter(DEFAULT_FILTER);
     setCarousel(Math.max(0, index));
     setPage('library');
-  }, [active?.id, visibleDiaries]);
+  }, [active?.id, libraryMetadata, librarySort, visibleDiaries]);
 
   const selectTab = useCallback((id) => {
     if (id === active?.id) return;
@@ -297,12 +311,15 @@ function DiaryApp() {
     <LibraryScreen
       compact={isPhone}
       diaries={visibleDiaries}
+      metadata={libraryMetadata}
+      sort={librarySort}
+      onSortChange={changeLibrarySort}
       filter={filter}
       view={view}
       carousel={carousel}
       onFilterChange={changeFilter}
       onViewChange={setView}
-      onCarouselChange={setCarousel}
+      onCarouselChange={changeCarousel}
       onOpen={open}
       onFavorite={favorite}
       onEdit={edit}
@@ -310,7 +327,7 @@ function DiaryApp() {
       onCreate={create}
       railWidthRef={isPhone ? null : railWidthRef}
     />
-  ), [carousel, changeFilter, create, edit, favorite, filter, isPhone, moveDiaryToTrash, open, view, visibleDiaries]);
+  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, open, view, visibleDiaries]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
@@ -388,7 +405,6 @@ function DiaryApp() {
           page={page}
           filter={filter}
           navigate={navigate}
-          create={create}
           bottomInset={insets.bottom}
           collapsed={railCollapsed}
           onToggle={() => setRailCollapsed((current) => !current)}
