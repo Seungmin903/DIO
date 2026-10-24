@@ -1,0 +1,79 @@
+// 독립 origin/profile: 사용자 브라우저나 실제 서버에 접근하지 않는다.
+const { chromium } = require('playwright');
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const root = path.resolve(__dirname, '../.expo/notification-web');
+const out = path.resolve(__dirname, '.out/notifications');
+const server = http.createServer((req, res) => {
+  const file = path.resolve(root, '.' + decodeURIComponent(new URL(req.url, 'http://localhost').pathname));
+  if (file !== root && !file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
+  const target = file === root ? path.join(root, 'index.html') : file;
+  fs.readFile(target, (error, data) => {
+    if (error) { res.writeHead(404).end(); return; }
+    res.setHeader('Content-Type', { '.html': 'text/html', '.js': 'application/javascript', '.svg': 'image/svg+xml', '.png': 'image/png', '.ttf': 'font/ttf' }[path.extname(target)] || 'application/octet-stream'); res.end(data);
+  });
+});
+(async () => {
+  let browser;
+  try {
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    browser = await chromium.launch({ channel: 'msedge', headless: true });
+    fs.mkdirSync(out, { recursive: true });
+    for (const viewport of [{ width: 1280, height: 800 }, { width: 412, height: 892 }]) {
+      const context = await browser.newContext({ viewport });
+      const p = await context.newPage(); p.setDefaultTimeout(15000);
+      const errors = []; p.on('pageerror', error => errors.push(error.message));
+      await p.goto(`http://127.0.0.1:${server.address().port}`);
+      await p.evaluate(() => localStorage.setItem('dio:notification-qa-sentinel', 'keep'));
+      const button = name => p.getByRole('button', { name, exact: true });
+      await button('알림 연결 검증').click();
+      await button('알림 · 새 초대 2개').waitFor();
+      await button('알림 더 보기').click(); await button('초대 확인 1').waitFor();
+      await button('알림 목 응답 설정').click();
+      await button('목록 한 번 실패').click(); await button('알림 새로고침').click();
+      await button('알림 목록 다시 시도').waitFor();
+      await button('초대 확인 1').waitFor(); // 더 보기로 받은 항목도 조회 실패 동안 보존
+      assert.equal(await button('알림 더 보기').count(), 0);
+      await button('알림 목록 다시 시도').click(); await button('초대 확인 4').waitFor();
+      await button('목록 빈 목록').click(); await button('알림 새로고침').click();
+      await p.getByText('받은 알림이 없어요.', { exact: true }).waitFor();
+      await button('목록 정상').click(); await button('알림 새로고침').click(); await button('초대 확인 4').waitFor();
+      await button('읽음·삭제 한 번 실패').click(); await button('초대 확인 4').click();
+      await button('알림 처리 다시 시도').waitFor(); await button('초대 화면으로 이동').waitFor();
+      await button('알림 처리 다시 시도').click(); await button('알림 · 새 초대 1개').waitFor();
+      await button('초대 화면으로 이동').click(); await p.getByText(/공유 화면 전달 확인: A-invite-4/).waitFor();
+      await button('알림으로 돌아가기').click(); await button('초대 상세 닫기').click();
+      // 열린 상세의 과거 상태로 이동하지 않고, 버튼을 누를 때 최신 상태를 확인한다.
+      await button('초대 확인 4').click(); await button('초대 화면으로 이동').waitFor();
+      await button('초대 만료').click(); await button('초대 화면으로 이동').click();
+      await p.getByText('만료된 초대', { exact: true }).waitFor();
+      assert.equal(await p.getByText(/공유 화면 전달 확인:/).count(), 0);
+      await button('초대 상세 닫기').click();
+      await button('초대 만료').click(); await button('초대 확인 4').click();
+      await p.getByText('만료된 초대', { exact: true }).waitFor();
+      assert.equal(await button('초대 화면으로 이동').count(), 0);
+      await button('초대 상세 닫기').click(); await button('초대 권한 없음').click(); await button('초대 확인 4').click();
+      await p.getByText('이 초대를 확인할 권한이 없어요.', { exact: true }).waitFor();
+      assert.equal(await button('초대 화면으로 이동').count(), 0);
+      await button('초대 정상').click(); await button('초대 상세 다시 시도').click(); await button('초대 화면으로 이동').waitFor();
+      await button('초대 상세 닫기').click();
+      await button('읽음·삭제 응답 유실').click(); await button('알림 삭제 4').click();
+      await button('알림 처리 다시 시도').click(); await button('알림 삭제 4').waitFor({ state: 'hidden' });
+      await button('읽음·삭제 응답 유실').click(); await button('모두 읽음').click();
+      await button('알림 처리 다시 시도').waitFor(); await button('새 초대 도착').click(); await button('알림 처리 다시 시도').click();
+      await button('초대 확인 5').waitFor(); await button('알림 · 새 초대 1개').waitFor();
+      await button('알림 수 한 번 실패').click(); await button('포그라운드 복귀 재조회').click();
+      await button('알림 수 다시 시도').waitFor(); await button('알림 · 새 초대 1개').waitFor();
+      await button('알림 수 다시 시도').click(); await button('알림 수 다시 시도').waitFor({ state: 'hidden' });
+      await button('알림 샘플 계정 변경').click(); await p.getByText('B 계정 초대 4', { exact: true }).waitFor();
+      assert.equal(await p.getByText('A 계정 초대 5', { exact: true }).count(), 0);
+      assert.equal(await p.evaluate(() => localStorage.getItem('dio:notification-qa-sentinel')), 'keep');
+      await p.screenshot({ path: path.join(out, `${viewport.width}.png`), fullPage: true });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ viewport, result: 'passed', pageErrors: errors }));
+      await context.close();
+    }
+  } finally { await browser?.close(); await new Promise(resolve => server.close(resolve)); }
+})().catch(error => { console.error(error); process.exitCode = 1; });
