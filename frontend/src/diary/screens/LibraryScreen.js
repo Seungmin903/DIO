@@ -63,7 +63,7 @@ function LibraryScreen({
   const resetPosition = () => { positioned.current = null; onCarouselChange(0); };
   const current = FILTERS.find((item) => item.id === filter) || FILTERS[0];
   // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 카드는 개인 다이어리 탭에만 둔다.
-  const canCreate = filter === 'personal' && !searchOpen;
+  const canCreate = Boolean(onCreate) && filter === 'personal' && !searchOpen;
   const carouselItems = useMemo(() => (canCreate ? [...shown, { id: 'new-diary' }] : shown), [canCreate, shown]);
   const itemCount = carouselItems.length;
   const carouselItemWidth = compact ? 202 : CAROUSEL_ITEM_WIDTH;

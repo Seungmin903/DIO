@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { C } from '../constants';
+import { DISABLED_OPACITY } from '../../shared/theme';
 import { Animated, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
@@ -27,18 +28,22 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 수정`}
+            disabled={!onEdit}
+            accessibilityState={{ disabled: !onEdit }}
             hitSlop={6}
             onPress={(event) => { event.stopPropagation(); onEdit?.(diary); }}
-            style={({ pressed }) => [s.cardAction, pressed && s.pressed]}
+            style={({ pressed }) => [s.cardAction, !onEdit && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
           >
             <AppIcon name="edit" size={17} color={C.ink} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={diary.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+            disabled={!onFavorite}
+            accessibilityState={{ disabled: !onFavorite }}
             hitSlop={6}
-            onPress={(event) => { event.stopPropagation(); onFavorite(diary.id); }}
-            style={({ pressed }) => [s.cardAction, pressed && s.pressed]}
+            onPress={(event) => { event.stopPropagation(); onFavorite?.(diary.id); }}
+            style={({ pressed }) => [s.cardAction, !onFavorite && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
           >
             <AppIcon name="star" size={18} color={diary.favorite ? '#E8AF45' : C.inkSoft} fill={diary.favorite ? '#E8AF45' : 'none'} />
           </Pressable>
@@ -53,9 +58,11 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
           {(layout !== 'carousel' || carouselActive) && <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 휴지통으로 이동`}
+            disabled={!onDelete}
+            accessibilityState={{ disabled: !onDelete }}
             hitSlop={4}
             onPress={(event) => { event.stopPropagation(); onDelete?.(diary); }}
-            style={({ pressed }) => [s.cardDelete, pressed && s.pressed]}
+            style={({ pressed }) => [s.cardDelete, !onDelete && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
           >
             <AppIcon name="trash" size={19} color={C.danger} />
           </Pressable>}

@@ -10,6 +10,7 @@ import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
+import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
 import { queryDiaries } from './src/diary/utils/libraryQuery';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
@@ -43,7 +44,7 @@ export default function App() {
   useHiddenNavigationBar();
   return (
     <SafeAreaProvider style={s.provider}>
-      <DiaryApp />
+      {process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : <DiaryApp />}
     </SafeAreaProvider>
   );
 }

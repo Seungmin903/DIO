@@ -6,6 +6,8 @@
   "type": "module",
   "main": "expo/AppEntry",
   "scripts": {
+    "test:diary-api": "node --test tests/diary-api.test.js tests/diary-mutation.test.js tests/diary-library.test.js",
+    "qa:diary-api": "node qa/diary-api-browser.cjs",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
