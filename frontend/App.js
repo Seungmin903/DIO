@@ -44,7 +44,7 @@ export default function App() {
   useHiddenNavigationBar();
   return (
     <SafeAreaProvider style={s.provider}>
-      {process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : <DiaryApp />}
+      {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : <DiaryApp />}
     </SafeAreaProvider>
   );
 }

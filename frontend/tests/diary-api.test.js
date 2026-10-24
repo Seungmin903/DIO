@@ -1,8 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import { createDiaryApi, createHttpTransport, toDiary } from '../src/diary/services/diaryApi.js';
 import { createDiaryQuery } from '../src/diary/services/diaryQuery.js';
 import { createMockDiaryTransport } from '../src/diary/services/mockDiaryTransport.js';
+
+test('배포에서는 mock 환경변수가 남아 있어도 기본 앱으로 진입한다', () => {
+  const source = readFileSync(new URL('../App.js', import.meta.url), 'utf8');
+  const condition = source.match(/\{([^{}\n]+)\?\s*<ConnectedDiaryLibrary\s*\/>\s*:\s*<DiaryApp\s*\/>\}/)?.[1];
+  assert.ok(condition, 'App의 실제 화면 진입 조건을 찾는다');
+  const enabled = (dev, mode) => runInNewContext(condition, { __DEV__: dev, process: { env: { EXPO_PUBLIC_DIARY_SOURCE: mode } } });
+  assert.equal(enabled(true, 'mock'), true);
+  assert.equal(enabled(false, 'mock'), false);
+  for (const mode of [undefined, '', 'local', 'remote']) {
+    assert.equal(enabled(true, mode), false);
+    assert.equal(enabled(false, mode), false);
+  }
+});
 
 test('문자열 ID와 개인 상태를 화면 모델로 변환하며 원본 DTO를 변경하지 않는다', () => {
   const dto = { diaryId: '9007199254740993', diaryTitle: '기록', coverPattern: 'LINEN', myMembership: { isFavorite: true }, deletedAt: null };
