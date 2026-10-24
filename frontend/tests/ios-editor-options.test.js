@@ -22,7 +22,7 @@ function load(path, isPhone = true) {
     if (id.endsWith('/usePan')) return { usePan: () => ({}) }
     if (id.endsWith('/common')) return { clamp: (v,a,b) => Math.min(b,Math.max(a,v)) }
     if (id.endsWith('/PenSafeTextInput')) return { __esModule:true, default:'input' }
-    if (id.endsWith('/StaticPage') || id.endsWith('/Icon')) return { __esModule:true, default: 'mock' }
+    if (id.endsWith('/StaticPage') || id.endsWith('/Icon') || id.endsWith('/PageBulkDelete')) return { __esModule:true, default: 'mock' }
     return require(id)
   }, module, module.exports)
   return module.exports.default

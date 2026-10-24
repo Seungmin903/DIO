@@ -440,16 +440,23 @@ export function editorReducer(state, action) {
       return { ...withHistory(state), doc: { ...state.doc, pages } }
     }
 
-    case 'removePage': {
-      if (state.doc.pages.length <= 1) return state
-      const index = state.doc.pages.findIndex((p) => p.id === action.id)
-      const pages = state.doc.pages.filter((p) => p.id !== action.id)
-      const pageId = state.pageId === action.id ? pages[Math.max(0, index - 1)].id : state.pageId
-      return normalizeSelection({
-        ...withHistory(state),
-        doc: { ...state.doc, pages },
-        pageId,
-      })
+    case 'resetDiary': {
+      const size = pageSize(getCurrentPage(state))
+      const page = { ...createBlankPage(state.doc.orientation), canvasWidth: size.width, canvasHeight: size.height,
+        ...(state.doc.paperAppearance ? { paperAppearance: state.doc.paperAppearance } : {}) }
+      return { ...withHistory(state), doc: { ...state.doc, pages: [page] }, pageId: page.id, selectedIds: [] }
+    }
+
+    case 'removePage':
+    case 'removePages': {
+      const removing = new Set(action.type === 'removePage' ? [action.id] : action.ids)
+      const pages = state.doc.pages.filter((p) => !removing.has(p.id))
+      // Keep at least one page; stale/empty requests do not create undo entries.
+      if (!pages.length || pages.length === state.doc.pages.length) return state
+      const index = state.doc.pages.findIndex((p) => p.id === state.pageId)
+      const previous = state.doc.pages.slice(0, index).filter((p) => !removing.has(p.id)).at(-1)
+      const pageId = removing.has(state.pageId) ? (previous ?? pages[0]).id : state.pageId
+      return normalizeSelection({ ...withHistory(state), doc: { ...state.doc, pages }, pageId })
     }
 
     case 'undo':

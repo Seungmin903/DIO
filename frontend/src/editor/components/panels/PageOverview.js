@@ -1,3 +1,4 @@
+import PageBulkDelete from '../controls/PageBulkDelete'
 import EditorModal from '../controls/EditorModal'
 import { useFormFactor } from '../../../shared/useFormFactor'
 import { Fragment, memo, useState } from 'react'
@@ -19,9 +20,12 @@ const FILTERS = [['all', '전체'], ['bookmarked', '북마크']]
  * - 탭: 그 페이지로 이동하고 닫힘
  * - 책갈피: 북마크 넣기·빼기
  */
-export default function PageOverview({ pages, currentId, initialFilter = 'all', onSelect, onToggleIndex, onClose }) {
+export default function PageOverview({ pages, currentId, initialFilter = 'all', onSelect, onToggleIndex, onDelete, onReset, onClose }) {
   const { isPhone } = useFormFactor()
   const [filter, setFilter] = useState(initialFilter)
+  const [managing, setManaging] = useState(false)
+  const [picked, setPicked] = useState([])
+  const finish = () => { setManaging(false); setPicked([]) }
   const [width, setWidth] = useState(0)
   const columns = Math.max(1, Math.floor((width - GAP) / (THUMB_WIDTH + GAP)))
   const gridWidth = columns * THUMB_WIDTH + (columns - 1) * GAP
@@ -38,7 +42,7 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
             {FILTERS.map(([id, label]) => (
               <Pressable
                 key={id}
-                onPress={() => setFilter(id)}
+                onPress={() => { setFilter(id); setPicked([]) }}
                 accessibilityRole="button"
                 accessibilityLabel={`넓게 보기 ${label}`}
                 accessibilityState={{ selected: filter === id }}
@@ -55,13 +59,18 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
           </Pressable>
           </HeaderSide>
         </View>
-        {filter === 'bookmarked' && !shown.length ? (
+        {onDelete && <View style={{ paddingHorizontal: 20, paddingVertical: 8 }}>
+          <Pressable accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => managing ? finish() : setManaging(true)}><Text style={styles.tabText}>{managing ? '완료' : '편집'}</Text></Pressable>
+          {managing && <PageBulkDelete pages={pages} ids={picked} onDelete={onDelete} onReset={onReset} onDone={finish} />}
+        </View>}
+        {filter === 'bookmarked'  && !shown.length ? (
           <Text style={styles.empty}>북마크한 페이지가 없어요.</Text>
         ) : (
           width > 0 && (
             <FlatList
               key={columns}
               data={shown}
+              extraData={[managing, picked]}
               numColumns={columns}
               keyExtractor={(page) => page.id}
               contentContainerStyle={[styles.grid, isPhone && { paddingHorizontal: gridInset }]}
@@ -72,9 +81,10 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
                 <OverviewItem
                   page={page}
                   number={pages.indexOf(page) + 1}
-                  active={page.id === currentId}
-                  onSelect={() => { onSelect(page.id); onClose() }}
-                  onToggleIndex={onToggleIndex ? () => onToggleIndex(page.id) : null}
+                  active={managing ? picked.includes(page.id) : page.id === currentId}
+                  managing={managing}
+                  onSelect={() => { if (managing) { setPicked(ids => ids.includes(page.id) ? ids.filter(id => id !== page.id) : [...ids, page.id]); return }; onSelect(page.id); onClose() }}
+                  onToggleIndex={!managing && onToggleIndex ? () => onToggleIndex(page.id) : null}
                 />
               )}
             />
@@ -86,15 +96,16 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
   return isPhone ? <EditorModal visible transparent animationType="fade" onRequestClose={onClose}>{content}</EditorModal> : content
 }
 
-const OverviewItem = memo(function OverviewItem({ page, number, active, onSelect, onToggleIndex }) {
+const OverviewItem = memo(function OverviewItem({ page, number, active, managing, onSelect, onToggleIndex }) {
   const { width, height } = pageSize(page)
   const zoom = THUMB_WIDTH / width
   return (
     <View style={styles.item}>
-      <Pressable onPress={onSelect} accessibilityRole="button" accessibilityLabel={`${number}페이지로 이동`} style={[styles.thumb, { height: height * zoom }]}>
+      <Pressable onPress={onSelect} accessibilityRole={managing ? "checkbox" : "button"} accessibilityState={managing ? { checked: active } : undefined} accessibilityLabel={`${number}페이지 ${managing ? "선택" : "이동"}`} style={[styles.thumb, { height: height * zoom }]}>
         <View style={styles.thumbPage} pointerEvents="none">
           <StaticPage page={page} zoom={zoom} still />
         </View>
+        {managing && <Text style={{ position: 'absolute', top: 8, right: 8, fontSize: 22, color: colors.primary }}>{active ? '☑' : '☐'}</Text>}
         {active && <View style={styles.activeRing} pointerEvents="none" />}
       </Pressable>
       {onToggleIndex && (
@@ -112,7 +123,7 @@ const OverviewItem = memo(function OverviewItem({ page, number, active, onSelect
       <Text style={[styles.number, active && styles.numberActive]}>{number}</Text>
     </View>
   )
-}, (previous, next) => previous.page === next.page && previous.number === next.number && previous.active === next.active)
+})
 
 const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 50, elevation: 50, padding: 24, backgroundColor: colors.scrim },
