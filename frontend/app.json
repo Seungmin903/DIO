@@ -7,10 +7,6 @@
     "orientation": "default",
     "userInterfaceStyle": "light",
     "backgroundColor": "#FFFFFF",
-    "androidStatusBar": {
-      "hidden": true,
-      "translucent": true
-    },
     "experiments": {
       "reactCompiler": true
     },
@@ -61,7 +57,10 @@
           "resizeMode": "contain",
           "backgroundColor": "#CED9EE"
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font",
+      ["expo-status-bar", { "hidden": true }]
     ],
     "extra": {
       "eas": {
