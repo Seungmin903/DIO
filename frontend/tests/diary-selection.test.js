@@ -16,6 +16,7 @@ function loadCard() {
     if (id === 'react') return { memo: (fn) => fn };
     if (id === 'react-native') return { Animated: { View: 'animated' }, Pressable: 'button', Text: 'text', View: 'view' };
     if (id === '../constants') return { C: {} };
+    if (id === '../../shared/theme') return { DISABLED_OPACITY: 0.45 };
     if (id === '../styles') return { styles: new Proxy({}, { get: (_, key) => key }) };
     if (id.endsWith('/AppIcon') || id === './Cover') return { __esModule: true, default: 'mock' };
     return require(id);

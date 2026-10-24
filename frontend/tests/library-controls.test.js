@@ -23,6 +23,26 @@ function setup(file, storage = {}, native = {}) {
 }
 const nodes=node=>!node||typeof node!=='object'?[]:[node,...[node.props?.children].flat(Infinity).flatMap(nodes)];
 const findControl=(tree,label)=>nodes(tree).find(n=>(n.props.accessibilityLabel??n.props.label)===label);
+test('API 모드의 검색 결과는 서버 순서를 유지하고 로딩·오류를 빈 결과로 표시하지 않는다', () => {
+ const render=setup('../src/diary/screens/LibraryScreen.js');
+ const props={compact:true,diaries:[{id:'b',title:'서버 첫 결과'},{id:'a',title:'서버 둘째 결과'}],filter:'favorite',sort:'title',view:'grid',carousel:0,onCarouselChange:()=>{},
+  remoteQuery:{query:'서버',searchOpen:true,onQueryChange:()=>{},onSearchOpenChange:()=>{}},requestNotice:'request-state',suppressEmpty:true,historyKey:'mock-history'};
+ const tree=render(props);
+ assert.deepEqual(tree.props.diaries.map(d=>d.id),['b','a']);
+ assert.equal(tree.props.requestNotice,'request-state');
+ assert.equal(tree.props.suppressEmpty,true);
+ assert.equal(tree.props.historyKey,'mock-history');
+ assert.ok(!findControl(tree.props.optionsMenu,'편집'));
+});
+
+test('검색 중 오류·로딩에는 결과 없음과 0개 성공 문구를 숨긴다', () => {
+ const render=setup('../src/diary/components/LibrarySearchScreen.js',{loadJSON:async()=>[],saveJSON:async()=>true});
+ const tree=render({compact:true,query:'검색',diaries:[],suppressEmpty:true,requestNotice:'오류 안내'});
+ assert.ok(nodes(tree).some(n=>n.props.children==='오류 안내') || nodes(tree).some(n=>[n.props.children].flat(Infinity).includes('오류 안내')));
+ assert.ok(!nodes(tree).some(n=>n.type==='./EmptyState'));
+ assert.ok(!nodes(tree).some(n=>typeof n.props.children==='string' && n.props.children.includes('검색 결과 0개')));
+ render.unmount();
+});
 function selectionProps(compact=false) {
  const props={compact,diaries:[{id:'a',title:'여행',favorite:true},{id:'b',title:'일기',favorite:false}],filter:'personal',sort:'title',view:'grid',carousel:0,selection:null,onCarouselChange:()=>{}};
  props.onSelectionChange=value=>{props.selection=value};

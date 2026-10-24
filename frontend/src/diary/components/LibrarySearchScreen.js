@@ -12,7 +12,7 @@ const HISTORY_KEY = 'dio:diary:search-history:v1';
 const cleanHistory = values => Array.isArray(values)
   ? [...new Set(values.filter(value => typeof value === 'string').map(value => value.trim()).filter(Boolean))].slice(0, 10) : [];
 
-export default function LibrarySearchScreen({ compact, query, onQueryChange, onBack, diaries, onOpen, onFavorite, onEdit, onDelete, optionsMenu = null, selectionBar = null, selecting = false, selected = [], onToggleSelect }) {
+export default function LibrarySearchScreen({ compact, query, onQueryChange, onBack, diaries, onOpen, onFavorite, onEdit, onDelete, optionsMenu = null, selectionBar = null, selecting = false, selected = [], onToggleSelect, requestNotice = null, suppressEmpty = false, historyKey = HISTORY_KEY }) {
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -26,18 +26,19 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
   const writes = useRef(Promise.resolve());
   useEffect(() => {
     let cancelled = false;
-    loadJSON(HISTORY_KEY, []).then(values => {
+    setReady(false); setHistory([]);
+    loadJSON(historyKey, []).then(values => {
       if (cancelled) return;
       setHistory(cleanHistory(values));
       setReady(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [historyKey]);
   const updateHistory = values => {
     if (!ready) return;
     const next = cleanHistory(values);
     setHistory(next);
-    writes.current = writes.current.then(() => saveJSON(HISTORY_KEY, next));
+    writes.current = writes.current.then(() => saveJSON(historyKey, next));
   };
   const remember = value => {
     const term = value.trim();
@@ -60,6 +61,7 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
       </View>
     </View>
     {selectionBar}
+    {requestNotice}
     {!searching ? <View style={s.librarySearchHistory}>
       <View style={s.librarySearchHistoryHeading}>
         <Text style={s.chipText}>최근 검색어</Text>
@@ -74,8 +76,8 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
         <IconButton label={`${term} 검색어 삭제`} iconName="close" onPress={() => updateHistory(history.filter(item => item !== term))} />
       </View>)}
     </View> : <View style={s.librarySearchResults}>
-      <Text accessibilityLiveRegion="polite" style={s.chipText}>{`‘${query.trim()}’ 검색 결과 ${diaries.length}개`}</Text>
-      {!diaries.length ? <EmptyState compact={compact} search title="검색 결과가 없어요." /> : <View style={[s.grid, compact && s.gridCompact]}>
+      {!suppressEmpty && <Text accessibilityLiveRegion="polite" style={s.chipText}>{`‘${query.trim()}’ 검색 결과 ${diaries.length}개`}</Text>}
+      {!diaries.length && suppressEmpty ? null : !diaries.length ? <EmptyState compact={compact} search title="검색 결과가 없어요." /> : <View style={[s.grid, compact && s.gridCompact]}>
         {diaries.map(diary => <DiaryCard key={diary.id} diary={diary} compact={compact} layout="grid" onOpen={item => { remember(query); onOpen(item); }} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={onToggleSelect} />)}
       </View>}
     </View>}

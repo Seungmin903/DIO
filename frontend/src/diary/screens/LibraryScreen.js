@@ -54,16 +54,24 @@ function LibraryScreen({
   onSelectionChange,
   onTrashSelected,
   trashing = false,
+  remoteQuery = null, // API 경로에서만 검색 입력을 제어한다. 로컬 경로는 기존 상태를 사용한다.
+  requestNotice = null,
+  suppressEmpty = false,
+  historyKey,
 }) {
   const scrollX = useRef(new Animated.Value(Math.max(0, carousel) * CAROUSEL_STEP)).current;
   const carouselRef = useRef(null);
   const positioned = useRef(null);
   // 사이드 메뉴 애니메이션 중에는 매 프레임 바뀌므로 App이 아닌 이 화면 안에서만 들고 있는다.
   const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const [localSearchOpen, setLocalSearchOpen] = useState(false);
+  const [localQuery, setLocalQuery] = useState('');
+  const searchOpen = remoteQuery ? remoteQuery.searchOpen : localSearchOpen;
+  const setSearchOpen = remoteQuery ? remoteQuery.onSearchOpenChange : setLocalSearchOpen;
+  const query = remoteQuery ? remoteQuery.query : localQuery;
+  const setQuery = remoteQuery ? remoteQuery.onQueryChange : setLocalQuery;
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const shown = useMemo(() => queryDiaries(diaries, { filter, query: searchOpen ? query : '', sort, metadata }), [diaries, filter, query, searchOpen, sort, metadata]);
+  const shown = useMemo(() => remoteQuery ? diaries : queryDiaries(diaries, { filter, query: searchOpen ? query : '', sort, metadata }), [diaries, filter, query, searchOpen, sort, metadata, remoteQuery]);
   const displayView = searchOpen ? 'grid' : view;
   const resetPosition = () => { positioned.current = null; onCarouselChange(0); };
   const current = FILTERS.find((item) => item.id === filter) || FILTERS[0];
@@ -82,7 +90,7 @@ function LibraryScreen({
     if (!trashing && shown.length) onSelectionChange?.(allSelected ? [] : shown.map(diary => diary.id));
   };
   // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 카드는 개인 다이어리 탭에만 둔다. 관리 중에는 숨긴다.
-  const canCreate = filter === 'personal' && !searchOpen && !selecting;
+  const canCreate = Boolean(onCreate) && filter === 'personal' && !searchOpen && !selecting;
 
   const carouselItems = useMemo(() => (canCreate ? [...shown, { id: 'new-diary' }] : shown), [canCreate, shown]);
   const itemCount = carouselItems.length;
@@ -170,7 +178,7 @@ function LibraryScreen({
           <Text style={s.chipText}>{sort === item.id ? '✓ ' : ''}{item.label}</Text>
         </Pressable>)}
       </View>
-      {shown.length > 0 && (!searchOpen || query.trim()) && <>
+      {onSelectionChange && shown.length > 0 && (!searchOpen || query.trim()) && <>
         <View style={s.libraryOptionsDivider} />
         <Pressable accessibilityRole="button" accessibilityLabel="편집" onPress={() => { setOptionsOpen(false); onSelectionChange?.([]); }} style={({ pressed }) => [s.chip, s.librarySortOption, pressed && s.pressed]}>
           <Text style={s.chipText}>편집</Text>
@@ -227,6 +235,7 @@ function LibraryScreen({
     diaries={shown} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
     optionsMenu={optionsMenu} selectionBar={selectionBar}
     selecting={selecting} selected={selected} onToggleSelect={toggleSelect}
+    requestNotice={requestNotice} suppressEmpty={suppressEmpty} historyKey={historyKey}
   />;
 
   return (
@@ -281,8 +290,9 @@ function LibraryScreen({
         </View>}
       </View>
       {selectionBar}
+      {requestNotice}
 
-      {!carouselItems.length ? (
+      {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
         <EmptyState compact={compact} title={current.empty} />
       ) : displayView === 'carousel' ? (
         <View style={[s.carouselShell, compact && s.carouselShellCompact]}>

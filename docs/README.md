@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [diary-api-preparation.md](./diary-api-preparation.md) | 237~241 사전 작업: 조회·생성·수정·휴지통·복원·영구 삭제·만료 API 경계와 목 응답·저장·오류·재시도 |
 | [design-guide.md](./design-guide.md) | **DIO 디자인 가이드(BI·CI·인앱 UI)** — 새 화면·기능은 이 문서를 기준으로 만든다. Word·PDF 본: `design-guide.docx`, `design-guide.pdf` |
 | [design-trend-review/](./design-trend-review/README.md) | 2026 UI/UX 트렌드 대비 가이드 검토안 6가지(지금/바꾸면 전체 화면 비교, 채택·보류·반려 결정 칸). PDF 본 포함 |
 | [animated-sticker-effects.md](./animated-sticker-effects.md) | 193 iPad 움직이는 스티커 효과의 프레임 공유·자원 제한·검증과 실기기 QA |
