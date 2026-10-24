@@ -72,3 +72,53 @@ test('인덱스 표식은 페이지별로 저장되고 되돌리기로 해제할
   const restored = editorReducer(unindexed, { type: 'undo' })
   assert.equal(restored.doc.pages[0].indexed, true)
 })
+
+test('여러 페이지 삭제는 남은 순서·내용을 보존하고 한 번에 undo/redo 된다', () => {
+  const pages = ['a', 'b', 'c', 'd'].map(id => ({ id, objects: [{ id: `${id}-photo`, type: 'photo', mediaFileId: `media-${id}` }] }))
+  const original = createInitialState({ id: 'bulk', pages })
+  const selected = editorReducer(original, { type: 'selectPage', id: 'c' })
+  const deleted = editorReducer(selected, { type: 'removePages', ids: ['b', 'c', 'b', 'missing'] })
+  assert.deepEqual(deleted.doc.pages.map(p => p.id), ['a', 'd'])
+  assert.equal(deleted.pageId, 'a')
+  assert.equal(deleted.past.length, selected.past.length + 1)
+  assert.equal(deleted.doc.pages[1], pages[3])
+  const restored = editorReducer(deleted, { type: 'undo' })
+  assert.deepEqual(restored.doc, selected.doc)
+  assert.deepEqual(editorReducer(restored, { type: 'redo' }).doc, deleted.doc)
+  assert.equal(JSON.parse(JSON.stringify(deleted.doc)).pages[1].objects[0].mediaFileId, 'media-d')
+})
+
+test('전체·빈 선택·없는 ID 삭제는 문서와 편집 이력을 변경하지 않는다', () => {
+  const state = createInitialState({ id: 'bulk', pages: [{ id: 'a', objects: [] }, { id: 'b', objects: [] }] })
+  for (const ids of [[], ['missing'], ['a', 'b']]) assert.equal(editorReducer(state, { type: 'removePages', ids }), state)
+  assert.equal(editorReducer(state, { type: 'removePage', id: 'missing' }), state)
+})
+
+test('첫 페이지 삭제는 다음 생존 페이지로 이동하고 비선택 현재 페이지는 유지한다', () => {
+  const state = createInitialState({ id: 'bulk', pages: ['a', 'b', 'c'].map(id => ({ id, objects: [] })) })
+  assert.equal(editorReducer(state, { type: 'removePages', ids: ['a', 'b'] }).pageId, 'c')
+  assert.equal(editorReducer(state, { type: 'removePages', ids: ['b'] }).pageId, 'a')
+})
+
+
+test('다이어리 초기화는 문서 메타데이터와 종이 크기를 유지하고 빈 페이지 하나를 만든다', () => {
+ const original={...doc,coverColor:'#123456',orientation:'portrait',paperAppearance:{backgroundColor:'#ffffff'},pages:[{id:'old',canvasWidth:768,canvasHeight:1024,backgroundAssetId:'template',indexed:true,objects:[{id:'ink',type:'stroke'}]},{id:'other',objects:[]}]};
+ const state=createInitialState(original);state.selectedIds=['ink'];
+ const next=editorReducer(state,{type:'resetDiary'});
+ assert.equal(next.doc.id,original.id);assert.equal(next.doc.title,original.title);assert.equal(next.doc.coverColor,original.coverColor);
+ assert.equal(next.doc.pages.length,1);const page=next.doc.pages[0];
+ assert.ok(!original.pages.some(p=>p.id===page.id));assert.equal(next.pageId,page.id);assert.deepEqual(next.selectedIds,[]);
+ assert.deepEqual(page.objects,[]);assert.equal(page.indexed,undefined);assert.equal(page.backgroundAssetId,undefined);
+ assert.equal(page.canvasWidth,768);assert.equal(page.canvasHeight,1024);assert.deepEqual(page.paperAppearance,original.paperAppearance);
+ assert.deepEqual(original.pages[0].objects,[{id:'ink',type:'stroke'}]);
+ assert.equal(next.past.length,1);
+ const undone=editorReducer(next,{type:'undo'});assert.deepEqual(undone.doc,original);
+ const redone=editorReducer(undone,{type:'redo'});assert.deepEqual(redone.doc,next.doc);
+});
+
+test('한 장짜리 문서도 초기화할 수 있고 직렬화 후 빈 페이지를 유지한다', () => {
+ const next=editorReducer(createInitialState(doc),{type:'resetDiary'});
+ const restored=createInitialState(JSON.parse(JSON.stringify(next.doc)));
+ assert.equal(restored.doc.pages.length,1);assert.deepEqual(restored.doc.pages[0].objects,[]);
+ assert.equal(restored.pageId,next.pageId);
+});

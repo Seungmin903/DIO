@@ -6,6 +6,7 @@ import { styles as s } from '../styles';
 import CreateDiaryCard from '../components/CreateDiaryCard';
 import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
+import { toggleSelection, visibleSelection } from '../utils/diarySelection';
 import IconButton from '../components/IconButton';
 import LibrarySearchScreen from '../components/LibrarySearchScreen';
 import { queryDiaries, SORT_OPTIONS } from '../utils/libraryQuery';
@@ -49,6 +50,10 @@ function LibraryScreen({
   onDelete,
   onCreate,
   railWidthRef = null, // 태블릿: 메뉴가 다 열리거나 닫혔을 때의 폭 (ref라 바뀌어도 다시 그리지 않는다)
+  selection = null, // 관리 모드에서 고른 다이어리 id 목록. null이면 관리 모드가 아니다.
+  onSelectionChange,
+  onTrashSelected,
+  trashing = false,
 }) {
   const scrollX = useRef(new Animated.Value(Math.max(0, carousel) * CAROUSEL_STEP)).current;
   const carouselRef = useRef(null);
@@ -57,13 +62,28 @@ function LibraryScreen({
   const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [sortOpen, setSortOpen] = useState(false);
-    const shown = useMemo(() => queryDiaries(diaries, { filter, query: searchOpen ? query : '', sort, metadata }), [diaries, filter, query, searchOpen, sort, metadata]);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const shown = useMemo(() => queryDiaries(diaries, { filter, query: searchOpen ? query : '', sort, metadata }), [diaries, filter, query, searchOpen, sort, metadata]);
   const displayView = searchOpen ? 'grid' : view;
   const resetPosition = () => { positioned.current = null; onCarouselChange(0); };
   const current = FILTERS.find((item) => item.id === filter) || FILTERS[0];
-  // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 카드는 개인 다이어리 탭에만 둔다.
-  const canCreate = Boolean(onCreate) && filter === 'personal' && !searchOpen;
+  const selecting = selection !== null;
+  // 보이는 다이어리만 선택으로 센다. 필터를 바꾸면 숨은 다이어리는 선택에서 빠진다.
+  const selected = useMemo(() => (selecting ? visibleSelection(selection, shown) : []), [selecting, selection, shown]);
+  useEffect(() => {
+    if (selecting && selected.length !== selection.length) onSelectionChange?.(selected);
+  }, [onSelectionChange, selected, selecting, selection]);
+  const toggleSelect = useCallback((diary) => {
+    if (!trashing) onSelectionChange?.(toggleSelection(selected, diary.id));
+  }, [onSelectionChange, selected, trashing]);
+  const allSelected = shown.length > 0 && selected.length === shown.length;
+  // 렌더링/스크롤 위치와 무관하게 현재 검색·필터 결과 전체를 대상으로 한다.
+  const toggleAll = () => {
+    if (!trashing && shown.length) onSelectionChange?.(allSelected ? [] : shown.map(diary => diary.id));
+  };
+  // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 카드는 개인 다이어리 탭에만 둔다. 관리 중에는 숨긴다.
+  const canCreate = Boolean(onCreate) && filter === 'personal' && !searchOpen && !selecting;
+
   const carouselItems = useMemo(() => (canCreate ? [...shown, { id: 'new-diary' }] : shown), [canCreate, shown]);
   const itemCount = carouselItems.length;
   const carouselItemWidth = compact ? 202 : CAROUSEL_ITEM_WIDTH;
@@ -140,7 +160,74 @@ function LibraryScreen({
     { useNativeDriver: true },
   ), [scrollX]);
 
-  if (searchOpen) return <LibrarySearchScreen compact={compact} query={query} onQueryChange={setQuery} onBack={() => { setSearchOpen(false); setQuery(''); }} diaries={shown} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} />;
+  const optionsMenu = !selecting && <>
+    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sort)?.label }} accessibilityState={{ expanded: optionsOpen }} onPress={() => setOptionsOpen(!optionsOpen)} style={({ pressed }) => [s.iconButton, pressed && s.pressed]}>
+      <View style={s.librarySortIcon}><AppIcon name="more" size={21} color={C.ink} /></View>
+    </Pressable>
+    {optionsOpen && <View style={s.librarySortMenu} accessibilityLabel="보관함 옵션 목록">
+      <View accessibilityRole="radiogroup" accessibilityLabel="정렬 기준">
+        {SORT_OPTIONS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: sort === item.id }} onPress={() => { onSortChange(item.id); setOptionsOpen(false); resetPosition(); }} style={({ pressed }) => [s.chip, s.librarySortOption, sort === item.id && s.chipSelected, pressed && s.pressed]}>
+          <Text style={s.chipText}>{sort === item.id ? '✓ ' : ''}{item.label}</Text>
+        </Pressable>)}
+      </View>
+      {shown.length > 0 && (!searchOpen || query.trim()) && <>
+        <View style={s.libraryOptionsDivider} />
+        <Pressable accessibilityRole="button" accessibilityLabel="편집" onPress={() => { setOptionsOpen(false); onSelectionChange?.([]); }} style={({ pressed }) => [s.chip, s.librarySortOption, pressed && s.pressed]}>
+          <Text style={s.chipText}>편집</Text>
+        </Pressable>
+      </>}
+    </View>}
+  </>;
+  const selectionBar = selecting && <View style={s.selectBar} accessibilityRole="toolbar">
+        <Text accessibilityLiveRegion="polite" style={s.selectCount}>{`${selected.length}개 선택됨`}</Text>
+        <View style={s.selectActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={allSelected ? '전체 해제' : '전체 선택'}
+            accessibilityHint={`현재 검색·필터 결과 ${shown.length}개에 적용해요`}
+            accessibilityState={{ disabled: trashing || !shown.length }}
+            disabled={trashing || !shown.length}
+            onPress={toggleAll}
+            style={({ pressed }) => [s.selectButton, (trashing || !shown.length) && s.selectButtonDisabled, pressed && s.pressed]}
+          >
+            <Text style={s.selectButtonText}>{allSelected ? '전체 해제' : '전체 선택'}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="편집 완료"
+            disabled={trashing}
+            onPress={() => onSelectionChange?.(null)}
+            style={({ pressed }) => [s.selectButton, trashing && s.selectButtonDisabled, pressed && s.pressed]}
+          >
+            <Text style={s.selectButtonText}>완료</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`선택한 ${selected.length}개 휴지통으로 이동`}
+            accessibilityState={{ disabled: !selected.length || trashing }}
+            disabled={!selected.length || trashing}
+            onPress={() => onTrashSelected?.(selected)}
+            style={({ pressed }) => [s.selectButton, s.selectButtonDanger, (!selected.length || trashing) && s.selectButtonDisabled, pressed && s.pressed]}
+          >
+            <AppIcon name="trash" size={17} color={C.white} />
+            <Text style={[s.selectButtonText, s.selectButtonTextDanger]}>{trashing ? '옮기는 중…' : '휴지통으로'}</Text>
+          </Pressable>
+        </View>
+      </View>;
+
+  if (searchOpen) return <LibrarySearchScreen
+    compact={compact} query={query} onQueryChange={setQuery}
+    onBack={() => {
+      if (selecting) {
+        if (!trashing) onSelectionChange?.(null);
+        return;
+      }
+      setSearchOpen(false); setQuery(''); setOptionsOpen(false);
+    }}
+    diaries={shown} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
+    optionsMenu={optionsMenu} selectionBar={selectionBar}
+    selecting={selecting} selected={selected} onToggleSelect={toggleSelect}
+  />;
 
   return (
     <ScrollView
@@ -181,26 +268,19 @@ function LibraryScreen({
               key={item.id}
               accessibilityRole="tab"
               accessibilityState={{ selected: filter === item.id }}
-              onPress={() => { onFilterChange(item.id); resetPosition(); setSortOpen(false); }}
+              onPress={() => { onFilterChange(item.id); resetPosition(); setOptionsOpen(false); }}
               style={({ pressed }) => [s.chip, compact && s.chipCompact, filter === item.id && s.chipSelected, pressed && s.pressed]}
             >
               <Text style={[s.chipText, compact && s.chipTextCompact, filter === item.id && s.chipTextSelected]}>{item.label}</Text>
             </Pressable>
           ))}
         </View>
-        <View style={s.libraryActions}>
-          <IconButton label="다이어리 검색" iconName="search" onPress={() => { setSearchOpen(!searchOpen); setQuery(''); setSortOpen(false); resetPosition(); }} />
-          <Pressable accessibilityRole="button" accessibilityLabel="다이어리 정렬" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sort).label }} accessibilityState={{ expanded: sortOpen }} onPress={() => setSortOpen(!sortOpen)} style={({ pressed }) => [s.iconButton, pressed && s.pressed]}>
-            <View style={s.librarySortIcon}><AppIcon name="more" size={21} color={C.ink} /></View>
-          </Pressable>
-        </View>
-      {sortOpen && <View style={s.librarySortMenu}>
-        {SORT_OPTIONS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: sort === item.id }} onPress={() => { onSortChange(item.id); setSortOpen(false); resetPosition(); }} style={({ pressed }) => [s.chip, s.librarySortOption, sort === item.id && s.chipSelected, pressed && s.pressed]}>
-          <Text style={s.chipText}>{sort === item.id ? '✓ ' : ''}{item.label}</Text>
-        </Pressable>)}
-      </View>}
+        {!selecting && <View style={s.libraryActions}>
+          <IconButton label="다이어리 검색" iconName="search" onPress={() => { setSearchOpen(true); setQuery(''); setOptionsOpen(false); resetPosition(); }} />
+          {optionsMenu}
+        </View>}
       </View>
-
+      {selectionBar}
 
       {!carouselItems.length ? (
         <EmptyState compact={compact} title={current.empty} />
@@ -220,6 +300,8 @@ function LibraryScreen({
             <AnimatedFlatList
               ref={carouselRef}
               data={carouselItems}
+              // 선택만 바뀌어도 카드 체크 표시를 다시 그린다.
+              extraData={selected}
               ItemSeparatorComponent={CarouselSeparator}
               keyExtractor={(item) => item.id}
               horizontal
@@ -262,6 +344,9 @@ function LibraryScreen({
                     onFavorite={onFavorite}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    selecting={selecting}
+                    selected={selected.includes(item.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 )
               )}
@@ -282,7 +367,8 @@ function LibraryScreen({
         </View>
       ) : (
         <View style={[s.grid, compact && s.gridCompact]}>
-          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} />)}
+          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
+            selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} />)}
           {canCreate && <CreateDiaryCard layout="grid" compact={compact} onCreate={onCreate} />}
         </View>
       )}

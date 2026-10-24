@@ -76,6 +76,7 @@ function DiaryApp() {
     addDiary,
     loaded,
     moveToTrash,
+    moveManyToTrash,
     restoreFromTrash,
     deletePermanently,
     renameDiary,
@@ -83,6 +84,10 @@ function DiaryApp() {
     trashError,
     cleanupTrash,
   } = useDiaries();
+  // 보관함 관리 모드에서 고른 다이어리 id. null이면 관리 모드가 아니다.
+  const [selection, setSelection] = useState(null);
+  const [trashing, setTrashing] = useState(false);
+  const trashingRef = useRef(false);
   const [active, setActive] = useState(null);
   // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.
   const [tabIds, setTabIds] = useState([]);
@@ -120,6 +125,7 @@ function DiaryApp() {
   }, [setDiaries]);
 
   const navigate = useCallback((next, nextFilter) => {
+    setSelection(null);
     if (next === 'library') {
       setFilter(nextFilter || DEFAULT_FILTER);
       setCarousel(0);
@@ -132,6 +138,10 @@ function DiaryApp() {
   useEffect(() => {
     if (Platform.OS !== 'android' || page === 'editor') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (selection !== null) {
+        if (!trashingRef.current) setSelection(null);
+        return true;
+      }
       if (createOpen) {
         if (savingRef.current) return true;
         setCreateOpen(false);
@@ -149,7 +159,7 @@ function DiaryApp() {
       return false;
     });
     return () => subscription.remove();
-  }, [createOpen, filter, isPhone, navigate, page, railCollapsed]);
+  }, [createOpen, filter, isPhone, navigate, page, railCollapsed, selection]);
 
   const create = useCallback(() => {
     if (savingRef.current) return;
@@ -181,6 +191,34 @@ function DiaryApp() {
       },
     });
   }, [moveToTrash]);
+
+  // 고른 다이어리를 한 번에 휴지통으로 옮긴다. 저장에 성공했을 때만 관리 모드를 끝내고, 실패하면 그대로 두고 알린다.
+  const moveSelectedToTrash = useCallback((ids) => {
+    if (savingRef.current || trashingRef.current || !ids.length) return;
+    confirmAction({
+      title: `${ids.length}개를 휴지통으로 옮길까요?`,
+      message: '고른 다이어리는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요. 앱이 꺼져 있으면 다음 실행 시 정리해요.',
+      confirmLabel: '휴지통으로',
+      onConfirm: async () => {
+        if (trashingRef.current) return;
+        trashingRef.current = true;
+        setTrashing(true);
+        try {
+          if (!await moveManyToTrash(ids)) {
+            notify('휴지통으로 옮기지 못했어요', '저장 공간과 권한을 확인한 뒤 다시 시도해 주세요. 다이어리는 그대로 남아 있어요.');
+            return;
+          }
+          const moved = new Set(ids);
+          setActive((current) => (current && moved.has(current.id) ? null : current));
+          setTabIds((current) => current.filter((id) => !moved.has(id)));
+          setSelection(null);
+        } finally {
+          trashingRef.current = false;
+          setTrashing(false);
+        }
+      },
+    });
+  }, [moveManyToTrash]);
 
   const save = async (form) => {
     if (savingRef.current) return;
@@ -327,8 +365,12 @@ function DiaryApp() {
       onDelete={moveDiaryToTrash}
       onCreate={create}
       railWidthRef={isPhone ? null : railWidthRef}
+      selection={selection}
+      onSelectionChange={setSelection}
+      onTrashSelected={moveSelectedToTrash}
+      trashing={trashing}
     />
-  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, open, view, visibleDiaries]);
+  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, visibleDiaries]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;

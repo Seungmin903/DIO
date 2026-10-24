@@ -6,7 +6,7 @@ import { forgetEditorDoc } from '../../editor/services/editorDocs';
 import { collectMediaIds } from '../../editor/utils/mediaReferences';
 import * as mediaRepository from '../../editor/utils/mediaRepository';
 import { normalizeDiaries, recoverOrphanDiaries, sortByCreated } from '../utils/diaryLibrary';
-import { isTrashExpired, purgeTrashedDiary } from '../utils/trashRetention';
+import { isTrashExpired, markTrashed, purgeTrashedDiary } from '../utils/trashRetention';
 
 /** 다이어리 목록 + 기기 저장소 자동 저장. 편집 문서만 남은 다이어리는 목록에 되살린다. */
 export function useDiaries() {
@@ -74,6 +74,16 @@ export function useDiaries() {
     setDiaries((current) => current.map((diary) => (diary.id === id && !diary.trashedAt ? { ...diary, trashedAt } : diary)));
   }, [setDiaries]);
 
+  // 여러 개를 한 번에 옮길 때는 저장 성공을 확인한 뒤에만 화면에 반영해 실패를 알릴 수 있게 한다.
+  const moveManyToTrash = useCallback((ids) => enqueue(async () => {
+    if (!writable || !ids.length) return false;
+    const trashedAt = new Date().toISOString();
+    if (!await saveJSON(STORAGE_KEYS.diaries, markTrashed(currentDiaries.current, ids, trashedAt))) return false;
+    setTrashNow(Date.now());
+    setDiaries(current => markTrashed(current, ids, trashedAt));
+    return true;
+  }), [enqueue, setDiaries, writable]);
+
   const restoreFromTrash = useCallback((id) => {
     const target = currentDiaries.current.find(diary => diary.id === id);
     if (!target?.trashedAt || deleting.current.has(id) || isTrashExpired(target)) return false;
@@ -134,6 +144,7 @@ export function useDiaries() {
     addDiary,
     loaded,
     moveToTrash,
+    moveManyToTrash,
     restoreFromTrash,
     deletePermanently,
     renameDiary,

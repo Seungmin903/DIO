@@ -6,25 +6,31 @@ import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
 import Cover from './Cover';
 
-// onOpen·onFavorite·onEdit·onDelete는 다이어리를 인자로 받는 공용 콜백이다.
-function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle }) {
+// onOpen·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다.
+// 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
+function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, selecting = false, selected = false, onToggleSelect }) {
   const card = (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${diary.title} 열기`}
-      accessibilityState={layout === 'carousel' ? { selected: carouselActive } : undefined}
-      onPress={() => onOpen(diary)}
+      accessibilityRole={selecting ? 'checkbox' : 'button'}
+      accessibilityLabel={selecting ? `${diary.title} 선택` : `${diary.title} 열기`}
+      accessibilityState={selecting ? { checked: selected } : layout === 'carousel' ? { selected: carouselActive } : undefined}
+      aria-checked={selecting ? selected : undefined}
+      onPress={() => (selecting ? onToggleSelect?.(diary) : onOpen(diary))}
       style={({ pressed }) => [
         s.card,
         layout === 'list' ? s.cardList : layout === 'carousel' ? s.cardCarousel : s.cardGrid,
         compact && layout === 'carousel' && s.cardCarouselCompact,
         compact && layout === 'grid' && s.cardGridCompact,
+        selected && s.cardSelected,
         pressed && s.pressed,
       ]}
     >
       <View style={s.cardCoverWrap}>
         <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact} />
-        <View style={s.cardActions}>
+        {selecting && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
+          <Text style={s.cardCheckMark}>{selected ? '✓' : ''}</Text>
+        </View>}
+        {!selecting && <View style={s.cardActions}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 수정`}
@@ -47,7 +53,7 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
           >
             <AppIcon name="star" size={18} color={diary.favorite ? '#E8AF45' : C.inkSoft} fill={diary.favorite ? '#E8AF45' : 'none'} />
           </Pressable>
-        </View>
+        </View>}
       </View>
       <View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid]}>
         <View style={s.cardHeading}>
@@ -55,7 +61,7 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
             <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>
           </View>
           {/* 스와이프 화면의 옆 카드는 넘기려고 누르는 자리라 가운데 카드에만 둔다. */}
-          {(layout !== 'carousel' || carouselActive) && <Pressable
+          {!selecting && (layout !== 'carousel' || carouselActive) && <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 휴지통으로 이동`}
             disabled={!onDelete}
