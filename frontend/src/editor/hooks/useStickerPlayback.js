@@ -19,7 +19,7 @@ const cache = createStickerPlaybackCache(async (source, signal) => {
   finally { input.dispose?.() }
 })
 
-/** iOS의 움직이는 효과는 한 플레이어가 고른 정지 PNG 장면을 모든 레이어에 전달한다. */
+/** iOS·Android의 움직이는 효과는 한 플레이어가 고른 PNG 장면을 공유한다. */
 export function useStickerPlayback(source) {
   const key = typeof source === 'number' ? `asset:${source}` : source?.uri ?? null
   const [prepared, setPrepared] = useState(null)
