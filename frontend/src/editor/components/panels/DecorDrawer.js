@@ -18,6 +18,7 @@ import PenSafeTextInput from '../controls/PenSafeTextInput'
 import TapeCropper from './TapeCropper'
 import TapeOptions from './TapeOptions'
 import TapeView from '../canvas/TapeView'
+import RecentPhotos from './RecentPhotos'
 
 export const DRAWER_TABS = [
   { id: 'sticker', name: '스티커', icon: 'sticker' },
@@ -471,31 +472,8 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
                 </View>
                 <Text style={styles.uploadTitle}>{busy ? '원본을 저장하고 있어요…' : '사진 · GIF 불러오기'}</Text>
               </Pressable>
-              {recentPhotos.length > 0 && (
-                <Section title="최근 불러온 사진">
-                  <View style={styles.grid}>
-                    {recentPhotos.map((photo) => (
-                      <View key={photo.id} style={[styles.photoCell, { width: `${100 / Math.ceil(columns / 2)}%` }]}>
-                        <Pressable
-                          onPress={() => onAdd({ kind: 'photo', ...photo })}
-                          style={({ pressed }) => [styles.photoTile, pressed && styles.photoPressed]}
-                          accessibilityLabel={`${photo.name ?? '사진'} 붙이기`}
-                        >
-                          <RecentPhotoThumb photo={photo} />
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`${photo.name ?? '사진'} 최근 목록에서 삭제`}
-                          onPress={() => ask('최근 사진 목록에서 삭제할까요?', '목록에서만 삭제돼요. 캔버스에 붙인 사진은 그대로 유지돼요.', () => onRemoveRecentPhoto(photo.id))}
-                          style={({ pressed }) => [styles.photoRemove, pressed && styles.photoPressed]}
-                        >
-                          <Icon name="trash" size={18} color={colors.danger} />
-                        </Pressable>
-                      </View>
-                    ))}
-                  </View>
-                </Section>
-              )}
+              <RecentPhotos photos={recentPhotos} columns={columns} onAdd={onAdd}
+                onRemove={onRemoveRecentPhoto} renderThumb={(photo) => <RecentPhotoThumb photo={photo} />} />
             </>
           )}
         </ScrollView>
