@@ -7,6 +7,7 @@ const EDITOR_ICONS = {
   add: 'plus',
   edit: 'edit',
   search: 'search',
+  more: 'more',
   trash: 'trash',
   grid: 'pages',
   swap: 'swap',

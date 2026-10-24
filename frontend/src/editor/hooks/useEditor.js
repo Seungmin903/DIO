@@ -57,7 +57,7 @@ export function useEditor(diary) {
     pendingSave.current = null
     saving.current = true
     saveJSON(target.key, target.doc).then((ok) => {
-      if (target.key === currentKey.current) setLastSave({ doc: target.doc, ok })
+      if (target.key === currentKey.current) setLastSave({ doc: target.source ?? target.doc, ok })
     }).finally(() => {
       saving.current = false
       dirtySince.current = pendingSave.current ? dirtySince.current : null
@@ -92,8 +92,9 @@ export function useEditor(diary) {
   // 한 번 저장하며, 저장 작업은 제스처·애니메이션이 끝난 뒤로 미룬다.
   useEffect(() => {
     if (!loaded || !edited || !writable) return undefined
-    rememberEditorDoc(storageKey, state.doc)
-    pendingSave.current = { key: storageKey, doc: state.doc }
+    const snapshot = { ...state.doc, updatedAt: new Date().toISOString() }
+    rememberEditorDoc(storageKey, snapshot)
+    pendingSave.current = { key: storageKey, doc: snapshot, source: state.doc }
     if (!dirtySince.current) dirtySince.current = Date.now()
     clearSchedule()
     const elapsed = Date.now() - dirtySince.current
