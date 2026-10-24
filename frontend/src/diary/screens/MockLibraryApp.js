@@ -21,6 +21,7 @@ import { diaryCreateInput } from '../services/diaryCreateInput';
 import { DISABLED_OPACITY } from '../../shared/theme';
 import { createDiaryApi } from '../services/diaryApi';
 import { createMockDiaryTransport } from '../services/mockDiaryTransport';
+import MockNotifications from '../../notifications/MockNotifications';
 
 function Button({ label, onPress, disabled = false, selected }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} aria-pressed={selected} accessibilityState={{ disabled, ...(selected === undefined ? {} : { selected }) }} disabled={disabled} onPress={onPress} style={({ pressed }) => [s.button, selected && s.buttonSelected, disabled && { opacity: DISABLED_OPACITY }, pressed && { opacity: 0.6 }]}><Text style={s.text}>{selected ? '✓ ' : ''}{label}</Text></Pressable>;
@@ -37,10 +38,16 @@ function Notice({ state, retry, detail = false }) {
 
 export default function MockLibraryApp() {
   const [account, setAccount] = useState('A');
-  return <RemoteLibrary key={account} account={account} onSwitchAccount={() => setAccount(value => value === 'A' ? 'B' : 'A')} />;
+  const [notifications, setNotifications] = useState(false);
+  return <>
+    <RemoteLibrary key={account} account={account} onOpenNotifications={() => setNotifications(true)} onSwitchAccount={() => setAccount(value => value === 'A' ? 'B' : 'A')} />
+    <Modal visible={notifications} onRequestClose={() => setNotifications(false)} animationType="fade">
+      {notifications && <MockNotifications onClose={() => setNotifications(false)} />}
+    </Modal>
+  </>;
 }
 
-function RemoteLibrary({ account, onSwitchAccount }) {
+function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const { isPhone } = useFormFactor();
@@ -190,6 +197,7 @@ function RemoteLibrary({ account, onSwitchAccount }) {
   const content = <View style={shell.workspace}>
     <View style={s.banner}>
       <Text style={s.text}>{`목 보관함 · 샘플 계정 ${account}`}</Text>
+      <Button label="알림 연결 검증" onPress={onOpenNotifications} />
       <Button label="목록 새로고침" onPress={page === 'trash' ? () => trash.run() : reader.refresh} disabled={removalBusy} />
       <Button label={controlsOpen ? '목 응답 설정 닫기' : '목 응답 설정'} onPress={() => setControlsOpen(value => !value)} />
     </View>
