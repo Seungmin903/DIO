@@ -36,6 +36,44 @@ const server = http.createServer((req, res) => {
       const button = name => p.getByRole('button', { name, exact:true });
       const tab = name => p.getByRole('tab', { name, exact:true });
       await button('여행 기록 열기').waitFor();
+      // 237: 실제 보관함에서 페이지 추가·오류·재시도·검색/정렬 초기화를 검증한다.
+      await tab('한눈에 보기').click();
+      await button('목 응답 설정').click();
+      await button('페이지 나누기 켜기').click();
+      await p.getByText('2개 불러왔어요. 더 불러올 수 있어요.', {exact:true}).waitFor();
+      await button('보관함 옵션').click(); await button('편집').click();
+      await button('불러온 항목 모두 선택').click();
+      await p.getByText('2개 선택됨',{exact:true}).waitFor();
+      assert.equal(await button('선택한 2개 휴지통으로 이동').count(),1);
+      await button('불러온 항목 모두 해제').click();
+      await p.getByText('0개 선택됨',{exact:true}).waitFor();
+      await button('편집 완료').click();
+      await button('더 보기 커서 무효화').click(); await button('다이어리 더 보기').click();
+      await button('목록 새로고침으로 복구').waitFor();
+      assert.equal(await button('더 보기 다시 시도').count(),0);
+      await button('목록 새로고침으로 복구').click();
+      await button('다이어리 더 보기').waitFor();
+      await button('더 보기 한 번 실패').click();
+      await button('다이어리 더 보기').click();
+      await p.getByText('다음 목록을 불러오는 중이에요.', {exact:true}).waitFor();
+      await button('더 보기 다시 시도').waitFor();
+      assert.equal(await p.getByText('2개 불러왔어요. 더 불러올 수 있어요.', {exact:true}).count(),1);
+      await button('더 보기 다시 시도').click();
+      await p.getByText('4개 불러왔어요. 더 불러올 수 있어요.', {exact:true}).waitFor();
+      await button('다이어리 더 보기').click();
+      await p.getByText('6개 불러왔어요. 마지막 목록이에요.', {exact:true}).waitFor();
+      assert.equal(await button('다이어리 더 보기').count(),0);
+      await button('목록 새로고침').click();
+      await p.getByText('2개 불러왔어요. 더 불러올 수 있어요.', {exact:true}).waitFor();
+      await button('다이어리 검색').click();
+      await p.getByRole('textbox',{name:'다이어리 제목 검색'}).fill('페이지');
+      await p.getByText('‘페이지’ 검색 결과 2개 불러옴 · 더 있음', {exact:true}).waitFor();
+      await button('다이어리 더 보기').click();
+      await p.getByText('4개 불러왔어요. 마지막 목록이에요.', {exact:true}).waitFor();
+      await p.getByText('‘페이지’ 검색 결과 4개', {exact:true}).waitFor();
+      await button('보관함 옵션').click(); await p.getByRole('radio',{name:'이름순'}).click();
+      await p.getByText('2개 불러왔어요. 더 불러올 수 있어요.', {exact:true}).waitFor();
+      await p.reload(); await button('여행 기록 열기').waitFor();
       await p.evaluate(async config => {
         await new Promise((resolve, reject) => {
           const req = indexedDB.open(config.name, config.version);

@@ -55,9 +55,12 @@ export function createDiaryApi(transport) {
     async list(options = {}) {
       const body = await transport({ ...options, path: '/diaries' });
       if (!Array.isArray(body?.items)) throw new DiaryApiError('INVALID_RESPONSE', '목록 정보를 확인하지 못했어요.');
-      // 첫 페이지 준비 범위. 페이지가 더 있으면 UI에서 완료된 전체 목록으로 취급하지 않는다.
-      if (body.hasNext === true) throw new DiaryApiError('PAGINATION_NOT_READY', '목록을 끝까지 불러오지 못했어요. 페이지 연결이 필요해요.');
-      return { items: body.items.map(toDiary), nextCursor: body.nextCursor ?? null, hasNext: false };
+      // 기존 비페이지 응답(hasNext 생략)도 지원한다. 커서는 해석하지 않는다.
+      if ((body.hasNext !== undefined && typeof body.hasNext !== 'boolean')
+        || (body.hasNext === true && (typeof body.nextCursor !== 'string' || !body.nextCursor.trim()))) {
+        throw new DiaryApiError('INVALID_RESPONSE', '다음 목록 정보를 확인하지 못했어요. 다시 시도해 주세요.');
+      }
+      return { items: body.items.map(toDiary), nextCursor: body.hasNext === true ? body.nextCursor : null, hasNext: body.hasNext === true };
     },
     async get(id, options = {}) {
       const body = await transport({ ...options, path: `/diaries/${encodeURIComponent(id)}` });

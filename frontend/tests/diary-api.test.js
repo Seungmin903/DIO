@@ -107,8 +107,12 @@ test('취소한 목 요청은 성공이나 오류로 화면 상태를 덮어쓰�
   assert.equal(query.getSnapshot().status, 'idle');
   assert.equal(query.getSnapshot().error, null);
 });
-test('아직 이어받지 못하는 다음 페이지 응답을 전체 목록으로 오인하지 않는다', async () => {
-  await assert.rejects(createDiaryApi(async () => ({ items: [], hasNext: true, nextCursor: 'next' })).list(), { code: 'PAGINATION_NOT_READY' });
+test('다음 페이지 커서는 불투명 문자열로 유지하고 잘못된 페이지 응답을 거부한다', async () => {
+  const page = await createDiaryApi(async () => ({ items: [], hasNext: true, nextCursor: 'uuid:next/?=' })).list();
+  assert.equal(page.hasNext, true); assert.equal(page.nextCursor, 'uuid:next/?=');
+  for (const body of [{ items: [], hasNext: true }, { items: [], hasNext: true, nextCursor: 1 }, { items: [], hasNext: 'false' }]) {
+    await assert.rejects(createDiaryApi(async () => body).list(), { code: 'INVALID_RESPONSE' });
+  }
 });
 test('HTTP 경계는 매 요청 최신 토큰을 읽고 쿼리를 인코딩한다', async () => {
   let token = 'one'; const calls = [];
