@@ -58,7 +58,8 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
     pageCount: 3, version: '1', canEdit: true, myMembership: { isFavorite: true }, createdAt: '2026-10-24T03:00:00Z', updatedAt: '2026-10-24T03:00:00Z',
   }] }), [account]);
   const api = useMemo(() => createDiaryApi(mock.transport), [mock]);
-  const { list, detail, selectedId, reader } = useLibraryReader(api, account);
+  const { list, detail, selectedId, more, moreRequiresRefresh, reader } = useLibraryReader(api, account);
+  const [pagination, setPagination] = useState(false);
   const execute = useMemo(() => createDiaryCommand(api), [api]);
   const creation = useDiaryMutation(execute);
   const removal = useDiaryMutation(execute);
@@ -182,7 +183,15 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
     await reader.refreshAndOpen(result.result.id);
   };
   const editLocked = editSaving || editing.mutation.canRetry || editing.needsReview || editing.permissionBlocked || editing.latestStatus === 'loading';
-  const notice = <Notice state={list} retry={reader.refresh} />;
+  const notice = <View style={s.notice}>
+    <Notice state={list} retry={reader.refresh} />
+    {pagination && list.data && <Text style={s.text}>{`${rows.length}개 불러왔어요.${list.data.hasNext ? ' 더 불러올 수 있어요.' : ' 마지막 목록이에요.'}`}</Text>}
+    {more.status === 'loading' && <View accessibilityLiveRegion="polite" style={s.row}><ActivityIndicator color={C.blue} /><Text style={s.text}>다음 목록을 불러오는 중이에요.</Text></View>}
+    {more.status === 'error' && <Text accessibilityLiveRegion="polite" style={s.text}>{more.error.message}</Text>}
+    {list.data?.hasNext && <Button label={moreRequiresRefresh ? '목록 새로고침으로 복구' : more.status === 'error' ? '더 보기 다시 시도' : '다이어리 더 보기'}
+      onPress={more.status === 'error' ? reader.retryMore : reader.loadMore}
+      disabled={removalLocked || list.status !== 'success' || more.status === 'loading'} />}
+  </View>;
   const library = <LibraryScreen compact={isPhone} diaries={rows} filter={options.filter} sort={options.sort}
     onSortChange={sort => change({ sort })} onFilterChange={filter => change({ filter })}
     view={view} onViewChange={setView} carousel={carousel} onCarouselChange={setCarousel}
@@ -193,7 +202,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
     selection={selection} onSelectionChange={value => { if (!removalLocked) setSelection(value); }}
     onTrashSelected={ids => askRemoval('trash', ids)} trashing={removalLocked}
     remoteQuery={{ query: options.query, searchOpen, onQueryChange: query => change({ query }), onSearchOpenChange: value => { reader.close(); setSearchOpen(value); } }}
-    requestNotice={notice} suppressEmpty={list.status !== 'success'} historyKey={`dio:qa:mock-library:search:${account}`} />;
+    requestNotice={notice} hasMore={Boolean(list.data?.hasNext)} suppressEmpty={list.status !== 'success'} historyKey={`dio:qa:mock-library:search:${account}`} />;
   const content = <View style={shell.workspace}>
     <View style={s.banner}>
       <Text style={s.text}>{`목 보관함 · 샘플 계정 ${account}`}</Text>
@@ -208,6 +217,15 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
         <Button label="샘플 계정 변경" disabled={removalBusy} onPress={onSwitchAccount} />
       </ScrollView>
       <Text style={s.text}>목 데이터로 조회·생성·수정·휴지통·영구 삭제를 확인해요. 실제 서버에는 연결하지 않았어요.</Text>
+      <ScrollView horizontal contentContainerStyle={s.row}>
+        <Button label={pagination ? '페이지 나누기 끄기' : '페이지 나누기 켜기'} disabled={removalLocked} onPress={() => {
+          mock.setPagination(!pagination); setPagination(!pagination); reader.close(); reader.refresh();
+        }} />
+        <Button label="더 보기 정상" disabled={removalLocked} onPress={() => mock.setMoreScenario('success')} />
+        <Button label="더 보기 한 번 실패" disabled={removalLocked} onPress={() => mock.setMoreScenario('fail-once')} />
+        <Button label="더 보기 커서 무효화" disabled={removalLocked || !list.data?.hasNext} onPress={mock.invalidateCursors} />
+      </ScrollView>
+      {pagination && <Text style={s.text}>활성 보관함을 두 개씩 조회해요. 샘플 네 개가 추가되며 끄면 추가 샘플도 한 번에 표시해요. 새로 열면 초기화돼요.</Text>}
       <ScrollView horizontal contentContainerStyle={s.row}>
         {[['success', '이동·복원 정상'], ['fail-once', '이동·복원 한 번 실패'], ['partial', '일괄 부분 실패'], ['forbidden', '이동·복원 권한 없음'], ['response-lost', '이동·복원 응답 유실'], ['expired', '복원 기한 만료']].map(([value, label]) =>
           <Button key={value} label={label} selected={writeMode === value} disabled={removalBusy} onPress={() => { mock.setWriteScenario(value); setWriteMode(value); }} />)}

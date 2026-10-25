@@ -5,6 +5,7 @@
 | 문서 | 설명 |
 |---|---|
 | [notification-api-preparation.md](./notification-api-preparation.md) | 249·250 알림 목 API 연결, 팀원 UI 경계, 로딩·오류·재시도 및 검증 순서 |
+| [diary-pagination-preparation.md](./diary-pagination-preparation.md) | 237 목 보관함 더 보기·로딩·오류·재시도 및 페이지네이션 회귀 검증 |
 | [diary-api-preparation.md](./diary-api-preparation.md) | 237~241 사전 작업: 조회·생성·수정·휴지통·복원·영구 삭제·만료 API 경계와 목 응답·저장·오류·재시도 |
 | [design-guide.md](./design-guide.md) | **DIO 디자인 가이드(BI·CI·인앱 UI)** — 새 화면·기능은 이 문서를 기준으로 만든다. Word·PDF 본: `design-guide.docx`, `design-guide.pdf` |
 | [design-trend-review/](./design-trend-review/README.md) | 2026 UI/UX 트렌드 대비 가이드 검토안 6가지(지금/바꾸면 전체 화면 비교, 채택·보류·반려 결정 칸). PDF 본 포함 |

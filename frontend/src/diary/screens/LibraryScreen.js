@@ -56,6 +56,7 @@ function LibraryScreen({
   trashing = false,
   remoteQuery = null, // API 경로에서만 검색 입력을 제어한다. 로컬 경로는 기존 상태를 사용한다.
   requestNotice = null,
+  hasMore = false,
   suppressEmpty = false,
   historyKey,
 }) {
@@ -191,14 +192,14 @@ function LibraryScreen({
         <View style={s.selectActions}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={allSelected ? '전체 해제' : '전체 선택'}
-            accessibilityHint={`현재 검색·필터 결과 ${shown.length}개에 적용해요`}
+            accessibilityLabel={hasMore ? (allSelected ? '불러온 항목 모두 해제' : '불러온 항목 모두 선택') : (allSelected ? '전체 해제' : '전체 선택')}
+            accessibilityHint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${shown.length}개에 적용해요`}
             accessibilityState={{ disabled: trashing || !shown.length }}
             disabled={trashing || !shown.length}
             onPress={toggleAll}
             style={({ pressed }) => [s.selectButton, (trashing || !shown.length) && s.selectButtonDisabled, pressed && s.pressed]}
           >
-            <Text style={s.selectButtonText}>{allSelected ? '전체 해제' : '전체 선택'}</Text>
+            <Text style={s.selectButtonText}>{hasMore ? (allSelected ? '불러온 항목 모두 해제' : '불러온 항목 모두 선택') : (allSelected ? '전체 해제' : '전체 선택')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -235,7 +236,7 @@ function LibraryScreen({
     diaries={shown} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
     optionsMenu={optionsMenu} selectionBar={selectionBar}
     selecting={selecting} selected={selected} onToggleSelect={toggleSelect}
-    requestNotice={requestNotice} suppressEmpty={suppressEmpty} historyKey={historyKey}
+    requestNotice={requestNotice} hasMore={hasMore} suppressEmpty={suppressEmpty} historyKey={historyKey}
   />;
 
   return (

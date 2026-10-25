@@ -6,6 +6,8 @@ const seeds = [
 ].map(row => ({ ...row, myMembership: { isFavorite: false }, createdAt: '2026-10-24T01:00:00Z', updatedAt: '2026-10-24T02:00:00Z', version: '1', deletedAt: null }));
 export function createMockDiaryTransport({ delay = 600, scenario = 'success', schedule = setTimeout, unschedule = clearTimeout, now = Date.now, initialRows = seeds } = {}) {
   let mode = scenario, failures = 0, writeMode = 'success', writeFailures = 0, nextId = 0;
+  let pageSize = null, moreMode = 'success', moreFailures = 0, cursorSerial = 0;
+  const cursors = new Map();
   const rows = copy(initialRows), receipts = new Map();
   let clockOffset = 0;
   const serverNow = () => now() + clockOffset;
@@ -13,7 +15,8 @@ export function createMockDiaryTransport({ delay = 600, scenario = 'success', sc
   const serverRow = row => ({ ...row, retentionStatus: row.deletedAt ? (expired(row) ? 'EXPIRED' : 'RETAINED') : null, canRestore: Boolean(row.deletedAt) && !expired(row) });
   const transport = ({ path, signal, method = 'GET', body, query = {}, requestId }) => new Promise((resolve, reject) => {
     if (signal?.aborted) { reject(Object.assign(new Error('Cancelled'), { name: 'AbortError' })); return; }
-    const selectedMode = method === 'GET' ? mode : writeMode;
+    const pagedMore = method === 'GET' && path === '/diaries' && Boolean(query.cursor);
+    const selectedMode = pagedMore ? moreMode : method === 'GET' ? mode : writeMode;
     const abort = () => { unschedule(timer); reject(Object.assign(new Error('Cancelled'), { name: 'AbortError' })); };
     const timer = schedule(() => {
       signal?.removeEventListener('abort', abort);
@@ -25,7 +28,7 @@ export function createMockDiaryTransport({ delay = 600, scenario = 'success', sc
           if (receipt.signature !== signature) throw new DiaryApiError('REQUEST_CONFLICT', '같은 요청 키에 다른 입력을 보낼 수 없어요.', 409);
           resolve(copy(receipt.value)); return;
         }
-        const fail = selectedMode === 'error' || (selectedMode === 'fail-once' && (writing ? writeFailures++ : failures++) === 0);
+        const fail = selectedMode === 'error' || (selectedMode === 'fail-once' && (writing ? writeFailures++ : pagedMore ? moreFailures++ : failures++) === 0);
         if (fail) throw new DiaryApiError('MOCK_UNAVAILABLE', '요청을 처리하지 못했어요. 다시 시도해 주세요.', 503);
         if (writing && selectedMode === 'forbidden') throw new DiaryApiError('FORBIDDEN', '이 작업을 할 권한이 없어요.', 403);
         if (writing && selectedMode === 'conflict') throw new DiaryApiError('VERSION_CONFLICT', '다른 변경이 있어요. 최신 내용을 확인한 뒤 다시 저장해 주세요.', 409);
@@ -50,7 +53,20 @@ export function createMockDiaryTransport({ delay = 600, scenario = 'success', sc
               : stamp(b.updatedAt) - stamp(a.updatedAt);
             return order || a.diaryId.localeCompare(b.diaryId);
           });
-          value = { items: selectedMode === 'empty' ? [] : items.map(serverRow), nextCursor: null, hasNext: false };
+          const scope = JSON.stringify({ status: query.status || 'active', q: query.q || '', sort: query.sort || '', favorite: query.favorite });
+          const boundary = query.cursor ? cursors.get(query.cursor) : null;
+          if (query.cursor && (!boundary || boundary.scope !== scope || !pageSize)) {
+            throw new DiaryApiError('INVALID_CURSOR', '목록 기준이 바뀌었어요. 새로고침해 주세요.', 400);
+          }
+          const start = boundary ? items.findIndex(item => item.diaryId === boundary.after) + 1 : 0;
+          if (boundary && start === 0) throw new DiaryApiError('INVALID_CURSOR', '목록이 변경됐어요. 새로고침해 주세요.', 400);
+          // 휴지통과 기존 검증 화면은 단일 페이지를 유지한다. 활성 보관함만 선택적으로 분할한다.
+          const limit = query.status === 'active' && pageSize ? pageSize : items.length;
+          const page = selectedMode === 'empty' ? [] : items.slice(start, start + limit);
+          const hasNext = page.length > 0 && start + page.length < items.length;
+          let nextCursor = null;
+          if (hasNext) { nextCursor = `mock-page-${++cursorSerial}`; cursors.set(nextCursor, { scope, after: page.at(-1).diaryId }); }
+          value = { items: page.map(serverRow), nextCursor, hasNext };
         }
         else if (method === 'POST' && path === '/diaries') {
           if (!body?.diaryTitle?.trim()) throw new DiaryApiError('INVALID_TITLE', '제목을 입력해 주세요.', 400);
@@ -90,6 +106,15 @@ export function createMockDiaryTransport({ delay = 600, scenario = 'success', sc
     signal?.addEventListener('abort', abort, { once: true });
   });
   return { transport, setScenario(value) { mode = value; failures = 0; }, setWriteScenario(value) { writeMode = value; writeFailures = 0; },
+    setMoreScenario(value) { moreMode = value; moreFailures = 0; },
+    invalidateCursors() { cursors.clear(); },
+    setPagination(enabled) {
+      pageSize = enabled ? 2 : null; cursors.clear();
+      if (enabled) for (let index = 1; index <= 4; index++) {
+        const id = `mock-page-sample-${index}`;
+        if (!rows.some(row => row.diaryId === id)) rows.push({ ...copy(seeds[0]), diaryId: id, diaryTitle: `페이지 샘플 ${index}`, myMembership: { isFavorite: index % 2 === 0 } });
+      }
+    },
     simulateEdit(id, changes = {}) {
       const row = rows.find(item => item.diaryId === id);
       if (!row) return;
