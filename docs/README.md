@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [editor-default-hand.md](./editor-default-hand.md) | 253 편집기 기본 손 도구 및 실기기 확인 순서 |
 | [diary-page-count.md](./diary-page-count.md) | 252 보관함·검색 카드 페이지 수 표시와 데이터 기준·실기기 QA |
 | [notification-api-preparation.md](./notification-api-preparation.md) | 249·250 알림 목 API 연결, 팀원 UI 경계, 로딩·오류·재시도 및 검증 순서 |
 | [diary-pagination-preparation.md](./diary-pagination-preparation.md) | 237 목 보관함 더 보기·로딩·오류·재시도 및 페이지네이션 회귀 검증 |
