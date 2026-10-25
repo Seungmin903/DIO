@@ -1,0 +1,11 @@
+stages:
+  - check
+
+runner-check:
+  stage: check
+  tags:
+    - ec2-deploy
+  script:
+    - whoami
+    - docker --version
+    - docker ps
