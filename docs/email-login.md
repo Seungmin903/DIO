@@ -1,0 +1,87 @@
+# 일반 로그인
+
+이메일 인증으로 가입한 `EMAIL` 계정의 BCrypt 비밀번호를 검증한다. 소셜로그인·비밀번호 재설정·프론트 연결·내 정보 조회·다이어리 소유권 변경은 포함하지 않는다. 회원가입은 계속 로그인 토큰 없이 완료되며, 가입 후 아래 로그인 API를 호출한다.
+
+## API
+
+| 도메인 | 기능 | Method | Endpoint | 인증 |
+|---|---|---|---|---|
+| 인증 | 일반 로그인 | POST | `/api/v1/auth/login` | 불필요 |
+| 인증 | 토큰 재발급 | POST | `/api/v1/auth/refresh` | 본문의 Refresh Token |
+| 인증 | 현재 기기 로그아웃 | POST | `/api/v1/auth/logout` | Bearer Access Token |
+
+로그인 요청:
+
+```json
+{"email":"member@example.com","password":"DioMember123!","deviceName":"내 휴대폰"}
+```
+
+`deviceName`은 선택, 최대 100자다. 이메일은 공백 제거·소문자로 변환한다. 비밀번호는 공백 없는 ASCII 8~32자를 받는다. 등록 시와 같은 BCrypt 알고리즘으로 검증하며, 가입하지 않은 계정·비밀번호 불일치·비활성/탈퇴·이메일 비밀번호가 없는 계정은 동일한 401 `INVALID_CREDENTIALS`를 반환한다.
+
+로그인/재발급 성공 응답(200):
+
+```json
+{
+  "tokenType":"Bearer",
+  "accessToken":"서명된 JWT",
+  "expiresIn":900,
+  "refreshToken":"일회용 43자 토큰",
+  "refreshExpiresIn":2592000,
+  "user":{
+    "userId":"1",
+    "email":"member@example.com",
+    "nickname":"디오사용자",
+    "profilePhotoUrl":null
+  }
+}
+```
+
+로그인 성공 시 `last_login_at`을 갱신한다. 사진이 있으면 기존 `/api/v1/auth/profile-photos/{photoId}` 상대 URL을 반환한다. 별도의 내 정보 조회 API는 만들지 않았다. 응답에 생년월일·프로필 색상·비밀번호/해시가 포함되지 않는다.
+
+재발급 요청:
+
+```json
+{"refreshToken":"로그인 또는 직전 재발급 응답에서 받은 토큰"}
+```
+
+성공 시 Access Token과 Refresh Token을 **둘 다 교체**한다. Refresh 세션 만료는 최초 로그인으로부터 30일이며 재발급으로 연장하지 않는다. 교체 전 토큰을 재사용하면 해당 기기 세션이 종료되고 새 토큰도 사용할 수 없으므로 프론트는 재발급 요청을 동시에 여러 번 보내지 말고 하나로 합쳐야 한다. 형식 오류는 400, 알 수 없는/만료/종료/재사용 토큰은 401 `INVALID_TOKEN`이다.
+
+로그아웃은 요청 본문 없이 `Authorization: Bearer {accessToken}` 헤더를 보낸다. 성공 204이며 해당 기기의 Access/Refresh Token만 무효화한다. 다른 기기는 유지한다. Access Token이 이미 만료된 경우 재발급 후 로그아웃하거나 클라이언트의 로컬 토큰을 비우고 로그인 화면으로 이동한다. JWT 검증은 알고리즘 HS256, issuer dio, audience dio-api, token_use access, 만료와 DB 세션/회원 활성 상태를 확인한다.
+
+## 설정
+
+- `AUTH_JWT_SECRET`: 무작위 32바이트 이상을 Base64로 변환한 서버 전용 키. `SIGNUP_VERIFICATION_SECRET`과 별개이며 원문을 Git/로그/프론트로 보내지 않는다.
+- `AUTH_ACCESS_TOKEN_SECONDS`: 기본 900(15분). 60~86400초.
+- `AUTH_REFRESH_TOKEN_SECONDS`: 기본 2592000(30일). Access TTL보다 길고 최대 90일.
+
+local 프로필은 루트 .env를 읽는다. 이 컴퓨터에는 로그인용 키를 별도로 생성해 추가했고 기존 설정을 보존했다. 다른 개발자는 각자의 .env/실행 환경에 키를 설정한다. **같은 공용 DB/로그인 세션을 쓰는 서버들은 같은 로그인 서명키**를 사용해야 한다. 키 변경 시 기존 Access Token의 서명 검증이 실패하므로 운영 키 교체는 별도로 계획한다. 설정 누락·잘못된 키/TTL은 로그인 시 503 `LOGIN_NOT_CONFIGURED`로 실패하며 기존 공개 기능의 시작 자체를 막지 않는다.
+
+구형 Windows PowerShell에서도 가능한 생성 명령(출력값은 .env에만 저장):
+
+```powershell
+$loginBytes = New-Object byte[] 32
+$loginRng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$loginRng.GetBytes($loginBytes)
+$loginRng.Dispose()
+[Convert]::ToBase64String($loginBytes)
+```
+
+Swagger의 일반 로그인 그룹에서 로그인 후 응답의 Access Token을 Authorize에 입력하고 로그아웃을 호출한다. 재발급은 Authorization 없이 본문의 최신 Refresh Token을 사용한다. 토큰 응답/인증 오류에 Cache-Control no-store를 적용한다. 실제 전송은 배포 시 HTTPS를 사용한다.
+
+## DB와 기존 기능 경계
+
+V6는 `refresh_tokens`, `refresh_token_history`만 추가한다. 기존 users/다이어리/사진 테이블과 V1~V5 파일은 변경하지 않는다. 같은 V6 번호를 사용하는 다른 작업이 있으면 병합 전 번호를 조율하고, 적용된 파일은 수정하지 않는다. 로컬 DB 백업은 `C:/Users/SSAFY/Documents/Codex/dio-before-login-v6-20261026.dump`에 보관한다.
+
+Refresh Token 원문 대신 SHA-256 해시만 저장한다. 고정된 세션 행의 비관적 잠금으로 재발급·로그아웃·재사용 처리를 직렬화한다. 사용된 해시 이력으로 재사용을 탐지하고, 인증 오류 응답을 보내더라도 재사용 시 세션 폐기는 커밋한다. DB 쓰기 실패나 JWT 설정/서명 실패 때문에 유효한 토큰을 잃지 않도록 처리한다. 회원 물리 삭제 시 세션/이력도 FK CASCADE로 삭제된다. 만료된 세션/이력의 정기 정리는 운영 보관 정책 확정 후 적용한다.
+
+현재 SecurityFilterChain의 JWT 보호 대상은 **새 로그아웃 경로만**이다. 기존 회원가입/이메일 인증/공개 사진/Swagger/다이어리 경로에 인증을 강제로 추가하지 않았다. 이는 기존 팀 작업 보존을 위한 단계적 적용이며, 다이어리는 여전히 공개 API다. 사용자별 데이터 보호가 완료된 상태로 해석하지 않는다. 향후 보호할 API의 매처·회원 식별·다이어리 소유권은 해당 기능 담당자와 함께 연결해야 한다. [Spring Security JWT 검증 문서](https://www.springframework.org/spring-security/reference/servlet/oauth2/resource-server/jwt.html)
+
+로그인 실패 제한은 한 서버의 메모리에서 동작한다. 이메일/IP 조합당 15분 내 오답 5회 이후와 IP당 오답 100회 이후 429 및 Retry-After 900을 반환한다. 캐시는 최대 2만 키이며 성공 시 해당 이메일/IP 실패 횟수를 초기화한다. 다른 IP의 실패나 동일 IP의 전체 실패 예산은 초기화하지 않는다. 재시작/다중 서버/캐시 축출에 걸친 공통 제한은 프록시·Redis 등 인프라에서 추가해야 한다. 임의 X-Forwarded-For를 신뢰하지 않고 servlet remoteAddr를 사용하므로 배포 프록시 주소 처리는 인프라에서 설정한다.
+
+프론트는 아직 previewAuth이며 자동 연결되지 않는다. 토큰을 앱 저장소에 안전하게 보관하고 로그아웃 시 비우는 연동은 후속 작업이다.
+
+## 검증 결과 (2026-10-26)
+
+- 전체 테스트 142개 중 133개 통과, 기존 PostgreSQL 전용 9개 제외, 실패 0개. 정상 로그인·이메일 정규화·BCrypt 검증·마지막 로그인 시각·민감 정보 미노출·실패 제한·토큰 교체·재사용 세션 종료·만료/변조/비활성 계정 거절·기기별 로그아웃·동시 재발급을 확인했다. 기존 다이어리/회원가입/사진 회귀 테스트도 통과했다.
+- 실제 PostgreSQL에서 V1~V6/Flyway·JPA 검증에 성공했다. 임시 테스트 계정으로 API 가입 201 → 로그인 200 → 재발급 200 및 토큰 교체 → 로그아웃 204 → 종료된 토큰 재발급 401을 확인했다. 테스트를 위해 가입 전 인증 행만 합성했고 실제 메일은 발송하지 않았다. 테스트 회원·약관·인증 계정·토큰/이력·인증 행은 정리했으며 기존 회원 데이터는 보존했다.
+- 검증용 서버는 자동 포트로 실행 후 종료했다. 기존 실행 중이던 서버·공용 DB·프론트는 변경하지 않았다. Spring Security 의존성이 추가됐으므로 기존 서버는 재시작해야 한다. 프론트/실기기 연동과 실제 S3는 이 로그인 검증에 포함하지 않았다.

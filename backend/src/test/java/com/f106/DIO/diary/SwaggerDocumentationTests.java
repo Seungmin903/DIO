@@ -22,7 +22,7 @@ class SwaggerDocumentationTests {
 	void servesOpenApiWithAllFiveUnauthenticatedDiaryOperations() throws Exception {
 		mvc.perform(get("/v3/api-docs"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.info.title").value("DIO 비회원 MVP1 API"))
+			.andExpect(jsonPath("$.info.title").value("DIO 개발 API"))
 			.andExpect(jsonPath("$.paths['/api/v1/diaries'].post").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries'].get").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].get").exists())
@@ -38,7 +38,8 @@ class SwaggerDocumentationTests {
 			.andExpect(jsonPath("$.components.schemas.DiaryCreateRequest.properties.diaryTitle.example").value("여행 다이어리"))
 			.andExpect(jsonPath("$.components.schemas.DiaryUpdateRequest.properties.anyFieldPresent").doesNotExist())
 			.andExpect(jsonPath("$.security").doesNotExist())
-			.andExpect(jsonPath("$.components.securitySchemes").doesNotExist());
+			.andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+			.andExpect(jsonPath("$.paths['/api/v1/diaries'].get.security").doesNotExist());
 	}
 
 	@Test
