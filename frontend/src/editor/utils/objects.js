@@ -3,6 +3,7 @@
 // x, y 는 회전 전 박스의 좌상단, 회전은 박스 중심 기준이다.
 
 import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_SHAPES, LEGACY_TAPE_NAMES, FRAME_INSETS, TAPE_DEFAULT_OPACITY, TAPE_SIZES, TAPES } from '../constants'
+import { shapeDefinition } from './editorShapes'
 import { clamp, createId } from './common'
 
 const base = (type, center, w, h, extra) => ({
@@ -113,6 +114,7 @@ export function createObjectFromDecor(item, center) {
 
 export function getObjectName(object) {
   if (object.name) return object.name
+  if (object.type === 'shape') return shapeDefinition(object.shape).label
   // 예전 문서의 테이프는 무늬 이름이 곧 테이프 id 였다.
   if (object.type === 'tape') return LEGACY_TAPE_NAMES[object.pattern] ?? TAPES.find((tape) => tape.id === object.pattern)?.name ?? '마스킹테이프'
   return OBJECT_TYPE_LABELS[object.type]

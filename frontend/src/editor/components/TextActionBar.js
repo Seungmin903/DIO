@@ -20,7 +20,7 @@ export default function TextActionBar({ onColor, onIncrease, onDecrease, onCopy,
       <View style={styles.bar}>
         {hasSelection && <>
           <LabeledButton icon="text" label="서식" active={formatOpen} onPress={() => setFormatOpen(!formatOpen)} />
-          <LabeledButton icon="link" label="링크" active={linked} onPress={onLink} />
+          {onLink && <LabeledButton icon="link" label="링크" active={linked} onPress={onLink} />}
           <View style={styles.divider} />
           <IconButton icon="copy" label="복사" onPress={onCopy} />
           <IconButton icon="trash" label="삭제" danger onPress={onDelete} />

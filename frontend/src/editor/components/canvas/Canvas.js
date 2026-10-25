@@ -22,6 +22,7 @@ import PenInput from '../PenInput'
 import EraserInput from '../EraserInput'
 import LassoInput from '../LassoInput'
 import TextEditor from '../TextEditor'
+import ShapeTextEditor from '../ShapeTextEditor'
 import TextBoxInput from '../TextBoxInput'
 import TextLinkOverlay from '../TextLinkOverlay'
 import PalmRejectionArea from './PalmRejectionArea'
@@ -95,6 +96,7 @@ export default function Canvas({
   textEditing,
   textBoundary,
   onRevealText, // (dy) 키보드에 가린 글상자가 보이게 화면을 올린다
+  textEditingTop = 0,
   onTextPaletteChange,
   textPaletteBounds,
   onSaveText,
@@ -333,7 +335,8 @@ export default function Canvas({
         <View style={StyleSheet.absoluteFill} onStartShouldSetResponder={() => true} {...inputBlocker} accessibilityElementsHidden />
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={onCreateText} />}
-      {!readOnly && textEditing && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
+      {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
+      {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
 
       {freeCropTarget && <View pointerEvents="box-none" style={styles.selectionControls}><CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} /></View>}
 
@@ -713,7 +716,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
         return
       }
       // 텍스트 더블 탭은 겹친 요소가 있어도 바로 수정한다.
-      if (g?.mode === 'move' && !moved && object.type === 'text' && !object.locked && isDoubleTap(object.id)) {
+      if (g?.mode === 'move' && !moved && ['text', 'shape'].includes(object.type) && !object.locked && isDoubleTap(object.id)) {
         onEditText(object)
         return
       }

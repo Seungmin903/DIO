@@ -556,7 +556,7 @@ const LayerThumb = memo(function LayerThumb({ object }) {
   let content = null
   if (object.type === 'text') {
     content = <Text style={{ color: object.color, fontSize: 22 }}>T</Text>
-  } else if (object.type === 'stroke') {
+  } else if (object.type === 'stroke' || object.type === 'shape') {
     content = <ObjectContent object={object} zoom={Math.min(30 / object.w, 30 / object.h)} still />
   } else if (object.type === 'sticker') {
     const source = stickerSource(object, true, uri)

@@ -25,6 +25,7 @@ export default function Slider({
   plusLabel = '늘리기',
   scale = 1,
   unit = '',
+  centerValue = false,
   label = '값',
   wrap = false, // 각도처럼 범위를 넘으면 한 바퀴 돌려 맞춘다 (375 → 15)
 }) {
@@ -100,7 +101,7 @@ export default function Slider({
           keyboardType="numeric"
           selectTextOnFocus
           maxLength={5}
-          style={[styles.input, isPhone && unit !== '%' && styles.inputCentered]}
+          style={[styles.input, (centerValue || (isPhone && unit !== '%')) && styles.inputCentered]}
           accessibilityLabel={`${label} 숫자 입력`}
         />
         {unit ? <Text style={styles.unit}>{unit}</Text> : null}
