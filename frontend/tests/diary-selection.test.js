@@ -31,6 +31,16 @@ function nodes(value) {
 const Card = loadCard();
 const diary = { id: 'd1', title: '여행', favorite: false };
 
+test('카드는 로컬 요약·목 응답의 실제 페이지 수를 사용하고 0과 미확인·실패를 구분한다', () => {
+  const count = props => nodes(Card({ diary, ...props })).find(node => node.props.testID === 'diary-page-count-d1').props.children;
+  assert.equal(count({ diary: { ...diary, pageCount: 5 } }), '5페이지');
+  assert.equal(count({ diary: { ...diary, pageCount: 5 }, pageCount: 3 }), '3페이지');
+  assert.equal(count({ pageCount: 0 }), '0페이지');
+  assert.equal(count({}), '페이지 수 확인 중');
+  for (const pageCount of [null, -1, 2.5, '12', NaN]) assert.equal(count({ pageCount }), '페이지 수 확인 불가');
+  assert.equal(count({ diary: { ...diary, pageCount: 5 }, pageCount: null }), '페이지 수 확인 불가');
+});
+
 test('선택 목록은 누를 때마다 넣고 빼며, 보이지 않는 다이어리는 선택에서 뺀다', () => {
   assert.deepEqual(toggleSelection([], 'a'), ['a']);
   assert.deepEqual(toggleSelection(['a', 'b'], 'a'), ['b']);

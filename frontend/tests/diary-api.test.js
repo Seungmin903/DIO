@@ -32,6 +32,14 @@ test('문자열 ID와 개인 상태를 화면 모델로 변환하며 원본 DTO�
   assert.equal(dto.coverPattern, 'LINEN');
   assert.throws(() => toDiary({ diaryId: 1 }), { code: 'INVALID_RESPONSE' });
 });
+test('페이지 수가 없는 응답을 0으로 꾸미지 않고 정상 0페이지는 유지한다', () => {
+  const dto = { diaryId: 'a', diaryTitle: '기록' };
+  assert.equal(toDiary(dto).pageCount, null);
+  assert.equal(toDiary({ ...dto, pageCount: null }).pageCount, null);
+  assert.equal(toDiary({ ...dto, pageCount: 0 }).pageCount, 0);
+  assert.equal(toDiary({ ...dto, pageCount: 9 }).pageCount, 9);
+});
+
 test('목 목록·상세·빈 목록과 응답 복사', async () => {
   const mock = createMockDiaryTransport({ delay: 0 });
   const api = createDiaryApi(mock.transport);

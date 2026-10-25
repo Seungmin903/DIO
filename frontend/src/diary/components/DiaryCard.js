@@ -8,11 +8,16 @@ import Cover from './Cover';
 
 // onOpen·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다.
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
-function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, selecting = false, selected = false, onToggleSelect }) {
+function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, selecting = false, selected = false, onToggleSelect }) {
+  // 로컬 요약이 있으면 그것을 사용한다. null은 조회 실패, undefined는 아직 확인 전이다.
+  const count = pageCount === undefined ? diary.pageCount : pageCount;
+  const countLabel = count === undefined ? '페이지 수 확인 중'
+    : Number.isSafeInteger(count) && count >= 0 ? `${count}페이지` : '페이지 수 확인 불가';
   const card = (
     <Pressable
       accessibilityRole={selecting ? 'checkbox' : 'button'}
       accessibilityLabel={selecting ? `${diary.title} 선택` : `${diary.title} 열기`}
+      accessibilityHint={countLabel}
       accessibilityState={selecting ? { checked: selected } : layout === 'carousel' ? { selected: carouselActive } : undefined}
       aria-checked={selecting ? selected : undefined}
       onPress={() => (selecting ? onToggleSelect?.(diary) : onOpen(diary))}
@@ -59,6 +64,7 @@ function DiaryCard({ diary, layout = 'grid', compact = false, onOpen, onFavorite
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
             <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>
+            <Text testID={`diary-page-count-${diary.id}`} style={s.cardPageCount}>{countLabel}</Text>
           </View>
           {/* 스와이프 화면의 옆 카드는 넘기려고 누르는 자리라 가운데 카드에만 둔다. */}
           {!selecting && (layout !== 'carousel' || carouselActive) && <Pressable

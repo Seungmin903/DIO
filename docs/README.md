@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [diary-page-count.md](./diary-page-count.md) | 252 보관함·검색 카드 페이지 수 표시와 데이터 기준·실기기 QA |
 | [notification-api-preparation.md](./notification-api-preparation.md) | 249·250 알림 목 API 연결, 팀원 UI 경계, 로딩·오류·재시도 및 검증 순서 |
 | [diary-pagination-preparation.md](./diary-pagination-preparation.md) | 237 목 보관함 더 보기·로딩·오류·재시도 및 페이지네이션 회귀 검증 |
 | [diary-api-preparation.md](./diary-api-preparation.md) | 237~241 사전 작업: 조회·생성·수정·휴지통·복원·영구 삭제·만료 API 경계와 목 응답·저장·오류·재시도 |

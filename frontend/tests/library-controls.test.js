@@ -23,6 +23,23 @@ function setup(file, storage = {}, native = {}) {
 }
 const nodes=node=>!node||typeof node!=='object'?[]:[node,...[node.props?.children].flat(Infinity).flatMap(nodes)];
 const findControl=(tree,label)=>nodes(tree).find(n=>(n.props.accessibilityLabel??n.props.label)===label);
+
+test('스와이프·격자·검색 결과에 다이어리 ID별 페이지 수를 전달한다',()=>{
+ const props={compact:false,diaries:[{id:'a',title:'여행'}],metadata:{a:{pageCount:3}},filter:'personal',sort:'title',view:'grid',carousel:0,onCarouselChange:()=>{}};
+ const render=setup('../src/diary/screens/LibraryScreen.js');
+ let tree=render(props);
+ assert.equal(nodes(tree).find(n=>n.type==='../components/DiaryCard').props.pageCount,3);
+ props.view='carousel';tree=render(props);
+ const list=nodes(tree).find(n=>n.type==='list');
+ const card=list.props.renderItem({item:props.diaries[0],index:0});
+ assert.equal(card.props.pageCount,3);
+ findControl(tree,'다이어리 검색').props.onPress();tree=render(props);
+ assert.equal(tree.props.metadata,props.metadata);
+ const search=setup('../src/diary/components/LibrarySearchScreen.js',{loadJSON:async()=>[],saveJSON:async()=>true});
+ const result=search({...tree.props,query:'여행'});
+ assert.equal(nodes(result).find(n=>n.type==='./DiaryCard').props.pageCount,3);
+ search.unmount();
+});
 test('API 모드의 검색 결과는 서버 순서를 유지하고 로딩·오류를 빈 결과로 표시하지 않는다', () => {
  const render=setup('../src/diary/screens/LibraryScreen.js');
  const props={compact:true,diaries:[{id:'b',title:'서버 첫 결과'},{id:'a',title:'서버 둘째 결과'}],filter:'favorite',sort:'title',view:'grid',carousel:0,onCarouselChange:()=>{},
