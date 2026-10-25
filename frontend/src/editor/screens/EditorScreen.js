@@ -120,7 +120,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   // scale: 화면에 맞춤 대비 배율, x·y: 페이지 왼쪽 위 위치 (null 이면 가운데)
   const [view, setView] = useState({ scale: 1, x: null, y: null })
   const [drawerTab, setDrawerTab] = useState(null)
-  const [activeTool, setActiveTool] = useState('select')
+  const [activeTool, setActiveTool] = useState('hand')
   const [lassoSettingsOpen, setLassoSettingsOpen] = useState(false)
   const [lasso, setLasso] = useState({ shape: 'rectangle', mode: 'replace' })
   useEffect(() => { setLasso(current => ({ ...current, mode: 'replace' })) }, [page.id])
