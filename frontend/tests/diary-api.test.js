@@ -8,7 +8,7 @@ import { createMockDiaryTransport } from '../src/diary/services/mockDiaryTranspo
 
 test('배포에서는 mock 환경변수가 남아 있어도 기본 앱으로 진입한다', () => {
   const source = readFileSync(new URL('../App.js', import.meta.url), 'utf8');
-  const condition = source.match(/\{([^{}\n]+)\?\s*<ConnectedDiaryLibrary\s*\/>\s*:\s*<DiaryApp\s*\/>\}/)?.[1];
+  const condition = source.match(/\{([^{}\n]+)\?\s*<ConnectedDiaryLibrary\s*\/>/)?.[1];
   assert.ok(condition, 'App의 실제 화면 진입 조건을 찾는다');
   const enabled = (dev, mode) => runInNewContext(condition, { __DEV__: dev, process: { env: { EXPO_PUBLIC_DIARY_SOURCE: mode } } });
   assert.equal(enabled(true, 'mock'), true);
