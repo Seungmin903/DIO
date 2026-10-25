@@ -26,3 +26,19 @@ deploy-development:
     - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml config --quiet
     - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml up -d --force-recreate
     - curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8081/actuator/health
+
+deploy-production:
+  stage: deploy
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+  resource_group: production
+  environment:
+    name: production
+  script:
+    - docker build --tag "dio-backend:prod-${CI_COMMIT_SHORT_SHA}" ./backend
+    - export BACKEND_IMAGE="dio-backend:prod-${CI_COMMIT_SHORT_SHA}"
+    - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml config --quiet
+    - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml up -d --force-recreate
+    - curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8082/actuator/health
