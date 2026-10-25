@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [photo-frame-shadow.md](./photo-frame-shadow.md) | 262 하트·별·우표 그림자 및 검증 |
 | [text-initial-spacing.md](./text-initial-spacing.md) | 261 새 텍스트 입력창의 하단 여백 및 검증 |
 | [tape-preferences.md](./tape-preferences.md) | 260 마스킹테이프 도구 설정 저장·복원 및 QA |
 | [editor-default-hand.md](./editor-default-hand.md) | 253 편집기 기본 손 도구 및 실기기 확인 순서 |
