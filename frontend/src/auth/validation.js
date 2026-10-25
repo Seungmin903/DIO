@@ -1,11 +1,11 @@
-// API 연결 전 UI 검증용 규칙이다. 실제 서버 계약과 분리해 둔다.
+// Existing fields use the email-signup API's input rules.
 export const normalizeEmail = value => value.trim().toLowerCase()
 export const normalizeNickname = value => value.trim().normalize('NFKC')
 export function emailError(value) {
   return value.trim().length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) ? '이메일 주소를 확인해 주세요.' : ''
 }
 export function passwordError(value) {
-  return value.length < 8 || value.length > 32 || /\s/.test(value) || !/[a-z]/i.test(value) || !/\d/.test(value) ? '영문·숫자를 포함해 8~32자로 입력해 주세요.' : ''
+  return value.length < 8 || value.length > 32 || /[^\x21-\x7e]/.test(value) || !/[a-z]/i.test(value) || !/\d/.test(value) ? '영문·숫자를 포함해 8~32자로 입력해 주세요.' : ''
 }
 export function nicknameError(value) {
   return !/^[가-힣a-zA-Z0-9_]{2,12}$/.test(normalizeNickname(value)) ? '한글·영문·숫자·밑줄로 2~12자를 입력해 주세요.' : ''

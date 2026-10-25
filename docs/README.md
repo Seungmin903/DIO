@@ -4,6 +4,8 @@
 
 | 문서 | 설명 |
 |---|---|
+| [email-signup.md](./email-signup.md) | 일반 회원가입·닉네임 확인·프로필 사진, SMTP·약관·저장소 설정 |
+| [email-login.md](./email-login.md) | 일반 로그인·JWT·토큰 재발급·로그아웃, 세션 DB와 인증 적용 범위 |
 | [tape-preferences.md](./tape-preferences.md) | 260 마스킹테이프 도구 설정 저장·복원 및 QA |
 | [editor-default-hand.md](./editor-default-hand.md) | 253 편집기 기본 손 도구 및 실기기 확인 순서 |
 | [diary-page-count.md](./diary-page-count.md) | 252 보관함·검색 카드 페이지 수 표시와 데이터 기준·실기기 QA |
@@ -84,3 +86,4 @@
 - [Expo SDK 58 업그레이드와 팀 적용 절차](./expo-sdk58-qa.md)
 
 - [로그인·회원가입 화면과 입력 상태](./auth-screens.md)
+- [기존 인증 화면 API 연결 및 프론트 후속 작업](./auth-frontend-integration.md)
