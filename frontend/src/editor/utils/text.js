@@ -138,6 +138,16 @@ export function textLayoutKey(object) {
   return JSON.stringify([object.text, object.w, object.baseWidth ?? object.w, textSettings(object), object.styleRanges ?? []])
 }
 
+// 입력창 높이는 화면 배율을 따른다. 새 상자의 임시 드래그 높이는 내용 여백으로 저장하지 않는다.
+export function textInputHeight(object, zoom, measuredHeight = null) {
+  const settings = textSettings(object)
+  const scale = object.w / (object.baseWidth ?? object.w) * zoom
+  const largest = Math.max(settings.fontSize, ...(object.styleRanges ?? []).map(range => range.fontSize ?? 0))
+  const minimum = largest * settings.lineSpacing * scale
+  const preserved = object.existing ? (object.h ?? 0) * zoom : 0
+  return Math.max(minimum, preserved, Number.isFinite(measuredHeight) && measuredHeight > 0 ? measuredHeight : 0)
+}
+
 // 수동으로 늘린 여백은 유지하고, 이전 문서나 줄바꿈 증가로 부족한 높이만 보완한다.
 export function fitTextHeightPatch(object, measuredHeight) {
   if (object?.type !== 'text' || !Number.isFinite(measuredHeight) || measuredHeight <= 0) return null

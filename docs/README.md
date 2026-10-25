@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [text-initial-spacing.md](./text-initial-spacing.md) | 261 새 텍스트 입력창의 하단 여백 및 검증 |
 | [tape-preferences.md](./tape-preferences.md) | 260 마스킹테이프 도구 설정 저장·복원 및 QA |
 | [editor-default-hand.md](./editor-default-hand.md) | 253 편집기 기본 손 도구 및 실기기 확인 순서 |
 | [diary-page-count.md](./diary-page-count.md) | 252 보관함·검색 카드 페이지 수 표시와 데이터 기준·실기기 QA |
