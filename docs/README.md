@@ -4,6 +4,7 @@
 
 | 문서 | 설명 |
 |---|---|
+| [tool-guide-animation.md](./tool-guide-animation.md) | 263 지우개·올가미 설명 없는 반복 사용 예시 및 검증 |
 | [photo-frame-shadow.md](./photo-frame-shadow.md) | 262 하트·별·우표 그림자 및 검증 |
 | [text-initial-spacing.md](./text-initial-spacing.md) | 261 새 텍스트 입력창의 하단 여백 및 검증 |
 | [tape-preferences.md](./tape-preferences.md) | 260 마스킹테이프 도구 설정 저장·복원 및 QA |
