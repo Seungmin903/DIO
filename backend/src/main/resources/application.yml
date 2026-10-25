@@ -5,6 +5,10 @@ spring:
     default: local
   jpa:
     open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   mail:
     properties:
       mail.smtp.connectiontimeout: 5000
@@ -30,6 +34,12 @@ management:
 # 실제 발신 계정 및 비밀키는 환경변수로만 전달한다. 미설정 시 이메일 발송은 503.
 dio:
   signup:
+    photos:
+      storage: ${SIGNUP_PHOTO_STORAGE:local}
+      local-directory: ${SIGNUP_PHOTO_LOCAL_DIRECTORY:.local-data/profile-photos}
+      s3-bucket: ${SIGNUP_PHOTO_S3_BUCKET:}
+      s3-region: ${SIGNUP_PHOTO_S3_REGION:ap-northeast-2}
+      migrate-legacy: false
     verification-secret: ${SIGNUP_VERIFICATION_SECRET:}
     mail-from: ${SIGNUP_MAIL_FROM:}
     service-terms-version: ${SIGNUP_SERVICE_TERMS_VERSION:v1}
