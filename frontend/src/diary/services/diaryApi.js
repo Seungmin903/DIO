@@ -14,7 +14,7 @@ export function toDiary(row) {
     createdAt: row.createdAt, updatedAt: row.updatedAt, trashedAt: row.deletedAt ?? null,
     expiresAt: row.expiresAt ?? null, retentionStatus: row.retentionStatus ?? null,
     canRestore: row.canRestore === true,
-    pageSize: row.orientation === 'portrait' ? 'portrait' : 'landscape', pageCount: row.pageCount ?? 0, version: row.version,
+    pageSize: row.orientation === 'portrait' ? 'portrait' : 'landscape', pageCount: row.pageCount ?? null, version: row.version,
     templateConfig: row.templateConfig, paperAppearance: row.paperAppearance,
     canEdit: row.canEdit === true,
   };

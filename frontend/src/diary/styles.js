@@ -171,6 +171,7 @@ export const styles = StyleSheet.create({
   cardTitleWrap: { flex: 1, minWidth: 0 },
   cardDelete: { width: 44, height: 44, marginTop: -8, marginRight: -8, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   cardTitle: { color: C.ink, fontSize: 14, fontWeight: '800', letterSpacing: -0.35 },
+  cardPageCount: { color: C.inkSoft, fontSize: 12, lineHeight: 18, marginTop: 3 },
   cardType: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
 
   cover: { height: 219, padding: 19, overflow: 'hidden', justifyContent: 'center' },

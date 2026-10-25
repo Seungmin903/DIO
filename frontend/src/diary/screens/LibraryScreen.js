@@ -234,7 +234,7 @@ function LibraryScreen({
       setSearchOpen(false); setQuery(''); setOptionsOpen(false);
     }}
     diaries={shown} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
-    optionsMenu={optionsMenu} selectionBar={selectionBar}
+    metadata={metadata} optionsMenu={optionsMenu} selectionBar={selectionBar}
     selecting={selecting} selected={selected} onToggleSelect={toggleSelect}
     requestNotice={requestNotice} hasMore={hasMore} suppressEmpty={suppressEmpty} historyKey={historyKey}
   />;
@@ -347,6 +347,7 @@ function LibraryScreen({
                   <DiaryCard
                     key={item.id}
                     diary={item}
+                    pageCount={metadata[item.id]?.pageCount}
                     layout="carousel"
                     compact={compact}
                     carouselActive={index === activeIndex}
@@ -378,7 +379,7 @@ function LibraryScreen({
         </View>
       ) : (
         <View style={[s.grid, compact && s.gridCompact]}>
-          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
+          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
             selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} />)}
           {canCreate && <CreateDiaryCard layout="grid" compact={compact} onCreate={onCreate} />}
         </View>
