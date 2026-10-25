@@ -4,6 +4,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { prepareEditor, rememberEditorDoc } from './src/editor/services/editorDocs';
+import AuthScreen from './src/auth/AuthScreen';
 import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
@@ -40,6 +41,7 @@ const EDITOR_PREPARE_LIMIT_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function App() {
+  const [previewSession, setPreviewSession] = useState(null);
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
@@ -48,12 +50,15 @@ export default function App() {
   }
   return (
     <SafeAreaProvider style={s.provider}>
-      {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : <DiaryApp />}
+      <StatusBar hidden />
+      {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
+        previewSession ? <DiaryApp previewUser={previewSession} onEndPreview={() => setPreviewSession(null)} /> : <AuthScreen onContinue={setPreviewSession} />
+      )}
     </SafeAreaProvider>
   );
 }
 
-function DiaryApp() {
+function DiaryApp({ previewUser, onEndPreview }) {
   const insets = useSafeAreaInsets();
   // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -418,7 +423,7 @@ function DiaryApp() {
       />
     );
   } else if (page === 'profile') {
-    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} />;
+    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} />;
   }
 
   const createModal = createOpen && (
@@ -480,7 +485,6 @@ function DiaryApp() {
 
   return (
     <>
-      <StatusBar hidden />
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
         {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}

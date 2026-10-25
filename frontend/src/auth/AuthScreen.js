@@ -1,0 +1,807 @@
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  BackHandler,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import BrandLogo from '../shared/BrandLogo';
+import AppIcon from '../shared/AppIcon';
+import Icon from '../editor/components/controls/Icon';
+import EditorModal from '../editor/components/controls/EditorModal';
+import { colors } from '../shared/theme';
+import { useFormFactor } from '../shared/useFormFactor';
+import { useOrientationLock } from '../shared/useOrientationLock';
+import { previewAuth } from './previewAuth';
+import {
+  canCompleteProfile,
+  credentialsErrors,
+  credentialsValid,
+  nicknameError,
+  normalizeNickname,
+} from './validation';
+import { authStyles as s } from './styles';
+import ProviderIcon from './ProviderIcon';
+import { pickProfilePhoto } from './profilePhoto';
+
+const PROVIDERS = [
+  { id: 'kakao', name: '카카오', color: '#FEE500' },
+  { id: 'google', name: '구글', color: '#FFFFFF' },
+  { id: 'apple', name: '애플', color: '#191919' },
+];
+const emptyValues = () => ({ email: '', password: '', confirmation: '' });
+const emptyTerms = () => ({ service: false, privacy: false, marketing: false });
+const TERMS = [
+  { id: 'service', label: '[필수] 이용약관 동의' },
+  { id: 'privacy', label: '[필수] 개인정보 수집·이용 동의' },
+  { id: 'marketing', label: '[선택] 소식 및 이벤트 수신 동의' },
+];
+
+export default function AuthScreen({
+  onContinue,
+  service = previewAuth,
+  photoPicker = pickProfilePhoto,
+}) {
+  const { isPhone, formFactor } = useFormFactor();
+  useOrientationLock(formFactor, false);
+  const [route, setRoute] = useState('welcome');
+  const [values, setValues] = useState(emptyValues);
+  const [touched, setTouched] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [info, setInfo] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [nickname, setNickname] = useState('');
+  const [checked, setChecked] = useState(null);
+  const [checkState, setCheckState] = useState('idle');
+  const [checkMessage, setCheckMessage] = useState('');
+  const [terms, setTerms] = useState(emptyTerms);
+  const [photoUri, setPhotoUri] = useState(null);
+  const [signupComplete, setSignupComplete] = useState(false);
+  const job = useRef(0);
+  const checking = useRef(0);
+  const checkRunning = useRef(false);
+  const running = useRef(false);
+  const alive = useRef(true);
+  const passwordInput = useRef(null);
+  const confirmationInput = useRef(null);
+  const formScroll = useRef(null);
+  const focusedInput = useRef(null);
+  const scrollOffset = useRef(0);
+  const keyboardTop = useRef(Infinity);
+  const focusTimer = useRef(null);
+  const revealInput = () => {
+    clearTimeout(focusTimer.current);
+    focusTimer.current = setTimeout(() => {
+      const input = focusedInput.current;
+      if (!alive.current || !input || Platform.OS === 'web') return;
+      formScroll.current?.measureInWindow((sx, sy, sw, sh) => {
+        input.measureInWindow?.((x, y, w, h) => {
+          if (!alive.current || input !== focusedInput.current || !h) return;
+          const top = sy + 16,
+            bottom = Math.min(sy + sh, keyboardTop.current) - 16;
+          if (bottom <= top) return;
+          const delta = y + h > bottom ? y + h - bottom : y < top ? y - top : 0;
+          if (delta)
+            formScroll.current?.scrollTo({
+              y: Math.max(0, scrollOffset.current + delta),
+              animated: true,
+            });
+        });
+      });
+    }, 80);
+  };
+  const focusInput = (input) => {
+    focusedInput.current = input;
+    revealInput();
+  };
+  const blurInput = (input) => {
+    if (focusedInput.current === input) focusedInput.current = null;
+  };
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (event) => {
+      keyboardTop.current = event.endCoordinates.screenY;
+      revealInput();
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardTop.current = Infinity;
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+      clearTimeout(focusTimer.current);
+    };
+  }, []);
+  const signup = route === 'signup',
+    errors = credentialsErrors(values, signup);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      job.current++;
+      checking.current++;
+    };
+  }, []);
+  const navigate = (next) => {
+    Keyboard.dismiss();
+    focusedInput.current = null;
+    clearTimeout(focusTimer.current);
+    scrollOffset.current = 0;
+    formScroll.current?.scrollTo({ y: 0, animated: false });
+    checkRunning.current = false;
+    job.current++;
+    checking.current++;
+    running.current = false;
+    setBusy(false);
+    setMessage('');
+    setTouched({});
+    setInfo(null);
+    setSignupComplete(false);
+    setCheckState('idle');
+    setChecked(null);
+    setCheckMessage('');
+    setRoute(next);
+    if (next === 'welcome') {
+      setPhotoUri(null);
+      setValues(emptyValues());
+      setNickname('');
+      setProfile(null);
+      setTerms(emptyTerms());
+    }
+  };
+  const back = () =>
+    navigate(route === 'profile' && profile?.provider === 'email' ? 'signup' : 'welcome');
+  useEffect(() => {
+    const listener = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (info) {
+        setInfo(null);
+        return true;
+      }
+      if (route !== 'welcome') {
+        back();
+        return true;
+      }
+      return false;
+    });
+    return () => listener.remove();
+  }, [route, profile, info]);
+  const run = async (action, onSuccess) => {
+    if (running.current) return;
+    running.current = true;
+    setBusy(true);
+    setMessage('');
+    const id = ++job.current;
+    try {
+      const result = await action();
+      if (alive.current && id === job.current) onSuccess(result);
+    } catch (error) {
+      if (alive.current && id === job.current)
+        setMessage(error.message || '처리하지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      if (alive.current && id === job.current) {
+        running.current = false;
+        setBusy(false);
+      }
+    }
+  };
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(''), 5000);
+    return () => clearTimeout(timer);
+  }, [message]);
+  useEffect(() => {
+    if (!signupComplete) return;
+    const timer = setTimeout(() => setSignupComplete(false), 2500);
+    return () => clearTimeout(timer);
+  }, [signupComplete]);
+  const change = (name, value) => {
+    setSignupComplete(false);
+    setValues((current) => ({ ...current, [name]: value }));
+    setMessage('');
+  };
+  const blur = (name) => setTouched((current) => ({ ...current, [name]: true }));
+  const credentialsSubmit = () => {
+    setTouched({ email: true, password: true, confirmation: signup });
+    if (!credentialsValid(values, signup)) return;
+    if (signup)
+      run(
+        () => service.signup(values),
+        (result) => {
+          setPhotoUri(null);
+          setProfile(result);
+          setTerms(emptyTerms());
+          navigate('profile');
+        },
+      );
+    else
+      run(
+        () => service.login(values),
+        (result) => {
+          Keyboard.dismiss();
+          setValues(emptyValues());
+          onContinue(result);
+        },
+      );
+  };
+  const changeNickname = (value) => {
+    checking.current++;
+    checkRunning.current = false;
+    setNickname(value);
+    setChecked(null);
+    setCheckState('idle');
+    setCheckMessage('');
+    setMessage('');
+  };
+  const checkNickname = async () => {
+    const value = normalizeNickname(nickname),
+      error = nicknameError(value);
+    if (error || checkRunning.current) return;
+    const id = ++checking.current;
+    checkRunning.current = true;
+    setChecked(null);
+    setCheckState('checking');
+    setCheckMessage('');
+    try {
+      const available = await service.checkNickname(value);
+      if (!alive.current || id !== checking.current) return;
+      setChecked(available ? value : null);
+      setCheckState(available ? 'available' : 'taken');
+      setCheckMessage(available ? '사용할 수 있는 닉네임이에요.' : '이미 사용 중인 닉네임이에요.');
+    } catch (error) {
+      if (alive.current && id === checking.current) {
+        setChecked(null);
+        setCheckState('error');
+        setCheckMessage(error.message || '중복 확인에 실패했어요. 다시 시도해 주세요.');
+      }
+    } finally {
+      if (id === checking.current) checkRunning.current = false;
+    }
+  };
+  const profileReady = canCompleteProfile({ nickname, checkedNickname: checked, terms });
+  const complete = () => {
+    if (profileReady && !checkRunning.current)
+      run(
+        () => service.completeProfile({ ...profile, nickname, photoUri }),
+        (result) => {
+          if (result.provider === 'email') {
+            navigate('welcome');
+            setValues({ ...emptyValues(), email: result.email });
+            setSignupComplete(true);
+          } else {
+            Keyboard.dismiss();
+            setValues(emptyValues());
+            onContinue(result);
+          }
+        },
+      );
+  };
+  const link = (label, onPress, style) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={[s.link, style]}
+    >
+      <Text style={s.linkText}>{label}</Text>
+    </Pressable>
+  );
+  const primary = (label, onPress, disabled = false) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: disabled || busy, busy }}
+      disabled={disabled || busy}
+      onPress={onPress}
+      style={({ pressed }) => [s.button, (disabled || busy) && s.disabled, pressed && s.pressed]}
+    >
+      {busy ? <ActivityIndicator color={colors.surface} /> : null}
+      <Text style={s.buttonText}>{busy ? '처리 중…' : label}</Text>
+    </Pressable>
+  );
+  return (
+    <SafeAreaView style={s.safe}>
+      <KeyboardAvoidingView
+        style={s.keyboard}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          ref={formScroll}
+          style={s.scrollViewport}
+          onLayout={revealInput}
+          onContentSizeChange={revealInput}
+          onScroll={(event) => {
+            scrollOffset.current = event.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
+          contentContainerStyle={[s.scroll, isPhone && { padding: 16 }]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[s.card, isPhone && s.phoneCard]}>
+            {route !== 'welcome' && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="이전 화면"
+                onPress={back}
+                style={s.back}
+              >
+                <AppIcon name="chevron-left" size={20} />
+                <Text style={s.linkText}>
+                  {route === 'profile' && profile?.provider === 'email' ? '이전 화면' : '시작 화면'}
+                </Text>
+              </Pressable>
+            )}
+            <View style={[s.header, route === 'welcome' && s.welcomeHeader]}>
+              <BrandLogo size={52} />
+              <View style={s.headingCopy}>
+                <Text accessibilityRole="header" style={s.title}>
+                  {route === 'welcome'
+                    ? 'DIO에 오신 걸 환영해요'
+                    : route === 'signup'
+                      ? '나만의 기록을 시작해요'
+                      : '프로필을 완성해 주세요'}
+                </Text>
+                <Text style={s.subtitle}>
+                  {route === 'welcome'
+                    ? '함께 기록하고, 추억을 나눠 보세요.'
+                    : route === 'signup'
+                      ? '이메일로 DIO 계정을 만들어 주세요.'
+                      : '나만의 이름으로 DIO의 기록을 시작해요.'}
+                </Text>
+              </View>
+            </View>
+            {route === 'welcome' || route === 'signup' ? (
+              <View style={s.form}>
+                <FormField
+                  onInputFocus={focusInput}
+                  onInputBlur={blurInput}
+                  key={`${route}-email`}
+                  label="이메일"
+                  placeholder="이메일을 입력해 주세요"
+                  value={values.email}
+                  onChange={(value) => change('email', value)}
+                  onBlur={() => blur('email')}
+                  error={touched.email ? errors.email : ''}
+                  editable={!busy}
+                  keyboardType="email-address"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordInput.current?.focus()}
+                />
+                <FormField
+                  onInputFocus={focusInput}
+                  onInputBlur={blurInput}
+                  key={`${route}-password`}
+                  inputRef={passwordInput}
+                  label="비밀번호"
+                  placeholder="비밀번호를 입력해 주세요"
+                  value={values.password}
+                  onChange={(value) => change('password', value)}
+                  onBlur={() => blur('password')}
+                  error={touched.password ? errors.password : ''}
+                  editable={!busy}
+                  password
+                  returnKeyType={signup ? 'next' : 'done'}
+                  onSubmitEditing={() =>
+                    signup ? confirmationInput.current?.focus() : credentialsSubmit()
+                  }
+                />
+                {signup && (
+                  <FormField
+                    onInputFocus={focusInput}
+                    onInputBlur={blurInput}
+                    inputRef={confirmationInput}
+                    label="비밀번호 확인"
+                    placeholder="비밀번호를 다시 입력해 주세요"
+                    value={values.confirmation}
+                    onChange={(value) => change('confirmation', value)}
+                    onBlur={() => blur('confirmation')}
+                    error={touched.confirmation ? errors.confirmation : ''}
+                    editable={!busy}
+                    password
+                    returnKeyType="done"
+                    onSubmitEditing={credentialsSubmit}
+                  />
+                )}
+                <View style={s.submitArea}>
+                  {message ? (
+                    <Text
+                      accessibilityRole="alert"
+                      accessibilityLiveRegion="polite"
+                      style={[s.error, s.submitError]}
+                    >
+                      {message}
+                    </Text>
+                  ) : null}
+                  {primary(
+                    signup ? '다음' : '로그인',
+                    credentialsSubmit,
+                    !credentialsValid(values, signup),
+                  )}
+                </View>
+                {signup ? (
+                  <View style={s.footer}>
+                    <Text style={s.muted}>이미 계정이 있나요?</Text>
+                    {link('로그인 화면으로', () => {
+                      setValues((current) => ({ ...current, password: '', confirmation: '' }));
+                      navigate('welcome');
+                    })}
+                  </View>
+                ) : (
+                  <View style={s.accountLinks}>
+                    {link(
+                      '아이디 찾기',
+                      () =>
+                        setInfo({
+                          title: '아이디 찾기',
+                          body: '가입한 이메일 찾기는 계정 서비스 연결 후 이용할 수 있어요.',
+                        }),
+                      s.accountLink,
+                    )}
+                    <Text
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                      style={s.accountSeparator}
+                    >
+                      |
+                    </Text>
+                    {link(
+                      '비밀번호 찾기',
+                      () =>
+                        setInfo({
+                          title: '비밀번호 찾기',
+                          body: '비밀번호 재설정은 계정 서비스 연결 후 이용할 수 있어요. 현재는 메일이 발송되지 않아요.',
+                        }),
+                      s.accountLink,
+                    )}
+                    <Text
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                      style={s.accountSeparator}
+                    >
+                      |
+                    </Text>
+                    {link(
+                      '회원가입',
+                      () => {
+                        setValues(emptyValues());
+                        navigate('signup');
+                      },
+                      s.accountLink,
+                    )}
+                  </View>
+                )}
+                {!signup && (
+                  <View style={s.socialSection}>
+                    <View style={s.divider}>
+                      <View style={s.line} />
+                      <Text style={s.muted}>간편 로그인</Text>
+                      <View style={s.line} />
+                    </View>
+                    <View style={s.socialRow}>
+                      {PROVIDERS.map((provider) => (
+                        <Pressable
+                          key={provider.id}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${provider.name}로 로그인`}
+                          accessibilityState={{ disabled: busy }}
+                          disabled={busy}
+                          onPress={() =>
+                            run(
+                              () => service.social(provider.id),
+                              (result) => {
+                                setPhotoUri(null);
+                                setValues(emptyValues());
+                                setProfile(result);
+                                setTerms(emptyTerms());
+                                navigate('profile');
+                              },
+                            )
+                          }
+                          style={({ pressed }) => [
+                            s.social,
+                            busy && s.disabled,
+                            pressed && s.pressed,
+                          ]}
+                        >
+                          <View style={[s.socialCircle, { backgroundColor: provider.color }]}>
+                            <ProviderIcon provider={provider.id} />
+                          </View>
+                          <Text style={s.socialLabel}>{provider.name}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="게스트로 시작하기"
+                      accessibilityState={{ disabled: busy }}
+                      disabled={busy}
+                      onPress={() => {
+                        if (!running.current) {
+                          Keyboard.dismiss();
+                          onContinue({ mode: 'preview', provider: 'guest', nickname: '방문자' });
+                        }
+                      }}
+                      style={s.link}
+                    >
+                      <Text style={s.browseText}>게스트로 시작하기</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={s.form}>
+                <View style={s.avatarArea}>
+                  <View style={s.avatarSlot}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="프로필 사진 선택"
+                      accessibilityState={{ disabled: busy }}
+                      disabled={busy}
+                      onPress={() =>
+                        run(photoPicker, (uri) => {
+                          if (uri) setPhotoUri(uri);
+                        })
+                      }
+                      style={s.avatar}
+                    >
+                      {photoUri ? (
+                        <Image
+                          source={{ uri: photoUri }}
+                          accessibilityLabel="선택한 프로필 사진"
+                          style={s.avatarPhoto}
+                        />
+                      ) : (
+                        <AppIcon name="person" size={36} />
+                      )}
+                      <View style={s.avatarEdit}>
+                        <AppIcon name="edit" size={14} />
+                      </View>
+                    </Pressable>
+                    {photoUri && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="프로필 사진 삭제"
+                        accessibilityState={{ disabled: busy }}
+                        disabled={busy}
+                        onPress={() => setPhotoUri(null)}
+                        style={s.avatarRemove}
+                      >
+                        <View style={s.avatarRemoveIcon}>
+                          <AppIcon name="close" size={14} />
+                        </View>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+                <View>
+                  <Text style={s.label}>닉네임</Text>
+                  <View style={s.checkRow}>
+                    <View style={s.checkField}>
+                      <FormField
+                        onInputFocus={focusInput}
+                        onInputBlur={blurInput}
+                        label="닉네임"
+                        hideLabel
+                        placeholder="닉네임을 입력해 주세요"
+                        value={nickname}
+                        onChange={changeNickname}
+                        editable={!busy}
+                        maxLength={12}
+                        onSubmitEditing={checkNickname}
+                      />
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="닉네임 중복 확인"
+                      accessibilityState={{
+                        disabled: !!nicknameError(nickname) || checkState === 'checking' || busy,
+                        busy: checkState === 'checking',
+                      }}
+                      disabled={!!nicknameError(nickname) || checkState === 'checking' || busy}
+                      onPress={checkNickname}
+                      style={[
+                        s.checkButton,
+                        (!!nicknameError(nickname) || checkState === 'checking' || busy) &&
+                          s.disabled,
+                      ]}
+                    >
+                      <Text style={s.linkText}>
+                        {checkState === 'checking' ? '확인 중…' : '중복 확인'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  {nickname && nicknameError(nickname) ? (
+                    <Text style={s.error}>{nicknameError(nickname)}</Text>
+                  ) : null}
+                  {checkMessage ? (
+                    <Text
+                      accessibilityLiveRegion="polite"
+                      style={checkState === 'available' ? s.success : s.error}
+                    >
+                      {checkMessage}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={s.terms}>
+                  <TermRow
+                    label="전체 동의"
+                    checked={Object.values(terms).every(Boolean)}
+                    disabled={busy}
+                    onPress={() => {
+                      const on = !Object.values(terms).every(Boolean);
+                      setTerms({ service: on, privacy: on, marketing: on });
+                    }}
+                  />
+                  {TERMS.map((term) => (
+                    <TermRow
+                      key={term.id}
+                      label={term.label}
+                      checked={terms[term.id]}
+                      disabled={busy}
+                      onPress={() =>
+                        setTerms((current) => ({ ...current, [term.id]: !current[term.id] }))
+                      }
+                      onView={() =>
+                        setInfo({
+                          title: term.label,
+                          body: '가입 화면의 동의 상태를 확인하기 위한 체험 안내예요. 실제 약관 동의나 개인정보 수집은 이루어지지 않아요.',
+                        })
+                      }
+                    />
+                  ))}
+                </View>
+                {primary('가입 완료', complete, !profileReady)}
+              </View>
+            )}
+            {route === 'profile' && message ? (
+              <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={s.error}>
+                {message}
+              </Text>
+            ) : null}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+      {signupComplete && (
+        <View pointerEvents="none" style={s.toastPosition}>
+          <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={s.toast}>
+            가입이 완료됐어요.
+          </Text>
+        </View>
+      )}
+      <EditorModal
+        visible={!!info}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setInfo(null)}
+        statusBarTranslucent
+      >
+        <SafeAreaView style={s.modalBackdrop}>
+          <View style={s.modalCard}>
+            <Text accessibilityRole="header" style={s.modalTitle}>
+              {info?.title}
+            </Text>
+            <ScrollView>
+              <Text style={s.muted}>{info?.body}</Text>
+            </ScrollView>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="안내 닫기"
+              onPress={() => setInfo(null)}
+              style={s.button}
+            >
+              <Text style={s.buttonText}>확인</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </EditorModal>
+    </SafeAreaView>
+  );
+}
+function FormField({
+  onInputFocus,
+  onInputBlur,
+  label,
+  hideLabel,
+  value,
+  onChange,
+  error,
+  inputRef,
+  password,
+  editable = true,
+  ...props
+}) {
+  const [visible, setVisible] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const ownInput = useRef(null);
+  return (
+    <View>
+      {!hideLabel && <Text style={s.label}>{label}</Text>}
+      <View style={[s.field, focused && s.focus, error && s.invalid]}>
+        <TextInput
+          {...props}
+          ref={(node) => {
+            ownInput.current = node;
+            if (inputRef) inputRef.current = node;
+          }}
+          accessibilityLabel={label}
+          accessibilityHint={error || undefined}
+          value={value}
+          onChangeText={onChange}
+          onFocus={() => {
+            setFocused(true);
+            onInputFocus?.(ownInput.current);
+          }}
+          onBlur={() => {
+            setFocused(false);
+            onInputBlur?.(ownInput.current);
+            props.onBlur?.();
+          }}
+          editable={editable}
+          secureTextEntry={password && !visible}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="off"
+          textContentType="none"
+          placeholderTextColor={colors.textMuted}
+          style={[s.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+        />
+        {password && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${label} ${visible ? '숨기기' : '보기'}`}
+            disabled={!editable}
+            onPress={() => setVisible((current) => !current)}
+            style={s.eye}
+          >
+            <Icon name={visible ? 'eyeOff' : 'eye'} size={18} />
+          </Pressable>
+        )}
+      </View>
+      {error ? (
+        <Text accessibilityLiveRegion="polite" style={s.error}>
+          {error}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+function TermRow({ label, checked, onPress, onView, disabled }) {
+  return (
+    <View style={s.termRow}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityLabel={label}
+        accessibilityState={{ checked, disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        style={s.termButton}
+      >
+        <View style={[s.checkbox, checked && s.checked]}>
+          {checked && <Icon name="check" size={14} color={colors.surface} />}
+        </View>
+        <Text style={s.termText}>{label}</Text>
+      </Pressable>
+      {onView && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${label} 내용 보기`}
+          accessibilityState={{ disabled }}
+          disabled={disabled}
+          onPress={onView}
+          style={s.termView}
+        >
+          <Text style={s.muted}>보기</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}

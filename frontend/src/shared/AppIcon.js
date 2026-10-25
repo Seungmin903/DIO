@@ -14,6 +14,8 @@ const EDITOR_ICONS = {
   'chevron-left': 'chevronLeft',
   'chevron-right': 'chevronRight',
   close: 'close',
+  eye: 'eye',
+  'eye-off': 'eyeOff',
 };
 
 const common = (color, strokeWidth) => ({
@@ -31,6 +33,9 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
 
   let graphic = null;
   switch (name) {
+    case 'mail':
+      graphic = <><Path {...line} d="M3 5h18v14H3z" /><Path {...line} d="m3 6 9 7 9-7" /></>;
+      break;
     case 'menu':
       graphic = <><Line {...line} x1="4" y1="7" x2="20" y2="7" /><Line {...line} x1="4" y1="12" x2="20" y2="12" /><Line {...line} x1="4" y1="17" x2="20" y2="17" /></>;
       break;
