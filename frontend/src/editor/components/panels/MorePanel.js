@@ -6,11 +6,12 @@ import Icon from '../controls/Icon'
 import { objectOpacity } from '../canvas/ObjectView'
 import Slider from '../controls/Slider'
 import EffectOptions from './EffectOptions'
+import ShapeSettings from '../ShapeSettings'
 import TapeOptions from './TapeOptions'
 import FrameOptions from './FrameOptions'
 import { PaletteInteractionContext } from '../controls/ColorPicker'
 
-const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테이프' }
+const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테이프', shape: '도형' }
 
 /**
  * 선택한 요소의 세부 옵션 (편집 바의 '더보기').
@@ -31,6 +32,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }
   const editable = objects.filter((o) => !o.locked)
   const single = objects.length === 1 ? objects[0] : null
   const isPhoto = single?.type === 'photo' && !single.locked
+  const isShape = single?.type === 'shape' && !single.locked
   const isTape = single?.type === 'tape' && !single.locked
   const hasStyle = true // 불투명도는 모든 요소에 있어 꾸미기 탭이 늘 있다
   const current = hasStyle ? tab : 'layout'
@@ -88,6 +90,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }
           <Text style={styles.hint}>잠긴 요소예요. 잠금을 풀면 편집할 수 있어요.</Text>
         ) : current === 'style' ? (
           <>
+            {isShape && <ShapeSettings embedded showShapePicker={false} settings={single} onCheckpoint={() => dispatch({type:'checkpoint'})} onChange={(patch,record=true) => updateEach(()=>patch,record)} />}
             {isPhoto && (
               <Pressable
                 onPress={() => onReplacePhoto(single.id)}

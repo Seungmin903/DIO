@@ -59,6 +59,7 @@ const PATHS = {
   up: 'M12 19V5 M6 11l6-6 6 6',
   down: 'M12 5v14 M6 13l6 6 6-6',
   reset: 'M4 12a8 8 0 1 0 2.3-5.7 M4 4v5h5',
+  shape: 'M3 3h10v10H3Z M20 17a5 5 0 1 1-10 0a5 5 0 1 1 10 0',
   more: 'M5 12h.01 M12 12h.01 M19 12h.01',
   pages: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z',
   bookmark: 'M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4z',

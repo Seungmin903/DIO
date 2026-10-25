@@ -21,6 +21,8 @@ import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
 import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail } from '../components/chrome/PhoneToolbar'
 import PenSettings from '../components/PenSettings'
+import ShapeSettings from '../components/ShapeSettings'
+import { createShape, DEFAULT_SHAPE_STYLE, shapeTextSettings, shapeTextFormatPatch } from '../utils/editorShapes'
 import EraserSettings from '../components/EraserSettings'
 import { normalizePaperAppearance } from '../templates/appearance.js'
 import { ERASER_RADIUS } from '../utils/eraser.js'
@@ -127,6 +129,8 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const textPaletteBounds = useRef(null)
   const [textPalette, setTextPalette] = useState(null)
   const [textDefaults, setTextDefaults] = useState(DEFAULT_TEXT_SETTINGS)
+  const [shapeSettingsOpen, setShapeSettingsOpen] = useState(false)
+  const [shapeSettings, setShapeSettings] = useState(DEFAULT_SHAPE_STYLE)
   const [textSettingsOpen, setTextSettingsOpen] = useState(false)
   const [textLinkTarget, setTextLinkTarget] = useState(null)
   const [objectLinkTarget, setObjectLinkTarget] = useState(null) // 링크를 거는 중인 스티커·테이프·사진
@@ -185,6 +189,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setLassoSettingsOpen(false)
     setDrawerTab(null)
     setTextEditing(null)
+    setShapeSettingsOpen(false)
     setTextSettingsOpen(false)
     setPenSettingsOpen(false)
     setMoreOpen(false)
@@ -242,13 +247,13 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const cropTarget = cropId ? page.objects.find((o) => o.id === cropId && o.type === 'photo') : null
   const tapeCrop = tapeCropId ? page.objects.find((o) => o.id === tapeCropId && (o.src || o.mediaFileId) && o.imageWidth) : null
   const selectedObjects = page.objects.filter((o) => state.selectedIds.includes(o.id))
-  const selectedText = selectedObjects.length === 1 && selectedObjects[0].type === 'text' && !selectedObjects[0].locked ? selectedObjects[0] : null
-  const currentTextSettings = textSettings(selectedText ?? textDefaults)
+  const selectedText = selectedObjects.length === 1 && ['text','shape'].includes(selectedObjects[0].type) && !selectedObjects[0].locked ? selectedObjects[0] : null
+  const currentTextSettings = selectedText?.type === 'shape' ? shapeTextSettings(selectedText) : textSettings(selectedText ?? textDefaults)
   const changeTextSettings = (patch) => {
     if (Object.entries(patch).every(([key, value]) => currentTextSettings[key] === value)) return
     const next = { ...currentTextSettings, ...patch }
     setTextDefaults(next)
-    if (selectedText) dispatch({ type: 'updateObject', id: selectedText.id, record: true, patch: { ...textFormatPatch(selectedText, next), ...('color' in patch && { colorRanges: [] }) } })
+    if (selectedText) dispatch({ type: 'updateObject', id: selectedText.id, record: true, patch: selectedText.type === 'shape' ? shapeTextFormatPatch(selectedText,patch) : { ...textFormatPatch(selectedText, next), ...('color' in patch && { colorRanges: [] }) } })
   }
   const showMore = moreOpen && selectedObjects.length > 0 && !cropId
 
@@ -461,7 +466,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   // 툴바에서 연 창(보관함·펜/텍스트/올가미 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
   // 터치를 가로채지 않고(목록 스크롤과 다투지 않게) 누른 위치만 본다:
   // 창·툴바 안의 터치는 그 영역이 먼저 표시하고, 바깥(root)에서는 표시가 없을 때만 닫는다.
-  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || guidesOpen || (activeTool === 'lasso' && lassoSettingsOpen))
+  const bubbleOpen = Boolean(drawerTab || showMore || shapeSettingsOpen || penSettingsOpen || textSettingsOpen || guidesOpen || (activeTool === 'lasso' && lassoSettingsOpen))
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
@@ -470,6 +475,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setMoreOpen(false)
     setPenSettingsOpen(false)
     setLassoSettingsOpen(false)
+    setShapeSettingsOpen(false)
     setTextSettingsOpen(false)
     setGuidesOpen(false)
   }
@@ -509,6 +515,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
   const openDrawer = (tab) => {
     setLassoSettingsOpen(false)
     setGuidesOpen(false)
+    setShapeSettingsOpen(false)
     setTextSettingsOpen(false)
     setPenSettingsOpen(false)
     if (cropId) finishCrop(false)
@@ -517,6 +524,14 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setDrawerTab(drawerTab === tab ? null : tab)
   }
   const selectTool = (tool) => {
+    if (tool === 'shape') {
+      const next = !shapeSettingsOpen
+      closeBubbles()
+      setShapeSettingsOpen(next)
+      setActiveTool('select')
+      return
+    }
+    setShapeSettingsOpen(false)
     setGuidesOpen(false)
     setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
     setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
@@ -609,7 +624,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
       {...markInside}
       vertical={landscape}
       bottomInset={landscape ? bottomInset : 0}
-      activeTool={activeTool}
+      activeTool={shapeSettingsOpen ? 'shape' : activeTool}
       drawerTab={drawerTab}
       guidesActive={guidesOpen || hasGuides(guides)}
       penColor={penSettings.color}
@@ -773,6 +788,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 eraserMode={eraserMode}
                 textBoundary={textBoundary}
                 onRevealText={(dy) => commitView(resolvePan({ scale: view.scale, zoom, x: offset.x, y: offset.y }, 0, -dy))}
+                textEditingTop={stageOrigin.y + (compact ? 8 : 80)}
                 onTextPaletteChange={setTextPalette}
                 textPaletteBounds={textPaletteBounds}
                 textEditing={textEditing?.pageId === page.id ? textEditing : null}
@@ -792,6 +808,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
                 textSettingsOpen={textSettingsOpen}
                 onCancelText={() => setTextEditing(null)}
                 onSaveText={(text, colorRanges = [], styleRanges = [], measuredHeight = null, measuredWidth = null) => {
+        if (textEditing?.type === 'shape') {
+          if (textEditing.pageId === page.id && (text !== (textEditing.text ?? '') || JSON.stringify(colorRanges)!==JSON.stringify(textEditing.colorRanges??[]) || JSON.stringify(styleRanges)!==JSON.stringify(textEditing.styleRanges??[]))) dispatch({type:'updateObject',id:textEditing.id,record:true,patch:{text,colorRanges,styleRanges}})
+          setTextEditing(null)
+          return
+        }
         // 상자 높이는 실제로 그려진 글자 높이에 맞춘다 (위아래 여백 없이). 글자만큼 넓어지는 상자는 폭도 맞춘다.
         const fitted = {
           ...(Number.isFinite(measuredHeight) && measuredHeight > 0 && { h: measuredHeight }),
@@ -832,7 +853,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
               onAnchor={setToolAnchor}
               penColor={penSettings.color}
               highlighterColor={highlighterSettings.color}
-              activeTool={activeTool}
+              activeTool={shapeSettingsOpen ? 'shape' : activeTool}
               drawerTab={drawerTab}
               onOpenDrawer={openDrawer}
               onSelectTool={selectTool}
@@ -870,7 +891,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           {/* 텍스트 서식: 고른 텍스트를 고칠 때는 다른 옵션 창처럼 요소 옆에, 텍스트 도구의 기본값을 정할 때는 툴바 아래에 */}
           {!readOnly && textSettingsOpen && !textEditing && !drawerTab && (
             <View style={selectedText ? [styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)] : [styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <TextSettings settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
+              <TextSettings verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
             </View>
           )}
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
@@ -884,6 +905,15 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
             </View>
           )}
 
+          {!readOnly && shapeSettingsOpen && !drawerTab && (
+            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
+              <ShapeSettings settings={shapeSettings} onChange={patch => setShapeSettings(current => ({...current,...patch}))} onClose={() => setShapeSettingsOpen(false)} onAdd={() => {
+                dispatch({type:'addObjects',objects:[createShape(shapeSettings,randomCenter())]})
+                setShapeSettingsOpen(false)
+                setActiveTool('select')
+              }} />
+            </View>
+          )}
           {showMore && !drawerTab && stageSize && (
             // 옵션 패널은 고른 요소 옆(가리지 않는 쪽)에 띄운다
             <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)]} pointerEvents="box-none" {...markInside}>

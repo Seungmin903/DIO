@@ -25,9 +25,16 @@ const ALIGN_PATHS = {
   justify: 'M4 5h16M4 10h16M4 15h16M4 20h16',
 }
 const ALIGNS = [['left', '왼쪽 정렬'], ['center', '가운데 정렬'], ['right', '오른쪽 정렬'], ['justify', '양쪽 정렬']]
+const VERTICAL_ALIGN_PATHS = {
+  top: 'M6 6h12M8 9h8M6 12h12',
+  middle: 'M6 9h12M8 12h8M6 15h12',
+  bottom: 'M6 12h12M8 15h8M6 18h12',
+}
+const VERTICAL_ALIGNS = [['top','위 정렬'],['middle','세로 가운데 정렬'],['bottom','아래 정렬']]
+
 
 /** 텍스트 서식. 스티커·마테·사진 옵션과 같은 모양(구역 제목·세그먼트 버튼·막대·색 줄)으로 만든다 */
-export default function TextSettings({ settings, onChange, onClose }) {
+export default function TextSettings({ settings, onChange, onClose, verticalAlignment = false }) {
   const fontStatus = useTextFont(settings.font)
   const support = textStyleSupport(settings.font, Platform.OS)
   const styleItems = STYLE_TOGGLES.map(item => ({ ...item, disabled: ['bold', 'italic'].includes(item.id) && (!support[item.id] || !textStyleReady(settings.font, item.id)) }))
@@ -71,6 +78,11 @@ export default function TextSettings({ settings, onChange, onClose }) {
         selected={(id) => settings.textAlign === id}
         onPress={(id) => onChange({ textAlign: id })}
       />
+
+      {verticalAlignment && <>
+        <Text style={toolPanelStyles.label}>세로 정렬</Text>
+        <Segmented items={VERTICAL_ALIGNS.map(([id,label])=>({id,a11y:label,icon:<Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 3h16M4 21h16" stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeOpacity={0.35} strokeLinecap="round" /><Path d={VERTICAL_ALIGN_PATHS[id]} stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeLinecap="round" /></Svg>}))} selected={id=>settings.verticalAlign===id} onPress={id=>onChange({verticalAlign:id})} />
+      </>}
 
       {/* 자간·줄간격: Canva 의 '간격' 처럼 막대와 숫자로 (글자 크기 대비 백분율 값, 단위 표시는 뺀다) */}
       <Text style={toolPanelStyles.label}>자간</Text>

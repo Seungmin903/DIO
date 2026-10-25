@@ -16,6 +16,7 @@ import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
 import FrameBackdrop from './PhotoFrame'
 import StrokeContent from '../StrokeContent'
+import ShapeContent from './ShapeContent'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
 import { textSettings, textStyle } from '../../utils/text'
 import { useTextFont } from '../../hooks/useTextFont'
@@ -49,6 +50,8 @@ function ObjectContent({ object, zoom, still = false, onAssetLoad, onAssetError 
       // 상자의 빈 공간과 별개로 실제 내용 높이를 측정한다 (TextMeasure).
       return <Text onLayout={onTextMeasure ? (event) => onTextMeasure(object.id, event.nativeEvent.layout.height / zoom) : undefined} style={{ width, minHeight: onTextMeasure ? undefined : height, ...textStyle(object, scale, Platform.OS) }}>{richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text>
     }
+    case 'shape':
+      return <ShapeContent object={object} zoom={zoom} />
     case 'stroke':
       return <StrokeContent object={object} zoom={zoom} transform={flipTransform(object)} />
     case 'sticker':

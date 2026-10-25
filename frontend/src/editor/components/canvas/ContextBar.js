@@ -91,11 +91,12 @@ export default function ContextBar({
   const grouped = objects.length > 1 && objects.every((o) => o.groupId && o.groupId === objects[0].groupId)
   // 바에는 모드·묶기만 둔다 (자르기, 그룹). 테두리·그림자·프레임·사진 바꾸기 등은 옵션 패널 안에.
   const linkable = single && !single.locked && LINKABLE_TYPES.includes(single.type)
-  const hasLeading = objects.length > 1 || linkable
+  const hasLeading = objects.length > 1 || linkable || single?.type === 'shape'
 
   if (compact && single?.type !== 'text' && single?.type !== 'stroke') {
     const cropable = !single?.locked && (single?.type === 'photo' || (single?.type === 'tape' && single.src && single.imageWidth))
     const leading = [
+      single?.type === 'shape' && !single.locked && {icon:'text',label:'서식',active:textSettingsOpen,onPress:()=>onTextSettings?.()},
       cropable && { icon: 'crop', label: '자르기', onPress: () => onCrop(single.id) },
       linkable && { icon: 'link', label: '링크', active: Boolean(single.href), onPress: () => onObjectLink?.(single) },
       objects.length > 1 && { icon: 'folder', label: grouped ? '그룹 해제' : '그룹', onPress: () => {
@@ -192,6 +193,7 @@ export default function ContextBar({
           {single.src && single.imageWidth && <BarButton icon="crop" label="자르기" onPress={() => onCrop(single.id)} />}
         </>
       )}
+      {single?.type === 'shape' && !single.locked && <BarButton icon="text" label="서식" active={textSettingsOpen} onPress={()=>onTextSettings?.()} />}
       {linkable && <BarButton icon="link" label="링크" active={Boolean(single.href)} onPress={() => onObjectLink?.(single)} />}
 
       {objects.length > 1 && (

@@ -14,7 +14,7 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   configFile: false, babelrc: false,
   plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
-function fixture(object) {
+function fixture(object, options = {}) {
   let state = createInitialState({ pages: [{ id: 'page', objects: [object] }] })
   const events = [], module = { exports: {} }
   const load = (id) => {
@@ -42,7 +42,7 @@ function fixture(object) {
     onEditText: (o) => events.push(['edit', o.id]), onTextSettings: () => events.push(['settings']),
     onCopy: (objects) => events.push(['copy', objects[0].id]), onCut: (objects) => events.push(['cut', objects[0].id]),
     onToggleMore: () => events.push(['more']),
-    onCopyText: (value) => events.push(['copyText', value]), onTextLink: (o) => events.push(['link', o.id]),
+    onCopyText: (value) => events.push(['copyText', value]), onTextLink: (o) => events.push(['link', o.id]), ...options,
   })
   const nodes = []
   function walk(value) {
@@ -100,4 +100,13 @@ test('획 색상만 바꾸고 종류·좌표는 보존하며 잠금·사진은 �
   for (const object of [{ ...stroke, locked: true }, { ...stroke, type: 'photo' }]) {
     assert.ok(!fixture(object).nodes.some((n) => n.props?.accessibilityLabel === '필기 빠른 편집'))
   }
+})
+
+for (const compact of [false,true]) test(`도형 서식은 공용 텍스트 설정을 열고 잠금 시 숨긴다 (compact=${compact})`,()=>{
+  const shape={id:'shape',type:'shape',shape:'round',x:100,y:100,w:220,h:220,text:'도형 글'}
+  const f=fixture(shape,{compact})
+  f.press('서식')
+  assert.deepEqual(f.events,[['settings']])
+  assert.deepEqual(f.state().doc.pages[0].objects[0],shape)
+  assert.ok(!fixture({...shape,locked:true},{compact}).nodes.some(n=>n.props?.accessibilityLabel==='서식'))
 })

@@ -21,6 +21,7 @@ const INPUT_TOOLS = [
 
 const DECOR_TOOLS = [
   { tab: 'sticker', icon: 'sticker', label: '스티커' },
+  { id: 'shape', icon: 'shape', label: '도형' },
   { tab: 'tape', icon: 'tape', label: '마스킹테이프' },
   { tab: 'photo', icon: 'image', label: '사진' },
 ]
@@ -42,7 +43,7 @@ export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTo
         ))}
         <View style={styles.divider} />
         {DECOR_TOOLS.map((tool) => (
-          <Tool onAnchor={onAnchor} key={tool.tab} icon={tool.icon} label={tool.label} active={drawerTab === tool.tab} onPress={() => onOpenDrawer(tool.tab)} />
+          <Tool onAnchor={onAnchor} key={tool.tab ?? tool.id} icon={tool.icon} label={tool.label} active={tool.tab ? drawerTab === tool.tab : !drawerTab && activeTool === tool.id} onPress={() => tool.tab ? onOpenDrawer(tool.tab) : onSelectTool(tool.id)} />
         ))}
         <View style={styles.divider} />
         {/* 하이퍼링크는 요소를 누르면 뜨는 옵션 바에서 건다 */}
