@@ -43,3 +43,56 @@ test('취소 후 늦게 도착한 인증 응답은 재설정 토큰을 복원하
   await assert.rejects(verifying,/취소/);
   await assert.rejects(api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'}),/인증/);
 });
+
+function deferredResetApi() {
+  let finishReset;
+  const calls=[];
+  const api=createAuthApi({baseUrl:'http://localhost:8080',fetchImpl:async(url,init)=>{
+    calls.push({url,...init});
+    if(url.endsWith('/password-resets'))return new Promise(resolve=>{finishReset=()=>resolve({ok:true,status:204});});
+    if(url.endsWith('/password-reset-verifications'))return {ok:true,status:200,json:async()=>({resetToken:'reset-only',expiresIn:600})};
+    if(url.endsWith('/login')||url.endsWith('/refresh'))return {ok:true,status:200,json:async()=>({
+      accessToken:'access-b',refreshToken:'refresh-b',user:{userId:'2',email:'b@example.com',nickname:'회원B'}
+    })};
+    return {ok:true,status:200,json:async()=>({available:true,signupToken:'signup-only',expiresIn:600,userId:'3',email:'c@example.com',nickname:'회원C'})};
+  }});
+  return {api,calls,finish:()=>finishReset()};
+}
+
+test('취소 여부와 무관하게 늦은 완료 응답은 새 로그인 세션을 지우지 않는다',async()=>{
+  for(const cancel of [true,false]) {
+    const {api,calls,finish}=deferredResetApi();
+    await api.verifyPasswordReset('a@example.com','123456');
+    const completing=api.completePasswordReset({email:'a@example.com',newPassword:'NewPassword123!'});
+    if(cancel)api.cancelPending();
+    const user=await api.login({email:'b@example.com',password:'Password123!'});
+    finish();await assert.rejects(completing,/로그인 상태가 변경/);
+    assert.equal(user.email,'b@example.com');
+    assert.equal((await api.refresh()).email,'b@example.com');
+    assert.equal(JSON.parse(calls.at(-1).body).refreshToken,'refresh-b');
+  }
+});
+
+test('취소 후 새로 시작한 가입 인증 상태도 늦은 완료 응답으로 지우지 않는다',async()=>{
+  const {api,finish}=deferredResetApi();
+  await api.verifyPasswordReset('a@example.com','123456');
+  const completing=api.completePasswordReset({email:'a@example.com',newPassword:'NewPassword123!'});
+  api.cancelPending();
+  const profile=await api.signup({email:'c@example.com',password:'Password123!'});
+  await api.verifyEmail('c@example.com','123456');
+  finish();await assert.rejects(completing,/상태가 변경/);
+  const result=await api.completeProfile({...profile,nickname:'회원C',terms:{service:true,privacy:true}});
+  assert.equal(result.mode,'registered');
+});
+
+test('정상 완료는 기존 로그인 세션을 비우고 재설정 토큰을 재사용하지 못하게 한다',async()=>{
+  const {api,calls,finish}=deferredResetApi();
+  await api.login({email:'b@example.com',password:'Password123!'});
+  await api.verifyPasswordReset('b@example.com','123456');
+  const completing=api.completePasswordReset({email:'b@example.com',newPassword:'NewPassword123!'});
+  finish();await completing;
+  const count=calls.length;
+  await assert.rejects(api.refresh(),/다시 로그인/);
+  await assert.rejects(api.completePasswordReset({email:'b@example.com',newPassword:'NewPassword123!'}),/인증/);
+  assert.equal(calls.length,count);
+});

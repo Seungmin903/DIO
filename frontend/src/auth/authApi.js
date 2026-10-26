@@ -94,7 +94,12 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       const current = passwordReset;
       if (!current || current.email !== normalizeEmail(email) || current.expiresAt <= now())
         throw new Error('비밀번호 재설정 전에 이메일 인증을 완료해 주세요.');
+      const resetAttempt = resetRevision, authAttempt = revision, previousSession = session;
       await request('password-resets', { email: current.email, resetToken: current.token, newPassword });
+      // 서버의 재설정은 완료됐어도, 이후 시작한 로그인·인증 흐름에는 영향을 주지 않는다.
+      if (resetAttempt !== resetRevision || authAttempt !== revision ||
+          previousSession !== session || passwordReset !== current)
+        throw new Error('비밀번호는 재설정되었지만 화면 또는 로그인 상태가 변경되었어요.');
       session = null; api.cancelPending();
     },
     async completeProfile({ email, nickname, photoUri, terms }) {
