@@ -5,8 +5,8 @@ set -euo pipefail
 
 : "${CI_MERGE_REQUEST_IID:?MR 파이프라인에서만 실행합니다}"
 
-if [ -z "${ANTHROPIC_API_KEY:-}" ] || [ -z "${GITLAB_REVIEW_TOKEN:-}" ]; then
-  echo "ANTHROPIC_API_KEY 또는 GITLAB_REVIEW_TOKEN 변수가 없어 리뷰를 건너뜁니다."
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] || [ -z "${GITLAB_REVIEW_TOKEN:-}" ]; then
+  echo "CLAUDE_CODE_OAUTH_TOKEN 또는 GITLAB_REVIEW_TOKEN 변수가 없어 리뷰를 건너뜁니다."
   exit 0
 fi
 
@@ -52,7 +52,7 @@ if docker run --rm \
   --memory 1g \
   --pids-limit 256 \
   -e HOME=/tmp \
-  -e ANTHROPIC_API_KEY \
+  -e CLAUDE_CODE_OAUTH_TOKEN \
   -v "$WORK_DIR:/review:ro" \
   "$IMAGE" \
   sh -c 'claude -p "$(cat /review/prompt.md)" --tools "" --strict-mcp-config --no-session-persistence < /review/diff.patch' \
