@@ -1,6 +1,7 @@
 stages:
   - check
   - quality
+  - review
   - deploy
   - edge
 
@@ -119,3 +120,17 @@ secret-scan:
       -v "$CI_PROJECT_DIR:/repo:ro"
       ghcr.io/gitleaks/gitleaks:v8.30.1
       dir /repo --redact --no-banner
+
+ai-code-review:
+  stage: review
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GIT_DEPTH: "0"
+  interruptible: true
+  timeout: 15m
+  allow_failure: true
+  script:
+    - bash infra/review/mr-review.sh
