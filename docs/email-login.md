@@ -72,7 +72,7 @@ Swagger의 일반 로그인 그룹에서 로그인 후 응답의 Access Token을
 
 ## DB와 기존 기능 경계
 
-V6는 `refresh_tokens`, `refresh_token_history`만 추가한다. 기존 users/다이어리/사진 테이블과 V1~V5 파일은 변경하지 않는다. 같은 V6 번호를 사용하는 다른 작업이 있으면 병합 전 번호를 조율하고, 적용된 파일은 수정하지 않는다. 로컬 DB 백업은 `C:/Users/SSAFY/Documents/Codex/dio-before-login-v6-20261026.dump`에 보관한다.
+V6는 `refresh_tokens`, `refresh_token_history`만 추가한다. 기존 users/다이어리/사진 테이블과 V1~V5 파일은 변경하지 않는다. 같은 V6 번호를 사용하는 다른 작업이 있으면 병합 전 번호를 조율하고, 적용된 파일은 수정하지 않는다. 적용 전 `pg_dump -Fc`로 DB를 백업하고, 백업 파일은 Git 외부의 팀 승인 보관 위치에 둔다.
 
 Refresh Token 원문 대신 SHA-256 해시만 저장한다. 고정된 세션 행의 비관적 잠금으로 재발급·로그아웃·재사용 처리를 직렬화한다. 사용된 해시 이력으로 재사용을 탐지하고, 인증 오류 응답을 보내더라도 재사용 시 세션 폐기는 커밋한다. DB 쓰기 실패나 JWT 설정/서명 실패 때문에 유효한 토큰을 잃지 않도록 처리한다. 회원 물리 삭제 시 세션/이력도 FK CASCADE로 삭제된다. 만료된 세션/이력의 정기 정리는 운영 보관 정책 확정 후 적용한다.
 
@@ -107,3 +107,5 @@ AUTH_TRUSTED_PROXY_REGEX에는 백엔드에서 보이는 실제 Nginx 출발지 
 MR !149 충돌 해결(2026-10-26): 최신 develop의 공유 기능을 병합하면서 App.js의 인증·공유 import와 docs/README.md의 문서 링크를 모두 유지했다. 프론트 전체 테스트 646개 통과, 웹·Android export 성공. 이번 병합으로 비밀번호 재설정 브랜치의 별도 기능을 가져오지는 않았다.
 
 MR !149 문서 구조 충돌 해결(2026-10-26): develop의 docs/README.md 삭제·docs/색인.md 이전을 유지하고 회원가입·로그인·프론트 연결 문서 링크를 새 색인에 등록했다. 이번 develop 반영에는 backend/·frontend/ 코드 변경이 없어 기존 런타임 검증 결과를 유지하며 추가 문서 링크와 충돌 표식을 확인했다.
+
+만료 세션·회전 이력 정리는 별도 후속 작업으로 분리한다. 범위·완료 기준과 실제 Jira 등록 대기 상태는 [정리 태스크 등록안](./auth-session-retention-followup.md)을 참고한다.

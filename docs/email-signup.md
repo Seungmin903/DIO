@@ -41,7 +41,7 @@ V2는 로컬 DB에 실제 적용된 원본(email NOT NULL, 체크섬 -1086657833
 ### DB 적용과 팀 작업 영향
 
 - V1 및 다이어리 테이블은 변경하지 않는다. 회원가입 관련 V3는 기존 행을 삭제하지 않고 이름과 제약만 변경한다. `nickname_key`와 가입 전 인증 테이블은 구현에 필요한 확장으로 유지한다. ERD의 다른 도메인을 일괄 생성하거나 교체하지 않는다.
-- 로컬 DB 적용 전 `pg_dump -Fc`로 전체 백업한다. 이번 로컬 백업은 Git 외부 `C:/Users/SSAFY/Documents/Codex/dio-before-signup-v3-20261026.dump`에 보관했다. 복원 검토 시 실행 중인 앱을 중지하고 우선 별도 DB에 `pg_restore`로 복원 확인한다. 사용 중인 DB에 무조건 덮어쓰지 않는다.
+- 로컬 DB 적용 전 `pg_dump -Fc`로 전체 백업한다. 백업 파일은 Git 외부의 팀 승인 보관 위치에 둔다. 복원 검토 시 실행 중인 앱을 중지하고 우선 별도 DB에 `pg_restore`로 복원 확인한다. 사용 중인 DB에 무조건 덮어쓰지 않는다.
 - 정상 V2 체크섬은 `-1086657833`이다. 수정된 V2(`-1046705262`)를 이미 적용한 다른 개발 DB가 있다면 실제 스키마를 먼저 비교해야 한다. 전역 자동 repair나 검증 비활성화는 추가하지 않았다.
 - 인증 계정 이름을 사용하는 코드와 V3는 함께 배포해야 한다. 다른 개발자의 로컬 DB나 공용 서버에는 직접 적용하지 않았다. 팀 합류 시 변경 SQL과 엔티티를 함께 반영한다.
 
@@ -73,7 +73,7 @@ SIGNUP_PHOTO_S3_BUCKET=your-existing-private-bucket
 SIGNUP_PHOTO_S3_REGION=ap-northeast-2
 ```
 
-1. DB와 로컬 사진 디렉터리를 백업한다. 이번 로컬 DB 백업은 `C:/Users/SSAFY/Documents/Codex/dio-photo-storage-v5-20261026.dump`에 보관했다.
+1. DB는 `pg_dump -Fc`로, 로컬 사진은 디렉터리 단위로 백업하고 Git 외부의 팀 승인 보관 위치에 둔다.
 2. 기존 사진 파일에 접근 가능한 머신에서 S3 설정/권한을 준비한다. DB에 저장한 provider/key/bucket을 사용하므로 새 사진만 S3로 저장해도 기존 로컬 사진은 기존 디렉터리가 있으면 계속 읽는다.
 3. 기존 사진도 이전하려면 한 번만 실행한다. `backend/`에서 `./gradlew.bat bootRun --args="--spring.profiles.active=local --dio.signup.photos.migrate-legacy=true"` (이때 SIGNUP_PHOTO_STORAGE=s3). 로컬 모드에서 실행하면 기존 DB 사진만 로컬 파일로 이전한다.
 4. 사진별 잠금·트랜잭션으로 복사 성공 후 DB 참조만 바꾸고 기존 사진 URL은 유지한다. 실패한 사진은 이전 참조를 유지하며, 재실행 시 완료된 항목을 건너뛴다. 자동 이전은 기본으로 켜지 않는다. 기존 로컬 원본은 즉시 삭제하지 않으므로 이전 완료·백업 확인 후 별도로 정리한다.
