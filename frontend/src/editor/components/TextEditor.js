@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import { colorTextRange, normalizeRanges, remapTextRanges, textSegments } from '../utils/textRanges'
-import { TEXT_AUTO_MAX_WIDTH, TEXT_AUTO_MIN_WIDTH, TEXT_COLORS, TEXT_LINE_HEIGHT, textStyle, TEXT_FRAME_PAD } from '../utils/text'
-import { textSettings } from '../utils/text'
+import { TEXT_AUTO_MAX_WIDTH, TEXT_AUTO_MIN_WIDTH, TEXT_COLORS, textStyle, TEXT_FRAME_PAD } from '../utils/text'
+import { textSettings, textInputHeight } from '../utils/text'
 import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle } from '../utils/textFormats'
 import { copyText, readText, useTextClipboardAvailable } from '../services/textClipboard'
 import TextActionBar from './TextActionBar'
@@ -111,7 +111,7 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
     return () => { cancelAnimationFrame(frame); Keyboard.dismiss() }
   }, [])
   const cancel = () => { cancelled.current = true; Keyboard.dismiss(); onCancel() }
-  const [height, setHeight] = useState(Math.max(40, (object.h ?? TEXT_LINE_HEIGHT) * zoom))
+  const [height, setHeight] = useState(() => textInputHeight(object, zoom))
   const scale = (object.w ?? 320) / (object.baseWidth ?? object.w ?? 320) * zoom
   // 글자만큼 넓어지는 상자: 줄바꿈 없이 잰 가장 긴 줄 폭(화면 px)에 맞추고 최대 폭에서 줄을 바꾼다
   const [naturalWidth, setNaturalWidth] = useState(null)
@@ -183,7 +183,7 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
       selectionColor={colors.primary}
       cursorColor={colors.primary}
       style={[styles.input, { height, ...textStyle(object, scale, Platform.OS) }]}
-      onContentSizeChange={(event) => setHeight(Math.max(40, event.nativeEvent.contentSize.height))}
+      onContentSizeChange={(event) => setHeight(textInputHeight(object, zoom, event.nativeEvent.contentSize.height))}
       onSelectionChange={(event) => { selection.current = event.nativeEvent.selection; setSelected(selection.current.start !== selection.current.end); measure() }}
       onChangeText={updateDraft}
       onEndEditing={(event) => { updateDraft(event.nativeEvent.text); if (!cancelled.current) { composing.current = false; save() } }}

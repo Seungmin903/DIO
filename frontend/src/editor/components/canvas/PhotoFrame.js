@@ -78,7 +78,7 @@ function Film({ width, height, inner }) {
 }
 
 /** 네 변에 반원 톱니를 판 우표 모양 (시계 방향으로 돌며 안쪽으로 파낸다) */
-function stampPath(w, h) {
+export function stampPath(w, h) {
   const r = Math.max(1.2, Math.min(w, h) * 0.028)
   const edge = (len) => {
     const n = Math.max(2, Math.round(len / (r * 3.6)))

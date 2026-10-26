@@ -1,5 +1,29 @@
-# 배포 환경은 로컬 파일로 조용히 대체하지 않고 명시한 S3 버킷을 사용한다.
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+    show-sql: false
+  flyway:
+    enabled: true
+
 dio:
   signup:
     photos:
       storage: ${SIGNUP_PHOTO_STORAGE:s3}
+  diary:
+    formats:
+      "1":
+        width: 1280
+        height: 800
+
+management:
+  endpoint:
+    health:
+      show-details: never

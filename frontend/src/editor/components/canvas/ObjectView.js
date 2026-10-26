@@ -14,7 +14,8 @@ import { coverLayout, photoInnerBox, tapeSizeOf } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
-import FrameBackdrop from './PhotoFrame'
+import FrameBackdrop, { stampPath } from './PhotoFrame'
+import PhotoPathShadow from './PhotoPathShadow'
 import StrokeContent from '../StrokeContent'
 import ShapeContent from './ShapeContent'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
@@ -94,9 +95,9 @@ export const outlineOn = (object) => outlineOf(object).on
 export const shadowOn = (object) => shadowOf(object).on
 // 테이프는 기본 80% (살짝 비치는 마스킹테이프). 100% 면 완전히 불투명하다.
 export const objectOpacity = (object) => object.opacity ?? (object.type === 'tape' ? TAPE_DEFAULT_OPACITY : 1)
-// 사진 그림자는 네모 바깥선인 틀(폴라로이드·필름·액자·사각·라운드·원형)에서만 지원 (우표는 가장자리가 톱니)
+// 특수 외곽(하트·별·우표)은 SVG 경로로, 나머지는 기존 View 그림자로 그린다.
 export const photoSupportsShadow = (photo) =>
-  ['polaroid', 'film', 'frame'].includes(photo.frame) || (photo.frame === 'shape' && VIEW_CLIP_SHAPES[photo.shape] != null)
+  ['polaroid', 'film', 'frame', 'stamp'].includes(photo.frame) || (photo.frame === 'shape' && ['rect', 'round', 'circle', 'heart', 'star'].includes(photo.shape))
 // 틀 색: 사용자가 고른 HEX. 예전 문서의 프리셋 id(white·cream…)도 읽는다.
 const LEGACY_FRAME_COLORS = { white: '#FFFFFF', cream: '#FBF3E1', sky: '#CED9EE', pink: '#F9DDE2', black: '#22262F' }
 // 처음 색: 액자는 짙은 나무색, 나머지(폴라로이드·우표)는 흰색
@@ -282,6 +283,8 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
   if (photo.frame === 'shape') {
     const d = shapePath(photo.shape, box.width, box.height)
     return (
+      <View style={{ width: box.width, height: box.height }}>
+      {!shadow.inset && <PhotoPathShadow d={d} width={box.width} height={box.height} shadow={shadow} zoom={zoom} flipX={photo.flipX} flipY={photo.flipY} />}
       <Svg width={box.width} height={box.height} style={{ transform: flip }}>
         <Defs>
           <ClipPath id={clipId}>
@@ -300,6 +303,8 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
         />
         {border > 0 && <Path d={d} fill="none" stroke={outline.color} strokeWidth={border * 2} />}
       </Svg>
+      {shadow.inset && <PhotoPathShadow d={d} width={box.width} height={box.height} shadow={shadow} zoom={zoom} flipX={photo.flipX} flipY={photo.flipY} />}
+      </View>
     )
   }
 
@@ -314,9 +319,10 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
           height: frameH,
           backgroundColor: photo.frame === 'polaroid' ? frameColorOf(photo) : 'transparent',
         },
-        boxShadowStyle(shadow, zoom),
+        photo.frame !== 'stamp' && boxShadowStyle(shadow, zoom),
       ]}
     >
+      {photo.frame === 'stamp' && !shadow.inset && <PhotoPathShadow d={stampPath(frameW, frameH)} width={frameW} height={frameH} shadow={shadow} zoom={zoom} />}
       {photo.frame !== 'polaroid' && (
         <FrameBackdrop
           frame={photo.frame}
@@ -340,8 +346,9 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
       >
         <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" resizeMethod="scale" />
         {/* 안쪽 그림자: 틀 안 사진이 오목하게 들어가 보이게 */}
-        {shadow.inset && <View pointerEvents="none" style={[StyleSheet.absoluteFill, insetShadowStyle(shadow, zoom)]} />}
+        {shadow.inset && photo.frame !== 'stamp' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, insetShadowStyle(shadow, zoom)]} />}
       </View>
+      {photo.frame === 'stamp' && shadow.inset && <PhotoPathShadow d={stampPath(frameW, frameH)} width={frameW} height={frameH} shadow={shadow} zoom={zoom} />}
     </View>
   )
 }
