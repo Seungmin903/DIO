@@ -6,7 +6,7 @@
   "type": "module",
   "main": "expo/AppEntry",
   "scripts": {
-    "test:auth": "node --test tests/auth-api.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js",
+    "test:auth": "node --test tests/auth-api.test.js tests/auth-photo-native.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js",
     "test:notifications": "node --test tests/notification-api.test.js",
     "qa:notifications": "node qa/notification-browser.cjs",
     "test:diary-api": "node --test tests/diary-api.test.js tests/diary-mutation.test.js tests/diary-library.test.js tests/library-reader.test.js tests/diary-create-input.test.js tests/diary-editor.test.js tests/diary-trash-api.test.js",

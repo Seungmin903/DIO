@@ -109,7 +109,7 @@ form.append('photo', selectedFile);
 const response = await fetch(`${apiOrigin}/api/v1/auth/signup`, { method: 'POST', body: form });
 ```
 
-multipart의 전체 Content-Type은 boundary를 포함하도록 클라이언트가 자동 생성하게 둔다. React Native에서는 `photo`를 `{uri, name, type}` 파일 파트로 보내고 `signup` JSON 파일 파트에도 application/json을 지정한다. 선택 결과의 로컬 URI를 그대로 다른 기기에 제공하지 않는다.
+multipart의 전체 Content-Type은 boundary를 포함하도록 클라이언트가 자동 생성하게 둔다. Expo SDK 58에서는 expo/fetch와 함께 `photo`를 expo-file-system의 File로, `signup`을 application/json 메모리 Blob으로 전송한다. 비밀번호가 담긴 JSON 임시 파일은 만들지 않는다. 선택 결과의 로컬 URI를 그대로 다른 기기에 제공하지 않는다.
 
 사진 기능 검증(2026-10-26): 전체 테스트 119개 중 110개 통과, PostgreSQL 전용 기존 9개 제외, 실패 0개. PNG 축소 저장·바이너리 조회, JPEG 변환, 잘못된/빈 이미지 및 5MiB 초과 거절, 사진 실패 시 회원·인증 계정·약관·토큰 소비 롤백, 비활성 회원 사진 404, 사진 없는 JSON/multipart 가입을 확인했다. 실제 로컬 PostgreSQL에 V4 적용 및 JPA 검증 성공, BYTEA 저장·FK·회원 삭제 시 사진 CASCADE는 테스트 트랜잭션 후 롤백했다. 기존 회원 1건/다이어리 0건은 보존했다. Swagger 실응답에서 두 요청 Content-Type과 profileColor 제거를 확인했다. 프론트·실기기 파일 전송 및 HEIC 변환은 미검증이다.
 

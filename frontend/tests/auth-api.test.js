@@ -92,3 +92,11 @@ test('소셜 로그인은 서버 구현 없이 체험 계정을 생성하지 않
   const { api, calls } = setup(() => { throw new Error('unexpected'); });
   await assert.rejects(api.social('google'), /아직 연결/); assert.equal(calls.length, 0);
 });
+
+test('개발 프록시에서는 Basic 헤더와 충돌하지 않는 별도 토큰 헤더를 사용한다', async () => {
+  const { api, calls } = setup(call => call.path === 'login' ? response(tokens()) : response(null, 204), { accessTokenHeader: 'X-DIO-Access-Token' });
+  await api.login({ email: user.email, password: 'Password123!' });
+  await api.logout();
+  assert.equal(calls.at(-1).headers['X-DIO-Access-Token'], 'access');
+  assert.equal(calls.at(-1).headers.Authorization, undefined);
+});

@@ -27,7 +27,7 @@
 
 웹 CORS는 인증 경로에 한해 localhost:8081/127.0.0.1:8081을 허용한다. 다른 웹 주소는 백엔드 `AUTH_ALLOWED_ORIGINS`에 쉼표로 구분해 설정한다. 기존 다이어리 API 보안/CORS 정책은 바꾸지 않는다.
 
-사진은 웹에서는 PNG Blob, 네이티브에서는 PNG 파일로 변환하여 multipart의 `signup`(application/json), `photo`(image/png)로 보낸다. 네이티브 JSON 임시 파일은 요청 종료 시 삭제한다. 실기기 사진 업로드는 별도 확인이 필요하다. 서버의 local/S3 선택과 DB 저장 방식은 변경하지 않았다.
+사진은 웹에서는 PNG Blob, 네이티브에서는 PNG 파일로 변환하여 multipart의 `signup`(application/json), `photo`(image/png)로 보낸다. 네이티브 가입 JSON은 메모리 Blob으로 전송하며 비밀번호가 담긴 임시 파일을 만들지 않는다. Expo File 사진 파트는 expo/fetch로 전송하고 변환 사진만 요청 종료 시 삭제한다. 실기기 사진 업로드는 별도 확인이 필요하다. 서버의 local/S3 선택과 DB 저장 방식은 변경하지 않았다.
 
 명시적인 UI 테스트 fixture만 previewAuth를 사용한다. 실제 App은 authService를 기본 사용한다.
 

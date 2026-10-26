@@ -1,13 +1,10 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
-import { File, Paths } from 'expo-file-system';
-import { randomUUID } from 'expo-crypto';
+import { File } from 'expo-file-system';
 
 export async function buildPhotoBody(signup, uri) {
   const context = ImageManipulator.manipulate(uri);
   let rendered, photo;
-  const json = new File(Paths.cache, `dio-signup-${randomUUID()}.json`);
   const dispose = () => {
-    if (json.exists) json.delete();
     if (photo) { const file = new File(photo.uri); if (file.exists) file.delete(); }
   };
   try {
@@ -15,10 +12,9 @@ export async function buildPhotoBody(signup, uri) {
     context.resize({ width: 512 });
     rendered = await context.renderAsync();
     photo = await rendered.saveAsync({ format: SaveFormat.PNG, compress: 1 });
-    json.create(); json.write(JSON.stringify(signup));
     const body = new FormData();
-    body.append('signup', { uri: json.uri, name: 'signup.json', type: 'application/json' });
-    body.append('photo', { uri: photo.uri, name: 'profile.png', type: 'image/png' });
+    body.append('signup', new Blob([JSON.stringify(signup)], { type: 'application/json' }), 'signup.json');
+    body.append('photo', new File(photo.uri));
     return { body, dispose };
   } catch (error) { dispose(); throw error; }
   finally { rendered?.release?.(); context.release?.(); }

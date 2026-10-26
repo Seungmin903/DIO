@@ -7,7 +7,8 @@ export function authBaseUrl(value) {
 }
 
 // Tokens stay in memory. Never save passwords or tokens in AsyncStorage.
-export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now }) {
+export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now, accessTokenHeader = 'Authorization' }) {
+  if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   let session = null, draft = null, verification = null, revision = 0, refreshing = null;
   const userView = (user) => ({
@@ -22,7 +23,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       const response = await fetchImpl(`${base}/auth/${path}`, {
         method: 'POST', signal: controller.signal,
         headers: { ...(!multipart && body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+          ...(accessToken ? { [accessTokenHeader]: accessTokenHeader === 'Authorization' ? `Bearer ${accessToken}` : accessToken } : {}) },
         ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }),
       });
       const data = response.status === 204 ? null : await response.json().catch(() => null);
