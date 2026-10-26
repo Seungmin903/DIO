@@ -1,6 +1,7 @@
 stages:
   - check
   - deploy
+  - edge
 
 runner-check:
   stage: check
@@ -42,3 +43,36 @@ deploy-production:
     - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml config --quiet
     - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml up -d --force-recreate
     - curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8082/actuator/health
+
+deploy-dev-proxy:
+  stage: edge
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      changes:
+        - infra/nginx/dev/**/*
+        - infra/compose/compose.proxy.dev.yml
+  resource_group: development-edge
+  script:
+    - docker build --tag "dio-nginx-dev:${CI_COMMIT_SHORT_SHA}" ./infra/nginx/dev
+    - export NGINX_DEV_IMAGE="dio-nginx-dev:${CI_COMMIT_SHORT_SHA}"
+    - docker compose --project-name dio-proxy-dev -f infra/compose/compose.proxy.dev.yml run --rm --no-deps nginx-dev nginx -t
+    - docker compose --project-name dio-proxy-dev -f infra/compose/compose.proxy.dev.yml up -d --force-recreate
+
+deploy-prod-proxy:
+  stage: edge
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      changes:
+        - infra/nginx/prod/**/*
+        - infra/compose/compose.proxy.prod.yml
+  resource_group: production-edge
+  script:
+    - docker build --tag "dio-nginx-prod:${CI_COMMIT_SHORT_SHA}" ./infra/nginx/prod
+    - export NGINX_PROD_IMAGE="dio-nginx-prod:${CI_COMMIT_SHORT_SHA}"
+    - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml run --rm --no-deps nginx-prod nginx -t
+    - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml up -d --force-recreate
+    - 'curl --fail --retry 12 --retry-all-errors --retry-delay 2 --resolve k15f106.p.ssafy.io:443:127.0.0.1 https://k15f106.p.ssafy.io/actuator/health'

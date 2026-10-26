@@ -1,0 +1,25 @@
+services:
+  nginx-prod:
+    image: ${NGINX_PROD_IMAGE:?NGINX_PROD_IMAGE is required}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - dio-certbot-etc:/etc/letsencrypt:ro
+      - dio-certbot-webroot:/var/www/certbot:ro
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: dio-proxy
+
+volumes:
+  dio-certbot-etc:
+    external: true
+    name: dio-certbot-etc
+  dio-certbot-webroot:
+    external: true
+    name: dio-certbot-webroot

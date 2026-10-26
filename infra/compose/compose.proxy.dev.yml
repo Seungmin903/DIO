@@ -1,0 +1,21 @@
+services:
+  nginx-dev:
+    image: ${NGINX_DEV_IMAGE:?NGINX_DEV_IMAGE is required}
+    restart: unless-stopped
+    ports:
+      - "8443:443"
+    volumes:
+      - dio-certbot-etc:/etc/letsencrypt:ro
+      - /home/gitlab-runner/dio-env/nginx-dev.htpasswd:/etc/nginx/conf.d/nginx-dev.htpasswd:ro
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: dio-proxy
+
+volumes:
+  dio-certbot-etc:
+    external: true
+    name: dio-certbot-etc
