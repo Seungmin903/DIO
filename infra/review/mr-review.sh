@@ -45,7 +45,7 @@ cp "$SCRIPT_DIR/prompt.md" "$WORK_DIR/prompt.md"
 
 docker build --quiet --tag "$IMAGE" "$SCRIPT_DIR" > /dev/null
 
-docker run --rm \
+if docker run --rm \
   --user "$(id -u):$(id -g)" \
   --cap-drop ALL \
   --security-opt no-new-privileges \
@@ -57,6 +57,14 @@ docker run --rm \
   "$IMAGE" \
   sh -c 'claude -p "$(cat /review/prompt.md)" --tools "" --strict-mcp-config --no-session-persistence < /review/diff.patch' \
   > "$WORK_DIR/review.md"
+then
+  :
+else
+  CLAUDE_EXIT_CODE=$?
+  echo "Claude Code 호출 실패: exit ${CLAUDE_EXIT_CODE}" >&2
+  sed -n '1,20p' "$WORK_DIR/review.md" >&2
+  exit "$CLAUDE_EXIT_CODE"
+fi
 
 if [ ! -s "$WORK_DIR/review.md" ]; then
   echo "Claude 응답이 비어 있습니다." >&2
