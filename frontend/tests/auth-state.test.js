@@ -114,5 +114,5 @@ test('인증 화면의 접근성 역할은 설치된 React Native 네이티브 �
   if(node.type==='JSXAttribute'&&node.name?.name==='accessibilityRole'&&node.value?.type==='StringLiteral')assert.ok(supported.has(node.value.value.toLowerCase()),`네이티브 미지원 역할: ${node.value.value}`)
   for(const value of Object.values(node)){if(Array.isArray(value))value.forEach(visit);else if(value&&typeof value==='object')visit(value)}
  }
- for(const path of ['../src/auth/AuthScreen.js','../src/diary/screens/ProfileScreen.js'])visit(babel.parseSync(readFileSync(new URL(path,import.meta.url),'utf8'),{configFile:false,babelrc:false,parserOpts:{plugins:['jsx']}}))
+ for(const path of ['../src/auth/AuthScreen.js','../src/auth/ProfileEditScreen.js','../src/diary/screens/ProfileScreen.js'])visit(babel.parseSync(readFileSync(new URL(path,import.meta.url),'utf8'),{configFile:false,babelrc:false,parserOpts:{plugins:['jsx']}}))
 })
