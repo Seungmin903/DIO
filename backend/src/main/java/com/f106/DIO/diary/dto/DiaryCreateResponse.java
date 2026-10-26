@@ -1,6 +1,5 @@
 package com.f106.DIO.diary.dto;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -15,18 +14,10 @@ public record DiaryCreateResponse(DiaryData diary) {
 		String diaryTitle,
 		@Schema(example = "#D6BFA7")
 		String coverColor,
-		@Schema(example = "LINEN")
-		String coverPattern,
-		@Schema(example = "RING")
-		String bindingType,
-		@Schema(example = "1")
-		String formatId,
-		@Schema(example = "1280")
-		BigDecimal canvasWidth,
-		@Schema(example = "800")
-		BigDecimal canvasHeight,
-		@Schema(example = "BLANK")
-		String defaultPageTemplate,
+		@Schema(example = "PLAIN")
+		String coverStyle,
+		@Schema(example = "PRIVATE")
+		String visibility,
 		@Schema(example = "2026-10-20T04:00:00Z")
 		Instant createdAt,
 		@Schema(example = "2026-10-20T04:00:00Z")

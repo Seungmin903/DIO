@@ -1,0 +1,86 @@
+package com.f106.DIO.diary;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.f106.DIO.diary.controller.DiaryController;
+import com.f106.DIO.diary.dto.DiaryCreateRequest;
+import com.f106.DIO.diary.dto.DiaryCreateResponse;
+import com.f106.DIO.diary.dto.DiaryCreateResponse.DiaryData;
+import com.f106.DIO.diary.dto.DiaryResponse;
+import com.f106.DIO.diary.service.DiaryService;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(DiaryController.class)
+class DiaryApiContractTests {
+
+	private static final UUID DIARY_ID = UUID.fromString("1c4d5e6f-2a3b-4c5d-8e9f-0123456789ab");
+
+	@Autowired MockMvc mvc;
+	@MockitoBean DiaryService diaryService;
+
+	private DiaryData data() {
+		return new DiaryData(DIARY_ID.toString(), "여행 다이어리", "#D6BFA7", "PLAIN", "MEMBERS",
+			Instant.parse("2026-10-20T04:00:00Z"), Instant.parse("2026-10-20T04:00:00Z"));
+	}
+
+	@Test
+	void createsUuidDiaryWithTheNewMetadataContract() throws Exception {
+		when(diaryService.createDiary(any())).thenReturn(new DiaryCreateResponse(data()));
+
+		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON).content("""
+			{"diaryTitle":"  여행 다이어리  ","coverColor":"#D6BFA7","coverStyle":"PLAIN","visibility":"MEMBERS"}
+			"""))
+			.andExpect(status().isCreated())
+			.andExpect(header().string("Location", "/api/v1/diaries/" + DIARY_ID))
+			.andExpect(jsonPath("$.diary.diaryId").value(DIARY_ID.toString()))
+			.andExpect(jsonPath("$.diary.coverStyle").value("PLAIN"))
+			.andExpect(jsonPath("$.diary.visibility").value("MEMBERS"))
+			.andExpect(jsonPath("$.diary.formatId").doesNotExist());
+
+		ArgumentCaptor<DiaryCreateRequest> request = ArgumentCaptor.forClass(DiaryCreateRequest.class);
+		verify(diaryService).createDiary(request.capture());
+		assertThat(request.getValue().diaryTitle()).isEqualTo("여행 다이어리");
+	}
+
+	@Test
+	void usesSchemaDefaultsWhenOptionalMetadataIsOmitted() throws Exception {
+		when(diaryService.createDiary(any())).thenReturn(new DiaryCreateResponse(data()));
+
+		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
+			.content("{" + "\"diaryTitle\":\"기본 다이어리\"}"))
+			.andExpect(status().isCreated());
+
+		ArgumentCaptor<DiaryCreateRequest> request = ArgumentCaptor.forClass(DiaryCreateRequest.class);
+		verify(diaryService).createDiary(request.capture());
+		assertThat(request.getValue().coverColor()).isEqualTo("#CED9EE");
+		assertThat(request.getValue().coverStyle()).isEqualTo("PLAIN");
+		assertThat(request.getValue().visibility()).isEqualTo("PRIVATE");
+	}
+
+	@Test
+	void updatesByUuid() throws Exception {
+		when(diaryService.updateDiary(eq(DIARY_ID), any())).thenReturn(new DiaryResponse(data()));
+
+		mvc.perform(patch("/api/v1/diaries/" + DIARY_ID).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"visibility\":\"MEMBERS\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.diary.visibility").value("MEMBERS"));
+	}
+}
