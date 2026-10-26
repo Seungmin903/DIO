@@ -12,6 +12,15 @@ export const RECENT_LIMIT = 8
 
 // 한 번 읽은 목록은 메모리에 두고 보관함을 다시 열 때 바로 쓴다 (열 때마다 빈 목록 → 저장소 읽기로 화면이 바뀌지 않게)
 let cached = null
+// Serialize writes so a prior effect cannot overwrite a confirmed generated folder.
+let saving = Promise.resolve()
+function persist(next) {
+  const write = saving.catch(() => {}).then(async () => {
+    if (!await saveJSON(STORAGE_KEYS.customDecor, next)) throw new Error('스티커 폴더를 저장하지 못했어요. 저장 공간을 확인해 주세요.')
+  })
+  saving = write
+  return write
+}
 
 /** 사용자가 직접 추가한 스티커·테이프 목록 + 최근 쓴 스티커 */
 export function useCustomDecor() {
@@ -40,7 +49,7 @@ export function useCustomDecor() {
   useEffect(() => {
     if (!loaded) return
     cached = items
-    saveJSON(STORAGE_KEYS.customDecor, items)
+    persist(items).catch(() => {})
   }, [items, loaded])
 
   const add = useCallback((kind, item) => {
@@ -84,6 +93,25 @@ export function useCustomDecor() {
       }),
     }))
   }, [])
+
+  // The generator modal blocks other drawer edits. Publish only after persistence succeeds.
+  const saveGenerated = useCallback(async (folderId, name, stickers) => {
+    if (!loaded) throw new Error('보관함을 읽은 뒤 다시 시도해 주세요.')
+    const current = cached ?? items
+    const cleanName = name.trim()
+    if (!cleanName) throw new Error('폴더 이름을 입력해 주세요.')
+    const id = folderId ?? createId()
+    if (folderId && !current.folders.some(f => f.id === folderId)) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
+    if (!folderId && current.folders.some(f => f.name === cleanName)) throw new Error('같은 이름의 폴더가 있어요.')
+    const adding = stickers.map(stickerRef)
+    const next = { ...current, folders: folderId
+      ? current.folders.map(f => f.id === id ? { ...f, items: [...adding, ...f.items] } : f)
+      : [...current.folders, { id, name: cleanName, items: adding }] }
+    await persist(next)
+    cached = next
+    setItems(next)
+    return id
+  }, [items, loaded])
   const removeFromFolder = useCallback((id, sticker) => {
     const key = stickerKey(sticker)
     setItems((prev) => ({
@@ -122,6 +150,7 @@ export function useCustomDecor() {
     renameFolder,
     removeFolder,
     addToFolder,
+    saveGenerated,
     removeFromFolder,
     toggleFavorite,
     setCategoryOrder,

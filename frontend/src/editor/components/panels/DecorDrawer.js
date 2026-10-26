@@ -20,6 +20,8 @@ import TapeCropper from './TapeCropper'
 import TapeOptions from './TapeOptions'
 import TapeView from '../canvas/TapeView'
 import RecentPhotos from './RecentPhotos'
+import StickerSplitModal from './StickerSplitModal'
+import { stickerSplit } from '../../services/stickerSplit'
 
 export const DRAWER_TABS = [
   { id: 'sticker', name: '스티커', icon: 'sticker' },
@@ -79,6 +81,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
   const [editingList, setEditingList] = useState(false) // 분류 목록 편집 (순서·숨기기)
   const [listDragging, setListDragging] = useState(false) // 목록 편집에서 끄는 중이면 목록 스크롤을 멈춘다
   const [folderDraft, setFolderDraft] = useState(null) // 새 폴더·이름 바꾸기 입력 { id?, name }
+  const [splitTarget, setSplitTarget] = useState(null)
   // 새 테이프의 색·규격·무늬만 기기별로 기억한다. 기존 캔버스 요소는 수정하지 않는다.
   const [tapePreferences, updateTapePreferences, tapePreferencesReady] = useTapePreferences()
   const tapeSize = TAPE_SIZES.find(item => item.id === tapePreferences.size)
@@ -328,6 +331,15 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
               </Pressable>
             </View>
           )}
+          {tab === 'sticker' && !editingList && <View style={{ gap: 4, marginTop: 8 }}>
+            <Pressable accessibilityRole="button" accessibilityLabel="이미지에서 스티커 만들기" accessibilityState={{ disabled: !stickerSplit.available }}
+              disabled={!stickerSplit.available || busy || !custom.loaded}
+              onPress={() => setSplitTarget({ folder, name: folderDraft?.name ?? '' })}
+              style={[styles.folderInputButton, styles.folderOk, !stickerSplit.available && { opacity: DISABLED_OPACITY }]}>
+              <Text style={styles.folderOkText}>이미지에서 스티커 만들기{folder ? ` · ${folder.name}` : ''}</Text>
+            </Pressable>
+            {!stickerSplit.available && <Text style={{ color: colors.textMuted, fontSize: 11 }}>{stickerSplit.reason}</Text>}
+          </View>}
         </View>
       )}
 
@@ -504,6 +516,13 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
           }}
         />
       )}
+      {splitTarget && <StickerSplitModal folder={splitTarget.folder} initialName={splitTarget.name}
+        onClose={() => setSplitTarget(null)} onSave={async (folderId, name, stickers) => {
+          if (orderable.some(item => item.name === name.trim() && item.id !== `folder:${folderId}`)) throw new Error('같은 이름의 폴더나 분류가 있어요.')
+          const id = await custom.saveGenerated(folderId, name, stickers)
+          setCategory(`folder:${id}`); setFolderDraft(null)
+          onToast(`${stickers.length}개 스티커를 폴더에 저장했어요.`)
+        }} />}
       <View
         {...resizeHandlers}
         style={styles.resize}
