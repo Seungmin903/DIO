@@ -12,6 +12,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -23,11 +25,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:login-tests;MODE=PostgreSQL",
-    "dio.signup.verification-secret=testing-only-secret-at-least-32-bytes-long",
-    "dio.auth.jwt-secret=dGVzdGluZy1vbmx5LWtleS1mb3ItYXV0aC0zMi1ieXRlcw=="
+    "dio.signup.verification-secret=testing-only-secret-at-least-32-bytes-long"
 })
 @AutoConfigureMockMvc @ActiveProfiles("test")
 class EmailLoginTests {
+    @DynamicPropertySource
+    static void temporaryJwtKey(DynamicPropertyRegistry registry) {
+        // 테스트 컨텍스트 전용 키이며 코드나 파일에 고정 자격 증명을 보관하지 않는다.
+        byte[] bytes = new byte[32];
+        new java.security.SecureRandom().nextBytes(bytes);
+        String key = java.util.Base64.getEncoder().encodeToString(bytes);
+        registry.add("dio.auth.jwt-secret", () -> key);
+    }
     static final String EMAIL = "member@example.com";
     @Autowired MockMvc mvc;
     @Autowired EmailLoginService service;
