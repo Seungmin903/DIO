@@ -13,7 +13,8 @@ export async function readAsset(asset) {
   try {
     const file = new File(asset.uri)
     const handle = file.open(FileMode.ReadOnly)
-    try { return { source: file, size: file.size, header: handle.readBytes(64) } }
+    // SDK 58 readBytes is asynchronous: keep the handle open until the read settles.
+    try { return { source: file, size: file.size, header: await handle.readBytes(64) } }
     finally { handle.close() }
   } catch (error) { throw new MediaError('MEDIA_READ_FAILED', '선택한 파일을 읽지 못했어요. 다시 선택해 주세요.', error) }
 }
@@ -50,7 +51,7 @@ export async function get(id) {
     const blob = original(media)
     if (!blob.exists) throw new MediaError('MEDIA_NOT_FOUND', '저장된 원본 이미지를 찾을 수 없어요.')
     const handle = blob.open(FileMode.ReadOnly)
-    try { validateStoredOriginal(handle.readBytes(64), blob.size, media) } finally { handle.close() }
+    try { validateStoredOriginal(await handle.readBytes(64), blob.size, media) } finally { handle.close() }
     const preview = displayFile(media)
     return { media, blob, displayBlob: preview?.exists ? preview : null }
   } catch (error) { throw storageError(error, 'STORAGE_READ_FAILED') }
