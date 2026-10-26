@@ -1,0 +1,4063 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIO 온라인 속지 · 에셋 제안안</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap">
+<style>
+:root { --ink:#1D1D1F; --muted:#6B7280; --line:#E5E7EB; --bg:#FFFFFF; --soft:#F6F5F2; --accent:#5B6BC0; --accent-soft:#EDF0FA; --star:#B8860B; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.65 "Nanum Gothic","Malgun Gothic","Noto Sans KR",sans-serif; word-break:keep-all; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+.wrap { display:grid; grid-template-columns:240px minmax(0,1fr); min-height:100vh; }
+nav { position:sticky; top:0; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--soft); }
+nav .brand { font-weight:800; font-size:13px; letter-spacing:.08em; color:var(--muted); margin-bottom:12px; }
+nav ol { list-style:none; margin:0; padding:0; } nav li { margin:0 0 4px; }
+nav a { display:block; padding:7px 10px; border-radius:8px; color:var(--ink); font-size:13.5px; line-height:1.35; }
+nav a:hover, nav a.on { background:var(--accent-soft); color:var(--accent); text-decoration:none; }
+nav .hint { margin-top:20px; font-size:12px; color:var(--muted); line-height:1.5; }
+main { padding:32px 48px 96px; max-width:1240px; }
+.doc { padding-bottom:40px; margin-bottom:40px; border-bottom:2px solid var(--line); }
+.doc:last-child { border-bottom:0; }
+h1 { font-size:27px; margin:8px 0 16px; line-height:1.3; } h2 { font-size:20px; margin:40px 0 12px; padding-top:8px; border-top:1px solid var(--line); }
+h3 { font-size:16px; margin:28px 0 8px; }
+blockquote { margin:0 0 20px; padding:12px 16px; background:var(--accent-soft); border-left:4px solid var(--accent); border-radius:0 8px 8px 0; font-size:13.5px; color:#374151; }
+blockquote p { margin:0; }
+table { border-collapse:collapse; width:100%; margin:12px 0 20px; font-size:13px; line-height:1.5; display:block; overflow-x:auto; }
+thead th { background:var(--soft); text-align:left; font-weight:700; position:sticky; top:0; }
+th, td { border:1px solid var(--line); padding:7px 9px; vertical-align:top; }
+tbody tr:nth-child(even) td { background:#FBFBFA; }
+td:first-child, th:first-child { white-space:nowrap; }
+img { max-width:100%; height:auto; border:1px solid var(--line); border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+td img { display:block; } td:has(> img), th:has(> img) { white-space:normal; }
+.shots { display:flex; flex-wrap:wrap; gap:16px 20px; align-items:flex-start; margin:12px 0 16px; }
+.shots figure { margin:0; } .shots img { height:400px; width:auto; max-width:100%; }
+.shots figcaption { margin-top:6px; font-size:12px; color:var(--muted); }
+.sec3 table { max-width:900px; }
+code { font:12.5px/1.4 ui-monospace,Consolas,monospace; background:var(--soft); padding:1px 5px; border-radius:4px; }
+li { margin:3px 0; } hr { border:0; border-top:1px solid var(--line); margin:28px 0; }
+strong { font-weight:800; }
+.doc h1::before { content:""; display:block; height:0; }
+@media (max-width:900px) { .wrap { grid-template-columns:1fr; } nav { position:static; height:auto; border-right:0; border-bottom:1px solid var(--line); } main { padding:20px 16px 60px; } }
+@media print {
+  @page { size:A4 landscape; margin:12mm 12mm 14mm; }
+  body { font-size:11px; } .wrap { display:block; } nav { display:none; } main { padding:0; max-width:none; }
+  .doc { break-before:page; border:0; margin:0; padding:0; } .doc:first-child { break-before:auto; }
+  h2 { break-after:avoid; } h3 { break-after:avoid; } table { display:table; font-size:9.5px; } tr { break-inside:avoid; } thead { display:table-header-group; }
+  img { box-shadow:none; max-height:150mm; }
+  /* 한 콘텐츠 = 한 쪽: 절 블록은 남는 자리에 들어가면 그대로, 아니면 다음 쪽으로. h3가 있는 절은 h3 단위로 */
+  .sec2:not(.has3), .sec3 { break-inside:avoid; }
+  .shots { flex-wrap:nowrap; gap:0 8mm; margin:3mm 0 4mm; } .shots img { height:92mm; width:auto; } .shots figcaption { font-size:8.5px; margin-top:1.5mm; }
+  .sec3 h3 { margin-top:4mm; } .sec3 table { font-size:9px; }
+  a { color:var(--ink); } blockquote { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  thead th, tbody tr:nth-child(even) td { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+<div class="brand">DIO · 제안안</div>
+<ol>
+<li><a href="#doc-00">온라인 속지 · 에셋 제안안 (레퍼런스 서치 기반)</a></li>
+<li><a href="#doc-01">1. 조사 — 한국 다꾸 유저는 지금 무엇을 하고 있나</a></li>
+<li><a href="#doc-02">2. 온라인 속지 — &quot;살아 있는 속지&quot; 제안</a></li>
+<li><a href="#doc-03">3. 속지 카탈로그 — 묶음별 제안 (총 120여 종)</a></li>
+<li><a href="#doc-04">4. 에셋 카탈로그 — 스티커 · 테이프 · 종이 · 글씨 · 소품</a></li>
+<li><a href="#doc-05">5. 테마 팩 구성과 BM · 로드맵</a></li>
+<li><a href="#doc-06">6. 속지 디자인 제안 — 20종 × 가로 · 세로</a></li>
+</ol>
+<div class="hint">원본은 같은 폴더의 md 파일. 이 html·pdf는 빌드.py로 다시 만든다.</div>
+</nav>
+<main>
+<section class="doc" id="doc-00" data-title="온라인 속지 · 에셋 제안안 (레퍼런스 서치 기반)">
+<h1 id="온라인-속지-에셋-제안안-레퍼런스-서치-기반">온라인 속지 · 에셋 제안안 (레퍼런스 서치 기반)</h1>
+<blockquote>
+<p>작성일: 2026-10-25 · 담당: 황민희 · 기준: <a href="../../디자인%20가이드.md">디자인 가이드</a><br>
+출발점: 2026-10-25 피드백 메모 — "속지의 기능들을 온라인화하자(보드게임처럼 같이 칸 채우면 알림)", "스코어보드 자동 속지", "속지 · 에셋 많이 뽑아보기(레퍼런스 서치 기반)".<br>
+상태: <strong>검토안</strong>. 채택 · 보류 · 반려는 각 표의 ★(1차 추천)을 기준으로 팀에서 정한다.<br>
+<strong>크롬에서 바로 보기</strong>: <a href="온라인%20속지%20아이디어.html">온라인 속지 아이디어.html</a> (왼쪽 메뉴로 문서 간 이동) · <a href="온라인%20속지%20아이디어.pdf">온라인 속지 아이디어.pdf</a> (A4 가로). md가 원본이며 <code>python "docs/속지 에셋 아이디어/1차 제안안/빌드.py"</code>로 둘 다 다시 만든다.</p>
+</blockquote>
+<div class="sec2"><h2 id="문서">문서</h2>
+<table>
+<thead>
+<tr>
+<th>문서</th>
+<th>내용</th>
+<th>분량</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#doc-01">01 조사</a></td>
+<td>한국 다꾸 유저가 2025~2026에 무엇을 하는지: 시장 수치 · 왜 하나 · 유저 갈래와 은어 · 팔리는 속지 형식 · 재료 용어 · 기법과 컨셉 · 작가 · 캐릭터 · 덕질 · 직관 앱 · 함께 쓰는 앱 · 디지털 문방구 앱, 시사점 10</td>
+<td>조사</td>
+</tr>
+<tr>
+<td><a href="#doc-02">02 온라인 속지</a></td>
+<td><strong>온라인 속지("살아 있는 속지") 제안</strong> — A 자동 채움 15 · B 함께 채우기 17 · C 시간이 흐르는 속지 12 · D 바깥과 이어진 속지 10, 공통 규칙, 1~3차 우선순위</td>
+<td>핵심 제안</td>
+</tr>
+<tr>
+<td><a href="#doc-03">03 속지 카탈로그</a></td>
+<td>속지 카탈로그 120여 종 (노트 · 플래너 · 일기 · 취향 기록 · 덕질 · 직관 · 함께 · 시즌 · 구조) + 프리셋 6</td>
+<td>카탈로그</td>
+</tr>
+<tr>
+<td><a href="#doc-04">04 에셋 카탈로그</a></td>
+<td>에셋 카탈로그 (스티커 33 · 테이프 11 · 종이 8 · 사진 틀 10 · 상태 소품 8 · 글씨 8 · 재질 8 · 내 에셋 6) + 지금 자산으로 바로 되는 것</td>
+<td>카탈로그</td>
+</tr>
+<tr>
+<td><a href="#doc-05">05 테마팩과 BM</a></td>
+<td>테마 팩 12종 구성 · BM(구독 · 낱개 · 광고 제거 · 친구 초대 · 방 나눔 · 작가 마켓 · 인쇄) · 로드맵 · 손글씨 메모 대응표</td>
+<td>묶음 · 수익</td>
+</tr>
+<tr>
+<td><a href="#doc-06">06 속지 디자인</a></td>
+<td><strong>속지 디자인 제안 20종 × 가로 · 세로 이미지</strong>(1차 추천 + 온라인 1차 + 야구 · 포카 · 독서 · 콘서트), 칸 구성 · 상태 · 자동 · 알림 설계 표. 원본 SVG는 <code>벡터원본/</code>, <code>속지_디자인.py</code>로 생성</td>
+<td>디자인</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="한눈에-보기">한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th>질문</th>
+<th>답 (근거는 01)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>지금 다꾸 유저는 누구인가</td>
+<td>꾸미기파(스꾸) · 기록파(1D1P · 질문 365 · 트래커) · 덕질파(포카 · 직관) · 함께파(교환일기 · 카꾸) 네 갈래</td>
+</tr>
+<tr>
+<td>시장은</td>
+<td>2027 다이어리가 <strong>9월부터</strong> 팔리고 스티커 · 다꾸 용품 거래액 +65% (에이블리, 2026-10). 판매가 "일정 기록"에서 "취향으로 고르기"로 바뀌는 중</td>
+</tr>
+<tr>
+<td>디지털에 가장 빠진 재료는</td>
+<td>글씨 쓰는 스티커(모조지) · 떡메 · 배경용 마테 · 키스컷 · 재질(투명 · 홀로그램 · 트레이싱지) · 찢은 테이프 끝</td>
+</tr>
+<tr>
+<td>어느 앱도 안 하는 것은</td>
+<td><strong>같이 채우면 알림이 오는 속지</strong>. 교환일기 앱은 못 꾸미고, 문방구 앱은 혼자 쓰고, 직관 앱은 자동이지만 못 꾸민다</td>
+</tr>
+<tr>
+<td>그래서 온라인 속지란</td>
+<td>종이 속지는 인쇄된 칸. 온라인 속지는 ① 스스로 채워지고 ② 여럿이 같이 채우고 ③ 시간이 지나면 변하고 ④ 바깥과 이어지는 칸</td>
+</tr>
+<tr>
+<td>먼저 할 것</td>
+<td>빙고 · 질문 릴레이 · 교환일기 턴 · 출석 도장판 · 타임캡슐 · 일력 마테 (외부 의존 없음) → 기록 속지 · 포카 바인더 → 야구 스코어보드 자동</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="추천-1차">추천 (1차)</h2>
+<ul>
+<li><strong>온라인 속지 7</strong>: B1 빙고 · B2 질문 릴레이 · B3 교환일기 턴 · B9 출석 도장판 · C1 타임캡슐 · C2 일력 마테 · A11 디데이. 칸 상태 4종(비어 있음 · 채워짐 · 잠김 · 숨김)과 알림 사건 5종으로 모두 설명된다.</li>
+<li><strong>속지 13</strong>: 도트 · 코넬 · 원고지 · 1D1P · 3개 습관 · 질문 365 · 무드 트래커 · 빙고 · 질문 릴레이 · 교환일기 · 출석 · 인덱스 탭 · 트레이싱 간지.</li>
+<li><strong>에셋 12묶음</strong>: 모조지 스티커 · 한글 글자 스티커 · 데코 기본 · 날짜 도장 · 찢은 테이프 끝 · 일력 마테 · 질감지 · 폴라로이드 · 4컷 · 상태 소품(스크래치 · 봉투 · 자물쇠 · 턴 펜 · 아바타) · 내 사진 스티커 · 톤온톤 팔레트.</li>
+<li><strong>팩 4</strong>: 베이식(무료) · 몽글 파스텔 · 우리 교환일기 · 모노 미니멀. 시즌 팩은 2026-09에 열었어야 하는 주기이므로 2027 날짜형은 가장 먼저 준비.</li>
+</ul>
+</div><div class="sec2"><h2 id="하지-않기로-한-것">하지 않기로 한 것</h2>
+<ul>
+<li>라이선스 없는 캐릭터 IP(먼작귀 · 산리오 등). 대신 내 에셋 · 작가 마켓 · 자체 마스코트.</li>
+<li>속지 위 광고. 광고는 상점 · 목록에만, 구독의 유인으로.</li>
+<li>노래 · 걸음 · 장소 · 영수증 인식 자동 채움은 보류(권한 · 정확도).</li>
+</ul>
+</div><div class="sec2"><h2 id="다음-할-일">다음 할 일</h2>
+<ol>
+<li>팀 검토: 02 §6 우선순위와 05 §4 로드맵의 1차 묶음 확정.</li>
+<li>1차 온라인 속지의 <strong>칸 모델</strong>(칸 상태 4종 · 사건 5종)을 API 계약으로 옮기기 (docs/다이어리 저장/다이어리 API.md 확장).</li>
+<li>질문 365 · 빙고 추천 주제의 <strong>문구 뱅크</strong> 작성(디자인 가이드 §8 글쓰기 규칙).</li>
+<li>1차 에셋 12묶음의 시안: 04 §9 "지금 자산으로 바로 되는 것"부터.</li>
+<li>2027 날짜형 속지 제작 일정 잡기(9월 오픈 주기).</li>
+</ol></div>
+</section><section class="doc" id="doc-01" data-title="1. 조사 — 한국 다꾸 유저는 지금 무엇을 하고 있나">
+<h1 id="1-조사-한국-다꾸-유저는-지금-무엇을-하고-있나">1. 조사 — 한국 다꾸 유저는 지금 무엇을 하고 있나</h1>
+<blockquote>
+<p>작성일: 2026-10-25 · 조사 방법: 웹 검색(기사 · 판매처 · 작가 안내서 · 앱 스토어) · 기준 시점 2025~2026<br>
+읽는 법: 각 절 끝의 <strong>→ 우리에게</strong> 줄이 제안으로 이어지는 고리다. 출처는 절마다 붙였고, 수치는 출처 기준이라 집계 시점이 다를 수 있다.</p>
+</blockquote>
+<div class="sec2"><h2 id="11-시장-문구-다꾸는-커지고-있고-시즌이-앞당겨졌다">1.1 시장: 문구 · 다꾸는 커지고 있고, 시즌이 앞당겨졌다</h2>
+<table>
+<thead>
+<tr>
+<th>사실</th>
+<th>수치</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2027 다이어리가 <strong>9월부터</strong> 팔린다 (새해 두 달 전)</td>
+<td>에이블리 9/15~10/1 문구 거래액 전년 대비 +27%, <strong>스티커 · 다꾸 용품 +65%, 다이어리 +65%</strong></td>
+<td><a href="https://www.segye.com/newsView/20261013506731">세계일보 2026-10-13</a></td>
+</tr>
+<tr>
+<td>지난해도 같은 흐름</td>
+<td>2025년 10월 다이어리 거래액 전월 대비 +61%</td>
+<td>같은 기사</td>
+</tr>
+<tr>
+<td>디자이너 문구가 큰다</td>
+<td>29CM 2024년 12월 문구 거래액 전년 대비 +74%, 포인트오브뷰는 1년 새 거래액 10배</td>
+<td><a href="https://www.newsis.com/view/NISX20250109_0003026144">뉴시스 2025-01-09</a></td>
+</tr>
+<tr>
+<td>뷰티 채널까지 문구를 판다</td>
+<td>올리브영 × 포인트오브뷰 2026 다이어리 · 스티커 · 캘린더 세트</td>
+<td><a href="https://ohou.se/advices/7569">오늘의집 다꾸 브랜드 6</a> · <a href="https://m.oliveyoung.co.kr/m/mtn/brand/A020205">올리브영 브랜드관</a></td>
+</tr>
+<tr>
+<td>서점에서도 다이어리가 상위</td>
+<td>교보문고 2026 상반기 종합 검색어 8위 '다이어리', 2025 종합 베스트셀러전 8위</td>
+<td><a href="https://event.kyobobook.co.kr/make/247022">교보문고 2026 상반기</a> · <a href="https://event.kyobobook.co.kr/detail/241951">2025 베스트셀러전</a></td>
+</tr>
+<tr>
+<td>SNS 규모</td>
+<td>#다꾸 345만~400만 건 (집계 시점에 따라 다름)</td>
+<td><a href="https://www.civicnews.com/news/articleView.html?idxno=34609">시빅뉴스</a> · <a href="https://busan.nanet.go.kr/bookPromotion/bookPromotionDetail.do?seq=24">국회부산도서관</a></td>
+</tr>
+<tr>
+<td>판매 방식이 바뀐다</td>
+<td>"일정 기록 중심 → <strong>취향에 따라 고르는</strong> 형태", 캐릭터 · 움직이는 일러스트 사은품 · 한정판 · 세트</td>
+<td>세계일보 기사</td>
+</tr>
+</tbody>
+</table>
+<p>핫트랙스 베스트에는 양지 유즈어리(만년형), 캐주얼플래너 <strong>1D1P</strong>(하루 한 쪽), <strong>자문자답 다이어리 V.2</strong>(질문 · 문답)가 올라 있다 (<a href="https://hottracks.kyobobook.co.kr/gift/01/08?pcMode=on">핫트랙스 2026 다이어리</a>). 에이블리 얼리버드에는 아이코닉 · 인디고 · 비온뒤 · 모트모트 · 아트박스 · 워너디스 · 양지사(50주년 한정판) · 로이텀 · 프롬디얼리던이 참여했다.</p>
+<p><strong>→ 우리에게</strong>: ① 시즌 한정 팩은 <strong>9월에</strong> 열어야 한다. ② 날짜형 한 가지가 아니라 "취향으로 고르는" 묶음이 팔린다. ③ 질문형 · 1D1P 같은 <strong>형식 자체가 상품</strong>이다.</p>
+</div><div class="sec2"><h2 id="12-왜-하나-디지털-피로의-반작용-그리고-내-추구미">1.2 왜 하나: 디지털 피로의 반작용, 그리고 '내 추구미'</h2>
+<ul>
+<li>경남신문은 다꾸를 MZ세대의 <strong>디지털 디톡스</strong> 욕구에 대한 답으로 본다. SNS의 연출된 일상과 달리 "오로지 제 추구미로 꾸밀 수 있는 게 좋아요"라는 인터뷰가 실렸다 (<a href="https://www.knnews.co.kr/news/articleView.php?idxno=1419814">경남신문</a>).</li>
+<li>시빅뉴스는 다꾸가 취미를 넘어 <strong>자기표현의 창이자 심리적 안정 루틴</strong>이 되었다고 분석한다 (<a href="https://www.civicnews.com/news/articleView.html?idxno=39117">시빅뉴스</a>). 같은 매체는 2026년 갓생의 핵심으로 숏폼을 스스로 조절하는 '디지털 소브리에티'를 꼽았다 (<a href="https://www.civicnews.com/news/articleView.html?idxno=39612">시빅뉴스 2026</a>).</li>
+<li>대학내일은 Z세대 흐름을 갓생이 아니라 <strong>'진생'</strong>(느린 여가 · 아날로그 취미)으로 설명한다 (<a href="https://www.youtube.com/watch?v=YtIn8lWW4q8">KBS 2026-05-14</a>).</li>
+<li>『트렌드 코리아 2026』의 축 하나는 AI, 다른 축은 그 반작용인 <strong>근본이즘</strong>(본질적 · 인간적 요소)이다. 여러 트렌드를 짧게 옮겨 다니는 <strong>픽셀라이프</strong>도 키워드다 (<a href="https://nocutnews.co.kr/news/6405225">노컷뉴스</a>).</li>
+<li>빅이슈는 "요즘 다꾸는 일기보다 <strong>꾸미는 쪽 비중이 더 크다</strong>"고 썼다 (<a href="https://www.bigissue.kr/magazine/new/270/1241">빅이슈</a>).</li>
+</ul>
+<p><strong>→ 우리에게</strong>: 디지털 앱인데도 "손맛 · 느림 · 내 취향"이 느껴져야 한다. 기능보다 <strong>연출(넘기기, 뜯기, 붙이기)</strong>이 먼저다. 메모의 "속지 삽입 연출을 다이어리스럽게"와 같은 결론.</p>
+</div><div class="sec2"><h2 id="13-유저-갈래-o꾸와-은어">1.3 유저 갈래: 'O꾸'와 은어</h2>
+<table>
+<thead>
+<tr>
+<th>말</th>
+<th>뜻</th>
+<th>메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>다꾸 · <strong>디다꾸</strong></td>
+<td>다이어리 꾸미기 · 디지털 다이어리 꾸미기</td>
+<td>디다꾸는 굿노트 · 갤럭시탭 중심</td>
+</tr>
+<tr>
+<td>폰꾸 · 탑꾸 · 폴꾸 · 앨꾸 · 신꾸 · 방꾸</td>
+<td>폰 · 탑로더 · 폴라로이드 · 앨범 · 신발 · 방 꾸미기</td>
+<td>포카 꾸미기는 다꾸에서 파생 (<a href="https://namu.wiki/w/%ED%8F%AC%ED%86%A0%20%EC%B9%B4%EB%93%9C">나무위키 포토 카드</a>)</td>
+</tr>
+<tr>
+<td>스꾸</td>
+<td>글 없이 스티커만으로 꾸미기</td>
+<td>글쓰기 부담 없는 진입점</td>
+</tr>
+<tr>
+<td>카꾸 · 다놀</td>
+<td>카페에서 다꾸 · 다꾸하고 놀기</td>
+<td>다꾸는 <strong>같이 하는 놀이</strong>이기도 하다</td>
+</tr>
+<tr>
+<td>띵</td>
+<td>양 많은 용품을 나눠 사기 (떡메 50장을 25장씩)</td>
+<td>나눔 문화 → 방 안 스티커 나눔</td>
+</tr>
+<tr>
+<td>통판</td>
+<td>작가의 개인 판매. 트웬티 · 젤리크루 앱, 인스타 공지</td>
+<td>작가 마켓 구조</td>
+</tr>
+<tr>
+<td>예절샷 · 덤</td>
+<td>꾸민 포카와 음식 사진 · 거래 시 동봉하는 스티커 조각</td>
+<td>덤은 다꾸 남은 스티커 우편에서 유래</td>
+</tr>
+<tr>
+<td>공스타그램</td>
+<td>스터디 플래너 · 공부 시간 · 문제집 인증</td>
+<td>2022 인스타 인기 해시태그 (<a href="https://edaily.co.kr/News/Read?mediaCodeNo=257&amp;newsId=02076246632558192">이데일리</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>출처: <a href="https://www.postype.com/@record-addiction0/post/17419461">다꾸 길잡이 안내서</a> · <a href="https://www.knnews.co.kr/news/articleView.php?idxno=1419814">경남신문</a> · <a href="https://www.civicnews.com/news/articleView.html?idxno=34609">시빅뉴스</a></p>
+<p><strong>→ 우리에게</strong>: 유저는 하나가 아니다. <strong>꾸미기파(스꾸) · 기록파(플래너 · 질문) · 덕질파(포카 · 직관) · 함께파(교환일기 · 카꾸)</strong> 네 갈래로 속지를 나눠 제안한다.</p>
+</div><div class="sec2"><h2 id="14-속지-지금-팔리는-형식">1.4 속지: 지금 팔리는 형식</h2>
+<table>
+<thead>
+<tr>
+<th>형식</th>
+<th>설명</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>먼슬리 · 위클리 · 데일리 풀세트</td>
+<td>6공 기본. 라인 · 모눈 · 무지 바탕 포함</td>
+<td><a href="https://www.yes24.com/Product/Goods/93400213">예스24 6공 풀세트</a> · <a href="https://yudaeng.com/product/a5-6%EA%B3%B5%EB%8B%A4%EC%9D%B4%EC%96%B4%EB%A6%AC-%EB%B0%B1%EC%83%89-%EC%86%8D%EC%A7%80-%EB%AA%A8%EB%88%88-%EB%9D%BC%EC%9D%B8-%EB%AC%B4%EC%A7%80-%EB%A8%BC%EC%8A%AC%EB%A6%AC-%EC%9C%84%ED%81%B4%EB%A6%AC-%EB%8D%B0%EC%9D%BC%EB%A6%AC/17/">유댕닷컴</a></td>
+</tr>
+<tr>
+<td>1D1P (하루 한 쪽)</td>
+<td>캐주얼플래너 1D1P 25절</td>
+<td>핫트랙스 베스트</td>
+</tr>
+<tr>
+<td>자문자답 · 질문 일기 365</td>
+<td>한 쪽에 질문 하나, 366문. 미니 크기 "부담 없이"</td>
+<td><a href="https://indigostory.co.kr/product/%EB%A7%8C%EB%85%84%ED%98%95-%ED%96%89%EB%B3%B5-%EC%A7%88%EB%AC%B8-%EC%9D%BC%EA%B8%B0-365-qa-%EC%9E%90%EB%AC%B8%EC%9E%90%EB%8B%B5-%EB%8D%B0%EC%9D%BC%EB%A6%AC-%EB%8B%A4%EC%9D%B4%EC%96%B4%EB%A6%AC/1067/">인디고</a></td>
+</tr>
+<tr>
+<td>타임라인 · 1시간 다이어리</td>
+<td>하루를 시간 순서로. 다한다 1시간 다이어리 추천</td>
+<td>다꾸 길잡이</td>
+</tr>
+<tr>
+<td>불렛저널</td>
+<td>하루 정리 · 월간 계획 · 목표를 한 권에</td>
+<td>다꾸 길잡이</td>
+</tr>
+<tr>
+<td>호보니치 테쵸 · 웍스</td>
+<td>얇은 종이 · 많은 장수, 세로로 긴 웍스</td>
+<td>다꾸 길잡이</td>
+</tr>
+<tr>
+<td>만년형 vs 날짜형</td>
+<td>먼슬리는 월 · 일 시작 두 판, "일기 대신 위클리에 프리노트"</td>
+<td><a href="https://happyfridaymorning.co.kr/858">해피프라이데이 2026 속지</a></td>
+</tr>
+<tr>
+<td>굿노트 하이퍼링크 · 캘린더 연동</td>
+<td>먼슬리 → 데일리 링크, 애플 · 구글 캘린더 연동, 눈 편한 미색 · 무채색</td>
+<td><a href="https://www.postype.com/@notedeperfume/post/20658047">노트드퍼퓸</a> · <a href="https://www.dtgoodnote.com/">DT굿노트</a></td>
+</tr>
+<tr>
+<td>기록 속지 모음 (2026 스타벅스 플래너)</td>
+<td>독서 &amp; 문장 노트 · OOTD · 무드 트래커 · 음료 기록장</td>
+<td><a href="https://goddessul.com/entry/2026-%EC%8A%A4%ED%83%80%EB%B2%85%EC%8A%A4-%EA%B5%BF%EB%85%B8%ED%8A%B8-%EB%94%94%EC%A7%80%ED%84%B8-%ED%94%8C%EB%9E%98%EB%84%88-%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-%EB%B0%A9%EB%B2%95-%EC%9B%94%EB%B3%84-%EC%BA%98%EB%A6%B0%EB%8D%94-%EB%8F%85%EC%84%9C-%EB%AA%85%EC%96%B8-%EB%85%B8%ED%8A%B8-OOTD%EC%98%A4%EB%8A%98%EC%9D%98-%EC%B0%A9%EC%9E%A5-%EB%AC%B4%EB%93%9C-%ED%8A%B8%EB%9E%98%EC%BB%A4-%EC%8A%A4%ED%83%80%EB%B2%85%EC%8A%A4-%EC%9D%8C%EB%A3%8C-%EA%B8%B0%EB%A1%9D%EC%9E%A5">스타벅스 2026 플래너</a></td>
+</tr>
+<tr>
+<td>가계부 · 무드 트래커 · 습관 트래커</td>
+<td>가계부 속지는 "다이어리로도 쓰여 활용도 높다", 연간 무드 색칠</td>
+<td><a href="https://happyfridaymorning.co.kr/842">가계부 속지</a> · <a href="https://www.dtgoodnote.com/?idx=117">DT굿노트 무드트래커</a></td>
+</tr>
+<tr>
+<td>문화생활 · 여행 (노션)</td>
+<td>영화 · 드라마 · 책 · 전시 · 공연 + 보고 싶은 것, 여행 준비물 · 일정 · 경비</td>
+<td><a href="https://sijin.gumroad.com/l/travel-planning">여행</a> · <a href="https://easiary.gumroad.com/l/liferecord">문화생활</a></td>
+</tr>
+<tr>
+<td><strong>야구 직관 다이어리</strong></td>
+<td>팀 정보 · 연간 · 월간 · 주간 · 일간, 일간에 <strong>라인업 · 선발 · 불펜 · 스코어</strong>, 시즌 총평에 <strong>홈 · 원정 승률</strong>; 구단 이모지 스티커 동봉</td>
+<td><a href="https://www.postype.com/@ofourlife/post/18825946">OOL 2025</a> · <a href="https://www.postype.com/@baseballhate/post/18455116">야구 기록지 + 스티커</a></td>
+</tr>
+<tr>
+<td>갓생 루틴 플래너</td>
+<td>형광색으로 영역 나누기, <strong>습관은 3개만</strong> 체크</td>
+<td><a href="https://www.youtube.com/shorts/gHMqHDE_PzQ">유튜브 2026 굿노트 루틴</a></td>
+</tr>
+</tbody>
+</table>
+<p><strong>→ 우리에게</strong>: 지금 우리 속지는 표지 · 구분지 · 먼슬리 · 위클리 2종 · 공용 7종뿐이다. 기록형(질문 · 트래커 · 취향 기록)과 덕질 · 직관형이 통째로 비어 있다. → <a href="#doc-03">03 속지 카탈로그</a></p>
+</div><div class="sec2"><h2 id="15-재료와-용어-스티커-마테-종이">1.5 재료와 용어: 스티커 · 마테 · 종이</h2>
+<table>
+<thead>
+<tr>
+<th>용어</th>
+<th>뜻</th>
+<th>디지털로 옮기면</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>씰스(씰 스티커)</td>
+<td>칼선 있는 낱개 스티커. 대부분의 스티커</td>
+<td>지금의 스티커</td>
+</tr>
+<tr>
+<td>모조지 스티커</td>
+<td><strong>글씨를 쓸 수 있는</strong> 얇은 스티커, 떡메 대용</td>
+<td>글자 입력이 되는 스티커</td>
+</tr>
+<tr>
+<td>리무버블</td>
+<td>떼었다 붙이는 큰 스티커</td>
+<td>크게 깔고 다시 옮기는 배경 스티커</td>
+</tr>
+<tr>
+<td>숫스 · 알스 · 한스</td>
+<td>숫자 · 알파벳 · 한글 스티커</td>
+<td>글꼴별 글자 스티커 세트</td>
+</tr>
+<tr>
+<td>인스</td>
+<td>인물 스티커(작가가 그린 사람)</td>
+<td>얼굴 없는 아바타 · 내 사진 오려 붙이기</td>
+</tr>
+<tr>
+<td>데코</td>
+<td>리본 · 별 · 반짝이 · 꽃 같은 장식</td>
+<td>데코 스티커 묶음</td>
+</tr>
+<tr>
+<td>떡메(떡메모지)</td>
+<td>뒷면 접착 없이 윗부분만 묶인 메모지, 50장 단위</td>
+<td>글 쓰는 메모 블록</td>
+</tr>
+<tr>
+<td>마테 · <strong>키스컷</strong></td>
+<td>마스킹테이프 · 칼선 있는 마테. <strong>배경용</strong>(구름 · 벽돌 · 풀숲) 마테가 는다</td>
+<td>모양 따라 잘리는 테이프 · 배경 테이프</td>
+</tr>
+<tr>
+<td>일력 마테</td>
+<td>하루 한 조각씩 뜯는 달력 마테 (롤드페인트)</td>
+<td>날짜가 찍힌 테이프, 하루 한 조각</td>
+</tr>
+<tr>
+<td>라벨 · 인덱스 라벨</td>
+<td>산업적 · 정보 전달용 (플래그)</td>
+<td>라벨 스티커 · 인덱스 탭</td>
+</tr>
+<tr>
+<td>띠부씰</td>
+<td>레트로 · 매끈 2종 용지, 빈티지 다꾸용</td>
+<td>재질 옵션</td>
+</tr>
+<tr>
+<td>홀로그램 · 투명 · 매트펄 · 반짝이 씰</td>
+<td>용지 종류</td>
+<td>재질 레이어(반짝임 · 투명도)</td>
+</tr>
+<tr>
+<td>배경지</td>
+<td>바탕에 까는 종이. 빈티지 풍경 · 수제지 패턴</td>
+<td>배경 레이어</td>
+</tr>
+<tr>
+<td>트레이싱지 · OPP</td>
+<td>비치는 종이 · 비닐. 사진 액자는 속지를 사진보다 작게 잘라 OPP를 뒷면에</td>
+<td>반투명 덮개 · 포켓</td>
+</tr>
+<tr>
+<td>우표 · 영수증 · 티켓</td>
+<td>콜라주 재료 (모퉁이우표점)</td>
+<td>종이 소품 스티커</td>
+</tr>
+<tr>
+<td>모서리 펀치 · 타공 · 커터칼 · 핀셋</td>
+<td>도구</td>
+<td>모서리 둥글리기 · 6공 표현 · 자르기</td>
+</tr>
+</tbody>
+</table>
+<p>출처: <a href="https://www.postype.com/@record-addiction0/post/17419461">다꾸 길잡이 안내서</a> · <a href="https://www.publog.co.kr/blog/publog-deco-sticker-guide-2026">퍼블로그 스티커 가이드 2026</a> · <a href="https://heypop.kr/n/139538/">헤이팝 문구 브랜드 5</a> · <a href="https://theqoo.net/diy/1300653419">더쿠 다꾸 팁</a> · <a href="https://m.bunjang.co.kr/keywords/%EB%8B%A4%EA%BE%B8%EB%B0%B0%EA%B2%BD">번개장터 다꾸배경</a></p>
+<p><strong>→ 우리에게</strong>: 지금 스티커는 이모지 68종, 테이프는 기하 무늬 18종이다. 모조지(쓰는 스티커) · 키스컷 · 배경 마테 · 재질 · 종이 소품이 없다. → <a href="#doc-04">04 에셋 카탈로그</a></p>
+</div><div class="sec2"><h2 id="16-기법과-컨셉">1.6 기법과 컨셉</h2>
+<table>
+<thead>
+<tr>
+<th>기법 · 컨셉</th>
+<th>내용</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>색 맞추기 (톤온톤)</td>
+<td>재료 색을 맞추면 통일감. 톤온톤 스티커 세트가 팔린다</td>
+<td><a href="https://www.bigissue.kr/magazine/new/270/1241">빅이슈</a> · DT굿노트</td>
+</tr>
+<tr>
+<td>구도 먼저, 빈틈 없이</td>
+<td>여백이 많을수록 오히려 눈에 띈다</td>
+<td><a href="https://theqoo.net/diy/1300653419">더쿠</a></td>
+</tr>
+<tr>
+<td>사진 액자</td>
+<td>속지를 사진보다 약간 작게 잘라 뒤에 OPP</td>
+<td>더쿠</td>
+</tr>
+<tr>
+<td>스꾸 → 스티커 + 손글씨</td>
+<td>스티커 붙이고 남은 자리에 글</td>
+<td>다꾸 길잡이</td>
+</tr>
+<tr>
+<td>컨셉: 큐티 · 키치 · 빈티지</td>
+<td>스티커를 컨셉으로 고른다</td>
+<td>다꾸 길잡이</td>
+</tr>
+<tr>
+<td><strong>Y2K</strong></td>
+<td>잡지 · 신문 스크랩을 6공에 가득, 비비드 · 키치</td>
+<td><a href="https://www.openads.co.kr/content/contentDetail?contsId=11227">오픈애즈 Y2K</a></td>
+</tr>
+<tr>
+<td>빈티지</td>
+<td>앤틱 스티커북 · 배경지 · 콜라주 엽서 · 마테컷 거래</td>
+<td><a href="https://m.bunjang.co.kr/search/products?q=%EB%B9%88%ED%8B%B0%EC%A7%80%EB%8B%A4%EA%BE%B8">번개장터 빈티지다꾸</a></td>
+</tr>
+<tr>
+<td>코티지코어</td>
+<td>수공예 · 빈티지 · 꽃과 식물</td>
+<td><a href="https://www.handmk.com/news/articleView.html?idxno=12761">핸드메이커</a></td>
+</tr>
+<tr>
+<td>미니멀 · 미색 · 무채색</td>
+<td>눈 편한 배경, "미니멀리즘 · 생산성" 키워드 (판매 문구)</td>
+<td>DT굿노트 · 에이블리</td>
+</tr>
+<tr>
+<td>손그림 · 크레파스 질감</td>
+<td>2026 PDF 다이어리를 "실제 크레파스로 그린 듯" 제작</td>
+<td><a href="https://www.yeogunbong.com/post/2026%EB%85%84-%EC%97%AC%EA%B1%B4%EB%B4%89-%EB%8B%A4%EA%BE%B8%ED%85%9C-pdf%EB%8B%A4%EC%9D%B4%EC%96%B4%EB%A6%AC-%EC%B6%9C%EC%8B%9C">여건봉 2026</a> · 구버 크레용 (<a href="https://heypop.kr/n/139538/">헤이팝</a>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>→ 우리에게</strong>: 테마 팩은 <strong>컨셉 단위</strong>(빈티지 · 키치 Y2K · 코티지 · 몽글 파스텔 · 모노)로 묶고, 팩 안에 톤온톤 팔레트를 넣어 "색 맞추기"가 저절로 되게 한다. → <a href="#doc-05">05 테마 팩 · BM</a></p>
+</div><div class="sec2"><h2 id="17-작가-브랜드-캐릭터">1.7 작가 · 브랜드 · 캐릭터</h2>
+<ul>
+<li><strong>작가 생태계</strong>: 캐릭터(우이 · 플러피띵스 · 메밀솝 …), 인물(도미월드 · 밀키하트 …), 알파벳(럽알파벳 · 폴티커), 데코(펄리버튼 · 훈찌상점 …) 작가가 통판으로 판다. 트웬티 앱은 작가 구독 → 통판 알림, 젤리크루는 모아보기 (<a href="https://www.postype.com/@record-addiction0/post/17419461">다꾸 길잡이</a>).</li>
+<li><strong>브랜드</strong>: 마테 전문 롤드페인트(일력 마테), 라벨 전문 플래그, 패턴지 가위, 크레용 구버, 우표 모퉁이우표점 (<a href="https://heypop.kr/n/139538/">헤이팝</a>); 러브송러브뽀빠이 · 솜앤피스 · 다이소 프루프루 (<a href="https://ohou.se/advices/7569">오늘의집</a>).</li>
+<li><strong>캐릭터 열풍 (2026-10)</strong>: 먼작귀(치이카와) 극장판 185만 관객, 용산 매장 새벽 500명, 정식 굿즈 품절 → <strong>다이소 집게로 직접 만드는</strong> 영상 157만 조회, 스파오 협업 매출 +51% (<a href="https://www.hankyung.com/article/202610203130H">한국경제 덕질경제학</a> · <a href="https://view.asiae.co.kr/article/2026102109421879051">아시아경제</a> · <a href="https://thetracker.co.kr/View.aspx?No=4276505">더트래커</a>). 산리오 2026 인기투표는 쿠로미 4위 · 키티 5위 · 마이멜로디 6위 (<a href="https://www.sanrio.co.jp/special/characterranking/2026/ko/result/">산리오</a>).</li>
+</ul>
+<p><strong>→ 우리에게</strong>: 라이선스 캐릭터는 당장 어렵다. 대신 ① <strong>작가 마켓</strong>(통판 알림 구조) ② 자체 마스코트 ③ "품절이면 직접 만든다"는 DIY 정서 → <strong>내가 그린 스티커 · 내 사진 스티커</strong>를 1급 에셋으로.</p>
+</div><div class="sec2"><h2 id="18-덕질-직관-기록-앱이-이미-보여준-수요">1.8 덕질 · 직관: 기록 앱이 이미 보여준 수요</h2>
+<table>
+<thead>
+<tr>
+<th>앱</th>
+<th>하는 일</th>
+<th>유저 반응 · 빈틈</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>직다</td>
+<td>달력에서 직관 경기 · 점수, <strong>월별 · 시즌 승률</strong>, 친구 그룹 공유</td>
+<td><a href="https://mwm.ai/apps/jigda-yagupaen-pilsuaeb-jiggwan-daieori/6747104822">직다</a></td>
+</tr>
+<tr>
+<td>승리지쿄</td>
+<td>날짜 고르면 구장 · 스코어 · 더블헤더 · 취소 <strong>자동</strong></td>
+<td>"메모 15자 제한은 너무 적다" (<a href="https://www.threads.com/@yu.x_.jin/post/DJT_msST85r">스레드</a>)</td>
+</tr>
+<tr>
+<td>야구보구</td>
+<td>스코어보드 다시 보기, 과거 직관 추가, 달력 보기</td>
+<td><a href="https://play.google.com/store/apps/details?id=com.yagubogu">야구보구</a></td>
+</tr>
+<tr>
+<td>체키록</td>
+<td>최애 50명 등록, 폴라로이드 · 팬싸 <strong>횟수 카운터 · 통계</strong></td>
+<td><a href="https://apps.apple.com/kr/app/%EC%B2%B4%ED%82%A4%EB%A1%9D-%EC%95%84%EC%9D%B4%EB%8F%8C-%EB%8D%95%EC%A7%88-%EA%B8%B0%EB%A1%9D-%EC%B9%B4%EC%9A%B4%ED%84%B0-%EC%95%B1/id6505026936">체키록</a></td>
+</tr>
+<tr>
+<td>블립 · 최애돌</td>
+<td>아이돌 스케줄 · 일기 · 투표</td>
+<td>기록은 약함</td>
+</tr>
+<tr>
+<td>팬하트 · 포카마켓</td>
+<td>포카 사진 검색 · 거래 · 생일카페 지도</td>
+<td>꾸미기 없음</td>
+</tr>
+</tbody>
+</table>
+<p><strong>→ 우리에게</strong>: 직관 앱은 "자동 스코어 + 승률"은 있지만 <strong>꾸밀 수 없고 메모가 짧다.</strong> 우리는 반대로 꾸밀 수 있지만 자동이 없다. 메모 5번(스코어보드 자동 속지)이 정확히 그 교집합이다.</p>
+</div><div class="sec2"><h2 id="19-함께-쓰는-기록-앱과-디지털-문방구-앱">1.9 함께 쓰는 기록 앱과 디지털 문방구 앱</h2>
+<ul>
+<li><strong>교환일기형</strong>: 투다(찐친 SNS, 알림으로 매일 짧게, 하트 · 댓글) (<a href="https://www.dailypop.kr/news/articleView.html?idxno=77781">데일리팝</a>), 덕지 · 다이어링(교환일기), 하루하루(연인 연결 시 교환일기, 나만 보기 · 잠금, AI 캐릭터 공감) (<a href="https://harumay.com/">하루하루</a>), 커플 앱들(매일 질문 · 디데이 · 공유 캘린더).</li>
+<li><strong>자꾸다꾸</strong> (디지털 문방구 다이어리): 앱 안 스토어에서 작가 500+ 의 속지 · 스티커 · 메모지를 <strong>낱개 인앱 구매</strong>, 손글씨 폰트 250종 무료, 폴더 잠금, 아이패드-폰 연동. 평점 3.0~3.7, 2024-10 이후 업데이트 확인 안 됨 (<a href="https://www.zaccudaccu.com/">자꾸다꾸</a> · <a href="https://brunch.co.kr/@uibowl/122">브런치 리뷰</a>).</li>
+<li><strong>디다꾸 불편</strong>: 굿노트는 스티커를 매번 잘라 불러와야 해서 "스티커북"을 따로 만든다 (<a href="https://www.postype.com/@blog/post/18293941">포스타입 굿노트 스티커 10종</a>); 앱 버전(굿노트 5 · 6) 호환 문제 (<a href="https://ts.infothatfreeme.com/entry/%EC%8A%A4%ED%83%80%EB%B2%85%EC%8A%A4-%EB%94%94%EC%A7%80%ED%84%B8-%ED%94%8C%EB%9E%98%EB%84%88-%EC%8A%A4%ED%8B%B0%EC%BB%A4-%EA%B5%BF%EB%85%B8%ED%8A%B85-%EC%82%AC%EC%9A%A9%EB%B0%A9%EB%B2%95-%EC%96%B8%EB%8D%B0%EC%9D%B4%ED%8B%B0%EB%93%9C-%EB%8B%A4%EC%9D%B4%EC%96%B4%EB%A6%AC">스타벅스 플래너 후기</a>).</li>
+</ul>
+<p><strong>→ 우리에게</strong>: 교환일기 앱은 <strong>꾸밀 수 없고</strong>, 문방구 앱은 <strong>혼자 쓴다</strong>. "같이 꾸미는 속지"는 비어 있는 자리다. 자꾸다꾸의 낱개 판매 + 작가 마켓은 BM 레퍼런스로 쓰되, 우리는 <strong>방 단위 나눔(띵)</strong>과 <strong>구독 전체 제공</strong>으로 다르게 간다.</p>
+</div><div class="sec2"><h2 id="110-정리-열-가지-시사점">1.10 정리: 열 가지 시사점</h2>
+<ol>
+<li>시즌 팩은 <strong>9월</strong> 오픈. 2027 속지는 2026-09에 있어야 한다.</li>
+<li>속지는 <strong>형식이 상품</strong>이다: 1D1P · 질문 365 · 트래커 · 직관 기록지.</li>
+<li>유저 네 갈래: 꾸미기파 · 기록파 · 덕질파 · 함께파.</li>
+<li>연출이 기능보다 앞선다: 넘기기 · 뜯기 · 붙이기 · 비치기.</li>
+<li><strong>글씨 쓰는 스티커(모조지) · 떡메</strong>가 디지털에서 가장 빠진 재료다.</li>
+<li>배경 마테 · 키스컷 · 재질(홀로그램 · 투명 · 트레이싱지)이 "요즘 다꾸"의 재료다.</li>
+<li>톤온톤 팔레트를 팩에 넣어 색 맞추기를 자동화한다.</li>
+<li>캐릭터 IP 대신 <strong>내가 만든 스티커 · 작가 마켓 · DIY 정서</strong>.</li>
+<li>직관 · 덕질은 자동 데이터(스코어 · 승률 · 횟수) + 꾸미기의 교집합이 비어 있다.</li>
+<li>"같이 채우는 속지 + 알림"은 어느 앱도 하지 않는다. 이것이 온라인 속지의 핵심. → <a href="#doc-02">02 온라인 속지</a></li>
+</ol></div>
+</section><section class="doc" id="doc-02" data-title="2. 온라인 속지 — &quot;살아 있는 속지&quot; 제안">
+<h1 id="2-온라인-속지-살아-있는-속지-제안">2. 온라인 속지 — "살아 있는 속지" 제안</h1>
+<blockquote>
+<p>작성일: 2026-10-25 · 근거: <a href="#doc-01">01 조사</a> · 기준: <a href="../../디자인%20가이드.md">디자인 가이드</a><br>
+출발점(손글씨 메모): "속지의 기능들을 온라인화하자 — 보드게임처럼 같이 칸 채우면 알림이 옴", "스코어보드 자동으로 채워 주는 속지".<br>
+정의: <strong>종이 속지는 인쇄된 칸이다. 온라인 속지는 ① 스스로 채워지고 ② 여럿이 같이 채우고 ③ 시간이 지나면 변하고 ④ 바깥과 이어지는 칸이다.</strong> 이 네 갈래로 나눠 제안한다.</p>
+</blockquote>
+<div class="sec2"><h2 id="0-한눈에-보기">0. 한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th>갈래</th>
+<th>한 줄</th>
+<th>대표 속지</th>
+<th>알림 고리</th>
+<th>품</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A 자동 채움</td>
+<td>앱이 칸을 먼저 채워 두고, 사람은 그 위를 꾸민다</td>
+<td>스코어보드 · 날씨 도장 · 오늘의 노래 · 걸음</td>
+<td>"오늘 경기 결과가 속지에 도착했어요"</td>
+<td>중~큼 (외부 데이터)</td>
+</tr>
+<tr>
+<td>B 함께 채우기</td>
+<td>방 친구들이 칸 하나씩 채우고, 채워지면 서로에게 알림</td>
+<td>빙고 · 질문 릴레이 · 교환일기 턴 · 롤링페이퍼 · 투표</td>
+<td>"민희가 빙고 한 칸을 채웠어요 · 한 줄 남았어요"</td>
+<td>작음~중 (우리 서버로 충분)</td>
+</tr>
+<tr>
+<td>C 시간이 흐르는 속지</td>
+<td>날짜 · 출석 · 봉인 · 시즌에 따라 속지가 변한다</td>
+<td>타임캡슐 · 일력 마테 · 자라는 화분 · 카운트다운 · 1년 전 오늘</td>
+<td>"타임캡슐이 열렸어요" · "D-1"</td>
+<td>작음~중</td>
+</tr>
+<tr>
+<td>D 바깥과 이어진 속지</td>
+<td>사진 · 링크 · 영수증 · QR 같은 바깥 조각이 속지 칸이 된다</td>
+<td>포카 바인더 · 링크 카드 · 영수증 가계부 · 티켓북</td>
+<td>"친구가 티켓을 붙였어요"</td>
+<td>중</td>
+</tr>
+</tbody>
+</table>
+<p><strong>추천 순서</strong>: B(함께 채우기) → C(시간) → A(자동, 야구부터) → D. B가 우리 서비스(같은 방 친구들이 한 장을 완성)의 정체성과 가장 가깝고 외부 의존이 없다. A는 KBO 하나로 좁혀 시작한다.</p>
+</div><div class="sec2"><h2 id="1-모든-온라인-속지가-공유하는-규칙">1. 모든 온라인 속지가 공유하는 규칙</h2>
+<table>
+<thead>
+<tr>
+<th>규칙</th>
+<th>내용</th>
+<th>왜</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>칸(slot)</strong> 이 단위다</td>
+<td>온라인 속지는 "칸" 목록을 가진다. 칸마다 <em>누가 · 언제 · 무엇으로</em> 채웠는지 남는다</td>
+<td>알림 · 통계 · 되돌리기의 기준</td>
+</tr>
+<tr>
+<td>채운 뒤에도 꾸밀 수 있다</td>
+<td>자동으로 채워진 글자 · 숫자는 <strong>잠긴 글자 레이어</strong>지만 그 위에 스티커 · 테이프 · 펜은 자유</td>
+<td>직관 앱의 빈틈(꾸밀 수 없음)을 메움</td>
+</tr>
+<tr>
+<td>자동 채움은 <strong>덮어쓰지 않는다</strong></td>
+<td>사람이 손댄 칸은 자동이 건드리지 않고 "새 값이 있어요" 배지만</td>
+<td>손맛 우선</td>
+</tr>
+<tr>
+<td>알림은 <strong>사건 단위</strong></td>
+<td>칸 채움 · 줄 완성 · 전부 완성 · 봉인 해제 · D-day 의 다섯 사건만</td>
+<td>알림 피로 방지 (<a href="../../알림%20설계/색인.md">알림 설계</a>과 맞춤)</td>
+</tr>
+<tr>
+<td>끌 수 있다</td>
+<td>속지마다 "자동 끄기 · 알림 끄기" 스위치</td>
+<td>메모의 "싫어하면 꺼라"</td>
+</tr>
+<tr>
+<td>종이처럼 보인다</td>
+<td>온라인 속지도 인쇄된 속지 모양. 자동 요소는 <strong>도장 · 라벨 · 영수증 · 티켓</strong> 모양으로 들어온다</td>
+<td>다이어리 감성 유지</td>
+</tr>
+<tr>
+<td>내보내기</td>
+<td>PNG 내보내면 자동 값도 그대로 찍힌다</td>
+<td>결과물은 종이와 같아야 한다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="2-갈래-a-자동-채움-속지">2. 갈래 A — 자동 채움 속지</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>칸 구성</th>
+<th>자동으로 들어오는 것 (소스)</th>
+<th>사람이 하는 것</th>
+<th>알림</th>
+<th>품</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A1</td>
+<td><strong>야구 직관 스코어보드</strong></td>
+<td>상단 스코어보드(이닝별 R·H·E), 구장 · 날짜 · 날씨 칸, 선발 · 결승타 칸, 좌석 · 동행 칸, 큰 자유 칸</td>
+<td>경기 결과 · 이닝 점수 · 선발 투수 · 구장 (KBO 공개 데이터 · 스포츠 API)</td>
+<td>팀 고르기, 직관 날 체크, 사진 · 스티커 · 응원 메모</td>
+<td>"오늘 직관 결과가 도착했어요 (7:4 승)"</td>
+<td>큼</td>
+</tr>
+<tr>
+<td>A2</td>
+<td><strong>시즌 승률 트래커</strong></td>
+<td>월별 달력에 승 · 패 · 무 도장, 홈 · 원정 승률 게이지, 시즌 총평 칸</td>
+<td>A1에서 자동 집계</td>
+<td>도장 디자인 고르기(팀 색), 총평 쓰기</td>
+<td>월말 "이번 달 직관 승률 60%"</td>
+<td>중 (A1 위에)</td>
+</tr>
+<tr>
+<td>A3</td>
+<td>농구 · 배구 · 축구 · e스포츠 스코어보드</td>
+<td>종목별 보드(쿼터 · 세트 · 전후반 · 세트 스코어), MVP 칸</td>
+<td>KBL · V리그 · K리그 · LCK 결과</td>
+<td>같음</td>
+<td>같음</td>
+<td>큼 (종목별)</td>
+</tr>
+<tr>
+<td>A4</td>
+<td><strong>날씨 · 기온 도장</strong></td>
+<td>데일리 · 위클리 모서리에 날씨 아이콘 + 최고/최저 기온 도장</td>
+<td>기상청 · 날씨 API, 기기 위치(허용 시)</td>
+<td>도장 위치 · 스타일 고르기</td>
+<td>없음</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>A5</td>
+<td>오늘의 노래</td>
+<td>앨범 커버 칸 + 제목 · 아티스트 라벨 + "이 노래를 들은 날"</td>
+<td>애플뮤직 · 스포티파이 최근 재생 (연동 시)</td>
+<td>한 줄 감상, 가사 한 줄 손글씨</td>
+<td>없음</td>
+<td>중</td>
+</tr>
+<tr>
+<td>A6</td>
+<td>걸음 · 운동 도장</td>
+<td>걸음 수 · 운동 시간 · 거리 칸</td>
+<td>HealthKit · Health Connect</td>
+<td>오운완 스티커, 사진</td>
+<td>목표 달성 시 "오늘 1만 보!"</td>
+<td>중</td>
+</tr>
+<tr>
+<td>A7</td>
+<td>사진 메타 라벨</td>
+<td>사진 붙이면 <strong>촬영 날짜 · 장소</strong>가 폴라로이드 아래 라벨로</td>
+<td>사진 EXIF (우리 미디어 가져오기에서)</td>
+<td>라벨 글꼴 · 숨기기</td>
+<td>없음</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>A8</td>
+<td>장소 스탬프</td>
+<td>체크인 도장(가게 이름 · 동네)</td>
+<td>위치 + 지도 검색 (허용 시)</td>
+<td>맛집 별점, 재방문 체크</td>
+<td>없음</td>
+<td>중</td>
+</tr>
+<tr>
+<td>A9</td>
+<td>책 · 영화 표지 카드</td>
+<td>제목 치면 <strong>표지 · 저자 · 감독 · 개봉일</strong>이 카드로</td>
+<td>도서 · 영화 공개 API</td>
+<td>별점 · 한 줄 평 · 인용</td>
+<td>없음</td>
+<td>중</td>
+</tr>
+<tr>
+<td>A10</td>
+<td>가계부 합계</td>
+<td>지출 칸에 숫자 쓰면 <strong>일 · 주 · 월 합계가 자동</strong></td>
+<td>우리 쪽 계산</td>
+<td>항목 · 금액 손글씨 또는 숫자 입력</td>
+<td>예산 넘으면 "이번 주 예산 초과"</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>A11</td>
+<td>디데이 · 기념일</td>
+<td>큰 숫자 칸이 매일 바뀜 (D-37)</td>
+<td>날짜 계산</td>
+<td>제목 · 꾸미기</td>
+<td>D-7 · D-1 · D-day</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>A12</td>
+<td>생일 · 기념일 자동 먼슬리</td>
+<td>방 친구 생일이 먼슬리에 케이크 도장으로</td>
+<td>방 멤버 프로필</td>
+<td>축하 스티커</td>
+<td>당일 "오늘 OO 생일"</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>A13</td>
+<td>미세먼지 · 벚꽃 · 단풍 알림 속지</td>
+<td>계절 지표(벚꽃 개화 · 단풍 · 첫눈)가 도장으로</td>
+<td>기상청 · 공개 데이터</td>
+<td>—</td>
+<td>"오늘 서울 벚꽃 개화"</td>
+<td>중</td>
+</tr>
+<tr>
+<td>A14</td>
+<td>주간 리캡 콜라주</td>
+<td>일요일 밤, 이번 주 사진 · 스티커 · 손글씨 조각을 <strong>자동으로 한 장에 콜라주</strong></td>
+<td>우리 데이터</td>
+<td>자리 옮기기, 제목</td>
+<td>"이번 주 리캡이 만들어졌어요"</td>
+<td>중</td>
+</tr>
+<tr>
+<td>A15</td>
+<td>월말 결산 속지</td>
+<td>쓴 장수 · 가장 많이 쓴 스티커 · 친구별 기여 · 승률 · 지출 합계</td>
+<td>우리 데이터</td>
+<td>한 줄 소감</td>
+<td>월말</td>
+<td>중</td>
+</tr>
+</tbody>
+</table>
+<p><strong>A1 상세 (메모 5번)</strong></p>
+<ul>
+<li>왜 야구부터: 직관 앱(직다 · 승리지쿄 · 야구보구)이 이미 "자동 스코어 + 승률"로 수요를 증명했고, 유저 불만이 "메모 15자 제한"이다. 우리는 메모 제한이 없고 꾸밀 수 있다.</li>
+<li>속지 모양: 세로형은 상단 1/3 스코어보드(전광판 느낌이 아니라 <strong>인쇄된 기록지</strong> 느낌, 팀 색 두 줄), 하단 자유 칸. 가로형은 좌 스코어보드 · 우 자유 칸.</li>
+<li>팀은 다이어리 설정에서 한 번 고르면 속지 색 · 도장 · 스티커가 팀 팔레트로 바뀐다 (팀 로고는 라이선스 문제 → <strong>팀 색 + 이니셜 · 마스코트 동물 실루엣</strong>으로).</li>
+<li>직관 날 체크 방법: 먼슬리에서 그 날 터치 → "직관 갔어요" → 결과 도착 시 속지가 자동 생성되어 뒤에 붙는다 (메모 2번 "넘겨서 페이지 추가"와 연결).</li>
+<li>같이 간 친구가 같은 방이면 <strong>한 장을 둘이 꾸민다</strong>. 각자 좌석 · 먹은 것 칸.</li>
+<li>품: 경기 데이터 소스 확보가 핵심. 공개 API가 없으면 1차는 <strong>수동 입력 스코어보드 + 자동 승률 집계(A2)</strong> 로 시작해도 가치가 있다.</li>
+</ul>
+</div><div class="sec2"><h2 id="3-갈래-b-함께-채우는-속지-알림이-붙는-속지">3. 갈래 B — 함께 채우는 속지 (알림이 붙는 속지)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>칸 구성</th>
+<th>채우는 규칙</th>
+<th>알림 사건</th>
+<th>품</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B1</td>
+<td><strong>빙고 속지</strong> (메모의 보드게임)</td>
+<td>5×5 (3×3 · 4×4도) 칸, 제목, 완성 줄 표시</td>
+<td>방장이 주제 입력 또는 <strong>추천 빙고</strong>(이번 달 할 일 · 먹킷리스트 · 봄 빙고 · 덕질 빙고) 선택 → 각자 사진 · 스티커 · 글로 칸 채움</td>
+<td>칸 채움(소리 없음) · <strong>한 줄 완성</strong> · 전체 완성</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B2</td>
+<td><strong>질문 릴레이</strong> (자문자답 → 우리문우답)</td>
+<td>한 쪽에 질문 하나 + 멤버 수만큼 답 칸</td>
+<td>매일 · 매주 질문이 떨어지고 각자 답을 손글씨로. 전원 답하면 <strong>답이 공개</strong>(그 전엔 가려짐)</td>
+<td>질문 도착 · 전원 답 완료 → 공개</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B3</td>
+<td><strong>교환일기 턴 속지</strong></td>
+<td>2단 · 4단 칸, 턴 표시(펜 아이콘이 누구 앞에 있는지)</td>
+<td>한 사람이 쓰고 넘기면 다음 사람 칸이 열림. 안 넘기면 잠김</td>
+<td>"네 차례야" · 48시간 미응답 리마인드</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B4</td>
+<td>밸런스 게임 · 투표</td>
+<td>두 칸(A / B) + 멤버 스티커가 고른 쪽으로 이동</td>
+<td>각자 자기 스티커를 끌어다 놓음</td>
+<td>전원 투표 완료 → 결과</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B5</td>
+<td>롤링페이퍼 · 생일 속지</td>
+<td>가운데 주인공 사진, 둘레에 멤버 칸</td>
+<td>주인공에겐 <strong>생일 당일까지 숨김</strong> (B가 C와 만나는 속지)</td>
+<td>당일 0시 공개</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B6</td>
+<td>공동 버킷리스트 · 먹킷리스트</td>
+<td>체크 칸 + "한 사람" · "다 같이" 구분 + 달성 사진 칸</td>
+<td>누가 달성 사진을 붙이면 체크</td>
+<td>달성 · 전부 달성</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B7</td>
+<td>이어쓰기 (소설 · 시 · 만화 4컷)</td>
+<td>칸 4~8개, 순서</td>
+<td>앞 칸이 채워져야 다음 칸 열림, 한 칸에 글자 수 제한</td>
+<td>내 차례</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B8</td>
+<td>이어그리기</td>
+<td>한 장을 구역 넷으로 나눠 각자 한 구역, 경계선은 반투명으로 비침</td>
+<td>동시 가능</td>
+<td>전부 완성</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B9</td>
+<td>출석 도장판</td>
+<td>멤버 × 날짜 격자, 각자 오늘 도장</td>
+<td>그날 한 번 찍기</td>
+<td><strong>전원 출석</strong> 날 축하 · 3일 빠지면 조용히 리마인드</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B10</td>
+<td>주간 MVP · 칭찬 투표</td>
+<td>멤버 얼굴 칸 + 투표 스티커 + 이유 한 줄</td>
+<td>익명 가능</td>
+<td>주말 결과</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B11</td>
+<td>공동 플레이리스트 속지</td>
+<td>노래 카드가 줄줄이 (A5 확장)</td>
+<td>각자 한 곡씩 추가</td>
+<td>새 곡</td>
+<td>중</td>
+</tr>
+<tr>
+<td>B12</td>
+<td>여행 공동 플랜</td>
+<td>일정 표 + 역할 칸(예약 · 길찾기 · 사진) + 경비 합계(A10)</td>
+<td>각자 칸 채움</td>
+<td>출발 D-3 "짐 체크 안 한 사람 있어요"</td>
+<td>중</td>
+</tr>
+<tr>
+<td>B13</td>
+<td>몰래 꾸미기 (서프라이즈 장)</td>
+<td>한 사람을 뺀 멤버만 보이는 장</td>
+<td>공개일 지정</td>
+<td>공개</td>
+<td>작음 (B5의 일반형)</td>
+</tr>
+<tr>
+<td>B14</td>
+<td>우리 밈 사전 · 유행어</td>
+<td>단어 · 뜻 · 처음 쓴 사람 · 날짜</td>
+<td>누구나 추가</td>
+<td>없음</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B15</td>
+<td>스티커 나눔 상자 (띵)</td>
+<td>속지 한 장이 "나눔 상자": 내가 만든 스티커를 올리면 멤버가 가져감</td>
+<td>방 안에서만</td>
+<td>"OO이 스티커 6개를 나눴어요"</td>
+<td>중 (내 스티커 기능 필요)</td>
+</tr>
+<tr>
+<td>B16</td>
+<td>방 멤버 프로필 속지</td>
+<td>멤버마다 명함 칸(사진 · MBTI · 최애 · 한 줄)</td>
+<td>본인만 수정</td>
+<td>없음</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>B17</td>
+<td>주사위 보드판</td>
+<td>말판 20칸, 칸마다 미션 ("오늘 사진 한 장" · "칭찬 하나"), 주사위 버튼</td>
+<td>자기 차례에 주사위 → 도착 칸 미션을 그 속지에 수행</td>
+<td>내 차례 · 골인</td>
+<td>중</td>
+</tr>
+</tbody>
+</table>
+<p><strong>B 공통 메모</strong></p>
+<ul>
+<li>B1 · B2 · B3 · B9 네 개면 "같이 채우면 알림"의 뼈대가 선다. 모두 <strong>칸 상태(비어 있음 · 채워짐 · 잠김 · 숨김)</strong> 네 가지로 표현된다.</li>
+<li>가려짐 · 숨김은 종이 느낌으로: <strong>스크래치 은박 · 접힌 종이 · 봉투</strong> 모양 (에셋 카탈로그 §5).</li>
+<li>알림 문구는 디자인 가이드 §8 글쓰기 규칙(짧고 존댓말, 이름 먼저)을 따른다.</li>
+</ul>
+</div><div class="sec2"><h2 id="4-갈래-c-시간이-흐르는-속지">4. 갈래 C — 시간이 흐르는 속지</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>무엇이 변하나</th>
+<th>트리거</th>
+<th>알림</th>
+<th>품</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C1</td>
+<td><strong>타임캡슐</strong></td>
+<td>쓰고 봉인하면 봉투 모양으로 잠김. 공개일에 뜯긴다. 방 전체 · 미래의 나</td>
+<td>지정 날짜 (1년 뒤 · 졸업 · 생일)</td>
+<td>"타임캡슐이 열렸어요"</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>C2</td>
+<td><strong>일력 마테 속지</strong></td>
+<td>날짜 찍힌 테이프 롤에서 <strong>하루 한 조각</strong>만 뜯어 붙일 수 있음 (롤드페인트 일력 마테)</td>
+<td>매일 0시</td>
+<td>없음 (습관 유도)</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>C3</td>
+<td>자라는 화분 · 반려 펫 (메모 6번)</td>
+<td>출석 · 작성 횟수에 따라 싹 → 잎 → 꽃. 방 전체가 같이 키움</td>
+<td>글 쓰기 · 출석</td>
+<td>시들기 전 "물 주세요"</td>
+<td>중</td>
+</tr>
+<tr>
+<td>C4</td>
+<td>카운트다운 속지</td>
+<td>콘서트 · 시험 · 여행 큰 숫자, 날마다 한 칸씩 색칠 (스크래치)</td>
+<td>매일</td>
+<td>D-7 · D-1 · D-day</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>C5</td>
+<td>1년 전 오늘 · 100일 전 오늘</td>
+<td>속지 모서리에 작은 <strong>과거 조각</strong>이 비친다(트레이싱지 느낌)</td>
+<td>같은 날짜</td>
+<td>"1년 전 오늘 이 장을 썼어요"</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>C6</td>
+<td>계절 따라 변하는 속지 바탕</td>
+<td>같은 속지인데 3월 벚꽃 · 7월 장마 · 10월 단풍 · 12월 눈 무늬가 바탕 테두리에</td>
+<td>월</td>
+<td>없음</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>C7</td>
+<td>낡아가는 종이 (옵션)</td>
+<td>오래된 장은 누렇게, 모서리가 접힌다</td>
+<td>작성 후 경과</td>
+<td>없음</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>C8</td>
+<td>월말 자동 리캡 (A14 · A15)</td>
+<td>월말에 한 장이 저절로 붙는다</td>
+<td>월말</td>
+<td>있음</td>
+<td>중</td>
+</tr>
+<tr>
+<td>C9</td>
+<td>습관 체인</td>
+<td>연속 일수만큼 사슬 · 테이프가 길어짐, 끊기면 찢김</td>
+<td>매일 체크</td>
+<td>끊기기 전날 밤</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>C10</td>
+<td>시즌 한정 속지 (9월 오픈)</td>
+<td>2027 날짜형 · 크리스마스 · 수능 · 벚꽃 팩이 <strong>기간에만</strong> 상점에</td>
+<td>달력</td>
+<td>오픈 알림</td>
+<td>작음 (운영)</td>
+</tr>
+<tr>
+<td>C11</td>
+<td>하루 한 장 (1D1P) 잠금</td>
+<td>오늘 장만 열리고 어제는 읽기만</td>
+<td>매일</td>
+<td>밤 10시 "오늘 장이 비어 있어요"</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>C12</td>
+<td>비밀 일기 (잠금 속지)</td>
+<td>자물쇠 속지. 방 안에서도 나만 보기 (하루하루 앱의 '나만 보기')</td>
+<td>본인</td>
+<td>없음</td>
+<td>작음</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="5-갈래-d-바깥과-이어진-속지">5. 갈래 D — 바깥과 이어진 속지</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>바깥 조각</th>
+<th>속지에서 어떻게 보이나</th>
+<th>품</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td><strong>포카 바인더</strong></td>
+<td>포카 · 체키 사진 (실물 촬영)</td>
+<td>3×3 · 9포켓 · 4포켓 투명 포켓 속지. 사진을 넣으면 <strong>카드 비율로 자동 잘림</strong>, 포켓 반사광</td>
+<td>중</td>
+</tr>
+<tr>
+<td>D2</td>
+<td>티켓북</td>
+<td>공연 · 영화 · 경기 티켓 사진 또는 QR</td>
+<td>티켓 모양으로 자동 잘림 · 반투명 OPP 포켓</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>D3</td>
+<td>링크 카드 스티커</td>
+<td>유튜브 · 인스타 · 블로그 링크</td>
+<td>OG 이미지 + 제목이 <strong>종이 카드</strong>로. 누르면 열림</td>
+<td>중</td>
+</tr>
+<tr>
+<td>D4</td>
+<td>영수증 가계부</td>
+<td>영수증 사진</td>
+<td>영수증 모양 스티커 + 금액 인식해 A10 합계에 (1차는 수동)</td>
+<td>중~큼</td>
+</tr>
+<tr>
+<td>D5</td>
+<td>장소 · 공연 QR 스탬프</td>
+<td>QR · NFC</td>
+<td>도장이 찍힘 (우체국 소인 모양)</td>
+<td>중</td>
+</tr>
+<tr>
+<td>D6</td>
+<td>우리 페이지 불러오기 (메모 3번)</td>
+<td>다른 다이어리 · 다른 방의 완성 장</td>
+<td>이미지로 가져와 <strong>포토 코너</strong>로 붙임</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>D7</td>
+<td>인쇄 주문 (메모 3번, 하드커버 · 6공 프리미엄)</td>
+<td>완성 다이어리</td>
+<td>월말 · 연말에 "책으로 만들기" 버튼 → 외부 인쇄</td>
+<td>큼 (파트너)</td>
+</tr>
+<tr>
+<td>D8</td>
+<td>위젯 · 잠금화면 조각</td>
+<td>오늘 속지 한 조각</td>
+<td>폰 위젯에 오늘 장 · 친구 턴 표시</td>
+<td>중</td>
+</tr>
+<tr>
+<td>D9</td>
+<td>공유 링크 보기 전용</td>
+<td>방 밖 사람</td>
+<td>완성 장을 넘겨 보는 웹 페이지(메모 2번 "완성된 다이어리만 넘겨보기")</td>
+<td>중</td>
+</tr>
+<tr>
+<td>D10</td>
+<td>사진 4컷 · 인생네컷 가져오기</td>
+<td>포토부스 QR</td>
+<td>4컷 프레임 속지에 자동 배치</td>
+<td>작음</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="6-우선순위-추천-13차">6. 우선순위 추천 (1~3차)</h2>
+<table>
+<thead>
+<tr>
+<th>차수</th>
+<th>묶음</th>
+<th>포함</th>
+<th>이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1차</td>
+<td><strong>같이 채우기 기본</strong></td>
+<td>B1 빙고 · B2 질문 릴레이 · B3 교환일기 턴 · B9 출석 도장판 · C1 타임캡슐 · C2 일력 마테 · A11 디데이</td>
+<td>외부 의존 없음, 칸 상태 4종 + 알림 5종으로 끝. 서비스 정체성과 직결</td>
+</tr>
+<tr>
+<td>2차</td>
+<td><strong>기록 · 시간</strong></td>
+<td>A10 가계부 합계 · A7 사진 메타 · C4 카운트다운 · C9 습관 체인 · C5 1년 전 오늘 · B5 롤링페이퍼 · B6 버킷리스트 · D1 포카 바인더 · D2 티켓북</td>
+<td>데이터는 모두 우리 것, 속지 · 에셋 제작이 주된 품</td>
+</tr>
+<tr>
+<td>3차</td>
+<td><strong>자동 채움</strong></td>
+<td>A1 야구 스코어보드 · A2 승률 · A4 날씨 · A14 주간 리캡 · D3 링크 카드 · C3 화분</td>
+<td>외부 데이터 · 연동. A1은 데이터 소스 확정 후</td>
+</tr>
+<tr>
+<td>보류</td>
+<td>A5 노래 · A6 걸음 · A8 장소 · D4 영수증 인식 · D7 인쇄</td>
+<td>권한 · 파트너 · 인식 정확도 문제</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="7-조사에서-가져온-근거-요약">7. 조사에서 가져온 근거 요약</h2>
+<ul>
+<li>함께 쓰는 앱(투다 · 하루하루 · 덕지)은 <strong>알림 → 매일 짧게 → 하트 · 댓글</strong> 구조로 습관을 만든다. 꾸미기는 없다. (<a href="#19-함께-쓰는-기록-앱과-디지털-문방구-앱">01 §1.9</a>)</li>
+<li>직관 앱은 자동 스코어 · 승률 · 친구 그룹까지 있지만 메모가 짧고 꾸밀 수 없다. (<a href="#18-덕질-직관-기록-앱이-이미-보여준-수요">01 §1.8</a>)</li>
+<li>질문 일기 365 · 1D1P 같은 <strong>형식</strong>이 베스트셀러다. (<a href="#doc-01">01 §1.1, 1.4</a>)</li>
+<li>일력 마테(하루 한 조각) · 띵(나눔) · 카꾸(같이 꾸미기)는 이미 있는 <strong>오프라인 행동</strong>이다. 온라인 속지는 이것을 그대로 옮긴다. (<a href="#doc-01">01 §1.3, 1.5</a>)</li>
+</ul></div>
+</section><section class="doc" id="doc-03" data-title="3. 속지 카탈로그 — 묶음별 제안 (총 120여 종)">
+<h1 id="3-속지-카탈로그-묶음별-제안-총-120여-종">3. 속지 카탈로그 — 묶음별 제안 (총 120여 종)</h1>
+<blockquote>
+<p>작성일: 2026-10-25 · 근거: <a href="#doc-01">01 조사</a> · 온라인 동작은 <a href="#doc-02">02 온라인 속지</a> 번호(A1 · B2 …)로 가리킨다.<br>
+지금 있는 속지: 표지 · 월 구분지 · 먼슬리 · 블록형 위클리 · 저널형 위클리 · 공용 속지 7종 (2026 날짜형 + 만년형, <code>frontend/assets/templates</code>). 프리셋은 일정 관리용 · 일기용 · 자유 기록용 세 가지.<br>
+표 읽는 법: <strong>온라인</strong> 열이 비어 있으면 종이 그대로인 속지. <strong>★</strong>는 1차 추천. 가로 · 세로 모두 만드는 것을 전제로 한다.</p>
+</blockquote>
+<div class="sec2"><h2 id="0-묶음-지도">0. 묶음 지도</h2>
+<table>
+<thead>
+<tr>
+<th>묶음</th>
+<th>수</th>
+<th>누구에게</th>
+<th>1차 추천</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A 노트</td>
+<td>12</td>
+<td>모두</td>
+<td>도트 · 코넬 · 원고지</td>
+</tr>
+<tr>
+<td>B 플래너</td>
+<td>16</td>
+<td>기록파 · 공부</td>
+<td>1D1P · 3개 습관 · 타임라인</td>
+</tr>
+<tr>
+<td>C 일기 · 마음</td>
+<td>14</td>
+<td>기록파 · 함께파</td>
+<td>질문 365 · 그림일기 · 무드 트래커</td>
+</tr>
+<tr>
+<td>D 취향 · 생활 기록</td>
+<td>24</td>
+<td>기록파</td>
+<td>독서 · 영화 · 먹다꾸 · 가계부 · 오운완</td>
+</tr>
+<tr>
+<td>E 덕질</td>
+<td>16</td>
+<td>덕질파</td>
+<td>포카 바인더 · 콘서트 · 월간 덕질 결산</td>
+</tr>
+<tr>
+<td>F 직관 · 스포츠</td>
+<td>10</td>
+<td>덕질파</td>
+<td>야구 스코어보드 · 시즌 승률</td>
+</tr>
+<tr>
+<td>G 함께 쓰는 속지</td>
+<td>14</td>
+<td>함께파</td>
+<td>빙고 · 질문 릴레이 · 교환일기</td>
+</tr>
+<tr>
+<td>H 시즌 · 행사</td>
+<td>16</td>
+<td>모두 (9월 오픈)</td>
+<td>연말 결산 · 크리스마스 · 새해</td>
+</tr>
+<tr>
+<td>I 구조 · 소품 속지</td>
+<td>12</td>
+<td>꾸미기파</td>
+<td>인덱스 탭 · 트레이싱 간지 · 포켓</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="a-노트-바탕">A. 노트 (바탕)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>구성</th>
+<th>온라인</th>
+<th>메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A1</td>
+<td>무지</td>
+<td>없음</td>
+<td></td>
+<td>있음</td>
+</tr>
+<tr>
+<td>A2</td>
+<td>줄 (7mm · 8mm)</td>
+<td>줄 간격 두 가지</td>
+<td></td>
+<td>있음</td>
+</tr>
+<tr>
+<td>A3</td>
+<td>모눈 (5mm · 3mm)</td>
+<td>격자, 굵은 선 5칸마다 옵션</td>
+<td></td>
+<td>있음</td>
+</tr>
+<tr>
+<td>A4 ★</td>
+<td>도트</td>
+<td>점 격자. 불렛저널 기본</td>
+<td></td>
+<td>선이 글을 안 가려 다꾸에 가장 흔함</td>
+</tr>
+<tr>
+<td>A5 ★</td>
+<td>코넬 노트</td>
+<td>왼쪽 단서 칸 · 본문 · 아래 요약 칸</td>
+<td></td>
+<td>공부 · 독서 메모</td>
+</tr>
+<tr>
+<td>A6</td>
+<td>세로줄 (한자 · 세로쓰기)</td>
+<td>세로 줄</td>
+<td></td>
+<td>시 · 가사 손글씨</td>
+</tr>
+<tr>
+<td>A7 ★</td>
+<td>원고지 (200자 · 400자)</td>
+<td>네모 칸</td>
+<td></td>
+<td>글쓰기 놀이, 이어쓰기(B7)와 조합</td>
+</tr>
+<tr>
+<td>A8</td>
+<td>이중선 (글씨 연습)</td>
+<td>상하 두 줄 + 가운데 점선</td>
+<td></td>
+<td>손글씨 연습 유저</td>
+</tr>
+<tr>
+<td>A9</td>
+<td>점선 접지 (반 · 3등분)</td>
+<td>접는 선만</td>
+<td></td>
+<td>편지 · 카드</td>
+</tr>
+<tr>
+<td>A10</td>
+<td>반반 (위 무지 · 아래 줄)</td>
+<td>그림일기 바탕</td>
+<td></td>
+<td>C2와 겹침</td>
+</tr>
+<tr>
+<td>A11</td>
+<td>사진 중심 (가운데 큰 칸)</td>
+<td>사진 한 장 + 둘레 여백</td>
+<td>A7 사진 메타</td>
+<td>우리 "하루 한 장 사진" 기본</td>
+</tr>
+<tr>
+<td>A12</td>
+<td>체커 · 격자 큰 칸</td>
+<td>9칸 · 12칸 큰 격자</td>
+<td></td>
+<td>인스타 그리드 느낌 콜라주</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="b-플래너">B. 플래너</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>구성</th>
+<th>온라인</th>
+<th>메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B1</td>
+<td>먼슬리 (월 · 일 시작)</td>
+<td>달력 + 메모 칸</td>
+<td>A12 생일 · A4 날씨</td>
+<td>있음 (시작 요일 옵션 필요)</td>
+</tr>
+<tr>
+<td>B2</td>
+<td>위클리 블록 · 저널</td>
+<td>7칸 · 7줄</td>
+<td></td>
+<td>있음</td>
+</tr>
+<tr>
+<td>B3</td>
+<td>위클리 세로 시간표 (버티컬)</td>
+<td>요일 × 시간</td>
+<td></td>
+<td>호보 위크 스타일</td>
+</tr>
+<tr>
+<td>B4</td>
+<td>위클리 + 프리노트 (우측 반 무지)</td>
+<td>왼쪽 주간, 오른쪽 무지</td>
+<td></td>
+<td>"일기 대신 위클리에 프리노트" 수요</td>
+</tr>
+<tr>
+<td>B5 ★</td>
+<td>1D1P (하루 한 쪽)</td>
+<td>날짜 · 날씨 · 할 일 3 · 자유 칸</td>
+<td>C11 하루 잠금 · A4 날씨</td>
+<td>핫트랙스 베스트 형식</td>
+</tr>
+<tr>
+<td>B6 ★</td>
+<td>타임라인 24h · 1시간 다이어리</td>
+<td>세로 시간축 + 칸</td>
+<td></td>
+<td>시간 관리파</td>
+</tr>
+<tr>
+<td>B7</td>
+<td>투두 리스트 (오늘 · 이번 주)</td>
+<td>체크 칸 10 · 우선순위</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>B8 ★</td>
+<td>3개 습관 트래커</td>
+<td>월 격자 × 습관 3줄</td>
+<td>C9 습관 체인</td>
+<td>"습관은 3개만" 루틴 영상</td>
+</tr>
+<tr>
+<td>B9</td>
+<td>습관 트래커 (10줄)</td>
+<td>월 격자 × 10</td>
+<td>C9</td>
+<td>갓생파</td>
+</tr>
+<tr>
+<td>B10</td>
+<td>루틴 체인 (연속일)</td>
+<td>한 줄 사슬</td>
+<td>C9</td>
+<td></td>
+</tr>
+<tr>
+<td>B11</td>
+<td>스터디 플래너</td>
+<td>과목 · 목표 시간 · 실제 시간 · 스톱워치 칸</td>
+<td>A6 유사(시간 입력)</td>
+<td>공스타그램</td>
+</tr>
+<tr>
+<td>B12</td>
+<td>시험 D-day 플래너</td>
+<td>D-day 큰 숫자 + 주차별 계획</td>
+<td>A11 디데이</td>
+<td>수능 · 자격증</td>
+</tr>
+<tr>
+<td>B13</td>
+<td>시간표 (학교 · 학원)</td>
+<td>요일 × 교시</td>
+<td></td>
+<td>10대</td>
+</tr>
+<tr>
+<td>B14</td>
+<td>월간 목표 · 회고</td>
+<td>목표 3 · 달성 · 회고</td>
+<td>A15 월말 결산</td>
+<td></td>
+</tr>
+<tr>
+<td>B15</td>
+<td>연간 플랜 (Year at a glance)</td>
+<td>12달 격자</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>B16</td>
+<td>프로젝트 · 과제 간트</td>
+<td>주 단위 막대</td>
+<td></td>
+<td>대학생</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="c-일기-마음">C. 일기 · 마음</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>구성</th>
+<th>온라인</th>
+<th>메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C1 ★</td>
+<td>질문 일기 365 (자문자답)</td>
+<td>질문 1 + 답 칸</td>
+<td>B2 질문 릴레이로 확장</td>
+<td>인디고 베스트셀러 형식. 질문 뱅크 필요</td>
+</tr>
+<tr>
+<td>C2 ★</td>
+<td>그림일기 (사진 위 글)</td>
+<td>위 사진 · 아래 줄</td>
+<td>A7</td>
+<td>우리 서비스의 원형</td>
+</tr>
+<tr>
+<td>C3</td>
+<td>3줄 일기</td>
+<td>세 줄</td>
+<td></td>
+<td>부담 없는 진입</td>
+</tr>
+<tr>
+<td>C4</td>
+<td>한 줄 먼슬리 (한 달 한 쪽)</td>
+<td>날짜 × 한 줄</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>C5 ★</td>
+<td>무드 트래커 (월 · 연)</td>
+<td>날짜 칸을 색으로 칠함</td>
+<td></td>
+<td>범례 = 톤온톤 팔레트</td>
+</tr>
+<tr>
+<td>C6</td>
+<td>감정 날씨 일기</td>
+<td>감정을 날씨 아이콘으로 + 이유</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>C7</td>
+<td>감사 일기 (3가지)</td>
+<td>세 칸</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>C8</td>
+<td>꿈 일기</td>
+<td>꿈 · 키워드 · 기분</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>C9</td>
+<td>100문 100답 · 50문</td>
+<td>질문 목록</td>
+<td></td>
+<td>자문자답 50</td>
+</tr>
+<tr>
+<td>C10</td>
+<td>수면 기록</td>
+<td>취침 · 기상 · 질</td>
+<td>A6 (헬스)</td>
+<td></td>
+</tr>
+<tr>
+<td>C11</td>
+<td>월경 · 컨디션 기록</td>
+<td>주기 달력 + 증상</td>
+<td>C12 잠금 권장</td>
+<td>민감 → 나만 보기 기본</td>
+</tr>
+<tr>
+<td>C12</td>
+<td>약 · 영양제 체크</td>
+<td>아침 · 점심 · 저녁</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>C13</td>
+<td>비밀 일기 (자물쇠)</td>
+<td>아무 바탕 + 잠금</td>
+<td>C12</td>
+<td></td>
+</tr>
+<tr>
+<td>C14</td>
+<td>편지 (미래의 나에게)</td>
+<td>편지지</td>
+<td>C1 타임캡슐</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="d-취향-생활-기록">D. 취향 · 생활 기록</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>구성</th>
+<th>온라인</th>
+<th>메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1 ★</td>
+<td>독서 기록</td>
+<td>표지 칸 · 제목 · 저자 · 별점 · 인용 · 한 줄 평</td>
+<td>A9 표지 카드</td>
+<td></td>
+</tr>
+<tr>
+<td>D2</td>
+<td>독서 목록 (책장 그림)</td>
+<td>책등 모양 칸 12</td>
+<td></td>
+<td>메모 1번 "책장 책등" 연출과 같은 그림</td>
+</tr>
+<tr>
+<td>D3 ★</td>
+<td>영화 · 드라마 기록</td>
+<td>포스터 · 별점 · 명대사 · 본 곳</td>
+<td>A9</td>
+<td></td>
+</tr>
+<tr>
+<td>D4</td>
+<td>전시 · 공연 · 뮤지컬</td>
+<td>티켓 칸 · 좌석 · 감상</td>
+<td>D2 티켓북</td>
+<td></td>
+</tr>
+<tr>
+<td>D5</td>
+<td>문화생활 한 달 (보고 싶은 · 본 것)</td>
+<td>두 열</td>
+<td></td>
+<td>노션 템플릿 수요</td>
+</tr>
+<tr>
+<td>D6</td>
+<td>플레이리스트</td>
+<td>곡 카드 10</td>
+<td>A5 · B11</td>
+<td></td>
+</tr>
+<tr>
+<td>D7 ★</td>
+<td>먹다꾸 · 맛집 기록</td>
+<td>사진 · 가게 · 메뉴 · 별점 · 재방문</td>
+<td>A8 장소</td>
+<td></td>
+</tr>
+<tr>
+<td>D8</td>
+<td>카페 · 음료 기록</td>
+<td>컵 그림 칸 + 메뉴</td>
+<td></td>
+<td>스타벅스 플래너의 음료 기록장</td>
+</tr>
+<tr>
+<td>D9</td>
+<td>레시피 카드</td>
+<td>재료 · 순서 · 사진</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>D10</td>
+<td>식단 기록</td>
+<td>아침 · 점심 · 저녁 · 간식 사진 칸</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>D11 ★</td>
+<td>오운완 · 운동 기록</td>
+<td>종목 · 세트 · 시간 · 사진</td>
+<td>A6 걸음</td>
+<td></td>
+</tr>
+<tr>
+<td>D12</td>
+<td>러닝 · 등산 기록</td>
+<td>거리 · 코스 · 정상 인증 칸</td>
+<td>A6 · A8</td>
+<td></td>
+</tr>
+<tr>
+<td>D13</td>
+<td>체중 · 신체 그래프</td>
+<td>꺾은선 격자</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>D14</td>
+<td>물 · 단백질 트래커</td>
+<td>컵 8개 체크</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>D15 ★</td>
+<td>가계부 (일 · 주)</td>
+<td>항목 · 금액 · 합계</td>
+<td>A10 합계</td>
+<td></td>
+</tr>
+<tr>
+<td>D16</td>
+<td>용돈 기입장</td>
+<td>들어온 · 나간 · 남은</td>
+<td>A10</td>
+<td>10대</td>
+</tr>
+<tr>
+<td>D17</td>
+<td>구독 · 고정 지출</td>
+<td>서비스 · 금액 · 결제일</td>
+<td>A11</td>
+<td></td>
+</tr>
+<tr>
+<td>D18</td>
+<td>쇼핑 위시 · 산 것</td>
+<td>사진 · 가격 · 산 날</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>D19</td>
+<td>OOTD</td>
+<td>전신 사진 칸 + 아이템 라벨</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>D20</td>
+<td>여행 플랜</td>
+<td>일정 · 예약 · 짐 체크</td>
+<td>B12 공동 플랜</td>
+<td></td>
+</tr>
+<tr>
+<td>D21</td>
+<td>여행 일기 (지도 + 사진)</td>
+<td>지도 칸 · 경로 · 사진</td>
+<td>A8</td>
+<td></td>
+</tr>
+<tr>
+<td>D22</td>
+<td>식물 일지</td>
+<td>물 준 날 · 사진 · 성장</td>
+<td>C3 화분</td>
+<td></td>
+</tr>
+<tr>
+<td>D23</td>
+<td>반려동물 일지</td>
+<td>사진 · 밥 · 산책 · 병원</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>D24</td>
+<td>육아 · 성장 기록</td>
+<td>개월 · 키 · 몸무게 · 첫 ○○</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="e-덕질">E. 덕질</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>구성</th>
+<th>온라인</th>
+<th>메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E1 ★</td>
+<td>포카 바인더 (9포켓 · 4포켓 · 1포켓)</td>
+<td>투명 포켓 격자</td>
+<td>D1</td>
+<td>카드 비율 자동 잘림</td>
+</tr>
+<tr>
+<td>E2</td>
+<td>탑꾸 · 폴꾸 프레임</td>
+<td>탑로더 · 폴라로이드 틀 + 꾸밈 여백</td>
+<td></td>
+<td>포카 꾸미기의 디지털 버전</td>
+</tr>
+<tr>
+<td>E3 ★</td>
+<td>콘서트 기록</td>
+<td>날짜 · 장소 · 좌석 · 셋리스트 칸 · 응원봉 그림 · 티켓 포켓</td>
+<td>D2 · A11 카운트다운</td>
+<td></td>
+</tr>
+<tr>
+<td>E4</td>
+<td>셋리스트</td>
+<td>번호 매긴 줄 25</td>
+<td></td>
+<td>공연 후 채우기</td>
+</tr>
+<tr>
+<td>E5</td>
+<td>앨범 언박싱</td>
+<td>앨범 커버 · 포함 포카 · 버전 체크</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>E6</td>
+<td>팬싸 · 영통 기록</td>
+<td>날짜 · 한 말 · 받은 말</td>
+<td>체키록 카운터 유사</td>
+<td></td>
+</tr>
+<tr>
+<td>E7</td>
+<td>덕질 카운터 (횟수)</td>
+<td>콘서트 · 팬싸 · 뮤직뱅크 횟수 도장</td>
+<td>A15 집계</td>
+<td></td>
+</tr>
+<tr>
+<td>E8 ★</td>
+<td>월간 덕질 결산</td>
+<td>쓴 돈 · 본 횟수 · 이달의 사진</td>
+<td>A15</td>
+<td></td>
+</tr>
+<tr>
+<td>E9</td>
+<td>덕질 가계부</td>
+<td>굿즈 · 앨범 · 티켓</td>
+<td>A10</td>
+<td></td>
+</tr>
+<tr>
+<td>E10</td>
+<td>최애 생일 · 기념일</td>
+<td>디데이 + 케이크 칸</td>
+<td>A11</td>
+<td></td>
+</tr>
+<tr>
+<td>E11</td>
+<td>스케줄 캘린더 (컴백 · 방송)</td>
+<td>먼슬리 + 라벨</td>
+<td></td>
+<td>블립 유사</td>
+</tr>
+<tr>
+<td>E12</td>
+<td>굿즈 수집 체크리스트</td>
+<td>사진 · 유무 체크</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>E13</td>
+<td>직캠 · 영상 링크 카드</td>
+<td>링크 카드 6</td>
+<td>D3</td>
+<td></td>
+</tr>
+<tr>
+<td>E14</td>
+<td>최애 프로필 · 입덕 일기</td>
+<td>사진 · 입덕 계기 · 날짜</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>E15</td>
+<td>예절샷 프레임</td>
+<td>포카 + 음식 사진 틀</td>
+<td></td>
+<td>예절샷 문화</td>
+</tr>
+<tr>
+<td>E16</td>
+<td>덕메 교환일기</td>
+<td>2단</td>
+<td>B3</td>
+<td>같은 최애 친구 방</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="f-직관-스포츠">F. 직관 · 스포츠</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>구성</th>
+<th>온라인</th>
+<th>메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1 ★</td>
+<td>야구 스코어보드 기록지</td>
+<td>이닝별 R·H·E · 선발 · 결승타 · 좌석 · 먹은 것</td>
+<td>A1</td>
+<td>메모 5번</td>
+</tr>
+<tr>
+<td>F2 ★</td>
+<td>시즌 승률 트래커</td>
+<td>월 달력 도장 + 승률 게이지 + 홈 · 원정</td>
+<td>A2</td>
+<td></td>
+</tr>
+<tr>
+<td>F3</td>
+<td>라인업 카드</td>
+<td>타순 9 · 선발 · 불펜</td>
+<td>A1</td>
+<td>OOL 속지 구성</td>
+</tr>
+<tr>
+<td>F4</td>
+<td>농구 · 배구 기록지</td>
+<td>쿼터 · 세트 스코어</td>
+<td>A3</td>
+<td></td>
+</tr>
+<tr>
+<td>F5</td>
+<td>축구 기록지</td>
+<td>전후반 · 득점자 · 포메이션 칸</td>
+<td>A3</td>
+<td></td>
+</tr>
+<tr>
+<td>F6</td>
+<td>e스포츠 (LCK) 기록지</td>
+<td>세트 스코어 · 챔피언 칸 · MVP</td>
+<td>A3</td>
+<td></td>
+</tr>
+<tr>
+<td>F7</td>
+<td>마라톤 · 대회 기록</td>
+<td>거리 · 기록 · 메달 칸</td>
+<td>A6</td>
+<td></td>
+</tr>
+<tr>
+<td>F8</td>
+<td>골프 스코어카드</td>
+<td>18홀 격자</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>F9</td>
+<td>볼링 · 당구 스코어</td>
+<td>프레임 격자</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>F10</td>
+<td>응원가 · 치어 가사</td>
+<td>줄 노트 + 선수 라벨</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="g-함께-쓰는-속지">G. 함께 쓰는 속지</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>구성</th>
+<th>온라인</th>
+<th>메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>G1 ★</td>
+<td>빙고 (3×3 · 4×4 · 5×5)</td>
+<td>격자 + 제목</td>
+<td>B1</td>
+<td></td>
+</tr>
+<tr>
+<td>G2 ★</td>
+<td>질문 릴레이</td>
+<td>질문 1 + 멤버 답 칸</td>
+<td>B2</td>
+<td></td>
+</tr>
+<tr>
+<td>G3 ★</td>
+<td>교환일기 (2단 · 4단)</td>
+<td>턴 칸</td>
+<td>B3</td>
+<td></td>
+</tr>
+<tr>
+<td>G4</td>
+<td>밸런스 게임</td>
+<td>A / B 두 칸</td>
+<td>B4</td>
+<td></td>
+</tr>
+<tr>
+<td>G5</td>
+<td>롤링페이퍼</td>
+<td>가운데 + 둘레</td>
+<td>B5</td>
+<td></td>
+</tr>
+<tr>
+<td>G6</td>
+<td>공동 버킷리스트 · 먹킷리스트</td>
+<td>체크 + 달성 사진</td>
+<td>B6</td>
+<td></td>
+</tr>
+<tr>
+<td>G7</td>
+<td>이어쓰기 (소설 · 4컷)</td>
+<td>순서 칸</td>
+<td>B7</td>
+<td>원고지(A7)와 조합</td>
+</tr>
+<tr>
+<td>G8</td>
+<td>이어그리기 (4분할)</td>
+<td>구역 4</td>
+<td>B8</td>
+<td></td>
+</tr>
+<tr>
+<td>G9</td>
+<td>출석 도장판</td>
+<td>멤버 × 날짜</td>
+<td>B9</td>
+<td></td>
+</tr>
+<tr>
+<td>G10</td>
+<td>주간 MVP · 칭찬</td>
+<td>얼굴 칸 + 투표</td>
+<td>B10</td>
+<td></td>
+</tr>
+<tr>
+<td>G11</td>
+<td>여행 공동 플랜</td>
+<td>일정 + 역할 + 경비</td>
+<td>B12</td>
+<td></td>
+</tr>
+<tr>
+<td>G12</td>
+<td>방 멤버 프로필</td>
+<td>명함 칸</td>
+<td>B16</td>
+<td></td>
+</tr>
+<tr>
+<td>G13</td>
+<td>우리 밈 사전</td>
+<td>단어 · 뜻 · 날짜</td>
+<td>B14</td>
+<td></td>
+</tr>
+<tr>
+<td>G14</td>
+<td>주사위 보드판</td>
+<td>말판 20칸</td>
+<td>B17</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="h-시즌-행사-매년-9월-각-시즌-전에-오픈">H. 시즌 · 행사 (매년 9월 · 각 시즌 전에 오픈)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>구성</th>
+<th>온라인</th>
+<th>시기</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H1 ★</td>
+<td>새해 목표 · 올해의 한 글자</td>
+<td>목표 칸 · 큰 글자 칸</td>
+<td></td>
+<td>12~1월</td>
+</tr>
+<tr>
+<td>H2</td>
+<td>설 · 추석 (가족 · 음식 · 용돈)</td>
+<td>사진 · 용돈 기입</td>
+<td>A10</td>
+<td>명절</td>
+</tr>
+<tr>
+<td>H3</td>
+<td>벚꽃 · 봄 소풍</td>
+<td>벚꽃 바탕 + 지도</td>
+<td>A13 개화</td>
+<td>3~4월</td>
+</tr>
+<tr>
+<td>H4</td>
+<td>장마 · 비 오는 날</td>
+<td>빗방울 바탕 + 기분</td>
+<td>A4</td>
+<td>6~7월</td>
+</tr>
+<tr>
+<td>H5</td>
+<td>여름 휴가 · 물놀이</td>
+<td>여행 일기 변형</td>
+<td></td>
+<td>7~8월</td>
+</tr>
+<tr>
+<td>H6</td>
+<td>할로윈</td>
+<td>코스튬 사진 · 사탕</td>
+<td></td>
+<td>10월</td>
+</tr>
+<tr>
+<td>H7</td>
+<td>수능 · 시험 응원</td>
+<td>D-day + 응원 메시지 칸 (롤링페이퍼)</td>
+<td>A11 · B5</td>
+<td>11월</td>
+</tr>
+<tr>
+<td>H8 ★</td>
+<td>크리스마스 (어드벤트 24칸)</td>
+<td>24칸 스크래치</td>
+<td>C4 카운트다운</td>
+<td>12월</td>
+</tr>
+<tr>
+<td>H9 ★</td>
+<td>연말 결산 (올해의 ○○)</td>
+<td>올해의 사진 · 노래 · 책 · 사람 · 숫자</td>
+<td>A15</td>
+<td>12월</td>
+</tr>
+<tr>
+<td>H10</td>
+<td>생일</td>
+<td>케이크 · 소원 · 축하 칸</td>
+<td>A12 · B5</td>
+<td>상시</td>
+</tr>
+<tr>
+<td>H11</td>
+<td>100일 · 1주년</td>
+<td>디데이 + 사진</td>
+<td>A11</td>
+<td>상시</td>
+</tr>
+<tr>
+<td>H12</td>
+<td>입학 · 졸업 · 첫 출근</td>
+<td>사진 · 편지</td>
+<td>C1 타임캡슐</td>
+<td>2~3월</td>
+</tr>
+<tr>
+<td>H13</td>
+<td>첫눈 · 첫 ○○</td>
+<td>"처음" 칸</td>
+<td>A13 첫눈</td>
+<td>겨울</td>
+</tr>
+<tr>
+<td>H14</td>
+<td>월드컵 · 올림픽 응원</td>
+<td>경기 일정 + 스코어</td>
+<td>A3</td>
+<td>대회 때</td>
+</tr>
+<tr>
+<td>H15</td>
+<td>2027 날짜형 세트</td>
+<td>표지 · 구분지 · 먼슬리 · 위클리</td>
+<td></td>
+<td><strong>2026-09 오픈</strong></td>
+</tr>
+<tr>
+<td>H16</td>
+<td>방 생일 (방 만든 날)</td>
+<td>1년 리캡</td>
+<td>A15</td>
+<td>상시</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="i-구조-소품-속지">I. 구조 · 소품 속지</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>속지</th>
+<th>구성</th>
+<th>온라인</th>
+<th>메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>I1 ★</td>
+<td>인덱스 탭 속지</td>
+<td>오른쪽에 튀어나온 탭</td>
+<td></td>
+<td>책장 넘기기 연출(메모 1 · 4)에서 탭이 보임</td>
+</tr>
+<tr>
+<td>I2</td>
+<td>표지 안쪽 (면지)</td>
+<td>이름 · 방 멤버 · 시작일</td>
+<td>B16</td>
+<td>다이어리 첫 장</td>
+</tr>
+<tr>
+<td>I3</td>
+<td>월 구분지</td>
+<td>있음</td>
+<td></td>
+<td>시즌 바탕(C6) 적용</td>
+</tr>
+<tr>
+<td>I4 ★</td>
+<td>트레이싱지 간지</td>
+<td>반투명 장. 앞장이 비친다</td>
+<td>C5 1년 전 오늘</td>
+<td>넘기면 겹쳐 보이는 연출</td>
+</tr>
+<tr>
+<td>I5 ★</td>
+<td>포켓 속지 (반쪽 주머니)</td>
+<td>아래 반이 주머니, 안에 스티커 · 사진</td>
+<td></td>
+<td>6공 포켓의 디지털화</td>
+</tr>
+<tr>
+<td>I6</td>
+<td>접지 (폴드아웃)</td>
+<td>가로로 두 배 넓게 펼쳐짐</td>
+<td></td>
+<td>연간 플랜 · 콜라주</td>
+</tr>
+<tr>
+<td>I7</td>
+<td>엽서 · 사진 속지 (두꺼운 종이)</td>
+<td>테두리 있는 카드</td>
+<td></td>
+<td>타공해 끼우는 엽서</td>
+</tr>
+<tr>
+<td>I8</td>
+<td>타공 프레임 (사진 창)</td>
+<td>가운데 창이 뚫려 다음 장이 비침</td>
+<td></td>
+<td>사진 액자 기법</td>
+</tr>
+<tr>
+<td>I9</td>
+<td>명함 · 카드 포켓</td>
+<td>명함 크기 포켓 6</td>
+<td>D1 변형</td>
+<td></td>
+</tr>
+<tr>
+<td>I10</td>
+<td>스티커 보관 속지</td>
+<td>스티커를 떼어 두는 이형지 느낌 장</td>
+<td>B15 나눔</td>
+<td>내 스티커 모아 두기</td>
+</tr>
+<tr>
+<td>I11</td>
+<td>책갈피 · 끈</td>
+<td>속지 아닌 책갈피 요소</td>
+<td></td>
+<td>마지막으로 쓴 장 표시</td>
+</tr>
+<tr>
+<td>I12</td>
+<td>뒤표지 안쪽 (연락처 · QR)</td>
+<td>공유 링크 QR</td>
+<td>D9</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="부록-프리셋묶음-제안">부록. 프리셋(묶음) 제안</h2>
+<p>현재 프리셋 3종(일정 관리용 · 일기용 · 자유 기록용)에 더한다. 프리셋은 "속지 묶음 + 테마 팩"이며 자세한 팩 구성은 <a href="#doc-05">05</a>.</p>
+<table>
+<thead>
+<tr>
+<th>프리셋</th>
+<th>속지</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>우리 교환일기</td>
+<td>면지 I2 · 교환일기 G3 · 질문 릴레이 G2 · 빙고 G1 · 출석 G9 · 타임캡슐 C14</td>
+</tr>
+<tr>
+<td>갓생 플래너</td>
+<td>먼슬리 · 1D1P B5 · 3개 습관 B8 · 스터디 B11 · 월간 회고 B14</td>
+</tr>
+<tr>
+<td>취향 기록</td>
+<td>독서 D1 · 영화 D3 · 먹다꾸 D7 · 플레이리스트 D6 · 무드 C5</td>
+</tr>
+<tr>
+<td>덕질</td>
+<td>최애 프로필 E14 · 포카 바인더 E1 · 콘서트 E3 · 스케줄 E11 · 월간 결산 E8</td>
+</tr>
+<tr>
+<td>직관</td>
+<td>팀 설정 · 스코어보드 F1 · 승률 F2 · 라인업 F3 · 응원가 F10</td>
+</tr>
+<tr>
+<td>여행</td>
+<td>플랜 D20 · 공동 플랜 G11 · 여행 일기 D21 · 가계부 D15 · 티켓북 D4</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-04" data-title="4. 에셋 카탈로그 — 스티커 · 테이프 · 종이 · 글씨 · 소품">
+<h1 id="4-에셋-카탈로그-스티커-테이프-종이-글씨-소품">4. 에셋 카탈로그 — 스티커 · 테이프 · 종이 · 글씨 · 소품</h1>
+<blockquote>
+<p>작성일: 2026-10-25 · 근거: <a href="#doc-01">01 조사 §1.5~1.7</a> · 기준: <a href="../../디자인%20가이드.md">디자인 가이드 §2.4 꾸미기 팔레트</a><br>
+지금 있는 것: 스티커 = Fluent 이모지 PNG 68종 · 테이프 = 기하 무늬 18종(슬림 · 기본 · 와이드) × 팔레트 7색 · 종이 바탕 6색 · 펜 7색 · 형광펜 7색 · 연필 질감 · 움직이는 스티커 효과(193).<br>
+표 읽는 법: <strong>종류 / 왜(조사 근거) / 디지털 메모(구현 힌트)</strong>. ★ = 1차 추천. 캐릭터 IP는 넣지 않는다(§8 참고).</p>
+</blockquote>
+<div class="sec2"><h2 id="0-한눈에-보기">0. 한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th>묶음</th>
+<th>핵심 추가</th>
+<th>1차 추천</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 스티커</td>
+<td>글씨 쓰는 스티커(모조지) · 글자 스티커(숫스 · 알스 · 한스) · 데코 · 라벨 · 도장 · 종이 소품</td>
+<td>모조지 · 한스 · 데코 기본 · 날짜 도장</td>
+</tr>
+<tr>
+<td>2 테이프</td>
+<td>배경용 마테 · 키스컷 · 일력 마테 · 찢은 끝 · 레이스 · 투명</td>
+<td>찢은 끝 · 배경 마테 · 일력 마테</td>
+</tr>
+<tr>
+<td>3 종이 · 배경지</td>
+<td>패턴지 · 질감지 · 콜라주 조각 · 트레이싱지</td>
+<td>질감지 3 · 패턴지 6</td>
+</tr>
+<tr>
+<td>4 사진 틀</td>
+<td>폴라로이드 · 체키 · 4컷 · 티켓 · 포카 포켓</td>
+<td>폴라로이드 · 4컷 · 포카 포켓</td>
+</tr>
+<tr>
+<td>5 상태 · 가림 소품</td>
+<td>스크래치 · 봉투 · 접힌 종이 · 자물쇠 · 턴 펜</td>
+<td>온라인 속지 필수</td>
+</tr>
+<tr>
+<td>6 글씨 · 펜</td>
+<td>손글씨 글꼴 · 붓펜 · 젤 반짝이 · 수정액 · 크레용</td>
+<td>글꼴 3 · 크레용</td>
+</tr>
+<tr>
+<td>7 재질 · 효과</td>
+<td>홀로그램 · 투명 · 매트펄 · 그림자 · 모서리 둥글리기</td>
+<td>투명 · 모서리</td>
+</tr>
+<tr>
+<td>8 내 에셋</td>
+<td>내가 그린 스티커 · 내 사진 스티커 · 방 나눔</td>
+<td>내 사진 스티커</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="1-스티커">1. 스티커</h2>
+<div class="sec3"><h3 id="11-글씨-쓰는-스티커-모조지-떡메">1.1 글씨 쓰는 스티커 (모조지 · 떡메) ★</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1 ★</td>
+<td>모조지 스티커 (네모 · 둥근 · 구름 · 말풍선 · 라벨 · 찢은 종이) 12종</td>
+<td>다꾸 길잡이: "글씨를 쓸 수 있는 스티커, 떡메 대용". 디다꾸에 가장 없는 재료</td>
+<td>스티커 + 텍스트 상자 결합. 안에 글이 들어가고, 글이 길면 스티커가 자란다</td>
+</tr>
+<tr>
+<td>S2 ★</td>
+<td>떡메모지 (줄 · 모눈 · 무지 · 체크리스트) 8종</td>
+<td>50장 묶음 문화</td>
+<td>같은 메모지를 여러 번 꺼낼수록 "남은 장수" 표시(놀이)</td>
+</tr>
+<tr>
+<td>S3</td>
+<td>포스트잇 (접착 모서리 들림) 6색</td>
+<td></td>
+<td>모서리 살짝 들린 그림자</td>
+</tr>
+<tr>
+<td>S4</td>
+<td>라벨 스티커 (롤 라벨 · 인덱스 라벨 · 가격표 · 바코드)</td>
+<td>플래그 브랜드: 정보 전달형 라벨이 하나의 결</td>
+<td>글 입력 가능</td>
+</tr>
+<tr>
+<td>S5</td>
+<td>말풍선 · 생각풍선 10종</td>
+<td>만화 4컷 · 교환일기</td>
+<td>글 입력 가능, 꼬리 방향 뒤집기</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="12-글자-스티커-숫스-알스-한스">1.2 글자 스티커 (숫스 · 알스 · 한스) ★</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S6 ★</td>
+<td>한글 스티커 (한스) — 둥근 · 레트로 타자 · 손글씨 3종</td>
+<td>럽알파벳 · 폴티커 같은 글자 작가가 ★ 추천</td>
+<td>글자 입력 → 낱자가 스티커로 흩어져 붙음 (한 글자씩 기울기 랜덤)</td>
+</tr>
+<tr>
+<td>S7</td>
+<td>알파벳 · 숫자 (알스 · 숫스) — 픽셀 · 세리프 · 네온</td>
+<td></td>
+<td>날짜 · 점수 · 디데이에</td>
+</tr>
+<tr>
+<td>S8</td>
+<td>날짜 · 요일 · 월 스티커 세트</td>
+<td>만년형 속지에 날짜 붙이기</td>
+<td>오늘 날짜가 기본 선택</td>
+</tr>
+<tr>
+<td>S9</td>
+<td>자주 쓰는 말 (오운완 · 완료 · 최고 · 집 · 휴일 · 월급날 · 직관 · 컴백)</td>
+<td>플래너 스티커 세트 수요</td>
+<td>테마 팩마다 말투 다름</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="13-데코-스티커">1.3 데코 스티커</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S10 ★</td>
+<td>기본 데코 60종 (별 · 하트 · 반짝이 · 리본 · 꽃 · 잎 · 구름 · 체크 · 화살표 · 점선 · 괄호 · 밑줄)</td>
+<td>펄리버튼 · 훈찌상점 같은 데코 작가 ★</td>
+<td>색이 팔레트에 따라 바뀌는 <strong>단색 데코</strong>로 만들면 톤온톤 자동</td>
+</tr>
+<tr>
+<td>S11</td>
+<td>줄 · 구분 스티커 (레이스 · 점선 · 체인 · 꽃줄)</td>
+<td>칸 나누기</td>
+<td>길이 늘이기 (테이프처럼)</td>
+</tr>
+<tr>
+<td>S12</td>
+<td>테두리 · 프레임 (둥근 · 레이스 · 티켓 · 우표 톱니)</td>
+<td>사진 액자 기법</td>
+<td>사진 위에 올리면 자동 맞춤</td>
+</tr>
+<tr>
+<td>S13</td>
+<td>자연 (드라이플라워 · 압화 · 나뭇잎 · 조개)</td>
+<td>코티지코어</td>
+<td>반투명 겹침</td>
+</tr>
+<tr>
+<td>S14</td>
+<td>레트로 (바코드 · 경고 라벨 · 우표 · 소인 · 영수증 · 신문 조각)</td>
+<td>Y2K · 빈티지 콜라주</td>
+<td></td>
+</tr>
+<tr>
+<td>S15</td>
+<td>음식 · 카페 (케이크 · 커피 · 빵 · 과일 · 술)</td>
+<td>먹다꾸 · 카꾸</td>
+<td>이모지 있음 → 손그림 결로 추가</td>
+</tr>
+<tr>
+<td>S16</td>
+<td>날씨 · 계절 (해 · 비 · 눈 · 벚꽃 · 단풍 · 우산)</td>
+<td>날씨 도장(A4)과 세트</td>
+<td></td>
+</tr>
+<tr>
+<td>S17</td>
+<td>운동 · 건강 (덤벨 · 러닝화 · 물 · 심박)</td>
+<td>오운완</td>
+<td></td>
+</tr>
+<tr>
+<td>S18</td>
+<td>공부 (연필 · 책 · 시계 · 형광 체크 · 100점)</td>
+<td>공스타그램</td>
+<td></td>
+</tr>
+<tr>
+<td>S19</td>
+<td>직관 (야구공 · 배트 · 글러브 · 응원봉 · 치어 · 핫도그 · 맥주) + 팀 색 이니셜</td>
+<td>구단 이모지 스티커 동봉 사례</td>
+<td>팀 로고 없이 색 · 이니셜</td>
+</tr>
+<tr>
+<td>S20</td>
+<td>덕질 (응원봉 실루엣 · 하트 손 · 포카 · 앨범 · 티켓 · 마이크)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>S21</td>
+<td>여행 (비행기 · 캐리어 · 지도 핀 · 여권 도장)</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="14-도장-스탬프">1.4 도장 · 스탬프</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S22 ★</td>
+<td>날짜 도장 (원형 소인 · 네모 · 타자)</td>
+<td>종이 다꾸의 날짜 도장</td>
+<td>오늘 날짜 자동, 잉크 번짐 랜덤</td>
+</tr>
+<tr>
+<td>S23</td>
+<td>확인 · 완료 · 합격 · 참 잘했어요 도장</td>
+<td>출석 · 습관</td>
+<td>찍는 애니메이션</td>
+</tr>
+<tr>
+<td>S24</td>
+<td>승 · 패 · 무 도장 (팀 색)</td>
+<td>승률 트래커</td>
+<td>A2 자동</td>
+</tr>
+<tr>
+<td>S25</td>
+<td>날씨 · 기온 도장</td>
+<td>A4 자동</td>
+<td></td>
+</tr>
+<tr>
+<td>S26</td>
+<td>장소 · 우체국 소인</td>
+<td>A8 · D5</td>
+<td></td>
+</tr>
+<tr>
+<td>S27</td>
+<td>출석 도장 (멤버별 다른 그림)</td>
+<td>B9</td>
+<td>멤버 아바타</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="15-종이-소품-콜라주">1.5 종이 소품 (콜라주)</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S28</td>
+<td>찢은 종이 조각 (크라프트 · 신문 · 모눈 · 악보)</td>
+<td>빈티지 콜라주</td>
+<td>가장자리 찢김 마스크</td>
+</tr>
+<tr>
+<td>S29</td>
+<td>티켓 · 영수증 · 탑승권 (빈 칸 있음)</td>
+<td>레트로 · 티켓북</td>
+<td>글 입력 가능</td>
+</tr>
+<tr>
+<td>S30</td>
+<td>우표 · 소인 세트</td>
+<td>모퉁이우표점</td>
+<td></td>
+</tr>
+<tr>
+<td>S31</td>
+<td>압정 · 클립 · 집게 · 핀 · 마스킹 조각</td>
+<td>사진 고정 연출</td>
+<td>사진 모서리에 자동 스냅</td>
+</tr>
+<tr>
+<td>S32</td>
+<td>끈 · 리본 · 고무줄</td>
+<td>표지 고무줄 요소 재활용</td>
+<td></td>
+</tr>
+<tr>
+<td>S33</td>
+<td>봉투 · 편지지 · 실링 왁스</td>
+<td>타임캡슐(C1)</td>
+<td>봉인 상태 표현</td>
+</tr>
+</tbody>
+</table>
+</div></div><div class="sec2"><h2 id="2-테이프-마테">2. 테이프 (마테)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T1 ★</td>
+<td><strong>찢은 끝</strong> 옵션 (자른 끝 ↔ 찢은 끝)</td>
+<td>종이 마테는 손으로 찢는다. 지금은 직선 끝뿐</td>
+<td>끝 마스크 2~3종 랜덤, 길이 조절 시 유지</td>
+</tr>
+<tr>
+<td>T2 ★</td>
+<td>배경용 마테 (구름 · 벽돌 · 풀숲 · 물결 · 창문 · 하늘 그라데이션) 와이드</td>
+<td>빅이슈: "요즘 마테는 배경용으로 나온다"</td>
+<td>와이드(30mm) 이상, 기본 반투명</td>
+</tr>
+<tr>
+<td>T3</td>
+<td>키스컷 마테 (꽃줄 · 레이스 · 체인 · 별줄처럼 <strong>모양 따라 잘린</strong> 테이프)</td>
+<td>다꾸 길잡이 용어</td>
+<td>사각이 아닌 알파 마스크 테이프</td>
+</tr>
+<tr>
+<td>T4 ★</td>
+<td>일력 마테 (날짜 한 칸씩 찍힌 롤)</td>
+<td>롤드페인트 일력 마테</td>
+<td>하루 한 조각 규칙(C2). 오늘 날짜만 뜯김</td>
+</tr>
+<tr>
+<td>T5</td>
+<td>글자 마테 (이번 주 · TODO · DONE · 직관 · 휴일 반복)</td>
+<td></td>
+<td>글 입력형 테이프</td>
+</tr>
+<tr>
+<td>T6</td>
+<td>투명 마테 (무늬만 있고 바탕 투명)</td>
+<td>겹쳐 붙이기</td>
+<td>패턴만 불투명</td>
+</tr>
+<tr>
+<td>T7</td>
+<td>레이스 · 리본 · 자수 결</td>
+<td>코티지</td>
+<td></td>
+</tr>
+<tr>
+<td>T8</td>
+<td>크라프트 · 코랄 팔레트 복귀 + 그라데이션 팔레트 2</td>
+<td>지금 hidden 처리된 색</td>
+<td></td>
+</tr>
+<tr>
+<td>T9</td>
+<td>손그림 결 패턴 (삐뚤한 선 · 점 · 체크)</td>
+<td>크레파스 · 손그림 감성</td>
+<td>기하 18종의 손그림 변주</td>
+</tr>
+<tr>
+<td>T10</td>
+<td>시즌 마테 (벚꽃 · 장마 · 단풍 · 눈 · 크리스마스)</td>
+<td>시즌 팩</td>
+<td>9월 오픈</td>
+</tr>
+<tr>
+<td>T11</td>
+<td>테이프 겹침 혼합 (곱하기 블렌드)</td>
+<td>종이 마테는 겹치면 색이 섞인다</td>
+<td>블렌드 모드 multiply 옵션</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="3-종이-배경지">3. 종이 · 배경지</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1 ★</td>
+<td>질감지 — 크라프트 · 모조지 · 한지 · 수채지 · 코르크 · 린넨</td>
+<td>"용지 종류"가 다꾸 선택 기준</td>
+<td>종이 바탕 6색에 질감 레이어 추가</td>
+</tr>
+<tr>
+<td>P2 ★</td>
+<td>패턴지 — 깅엄 · 도트 · 체크 · 꽃 · 격자 · 스트라이프 (톤온톤 색 적용)</td>
+<td>가위 브랜드 패턴지, 배경지 거래</td>
+<td>팔레트 따라 색 변경</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>빈티지 배경지 — 신문 · 악보 · 편지 · 지도 · 레트로 광고 · 타이포</td>
+<td>번개장터 "빈티지 다꾸" 배경지</td>
+<td>반투명 겹침</td>
+</tr>
+<tr>
+<td>P4</td>
+<td>콜라주 조각 묶음 (잡지 오린 글자 · 사진 조각)</td>
+<td>Y2K 스크랩</td>
+<td>글자 오리기(S6 변주)</td>
+</tr>
+<tr>
+<td>P5</td>
+<td>미색 · 무채색 세트 (눈 편한 톤)</td>
+<td>2026 굿노트 속지 트렌드</td>
+<td>종이 바탕 추가 2색</td>
+</tr>
+<tr>
+<td>P6 ★</td>
+<td>트레이싱지 (반투명 덮개 레이어)</td>
+<td>트레이싱지 겹치기 기법</td>
+<td>레이어 하나를 60% 백색 반투명으로</td>
+</tr>
+<tr>
+<td>P7</td>
+<td>OPP · 포켓 비닐</td>
+<td>사진 액자 · 포켓 속지(I5)</td>
+<td>반사광 하이라이트</td>
+</tr>
+<tr>
+<td>P8</td>
+<td>격자 배경 (컬러 모눈 10종)</td>
+<td>무료 컬러 그리드 수요</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="4-사진-틀">4. 사진 틀</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1 ★</td>
+<td>폴라로이드 (흰 · 검정 · 파스텔, 아래 라벨)</td>
+<td>폴꾸</td>
+<td>아래 라벨에 날짜 자동(A7)</td>
+</tr>
+<tr>
+<td>F2</td>
+<td>체키 (미니 · 와이드)</td>
+<td>체키록</td>
+<td></td>
+</tr>
+<tr>
+<td>F3 ★</td>
+<td>인생네컷 (세로 4컷 · 2×2)</td>
+<td>포토부스</td>
+<td>사진 4장 한 번에</td>
+</tr>
+<tr>
+<td>F4</td>
+<td>증명사진 · 여권 사진</td>
+<td>프로필 속지</td>
+<td></td>
+</tr>
+<tr>
+<td>F5 ★</td>
+<td>포카 포켓 (투명 · 반사)</td>
+<td>포카 바인더(E1)</td>
+<td>카드 비율 5.5×8.5</td>
+</tr>
+<tr>
+<td>F6</td>
+<td>탑로더 프레임</td>
+<td>탑꾸</td>
+<td>테두리에 스티커 붙이는 여백</td>
+</tr>
+<tr>
+<td>F7</td>
+<td>티켓 틀 (공연 · 영화 · 경기 · 탑승권)</td>
+<td>티켓북</td>
+<td>사진 → 티켓 모양으로 잘림</td>
+</tr>
+<tr>
+<td>F8</td>
+<td>엽서 · 우표 자리</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>F9</td>
+<td>스크랩 사진 (찢은 가장자리 · 테이프로 붙인)</td>
+<td>빈티지</td>
+<td>모서리 테이프 조각 자동</td>
+</tr>
+<tr>
+<td>F10</td>
+<td>필름 스트립 (네거티브 · 스프로킷)</td>
+<td>레트로</td>
+<td>여러 장 가로로</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="5-상태-가림-소품-온라인-속지용">5. 상태 · 가림 소품 (온라인 속지용) ★</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>쓰는 곳</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>U1</td>
+<td>스크래치 은박 (긁으면 보임)</td>
+<td>질문 공개(B2) · 어드벤트(H8) · 카운트다운(C4)</td>
+<td>손가락으로 긁는 제스처</td>
+</tr>
+<tr>
+<td>U2</td>
+<td>봉투 · 봉인 왁스</td>
+<td>타임캡슐(C1) · 서프라이즈(B13)</td>
+<td>뜯는 애니메이션</td>
+</tr>
+<tr>
+<td>U3</td>
+<td>접힌 종이 모서리 (펼치면 내용)</td>
+<td>숨긴 칸</td>
+<td></td>
+</tr>
+<tr>
+<td>U4</td>
+<td>자물쇠 · 열쇠</td>
+<td>비밀 일기(C12) · 턴 잠금(B3)</td>
+<td></td>
+</tr>
+<tr>
+<td>U5</td>
+<td>턴 표시 펜 · 모래시계</td>
+<td>교환일기 턴</td>
+<td>멤버 아바타 위</td>
+</tr>
+<tr>
+<td>U6</td>
+<td>빈 칸 점선 ("여기 채워 주세요")</td>
+<td>모든 함께 속지</td>
+<td>멤버 색 점선</td>
+</tr>
+<tr>
+<td>U7</td>
+<td>완성 리본 · 폭죽</td>
+<td>빙고 줄 · 전원 완료</td>
+<td>한 번만 재생</td>
+</tr>
+<tr>
+<td>U8</td>
+<td>멤버 아바타 스티커 (얼굴 없는 동물 · 도형)</td>
+<td>투표(B4) · 출석(B9)</td>
+<td>프로필 색 적용</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="6-글씨-펜">6. 글씨 · 펜</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>W1 ★</td>
+<td>손글씨 글꼴 3종 추가 (둥근 손글씨 · 삐뚤 연필 · 레트로 타자)</td>
+<td>자꾸다꾸 손글씨 폰트 250종 무료가 강점</td>
+<td>네이버 · 눈누 무료 글꼴, 라이선스 확인</td>
+</tr>
+<tr>
+<td>W2</td>
+<td>붓펜 · 캘리 펜</td>
+<td>가사 · 시</td>
+<td>필압</td>
+</tr>
+<tr>
+<td>W3</td>
+<td>젤 펜 반짝이 (글리터)</td>
+<td>키치 · Y2K</td>
+<td>반짝 파티클 적게</td>
+</tr>
+<tr>
+<td>W4</td>
+<td>화이트 수정액 · 흰 젤펜</td>
+<td>어두운 종이 · 사진 위 글씨</td>
+<td>불투명 흰색</td>
+</tr>
+<tr>
+<td>W5 ★</td>
+<td>크레용 · 크레파스</td>
+<td>구버 크레용, 여건봉 2026 "크레파스 질감"</td>
+<td>연필 질감(178) 변주</td>
+</tr>
+<tr>
+<td>W6</td>
+<td>네온 형광 (마커 굵게)</td>
+<td></td>
+<td>형광펜 변주</td>
+</tr>
+<tr>
+<td>W7</td>
+<td>스탬프 펜 (찍히는 점 · 별 · 하트 줄)</td>
+<td>데코 펜</td>
+<td>획을 따라 모양 반복</td>
+</tr>
+<tr>
+<td>W8</td>
+<td>톤온톤 팔레트 묶음 (테마 팩마다 펜 · 형광 · 테이프 · 글자 색이 한 세트)</td>
+<td>"색 맞추기" 기법</td>
+<td>내 색상(최대 20) 위에 팩 팔레트 프리셋</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="7-재질-효과">7. 재질 · 효과</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M1 ★</td>
+<td>투명 스티커 (바탕 없이)</td>
+<td>투명 용지</td>
+<td>알파</td>
+</tr>
+<tr>
+<td>M2</td>
+<td>홀로그램 · 반짝이 씰</td>
+<td>홀로그램 용지</td>
+<td>기기 기울기 또는 시간에 따라 하이라이트 이동(가볍게)</td>
+</tr>
+<tr>
+<td>M3</td>
+<td>매트펄 · 금박</td>
+<td></td>
+<td>메탈릭 그라데이션</td>
+</tr>
+<tr>
+<td>M4</td>
+<td>띠부씰 레트로 (약간 바랜 종이결)</td>
+<td>띠부씰 용지</td>
+<td>노이즈 · 채도 낮춤</td>
+</tr>
+<tr>
+<td>M5 ★</td>
+<td>모서리 둥글리기 (모서리 펀치)</td>
+<td>도구 중 추천</td>
+<td>사진 · 메모지 모서리 반경</td>
+</tr>
+<tr>
+<td>M6</td>
+<td>그림자 (붙인 종이 두께)</td>
+<td>종이 느낌</td>
+<td>디자인 가이드 §4.4 그림자 토큰</td>
+</tr>
+<tr>
+<td>M7</td>
+<td>6공 타공 표현</td>
+<td>6공 다이어리</td>
+<td>속지 왼쪽 구멍 옵션 (하드커버 · 6공 프리미엄과 연결)</td>
+</tr>
+<tr>
+<td>M8</td>
+<td>누렇게 바램 (시간)</td>
+<td>C7</td>
+<td>옵션</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="8-내-에셋-diy-나눔">8. 내 에셋 (DIY · 나눔) ★</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>에셋</th>
+<th>왜</th>
+<th>디지털 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1 ★</td>
+<td>내 사진 스티커 (오려 붙이기)</td>
+<td>인스 · 예절샷 · "품절이면 직접 만든다" 정서</td>
+<td>배경 제거(기기 내) → 흰 테두리 씰 스티커로 저장</td>
+</tr>
+<tr>
+<td>D2</td>
+<td>내가 그린 스티커 (펜으로 그린 뒤 스티커로 저장)</td>
+<td>작가 생태계의 출발점</td>
+<td>획 묶음 → 스티커, 흰 테두리 옵션</td>
+</tr>
+<tr>
+<td>D3</td>
+<td>내 글씨 스티커 (손글씨 한 줄 → 재사용)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>D4</td>
+<td>방 나눔 상자 (띵)</td>
+<td>띵 · 덤 문화</td>
+<td>B15. 방 안에서만</td>
+</tr>
+<tr>
+<td>D5</td>
+<td>작가 마켓 (통판 알림 · 구독)</td>
+<td>트웬티 · 젤리크루 · 자꾸다꾸 500+ 작가</td>
+<td>2차. <a href="#doc-05">05 BM</a></td>
+</tr>
+<tr>
+<td>D6</td>
+<td>자체 마스코트 스티커 (DIO 캐릭터)</td>
+<td>캐릭터 IP 대안</td>
+<td>디자인 가이드 §1 브랜드와 함께</td>
+</tr>
+</tbody>
+</table>
+<p>캐릭터 IP(먼작귀 · 산리오 등)는 라이선스 없이 넣지 않는다. 대신 <strong>내 에셋 + 작가 마켓 + 마스코트</strong> 세 갈래로 대신한다.</p>
+</div><div class="sec2"><h2 id="9-지금-자산으로-바로-되는-것">9. 지금 자산으로 바로 되는 것</h2>
+<table>
+<thead>
+<tr>
+<th>지금 있는 것</th>
+<th>바로 되는 확장</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>테이프 무늬 18종 · 팔레트 7색</td>
+<td>T1 찢은 끝 · T8 숨긴 색 복귀 · T11 겹침 블렌드</td>
+</tr>
+<tr>
+<td>종이 바탕 6색</td>
+<td>P1 질감 레이어 · P5 미색 2색</td>
+</tr>
+<tr>
+<td>이모지 68종</td>
+<td>S9 자주 쓰는 말 · S16 날씨 세트와 짝</td>
+</tr>
+<tr>
+<td>텍스트 상자</td>
+<td>S1 모조지 스티커 (텍스트 + 바탕 스티커) · S6 한스 (낱자 흩뿌리기)</td>
+</tr>
+<tr>
+<td>연필 질감(178)</td>
+<td>W5 크레용</td>
+</tr>
+<tr>
+<td>움직이는 스티커(193)</td>
+<td>U7 완성 리본 · M2 홀로그램</td>
+</tr>
+<tr>
+<td>레이어 · 그룹</td>
+<td>P6 트레이싱지(반투명 레이어) · I4 간지</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-05" data-title="5. 테마 팩 구성과 BM · 로드맵">
+<h1 id="5-테마-팩-구성과-bm-로드맵">5. 테마 팩 구성과 BM · 로드맵</h1>
+<blockquote>
+<p>작성일: 2026-10-25 · 근거: <a href="#doc-01">01 조사</a> · 속지 번호는 <a href="#doc-03">03</a>, 에셋 번호는 <a href="#doc-04">04</a>, 온라인 동작은 <a href="#doc-02">02</a>.<br>
+출발점(손글씨 메모 BM): "구독자 들어가 기능 다 제공 + 낱개 판매 → 카톡처럼", "광고는 구독을 위한 유인이어야 한다. 광고 제거 990원, 친구 추가하면 구독제 1주일 무료 → 바이럴".</p>
+</blockquote>
+<div class="sec2"><h2 id="1-테마-팩이란">1. 테마 팩이란</h2>
+<p>팩 하나 = <strong>속지 묶음 + 스티커 + 테이프 + 배경지 + 글꼴 + 톤온톤 팔레트</strong>. 팩을 고르면 "색 맞추기"가 저절로 되고(조사 §1.6), 다이어리 만들기의 속지 묶음(다이어리 흐름 리뉴얼의 노트 · 플래너 · 일기 · 덕질 · 취미 · 시즌 한정)과 같은 축이다.</p>
+<table>
+<thead>
+<tr>
+<th>팩</th>
+<th>컨셉(조사 근거)</th>
+<th>속지</th>
+<th>스티커 · 소품</th>
+<th>테이프</th>
+<th>배경지</th>
+<th>글꼴 · 팔레트</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>베이식</strong> (무료)</td>
+<td>지금 자산</td>
+<td>노트 A1~A4 · 먼슬리 · 위클리 · 1D1P B5 · 그림일기 C2</td>
+<td>이모지 68 · 데코 기본 S10 · 모조지 S1 · 날짜 도장 S22</td>
+<td>기하 18 + 찢은 끝 T1</td>
+<td>종이 6색 + 질감 3</td>
+<td>기본 글꼴 · 현재 팔레트</td>
+</tr>
+<tr>
+<td>몽글 파스텔</td>
+<td>큐티 · 파스텔 · 둥근</td>
+<td>질문 365 C1 · 무드 C5 · 3줄 일기 C3</td>
+<td>둥근 데코 · 구름 말풍선 · 동물 아바타 U8</td>
+<td>도트 · 깅엄 파스텔 · 구름 배경 T2</td>
+<td>파스텔 패턴지 P2</td>
+<td>둥근 손글씨 W1 · 핑크 · 민트 · 라벤더</td>
+</tr>
+<tr>
+<td>빈티지 스크랩</td>
+<td>빈티지 · 콜라주 · 앤틱</td>
+<td>트레이싱 간지 I4 · 포켓 I5 · 엽서 I7 · 편지 C14</td>
+<td>우표 S30 · 티켓 S29 · 찢은 종이 S28 · 압정 S31</td>
+<td>크라프트 · 레이스 T7 · 투명 T6</td>
+<td>신문 · 악보 · 지도 P3 · 크라프트 P1</td>
+<td>레트로 타자 W1 · 세피아 · 올리브 · 버건디</td>
+</tr>
+<tr>
+<td>키치 Y2K</td>
+<td>비비드 · 스크랩 가득 · 반짝이</td>
+<td>체커 그리드 A12 · 밸런스 게임 G4 · 밈 사전 G13</td>
+<td>바코드 · 경고 라벨 S14 · 픽셀 글자 S7 · 홀로그램 M2</td>
+<td>체커 · 지그재그 네온</td>
+<td>콜라주 조각 P4 · 컬러 모눈 P8</td>
+<td>픽셀 · 네온 형광 W6 · 핫핑크 · 라임 · 코발트</td>
+</tr>
+<tr>
+<td>코티지 가든</td>
+<td>자연 · 수공예 · 꽃</td>
+<td>식물 일지 D22 · 레시피 D9 · 감사 일기 C7</td>
+<td>압화 · 나뭇잎 S13 · 리본 S32</td>
+<td>레이스 · 꽃줄 키스컷 T3 · 풀숲 배경 T2</td>
+<td>린넨 · 수채지 P1 · 꽃 패턴 P2</td>
+<td>삐뚤 연필 W1 · 세이지 · 머스터드 · 크림</td>
+</tr>
+<tr>
+<td>모노 미니멀</td>
+<td>미색 · 무채색 · 생산성</td>
+<td>타임라인 B6 · 3개 습관 B8 · 스터디 B11 · 월간 회고 B14</td>
+<td>라벨 S4 · 확인 도장 S23 · 화살표</td>
+<td>슬림 대시 · 차콜 · 아이보리</td>
+<td>미색 P5 · 모눈</td>
+<td>기본 글꼴 · 차콜 · 그레이 · 한 가지 포인트 색</td>
+</tr>
+<tr>
+<td>레트로 문방구</td>
+<td>90년대 문구점 · 크레파스</td>
+<td>원고지 A7 · 시간표 B13 · 용돈 기입장 D16 · 이어쓰기 G7</td>
+<td>참 잘했어요 S23 · 띠부씰 M4 · 학용품 S18</td>
+<td>손그림 결 T9</td>
+<td>갱지 · 모조지 P1</td>
+<td>크레용 W5 · 빨강 · 파랑 · 노랑 원색</td>
+</tr>
+<tr>
+<td>먹다꾸 · 카꾸</td>
+<td>맛집 · 카페</td>
+<td>먹다꾸 D7 · 카페 D8 · 레시피 D9 · 먹킷리스트 G6</td>
+<td>음식 S15 · 영수증 S29 · 별점</td>
+<td>체크 테이블보</td>
+<td>메뉴판 · 냅킨 결</td>
+<td>둥근 글씨 · 토마토 · 크림 · 카라멜</td>
+</tr>
+<tr>
+<td>갓생 스터디</td>
+<td>공스타그램 · 루틴</td>
+<td>스터디 B11 · D-day B12 · 시간표 B13 · 출석 G9 · 습관 체인 B10</td>
+<td>공부 S18 · 100점 · 체크</td>
+<td>슬림 · 글자 마테 T5</td>
+<td>모눈 · 미색</td>
+<td>모노 + 형광 한 색</td>
+</tr>
+<tr>
+<td>덕질</td>
+<td>포카 · 콘서트 · 최애</td>
+<td>최애 프로필 E14 · 포카 바인더 E1 · 콘서트 E3 · 스케줄 E11 · 결산 E8 · 덕메 교환일기 E16</td>
+<td>응원봉 · 포카 S20 · 탑로더 F6 · 포카 포켓 F5</td>
+<td>하트 · 별 키스컷</td>
+<td>반짝 홀로그램</td>
+<td>최애 색 1 + 흰 · 검 (팀 · 그룹 색을 사용자가 입력)</td>
+</tr>
+<tr>
+<td>직관 (야구 먼저)</td>
+<td>KBO · 승률</td>
+<td>팀 설정 · 스코어보드 F1 · 승률 F2 · 라인업 F3 · 응원가 F10</td>
+<td>야구 S19 · 승패 도장 S24 · 팀 이니셜</td>
+<td>팀 색 스트라이프</td>
+<td>잔디 · 흙 결</td>
+<td>숫자 전광판 글꼴 · 팀 2색</td>
+</tr>
+<tr>
+<td>우리 교환일기</td>
+<td>함께 쓰기</td>
+<td>면지 I2 · 교환일기 G3 · 질문 릴레이 G2 · 빙고 G1 · 출석 G9 · 롤링페이퍼 G5 · 타임캡슐 C14</td>
+<td>멤버 아바타 U8 · 턴 펜 U5 · 봉투 U2 · 스크래치 U1</td>
+<td>멤버 색 테이프</td>
+<td>편지지</td>
+<td>멤버별 색 자동</td>
+</tr>
+<tr>
+<td>시즌 한정 (9월~)</td>
+<td>2027 날짜형 · 크리스마스 · 벚꽃 · 수능 · 연말 결산</td>
+<td>H1 · H3 · H7 · H8 · H9 · H15</td>
+<td>시즌 S16</td>
+<td>시즌 T10</td>
+<td>시즌 바탕 C6</td>
+<td>시즌 색</td>
+</tr>
+</tbody>
+</table>
+<p>팩 수는 12 + 시즌. 처음엔 <strong>베이식 · 몽글 파스텔 · 우리 교환일기 · 모노 미니멀</strong> 네 개로 시작하고, 덕질 · 직관은 온라인 속지(A1)와 함께 2~3차에 연다.</p>
+</div><div class="sec2"><h2 id="2-bm">2. BM</h2>
+<table>
+<thead>
+<tr>
+<th>층</th>
+<th>내용</th>
+<th>근거 · 메모</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>무료</td>
+<td>베이식 팩 + 함께 속지 기본(빙고 · 질문 릴레이 · 교환일기) + 광고</td>
+<td>함께 속지는 <strong>초대의 이유</strong>라 무료</td>
+</tr>
+<tr>
+<td>광고 제거</td>
+<td>990원 (메모)</td>
+<td>가장 낮은 결제 장벽</td>
+</tr>
+<tr>
+<td><strong>구독</strong></td>
+<td>모든 팩 · 모든 온라인 속지 · 시즌 한정 · 작가 마켓 월 N개 · 인쇄 할인</td>
+<td>"구독하면 다 제공" (메모)</td>
+</tr>
+<tr>
+<td>낱개</td>
+<td>팩 하나 · 스티커 세트 하나 · 작가 통판 품</td>
+<td>"카톡 이모티콘처럼" (메모). 자꾸다꾸가 쓰는 방식 (조사 §1.9)</td>
+</tr>
+<tr>
+<td>친구 초대</td>
+<td>친구가 방에 들어오면 <strong>둘 다 구독 1주 무료</strong> (메모)</td>
+<td>함께 속지 → 초대 → 무료 체험 → 구독의 고리</td>
+</tr>
+<tr>
+<td>방 나눔 (띵)</td>
+<td>구독자가 산 팩을 <strong>같은 방에서 쓰는 장</strong>에는 멤버도 쓸 수 있음 (그 방 안에서만)</td>
+<td>띵 문화. 비구독자가 팩을 "맛보는" 경로</td>
+</tr>
+<tr>
+<td>작가 마켓</td>
+<td>작가 등록 → 스티커 · 속지 통판, 작가 구독 알림</td>
+<td>트웬티 · 젤리크루 구조. 수수료형</td>
+</tr>
+<tr>
+<td>인쇄</td>
+<td>하드커버 · 6공 프리미엄 제본 (메모 3번)</td>
+<td>연말 · 방 생일에 제안. 파트너 필요</td>
+</tr>
+</tbody>
+</table>
+<p>광고 원칙(메모): 광고는 <strong>구독의 유인</strong>이지 수익의 중심이 아니다. 광고 자리는 속지 위가 아니라 상점 · 목록에만 둔다. 디자인 가이드의 화면 배치(§5)를 침범하지 않는다.</p>
+</div><div class="sec2"><h2 id="3-알림과의-연결">3. 알림과의 연결</h2>
+<p>온라인 속지의 알림 사건 5종(칸 채움 · 줄 완성 · 전부 완성 · 봉인 해제 · D-day)은 <a href="../../알림%20설계/색인.md">알림 설계</a>의 알림 틀에 얹는다. 시즌 팩 오픈(9월 · 시즌 전)과 작가 통판 알림은 상점 알림으로 따로 분류한다.</p>
+</div><div class="sec2"><h2 id="4-로드맵">4. 로드맵</h2>
+<table>
+<thead>
+<tr>
+<th>차수</th>
+<th>속지</th>
+<th>에셋</th>
+<th>온라인</th>
+<th>팩 · BM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1차 (지금 자산 + 작은 품)</td>
+<td>도트 A4 · 코넬 A5 · 원고지 A7 · 1D1P B5 · 3개 습관 B8 · 질문 365 C1 · 무드 C5 · 빙고 G1 · 질문 릴레이 G2 · 교환일기 G3 · 출석 G9 · 인덱스 탭 I1 · 트레이싱 간지 I4</td>
+<td>모조지 S1 · 한스 S6 · 데코 S10 · 날짜 도장 S22 · 찢은 끝 T1 · 일력 마테 T4 · 질감지 P1 · 폴라로이드 F1 · 4컷 F3 · 상태 소품 U1~U8 · 내 사진 스티커 D1</td>
+<td>B1 · B2 · B3 · B9 · C1 타임캡슐 · C2 일력 · A11 디데이</td>
+<td>베이식 · 몽글 파스텔 · 우리 교환일기 · 모노 / 광고 제거 · 구독 · 친구 초대</td>
+</tr>
+<tr>
+<td>2차</td>
+<td>독서 D1 · 영화 D3 · 먹다꾸 D7 · 오운완 D11 · 가계부 D15 · 포카 바인더 E1 · 콘서트 E3 · 롤링페이퍼 G5 · 버킷 G6 · 포켓 I5 · 시즌 H8 · H9 · H15</td>
+<td>배경 마테 T2 · 키스컷 T3 · 패턴지 P2 · 빈티지 P3 · 포카 포켓 F5 · 티켓 F7 · 크레용 W5 · 글꼴 W1 · 내가 그린 스티커 D2</td>
+<td>A10 합계 · A7 사진 메타 · C4 · C9 · C5 · B5 · B6 · D1 · D2</td>
+<td>빈티지 · 코티지 · 먹다꾸 · 갓생 · 덕질 · 시즌 / 낱개 판매 · 방 나눔</td>
+</tr>
+<tr>
+<td>3차</td>
+<td>스코어보드 F1 · 승률 F2 · 라인업 F3 · 주간 리캡 · 월말 결산 B14</td>
+<td>직관 S19 · 승패 도장 S24 · 홀로그램 M2 · 6공 M7</td>
+<td>A1 · A2 · A4 · A14 · A15 · D3 · C3 화분</td>
+<td>직관 · 키치 Y2K · 레트로 문방구 / 작가 마켓 · 인쇄</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="5-손글씨-메모와의-대응표">5. 손글씨 메모와의 대응표</h2>
+<table>
+<thead>
+<tr>
+<th>메모</th>
+<th>이 문서에서</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>속지 삽입 연출을 다이어리스럽게 · 넘기는 인터랙션으로 속지 추가</td>
+<td>I1 인덱스 탭 · I4 간지 · 02 §1 "종이처럼 보인다" 규칙</td>
+</tr>
+<tr>
+<td>완성된 다이어리만 넘겨보기</td>
+<td>D9 공유 링크 보기 전용</td>
+</tr>
+<tr>
+<td>속지 기능 온라인화 · 보드게임처럼 같이 칸 채우면 알림</td>
+<td>02 갈래 B 전체(B1 빙고 · B17 보드판)</td>
+</tr>
+<tr>
+<td>BM: 구독 전체 + 낱개 · 광고는 유인 · 990원 · 친구 1주 무료</td>
+<td>§2</td>
+</tr>
+<tr>
+<td>1 스와이프 책장 책등</td>
+<td>D2 독서 목록(책등) · 책장 연출은 별도 문서</td>
+</tr>
+<tr>
+<td>2 넘겨서 페이지 추가</td>
+<td>A1 스코어보드 자동 생성 · C8 월말 자동 리캡이 "뒤에 붙는" 연출</td>
+</tr>
+<tr>
+<td>3 우리 페이지 불러오기 · 하드커버 · 6공 프리미엄</td>
+<td>D6 · D7 · M7</td>
+</tr>
+<tr>
+<td>4 보기 인터랙션 애니메이션</td>
+<td>U2 봉투 뜯기 · U1 스크래치 · U7 리본 · T4 일력 뜯기</td>
+</tr>
+<tr>
+<td>5 스코어보드 자동 속지</td>
+<td>A1 · A2 · F1 · F2 · 직관 팩</td>
+</tr>
+<tr>
+<td>6 펫 기능 (편집 화면 어딘가)</td>
+<td>C3 자라는 화분 · 반려 펫</td>
+</tr>
+<tr>
+<td>to-do: 속지 · 에셋 많이 뽑아보기 (레퍼런스 서치 기반)</td>
+<td>이 폴더 전체</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-06" data-title="6. 속지 디자인 제안 — 20종 × 가로 · 세로">
+<h1 id="6-속지-디자인-제안-20종-가로-세로">6. 속지 디자인 제안 — 20종 × 가로 · 세로</h1>
+<blockquote>
+<p>작성일: 2026-10-25 · 근거: <a href="#doc-03">03 속지 카탈로그</a> ★ 1차 추천 + <a href="#doc-02">02 온라인 속지</a> 1차 묶음 + 미래 핵심 4종(야구 · 포카 · 독서 · 콘서트)<br>
+캔버스: 실제 속지 템플릿과 같은 <strong>가로 1024×768 · 세로 768×1024</strong> 논리 좌표. 색은 <a href="../../디자인%20가이드.md">디자인 가이드 §2.4 꾸미기 팔레트</a>(표지 색 · 테이프 색 · 종이 바탕)만 썼다.<br>
+원본은 <code>벡터원본/</code>(40장)이고 <code>속지_디자인.py</code>가 만든다. 그림의 파란 손글씨 · 사진 · 테이프는 <strong>채운 예시</strong>이며 속지 자체는 그 밑의 인쇄선이다.</p>
+</blockquote>
+<div class="sec2"><h2 id="0-한눈에-보기">0. 한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th>공통 규칙</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>여백</td>
+<td>48. 상단 24에 제목 줄(색 점 + 영문 소제목 + 점선), 오른쪽 끝에 날짜 · 번호 칸</td>
+</tr>
+<tr>
+<td>선</td>
+<td>인쇄선 <code>#D9D4C7</code>, 보조선 <code>#ECE7DC</code>. 글은 가리지 않도록 선은 늘 손글씨보다 연하게</td>
+</tr>
+<tr>
+<td>종이</td>
+<td><code>#FFFCF6</code>. 질감은 에셋(P1)으로 얹는다</td>
+</tr>
+<tr>
+<td>강조색</td>
+<td>속지마다 팔레트 한 색: 노트 페리윙클 · 습관 세이지 · 질문 라벤더 · 무드 로즈 · 빙고 머스터드 · 구분지 카멜</td>
+</tr>
+<tr>
+<td>온라인 칸</td>
+<td>비어 있음 = 점선 상자, 채워짐 = 흰 카드, 잠김 = 자물쇠 + 점선 테두리, 숨김 = 스크래치 은박. 멤버는 색 원 아바타</td>
+</tr>
+<tr>
+<td>가로 ↔ 세로</td>
+<td>같은 칸 구성을 <strong>옆으로(가로) / 위아래로(세로)</strong> 다시 배치. 날짜 격자는 가로판은 날짜가 가로, 세로판은 날짜가 세로</td>
+</tr>
+<tr>
+<td>글꼴</td>
+<td>소제목 나눔고딕, 큰 숫자 · 질문은 명조, 손글씨 예시는 나눔 펜</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="1-노트">1. 노트</h2>
+<div class="sec3"><h3 id="11-도트-노트-a4">1.1 도트 노트 (A4)</h3>
+<div class="shots"><figure><img alt="" src="이미지/도트%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/도트%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>24 간격 점 격자, 제목 줄만</td>
+</tr>
+<tr>
+<td>쓰임</td>
+<td>불렛저널 · 스꾸 바탕. 테이프 · 스티커가 가장 잘 어울리는 바탕</td>
+</tr>
+<tr>
+<td>옵션</td>
+<td>점 간격 24 / 18, 점 색 연하게 · 진하게</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="12-코넬-노트-a5">1.2 코넬 노트 (A5)</h3>
+<div class="shots"><figure><img alt="" src="이미지/코넬%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/코넬%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>왼쪽 단서 26% · 노트 · 아래 요약 20%. 구분선만 진하게</td>
+</tr>
+<tr>
+<td>쓰임</td>
+<td>공부 · 독서 메모 · 회의. 갓생 스터디 팩</td>
+</tr>
+<tr>
+<td>세로판</td>
+<td>같은 비율, 단서 칸이 좁아지므로 줄 간격 28 유지</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="13-원고지-a7">1.3 원고지 (A7)</h3>
+<div class="shots"><figure><img alt="" src="이미지/원고지%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/원고지%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>가로 20열 × 13행(260자), 세로 15열 × 19행(285자). 두 행마다 카멜 색 굵은 줄</td>
+</tr>
+<tr>
+<td>쓰임</td>
+<td>이어쓰기(G7) · 시 · 편지. 레트로 문방구 팩</td>
+</tr>
+<tr>
+<td>온라인</td>
+<td>이어쓰기에서는 한 사람 분량을 행 단위로 잠근다</td>
+</tr>
+</tbody>
+</table>
+</div></div><div class="sec2"><h2 id="2-플래너-트래커">2. 플래너 · 트래커</h2>
+<div class="sec3"><h3 id="21-1d1p-하루-한-쪽-b5">2.1 1D1P 하루 한 쪽 (B5)</h3>
+<div class="shots"><figure><img alt="" src="이미지/1D1P%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/1D1P%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>큰 날짜 · 요일, 날씨 5개 원(하나 고르기), 할 일 3 체크, 자유 칸(점선 + 도트), D+ 칸</td>
+</tr>
+<tr>
+<td>가로 ↔ 세로</td>
+<td>가로는 왼쪽 세로 띠(300) + 오른쪽 자유 칸, 세로는 위 띠 + 아래 자유 칸</td>
+</tr>
+<tr>
+<td>온라인</td>
+<td>A4 날씨 도장이 날씨 원을 자동으로 고른다 · C11 하루 잠금 · 밤 10시 "오늘 장이 비어 있어요"</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="22-3개-습관-트래커-b8">2.2 3개 습관 트래커 (B8)</h3>
+<div class="shots"><figure><img alt="" src="이미지/습관3%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/습관3%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>습관 3줄 × 31일, 아래 메모 칸(보상 · 한 줄). 체크는 세이지 원</td>
+</tr>
+<tr>
+<td>가로 ↔ 세로</td>
+<td>가로는 날짜가 가로로 31칸, 세로는 날짜가 세로로 31줄 × 습관 3열</td>
+</tr>
+<tr>
+<td>온라인</td>
+<td>C9 습관 체인: 연속일은 원이 사슬처럼 이어지고, 끊기면 찢김 표시</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="23-질문-일기-365-c1">2.3 질문 일기 365 (C1)</h3>
+<div class="shots"><figure><img alt="" src="이미지/질문365%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/질문365%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>질문 번호 + 질문(명조) + <strong>3년(2026 · 2027 · 2028) 답 칸</strong>. 같은 질문에 해마다 한 번씩 답한다</td>
+</tr>
+<tr>
+<td>쓰임</td>
+<td>인디고 질문 일기 365 형식의 3년 다이어리 변형. 질문 뱅크 366개 필요</td>
+</tr>
+<tr>
+<td>온라인</td>
+<td>B2 질문 릴레이로 확장하면 멤버별 답 칸이 된다 · C5 "1년 전 오늘" 답이 비친다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="24-무드-트래커-c5">2.4 무드 트래커 (C5)</h3>
+<div class="shots"><figure><img alt="" src="이미지/무드%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/무드%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>12달 × 31일 격자, 범례 6색(설렘 · 평온 · 뿌듯 · 피곤 · 속상 · 무) = 팔레트 색</td>
+</tr>
+<tr>
+<td>가로 ↔ 세로</td>
+<td>가로는 달이 세로 12줄, 세로는 달이 가로 12열</td>
+</tr>
+<tr>
+<td>온라인</td>
+<td>칸을 누르면 색 고르기. 월말 결산(A15)에 가장 많은 색 집계</td>
+</tr>
+</tbody>
+</table>
+</div></div><div class="sec2"><h2 id="3-함께-쓰는-속지-온라인-1차">3. 함께 쓰는 속지 (온라인 1차)</h2>
+<div class="sec3"><h3 id="31-빙고-g1-b1">3.1 빙고 (G1 · B1)</h3>
+<div class="shots"><figure><img alt="" src="이미지/빙고%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/빙고%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>5×5(3×3 · 4×4 옵션), 가운데 FREE. 채운 칸은 버터색 + 채운 멤버 아바타. 완성 줄은 테이프가 붙고 "1줄!" 도장</td>
+</tr>
+<tr>
+<td>옆 정보</td>
+<td>완성 줄 수 · 채운 칸 수 · 참여 멤버 · 알림 규칙</td>
+</tr>
+<tr>
+<td>가로 ↔ 세로</td>
+<td>가로는 빙고판 왼쪽 + 정보 오른쪽, 세로는 빙고판 위 + 정보 아래</td>
+</tr>
+<tr>
+<td>상태 · 알림</td>
+<td>비어 있음(점선) → 채워짐(버터). 칸 채움은 무음, <strong>한 줄 완성</strong>은 방 전체, 전체 완성은 리본</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="32-질문-릴레이-g2-b2">3.2 질문 릴레이 (G2 · B2)</h3>
+<div class="shots"><figure><img alt="" src="이미지/릴레이%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/릴레이%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>질문 한 줄 + 멤버 수만큼 답 카드(아바타 · 이름 · 줄). 네 상태를 한 장에 보였다: 답함 2 · <strong>답했지만 가려짐(스크래치)</strong> · 아직 안 씀(점선 + 펜)</td>
+</tr>
+<tr>
+<td>규칙</td>
+<td>전원 답하면 스크래치가 벗겨진다. 그 전엔 남의 답을 못 본다</td>
+</tr>
+<tr>
+<td>가로 ↔ 세로</td>
+<td>가로 2×2 카드, 세로 1×4 카드</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="33-교환일기-턴-g3-b3">3.3 교환일기 턴 (G3 · B3)</h3>
+<div class="shots"><figure><img alt="" src="이미지/교환일기%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/교환일기%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>2단(4단 옵션). 쓴 칸은 흰 카드 + "썼어요", 다음 칸은 페리윙클 점선 + 펜 아이콘 + "네 차례야", 그 뒤 멤버는 자물쇠</td>
+</tr>
+<tr>
+<td>가로 ↔ 세로</td>
+<td>가로는 좌우 2단, 세로는 위아래 2단</td>
+</tr>
+<tr>
+<td>알림</td>
+<td>턴이 넘어오면 "네 차례야", 48시간 미응답 리마인드</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="34-출석-도장판-g9-b9">3.4 출석 도장판 (G9 · B9)</h3>
+<div class="shots"><figure><img alt="" src="이미지/출석%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/출석%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>멤버 4줄 × 31일. 도장 = 멤버 색 아바타. 아래 메모 칸(보상). 전원 출석 날 "전원!" 도장</td>
+</tr>
+<tr>
+<td>가로 ↔ 세로</td>
+<td>습관 트래커와 같은 격자 규칙(가로는 날짜 가로, 세로는 날짜 세로)</td>
+</tr>
+<tr>
+<td>알림</td>
+<td>전원 출석 날 축하, 3일 빠지면 본인에게만 조용히</td>
+</tr>
+</tbody>
+</table>
+</div></div><div class="sec2"><h2 id="4-구조-시간-속지">4. 구조 · 시간 속지</h2>
+<div class="sec3"><h3 id="41-인덱스-탭-구분지-i1">4.1 인덱스 탭 구분지 (I1)</h3>
+<div class="shots"><figure><img alt="" src="이미지/인덱스탭%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/인덱스탭%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>큰 달 숫자(명조 · 카멜) + 영문 달, 이달의 목표 줄, 사진 · 한 줄. <strong>오른쪽 가장자리에 탭 12개</strong>, 이달 탭만 튀어나오고 진하다</td>
+</tr>
+<tr>
+<td>연출</td>
+<td>책장 넘기기(메모 1 · 4)에서 탭이 쌓여 보인다. 시즌 바탕(C6)은 이 장의 카드 안에</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="42-트레이싱-간지-i4-c5">4.2 트레이싱 간지 (I4 · C5)</h3>
+<div class="shots"><figure><img alt="" src="이미지/트레이싱%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/트레이싱%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>반투명 흰 장(불투명 68%) 아래로 <strong>앞장(1년 전 오늘)이 비친다.</strong> 테두리는 점선, 위에 덧쓴 글만 진하다</td>
+</tr>
+<tr>
+<td>구현</td>
+<td>레이어 하나를 반투명 백색으로. 아래 장은 지정한 과거 페이지의 렌더 결과</td>
+</tr>
+<tr>
+<td>온라인</td>
+<td>C5 "1년 전 오늘" 알림 → 이 간지가 자동으로 붙는다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="43-타임캡슐-c14-c1">4.3 타임캡슐 (C14 · C1)</h3>
+<div class="shots"><figure><img alt="" src="이미지/캡슐%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/캡슐%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>왼쪽(위) 편지 줄, 오른쪽(아래) <strong>봉투 + DIO 실링 왁스 + 자물쇠</strong>. 봉인 후엔 편지 칸이 봉투 안으로 들어가 보이지 않는다</td>
+</tr>
+<tr>
+<td>상태</td>
+<td>쓰는 중 → 봉인(멤버별) → 공개일 0시에 봉투가 뜯기는 애니메이션(U2)</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="44-일력-마테-c2">4.4 일력 마테 (C2)</h3>
+<div class="shots"><figure><img alt="" src="이미지/일력마테%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/일력마테%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>위에 테이프 롤(날짜 10칸, 오늘만 진한 글자), 아래 도트 바탕. 뜯은 조각은 찢은 끝 테이프 + 날짜 + 손글씨 한 줄</td>
+</tr>
+<tr>
+<td>규칙</td>
+<td>하루 한 조각. 내일 조각은 내일 0시에 뜯긴다 → 매일 한 줄 습관</td>
+</tr>
+<tr>
+<td>에셋</td>
+<td>T4 일력 마테 · T1 찢은 끝</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="45-디데이-a11-c4">4.5 디데이 (A11 · C4)</h3>
+<div class="shots"><figure><img alt="" src="이미지/디데이%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/디데이%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>큰 "D-37"(명조 110) + 제목, 남은 날 수만큼 작은 칸(가로 20열 · 세로 12열). 지난 날은 페리윙클로 칠해짐, 아래 자유 칸</td>
+</tr>
+<tr>
+<td>온라인</td>
+<td>숫자는 매일 자동. 칸은 자동으로 칠해지거나 스크래치(U1)로 직접 긁는다. D-7 · D-1 · 당일 알림</td>
+</tr>
+</tbody>
+</table>
+</div></div><div class="sec2"><h2 id="5-덕질-취향-직관-23차-핵심">5. 덕질 · 취향 · 직관 (2~3차 핵심)</h2>
+<div class="sec3"><h3 id="51-야구-직관-기록지-f1-a1-메모-5번">5.1 야구 직관 기록지 (F1 · A1) — 메모 5번</h3>
+<div class="shots"><figure><img alt="" src="이미지/야구%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/야구%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>이닝 1~9 + R · H · E 기록지(전광판이 아니라 <strong>인쇄된 기록지</strong> 느낌, 팀 색 띠 두 줄), 선발 · 결승타 · 좌석 · 날씨 · 동행 · 먹은 것, 자유 칸, "승" 도장, 시즌 승률 한 줄</td>
+</tr>
+<tr>
+<td>자동</td>
+<td>스코어 · 선발 · 구장 · 날씨는 <strong>잠긴 글자</strong>로 도착(오른쪽 작은 "자동 입력" 표시). 승패 도장(S24)과 시즌 승률(A2)도 자동</td>
+</tr>
+<tr>
+<td>팀</td>
+<td>팀 로고 없이 팀 색 + 이니셜. 다이어리 설정에서 팀을 고르면 띠 색이 바뀐다</td>
+</tr>
+<tr>
+<td>가로 ↔ 세로</td>
+<td>세로는 정보 칸이 2열로 줄고 자유 칸이 길어진다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="52-포카-바인더-e1-d1">5.2 포카 바인더 (E1 · D1)</h3>
+<div class="shots"><figure><img alt="" src="이미지/포토카드%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/포토카드%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>투명 포켓(광택 하이라이트) 가로 4×2 · 세로 3×3. 카드 비율 55:85</td>
+</tr>
+<tr>
+<td>동작</td>
+<td>사진을 넣으면 카드 비율로 자동 잘림(D1). 빈 포켓엔 "포켓" 라벨</td>
+</tr>
+<tr>
+<td>에셋</td>
+<td>F5 포카 포켓 · 탑로더 프레임(F6)은 꾸밈 여백 있는 변형</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="53-독서-기록-d1-a9">5.3 독서 기록 (D1 · A9)</h3>
+<div class="shots"><figure><img alt="" src="이미지/독서%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/독서%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>표지 칸(2:3, "자동") · 제목 · 저자 · 읽은 날 · 별점 · 큰 따옴표 인용 줄 · 한 줄 평 자유 칸</td>
+</tr>
+<tr>
+<td>자동</td>
+<td>제목을 치면 표지 · 저자가 들어온다(A9). 표지 칸은 비워 두고 직접 그려도 된다</td>
+</tr>
+<tr>
+<td>가로 ↔ 세로</td>
+<td>가로는 표지 왼쪽 · 정보 오른쪽 · 인용이 정보 아래, 세로는 인용이 표지 아래로</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="54-콘서트-기록-e3">5.4 콘서트 기록 (E3)</h3>
+<div class="shots"><figure><img alt="" src="이미지/콘서트%20가로.jpg" /><figcaption>가로 1024×768</figcaption></figure><figure><img alt="" src="이미지/콘서트%20세로.jpg" /><figcaption>세로 768×1024</figcaption></figure></div>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>설계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>칸</td>
+<td>절취선 있는 티켓 포켓(D2, 티켓 사진 칸), 응원봉 아이콘 · 동행 · 교통, 셋리스트 14~16줄, 현장 사진 자유 칸, 오른쪽 위 D-DAY</td>
+</tr>
+<tr>
+<td>온라인</td>
+<td>콘서트 전엔 D-day 카운트(A11), 후엔 티켓 · 셋리스트 채우기. 덕메 방이면 한 장을 같이 채운다</td>
+</tr>
+</tbody>
+</table>
+</div></div><div class="sec2"><h2 id="6-다음-단계">6. 다음 단계</h2>
+<ol>
+<li>이 20종을 디자인 가이드의 <strong>속지 글씨체(마루부리)</strong> 로 바꿔 실제 템플릿 SVG(<code>frontend/assets/templates</code>)로 옮긴다. 캔버스 · 여백이 같아 좌표를 그대로 쓸 수 있다.</li>
+<li>온라인 속지 4종(빙고 · 질문 릴레이 · 교환일기 · 출석)은 칸 좌표를 <strong>slot 메타데이터</strong>(id · 좌표 · 상태)로 SVG에 함께 넣는다.</li>
+<li>세로판은 폰 전용 배치(<code>docs/화면 배치/폰 태블릿 배치.md</code>)에서 한 번 더 확인한다.</li>
+</ol></div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll('nav a')],secs=[...document.querySelectorAll('.doc')];
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.toggle('on',l.getAttribute('href')==='#'+e.target.id));}})},{rootMargin:'-20% 0px -70% 0px'});
+secs.forEach(s=>io.observe(s));
+</script>
+</body>
+</html>
