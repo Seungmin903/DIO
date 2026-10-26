@@ -16,6 +16,7 @@ public class EmailAuthProvider {
     protected EmailAuthProvider() {}
     public Long getUserId() { return userId; }
     public String getPasswordHash() { return passwordHash; }
+    public void resetPassword(String encodedPassword) { passwordHash = encodedPassword; }
     EmailAuthProvider(Long userId, String email, String passwordHash, Instant now) {
         this.userId = userId; provider = "EMAIL"; providerUserId = email;
         this.passwordHash = passwordHash; createdAt = now;

@@ -30,7 +30,8 @@ class EmailLoginService {
     public LoginDtos.Tokens login(LoginDtos.LoginRequest request, String remoteAddress) {
         throttle.check(request.email(), remoteAddress);
         jwt.configured();
-        var account = accounts.findByProviderAndProviderUserId("EMAIL", request.email()).orElse(null);
+        // 비밀번호 재설정과 직렬화해 이전 비밀번호로 세션이 뒤늦게 생성되지 않게 한다.
+        var account = accounts.findForUpdate("EMAIL", request.email()).orElse(null);
         String hash = account == null || account.getPasswordHash() == null ? dummyHash : account.getPasswordHash();
         boolean matches = passwords.matches(request.password(), hash);
         SignupUser user = account == null ? null : users.findById(account.getUserId()).orElse(null);

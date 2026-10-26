@@ -11,6 +11,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   let session = null, draft = null, verification = null, revision = 0, refreshing = null;
+  let passwordReset = null, resetRevision = 0;
   const userView = (user) => ({
     mode: 'authenticated', provider: 'email', userId: user.userId,
     email: user.email, nickname: user.nickname,
@@ -42,6 +43,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   const api = {
     cancelPending({ keepEnrollment = false } = {}) {
       revision++;
+      resetRevision++; passwordReset = null;
       if (!keepEnrollment) { draft = null; verification = null; }
     },
     async login({ email, password }) {
@@ -74,6 +76,26 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       const result = await request('email-verifications/verify', { email: normalized, code });
       verification = { email: normalized, token: result.signupToken, expiresAt: now() + result.expiresIn * 1000 };
       return { expiresIn: result.expiresIn };
+    },
+    // 비밀번호 찾기 화면이 추가되면 연결한다. 재설정 토큰은 메모리에만 보관한다.
+    async requestPasswordReset(email) {
+      resetRevision++; passwordReset = null;
+      return request('password-reset-requests', { email: normalizeEmail(email) });
+    },
+    async verifyPasswordReset(email, code) {
+      const attempt = ++resetRevision, normalized = normalizeEmail(email);
+      passwordReset = null;
+      const result = await request('password-reset-verifications', { email: normalized, code });
+      if (attempt !== resetRevision) throw new Error('비밀번호 재설정 요청이 취소되었어요.');
+      passwordReset = { email: normalized, token: result.resetToken, expiresAt: now() + result.expiresIn * 1000 };
+      return { expiresIn: result.expiresIn };
+    },
+    async completePasswordReset({ email, newPassword }) {
+      const current = passwordReset;
+      if (!current || current.email !== normalizeEmail(email) || current.expiresAt <= now())
+        throw new Error('비밀번호 재설정 전에 이메일 인증을 완료해 주세요.');
+      await request('password-resets', { email: current.email, resetToken: current.token, newPassword });
+      session = null; api.cancelPending();
     },
     async completeProfile({ email, nickname, photoUri, terms }) {
       if (!draft || draft.email !== normalizeEmail(email) || !verification ||

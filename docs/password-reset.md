@@ -1,0 +1,55 @@
+# 비밀번호 재설정 — S15P31F106-300
+
+로그인 전 이메일 계정의 비밀번호를 복구한다. 로그인 중 현재 비밀번호를 확인하는 `PATCH /api/v1/me/password`는 이번 범위에 포함하지 않는다. 기존 회원가입·로그인 브랜치를 기반으로 `feature/be/password-reset`에서 작업하며 회원가입 MR 병합이 선행되어야 한다.
+
+| 기능 | Method | Endpoint | 요청 | 성공 응답 |
+| --- | --- | --- | --- | --- |
+| 재설정 인증번호 발송 | POST | `/api/v1/auth/password-reset-requests` | `email` | 202: `message`, `expiresIn: 600`, `resendAfter: 60` |
+| 인증번호 확인 | POST | `/api/v1/auth/password-reset-verifications` | `email`, `code`(6자리) | 200: `resetToken`, `expiresIn: 600` |
+| 재설정 완료 | POST | `/api/v1/auth/password-resets` | `email`, `resetToken`, `newPassword` | 204: 본문 없음 |
+
+세 API 모두 로그인 토큰이 필요 없다. 이메일은 앞뒤 공백 제거·소문자로 정규화한다. 새 비밀번호는 회원가입과 같은 영문·숫자를 포함한 ASCII 8~32자다. 비밀번호 확인은 프론트 입력 검증용이며 서버로 보내지 않는다. Swagger의 ‘비밀번호 재설정’ 그룹에서 위 순서로 테스트한다. 발송 응답의 202는 계정 존재나 메일 도착을 보장하지 않는다. 없는 계정·소셜 전용 계정·비활성 계정에도 동일한 응답을 반환하며 이메일은 보내지 않는다.
+
+## 인증과 저장
+
+- V7은 `password_reset_verifications`만 새로 만든다. V1~V6 및 기존 회원·다이어리 데이터는 수정하지 않는다. 팀원은 새 코드 실행 시 Flyway로 V7을 적용한다.
+- 회원가입 인증 행과 토큰을 재사용하지 않는다. 가입용 `signupToken`으로 재설정할 수 없고 반대도 불가능하다.
+- SMTP 발신 주소와 `SIGNUP_VERIFICATION_SECRET` 설정을 재사용하지만 인증번호 HMAC에는 `password-reset:` 목적을 포함한다. 인증번호·일회용 토큰 원문은 DB에 저장하지 않는다.
+- 인증번호는 10분 유효하며 오답 5회 후 새 발송이 필요하다. 인증 성공 후 같은 번호를 재사용할 수 없다. 재발송은 이전 번호·재설정 토큰을 무효화한다.
+- 재설정 토큰은 256비트 난수이며 이메일·회원 ID에 연결되고 10분 내 한 번만 사용할 수 있다. 완료 요청은 계정과 인증 행 잠금으로 직렬화한다.
+- 비밀번호 BCrypt 저장, 재설정 토큰 소비, 모든 기기의 세션 폐기는 같은 DB 트랜잭션이다. 기존 Access Token도 세션 검증에서 거절된다. 다른 회원 세션은 유지한다. 일반 로그인도 같은 인증 계정 행을 잠가 이전 비밀번호로 세션이 뒤늦게 생성되는 것을 방지한다.
+- 응답에는 `Cache-Control: no-store`를 적용한다. 운영에서는 HTTPS를 사용한다.
+
+## 발송과 요청 제한
+
+SMTP는 DB 커밋 후 별도 스레드에서 처리한다. 최대 2개 작업 스레드·대기 100개이며 SMTP 오류와 큐 포화는 개인정보 없는 경고 로그로 기록하고 등록 여부와 무관하게 HTTP 응답을 유지한다. 큐는 메모리이므로 프로세스 종료 시 미전송 메일은 유실될 수 있다. 운영 환경의 전달 보장은 추후 영속 큐/outbox가 필요하다.
+
+계정 등록 여부와 무관하게 이메일 발송 요청은 60초 간격, 발송 IP당 15분 20회, 확인·완료는 각각 IP당 15분 100회로 제한한다. HTTP 429의 `Retry-After`를 따른다. 서버 메모리 제한은 최대 2만 키이며 재시작·다중 인스턴스·축출에 걸친 공통 제한은 인프라에서 보완한다. 등록된 계정의 DB 발송 시각도 확인해 연속 발송을 방지한다. 프록시에서는 기존 신뢰 Nginx 설정으로 실제 IP를 반영한다.
+
+## 프론트 연동 범위
+
+현재 `AuthScreen`에는 ‘비밀번호 찾기’ 안내 버튼만 있고 입력 화면이 없다. 화면은 임의로 만들지 않았다. `authService`에서 사용할 수 있는 `requestPasswordReset(email)`, `verifyPasswordReset(email, code)`, `completePasswordReset({email, newPassword})`를 제공한다. 재설정 토큰은 메모리에만 보관하며 이메일 변경·만료·재발송·취소 후 완료를 차단한다. 성공 후 기존 세션을 비우고 다시 로그인해야 한다.
+
+프론트 담당자 추가 작업: 이메일 입력 → 발송 안내·60초 재요청 → 인증번호 입력 → 새 비밀번호·확인 입력 → 완료 후 로그인 화면 이동. 현재 안내 버튼은 실제 입력 화면이 생길 때 연결해야 한다. 일반 회원가입용 이메일 인증 화면과 별도 흐름이다.
+
+## Swagger 수동 확인 순서
+
+1. 일반 회원가입을 완료한 이메일로 `POST /api/v1/auth/password-reset-requests`에 `{"email":"member@example.com"}`을 전송한다. 202 응답 후 실제 받은편지함의 **비밀번호 재설정 인증번호**를 확인한다. 등록하지 않은 이메일에는 메일이 오지 않아도 같은 202가 나온다.
+2. `POST /api/v1/auth/password-reset-verifications`에 `{"email":"member@example.com","code":"받은 6자리 숫자"}`를 전송한다. 응답의 `resetToken`을 복사한다.
+3. `POST /api/v1/auth/password-resets`에 `{"email":"member@example.com","resetToken":"방금 받은 값","newPassword":"NewDioMember123!"}`를 전송한다. 204·빈 본문이면 완료다. 토큰 자리에 예시 문자열을 그대로 사용하지 않는다.
+4. 기존 비밀번호 로그인은 401, 새 비밀번호 로그인은 200인지 확인한다. 재설정 전 로그인한 토큰의 로그아웃·재발급도 401이 되어야 한다. 회원가입용 인증번호·signupToken과 섞지 않는다.
+
+기존 SMTP·SIGNUP_VERIFICATION_SECRET 설정을 그대로 사용하므로 새 환경변수는 필요 없다. 실행 중인 서버가 이전 코드라면 백엔드를 재시작해야 Swagger에 새 API가 나타나고 V7도 자동 적용된다. 202인데 등록 이메일로 메일이 도착하지 않으면 스팸함과 서버의 비밀번호 재설정 메일 경고 로그, SMTP 설정을 확인한다. 사용자에게 등록 여부를 노출하지 않기 위해 SMTP 실패도 202 응답을 바꾸지 않는다.
+
+PostgreSQL 회귀 테스트는 개인/공용 DB에 실행하지 않는다. 테스트용 컨테이너의 loopback 포트와 빈 `dio_reset_qa` DB만 사용하며 `DIO_RESET_POSTGRES_QA=true`, `DIO_RESET_POSTGRES_URL`, `DIO_RESET_POSTGRES_PASSWORD`를 프로세스 환경에 설정한 후 `./gradlew.bat test --tests '*PasswordResetPostgresTests'`로 실행한다. 테스트가 회원·인증·세션 테스트 행을 정리하므로 해당 DB는 반드시 일회용이어야 한다. 기본 전체 테스트에서는 이 검증을 제외한다.
+
+## 검증 결과 — 2026-10-26
+
+- `backend/./gradlew.bat test`: 전체 180개 중 157개 통과, 환경 조건에 따른 23개 제외, 실패 0개. 제외 항목에는 별도 실행한 PostgreSQL 재설정 테스트 13개와 기존 PostgreSQL·브라우저 선택 테스트가 포함된다.
+- 일회용 PostgreSQL 17에서 V1~V7 Flyway 적용 및 JPA validate 성공. 재설정 통합 테스트 13개와 메일·요청 제한 단위 테스트 5개 통과. 사용한 컨테이너는 종료·정리했으며 개인/공용 DB는 사용하지 않았다.
+- 등록·미등록·소셜 전용·비활성 계정의 동일 응답, 메일 커밋 후 발송, 롤백 시 미발송, 오답 횟수 누적, 만료·다른 이메일·가입 토큰 거절, 재발송 시 기존 토큰 무효화, 중복 소비 1회 성공, 전체 기기 세션 폐기·다른 회원 유지, 재설정과 이전 비밀번호 로그인의 경합, 실패 시 비밀번호·세션 변경 롤백, 요청 제한·CORS·Swagger를 확인했다.
+- `frontend/pnpm test:auth`: 32개 통과. 재설정 토큰 메모리 보관, 이메일 불일치·만료·재발송·취소 및 늦은 응답 차단을 확인했다.
+- `pnpm exec expo export --platform web --platform android --output-dir .expo/password-reset-export`: 성공. 화면은 추가하지 않았다.
+- 변경 파일의 비밀정보 검사 통과. 실제 사용자 이메일로 SMTP 발송하거나 재설정 입력 화면·실기기 전체 흐름을 검증한 것은 아니다. 수동 Swagger 테스트는 위 순서를 따른다.
+
+사용자 검증(2026-10-26): 사용자가 Swagger에서 비밀번호 재설정 흐름을 직접 테스트해 정상 동작을 확인했다고 보고했다.

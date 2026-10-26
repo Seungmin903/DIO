@@ -90,3 +90,4 @@
 
 - [로그인·회원가입 화면과 입력 상태](./auth-screens.md)
 - [기존 인증 화면 API 연결 및 프론트 후속 작업](./auth-frontend-integration.md)
+- [비밀번호 재설정 API·프론트 연동 범위](./password-reset.md)
