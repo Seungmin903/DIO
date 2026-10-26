@@ -422,5 +422,3 @@ def d_concert(W, H, land):
     g += [R(fx, fy, fw, H - M - fy, stroke=LINE, dash="3 4", rx=8), dotgrid(fx + 10, fy + 10, fw - 20, H - M - fy - 20, 24),
           photo(fx + 14, fy + 14, 140, 100, "현장 사진"), hand(fx + 170, fy + 50, "앵콜 때 울었음", 24)]
     return g
-
-
