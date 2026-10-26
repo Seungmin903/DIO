@@ -18,7 +18,7 @@ class AuthCorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/v1/auth/**").allowedOrigins(origins)
             .allowedMethods("GET", "POST", "OPTIONS")
-            .allowedHeaders("Content-Type", "Authorization").exposedHeaders("Retry-After")
+            .allowedHeaders("Content-Type", "Authorization", "X-DIO-Access-Token").exposedHeaders("Retry-After")
             .allowCredentials(false).maxAge(600);
     }
 }

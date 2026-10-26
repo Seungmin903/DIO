@@ -23,6 +23,14 @@ dio:
         width: 1280
         height: 800
 
+server:
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      remote-ip-header: X-Forwarded-For
+      protocol-header: X-Forwarded-Proto
+      internal-proxies: ${AUTH_TRUSTED_PROXY_REGEX:127\.0\.0\.1|::1}
+
 management:
   endpoint:
     health:
