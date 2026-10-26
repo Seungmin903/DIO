@@ -98,7 +98,7 @@ backend-test:
       -v "$CI_PROJECT_DIR/backend:/workspace"
       -w /workspace
       eclipse-temurin:17-jdk
-      ./gradlew test --no-daemon
+      sh ./gradlew test --no-daemon
   artifacts:
     when: always
     reports:
