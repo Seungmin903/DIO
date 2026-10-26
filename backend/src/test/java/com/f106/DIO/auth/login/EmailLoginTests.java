@@ -50,6 +50,7 @@ class EmailLoginTests {
     @Autowired EmailVerificationRepository verifications;
     @Autowired RefreshTokenRepository tokens;
     @Autowired RefreshTokenHistoryRepository history;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
     @MockitoBean SignupMailSender mail;
     @MockitoBean LoginThrottle throttle;
     AtomicReference<String> code;
@@ -100,6 +101,46 @@ class EmailLoginTests {
         assertThat(decoded.getSubject()).isEqualTo(response.user().userId());
         assertThat(decoded.getClaimAsString("email")).isNull(); assertThat(decoded.getClaimAsString("password")).isNull();
         assertThat(response.toString()).doesNotContain(response.accessToken(), response.refreshToken());
+    }
+    @Test void bcryptRunsWithoutTransactionAndSessionWriteUsesTransaction() {
+        register();
+        Object original = ReflectionTestUtils.getField(service, "passwords");
+        var verifier = spy((org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder)original);
+        doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return invocation.callRealMethod();
+        }).when(verifier).matches(any(), anyString());
+        ReflectionTestUtils.setField(service, "passwords", verifier);
+        try {
+            assertThat(login().accessToken()).isNotBlank();
+            assertThat(tokens.count()).isEqualTo(1);
+            assertThat(ReflectionTestUtils.getField(users.findAll().get(0), "lastLoginAt")).isNotNull();
+        } finally { ReflectionTestUtils.setField(service, "passwords", original); }
+    }
+    @Test void enclosingTransactionCannotKeepConnectionDuringLogin() {
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        assertThatThrownBy(() -> transaction.execute(status -> login()))
+            .isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
+        assertThat(tokens.count()).isZero();
+    }
+    @Test void passwordChangedDuringVerificationCannotIssueSessionWithOldPassword() {
+        register();
+        Object original = ReflectionTestUtils.getField(service, "passwords");
+        var verifier = spy((org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder)original);
+        doAnswer(invocation -> {
+            boolean matches = (Boolean)invocation.callRealMethod();
+            var account = accounts.findByProviderAndProviderUserId("EMAIL", EMAIL).orElseThrow();
+            ReflectionTestUtils.setField(account, "passwordHash", "changed-after-verification");
+            accounts.saveAndFlush(account);
+            return matches;
+        }).when(verifier).matches(any(), anyString());
+        ReflectionTestUtils.setField(service, "passwords", verifier);
+        try {
+            assertThatThrownBy(this::login).isInstanceOfSatisfying(LoginException.class,
+                error -> assertThat(error.code).isEqualTo("INVALID_CREDENTIALS"));
+            assertThat(tokens.count()).isZero();
+            assertThat(ReflectionTestUtils.getField(users.findAll().get(0), "lastLoginAt")).isNull();
+        } finally { ReflectionTestUtils.setField(service, "passwords", original); }
     }
     @Test void wrongUnknownAndInactiveAccountsReturnSameError() throws Exception {
         register();

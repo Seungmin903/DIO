@@ -8,6 +8,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 class EmailLoginService {
@@ -19,34 +22,53 @@ class EmailLoginService {
     private final LoginJwt jwt;
     private final LoginProperties properties;
     private final LoginThrottle throttle;
+    private final TransactionTemplate readTransaction;
+    private final TransactionTemplate writeTransaction;
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder(12);
     private final String dummyHash = passwords.encode("dummy-password-never-authenticates");
     EmailLoginService(SignupUserRepository users, EmailAuthProviderRepository accounts, SignupProfilePhotoRepository photos,
-            RefreshTokenRepository tokens, RefreshTokenHistoryRepository history, LoginJwt jwt, LoginProperties properties, LoginThrottle throttle) {
+            RefreshTokenRepository tokens, RefreshTokenHistoryRepository history, LoginJwt jwt, LoginProperties properties,
+            LoginThrottle throttle, PlatformTransactionManager transactionManager) {
         this.users = users; this.accounts = accounts; this.photos = photos; this.tokens = tokens;
         this.history = history; this.jwt = jwt; this.properties = properties; this.throttle = throttle;
+        readTransaction = new TransactionTemplate(transactionManager);
+        readTransaction.setReadOnly(true);
+        writeTransaction = new TransactionTemplate(transactionManager);
     }
-    @Transactional
+    // 외부 트랜잭션으로 감싸 커넥션이 BCrypt 동안 유지되는 호출도 허용하지 않는다.
+    @Transactional(propagation = Propagation.NEVER)
     public LoginDtos.Tokens login(LoginDtos.LoginRequest request, String remoteAddress) {
         jwt.configured();
         var reservation = throttle.reserve(request.email(), remoteAddress);
         try {
-            var account = accounts.findByProviderAndProviderUserId("EMAIL", request.email()).orElse(null);
+            var account = readTransaction.execute(status ->
+                accounts.findByProviderAndProviderUserId("EMAIL", request.email()).orElse(null));
             String hash = account == null || account.getPasswordHash() == null ? dummyHash : account.getPasswordHash();
             boolean matches = passwords.matches(request.password(), hash);
-            SignupUser user = account == null ? null : users.findById(account.getUserId()).orElse(null);
-            if (!matches || account == null || account.getPasswordHash() == null || user == null || !user.isActive()) {
-                throttle.failed(reservation); throw LoginException.credentials();
+            if (!matches || account == null || account.getPasswordHash() == null) {
+                throw LoginException.credentials();
             }
-            Instant now = Instant.now();
-            String refresh = LoginSecrets.refresh();
-            var token = new RefreshToken(user.getUserId(), LoginSecrets.hash(refresh), request.deviceName(), now,
-                now.plusSeconds(properties.refreshSeconds()));
-            LoginDtos.Tokens response = response(user, token, refresh, now);
-            tokens.saveAndFlush(token);
-            user.recordLogin(now);
+            LoginDtos.Tokens response = writeTransaction.execute(status -> {
+                // BCrypt 이후 비밀번호가 바뀌었다면 이전 비밀번호로 세션을 만들지 않는다.
+                var current = accounts.findForUpdate("EMAIL", request.email()).orElseThrow(LoginException::credentials);
+                if (!current.getUserId().equals(account.getUserId()) || !hash.equals(current.getPasswordHash()))
+                    throw LoginException.credentials();
+                SignupUser user = users.findById(current.getUserId()).filter(SignupUser::isActive)
+                    .orElseThrow(LoginException::credentials);
+                Instant now = Instant.now();
+                String refresh = LoginSecrets.refresh();
+                var token = new RefreshToken(user.getUserId(), LoginSecrets.hash(refresh), request.deviceName(), now,
+                    now.plusSeconds(properties.refreshSeconds()));
+                LoginDtos.Tokens result = response(user, token, refresh, now);
+                tokens.saveAndFlush(token);
+                user.recordLogin(now);
+                return result;
+            });
             throttle.success(reservation);
             return response;
+        } catch (LoginException error) {
+            if ("INVALID_CREDENTIALS".equals(error.code)) throttle.failed(reservation);
+            throw error;
         } finally {
             // DB·서명 등 시스템 오류도 진행 중 예산을 영구 점유하지 않게 한다.
             throttle.cancel(reservation);
