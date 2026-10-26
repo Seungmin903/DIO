@@ -4,15 +4,19 @@ import { colors } from './theme';
 
 // 편집 화면에도 있는 아이콘은 편집 화면 모양으로 그린다 (휴지통·더하기·연필 등이 화면마다 달라 보이지 않게)
 const EDITOR_ICONS = {
+  people: 'people',
   add: 'plus',
   edit: 'edit',
   search: 'search',
+  more: 'more',
   trash: 'trash',
   grid: 'pages',
   swap: 'swap',
   'chevron-left': 'chevronLeft',
   'chevron-right': 'chevronRight',
   close: 'close',
+  eye: 'eye',
+  'eye-off': 'eyeOff',
 };
 
 const common = (color, strokeWidth) => ({
@@ -30,6 +34,9 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
 
   let graphic = null;
   switch (name) {
+    case 'mail':
+      graphic = <><Path {...line} d="M3 5h18v14H3z" /><Path {...line} d="m3 6 9 7 9-7" /></>;
+      break;
     case 'menu':
       graphic = <><Line {...line} x1="4" y1="7" x2="20" y2="7" /><Line {...line} x1="4" y1="12" x2="20" y2="12" /><Line {...line} x1="4" y1="17" x2="20" y2="17" /></>;
       break;

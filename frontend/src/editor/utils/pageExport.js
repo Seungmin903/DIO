@@ -2,6 +2,7 @@ import { colorTemplateXml, normalizePaperAppearance } from '../templates/appeara
 import { pageSize } from './pageGeometry.js'
 import { templateReference } from '../templates/catalog.js'
 import { normalizeTextLink } from './textFormats.js'
+import { EDITOR_SHAPES, SHAPE_BORDER_STYLES } from './editorShapes.js'
 import { RETIRED_TEXT_FONTS, TEXT_FONTS } from './text.js'
 
 /** 화면 줌·선택 상태·저장 지연과 독립적인 출력 입력. 현재 로컬 요소 배열은 뒤→앞 순서다. */
@@ -15,9 +16,9 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
   const pixelWidth = Math.max(1, Math.floor(width * ratio)), pixelHeight = Math.max(1, Math.floor(height * ratio))
   if (!page || !Array.isArray(page.objects)) throw new PageExportError('EXPORT_PAGE_INVALID', '페이지를 읽지 못했어요.')
   const objects = page.objects.filter((o) => !o.hidden && o.opacity !== 0).map((object) => {
-    if (!['photo', 'sticker', 'tape', 'stroke', 'text'].includes(object.type)) throw new PageExportError('EXPORT_ELEMENT_UNSUPPORTED', '아직 내보낼 수 없는 요소가 있어요.')
+    if (!['photo', 'sticker', 'tape', 'stroke', 'text', 'shape'].includes(object.type)) throw new PageExportError('EXPORT_ELEMENT_UNSUPPORTED', '아직 내보낼 수 없는 요소가 있어요.')
     if (object.type === 'text' && (typeof object.text !== 'string' || !Number.isFinite(object.baseWidth) || object.baseWidth <= 0)) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '텍스트 내용을 확인해 주세요.')
-    if (object.type === 'text' && (
+    if (['text','shape'].includes(object.type) && (
       (object.colorRanges != null && (!Array.isArray(object.colorRanges) || object.colorRanges.some((r, i, list) => !r || !Number.isInteger(r.start) || !Number.isInteger(r.end) || r.start < 0 || r.end > object.text.length || r.start >= r.end || !/^#[0-9a-f]{6}$/i.test(r.color) || (i > 0 && list[i - 1].end > r.start)))) ||
       (object.styleRanges != null && (!Array.isArray(object.styleRanges) || object.styleRanges.some((r, i, list) => !r || !Number.isInteger(r.start) || !Number.isInteger(r.end) || r.start < 0 || r.end > object.text.length || r.start >= r.end || (i > 0 && list[i - 1].end > r.start) || (r.fontSize == null && !r.href) || (r.fontSize != null && (!Number.isFinite(r.fontSize) || r.fontSize < 8 || r.fontSize > 96)) || (r.href != null && (typeof r.href !== 'string' || !normalizeTextLink(r.href)))))) ||
       (object.fontSize != null && (!Number.isFinite(object.fontSize) || object.fontSize < 8 || object.fontSize > 96)) ||
@@ -25,6 +26,17 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
       (object.font != null && !RETIRED_TEXT_FONTS.includes(object.font) && !TEXT_FONTS.some((font) => font.id === object.font)) ||
       (object.textAlign != null && !['left', 'center', 'right', 'justify'].includes(object.textAlign))
     )) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '텍스트 서식을 확인해 주세요.')
+    if (object.type === 'shape' && (
+      (object.verticalAlign != null && !['top','middle','bottom'].includes(object.verticalAlign)) ||
+      !EDITOR_SHAPES.some(item => item.id === object.shape) || typeof object.text !== 'string' ||
+      (object.fill !== 'none' && !/^#[0-9a-f]{6}$/i.test(object.fill)) ||
+      !/^#[0-9a-f]{6}$/i.test(object.borderColor) || !/^#[0-9a-f]{6}$/i.test(object.color) ||
+      !Number.isFinite(object.borderWidth) || object.borderWidth < 0 || object.borderWidth > 16 ||
+      !SHAPE_BORDER_STYLES.some(item=>item.id===object.borderStyle) ||
+      !Number.isFinite(object.fontSize) || object.fontSize < 8 || object.fontSize > 96 ||
+      !['left','center','right','justify'].includes(object.align) ||
+      !TEXT_FONTS.some(font => font.id === object.font)
+    )) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '도형 내용을 확인해 주세요.')
     if (object.type === 'stroke' && (
       !Array.isArray(object.points) || !object.points.length ||
       object.points.some((p) => !Number.isFinite(p?.x) || !Number.isFinite(p?.y) || (p.pressure != null && (!Number.isFinite(p.pressure) || p.pressure <= 0 || p.pressure > 2.3))) ||

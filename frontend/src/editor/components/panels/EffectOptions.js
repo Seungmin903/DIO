@@ -14,7 +14,7 @@ import Slider from '../controls/Slider'
  */
 export default function EffectOptions({ objects, dispatch }) {
   const outlineTargets = objects.filter((o) => o.type === 'sticker' || (o.type === 'photo' && o.frame === 'shape'))
-  const shadowTargets = objects.filter((o) => o.type === 'sticker' || (o.type === 'photo' && photoSupportsShadow(o)))
+  const shadowTargets = objects.filter((o) => o.type === 'sticker' || o.type === 'shape' || (o.type === 'photo' && photoSupportsShadow(o)))
   if (!outlineTargets.length && !shadowTargets.length) return null
 
   const apply = (targets, patch, record = true) =>

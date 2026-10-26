@@ -3,6 +3,10 @@ import { colors } from '../../../shared/theme'
 
 // 24x24 라인 아이콘 (목업 아이콘 세트 기준)
 const PATHS = {
+  bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4',
+  people: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M2 21v-2a7 7 0 0 1 14 0v2 M17 3a4 4 0 0 1 0 8 M19 14a6 6 0 0 1 3 5v2',
+  book: 'M5 3h14v18H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2 M4 17h15 M8 7h7',
+  person: 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2',
   panel: 'M4 4h16v16H4z M9 4v16',
   home: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z',
   // 화살표 끝(왼쪽 위)과 몸통이 대각선 위에 오도록 24칸 가운데에 맞춘 커서
@@ -59,6 +63,7 @@ const PATHS = {
   up: 'M12 19V5 M6 11l6-6 6 6',
   down: 'M12 5v14 M6 13l6 6 6-6',
   reset: 'M4 12a8 8 0 1 0 2.3-5.7 M4 4v5h5',
+  shape: 'M3 3h10v10H3Z M20 17a5 5 0 1 1-10 0a5 5 0 1 1 10 0',
   more: 'M5 12h.01 M12 12h.01 M19 12h.01',
   pages: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z',
   bookmark: 'M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4z',

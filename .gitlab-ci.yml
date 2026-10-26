@@ -1,0 +1,121 @@
+stages:
+  - check
+  - quality
+  - deploy
+  - edge
+
+runner-check:
+  stage: check
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
+  script:
+    - whoami
+    - docker --version
+    - docker ps
+
+deploy-development:
+  stage: deploy
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+  resource_group: development
+  environment:
+    name: development
+  script:
+    - docker build --tag "dio-backend:dev-${CI_COMMIT_SHORT_SHA}" ./backend
+    - export BACKEND_IMAGE="dio-backend:dev-${CI_COMMIT_SHORT_SHA}"
+    - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml config --quiet
+    - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml up -d --force-recreate
+    - curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8081/actuator/health
+
+deploy-production:
+  stage: deploy
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+  resource_group: production
+  environment:
+    name: production
+  script:
+    - docker build --tag "dio-backend:prod-${CI_COMMIT_SHORT_SHA}" ./backend
+    - export BACKEND_IMAGE="dio-backend:prod-${CI_COMMIT_SHORT_SHA}"
+    - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml config --quiet
+    - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml up -d --force-recreate
+    - curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8082/actuator/health
+
+deploy-dev-proxy:
+  stage: edge
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      changes:
+        - infra/nginx/dev/**/*
+        - infra/compose/compose.proxy.dev.yml
+  resource_group: development-edge
+  script:
+    - docker build --tag "dio-nginx-dev:${CI_COMMIT_SHORT_SHA}" ./infra/nginx/dev
+    - export NGINX_DEV_IMAGE="dio-nginx-dev:${CI_COMMIT_SHORT_SHA}"
+    - docker compose --project-name dio-proxy-dev -f infra/compose/compose.proxy.dev.yml run --rm --no-deps nginx-dev nginx -t
+    - docker compose --project-name dio-proxy-dev -f infra/compose/compose.proxy.dev.yml up -d --force-recreate
+
+deploy-prod-proxy:
+  stage: edge
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      changes:
+        - infra/nginx/prod/**/*
+        - infra/compose/compose.proxy.prod.yml
+  resource_group: production-edge
+  script:
+    - docker build --tag "dio-nginx-prod:${CI_COMMIT_SHORT_SHA}" ./infra/nginx/prod
+    - export NGINX_PROD_IMAGE="dio-nginx-prod:${CI_COMMIT_SHORT_SHA}"
+    - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml run --rm --no-deps nginx-prod nginx -t
+    - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml up -d --force-recreate
+    - 'curl --fail --retry 12 --retry-all-errors --retry-delay 2 --resolve k15f106.p.ssafy.io:443:127.0.0.1 https://k15f106.p.ssafy.io/actuator/health'
+
+backend-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+  script:
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -e GRADLE_USER_HOME=/tmp/gradle
+      -v "$CI_PROJECT_DIR/backend:/workspace"
+      -w /workspace
+      eclipse-temurin:17-jdk
+      sh ./gradlew test --no-daemon
+  artifacts:
+    when: always
+    reports:
+      junit: backend/build/test-results/test/*.xml
+    paths:
+      - backend/build/reports/tests/test/
+    expire_in: 7 days
+
+secret-scan:
+  stage: quality
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - >
+      docker run --rm
+      -v "$CI_PROJECT_DIR:/repo:ro"
+      ghcr.io/gitleaks/gitleaks:v8.30.1
+      dir /repo --redact --no-banner

@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard'
 import { useEffect, useState } from 'react'
-import { AppState } from 'react-native'
+import { AppState, Platform } from 'react-native'
 
 const copyListeners = new Set()
 
@@ -24,13 +24,14 @@ export function useTextClipboardAvailable() {
       }
     }
     copyListeners.add(refresh)
-    const clipboard = Clipboard.addClipboardListener(refresh)
+    // expo-clipboard 웹 모듈은 addListener를 구현하지 않는다.
+    const clipboard = Platform.OS === 'web' ? null : Clipboard.addClipboardListener(refresh)
     const appState = AppState.addEventListener('change', (state) => { if (state === 'active') refresh() })
     refresh()
     return () => {
       active = false
       copyListeners.delete(refresh)
-      clipboard.remove()
+      clipboard?.remove()
       appState.remove()
     }
   }, [])

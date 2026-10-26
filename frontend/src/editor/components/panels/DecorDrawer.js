@@ -4,6 +4,7 @@ import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, Vi
 import { colors, radius, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import { TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
 import { RECENT_LIMIT, stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
+import { useTapePreferences } from '../../hooks/useTapePreferences'
 import { STICKER_GROUPS, stickerSource } from '../../stickerAssets'
 import Svg, { Path, Polygon } from 'react-native-svg'
 import { usePan } from '../../hooks/usePan'
@@ -18,6 +19,7 @@ import PenSafeTextInput from '../controls/PenSafeTextInput'
 import TapeCropper from './TapeCropper'
 import TapeOptions from './TapeOptions'
 import TapeView from '../canvas/TapeView'
+import RecentPhotos from './RecentPhotos'
 
 export const DRAWER_TABS = [
   { id: 'sticker', name: '스티커', icon: 'sticker' },
@@ -77,12 +79,10 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
   const [editingList, setEditingList] = useState(false) // 분류 목록 편집 (순서·숨기기)
   const [listDragging, setListDragging] = useState(false) // 목록 편집에서 끄는 중이면 목록 스크롤을 멈춘다
   const [folderDraft, setFolderDraft] = useState(null) // 새 폴더·이름 바꾸기 입력 { id?, name }
-  // 붙이기 전 '새 테이프' 설정 (보관함을 닫았다 열면 처음 값으로)
-  const [tapeDraft, setTapeDraft] = useState(() => {
-    const size = TAPE_SIZES.find((s) => s.id === TAPE_DEFAULT.size)
-    // 무늬·색은 비워 둔다 (기본으로 골라 둔 것 없이 사용자가 색 → 무늬 순서로 고른다)
-    return { x: 0, y: 0, w: size.w, h: size.h, size: size.id, edge: 'straight', pattern: null, palette: null }
-  })
+  // 새 테이프의 색·규격·무늬만 기기별로 기억한다. 기존 캔버스 요소는 수정하지 않는다.
+  const [tapePreferences, updateTapePreferences, tapePreferencesReady] = useTapePreferences()
+  const tapeSize = TAPE_SIZES.find(item => item.id === tapePreferences.size)
+  const tapeDraft = { ...tapePreferences, x: 0, y: 0, w: tapeSize.w, h: tapeSize.h, edge: 'straight' }
   // 직접 넣은 것(내 테이프·폴더 스티커·폴더)을 지우기 전에 한 번 묻는다. { title, message, action }
   const [confirm, setConfirm] = useState(null)
   const ask = (title, message, action) => setConfirm({ title, message, action })
@@ -91,8 +91,13 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
   // 붙이면 보관함이 닫힌다(onTapeInserted). 붙인 뒤에 바꾸는 옵션(불투명도·끝선 등)은 선택 바의 옵션 창에서 고친다.
   function updateTape(patch) {
     const next = { ...tapeDraft, ...patch }
+    const settings = Object.fromEntries(['size', 'palette', 'pattern'].filter(key => Object.hasOwn(patch, key)).map(key => [key, patch[key]]))
+    // 색을 고르지 않고 무늬로 삽입하면 실제 사용한 기본색도 기억한다.
+    if (patch.pattern && !next.palette) settings.palette = TAPE_DEFAULT.palette
+    updateTapePreferences(settings).then(saved => {
+      if (!saved) onToast?.('테이프 설정을 저장하지 못했어요. 다시 선택하면 재시도해요.')
+    })
     if (!patch.pattern) {
-      setTapeDraft(next)
       return
     }
     onAdd({
@@ -103,8 +108,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
       edge: next.edge,
       name: TAPE_PATTERN_NAMES[next.pattern],
     })
-    // 다음 테이프를 위해 무늬는 다시 비우고, 고른 색·규격은 남겨 둔다.
-    setTapeDraft({ ...next, pattern: null })
+    // 같은 무늬를 다시 눌러도 새 테이프를 붙일 수 있다. 복원 자체는 삽입하지 않는다.
     onTapeInserted?.()
   }
   const [size, setSize] = useState(rememberedSize)
@@ -449,7 +453,8 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
                 )}
               </CustomSection>
               {/* 테이프 넣기: 규격 · 색상 · 무늬 (무늬를 고르면 붙는다) */}
-              <TapeOptions tape={tapeDraft} onUpdate={updateTape} draft />
+              {tapePreferencesReady ? <TapeOptions tape={tapeDraft} onUpdate={updateTape} draft />
+                : <Text accessibilityLiveRegion="polite" style={styles.empty}>테이프 설정 불러오는 중…</Text>}
             </>
           )}
 
@@ -471,31 +476,8 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
                 </View>
                 <Text style={styles.uploadTitle}>{busy ? '원본을 저장하고 있어요…' : '사진 · GIF 불러오기'}</Text>
               </Pressable>
-              {recentPhotos.length > 0 && (
-                <Section title="최근 불러온 사진">
-                  <View style={styles.grid}>
-                    {recentPhotos.map((photo) => (
-                      <View key={photo.id} style={[styles.photoCell, { width: `${100 / Math.ceil(columns / 2)}%` }]}>
-                        <Pressable
-                          onPress={() => onAdd({ kind: 'photo', ...photo })}
-                          style={({ pressed }) => [styles.photoTile, pressed && styles.photoPressed]}
-                          accessibilityLabel={`${photo.name ?? '사진'} 붙이기`}
-                        >
-                          <RecentPhotoThumb photo={photo} />
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`${photo.name ?? '사진'} 최근 목록에서 삭제`}
-                          onPress={() => ask('최근 사진 목록에서 삭제할까요?', '목록에서만 삭제돼요. 캔버스에 붙인 사진은 그대로 유지돼요.', () => onRemoveRecentPhoto(photo.id))}
-                          style={({ pressed }) => [styles.photoRemove, pressed && styles.photoPressed]}
-                        >
-                          <Icon name="trash" size={18} color={colors.danger} />
-                        </Pressable>
-                      </View>
-                    ))}
-                  </View>
-                </Section>
-              )}
+              <RecentPhotos photos={recentPhotos} columns={columns} onAdd={onAdd}
+                onRemove={onRemoveRecentPhoto} renderThumb={(photo) => <RecentPhotoThumb photo={photo} />} />
             </>
           )}
         </ScrollView>

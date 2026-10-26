@@ -36,7 +36,9 @@ function Chip({ label, selected, disabled, onPress, children }) {
 
 // 입력 상태를 모달 안에 두어 글자를 칠 때마다 홈 화면 전체가 다시 그려지지 않게 한다.
 // sheet: 폰에서는 가운데 창 대신 아래에서 올라오는 시트로 띄운다.
-export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, bottomInset = 0 }) {
+export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, bottomInset = 0,
+  visible = true, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey }) {
+  const formLocked = saving || locked;
   const editing = Boolean(diary);
   const [title, setTitle] = useState(diary?.title ?? DIARY_DEFAULTS.title);
   const [color, setColor] = useState(diary?.color ?? DIARY_DEFAULTS.color);
@@ -51,6 +53,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const choosing = !editing && step !== 'cover';
   const [paperAppearance, setPaperAppearance] = useState(() => ({ ...DEFAULT_PAPER_APPEARANCE }));
   const [error, setError] = useState('');
+  useEffect(() => { setError(''); }, [messageResetKey]);
   const formScroll = useRef(null);
   const [paletteDragging, setPaletteDragging] = useState(false);
   const onPaletteInteraction = useCallback(active => {
@@ -58,7 +61,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     formScroll.current?.setNativeProps?.({ scrollEnabled: !active });
     setPaletteDragging(active);
   }, []);
-  const actionLabel = saving ? '저장 중…' : editing ? '완료하기' : choosing ? '이 구성으로 시작' : '내지 구성 선택하기';
+  const actionLabel = saving ? '저장 중…' : submitLabel || (editing ? '완료하기' : choosing ? '이 구성으로 시작' : '내지 구성 선택하기');
   let count = null, configError = '';
   if (choosing) {
     try { count = templatePageCount(templateConfig); } catch (failure) { configError = failure.message; }
@@ -79,7 +82,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   };
 
   const onSave = async () => {
-    if (saving || submitting.current) return;
+    if (saving || submitDisabled || submitting.current) return;
     const trimmed = title.trim();
     if (!trimmed) { setError('다이어리 이름을 입력해 주세요.'); return; }
     if (configError) { setError(configError); return; }
@@ -98,7 +101,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     // 상태 바·내비게이션 바 위까지 그리게 하고 상태 바는 계속 숨긴다. 아래 시스템 바 높이만큼은 여백으로 비운다.
     // iOS Modal 기본값은 세로 전용이라 가로로 고정한 태블릿에서 열면 앱이 종료된다. 두 방향을 모두 허용한다.
     <Modal
-      visible
+      visible={visible}
       transparent
       supportedOrientations={MODAL_ORIENTATIONS}
       presentationStyle="overFullScreen"
@@ -140,25 +143,25 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             </Pressable>
           </View>
 
-          {choosing && !coloring && <DiaryPaperColorButton appearance={paperAppearance} disabled={saving || Boolean(configError)}
+          {choosing && !coloring && <DiaryPaperColorButton appearance={paperAppearance} disabled={formLocked || Boolean(configError)}
             onPress={() => { changeFlow({ type: 'colors' }); setError(''); }} />}
           {choosing && !coloring && <View style={{ marginBottom: 12 }}>
             <View style={s.createChips}>
-              <Chip label="날짜형 · 1년" selected={flow.dateMode === 'dated'} disabled={saving}
+              <Chip label="날짜형 · 1년" selected={flow.dateMode === 'dated'} disabled={formLocked}
                 onPress={() => { changeFlow({ type: 'dateMode', value: 'dated' }); setError(''); }} />
-              <Chip label="만년형 · 1개월" selected={flow.dateMode === 'undated'} disabled={saving}
+              <Chip label="만년형 · 1개월" selected={flow.dateMode === 'undated'} disabled={formLocked}
                 onPress={() => { changeFlow({ type: 'dateMode', value: 'undated' }); setError(''); }} />
             </View>
             <Text style={s.helper}>{flow.dateMode === 'undated' ? '날짜를 직접 쓰는 한 달 구성이에요. 달력은 6주 칸, 주간 계획은 포함 시 6장이에요.' : '2026년 1~12월의 날짜가 적힌 일 년 구성이에요.'}</Text>
           </View>}
           <ScrollView ref={formScroll} scrollEnabled={!paletteDragging} style={s.createFormScroll} contentContainerStyle={s.createFormBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <View pointerEvents={saving ? 'none' : 'auto'}>
+            <View pointerEvents={formLocked ? 'none' : 'auto'}>
             {!editing && <Text style={[s.helper, { marginBottom: 12 }]}>{coloring ? '선택 사항 · 내지 색상' : choosing ? '2 / 2 · 내지 구성' : '1 / 2 · 이름과 표지'}</Text>}
             {!choosing && <>
             <Text style={s.createLabel}>이름</Text>
             <TextInput
               accessibilityLabel="다이어리 이름"
-              editable={!saving}
+              editable={!formLocked}
               value={title}
               onChangeText={onTitleChange}
               placeholder="예: 2026 봄의 기록"
@@ -180,6 +183,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
                   accessibilityRole="radio"
                   accessibilityLabel={`${choice.label} 표지 색상`}
                   accessibilityState={{ selected: color === choice.value }}
+                  disabled={formLocked}
                   onPress={() => setColor(choice.value)}
                   style={({ pressed }) => [s.createColorChoice, sheet && s.createColorChoiceSheet, color === choice.value && s.createColorSelected, pressed && s.pressed]}
                 >
@@ -191,7 +195,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             <Text style={s.createLabel}>표지 패턴</Text>
             <View style={s.createChips}>
               {COVER_PATTERNS.map((item) => (
-                <Chip key={item.id} label={item.label} selected={pattern === item.id} onPress={() => setPattern(item.id)} />
+                <Chip key={item.id} label={item.label} selected={pattern === item.id} disabled={formLocked} onPress={() => setPattern(item.id)} />
               ))}
             </View>
 
@@ -201,7 +205,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             </View>
             <View style={s.createChips}>
               {PAGE_SIZES.map((item) => (
-                <Chip key={item.id} label={item.label} selected={pageSize === item.id} disabled={editing} onPress={() => changePageSize(item.id)}>
+                <Chip key={item.id} label={item.label} selected={pageSize === item.id} disabled={editing || formLocked} onPress={() => changePageSize(item.id)}>
                   <View style={[s.pageSizeIcon, item.id === 'portrait' ? s.pageSizeIconPortrait : s.pageSizeIconLandscape]} />
                 </Chip>
               ))}
@@ -227,13 +231,14 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             <Text accessibilityLiveRegion="polite" style={s.createLabel}>전체 페이지 수 · {count == null ? '—' : count}페이지</Text>
             {(error || configError) ? <Text accessibilityRole="alert" style={[s.error, { marginBottom: 8 }]}>{error || configError}</Text> : null}
           </View>}
+          {footerNotice}
           <View style={[s.createFooter, sheet && { paddingBottom: 16 + bottomInset }]}>
             {choosing && <Pressable
               accessibilityRole="button"
               accessibilityLabel={coloring ? '내지 구성으로 돌아가기' : configuring ? '추천 구성으로 돌아가기' : '이름과 표지로 돌아가기'}
-              disabled={saving}
+              disabled={formLocked}
               onPress={() => { changeFlow({ type: 'back' }); onPaletteInteraction(false); setError(''); }}
-              style={({ pressed }) => [s.createBack, pressed && s.pressed, saving && { opacity: DISABLED_OPACITY }]}
+              style={({ pressed }) => [s.createBack, pressed && s.pressed, formLocked && { opacity: DISABLED_OPACITY }]}
             >
               <AppIcon name="chevron-left" size={18} color={C.inkSoft} />
               <Text style={s.createBackText}>{coloring ? '내지 구성' : configuring ? '추천 구성' : '이름과 표지'}</Text>
@@ -241,9 +246,9 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={actionLabel}
-              disabled={saving || Boolean(configError)}
+              disabled={saving || submitDisabled || Boolean(configError)}
               onPress={onSave}
-              style={({ pressed }) => [s.createSubmit, pressed && s.pressed, (saving || Boolean(configError)) && { opacity: DISABLED_OPACITY }]}
+              style={({ pressed }) => [s.createSubmit, pressed && s.pressed, (saving || submitDisabled || Boolean(configError)) && { opacity: DISABLED_OPACITY }]}
             >
               <Text style={s.createSubmitText}>{actionLabel}</Text>
               <AppIcon name="chevron-right" size={20} color="#FFFFFF" />

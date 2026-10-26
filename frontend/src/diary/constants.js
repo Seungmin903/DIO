@@ -66,6 +66,7 @@ export const DIARY_DEFAULTS = {
 export const FILTERS = [
   { id: 'personal', label: '모든 다이어리', empty: '다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
   { id: 'favorite', label: '즐겨찾기', empty: '즐겨찾기한 다이어리가 없어요', emptyCopy: '다이어리 카드의 별을 눌러 즐겨찾기에 추가해 보세요.' },
+  { id: 'shared', label: '공유 다이어리', empty: '공유 중인 다이어리가 없어요', emptyCopy: '다이어리를 공유하거나 받은 초대를 수락해 보세요.' },
 ];
 
 export const DEFAULT_FILTER = 'personal';

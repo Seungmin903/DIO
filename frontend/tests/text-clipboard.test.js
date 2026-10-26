@@ -30,7 +30,7 @@ test('클립보드 존재 여부는 변경·앱 복귀에 갱신되고 실제 �
   let effect, available = false, hasText = false, changed, resumed, removed = 0
   const useAvailable = load('../src/editor/services/textClipboard.js', {
     react: { useState: () => [false, (value) => { available = value }], useEffect: (callback) => { effect = callback } },
-    'react-native': { AppState: { addEventListener: (_event, callback) => { resumed = callback; return { remove() { removed++ } } } } },
+    'react-native': { Platform:{OS:'android'}, AppState: { addEventListener: (_event, callback) => { resumed = callback; return { remove() { removed++ } } } } },
     'expo-clipboard': { hasStringAsync: async () => hasText,
       getStringAsync: () => assert.fail('표시 여부 확인 시 문자열을 읽으면 안 된다'),
       addClipboardListener: (callback) => { changed = callback; return { remove() { removed++ } } },
@@ -157,4 +157,17 @@ test('텍스트 상자 선택 바의 복제 버튼은 문자열 복사를 호출
   assert.equal(find(tree, (n) => n.props?.label === '복사'), undefined)
   find(tree, (n) => n.props?.label === '복제').props.onPress()
   assert.deepEqual(actions, [{ type: 'duplicateObjects', ids: ['text'] }])
+})
+
+test('웹 글 편집은 미지원 클립보드 구독을 호출하지 않고 안전하게 정리된다',async()=>{
+ let effect,available=false,hasText=false,removed=0
+ const mocks={
+  react:{useState:()=>[false,value=>available=value],useEffect:fn=>effect=fn},
+  'react-native':{Platform:{OS:'web'},AppState:{addEventListener:()=>({remove:()=>removed++})}},
+  'expo-clipboard':{hasStringAsync:async()=>hasText,setStringAsync:async()=>{hasText=true},addClipboardListener:()=>assert.fail('웹에서 native 구독을 호출하면 안 된다')},
+ }
+ const hook=load('../src/editor/services/textClipboard.js',mocks,'useTextClipboardAvailable')
+ hook();const cleanup=effect();await Promise.resolve();assert.equal(available,false)
+ // 웹은 AppState 구독만 정리한다.
+ cleanup();assert.equal(removed,1)
 })

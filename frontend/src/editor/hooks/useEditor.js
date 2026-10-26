@@ -1,14 +1,14 @@
-import { AppState, InteractionManager } from 'react-native'
+import { AppState } from 'react-native'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { createDefaultDoc } from '../state/defaultDoc'
 import { createInitialState, editorReducer } from '../state/editorReducer'
-import { editorDocKey, loadEditorDoc, peekEditorDoc, rememberEditorDoc } from '../services/editorDocs'
+import { editorDocKey, loadEditorDoc, peekEditorDoc, rememberEditorDoc, saveEditorDoc } from '../services/editorDocs'
 import { hydrateMedia } from '../services/mediaStore'
-import { saveJSON } from '../services/storage'
+import { scheduleIdleTask } from '../utils/idleTask'
 
 const SAVE_DELAY_MS = 1200
 const SAVE_MAX_DELAY_MS = 5000
-// 열린 제스처 핸들이 남아 있으면 runAfterInteractions가 끝내 실행되지 않을 수 있어 이만큼만 기다린다.
+// 메인 스레드가 바빠도 자동 저장을 무한히 미루지 않는다.
 const SAVE_INTERACTION_WAIT_MS = 1000
 
 // 표지에서 바꾼 제목·색상은 기존 페이지 작업을 유지한 채 편집기에도 반영한다.
@@ -56,8 +56,8 @@ export function useEditor(diary) {
     if (!target || saving.current) return
     pendingSave.current = null
     saving.current = true
-    saveJSON(target.key, target.doc).then((ok) => {
-      if (target.key === currentKey.current) setLastSave({ doc: target.doc, ok })
+    saveEditorDoc(target.key, target.doc).then((ok) => {
+      if (target.key === currentKey.current) setLastSave({ doc: target.source ?? target.doc, ok })
     }).finally(() => {
       saving.current = false
       dirtySince.current = pendingSave.current ? dirtySince.current : null
@@ -89,18 +89,19 @@ export function useEditor(diary) {
   }, [initial, storageKey])
 
   // 연속 입력은 마지막 변경 1.2초 뒤에 합쳐 저장한다. 편집이 계속되더라도 5초 안에는
-  // 한 번 저장하며, 저장 작업은 제스처·애니메이션이 끝난 뒤로 미룬다.
+  // 한 번 저장을 예약하며, 저장 작업은 메인 스레드의 유휴 시간으로 미룬다.
   useEffect(() => {
     if (!loaded || !edited || !writable) return undefined
-    rememberEditorDoc(storageKey, state.doc)
-    pendingSave.current = { key: storageKey, doc: state.doc }
+    const snapshot = { ...state.doc, updatedAt: new Date().toISOString() }
+    rememberEditorDoc(storageKey, snapshot)
+    pendingSave.current = { key: storageKey, doc: snapshot, source: state.doc }
     if (!dirtySince.current) dirtySince.current = Date.now()
     clearSchedule()
     const elapsed = Date.now() - dirtySince.current
     const delay = Math.max(0, Math.min(SAVE_DELAY_MS, SAVE_MAX_DELAY_MS - elapsed))
     saveTimer.current = setTimeout(() => {
-      interaction.current = InteractionManager.runAfterInteractions(flushSave)
-      saveTimer.current = setTimeout(flushSave, SAVE_INTERACTION_WAIT_MS)
+      saveTimer.current = null
+      interaction.current = scheduleIdleTask(flushSave, SAVE_INTERACTION_WAIT_MS)
     }, delay)
     return clearSchedule
   }, [clearSchedule, edited, flushSave, loaded, state.doc, storageKey, writable])

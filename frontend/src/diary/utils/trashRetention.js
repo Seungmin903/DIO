@@ -11,6 +11,12 @@ export function isTrashExpired(diary, now = Date.now()) {
   return Boolean(diary?.purgePending || (deadline !== null && now >= deadline));
 }
 
+/** 고른 다이어리에만 삭제 시각을 기록한다. 이미 휴지통에 있으면 기존 기한을 늘리지 않는다. */
+export function markTrashed(diaries, ids, trashedAt) {
+  const targets = new Set(ids);
+  return diaries.map(diary => (targets.has(diary.id) && !diary.trashedAt ? { ...diary, trashedAt } : diary));
+}
+
 export function trashStatus(diary, now = Date.now()) {
   const deadline = trashDeadline(diary);
   if (diary.purgePending || (deadline !== null && now >= deadline)) return '보관 기한 만료 · 영구 삭제 대기';

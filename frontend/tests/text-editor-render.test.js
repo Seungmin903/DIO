@@ -18,7 +18,7 @@ const { code } = babel.transformSync(source, {
 })
 
 // 실제 TextEditor JSX를 렌더링한다. OS 입력은 모사하지 않고 input props 계약만 검증한다.
-function renderEditor(platform) {
+function renderEditor(platform, overrides = {}, zoom = 1) {
   let inputProps
   const saves = [], cancels = []
   const native = {
@@ -48,12 +48,21 @@ function renderEditor(platform) {
   }
   new Function('require', 'module', 'exports', code)(editorRequire, module, module.exports)
   const html = renderToStaticMarkup(React.createElement(module.exports.default, {
-    object: { id: 'text', text: '한글 RED', x: 10, y: 20, w: 320, h: 40, colorRanges: [{ start: 3, end: 6, color: '#DD887A' }] },
-    zoom: 1, boundary: { current: null }, paletteBounds: { current: null },
+    object: { id: 'text', text: '한글 RED', x: 10, y: 20, w: 320, h: 40, colorRanges: [{ start: 3, end: 6, color: '#DD887A' }], ...overrides },
+    zoom, boundary: { current: null }, paletteBounds: { current: null },
     onPaletteChange() {}, onSave: (...args) => saves.push(args), onCancel: () => cancels.push(true),
   }))
   return { html, inputProps, saves, cancels }
 }
+
+test('실제 입력창은 새 상자의 드래그 높이 대신 글자 높이를 사용하고 기존 확장 높이는 유지한다', () => {
+  for (const platform of ['ios', 'android', 'web']) {
+    const fresh = renderEditor(platform, { h: 180, fontSize: 18, lineSpacing: 1.5 }, 0.5)
+    assert.equal(fresh.inputProps.style[1].height, 13.5)
+    const existing = renderEditor(platform, { h: 180, fontSize: 18, lineSpacing: 1.5, existing: true }, 0.5)
+    assert.equal(existing.inputProps.style[1].height, 90)
+  }
+})
 
 for (const platform of ['web', 'ios']) {
   test(`${platform}: defaultValue 입력 경로에 false 자식을 전달하지 않아 텍스트 생성이 중단되지 않는다`, () => {

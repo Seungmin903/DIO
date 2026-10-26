@@ -1,3 +1,4 @@
+import PageBulkDelete from '../controls/PageBulkDelete'
 import { memo, useEffect, useRef, useState } from 'react'
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, radius } from '../../../shared/theme'
@@ -30,7 +31,7 @@ export const PAGE_LIST_WIDTH = 156
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onMove, onMovePages, onEmptyTap, readOnly = false }) {
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onRemovePages, onReset, onMove, onMovePages, onEmptyTap, readOnly = false }) {
   const [drag, setDrag] = useState(null) // { id, from, dy, group } — 끌어서 옮기는 중
   // 고른 페이지들. 평소에는 지금 페이지 하나이고, 길게 눌러 여러 개를 고른다.
   const [picked, setPicked] = useState([currentId])
@@ -40,8 +41,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   // 모드 중 탭: 넣거나 뺀다. 다 빼면 모드를 끝낸다
   const togglePick = (id) => {
     const next = pickedRef.current.includes(id) ? pickedRef.current.filter((p) => p !== id) : [...pickedRef.current, id]
-    if (next.length) setPicked(next)
-    else endPickMode()
+    setPicked(next)
   }
   const pickedRef = useRef(picked)
   pickedRef.current = picked
@@ -157,7 +157,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
           <View style={styles.pickBar}>
             <Text style={styles.pickText}>{picked.length}개 선택</Text>
             <Pressable onPress={endPickMode} hitSlop={8} accessibilityRole="button" accessibilityLabel="여러 페이지 선택 해제" style={styles.pickDone}>
-              <Text style={styles.pickDoneText}>해제</Text>
+              <Text style={styles.pickDoneText}>완료</Text>
             </Pressable>
           </View>
         ) : (
@@ -177,6 +177,10 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         </View>
         )}
       </View>
+      {!readOnly && <View style={{ paddingHorizontal: 8 }}>
+        {pickMode ? <PageBulkDelete pages={pages} ids={picked} onDelete={onRemovePages} onReset={onReset} onDone={endPickMode} />
+          : <Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Text style={styles.pickDoneText}>편집</Text></Pressable>}
+      </View>}
       <FlatList
         ref={listRef}
         data={shown}
@@ -219,8 +223,8 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
             showBackground={thumbBackgrounds}
             readOnly={readOnly}
             menuOpen={!readOnly && menuId === page.id}
-            canOpenMenu={!readOnly && !drag}
-            canToggleIndex={!readOnly && !drag}
+            canOpenMenu={!readOnly && !drag && !pickMode}
+            canToggleIndex={!readOnly && !drag && !pickMode}
             onLayout={(layout) => (layouts.current[page.id] = layout)}
             onSelect={() => {
               setMenuId(null)
@@ -339,7 +343,8 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
       {dragCount > 1 && <View style={styles.countBadge} pointerEvents="none"><Text style={styles.countText}>{dragCount}</Text></View>}
       <View
         {...handlers}
-        accessibilityRole="button"
+        accessibilityRole={pickMode ? "checkbox" : "button"}
+        accessibilityState={pickMode ? { checked: picked } : undefined}
         accessibilityLabel={`${number}페이지`}
         accessibilityHint={readOnly ? undefined : '길게 눌러 끌면 순서를 바꿔요'}
         style={[styles.thumb, { height: height * thumbZoom + THUMB_BORDER * 2 }, active && styles.thumbActive, dragging && styles.thumbDragging]}

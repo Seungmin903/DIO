@@ -4,6 +4,7 @@ import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
 import { isAnimatedMedia, stickerSource } from '../../stickerAssets'
 import MediaImage from './MediaImage'
+import StickerFrame from './StickerFrame'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
 import { reportMediaDisplayError, mediaRegistry } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
@@ -13,8 +14,10 @@ import { coverLayout, photoInnerBox, tapeSizeOf } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
-import FrameBackdrop from './PhotoFrame'
+import FrameBackdrop, { stampPath } from './PhotoFrame'
+import PhotoPathShadow from './PhotoPathShadow'
 import StrokeContent from '../StrokeContent'
+import ShapeContent from './ShapeContent'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
 import { textSettings, textStyle } from '../../utils/text'
 import { useTextFont } from '../../hooks/useTextFont'
@@ -48,6 +51,8 @@ function ObjectContent({ object, zoom, still = false, onAssetLoad, onAssetError 
       // 상자의 빈 공간과 별개로 실제 내용 높이를 측정한다 (TextMeasure).
       return <Text onLayout={onTextMeasure ? (event) => onTextMeasure(object.id, event.nativeEvent.layout.height / zoom) : undefined} style={{ width, minHeight: onTextMeasure ? undefined : height, ...textStyle(object, scale, Platform.OS) }}>{richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text>
     }
+    case 'shape':
+      return <ShapeContent object={object} zoom={zoom} />
     case 'stroke':
       return <StrokeContent object={object} zoom={zoom} transform={flipTransform(object)} />
     case 'sticker':
@@ -90,9 +95,9 @@ export const outlineOn = (object) => outlineOf(object).on
 export const shadowOn = (object) => shadowOf(object).on
 // 테이프는 기본 80% (살짝 비치는 마스킹테이프). 100% 면 완전히 불투명하다.
 export const objectOpacity = (object) => object.opacity ?? (object.type === 'tape' ? TAPE_DEFAULT_OPACITY : 1)
-// 사진 그림자는 네모 바깥선인 틀(폴라로이드·필름·액자·사각·라운드·원형)에서만 지원 (우표는 가장자리가 톱니)
+// 특수 외곽(하트·별·우표)은 SVG 경로로, 나머지는 기존 View 그림자로 그린다.
 export const photoSupportsShadow = (photo) =>
-  ['polaroid', 'film', 'frame'].includes(photo.frame) || (photo.frame === 'shape' && VIEW_CLIP_SHAPES[photo.shape] != null)
+  ['polaroid', 'film', 'frame', 'stamp'].includes(photo.frame) || (photo.frame === 'shape' && ['rect', 'round', 'circle', 'heart', 'star'].includes(photo.shape))
 // 틀 색: 사용자가 고른 HEX. 예전 문서의 프리셋 id(white·cream…)도 읽는다.
 const LEGACY_FRAME_COLORS = { white: '#FFFFFF', cream: '#FBF3E1', sky: '#CED9EE', pink: '#F9DDE2', black: '#22262F' }
 // 처음 색: 액자는 짙은 나무색, 나머지(폴라로이드·우표)는 흰색
@@ -145,14 +150,18 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   const uri = useMediaUri(object, { still })
   const originalSource = stickerSource(object, still, uri)
   const originalAnimated = !still && isAnimatedMedia(object)
-  const synchronized = Platform.OS === 'ios' && originalAnimated && (outline.on || shadow.on)
+  const synchronized = (Platform.OS === 'ios' || Platform.OS === 'android') && originalAnimated && (outline.on || shadow.on)
   const playback = useStickerPlayback(synchronized ? originalSource : null)
   const posterUri = useMediaUri(object, { still: true })
   // 준비 중에도 원본과 효과를 같은 첫 장면으로 표시한다. 출력(still)은 기존 경로를 쓴다.
-  const source = synchronized ? playback.source ?? stickerSource(object, true, posterUri) : originalSource
+  // Bundled GIFs have a PNG poster; do not fall back to an animated imported GIF.
+  const fallback = object.asset || object.poster ? stickerSource(object, true, posterUri) : null
+  const source = synchronized ? playback.source ?? fallback : originalSource
   const animated = originalAnimated && !synchronized
 
-  const silhouette = source
+  const silhouette = synchronized
+    ? (key, color, dx, dy, opacity = 1) => ({ key, color, dx, dy, opacity })
+    : source
     ? (key, color, dx, dy, opacity = 1) => (
         <MediaImage
           animated={animated}
@@ -213,10 +222,17 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
       ? silhouette('s', shadow.color, sx, sy, Math.min(1, shadow.opacity * 2), Math.max(1, grow + shadow.blur * zoom))
       : [...blurRing, ...body]
 
+  const outlineLayers = outline.on && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, outline.color, dx * stroke, dy * stroke))
+  if (synchronized) return <View style={[styles.center, box, { transform: flipTransform(object) }]}>
+    {source && <StickerFrame source={source} width={width} height={height}
+      layers={[shadowLayers, outlineLayers].flat().filter(Boolean)} />}
+    {playback.error && <Text accessibilityLiveRegion="polite" style={{ color: colors.danger, fontSize: 11 }}>움직이는 효과를 불러오지 못했어요.</Text>}
+  </View>
+
   return (
     <View style={[styles.center, box, { transform: flipTransform(object) }]}>
       {shadowLayers}
-      {outline.on && DIRECTIONS.map(([dx, dy], i) => silhouette(`o${i}`, outline.color, dx * stroke, dy * stroke))}
+      {outlineLayers}
       {source ? (
         <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized) reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
       ) : (
@@ -267,6 +283,8 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
   if (photo.frame === 'shape') {
     const d = shapePath(photo.shape, box.width, box.height)
     return (
+      <View style={{ width: box.width, height: box.height }}>
+      {!shadow.inset && <PhotoPathShadow d={d} width={box.width} height={box.height} shadow={shadow} zoom={zoom} flipX={photo.flipX} flipY={photo.flipY} />}
       <Svg width={box.width} height={box.height} style={{ transform: flip }}>
         <Defs>
           <ClipPath id={clipId}>
@@ -285,6 +303,8 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
         />
         {border > 0 && <Path d={d} fill="none" stroke={outline.color} strokeWidth={border * 2} />}
       </Svg>
+      {shadow.inset && <PhotoPathShadow d={d} width={box.width} height={box.height} shadow={shadow} zoom={zoom} flipX={photo.flipX} flipY={photo.flipY} />}
+      </View>
     )
   }
 
@@ -299,9 +319,10 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
           height: frameH,
           backgroundColor: photo.frame === 'polaroid' ? frameColorOf(photo) : 'transparent',
         },
-        boxShadowStyle(shadow, zoom),
+        photo.frame !== 'stamp' && boxShadowStyle(shadow, zoom),
       ]}
     >
+      {photo.frame === 'stamp' && !shadow.inset && <PhotoPathShadow d={stampPath(frameW, frameH)} width={frameW} height={frameH} shadow={shadow} zoom={zoom} />}
       {photo.frame !== 'polaroid' && (
         <FrameBackdrop
           frame={photo.frame}
@@ -325,8 +346,9 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
       >
         <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" resizeMethod="scale" />
         {/* 안쪽 그림자: 틀 안 사진이 오목하게 들어가 보이게 */}
-        {shadow.inset && <View pointerEvents="none" style={[StyleSheet.absoluteFill, insetShadowStyle(shadow, zoom)]} />}
+        {shadow.inset && photo.frame !== 'stamp' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, insetShadowStyle(shadow, zoom)]} />}
       </View>
+      {photo.frame === 'stamp' && shadow.inset && <PhotoPathShadow d={stampPath(frameW, frameH)} width={frameW} height={frameH} shadow={shadow} zoom={zoom} />}
     </View>
   )
 }

@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import Icon from '../controls/Icon'
+import SharingEntry from '../../../sharing/SharingEntry'
 
 // 폰 편집기의 도구 막대. 도구 상태는 태블릿 리본(Ribbon)과 같이 EditorScreen이 소유한다.
 // 세로(간편 편집): 모든 도구를 상단 가로 스크롤 막대에 둔다.
@@ -21,6 +22,7 @@ const FULL_TOOLS = [
   ],
   [
     { tab: 'sticker', icon: 'sticker', label: '스티커' },
+    { tool: 'shape', icon: 'shape', label: '도형' },
     { tab: 'tape', icon: 'tape', label: '마스킹테이프' },
     { tab: 'photo', icon: 'image', label: '사진·GIF' },
   ],
@@ -35,7 +37,7 @@ const isActive = (item, activeTool, drawerTab, guidesActive) => (
   item.action === 'guides' ? guidesActive : item.tab ? drawerTab === item.tab : Boolean(item.tool && !drawerTab && activeTool === item.tool)
 )
 
-export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, drawerTab, guidesActive, penColor, highlighterColor, onSelectTool, onOpenDrawer, onOpenGuides, ...touch }) {
+export default function PhoneToolbar({ sharingMembers = [], onOpenSharing, invitationCount = 0, vertical, bottomInset = 0, activeTool, drawerTab, guidesActive, penColor, highlighterColor, onSelectTool, onOpenDrawer, onOpenGuides, ...touch }) {
   const colorOf = (tool) => (tool === 'pen' ? penColor : tool === 'highlighter' ? highlighterColor : undefined)
   const press = (item) => {
     if (item.tab) onOpenDrawer(item.tab)
@@ -53,6 +55,7 @@ export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, dr
     return (
       <View style={[styles.rail, styles.railRight, { bottom: Math.max(bottomInset, 8) }]} {...touch}>
         <ScrollView style={styles.railBar} contentContainerStyle={styles.railColumn} showsVerticalScrollIndicator={false}>
+          {onOpenSharing && <SharingEntry members={sharingMembers} compact count={invitationCount} onPress={onOpenSharing}/>}
           {toolGroups.map((group, index) => (
             <Fragment key={index}>
               {index > 0 && <View style={styles.railDivider} />}
@@ -74,6 +77,7 @@ export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, dr
           accessibilityLabel="편집 도구"
           keyboardShouldPersistTaps="handled"
         >
+          {onOpenSharing && <SharingEntry members={sharingMembers} compact count={invitationCount} onPress={onOpenSharing}/>}
           {toolGroups.map((group, index) => (
             <Fragment key={index}>
               {index > 0 && <View style={styles.rowDivider} />}
@@ -87,7 +91,7 @@ export default function PhoneToolbar({ vertical, bottomInset = 0, activeTool, dr
 }
 
 /** 폰 가로 배치의 왼쪽 막대: 홈·페이지 목록 / 세로 전환·레이어·내보내기·집중 편집 */
-export function PhoneEditorRail({ pagesOpen, layersOpen, readOnly, onHome, onTogglePages, onToggleOrientation, onToggleLayers, onExport, onFocus, exportEnabled = true, ...touch }) {
+export function PhoneEditorRail({ sharingMembers = [], pagesOpen, layersOpen, readOnly, onHome, onTogglePages, onToggleOrientation, onToggleLayers, onExport, onFocus, exportEnabled = true, onOpenSharing, invitationCount = 0, ...touch }) {
   return (
     <View style={[styles.rail, styles.railLeft]} {...touch}>
       <ScrollView style={styles.railBar} contentContainerStyle={[styles.railColumn, styles.railSpread]} showsVerticalScrollIndicator={false}>
@@ -98,6 +102,7 @@ export function PhoneEditorRail({ pagesOpen, layersOpen, readOnly, onHome, onTog
         <View style={styles.railGroup}>
           {onToggleOrientation && <Tool icon="rotate" label="세로 간편 편집으로 전환" onPress={onToggleOrientation} />}
           {!readOnly && <Tool icon="layers" label="레이어" active={layersOpen} onPress={onToggleLayers} />}
+          {onOpenSharing && <SharingEntry vertical members={sharingMembers} compact count={invitationCount} onPress={onOpenSharing}/>}
           {exportEnabled && <Tool icon="share" label="내보내기" onPress={onExport} />}
           <Tool icon="focus" label="집중 편집" onPress={onFocus} />
         </View>
