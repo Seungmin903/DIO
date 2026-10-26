@@ -10,4 +10,6 @@ public record SignupProperties(
     @Value("${dio.signup.service-terms-version:v1}") String serviceTermsVersion,
     @Value("${dio.signup.privacy-terms-version:v1}") String privacyTermsVersion,
     @Value("${dio.signup.marketing-terms-version:v1}") String marketingTermsVersion
-) {}
+) {
+    @Override public String toString() { return "SignupProperties[verificationSecret=REDACTED]"; }
+}

@@ -16,12 +16,24 @@ class ProfilePhotoMigrationRunner implements ApplicationRunner {
         this.photos = photos; this.migration = migration; this.files = files;
     }
     public void run(ApplicationArguments args) {
-        int count = 0;
+        int count = 0, failed = 0;
+        java.util.UUID cursor = null;
+        var log = org.slf4j.LoggerFactory.getLogger(getClass());
         while (true) {
-            var ids = photos.migrationPhotoIds(files.provider(), PageRequest.of(0, 50));
+            var ids = cursor == null ? photos.migrationPhotoIds(files.provider(), PageRequest.of(0, 50))
+                : photos.migrationPhotoIdsAfter(files.provider(), cursor, PageRequest.of(0, 50));
             if (ids.isEmpty()) break;
-            for (var id : ids) { migration.migrate(id); count++; }
+            for (var id : ids) {
+                try { migration.migrate(id); count++; }
+                catch (RuntimeException error) {
+                    failed++;
+                    // 저장소 예외 본문에는 서명 URL·자격 증명이 포함될 수 있어 출력하지 않는다.
+                    log.warn("Profile photo migration failed: id={}, provider={}, errorType={}",
+                        id, files.provider(), error.getClass().getSimpleName());
+                }
+                cursor = id; // 실패한 행도 지나가므로 한 실행에서 반복 선택하지 않는다.
+            }
         }
-        org.slf4j.LoggerFactory.getLogger(getClass()).info("Migrated {} profile photos to {}", count, files.provider());
+        log.info("Profile photo migration completed: migrated={}, failed={}, provider={}", count, failed, files.provider());
     }
 }

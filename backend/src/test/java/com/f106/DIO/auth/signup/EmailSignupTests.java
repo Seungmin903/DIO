@@ -318,6 +318,8 @@ class EmailSignupTests {
         signup.signup(request(EMAIL, verifyEmail(EMAIL), "디오사용자"));
         byte[] png = ProfilePhotoImages.prepare(photoPart("png"));
         SignupProfilePhoto legacy = photos.saveAndFlush(new SignupProfilePhoto(users.findAll().get(0).userId, png, Instant.now()));
+        assertThat(photos.migrationPhotoIds("LOCAL", org.springframework.data.domain.PageRequest.of(0, 50))).contains(legacy.photoId);
+        assertThat(photos.migrationPhotoIdsAfter("LOCAL", legacy.photoId, org.springframework.data.domain.PageRequest.of(0, 50))).isEmpty();
         mvc.perform(get(legacy.url())).andExpect(status().isOk()).andExpect(content().bytes(png));
         photoMigration.migrate(legacy.photoId);
         SignupProfilePhoto migrated = photos.findById(legacy.photoId).orElseThrow();

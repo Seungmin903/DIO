@@ -38,13 +38,17 @@ final class ProfilePhotoImages {
                     int width = reader.getWidth(0), height = reader.getHeight(0);
                     if (width < 1 || height < 1 || width > 8192 || height > 8192 || (long) width * height > 16_000_000) throw invalid();
                     BufferedImage source = reader.read(0);
+                    int orientation = format.equals("png") ? 1 : JpegOrientation.read(original);
+                    int displayWidth = orientation >= 5 ? height : width;
+                    int displayHeight = orientation >= 5 ? width : height;
                     double ratio = Math.min(1.0, 512.0 / Math.max(width, height));
-                    BufferedImage resized = new BufferedImage(Math.max(1, (int)(width * ratio)),
-                        Math.max(1, (int)(height * ratio)), BufferedImage.TYPE_INT_ARGB);
+                    BufferedImage resized = new BufferedImage(Math.max(1, (int)(displayWidth * ratio)),
+                        Math.max(1, (int)(displayHeight * ratio)), BufferedImage.TYPE_INT_ARGB);
                     Graphics2D graphics = resized.createGraphics();
                     try {
                         graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                        graphics.drawImage(source, 0, 0, resized.getWidth(), resized.getHeight(), null);
+                        graphics.scale((double)resized.getWidth() / displayWidth, (double)resized.getHeight() / displayHeight);
+                        graphics.drawImage(source, JpegOrientation.transform(orientation, width, height), null);
                     } finally { graphics.dispose(); }
                     // 메타데이터·원본 파일명은 저장하지 않고 축소된 PNG만 저장한다.
                     var output = new ByteArrayOutputStream();

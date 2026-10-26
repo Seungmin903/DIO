@@ -43,7 +43,7 @@ dio:
       local-directory: ${SIGNUP_PHOTO_LOCAL_DIRECTORY:.local-data/profile-photos}
       s3-bucket: ${SIGNUP_PHOTO_S3_BUCKET:}
       s3-region: ${SIGNUP_PHOTO_S3_REGION:ap-northeast-2}
-      migrate-legacy: false
+      migrate-legacy: ${SIGNUP_PHOTO_MIGRATE_LEGACY:false}
     verification-secret: ${SIGNUP_VERIFICATION_SECRET:}
     mail-from: ${SIGNUP_MAIL_FROM:}
     service-terms-version: ${SIGNUP_SERVICE_TERMS_VERSION:v1}
