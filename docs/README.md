@@ -90,3 +90,5 @@
 
 - [로그인·회원가입 화면과 입력 상태](./auth-screens.md)
 - [기존 인증 화면 API 연결 및 프론트 후속 작업](./auth-frontend-integration.md)
+
+- [다이어리 초대·공유 화면과 임시 상태](./diary-sharing.md)

@@ -6,6 +6,7 @@ import { templateReference } from '../templates/catalog.js'
 import { loadTemplateAst } from '../templates/loadTemplate'
 import { hydrateMedia } from './mediaStore'
 import { saveJSON, STORAGE_KEYS } from './storage'
+import { isSessionDocumentKey, readSessionDocument, writeSessionDocument, forgetSessionDocument } from './sessionDocuments.js'
 
 // 홈에서 미리 읽는 다이어리 수(8)와 최근에 연 문서를 담을 만큼만 메모리에 둔다.
 const DOC_CACHE_LIMIT = 12
@@ -13,10 +14,11 @@ const docs = new Map() // 저장 키 → 저장된 문서 (null: 아직 저장�
 const pending = new Map()
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export const editorDocKey = (diary) => (diary?.id ? `${STORAGE_KEYS.doc}:${diary.id}` : STORAGE_KEYS.doc)
+export const editorDocKey = (diary) => isSessionDocumentKey(diary?.sessionStorageKey) ? diary.sessionStorageKey : (diary?.id ? `${STORAGE_KEYS.doc}:${diary.id}` : STORAGE_KEYS.doc)
 
 /** 메모리에 있으면 { doc }를, 아직 읽지 않았으면 null을 돌려준다. */
 export function peekEditorDoc(key) {
+  if (isSessionDocumentKey(key)) return {doc: readSessionDocument(key)}
   if (!docs.has(key)) return null
   const doc = docs.get(key)
   remember(key, doc)
@@ -31,11 +33,18 @@ function remember(key, doc) {
 
 /** 편집 중인 최신 문서로 메모리 사본을 갱신한다. (다시 열 때 저장소를 기다리지 않게) */
 export function rememberEditorDoc(key, doc) {
+  if (isSessionDocumentKey(key)) { writeSessionDocument(key, doc); return }
   remember(key, doc)
 }
 
 export function forgetEditorDoc(key) {
+  if (isSessionDocumentKey(key)) { forgetSessionDocument(key); return }
   docs.delete(key)
+}
+
+/** 일반 문서는 기존 저장소, 임시 공유 문서는 세션 메모리에 저장한다. */
+export function saveEditorDoc(key, doc) {
+  return isSessionDocumentKey(key) ? Promise.resolve(writeSessionDocument(key, doc)) : saveJSON(key, doc)
 }
 
 /**
@@ -45,6 +54,7 @@ export function forgetEditorDoc(key) {
  */
 export function loadEditorDoc(diary) {
   const key = editorDocKey(diary)
+  if (isSessionDocumentKey(key)) return Promise.resolve(readSessionDocument(key))
   if (docs.has(key)) return Promise.resolve(docs.get(key))
   if (pending.has(key)) return pending.get(key)
   const request = AsyncStorage.getItem(key).then((raw) => {

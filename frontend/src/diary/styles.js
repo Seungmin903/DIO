@@ -107,7 +107,7 @@ export const styles = StyleSheet.create({
   headerCreate: { minHeight: 48, paddingHorizontal: 17, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: C.blue },
   headerCreateText: { color: C.white, fontSize: 13, fontWeight: '800' },
 
-  filters: { flexDirection: 'row', gap: 8 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { minHeight: 36, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 999, backgroundColor: 'rgba(255,255,255,.58)' },
   // 고른 칩: 편집 옵션 창의 고른 칩처럼 흰 바탕 + 파란 테두리
   chipSelected: { backgroundColor: C.white, borderColor: C.blue, borderWidth: 1.5 },
@@ -159,6 +159,9 @@ export const styles = StyleSheet.create({
   cardInfoCarouselCompact: { minHeight: 54, paddingTop: 7, paddingBottom: 0 },
   cardInfoGrid: { minHeight: 58, paddingHorizontal: 4, paddingTop: 10, paddingBottom: 4 },
   cardInfoList: { flex: 1, paddingHorizontal: 18, paddingVertical: 16 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardTitleInRow: { flexShrink: 1 },
+  sharedDiaryIcon: { flexShrink: 0, justifyContent: 'center' },
   cardCoverWrap: { position: 'relative' },
   // 관리 모드: 고른 카드는 파란 테두리, 표지 위 오른쪽에 체크 원을 띄운다. 테두리 두께는 그대로 둬 카드가 밀리지 않게 한다.
   cardSelected: { borderColor: C.blue },
