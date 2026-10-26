@@ -48,6 +48,8 @@
 
 로그아웃은 요청 본문 없이 `Authorization: Bearer {accessToken}` 헤더를 보낸다. 성공 204이며 해당 기기의 Access/Refresh Token만 무효화한다. 다른 기기는 유지한다. Access Token이 이미 만료된 경우 재발급 후 로그아웃하거나 클라이언트의 로컬 토큰을 비우고 로그인 화면으로 이동한다. JWT 검증은 알고리즘 HS256, issuer dio, audience dio-api, token_use access, 만료와 DB 세션/회원 활성 상태를 확인한다.
 
+Swagger에도 로그아웃 성공을 `204 No Content`로 명시하며 응답 본문 스키마를 제공하지 않는다. 로그인 API 호출만으로 Swagger 인증이 자동 등록되지는 않으므로 Authorize에 응답의 Access Token 값만 입력한다.
+
 ## 설정
 
 - `AUTH_JWT_SECRET`: 무작위 32바이트 이상을 Base64로 변환한 서버 전용 키. `SIGNUP_VERIFICATION_SECRET`과 별개이며 원문을 Git/로그/프론트로 보내지 않는다.

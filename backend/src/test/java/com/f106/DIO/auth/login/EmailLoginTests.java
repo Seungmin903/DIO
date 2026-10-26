@@ -187,6 +187,9 @@ class EmailLoginTests {
             .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post").exists())
             .andExpect(jsonPath("$.paths['/api/v1/auth/refresh'].post").exists())
             .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.security[0].bearerAuth").exists())
+            .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['204']").exists())
+            .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['204'].content").doesNotExist())
+            .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['200']").doesNotExist())
             .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security").doesNotExist())
             .andExpect(jsonPath("$.paths['/api/v1/diaries'].get.security").doesNotExist());
     }

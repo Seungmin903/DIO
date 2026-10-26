@@ -1,6 +1,8 @@
 package com.f106.DIO.auth.login;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,6 +30,7 @@ public class LoginController {
             .body(service.refresh(request.refreshToken()));
     }
     @PostMapping("/logout")
+    @ApiResponse(responseCode = "204", description = "현재 로그인 세션 로그아웃 완료. 응답 본문 없음", content = @Content)
     @Operation(summary = "현재 로그인 세션 로그아웃", description = "Bearer Access Token이 필요합니다. 현재 기기 세션의 Access/Refresh Token을 무효화합니다. 다른 기기 로그인은 유지합니다. 요청 본문은 없습니다.")
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal Jwt jwt) {
