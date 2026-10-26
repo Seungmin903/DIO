@@ -1,5 +1,7 @@
 package com.f106.DIO.diary.service;
 
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,17 +21,19 @@ public class DiaryModificationService {
 	}
 
 	@Transactional
-	public DiaryResponse update(Long diaryId, DiaryUpdateRequest request) {
-		Diary diary = diaryRepository.findById(diaryId).orElseThrow(DiaryNotFoundException::new);
-		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverPattern(), request.getBindingType());
+	public DiaryResponse update(UUID diaryId, DiaryUpdateRequest request) {
+		Diary diary = diaryRepository.findByDiaryIdAndDeletedAtIsNull(diaryId)
+			.orElseThrow(DiaryNotFoundException::new);
+		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverStyle(), request.getVisibility());
 		diaryRepository.flush();
 		return new DiaryResponse(DiaryMapper.toData(diary));
 	}
 
 	@Transactional
-	public void delete(Long diaryId) {
-		Diary diary = diaryRepository.findById(diaryId).orElseThrow(DiaryNotFoundException::new);
-		diaryRepository.delete(diary);
+	public void delete(UUID diaryId) {
+		Diary diary = diaryRepository.findByDiaryIdAndDeletedAtIsNull(diaryId)
+			.orElseThrow(DiaryNotFoundException::new);
+		diary.softDelete();
 		diaryRepository.flush();
 	}
 }
