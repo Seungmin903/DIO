@@ -1,0 +1,185 @@
+/* DIO 리뉴얼 시안 — 디자인 가이드(docs/디자인 가이드.md) 토큰 */
+:root {
+  --surface: #FFFFFF; --soft: #CED9EE; --primary: #6E92C6; --primaryStrong: #4F74AE; --secondary: #9FB6D9;
+  --text: #0B1957; --muted: rgba(11,25,87,.68); --border: rgba(11,25,87,.16);
+  --primarySoft: rgba(110,146,198,.18); --plate: #EEF2F9; --danger: #E5484D; --scrim: rgba(11,25,87,.28);
+  --float: 0 10px 20px rgba(11,25,87,.22); --card: 0 6px 14px rgba(11,25,87,.14);
+}
+* { box-sizing: border-box }
+html, body { margin: 0; height: 100%; overflow: hidden }
+body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif; color: var(--text); background: var(--soft); font-size: 12.5px; -webkit-user-select: none; user-select: none }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer }
+input { font: inherit; color: inherit }
+.app { display: grid; grid-template-rows: 64px minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); height: 100vh; width: 100vw }
+.topbar { display: flex; align-items: center; gap: 12px; padding: 0 16px; background: rgba(255,255,255,.9) }
+.topbar h1 { font-size: 17px; font-weight: 800; margin: 0 }
+.topbar .sum { color: var(--muted); font-size: 12.5px; font-weight: 600 }
+.grow { flex: 1 }
+.iconbtn { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 18px }
+.iconbtn:hover { background: var(--primarySoft) }
+.btn { height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 800; padding: 0 20px; white-space: nowrap }
+.btn.primary { background: var(--primaryStrong); color: #fff }
+.btn.ghost { border: 1px solid var(--border); background: #fff }
+.btn.small { height: 34px; font-size: 12.5px; border-radius: 10px; padding: 0 12px }
+.btn:disabled { opacity: .4; cursor: default }
+.main { display: flex; min-height: 0; min-width: 0; overflow: hidden }
+.stage { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; position: relative }
+.side { width: 420px; background: #fff; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid rgba(11,25,87,.08) }
+.side-head { padding: 16px 20px 12px; display: flex; flex-direction: column; gap: 12px }
+.side-body { flex: 1; overflow: auto; padding: 4px 20px 24px; display: flex; flex-direction: column; gap: 18px }
+.input { height: 46px; width: 100%; border: 1px solid var(--border); border-radius: 12px; background: #F6F9FD; padding: 0 14px; font-size: 15px; font-weight: 700; outline: none }
+.input:focus { border-color: var(--primary) }
+.tabs { display: flex; gap: 4px; padding: 4px; background: var(--plate); border-radius: 14px }
+.tabs button { flex: 1; height: 36px; border-radius: 10px; font-weight: 700; color: var(--muted); font-size: 13px }
+.tabs button.on { background: #fff; color: var(--text); font-weight: 800; box-shadow: 0 1px 3px rgba(11,25,87,.14) }
+.sec { font-size: 12px; font-weight: 700; color: var(--muted); margin: 0 0 8px; display: flex; align-items: center; gap: 6px }
+.hint { color: var(--muted); font-size: 11.5px; line-height: 1.5 }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.chip { height: 34px; padding: 0 13px; border-radius: 999px; background: var(--plate); border: 1.5px solid transparent; display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: var(--muted); white-space: nowrap }
+.chip.on { background: #fff; border-color: var(--primary); color: var(--text); font-weight: 800 }
+.seg { display: inline-flex; gap: 3px; padding: 3px; border-radius: 11px; background: var(--plate) }
+.seg button { height: 32px; padding: 0 14px; border-radius: 8px; font-weight: 600; color: var(--muted); font-size: 12.5px; white-space: nowrap }
+.seg button.on { background: #fff; color: var(--text); font-weight: 800; box-shadow: 0 1px 3px rgba(11,25,87,.14) }
+.seg.full { display: flex } .seg.full button { flex: 1 }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(11,25,87,.14); flex: none }
+.swatch.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--primary) }
+.swatch.rainbow { background: conic-gradient(#f66, #fd5, #6d6, #5cf, #66f, #e6e, #f66) }
+.grid { display: grid; gap: 10px }
+.g2 { grid-template-columns: repeat(2, 1fr) } .g3 { grid-template-columns: repeat(3, 1fr) } .g4 { grid-template-columns: repeat(4, 1fr) } .g5 { grid-template-columns: repeat(5, 1fr) }
+.tile { position: relative; border-radius: 14px; border: 1.5px solid var(--border); background: #fff; padding: 7px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; font-weight: 700; font-size: 12px; text-align: center }
+.tile.on { border: 2px solid var(--primary); background: var(--primarySoft); padding: 6.5px }
+.tile .meta { color: var(--muted); font-weight: 600; font-size: 10.5px }
+.tile .fav { position: absolute; right: 10px; top: 10px; font-size: 14px; color: var(--muted); z-index: 2 }
+.tile .fav.on { color: #E8AF45 }
+.badge { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: 800; vertical-align: middle }
+.badge.new { background: var(--primaryStrong); color: #fff } .badge.limit { background: #FFE6D2; color: #B4501B } .badge.rec { background: var(--primarySoft); color: var(--text) }
+.page { aspect-ratio: 4/3; width: 100%; border-radius: 6px; overflow: hidden; border: 1px solid rgba(11,25,87,.12); background: #fff; display: block }
+.page svg { width: 100%; height: 100%; display: block }
+.card { border-radius: 14px; background: #fff; border: 1px solid var(--border); padding: 12px 14px; display: flex; align-items: center; gap: 12px }
+.card .lbl { font-weight: 800; font-size: 13.5px } .card .val { color: var(--muted); font-size: 12px; margin-top: 2px }
+.card .ico { width: 34px; height: 34px; border-radius: 10px; background: var(--plate); display: grid; place-items: center; font-size: 16px; flex: none }
+.switch { width: 44px; height: 26px; border-radius: 13px; background: var(--border); position: relative; flex: none; transition: background .15s }
+.switch::after { content: ''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 3px rgba(0,0,0,.2) }
+.switch.on { background: var(--primary) } .switch.on::after { left: 21px }
+.stepper { display: inline-flex; align-items: center; gap: 3px; padding: 3px; border-radius: 11px; background: var(--plate) }
+.stepper button { width: 32px; height: 32px; border-radius: 8px; font-size: 16px; font-weight: 700 }
+.stepper button:hover { background: #fff }
+.stepper span { min-width: 34px; text-align: center; font-weight: 800 }
+input[type=range] { width: 100%; accent-color: var(--primary) }
+select { height: 34px; border-radius: 10px; border: 1px solid var(--border); background: #fff; padding: 0 10px; font-weight: 700; color: var(--text) }
+.strip { display: flex; gap: 12px; max-width: 100%; overflow-x: auto; padding: 4px 4px 8px }
+.strip .it { width: 112px; flex: none; text-align: center; font-size: 11px; color: var(--muted); font-weight: 600 }
+.strip .it .page { margin-bottom: 4px }
+.toast { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); background: var(--text); color: #fff; padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 100 }
+.toast.show { opacity: 1 }
+.note { position: fixed; left: 12px; bottom: 10px; font-size: 10.5px; color: var(--muted); background: rgba(255,255,255,.8); padding: 4px 8px; border-radius: 8px }
+/* 표지 */
+.cover { position: relative; border-radius: 2% 5.5% 5.5% 2% / 1.5% 4% 4% 1.5%; box-shadow: 0 14px 30px rgba(11,25,87,.22); overflow: hidden; flex: none; touch-action: none }
+.cover .bgimg { position: absolute; inset: 0; background-size: cover; background-position: center }
+.cover .spine { position: absolute; left: 0; top: 0; bottom: 0; width: 4.86%; background: rgba(11,25,87,.16); pointer-events: none }
+.cover .band { position: absolute; right: 16.2%; top: 0; bottom: 0; width: 3.78%; background: rgba(11,25,87,.2); pointer-events: none }
+.cover .title { position: absolute; left: 12%; right: 12%; cursor: pointer }
+.cover .label { background: rgba(255,253,248,.96); border-radius: 4px; padding: 6% 7% }
+.cover .ribbon { background: rgba(255,255,255,.85); padding: 4% 7%; margin: 0 -14% }
+.cover .t { font-weight: 700; overflow-wrap: anywhere; line-height: 1.15 }
+.cover .m { font-weight: 800; color: #9A9DA6; letter-spacing: .14em; margin-top: 4% }
+.cover .stk { position: absolute; cursor: grab }
+.cover .stk.sel, .cover .title.sel { outline: 1.5px dashed var(--primary); outline-offset: 4px }
+.cover .stk .x { position: absolute; right: -10px; top: -10px; width: 20px; height: 20px; border-radius: 50%; background: var(--danger); color: #fff; font-size: 12px; display: none; place-items: center }
+.cover .stk.sel .x { display: grid }
+.ctxbar { position: absolute; background: #fff; border-radius: 14px; box-shadow: var(--float); padding: 6px; display: flex; gap: 6px; align-items: center; z-index: 5 }
+
+/* ---------- 리뉴얼 공통 추가 ---------- */
+/* 미리보기 무대: 하늘색 대신 중립 회색 (내용의 색이 그대로 보이게) */
+:root { --stage: #F2F2F4; --stageLine: rgba(11,25,87,.06) }
+.stagebg { background: var(--stage) }
+.switcher { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 50; display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(11,25,87,.82); box-shadow: var(--float) }
+.switcher a { height: 30px; padding: 0 14px; border-radius: 999px; display: flex; align-items: center; color: rgba(255,255,255,.75); font-weight: 700; font-size: 12px; text-decoration: none }
+.switcher a.on { background: #fff; color: var(--text) }
+.switcher .lbl { color: rgba(255,255,255,.55); font-size: 11px; padding: 0 8px 0 10px; display: flex; align-items: center }
+.screen { display: none } .screen.on { display: grid }
+.shelf { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: thin }
+.shelf > * { flex: none }
+.ghead { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px }
+.ghead b { font-size: 14px; font-weight: 800 } .ghead span { color: var(--muted); font-size: 11.5px }
+.pcard { width: 132px; border-radius: 14px; padding: 6px; background: #fff; border: 1.5px solid transparent; text-align: left; display: flex; flex-direction: column; gap: 6px }
+.pcard .page { box-shadow: 0 1px 3px rgba(11,25,87,.10) }
+.pcard .nm { font-weight: 700; font-size: 12.5px; padding: 0 2px; display: flex; gap: 4px; align-items: center }
+.pcard .sb { color: var(--muted); font-size: 11px; padding: 0 2px; margin-top: -4px }
+.pcard.on { border-color: var(--primary); background: var(--primarySoft) }
+.optrow { display: flex; align-items: center; gap: 8px 10px; min-height: 44px; flex-wrap: wrap }
+.optrow .k { width: 64px; flex: none; color: var(--muted); font-weight: 700; font-size: 12px }
+.disclose { display: flex; align-items: center; gap: 8px; width: 100%; height: 44px; font-weight: 800; font-size: 13px }
+.disclose .chev { margin-left: auto; color: var(--muted); transition: transform .15s }
+.disclose.open .chev { transform: rotate(90deg) }
+.appear { animation: appear .18s ease-out }
+@keyframes appear { from { opacity: 0; transform: translateY(-4px) } to { opacity: 1; transform: none } }
+.dim { color: var(--muted) }
+:root { --stageDark: #24262B }
+.board { position: relative; border-radius: 24px; background: var(--stage); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; overflow: hidden }
+.board.dark { background: var(--stageDark) }
+.board.dark .cap { color: rgba(255,255,255,.7) }
+.paperShadow .page { border: 0; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 12px 32px rgba(11,25,87,.12) }
+.cover { box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 14px 34px rgba(11,25,87,.18) }
+.cap { font-size: 12px; font-weight: 700; color: var(--muted) }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 999px; background: rgba(255,255,255,.85); font-weight: 700; font-size: 12.5px; box-shadow: 0 1px 3px rgba(11,25,87,.10) }
+.topbar .cancel { font-weight: 700; color: var(--muted); padding: 0 8px; height: 40px }
+.topbar .ttl { position: absolute; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 800 }
+.topbar { position: relative }
+.ghostpage { outline: 2px dashed var(--primaryStrong); outline-offset: 6px; border-radius: 6px }
+
+.pfoot { padding: 12px 20px 16px; border-top: 1px solid var(--border); background: #fff; display: flex; flex-direction: column; gap: 6px }
+.pfoot:empty { display: none }
+
+/* ---------- 3차 부품 ---------- */
+.page.portrait { aspect-ratio: 3/4 }
+.cover { position: relative; border-radius: 3px 10px 10px 3px; overflow: hidden; flex: none; touch-action: none }
+.cover .spine { position: absolute; left: 0; top: 0; bottom: 0; width: 5%; background: linear-gradient(90deg, rgba(0,0,0,.14), rgba(0,0,0,0)); pointer-events: none }
+.cover .band { position: absolute; pointer-events: none; box-shadow: 0 0 0 .5px rgba(0,0,0,.08) }
+.cover .cv-title { cursor: pointer }
+.cover .cv-title.sel { outline: 1.5px dashed var(--primary); outline-offset: 5px; border-radius: 4px }
+.cover .stk { position: absolute; cursor: grab }
+.cover .stk img { width: 100%; display: block; pointer-events: none }
+.cover .stk.sel { outline: 1.5px solid var(--primary); outline-offset: 3px }
+.cover .stk .hd { position: absolute; width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; font-size: 10px }
+.cover .stk .del { right: -12px; top: -12px; background: var(--danger); color: #fff; cursor: pointer }
+.cover .stk .rs { right: -9px; bottom: -9px; background: #fff; border: 2px solid var(--primary); cursor: nwse-resize }
+.nocover { display: grid; place-items: center; border: 2px dashed rgba(11,25,87,.22); background: rgba(255,255,255,.5); text-align: center; box-shadow: none !important }
+.nocover b { display: block; font-size: 15px; margin-bottom: 6px } .nocover span { color: var(--muted); font-size: 12px; line-height: 1.5 }
+.optrow { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; min-height: 44px }
+.optrow .k { width: 66px; flex: none; color: var(--muted); font-weight: 700; font-size: 12px; padding-top: 11px }
+.optrow .v { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.input.sm { height: 38px; font-size: 13px; flex: 1; min-width: 120px }
+.numf { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 11px; background: var(--plate) }
+.numf button { width: 32px; height: 32px; border-radius: 8px; font-size: 16px; font-weight: 700 }
+.numf button:hover { background: #fff }
+.numf input { width: 56px; height: 32px; border: 1px solid var(--border); border-radius: 8px; text-align: center; font-weight: 800; font-size: 13px; background: #fff; -moz-appearance: textfield }
+.numf input::-webkit-outer-spin-button, .numf input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0 }
+.numf span { padding: 0 8px 0 4px; color: var(--muted); font-weight: 700; font-size: 12px }
+.colf { display: flex; flex-direction: column; gap: 8px }
+.colf .hex { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px 0 4px; border-radius: 10px; border: 1px solid var(--border); background: #fff; color: var(--muted); font-weight: 700; width: max-content }
+.colf .hex input { width: 64px; border: 0; outline: none; font-weight: 800; font-family: Consolas, monospace; text-transform: uppercase; color: var(--text) }
+.colf .dotc { width: 26px; height: 26px; border-radius: 8px; position: relative; overflow: hidden; border: 1px solid rgba(11,25,87,.15) }
+.colf .dotc input { position: absolute; inset: -6px; width: 40px; height: 40px; opacity: 0; cursor: pointer }
+.swatch { width: 28px; height: 28px } .swatch.sq { width: 40px; height: 40px; border-radius: 10px }
+.anchor { display: grid; grid-template-columns: repeat(3, 30px); gap: 4px; padding: 4px; border-radius: 12px; background: var(--plate) }
+.anchor button { width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center }
+.anchor button i { width: 8px; height: 8px; border-radius: 2px; background: rgba(11,25,87,.25) }
+.anchor button.on { background: #fff; box-shadow: 0 1px 3px rgba(11,25,87,.14) } .anchor button.on i { background: var(--primaryStrong); width: 12px; height: 12px }
+.vcats { display: flex; flex-direction: column; gap: 6px }
+.vcats button { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; border: 2px solid transparent; text-align: left; background: #fff }
+.vcats button .ic { width: 36px; height: 36px; border-radius: 11px; background: var(--plate); display: grid; place-items: center; font-size: 18px; flex: none }
+.vcats button b { display: block; font-size: 13px } .vcats button i { display: block; font-style: normal; color: var(--muted); font-size: 11px; margin-top: 1px }
+.vcats button.on { border-color: var(--primary); box-shadow: var(--card) }
+.ctx { border-radius: 16px; background: var(--plate); padding: 8px 12px }
+.ctx .optrow .k { width: 56px }
+.cal { font-size: 11px }
+.secitem { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 14px; text-align: left }
+.secitem .ic { width: 34px; height: 34px; border-radius: 10px; background: var(--plate); display: grid; place-items: center; font-size: 16px; flex: none }
+.secitem b { display: block; font-size: 13.5px } .secitem i { display: block; font-style: normal; color: var(--muted); font-size: 11px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px }
+.secitem.on { background: #fff; box-shadow: var(--card) }
+.elrow { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 6px 10px; border-radius: 12px; text-align: left }
+.elrow.on { background: var(--primarySoft) }
+.elrow b { font-size: 13px } .elrow i { font-style: normal; color: var(--muted); font-size: 11.5px; margin-left: auto; text-align: right; max-width: 120px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis }
+.stkpick { display: flex; flex-direction: column; gap: 10px }
+.ghostel { position: absolute; border: 1.5px dashed rgba(11,25,87,.35); border-radius: 8px; color: var(--muted); font-size: 11px; font-weight: 700; display: grid; place-items: center; background: rgba(255,255,255,.55); cursor: pointer }

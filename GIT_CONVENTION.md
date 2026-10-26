@@ -207,7 +207,7 @@ AI 에이전트는 사용자의 명시적 요청 없이 커밋·푸시·MR 생�
 S15P31F106/
 ├── backend/        # Spring Boot / Java 17 / Gradle
 ├── frontend/       # Expo / React Native / react-native-web
-├── docs/           # docs/README.md를 색인으로 사용
+├── docs/           # docs/색인.md를 색인으로 사용
 ├── .gitlab/merge_request_templates/Default.md
 ├── AGENTS.md
 ├── GIT_CONVENTION.md

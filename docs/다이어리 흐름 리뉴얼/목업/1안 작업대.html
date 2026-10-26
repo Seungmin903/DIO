@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIO 리뉴얼 1안 · 3단 작업대</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Nanum+Pen+Script&family=Poor+Story&display=swap">
+<link rel="stylesheet" href="공통.css">
+<style>
+  .tree { width: 236px; flex: none; padding: 14px 10px; overflow: auto; display: flex; flex-direction: column; gap: 2px }
+  .tree .sub { padding-left: 22px; display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px }
+  .tree .sub button { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: var(--muted); text-align: left }
+  .tree .sub button.on { background: #fff; color: var(--text); box-shadow: 0 1px 3px rgba(11,25,87,.12) }
+  .tree .sub button .dot { width: 7px; height: 7px; border-radius: 4px; background: var(--border); margin-left: auto } .tree .sub button .dot.on { background: var(--primary) }
+  .insp { width: 400px; flex: none; background: #fff; border-radius: 24px 0 0 24px; display: flex; flex-direction: column; min-height: 0 }
+  .insp .hd { padding: 16px 20px 6px; font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px }
+</style>
+</head>
+<body>
+<div id="root"></div><div class="toast" id="toast"></div>
+<script src="렌더.js"></script><script src="카탈로그.js"></script><script src="엔진.js"></script>
+<script>
+// 1안 3단 작업대: 왼쪽 구역 · 요소 목록 | 가운데 미리보기(고치는 것만) | 오른쪽 옵션. 어느 구역이든 바로 오간다.
+function treeHTML() {
+  const add = S.screen === 'add'
+  return SECTIONS().map(([id, label, ic]) => {
+    const on = S.section === id
+    let sub = ''
+    if (id === 'cover' && S.cover.enabled) sub = `<div class="sub">${COVER_ELEMENTS().map(([el, l, d, onKey]) => `<button class="${on && S.el === el ? 'on' : ''}" data-act="pick" data-v="cover:${el}">${l}<span class="dot ${(onKey ? getK('cover.' + onKey) : el === 'stickers' ? S.cover.stickers.length : el === 'plate' ? S.cover.plate !== 'none' : true) ? 'on' : ''}"></span></button>`).join('')}</div>`
+    if (id === 'paper') sub = `<div class="sub">${GROUPS.map((g) => `<button class="${on && (add ? S.add.group : S.group) === g.id ? 'on' : ''}" data-act="pick" data-v="paper:${g.id}">${g.icon} ${g.name}</button>`).join('')}</div>`
+    return `<button class="secitem ${on && !(id === 'cover' && S.cover.enabled) && id !== 'paper' ? 'on' : ''}" data-act="section" data-v="${id}"><span class="ic">${ic}</span><span><b>${label}</b><i>${sectionSummary(id)}</i></span></button>${sub}`
+  }).join('')
+}
+ACT.pick = (v) => { const [sec, x] = v.split(':'); S.section = sec; if (sec === 'cover') ACT.el(x); else if (S.screen === 'add') ACT.addGroup(x); else { S.group = x; if (paperById(S.paperId).group !== x) S.paperId = papersIn(x)[0].id } }
+function stageHTML() {
+  const st = $('#stage'), W = st.clientWidth - 60, H = st.clientHeight - 80
+  if (S.screen === 'add') { const p = paperById(S.add.paperId), w = Math.min(W * 0.55, H * 4 / 3); return `<div class="row" style="flex-wrap:nowrap;gap:24px;align-items:center"><div style="width:${w * 0.32}px;opacity:.45">${paperPreview(w * 0.32, H, 'weekly', { year: 2026, month: 10, week: 3 })}</div><div class="ghostpage">${paperPreview(w, H, p.kinds[0], addPreviewOpts())}</div><div style="width:${w * 0.32}px;opacity:.45">${paperPreview(w * 0.32, H, 'diary', { year: 2026, month: 10, day: 23 })}</div></div><span class="pill">＋ ${addSummary()}</span>` }
+  if (S.section === 'cover') return `${coverPreview(W * 0.8, H - 30)}<span class="cap">${S.cover.enabled ? '제목을 누르면 제목 옵션으로 · 스티커는 끌어서 옮겨요' : ''}</span>`
+  const p = paperById(S.paperId)
+  if (S.section === 'paper' || S.section === 'style') return `${paperPreview(W * 0.8, H - 30, p.kinds[0], { year: S.period.year, month: S.period.start, dated: p.type !== 'note' && (p.type !== 'diary' || S.dateStamp) })}<span class="pill">${S.section === 'paper' && S.screen === 'create' ? `표지 ${S.cover.enabled ? 1 : 0} + 속지 ${plan().length - 1}장` : p.name}</span>`
+  // 기본: 방향이 표지와 속지에 어떻게 들어가는지 함께
+  const half = W / 2 - 20
+  return `<div class="row" style="flex-wrap:nowrap;gap:32px;align-items:center">${coverPreview(half, H - 40)}${paperPreview(half, H - 40, p.kinds[0], { year: S.period.year, month: S.period.start })}</div><span class="cap">${S.orient === 'landscape' ? '가로' : '세로'} · 표지와 속지가 같은 방향이에요</span>`
+}
+function inspHTML() {
+  if (S.screen === 'add') {
+    if (S.section === 'style') return { hd: '속지 스타일', body: styleOptions(paperById(S.add.paperId)), foot: '' }
+    return { hd: GROUPS.find((g) => g.id === S.add.group).name, body: paperGrid('add'), foot: addOptions() }
+  }
+  if (S.section === 'basic') return { hd: '기본', body: basicOptions() + (S.screen === 'edit' ? `<div class="card" style="margin-top:8px"><div class="ico">📔</div><div class="grow"><div class="lbl">하루 일기 · ${EDIT_DIARY.period}</div><div class="val">속지 종류와 기간은 그대로예요. 더 쓰려면 새 페이지에서 이어 붙여요</div></div></div>` : ''), foot: '' }
+  if (S.section === 'cover') {
+    const els = COVER_ELEMENTS(), cur = els.find(([e]) => e === S.el) ?? els[0]
+    return { hd: '표지', body: `${coverKindOptions()}${S.cover.enabled ? `<div class="sec" style="margin:12px 0 0">${cur[1]}</div>${elementOptions(S.el)}` : `<div class="hint" style="margin-top:12px">표지 없이 첫 장부터 시작해요. 다이어리 수정에서 언제든 다시 더할 수 있어요.</div>`}`, foot: S.screen === 'edit' && S.cover.enabled ? `<button class="btn ghost small" style="color:var(--danger)" data-act="coverKind" data-v="none">표지 빼기</button>` : '' }
+  }
+  if (S.section === 'paper') return { hd: GROUPS.find((g) => g.id === S.group).name, body: paperGrid(), foot: contextOptions() }
+  return { hd: '속지 스타일', body: styleOptions(), foot: '' }
+}
+RENDER = () => {
+  const ins = inspHTML(), keep = $('.insp .side-body')?.scrollTop ?? 0
+  $('#root').innerHTML = `${switcher('1안 · 3단 작업대')}<div class="app">${topbar()}
+    <main class="main" style="padding:12px 0 12px 0">
+      <nav class="tree">${treeHTML()}</nav>
+      <section class="board grow" id="stage" style="min-width:0;margin:0 12px"></section>
+      <aside class="insp"><div class="hd">${ins.hd}</div><div class="side-body">${ins.body}</div>${ins.foot ? `<div class="pfoot">${ins.foot}</div>` : ''}</aside>
+    </main></div>`
+  $('.insp .side-body').scrollTop = keep
+  RENDER_STAGE()
+}
+RENDER_STAGE = () => { const st = $('#stage'); if (st) st.innerHTML = stageHTML() }
+RENDER(); window.addEventListener('resize', RENDER); document.fonts?.ready.then(RENDER)
+</script>
+</body>
+</html>
