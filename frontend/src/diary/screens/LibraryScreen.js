@@ -78,17 +78,18 @@ function LibraryScreen({
   const current = FILTERS.find((item) => item.id === filter) || FILTERS[0];
   const selecting = selection !== null;
   // 보이는 다이어리만 선택으로 센다. 필터를 바꾸면 숨은 다이어리는 선택에서 빠진다.
-  const selected = useMemo(() => (selecting ? visibleSelection(selection, shown) : []), [selecting, selection, shown]);
+  const manageable = useMemo(() => shown.filter(diary => diary.canManage !== false), [shown]);
+  const selected = useMemo(() => (selecting ? visibleSelection(selection, manageable) : []), [selecting, selection, manageable]);
   useEffect(() => {
     if (selecting && selected.length !== selection.length) onSelectionChange?.(selected);
   }, [onSelectionChange, selected, selecting, selection]);
   const toggleSelect = useCallback((diary) => {
-    if (!trashing) onSelectionChange?.(toggleSelection(selected, diary.id));
+    if (!trashing && diary.canManage !== false) onSelectionChange?.(toggleSelection(selected, diary.id));
   }, [onSelectionChange, selected, trashing]);
-  const allSelected = shown.length > 0 && selected.length === shown.length;
+  const allSelected = manageable.length > 0 && selected.length === manageable.length;
   // 렌더링/스크롤 위치와 무관하게 현재 검색·필터 결과 전체를 대상으로 한다.
   const toggleAll = () => {
-    if (!trashing && shown.length) onSelectionChange?.(allSelected ? [] : shown.map(diary => diary.id));
+    if (!trashing && manageable.length) onSelectionChange?.(allSelected ? [] : manageable.map(diary => diary.id));
   };
   // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 카드는 개인 다이어리 탭에만 둔다. 관리 중에는 숨긴다.
   const canCreate = Boolean(onCreate) && filter === 'personal' && !searchOpen && !selecting;
@@ -179,7 +180,7 @@ function LibraryScreen({
           <Text style={s.chipText}>{sort === item.id ? '✓ ' : ''}{item.label}</Text>
         </Pressable>)}
       </View>
-      {onSelectionChange && shown.length > 0 && (!searchOpen || query.trim()) && <>
+      {onSelectionChange && manageable.length > 0 && (!searchOpen || query.trim()) && <>
         <View style={s.libraryOptionsDivider} />
         <Pressable accessibilityRole="button" accessibilityLabel="편집" onPress={() => { setOptionsOpen(false); onSelectionChange?.([]); }} style={({ pressed }) => [s.chip, s.librarySortOption, pressed && s.pressed]}>
           <Text style={s.chipText}>편집</Text>
@@ -193,11 +194,11 @@ function LibraryScreen({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={hasMore ? (allSelected ? '불러온 항목 모두 해제' : '불러온 항목 모두 선택') : (allSelected ? '전체 해제' : '전체 선택')}
-            accessibilityHint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${shown.length}개에 적용해요`}
-            accessibilityState={{ disabled: trashing || !shown.length }}
-            disabled={trashing || !shown.length}
+            accessibilityHint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${manageable.length}개에 적용해요`}
+            accessibilityState={{ disabled: trashing || !manageable.length }}
+            disabled={trashing || !manageable.length}
             onPress={toggleAll}
-            style={({ pressed }) => [s.selectButton, (trashing || !shown.length) && s.selectButtonDisabled, pressed && s.pressed]}
+            style={({ pressed }) => [s.selectButton, (trashing || !manageable.length) && s.selectButtonDisabled, pressed && s.pressed]}
           >
             <Text style={s.selectButtonText}>{hasMore ? (allSelected ? '불러온 항목 모두 해제' : '불러온 항목 모두 선택') : (allSelected ? '전체 해제' : '전체 선택')}</Text>
           </Pressable>
@@ -273,7 +274,7 @@ function LibraryScreen({
 
       <View style={[s.libraryToolbar, compact && s.libraryToolbarCompact, s.libraryToolbarWrap]}>
         <View style={s.filters}>
-          {FILTERS.map((item) => (
+          {FILTERS.filter(item => !remoteQuery || item.id !== 'shared').map((item) => (
             <Pressable
               key={item.id}
               accessibilityRole="tab"

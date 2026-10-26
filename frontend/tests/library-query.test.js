@@ -30,3 +30,17 @@ test('실제 편집 수정 시각과 문서 페이지 수를 반영하고 구형
  assert.deepEqual(ids(queryDiaries(old,{sort:'created'})),['diary-2000','diary-1000']);
  assert.deepEqual(ids(queryDiaries(old,{sort:'pages'})),['diary-1000','diary-2000']);
 });
+
+test('공유 필터는 내가 공유한 다이어리와 수락한 다이어리를 모으고 검색·정렬·즐겨찾기를 유지한다', () => {
+ const rows = [
+  { id: 'private', title: '개인', favorite: true },
+  { id: 'owner', title: '여행 2', isShared: true, favorite: true },
+  { id: 'joined', title: '여행 1', sharedDiaryId: 'remote' },
+  { id: 'removed', title: '삭제', isShared: true, trashedAt: '2026-10-26' },
+ ];
+ assert.deepEqual(ids(queryDiaries(rows, { filter: 'shared', sort: 'title' })), ['joined', 'owner']);
+ assert.deepEqual(ids(queryDiaries(rows, { filter: 'shared', query: '2' })), ['owner']);
+ assert.equal(queryDiaries(rows).length, 3);
+ assert.deepEqual(ids(queryDiaries(rows, { filter: 'favorite', sort: 'title' })), ['private', 'owner']);
+ assert.deepEqual(queryDiaries([rows[0]], { filter: 'shared' }), []);
+});

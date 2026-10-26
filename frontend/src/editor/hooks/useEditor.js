@@ -2,9 +2,8 @@ import { AppState } from 'react-native'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { createDefaultDoc } from '../state/defaultDoc'
 import { createInitialState, editorReducer } from '../state/editorReducer'
-import { editorDocKey, loadEditorDoc, peekEditorDoc, rememberEditorDoc } from '../services/editorDocs'
+import { editorDocKey, loadEditorDoc, peekEditorDoc, rememberEditorDoc, saveEditorDoc } from '../services/editorDocs'
 import { hydrateMedia } from '../services/mediaStore'
-import { saveJSON } from '../services/storage'
 import { scheduleIdleTask } from '../utils/idleTask'
 
 const SAVE_DELAY_MS = 1200
@@ -57,7 +56,7 @@ export function useEditor(diary) {
     if (!target || saving.current) return
     pendingSave.current = null
     saving.current = true
-    saveJSON(target.key, target.doc).then((ok) => {
+    saveEditorDoc(target.key, target.doc).then((ok) => {
       if (target.key === currentKey.current) setLastSave({ doc: target.source ?? target.doc, ok })
     }).finally(() => {
       saving.current = false

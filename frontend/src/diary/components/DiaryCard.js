@@ -5,6 +5,7 @@ import { Animated, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
 import Cover from './Cover';
+import { isSharedDiary } from '../utils/libraryQuery';
 
 // onOpen·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다.
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
@@ -15,9 +16,10 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
     : Number.isSafeInteger(count) && count >= 0 ? `${count}페이지` : '페이지 수 확인 불가';
   const card = (
     <Pressable
+      disabled={selecting && diary.canManage === false}
       accessibilityRole={selecting ? 'checkbox' : 'button'}
       accessibilityLabel={selecting ? `${diary.title} 선택` : `${diary.title} 열기`}
-      accessibilityHint={countLabel}
+      accessibilityHint={`${isSharedDiary(diary) ? '공유 다이어리, ' : ''}${countLabel}`}
       accessibilityState={selecting ? { checked: selected } : layout === 'carousel' ? { selected: carouselActive } : undefined}
       aria-checked={selecting ? selected : undefined}
       onPress={() => (selecting ? onToggleSelect?.(diary) : onOpen(diary))}
@@ -32,11 +34,11 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
     >
       <View style={s.cardCoverWrap}>
         <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact} />
-        {selecting && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
+        {selecting && diary.canManage !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
           <Text style={s.cardCheckMark}>{selected ? '✓' : ''}</Text>
         </View>}
         {!selecting && <View style={s.cardActions}>
-          <Pressable
+          {diary.canManage !== false && <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 수정`}
             disabled={!onEdit || diary.canEdit === false}
@@ -46,7 +48,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
             style={({ pressed }) => [s.cardAction, (!onEdit || diary.canEdit === false) && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
           >
             <AppIcon name="edit" size={17} color={C.ink} />
-          </Pressable>
+          </Pressable>}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={diary.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
@@ -63,11 +65,14 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
       <View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid]}>
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
-            <Text numberOfLines={1} style={s.cardTitle}>{diary.title}</Text>
+            <View style={s.cardTitleRow}>
+              <Text numberOfLines={1} style={[s.cardTitle, s.cardTitleInRow]}>{diary.title}</Text>
+              {isSharedDiary(diary) && <View accessible accessibilityLabel="공유 다이어리" style={s.sharedDiaryIcon}><AppIcon name="people" size={16} color={C.inkSoft} /></View>}
+            </View>
             <Text testID={`diary-page-count-${diary.id}`} style={s.cardPageCount}>{countLabel}</Text>
           </View>
           {/* 스와이프 화면의 옆 카드는 넘기려고 누르는 자리라 가운데 카드에만 둔다. */}
-          {!selecting && (layout !== 'carousel' || carouselActive) && <Pressable
+          {!selecting && diary.canManage !== false && (layout !== 'carousel' || carouselActive) && <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 휴지통으로 이동`}
             disabled={!onDelete}

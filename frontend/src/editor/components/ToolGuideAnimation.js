@@ -78,4 +78,3 @@ export default function ToolGuideAnimation({ mode }) {
 const styles = StyleSheet.create({
   preview: { width: '100%', height: 120, borderRadius: radius.md, backgroundColor: colors.surfaceMuted, overflow: 'hidden' },
 })
-

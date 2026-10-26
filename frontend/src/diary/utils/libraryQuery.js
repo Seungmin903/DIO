@@ -7,10 +7,11 @@ export const SORT_OPTIONS = [
 const time = value => Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0;
 export const createdTime = diary => time(diary.createdAt) || Number(/^diary-(\d+)$/.exec(diary.id)?.[1]) || 0;
 const titleKey = value => String(value ?? '').normalize('NFC').trim().toLocaleLowerCase('ko');
+export const isSharedDiary = diary => Boolean(diary.sharedDiaryId || diary.isShared);
 export function queryDiaries(diaries, { filter = 'personal', query = '', sort = 'updated', metadata = {} } = {}) {
   const needle = titleKey(query);
   const metric = diary => metadata[diary.id] ?? {};
-  return diaries.filter(d => !d.trashedAt && (filter !== 'favorite' || d.favorite) && titleKey(d.title).includes(needle))
+  return diaries.filter(d => !d.trashedAt && (filter !== 'favorite' || d.favorite) && (filter !== 'shared' || isSharedDiary(d)) && titleKey(d.title).includes(needle))
     .map((diary, index) => ({ diary, index }))
     .sort((a, b) => {
       const x = a.diary, y = b.diary;

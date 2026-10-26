@@ -241,3 +241,10 @@ test('빈 결과와 이동 중에는 전체 선택을 막고 개별 선택도 �
  findControl(tree,'전체 선택').props.onPress();assert.deepEqual(props.selection,[]);
  const card=nodes(tree).find(n=>n.type==='../components/DiaryCard');card.props.onToggleSelect(card.props.diary);assert.deepEqual(props.selection,[]);
 });
+
+test('공유 다이어리는 보관함 전체 선택·개인 휴지통 대상에서 제외한다',()=>{
+ const render=setup('../src/diary/screens/LibraryScreen.js'),props=selectionProps();props.diaries=[{id:'own',title:'내 기록'},{id:'shared',title:'공유 기록',canManage:false}];props.selection=[];
+ let tree=render(props);findControl(tree,'전체 선택').props.onPress();tree=render(props);assert.deepEqual(props.selection,['own']);
+ const card=nodes(tree).find(n=>n.type==='../components/DiaryCard'&&n.props.diary.id==='shared');card.props.onToggleSelect(card.props.diary);assert.deepEqual(props.selection,['own']);
+ props.diaries=[props.diaries[1]];tree=render(props);assert.deepEqual(props.selection,[]);assert.ok(findControl(tree,'전체 선택').props.disabled);
+});
