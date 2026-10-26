@@ -104,21 +104,21 @@ class DiaryPersistenceTests {
 		Diary oldest = diaries.saveAndFlush(new Diary("첫 번째", "#D6BFA7", "PLAIN", "PRIVATE"));
 		Diary sameTimeA = diaries.saveAndFlush(new Diary("두 번째", "#D6BFA7", "PLAIN", "PRIVATE"));
 		Diary sameTimeB = diaries.saveAndFlush(new Diary("세 번째", "#D6BFA7", "PLAIN", "PRIVATE"));
+		UUID lowerDiaryId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		UUID higherDiaryId = UUID.fromString("00000000-0000-0000-0000-000000000002");
 		Instant first = Instant.parse("2026-01-01T00:00:00Z");
 		Instant second = Instant.parse("2026-01-02T00:00:00Z");
 		setCreatedAt(oldest.getDiaryId(), first);
-		setCreatedAt(sameTimeA.getDiaryId(), second);
-		setCreatedAt(sameTimeB.getDiaryId(), second);
+		replaceDiaryId(sameTimeA.getDiaryId(), lowerDiaryId);
+		replaceDiaryId(sameTimeB.getDiaryId(), higherDiaryId);
+		setCreatedAt(lowerDiaryId, second);
+		setCreatedAt(higherDiaryId, second);
 		entityManager.clear();
 
-		UUID firstAtSameTime = sameTimeA.getDiaryId().compareTo(sameTimeB.getDiaryId()) > 0
-			? sameTimeA.getDiaryId() : sameTimeB.getDiaryId();
-		UUID secondAtSameTime = sameTimeA.getDiaryId().equals(firstAtSameTime)
-			? sameTimeB.getDiaryId() : sameTimeA.getDiaryId();
 		mvc.perform(get("/api/v1/diaries"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.items[0].diaryId").value(firstAtSameTime.toString()))
-			.andExpect(jsonPath("$.items[1].diaryId").value(secondAtSameTime.toString()))
+			.andExpect(jsonPath("$.items[0].diaryId").value(higherDiaryId.toString()))
+			.andExpect(jsonPath("$.items[1].diaryId").value(lowerDiaryId.toString()))
 			.andExpect(jsonPath("$.items[2].diaryId").value(oldest.getDiaryId().toString()));
 	}
 
@@ -134,6 +134,13 @@ class DiaryPersistenceTests {
 		entityManager.createNativeQuery("update diaries set created_at = :createdAt where diary_id = :diaryId")
 			.setParameter("createdAt", createdAt)
 			.setParameter("diaryId", diaryId)
+			.executeUpdate();
+	}
+
+	private void replaceDiaryId(UUID currentDiaryId, UUID replacementDiaryId) {
+		entityManager.createNativeQuery("update diaries set diary_id = :replacementDiaryId where diary_id = :currentDiaryId")
+			.setParameter("replacementDiaryId", replacementDiaryId)
+			.setParameter("currentDiaryId", currentDiaryId)
 			.executeUpdate();
 	}
 }
