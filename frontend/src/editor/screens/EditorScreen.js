@@ -72,7 +72,7 @@ const PHONE_STAGE_PADDING = { top: 16, bottom: 68, side: 12 }
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
 // compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 상단 도구 막대),
 // 가로는 정밀 편집(왼쪽 화면 막대 + 오른쪽 전체 도구 막대 + 확대·축소). onToggleOrientation이 있으면 세로·가로를 버튼으로 바꾼다.
-export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab }) {
+export default function EditorScreen({ sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab }) {
   // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
@@ -556,6 +556,11 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
     setExportOpen(true)
   }
 
+  const openDiarySharing = () => {
+    if (textEditing || cropId || tapeCropId || photoCropId) { showToast('입력이나 자르기를 마친 뒤 공유해 주세요.'); return }
+    Keyboard.dismiss()
+    onOpenSharing?.()
+  }
   const goHome = () => {
     if (onHome) onHome()
     else showToast('다이어리 홈은 다른 화면에서 연결될 예정이에요.')
@@ -621,6 +626,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
 
   const phoneToolbar = !readOnly && compact ? (
     <PhoneToolbar
+      onOpenSharing={!phoneLandscape && onOpenSharing ? openDiarySharing : undefined}
+      invitationCount={invitationCount}
+      sharingMembers={sharingMembers}
       {...markInside}
       vertical={landscape}
       bottomInset={landscape ? bottomInset : 0}
@@ -661,6 +669,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
           onToggleLayers={switchLayers}
           onExport={openExport}
           exportEnabled={exportEnabled}
+          onOpenSharing={onOpenSharing ? openDiarySharing : undefined}
+          invitationCount={invitationCount}
+          sharingMembers={sharingMembers}
           onFocus={startPhoneFocus}
         />
       )}
@@ -669,7 +680,7 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         pageLabel={`PAGE ${pageIndex + 1} / ${state.doc.pages.length}`}
         onToggleOrientation={toggleOrientation}
         doc={state.doc}
-        onRename={(title) => {
+        onRename={diary?.canManage === false ? undefined : (title) => {
           dispatch({ type: 'renameDoc', title })
           onRenameDiary?.(title)
         }}
@@ -678,6 +689,9 @@ export default function EditorScreen({ onHome, onRenameDiary, diary, readOnly = 
         pagesWidth={PAGE_LIST_WIDTH}
         focusMode={focusMode}
         onHome={goHome}
+        onOpenSharing={onOpenSharing ? openDiarySharing : undefined}
+        invitationCount={invitationCount}
+        sharingMembers={sharingMembers}
         onCloseTab={onCloseTab ?? goHome}
         tabs={tabs}
         activeTabId={diary?.id}

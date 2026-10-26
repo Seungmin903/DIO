@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { toggleSelection, visibleSelection } from '../src/diary/utils/diarySelection.js';
 import { markTrashed } from '../src/diary/utils/trashRetention.js';
+import { isSharedDiary } from '../src/diary/utils/libraryQuery.js';
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'));
 const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/components/DiaryCard.js', import.meta.url), 'utf8'), {
@@ -16,6 +17,7 @@ function loadCard() {
     if (id === 'react') return { memo: (fn) => fn };
     if (id === 'react-native') return { Animated: { View: 'animated' }, Pressable: 'button', Text: 'text', View: 'view' };
     if (id === '../constants') return { C: {} };
+    if (id === '../utils/libraryQuery') return { isSharedDiary };
     if (id === '../../shared/theme') return { DISABLED_OPACITY: 0.45 };
     if (id === '../styles') return { styles: new Proxy({}, { get: (_, key) => key }) };
     if (id.endsWith('/AppIcon') || id === './Cover') return { __esModule: true, default: 'mock' };

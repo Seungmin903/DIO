@@ -87,3 +87,5 @@
 - [Expo SDK 58 업그레이드와 팀 적용 절차](./expo-sdk58-qa.md)
 
 - [로그인·회원가입 화면과 입력 상태](./auth-screens.md)
+
+- [다이어리 초대·공유 화면과 임시 상태](./diary-sharing.md)
