@@ -9,12 +9,12 @@
 ## 기술 스택
 
 - Backend: Spring Boot 4.1, Java 17, Gradle, Spring Data JPA, PostgreSQL 17, Flyway
-- Frontend: Expo SDK 57, React Native 0.86 (JavaScript) — 창 크기로 폰·태블릿 배치를 나눔(태블릿은 16:10 가로 프레임, 폰은 전용 배치. `docs/phone-tablet-layout.md`), react-native-web으로 브라우저 확인 가능
+- Frontend: Expo SDK 57, React Native 0.86 (JavaScript) — 창 크기로 폰·태블릿 배치를 나눔(태블릿은 16:10 가로 프레임, 폰은 전용 배치. `docs/화면 배치/폰 태블릿 배치.md`), react-native-web으로 브라우저 확인 가능
 - Local infra: Docker Compose (PostgreSQL)
 
 ## 디자인 기준
 
-- 화면·UI를 새로 만들거나 고칠 때는 [docs/design-guide.md](./docs/design-guide.md)(DIO 디자인 가이드)를 따른다. 색·글자·간격·아이콘·공용 컴포넌트·문구 규칙이 다른 문서와 다르면 이 가이드가 우선이다.
+- 화면·UI를 새로 만들거나 고칠 때는 [docs/디자인 가이드.md](./docs/디자인%20가이드.md)(DIO 디자인 가이드)를 따른다. 색·글자·간격·아이콘·공용 컴포넌트·문구 규칙이 다른 문서와 다르면 이 가이드가 우선이다.
 - 새 디자인 규칙을 만들면 가이드(md가 원본)를 같은 커밋에서 고친다. Word·PDF 본은 md에서 다시 만든다.
 
 ## 개발 명령어
@@ -55,7 +55,7 @@
 S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
 ├── frontend/            # 모바일 프론트엔드 (Expo + React Native)
-├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
+├── docs/                # 요구사항/API/DB/팀 문서 (docs/색인.md가 색인)
 ├── docker-compose.yml   # 로컬 개발용 PostgreSQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)
 ├── README.md
