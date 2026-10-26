@@ -1,0 +1,1930 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIO 캐릭터 디자인 — 디오 · 두리 · 앱 아이콘</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap">
+<style>
+:root { --ink:#1D1D1F; --navy:#0B1957; --muted:#6B7280; --line:#E5E7EB; --bg:#FFFFFF; --soft:#F6F5F2; --accent:#6E92C6; --accent-soft:#EEF2F9; --paper:#FFFCF6; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.65 "Nanum Gothic","Malgun Gothic","Noto Sans KR",sans-serif; word-break:keep-all; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+.wrap { display:grid; grid-template-columns:240px minmax(0,1fr); min-height:100vh; }
+nav { position:sticky; top:0; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--soft); }
+nav .brand { font-weight:800; font-size:13px; letter-spacing:.08em; color:var(--muted); margin-bottom:12px; }
+nav ol { list-style:none; margin:0; padding:0; } nav li { margin:0 0 4px; }
+nav a { display:block; padding:7px 10px; border-radius:8px; color:var(--ink); font-size:13.5px; line-height:1.35; }
+nav a:hover, nav a.on { background:var(--accent-soft); color:var(--accent); text-decoration:none; }
+nav .hint { margin-top:20px; font-size:12px; color:var(--muted); line-height:1.5; }
+main { padding:32px 48px 96px; max-width:1320px; }
+.doc { padding-bottom:40px; margin-bottom:40px; border-bottom:2px solid var(--line); } .doc:last-child { border-bottom:0; }
+h1 { font-size:27px; margin:8px 0 16px; line-height:1.3; color:var(--navy); } h2 { font-size:20px; margin:40px 0 12px; padding-top:8px; border-top:1px solid var(--line); color:var(--navy); } h3 { font-size:16px; margin:28px 0 8px; color:var(--navy); }
+blockquote { margin:0 0 20px; padding:12px 16px; background:var(--accent-soft); border-left:4px solid var(--accent); border-radius:0 8px 8px 0; font-size:13.5px; color:#374151; } blockquote p { margin:0; }
+table { border-collapse:collapse; width:100%; margin:12px 0 20px; font-size:13px; line-height:1.5; display:block; overflow-x:auto; }
+thead th { background:var(--soft); text-align:left; font-weight:700; }
+th, td { border:1px solid var(--line); padding:7px 9px; vertical-align:top; }
+tbody tr:nth-child(even) td { background:#FBFBFA; }
+td:first-child, th:first-child { white-space:nowrap; }
+img { max-width:100%; height:auto; border:1px solid var(--line); border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+code { font:12.5px/1.4 ui-monospace,Consolas,monospace; background:var(--soft); padding:1px 5px; border-radius:4px; }
+pre { background:var(--soft); padding:12px 14px; border-radius:8px; font-size:12.5px; line-height:1.5; overflow-x:auto; } pre code { background:none; padding:0; }
+li { margin:3px 0; } hr { border:0; border-top:1px solid var(--line); margin:28px 0; } strong { font-weight:800; }
+/* 컨셉 시트 (가로 1600×1000) */
+figure.sheet { margin:14px 0 22px; } figure.sheet img { width:100%; display:block; }
+figure.sheet.half { max-width:640px; } figure.sheet.half img { width:100%; }
+figure.sheet figcaption { margin-top:6px; font-size:12.5px; line-height:1.45; color:#374151; }
+/* 원본 시안 그리드 */
+.grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px 18px; margin:14px 0 18px; }
+.grid figure.mock { margin:0; } .grid figure.mock img { width:100%; display:block; background:var(--paper); }
+.grid figcaption { margin-top:6px; font-size:12.5px; line-height:1.45; color:#374151; }
+/* 검색 스크린샷 */
+.shots { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:18px 20px; margin:14px 0 18px; }
+.shots figure { margin:0; } .shots img { width:100%; display:block; max-height:520px; object-fit:cover; object-position:top; }
+.shots figcaption { margin-top:6px; font-size:12.5px; line-height:1.45; color:#374151; }
+.shots.three { grid-template-columns:repeat(3, minmax(0,1fr)); } .shots.three img { max-height:400px; }
+.note { font-size:12.5px; color:var(--muted); }
+@media (max-width:900px) { .wrap { grid-template-columns:1fr; } nav { position:static; height:auto; border-right:0; border-bottom:1px solid var(--line); } main { padding:20px 16px 60px; } .grid, .shots, .shots.three { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media print {
+  @page { size:A4 landscape; margin:11mm 12mm 13mm; }
+  body { font-size:11px; } .wrap { display:block; } nav { display:none; } main { padding:0; max-width:none; }
+  .doc { break-before:page; border:0; margin:0; padding:0; } .doc:first-child { break-before:auto; }
+  h1 { font-size:22px; } h2 { font-size:16px; break-after:avoid; margin-top:6mm; } h3 { font-size:13px; break-after:avoid; }
+  table { display:table; font-size:9.3px; } tr { break-inside:avoid; } thead { display:table-header-group; }
+  img { box-shadow:none; }
+  .sec2, .sec3 { break-inside:auto; } h2 + p, h3 + p { break-after:avoid; }
+  figure.sheet { break-inside:avoid; margin:3mm 0 4mm; } figure.sheet img { max-height:150mm; width:auto; max-width:100%; margin:0 auto; }
+  figure.sheet.half { max-width:120mm; } figure.sheet figcaption { font-size:9px; }
+  .grid { grid-template-columns:repeat(4, minmax(0,1fr)) !important; gap:4mm 5mm; margin:3mm 0 4mm; } .grid figure.mock { break-inside:avoid; } .grid figcaption { font-size:9px; margin-top:1.5mm; }
+  .shots { grid-template-columns:repeat(2, minmax(0,1fr)) !important; gap:4mm 5mm; margin:3mm 0 4mm; } .shots.three { grid-template-columns:repeat(3, minmax(0,1fr)) !important; } .shots img { max-height:118mm; } .shots.three img { max-height:92mm; } .shots figcaption { font-size:9px; } .shots figure { break-inside:avoid; }
+  a { color:var(--ink); }
+  blockquote, thead th, tbody tr:nth-child(even) td, pre { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+<div class="brand">DIO · 캐릭터 디자인</div>
+<ol>
+<li><a href="#doc-00">DIO 캐릭터 디자인 — 디오(다이어리 친구) · 두리(목도리 친구) · 앱 아이콘</a></li>
+<li><a href="#doc-01">1. 레퍼런스 조사 — 아이콘 · 감정 마스코트 · 그림체 (2026-10-26)</a></li>
+<li><a href="#doc-02">2. 원본 스케치 — 10장에서 읽은 것</a></li>
+<li><a href="#doc-03">3. DIO 브랜딩 분석 — 캐릭터가 지켜야 할 것</a></li>
+<li><a href="#doc-04">4. 캐릭터 시안 — 디오 · 두리 · 둘이 함께 (컨셉 아트)</a></li>
+<li><a href="#doc-05">5. 서비스 아이콘 시안 — &#x27;크레페처럼 단색 바탕 + 흰 형체&#x27; 검토</a></li>
+<li><a href="#doc-06">6. 컨셉 · 세계관 · 스토리 제안안</a></li>
+</ol>
+<div class="hint">원본은 같은 폴더의 md 파일. 이 html · pdf는 빌드.py로 다시 만든다. 시트는 스크립트/시트만들기.py → 렌더.py, 스크린샷은 스크립트/스크린샷찍기.py.</div>
+</nav>
+<main>
+<section class="doc" id="doc-00" data-title="DIO 캐릭터 디자인 — 디오(다이어리 친구) · 두리(목도리 친구) · 앱 아이콘">
+<h1 id="dio-캐릭터-디자인-디오다이어리-친구-두리목도리-친구-앱-아이콘">DIO 캐릭터 디자인 — 디오(다이어리 친구) · 두리(목도리 친구) · 앱 아이콘</h1>
+<blockquote>
+<p>작성일: 2026-10-26 · 담당: 황민희 · 기준: <a href="../디자인%20가이드.md">디자인 가이드</a>, <code>feature/fe/layer</code><br>
+요청: "캐릭터 디자인을 해보자. 레퍼런스 서치(스크린샷 포함) · 원본 스케치 · DIO 브랜딩 분석 · 캐릭터 시안과 서비스 아이콘 시안(컨셉 아트 수준, 부위별로 자세하게) · 컨셉 · 세계관 · 스토리 제안안. 목도리 두른 친구는 브랜드 컬러, 노란 다이어리 친구는 노랑을 살리거나 다른 색 제안. 통일하기 쉬운 그림체. 아이콘은 크레페처럼 단색 바탕에 흰 형체만 있는 느낌이 어떤지도 봐 줄 것."<br>
+<strong>PDF 한 파일</strong>: <a href="캐릭터%20디자인.pdf">캐릭터 디자인.pdf</a> (A4 가로) · 크롬에서 바로 보기: <a href="캐릭터%20디자인.html">캐릭터 디자인.html</a>. md가 원본이며 <code>python "docs/캐릭터 디자인/빌드.py"</code>로 둘 다 다시 만든다.<br>
+상태: <strong>검토안</strong>. 이름 · 색 · 아이콘 안은 팀에서 고른다(아래 "정해야 할 것").</p>
+</blockquote>
+<div class="sec2"><h2 id="문서">문서</h2>
+<table>
+<thead>
+<tr>
+<th>문서</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#doc-01">01 레퍼런스 조사.md</a></td>
+<td><strong>레퍼런스 조사</strong> — 스크린샷 23장(크레페 · MOODA · 하루콩 · Finch · Duolingo 아이콘 · 마스코트, 치이카와 · 망그러진 곰 · 최고심 · 라인프렌즈 · 산리오 · 당근이 그림체, Apple HIG · Android 적응형 아이콘, 노트 · 목도리 · 턴어라운드 이미지)와 거기서 읽은 것 8가지</td>
+</tr>
+<tr>
+<td><a href="#doc-02">02 원본 스케치.md</a></td>
+<td><strong>원본 스케치</strong> 10장 — 마커 스케치(둘이 함께), 파란 디지털 스케치(목도리 친구), 노란 다이어리 감정 시안 8장. 그림마다 '무엇을 가져오고 무엇을 바꾸는가'</td>
+</tr>
+<tr>
+<td><a href="#doc-03">03 브랜딩 분석.md</a></td>
+<td><strong>DIO 브랜딩 분석</strong> — 이름 · 로고 · 색 · 글자 · 말투 · 화면 규칙이 캐릭터에 요구하는 것, 캐릭터가 들어갈 자리 7곳, 비슷한 서비스와의 자리 차이</td>
+</tr>
+<tr>
+<td><a href="#doc-04">04 캐릭터 시안.md</a></td>
+<td><strong>캐릭터 시안</strong> — 디오 해부도 · 턴어라운드 · 감정 8종 · 포즈 8종 · 색 4안 · 스티커 33종, 두리 해부도 · 턴어라운드 · 감정 8종 · 색 4안 · 포즈, 둘이 함께 · 비율 · 그림체 규칙(O/X) · 앱 안 활용</td>
+</tr>
+<tr>
+<td><a href="#doc-05">05 아이콘 시안.md</a></td>
+<td><strong>앱 아이콘 시안</strong> 8안 — 크레페식 '단색 바탕 + 흰 형체' 검토, 추천안을 iOS · Android · 작은 크기 · 홈 화면에서 확인, 로고와 캐릭터를 함께 쓰는 법, 제작 규격</td>
+</tr>
+<tr>
+<td><a href="#doc-06">06 세계관과 스토리.md</a></td>
+<td><strong>컨셉 · 세계관 · 스토리</strong> — 한 줄 컨셉, 이름 후보, 성격 · 관계, 기원 이야기, 하루의 서사(앱 흐름과 1:1), 시즌 · 에피소드, 말투 · 금지</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="폴더">폴더</h2>
+<pre><code>캐릭터 디자인/
+├── 캐릭터 디자인.pdf · .html   ← 결과물 (빌드.py)
+├── 색인.md · 01~06 md            ← 원본
+├── 빌드.py                        md → html → pdf (크롬 헤드리스)
+├── 원본/                         원본 스케치 10장 (jpg 표시용 · png 투명 원본 축소본)
+├── 스크린샷/                    레퍼런스 스크린샷 23장 (스크립트/스크린샷찍기.py)
+├── 시안/                       컨셉 시트 18장 jpg (디오 · 두리 · 둘이 · 아이콘), 벡터원본/ 원본
+├── 아이콘/                          아이콘 단품 5종 1024 png + 캐릭터 단품 png(투명), 벡터원본/ 원본
+└── 스크립트/
+    ├── 캐릭터_도형.py                    디오 · 두리 · 스티커 SVG 라이브러리 (부위 좌표 · 색 · 선 규칙의 단일 원본)
+    ├── 시트만들기.py                   컨셉 시트 18장 + 아이콘 단품 생성
+    ├── 렌더.py                   svg → jpg/png (크롬 헤드리스 2배)
+    └── 스크린샷찍기.py                    검색 스크린샷
+</code></pre>
+<p>다시 만들기: <code>python 스크립트/시트만들기.py</code> → <code>python 스크립트/렌더.py</code> → <code>python 스크립트/렌더.py --icons</code> → <code>python 빌드.py</code> (이 폴더에서).</p>
+</div><div class="sec2"><h2 id="한눈에-보기">한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th>질문</th>
+<th>답 (근거 문서)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>캐릭터는 누구</td>
+<td><strong>디오</strong> = 하루 한 장의 공유 다이어리 그 자체(노란 책). <strong>두리</strong> = 그 다이어리를 꾸미는 친구(흰 머리 · 파란 코트 · 하늘색 목도리). 꾸며지는 쪽과 꾸미는 쪽 (06)</td>
+</tr>
+<tr>
+<td>왜 이 둘인가</td>
+<td>원본 스케치 1에 둘이 함께 있고, 노란 시안 8장은 모두 '표지에 붙은 스티커로 감정을 말한다' — 이것이 DIO 의 핵심 동작(사진 위에 친구들이 스티커를 얹는다)과 정확히 같다 (02 · 03)</td>
+</tr>
+<tr>
+<td>그림체</td>
+<td><strong>DIO 라인</strong>: 먹선 #242424(로고 D 와 같은 색) 한 굵기 · 단색 면 · 세로 타원 점 눈 · 둥근 끝 손발 · 스티커는 흰 테두리에 먹선 없음. 누가 그려도 같게 O/X 6가지 (04 C-3)</td>
+</tr>
+<tr>
+<td>디오 색</td>
+<td>추천 <strong>머스터드 #EBC56F</strong> (표지 팔레트에 이미 있어 새 토큰 불필요, 앱 파랑의 보색이면서 한 톤 차분). 1안 원본 노랑 #F8D860 도 가능 (04 A-5)</td>
+</tr>
+<tr>
+<td>두리 색</td>
+<td>추천 <strong>코트 primary #6E92C6 · 목도리 accent #9FB6D9 + 빗금 #CED9EE</strong> = 로고 색 체계 그대로 (04 B-4)</td>
+</tr>
+<tr>
+<td>아이콘</td>
+<td>크레페식(단색 바탕 + 흰 형체)은 <strong>DIO 에 맞는다</strong>. 추천 <strong>C안: primary 바탕 + 흰 디오 실루엣, 눈 · 입은 바탕색 구멍</strong>. 29px 에서도 얼굴이 남고 iOS 26 다크 · 클리어 · 틴트에 그대로 대응. 로고 D 는 그대로 두고 아이콘만 캐릭터로 (05)</td>
+</tr>
+<tr>
+<td>어디에 쓰나</td>
+<td>앱 아이콘 · 빈 화면 · 시작 화면 · 토스트 · 알림(공유 = 두리, 다이어리 상태 = 디오) · 온보딩 · 스티커 팩. 워드마크 자리는 대신하지 않는다 (04 C-4 · 05 I-3)</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="정해야-할-것-팀-검토">정해야 할 것 (팀 검토)</h2>
+<ol>
+<li><strong>이름</strong>: 디오 · 두리(추천) / 하루 · 두리 / 쪽이 · 모리 (06 §2).</li>
+<li><strong>디오 색</strong>: 2안 머스터드(추천) / 1안 원본 노랑.</li>
+<li><strong>두리 색</strong>: 1안 로고 색(추천) / 2안 목도리가 주인공.</li>
+<li><strong>아이콘</strong>: C안 디오 실루엣(추천) / B안 흰 D / G안 둘이. 아이콘을 바꾸면 디자인 가이드 1.3 의 '로고에서 뽑는다' 규칙도 함께 고친다.</li>
+<li>먹선 색: #242424(추천, 로고와 같음) / 원본 시안의 진갈색 #3A1200.</li>
+</ol>
+</div><div class="sec2"><h2 id="다음-할-일">다음 할 일</h2>
+<ol>
+<li>팀 검토로 위 5가지를 정한다 → <code>스크립트/캐릭터_도형.py</code> 상수 하나씩 바꾸면 시트 전체가 다시 나온다.</li>
+<li>정해진 안으로 <code>아이콘/아이콘 C 디오실루엣.png</code> 를 <code>frontend/assets/images/icon.png · adaptive-icon.png · splash-icon.png · favicon.png</code> 규격(디자인 가이드 1.3)에 맞춰 뽑고, 가이드 1.3 을 고친다.</li>
+<li>디오 감정 스티커 33종(A-6)은 그대로 앱 스티커 팩 '디오 감정' 으로 넣을 수 있다 — <code>frontend/assets/stickers</code> 규격으로 SVG 내보내기.</li>
+<li>빈 화면 · 토스트 · 알림(C-4) 적용은 공유 기능 기획(<code>알림 설계/</code>)과 같이 간다.</li>
+<li>두리 · 디오 움직임(걷기 2프레임, 손 흔들기 2프레임)은 <code>움직이는 스티커 효과.md</code> 의 프레임 규칙으로.</li>
+</ol></div>
+</section><section class="doc" id="doc-01" data-title="1. 레퍼런스 조사 — 아이콘 · 감정 마스코트 · 그림체 (2026-10-26)">
+<h1 id="1-레퍼런스-조사-아이콘-감정-마스코트-그림체-2026-10-26">1. 레퍼런스 조사 — 아이콘 · 감정 마스코트 · 그림체 (2026-10-26)</h1>
+<blockquote>
+<p>조사일: 2026-10-26 · 방법: 네이버(통합 · 이미지) · 구글 이미지 · App Store · Apple HIG · Android 개발자 문서를 크롬 헤드리스로 캡처하고(§1), 걸린 기사 · 블로그 · 스토어 페이지 본문을 읽어 사실만 추렸다(§2).<br>
+읽는 법: 그림 아래 <strong>굵은 제목</strong>이 검색어 · 출처, 그 다음이 그 화면에서 읽은 것. 스크린샷은 <code>스크린샷/</code>, 다시 찍는 법은 <code>스크립트/스크린샷찍기.py</code>. 구글 이미지 검색은 봇 차단(reCAPTCHA)이 걸려 두 장만 성공했고 나머지는 네이버 이미지로 대신했다.</p>
+</blockquote>
+<div class="sec2"><h2 id="0-한눈에-보기">0. 한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th>질문</th>
+<th>답 (근거 절)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>'크레페처럼' 이 무슨 뜻인가</td>
+<td>크레페(CREPE)는 쿠키플레이스의 창작 커미션 중개 플랫폼. 2026-10-21 iOS 앱 출시, 평점 4.7(557개), 그래픽 · 디자인 3위. 아이콘은 <strong>보라 단색 바탕 + 흰 구름 형체 + 따옴표 두 개가 눈</strong>. 형체 하나 · 색 하나 · 눈은 구멍 (§1.1)</td>
+</tr>
+<tr>
+<td>단색 + 흰 형체가 지금 맞는가</td>
+<td>Apple HIG: "단순한 배경 위에 주요 이미지 하나", iOS 26 리퀴드 글래스는 <strong>단순한 형체가 단색 바탕에 있는 아이콘은 손대지 않아도 그대로 통과</strong>한다. Android 적응형 아이콘은 안전 영역 66% 안에 형체가 들어가야 한다 (§1.1 · §2.1)</td>
+</tr>
+<tr>
+<td>감정을 말하는 마스코트의 선례</td>
+<td>MOODA(둥근 얼굴 덩어리 9가지 감정, 4.6/9.2천) · 하루콩(콩 얼굴 무드 트래커, 1천만 다운로드) · Finch(새를 돌보며 셀프케어, 4.9) · Duolingo(Duo, "로고가 아니라 캐릭터로 설계 — 표정 · 자세를 수백 개 시험") (§1.2 · §2.2)</td>
+</tr>
+<tr>
+<td>지금 10~20대가 좋아하는 그림체</td>
+<td>치이카와(2026-09 기준 인기 1위 35.1%), 망그러진 곰("삐뚤빼뚤한 선 · 간단한 이목구비의 '하찮음'이 귀여움"), 최고심(두꺼운 먹선 · 단색 · 손글씨 말풍선). 공통: <strong>먹선 + 단색 + 점 눈 + 작은 입</strong> (§1.3 · §2.3)</td>
+</tr>
+<tr>
+<td>입이 없어도 되나</td>
+<td>헬로키티 디자이너 야마구치 유코: "보는 사람이 감정을 투영하려면 표정이 없어야 한다". 라이언은 "점 두 개와 굵은 선 두 개". 산리오 포챠코 · 시나모롤도 점 눈 (§2.3)</td>
+</tr>
+<tr>
+<td>사물(노트)이 캐릭터가 된 예</td>
+<td>스톡 이미지의 노트 캐릭터는 모두 '눈 큰 스프링 노트' 라 식상하다. 우리 노란 시안처럼 <strong>감정을 표지 스티커로 말하는 노트</strong>는 검색에 없다 — 빈자리 (§1.4)</td>
+</tr>
+<tr>
+<td>목도리 캐릭터</td>
+<td>목도리는 '겨울 · 포근 · 감싸기' 를 한 번에 말하는 소품. 입을 가려도 자연스럽다(눈사람 · 펭귄 예). 두리가 입이 없는 근거 (§1.4)</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="1-검색-기록-스크린샷">1. 검색 기록 (스크린샷)</h2>
+<div class="sec3"><h3 id="11-아이콘-단색-바탕-흰-형체">1.1 아이콘 — 단색 바탕 + 흰 형체</h3>
+<div class="shots three">
+<figure><img src="스크린샷/00 앱스토어 크레페.jpg" alt="App Store 크레페"><figcaption><b>App Store · 크레페 CREPE</b> — 보라(#6B3FBF 계열) 단색 바탕 위에 흰 구름 모양 하나, 눈은 따옴표 두 개를 구멍으로 팠다. '창작 커미션 중개 플랫폼', 평점 4.7(557), 그래픽 · 디자인 3위, 12+, 33.6MB. 스크린샷 1장은 보라 그라데이션 + 캐릭터(크레페 구름 · 곰 인형), 나머지는 흰 UI — 아이콘의 단색이 브랜드 색 전체를 대표한다</figcaption></figure>
+<figure><img src="스크린샷/01 크레페 홈.jpg" alt="crepe.cm 홈"><figcaption><b>crepe.cm · 크레페 홈</b> — 배너 "따끈따끈 갓 구운 크레페 앱 나왔어요"(10월), 뉴스레터 그림에 보라 구름 캐릭터(눈 두 점 · 볼 홍조 · 작은 입)가 흰 구름 친구들과 서 있다. 아이콘의 흰 형체가 곧 마스코트이고, 마스코트는 본문에서 원색(보라)으로 나온다 — 아이콘(흰) ↔ 본문(원색) 전환의 예</figcaption></figure>
+<figure><img src="스크린샷/02 구글이미지 크레페 아이콘.jpg" alt="구글 이미지 크레페 아이콘"><figcaption><b>구글 이미지 · 크레페 앱 아이콘</b> — 같은 흰 구름이 X · Bluesky · 나무위키 · 블로그 썸네일에 반복된다. 로고(CREPE 워드마크 옆 작은 구름) 와 아이콘(구름만 크게) 이 한 형체. 사전등록 · 안드로이드 출시 그림에서도 보라 바탕 유지</figcaption></figure>
+<figure><img src="스크린샷/03 네이버이미지 한국 앱 아이콘.jpg" alt="네이버 이미지 한국 앱 아이콘"><figcaption><b>네이버 이미지 · 앱 아이콘 디자인 모음 토스 당근 카카오톡</b> — 카카오톡(노랑 + 검은 말풍선), 토스뱅크(파랑 + 흰 원), 카카오뱅크(노랑 + 검은 b), 당근(주황 + 흰 당근), 네이버(초록 + 흰 N). 한국 1군 앱은 거의 다 '단색 바탕 + 형체 하나' 다. 파랑 바탕은 흔하므로 형체로 구분해야 한다</figcaption></figure>
+<figure><img src="스크린샷/04 네이버 iOS26 아이콘.jpg" alt="네이버 iOS 26 아이콘"><figcaption><b>네이버 통합 · iOS 26 앱 아이콘 리퀴드 글래스</b> — "iOS 26 홈화면 혁신 총정리: 리퀴드 글래스부터 투명 아이콘까지"(2025-07), "ios26 리퀴드 글래스에서 투명한 아이콘으로 변경하기"(2025-09). 사용자가 아이콘을 투명(클리어) · 틴트로 바꿔 쓰는 시대 — 형체가 단순해야 어느 모드에서도 남는다</figcaption></figure>
+<figure><img src="스크린샷/05 애플 HIG 앱 아이콘.jpg" alt="Apple HIG App icons"><figcaption><b>Apple HIG · App icons</b> — "A unique, memorable icon expresses your app's purpose and personality". Layer design: 배경 레이어 + 전경 레이어가 리퀴드 글래스 효과(하이라이트 · 굴절 · 반투명)를 받는다. 전경 = 흰 형체 하나로 두면 시스템이 알아서 입체를 입힌다</figcaption></figure>
+<figure><img src="스크린샷/06 안드로이드 적응형 아이콘.jpg" alt="Android 적응형 아이콘"><figcaption><b>Android 개발자 · 적응형 아이콘</b> — OEM 마다 원 · 둥근 네모 · 스퀴클 마스크가 다르다. Android 13+ 는 사용자 테마 색을 입히는 monochrome 레이어, Android 16 QPR2 부터는 아이콘을 안 주면 자동 테마 적용. 형체가 단색이면 monochrome 레이어를 따로 그릴 필요가 없다</figcaption></figure>
+</div>
+
+</div><div class="sec3"><h3 id="12-감정을-말하는-마스코트-앱">1.2 감정을 말하는 마스코트 앱</h3>
+<div class="shots three">
+<figure><img src="스크린샷/07 앱스토어 무다.jpg" alt="App Store MOODA"><figcaption><b>App Store · MOODA 무다</b> — 아이콘은 빨강 · 초록 · 파랑 · 노랑 · 보라 둥근 덩어리 얼굴이 겹친 것. 각 덩어리가 감정 하나(점 눈 + 선 입). 4.6(9.2천), "나만의 아늑한 기록 공간", 사진 · 스티커 · 데코로 일기를 꾸미고 친구와 공유. 리뷰: "자기 기분을 나타내는 동그란 캐릭터들이 정말 귀여워서 힐링". **감정 = 얼굴 색 + 입 모양** 방식</figcaption></figure>
+<figure><img src="스크린샷/11 네이버이미지 무다.jpg" alt="네이버 이미지 무다 캐릭터"><figcaption><b>네이버 이미지 · 무다 MOODA 캐릭터</b> — 달력 한 칸에 둥근 얼굴 하나, 월간 화면은 색 덩어리 격자. 얼굴은 점 눈 · 선 입 · 눈썹만. 우리와 다른 점: MOODA 는 **내가 고른 감정**을 얼굴로 보여 주고, 디오는 **친구들이 붙인 스티커**가 감정이 된다</figcaption></figure>
+<figure><img src="스크린샷/08 앱스토어 하루콩.jpg" alt="App Store 하루콩"><figcaption><b>App Store · 하루콩 DailyBean</b> — 초록 콩 얼굴 아이콘(흰 바탕 + 초록 형체 + 점 눈 · 웃는 입). 4.8(3.3만), 블루시그넘, "하루를 기록하는 가장 간단한 방법", 달력에 콩 얼굴이 쌓인다. 리뷰 "pdf 나 이미지로 저장할 수 있었으면" — 우리가 이미 하는 내보내기가 차별점</figcaption></figure>
+<figure><img src="스크린샷/09 앱스토어 핀치.jpg" alt="App Store Finch"><figcaption><b>App Store · Finch: Self-Care Pet</b> — "Self-care is better together", "Build habits with friends by your side", 친구끼리 응원 보내기. 4.9(315), 에디터 노트. 새 한 마리를 돌보는 구조라 '관계' 가 핵심 — 디오(돌봄 받는 다이어리) · 두리(돌보는 친구) 관계의 참고</figcaption></figure>
+<figure><img src="스크린샷/10 앱스토어 듀오링고.jpg" alt="App Store Duolingo"><figcaption><b>App Store · 듀오링고</b> — 아이콘 = 초록 단색 바탕 + Duo 얼굴(흰 눈 · 주황 부리). 교육 1위, 4.7(24만). 새 소식 문구 "저희 마스코트 올빼미 듀오는 평소 먹던 쥐 대신 버그를 먹어요" — 마스코트가 릴리스 노트까지 말한다. 아이콘 · 알림 · 문구 모두 한 캐릭터</figcaption></figure>
+</div>
+
+</div><div class="sec3"><h3 id="13-그림체-트렌드-지금-1020대가-고르는-선">1.3 그림체 · 트렌드 — 지금 10~20대가 고르는 선</h3>
+<div class="shots three">
+<figure><img src="스크린샷/12 네이버 치이카와.jpg" alt="네이버 치이카와"><figcaption><b>네이버 · 치이카와 캐릭터 인기</b> — AI 브리핑: "귀여운 외모와 달리 생존 · 노동 · 위험이 공존하는 독특한 세계관", 2026-09 인기 순위 치이카와 35.1% · 하치와레 13.1% · 우사기 11.3%. 쿠팡 광고 인형 45,800~273,400원. 작고 둥글고 선이 가늘며 **세계관이 캐릭터를 끌고 간다**</figcaption></figure>
+<figure><img src="스크린샷/13 네이버 망그러진곰.jpg" alt="네이버 망그러진 곰"><figcaption><b>네이버 · 망그러진 곰 캐릭터</b> — 유랑 작가, 2021-04-07 카카오 이모티콘으로 시작, 2022 카카오 올해의 이모티콘. "'망그러지다' 는 선이 분명하지 않고 삐뚤빼뚤한 느낌". 두산베어스 · 올리브영 · 지학사 콜라보, 2027 시즌그리팅 예약 판매. **일부러 흐트러진 선**이 친근함이 된 예 — 우리는 반대로 '정돈된 먹선' 을 택하되 둥근 끝으로 딱딱함을 뺀다</figcaption></figure>
+<figure><img src="스크린샷/14 네이버이미지 최고심.jpg" alt="네이버 이미지 최고심"><figcaption><b>네이버 이미지 · 최고심 캐릭터</b> — 두꺼운 먹선 · 평면 단색 · 손글씨 말풍선("행복하자", "건강이 최고다"). LG 트윈스 · 신한카드 · 서울시교육청 협업, 떡메모지 · 폰케이스 · 문구. 다꾸 재료와 가장 가까운 캐릭터. 먹선 두께가 선 하나로 일정하다는 점을 가져온다</figcaption></figure>
+<figure><img src="스크린샷/15 네이버이미지 라인프렌즈.jpg" alt="네이버 이미지 라인프렌즈"><figcaption><b>네이버 이미지 · 라인프렌즈 샐리 브라운</b> — 브라운(갈색 곰, 점 눈 · 무표정) · 샐리(노란 병아리, 점 눈). 제품(냉장고 · 보조배터리 · 저금통)으로 나와도 알아보는 건 **색 + 실루엣 + 점 눈** 셋뿐이다. 노랑 캐릭터(샐리)가 갈색 · 흰색 친구들과 서는 조합이 디오 · 두리와 같다</figcaption></figure>
+<figure><img src="스크린샷/16 네이버이미지 산리오 점눈.jpg" alt="네이버 이미지 산리오 포챠코 시나모롤"><figcaption><b>네이버 이미지 · 산리오 포챠코 시나모롤</b> — 흰 몸 + 세로 타원 점 눈 + 입 거의 없음. 문구 · 펜 · 키링 · 파자마로 번진다. 두리의 흰 머리 · 세로 타원 눈이 이 계열. 입을 안 그려도 상품이 되는 가장 오래된 증거</figcaption></figure>
+<figure><img src="스크린샷/22 네이버이미지 당근이.jpg" alt="네이버 이미지 당근이"><figcaption><b>네이버 이미지 · 당근이 캐릭터</b> — 흰 토끼 + 초록 잎 모자, 턴어라운드(정면 · 옆 · 뒤) 시트, FRP 조형물, 웹툰 '당근이당', 스노우 AR 필터, 이모티콘 세트. 앱 마스코트가 **턴어라운드 → 굿즈 → 콘텐츠**로 번지는 전형. 서비스 이름(당근) 과 캐릭터 이름(당근이) 이 같아 외우기 쉽다 — '디오' 이름 후보의 근거</figcaption></figure>
+</div>
+
+</div><div class="sec3"><h3 id="14-사물-캐릭터-목도리-턴어라운드-다꾸-시장">1.4 사물 캐릭터 · 목도리 · 턴어라운드 · 다꾸 시장</h3>
+<div class="shots three">
+<figure><img src="스크린샷/17 네이버이미지 노트 캐릭터.jpg" alt="네이버 이미지 노트 캐릭터 다이어리 마스코트"><figcaption><b>네이버 이미지 · 노트 캐릭터 다이어리 마스코트 귀여운</b> — 굿노트 스티커 PNG 무료 배포, 캐릭터 노트 · 떡메 · 데코 스티커. 노트 '위에' 붙는 캐릭터는 많지만 노트 '가' 캐릭터인 예는 없다. 디오가 설 빈자리</figcaption></figure>
+<figure><img src="스크린샷/18 네이버이미지 노트 마스코트.jpg" alt="네이버 이미지 notebook mascot character"><figcaption><b>네이버 이미지 · notebook mascot character cute</b> — 스톡(셔터스톡 · 123rf) 의 노트 캐릭터: 스프링 노트 + 큰 흰자 눈 + 벌린 입 + 팔다리. 모두 '눈이 크고 과장된' 스톡 문법이라 피한다. 디오는 반대로 눈 작게 · 입 작게 · 표지 스티커로 말한다</figcaption></figure>
+<figure><img src="스크린샷/19 구글이미지 목도리 캐릭터.jpg" alt="구글 이미지 목도리 캐릭터"><figcaption><b>구글 이미지 · 목도리 캐릭터 일러스트 심플</b> — 눈사람 · 펭귄 · 곰 · 사람 모두 목도리로 입 · 턱을 가린다. 목도리는 '겨울 · 포근 · 감싸기' 를 한 소품으로 말하고, 가려진 입은 어색하지 않다. 줄무늬 · 체크 · 단색 중 **빗금 줄무늬**가 선 그림체와 가장 잘 섞인다(스케치 2 의 빗금)</figcaption></figure>
+<figure><img src="스크린샷/20 네이버이미지 턴어라운드.jpg" alt="네이버 이미지 턴어라운드"><figcaption><b>네이버 이미지 · 캐릭터 턴어라운드 시트 설정집</b> — 정면 · 3/4 · 옆 · 뒤를 같은 바닥선에 세우고 머리 · 눈 높이에 가로선. 곰 · 토끼 · SD 캐릭터 모두 같은 양식. 04 의 A-2 · B-2 가 이 양식을 따른다</figcaption></figure>
+<figure><img src="스크린샷/21 네이버 다꾸 캐릭터 굿즈.jpg" alt="네이버 다꾸 캐릭터 스티커"><figcaption><b>네이버 통합 · 다꾸 캐릭터 스티커 인기</b> — 쿠팡 "다꾸 캐릭터 입체 스티커", 다이소 캐릭터 키링 · 포토카드 앨범(2026-09), 몬치치 틴케이스(2026-05). 캐릭터 스티커가 다꾸의 재료다 — 디오 감정 스티커 33종(04 A-6) 을 앱 스티커 팩으로 내는 근거</figcaption></figure>
+</div>
+
+</div></div><div class="sec2"><h2 id="2-읽은-것-본문">2. 읽은 것 (본문)</h2>
+<div class="sec3"><h3 id="21-아이콘-단색-흰-형체-는-지금-가장-안전한-선택이다">2.1 아이콘 — '단색 + 흰 형체' 는 지금 가장 안전한 선택이다</h3>
+<ul>
+<li>Apple HIG App icons: 단순한 아이콘이 이해 · 인식이 쉽고, 지나친 세부는 작은 크기에서 흐려진다. 배경은 주요 이미지를 강조하도록 단순하게. 텍스트는 꼭 필요할 때만 (<a href="https://developer.apple.com/design/human-interface-guidelines/app-icons">HIG</a>, <a href="https://hingumingu.oopy.io/6119744b-3ce6-4ec3-8c4c-cdb16e14feae">번역 정리</a>).</li>
+<li>iOS 26 리퀴드 글래스: iOS 7 이후 처음으로 모든 시스템 아이콘을 다시 그렸고, 기본은 겹친 유리 레이어, 사용자가 '클리어(색 제거 · 반투명)' · 틴트를 고를 수 있다. <strong>"단순한 디자인이 단색 바탕에 있는 앱은 업데이트가 필요 없다 — 이미 리퀴드 글래스처럼 보인다"</strong>. 1024×1024 마스터 한 장에서 Xcode 가 크기를 만든다. Apple Store 앱 아이콘도 '파란 바탕 + 흰 쇼핑백' 으로 바뀌었다 (<a href="https://designcompass.org/en/2025/08/04/liquid-glass-vs-flat/">designcompass</a>, <a href="https://www.macrumors.com/guide/ios-26-home-screen">MacRumors</a>, <a href="https://www.igeeksblog.com/apple-store-liquid-glass-redesign-ios-26/">igeeksblog</a>).</li>
+<li>AppTweak: 어떤 크기에서도 <strong>하나의 명확한 아이디어</strong>, 색 대비가 가시성 · 차별화를 결정, 파랑은 신뢰 · 집중이라 금융 · 생산성에 흔하다 (<a href="https://www.apptweak.com/ko/aso-blog/how-to-design-an-app-icon">AppTweak</a>). → 파랑 바탕은 흔하므로 <strong>형체(얼굴 있는 책)</strong> 로 구분해야 한다.</li>
+<li>Android 적응형 아이콘: 마스크(원 · 둥근 네모 · 스퀴클) 는 OEM 이 정하고 안전 영역은 66%. Android 13+ 테마 아이콘은 monochrome 레이어 (<a href="https://developer.android.com/develop/ui/views/launch/icon_design_adaptive?hl=ko">Android</a>).</li>
+<li>크레페: 쿠키플레이스(구 ccoli, 2023-01 사명 변경) 의 커미션 플랫폼. 2026-10-21 iOS 정식 출시, 안드로이드 사전 등록 중, 13+ (<a href="https://apps.apple.com/kr/app/%ED%81%AC%EB%A0%88%ED%8E%98-crepe/id6753073065">App Store</a>, <a href="https://x.com/CREPE_CM/status/2112748239342784881">X</a>, <a href="https://namu.wiki/w/CREPE">나무위키</a>). 아이콘은 보라 단색 + 흰 구름 + 따옴표 눈 — 형체 하나 · 색 하나 · 구멍으로 얼굴.</li>
+</ul>
+</div><div class="sec3"><h3 id="22-마스코트-로고가-아니라-캐릭터-로-설계한다">2.2 마스코트 — 로고가 아니라 '캐릭터' 로 설계한다</h3>
+<ul>
+<li>Duolingo 리디자인 리드: "Duo 를 로고가 아니라 <strong>캐릭터</strong>로 생각했고, 수년을 버티도록 표정 · 자세를 수없이 시험했다". 당황 → 흥분 → 기쁨까지 감정 범위를 갖고, 애니메이션하기 쉽게 단순화했고, 사용자 행동(연습 습관)에 <strong>반응</strong>해 애착을 만든다. 앱 · 광고 · SNS · 밈까지 '독립된 미디어 캐릭터' (<a href="https://uxdesign.cc/why-mascots-like-duo-are-powerful-pieces-of-ux-e378f4da327f">uxdesign.cc</a>, <a href="https://www.creativebloq.com/news/duolingos-redesigned-mascot-is-a-hoot">Creative Bloq</a>, <a href="https://keplerdesign.substack.com/p/duolingo">Kepler</a>). 부엉이가 문화권마다 뜻이 달라 재고한 적도 있다 — 사물(책) 은 이 문제가 없다.</li>
+<li>Finch: 돌봄 의존(새가 나를 필요로 함) 이 체크리스트를 관계로 바꾼다. 반대로 못 들어가면 불안 · 죄책감을 느끼는 사용자도 있다 (<a href="https://ixd.prattsi.org/2025/09/design-critique-finch-ios-app-2/">Pratt 비평</a>, <a href="https://screenwiseapp.com/media/finch-app">ScreenWise</a>). → 디오는 '안 꾸미면 슬퍼한다' 를 <strong>하루 단위로 리셋</strong>해 죄책감을 쌓지 않는다(06 §6).</li>
+<li>MOODA: 9가지 감정, 기록 직후 무다가 대답, MOODA BALLS 로 한 달 돌아보기, 친구와 일기 공유 (<a href="https://ditoday.com/?p=43881">디투데이</a>, <a href="https://apps.apple.com/KR/app/id6449689589">App Store</a>). 하루콩: 콩 이모티콘으로 기분 · 활동 기록, 2021 출시, 누적 1천만 다운로드, 해외 80%, 디즈니 IP 라이선스 (<a href="https://www.tech42.co.kr/%ea%b0%90%ec%a0%95-%ea%b8%b0%eb%a1%9d-%ec%95%b1-%ed%95%98%eb%a3%a8%ec%bd%a9-1%ec%b2%9c%eb%a7%8c-%eb%8b%a4%ec%9a%b4%eb%a1%9c%eb%93%9c-%ea%b8%b0%eb%85%90-%ec%9c%a0%ec%a0%80-%ec%82%ac/">Tech42</a>).</li>
+</ul>
+</div><div class="sec3"><h3 id="23-그림체-먹선-단색-점-눈-작은-입">2.3 그림체 — 먹선 · 단색 · 점 눈 · 작은 입</h3>
+<ul>
+<li>라이언: "점 두 개와 굵은 선 두 개 — 미니멀리즘의 극치. 선입견이 안 생기고 오래 봐도 안 질린다". 카카오 IP 팀장: "친근하거나 조금 허술해 보이는 'B급 정서' 가 중요, 채팅창에서 이용자가 캐릭터에 자기 이야기를 투영" (<a href="https://www.vogue.co.kr/?p=83186">Vogue</a>, <a href="https://www.kakaocorp.com/page/detail/9348?lang=ENG">kakao</a>).</li>
+<li>헬로키티 디자이너 야마구치 유코: "보는 사람이 감정을 투영하려면 캐릭터의 표정이 없어야 한다" (<a href="https://www.etoday.co.kr/news/view/1248162">이투데이</a>). → 두리는 입이 없고, 디오는 입을 아주 작게.</li>
+<li>망그러진 곰: 삐뚤빼뚤한 테두리와 간단한 이목구비의 '하찮음' 이 Z세대에게 귀여움. 두산 콜라보 13분 완판, 팝업 대기 200명 (<a href="https://www.careet.net/934">Careet</a>, <a href="https://www.webtoonguide.com/ko/board/news-column/25475">웹툰가이드</a>).</li>
+<li>치이카와: 2026-09 캐릭터 인기 1위(35.1%). 귀여움 뒤의 세계관(생존 · 노동) 이 팬덤을 만든다 (네이버 AI 브리핑, 나무위키 인용).</li>
+</ul>
+</div><div class="sec3"><h3 id="24-시사점-우리-선택">2.4 시사점 → 우리 선택</h3>
+<table>
+<thead>
+<tr>
+<th>읽은 것</th>
+<th>디오 · 두리에 적용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>형체 하나 · 색 하나 · 얼굴은 구멍 (크레페 · 당근 · 토스)</td>
+<td>아이콘 C안: primary 바탕 + 흰 디오, 눈 · 입은 바탕색 구멍 (05)</td>
+</tr>
+<tr>
+<td>단순한 형체는 iOS 26 · Android 테마에 그대로 통과</td>
+<td>아이콘에 그라데이션 · 그림자 · 글자 금지 (05 §4)</td>
+</tr>
+<tr>
+<td>파랑 바탕은 흔하다</td>
+<td>형체(얼굴 있는 네모 책) 로 구분. 네이비 D안은 다크 모드에서 가라앉아 보류</td>
+</tr>
+<tr>
+<td>로고가 아니라 캐릭터로 — 표정 · 자세 세트</td>
+<td>디오 감정 8 · 포즈 8, 두리 감정 8 · 포즈 4 (04)</td>
+</tr>
+<tr>
+<td>사용자 행동에 반응해야 애착</td>
+<td>디오 표지 스티커 = 친구들이 실제로 붙인 것 (06 §4)</td>
+</tr>
+<tr>
+<td>돌봄 죄책감 주의</td>
+<td>하루 단위 리셋, '슬픔' 은 하루만 (06 §6)</td>
+</tr>
+<tr>
+<td>점 눈 · 작은 입 · 먹선 한 굵기</td>
+<td>DIO 라인 O/X 규칙 6가지 (04 C-3)</td>
+</tr>
+<tr>
+<td>입 없는 캐릭터가 더 오래 간다</td>
+<td>두리 입 없음, 목도리로 가림 (04 B-1)</td>
+</tr>
+<tr>
+<td>캐릭터 스티커가 다꾸 재료</td>
+<td>디오 감정 스티커 33종을 앱 스티커 팩으로 (04 A-6)</td>
+</tr>
+<tr>
+<td>턴어라운드 → 굿즈 → 콘텐츠</td>
+<td>A-2 · B-2 턴어라운드, 06 에피소드</td>
+</tr>
+</tbody>
+</table>
+</div></div><div class="sec2"><h2 id="출처">출처</h2>
+<ul>
+<li>Apple HIG App icons — https://developer.apple.com/design/human-interface-guidelines/app-icons</li>
+<li>designcompass, Liquid Glass vs. Flat (2025-08) — https://designcompass.org/en/2025/08/04/liquid-glass-vs-flat/</li>
+<li>MacRumors, iOS 26 Home Screen — https://www.macrumors.com/guide/ios-26-home-screen</li>
+<li>igeeksblog, Apple Store app Liquid Glass — https://www.igeeksblog.com/apple-store-liquid-glass-redesign-ios-26/</li>
+<li>AppTweak, 앱 아이콘 디자인 팁 — https://www.apptweak.com/ko/aso-blog/how-to-design-an-app-icon</li>
+<li>Android 적응형 아이콘 — https://developer.android.com/develop/ui/views/launch/icon_design_adaptive?hl=ko</li>
+<li>크레페 App Store — https://apps.apple.com/kr/app/%ED%81%AC%EB%A0%88%ED%8E%98-crepe/id6753073065 · X — https://x.com/CREPE_CM/status/2112748239342784881 · 나무위키 — https://namu.wiki/w/CREPE · 홈 — https://crepe.cm/</li>
+<li>MOODA — https://apps.apple.com/KR/app/id6449689589 · 디투데이 — https://ditoday.com/?p=43881</li>
+<li>하루콩 — https://apps.apple.com/app/id1553223828 · Tech42 1천만 — https://www.tech42.co.kr/%ea%b0%90%ec%a0%95-%ea%b8%b0%eb%a1%9d-%ec%95%b1-%ed%95%98%eb%a3%a8%ec%bd%a9-1%ec%b2%9c%eb%a7%8c-%eb%8b%a4%ec%9a%b4%eb%a1%9c%eb%93%9c-%ea%b8%b0%eb%85%90-%ec%9c%a0%ec%a0%80-%ec%82%ac/</li>
+<li>Finch — https://apps.apple.com/kr/app/finch-self-care-pet/id1528595748 · Pratt 비평 — https://ixd.prattsi.org/2025/09/design-critique-finch-ios-app-2/ · ScreenWise — https://screenwiseapp.com/media/finch-app</li>
+<li>Duolingo — uxdesign.cc https://uxdesign.cc/why-mascots-like-duo-are-powerful-pieces-of-ux-e378f4da327f · Creative Bloq https://www.creativebloq.com/news/duolingos-redesigned-mascot-is-a-hoot · Kepler https://keplerdesign.substack.com/p/duolingo · Advertising Week https://advertisingweek.com/the-surprising-reason-why-the-duolingo-owl-is-green/</li>
+<li>라이언 — Vogue https://www.vogue.co.kr/?p=83186 · kakao https://www.kakaocorp.com/page/detail/9348?lang=ENG · 이투데이 https://www.etoday.co.kr/news/view/1248162</li>
+<li>망그러진 곰 — Careet https://www.careet.net/934 · 웹툰가이드 https://www.webtoonguide.com/ko/board/news-column/25475 · 위픽레터 https://letter.wepick.kr/510/4411485</li>
+<li>당근 리브랜딩 — designcompass https://designcompass.org/2023/08/29/danggun/ · SEED https://designcompass.org/2026/07/27/daangn-seed-design-system-rebranding/</li>
+<li>캐릭터 시트 만드는 법 — CLIP STUDIO https://www.clipstudio.net/drawing/archives/164893</li>
+</ul></div>
+</section><section class="doc" id="doc-02" data-title="2. 원본 스케치 — 10장에서 읽은 것">
+<h1 id="2-원본-스케치-10장에서-읽은-것">2. 원본 스케치 — 10장에서 읽은 것</h1>
+<blockquote>
+<p>원본: <code>원본/</code> (01 마커 스케치 3024² → 1600 jpg, 02 파란 디지털 스케치 692×879, 03~10 노란 다이어리 시안 1254² → 1024 png 투명 + 흰 바탕 jpg).<br>
+읽는 법: 그림마다 <strong>보이는 것 → 가져오는 것 → 바꾸는 것</strong> 세 줄. 가져오는 것은 04 의 어느 시트로 갔는지 적었다.</p>
+</blockquote>
+<div class="sec2"><h2 id="0-한눈에-보기">0. 한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th>스케치</th>
+<th>핵심</th>
+<th>04 로 간 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>01 마커 · 둘이 함께</td>
+<td>네모(작음) + 둥근 머리(큼) 가 바닥선 위에 서고, 큰 쪽이 작은 쪽 어깨에 팔. 키 ≈ 6.5 : 10</td>
+<td>C-1 둘이 함께, C-2 비율, B-5 안아 주기</td>
+</tr>
+<tr>
+<td>02 파란 · 목도리 친구</td>
+<td>돔 머리 · 세로 타원 눈 · 입 없음 · 빗금 목도리 왼쪽으로 늘어짐 · 사다리꼴 코트 · 단추 둘 · 가는 다리</td>
+<td>B-1 해부도, B-2, B-4 색</td>
+</tr>
+<tr>
+<td>03~10 노란 · 감정 8장</td>
+<td>둥근 네모 노란 책 + 오른쪽 흰 속지 + 진갈색 먹선 + 점 눈 · 작은 입 + <strong>감정은 표지 스티커가 말한다</strong></td>
+<td>A-1 해부도, A-3 감정 8종, A-6 스티커 33종</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="1-마커-스케치-둘이-함께-원본01">1. 마커 스케치 — 둘이 함께 (원본/01)</h2>
+<figure class="sheet half"><img src="원본/01 스케치 마커 둘이.jpg" alt="마커 스케치: 네모 친구와 둥근 머리 친구"><figcaption>01 · 마커 스케치. 왼쪽 작은 네모 친구(점 눈 · 다리 둘 · 한 팔에 막대), 오른쪽 큰 둥근 머리 친구(점 눈 · 둥근 몸 · 다리 둘). 큰 친구의 팔이 네모 친구 위로 둥글게 넘어간다. 위에는 지운 낙서(초록 형광펜) 와 가로선, 아래는 바닥선. 오른쪽 가장자리에 세 번째 둥근 친구 일부.</figcaption></figure>
+
+<ul>
+<li><strong>보이는 것</strong>: 네모 친구는 세로가 긴 둥근 사각, 몸 아래 바로 다리(발은 바깥 꺾임), 왼팔은 막대(펜 또는 깃발) 를 들었다. 둥근 친구는 머리와 몸이 분리된 두 덩어리, 머리는 원에 가깝고 몸은 둥근 사다리꼴. 둘 다 눈은 점 둘, 입 없음(네모 친구는 희미). 바닥선 하나를 공유한다. 큰 친구의 왼팔 호가 네모 친구의 머리 위를 지나 어깨에 닿는다.</li>
+<li><strong>가져오는 것</strong>: ① 둘의 <strong>키 비율 ≈ 6.5 : 10</strong>(네모 윗변이 둥근 친구의 가슴 높이) → C-2. ② <strong>안아 주기</strong> 포즈(팔이 위로 호를 그려 상대 어깨에) → B-5 · C-1. ③ 네모 친구의 <strong>발 꺾임</strong> → 디오 · 두리 공통 'ㄴ' 발. ④ 네모 친구의 막대 → A-4 '펜 들기'. ⑤ 바닥선 공유 → 모든 턴어라운드 · 라인업.</li>
+<li><strong>바꾸는 것</strong>: 둥근 친구의 머리를 완전한 원이 아니라 <strong>돔(아래가 평평)</strong> 으로 — 스케치 2 와 맞추고 목도리가 자연스럽게 걸리게. 네모 친구의 막대는 기본형에서 뺀다(들고 있으면 '펜 든 포즈' 로만).</li>
+</ul>
+</div><div class="sec2"><h2 id="2-파란-디지털-스케치-목도리-친구-원본02">2. 파란 디지털 스케치 — 목도리 친구 (원본/02)</h2>
+<figure class="sheet half"><img src="원본/02 스케치 목도리 파랑.jpg" alt="파란 스케치: 목도리 두른 친구"><figcaption>02 · 파란 디지털 스케치(#7088F8 한 색). 돔 머리, 세로 타원 눈 둘, 입 없음. 빗금 목도리가 목을 감고 왼쪽 아래로 길게 늘어진다. 사다리꼴 코트에 단추 둘, 가는 다리 둘과 발.</figcaption></figure>
+
+<ul>
+<li><strong>보이는 것</strong>: 머리 너비가 키의 절반 가까이 되는 <strong>2.5등신</strong>. 눈은 세로로 긴 타원이고 머리 위쪽(눈 높이 ≈ 머리의 55%) 에 있다. 목도리 띠는 머리 아랫변을 완전히 덮어 입 · 턱이 없다. 띠 안에 빗금(-55° 정도) 이 빽빽하고, 꼬리는 왼쪽으로 흘러내려 끝이 둥글다. 코트는 위 38 → 아래 56 으로 벌어지는 사다리꼴, 단추 두 개는 세로 한 줄. 다리는 가늘고 발은 바깥 꺾임.</li>
+<li><strong>가져오는 것</strong>: ① 돔 머리 · 세로 타원 눈 · <strong>입 없음</strong> → B-1 ②③. ② 빗금 목도리 + 왼쪽 꼬리 → B-1 ④⑧, 빗금 간격 8.5 · 굵기 2.6. ③ 사다리꼴 코트 + 단추 둘 → B-1 ⑤⑥. ④ 팔이 안 보임 → '팔은 평소 코트 속, 포즈 때만' 규칙.</li>
+<li><strong>바꾸는 것</strong>: ① 한 색 선화 → <strong>먹선 + 브랜드 색 면</strong>(머리 흰색, 코트 primary, 목도리 accent + surfaceSoft 빗금) — 요청대로 브랜드 컬러. ② 가는 다리 → 디오와 같은 굵은 'ㄴ' 발(굵기 7) 로 통일. ③ 머리 너비를 72 로 조금 더 넓혀(스케치 1 의 둥근 머리) 아이콘 · 작은 크기에서 얼굴이 남게.</li>
+</ul>
+</div><div class="sec2"><h2 id="3-노란-다이어리-시안-8장-감정은-스티커가-말한다-원본0310">3. 노란 다이어리 시안 8장 — 감정은 스티커가 말한다 (원본/03~10)</h2>
+<div class="grid">
+<figure class="mock"><img src="원본/03 다이어리 신남.jpg" alt="신남"><figcaption><b>03 신남</b> — 무지개 · 별 · 노란 광선 · 분홍 반짝 · 색종이 · 폭죽. 양팔 위, 한 다리 차기, ^^ 눈 + 벌린 입(혀)</figcaption></figure>
+<figure class="mock"><img src="원본/04 다이어리 행복.jpg" alt="행복"><figcaption><b>04 행복</b> — 빨간 하트 · 보라 꽃 · 파란 반짝 · 주황 달 · 민트 물결. 양팔 위, ^^ 눈 + 벌린 입</figcaption></figure>
+<figure class="mock"><img src="원본/05 다이어리 슬픔.jpg" alt="슬픔"><figcaption><b>05 슬픔</b> — 바람 빠진 회색 풍선 + 물방울 · 깨진 보라 별 · 시든 분홍 꽃. 팔 아래로 축, 눈썹 처짐 + 우는 입</figcaption></figure>
+<figure class="mock"><img src="원본/06 다이어리 기본 손흔들기.jpg" alt="기본"><figcaption><b>06 기본</b> — 스티커 없음. 한 손 흔들기, 점 눈 + 작은 미소. **이것이 기본형** — 아무도 안 붙인 아침의 디오</figcaption></figure>
+<figure class="mock"><img src="원본/07 다이어리 지침.jpg" alt="지침"><figcaption><b>07 지침</b> — 방전 배터리 · 한숨 구름 · 졸린 별(세로 선 셋). 팔 아래, 반쯤 감은 눈 + 일자 입</figcaption></figure>
+<figure class="mock"><img src="원본/08 다이어리 부끄럼.jpg" alt="부끄럼"><figcaption><b>08 부끄럼</b> — 보라 꽃 · 분홍 하트 · 분홍 튤립 + **볼 홍조도 스티커**. 두 손 볼에, 다리 모음, 눈썹 올림 + 작은 미소</figcaption></figure>
+<figure class="mock"><img src="원본/09 다이어리 불안.jpg" alt="불안"><figcaption><b>09 불안</b> — 보라 낙서 뭉치 · 먹구름 번개 · 파란 땀방울 셋. 두 손 모아 쥠, 걱정 눈썹 + 물결 입</figcaption></figure>
+<figure class="mock"><img src="원본/10 다이어리 고마움.jpg" alt="고마움"><figcaption><b>10 고마움</b> — 분홍 리본 · 주황 하트 둘 · 꽃다발 + 볼 홍조. 두 손 모음, 다리 모음, ^^ 눈 + 미소</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>보이는 것 (공통)</strong>: 몸 = 세로 90 : 가로 74 의 둥근 사각, 색 <strong>#F8D860</strong>(측정값). 오른쪽 · 아래로 어긋난 <strong>흰 속지 묶음</strong>이 '책' 임을 말한다. 먹선은 진갈색 <strong>#3A1200</strong> 한 굵기(몸 너비의 약 3.5%), 끝 둥글게. 눈은 작은 점, 입은 작다. 팔은 굵고 손가락 없음(벙어리장갑), 다리는 짧고 발은 바깥 꺾임. <strong>스티커는 흰 테두리(die-cut) + 단색</strong>, 먹선 없음 — 몸과 구별된다. 감정이 바뀌어도 몸 · 눈 자리 · 비율은 고정이고 <strong>스티커 세트 + 팔 자세 + 눈썹 · 입</strong>만 바뀐다.</li>
+<li><strong>가져오는 것</strong>: 위 공통 규칙 전부 → A-1 해부도 ①~⑨. 8가지 감정과 스티커 짝 → A-3 그대로(재구성). 스티커 식별 가능한 것 전부 → A-6 33종(원본 26종 + 앱용 7종 추가: 오늘의 사진 · 마테 조각 · 도트 · 체크 · zzz · 느낌표 · 물음표). 볼 홍조가 스티커인 것 → '볼은 감정 때만' 규칙.</li>
+<li><strong>바꾸는 것</strong>: ① 먹선 색을 <strong>#242424(로고 ink)</strong> 로 통일 제안 — 로고 D · 두리 · 디오가 같은 선. 진갈색을 고르면 두리도 진갈색으로 맞춘다(README 정해야 할 것 5). ② 노랑은 1안 원본 #F8D860 또는 2안 머스터드 #EBC56F(A-5). ③ 원본의 미세한 그라데이션 · 종이 질감은 뺀다(단색) — 작은 크기 · 아이콘 · 애니메이션을 위해. ④ 눈을 세로 타원(rx 2.9 · ry 3.4) 으로 — 두리의 세로 타원 눈과 한 계열.</li>
+</ul>
+</div><div class="sec2"><h2 id="4-두-스케치가-서로에게-준-것">4. 두 스케치가 서로에게 준 것</h2>
+<table>
+<thead>
+<tr>
+<th>디오 → 두리</th>
+<th>두리 → 디오</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>굵은 'ㄴ' 발, 벙어리장갑 손</td>
+<td>세로 타원 눈</td>
+</tr>
+<tr>
+<td>먹선 + 단색 면</td>
+<td>입을 더 작게(두리는 아예 없음)</td>
+</tr>
+<tr>
+<td>감정은 몸이 아니라 '얹은 것'(스티커) 으로</td>
+<td>감정은 몸이 아니라 '두른 것'(목도리 높이 · 꼬리) 으로</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-03" data-title="3. DIO 브랜딩 분석 — 캐릭터가 지켜야 할 것">
+<h1 id="3-dio-브랜딩-분석-캐릭터가-지켜야-할-것">3. DIO 브랜딩 분석 — 캐릭터가 지켜야 할 것</h1>
+<blockquote>
+<p>기준: <a href="../디자인%20가이드.md">디자인 가이드</a> 2026-10-22 판, <code>frontend/assets/brand/dio-logo.svg</code>, <code>frontend/app.json</code>.<br>
+읽는 법: 브랜드의 요소마다 <strong>지금 → 캐릭터에 요구하는 것</strong> 을 적고, 마지막에 캐릭터가 들어갈 자리와 비슷한 서비스와의 자리 차이를 정리했다.</p>
+</blockquote>
+<div class="sec2"><h2 id="0-한눈에-보기">0. 한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th>브랜드 요소</th>
+<th>지금</th>
+<th>캐릭터에 요구하는 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>이름 · 한 줄</td>
+<td><strong>DIO</strong> — "하루 한 장의 사진을 캔버스 삼아 친구들과 함께 꾸미는 공유 다이어리"</td>
+<td>캐릭터 = '다이어리' 와 '친구' 둘. 사진 한 장 · 하루 · 함께 가 서사의 뼈대</td>
+</tr>
+<tr>
+<td>성격</td>
+<td>차분함 · 손글씨 같은 따뜻함 · 꾸미는 재미. <strong>화면은 조용하게, 꾸민 내용이 주인공</strong></td>
+<td>캐릭터가 화면의 주인공이 되면 안 된다. 빈 화면 · 알림 · 아이콘처럼 '꾸민 내용이 없는 곳' 에만 선다</td>
+</tr>
+<tr>
+<td>말투</td>
+<td>친근한 해요체, 짧게</td>
+<td>캐릭터 대사도 해요체 · 한 문장. 캐릭터 이름을 부르는 문구는 넣지 않는다(기능 설명 금지 원칙)</td>
+</tr>
+<tr>
+<td>로고</td>
+<td>둥근 마감 D 심볼(먹 #242424) + 테마 원(하늘 #9FB6D9). D 안 두 줄 = 다이어리 글줄</td>
+<td>먹선 = #242424, 포인트 = #9FB6D9. 둥근 마감 → 둥근 끝 선. 로고를 바꾸지 않는다</td>
+</tr>
+<tr>
+<td>색</td>
+<td>앱 배경 #CED9EE · primary #6E92C6 · text 네이비 #0B1957 · 흰 surface. 표지 팔레트 8색(머스터드 #EBC56F 포함). 다크 모드 없음</td>
+<td>캐릭터는 <strong>파란 배경 위에서</strong> 보인다 → 노랑(보색) 이 선다. 새 색은 토큰 또는 팔레트 안에서</td>
+</tr>
+<tr>
+<td>글자</td>
+<td>시스템 서체만, 굵기 600~900</td>
+<td>캐릭터 옆 글자는 시스템 서체. 캐릭터용 손글씨 폰트를 새로 넣지 않는다</td>
+</tr>
+<tr>
+<td>아이콘(UI)</td>
+<td>24 그리드 · 선만 · 두께 1.8 · 둥근 끝</td>
+<td>UI 아이콘과 캐릭터는 다른 층이다. 캐릭터를 UI 아이콘으로 쓰지 않는다</td>
+</tr>
+<tr>
+<td>앱 아이콘</td>
+<td>흰 바탕 + 로고 높이 50%</td>
+<td>바꾼다면 가이드 1.3 과 "로고에서 뽑는다" 규칙을 같이 고친다 (05)</td>
+</tr>
+<tr>
+<td>기능 패턴</td>
+<td>내보내기는 화면 없이 <strong>작은 진행 알약</strong>만, 되돌릴 수 있는 삭제는 토스트</td>
+<td>캐릭터는 알약 · 토스트 안에 28px 로 들어간다. 결과 화면을 새로 띄우지 않는다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="1-이름-한-줄-소개가-정하는-것">1. 이름 · 한 줄 소개가 정하는 것</h2>
+<p>DIO 의 한 줄은 세 조각이다 — <strong>하루 한 장의 사진</strong>(시간 · 재료), <strong>캔버스 삼아</strong>(그 위에 얹는다), <strong>친구들과 함께 꾸미는</strong>(관계). 캐릭터는 이 셋을 몸으로 보여 줘야 한다.</p>
+<ul>
+<li>'다이어리' 를 캐릭터로 만들면(디오) <strong>얹는 대상</strong>이 생긴다. 디오 표지 = 캔버스. 친구들이 붙인 스티커가 디오의 표정이 된다 — 서비스의 핵심 동작이 캐릭터의 감정 표현 방식과 같다.</li>
+<li>'친구' 를 캐릭터로 만들면(두리) <strong>얹는 주체</strong>가 생긴다. 두리는 사용자 쪽에 선다. 그래서 두리는 말을 적게 하고(입 없음) 디오를 본다(곁눈질).</li>
+<li>'하루 한 장' 은 리셋 규칙이다. 디오의 스티커는 날마다 새로 붙는다. 어제의 슬픔이 오늘로 넘어오지 않는다(06 §6).</li>
+</ul>
+</div><div class="sec2"><h2 id="2-로고에서-가져오는-것">2. 로고에서 가져오는 것</h2>
+<figure class="sheet half"><img src="시안/아이콘 3 로고와 캐릭터.jpg" alt="로고와 캐릭터"><figcaption>I-3 · 로고 D 와 캐릭터를 함께 두는 법. 로고 색 · 비율 · 여백 규칙은 그대로, 캐릭터는 옆(가로) 또는 위(세로) 에 선다. 캐릭터는 워드마크를 대신하지 않는다.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>로고 요소</th>
+<th>값</th>
+<th>캐릭터로</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D 심볼 선 색</td>
+<td><code>#242424</code></td>
+<td><strong>먹선 색</strong> — 디오 · 두리 · 스티커 테두리(흰) 외 모든 윤곽</td>
+</tr>
+<tr>
+<td>D 의 둥근 마감</td>
+<td>선 끝 · 이음 모두 둥글게</td>
+<td>팔 · 다리 · 발 · 눈썹 · 입 모두 둥근 끝</td>
+</tr>
+<tr>
+<td>테마 원</td>
+<td><code>#9FB6D9</code></td>
+<td>두리 <strong>목도리</strong> 색. 로고의 '한 점 포인트' 가 두리에게는 목도리</td>
+</tr>
+<tr>
+<td>D 안의 두 줄</td>
+<td>다이어리 글줄</td>
+<td>디오 '옆' 뷰의 속지 줄, 뒤표지 라벨의 선</td>
+</tr>
+<tr>
+<td>로고 여백</td>
+<td>높이의 25%</td>
+<td>로고 옆 캐릭터 간격도 로고 높이의 25%</td>
+</tr>
+<tr>
+<td>로고 크기</td>
+<td>32 · 30 · 24</td>
+<td>로고와 같은 줄에 설 때 캐릭터 높이 = 로고 높이 ÷ 0.85</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="3-색에서-가져오는-것">3. 색에서 가져오는 것</h2>
+<table>
+<thead>
+<tr>
+<th>토큰 · 팔레트</th>
+<th>값</th>
+<th>캐릭터</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>surfaceSoft</code> 앱 배경</td>
+<td><code>#CED9EE</code></td>
+<td>캐릭터가 가장 자주 서는 바탕. <strong>노랑 디오</strong>가 여기서 가장 잘 보인다(보색). 두리 목도리 빗금 색</td>
+</tr>
+<tr>
+<td><code>primary</code></td>
+<td><code>#6E92C6</code></td>
+<td>두리 <strong>코트</strong>, 아이콘 바탕(C안), 해부도 번호표</td>
+</tr>
+<tr>
+<td><code>secondary</code> 로고 테마 원</td>
+<td><code>#9FB6D9</code></td>
+<td>두리 <strong>목도리</strong></td>
+</tr>
+<tr>
+<td><code>text</code> 네이비</td>
+<td><code>#0B1957</code></td>
+<td>캐릭터 옆 글자. 아이콘 D안 바탕(보류)</td>
+</tr>
+<tr>
+<td><code>surface</code></td>
+<td><code>#FFFFFF</code></td>
+<td>두리 <strong>머리</strong>, 디오 <strong>속지</strong>(#FFFCF6 종이색), 스티커 흰 테두리</td>
+</tr>
+<tr>
+<td>표지 팔레트 머스터드</td>
+<td><code>#EBC56F</code></td>
+<td>디오 <strong>추천 색</strong>. 이미 토큰 안에 있어 새 값 없이 쓴다</td>
+</tr>
+<tr>
+<td>표지 팔레트 로즈</td>
+<td><code>#F0B0AA</code></td>
+<td>디오 · 두리 <strong>볼</strong></td>
+</tr>
+<tr>
+<td>펜 · 형광펜 · 테이프 팔레트</td>
+<td>2.4 표</td>
+<td><strong>스티커 33종의 색</strong>은 여기서만 고른다</td>
+</tr>
+<tr>
+<td><code>danger</code></td>
+<td><code>#E5484D</code></td>
+<td>캐릭터에 쓰지 않는다(오류는 글자 · 아이콘만)</td>
+</tr>
+</tbody>
+</table>
+<p>규칙 "primary 는 선택 상태와 CTA 에만, 넓은 면을 파랗게 채우지 않는다" 와의 관계: 두리 코트는 캐릭터 안의 면이지 UI 면이 아니므로 예외다. 단 두리를 화면에 크게(높이 200 이상) 쓰지 않는다 — 큰 파란 면이 CTA 를 흐린다.</p>
+</div><div class="sec2"><h2 id="4-성격-말투에서-가져오는-것">4. 성격 · 말투에서 가져오는 것</h2>
+<ul>
+<li>"차분함": 디오 · 두리 모두 <strong>눈이 작고 입이 작다</strong>. 큰 눈 · 큰 입 · 과장은 X (04 C-3).</li>
+<li>"손글씨 같은 따뜻함": 선은 정돈돼 있지만 <strong>끝이 둥글다</strong>. 자를 댄 듯한 직각 · 날카로운 끝 X.</li>
+<li>"꾸미는 재미": 디오의 재미는 표지 스티커, 두리의 재미는 목도리 움직임. 몸 자체는 바뀌지 않는다.</li>
+<li>"화면은 조용하게": 캐릭터는 <strong>콘텐츠가 없는 자리</strong>에만. 캔버스 · 썸네일 · 편집기 위에 캐릭터를 띄우지 않는다.</li>
+<li>해요체: 캐릭터가 말하는 문구도 "오늘 사진 한 장으로 시작해 볼까요?" 처럼 짧은 해요체. 캐릭터 이름을 넣은 문구("디오가 기다려요") 는 1차에서 쓰지 않는다 — 이름이 확정되고 온보딩이 생기면.</li>
+</ul>
+</div><div class="sec2"><h2 id="5-캐릭터가-들어갈-자리-가이드와-충돌하지-않는-7곳">5. 캐릭터가 들어갈 자리 (가이드와 충돌하지 않는 7곳)</h2>
+<table>
+<thead>
+<tr>
+<th>자리</th>
+<th>누가</th>
+<th>크기</th>
+<th>가이드 근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>앱 아이콘</td>
+<td>디오(흰 실루엣)</td>
+<td>1024 마스터</td>
+<td>1.3 — 바꾸면 규칙도 수정</td>
+</tr>
+<tr>
+<td>시작 화면</td>
+<td>디오(기본) + 로고</td>
+<td>디오 150, 로고 90</td>
+<td>1.3 splash 배경 #CED9EE 유지</td>
+</tr>
+<tr>
+<td>빈 화면 (홈 · 북마크 · 휴지통)</td>
+<td>디오(손 흔들기 · 기본)</td>
+<td>제목 글자 × 4 (116)</td>
+<td>8장 빈 화면 문구 "다이어리가 없어요" 위</td>
+</tr>
+<tr>
+<td>토스트 · 진행 알약</td>
+<td>디오(윙크 = 완료, 걷기 = 진행)</td>
+<td>28</td>
+<td>9장 알약 높이 36, 11장 작은 진행 알약</td>
+</tr>
+<tr>
+<td>알림 목록</td>
+<td>두리(공유 · 초대 · 참여), 디오(다이어리 상태)</td>
+<td>48~56</td>
+<td><code>알림 설계/</code> 안과 결합</td>
+</tr>
+<tr>
+<td>온보딩 카드</td>
+<td>디오 · 두리 번갈아</td>
+<td>120</td>
+<td>새 화면 — 체크리스트 12장 적용</td>
+</tr>
+<tr>
+<td>스티커 팩 '디오 감정'</td>
+<td>스티커 33종 (캐릭터 없이 스티커만)</td>
+<td>캔버스 에셋</td>
+<td>2.4 꾸미기 팔레트, <code>속지 에셋 아이디어</code> ③</td>
+</tr>
+</tbody>
+</table>
+<p>쓰지 않는 자리: 편집기 캔버스 위, 리본 · 도구 패널, 페이지 썸네일, 다이어리 카드 표지(사용자 사진 자리), 확인 대화상자.</p>
+</div><div class="sec2"><h2 id="6-비슷한-서비스와의-자리-차이">6. 비슷한 서비스와의 자리 차이</h2>
+<table>
+<thead>
+<tr>
+<th>서비스</th>
+<th>마스코트 형체</th>
+<th>감정 표현</th>
+<th>아이콘</th>
+<th>DIO 와 다른 점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MOODA</td>
+<td>둥근 얼굴 덩어리 여러 색</td>
+<td>내가 고른 감정 = 얼굴 색 · 입</td>
+<td>색 덩어리 겹침</td>
+<td>디오는 <strong>친구들이 붙인 것</strong>이 감정. 얼굴은 거의 고정</td>
+</tr>
+<tr>
+<td>하루콩</td>
+<td>초록 콩 얼굴</td>
+<td>내가 고른 기분 = 콩 표정</td>
+<td>흰 바탕 + 초록 콩</td>
+<td>같음: 단색 형체 아이콘. 다름: 디오는 사물(책) 이라 '기록 그 자체'</td>
+</tr>
+<tr>
+<td>Finch</td>
+<td>새(펫)</td>
+<td>돌봄 정도 = 성장</td>
+<td>새 얼굴 풀컬러</td>
+<td>두리 · 디오는 성장하지 않는다. 하루 단위 리셋 — 죄책감 없음</td>
+</tr>
+<tr>
+<td>Duolingo</td>
+<td>부엉이</td>
+<td>사용자 습관에 반응</td>
+<td>초록 단색 + 얼굴</td>
+<td>같음: 캐릭터가 알림 · 토스트까지 말함. 다름: 디오는 재촉하지 않는다(차분함)</td>
+</tr>
+<tr>
+<td>크레페</td>
+<td>보라 구름</td>
+<td>거의 없음(마스코트 역할 작음)</td>
+<td>보라 단색 + 흰 구름 + 따옴표 눈</td>
+<td>아이콘 문법은 같게(단색 + 흰 형체 + 구멍 얼굴), 본문에서는 원색 캐릭터</td>
+</tr>
+<tr>
+<td>당근</td>
+<td>흰 토끼 당근이</td>
+<td>이모티콘 · 웹툰</td>
+<td>주황 단색 + 흰 당근(캐릭터 아님)</td>
+<td>당근은 아이콘 = 로고 형체, 캐릭터 따로. DIO 는 아이콘 = 캐릭터 형체, 로고 D 는 앱 안에서 유지</td>
+</tr>
+</tbody>
+</table>
+<p>빈자리: <strong>'기록물 자체가 캐릭터' + '친구가 붙인 것이 표정' + '단색 + 흰 형체 아이콘'</strong> 셋을 다 가진 서비스는 없다.</p>
+</div><div class="sec2"><h2 id="7-디자인-가이드에-추가할-항목-채택되면">7. 디자인 가이드에 추가할 항목 (채택되면)</h2>
+<ul>
+<li>1.2 로고 아래 <strong>1.4 캐릭터</strong>: 이름 · 색 · 먹선 · 들어갈 자리 7곳 · 쓰지 않는 자리 · 크기 표.</li>
+<li>1.3 앱 아이콘: "로고에서 뽑는다" → "아이콘 마스터(<code>아이콘/아이콘 C 디오실루엣.svg</code>) 에서 뽑는다", 네 파일 규격은 유지.</li>
+<li>2.4 꾸미기 팔레트에 '캐릭터 색' 행: 디오 #EBC56F(또는 #F8D860) · 두리 코트 #6E92C6 · 목도리 #9FB6D9/#CED9EE · 볼 #F0B0AA · 먹선 #242424.</li>
+<li>9장 공용 컴포넌트에 <code>Mascot</code>(디오 · 두리, mood · size prop) 하나. SVG 원본은 <code>스크립트/캐릭터_도형.py</code> 가 아니라 <code>frontend/assets/brand/</code> 로 옮긴다.</li>
+</ul></div>
+</section><section class="doc" id="doc-04" data-title="4. 캐릭터 시안 — 디오 · 두리 · 둘이 함께 (컨셉 아트)">
+<h1 id="4-캐릭터-시안-디오-두리-둘이-함께-컨셉-아트">4. 캐릭터 시안 — 디오 · 두리 · 둘이 함께 (컨셉 아트)</h1>
+<blockquote>
+<p>시트 18장은 <code>스크립트/캐릭터_도형.py</code>(부위 좌표 · 색 · 선 규칙) → <code>스크립트/시트만들기.py</code> → <code>스크립트/렌더.py</code> 로 만든 SVG 다. 숫자를 바꾸면 모든 시트가 같이 바뀐다.<br>
+읽는 법: 시트마다 <strong>그림 → 부위별 규칙 표 → 메모</strong>. 좌표는 캐릭터 상자(디오 100×122, 두리 100×150) 단위이고 실제 크기는 상자 높이에 비례한다.</p>
+</blockquote>
+<div class="sec2"><h2 id="0-그림체-한-줄-dio-라인">0. 그림체 한 줄 — 'DIO 라인'</h2>
+<p>먹선 <code>#242424</code> 한 굵기(상자 높이의 3.3%) · 단색 면 · 세로 타원 점 눈 · 작은 입 · 둥근 끝 손발 · 스티커는 흰 테두리에 먹선 없음. 그라데이션 · 그림자 · 질감 · 흰자 · 손가락 · 신발은 없다. 누가 그려도 같게 하는 O/X 는 §C-3.</p>
+</div><div class="sec2"><h2 id="a-디오-다이어리-친구">A. 디오 — 다이어리 친구</h2>
+<div class="sec3"><h3 id="a-1-해부도">A-1 해부도</h3>
+<figure class="sheet"><img src="시안/디오 1 해부도.jpg" alt="디오 해부도"><figcaption>A-1 · 부위 9곳과 치수. 표지(①) 와 속지 묶음(②) 이 '책' 을, 눈 · 입(③④) 이 '친구' 를 만든다. 스티커 자리(⑦) 는 얼굴 둘레를 비운 일곱 곳.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>부위</th>
+<th>규칙</th>
+<th>좌표 (상자 100×122)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>①</td>
+<td>표지(몸)</td>
+<td>세로 90 : 가로 74(≈5:4) 둥근 사각, 모서리 반지름 = 너비의 13.5%. 단색 한 면</td>
+<td>x10 y10 w74 h90 r10</td>
+</tr>
+<tr>
+<td>②</td>
+<td>속지 묶음</td>
+<td>표지 뒤 오른쪽 · 아래로 (6, 4) 어긋난 종이색 블록 <code>#FFFCF6</code>. 책임을 말하는 유일한 장치</td>
+<td>x16 y14 w74 h90 r10</td>
+</tr>
+<tr>
+<td>③</td>
+<td>눈</td>
+<td>세로 타원 rx 2.9 · ry 3.4(= 너비의 4%), 간격 22(너비의 30%), 높이 46(상자의 38%). 흰자 없음</td>
+<td>(36,46) · (58,46)</td>
+</tr>
+<tr>
+<td>④</td>
+<td>입</td>
+<td>폭 12 의 작은 곡선. 감정은 입이 아니라 스티커가 말한다</td>
+<td>M41,55 Q47,60 53,55</td>
+</tr>
+<tr>
+<td>⑤</td>
+<td>팔</td>
+<td>굵기 9 + 먹선. 둥근 끝이 손(벙어리장갑). 손가락 · 관절 없음</td>
+<td>시작 (12,56) · (82,56~60)</td>
+</tr>
+<tr>
+<td>⑥</td>
+<td>다리 · 발</td>
+<td>굵기 9, 길이 11, 발은 바깥으로 꺾은 'ㄴ'(8). 둘 사이 26</td>
+<td>(34,100) · (60,100)</td>
+</tr>
+<tr>
+<td>⑦</td>
+<td>스티커 자리</td>
+<td>TL(27,27) · TR(68,26) · BL(27,82) · BR(67,83) · ML(22,56) · MR(72,56) · C(47,70). 얼굴 둘레 반지름 16 은 비운다</td>
+<td>스티커 지름 14~16</td>
+</tr>
+<tr>
+<td>⑧</td>
+<td>먹선</td>
+<td><code>#242424</code>, 굵기 4/122 = 3.3%. 끝 · 이음 둥글게</td>
+<td>—</td>
+</tr>
+<tr>
+<td>⑨</td>
+<td>볼</td>
+<td>로즈 <code>#F0B0AA</code> 타원 rx 5 · ry 2.8. 부끄럼 · 고마움 · 신남 때만</td>
+<td>(33,54) · (61,54)</td>
+</tr>
+</tbody>
+</table>
+<p>메모: 원본 시안의 비율을 그대로 쟀다(02 §3). 먹선만 진갈색 → 로고 ink 로 바꿨고, 작은 크기를 위해 그라데이션을 뺐다.</p>
+</div><div class="sec3"><h3 id="a-2-턴어라운드">A-2 턴어라운드</h3>
+<figure class="sheet"><img src="시안/디오 2 턴어라운드.jpg" alt="디오 턴어라운드"><figcaption>A-2 · 정면 · 3/4 · 옆 · 뒤. 같은 높이 · 같은 선 굵기 · 바닥선 공유. 옆에서는 표지 · 속지 · 뒤표지 세 겹, 뒤에서는 책등 그늘 + 이름표 자리.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>뷰</th>
+<th>보이는 것</th>
+<th>안 보이는 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>정면</td>
+<td>얼굴 · 스티커 · 팔 둘</td>
+<td>—</td>
+</tr>
+<tr>
+<td>3/4</td>
+<td>속지 묶음이 더 넓게, 표지 왼쪽에 책등 선(먹선 35%)</td>
+<td>왼팔</td>
+</tr>
+<tr>
+<td>옆</td>
+<td>표지 10 · 속지 24 · 뒤표지 6 세 겹, 속지에 줄 4개(로고 D 의 글줄)</td>
+<td>얼굴 · 스티커</td>
+</tr>
+<tr>
+<td>뒤</td>
+<td>뒤표지 + 책등 그늘(먹 12%) + 작은 라벨(이름 · 날짜 자리)</td>
+<td>얼굴 · 스티커 · 팔</td>
+</tr>
+</tbody>
+</table>
+<p>메모: 얼굴이 안 보여도 '노란 책 + 흰 속지' 로 알아보는 것이 목표. 굿즈(키링 · 인형) 를 만들 때 옆 · 뒤가 필요하다.</p>
+</div><div class="sec3"><h3 id="a-3-감정-8종">A-3 감정 8종</h3>
+<figure class="sheet"><img src="시안/디오 3 감정.jpg" alt="디오 감정 8종"><figcaption>A-3 · 원본 시안 8장을 DIO 라인으로. 얼굴은 눈썹 · 눈 · 입 조금, 나머지는 스티커 세트와 팔 자세.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>감정</th>
+<th>눈</th>
+<th>입</th>
+<th>팔 · 다리</th>
+<th>스티커 세트 (A-6 이름)</th>
+<th>앱에서 언제</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>기본</td>
+<td>점</td>
+<td>작은 미소</td>
+<td>한 손 흔들기</td>
+<td>없음</td>
+<td>아직 아무도 안 붙였을 때(아침)</td>
+</tr>
+<tr>
+<td>신남</td>
+<td>^^</td>
+<td>벌린 입 + 혀</td>
+<td>양팔 위, 한 다리 차기</td>
+<td>rainbow · star · sparkle_pink · popper · confetti · sparkle</td>
+<td>스티커가 많이 붙은 날</td>
+</tr>
+<tr>
+<td>행복</td>
+<td>^^</td>
+<td>미소</td>
+<td>양팔 위</td>
+<td>heart · flower · sparkle · moon · wave</td>
+<td>좋은 하루</td>
+</tr>
+<tr>
+<td>슬픔</td>
+<td>점 + 처진 눈썹</td>
+<td>우는 입</td>
+<td>팔 아래</td>
+<td>balloon_sad · star_broken · flower_wilted</td>
+<td>힘든 하루</td>
+</tr>
+<tr>
+<td>지침</td>
+<td>반쯤 감음 + 일자 눈썹</td>
+<td>일자</td>
+<td>팔 아래</td>
+<td>battery_low · sigh · star_sleepy</td>
+<td>피곤한 하루</td>
+</tr>
+<tr>
+<td>부끄럼</td>
+<td>아래로 감은 눈 + 올린 눈썹 + 볼</td>
+<td>작은 미소</td>
+<td>두 손 볼에, 다리 모음</td>
+<td>flower · heart_pink · flower_pink</td>
+<td>칭찬받았을 때</td>
+</tr>
+<tr>
+<td>불안</td>
+<td>점 + 걱정 눈썹</td>
+<td>물결</td>
+<td>두 손 모아 쥠</td>
+<td>scribble · drops · storm</td>
+<td>걱정되는 일</td>
+</tr>
+<tr>
+<td>고마움</td>
+<td>^^ + 볼</td>
+<td>미소</td>
+<td>두 손 모음, 다리 모음</td>
+<td>bow · heart_orange · bouquet · heart_orange</td>
+<td>선물 · 답장을 받았을 때</td>
+</tr>
+</tbody>
+</table>
+<p>메모: 감정이 바뀌어도 눈 자리 · 몸 비율은 고정. 앱에서는 감정을 '내가 고르는' 것이 아니라 <strong>친구들이 붙인 스티커 수 · 종류</strong>로 정한다(06 §4) — MOODA · 하루콩과의 차이.</p>
+</div><div class="sec3"><h3 id="a-4-포즈-8종">A-4 포즈 8종</h3>
+<figure class="sheet"><img src="시안/디오 4 포즈.jpg" alt="디오 포즈"><figcaption>A-4 · 앱 안에서 쓰는 자세. 걷기(로딩) · 손 흔들기(빈 화면) · 펜 들기(편집 시작) · 사진 들기(오늘의 사진) · 자기(밤) · 깜짝(새 알림) · 윙크(완료) · 축 처짐(오류).</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>포즈</th>
+<th>눈 · 입</th>
+<th>팔 · 다리</th>
+<th>소품</th>
+<th>쓰는 곳</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>걷기</td>
+<td>기본</td>
+<td>한 팔 앞 · 한 팔 뒤, 다리 벌림</td>
+<td>—</td>
+<td>로딩 · 페이지 넘김 (2프레임)</td>
+</tr>
+<tr>
+<td>손 흔들기</td>
+<td>기본</td>
+<td>왼팔 위</td>
+<td>—</td>
+<td>홈 빈 화면 · 인사</td>
+</tr>
+<tr>
+<td>펜 들기</td>
+<td>기본</td>
+<td>오른팔 위 + 펜(primary 색 축, 먹 촉)</td>
+<td>펜</td>
+<td>편집 시작 · 튜토리얼</td>
+</tr>
+<tr>
+<td>사진 들기</td>
+<td>기본</td>
+<td>두 팔 앞으로 모아 사진</td>
+<td>photo 스티커를 크게(1.9배)</td>
+<td>오늘의 사진 올리기</td>
+</tr>
+<tr>
+<td>자기</td>
+<td>감은 눈 + 작은 입</td>
+<td>팔 아래, 다리 짧게</td>
+<td>zzz</td>
+<td>밤 · 알림 없음</td>
+</tr>
+<tr>
+<td>깜짝</td>
+<td>큰 점 + 둥근 입</td>
+<td>팔 아래</td>
+<td>exclaim</td>
+<td>새 알림 · 친구 참여</td>
+</tr>
+<tr>
+<td>윙크</td>
+<td>한 눈 ^</td>
+<td>기본</td>
+<td>check</td>
+<td>저장 · 내보내기 완료</td>
+</tr>
+<tr>
+<td>축 처짐</td>
+<td>지침</td>
+<td>팔 아래</td>
+<td>sigh</td>
+<td>오류 · 실패</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="a-5-색-4안">A-5 색 4안</h3>
+<figure class="sheet"><img src="시안/디오 5 색.jpg" alt="디오 색 4안"><figcaption>A-5 · 앱 배경(#CED9EE) 과 흰 카드 두 곳에서 본다. 추천 2안 머스터드.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>안</th>
+<th>표지 / 속지</th>
+<th>좋은 점</th>
+<th>걸리는 점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1안 원본 노랑</td>
+<td><code>#F8D860</code> / <code>#FFFCF6</code></td>
+<td>가장 밝고 잘 띈다. 원본 시안과 같다</td>
+<td>가이드 팔레트 밖의 새 색(토큰 추가). 형광펜 <code>#FFE066</code> 과 가까워 캔버스 위에서 섞일 수 있다</td>
+</tr>
+<tr>
+<td><strong>2안 머스터드 ★</strong></td>
+<td><code>#EBC56F</code> / <code>#FFFCF6</code></td>
+<td>표지 팔레트 8색 중 하나라 <strong>새 토큰 없이</strong> 쓴다. 앱 파랑의 보색이면서 한 톤 가라앉아 '조용한 화면' 원칙에 맞는다</td>
+<td>1안보다 채도가 낮아 '신남' 이 덜 튄다 — 스티커가 보완</td>
+</tr>
+<tr>
+<td>3안 크림 + 하늘</td>
+<td><code>#EAE3D4</code> / <code>#9FB6D9</code></td>
+<td>로고 색 체계 안</td>
+<td>노랑의 즐거움이 줄고 두리(흰 머리) 와 구분이 약하다</td>
+</tr>
+<tr>
+<td>4안 페리윙클</td>
+<td><code>#9DABD8</code> / <code>#FFFCF6</code></td>
+<td>앱 기본 표지 색과 같아 '그 다이어리' 가 맞다</td>
+<td>배경 · 두리 · 디오가 모두 파랑이라 가라앉는다</td>
+</tr>
+</tbody>
+</table>
+<p>추천: <strong>2안</strong>. 1안을 고르면 <code>theme.js</code> 에 <code>mascot: '#F8D860'</code> 토큰을 더하고 가이드 2.4 에 적는다.</p>
+</div><div class="sec3"><h3 id="a-6-감정-스티커-33종-앱-스티커-에셋">A-6 감정 스티커 33종 = 앱 스티커 에셋</h3>
+<figure class="sheet"><img src="시안/디오 6 스티커.jpg" alt="감정 스티커 33종"><figcaption>A-6 · 원본 시안에서 식별한 26종 + 앱용 7종(오늘의 사진 · 마테 조각 · 도트 · 체크 · zzz · 느낌표 · 물음표). 흰 테두리 3.2 · 단색 1~2 + 흰 하이라이트 하나 · 먹선 없음 · 지름 20.</figcaption></figure>
+
+<p>규칙: ① 흰 테두리(die-cut) 3.2 ② 안쪽은 꾸미기 팔레트(펜 · 형광펜 · 테이프) 색만 ③ 먹선 금지 — 몸(먹선) 과 구별되는 '붙인 것' ④ 지름 20 기준, 디오 표지 위에서는 0.72배 ⑤ 같은 스티커를 앱 스티커 팩 '디오 감정' 으로 그대로 낸다(<code>속지 에셋 아이디어</code> ③ 오프라인 에셋 · 스티커 묶음).</p>
+</div></div><div class="sec2"><h2 id="b-두리-목도리-친구">B. 두리 — 목도리 친구</h2>
+<div class="sec3"><h3 id="b-1-해부도">B-1 해부도</h3>
+<figure class="sheet"><img src="시안/두리 1 해부도.jpg" alt="두리 해부도"><figcaption>B-1 · 부위 9곳. 입이 없다(③) — 목도리 속. 감정은 눈 · 눈썹 · 목도리 높이 · 볼로만.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>부위</th>
+<th>규칙</th>
+<th>좌표 (상자 100×150)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>①</td>
+<td>머리</td>
+<td>돔. 너비 72 : 높이 54, 위는 둥글고 아래는 목도리 속. 흰색 <code>#FFFFFF</code>(종이와 같은 색)</td>
+<td>x14~86, y12~66</td>
+</tr>
+<tr>
+<td>②</td>
+<td>눈</td>
+<td>세로 타원 rx 2.6 · ry 3.6, 간격 19, 높이 44. 디오보다 조금 길쭉해 조용한 인상</td>
+<td>(40.5,44) · (59.5,44)</td>
+</tr>
+<tr>
+<td>③</td>
+<td>입</td>
+<td><strong>없다.</strong> 목도리 속</td>
+<td>—</td>
+</tr>
+<tr>
+<td>④</td>
+<td>목도리 꼬리</td>
+<td>왼쪽으로 늘어진다(기본 down). 바람(fly) · 뒤로(back) · 없음(none) 변형. 끝은 둥글게</td>
+<td>M24,72 … 끝 (10,112)</td>
+</tr>
+<tr>
+<td>⑤</td>
+<td>코트</td>
+<td>사다리꼴 38 → 56, 아래 모서리 둥글게. primary <code>#6E92C6</code>. 팔은 평소 코트 속</td>
+<td>M31,74 L69,74 L78,128 … L22,128</td>
+</tr>
+<tr>
+<td>⑥</td>
+<td>단추</td>
+<td>지름 6.4 흰 원 둘, 세로 16 간격</td>
+<td>(50,94) · (50,110)</td>
+</tr>
+<tr>
+<td>⑦</td>
+<td>다리 · 발</td>
+<td>디오와 같은 'ㄴ' 발. 굵기 7(디오 9 — 키 차이 보정)</td>
+<td>(40,132) · (60,132) ↓12, 발 8</td>
+</tr>
+<tr>
+<td>⑧</td>
+<td>목도리 띠</td>
+<td>accent <code>#9FB6D9</code> + 빗금 surfaceSoft <code>#CED9EE</code> 굵기 2.6 · 간격 8.5 · -55°. 머리 아랫변을 덮는다</td>
+<td>x8~92, y58~77, r9</td>
+</tr>
+<tr>
+<td>⑨</td>
+<td>먹선</td>
+<td><code>#242424</code>, 디오와 같은 절대 굵기</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>메모: 원본 스케치 2 의 2.5등신 · 돔 머리 · 빗금 목도리 · 단추 둘을 그대로. 다리만 디오와 같은 'ㄴ' 발로 바꿨다(02 §2).</p>
+</div><div class="sec3"><h3 id="b-2-턴어라운드">B-2 턴어라운드</h3>
+<figure class="sheet"><img src="시안/두리 2 턴어라운드.jpg" alt="두리 턴어라운드"><figcaption>B-2 · 정면 · 3/4 · 옆 · 뒤. 뒤에서는 목도리 꼬리가 등 뒤로, 옆에서는 눈 하나 · 단추 없음.</figcaption></figure>
+
+</div><div class="sec3"><h3 id="b-3-감정-8종">B-3 감정 8종</h3>
+<figure class="sheet"><img src="시안/두리 3 감정.jpg" alt="두리 감정 8종"><figcaption>B-3 · 눈과 목도리로만. 부끄러우면 목도리 속으로 쏙(눈만), 기쁘면 꼬리가 바람에 날린다.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>감정</th>
+<th>눈</th>
+<th>목도리</th>
+<th>볼</th>
+<th>앱에서 언제</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>기본</td>
+<td>점</td>
+<td>띠 + 왼쪽 꼬리</td>
+<td>—</td>
+<td>말없이 지켜본다</td>
+</tr>
+<tr>
+<td>기쁨</td>
+<td>^^</td>
+<td>꼬리가 바람에(fly)</td>
+<td>—</td>
+<td>공유 성공 · 축하</td>
+</tr>
+<tr>
+<td>졸림</td>
+<td>일자</td>
+<td>기본</td>
+<td>—</td>
+<td>밤 · 알림 없음</td>
+</tr>
+<tr>
+<td>깜짝</td>
+<td>큰 점</td>
+<td>꼬리 fly</td>
+<td>—</td>
+<td>새 다이어리 · 친구 참여</td>
+</tr>
+<tr>
+<td>부끄럼</td>
+<td>아래로 감음</td>
+<td><strong>띠를 올려 눈만 보임</strong></td>
+<td>로즈</td>
+<td>비공개 · 잠금 · 칭찬</td>
+</tr>
+<tr>
+<td>슬픔</td>
+<td>점 + 처진 눈썹</td>
+<td>기본</td>
+<td>—</td>
+<td>친구가 나갔을 때</td>
+</tr>
+<tr>
+<td>곁눈질</td>
+<td>점을 오른쪽으로 2</td>
+<td>기본</td>
+<td>—</td>
+<td>디오를 본다(둘이 함께 설 때 기본)</td>
+</tr>
+<tr>
+<td>윙크</td>
+<td>한 눈 ^</td>
+<td>기본</td>
+<td>—</td>
+<td>공유 완료</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="b-4-색-4안">B-4 색 4안</h3>
+<figure class="sheet"><img src="시안/두리 4 색.jpg" alt="두리 색 4안"><figcaption>B-4 · 브랜드 색 안에서. 추천 1안(코트 primary · 목도리 accent = 로고 색 그대로).</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>안</th>
+<th>머리 / 코트 / 목도리 / 빗금</th>
+<th>좋은 점</th>
+<th>걸리는 점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1안 로고 색 ★</strong></td>
+<td><code>#FFFFFF</code> / <code>#6E92C6</code> / <code>#9FB6D9</code> / <code>#CED9EE</code></td>
+<td>로고(먹 + 하늘) 와 같은 체계. 버튼 색 코트, 테마 원 색 목도리. 디오(노랑) 와 보색</td>
+<td>흰 머리가 흰 카드 위에서는 먹선으로만 구분된다(먹선이 있어 문제 없음)</td>
+</tr>
+<tr>
+<td>2안 목도리가 주인공</td>
+<td><code>#FFFFFF</code> / <code>#CED9EE</code> / <code>#6E92C6</code> / 흰</td>
+<td>배경색 코트라 화면에 녹고 목도리만 튄다. 작은 크기에 유리</td>
+<td>흰 머리와 연한 코트가 붙어 윤곽이 약하다</td>
+</tr>
+<tr>
+<td>3안 네이비 코트</td>
+<td><code>#FFFFFF</code> / <code>#0B1957</code> / <code>#9FB6D9</code> / <code>#CED9EE</code></td>
+<td>글자색 네이비라 무게감. 밤 · 겨울</td>
+<td>디오 옆에서 너무 어두워 '어른' 처럼 보인다</td>
+</tr>
+<tr>
+<td>4안 크림 코트</td>
+<td><code>#EAE3D4</code> / <code>#D9A87F</code> / <code>#6E92C6</code> / <code>#CED9EE</code></td>
+<td>따뜻한 종이 느낌</td>
+<td>브랜드 파랑이 목도리에만 남아 DIO 의 친구로 안 읽힌다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="b-5-포즈-4종-안아-주기">B-5 포즈 4종 + 안아 주기</h3>
+<figure class="sheet"><img src="시안/두리 5 포즈.jpg" alt="두리 포즈"><figcaption>B-5 · 걷기 · 손 흔들기 · 양팔 들기 · 목도리 올리기, 그리고 대표 포즈 '안아 주기'(원본 스케치 1).</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>포즈</th>
+<th>팔</th>
+<th>목도리</th>
+<th>쓰는 곳</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>걷기</td>
+<td>코트 속</td>
+<td>기본</td>
+<td>페이지 넘김 · 이동</td>
+</tr>
+<tr>
+<td>손 흔들기</td>
+<td>오른팔 위(코트 색, 굵기 8)</td>
+<td>기본</td>
+<td>친구 초대 · 알림</td>
+</tr>
+<tr>
+<td>양팔 들기</td>
+<td>양팔 위</td>
+<td>fly</td>
+<td>공유 성공 · 축하</td>
+</tr>
+<tr>
+<td>목도리 올리기</td>
+<td>코트 속</td>
+<td>띠를 눈 아래까지</td>
+<td>비공개 · 잠금</td>
+</tr>
+<tr>
+<td>안아 주기</td>
+<td>왼팔이 위로 호를 그려 디오 어깨에</td>
+<td>기본</td>
+<td>둘이 함께(C-1), 온보딩 마지막</td>
+</tr>
+</tbody>
+</table>
+</div></div><div class="sec2"><h2 id="c-둘이-함께-비율-그림체-활용">C. 둘이 함께 · 비율 · 그림체 · 활용</h2>
+<div class="sec3"><h3 id="c-1-둘이-함께-원본-스케치-1-재구성">C-1 둘이 함께 (원본 스케치 1 재구성)</h3>
+<figure class="sheet"><img src="시안/둘이 1 함께.jpg" alt="둘이 함께"><figcaption>C-1 · 두리(꾸미는 친구) 가 디오(꾸며지는 다이어리) 어깨에 팔을 두른다. 디오 왼쪽 · 앞, 두리 오른쪽 · 뒤. 두리 눈은 곁눈질로 디오를 본다.</figcaption></figure>
+
+</div><div class="sec3"><h3 id="c-2-라인업-비율">C-2 라인업 · 비율</h3>
+<figure class="sheet"><img src="시안/둘이 2 라인업 비율.jpg" alt="라인업 비율"><figcaption>C-2 · 키 10 : 6.5(디오 윗변 = 두리 가슴). 같게 두는 것 · 다르게 두는 것 · 작게 쓸 때 규칙, 120 · 72 · 48 · 32px 예.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>같게</th>
+<th>다르게</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>먹선 색 · 절대 굵기(두리 150 기준 4px)</td>
+<td>키 10 : 6.5</td>
+</tr>
+<tr>
+<td>세로 타원 먹색 눈, 흰자 없음</td>
+<td>디오 각진 사각 + 노랑 / 두리 둥근 돔 + 파랑</td>
+</tr>
+<tr>
+<td>바깥으로 꺾은 'ㄴ' 발</td>
+<td>디오는 입 있음 / 두리는 없음</td>
+</tr>
+<tr>
+<td>단색 면, 둥근 끝 · 이음</td>
+<td>디오는 스티커로 / 두리는 목도리로 감정</td>
+</tr>
+<tr>
+<td>볼 로즈 <code>#F0B0AA</code></td>
+<td>팔다리 굵기 9 : 7</td>
+</tr>
+</tbody>
+</table>
+<p>작게 쓸 때(24~48px): 먹선을 6% 로 올리고 스티커는 1~2개, 눈 · 입 · 단추 · 속지 묶음은 끝까지 남긴다. 팔은 생략 가능. 글자와 함께 쓸 때 캐릭터 높이 = 제목 글자 크기 × 4(홈 제목 29 → 116).</p>
+</div><div class="sec3"><h3 id="c-3-그림체-규칙-o-x">C-3 그림체 규칙 O / X</h3>
+<figure class="sheet"><img src="시안/둘이 3 그림체 규칙.jpg" alt="그림체 규칙"><figcaption>C-3 · 누가 그려도 같게. ① 선은 하나의 굵기 ② 면은 단색 ③ 눈은 먹색 점 ④ 입은 작게, 감정은 스티커로 ⑤ 스티커는 흰 테두리 · 먹선 없음 ⑥ 손 · 발은 둥근 끝 그대로.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>O</th>
+<th>X</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>선은 하나의 굵기(상자 높이 3.3%)</td>
+<td>굵기가 들쭉날쭉, 선 없는 그림, 손그림 떨림</td>
+</tr>
+<tr>
+<td>면은 단색</td>
+<td>그라데이션 · 그림자 · 종이 질감 · 하이라이트</td>
+</tr>
+<tr>
+<td>눈은 먹색 세로 타원</td>
+<td>흰자 · 눈동자 · 속눈썹 · 눈 반짝</td>
+</tr>
+<tr>
+<td>입은 작게(폭 12), 감정은 스티커 · 목도리로</td>
+<td>큰 입 · 이빨 · 혀(신남의 혀만 예외)</td>
+</tr>
+<tr>
+<td>스티커는 흰 테두리 + 단색, 먹선 없음</td>
+<td>먹선 두른 스티커(몸과 구별 안 됨)</td>
+</tr>
+<tr>
+<td>손 · 발은 둥근 끝 그대로</td>
+<td>손가락 · 신발 · 관절 · 발가락</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="c-4-앱-안에서">C-4 앱 안에서</h3>
+<figure class="sheet"><img src="시안/둘이 4 앱 활용.jpg" alt="앱 안 활용"><figcaption>C-4 · 빈 화면(디오 손 흔들기 116) · 시작 화면(디오 + 로고) · 토스트 · 진행 알약(28px 디오) · 알림(공유 = 두리, 다이어리 상태 = 디오) · 온보딩 카드 4장.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>자리</th>
+<th>캐릭터 · 크기</th>
+<th>토큰</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>빈 화면(홈 · 북마크 · 휴지통)</td>
+<td>디오 손 흔들기, 제목 19/800 × 4 ≈ 116</td>
+<td>제목 text, 안내 textMuted, 버튼 primary 14/800</td>
+</tr>
+<tr>
+<td>시작 화면</td>
+<td>디오 기본 150 + 로고 90 아래</td>
+<td>배경 <code>#CED9EE</code>(가이드 1.3 유지)</td>
+</tr>
+<tr>
+<td>토스트 · 진행 알약</td>
+<td>디오 28(윙크 = 완료, 걷기 = 진행), 알약 왼쪽</td>
+<td>알약 바탕 text, 글자 13/700 흰색, 모서리 999</td>
+</tr>
+<tr>
+<td>알림 목록</td>
+<td>두리 56(초대 · 참여 · 공유), 디오 48(스티커 · 사진 상태)</td>
+<td>행 72, 짝수 행 surfaceMuted</td>
+</tr>
+<tr>
+<td>온보딩 카드</td>
+<td>120 — 사진 들기(디오) → 손 흔들기(두리) → 펜 들기(디오) → 신남(디오)</td>
+<td>제목 15/800</td>
+</tr>
+</tbody>
+</table>
+</div></div><div class="sec2"><h2 id="d-파일">D. 파일</h2>
+<table>
+<thead>
+<tr>
+<th>파일</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>시안/디오-1~6, 두리-1~5, 둘이-1~4, 아이콘-1~3 .jpg</code></td>
+<td>이 문서의 시트 18장 (3200×2000)</td>
+</tr>
+<tr>
+<td><code>시안/벡터원본/*.svg</code></td>
+<td>같은 시트의 SVG 원본</td>
+</tr>
+<tr>
+<td><code>아이콘/디오 기본.png · 디오 행복.png · 두리 기본.png · 둘이 함께.png</code></td>
+<td>투명 배경 캐릭터 단품(1040²) — 앱 에셋 · 발표용</td>
+</tr>
+<tr>
+<td><code>아이콘/icon-*.png</code></td>
+<td>아이콘 단품 1024² (05)</td>
+</tr>
+<tr>
+<td><code>스크립트/캐릭터_도형.py</code></td>
+<td><code>dio(x, y, h, mood, color, …)</code> · <code>duri(x, y, h, mood, head, coat, scarf, …)</code> · <code>sticker(kind, x, y, k)</code></td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-05" data-title="5. 서비스 아이콘 시안 — &#x27;크레페처럼 단색 바탕 + 흰 형체&#x27; 검토">
+<h1 id="5-서비스-아이콘-시안-크레페처럼-단색-바탕-흰-형체-검토">5. 서비스 아이콘 시안 — '크레페처럼 단색 바탕 + 흰 형체' 검토</h1>
+<blockquote>
+<p>질문: "아이콘은 크레페처럼 단색에 흰색으로 형체만 있는 느낌을 생각 중인데 어떤지 봐 줘."<br>
+답: <strong>맞다.</strong> 지금 한국 1군 앱(카카오 · 토스 · 당근 · 네이버) 과 크레페 · 하루콩 · 듀오링고가 모두 '한 색 + 형체 하나' 이고, iOS 26 리퀴드 글래스 · Android 테마 아이콘 모두 <strong>단순한 단색 형체를 그대로 통과</strong>시킨다(01 §2.1). DIO 에 맞게 하려면 형체를 로고 D 가 아니라 <strong>디오 실루엣</strong>으로 하고, 눈 · 입을 바탕색 구멍으로 파면 크레페의 '따옴표 눈' 과 같은 문법이 된다. 바탕은 primary <code>#6E92C6</code>.</p>
+</blockquote>
+<div class="sec2"><h2 id="0-한눈에-보기">0. 한눈에 보기</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>결론</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>단색 + 흰 형체</td>
+<td>채택. 그라데이션 · 그림자 · 글자 없음</td>
+</tr>
+<tr>
+<td>형체</td>
+<td><strong>디오 실루엣</strong>(표지 + 속지 + 팔 · 다리), 눈 · 입은 바탕색 구멍 — C안 ★</td>
+</tr>
+<tr>
+<td>바탕색</td>
+<td>primary <code>#6E92C6</code>. 네이비 <code>#0B1957</code>(D안) 은 더 구분되지만 iOS 다크 모드에서 가라앉아 보류</td>
+</tr>
+<tr>
+<td>로고와의 관계</td>
+<td>로고 D 는 앱 안(상단 바 · 홈 레일) 에서 그대로. 아이콘만 캐릭터. 당근(아이콘 = 로고 형체, 캐릭터 따로) 과 반대 선택이지만 크레페(아이콘 = 마스코트) 와 같다</td>
+</tr>
+<tr>
+<td>29px 가독성</td>
+<td>눈 · 입 구멍과 속지 단차가 29px 에서도 남는다(I-2). 팔은 29px 에서 사라져도 된다</td>
+</tr>
+<tr>
+<td>iOS 26 · Android</td>
+<td>흰 형체 한 레이어라 다크 · 클리어 · 틴트 · monochrome 을 따로 그릴 필요 없음</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="1-8안-비교">1. 8안 비교</h2>
+<figure class="sheet"><img src="시안/아이콘 1 8안 비교.jpg" alt="아이콘 8안"><figcaption>I-1 · A 지금(흰 바탕 + 로고) · B 흰 D · C 디오 실루엣 ★ · D 디오 네이비 · E D + 테마 원 · F 디오 얼굴만 · G 둘이 · H 풀컬러 디오(대조군). 각 안 아래 60 · 40 · 29px.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>안</th>
+<th>바탕 + 형체</th>
+<th>좋은 점</th>
+<th>걸리는 점</th>
+<th>판단</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A 지금</td>
+<td>흰 + 로고(먹 D + 하늘 원) 50%</td>
+<td>로고 그대로. 가이드 1.3 과 일치</td>
+<td>흰 바탕은 홈 화면에서 가장 약하다(흰 아이콘 많음). 캐릭터와 안 이어진다</td>
+<td>기준점</td>
+</tr>
+<tr>
+<td>B 흰 D</td>
+<td>primary + 흰 D(글줄 포함)</td>
+<td>가장 보수적인 '단색 + 흰 형체'. 로고와 1:1</td>
+<td>'D' 한 글자라 다른 D 앱과 섞인다. 캐릭터의 친근함이 없다</td>
+<td>2순위</td>
+</tr>
+<tr>
+<td><strong>C 디오 실루엣 ★</strong></td>
+<td>primary + 흰 디오, 눈 · 입 구멍</td>
+<td>형체가 '얼굴 있는 네모 책' 이라 파랑 아이콘 사이에서도 구분. 크레페식 구멍 얼굴. 29px 에서 얼굴이 남는다</td>
+<td>로고 D 와 다른 형체 — 앱 안 로고와 아이콘이 다르다(크레페 · 듀오링고도 같다)</td>
+<td><strong>추천</strong></td>
+</tr>
+<tr>
+<td>D 디오 네이비</td>
+<td>text 네이비 + 흰 디오</td>
+<td>대비 최대, 가장 구분</td>
+<td>iOS 다크 모드 · 검은 배경화면에서 가라앉는다</td>
+<td>보류</td>
+</tr>
+<tr>
+<td>E D + 테마 원</td>
+<td>primary + 흰 D + 하늘 원</td>
+<td>로고 2색을 지킨다</td>
+<td>하늘 원이 primary 위에서 안 보인다(대비 1.5:1)</td>
+<td>탈락</td>
+</tr>
+<tr>
+<td>F 디오 얼굴만</td>
+<td>primary + 표지 윗부분 확대</td>
+<td>얼굴이 크다</td>
+<td>책(속지) 이 잘려 '노트' 가 안 읽힌다. 네모 얼굴만 남아 MOODA 와 비슷해진다</td>
+<td>탈락</td>
+</tr>
+<tr>
+<td>G 둘이</td>
+<td>primary + 디오 · 두리 흰 실루엣</td>
+<td>서비스의 '함께' 를 말한다</td>
+<td>40px 아래에서 두 덩어리가 뭉친다. 아이콘은 형체 하나 원칙</td>
+<td>홍보 · 스토어 그래픽용</td>
+</tr>
+<tr>
+<td>H 풀컬러 디오</td>
+<td>하늘 + 원색 디오</td>
+<td>캐릭터 그대로</td>
+<td>먹선 · 노랑 · 흰 속지가 29px 에서 뭉개지고, iOS 26 클리어 · 틴트에서 먹선이 남아 지저분</td>
+<td>탈락</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="2-추천안-c-를-자리별로">2. 추천안 C 를 자리별로</h2>
+<figure class="sheet"><img src="시안/아이콘 2 크기별.jpg" alt="추천안 크기별"><figcaption>I-2 · iOS 180~29px, Android 원 · 둥근 네모 · 스퀴클(안전 영역 66% 점선), iOS 26 다크 · 클리어 · 틴트, 홈 화면 주변 앱 사이.</figcaption></figure>
+
+<table>
+<thead>
+<tr>
+<th>자리</th>
+<th>확인한 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>iOS 180 → 29</td>
+<td>눈 · 입 · 속지 단차가 29 에서도 남는다. 팔 · 다리는 40 아래에서 흐려지지만 형체(책) 는 유지</td>
+</tr>
+<tr>
+<td>Android 원 마스크</td>
+<td>디오를 62% 로 줄여 안전 영역(66%) 안. 팔 끝이 잘려도 된다</td>
+</tr>
+<tr>
+<td>iOS 26 다크</td>
+<td>바탕 <code>#1C1C1E</code> + 디오 <code>#8FA8D6</code>(primary 를 밝힌 값). 시스템이 자동 생성하는 값과 비슷</td>
+</tr>
+<tr>
+<td>iOS 26 클리어</td>
+<td>흰 형체 + 반투명. 먹선이 없으므로 깨끗</td>
+</tr>
+<tr>
+<td>iOS 26 틴트</td>
+<td>연한 바탕 + 진한 형체로 반전돼도 읽힌다</td>
+</tr>
+<tr>
+<td>홈 화면</td>
+<td>파랑 바탕은 흔하지만 '얼굴 있는 네모' 형체가 드물어 형태로 구분된다</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="3-로고와-캐릭터를-함께-쓰는-법">3. 로고와 캐릭터를 함께 쓰는 법</h2>
+<figure class="sheet"><img src="시안/아이콘 3 로고와 캐릭터.jpg" alt="로고와 캐릭터"><figcaption>I-3 · 로고 옆(가로): 로고 높이 = 디오 높이의 85%, 간격 = 로고 높이의 25%. 세로(시작 화면): 디오 위 · 로고 아래. 워드마크 'DIO' 는 시스템 서체 900 · 자간 -1.</figcaption></figure>
+
+<ul>
+<li>로고 D 는 색 · 비율 · 여백 규칙(가이드 1.2) 을 그대로 지킨다. 캐릭터가 로고 안에 들어가거나 로고를 들고 있지 않는다.</li>
+<li>아이콘이 C안으로 바뀌면 <strong>앱 안 로고와 아이콘이 다른 형체</strong>가 된다. 괜찮은 이유: 크레페(워드마크 CREPE + 아이콘 구름), 듀오링고(워드마크 + 아이콘 Duo), 당근(아이콘 당근 + 캐릭터 당근이) 모두 그렇다. 사용자는 아이콘으로 앱을 찾고, 앱 안에서는 로고로 '홈' 을 찾는다.</li>
+<li>워드마크 'DIO' 와 캐릭터를 나란히 둘 때 캐릭터 높이 = 글자 높이의 1.6배, 간격 = 글자 높이의 0.4배.</li>
+</ul>
+</div><div class="sec2"><h2 id="4-제작-규격-채택-뒤">4. 제작 규격 (채택 뒤)</h2>
+<table>
+<thead>
+<tr>
+<th>파일</th>
+<th>크기</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>아이콘/아이콘 C 디오실루엣.png</code> (이 폴더)</td>
+<td>1024²</td>
+<td>마스터. 모서리 없음(플랫폼이 마스크)</td>
+</tr>
+<tr>
+<td><code>frontend/assets/images/icon.png</code></td>
+<td>1024²</td>
+<td>마스터 그대로 (iOS 는 Xcode 가 크기 생성)</td>
+</tr>
+<tr>
+<td><code>frontend/assets/images/adaptive-icon.png</code></td>
+<td>1024²</td>
+<td><strong>전경 레이어</strong>: 투명 바탕 + 흰 디오 높이 62% 가운데. <code>backgroundColor</code> 를 <code>#FFFFFF</code> → <code>#6E92C6</code> 으로</td>
+</tr>
+<tr>
+<td><code>frontend/assets/images/splash-icon.png</code></td>
+<td>512²</td>
+<td>투명 바탕 + <strong>원색 디오</strong>(머스터드 · 먹선) 높이 50%, 배경 <code>#CED9EE</code> 유지 (C-4 시작 화면)</td>
+</tr>
+<tr>
+<td><code>frontend/assets/images/favicon.png</code></td>
+<td>64²</td>
+<td>primary 바탕 + 흰 디오 76%</td>
+</tr>
+<tr>
+<td>(추가) monochrome</td>
+<td>1024²</td>
+<td>Android 13+ 테마 아이콘: 흰 디오만 투명 바탕에. C안은 이미 단색이라 전경 레이어와 같은 파일</td>
+</tr>
+</tbody>
+</table>
+<p>규칙: 아이콘에는 그라데이션 · 그림자 · 글자 · 먹선을 넣지 않는다. 스티커도 넣지 않는다(29px 에서 점으로 뭉갠다). 디오 실루엣은 <code>스크립트/시트만들기.py</code> 의 <code>dio_silhouette()</code> 가 원본이다 — 눈 rx 4.2 · ry 5, 입 굵기 4.5, 속지 단차 4, 팔다리 굵기 14(모두 상자 100 기준, 본체보다 굵게 — 작은 크기 보정).</p>
+</div><div class="sec2"><h2 id="5-디자인-가이드에-고칠-곳">5. 디자인 가이드에 고칠 곳</h2>
+<ul>
+<li>1.3 앱 아이콘 표: "흰 바탕, 로고 높이 50%" → "primary 바탕, 흰 디오 실루엣 76%". 마지막 줄 "아이콘을 다시 만들 때는 반드시 <code>dio-logo.svg</code> 에서" → "<code>아이콘/아이콘 C 디오실루엣.svg</code> 에서".</li>
+<li><code>app.json</code>: <code>android.adaptiveIcon.backgroundColor</code> <code>#FFFFFF</code> → <code>#6E92C6</code>, <code>monochromeImage</code> 추가.</li>
+<li>1.2 로고 규칙에 한 줄: "앱 아이콘은 로고가 아니라 캐릭터(디오) 를 쓴다. 로고는 앱 안에서만."</li>
+</ul></div>
+</section><section class="doc" id="doc-06" data-title="6. 컨셉 · 세계관 · 스토리 제안안">
+<h1 id="6-컨셉-세계관-스토리-제안안">6. 컨셉 · 세계관 · 스토리 제안안</h1>
+<blockquote>
+<p>이 문서는 <strong>제안</strong>이다. 이름 · 설정은 팀이 고른 뒤 디자인 가이드 1.4(신설) 에 확정본을 적는다. 문구는 모두 해요체 · 한 문장(가이드 8장).</p>
+</blockquote>
+<div class="sec2"><h2 id="0-한-줄">0. 한 줄</h2>
+<p><strong>"하루 한 장, 디오 위에 두리가 붙여요."</strong> — 디오는 하루에 한 장씩 새로 태어나는 공유 다이어리이고, 두리는 그 위에 무언가를 얹는 친구다. 디오의 표정은 두리(들) 가 붙인 것으로 정해진다.</p>
+</div><div class="sec2"><h2 id="1-컨셉-꾸며지는-쪽과-꾸미는-쪽">1. 컨셉 — 꾸며지는 쪽과 꾸미는 쪽</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>디오</th>
+<th>두리</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>무엇</td>
+<td>공유 다이어리 그 자체 (노란 책)</td>
+<td>다이어리를 꾸미는 친구 (흰 머리 · 파란 코트 · 하늘 목도리)</td>
+</tr>
+<tr>
+<td>역할</td>
+<td>받는다 · 보여 준다 · 기억한다</td>
+<td>붙인다 · 초대한다 · 지켜본다</td>
+</tr>
+<tr>
+<td>말</td>
+<td>작은 입으로 한 마디 ("오늘 사진 한 장으로 시작해 볼까요?")</td>
+<td>입이 없다. 눈 · 목도리 · 손으로만</td>
+</tr>
+<tr>
+<td>감정</td>
+<td>표지에 붙은 스티커 = 친구들이 오늘 한 일</td>
+<td>눈 · 목도리 높이 · 꼬리</td>
+</tr>
+<tr>
+<td>앱에서</td>
+<td>다이어리 상태 · 완료 · 진행 · 오류</td>
+<td>공유 · 초대 · 참여 · 알림</td>
+</tr>
+<tr>
+<td>왜 둘인가</td>
+<td>'함께' 는 한 명으로 그릴 수 없다. 주고받는 둘이 있어야 서비스가 보인다</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>서비스 한 줄(가이드 1.1) 과 대응: 하루 한 장의 사진 = 디오의 오늘 표지 / 캔버스 삼아 = 디오 표지 위 / 친구들과 함께 꾸미는 = 두리가 붙인다.</p>
+</div><div class="sec2"><h2 id="2-이름-후보">2. 이름 후보</h2>
+<table>
+<thead>
+<tr>
+<th>안</th>
+<th>다이어리 친구</th>
+<th>목도리 친구</th>
+<th>뜻 · 근거</th>
+<th>걸리는 점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1 ★</strong></td>
+<td><strong>디오</strong></td>
+<td><strong>두리</strong></td>
+<td>디오 = 서비스 이름 그대로(당근 → 당근이, Duo 처럼 앱과 캐릭터가 한 이름). 두리 = <strong>두르다</strong>(목도리를 두르다) + <strong>둘이</strong>(함께) + 'D' 로 시작해 디오와 짝</td>
+<td>디오가 서비스 이름과 같아 문구에서 "DIO 가 디오에게…" 처럼 겹칠 수 있다 → 앱 안 문구에서는 캐릭터 이름을 안 쓰는 규칙(1차) 으로 피한다</td>
+</tr>
+<tr>
+<td>2</td>
+<td>하루</td>
+<td>두리</td>
+<td>하루 한 장의 '하루'. 부르기 쉽고 서사("하루가 끝나면 하루는 책장으로") 가 자연스럽다</td>
+<td><code>알림 설계</code> 예시 문구에 사용자 이름 '하루님' 이 있다. 사용자 닉네임과 섞인다</td>
+</tr>
+<tr>
+<td>3</td>
+<td>쪽이</td>
+<td>모리</td>
+<td>쪽 = 페이지(한 쪽). 모리 = 목도리의 '모리'. 둘 다 2음절 순우리말</td>
+<td>'쪽이' 는 발음이 약하고 영문 표기가 어렵다</td>
+</tr>
+<tr>
+<td>4</td>
+<td>디오</td>
+<td>모리</td>
+<td>1안 + 3안</td>
+<td>두리보다 '둘이' 의 뜻이 빠진다</td>
+</tr>
+</tbody>
+</table>
+<p>추천 <strong>1안 디오 · 두리</strong>. 영문은 <code>Dio</code> · <code>Duri</code>. 둘을 합쳐 부를 때 "디오와 두리", 팀 안 약칭 "디두".</p>
+</div><div class="sec2"><h2 id="3-성격">3. 성격</h2>
+<div class="sec3"><h3 id="디오">디오</h3>
+<ul>
+<li><strong>조용하고 잘 기다린다.</strong> 아침에는 아무것도 안 붙은 채 손을 흔든다. 재촉하지 않는다(듀오링고와 반대 — 가이드 "차분함").</li>
+<li><strong>받은 만큼 보여 준다.</strong> 스티커가 많이 붙으면 신난다(A-3 신남). 하나도 안 붙으면 슬퍼하지 않고 그냥 '기본' 이다. 슬픔 · 불안은 친구들이 그런 스티커를 붙였을 때만.</li>
+<li><strong>다 기억한다.</strong> 뒤표지의 라벨(A-2 뒤) 에 날짜가 적힌다. 어제의 디오는 책장에 꽂히고 오늘의 디오가 새로 선다.</li>
+<li>말버릇: 한 문장, 해요체. "저장했어요." "오늘 사진이 아직 없어요."</li>
+</ul>
+</div><div class="sec3"><h3 id="두리">두리</h3>
+<ul>
+<li><strong>말이 없다.</strong> 입이 목도리 속이다. 대신 본다(곁눈질) · 붙인다 · 손을 든다.</li>
+<li><strong>먼저 다가간다.</strong> 손 흔들기 · 초대 · 참여 알림은 두리가 한다. 디오 어깨에 팔을 두르는 것도 두리다.</li>
+<li><strong>부끄러우면 목도리 속으로.</strong> 비공개 · 잠금 · 칭찬받을 때 띠를 올려 눈만 내민다(B-3 부끄럼).</li>
+<li><strong>목도리가 기분이다.</strong> 기쁘면 꼬리가 날리고, 졸리면 축 처진다.</li>
+</ul>
+</div></div><div class="sec2"><h2 id="4-세계관-디오의-하루-앱-흐름과-11">4. 세계관 — 디오의 하루 (앱 흐름과 1:1)</h2>
+<table>
+<thead>
+<tr>
+<th>때</th>
+<th>디오</th>
+<th>두리</th>
+<th>앱에서</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>아침</td>
+<td>새 디오가 태어난다. 표지가 비어 있다. 손을 흔든다</td>
+<td>사진 한 장을 들고 온다</td>
+<td>다이어리 만들기 · 오늘의 사진 올리기 (온보딩 1)</td>
+</tr>
+<tr>
+<td>낮</td>
+<td>표지에 사진이 붙는다. 디오는 펜을 든다</td>
+<td>친구 두리들을 부른다</td>
+<td>초대 · 공유 (온보딩 2), 편집 시작 (온보딩 3)</td>
+</tr>
+<tr>
+<td>오후</td>
+<td>스티커가 하나둘 붙는다. 하트면 행복, 폭죽이면 신남</td>
+<td>두리들이 돌아가며 붙인다. 붙일 때마다 디오가 깜짝</td>
+<td>스티커 · 테이프 · 글 · 그림 얹기, 알림 "친구가 스티커 3개를 붙였어요"</td>
+</tr>
+<tr>
+<td>저녁</td>
+<td>표지가 가득 찬다. 디오가 신난다</td>
+<td>두리가 디오 어깨에 팔을 두른다</td>
+<td>하루 완성 (온보딩 4), 내보내기 → 윙크</td>
+</tr>
+<tr>
+<td>밤</td>
+<td>디오가 잔다(zzz). 뒤표지에 날짜 라벨</td>
+<td>두리도 졸리다</td>
+<td>알림 없음, 자동 저장됨</td>
+</tr>
+<tr>
+<td>다음 아침</td>
+<td>어제의 디오는 책장(다이어리 목록) 에 꽂히고, 오늘의 디오가 새로 선다</td>
+<td>또 사진을 들고 온다</td>
+<td>새 페이지</td>
+</tr>
+</tbody>
+</table>
+<p>규칙 셋
+1. <strong>표지 스티커 = 실제로 친구들이 붙인 것.</strong> 감정은 사용자가 고르지 않는다. 오늘 페이지에 얹힌 요소의 수 · 종류로 디오의 표정이 정해진다(아래 §5 표). MOODA · 하루콩과 다른 점.
+2. <strong>하루 단위 리셋.</strong> 슬픔 · 불안은 그날 밤에 끝난다. 다음 날 디오는 다시 '기본'. Finch 사용자가 느끼는 죄책감(01 §2.2) 을 만들지 않는다.
+3. <strong>두리는 여럿이다.</strong> 방의 친구 수만큼 두리가 있다. 다 같은 모습이지만 목도리 색이 조금씩 다를 수 있다(2차 — 표지 팔레트 8색 중 하나를 각자의 목도리 색으로).</p>
+</div><div class="sec2"><h2 id="5-표정-결정-규칙-제안-구현-시-조정">5. 표정 결정 규칙 (제안 — 구현 시 조정)</h2>
+<table>
+<thead>
+<tr>
+<th>오늘 페이지 상태</th>
+<th>디오 표정</th>
+<th>스티커 세트</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>아무것도 없음</td>
+<td>기본(손 흔들기)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>사진만 있음</td>
+<td>기본(사진 들기)</td>
+<td>photo</td>
+</tr>
+<tr>
+<td>요소 1~3개</td>
+<td>행복</td>
+<td>heart · flower · sparkle 중 붙은 수만큼</td>
+</tr>
+<tr>
+<td>요소 4개 이상 · 참여자 2명 이상</td>
+<td>신남</td>
+<td>rainbow · star · popper · confetti</td>
+</tr>
+<tr>
+<td>친구가 '고마워' 류 스티커(하트 · 꽃다발 · 리본) 를 붙임</td>
+<td>고마움</td>
+<td>bow · bouquet · heart_orange</td>
+</tr>
+<tr>
+<td>친구가 '힘내' 류(비 · 먹구름 · 바람 빠진 풍선) 를 붙임</td>
+<td>슬픔 · 불안 (그 스티커가 보이게)</td>
+<td>붙은 것 그대로</td>
+</tr>
+<tr>
+<td>밤 10시 이후</td>
+<td>자기</td>
+<td>zzz</td>
+</tr>
+<tr>
+<td>저장 · 내보내기 실패</td>
+<td>축 처짐</td>
+<td>sigh</td>
+</tr>
+</tbody>
+</table>
+<p>감정 스티커 세트(A-6) 를 앱 스티커 팩으로 내면, 친구가 붙인 스티커가 그대로 디오 표정의 재료가 된다 — 설정과 기능이 같은 데이터를 쓴다.</p>
+</div><div class="sec2"><h2 id="6-하지-않는-것">6. 하지 않는 것</h2>
+<ul>
+<li>디오가 사용자를 <strong>재촉 · 책망하지 않는다.</strong> "오늘 안 꾸몄어요" 같은 문구 · 표정 없음. 빈 디오는 그냥 손을 흔든다.</li>
+<li>캐릭터가 <strong>캔버스 위에 나타나지 않는다.</strong> 꾸민 내용이 주인공(가이드 1.1).</li>
+<li>캐릭터 <strong>성장 · 레벨 · 수집</strong> 없음(1차). 디오는 날마다 새로 태어나고 똑같다.</li>
+<li>캐릭터 <strong>대사에 이름을 넣지 않는다</strong>(1차). 이름이 확정되고 온보딩이 생기면 그때.</li>
+<li>두리에게 <strong>입 · 손가락 · 머리카락</strong> 을 그리지 않는다. 디오에게 <strong>큰 눈 · 흰자 · 혀</strong>(신남 제외) 를 그리지 않는다.</li>
+</ul>
+</div><div class="sec2"><h2 id="7-에피소드-시즌-2차-이후-아이디어">7. 에피소드 · 시즌 (2차 이후 아이디어)</h2>
+<table>
+<thead>
+<tr>
+<th>아이디어</th>
+<th>내용</th>
+<th>자산</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>목도리 색</td>
+<td>참여자마다 두리 목도리 색이 다르다(표지 팔레트 8색). 알림에서 누가 붙였는지 색으로</td>
+<td>B-4 변형</td>
+</tr>
+<tr>
+<td>계절 디오</td>
+<td>9월 다이어리 시즌(<code>속지 에셋 아이디어</code> 01 §4) 에 디오 표지 색 한정판(세이지 · 로즈 · 라벤더)</td>
+<td>A-5 변형</td>
+</tr>
+<tr>
+<td>책장</td>
+<td>다이어리 목록 = 어제의 디오들이 꽂힌 책장. 옆 뷰(A-2 옆) 로 꽂힌다</td>
+<td>A-2</td>
+</tr>
+<tr>
+<td>두리 스티커 팩</td>
+<td>두리 감정 8종을 스티커로. 친구에게 '두리 윙크' 를 붙여 준다</td>
+<td>B-3</td>
+</tr>
+<tr>
+<td>1000일</td>
+<td>방의 1000번째 디오에 금색 라벨</td>
+<td>A-2 뒤 라벨</td>
+</tr>
+<tr>
+<td>인형 · 키링</td>
+<td>디오(노란 책) 키링, 두리(목도리 분리형) 인형. 턴어라운드가 있어 바로 발주 가능</td>
+<td>A-2 · B-2</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="8-발표용-한-문단">8. 발표용 한 문단</h2>
+<p>디오는 하루에 한 장씩 새로 태어나는 노란 다이어리예요. 아침엔 아무것도 안 붙은 채 손을 흔들고, 친구들이 사진 위에 스티커를 얹을 때마다 표지가 채워지면서 표정이 생겨요. 두리는 그 위에 무언가를 붙이는 친구예요. 말은 없지만 먼저 손을 흔들고, 부끄러우면 목도리 속으로 숨고, 하루가 끝나면 디오 어깨에 팔을 둘러요. DIO 는 디오 위에 두리가 붙이는 하루예요.</p></div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll('nav a')],secs=[...document.querySelectorAll('.doc')];
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.toggle('on',l.getAttribute('href')==='#'+e.target.id));}})},{rootMargin:'-20% 0px -70% 0px'});
+secs.forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

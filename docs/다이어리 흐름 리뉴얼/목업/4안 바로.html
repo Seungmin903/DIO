@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIO 리뉴얼 4안 · 미리보기에서 바로</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Nanum+Pen+Script&family=Poor+Story&display=swap">
+<link rel="stylesheet" href="공통.css">
+<style>
+  .lrail { width: 250px; flex: none; padding: 14px 12px; display: flex; flex-direction: column; gap: 8px; overflow: auto }
+  .lrail .seccard { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; background: rgba(255,255,255,.55); border: 2px solid transparent; text-align: left }
+  .lrail .seccard .ic { width: 40px; height: 40px; border-radius: 13px; background: var(--plate); display: grid; place-items: center; font-size: 20px; flex: none }
+  .lrail .seccard b { display: block; font-size: 14px } .lrail .seccard i { font-style: normal; color: var(--muted); font-size: 11.5px; display: block; margin-top: 2px; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+  .lrail .seccard.on { background: #fff; border-color: var(--primary); box-shadow: var(--card) }
+  .lrail .vcats { padding-left: 10px }
+  .lrail .vcats button { padding: 8px }
+  .stagewrap { position: relative; display: flex; align-items: center; justify-content: center; gap: 22px }
+  .float { width: 360px; max-height: calc(100vh - 230px); overflow: auto; background: #fff; border-radius: 22px; box-shadow: var(--float); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px }
+  .float .fh { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; padding-bottom: 4px }
+  .elbar { display: flex; gap: 4px; padding: 6px; border-radius: 999px; background: #fff; box-shadow: var(--float) }
+  .elbar button { height: 38px; padding: 0 14px; border-radius: 999px; font-weight: 700; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 5px }
+  .elbar button.on { background: var(--text); color: #fff } .elbar button.off { opacity: .55 }
+  .covwrap { position: relative }
+  .shelfbar { width: 100%; max-width: 900px; background: #fff; border-radius: 20px; padding: 10px 12px; box-shadow: var(--card) }
+</style>
+</head>
+<body>
+<div id="root"></div><div class="toast" id="toast"></div>
+<script src="렌더.js"></script><script src="카탈로그.js"></script><script src="엔진.js"></script>
+<script>
+// 4안 미리보기에서 바로: 왼쪽 큰 구역 카드(속지면 그 아래 세로 묶음) | 가운데 큰 미리보기 위에서 요소를 눌러 고르기.
+// 고른 요소의 옵션은 미리보기 옆에 뜨는 카드 하나. 꺼진 꾸밈 요소는 점선 자리로 보이고 누르면 켜진다.
+function lrailHTML() {
+  const add = S.screen === 'add'
+  return SECTIONS().map(([id, l, ic]) => `<button class="seccard ${S.section === id ? 'on' : ''}" data-act="section" data-v="${id}"><span class="ic">${ic}</span><span><b>${l}</b><i>${sectionSummary(id)}</i></span></button>${id === 'paper' && S.section === 'paper' ? groupList(add ? 'add' : 'new') : ''}`).join('')
+}
+const ghost = (el, label, style) => `<div class="ghostel" data-act="turnOn" data-v="${el}" style="${style}">＋ ${label}</div>`
+ACT.turnOn = (el) => { if (el === 'band') S.cover.band.on = true; if (el === 'subtitle') S.cover.subtitle.on = true; if (el === 'plate') S.cover.plate = 'paper'; if (el === 'stickers') { S.el = 'stickers'; return } S.el = el }
+function coverStage(maxW, maxH) {
+  const c = S.cover, inner = coverPreview(maxW, maxH)
+  if (!c.enabled) return `<div class="covwrap">${inner}</div>`
+  const g = []
+  if (!c.band.on) g.push(ghost('band', '고무줄', 'right:12%;top:8%;bottom:8%;width:28px;writing-mode:vertical-rl'))
+  if (!c.subtitle.on) g.push(ghost('subtitle', '소제목', 'left:11%;top:36%;width:34%;height:26px'))
+  g.push(ghost('stickers', '스티커', 'right:6%;bottom:5%;width:76px;height:30px'))
+  return `<div class="covwrap">${inner}${g.join('')}</div>`
+}
+function floatHTML() {
+  const add = S.screen === 'add'
+  if (S.section === 'basic') return `<div class="fh">✏️ 기본</div>${basicOptions()}${S.screen === 'edit' ? `<div class="card" style="margin-top:6px"><div class="ico">📔</div><div class="grow"><div class="val">하루 일기 · ${EDIT_DIARY.period} · 속지 종류와 기간은 그대로예요</div></div></div>` : ''}`
+  if (S.section === 'style') return `<div class="fh">🖋 속지 스타일</div>${styleOptions(curPaper())}`
+  if (S.section === 'paper') return `<div class="fh">${curPaper().name}</div>${add ? addOptions() : contextOptions()}`
+  if (!S.cover.enabled) return `<div class="fh">📕 표지</div>${coverKindOptions()}<div class="hint" style="margin-top:10px">표지 없이 첫 장부터 시작해요. 나중에 다이어리 수정에서 더할 수 있어요.</div>`
+  const cur = COVER_ELEMENTS().find(([e]) => e === S.el)
+  return `<div class="fh">${cur[1]}<span class="grow"></span>${cur[3] ? sw2(getK('cover.' + cur[3]), 'toggle', 'cover.' + cur[3]) : ''}</div>${elementOptions(S.el)}`
+}
+function stageHTML() {
+  const st = $('#stage'), W = st.clientWidth - 420, H = st.clientHeight - 150
+  const add = S.screen === 'add'
+  if (S.section === 'paper') {
+    const p = curPaper(), o = add ? addPreviewOpts() : { year: S.period.year, month: S.period.start, dated: p.type !== 'note' && (p.type !== 'diary' || S.dateStamp) }
+    return `<div class="stagewrap"><div class="${add ? 'ghostpage' : ''}">${paperPreview(W, H - 120, p.kinds[0], o)}</div><div class="float">${floatHTML()}</div></div><div class="shelfbar"><div class="shelf">${papersIn((add ? S.add : S).group).map((pp) => `<button class="pcard ${(add ? S.add : S).paperId === pp.id ? 'on' : ''}" data-act="${add ? 'addPaper' : 'paper'}" data-v="${pp.id}" style="width:${S.orient === 'portrait' ? 96 : 128}px">${thumb(pp, add ? addPreviewOpts() : {})}<span class="nm">${pp.name} ${badgeOf(pp)}</span></button>`).join('')}</div></div>`
+  }
+  if (S.section === 'cover') {
+    const items = COVER_ELEMENTS().map(([el, l, d, k]) => `<button class="${S.el === el ? 'on' : ''} ${k && !getK('cover.' + k) ? 'off' : ''}" data-act="el" data-v="${el}">${l}</button>`).join('')
+    return `<div class="stagewrap">${coverStage(W, H - 60)}<div class="float">${floatHTML()}</div></div>${S.cover.enabled ? `<nav class="elbar">${items}</nav>` : ''}<div style="width:360px">${S.cover.enabled ? '' : ''}</div>`
+  }
+  const p = paperById(S.paperId), half = W / 2 - 16
+  if (S.section === 'style') return `<div class="stagewrap">${paperPreview(W, H, p.kinds[0], { year: S.period.year, month: S.period.start })}<div class="float">${floatHTML()}</div></div>`
+  return `<div class="stagewrap"><div class="row" style="flex-wrap:nowrap;gap:24px;align-items:center">${coverPreview(half, H - 20)}${paperPreview(half, H - 20, p.kinds[0], { year: S.period.year, month: S.period.start })}</div><div class="float">${floatHTML()}</div></div>`
+}
+RENDER = () => {
+  const keep = $('.float')?.scrollTop ?? 0
+  $('#root').innerHTML = `${switcher('4안 · 미리보기에서 바로')}<div class="app">${topbar()}
+    <main class="main" style="padding:12px 12px 12px 0">
+      <nav class="lrail">${lrailHTML()}</nav>
+      <section class="board grow" id="stage" style="min-width:0;gap:16px"></section>
+    </main></div>`
+  RENDER_STAGE(); const f = $('.float'); if (f) f.scrollTop = keep
+}
+// 표지 종류(없음 · 색 · 사진)는 바탕 카드 맨 위에서
+const _el = elementOptions
+elementOptions = (el) => (el === 'base' ? `<div style="margin-bottom:8px">${coverKindOptions()}</div>` : '') + _el(el) + (el === 'base' && S.screen === 'edit' ? `<button class="btn ghost small" style="color:var(--danger);margin-top:8px" data-act="coverKind" data-v="none">표지 빼기</button>` : '')
+RENDER_STAGE = () => { const st = $('#stage'); if (st) st.innerHTML = stageHTML() }
+RENDER(); window.addEventListener('resize', RENDER); document.fonts?.ready.then(RENDER)
+</script>
+</body>
+</html>
