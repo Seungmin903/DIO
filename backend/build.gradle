@@ -43,6 +43,16 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+tasks.register('postgresNotificationTest', Test) {
+	description = 'Runs notification ownership, pagination and read tests against PostgreSQL (test rows rolled back).'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter { includeTestsMatching 'com.f106.DIO.notification.PostgresNotificationTests' }
+	systemProperty 'dio.postgres-test', 'true'
+}
+
 tasks.register('postgresTest', Test) {
 	description = 'Runs diary persistence tests against the local PostgreSQL database (test rows rolled back).'
 	group = 'verification'

@@ -10,7 +10,7 @@ server:
   port: 8080
 
 springdoc:
-  paths-to-match: /api/v1/diaries/**, /api/v1/diaries
+  paths-to-match: /api/v1/diaries/**, /api/v1/diaries, /api/v1/notifications/**, /api/v1/notifications
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method

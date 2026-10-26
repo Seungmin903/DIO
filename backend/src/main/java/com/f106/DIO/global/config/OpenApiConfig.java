@@ -14,6 +14,7 @@ public class OpenApiConfig {
 			.title("DIO 비회원 MVP1 API")
 			.version("mvp1-development")
 			.description("비회원 다이어리 API이며 인증 토큰은 필요 없습니다. 생성은 201, 목록·상세·수정은 200, 삭제는 본문 없이 204입니다. "
-				+ "상세·수정·삭제의 없는 ID는 404, 잘못된 요청은 400입니다."));
+				+ "상세·수정·삭제의 없는 ID는 404, 잘못된 요청은 400입니다. "
+				+ "추가된 알림 API는 인증된 회원 principal이 필요하며, 인증 모듈 연결 전에는 401을 반환합니다."));
 	}
 }
