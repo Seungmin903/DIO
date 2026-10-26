@@ -22,7 +22,8 @@ public class DiaryModificationService {
 
 	@Transactional
 	public DiaryResponse update(UUID diaryId, DiaryUpdateRequest request) {
-		Diary diary = diaryRepository.findById(diaryId).orElseThrow(DiaryNotFoundException::new);
+		Diary diary = diaryRepository.findByDiaryIdAndDeletedAtIsNull(diaryId)
+			.orElseThrow(DiaryNotFoundException::new);
 		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverStyle(), request.getVisibility());
 		diaryRepository.flush();
 		return new DiaryResponse(DiaryMapper.toData(diary));
@@ -30,7 +31,8 @@ public class DiaryModificationService {
 
 	@Transactional
 	public void delete(UUID diaryId) {
-		Diary diary = diaryRepository.findById(diaryId).orElseThrow(DiaryNotFoundException::new);
+		Diary diary = diaryRepository.findByDiaryIdAndDeletedAtIsNull(diaryId)
+			.orElseThrow(DiaryNotFoundException::new);
 		diary.softDelete();
 		diaryRepository.flush();
 	}

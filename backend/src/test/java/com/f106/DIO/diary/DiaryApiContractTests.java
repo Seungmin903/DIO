@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -82,5 +83,20 @@ class DiaryApiContractTests {
 			.content("{\"visibility\":\"MEMBERS\"}"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.diary.visibility").value("MEMBERS"));
+	}
+
+	@Test
+	void rejectsEmptyNullAndUnsupportedPatchFields() throws Exception {
+		mvc.perform(patch("/api/v1/diaries/" + DIARY_ID).contentType(MediaType.APPLICATION_JSON)
+			.content("{}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(patch("/api/v1/diaries/" + DIARY_ID).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"diaryTitle\":null}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(patch("/api/v1/diaries/" + DIARY_ID).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"formatId\":\"1\"}"))
+			.andExpect(status().isBadRequest());
+
+		verifyNoInteractions(diaryService);
 	}
 }

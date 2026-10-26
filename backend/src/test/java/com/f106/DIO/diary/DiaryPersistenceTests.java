@@ -1,5 +1,6 @@
 package com.f106.DIO.diary;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import jakarta.persistence.EntityManager;
@@ -63,10 +64,76 @@ class DiaryPersistenceTests {
 	}
 
 	@Test
+	void softDeletedDiaryCannotBeUpdatedOrDeletedAgain() throws Exception {
+		Diary diary = diaries.saveAndFlush(new Diary("삭제 대상", "#D6BFA7", "PLAIN", "PRIVATE"));
+		UUID diaryId = diary.getDiaryId();
+
+		mvc.perform(delete("/api/v1/diaries/" + diaryId)).andExpect(status().isNoContent());
+		mvc.perform(patch("/api/v1/diaries/" + diaryId).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"diaryTitle\":\"수정 시도\"}"))
+			.andExpect(status().isNotFound());
+		mvc.perform(delete("/api/v1/diaries/" + diaryId)).andExpect(status().isNotFound());
+	}
+
+	@Test
+	void updatesOnlyTheSuppliedFieldAndRefreshesUpdatedAt() throws Exception {
+		Diary diary = diaries.saveAndFlush(new Diary("원래 제목", "#D6BFA7", "PLAIN", "PRIVATE"));
+		UUID diaryId = diary.getDiaryId();
+		Instant oldUpdatedAt = Instant.parse("2020-01-01T00:00:00Z");
+		entityManager.createNativeQuery("update diaries set updated_at = :updatedAt where diary_id = :diaryId")
+			.setParameter("updatedAt", oldUpdatedAt)
+			.setParameter("diaryId", diaryId)
+			.executeUpdate();
+		entityManager.clear();
+
+		mvc.perform(patch("/api/v1/diaries/" + diaryId).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"coverStyle\":\"LEATHER\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.diary.diaryTitle").value("원래 제목"))
+			.andExpect(jsonPath("$.diary.coverColor").value("#D6BFA7"))
+			.andExpect(jsonPath("$.diary.coverStyle").value("LEATHER"))
+			.andExpect(jsonPath("$.diary.visibility").value("PRIVATE"));
+
+		entityManager.clear();
+		Diary updated = diaries.findById(diaryId).orElseThrow();
+		assertThat(updated.getUpdatedAt()).isAfter(oldUpdatedAt);
+	}
+
+	@Test
+	void listsByCreatedAtDescendingThenDiaryIdDescending() throws Exception {
+		Diary oldest = diaries.saveAndFlush(new Diary("첫 번째", "#D6BFA7", "PLAIN", "PRIVATE"));
+		Diary sameTimeA = diaries.saveAndFlush(new Diary("두 번째", "#D6BFA7", "PLAIN", "PRIVATE"));
+		Diary sameTimeB = diaries.saveAndFlush(new Diary("세 번째", "#D6BFA7", "PLAIN", "PRIVATE"));
+		Instant first = Instant.parse("2026-01-01T00:00:00Z");
+		Instant second = Instant.parse("2026-01-02T00:00:00Z");
+		setCreatedAt(oldest.getDiaryId(), first);
+		setCreatedAt(sameTimeA.getDiaryId(), second);
+		setCreatedAt(sameTimeB.getDiaryId(), second);
+		entityManager.clear();
+
+		UUID firstAtSameTime = sameTimeA.getDiaryId().compareTo(sameTimeB.getDiaryId()) > 0
+			? sameTimeA.getDiaryId() : sameTimeB.getDiaryId();
+		UUID secondAtSameTime = sameTimeA.getDiaryId().equals(firstAtSameTime)
+			? sameTimeB.getDiaryId() : sameTimeA.getDiaryId();
+		mvc.perform(get("/api/v1/diaries"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[0].diaryId").value(firstAtSameTime.toString()))
+			.andExpect(jsonPath("$.items[1].diaryId").value(secondAtSameTime.toString()))
+			.andExpect(jsonPath("$.items[2].diaryId").value(oldest.getDiaryId().toString()));
+	}
+
+	@Test
 	void rejectsInvalidVisibilityAndNonUuidPath() throws Exception {
 		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
 			.content("{\"diaryTitle\":\"기록\",\"visibility\":\"PUBLIC\"}"))
 			.andExpect(status().isBadRequest());
 		mvc.perform(get("/api/v1/diaries/not-a-uuid")).andExpect(status().isBadRequest());
+	}
+
+	private void setCreatedAt(UUID diaryId, Instant createdAt) {
+		entityManager.createNativeQuery("update diaries set created_at = :createdAt where diary_id = :diaryId")
+			.setParameter("createdAt", createdAt)
+			.setParameter("diaryId", diaryId)
+			.executeUpdate();
 	}
 }
