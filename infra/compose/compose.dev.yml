@@ -10,9 +10,15 @@ services:
       POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
     networks:
-      - development-db
+      development-db:
+      proxy:
+        aliases:
+          - backend-dev
 
 networks:
   development-db:
     external: true
     name: dio-dev_default
+  proxy:
+    external: true
+    name: dio-proxy
