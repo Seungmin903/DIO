@@ -28,7 +28,7 @@ test('열람은 수정 시각을 만들지 않고 편집 저장은 시각과 저
     '../utils/idleTask': { scheduleIdleTask },
     '../state/defaultDoc': { createDefaultDoc: () => doc },
     '../state/editorReducer': {},
-    '../services/editorDocs': { editorDocKey: () => 'doc:a', peekEditorDoc: () => ({ doc }), rememberEditorDoc: (_, value) => cached.push(value) },
+    '../services/editorDocs': { saveEditorDoc: async (_, value) => { saved.push(value); return true; }, editorDocKey: () => 'doc:a', peekEditorDoc: () => ({ doc }), rememberEditorDoc: (_, value) => cached.push(value) },
     '../services/mediaStore': { hydrateMedia: async () => {} },
     '../services/storage': { saveJSON: async (_, value) => { saved.push(value); return true; } },
   };

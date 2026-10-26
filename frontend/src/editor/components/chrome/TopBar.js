@@ -4,11 +4,15 @@ import { colors } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 import ChipScroller from '../controls/ChipScroller'
 import BrandLogo from '../../../shared/BrandLogo'
+import SharingEntry from '../../../sharing/SharingEntry'
 
 
 // compact: 폰 세로 배치. 이름·쪽수를 두 줄로 보이고 내보내기는 상단 맨 오른쪽에 둔다.
 // onToggleOrientation이 있으면 가로 정밀 편집으로 바꾸는 버튼을 둔다.
 export default function TopBar({
+  sharingMembers = [],
+  onOpenSharing,
+  invitationCount = 0,
   compact = false,
   pageLabel,
   onToggleOrientation,
@@ -101,6 +105,7 @@ export default function TopBar({
       </ChipScroller>
 
       <View style={styles.right}>
+        {onOpenSharing && <SharingEntry members={sharingMembers} count={invitationCount} onPress={onOpenSharing}/>}
         {!readOnly && <IconToggle icon="layers" label="레이어" text="레이어" active={layersOpen} onPress={onToggleLayers} />}
         {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} style={styles.share} accessibilityLabel={shareLabel}>
           <Icon name={shareIcon} size={18} color={colors.surface} />

@@ -45,4 +45,3 @@ export function toolGuideFrame(mode, elapsed, reducedMotion = false) {
       : `${pointsPath(freePoints.slice(0, index + 1))}${done ? ' Z' : ''}`,
   }
 }
-

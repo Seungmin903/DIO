@@ -5,6 +5,9 @@ import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { prepareEditor, rememberEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
+import { useSharing } from './src/sharing/useSharing';
+import SharingHub from './src/sharing/SharingHub';
+import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
 import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
@@ -59,6 +62,10 @@ export default function App() {
 }
 
 function DiaryApp({ previewUser, onEndPreview }) {
+  const sharing = useSharing(previewUser);
+  const [sharingRequest, setSharingRequest] = useState(null);
+  const unreadInvites = sharing.notifications.count.data?.actionableUnreadCount || 0;
+  const openInvitations = useCallback(() => setSharingRequest({ mode: 'invitations' }), []);
   const insets = useSafeAreaInsets();
   // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -98,6 +105,10 @@ function DiaryApp({ previewUser, onEndPreview }) {
   const [trashing, setTrashing] = useState(false);
   const trashingRef = useRef(false);
   const [active, setActive] = useState(null);
+  useEffect(() => { if (active?.id) sharing.runtime.registerDiary(active); }, [active, sharing.runtime]);
+  const sharedLibraryRef = useRef(sharing.library);
+  sharedLibraryRef.current = sharing.library;
+  const sharingMembers = sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members || [];
   // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.
   const [tabIds, setTabIds] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -114,24 +125,44 @@ function DiaryApp({ previewUser, onEndPreview }) {
   // 편집 문서·첫 속지·사진을 기기 저장소에서 미리 준비한 뒤 편집기로 넘어가 로딩 화면이 보이지 않게 한다.
   // 준비가 늦어져도 정해진 시간 안에는 넘어가고, 그사이 다른 다이어리를 고르면 마지막 요청을 연다.
   const opening = useRef(null);
+  useEffect(() => () => { opening.current = null; }, []);
   const enterEditor = useCallback((diary) => {
     const request = {};
     opening.current = request;
     Promise.race([prepareEditor(diary), wait(EDITOR_PREPARE_LIMIT_MS)]).finally(() => {
       if (opening.current !== request) return;
       opening.current = null;
+      const current = diary.sharedDiaryId ? sharedLibraryRef.current.find(item => item.id === diary.id) : diary;
+      if (!current) return;
       setEditorOrientation(null);
-      setActive(diary);
+      setActive(current);
       setTabIds((current) => (current.includes(diary.id) ? current : [...current, diary.id]));
       setPage('editor');
     });
   }, []);
   const open = enterEditor;
+  const openSharedDiary = useCallback((id) => {
+    const diary = sharedLibraryRef.current.find(item => item.sharedDiaryId === id);
+    if (!diary) return;
+    setSharingRequest(null);
+    enterEditor(diary);
+  }, [enterEditor]);
+
+  useEffect(() => {
+    const ids = new Set(sharing.library.map(item => item.id));
+    setTabIds(current => { const next = current.filter(id => !isSessionDocumentKey(id) || ids.has(id)); return next.length === current.length ? current : next; });
+    if (!active?.sharedDiaryId) return;
+    const current = sharing.library.find(item => item.id === active.id);
+    if (current) setActive(current);
+    else { opening.current = null; setActive(null); setPage(value => value === 'editor' ? 'library' : value); }
+  }, [sharing.library, active?.id]);
 
   const favorite = useCallback((id) => {
+    const shared = sharedLibraryRef.current.find(item => item.id === id);
+    if (shared) { sharing.runtime.toggleFavorite(shared.sharedDiaryId); return; }
     setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, favorite: !diary.favorite } : diary)));
     setActive((current) => (current?.id === id ? { ...current, favorite: !current.favorite } : current));
-  }, [setDiaries]);
+  }, [setDiaries, sharing.runtime]);
 
   const navigate = useCallback((next, nextFilter) => {
     setSelection(null);
@@ -178,6 +209,7 @@ function DiaryApp({ previewUser, onEndPreview }) {
   }, []);
 
   const edit = useCallback((diary) => {
+    if (diary.canManage === false) return;
     if (savingRef.current) return;
     setEditingDiaryId(diary.id);
     setCreateOpen(true);
@@ -185,7 +217,7 @@ function DiaryApp({ previewUser, onEndPreview }) {
 
   const moveDiaryToTrash = useCallback((diary) => {
     if (savingRef.current) return;
-    if (!diary) return;
+    if (!diary || diary.canManage === false) return;
 
     confirmAction({
       title: '휴지통으로 옮길까요?',
@@ -202,7 +234,8 @@ function DiaryApp({ previewUser, onEndPreview }) {
   }, [moveToTrash]);
 
   // 고른 다이어리를 한 번에 휴지통으로 옮긴다. 저장에 성공했을 때만 관리 모드를 끝내고, 실패하면 그대로 두고 알린다.
-  const moveSelectedToTrash = useCallback((ids) => {
+  const moveSelectedToTrash = useCallback((requestedIds) => {
+    const ids = requestedIds.filter(id => diaries.some(diary => diary.id === id));
     if (savingRef.current || trashingRef.current || !ids.length) return;
     confirmAction({
       title: `${ids.length}개를 휴지통으로 옮길까요?`,
@@ -227,7 +260,7 @@ function DiaryApp({ previewUser, onEndPreview }) {
         }
       },
     });
-  }, [moveManyToTrash]);
+  }, [diaries, moveManyToTrash]);
 
   const save = async (form) => {
     if (savingRef.current) return;
@@ -295,7 +328,12 @@ function DiaryApp({ previewUser, onEndPreview }) {
     setCarousel(0);
   }, []);
 
-  const visibleDiaries = useMemo(() => diaries.filter((diary) => !diary.trashedAt), [diaries]);
+  const visibleDiaries = useMemo(() => {
+    const sharedOwnedIds = new Set(sharing.diaries.filter(diary =>
+      diary.members.some(member => member.id === 'self' && member.role === 'OWNER') && diary.members.length > 1,
+    ).map(diary => diary.id));
+    return [...diaries.filter(diary => !diary.trashedAt).map(diary => ({ ...diary, isShared: sharedOwnedIds.has(diary.id) })), ...sharing.library];
+  }, [diaries, sharing.diaries, sharing.library]);
   const libraryMetadata = useLibraryMetadata(visibleDiaries, page);
   useEffect(() => {
     if (page !== 'library' || !returnDiaryId.current) return;
@@ -393,6 +431,9 @@ function DiaryApp({ previewUser, onEndPreview }) {
         bottomInset={insets.bottom}
         onToggleOrientation={isPhone && CAN_LOCK_ORIENTATION ? () => setEditorOrientation(isLandscape ? 'portrait' : 'landscape') : undefined}
         onHome={returnToLibrary}
+        onOpenSharing={() => setSharingRequest({ diary: active })}
+        invitationCount={unreadInvites}
+        sharingMembers={sharingMembers}
         onRenameDiary={(title) => active?.id && renameDiary(active.id, title)}
         tabs={tabs}
         onSelectTab={selectTab}
@@ -446,7 +487,7 @@ function DiaryApp({ previewUser, onEndPreview }) {
     shell = (
       <View style={s.phoneShell}>
         <View style={s.workspace}>{content}</View>
-        <BottomTabs page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
+        <BottomTabs onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
         {createModal}
       </View>
     );
@@ -454,6 +495,8 @@ function DiaryApp({ previewUser, onEndPreview }) {
     shell = (
       <View style={s.shell}>
         <SideRail
+          onNotifications={openInvitations}
+          invitationCount={unreadInvites}
           page={page}
           filter={filter}
           navigate={navigate}
@@ -485,6 +528,7 @@ function DiaryApp({ previewUser, onEndPreview }) {
 
   return (
     <>
+      <SharingHub onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
         {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}

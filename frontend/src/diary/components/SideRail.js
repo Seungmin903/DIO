@@ -2,13 +2,14 @@ import { memo, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import BrandLogo from '../../shared/BrandLogo';
 import AppIcon from '../../shared/AppIcon';
+import SharingEntry from '../../sharing/SharingEntry';
 import { C } from '../constants';
 import { styles as s } from '../styles';
 
 export const RAIL_WIDTH = { collapsed: 78, expanded: 218 };
 const RAIL_PADDING = { collapsed: 15, expanded: 20 };
 
-function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle }) {
+function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle, onNotifications, invitationCount = 0 }) {
   // 0 = 접힘, 1 = 펼침. 너비·여백·글자 투명도를 한 값으로 함께 움직인다.
   const progress = useRef(new Animated.Value(collapsed ? 0 : 1)).current;
 
@@ -77,6 +78,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         {item('library', '즐겨찾기', 'star', 'favorite')}
         {item('profile', '내 공간', 'person')}
         {item('trash', '휴지통', 'trash')}
+        {onNotifications && <View style={{ alignItems: 'center', marginTop: 8 }}><SharingEntry notifications compact={collapsed} count={invitationCount} onPress={onNotifications}/></View>}
       </Animated.View>
     </Animated.View>
   );
