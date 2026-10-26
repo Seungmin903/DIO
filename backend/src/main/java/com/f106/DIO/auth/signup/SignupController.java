@@ -15,8 +15,9 @@ import org.springframework.web.bind.annotation.*;
 public class SignupController {
     private final EmailSignupService signup;
     private final EmailVerificationService verification;
-    public SignupController(EmailSignupService signup, EmailVerificationService verification) {
-        this.signup = signup; this.verification = verification;
+    private final SignupMailThrottle mailThrottle;
+    public SignupController(EmailSignupService signup, EmailVerificationService verification, SignupMailThrottle mailThrottle) {
+        this.signup = signup; this.verification = verification; this.mailThrottle = mailThrottle;
     }
     @PostMapping("/email-availability")
     @Operation(summary = "이메일 중복 확인", description = "이메일은 앞뒤 공백 제거·소문자로 정규화합니다. 가입 시 다시 중복 검사합니다.")
@@ -31,11 +32,13 @@ public class SignupController {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(signup.nicknameAvailable(request.nickname()));
     }
     @PostMapping("/email-verifications")
-    @Operation(summary = "회원가입 인증번호 발송", description = "6자리 번호, 유효기간 600초, 이메일별 재발송 간격 60초. SMTP와 비밀키 설정 필요. 번호는 응답하지 않습니다.")
+    @Operation(summary = "회원가입 인증번호 발송", description = "6자리 번호, 유효기간 600초, 이메일별 재발송 간격 60초. 같은 IP의 발송 요청은 이메일 주소와 무관하게 15분 동안 최대 20회입니다. 제한 시 Retry-After(초)를 확인하세요. SMTP와 비밀키 설정 필요. 번호는 응답하지 않습니다.")
     @ApiResponse(responseCode = "200", description = "인증 메일 발송 완료")
     @ApiResponse(responseCode = "429", description = "재발송 제한")
     @ApiResponse(responseCode = "503", description = "이메일 인증 설정 또는 발송 실패")
-    public ResponseEntity<SignupDtos.SentResponse> send(@Valid @RequestBody SignupDtos.EmailRequest request) {
+    public ResponseEntity<SignupDtos.SentResponse> send(@Valid @RequestBody SignupDtos.EmailRequest request,
+            jakarta.servlet.http.HttpServletRequest http) {
+        mailThrottle.check(http.getRemoteAddr());
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(verification.send(request.email()));
     }
     @PostMapping("/email-verifications/verify")
