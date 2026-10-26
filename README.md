@@ -41,7 +41,7 @@ pnpm android             # Android 에뮬레이터 또는 연결된 Android 기�
 - 모바일 환경에서는 `/api` 같은 상대 경로를 사용할 수 없습니다. `EXPO_PUBLIC_API_BASE_URL`에 API 전체 주소를 설정하세요. Android 에뮬레이터에서는 `http://10.0.2.2:8080/api`, 실제 기기에서는 개발 PC의 LAN IP를 사용합니다.
 - IntelliJ에서는 `backend/` 폴더를 Gradle 프로젝트로 열고, Project SDK를 17로 지정하세요.
 - 백엔드 테스트(`./gradlew test`)는 H2 인메모리 DB를 사용하므로 Docker 없이도 실행됩니다.
-- PostgreSQL 설정·연결 확인은 [로컬 DB 안내](docs/local-postgresql.md)를 참고하세요. Swagger는 http://localhost:8080/swagger-ui.html 에서 확인합니다.
+- PostgreSQL 설정·연결 확인은 [로컬 DB 안내](docs/다이어리%20저장/로컬%20PostgreSQL.md)를 참고하세요. Swagger는 http://localhost:8080/swagger-ui.html 에서 확인합니다.
 
 ## 폴더 구조
 
@@ -49,7 +49,7 @@ pnpm android             # Android 에뮬레이터 또는 연결된 Android 기�
 S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
 ├── frontend/            # 모바일 프론트엔드 (Expo + React Native)
-├── docs/                # 요구사항/API/DB/팀 문서 (docs/README.md가 색인)
+├── docs/                # 요구사항/API/DB/팀 문서 (docs/색인.md가 색인)
 ├── docker-compose.yml   # 로컬 개발용 PostgreSQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)
 ├── README.md
