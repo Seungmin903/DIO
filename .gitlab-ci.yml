@@ -39,10 +39,12 @@ deploy-production:
     - ec2-deploy
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
   resource_group: production
   environment:
     name: production
   script:
+    - bash infra/scripts/assert-flyway-initial-state.sh app-db-1
     - docker build --tag "dio-backend:prod-${CI_COMMIT_SHORT_SHA}" ./backend
     - export BACKEND_IMAGE="dio-backend:prod-${CI_COMMIT_SHORT_SHA}"
     - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml config --quiet
@@ -71,6 +73,7 @@ deploy-prod-proxy:
     - ec2-deploy
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
       changes:
         - infra/nginx/prod/**/*
         - infra/compose/compose.proxy.prod.yml

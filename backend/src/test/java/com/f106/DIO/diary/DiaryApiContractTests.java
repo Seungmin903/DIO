@@ -76,6 +76,44 @@ class DiaryApiContractTests {
 	}
 
 	@Test
+	void acceptsOneHundredCharacterTitle() throws Exception {
+		String title = "가".repeat(100);
+		when(diaryService.createDiary(any())).thenReturn(new DiaryCreateResponse(data()));
+
+		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"diaryTitle\":\"" + title + "\"}"))
+			.andExpect(status().isCreated());
+
+		ArgumentCaptor<DiaryCreateRequest> request = ArgumentCaptor.forClass(DiaryCreateRequest.class);
+		verify(diaryService).createDiary(request.capture());
+		assertThat(request.getValue().diaryTitle()).hasSize(100);
+	}
+
+	@Test
+	void rejectsInvalidCreateFields() throws Exception {
+		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"diaryTitle\":\"   \"}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"diaryTitle\":\"가" + "가".repeat(100) + "\"}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"diaryTitle\":\"기록\",\"coverColor\":\"blue\"}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"diaryTitle\":\"기록\",\"coverStyle\":\"\"}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"diaryTitle\":\"기록\",\"coverStyle\":\"   \"}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"diaryTitle\":\"기록\",\"visibility\":\"PUBLIC\"}"))
+			.andExpect(status().isBadRequest());
+
+		verifyNoInteractions(diaryService);
+	}
+
+	@Test
 	void updatesByUuid() throws Exception {
 		when(diaryService.updateDiary(eq(DIARY_ID), any())).thenReturn(new DiaryResponse(data()));
 
@@ -90,8 +128,16 @@ class DiaryApiContractTests {
 		mvc.perform(patch("/api/v1/diaries/" + DIARY_ID).contentType(MediaType.APPLICATION_JSON)
 			.content("{}"))
 			.andExpect(status().isBadRequest());
+		for (String field : new String[] {"diaryTitle", "coverColor", "coverStyle", "visibility"}) {
+			mvc.perform(patch("/api/v1/diaries/" + DIARY_ID).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"" + field + "\":null}"))
+				.andExpect(status().isBadRequest());
+		}
 		mvc.perform(patch("/api/v1/diaries/" + DIARY_ID).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"diaryTitle\":null}"))
+			.content("{\"coverStyle\":\"   \"}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(patch("/api/v1/diaries/" + DIARY_ID).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"visibility\":\"PUBLIC\"}"))
 			.andExpect(status().isBadRequest());
 		mvc.perform(patch("/api/v1/diaries/" + DIARY_ID).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"formatId\":\"1\"}"))

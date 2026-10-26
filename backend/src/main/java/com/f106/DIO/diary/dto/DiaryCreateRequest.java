@@ -13,7 +13,7 @@ public record DiaryCreateRequest(
 	@Schema(example = "#D6BFA7")
 	@NotBlank @Pattern(regexp = "#[0-9a-fA-F]{6}") String coverColor,
 	@Schema(example = "PLAIN", description = "표지 스타일. 생략하면 PLAIN")
-	@Size(max = 30) String coverStyle,
+	@Size(max = 30) @Pattern(regexp = "(?s).*\\S.*") String coverStyle,
 	@Schema(example = "PRIVATE", allowableValues = {"PRIVATE", "MEMBERS", "LINK"})
 	@Pattern(regexp = "PRIVATE|MEMBERS|LINK") String visibility
 ) {

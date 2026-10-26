@@ -76,6 +76,41 @@ class DiaryPersistenceTests {
 	}
 
 	@Test
+	void invalidPatchDoesNotChangePersistedDiary() throws Exception {
+		Diary diary = diaries.saveAndFlush(new Diary("원래 제목", "#D6BFA7", "PLAIN", "PRIVATE"));
+		UUID diaryId = diary.getDiaryId();
+		Instant originalUpdatedAt = diary.getUpdatedAt();
+
+		mvc.perform(patch("/api/v1/diaries/" + diaryId).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"coverStyle\":\"   \"}"))
+			.andExpect(status().isBadRequest());
+
+		entityManager.clear();
+		Diary unchanged = diaries.findById(diaryId).orElseThrow();
+		assertThat(unchanged.getTitle()).isEqualTo("원래 제목");
+		assertThat(unchanged.getCoverStyle()).isEqualTo("PLAIN");
+		assertThat(unchanged.getUpdatedAt()).isEqualTo(originalUpdatedAt);
+	}
+
+	@Test
+	void exposesDiaryFieldsAndNotFoundProblemDetail() throws Exception {
+		Diary diary = diaries.saveAndFlush(new Diary("상세 대상", "#D6BFA7", "LEATHER", "LINK"));
+
+		mvc.perform(get("/api/v1/diaries/" + diary.getDiaryId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.diary.diaryId").value(diary.getDiaryId().toString()))
+			.andExpect(jsonPath("$.diary.diaryTitle").value("상세 대상"))
+			.andExpect(jsonPath("$.diary.coverColor").value("#D6BFA7"))
+			.andExpect(jsonPath("$.diary.coverStyle").value("LEATHER"))
+			.andExpect(jsonPath("$.diary.visibility").value("LINK"))
+			.andExpect(jsonPath("$.diary.createdAt").exists())
+			.andExpect(jsonPath("$.diary.updatedAt").exists());
+		mvc.perform(get("/api/v1/diaries/00000000-0000-0000-0000-000000000099"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("DIARY_NOT_FOUND"));
+	}
+
+	@Test
 	void updatesOnlyTheSuppliedFieldAndRefreshesUpdatedAt() throws Exception {
 		Diary diary = diaries.saveAndFlush(new Diary("원래 제목", "#D6BFA7", "PLAIN", "PRIVATE"));
 		UUID diaryId = diary.getDiaryId();
