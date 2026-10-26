@@ -7,34 +7,73 @@ import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
-/** 한 서버의 실패 시도 제한. 프록시/다중 서버의 공통 제한은 인프라 계층에서 적용한다. */
+/** 실패 횟수와 진행 중 검증을 함께 제한한다. 인스턴스 간 공통 제한은 인프라에서 적용한다. */
 @Component
 class LoginThrottle {
-    private record Attempt(int count, Instant expires) {}
-    private final Clock clock;
-    private final Map<String, Attempt> attempts = new LinkedHashMap<>(256, 0.75f, true) {
-        @Override protected boolean removeEldestEntry(Map.Entry<String, Attempt> entry) { return size() > 20000; }
-    };
-    LoginThrottle() { this(Clock.systemUTC()); }
-    LoginThrottle(Clock clock) { this.clock = clock; }
-    private String pair(String email, String ip) { return LoginSecrets.hash("pair:" + email + "\u0000" + ip); }
-    private String address(String ip) { return LoginSecrets.hash("ip:" + ip); }
-    private int count(String key) {
-        Attempt attempt = attempts.get(key);
-        if (attempt == null) return 0;
-        if (!clock.instant().isBefore(attempt.expires)) { attempts.remove(key); return 0; }
-        return attempt.count;
+    private static final int MAX_KEYS = 20000;
+    private static final class Bucket {
+        int failures;
+        int inFlight;
+        Instant expires;
+        Bucket(Instant now) { expires = now.plusSeconds(900); }
     }
-    synchronized void check(String email, String ip) {
-        if (count(pair(email, ip)) >= 5 || count(address(ip)) >= 100) {
-            throw new LoginException(HttpStatus.TOO_MANY_REQUESTS, "LOGIN_RATE_LIMITED", "로그인 시도가 너무 많아요. 15분 후 다시 시도해 주세요.");
+    static final class Reservation {
+        private final LoginThrottle owner;
+        private final Bucket pair;
+        private final Bucket address;
+        private boolean completed;
+        private Reservation(LoginThrottle owner, Bucket pair, Bucket address) {
+            this.owner = owner; this.pair = pair; this.address = address;
         }
     }
-    synchronized void failed(String email, String ip) { increment(pair(email, ip)); increment(address(ip)); }
-    private void increment(String key) {
-        int count = count(key);
-        Attempt old = attempts.get(key);
-        attempts.put(key, new Attempt(count + 1, old == null ? clock.instant().plusSeconds(900) : old.expires));
+    private final Clock clock;
+    private final Map<String, Bucket> attempts = new LinkedHashMap<>(256, .75f, true);
+    LoginThrottle() { this(Clock.systemUTC()); }
+    LoginThrottle(Clock clock) { this.clock = clock; }
+    private void rollWindow(Bucket bucket, Instant now) {
+        if (!now.isBefore(bucket.expires)) {
+            bucket.failures = 0; bucket.expires = now.plusSeconds(900);
+            // 오래 진행 중인 검증도 계속 예산에 포함한다.
+        }
     }
-    synchronized void success(String email, String ip) { attempts.remove(pair(email, ip)); }
+    synchronized Reservation reserve(String email, String ip) {
+        String pairKey = LoginSecrets.hash("pair:" + email + "\u0000" + ip);
+        String ipKey = LoginSecrets.hash("ip:" + ip);
+        Instant now = clock.instant();
+        Bucket pair = attempts.get(pairKey), address = attempts.get(ipKey);
+        int needed = (pair == null ? 1 : 0) + (address == null ? 1 : 0);
+        if (pair == null) pair = new Bucket(now);
+        if (address == null) address = new Bucket(now);
+        rollWindow(pair, now); rollWindow(address, now);
+        if (pair.failures + pair.inFlight >= 5 || address.failures + address.inFlight >= 100) throw limited();
+        makeRoom(needed, pairKey, ipKey);
+        attempts.put(pairKey, pair); attempts.put(ipKey, address);
+        pair.inFlight++; address.inFlight++;
+        return new Reservation(this, pair, address);
+    }
+    private void makeRoom(int needed, String pairKey, String ipKey) {
+        var entries = attempts.entrySet().iterator();
+        while (attempts.size() + needed > MAX_KEYS && entries.hasNext()) {
+            var entry = entries.next();
+            if (entry.getValue().inFlight == 0 && !entry.getKey().equals(pairKey) && !entry.getKey().equals(ipKey)) entries.remove();
+        }
+        // 진행 중인 예약을 캐시에서 제거해 제한이 사라지는 상황을 막는다.
+        if (attempts.size() + needed > MAX_KEYS) throw limited();
+    }
+    synchronized void failed(Reservation reservation) { finish(reservation, true, false); }
+    synchronized void success(Reservation reservation) { finish(reservation, false, true); }
+    synchronized void cancel(Reservation reservation) { finish(reservation, false, false); }
+    private void finish(Reservation reservation, boolean failed, boolean success) {
+        if (reservation == null || reservation.owner != this) throw new IllegalArgumentException("Invalid login reservation");
+        if (reservation.completed) return;
+        Instant now = clock.instant();
+        rollWindow(reservation.pair, now); rollWindow(reservation.address, now);
+        reservation.pair.inFlight--; reservation.address.inFlight--;
+        if (failed) { reservation.pair.failures++; reservation.address.failures++; }
+        if (success) reservation.pair.failures = 0;
+        reservation.completed = true;
+    }
+    private LoginException limited() {
+        return new LoginException(HttpStatus.TOO_MANY_REQUESTS, "LOGIN_RATE_LIMITED", "로그인 시도가 너무 많아요. 15분 후 다시 시도해 주세요.");
+    }
 }

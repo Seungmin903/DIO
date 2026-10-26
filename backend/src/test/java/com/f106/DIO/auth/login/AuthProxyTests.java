@@ -34,7 +34,7 @@ class AuthProxyTests {
                 .header("Content-Type", "application/json").header("X-Forwarded-For", ip)
                 .POST(HttpRequest.BodyPublishers.ofString("{\"email\":\"unknown@example.com\",\"password\":\"DioMember123!\"}")).build();
             assertEquals(401, client.send(request, HttpResponse.BodyHandlers.ofString()).statusCode());
-            verify(throttle).check("unknown@example.com", ip);
+            verify(throttle).reserve("unknown@example.com", ip);
         }
     }
     @Test void basicCredentialsAndUnverifiedAuxiliaryTokenCannotLogOut() throws Exception {

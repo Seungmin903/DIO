@@ -18,7 +18,7 @@ public class LoginController {
     private final EmailLoginService service;
     public LoginController(EmailLoginService service) { this.service = service; }
     @PostMapping("/login")
-    @Operation(summary = "일반 로그인", description = "이메일·비밀번호로 로그인합니다. Access Token 15분, Refresh Token 세션 최대 30일(기본값). 이메일/IP 조합 15분 내 오답 5회부터 다음 요청은 429입니다. deviceName은 선택입니다.")
+    @Operation(summary = "일반 로그인", description = "이메일·비밀번호로 로그인합니다. Access Token 15분, Refresh Token 세션 최대 30일(기본값). 15분 내 실패 횟수와 진행 중 검증을 합쳐 이메일/IP 조합 5회, IP 전체 100회에 도달하면 다음 요청은 429입니다. deviceName은 선택입니다.")
     public ResponseEntity<LoginDtos.Tokens> login(@Valid @RequestBody LoginDtos.LoginRequest request, HttpServletRequest http) {
         return ResponseEntity.ok().header("Cache-Control", "no-store").header("Pragma", "no-cache")
             .body(service.login(request, http.getRemoteAddr()));

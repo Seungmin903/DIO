@@ -116,7 +116,7 @@ class EmailLoginTests {
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"invalid\",\"password\":\"short\"}"))
             .andExpect(status().isBadRequest());
         doThrow(new LoginException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "LOGIN_RATE_LIMITED", "제한"))
-            .when(throttle).check(anyString(), anyString());
+            .when(throttle).reserve(anyString(), anyString());
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
             .content("{\"email\":\"member@example.com\",\"password\":\"DioMember123!\"}"))
             .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After", "900"));

@@ -14,18 +14,18 @@ class LoginPolicyTests {
     }
     @Test void failedLoginLimitExpiresAndIsIndependentOfAnotherAddress() {
         var clock = new MovingClock(); var throttle = new LoginThrottle(clock);
-        for (int i = 0; i < 5; i++) { throttle.check("member@example.com", "a"); throttle.failed("member@example.com", "a"); }
-        assertThatThrownBy(() -> throttle.check("member@example.com", "a")).isInstanceOf(LoginException.class);
-        throttle.check("member@example.com", "b");
-        clock.now = clock.now.plusSeconds(901); throttle.check("member@example.com", "a");
+        for (int i = 0; i < 5; i++) { throttle.failed(throttle.reserve("member@example.com", "a")); }
+        assertThatThrownBy(() -> throttle.reserve("member@example.com", "a")).isInstanceOf(LoginException.class);
+        throttle.cancel(throttle.reserve("member@example.com", "b"));
+        clock.now = clock.now.plusSeconds(901); throttle.reserve("member@example.com", "a");
     }
     @Test void successResetsPairButDoesNotResetAddressFailureBudget() {
         var throttle = new LoginThrottle(new MovingClock());
-        for (int i = 0; i < 4; i++) throttle.failed("member@example.com", "a");
-        throttle.success("member@example.com", "a");
-        throttle.failed("member@example.com", "a"); throttle.check("member@example.com", "a");
-        for (int i = 0; i < 95; i++) throttle.failed("different-" + i + "@example.com", "a");
-        assertThatThrownBy(() -> throttle.check("new@example.com", "a")).isInstanceOf(LoginException.class);
+        for (int i = 0; i < 4; i++) throttle.failed(throttle.reserve("member@example.com", "a"));
+        throttle.success(throttle.reserve("member@example.com", "a"));
+        throttle.failed(throttle.reserve("member@example.com", "a"));
+        for (int i = 0; i < 95; i++) throttle.failed(throttle.reserve("different-" + i + "@example.com", "a"));
+        assertThatThrownBy(() -> throttle.reserve("new@example.com", "a")).isInstanceOf(LoginException.class);
     }
     @Test void missingOrShortSigningKeyFailsWithoutExposingConfiguration() {
         for (String secret : new String[] {"", "not base64", "c2hvcnQ="}) {

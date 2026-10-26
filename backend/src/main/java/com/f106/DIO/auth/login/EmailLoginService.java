@@ -28,24 +28,29 @@ class EmailLoginService {
     }
     @Transactional
     public LoginDtos.Tokens login(LoginDtos.LoginRequest request, String remoteAddress) {
-        throttle.check(request.email(), remoteAddress);
         jwt.configured();
-        var account = accounts.findByProviderAndProviderUserId("EMAIL", request.email()).orElse(null);
-        String hash = account == null || account.getPasswordHash() == null ? dummyHash : account.getPasswordHash();
-        boolean matches = passwords.matches(request.password(), hash);
-        SignupUser user = account == null ? null : users.findById(account.getUserId()).orElse(null);
-        if (!matches || account == null || account.getPasswordHash() == null || user == null || !user.isActive()) {
-            throttle.failed(request.email(), remoteAddress); throw LoginException.credentials();
+        var reservation = throttle.reserve(request.email(), remoteAddress);
+        try {
+            var account = accounts.findByProviderAndProviderUserId("EMAIL", request.email()).orElse(null);
+            String hash = account == null || account.getPasswordHash() == null ? dummyHash : account.getPasswordHash();
+            boolean matches = passwords.matches(request.password(), hash);
+            SignupUser user = account == null ? null : users.findById(account.getUserId()).orElse(null);
+            if (!matches || account == null || account.getPasswordHash() == null || user == null || !user.isActive()) {
+                throttle.failed(reservation); throw LoginException.credentials();
+            }
+            Instant now = Instant.now();
+            String refresh = LoginSecrets.refresh();
+            var token = new RefreshToken(user.getUserId(), LoginSecrets.hash(refresh), request.deviceName(), now,
+                now.plusSeconds(properties.refreshSeconds()));
+            LoginDtos.Tokens response = response(user, token, refresh, now);
+            tokens.saveAndFlush(token);
+            user.recordLogin(now);
+            throttle.success(reservation);
+            return response;
+        } finally {
+            // DB·서명 등 시스템 오류도 진행 중 예산을 영구 점유하지 않게 한다.
+            throttle.cancel(reservation);
         }
-        Instant now = Instant.now();
-        String refresh = LoginSecrets.refresh();
-        var token = new RefreshToken(user.getUserId(), LoginSecrets.hash(refresh), request.deviceName(), now,
-            now.plusSeconds(properties.refreshSeconds()));
-        LoginDtos.Tokens response = response(user, token, refresh, now);
-        tokens.saveAndFlush(token);
-        user.recordLogin(now);
-        throttle.success(request.email(), remoteAddress);
-        return response;
     }
     @Transactional(noRollbackFor = LoginException.class)
     public LoginDtos.Tokens refresh(String refresh) {
