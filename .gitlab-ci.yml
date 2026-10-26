@@ -40,10 +40,12 @@ deploy-production:
     - ec2-deploy
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
   resource_group: production
   environment:
     name: production
   script:
+    - bash infra/scripts/assert-flyway-initial-state.sh app-db-1
     - export BACKEND_IMAGE="dio-backend:prod-${CI_COMMIT_SHORT_SHA}"
     # 필수 인증·SMTP·프록시 환경변수 누락 시 이미지 빌드/컨테이너 교체 전에 중단한다.
     - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml config --quiet
@@ -73,6 +75,7 @@ deploy-prod-proxy:
     - ec2-deploy
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
       changes:
         - infra/nginx/prod/**/*
         - infra/compose/compose.proxy.prod.yml

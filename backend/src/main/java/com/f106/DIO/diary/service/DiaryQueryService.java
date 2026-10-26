@@ -1,5 +1,7 @@
 package com.f106.DIO.diary.service;
 
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,13 +21,13 @@ public class DiaryQueryService {
 
 	@Transactional(readOnly = true)
 	public DiaryListResponse list() {
-		return new DiaryListResponse(diaryRepository.findAllByOrderByCreatedAtDescDiaryIdDesc()
+		return new DiaryListResponse(diaryRepository.findAllByDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc()
 			.stream().map(DiaryMapper::toData).toList());
 	}
 
 	@Transactional(readOnly = true)
-	public DiaryResponse detail(Long diaryId) {
-		return new DiaryResponse(DiaryMapper.toData(diaryRepository.findById(diaryId)
+	public DiaryResponse detail(UUID diaryId) {
+		return new DiaryResponse(DiaryMapper.toData(diaryRepository.findByDiaryIdAndDeletedAtIsNull(diaryId)
 			.orElseThrow(DiaryNotFoundException::new)));
 	}
 }

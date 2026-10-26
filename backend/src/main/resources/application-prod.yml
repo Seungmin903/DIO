@@ -17,11 +17,6 @@ dio:
   signup:
     photos:
       storage: ${SIGNUP_PHOTO_STORAGE:s3}
-  diary:
-    formats:
-      "1":
-        width: 1280
-        height: 800
 
 server:
   forward-headers-strategy: native

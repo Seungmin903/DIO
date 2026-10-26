@@ -19,12 +19,4 @@ public class DiaryExceptionHandler extends ResponseEntityExceptionHandler {
 		return problem;
 	}
 
-	@ExceptionHandler(InvalidDiaryFormatException.class)
-	public ProblemDetail handleInvalidFormat(InvalidDiaryFormatException exception) {
-		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
-		problem.setTitle("Invalid diary format");
-		problem.setProperty("code", "INVALID_DIARY_FORMAT");
-		return problem;
-	}
-
 }
