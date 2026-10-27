@@ -21,7 +21,17 @@ test('네이티브 파일 복사 완료·메타데이터 저장을 기다리고 
       files.set(target.uri, files.get(this.uri).slice())
     }
     delete() { files.delete(this.uri) }
-    open() { return { readBytes: (n) => files.get(this.uri).slice(0, n), close() {} } }
+    open() {
+      let closed = false
+      return {
+        readBytes: async (n) => {
+          await new Promise((resolve) => setImmediate(resolve))
+          assert.equal(closed, false, '읽기를 완료하기 전에 파일 핸들을 닫으면 안 된다')
+          return files.get(this.uri).slice(0, n)
+        },
+        close() { closed = true },
+      }
+    }
   }
   globalThis.__mediaNativeTest = {
     fs: { Directory, File, FileMode: { ReadOnly: 'r' }, Paths: { document: 'file:///documents' } },

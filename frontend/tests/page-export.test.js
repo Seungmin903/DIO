@@ -127,7 +127,7 @@ test('네이티브는 전용 영역을 지정한 PNG 픽셀 크기로 캡처하�
     captureRef: async (node, options) => { captured = { node, options }; return 'file:///export.png' },
     releaseCapture: (uri) => { released = uri },
     Platform: { OS:'ios' }, PixelRatio: {get:()=>2}, FileMode: {ReadOnly:'r'},
-    File: class {open(){return {readBytes:()=>header,close:()=>{closed=true}}}},
+    File: class {open(){return {readBytes:async()=>{await Promise.resolve();assert.equal(closed,false);return header},close:()=>{closed=true}}}},
   }
   const sources = {
     'react-native-view-shot':'export const {captureRef,releaseCapture}=globalThis.__exportNative',

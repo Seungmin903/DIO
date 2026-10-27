@@ -74,7 +74,7 @@ test('사진첩 저장 완료를 기다리고 권한·실패 처리와 캐시/�
     constructor(...parts){this.uri=parts.map(p=>p.uri||p).join('/')}
     get exists(){return files.has(this.uri)}
     get size(){return files.get(this.uri)?.size}
-    open(){return {readBytes:()=>new Uint8Array([137,80,78,71,13,10,26,10]),close(){}}}
+    open(){let closed=false;return {readBytes:async()=>{await Promise.resolve();assert.equal(closed,false,'PNG 헤더 읽기 완료 전 핸들 종료');return new Uint8Array([137,80,78,71,13,10,26,10])},close(){closed=true}}}
     async copy(destination){files.set(destination.uri,{size:8});if(copyFails)throw Error('copy failed')}
   }
   globalThis.__pngSaveNative={File,Directory,Paths:{cache:'file:///cache'},FileMode:{ReadOnly:'r'},randomUUID:()=>String(nextId++),
