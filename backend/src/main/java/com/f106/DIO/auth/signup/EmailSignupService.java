@@ -48,11 +48,15 @@ public class EmailSignupService {
         String nicknameKey = nickname.toLowerCase(Locale.ROOT);
         return !nicknameKey.equals("관리자") && !nicknameKey.equals("dio") && !users.existsByNicknameKey(nicknameKey);
     }
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NEVER)
     public byte[] profilePhoto(UUID photoId) {
-        SignupProfilePhoto photo = photos.findById(photoId).orElseThrow(() -> photoNotFound());
-        SignupUser owner = users.findById(photo.userId).orElseThrow(() -> photoNotFound());
-        if (owner.deletedAt != null || !"ACTIVE".equals(owner.status)) throw photoNotFound();
+        SignupProfilePhoto photo = readTransaction.execute(status -> {
+            SignupProfilePhoto found = photos.findById(photoId).orElseThrow(this::photoNotFound);
+            SignupUser owner = users.findById(found.userId).orElseThrow(this::photoNotFound);
+            if (!owner.isActive()) throw photoNotFound();
+            return found;
+        });
+        // 바이트 배열과 저장소 위치는 조회 시 로드되므로 외부 읽기는 커넥션 반환 후 실행한다.
         return photoFiles.read(photo);
     }
     private SignupException photoNotFound() {

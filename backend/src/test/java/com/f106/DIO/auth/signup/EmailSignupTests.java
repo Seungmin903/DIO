@@ -48,6 +48,7 @@ class EmailSignupTests {
     @Autowired MockMvc mvc;
     @Autowired EmailVerificationService verification;
     @Autowired EmailSignupService signup;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
     @Autowired SignupUserRepository users;
     @MockitoSpyBean EmailAuthProviderRepository providers;
     @Autowired TermsAgreementRepository agreements;
@@ -330,6 +331,27 @@ class EmailSignupTests {
         SignupUser owner = users.findAll().get(0); owner.deletedAt = Instant.now(); users.saveAndFlush(owner);
         mvc.perform(get(photo.url())).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/auth/profile-photos/" + java.util.UUID.randomUUID())).andExpect(status().isNotFound());
+    }
+    @Test void profilePhotoReadsExternalStorageAfterDatabaseTransactionEnds() throws Exception {
+        signup.signup(request(EMAIL, verifyEmail(EMAIL), "디오사용자"), photoPart("png"));
+        SignupProfilePhoto photo = photos.findAll().get(0);
+        byte[] expected = photoFiles.read(photo);
+        doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return invocation.callRealMethod();
+        }).when(photoFiles).read(any());
+        mvc.perform(get(photo.url())).andExpect(status().isOk()).andExpect(content().bytes(expected));
+    }
+    @Test void profilePhotoRejectsEnclosingTransactionAndInactiveOwnerWithoutStorageRead() throws Exception {
+        signup.signup(request(EMAIL, verifyEmail(EMAIL), "디오사용자"), photoPart("png"));
+        SignupProfilePhoto photo = photos.findAll().get(0);
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        clearInvocations(photoFiles);
+        assertThatThrownBy(() -> transaction.execute(status -> signup.profilePhoto(photo.photoId)))
+            .isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
+        SignupUser owner = users.findAll().get(0); owner.status = "SUSPENDED"; users.saveAndFlush(owner);
+        assertThatThrownBy(() -> signup.profilePhoto(photo.photoId)).isInstanceOf(SignupException.class);
+        verify(photoFiles, never()).read(any());
     }
     @Test void invalidPhotoLeavesTokenUsableAndCreatesNoAccount() throws Exception {
         String token = verifyEmail(EMAIL);
