@@ -1,5 +1,7 @@
 package com.f106.DIO.diary.service;
 
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 
 import com.f106.DIO.diary.dto.DiaryCreateRequest;
@@ -31,15 +33,15 @@ public class DiaryService {
 		return queryService.list();
 	}
 
-	public DiaryResponse getDiary(Long diaryId) {
+	public DiaryResponse getDiary(UUID diaryId) {
 		return queryService.detail(diaryId);
 	}
 
-	public DiaryResponse updateDiary(Long diaryId, DiaryUpdateRequest request) {
+	public DiaryResponse updateDiary(UUID diaryId, DiaryUpdateRequest request) {
 		return modificationService.update(diaryId, request);
 	}
 
-	public void deleteDiary(Long diaryId) {
+	public void deleteDiary(UUID diaryId) {
 		modificationService.delete(diaryId);
 	}
 }

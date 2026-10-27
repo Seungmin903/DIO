@@ -1,8 +1,8 @@
 package com.f106.DIO.diary.domain;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -19,10 +19,12 @@ import lombok.NoArgsConstructor;
 public class Diary {
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long diaryId;
+	private UUID diaryId;
 
 	private Long ownerUserId;
+
+	@Column(length = 64)
+	private String ownerDeviceId;
 
 	@Column(nullable = false, length = 100)
 	private String title;
@@ -35,19 +37,7 @@ public class Diary {
 	private String coverStyle;
 
 	@Column(nullable = false, length = 30)
-	private String coverBinding;
-
-	@Column(nullable = false, length = 30)
-	private String formatId;
-
-	@Column(nullable = false, precision = 10, scale = 2)
-	private BigDecimal canvasWidth;
-
-	@Column(nullable = false, precision = 10, scale = 2)
-	private BigDecimal canvasHeight;
-
-	@Column(nullable = false, length = 20)
-	private String defaultPageTemplate;
+	private String visibility;
 
 	@Column(nullable = false, updatable = false)
 	private Instant createdAt;
@@ -55,29 +45,36 @@ public class Diary {
 	@Column(nullable = false)
 	private Instant updatedAt;
 
-	public Diary(String title, String coverColor, String coverStyle, String coverBinding,
-		String formatId, BigDecimal canvasWidth, BigDecimal canvasHeight, String defaultPageTemplate) {
+	private Instant deletedAt;
+
+	public Diary(String title, String coverColor, String coverStyle, String visibility) {
 		this.title = title;
 		this.coverColor = coverColor;
 		this.coverStyle = coverStyle;
-		this.coverBinding = coverBinding;
-		this.formatId = formatId;
-		this.canvasWidth = canvasWidth;
-		this.canvasHeight = canvasHeight;
-		this.defaultPageTemplate = defaultPageTemplate;
+		this.visibility = visibility;
 	}
 
-	public void updateSettings(String title, String coverColor, String coverStyle, String coverBinding) {
+	public void updateSettings(String title, String coverColor, String coverStyle, String visibility) {
 		if (title != null) { this.title = title; }
 		if (coverColor != null) { this.coverColor = coverColor; }
 		if (coverStyle != null) { this.coverStyle = coverStyle; }
-		if (coverBinding != null) { this.coverBinding = coverBinding; }
+		if (visibility != null) { this.visibility = visibility; }
 		updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+	}
+
+	public void softDelete() {
+		Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+		deletedAt = now;
+		updatedAt = now;
 	}
 
 	@PrePersist
 	void initializeTimestamps() {
 		Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+		if (diaryId == null) { diaryId = UUID.randomUUID(); }
+		if (coverColor == null) { coverColor = "#CED9EE"; }
+		if (coverStyle == null) { coverStyle = "PLAIN"; }
+		if (visibility == null) { visibility = "PRIVATE"; }
 		createdAt = now;
 		updatedAt = now;
 	}

@@ -50,7 +50,7 @@ export default function App() {
     try {
       if (previewSession?.mode === 'authenticated') await authService.logout();
     } catch (error) { notify('로그아웃', `${error.message} 이 기기의 로그인 정보는 지웠어요.`); }
-    finally { setPreviewSession(null); }
+    finally { setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current); }
   };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
@@ -62,17 +62,34 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <DiaryApp previewUser={previewSession} onEndPreview={endSession} /> : <AuthScreen onContinue={setPreviewSession} />
+        previewSession ? <DiaryApp previewUser={previewSession}
+          onUpdatePreview={updated => setPreviewSession(current => current?.accountId === updated.accountId ? updated : current)}
+          onEndPreview={endSession} /> : <AuthScreen onContinue={setPreviewSession} />
       )}
     </SafeAreaProvider>
   );
 }
 
-function DiaryApp({ previewUser, onEndPreview }) {
+function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
+  const profileLeaveGuard = useRef(null);
+  const profileBackHandler = useRef(null);
+  const registerProfileLeaveGuard = useCallback((guard, onBack) => {
+    profileLeaveGuard.current = guard;
+    profileBackHandler.current = onBack;
+    return () => {
+      if (profileLeaveGuard.current === guard) {
+        profileLeaveGuard.current = null;
+        profileBackHandler.current = null;
+      }
+    };
+  }, []);
   const sharing = useSharing(previewUser);
   const [sharingRequest, setSharingRequest] = useState(null);
   const unreadInvites = sharing.notifications.count.data?.actionableUnreadCount || 0;
-  const openInvitations = useCallback(() => setSharingRequest({ mode: 'invitations' }), []);
+  const openInvitations = useCallback(() => {
+    const open = () => setSharingRequest({ mode: 'invitations' });
+    if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open();
+  }, []);
   const insets = useSafeAreaInsets();
   // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -172,12 +189,15 @@ function DiaryApp({ previewUser, onEndPreview }) {
   }, [setDiaries, sharing.runtime]);
 
   const navigate = useCallback((next, nextFilter) => {
-    setSelection(null);
-    if (next === 'library') {
-      setFilter(nextFilter || DEFAULT_FILTER);
-      setCarousel(0);
-    }
-    setPage(next);
+    const move = () => {
+      setSelection(null);
+      if (next === 'library') {
+        setFilter(nextFilter || DEFAULT_FILTER);
+        setCarousel(0);
+      }
+      setPage(next);
+    };
+    if (next !== 'profile' && profileLeaveGuard.current) profileLeaveGuard.current(move); else move();
   }, []);
 
   // 모든 화면 규격의 Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
@@ -185,6 +205,10 @@ function DiaryApp({ previewUser, onEndPreview }) {
   useEffect(() => {
     if (Platform.OS !== 'android' || page === 'editor') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (profileBackHandler.current) {
+        profileBackHandler.current();
+        return true;
+      }
       if (selection !== null) {
         if (!trashingRef.current) setSelection(null);
         return true;
@@ -471,7 +495,7 @@ function DiaryApp({ previewUser, onEndPreview }) {
       />
     );
   } else if (page === 'profile') {
-    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} />;
+    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard} />;
   }
 
   const createModal = createOpen && (

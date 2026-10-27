@@ -198,6 +198,11 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
       documents.activate();
       publish();
     },
+    // 계정 수정은 이후 새 다이어리에 복사할 기본값만 갱신한다. 기존 참여자 프로필은 유지한다.
+    setAccountProfile(user = {}) {
+      self.nickname = user.nickname || '방문자';
+      self.photoUri = user.photoUri || null;
+    },
     dispose() {
       active = false;
       documents.dispose();

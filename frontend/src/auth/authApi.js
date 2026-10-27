@@ -12,6 +12,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   const base = authBaseUrl(baseUrl);
   let session = null, draft = null, verification = null, revision = 0, refreshing = null;
   let passwordReset = null, resetRevision = 0;
+
   const userView = (user) => ({
     mode: 'authenticated', provider: 'email', userId: user.userId,
     email: user.email, nickname: user.nickname,
@@ -44,6 +45,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     cancelPending({ keepEnrollment = false } = {}) {
       revision++;
       resetRevision++; passwordReset = null;
+
       if (!keepEnrollment) { draft = null; verification = null; }
     },
     async login({ email, password }) {
@@ -102,6 +104,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         throw new Error('비밀번호는 재설정되었지만 화면 또는 로그인 상태가 변경되었어요.');
       session = null; api.cancelPending();
     },
+
     async completeProfile({ email, nickname, photoUri, terms }) {
       if (!draft || draft.email !== normalizeEmail(email) || !verification ||
           verification.email !== draft.email || verification.expiresAt <= now()) {

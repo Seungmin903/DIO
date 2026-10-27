@@ -17,7 +17,7 @@
 
 1. 이메일 인증번호 발송·입력·검증·재발송 UI가 필요하다. `authService.sendVerification(email)`과 `verifyEmail(email, code)`를 같은 서비스 인스턴스로 호출하면, 검증 결과 signupToken이 메모리에 보관되고 기존 가입 완료가 동작한다. 다른 이메일에 사용할 수 없으며 10분 후 만료된다. 이메일 변경 시 다시 인증한다.
 2. 실제 약관 본문/보기 연결과 운영 약관 버전 연동이 필요하다. 현재 보기 안내는 UI 체험용이며 법적 약관 문서가 아니다. 서버의 약관 버전을 바꾸면 어댑터의 v1도 함께 변경해야 한다.
-3. 소셜 로그인, 아이디 찾기와 비밀번호 재설정 입력 화면은 별도 구현이 필요하다. 비밀번호 재설정 API·호출 함수는 [password-reset.md](./password-reset.md)에 정리했다. 기존 버튼만으로 동작한다고 안내하지 않는다.
+3. 소셜 로그인, 아이디 찾기, 비밀번호 재설정은 별도 구현이 필요하다. 기존 버튼만으로 동작한다고 안내하지 않는다.
 4. 재실행 시 자동 로그인은 아직 없다. 토큰은 메모리에만 보관하며 AsyncStorage에 저장하지 않는다. 추후 네이티브 보안 저장소·세션 복원 정책이 필요하다.
 5. 다이어리/편집기 데이터는 기존 로컬 저장 흐름을 유지한다. 계정별 데이터 분리·서버 다이어리 인증 연동을 완료한 것으로 간주하면 안 된다.
 
@@ -34,8 +34,8 @@
 ## 검증 재현
 
 - 프론트 어댑터·기존 화면 상태: `cd frontend`, `pnpm test:auth`.
-- 서버 로그인·CORS: `cd backend`, `./gradlew.bat test --tests "com.f106.DIO.auth.login.EmailLoginTests"`.
-- 실제 HTTP와 브라우저: 먼저 frontend에서 `pnpm exec expo export --platform web --output-dir .expo/auth-api-export`를 **완료한 뒤**, backend PowerShell에서 `$env:DIO_AUTH_BROWSER_QA='true'`, `./gradlew.bat test --tests "com.f106.DIO.auth.login.AuthBrowserTests"`를 실행한다. 끝나면 `Remove-Item Env:DIO_AUTH_BROWSER_QA`로 해제한다. Edge가 다른 위치라면 PLAYWRIGHT_BROWSER_PATH로 실행 파일 경로를 지정한다.
+- 서버 로그인·CORS: `cd backend`, `./gradlew.bat test --tests "com.f106.DIO.auth.integration.EmailLoginTests"`.
+- 실제 HTTP와 브라우저: 먼저 frontend에서 `pnpm exec expo export --platform web --output-dir .expo/auth-api-export`를 **완료한 뒤**, backend PowerShell에서 `$env:DIO_AUTH_BROWSER_QA='true'`, `./gradlew.bat test --tests "com.f106.DIO.auth.integration.AuthBrowserTests"`를 실행한다. 끝나면 `Remove-Item Env:DIO_AUTH_BROWSER_QA`로 해제한다. Edge가 다른 위치라면 PLAYWRIGHT_BROWSER_PATH로 실행 파일 경로를 지정한다.
 
 브라우저 검증은 포트 18081의 정적 파일 서버와 임시 H2 서버를 사용한다. 번들의 개발 API 주소는 테스트 프록시로 임시 서버에 연결하며 응답을 mock하지 않는다. 테스트용 사용자만 만들고 실제 메일 발송·개인 PostgreSQL 변경·기존 서버 종료는 하지 않는다. CORS 허용/차단은 서버 테스트로 별도 확인한다. 실기기 업로드·실제 S3 업로드·메일 인증 UI 전체 흐름을 검증한 것은 아니다.
 

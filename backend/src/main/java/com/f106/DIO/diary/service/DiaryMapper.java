@@ -10,7 +10,6 @@ final class DiaryMapper {
 
 	static DiaryData toData(Diary diary) {
 		return new DiaryData(diary.getDiaryId().toString(), diary.getTitle(), diary.getCoverColor(),
-			diary.getCoverStyle(), diary.getCoverBinding(), diary.getFormatId(), diary.getCanvasWidth(), diary.getCanvasHeight(),
-			diary.getDefaultPageTemplate(), diary.getCreatedAt(), diary.getUpdatedAt());
+			diary.getCoverStyle(), diary.getVisibility(), diary.getCreatedAt(), diary.getUpdatedAt());
 	}
 }

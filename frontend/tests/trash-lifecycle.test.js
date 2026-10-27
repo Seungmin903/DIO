@@ -46,6 +46,7 @@ function fixture(t, initial, { failedRead = false, failedDelete = false, failedW
     if (id === '@react-native-async-storage/async-storage') return { __esModule: true, default: storage };
     if (id.endsWith('/storage')) return { STORAGE_KEYS: keys, saveJSON: async (k, v) => { if (failedWrite) return false; await storage.setItem(k, JSON.stringify(v)); return true; } };
     if (id.endsWith('/editorDocs')) return { forgetEditorDoc() {} };
+    if (id.endsWith('/editorViewState')) return { forgetViewedPage: async () => true };
     if (id.endsWith('/mediaReferences')) return { collectMediaIds };
     if (id.endsWith('/mediaRepository')) return { remove: async () => {} };
     if (id.endsWith('/diaryLibrary')) return library;
