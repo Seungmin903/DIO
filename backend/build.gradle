@@ -60,11 +60,14 @@ tasks.register('authPostgresTest', Test) {
 }
 
 tasks.register('postgresTest', Test) {
-	description = 'Runs diary persistence tests against the local PostgreSQL database (test rows rolled back).'
+	description = 'Runs diary and page persistence tests against the local PostgreSQL database (test rows rolled back).'
 	group = 'verification'
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
 	useJUnitPlatform()
-	filter { includeTestsMatching 'com.f106.DIO.diary.PostgresDiary*Tests' }
+	filter {
+		includeTestsMatching 'com.f106.DIO.diary.PostgresDiary*Tests'
+		includeTestsMatching 'com.f106.DIO.page.Postgres*Tests'
+	}
 	systemProperty 'dio.postgres-test', 'true'
 }
