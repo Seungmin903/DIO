@@ -105,3 +105,30 @@ test('유효한 재설정 토큰이 있으면 재발송 요청을 막고 완료 
   await api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'});
   assert.equal(JSON.parse(calls.at(-1).body).resetToken,'reset-only');
 });
+test('유효한 토큰이 있으면 인증번호 재확인을 막고 완료 요청에 원래 토큰을 사용한다',async()=>{
+  const {api,calls}=setup();
+  await api.verifyPasswordReset('member@example.com','123456');
+  const before=calls.length;
+  await assert.rejects(api.verifyPasswordReset(' MEMBER@example.com ','000000'),/이미 완료/);
+  assert.equal(calls.length,before);
+  await api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'});
+  assert.equal(JSON.parse(calls.at(-1).body).resetToken,'reset-only');
+});
+
+test('동일 이메일의 병렬 인증 확인은 첫 요청의 유효 토큰을 잃게 하지 않는다',async()=>{
+  let resolveVerify;
+  const calls=[];
+  const api=createAuthApi({baseUrl:'http://localhost:8080',fetchImpl:async(url,init)=>{
+    calls.push({url,...init});
+    if(url.endsWith('/password-reset-verifications'))return new Promise(resolve=>{resolveVerify=resolve;});
+    return {ok:true,status:204};
+  }});
+  const first=api.verifyPasswordReset('member@example.com','123456');
+  await assert.rejects(api.verifyPasswordReset('member@example.com','000000'),/확인하고/);
+  await assert.rejects(api.requestPasswordReset('member@example.com'),/확인하고/);
+  resolveVerify({ok:true,status:200,json:async()=>({resetToken:'first-token',expiresIn:600})});
+  await first;
+  await api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'});
+  assert.equal(calls.length,2);
+  assert.equal(JSON.parse(calls.at(-1).body).resetToken,'first-token');
+});

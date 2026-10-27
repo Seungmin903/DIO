@@ -11,7 +11,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   let session = null, draft = null, verification = null, revision = 0, refreshing = null;
-  let passwordReset = null, resetRevision = 0;
+  let passwordReset = null, resetRevision = 0, resetVerifying = null;
 
   const userView = (user) => ({
     mode: 'authenticated', provider: 'email', userId: user.userId,
@@ -44,7 +44,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   const api = {
     cancelPending({ keepEnrollment = false } = {}) {
       revision++;
-      resetRevision++; passwordReset = null;
+      resetRevision++; passwordReset = null; resetVerifying = null;
 
       if (!keepEnrollment) { draft = null; verification = null; }
     },
@@ -83,16 +83,26 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     async requestPasswordReset(email) {
       if (passwordReset?.email === normalizeEmail(email) && passwordReset.expiresAt > now())
         throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
-      resetRevision++; passwordReset = null;
+      if (resetVerifying?.email === normalizeEmail(email))
+        throw new Error('인증번호를 확인하고 있어요. 잠시만 기다려 주세요.');
+      resetRevision++; passwordReset = null; resetVerifying = null;
       return request('password-reset-requests', { email: normalizeEmail(email) });
     },
     async verifyPasswordReset(email, code) {
-      const attempt = ++resetRevision, normalized = normalizeEmail(email);
+      const normalized = normalizeEmail(email);
+      if (passwordReset?.email === normalized && passwordReset.expiresAt > now())
+        throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
+      if (resetVerifying?.email === normalized)
+        throw new Error('인증번호를 확인하고 있어요. 잠시만 기다려 주세요.');
+      const attempt = ++resetRevision, pending = { email: normalized };
+      resetVerifying = pending;
       passwordReset = null;
-      const result = await request('password-reset-verifications', { email: normalized, code });
-      if (attempt !== resetRevision) throw new Error('비밀번호 재설정 요청이 취소되었어요.');
-      passwordReset = { email: normalized, token: result.resetToken, expiresAt: now() + result.expiresIn * 1000 };
-      return { expiresIn: result.expiresIn };
+      try {
+        const result = await request('password-reset-verifications', { email: normalized, code });
+        if (attempt !== resetRevision) throw new Error('비밀번호 재설정 요청이 취소되었어요.');
+        passwordReset = { email: normalized, token: result.resetToken, expiresAt: now() + result.expiresIn * 1000 };
+        return { expiresIn: result.expiresIn };
+      } finally { if (resetVerifying === pending) resetVerifying = null; }
     },
     async completePasswordReset({ email, newPassword }) {
       const current = passwordReset;
