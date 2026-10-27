@@ -22,12 +22,11 @@ test('재설정 API 3개를 구분하고 토큰은 메모리에 보관해 완료
   assert.equal(calls[2].headers.Authorization,undefined);
   await assert.rejects(api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'}),/인증/);
 });
-test('다른 이메일·만료·재발송·화면 취소 후에는 완료 API를 호출하지 않는다',async()=>{
+test('다른 이메일·만료·화면 취소 후에는 완료 API를 호출하지 않는다',async()=>{
   for(const action of ['other','expired','cancel']) {
     const {api,calls,expire}=setup();
     await api.verifyPasswordReset('member@example.com','123456');
     if(action==='expired')expire();
-    if(action==='resend')await api.requestPasswordReset('member@example.com');
     if(action==='cancel')api.cancelPending();
     const before=calls.length;
     await assert.rejects(api.completePasswordReset({email:action==='other'?'other@example.com':'member@example.com',newPassword:'NewPassword123!'}),/인증/);

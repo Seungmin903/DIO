@@ -24,7 +24,7 @@ public class PasswordResetController {
     private final PasswordResetThrottle throttle;
     public PasswordResetController(PasswordResetService service, PasswordResetThrottle throttle) { this.service = service; this.throttle = throttle; }
     @PostMapping("/password-reset-requests")
-    @Operation(summary = "비밀번호 재설정 인증번호 발송", description = "등록 여부·소셜 전용·비활성 여부와 무관하게 동일한 202 안내 응답입니다. 유효한 인증번호·resetToken은 재발송으로 교체하지 않습니다. 인증번호 10분, 응답의 resendAfter는 600초입니다. 이메일 요청 최소 간격 60초, IP당 발송 요청 15분에 20회입니다.")
+    @Operation(summary = "비밀번호 재설정 인증번호 발송", description = "등록 여부·소셜 전용·비활성 여부와 무관하게 동일한 202 안내 응답입니다. 유효한 인증번호·resetToken은 재발송으로 교체하지 않습니다. 인증번호 10분, resendAfter는 최소 요청 간격 60초입니다. 발송 실패가 기록되면 쿨다운 후 재발급합니다. IP당 발송 요청은 15분에 20회입니다.")
     @ApiResponse(responseCode = "202", description = "요청 접수. 실제 이메일 발송 성공 또는 계정 존재를 뜻하지 않음")
     public ResponseEntity<PasswordResetSentResponse> send(@Valid @RequestBody EmailRequest request, HttpServletRequest http) {
         throttle.check("send", request.email(), http.getRemoteAddr());

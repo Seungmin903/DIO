@@ -54,6 +54,7 @@ class PasswordResetTests {
     @Autowired EmailSignupService signup;
     @Autowired PasswordResetService service;
     @Autowired PasswordResetRepository resets;
+    @Autowired com.f106.DIO.auth.service.PasswordResetDeliveryFailureTracker deliveryFailures;
     @Autowired com.f106.DIO.auth.service.ExpiredVerificationCleanup verificationCleanup;
     @Autowired JdbcTemplate jdbc;
     @Autowired TransactionTemplate transaction;
@@ -144,6 +145,7 @@ class PasswordResetTests {
         register(EMAIL,"재설정회원");String oldToken=sendAndVerify();
         transaction.executeWithoutResult(s->{var row=resets.findForUpdate(EMAIL).orElseThrow();org.springframework.test.util.ReflectionTestUtils.setField(row,"sentAt",Instant.now().minusSeconds(61));});
         service.send(EMAIL);verify(resetMail,times(1)).send(eq(EMAIL),anyString());
+        for(int i=0;i<5;i++) assertThatThrownBy(()->service.verify(new PasswordResetVerificationRequest(EMAIL,"000000"))).isInstanceOf(PasswordResetException.class);
         service.complete(new PasswordResetRequest(EMAIL,oldToken,NEW));
         login(EMAIL,NEW);
     }
@@ -188,6 +190,28 @@ class PasswordResetTests {
         mvc.perform(post("/api/v1/auth/password-reset-requests").contentType(MediaType.APPLICATION_JSON)
             .content("{\"email\":\""+EMAIL+"\"}")).andExpect(status().isAccepted());
         verify(resetMail,timeout(3000)).send(eq(EMAIL),anyString());
+        for(int i=0;i<100 && resets.findById(EMAIL).orElseThrow().getExpiresAt().isAfter(Instant.now());i++) Thread.sleep(20);
+        assertThat(resets.findById(EMAIL).orElseThrow().getExpiresAt()).isBeforeOrEqualTo(Instant.now());
+        // 60초 제한은 그대로 유지하고, 이후 SMTP가 회복되면 10분을 기다리지 않고 새로 발급한다.
+        transaction.executeWithoutResult(s->org.springframework.test.util.ReflectionTestUtils.setField(resets.findForUpdate(EMAIL).orElseThrow(),"sentAt",Instant.now().minusSeconds(61)));
+        doNothing().when(resetMail).send(anyString(),anyString());
+        service.send(EMAIL);
+        verify(resetMail,timeout(3000).times(2)).send(eq(EMAIL),anyString());
+        assertThat(resets.findById(EMAIL).orElseThrow().getExpiresAt()).isAfter(Instant.now());
+    }
+    @Test void delayedDeliveryFailureDoesNotExpireNewGenerationOrVerifiedToken() throws Exception {
+        register(EMAIL,"지연실패"); service.send(EMAIL);
+        verify(resetMail,timeout(3000)).send(eq(EMAIL),anyString());
+        var old=resets.findById(EMAIL).orElseThrow();
+        transaction.executeWithoutResult(s->{var row=resets.findForUpdate(EMAIL).orElseThrow();org.springframework.test.util.ReflectionTestUtils.setField(row,"sentAt",Instant.now().minusSeconds(601));org.springframework.test.util.ReflectionTestUtils.setField(row,"expiresAt",Instant.now().minusSeconds(1));});
+        service.send(EMAIL);verify(resetMail,timeout(3000).times(2)).send(eq(EMAIL),anyString());
+        deliveryFailures.failed(EMAIL,old.getCodeHash(),old.getSentAt());
+        var current=resets.findById(EMAIL).orElseThrow();
+        assertThat(current.getExpiresAt()).isAfter(Instant.now());
+        String token=service.verify(new PasswordResetVerificationRequest(EMAIL,resetCode.get())).resetToken();
+        deliveryFailures.failed(EMAIL,current.getCodeHash(),current.getSentAt());
+        service.complete(new PasswordResetRequest(EMAIL,token,NEW));
+        login(EMAIL,NEW);
     }
     @Test void failureRollsBackPasswordTokenConsumptionAndSessionRevocation() throws Exception {
         register(EMAIL,"재설정회원");String login=login(EMAIL,OLD),token=sendAndVerify();
