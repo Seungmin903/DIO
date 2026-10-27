@@ -1,6 +1,8 @@
 param([Parameter(Mandatory=$true)][string]$PostgresBin)
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+. (Join-Path $PSScriptRoot 'member-development-preflight.ps1')
+$javaExecutable=Get-MemberDevelopmentJava $env:JAVA_HOME
 $runtimeDir=Join-Path $repoRoot '.local-data/member-app'
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
 $runtimeFile=Join-Path $runtimeDir 'backend.env'
@@ -65,6 +67,8 @@ if (!(Test-Path -LiteralPath $runtimeFile)) {
 if($metadata.backendPid) {
     if(Test-OwnedBackend ([int]$metadata.backendPid)) { throw 'Owned backend is already running; stop its recorded PID before restarting changed code' }
 }
+$frontendEnv=Join-Path $repoRoot 'frontend/.env.local'
+if(Test-Path -LiteralPath $frontendEnv) { Confirm-MemberDevelopmentEndpoint $frontendEnv $metadata.apiPort }
 Get-Content -LiteralPath $runtimeFile | ForEach-Object {
     if($_ -match '^([A-Z0-9_]+)=(.*)$') { [Environment]::SetEnvironmentVariable($Matches[1],$Matches[2],'Process') }
 }
@@ -91,10 +95,10 @@ if(($databaseExists -join '').Trim() -ne '1') {
 $metadata.Remove('newDatabase') | Out-Null
 Push-Location (Join-Path $repoRoot 'backend')
 try {
-    & .\gradlew.bat bootJar --console=plain
+    & .\gradlew.bat writeMemberDevelopmentArtifact --console=plain
     if($LASTEXITCODE -ne 0) { throw 'bootJar failed' }
-    $jar=Get-ChildItem build/libs -Filter '*.jar' | Where-Object Name -notlike '*-plain.jar' | Select-Object -First 1
-    $backend=Start-Process -FilePath (Join-Path $env:JAVA_HOME 'bin/java.exe') -ArgumentList @('-jar',('"'+$jar.FullName+'"')) -WorkingDirectory (Join-Path $repoRoot 'backend') -WindowStyle Hidden -PassThru `
+    $jar=Get-MemberDevelopmentArtifact (Join-Path $repoRoot 'backend/build/member-development/boot-jar-path.txt') (Join-Path $repoRoot 'backend/build/libs')
+    $backend=Start-Process -FilePath $javaExecutable -ArgumentList @('-jar',('"'+$jar.FullName+'"')) -WorkingDirectory (Join-Path $repoRoot 'backend') -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput (Join-Path $runtimeDir 'backend.log') -RedirectStandardError (Join-Path $runtimeDir 'backend-error.log')
     $metadata.backendPid=$backend.Id
     $metadata | ConvertTo-Json | Set-Content -LiteralPath $metadataFile -Encoding utf8
@@ -108,7 +112,6 @@ try {
     & .\gradlew.bat seedMemberDevelopment --console=plain
     if($LASTEXITCODE -ne 0) { throw 'QA fixture failed' }
     & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $metadata.pgPort -U dio_member_dev -d dio_member_app -c 'select version,success from flyway_schema_history order by installed_rank; select count(*) as registered_templates from page_templates;'
-    $frontendEnv=Join-Path $repoRoot 'frontend/.env.local'
-    if(!(Test-Path -LiteralPath $frontendEnv)) { "EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:$($metadata.apiPort)/api/v1" | Set-Content -LiteralPath $frontendEnv -Encoding utf8 }
+    if(!(Test-Path -LiteralPath $frontendEnv)) { Confirm-MemberDevelopmentEndpoint $frontendEnv $metadata.apiPort }
     Write-Output "MEMBER_API=http://127.0.0.1:$($metadata.apiPort)/api/v1; WEB_QA_PORT=$($metadata.webPort); DB=dio_member_app; MIGRATIONS_APPLIED_BY_FLYWAY=true"
 } finally { Pop-Location; Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }

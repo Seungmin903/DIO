@@ -56,6 +56,16 @@ tasks.register('seedMemberDevelopment', JavaExec) {
 	mainClass = 'com.f106.DIO.diary.qa.MemberDevelopmentFixture'
 }
 
+tasks.register('writeMemberDevelopmentArtifact') {
+	description = 'Records the exact bootJar output used by the local member development launcher.'
+	dependsOn tasks.named('bootJar')
+	doLast {
+		def manifest = layout.buildDirectory.file('member-development/boot-jar-path.txt').get().asFile
+		manifest.parentFile.mkdirs()
+		manifest.setText(tasks.named('bootJar').get().archiveFile.get().asFile.absolutePath + '\n', 'UTF-8')
+	}
+}
+
 tasks.register('postgresMemberDiaryCreationTest', Test) {
 	description = 'Runs atomic diary/owner/initial-page creation tests in isolated PostgreSQL schemas.'
 	group = 'verification'

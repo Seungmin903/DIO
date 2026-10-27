@@ -8,6 +8,11 @@ $fixtureQa=Join-Path $fixture 'repo/backend/qa'
 New-Item -ItemType Directory -Force -Path $mockBin,$fixtureQa | Out-Null
 $startup=Join-Path $fixtureQa 'start-member-development.ps1'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'start-member-development.ps1') -Destination $startup
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'member-development-preflight.ps1') -Destination $fixtureQa
+$priorJavaHome=$env:JAVA_HOME
+$env:JAVA_HOME=Join-Path $fixture 'jdk'
+New-Item -ItemType Directory -Force -Path (Join-Path $env:JAVA_HOME 'bin') | Out-Null
+New-Item -ItemType File -Path (Join-Path $env:JAVA_HOME 'bin/java.exe') | Out-Null
 $initMock=Join-Path $mockBin 'initdb.ps1'
 $ctlMock=Join-Path $mockBin 'pg_ctl.ps1'
 @'
@@ -54,6 +59,16 @@ function Get-CimInstance {
 }
 $runtimeDir=Join-Path $fixture 'repo/.local-data/member-app'
 try {
+    $testJavaHome=$env:JAVA_HOME
+    $env:JAVA_HOME=''
+    Expect-Failure 'JAVA_HOME is required'
+    if (Test-Path $runtimeDir) { throw 'Missing JAVA_HOME changed runtime files' }
+    Write-Output 'PASS: missing JAVA_HOME stops before runtime initialization'
+    $env:JAVA_HOME=Join-Path $fixture 'missing-jdk'
+    Expect-Failure 'JAVA_HOME must contain'
+    if (Test-Path $runtimeDir) { throw 'Invalid JAVA_HOME changed runtime files' }
+    Write-Output 'PASS: invalid JAVA_HOME stops before runtime initialization'
+    $env:JAVA_HOME=$testJavaHome
     $env:DIO_TEST_INITDB_FAIL='true'
     Expect-Failure 'initdb failed'
     if ((Test-Path (Join-Path $runtimeDir 'backend.env')) -or (Test-Path (Join-Path $runtimeDir 'runtime.json'))) {
@@ -98,6 +113,7 @@ try {
     if (!(Test-Path (Join-Path $runtimeDir 'backend.env'))) { throw 'Incomplete cluster configuration must be preserved for recovery' }
     Write-Output 'PASS: incomplete recorded cluster fails clearly and preserves configuration'
 } finally {
+    $env:JAVA_HOME=$priorJavaHome
     Remove-Item Env:DIO_TEST_INITDB_FAIL,Env:DIO_TEST_DATABASE_READY,Env:DIO_TEST_PROCESS_SCENARIO -ErrorAction SilentlyContinue
     $resolved=[IO.Path]::GetFullPath($fixture)
     $allowed=[IO.Path]::GetFullPath((Microsoft.PowerShell.Management\Join-Path $repoRoot '.local-data'))+[IO.Path]::DirectorySeparatorChar
