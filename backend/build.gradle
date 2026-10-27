@@ -98,6 +98,7 @@ tasks.register('authPostgresTest', Test) {
 	filter {
 		includeTestsMatching 'com.f106.DIO.auth.integration.AuthInitialSchemaPostgresTests'
 		includeTestsMatching 'com.f106.DIO.diary.trash.*'
+		includeTestsMatching 'com.f106.DIO.diary.purge.*'
 	}
 	environment 'DIO_AUTH_SCHEMA_TEST', 'true'
 }
