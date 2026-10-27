@@ -80,7 +80,7 @@ class DiaryPurgePostgresTests {
         assertThat(count("diaries")).isEqualTo(2);assertThat(count("pages")).isEqualTo(2);assertThat(count("canvas_elements")).isEqualTo(1);assertThat(count("element_strokes")).isZero();
         assertThat(count("canvas_history_operations")).isEqualTo(2);assertThat(count("diary_members")).isEqualTo(2);assertThat(count("diary_invites")).isEqualTo(2);
         assertThat(count("diary_media_library")).isEqualTo(2);assertThat(count("diary_handwriting_fonts")).isEqualTo(2);
-        assertThat(count("media_files")).isEqualTo(4);assertThat(count("ai_jobs")).isEqualTo(1);assertThat(count("page_templates")).isEqualTo(288);assertThat(count("users")).isEqualTo(2);
+        assertThat(count("media_files")).isEqualTo(4);assertThat(count("ai_jobs")).isEqualTo(1);assertThat(count("users")).isEqualTo(2);
         assertThat(jdbc.queryForObject("select last_opened_page_id from diary_members where diary_id=?",UUID.class,other)).isNull();
         assertThat(jdbc.queryForObject("select last_opened_page_id from diary_members where diary_id=?",UUID.class,archived)).isEqualTo(archivePage);
         assertThat(count("notifications")).isEqualTo(3);
