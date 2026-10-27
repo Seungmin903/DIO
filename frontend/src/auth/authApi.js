@@ -10,7 +10,17 @@ export function authBaseUrl(value) {
 export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now, accessTokenHeader = 'Authorization' }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
-  let session = null, draft = null, verification = null, revision = 0, refreshing = null;
+  let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
+  const acceptSession = result => {
+    if (!Number.isSafeInteger(result?.expiresIn) || result.expiresIn <= 0 || result.expiresIn > 86400) {
+      session = null; accessRefreshAt = 0;
+      throw Object.assign(new Error('로그인 응답을 확인하지 못했어요. 다시 로그인해 주세요.'), { status: 502, code: 'INVALID_AUTH_RESPONSE' });
+    }
+    const lifetime = result.expiresIn * 1000;
+    session = result;
+    accessRefreshAt = now() + lifetime - Math.min(30000, lifetime / 2);
+  };
+  const unauthorized = () => Object.assign(new Error('다시 로그인해 주세요.'), { status: 401, code: 'AUTHENTICATION_REQUIRED' });
   let passwordReset = null, resetRevision = 0, resetVerifying = null;
 
   const userView = (user) => ({
@@ -42,6 +52,19 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     } finally { clearTimeout(timer); }
   }
   const api = {
+    getConnectionOptions() { return { baseUrl: base, accessTokenHeader }; },
+    getSessionKey() { return session ? `${session.user.userId}:${sessionSequence}` : null; },
+    async getAccessToken({ userId, sessionKey } = {}) {
+      const matches = () => session && String(session.user.userId) === String(userId) && sessionKey === api.getSessionKey();
+      if (!matches()) throw unauthorized();
+      if (refreshing) { try { await refreshing; } catch (error) { if (!matches()) throw unauthorized(); throw error; } }
+      if (!matches()) throw unauthorized();
+      if (now() >= accessRefreshAt) {
+        try { await api.refresh(); } catch (error) { if (!matches()) throw unauthorized(); throw error; }
+      }
+      if (!matches()) throw unauthorized();
+      return session.accessToken;
+    },
     cancelPending({ keepEnrollment = false } = {}) {
       revision++;
       resetRevision++; passwordReset = null; resetVerifying = null;
@@ -52,7 +75,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       const attempt = ++revision;
       const result = await request('login', { email: normalizeEmail(email), password });
       if (attempt !== revision) throw new Error('로그인 요청이 취소되었어요.');
-      session = result;
+      acceptSession(result);
+      sessionSequence++;
       return userView(result.user);
     },
     async signup({ email, password }) {
@@ -151,10 +175,10 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         try {
           const result = await request('refresh', { refreshToken: previous.refreshToken });
           if (attempt !== revision || session !== previous) throw new Error('로그인 상태가 변경되었어요.');
-          session = result;
+          acceptSession(result);
           return userView(result.user);
         } catch (error) {
-          if (session === previous) session = null;
+          if (session === previous && [401, 403].includes(error.status)) session = null;
           throw error;
         }
       })();
