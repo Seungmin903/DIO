@@ -108,3 +108,51 @@ send/verify/reset은 각각 최대 2만 IP 키와 독립 잠금을 사용한다.
 
 클라이언트는 같은 이메일의 유효한 resetToken이 있으면 verify를 요청하지 않고 새 비밀번호 입력을 안내한다. 검증 진행 중 같은 이메일의 중복 verify/send도 상태를 변경하지 않고 거절한다. 취소·다른 이메일의 새 흐름에서는 기존 요청 번호 비교로 늦은 응답을 무시하며, 이전 요청의 finally가 새 요청의 진행 상태를 지우지 않는다.
 이번 보완 검증: 제한 단위 테스트 6개, 실제 HTTP 프록시 테스트 3개, 프론트 인증 테스트 38개 통과. IPv6 /64·IPv4 매핑/선행 0 표기, 포화 격리·만료 회수, 유효 토큰 재확인/병렬 요청 보존을 확인했다. 스키마 변경 없음.
+
+## authPostgresTest 로컬 실행
+
+`authPostgresTest`는 스키마·세션 테스트와 재설정 테스트를 함께 실행한다. 아래 네 환경변수가 모두 필요하며 누락 시 테스트 실행 전에 필요한 변수 이름을 안내하고 중단한다. `.env`의 서비스용 DB 설정이나 기존 개발 DB를 이 변수에 넣지 않는다. 재설정 URL 가드와 폴백 금지 정책은 유지한다.
+
+| 변수 | 용도 |
+| --- | --- |
+| DIO_AUTH_SCHEMA_TEST_URL | 폐기용 auth_ci DB의 loopback JDBC URL |
+| DIO_AUTH_SCHEMA_TEST_PASSWORD | 해당 테스트 DB 비밀번호 |
+| DIO_RESET_POSTGRES_URL | 별도 폐기용 dio_reset_qa DB의 loopback JDBC URL |
+| DIO_RESET_POSTGRES_PASSWORD | 해당 재설정 테스트 DB 비밀번호 |
+
+CI는 `infra/scripts/test-auth-postgres.sh`가 이미 네 변수를 주입한다. 로컬 Windows에서는 Docker Desktop을 켜고 backend 폴더의 PowerShell에서 다음처럼 일회용 컨테이너를 생성해 실행한다. 랜덤 호스트 포트를 사용하므로 로컬 개발 DB 포트와 겹치지 않는다.
+
+```powershell
+$qaName = 'dio-auth-qa-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
+$qaPassword = [guid]::NewGuid().ToString('N')
+docker run -d --name $qaName --label dio.purpose=auth-qa-local -e POSTGRES_DB=auth_ci -e "POSTGRES_PASSWORD=$qaPassword" -p '127.0.0.1::5432' postgres:17
+if ($LASTEXITCODE -ne 0) { throw '테스트 컨테이너 생성 실패' }
+try {
+    $ready = $false
+    for ($i = 0; $i -lt 30; $i++) {
+        docker exec $qaName pg_isready -U postgres -d auth_ci *> $null
+        if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+        Start-Sleep -Seconds 1
+    }
+    if (-not $ready) { throw '테스트 DB 준비 실패' }
+    docker exec $qaName psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_reset_qa'
+    if ($LASTEXITCODE -ne 0) { throw '재설정 테스트 DB 생성 실패' }
+    $qaPort = (docker port $qaName 5432/tcp).Trim().Split(':')[-1]
+    $env:DIO_AUTH_SCHEMA_TEST_URL = "jdbc:postgresql://127.0.0.1:$qaPort/auth_ci"
+    $env:DIO_AUTH_SCHEMA_TEST_PASSWORD = $qaPassword
+    $env:DIO_RESET_POSTGRES_URL = "jdbc:postgresql://127.0.0.1:$qaPort/dio_reset_qa"
+    $env:DIO_RESET_POSTGRES_PASSWORD = $qaPassword
+    .\gradlew.bat authPostgresTest
+    if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL 테스트 실패' }
+} finally {
+    $label = docker inspect --format '{{ index .Config.Labels "dio.purpose" }}' $qaName
+    if ($label -eq 'auth-qa-local') { docker rm -f -v $qaName }
+    foreach ($key in 'DIO_AUTH_SCHEMA_TEST_URL','DIO_AUTH_SCHEMA_TEST_PASSWORD','DIO_RESET_POSTGRES_URL','DIO_RESET_POSTGRES_PASSWORD') {
+        Remove-Item -LiteralPath "Env:$key" -ErrorAction SilentlyContinue
+    }
+}
+```
+
+## 공용 비밀번호 인코더
+
+`AuthPasswordConfig`의 `authPasswordEncoder` 빈 하나를 회원가입·로그인·재설정에 이름으로 지정해 주입한다. 기존과 같은 BCrypt cost 12 및 해시 형식을 유지한다. 정책 변경은 이 빈에서 수행하며 로그인 더미 해시도 같은 인코더로 생성한다. 기존 비밀번호 해시의 재저장이나 DB 변경은 필요 없다.

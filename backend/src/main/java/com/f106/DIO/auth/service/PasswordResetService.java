@@ -19,7 +19,8 @@ import com.f106.DIO.user.repository.UserRepository;
 
 import java.time.Instant;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,9 +32,11 @@ public class PasswordResetService {
     private final SignupProperties properties;
     private final LoginSessionRevoker sessions;
     private final ApplicationEventPublisher events;
-    private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder(12);
+    private final PasswordEncoder passwords;
     public PasswordResetService(PasswordResetRepository resets, EmailAuthProviderRepository accounts, UserRepository users,
-            SignupProperties properties, LoginSessionRevoker sessions, ApplicationEventPublisher events) {
+            SignupProperties properties, LoginSessionRevoker sessions, ApplicationEventPublisher events,
+            @Qualifier("authPasswordEncoder") PasswordEncoder passwords) {
+        this.passwords = passwords;
         this.resets = resets; this.accounts = accounts; this.users = users; this.properties = properties;
         this.sessions = sessions; this.events = events;
     }
