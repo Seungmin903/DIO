@@ -184,6 +184,22 @@ class MemberDiaryHttpTests {
         assertThat(response).doesNotContain("sensitive database url"); noneCreated();
     }
 
+    @Test void memberPreflightAllowsCreateKeyAndPatchAndRejectsForeignOrigins() throws Exception {
+        for (String method:List.of("POST","PATCH")) {
+            String path=method.equals("POST")?PATH:PATH+"/"+UUID.randomUUID();
+            mvc.perform(options(path).header("Origin","http://localhost:8081")
+                .header("Access-Control-Request-Method",method)
+                .header("Access-Control-Request-Headers","authorization,content-type,idempotency-key"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin","http://localhost:8081"))
+                .andExpect(header().string("Access-Control-Allow-Methods",org.hamcrest.Matchers.containsString(method)))
+                .andExpect(header().string("Access-Control-Allow-Headers",org.hamcrest.Matchers.containsString("idempotency-key")))
+                .andExpect(header().string("Access-Control-Expose-Headers",org.hamcrest.Matchers.containsString("Idempotency-Replayed")));
+            mvc.perform(options(path).header("Origin","https://untrusted.example")
+                .header("Access-Control-Request-Method",method)).andExpect(status().isForbidden());
+        }
+    }
+
     @Test void corsAndOpenApiDescribeTheActualMemberRoutesAndErrorSchema() throws Exception {
         mvc.perform(options(PATH).header("Origin","http://localhost:8081").header("Access-Control-Request-Method","POST")
             .header("Access-Control-Request-Headers","authorization,content-type")).andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin","http://localhost:8081"));

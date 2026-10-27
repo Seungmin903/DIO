@@ -30,6 +30,17 @@ public class MemberDiaryExceptionHandler extends ResponseEntityExceptionHandler 
     }
     @ExceptionHandler(org.springframework.dao.DataAccessException.class)
     ResponseEntity<MemberDiaryProblem> storage(org.springframework.dao.DataAccessException error) {
+        // Never log the exception itself: driver messages can contain SQL and user input.
+        String sqlState="unknown";
+        for (Throwable cause=error; cause!=null; cause=cause.getCause()) {
+            if (cause instanceof java.sql.SQLException sql && sql.getSQLState()!=null
+                    && sql.getSQLState().matches("[A-Z0-9]{5}")) {
+                sqlState=sql.getSQLState();
+                break;
+            }
+        }
+        org.slf4j.LoggerFactory.getLogger(getClass()).error("Member diary storage failed: type={}, sqlState={}",
+            error.getClass().getSimpleName(),sqlState);
         boolean unavailable=error instanceof org.springframework.dao.DataAccessResourceFailureException
             || error instanceof org.springframework.dao.TransientDataAccessException;
         return problem(unavailable?HttpStatus.SERVICE_UNAVAILABLE:HttpStatus.INTERNAL_SERVER_ERROR,

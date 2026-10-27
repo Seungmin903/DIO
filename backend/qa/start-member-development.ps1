@@ -18,6 +18,12 @@ if (!(Test-Path -LiteralPath $runtimeFile)) {
     $pgPort=Free-Port 0; $apiPort=Free-Port 8080; $webPort=Free-Port 18181
     $keyBytes=New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Fill($keyBytes)
     $qaPassword='Qa!'+[guid]::NewGuid().ToString('N').Substring(0,24)
+    $passwordFile=Join-Path $clusterRoot ('member-pw-'+[guid]::NewGuid().ToString('N'))
+    try {
+        [IO.File]::WriteAllText($passwordFile,$password)
+        & (Join-Path $PostgresBin 'initdb.exe') -D $dataDir -U dio_member_dev --encoding=UTF8 --locale=C --auth=scram-sha-256 --pwfile=$passwordFile
+        if ($LASTEXITCODE -ne 0) { throw 'initdb failed' }
+    } finally { if (Test-Path -LiteralPath $passwordFile) { Remove-Item -LiteralPath $passwordFile } }
     @(
         "DB_URL=jdbc:postgresql://127.0.0.1:$pgPort/dio_member_app", 'POSTGRES_USER=dio_member_dev', "POSTGRES_PASSWORD=$password",
         "AUTH_JWT_SECRET=$([Convert]::ToBase64String($keyBytes))", "SERVER_PORT=$apiPort", 'SERVER_ADDRESS=127.0.0.1',
@@ -27,16 +33,13 @@ if (!(Test-Path -LiteralPath $runtimeFile)) {
     ) | Set-Content -LiteralPath $runtimeFile -Encoding utf8
     $metadata=@{ dataDir=$dataDir; postgresBin=$PostgresBin; pgPort=$pgPort; apiPort=$apiPort; webPort=$webPort; database='dio_member_app' }
     $metadata | ConvertTo-Json | Set-Content -LiteralPath $metadataFile -Encoding utf8
-    $passwordFile=Join-Path $clusterRoot ('member-pw-'+[guid]::NewGuid().ToString('N'))
-    try {
-        [IO.File]::WriteAllText($passwordFile,$password)
-        & (Join-Path $PostgresBin 'initdb.exe') -D $dataDir -U dio_member_dev --encoding=UTF8 --locale=C --auth=scram-sha-256 --pwfile=$passwordFile
-        if ($LASTEXITCODE -ne 0) { throw 'initdb failed' }
-    } finally { if (Test-Path -LiteralPath $passwordFile) { Remove-Item -LiteralPath $passwordFile } }
     $metadata['newDatabase']=$true
 } else {
     $metadata=Get-Content -LiteralPath $metadataFile -Raw | ConvertFrom-Json -AsHashtable
     if($metadata.database -ne 'dio_member_app' -or $metadata.dataDir -notmatch 'member-app-[a-f0-9]{32}$') { throw 'Unexpected runtime target' }
+    if (!(Test-Path -LiteralPath (Join-Path $metadata.dataDir 'PG_VERSION'))) {
+        throw 'Owned PostgreSQL cluster is incomplete (PG_VERSION missing); inspect runtime.json and recover the recorded cluster before restarting'
+    }
     $PostgresBin=$metadata.postgresBin
 }
 Get-Content -LiteralPath $runtimeFile | ForEach-Object {
@@ -83,7 +86,7 @@ try {
         Start-Sleep -Milliseconds 1000
     }
     if(!$healthy) { throw 'Owned backend health timeout' }
-    & .\gradlew.bat seedMemberDevelopment --console=plain --offline
+    & .\gradlew.bat seedMemberDevelopment --console=plain
     if($LASTEXITCODE -ne 0) { throw 'QA fixture failed' }
     & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $metadata.pgPort -U dio_member_dev -d dio_member_app -c 'select version,success from flyway_schema_history order by installed_rank; select count(*) as registered_templates from page_templates;'
     $frontendEnv=Join-Path $repoRoot 'frontend/.env.local'
