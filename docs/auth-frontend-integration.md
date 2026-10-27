@@ -34,8 +34,8 @@
 ## 검증 재현
 
 - 프론트 어댑터·기존 화면 상태: `cd frontend`, `pnpm test:auth`.
-- 서버 로그인·CORS: `cd backend`, `./gradlew.bat test --tests "com.f106.DIO.auth.login.EmailLoginTests"`.
-- 실제 HTTP와 브라우저: 먼저 frontend에서 `pnpm exec expo export --platform web --output-dir .expo/auth-api-export`를 **완료한 뒤**, backend PowerShell에서 `$env:DIO_AUTH_BROWSER_QA='true'`, `./gradlew.bat test --tests "com.f106.DIO.auth.login.AuthBrowserTests"`를 실행한다. 끝나면 `Remove-Item Env:DIO_AUTH_BROWSER_QA`로 해제한다. Edge가 다른 위치라면 PLAYWRIGHT_BROWSER_PATH로 실행 파일 경로를 지정한다.
+- 서버 로그인·CORS: `cd backend`, `./gradlew.bat test --tests "com.f106.DIO.auth.integration.EmailLoginTests"`.
+- 실제 HTTP와 브라우저: 먼저 frontend에서 `pnpm exec expo export --platform web --output-dir .expo/auth-api-export`를 **완료한 뒤**, backend PowerShell에서 `$env:DIO_AUTH_BROWSER_QA='true'`, `./gradlew.bat test --tests "com.f106.DIO.auth.integration.AuthBrowserTests"`를 실행한다. 끝나면 `Remove-Item Env:DIO_AUTH_BROWSER_QA`로 해제한다. Edge가 다른 위치라면 PLAYWRIGHT_BROWSER_PATH로 실행 파일 경로를 지정한다.
 
 브라우저 검증은 포트 18081의 정적 파일 서버와 임시 H2 서버를 사용한다. 번들의 개발 API 주소는 테스트 프록시로 임시 서버에 연결하며 응답을 mock하지 않는다. 테스트용 사용자만 만들고 실제 메일 발송·개인 PostgreSQL 변경·기존 서버 종료는 하지 않는다. CORS 허용/차단은 서버 테스트로 별도 확인한다. 실기기 업로드·실제 S3 업로드·메일 인증 UI 전체 흐름을 검증한 것은 아니다.
 
