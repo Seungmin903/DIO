@@ -11,16 +11,16 @@ import org.springframework.test.context.DynamicPropertySource;
 class PasswordResetPostgresTests extends PasswordResetTests {
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) {
         String url = System.getenv("DIO_RESET_POSTGRES_URL");
-        boolean dedicated = url != null;
-        if (url == null) url = System.getenv("DIO_AUTH_SCHEMA_TEST_URL");
-        if (url == null || !(dedicated ? url.matches("jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/dio_reset_qa")
-                : url.startsWith("jdbc:postgresql://127.0.0.1:")))
-            throw new IllegalStateException("Use a dedicated loopback dio_reset_qa database only");
-        String testUrl = url;
+        String testUrl = validatedUrl(url);
         registry.add("spring.datasource.url", () -> testUrl);
         registry.add("spring.datasource.username", () -> "postgres");
-        registry.add("spring.datasource.password", () -> System.getenv(dedicated ? "DIO_RESET_POSTGRES_PASSWORD" : "DIO_AUTH_SCHEMA_TEST_PASSWORD"));
+        registry.add("spring.datasource.password", () -> System.getenv("DIO_RESET_POSTGRES_PASSWORD"));
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.flyway.enabled", () -> "true");
+    }
+    static String validatedUrl(String url) {
+        if (url == null || !url.matches("jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/dio_reset_qa"))
+            throw new IllegalStateException("Explicit dedicated loopback dio_reset_qa database required; fallback is disabled");
+        return url;
     }
 }

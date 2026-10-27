@@ -23,7 +23,7 @@ test('재설정 API 3개를 구분하고 토큰은 메모리에 보관해 완료
   await assert.rejects(api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'}),/인증/);
 });
 test('다른 이메일·만료·재발송·화면 취소 후에는 완료 API를 호출하지 않는다',async()=>{
-  for(const action of ['other','expired','resend','cancel']) {
+  for(const action of ['other','expired','cancel']) {
     const {api,calls,expire}=setup();
     await api.verifyPasswordReset('member@example.com','123456');
     if(action==='expired')expire();
@@ -95,4 +95,14 @@ test('정상 완료는 기존 로그인 세션을 비우고 재설정 토큰을 
   await assert.rejects(api.refresh(),/다시 로그인/);
   await assert.rejects(api.completePasswordReset({email:'b@example.com',newPassword:'NewPassword123!'}),/인증/);
   assert.equal(calls.length,count);
+});
+
+test('유효한 재설정 토큰이 있으면 재발송 요청을 막고 완료 토큰을 보존한다',async()=>{
+  const {api,calls}=setup();
+  await api.verifyPasswordReset('member@example.com','123456');
+  const before=calls.length;
+  await assert.rejects(api.requestPasswordReset('member@example.com'),/이미 완료/);
+  assert.equal(calls.length,before);
+  await api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'});
+  assert.equal(JSON.parse(calls.at(-1).body).resetToken,'reset-only');
 });

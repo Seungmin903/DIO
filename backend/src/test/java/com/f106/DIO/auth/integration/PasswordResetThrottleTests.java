@@ -8,6 +8,18 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 class PasswordResetThrottleTests {
+    @Test void saturationCannotEvictExistingIpBudgetAndExpiredCapacityIsReclaimed() {
+        var clock = new MutableClock(); var throttle = new PasswordResetThrottle(clock);
+        for (int i=0;i<20;i++) throttle.check("send","victim"+i+"@example.com","limited-ip");
+        for (int i=0;i<19999;i++) throttle.check("verify","any@example.com","new-ip-"+i);
+        assertThatThrownBy(()->throttle.check("verify","any@example.com","overflow-ip"))
+            .isInstanceOf(PasswordResetException.class);
+        assertThatThrownBy(()->throttle.check("send","next@example.com","limited-ip"))
+            .isInstanceOfSatisfying(PasswordResetException.class,e->assertThat(e.retryAfter).isEqualTo(900));
+        clock.now=clock.now.plusSeconds(900);
+        throttle.check("send","next@example.com","limited-ip");
+        throttle.check("verify","any@example.com","overflow-ip");
+    }
     static class MutableClock extends Clock {
         Instant now = Instant.parse("2026-10-26T00:00:00Z");
         public ZoneId getZone() { return ZoneOffset.UTC; }

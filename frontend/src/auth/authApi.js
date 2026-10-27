@@ -81,6 +81,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     // 비밀번호 찾기 화면이 추가되면 연결한다. 재설정 토큰은 메모리에만 보관한다.
     async requestPasswordReset(email) {
+      if (passwordReset?.email === normalizeEmail(email) && passwordReset.expiresAt > now())
+        throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
       resetRevision++; passwordReset = null;
       return request('password-reset-requests', { email: normalizeEmail(email) });
     },

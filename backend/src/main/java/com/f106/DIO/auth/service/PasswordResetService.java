@@ -38,12 +38,17 @@ public class PasswordResetService {
     @Transactional
     public PasswordResetSentResponse send(String email) {
         PasswordResetSecrets.configured(properties.verificationSecret());
-        var response = new PasswordResetSentResponse("재설정 가능한 계정이면 인증 메일을 발송해요. 메일함을 확인해 주세요.", 600, 60);
+        var response = new PasswordResetSentResponse("재설정 가능한 계정이면 인증 메일을 발송해요. 이미 받은 유효한 인증번호가 있다면 그 번호를 사용해 주세요.", 600, 600);
         var account = accounts.findForUpdate("EMAIL", email).orElse(null);
         if (account == null || account.getPasswordHash() == null ||
                 !users.findById(account.getUserId()).map(User::isActive).orElse(false)) return response;
         Instant now = Instant.now();
         var reset = resets.findForUpdate(email).orElseGet(() -> new PasswordResetVerification(email));
+        // 이메일을 아는 제3자의 재발송 요청으로 진행 중인 인증·완료 토큰을 무효화하지 않는다.
+        if (reset.getConsumedAt() == null && (
+                (reset.getTokenHash() != null && reset.getTokenExpiresAt() != null && now.isBefore(reset.getTokenExpiresAt())) ||
+                (reset.getTokenHash() == null && reset.getExpiresAt() != null && now.isBefore(reset.getExpiresAt()) && reset.getFailedAttempts() < 5)))
+            return response;
         // 서버 재시작/다중 인스턴스에서도 기존 메일을 연속 발송하지 않는다. 응답은 항상 동일하다.
         if (reset.getSentAt() != null && now.isBefore(reset.getSentAt().plusSeconds(60))) return response;
         String code = PasswordResetSecrets.code();

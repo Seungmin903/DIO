@@ -140,13 +140,26 @@ class PasswordResetTests {
         assertThat(resets.findById(EMAIL).orElseThrow().getFailedAttempts()).isEqualTo(5);
         assertThatThrownBy(()->service.verify(new PasswordResetVerificationRequest(EMAIL,resetCode.get()))).isInstanceOf(PasswordResetException.class);
     }
-    @Test void resendInvalidatesPreviousResetTokenAndCodeExpires() throws Exception {
+    @Test void resendCannotInvalidateVerifiedResetToken() throws Exception {
         register(EMAIL,"재설정회원");String oldToken=sendAndVerify();
         transaction.executeWithoutResult(s->{var row=resets.findForUpdate(EMAIL).orElseThrow();org.springframework.test.util.ReflectionTestUtils.setField(row,"sentAt",Instant.now().minusSeconds(61));});
-        service.send(EMAIL);verify(resetMail,timeout(3000).times(2)).send(eq(EMAIL),anyString());
-        assertThatThrownBy(()->service.complete(new PasswordResetRequest(EMAIL,oldToken,NEW))).isInstanceOf(PasswordResetException.class);
-        transaction.executeWithoutResult(s->{var row=resets.findForUpdate(EMAIL).orElseThrow();org.springframework.test.util.ReflectionTestUtils.setField(row,"expiresAt",Instant.now().minusSeconds(1));});
-        assertThatThrownBy(()->service.verify(new PasswordResetVerificationRequest(EMAIL,resetCode.get()))).isInstanceOf(PasswordResetException.class);
+        service.send(EMAIL);verify(resetMail,times(1)).send(eq(EMAIL),anyString());
+        service.complete(new PasswordResetRequest(EMAIL,oldToken,NEW));
+        login(EMAIL,NEW);
+    }
+    @Test void activeCodeSurvivesResendButExpiredCodeCanBeReplaced() throws Exception {
+        register(EMAIL,"코드보존");service.send(EMAIL);
+        verify(resetMail,timeout(3000)).send(eq(EMAIL),anyString());
+        String firstCode=resetCode.get();
+        transaction.executeWithoutResult(s->{var row=resets.findForUpdate(EMAIL).orElseThrow();org.springframework.test.util.ReflectionTestUtils.setField(row,"sentAt",Instant.now().minusSeconds(61));});
+        service.send(EMAIL);
+        verify(resetMail,times(1)).send(eq(EMAIL),anyString());
+        String token=service.verify(new PasswordResetVerificationRequest(EMAIL,firstCode)).resetToken();
+        transaction.executeWithoutResult(s->{var row=resets.findForUpdate(EMAIL).orElseThrow();org.springframework.test.util.ReflectionTestUtils.setField(row,"expiresAt",Instant.now().minusSeconds(1));org.springframework.test.util.ReflectionTestUtils.setField(row,"tokenExpiresAt",Instant.now().minusSeconds(1));});
+        service.send(EMAIL);
+        verify(resetMail,timeout(3000).times(2)).send(eq(EMAIL),anyString());
+        assertThatThrownBy(()->service.complete(new PasswordResetRequest(EMAIL,token,NEW))).isInstanceOf(PasswordResetException.class);
+        assertThat(service.verify(new PasswordResetVerificationRequest(EMAIL,resetCode.get())).resetToken()).isNotBlank();
     }
     @Test void expiredWrongEmailAndSignupTokensCannotResetPassword() throws Exception {
         register(EMAIL,"재설정회원");register("other@example.com","다른회원");String token=sendAndVerify();
