@@ -19,6 +19,7 @@ for ((i=0; i<30; i++)); do
   sleep 2
 done
 if [ "$ready" != true ]; then echo "Isolated PostgreSQL did not become ready" >&2; exit 1; fi
+bash "$CI_PROJECT_DIR/infra/scripts/check-member-list-icu.sh" "$pg_name"
 docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_reset_qa' >/dev/null
 
 # 테스트 JVM만 이 DB의 네트워크 네임스페이스를 공유하므로 URL은 루프백으로 유지한다.

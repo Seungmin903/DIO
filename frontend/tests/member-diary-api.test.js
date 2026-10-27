@@ -11,6 +11,20 @@ const row = { diaryId: id, diaryTitle: 'member', coverColor: '#123456', coverSty
 const input = { title: 'member', color: '#123456', initialPages: [{ templateId: '2026-cover-landscape',
   ...serverTemplateReference('2026-cover-landscape', '1.0.0', 'landscape'), templateConfig: { width: 1024, height: 768 } }] }
 
+test('검색 기능 503은 상태와 코드를 유지하고 자동 재시도하지 않는다', async () => {
+  let calls = 0
+  const api = createMemberDiaryApi(createHttpTransport({
+    baseUrl: 'http://localhost/api/v1', getAccessToken: async () => 'test-only',
+    fetchImpl: async () => {
+      calls++
+      return new Response(JSON.stringify({ status: 503, code: 'DIARY_LIST_UNAVAILABLE', detail: '잠시 후 다시 확인해 주세요.' }),
+        { status: 503, headers: { 'Content-Type': 'application/problem+json' } })
+    },
+  }))
+  await assert.rejects(api.list({ q: 'É' }), { status: 503, code: 'DIARY_LIST_UNAVAILABLE' })
+  assert.equal(calls, 1)
+})
+
 test('회원 목록은 독립 경로·불투명 커서와 서버 페이지 수·공유 권한을 보존한다', async () => {
   let call;const api=createMemberDiaryApi(async request=>{call=request;return {items:[{diary:row,pageCount:19,shared:true}],nextCursor:'opaque',hasNext:true}})
   const result=await api.list({cursor:'previous',q:'기록',sort:'pages',limit:20})

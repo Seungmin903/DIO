@@ -7,6 +7,7 @@ import java.util.*;
 import com.f106.DIO.diary.auth.DiaryRequestIdentity;
 import com.f106.DIO.diary.detail.DiaryDetailException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -23,12 +24,9 @@ public class MemberDiaryListQuery {
         this.jdbc=jdbc; this.identity=identity;
         postgres=Boolean.TRUE.equals(jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Boolean>)
             connection -> "PostgreSQL".equals(connection.getMetaData().getDatabaseProductName())));
-        if(postgres && !Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from pg_collation where collname='und-x-icu')",Boolean.class))) {
-            throw new IllegalStateException("PostgreSQL ICU root collation und-x-icu is required for member diary search");
-        }
         // Fold both operands with the same database Unicode rules. Keep the
         // resulting title key in byte order, independent of the DB's default locale.
-        titleKeySql=postgres ? "LOWER(d.title COLLATE \"und-x-icu\") COLLATE \"C\"" : "LOWER(d.title)";
+        titleKeySql=postgres ? "LOWER(d.title COLLATE pg_catalog.\"und-x-icu\") COLLATE pg_catalog.\"C\"" : "LOWER(d.title)";
     }
     public record Item(MemberDiaryResponses.Diary diary, long pageCount, boolean shared) {}
     public record Page(List<Item> items, String nextCursor, boolean hasNext) {}
@@ -42,14 +40,23 @@ public class MemberDiaryListQuery {
         String q=query==null?"":query.strip(), sort=order==null?"created":order;
         int limit=requestedLimit==null?20:requestedLimit;
         if(q.length()>100 || limit<1 || limit>100 || !Set.of("created","updated","title","pages").contains(sort)) throw invalid();
+        boolean needsUnicode=!q.isEmpty() || sort.equals("title");
+        // This capability belongs to the member list, not application startup.
+        // Recheck on retry so installing ICU support does not require a restart.
+        if(postgres && needsUnicode && !Boolean.TRUE.equals(jdbc.queryForObject(
+            "select exists(select 1 from pg_catalog.pg_collation where collname='und-x-icu' "+
+            "and collnamespace='pg_catalog'::regnamespace and collprovider='i' and collisdeterministic)",Boolean.class))) {
+            throw new DiaryDetailException(HttpStatus.SERVICE_UNAVAILABLE,"DIARY_LIST_UNAVAILABLE",
+                "회원 목록을 사용할 수 없어요. 잠시 후 다시 확인해 주세요.");
+        }
         if(!q.isEmpty()) {
-            q=jdbc.queryForObject(postgres ? "SELECT LOWER(CAST(? AS text) COLLATE \"und-x-icu\")" : "SELECT LOWER(CAST(? AS VARCHAR))",String.class,q);
+            q=jdbc.queryForObject(postgres ? "SELECT LOWER(CAST(? AS text) COLLATE pg_catalog.\"und-x-icu\")" : "SELECT LOWER(CAST(? AS VARCHAR))",String.class,q);
             if(q.length()>100) throw invalid();
         }
         String column=switch(sort) {case "updated"->"updated_at";case "title"->"title_key";case "pages"->"page_count";default->"created_at";};
         boolean asc=sort.equals("title");
         var args=new ArrayList<Object>();args.add(user);
-        String base="SELECT d.*,m.role,"+titleKeySql+" AS title_key,"+
+        String base="SELECT d.*,m.role,"+(needsUnicode?titleKeySql:"d.title")+" AS title_key,"+
             "(SELECT COUNT(*) FROM pages p WHERE p.diary_id=d.diary_id AND p.deleted_at IS NULL) AS page_count,"+
             "(SELECT COUNT(*) FROM diary_members a WHERE a.diary_id=d.diary_id AND a.left_at IS NULL) AS member_count "+
             "FROM diaries d JOIN diary_members m ON m.diary_id=d.diary_id AND m.user_id=? "+

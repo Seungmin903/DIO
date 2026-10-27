@@ -99,6 +99,7 @@ backend-test:
         - infra/compose/compose.*.yml
         - infra/nginx/**/default.conf
         - infra/scripts/test-auth-postgres.sh
+        - infra/scripts/check-member-list-icu.sh
         - frontend/src/notifications/**/*
         - frontend/tests/*notification*
         - frontend/qa/run-notification-contract.*
@@ -144,6 +145,7 @@ backend-postgres-test:
         - backend/**/*
         - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
+        - infra/scripts/check-member-list-icu.sh
   script:
     - bash infra/scripts/test-auth-postgres.sh
   artifacts:

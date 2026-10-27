@@ -96,3 +96,8 @@ Spring 테스트는 `backend/build/contracts/member-diary-http.json`에 그 실�
 ### 회원 목록 커서 배포 호환성 (2026-10-27)
 
 PostgreSQL 비ASCII 검색 정규화와 제목 정렬 수정으로 목록 커서 형식은 v2다. 이전 v1 커서는 400이며 첫 페이지부터 다시 조회해야 한다. 커서는 클라이언트가 해석하거나 버전을 바꾸지 않는 불투명 값이다. 데이터·기기 문서 변환은 없다. PostgreSQL ICU root 전제와 검색 범위는 [회원 서버 목록 연결](./회원%20서버%20목록%20기본%20앱%20연결.md)을 참조한다.
+
+
+### ICU 지원이 없는 PostgreSQL의 목록 응답 (2026-10-27)
+
+Unicode 검색(q가 공백 제거 후 비어 있지 않음) 또는 sort=title 요청은 503 DIARY_LIST_UNAVAILABLE로 실패한다. 검색 없는 created/updated/pages 목록·생성·상세·수정·인증의 가용성을 이 조건으로 막지 않는다. 목록 예외는 안전한 Problem 응답이며 no-store다. 프런트는 503을 인증 만료로 처리하거나 자동 재시도하지 않고 기존 목록/문서를 유지한 채 재시도를 안내한다. PostgreSQL ICU root 확인은 요청 시점이며 지원을 복구하면 같은 앱에서 재시도할 수 있다. 기존 검색 의미·v2 커서 형식·저장 데이터는 바뀌지 않는다.
