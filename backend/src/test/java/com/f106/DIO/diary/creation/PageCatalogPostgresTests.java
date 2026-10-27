@@ -22,7 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.*;
 
-/** V6→V7 실제 데이터 보존 및 프런트가 생성한 Selection 계약을 제품 페이지 모듈에 적용한다. */
+/** V6→V9 실제 데이터 보존 및 프런트가 생성한 Selection 계약을 제품 페이지 모듈에 적용한다. */
 @EnabledIfSystemProperty(named="dio.diary-creation-postgres",matches="true")
 class PageCatalogPostgresTests {
     String schema;
@@ -107,7 +107,7 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select display_order from page_templates where template_id=987",Integer.class)).isEqualTo(999);
         assertThat(jdbc.queryForObject("select canvas_width from pages where page_id=?",Integer.class,page)).isEqualTo(1280);
         assertThat(jdbc.queryForObject("select template_config->>'legacy' from pages where page_id=?",String.class,page)).isEqualTo("true");
-        try(var stream=getClass().getResourceAsStream("/db/migration/V7__seed_page_template_catalog.sql")) {
+        try(var stream=getClass().getResourceAsStream("/db/migration/V9__seed_page_template_catalog.sql")) {
             jdbc.execute(new String(stream.readAllBytes(),StandardCharsets.UTF_8));
         }
         assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(289);
@@ -120,7 +120,7 @@ class PageCatalogPostgresTests {
         assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class);
         assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select canvas_width from page_templates where template_id=987",Integer.class)).isEqualTo(42);
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='7'",Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='9'",Long.class)).isZero();
     }
 
     @Test void duplicateExistingCodeVersionStopsUpgradeWithoutDeletingEitherRecord() {
@@ -130,6 +130,6 @@ class PageCatalogPostgresTests {
             last.get("templateCode").asString(),last.get("templateVersion").asString(),last.get("orientation").asString(),last.get("canvasWidth").asInt(),last.get("canvasHeight").asInt());
         assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class);
         assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(2);
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='7'",Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='9'",Long.class)).isZero();
     }
 }

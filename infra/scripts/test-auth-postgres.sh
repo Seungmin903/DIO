@@ -19,6 +19,7 @@ for ((i=0; i<30; i++)); do
   sleep 2
 done
 if [ "$ready" != true ]; then echo "Isolated PostgreSQL did not become ready" >&2; exit 1; fi
+docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_reset_qa' >/dev/null
 
 docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_trash_qa' >/dev/null
 
@@ -29,6 +30,8 @@ docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
   -e DIO_AUTH_SCHEMA_TEST_PASSWORD="$test_password" \
   -e DIO_LIST_QUERY_PG=true -e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_trash_qa \
   -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$test_password" \
+  -e DIO_RESET_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_reset_qa \
+  -e DIO_RESET_POSTGRES_PASSWORD="$test_password" \
   -v "$CI_PROJECT_DIR/backend:/workspace/backend" \
   -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro" \
   -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro" \

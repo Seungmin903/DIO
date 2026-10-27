@@ -1,4 +1,7 @@
 import { createDiaryQuery } from '../diary/services/diaryQuery.js';
+import { canOpenInvitation } from './invitationAccess.js';
+import { isInvitationNotification } from './notificationPresentation.js';
+import { notificationErrorNotice } from './notificationErrorNotice.js';
 
 // 한 로그인 세션에 한 저장소. 목록과 공유 진입점은 같은 count를 구독한다.
 export function createNotificationStore(api, invitations) {
@@ -14,7 +17,7 @@ export function createNotificationStore(api, invitations) {
   const publish = () => {
     const first = list.getSnapshot();
     snapshot = { list: first, count: count.getSnapshot(), invitation: invitation.getSnapshot(), more: more.getSnapshot(),
-      items, nextCursor,
+      items, nextCursor, canReadAll: typeof api.readAll === 'function',
       mutation };
     listeners.forEach(listener => listener());
   };
@@ -38,6 +41,7 @@ export function createNotificationStore(api, invitations) {
     if (active) await Promise.all([refreshList(), count.run(), includeInvitation ? refreshInvitation() : undefined]);
   };
   const refresh = () => refreshAll(true);
+  const retryAllowed = query => query.getSnapshot().status !== 'error' || notificationErrorNotice(query.getSnapshot().error).canRetry;
   const mutate = async command => {
     if (!active || mutation.status === 'saving' || (pending && command !== pending)) return;
     pending = command;
@@ -57,7 +61,7 @@ export function createNotificationStore(api, invitations) {
       mutation = { status: 'success', error: null, canRetry: false }; publish();
     } catch (error) {
       if (!active || request !== generation || error.name === 'AbortError') return;
-      const canRetry = ![400, 401, 403, 404, 409, 410, 422].includes(error.status);
+      const { canRetry } = notificationErrorNotice(error);
       if (!canRetry) pending = null;
       mutation = { status: 'error', error, canRetry }; publish();
     }
@@ -66,9 +70,10 @@ export function createNotificationStore(api, invitations) {
   return {
     getSnapshot: () => snapshot,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    refresh, refreshList, refreshCount: () => active && count.run(),
+    refresh, refreshList, refreshNotifications: () => refreshAll(false),
+    refreshCount: () => active && retryAllowed(count) && count.getSnapshot().status !== 'loading' && count.run(),
     async loadMore() {
-      if (!active || list.getSnapshot().status === 'loading' || more.getSnapshot().status === 'loading' || !snapshot.nextCursor) return;
+      if (!active || !retryAllowed(more) || !retryAllowed(list) || list.getSnapshot().status === 'loading' || more.getSnapshot().status === 'loading' || !snapshot.nextCursor) return;
       const request = generation, page = pageGeneration, cursor = snapshot.nextCursor;
       await more.run({ cursor });
       if (active && request === generation && page === pageGeneration && more.getSnapshot().status === 'success') {
@@ -80,23 +85,24 @@ export function createNotificationStore(api, invitations) {
     open(row) {
       if (!active || mutation.status === 'saving' || pending) return;
       // 과거 알림 payload 대신 공유 측의 현재 상태로 이동 여부를 판단한다.
-      selectedInviteId = row.inviteId;
+      selectedInviteId = isInvitationNotification(row) ? row.inviteId : null;
       invitation.reset();
       const detail = refreshInvitation();
       return Promise.all([detail, row.readAt ? Promise.resolve() : mutate({ kind: 'read', id: row.id })]);
     },
     closeInvitation() { selectedInviteId = null; invitationGeneration += 1; invitation.reset(); },
-    retryInvitation: refreshInvitation,
+    retryInvitation: () => retryAllowed(invitation) && refreshInvitation(),
     async proceedToInvitation(onReady) {
       if (!active || !selectedInviteId || invitation.getSnapshot().status !== 'success') return;
       const id = selectedInviteId;
       const work = refreshInvitation(), request = invitationGeneration;
       await work;
       const result = invitation.getSnapshot();
-      if (active && selectedInviteId === id && request === invitationGeneration && result.status === 'success' && result.data.status === 'PENDING') onReady(result.data);
+      if (active && selectedInviteId === id && request === invitationGeneration && result.status === 'success'
+        && result.data?.inviteId === id && canOpenInvitation(result.data)) onReady(result.data);
     },
     remove: id => mutate({ kind: 'remove', id }),
-    readAll() { const id = list.getSnapshot().data?.items[0]?.id; if (id) return mutate({ kind: 'readAll', id }); },
+    readAll() { if (typeof api.readAll !== 'function') return; const id = list.getSnapshot().data?.items[0]?.id; if (id) return mutate({ kind: 'readAll', id }); },
     retryMutation: () => pending && mutate(pending),
     dismissMutation() { if (!pending && mutation.status !== 'saving') { mutation = { status: 'idle', error: null, canRetry: false }; publish(); } },
     activate() { active = true; },
@@ -105,16 +111,22 @@ export function createNotificationStore(api, invitations) {
 }
 
 // AppState와 브라우저 표시 상태를 받아 비활성 중에는 타이머를 만들지 않는다.
-export function startNotificationRefresh(store, { subscribe, isActive, intervalMs = 30000, setIntervalFn = setInterval, clearIntervalFn = clearInterval }) {
-  let timer;
+export function startNotificationRefresh(store, { subscribe, isActive, isUnknown = () => false, intervalMs = 30000, setIntervalFn = setInterval, clearIntervalFn = clearInterval }) {
+  let timer, previous, stopped = false;
   const update = () => {
+    if (stopped) return;
+    const current = isActive();
+    if (current === previous) return;
+    previous = current;
     if (timer !== undefined) clearIntervalFn(timer);
     timer = undefined;
-    if (isActive()) {
+    if (current) {
       store.refresh();
-      timer = setIntervalFn(() => store.refreshCount(), intervalMs);
+      timer = setIntervalFn(() => { if (!stopped && isActive()) store.refreshCount(); }, intervalMs);
     }
   };
-  const unsubscribe = subscribe(update); update();
-  return () => { unsubscribe(); if (timer !== undefined) clearIntervalFn(timer); };
+  const unsubscribe = subscribe(update);
+  if (isUnknown()) store.refresh(); // 미확정 시작은 한 번 조회하되 active 확인 전에는 polling하지 않는다.
+  update();
+  return () => { stopped = true; unsubscribe(); if (timer !== undefined) clearIntervalFn(timer); };
 }

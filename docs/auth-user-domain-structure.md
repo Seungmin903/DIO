@@ -47,7 +47,7 @@
 
 ## 검증
 
-backend 폴더에서 `./gradlew.bat test`로 회귀 테스트를 실행한다. 격리 PostgreSQL 접속 변수를 설정한 뒤 `./gradlew.bat authPostgresTest`로 기존 Flyway 마이그레이션과 실제 PostgreSQL 인증 동작을 검증한다. 테스트 패키지는 `auth.integration`, `user.integration`에 있다. DomainStructureTests는 user→auth 참조가 다시 생기거나 엔티티가 DTO·외부 저장소에 의존하지 않도록 검사한다.
+backend 폴더에서 `./gradlew.bat test`로 회귀 테스트를 실행한다. [비밀번호 재설정 문서](./password-reset.md)의 authPostgresTest 로컬 실행 절에 따라 스키마·재설정용 URL/비밀번호 네 변수를 모두 설정한 뒤 `./gradlew.bat authPostgresTest`로 기존 Flyway 마이그레이션과 실제 PostgreSQL 인증 동작을 검증한다. 테스트 패키지는 `auth.integration`, `user.integration`에 있다. DomainStructureTests는 user→auth 참조가 다시 생기거나 엔티티가 DTO·외부 저장소에 의존하지 않도록 검사한다.
 
 ### 이번 변경의 검증 결과 (2026-10-27)
 

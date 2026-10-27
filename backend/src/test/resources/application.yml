@@ -10,6 +10,8 @@ spring:
     username: sa
     password:
   jpa:
+    # 실제 서버와 동일하게 요청 전체에서 EntityManager를 공유하지 않는다.
+    open-in-view: false
     hibernate:
       ddl-auto: create-drop
   flyway:

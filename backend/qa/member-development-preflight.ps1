@@ -5,6 +5,16 @@ function Get-MemberDevelopmentJava([string]$JavaHome) {
     return [IO.Path]::GetFullPath($executable)
 }
 
+function Assert-MemberPostgresInstallation([string]$PostgresBin) {
+    $required=@('postgres.exe','psql.exe','pg_ctl.exe','initdb.exe') | ForEach-Object { Join-Path $PostgresBin $_ }
+    $required+=Join-Path (Split-Path $PostgresBin) 'share/timezonesets/Default'
+    foreach($file in $required) {
+        if (!(Test-Path -LiteralPath $file -PathType Leaf)) {
+            throw 'Incomplete PostgreSQL installation: restore matching bin/lib/share support files without initdb or changing the data directory'
+        }
+    }
+}
+
 function Get-MemberDevelopmentArtifact([string]$Manifest,[string]$LibraryDirectory) {
     if (!(Test-Path -LiteralPath $Manifest -PathType Leaf)) { throw 'bootJar artifact manifest is missing' }
     $lines=@(Get-Content -LiteralPath $Manifest | Where-Object { ![string]::IsNullOrWhiteSpace($_) })

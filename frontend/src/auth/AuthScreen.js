@@ -27,10 +27,12 @@ import {
   credentialsValid,
   nicknameError,
   normalizeNickname,
+  normalizeEmail,
 } from './validation';
 import { authStyles as s } from './styles';
 import ProviderIcon from './ProviderIcon';
 import { pickProfilePhoto } from './profilePhoto';
+import EmailVerification from './EmailVerification';
 
 const PROVIDERS = [
   { id: 'kakao', name: '카카오', color: '#FEE500' },
@@ -49,6 +51,8 @@ export default function AuthScreen({
   onContinue,
   service = authService,
   photoPicker = pickProfilePhoto,
+  verificationService,
+  emailVerificationEnabled = typeof __DEV__ !== 'undefined' && __DEV__,
 }) {
   const { isPhone, formFactor } = useFormFactor();
   useOrientationLock(formFactor, false);
@@ -132,7 +136,12 @@ export default function AuthScreen({
     };
   }, []);
   const navigate = (next) => {
-    service.cancelPending?.({ keepEnrollment: next === 'profile' });
+    if (next === 'signup' && !emailVerificationEnabled && !verificationService) {
+      Keyboard.dismiss();
+      setInfo({ title: '회원가입 준비 중', body: '이메일 인증 기능을 준비하고 있어요. 연결이 완료되면 회원가입을 이용할 수 있어요.' });
+      return;
+    }
+    service.cancelPending?.({ keepEnrollment: next === 'profile' || next === 'verification' });
     Keyboard.dismiss();
     focusedInput.current = null;
     clearTimeout(focusTimer.current);
@@ -160,7 +169,7 @@ export default function AuthScreen({
     }
   };
   const back = () =>
-    navigate(route === 'profile' && profile?.provider === 'email' ? 'signup' : 'welcome');
+    navigate(route === 'verification' || (route === 'profile' && profile?.provider === 'email') ? 'signup' : 'welcome');
   useEffect(() => {
     const listener = BackHandler.addEventListener('hardwareBackPress', () => {
       if (info) {
@@ -186,7 +195,8 @@ export default function AuthScreen({
       if (alive.current && id === job.current) onSuccess(result);
     } catch (error) {
       if (alive.current && id === job.current)
-        setMessage(error.message || '처리하지 못했어요. 다시 시도해 주세요.');
+        setMessage(typeof error?.message === 'string' && error.message.trim()
+          ? error.message : '처리하지 못했어요. 다시 시도해 주세요.');
     } finally {
       if (alive.current && id === job.current) {
         running.current = false;
@@ -213,16 +223,12 @@ export default function AuthScreen({
   const credentialsSubmit = () => {
     setTouched({ email: true, password: true, confirmation: signup });
     if (!credentialsValid(values, signup)) return;
-    if (signup)
-      run(
-        () => service.signup(values),
-        (result) => {
-          setPhotoUri(null);
-          setProfile(result);
-          setTerms(emptyTerms());
-          navigate('profile');
-        },
-      );
+    if (signup) {
+      setPhotoUri(null);
+      setProfile({ provider: 'email', email: normalizeEmail(values.email) });
+      setTerms(emptyTerms());
+      navigate('verification');
+    }
     else
       run(
         () => service.login(values),
@@ -261,7 +267,8 @@ export default function AuthScreen({
       if (alive.current && id === checking.current) {
         setChecked(null);
         setCheckState('error');
-        setCheckMessage(error.message || '중복 확인에 실패했어요. 다시 시도해 주세요.');
+        setCheckMessage(typeof error?.message === 'string' && error.message.trim()
+          ? error.message : '중복 확인에 실패했어요. 다시 시도해 주세요.');
       }
     } finally {
       if (id === checking.current) checkRunning.current = false;
@@ -338,7 +345,7 @@ export default function AuthScreen({
               >
                 <AppIcon name="chevron-left" size={20} />
                 <Text style={s.linkText}>
-                  {route === 'profile' && profile?.provider === 'email' ? '이전 화면' : '시작 화면'}
+                  {(route === 'verification' || (route === 'profile' && profile?.provider === 'email')) ? '이전 화면' : '시작 화면'}
                 </Text>
               </Pressable>
             )}
@@ -350,6 +357,7 @@ export default function AuthScreen({
                     ? 'DIO에 오신 걸 환영해요'
                     : route === 'signup'
                       ? '나만의 기록을 시작해요'
+                      : route === 'verification' ? '이메일을 인증해 주세요'
                       : '프로필을 완성해 주세요'}
                 </Text>
                 <Text style={s.subtitle}>
@@ -357,11 +365,32 @@ export default function AuthScreen({
                     ? '함께 기록하고, 추억을 나눠 보세요.'
                     : route === 'signup'
                       ? '이메일로 DIO 계정을 만들어 주세요.'
+                      : route === 'verification' ? '인증번호를 입력해 이메일을 확인해 주세요.'
                       : '나만의 이름으로 DIO의 기록을 시작해요.'}
                 </Text>
               </View>
             </View>
-            {route === 'welcome' || route === 'signup' ? (
+            {route === 'verification' ? (
+              <EmailVerification key={profile?.email} email={profile?.email}
+                service={verificationService} Field={FormField} primary={primary}
+                focusInput={focusInput} blurInput={blurInput} onComplete={() => {
+                  Keyboard.dismiss();
+                  if (verificationService && typeof verificationService.prepareSignup !== 'function') {
+                    setMessage('가입 정보 준비 기능이 연결되지 않았어요. 잠시 후 다시 시도해 주세요.');
+                    return;
+                  }
+                  if (verificationService) {
+                    run(() => verificationService.prepareSignup(values), (result) => {
+                      if (result?.provider !== 'email' || typeof result.email !== 'string' ||
+                          normalizeEmail(result.email) !== normalizeEmail(values.email)) {
+                        throw new Error('가입 정보를 확인하지 못했어요. 다시 시도해 주세요.');
+                      }
+                      setProfile(result);
+                      navigate('profile');
+                    });
+                  } else navigate('profile');
+                }} />
+            ) : route === 'welcome' || route === 'signup' ? (
               <View style={s.form}>
                 <FormField
                   onInputFocus={focusInput}
@@ -664,7 +693,7 @@ export default function AuthScreen({
                 {primary('가입 완료', complete, !profileReady)}
               </View>
             )}
-            {route === 'profile' && message ? (
+            {(route === 'profile' || route === 'verification') && message ? (
               <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={s.error}>
                 {message}
               </Text>
@@ -751,8 +780,8 @@ function FormField({
           secureTextEntry={password && !visible}
           autoCapitalize="none"
           autoCorrect={false}
-          autoComplete="off"
-          textContentType="none"
+          autoComplete={props.autoComplete ?? 'off'}
+          textContentType={props.textContentType ?? 'none'}
           placeholderTextColor={colors.textMuted}
           style={[s.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
         />

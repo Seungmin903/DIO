@@ -10,7 +10,7 @@ export const styles = StyleSheet.create({
   app: { overflow: 'hidden', backgroundColor: C.canvas },
   shell: { flex: 1, flexDirection: 'row' },
   workspace: { flex: 1, minWidth: 0, position: 'relative', backgroundColor: C.canvas },
-  // 폰: 16:10 프레임 없이 화면 전체를 쓰고, 아래에 탭 막대를 둔다.
+  // 폰은 기존 flex 배치로 화면 전체를 쓰고, 아래에 탭 막대를 둔다.
   appFill: { flex: 1, alignSelf: 'stretch' },
   phoneShell: { flex: 1 },
   tabBarWrap: { flexShrink: 0, paddingHorizontal: 10, paddingTop: 6, backgroundColor: C.canvas },

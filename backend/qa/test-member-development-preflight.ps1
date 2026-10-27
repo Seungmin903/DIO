@@ -36,6 +36,23 @@ try {
     Check 'missing Java home is explicit' { Expect-Failure 'JAVA_HOME is required' { Get-MemberDevelopmentJava '' } }
     Check 'invalid Java home is explicit' { Expect-Failure 'bin/java.exe' { Get-MemberDevelopmentJava (Join-Path $fixture 'missing') } }
     Check 'valid Java executable resolved' { if ((Get-MemberDevelopmentJava $jdk) -ne $java) { throw 'Wrong Java executable' } }
+    $pgBin=Join-Path $fixture 'pgsql/bin'
+    $timezoneDir=Join-Path $fixture 'pgsql/share/timezonesets'
+    New-Item -ItemType Directory -Force -Path $pgBin,$timezoneDir | Out-Null
+    foreach($file in @('postgres.exe','psql.exe','pg_ctl.exe','initdb.exe')) { New-Item -ItemType File -Path (Join-Path $pgBin $file) | Out-Null }
+    $default=Join-Path $timezoneDir 'Default'
+    New-Item -ItemType File -Path $default | Out-Null
+    Check 'complete PostgreSQL support paths accepted' { Assert-MemberPostgresInstallation $pgBin }
+    Check 'missing timezone support fails without data reinitialization' {
+        Remove-Item -LiteralPath $default
+        Expect-Failure 'Incomplete PostgreSQL installation' { Assert-MemberPostgresInstallation $pgBin }
+        New-Item -ItemType File -Path $default | Out-Null
+    }
+    Check 'missing psql fails clearly' {
+        $psql=Join-Path $pgBin 'psql.exe'; Remove-Item -LiteralPath $psql
+        Expect-Failure 'Incomplete PostgreSQL installation' { Assert-MemberPostgresInstallation $pgBin }
+        New-Item -ItemType File -Path $psql | Out-Null
+    }
     Check 'missing artifact manifest is explicit' { Expect-Failure 'manifest is missing' { Get-MemberDevelopmentArtifact $manifest $libs } }
     Check 'exact Gradle output wins over newer stale jars' {
         $current | Set-Content -LiteralPath $manifest
