@@ -16,6 +16,8 @@ New-Item -ItemType File -Path (Join-Path $env:JAVA_HOME 'bin/java.exe') | Out-Nu
 $initMock=Join-Path $mockBin 'initdb.ps1'
 $ctlMock=Join-Path $mockBin 'pg_ctl.ps1'
 New-Item -ItemType File -Path (Join-Path $mockBin 'postgres.exe') | Out-Null
+$createdb=Join-Path $mockBin 'createdb.exe'
+New-Item -ItemType File -Path $createdb | Out-Null
 $timezoneDir=Join-Path (Split-Path $mockBin) 'share/timezonesets'
 New-Item -ItemType Directory -Force -Path $timezoneDir | Out-Null
 New-Item -ItemType File -Path (Join-Path $timezoneDir 'Default') | Out-Null
@@ -69,6 +71,19 @@ function Get-CimInstance {
 }
 $runtimeDir=Join-Path $fixture 'repo/.local-data/member-app'
 try {
+    $legacyShell=Get-Command powershell.exe -ErrorAction SilentlyContinue
+    if ($legacyShell) {
+        foreach($target in @($startup,(Join-Path $fixtureQa 'member-development-preflight.ps1'))) {
+            # Process-only policy override lets this isolated fixture reach the
+            # version guard; no persistent execution policy is changed.
+            $arguments=@('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$target)
+            if($target -eq $startup) { $arguments+=@('-PostgresBin',$mockBin) }
+            $output=(& $legacyShell.Source @arguments 2>&1 | Out-String)
+            if($LASTEXITCODE -eq 0 -or $output -notmatch '7\.0') { throw 'Windows PowerShell must fail with the explicit version requirement' }
+            if(Test-Path $runtimeDir) { throw 'Unsupported PowerShell changed runtime files' }
+        }
+        Write-Output 'PASS: Windows PowerShell 5.1 rejects both scripts before runtime changes'
+    } else { Write-Output 'SKIP: Windows PowerShell version rejection (powershell.exe unavailable)' }
     $testJavaHome=$env:JAVA_HOME
     $env:JAVA_HOME=''
     Expect-Failure 'JAVA_HOME is required'
@@ -79,6 +94,15 @@ try {
     if (Test-Path $runtimeDir) { throw 'Invalid JAVA_HOME changed runtime files' }
     Write-Output 'PASS: invalid JAVA_HOME stops before runtime initialization'
     $env:JAVA_HOME=$testJavaHome
+    # Missing createdb must not initialize a cluster or persist private settings.
+    Remove-Item -LiteralPath $createdb
+    Expect-Failure 'Incomplete PostgreSQL installation'
+    if ((Test-Path (Join-Path $runtimeDir 'backend.env')) -or (Test-Path (Join-Path $runtimeDir 'runtime.json')) `
+        -or @(Get-ChildItem -LiteralPath (Split-Path $mockBin) -Directory -Filter 'member-app-*').Count) {
+        throw 'Missing createdb changed runtime configuration or initialized a cluster'
+    }
+    New-Item -ItemType File -Path $createdb | Out-Null
+    Write-Output 'PASS: missing createdb stops before initdb and private configuration persistence'
     $env:DIO_TEST_INITDB_FAIL='true'
     Expect-Failure 'initdb failed'
     if ((Test-Path (Join-Path $runtimeDir 'backend.env')) -or (Test-Path (Join-Path $runtimeDir 'runtime.json'))) {
@@ -91,6 +115,15 @@ try {
     $metadata=Get-Content -LiteralPath (Join-Path $runtimeDir 'runtime.json') -Raw | ConvertFrom-Json
     if (!(Test-Path (Join-Path $metadata.dataDir 'PG_VERSION'))) { throw 'Cluster must precede metadata' }
     Write-Output 'PASS: retry initializes cluster before persisting configuration'
+    $beforeEnv=(Get-FileHash -LiteralPath (Join-Path $runtimeDir 'backend.env')).Hash
+    $beforeMetadata=(Get-FileHash -LiteralPath (Join-Path $runtimeDir 'runtime.json')).Hash
+    Remove-Item -LiteralPath $createdb
+    Expect-Failure 'Incomplete PostgreSQL installation'
+    if ((Get-FileHash -LiteralPath (Join-Path $runtimeDir 'backend.env')).Hash -ne $beforeEnv `
+        -or (Get-FileHash -LiteralPath (Join-Path $runtimeDir 'runtime.json')).Hash -ne $beforeMetadata `
+        -or !(Test-Path (Join-Path $metadata.dataDir 'PG_VERSION'))) { throw 'Missing createdb changed recorded runtime' }
+    New-Item -ItemType File -Path $createdb | Out-Null
+    Write-Output 'PASS: missing createdb preserves existing cluster and private configuration'
     $env:DIO_TEST_DATABASE_READY='true'
     $env:DIO_TEST_LEGACY_HISTORY='true'
     Expect-Failure 'Legacy member V7/V8 history detected'
