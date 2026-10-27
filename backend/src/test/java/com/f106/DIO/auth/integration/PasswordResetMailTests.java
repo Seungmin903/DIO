@@ -19,7 +19,7 @@ class PasswordResetMailTests {
         new SmtpPasswordResetMailSender(factory.getBeanProvider(JavaMailSender.class),properties).send("member@example.com","123456");
         var message = ArgumentCaptor.forClass(SimpleMailMessage.class);verify(mail).send(message.capture());
         assertThat(message.getValue().getSubject()).isEqualTo("[DIO] 비밀번호 재설정 인증번호");
-        assertThat(message.getValue().getText()).contains("123456","10분","본인이 요청하지 않았다면");
+        assertThat(message.getValue().getText()).contains("123456","600초","본인이 요청하지 않았다면");
         assertThat(message.getValue().getTo()).containsExactly("member@example.com");
     }
     @Test void transportErrorsAreSanitized() {

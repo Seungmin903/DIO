@@ -1,5 +1,7 @@
 package com.f106.DIO.auth.infrastructure.mail;
 
+import static com.f106.DIO.auth.domain.PasswordResetPolicy.*;
+
 import com.f106.DIO.auth.config.SignupProperties;
 import com.f106.DIO.auth.exception.PasswordResetException;
 import com.f106.DIO.auth.infrastructure.mail.PasswordResetMailSender;
@@ -23,7 +25,7 @@ public class SmtpPasswordResetMailSender implements PasswordResetMailSender {
         var message = new SimpleMailMessage();
         message.setFrom(properties.mailFrom()); message.setTo(email);
         message.setSubject("[DIO] 비밀번호 재설정 인증번호");
-        message.setText("비밀번호 재설정 인증번호: " + code + "\n10분 안에 입력해 주세요. 본인이 요청하지 않았다면 무시해 주세요.");
+        message.setText("비밀번호 재설정 인증번호: " + code + "\n" + CODE_TTL_SECONDS + "초 안에 입력해 주세요. 본인이 요청하지 않았다면 무시해 주세요.");
         try { mail.send(message); } catch (MailException error) { throw unavailable(); }
     }
     private PasswordResetException unavailable() {

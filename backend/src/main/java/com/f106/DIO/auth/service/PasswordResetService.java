@@ -1,5 +1,7 @@
 package com.f106.DIO.auth.service;
 
+import static com.f106.DIO.auth.domain.PasswordResetPolicy.*;
+
 import com.f106.DIO.auth.config.SignupProperties;
 import com.f106.DIO.auth.domain.PasswordResetVerification;
 import com.f106.DIO.auth.dto.PasswordResetRequest;
@@ -38,7 +40,7 @@ public class PasswordResetService {
     @Transactional
     public PasswordResetSentResponse send(String email) {
         PasswordResetSecrets.configured(properties.verificationSecret());
-        var response = new PasswordResetSentResponse("재설정 가능한 계정이면 인증 메일을 발송해요. 이미 받은 유효한 인증번호가 있다면 그 번호를 사용해 주세요.", 600, 60);
+        var response = new PasswordResetSentResponse("재설정 가능한 계정이면 인증 메일을 발송해요. 이미 받은 유효한 인증번호가 있다면 그 번호를 사용해 주세요.", CODE_TTL_SECONDS, RESEND_COOLDOWN_SECONDS);
         var account = accounts.findForUpdate("EMAIL", email).orElse(null);
         if (account == null || account.getPasswordHash() == null ||
                 !users.findById(account.getUserId()).map(User::isActive).orElse(false)) return response;
@@ -47,10 +49,10 @@ public class PasswordResetService {
         // 이메일을 아는 제3자의 재발송 요청으로 진행 중인 인증·완료 토큰을 무효화하지 않는다.
         if (reset.getConsumedAt() == null && (
                 (reset.getTokenHash() != null && reset.getTokenExpiresAt() != null && now.isBefore(reset.getTokenExpiresAt())) ||
-                (reset.getTokenHash() == null && reset.getExpiresAt() != null && now.isBefore(reset.getExpiresAt()) && reset.getFailedAttempts() < 5)))
+                (reset.getTokenHash() == null && reset.getExpiresAt() != null && now.isBefore(reset.getExpiresAt()) && reset.getFailedAttempts() < MAX_FAILED_ATTEMPTS)))
             return response;
-        // 서버 재시작/다중 인스턴스에서도 기존 메일을 연속 발송하지 않는다. 응답은 항상 동일하다.
-        if (reset.getSentAt() != null && now.isBefore(reset.getSentAt().plusSeconds(60))) return response;
+        // 서버 재시작/다중 인스턴스에서도 기존 메일을 연속 발송하지 않는다. 상태 코드·본문은 동일하나 처리 시간은 다를 수 있다.
+        if (reset.getSentAt() != null && now.isBefore(reset.getSentAt().plusSeconds(RESEND_COOLDOWN_SECONDS))) return response;
         String code = PasswordResetSecrets.code();
         reset.issue(account.getUserId(), PasswordResetSecrets.codeHash(properties.verificationSecret(), email, code), now);
         resets.saveAndFlush(reset);
@@ -61,7 +63,7 @@ public class PasswordResetService {
     public PasswordResetVerificationResponse verify(PasswordResetVerificationRequest request) {
         var reset = resets.findForUpdate(request.email()).orElseThrow(PasswordResetException::invalid);
         Instant now = Instant.now();
-        if (reset.getConsumedAt() != null || reset.getTokenHash() != null || reset.getFailedAttempts() >= 5 || !now.isBefore(reset.getExpiresAt()))
+        if (reset.getConsumedAt() != null || reset.getTokenHash() != null || reset.getFailedAttempts() >= MAX_FAILED_ATTEMPTS || !now.isBefore(reset.getExpiresAt()))
             throw PasswordResetException.invalid();
         if (!PasswordResetSecrets.matches(reset.getCodeHash(),
                 PasswordResetSecrets.codeHash(properties.verificationSecret(), request.email(), request.code()))) {
@@ -69,8 +71,8 @@ public class PasswordResetService {
             throw PasswordResetException.invalid();
         }
         String token = PasswordResetSecrets.token();
-        reset.authorize(PasswordResetSecrets.hash(token), now.plusSeconds(600));
-        return new PasswordResetVerificationResponse(token, 600);
+        reset.authorize(PasswordResetSecrets.hash(token), now.plusSeconds(TOKEN_TTL_SECONDS));
+        return new PasswordResetVerificationResponse(token, TOKEN_TTL_SECONDS);
     }
     @Transactional
     public void complete(PasswordResetRequest request) {

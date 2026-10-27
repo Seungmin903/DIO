@@ -1,5 +1,7 @@
 package com.f106.DIO.auth.domain;
 
+import static com.f106.DIO.auth.domain.PasswordResetPolicy.*;
+
 
 
 import jakarta.persistence.*;
@@ -25,7 +27,7 @@ public class PasswordResetVerification {
     protected PasswordResetVerification() {}
     public PasswordResetVerification(String email) { this.email = email; }
     public void issue(Long userId, String hash, Instant now) {
-        this.userId = userId; codeHash = hash; sentAt = now; expiresAt = now.plusSeconds(600);
+        this.userId = userId; codeHash = hash; sentAt = now; expiresAt = now.plusSeconds(CODE_TTL_SECONDS);
         failedAttempts = 0; tokenHash = null; tokenExpiresAt = null; consumedAt = null;
     }
 }

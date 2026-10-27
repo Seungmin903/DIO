@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatus;
 public class PasswordResetException extends RuntimeException {
     public final HttpStatus status;
     public final String code;
-    public int retryAfter = 900;
+    public int retryAfter = com.f106.DIO.auth.domain.PasswordResetPolicy.IP_WINDOW_SECONDS;
     public PasswordResetException(HttpStatus status, String code, String message) {
         super(message); this.status = status; this.code = code;
     }

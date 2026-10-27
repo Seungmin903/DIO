@@ -1,5 +1,7 @@
 package com.f106.DIO.auth.support;
 
+import static com.f106.DIO.auth.domain.PasswordResetPolicy.*;
+
 import com.f106.DIO.auth.exception.PasswordResetException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -52,15 +54,15 @@ public class PasswordResetThrottle {
             Instant now=clock.instant();
             budget.reclaim(now);
             var previous=budget.active(address,now);
-            if (previous!=null && previous.count >= (budget==send ? 20 : 100)) throw limited(900);
+            if (previous!=null && previous.count >= (budget==send ? MAX_SEND_REQUESTS : MAX_VERIFY_OR_RESET_REQUESTS)) throw limited(IP_WINDOW_SECONDS);
             if (budget==send) {
                 recipients.reclaim(now);
-                if (recipients.active(recipient,now)!=null) throw limited(60);
-                if (!recipients.hasRoom(recipient)) throw limited(60);
+                if (recipients.active(recipient,now)!=null) throw limited(RESEND_COOLDOWN_SECONDS);
+                if (!recipients.hasRoom(recipient)) throw limited(RESEND_COOLDOWN_SECONDS);
             }
-            if (!budget.hasRoom(address)) throw limited(60);
-            budget.increment(address,previous,now,900);
-            if (budget==send) recipients.increment(recipient,null,now,60);
+            if (!budget.hasRoom(address)) throw limited(RESEND_COOLDOWN_SECONDS);
+            budget.increment(address,previous,now,IP_WINDOW_SECONDS);
+            if (budget==send) recipients.increment(recipient,null,now,RESEND_COOLDOWN_SECONDS);
         }
     }
 
