@@ -268,10 +268,13 @@ abstract class MemberDiaryCreationContract {
 	@Test void sameKeyReplaysTheOriginalSnapshotAfterMetadataHasChanged() {
 		var keyed=keyed(service);
 		var first=tx.execute(s -> keyed.create("stable-key-0001",metadata(),selections(2)));
-		jdbc.update("update diaries set title='later title'");
+		var changedAt=first.created().diary().updatedAt().plusSeconds(60);
+		jdbc.update("update diaries set title='later title',updated_at=?",Timestamp.from(changedAt));
 		var replay=tx.execute(s -> keyed.create("stable-key-0001",metadata(),selections(2)));
 		assertThat(first.replayed()).isFalse(); assertThat(replay.replayed()).isTrue();
 		assertThat(replay.created()).isEqualTo(first.created());
+		assertThat(replay.created().diary().updatedAt()).isNotEqualTo(changedAt);
+		assertThat(jdbc.queryForObject("select updated_at from diaries",Timestamp.class).toInstant()).isEqualTo(changedAt);
 		assertThat(jdbc.queryForObject("select title from diaries",String.class)).isEqualTo("later title");
 		assertThat(jdbc.queryForObject("select count(*) from diaries",Long.class)).isEqualTo(1);
 		assertThat(jdbc.queryForObject("select count(*) from diary_creation_receipts",Long.class)).isEqualTo(1);

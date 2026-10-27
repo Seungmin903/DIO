@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 function Get-MemberDevelopmentJava([string]$JavaHome) {
     if ([string]::IsNullOrWhiteSpace($JavaHome)) { throw 'JAVA_HOME is required; set it to a JDK directory before starting member development' }
     $executable=Join-Path $JavaHome 'bin/java.exe'
@@ -6,7 +7,7 @@ function Get-MemberDevelopmentJava([string]$JavaHome) {
 }
 
 function Assert-MemberPostgresInstallation([string]$PostgresBin) {
-    $required=@('postgres.exe','psql.exe','pg_ctl.exe','initdb.exe') | ForEach-Object { Join-Path $PostgresBin $_ }
+    $required=@('postgres.exe','psql.exe','pg_ctl.exe','initdb.exe','createdb.exe') | ForEach-Object { Join-Path $PostgresBin $_ }
     $required+=Join-Path (Split-Path $PostgresBin) 'share/timezonesets/Default'
     foreach($file in $required) {
         if (!(Test-Path -LiteralPath $file -PathType Leaf)) {
