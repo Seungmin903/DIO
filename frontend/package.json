@@ -7,7 +7,7 @@
   "main": "expo/AppEntry",
   "scripts": {
     "test:auth": "node --test tests/auth-api.test.js tests/auth-photo-native.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js",
-    "test:notifications": "node --test tests/notification-api.test.js",
+    "test:notifications": "node --test tests/notification-api.test.js tests/server-notification-api.test.js tests/notification-lifecycle.test.js tests/notification-integration.test.js tests/notification-presentation.test.js tests/notification-errors.test.js tests/notification-races.test.js",
     "qa:notifications": "node qa/notification-browser.cjs",
     "test:diary-api": "node --test tests/diary-api.test.js tests/diary-mutation.test.js tests/diary-library.test.js tests/library-reader.test.js tests/diary-create-input.test.js tests/diary-editor.test.js tests/diary-trash-api.test.js",
     "qa:diary-api": "node qa/diary-api-browser.cjs",
@@ -25,7 +25,11 @@
     "test:templates:readonly": "node tests/templates-readonly.cjs",
     "qa:media": "node qa/run-local-media-qa.mjs",
     "qa:region": "node qa/run-region-qa.mjs",
-    "qa:pdf": "node qa/run-pdf-qa.mjs"
+    "qa:pdf": "node qa/run-pdf-qa.mjs",
+    "test:notifications:races": "node --test tests/notification-races.test.js",
+    "test:notifications:integration": "node --test tests/notification-integration.test.js",
+    "test:notifications:contract": "powershell -NoProfile -ExecutionPolicy Bypass -File qa/run-notification-contract.ps1",
+    "qa:notifications:a11y": "node qa/notification-a11y-browser.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/nanum-gothic": "^0.4.0",
