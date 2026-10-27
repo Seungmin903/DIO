@@ -2,8 +2,6 @@ package com.f106.DIO.auth.exception;
 
 import com.f106.DIO.auth.controller.EmailVerificationController;
 import com.f106.DIO.auth.controller.SignupController;
-import com.f106.DIO.user.exception.UserException;
-import com.f106.DIO.user.exception.UserExceptionHandler;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -15,8 +13,6 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 @RestControllerAdvice(assignableTypes = {SignupController.class, EmailVerificationController.class})
 public class SignupExceptionHandler extends ResponseEntityExceptionHandler {
-    @ExceptionHandler(UserException.class)
-    public ResponseEntity<ProblemDetail> user(UserException error) { return UserExceptionHandler.response(error); }
     @ExceptionHandler(SignupException.class)
     public ResponseEntity<ProblemDetail> signup(SignupException error) {
         ProblemDetail detail = ProblemDetail.forStatusAndDetail(error.status, error.getMessage());

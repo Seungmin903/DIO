@@ -22,6 +22,8 @@
 
 ## API 호환성
 
+`UserExceptionHandler`는 컨트롤러 종류와 관계없이 `UserException`만 공통 처리한다. 회원 API의 입력 검증·Spring MVC 오류는 `UserRequestExceptionHandler`가 `UserController`에 한정해 처리하며, 인증·다이어리의 기존 예외 처리 범위는 유지한다. 새로운 컨트롤러가 회원 서비스를 사용해도 UserException의 HTTP 상태·오류 코드·메시지가 동일하게 반환된다.
+
 기존 URL·요청 필드·응답 필드·오류 코드는 유지한다. 패키지 이름과 API 경로는 별개이므로 프론트 수정 없이 사용할 수 있다.
 
 | 담당 | 기존 경로 |
