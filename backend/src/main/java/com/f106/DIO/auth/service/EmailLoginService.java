@@ -22,7 +22,8 @@ import com.f106.DIO.user.repository.UserRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,11 +43,14 @@ public class EmailLoginService {
     private final LoginThrottle throttle;
     private final TransactionTemplate readTransaction;
     private final TransactionTemplate writeTransaction;
-    private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder(12);
-    private final String dummyHash = passwords.encode("dummy-password-never-authenticates");
+    private final PasswordEncoder passwords;
+    private final String dummyHash;
     public EmailLoginService(UserRepository users, EmailAuthProviderRepository accounts, ProfilePhotoRepository photos,
             RefreshTokenRepository tokens, RefreshTokenHistoryRepository history, LoginJwt jwt, LoginProperties properties,
-            LoginThrottle throttle, PlatformTransactionManager transactionManager) {
+            LoginThrottle throttle, PlatformTransactionManager transactionManager,
+            @Qualifier("authPasswordEncoder") PasswordEncoder passwords) {
+        this.passwords = passwords;
+        this.dummyHash = passwords.encode("dummy-password-never-authenticates");
         this.users = users; this.accounts = accounts; this.photos = photos; this.tokens = tokens;
         this.history = history; this.jwt = jwt; this.properties = properties; this.throttle = throttle;
         readTransaction = new TransactionTemplate(transactionManager);

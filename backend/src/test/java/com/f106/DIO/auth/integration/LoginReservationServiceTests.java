@@ -31,7 +31,8 @@ class LoginReservationServiceTests {
             mock(ProfilePhotoRepository.class), mock(RefreshTokenRepository.class),
             mock(RefreshTokenHistoryRepository.class), jwt,
             new LoginProperties("", 900, 2592000), new LoginThrottle(),
-            mock(org.springframework.transaction.PlatformTransactionManager.class));
+            mock(org.springframework.transaction.PlatformTransactionManager.class),
+            new com.f106.DIO.auth.config.AuthPasswordConfig().authPasswordEncoder());
     }
     @Test void twentyParallelWrongPasswordsOnlyPerformFiveCredentialChecks() throws Exception {
         var accounts = mock(EmailAuthProviderRepository.class);
