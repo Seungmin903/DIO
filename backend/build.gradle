@@ -49,6 +49,16 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+tasks.register('authPostgresTest', Test) {
+	description = 'Verifies auth migrations and session cleanup against an isolated PostgreSQL database.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter { includeTestsMatching 'com.f106.DIO.auth.login.AuthInitialSchemaPostgresTests' }
+	environment 'DIO_AUTH_SCHEMA_TEST', 'true'
+}
+
 tasks.register('postgresTest', Test) {
 	description = 'Runs diary persistence tests against the local PostgreSQL database (test rows rolled back).'
 	group = 'verification'

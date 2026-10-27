@@ -98,6 +98,7 @@ backend-test:
         - .gitlab-ci.yml
         - infra/compose/compose.*.yml
         - infra/nginx/**/default.conf
+        - infra/scripts/test-auth-postgres.sh
   script:
     - >
       docker run --rm
@@ -115,6 +116,29 @@ backend-test:
       junit: backend/build/test-results/test/*.xml
     paths:
       - backend/build/reports/tests/test/
+    expire_in: 7 days
+
+backend-postgres-test:
+  stage: quality
+  needs:
+    - job: backend-test
+      artifacts: false
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+        - infra/scripts/test-auth-postgres.sh
+  script:
+    - bash infra/scripts/test-auth-postgres.sh
+  artifacts:
+    when: always
+    reports:
+      junit: backend/build/test-results/authPostgresTest/*.xml
+    paths:
+      - backend/build/reports/tests/authPostgresTest/
     expire_in: 7 days
 
 secret-scan:

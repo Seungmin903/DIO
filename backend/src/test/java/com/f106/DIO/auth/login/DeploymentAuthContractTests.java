@@ -7,6 +7,18 @@ import org.springframework.core.io.FileSystemResource;
 import static org.assertj.core.api.Assertions.*;
 
 class DeploymentAuthContractTests {
+    @Test void mailHealthIsDisabledAndPostgresValidationRunsAsRequiredCiJob() throws Exception {
+        var loader = new YamlPropertySourceLoader();
+        var application = loader.load("application", new FileSystemResource(Path.of("src/main/resources/application.yml"))).get(0);
+        assertThat(application.getProperty("management.health.mail.enabled")).isEqualTo(false);
+        var ci = loader.load("ci", new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
+        assertThat(ci.getProperty("backend-postgres-test.stage")).isEqualTo("quality");
+        assertThat(ci.getProperty("backend-postgres-test.needs[0].job")).isEqualTo("backend-test");
+        assertThat(ci.getProperty("backend-postgres-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh");
+        assertThat(ci.getProperty("backend-postgres-test.allow_failure")).isNull();
+        String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh"));
+        assertThat(script).contains("-e DIO_AUTH_SCHEMA_TEST=true", "--network \"container:$pg_name\"", "trap cleanup EXIT", "authPostgresTest --no-daemon");
+    }
     @Test void ciContainerIncludesReadOnlyDeploymentInputsBesideBackend() throws Exception {
         var properties = new YamlPropertySourceLoader().load("ci",
             new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
