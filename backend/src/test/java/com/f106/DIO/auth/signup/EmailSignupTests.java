@@ -49,10 +49,11 @@ class EmailSignupTests {
     @Autowired EmailVerificationService verification;
     @Autowired EmailSignupService signup;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+    @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager entityManager;
     @Autowired SignupUserRepository users;
     @MockitoSpyBean EmailAuthProviderRepository providers;
     @Autowired TermsAgreementRepository agreements;
-    @Autowired EmailVerificationRepository verifications;
+    @MockitoSpyBean EmailVerificationRepository verifications;
     @MockitoSpyBean SignupProfilePhotoRepository photos;
     @MockitoSpyBean ProfilePhotoFiles photoFiles;
     @Autowired ProfilePhotoMigrationService photoMigration;
@@ -68,6 +69,9 @@ class EmailSignupTests {
     String verifyEmail(String email) {
         verification.send(email);
         return verification.verify(new SignupDtos.VerifyRequest(email, deliveredCode.get())).signupToken();
+    }
+    @Test void concurrentInitialVerificationRequestsSendOnlyOnce() throws Exception {
+        VerificationRaceAssertions.verify(mvc, verifications, mail, verification, entityManager, "race@example.com");
     }
     SignupDtos.SignupRequest request(String email, String token, String nickname) {
         return new SignupDtos.SignupRequest(email, token, "DioMember123!", nickname,
@@ -355,7 +359,9 @@ class EmailSignupTests {
     }
     @Test void invalidPhotoLeavesTokenUsableAndCreatesNoAccount() throws Exception {
         String token = verifyEmail(EMAIL);
-        for (byte[] bytes : List.of(new byte[0], "<svg></svg>".getBytes(StandardCharsets.UTF_8))) {
+        for (byte[] bytes : List.of(new byte[0], "<svg></svg>".getBytes(StandardCharsets.UTF_8),
+                java.util.Arrays.copyOf(photoPart("png").getBytes(), 20),
+                java.util.Arrays.copyOf(photoPart("jpeg").getBytes(), 20))) {
             mvc.perform(multipart("/api/v1/auth/signup").file(signupPart(token))
                 .file(new MockMultipartFile("photo", "fake.png", "image/png", bytes)))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PROFILE_PHOTO"));

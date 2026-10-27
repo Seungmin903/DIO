@@ -14,8 +14,10 @@ import org.springframework.test.context.DynamicPropertySource;
 import static org.assertj.core.api.Assertions.*;
 
 /** 사용자 DB가 아닌 별도 폐기용 PostgreSQL URL을 명시해야 실행된다. */
-@SpringBootTest(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate"})
+@SpringBootTest(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate",
+    "dio.signup.verification-secret=testing-only-secret-at-least-32-bytes-long"})
 @ActiveProfiles("test")
+@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 @EnabledIfEnvironmentVariable(named = "DIO_AUTH_SCHEMA_TEST", matches = "true")
 class AuthInitialSchemaPostgresTests {
     static String url() { return System.getenv("DIO_AUTH_SCHEMA_TEST_URL"); }
@@ -30,6 +32,15 @@ class AuthInitialSchemaPostgresTests {
     }
     @Autowired JdbcTemplate jdbc;
     @Autowired ExpiredLoginSessionCleanup cleanup;
+    @Autowired org.springframework.test.web.servlet.MockMvc mvc;
+    @Autowired com.f106.DIO.auth.signup.EmailVerificationService verification;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    com.f106.DIO.auth.signup.EmailVerificationRepository verifications;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.f106.DIO.auth.signup.SignupMailSender mail;
+    @Test void postgresSerializesFirstVerificationInsertWithoutOverwritingWinner() throws Exception {
+        com.f106.DIO.auth.signup.VerificationRaceAssertions.verify(mvc, verifications, mail, verification, entityManager, "pg-race@example.com");
+    }
     @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager entityManager;
     @Test void freshMigrationChainAndHibernateMappingsAreCompatible() {
         // 다른 기능이 V7 이후를 추가해도 정상적인 후속 마이그레이션을 실패시키지 않는다.
