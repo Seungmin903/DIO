@@ -5,6 +5,7 @@ import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { prepareEditor, rememberEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
+import { authService } from './src/auth/authService';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
@@ -45,6 +46,12 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function App() {
   const [previewSession, setPreviewSession] = useState(null);
+  const endSession = async () => {
+    try {
+      if (previewSession?.mode === 'authenticated') await authService.logout();
+    } catch (error) { notify('로그아웃', `${error.message} 이 기기의 로그인 정보는 지웠어요.`); }
+    finally { setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current); }
+  };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
@@ -57,7 +64,7 @@ export default function App() {
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
         previewSession ? <DiaryApp previewUser={previewSession}
           onUpdatePreview={updated => setPreviewSession(current => current?.accountId === updated.accountId ? updated : current)}
-          onEndPreview={() => setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession.accountId) ? null : current)} /> : <AuthScreen onContinue={setPreviewSession} />
+          onEndPreview={endSession} /> : <AuthScreen onContinue={setPreviewSession} />
       )}
     </SafeAreaProvider>
   );

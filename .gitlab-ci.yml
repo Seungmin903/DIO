@@ -27,9 +27,10 @@ deploy-development:
   environment:
     name: development
   script:
-    - docker build --tag "dio-backend:dev-${CI_COMMIT_SHORT_SHA}" ./backend
     - export BACKEND_IMAGE="dio-backend:dev-${CI_COMMIT_SHORT_SHA}"
+    # 필수 인증·SMTP·프록시 환경변수 누락 시 이미지 빌드/컨테이너 교체 전에 중단한다.
     - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml config --quiet
+    - docker build --tag "dio-backend:dev-${CI_COMMIT_SHORT_SHA}" ./backend
     - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml up -d --force-recreate
     - curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8081/actuator/health
 
@@ -45,9 +46,10 @@ deploy-production:
     name: production
   script:
     - bash infra/scripts/assert-flyway-initial-state.sh app-db-1
-    - docker build --tag "dio-backend:prod-${CI_COMMIT_SHORT_SHA}" ./backend
     - export BACKEND_IMAGE="dio-backend:prod-${CI_COMMIT_SHORT_SHA}"
+    # 필수 인증·SMTP·프록시 환경변수 누락 시 이미지 빌드/컨테이너 교체 전에 중단한다.
     - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml config --quiet
+    - docker build --tag "dio-backend:prod-${CI_COMMIT_SHORT_SHA}" ./backend
     - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml up -d --force-recreate
     - curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8082/actuator/health
 
@@ -94,13 +96,18 @@ backend-test:
       changes:
         - backend/**/*
         - .gitlab-ci.yml
+        - infra/compose/compose.*.yml
+        - infra/nginx/**/default.conf
+        - infra/scripts/test-auth-postgres.sh
   script:
     - >
       docker run --rm
       --user "$(id -u):$(id -g)"
       -e GRADLE_USER_HOME=/tmp/gradle
-      -v "$CI_PROJECT_DIR/backend:/workspace"
-      -w /workspace
+      -v "$CI_PROJECT_DIR/backend:/workspace/backend"
+      -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro"
+      -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro"
+      -w /workspace/backend
       eclipse-temurin:17-jdk
       sh ./gradlew test --no-daemon
   artifacts:
@@ -109,6 +116,29 @@ backend-test:
       junit: backend/build/test-results/test/*.xml
     paths:
       - backend/build/reports/tests/test/
+    expire_in: 7 days
+
+backend-postgres-test:
+  stage: quality
+  needs:
+    - job: backend-test
+      artifacts: false
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+        - infra/scripts/test-auth-postgres.sh
+  script:
+    - bash infra/scripts/test-auth-postgres.sh
+  artifacts:
+    when: always
+    reports:
+      junit: backend/build/test-results/authPostgresTest/*.xml
+    paths:
+      - backend/build/reports/tests/authPostgresTest/
     expire_in: 7 days
 
 secret-scan:

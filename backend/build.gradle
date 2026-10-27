@@ -18,6 +18,12 @@ repositories {
 }
 
 dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
+	implementation platform('software.amazon.awssdk:bom:2.42.22')
+	implementation 'software.amazon.awssdk:s3'
+	implementation 'software.amazon.awssdk:url-connection-client'
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+	implementation 'org.springframework.security:spring-security-crypto'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
@@ -41,6 +47,16 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+tasks.register('authPostgresTest', Test) {
+	description = 'Verifies auth migrations and session cleanup against an isolated PostgreSQL database.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter { includeTestsMatching 'com.f106.DIO.auth.login.AuthInitialSchemaPostgresTests' }
+	environment 'DIO_AUTH_SCHEMA_TEST', 'true'
 }
 
 tasks.register('postgresTest', Test) {

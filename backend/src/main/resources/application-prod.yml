@@ -13,6 +13,19 @@ spring:
   flyway:
     enabled: true
 
+dio:
+  signup:
+    photos:
+      storage: ${SIGNUP_PHOTO_STORAGE:s3}
+
+server:
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      remote-ip-header: X-Forwarded-For
+      protocol-header: X-Forwarded-Proto
+      internal-proxies: ${AUTH_TRUSTED_PROXY_REGEX}
+
 management:
   endpoint:
     health:
