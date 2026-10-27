@@ -1,8 +1,9 @@
 package com.f106.DIO.auth.integration;
 
+import com.f106.DIO.auth.dto.LoginRequest;
+
 import com.f106.DIO.auth.config.LoginProperties;
 import com.f106.DIO.auth.controller.LoginController;
-import com.f106.DIO.auth.dto.LoginDtos;
 import com.f106.DIO.auth.exception.LoginException;
 import com.f106.DIO.auth.exception.LoginExceptionHandler;
 import com.f106.DIO.auth.repository.EmailAuthProviderRepository;
@@ -64,7 +65,7 @@ class LoginReservationServiceTests {
         when(accounts.findByProviderAndProviderUserId("EMAIL", "member@example.com"))
             .thenThrow(new IllegalStateException("database unavailable")).thenReturn(Optional.empty());
         var service = service(accounts);
-        var request = new LoginDtos.LoginRequest("member@example.com", "WrongPass123!", null);
+        var request = new LoginRequest("member@example.com", "WrongPass123!", null);
         assertThatThrownBy(() -> service.login(request, "ip")).isInstanceOf(IllegalStateException.class);
         for (int i = 0; i < 5; i++) assertThatThrownBy(() -> service.login(request, "ip"))
             .isInstanceOfSatisfying(LoginException.class, error -> assertThat(error.code).isEqualTo("INVALID_CREDENTIALS"));

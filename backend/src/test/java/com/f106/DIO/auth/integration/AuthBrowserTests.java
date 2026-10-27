@@ -1,6 +1,8 @@
 package com.f106.DIO.auth.integration;
 
-import com.f106.DIO.auth.dto.SignupDtos;
+import com.f106.DIO.auth.dto.EmailVerificationRequest;
+import com.f106.DIO.auth.dto.SignupRequest;
+
 import com.f106.DIO.auth.infrastructure.mail.SignupMailSender;
 import com.f106.DIO.auth.service.EmailSignupService;
 import com.f106.DIO.auth.service.EmailVerificationService;
@@ -50,8 +52,8 @@ class AuthBrowserTests {
             .when(mail).send(anyString(), anyString());
         String email = "browser-auth@example.com";
         verification.send(email);
-        String token = verification.verify(new SignupDtos.VerifyRequest(email, code.get())).signupToken();
-        signup.signup(new SignupDtos.SignupRequest(email, token, "DioMember123!", "브라우저회원",
+        String token = verification.verify(new EmailVerificationRequest(email, code.get())).signupToken();
+        signup.signup(new SignupRequest(email, token, "DioMember123!", "브라우저회원",
             List.of(new Agreement(TermsType.SERVICE, "v1", true),
                 new Agreement(TermsType.PRIVACY, "v1", true))));
         Path script = Path.of("../frontend/qa/auth-api-browser.cjs").toAbsolutePath().normalize();

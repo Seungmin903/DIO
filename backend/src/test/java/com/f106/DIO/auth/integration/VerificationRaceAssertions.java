@@ -1,7 +1,8 @@
 package com.f106.DIO.auth.integration;
 
+import com.f106.DIO.auth.dto.EmailVerificationRequest;
+
 import com.f106.DIO.auth.domain.EmailVerification;
-import com.f106.DIO.auth.dto.SignupDtos;
 import com.f106.DIO.auth.infrastructure.mail.SignupMailSender;
 import com.f106.DIO.auth.repository.EmailVerificationRepository;
 import com.f106.DIO.auth.service.EmailVerificationService;
@@ -49,7 +50,7 @@ public final class VerificationRaceAssertions {
                 .containsExactlyInAnyOrder(200, 429);
             org.mockito.Mockito.verify(mail, times(1)).send(eq(email), anyString());
             // 패자의 롤백이 승자의 인증번호를 덮어쓰거나 없애지 않는다.
-            assertThat(service.verify(new SignupDtos.VerifyRequest(email, code.get())).signupToken()).isNotBlank();
+            assertThat(service.verify(new EmailVerificationRequest(email, code.get())).signupToken()).isNotBlank();
         } finally {
             pool.shutdownNow();
             repository.deleteById(email);

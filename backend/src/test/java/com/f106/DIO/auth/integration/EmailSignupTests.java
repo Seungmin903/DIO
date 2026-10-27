@@ -1,8 +1,10 @@
 package com.f106.DIO.auth.integration;
 
+import com.f106.DIO.auth.dto.EmailVerificationRequest;
+import com.f106.DIO.auth.dto.SignupRequest;
+
 import com.f106.DIO.auth.domain.EmailAuthProvider;
 import com.f106.DIO.auth.domain.EmailVerification;
-import com.f106.DIO.auth.dto.SignupDtos;
 import com.f106.DIO.auth.exception.SignupException;
 import com.f106.DIO.auth.infrastructure.mail.SignupMailSender;
 import com.f106.DIO.auth.repository.EmailAuthProviderRepository;
@@ -92,16 +94,16 @@ class EmailSignupTests {
         doAnswer(invocation -> { deliveredCode.set(invocation.getArgument(1)); return null; })
             .when(mail).send(anyString(), anyString());
     }
-    private User newUser(SignupDtos.SignupRequest request, Instant now) { return new User(request.email(), request.nickname(), now); }
+    private User newUser(SignupRequest request, Instant now) { return new User(request.email(), request.nickname(), now); }
     String verifyEmail(String email) {
         verification.send(email);
-        return verification.verify(new SignupDtos.VerifyRequest(email, deliveredCode.get())).signupToken();
+        return verification.verify(new EmailVerificationRequest(email, deliveredCode.get())).signupToken();
     }
     @Test void concurrentInitialVerificationRequestsSendOnlyOnce() throws Exception {
         VerificationRaceAssertions.verify(mvc, verifications, mail, verification, entityManager, "race@example.com");
     }
-    SignupDtos.SignupRequest request(String email, String token, String nickname) {
-        return new SignupDtos.SignupRequest(email, token, "DioMember123!", nickname,
+    SignupRequest request(String email, String token, String nickname) {
+        return new SignupRequest(email, token, "DioMember123!", nickname,
             List.of(new Agreement(TermsType.SERVICE, "v1", true),
                     new Agreement(TermsType.PRIVACY, "v1", true),
                     new Agreement(TermsType.MARKETING, "v1", false)));
@@ -197,20 +199,20 @@ class EmailSignupTests {
     @Test void wrongCodeAttemptsPersistAcrossFailedTransactions() {
         verification.send(EMAIL);
         String wrong = deliveredCode.get().equals("000000") ? "111111" : "000000";
-        for (int i = 0; i < 5; i++) assertThatThrownBy(() -> verification.verify(new SignupDtos.VerifyRequest(EMAIL, wrong)))
+        for (int i = 0; i < 5; i++) assertThatThrownBy(() -> verification.verify(new EmailVerificationRequest(EMAIL, wrong)))
             .isInstanceOf(SignupException.class);
         assertThat(verifications.findById(EMAIL).orElseThrow().getFailedAttempts()).isEqualTo(5);
-        assertThatThrownBy(() -> verification.verify(new SignupDtos.VerifyRequest(EMAIL, deliveredCode.get())))
+        assertThatThrownBy(() -> verification.verify(new EmailVerificationRequest(EMAIL, deliveredCode.get())))
             .isInstanceOfSatisfying(SignupException.class, error -> assertThat(error.code).isEqualTo("VERIFICATION_ATTEMPTS_EXCEEDED"));
     }
     @Test void expiredCodeIsRejected() {
         verification.send(EMAIL);
         EmailVerification row = verifications.findById(EMAIL).orElseThrow(); org.springframework.test.util.ReflectionTestUtils.setField(row, "expiresAt", Instant.now().minusSeconds(1)); verifications.saveAndFlush(row);
-        assertThatThrownBy(() -> verification.verify(new SignupDtos.VerifyRequest(EMAIL, deliveredCode.get()))).isInstanceOf(SignupException.class);
+        assertThatThrownBy(() -> verification.verify(new EmailVerificationRequest(EMAIL, deliveredCode.get()))).isInstanceOf(SignupException.class);
     }
     @Test void verifiedCodeCannotIssueAnotherToken() {
         verifyEmail(EMAIL);
-        assertThatThrownBy(() -> verification.verify(new SignupDtos.VerifyRequest(EMAIL, deliveredCode.get()))).isInstanceOf(SignupException.class);
+        assertThatThrownBy(() -> verification.verify(new EmailVerificationRequest(EMAIL, deliveredCode.get()))).isInstanceOf(SignupException.class);
     }
     @Test void resendInvalidatesPreviouslyVerifiedToken() {
         String oldToken = verifyEmail(EMAIL);

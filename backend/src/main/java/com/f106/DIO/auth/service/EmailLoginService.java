@@ -1,9 +1,12 @@
 package com.f106.DIO.auth.service;
 
+import com.f106.DIO.auth.dto.LoginRequest;
+import com.f106.DIO.auth.dto.LoginResponse;
+import com.f106.DIO.auth.dto.LoginUserResponse;
+
 import com.f106.DIO.auth.config.LoginProperties;
 import com.f106.DIO.auth.domain.RefreshToken;
 import com.f106.DIO.auth.domain.RefreshTokenHistory;
-import com.f106.DIO.auth.dto.LoginDtos;
 import com.f106.DIO.auth.exception.LoginException;
 import com.f106.DIO.auth.repository.EmailAuthProviderRepository;
 import com.f106.DIO.auth.repository.RefreshTokenHistoryRepository;
@@ -52,7 +55,7 @@ public class EmailLoginService {
     }
     // 외부 트랜잭션으로 감싸 커넥션이 BCrypt 동안 유지되는 호출도 허용하지 않는다.
     @Transactional(propagation = Propagation.NEVER)
-    public LoginDtos.Tokens login(LoginDtos.LoginRequest request, String remoteAddress) {
+    public LoginResponse login(LoginRequest request, String remoteAddress) {
         jwt.configured();
         var reservation = throttle.reserve(request.email(), remoteAddress);
         try {
@@ -63,7 +66,7 @@ public class EmailLoginService {
             if (!matches || account == null || account.getPasswordHash() == null) {
                 throw LoginException.credentials();
             }
-            LoginDtos.Tokens response = writeTransaction.execute(status -> {
+            LoginResponse response = writeTransaction.execute(status -> {
                 // BCrypt 이후 비밀번호가 바뀌었다면 이전 비밀번호로 세션을 만들지 않는다.
                 var current = accounts.findForUpdate("EMAIL", request.email()).orElseThrow(LoginException::credentials);
                 if (!current.getUserId().equals(account.getUserId()) || !hash.equals(current.getPasswordHash()))
@@ -74,7 +77,7 @@ public class EmailLoginService {
                 String refresh = LoginSecrets.refresh();
                 var token = new RefreshToken(user.getUserId(), LoginSecrets.hash(refresh), request.deviceName(), now,
                     now.plusSeconds(properties.refreshSeconds()));
-                LoginDtos.Tokens result = response(user, token, refresh, now);
+                LoginResponse result = response(user, token, refresh, now);
                 tokens.saveAndFlush(token);
                 user.recordLogin(now);
                 return result;
@@ -90,7 +93,7 @@ public class EmailLoginService {
         }
     }
     @Transactional(noRollbackFor = LoginException.class)
-    public LoginDtos.Tokens refresh(String refresh) {
+    public LoginResponse refresh(String refresh) {
         String hash = LoginSecrets.hash(refresh);
         Long id = tokens.findIdByTokenHash(hash)
             .orElseGet(() -> history.findById(hash).map(t -> t.getTokenId()).orElseThrow(LoginException::token));
@@ -105,20 +108,20 @@ public class EmailLoginService {
         if (user == null || !user.isActive()) { token.revoke(now); throw LoginException.token(); }
         String nextRefresh = LoginSecrets.refresh();
         // 설정/서명 실패 전에 기존 토큰을 소비하지 않는다.
-        LoginDtos.Tokens response = response(user, token, nextRefresh, now);
+        LoginResponse response = response(user, token, nextRefresh, now);
         history.saveAndFlush(new RefreshTokenHistory(token, now));
         token.rotate(LoginSecrets.hash(nextRefresh));
         tokens.saveAndFlush(token);
         return response;
     }
-    private LoginDtos.Tokens response(User user, RefreshToken session, String refresh, Instant now) {
+    private LoginResponse response(User user, RefreshToken session, String refresh, Instant now) {
         Instant expiry = now.plusSeconds(properties.accessSeconds());
         if (session.getExpiresAt().isBefore(expiry)) expiry = session.getExpiresAt();
         String access = jwt.issue(user.getUserId(), session.getSessionId(), now, expiry);
         String photo = photos.findByUserId(user.getUserId()).map(ProfilePhoto::url).orElse(null);
-        return new LoginDtos.Tokens("Bearer", access, Duration.between(now, expiry).getSeconds(), refresh,
+        return new LoginResponse("Bearer", access, Duration.between(now, expiry).getSeconds(), refresh,
             Duration.between(now, session.getExpiresAt()).getSeconds(),
-            new LoginDtos.User(user.getUserId().toString(), user.getEmail(), user.getNickname(), photo));
+            new LoginUserResponse(user.getUserId().toString(), user.getEmail(), user.getNickname(), photo));
     }
     @Transactional(readOnly = true)
     public boolean active(Jwt access) {

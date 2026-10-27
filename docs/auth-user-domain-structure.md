@@ -8,7 +8,7 @@
 | service | 회원가입 흐름, 이메일 인증, 로그인·토큰·세션 정리 | 회원 생성·중복 검사, 약관 검증·저장, 프로필 사진 처리 |
 | domain | EmailAuthProvider, EmailVerification, RefreshToken, RefreshTokenHistory | User, ProfilePhoto, TermsAgreement, TermsType |
 | repository | 인증 계정·인증번호·세션 저장소 | 회원·사진·약관 저장소 |
-| dto | SignupDtos, LoginDtos | UserDtos, Agreement |
+| dto | SignupRequest, SignupResponse, LoginRequest, LoginResponse, RefreshRequest, LoginUserResponse, EmailVerificationRequest, EmailVerificationSentResponse, EmailVerificationResponse | EmailRequest, NicknameRequest, AvailabilityResponse, Agreement |
 | config | 인증 설정·Security·CORS | 약관 버전·사진 저장소 설정 |
 | infrastructure | mail | storage |
 
@@ -17,6 +17,8 @@
 `auth.service`가 회원가입 절차를 조율하면서 `user.service`를 호출한다. `user`는 `auth`를 참조하지 않는다. 엔티티는 요청 DTO나 파일 저장소 타입을 받지 않고 필요한 값만 전달받는다. 회원 공통 엔티티는 `user.domain.User` 하나이며 `users` 테이블에 매핑한다.
 
 기존 `SignupUser`는 `User`, `SignupProfilePhoto`는 `ProfilePhoto`로 이름을 바꿨다. 해당 Repository도 `UserRepository`, `ProfilePhotoRepository`로 변경했다. 이전 `auth.signup` 또는 `auth.login`을 import하는 미병합 브랜치는 이 표에 따라 import와 생성자 호출을 맞춰야 한다.
+
+요청·응답 DTO는 다이어리와 동일하게 public record 하나당 Java 파일 하나로 관리한다. SignupDtos·LoginDtos·UserDtos 컨테이너는 제거했다. 기존 컨테이너 타입을 참조하는 브랜치는 각 DTO의 직접 import로 변경한다.
 
 ## API 호환성
 

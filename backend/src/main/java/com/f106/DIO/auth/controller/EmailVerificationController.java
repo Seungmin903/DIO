@@ -1,9 +1,12 @@
 package com.f106.DIO.auth.controller;
 
-import com.f106.DIO.auth.dto.SignupDtos;
+import com.f106.DIO.auth.dto.EmailVerificationRequest;
+import com.f106.DIO.auth.dto.EmailVerificationResponse;
+import com.f106.DIO.auth.dto.EmailVerificationSentResponse;
+import com.f106.DIO.user.dto.EmailRequest;
+
 import com.f106.DIO.auth.service.EmailVerificationService;
 import com.f106.DIO.auth.support.SignupMailThrottle;
-import com.f106.DIO.user.dto.UserDtos;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,7 +30,7 @@ public class EmailVerificationController {
     @ApiResponse(responseCode = "200", description = "인증 메일 발송 완료")
     @ApiResponse(responseCode = "429", description = "재발송 제한")
     @ApiResponse(responseCode = "503", description = "이메일 인증 설정 또는 발송 실패")
-    public ResponseEntity<SignupDtos.SentResponse> send(@Valid @RequestBody UserDtos.EmailRequest request,
+    public ResponseEntity<EmailVerificationSentResponse> send(@Valid @RequestBody EmailRequest request,
             jakarta.servlet.http.HttpServletRequest http) {
         mailThrottle.check(http.getRemoteAddr());
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(verification.send(request.email()));
@@ -37,7 +40,7 @@ public class EmailVerificationController {
     @ApiResponse(responseCode = "200", description = "인증 성공 및 가입 토큰 발급")
     @ApiResponse(responseCode = "400", description = "잘못되거나 만료된 인증번호")
     @ApiResponse(responseCode = "429", description = "오답 횟수 초과")
-    public ResponseEntity<SignupDtos.VerifiedResponse> verify(@Valid @RequestBody SignupDtos.VerifyRequest request) {
+    public ResponseEntity<EmailVerificationResponse> verify(@Valid @RequestBody EmailVerificationRequest request) {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(verification.verify(request));
     }
 }

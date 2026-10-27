@@ -1,7 +1,8 @@
 package com.f106.DIO.auth.integration;
 
+import com.f106.DIO.auth.dto.EmailVerificationSentResponse;
+
 import com.f106.DIO.auth.controller.EmailVerificationController;
-import com.f106.DIO.auth.dto.SignupDtos;
 import com.f106.DIO.auth.exception.SignupException;
 import com.f106.DIO.auth.exception.SignupExceptionHandler;
 import com.f106.DIO.auth.service.EmailSignupService;
@@ -24,7 +25,7 @@ class SignupMailRateLimitApiTests {
             .setControllerAdvice(new SignupExceptionHandler()).build();
     }
     @Test void changingEmailOrSpoofingForwardedHeaderDoesNotBypassIpLimit() throws Exception {
-        var verification=mock(EmailVerificationService.class);when(verification.send(anyString())).thenReturn(new SignupDtos.SentResponse(600,60));
+        var verification=mock(EmailVerificationService.class);when(verification.send(anyString())).thenReturn(new EmailVerificationSentResponse(600,60));
         var mvc=mvc(verification);
         for(int i=0;i<20;i++)mvc.perform(post("/api/v1/auth/email-verifications").contentType(MediaType.APPLICATION_JSON)
             .content("{\"email\":\"recipient"+i+"@example.com\"}").with(request->{request.setRemoteAddr("192.0.2.1");return request;}))

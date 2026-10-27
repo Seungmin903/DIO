@@ -1,8 +1,11 @@
 package com.f106.DIO.auth.service;
 
+import com.f106.DIO.auth.dto.EmailVerificationRequest;
+import com.f106.DIO.auth.dto.EmailVerificationResponse;
+import com.f106.DIO.auth.dto.EmailVerificationSentResponse;
+
 import com.f106.DIO.auth.config.SignupProperties;
 import com.f106.DIO.auth.domain.EmailVerification;
-import com.f106.DIO.auth.dto.SignupDtos;
 import com.f106.DIO.auth.exception.SignupException;
 import com.f106.DIO.auth.infrastructure.mail.SignupMailSender;
 import com.f106.DIO.auth.repository.EmailVerificationRepository;
@@ -25,7 +28,7 @@ public class EmailVerificationService {
         this.verifications = verifications; this.users = users; this.mail = mail; this.properties = properties;
     }
     @Transactional
-    public SignupDtos.SentResponse send(String email) {
+    public EmailVerificationSentResponse send(String email) {
         if (users.existsByEmail(email)) throw SignupException.conflict("EMAIL_ALREADY_REGISTERED", "이미 가입된 이메일이에요.");
         EmailVerification verification = verifications.findForUpdate(email).orElseGet(() -> new EmailVerification(email));
         Instant now = Instant.now();
@@ -45,11 +48,11 @@ public class EmailVerificationService {
             throw error;
         }
         mail.send(email, code);
-        return new SignupDtos.SentResponse(600, 60);
+        return new EmailVerificationSentResponse(600, 60);
     }
     // 오답 횟수는 오류 응답이어도 커밋해 재요청으로 제한이 초기화되지 않게 한다.
     @Transactional(noRollbackFor = SignupException.class)
-    public SignupDtos.VerifiedResponse verify(SignupDtos.VerifyRequest request) {
+    public EmailVerificationResponse verify(EmailVerificationRequest request) {
         EmailVerification verification = verifications.findForUpdate(request.email()).orElseThrow(() -> invalid());
         Instant now = Instant.now();
         if (verification.getConsumedAt() != null || verification.getTokenHash() != null || !now.isBefore(verification.getExpiresAt())) throw invalid();
@@ -60,7 +63,7 @@ public class EmailVerificationService {
         }
         String token = SignupSecrets.token();
         verification.authorizeSignup(SignupSecrets.tokenHash(token), now.plusSeconds(600));
-        return new SignupDtos.VerifiedResponse(token, 600);
+        return new EmailVerificationResponse(token, 600);
     }
     private SignupException invalid() { return SignupException.invalid("INVALID_VERIFICATION_CODE", "인증번호가 유효하지 않아요. 다시 확인하거나 새로 요청해 주세요."); }
     private SignupException rateLimited() {

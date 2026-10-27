@@ -1,7 +1,8 @@
 package com.f106.DIO.user.service;
 
+import com.f106.DIO.user.dto.AvailabilityResponse;
+
 import com.f106.DIO.user.domain.User;
-import com.f106.DIO.user.dto.UserDtos;
 import com.f106.DIO.user.exception.UserException;
 import com.f106.DIO.user.repository.UserRepository;
 import com.f106.DIO.user.support.UserInput;
@@ -13,9 +14,9 @@ public class UserService {
     private final UserRepository users;
     public UserService(UserRepository users) { this.users = users; }
     @Transactional(readOnly = true)
-    public UserDtos.AvailabilityResponse available(String email) { return new UserDtos.AvailabilityResponse(!users.existsByEmail(email)); }
+    public AvailabilityResponse available(String email) { return new AvailabilityResponse(!users.existsByEmail(email)); }
     @Transactional(readOnly = true)
-    public UserDtos.AvailabilityResponse nicknameAvailable(String nickname) { return new UserDtos.AvailabilityResponse(isNicknameAvailable(nickname)); }
+    public AvailabilityResponse nicknameAvailable(String nickname) { return new AvailabilityResponse(isNicknameAvailable(nickname)); }
     private boolean isNicknameAvailable(String nickname) {
         String key = UserInput.normalizeNickname(nickname).toLowerCase(java.util.Locale.ROOT);
         return !key.equals("관리자") && !key.equals("dio") && !users.existsByNicknameKey(key);

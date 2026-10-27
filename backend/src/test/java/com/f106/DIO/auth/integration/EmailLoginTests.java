@@ -1,9 +1,12 @@
 package com.f106.DIO.auth.integration;
 
+import com.f106.DIO.auth.dto.EmailVerificationRequest;
+import com.f106.DIO.auth.dto.LoginRequest;
+import com.f106.DIO.auth.dto.LoginResponse;
+import com.f106.DIO.auth.dto.SignupRequest;
+
 import com.f106.DIO.auth.domain.RefreshToken;
 import com.f106.DIO.auth.domain.RefreshTokenHistory;
-import com.f106.DIO.auth.dto.LoginDtos;
-import com.f106.DIO.auth.dto.SignupDtos;
 import com.f106.DIO.auth.exception.LoginException;
 import com.f106.DIO.auth.infrastructure.mail.SignupMailSender;
 import com.f106.DIO.auth.repository.EmailAuthProviderRepository;
@@ -89,12 +92,12 @@ class EmailLoginTests {
     }
     void register() {
         verification.send(EMAIL);
-        String token = verification.verify(new SignupDtos.VerifyRequest(EMAIL, code.get())).signupToken();
-        signup.signup(new SignupDtos.SignupRequest(EMAIL, token, "DioMember123!", "디오사용자",
+        String token = verification.verify(new EmailVerificationRequest(EMAIL, code.get())).signupToken();
+        signup.signup(new SignupRequest(EMAIL, token, "DioMember123!", "디오사용자",
             List.of(new Agreement(TermsType.SERVICE, "v1", true),
                 new Agreement(TermsType.PRIVACY, "v1", true))));
     }
-    LoginDtos.Tokens login() { return service.login(new LoginDtos.LoginRequest(EMAIL, "DioMember123!", "휴대폰"), "127.0.0.1"); }
+    LoginResponse login() { return service.login(new LoginRequest(EMAIL, "DioMember123!", "휴대폰"), "127.0.0.1"); }
     @Test void cleanupOnlyRemovesExpiredSessionsAndTheirHistory() {
         register();
         var expiredResponse = login(); var activeResponse = login(); var revokedResponse = login();

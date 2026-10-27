@@ -1,6 +1,8 @@
 package com.f106.DIO.auth.controller;
 
-import com.f106.DIO.auth.dto.SignupDtos;
+import com.f106.DIO.auth.dto.SignupRequest;
+import com.f106.DIO.auth.dto.SignupResponse;
+
 import com.f106.DIO.auth.service.EmailSignupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -22,7 +24,7 @@ public class SignupController {
     @ApiResponse(responseCode = "201", description = "가입 완료. 로그인은 별도로 진행합니다.")
     @ApiResponse(responseCode = "400", description = "입력·인증 토큰·약관 오류")
     @ApiResponse(responseCode = "409", description = "이메일·닉네임 중복 또는 동시 요청 충돌")
-    public ResponseEntity<SignupDtos.SignupResponse> signup(@Valid @RequestBody SignupDtos.SignupRequest request) {
+    public ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest request) {
         return ResponseEntity.status(201).header("Cache-Control", "no-store").body(signup.signup(request));
     }
     @PostMapping(value = "/signup", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -33,8 +35,8 @@ public class SignupController {
     @ApiResponse(responseCode = "201", description = "가입 완료. 사진 선택 시 profilePhotoUrl 반환")
     @ApiResponse(responseCode = "400", description = "가입 정보 또는 사진 형식 오류")
     @ApiResponse(responseCode = "413", description = "사진 또는 요청 크기 초과")
-    public ResponseEntity<SignupDtos.SignupResponse> signupWithPhoto(
-            @Valid @RequestPart("signup") SignupDtos.SignupRequest request,
+    public ResponseEntity<SignupResponse> signupWithPhoto(
+            @Valid @RequestPart("signup") SignupRequest request,
             @RequestPart(value = "photo", required = false) MultipartFile photo) {
         return ResponseEntity.status(201).header("Cache-Control", "no-store").body(signup.signup(request, photo));
     }

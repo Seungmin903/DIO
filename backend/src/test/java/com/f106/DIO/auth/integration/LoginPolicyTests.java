@@ -1,7 +1,9 @@
 package com.f106.DIO.auth.integration;
 
+import com.f106.DIO.auth.dto.LoginRequest;
+import com.f106.DIO.auth.dto.RefreshRequest;
+
 import com.f106.DIO.auth.config.LoginProperties;
-import com.f106.DIO.auth.dto.LoginDtos;
 import com.f106.DIO.auth.exception.LoginException;
 import com.f106.DIO.auth.security.LoginJwt;
 import com.f106.DIO.auth.support.LoginThrottle;
@@ -41,8 +43,8 @@ class LoginPolicyTests {
         }
     }
     @Test void tokenAndPasswordRecordsAreRedacted() {
-        assertThat(new LoginDtos.LoginRequest("member@example.com", "PrivatePass123!", null).toString()).doesNotContain("PrivatePass123!");
-        assertThat(new LoginDtos.RefreshRequest("private-token").toString()).doesNotContain("private-token");
+        assertThat(new LoginRequest("member@example.com", "PrivatePass123!", null).toString()).doesNotContain("PrivatePass123!");
+        assertThat(new RefreshRequest("private-token").toString()).doesNotContain("private-token");
         assertThat(new LoginProperties("private-secret", 900, 2592000).toString()).doesNotContain("private-secret");
     }
 }

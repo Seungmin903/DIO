@@ -1,8 +1,10 @@
 package com.f106.DIO.auth.service;
 
+import com.f106.DIO.auth.dto.SignupRequest;
+import com.f106.DIO.auth.dto.SignupResponse;
+
 import com.f106.DIO.auth.domain.EmailAuthProvider;
 import com.f106.DIO.auth.domain.EmailVerification;
-import com.f106.DIO.auth.dto.SignupDtos;
 import com.f106.DIO.auth.exception.SignupException;
 import com.f106.DIO.auth.repository.EmailAuthProviderRepository;
 import com.f106.DIO.auth.repository.EmailVerificationRepository;
@@ -34,9 +36,9 @@ public class EmailSignupService {
         writeTransaction = new TransactionTemplate(manager);
     }
     @Transactional(propagation = Propagation.NEVER)
-    public SignupDtos.SignupResponse signup(SignupDtos.SignupRequest request) { return signup(request, null); }
+    public SignupResponse signup(SignupRequest request) { return signup(request, null); }
     @Transactional(propagation = Propagation.NEVER)
-    public SignupDtos.SignupResponse signup(SignupDtos.SignupRequest request, MultipartFile photo) {
+    public SignupResponse signup(SignupRequest request, MultipartFile photo) {
         terms.validate(request.agreements());
         readTransaction.executeWithoutResult(status -> {
             users.assertAvailable(request.email(), request.nickname());
@@ -55,11 +57,11 @@ public class EmailSignupService {
                 terms.save(user.getUserId(), request.agreements(), now);
                 String url = pending == null ? null : pending.save(user.getUserId(), now);
                 verification.consume(now);
-                return new SignupDtos.SignupResponse(user.getUserId().toString(), user.getEmail(), user.getNickname(), url, user.getCreatedAt());
+                return new SignupResponse(user.getUserId().toString(), user.getEmail(), user.getNickname(), url, user.getCreatedAt());
             });
         }
     }
-    private void validateToken(EmailVerification row, SignupDtos.SignupRequest request, Instant now) {
+    private void validateToken(EmailVerification row, SignupRequest request, Instant now) {
         if (row.getConsumedAt() != null || row.getTokenExpiresAt() == null || !now.isBefore(row.getTokenExpiresAt())
             || !SignupSecrets.matches(row.getTokenHash(), SignupSecrets.tokenHash(request.signupToken()))) throw invalidToken();
     }
