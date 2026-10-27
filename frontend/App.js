@@ -93,7 +93,7 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
   const insets = useSafeAreaInsets();
   // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  // 폰은 화면 전체를 쓰고, 태블릿만 플랫폼별 비율(Android 16:10, iPad 4:3) 프레임 안에 맞춘다. 데이터·상태는 두 배치가 함께 쓴다.
+  // 폰 배치는 유지하고 태블릿 바깥 프레임도 측정한 안전 영역 전체를 쓴다. 속지 좌표계는 그대로다.
   const { isPhone, isLandscape } = useFormFactor();
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
@@ -141,7 +141,7 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
   const savingRef = useRef(false);
   const pendingCreateId = useRef(null);
 
-  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height, Platform.OS);
+  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height);
   // 폰 편집기에서 세로(간편)·가로(정밀) 전환 버튼으로 고른 방향. 편집기를 새로 열면 다시 기기 방향을 따른다.
   const [editorOrientation, setEditorOrientation] = useState(null);
   useOrientationLock(isPhone ? 'phone' : 'tablet', page === 'editor', editorOrientation);
