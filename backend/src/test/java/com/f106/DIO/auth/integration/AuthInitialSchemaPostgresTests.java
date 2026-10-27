@@ -48,12 +48,12 @@ class AuthInitialSchemaPostgresTests {
     }
     @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager entityManager;
     @Test void freshMigrationChainAndHibernateMappingsAreCompatible() {
-        // 다른 기능이 V7 이후를 추가해도 정상적인 후속 마이그레이션을 실패시키지 않는다.
+        // 후속 마이그레이션과 다른 테스트가 남긴 인증 데이터가 있어도 스키마 검증은 독립적이다.
         assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank", String.class))
-            .contains("1", "2", "3", "4", "5", "6");
+            .contains("1", "2", "3", "4", "5", "6", "7", "8");
         assertThat(jdbc.queryForObject("select count(*) from pg_indexes where schemaname='public' and tablename='refresh_tokens' and indexname='refresh_tokens_expiry_id_idx'", Long.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select data_type from information_schema.columns where table_schema='public' and table_name='diaries' and column_name='diary_id'", String.class)).isEqualTo("uuid");
-        assertThat(jdbc.queryForObject("select count(*) from signup_email_verifications", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from pg_indexes where schemaname='public' and indexname in ('signup_verification_expiry_idx','password_reset_verification_expiry_idx')", Long.class)).isEqualTo(2);
     }
     @Test @org.springframework.transaction.annotation.Transactional
     void expiredSessionCleanupPreservesActiveSessionsAndRemovesTheirHistoryOnly() {

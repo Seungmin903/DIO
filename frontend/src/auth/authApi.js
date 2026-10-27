@@ -10,7 +10,19 @@ export function authBaseUrl(value) {
 export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now, accessTokenHeader = 'Authorization' }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
-  let session = null, draft = null, verification = null, revision = 0, refreshing = null;
+  let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
+  const acceptSession = result => {
+    if (!Number.isSafeInteger(result?.expiresIn) || result.expiresIn <= 0 || result.expiresIn > 86400) {
+      session = null; accessRefreshAt = 0;
+      throw Object.assign(new Error('로그인 응답을 확인하지 못했어요. 다시 로그인해 주세요.'), { status: 502, code: 'INVALID_AUTH_RESPONSE' });
+    }
+    const lifetime = result.expiresIn * 1000;
+    session = result;
+    accessRefreshAt = now() + lifetime - Math.min(30000, lifetime / 2);
+  };
+  const unauthorized = () => Object.assign(new Error('다시 로그인해 주세요.'), { status: 401, code: 'AUTHENTICATION_REQUIRED' });
+  let passwordReset = null, resetRevision = 0, resetVerifying = null;
+
   const userView = (user) => ({
     mode: 'authenticated', provider: 'email', userId: user.userId,
     email: user.email, nickname: user.nickname,
@@ -40,18 +52,31 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     } finally { clearTimeout(timer); }
   }
   const api = {
-    getAccessToken(expectedUserId) {
-      return session && (expectedUserId === undefined || String(session.user.userId) === expectedUserId) ? session.accessToken : null;
+    getConnectionOptions() { return { baseUrl: base, accessTokenHeader }; },
+    getSessionKey() { return session ? `${session.user.userId}:${sessionSequence}` : null; },
+    async getAccessToken({ userId, sessionKey } = {}) {
+      const matches = () => session && String(session.user.userId) === String(userId) && sessionKey === api.getSessionKey();
+      if (!matches()) throw unauthorized();
+      if (refreshing) { try { await refreshing; } catch (error) { if (!matches()) throw unauthorized(); throw error; } }
+      if (!matches()) throw unauthorized();
+      if (now() >= accessRefreshAt) {
+        try { await api.refresh(); } catch (error) { if (!matches()) throw unauthorized(); throw error; }
+      }
+      if (!matches()) throw unauthorized();
+      return session.accessToken;
     },
     cancelPending({ keepEnrollment = false } = {}) {
       revision++;
+      resetRevision++; passwordReset = null; resetVerifying = null;
+
       if (!keepEnrollment) { draft = null; verification = null; }
     },
     async login({ email, password }) {
       const attempt = ++revision;
       const result = await request('login', { email: normalizeEmail(email), password });
       if (attempt !== revision) throw new Error('로그인 요청이 취소되었어요.');
-      session = result;
+      acceptSession(result);
+      sessionSequence++;
       return userView(result.user);
     },
     async signup({ email, password }) {
@@ -78,6 +103,50 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       verification = { email: normalized, token: result.signupToken, expiresAt: now() + result.expiresIn * 1000 };
       return { expiresIn: result.expiresIn };
     },
+    // 비밀번호 찾기 화면이 추가되면 연결한다. 재설정 토큰은 메모리에만 보관한다.
+    async requestPasswordReset(email) {
+      if (passwordReset?.email === normalizeEmail(email) && passwordReset.expiresAt > now())
+        throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
+      if (resetVerifying?.email === normalizeEmail(email))
+        throw new Error('인증번호를 확인하고 있어요. 잠시만 기다려 주세요.');
+      resetRevision++; passwordReset = null; resetVerifying = null;
+      return request('password-reset-requests', { email: normalizeEmail(email) });
+    },
+    async verifyPasswordReset(email, code) {
+      const normalized = normalizeEmail(email);
+      if (passwordReset?.email === normalized && passwordReset.expiresAt > now())
+        throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
+      if (resetVerifying?.email === normalized)
+        throw new Error('인증번호를 확인하고 있어요. 잠시만 기다려 주세요.');
+      const attempt = ++resetRevision, pending = { email: normalized };
+      resetVerifying = pending;
+      passwordReset = null;
+      try {
+        const result = await request('password-reset-verifications', { email: normalized, code });
+        if (attempt !== resetRevision) throw new Error('비밀번호 재설정 요청이 취소되었어요.');
+        passwordReset = { email: normalized, token: result.resetToken, expiresAt: now() + result.expiresIn * 1000 };
+        return { expiresIn: result.expiresIn };
+      } finally { if (resetVerifying === pending) resetVerifying = null; }
+    },
+    async completePasswordReset({ email, newPassword }) {
+      const current = passwordReset;
+      if (!current || current.email !== normalizeEmail(email) || current.expiresAt <= now())
+        throw new Error('비밀번호 재설정 전에 이메일 인증을 완료해 주세요.');
+      const resetAttempt = resetRevision, authAttempt = revision, previousSession = session;
+      try {
+        await request('password-resets', { email: current.email, resetToken: current.token, newPassword });
+      } catch (error) {
+        // 서버가 이 토큰을 거절한 경우만 정리한다. 새 흐름의 토큰이나 다른 오류는 건드리지 않는다.
+        if (error.code === 'INVALID_PASSWORD_RESET' && passwordReset === current) passwordReset = null;
+        throw error;
+      }
+      // 서버의 재설정은 완료됐어도, 이후 시작한 로그인·인증 흐름에는 영향을 주지 않는다.
+      if (resetAttempt !== resetRevision || authAttempt !== revision ||
+          previousSession !== session || passwordReset !== current)
+        throw new Error('비밀번호는 재설정되었지만 화면 또는 로그인 상태가 변경되었어요.');
+      session = null; api.cancelPending();
+    },
+
     async completeProfile({ email, nickname, photoUri, terms }) {
       if (!draft || draft.email !== normalizeEmail(email) || !verification ||
           verification.email !== draft.email || verification.expiresAt <= now()) {
@@ -106,10 +175,10 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         try {
           const result = await request('refresh', { refreshToken: previous.refreshToken });
           if (attempt !== revision || session !== previous) throw new Error('로그인 상태가 변경되었어요.');
-          session = result;
+          acceptSession(result);
           return userView(result.user);
         } catch (error) {
-          if (session === previous) session = null;
+          if (session === previous && [401, 403].includes(error.status)) session = null;
           throw error;
         }
       })();

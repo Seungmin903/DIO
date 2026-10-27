@@ -8,6 +8,8 @@ import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
+import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
+import AuthenticatedNotificationDialog from './src/notifications/AuthenticatedNotificationDialog';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
 import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
@@ -82,7 +84,13 @@ function MemberDiaryApp(props) {
   const diaryState = useMemberDiaries(String(props.previewUser.userId));
   return <DiaryApp {...props} diaryState={diaryState} />;
 }
-function DiaryApp({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
+function DiaryApp(props) {
+  const content = <DiaryAppContent {...props} />;
+  return props.previewUser.mode === 'authenticated'
+    ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId}>{content}</AuthenticatedNotificationProvider>
+    : content;
+}
+function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
   const member = diaryState.source === 'member-api';
   const profileLeaveGuard = useRef(null);
   const profileBackHandler = useRef(null);
@@ -97,8 +105,9 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
     };
   }, []);
   const sharing = useSharing(previewUser);
+  const authenticatedNotifications = useOptionalSharedNotifications();
   const [sharingRequest, setSharingRequest] = useState(null);
-  const unreadInvites = sharing.notifications.count.data?.actionableUnreadCount || 0;
+  const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
   const openInvitations = useCallback(() => {
     const open = () => setSharingRequest({ mode: 'invitations' });
     if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open();
@@ -106,7 +115,7 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
   const insets = useSafeAreaInsets();
   // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  // 폰은 화면 전체를 쓰고, 태블릿만 플랫폼별 비율(Android 16:10, iPad 4:3) 프레임 안에 맞춘다. 데이터·상태는 두 배치가 함께 쓴다.
+  // 폰 배치는 유지하고 태블릿 바깥 프레임도 측정한 안전 영역 전체를 쓴다. 속지 좌표계는 그대로다.
   const { isPhone, isLandscape } = useFormFactor();
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
@@ -154,7 +163,7 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
   const savingRef = useRef(false);
   const pendingCreateId = useRef(null);
 
-  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height, Platform.OS);
+  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height);
   // 폰 편집기에서 세로(간편)·가로(정밀) 전환 버튼으로 고른 방향. 편집기를 새로 열면 다시 기기 방향을 따른다.
   const [editorOrientation, setEditorOrientation] = useState(null);
   useOrientationLock(isPhone ? 'phone' : 'tablet', page === 'editor', editorOrientation);
@@ -580,7 +589,7 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
     shell = (
       <View style={s.phoneShell}>
         <View style={s.workspace}>{content}</View>
-        <BottomTabs onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
+        <BottomTabs notificationCount={authenticatedNotifications?.count} notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
         {createModal}
       </View>
     );
@@ -589,6 +598,8 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
       <View style={s.shell}>
         <SideRail
           onNotifications={openInvitations}
+          notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'}
+          notificationCount={authenticatedNotifications?.count}
           invitationCount={unreadInvites}
           page={page}
           filter={filter}
@@ -621,7 +632,9 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
 
   return (
     <>
-      <SharingHub onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />
+      {authenticatedNotifications && sharingRequest
+        ? <AuthenticatedNotificationDialog sharingPending={sharingRequest?.mode !== 'invitations'} model={authenticatedNotifications} onClose={() => setSharingRequest(null)} />
+        : <SharingHub onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
         {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}

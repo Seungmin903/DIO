@@ -18,7 +18,8 @@ import org.springframework.transaction.*;
 import org.springframework.transaction.annotation.*;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Qualifier;
 @Service
 public class EmailSignupService {
     private final UserService users;
@@ -28,9 +29,11 @@ public class EmailSignupService {
     private final UserPhotoService photos;
     private final TransactionTemplate readTransaction;
     private final TransactionTemplate writeTransaction;
-    private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder(12);
+    private final PasswordEncoder passwords;
     public EmailSignupService(UserService users, EmailAuthProviderRepository providers, UserTermsService terms,
-            EmailVerificationRepository verifications, UserPhotoService photos, PlatformTransactionManager manager) {
+            EmailVerificationRepository verifications, UserPhotoService photos, PlatformTransactionManager manager,
+            @Qualifier("authPasswordEncoder") PasswordEncoder passwords) {
+        this.passwords = passwords;
         this.users = users; this.providers = providers; this.terms = terms; this.verifications = verifications; this.photos = photos;
         readTransaction = new TransactionTemplate(manager); readTransaction.setReadOnly(true);
         writeTransaction = new TransactionTemplate(manager);

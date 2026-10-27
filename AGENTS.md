@@ -9,7 +9,7 @@
 ## 기술 스택
 
 - Backend: Spring Boot 4.1, Java 17, Gradle, Spring Data JPA, PostgreSQL 17, Flyway
-- Frontend: Expo SDK 58, React Native 0.88 (JavaScript) — 창 크기로 폰·태블릿 배치를 나눔(태블릿은 16:10 가로 프레임, 폰은 전용 배치. `docs/화면 배치/폰 태블릿 배치.md`), react-native-web으로 브라우저 확인 가능
+- Frontend: Expo SDK 58, React Native 0.88 (JavaScript) — 창 크기로 폰·태블릿 배치를 나눔(태블릿은 안전 영역 전체를 쓰는 배치, 폰은 전용 배치. `docs/화면 배치/폰 태블릿 배치.md`), react-native-web으로 브라우저 확인 가능
 - Local infra: Docker Compose (PostgreSQL)
 
 ## 디자인 기준

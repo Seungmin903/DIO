@@ -142,14 +142,14 @@ test('233 수정은 서버의 미세초 토큰을 사용하고 충돌하면 최�
 
 test('401 토큰 갱신은 같은 생성 키로 한 번 재시도하고 계정이 바뀌면 재전송하지 않는다', async () => {
   const calls = []; let token = 'old', refreshes = 0
-  const auth = { getAccessToken: user => user === '101' ? token : null, refresh: async () => { token = 'new'; refreshes++ } }
+  const auth = { getSessionKey: () => '101:1', getAccessToken: ({ userId }) => userId === '101' ? token : null, refresh: async () => { token = 'new'; refreshes++ } }
   const transport = createAuthenticatedMemberTransport({ auth, accountId: '101', baseUrl: 'http://localhost/api/v1', fetchImpl: async (url, options) => {
     calls.push(options); return options.headers.Authorization === 'Bearer old' ? new Response('{"code":"INVALID_TOKEN"}', { status: 401 }) : new Response('{}', { status: 200 })
   } })
   await transport({ method: 'POST', path: '/member/diaries', requestId: 'same-retry-key', body: {} })
   assert.equal(refreshes, 1); assert.equal(calls.length, 2); assert.equal(calls[0].headers['Idempotency-Key'], calls[1].headers['Idempotency-Key'])
   let account = '101'
-  const switched = createAuthenticatedMemberTransport({ auth: { getAccessToken: user => user === account ? 'token' : null, refresh: async () => assert.fail('must not refresh another account') },
+  const switched = createAuthenticatedMemberTransport({ auth: { getSessionKey: () => `${account}:1`, getAccessToken: ({ userId }) => userId === account ? 'token' : null, refresh: async () => assert.fail('must not refresh another account') },
     accountId: '101', baseUrl: 'http://localhost/api/v1', fetchImpl: async () => { account = '202'; return new Response('{}', { status: 401 }) } })
   await assert.rejects(switched({ path: '/member/diaries' }), { status: 401 })
 })

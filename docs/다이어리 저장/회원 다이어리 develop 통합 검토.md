@@ -176,3 +176,85 @@ node qa/member-app-browser.cjs
 실제 Gradle `writeMemberDevelopmentArtifact`는 임시 init 스크립트로 bootJar 출력 폴더와 이름을 `build/member-artifact-qa/member-current-qa.jar`로 분리해 검증했다. bootJar와 기록 작업이 성공했고 jar 내용 및 실행 선택기가 같은 파일을 가리키는지 확인했다. 기존 build/libs의 jar 해시와 기존 앱 서버 생존을 확인했으며 서버를 재시작하지 않았다. QA용 무시 대상 manifest는 다음 정상 시작의 기록 작업에서 실제 bootJar 경로로 다시 기록된다. 기본 출력 jar를 덮어쓰는 실행 검증이나 실기기 QA를 수행한 것은 아니다.
 
 제품 Java/API/SQL/DB 스키마/프런트 코드는 변경하지 않아 전체 백엔드·PostgreSQL 쓰기 회귀·웹/iOS·브라우저 QA는 반복하지 않았다. 비공개 설정과 다른 세션 작업을 보존하며 이번 변경은 미커밋이다. 원격 MR/CI #245793의 208개 통과·조건부 64개 제외는 기존 df59f46 기준이다. 커밋·푸시·MR 본문/댓글 갱신·병합·Jira 상태 변경을 하지 않는다. 229·230 합의 및 실기기 QA 미완료도 유지한다.
+
+
+## 최신 develop 재통합 및 Flyway 이력 검증 (2026-10-27)
+
+- 시작 HEAD는 `b036b8b`, 최신 develop은 `7b1b164d81377da36f0e6dc41f097c6ee14e6d35`다. 시작 시 미커밋/스테이징 변경은 없었다. 자동 통합 결과를 작업 폴더에 미커밋 변경으로 적용했고 HEAD·index는 그대로 유지했다. 원격 병합·커밋·푸시·Jira 상태 변경은 하지 않았다. 다른 작업 폴더와 비공개 설정은 수정하지 않았다.
+- package.json은 develop의 auth-password-reset 테스트와 기존 test:member-diary/test:member-diary:contract/qa:member-app을 모두 보존했다. 인증·비밀번호 재설정과 스티커/화면 관련 develop 변경도 그대로 반영했다.
+- develop의 V7(create_password_reset_verifications), V8(index_expired_verifications)을 보존하고 회원 카탈로그 V7→V9, 영수증 V8→V10으로 이동했다. 회원 SQL 본문은 바꾸지 않아 체크섬 의미를 유지한다. 버전 1~10이 유일하다. 프런트 카탈로그 생성기의 출력 경로와 PostgreSQL 카탈로그 회귀도 V9에 맞췄다. 카탈로그 실패 시 회원 V9 이력이 남지 않는지 확인하며, 그 앞 인증 V7/V8의 정상 적용을 실패로 오인하지 않는다.
+
+### QA DB 처리 범위와 절차
+
+원본 `dio_member_app`은 최초 회원 분기의 V7/V8이 이미 적용돼 있으므로 이름만 바꾼 새 코드를 바로 실행하면 Flyway 검증이 실패한다. 원본 DB의 행·이력과 기존 서버, backend.env/runtime.json/frontend/.env.local은 보존했다. 이번 검증에서 source history UPDATE·Flyway repair·데이터 삭제는 하지 않았다. 시작 스크립트는 이 레거시 이력을 발견하면 빌드 전에 안내로 중단하며 자동 수리하지 않는다.
+
+검증은 비공개 pg_dump 백업을 별도 `dio_member_integration_<12자리>` DB에 복원한 후 진행했다.
+
+1. 백업/복제본의 성공 이력 8개와 구 script가 정확히 `V7__seed_page_template_catalog.sql`, `V8__create_diary_creation_receipts.sql`인지 확인한다. 새 V9/V10의 SQL 원문이 구 파일과 같은지도 확인한다.
+2. **복제본에만** 트랜잭션으로 구 7의 version/script를 9/V9__seed_page_template_catalog.sql, 구 8을 10/V10__create_diary_creation_receipts.sql로 대응시킨다. checksum·installed_rank·installed_on·기타 이력은 수정하지 않는다. 단순 `repair`로 인증 V7/V8의 체크섬으로 덮어쓰면 안 된다.
+3. 복제본에서 한 번만 outOfOrder=true로 현재 마이그레이션을 실행해 비어 있는 인증 V7/V8을 적용한다. 이후 기본 outOfOrder=false로 validate·재시작해야 한다. 전역 또는 원본 runtime에 outOfOrder 설정을 남기지 않는다.
+4. 사용자·다이어리·멤버십·페이지·속지·영수증의 전체 행 지문과 개수 보존, 성공 버전 1~10, 기본 설정 재시작을 확인한다. 이번 복제본에서 모두 통과했다. 별도 자동 PostgreSQL 회귀 `MemberMigrationUpgradePostgresTests`도 같은 이력 전환과 실제 데이터 보존·최초 검증 실패·전환 후 재실행을 검사한다.
+5. 원본 전환은 이번에 실행하지 않았다. 실제 전환 전에는 기존 앱의 쓰기를 멈춘 뒤 최신 백업부터 다시 검증하고, 검증한 적용/복구 절차를 선택해야 한다. 이번 복제본에서 생성한 QA 자료를 원본에 역반영하지 않는다. 일반 develop V1~V8이 적용된 DB 또는 새 DB에는 현재 V9/V10을 정상 순서로 적용하며 위 레거시 회원 이력 대응이 필요하지 않다. 공유/운영 DB에는 이 절차를 임의 적용하지 않는다.
+
+백업과 비공개 실행 정보는 저장소 밖 작업 tmp/mr166-develop-integration에 보관한다. 브라우저 QA는 DIO_MEMBER_QA_RUNTIME_DIR로 복제본 전용 runtime과 별도 API/웹 포트를 사용했다. 원본 서버를 재시작하지 않았으며 QA용 API만 정상 설정으로 재시작했다. 일회용 인증/비밀번호 재설정 PostgreSQL은 별도 클러스터와 auth_ci/dio_reset_qa 두 DB를 사용했다.
+
+### 통합 회귀 결과
+
+- 백엔드 일반 test: 232개 통과, 조건부 DB 81개 제외, 실패/오류 0개.
+- 회원 PostgreSQL: 생성·카탈로그·멱등성·이력 전환 41개, 상세·권한·경합 16개, 합계 57개 모두 통과.
+- 별도 인증/비밀번호 재설정 authPostgresTest: 20개 모두 통과.
+- 프런트 전체 815개 통과. 새 Spring 응답 기반 계약 3개도 재확인했다(815개에 포함되는 계약 테스트의 재실행).
+- 웹 export 및 iOS Hermes export 성공. 초기화/실행 가드 15개, 사전 검사 18개 통과.
+- 최신 API+복제 DB의 실제 Edge 1280x800·412x892 QA 통과: 로그인, 최초 201 응답 유실, 재로그인/동일 키 복구, 서버 ID/초기 페이지, PATCH, 늦은 실제 GET 경합, 편집기, 비회원 키 격리, 다중 커서, 새 기기 목록 발견, 빈 문서 미생성, 마지막 페이지 재실행 복원.
+- 첫 통합 실행의 카탈로그 파일 경로 1개와 카탈로그 실패 이력 가정 2개 오류는 새 V9 경계로 수정한 뒤 위 전체 회귀를 다시 통과했다.
+
+229·230의 정책/모델 합의, 실기기 QA, 작성자 외 승인과 원본 QA 환경의 실제 전환은 별도다. 통합 내용은 로컬 미커밋 상태이므로 원격 MR !166/CI는 아직 기존 b036b8b 기준이다.
+
+
+## 알림 통합 develop b7a626c 재통합 (2026-10-27)
+
+- 시작 HEAD b49c440, 최신 develop b7a626ca740a840f5d5178db091b6fdfc039083c. 시작 시 미커밋·스테이징 변경은 없었다. 알림 통합 6267a7f의 75개 경로를 자동 통합 결과로 반영하고 App.js/package.json/authApi.js 충돌을 해결했다. HEAD/index와 다른 작업 폴더는 유지하며 이번 결과는 미커밋이다.
+- App.js: LocalDiaryApp/MemberDiaryApp와 회원 diaryState를 유지하고 인증 회원의 콘텐츠에 실제 알림 Provider/Dialog를 연결했다. 게스트 로컬 흐름을 보존했다.
+- package.json: 인증·회원·카탈로그 명령과 최신 알림 전체/경합/계약/a11y 명령을 함께 유지했다. 공통 문자열을 무조건 develop 버전으로 덮어써 회원 카탈로그 테스트가 빠지지 않도록 했다.
+- authApi.js: develop의 세션 키·TTL 사전 갱신·동시 refresh·인증 거부/일시 실패·로그아웃 경계를 유지했다. 회원 transport/hook를 비동기 객체 인자와 로그인 세션 키 계약에 맞췄다. 단순히 문자열 인자의 구 API를 유지하는 호환 분기는 만들지 않았다.
+- 신규 교차 회귀 4개: 회원/알림 동시 만료 요청의 갱신 1회·같은 토큰, 401 생성 재시도의 같은 키/본문, 같은 계정 재로그인 시 옛 양쪽 호출자 차단, 공동 갱신 중 계정 변경 시 새 계정으로 데이터 요청 미전송. 구 회원 transport가 새 인증 API와 호환되지 않는 수정 전 실패도 별도 임시 모듈로 재현했다.
+
+### 통합 검증
+
+- 일반 백엔드 256개 통과, 조건부 DB 83개 제외, 실패/오류 0개.
+- 회원 PostgreSQL 41+16=57개 통과. 별도 인증/비밀번호 재설정/알림 SQL authPostgresTest 22개 통과. 원본과 분리된 회원 복제 DB 및 일회용 인증 클러스터를 재사용했다.
+- 프런트 일반 865개 통과. 실제 Spring 알림 계약 8개를 별도 실행해 합계 873개이며 회원 Spring 계약 3개도 재확인했다(일반 865개에 포함된 부분집합). 실제 loopback HTTP를 사용하는 알림 6개 테스트는 네트워크 제한이 없는 검증 환경에서 통과했다.
+- 웹·iOS Hermes 번들 성공. 실제 기기 실행을 뜻하지 않는다.
+- 복제 DB+새 통합 API의 실제 Edge QA 통과: 로그인한 본인 알림 조회/읽음/삭제, 타인 알림 미표시 및 PATCH/DELETE 404, 알림 닫기 후 회원 보관함 유지. 이어 201 응답 유실·동일 키 재시도·서버 ID·PATCH·늦은 GET 경합·편집기·게스트 키 격리·다중 커서·새 기기 발견·빈 문서 미생성·휴대폰 마지막 페이지 재실행 복원을 확인했다.
+- 신규 알림 UI QA의 첫 선택자는 라벨 구분자(쉼표)를 놓쳐 타임아웃했다. 실제 접근성 라벨에 맞춘 뒤 전체 흐름을 통과했으며 제품 코드를 테스트에 맞춰 바꾸지 않았다.
+
+원본 QA DB·마이그레이션 이력·기존 서버와 jar·비공개 설정은 보존한다. 테스트 알림은 복제 DB에만 주입했다. 회원 마이그레이션 V9/V10과 develop 인증 V7/V8은 유지하고 이 통합에서 이력을 다시 변경하지 않았다. 원본 QA 환경의 실제 전환·229/230 합의·회원 기능 실기기 QA·작성자 외 승인은 여전히 별도다. 커밋·푸시·원격 MR 본문/댓글 변경·병합·Jira 상태 변경은 하지 않는다. 원격 MR/CI는 기존 b49c440 기준이다.
+
+
+## 원본 QA 연결 복구와 최신 INFO 4개 검토 (2026-10-27, b3c3158 이후 미커밋)
+
+MR !166의 b3c3158 대상 자동 리뷰 note 2934581의 INFO 4개를 실제 코드와 실행 환경에서 재검토했다. 원격 코멘트·MR 본문·Jira 상태는 수정하지 않았다. 직전 원격 CI #245869는 4개 job 성공(backend 256개, PostgreSQL 22개 통과, 조건부 83개 건너뜀)이며 아래 로컬 변경은 아직 원격 CI에 포함되지 않는다.
+
+### 원본 DB 보존과 연결 복구
+
+원본 PostgreSQL 프로세스는 살아 있었지만 임시 배포 디렉터리의 psql/pg_ctl 및 timezone 지원 파일이 누락되어 신규 연결이 끊겼다. 서버 로그의 `invalid value for parameter timezone_abbreviations: Default`와 파일 누락을 확인했다. 캐시 PostgreSQL 17 아카이브의 postgres.exe SHA256이 실행 중 바이너리와 동일함을 확인한 뒤 bin/lib/share의 **누락된 파일 1,545개만** 복원했다. 기존 파일은 배타적 생성으로 덮어쓰지 않았고 데이터 디렉터리는 대상에서 제외했다. 원본 PostgreSQL/API 재시작이나 DB 초기화·Flyway repair/이력 전환은 하지 않았다. 원본 API health 200과 SQL 접속 회복을 확인했다.
+
+원본 users/diaries/diary_members/pages/page_templates/diary_creation_receipts/flyway_schema_history의 행 수와 전체 행 지문이 기존 기준과 같다. 원본 이력 8개와 C locale은 유지한다. 비공개 backend.env/runtime.json/frontend .env.local 및 기존 build/libs jar의 해시는 보존했다. 복구 목록과 검증 증적은 저장소 밖 `tmp/mr166-db-info4`에만 보관하며 자격증명이나 DB 덤프를 제출하지 않는다. 임시 설치 경로를 안정된 경로로 옮기는 작업과 원본 V7/V8→V9/V10 이력 전환은 별도 미수행 사항이다.
+
+### INFO별 판단
+
+1. 비공개 backend.env: `.local-data/`가 기존 .gitignore에 포함되어 실제 제외된다. 추적 파일이 아니며 원본 설정을 수정하지 않았다. 추가 ignore 변경은 불필요하다.
+2. 비ASCII 검색: 실제 C locale DB에서 ÉÄ와 Java 소문자화 검색어가 불일치했다. 제목/검색어를 PostgreSQL ICU root로 함께 소문자화하고 제목 비교를 C 순서로 고정했다. 전용 PostgreSQL 테스트 3개의 수정 전 실패와 수정 후 통과를 확인했다. v1 커서는 400으로 거부하고 v2를 발급한다. PostgreSQL에 `und-x-icu`가 필요한 실행 전제가 추가되며 DB locale·데이터·마이그레이션 변경은 없다.
+3. 집계 비용: 수정 SQL의 EXPLAIN ANALYZE에서 후보 10개/LIMIT 2일 때 created/updated/title은 page/member 집계 각각 2회, pages 정렬은 page 10회/member 2회였다. 관측 실행 시간은 약 0.6~1.6ms다. 모든 집계를 항상 LIMIT 전에 전체 후보에 수행한다는 주장은 이 표본에서 재현되지 않아 쿼리 구조는 유지한다. 대용량·동시 부하 성능을 보증하는 결과는 아니다.
+4. 상세 공유 잠금: 활성 사용자→다이어리→멤버십 잠금으로 권한 확인과 응답 스냅샷의 일관성을 보장하는 기존 정책을 유지한다. FOR SHARE는 쓰기/튜플 비용과 PATCH·탈퇴 대기를 유발할 수 있다. 실제 두 GET 병행, 비활성화·삭제·권한 회수 대기, PATCH 경합을 포함한 PostgreSQL 16개를 재검증했다. 운영 대기시간·처리량 부하 측정은 미수행이다.
+
+### 이번 로컬 회귀
+
+- 일반 backend test: 256개 통과, 조건부 DB 86개 건너뜀, 실패/오류 0개.
+- PostgreSQL 회원 생성·목록·이력 전환 44개 + 상세·권한·잠금 16개 = 60개 전부 통과. 원본이 아닌 기존 격리 복제 DB의 전용 스키마를 사용했다.
+- 시작 스크립트 회귀 15개, preflight 회귀 21개 통과. 누락 지원 파일을 감지하며 기존 DB·프로세스는 변경하지 않는다.
+- 프런트 회원/인증/알림 경계 및 새 Spring 회원 계약을 포함한 집중 회귀 29개 통과.
+- 실제 PostgreSQL+최신 격리 API+기존 웹 번들의 Edge QA 통과: Unicode 제목 생성, 동일 키 재시도, PATCH 뒤 지연 GET, ÉÄ/éä 인증 검색, 커서 순회, 새 기기 발견, 폰 화면과 기기 문서 보존. 첫 실행은 QA 제목이 24자 입력 한도를 넘어 실패했으며 제품 코드를 바꾸지 않고 QA 제목을 줄여 전체 흐름을 재실행했다. 이번에는 앱 제품 코드가 바뀌지 않아 web/iOS 번들을 다시 export하지 않았다.
+- 최종 원본 API health 200, 7개 테이블 전체 지문 동일, 비공개 파일/기존 jar 해시 동일, 복원 파일 1,545개 해시 일치, 테스트 스키마 잔존 0개. 이번 격리 API만 종료했으며 원본 PostgreSQL/API PID는 유지했다.
+
+229·230 정책/화면 합의와 실기기 QA는 여전히 별도 미완료 사항이다. 이번 변경은 로컬 미커밋이며 커밋·푸시·병합·Jira 상태 변경을 수행하지 않는다.

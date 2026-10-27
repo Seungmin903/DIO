@@ -8,9 +8,10 @@ import { createMemberAppStore } from '../services/memberAppStore.js'
 import { createId } from '../../editor/utils/common.js'
 
 export function useMemberDiaries(accountId) {
+  const sessionKey = authService.getSessionKey()
   const store = useMemo(() => createMemberAppStore({ accountId, storage: AsyncStorage, makeRequestId: () => `member-${createId()}`,
     api: createMemberDiaryApi(createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl,
-      accessTokenHeader, fetchImpl: memberFetch })) }), [accountId])
+      accessTokenHeader, fetchImpl: memberFetch })) }), [accountId, sessionKey])
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot)
   useEffect(() => { store.load().catch(() => {}); return () => store.dispose() }, [store])
   return { ...state, source: store.source, store, setDiaries: store.setDiaries,

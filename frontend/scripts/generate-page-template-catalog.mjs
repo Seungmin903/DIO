@@ -44,7 +44,7 @@ $dio_catalog$;
 `
 }
 export const catalogResource = new URL('../../backend/src/main/resources/catalog/page-templates-v1.json', import.meta.url)
-export const migrationResource = new URL('../../backend/src/main/resources/db/migration/V7__seed_page_template_catalog.sql', import.meta.url)
+export const migrationResource = new URL('../../backend/src/main/resources/db/migration/V9__seed_page_template_catalog.sql', import.meta.url)
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const artifacts = [[catalogResource, JSON.stringify(catalogContract(), null, 2) + '\n'], [migrationResource, seedMigration()]]

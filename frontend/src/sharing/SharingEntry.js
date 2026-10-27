@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-na
 import Icon from '../editor/components/controls/Icon';
 import MemberAvatar from './MemberAvatar';
 import { sharingStyles as s } from './styles';
+import { notificationCountLabel } from '../notifications/notificationCount.js';
 
 export default function SharingEntry({
   vertical = false,
@@ -13,6 +14,8 @@ export default function SharingEntry({
   count = 0,
   compact = false,
   notifications = false,
+  notificationLabel = '받은 초대',
+  notificationCount,
 }) {
   const circles = useRef(null);
   const alive = useRef(true);
@@ -53,7 +56,10 @@ export default function SharingEntry({
     ? Math.max(topEdge, Math.min(anchor.y + anchor.h + 8, bottomEdge - cardHeight))
     : topEdge;
   const visibleCount = compact ? 1 : 2;
-  const label = notifications ? '받은 초대' : '다이어리 공유';
+  const label = notifications ? notificationLabel : '다이어리 공유';
+  const summary = notifications && notificationCount ? notificationCountLabel(notificationCount.data) : null;
+  const countDescription = summary ? (summary.value === null ? '' : `, ${summary.label} ${summary.value}개`) : (count ? `, 새 초대 ${count}개` : '');
+  const needsCheck = notifications && notificationCount?.status === 'error' ? ', 알림 수 확인 필요' : '';
   return (
     <View ref={circles} style={[s.entryGroup, vertical && { flexDirection: 'column' }]}>
       {!notifications && members.length > 0 && (
@@ -87,16 +93,17 @@ export default function SharingEntry({
       )}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label}${count ? `, 새 초대 ${count}개` : ''}`}
+        accessibilityLabel={`${label}${countDescription}${needsCheck}`}
         onPress={() => {
           closePeople();
           onPress?.();
         }}
-        style={s.entry}
+        style={notifications && summary && compact ? [s.entry, { flexDirection: 'column', gap: 0 }] : s.entry}
       >
         <Icon name={notifications ? 'bell' : 'people'} size={20} />
         {!compact && <Text style={s.bold}>{notifications ? '알림' : '공유'}</Text>}
-        {count > 0 && <View style={s.dot} />}
+        {summary && summary.value !== null && <Text style={[s.bold, compact && { fontSize: 12, lineHeight: 14 }]}>{summary.value > 99 ? '99+' : summary.value}</Text>}
+        {(summary ? summary.showDot : count > 0) && <View testID="notification-dot" style={s.dot} />}
       </Pressable>
       {!!anchor && (
         <EditorModal transparent visible animationType="none" onRequestClose={closePeople}>

@@ -32,6 +32,7 @@ function Free-Port([int]$preferred) {
     $port=$listener.LocalEndpoint.Port; $listener.Stop(); return $port
 }
 if (!(Test-Path -LiteralPath $runtimeFile)) {
+    Assert-MemberPostgresInstallation $PostgresBin
     if (!(Test-Path -LiteralPath (Join-Path $PostgresBin 'pg_ctl.exe'))) { throw 'PostgreSQL binaries required' }
     $clusterRoot=Split-Path (Split-Path $PostgresBin)
     $dataDir=Join-Path $clusterRoot ('member-app-'+[guid]::NewGuid().ToString('N'))
@@ -63,6 +64,7 @@ if (!(Test-Path -LiteralPath $runtimeFile)) {
     }
     $PostgresBin=$metadata.postgresBin
 }
+Assert-MemberPostgresInstallation $PostgresBin
 # Refuse a second startup before touching the DB or a potentially locked jar.
 if($metadata.backendPid) {
     if(Test-OwnedBackend ([int]$metadata.backendPid)) { throw 'Owned backend is already running; stop its recorded PID before restarting changed code' }
@@ -93,6 +95,15 @@ if(($databaseExists -join '').Trim() -ne '1') {
     if($LASTEXITCODE -ne 0) { throw 'createdb failed' }
 }
 $metadata.Remove('newDatabase') | Out-Null
+# Never silently repair a legacy branch's applied V7/V8 history. The original
+# QA data must first be backed up and the V9/V10 mapping rehearsed on a clone.
+$hasHistory=& (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $metadata.pgPort -U dio_member_dev -d dio_member_app -tAc "select to_regclass('public.flyway_schema_history') is not null"
+if($LASTEXITCODE -ne 0) { throw 'Owned migration history check failed' }
+if(($hasHistory -join '').Trim() -eq 't') {
+    $legacy=& (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $metadata.pgPort -U dio_member_dev -d dio_member_app -tAc "select count(*) from flyway_schema_history where (version='7' and script='V7__seed_page_template_catalog.sql') or (version='8' and script='V8__create_diary_creation_receipts.sql')"
+    if($LASTEXITCODE -ne 0) { throw 'Owned legacy migration check failed' }
+    if([int](($legacy -join '').Trim()) -gt 0) { throw 'Legacy member V7/V8 history detected; back up and rehearse V9/V10 mapping on a clone first. See docs/다이어리 저장/회원 다이어리 develop 통합 검토.md. No automatic repair was performed.' }
+}
 Push-Location (Join-Path $repoRoot 'backend')
 try {
     & .\gradlew.bat writeMemberDevelopmentArtifact --console=plain

@@ -17,7 +17,19 @@ public class MemberDiaryListQuery {
     private final JdbcTemplate jdbc;
     private final DiaryRequestIdentity identity;
     private final ObjectMapper json = new ObjectMapper();
-    public MemberDiaryListQuery(JdbcTemplate jdbc, DiaryRequestIdentity identity) { this.jdbc=jdbc; this.identity=identity; }
+    private final boolean postgres;
+    private final String titleKeySql;
+    public MemberDiaryListQuery(JdbcTemplate jdbc, DiaryRequestIdentity identity) {
+        this.jdbc=jdbc; this.identity=identity;
+        postgres=Boolean.TRUE.equals(jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Boolean>)
+            connection -> "PostgreSQL".equals(connection.getMetaData().getDatabaseProductName())));
+        if(postgres && !Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from pg_collation where collname='und-x-icu')",Boolean.class))) {
+            throw new IllegalStateException("PostgreSQL ICU root collation und-x-icu is required for member diary search");
+        }
+        // Fold both operands with the same database Unicode rules. Keep the
+        // resulting title key in byte order, independent of the DB's default locale.
+        titleKeySql=postgres ? "LOWER(d.title COLLATE \"und-x-icu\") COLLATE \"C\"" : "LOWER(d.title)";
+    }
     public record Item(MemberDiaryResponses.Diary diary, long pageCount, boolean shared) {}
     public record Page(List<Item> items, String nextCursor, boolean hasNext) {}
     public record Cursor(int v, long user, String q, String sort, String value, String id) {}
@@ -27,25 +39,29 @@ public class MemberDiaryListQuery {
     @Transactional(readOnly=true)
     public Page list(String query, String order, Integer requestedLimit, String encoded) {
         long user=identity.requireUserId(DiaryDetailException::unauthorized);
-        String q=query==null?"":query.strip().toLowerCase(Locale.ROOT), sort=order==null?"created":order;
+        String q=query==null?"":query.strip(), sort=order==null?"created":order;
         int limit=requestedLimit==null?20:requestedLimit;
         if(q.length()>100 || limit<1 || limit>100 || !Set.of("created","updated","title","pages").contains(sort)) throw invalid();
+        if(!q.isEmpty()) {
+            q=jdbc.queryForObject(postgres ? "SELECT LOWER(CAST(? AS text) COLLATE \"und-x-icu\")" : "SELECT LOWER(CAST(? AS VARCHAR))",String.class,q);
+            if(q.length()>100) throw invalid();
+        }
         String column=switch(sort) {case "updated"->"updated_at";case "title"->"title_key";case "pages"->"page_count";default->"created_at";};
         boolean asc=sort.equals("title");
         var args=new ArrayList<Object>();args.add(user);
-        String base="SELECT d.*,m.role,LOWER(d.title) AS title_key,"+
+        String base="SELECT d.*,m.role,"+titleKeySql+" AS title_key,"+
             "(SELECT COUNT(*) FROM pages p WHERE p.diary_id=d.diary_id AND p.deleted_at IS NULL) AS page_count,"+
             "(SELECT COUNT(*) FROM diary_members a WHERE a.diary_id=d.diary_id AND a.left_at IS NULL) AS member_count "+
             "FROM diaries d JOIN diary_members m ON m.diary_id=d.diary_id AND m.user_id=? "+
             "WHERE d.deleted_at IS NULL AND m.left_at IS NULL AND d.owner_user_id IS NOT NULL "+
             "AND ((m.role='OWNER' AND d.owner_user_id=m.user_id) OR (m.role IN ('EDITOR','VIEWER') AND d.owner_user_id<>m.user_id))";
-        if(!q.isEmpty()) {base+=" AND LOWER(d.title) LIKE ? ESCAPE '!'";args.add("%"+q.replace("!","!!").replace("%","!%").replace("_","!_")+"%");}
+        if(!q.isEmpty()) {base+=" AND "+titleKeySql+" LIKE ? ESCAPE '!'";args.add("%"+q.replace("!","!!").replace("%","!%").replace("_","!_")+"%");}
         String sql="SELECT * FROM ("+base+") x";
         if(encoded!=null) {
             try {
                 if(encoded.length()>4096) throw invalid();
                 var c=json.readValue(Base64.getUrlDecoder().decode(encoded),Cursor.class);
-                if(c.v()!=1 || c.user()!=user || !q.equals(c.q()) || !sort.equals(c.sort()) || c.value()==null || c.value().length()>300) throw invalid();
+                if(c.v()!=2 || c.user()!=user || !q.equals(c.q()) || !sort.equals(c.sort()) || c.value()==null || c.value().length()>300) throw invalid();
                 Object value=switch(sort) {case "title"->c.value();case "pages"->Long.parseLong(c.value());default->Timestamp.from(Instant.parse(c.value()));};
                 UUID id=UUID.fromString(c.id());String cmp=asc?">":"<";
                 sql+=" WHERE ("+column+cmp+"? OR ("+column+"=? AND diary_id"+cmp+"?))";
@@ -59,7 +75,7 @@ public class MemberDiaryListQuery {
             return new Row(new Item(diary,rs.getLong("page_count"),rs.getLong("member_count")>1),value);
         },args.toArray());
         boolean more=rows.size()>limit;var selected=rows.subList(0,Math.min(limit,rows.size()));String next=null;
-        if(more) {var last=selected.get(selected.size()-1);next=Base64.getUrlEncoder().withoutPadding().encodeToString(json.writeValueAsString(new Cursor(1,user,q,sort,last.value(),last.item().diary().diaryId())).getBytes(StandardCharsets.UTF_8));}
+        if(more) {var last=selected.get(selected.size()-1);next=Base64.getUrlEncoder().withoutPadding().encodeToString(json.writeValueAsString(new Cursor(2,user,q,sort,last.value(),last.item().diary().diaryId())).getBytes(StandardCharsets.UTF_8));}
         return new Page(selected.stream().map(Row::item).toList(),next,more);
     }
 }
