@@ -132,3 +132,59 @@ test('동일 이메일의 병렬 인증 확인은 첫 요청의 유효 토큰을
   assert.equal(calls.length,2);
   assert.equal(JSON.parse(calls.at(-1).body).resetToken,'first-token');
 });
+
+test('완료 토큰 무효 응답 후 재발송과 새 인증을 다시 시작할 수 있다',async()=>{
+  const calls=[];
+  let generation=0;
+  const api=createAuthApi({baseUrl:'http://localhost:8080',fetchImpl:async(url,init)=>{
+    calls.push({url,...init});
+    if(url.endsWith('/password-reset-verifications'))return {ok:true,status:200,json:async()=>({resetToken:'token-'+(++generation),expiresIn:600})};
+    if(url.endsWith('/password-resets')&&generation===1)return {ok:false,status:400,json:async()=>({code:'INVALID_PASSWORD_RESET',detail:'새 인증번호를 요청해 주세요.'})};
+    return {ok:true,status:url.endsWith('/password-resets')?204:202,json:async()=>({})};
+  }});
+  await api.verifyPasswordReset('member@example.com','123456');
+  await assert.rejects(api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'}),e=>e.code==='INVALID_PASSWORD_RESET');
+  await api.requestPasswordReset('member@example.com');
+  await api.verifyPasswordReset('member@example.com','654321');
+  await api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'});
+  assert.equal(JSON.parse(calls.at(-1).body).resetToken,'token-2');
+});
+
+test('입력 검증·네트워크·서버 오류는 토큰을 보존해 같은 토큰으로 완료를 재시도한다',async()=>{
+  for(const failure of ['validation','network','server']) {
+    const bodies=[];let first=true;
+    const api=createAuthApi({baseUrl:'http://localhost:8080',fetchImpl:async(url,init)=>{
+      if(url.endsWith('/password-reset-verifications'))return {ok:true,status:200,json:async()=>({resetToken:'valid-token',expiresIn:600})};
+      if(url.endsWith('/password-resets')) {
+        bodies.push(JSON.parse(init.body));
+        if(first){first=false;if(failure==='network')throw new TypeError('network unavailable');
+          return {ok:false,status:failure==='validation'?400:500,json:async()=>({detail:'다시 시도해 주세요.',code:failure==='validation'?'VALIDATION_ERROR':'INTERNAL_ERROR'})};}
+      }
+      return {ok:true,status:204};
+    }});
+    await api.verifyPasswordReset('member@example.com','123456');
+    await assert.rejects(api.completePasswordReset({email:'member@example.com',newPassword:'wrong'}));
+    await api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'});
+    assert.deepEqual(bodies.map(body=>body.resetToken),['valid-token','valid-token']);
+  }
+});
+
+test('늦게 도착한 이전 완료 요청의 무효 응답은 새로 인증받은 토큰을 지우지 않는다',async()=>{
+  let rejectOld;let generation=0;
+  const bodies=[];
+  const api=createAuthApi({baseUrl:'http://localhost:8080',fetchImpl:async(url,init)=>{
+    if(url.endsWith('/password-reset-verifications'))return {ok:true,status:200,json:async()=>({resetToken:'token-'+(++generation),expiresIn:600})};
+    if(url.endsWith('/password-resets')) {
+      bodies.push(JSON.parse(init.body));
+      if(bodies.length===1)return new Promise(resolve=>{rejectOld=()=>resolve({ok:false,status:400,json:async()=>({code:'INVALID_PASSWORD_RESET',detail:'새 인증번호를 요청해 주세요.'})});});
+      return {ok:true,status:204};
+    }
+  }});
+  await api.verifyPasswordReset('member@example.com','123456');
+  const old=api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'});
+  api.cancelPending();
+  await api.verifyPasswordReset('member@example.com','654321');
+  rejectOld();await assert.rejects(old,e=>e.code==='INVALID_PASSWORD_RESET');
+  await api.completePasswordReset({email:'member@example.com',newPassword:'NewPassword123!'});
+  assert.deepEqual(bodies.map(body=>body.resetToken),['token-1','token-2']);
+});

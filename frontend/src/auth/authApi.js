@@ -109,7 +109,13 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (!current || current.email !== normalizeEmail(email) || current.expiresAt <= now())
         throw new Error('비밀번호 재설정 전에 이메일 인증을 완료해 주세요.');
       const resetAttempt = resetRevision, authAttempt = revision, previousSession = session;
-      await request('password-resets', { email: current.email, resetToken: current.token, newPassword });
+      try {
+        await request('password-resets', { email: current.email, resetToken: current.token, newPassword });
+      } catch (error) {
+        // 서버가 이 토큰을 거절한 경우만 정리한다. 새 흐름의 토큰이나 다른 오류는 건드리지 않는다.
+        if (error.code === 'INVALID_PASSWORD_RESET' && passwordReset === current) passwordReset = null;
+        throw error;
+      }
       // 서버의 재설정은 완료됐어도, 이후 시작한 로그인·인증 흐름에는 영향을 주지 않는다.
       if (resetAttempt !== resetRevision || authAttempt !== revision ||
           previousSession !== session || passwordReset !== current)
