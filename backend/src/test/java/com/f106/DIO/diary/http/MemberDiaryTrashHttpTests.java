@@ -164,4 +164,3 @@ class MemberDiaryTrashHttpTests {
         assertThat(jdbc.queryForObject("select deleted_at from diaries where diary_id=?",Timestamp.class,UUID.fromString(id))).isNull();
     }
 }
-
