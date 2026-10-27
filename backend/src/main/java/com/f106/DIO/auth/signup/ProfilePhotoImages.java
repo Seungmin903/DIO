@@ -32,24 +32,7 @@ final class ProfilePhotoImages {
                 if (!readers.hasNext()) throw invalid();
                 ImageReader reader = readers.next();
                 try {
-                    String format = reader.getFormatName().toLowerCase(Locale.ROOT);
-                    if (!format.equals("png") && !format.equals("jpeg") && !format.equals("jpg")) throw invalid();
-                    reader.setInput(images, true, true);
-                    int width = reader.getWidth(0), height = reader.getHeight(0);
-                    if (width < 1 || height < 1 || width > 8192 || height > 8192 || (long) width * height > 16_000_000) throw invalid();
-                    BufferedImage source = reader.read(0);
-                    int orientation = format.equals("png") ? 1 : JpegOrientation.read(original);
-                    int displayWidth = orientation >= 5 ? height : width;
-                    int displayHeight = orientation >= 5 ? width : height;
-                    double ratio = Math.min(1.0, 512.0 / Math.max(width, height));
-                    BufferedImage resized = new BufferedImage(Math.max(1, (int)(displayWidth * ratio)),
-                        Math.max(1, (int)(displayHeight * ratio)), BufferedImage.TYPE_INT_ARGB);
-                    Graphics2D graphics = resized.createGraphics();
-                    try {
-                        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                        graphics.scale((double)resized.getWidth() / displayWidth, (double)resized.getHeight() / displayHeight);
-                        graphics.drawImage(source, JpegOrientation.transform(orientation, width, height), null);
-                    } finally { graphics.dispose(); }
+                    BufferedImage resized = decodeAndResize(reader, images, original);
                     // 메타데이터·원본 파일명은 저장하지 않고 축소된 PNG만 저장한다.
                     var output = new ByteArrayOutputStream();
                     if (!ImageIO.write(resized, "png", output) || output.size() > 1024 * 1024) throw invalid();
@@ -57,6 +40,32 @@ final class ProfilePhotoImages {
                 } finally { reader.dispose(); }
             }
         } catch (IOException | IllegalArgumentException error) { throw invalid(); }
+    }
+    private static BufferedImage decodeAndResize(ImageReader reader, javax.imageio.stream.ImageInputStream images,
+            byte[] original) throws IOException {
+        try {
+            String format = reader.getFormatName().toLowerCase(Locale.ROOT);
+            if (!format.equals("png") && !format.equals("jpeg") && !format.equals("jpg")) throw invalid();
+            reader.setInput(images, true, true);
+            int width = reader.getWidth(0), height = reader.getHeight(0);
+            if (width < 1 || height < 1 || width > 8192 || height > 8192 || (long) width * height > 16_000_000) throw invalid();
+            BufferedImage source = reader.read(0);
+            if (source == null) throw invalid();
+            int orientation = format.equals("png") ? 1 : JpegOrientation.read(original);
+            int displayWidth = orientation >= 5 ? height : width;
+            int displayHeight = orientation >= 5 ? width : height;
+            double ratio = Math.min(1.0, 512.0 / Math.max(width, height));
+            BufferedImage resized = new BufferedImage(Math.max(1, (int)(displayWidth * ratio)),
+                Math.max(1, (int)(displayHeight * ratio)), BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = resized.createGraphics();
+            try {
+                graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                graphics.scale((double)resized.getWidth() / displayWidth, (double)resized.getHeight() / displayHeight);
+                graphics.drawImage(source, JpegOrientation.transform(orientation, width, height), null);
+            } finally { graphics.dispose(); }
+            return resized;
+        } catch (SignupException error) { throw error; }
+        catch (RuntimeException error) { throw invalid(); }
     }
     private static SignupException invalid() {
         return SignupException.invalid("INVALID_PROFILE_PHOTO", "정상적인 JPEG 또는 PNG 사진을 선택해 주세요. 최대 1600만 화소까지 지원해요.");
