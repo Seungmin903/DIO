@@ -40,7 +40,15 @@ test('네이티브 캡처는 실제 헤더로 확인하고 실패·정상 해제
   let closed = 0
   globalThis.__capturePixelTest = {
     Platform: { get OS() {return os} }, PixelRatio: {get:()=>ratio}, FileMode: {ReadOnly:'r'},
-    File: class {open() {if(openFails)throw Error('read failed'); return {readBytes:n=>{assert.equal(n,24);if(readFails)throw Error('read failed');return actual},close:()=>closed++}}},
+    File: class {open() {
+      if(openFails)throw Error('read failed')
+      let handleClosed=false
+      return {readBytes:async n=>{
+        await Promise.resolve()
+        assert.equal(handleClosed,false,'PNG 크기 읽기 완료 전 핸들을 닫으면 안 된다')
+        assert.equal(n,24);if(readFails)throw Error('read failed');return actual
+      },close:()=>{handleClosed=true;closed++}}
+    }},
     captureRef: async (_,options) => {
       calls.push(options)
       if(captureFails)throw Error('capture failed')

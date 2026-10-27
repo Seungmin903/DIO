@@ -34,6 +34,7 @@ function docsFixture() {
     '../templates/loadTemplate': {},
     './mediaStore': {},
     './sessionDocuments.js': memory,
+    './editorViewState': { loadViewedPage: async () => null },
     './storage': {
       STORAGE_KEYS: { doc: 'personal:doc' },
       saveJSON: async (key, doc) => {
@@ -99,4 +100,21 @@ test('개인 다이어리 저장 키와 기존 기기 저장 경로는 유지한
     ['save', 'personal:doc:own'],
     ['get', 'personal:doc:own'],
   ]);
+});
+
+test('문서 캐시 무효화는 개인 열람 기록과 문서를 삭제하지 않고 반환형이 같다', async () => {
+  const docs = docsFixture();
+  const diary = { id: 'cache-only' }, key = docs.editorDocKey(diary);
+  const value = { id: diary.id, pages: [{ id: 'p1', objects: [] }] };
+  docs.disk.set(key, JSON.stringify(value));
+  docs.disk.set(`dio:editor:view:v1:${key}`, '"p1"');
+  await docs.loadEditorDoc(diary);
+  assert.equal(docs.forgetEditorDoc(key), true);
+  assert.equal(docs.peekEditorDoc(key), null);
+  assert.equal(docs.disk.get(`dio:editor:view:v1:${key}`), '"p1"');
+  assert.deepEqual(await docs.loadEditorDoc(diary), value);
+  const owner = memory.createSessionDocuments();
+  const sessionKey = owner.key('shared-cache');
+  assert.equal(docs.forgetEditorDoc(sessionKey), true);
+  owner.dispose();
 });

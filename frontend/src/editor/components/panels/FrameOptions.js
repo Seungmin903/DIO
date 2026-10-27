@@ -25,10 +25,12 @@ export default function FrameOptions({ photo, dispatch }) {
 
   function applyFrame(frame) {
     if (frame.id === current) return
-    // 지금 안쪽 사진의 비율 (틀이면 자르기 비율, 모양이면 지금 크기)
+    const wasSquare = photo.frame === 'shape' && PHOTO_SHAPES.find((s) => s.id === photo.shape)?.square
+    const savedRatio = photo.shapeAspectRatio
+    // 정사각 모양 사이에서는 원래 비율을 유지하고, 없음·라운드로 돌아올 때 복원한다.
     const innerRatio = isBorderFrame(photo.frame)
       ? ratioValueOf(photo.ratio, photo) ?? photo.imageWidth / photo.imageHeight
-      : photo.w / photo.h
+      : wasSquare && Number.isFinite(savedRatio) && savedRatio > 0 ? savedRatio : photo.w / photo.h
     if (frame.kind === 'border') {
       const ratio = POLAROID_RATIOS.some((r) => r.id === photo.ratio) ? photo.ratio : innerRatio === 1 ? '1:1' : 'original'
       update({ frame: frame.id, ratio, ...resizeAroundCenter(photo, photo.w, framedHeight(photo.w, ratio, photo, frame.id)) })
@@ -36,8 +38,10 @@ export default function FrameOptions({ photo, dispatch }) {
     }
     const square = PHOTO_SHAPES.find((s) => s.id === frame.id)?.square
     if (square) {
-      const size = Math.min(photo.w, photo.h)
-      update({ frame: 'shape', shape: frame.id, ...resizeAroundCenter(photo, size, size) })
+      // 다른 틀과 동일하게 너비를 기준으로 유지한다. 짧은 변을 다시 쓰면
+      // 가로형 틀 → 정사각형을 반복할 때 크기가 누적해서 줄어든다.
+      const size = photo.w
+      update({ frame: 'shape', shape: frame.id, shapeAspectRatio: innerRatio, ...resizeAroundCenter(photo, size, size) })
       return
     }
     // 사각·라운드는 모서리 둥글기를 그 모양의 기본값으로 되돌린다

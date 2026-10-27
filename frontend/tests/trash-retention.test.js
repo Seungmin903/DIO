@@ -39,7 +39,7 @@ function fixture(fail) {
     },
     async removeItem(key) { if (fail === 'remove') throw Error('remove'); events.push(['remove', key]); data.delete(key); },
   };
-  const args = { id: 'a', storage, keys, getDiaries: () => diaries, updateDiaries: fn => { diaries = fn(diaries); }, forgetDoc: key => forgotten.push(key), collectMediaIds, removeMedia: async id => removed.push(id) };
+  const args = { id: 'a', storage, keys, getDiaries: () => diaries, updateDiaries: fn => { diaries = fn(diaries); }, forgetDoc: key => forgotten.push(key), forgetView: async () => true, collectMediaIds, removeMedia: async id => removed.push(id) };
   return { args, data, removed, forgotten, events, get diaries() { return diaries; } };
 }
 
@@ -80,4 +80,22 @@ test('다른 문서가 손상돼 참조를 알 수 없으면 모든 미디어를
   const f = fixture(); f.data.set('doc:b', '{broken');
   assert.equal(await purgeTrashedDiary(f.args), true);
   assert.deepEqual(f.removed, []);
+});
+
+for (const rejected of [false, true]) test(`열람 기록 삭제 실패 후 재시도도 미디어 참조를 보존한다 (reject=${rejected})`, async () => {
+  const f = fixture();
+  const before = f.data.get('doc:a');
+  assert.equal(await purgeTrashedDiary({ ...f.args, forgetView: async () => {
+    if (rejected) throw new Error('view delete');
+    return false;
+  } }), false);
+  assert.equal(f.data.get('doc:a'), before);
+  assert.equal(f.diaries[0].purgePending, true);
+  assert.deepEqual(f.removed, []);
+  assert.deepEqual(f.forgotten, []);
+  // 실제 재실행처럼 저장된 목록으로 상태를 다시 읽은 후에도 원본 참조가 남아 있다.
+  f.args.updateDiaries(() => normalizeDiaries(JSON.parse(f.data.get(keys.diaries))));
+  assert.equal(await purgeTrashedDiary(f.args), true);
+  assert.deepEqual(f.removed, ['unique']);
+  assert.ok(f.data.has('doc:b'));
 });

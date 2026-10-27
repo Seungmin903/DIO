@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveJSON, STORAGE_KEYS } from '../../editor/services/storage';
 import { forgetEditorDoc } from '../../editor/services/editorDocs';
+import { forgetViewedPage } from '../../editor/services/editorViewState';
 import { collectMediaIds } from '../../editor/utils/mediaReferences';
 import * as mediaRepository from '../../editor/utils/mediaRepository';
 import { normalizeDiaries, recoverOrphanDiaries, sortByCreated } from '../utils/diaryLibrary';
@@ -111,7 +112,7 @@ export function useDiaries() {
       return await enqueue(() => purgeTrashedDiary({
         id, storage: AsyncStorage, keys: STORAGE_KEYS,
         getDiaries: () => currentDiaries.current, updateDiaries: setDiaries,
-        forgetDoc: forgetEditorDoc, collectMediaIds, removeMedia: mediaRepository.remove,
+        forgetDoc: forgetEditorDoc, forgetView: forgetViewedPage, collectMediaIds, removeMedia: mediaRepository.remove,
       }));
     } finally { deleting.current.delete(id); }
   }, [enqueue, setDiaries, writable]);
