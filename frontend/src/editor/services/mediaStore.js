@@ -40,6 +40,11 @@ export async function importMedia(assets, options) {
   })
 }
 
+/** Only freshly imported, not-yet-published generator results may be rolled back. */
+export async function discardGeneratedMedia(items) {
+  await Promise.allSettled(items.map(item => repository.remove(item.mediaFileId)))
+}
+
 export const mediaService = {
   async import(asset) { return (await importMedia([asset]))[0] },
   get: repository.get,
