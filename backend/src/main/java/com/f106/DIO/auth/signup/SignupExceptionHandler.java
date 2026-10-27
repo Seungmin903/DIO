@@ -15,7 +15,7 @@ public class SignupExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail detail = ProblemDetail.forStatusAndDetail(error.status, error.getMessage());
         detail.setProperty("code", error.code);
         var response = ResponseEntity.status(error.status).header("Cache-Control", "no-store");
-        if (error.status == HttpStatus.TOO_MANY_REQUESTS) response.header("Retry-After", Long.toString(error.retryAfterSeconds));
+        if (error.retryAfterSeconds != null) response.header("Retry-After", Long.toString(error.retryAfterSeconds));
         return response.body(detail);
     }
     @ExceptionHandler(DataIntegrityViolationException.class)

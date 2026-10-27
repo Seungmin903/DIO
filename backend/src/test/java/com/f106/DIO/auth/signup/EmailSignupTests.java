@@ -167,6 +167,35 @@ class EmailSignupTests {
             error -> assertThat(error.code).isEqualTo("VERIFICATION_RATE_LIMITED"));
         verify(mail, times(1)).send(anyString(), anyString());
     }
+    @Test void resendCooldownReportsRemainingSeconds() throws Exception {
+        verification.send(EMAIL);
+        EmailVerification row = verifications.findById(EMAIL).orElseThrow(); row.sentAt = Instant.now().minusSeconds(45); verifications.saveAndFlush(row);
+        mvc.perform(post("/api/v1/auth/email-verifications").with(request -> { request.setRemoteAddr("192.0.2.71"); return request; })
+                .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"member@example.com\"}"))
+            .andExpect(status().isTooManyRequests())
+            .andExpect(jsonPath("$.code").value("VERIFICATION_RATE_LIMITED"))
+            .andExpect(header().string("Retry-After", org.hamcrest.Matchers.oneOf("14", "15")));
+        verify(mail, times(1)).send(anyString(), anyString());
+    }
+    @Test void exceededAttemptsAskForNewCodeWithoutRetryAfter() throws Exception {
+        verification.send(EMAIL);
+        EmailVerification row = verifications.findById(EMAIL).orElseThrow(); row.failedAttempts = 5; verifications.saveAndFlush(row);
+        mvc.perform(post("/api/v1/auth/email-verifications/verify").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"member@example.com\",\"code\":\"" + deliveredCode.get() + "\"}"))
+            .andExpect(status().isTooManyRequests())
+            .andExpect(jsonPath("$.code").value("VERIFICATION_ATTEMPTS_EXCEEDED"))
+            .andExpect(header().doesNotExist("Retry-After"));
+    }
+    @Test void verifyAndSignupUseTheSameEmailFormatAsSending() throws Exception {
+        mvc.perform(post("/api/v1/auth/email-verifications/verify").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"email\":\"member@localhost\",\"code\":\"123456\"}")).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content("""
+            {"email":"member@localhost","signupToken":"%s","password":"DioMember123!","nickname":"디오사용자",
+             "agreements":[{"termsType":"SERVICE","termsVersion":"v1","agreed":true},{"termsType":"PRIVACY","termsVersion":"v1","agreed":true}]}
+            """.formatted("a".repeat(43)))).andExpect(status().isBadRequest());
+        verify(verifications, never()).findForUpdate(anyString());
+        assertThat(users.count()).isZero();
+    }
     @Test void wrongCodeAttemptsPersistAcrossFailedTransactions() {
         verification.send(EMAIL);
         String wrong = deliveredCode.get().equals("000000") ? "111111" : "000000";

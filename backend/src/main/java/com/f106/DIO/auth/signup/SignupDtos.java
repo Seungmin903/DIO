@@ -11,6 +11,8 @@ import jakarta.validation.constraints.*;
 
 public final class SignupDtos {
     private SignupDtos() {}
+    /** 이메일을 받는 모든 가입 요청이 같은 형식 규칙을 쓴다. 프런트 emailError와 같은 식이다. */
+    static final String EMAIL_PATTERN = "[^\\s@]+@[^\\s@]+\\.[^\\s@]+";
     static String email(String value) { return value == null ? null : value.strip().toLowerCase(Locale.ROOT); }
     static String nickname(String value) {
         return value == null ? null : Normalizer.normalize(value.strip(), Normalizer.Form.NFKC);
@@ -24,15 +26,14 @@ public final class SignupDtos {
     }
 
     public record EmailRequest(
-        @NotBlank @Email @Size(max = 254)
-        @Pattern(regexp = "[^\\s@]+@[^\\s@]+\\.[^\\s@]+")
+        @NotBlank @Email @Size(max = 254) @Pattern(regexp = EMAIL_PATTERN)
         @Schema(example = "member@example.com") String email
     ) {
         public EmailRequest { email = SignupDtos.email(email); }
     }
 
     public record VerifyRequest(
-        @NotBlank @Email @Size(max = 254) String email,
+        @NotBlank @Email @Size(max = 254) @Pattern(regexp = EMAIL_PATTERN) String email,
         @NotBlank @Pattern(regexp = "[0-9]{6}") @Schema(example = "123456") String code
     ) {
         public VerifyRequest { email = SignupDtos.email(email); }
@@ -58,7 +59,7 @@ public final class SignupDtos {
         }
         """)
     public record SignupRequest(
-        @NotBlank @Email @Size(max = 254) String email,
+        @NotBlank @Email @Size(max = 254) @Pattern(regexp = EMAIL_PATTERN) String email,
         @NotBlank @Pattern(regexp = "[A-Za-z0-9_-]{43}") String signupToken,
         @NotBlank @Size(min = 8, max = 32)
         @Pattern(regexp = "(?=.*[A-Za-z])(?=.*[0-9])[!-~]{8,32}")

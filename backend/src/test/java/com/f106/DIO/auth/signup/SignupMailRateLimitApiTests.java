@@ -48,7 +48,7 @@ class SignupMailRateLimitApiTests {
     }
     @Test void existingEmailCooldownStillReturnsSixtySeconds() throws Exception {
         var verification=mock(EmailVerificationService.class);
-        when(verification.send(anyString())).thenThrow(new SignupException(HttpStatus.TOO_MANY_REQUESTS,"VERIFICATION_RATE_LIMITED","다시 요청해 주세요."));
+        when(verification.send(anyString())).thenThrow(new SignupException(HttpStatus.TOO_MANY_REQUESTS,"VERIFICATION_RATE_LIMITED","다시 요청해 주세요.",60L));
         mvc(verification).perform(post("/api/v1/auth/email-verifications").contentType(MediaType.APPLICATION_JSON)
             .content("{\"email\":\"member@example.com\"}"))
             .andExpect(status().isTooManyRequests()).andExpect(header().string("Retry-After","60"))
