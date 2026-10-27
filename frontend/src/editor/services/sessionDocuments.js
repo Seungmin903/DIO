@@ -4,6 +4,13 @@ let sessionSequence = 0;
 export const isSessionDocumentKey = (key) =>
   typeof key === 'string' && key.startsWith('session-doc:');
 export const readSessionDocument = (key) => records.get(key)?.doc ?? null;
+export const readSessionPage = (key) => records.get(key)?.pageId ?? null;
+export function writeSessionPage(key, pageId) {
+  const record = records.get(key);
+  if (!record) return false;
+  record.pageId = pageId;
+  return true;
+}
 export function writeSessionDocument(key, doc) {
   const record = records.get(key);
   if (!record) return false;

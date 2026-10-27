@@ -11,7 +11,7 @@ export async function capturePage(node, snapshot) {
   try {
     const reader = new File(uri).open(FileMode.ReadOnly)
     let dimensions
-    try { dimensions = verifyCaptureDimensions(reader.readBytes(24), snapshot) }
+    try { dimensions = verifyCaptureDimensions(await reader.readBytes(24), snapshot) }
     finally { reader.close() }
     return { uri, ...dimensions, dispose }
   } catch (error) {

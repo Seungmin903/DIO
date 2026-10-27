@@ -10,7 +10,7 @@ export async function exportImage({ blob, media, size }) {
   const handle = blob.open(FileMode.ReadOnly)
   let format, png
   try {
-    format = detectMediaType(handle.readBytes(64))
+    format = detectMediaType(await handle.readBytes(64))
     if (format.extension === 'gif') {
       // 50MiB GIF 를 통째로 읽지 않고 첫 장면이 끝나는 곳까지만 읽는다. 크기를 모르면 예전처럼 전부 읽는다.
       const { gifFirstFramePng, gifFirstFramePngFromHead } = await import('./gifFirstFrame.js')

@@ -104,9 +104,21 @@ test('네이티브는 첫 프레임 임시 PNG만 생성·삭제하고 쓰기 �
   const { exportImage: nativeExport } = await import('../src/editor/utils/exportImage.native.js')
   const original = fixture()
   let closed = 0
-  const blob = { uri:'file:///original.gif', open:()=>({readBytes:n=>original.slice(0,n),close:()=>closed++}), bytes:async()=>original }
+  const reads = []
+  const blob = { uri:'file:///original.gif', size:original.length, open:()=>{
+    let handleClosed=false
+    return {offset:0,async readBytes(n){
+      await new Promise(resolve => setImmediate(resolve))
+      assert.equal(handleClosed,false,'GIF 헤더·첫 프레임 읽기 완료 전 핸들 종료')
+      reads.push({offset:this.offset,length:n})
+      const bytes=original.slice(this.offset,this.offset+n)
+      this.offset+=bytes.length
+      return bytes
+    },close:()=>{handleClosed=true;closed++}}
+  }, bytes:async()=>{assert.fail('크기를 아는 GIF는 전체 읽기 fallback을 사용하면 안 된다')} }
   const result = await nativeExport({blob})
   assert.equal(closed,1)
+  assert.deepEqual(reads,[{offset:0,length:64},{offset:0,length:original.length}])
   assert.deepEqual([...decode(files.get(result.uri)).rgba.slice(0,4)],[255,0,0,255])
   result.dispose(); assert.equal(files.size,0)
   failWrite = true

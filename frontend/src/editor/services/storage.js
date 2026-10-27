@@ -21,3 +21,12 @@ export async function saveJSON(key, value) {
     return false
   }
 }
+
+export async function removeJSON(key) {
+  try {
+    await AsyncStorage.removeItem(key)
+    return true
+  } catch {
+    return false
+  }
+}

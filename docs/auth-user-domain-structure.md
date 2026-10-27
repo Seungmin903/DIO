@@ -14,6 +14,10 @@
 
 ## 의존 방향
 
+### 엔티티·빈 이름 충돌 확인
+
+2026-10-27에 최신 develop(`0d0af5a`)을 반영한 전체 `backend/src/main/java/com/f106/DIO`를 확인했다. User, UserController, UserService, UserRepository, ProfilePhoto 선언은 각각 하나뿐이며 동일한 이름을 명시한 엔티티·빈도 없다. Spring Boot 컨텍스트 기동을 포함한 회원가입 통합 테스트로 JPA 매핑과 빈 등록을 검증한다. 현재 충돌이 없어 임의의 별칭이나 클래스명 변경은 추가하지 않는다. 다른 팀은 회원 엔티티를 별도로 중복 생성하지 않고 `user.domain.User`를 재사용한다.
+
 `auth.service`가 회원가입 절차를 조율하면서 `user.service`를 호출한다. `user`는 `auth`를 참조하지 않는다. 엔티티는 요청 DTO나 파일 저장소 타입을 받지 않고 필요한 값만 전달받는다. 회원 공통 엔티티는 `user.domain.User` 하나이며 `users` 테이블에 매핑한다.
 
 기존 `SignupUser`는 `User`, `SignupProfilePhoto`는 `ProfilePhoto`로 이름을 바꿨다. 해당 Repository도 `UserRepository`, `ProfilePhotoRepository`로 변경했다. 이전 `auth.signup` 또는 `auth.login`을 import하는 미병합 브랜치는 이 표에 따라 import와 생성자 호출을 맞춰야 한다.
