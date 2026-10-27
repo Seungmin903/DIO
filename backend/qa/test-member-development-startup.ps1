@@ -36,6 +36,22 @@ function Expect-Failure([string]$message) {
     try { & $startup -PostgresBin $mockBin; throw 'Expected startup to stop' }
     catch { if (!$_.Exception.Message.Contains($message)) { throw } }
 }
+function Get-CimInstance {
+    param($ClassName,$Filter,$ErrorAction)
+    if ($ClassName -ne 'Win32_Process' -or $Filter -ne "ProcessId = $PID") { throw 'Unexpected process inspection' }
+    $jar=Microsoft.PowerShell.Management\Join-Path $fixture 'repo/backend/build/libs/app.jar'
+    switch ($env:DIO_TEST_PROCESS_SCENARIO) {
+        'gone' { return $null }
+        'foreign' { return [pscustomobject]@{ Name='java.exe'; CommandLine='java -jar C:\another-checkout\backend\build\libs\app.jar' } }
+        'nonjava' { return [pscustomobject]@{ Name='pwsh.exe'; CommandLine='pwsh' } }
+        'nearpath' { return [pscustomobject]@{ Name='java.exe'; CommandLine=('java -jar "'+(Split-Path $jar)+'-other\app.jar"') } }
+        'plain' { return [pscustomobject]@{ Name='java.exe'; CommandLine=('java -jar "'+$jar.Replace('app.jar','app-plain.jar')+'"') } }
+        'nojar' { return [pscustomobject]@{ Name='java.exe'; CommandLine='java -version' } }
+        'unknown' { return [pscustomobject]@{ Name='java.exe'; CommandLine=$null } }
+        'denied' { throw 'mock inspection denied' }
+        default { return [pscustomobject]@{ Name='java.exe'; CommandLine=('"C:\Java\java.exe" -jar "'+$jar+'"') } }
+    }
+}
 $runtimeDir=Join-Path $fixture 'repo/.local-data/member-app'
 try {
     $env:DIO_TEST_INITDB_FAIL='true'
@@ -58,6 +74,22 @@ try {
     if (Test-Path (Join-Path (Split-Path $fixtureQa) 'gradle-invoked.txt')) { throw 'Build ran before live-backend guard' }
     if (!(Get-Process -Id $PID)) { throw 'Live process was not preserved' }
     Write-Output 'PASS: live backend PID stops before build and preserves the process'
+    $marker=Join-Path (Split-Path $fixtureQa) 'gradle-invoked.txt'
+    foreach ($scenario in @('foreign','nonjava','gone','nearpath','plain','nojar')) {
+        $env:DIO_TEST_PROCESS_SCENARIO=$scenario
+        Expect-Failure 'bootJar failed'
+        if (!(Test-Path $marker)) { throw 'Unrelated or stale PID blocked the build' }
+        Remove-Item -LiteralPath $marker
+        if (!(Get-Process -Id $PID)) { throw 'Unrelated process was not preserved' }
+        Write-Output "PASS: $scenario PID does not block startup or stop the process"
+    }
+    foreach ($scenario in @('unknown','denied')) {
+        $env:DIO_TEST_PROCESS_SCENARIO=$scenario
+        Expect-Failure 'Cannot inspect'
+        if (Test-Path $marker) { throw 'Unverifiable ownership must stop before build' }
+        Write-Output "PASS: $scenario ownership fails clearly before build"
+    }
+    Remove-Item Env:DIO_TEST_PROCESS_SCENARIO
     Remove-Item Env:DIO_TEST_DATABASE_READY
     $metadata.PSObject.Properties.Remove('backendPid')
     $metadata | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtimeDir 'runtime.json')
@@ -66,7 +98,7 @@ try {
     if (!(Test-Path (Join-Path $runtimeDir 'backend.env'))) { throw 'Incomplete cluster configuration must be preserved for recovery' }
     Write-Output 'PASS: incomplete recorded cluster fails clearly and preserves configuration'
 } finally {
-    Remove-Item Env:DIO_TEST_INITDB_FAIL,Env:DIO_TEST_DATABASE_READY -ErrorAction SilentlyContinue
+    Remove-Item Env:DIO_TEST_INITDB_FAIL,Env:DIO_TEST_DATABASE_READY,Env:DIO_TEST_PROCESS_SCENARIO -ErrorAction SilentlyContinue
     $resolved=[IO.Path]::GetFullPath($fixture)
     $allowed=[IO.Path]::GetFullPath((Microsoft.PowerShell.Management\Join-Path $repoRoot '.local-data'))+[IO.Path]::DirectorySeparatorChar
     if (!$resolved.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe fixture cleanup path' }

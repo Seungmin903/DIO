@@ -118,4 +118,31 @@ class PostgresMemberDiaryCreationTests extends MemberDiaryCreationContract {
 		idempotencyError("IDEMPOTENCY_RESULT_UNAVAILABLE",() -> tx.execute(s -> keyed.create("scrub-purged-key",metadata(),selections(1))));
 		org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from diaries",Long.class)).isZero();
 	}
+    @org.junit.jupiter.api.Test
+    void oldCommittedKeysStillReplayRatherThanCreateAnotherDiary() {
+        var keyed=keyed(service);
+        var first=tx.execute(s -> keyed.create("old-committed-key",metadata(),selections(1)));
+        var old=java.sql.Timestamp.from(AT.minus(java.time.Duration.ofDays(3650)));
+        jdbc.update("update diary_creation_receipts set created_at=?,completed_at=?",old,old);
+        var replay=tx.execute(s -> keyed.create("old-committed-key",metadata(),selections(1)));
+        org.assertj.core.api.Assertions.assertThat(replay.replayed()).isTrue();
+        org.assertj.core.api.Assertions.assertThat(replay.created()).isEqualTo(first.created());
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from diaries",Long.class)).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from diary_creation_receipts",Long.class)).isEqualTo(1);
+    }
+
+    @org.junit.jupiter.api.Test
+    void permanentlyDeletedUserRemovesReceiptTombstones() {
+        var keyed=keyed(service);
+        var first=tx.execute(s -> keyed.create("user-removal-key",metadata(),selections(1)));
+        UUID id=UUID.fromString(first.created().diary().diaryId());
+        jdbc.update("delete from pages where diary_id=?",id);
+        jdbc.update("delete from diary_members where diary_id=?",id);
+        jdbc.update("delete from diaries where diary_id=?",id);
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from diary_creation_receipts where user_id=1 and response_body is null",Long.class)).isEqualTo(1);
+        jdbc.update("delete from users where user_id=1");
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from diary_creation_receipts where user_id=1",Long.class)).isZero();
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from users where user_id=2",Long.class)).isEqualTo(1);
+    }
+
 }

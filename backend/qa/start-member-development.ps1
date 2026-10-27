@@ -5,6 +5,25 @@ $runtimeDir=Join-Path $repoRoot '.local-data/member-app'
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
 $runtimeFile=Join-Path $runtimeDir 'backend.env'
 $metadataFile=Join-Path $runtimeDir 'runtime.json'
+function Test-OwnedBackend([int]$RecordedPid) {
+    try { $process=Get-CimInstance Win32_Process -Filter "ProcessId = $RecordedPid" -ErrorAction Stop }
+    catch { throw 'Cannot inspect recorded backend PID; verify process ownership before restarting' }
+    if (!$process) { return $false }
+    if ($process.Name -notin @('java.exe','javaw.exe')) { return $false }
+    if ([string]::IsNullOrWhiteSpace($process.CommandLine)) {
+        throw 'Cannot inspect Java command line for recorded PID; verify process ownership before restarting'
+    }
+    $match=[regex]::Match($process.CommandLine,'(?:^|\s)-jar\s+(?:"([^"]+)"|(\S+))')
+    if (!$match.Success) { return $false }
+    $jarPath=if($match.Groups[1].Success) { $match.Groups[1].Value } else { $match.Groups[2].Value }
+    # Only the exact checkout's build/libs can identify our backend. A recycled
+    # PID from another app or checkout must never block startup or be stopped.
+    if (![IO.Path]::IsPathFullyQualified($jarPath)) { return $false }
+    try { $jarPath=[IO.Path]::GetFullPath($jarPath) } catch { return $false }
+    $expectedDirectory=[IO.Path]::GetFullPath((Join-Path $repoRoot 'backend/build/libs'))
+    return [string]::Equals([IO.Path]::GetDirectoryName($jarPath),$expectedDirectory,[StringComparison]::OrdinalIgnoreCase) `
+        -and [IO.Path]::GetExtension($jarPath) -eq '.jar' -and $jarPath -notlike '*-plain.jar'
+}
 function Free-Port([int]$preferred) {
     $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,$preferred)
     try { $listener.Start() } catch { $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0); $listener.Start() }
@@ -44,8 +63,7 @@ if (!(Test-Path -LiteralPath $runtimeFile)) {
 }
 # Refuse a second startup before touching the DB or a potentially locked jar.
 if($metadata.backendPid) {
-    $prior=Get-Process -Id $metadata.backendPid -ErrorAction SilentlyContinue
-    if($prior) { throw 'Owned backend is already running; stop its recorded PID before restarting changed code' }
+    if(Test-OwnedBackend ([int]$metadata.backendPid)) { throw 'Owned backend is already running; stop its recorded PID before restarting changed code' }
 }
 Get-Content -LiteralPath $runtimeFile | ForEach-Object {
     if($_ -match '^([A-Z0-9_]+)=(.*)$') { [Environment]::SetEnvironmentVariable($Matches[1],$Matches[2],'Process') }
