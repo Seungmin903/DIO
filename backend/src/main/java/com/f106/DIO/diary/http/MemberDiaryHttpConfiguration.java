@@ -12,7 +12,7 @@ public class MemberDiaryHttpConfiguration implements WebMvcConfigurer {
         this.origins=java.util.Arrays.stream(origins.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new);
     }
     @Override public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/v1/member/diaries/**").allowedOrigins(origins).allowedMethods("GET","POST","PATCH","OPTIONS")
+        registry.addMapping("/api/v1/member/diaries/**").allowedOrigins(origins).allowedMethods("GET","POST","PATCH","DELETE","OPTIONS")
             .allowedHeaders("Content-Type","Authorization","X-DIO-Access-Token","Idempotency-Key")
             .exposedHeaders("Location","Idempotency-Replayed","Retry-After").allowCredentials(false).maxAge(600);
     }

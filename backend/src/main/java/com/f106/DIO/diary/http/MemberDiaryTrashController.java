@@ -1,0 +1,41 @@
+package com.f106.DIO.diary.http;
+
+import java.util.UUID;
+import com.f106.DIO.diary.dto.DiaryTrashResponse;
+import com.f106.DIO.diary.trash.DiaryTrashService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/member/diaries")
+@Tag(name="회원 휴지통",description="234 활성 OWNER의 휴지통 이동·조회·기간 내 복원. 영구 삭제는 포함하지 않습니다.")
+@SecurityRequirement(name="bearerAuth")
+public class MemberDiaryTrashController {
+    private final DiaryTrashService trash;
+    public MemberDiaryTrashController(DiaryTrashService trash) { this.trash=trash; }
+
+    @GetMapping("/trash")
+    @Operation(summary="본인 소유 휴지통 목록",description="q: 제목 부분 검색(최대 100자). limit: 1~100, 기본 20. 삭제 시각/UUID 내림차순. cursor는 같은 계정과 검색에서만 재사용. 만료 항목은 canRestore=false이며 조회로 물리 삭제하지 않습니다.")
+    public ResponseEntity<DiaryTrashResponse> list(@RequestParam(required=false) String q,
+            @RequestParam(required=false) Integer limit,@RequestParam(required=false) String cursor) {
+        return ResponseEntity.ok().header("Cache-Control","no-store").body(trash.list(q,limit,cursor));
+    }
+
+    @DeleteMapping("/{diaryId}")
+    @Operation(summary="소유 다이어리를 휴지통으로 이동",description="활성 OWNER만 허용. 최초 서버 삭제 시각을 기록하며 반복 요청은 204이고 보관 기한을 연장하지 않습니다. 비소유/탈퇴/없는 ID는 404입니다.")
+    public ResponseEntity<Void> remove(@PathVariable UUID diaryId) {
+        trash.trash(diaryId);
+        return ResponseEntity.noContent().header("Cache-Control","no-store").build();
+    }
+
+    @PostMapping("/{diaryId}/restore")
+    @Operation(summary="소유 다이어리 복원",description="삭제 시각 + 보관 기간(기본 30일) 직전까지만 복원. 정확히 만료 시각부터 410/DIARY_RESTORE_EXPIRED. 이미 활성인 자료는 같은 상태를 200으로 반환. 자식 페이지·멤버십·취소 초대 상태는 바꾸지 않습니다.")
+    public ResponseEntity<MemberDiaryResponses.Detail> restore(@PathVariable UUID diaryId) {
+        var result=trash.restore(diaryId);
+        return ResponseEntity.ok().header("Cache-Control","no-store")
+            .body(new MemberDiaryResponses.Detail(MemberDiaryResponses.Diary.from(result.diary(),true)));
+    }
+}

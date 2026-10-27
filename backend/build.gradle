@@ -85,7 +85,10 @@ tasks.register('authPostgresTest', Test) {
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
 	useJUnitPlatform()
-	filter { includeTestsMatching 'com.f106.DIO.auth.integration.AuthInitialSchemaPostgresTests' }
+	filter {
+		includeTestsMatching 'com.f106.DIO.auth.integration.AuthInitialSchemaPostgresTests'
+		includeTestsMatching 'com.f106.DIO.diary.trash.*'
+	}
 	environment 'DIO_AUTH_SCHEMA_TEST', 'true'
 }
 
