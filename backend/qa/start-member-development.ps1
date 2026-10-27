@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param([Parameter(Mandatory=$true)][string]$PostgresBin)
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path

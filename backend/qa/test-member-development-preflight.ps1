@@ -39,7 +39,7 @@ try {
     $pgBin=Join-Path $fixture 'pgsql/bin'
     $timezoneDir=Join-Path $fixture 'pgsql/share/timezonesets'
     New-Item -ItemType Directory -Force -Path $pgBin,$timezoneDir | Out-Null
-    foreach($file in @('postgres.exe','psql.exe','pg_ctl.exe','initdb.exe')) { New-Item -ItemType File -Path (Join-Path $pgBin $file) | Out-Null }
+    foreach($file in @('postgres.exe','psql.exe','pg_ctl.exe','initdb.exe','createdb.exe')) { New-Item -ItemType File -Path (Join-Path $pgBin $file) | Out-Null }
     $default=Join-Path $timezoneDir 'Default'
     New-Item -ItemType File -Path $default | Out-Null
     Check 'complete PostgreSQL support paths accepted' { Assert-MemberPostgresInstallation $pgBin }
@@ -52,6 +52,11 @@ try {
         $psql=Join-Path $pgBin 'psql.exe'; Remove-Item -LiteralPath $psql
         Expect-Failure 'Incomplete PostgreSQL installation' { Assert-MemberPostgresInstallation $pgBin }
         New-Item -ItemType File -Path $psql | Out-Null
+    }
+    Check 'missing createdb fails before initialization' {
+        $createdb=Join-Path $pgBin 'createdb.exe'; Remove-Item -LiteralPath $createdb
+        Expect-Failure 'Incomplete PostgreSQL installation' { Assert-MemberPostgresInstallation $pgBin }
+        New-Item -ItemType File -Path $createdb | Out-Null
     }
     Check 'missing artifact manifest is explicit' { Expect-Failure 'manifest is missing' { Get-MemberDevelopmentArtifact $manifest $libs } }
     Check 'exact Gradle output wins over newer stale jars' {
