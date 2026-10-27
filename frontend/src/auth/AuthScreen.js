@@ -20,7 +20,7 @@ import EditorModal from '../editor/components/controls/EditorModal';
 import { colors } from '../shared/theme';
 import { useFormFactor } from '../shared/useFormFactor';
 import { useOrientationLock } from '../shared/useOrientationLock';
-import { previewAuth } from './previewAuth';
+import { authService } from './authService';
 import {
   canCompleteProfile,
   credentialsErrors,
@@ -47,7 +47,7 @@ const TERMS = [
 
 export default function AuthScreen({
   onContinue,
-  service = previewAuth,
+  service = authService,
   photoPicker = pickProfilePhoto,
 }) {
   const { isPhone, formFactor } = useFormFactor();
@@ -128,9 +128,11 @@ export default function AuthScreen({
       alive.current = false;
       job.current++;
       checking.current++;
+      service.cancelPending?.();
     };
   }, []);
   const navigate = (next) => {
+    service.cancelPending?.({ keepEnrollment: next === 'profile' });
     Keyboard.dismiss();
     focusedInput.current = null;
     clearTimeout(focusTimer.current);
@@ -269,7 +271,7 @@ export default function AuthScreen({
   const complete = () => {
     if (profileReady && !checkRunning.current)
       run(
-        () => service.completeProfile({ ...profile, nickname, photoUri }),
+        () => service.completeProfile({ ...profile, nickname, photoUri, terms }),
         (result) => {
           if (result.provider === 'email') {
             navigate('welcome');
@@ -653,7 +655,7 @@ export default function AuthScreen({
                       onView={() =>
                         setInfo({
                           title: term.label,
-                          body: '가입 화면의 동의 상태를 확인하기 위한 체험 안내예요. 실제 약관 동의나 개인정보 수집은 이루어지지 않아요.',
+                          body: '약관 본문은 아직 연결되지 않았어요. 정식 약관을 확인할 수 있도록 준비 중이에요.',
                         })
                       }
                     />
