@@ -120,7 +120,9 @@ try {
         if($backend.HasExited) { throw 'Owned backend exited; inspect ignored runtime log' }
         Start-Sleep -Milliseconds 1000
     }
-    if(!$healthy) { throw 'Owned backend health timeout' }
+    if(!$healthy) {
+        throw "Owned backend health timeout. Inspect $runtimeDir/backend.log and backend-error.log. The recorded Java PID $($metadata.backendPid) is retained for diagnosis. Before retrying, verify its command line points to this checkout's backend/build/libs jar, then run Stop-Process -Id $($metadata.backendPid). Do not stop a reused PID or another checkout's process."
+    }
     & .\gradlew.bat seedMemberDevelopment --console=plain
     if($LASTEXITCODE -ne 0) { throw 'QA fixture failed' }
     & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $metadata.pgPort -U dio_member_dev -d dio_member_app -c 'select version,success from flyway_schema_history order by installed_rank; select count(*) as registered_templates from page_templates;'
