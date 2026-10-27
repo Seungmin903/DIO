@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Receipts intentionally have no TTL: expiring a key would allow an old retry
- * to create a second diary. V8 scrubs response_body on permanent diary deletion
+ * to create a second diary. V10 scrubs response_body on permanent diary deletion
  * and keeps the key tombstone; permanent user deletion cascades to receipts.
  * See docs/다이어리 저장/회원 생성 중복 방지.md for retention and capacity limits.
  */

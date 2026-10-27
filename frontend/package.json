@@ -6,7 +6,7 @@
   "type": "module",
   "main": "expo/AppEntry",
   "scripts": {
-    "test:auth": "node --test tests/auth-api.test.js tests/auth-photo-native.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js",
+    "test:auth": "node --test tests/auth-api.test.js tests/auth-password-reset.test.js tests/auth-photo-native.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js",
     "test:member-diary": "node --test tests/member-diary-api.test.js tests/member-app-store.test.js tests/member-editor-docs.test.js",
     "qa:member-app": "node qa/member-app-browser.cjs",
     "test:member-diary:contract": "node --test tests/member-diary-spring-contract.test.js",

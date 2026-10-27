@@ -1,0 +1,162 @@
+# 비밀번호 재설정 — S15P31F106-300
+
+## 최신 develop 통합 (2026-10-27)
+
+리팩터링된 auth/user 공통 코드에 연결했다. 재설정 컨트롤러·서비스·엔티티·저장소·예외·메일·제한은 각각 auth의 역할별 패키지에 위치하며 요청·응답 DTO는 개별 파일이다. 구형 auth.signup/auth.login 클래스는 중복 등록하지 않는다. V1~V6은 develop의 최신 체인을 유지하고 재설정 V7과 만료 인증 조회 인덱스 V8을 추가한다. 예전 SQL은 docs/legacy-auth-migrations에 보존한다. 기존 DB의 이력을 자동 repair하거나 초기화하지 않는다.
+
+회원가입 메일 발송의 IP당 15분 20회 제한, dev/prod의 필수 AUTH_TRUSTED_PROXY_REGEX 및 Compose 주입, 만료 세션·회전 이력 정리를 유지한다. 가입·재설정 인증 행은 코드와 후속 토큰이 모두 만료된 후 24시간 보존하고 각 테이블 최대 500개씩 정리한다. 소비된 행도 같은 보존 기준을 따른다. 후보 선정 후 행을 잠그고 만료를 다시 검사해 그 사이 재발송된 인증을 지우지 않는다. 기존 session-cleanup 스케줄 설정으로 함께 실행하며 로그에는 이메일·토큰을 기록하지 않는다.
+
+`authPostgresTest`는 기존 스키마 테스트와 재설정 PostgreSQL 테스트를 모두 실행하므로 기존 CI의 격리 PostgreSQL 검증에 재설정도 포함된다. 아래 과거 검증 기록의 패키지·버전은 당시 상태이며 현재 실행 경로는 auth.integration이다. 테스트 전용 application.yml에도 실제 서버와 같은 open-in-view=false를 적용해 분리된 로그인 트랜잭션의 경합을 같은 조건으로 검증한다.
+
+로그인 전 이메일 계정의 비밀번호를 복구한다. 로그인 중 현재 비밀번호를 확인하는 `PATCH /api/v1/me/password`는 이번 범위에 포함하지 않는다. 기존 회원가입·로그인 브랜치를 기반으로 `feature/be/password-reset`에서 작업하며 회원가입 MR 병합이 선행되어야 한다.
+
+| 기능 | Method | Endpoint | 요청 | 성공 응답 |
+| --- | --- | --- | --- | --- |
+| 재설정 인증번호 발송 | POST | `/api/v1/auth/password-reset-requests` | `email` | 202: `message`, `expiresIn: 600`, `resendAfter: 60` |
+| 인증번호 확인 | POST | `/api/v1/auth/password-reset-verifications` | `email`, `code`(6자리) | 200: `resetToken`, `expiresIn: 600` |
+| 재설정 완료 | POST | `/api/v1/auth/password-resets` | `email`, `resetToken`, `newPassword` | 204: 본문 없음 |
+
+세 API 모두 로그인 토큰이 필요 없다. 이메일은 앞뒤 공백 제거·소문자로 정규화한다. 새 비밀번호는 회원가입과 같은 영문·숫자를 포함한 ASCII 8~32자다. 비밀번호 확인은 프론트 입력 검증용이며 서버로 보내지 않는다. Swagger의 ‘비밀번호 재설정’ 그룹에서 위 순서로 테스트한다. 발송 응답의 202는 계정 존재나 메일 도착을 보장하지 않는다. 없는 계정·소셜 전용 계정·비활성 계정에도 동일한 응답을 반환하며 이메일은 보내지 않는다.
+
+## 응답 동일성의 범위
+
+발송 API는 등록·미등록·소셜 전용·비활성 계정에 같은 HTTP 상태 코드와 응답 본문을 반환한다. DB 조회·쓰기 및 이벤트 처리 경로가 달라 응답 시간의 동일성은 보장하지 않으며, 시간 차이를 통한 계정 추측 가능성은 남아 있다. 이번 변경에서는 시간 은닉을 위한 비동기 요청 경로 개편이나 인위적 지연을 추가하지 않는다. 배포 환경에서 처리 시간 분포를 비교하는 검증은 별도 후속 작업이다.
+
+## 공통 정책
+
+만료·쿨다운·오답 한도·IP 요청 한도는 auth.domain.PasswordResetPolicy에서 정의한다. 서비스 응답, 엔티티 만료 계산, 제한기, 메일 유효시간, Swagger 설명이 해당 상수를 참조한다. 현재 인증번호/토큰 각각 600초, 최소 재요청 간격 60초, 오답 한도 5회로 동작 값은 유지한다. 메일은 초 단위 값을 그대로 표시해 분 환산 오차를 방지한다. 테이블·컬럼·마이그레이션 변경은 없다.
+
+## 인증과 저장
+
+- V7은 `password_reset_verifications`만 새로 만든다. V1~V6 및 기존 회원·다이어리 데이터는 수정하지 않는다. 팀원은 새 코드 실행 시 Flyway로 V7을 적용한다.
+- 회원가입 인증 행과 토큰을 재사용하지 않는다. 가입용 `signupToken`으로 재설정할 수 없고 반대도 불가능하다.
+- SMTP 발신 주소와 `SIGNUP_VERIFICATION_SECRET` 설정을 재사용하지만 인증번호 HMAC에는 `password-reset:` 목적을 포함한다. 인증번호·일회용 토큰 원문은 DB에 저장하지 않는다.
+- 인증번호는 10분 유효하며 오답 5회 후 새 발송이 필요하다. 인증 성공 후 같은 번호를 재사용할 수 없다. 정상 발송된 유효 번호·재설정 토큰은 재요청으로 무효화하지 않는다. 발송 실패가 기록된 번호는 최소 60초 쿨다운 후 재발급할 수 있다.
+- 재설정 토큰은 256비트 난수이며 이메일·회원 ID에 연결되고 10분 내 한 번만 사용할 수 있다. 완료 요청은 계정과 인증 행 잠금으로 직렬화한다.
+- 비밀번호 BCrypt 저장, 재설정 토큰 소비, 모든 기기의 세션 폐기는 같은 DB 트랜잭션이다. 기존 Access Token도 세션 검증에서 거절된다. 다른 회원 세션은 유지한다. 일반 로그인도 같은 인증 계정 행을 잠가 이전 비밀번호로 세션이 뒤늦게 생성되는 것을 방지한다.
+- 응답에는 `Cache-Control: no-store`를 적용한다. 운영에서는 HTTPS를 사용한다.
+
+## 발송과 요청 제한
+
+SMTP는 DB 커밋 후 별도 스레드에서 처리한다. 최대 2개 작업 스레드·대기 100개이며 SMTP 오류와 큐 포화는 개인정보 없는 경고 로그로 기록하고 등록 여부와 무관하게 HTTP 응답을 유지한다. 큐는 메모리이므로 프로세스 종료 시 미전송 메일은 유실될 수 있다. 운영 환경의 전달 보장은 추후 영속 큐/outbox가 필요하다.
+
+계정 등록 여부와 무관하게 이메일 발송 요청은 60초 간격, 발송 IP당 15분 20회, 확인·완료는 각각 IP당 15분 100회로 제한한다. HTTP 429의 `Retry-After`를 따른다. 서버 메모리 제한은 최대 2만 키이며 재시작·다중 인스턴스·축출에 걸친 공통 제한은 인프라에서 보완한다. 등록된 계정의 DB 발송 시각도 확인해 연속 발송을 방지한다. 프록시에서는 기존 신뢰 Nginx 설정으로 실제 IP를 반영한다.
+
+## 프론트 연동 범위
+
+현재 `AuthScreen`에는 ‘비밀번호 찾기’ 안내 버튼만 있고 입력 화면이 없다. 화면은 임의로 만들지 않았다. `authService`에서 사용할 수 있는 `requestPasswordReset(email)`, `verifyPasswordReset(email, code)`, `completePasswordReset({email, newPassword})`를 제공한다. 재설정 토큰은 메모리에만 보관하며 이메일 변경·만료·취소 후 완료를 차단한다. 유효한 토큰이 있으면 재발송을 거절하고 완료 단계로 안내한다. 성공 후 기존 세션을 비우고 다시 로그인해야 한다.
+
+프론트 담당자 추가 작업: 이메일 입력 → 발송 안내·60초 재요청 → 인증번호 입력 → 새 비밀번호·확인 입력 → 완료 후 로그인 화면 이동. 현재 안내 버튼은 실제 입력 화면이 생길 때 연결해야 한다. 일반 회원가입용 이메일 인증 화면과 별도 흐름이다.
+
+## Swagger 수동 확인 순서
+
+1. 일반 회원가입을 완료한 이메일로 `POST /api/v1/auth/password-reset-requests`에 `{"email":"member@example.com"}`을 전송한다. 202 응답 후 실제 받은편지함의 **비밀번호 재설정 인증번호**를 확인한다. 등록하지 않은 이메일에는 메일이 오지 않아도 같은 202가 나온다.
+2. `POST /api/v1/auth/password-reset-verifications`에 `{"email":"member@example.com","code":"받은 6자리 숫자"}`를 전송한다. 응답의 `resetToken`을 복사한다.
+3. `POST /api/v1/auth/password-resets`에 `{"email":"member@example.com","resetToken":"방금 받은 값","newPassword":"NewDioMember123!"}`를 전송한다. 204·빈 본문이면 완료다. 토큰 자리에 예시 문자열을 그대로 사용하지 않는다.
+4. 기존 비밀번호 로그인은 401, 새 비밀번호 로그인은 200인지 확인한다. 재설정 전 로그인한 토큰의 로그아웃·재발급도 401이 되어야 한다. 회원가입용 인증번호·signupToken과 섞지 않는다.
+
+기존 SMTP·SIGNUP_VERIFICATION_SECRET 설정을 그대로 사용하므로 새 환경변수는 필요 없다. 실행 중인 서버가 이전 코드라면 백엔드를 재시작해야 Swagger에 새 API가 나타나고 V7도 자동 적용된다. 202인데 등록 이메일로 메일이 도착하지 않으면 스팸함과 서버의 비밀번호 재설정 메일 경고 로그, SMTP 설정을 확인한다. 사용자에게 등록 여부를 노출하지 않기 위해 SMTP 실패도 202 응답을 바꾸지 않는다.
+
+PostgreSQL 회귀 테스트는 개인/공용 DB에 실행하지 않는다. 테스트용 컨테이너의 loopback 포트와 빈 `dio_reset_qa` DB만 사용하며 `DIO_RESET_POSTGRES_QA=true`, `DIO_RESET_POSTGRES_URL`, `DIO_RESET_POSTGRES_PASSWORD`를 프로세스 환경에 설정한 후 `./gradlew.bat test --tests '*PasswordResetPostgresTests'`로 실행한다. 테스트가 회원·인증·세션 테스트 행을 정리하므로 해당 DB는 반드시 일회용이어야 한다. 기본 전체 테스트에서는 이 검증을 제외한다.
+
+## 검증 결과 — 2026-10-26
+
+- `backend/./gradlew.bat test`: 전체 180개 중 157개 통과, 환경 조건에 따른 23개 제외, 실패 0개. 제외 항목에는 별도 실행한 PostgreSQL 재설정 테스트 13개와 기존 PostgreSQL·브라우저 선택 테스트가 포함된다.
+- 일회용 PostgreSQL 17에서 V1~V7 Flyway 적용 및 JPA validate 성공. 재설정 통합 테스트 13개와 메일·요청 제한 단위 테스트 5개 통과. 사용한 컨테이너는 종료·정리했으며 개인/공용 DB는 사용하지 않았다.
+- 등록·미등록·소셜 전용·비활성 계정의 동일 응답, 메일 커밋 후 발송, 롤백 시 미발송, 오답 횟수 누적, 만료·다른 이메일·가입 토큰 거절, 재발송 시 기존 토큰 무효화, 중복 소비 1회 성공, 전체 기기 세션 폐기·다른 회원 유지, 재설정과 이전 비밀번호 로그인의 경합, 실패 시 비밀번호·세션 변경 롤백, 요청 제한·CORS·Swagger를 확인했다.
+- `frontend/pnpm test:auth`: 32개 통과. 재설정 토큰 메모리 보관, 이메일 불일치·만료·재발송·취소 및 늦은 응답 차단을 확인했다.
+- `pnpm exec expo export --platform web --platform android --output-dir .expo/password-reset-export`: 성공. 화면은 추가하지 않았다.
+- 변경 파일의 비밀정보 검사 통과. 실제 사용자 이메일로 SMTP 발송하거나 재설정 입력 화면·실기기 전체 흐름을 검증한 것은 아니다. 수동 Swagger 테스트는 위 순서를 따른다.
+
+사용자 검증(2026-10-26): 사용자가 Swagger에서 비밀번호 재설정 흐름을 직접 테스트해 정상 동작을 확인했다고 보고했다.
+
+최신 develop 병합 검증(2026-10-26): 공유 기능과 인증 연결의 App.js import 및 문서 색인 충돌을 양쪽 내용을 보존해 해결했다. 병합 후 프론트 전체 테스트 649개 통과, 웹·Android export 성공. develop의 이번 변경은 프론트·문서이며 백엔드 변경은 없었다.
+
+완료 응답 경합 보완(2026-10-26): 재설정 완료 요청 시 인증 요청 번호·재설정 요청 번호·기존 세션·재설정 상태를 캡처하고 응답 후 모두 동일할 때만 세션을 정리한다. 요청 대기 중 화면을 취소하거나 다른 로그인·가입·인증 흐름을 시작했다면 해당 상태를 건드리지 않는다. 서버의 비밀번호 재설정은 이미 성공했으므로 상태 변경 오류 문구에서도 그 사실을 구분한다. 새 로그인 세션·가입 인증 상태 보존과 정상 완료 후 세션 정리·토큰 재사용 차단 회귀 테스트를 추가했다. 인증 테스트 35개 통과. 백엔드·DB·화면은 이번 수정에서 변경하지 않았다.
+
+MR !152 문서 구조 충돌 해결(2026-10-26): 최신 develop의 docs/README.md 삭제·docs/색인.md 이전을 유지하고 인증·비밀번호 재설정 문서를 새 색인에 등록했다. 이번 병합의 backend/·frontend/ 코드 변경은 없어 기존 테스트 결과를 유지하고 문서 링크와 충돌 표식을 확인했다.
+
+최신 통합 검증(2026-10-27): 전체 백엔드 테스트 169개 중 147개 통과, PostgreSQL·브라우저 등 조건부 테스트 22개 제외. 프론트 인증 테스트 35개 통과. 로컬·공유·운영 DB의 이력이나 데이터를 변경하지 않았으며 PostgreSQL 검증은 작업 전용 폐기 DB에서 수행한다. 실제 SMTP 발송·Expo Go 재설정 입력 화면은 이번에 검증하지 않았다.
+격리 PostgreSQL authPostgresTest: 18개 통과. V1~V8 적용, 기존 데이터 보존 전환, 재설정 경쟁 요청·세션 폐기·만료 인증 정리를 확인했다.
+
+## 재발송·제한·테스트 DB 안전 보완 (2026-10-27)
+
+- 재설정 PostgreSQL 테스트는 DIO_RESET_POSTGRES_URL과 DIO_RESET_POSTGRES_PASSWORD를 명시적으로 받는다. URL은 쿼리 옵션 없는 `jdbc:postgresql://127.0.0.1:<port>/dio_reset_qa`만 허용한다. 일반 인증 DB URL로 폴백하지 않으며 값이 없거나 다른 DB이면 연결 전 실패한다. CI는 폐기 컨테이너 안에 auth_ci와 dio_reset_qa를 각각 만들고 두 URL을 따로 주입한다. 로컬/공유 DB를 테스트 변수로 지정하지 않는다.
+- 유효한 인증번호(오답 제한 미도달) 또는 미사용 resetToken이 있으면 send는 같은 202 안내만 반환하고 기존 상태를 유지한다. 원치 않는 요청으로 정상 사용자의 인증을 교체하거나 메일을 반복 발송하지 않는다. 만료·소비·오답 제한 이후에만 새 인증을 발급하며 최소 요청 간격도 적용한다. 발송 응답 resendAfter는 최소 요청 간격인 60초이며 등록 여부에 따라 달라지지 않는다. 이는 매 요청마다 새 메일을 발송한다는 뜻이 아니다.
+- 프론트 호출 함수는 같은 이메일의 유효한 재설정 토큰이 있으면 재발송을 차단하고 새 비밀번호 입력을 안내한다. 이미 발급받은 토큰을 지우지 않는다.
+- IP 예산과 이메일 쿨다운은 별도 bounded map에 보관한다. 유효한 항목을 LRU 축출하지 않고, 용량이 차면 만료 항목만 회수한다. 그래도 공간이 없으면 신규 키를 429로 거절하므로 기존 IP 예산을 초기화할 수 없다. 이 제한은 서버 인스턴스별이며 다중 인스턴스의 합산 예산은 공유 저장소/인프라 정책이 필요하다.
+- dev/prod의 필수 AUTH_TRUSTED_PROXY_REGEX와 Nginx의 X-Forwarded-For 덮어쓰기를 유지한다. 실제 HTTP 프록시 테스트에서 서로 다른 클라이언트 IP가 재설정 제한기에 별도 전달되는지 확인한다.
+
+위 정책은 앞의 과거 기록 중 재발송에 의한 토큰 무효화와 LRU 축출 설명을 대체한다.
+보완 검증: 관련 백엔드 테스트 29개 통과(전용 PostgreSQL 테스트 15개는 별도 실행), 격리 PostgreSQL 19개 통과, 프론트 인증 36개 통과. CI 셸 문법·변경 파일 비밀키 검사도 통과했다. 실제 개발 배포 서버의 IP 전달은 배포 후 별도 확인이 필요하다.
+
+## 발송 실패 복구와 오답 제한 (2026-10-27)
+
+테이블·컬럼·마이그레이션 추가 없이 기존 expires_at을 사용한다. SMTP 예외나 실행 큐 거절 시 별도 트랜잭션에서 해당 발송의 email/code_hash/sent_at이 모두 일치하고 아직 토큰 발급·소비가 없는 행만 만료시킨다. sent_at은 유지해 최소 60초 쿨다운을 보장한다. 늦게 도착한 실패 콜백이 새 발급이나 인증 완료 토큰을 무효화하지 않는다. 발송 실패의 상태 반영도 DB 장애로 실패하거나 프로세스가 종료되면 영속 재시도 보장은 없고 기존 10분 만료가 복구 상한이다. 영속 outbox 테이블은 추가하지 않았다.
+
+현재 API 표·Swagger·응답의 resendAfter는 모두 60초이다. 정상 발송된 유효 인증은 보존하고, 실패가 반영된 경우에만 이 최소 간격 후 재발급한다. 이전 보완 기록의 600초 재요청 설명은 이 정책으로 대체한다.
+
+이메일 주소와 6자리 코드만 받는 흐름에서는 오답 5회 제한이 제3자의 인증 소진에도 사용될 수 있다. 이는 무차별 코드 추측 차단과 가용성의 절충이다. 오답 한도를 완화하지 않으며 이메일에 종속된 횟수를 DB에 커밋하고 IP별 확인 한도도 유지한다. 이미 발급된 resetToken은 이후 오답 요청으로 소진되지 않는다. 코드가 5회 소진되면 쿨다운 후 새 인증이 필요하다. 주소를 아는 공격자의 모든 표적 방해를 제거하려면 별도 challenge 식별자나 CAPTCHA 등 API·화면 계약 변경이 필요하므로 이번에는 추가하지 않는다.
+
+프론트 테스트의 도달 불가능한 resend 분기는 제거했다. 유효 토큰 상태의 재발송 거절과 토큰 보존은 별도 테스트에서 검증한다.발송 실패 복구 검증: 관련 백엔드 24개 통과(조건부 PostgreSQL 16개 별도 실행), 격리 PostgreSQL 20개 통과, 프론트 재설정 7개 통과. SMTP 실패·큐 거절·60초 이후 재발급·지연 실패의 신규 발급/완료 토큰 보호를 확인했다. 테이블·컬럼·마이그레이션 변경 없음.
+
+## 메모리 포화 범위와 클라이언트 토큰 보존 (2026-10-27)
+
+IPv6는 숫자 리터럴만 DNS 없이 파싱해 /64 접두사로 IP 예산을 묶는다. 압축·대소문자·인터페이스 식별자 표기 차이는 같은 접두사로 정규화한다. IPv4-mapped IPv6는 IPv4와 같은 키를 쓰며 IPv4 선행 0도 정규화한다.
+
+send/verify/reset은 각각 최대 2만 IP 키와 독립 잠금을 사용한다. 이메일 쿨다운도 별도 보관한다. 한 요청 종류의 포화가 나머지 종류의 신규 키 수용을 막지 않는다. HashMap 전체 removeIf 순회를 제거하고 만료 우선순위 큐에서 요청당 최대 64개씩 회수한다. 유효한 IP 예산을 축출하지 않는 정책은 유지한다. 다수 /64·IPv4에 걸친 분산 공격은 여전히 해당 작업의 용량을 소진할 수 있으므로 공유 저장소·Nginx limit_req 등 인프라 보호는 별도 과제다. 이번 작업은 앱 코드 범위이며 새 테이블·컬럼·마이그레이션을 추가하지 않는다.
+
+클라이언트는 같은 이메일의 유효한 resetToken이 있으면 verify를 요청하지 않고 새 비밀번호 입력을 안내한다. 검증 진행 중 같은 이메일의 중복 verify/send도 상태를 변경하지 않고 거절한다. 취소·다른 이메일의 새 흐름에서는 기존 요청 번호 비교로 늦은 응답을 무시하며, 이전 요청의 finally가 새 요청의 진행 상태를 지우지 않는다.
+이번 보완 검증: 제한 단위 테스트 6개, 실제 HTTP 프록시 테스트 3개, 프론트 인증 테스트 38개 통과. IPv6 /64·IPv4 매핑/선행 0 표기, 포화 격리·만료 회수, 유효 토큰 재확인/병렬 요청 보존을 확인했다. 스키마 변경 없음.
+
+## authPostgresTest 로컬 실행
+
+`authPostgresTest`는 스키마·세션 테스트와 재설정 테스트를 함께 실행한다. 아래 네 환경변수가 모두 필요하며 누락 시 테스트 실행 전에 필요한 변수 이름을 안내하고 중단한다. `.env`의 서비스용 DB 설정이나 기존 개발 DB를 이 변수에 넣지 않는다. 재설정 URL 가드와 폴백 금지 정책은 유지한다.
+
+| 변수 | 용도 |
+| --- | --- |
+| DIO_AUTH_SCHEMA_TEST_URL | 폐기용 auth_ci DB의 loopback JDBC URL |
+| DIO_AUTH_SCHEMA_TEST_PASSWORD | 해당 테스트 DB 비밀번호 |
+| DIO_RESET_POSTGRES_URL | 별도 폐기용 dio_reset_qa DB의 loopback JDBC URL |
+| DIO_RESET_POSTGRES_PASSWORD | 해당 재설정 테스트 DB 비밀번호 |
+
+CI는 `infra/scripts/test-auth-postgres.sh`가 이미 네 변수를 주입한다. 로컬 Windows에서는 Docker Desktop을 켜고 backend 폴더의 PowerShell에서 다음처럼 일회용 컨테이너를 생성해 실행한다. 랜덤 호스트 포트를 사용하므로 로컬 개발 DB 포트와 겹치지 않는다.
+
+```powershell
+$qaName = 'dio-auth-qa-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
+$qaPassword = [guid]::NewGuid().ToString('N')
+docker run -d --name $qaName --label dio.purpose=auth-qa-local -e POSTGRES_DB=auth_ci -e "POSTGRES_PASSWORD=$qaPassword" -p '127.0.0.1::5432' postgres:17
+if ($LASTEXITCODE -ne 0) { throw '테스트 컨테이너 생성 실패' }
+try {
+    $ready = $false
+    for ($i = 0; $i -lt 30; $i++) {
+        docker exec $qaName pg_isready -U postgres -d auth_ci *> $null
+        if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+        Start-Sleep -Seconds 1
+    }
+    if (-not $ready) { throw '테스트 DB 준비 실패' }
+    docker exec $qaName psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_reset_qa'
+    if ($LASTEXITCODE -ne 0) { throw '재설정 테스트 DB 생성 실패' }
+    $qaPort = (docker port $qaName 5432/tcp).Trim().Split(':')[-1]
+    $env:DIO_AUTH_SCHEMA_TEST_URL = "jdbc:postgresql://127.0.0.1:$qaPort/auth_ci"
+    $env:DIO_AUTH_SCHEMA_TEST_PASSWORD = $qaPassword
+    $env:DIO_RESET_POSTGRES_URL = "jdbc:postgresql://127.0.0.1:$qaPort/dio_reset_qa"
+    $env:DIO_RESET_POSTGRES_PASSWORD = $qaPassword
+    .\gradlew.bat authPostgresTest
+    if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL 테스트 실패' }
+} finally {
+    $label = docker inspect --format '{{ index .Config.Labels "dio.purpose" }}' $qaName
+    if ($label -eq 'auth-qa-local') { docker rm -f -v $qaName }
+    foreach ($key in 'DIO_AUTH_SCHEMA_TEST_URL','DIO_AUTH_SCHEMA_TEST_PASSWORD','DIO_RESET_POSTGRES_URL','DIO_RESET_POSTGRES_PASSWORD') {
+        Remove-Item -LiteralPath "Env:$key" -ErrorAction SilentlyContinue
+    }
+}
+```
+
+## 공용 비밀번호 인코더
+
+`AuthPasswordConfig`의 `authPasswordEncoder` 빈 하나를 회원가입·로그인·재설정에 이름으로 지정해 주입한다. 기존과 같은 BCrypt cost 12 및 해시 형식을 유지한다. 정책 변경은 이 빈에서 수행하며 로그인 더미 해시도 같은 인코더로 생성한다. 기존 비밀번호 해시의 재저장이나 DB 변경은 필요 없다.
+
+## 완료 토큰 무효 응답 후 복구 (2026-10-27)
+
+완료 API가 INVALID_PASSWORD_RESET을 반환하면 요청에 사용한 객체가 아직 현재 passwordReset일 때만 클라이언트 토큰을 비워 재발송·새 인증을 허용한다. 비밀번호 입력 검증 오류(일반 400), 네트워크 실패, 서버 오류에서는 유효할 수 있는 토큰을 보존한다. 이전 요청의 늦은 무효 응답은 이후 새 인증으로 받은 토큰을 지우지 않는다. 로그인·가입 상태는 이 오류 처리에서 변경하지 않는다. 테이블·컬럼·API 경로 변경 없음.

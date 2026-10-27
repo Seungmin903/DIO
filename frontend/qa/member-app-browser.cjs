@@ -4,9 +4,10 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const runtime = path.resolve(__dirname, '../../.local-data/member-app');
+const runtime = process.env.DIO_MEMBER_QA_RUNTIME_DIR ? path.resolve(process.env.DIO_MEMBER_QA_RUNTIME_DIR) : path.resolve(__dirname, '../../.local-data/member-app');
 const metadata = JSON.parse(fs.readFileSync(path.join(runtime, 'runtime.json'), 'utf8').replace(/^\uFEFF/, ''));
 const env = Object.fromEntries(fs.readFileSync(path.join(runtime, 'backend.env'), 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean).map(line => { const i=line.indexOf('='); return [line.slice(0,i),line.slice(i+1)]; }));
+if (env.DIO_MEMBER_OWNED_DATABASE !== 'true' || !/^(dio_member_app|dio_member_integration_[a-f0-9]{12})$/.test(metadata.database)) throw new Error('Owned local member QA runtime required');
 const root = path.resolve(__dirname, '../.expo/member-app-web');
 const mime = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.png':'image/png', '.ttf':'font/ttf' };
 const server = http.createServer((req,res) => {

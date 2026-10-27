@@ -27,7 +27,13 @@ if ($env:DIO_TEST_DATABASE_READY -eq 'true') { $global:LASTEXITCODE=0; return }
 throw 'TEST_REACHED_CLUSTER_START'
 '@ | Set-Content -LiteralPath $ctlMock
 $psqlMock=Join-Path $mockBin 'psql.ps1'
-'Write-Output 1; $global:LASTEXITCODE=0' | Set-Content -LiteralPath $psqlMock
+@'
+if (($args -join ' ') -like '*to_regclass*') {
+    if ($env:DIO_TEST_LEGACY_HISTORY -eq 'true') { Write-Output 't' } else { Write-Output 'f' }
+} elseif (($args -join ' ') -like '*from flyway_schema_history*') { Write-Output '2' }
+else { Write-Output '1' }
+$global:LASTEXITCODE=0
+'@ | Set-Content -LiteralPath $psqlMock
 $gradleMock=Join-Path (Split-Path $fixtureQa) 'gradlew.bat'
 [IO.File]::WriteAllText($gradleMock,"@echo off`r`necho invoked>gradle-invoked.txt`r`nexit /b 1`r`n")
 function Join-Path {
@@ -81,6 +87,12 @@ try {
     $metadata=Get-Content -LiteralPath (Join-Path $runtimeDir 'runtime.json') -Raw | ConvertFrom-Json
     if (!(Test-Path (Join-Path $metadata.dataDir 'PG_VERSION'))) { throw 'Cluster must precede metadata' }
     Write-Output 'PASS: retry initializes cluster before persisting configuration'
+    $env:DIO_TEST_DATABASE_READY='true'
+    $env:DIO_TEST_LEGACY_HISTORY='true'
+    Expect-Failure 'Legacy member V7/V8 history detected'
+    if (Test-Path (Join-Path (Split-Path $fixtureQa) 'gradle-invoked.txt')) { throw 'Legacy history must stop before build' }
+    Write-Output 'PASS: legacy history stops before build without automatic repair'
+    Remove-Item Env:DIO_TEST_LEGACY_HISTORY
     # A live PID must stop before attempting to build a possibly locked jar.
     $metadata | Add-Member -NotePropertyName backendPid -NotePropertyValue $PID
     $metadata | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtimeDir 'runtime.json')
@@ -114,7 +126,7 @@ try {
     Write-Output 'PASS: incomplete recorded cluster fails clearly and preserves configuration'
 } finally {
     $env:JAVA_HOME=$priorJavaHome
-    Remove-Item Env:DIO_TEST_INITDB_FAIL,Env:DIO_TEST_DATABASE_READY,Env:DIO_TEST_PROCESS_SCENARIO -ErrorAction SilentlyContinue
+    Remove-Item Env:DIO_TEST_INITDB_FAIL,Env:DIO_TEST_DATABASE_READY,Env:DIO_TEST_PROCESS_SCENARIO,Env:DIO_TEST_LEGACY_HISTORY -ErrorAction SilentlyContinue
     $resolved=[IO.Path]::GetFullPath($fixture)
     $allowed=[IO.Path]::GetFullPath((Microsoft.PowerShell.Management\Join-Path $repoRoot '.local-data'))+[IO.Path]::DirectorySeparatorChar
     if (!$resolved.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe fixture cleanup path' }

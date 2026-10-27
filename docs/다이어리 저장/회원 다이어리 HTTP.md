@@ -34,7 +34,7 @@
 }
 ```
 
-제목과 초기 페이지는 필수다. 색상·스타일 생략 시 기존 기본값을 사용하며 PRIVATE로 생성한다. `ownerUserId`, `visibility`, `templateId` 등 미지원 필드는 400이다. 페이지 코드·버전·설정은 V7 카탈로그 및 제품 JDBC 모듈로 검증한다. 기본 초기 페이지 상한은 512이며 서버 설정을 따른다.
+제목과 초기 페이지는 필수다. 색상·스타일 생략 시 기존 기본값을 사용하며 PRIVATE로 생성한다. `ownerUserId`, `visibility`, `templateId` 등 미지원 필드는 400이다. 페이지 코드·버전·설정은 V9 카탈로그 및 제품 JDBC 모듈로 검증한다. 기본 초기 페이지 상한은 512이며 서버 설정을 따른다.
 
 응답은 `{ "diary": {...}, "firstPageId": "UUID", "pageIds": ["UUID"] }`다. diary에는 문자열 UUID·제목·표지색·스타일·공개 범위·createdAt·updatedAt·canEdit이 포함된다. 생성 응답의 canEdit은 true이며 전체 ID는 생성 순서다. 성공과 도메인/검증 오류 응답에 Cache-Control: no-store를 적용한다.
 

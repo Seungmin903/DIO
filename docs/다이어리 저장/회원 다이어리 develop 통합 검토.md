@@ -176,3 +176,36 @@ node qa/member-app-browser.cjs
 실제 Gradle `writeMemberDevelopmentArtifact`는 임시 init 스크립트로 bootJar 출력 폴더와 이름을 `build/member-artifact-qa/member-current-qa.jar`로 분리해 검증했다. bootJar와 기록 작업이 성공했고 jar 내용 및 실행 선택기가 같은 파일을 가리키는지 확인했다. 기존 build/libs의 jar 해시와 기존 앱 서버 생존을 확인했으며 서버를 재시작하지 않았다. QA용 무시 대상 manifest는 다음 정상 시작의 기록 작업에서 실제 bootJar 경로로 다시 기록된다. 기본 출력 jar를 덮어쓰는 실행 검증이나 실기기 QA를 수행한 것은 아니다.
 
 제품 Java/API/SQL/DB 스키마/프런트 코드는 변경하지 않아 전체 백엔드·PostgreSQL 쓰기 회귀·웹/iOS·브라우저 QA는 반복하지 않았다. 비공개 설정과 다른 세션 작업을 보존하며 이번 변경은 미커밋이다. 원격 MR/CI #245793의 208개 통과·조건부 64개 제외는 기존 df59f46 기준이다. 커밋·푸시·MR 본문/댓글 갱신·병합·Jira 상태 변경을 하지 않는다. 229·230 합의 및 실기기 QA 미완료도 유지한다.
+
+
+## 최신 develop 재통합 및 Flyway 이력 검증 (2026-10-27)
+
+- 시작 HEAD는 `b036b8b`, 최신 develop은 `7b1b164d81377da36f0e6dc41f097c6ee14e6d35`다. 시작 시 미커밋/스테이징 변경은 없었다. 자동 통합 결과를 작업 폴더에 미커밋 변경으로 적용했고 HEAD·index는 그대로 유지했다. 원격 병합·커밋·푸시·Jira 상태 변경은 하지 않았다. 다른 작업 폴더와 비공개 설정은 수정하지 않았다.
+- package.json은 develop의 auth-password-reset 테스트와 기존 test:member-diary/test:member-diary:contract/qa:member-app을 모두 보존했다. 인증·비밀번호 재설정과 스티커/화면 관련 develop 변경도 그대로 반영했다.
+- develop의 V7(create_password_reset_verifications), V8(index_expired_verifications)을 보존하고 회원 카탈로그 V7→V9, 영수증 V8→V10으로 이동했다. 회원 SQL 본문은 바꾸지 않아 체크섬 의미를 유지한다. 버전 1~10이 유일하다. 프런트 카탈로그 생성기의 출력 경로와 PostgreSQL 카탈로그 회귀도 V9에 맞췄다. 카탈로그 실패 시 회원 V9 이력이 남지 않는지 확인하며, 그 앞 인증 V7/V8의 정상 적용을 실패로 오인하지 않는다.
+
+### QA DB 처리 범위와 절차
+
+원본 `dio_member_app`은 최초 회원 분기의 V7/V8이 이미 적용돼 있으므로 이름만 바꾼 새 코드를 바로 실행하면 Flyway 검증이 실패한다. 원본 DB의 행·이력과 기존 서버, backend.env/runtime.json/frontend/.env.local은 보존했다. 이번 검증에서 source history UPDATE·Flyway repair·데이터 삭제는 하지 않았다. 시작 스크립트는 이 레거시 이력을 발견하면 빌드 전에 안내로 중단하며 자동 수리하지 않는다.
+
+검증은 비공개 pg_dump 백업을 별도 `dio_member_integration_<12자리>` DB에 복원한 후 진행했다.
+
+1. 백업/복제본의 성공 이력 8개와 구 script가 정확히 `V7__seed_page_template_catalog.sql`, `V8__create_diary_creation_receipts.sql`인지 확인한다. 새 V9/V10의 SQL 원문이 구 파일과 같은지도 확인한다.
+2. **복제본에만** 트랜잭션으로 구 7의 version/script를 9/V9__seed_page_template_catalog.sql, 구 8을 10/V10__create_diary_creation_receipts.sql로 대응시킨다. checksum·installed_rank·installed_on·기타 이력은 수정하지 않는다. 단순 `repair`로 인증 V7/V8의 체크섬으로 덮어쓰면 안 된다.
+3. 복제본에서 한 번만 outOfOrder=true로 현재 마이그레이션을 실행해 비어 있는 인증 V7/V8을 적용한다. 이후 기본 outOfOrder=false로 validate·재시작해야 한다. 전역 또는 원본 runtime에 outOfOrder 설정을 남기지 않는다.
+4. 사용자·다이어리·멤버십·페이지·속지·영수증의 전체 행 지문과 개수 보존, 성공 버전 1~10, 기본 설정 재시작을 확인한다. 이번 복제본에서 모두 통과했다. 별도 자동 PostgreSQL 회귀 `MemberMigrationUpgradePostgresTests`도 같은 이력 전환과 실제 데이터 보존·최초 검증 실패·전환 후 재실행을 검사한다.
+5. 원본 전환은 이번에 실행하지 않았다. 실제 전환 전에는 기존 앱의 쓰기를 멈춘 뒤 최신 백업부터 다시 검증하고, 검증한 적용/복구 절차를 선택해야 한다. 이번 복제본에서 생성한 QA 자료를 원본에 역반영하지 않는다. 일반 develop V1~V8이 적용된 DB 또는 새 DB에는 현재 V9/V10을 정상 순서로 적용하며 위 레거시 회원 이력 대응이 필요하지 않다. 공유/운영 DB에는 이 절차를 임의 적용하지 않는다.
+
+백업과 비공개 실행 정보는 저장소 밖 작업 tmp/mr166-develop-integration에 보관한다. 브라우저 QA는 DIO_MEMBER_QA_RUNTIME_DIR로 복제본 전용 runtime과 별도 API/웹 포트를 사용했다. 원본 서버를 재시작하지 않았으며 QA용 API만 정상 설정으로 재시작했다. 일회용 인증/비밀번호 재설정 PostgreSQL은 별도 클러스터와 auth_ci/dio_reset_qa 두 DB를 사용했다.
+
+### 통합 회귀 결과
+
+- 백엔드 일반 test: 232개 통과, 조건부 DB 81개 제외, 실패/오류 0개.
+- 회원 PostgreSQL: 생성·카탈로그·멱등성·이력 전환 41개, 상세·권한·경합 16개, 합계 57개 모두 통과.
+- 별도 인증/비밀번호 재설정 authPostgresTest: 20개 모두 통과.
+- 프런트 전체 815개 통과. 새 Spring 응답 기반 계약 3개도 재확인했다(815개에 포함되는 계약 테스트의 재실행).
+- 웹 export 및 iOS Hermes export 성공. 초기화/실행 가드 15개, 사전 검사 18개 통과.
+- 최신 API+복제 DB의 실제 Edge 1280x800·412x892 QA 통과: 로그인, 최초 201 응답 유실, 재로그인/동일 키 복구, 서버 ID/초기 페이지, PATCH, 늦은 실제 GET 경합, 편집기, 비회원 키 격리, 다중 커서, 새 기기 목록 발견, 빈 문서 미생성, 마지막 페이지 재실행 복원.
+- 첫 통합 실행의 카탈로그 파일 경로 1개와 카탈로그 실패 이력 가정 2개 오류는 새 V9 경계로 수정한 뒤 위 전체 회귀를 다시 통과했다.
+
+229·230의 정책/모델 합의, 실기기 QA, 작성자 외 승인과 원본 QA 환경의 실제 전환은 별도다. 통합 내용은 로컬 미커밋 상태이므로 원격 MR !166/CI는 아직 기존 b036b8b 기준이다.

@@ -16,6 +16,7 @@ public class EmailAuthProvider {
     @Column(name = "linked_at", nullable = false) private Instant createdAt;
     protected EmailAuthProvider() {}
     public Long getUserId() { return userId; }
+    public void resetPassword(String encodedPassword) { passwordHash = encodedPassword; }
     public String getPasswordHash() { return passwordHash; }
     public EmailAuthProvider(Long userId, String email, String passwordHash, Instant now) {
         this.userId = userId; provider = "EMAIL"; providerUserId = email;
