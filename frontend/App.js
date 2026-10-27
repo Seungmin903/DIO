@@ -8,6 +8,8 @@ import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
+import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
+import AuthenticatedNotificationDialog from './src/notifications/AuthenticatedNotificationDialog';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
 import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
@@ -70,7 +72,14 @@ export default function App() {
   );
 }
 
-function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
+function DiaryApp(props) {
+  const content = <DiaryAppContent {...props} />;
+  return props.previewUser.mode === 'authenticated'
+    ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId}>{content}</AuthenticatedNotificationProvider>
+    : content;
+}
+
+function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
   const profileLeaveGuard = useRef(null);
   const profileBackHandler = useRef(null);
   const registerProfileLeaveGuard = useCallback((guard, onBack) => {
@@ -84,8 +93,9 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
     };
   }, []);
   const sharing = useSharing(previewUser);
+  const authenticatedNotifications = useOptionalSharedNotifications();
   const [sharingRequest, setSharingRequest] = useState(null);
-  const unreadInvites = sharing.notifications.count.data?.actionableUnreadCount || 0;
+  const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
   const openInvitations = useCallback(() => {
     const open = () => setSharingRequest({ mode: 'invitations' });
     if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open();
@@ -518,7 +528,7 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
     shell = (
       <View style={s.phoneShell}>
         <View style={s.workspace}>{content}</View>
-        <BottomTabs onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
+        <BottomTabs notificationCount={authenticatedNotifications?.count} notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
         {createModal}
       </View>
     );
@@ -527,6 +537,8 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
       <View style={s.shell}>
         <SideRail
           onNotifications={openInvitations}
+          notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'}
+          notificationCount={authenticatedNotifications?.count}
           invitationCount={unreadInvites}
           page={page}
           filter={filter}
@@ -559,7 +571,9 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
 
   return (
     <>
-      <SharingHub onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />
+      {authenticatedNotifications && sharingRequest
+        ? <AuthenticatedNotificationDialog sharingPending={sharingRequest?.mode !== 'invitations'} model={authenticatedNotifications} onClose={() => setSharingRequest(null)} />
+        : <SharingHub onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
         {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}

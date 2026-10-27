@@ -50,13 +50,14 @@ tasks.named('test') {
 }
 
 tasks.register('authPostgresTest', Test) {
-	description = 'Verifies auth and password reset using separate disposable databases; requires DIO_AUTH_SCHEMA_TEST_URL/PASSWORD and DIO_RESET_POSTGRES_URL/PASSWORD (see docs/password-reset.md).'
+	description = 'Verifies auth, password reset and notification SQL using separate disposable databases; requires DIO_AUTH_SCHEMA_TEST_URL/PASSWORD and DIO_RESET_POSTGRES_URL/PASSWORD (see docs/password-reset.md).'
 	group = 'verification'
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
 	useJUnitPlatform()
 	filter {
 		includeTestsMatching 'com.f106.DIO.auth.integration.AuthInitialSchemaPostgresTests'
+		includeTestsMatching 'com.f106.DIO.notification.NotificationPostgresSchemaTests'
 		includeTestsMatching 'com.f106.DIO.auth.integration.PasswordResetPostgresTests'
 	}
 	environment 'DIO_AUTH_SCHEMA_TEST', 'true'
@@ -80,4 +81,13 @@ tasks.register('postgresTest', Test) {
 	useJUnitPlatform()
 	filter { includeTestsMatching 'com.f106.DIO.diary.PostgresDiary*Tests' }
 	systemProperty 'dio.postgres-test', 'true'
+}
+
+
+tasks.register('notificationBrowserQa', JavaExec) {
+    group = 'verification'
+    description = 'Starts the explicitly opted-in loopback H2 notification browser QA fixture.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.f106.DIO.notification.NotificationBrowserQa'
 }

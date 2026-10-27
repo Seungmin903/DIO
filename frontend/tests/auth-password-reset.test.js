@@ -51,7 +51,7 @@ function deferredResetApi() {
     if(url.endsWith('/password-resets'))return new Promise(resolve=>{finishReset=()=>resolve({ok:true,status:204});});
     if(url.endsWith('/password-reset-verifications'))return {ok:true,status:200,json:async()=>({resetToken:'reset-only',expiresIn:600})};
     if(url.endsWith('/login')||url.endsWith('/refresh'))return {ok:true,status:200,json:async()=>({
-      accessToken:'access-b',refreshToken:'refresh-b',user:{userId:'2',email:'b@example.com',nickname:'회원B'}
+      accessToken:'access-b',refreshToken:'refresh-b',expiresIn:900,user:{userId:'2',email:'b@example.com',nickname:'회원B'}
     })};
     return {ok:true,status:200,json:async()=>({available:true,signupToken:'signup-only',expiresIn:600,userId:'3',email:'c@example.com',nickname:'회원C'})};
   }});
