@@ -20,9 +20,25 @@ public class SignupExceptionHandler extends ResponseEntityExceptionHandler {
     }
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail conflict(DataIntegrityViolationException error) {
-        ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
-            "중복되거나 동시에 처리된 요청입니다. 이메일·닉네임을 확인한 뒤 다시 시도해 주세요.");
-        detail.setProperty("code", "SIGNUP_CONFLICT");
+        String constraint = null;
+        String state = null;
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException violation) {
+                constraint = violation.getConstraintName(); state = violation.getSQLState(); break;
+            }
+        }
+        boolean duplicate = "23505".equals(state) && constraint != null && java.util.Set.of(
+            "users_email_unique", "users_nickname_key_unique", "users_email_key", "users_nickname_key_key")
+            .contains(constraint);
+        if (!duplicate) {
+            // SQL·예외 본문에는 이메일이나 해시가 포함될 수 있어 출력하지 않는다.
+            org.slf4j.LoggerFactory.getLogger(getClass()).error(
+                "Signup persistence failed: sqlState={}, constraint={}", safe(state), safe(constraint));
+        }
+        ProblemDetail detail = ProblemDetail.forStatusAndDetail(duplicate ? HttpStatus.CONFLICT : HttpStatus.INTERNAL_SERVER_ERROR,
+            duplicate ? "이메일 또는 닉네임이 이미 사용 중이에요." : "회원가입을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.");
+        detail.setProperty("code", duplicate ? "SIGNUP_CONFLICT" : "SIGNUP_PERSISTENCE_FAILED");
         return detail;
     }
+    private String safe(String value) { return value != null && value.matches("[A-Za-z0-9_]{1,100}") ? value : "unavailable"; }
 }

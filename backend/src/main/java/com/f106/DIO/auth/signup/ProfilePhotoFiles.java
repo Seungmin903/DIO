@@ -24,20 +24,39 @@ class ProfilePhotoFiles {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("Profile photo writes require a transaction");
         }
-        var location = active.location(photoId);
-        // 파일/S3와 DB는 별도 트랜잭션이므로 DB 실패 시 생성한 객체만 보상 삭제한다.
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCompletion(int status) {
-                if (status == STATUS_COMMITTED) return;
-                try { active.delete(location); }
-                catch (RuntimeException error) {
-                    LoggerFactory.getLogger(ProfilePhotoFiles.class).warn(
-                        "Rolled-back profile photo cleanup failed: provider={}, key={}", location.provider(), location.key());
+        try (var pending = upload(photoId, png)) { pending.enlist(); return pending.location; }
+    }
+    /** 회원가입의 외부 I/O는 DB 트랜잭션 진입 전에 완료한다. */
+    PendingPhoto upload(UUID photoId, byte[] png) {
+        var pending = new PendingPhoto(active.location(photoId));
+        try { active.put(pending.location, png); return pending; }
+        catch (RuntimeException error) { pending.close(); throw error; }
+    }
+    final class PendingPhoto implements AutoCloseable {
+        final ProfilePhotoStorage.Location location;
+        private boolean enlisted;
+        private boolean cleaned;
+        PendingPhoto(ProfilePhotoStorage.Location location) { this.location = location; }
+        void enlist() {
+            if (!TransactionSynchronizationManager.isActualTransactionActive() || enlisted)
+                throw new IllegalStateException("Photo must be enlisted once in an active transaction");
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCompletion(int status) {
+                    if (status == STATUS_ROLLED_BACK) cleanup();
+                    else if (status != STATUS_COMMITTED) LoggerFactory.getLogger(ProfilePhotoFiles.class).warn(
+                        "Profile photo commit outcome unknown; object retained: provider={}, key={}", location.provider(), location.key());
                 }
-            }
-        });
-        active.put(location, png);
-        return location;
+            });
+            enlisted = true;
+        }
+        private void cleanup() {
+            if (cleaned) return;
+            cleaned = true;
+            try { active.delete(location); }
+            catch (RuntimeException error) { LoggerFactory.getLogger(ProfilePhotoFiles.class).warn(
+                "Unreferenced profile photo cleanup failed: provider={}, key={}", location.provider(), location.key()); }
+        }
+        @Override public void close() { if (!enlisted) cleanup(); }
     }
     byte[] read(SignupProfilePhoto photo) {
         // V4의 기존 사진은 명시적으로 이전하기 전까지 그대로 읽는다.

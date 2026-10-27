@@ -53,7 +53,7 @@ class EmailSignupTests {
     @Autowired TermsAgreementRepository agreements;
     @Autowired EmailVerificationRepository verifications;
     @MockitoSpyBean SignupProfilePhotoRepository photos;
-    @Autowired ProfilePhotoFiles photoFiles;
+    @MockitoSpyBean ProfilePhotoFiles photoFiles;
     @Autowired ProfilePhotoMigrationService photoMigration;
     @MockitoBean SignupMailSender mail;
     AtomicReference<String> deliveredCode;
@@ -95,6 +95,49 @@ class EmailSignupTests {
         assertThat(account.provider).isEqualTo("EMAIL"); assertThat(account.providerUserId).isEqualTo(EMAIL);
         assertThat(new BCryptPasswordEncoder().matches("DioMember123!", account.passwordHash)).isTrue();
         assertThat(verifications.findById(EMAIL).orElseThrow().consumedAt).isNotNull();
+    }
+    @Test void imageDecodingHashingAndUploadRunOutsideDatabaseTransaction() throws Exception {
+        String token = verifyEmail(EMAIL);
+        Object original = org.springframework.test.util.ReflectionTestUtils.getField(signup, "passwords");
+        var encoder = spy((BCryptPasswordEncoder)original);
+        doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return invocation.callRealMethod();
+        }).when(encoder).encode(any());
+        doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return invocation.callRealMethod();
+        }).when(photoFiles).upload(any(), any());
+        byte[] jpeg = photoPart("jpeg").getBytes();
+        var part = new MockMultipartFile("photo", "phone.jpg", "image/jpeg", jpeg) {
+            @Override public java.io.InputStream getInputStream() {
+                assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+                return new ByteArrayInputStream(jpeg);
+            }
+        };
+        org.springframework.test.util.ReflectionTestUtils.setField(signup, "passwords", encoder);
+        try {
+            assertThat(signup.signup(request(EMAIL, token, "디오사용자"), part).profilePhotoUrl()).isNotBlank();
+            assertThat(verifications.findById(EMAIL).orElseThrow().consumedAt).isNotNull();
+        } finally { org.springframework.test.util.ReflectionTestUtils.setField(signup, "passwords", original); }
+    }
+    @Test void signupRechecksTokenAfterHashingAndDoesNotConsumeItOnFailure() {
+        String token = verifyEmail(EMAIL);
+        Object original = org.springframework.test.util.ReflectionTestUtils.getField(signup, "passwords");
+        var encoder = spy((BCryptPasswordEncoder)original);
+        doAnswer(invocation -> {
+            Object hash = invocation.callRealMethod();
+            var verification = verifications.findById(EMAIL).orElseThrow();
+            verification.tokenExpiresAt = Instant.now().minusSeconds(1); verifications.saveAndFlush(verification);
+            return hash;
+        }).when(encoder).encode(any());
+        org.springframework.test.util.ReflectionTestUtils.setField(signup, "passwords", encoder);
+        try {
+            assertThatThrownBy(() -> signup.signup(request(EMAIL, token, "디오사용자")))
+                .isInstanceOfSatisfying(SignupException.class, error -> assertThat(error.code).isEqualTo("INVALID_SIGNUP_TOKEN"));
+            assertThat(users.count()).isZero();
+            assertThat(verifications.findById(EMAIL).orElseThrow().consumedAt).isNull();
+        } finally { org.springframework.test.util.ReflectionTestUtils.setField(signup, "passwords", original); }
     }
     @Test void availabilityNormalizesEmailAndChangesAfterSignup() throws Exception {
         mvc.perform(post("/api/v1/auth/email-availability").contentType(MediaType.APPLICATION_JSON).content("{\"email\":\" MEMBER@example.com \"}"))

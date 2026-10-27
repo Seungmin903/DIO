@@ -59,6 +59,23 @@ class ProfilePhotoStorageTests {
         complete(TransactionSynchronization.STATUS_COMMITTED);
         assertThat(storage.read(committed)).isEqualTo(png);
     }
+    @Test void unknownCommitOutcomeRetainsPhotoInsteadOfDeletingCommittedReference() {
+        var storage = new LocalProfilePhotoStorage(directory.toString());
+        var files = new ProfilePhotoFiles(List.of(storage), "local");
+        begin(); var location = files.store(UUID.randomUUID(), png);
+        complete(TransactionSynchronization.STATUS_UNKNOWN);
+        assertThat(storage.read(location)).isEqualTo(png);
+    }
+    @Test void uploadedPhotoIsCleanedIfTransactionNeverStartsButRetainedOnUnknownOutcome() {
+        var storage = new LocalProfilePhotoStorage(directory.toString());
+        var files = new ProfilePhotoFiles(List.of(storage), "local");
+        var abandoned = files.upload(UUID.randomUUID(), png);
+        abandoned.close();
+        assertThatThrownBy(() -> storage.read(abandoned.location)).isInstanceOf(SignupException.class);
+        var pending = files.upload(UUID.randomUUID(), png);
+        begin(); pending.enlist(); complete(TransactionSynchronization.STATUS_UNKNOWN); pending.close();
+        assertThat(storage.read(pending.location)).isEqualTo(png);
+    }
     @Test void storageMisconfigurationDoesNotSilentlyFallbackAndWritesRequireTransaction() {
         var local = new LocalProfilePhotoStorage(directory.toString());
         assertThatThrownBy(() -> new ProfilePhotoFiles(List.of(local), "s3")).isInstanceOf(IllegalStateException.class);

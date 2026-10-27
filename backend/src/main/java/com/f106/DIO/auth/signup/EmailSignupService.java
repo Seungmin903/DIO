@@ -8,6 +8,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import static com.f106.DIO.auth.signup.SignupDtos.TermsType.*;
 
@@ -20,14 +23,18 @@ public class EmailSignupService {
     private final SignupProperties properties;
     private final SignupProfilePhotoRepository photos;
     private final ProfilePhotoFiles photoFiles;
+    private final TransactionTemplate readTransaction;
+    private final TransactionTemplate writeTransaction;
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder(12);
     public EmailSignupService(SignupUserRepository users, EmailAuthProviderRepository providers,
             TermsAgreementRepository terms, EmailVerificationRepository verifications, SignupProperties properties,
-            SignupProfilePhotoRepository photos, ProfilePhotoFiles photoFiles) {
+            SignupProfilePhotoRepository photos, ProfilePhotoFiles photoFiles, PlatformTransactionManager transactionManager) {
         this.users = users; this.providers = providers; this.terms = terms;
         this.verifications = verifications; this.properties = properties;
         this.photos = photos;
         this.photoFiles = photoFiles;
+        readTransaction = new TransactionTemplate(transactionManager); readTransaction.setReadOnly(true);
+        writeTransaction = new TransactionTemplate(transactionManager);
     }
     @Transactional(readOnly = true)
     public SignupDtos.AvailabilityResponse available(String email) {
@@ -51,34 +58,48 @@ public class EmailSignupService {
     private SignupException photoNotFound() {
         return new SignupException(HttpStatus.NOT_FOUND, "PROFILE_PHOTO_NOT_FOUND", "프로필 사진을 찾을 수 없어요.");
     }
-    @Transactional
+    @Transactional(propagation = Propagation.NEVER)
     public SignupDtos.SignupResponse signup(SignupDtos.SignupRequest request) {
         return signup(request, null);
     }
-    @Transactional
+    @Transactional(propagation = Propagation.NEVER)
     public SignupDtos.SignupResponse signup(SignupDtos.SignupRequest request, MultipartFile photo) {
         validateTerms(request);
+        // 유효한 토큰을 먼저 확인한 뒤 고부하 처리를 시작하고, 저장 시 잠가 다시 검증한다.
+        readTransaction.executeWithoutResult(status -> {
+            checkAvailability(request);
+            validateToken(verifications.findById(request.email()).orElseThrow(this::invalidToken), request, Instant.now());
+        });
+        byte[] photoBytes = ProfilePhotoImages.prepare(photo);
+        String passwordHash = passwords.encode(request.password());
+        UUID photoId = UUID.randomUUID();
+        try (var pending = photoBytes == null ? null : photoFiles.upload(photoId, photoBytes)) {
+            return writeTransaction.execute(status -> {
+                if (pending != null) pending.enlist();
+                checkAvailability(request);
+                EmailVerification verification = verifications.findForUpdate(request.email()).orElseThrow(this::invalidToken);
+                Instant now = Instant.now();
+                validateToken(verification, request, now);
+                SignupUser user = users.saveAndFlush(new SignupUser(request, now));
+                providers.saveAndFlush(new EmailAuthProvider(user.userId, user.email, passwordHash, now));
+                terms.saveAllAndFlush(request.agreements().stream().map(a -> new TermsAgreement(user.userId, a, now)).toList());
+                String photoUrl = pending == null ? null : photos.saveAndFlush(
+                    new SignupProfilePhoto(photoId, user.userId, pending.location, now)).url();
+                verification.consumedAt = now;
+                return user.response(photoUrl);
+            });
+        }
+    }
+    private void checkAvailability(SignupDtos.SignupRequest request) {
         if (users.existsByEmail(request.email())) throw SignupException.conflict("EMAIL_ALREADY_REGISTERED", "이미 가입된 이메일이에요.");
         if (!isNicknameAvailable(request.nickname())) {
             throw SignupException.conflict("NICKNAME_UNAVAILABLE", "사용할 수 없는 닉네임이에요.");
         }
-        EmailVerification verification = verifications.findForUpdate(request.email()).orElseThrow(() -> invalidToken());
-        Instant now = Instant.now();
+    }
+    private void validateToken(EmailVerification verification, SignupDtos.SignupRequest request, Instant now) {
         if (verification.consumedAt != null || verification.tokenExpiresAt == null
                 || !now.isBefore(verification.tokenExpiresAt)
                 || !SignupSecrets.matches(verification.tokenHash, SignupSecrets.tokenHash(request.signupToken()))) throw invalidToken();
-        byte[] photoBytes = ProfilePhotoImages.prepare(photo);
-        SignupUser user = users.saveAndFlush(new SignupUser(request, now));
-        providers.saveAndFlush(new EmailAuthProvider(user.userId, user.email, passwords.encode(request.password()), now));
-        terms.saveAllAndFlush(request.agreements().stream().map(a -> new TermsAgreement(user.userId, a, now)).toList());
-        String photoUrl = null;
-        if (photoBytes != null) {
-            UUID photoId = UUID.randomUUID();
-            var location = photoFiles.store(photoId, photoBytes);
-            photoUrl = photos.saveAndFlush(new SignupProfilePhoto(photoId, user.userId, location, now)).url();
-        }
-        verification.consumedAt = now;
-        return user.response(photoUrl);
     }
     private SignupException invalidToken() { return SignupException.invalid("INVALID_SIGNUP_TOKEN", "이메일 인증을 다시 진행해 주세요."); }
     private void validateTerms(SignupDtos.SignupRequest request) {
