@@ -3,7 +3,7 @@ import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'rea
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
-import { prepareEditor, rememberEditorDoc } from './src/editor/services/editorDocs';
+import { prepareEditor, rememberEditorDoc, editorDocKey } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { useSharing } from './src/sharing/useSharing';
@@ -11,6 +11,8 @@ import SharingHub from './src/sharing/SharingHub';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
 import { C, DEFAULT_FILTER } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
+import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
+import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
@@ -55,6 +57,7 @@ export default function App() {
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
+  const SessionDiaryApp = previewSession?.mode === 'authenticated' ? MemberDiaryApp : LocalDiaryApp;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-library') {
     return <SafeAreaProvider style={s.provider}><MockLibraryApp /></SafeAreaProvider>;
   }
@@ -62,15 +65,25 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <DiaryApp previewUser={previewSession}
-          onUpdatePreview={updated => setPreviewSession(current => current?.accountId === updated.accountId ? updated : current)}
+        previewSession ? <SessionDiaryApp key={`${previewSession.mode}:${previewSession.userId || 'preview'}`} previewUser={previewSession}
+          onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
+            (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} /> : <AuthScreen onContinue={setPreviewSession} />
       )}
     </SafeAreaProvider>
   );
 }
 
-function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
+function LocalDiaryApp(props) {
+  const diaryState = useDiaries();
+  return <DiaryApp {...props} diaryState={diaryState} />;
+}
+function MemberDiaryApp(props) {
+  const diaryState = useMemberDiaries(String(props.previewUser.userId));
+  return <DiaryApp {...props} diaryState={diaryState} />;
+}
+function DiaryApp({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
+  const member = diaryState.source === 'member-api';
   const profileLeaveGuard = useRef(null);
   const profileBackHandler = useRef(null);
   const registerProfileLeaveGuard = useCallback((guard, onBack) => {
@@ -123,13 +136,13 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
     trashNow,
     trashError,
     cleanupTrash,
-  } = useDiaries();
+  } = diaryState;
   // 보관함 관리 모드에서 고른 다이어리 id. null이면 관리 모드가 아니다.
   const [selection, setSelection] = useState(null);
   const [trashing, setTrashing] = useState(false);
   const trashingRef = useRef(false);
   const [active, setActive] = useState(null);
-  useEffect(() => { if (active?.id) sharing.runtime.registerDiary(active); }, [active, sharing.runtime]);
+  useEffect(() => { if (active?.id && !member) sharing.runtime.registerDiary(active); }, [active, sharing.runtime, member]);
   const sharedLibraryRef = useRef(sharing.library);
   sharedLibraryRef.current = sharing.library;
   const sharingMembers = sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members || [];
@@ -150,20 +163,31 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
   // 준비가 늦어져도 정해진 시간 안에는 넘어가고, 그사이 다른 다이어리를 고르면 마지막 요청을 연다.
   const opening = useRef(null);
   useEffect(() => () => { opening.current = null; }, []);
-  const enterEditor = useCallback((diary) => {
+  const enterEditor = useCallback(async (diary) => {
     const request = {};
     opening.current = request;
-    Promise.race([prepareEditor(diary), wait(EDITOR_PREPARE_LIMIT_MS)]).finally(() => {
+    try {
+      if (member) {
+        const opened = await diaryState.store.open(diary.id);
+        if (opening.current !== request) return;
+        diary = opened.diary;
+        rememberEditorDoc(editorDocKey(diary), opened.doc, { overwrite: false });
+      }
+      await Promise.race([prepareEditor(diary), wait(EDITOR_PREPARE_LIMIT_MS)]);
       if (opening.current !== request) return;
       opening.current = null;
       const current = diary.sharedDiaryId ? sharedLibraryRef.current.find(item => item.id === diary.id) : diary;
       if (!current) return;
       setEditorOrientation(null);
       setActive(current);
-      setTabIds((current) => (current.includes(diary.id) ? current : [...current, diary.id]));
+      setTabIds(current => current.includes(diary.id) ? current : [...current, diary.id]);
       setPage('editor');
-    });
-  }, []);
+    } catch (error) {
+      if (opening.current !== request) return;
+      opening.current = null;
+      notify('다이어리를 열지 못했어요', error.message);
+    }
+  }, [member, diaryState.store]);
   const open = enterEditor;
   const openSharedDiary = useCallback((id) => {
     const diary = sharedLibraryRef.current.find(item => item.sharedDiaryId === id);
@@ -189,6 +213,7 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
   }, [setDiaries, sharing.runtime]);
 
   const navigate = useCallback((next, nextFilter) => {
+    if (member && next === 'trash') { notify('회원 휴지통', '회원 휴지통 API 연결을 준비하고 있어요. 기기 자료를 대신 삭제하지 않아요.'); return; }
     const move = () => {
       setSelection(null);
       if (next === 'library') {
@@ -198,7 +223,7 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
       setPage(next);
     };
     if (next !== 'profile' && profileLeaveGuard.current) profileLeaveGuard.current(move); else move();
-  }, []);
+  }, [member]);
 
   // 모든 화면 규격의 Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
   // 편집기는 열린 도구·패널을 먼저 닫아야 하므로 EditorScreen에서 별도로 처리한다.
@@ -239,12 +264,19 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
     setCreateOpen(true);
   }, []);
 
-  const edit = useCallback((diary) => {
-    if (diary.canManage === false) return;
-    if (savingRef.current) return;
+  const edit = useCallback(async (diary) => {
+    if (diary.canManage === false || savingRef.current) return;
+    if (member) {
+      savingRef.current = true;
+      try {
+        const current = await diaryState.store.refresh(diary.id);
+        if (!current.canEdit) { notify('수정할 수 없어요', '소유자만 제목과 표지를 수정할 수 있어요.'); return; }
+      } catch (error) { notify('다이어리를 확인하지 못했어요', error.message); return; }
+      finally { savingRef.current = false; }
+    }
     setEditingDiaryId(diary.id);
     setCreateOpen(true);
-  }, []);
+  }, [member, diaryState.store]);
 
   const moveDiaryToTrash = useCallback((diary) => {
     if (savingRef.current) return;
@@ -301,6 +333,18 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
     const original = editingDiaryId ? diaries.find((diary) => diary.id === editingDiaryId) : null;
     if (editingDiaryId && !original) {
       return '수정할 다이어리를 찾지 못했어요. 목록에서 다시 시도해 주세요.';
+    }
+
+    if (member) {
+      savingRef.current = true; setSaving(true);
+      try {
+        const diary = original ? await diaryState.store.update(original.id, form) : await diaryState.store.create(form);
+        setActive(current => current?.id === diary.id ? diary : current);
+        setCreateOpen(false); setEditingDiaryId(null);
+        if (!original) { setCarousel(0); await enterEditor(diary); }
+        return undefined;
+      } catch (error) { return error.message; }
+      finally { savingRef.current = false; setSaving(false); }
     }
 
     let config;
@@ -363,8 +407,8 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
     const sharedOwnedIds = new Set(sharing.diaries.filter(diary =>
       diary.members.some(member => member.id === 'self' && member.role === 'OWNER') && diary.members.length > 1,
     ).map(diary => diary.id));
-    return [...diaries.filter(diary => !diary.trashedAt).map(diary => ({ ...diary, isShared: sharedOwnedIds.has(diary.id) })), ...sharing.library];
-  }, [diaries, sharing.diaries, sharing.library]);
+    return [...diaries.filter(diary => !diary.trashedAt).map(diary => ({ ...diary, isShared: member ? Boolean(diary.isShared) : sharedOwnedIds.has(diary.id) })), ...(member ? [] : sharing.library)];
+  }, [diaries, sharing.diaries, sharing.library, member]);
   const libraryMetadata = useLibraryMetadata(visibleDiaries, page);
   useEffect(() => {
     if (page !== 'library' || !returnDiaryId.current) return;
@@ -440,15 +484,25 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
       onOpen={open}
       onFavorite={favorite}
       onEdit={edit}
-      onDelete={moveDiaryToTrash}
+      onDelete={member ? undefined : moveDiaryToTrash}
       onCreate={create}
       railWidthRef={isPhone ? null : railWidthRef}
       selection={selection}
       onSelectionChange={setSelection}
       onTrashSelected={moveSelectedToTrash}
       trashing={trashing}
+      requestNotice={member ? <MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
+        onReload={() => diaryState.store.load().catch(() => {})}
+        onRetry={async () => {
+          if (savingRef.current) return;
+          savingRef.current = true; setSaving(true);
+          try { const d = await diaryState.retryCreation(); setCreateOpen(false); await enterEditor(d); }
+          catch (error) { notify('이전 생성을 확인하지 못했어요', error.message); }
+          finally { savingRef.current = false; setSaving(false); }
+        }} /> : null}
+      suppressEmpty={member && Boolean(diaryState.error || diaryState.refreshing)}
     />
-  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, visibleDiaries]);
+  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, visibleDiaries, member, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.store, saving, enterEditor]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
@@ -462,10 +516,18 @@ function DiaryApp({ previewUser, onEndPreview, onUpdatePreview }) {
         bottomInset={insets.bottom}
         onToggleOrientation={isPhone && CAN_LOCK_ORIENTATION ? () => setEditorOrientation(isLandscape ? 'portrait' : 'landscape') : undefined}
         onHome={returnToLibrary}
-        onOpenSharing={() => setSharingRequest({ diary: active })}
+        onOpenSharing={member ? undefined : () => setSharingRequest({ diary: active })}
+        readOnly={member && active?.canEdit === false}
         invitationCount={unreadInvites}
         sharingMembers={sharingMembers}
-        onRenameDiary={(title) => active?.id && renameDiary(active.id, title)}
+        onRenameDiary={async title => {
+          if (!active?.id) return false;
+          try {
+            const updated = await renameDiary(active.id, title);
+            setActive(current => current?.id === active.id ? { ...current, ...(updated || {}), title } : current);
+            return true;
+          } catch (error) { notify('이름을 바꾸지 못했어요', error.message); return false; }
+        }}
         tabs={tabs}
         onSelectTab={selectTab}
         onCloseTab={closeTab}

@@ -40,6 +40,9 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     } finally { clearTimeout(timer); }
   }
   const api = {
+    getAccessToken(expectedUserId) {
+      return session && (expectedUserId === undefined || String(session.user.userId) === expectedUserId) ? session.accessToken : null;
+    },
     cancelPending({ keepEnrollment = false } = {}) {
       revision++;
       if (!keepEnrollment) { draft = null; verification = null; }

@@ -21,13 +21,13 @@ public class DiaryQueryService {
 
 	@Transactional(readOnly = true)
 	public DiaryListResponse list() {
-		return new DiaryListResponse(diaryRepository.findAllByDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc()
+		return new DiaryListResponse(diaryRepository.findAllByOwnerUserIdIsNullAndDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc()
 			.stream().map(DiaryMapper::toData).toList());
 	}
 
 	@Transactional(readOnly = true)
 	public DiaryResponse detail(UUID diaryId) {
-		return new DiaryResponse(DiaryMapper.toData(diaryRepository.findByDiaryIdAndDeletedAtIsNull(diaryId)
+		return new DiaryResponse(DiaryMapper.toData(diaryRepository.findByDiaryIdAndOwnerUserIdIsNullAndDeletedAtIsNull(diaryId)
 			.orElseThrow(DiaryNotFoundException::new)));
 	}
 }

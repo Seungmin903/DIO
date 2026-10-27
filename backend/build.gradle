@@ -49,6 +49,36 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+tasks.register('seedMemberDevelopment', JavaExec) {
+	description = 'Seeds a test-only account in the explicitly owned local member app database.'
+	dependsOn testClasses
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'com.f106.DIO.diary.qa.MemberDevelopmentFixture'
+}
+
+tasks.register('postgresMemberDiaryCreationTest', Test) {
+	description = 'Runs atomic diary/owner/initial-page creation tests in isolated PostgreSQL schemas.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter {
+		includeTestsMatching 'com.f106.DIO.diary.creation.PostgresMemberDiaryCreationTests'
+		includeTestsMatching 'com.f106.DIO.diary.creation.PageCatalogPostgresTests'
+	}
+	systemProperty 'dio.diary-creation-postgres', 'true'
+}
+
+tasks.register('postgresDiaryDetailTest', Test) {
+	description = 'Runs diary metadata permission and conflict tests in isolated PostgreSQL schemas.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter { includeTestsMatching 'com.f106.DIO.diary.detail.PostgresDiaryDetailTests' }
+	systemProperty 'dio.diary-detail-postgres', 'true'
+}
+
 tasks.register('authPostgresTest', Test) {
 	description = 'Verifies auth migrations and session cleanup against an isolated PostgreSQL database.'
 	group = 'verification'

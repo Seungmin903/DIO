@@ -21,7 +21,8 @@ public class OpenApiConfig {
             authentication)).info(new Info()
 			.title("DIO 개발 API")
 			.version("mvp1-development")
-			.description("비회원 다이어리 CRUD, 이메일 인증 기반 일반 회원가입·로그인 API입니다. "
-				+ "로그아웃에 Bearer Access Token이 필요하며, 기존 다이어리 API는 아직 공개 상태입니다. 소셜로그인·사용자별 다이어리 권한은 별도 구현입니다."));
+			.description("비회원 다이어리 CRUD, 회원 다이어리 생성·상세·수정, 이메일 인증 기반 회원가입·로그인 API입니다. "
+				+ "로그아웃과 /api/v1/member/diaries에는 Bearer Access Token이 필요합니다. "
+				+ "기존 공개 /api/v1/diaries는 회원 소유자가 없는 자료만 조회·수정·삭제합니다. 소셜로그인과 회원 목록·휴지통은 별도 통합 범위입니다."));
 	}
 }

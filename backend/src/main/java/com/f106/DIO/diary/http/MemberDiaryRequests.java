@@ -1,0 +1,65 @@
+package com.f106.DIO.diary.http;
+
+import java.time.Instant;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
+import com.f106.DIO.diary.creation.DiaryInitialPages;
+import com.f106.DIO.diary.dto.DiaryCreateRequest;
+import com.f106.DIO.diary.dto.DiaryUpdateRequest;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import tools.jackson.databind.JsonNode;
+
+public final class MemberDiaryRequests {
+    private MemberDiaryRequests() {}
+
+    public record Create(
+        @NotBlank @Size(max=100) String diaryTitle,
+        @Pattern(regexp="#[0-9a-fA-F]{6}") String coverColor,
+        @Size(max=30) @Pattern(regexp="(?s).*\\S.*") String coverStyle,
+        @NotNull @Size(min=1,max=4096) @Valid List<@NotNull @Valid InitialPage> initialPages
+    ) {
+        public Create { if(diaryTitle!=null) diaryTitle=diaryTitle.strip(); }
+        public DiaryCreateRequest metadata() { return new DiaryCreateRequest(diaryTitle,coverColor,coverStyle,"PRIVATE"); }
+        @JsonAnySetter public void unsupported(String name,Object value) { throw new IllegalArgumentException("Unsupported create field"); }
+    }
+    public record InitialPage(
+        @NotBlank @Size(max=100) String templateCode,
+        @NotBlank @Size(max=30) String templateVersion,
+        @NotNull @Schema(type="object",description="카탈로그 규격에 맞는 width/height, paperAppearance, blank 설정") JsonNode templateConfig
+    ) {
+        public DiaryInitialPages.Selection selection() {
+            if(!templateConfig.isObject()) throw new MemberDiaryRequestException("INVALID_INITIAL_PAGES");
+            return new DiaryInitialPages.Selection(templateCode,templateVersion,templateConfig.toString());
+        }
+        @JsonAnySetter public void unsupported(String name,Object value) { throw new IllegalArgumentException("Unsupported initial page field"); }
+    }
+
+    public static class Update {
+        @NotNull private Instant expectedUpdatedAt;
+        @Size(min=1,max=100) private String diaryTitle;
+        @Pattern(regexp="#[0-9a-fA-F]{6}") private String coverColor;
+        @Size(max=30) @Pattern(regexp="(?s).*\\S.*") private String coverStyle;
+
+        public Instant getExpectedUpdatedAt() { return expectedUpdatedAt; }
+        public String getDiaryTitle() { return diaryTitle; }
+        public String getCoverColor() { return coverColor; }
+        public String getCoverStyle() { return coverStyle; }
+        @JsonSetter(nulls=Nulls.FAIL) public void setExpectedUpdatedAt(Instant value) { expectedUpdatedAt=value; }
+        @JsonSetter(nulls=Nulls.FAIL) public void setDiaryTitle(String value) { diaryTitle=value.strip(); }
+        @JsonSetter(nulls=Nulls.FAIL) public void setCoverColor(String value) { coverColor=value; }
+        @JsonSetter(nulls=Nulls.FAIL) public void setCoverStyle(String value) { coverStyle=value; }
+        @JsonAnySetter public void unsupported(String name,Object value) { throw new IllegalArgumentException("Unsupported update field"); }
+        @AssertTrue @Schema(hidden=true) public boolean isMetadataPresent() { return diaryTitle!=null || coverColor!=null || coverStyle!=null; }
+        public DiaryUpdateRequest patch() {
+            var patch=new DiaryUpdateRequest();
+            if(diaryTitle!=null) patch.setDiaryTitle(diaryTitle);
+            if(coverColor!=null) patch.setCoverColor(coverColor);
+            if(coverStyle!=null) patch.setCoverStyle(coverStyle);
+            return patch;
+        }
+    }
+}

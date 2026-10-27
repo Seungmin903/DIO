@@ -71,7 +71,8 @@ export function createDiaryApi(transport) {
   };
 }
 // 합의 후 사용할 HTTP 경계. 앱 기본 경로에는 아직 연결하지 않는다.
-export function createHttpTransport({ baseUrl, getAccessToken, fetchImpl = globalThis.fetch }) {
+export function createHttpTransport({ baseUrl, getAccessToken, fetchImpl = globalThis.fetch, accessTokenHeader = 'Authorization' }) {
+  if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   return async ({ path, signal, query = {}, method = 'GET', body: payload, requestId }) => {
     const token = await getAccessToken();
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
@@ -82,7 +83,7 @@ export function createHttpTransport({ baseUrl, getAccessToken, fetchImpl = globa
     try {
       response = await fetchImpl(`${baseUrl.replace(/\/$/, '')}${path}${queryString ? `?${queryString}` : ''}`, {
         signal, method, body: payload === undefined ? undefined : JSON.stringify(payload),
-        headers: { Accept: 'application/json', Authorization: `Bearer ${token}`,
+        headers: { Accept: 'application/json', [accessTokenHeader]: accessTokenHeader === 'Authorization' ? `Bearer ${token}` : token,
           ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...(requestId ? { 'Idempotency-Key': requestId } : {}) },
       });

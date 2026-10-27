@@ -7,6 +7,9 @@
   "main": "expo/AppEntry",
   "scripts": {
     "test:auth": "node --test tests/auth-api.test.js tests/auth-photo-native.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js",
+    "test:member-diary": "node --test tests/member-diary-api.test.js tests/member-app-store.test.js tests/member-editor-docs.test.js",
+    "qa:member-app": "node qa/member-app-browser.cjs",
+    "test:member-diary:contract": "node --test tests/member-diary-spring-contract.test.js",
     "test:notifications": "node --test tests/notification-api.test.js",
     "qa:notifications": "node qa/notification-browser.cjs",
     "test:diary-api": "node --test tests/diary-api.test.js tests/diary-mutation.test.js tests/diary-library.test.js tests/library-reader.test.js tests/diary-create-input.test.js tests/diary-editor.test.js tests/diary-trash-api.test.js",
@@ -19,7 +22,7 @@
     "test:trash": "node --test tests/trash-retention.test.js tests/trash-lifecycle.test.js tests/diary-library.test.js",
     "test:export": "node --test tests/capture-pixels.test.js tests/export-content.test.js tests/pdf-file-save.test.js tests/region-export.test.js tests/export-selection.test.js tests/region-geometry.test.js tests/region-selection.test.js tests/page-image-renderer.test.js tests/pdf-export.test.js tests/pdf-menu.test.js tests/page-export.test.js tests/gif-first-frame.test.js tests/png-file-save.test.js tests/editor-page-management.test.js",
     "test:media": "node --test tests/recent-photos.test.js tests/media.test.js tests/native-media.test.js tests/media-binding.test.js tests/media-recovery.test.js",
-    "test:templates": "node --test tests/templates.test.js",
+    "test:templates": "node --test tests/templates.test.js tests/server-template-catalog.test.js",
     "test:creation": "node --test tests/diary-creation-presets.test.js tests/templates.test.js tests/diary-library.test.js",
     "test:templates:browser": "node tests/templates-browser.cjs",
     "test:templates:readonly": "node tests/templates-readonly.cjs",

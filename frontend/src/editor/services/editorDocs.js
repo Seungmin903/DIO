@@ -1,6 +1,7 @@
 // 편집 문서는 서버가 아니라 기기 저장소에 있다. 편집기를 열 때 "로딩 중" 화면이 생기지 않도록
 // 문서·첫 화면 속지·사진을 편집기 진입 전에 준비하고, 한 번 읽은 문서는 메모리에 둔다.
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { memberDocumentKey } from '../../diary/services/memberStorage.js'
 import { createDefaultDoc, migrateUntouchedAnnualDoc } from '../state/defaultDoc'
 import { templateReference } from '../templates/catalog.js'
 import { loadTemplateAst } from '../templates/loadTemplate'
@@ -15,7 +16,7 @@ const docs = new Map() // 저장 키 → 저장된 문서 (null: 아직 저장�
 const pending = new Map()
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export const editorDocKey = (diary) => isSessionDocumentKey(diary?.sessionStorageKey) ? diary.sessionStorageKey : (diary?.id ? `${STORAGE_KEYS.doc}:${diary.id}` : STORAGE_KEYS.doc)
+export const editorDocKey = (diary) => memberDocumentKey(diary) ?? (isSessionDocumentKey(diary?.sessionStorageKey) ? diary.sessionStorageKey : (diary?.id ? `${STORAGE_KEYS.doc}:${diary.id}` : STORAGE_KEYS.doc))
 
 /** 메모리에 있으면 { doc }를, 아직 읽지 않았으면 null을 돌려준다. */
 export function peekEditorDoc(key) {
@@ -33,7 +34,10 @@ function remember(key, doc) {
 }
 
 /** 편집 중인 최신 문서로 메모리 사본을 갱신한다. (다시 열 때 저장소를 기다리지 않게) */
-export function rememberEditorDoc(key, doc) {
+export function rememberEditorDoc(key, doc, { overwrite = true } = {}) {
+  // A loaded disk snapshot can be older than pending or failed editor saves.
+  // Keep the latest in-memory edit when handing an authorized member doc back in.
+  if (!overwrite && peekEditorDoc(key)?.doc) return
   if (isSessionDocumentKey(key)) { writeSessionDocument(key, doc); return }
   remember(key, doc)
 }

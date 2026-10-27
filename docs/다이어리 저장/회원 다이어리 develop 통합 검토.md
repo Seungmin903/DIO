@@ -1,0 +1,125 @@
+# 회원 다이어리 develop 통합 검토
+
+2026-10-27. 관련 태스크: S15P31F106-231·232·233.
+
+현재 상태: 최신 develop `5fef35a`를 실제 `.worktrees/diary-detail-permissions`에 통합하고 인증 리팩터링 호환성 및 문서 캐시·상세 응답 경합을 수정했다. 아래 최초 `0d0af5a` 검증은 이력이며 최신 결과는 마지막 「인증 리팩터링 통합과 경합 수정」을 따른다.
+
+## 검토 대상과 보존
+
+- 작업 브랜치 `feature/be/diary-detail-permissions`, 최초 검토 HEAD `24b03007140dac191703f67cc9b47f9563a8e3de`. 후속 실제 반영 후 HEAD는 기존 develop 커밋 `0d0af5a8c0d9e78993d53c7315a276a33d12c1ab`다.
+- 원격 fetch 후 develop `0d0af5a8c0d9e78993d53c7315a276a33d12c1ab`를 고정해 검증했다. 시작 HEAD보다 5커밋 앞선 상태다.
+- 원본의 미커밋·미추적 파일 87개를 `tmp/member-develop-review-20261027/original/`에 복사하고 `manifest.json`에 SHA-256을 기록했다. tracked diff는 `working.patch`에 별도 보관했다. 새로 고친 기존 공유 테스트의 원본도 `additional-original/`에 보관했다. 비공개 환경 파일은 이 백업과 패치에 포함하지 않았다.
+- 최신 develop의 아카이브에 원본의 미커밋 변경을 적용한 독립 소스 사본 `tmp/member-develop-review-20261027/integrated/`에서 검증했다. 두 쪽에서 바뀐 파일은 HEAD를 공통 기반으로 3-way 병합했다. 새 커밋이나 stash를 만들지 않았다.
+- 최초 검토에서는 실제 작업 브랜치의 HEAD·인덱스를 유지했다. 후속 요청으로 기존 develop 커밋까지 fast-forward했으며 새 커밋은 만들지 않았다. 회원 변경은 계속 미커밋·미스테이징 상태다.
+- 다른 세션의 `DIO-ToolGuide`, `diary-api-preparation`, `notification-backend`, `diary-list-query` 폴더와 DB는 수정하지 않았다. 세션 메시지도 보내지 않았다. 조회 시 다른 세션은 Safari 영역 지우기 성능 개선과 알림 변경 선별·통합 검증을 진행 중이었다.
+
+## develop 변경 영향
+
+| 변경 | 영향 및 확인 |
+| --- | --- |
+| 227 마지막 열람 페이지 복원 | `editorDocs.js`가 직접 겹친다. 회원별 `editorDocKey`와 develop의 `loadViewedPage`·선택 페이지 속지 선행 로딩·캐시 무효화 반환값을 모두 유지해 자동 병합했다. |
+| 문서 색인 | 두 쪽 추가 링크가 자동 병합됐다. 회원 문서와 develop의 마지막 열람 페이지 문서를 모두 보존한다. |
+| 303 사진 불러오기·모양 전환·이전 비율 복원 | 사진 렌더러·프레임 옵션·미디어·출력 모듈에 변경이 있다. 회원 API 코드와 직접 겹치지 않으며 통합 프런트 회귀와 웹/iOS 번들로 확인했다. |
+| S3 환경변수 전달 | infra compose에 변경이 있다. 회원 다이어리 백엔드 Java·DB 마이그레이션에는 develop의 추가 변경이 없다. 배포 환경 적용은 수행하지 않았다. |
+
+직접 겹친 2개 파일에서 텍스트 충돌은 없었다. 다만 통합 전체 테스트를 실행하니 `shared-library.test.js`의 `editorDocs` 로더가 새 `memberDocumentKey` import를 제공하지 않아 4개가 실패했다. 실제 회원 저장 키 모듈을 fixture에 연결하고, 같은 다이어리 ID를 서로 다른 계정에서 사용할 때의 문서·캐시 분리 회귀를 추가했다. 원본 작업 폴더에도 이 테스트 보완을 적용했다.
+
+통합 사본에는 develop의 열람 위치 hook 테스트를 확장해 실제 회원 키로 복원할 때 다른 회원·비회원의 위치를 읽지 않고 열람만으로 본문을 저장하지 않는 경우도 검증했다. 후속 실제 반영에서는 develop 모듈과 함께 이 회귀 및 브라우저 QA도 실제 작업 폴더에 옮겼다.
+
+## 문서와 로컬 QA 보완
+
+- HTTP 문서에 232 GET 목록 경로·오류 코드·list 어댑터를 반영하고 인증 회원/게스트 앱 라우팅을 현재 상태로 고쳤다.
+- 생성 중복 방지·인증 연결·속지 매핑·생성 트랜잭션 문서에서 기본 앱 연결이 남았다는 오래된 설명을 정리했다. 과거 단계별 테스트 수는 당시 기록으로 보존하며 최신 결과는 이 문서로 연결했다.
+- 로컬 QA의 PostgreSQL 첫 시작이 PowerShell의 native 출력 또는 자식 프로세스 대기 때문에 진행되지 않을 수 있어, 숨김 프로세스로 파일 출력하고 `pg_ctl` 자체의 종료만 기다리도록 보완했다. 첫 실행 중단 후에도 이 작업의 검증된 로컬 클러스터에서 DB 존재를 확인해 생성 단계를 복구한다.
+- 기존 작업의 runtime PID는 제한된 첫 조회에서 보이지 않았으나 권한을 높인 조회에서 실행 중임을 확인했다. 기존 프로세스는 유지하고 통합 사본 전용 새 PostgreSQL/API를 사용했다. 비공개 설정·토큰은 결과 문서·패치·로그 요약에 기록하지 않는다.
+
+## 검증
+
+검증 실행 위치는 위 통합 사본이다. 기존 실행 결과를 재사용하지 않고 backend 테스트에서 생성한 새 Spring 계약 파일로 프런트 계약을 확인했다.
+
+- 백엔드 전체: 194개 통과, 조건부 DB 59개 제외, 실패·오류 0개.
+- 프런트 전체: 706개 통과, 실패·제외 0개. 새 Spring 응답 계약과 develop의 마지막 열람 페이지·사진·미디어·출력·휴지통 회귀를 포함한다. 원본 작업 폴더의 공유/회원 API 회귀도 별도 19개 통과했다.
+- 별도 PostgreSQL: 생성·카탈로그·중복 방지 38개, 상세 권한·동시 수정 13개, 총 51개 통과. 실패·제외 0개. 테스트 후 creation_qa/detail_qa/catalog_qa 스키마 0개 확인.
+- 웹·iOS 번들 생성 성공. iOS는 Hermes 바이트코드 생성까지 확인했고 실기기 실행은 하지 않았다.
+- 실제 PostgreSQL V1~V8 적용 8개 성공, 속지 288개 등록.
+- 독립 Edge 브라우저 1280×800·412×892: 실제 로그인, 최초 201 응답 유실, 새로고침·재로그인·동일 키 재시도, 서버 다이어리/페이지 ID 보존, PATCH, 기존 편집기 진입, 비회원 키 보존 통과. limit=1 다중 커서 조회·새 저장소에서 서버 자료 발견·기기 문서 없는 자료의 빈 문서 미생성도 확인했다. 휴대폰 화면에서 2페이지 열람 후 새로고침·재로그인해 같은 서버 페이지를 복원했고 열람만으로 기기 문서가 바뀌지 않았다. 수집한 pageerror 0개.
+
+재현 명령:
+
+```powershell
+# 통합 사본 backend에서, Java 17 / 기존 Gradle 캐시 사용
+./gradlew.bat test --offline --console=plain
+# 전용 로컬 DB 환경변수를 프로세스에 주입한 뒤
+./gradlew.bat postgresMemberDiaryCreationTest postgresDiaryDetailTest --offline --console=plain
+# 통합 사본 frontend에서 (backend 계약 산출물 생성 후)
+node --test tests/*.test.js
+node node_modules/expo/bin/cli export --platform web --max-workers 2 --output-dir .expo/member-app-web
+node node_modules/expo/bin/cli export --platform ios --max-workers 2 --output-dir .expo/member-app-ios
+node qa/member-app-browser.cjs
+```
+
+## 남은 범위
+
+최종 팀 API 계약, 공유 개발/운영 DB 적용, iPad·갤럭시탭 실기기 QA는 남아 있다. 캔버스 본문·미디어·페이지 추가/삭제 서버 동기화, 회원 휴지통·실제 공유 기능은 이번 통합 범위에 포함되지 않는다. 즐겨찾기는 계정별 기기 값이며 서버 검색 UI·대규모 점진 로딩은 후속 최적화다.
+
+검증 후 통합 사본 전용 API·PostgreSQL을 종료했다. 기존 작업의 서버 PID 69636은 해당 작업 경로의 Java 프로세스로 계속 실행 중임을 확인했다.
+
+검증된 develop 변경과 추가 통합 QA는 `tmp/member-develop-review-20261027/validated-develop-overlay.patch`에 보관했다. 최초 검토 시 원본 상태에서 `git apply --ignore-space-change --check`로 적용 가능함을 확인했다. 후속 실제 반영은 fast-forward 후 검증된 통합 파일을 복원하는 방식으로 진행했다. CRLF/LF 차이로 검사에 `--ignore-space-change`가 필요하다. 이 파일은 검토·후속 통합용 산출물이며 Git merge 기록을 대신하지 않는다.
+
+커밋·푸시·MR 생성은 수행하지 않았다.
+
+
+## 실제 작업 폴더 반영 (2026-10-27 후속)
+
+- 반영 전 미커밋·미추적 파일 89개를 `tmp/member-develop-apply-20261027/original/`에 새로 백업하고 `manifest.json`·`working.patch`를 보관했다. 백업 SHA-256도 확인했다.
+- 새 변경 여부를 검사한 결과, 앞서 검증한 소스 중 반영 대상 외의 추가 변경은 없었다. 겹친 tracked 파일은 `docs/색인.md`, `editorDocs.js`, `shared-library.test.js` 3개였다.
+- 세 파일의 기존 내용을 별도 보존한 상태에서 `git merge --ff-only --no-edit 0d0af5a8c0d9e78993d53c7315a276a33d12c1ab`로 브랜치를 전진시켰다. 검증 사본의 통합 파일과 회원 열람 위치 회귀·브라우저 QA를 복원했다.
+- 반영 직후 실제 소스·테스트·QA 574개의 SHA-256이 검증 사본과 일치함을 확인했다. 이후 아래 실제 폴더 브라우저 회귀에서 QA 스크립트 1개만 보완했다. 겹치지 않는 기존 미커밋 파일도 바이트 단위로 유지했다. `application.json`에 전후 HEAD와 적용 파일을 기록했다.
+- 다른 작업 폴더·다른 세션 DB는 수정하지 않았다. 기존 회원 API PID 69636과 127.0.0.1:8080 health 200을 확인했으며 재시작하지 않았다.
+- 실제 폴더 백엔드: `test --rerun --offline --console=plain`으로 테스트를 다시 실행했다. 194개 통과, 조건부 DB 59개 제외, 실패·오류 0개. 최초 일반 실행은 UP-TO-DATE였으므로 이 재실행 결과로 기록한다.
+- 실제 폴더 프런트: 일반 회귀 703개와 새 Spring 응답 산출물을 이용한 계약 3개, 합계 706개 통과. 실패·제외 0개.
+- 실제 폴더 웹 번들 생성 성공. 같은 폴더의 번들과 기존 회원 API를 이용한 독립 Edge 1280×800·412×892 브라우저 회귀 통과: 실제 로그인·201 응답 유실·재로그인/동일 키 재시도·ID 보존·PATCH·기존 편집기 진입·다중 커서·새 브라우저 목록 발견·기기 문서 없는 자료의 빈 문서 미생성·2페이지 열람 후 새로고침/재로그인 복원·열람만으로 문서 불변, 수집한 pageerror 0개.
+- 최초 브라우저 실행에서는 데이터가 누적된 휴대폰 보관함의 캐러셀이 끝의 생성 카드를 가상화해 로그인 후 카드 대기가 시간 초과됐다. 제품 오류가 아니라 QA의 화면 요소 가정이었다. 회원 준비 안내를 확인한 뒤 실제 ‘한눈에 보기’ 탭으로 전환해 카드를 찾도록 QA를 보완하고 재검증했다. 실패 시 스크립트 위치를 출력하도록 해 진단도 개선했다. 제품 소스에는 추가 변경이 없다.
+- 반영 후 `git diff --check` 통과. 기존 비공개 설정 두 파일은 계속 Git 무시 대상이다. 기존 회원 API와 DB는 종료하거나 재시작하지 않았다.
+- PostgreSQL 51개와 iOS Hermes 번들은 앞선 동일 소스의 통합 사본에서 통과한 결과를 유지한다. 이번 실제 반영에서 백엔드/DB 로직은 바뀌지 않았고 574개 소스 해시도 일치하여 이 두 검증을 반복하지 않는다.
+- 새 커밋·푸시·MR 생성은 하지 않았으며 스테이징된 변경도 없다.
+
+
+## 인증 리팩터링 통합과 경합 수정 (2026-10-27 후속)
+
+### 보존과 기반
+
+- 통합 당시 최신 origin/develop `5fef35ae09d193f6017409751e8f7ff0655ab64e`를 fetch해 실제 기능 브랜치에 fast-forward했다. 앞선 `0d0af5a` 이후 인증·회원 패키지 분리 5커밋이 추가된 상태였다. 새 커밋은 만들지 않았다.
+- 반영 전 90개 미커밋·미추적 파일의 원본과 SHA-256, tracked patch를 `tmp/member-diary-race-fixes-20261027/`에 보관했다. 겹친 build.gradle·문서 색인은 양쪽 변경을 유지했다. 색인의 CRLF/LF 차이를 정규화한 뒤 병합했다.
+- 다른 세션의 작업 폴더·DB·서버를 수정하지 않았다. 기존 회원 API는 기록된 PID와 이 작업의 jar 경로가 일치함을 확인한 뒤 이 프로세스만 최신 코드로 재시작했다. 기존 전용 PostgreSQL과 자료는 유지했다. 실행 중인 최신 PID·포트는 비공개 runtime.json을 따른다.
+
+### 인증 테스트 컴파일
+
+- `auth/login/MemberDiaryHttpTests.java`를 `diary/http/MemberDiaryHttpTests.java`, `auth/login/DiaryAuthenticationIntegrationTests.java`를 `diary/auth/DiaryAuthenticationIntegrationTests.java`로 옮겼다.
+- 새 auth.config/domain/repository/security/service/support의 공개 타입과 엔티티 getter·revoke를 사용한다. 만료 세션을 만드는 테스트는 ReflectionTestUtils로 테스트 데이터만 바꾼다. 운영 엔티티의 가시성을 되돌리거나 이전 패키지를 다시 만들지 않았다.
+- HTTP 테스트의 JWT 키는 테스트 자체에서 임의 생성해 준비한다. 다른 패키지의 package-private EmailLoginTests 도우미 의존성을 제거했다. 최신 develop 통합 시 발견됐던 테스트 컴파일 오류를 해소했다.
+
+### 문서 재진입 경합
+
+- `rememberEditorDoc`에 `overwrite` 옵션을 추가했다. 기본값은 기존 편집 캐시 갱신 동작을 유지하며 회원의 디스크→편집기 인계에서만 false를 전달한다.
+- 이미 메모리에 최신 편집본이 있으면 늦게 읽은 디스크 사본을 넣지 않는다. 캐시가 없거나 null이면 검증된 기기 문서를 기억한다. 회원 권한 확인과 계정별 문서 키·문서 소유 검증은 유지한다.
+- 저장 중 및 저장 실패 후 재진입, 이후 재저장, 빈/음성 캐시에서 진입, 같은 다이어리 ID의 계정별 격리를 검증한다. 실행 중 캐시 보존에 대한 수정이며 앱 종료 후 영구 보관에는 기기 저장 성공이 필요하다.
+
+### 상세 응답 경합
+
+- 다이어리별 메타데이터 변경 버전과 상세 요청 순서를 기록한다. 생성·수정·목록 교체·기기 인덱스 변경 뒤에는 그 전에 시작한 상세를 적용하지 않는다.
+- 응답 적용 여부는 인덱스 저장 큐 안에서 확인한다. 늦은 GET에는 현재 행을 반환해 성공한 PATCH의 제목·마이크로초 updatedAt 및 저장 인덱스를 유지한다. 먼저 시작한 GET이 나중 GET 뒤에 도착하는 경우도 차단한다.
+- 실제 GET 응답을 보류하고 별도 GET·PATCH가 끝난 뒤 전달하는 브라우저 회귀도 추가했다. 제품 흐름에서 제목과 기기 인덱스가 최신 값으로 유지되는지 확인한다.
+
+### 회귀와 결과
+
+- 수정 전 신규 회귀 5개 실패를 확인했고 수정 후 해당 묶음 18개가 모두 통과했다. 실패 로그 `frontend-red.log`, 수정 후 결과 `frontend-green.log`를 위 작업별 tmp 폴더에 보관했다.
+- `test:member-diary`에 새 `member-editor-docs.test.js`를 포함해 공식 명령으로도 문서 경합을 검증한다.
+- 백엔드 전체 199개 통과, 조건부 DB 59개 제외, 실패·오류 0개. 두 다이어리 테스트를 새 경로에서 실행했으며 최신 인증/회원 도메인 회귀도 포함한다.
+- 프런트 전체 710개와 새 Spring 산출물로 계약 3개, 합계 713개 통과. 실패·제외 0개.
+- 실제 작업 폴더의 웹·iOS Hermes 번들 생성 성공.
+- 최신 API의 실제 로그인·201 응답 유실·재로그인/같은 키 재시도·서버 ID 보존·PATCH·다중 커서·새 기기 목록 발견·빈 문서 미생성·휴대폰 마지막 페이지 복원 기본 브라우저 회귀 통과.
+- 지연 GET/PATCH 브라우저 회귀도 통과했다. 실제 서버의 이전 GET을 PATCH 성공 뒤 전달해도 새 제목·기기 인덱스가 유지됐다. 기본·경합 브라우저 회귀에서 수집한 pageerror는 0개다.
+- PostgreSQL 생성·카탈로그·중복 방지 38개, 상세 권한·동시 수정 13개, 합계 51개 통과. 실패·제외 0개. 테스트는 이 작업 전용 DB의 격리 스키마에서 수행했다.
+
+커밋·푸시·MR 생성과 Jira 완료 전환은 수행하지 않았다. 229·230의 팀 계약 확정, 공유 개발/운영 DB 적용과 실기기 QA는 별도 상태로 유지한다.

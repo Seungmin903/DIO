@@ -12,7 +12,12 @@ export function useLibraryMetadata(diaries, page = 'library') {
       const next = {};
       for (const diary of diaries) {
         try {
-          const doc = await loadEditorDoc(diary) ?? createDefaultDoc(diary);
+          const saved = await loadEditorDoc(diary);
+          if (!saved && diary.source === 'member-api') {
+            next[diary.id] = { pageCount: diary.pageCount ?? null, updatedAt: diary.updatedAt };
+            continue;
+          }
+          const doc = saved ?? createDefaultDoc(diary);
           next[diary.id] = { pageCount: doc.pages.length, updatedAt: doc.updatedAt };
         } catch {
           // 실패를 0페이지로 표시하거나 이전 요약을 현재 값으로 남기지 않는다.
