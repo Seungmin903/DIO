@@ -23,6 +23,8 @@ const server = http.createServer((req,res) => {
     browser=await chromium.launch({channel:'msedge',headless:true});
     const context=await browser.newContext({viewport:{width:1280,height:800}}), page=await context.newPage();
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+    let notificationHeaders;
+    page.on('request', request => { if (request.url().includes('/api/v1/notifications')) notificationHeaders = request.headers(); });
     await page.goto(`http://127.0.0.1:${metadata.webPort}`);
     let listPages=0;
     const paginate=async target=>target.route('**/api/v1/member/diaries?*',async route=>{
@@ -42,6 +44,30 @@ const server = http.createServer((req,res) => {
     };
     await login();
     console.log('STAGE login');
+    if (process.env.DIO_MEMBER_QA_NOTIFICATIONS === 'true') {
+      const seed = metadata.notificationQa;
+      assert.ok(seed?.ownId && seed?.foreignId, 'isolated notification seed required');
+      await page.getByRole('button', { name: /^알림(?:[, ·]|$)/ }).first().click();
+      await page.getByRole('button', { name: `알림 읽음 ${seed.ownId}`, exact: true }).waitFor();
+      assert.equal(await page.getByRole('button', { name: `알림 삭제 ${seed.foreignId}`, exact: true }).count(), 0);
+      assert.ok(notificationHeaders?.authorization || notificationHeaders?.['x-dio-access-token']);
+      const authHeaders = notificationHeaders.authorization ? { Authorization: notificationHeaders.authorization } : { 'X-DIO-Access-Token': notificationHeaders['x-dio-access-token'] };
+      for (const method of ['PATCH', 'DELETE']) {
+        const denied = await page.request.fetch(`http://127.0.0.1:${metadata.apiPort}/api/v1/notifications/${seed.foreignId}`, { method, headers: authHeaders });
+        assert.equal(denied.status(), 404);
+      }
+      const read = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().endsWith(`/notifications/${seed.ownId}`));
+      await page.getByRole('button', { name: `알림 읽음 ${seed.ownId}`, exact: true }).click();
+      assert.equal((await read).status(), 200);
+      await page.getByRole('button', { name: `알림 읽음 ${seed.ownId}`, exact: true }).waitFor({ state: 'detached' });
+      const removed = page.waitForResponse(response => response.request().method() === 'DELETE' && response.url().endsWith(`/notifications/${seed.ownId}`));
+      await page.getByRole('button', { name: `알림 삭제 ${seed.ownId}`, exact: true }).click();
+      assert.equal((await removed).status(), 204);
+      await page.getByRole('button', { name: `알림 삭제 ${seed.ownId}`, exact: true }).waitFor({ state: 'detached' });
+      await page.getByRole('button', { name: '알림 닫기', exact: true }).click();
+      await page.getByRole('button', { name: '새 다이어리 만들기', exact: true }).waitFor();
+      console.log('MEMBER_NOTIFICATION_QA: real login, notification read/delete, foreign-account 404, member library preserved');
+    }
     await page.evaluate(()=>localStorage.setItem('dio:diary:list:v1','guest-sentinel'));
     const title=`회원 앱 QA ${Date.now()}`;
     let lost=true, first=null, replay=null; const keys=[];

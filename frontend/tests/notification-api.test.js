@@ -4,6 +4,14 @@ import { createNotificationApi, createInvitationGateway, toNotification } from '
 import { createMockNotificationTransport } from '../src/notifications/mockNotificationTransport.js';
 import { createNotificationStore, startNotificationRefresh } from '../src/notifications/notificationStore.js';
 
+test('목 어댑터도 PDF 개별 읽음 경로를 body 없이 사용한다', async () => {
+  let request;
+  await createNotificationApi(async value => { request = value; }).read('9007199254740993');
+  assert.equal(request.method, 'PATCH');
+  assert.equal(request.path, '/notifications/9007199254740993');
+  assert.equal(request.body, undefined);
+});
+
 function setup(options = {}) {
   const mock = createMockNotificationTransport({ delay: 0, ...options });
   const api = createNotificationApi(mock.transport), gateway = createInvitationGateway(mock.transport);
@@ -16,11 +24,11 @@ test('상세를 연 뒤 취소되면 복귀 재조회가 목록과 상세를 함
   assert.equal(store.getSnapshot().invitation.data.status, 'REVOKED');
 });
 test('이동 직전 만료·취소·권한 오류면 공유 화면 콜백을 호출하지 않는다', async () => {
-  for (const mode of ['expired', 'revoked', 'forbidden', 'fail-once']) {
+  for (const mode of ['expired', 'revoked', 'forbidden', 'fail-once', 'cannot-open']) {
     const { store, mock } = setup(); await store.refresh(); await store.open(store.getSnapshot().items[0]);
     mock.setScenario('invitation', mode); let calls = 0;
     await store.proceedToInvitation(() => calls++); assert.equal(calls, 0, mode);
-    assert.notEqual(store.getSnapshot().invitation.data?.status === 'PENDING' && store.getSnapshot().invitation.status === 'success', true);
+    assert.notEqual(store.getSnapshot().invitation.data?.status === 'PENDING' && store.getSnapshot().invitation.data?.canOpen === true && store.getSnapshot().invitation.status === 'success', true);
   }
 });
 test('이동 직전 재확인이 성공한 현재 상세만 전달하며 연타를 막는다', async () => {
@@ -28,6 +36,39 @@ test('이동 직전 재확인이 성공한 현재 상세만 전달하며 연타�
   const results = []; const first = store.proceedToInvitation(value => results.push(value));
   await store.proceedToInvitation(value => results.push(value)); await first;
   assert.equal(results.length, 1); assert.equal(results[0].inviteId, 'A-invite-4');
+  assert.equal(results[0].canOpen, true);
+});
+
+test('PENDING의 canOpen이 이동 직전 취소되면 차단하고 재확인 후 회복한다', async () => {
+  const { store, mock } = setup(); await store.refresh(); const row = store.getSnapshot().items[0]; await store.open(row);
+  assert.equal(store.getSnapshot().invitation.data.canOpen, true);
+  mock.setInvitationCanOpen(row.inviteId, false); let calls = 0;
+  await store.proceedToInvitation(() => calls++); assert.equal(calls, 0);
+  assert.equal(store.getSnapshot().invitation.data.status, 'PENDING'); assert.equal(store.getSnapshot().invitation.data.canOpen, false);
+  mock.setInvitationCanOpen(row.inviteId, true); await store.retryInvitation();
+  await store.proceedToInvitation(() => calls++); assert.equal(calls, 1);
+});
+
+test('주입 상세 gateway도 PENDING+엄격한 true+같은 inviteId만 이동 허용한다', async () => {
+  for (const detail of [
+    { status: 'PENDING', canOpen: false }, { status: 'PENDING' }, { status: 'PENDING', canOpen: null },
+    { status: 'PENDING', canOpen: 'true' }, { status: 'PENDING', canOpen: 1 },
+    { status: 'ACCEPTED', canOpen: true }, { status: 'EXPIRED', canOpen: true },
+    { status: 'PENDING', canOpen: true, inviteId: 'other' },
+  ]) {
+    const row = { id: '1', notificationType: 'DIARY_INVITE', inviteId: 'mine', readAt: 'already-read' };
+    const store = createNotificationStore({ list: async () => ({ items: [row], nextCursor: null }), count: async () => ({ unreadCount: 0 }) },
+      { get: async () => ({ inviteId: 'mine', ...detail }) });
+    await store.refresh(); await store.open(row); let calls = 0;
+    await store.proceedToInvitation(() => calls++); assert.equal(calls, 0, JSON.stringify(detail)); store.dispose();
+  }
+});
+
+test('transport 상세 응답의 canOpen 누락·잘못된 타입은 INVALID_RESPONSE다', async () => {
+  for (const canOpen of [undefined, null, 'true', 1]) {
+    await assert.rejects(createInvitationGateway(async () => ({ inviteId: 'mine', status: 'PENDING', canOpen })).get('mine'), error => error.code === 'INVALID_RESPONSE');
+  }
+  assert.equal((await createInvitationGateway(async () => ({ inviteId: 'mine', status: 'PENDING', canOpen: false })).get('mine')).canOpen, false);
 });
 test('이동 재확인 도중 닫기·다른 초대 선택·계정 종료 시 늦은 이동을 막는다', async () => {
   for (const action of ['close', 'open', 'dispose']) {
@@ -88,7 +129,10 @@ test('알림 삭제는 원본 초대를 삭제/거절하지 않는다; 반복 �
 });
 test('전체 읽음 응답 유실 후 재시도는 새 도착 알림을 읽지 않는다', async () => {
   const { store, mock } = setup(); await store.refresh(); mock.setScenario('write', 'response-lost');
-  await store.readAll(); const id = mock.add(); await store.retryMutation();
+  assert.equal(store.getSnapshot().canReadAll, true);
+  await store.readAll(); assert.equal(store.getSnapshot().mutation.canRetry, true);
+  const id = mock.add(); await store.retryMutation();
+  assert.equal(store.getSnapshot().mutation.status, 'success');
   assert.equal(mock.inspect().rows.find(row => row.notificationId === id).readAt, null);
   assert.equal(store.getSnapshot().count.data.unreadCount, 1);
 });
@@ -141,7 +185,7 @@ test('포그라운드 즉시 갱신, 활성 중 주기 조회, 백그라운드·
   active = true; listener(); assert.equal(refreshes, 2); stop(); assert.equal(clears, 2); assert.equal(unsubscribed, true);
 });
 test('알 수 없는 상태는 actionable하지 않고 잘못된 DTO/카운트/상세 ID는 거부', async () => {
-  const row = { notificationId: '1', invitation: { inviteId: 'i', status: 'FUTURE' }, action: { enabled: true } };
+  const row = { notificationId: '1', type: 'DIARY_INVITED', invitation: { inviteId: 'i', status: 'FUTURE' }, action: { enabled: true } };
   assert.equal(toNotification(row).actionable, false);
   assert.throws(() => toNotification({}));
   await assert.rejects(createNotificationApi(async () => ({ unreadCount: 1, actionableUnreadCount: 2 })).count());

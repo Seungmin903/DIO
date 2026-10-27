@@ -1,15 +1,18 @@
 // 244 합의 전 제안 경계. 실제 서버에는 연결하지 않는다.
+import { isInvitationNotification } from './notificationPresentation.js';
 export class NotificationError extends Error {
   constructor(code, message, status = 0) { super(message); this.code = code; this.status = status; }
 }
 const invalid = () => new NotificationError('INVALID_RESPONSE', '알림 응답을 확인하지 못했어요. 다시 시도해 주세요.');
 const id = value => typeof value === 'string' && value.length > 0;
 export function toNotification(row) {
-  if (!id(row?.notificationId) || !id(row?.invitation?.inviteId) || typeof row?.invitation?.status !== 'string') throw invalid();
+  if (!id(row?.notificationId) || !id(row?.type)) throw invalid();
+  const invitation = isInvitationNotification({ notificationType: row.type });
+  if (invitation && (!id(row?.invitation?.inviteId) || typeof row?.invitation?.status !== 'string')) throw invalid();
   return { id: row.notificationId, title: row.diary?.title || '사용할 수 없는 다이어리',
-    actor: row.actor?.nickname || '다른 사용자', inviteId: row.invitation.inviteId,
-    status: row.invitation.status, readAt: row.readAt ?? null, createdAt: row.createdAt,
-    actionable: row.action?.enabled === true && row.invitation.status === 'PENDING' };
+    notificationType: row.type, actor: row.actor?.nickname || '다른 사용자', inviteId: invitation ? row.invitation.inviteId : null,
+    status: invitation ? row.invitation.status : null, readAt: row.readAt ?? null, createdAt: row.createdAt,
+    actionable: invitation && row.action?.enabled === true && row.invitation.status === 'PENDING' };
 }
 export function createNotificationApi(transport) {
   return {
@@ -23,7 +26,7 @@ export function createNotificationApi(transport) {
       if (!Number.isInteger(body?.actionableUnreadCount) || body.actionableUnreadCount < 0 || !Number.isInteger(body?.unreadCount) || body.unreadCount < body.actionableUnreadCount) throw invalid();
       return body;
     },
-    read(notificationId, options) { return transport({ ...options, method: 'PATCH', path: `/notifications/${encodeURIComponent(notificationId)}`, body: { isRead: true } }); },
+    read(notificationId, options) { return transport({ ...options, method: 'PATCH', path: `/notifications/${encodeURIComponent(notificationId)}` }); },
     readAll(throughNotificationId, options) { return transport({ ...options, method: 'POST', path: '/notifications/read-all', body: { type: 'DIARY_INVITED', throughNotificationId } }); },
     remove(notificationId, options) { return transport({ ...options, method: 'DELETE', path: `/notifications/${encodeURIComponent(notificationId)}` }); },
   };
@@ -32,7 +35,7 @@ export function createNotificationApi(transport) {
 export function createInvitationGateway(transport) {
   return { async get(inviteId, { signal } = {}) {
     const value = await transport({ path: `/me/invitations/${encodeURIComponent(inviteId)}`, signal });
-    if (value?.inviteId !== inviteId || typeof value.status !== 'string') throw invalid();
+    if (value?.inviteId !== inviteId || typeof value.status !== 'string' || typeof value.canOpen !== 'boolean') throw invalid();
     return value;
   } };
 }
