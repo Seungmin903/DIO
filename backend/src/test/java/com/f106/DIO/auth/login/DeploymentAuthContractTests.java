@@ -7,6 +7,15 @@ import org.springframework.core.io.FileSystemResource;
 import static org.assertj.core.api.Assertions.*;
 
 class DeploymentAuthContractTests {
+    @Test void ciContainerIncludesReadOnlyDeploymentInputsBesideBackend() throws Exception {
+        var properties = new YamlPropertySourceLoader().load("ci",
+            new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
+        assertThat(properties.getProperty("backend-test.script[0]").toString())
+            .contains("-v \"$CI_PROJECT_DIR/backend:/workspace/backend\"",
+                "-v \"$CI_PROJECT_DIR/infra:/workspace/infra:ro\"",
+                "-v \"$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro\"",
+                "-w /workspace/backend");
+    }
     @Test void bothDeploymentManifestsInjectRequiredAuthSettingsAndProxiesOverwriteHeaders() throws Exception {
         for (String profile : new String[]{"dev", "prod"}) {
             var path = Path.of("../infra/compose/compose." + profile + ".yml");

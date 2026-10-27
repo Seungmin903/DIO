@@ -96,13 +96,17 @@ backend-test:
       changes:
         - backend/**/*
         - .gitlab-ci.yml
+        - infra/compose/compose.*.yml
+        - infra/nginx/**/default.conf
   script:
     - >
       docker run --rm
       --user "$(id -u):$(id -g)"
       -e GRADLE_USER_HOME=/tmp/gradle
-      -v "$CI_PROJECT_DIR/backend:/workspace"
-      -w /workspace
+      -v "$CI_PROJECT_DIR/backend:/workspace/backend"
+      -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro"
+      -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro"
+      -w /workspace/backend
       eclipse-temurin:17-jdk
       sh ./gradlew test --no-daemon
   artifacts:
