@@ -126,7 +126,7 @@ multipart의 전체 Content-Type은 boundary를 포함하도록 클라이언트�
 
 ## 이메일 발송 설정
 
-실제 발송은 Spring JavaMailSender/SMTP를 사용한다. 아래 환경변수를 실행 환경에서 설정한다. 자격 증명과 비밀키는 커밋하지 않는다. 로컬 프로필은 저장소 루트 `.env`의 Spring 속성도 읽는다.
+실제 발송은 Spring JavaMailSender/SMTP를 사용한다. 아래 환경변수를 실행 환경에서 설정한다. 자격 증명과 비밀키는 커밋하지 않는다. 로컬 프로필은 저장소 루트 또는 `backend/`의 `.env`를 properties 파일로 읽는다. 이 경우 `SPRING_MAIL_*` 이름이 `spring.mail.*`로 자동 변환되지 않으므로 `application-local.yml`에서 직접 연결한다(2026-10-27). 발송 실패 시 서버 로그에 `Signup mail is not configured` 또는 `Signup mail delivery failed: error=…, cause=…`가 남는다. cause가 `AuthenticationFailedException`이면 SMTP 계정·앱 비밀번호를 확인한다.
 
 | 환경변수 | 의미 |
 |---|---|
