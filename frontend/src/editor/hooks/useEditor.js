@@ -5,6 +5,7 @@ import { createInitialState, editorReducer } from '../state/editorReducer'
 import { editorDocKey, loadEditorDoc, peekEditorDoc, rememberEditorDoc, saveEditorDoc } from '../services/editorDocs'
 import { hydrateMedia } from '../services/mediaStore'
 import { scheduleIdleTask } from '../utils/idleTask'
+import { loadViewedPage, peekViewedPage, rememberViewedPage } from '../services/editorViewState'
 
 const SAVE_DELAY_MS = 1200
 const SAVE_MAX_DELAY_MS = 5000
@@ -25,10 +26,12 @@ export function useEditor(diary) {
   const storageKey = editorDocKey(diary)
   // 홈에서 미리 읽어 둔 문서가 있으면 첫 렌더부터 그 문서로 시작한다. (로딩 단계 없음)
   const [initial] = useState(() => peekEditorDoc(storageKey))
+  const [initialPage] = useState(() => peekViewedPage(storageKey))
   const [state, dispatch] = useReducer(editorReducer, null, () => createInitialState(
     initial?.doc ? withDiary(initial.doc, diary) : createDefaultDoc(diary),
+    initialPage,
   ))
-  const [loaded, setLoaded] = useState(initial !== null)
+  const [loaded, setLoaded] = useState(initial !== null && initialPage !== undefined)
   // 저장 문서를 읽지 못했으면 기존 문서를 빈 문서로 덮어쓰지 않도록 이번에는 저장하지 않는다.
   const [writable, setWritable] = useState(true)
   const diaryRef = useRef(diary)
@@ -67,16 +70,19 @@ export function useEditor(diary) {
 
   // 다이어리마다 별도 저장소를 사용해 다른 표지의 작업이 섞이지 않게 한다.
   useEffect(() => {
-    if (initial) {
+    if (initial && initialPage !== undefined) {
       // 사진·GIF는 진입 전에 대부분 준비된다. 남은 것은 준비되는 대로 표시된다(useMediaUri 구독).
       if (initial.doc) hydrateMedia(initial.doc).catch(() => {})
       return undefined
     }
     let cancelled = false
-    loadEditorDoc(diaryRef.current).then((saved) => {
+    Promise.all([
+      initial ? Promise.resolve(initial.doc) : loadEditorDoc(diaryRef.current),
+      loadViewedPage(storageKey).catch(() => null),
+    ]).then(([saved, pageId]) => {
       if (saved) hydrateMedia(saved).catch(() => {})
       if (cancelled) return
-      if (saved) dispatch({ type: 'load', doc: withDiary(saved, diaryRef.current) })
+      if (saved) dispatch({ type: 'load', doc: withDiary(saved, diaryRef.current), pageId })
       setLoaded(true)
     }, () => {
       if (cancelled) return
@@ -86,7 +92,14 @@ export function useEditor(diary) {
     return () => {
       cancelled = true
     }
-  }, [initial, storageKey])
+  }, [initial, initialPage, storageKey])
+
+  // 페이지를 보기만 해도 위치를 기억하되 문서 저장·수정 시각에는 영향을 주지 않는다.
+  const viewedPageId = (state.doc.pages.find((item) => item.id === state.pageId) ?? state.doc.pages[0])?.id
+  useEffect(() => {
+    if (!loaded || !writable) return
+    if (viewedPageId) rememberViewedPage(storageKey, viewedPageId)
+  }, [loaded, writable, viewedPageId, storageKey])
 
   // 연속 입력은 마지막 변경 1.2초 뒤에 합쳐 저장한다. 편집이 계속되더라도 5초 안에는
   // 한 번 저장을 예약하며, 저장 작업은 메인 스레드의 유휴 시간으로 미룬다.

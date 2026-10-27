@@ -28,7 +28,7 @@ export function trashStatus(diary, now = Date.now()) {
 }
 
 /** 호출자는 목록 저장과 삭제를 같은 큐에서 실행한다. 삭제 표식은 문서보다 먼저 저장한다. */
-export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateDiaries, forgetDoc, collectMediaIds, removeMedia }) {
+export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateDiaries, forgetDoc, forgetView, collectMediaIds, removeMedia }) {
   const diary = getDiaries().find(item => item.id === id);
   if (!diary?.trashedAt) return false;
   const targetKey = `${keys.doc}:${id}`;
@@ -50,6 +50,8 @@ export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateD
       const retained = new Set(references.flatMap(([, raw]) => collectMediaIds(raw ? JSON.parse(raw) : null)));
       unshared = targetMedia.filter(mediaId => !retained.has(mediaId));
     } catch {}
+    // 열람 기록 삭제가 실패하면 문서를 보존하여 재시도에도 미디어 참조를 읽을 수 있게 한다.
+    if (await forgetView(targetKey) === false) throw new Error('열람 기록 삭제 실패');
     await storage.removeItem(targetKey);
     forgetDoc(targetKey);
     await storage.setItem(keys.diaries, JSON.stringify(getDiaries().filter(item => item.id !== id)));

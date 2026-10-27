@@ -26,6 +26,7 @@ test('열람은 수정 시각을 만들지 않고 편집 저장은 시각과 저
     react,
     'react-native': { AppState: { addEventListener: (_, fn) => { listeners.push(fn); return { remove() {} }; } } },
     '../utils/idleTask': { scheduleIdleTask },
+    '../services/editorViewState': { peekViewedPage: () => null, rememberViewedPage: async () => true },
     '../state/defaultDoc': { createDefaultDoc: () => doc },
     '../state/editorReducer': {},
     '../services/editorDocs': { saveEditorDoc: async (_, value) => { saved.push(value); return true; }, editorDocKey: () => 'doc:a', peekEditorDoc: () => ({ doc }), rememberEditorDoc: (_, value) => cached.push(value) },

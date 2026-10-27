@@ -14,13 +14,13 @@ import { normalizePaperAppearance } from '../templates/appearance.js'
 const HISTORY_LIMIT = 80
 const PASTE_OFFSET = 24
 
-export function createInitialState(doc) {
+export function createInitialState(doc, viewedPageId) {
   return {
     doc,
     past: [],
     future: [],
     pendingCheckpoint: null,
-    pageId: doc.pages[0].id,
+    pageId: (doc.pages.find((page) => page.id === viewedPageId) ?? doc.pages[0]).id,
     selectedIds: [],
   }
 }
@@ -480,7 +480,7 @@ export function editorReducer(state, action) {
       })
 
     case 'load':
-      return createInitialState(action.doc)
+      return createInitialState(action.doc, action.pageId)
 
     default:
       throw new Error(`Unknown editor action: ${action.type}`)
