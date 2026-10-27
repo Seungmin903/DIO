@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.*;
 import jakarta.persistence.LockModeType;
 
 interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
+    @Query("select t.tokenId from RefreshToken t where t.expiresAt <= :cutoff order by t.expiresAt, t.tokenId")
+    java.util.List<Long> findExpiredIds(java.time.Instant cutoff, org.springframework.data.domain.Pageable page);
     @Query("select t.tokenId from RefreshToken t where t.tokenHash = :hash")
     Optional<Long> findIdByTokenHash(String hash);
     @Query("select t.tokenId from RefreshToken t where t.sessionId = :sessionId")

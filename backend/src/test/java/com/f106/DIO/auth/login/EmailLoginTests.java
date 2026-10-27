@@ -15,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.*;
@@ -49,13 +50,15 @@ class EmailLoginTests {
     @Autowired SignupProfilePhotoRepository photos;
     @Autowired EmailVerificationRepository verifications;
     @Autowired RefreshTokenRepository tokens;
-    @Autowired RefreshTokenHistoryRepository history;
+    @MockitoSpyBean RefreshTokenHistoryRepository history;
+    @Autowired ExpiredLoginSessionCleanup sessionCleanup;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
     @MockitoBean SignupMailSender mail;
     @MockitoBean LoginThrottle throttle;
     AtomicReference<String> code;
 
     @BeforeEach void setup() {
+        reset(history);
         history.deleteAll(); tokens.deleteAll(); photos.deleteAll(); agreements.deleteAll();
         accounts.deleteAll(); users.deleteAll(); verifications.deleteAll(); reset(mail, throttle);
         code = new AtomicReference<>();
@@ -69,6 +72,46 @@ class EmailLoginTests {
                 new SignupDtos.Agreement(SignupDtos.TermsType.PRIVACY, "v1", true))));
     }
     LoginDtos.Tokens login() { return service.login(new LoginDtos.LoginRequest(EMAIL, "DioMember123!", "휴대폰"), "127.0.0.1"); }
+    @Test void cleanupOnlyRemovesExpiredSessionsAndTheirHistory() {
+        register();
+        var expiredResponse = login(); var activeResponse = login(); var revokedResponse = login();
+        var expired = tokens.findBySessionId(UUID.fromString(jwt.decode(expiredResponse.accessToken()).getClaimAsString("sid"))).orElseThrow();
+        var active = tokens.findBySessionId(UUID.fromString(jwt.decode(activeResponse.accessToken()).getClaimAsString("sid"))).orElseThrow();
+        var revoked = tokens.findBySessionId(UUID.fromString(jwt.decode(revokedResponse.accessToken()).getClaimAsString("sid"))).orElseThrow();
+        expired.expiresAt = Instant.now().minusSeconds(1); tokens.saveAndFlush(expired);
+        revoked.revokedAt = Instant.now(); tokens.saveAndFlush(revoked);
+        history.saveAllAndFlush(List.of(new RefreshTokenHistory(expired, Instant.now()), new RefreshTokenHistory(active, Instant.now()), new RefreshTokenHistory(revoked, Instant.now())));
+        assertThat(sessionCleanup.purgeExpired()).isEqualTo(1);
+        assertThat(tokens.findById(expired.tokenId)).isEmpty();
+        assertThat(history.existsById(expired.tokenHash)).isFalse();
+        assertThat(tokens.count()).isEqualTo(2);
+        assertThat(history.count()).isEqualTo(2);
+        assertThat(service.refresh(activeResponse.refreshToken()).accessToken()).isNotBlank();
+        assertThatThrownBy(() -> service.refresh(revokedResponse.refreshToken())).isInstanceOf(LoginException.class);
+        assertThat(sessionCleanup.purgeExpired()).isZero();
+    }
+    @Test void cleanupIsBoundedAndCanContinueInNextBatch() {
+        register(); Long userId = users.findAll().get(0).getUserId();
+        var expired = new java.util.ArrayList<RefreshToken>();
+        for (int i = 0; i < 501; i++) expired.add(new RefreshToken(userId, LoginSecrets.hash("expired-" + i), null,
+            Instant.now().minusSeconds(100), Instant.now().minusSeconds(1)));
+        tokens.saveAllAndFlush(expired);
+        assertThat(sessionCleanup.purgeExpired()).isEqualTo(500);
+        assertThat(tokens.count()).isEqualTo(1);
+        assertThat(sessionCleanup.purgeExpired()).isEqualTo(1);
+        assertThat(sessionCleanup.purgeExpired()).isZero();
+    }
+    @Test void cleanupFailureRollsBackSessionAndHistoryDeletesTogether() {
+        register(); Long userId = users.findAll().get(0).getUserId(); Instant now = Instant.now();
+        var first = tokens.saveAndFlush(new RefreshToken(userId, LoginSecrets.hash("expired-first"), null, now.minusSeconds(10), now.minusSeconds(5)));
+        var second = tokens.saveAndFlush(new RefreshToken(userId, LoginSecrets.hash("expired-second"), null, now.minusSeconds(10), now.minusSeconds(4)));
+        history.saveAllAndFlush(List.of(new RefreshTokenHistory(first, now), new RefreshTokenHistory(second, now)));
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("test cleanup failure"))
+            .when(history).deleteForSession(second.tokenId);
+        assertThatThrownBy(() -> sessionCleanup.purgeExpired()).isInstanceOf(org.springframework.dao.DataAccessResourceFailureException.class);
+        assertThat(tokens.count()).isEqualTo(2);
+        assertThat(history.count()).isEqualTo(2);
+    }
     @Test void authCorsAllowsLocalFrontendIncludingLogoutPreflightOnly() throws Exception {
         for (String path : List.of("login", "logout", "signup", "nickname-availability")) {
             mvc.perform(options("/api/v1/auth/" + path).header("Origin", "http://localhost:8081")

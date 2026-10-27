@@ -29,10 +29,30 @@ class AuthInitialSchemaPostgresTests {
         EmailLoginTests.temporaryJwtKey(registry);
     }
     @Autowired JdbcTemplate jdbc;
+    @Autowired ExpiredLoginSessionCleanup cleanup;
+    @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager entityManager;
     @Test void freshMigrationChainAndHibernateMappingsAreCompatible() {
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success", Long.class)).isEqualTo(5);
+        // 다른 기능이 V7 이후를 추가해도 정상적인 후속 마이그레이션을 실패시키지 않는다.
+        assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by installed_rank", String.class))
+            .contains("1", "2", "3", "4", "5", "6");
+        assertThat(jdbc.queryForObject("select count(*) from pg_indexes where schemaname='public' and tablename='refresh_tokens' and indexname='refresh_tokens_expiry_id_idx'", Long.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select data_type from information_schema.columns where table_schema='public' and table_name='diaries' and column_name='diary_id'", String.class)).isEqualTo("uuid");
         assertThat(jdbc.queryForObject("select count(*) from signup_email_verifications", Long.class)).isZero();
+    }
+    @Test @org.springframework.transaction.annotation.Transactional
+    void expiredSessionCleanupPreservesActiveSessionsAndRemovesTheirHistoryOnly() {
+        jdbc.update("insert into users(user_id,email,nickname,nickname_key) values (987,'cleanup@example.com','cleanup','cleanup')");
+        jdbc.update("insert into refresh_tokens(token_id,user_id,token_hash,expires_at) values (987,987,?,now()-interval '1 day')", "cd".repeat(32));
+        jdbc.update("insert into refresh_tokens(token_id,user_id,token_hash,expires_at) values (988,987,?,now()+interval '1 day')", "ef".repeat(32));
+        jdbc.update("insert into refresh_token_history(token_hash,token_id,rotated_at) values (?,987,now()),(?,988,now())", "ab".repeat(32), "aa".repeat(32));
+        assertThat(cleanup.purgeExpired()).isEqualTo(1);
+        // 테스트의 외부 트랜잭션이 열려 있으므로 JDBC 직접 조회 전에 JPA 삭제를 반영한다.
+        entityManager.flush();
+        assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where token_id=987", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from refresh_token_history where token_id=987", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where token_id=988", Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from refresh_token_history where token_id=988", Long.class)).isEqualTo(1);
+        assertThat(cleanup.purgeExpired()).isZero();
     }
     @Test void upgradingExistingInitialSchemaPreservesUserDiaryAndSession() throws Exception {
         String schema = "auth_upgrade_" + UUID.randomUUID().toString().replace("-", "");
