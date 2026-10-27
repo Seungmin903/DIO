@@ -76,6 +76,7 @@ tasks.register('postgresMemberDiaryCreationTest', Test) {
 		includeTestsMatching 'com.f106.DIO.diary.creation.PostgresMemberDiaryCreationTests'
 		includeTestsMatching 'com.f106.DIO.diary.creation.PageCatalogPostgresTests'
 		includeTestsMatching 'com.f106.DIO.diary.creation.MemberMigrationUpgradePostgresTests'
+		includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryListPostgresTests'
 	}
 	systemProperty 'dio.diary-creation-postgres', 'true'
 }

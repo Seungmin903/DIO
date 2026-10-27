@@ -32,6 +32,7 @@ function Free-Port([int]$preferred) {
     $port=$listener.LocalEndpoint.Port; $listener.Stop(); return $port
 }
 if (!(Test-Path -LiteralPath $runtimeFile)) {
+    Assert-MemberPostgresInstallation $PostgresBin
     if (!(Test-Path -LiteralPath (Join-Path $PostgresBin 'pg_ctl.exe'))) { throw 'PostgreSQL binaries required' }
     $clusterRoot=Split-Path (Split-Path $PostgresBin)
     $dataDir=Join-Path $clusterRoot ('member-app-'+[guid]::NewGuid().ToString('N'))
@@ -63,6 +64,7 @@ if (!(Test-Path -LiteralPath $runtimeFile)) {
     }
     $PostgresBin=$metadata.postgresBin
 }
+Assert-MemberPostgresInstallation $PostgresBin
 # Refuse a second startup before touching the DB or a potentially locked jar.
 if($metadata.backendPid) {
     if(Test-OwnedBackend ([int]$metadata.backendPid)) { throw 'Owned backend is already running; stop its recorded PID before restarting changed code' }

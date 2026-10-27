@@ -229,3 +229,32 @@ node qa/member-app-browser.cjs
 - 신규 알림 UI QA의 첫 선택자는 라벨 구분자(쉼표)를 놓쳐 타임아웃했다. 실제 접근성 라벨에 맞춘 뒤 전체 흐름을 통과했으며 제품 코드를 테스트에 맞춰 바꾸지 않았다.
 
 원본 QA DB·마이그레이션 이력·기존 서버와 jar·비공개 설정은 보존한다. 테스트 알림은 복제 DB에만 주입했다. 회원 마이그레이션 V9/V10과 develop 인증 V7/V8은 유지하고 이 통합에서 이력을 다시 변경하지 않았다. 원본 QA 환경의 실제 전환·229/230 합의·회원 기능 실기기 QA·작성자 외 승인은 여전히 별도다. 커밋·푸시·원격 MR 본문/댓글 변경·병합·Jira 상태 변경은 하지 않는다. 원격 MR/CI는 기존 b49c440 기준이다.
+
+
+## 원본 QA 연결 복구와 최신 INFO 4개 검토 (2026-10-27, b3c3158 이후 미커밋)
+
+MR !166의 b3c3158 대상 자동 리뷰 note 2934581의 INFO 4개를 실제 코드와 실행 환경에서 재검토했다. 원격 코멘트·MR 본문·Jira 상태는 수정하지 않았다. 직전 원격 CI #245869는 4개 job 성공(backend 256개, PostgreSQL 22개 통과, 조건부 83개 건너뜀)이며 아래 로컬 변경은 아직 원격 CI에 포함되지 않는다.
+
+### 원본 DB 보존과 연결 복구
+
+원본 PostgreSQL 프로세스는 살아 있었지만 임시 배포 디렉터리의 psql/pg_ctl 및 timezone 지원 파일이 누락되어 신규 연결이 끊겼다. 서버 로그의 `invalid value for parameter timezone_abbreviations: Default`와 파일 누락을 확인했다. 캐시 PostgreSQL 17 아카이브의 postgres.exe SHA256이 실행 중 바이너리와 동일함을 확인한 뒤 bin/lib/share의 **누락된 파일 1,545개만** 복원했다. 기존 파일은 배타적 생성으로 덮어쓰지 않았고 데이터 디렉터리는 대상에서 제외했다. 원본 PostgreSQL/API 재시작이나 DB 초기화·Flyway repair/이력 전환은 하지 않았다. 원본 API health 200과 SQL 접속 회복을 확인했다.
+
+원본 users/diaries/diary_members/pages/page_templates/diary_creation_receipts/flyway_schema_history의 행 수와 전체 행 지문이 기존 기준과 같다. 원본 이력 8개와 C locale은 유지한다. 비공개 backend.env/runtime.json/frontend .env.local 및 기존 build/libs jar의 해시는 보존했다. 복구 목록과 검증 증적은 저장소 밖 `tmp/mr166-db-info4`에만 보관하며 자격증명이나 DB 덤프를 제출하지 않는다. 임시 설치 경로를 안정된 경로로 옮기는 작업과 원본 V7/V8→V9/V10 이력 전환은 별도 미수행 사항이다.
+
+### INFO별 판단
+
+1. 비공개 backend.env: `.local-data/`가 기존 .gitignore에 포함되어 실제 제외된다. 추적 파일이 아니며 원본 설정을 수정하지 않았다. 추가 ignore 변경은 불필요하다.
+2. 비ASCII 검색: 실제 C locale DB에서 ÉÄ와 Java 소문자화 검색어가 불일치했다. 제목/검색어를 PostgreSQL ICU root로 함께 소문자화하고 제목 비교를 C 순서로 고정했다. 전용 PostgreSQL 테스트 3개의 수정 전 실패와 수정 후 통과를 확인했다. v1 커서는 400으로 거부하고 v2를 발급한다. PostgreSQL에 `und-x-icu`가 필요한 실행 전제가 추가되며 DB locale·데이터·마이그레이션 변경은 없다.
+3. 집계 비용: 수정 SQL의 EXPLAIN ANALYZE에서 후보 10개/LIMIT 2일 때 created/updated/title은 page/member 집계 각각 2회, pages 정렬은 page 10회/member 2회였다. 관측 실행 시간은 약 0.6~1.6ms다. 모든 집계를 항상 LIMIT 전에 전체 후보에 수행한다는 주장은 이 표본에서 재현되지 않아 쿼리 구조는 유지한다. 대용량·동시 부하 성능을 보증하는 결과는 아니다.
+4. 상세 공유 잠금: 활성 사용자→다이어리→멤버십 잠금으로 권한 확인과 응답 스냅샷의 일관성을 보장하는 기존 정책을 유지한다. FOR SHARE는 쓰기/튜플 비용과 PATCH·탈퇴 대기를 유발할 수 있다. 실제 두 GET 병행, 비활성화·삭제·권한 회수 대기, PATCH 경합을 포함한 PostgreSQL 16개를 재검증했다. 운영 대기시간·처리량 부하 측정은 미수행이다.
+
+### 이번 로컬 회귀
+
+- 일반 backend test: 256개 통과, 조건부 DB 86개 건너뜀, 실패/오류 0개.
+- PostgreSQL 회원 생성·목록·이력 전환 44개 + 상세·권한·잠금 16개 = 60개 전부 통과. 원본이 아닌 기존 격리 복제 DB의 전용 스키마를 사용했다.
+- 시작 스크립트 회귀 15개, preflight 회귀 21개 통과. 누락 지원 파일을 감지하며 기존 DB·프로세스는 변경하지 않는다.
+- 프런트 회원/인증/알림 경계 및 새 Spring 회원 계약을 포함한 집중 회귀 29개 통과.
+- 실제 PostgreSQL+최신 격리 API+기존 웹 번들의 Edge QA 통과: Unicode 제목 생성, 동일 키 재시도, PATCH 뒤 지연 GET, ÉÄ/éä 인증 검색, 커서 순회, 새 기기 발견, 폰 화면과 기기 문서 보존. 첫 실행은 QA 제목이 24자 입력 한도를 넘어 실패했으며 제품 코드를 바꾸지 않고 QA 제목을 줄여 전체 흐름을 재실행했다. 이번에는 앱 제품 코드가 바뀌지 않아 web/iOS 번들을 다시 export하지 않았다.
+- 최종 원본 API health 200, 7개 테이블 전체 지문 동일, 비공개 파일/기존 jar 해시 동일, 복원 파일 1,545개 해시 일치, 테스트 스키마 잔존 0개. 이번 격리 API만 종료했으며 원본 PostgreSQL/API PID는 유지했다.
+
+229·230 정책/화면 합의와 실기기 QA는 여전히 별도 미완료 사항이다. 이번 변경은 로컬 미커밋이며 커밋·푸시·병합·Jira 상태 변경을 수행하지 않는다.

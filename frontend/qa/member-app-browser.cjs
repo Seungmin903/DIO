@@ -23,8 +23,8 @@ const server = http.createServer((req,res) => {
     browser=await chromium.launch({channel:'msedge',headless:true});
     const context=await browser.newContext({viewport:{width:1280,height:800}}), page=await context.newPage();
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
-    let notificationHeaders;
-    page.on('request', request => { if (request.url().includes('/api/v1/notifications')) notificationHeaders = request.headers(); });
+    let notificationHeaders, memberHeaders;
+    page.on('request', request => { if (request.url().includes('/api/v1/notifications')) notificationHeaders = request.headers(); if (request.url().includes('/api/v1/member/diaries')) memberHeaders = request.headers(); });
     await page.goto(`http://127.0.0.1:${metadata.webPort}`);
     let listPages=0;
     const paginate=async target=>target.route('**/api/v1/member/diaries?*',async route=>{
@@ -69,7 +69,7 @@ const server = http.createServer((req,res) => {
       console.log('MEMBER_NOTIFICATION_QA: real login, notification read/delete, foreign-account 404, member library preserved');
     }
     await page.evaluate(()=>localStorage.setItem('dio:diary:list:v1','guest-sentinel'));
-    const title=`회원 앱 QA ${Date.now()}`;
+    const title=`${process.env.DIO_MEMBER_QA_UNICODE === 'true' ? 'ÉÄ QA ' : '회원 앱 QA '}${Date.now()}`;
     let lost=true, first=null, replay=null; const keys=[];
     await page.route('**/api/v1/member/diaries',async route=>{
       if(route.request().method()!=='POST') return route.continue();
@@ -131,6 +131,15 @@ const server = http.createServer((req,res) => {
     assert.equal(indexAfterLateGet.title,title+' 수정');
     await page.unroute(detailPath,delayDetail);
     console.log('MEMBER_RACE_QA: delayed real GET after successful PATCH preserves new title and cached index');
+    if (process.env.DIO_MEMBER_QA_UNICODE === 'true') {
+      const headers = memberHeaders?.authorization ? { Authorization: memberHeaders.authorization } : { 'X-DIO-Access-Token': memberHeaders?.['x-dio-access-token'] };
+      for (const query of ['ÉÄ', 'éä']) {
+        const response = await page.request.get(`http://127.0.0.1:${metadata.apiPort}/api/v1/member/diaries?sort=title&limit=100&q=${encodeURIComponent(query)}`, { headers });
+        assert.equal(response.status(), 200);
+        assert.ok((await response.json()).items.some(item => item.diary.diaryId === first.diary.diaryId));
+      }
+      console.log('MEMBER_UNICODE_QA: real authenticated PostgreSQL search matches accented upper/lowercase titles');
+    }
     await page.getByRole('button',{name:`${title} 수정 열기`,exact:true}).click();
     await page.getByRole('button',{name:'다이어리 홈',exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>localStorage.getItem('dio:diary:list:v1')),'guest-sentinel');

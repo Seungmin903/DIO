@@ -15,6 +15,10 @@ New-Item -ItemType Directory -Force -Path (Join-Path $env:JAVA_HOME 'bin') | Out
 New-Item -ItemType File -Path (Join-Path $env:JAVA_HOME 'bin/java.exe') | Out-Null
 $initMock=Join-Path $mockBin 'initdb.ps1'
 $ctlMock=Join-Path $mockBin 'pg_ctl.ps1'
+New-Item -ItemType File -Path (Join-Path $mockBin 'postgres.exe') | Out-Null
+$timezoneDir=Join-Path (Split-Path $mockBin) 'share/timezonesets'
+New-Item -ItemType Directory -Force -Path $timezoneDir | Out-Null
+New-Item -ItemType File -Path (Join-Path $timezoneDir 'Default') | Out-Null
 @'
 if ($env:DIO_TEST_INITDB_FAIL -eq 'true') { $global:LASTEXITCODE=1; return }
 $directory=$args[[Array]::IndexOf($args,'-D')+1]
