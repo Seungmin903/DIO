@@ -17,11 +17,19 @@ New-Item -ItemType Directory -Force -Path $directory | Out-Null
 Set-Content -LiteralPath (Microsoft.PowerShell.Management\Join-Path $directory 'PG_VERSION') -Value '17'
 $global:LASTEXITCODE=0
 '@ | Set-Content -LiteralPath $initMock
-"throw 'TEST_REACHED_CLUSTER_START'" | Set-Content -LiteralPath $ctlMock
+@'
+if ($env:DIO_TEST_DATABASE_READY -eq 'true') { $global:LASTEXITCODE=0; return }
+throw 'TEST_REACHED_CLUSTER_START'
+'@ | Set-Content -LiteralPath $ctlMock
+$psqlMock=Join-Path $mockBin 'psql.ps1'
+'Write-Output 1; $global:LASTEXITCODE=0' | Set-Content -LiteralPath $psqlMock
+$gradleMock=Join-Path (Split-Path $fixtureQa) 'gradlew.bat'
+[IO.File]::WriteAllText($gradleMock,"@echo off`r`necho invoked>gradle-invoked.txt`r`nexit /b 1`r`n")
 function Join-Path {
     param([string]$Path,[string]$ChildPath)
     if ($Path -eq $mockBin -and $ChildPath -eq 'initdb.exe') { return $initMock }
     if ($Path -eq $mockBin -and $ChildPath -eq 'pg_ctl.exe') { return $ctlMock }
+    if ($Path -eq $mockBin -and $ChildPath -eq 'psql.exe') { return $psqlMock }
     Microsoft.PowerShell.Management\Join-Path -Path $Path -ChildPath $ChildPath
 }
 function Expect-Failure([string]$message) {
@@ -42,12 +50,23 @@ try {
     $metadata=Get-Content -LiteralPath (Join-Path $runtimeDir 'runtime.json') -Raw | ConvertFrom-Json
     if (!(Test-Path (Join-Path $metadata.dataDir 'PG_VERSION'))) { throw 'Cluster must precede metadata' }
     Write-Output 'PASS: retry initializes cluster before persisting configuration'
+    # A live PID must stop before attempting to build a possibly locked jar.
+    $metadata | Add-Member -NotePropertyName backendPid -NotePropertyValue $PID
+    $metadata | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtimeDir 'runtime.json')
+    $env:DIO_TEST_DATABASE_READY='true'
+    Expect-Failure 'Owned backend is already running'
+    if (Test-Path (Join-Path (Split-Path $fixtureQa) 'gradle-invoked.txt')) { throw 'Build ran before live-backend guard' }
+    if (!(Get-Process -Id $PID)) { throw 'Live process was not preserved' }
+    Write-Output 'PASS: live backend PID stops before build and preserves the process'
+    Remove-Item Env:DIO_TEST_DATABASE_READY
+    $metadata.PSObject.Properties.Remove('backendPid')
+    $metadata | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtimeDir 'runtime.json')
     Remove-Item -LiteralPath (Join-Path $metadata.dataDir 'PG_VERSION')
     Expect-Failure 'Owned PostgreSQL cluster is incomplete'
     if (!(Test-Path (Join-Path $runtimeDir 'backend.env'))) { throw 'Incomplete cluster configuration must be preserved for recovery' }
     Write-Output 'PASS: incomplete recorded cluster fails clearly and preserves configuration'
 } finally {
-    Remove-Item Env:DIO_TEST_INITDB_FAIL -ErrorAction SilentlyContinue
+    Remove-Item Env:DIO_TEST_INITDB_FAIL,Env:DIO_TEST_DATABASE_READY -ErrorAction SilentlyContinue
     $resolved=[IO.Path]::GetFullPath($fixture)
     $allowed=[IO.Path]::GetFullPath((Microsoft.PowerShell.Management\Join-Path $repoRoot '.local-data'))+[IO.Path]::DirectorySeparatorChar
     if (!$resolved.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe fixture cleanup path' }

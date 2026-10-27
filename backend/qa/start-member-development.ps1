@@ -42,6 +42,11 @@ if (!(Test-Path -LiteralPath $runtimeFile)) {
     }
     $PostgresBin=$metadata.postgresBin
 }
+# Refuse a second startup before touching the DB or a potentially locked jar.
+if($metadata.backendPid) {
+    $prior=Get-Process -Id $metadata.backendPid -ErrorAction SilentlyContinue
+    if($prior) { throw 'Owned backend is already running; stop its recorded PID before restarting changed code' }
+}
 Get-Content -LiteralPath $runtimeFile | ForEach-Object {
     if($_ -match '^([A-Z0-9_]+)=(.*)$') { [Environment]::SetEnvironmentVariable($Matches[1],$Matches[2],'Process') }
 }
@@ -71,10 +76,6 @@ try {
     & .\gradlew.bat bootJar --console=plain
     if($LASTEXITCODE -ne 0) { throw 'bootJar failed' }
     $jar=Get-ChildItem build/libs -Filter '*.jar' | Where-Object Name -notlike '*-plain.jar' | Select-Object -First 1
-    if($metadata.backendPid) {
-        $prior=Get-Process -Id $metadata.backendPid -ErrorAction SilentlyContinue
-        if($prior) { throw 'Owned backend is already running; stop its recorded PID before restarting changed code' }
-    }
     $backend=Start-Process -FilePath (Join-Path $env:JAVA_HOME 'bin/java.exe') -ArgumentList @('-jar',('"'+$jar.FullName+'"')) -WorkingDirectory (Join-Path $repoRoot 'backend') -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput (Join-Path $runtimeDir 'backend.log') -RedirectStandardError (Join-Path $runtimeDir 'backend-error.log')
     $metadata.backendPid=$backend.Id

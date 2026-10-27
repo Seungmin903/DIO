@@ -29,6 +29,13 @@ public class DiaryDetailRepository {
 			Long.class, userId).isEmpty();
 	}
 
+	/**
+	 * Reads keep a shared lock while the authorized service snapshot is materialized.
+	 * Together with user -> diary -> membership ordering, this serializes account
+	 * deactivation, diary deletion and membership revocation with the permission check.
+	 * PostgreSQL row locks can write tuple metadata and delay PATCH; do not remove
+	 * them without replacing this consistency contract and its concurrency tests.
+	 */
 	public Optional<Snapshot> lock(UUID diaryId, boolean writing) {
 		return jdbc.query("select diary_id,owner_user_id,title,cover_color,cover_style,visibility,created_at,updated_at,deleted_at"
 			+ " from diaries where diary_id = ?" + (writing ? " for update" : sharedLock),

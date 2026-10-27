@@ -2,9 +2,9 @@ package com.f106.DIO.diary.creation;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 
-@Configuration(proxyBeanMethods=false)
+@AutoConfiguration
 public class DiaryCreationConfiguration {
 	@Bean @ConditionalOnMissingBean(DiaryCreationIdentity.class)
 	DiaryCreationIdentity authenticatedDiaryCreationIdentity(com.f106.DIO.diary.auth.DiaryRequestIdentity identity) {
