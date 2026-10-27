@@ -69,7 +69,7 @@ test('네이티브는 PDF 복사본만 공유하고 실패 복사와 만료 캐�
   constructor(...parts){this.uri=parts.map(x=>x.uri??x).join('/')}
   get exists(){return data.has(this.uri)}get size(){return data.get(this.uri)?.length??0}
   create(){data.set(this.uri,new Uint8Array())}write(s){data.set(this.uri,new TextEncoder().encode(s))}async text(){return new TextDecoder().decode(data.get(this.uri))}
-  open(){return {readBytes:n=>data.get(this.uri).slice(0,n),close(){}}}
+  open(){let closed=false;return {readBytes:async n=>{await Promise.resolve();assert.equal(closed,false,'PDF 헤더 읽기 완료 전 핸들 종료');return data.get(this.uri).slice(0,n)},close(){closed=true}}}
   async copy(target){data.set(target.uri,data.get(this.uri).slice());if(copyFails)throw Error('copy failed')}
  }
  globalThis.__pdfNative={Directory,File,FileMode:{ReadOnly:'r'},Paths:{cache:'file:///cache'},randomUUID:()=>String(next++),isAvailableAsync:async()=>true,

@@ -251,7 +251,8 @@ const emojiText = (height) => ({ fontSize: height * 0.72, lineHeight: height })
 export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetError }) {
   const uri = useMediaUri(photo, { still })
   const animated = !still && isAnimatedMedia(photo)
-  const clipId = useSvgId('photo-clip')
+  const clipInstance = useSvgId('photo-clip')
+  const clipId = `${clipInstance}-${photo.shape ?? 'rect'}`
   const inner = photoInnerBox(photo)
   const box = { width: inner.width * zoom, height: inner.height * zoom }
   const layout = coverLayout(photo, box.width, box.height)
@@ -285,7 +286,8 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
     return (
       <View style={{ width: box.width, height: box.height }}>
       {!shadow.inset && <PhotoPathShadow d={d} width={box.width} height={box.height} shadow={shadow} zoom={zoom} flipX={photo.flipX} flipY={photo.flipY} />}
-      <Svg width={box.width} height={box.height} style={{ transform: flip }}>
+      {/* 네이티브 SVG의 이전 clip 참조가 남지 않게 모양 전환 시 정의와 이미지를 함께 재생성한다. */}
+      <Svg key={photo.shape} width={box.width} height={box.height} style={{ transform: flip }}>
         <Defs>
           <ClipPath id={clipId}>
             <Path d={d} />

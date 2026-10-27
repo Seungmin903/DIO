@@ -43,7 +43,7 @@ const service = createPdfShareService({
     const source = new File(result.uri)
     if (!source.exists || !source.size || source.size > 50 * 1024 * 1024) throw pdfSaveFailure('EXPORT_PDF_SAVE_FAILED', 'PDF output unavailable')
     const reader = source.open(FileMode.ReadOnly)
-    try { if (String.fromCharCode(...reader.readBytes(5)) !== '%PDF-') throw pdfSaveFailure('EXPORT_PDF_SAVE_FAILED', 'Invalid PDF output') }
+    try { if (String.fromCharCode(...await reader.readBytes(5)) !== '%PDF-') throw pdfSaveFailure('EXPORT_PDF_SAVE_FAILED', 'Invalid PDF output') }
     finally { reader.close() }
     const directory = new Directory(root(), `export-${randomUUID()}`)
     try {
