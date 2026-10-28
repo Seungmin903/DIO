@@ -115,15 +115,17 @@ function cloneObjects(objects, offset) {
 
 /**
  * 페이지 복제본은 원본과 같은 소재(mediaFileId)는 참조하되, 편집 대상인
- * 페이지·요소·그룹 ID는 모두 새로 만든다. 따라서 한쪽 페이지의 요소를
+ * 속지·배색·플래너 기록 등 페이지 내용을 깊게 복사하고 페이지·요소·그룹 ID는
+ * 모두 새로 만든다. 따라서 한쪽 페이지의 요소를
  * 이동·삭제·수정해도 다른 페이지에는 영향을 주지 않는다.
  */
 function clonePage(page) {
+  const copyPage = JSON.parse(JSON.stringify(page))
   const groupMap = new Map()
   return {
+    ...copyPage,
     id: createId(),
-    objects: page.objects.map((object) => {
-      const copy = JSON.parse(JSON.stringify(object))
+    objects: copyPage.objects.map((copy) => {
       let groupId = copy.groupId
       if (groupId) {
         if (!groupMap.has(groupId)) groupMap.set(groupId, createId())

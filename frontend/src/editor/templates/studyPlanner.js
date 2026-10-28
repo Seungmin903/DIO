@@ -356,19 +356,22 @@ function baseBody(orientation, startHour = 6) {
 function overlayBody(orientation, value) {
   const L = plannerLayout(orientation), p = normalizePlanner(value), totals = plannerTotals(p), out = []
 
+  // 사용자 색 도형만 속지 배색에서 제외한다(집계 글자는 배색을 따른다).
+  const userRect = (...args) => rect(...args).replace('/>', ' data-preserve-paint="true"/>')
+
   // 요일 표시 — 형광펜은 동그란 칠 위에 글자를 다시 쓰고, 펜은 글자 가운데에 맞춘 정원 동그라미
   days(L).forEach((c, i) => {
     if (p.day?.i !== i) return
-    if (p.day.hl) out.push(`<circle cx="${n(c.cx)}" cy="${n(c.cy)}" r="${c.r}" fill="${p.day.color}" fill-opacity="0.6"/>`, write(c.cx, c.cy + 5, { s: DAYS[i], size: 14 }, 'middle'))
-    else out.push(`<circle cx="${n(c.cx)}" cy="${n(c.cy)}" r="${c.r}" fill="none" stroke="${p.day.color}" stroke-width="1.6"/>`)
+    if (p.day.hl) out.push(`<circle cx="${n(c.cx)}" cy="${n(c.cy)}" r="${c.r}" fill="${p.day.color}" fill-opacity="0.6" data-preserve-paint="true"/>`, write(c.cx, c.cy + 5, { s: DAYS[i], size: 14 }, 'middle'))
+    else out.push(`<circle cx="${n(c.cx)}" cy="${n(c.cy)}" r="${c.r}" fill="none" stroke="${p.day.color}" stroke-width="1.6" data-preserve-paint="true"/>`)
   })
 
   // 할 일 체크 · 색 칸
   const T = todo(L), t = T.t
   for (let r = 0; r < t.rows; r++) {
     const y = t.y + T.head + r * T.rh
-    if (p.bands[r]) out.push(rect(T.cx + 5, y + 5, COLOR_W - 10, T.rh - 10, `rx="2" fill="${p.bands[r]}" fill-opacity="${FILL_OPACITY}"`))
-    if (p.checks[r]) out.push(`<path d="${checkPath(t.x + CHECK_W / 2, y + T.rh / 2, T.box * 1.3)}" fill="none" stroke="${p.checks[r]}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`)
+    if (p.bands[r]) out.push(userRect(T.cx + 5, y + 5, COLOR_W - 10, T.rh - 10, `rx="2" fill="${p.bands[r]}" fill-opacity="${FILL_OPACITY}"`))
+    if (p.checks[r]) out.push(`<path d="${checkPath(t.x + CHECK_W / 2, y + T.rh / 2, T.box * 1.3)}" fill="none" stroke="${p.checks[r]}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" data-preserve-paint="true"/>`)
   }
 
   // 칠한 10분 칸 — 같은 줄 · 같은 색 · 같은 끝 모양으로 이어진 칸은 하나의 막대로 그린다.
@@ -381,7 +384,7 @@ function overlayBody(orientation, value) {
       let e = c
       while (e + 1 < COLS && p.cells[`${r},${e + 1}`] === fill && p.caps[`${r},${e + 1}`] === cap) e++
       const rest = fill === p.options.restColor
-      out.push(rect(G.x0 + c * G.cw + 1.5, G.y0 + r * G.rh + 2.5, (e - c + 1) * G.cw - 3, bh, `rx="${cap === 'round' ? n(bh / 2) : 2}" fill="${fill}" fill-opacity="${rest ? 0.45 : FILL_OPACITY}"`))
+      out.push(userRect(G.x0 + c * G.cw + 1.5, G.y0 + r * G.rh + 2.5, (e - c + 1) * G.cw - 3, bh, `rx="${cap === 'round' ? n(bh / 2) : 2}" fill="${fill}" fill-opacity="${rest ? 0.45 : FILL_OPACITY}"`))
       c = e + 1
     }
   }
@@ -399,8 +402,8 @@ function overlayBody(orientation, value) {
   const S = L.sum, max = Math.max(1, ...totals.colors.map(c => c.minutes))
   totals.colors.slice(0, SLOTS).forEach((item, i) => {
     const row = colorRow(S, i), ink = item.rest ? LABEL : TEXT
-    out.push(rect(S.x + 12, row.cy - 6, 12, 12, `fill="${item.color}"`))
-    out.push(rect(row.bar.x, row.cy - 3, Math.max(6, row.bar.w * item.minutes / max), 6, `rx="3" fill="${item.color}"${item.rest ? ' fill-opacity="0.5"' : ''}`))
+    out.push(userRect(S.x + 12, row.cy - 6, 12, 12, `fill="${item.color}"`))
+    out.push(userRect(row.bar.x, row.cy - 3, Math.max(6, row.bar.w * item.minutes / max), 6, `rx="3" fill="${item.color}"${item.rest ? ' fill-opacity="0.5"' : ''}`))
     out.push(write(row.time, row.cy + 4, { s: formatMinutes(item.minutes), size: 11.5, fill: ink }, 'end'))
     out.push(write(row.pct, row.cy + 4, { s: item.rest ? '쉼' : `${item.percent}%`, size: 11.5, fill: item.rest ? LABEL : TEXT }, 'end'))
   })
@@ -410,7 +413,7 @@ function overlayBody(orientation, value) {
     const h = p.mood.hearts[i]
     // 펜 · 형광펜 모두 윤곽선이 보이지 않게 한 가지 불투명 색으로 칠한다(형광펜은 흰 바탕에 섞은 색).
     // 가장자리도 같은 색으로 덮어 빈 하트의 회색 윤곽(굵기 1.2)이 비치지 않게 한다.
-    if (h) { const fill = h.hl ? onWhite(h.color, 0.75) : h.color; out.push(`<path d="${heartPath(c)}" fill="${fill}" stroke="${fill}" stroke-width="1.6" stroke-linejoin="round"/>`) }
+    if (h) { const fill = h.hl ? onWhite(h.color, 0.75) : h.color; out.push(`<path d="${heartPath(c)}" fill="${fill}" stroke="${fill}" stroke-width="1.6" stroke-linejoin="round" data-preserve-paint="true"/>`) }
   })
   return out.join('')
 }
