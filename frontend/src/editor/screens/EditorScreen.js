@@ -705,9 +705,9 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
         pageLabel={`PAGE ${pageIndex + 1} / ${state.doc.pages.length}`}
         onToggleOrientation={toggleOrientation}
         doc={state.doc}
-        onRename={diary?.canManage === false ? undefined : (title) => {
-          dispatch({ type: 'renameDoc', title })
-          onRenameDiary?.(title)
+        onRename={diary?.canManage === false ? undefined : async (title) => {
+          const accepted = await onRenameDiary?.(title)
+          if (accepted !== false) dispatch({ type: 'renameDoc', title })
         }}
         layersOpen={showLayers}
         pagesOpen={showPages}

@@ -24,7 +24,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, c
         </Pressable>
       </View>}
       {!diaries.length ? (suppressEmpty ? null :
-        <EmptyState compact={compact} title="휴지통이 비어 있어요" copy="삭제한 다이어리는 이곳에서 복원하거나 영구 삭제할 수 있어요." />
+        <EmptyState compact={compact} title="휴지통이 비어 있어요" copy={serverMode && !onDeletePermanently ? "삭제한 다이어리를 이곳에서 확인하고 복원할 수 있어요." : "삭제한 다이어리는 이곳에서 복원하거나 영구 삭제할 수 있어요."} />
       ) : (
         <View style={[s.trashGrid, compact && s.trashGridCompact]}>
           {diaries.map((diary) => (
@@ -44,7 +44,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, c
                 >
                   <Text style={s.trashRestoreText}>복원</Text>
                 </Pressable>
-                {onDeletePermanently && <Pressable
+                {onDeletePermanently && (!serverMode || diary.canPermanentlyDelete===true) && <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`${diary.title} 영구 삭제`}
                   disabled={busy}

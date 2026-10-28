@@ -6,6 +6,7 @@ import { createDiaryCommand, createDiaryMutation } from '../src/diary/services/d
 import { createMockDiaryTransport } from '../src/diary/services/mockDiaryTransport.js';
 import { presetTemplateConfig } from '../src/editor/templates/presets.js';
 import { configuredPageIds, templatePageCount } from '../src/editor/templates/creation.js';
+import { toServerInitialPageSelections, localTemplateReference } from '../src/editor/templates/serverCatalog.js';
 
 const form = (orientation = 'landscape', dateMode = 'dated') => ({ title: '  새 여행  ', color: '#A9BFA6', pattern: 'dot', pageSize: orientation,
   templateConfig: presetTemplateConfig('schedule', orientation, dateMode), paperAppearance: { backgroundColor:'#FFF8E7',layoutColor:'#33476B' } });
@@ -17,6 +18,9 @@ test('실제 생성 입력의 날짜형·만년형·가로·세로·속지 순�
     assert.equal(input.pageSize, orientation); assert.equal(input.templateConfig.dateMode, mode);
     assert.equal(input.initialPages.length, templatePageCount(source.templateConfig));
     assert.deepEqual(input.initialPages.map(p=>p.templateId),configuredPageIds(source.templateConfig));
+    const selections=toServerInitialPageSelections(input.initialPages);
+    assert.deepEqual(selections.map(p=>localTemplateReference(p.templateCode,p.templateVersion).backgroundAssetId),configuredPageIds(source.templateConfig));
+    assert.deepEqual(selections.map(p=>JSON.parse(p.configurationJson)),input.initialPages.map(p=>p.templateConfig));
     assert.equal(input.initialPages[0].templateConfig.width,orientation==='portrait'?768:1024);
     assert.equal(input.initialPages[0].templateConfig.height,orientation==='portrait'?1024:768);
     assert.deepEqual(input.initialPages[0].templateConfig.paperAppearance,source.paperAppearance);
@@ -30,6 +34,8 @@ test('빈 제목·잘못된 구성을 거절하며 내지를 모두 끄면 빈 �
   const config={...form().templateConfig,cover:false,dividers:false,monthly:false,weekly:false,daily:false,reusable:[],legacyEndPages:[]};
   const input=diaryCreateInput({...form(),templateConfig:config});
   assert.equal(input.initialPages.length,1);assert.equal(input.initialPages[0].templateConfig.blank,true);
+  assert.equal(input.initialPages[0].templateCode,'dio-blank-landscape');
+  assert.equal(toServerInitialPageSelections(input.initialPages)[0].templateCode,'dio-blank-landscape');
 });
 
 test('실제 생성 폼→어댑터→목 응답→상세 조회에서 선택값·장수·첫 페이지 ID를 확인한다', async () => {

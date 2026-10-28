@@ -361,9 +361,9 @@ export const styles = StyleSheet.create({
   trashTitle: { color: C.ink, fontSize: 14, fontWeight: '700', marginTop: 12 },
   trashDate: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
   trashActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  trashRestore: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: C.pale },
+  trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: C.pale },
   trashRestoreText: { color: C.ink, fontSize: 12, fontWeight: '700' },
-  trashDelete: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: '#F0D5D4' },
+  trashDelete: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: '#F0D5D4' },
   // 이전 폰 휴지통 스와이프 목록 스타일. 저장된 화면과의 호환을 위해 당분간 유지한다.
   trashHint: { color: C.muted, fontSize: 13, lineHeight: 21, marginTop: -8, marginBottom: 14 },
   trashList: { gap: 11 },

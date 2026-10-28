@@ -78,7 +78,7 @@ function LibraryScreen({
   const current = FILTERS.find((item) => item.id === filter) || FILTERS[0];
   const selecting = selection !== null;
   // 보이는 다이어리만 선택으로 센다. 필터를 바꾸면 숨은 다이어리는 선택에서 빠진다.
-  const manageable = useMemo(() => shown.filter(diary => diary.canManage !== false), [shown]);
+  const manageable = useMemo(() => shown.filter(diary => diary.canManage !== false && diary.canDelete !== false), [shown]);
   const selected = useMemo(() => (selecting ? visibleSelection(selection, manageable) : []), [selecting, selection, manageable]);
   useEffect(() => {
     if (selecting && selected.length !== selection.length) onSelectionChange?.(selected);
