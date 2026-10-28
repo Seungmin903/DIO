@@ -1,0 +1,209 @@
+{
+  "date": "2026-10-27",
+  "windowUTC": [
+    "2026-10-27T03:05:49.995Z",
+    "2026-10-27T03:08:04.676Z"
+  ],
+  "validMatchedZoomComparison": false,
+  "caveat": "cache off and on actual handwriting zoom differs; received strokes do not prove all physical attempts were received; layout/RAF not physical paint",
+  "cases": [
+    {
+      "case": "100",
+      "cacheMode": "svg",
+      "penStrokes": 5,
+      "zoom": [
+        0.5922768518942083
+      ],
+      "cancelled": 0,
+      "stallMarkers": 2,
+      "slowFeedback": 2,
+      "metrics": {
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 29,
+          "max": 63
+        },
+        "downToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 4,
+          "max": 17
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 130.0,
+          "max": 169
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17,
+          "max": 96
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 9,
+          "max": 10
+        }
+      }
+    },
+    {
+      "case": "100",
+      "cacheMode": "raster",
+      "penStrokes": 17,
+      "zoom": [
+        0.39166666666666666
+      ],
+      "cancelled": 0,
+      "stallMarkers": 0,
+      "slowFeedback": 0,
+      "metrics": {
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 18.0,
+          "max": 33
+        },
+        "downToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 2,
+          "max": 12
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 23,
+          "max": 37
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17,
+          "max": 18
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 12,
+          "max": 14
+        }
+      }
+    },
+    {
+      "case": "300",
+      "cacheMode": "svg",
+      "penStrokes": 5,
+      "zoom": [
+        0.6041262134607124
+      ],
+      "cancelled": 0,
+      "stallMarkers": 1,
+      "slowFeedback": 2,
+      "metrics": {
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 54,
+          "max": 101
+        },
+        "downToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 4,
+          "max": 16
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 10,
+          "max": 459.0
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 1,
+          "max": 282.0
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 12,
+          "max": 16
+        }
+      }
+    },
+    {
+      "case": "300",
+      "cacheMode": "raster",
+      "penStrokes": 13,
+      "zoom": [
+        0.39166666666666666
+      ],
+      "cancelled": 0,
+      "stallMarkers": 0,
+      "slowFeedback": 0,
+      "metrics": {
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 17,
+          "max": 38
+        },
+        "downToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 2,
+          "max": 4.0
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 21,
+          "max": 42
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17.0,
+          "max": 23
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 17,
+          "max": 20.0
+        }
+      }
+    },
+    {
+      "case": "long30",
+      "cacheMode": "svg",
+      "penStrokes": 14,
+      "zoom": [
+        0.6030821142158854
+      ],
+      "cancelled": 0,
+      "stallMarkers": 1,
+      "slowFeedback": 3,
+      "metrics": {
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 18,
+          "max": 140
+        },
+        "downToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 2,
+          "max": 5.0
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 65,
+          "max": 453
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17,
+          "max": 138.0
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 7,
+          "max": 12
+        }
+      }
+    },
+    {
+      "case": "long30",
+      "cacheMode": "raster",
+      "penStrokes": 8,
+      "zoom": [
+        0.39166666666666666
+      ],
+      "cancelled": 0,
+      "stallMarkers": 0,
+      "slowFeedback": 0,
+      "metrics": {
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 19,
+          "max": 27
+        },
+        "downToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 1.0,
+          "max": 5
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 24,
+          "max": 41
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17,
+          "max": 19
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 15,
+          "max": 20
+        }
+      }
+    }
+  ]
+}

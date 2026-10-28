@@ -1,0 +1,33 @@
+{
+  "scope": "Node deterministic 300-stroke fixture; interim SVG only; not Safari latency benchmark",
+  "before": [
+    {
+      "kind": "fountain",
+      "chars": 25080900,
+      "ms": 220.6361
+    },
+    {
+      "kind": "brush",
+      "chars": 25716600,
+      "ms": 108.60139999999996
+    }
+  ],
+  "after": [
+    {
+      "kind": "fountain",
+      "chars": 4268214,
+      "ms": 74.82309999999998
+    },
+    {
+      "kind": "brush",
+      "chars": 4266276,
+      "ms": 51.6216
+    }
+  ],
+  "fullPrecisionPathsUnchanged": 600,
+  "caveats": [
+    "CPU times from separate single runs, not controlled benchmark",
+    "Character counts reflect path data only, not total document bytes",
+    "Safari visual fidelity and latency require user QA"
+  ]
+}

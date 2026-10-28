@@ -10,18 +10,20 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
 const padding = { top: 84, bottom: 76, side: 28 }
-function fixture(stage, hand) {
+function fixture(stage, hand, effects = false, interactionLocked = false) {
   const commits = [], module = { exports: {} }
+  const cleanups = [], appState = [], stylus = { activePen: false }
   const load = id => {
-    if (id === 'react') return { useRef: current => ({ current }), useState: value => [value, () => {}], useEffect() {} }
-    if (id === 'react-native') return { Platform: { OS: 'ios', select: v => v.default }, View: 'view', Text: 'text', StyleSheet: { create: v => v } }
+    if (id === 'react') return { useRef: current => ({ current }), useState: value => [value, () => {}], useEffect(fn) { if (effects) { const cleanup = fn(); if (cleanup) cleanups.push(cleanup) } } }
+    if (id === 'react-native') return { AppState: { addEventListener: (_name, fn) => { appState.push(fn); return { remove() { appState.splice(appState.indexOf(fn), 1) } } } }, Platform: { OS: 'ios', select: v => v.default }, View: 'view', Text: 'text', StyleSheet: { create: v => v } }
     if (id.endsWith('/theme')) return { colors: {}, shadow: {} }
-    if (id.endsWith('/stylus')) return { touchKind: t => t.kind ?? 'touch', notePointerDown() {}, notePointerUp() {} }
+    if (id.endsWith('/stylus')) return { stylus, touchKind: t => t.kind ?? 'touch',
+      notePointerDown() { stylus.activePen = true }, notePointerUp() { stylus.activePen = false }, resetStylusPointers() { stylus.activePen = false } }
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
   const zoom = Math.min((stage.width - 56) / 1188, (stage.height - 160) / 840)
-  const tree = module.exports.default({ scale: 1, zoom, offset: { x: 100, y: 100 }, dragToPan: hand,
+  const tree = module.exports.default({ interactionLocked, scale: 1, zoom, offset: { x: 100, y: 100 }, dragToPan: hand,
     onView: v => commits.push(v),
     resolvePan: (from, dx, dy) => ({ ...from, ...panView(from, dx, dy, zoom, stage, 1188, 840, padding) }),
     resolveZoom: (scale, point, screen) => ({ scale, zoom: zoom * scale,
@@ -31,7 +33,7 @@ function fixture(stage, hand) {
     const a = { pageX: 100 + i * 3, pageY: 200 - i * 2 }
     return { nativeEvent: { ...a, touches: hand ? [a] : [a, { pageX: a.pageX + 40, pageY: a.pageY }] } }
   }
-  return { commits, handlers: tree.props, run() {
+  return { commits, handlers: tree.props, appState, unmount: () => cleanups.forEach(fn => fn()), run() {
     tree.props.onResponderGrant(event(0))
     for (let i = 1; i <= 30; i += 1) tree.props.onResponderMove(event(i))
     assert.equal(commits.length, 0, '이동 중에는 부모 상태를 확정하지 않는다')
@@ -55,6 +57,17 @@ for (const width of [700, 1000]) test(`Viewport 실제 핸들러는 렌더링 �
 const fingers = (...touches) => ({ nativeEvent: { ...touches[0], touches } })
 const finger = (identifier, pageX, kind = 'touch') => ({ identifier, pageX, pageY: 0, kind })
 
+test('up 누락 뒤 백그라운드로 가면 펜 상태를 해제하고 두 손가락 확대가 복구된다', () => {
+  const f = fixture({ width: 700, height: 700 }, false, true), h = f.handlers
+  h.onPointerDownCapture({ nativeEvent: { pointerId: 1, pointerType: 'pen' } })
+  const touches = fingers(finger(1, 0), finger(2, 100))
+  assert.equal(h.onStartShouldSetResponderCapture(touches), false)
+  f.appState[0]('background')
+  assert.equal(h.onStartShouldSetResponderCapture(touches), true)
+  f.unmount()
+  assert.equal(f.appState.length, 0)
+})
+
 for (const endOnly of [false, true]) test(`핀치 재접촉은 현재 live 배율에서 시작한다 (${endOnly ? '해제 이벤트' : '한 손가락 이동'})`, () => {
   const f = fixture({ width: 700, height: 700 }, false), h = f.handlers
   h.onResponderGrant(fingers(finger(1, 0), finger(2, 100)))
@@ -70,4 +83,18 @@ test('펜과 손바닥 조합은 핀치로 가로채지 않는다', () => {
   const h = fixture({ width: 700, height: 700 }, false).handlers
   assert.equal(h.onStartShouldSetResponderCapture(fingers(finger(1, 0, 'pen'), finger(2, 100))), false)
   assert.equal(h.onStartShouldSetResponderCapture(fingers(finger(1, 0), finger(2, 100))), true)
+})
+
+
+test('고정 비교 Viewport는 핀치와 손바닥 이동을 수용하거나 확정하지 않는다', () => {
+  for (const hand of [false, true]) {
+    const f = fixture({ width: 1000, height: 700 }, hand, false, true), h = f.handlers
+    const e = fingers(finger(1, 0), finger(2, 100))
+    assert.equal(h.onStartShouldSetResponderCapture(e), false)
+    assert.equal(h.onStartShouldSetResponder(), false)
+    h.onResponderGrant(e)
+    h.onResponderMove(fingers(finger(1, 100), finger(2, 400)))
+    h.onResponderRelease()
+    assert.equal(f.commits.length, 0)
+  }
 })

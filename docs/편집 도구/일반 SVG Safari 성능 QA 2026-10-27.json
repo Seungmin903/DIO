@@ -1,0 +1,138 @@
+{
+  "date": "2026-10-27",
+  "mode": "standard-svg",
+  "windowUTC": [
+    "2026-10-27T02:49:35.363Z",
+    "2026-10-27T02:54:46.565Z"
+  ],
+  "scope": "session-memory, no disk save measurement; RAF/layout timing is not physical display timing",
+  "cases": [
+    {
+      "case": "100",
+      "penStrokes": 28,
+      "cancelled": 0,
+      "metrics": {
+        "downEventAgeMs": {
+          "medianPerStrokeP95": 16,
+          "max": 235.0
+        },
+        "downToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 3,
+          "max": 15.0
+        },
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 20,
+          "max": 236.0
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 86.0,
+          "max": 530
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17,
+          "max": 460
+        },
+        "finalizeJsMs": {
+          "medianPerStrokeP95": 0,
+          "max": 1.0
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 7,
+          "max": 13
+        }
+      },
+      "fixtureSvgPaths": [
+        2223,
+        2223
+      ],
+      "eraserReports": 2,
+      "stallMarkers": 1,
+      "uiFeedback": []
+    },
+    {
+      "case": "300",
+      "penStrokes": 17,
+      "cancelled": 0,
+      "metrics": {
+        "downEventAgeMs": {
+          "medianPerStrokeP95": 21,
+          "max": 231
+        },
+        "downToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 3,
+          "max": 17
+        },
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 26.0,
+          "max": 232
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 30,
+          "max": 539
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17,
+          "max": 377.0
+        },
+        "finalizeJsMs": {
+          "medianPerStrokeP95": 0,
+          "max": 1
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 11,
+          "max": 26
+        }
+      },
+      "fixtureSvgPaths": [
+        6623,
+        6623
+      ],
+      "eraserReports": 1,
+      "stallMarkers": 2,
+      "uiFeedback": [
+        "problem"
+      ]
+    },
+    {
+      "case": "long30",
+      "penStrokes": 24,
+      "cancelled": 0,
+      "metrics": {
+        "downEventAgeMs": {
+          "medianPerStrokeP95": 21,
+          "max": 112
+        },
+        "downToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 1,
+          "max": 9.0
+        },
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 21,
+          "max": 113
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 188.0,
+          "max": 553
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17,
+          "max": 204
+        },
+        "finalizeJsMs": {
+          "medianPerStrokeP95": 0,
+          "max": 1
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 9.0,
+          "max": 17
+        }
+      },
+      "fixtureSvgPaths": [
+        683
+      ],
+      "eraserReports": 0,
+      "stallMarkers": 0,
+      "uiFeedback": []
+    }
+  ]
+}
