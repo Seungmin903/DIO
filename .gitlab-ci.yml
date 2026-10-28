@@ -94,24 +94,14 @@ backend-test:
   interruptible: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes: &member_contract_changes
+      # 백엔드 산출물을 만드는 작업이므로 프런트엔드 전용 변경에서는 실행하지 않는다.
+      changes: &backend_contract_changes
         - backend/**/*
         - .gitlab-ci.yml
         - infra/compose/compose.*.yml
         - infra/nginx/**/default.conf
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
-        - frontend/src/notifications/**/*
-        - frontend/tests/*notification*
-        - frontend/qa/run-notification-contract.*
-        - frontend/src/diary/**/*
-        - frontend/src/editor/utils/**/*
-        - frontend/src/editor/templates/**/*
-        - frontend/src/shared/**/*
-        - frontend/tests/member-*
-        - frontend/qa/run-member-contract*
-        - frontend/package.json
-        - frontend/pnpm-lock.yaml
   script:
     - >
       docker run --rm
@@ -152,7 +142,8 @@ diary-fe-contract-test:
       artifacts: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes: *member_contract_changes
+      # backend-test의 계약 산출물을 필요로 하므로 동일한 변경 범위에서만 생성한다.
+      changes: *backend_contract_changes
   script:
     - mkdir -p frontend/build/member-contract
     - >
