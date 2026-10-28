@@ -166,7 +166,7 @@ test('텍스트 도구로 칸을 누르면 그 칸 · 줄에 맞춘 글상자 �
   assert.ok(plannerTextSlot('landscape', { x: 100, y: 600 }))
 })
 
-test('형광펜으로 하트를 여러 개 그으면 지나간 하트가 한 번에 찬다', () => {
+test('펜 · 형광펜으로 하트를 여러 개 그으면 지나간 하트가 한 번에 찬다', () => {
   const M = plannerLayout('landscape').mood
   const heart = i => { const s = 20, gap = 8, x0 = M.x + M.w - 12 - 5 * s - 4 * gap; return { x: x0 + s / 2 + i * (s + gap), y: M.y + M.h / 2 } }
   const p = applyPlannerStroke(null, 'landscape', [heart(0), heart(2)], HL)
@@ -186,8 +186,10 @@ test('형광펜으로 하트를 여러 개 그으면 지나간 하트가 한 번
   const svg = plannerOverlaySvg('landscape', mixed)
   assert.equal(svg.match(/fill="#FFB3C7" fill-opacity="0.75"/g).length, 2)
   assert.equal(svg.match(/fill="#FFE066" fill-opacity="0.75"/g).length, 3)
-  // 펜으로 그은 건 그대로 자유 필기
-  assert.equal(applyPlannerStroke(null, 'landscape', [heart(0), heart(3)], PEN), null)
+  // 펜으로 그어도 지나간 하트가 그 펜 색으로 누적된다
+  const R = '#EF476F'
+  assert.deepEqual(filled(applyPlannerStroke(more, 'landscape', [heart(2), heart(3)], PEN)), [Y, Y, R, R, Y])
+  assert.equal(applyPlannerStroke(more, 'landscape', [heart(2), heart(3)], PEN).mood.hearts[2].hl, false)
 })
 
 test('시작 시각 옵션이 시간 숫자와 시작–끝 표기에 반영된다', () => {

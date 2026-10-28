@@ -169,9 +169,9 @@ export function applyPlannerStroke(value, orientation, points, settings) {
   const day = hitCircle(days(L), first)
   if (day >= 0 && tap) return { ...planner, day: { i: day, color: c, hl } }
   const heartHits = hearts(L), heart = hitCircle(heartHits, first)
-  // 하트에서 시작해 형광펜으로 여러 개를 그으면 지나간 하트가 한 번에 찬다. 이미 찬 하트에 누적하고 색은 새 색으로 맞춘다.
+  // 하트에서 시작해 펜 · 형광펜으로 여러 개를 그으면 지나간 하트가 한 번에 찬다. 이미 찬 하트에 누적한다.
   // 이웃한 하트 둘은 톡 판정 거리보다 가까워서, 지나간 하트 수로 긋기를 가른다.
-  const passed = heart >= 0 && hl ? new Set(sample(points).map(p => hitCircle(heartHits, p)).filter(i => i >= 0)) : null
+  const passed = heart >= 0 ? new Set(sample(points).map(p => hitCircle(heartHits, p)).filter(i => i >= 0)) : null
   const paint = { color: c, hl }
   if (heart >= 0 && tap && !(passed?.size > 1)) return { ...planner, mood: { hearts: HEARTS.map(k => k <= heart ? paint : null) } }
   // 그은 하트만 새 색으로 칠하고, 나머지 하트는 원래 색 그대로 둔다(누적).
