@@ -12,7 +12,6 @@ import com.f106.DIO.media.domain.MediaFile;
 
 public interface MediaFileRepository extends JpaRepository<MediaFile, UUID> {
 	Optional<MediaFile> findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(UUID mediaFileId, Long ownerUserId);
-	List<MediaFile> findAllByOwnerUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long ownerUserId);
 	@Query("""
 		select mediaFile from MediaFile mediaFile
 		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null
