@@ -33,3 +33,5 @@ MemberDiaryContractService가 기존 DiaryDetailRepository.lockActiveUser를 사
 실제 PostgreSQL에 3개 시나리오를 추가한다. 소유자의 PATCH 트랜잭션을 유지한 동안 EDITOR 403 및 VIEWER/소유권 불일치/탈퇴/비참여 404가 소유자의 해제를 기다리지 않고 반환한다. 이미 삭제된 다이어리는 별도 행 잠금이 유지돼도 즉시 404를 반환한다. 마지막으로 OWNER PATCH가 사전 확인 후 실제 diary 잠금에 대기하는 것을 pg_blocking_pids로 확인하고 그 사이 멤버십을 해제한다. 잠금을 풀어도 404이며 version은 증가하지 않는다. 기존 동시성 4개도 함께 검증한다. 요청이 반환했다는 사실만으로 운영 부하/TPS 개선 수치를 주장하지 않는다.
 
 이번 보완의 로컬 검증: H2 회원 HTTP·상세 권한 37개, 실제 PostgreSQL 회원 HTTP 32개(필터 회귀와 기존 동시성 4개·신규 동시성 3개 포함), 실제 Spring 응답을 사용하는 FE 계약·스토어 24개가 모두 통과했다. 실패·제외는 0이다. 폐기용 PostgreSQL은 종료했다. 최종 커밋의 원격 CI·자동 리뷰와 원본 보존 감사는 !184 본문 및 워크스페이스 `tmp/diary184-shared-precheck/`에 기록한다.
+
+원격 CI 248134에서 기존 MemberDiaryListPostgresTests의 구 커서 테스트가 v3 문자열 치환에 의존해 새 v4를 그대로 보내는 실패 1개를 발견했다. 제품 코드는 바꾸지 않고 해당 테스트를 JSON 버전 필드 수정으로 보완해 v1·v2·v3 거부를 검증했다. 보완 후 실제 PostgreSQL 목록 4개(Unicode 검색·페이지 이동·구 버전 거부·삭제 페이지/탈퇴 멤버 집계)가 모두 통과했다. 최초 실패 파이프라인은 성공으로 기록하지 않으며 후속 최종 CI는 MR 본문을 따른다.

@@ -49,9 +49,12 @@ class MemberDiaryListPostgresTests {
     }
     @Test void cursorsFromThePreviousFoldVersionAreRejected() {
         add(1,"Ä");add(2,"É");String cursor=query.list(null,"title",1,null).nextCursor();
-        String json=new String(Base64.getUrlDecoder().decode(cursor),StandardCharsets.UTF_8).replace("\"v\":3","\"v\":2");
-        String old=Base64.getUrlEncoder().withoutPadding().encodeToString(json.getBytes(StandardCharsets.UTF_8));
-        assertThatThrownBy(() -> query.list(null,"title",1,old)).isInstanceOf(MemberDiaryRequestException.class);
+        var json=(tools.jackson.databind.node.ObjectNode)new tools.jackson.databind.ObjectMapper().readTree(Base64.getUrlDecoder().decode(cursor));
+        for(int version:List.of(1,2,3)) {
+            json.put("v",version);
+            String old=Base64.getUrlEncoder().withoutPadding().encodeToString(json.toString().getBytes(StandardCharsets.UTF_8));
+            assertThatThrownBy(() -> query.list(null,"title",1,old)).isInstanceOf(MemberDiaryRequestException.class);
+        }
     }
     @Test void activeCountsAndCursorOrderingStayExactWithDeletedPagesAndFormerMembers() {
         for(int i=1;i<=8;i++) {
