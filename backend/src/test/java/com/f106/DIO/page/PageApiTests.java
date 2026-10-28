@@ -97,7 +97,7 @@ class PageApiTests {
 			.andExpect(status().isUnauthorized());
 
 		String diaryId = createDiary("소유권 검증");
-		mvc.perform(get("/api/v1/diaries/" + diaryId).with(authenticated("2")))
+		mvc.perform(get("/api/v1/diaries/" + diaryId).with(authenticated("102")))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("DIARY_ACCESS_DENIED"));
 	}
@@ -106,25 +106,25 @@ class PageApiTests {
 	void membershipRolesControlWritesDeletionAndDiaryLists() throws Exception {
 		String diaryId = createDiary("역할 검증");
 		UUID id = UUID.fromString(diaryId);
-		diaryMemberRepository.saveAndFlush(new DiaryMember(id, 2L, "EDITOR"));
-		diaryMemberRepository.saveAndFlush(new DiaryMember(id, 3L, "VIEWER"));
-		DiaryMember departed = new DiaryMember(id, 4L, "EDITOR");
+		diaryMemberRepository.saveAndFlush(new DiaryMember(id, 102L, "EDITOR"));
+		diaryMemberRepository.saveAndFlush(new DiaryMember(id, 103L, "VIEWER"));
+		DiaryMember departed = new DiaryMember(id, 104L, "EDITOR");
 		setField(departed, "leftAt", Instant.now());
 		diaryMemberRepository.saveAndFlush(departed);
 
-		mvc.perform(post("/api/v1/diaries/" + diaryId + "/pages").with(authenticated("2"))
+		mvc.perform(post("/api/v1/diaries/" + diaryId + "/pages").with(authenticated("102"))
 			.contentType(MediaType.APPLICATION_JSON).content("{}"))
 			.andExpect(status().isCreated());
-		mvc.perform(get("/api/v1/diaries/" + diaryId + "/pages").with(authenticated("3")))
+		mvc.perform(get("/api/v1/diaries/" + diaryId + "/pages").with(authenticated("103")))
 			.andExpect(status().isOk());
-		mvc.perform(post("/api/v1/diaries/" + diaryId + "/pages").with(authenticated("3"))
+		mvc.perform(post("/api/v1/diaries/" + diaryId + "/pages").with(authenticated("103"))
 			.contentType(MediaType.APPLICATION_JSON).content("{}"))
 			.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("DIARY_ACCESS_DENIED"));
-		mvc.perform(delete("/api/v1/diaries/" + diaryId).with(authenticated("2")))
+		mvc.perform(delete("/api/v1/diaries/" + diaryId).with(authenticated("102")))
 			.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("DIARY_ACCESS_DENIED"));
-		mvc.perform(get("/api/v1/diaries").with(authenticated("2")))
+		mvc.perform(get("/api/v1/diaries").with(authenticated("102")))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.items[?(@.diaryId == '" + diaryId + "')]").isNotEmpty());
-		mvc.perform(get("/api/v1/diaries/" + diaryId).with(authenticated("4")))
+		mvc.perform(get("/api/v1/diaries/" + diaryId).with(authenticated("104")))
 			.andExpect(status().isForbidden());
 	}
 
@@ -286,7 +286,8 @@ class PageApiTests {
 	}
 
 	private static RequestPostProcessor authenticated() {
-		return authenticated("1");
+		// 이 클래스는 롤백하지 않으므로 다른 테스트가 쓰는 사용자 1과 겹치지 않는 ID를 쓴다.
+		return authenticated("101");
 	}
 
 	private static RequestPostProcessor authenticated(String userId) {

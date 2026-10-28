@@ -1,8 +1,12 @@
 package com.f106.DIO.page;
 
+import java.time.Instant;
 import java.util.UUID;
 
+import com.f106.DIO.user.domain.User;
+import com.f106.DIO.user.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,6 +32,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PostgresPageApiTests {
 
 	@Autowired MockMvc mvc;
+	@Autowired UserRepository users;
+	private Long ownerUserId;
+
+	/** diaries.owner_user_id는 users FK라서 로컬 DB에 실제 사용자 행을 만든다. 테스트 트랜잭션과 함께 롤백된다. */
+	@BeforeEach
+	void createOwner() {
+		String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+		ownerUserId = users.saveAndFlush(new User("postgres-page-" + suffix + "@example.com", "페이지" + suffix.substring(0, 4), Instant.now())).getUserId();
+	}
 
 	@Test
 	void pagesAndCanvasElementsUseTheAuthenticatedPostgresContract() throws Exception {
@@ -57,7 +70,7 @@ class PostgresPageApiTests {
 			.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.page.pageId");
 	}
 
-	private static RequestPostProcessor authenticated() {
-		return jwt().jwt(token -> token.subject("1"));
+	private RequestPostProcessor authenticated() {
+		return jwt().jwt(token -> token.subject(ownerUserId.toString()));
 	}
 }

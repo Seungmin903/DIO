@@ -40,7 +40,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 로컬 프로필과 명시적인 환경변수가 모두 있어야만 동작한다.
- * 시드 본문은 Git 무시 대상인 .local-data 경로에서만 읽는다.
+ * 시드 본문은 dio.local-seed.file(기본 src/main/resources/db/seed/local-demo.json)에서 읽는다.
+ * 이 폴더는 .gitignore·.dockerignore 대상이므로 비밀번호가 든 시드는 여기에만 둔다.
  */
 @Component
 @Profile("local")

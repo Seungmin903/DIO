@@ -42,6 +42,7 @@ class PageBatchRollbackTests {
 	}
 
 	private static org.springframework.test.web.servlet.request.RequestPostProcessor authenticated() {
-		return jwt().jwt(token -> token.subject("1"));
+		// 커밋되는 테스트라 다른 테스트의 사용자 ID와 겹치지 않게 한다.
+		return jwt().jwt(token -> token.subject("201"));
 	}
 }

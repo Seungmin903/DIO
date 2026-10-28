@@ -11,6 +11,7 @@ import com.f106.DIO.diary.support.DiaryNotFoundException;
 import com.f106.DIO.diary.support.DiaryAccessDeniedException;
 import com.f106.DIO.page.controller.CanvasElementController;
 import com.f106.DIO.page.controller.PageController;
+import com.f106.DIO.page.domain.DiaryPage;
 
 @RestControllerAdvice(assignableTypes = {PageController.class, CanvasElementController.class})
 public class PageExceptionHandler extends ResponseEntityExceptionHandler {
@@ -62,6 +63,11 @@ public class PageExceptionHandler extends ResponseEntityExceptionHandler {
 
 	@ExceptionHandler(ObjectOptimisticLockingFailureException.class)
 	public ProblemDetail concurrentModification(ObjectOptimisticLockingFailureException exception) {
+		// DiaryPage와 CanvasElement 모두 @Version을 쓰므로 충돌한 엔티티로 코드를 나눈다.
+		if (DiaryPage.class.getName().equals(exception.getPersistentClassName())) {
+			return problem(HttpStatus.CONFLICT, "Concurrent page update", "PAGE_VERSION_CONFLICT",
+				"다른 사용자가 페이지를 먼저 변경했습니다. 최신 내용을 조회한 뒤 다시 시도해 주세요.");
+		}
 		return problem(HttpStatus.CONFLICT, "Concurrent canvas update", "CANVAS_ELEMENT_VERSION_CONFLICT",
 			"다른 사용자의 변경이 먼저 저장되었습니다. 최신 내용을 조회한 뒤 다시 시도해 주세요.");
 	}

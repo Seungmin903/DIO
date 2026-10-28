@@ -87,7 +87,7 @@
 
 ## 오류
 
-로그인하지 않은 요청은 401 `INVALID_TOKEN`이다. 잘못된 UUID·본문·범위·순서 목록은 400이다. 소유자·멤버가 아닌 사용자는 403 `DIARY_ACCESS_DENIED`를 받는다. 존재하지 않거나 삭제된 다이어리·페이지·요소는 404이며 각각 `DIARY_NOT_FOUND`, `PAGE_NOT_FOUND`, `CANVAS_ELEMENT_NOT_FOUND` 코드가 담긴 `application/problem+json` 응답을 반환한다. 활성 요소 복구는 409 `CANVAS_ELEMENT_NOT_DELETED`다. 보낸 `version`이 현재 버전과 다르거나 같은 요소를 동시에 수정해 낙관적 락 충돌이 나면 409 `CANVAS_ELEMENT_VERSION_CONFLICT`를 반환하며, 최신 페이지를 다시 조회한 뒤 재시도해야 한다. `mediaFileId`를 보내면 400 `MEDIA_FILE_NOT_SUPPORTED`다.
+로그인하지 않은 요청은 401 `INVALID_TOKEN`이다. 잘못된 UUID·본문·범위·순서 목록은 400이다. 소유자·멤버가 아닌 사용자는 403 `DIARY_ACCESS_DENIED`를 받는다. 존재하지 않거나 삭제된 다이어리·페이지·요소는 404이며 각각 `DIARY_NOT_FOUND`, `PAGE_NOT_FOUND`, `CANVAS_ELEMENT_NOT_FOUND` 코드가 담긴 `application/problem+json` 응답을 반환한다. 활성 요소 복구는 409 `CANVAS_ELEMENT_NOT_DELETED`다. 보낸 `version`이 현재 버전과 다르거나 같은 요소를 동시에 수정해 낙관적 락 충돌이 나면 409 `CANVAS_ELEMENT_VERSION_CONFLICT`를 반환하며, 최신 페이지를 다시 조회한 뒤 재시도해야 한다. 페이지 설정 수정·순서 변경이 동시에 겹쳐 페이지 자체에서 충돌하면 409 `PAGE_VERSION_CONFLICT`다. `mediaFileId`를 보내면 400 `MEDIA_FILE_NOT_SUPPORTED`다.
 
 인증 이전에 만들어져 `owner_user_id`가 비어 있고 `diary_members` 행도 없는 다이어리는 누구도 조회·수정할 수 없다. 운영 DB에 이런 행이 있는지 확인하고, 소유자 지정 또는 정리 정책을 정한 뒤 별도 Flyway 마이그레이션으로 처리한다. 임의 소유자를 채우지 않는다.
 
