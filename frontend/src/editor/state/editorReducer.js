@@ -500,6 +500,9 @@ export function editorReducer(state, action) {
         incoming.delete(o.id)
         return next ? [next] : []
       }).concat([...incoming.values()])
+      const currentTexts = page.objects.filter(o => o.type === 'text')
+      const nextTexts = objects.filter(o => o.type === 'text')
+      if (JSON.stringify(currentTexts) === JSON.stringify(nextTexts)) return state
       return { ...state, externalDirty: true, doc: { ...state.doc, pages: state.doc.pages.map(p => p === page ? { ...p, objects } : p) } }
     }
     case 'load':
