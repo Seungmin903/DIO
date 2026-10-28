@@ -28,6 +28,8 @@ export function useSharedNotifications() {
 
 export function AuthenticatedNotificationProvider({ auth, userId, createInvitations, children }) {
   const sessionKey = auth.getSessionKey();
+  // factory 변경은 연결 설정 변경이다. 호출자는 모듈 함수/useCallback을 사용한다.
+  // 참조 변경을 숨기면 이전 gateway 설정이 계속 사용될 수 있으므로 의존성을 유지한다.
   const session = useMemo(() => createAuthenticatedNotificationSession({ auth, userId, createInvitations }), [auth, userId, sessionKey, createInvitations]);
   return createElement(NotificationProvider, { key: sessionKey, api: session.api, invitations: session.invitations }, children);
 }

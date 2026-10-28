@@ -17,6 +17,8 @@ AuthenticatedNotificationProvider에 안정적인 createInvitations factory를 �
 
 factory는 알림 세션마다 생성한다. factory 함수 참조는 호출자가 안정적으로 유지해야 불필요한 목록 초기화를 피할 수 있다. 기존 직접 invitations 주입은 테스트/호환 경계로 유지한다. 미주입 상태는 기존 INVITATION_NOT_CONNECTED 안내를 유지한다.
 
+factory는 동기 함수로 get 메서드를 제공하는 gateway를 반환해야 한다. 생성 예외·잘못된 반환값·async factory는 미연결 gateway로 격리하여 기본 알림 조회를 유지한다. 잘못된 async factory의 Promise rejection도 처리하며 내부 오류 본문을 UI에 노출하지 않는다. 설정 수정 후 새 factory 참조 또는 새 로그인 세션으로 gateway를 재생성한다.
+
 초대 조회 전후에 로그인 세션 키와 AbortSignal을 확인한다. 계정 전환·같은 계정 재로그인·취소 뒤 도착한 이전 조회 결과는 반환하지 않는다. factory를 통한 HTTP 요청에는 기존 userId/sessionKey 기반 토큰 검증도 적용된다.
 
 AuthenticatedNotificationDialog의 onInvitationReady를 NotificationPanel로 전달한다. 공유 담당이 실제 화면 처리 callback을 제공하면 기존 store가 이동 직전에 같은 inviteId·PENDING·canOpen===true를 재확인한 뒤 상세를 전달한다. 실제 App.js에는 아직 factory와 callback을 주입하지 않는다. 목 공유 화면으로 일반 로그인 사용자를 이동시키지 않는다.
@@ -41,3 +43,13 @@ frontend의 test:notifications에 포함되는 notification-auth-session.test.js
 - 실제 공유 서버 API·이벤트 생산자·수락/거절 화면 및 iPad/Android 종단 QA는 미검증이다. 244의 팀 합의와 245·248·250·251의 전체 완료를 선언하지 않는다.
 
 원본 QA DB·비공개 설정을 사용하지 않는다. backend 및 migration은 변경하지 않는다. 제출 범위는 이 연결 준비 변경으로 제한한다.
+
+## MR !195 병합 전 재검토 (2026-10-28)
+
+- 원격 제출 SHA 01a55ca의 CI #248710은 success이며 backend 321개 통과/157개 건너뜀, FE 계약·secret-scan·자동 리뷰가 성공했다. 자동 리뷰는 승인과 별개다.
+- INFO 1(factory 참조 변경 시 세션 재생성): 새 factory는 새 연결 설정이므로 useMemo 의존성을 유지한다. ref로 참조 변경을 숨기면 이전 gateway를 계속 사용할 수 있다. 호출자는 모듈 함수/useCallback을 사용한다. 현재 App.js는 이 factory를 주입하지 않는다.
+- INFO 2(factory 생성 예외/반환값): 생성 실패로 렌더 트리 전체가 중단될 수 있어 로컬 수정했다. 동기 예외, get 누락/잘못된 타입, async resolve/reject, 직접 gateway 우선순위를 확인하고 알림 조회가 계속 동작하는 회귀를 추가했다.
+- 수정본: 기존과 동일한 검증 명령으로 130개 통과(실패/건너뜀 0개), 웹 export 성공, diff 공백 검사 통과.
+- 최신 origin/develop cac026f의 변경 경로는 알림 수정 경로와 겹치지 않는다. 원격 제출본과의 merge-tree 충돌 검사 통과. 실제 develop 병합/통합 실행은 수행하지 않았다.
+- 조회 당시 MR은 Draft·opened이며 작성자 외 승인 0명이다. 이번 수정은 로컬 미커밋이므로 원격 CI가 수정본까지 검증한 것으로 간주하지 않는다. 수정 제출 후 새 CI·사람 승인을 확인해야 한다.
+- 공유 API·이벤트·실제 화면 미연결 및 실기기 QA 미완료는 계속 후속 범위다. 연결 준비 코드의 검증과 초대 흐름 전체 완료를 구분한다.

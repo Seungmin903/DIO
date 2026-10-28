@@ -7,6 +7,28 @@ import { createNotificationStore } from '../src/notifications/notificationStore.
 const tokens = (id, token) => ({ user: { userId: id, email: id+'@example.test', nickname: '회원' }, accessToken: token, refreshToken: 'refresh-'+token, expiresIn: 60 });
 const reply = (data, status=200) => ({ ok: status<400, status, json: async () => data });
 const login = auth => auth.login({email:'member@example.test',password:'DioMember123!'});
+test('공유 factory 생성 실패·잘못된 반환값에도 기본 알림 조회와 미연결 안내는 유지한다',async()=>{
+  const cases=[()=>{throw new Error('internal detail');},()=>({}),()=>({get:null}),()=>Promise.resolve({get:async()=>({})}),()=>Promise.reject(new Error('internal detail')),()=>null,42];
+  for(const createInvitations of cases){
+    const f=fixture();await login(f.auth);
+    const session=createAuthenticatedNotificationSession({auth:f.auth,userId:'1',fetchImpl:f.fetchImpl,createInvitations});
+    assert.deepEqual(await session.api.count(),{unreadCount:1});
+    await assert.rejects(session.invitations.get('invite-1'),error=>{
+      assert.equal(error.code,'INVITATION_NOT_CONNECTED');
+      assert.equal(notificationErrorNotice(error).canRetry,false);
+      assert.equal(error.message.includes('internal detail'),false);return true;
+    });
+  }
+});
+test('직접 주입한 gateway가 있으면 factory를 호출하지 않고 잘못된 직접 gateway는 차단한다',async()=>{
+  const f=fixture();await login(f.auth);let called=0;
+  const options={auth:f.auth,userId:'1',fetchImpl:f.fetchImpl,createInvitations:()=>{called++;throw new Error('unused');}};
+  const valid=createAuthenticatedNotificationSession({...options,invitations:{get:async id=>({inviteId:id})}});
+  assert.equal((await valid.invitations.get('invite-1')).inviteId,'invite-1');assert.equal(called,0);
+  const invalid=createAuthenticatedNotificationSession({...options,invitations:{get:'invalid'}});
+  await assert.rejects(invalid.invitations.get('invite-1'),e=>e.code==='INVITATION_NOT_CONNECTED');
+  assert.equal(called,0);assert.deepEqual(await invalid.api.count(),{unreadCount:1});
+});
 test('공유 어댑터는 알림과 같은 인증 transport와 AbortSignal을 사용한다', async () => {
   const f=fixture(); await login(f.auth);
   const requests=[], controller=new AbortController();

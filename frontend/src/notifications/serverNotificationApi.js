@@ -78,6 +78,17 @@ export function createServerNotificationApi(transport) {
 // useNotifications(session.api, session.invitations)へ渡す。アカウント変更時は再生成する。
 export function createServerNotificationSession({ invitations, createInvitations, ...httpOptions }) {
   const transport = createNotificationHttpTransport(httpOptions);
+  const disconnected = { async get() { throw new NotificationError('INVITATION_NOT_CONNECTED', '초대 상세 연결을 기다리고 있어요.'); } };
+  let gateway = disconnected;
+  try {
+    const candidate = invitations ?? createInvitations?.({ transport });
+    if (typeof candidate?.then === 'function') {
+      // factory는 동기 계약이다. 잘못 전달한 async factory의 rejection도 격리한다.
+      Promise.resolve(candidate).catch(() => {});
+    } else if (typeof candidate?.get === 'function') gateway = candidate;
+  } catch {
+    // 공유 설정 실패로 기본 알림 목록까지 중단하거나 내부 오류를 노출하지 않는다.
+  }
   return { api: createServerNotificationApi(transport),
-    invitations: invitations ?? createInvitations?.({ transport }) ?? { async get() { throw new NotificationError('INVITATION_NOT_CONNECTED', '초대 상세 연결을 기다리고 있어요.'); } } };
+    invitations: gateway };
 }
