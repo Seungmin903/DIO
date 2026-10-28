@@ -1,0 +1,212 @@
+/* 다이어리 홈 책상 감성 — 시안 공통 스타일
+   층 3개: .world(책상 그림, 누르지 않음) · .objects(다이어리) · .ui(버튼·글자, 앱 토큰 그대로) */
+:root {
+  --ink: #0B1957; --muted: rgba(11,25,87,.68); --line: rgba(11,25,87,.16); --soft: #F1F3F7; --pm: #EEF2F9;
+  --primary: #6E92C6; --primaryStrong: #4F74AE; --primarySoft: rgba(110,146,198,.18); --danger: #E5484D; --white: #fff;
+  --ol: #2E3240;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #fff; }
+body { font-family: Pretendard, 'Malgun Gothic', system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; word-break: keep-all; }
+.hand { font-family: 'Nanum Pen Script', cursive; }
+
+/* ---------- 기기 ---------- */
+.device { position: relative; overflow: hidden; background: var(--soft); }
+.tablet { width: 1280px; height: 800px; display: flex; }
+.phone { width: 390px; height: 844px; }
+.stage { position: relative; flex: 1; overflow: hidden; height: 100%; }
+.phone .stage { width: 390px; }
+.world, .objects, .ui { position: absolute; inset: 0; }
+.world { pointer-events: none; overflow: hidden; }
+.objects { z-index: 2; }
+.ui { z-index: 3; pointer-events: none; }
+.ui > * { pointer-events: auto; }
+
+/* ---------- 왼쪽 레일 (지금 앱 그대로) ---------- */
+.rail { position: relative; z-index: 6; width: 76px; height: 100%; background: #fff; border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding-top: 18px; gap: 12px; flex: none; }
+.rail .ri { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; position: relative; }
+.rail .ri.on { background: var(--primarySoft); }
+.rail .ri.top { margin-bottom: 26px; }
+.rail .dot { position: absolute; top: 11px; right: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+.ico { display: block; }
+
+/* ---------- 상단 UI ---------- */
+.h-title { position: absolute; left: 40px; top: 30px; font-size: 29px; font-weight: 800; letter-spacing: -.6px; line-height: 40px; }
+.viewsw { position: absolute; right: 36px; top: 26px; display: flex; padding: 3px; gap: 2px; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,255,255,.72); }
+.viewsw div { height: 39px; padding: 0 13px; display: flex; align-items: center; gap: 6px; border-radius: 11px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.viewsw div.on { background: #fff; color: var(--ink); font-weight: 800; box-shadow: 0 2px 6px rgba(11,25,87,.08); }
+.chips { position: absolute; left: 40px; top: 92px; display: flex; gap: 8px; }
+.chip { height: 36px; padding: 0 15px; display: flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.72); font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.chip.on { background: #fff; border: 1.5px solid var(--primary); font-weight: 800; }
+.acts { position: absolute; right: 36px; top: 86px; display: flex; gap: 10px; }
+.ib { width: 48px; height: 48px; border-radius: 14px; border: 1px solid var(--line); background: #fff; display: grid; place-items: center; }
+.arrow { position: absolute; width: 48px; height: 48px; border-radius: 24px; border: 1px solid var(--line); background: #fff; display: grid; place-items: center; box-shadow: 0 8px 16px rgba(11,25,87,.12); }
+
+/* 가운데 다이어리 정보 카드 (UI 층: 글자는 그림 위에 바로 올리지 않는다) */
+.info { position: absolute; display: flex; align-items: center; gap: 10px; padding: 9px 8px 9px 16px; background: #fff; border-radius: 16px; box-shadow: 0 6px 14px rgba(11,25,87,.14); }
+.info .t { font-size: 15px; font-weight: 800; line-height: 20px; display: flex; align-items: center; gap: 6px; }
+.info .p { font-size: 12px; line-height: 18px; color: var(--muted); }
+.info .grow { flex: 1; min-width: 0; }
+.info .del { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; }
+.count { position: absolute; transform: translateX(-50%); font-size: 13px; font-weight: 800; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,.86); box-shadow: 0 2px 6px rgba(11,25,87,.08); }
+.glabel { position: absolute; text-align: left; }
+.glabel b { display: block; font-size: 13.5px; font-weight: 800; line-height: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.glabel span { font-size: 12px; line-height: 18px; color: var(--muted); }
+.glabel.plate { background: rgba(255,255,255,.92); border-radius: 10px; padding: 6px 10px; box-shadow: 0 2px 6px rgba(11,25,87,.08); }
+
+/* 폰 상단 */
+.phone .h-title { left: 20px; top: 58px; font-size: 26px; line-height: 34px; }
+.phone .viewsw { right: 16px; top: 52px; }
+.phone .viewsw div { width: 42px; padding: 0; justify-content: center; height: 38px; }
+.phone .chips { left: 20px; top: 112px; gap: 6px; }
+.phone .chip { height: 34px; padding: 0 12px; font-size: 12px; }
+.phone .acts { right: 12px; top: 108px; gap: 0; }
+.phone .acts .ib { width: 40px; height: 40px; border: 0; background: transparent; }
+.statusbar { position: absolute; left: 0; right: 0; top: 0; height: 40px; display: flex; justify-content: space-between; align-items: center; padding: 0 26px; font-size: 14px; font-weight: 700; z-index: 9; }
+
+/* ---------- 다이어리 (물건 층) ---------- */
+.diary { position: absolute; transform-origin: 50% 50%; }
+.diary .sh { position: absolute; inset: 0; border-radius: 6px 14px 14px 6px; }
+.diary .pages { position: absolute; left: 6px; top: 3px; right: calc(-1 * var(--t)); bottom: calc(-1 * var(--t)); border-radius: 4px 12px 12px 4px; background: repeating-linear-gradient(135deg, #FFFDF8 0 1.4px, #E3DED3 1.4px 2.4px); box-shadow: inset 0 0 0 1px rgba(0,0,0,.05); }
+.diary .cv { position: absolute; inset: 0; border-radius: 6px 14px 14px 6px; overflow: hidden; }
+.diary .spine { position: absolute; left: 0; top: 0; bottom: 0; width: 4.9%; background: rgba(0,0,0,.10); box-shadow: 1px 0 0 rgba(255,255,255,.25); }
+.diary .band { position: absolute; right: 16.2%; top: 0; bottom: 0; width: 3.8%; background: rgba(11,25,87,.16); }
+.diary .lab { position: absolute; top: 20.3%; left: 13.5%; right: 14%; background: rgba(255,253,248,.94); border-radius: 3px; }
+.diary .lab b { display: block; font-weight: 800; color: #2B2F3A; letter-spacing: -.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diary .lab i { display: block; font-style: normal; font-weight: 800; color: rgba(43,47,58,.42); }
+.diary .sheen { position: absolute; inset: 0; background: linear-gradient(118deg, transparent 0 34%, rgba(255,255,255,.22) 34% 41%, transparent 41% 47%, rgba(255,255,255,.12) 47% 50%, transparent 50%); mix-blend-mode: screen; }
+.diary .btns { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; }
+.diary .btns div { width: 38px; height: 38px; border-radius: 12px; background: #fff; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(11,25,87,.12); }
+.diary.lift0 .sh { box-shadow: 0 1px 2px rgba(25,28,40,.22), 0 10px 18px -8px rgba(25,28,40,.32); }
+.diary.lift1 .sh { box-shadow: 0 3px 5px rgba(25,28,40,.16), 0 34px 44px -14px rgba(25,28,40,.42), 0 12px 20px -10px rgba(25,28,40,.22); }
+.diary.gray { filter: grayscale(.88) brightness(1.05) contrast(.86); }
+.diary.ghost { opacity: .55; }
+.diary .ribbon { position: absolute; top: -2px; width: 11px; height: 118%; background: linear-gradient(90deg, #C8423F, #E05A55 50%, #B83A37); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 94%, 0 100%); }
+.diary .chk { position: absolute; top: 10px; left: 14px; width: 30px; height: 30px; border-radius: 50%; background: var(--primaryStrong); border: 2.5px solid #fff; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 15px; box-shadow: 0 2px 6px rgba(11,25,87,.2); }
+
+/* 새 다이어리: 비닐 포장된 빈 노트 */
+.newbook .cv { background: repeating-linear-gradient(0deg, rgba(11,25,87,.04) 0 1px, transparent 1px 7px), #F6F4EF; }
+.newbook .wrapfilm { position: absolute; inset: -3px; border-radius: 8px 16px 16px 8px; background: linear-gradient(125deg, rgba(255,255,255,0) 20%, rgba(255,255,255,.55) 28%, rgba(255,255,255,0) 36%, rgba(255,255,255,0) 60%, rgba(255,255,255,.4) 66%, rgba(255,255,255,0) 72%); border: 1px solid rgba(255,255,255,.7); }
+.newbook .seal { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) rotate(-6deg); background: #fff; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 800; color: var(--primaryStrong); box-shadow: 0 2px 6px rgba(11,25,87,.14); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+
+/* ---------- 소품 ---------- */
+.prop { position: absolute; transform-origin: 50% 50%; }
+.prop > svg, .prop > img { display: block; width: 100%; height: auto; overflow: visible; }
+.prop.sd > svg, .prop.sd > img { filter: drop-shadow(1px 3px 2px rgba(30,30,40,.22)) drop-shadow(4px 10px 10px rgba(30,30,40,.14)); }
+.stick { filter: drop-shadow(0 0 0 #fff) drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(1px 2px 2px rgba(0,0,0,.18)); }
+
+/* ---------- 테마: 1안 연필 책상 (흑백 · 좀비고 오마주) ---------- */
+.t-pencil .world { background:
+  radial-gradient(ellipse 62% 58% at 50% 54%, rgba(255,255,255,.55), transparent 70%),
+  radial-gradient(ellipse 80% 75% at 50% 50%, transparent 58%, rgba(70,72,78,.30) 100%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .3 0 0 0 0 .3 0 0 0 .13 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+  #E6E6E3; }
+.t-pencil .world .props { filter: url(#pencil) grayscale(1) contrast(.92) brightness(1.04); }
+.t-pencil .world .hatch { position: absolute; inset: 0; background: repeating-linear-gradient(135deg, rgba(60,60,64,.07) 0 1px, transparent 1px 6px); -webkit-mask: radial-gradient(ellipse 80% 75% at 50% 50%, transparent 55%, #000 100%); mask: radial-gradient(ellipse 80% 75% at 50% 50%, transparent 55%, #000 100%); }
+.t-pencil .spot { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,.85), rgba(255,255,255,0)); }
+
+/* ---------- 테마: 2안 햇살 책상 ---------- */
+.t-sun .world { background:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .09' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .42 0 0 0 0 .28 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+  linear-gradient(180deg, #F5EFE6, #EFE6D9); }
+.t-sun .world .props { filter: saturate(.62); }
+.t-sun .blinds { position: absolute; inset: -200px; background: repeating-linear-gradient(118deg, rgba(150,118,80,.07) 0 26px, rgba(255,249,232,.5) 26px 92px); filter: blur(6px); opacity: 1; -webkit-mask: linear-gradient(135deg, #000 15%, rgba(0,0,0,.4) 55%, transparent 80%); mask: linear-gradient(135deg, #000 15%, rgba(0,0,0,.4) 55%, transparent 80%); }
+.t-sun .glow { position: absolute; inset: 0; background: radial-gradient(ellipse 45% 50% at 30% 30%, rgba(255,236,200,.5), transparent 70%); mix-blend-mode: soft-light; }
+.t-sun .leafsh { position: absolute; opacity: .16; filter: blur(4px); mix-blend-mode: multiply; }
+
+/* 2안 시간대 */
+.t-sun.morning .world { filter: hue-rotate(-8deg) saturate(.85) brightness(1.03); }
+.t-sun.morning .blinds { transform: scaleX(-1); opacity: .6; }
+.t-sun.night .world { filter: brightness(.48) saturate(.7) hue-rotate(200deg) contrast(1.05); }
+.t-sun.night .lamp { position: absolute; inset: 0; background: radial-gradient(ellipse 34% 44% at 50% 48%, rgba(255,214,150,.55), transparent 72%); mix-blend-mode: screen; z-index: 1; pointer-events: none; }
+
+/* ---------- 테마: 3안 다꾸 작업 매트 ---------- */
+.t-mat .world { background: var(--soft); }
+.t-mat .mat { position: absolute; border-radius: 22px; background:
+  repeating-linear-gradient(0deg, rgba(255,255,255,.75) 0 1.5px, transparent 1.5px 100px),
+  repeating-linear-gradient(90deg, rgba(255,255,255,.75) 0 1.5px, transparent 1.5px 100px),
+  repeating-linear-gradient(0deg, rgba(255,255,255,.38) 0 1px, transparent 1px 20px),
+  repeating-linear-gradient(90deg, rgba(255,255,255,.38) 0 1px, transparent 1px 20px),
+  #C9D5E4; box-shadow: inset 0 0 0 1px rgba(11,25,87,.08), 0 1px 2px rgba(11,25,87,.08), 0 16px 34px -18px rgba(11,25,87,.3); overflow: hidden; }
+.t-mat .mat .diag { position: absolute; left: -10%; top: 0; width: 140%; height: 1.5px; background: rgba(255,255,255,.55); transform-origin: 0 0; transform: rotate(32deg); }
+.t-mat .mat .ruler { position: absolute; left: 0; right: 0; top: 0; height: 18px; display: flex; font: 700 9px/18px Pretendard, sans-serif; color: rgba(11,25,87,.42); }
+.t-mat .mat .ruler span { width: 100px; flex: none; padding-left: 4px; }
+.t-mat .mat .rulerv { position: absolute; left: 0; top: 0; bottom: 0; width: 18px; font: 700 9px Pretendard, sans-serif; color: rgba(11,25,87,.42); }
+.t-mat .mat .rulerv span { position: absolute; left: 4px; }
+.crop { position: absolute; width: 14px; height: 14px; border-color: rgba(11,25,87,.35); border-style: solid; border-width: 0; }
+
+/* ---------- 테마: 4안 밤의 스탠드 ---------- */
+.t-night { background: #121620; }
+.t-night .rail { background: #161B27; border-color: rgba(231,234,243,.1); }
+.t-night .rail .ri.on { background: rgba(159,182,217,.18); }
+.t-night .world { background:
+  radial-gradient(ellipse 34% 46% at 50% 46%, rgba(255,222,165,.40), rgba(255,222,165,.10) 62%, transparent 78%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .08' numOctaves='3' seed='9'/%3E%3CfeColorMatrix values='0 0 0 0 .9 0 0 0 0 .8 0 0 0 0 .7 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+  linear-gradient(180deg, #151A26, #1B2130); }
+.t-night .world .props { filter: brightness(.55) saturate(.6); }
+.t-night .world .props .lit { filter: brightness(1.6) saturate(1.2); }
+.t-night .ui { color: #E7EAF3; }
+.t-night .h-title { color: #E7EAF3; }
+.t-night .chip, .t-night .viewsw, .t-night .ib, .t-night .arrow { background: rgba(32,37,50,.92); border-color: rgba(231,234,243,.14); color: #E7EAF3; }
+.t-night .chip.on { border-color: #9FB6D9; background: #262C3B; }
+.t-night .viewsw div { color: rgba(231,234,243,.7); } .t-night .viewsw div.on { background: #2E3546; color: #E7EAF3; box-shadow: none; }
+.t-night .info, .t-night .count { background: rgba(32,37,50,.95); color: #E7EAF3; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
+.t-night .info .p, .t-night .glabel span { color: rgba(231,234,243,.65); }
+.t-night .glabel b { color: #E7EAF3; }
+.t-night .diary.lift0 .sh { box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 20px -8px rgba(0,0,0,.6); }
+.t-night .diary.dark { filter: brightness(.42) saturate(.7); }
+.t-night.lightson .world { background: radial-gradient(ellipse 80% 80% at 50% 40%, rgba(255,222,165,.22), transparent 80%), linear-gradient(180deg, #232A3B, #283044); }
+.t-night.lightson .world .props { filter: brightness(.85) saturate(.7); }
+
+/* ---------- 테마: 5안 원근 책상 ---------- */
+.t-persp .world { background: linear-gradient(180deg, #DADBDF 0%, #E7E5E1 30%, #EEEBE6 100%); }
+.t-persp .plane { position: absolute; left: -380px; right: -380px; top: 150px; height: 1300px; transform-origin: 50% 0; transform: perspective(820px) rotateX(58deg); background:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .09' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .35 0 0 0 .14 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+  #ECE8E2; }
+.t-persp .plane .props { filter: saturate(.35) contrast(.95); }
+.t-persp .fog { position: absolute; left: 0; right: 0; top: 0; height: 330px; background: linear-gradient(180deg, rgba(241,243,247,1) 0%, rgba(241,243,247,.85) 40%, rgba(241,243,247,0) 100%); }
+.t-persp .dof { position: absolute; left: 0; right: 0; top: 140px; height: 210px; backdrop-filter: blur(3px); -webkit-mask: linear-gradient(180deg, #000 30%, transparent); mask: linear-gradient(180deg, #000 30%, transparent); }
+.t-persp .contact { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(40,38,34,.38), rgba(40,38,34,0)); }
+
+/* ---------- 테마: 6안 종이 한 장 (최소) ---------- */
+.t-min .world { background: var(--soft); }
+.t-min .paper { position: absolute; border-radius: 28px; background:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .45 0 0 0 0 .38 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+  #FBFAF6; box-shadow: 0 1px 2px rgba(11,25,87,.06), 0 22px 44px -24px rgba(11,25,87,.22); }
+
+/* ---------- X 예시: 감성이 UI를 덮어쓴 경우 ---------- */
+.t-bad .world { background: repeating-linear-gradient(93deg, rgba(90,50,20,.18) 0 3px, transparent 3px 19px), repeating-linear-gradient(91deg, rgba(60,30,10,.12) 0 1px, transparent 1px 7px), linear-gradient(180deg, #B07843, #9A6234); }
+.t-bad .world .props { filter: saturate(1.25); }
+.t-bad .h-title { font-family: 'Nanum Pen Script', cursive; font-size: 46px; color: #FFF6E0; font-weight: 400; text-shadow: 2px 2px 0 #5A3416; }
+.t-bad .chip { font-family: 'Nanum Pen Script', cursive; font-size: 20px; font-weight: 400; background: #F3D9A4; border: 2px dashed #7A4A22; color: #5A3416; }
+.t-bad .chip.on { background: #FFB4B4; border: 2px solid #C8423F; }
+.t-bad .viewsw { background: #F3D9A4; border: 2px solid #7A4A22; } .t-bad .viewsw div { font-family: 'Nanum Pen Script', cursive; font-size: 19px; font-weight: 400; color: #5A3416; } .t-bad .viewsw div.on { background: #FFE07A; }
+.t-bad .ib { background: #F3D9A4; border: 2px solid #7A4A22; border-radius: 50%; }
+.t-bad .rawlab { position: absolute; transform: translateX(-50%); font-family: 'Nanum Pen Script', cursive; color: #FFF6E0; font-size: 26px; text-align: center; line-height: 1.05; }
+.t-bad .rawlab small { display: block; font-size: 18px; color: #F5DDB8; }
+
+/* ---------- 편집기 (전환 마지막 장면) ---------- */
+.editor { position: absolute; inset: 0; background: var(--soft); }
+.editor .bar { position: absolute; left: 0; right: 0; top: 0; height: 64px; background: rgba(255,255,255,.9); display: flex; align-items: center; gap: 14px; padding: 0 22px; font-size: 13px; font-weight: 700; }
+.editor .tab { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px 0 0; border: 1px solid var(--line); border-radius: 12px; background: #fff; overflow: hidden; }
+.editor .tab i { width: 22px; height: 40px; display: block; }
+.editor .ribbon { position: absolute; left: 50%; top: 82px; transform: translateX(-50%); height: 56px; padding: 0 10px; display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 16px; box-shadow: 0 6px 14px rgba(11,25,87,.14); }
+.editor .ribbon div { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; }
+.editor .ribbon div.on { background: var(--primarySoft); box-shadow: inset 0 0 0 1.5px var(--primary); }
+.editor .ribbon .sep { width: 1px; height: 26px; background: var(--line); border-radius: 0; }
+.editor .page { position: absolute; background: #fff; box-shadow: 0 6px 14px rgba(11,25,87,.14); }
+.editor .undo { position: absolute; left: 24px; bottom: 22px; height: 52px; padding: 0 18px; display: flex; align-items: center; gap: 16px; background: #fff; border-radius: 16px; box-shadow: 0 6px 14px rgba(11,25,87,.14); font-size: 13px; font-weight: 700; color: var(--muted); }
+.exportbtn { height: 40px; padding: 0 16px; border-radius: 12px; background: var(--primaryStrong); color: #fff; display: flex; align-items: center; gap: 6px; }
+
+/* ---------- 시트 (도감 · 표지 디테일 · 층 구조) ---------- */
+.sheet { width: 1600px; background: #F6F6F4; padding: 44px 52px 52px; }
+.sheet h2 { margin: 0 0 6px; font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
+.sheet .sub { font-size: 14px; color: var(--muted); margin-bottom: 26px; }
+.cells { display: grid; gap: 18px; }
+.cell { background: #fff; border-radius: 18px; border: 1px solid rgba(11,25,87,.08); position: relative; overflow: hidden; }
+.cell .cap { position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; font-size: 13.5px; font-weight: 800; }
+.cell .cap small { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+.cell .desk { position: absolute; inset: 0 0 44px 0; background: #ECEAE5; }
+.cell.pencil .desk { background: #E6E6E3; } .cell.pencil .desk .props { filter: url(#pencil) grayscale(1) contrast(.92) brightness(1.04); }
+.tagrow { display: flex; gap: 8px; margin-bottom: 10px; }
+.tg { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--pm); }
