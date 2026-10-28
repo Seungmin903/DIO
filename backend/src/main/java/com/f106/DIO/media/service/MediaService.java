@@ -40,14 +40,12 @@ public class MediaService {
 		MediaFile mediaFile = new MediaFile(id, userId, kind.mediaType(), category, key, filename(upload.getOriginalFilename()),
 			kind.mimeType(), content.length, checksum(content));
 		MediaStorageDeletionTask cleanupTask = deletionQueue.reserveUploadCleanup(id, key);
-		boolean stored = false;
 		try {
 			files.put(key, content, kind.mimeType());
-			stored = true;
 			return transactions.persist(mediaFile, cleanupTask.getDeletionId());
 		} catch (RuntimeException error) {
-			if (stored) deleteOrQueue(cleanupTask);
-			else completeOrLog(cleanupTask);
+			// PutObject가 타임아웃으로 실패해도 원격 저장소에는 객체가 생성됐을 수 있다.
+			deleteOrQueue(cleanupTask);
 			throw error;
 		}
 	}
@@ -71,16 +69,12 @@ public class MediaService {
 	private void deleteOrQueue(MediaStorageDeletionTask task) {
 		try {
 			files.delete(task.getStorageKey());
-			completeOrLog(task);
+			deletionQueue.complete(task);
 		} catch (RuntimeException error) {
 			try { deletionQueue.recordFailure(task, error); }
 			catch (RuntimeException queueError) { log.error("Upload cleanup failure could not be recorded: deletionId={}", task.getDeletionId(), queueError); }
 			log.warn("Media upload cleanup will be retried: deletionId={}, key={}", task.getDeletionId(), task.getStorageKey(), error);
 		}
-	}
-	private void completeOrLog(MediaStorageDeletionTask task) {
-		try { deletionQueue.complete(task); }
-		catch (RuntimeException error) { log.error("Upload cleanup task completion failed: deletionId={}", task.getDeletionId(), error); }
 	}
 	private static byte[] read(MultipartFile upload) {
 		if (upload == null || upload.isEmpty()) throw MediaRequestException.invalidFile();
