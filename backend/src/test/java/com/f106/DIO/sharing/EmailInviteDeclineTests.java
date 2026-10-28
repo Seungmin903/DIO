@@ -57,4 +57,14 @@ class EmailInviteDeclineTests {
             error->assertThat(error.code).isEqualTo("INVITE_ALREADY_PROCESSED"));
         assertThat(invite.status()).isEqualTo("CANCELLED");
     }
+    @Test void deletionCommittedWhileWaitingReturnsTheSameNotFound(){
+        var service=service();var invite=DiaryInvite.email(UUID.randomUUID(),1L,2L,Instant.now());
+        when(invites.findById(10L)).thenReturn(Optional.of(invite));
+        doThrow(new jakarta.persistence.EntityNotFoundException("deleted")).when(entities).refresh(invite);
+        assertThatThrownBy(()->service.decline(10L,2L)).isInstanceOfSatisfying(SharingException.class,
+            error->{assertThat(error.code).isEqualTo("INVITE_NOT_FOUND");
+                assertThat(error.status).isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);});
+        assertThat(invite.pendingEmail()).isTrue();
+        verify(invites,times(1)).findById(10L);
+    }
 }

@@ -84,7 +84,9 @@ public class EmailInviteService {
         var invite=recipientInvite(inviteId,actor);
         access.lock(invite.getDiaryId());
         // Cancellation/acceptance may commit while waiting for the diary lock.
-        entities.refresh(invite);invite=recipientInvite(inviteId,actor);
+        try {entities.refresh(invite);}
+        catch(jakarta.persistence.EntityNotFoundException deleted){throw tokens.notFound();}
+        invite=recipientInvite(inviteId,actor);
         if("DECLINED".equals(invite.status()))return;
         if(!invite.pendingEmail())throw conflict();
         invite.decline(Instant.now());
