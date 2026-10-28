@@ -24,3 +24,5 @@
 추가 develop 2951762도 반영했다. 최신 텍스트·펜·회원 편집 문서 회귀 46개, Swagger 및 회원 OpenAPI 4개가 통과했으며 알림 경로도 함께 보존했다. 최종 웹 번들 및 각 4개 크기의 회원·휴지통·영구 삭제 QA는 pageerror 0이다.
 
 최종 추가 기준은 develop 8c500e3이다. 알림 Swagger 태그 변경을 충돌 없이 보존하고 SwaggerDocumentationTests 3개를 재검증해 통과했다. 이전 PostgreSQL·FE 검증 결과는 코드 영향이 없어 유지한다.
+
+CI 중 추가된 develop 9d1e68f의 도구 선택 설정 변경도 충돌 없이 반영했다. 도구 선택·회원 편집 문서 경계 9개가 통과했고 API·SQL 변경은 없어 기존 PostgreSQL 결과는 유지했다. 856a313 기준 원격 CI 전체 통과 및 자동 리뷰 INFO 3건을 확인했으며 최종 커밋의 CI/리뷰는 MR 본문에 별도 기록한다.
