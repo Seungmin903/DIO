@@ -42,12 +42,13 @@ export function createTextPageSession({ api, storage, key, pageId, diaryId, isAc
   let journal = { revision: 1, pageId, diaryId, local: null, base: null, deleted: [], pending: null }, writes=Promise.resolve(), running=null
   const active = () => { if(!isActive()) throw new Error('편집 세션이 종료됐어요.') }
   const persist = () => { const raw=JSON.stringify(journal); const task=writes.catch(()=>{}).then(()=>storage.setItem(key,raw)); writes=task; return task }
-  const record = objects => {
+  const normalized = objects => objects.map(encodeText).sort((a,b)=>a.elementId.localeCompare(b.elementId))
+  const record = async objects => {
     active()
     const local=copy(objects.filter(o=>o.type==='text'))
     // A downloaded snapshot must reach the editor before its old contents can
     // become a new upload/delete request. Persist this barrier across restarts.
-    if(journal.awaitingImport && !same(local,journal.local)) throw conflict()
+    if(journal.awaitingImport && !same(normalized(local),normalized(journal.local))) throw conflict()
     journal.awaitingImport=false
     journal.local=local
     return persist()
@@ -59,6 +60,14 @@ export function createTextPageSession({ api, storage, key, pageId, diaryId, isAc
       return copy(journal.local)
     },
     record,
+    async retainLocal(objects) {
+      active()
+      journal.local=copy(objects.filter(o=>o.type==='text'))
+      journal.awaitingImport=false
+      // Re-enter initial reconciliation: neither side may overwrite the other.
+      journal.base=null
+      await persist()
+    },
     synchronize() {
       if(running) return running
       running=(async()=>{
