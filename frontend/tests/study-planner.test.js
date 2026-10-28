@@ -199,8 +199,12 @@ test('펜 · 형광펜으로 하트를 여러 개 그으면 지나간 하트가 
   const mixed = applyPlannerStroke(more, 'landscape', [heart(1), heart(2)], { kind: 'highlighter', color: P })
   assert.deepEqual(filled(mixed), [Y, P, P, Y, Y])
   const svg = plannerOverlaySvg('landscape', mixed)
-  assert.equal(svg.match(/fill="#FFB3C7" fill-opacity="0.75"/g).length, 2)
-  assert.equal(svg.match(/fill="#FFE066" fill-opacity="0.75"/g).length, 3)
+  // 형광펜 하트는 흰 바탕에 섞은 불투명 색, 윤곽선 없음
+  const heartsSvg = [...svg.matchAll(/<path d="M[^"]*C[^"]*Z" fill="(#[0-9A-F]{6})" stroke="(#[0-9A-F]{6})"/g)]
+  assert.deepEqual(heartsSvg.map(m => m[1]), ['#FFE88C', '#FFC6D5', '#FFC6D5', '#FFE88C', '#FFE88C'])
+  // 가장자리 색 = 면 색(윤곽선이 따로 보이지 않음), 반투명 없음
+  assert.ok(heartsSvg.every(m => m[1] === m[2]))
+  assert.doesNotMatch(svg, /fill-opacity="0.75"/)
   // 펜으로 그어도 지나간 하트가 그 펜 색으로 누적된다
   const R = '#EF476F'
   assert.deepEqual(filled(applyPlannerStroke(more, 'landscape', [heart(2), heart(3)], PEN)), [Y, Y, R, R, Y])

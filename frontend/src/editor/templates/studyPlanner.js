@@ -259,6 +259,8 @@ export function formatMinutes(minutes) {
 }
 
 // ---------- SVG ----------
+// 반투명 색을 흰 바탕에 올린 것과 같은 불투명 색
+const onWhite = (hex, alpha) => '#' + [1, 3, 5].map(i => Math.round(255 - (255 - parseInt(hex.slice(i, i + 2), 16)) * alpha).toString(16).padStart(2, '0')).join('').toUpperCase()
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const n = v => Math.round(v * 100) / 100
 const rect = (x, y, w, h, a = '') => `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" ${a}/>`
@@ -406,7 +408,9 @@ function overlayBody(orientation, value) {
   // 만족도
   if (p.mood) hearts(L).forEach((c, i) => {
     const h = p.mood.hearts[i]
-    if (h) out.push(`<path d="${heartPath(c)}" fill="${h.color}" ${h.hl ? 'fill-opacity="0.75" ' : ''}stroke="${h.color}" stroke-width="1.2"/>`)
+    // 펜 · 형광펜 모두 윤곽선이 보이지 않게 한 가지 불투명 색으로 칠한다(형광펜은 흰 바탕에 섞은 색).
+    // 가장자리도 같은 색으로 덮어 빈 하트의 회색 윤곽(굵기 1.2)이 비치지 않게 한다.
+    if (h) { const fill = h.hl ? onWhite(h.color, 0.75) : h.color; out.push(`<path d="${heartPath(c)}" fill="${fill}" stroke="${fill}" stroke-width="1.6" stroke-linejoin="round"/>`) }
   })
   return out.join('')
 }
