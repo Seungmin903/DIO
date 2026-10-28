@@ -15,8 +15,9 @@ public class MemberDiaryContractService {
     private final DiaryDetailService detail;
     private final JdbcTemplate jdbc;
     private final DiaryRequestIdentity identity;
-    public MemberDiaryContractService(DiaryDetailService detail, JdbcTemplate jdbc, DiaryRequestIdentity identity) {
-        this.detail=detail; this.jdbc=jdbc; this.identity=identity;
+    private final DiaryDetailRepository diaries;
+    public MemberDiaryContractService(DiaryDetailService detail, JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries) {
+        this.detail=detail; this.jdbc=jdbc; this.identity=identity; this.diaries=diaries;
     }
     public MemberDiaryResponses.Diary get(UUID id) {
         return enrich(id,detail.getAuthorized(id));
@@ -24,8 +25,9 @@ public class MemberDiaryContractService {
     public MemberDiaryResponses.Diary update(UUID id,MemberDiaryRequests.Update request) {
         // Authorized get holds shared locks; acquire the diary write lock first to avoid lock upgrades.
         long user=identity.requireUserId(DiaryDetailException::unauthorized);
-        // Preserve user -> diary -> membership lock ordering used by the existing chain.
-        jdbc.queryForList("select user_id from users where user_id=? and status='ACTIVE' and deleted_at is null for update",Long.class,user);
+        // SHARE prevents account revocation without serializing this user's unrelated diaries.
+        // Keep user -> diary UPDATE -> membership SHARE; do not acquire membership locks first.
+        if(!diaries.lockActiveUser(user)) throw DiaryDetailException.unauthorized();
         jdbc.queryForList("select diary_id from diaries where diary_id=? for update",UUID.class,id);
         var before=detail.getAuthorized(id);
         if(!before.canEdit()) throw new DiaryDetailException(HttpStatus.FORBIDDEN,"DIARY_METADATA_FORBIDDEN","소유자만 제목과 표지를 수정할 수 있어요.");
