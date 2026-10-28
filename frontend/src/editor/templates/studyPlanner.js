@@ -173,9 +173,11 @@ export function applyPlannerStroke(value, orientation, points, settings) {
   // 이웃한 하트 둘은 톡 판정 거리보다 가까워서, 지나간 하트 수로 긋기를 가른다.
   const passed = heart >= 0 ? new Set(sample(points).map(p => hitCircle(heartHits, p)).filter(i => i >= 0)) : null
   const paint = { color: c, hl }
-  if (heart >= 0 && tap && !(passed?.size > 1)) return { ...planner, mood: { hearts: HEARTS.map(k => k <= heart ? paint : null) } }
+  // 톡: 누른 하트만 새 색으로 칠하고 나머지 하트는 그대로 둔다(누적).
+  const kept = planner.mood?.hearts ?? HEARTS.map(() => null)
+  if (heart >= 0 && tap && !(passed?.size > 1)) return { ...planner, mood: { hearts: HEARTS.map(k => k === heart ? paint : kept[k]) } }
   // 그은 하트만 새 색으로 칠하고, 나머지 하트는 원래 색 그대로 둔다(누적).
-  if (passed) return { ...planner, mood: { hearts: HEARTS.map(k => passed.has(k) ? paint : planner.mood?.hearts[k] ?? null) } }
+  if (passed) return { ...planner, mood: { hearts: HEARTS.map(k => passed.has(k) ? paint : kept[k]) } }
   return null
 }
 

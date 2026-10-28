@@ -123,8 +123,9 @@ test('둥근 끝 형광펜이면 막대 끝이 반원이고, 가운데를 지워
 test('만족도 하트는 획 · 영역 지우개 모두 닿은 하트 하나씩만 지운다', () => {
   const M = plannerLayout('landscape').mood
   const heart = i => { const s = 20, gap = 8, x0 = M.x + M.w - 12 - 5 * s - 4 * gap; return { x: x0 + s / 2 + i * (s + gap), y: M.y + M.h / 2 } }
-  const p = applyPlannerStroke(null, 'landscape', [heart(3)], PEN)
   const filled = planner => normalizePlanner(planner).mood?.hearts.map(h => h ? h.color : null) ?? null
+  let p = null
+  for (const i of [0, 1, 2, 3]) p = applyPlannerStroke(p, 'landscape', [heart(i)], PEN)
   assert.deepEqual(filled(p), ['#EF476F', '#EF476F', '#EF476F', '#EF476F', null])
   for (const mode of ['stroke', 'area']) {
     const one = erasePlanner(p, 'landscape', [heart(3)], mode)
@@ -135,10 +136,24 @@ test('만족도 하트는 획 · 영역 지우개 모두 닿은 하트 하나씩
   let all = p
   for (const i of [0, 1, 2, 3]) all = erasePlanner(all, 'landscape', [heart(i)], 'area')
   assert.equal(normalizePlanner(all).mood, null)
-  // 다시 톡 하면 처음부터 채운다
-  assert.deepEqual(filled(applyPlannerStroke(erasePlanner(p, 'landscape', [heart(1)]), 'landscape', [heart(2)], PEN)), ['#EF476F', '#EF476F', '#EF476F', null, null])
   // 예전 기록 { i, color, off } 도 읽는다
   assert.deepEqual(filled({ mood: { i: 2, color: '#ef476f', off: [1] } }), ['#EF476F', null, '#EF476F', null, null])
+})
+
+test('하트를 누르면 그 하트만 칠하고 나머지는 그대로 둔다 (펜 · 형광펜 누적)', () => {
+  const M = plannerLayout('landscape').mood
+  const heart = i => { const s = 20, gap = 8, x0 = M.x + M.w - 12 - 5 * s - 4 * gap; return { x: x0 + s / 2 + i * (s + gap), y: M.y + M.h / 2 } }
+  const filled = planner => normalizePlanner(planner).mood?.hearts.map(h => h ? h.color : null) ?? null
+  const Y = '#FFE066', P = '#FFB3C7', B = '#0B1957'
+  let p = applyPlannerStroke(null, 'landscape', [heart(3)], HL)
+  assert.deepEqual(filled(p), [null, null, null, Y, null])
+  p = applyPlannerStroke(p, 'landscape', [heart(1)], { kind: 'highlighter', color: P })
+  p = applyPlannerStroke(p, 'landscape', [heart(0)], { kind: 'pen', color: B })
+  assert.deepEqual(filled(p), [B, P, null, Y, null])
+  // 이미 칠한 하트를 다른 색으로 누르면 그 하트 색만 바뀐다
+  assert.deepEqual(filled(applyPlannerStroke(p, 'landscape', [heart(3)], PEN)), [B, P, null, '#EF476F', null])
+  assert.equal(normalizePlanner(p).mood.hearts[0].hl, false)
+  assert.equal(normalizePlanner(p).mood.hearts[1].hl, true)
 })
 
 test('텍스트 도구로 칸을 누르면 그 칸 · 줄에 맞춘 글상자 자리를 준다', () => {
