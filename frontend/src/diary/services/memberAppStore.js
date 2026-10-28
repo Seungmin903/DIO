@@ -2,13 +2,16 @@ import { memberKeys } from './memberStorage.js'
 import { diaryCreateInput } from './diaryCreateInput.js'
 import { localTemplateReference } from '../../editor/templates/serverCatalog.js'
 import { createDefaultDoc } from '../../editor/state/defaultDoc.js'
+import { normalizeMemberLibraryQuery } from './memberLibraryQuery.js'
 
 const clone = value => JSON.parse(JSON.stringify(value))
 const failure = (code, message) => Object.assign(new Error(message), { code })
-export function createMemberAppStore({ accountId, api, storage, makeRequestId }) {
+export function createMemberAppStore({ accountId, api, storage, makeRequestId, serverLibrary = false }) {
   const keys = memberKeys(accountId), listeners = new Set()
-  let state = { diaries: [], loaded: false, refreshing: false, pending: null, error: null, trash:[],trashLoaded:false,trashLoading:false,trashError:null,lifecycle:null }, disposed = false, creating = null, starting = null, writable = false
+  let state = { diaries: [], loaded: false, refreshing: false, pending: null, error: null, trash:[],trashLoaded:false,trashLoading:false,trashError:null,lifecycle:null,
+    library: { items: [], criteria: normalizeMemberLibraryQuery(), ready: false, loading: false, error: null, hasNext: false, nextCursor: null }, bulkTrash: null }, disposed = false, creating = null, starting = null, writable = false
   let revision = 0, listing = null, trashListing=null, lifecycleRequest=null, lifecycleRunning=null
+  let librarySequence = 0, libraryRequest = null, libraryCursors = new Set(), libraryRetryMore = false, bulkRequest = null, bulkRunning = null
   const metadataVersions = new Map(), detailRequests = new Map()
   const version = id => metadataVersions.get(id) ?? 0
   const invalidateDetails = ids => { for (const id of ids) metadataVersions.set(id, version(id) + 1) }
@@ -71,6 +74,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
         // 응답 유실/목록 저장 실패 후 재시도에서도 이미 필기한 문서를 덮어쓰지 않는다.
         if (!saved) await write(keys.doc(result.id), doc)
         active(); await publish(diary); active()
+        if (serverLibrary) await store.reload().catch(() => {})
         await storage.removeItem(keys.pending); active(); emit({ pending: null, error: null })
         return diary
       } catch (error) {
@@ -83,7 +87,38 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
     })().finally(() => { creating = null })
     return creating
   }
-  return {
+  const retryable = error => ![400, 401, 403, 404, 409, 410, 422].includes(error?.status)
+  const bulkResult = request => ({ ids: request.ids, succeeded: [...request.succeeded], hasRetryableFailures: [...request.failed.values()].some(retryable), failed: [...request.failed].map(([id, error]) => ({ id, error })), refreshError: request.refreshError })
+  const runBulkTrash = (request, targets) => {
+    revision++; invalidateDetails(targets)
+    const publishBulk = busy => emit({ bulkTrash: { ...bulkResult(request), busy, canRetry: !busy && (Boolean(request.refreshError) || [...request.failed.values()].some(retryable)) } })
+    publishBulk(true)
+    bulkRunning = (async () => {
+      let position = 0, authError = null
+      const worker = async () => {
+        while (position < targets.length) {
+          active(); const id = targets[position++]
+          if (authError) { request.failed.set(id, authError); continue }
+          try { await api.trash(id); active() }
+          catch (error) { active(); request.failed.set(id, error); if (error.status === 401) authError = error; publishBulk(true); continue }
+          request.succeeded.add(id); request.failed.delete(id); revision++; invalidateDetails([id])
+          await enqueue(async () => {
+            active(); const diaries = state.diaries.filter(row => row.id !== id)
+            emit({ diaries, library: { ...state.library, items: state.library.items.filter(row => row.id !== id) } })
+            try { await write(keys.index, diaries); active() } catch (error) { active(); request.refreshError = error }
+          })
+          publishBulk(true)
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(3, targets.length) }, worker))
+      active()
+      try { await store.reload(); await store.loadTrash(); active(); request.refreshError = null }
+      catch (error) { active(); request.refreshError = error }
+      publishBulk(false); return bulkResult(request)
+    })().finally(() => { bulkRunning = null })
+    return bulkRunning
+  }
+  const store = {
     source: 'member-api', keys,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn) }, getSnapshot: () => state,
     async load() {
@@ -97,6 +132,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
       } catch (error) { emit({ loaded: true, error }); throw error }
     },
     reload() {
+      if (serverLibrary) return this.queryLibrary(state.library.criteria, { force: true })
       if (listing) return listing
       listing = (async () => {
         active(); if (!writable) throw failure('READ_ONLY_CACHE', '기기 저장 자료를 먼저 확인해 주세요.')
@@ -124,6 +160,77 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
       })().finally(() => { listing = null })
       return listing
     },
+    queryLibrary(input, { more = false, force = false } = {}) {
+      active()
+      if (!writable) return Promise.reject(failure('NOT_READY', '목록 저장 자료를 먼저 확인해 주세요.'))
+      let criteria
+      try { criteria = normalizeMemberLibraryQuery(input) } catch (error) {
+        librarySequence++; libraryRequest = null
+        emit({ library: { ...state.library, criteria: { ...state.library.criteria, ...input }, items: [], loading: false, ready: false, error, hasNext: false, nextCursor: null } })
+        return Promise.reject(error)
+      }
+      const same = JSON.stringify(criteria) === JSON.stringify(state.library.criteria)
+      if (more && (!same || !state.library.ready || !state.library.hasNext)) return Promise.resolve(state.library.items)
+      const cursor = more ? state.library.nextCursor : undefined
+      const key = JSON.stringify([criteria, cursor])
+      if (libraryRequest?.key === key && libraryRequest.revision === revision) return libraryRequest.promise
+      if (!more && same && state.library.ready && !force) return Promise.resolve(state.library.items)
+      const sequence = ++librarySequence, startRevision = revision
+      if (!more) libraryCursors = new Set()
+      emit({ library: { ...state.library, criteria, items: same ? state.library.items : [], ready: more && state.library.ready,
+        loading: true, error: null, hasNext: more && state.library.hasNext, nextCursor: more ? cursor : null } })
+      const current = () => { active(); if (sequence !== librarySequence) throw failure('STALE_LIBRARY', '조회 조건이 바뀌었어요.') }
+      const promise = (async () => {
+        try {
+          const page = await api.list({ ...criteria, cursor, limit: 20 }); current()
+          if (page.hasNext && (!page.nextCursor || page.nextCursor === cursor || libraryCursors.has(page.nextCursor))) throw failure('INVALID_LIST_CURSOR', '다음 목록을 확인하지 못했어요. 처음부터 다시 확인해 주세요.')
+          return await enqueue(async () => {
+            current(); if (revision !== startRevision) throw failure('LIST_CHANGED', '목록이 변경됐어요. 다시 확인해 주세요.')
+            const known = new Map(state.diaries.map(row => [row.id, row]))
+            const rows = page.items.map(row => entry(row, known.get(row.id)))
+            for (const row of rows) known.set(row.id, row)
+            const items = new Map((more ? state.library.items : []).map(row => [row.id, row]))
+            for (const row of rows) items.set(row.id, row)
+            const diaries = [...known.values()]
+            await write(keys.index, diaries); current()
+            invalidateDetails(rows.map(row => row.id))
+            if (page.hasNext) libraryCursors.add(page.nextCursor)
+            libraryRetryMore = false
+            emit({ diaries, error: null, library: { criteria, items: [...items.values()], ready: true, loading: false, error: null, hasNext: page.hasNext, nextCursor: page.nextCursor } })
+            return [...items.values()]
+          })
+        } catch (error) {
+          if (!disposed && sequence === librarySequence) {
+            libraryRetryMore = more && error.code !== 'INVALID_LIST_CURSOR' && error.status !== 400
+            emit({ library: { ...state.library, loading: false, error } })
+          }
+          throw error
+        } finally { if (libraryRequest?.sequence === sequence) libraryRequest = null }
+      })()
+      libraryRequest = { key, sequence, revision: startRevision, promise }; return promise
+    },
+    loadMoreLibrary() { return this.queryLibrary(state.library.criteria, { more: true }) },
+    retryLibrary() { return this.queryLibrary(state.library.criteria, { force: true, more: libraryRetryMore }) },
+    bulkTrash(ids) {
+      active()
+      const targets = Array.isArray(ids) ? [...new Set(ids)] : []
+      if (!targets.length) return Promise.reject(failure('INVALID_SELECTION', '휴지통으로 옮길 다이어리를 선택해 주세요.'))
+      if (bulkRunning) {
+        if (JSON.stringify(targets) === JSON.stringify(bulkRequest.ids)) return bulkRunning
+        return Promise.reject(failure('OPERATION_PENDING', '선택한 다이어리 처리를 먼저 확인해 주세요.'))
+      }
+      if (state.bulkTrash?.canRetry) return Promise.reject(failure('OPERATION_PENDING', '이전 선택 작업을 다시 확인하거나 안내를 닫아 정리해 주세요.'))
+      if (lifecycleRunning || state.lifecycle?.canRetry) return Promise.reject(failure('OPERATION_PENDING', '이전 휴지통 작업 결과를 먼저 확인해 주세요.'))
+      if (targets.some(id => !state.diaries.find(row => row.id === id)?.permissions?.canTrash)) return Promise.reject(failure('FORBIDDEN', '휴지통으로 옮길 수 있는 다이어리만 선택해 주세요.'))
+      bulkRequest = { ids: targets, succeeded: new Set(), failed: new Map(), refreshError: null }
+      return runBulkTrash(bulkRequest, targets)
+    },
+    retryBulkTrash() {
+      active(); if (bulkRunning) return bulkRunning
+      if (!bulkRequest || !state.bulkTrash?.canRetry) return Promise.reject(failure('NO_PENDING_OPERATION', '다시 확인할 선택 작업이 없어요.'))
+      return runBulkTrash(bulkRequest, [...bulkRequest.failed].filter(([, error]) => retryable(error)).map(([id]) => id))
+    },
+    dismissBulkTrash() { if (!bulkRunning) { bulkRequest = null; emit({ bulkTrash: null }) } },
     loadTrash() {
       if(trashListing) return trashListing;
       trashListing=(async()=>{active();const startRevision=revision;emit({trashLoading:true});try {
@@ -135,6 +242,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
       }catch(error){if(!disposed)emit({trashError:error});throw error;}finally {if(!disposed)emit({trashLoading:false});}})().finally(()=>{trashListing=null});return trashListing;
     },
     lifecycle(kind,id) {
+      if (bulkRunning || state.bulkTrash?.canRetry) return Promise.reject(failure('OPERATION_PENDING', '이전 선택 작업을 다시 확인하거나 안내를 닫아 정리해 주세요.'))
       active();if(!['trash','restore','purge'].includes(kind))return Promise.reject(failure('INVALID_OPERATION','지원하지 않는 작업이에요.'));if(lifecycleRunning) {
         if(lifecycleRequest?.id===id && lifecycleRequest.kind===kind)return lifecycleRunning;
         return Promise.reject(failure('OPERATION_PENDING','진행 중인 휴지통 작업을 먼저 확인해 주세요.'));
@@ -206,7 +314,9 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
       if (!previous?.canEdit) throw failure('FORBIDDEN', '소유자만 제목과 표지를 수정할 수 있어요.')
       try {
         const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', expectedVersion: previous.version })
-        active(); return await publish(entry(result, previous))
+        active(); const updated = await publish(entry(result, previous))
+        if (serverLibrary) await this.reload().catch(() => {})
+        return updated
       } catch (error) {
         if (error.status === 409) await this.refresh(id).catch(() => {})
         throw error
@@ -215,4 +325,5 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
     setDiaries(next) { return enqueue(async () => { active(); if (!writable) throw failure('READ_ONLY_CACHE', '목록을 확인한 뒤 다시 시도해 주세요.'); const diaries = typeof next === 'function' ? next(state.diaries) : next; revision++; invalidateDetails(new Set([...state.diaries, ...diaries].map(item => item.id))); await write(keys.index, diaries); active(); emit({ diaries }) }).catch(error => emit({ error })) },
     dispose() { disposed = true; listeners.clear() },
   }
+  return store
 }

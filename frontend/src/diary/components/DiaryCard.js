@@ -16,7 +16,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
     : Number.isSafeInteger(count) && count >= 0 ? `${count}페이지` : '페이지 수 확인 불가';
   const card = (
     <Pressable
-      disabled={selecting && diary.canManage === false}
+      disabled={selecting && (diary.canManage === false || diary.canDelete === false)}
       accessibilityRole={selecting ? 'checkbox' : 'button'}
       accessibilityLabel={selecting ? `${diary.title} 선택` : `${diary.title} 열기`}
       accessibilityHint={`${isSharedDiary(diary) ? '공유 다이어리, ' : ''}${countLabel}`}
@@ -34,7 +34,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
     >
       <View style={s.cardCoverWrap}>
         <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact} />
-        {selecting && diary.canManage !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
+        {selecting && diary.canManage !== false && diary.canDelete !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
           <Text style={s.cardCheckMark}>{selected ? '✓' : ''}</Text>
         </View>}
         {!selecting && <View style={s.cardActions}>

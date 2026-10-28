@@ -55,6 +55,8 @@ export const TEXT_FONTS = [
   { id: 'serif', label: '기본 명조', systemNames: { ios: 'AppleMyungjo', android: 'Noto Serif', web: '바탕' } },
   { id: 'nanum-gothic', label: '나눔고딕', family: 'NanumGothic', boldFamily: 'NanumGothicBold' },
   { id: 'nanum-myeongjo', label: '나눔명조', family: 'NanumMyeongjo', boldFamily: 'NanumMyeongjoBold' },
+  { id: 'gowun-dodum', label: '고운돋움', family: 'GowunDodum' },
+  { id: 'gowun-batang', label: '고운바탕', family: 'GowunBatang', boldFamily: 'GowunBatangBold' },
   { id: 'nanum-pen', label: '나눔손글씨 펜', family: 'NanumPenScript' },
   { id: 'poor-story', label: '푸어스토리', family: 'PoorStory' },
 ]
@@ -94,7 +96,8 @@ export function loadedFontFamily(id, bold = false) {
 export function textStyleSupport(id, platform = 'android') {
   const font = TEXT_FONTS.find(f => f.id === id)
   if (font?.family) return { bold: Boolean(font.boldFamily), italic: false }
-  // AppleMyungjo는 단일 Regular 서체다. System은 iOS의 시스템 서식 선택을 사용한다.
+  // iOS 기본 고딕의 한글 대체 서체 Apple SD Gothic Neo에는 italic face가 없다.
+  if (platform === 'ios' && id === 'sans') return { bold: true, italic: false }
   return platform === 'ios' && id === 'serif' ? { bold: false, italic: false } : { bold: true, italic: true }
 }
 
@@ -123,7 +126,9 @@ export function textStyle(object, scale = 1, platform = 'android') {
   const support = textStyleSupport(s.font, platform)
   const family = loadedFontFamily(s.font, s.bold && support.bold)
   // 등록한 단일 face를 직접 선택한다. 파일에 없는 weight/style을 다시 요청하지 않는다.
-  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: s.fontSize * scale, lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && support.italic ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
+  // 기존 iOS 기본 고딕 문서는 영문 기울임이 표시됐을 수 있어 렌더링을 보존한다.
+  const legacySystemItalic = platform === 'ios' && s.font === 'sans' && s.italic
+  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: s.fontSize * scale, lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && (support.italic || legacySystemItalic) ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
 }
 
 export function textFormatPatch(object, settings) {

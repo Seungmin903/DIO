@@ -37,7 +37,7 @@ function ink(buffer) {
       await page.getByRole('button', { name: label, exact: true }).click();
     };
     const sample = page.getByTestId('font-sample');
-    for (const [label, family] of [['나눔고딕', 'NanumGothic'], ['나눔명조', 'NanumMyeongjo']]) {
+    for (const [label, family] of [['나눔고딕', 'NanumGothic'], ['나눔명조', 'NanumMyeongjo'], ['고운바탕', 'GowunBatang']]) {
       await select(label);
       await page.waitForFunction(f => getComputedStyle(document.querySelector('[data-testid="font-sample"]').firstElementChild).fontFamily.includes(f), family);
       const regular = await sample.screenshot({ path: path.join(out, `${family}-regular.png`) });
@@ -56,8 +56,9 @@ function ink(buffer) {
     await select('맑은 고딕');
     await page.getByRole('button', { name: '굵게', exact: true }).click();
     await page.getByRole('button', { name: '기울임', exact: true }).click();
-    for (const label of ['나눔손글씨 펜', '푸어스토리']) {
+    for (const label of ['나눔손글씨 펜', '푸어스토리', '고운돋움']) {
       await select(label);
+      if (label === '고운돋움') await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-testid="font-sample"]').firstElementChild).fontFamily.includes('GowunDodum'));
       assert.equal(await page.getByRole('button', { name: '굵게', exact: true }).isDisabled(), true);
       assert.equal(await page.getByRole('button', { name: '기울임', exact: true }).isDisabled(), true);
       assert.ok(await page.getByText('이 글꼴은 굵게·기울임을 지원하지 않아요.', { exact: true }).isVisible());

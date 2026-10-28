@@ -84,7 +84,7 @@ function LibraryScreen({
     if (selecting && selected.length !== selection.length) onSelectionChange?.(selected);
   }, [onSelectionChange, selected, selecting, selection]);
   const toggleSelect = useCallback((diary) => {
-    if (!trashing && diary.canManage !== false) onSelectionChange?.(toggleSelection(selected, diary.id));
+    if (!trashing && diary.canManage !== false && diary.canDelete !== false) onSelectionChange?.(toggleSelection(selected, diary.id));
   }, [onSelectionChange, selected, trashing]);
   const allSelected = manageable.length > 0 && selected.length === manageable.length;
   // 렌더링/스크롤 위치와 무관하게 현재 검색·필터 결과 전체를 대상으로 한다.
@@ -274,7 +274,7 @@ function LibraryScreen({
 
       <View style={[s.libraryToolbar, compact && s.libraryToolbarCompact, s.libraryToolbarWrap]}>
         <View style={s.filters}>
-          {FILTERS.filter(item => !remoteQuery || item.id !== 'shared').map((item) => (
+          {FILTERS.filter(item => !remoteQuery || remoteQuery.supportsShared || item.id !== 'shared').map((item) => (
             <Pressable
               key={item.id}
               accessibilityRole="tab"

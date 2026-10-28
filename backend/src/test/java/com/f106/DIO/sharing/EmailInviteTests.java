@@ -21,7 +21,10 @@ class EmailInviteTests extends SharingTestSupport {
     DiaryInvite pending(UUID diary,Actor to){return invites.pendingEmail(diary,to.id()).orElseThrow();}
     void send(UUID diary,Actor from,Actor to){emails.send(diary,from.id(),new EmailInviteRequest(address(to)));}
     void drain() throws Exception {
-        long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(10);
+        // A newly assigned worker may not yet appear in activeCount or the queue.
+        // Wait for an ordered executor barrier before inspecting the idle counters.
+        mailExecutor.getThreadPoolExecutor().submit(()->{}).get(30,TimeUnit.SECONDS);
+        long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(30);
         while(mailExecutor.getActiveCount()>0||!mailExecutor.getThreadPoolExecutor().getQueue().isEmpty()){
             if(System.nanoTime()>end)throw new AssertionError("Mail queue did not drain");Thread.sleep(20);
         }

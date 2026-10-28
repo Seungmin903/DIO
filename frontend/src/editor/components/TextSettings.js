@@ -68,8 +68,14 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
       </View>
 
       <Text style={toolPanelStyles.label}>스타일</Text>
-      <Segmented items={styleItems} selected={(id) => Boolean(settings[id])} onPress={(id) => { if (!styleItems.find(item => item.id === id)?.disabled) onChange({ [id]: !settings[id] }) }} />
+      <Segmented items={styleItems} selected={(id) => Boolean(settings[id] && (support[id] !== false))} onPress={(id) => { if (!styleItems.find(item => item.id === id)?.disabled) onChange({ [id]: !settings[id] }) }} />
       {unavailable.length > 0 && <Text style={styles.styleNotice}>이 글꼴은 {unavailable.join('·')}을 지원하지 않아요.</Text>}
+      {Platform.OS === 'ios' && settings.font === 'sans' && settings.italic && <View>
+        <Text style={styles.styleNotice}>기존 문서의 기울임 설정은 유지되며 한글에는 적용되지 않을 수 있어요.</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="기존 기울임 설정 해제" onPress={() => onChange({ italic: false })}>
+          <Text style={styles.styleNotice}>기존 기울임 설정 해제</Text>
+        </Pressable>
+      </View>}
       {fontStatus.includes(':error') ? <Text style={styles.styleNotice}>글꼴 일부를 불러오지 못했어요. 사용할 수 없는 서식은 꺼져 있어요.</Text> : fontStatus.includes(':loading') ? <Text style={styles.styleNotice}>글꼴을 준비하고 있어요.</Text> : null}
 
       <Text style={toolPanelStyles.label}>정렬</Text>
