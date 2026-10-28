@@ -20,13 +20,44 @@ class DeploymentAuthContractTests {
         assertThat(ci.getProperty("backend-postgres-auth-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh auth");
         assertThat(ci.getProperty("backend-postgres-diary-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh diary");
         assertThat(ci.getProperty("backend-postgres-lifecycle-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh lifecycle");
-        String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh"));
+
+        String ciText = Files.readString(Path.of("../.gitlab-ci.yml")).replace("\r\n", "\n");
+        String authJob = block(ciText, "backend-postgres-auth-test:\n", "\nbackend-postgres-diary-test:");
+        String diaryJob = block(ciText, "backend-postgres-diary-test:\n", "\nbackend-postgres-lifecycle-test:");
+        String lifecycleJob = block(ciText, "backend-postgres-lifecycle-test:\n", "\nsecret-scan:");
+        for (String job : new String[]{authJob, diaryJob, lifecycleJob}) {
+            assertThat(job).contains("backend/src/test/resources/**/*", "backend/src/test/java/**/*Fixture.java",
+                "backend/src/test/java/**/*Contract.java");
+        }
+        assertThat(authJob).contains("backend/build/test-results/authPostgresTest/*.xml");
+        assertThat(diaryJob).contains("backend/src/main/java/**/diary/**/*",
+            "backend/build/test-results/postgresMemberDiaryCreationTest/*.xml",
+            "backend/build/test-results/postgresDiaryDetailTest/*.xml",
+            "backend/build/test-results/postgresMemberDiaryHttpTest/*.xml");
+        assertThat(lifecycleJob).contains("backend/src/main/java/**/page/**/*",
+            "backend/build/test-results/postgresDiaryTrashTest/*.xml",
+            "backend/build/test-results/postgresDiaryPurgeTest/*.xml");
+
+        String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh")).replace("\r\n", "\n");
         assertThat(script).contains("auth|diary|lifecycle|all", "trap cleanup EXIT", "--network \"container:$pg_name\"",
             "CREATE DATABASE dio_reset_qa", "authPostgresTest --no-daemon", "CREATE DATABASE dio_member_ci",
             "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "CREATE DATABASE dio_member_contract_qa",
             "postgresMemberDiaryHttpTest --no-daemon", "CREATE DATABASE dio_trash_qa",
             "postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon", "-e DIO_AUTH_SCHEMA_TEST=true",
             "-e DIO_LIST_QUERY_PG=true", "-e POSTGRES_USER=postgres");
+
+        String authSuite = block(script, "if [ \"$suite\" = auth ]", "if [ \"$suite\" = diary ]");
+        String diarySuite = block(script, "if [ \"$suite\" = diary ]", "if [ \"$suite\" = lifecycle ]");
+        String lifecycleSuite = script.substring(script.indexOf("if [ \"$suite\" = lifecycle ]"));
+        assertThat(occurrences(authSuite, "docker run --rm")).isEqualTo(1);
+        assertThat(authSuite).doesNotContain("-e DB_URL=");
+        assertThat(occurrences(diarySuite, "docker run --rm")).isEqualTo(2);
+        assertThat(occurrences(diarySuite, "-e DB_URL=")).isEqualTo(2);
+        assertThat(diarySuite).contains("-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_ci",
+            "-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_contract_qa");
+        assertThat(occurrences(lifecycleSuite, "docker run --rm")).isEqualTo(1);
+        assertThat(occurrences(lifecycleSuite, "-e DB_URL=")).isEqualTo(1);
+        assertThat(lifecycleSuite).contains("-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_trash_qa");
     }
     @Test void ciContainerIncludesReadOnlyDeploymentInputsBesideBackend() throws Exception {
         var properties = new YamlPropertySourceLoader().load("ci",
@@ -60,5 +91,18 @@ class DeploymentAuthContractTests {
             int build = ci.indexOf("docker build --tag \"dio-backend:" + profile + "-");
             assertThat(validation).isGreaterThanOrEqualTo(0).isLessThan(build);
         }
+    }
+
+    private static String block(String source, String start, String end) {
+        int startIndex = source.indexOf(start);
+        int endIndex = source.indexOf(end, startIndex);
+        if (startIndex < 0 || endIndex < 0) throw new AssertionError("Expected CI block was not found: " + start);
+        return source.substring(startIndex, endIndex);
+    }
+
+    private static int occurrences(String source, String value) {
+        int count = 0;
+        for (int index = 0; (index = source.indexOf(value, index)) >= 0; index += value.length()) count++;
+        return count;
     }
 }

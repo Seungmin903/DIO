@@ -196,6 +196,10 @@ backend-postgres-auth-test:
       changes:
         # 공통 DB 계층 변경은 세 PostgreSQL 검사 모두 실행한다.
         - backend/src/main/resources/**/*
+        - backend/src/test/resources/**/*
+        - backend/src/test/java/**/support/**/*
+        - backend/src/test/java/**/*Fixture.java
+        - backend/src/test/java/**/*Contract.java
         - backend/src/main/java/**/user/**/*
         - backend/src/main/java/**/repository/**/*
         - backend/src/main/java/**/persistence/**/*
@@ -246,6 +250,10 @@ backend-postgres-diary-test:
       changes:
         # 공통 DB 계층 변경은 세 PostgreSQL 검사 모두 실행한다.
         - backend/src/main/resources/**/*
+        - backend/src/test/resources/**/*
+        - backend/src/test/java/**/support/**/*
+        - backend/src/test/java/**/*Fixture.java
+        - backend/src/test/java/**/*Contract.java
         - backend/src/main/java/**/user/**/*
         - backend/src/main/java/**/repository/**/*
         - backend/src/main/java/**/persistence/**/*
@@ -261,18 +269,11 @@ backend-postgres-diary-test:
         - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
-        # 생성·상세·목록·HTTP 계약 변경이다.
+        # 새 하위 패키지를 포함한 다이어리 변경은 최소한 이 검사를 실행한다.
         - backend/src/main/java/**/auth/**/*
-        - backend/src/main/java/**/diary/auth/**/*
-        - backend/src/main/java/**/diary/creation/**/*
-        - backend/src/main/java/**/diary/detail/**/*
-        - backend/src/main/java/**/diary/http/**/*
-        - backend/src/main/java/**/diary/service/**/*
+        - backend/src/main/java/**/diary/**/*
         - backend/src/main/java/**/page/**/*
-        - backend/src/test/java/**/diary/auth/**/*
-        - backend/src/test/java/**/diary/creation/**/*
-        - backend/src/test/java/**/diary/detail/**/*
-        - backend/src/test/java/**/diary/http/**/*
+        - backend/src/test/java/**/diary/**/*
         - backend/src/test/java/**/page/**/*
   script:
     - bash infra/scripts/test-auth-postgres.sh diary
@@ -308,6 +309,10 @@ backend-postgres-lifecycle-test:
       changes:
         # 공통 DB 계층 변경은 세 PostgreSQL 검사 모두 실행한다.
         - backend/src/main/resources/**/*
+        - backend/src/test/resources/**/*
+        - backend/src/test/java/**/support/**/*
+        - backend/src/test/java/**/*Fixture.java
+        - backend/src/test/java/**/*Contract.java
         - backend/src/main/java/**/user/**/*
         - backend/src/main/java/**/repository/**/*
         - backend/src/main/java/**/persistence/**/*
@@ -325,11 +330,14 @@ backend-postgres-lifecycle-test:
         - infra/scripts/check-member-list-icu.sh
         # 휴지통·영구 삭제·미디어 보존 기간 변경이다.
         - backend/src/main/java/**/diary/auth/**/*
+        - backend/src/main/java/**/diary/expiry/**/*
         - backend/src/main/java/**/diary/service/**/*
         - backend/src/main/java/**/diary/trash/**/*
         - backend/src/main/java/**/diary/purge/**/*
         - backend/src/main/java/**/media/**/*
+        - backend/src/main/java/**/page/**/*
         - backend/src/test/java/**/diary/auth/**/*
+        - backend/src/test/java/**/diary/expiry/**/*
         - backend/src/test/java/**/diary/trash/**/*
         - backend/src/test/java/**/diary/purge/**/*
         - backend/src/test/java/**/media/**/*
