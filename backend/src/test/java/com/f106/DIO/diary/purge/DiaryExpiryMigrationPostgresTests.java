@@ -10,9 +10,9 @@ import static org.assertj.core.api.Assertions.*;
 @EnabledIfEnvironmentVariable(named="DIO_LIST_QUERY_PG",matches="true")
 class DiaryExpiryMigrationPostgresTests extends DiaryPurgePostgresFixture {
     @Override void migrate(DriverManagerDataSource source) {
-        Flyway.configure().dataSource(source).defaultSchema(schema).target("10").load().migrate();
+        Flyway.configure().dataSource(source).defaultSchema(schema).target("11").load().migrate();
     }
-    @Test void v10ToV11PreservesEveryFixtureRowAndAddsOnlyTheExpiryIndex() {
+    @Test void v11ToV12PreservesEveryFixtureRowAndAddsOnlyTheExpiryIndex() {
         var keys=Map.ofEntries(
             Map.entry("users","user_id"),Map.entry("diaries","diary_id"),Map.entry("pages","page_id"),
             Map.entry("page_templates","template_id"),Map.entry("media_files","media_file_id"),
