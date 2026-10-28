@@ -12,7 +12,7 @@ export function createMockDiaryTransport({ delay = 600, scenario = 'success', sc
   let clockOffset = 0;
   const serverNow = () => now() + clockOffset;
   const expired = row => Boolean(row.deletedAt) && Date.parse(row.expiresAt) <= serverNow();
-  const serverRow = row => ({ ...row, retentionStatus: row.deletedAt ? (expired(row) ? 'EXPIRED' : 'RETAINED') : null, canRestore: Boolean(row.deletedAt) && !expired(row) });
+  const serverRow = row => ({ ...row, retentionStatus: row.deletedAt ? (expired(row) ? 'EXPIRED' : 'RETAINED') : null, canRestore: Boolean(row.deletedAt) && !expired(row), canPermanentlyDelete: Boolean(row.deletedAt) });
   const transport = ({ path, signal, method = 'GET', body, query = {}, requestId }) => new Promise((resolve, reject) => {
     if (signal?.aborted) { reject(Object.assign(new Error('Cancelled'), { name: 'AbortError' })); return; }
     const pagedMore = method === 'GET' && path === '/diaries' && Boolean(query.cursor);

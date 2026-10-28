@@ -24,7 +24,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, c
         </Pressable>
       </View>}
       {!diaries.length ? (suppressEmpty ? null :
-        <EmptyState compact={compact} title="휴지통이 비어 있어요" copy="삭제한 다이어리는 이곳에서 복원하거나 영구 삭제할 수 있어요." />
+        <EmptyState compact={compact} title="휴지통이 비어 있어요" copy={serverMode && !onDeletePermanently ? "삭제한 다이어리는 이곳에서 30일 안에 복원할 수 있어요." : "삭제한 다이어리는 이곳에서 복원하거나 영구 삭제할 수 있어요."} />
       ) : (
         <View style={[s.trashGrid, compact && s.trashGridCompact]}>
           {diaries.map((diary) => (
@@ -40,17 +40,17 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, c
                   disabled={busy || !onRestore || (serverMode ? !diary.canRestore : isTrashExpired(diary, now))}
                   accessibilityState={{ disabled: busy || !onRestore || (serverMode ? !diary.canRestore : isTrashExpired(diary, now)) }}
                   onPress={() => onRestore(diary.id)}
-                  style={({ pressed }) => [s.trashRestore, (busy || !onRestore || (serverMode ? !diary.canRestore : isTrashExpired(diary, now))) && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
+                  style={({ pressed }) => [s.trashRestore, serverMode && {minHeight:44}, (busy || !onRestore || (serverMode ? !diary.canRestore : isTrashExpired(diary, now))) && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
                 >
                   <Text style={s.trashRestoreText}>복원</Text>
                 </Pressable>
-                {onDeletePermanently && <Pressable
+                {onDeletePermanently && (!serverMode || diary.canPermanentlyDelete) && <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`${diary.title} 영구 삭제`}
                   disabled={busy}
                   accessibilityState={{ disabled: busy }}
                   onPress={() => onDeletePermanently(diary)}
-                  style={({ pressed }) => [s.trashDelete, busy && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
+                  style={({ pressed }) => [s.trashDelete, serverMode && {minWidth:44,minHeight:44}, busy && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
                 >
                   <AppIcon name="trash" size={17} color={C.danger} />
                 </Pressable>}

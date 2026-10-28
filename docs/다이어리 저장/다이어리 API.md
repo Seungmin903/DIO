@@ -1,5 +1,7 @@
 # 다이어리 API
 
+> 2026-10-27 인증 조회 전환: 현재 목록·상세 계약은 [다이어리 P0·P1 계약](../diary-auth-read-contract.md)을 따른다. 아래는 기존 무인증 저장 구현 이력이다. 현재 GET은 JWT와 참여 권한이 필요하며, POST는 [계정 생성 계약](../diary-create-contract.md)으로 대체했고 PATCH는 [OWNER 수정 계약](../diary-update-contract.md)으로 대체했다. DELETE 휴지통·POST 복원은 [새 계약](../diary-trash-contract.md)으로 대체했다. permanent=true는 [OWNER 영구 삭제 계약](../diary-permanent-delete-contract.md)으로 제공한다. 아래의 201/200/204는 현재 외부 쓰기 성공을 의미하지 않는다.
+
 ## 실행
 
 Docker Desktop을 켜고 루트에서 `docker compose up -d --wait postgres`를 실행한다. backend에서:
@@ -8,7 +10,7 @@ Docker Desktop을 켜고 루트에서 `docker compose up -d --wait postgres`를 
 .\gradlew.bat bootRun
 ```
 
-기본 프로필은 `local`이며 PostgreSQL을 사용한다. Swagger는 `http://localhost:8080/swagger-ui.html`, OpenAPI JSON은 `http://localhost:8080/v3/api-docs`다. 인증 토큰은 아직 요구하지 않는다.
+기본 프로필은 `local`이며 PostgreSQL을 사용한다. Swagger는 `http://localhost:8080/swagger-ui.html`, OpenAPI JSON은 `http://localhost:8080/v3/api-docs`다. 현재 다이어리 조회는 로그인 토큰을 요구한다.
 
 ## API 목록
 

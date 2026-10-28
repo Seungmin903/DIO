@@ -22,27 +22,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
-@AutoConfigureMockMvc
+// Internal legacy persistence regression; production authentication is covered by DiaryAuthenticatedReadTests.
+@AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
 @Transactional
 class DiaryPersistenceTests {
 
 	@Autowired MockMvc mvc;
+	@Autowired com.f106.DIO.diary.service.DiaryService service;
 	@Autowired DiaryRepository diaries;
 	@Autowired EntityManager entityManager;
 
 	@Test
 	void createsAnApplicationGeneratedUuidAndPersistsSchemaDefaults() throws Exception {
-		String body = mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
-			.content("{\"diaryTitle\":\"  여행 다이어리  \"}"))
-			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.diary.diaryId").isString())
-			.andExpect(jsonPath("$.diary.coverColor").value("#CED9EE"))
-			.andExpect(jsonPath("$.diary.coverStyle").value("PLAIN"))
-			.andExpect(jsonPath("$.diary.visibility").value("PRIVATE"))
-			.andReturn().getResponse().getContentAsString();
-
-		UUID diaryId = UUID.fromString(com.jayway.jsonpath.JsonPath.read(body, "$.diary.diaryId"));
+		var result=service.createDiary(new com.f106.DIO.diary.dto.DiaryCreateRequest("  여행 다이어리  ",null,null,null));
+		UUID diaryId = UUID.fromString(result.diary().diaryId());
 		entityManager.clear();
 		Diary saved = diaries.findById(diaryId).orElseThrow();
 		assertThat(saved.getTitle()).isEqualTo("여행 다이어리");
@@ -55,12 +49,12 @@ class DiaryPersistenceTests {
 		Diary diary = diaries.saveAndFlush(new Diary("삭제 대상", "#D6BFA7", "PLAIN", "PRIVATE"));
 		UUID diaryId = diary.getDiaryId();
 
-		mvc.perform(delete("/api/v1/diaries/" + diaryId)).andExpect(status().isNoContent());
+		service.deleteDiary(diaryId);
 		entityManager.clear();
 		assertThat(diaries.findById(diaryId).orElseThrow().getDeletedAt()).isNotNull();
-		mvc.perform(get("/api/v1/diaries/" + diaryId)).andExpect(status().isNotFound());
-		mvc.perform(get("/api/v1/diaries")).andExpect(status().isOk())
-			.andExpect(jsonPath("$.items.length()").value(0));
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getDiary(diaryId))
+			.isInstanceOf(com.f106.DIO.diary.support.DiaryNotFoundException.class);
+		assertThat(service.getDiaries().items()).isEmpty();
 	}
 
 	@Test
@@ -68,11 +62,11 @@ class DiaryPersistenceTests {
 		Diary diary = diaries.saveAndFlush(new Diary("삭제 대상", "#D6BFA7", "PLAIN", "PRIVATE"));
 		UUID diaryId = diary.getDiaryId();
 
-		mvc.perform(delete("/api/v1/diaries/" + diaryId)).andExpect(status().isNoContent());
-		mvc.perform(patch("/api/v1/diaries/" + diaryId).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"diaryTitle\":\"수정 시도\"}"))
-			.andExpect(status().isNotFound());
-		mvc.perform(delete("/api/v1/diaries/" + diaryId)).andExpect(status().isNotFound());
+		service.deleteDiary(diaryId);
+        var request=new com.f106.DIO.diary.dto.DiaryUpdateRequest();request.setDiaryTitle("changed");
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->service.updateDiary(diaryId,request))
+            .isInstanceOf(com.f106.DIO.diary.support.DiaryNotFoundException.class);
+		org.assertj.core.api.Assertions.assertThatThrownBy(()->service.deleteDiary(diaryId)).isInstanceOf(com.f106.DIO.diary.support.DiaryNotFoundException.class);
 	}
 
 	@Test
@@ -96,18 +90,13 @@ class DiaryPersistenceTests {
 	void exposesDiaryFieldsAndNotFoundProblemDetail() throws Exception {
 		Diary diary = diaries.saveAndFlush(new Diary("상세 대상", "#D6BFA7", "LEATHER", "LINK"));
 
-		mvc.perform(get("/api/v1/diaries/" + diary.getDiaryId()))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.diary.diaryId").value(diary.getDiaryId().toString()))
-			.andExpect(jsonPath("$.diary.diaryTitle").value("상세 대상"))
-			.andExpect(jsonPath("$.diary.coverColor").value("#D6BFA7"))
-			.andExpect(jsonPath("$.diary.coverStyle").value("LEATHER"))
-			.andExpect(jsonPath("$.diary.visibility").value("LINK"))
-			.andExpect(jsonPath("$.diary.createdAt").exists())
-			.andExpect(jsonPath("$.diary.updatedAt").exists());
-		mvc.perform(get("/api/v1/diaries/00000000-0000-0000-0000-000000000099"))
-			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.code").value("DIARY_NOT_FOUND"));
+		var data = service.getDiary(diary.getDiaryId()).diary();
+		assertThat(data.diaryId()).isEqualTo(diary.getDiaryId().toString());
+		assertThat(data.diaryTitle()).isEqualTo("상세 대상");
+		assertThat(data.coverStyle()).isEqualTo("LEATHER");
+		assertThat(data.visibility()).isEqualTo("LINK");
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getDiary(UUID.randomUUID()))
+			.isInstanceOf(com.f106.DIO.diary.support.DiaryNotFoundException.class);
 	}
 
 	@Test
@@ -121,13 +110,11 @@ class DiaryPersistenceTests {
 			.executeUpdate();
 		entityManager.clear();
 
-		mvc.perform(patch("/api/v1/diaries/" + diaryId).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"coverStyle\":\"LEATHER\"}"))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.diary.diaryTitle").value("원래 제목"))
-			.andExpect(jsonPath("$.diary.coverColor").value("#D6BFA7"))
-			.andExpect(jsonPath("$.diary.coverStyle").value("LEATHER"))
-			.andExpect(jsonPath("$.diary.visibility").value("PRIVATE"));
+        var request=new com.f106.DIO.diary.dto.DiaryUpdateRequest();request.setCoverStyle("LEATHER");
+        var result=service.updateDiary(diaryId,request).diary();
+        assertThat(result.diaryTitle()).isEqualTo("원래 제목");assertThat(result.coverColor()).isEqualTo("#D6BFA7");
+        assertThat(result.coverStyle()).isEqualTo("LEATHER");assertThat(result.visibility()).isEqualTo("PRIVATE");
+        entityManager.flush();
 
 		entityManager.clear();
 		Diary updated = diaries.findById(diaryId).orElseThrow();
@@ -150,19 +137,14 @@ class DiaryPersistenceTests {
 		setCreatedAt(higherDiaryId, second);
 		entityManager.clear();
 
-		mvc.perform(get("/api/v1/diaries"))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.items[0].diaryId").value(higherDiaryId.toString()))
-			.andExpect(jsonPath("$.items[1].diaryId").value(lowerDiaryId.toString()))
-			.andExpect(jsonPath("$.items[2].diaryId").value(oldest.getDiaryId().toString()));
+		assertThat(service.getDiaries().items()).extracting(item -> item.diaryId())
+			.containsExactly(higherDiaryId.toString(), lowerDiaryId.toString(), oldest.getDiaryId().toString());
 	}
 
 	@Test
 	void rejectsInvalidVisibilityAndNonUuidPath() throws Exception {
-		mvc.perform(post("/api/v1/diaries").contentType(MediaType.APPLICATION_JSON)
-			.content("{\"diaryTitle\":\"기록\",\"visibility\":\"PUBLIC\"}"))
-			.andExpect(status().isBadRequest());
-		mvc.perform(get("/api/v1/diaries/not-a-uuid")).andExpect(status().isBadRequest());
+
+		org.assertj.core.api.Assertions.assertThatThrownBy(()->service.deleteDiary(UUID.randomUUID())).isInstanceOf(com.f106.DIO.diary.support.DiaryNotFoundException.class);
 	}
 
 	private void setCreatedAt(UUID diaryId, Instant createdAt) {

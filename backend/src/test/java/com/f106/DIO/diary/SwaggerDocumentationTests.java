@@ -19,7 +19,7 @@ class SwaggerDocumentationTests {
 	private MockMvc mvc;
 
 	@Test
-	void servesOpenApiWithAllFiveUnauthenticatedDiaryOperations() throws Exception {
+	void servesOpenApiWithAuthenticatedDiaryReads() throws Exception {
 		mvc.perform(get("/v3/api-docs"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.info.title").value("DIO 개발 API"))
@@ -29,17 +29,17 @@ class SwaggerDocumentationTests {
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].patch").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].delete.responses['204'].content").doesNotExist())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries'].post.responses['501']").doesNotExist())
-			.andExpect(jsonPath("$.paths['/api/v1/diaries'].post.responses['201'].content['application/json'].schema['$ref']").value("#/components/schemas/DiaryCreateResponse"))
+			.andExpect(jsonPath("$.paths['/api/v1/diaries'].post.responses['201'].content['application/json'].schema['$ref']").value("#/components/schemas/Created"))
 			.andExpect(jsonPath("$.paths['/api/v1/diaries'].get.responses['200']").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].get.responses['200']").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].patch.responses['200']").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].delete.responses['204']").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}'].get.responses['404']").exists())
-			.andExpect(jsonPath("$.components.schemas.DiaryCreateRequest.properties.diaryTitle.example").value("여행 다이어리"))
-			.andExpect(jsonPath("$.components.schemas.DiaryUpdateRequest.properties.anyFieldPresent").doesNotExist())
+			.andExpect(jsonPath("$.components.schemas.AccountDiaryCreateRequest.properties.diaryTitle.type").value("string"))
+			.andExpect(jsonPath("$.components.schemas.AccountDiaryUpdateRequest.properties.anyFieldPresent").doesNotExist())
 			.andExpect(jsonPath("$.security").doesNotExist())
 			.andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
-			.andExpect(jsonPath("$.paths['/api/v1/diaries'].get.security").doesNotExist());
+			.andExpect(jsonPath("$.paths['/api/v1/diaries'].get.security[0].bearerAuth").exists());
 	}
 
 	@Test

@@ -9,7 +9,7 @@ export function libraryRequest({ filter = 'personal', query = '', sort = 'update
 }
 
 // 조회 조건은 UI가 소유하고, 이 저장소는 조건별 응답과 재시도를 관리한다. 로컬 저장소 접근 없음.
-export function createLibraryReader(api) {
+export function createLibraryReader(api, { makeRequest = libraryRequest } = {}) {
   const list = createDiaryQuery(api.list), detail = createDiaryQuery(api.get);
   const more = createDiaryQuery(async request => {
     const page = await api.list(request);
@@ -39,7 +39,7 @@ export function createLibraryReader(api) {
     if (disposed) return;
     const request = ++generation;
     more.reset();
-    await list.run({ query: options || libraryRequest() });
+    await list.run({ query: options || makeRequest() });
     if (!disposed && request === generation && list.getSnapshot().status === 'success') {
       const result = list.getSnapshot().data;
       data = { ...result, items: [...new Map(result.items.map(row => [row.id, row])).values()] };
@@ -57,7 +57,7 @@ export function createLibraryReader(api) {
     },
     load(input) {
       if (disposed) return Promise.resolve();
-      const next = libraryRequest(input);
+      const next = makeRequest(input);
       if (JSON.stringify(options) !== JSON.stringify(next)) {
         options = next; data = null; close(); list.reset();
       }

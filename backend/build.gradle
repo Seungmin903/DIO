@@ -46,7 +46,17 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform()
+    // Missing producer artifacts invalidate UP-TO-DATE even for a frontend-only MR.
+    def contractNames = ['DIO_DIARY_CONTRACT_OUTPUT', 'DIO_DIARY_CREATE_CONTRACT_OUTPUT',
+        'DIO_DIARY_UPDATE_CONTRACT_OUTPUT', 'DIO_DIARY_TRASH_CONTRACT_OUTPUT',
+        'DIO_DIARY_RESTORE_CONTRACT_OUTPUT', 'DIO_DIARY_PURGE_CONTRACT_OUTPUT']
+    def contractOutputs = contractNames.collectEntries { name -> [(name): System.getenv(name)] }.findAll { name, value -> value }
+    if (!contractOutputs.isEmpty()) {
+        inputs.property('diaryContractOutputs', contractOutputs)
+        outputs.files(contractOutputs.values())
+        doFirst { contractOutputs.values().each { file(it).parentFile.mkdirs() } }
+    }
 }
 
 tasks.register('authPostgresTest', Test) {
@@ -90,4 +100,25 @@ tasks.register('notificationBrowserQa', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.f106.DIO.notification.NotificationBrowserQa'
+}
+
+// CI uses an explicitly opted-in disposable DB; never fall back to a shared/local default database.
+tasks.register('diaryPostgresTest', Test) {
+    description = 'Runs all diary PostgreSQL regressions on an explicitly disposable dio_diary_create_qa database.'
+    group = 'verification'
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.f106.DIO.diary.PostgresDiary*Tests' }
+    systemProperty 'dio.postgres-test', 'true'
+    doFirst {
+        def required = ['DB_URL', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'DIO_DIARY_CREATE_PG_QA']
+        def missing = required.findAll { !environment[it]?.toString()?.trim() }
+        if (!missing.isEmpty() || environment['DIO_DIARY_CREATE_PG_QA'] != 'true'
+                || !(environment['DB_URL']?.toString() ==~ /jdbc:postgresql:\/\/[^\/?#]+\/dio_diary_create_qa(?:\?[^#]*)?/)) {
+            throw new GradleException('Diary PostgreSQL tests require explicit disposable dio_diary_create_qa DB_URL, POSTGRES_USER/PASSWORD and DIO_DIARY_CREATE_PG_QA=true. No database fallback is allowed.')
+        }
+    }
 }

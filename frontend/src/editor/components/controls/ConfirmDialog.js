@@ -7,7 +7,7 @@ import { PANEL_RADIUS } from '../ToolPanel'
  * 한 번 묻는 확인 창 (취소 / 확정). 웹에서도 같은 모양이 나오도록 RN Alert 대신 직접 그린다.
  * open 이 거짓이면 아무것도 그리지 않는다.
  */
-export default function ConfirmDialog({ open, title, message, confirmLabel = '삭제', danger = true, onConfirm, onCancel }) {
+export default function ConfirmDialog({ open, title, message, confirmLabel = '삭제', danger = true, largeControls = false, onConfirm, onCancel }) {
   if (!open) return null
   return (
     <EditorModal transparent animationType="none" onRequestClose={onCancel}>
@@ -17,12 +17,12 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = '�
           <Text style={styles.title}>{title}</Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
           <View style={styles.actions}>
-            <Pressable onPress={onCancel} style={({ pressed }) => [styles.button, pressed && styles.pressed]} accessibilityRole="button">
+            <Pressable onPress={onCancel} style={({ pressed }) => [styles.button, largeControls && {minHeight:44}, pressed && styles.pressed]} accessibilityRole="button">
               <Text style={styles.cancelText}>취소</Text>
             </Pressable>
             <Pressable
               onPress={onConfirm}
-              style={({ pressed }) => [styles.button, danger ? styles.danger : styles.primary, pressed && styles.confirmPressed]}
+              style={({ pressed }) => [styles.button, largeControls && {minHeight:44}, danger ? styles.danger : styles.primary, pressed && styles.confirmPressed]}
               accessibilityRole="button"
             >
               <Text style={styles.confirmText}>{confirmLabel}</Text>

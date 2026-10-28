@@ -149,7 +149,8 @@ class EmailLoginTests {
         mvc.perform(options("/api/v1/auth/login").header("Origin", "https://untrusted.example")
             .header("Access-Control-Request-Method", "POST")).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/diaries").header("Origin", "http://localhost:8081"))
-            .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+            .andExpect(status().isUnauthorized())
+            .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:8081"));
     }
     @Test void loginNormalizesEmailReturnsTokensAndUpdatesLastLogin() throws Exception {
         register();
@@ -310,6 +311,6 @@ class EmailLoginTests {
             .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['204'].content").doesNotExist())
             .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['200']").doesNotExist())
             .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security").doesNotExist())
-            .andExpect(jsonPath("$.paths['/api/v1/diaries'].get.security").doesNotExist());
+            .andExpect(jsonPath("$.paths['/api/v1/diaries'].get.security[0].bearerAuth").exists());
     }
 }

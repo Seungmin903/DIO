@@ -274,7 +274,7 @@ function LibraryScreen({
 
       <View style={[s.libraryToolbar, compact && s.libraryToolbarCompact, s.libraryToolbarWrap]}>
         <View style={s.filters}>
-          {FILTERS.filter(item => !remoteQuery || item.id !== 'shared').map((item) => (
+          {FILTERS.filter(item => !remoteQuery || remoteQuery.supportsShared || item.id !== 'shared').map((item) => (
             <Pressable
               key={item.id}
               accessibilityRole="tab"

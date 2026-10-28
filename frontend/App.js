@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'react-native';
+import { BackHandler, Platform, Pressable, Text, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
@@ -18,6 +18,7 @@ import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
+import AuthenticatedDiaryLibrary from './src/diary/screens/AuthenticatedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
 import { queryDiaries } from './src/diary/utils/libraryQuery';
@@ -73,7 +74,16 @@ export default function App() {
 }
 
 function DiaryApp(props) {
-  const content = <DiaryAppContent {...props} />;
+  const [local, setLocal] = useState(false);
+  const authenticated = props.previewUser.mode === 'authenticated';
+  const content = authenticated && !local
+    ? <AuthenticatedDiaryLibrary auth={authService} userId={props.previewUser.userId}
+        onOpenLocal={() => setLocal(true)} onLogout={props.onEndPreview} />
+    : <View style={{ flex: 1 }}>
+        {authenticated && <Pressable accessibilityRole="button" onPress={() => setLocal(false)}
+          style={{ minHeight: 44, padding: 12, backgroundColor: C.white }}><Text style={{ color: C.ink }}>내 계정 보관함으로 돌아가기</Text></Pressable>}
+        <DiaryAppContent {...props} />
+      </View>;
   return props.previewUser.mode === 'authenticated'
     ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId}>{content}</AuthenticatedNotificationProvider>
     : content;

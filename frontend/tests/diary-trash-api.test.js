@@ -116,3 +116,12 @@ test('서버 시간 경과는 만료 상태만 바꾸고 서버 정리는 만료
   assert.equal((await api.list()).items.length, 1);
   assert.equal((await api.get('mock-shared')).pageCount, 5);
 });
+
+test('목 휴지통 DTO는 공용 화면에 명시적 영구 삭제 권한을 전달한다', async()=>{
+  const {mock,api}=setup();
+  assert.equal((await api.get('mock-travel')).canPermanentlyDelete,false);
+  await api.trash('mock-travel');assert.equal((await trashRows(api))[0].canPermanentlyDelete,true);
+  mock.advanceServerTime(30*86400000);const expired=(await trashRows(api))[0];
+  assert.equal(expired.canRestore,false);assert.equal(expired.canPermanentlyDelete,true);
+  await api.permanentlyDelete('mock-travel');assert.equal((await trashRows(api)).length,0);
+});

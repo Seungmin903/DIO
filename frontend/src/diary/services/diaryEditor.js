@@ -10,7 +10,7 @@ export function diaryUpdateInput(form, source) {
 
 const empty = () => ({ visible: false, source: null, loadStatus: 'idle', loadError: null,
   latestStatus: 'idle', latest: null, latestError: null, needsReview: false, permissionBlocked: false });
-export function createDiaryEditor(api) {
+export function createDiaryEditor(api, makeInput = diaryUpdateInput) {
   const mutation = createDiaryMutation(createDiaryCommand(api));
   let state = empty(), version, targetId, generation = 0, controller, snapshot;
   const listeners = new Set();
@@ -59,7 +59,7 @@ export function createDiaryEditor(api) {
     async submit(form) {
       if (!state.source || state.loadStatus !== 'success' || state.latestStatus === 'loading' || state.permissionBlocked || state.needsReview) return;
       if (mutation.getPendingInput()) return mutation.retry();
-      const values = diaryUpdateInput(form, { version });
+      const values = makeInput(form, { ...state.source, version });
       return mutation.run({ kind: 'update', id: state.source.id, values });
     },
     async refreshLatest() {
