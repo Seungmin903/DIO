@@ -22,6 +22,29 @@ function fixture(rows=[]) {
  });return {storage,api,calls,remote:()=>remote,setMode:v=>{mode=v},session:()=>createTextPageSession({api,storage,key:'account:1:page',pageId,diaryId})}
 }
 async function open(f,objects){let state=createInitialState({id:diaryId,pages:[{id:pageId,objects}]});const session=f.session(),recovered=await session.restore();const apply=objects=>{state=editorReducer(state,{type:'importPageTexts',pageId,expectedObjects:state.doc.pages[0].objects,objects})};if(recovered!==null)apply(recovered);return {session,state:()=>state,edit:a=>{state=editorReducer(state,a)},async sync(){await session.record(state.doc.pages[0].objects);const r=await session.synchronize();if(r.objects)apply(r.objects);return r}}}
+test('서버 다운로드가 편집기에 반영되기 전 오래된 스냅샷은 삭제로 전송되지 않는다',async()=>{
+ const f=fixture([element(text('서버 원본'))]),s=f.session()
+ await s.restore();await s.record([])
+ const result=await s.synchronize()
+ await assert.rejects(s.record([{id:'ink',type:'stroke'}]),{status:409})
+ await s.synchronize()
+ assert.equal(f.calls.filter(c=>c.method).length,0)
+ const reopened=f.session();assert.deepEqual(await reopened.restore(),result.objects)
+ await assert.rejects(reopened.record([]),{status:409})
+ await reopened.record(result.objects);await reopened.synchronize()
+ assert.equal(f.remote()[0].propertiesJson.text,'서버 원본')
+ assert.equal(f.calls.filter(c=>c.method).length,0)
+})
+test('다운로드와 동시 편집한 로컬은 재시작 후에도 보존하고 서버를 덮어쓰지 않는다',async()=>{
+ const f=fixture([element(text('서버'))]),s=f.session()
+ await s.restore();await s.record([]);await s.synchronize()
+ await s.retainLocal([text('다운로드 중 편집')])
+ const next=f.session();assert.equal((await next.restore())[0].text,'다운로드 중 편집')
+ await next.record([text('추가 편집')])
+ await next.synchronize()
+ assert.equal(f.calls.filter(c=>c.method).length,1)
+ assert.equal(f.remote()[0].propertiesJson.text,'추가 편집')
+})
 test('최초 양쪽 텍스트를 자동 덮어쓰지 않는다',async()=>{const f=fixture([element(text('서버'))]),e=await open(f,[text('로컬')]);await assert.rejects(e.sync(),{status:409});assert.equal(f.calls.filter(c=>c.method).length,0);assert.equal(e.state().doc.pages[0].objects[0].text,'로컬');assert.equal(f.remote()[0].propertiesJson.text,'서버')})
 test('편집기 reducer의 텍스트를 저장·재조회·버전 수정한다',async()=>{const f=fixture(),e=await open(f,[{id:'ink',type:'stroke'}]);e.edit({type:'addObjects',objects:[text()]});await e.sync();const next=await open(f,[]);await next.sync();assert.equal(next.state().doc.pages[0].objects[0].text,'기기 내용');next.edit({type:'updateObject',id,patch:{text:'수정'},record:true});await next.sync();assert.equal(f.remote()[0].propertiesJson.text,'수정');assert.equal(f.remote()[0].version,1);assert.equal(e.state().doc.pages[0].objects[0].id,'ink')})
 test('서버 텍스트를 불러와도 필기와 히스토리를 유지한다',async()=>{const f=fixture([element(text('서버'))]),e=await open(f,[{id:'ink',type:'stroke'}]);await e.sync();assert.deepEqual(e.state().doc.pages[0].objects.map(o=>o.id),['ink',id]);assert.equal(e.state().externalDirty,true);assert.equal(e.state().past.length,0)})
