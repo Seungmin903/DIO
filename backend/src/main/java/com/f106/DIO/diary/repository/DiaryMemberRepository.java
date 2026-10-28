@@ -12,4 +12,6 @@ import com.f106.DIO.diary.domain.DiaryMemberId;
 public interface DiaryMemberRepository extends JpaRepository<DiaryMember, DiaryMemberId> {
 	Optional<DiaryMember> findByDiaryIdAndUserIdAndLeftAtIsNull(UUID diaryId, Long userId);
 	List<DiaryMember> findAllByUserIdAndLeftAtIsNull(Long userId);
+    List<DiaryMember> findByDiaryIdAndLeftAtIsNullOrderByJoinedAtAscUserIdAsc(UUID diaryId);
+    long countByDiaryIdAndLeftAtIsNull(UUID diaryId);
 }

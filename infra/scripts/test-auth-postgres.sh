@@ -5,8 +5,8 @@ set -euo pipefail
 : "${CI_JOB_ID:?CI_JOB_ID is required}"
 suite="${1:-all}"
 case "$suite" in
-  auth|diary|lifecycle|all) ;;
-  *) echo "usage: $0 [auth|diary|lifecycle|all]" >&2; exit 2 ;;
+  auth|sharing|diary|lifecycle|all) ;;
+  *) echo "usage: $0 [auth|sharing|diary|lifecycle|all]" >&2; exit 2 ;;
 esac
 pg_name="dio-auth-test-${CI_JOB_ID}"
 test_password="$(cat /proc/sys/kernel/random/uuid)"
@@ -39,6 +39,17 @@ if [ "$suite" = auth ] || [ "$suite" = all ]; then
     -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro" \
     -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro" \
     -w /workspace/backend eclipse-temurin:17-jdk sh ./gradlew authPostgresTest --no-daemon
+fi
+
+if [ "$suite" = sharing ] || [ "$suite" = all ]; then
+  docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_sharing_qa' >/dev/null
+  # 공유 권한·프로필·영구 삭제는 전용 sharing DB에서 검증한다.
+  docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
+    -e GRADLE_USER_HOME=/workspace/backend/.gradle \
+    -e DIO_SHARING_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_sharing_qa \
+    -e DIO_SHARING_POSTGRES_PASSWORD="$test_password" \
+    -v "$CI_PROJECT_DIR/backend:/workspace/backend" \
+    -w /workspace/backend eclipse-temurin:17-jdk sh ./gradlew sharingPostgresTest --no-daemon
 fi
 
 if [ "$suite" = diary ] || [ "$suite" = all ]; then

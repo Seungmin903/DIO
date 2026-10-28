@@ -194,7 +194,7 @@ backend-postgres-auth-test:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        # 공통 DB 계층 변경은 세 PostgreSQL 검사 모두 실행한다.
+        # 공통 DB 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
         - backend/src/main/resources/**/*
         - backend/src/test/resources/**/*
         - backend/src/test/java/**/support/**/*
@@ -231,6 +231,61 @@ backend-postgres-auth-test:
       - backend/build/reports/tests/authPostgresTest/
     expire_in: 7 days
 
+backend-postgres-sharing-test:
+  stage: quality
+  needs:
+    - job: backend-test
+      artifacts: false
+  tags:
+    - ec2-deploy
+  cache:
+    key: backend-gradle-v1
+    paths:
+      - backend/.gradle/caches/
+      - backend/.gradle/wrapper/
+    policy: pull
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        # 공통 DB 계층 변경은 모든 PostgreSQL 검사를 실행한다.
+        - backend/src/main/resources/**/*
+        - backend/src/test/resources/**/*
+        - backend/src/test/java/**/support/**/*
+        - backend/src/test/java/**/*Fixture.java
+        - backend/src/test/java/**/*Contract.java
+        - backend/src/main/java/**/user/**/*
+        - backend/src/main/java/**/repository/**/*
+        - backend/src/main/java/**/persistence/**/*
+        - backend/src/main/java/**/infrastructure/**/*
+        - backend/src/main/java/**/*Entity.java
+        - backend/src/main/java/**/*Repository.java
+        - backend/src/main/java/**/*Configuration.java
+        - backend/src/main/java/**/*Properties.java
+        - backend/build.gradle
+        - backend/settings.gradle
+        - backend/settings.gradle.kts
+        - backend/gradle/**/*
+        - .gitlab-ci.yml
+        - infra/scripts/test-auth-postgres.sh
+        # 공유 권한·프로필·영구 삭제에 영향을 주는 변경이다.
+        - backend/src/main/java/**/auth/**/*
+        - backend/src/main/java/**/sharing/**/*
+        - backend/src/main/java/**/diary/**/*
+        - backend/src/main/java/**/media/**/*
+        - backend/src/main/java/**/page/**/*
+        - backend/src/test/java/**/sharing/**/*
+  script:
+    - bash infra/scripts/test-auth-postgres.sh sharing
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - backend/build/test-results/sharingPostgresTest/*.xml
+    paths:
+      - backend/build/reports/tests/sharingPostgresTest/
+    expire_in: 7 days
+
 backend-postgres-diary-test:
   stage: quality
   needs:
@@ -248,7 +303,7 @@ backend-postgres-diary-test:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        # 공통 DB 계층 변경은 세 PostgreSQL 검사 모두 실행한다.
+        # 공통 DB 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
         - backend/src/main/resources/**/*
         - backend/src/test/resources/**/*
         - backend/src/test/java/**/support/**/*
@@ -307,7 +362,7 @@ backend-postgres-lifecycle-test:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        # 공통 DB 계층 변경은 세 PostgreSQL 검사 모두 실행한다.
+        # 공통 DB 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
         - backend/src/main/resources/**/*
         - backend/src/test/resources/**/*
         - backend/src/test/java/**/support/**/*
