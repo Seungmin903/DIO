@@ -54,12 +54,17 @@ export function strokePath(points) {
   return path + `L${last.x} ${last.y}`
 }
 
+const boundedTangent = (value, delta) => delta === 0 ? 0 : delta * Math.max(0, Math.min(3, value / delta))
+
 // 두 점 사이 곡선 위의 점. 앞뒤 점으로 접선을 잡되 구간 길이 비율로 줄여(chordal) 점 간격이 고르지 않아도 튀지 않는다.
 function curvePoint(p0, a, b, p3, t) {
   const dab = Math.hypot(b.x - a.x, b.y - a.y)
   const d0 = Math.hypot(a.x - p0.x, a.y - p0.y), d3 = Math.hypot(p3.x - b.x, p3.y - b.y)
   const ka = dab / ((d0 + dab) || 1), kb = dab / ((dab + d3) || 1)
-  const tax = (b.x - p0.x) * ka, tay = (b.y - p0.y) * ka, tbx = (p3.x - a.x) * kb, tby = (p3.y - a.y) * kb
+  // cubic Bézier 제어점(a + ta/3, b - tb/3)을 구간 경계 안에 제한한다.
+  // 얇은 ㄱ자도 기존 저장 AABB 밖으로 부풀지 않으며 원본 점·크기는 유지한다.
+  const tax = boundedTangent((b.x - p0.x) * ka, b.x - a.x), tay = boundedTangent((b.y - p0.y) * ka, b.y - a.y)
+  const tbx = boundedTangent((p3.x - a.x) * kb, b.x - a.x), tby = boundedTangent((p3.y - a.y) * kb, b.y - a.y)
   const t2 = t * t, t3 = t2 * t, h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2
   return { x: h00 * a.x + h10 * tax + h01 * b.x + h11 * tbx, y: h00 * a.y + h10 * tay + h01 * b.y + h11 * tby }
 }

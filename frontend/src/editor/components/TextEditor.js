@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { findNodeHandle, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, UIManager, View } from 'react-native'
+import { startTextKeyboard } from '../utils/textKeyboard'
 import { colors } from '../../shared/theme'
 import { colorTextRange, normalizeRanges, remapTextRanges, textSegments } from '../utils/textRanges'
 import { TEXT_AUTO_MAX_WIDTH, TEXT_AUTO_MIN_WIDTH, TEXT_COLORS, textStyle, TEXT_FRAME_PAD } from '../utils/text'
@@ -15,6 +16,7 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
   useTextFont(object.font)
   const input = useRef(null), draft = useRef(object.text ?? ''), composing = useRef(false), saving = useRef(false)
   const cancelled = useRef(false)
+  const keyboardStartup = useRef(null)
   const canPaste = useTextClipboardAvailable()
   const mounted = useRef(true), pasting = useRef(false)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
@@ -107,15 +109,16 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
     return () => { boundary.current = null }
   }, [boundary])
   useEffect(() => {
-    const frame = requestAnimationFrame(() => input.current?.focus())
-    // 상자가 뜨자마자 키보드를 연다. Android 는 상자를 만든 탭 직후 화면이 다시 그려지는 사이에 focus 하면
-    // 커서만 깜빡이고 키보드가 안 뜰 때가 있어, 키보드가 아직 없으면 잠깐 뒤 다시 focus 한다(blur 하면 편집이 끝나므로 하지 않는다).
-    const retries = Platform.OS === 'web' ? [] : [80, 200, 400].map((ms) => setTimeout(() => {
-      if (mounted.current && !cancelled.current && !(Keyboard.isVisible?.() ?? keyboardTop.current != null)) input.current?.focus()
-    }, ms))
-    return () => { cancelAnimationFrame(frame); retries.forEach(clearTimeout); Keyboard.dismiss() }
+    const stop = startTextKeyboard({
+      platform: Platform.OS, getInput: () => input.current,
+      canFocus: () => mounted.current && !cancelled.current && !saving.current && !linkEditing.current,
+      isVisible: () => Boolean(Keyboard.isVisible?.() || keyboardTop.current != null),
+      findNodeHandle, dispatchCommand: (tag, command, args) => UIManager.dispatchViewManagerCommand(tag, command, args),
+    })
+    keyboardStartup.current = stop
+    return () => { stop(); keyboardStartup.current = null; Keyboard.dismiss() }
   }, [])
-  const cancel = () => { cancelled.current = true; Keyboard.dismiss(); onCancel() }
+  const cancel = () => { cancelled.current = true; keyboardStartup.current?.(); Keyboard.dismiss(); onCancel() }
   const [height, setHeight] = useState(() => textInputHeight(object, zoom))
   const scale = (object.w ?? 320) / (object.baseWidth ?? object.w ?? 320) * zoom
   // 글자만큼 넓어지는 상자: 줄바꿈 없이 잰 가장 긴 줄 폭(화면 px)에 맞추고 최대 폭에서 줄을 바꾼다
@@ -134,13 +137,14 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
     })
   }
   useEffect(() => {
-    const show = Keyboard.addListener?.('keyboardDidShow', (event) => { keyboardTop.current = event.endCoordinates?.screenY ?? null; reveal() })
+    const show = Keyboard.addListener?.('keyboardDidShow', (event) => { keyboardStartup.current?.(); keyboardTop.current = event.endCoordinates?.screenY ?? null; reveal() })
     const hide = Keyboard.addListener?.('keyboardDidHide', () => { keyboardTop.current = null })
     return () => { show?.remove?.(); hide?.remove?.() }
   }, [])
   const save = () => {
     if (composing.current || saving.current || linkEditing.current) return
     saving.current = true
+    keyboardStartup.current?.()
     const value = Platform.OS === 'web' && typeof input.current?.value === 'string' ? input.current.value : draft.current
     Keyboard.dismiss()
     const finalRanges = remapTextRanges(draft.current, value, ranges.current)
