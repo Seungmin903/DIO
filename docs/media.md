@@ -5,14 +5,16 @@
 | 기능 | 메서드·경로 | 응답 |
 | --- | --- | --- |
 | 업로드 | `POST /api/v1/media` (`multipart/form-data`, `file`, 선택 `libraryCategory`) | `201 Created` |
-| 보관함 목록 | `GET /api/v1/media` | `200 OK` |
+| 보관함 목록 | `GET /api/v1/media?limit=30&cursor={nextCursor}` | `200 OK` |
 | 메타데이터 | `GET /api/v1/media/{mediaFileId}` | `200 OK` |
 | 원본 파일 | `GET /api/v1/media/{mediaFileId}/file` | `200 OK` |
 | 삭제 | `DELETE /api/v1/media/{mediaFileId}` | `204 No Content` |
 
-서버는 파일 시그니처를 직접 검사하여 `mediaType`과 MIME을 저장한다. 지원 형식은 JPEG, PNG, WebP, GIF 및 MP3, M4A, WAV, WebM, OGG이며 최대 크기는 5MB다. GIF는 `IMAGE`로 저장되고 `mimeType=image/gif`로 구분한다.
+서버는 파일 시그니처를 직접 검사하여 `mediaType`과 MIME을 저장한다. 지원 형식은 JPEG, PNG, WebP, GIF 및 MP3, M4A, WAV, OGG이며 최대 크기는 5MB다. GIF는 `IMAGE`로 저장되고 `mimeType=image/gif`로 구분한다. WebM은 오디오·비디오를 안전하게 구별하는 EBML 트랙 파서를 추가하기 전까지 업로드하지 않는다.
 
 `libraryCategory`는 이미지에서 `PHOTO`, `STICKER`, `TAPE`, 오디오에서 `AUDIO`만 허용한다. 생략하면 각각 `PHOTO`, `AUDIO`가 설정된다.
+
+보관함 목록은 최신순 커서 페이지네이션을 사용한다. `limit`은 1~100이며 기본값은 30이다. 응답의 `nextCursor`가 있으면 다음 요청의 `cursor`에 그대로 넣는다.
 
 ## 저장소 설정
 

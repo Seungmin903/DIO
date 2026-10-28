@@ -46,8 +46,8 @@ public class MediaService {
 		}
 	}
 
-	public MediaFileListResponse list(Long userId) {
-		return transactions.list(userId);
+	public MediaFileListResponse list(Long userId, int limit, String cursor) {
+		return transactions.list(userId, limit, cursor);
 	}
 
 	public MediaFileResponse detail(UUID mediaFileId, Long userId) {

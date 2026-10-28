@@ -30,7 +30,8 @@ public class MediaController {
 	}
 	@GetMapping
 	@Operation(summary = "미디어 보관함 목록", description = "로그인 사용자가 소유한 삭제되지 않은 미디어를 최신순으로 조회합니다.")
-	public MediaFileListResponse list(@AuthenticationPrincipal Jwt jwt) { return mediaService.list(userId(jwt)); }
+	public MediaFileListResponse list(@RequestParam(defaultValue = "30") int limit, @RequestParam(required = false) String cursor,
+			@AuthenticationPrincipal Jwt jwt) { return mediaService.list(userId(jwt), limit, cursor); }
 	@GetMapping("/{mediaFileId}")
 	@Operation(summary = "미디어 메타데이터 조회")
 	public MediaFileResponse detail(@PathVariable UUID mediaFileId, @AuthenticationPrincipal Jwt jwt) {

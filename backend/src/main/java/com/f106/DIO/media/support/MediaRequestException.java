@@ -17,6 +17,12 @@ public class MediaRequestException extends RuntimeException {
 	public static MediaRequestException invalidCategory() {
 		return new MediaRequestException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_CATEGORY", "파일 종류에 맞는 미디어 분류가 아닙니다.");
 	}
+	public static MediaRequestException invalidCursor() {
+		return new MediaRequestException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_CURSOR", "미디어 목록 커서가 올바르지 않습니다.");
+	}
+	public static MediaRequestException invalidLimit() {
+		return new MediaRequestException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_LIMIT", "미디어 목록 limit은 1에서 100 사이여야 합니다.");
+	}
 	public HttpStatus status() { return status; }
 	public String code() { return code; }
 }

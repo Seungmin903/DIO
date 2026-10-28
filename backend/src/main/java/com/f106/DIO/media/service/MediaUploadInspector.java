@@ -13,7 +13,6 @@ final class MediaUploadInspector {
 		if (startsText(content, "GIF87a") || startsText(content, "GIF89a")) return new FileKind(MediaType.IMAGE, "image/gif", "gif");
 		if (startsText(content, "RIFF") && hasText(content, 8, "WEBP")) return new FileKind(MediaType.IMAGE, "image/webp", "webp");
 		if (startsText(content, "RIFF") && hasText(content, 8, "WAVE")) return new FileKind(MediaType.AUDIO, "audio/wav", "wav");
-		if (isAudioWebm(content)) return new FileKind(MediaType.AUDIO, "audio/webm", "webm");
 		if (startsText(content, "OggS")) return new FileKind(MediaType.AUDIO, "audio/ogg", "ogg");
 		if (startsText(content, "ID3") || isMp3Frame(content)) {
 			return new FileKind(MediaType.AUDIO, "audio/mpeg", "mp3");
@@ -37,17 +36,6 @@ final class MediaUploadInspector {
 		int bitrate = (content[2] >> 4) & 0x0F;
 		int sampleRate = (content[2] >> 2) & 0x03;
 		return version != 0x01 && layer != 0 && bitrate != 0 && bitrate != 0x0F && sampleRate != 0x03;
-	}
-	private static boolean isAudioWebm(byte[] content) {
-		if (!starts(content, 0x1A, 0x45, 0xDF, 0xA3) || !contains(content, "webm") || contains(content, new byte[] {(byte)0x83, (byte)0x81, 0x01})) return false;
-		return contains(content, new byte[] {(byte)0x83, (byte)0x81, 0x02});
-	}
-	private static boolean contains(byte[] content, String text) { return contains(content, text.getBytes(java.nio.charset.StandardCharsets.US_ASCII)); }
-	private static boolean contains(byte[] content, byte[] needle) {
-		for (int index = 0; index <= content.length - needle.length; index++) {
-			if (Arrays.equals(Arrays.copyOfRange(content, index, index + needle.length), needle)) return true;
-		}
-		return false;
 	}
 	private static boolean hasText(byte[] content, int offset, String text) {
 		byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.US_ASCII);

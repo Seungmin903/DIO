@@ -82,7 +82,7 @@ class MediaServiceTests {
 	}
 
 	@Test
-	void rejectsWebmWithAVideoTrack() {
+	void rejectsWebmUntilItHasAFullEbmlTrackParser() {
 		byte[] videoWebm = new byte[] {0x1A, 0x45, (byte)0xDF, (byte)0xA3, 'w', 'e', 'b', 'm', (byte)0x83, (byte)0x81, 0x01};
 
 		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "movie.webm", "video/webm", videoWebm), null, 7L))
