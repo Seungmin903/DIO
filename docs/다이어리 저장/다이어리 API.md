@@ -8,19 +8,19 @@ Docker Desktop을 켜고 루트에서 `docker compose up -d --wait postgres`를 
 .\gradlew.bat bootRun
 ```
 
-기본 프로필은 `local`이며 PostgreSQL을 사용한다. Swagger는 `http://localhost:8080/swagger-ui.html`, OpenAPI JSON은 `http://localhost:8080/v3/api-docs`다. 인증 토큰은 아직 요구하지 않는다.
+기본 프로필은 `local`이며 PostgreSQL을 사용한다. Swagger는 `http://localhost:8080/swagger-ui.html`, OpenAPI JSON은 `http://localhost:8080/v3/api-docs`다. 모든 다이어리 API는 Swagger **Authorize**에 입력한 Bearer Access Token이 필요하다.
 
 ## API 목록
 
 | 기능 | Method | Endpoint | 성공 | 주요 오류 |
 |---|---|---|---|---|
-| 생성 | POST | `/api/v1/diaries` | 201, `diary` 객체 | 400 |
-| 목록 | GET | `/api/v1/diaries` | 200, `items` 배열 | |
-| 상세 | GET | `/api/v1/diaries/{diaryId}` | 200, `diary` 객체 | 400, 404 |
-| 수정 | PATCH | `/api/v1/diaries/{diaryId}` | 200, `diary` 객체 | 400, 404 |
-| 삭제 | DELETE | `/api/v1/diaries/{diaryId}` | 204, 본문 없음 | 400, 404 |
+| 생성 | POST | `/api/v1/diaries` | 201, `diary` 객체 | 400, 401 |
+| 목록 | GET | `/api/v1/diaries` | 200, `items` 배열 | 401 |
+| 상세 | GET | `/api/v1/diaries/{diaryId}` | 200, `diary` 객체 | 400, 401, 403, 404 |
+| 수정 | PATCH | `/api/v1/diaries/{diaryId}` | 200, `diary` 객체 | 400, 401, 403, 404 |
+| 삭제 | DELETE | `/api/v1/diaries/{diaryId}` | 204, 본문 없음 | 400, 401, 403, 404 |
 
-생성·수정 요청은 `Content-Type: application/json`이다. Query는 없으며 ID는 UUID 문자열이다.
+생성·수정 요청은 `Content-Type: application/json`이다. Query는 없으며 ID는 UUID 문자열이다. 토큰이 없거나 유효하지 않으면 401 `INVALID_TOKEN`, 소유자·활성 멤버가 아니면 403 `DIARY_ACCESS_DENIED`를 반환한다.
 
 ## 생성 요청
 
@@ -57,7 +57,7 @@ Docker Desktop을 켜고 루트에서 `docker compose up -d --wait postgres`를 
 
 ## 목록
 
-동일한 `diary` 필드를 가진 객체를 `items` 배열로 반환한다. 빈 목록은 `{"items":[]}`다. 생성 시각 내림차순, 같은 시각이면 UUID 내림차순이다. 페이지네이션·검색은 미구현이다.
+동일한 `diary` 필드를 가진 객체를 `items` 배열로 반환한다. 빈 목록은 `{"items":[]}`다. 본인이 소유하거나 `left_at`이 비어 있는 멤버로 참여한 다이어리만 생성 시각 내림차순, 같은 시각이면 UUID 내림차순으로 반환한다. 페이지네이션·검색은 미구현이다.
 
 ## 수정
 
@@ -65,7 +65,7 @@ Docker Desktop을 켜고 루트에서 `docker compose up -d --wait postgres`를 
 
 ## 삭제
 
-행을 물리적으로 지우지 않고 `deleted_at`을 기록하는 소프트 삭제다. 삭제된 다이어리는 목록·상세에서 제외되며, 수정과 재삭제도 404다. 페이지·요소가 추가되면 하위 데이터 삭제 정책을 별도로 구현한다.
+행을 물리적으로 지우지 않고 `deleted_at`을 기록하는 소프트 삭제다. 삭제된 다이어리는 목록·상세에서 제외되며, 수정과 재삭제도 404다. 삭제는 `OWNER`만 할 수 있고, 공유받은 `EDITOR`는 페이지·요소 저장 내용을 변경할 수 있지만 다이어리 자체를 삭제할 수 없다.
 
 ## 이전 계약에서 바뀐 점
 
@@ -76,9 +76,9 @@ Docker Desktop을 켜고 루트에서 `docker compose up -d --wait postgres`를 
 - ID 변경: 숫자 문자열에서 UUID 문자열로 변경
 - 삭제 변경: 하드 삭제에서 소프트 삭제로 변경
 
-## 인증 전 범위
+## 권한 범위
 
-현재 인증·소유권 검증은 아직 구현되지 않았다. `visibility`는 저장·반환하는 메타데이터이며, 현재 목록·상세 API의 접근을 제한하지 않는다. 인증과 공유 정책을 도입할 때 사용자·멤버십 조건을 조회에 반영해야 한다.
+생성자는 `OWNER` 멤버로 기록된다. `OWNER`와 `EDITOR`는 페이지·캔버스 요소와 다이어리 설정을 수정할 수 있으며 `VIEWER`는 조회만 할 수 있다. 다이어리 삭제는 `OWNER` 전용이다. 페이지·캔버스 API의 상세 계약은 [페이지·캔버스 API](./페이지·캔버스%20API.md)를 따른다.
 
 ## 검증
 
