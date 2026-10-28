@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 import java.util.Optional;
 import java.util.List;
 import java.util.UUID;
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import com.f106.DIO.media.repository.MediaFileRepository;
 import com.f106.DIO.media.domain.MediaFile;
@@ -47,6 +49,13 @@ class MediaFileTransactionServiceTests {
 	@Test
 	void rejectsAnOutOfRangePageLimit() {
 		assertThatThrownBy(() -> service.list(2L, 101, null)).isInstanceOf(MediaRequestException.class);
+	}
+
+	@Test
+	void rejectsATamperedCursorAsABadRequest() {
+		String invalidCursor = Base64.getUrlEncoder().withoutPadding().encodeToString("not-a-time|".concat(UUID.randomUUID().toString()).getBytes(StandardCharsets.UTF_8));
+
+		assertThatThrownBy(() -> service.list(2L, 30, invalidCursor)).isInstanceOf(MediaRequestException.class);
 	}
 
 	private static MediaFile media(Long ownerUserId) {

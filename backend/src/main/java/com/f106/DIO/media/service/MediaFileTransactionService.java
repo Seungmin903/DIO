@@ -3,6 +3,7 @@ package com.f106.DIO.media.service;
 import java.util.List;
 import java.util.UUID;
 import java.time.Instant;
+import java.time.DateTimeException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import org.slf4j.Logger;
@@ -93,7 +94,7 @@ public class MediaFileTransactionService {
 			String[] parts = raw.split("\\|", -1);
 			if (parts.length != 2) throw MediaRequestException.invalidCursor();
 			return new Cursor(Instant.parse(parts[0]), UUID.fromString(parts[1]));
-		} catch (IllegalArgumentException error) { throw MediaRequestException.invalidCursor(); }
+		} catch (IllegalArgumentException | DateTimeException error) { throw MediaRequestException.invalidCursor(); }
 	}
 
 	public record StorageReference(String mimeType, String storageKey) {}
