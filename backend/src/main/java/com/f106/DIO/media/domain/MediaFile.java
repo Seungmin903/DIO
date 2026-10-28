@@ -41,7 +41,7 @@ public class MediaFile {
 	private String mimeType;
 	@Column(name = "file_size", nullable = false)
 	private long fileSize;
-	@Column(name = "checksum_sha256", length = 64)
+	@Column(name = "checksum_sha256", columnDefinition = "char(64)")
 	private String checksumSha256;
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
