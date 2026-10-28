@@ -33,7 +33,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:member-purge-http;MODE=PostgreSQL"})
+@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:member-purge-http;MODE=PostgreSQL",
+    "dio.diary.expiry-cleanup.enabled=true","dio.diary.expiry-cleanup.initial-delay-ms=3600000"})
 @AutoConfigureMockMvc @ActiveProfiles("test")
 class MemberDiaryPurgeHttpTests {
     static final String PATH="/api/v1/member/diaries";
@@ -44,6 +45,7 @@ class MemberDiaryPurgeHttpTests {
         registry.add("dio.auth.jwt-secret", () -> key);
     }
     @Autowired MockMvc mvc;
+    @Autowired com.f106.DIO.diary.expiry.ExpiredDiaryCleanup expiry;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper json;
     @Autowired LoginJwt jwt;
@@ -140,5 +142,19 @@ class MemberDiaryPurgeHttpTests {
         jdbc.update("update users set status='SUSPENDED' where user_id=101");
         mvc.perform(delete(PATH+"/"+id+"/purge").header("Authorization","Bearer "+owner)).andExpect(status().isUnauthorized());
         assertThat(jdbc.queryForObject("select count(*) from diaries",Long.class)).isEqualTo(1);
+    }
+    @Test void springBatchUsesIndependentTransactionsAndContinuesAfterAFailedGraph() throws Exception {
+        String first=id(create()),second=id(create());
+        jdbc.update("update diaries set deleted_at=? where diary_id=?",Timestamp.from(Instant.now().minusSeconds(40L*86400)),UUID.fromString(first));
+        jdbc.update("update diaries set deleted_at=? where diary_id=?",Timestamp.from(Instant.now().minusSeconds(35L*86400)),UUID.fromString(second));
+        jdbc.execute("create table expiry_pending_reference(diary_id uuid references diaries(diary_id))");
+        try {
+            jdbc.update("insert into expiry_pending_reference values(?)",UUID.fromString(first));
+            assertThat(expiry.run()).isEqualTo(new com.f106.DIO.diary.expiry.ExpiredDiaryCleanup.Result(2,1,0,1));
+            assertThat(jdbc.queryForObject("select count(*) from pages where diary_id=?",Long.class,UUID.fromString(first))).isEqualTo(2);
+            mvc.perform(get(PATH+"/"+second).header("Authorization","Bearer "+owner)).andExpect(status().isNotFound());
+        } finally {jdbc.execute("drop table expiry_pending_reference");}
+        assertThat(expiry.run().deleted()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from diaries",Long.class)).isZero();
     }
 }
