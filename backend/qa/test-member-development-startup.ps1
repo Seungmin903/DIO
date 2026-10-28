@@ -50,8 +50,20 @@ function Join-Path {
     Microsoft.PowerShell.Management\Join-Path -Path $Path -ChildPath $ChildPath
 }
 function Expect-Failure([string]$message) {
+    $before=@{}
+    Get-ChildItem Env: | ForEach-Object { $before[$_.Name]=$_.Value }
     try { & $startup -PostgresBin $mockBin; throw 'Expected startup to stop' }
     catch { if (!$_.Exception.Message.Contains($message)) { throw } }
+    $keys=@('PGPASSWORD')
+    $envFile=Microsoft.PowerShell.Management\Join-Path $fixture 'repo/.local-data/member-app/backend.env'
+    if(Test-Path -LiteralPath $envFile) {
+        $keys+=Get-Content -LiteralPath $envFile | ForEach-Object { if($_ -match '^([A-Z0-9_]+)=') { $Matches[1] } }
+    }
+    foreach($key in $keys) {
+        if([Environment]::GetEnvironmentVariable($key,'Process') -cne $before[$key]) {
+            throw "Startup failed to restore caller environment: $key"
+        }
+    }
 }
 function Get-CimInstance {
     param($ClassName,$Filter,$ErrorAction)
@@ -110,7 +122,14 @@ try {
     }
     Write-Output 'PASS: initdb failure leaves no persisted runtime configuration'
     $env:DIO_TEST_INITDB_FAIL='false'
-    Expect-Failure 'TEST_REACHED_CLUSTER_START'
+    $priorProbePassword=$env:PGPASSWORD
+    try {
+        $env:PGPASSWORD='caller-environment-preservation-probe'
+        Expect-Failure 'TEST_REACHED_CLUSTER_START'
+    } finally {
+        if($null -eq $priorProbePassword) { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+        else { $env:PGPASSWORD=$priorProbePassword }
+    }
     if (!(Test-Path (Join-Path $runtimeDir 'backend.env'))) { throw 'Successful initdb must persist configuration' }
     $metadata=Get-Content -LiteralPath (Join-Path $runtimeDir 'runtime.json') -Raw | ConvertFrom-Json
     if (!(Test-Path (Join-Path $metadata.dataDir 'PG_VERSION'))) { throw 'Cluster must precede metadata' }

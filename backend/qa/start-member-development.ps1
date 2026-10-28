@@ -72,8 +72,13 @@ if($metadata.backendPid) {
 }
 $frontendEnv=Join-Path $repoRoot 'frontend/.env.local'
 if(Test-Path -LiteralPath $frontendEnv) { Confirm-MemberDevelopmentEndpoint $frontendEnv $metadata.apiPort }
+# Restore the caller's environment even when database startup fails before bootJar.
+$priorEnvironment=@{ PGPASSWORD=[Environment]::GetEnvironmentVariable('PGPASSWORD','Process') }
+try {
 Get-Content -LiteralPath $runtimeFile | ForEach-Object {
-    if($_ -match '^([A-Z0-9_]+)=(.*)$') { [Environment]::SetEnvironmentVariable($Matches[1],$Matches[2],'Process') }
+    if($_ -match '^([A-Z0-9_]+)=(.*)$') { $name=$Matches[1]; $value=$Matches[2]
+        if(!$priorEnvironment.ContainsKey($name)) { $priorEnvironment[$name]=[Environment]::GetEnvironmentVariable($name,'Process') }
+        [Environment]::SetEnvironmentVariable($name,$value,'Process') }
 }
 & (Join-Path $PostgresBin 'pg_ctl.exe') -D $metadata.dataDir status *> $null
 if ($LASTEXITCODE -ne 0) {
@@ -128,4 +133,10 @@ try {
     & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $metadata.pgPort -U dio_member_dev -d dio_member_app -c 'select version,success from flyway_schema_history order by installed_rank; select count(*) as registered_templates from page_templates;'
     if(!(Test-Path -LiteralPath $frontendEnv)) { Confirm-MemberDevelopmentEndpoint $frontendEnv $metadata.apiPort }
     Write-Output "MEMBER_API=http://127.0.0.1:$($metadata.apiPort)/api/v1; WEB_QA_PORT=$($metadata.webPort); DB=dio_member_app; MIGRATIONS_APPLIED_BY_FLYWAY=true"
-} finally { Pop-Location; Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+} finally { Pop-Location }
+} finally {
+    foreach($name in $priorEnvironment.Keys) {
+        if($null -eq $priorEnvironment[$name]) { Remove-Item -LiteralPath ('Env:'+$name) -ErrorAction SilentlyContinue }
+        else { [Environment]::SetEnvironmentVariable($name,$priorEnvironment[$name],'Process') }
+    }
+}
