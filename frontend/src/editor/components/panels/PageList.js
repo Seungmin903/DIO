@@ -1,5 +1,5 @@
 import PageBulkDelete from '../controls/PageBulkDelete'
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, radius } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
@@ -7,7 +7,7 @@ import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import Icon from '../controls/Icon'
 import TapCatcher from '../controls/TapCatcher'
-import StaticPage from '../canvas/StaticPage'
+import PageThumbnail from './PageThumbnail'
 
 const THUMB_WIDTH = 124
 const THUMB_BORDER = 1
@@ -22,7 +22,7 @@ const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
 export const PAGE_LIST_WIDTH = 156
 
 /**
- * 페이지 목록. 썸네일은 편집 화면과 같은 StaticPage 로 그려 편집 내용을 그대로 비춘다.
+ * 페이지 목록. 같은 원본으로 표시하되 웹의 무거운 썸네일은 축소 캐시를 재사용한다.
  * - 탭: 그 페이지로 이동 (고른 페이지도 그 하나만)
  * - 고른 페이지(지금 페이지 포함)를 길게 눌러 끌기: 순서 바꾸기. 여러 개 골라 두었으면 함께 옮긴다 (놓을 자리에 선이 보인다)
  * - 고르지 않은 페이지를 길게 누르기: 여러 개 고르기 모드에 들어가 그 페이지를 넣는다. 이어서 위아래로 끌면 그 사이를 모두 고른다
@@ -31,7 +31,14 @@ export const PAGE_LIST_WIDTH = 156
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onRemovePages, onReset, onMove, onMovePages, onEmptyTap, readOnly = false }) {
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onRemovePages, onReset, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null }) {
+  useLayoutEffect(() => {
+    qaMeasurement?.emit('panel-layout')
+    if (!qaMeasurement) return
+    let second
+    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => qaMeasurement.emit('panel-frame-opportunity')) })
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second) }
+  }, [qaMeasurement])
   const [drag, setDrag] = useState(null) // { id, from, dy, group } — 끌어서 옮기는 중
   // 고른 페이지들. 평소에는 지금 페이지 하나이고, 길게 눌러 여러 개를 고른다.
   const [picked, setPicked] = useState([currentId])
@@ -351,7 +358,7 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
       >
         {/* 지금 편집 중인 페이지는 움직이는 GIF·자르기 표시까지 편집 화면과 똑같이, 나머지는 첫 장면으로 */}
         <View style={styles.thumbPage} pointerEvents="none">
-          <StaticPage page={page} zoom={thumbZoom} still cropId={cropId} showBackground={showBackground} />
+          <PageThumbnail page={page} zoom={thumbZoom} still cropId={cropId} showBackground={showBackground} />
         </View>
         {/* 선택 테두리는 썸네일 위에 겹쳐 그린다 (썸네일에 아래쪽 선이 가려지던 문제) */}
         {(pickMode ? picked : active) && <View style={styles.activeRing} pointerEvents="none" />}

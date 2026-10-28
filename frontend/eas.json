@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "env": { "DIO_IOS_POINTER_EVENTS": "1" },
       "developmentClient": true,
       "distribution": "internal",
       "autoIncrement": true

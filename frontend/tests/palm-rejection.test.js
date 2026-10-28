@@ -50,9 +50,9 @@ function setup(os) {
       const list = [...touches.values(), { identifier: id, pageX: x, pageY: 0, ...extra }]
       return responder.onResponderTerminationRequest({ nativeEvent: { touches: list } })
     },
-    move(id, x) {
+    move(id, x, extra = {}) {
       // 실제 이벤트처럼 매번 새 터치 객체를 만든다
-      touches.set(id, { ...touches.get(id), pageX: x })
+      touches.set(id, { ...touches.get(id), pageX: x, ...extra })
       responder.onResponderMove(event())
     },
     up(id) {
@@ -62,6 +62,45 @@ function setup(os) {
     },
   }
 }
+
+test('이동 없는 탭은 force 0/누락/고정 양수여도 드래그 move를 만들지 않는다', () => {
+  for (const force of [0, undefined, 0.4]) {
+    const t = setup('ios')
+    t.down(0, 10, { force })
+    t.move(0, 10, { force })
+    const end = { nativeEvent: { touches: [], changedTouches: [{ identifier: 0, pageX: 10, pageY: 0, force: 0 }] } }
+    t.responder.onResponderEnd(end)
+    t.responder.onResponderRelease(end)
+    assert.deepEqual(t.log.map(row => row[0]), ['start', 'end'])
+  }
+})
+
+test('정지 중 실측 압력 변화는 전달하고 같은 위치의 해제 0은 중복 move로 전달하지 않는다', () => {
+  const t = setup('ios')
+  t.down(0, 10, { force: 0.4 })
+  t.move(0, 10, { force: 0.8 })
+  t.move(0, 10, { force: 0 })
+  t.move(0, 10, { force: 0 })
+  t.responder.onResponderRelease({ nativeEvent: { identifier: 0, pageX: 10, pageY: 0, force: 0, touches: [] } })
+  assert.deepEqual(t.log, [['start', 1, 10], ['move', 0, 1], ['move', 0, 1], ['end', false]])
+})
+
+test('Pencil pointerId별로 해제하고 손바닥 pointerdown은 활성 펜을 지우지 않는다', () => {
+  const { stylus: module } = load('ios')
+  module.setPenPointerActive(1, true)
+  module.setPenPointerActive(2, true)
+  module.notePointerDown({ nativeEvent: { pointerId: 3, pointerType: 'touch' } })
+  assert.equal(module.stylus.activePen, true)
+  module.notePointerUp({ nativeEvent: { pointerId: 3 } })
+  module.setPenPointerActive(1, false)
+  assert.equal(module.stylus.activePen, true, '다른 Pencil 포인터를 유지한다')
+  module.setPenPointerActive(2, false)
+  assert.equal(module.stylus.activePen, false)
+  module.setPenPointerActive(1, true)
+  module.resetStylusPointers()
+  assert.equal(module.stylus.activePen, false)
+  assert.equal(module.stylus.seen, true, '백그라운드 복귀 후 펜 선호 정책은 유지한다')
+})
 
 test('Android 펜 모드: 손바닥이 먼저 닿아 있어도 펜 획만 그리고, 입력에는 터치 하나만 넘긴다', () => {
   const t = setup('android')

@@ -1,0 +1,82 @@
+{
+  "platform": "Chromium desktop synthetic pen single run, not Safari benchmark",
+  "result": [
+    {
+      "affected": 15,
+      "metrics": {
+        "downToAcceptedMs": {
+          "count": 1,
+          "p50": 1.5,
+          "p95": 1.5,
+          "max": 1.5
+        },
+        "downEventAgeMs": {
+          "count": 1,
+          "p50": 1.399999976158142,
+          "p95": 1.399999976158142,
+          "max": 1.399999976158142
+        },
+        "eraserSetupMs": {
+          "count": 1,
+          "p50": 3.399999976158142,
+          "p95": 3.399999976158142,
+          "max": 3.399999976158142
+        },
+        "eraserMoveMs": {
+          "count": 36,
+          "p50": 0.5,
+          "p95": 0.9000000953674316,
+          "max": 2.9000000953674316
+        },
+        "jsFrameGapMs": {
+          "count": 138,
+          "p50": 8.299999952316284,
+          "p95": 49.200000047683716,
+          "max": 98.10000002384186
+        },
+        "eraserFragmentsMs": {
+          "count": 26,
+          "p50": 1,
+          "p95": 1.7000000476837158,
+          "max": 4.099999904632568
+        },
+        "eraserPreviewToLayoutMs": {
+          "count": 20,
+          "p50": 39.89999997615814,
+          "p95": 60.200000047683716,
+          "max": 65
+        },
+        "eventAgeMs": {
+          "count": 35,
+          "p50": 8.800000071525574,
+          "p95": 27.399999976158142,
+          "max": 47.300000071525574
+        },
+        "jsMoveGapMs": {
+          "count": 34,
+          "p50": 33.60000002384186,
+          "p95": 51.10000002384186,
+          "max": 72.10000002384186
+        },
+        "nativeTimestampDelta": {
+          "count": 34,
+          "p50": 32.09999990463257,
+          "p95": 49,
+          "max": 76
+        },
+        "eraserFinalizeMs": {
+          "count": 1,
+          "p50": 1.0999999046325684,
+          "p95": 1.0999999046325684,
+          "max": 1.0999999046325684
+        },
+        "eraserFinalizeToLayoutMs": {
+          "count": 1,
+          "p50": 49,
+          "p95": 49,
+          "max": 49
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+import { simplifyInkPreview } from './inkPreviewGeometry.js'
+import { penSweeps } from './strokes.js'
+import { fountainInkOpacity } from './penMaterials.js'
+
+const smooth = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t) }
+export function inkOpacity(kind, distance, { length = Infinity, continuing = false } = {}) {
+  if (kind === 'brush') return 0.96 - 0.4 * smooth((distance - 120) / 360)
+  const pooling = Math.max(1 - smooth(distance / 18), continuing ? 0 : 1 - smooth((length - distance) / 18))
+  return Math.min(0.98, 0.84 + 0.035 * Math.sin(distance / 23) + 0.12 * pooling)
+}
+
+const BRUSH_LEVELS = Array.from({ length: 41 }, (_, i) => 0.56 + i * 0.01)
+const FOUNTAIN_LEVELS = Array.from({ length: 19 }, (_, i) => 0.8 + i * 0.01)
+const FOUNTAIN_MATERIAL_LEVELS = Array.from({ length: 28 }, (_, i) => 0.72 + i * 0.01)
+const fullInkLevels = (kind, renderVersion = 2) => kind === 'fountain'
+  ? renderVersion === 3 ? FOUNTAIN_MATERIAL_LEVELS : FOUNTAIN_LEVELS : BRUSH_LEVELS
+export function inkLevels(kind, renderVersion = 2, preview = false) {
+  const full = fullInkLevels(kind, renderVersion)
+  if (!preview) return full
+  return Array.from({ length: 8 }, (_, i) => full[Math.round(i * (full.length - 1) / 7)])
+}
+const cache = new WeakMap()
+
+// 완성된 미리보기 구간은 재계산하지 않는다. 1% 농도 단계로 밴딩을 줄인다.
+// 같은 농도의 도형은 하나의 Path에 모아 구간 경계/되짚기에서 중복 알파가 쌓이지 않는다.
+// 누적 단계는 교차부도 최대 농도로 합성한다. 단일 알파 bucket으로 바꾸면
+// 서로 다른 농도의 교차부가 더 진해질 수 있어 별도 시각/성능 검증이 필요하다.
+export function inkPaths(part, width, kind, endPool = false, renderVersion = 2, preview = false) {
+  const key = `${width}:${kind}:${endPool}:${renderVersion}:${preview}`
+  const previous = cache.get(part)
+  if (previous?.key === key) return previous.paths
+  const points = part.points, sampled = points.length ? [points[0]] : []
+  let totalDistance = 0
+  for (let i = 1; i < points.length; i++) totalDistance += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+  const spacing = Math.max(6, totalDistance / 512)
+  let length = part.startDistance ?? 0
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i], distance = Math.hypot(b.x - a.x, b.y - a.y)
+    length += distance
+    const steps = Math.max(1, Math.ceil(distance / spacing))
+    for (let j = 1; j <= steps; j++) {
+      const t = j / steps
+      sampled.push({ ...a, x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t,
+        ...(a.force != null && b.force != null && { force: a.force + (b.force - a.force) * t }),
+        ...(a.speed != null && b.speed != null && { speed: a.speed + (b.speed - a.speed) * t }),
+        pressure: (a.pressure ?? 1) + ((b.pressure ?? 1) - (a.pressure ?? 1)) * t })
+    }
+  }
+  const levels = inkLevels(kind, renderVersion, preview), buckets = levels.map(() => [])
+  for (const piece of penSweeps(preview ? simplifyInkPreview(sampled, width) : sampled, width, kind, part.startDistance ?? 0,
+    { capStart: !part.key && !endPool, capEnd: !part.continuing })) {
+    const opacity = kind === 'fountain' && renderVersion === 3
+      ? fountainInkOpacity(piece.point, piece.distance, { length, continuing: !endPool })
+      : inkOpacity(kind, piece.distance, { length, continuing: !endPool })
+    levels.forEach((level, i) => { if (i === 0 || opacity >= level) buckets[i].push(piece.path) })
+  }
+  const paths = buckets.map(bucket => bucket.join(''))
+  cache.set(part, { key, paths })
+  return paths
+}
+
+export function strokeInkLayers(parts, width, kind, renderVersion = 2, preview = false) {
+  const paths = parts.map(part => inkPaths(part, width, kind, false, renderVersion, preview))
+  // 끝의 농도는 마지막 24좌표만 별도로 계산한다. 완성 구간에 끝 효과를 굳히거나,
+  // 미리보기 분할 경계마다 잉크 고임이 생기지 않게 한다.
+  if (kind === 'fountain' && parts.length && parts.at(-1).points.length) {
+    const tail = parts.at(-1)
+    let total = tail.startDistance ?? 0
+    for (let i = 1; i < tail.points.length; i++) total += Math.hypot(tail.points[i].x - tail.points[i - 1].x, tail.points[i].y - tail.points[i - 1].y)
+    const ending = []
+    let travelled = 0, previousIndex = Infinity
+    outer: for (let partIndex = parts.length - 1; partIndex >= 0; partIndex--) {
+      const part = parts[partIndex], offset = Math.max(0, (part.key ?? 0) - 1)
+      for (let i = part.points.length - 1; i >= 0; i--) {
+        const index = offset + i
+        if (index >= previousIndex) continue
+        const point = part.points[i], before = ending.at(-1)
+        if (before) travelled += Math.hypot(point.x - before.x, point.y - before.y)
+        ending.push(point); previousIndex = index
+        if (travelled >= 24) break outer
+      }
+    }
+    paths.push(inkPaths({ points: ending.reverse(), startDistance: total - travelled }, width, kind, true, renderVersion, preview))
+  }
+  return inkLevels(kind, renderVersion, preview).map((_, index) => paths.map(part => part[index]).join(''))
+}

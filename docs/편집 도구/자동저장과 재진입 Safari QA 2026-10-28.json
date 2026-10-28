@@ -1,0 +1,212 @@
+{
+  "date": "2026-10-28",
+  "timezone": "Asia/Seoul",
+  "scope": "Safari QA diary; useEditor autosave to AsyncStorage; origin-local browser persistence, not server API or native QA",
+  "checkpoints": [
+    {
+      "at": "2026-10-28T01:06:08.117Z",
+      "qaSession": "mvretm4g",
+      "phase": "save-writing",
+      "ok": true,
+      "diskMatch": true,
+      "changedSincePrevious": null,
+      "summary": {
+        "pages": 1,
+        "objects": 30,
+        "kinds": {
+          "fountain": {
+            "strokes": 15,
+            "points": 426,
+            "sensedPoints": 426,
+            "forceMin": 0,
+            "forceMax": 0.5449,
+            "versions": {
+              "3": 15
+            },
+            "seededStrokes": 15
+          },
+          "felt": {
+            "strokes": 15,
+            "points": 496,
+            "sensedPoints": 496,
+            "forceMin": 0.0048,
+            "forceMax": 0.431,
+            "versions": {
+              "3": 15
+            },
+            "seededStrokes": 15
+          }
+        }
+      }
+    },
+    {
+      "at": "2026-10-28T01:06:20.368Z",
+      "qaSession": "mvreympi",
+      "phase": "restored",
+      "ok": true,
+      "diskMatch": true,
+      "editorMatch": true,
+      "referencePhase": "save-writing",
+      "summary": {
+        "pages": 1,
+        "objects": 30,
+        "kinds": {
+          "fountain": {
+            "strokes": 15,
+            "points": 426,
+            "sensedPoints": 426,
+            "forceMin": 0,
+            "forceMax": 0.5449,
+            "versions": {
+              "3": 15
+            },
+            "seededStrokes": 15
+          },
+          "felt": {
+            "strokes": 15,
+            "points": 496,
+            "sensedPoints": 496,
+            "forceMin": 0.0048,
+            "forceMax": 0.431,
+            "versions": {
+              "3": 15
+            },
+            "seededStrokes": 15
+          }
+        }
+      }
+    },
+    {
+      "at": "2026-10-28T01:06:29.658Z",
+      "qaSession": "mvreympi",
+      "phase": "visual-confirmed",
+      "ok": true,
+      "noGapsOrGhosts": true,
+      "materialAppearanceMaintained": true
+    },
+    {
+      "at": "2026-10-28T01:06:53.537Z",
+      "qaSession": "mvreympi",
+      "phase": "save-erased",
+      "ok": true,
+      "diskMatch": true,
+      "changedSincePrevious": true,
+      "summary": {
+        "pages": 1,
+        "objects": 32,
+        "kinds": {
+          "fountain": {
+            "strokes": 15,
+            "points": 502,
+            "sensedPoints": 502,
+            "forceMin": 0,
+            "forceMax": 0.5449,
+            "versions": {
+              "3": 15
+            },
+            "seededStrokes": 15
+          },
+          "felt": {
+            "strokes": 17,
+            "points": 524,
+            "sensedPoints": 524,
+            "forceMin": 0.0117,
+            "forceMax": 0.431,
+            "versions": {
+              "3": 17
+            },
+            "seededStrokes": 17
+          }
+        }
+      }
+    },
+    {
+      "at": "2026-10-28T01:07:03.179Z",
+      "qaSession": "mvrezj4p",
+      "phase": "restored",
+      "ok": true,
+      "diskMatch": true,
+      "editorMatch": true,
+      "referencePhase": "save-erased",
+      "summary": {
+        "pages": 1,
+        "objects": 32,
+        "kinds": {
+          "fountain": {
+            "strokes": 15,
+            "points": 502,
+            "sensedPoints": 502,
+            "forceMin": 0,
+            "forceMax": 0.5449,
+            "versions": {
+              "3": 15
+            },
+            "seededStrokes": 15
+          },
+          "felt": {
+            "strokes": 17,
+            "points": 524,
+            "sensedPoints": 524,
+            "forceMin": 0.0117,
+            "forceMax": 0.431,
+            "versions": {
+              "3": 17
+            },
+            "seededStrokes": 17
+          }
+        }
+      }
+    },
+    {
+      "at": "2026-10-28T01:07:10.211Z",
+      "qaSession": "mvrezj4p",
+      "phase": "visual-confirmed",
+      "ok": true,
+      "noGapsOrGhosts": true,
+      "materialAppearanceMaintained": true
+    }
+  ],
+  "erasers": [
+    {
+      "mode": "stroke",
+      "cancelled": false,
+      "affectedObjects": 5,
+      "previewToLayoutMaxMs": 19,
+      "finalizeToLayoutMaxMs": 4,
+      "frameGapMaxMs": 24
+    },
+    {
+      "mode": "stroke",
+      "cancelled": false,
+      "affectedObjects": 1,
+      "previewToLayoutMaxMs": 10,
+      "finalizeToLayoutMaxMs": 5,
+      "frameGapMaxMs": 24.0
+    },
+    {
+      "mode": "area",
+      "cancelled": false,
+      "affectedObjects": 4,
+      "previewToLayoutMaxMs": 28.0,
+      "finalizeToLayoutMaxMs": 10.0,
+      "frameGapMaxMs": 33.0
+    },
+    {
+      "mode": "area",
+      "cancelled": false,
+      "affectedObjects": 3,
+      "previewToLayoutMaxMs": 28.0,
+      "finalizeToLayoutMaxMs": 4,
+      "frameGapMaxMs": 34.0
+    }
+  ],
+  "errors": {},
+  "limits": [
+    "updatedAt is excluded; full document values compared locally, summaries are not equality evidence",
+    "No raw coordinates, writing content or original documents uploaded",
+    "Undo history resets on re-entry; not part of persistence guarantee",
+    "Safari visual confirmation is user-reported, not automated pixel equivalence",
+    "Natural large-document cold entry, native, long-duration memory and server persistence remain outside this run",
+    "QA run preceded latest develop UI integration; integration exports/tests are separate evidence"
+  ]
+}
