@@ -43,7 +43,7 @@ export function useEditor(diary) {
   const saving = useRef(false)
   const dirtySince = useRef(null)
   const currentKey = useRef(storageKey)
-  const edited = state.past.length > 0 || state.future.length > 0
+  const edited = state.past.length > 0 || state.future.length > 0 || state.externalDirty === true
   currentKey.current = storageKey
 
   const clearSchedule = useCallback(() => {
