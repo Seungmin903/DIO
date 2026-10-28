@@ -89,6 +89,25 @@ class MediaServiceTests {
 			.isInstanceOf(MediaRequestException.class);
 	}
 
+	@Test
+	void acceptsAFileAtTheFiveMegabyteLimit() {
+		byte[] m4a = new byte[5 * 1024 * 1024];
+		m4a[4] = 'f'; m4a[5] = 't'; m4a[6] = 'y'; m4a[7] = 'p'; m4a[8] = 'M'; m4a[9] = '4'; m4a[10] = 'A'; m4a[11] = ' ';
+		stubPersist();
+
+		var response = service.upload(new MockMultipartFile("file", "memo.m4a", "audio/mp4", m4a), null, 7L);
+
+		assertThat(response.fileSize()).isEqualTo(5L * 1024 * 1024);
+	}
+
+	@Test
+	void rejectsAFileLargerThanFiveMegabytes() {
+		byte[] oversized = new byte[5 * 1024 * 1024 + 1];
+
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "large.m4a", "audio/mp4", oversized), null, 7L))
+			.isInstanceOf(MediaRequestException.class);
+	}
+
 	private void stubPersist() {
 		when(transactions.persist(any(MediaFile.class))).thenAnswer(invocation -> MediaFileResponse.from(invocation.getArgument(0)));
 	}

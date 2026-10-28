@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -37,7 +36,7 @@ class MediaFileTransactionServiceTests {
 	void limitsTheLibraryAndProvidesACursorForTheNextPage() {
 		MediaFile first = media(2L);
 		MediaFile second = media(2L);
-		when(mediaFiles.findActivePage(eq(2L), isNull(), isNull(), any())).thenReturn(List.of(first, second));
+		when(mediaFiles.findFirstActivePage(eq(2L), any())).thenReturn(List.of(first, second));
 
 		var response = service.list(2L, 1, null);
 

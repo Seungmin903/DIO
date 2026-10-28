@@ -21,7 +21,7 @@ public class MediaController {
 	private final MediaService mediaService;
 	public MediaController(MediaService mediaService) { this.mediaService = mediaService; }
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	@Operation(summary = "미디어 업로드", description = "이미지(JPEG, PNG, WebP, GIF) 또는 오디오(MP3, M4A, WAV, WebM, OGG)를 업로드합니다. 파일 형식은 서버가 판별합니다.")
+	@Operation(summary = "미디어 업로드", description = "이미지(JPEG, PNG, WebP, GIF) 또는 오디오(MP3, M4A, WAV, OGG)를 업로드합니다. 파일 형식은 서버가 판별합니다.")
 	public ResponseEntity<MediaFileResponse> upload(@RequestPart("file") MultipartFile file,
 			@Parameter(description = "이미지는 PHOTO·STICKER·TAPE, 오디오는 AUDIO. 생략 시 파일 유형의 기본값") @RequestParam(required = false) String libraryCategory,
 			@AuthenticationPrincipal Jwt jwt) {

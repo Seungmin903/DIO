@@ -48,8 +48,9 @@ public class MediaFileTransactionService {
 	public MediaFileListResponse list(Long userId, int limit, String encodedCursor) {
 		if (limit < 1 || limit > 100) throw MediaRequestException.invalidLimit();
 		Cursor cursor = decode(encodedCursor);
-		List<MediaFile> candidates = mediaFiles.findActivePage(userId, cursor == null ? null : cursor.createdAt(),
-			cursor == null ? null : cursor.mediaFileId(), PageRequest.of(0, limit + 1));
+		PageRequest pageRequest = PageRequest.of(0, limit + 1);
+		List<MediaFile> candidates = cursor == null ? mediaFiles.findFirstActivePage(userId, pageRequest)
+			: mediaFiles.findActivePageAfter(userId, cursor.createdAt(), cursor.mediaFileId(), pageRequest);
 		boolean hasNext = candidates.size() > limit;
 		List<MediaFile> page = hasNext ? candidates.subList(0, limit) : candidates;
 		String nextCursor = hasNext ? encode(page.get(page.size() - 1)) : null;

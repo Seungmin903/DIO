@@ -16,10 +16,16 @@ public interface MediaFileRepository extends JpaRepository<MediaFile, UUID> {
 	@Query("""
 		select mediaFile from MediaFile mediaFile
 		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null
-		  and (:createdAt is null or mediaFile.createdAt < :createdAt
+		order by mediaFile.createdAt desc, mediaFile.mediaFileId desc
+		""")
+	List<MediaFile> findFirstActivePage(@Param("ownerUserId") Long ownerUserId, Pageable pageable);
+	@Query("""
+		select mediaFile from MediaFile mediaFile
+		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null
+		  and (mediaFile.createdAt < :createdAt
 		       or (mediaFile.createdAt = :createdAt and mediaFile.mediaFileId < :mediaFileId))
 		order by mediaFile.createdAt desc, mediaFile.mediaFileId desc
 		""")
-	List<MediaFile> findActivePage(@Param("ownerUserId") Long ownerUserId, @Param("createdAt") Instant createdAt,
+	List<MediaFile> findActivePageAfter(@Param("ownerUserId") Long ownerUserId, @Param("createdAt") Instant createdAt,
 		@Param("mediaFileId") UUID mediaFileId, Pageable pageable);
 }
