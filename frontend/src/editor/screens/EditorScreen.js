@@ -48,6 +48,7 @@ import Viewport from '../components/canvas/Viewport'
 import { ViewportMotion } from '../components/canvas/StaticPage'
 import { PHONE_ZOOM_MAX, ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
+import { useMemberTextPageSync } from '../hooks/useMemberTextPageSync'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
@@ -78,6 +79,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const qaHistoryExecutions = useRef(0)
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
+  const textSync = useMemberTextPageSync({ diary, page, loaded, readOnly, dispatch })
   // 페이지 목록·레이어는 캔버스를 먼저 그린 뒤 따라 그린다 (지우개·이동을 끝내고 손을 뗄 때 한꺼번에 다시 그려 멈칫하던 것)
   const deferredPages = useDeferredValue(state.doc.pages)
   const deferredObjects = useDeferredValue(page.objects)
@@ -990,6 +992,10 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
             <RoundButton icon="redo" label="다시 실행" disabled={readOnly || !state.future.length} onPress={redo} />
             <View style={styles.floatingDivider} />
             <SaveIndicator status={saveStatus} onInfo={showToast} />
+            {textSync.status && <Pressable accessibilityRole="button" accessibilityLabel="텍스트 서버 연결 상태" onPress={() => {
+              showToast(({ conflict: '서버와 기기의 내용이 달라 자동 덮어쓰기를 멈췄어요. 기기 내용은 유지돼요.', error: '서버 연결에 실패했어요. 기기 내용을 유지하고 다시 시도해요.', 'local-error': '기기 연결 기록을 읽거나 저장하지 못해 서버 전송을 멈췄어요.' })[textSync.status] ?? '현재 페이지의 텍스트만 서버에 연결해요. 사진·필기는 기기에 유지돼요.')
+              if (textSync.status === 'error') textSync.retry()
+            }}><Text style={{ fontSize: 11, color: ['conflict','error','local-error'].includes(textSync.status) ? colors.danger : colors.textMuted }}>{({ loading: '텍스트 확인 중', saving: '텍스트 전송 중', saved: '텍스트 서버 저장됨', conflict: '텍스트 충돌 · 기기 보존', error: '텍스트 연결 실패 · 재시도', 'local-error': '텍스트 연결 보류' })[textSync.status]}</Text></Pressable>}
           </View>
 
           {/* 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. 폰 가로도 −/+ 버튼 없이 손가락으로 확대하고 이 버튼으로 되돌린다.
