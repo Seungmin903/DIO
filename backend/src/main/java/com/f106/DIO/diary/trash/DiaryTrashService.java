@@ -21,6 +21,7 @@ import com.f106.DIO.diary.auth.DiaryRequestIdentity;
 @Service
 public class DiaryTrashService {
     private final JdbcTemplate jdbc;
+    private final boolean postgres;
     private final DiaryRequestIdentity identity;
     private final DiaryDetailRepository diaries;
     private final DiaryMembershipAccess memberships;
@@ -36,6 +37,7 @@ public class DiaryTrashService {
     }
     public DiaryTrashService(JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries, DiaryMembershipAccess memberships, int days, Clock clock) {
         if (days < 1 || days > 36500) throw new IllegalArgumentException("Invalid diary retention days");
+        this.postgres=Boolean.TRUE.equals(jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Boolean>) c -> "PostgreSQL".equals(c.getMetaData().getDatabaseProductName())));
         this.jdbc = jdbc; this.identity = identity; this.diaries = diaries; this.memberships = memberships; this.retention = Duration.ofDays(days); this.clock = clock;
     }
     private DiaryDetailException invalid() { return new DiaryDetailException(HttpStatus.BAD_REQUEST, "INVALID_DIARY_TRASH_QUERY", "휴지통 조회 조건이나 커서를 확인해 주세요."); }
@@ -54,17 +56,26 @@ public class DiaryTrashService {
             deletedAt, purgeAt, purgeAt != null && now.isBefore(purgeAt));
     }
 
+    // PostgreSQL uses FOR SHARE: concurrent readers coexist while account deactivation waits.
+    // Keep a normal transaction because PostgreSQL forbids row locks in a read-only transaction.
     @Transactional
     public DiaryTrashResponse list(String query, Integer requestedLimit, String encoded) {
         long user = authenticate();
-        String q = query == null ? "" : query.strip().toLowerCase(Locale.ROOT);
+        String q = query == null ? "" : query.strip();
         int limit = requestedLimit == null ? 20 : requestedLimit;
         if (q.length() > 100 || limit < 1 || limit > 100) throw invalid();
+        if (!q.isEmpty()) {
+            if (postgres && !Boolean.TRUE.equals(jdbc.queryForObject(
+                "select exists(select 1 from pg_catalog.pg_collation where collname='und-x-icu' and collnamespace='pg_catalog'::regnamespace and collprovider='i' and collisdeterministic)",Boolean.class)))
+                throw new DiaryDetailException(HttpStatus.SERVICE_UNAVAILABLE,"DIARY_TRASH_SEARCH_UNAVAILABLE","휴지통 검색을 지금 사용할 수 없어요.");
+            q=jdbc.queryForObject(postgres ? "SELECT LOWER(CAST(? AS text) COLLATE pg_catalog.\"und-x-icu\")" : "SELECT LOWER(CAST(? AS VARCHAR))",String.class,q);
+            if (q.length()>100) throw invalid();
+        }
         var args = new ArrayList<Object>(); args.add(user); args.add(user);
         String sql = "SELECT d.* FROM diaries d WHERE d.deleted_at IS NOT NULL AND d.owner_user_id=? "
             + "AND EXISTS (SELECT 1 FROM diary_members m WHERE m.diary_id=d.diary_id AND m.user_id=? AND m.role='OWNER' AND m.left_at IS NULL)";
         if (!q.isEmpty()) {
-            sql += " AND LOWER(d.title) LIKE ? ESCAPE '!'";
+            sql += postgres ? " AND LOWER(d.title COLLATE pg_catalog.\"und-x-icu\") COLLATE pg_catalog.\"C\" LIKE ? ESCAPE '!'" : " AND LOWER(d.title) LIKE ? ESCAPE '!'";
             args.add("%" + q.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%");
         }
         if (encoded != null) {

@@ -80,11 +80,12 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
             if (key.code==null || key.code.isBlank() || key.code.length()>100 || key.version==null || key.version.isBlank() || key.version.length()>30) {
                 throw new InvalidSelection("Invalid template selection");
             }
-            var rows = jdbc.query("select template_id,canvas_width,canvas_height,orientation,default_config from page_templates"
-                + " where code=? and template_version=? and is_active=true order by template_id"+catalogLock,
+            var rows = jdbc.query("select template_id,canvas_width,canvas_height,orientation,default_config,is_active from page_templates"
+                + " where code=? and template_version=? order by template_id"+catalogLock,
                 (rs,row) -> new Template(rs.getLong("template_id"),rs.getBigDecimal("canvas_width"),rs.getBigDecimal("canvas_height"),
-                    rs.getString("orientation"),rs.getString("default_config")),key.code,key.version);
-            if (rows.size()!=1) throw new InvalidSelection("Unknown, inactive or ambiguous template");
+                    rs.getString("orientation"),rs.getString("default_config"),rs.getBoolean("is_active")),key.code,key.version);
+            // 코드·버전은 공개 식별자다. 비활성 중복도 숨기지 않고 모호한 매핑은 거부한다.
+            if (rows.size()!=1 || !rows.get(0).active) throw new InvalidSelection("Unknown, inactive or ambiguous template");
             var template = rows.get(0);
             if (template.width==null || template.height==null || template.width.signum()<=0 || template.height.signum()<=0
                     || !("LANDSCAPE".equals(template.orientation) || "PORTRAIT".equals(template.orientation))) throw DiaryCreationException.invalidState();
@@ -140,6 +141,6 @@ public class JdbcDiaryInitialPages implements DiaryInitialPages {
         return value;
     }
     private record Key(String code,String version) {}
-    private record Template(long id,BigDecimal width,BigDecimal height,String orientation,String defaults) {}
+    private record Template(long id,BigDecimal width,BigDecimal height,String orientation,String defaults,boolean active) {}
     private record Plan(Template template,String config) {}
 }

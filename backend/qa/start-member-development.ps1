@@ -72,8 +72,13 @@ if($metadata.backendPid) {
 }
 $frontendEnv=Join-Path $repoRoot 'frontend/.env.local'
 if(Test-Path -LiteralPath $frontendEnv) { Confirm-MemberDevelopmentEndpoint $frontendEnv $metadata.apiPort }
+# Restore the caller's environment even when database startup fails before bootJar.
+$priorEnvironment=@{ PGPASSWORD=[Environment]::GetEnvironmentVariable('PGPASSWORD','Process') }
+try {
 Get-Content -LiteralPath $runtimeFile | ForEach-Object {
-    if($_ -match '^([A-Z0-9_]+)=(.*)$') { [Environment]::SetEnvironmentVariable($Matches[1],$Matches[2],'Process') }
+    if($_ -match '^([A-Z0-9_]+)=(.*)$') { $name=$Matches[1]; $value=$Matches[2]
+        if(!$priorEnvironment.ContainsKey($name)) { $priorEnvironment[$name]=[Environment]::GetEnvironmentVariable($name,'Process') }
+        [Environment]::SetEnvironmentVariable($name,$value,'Process') }
 }
 & (Join-Path $PostgresBin 'pg_ctl.exe') -D $metadata.dataDir status *> $null
 if ($LASTEXITCODE -ne 0) {
@@ -120,10 +125,18 @@ try {
         if($backend.HasExited) { throw 'Owned backend exited; inspect ignored runtime log' }
         Start-Sleep -Milliseconds 1000
     }
-    if(!$healthy) { throw 'Owned backend health timeout' }
+    if(!$healthy) {
+        throw "Owned backend health timeout. Inspect $runtimeDir/backend.log and backend-error.log. The recorded Java PID $($metadata.backendPid) is retained for diagnosis. Before retrying, verify its command line points to this checkout's backend/build/libs jar, then run Stop-Process -Id $($metadata.backendPid). Do not stop a reused PID or another checkout's process."
+    }
     & .\gradlew.bat seedMemberDevelopment --console=plain
     if($LASTEXITCODE -ne 0) { throw 'QA fixture failed' }
     & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $metadata.pgPort -U dio_member_dev -d dio_member_app -c 'select version,success from flyway_schema_history order by installed_rank; select count(*) as registered_templates from page_templates;'
     if(!(Test-Path -LiteralPath $frontendEnv)) { Confirm-MemberDevelopmentEndpoint $frontendEnv $metadata.apiPort }
     Write-Output "MEMBER_API=http://127.0.0.1:$($metadata.apiPort)/api/v1; WEB_QA_PORT=$($metadata.webPort); DB=dio_member_app; MIGRATIONS_APPLIED_BY_FLYWAY=true"
-} finally { Pop-Location; Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+} finally { Pop-Location }
+} finally {
+    foreach($name in $priorEnvironment.Keys) {
+        if($null -eq $priorEnvironment[$name]) { Remove-Item -LiteralPath ('Env:'+$name) -ErrorAction SilentlyContinue }
+        else { [Environment]::SetEnvironmentVariable($name,$priorEnvironment[$name],'Process') }
+    }
+}

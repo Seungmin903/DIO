@@ -53,3 +53,13 @@ test('버전 고정 서버 리소스·Flyway 등록 SQL이 프런트 카탈로�
   assert.equal(await readFile(migrationResource, 'utf8'), seedMigration())
   assert.ok(SERVER_TEMPLATE_CATALOG.every(t => t.templateCode.length <= 100 && t.templateVersion.length <= 30))
 })
+
+test('DB 숫자 PK나 다른 속지 ID를 프런트 속지 ID 대신 보내지 않는다', () => {
+  const ref = serverTemplateReference('2026-cover-landscape', catalog.templateVersion, 'landscape')
+  const config = { width: 1024, height: 768 }
+  assert.throws(() => toServerInitialPageSelections([{ templateId: 987, ...ref, templateConfig: config }]))
+  assert.throws(() => toServerInitialPageSelections([{ templateId: 'another-template', ...ref, templateConfig: config }]))
+  const [selection] = toServerInitialPageSelections([{ templateId: ref.templateCode, ...ref, templateConfig: config }])
+  assert.equal(selection.templateCode, '2026-cover-landscape')
+  assert.equal('templateId' in selection, false)
+})

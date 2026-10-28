@@ -35,7 +35,7 @@ public class MemberDiaryController {
     public MemberDiaryController(IdempotentDiaryCreationService creation,DiaryDetailService detail,MemberDiaryListQuery lists) { this.creation=creation; this.detail=detail; this.lists=lists; }
 
     @GetMapping
-    @Operation(summary="회원 다이어리 목록",description="활성 멤버십 기준. q는 제목 부분 검색, sort는 created/updated/title/pages, limit는 1~100. nextCursor는 같은 계정·검색·정렬에서만 재사용합니다.")
+    @Operation(summary="회원 다이어리 목록",description="활성 멤버십 기준. q는 제목 부분 검색, sort는 created/updated/title/pages, limit는 1~100. nextCursor는 같은 계정·검색·정렬에서만 재사용합니다. PostgreSQL ICU 미지원 시 검색·title 정렬은 503 DIARY_LIST_UNAVAILABLE이며 검색 없는 created/updated/pages 목록은 유지됩니다.")
     public ResponseEntity<MemberDiaryListQuery.Page> list(@RequestParam(required=false) String q,@RequestParam(required=false) String sort,
             @RequestParam(required=false) Integer limit,@RequestParam(required=false) String cursor) {
         return ResponseEntity.ok().header("Cache-Control","no-store").body(lists.list(q,sort,limit,cursor));

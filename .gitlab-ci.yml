@@ -99,6 +99,7 @@ backend-test:
         - infra/compose/compose.*.yml
         - infra/nginx/**/default.conf
         - infra/scripts/test-auth-postgres.sh
+        - infra/scripts/check-member-list-icu.sh
         - frontend/src/notifications/**/*
         - frontend/tests/*notification*
         - frontend/qa/run-notification-contract.*
@@ -144,14 +145,20 @@ backend-postgres-test:
         - backend/**/*
         - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
+        - infra/scripts/check-member-list-icu.sh
   script:
     - bash infra/scripts/test-auth-postgres.sh
   artifacts:
     when: always
     reports:
-      junit: backend/build/test-results/authPostgresTest/*.xml
+      junit:
+        - backend/build/test-results/authPostgresTest/*.xml
+        - backend/build/test-results/postgresMemberDiaryCreationTest/*.xml
+        - backend/build/test-results/postgresDiaryDetailTest/*.xml
     paths:
       - backend/build/reports/tests/authPostgresTest/
+      - backend/build/reports/tests/postgresMemberDiaryCreationTest/
+      - backend/build/reports/tests/postgresDiaryDetailTest/
     expire_in: 7 days
 
 secret-scan:

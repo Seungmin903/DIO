@@ -53,4 +53,36 @@ class MemberDiaryListPostgresTests {
         String old=Base64.getUrlEncoder().withoutPadding().encodeToString(json.getBytes(StandardCharsets.UTF_8));
         assertThatThrownBy(() -> query.list(null,"title",1,old)).isInstanceOf(MemberDiaryRequestException.class);
     }
+    @Test void activeCountsAndCursorOrderingStayExactWithDeletedPagesAndFormerMembers() {
+        for(int i=1;i<=8;i++) {
+            UUID id=add(i,"Title "+i);
+            jdbc.update("update diaries set created_at=timestamp '2026-01-01',updated_at=timestamp '2026-01-01' where diary_id=?",id);
+            jdbc.update("insert into diary_members(diary_id,user_id,role,member_color,left_at) values(?,202,'VIEWER','#123456',?)",
+                id,i%2==0?java.sql.Timestamp.valueOf("2026-01-02 00:00:00"):null);
+            for(int j=0;j<i%3+1;j++) {
+                jdbc.update("insert into pages(page_id,diary_id,sort_key,deleted_at) values(?,?,?,?)",
+                    UUID.randomUUID(),id,j,j==i%3?java.sql.Timestamp.valueOf("2026-01-02 00:00:00"):null);
+            }
+        }
+        UUID foreign=new UUID(0,999);
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,202,'Other','#123456','PLAIN','PRIVATE')",foreign);
+        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,202,'OWNER','#123456')",foreign);
+        for(String sort:List.of("created","updated","title","pages")) {
+            var expected=new ArrayList<Integer>();for(int i=1;i<=8;i++) expected.add(i);
+            expected.sort(sort.equals("title")?Comparator.naturalOrder():sort.equals("pages")
+                ?Comparator.<Integer>comparingInt(i->i%3).reversed().thenComparing(Comparator.reverseOrder()):Comparator.reverseOrder());
+            var actual=new ArrayList<Integer>();String cursor=null;
+            do {
+                var page=query.list(null,sort,2,cursor);
+                for(var item:page.items()) {
+                    int number=(int)UUID.fromString(item.diary().diaryId()).getLeastSignificantBits();
+                    actual.add(number);assertThat(item.pageCount()).isEqualTo(number%3);
+                    assertThat(item.shared()).isEqualTo(number%2!=0);
+                    assertThat(item.diary().canEdit()).isTrue();
+                }
+                cursor=page.nextCursor();
+            } while(cursor!=null);
+            assertThat(actual).as(sort).containsExactlyElementsOf(expected).doesNotHaveDuplicates();
+        }
+    }
 }

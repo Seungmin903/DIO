@@ -19,6 +19,7 @@ for ((i=0; i<30; i++)); do
   sleep 2
 done
 if [ "$ready" != true ]; then echo "Isolated PostgreSQL did not become ready" >&2; exit 1; fi
+bash "$CI_PROJECT_DIR/infra/scripts/check-member-list-icu.sh" "$pg_name"
 docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_reset_qa' >/dev/null
 
 docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_trash_qa' >/dev/null
@@ -35,4 +36,4 @@ docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
   -v "$CI_PROJECT_DIR/backend:/workspace/backend" \
   -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro" \
   -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro" \
-  -w /workspace/backend eclipse-temurin:17-jdk sh ./gradlew authPostgresTest --no-daemon
+  -w /workspace/backend eclipse-temurin:17-jdk sh ./gradlew authPostgresTest postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon

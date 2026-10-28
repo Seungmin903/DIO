@@ -48,3 +48,14 @@ Windows는 gradlew.bat. H2 HTTP 검증은 실제 서명 JWT·활성 서버 세�
 실제 PostgreSQL은 명시적으로 폐기 가능한 루프백 `dio_trash_qa` DB에만 실행한다. `DIO_LIST_QUERY_PG=true`, `DB_URL=jdbc:postgresql://127.0.0.1:<port>/dio_trash_qa`, `POSTGRES_USER`, `POSTGRES_PASSWORD`를 주입하고 trash 테스트만 실행한다. 각 테스트는 임의 trash_qa_/trash_flyway_ 스키마를 생성하고 finally/AfterEach에서 자기 스키마만 제거한다. Flyway 검증은 기존 마이그레이션 전체를 적용한 실제 스키마에서 동작을 검증한다.
 
 기존 격리 PostgreSQL CI 잡은 별도 dio_trash_qa DB를 생성하고 authPostgresTest에서 trash SQL·잠금·Flyway 테스트도 실행한다. 개발/운영 DB 또는 다른 세션 서버에는 실행하지 않는다. 실행별 SHA·결과와 남은 QA는 MR 본문에 기록한다.
+
+
+## MR !166 최신 통합 (2026-10-28)
+
+!166의 9ec1689까지 통합했다. 인증 JWT 재사용·속지 ID 충돌 검증·ICU 조회·목록 인덱스를 포함하며 V10/V11 SQL은 변경하지 않는다. CI의 DB_URL 중복을 제거하고 auth_ci/dio_reset_qa와 분리된 dio_trash_qa에서 회원/휴지통 회귀를 실행한다.
+
+휴지통 목록도 PostgreSQL의 deterministic ICU root 규칙으로 제목과 검색어를 함께 정규화한다. ICU가 없으면 검색만 503/DIARY_TRASH_SEARCH_UNAVAILABLE이며 검색 없는 목록·삭제·복원은 유지한다. 사용자 행 공유 잠금은 계정 비활성화와 권한 확인의 일관성을 위한 것으로 readOnly 트랜잭션으로 전환하지 않는다.
+
+166번이 아직 미병합이므로 172번의 대상은 부모 기능 브랜치를 유지한다. 병합 순서는 166→172이며 166 병합 후 172의 대상을 develop으로 바꾸고 최신 develop 통합·CI를 다시 확인한다.
+
+로컬 통합 검증: backend 전체 test 281개 통과(조건부 90개 제외), CI와 동일한 PostgreSQL 검증 작업 96개 통과(실패·제외 0), 회원 API/속지/문서 프런트 회귀 28개 통과, Bash 구문 검사 통과. 원본 QA/운영 DB와 다른 세션은 변경하지 않고 소유 폐기용 클러스터만 사용했다.
