@@ -59,3 +59,17 @@ Windows는 gradlew.bat. H2 HTTP 검증은 실제 서명 JWT·활성 서버 세�
 166번이 아직 미병합이므로 172번의 대상은 부모 기능 브랜치를 유지한다. 병합 순서는 166→172이며 166 병합 후 172의 대상을 develop으로 바꾸고 최신 develop 통합·CI를 다시 확인한다.
 
 로컬 통합 검증: backend 전체 test 281개 통과(조건부 90개 제외), CI와 동일한 PostgreSQL 검증 작업 96개 통과(실패·제외 0), 회원 API/속지/문서 프런트 회귀 28개 통과, Bash 구문 검사 통과. 원본 QA/운영 DB와 다른 세션은 변경하지 않고 소유 폐기용 클러스터만 사용했다.
+
+
+## 통합 리뷰 INFO 확인·후속 연동 체크리스트
+
+CI #247165(dca742d)는 4개 작업 모두 성공했다. auth_ci/dio_reset_qa는 인증/재설정 검증 전용이고, 회원 생성·목록·상세·휴지통은 dio_trash_qa 안의 UUID별 currentSchema를 사용한다. 테스트는 자기 스키마만 정리하며 고정 public 자료를 공유하지 않는다. 생성/상세 작업의 루프백 URL 가드도 이 설정을 허용한다. 원격 보고서에서 authPostgresTest 33개, postgresMemberDiaryCreationTest 47개, postgresDiaryDetailTest 16개가 실패·제외 없이 실행됐음을 확인했다.
+
+- [x] 회원 활성 목록의 삭제 자료 제외: MemberDiaryListQuery의 deleted_at 필터와 HTTP 회귀 확인.
+- [x] 회원 상세·메타데이터 수정의 삭제 자료 거부: DiaryDetailService의 공통 잠금/권한 경로가 deletedAt을 확인하며 기존 상세·권한 회귀가 실행됨.
+- [x] 비회원 우회 방지: DiaryRepository의 owner_user_id IS NULL AND deleted_at IS NULL 조회/수정 경로 유지. 회원 ID를 비회원 경로로 바꿔 접근하는 기존 경계 회귀 유지.
+- [x] 휴지통 이동 후 자식 자료 보존·기간 내 복원: 휴지통 HTTP/서비스 및 전체 Flyway 스키마 회귀 확인.
+- [ ] 향후 페이지 조회·수정/미디어 API 노출 시 부모 다이어리 deleted_at 확인과 비참여/삭제 자료 거부 종단 테스트 추가. 현재 브랜치에는 이 하위 자원 HTTP 컨트롤러가 없어 미실행 경로를 완료로 처리하지 않음.
+- [ ] 향후 초대 수락·공유 접근 API 연동 시 기존 초대/링크로 삭제 다이어리에 재진입하지 못하는지 검증. 원자적 잠금 순서와 복원 시 권한 정책도 함께 확인. 다른 세션의 MR !164 구현을 가져오거나 변경하지 않음.
+
+실기기·향후 공유 연동 완료를 의미하지 않는다. MR !172는 Draft 및 !166 기능 브랜치 대상으로 유지하며 실제 병합은 수행하지 않았다.
