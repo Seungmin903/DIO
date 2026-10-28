@@ -3,7 +3,6 @@ HELP.md
 .env
 build/
 .local-data/
-src/main/resources/db/seed/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/

@@ -5,4 +5,3 @@ build
 .env.*
 *.pem
 *.key
-src/main/resources/db/seed/

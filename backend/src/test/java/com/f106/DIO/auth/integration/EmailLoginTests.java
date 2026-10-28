@@ -301,7 +301,7 @@ class EmailLoginTests {
             assertThat(tokens.findAll().get(0).getRevokedAt()).isNotNull(); assertThat(history.count()).isEqualTo(1);
         } finally { pool.shutdownNow(); }
     }
-    @Test void loginSwaggerRequiresBearerForLogoutAndSavedDiaryApis() throws Exception {
+    @Test void loginSwaggerRequiresBearerOnlyForLogout() throws Exception {
         mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
             .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post").exists())
             .andExpect(jsonPath("$.paths['/api/v1/auth/refresh'].post").exists())
@@ -310,6 +310,6 @@ class EmailLoginTests {
             .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['204'].content").doesNotExist())
             .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['200']").doesNotExist())
             .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security").doesNotExist())
-			.andExpect(jsonPath("$.paths['/api/v1/diaries'].get.security[0].bearerAuth").exists());
+            .andExpect(jsonPath("$.paths['/api/v1/diaries'].get.security").doesNotExist());
     }
 }

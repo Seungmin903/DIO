@@ -17,11 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.f106.DIO.diary.domain.Diary;
 import com.f106.DIO.diary.repository.DiaryRepository;
-import com.f106.DIO.user.domain.User;
-import com.f106.DIO.user.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -38,7 +35,6 @@ class PostgresDiarySchemaTests {
 
 	@Autowired JdbcTemplate jdbc;
 	@Autowired DiaryRepository diaries;
-	@Autowired UserRepository users;
 	@Autowired MockMvc mvc;
 
 	@Test
@@ -53,15 +49,14 @@ class PostgresDiarySchemaTests {
 
 	@Test
 	void softDeletedDiaryIsExcludedFromPostgresQueriesAndUpdates() throws Exception {
-		Long ownerUserId = owner().getUserId();
-		Diary diary = diaries.saveAndFlush(new Diary("POSTGRES_SOFT_DELETE", "#D6BFA7", "PLAIN", "PRIVATE", ownerUserId));
+		Diary diary = diaries.saveAndFlush(new Diary("POSTGRES_SOFT_DELETE", "#D6BFA7", "PLAIN", "PRIVATE"));
 		UUID diaryId = diary.getDiaryId();
 
-		mvc.perform(delete("/api/v1/diaries/" + diaryId).with(jwt().jwt(token -> token.subject(ownerUserId.toString())))).andExpect(status().isNoContent());
-		mvc.perform(patch("/api/v1/diaries/" + diaryId).with(jwt().jwt(token -> token.subject(ownerUserId.toString()))).contentType(MediaType.APPLICATION_JSON)
+		mvc.perform(delete("/api/v1/diaries/" + diaryId)).andExpect(status().isNoContent());
+		mvc.perform(patch("/api/v1/diaries/" + diaryId).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"diaryTitle\":\"수정 시도\"}"))
 			.andExpect(status().isNotFound());
-		mvc.perform(get("/api/v1/diaries").with(jwt().jwt(token -> token.subject(ownerUserId.toString()))))
+		mvc.perform(get("/api/v1/diaries"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.items[?(@.diaryId == '" + diaryId + "')]").isEmpty());
 	}
@@ -85,10 +80,5 @@ class PostgresDiarySchemaTests {
 			.filter(id -> id.equals(oldest.getDiaryId()) || id.equals(lowerId) || id.equals(higherId))
 			.toList();
 		assertThat(orderedRelevantIds).containsExactly(higherId, lowerId, oldest.getDiaryId());
-	}
-
-	private User owner() {
-		String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-		return users.saveAndFlush(new User("postgres-" + suffix + "@example.com", "테스트" + suffix.substring(0, 4), Instant.now()));
 	}
 }

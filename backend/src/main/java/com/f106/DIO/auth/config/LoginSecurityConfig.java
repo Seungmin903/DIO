@@ -39,7 +39,8 @@ public class LoginSecurityConfig {
     }
     @Bean
     public SecurityFilterChain loginSecurity(HttpSecurity http, JwtDecoder loginJwtDecoder, BearerTokenResolver loginBearerTokenResolver) throws Exception {
-        return http.securityMatcher("/api/v1/auth/logout", "/api/v1/diaries", "/api/v1/diaries/**", "/api/v1/pages/**")
+        // 다른 팀의 기존 공개 API/다이어리에는 보호 정책을 임의 적용하지 않는다.
+        return http.securityMatcher("/api/v1/auth/logout")
             .cors(org.springframework.security.config.Customizer.withDefaults())
             .csrf(csrf -> csrf.disable()).formLogin(form -> form.disable()).httpBasic(basic -> basic.disable())
             .logout(logout -> logout.disable()).requestCache(cache -> cache.disable())

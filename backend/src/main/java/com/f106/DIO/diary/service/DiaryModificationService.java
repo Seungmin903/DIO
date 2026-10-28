@@ -15,11 +15,9 @@ import com.f106.DIO.diary.support.DiaryNotFoundException;
 public class DiaryModificationService {
 
 	private final DiaryRepository diaryRepository;
-	private final DiaryAccessService accessService;
 
-	public DiaryModificationService(DiaryRepository diaryRepository, DiaryAccessService accessService) {
+	public DiaryModificationService(DiaryRepository diaryRepository) {
 		this.diaryRepository = diaryRepository;
-		this.accessService = accessService;
 	}
 
 	@Transactional
@@ -32,24 +30,9 @@ public class DiaryModificationService {
 	}
 
 	@Transactional
-	public DiaryResponse update(UUID diaryId, DiaryUpdateRequest request, Long userId) {
-		Diary diary = accessService.requireWrite(diaryId, userId);
-		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverStyle(), request.getVisibility());
-		diaryRepository.flush();
-		return new DiaryResponse(DiaryMapper.toData(diary));
-	}
-
-	@Transactional
 	public void delete(UUID diaryId) {
 		Diary diary = diaryRepository.findByDiaryIdAndDeletedAtIsNull(diaryId)
 			.orElseThrow(DiaryNotFoundException::new);
-		diary.softDelete();
-		diaryRepository.flush();
-	}
-
-	@Transactional
-	public void delete(UUID diaryId, Long userId) {
-		Diary diary = accessService.requireWrite(diaryId, userId);
 		diary.softDelete();
 		diaryRepository.flush();
 	}

@@ -39,7 +39,6 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-	testImplementation 'org.springframework.security:spring-security-test'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'com.h2database:h2'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -48,11 +47,6 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
-}
-
-// 로컬 전용 시드는 파일 시스템에서만 읽는다. JAR 리소스에는 절대 넣지 않는다.
-tasks.named('processResources') {
-	exclude 'db/seed/**'
 }
 
 tasks.register('authPostgresTest', Test) {
