@@ -11,10 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.f106.DIO.diary.domain.Diary;
-import com.f106.DIO.diary.repository.DiaryRepository;
-
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -25,20 +23,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PageBatchRollbackTests {
 
 	@Autowired MockMvc mvc;
-	@Autowired DiaryRepository diaries;
 
 	@Test
 	void rollsBackTheWholeBatchWhenOneChangeFails() throws Exception {
-		UUID diaryId = diaries.saveAndFlush(new Diary("PAGE_ROLLBACK_TEST", "#D6BFA7", "PLAIN", "PRIVATE")).getDiaryId();
-		String pageId = JsonPath.read(mvc.perform(post("/api/v1/diaries/" + diaryId + "/pages")
+		String diaryId = JsonPath.read(mvc.perform(post("/api/v1/diaries").with(authenticated())
+				.contentType(MediaType.APPLICATION_JSON).content("{\"diaryTitle\":\"PAGE_ROLLBACK_TEST\"}"))
+			.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.diary.diaryId");
+		String pageId = JsonPath.read(mvc.perform(post("/api/v1/diaries/" + diaryId + "/pages").with(authenticated())
 				.contentType(MediaType.APPLICATION_JSON).content("{}"))
 			.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.page.pageId");
 
-		mvc.perform(post("/api/v1/pages/" + pageId + "/elements/batch").contentType(MediaType.APPLICATION_JSON).content("""
+		mvc.perform(post("/api/v1/pages/" + pageId + "/elements/batch").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("""
 			{"creates":[{"elementId":"%s","type":"TEXT","x":0,"y":0,"w":1,"h":1}],"deleteElementIds":["%s"]}
 			""".formatted(UUID.randomUUID(), UUID.randomUUID())))
-			.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("ELEMENT_NOT_FOUND"));
+			.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CANVAS_ELEMENT_NOT_FOUND"));
 
-		mvc.perform(get("/api/v1/pages/" + pageId)).andExpect(jsonPath("$.elements", hasSize(0)));
+		mvc.perform(get("/api/v1/pages/" + pageId).with(authenticated())).andExpect(jsonPath("$.elements", hasSize(0)));
+	}
+
+	private static org.springframework.test.web.servlet.request.RequestPostProcessor authenticated() {
+		return jwt().jwt(token -> token.subject("1"));
 	}
 }
