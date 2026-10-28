@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { BackHandler, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
@@ -54,6 +54,7 @@ import { clamp, createId, unionBounds } from '../utils/common'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { createObjectFromDecor } from '../utils/objects'
+import { startPagePanelMeasurement } from '../utils/pagePanelPerformance.js'
 
 import TemplatePicker from '../components/TemplatePicker'
 import { pageSize, pageTemplateOrientation } from '../utils/pageGeometry.js'
@@ -72,8 +73,9 @@ const PHONE_STAGE_PADDING = { top: 16, bottom: 68, side: 12 }
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
 // compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 상단 도구 막대),
 // 가로는 정밀 편집(왼쪽 화면 막대 + 오른쪽 전체 도구 막대 + 확대·축소). onToggleOrientation이 있으면 세로·가로를 버튼으로 바꾼다.
-export default function EditorScreen({ sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab }) {
+export default function EditorScreen({ sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, fixedViewportZoom = null, qaController = null }) {
   // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
+  const qaHistoryExecutions = useRef(0)
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
   // 페이지 목록·레이어는 캔버스를 먼저 그린 뒤 따라 그린다 (지우개·이동을 끝내고 손을 뗄 때 한꺼번에 다시 그려 멈칫하던 것)
@@ -120,7 +122,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   // scale: 화면에 맞춤 대비 배율, x·y: 페이지 왼쪽 위 위치 (null 이면 가운데)
   const [view, setView] = useState({ scale: 1, x: null, y: null })
   const [drawerTab, setDrawerTab] = useState(null)
-  const [activeTool, setActiveTool] = useState('hand')
+  const [activeTool, setActiveTool] = useState(() => qaController?.initialTool === 'pen' ? 'pen' : 'hand')
   const [lassoSettingsOpen, setLassoSettingsOpen] = useState(false)
   const [lasso, setLasso] = useState({ shape: 'rectangle', mode: 'replace' })
   useEffect(() => { setLasso(current => ({ ...current, mode: 'replace' })) }, [page.id])
@@ -142,6 +144,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
   const [straightAssist, setStraightAssist] = useState(true)
   const [eraserSize, setEraserSize] = useState(ERASER_RADIUS * 2)
+  const [eraserTarget, setEraserTarget] = useState('all')
   const [eraserMode, setEraserMode] = useState('stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -149,6 +152,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const [compactMenu, setCompactMenu] = useState(null)
   const [layersOpen, setLayersOpen] = useState(false)
   const [pagesOpen, setPagesOpen] = useState(false)
+  const pagePanelMeasurement = useRef(null)
+  useEffect(() => () => pagePanelMeasurement.current?.dispose(), [])
   const [layoutCompact, setLayoutCompact] = useState(compact)
   if (layoutCompact !== compact) {
     setLayoutCompact(compact)
@@ -205,9 +210,11 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
         ),
       )
     : 0.6
-  const zoom = fitZoom * view.scale
+  // Optional fixed viewport is supplied only by the isolated comparison harness.
+  const viewportLocked = Number.isFinite(fixedViewportZoom) && fixedViewportZoom > 0
+  const zoom = viewportLocked ? fixedViewportZoom : fitZoom * view.scale
   const fitted = view.scale === 1 && view.x == null
-  const offset = view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) : { x: view.x, y: view.y }
+  const offset = viewportLocked || view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) : { x: view.x, y: view.y }
 
   // 페이지가 화면 밖으로 다 사라지지 않게 가장자리 80px 은 남긴다.
   const clampOffset = (next, z) => clampViewportOffset(next, z, stageSize, PAGE_WIDTH, PAGE_HEIGHT)
@@ -215,12 +222,14 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   // resolve*: 제한을 적용한 보기 { scale, zoom, x, y } 만 계산한다. 손가락 제스처 중에는 Viewport 가 이것으로 미리 보여 주고 손을 뗄 때 확정한다.
   const maxZoomScale = compact ? PHONE_ZOOM_MAX : ZOOM_MAX
   const resolveZoom = (nextScale, pagePoint, screenPoint) => {
+    if (viewportLocked) return { scale: 1, zoom, ...offset }
     const scale = clamp(nextScale, ZOOM_MIN, maxZoomScale)
     const z = fitZoom * scale
     return { scale, zoom: z, ...clampOffset({ x: screenPoint.x - pagePoint.x * z, y: screenPoint.y - pagePoint.y * z }, z) }
   }
-  const resolvePan = (from, dx, dy) => ({ ...from, ...panView(from, dx, dy, fitZoom, stageSize, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) })
+  const resolvePan = (from, dx, dy) => viewportLocked ? { scale: 1, zoom, ...offset } : ({ ...from, ...panView(from, dx, dy, fitZoom, stageSize, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) })
   const commitView = (next, motion = {}) => {
+    if (viewportLocked) return
     const turn = automaticPageTurn({
       motion,
       view: next,
@@ -383,15 +392,26 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const undo = () => {
     if (!state.past.length) return
     if (cropId) setCropId(null)
+    qaController?.onHistoryDispatch?.({ phase: 'undo', execution: ++qaHistoryExecutions.current, past: state.past.length, future: state.future.length })
     dispatch({ type: 'undo' })
     showToast('마지막 작업을 되돌렸어요.')
   }
 
   const redo = () => {
     if (!state.future.length) return
+    qaController?.onHistoryDispatch?.({ phase: 'redo', execution: ++qaHistoryExecutions.current, past: state.past.length, future: state.future.length })
     dispatch({ type: 'redo' })
     showToast('다시 실행했어요.')
   }
+
+  // Optional isolated QA bridge; ordinary editor callers never provide one.
+  useLayoutEffect(() => {
+    if (!qaController) return
+    const value = { undo, redo, doc: state.doc, past: state.past.length, future: state.future.length, loaded, saveStatus }
+    qaController.current = value
+    qaController.onCommit?.(value)
+    return () => { if (qaController.current === value) qaController.current = null }
+  }, [qaController, state, cropId, loaded, saveStatus])
 
   // 웹(키보드)에서의 단축키
   useEffect(() => {
@@ -487,6 +507,9 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   }
 
   const showPages = pagesOpen && !focusMode
+  useLayoutEffect(() => {
+    pagePanelMeasurement.current?.emit('editor-layout', { open: showPages, zoom, stageWidth: stageSize?.width ?? null })
+  }, [showPages, zoom, stageSize?.width])
   const showLayers = layersOpen && !focusMode
   // 폰: 페이지 목록(가로에서는 레이어도)은 왼쪽, 세로 레이어는 오른쪽에서 열린다.
   const undoOnRight = compact && (showPages || (landscape && showLayers))
@@ -535,7 +558,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
     setGuidesOpen(false)
     setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
     setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
-    setPenSettingsOpen(['pen', 'highlighter', 'eraser'].includes(tool) ? tool !== activeTool || !penSettingsOpen : false)
+    setPenSettingsOpen(['pen', 'highlighter', 'eraser'].includes(tool) && tool === activeTool && !penSettingsOpen)
     if (cropId) finishCrop(false)
     setTapeCropId(null)
     setDrawerTab(null)
@@ -568,6 +591,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const togglePages = () => {
     setFocusMode(false)
     const open = !showPages
+    pagePanelMeasurement.current?.dispose()
+    pagePanelMeasurement.current = startPagePanelMeasurement({ open, tool: activeTool, objects: page.objects.length, pages: state.doc.pages.length })
     if (compact && open) setLayersOpen(false)
     setPagesOpen(open)
     // 작업창 왼쪽 끝이 움직이므로 새 크기를 같은 화면에서 바로 써서 한 번에 맞춘다.
@@ -737,6 +762,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
         {showPages && loaded && (
           <PhonePanelSlot compact={compact} side={styles.phonePanelLeft}>
           <PageList
+            qaMeasurement={pagePanelMeasurement.current}
             readOnly={readOnly}
             pages={deferredPages}
             currentId={page.id}
@@ -768,14 +794,15 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           onLayout={() => stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y }))}>
           <Viewport
             zoom={zoom}
-            scale={view.scale}
+            scale={viewportLocked ? 1 : view.scale}
+            interactionLocked={viewportLocked}
             offset={offset}
             resolveZoom={resolveZoom}
             resolvePan={resolvePan}
             onView={commitView}
             onMovingChange={setViewMoving}
             onTapEmpty={clearSelection}
-            dragToPan={activeTool === 'hand'}
+            dragToPan={!viewportLocked && activeTool === 'hand'}
             onLayout={(event) => { setStageSize(event.nativeEvent.layout); stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y })) }}
           >
             {/* 확대·이동 중이거나 화면 밖에 있는 GIF 는 첫 장면으로 멈춘다 (StaticPage) */}
@@ -800,6 +827,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
                 straightAssist={straightAssist}
                 eraserSize={eraserSize}
                 eraserMode={eraserMode}
+                eraserTarget={eraserTarget}
                 textBoundary={textBoundary}
                 onRevealText={(dy) => commitView(resolvePan({ scale: view.scale, zoom, x: offset.x, y: offset.y }, 0, -dy))}
                 textEditingTop={stageOrigin.y + (compact ? 8 : 80)}
@@ -843,7 +871,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
         setTextEditing(null)
         setActiveTool('select')
       }}
-                onCreateText={(box) => { setTextSettingsOpen(false); setTextEditing({ ...box, ...textDefaults, id: createId(), pageId: page.id, text: '' }) }}
+                onCreateText={(box) => { setTextSettingsOpen(false); setTextEditing({ ...textDefaults, ...box, id: createId(), pageId: page.id, text: '' }) }}
                 readOnly={readOnly}
                 page={page}
                 zoom={zoom}
@@ -915,7 +943,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           )}
           {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
             <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} onClose={() => setPenSettingsOpen(false)} />
+              <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} target={eraserTarget} onTargetChange={setEraserTarget} onClose={() => setPenSettingsOpen(false)} />
             </View>
           )}
 
@@ -1105,7 +1133,7 @@ const styles = StyleSheet.create({
   rootReadOnlyRail: { paddingRight: 0 },
   focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   focusExitPortrait: { top: 72 },
-  focusExitText: { fontSize: 12.5, fontWeight: '800', color: colors.text },
+  focusExitText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: BODY_PADDING },
   bodyCompact: { padding: 8 },
   // 폰: 페이지 목록·레이어는 작업창을 줄이지 않고 그 위에 띄운다.
@@ -1137,8 +1165,8 @@ const styles = StyleSheet.create({
   floatingStacked: { bottom: 12 + 44 + 8 },
   floatingDivider: { width: 1, height: 20, backgroundColor: colors.border },
   roundButton: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  roundActive: { backgroundColor: colors.surfaceSoft },
-  roundPressed: { backgroundColor: colors.primarySoft },
+  roundActive: { backgroundColor: colors.primarySoft },
+  roundPressed: { opacity: 0.65 },
   roundDisabled: { opacity: DISABLED_OPACITY },
   toast: {
     position: 'absolute',

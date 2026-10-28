@@ -39,6 +39,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.security:spring-security-test'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'com.h2database:h2'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -49,14 +50,20 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+// 로컬 전용 시드는 파일 시스템에서만 읽는다. JAR 리소스에는 절대 넣지 않는다.
+tasks.named('processResources') {
+	exclude 'db/seed/**'
+}
+
 tasks.register('authPostgresTest', Test) {
-	description = 'Verifies auth and password reset using separate disposable databases; requires DIO_AUTH_SCHEMA_TEST_URL/PASSWORD and DIO_RESET_POSTGRES_URL/PASSWORD (see docs/password-reset.md).'
+	description = 'Verifies auth, password reset and notification SQL using separate disposable databases; requires DIO_AUTH_SCHEMA_TEST_URL/PASSWORD and DIO_RESET_POSTGRES_URL/PASSWORD (see docs/password-reset.md).'
 	group = 'verification'
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
 	useJUnitPlatform()
 	filter {
 		includeTestsMatching 'com.f106.DIO.auth.integration.AuthInitialSchemaPostgresTests'
+		includeTestsMatching 'com.f106.DIO.notification.NotificationPostgresSchemaTests'
 		includeTestsMatching 'com.f106.DIO.auth.integration.PasswordResetPostgresTests'
 	}
 	environment 'DIO_AUTH_SCHEMA_TEST', 'true'
@@ -73,12 +80,15 @@ tasks.register('authPostgresTest', Test) {
 }
 
 tasks.register('postgresTest', Test) {
-	description = 'Runs diary persistence tests against the local PostgreSQL database (test rows rolled back).'
+	description = 'Runs diary and page persistence tests against the local PostgreSQL database (test rows rolled back).'
 	group = 'verification'
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
 	useJUnitPlatform()
-	filter { includeTestsMatching 'com.f106.DIO.diary.PostgresDiary*Tests' }
+	filter {
+		includeTestsMatching 'com.f106.DIO.diary.PostgresDiary*Tests'
+		includeTestsMatching 'com.f106.DIO.page.Postgres*Tests'
+	}
 	systemProperty 'dio.postgres-test', 'true'
 }
 
@@ -101,4 +111,12 @@ tasks.register('sharingPostgresTest', Test) {
             throw new GradleException('Explicit DIO_SHARING_POSTGRES_URL/PASSWORD for disposable dio_sharing_qa required. No fallback. See docs/diary-sharing.md.')
         }
     }
+}
+
+tasks.register('notificationBrowserQa', JavaExec) {
+    group = 'verification'
+    description = 'Starts the explicitly opted-in loopback H2 notification browser QA fixture.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.f106.DIO.notification.NotificationBrowserQa'
 }

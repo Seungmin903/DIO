@@ -1,9 +1,11 @@
 package com.f106.DIO.sharing.service;
+import com.f106.DIO.diary.domain.DiaryMember;
+import com.f106.DIO.diary.domain.DiaryMemberId;
+import com.f106.DIO.diary.repository.DiaryMemberRepository;
 import com.f106.DIO.diary.domain.Diary;
 import com.f106.DIO.diary.repository.DiaryRepository;
 import com.f106.DIO.sharing.domain.*;
 import com.f106.DIO.sharing.exception.SharingException;
-import com.f106.DIO.sharing.repository.DiaryMemberRepository;
 import com.f106.DIO.user.domain.User;
 import com.f106.DIO.user.repository.UserRepository;
 import java.time.Instant;
@@ -39,7 +41,7 @@ public class SharingAccessService {
     public String cursorColor(UUID diary){
         var used=members.findByDiaryIdAndLeftAtIsNullOrderByJoinedAtAscUserIdAsc(diary).stream()
             .map(DiaryMember::getMemberColor).collect(java.util.stream.Collectors.toSet());
-        return com.f106.DIO.sharing.support.MemberCursorColors.choose(used);
+        return com.f106.DIO.diary.support.MemberCursorColors.choose(used);
     }
     public void owner(Diary diary,long actor) {
         DiaryMember member=member(diary,actor);

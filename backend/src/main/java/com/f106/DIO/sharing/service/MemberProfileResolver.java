@@ -1,5 +1,7 @@
 package com.f106.DIO.sharing.service;
-import com.f106.DIO.sharing.domain.DiaryMember;
+import com.f106.DIO.diary.domain.DiaryMember;
+import com.f106.DIO.diary.domain.DiaryMemberId;
+import com.f106.DIO.diary.repository.DiaryMemberRepository;
 import com.f106.DIO.sharing.dto.*;
 import com.f106.DIO.sharing.exception.SharingException;
 import com.f106.DIO.sharing.repository.SharingProfileMediaRepository;

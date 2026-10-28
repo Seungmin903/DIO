@@ -35,7 +35,7 @@ export function colorTemplateAst(ast, value, { transparentPaper = false } = {}) 
     if (!isValidElement(node)) return node
     const props = { ...node.props }
     if (depth === 1 && isPaper('rect', props) && String(props.fill).toLowerCase() === '#ffffff') props.fill = transparentPaper ? 'none' : appearance.backgroundColor
-    else for (const key of ['fill', 'stroke']) if (props[key]) props[key] = layoutPaint(props[key], appearance)
+    else if (props.dataPreservePaint !== 'true') for (const key of ['fill', 'stroke']) if (props[key]) props[key] = layoutPaint(props[key], appearance)
     if (props.children != null) props.children = Children.map(props.children, child => visit(child, depth + 1))
     return cloneElement(node, props)
   }
@@ -47,6 +47,8 @@ export function colorTemplateXml(xml, value) {
   return xml.replace(/<([a-zA-Z][\w:.-]*)\b[^>]*>/g, (tag, name) => {
     const props = {}
     tag.replace(/([\w:-]+)\s*=\s*(["'])(.*?)\2/g, (_, key, quote, text) => { props[key] = text; return _ })
+    // 플래너 기록처럼 사용자가 고른 색은 속지 팔레트와 같아도 보존한다.
+    if (props['data-preserve-paint'] === 'true') return tag
     const paper = isPaper(name, props)
     return tag.replace(/\b(fill|stroke)\s*=\s*(["'])(.*?)\2/g, (_, key, quote, paint) => key + '=' + quote + (paper && key === 'fill' ? appearance.backgroundColor : layoutPaint(paint, appearance)) + quote)
   })

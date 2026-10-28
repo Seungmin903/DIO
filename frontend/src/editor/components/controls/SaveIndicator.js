@@ -50,5 +50,5 @@ const styles = StyleSheet.create({
   },
   saveError: { backgroundColor: 'rgba(229,72,77,0.1)' },
   saveText: { fontSize: 11, fontWeight: '600', color: colors.textMuted },
-  saveTextError: { color: colors.danger, fontWeight: '800' },
+  saveTextError: { color: colors.danger, fontWeight: '700' },
 })

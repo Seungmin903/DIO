@@ -99,17 +99,30 @@ backend-test:
         - infra/compose/compose.*.yml
         - infra/nginx/**/default.conf
         - infra/scripts/test-auth-postgres.sh
+        - frontend/src/notifications/**/*
+        - frontend/tests/*notification*
+        - frontend/qa/run-notification-contract.*
   script:
     - >
       docker run --rm
       --user "$(id -u):$(id -g)"
       -e GRADLE_USER_HOME=/tmp/gradle
+      -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/workspace/backend/build/notification-frontend-contract.json
       -v "$CI_PROJECT_DIR/backend:/workspace/backend"
       -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro"
       -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro"
       -w /workspace/backend
       eclipse-temurin:17-jdk
       sh ./gradlew test --no-daemon
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/evidence/notification-frontend-contract.json
+      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro"
+      -v "$CI_PROJECT_DIR/backend/build:/evidence:ro"
+      -w /workspace/frontend
+      node:24-alpine
+      node --test tests/spring-notification-contract.test.js
   artifacts:
     when: always
     reports:

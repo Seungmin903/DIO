@@ -25,23 +25,23 @@ public class DiaryService {
 		this.modificationService = modificationService;
 	}
 
-	public DiaryCreateResponse createDiary(DiaryCreateRequest request) {
-		return creationService.create(request);
+	public DiaryCreateResponse createDiary(DiaryCreateRequest request, Long ownerUserId) {
+		return creationService.create(request, ownerUserId);
 	}
 
-	public DiaryListResponse getDiaries() {
-		return queryService.list();
+	public DiaryListResponse getDiaries(Long userId) {
+		return queryService.list(userId);
 	}
 
-	public DiaryResponse getDiary(UUID diaryId) {
-		return queryService.detail(diaryId);
+	public DiaryResponse getDiary(UUID diaryId, Long userId) {
+		return queryService.detail(diaryId, userId);
 	}
 
-	public DiaryResponse updateDiary(UUID diaryId, DiaryUpdateRequest request) {
-		return modificationService.update(diaryId, request);
+	public DiaryResponse updateDiary(UUID diaryId, DiaryUpdateRequest request, Long userId) {
+		return modificationService.update(diaryId, request, userId);
 	}
 
-	public void deleteDiary(UUID diaryId) {
-		modificationService.delete(diaryId);
+	public void deleteDiary(UUID diaryId, Long userId) {
+		modificationService.delete(diaryId, userId);
 	}
 }

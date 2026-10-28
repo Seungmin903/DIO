@@ -1,4 +1,7 @@
 package com.f106.DIO.sharing;
+import com.f106.DIO.diary.domain.DiaryMember;
+import com.f106.DIO.diary.domain.DiaryMemberId;
+import com.f106.DIO.diary.repository.DiaryMemberRepository;
 import com.f106.DIO.auth.domain.EmailAuthProvider;
 import com.f106.DIO.auth.dto.LoginRequest;
 import com.f106.DIO.auth.repository.EmailAuthProviderRepository;
@@ -55,7 +58,7 @@ abstract class SharingTestSupport {
         accounts.saveAndFlush(new EmailAuthProvider(user.getUserId(),user.getEmail(),FIXTURE_ENCODER.encode(PASSWORD),Instant.now()));
         return new Actor(user.getUserId(),login.login(new LoginRequest(user.getEmail(),PASSWORD,"sharing-test"),"127.0.0.1").accessToken());
     }
-    UUID diary(Actor owner){var diary=new Diary("공유 테스트","#CED9EE","PLAIN","PRIVATE");diary.transferOwnership(owner.id());return diaries.saveAndFlush(diary).getDiaryId();}
+    UUID diary(Actor owner){var diary=new Diary("공유 테스트","#CED9EE","PLAIN","PRIVATE",owner.id());diary.transferOwnership(owner.id());return diaries.saveAndFlush(diary).getDiaryId();}
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.f106.DIO.sharing.infrastructure.mail.InviteMailSender inviteMail;

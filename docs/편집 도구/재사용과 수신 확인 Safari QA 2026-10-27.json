@@ -1,0 +1,338 @@
+{
+  "date": "2026-10-27",
+  "revision": "safari-cache-preparation-v7",
+  "feedbackInterpretation": {
+    "userClarification": "느림 버튼 2건은 체감 느림 보고가 아닌 신호 수신 확인용으로 눌렀음",
+    "rawValue": "slow",
+    "classification": "delivery-check-only",
+    "performanceComplaint": false
+  },
+  "cases": [
+    {
+      "mode": "cold",
+      "windowUTC": [
+        "2026-10-27T12:12:37.722Z",
+        "2026-10-27T12:13:23.327Z"
+      ],
+      "reuseHits": 8,
+      "reuseMisses": 351,
+      "maxCachedChars": 1998686,
+      "maxCachedObjects": 14,
+      "feedbackStored": [],
+      "checkpoints": [
+        {
+          "phase": "erased",
+          "objectCount": 309,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "gate": {
+            "limit": 0,
+            "completed": 0,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 306,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "gate": {
+            "limit": 0,
+            "completed": 0,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "release",
+          "objectCount": 306,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "gate": {
+            "limit": 0,
+            "completed": 0,
+            "released": true
+          },
+          "history": null
+        },
+        {
+          "phase": "restored",
+          "objectCount": 306,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 84,
+          "gate": {
+            "limit": 0,
+            "completed": 84,
+            "released": true
+          },
+          "history": null
+        },
+        {
+          "phase": "undo",
+          "objectCount": 309,
+          "beforeMatch": true,
+          "erasedMatch": false,
+          "readyCaches": 76,
+          "gate": {
+            "limit": 0,
+            "completed": 84,
+            "released": true
+          },
+          "history": {
+            "requestId": "mvqnbn8r-history-6",
+            "executions": 1,
+            "oneStep": true,
+            "beforePast": 2,
+            "beforeFuture": 0,
+            "afterPast": 1,
+            "afterFuture": 1,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "redo",
+          "objectCount": 306,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 76,
+          "gate": {
+            "limit": 0,
+            "completed": 91,
+            "released": true
+          },
+          "history": {
+            "requestId": "mvqnbn8r-history-8",
+            "executions": 2,
+            "oneStep": true,
+            "beforePast": 1,
+            "beforeFuture": 1,
+            "afterPast": 2,
+            "afterFuture": 0,
+            "observedEditorCommit": true
+          }
+        }
+      ],
+      "erase": [
+        {
+          "affected": 71,
+          "cancelled": false,
+          "zoom": 0.6,
+          "readyCachesAtDown": 0,
+          "maxPreviewToLayoutMs": 17,
+          "maxFinalizeToLayoutMs": 16,
+          "maxFrameGapMs": 35
+        },
+        {
+          "affected": 11,
+          "cancelled": false,
+          "zoom": 0.6,
+          "readyCachesAtDown": 0,
+          "maxPreviewToLayoutMs": 17,
+          "maxFinalizeToLayoutMs": 12,
+          "maxFrameGapMs": 32
+        }
+      ],
+      "errors": 0
+    },
+    {
+      "mode": "partial",
+      "windowUTC": [
+        "2026-10-27T12:13:24.073Z",
+        "2026-10-27T12:14:24.858Z"
+      ],
+      "reuseHits": 14,
+      "reuseMisses": 589,
+      "maxCachedChars": 1998348,
+      "maxCachedObjects": 18,
+      "feedbackStored": [
+        {
+          "at": "2026-10-27T12:14:12.135Z",
+          "value": "slow",
+          "purpose": "delivery-check-only",
+          "pairedContact": true
+        },
+        {
+          "at": "2026-10-27T12:14:24.174Z",
+          "value": "slow",
+          "purpose": "delivery-check-only",
+          "pairedContact": true
+        }
+      ],
+      "checkpoints": [
+        {
+          "phase": "erased",
+          "objectCount": 316,
+          "beforeMatch": true,
+          "erasedMatch": true,
+          "readyCaches": 5,
+          "gate": {
+            "limit": 12,
+            "completed": 11,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 319,
+          "beforeMatch": true,
+          "erasedMatch": true,
+          "readyCaches": 3,
+          "gate": {
+            "limit": 12,
+            "completed": 11,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objectCount": 326,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 3,
+          "gate": {
+            "limit": 12,
+            "completed": 11,
+            "released": false
+          },
+          "history": null
+        },
+        {
+          "phase": "release",
+          "objectCount": 326,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 4,
+          "gate": {
+            "limit": 12,
+            "completed": 12,
+            "released": true
+          },
+          "history": null
+        },
+        {
+          "phase": "restored",
+          "objectCount": 326,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 93,
+          "gate": {
+            "limit": 12,
+            "completed": 101,
+            "released": true
+          },
+          "history": null
+        },
+        {
+          "phase": "undo",
+          "objectCount": 319,
+          "beforeMatch": true,
+          "erasedMatch": false,
+          "readyCaches": 68,
+          "gate": {
+            "limit": 12,
+            "completed": 101,
+            "released": true
+          },
+          "history": {
+            "requestId": "mvqnbn8r-history-16",
+            "executions": 3,
+            "oneStep": true,
+            "beforePast": 3,
+            "beforeFuture": 0,
+            "afterPast": 2,
+            "afterFuture": 1,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "redo",
+          "objectCount": 326,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 68,
+          "gate": {
+            "limit": 12,
+            "completed": 124,
+            "released": true
+          },
+          "history": {
+            "requestId": "mvqnbn8r-history-18",
+            "executions": 4,
+            "oneStep": true,
+            "beforePast": 2,
+            "beforeFuture": 1,
+            "afterPast": 3,
+            "afterFuture": 0,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "erased",
+          "objectCount": 327,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 69,
+          "gate": {
+            "limit": 12,
+            "completed": 149,
+            "released": true
+          },
+          "history": null
+        }
+      ],
+      "erase": [
+        {
+          "affected": 36,
+          "cancelled": false,
+          "zoom": 0.6,
+          "readyCachesAtDown": 11,
+          "maxPreviewToLayoutMs": 14.000000000007276,
+          "maxFinalizeToLayoutMs": 11,
+          "maxFrameGapMs": 35
+        },
+        {
+          "affected": 40,
+          "cancelled": false,
+          "zoom": 0.6,
+          "readyCachesAtDown": 6,
+          "maxPreviewToLayoutMs": 18,
+          "maxFinalizeToLayoutMs": 9,
+          "maxFrameGapMs": 27
+        },
+        {
+          "affected": 33,
+          "cancelled": false,
+          "zoom": 0.6,
+          "readyCachesAtDown": 3,
+          "maxPreviewToLayoutMs": 30,
+          "maxFinalizeToLayoutMs": 11,
+          "maxFrameGapMs": 35
+        },
+        {
+          "affected": 25,
+          "cancelled": false,
+          "zoom": 0.6,
+          "readyCachesAtDown": 93,
+          "maxPreviewToLayoutMs": 11,
+          "maxFinalizeToLayoutMs": 12,
+          "maxFrameGapMs": 30
+        }
+      ],
+      "errors": 0
+    }
+  ],
+  "limits": [
+    "부분 준비 첫 시작은 캐시11개이며 정확한12개 고정 비교가 아님",
+    "느림 이벤트 원시 값은 변경하지 않고 사용자 설명으로 해석을 덧붙임",
+    "체감 성능의 추가 개선/잔존 문제는 이 신호 확인용 버튼으로 판단하지 않음",
+    "회차별 대상 수·경로·캐시 상태가 달라 통제 개선율 아님",
+    "사용자 좌표·필기 내용·계정·원본 id는 수록하지 않음"
+  ]
+}

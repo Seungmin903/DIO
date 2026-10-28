@@ -1,10 +1,12 @@
 import { createContext, memo, useContext } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { Platform, StyleSheet, View } from 'react-native'
 import { pageSize } from '../../utils/pageGeometry.js'
 import PageBackground from '../PageBackground'
 import { objectOpacity, TextMeasure } from './ObjectView'
 import PageObject from './PageObject'
 import CompletedStrokeLayer from './CompletedStrokeLayer'
+import WebStrokeCache from './WebStrokeCache'
+import { WebStrokeCacheEnabled } from './WebStrokeCacheContext'
 
 const DRAG_OPACITY = 0.5
 
@@ -28,10 +30,13 @@ export const ViewportMotion = createContext({ moving: false, visible: null })
  * 편집 화면에서는 확대·이동하는 동안과 화면 밖에 있는 GIF 도 멈춘다 (ViewportMotion).
  * 편집 화면의 GIF 는 움직여야 하므로, 손대지 않고 보이는 것만 재생한다.
  */
-const StaticPage = memo(function StaticPage({ page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true, fadeIds = null, stillIds = null, onTextMeasure = null, cacheStrokes = false }) {
+const StaticPage = memo(function StaticPage({ page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true, fadeIds = null, stillIds = null, onTextMeasure = null, cacheStrokes = false, areaPreviewObjects = null, areaErasing = false, deferredAreaObjects = null }) {
   const { width, height } = pageSize(page)
   const motion = useContext(ViewportMotion)
-  const renderObject = object => <PageObject key={object.id} object={object} zoom={zoom}
+  const cacheOverride = useContext(WebStrokeCacheEnabled)
+  // Only the live web writing/eraser layer opts in. Thumbnails/export stay vector.
+  const webCache = Platform.OS === 'web' && (cacheOverride ?? cacheStrokes)
+  const renderObject = object => <PageObject key={object.id} object={object} zoom={zoom} areaPreview={areaErasing && Boolean(areaPreviewObjects?.has(object))}
     opacity={objectOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1) * (fadeIds?.includes(object.id) ? DRAG_OPACITY : 1)}
     still={still || motion.moving || Boolean(fadeIds?.includes(object.id) || stillIds?.includes(object.id)) || offscreen(object, motion.visible)}
     crop={object.id === cropId} />
@@ -42,14 +47,19 @@ const StaticPage = memo(function StaticPage({ page, zoom, still = false, cropId 
     >
       {showBackground && <PageBackground page={page} zoom={zoom} compact />}
       <TextMeasure.Provider value={onTextMeasure}>
-      {cacheStrokes && !cropId && !fadeIds?.length && !stillIds?.length
+      {webCache && !cropId && !fadeIds?.length && !stillIds?.length
+        ? <WebStrokeCache objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} areaPreviewObjects={areaPreviewObjects} deferredAreaObjects={deferredAreaObjects} areaErasing={areaErasing} />
+        : cacheStrokes && !cropId && !fadeIds?.length && !stillIds?.length
         ? <CompletedStrokeLayer objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} />
         : page.objects.filter(object => !object.hidden).map(renderObject)}
       </TextMeasure.Provider>
     </View>
   )
 }, (previous, next) => (
-  previous.page === next.page
+  previous.deferredAreaObjects === next.deferredAreaObjects
+  && previous.areaErasing === next.areaErasing
+  && previous.areaPreviewObjects === next.areaPreviewObjects
+  && previous.page === next.page
   && previous.zoom === next.zoom
   && previous.still === next.still
   && previous.cropId === next.cropId

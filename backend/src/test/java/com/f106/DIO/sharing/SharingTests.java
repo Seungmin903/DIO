@@ -1,4 +1,7 @@
 package com.f106.DIO.sharing;
+import com.f106.DIO.diary.domain.DiaryMember;
+import com.f106.DIO.diary.domain.DiaryMemberId;
+import com.f106.DIO.diary.repository.DiaryMemberRepository;
 import com.f106.DIO.auth.domain.EmailAuthProvider;
 import com.f106.DIO.auth.dto.LoginRequest;
 import com.f106.DIO.auth.repository.EmailAuthProviderRepository;
@@ -63,7 +66,7 @@ class SharingTests extends SharingTestSupport {
         mvc.perform(delete("/api/v1/diaries/"+id+"/members/"+editor.id()).header("Authorization","Bearer "+owner.token())).andExpect(status().isNoContent());
         assertThatThrownBy(()->membership.list(id,editor.id())).isInstanceOf(SharingException.class);
         assertThatThrownBy(()->links.accept(link.token(),editor.id())).isInstanceOfSatisfying(SharingException.class,e->assertThat(e.code).isEqualTo("INVITE_REVOKED"));
-        assertThat(members.findById(new com.f106.DIO.sharing.domain.DiaryMemberId(id,editor.id())).orElseThrow().getLeftAt()).isNotNull();
+        assertThat(members.findById(new com.f106.DIO.diary.domain.DiaryMemberId(id,editor.id())).orElseThrow().getLeftAt()).isNotNull();
     }
     @Test void ownerTransfersAndRemainsAnEditorUntilExplicitLeave() throws Exception {
         var owner=actor();var editor=actor();var id=diary(owner);var link=links.create(id,owner.id());links.accept(link.token(),editor.id());
@@ -87,7 +90,7 @@ class SharingTests extends SharingTestSupport {
         assertThatThrownBy(()->ownership.transfer(id,owner.id(),guest.id())).isInstanceOf(SharingException.class);
     }
     @Test void guestDiaryCannotBeClaimedByAnyLoggedInCaller(){
-        var actor=actor();var diary=diaries.saveAndFlush(new Diary("비회원","#CED9EE","PLAIN","PRIVATE"));
+        var actor=actor();var diary=diaries.saveAndFlush(new Diary(UUID.randomUUID(),"비회원","#CED9EE","PLAIN","PRIVATE"));
         assertThatThrownBy(()->links.create(diary.getDiaryId(),actor.id())).isInstanceOf(SharingException.class);
         assertThat(diaries.findById(diary.getDiaryId()).orElseThrow().getOwnerUserId()).isNull();
     }

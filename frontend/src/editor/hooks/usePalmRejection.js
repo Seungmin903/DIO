@@ -40,7 +40,8 @@ export function usePalmRejectingPan(handlers) {
   })
 
   const begin = (s, t, kind) => {
-    s.track = { id: t.identifier, startX: t.pageX, startY: t.pageY, startTime: Date.now(), moved: 0, pen: kind === 'pen' }
+    s.track = { id: t.identifier, startX: t.pageX, startY: t.pageY, startTime: Date.now(), moved: 0,
+      force: Number.isFinite(t.force) && t.force > 0 ? t.force : null, pen: kind === 'pen' }
     call('onStart', asEvent(s, t))
   }
   const finish = (s, cancelled) => {
@@ -121,17 +122,21 @@ export function usePalmRejectingPan(handlers) {
   }
 
   // move가 생략되어도 뗀 위치까지 확정한다. 다른 손가락의 좌표는 쓰지 않는다.
-  const moveTracked = (s, t) => {
+  const moveTracked = (s, t, isRelease = false) => {
     if (!s.track || !t || !Number.isFinite(t.pageX) || !Number.isFinite(t.pageY)) return
     const dx = t.pageX - s.track.startX
     const dy = t.pageY - s.track.startY
-    if (s.track.dx == null && dx === 0 && dy === 0) return
-    // 다른 터치(손바닥)만 움직인 이벤트에서는 획을 다시 그리지 않는다
-    if (dx === s.track.dx && dy === s.track.dy) return
+    const moved = dx !== (s.track.dx ?? 0) || dy !== (s.track.dy ?? 0)
+    const forceChanged = !isRelease && Number.isFinite(t.force) && t.force !== s.track.force
+      && (t.force > 0 || s.track.force > 0)
+    // 미지원 0·변함없는 압력의 탭과, 같은 위치에서 해제할 때의 0은 이동이 아니다.
+    // 실제 압력 변화나 마지막 위치 변화만 전달한다.
+    if (!moved && !forceChanged) return
     s.track.dx = dx
     s.track.dy = dy
+    s.track.force = t.force
     s.track.moved = Math.max(s.track.moved, Math.hypot(dx, dy))
-    call('onMove', dx, dy, asEvent(s, t))
+    call('onMove', dx, dy, { ...asEvent(s, t), isRelease })
   }
   const finishAt = (s, event) => {
     const e = event?.nativeEvent
@@ -139,7 +144,7 @@ export function usePalmRejectingPan(handlers) {
     if (id == null) return
     const last = e?.changedTouches?.find((t) => t.identifier === id)
       ?? (e?.identifier === id ? e : null)
-    moveTracked(s, last)
+    moveTracked(s, last, true)
     finish(s, false)
   }
 

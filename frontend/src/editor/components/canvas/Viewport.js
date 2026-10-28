@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Platform, StyleSheet, Text, View } from 'react-native'
+import { AppState, Platform, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
-import { notePointerDown, notePointerUp, touchKind } from '../../utils/stylus'
+import { notePointerDown, notePointerUp, touchKind, stylus, resetStylusPointers } from '../../utils/stylus'
 
 const WHEEL_IDLE_MS = 160 // 휠이 이만큼 멈추면 확대·이동을 확정한다
 
@@ -19,7 +19,7 @@ const WHEEL_IDLE_MS = 160 // 휠이 이만큼 멈추면 확대·이동을 확정
  * resolveZoom(scale, pagePoint, screenPoint) / resolvePan(view, dx, dy): 부모의 배율·위치 제한을 적용한 보기 { scale, zoom, x, y }
  * onMovingChange(moving): 확대·이동을 시작할 때 true, 확정할 때 false (그동안 GIF 를 멈추는 데 쓴다)
  */
-export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan = false, children, style, onLayout }) {
+export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan = false, interactionLocked = false, children, style, onLayout }) {
   const pinch = useRef(null)
   const [live, setLive] = useState(null) // 손가락으로 움직이는 중인 보기 (확정 전)
   const liveRef = useRef(null)
@@ -29,7 +29,26 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
   const panFrom = useRef(null) // 손바닥 도구: 지난번 손가락 위치
   const motion = useRef({ panY: 0, zoomed: false, cancelled: false })
   const latest = useRef({})
-  latest.current = { zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan }
+  useEffect(() => {
+    const reset = () => resetStylusPointers()
+    const end = event => notePointerUp({ nativeEvent: event })
+    const subscription = AppState?.addEventListener('change', state => { if (state !== 'active') reset() })
+    if (Platform.OS === 'web') {
+      window.addEventListener('pointerup', end, true)
+      window.addEventListener('pointercancel', end, true)
+      window.addEventListener('blur', reset)
+    }
+    return () => {
+      subscription?.remove()
+      if (Platform.OS === 'web') {
+        window.removeEventListener('pointerup', end, true)
+        window.removeEventListener('pointercancel', end, true)
+        window.removeEventListener('blur', reset)
+      }
+      reset()
+    }
+  }, [])
+  latest.current = { zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan: interactionLocked ? false : dragToPan, interactionLocked }
   const currentView = () => liveRef.current ?? { scale: latest.current.scale, zoom: latest.current.zoom, x: latest.current.offset.x, y: latest.current.offset.y }
   const preview = (view) => {
     if (!liveRef.current) latest.current.onMovingChange?.(true)
@@ -55,6 +74,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
 
   // 두 손가락 확대·축소·이동. 펜이 함께 닿아 있으면(손바닥 + 펜) 제스처가 아니다.
   const twoFingers = (event) => {
+    if (latest.current.interactionLocked || stylus?.activePen) return false
     const touches = event.nativeEvent.touches ?? []
     return touches.length >= 2 && !touches.some((t) => touchKind(t) === 'pen')
   }
@@ -78,10 +98,11 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
     onStartShouldSetResponderCapture: twoFingers,
     onMoveShouldSetResponderCapture: twoFingers,
     // 페이지가 받지 않은 한 손가락 터치(= 페이지 밖 여백)도 여기서 받는다. 떼면 선택 해제.
-    onStartShouldSetResponder: () => true,
+    onStartShouldSetResponder: () => !latest.current.interactionLocked,
     // 여백에 얹힌 손바닥(탭 대기 중)이 펜 입력을 막지 않게, 확대·축소나 손바닥 도구로 옮기는 중이 아니면 넘긴다.
     onResponderTerminationRequest: () => !pinch.current && !latest.current.dragToPan,
     onResponderGrant: (event) => {
+      if (latest.current.interactionLocked) return
       measure()
       resetMotion()
       panFrom.current = latest.current.dragToPan ? { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY } : null
@@ -89,6 +110,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       else tap.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }
     },
     onResponderMove: (event) => {
+      if (latest.current.interactionLocked) return
       if (tap.current && Math.hypot(event.nativeEvent.pageX - tap.current.x, event.nativeEvent.pageY - tap.current.y) > 10)
         tap.current = null
       if (!twoFingers(event)) {
@@ -146,6 +168,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
     let idle = null
     const handleWheel = (event) => {
       event.preventDefault()
+      if (latest.current.interactionLocked) return
       const { resolveZoom: zoomTo, resolvePan: panTo } = latest.current
       const view = currentView()
       if (!liveRef.current) resetMotion()
@@ -208,5 +231,5 @@ const styles = StyleSheet.create({
   viewport: { flex: 1, overflow: 'hidden', ...Platform.select({ web: { touchAction: 'none' }, default: {} }) },
   // 툴바 바로 아래 가운데
   zoomBadge: { position: 'absolute', top: 84, alignSelf: 'center', paddingHorizontal: 14, height: 34, justifyContent: 'center', borderRadius: 17, backgroundColor: colors.surface, ...shadow.float },
-  zoomText: { fontSize: 13, fontWeight: '800', color: colors.text },
+  zoomText: { fontSize: 13, fontWeight: '700', color: colors.text },
 })

@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   remove: { position: 'absolute', right: -5, top: -5, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   add: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', backgroundColor: colors.surface },
   addOpen: { backgroundColor: colors.surfaceMuted },
-  saveButton: { height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors.primary },
-  saveText: { fontSize: 13, fontWeight: '800', color: colors.surface },
+  saveButton: { height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors.primaryStrong },
+  saveText: { fontSize: 13, fontWeight: '700', color: colors.surface },
   dim: { opacity: DISABLED_OPACITY },
 })

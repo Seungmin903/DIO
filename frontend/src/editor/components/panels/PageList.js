@@ -1,5 +1,5 @@
 import PageBulkDelete from '../controls/PageBulkDelete'
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, radius } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
@@ -7,7 +7,7 @@ import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import Icon from '../controls/Icon'
 import TapCatcher from '../controls/TapCatcher'
-import StaticPage from '../canvas/StaticPage'
+import PageThumbnail from './PageThumbnail'
 
 const THUMB_WIDTH = 124
 const THUMB_BORDER = 1
@@ -22,7 +22,7 @@ const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
 export const PAGE_LIST_WIDTH = 156
 
 /**
- * 페이지 목록. 썸네일은 편집 화면과 같은 StaticPage 로 그려 편집 내용을 그대로 비춘다.
+ * 페이지 목록. 같은 원본으로 표시하되 웹의 무거운 썸네일은 축소 캐시를 재사용한다.
  * - 탭: 그 페이지로 이동 (고른 페이지도 그 하나만)
  * - 고른 페이지(지금 페이지 포함)를 길게 눌러 끌기: 순서 바꾸기. 여러 개 골라 두었으면 함께 옮긴다 (놓을 자리에 선이 보인다)
  * - 고르지 않은 페이지를 길게 누르기: 여러 개 고르기 모드에 들어가 그 페이지를 넣는다. 이어서 위아래로 끌면 그 사이를 모두 고른다
@@ -31,7 +31,14 @@ export const PAGE_LIST_WIDTH = 156
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onRemovePages, onReset, onMove, onMovePages, onEmptyTap, readOnly = false }) {
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onRemovePages, onReset, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null }) {
+  useLayoutEffect(() => {
+    qaMeasurement?.emit('panel-layout')
+    if (!qaMeasurement) return
+    let second
+    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => qaMeasurement.emit('panel-frame-opportunity')) })
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second) }
+  }, [qaMeasurement])
   const [drag, setDrag] = useState(null) // { id, from, dy, group } — 끌어서 옮기는 중
   // 고른 페이지들. 평소에는 지금 페이지 하나이고, 길게 눌러 여러 개를 고른다.
   const [picked, setPicked] = useState([currentId])
@@ -179,7 +186,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
       </View>
       {!readOnly && <View style={{ paddingHorizontal: 8 }}>
         {pickMode ? <PageBulkDelete pages={pages} ids={picked} onDelete={onRemovePages} onReset={onReset} onDone={endPickMode} />
-          : <Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Text style={styles.pickDoneText}>편집</Text></Pressable>}
+          : <View style={styles.editRow}><Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="pen" size={14} /><Text style={styles.editText}>편집</Text></Pressable></View>}
       </View>}
       <FlatList
         ref={listRef}
@@ -351,7 +358,7 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
       >
         {/* 지금 편집 중인 페이지는 움직이는 GIF·자르기 표시까지 편집 화면과 똑같이, 나머지는 첫 장면으로 */}
         <View style={styles.thumbPage} pointerEvents="none">
-          <StaticPage page={page} zoom={thumbZoom} still cropId={cropId} showBackground={showBackground} />
+          <PageThumbnail page={page} zoom={thumbZoom} still cropId={cropId} showBackground={showBackground} />
         </View>
         {/* 선택 테두리는 썸네일 위에 겹쳐 그린다 (썸네일에 아래쪽 선이 가려지던 문제) */}
         {(pickMode ? picked : active) && <View style={styles.activeRing} pointerEvents="none" />}
@@ -405,6 +412,10 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
 ))
 
 const styles = StyleSheet.create({
+  editRow: { minHeight: 44, marginVertical: 2, justifyContent: 'center' },
+  editButton: { height: 32, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
+  editText: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
+  editPressed: { opacity: 0.65 },
   panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'visible', zIndex: 3 },
   list: { flexGrow: 1, alignItems: 'center', gap: 16, paddingVertical: 16 },
   emptyArea: { flexGrow: 1, alignSelf: 'stretch', minHeight: 24 },
@@ -420,13 +431,13 @@ const styles = StyleSheet.create({
   thumbPage: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', borderRadius: 7, backgroundColor: '#FFFFFF' },
   thumbActive: { borderColor: 'transparent' },
   carried: { opacity: 0.4 },
-  pickBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 32, paddingLeft: 10, paddingRight: 3, borderRadius: 9, backgroundColor: 'rgba(11,25,87,0.06)' },
-  pickText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
-  pickDone: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 7, backgroundColor: colors.surface },
-  pickDoneText: { fontSize: 12.5, fontWeight: '800', color: colors.primary },
-  countBadge: { position: 'absolute', top: -8, right: 4, zIndex: 3, minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
-  countText: { fontSize: 12, fontWeight: '800', color: colors.surface },
-  pickedCheck: { position: 'absolute', right: 6, bottom: 6, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  pickBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 32, padding: 2, borderRadius: 9, backgroundColor: 'rgba(11,25,87,0.06)' },
+  pickText: { flex: 1, textAlign: 'center', fontSize: 11.5, fontWeight: '700', color: colors.textMuted },
+  pickDone: { height: 28, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 7, backgroundColor: colors.surface },
+  pickDoneText: { fontSize: 11.5, fontWeight: '700', color: colors.textMuted },
+  countBadge: { position: 'absolute', top: -8, right: 4, zIndex: 3, minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryStrong },
+  countText: { fontSize: 12, fontWeight: '700', color: colors.surface },
+  pickedCheck: { position: 'absolute', right: 6, bottom: 6, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryStrong },
   activeRing: { position: 'absolute', top: -THUMB_BORDER, left: -THUMB_BORDER, right: -THUMB_BORDER, bottom: -THUMB_BORDER, borderRadius: 8, borderWidth: 2, borderColor: colors.primary },
   // 탭 줄은 아래 썸네일보다 양쪽으로 조금(6) 더 넓게
   header: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: (PAGE_LIST_WIDTH - THUMB_WIDTH) / 2 - 6, paddingTop: 10 },
@@ -461,7 +472,7 @@ const styles = StyleSheet.create({
   moreActive: { backgroundColor: colors.primarySoft },
   indexBadge: { position: 'absolute', top: 6, left: 6, width: 26, height: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', zIndex: 4 },
   actionMenu: { position: 'absolute', left: THUMB_WIDTH + 14, width: 178, padding: 8, gap: 2, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(11,25,87,0.12)', elevation: 8, zIndex: 10 },
-  actionMenuTitle: { paddingHorizontal: 8, paddingVertical: 5, fontSize: 11, fontWeight: '800', color: colors.textMuted },
+  actionMenuTitle: { paddingHorizontal: 8, paddingVertical: 5, fontSize: 11, fontWeight: '700', color: colors.textMuted },
   action: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, borderRadius: 9 },
   actionText: { fontSize: 14, fontWeight: '700', color: colors.text },
   deleteText: { fontSize: 14, fontWeight: '700', color: colors.danger },

@@ -222,8 +222,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   docTitle: { flex: 1, minWidth: 0, marginLeft: 4, justifyContent: 'center' },
-  docTitleText: { fontSize: 15, fontWeight: '800', letterSpacing: -0.3 },
-  pageLabel: { marginTop: 2, fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, color: colors.textMuted },
+  docTitleText: { fontSize: 15, fontWeight: '700', letterSpacing: -0.3 },
+  pageLabel: { marginTop: 2, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.6, color: colors.textMuted },
   titleInputCompact: { minWidth: 0, alignSelf: 'stretch' },
   spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
@@ -245,8 +245,8 @@ const styles = StyleSheet.create({
   rightCompact: { gap: 2 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 10, borderRadius: 12 },
   toggleCompact: { width: 44, height: 44, justifyContent: 'center', paddingHorizontal: 0 },
-  toggleActive: { backgroundColor: colors.surfaceSoft },
-  togglePressed: { backgroundColor: colors.primarySoft },
+  toggleActive: { backgroundColor: colors.primarySoft },
+  togglePressed: { opacity: 0.65 },
   toggleText: { fontSize: 13, fontWeight: '700', color: colors.text },
   // 내보내기: 크기·둥글기는 레이어 버튼과 같게 (색은 강조색 그대로)
   share: {
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryStrong,
   },
-  shareText: { fontSize: 13, fontWeight: '800', color: colors.surface },
+  shareText: { fontSize: 13, fontWeight: '700', color: colors.surface },
 })

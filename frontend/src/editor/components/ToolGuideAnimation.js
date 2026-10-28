@@ -63,14 +63,14 @@ export default function ToolGuideAnimation({ mode }) {
           {GUIDE_STROKE_PATHS.map((d, i) => <Path key={i} d={d} fill="none" stroke={i === 1 ? colors.secondary : colors.primary} strokeWidth={6} strokeLinecap="round" opacity={frame.hiddenStrokes[i] ? 0 : 1} />)}
         </G>
       </> : <>
-        <Rect x={64} y={60} width={60} height={40} rx={9} fill={colors.surfaceSoft} />
+        <Rect x={64} y={60} width={60} height={40} rx={9} fill={colors.primarySoft} />
         <Circle cx={169} cy={92} r={22} fill={colors.secondary} />
         <Path d="M235 37 242 51 257 53 246 64 249 79 235 72 221 79 224 64 213 53 228 51Z" fill="#E8AF45" />
         {frame.selection ? <Path d={frame.selection} stroke={colors.primary} strokeWidth={1.5} strokeDasharray="6 4" fill={frame.done ? colors.primarySoft : 'none'} /> : null}
       </>}
       {frame.cursorVisible && <G transform={`translate(${frame.cursor.x} ${frame.cursor.y})`}>
         <Circle r={eraser ? 12 : 5} fill={colors.surface} fillOpacity={0.8} stroke={colors.primary} strokeWidth={1.5} />
-        {eraser && <Path d="m-5 1 6-6 4 4-6 6Z" fill={colors.surfaceSoft} stroke={colors.primary} strokeWidth={1} />}
+        {eraser && <Path d="m-5 1 6-6 4 4-6 6Z" fill={colors.primarySoft} stroke={colors.primary} strokeWidth={1} />}
       </G>}
     </Svg>
   </View>

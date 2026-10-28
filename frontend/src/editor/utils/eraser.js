@@ -1,5 +1,5 @@
-import { rotateVector } from './common.js'
-import { createStroke, penContour, strokeOutline } from './strokes.js'
+import { createId, rotateVector } from './common.js'
+import { createStroke, penContour, strokeOutline, samplePenCurve } from './strokes.js'
 
 // 실행 목업의 기본 지름 24. 사용자 크기 설정은 페이지 좌표이며 화면에서는 zoom을 곱한다.
 export const ERASER_RADIUS = 12
@@ -8,7 +8,10 @@ export const ERASER_MAX_SIZE = 80
 export const normalizeEraserSize = (value) => Number.isFinite(value)
   ? Math.max(ERASER_MIN_SIZE, Math.min(ERASER_MAX_SIZE, Math.round(value))) : ERASER_RADIUS * 2
 // 획 지우기: 닿은 획을 통째로 지운다. 영역 지우기: 지우개가 지나간 부분만 지우고 남은 부분은 따로 남긴다.
-export const ERASER_MODES = [{ id: 'stroke', label: '획 지우기' }, { id: 'area', label: '영역 지우기' }]
+export const ERASER_MODES = [{ id: 'stroke', label: '획 전체' }, { id: 'area', label: '닿은 부분' }]
+export const ERASER_TARGETS = [{ id: 'all', label: '전체' }, { id: 'pen', label: '펜' }, { id: 'highlighter', label: '형광펜' }]
+export const matchesEraserTarget = (object, target = 'all') => target === 'highlighter'
+  ? object.penKind === 'highlighter' : target === 'pen' ? object.penKind !== 'highlighter' : true
 
 const distanceToSegment = (p, a, b) => {
   const dx = b.x - a.x, dy = b.y - a.y
@@ -41,10 +44,12 @@ const boundsOf = (points) => points.reduce((bounds, p) => ({
 const overlaps = (a, b) => a.left <= b.right && a.right >= b.left && a.top <= b.bottom && a.bottom >= b.top
 
 // 렌더러가 생성하는 M/L/Q/Z 펜 윤곽만 샘플링한다. 외부 SVG는 읽지 않는다.
-function outlinePoints(path) {
-  const points = []
+function outlinePolygons(path) {
+  const polygons = []
+  let points = []
   for (const command of path.match(/[MLQZ][^MLQZ]*/g) ?? []) {
     const numbers = command.slice(1).trim().split(/\s+/).map(Number)
+    if (command[0] === 'M' && points.length) { polygons.push(points); points = [] }
     if (command[0] === 'M' || command[0] === 'L') points.push({ x: numbers[0], y: numbers[1] })
     if (command[0] === 'Q') {
       const a = points.at(-1), [cx, cy, x, y] = numbers
@@ -54,12 +59,14 @@ function outlinePoints(path) {
       }
     }
   }
-  return points
+  if (points.length) polygons.push(points)
+  return polygons
 }
 function strokePolygons(object) {
   const { points, penKind: kind, strokeWidth: width } = object
+  if (kind === 'felt' && [2, 3].includes(object.renderVersion)) return outlinePolygons(penContour(points, width, kind))
   if (points.length > 1 && (kind === 'brush' || kind === 'fountain')) {
-    return [outlinePoints(object.renderVersion === 2 ? penContour(points, width, kind) : strokeOutline(points, width))]
+    return outlinePolygons([2, 3].includes(object.renderVersion) ? penContour(points, width, kind) : strokeOutline(points, width, object.eraserCaps))
   }
   const half = width / 2 * (kind === 'highlighter' ? 1 : points.length === 1 ? points[0].pressure ?? 1 : kind === 'pencil' ? 0.85 : 1)
   const square = kind === 'highlighter' && object.lineCap === 'square'
@@ -120,7 +127,10 @@ function densify(points, step) {
     const a = points[i - 1], b = points[i], count = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / step)
     for (let n = 1; n < count; n++) {
       const t = n / count
-      result.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, ...(a.pressure != null && b.pressure != null && { pressure: a.pressure + (b.pressure - a.pressure) * t }) })
+      result.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t,
+        ...Object.fromEntries(['force', 'time', 'speed', 'tiltX', 'tiltY', 'inkDistance'].filter(key => a[key] != null && b[key] != null)
+          .map(key => [key, a[key] + (b[key] - a[key]) * t])),
+        ...(a.pressure != null && b.pressure != null && { pressure: a.pressure + (b.pressure - a.pressure) * t }) })
     }
     result.push(b)
   }
@@ -128,16 +138,24 @@ function densify(points, step) {
 }
 
 // 남은 조각을 원래 획과 같은 모양의 획으로 만든다. 돌리거나 늘이지 않은 획은 조각 크기에 맞게 경계를 다시 잡는다.
-function fragmentStroke(source, points, id) {
+function fragmentStroke(source, points, id, caps) {
+  const legacy = ![2, 3].includes(source.renderVersion) && ['brush', 'fountain'].includes(source.penKind)
+  const tail = legacy ? { eraserCaps: caps } : {}
+  const ink = points[0]?.inkDistance != null ? { inkStartDistance: points[0].inkDistance } : {}
+  points = source.renderVersion === 3 ? points : points.map(({ inkDistance, ...point }) => point)
   const plain = !source.rotation && !source.flipX && !source.flipY && source.w === source.baseWidth && source.h === source.baseHeight
-  if (!plain) return { ...source, id, points }
-  const stroke = createStroke(points.map((p) => ({ ...p, x: p.x + source.x, y: p.y + source.y })), { id, color: source.color, width: source.strokeWidth, kind: source.penKind, lineCap: source.lineCap })
-  return { ...source, ...stroke, renderVersion: source.renderVersion, name: source.name }
+  if (!plain) return { ...source, ...ink, ...tail, id, points }
+  const stroke = createStroke(points.map((p) => ({ ...p, x: p.x + source.x, y: p.y + source.y })), {
+    id, color: source.color, width: source.strokeWidth, kind: source.penKind, lineCap: source.lineCap,
+    renderVersion: source.renderVersion, materialSeed: source.materialSeed,
+  })
+  return { ...source, ...stroke, ...ink, ...tail, renderVersion: source.renderVersion, name: source.name }
 }
 
 // 문서는 바꾸지 않고 후보만 누적하며, 확정 시 기존 단일 삭제 액션을 반환한다.
 // mode 'area' 는 영역 지우기: 닿은 부분만 지우고, 확정 시 원래 획을 남은 조각들로 바꾸는 replaceObjects 한 번을 반환한다.
-export function createEraserSession(objects, radius = ERASER_RADIUS, mode = 'stroke') {
+export function createEraserSession(objects, radius = ERASER_RADIUS, mode = 'stroke', target = 'all') {
+  objects = objects.filter(object => matchesEraserTarget(object, target))
   if (mode === 'area') return createAreaEraserSession(objects, radius)
   const targets = objects.map(eraserTarget).filter(Boolean), removed = new Set()
   let finished = false
@@ -163,14 +181,24 @@ export function createEraserSession(objects, radius = ERASER_RADIUS, mode = 'str
 function createAreaEraserSession(objects, radius) {
   const targets = objects.map(eraserTarget).filter(Boolean)
   const pieces = new Map() // 원래 획 id → 남은 조각들 [{ points(요소 좌표), page(페이지 좌표) }]
+  const previewFragments = new WeakMap()
+  const fragmentToken = createId()
+  let previewSerial = 0
   const built = new Map() // 원래 획 id → 만들어 둔 조각 획들 (바뀐 획만 다시 만든다)
-  let finished = false, serial = 0, cached = null
+  let finished = false, cached = null
   const piecesOf = (target) => {
     if (!pieces.has(target.id)) {
       const { object, project } = target
       const scale = Math.max(object.w / object.baseWidth, object.h / object.baseHeight) || 1
-      const points = object.points.length > 1 ? densify(object.points, Math.max(0.5, radius / 2 / scale)) : object.points
-      pieces.set(target.id, [{ points, page: points.map(project), reach: radius + object.strokeWidth * scale / 2 }])
+      let travelled = object.inkStartDistance ?? 0
+      const input = [2, 3].includes(object.renderVersion) && ['brush', 'fountain', 'felt'].includes(object.penKind)
+        ? object.points.map((p, i) => {
+          if (i) travelled += Math.hypot(p.x - object.points[i - 1].x, p.y - object.points[i - 1].y)
+          return { ...p, inkDistance: p.inkDistance ?? travelled }
+        }) : object.points
+      const curved = [2, 3].includes(object.renderVersion) && ['brush', 'fountain', 'felt'].includes(object.penKind) ? samplePenCurve(input, object.inkStartDistance ?? 0) : input
+      const points = curved.length > 1 ? densify(curved, Math.max(0.5, radius / 2 / scale)) : curved
+      pieces.set(target.id, [{ points, page: points.map(project), scale, caps: object.eraserCaps ?? { start: false, end: false } }])
     }
     return pieces.get(target.id)
   }
@@ -184,17 +212,43 @@ function createAreaEraserSession(objects, radius) {
         const current = before ?? piecesOf(target)
         let changed = false
         const next = current.flatMap((piece) => {
-          const hit = piece.page.map((p) => distanceToSegment(p, from, to) <= piece.reach)
+          const reach = point => radius + target.object.strokeWidth * piece.scale / 2
+            * (target.object.penKind === 'highlighter' ? 1 : ['brush', 'fountain', 'felt'].includes(target.object.penKind) ? point.pressure ?? 1 : target.object.penKind === 'pencil' ? 0.85 : 1)
+          const erased = (point, page) => distanceToSegment(page, from, to) <= reach(point)
+          const hit = piece.page.map((p, i) => erased(piece.points[i], p))
           if (!hit.some(Boolean)) return [piece]
           changed = true
-          // 지워지지 않은 점끼리 이어진 구간만 남긴다. 점 하나만 남은 구간은 버린다.
+          // Locate the cut between samples, keeping the nib outside the erased sweep.
+          const boundary = (outside, inside) => {
+            let lo = 0, hi = 1
+            const a = piece.points[outside], b = piece.points[inside]
+            const interpolate = t => {
+              const point = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+              for (const key of ['pressure', 'force', 'time', 'speed', 'tiltX', 'tiltY', 'inkDistance']) {
+                if (a[key] != null && b[key] != null) point[key] = a[key] + (b[key] - a[key]) * t
+              }
+              return point
+            }
+            for (let n = 0; n < 24; n++) {
+              const t = (lo + hi) / 2, point = interpolate(t)
+              if (erased(point, target.project(point))) hi = t; else lo = t
+            }
+            return interpolate(lo)
+          }
           const runs = []
           let start = -1
-          hit.concat(true).forEach((erased, i) => {
-            if (!erased && start < 0) start = i
-            if (erased && start >= 0) { if (i - start > 1) runs.push([start, i]); start = -1 }
+          hit.concat(true).forEach((removed, i) => {
+            if (!removed && start < 0) start = i
+            if (removed && start >= 0) {
+              const points = piece.points.slice(start, i)
+              if (start > 0) points.unshift(boundary(start, start - 1))
+              if (i < hit.length) points.push(boundary(i - 1, i))
+              if (points.length > 1) runs.push({ points, page: points.map(target.project), scale: piece.scale,
+                caps: { start: start > 0 || piece.caps.start, end: i < hit.length || piece.caps.end } })
+              start = -1
+            }
           })
-          return runs.map(([a, b]) => ({ points: piece.points.slice(a, b), page: piece.page.slice(a, b), reach: piece.reach }))
+          return runs
         })
         if (changed) { pieces.set(target.id, next); built.delete(target.id); cached = null }
         else if (!before) pieces.delete(target.id)
@@ -208,7 +262,11 @@ function createAreaEraserSession(objects, radius) {
       for (const [id, list] of pieces) {
         if (!built.has(id)) {
           const source = targets.find((t) => t.id === id).object
-          built.set(id, list.map((piece, i) => fragmentStroke(source, piece.points, `${id}-${i}-${serial}`)))
+          built.set(id, list.map(piece => {
+            let fragment = previewFragments.get(piece)
+            if (!fragment) { fragment = fragmentStroke(source, piece.points, `${id}-fragment-${fragmentToken}-${++previewSerial}`, piece.caps); previewFragments.set(piece, fragment) }
+            return fragment
+          }))
         }
         result[id] = built.get(id)
       }
@@ -219,10 +277,8 @@ function createAreaEraserSession(objects, radius) {
       if (finished) return null
       finished = true
       if (cancelled || !pieces.size) return null
-      // 확정한 조각은 미리보기와 겹치지 않는 새 id 로 만든다
-      serial = Date.now().toString(36)
-      built.clear()
-      cached = null
+      // Commit the same immutable preview fragments: original IDs remain in Undo,
+      // fragment IDs are unique to this gesture, and unchanged render caches survive.
       return { type: 'replaceObjects', replacements: this.replacements() }
     },
   }

@@ -257,7 +257,7 @@ function LibraryScreen({
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
             <AppIcon name="swap" size={18} color={C.inkSoft} />
-            {!compact && <Text style={s.libraryViewText}>스와이프</Text>}
+            {!compact && <Text style={[s.libraryViewText, displayView === 'carousel' && s.libraryViewTextSelected]}>스와이프</Text>}
           </Pressable>
           <Pressable
             accessibilityRole="tab"
@@ -267,7 +267,7 @@ function LibraryScreen({
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
             <AppIcon name="grid" size={17} color={C.inkSoft} />
-            {!compact && <Text style={s.libraryViewText}>한눈에</Text>}
+            {!compact && <Text style={[s.libraryViewText, displayView === 'grid' && s.libraryViewTextSelected]}>한눈에</Text>}
           </Pressable>
         </View>
       </View>

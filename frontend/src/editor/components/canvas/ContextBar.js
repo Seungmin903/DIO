@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     ...shadow.float,
   },
   chipLink: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 8, borderRadius: 9 },
-  chipText: { flexShrink: 1, fontSize: 12.5, fontWeight: '600', color: colors.primary, textDecorationLine: 'underline' },
+  chipText: { flexShrink: 1, fontSize: 12.5, fontWeight: '600', color: colors.primaryStrong, textDecorationLine: 'underline' },
   chipDivider: { width: 1, height: 18, marginHorizontal: 2, backgroundColor: colors.border },
   bar: {
     position: 'absolute',
@@ -430,9 +430,9 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   buttonDisabled: { opacity: DISABLED_OPACITY },
   iconButton: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: { opacity: 0.65 },
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },
-  chipActive: { backgroundColor: colors.surfaceSoft },
+  chipActive: { backgroundColor: colors.primarySoft },
   // 텍스트·필기 바도 스티커·마테·사진 바(bar)와 같은 모양: 둥글기 16, 테두리 없음, 버튼 간격 2
   barContent: { alignItems: 'center', gap: 2 },
   kind: { alignSelf: 'stretch', justifyContent: 'center', paddingHorizontal: 12, marginVertical: 5, borderRadius: 20, backgroundColor: colors.text },
