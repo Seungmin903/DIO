@@ -132,6 +132,32 @@ class EmailInviteTests extends SharingTestSupport {
         assertThat(invites.recentEmails(id,recipient.id(),java.time.Instant.now().minusSeconds(300))).hasSize(3);
         verify(inviteMail,never()).send(eq(address(recipient)),anyString(),anyString());
     }
+    @Test void trashedDiaryInvitationsAreExcludedFromReceivedPagesAndReturnAfterRestore() throws Exception {
+        var owner=actor();var recipient=actor();var hidden=diary(owner);var visible=diary(owner);
+        send(hidden,owner,recipient);send(visible,owner,recipient);drain();
+        assertThat(emails.received(recipient.id(),0,1).totalElements()).isEqualTo(2);
+        var diary=diaries.findById(hidden).orElseThrow();diary.softDelete();diaries.saveAndFlush(diary);
+        var page=emails.received(recipient.id(),0,1);
+        assertThat(page.totalElements()).isEqualTo(1);assertThat(page.hasNext()).isFalse();
+        assertThat(page.items()).extracting(i->i.diaryId()).containsExactly(visible);
+        mvc.perform(get("/api/v1/me/invites").param("size","1").header("Authorization","Bearer "+recipient.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("totalElements").value(1))
+            .andExpect(jsonPath("items[0].diaryId").value(visible.toString()));
+        assertThat(invites.pendingEmail(hidden,recipient.id())).isPresent();
+        jdbc.update("update diaries set deleted_at=null where diary_id=?",hidden);
+        assertThat(emails.received(recipient.id(),0,20).totalElements()).isEqualTo(2);
+    }
+    @Test void requesterFloodingDifferentEmailsDoesNotBlockAnotherEditor() throws Exception {
+        var owner=actor();var editor=actor();var id=diary(owner);links.accept(links.create(id,owner.id()).token(),editor.id());
+        for(int i=0;i<20;i++)sendToMissing(id,owner,UUID.randomUUID()+"@example.com").andExpect(status().isAccepted());
+        sendToMissing(id,owner,UUID.randomUUID()+"@example.com").andExpect(status().isTooManyRequests())
+            .andExpect(jsonPath("code").value("EMAIL_INVITE_ACTOR_RATE_LIMITED")).andExpect(header().exists("Retry-After"));
+        sendToMissing(id,editor,UUID.randomUUID()+"@example.com").andExpect(status().isAccepted());
+    }
+    private org.springframework.test.web.servlet.ResultActions sendToMissing(UUID id,Actor actor,String email) throws Exception {
+        return mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+actor.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\""+email+"\"}"));
+    }
     @Test void capacityIsCheckedAtAcceptanceAndPendingInvitationSurvivesFullDiary() throws Exception {
         var owner=actor();var to=actor();var id=diary(owner);var link=links.create(id,owner.id());Actor leaver=null;
         for(int i=0;i<3;i++){leaver=actor();links.accept(link.token(),leaver.id());}

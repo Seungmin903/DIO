@@ -15,7 +15,7 @@ public interface DiaryInviteRepository extends JpaRepository<DiaryInvite,Long> {
     java.util.List<DiaryInvite> recentEmails(UUID diary,Long recipient,Instant since);
     @Query("select i from DiaryInvite i where i.diaryId=:diary and i.inviteType like 'EMAIL%'")
     org.springframework.data.domain.Page<DiaryInvite> sentEmails(UUID diary,org.springframework.data.domain.Pageable page);
-    @Query("select i from DiaryInvite i where i.inviteeUserId=:recipient and i.inviteType like 'EMAIL%' and i.inviteType<>'EMAIL_FAILED'")
+    @Query("select i from DiaryInvite i where i.inviteeUserId=:recipient and i.inviteType like 'EMAIL%' and i.inviteType<>'EMAIL_FAILED' and exists (select 1 from Diary d where d.diaryId=i.diaryId and d.deletedAt is null)")
     org.springframework.data.domain.Page<DiaryInvite> receivedEmails(Long recipient,org.springframework.data.domain.Pageable page);
     @Modifying
     @Query("update DiaryInvite i set i.revokedAt=:now where i.diaryId=:diaryId and i.inviteType='LINK' and i.revokedAt is null")

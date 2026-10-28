@@ -40,7 +40,7 @@ public class EmailInviteService {
     private InviteMailDispatch.Requested prepare(UUID diaryId,long actor,EmailInviteRequest request){
         var diary=access.lock(diaryId);access.member(diary,actor);tokens.emailConfigured();mail.configured();
         Instant now=Instant.now().truncatedTo(ChronoUnit.MICROS);
-        attempts.reserve(diaryId,request.email(),now);
+        attempts.reserve(diaryId,actor,request.email(),now);
         var recipient=users.findByEmail(request.email()).filter(u->u.isActive()).orElse(null);
         if(recipient==null)return null;
         if(members.findById(new DiaryMemberId(diaryId,recipient.getUserId())).filter(DiaryMember::active).isPresent())return null;
