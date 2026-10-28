@@ -52,7 +52,14 @@ export function createNotificationStore(api, invitations) {
       const options = { signal: controller.signal };
       if (command.kind === 'read') await api.read(command.id, options);
       else if (command.kind === 'remove') await api.remove(command.id, options);
-      else await api.readAll(command.id, options);
+      else {
+        if (typeof api.prepareReadAll === 'function' && !command.watermark) {
+          const prepared = await api.prepareReadAll(options);
+          if (!active || request !== generation) return;
+          command.watermark = prepared.readWatermark;
+        }
+        await api.readAll(command.watermark ?? command.id, options);
+      }
       if (!active || request !== generation) return;
       pending = null;
       // 조회 실패는 쓰기 실패로 바꾸지 않는다. 성공 안내와 조회 재시도를 분리한다.
@@ -61,7 +68,10 @@ export function createNotificationStore(api, invitations) {
       mutation = { status: 'success', error: null, canRetry: false }; publish();
     } catch (error) {
       if (!active || request !== generation || error.name === 'AbortError') return;
-      const { canRetry } = notificationErrorNotice(error);
+      // 발급 응답 유실 시 원래 경계를 알 수 없어 자동 재발급하지 않는다.
+      // 사용자의 새로운 전체 읽기만 새 스냅샷을 만든다.
+      const canRetry = !(command.kind === 'readAll' && typeof api.prepareReadAll === 'function' && !command.watermark)
+        && notificationErrorNotice(error).canRetry;
       if (!canRetry) pending = null;
       mutation = { status: 'error', error, canRetry }; publish();
     }
