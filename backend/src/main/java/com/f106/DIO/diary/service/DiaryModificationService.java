@@ -15,14 +15,17 @@ public class DiaryModificationService {
 
 	private final DiaryRepository diaryRepository;
 	private final DiaryAccessService accessService;
+	private final MemberDiaryWriteBoundary memberBoundary;
 
-	public DiaryModificationService(DiaryRepository diaryRepository, DiaryAccessService accessService) {
+	public DiaryModificationService(DiaryRepository diaryRepository, DiaryAccessService accessService, MemberDiaryWriteBoundary memberBoundary) {
 		this.diaryRepository = diaryRepository;
 		this.accessService = accessService;
+		this.memberBoundary = memberBoundary;
 	}
 
 	@Transactional
 	public DiaryResponse update(UUID diaryId, DiaryUpdateRequest request, Long userId) {
+		memberBoundary.requireLegacyWrite(diaryId);
 		Diary diary = accessService.requireWrite(diaryId, userId);
 		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverStyle(), request.getVisibility());
 		diaryRepository.flush();
@@ -31,6 +34,7 @@ public class DiaryModificationService {
 
 	@Transactional
 	public void delete(UUID diaryId, Long userId) {
+		memberBoundary.requireLegacyWrite(diaryId);
 		Diary diary = accessService.requireOwner(diaryId, userId);
 		diary.softDelete();
 		diaryRepository.flush();

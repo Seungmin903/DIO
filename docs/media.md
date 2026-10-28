@@ -27,9 +27,9 @@
 - 보관함에서 직접 삭제한 미디어는 **24시간** 보관한 뒤 정리 배치가 S3(또는 로컬 저장소) 원본과 DB 행을 물리 삭제한다.
 - 삭제된 다이어리는 **30일** 보관한 뒤 하위 페이지·캔버스 요소·공유 정보와 함께 물리 삭제한다. 다이어리에 연결된 미디어 원본은 이 과정에서 삭제하지 않는다.
 - 미디어는 캔버스 요소, 공유 보관함, 손글씨 폰트, AI 작업 또는 파생 미디어가 참조하는 동안 물리 삭제하지 않는다. 따라서 삭제된 다이어리가 미디어를 참조하는 경우에도 다이어리의 30일 보존 기간이 끝난 뒤에야 미디어 정리 대상이 될 수 있다.
-- 저장소 삭제가 실패하면 DB 행을 남겨 다음 배치에서 재시도한다.
+- 저장소 삭제가 실패하면 DB 행을 남겨 다음 배치에서 재시도한다. 삭제 대상 미디어는 활성 미디어만 연결할 수 있는 규칙으로 새 참조가 차단된다. 현재 캔버스 API는 아직 `mediaFileId` 연결 자체를 거절한다.
 
-정리 배치는 기본적으로 1시간마다 최대 100건씩 실행한다. `RETENTION_CLEANUP_ENABLED=false`로 비활성화할 수 있으며, 보존 기간과 배치 크기는 아래 환경변수로 바꿀 수 있다.
+정리 배치는 기본적으로 **비활성화**되어 있으며, 운영의 백업·복구 절차를 확인한 뒤 `MEDIA_EXPIRY_CLEANUP_ENABLED=true`로 켠다. 실행 시 1시간마다 최대 100건씩 처리한다. PostgreSQL 운영 환경에서는 advisory lock으로 여러 인스턴스 중 하나만 실행한다.
 
 ```dotenv
 # 개발 환경 예시
@@ -39,9 +39,9 @@ MEDIA_S3_REGION=ap-northeast-2
 
 # 삭제 보존 정책 (ISO-8601 Duration)
 MEDIA_DELETE_RETENTION=PT24H
-DIARY_DELETE_RETENTION=P30D
-RETENTION_CLEANUP_DELAY_MS=3600000
-RETENTION_CLEANUP_BATCH_SIZE=100
+MEDIA_EXPIRY_CLEANUP_ENABLED=true
+MEDIA_EXPIRY_CLEANUP_DELAY_MS=3600000
+MEDIA_EXPIRY_CLEANUP_BATCH_SIZE=100
 
 # 운영 환경에는 별도의 dio-media-prod 버킷을 사용
 ```

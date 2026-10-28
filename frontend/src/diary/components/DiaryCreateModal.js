@@ -4,7 +4,7 @@ import DiaryPaperColors, { DiaryPaperColorButton, DiaryPaperPreview } from './Di
 import DiaryMonthPreview from './DiaryMonthPreview';
 import { DEFAULT_PAPER_APPEARANCE } from '../../editor/templates/appearance.js';
 import DiaryTemplateSettings from './DiaryTemplateSettings';
-import { templatePageCount } from '../../editor/templates/creation.js';
+import { normalizeTemplateConfig, templatePageCount } from '../../editor/templates/creation.js';
 import { activeCreationConfig, creationFlowReducer, initialCreationFlow } from '../utils/creationFlow.js';
 import DiaryPresets, { CompositionSummary } from './DiaryPresets';
 import AppIcon from '../../shared/AppIcon';
@@ -37,7 +37,7 @@ function Chip({ label, selected, disabled, onPress, children }) {
 // 입력 상태를 모달 안에 두어 글자를 칠 때마다 홈 화면 전체가 다시 그려지지 않게 한다.
 // sheet: 폰에서는 가운데 창 대신 아래에서 올라오는 시트로 띄운다.
 export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, bottomInset = 0,
-  visible = true, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey }) {
+  visible = true, blankOnly = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey }) {
   const formLocked = saving || locked;
   const editing = Boolean(diary);
   const [title, setTitle] = useState(diary?.title ?? DIARY_DEFAULTS.title);
@@ -45,12 +45,13 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [pattern, setPattern] = useState(diary ? diary.pattern ?? null : DIARY_DEFAULTS.pattern);
   const [flow, changeFlow] = useReducer(creationFlowReducer, diary?.pageSize, initialCreationFlow);
   const { step, orientation: pageSize } = flow;
-  const templateConfig = useMemo(() => activeCreationConfig(flow), [flow]);
+  const templateConfig = useMemo(() => blankOnly ? normalizeTemplateConfig({ version: 2, dateMode: 'undated', orientation: pageSize,
+    cover: false, dividers: false, monthly: false, weekly: false, daily: false, reusable: [], legacyEndPages: [] }, pageSize) : activeCreationConfig(flow), [flow, blankOnly, pageSize]);
   const submitting = useRef(false);
   const recommending = !editing && step === 'recommend';
   const configuring = !editing && step === 'custom';
   const coloring = !editing && step === 'colors';
-  const choosing = !editing && step !== 'cover';
+  const choosing = !editing && !blankOnly && step !== 'cover';
   const [paperAppearance, setPaperAppearance] = useState(() => ({ ...DEFAULT_PAPER_APPEARANCE }));
   const [error, setError] = useState('');
   useEffect(() => { setError(''); }, [messageResetKey]);
@@ -61,7 +62,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     formScroll.current?.setNativeProps?.({ scrollEnabled: !active });
     setPaletteDragging(active);
   }, []);
-  const actionLabel = saving ? '저장 중…' : submitLabel || (editing ? '완료하기' : choosing ? '이 구성으로 시작' : '내지 구성 선택하기');
+  const actionLabel = saving ? '저장 중…' : submitLabel || (editing ? '완료하기' : blankOnly ? '다이어리 만들기' : choosing ? '이 구성으로 시작' : '내지 구성 선택하기');
   let count = null, configError = '';
   if (choosing) {
     try { count = templatePageCount(templateConfig); } catch (failure) { configError = failure.message; }
@@ -86,7 +87,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     const trimmed = title.trim();
     if (!trimmed) { setError('다이어리 이름을 입력해 주세요.'); return; }
     if (configError) { setError(configError); return; }
-    if (!editing && step === 'cover') { setError(''); changeFlow({ type: 'next' }); return; }
+    if (!editing && !blankOnly && step === 'cover') { setError(''); changeFlow({ type: 'next' }); return; }
     submitting.current = true;
     try {
       const failure = await onSubmit({ title: trimmed, color, pattern, pageSize, templateConfig, paperAppearance });
@@ -122,7 +123,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         {sheet ? <View style={s.sheetHandle} /> : (
           <View style={[s.createPreviewPane, recommending && { width: 300, paddingHorizontal: 20, paddingVertical: 24 }]}>
             {recommending ? <DiaryMonthPreview config={templateConfig} appearance={paperAppearance} />
-              : coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <Cover preview diary={{ title, color, pattern, templateConfig: { dateMode: editing ? diary.templateConfig?.dateMode : flow.dateMode } }} />}
+              : coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <Cover preview diary={{ title, color, pattern, templateConfig: { dateMode: editing ? diary.templateConfig?.dateMode : blankOnly ? 'undated' : flow.dateMode } }} />}
             <Text style={s.createPreviewMeta}>{pageSizeLabel}</Text>
           </View>
         )}
@@ -156,7 +157,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
           </View>}
           <ScrollView ref={formScroll} scrollEnabled={!paletteDragging} style={s.createFormScroll} contentContainerStyle={s.createFormBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View pointerEvents={formLocked ? 'none' : 'auto'}>
-            {!editing && <Text style={[s.helper, { marginBottom: 12 }]}>{coloring ? '선택 사항 · 내지 색상' : choosing ? '2 / 2 · 내지 구성' : '1 / 2 · 이름과 표지'}</Text>}
+            {!editing && <Text style={[s.helper, { marginBottom: 12 }]}>{blankOnly ? '이름과 표지 · 무지 1장' : coloring ? '선택 사항 · 내지 색상' : choosing ? '2 / 2 · 내지 구성' : '1 / 2 · 이름과 표지'}</Text>}
             {!choosing && <>
             <Text style={s.createLabel}>이름</Text>
             <TextInput
@@ -201,7 +202,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
 
             <View style={s.createLabelRow}>
               <Text style={[s.createLabel, s.createLabelInline]}>페이지 크기</Text>
-              <Text style={s.createLabelNote}>다이어리 생성 후 변경 불가</Text>
+              <Text style={s.createLabelNote}>{blankOnly ? '무지 1장으로 시작해요' : '다이어리 생성 후 변경 불가'}</Text>
             </View>
             <View style={s.createChips}>
               {PAGE_SIZES.map((item) => (

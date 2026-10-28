@@ -11,12 +11,16 @@ function root(dev,mode,session=null){
 }
 const nodes=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
 const has=(tree,name)=>nodes(tree).some(n=>n.type===name||n.type?.name===name)
-test('기본 실행은 로그인, 세션이 있으면 로컬 보관함으로 진입한다',()=>{
+test('기본 실행은 로그인, 게스트·체험은 로컬 보관함이고 실제 로그인만 회원 API로 진입한다',()=>{
  assert.ok(has(root(true,undefined),'./src/auth/AuthScreen'))
  assert.ok(has(root(false,'mock'),'./src/auth/AuthScreen'))
  assert.ok(has(root(false,'mock-library'),'./src/auth/AuthScreen'))
- const tree=root(true,undefined,{nickname:'소연'}),diary=nodes(tree).find(n=>n.type?.name==='DiaryApp')
+ const tree=root(true,undefined,{nickname:'소연',mode:'guest'}),diary=nodes(tree).find(n=>n.type?.name==='LocalDiaryApp')
  assert.equal(diary.props.previewUser.nickname,'소연');assert.equal(typeof diary.props.onEndPreview,'function')
+ assert.ok(has(root(false,undefined,{mode:'registered',userId:'1'}),'LocalDiaryApp'))
+ const member=root(false,undefined,{mode:'authenticated',userId:'1'})
+ assert.ok(has(member,'MemberDiaryApp'));assert.equal(has(member,'LocalDiaryApp'),false)
+ assert.equal(nodes(member).find(n=>n.type?.name==='MemberDiaryApp').key,'authenticated:1')
 })
 test('개발 전용 보관함 목 모드는 기존 경로를 유지한다',()=>{
  assert.ok(has(root(true,'mock'),'./src/diary/screens/ConnectedDiaryLibrary'))

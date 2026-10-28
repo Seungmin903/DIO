@@ -29,14 +29,14 @@ class ExpiredMediaCleanupTests {
 	private final ExpiredMediaCleanup cleanup = new ExpiredMediaCleanup(mediaFiles, files, Duration.ofDays(1), 100);
 
 	@Test
-	void removesTheStorageObjectThenDeletesTheExpiredUnreferencedRow() {
+	void removesTheExpiredUnreferencedStorageObjectAndDatabaseRow() {
 		Instant now = Instant.parse("2026-10-28T00:00:00Z");
 		Instant cutoff = now.minus(Duration.ofDays(1));
 		MediaFile mediaFile = media();
 		when(mediaFiles.findPhysicallyDeletable(eq(cutoff), any(Pageable.class))).thenReturn(List.of(mediaFile));
 		when(mediaFiles.deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff)).thenReturn(1);
 
-		assertThat(cleanup.purgeExpiredAt(now)).isEqualTo(1);
+		assertThat(cleanup.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(1, 0));
 
 		verify(files).delete(mediaFile.getStorageKey());
 		verify(mediaFiles).deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff);
@@ -50,7 +50,7 @@ class ExpiredMediaCleanupTests {
 		when(mediaFiles.findPhysicallyDeletable(eq(cutoff), any(Pageable.class))).thenReturn(List.of(mediaFile));
 		doThrow(new IllegalStateException("S3 unavailable")).when(files).delete(mediaFile.getStorageKey());
 
-		assertThat(cleanup.purgeExpiredAt(now)).isZero();
+		assertThat(cleanup.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(0, 1));
 
 		verify(mediaFiles, never()).deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff);
 	}

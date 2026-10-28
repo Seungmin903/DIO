@@ -24,31 +24,37 @@ public class ExpiredMediaCleanup {
 	private final int batchSize;
 
 	public ExpiredMediaCleanup(MediaFileRepository mediaFiles, MediaFiles files,
-		@Value("${dio.retention-cleanup.media-retention:PT24H}") Duration retention,
-		@Value("${dio.retention-cleanup.batch-size:100}") int batchSize) {
+		@Value("${dio.media.expiry-cleanup.retention:PT24H}") Duration retention,
+		@Value("${dio.media.expiry-cleanup.batch-size:100}") int batchSize) {
 		this.mediaFiles = mediaFiles;
 		this.files = files;
 		this.retention = retention;
 		this.batchSize = batchSize;
 	}
 
-	public int purgeExpired() {
+	public Result purgeExpired() {
 		return purgeExpiredAt(Instant.now());
 	}
 
-	int purgeExpiredAt(Instant now) {
+	Result purgeExpiredAt(Instant now) {
 		Instant cutoff = now.minus(retention);
 		List<MediaFile> candidates = mediaFiles.findPhysicallyDeletable(cutoff, PageRequest.of(0, batchSize));
 		int deleted = 0;
+		int failed = 0;
 		for (MediaFile mediaFile : candidates) {
 			try {
-				// 저장소 삭제가 실패하면 DB 행을 남겨 다음 배치에서 재시도한다.
+				// 현재·향후 연결 경로는 deletedAt이 null인 미디어만 허용한다. 현재 캔버스 API도 mediaFileId를 거절한다.
 				files.delete(mediaFile.getStorageKey());
-				deleted += mediaFiles.deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff);
+				int removed = mediaFiles.deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff);
+				if (removed == 1) deleted++;
+				else log.error("Media reference appeared after storage cleanup; mediaFileId={}", mediaFile.getMediaFileId());
 			} catch (RuntimeException error) {
+				failed++;
 				log.warn("Expired media cleanup failed: mediaFileId={}, key={}", mediaFile.getMediaFileId(), mediaFile.getStorageKey(), error);
 			}
 		}
-		return deleted;
+		return new Result(deleted, failed);
 	}
+
+	public record Result(int deleted, int failed) {}
 }

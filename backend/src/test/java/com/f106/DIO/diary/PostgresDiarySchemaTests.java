@@ -77,9 +77,9 @@ class PostgresDiarySchemaTests {
 		Instant oldestTime = Instant.parse("2026-01-01T00:00:00Z");
 		Instant sameTime = Instant.parse("2026-01-02T00:00:00Z");
 
-		jdbc.update("update diaries set created_at = ? where diary_id = ?", oldestTime, oldest.getDiaryId());
-		jdbc.update("update diaries set diary_id = ?, created_at = ? where diary_id = ?", lowerId, sameTime, lower.getDiaryId());
-		jdbc.update("update diaries set diary_id = ?, created_at = ? where diary_id = ?", higherId, sameTime, higher.getDiaryId());
+		jdbc.update("update diaries set created_at = ? where diary_id = ?", java.sql.Timestamp.from(oldestTime), oldest.getDiaryId());
+		jdbc.update("update diaries set diary_id = ?, created_at = ? where diary_id = ?", lowerId, java.sql.Timestamp.from(sameTime), lower.getDiaryId());
+		jdbc.update("update diaries set diary_id = ?, created_at = ? where diary_id = ?", higherId, java.sql.Timestamp.from(sameTime), higher.getDiaryId());
 
 		List<UUID> orderedRelevantIds = diaries.findAllByOwnerUserIdAndDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc(ownerUserId).stream()
 			.map(Diary::getDiaryId)
