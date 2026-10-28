@@ -177,7 +177,6 @@ tasks.register('postgresDiaryPurgeTest',Test) {
         includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryPurgeContractPostgresTests'
         includeTestsMatching 'com.f106.DIO.media.*PostgresTests'
     }
-    environment 'DIO_LIST_QUERY_PG','true'
     environment 'DIO_MEMBER_PURGE_PG','true'
     outputs.upToDateWhen {false}
     outputs.cacheIf {false}

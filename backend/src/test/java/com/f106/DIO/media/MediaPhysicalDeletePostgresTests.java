@@ -23,7 +23,7 @@ import com.f106.DIO.media.repository.MediaFileRepository;
  * 미디어 물리 삭제 네이티브 SQL을 Flyway로 만든 실제 PostgreSQL 스키마에서 실행한다.
  * 저장소와 같은 SQL 상수를 써서 컬럼명 오타나 참조 조건 누락을 배치 활성화 전에 잡는다.
  */
-@EnabledIfEnvironmentVariable(named = "DIO_LIST_QUERY_PG", matches = "true")
+@EnabledIfEnvironmentVariable(named = "DIO_MEMBER_PURGE_PG", matches = "true")
 class MediaPhysicalDeletePostgresTests {
 	private static final String SELECT = "select media_files.media_file_id from media_files where "
 		+ MediaFileRepository.PHYSICALLY_DELETABLE;
