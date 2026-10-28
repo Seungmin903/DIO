@@ -1,90 +1,34 @@
 package com.f106.DIO.page.dto;
-
 import java.math.BigDecimal;
 import java.util.UUID;
-
-import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.fasterxml.jackson.annotation.JsonAlias;
-import com.fasterxml.jackson.annotation.JsonSetter;
-import com.fasterxml.jackson.annotation.Nulls;
+import com.fasterxml.jackson.annotation.*;
 import tools.jackson.databind.JsonNode;
-
-import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Digits;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
-
-/** 경로의 elementId 또는 batch의 elementId에 적용하는 요소 부분 수정 요청. */
+import jakarta.validation.constraints.*;
 public class CanvasElementUpdateRequest {
-
-	private UUID elementId;
-	private UUID groupId;
-	@Size(min = 1, max = 100) @Pattern(regexp = "(?s).*\\S.*") private String name;
-	@Digits(integer = 10, fraction = 10) private BigDecimal sortKey;
-	@Digits(integer = 9, fraction = 3) private BigDecimal x;
-	@Digits(integer = 9, fraction = 3) private BigDecimal y;
-	@DecimalMin(value = "0.001") @Digits(integer = 9, fraction = 3) private BigDecimal width;
-	@DecimalMin(value = "0.001") @Digits(integer = 9, fraction = 3) private BigDecimal height;
-	@Digits(integer = 4, fraction = 3) private BigDecimal rotation;
-	@DecimalMin(value = "0") @DecimalMax(value = "1") @Digits(integer = 1, fraction = 3) private BigDecimal opacity;
-	private Boolean isLocked;
-	private Boolean isHidden;
-	private UUID mediaFileId;
-	private JsonNode propertiesJson;
-
-	@JsonSetter(nulls = Nulls.FAIL)
-	public void setElementId(UUID elementId) { this.elementId = elementId; }
-	@JsonSetter(nulls = Nulls.FAIL)
-	public void setGroupId(UUID groupId) { this.groupId = groupId; }
-	@JsonSetter(nulls = Nulls.FAIL)
-	public void setName(String name) { this.name = name.strip(); }
-	@JsonSetter(nulls = Nulls.FAIL)
-	public void setSortKey(BigDecimal sortKey) { this.sortKey = sortKey; }
-	@JsonSetter(nulls = Nulls.FAIL)
-	public void setX(BigDecimal x) { this.x = x; }
-	@JsonSetter(nulls = Nulls.FAIL)
-	public void setY(BigDecimal y) { this.y = y; }
-	@JsonSetter(nulls = Nulls.FAIL) @JsonAlias("w")
-	public void setWidth(BigDecimal width) { this.width = width; }
-	@JsonSetter(nulls = Nulls.FAIL) @JsonAlias("h")
-	public void setHeight(BigDecimal height) { this.height = height; }
-	@JsonSetter(nulls = Nulls.FAIL)
-	public void setRotation(BigDecimal rotation) { this.rotation = rotation; }
-	@JsonSetter(nulls = Nulls.FAIL)
-	public void setOpacity(BigDecimal opacity) { this.opacity = opacity; }
-	@JsonSetter(nulls = Nulls.FAIL) @JsonAlias("locked")
-	public void setIsLocked(Boolean isLocked) { this.isLocked = isLocked; }
-	@JsonSetter(nulls = Nulls.FAIL) @JsonAlias("hidden")
-	public void setIsHidden(Boolean isHidden) { this.isHidden = isHidden; }
-	@JsonSetter(nulls = Nulls.FAIL)
-	public void setMediaFileId(UUID mediaFileId) { this.mediaFileId = mediaFileId; }
-	@JsonSetter(nulls = Nulls.FAIL)
-	public void setPropertiesJson(JsonNode propertiesJson) { this.propertiesJson = propertiesJson; }
-	@JsonAnySetter
-	public void rejectUnsupportedField(String name, Object value) {
-		throw new IllegalArgumentException("수정할 수 없는 요소 필드입니다: " + name);
-	}
-
-	@AssertTrue(message = "수정할 필드를 하나 이상 전달해야 합니다.")
-	public boolean isAnyFieldPresent() {
-		return groupId != null || name != null || sortKey != null || x != null || y != null || width != null || height != null
-			|| rotation != null || opacity != null || isLocked != null || isHidden != null || mediaFileId != null || propertiesJson != null;
-	}
-
-	public UUID getElementId() { return elementId; }
-	public UUID getGroupId() { return groupId; }
-	public String getName() { return name; }
-	public BigDecimal getSortKey() { return sortKey; }
-	public BigDecimal getX() { return x; }
-	public BigDecimal getY() { return y; }
-	public BigDecimal getWidth() { return width; }
-	public BigDecimal getHeight() { return height; }
-	public BigDecimal getRotation() { return rotation; }
-	public BigDecimal getOpacity() { return opacity; }
-	public Boolean getIsLocked() { return isLocked; }
-	public Boolean getIsHidden() { return isHidden; }
-	public UUID getMediaFileId() { return mediaFileId; }
-	public JsonNode getPropertiesJson() { return propertiesJson; }
+	private UUID elementId,groupId,mediaFileId;
+	@Size(min=1,max=100) @Pattern(regexp="(?s).*\\S.*") private String name;
+	@Digits(integer=10,fraction=10) private BigDecimal sortKey;
+	@Digits(integer=9,fraction=3) private BigDecimal x,y;
+	@DecimalMin("0.001") @Digits(integer=9,fraction=3) private BigDecimal width,height;
+	@Digits(integer=4,fraction=3) private BigDecimal rotation;
+	@DecimalMin("0") @DecimalMax("1") @Digits(integer=1,fraction=3) private BigDecimal opacity;
+	private Boolean isLocked,isHidden; private JsonNode propertiesJson;
+	@JsonSetter(nulls=Nulls.FAIL) public void setElementId(UUID value){elementId=value;}
+	@JsonSetter(nulls=Nulls.FAIL) public void setGroupId(UUID value){groupId=value;}
+	@JsonSetter(nulls=Nulls.FAIL) public void setName(String value){name=value.strip();}
+	@JsonSetter(nulls=Nulls.FAIL) public void setSortKey(BigDecimal value){sortKey=value;}
+	@JsonSetter(nulls=Nulls.FAIL) public void setX(BigDecimal value){x=value;}
+	@JsonSetter(nulls=Nulls.FAIL) public void setY(BigDecimal value){y=value;}
+	@JsonSetter(nulls=Nulls.FAIL) @JsonAlias("w") public void setWidth(BigDecimal value){width=value;}
+	@JsonSetter(nulls=Nulls.FAIL) @JsonAlias("h") public void setHeight(BigDecimal value){height=value;}
+	@JsonSetter(nulls=Nulls.FAIL) public void setRotation(BigDecimal value){rotation=value;}
+	@JsonSetter(nulls=Nulls.FAIL) public void setOpacity(BigDecimal value){opacity=value;}
+	@JsonSetter(nulls=Nulls.FAIL) @JsonAlias("locked") public void setIsLocked(Boolean value){isLocked=value;}
+	@JsonSetter(nulls=Nulls.FAIL) @JsonAlias("hidden") public void setIsHidden(Boolean value){isHidden=value;}
+	@JsonSetter(nulls=Nulls.FAIL) public void setMediaFileId(UUID value){mediaFileId=value;}
+	@JsonSetter(nulls=Nulls.FAIL) public void setPropertiesJson(JsonNode value){propertiesJson=value;}
+	@JsonAnySetter public void rejectUnsupportedField(String name,Object value){throw new IllegalArgumentException("수정할 수 없는 요소 필드입니다: "+name);}
+	@AssertTrue(message="수정할 필드를 하나 이상 전달해야 합니다.") public boolean isAnyFieldPresent(){return groupId!=null||name!=null||sortKey!=null||x!=null||y!=null||width!=null||height!=null||rotation!=null||opacity!=null||isLocked!=null||isHidden!=null||mediaFileId!=null||propertiesJson!=null;}
+	@AssertTrue(message="propertiesJson은 128KiB 이하여야 합니다.") public boolean isPropertiesJsonSizeValid(){return JsonPayloadLimits.fits(propertiesJson,JsonPayloadLimits.MAX_ELEMENT_PROPERTIES_BYTES);}
+	public UUID getElementId(){return elementId;} public UUID getGroupId(){return groupId;} public String getName(){return name;} public BigDecimal getSortKey(){return sortKey;} public BigDecimal getX(){return x;} public BigDecimal getY(){return y;} public BigDecimal getWidth(){return width;} public BigDecimal getHeight(){return height;} public BigDecimal getRotation(){return rotation;} public BigDecimal getOpacity(){return opacity;} public Boolean getIsLocked(){return isLocked;} public Boolean getIsHidden(){return isHidden;} public UUID getMediaFileId(){return mediaFileId;} public JsonNode getPropertiesJson(){return propertiesJson;}
 }

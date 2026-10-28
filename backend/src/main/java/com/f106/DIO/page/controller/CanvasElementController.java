@@ -1,75 +1,113 @@
 package com.f106.DIO.page.controller;
 
+import java.net.URI;
 import java.util.UUID;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
 import jakarta.validation.Valid;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import com.f106.DIO.page.dto.CanvasElementBatchRequest;
+import com.f106.DIO.page.dto.CanvasElementCreateForm;
+import com.f106.DIO.page.dto.CanvasElementCreateRequest;
 import com.f106.DIO.page.dto.CanvasElementListResponse;
 import com.f106.DIO.page.dto.CanvasElementResponse;
+import com.f106.DIO.page.dto.CanvasElementUpdateForm;
 import com.f106.DIO.page.dto.CanvasElementUpdateRequest;
 import com.f106.DIO.page.service.CanvasElementService;
 
 @RestController
 @RequestMapping("/api/v1/pages/{pageId}/elements")
-@Tag(name = "캔버스 요소", description = "페이지 위 텍스트·사진·스티커·테이프·필기 요소 API. 조회는 페이지 상세 조회를 사용합니다.")
-@ApiResponses({
-	@ApiResponse(responseCode = "400", description = "잘못된 요청 또는 ID", content = @Content(
-		mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class))),
-	@ApiResponse(responseCode = "404", description = "페이지 또는 요소 없음", content = @Content(
-		mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class))),
-	@ApiResponse(responseCode = "409", description = "버전·ID 충돌 또는 복구할 수 없는 상태", content = @Content(
-		mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
-})
+@Tag(name = "캔버스 요소", description = "페이지 위 텍스트·사진·스티커·테이프·획·도형 API")
+@SecurityRequirement(name = "bearerAuth")
 public class CanvasElementController {
 
-	private final CanvasElementService elementService;
+	private final CanvasElementService canvasElementService;
 
-	public CanvasElementController(CanvasElementService elementService) {
-		this.elementService = elementService;
+	public CanvasElementController(CanvasElementService canvasElementService) {
+		this.canvasElementService = canvasElementService;
 	}
 
-	@PostMapping("/batch")
-	@Operation(summary = "캔버스 요소 일괄 변경", description = "creates·updates·deleteElementIds·restoreElementIds를 한 트랜잭션으로 적용합니다. "
-		+ "하나라도 실패하면 전체가 취소되고, 성공하면 페이지의 현재 요소 목록을 반환합니다.")
-	@ApiResponse(responseCode = "200", description = "일괄 변경 성공", content = @Content(
-		mediaType = "application/json", schema = @Schema(implementation = CanvasElementListResponse.class)))
-	public CanvasElementListResponse batchElements(@PathVariable UUID pageId, @Valid @RequestBody CanvasElementBatchRequest request) {
-		return elementService.batch(pageId, request);
+	@GetMapping
+	@Operation(summary = "캔버스 요소 목록 조회")
+	public CanvasElementListResponse list(@PathVariable UUID pageId, @AuthenticationPrincipal Jwt jwt) {
+		return canvasElementService.list(pageId, userId(jwt));
 	}
 
-	@PatchMapping("/{elementId}")
-	@Operation(summary = "캔버스 요소 수정", description = "위치·크기·레이어 순서·속성 등 하나 이상 전달합니다. 생략한 필드는 유지합니다.")
-	@ApiResponse(responseCode = "200", description = "요소 수정 성공", content = @Content(
-		mediaType = "application/json", schema = @Schema(implementation = CanvasElementResponse.class)))
-	public CanvasElementResponse updateElement(@PathVariable UUID pageId, @PathVariable UUID elementId,
-		@Valid @RequestBody CanvasElementUpdateRequest request) {
-		return elementService.update(pageId, elementId, request);
+	@PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(
+		summary = "캔버스 요소 생성",
+		description = "캔버스 요소를 생성합니다. Swagger에서는 `application/x-www-form-urlencoded`를 선택하면 요소 속성을 각각 입력할 수 있습니다.",
+		requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = {
+			@Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = CanvasElementCreateRequest.class)),
+			@Content(mediaType = MediaType.APPLICATION_FORM_URLENCODED_VALUE, schema = @Schema(implementation = CanvasElementCreateForm.class))
+		})
+	)
+	public ResponseEntity<CanvasElementResponse> create(@PathVariable UUID pageId,
+		@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CanvasElementCreateRequest request) {
+		return created(pageId, canvasElementService.create(pageId, request, userId(jwt)));
+	}
+
+	@PostMapping(consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+	@Operation(summary = "캔버스 요소 생성 (폼 입력)", description = "Swagger에서 `application/x-www-form-urlencoded`를 선택하면 요소 속성을 각각 입력할 수 있습니다. propertiesJson은 JSON 문자열 한 칸에 입력합니다.")
+	public ResponseEntity<CanvasElementResponse> createForm(@PathVariable UUID pageId,
+		@AuthenticationPrincipal Jwt jwt, @Valid @ModelAttribute CanvasElementCreateForm form) {
+		return created(pageId, canvasElementService.create(pageId, form.toRequest(), userId(jwt)));
+	}
+
+	@PatchMapping(value = "/{elementId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(
+		summary = "캔버스 요소 수정",
+		description = "캔버스 요소를 부분 수정합니다. Swagger에서는 `application/x-www-form-urlencoded`를 선택하면 수정할 속성을 각각 입력할 수 있습니다.",
+		requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = {
+			@Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = CanvasElementUpdateRequest.class)),
+			@Content(mediaType = MediaType.APPLICATION_FORM_URLENCODED_VALUE, schema = @Schema(implementation = CanvasElementUpdateForm.class))
+		})
+	)
+	public CanvasElementResponse update(@PathVariable UUID pageId, @PathVariable UUID elementId,
+		@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CanvasElementUpdateRequest request) {
+		return canvasElementService.update(pageId, elementId, request, userId(jwt));
+	}
+
+	@PatchMapping(value = "/{elementId}", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+	@Operation(summary = "캔버스 요소 수정 (폼 입력)", description = "Swagger에서 `application/x-www-form-urlencoded`를 선택하면 수정할 요소 속성을 각각 입력할 수 있습니다. propertiesJson은 JSON 문자열 한 칸에 입력합니다.")
+	public CanvasElementResponse updateForm(@PathVariable UUID pageId, @PathVariable UUID elementId,
+		@AuthenticationPrincipal Jwt jwt, @Valid @ModelAttribute CanvasElementUpdateForm form) {
+		return canvasElementService.update(pageId, elementId, form.toRequest(), userId(jwt));
 	}
 
 	@DeleteMapping("/{elementId}")
-	@Operation(summary = "캔버스 요소 삭제", description = "요소를 휴지통 처리합니다. 복구 API로 되돌릴 수 있습니다.")
-	@ApiResponse(responseCode = "204", description = "삭제 성공, 본문 없음", content = @Content)
-	public ResponseEntity<Void> deleteElement(@PathVariable UUID pageId, @PathVariable UUID elementId) {
-		elementService.delete(pageId, elementId);
-		return ResponseEntity.noContent().build();
+	@Operation(summary = "캔버스 요소 삭제", description = "요소를 소프트 삭제합니다.")
+	public ResponseEntity<Void> delete(@PathVariable UUID pageId, @PathVariable UUID elementId, @AuthenticationPrincipal Jwt jwt) {
+		canvasElementService.delete(pageId, elementId, userId(jwt));
+		return ResponseEntity.ok().build();
+	}
+
+	@PostMapping("/batch")
+	@Operation(summary = "캔버스 요소 일괄 변경", description = "생성·수정·삭제·복구를 하나의 트랜잭션으로 적용합니다.")
+	public CanvasElementListResponse batch(@PathVariable UUID pageId, @AuthenticationPrincipal Jwt jwt,
+		@Valid @RequestBody CanvasElementBatchRequest request) {
+		return canvasElementService.batch(pageId, request, userId(jwt));
 	}
 
 	@PostMapping("/{elementId}/restore")
-	@Operation(summary = "캔버스 요소 복구", description = "삭제된 요소를 되살립니다. 삭제되지 않은 요소는 409입니다.")
-	@ApiResponse(responseCode = "200", description = "복구 성공", content = @Content(
-		mediaType = "application/json", schema = @Schema(implementation = CanvasElementResponse.class)))
-	public CanvasElementResponse restoreElement(@PathVariable UUID pageId, @PathVariable UUID elementId) {
-		return elementService.restore(pageId, elementId);
+	@Operation(summary = "캔버스 요소 복구")
+	public CanvasElementResponse restore(@PathVariable UUID pageId, @PathVariable UUID elementId, @AuthenticationPrincipal Jwt jwt) {
+		return canvasElementService.restore(pageId, elementId, userId(jwt));
 	}
+
+	private static ResponseEntity<CanvasElementResponse> created(UUID pageId, CanvasElementResponse response) {
+		return ResponseEntity.created(URI.create("/api/v1/pages/" + pageId + "/elements/" + response.element().elementId()))
+			.body(response);
+	}
+
+	private static Long userId(Jwt jwt) { return Long.valueOf(jwt.getSubject()); }
 }

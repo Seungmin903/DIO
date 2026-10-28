@@ -18,7 +18,6 @@ import com.f106.DIO.page.dto.CanvasElementResponse;
 import com.f106.DIO.page.dto.CanvasElementUpdateRequest;
 import com.f106.DIO.page.repository.CanvasElementRepository;
 import com.f106.DIO.page.support.CanvasElementNotFoundException;
-import com.f106.DIO.page.support.DuplicateCanvasElementException;
 import com.f106.DIO.page.support.ElementNotDeletedException;
 
 @Service
@@ -34,13 +33,54 @@ public class CanvasElementService {
 		this.elementRepository = elementRepository;
 	}
 
+	@Transactional(readOnly = true)
+	public CanvasElementListResponse list(UUID pageId) {
+		pageService.requirePage(pageId);
+		return listWithoutPageCheck(pageId);
+	}
+
+	@Transactional(readOnly = true)
+	public CanvasElementListResponse list(UUID pageId, Long userId) {
+		pageService.requireReadablePage(pageId, userId);
+		return listWithoutPageCheck(pageId);
+	}
+
+	@Transactional
+	public CanvasElementResponse create(UUID pageId, CanvasElementCreateRequest request) {
+		pageService.requirePage(pageId);
+		if (request.getElementId() != null && elementRepository.existsById(request.getElementId())) {
+			throw new IllegalArgumentException("이미 사용 중인 elementId입니다.");
+		}
+		CanvasElement element = newElement(pageId, request, nextSortKey(pageId));
+		elementRepository.saveAndFlush(element);
+		return new CanvasElementResponse(PageMapper.toElementData(element));
+	}
+
+	@Transactional
+	public CanvasElementResponse create(UUID pageId, CanvasElementCreateRequest request, Long userId) {
+		pageService.requireWritablePage(pageId, userId);
+		if (request.getElementId() != null && elementRepository.existsById(request.getElementId())) {
+			throw new IllegalArgumentException("이미 사용 중인 elementId입니다.");
+		}
+		CanvasElement element = newElement(pageId, request, nextSortKey(pageId), userId);
+		elementRepository.saveAndFlush(element);
+		return new CanvasElementResponse(PageMapper.toElementData(element));
+	}
+
 	@Transactional
 	public CanvasElementResponse update(UUID pageId, UUID elementId, CanvasElementUpdateRequest request) {
 		pageService.requirePage(pageId);
-		if (request.getElementId() != null && !request.getElementId().equals(elementId)) {
-			throw new IllegalArgumentException("본문의 elementId가 경로와 다릅니다.");
-		}
-		CanvasElement element = applyUpdate(pageId, elementId, request);
+		CanvasElement element = requireActiveElement(pageId, elementId);
+		applyUpdate(element, request);
+		elementRepository.flush();
+		return new CanvasElementResponse(PageMapper.toElementData(element));
+	}
+
+	@Transactional
+	public CanvasElementResponse update(UUID pageId, UUID elementId, CanvasElementUpdateRequest request, Long userId) {
+		pageService.requireWritablePage(pageId, userId);
+		CanvasElement element = requireActiveElement(pageId, elementId);
+		applyUpdate(element, request);
 		elementRepository.flush();
 		return new CanvasElementResponse(PageMapper.toElementData(element));
 	}
@@ -48,103 +88,160 @@ public class CanvasElementService {
 	@Transactional
 	public void delete(UUID pageId, UUID elementId) {
 		pageService.requirePage(pageId);
-		requireElement(pageId, elementId).softDelete();
+		requireActiveElement(pageId, elementId).softDelete();
+		elementRepository.flush();
+	}
+
+	@Transactional
+	public void delete(UUID pageId, UUID elementId, Long userId) {
+		pageService.requireWritablePage(pageId, userId);
+		requireActiveElement(pageId, elementId).softDelete();
 		elementRepository.flush();
 	}
 
 	@Transactional
 	public CanvasElementResponse restore(UUID pageId, UUID elementId) {
 		pageService.requirePage(pageId);
-		CanvasElement element = applyRestore(pageId, elementId);
+		CanvasElement element = elementRepository.findByElementIdAndPageId(elementId, pageId)
+			.orElseThrow(CanvasElementNotFoundException::new);
+		if (element.getDeletedAt() == null) { throw new ElementNotDeletedException(); }
+		element.restore();
 		elementRepository.flush();
 		return new CanvasElementResponse(PageMapper.toElementData(element));
 	}
 
-	/** creates → updates → deletes → restores 순서로 적용하고, 하나라도 실패하면 전체를 되돌린다. */
+	@Transactional
+	public CanvasElementResponse restore(UUID pageId, UUID elementId, Long userId) {
+		pageService.requireWritablePage(pageId, userId);
+		CanvasElement element = elementRepository.findByElementIdAndPageId(elementId, pageId)
+			.orElseThrow(CanvasElementNotFoundException::new);
+		if (element.getDeletedAt() == null) { throw new ElementNotDeletedException(); }
+		element.restore();
+		elementRepository.flush();
+		return new CanvasElementResponse(PageMapper.toElementData(element));
+	}
+
 	@Transactional
 	public CanvasElementListResponse batch(UUID pageId, CanvasElementBatchRequest request) {
 		pageService.requirePage(pageId);
-		List<CanvasElementCreateRequest> creates = orEmpty(request.creates());
-		List<CanvasElementUpdateRequest> updates = orEmpty(request.updates());
-		List<UUID> deletes = orEmpty(request.deleteElementIds());
-		List<UUID> restores = orEmpty(request.restoreElementIds());
-		requireUniqueTargets(creates, updates, deletes, restores);
+		validateBatchIds(request);
 
-		BigDecimal maxSortKey = elementRepository.findMaxSortKeyByPageId(pageId);
-		List<CanvasElement> created = new ArrayList<>();
-		for (CanvasElementCreateRequest create : creates) {
-			BigDecimal sortKey = create.getSortKey();
-			if (sortKey == null) {
-				maxSortKey = maxSortKey == null ? SORT_STEP : maxSortKey.add(SORT_STEP);
-				sortKey = maxSortKey;
+		BigDecimal nextSortKey = nextSortKey(pageId);
+		for (CanvasElementCreateRequest create : safe(request.creates())) {
+			if (create.getElementId() != null && elementRepository.existsById(create.getElementId())) {
+				throw new IllegalArgumentException("이미 사용 중인 elementId입니다.");
 			}
-			created.add(newElement(pageId, create, sortKey));
+			elementRepository.save(newElement(pageId, create, nextSortKey));
+			nextSortKey = nextSortKey.add(SORT_STEP);
 		}
-		elementRepository.saveAll(created);
-		updates.forEach(update -> applyUpdate(pageId, update.getElementId(), update));
-		deletes.forEach(elementId -> requireElement(pageId, elementId).softDelete());
-		restores.forEach(elementId -> applyRestore(pageId, elementId));
+		for (CanvasElementUpdateRequest update : safe(request.updates())) {
+			CanvasElement element = requireActiveElement(pageId, update.getElementId());
+			applyUpdate(element, update);
+		}
+		for (UUID elementId : safe(request.deleteElementIds())) {
+			requireActiveElement(pageId, elementId).softDelete();
+		}
+		for (UUID elementId : safe(request.restoreElementIds())) {
+			CanvasElement element = elementRepository.findByElementIdAndPageId(elementId, pageId)
+				.orElseThrow(CanvasElementNotFoundException::new);
+			if (element.getDeletedAt() == null) { throw new ElementNotDeletedException(); }
+			element.restore();
+		}
 		elementRepository.flush();
-		return new CanvasElementListResponse(elementRepository.findAllByPageIdAndDeletedAtIsNullOrderBySortKeyAscElementIdAsc(pageId)
-			.stream().map(PageMapper::toElementData).toList());
+		return listWithoutPageCheck(pageId);
+	}
+
+	@Transactional
+	public CanvasElementListResponse batch(UUID pageId, CanvasElementBatchRequest request, Long userId) {
+		pageService.requireWritablePage(pageId, userId);
+		validateBatchIds(request);
+
+		BigDecimal nextSortKey = nextSortKey(pageId);
+		for (CanvasElementCreateRequest create : safe(request.creates())) {
+			if (create.getElementId() != null && elementRepository.existsById(create.getElementId())) {
+				throw new IllegalArgumentException("이미 사용 중인 elementId입니다.");
+			}
+			elementRepository.save(newElement(pageId, create, nextSortKey, userId));
+			nextSortKey = nextSortKey.add(SORT_STEP);
+		}
+		for (CanvasElementUpdateRequest update : safe(request.updates())) {
+			CanvasElement element = requireActiveElement(pageId, update.getElementId());
+			applyUpdate(element, update);
+		}
+		for (UUID elementId : safe(request.deleteElementIds())) requireActiveElement(pageId, elementId).softDelete();
+		for (UUID elementId : safe(request.restoreElementIds())) {
+			CanvasElement element = elementRepository.findByElementIdAndPageId(elementId, pageId).orElseThrow(CanvasElementNotFoundException::new);
+			if (element.getDeletedAt() == null) throw new ElementNotDeletedException();
+			element.restore();
+		}
+		elementRepository.flush();
+		return listWithoutPageCheck(pageId);
 	}
 
 	private CanvasElement newElement(UUID pageId, CanvasElementCreateRequest request, BigDecimal sortKey) {
-		if (request.getElementId() != null && elementRepository.existsById(request.getElementId())) {
-			throw new DuplicateCanvasElementException();
-		}
 		return new CanvasElement(request.getElementId(), pageId, request.getElementType(), request.getGroupId(),
 			request.getName(), sortKey, request.getX(), request.getY(), request.getWidth(), request.getHeight(),
 			request.getRotation() == null ? BigDecimal.ZERO : request.getRotation(),
 			request.getOpacity() == null ? BigDecimal.ONE : request.getOpacity(),
-			Boolean.TRUE.equals(request.getIsLocked()), Boolean.TRUE.equals(request.getIsHidden()),
-			request.getMediaFileId(), PageMapper.toJson(request.getPropertiesJson()));
+			Boolean.TRUE.equals(request.getIsLocked()), Boolean.TRUE.equals(request.getIsHidden()), request.getMediaFileId(),
+			request.getPropertiesJson() == null ? null : request.getPropertiesJson().toString());
 	}
 
-	private CanvasElement applyUpdate(UUID pageId, UUID elementId, CanvasElementUpdateRequest request) {
-		CanvasElement element = requireElement(pageId, elementId);
+	private CanvasElement newElement(UUID pageId, CanvasElementCreateRequest request, BigDecimal sortKey, Long userId) {
+		return new CanvasElement(request.getElementId(), pageId, request.getElementType(), request.getGroupId(),
+			request.getName(), sortKey, request.getX(), request.getY(), request.getWidth(), request.getHeight(),
+			request.getRotation() == null ? BigDecimal.ZERO : request.getRotation(),
+			request.getOpacity() == null ? BigDecimal.ONE : request.getOpacity(),
+			Boolean.TRUE.equals(request.getIsLocked()), Boolean.TRUE.equals(request.getIsHidden()), request.getMediaFileId(),
+			request.getPropertiesJson() == null ? null : request.getPropertiesJson().toString(), userId);
+	}
+
+	private void applyUpdate(CanvasElement element, CanvasElementUpdateRequest request) {
 		element.update(request.getGroupId(), request.getName(), request.getSortKey(), request.getX(), request.getY(),
 			request.getWidth(), request.getHeight(), request.getRotation(), request.getOpacity(), request.getIsLocked(),
-			request.getIsHidden(), request.getMediaFileId(), PageMapper.toJson(request.getPropertiesJson()));
-		return element;
+			request.getIsHidden(), request.getMediaFileId(),
+			request.getPropertiesJson() == null ? null : request.getPropertiesJson().toString());
 	}
 
-	private CanvasElement applyRestore(UUID pageId, UUID elementId) {
-		CanvasElement element = elementRepository.findByElementIdAndPageId(elementId, pageId)
-			.orElseThrow(CanvasElementNotFoundException::new);
-		if (element.getDeletedAt() == null) {
-			throw new ElementNotDeletedException();
-		}
-		element.restore();
-		return element;
-	}
-
-	private CanvasElement requireElement(UUID pageId, UUID elementId) {
+	private CanvasElement requireActiveElement(UUID pageId, UUID elementId) {
 		return elementRepository.findByElementIdAndPageIdAndDeletedAtIsNull(elementId, pageId)
 			.orElseThrow(CanvasElementNotFoundException::new);
 	}
 
-	private static void requireUniqueTargets(List<CanvasElementCreateRequest> creates, List<CanvasElementUpdateRequest> updates,
-		List<UUID> deletes, List<UUID> restores) {
-		Set<UUID> seen = new HashSet<>();
-		List<UUID> targets = new ArrayList<>();
-		creates.stream().map(CanvasElementCreateRequest::getElementId).filter(id -> id != null).forEach(targets::add);
-		for (CanvasElementUpdateRequest update : updates) {
-			if (update.getElementId() == null) {
-				throw new IllegalArgumentException("updates의 각 항목에는 elementId가 필요합니다.");
+	private BigDecimal nextSortKey(UUID pageId) {
+		BigDecimal max = elementRepository.findMaxSortKeyByPageId(pageId);
+		return max == null ? SORT_STEP : max.add(SORT_STEP);
+	}
+
+	private CanvasElementListResponse listWithoutPageCheck(UUID pageId) {
+		return new CanvasElementListResponse(elementRepository.findAllByPageIdAndDeletedAtIsNullOrderBySortKeyAscElementIdAsc(pageId)
+			.stream().map(PageMapper::toElementData).toList());
+	}
+
+	private void validateBatchIds(CanvasElementBatchRequest request) {
+		Set<UUID> ids = new HashSet<>();
+		for (CanvasElementCreateRequest create : safe(request.creates())) {
+			if (create.getElementId() != null && !ids.add(create.getElementId())) {
+				throw new IllegalArgumentException("하나의 요소에 여러 일괄 작업을 적용할 수 없습니다.");
 			}
-			targets.add(update.getElementId());
 		}
-		targets.addAll(deletes);
-		targets.addAll(restores);
-		for (UUID target : targets) {
-			if (target == null || !seen.add(target)) {
-				throw new IllegalArgumentException("한 요청에서 같은 요소를 두 번 이상 변경할 수 없습니다.");
+		for (CanvasElementUpdateRequest update : safe(request.updates())) {
+			if (update.getElementId() == null) { throw new IllegalArgumentException("updates의 elementId는 필수입니다."); }
+			if (!ids.add(update.getElementId())) { throw new IllegalArgumentException("하나의 요소에 여러 일괄 작업을 적용할 수 없습니다."); }
+		}
+		validateIds(ids, request.deleteElementIds());
+		validateIds(ids, request.restoreElementIds());
+	}
+
+	private void validateIds(Set<UUID> seen, List<UUID> values) {
+		for (UUID value : safe(values)) {
+			if (value == null || !seen.add(value)) {
+				throw new IllegalArgumentException("하나의 요소에 여러 일괄 작업을 적용할 수 없습니다.");
 			}
 		}
 	}
 
-	private static <T> List<T> orEmpty(List<T> values) {
+	private static <T> List<T> safe(List<T> values) {
 		return values == null ? List.of() : values;
 	}
 }

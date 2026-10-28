@@ -1,10 +1,4 @@
 package com.f106.DIO.page.dto;
-
-import java.util.List;
-import java.util.UUID;
-
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
-
-public record PageOrderRequest(@NotEmpty List<@NotNull UUID> pageIds) {
-}
+import java.util.*;
+import jakarta.validation.constraints.*;
+public record PageOrderRequest(@NotEmpty List<@NotNull UUID> pageIds) { }

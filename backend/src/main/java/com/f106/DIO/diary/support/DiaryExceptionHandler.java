@@ -19,4 +19,12 @@ public class DiaryExceptionHandler extends ResponseEntityExceptionHandler {
 		return problem;
 	}
 
+	@ExceptionHandler(DiaryAccessDeniedException.class)
+	public ProblemDetail handleForbidden(DiaryAccessDeniedException exception) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
+		problem.setTitle("Diary access denied");
+		problem.setProperty("code", "DIARY_ACCESS_DENIED");
+		return problem;
+	}
+
 }

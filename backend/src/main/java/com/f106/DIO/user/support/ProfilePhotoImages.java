@@ -29,18 +29,26 @@ public final class ProfilePhotoImages {
             if (original.length > MAX_INPUT_BYTES) {
                 throw new UserException(HttpStatus.PAYLOAD_TOO_LARGE, "PROFILE_PHOTO_TOO_LARGE", "프로필 사진은 5MB 이하로 선택해 주세요.");
             }
-            try (var images = ImageIO.createImageInputStream(new ByteArrayInputStream(original))) {
-                var readers = ImageIO.getImageReaders(images);
-                if (!readers.hasNext()) throw invalid();
-                ImageReader reader = readers.next();
-                try {
-                    BufferedImage resized = decodeAndResize(reader, images, original);
-                    // 메타데이터·원본 파일명은 저장하지 않고 축소된 PNG만 저장한다.
-                    var output = new ByteArrayOutputStream();
-                    if (!ImageIO.write(resized, "png", output) || output.size() > 1024 * 1024) throw invalid();
-                    return output.toByteArray();
-                } finally { reader.dispose(); }
-            }
+            return prepare(original);
+        } catch (IOException | IllegalArgumentException error) { throw invalid(); }
+    }
+    /** 신뢰할 수 없는 바이트 배열도 업로드와 같은 방식으로 디코딩·PNG 재인코딩한다. */
+    public static byte[] prepare(byte[] original) {
+        if (original == null || original.length == 0) throw invalid();
+        if (original.length > MAX_INPUT_BYTES) {
+            throw new UserException(HttpStatus.PAYLOAD_TOO_LARGE, "PROFILE_PHOTO_TOO_LARGE", "프로필 사진은 5MB 이하로 선택해 주세요.");
+        }
+        try (var images = ImageIO.createImageInputStream(new ByteArrayInputStream(original))) {
+            var readers = ImageIO.getImageReaders(images);
+            if (!readers.hasNext()) throw invalid();
+            ImageReader reader = readers.next();
+            try {
+                BufferedImage resized = decodeAndResize(reader, images, original);
+                // 메타데이터·원본 파일명은 저장하지 않고 축소된 PNG만 저장한다.
+                var output = new ByteArrayOutputStream();
+                if (!ImageIO.write(resized, "png", output) || output.size() > 1024 * 1024) throw invalid();
+                return output.toByteArray();
+            } finally { reader.dispose(); }
         } catch (IOException | IllegalArgumentException error) { throw invalid(); }
     }
     private static BufferedImage decodeAndResize(ImageReader reader, javax.imageio.stream.ImageInputStream images,

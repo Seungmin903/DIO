@@ -9,5 +9,7 @@ import com.f106.DIO.diary.domain.Diary;
 
 public interface DiaryRepository extends JpaRepository<Diary, UUID> {
 	List<Diary> findAllByDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc();
+	List<Diary> findAllByOwnerUserIdAndDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc(Long ownerUserId);
+	List<Diary> findAllByDiaryIdInAndDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc(java.util.Collection<UUID> diaryIds);
 	Optional<Diary> findByDiaryIdAndDeletedAtIsNull(UUID diaryId);
 }
