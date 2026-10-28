@@ -19,12 +19,19 @@ for ((i=0; i<30; i++)); do
   sleep 2
 done
 if [ "$ready" != true ]; then echo "Isolated PostgreSQL did not become ready" >&2; exit 1; fi
+bash "$CI_PROJECT_DIR/infra/scripts/check-member-list-icu.sh" "$pg_name"
 docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_reset_qa' >/dev/null
 docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_sharing_qa' >/dev/null
+docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_member_ci' >/dev/null
+
+docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_trash_qa' >/dev/null
+docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_member_contract_qa' >/dev/null
 
 # 테스트 JVM만 이 DB의 네트워크 네임스페이스를 공유하므로 URL은 루프백으로 유지한다.
 docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
   -e GRADLE_USER_HOME=/tmp/gradle -e DIO_AUTH_SCHEMA_TEST=true \
+  -e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_ci \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$test_password" \
   -e DIO_AUTH_SCHEMA_TEST_URL=jdbc:postgresql://127.0.0.1:5432/auth_ci \
   -e DIO_AUTH_SCHEMA_TEST_PASSWORD="$test_password" \
   -e DIO_RESET_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_reset_qa \
@@ -34,4 +41,20 @@ docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
   -v "$CI_PROJECT_DIR/backend:/workspace/backend" \
   -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro" \
   -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro" \
-  -w /workspace/backend eclipse-temurin:17-jdk sh ./gradlew authPostgresTest sharingPostgresTest --no-daemon
+  -w /workspace/backend eclipse-temurin:17-jdk sh ./gradlew authPostgresTest sharingPostgresTest postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon
+
+# HTTP contracts use their own explicit disposable DB; Gradle calls are sequential.
+docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
+  -e GRADLE_USER_HOME=/tmp/gradle \
+  -e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_contract_qa \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$test_password" \
+  -v "$CI_PROJECT_DIR/backend:/workspace/backend" \
+  -w /workspace/backend eclipse-temurin:17-jdk sh ./gradlew postgresMemberDiaryHttpTest --no-daemon
+
+# Separate from auth/member DB_URL; never override a duplicate docker environment variable.
+docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
+  -e GRADLE_USER_HOME=/tmp/gradle -e DIO_LIST_QUERY_PG=true \
+  -e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_trash_qa \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$test_password" \
+  -v "$CI_PROJECT_DIR/backend:/workspace/backend" \
+  -w /workspace/backend eclipse-temurin:17-jdk sh ./gradlew postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon

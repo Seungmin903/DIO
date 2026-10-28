@@ -93,15 +93,24 @@ backend-test:
     - ec2-deploy
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
+      changes: &member_contract_changes
         - backend/**/*
         - .gitlab-ci.yml
         - infra/compose/compose.*.yml
         - infra/nginx/**/default.conf
         - infra/scripts/test-auth-postgres.sh
+        - infra/scripts/check-member-list-icu.sh
         - frontend/src/notifications/**/*
         - frontend/tests/*notification*
         - frontend/qa/run-notification-contract.*
+        - frontend/src/diary/**/*
+        - frontend/src/editor/utils/**/*
+        - frontend/src/editor/templates/**/*
+        - frontend/src/shared/**/*
+        - frontend/tests/member-*
+        - frontend/qa/run-member-contract*
+        - frontend/package.json
+        - frontend/pnpm-lock.yaml
   script:
     - >
       docker run --rm
@@ -129,6 +138,38 @@ backend-test:
       junit: backend/build/test-results/test/*.xml
     paths:
       - backend/build/reports/tests/test/
+      - backend/build/contracts/
+    expire_in: 7 days
+
+diary-fe-contract-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  needs:
+    - job: backend-test
+      artifacts: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *member_contract_changes
+  script:
+    - mkdir -p frontend/build/member-contract
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -e npm_config_cache=/tmp/member-contract-npm
+      -e XDG_CACHE_HOME=/tmp/member-contract-cache
+      -e XDG_DATA_HOME=/tmp/member-contract-data
+      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend"
+      -v "$CI_PROJECT_DIR/backend/build/contracts:/workspace/backend/build/contracts:ro"
+      -w /workspace/frontend
+      node:24-alpine
+      sh qa/run-member-contract-job.sh
+  artifacts:
+    when: always
+    reports:
+      junit: frontend/build/member-contract/junit.xml
+    paths:
+      - frontend/build/member-contract/
     expire_in: 7 days
 
 backend-postgres-test:
@@ -144,6 +185,7 @@ backend-postgres-test:
         - backend/**/*
         - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
+        - infra/scripts/check-member-list-icu.sh
   script:
     - bash infra/scripts/test-auth-postgres.sh
   artifacts:
@@ -152,9 +194,19 @@ backend-postgres-test:
       junit:
         - backend/build/test-results/authPostgresTest/*.xml
         - backend/build/test-results/sharingPostgresTest/*.xml
+        - backend/build/test-results/postgresMemberDiaryCreationTest/*.xml
+        - backend/build/test-results/postgresDiaryDetailTest/*.xml
+        - backend/build/test-results/postgresDiaryTrashTest/*.xml
+        - backend/build/test-results/postgresDiaryPurgeTest/*.xml
+        - backend/build/test-results/postgresMemberDiaryHttpTest/*.xml
     paths:
       - backend/build/reports/tests/authPostgresTest/
       - backend/build/reports/tests/sharingPostgresTest/
+      - backend/build/reports/tests/postgresMemberDiaryCreationTest/
+      - backend/build/reports/tests/postgresDiaryDetailTest/
+      - backend/build/reports/tests/postgresDiaryTrashTest/
+      - backend/build/reports/tests/postgresDiaryPurgeTest/
+      - backend/build/reports/tests/postgresMemberDiaryHttpTest/
     expire_in: 7 days
 
 secret-scan:

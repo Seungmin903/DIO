@@ -14,4 +14,9 @@ public interface DiaryRepository extends JpaRepository<Diary, UUID> {
     List<Diary> findAllByOwnerUserIdAndDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc(Long ownerUserId);
     List<Diary> findAllByDiaryIdInAndDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc(java.util.Collection<UUID> diaryIds);
 	Optional<Diary> findByDiaryIdAndDeletedAtIsNull(UUID diaryId);
+	List<Diary> findAllByOwnerUserIdIsNullAndDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc();
+	Optional<Diary> findByDiaryIdAndOwnerUserIdIsNullAndDeletedAtIsNull(UUID diaryId);
+	@org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+	@org.springframework.data.jpa.repository.Query("select d from Diary d where d.diaryId=:id and d.ownerUserId is null and d.deletedAt is null")
+	Optional<Diary> findGuestForUpdate(@org.springframework.data.repository.query.Param("id") UUID diaryId);
 }

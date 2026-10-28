@@ -17,10 +17,12 @@ class DeploymentAuthContractTests {
         assertThat(ci.getProperty("backend-postgres-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh");
         assertThat(ci.getProperty("backend-postgres-test.allow_failure")).isNull();
         String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh"));
-        assertThat(script).contains("-e DIO_AUTH_SCHEMA_TEST=true", "--network \"container:$pg_name\"", "trap cleanup EXIT", "authPostgresTest sharingPostgresTest --no-daemon",
-            "CREATE DATABASE dio_sharing_qa", "DIO_SHARING_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_sharing_qa");
-        assertThat(ci.getProperty("backend-postgres-test.artifacts.reports.junit[1]"))
-            .isEqualTo("backend/build/test-results/sharingPostgresTest/*.xml");
+        assertThat(script).contains("CREATE DATABASE dio_trash_qa","postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon", "postgresMemberDiaryHttpTest --no-daemon", "CREATE DATABASE dio_member_contract_qa","-e DIO_LIST_QUERY_PG=true");
+        String[] invocations=script.split("docker run --rm",-1);assertThat(invocations).hasSize(4);
+        for(int i=1;i<invocations.length;i++) assertThat(invocations[i].split("-e DB_URL=",-1)).hasSize(2);
+        assertThat(script).contains("-e DIO_AUTH_SCHEMA_TEST=true", "--network \"container:$pg_name\"", "trap cleanup EXIT", "authPostgresTest sharingPostgresTest postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "CREATE DATABASE dio_member_ci", "-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_ci", "-e POSTGRES_USER=postgres");
+        assertThat(script).contains("CREATE DATABASE dio_sharing_qa", "DIO_SHARING_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_sharing_qa");
+        assertThat(ci.getProperty("backend-postgres-test.artifacts.reports.junit[1]")).isEqualTo("backend/build/test-results/sharingPostgresTest/*.xml");
     }
     @Test void ciContainerIncludesReadOnlyDeploymentInputsBesideBackend() throws Exception {
         var properties = new YamlPropertySourceLoader().load("ci",

@@ -7,6 +7,10 @@ import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 class SharingDiaryIntegrationTests extends SharingTestSupport {
+    @org.junit.jupiter.api.BeforeEach void memberReceiptFixture() {
+        // JDBC-only develop table: Hibernate does not create this existing migration table in H2.
+        jdbc.execute("create table if not exists diary_creation_receipts(user_id bigint,key_hash char(64),request_hash char(64),diary_id uuid,response_body jsonb,created_at timestamp(6) with time zone default current_timestamp,completed_at timestamp(6) with time zone,primary key(user_id,key_hash))");
+    }
     UUID createThroughApi(Actor actor) throws Exception {
         String response=mvc.perform(post("/api/v1/diaries").header("Authorization","Bearer "+actor.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"diaryTitle\":\"공유 통합 테스트\"}"))

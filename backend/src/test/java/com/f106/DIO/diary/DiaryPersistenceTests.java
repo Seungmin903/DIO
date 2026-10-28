@@ -33,6 +33,11 @@ class DiaryPersistenceTests {
 	@Autowired DiaryRepository diaries;
 	@Autowired EntityManager entityManager;
 
+    @Autowired org.springframework.jdbc.core.JdbcTemplate boundaryJdbc;
+    @org.junit.jupiter.api.BeforeEach void memberReceiptFixture() {
+        boundaryJdbc.execute("create table if not exists diary_creation_receipts(user_id bigint,key_hash char(64),request_hash char(64),diary_id uuid,response_body jsonb,created_at timestamp(6) with time zone default current_timestamp,completed_at timestamp(6) with time zone,primary key(user_id,key_hash))");
+    }
+
 	@Test
 	void createsAnApplicationGeneratedUuidAndPersistsSchemaDefaults() throws Exception {
 		String body = mvc.perform(post("/api/v1/diaries").with(authenticated()).contentType(MediaType.APPLICATION_JSON)

@@ -44,3 +44,18 @@ MR에서 `backend-postgres-test`를 필수 품질 작업으로 실행한다. 스
 공유 링크 사용 시 `SHARING_INVITE_SECRET`에 별도의 32바이트 이상 Base64 비밀키를 지정한다. Compose dev/prod에서 백엔드로 전달한다. 미설정이면 다른 기능은 기동하며 초대 링크 기능만 503을 반환한다. `SHARING_INVITE_BASE_URL`은 실제 초대 화면 URL/딥링크 접두사이며 기본 `/invite/`는 상대 경로다. 프론트 라우팅 준비 후 실제 주소를 설정한다. 키 교체 시 기존 링크는 재발급해야 한다. [공유 API 문서](../docs/diary-sharing.md)를 참고한다.
 
 이메일 초대 발송은 `SHARING_INVITE_BASE_URL`이 클릭 가능한 절대 주소(http/https 또는 dio 스킴)여야 한다. 기본 상대 경로는 링크 API 확인용이며 메일 발송 시에는 503으로 거부한다. 기존 SMTP 설정을 재사용하며 전용 제한 실행기에서 커밋 후 발송한다. 실제 메일 도착과 프론트 초대 화면 라우팅은 배포 환경에서 확인한다.
+
+
+## 회원 목록 PostgreSQL ICU 점검
+
+로컬 Compose와 격리 CI는 postgres:17을 선언하지만 dev/prod backend Compose는 외부 DB 네트워크에 접속하므로 저장소에 실제 DB 이미지/콜레이션이 고정되어 있지 않다. 이미지 이름만으로 운영 DB 지원을 확정하지 않는다. 실제 운영자가 사용하는 Docker 호스트에서 DB 컨테이너 이름을 확인한 뒤 다음 읽기 전용 검사를 실행한다.
+
+```bash
+bash infra/scripts/check-member-list-icu.sh <실제-DB-컨테이너-이름>
+```
+
+스크립트는 docker inspect/exec만 사용하고 컨테이너의 POSTGRES_USER/POSTGRES_DB/POSTGRES_PASSWORD를 내부 프로세스에서 사용한다. 환경 전체나 비밀값을 출력하지 않는다. 공식 이미지의 기본 사용자/DB도 지원한다. psql의 각 질의는 BEGIN READ ONLY / ROLLBACK으로 감싸 pg_catalog의 deterministic ICU root 존재와 실제 ÉÄ→éä lower 연산을 확인한다. DB·설정·Flyway 이력을 바꾸거나 컨테이너를 시작/종료하지 않는다. 종료 코드 0은 지원, 2는 ICU catalog 부재, 3은 접속·권한·예상 밖 응답·연산 오류이므로 확인 불가/오류를 미지원으로 단정하지 않는다.
+
+격리 CI test-auth-postgres.sh는 버려지는 PostgreSQL 컨테이너의 준비 완료 뒤 같은 검사를 실행하도록 연결했다. 이는 실제 dev/prod 검사와 다르다. 현재 로컬 수정은 미커밋이므로 새 CI 검사 자체는 아직 실행되지 않았다. 스크립트 회귀는 `bash infra/scripts/test-member-list-icu.sh`로 지원·기본 환경·미지원·컨테이너/질의/연산 오류 8개를 확인한다.
+
+ICU가 없더라도 앱 전체 기동은 이 기능 때문에 실패하지 않는다. 인증·회원 생성/상세/수정과 검색 없는 created/updated/pages 목록은 유지하고 검색/title 정렬만 503 DIARY_LIST_UNAVAILABLE로 제한한다. 지원 복구 후 앱 요청을 재시도할 수 있으며 ICU 라이브러리 설치·DB 재시작 등 운영 조치는 별도다. ASCII 검색으로 조용히 대체하거나 live DB의 collation/locale을 자동 수정하지 않는다.

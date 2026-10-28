@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import * as defaultDoc from '../src/editor/state/defaultDoc.js'
 import * as sessionDocuments from '../src/editor/services/sessionDocuments.js'
 import * as storageContract from '../src/editor/utils/storageContract.js'
+import * as memberStorage from '../src/diary/services/memberStorage.js'
 import { createInitialState, editorReducer } from '../src/editor/state/editorReducer.js'
 import { normalizePlanner, studyPlannerId, plannerOverlaySvg, plannerTotals } from '../src/editor/templates/studyPlanner.js'
 import { colorTemplateAst, colorTemplateXml } from '../src/editor/templates/appearance.js'
@@ -99,7 +100,7 @@ for (const orientation of ['landscape', 'portrait']) test(`${orientation}: ì €ìž
   const disk = new Map()
   const asyncStorage = { __esModule: true, default: { getItem: async key => disk.get(key) ?? null, setItem: async (key, value) => { disk.set(key, value) } } }
   const storage = loadModule(read('../src/editor/services/storage.js'), { '@react-native-async-storage/async-storage': asyncStorage, '../utils/storageContract.js': storageContract })
-  const docs = loadModule(read('../src/editor/services/editorDocs.js'), {
+  const docs = loadModule(read('../src/editor/services/editorDocs.js'), { '../../diary/services/memberStorage.js': memberStorage,
     '@react-native-async-storage/async-storage': asyncStorage, '../state/defaultDoc': defaultDoc,
     '../templates/catalog.js': {}, '../templates/loadTemplate': {}, './mediaStore': {},
     './sessionDocuments.js': sessionDocuments, './editorViewState': {}, './storage': storage,

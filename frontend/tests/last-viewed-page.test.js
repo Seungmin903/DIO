@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js';
 import * as session from '../src/editor/services/sessionDocuments.js';
+import { memberDocumentKey } from '../src/diary/services/memberStorage.js';
 import { purgeTrashedDiary } from '../src/diary/utils/trashRetention.js';
 
 const require = createRequire(import.meta.url);
@@ -114,7 +115,8 @@ test('임시 공유 문서 위치는 기기에 쓰지 않고 참여 해제·로�
   assert.equal(store.disk.size, 0);
 });
 
-function editorHook({ cached = true, viewed, store }) {
+function editorHook({ cached = true, viewed, store, diary = { id: 'a' } }) {
+  const key = memberDocumentKey(diary) ?? 'doc:a';
   const slots = [], effects = [], documentSaves = [];
   let cursor = 0;
   const same = (a, b) => a?.length === b?.length && a.every((v, i) => Object.is(v, b[i]));
@@ -150,14 +152,14 @@ function editorHook({ cached = true, viewed, store }) {
     '../state/defaultDoc': { createDefaultDoc: () => ({ ...doc, pages: [doc.pages[0]] }) },
     '../state/editorReducer': { createInitialState, editorReducer },
     '../services/editorDocs': {
-      editorDocKey: () => 'doc:a', peekEditorDoc: () => cached ? { doc } : null,
+      editorDocKey: () => key, peekEditorDoc: () => cached ? { doc } : null,
       loadEditorDoc: async () => doc,
       rememberEditorDoc: (_, value) => documentSaves.push(value),
       saveEditorDoc: async () => true,
     },
     '../services/editorViewState': {
       peekViewedPage: () => viewed,
-      loadViewedPage: () => store.loadViewedPage('doc:a'),
+      loadViewedPage: () => store.loadViewedPage(key),
       rememberViewedPage: store.rememberViewedPage,
     },
     '../services/mediaStore': { hydrateMedia: async () => {} },
@@ -170,7 +172,7 @@ function editorHook({ cached = true, viewed, store }) {
   return {
     render() {
       cursor = 0;
-      const result = mod.exports.useEditor({ id: 'a' });
+      const result = mod.exports.useEditor(diary);
       effects.splice(0).forEach((fn) => fn());
       return result;
     },
@@ -294,4 +296,26 @@ test('열람 캐시는 상한을 넘으면 디스크에서 다시 읽어 복원�
   for (let i = 0; i < 130; i++) await store.rememberViewedPage(`doc:${i}`, 'p2');
   assert.equal(store.peekViewedPage('doc:0'), undefined);
   assert.equal(await store.loadViewedPage('doc:0'), 'p2');
+});
+
+
+test('회원 계정별 실제 문서 키로 열람 위치를 복원하며 다른 계정과 비회원 위치를 섞지 않는다', async () => {
+  const store = viewStore();
+  const first = { id: 'a', source: 'member-api', memberAccountId: '1' };
+  const second = { ...first, memberAccountId: '2' };
+  const key = memberDocumentKey(first);
+  await store.rememberViewedPage(key, 'p3');
+  await store.rememberViewedPage('doc:a', 'p2');
+  const restarted = viewStore(store.disk);
+  const hook = editorHook({ store: restarted, diary: first, viewed: undefined });
+  hook.render(); await new Promise(r => setImmediate(r));
+  assert.equal(hook.render().state.pageId, 'p3');
+  assert.deepEqual(hook.documentSaves, []);
+  hook.unmount();
+  const other = editorHook({ store: restarted, diary: second, viewed: undefined });
+  other.render(); await new Promise(r => setImmediate(r));
+  assert.equal(other.render().state.pageId, 'p1');
+  assert.equal(await restarted.loadViewedPage('doc:a'), 'p2');
+  assert.deepEqual(other.documentSaves, []);
+  other.unmount();
 });
