@@ -108,7 +108,12 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
   }, [boundary])
   useEffect(() => {
     const frame = requestAnimationFrame(() => input.current?.focus())
-    return () => { cancelAnimationFrame(frame); Keyboard.dismiss() }
+    // 상자가 뜨자마자 키보드를 연다. Android 는 상자를 만든 탭 직후 화면이 다시 그려지는 사이에 focus 하면
+    // 커서만 깜빡이고 키보드가 안 뜰 때가 있어, 키보드가 아직 없으면 잠깐 뒤 다시 focus 한다(blur 하면 편집이 끝나므로 하지 않는다).
+    const retries = Platform.OS === 'web' ? [] : [80, 200, 400].map((ms) => setTimeout(() => {
+      if (mounted.current && !cancelled.current && !(Keyboard.isVisible?.() ?? keyboardTop.current != null)) input.current?.focus()
+    }, ms))
+    return () => { cancelAnimationFrame(frame); retries.forEach(clearTimeout); Keyboard.dismiss() }
   }, [])
   const cancel = () => { cancelled.current = true; Keyboard.dismiss(); onCancel() }
   const [height, setHeight] = useState(() => textInputHeight(object, zoom))
