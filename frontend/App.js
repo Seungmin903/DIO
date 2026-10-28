@@ -1,4 +1,6 @@
 import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
+import MemberLibraryNotice from './src/diary/components/MemberLibraryNotice';
+import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -130,6 +132,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const [view, setView] = useState('carousel');
   const [carousel, setCarousel] = useState(0);
   const [librarySort, setLibrarySort] = useState('updated');
+  const [memberSearchOpen, setMemberSearchOpen] = useState(false);
+  const [memberSearch, setMemberSearch] = useState('');
+  const memberQuery = useMemo(() => memberLibraryQuery({ query: memberSearch, searchOpen: memberSearchOpen, sort: librarySort, filter }), [memberSearch, memberSearchOpen, librarySort, filter]);
   const returnDiaryId = useRef(null);
   const changeLibrarySort = useCallback(value => { returnDiaryId.current = null; setLibrarySort(value); }, []);
   const changeCarousel = useCallback(index => { returnDiaryId.current = null; setCarousel(index); }, []);
@@ -149,6 +154,15 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   } = diaryState;
   // 보관함 관리 모드에서 고른 다이어리 id. null이면 관리 모드가 아니다.
   const [selection, setSelection] = useState(null);
+  useEffect(() => {
+    if (!member || !loaded) return undefined;
+    const timer = setTimeout(() => { diaryState.store.queryLibrary(memberQuery).catch(() => {}); }, 200);
+    return () => clearTimeout(timer);
+  }, [member, loaded, diaryState.store, memberQuery]);
+  const memberLibraryMatches = member && JSON.stringify(memberQuery) === JSON.stringify(diaryState.library.criteria);
+  const remoteQuery = useMemo(() => member ? { supportsShared: true, query: memberSearch, searchOpen: memberSearchOpen,
+    onQueryChange: value => { setSelection(current => current === null ? null : []); setMemberSearch(value); setCarousel(0); },
+    onSearchOpenChange: value => { setSelection(null); setMemberSearchOpen(value); if (!value) setMemberSearch(''); setCarousel(0); } } : null, [member, memberSearch, memberSearchOpen]);
   const [trashing, setTrashing] = useState(false);
   const trashingRef = useRef(false);
   const [active, setActive] = useState(null);
@@ -228,6 +242,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     const move = () => {
       setSelection(null);
       if (next === 'library') {
+        setMemberSearchOpen(false); setMemberSearch('');
         setFilter(nextFilter || DEFAULT_FILTER);
         setCarousel(0);
       }
@@ -319,28 +334,31 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     if (savingRef.current || trashingRef.current || !ids.length) return;
     confirmAction({
       title: `${ids.length}개를 휴지통으로 옮길까요?`,
-      message: '고른 다이어리는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요. 앱이 꺼져 있으면 다음 실행 시 정리해요.',
+      message: member ? '선택한 다이어리를 각각 휴지통으로 옮겨요. 삭제 시각부터 30일 동안 복원할 수 있어요. 일부 항목을 처리하지 못하면 남은 결과를 따로 안내해요.' : '고른 다이어리는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요. 앱이 꺼져 있으면 다음 실행 시 정리해요.',
       confirmLabel: '휴지통으로',
       onConfirm: async () => {
         if (trashingRef.current) return;
         trashingRef.current = true;
         setTrashing(true);
         try {
-          if (!await moveManyToTrash(ids)) {
+          const result = await moveManyToTrash(ids);
+          if (!result) {
             notify('휴지통으로 옮기지 못했어요', '저장 공간과 권한을 확인한 뒤 다시 시도해 주세요. 다이어리는 그대로 남아 있어요.');
             return;
           }
-          const moved = new Set(ids);
+          const moved = new Set(member ? result.succeeded : ids);
           setActive((current) => (current && moved.has(current.id) ? null : current));
           setTabIds((current) => current.filter((id) => !moved.has(id)));
-          setSelection(null);
+          setSelection(member && result.failed.length ? result.failed.map(item => item.id) : null);
+        } catch (error) {
+          notify('휴지통으로 옮기지 못했어요', error.message);
         } finally {
           trashingRef.current = false;
           setTrashing(false);
         }
       },
     });
-  }, [diaries, moveManyToTrash]);
+  }, [diaries, moveManyToTrash, member]);
 
   const save = async (form) => {
     if (savingRef.current) return;
@@ -426,12 +444,15 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     ).map(diary => diary.id));
     return [...diaries.filter(diary => !diary.trashedAt).map(diary => ({ ...diary, isShared: member ? Boolean(diary.isShared) : sharedOwnedIds.has(diary.id) })), ...(member ? [] : sharing.library)];
   }, [diaries, sharing.diaries, sharing.library, member]);
-  const libraryMetadata = useLibraryMetadata(visibleDiaries, page);
+  const libraryMetadata = useLibraryMetadata(visibleDiaries, page, member);
+  const libraryDiaries = member ? (memberLibraryMatches ? diaryState.library.items : []) : visibleDiaries;
   useEffect(() => {
     if (page !== 'library' || !returnDiaryId.current) return;
-    const ordered = queryDiaries(visibleDiaries, { sort: librarySort, metadata: libraryMetadata });
+    if (member && (!memberLibraryMatches || !diaryState.library.ready || diaryState.library.loading)) return;
+    const ordered = member ? libraryDiaries : queryDiaries(visibleDiaries, { sort: librarySort, metadata: libraryMetadata });
     setCarousel(Math.max(0, ordered.findIndex(diary => diary.id === returnDiaryId.current)));
-  }, [libraryMetadata, librarySort, page, visibleDiaries]);
+    if (member) returnDiaryId.current = null;
+  }, [member, memberLibraryMatches, diaryState.library.ready, diaryState.library.loading, libraryDiaries, libraryMetadata, librarySort, page, visibleDiaries]);
   const trashedDiaries = useMemo(() => member ? diaryState.trash : diaries.filter((diary) => diary.trashedAt), [member,diaryState.trash,diaries]);
 
   // 열린 탭 (휴지통으로 간 다이어리는 뺀다)
@@ -444,11 +465,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   // 편집하던 다이어리를 모든 다이어리 목록에서 찾아 홈의 중심 카드로 복원한다.
   const returnToLibrary = useCallback(() => {
     returnDiaryId.current = active?.id;
-    const index = queryDiaries(visibleDiaries, { sort: librarySort, metadata: libraryMetadata }).findIndex(diary => diary.id === active?.id);
+    const index = member ? 0 : queryDiaries(visibleDiaries, { sort: librarySort, metadata: libraryMetadata }).findIndex(diary => diary.id === active?.id);
     setFilter(DEFAULT_FILTER);
+    setMemberSearchOpen(false); setMemberSearch('');
     setCarousel(Math.max(0, index));
     setPage('library');
-  }, [active?.id, libraryMetadata, librarySort, visibleDiaries]);
+  }, [active?.id, member, libraryMetadata, librarySort, visibleDiaries]);
 
   const selectTab = useCallback((id) => {
     if (id === active?.id) return;
@@ -488,7 +510,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const libraryScreen = useMemo(() => (
     <LibraryScreen
       compact={isPhone}
-      diaries={visibleDiaries}
+      diaries={libraryDiaries}
       metadata={libraryMetadata}
       sort={librarySort}
       onSortChange={changeLibrarySort}
@@ -499,16 +521,26 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       onViewChange={setView}
       onCarouselChange={changeCarousel}
       onOpen={open}
-      onFavorite={favorite}
+      onFavorite={member ? undefined : favorite}
       onEdit={edit}
       onDelete={moveDiaryToTrash}
       onCreate={create}
       railWidthRef={isPhone ? null : railWidthRef}
       selection={selection}
-      onSelectionChange={member?undefined:setSelection}
-      onTrashSelected={member?undefined:moveSelectedToTrash}
-      trashing={trashing}
-      requestNotice={member ? <><MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
+      onSelectionChange={setSelection}
+      onTrashSelected={moveSelectedToTrash}
+      trashing={trashing || (member && Boolean(diaryState.bulkTrash?.busy))}
+      remoteQuery={remoteQuery}
+      historyKey={member ? diaryState.store.keys.searchHistory : undefined}
+      hasMore={member && memberLibraryMatches && diaryState.library.hasNext}
+      requestNotice={member ? <><MemberLibraryNotice library={diaryState.library} pending={!memberLibraryMatches} bulk={diaryState.bulkTrash}
+        onRetry={()=>diaryState.store.retryLibrary().catch(()=>{})} onMore={()=>diaryState.store.loadMoreLibrary().catch(()=>{})}
+        onDismissBulk={()=>diaryState.store.dismissBulkTrash()} onRetryBulk={async()=>{
+          try { const result=await diaryState.store.retryBulkTrash(); const moved=new Set(result.succeeded);
+            setActive(current=>current&&moved.has(current.id)?null:current);setTabIds(current=>current.filter(id=>!moved.has(id)));
+            setSelection(result.failed.length?result.failed.map(item=>item.id):null);
+          } catch(error) {notify('선택 작업을 확인하지 못했어요',error.message);}
+        }}/><MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
         onReload={() => diaryState.store.load().catch(() => {})}
         onArchiveExpired={() => confirmAction({title:'이전 생성 요청을 정리할까요?',message:'서버 목록을 다시 확인한 뒤 새 생성을 허용해요. 이미 생성된 다이어리는 삭제하지 않고 이전 요청은 이 계정의 기록에 보관해요.',confirmLabel:'요청 정리',onConfirm:async()=>{
           if(savingRef.current) return; savingRef.current=true;setSaving(true);
@@ -521,9 +553,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           catch (error) { notify('이전 생성을 확인하지 못했어요', error.message); }
           finally { savingRef.current = false; setSaving(false); }
         }} /></> : null}
-      suppressEmpty={member && Boolean(diaryState.error || diaryState.refreshing)}
+      suppressEmpty={member && Boolean(!memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
     />
-  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, visibleDiaries, member, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
+  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
@@ -558,7 +590,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     content = (
       <TrashScreen
         serverMode={member}
-        busy={member && Boolean(diaryState.lifecycle?.busy)}
+        busy={member && Boolean(diaryState.lifecycle?.busy || diaryState.bulkTrash?.busy)}
         suppressEmpty={member && Boolean(diaryState.trashLoading || diaryState.trashError)}
         requestNotice={member?<MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/>:null}
         compact={isPhone}
