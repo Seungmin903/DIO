@@ -1,5 +1,6 @@
 import { catalog, annualBook, portraitAnnualBook, reusableMenu } from './data.js'
 import { UNDATED_TEMPLATES } from './undated.js'
+import { STUDY_PLANNER_MENU_ITEM, STUDY_PLANNER_TEMPLATES } from './studyPlanner.js'
 
 export const TEMPLATE_VERSION = catalog.templateVersion
 export const ANNUAL_PAGE_IDS = annualBook.pages
@@ -16,10 +17,12 @@ function displayName(item) {
   if (item.type === 'weekly') return `주간 계획 · ${item.name}`
   return item.name
 }
-export const reusableTemplates = (orientation = 'landscape') => reusableMenu.map(item => ({ ...item, name: displayName(item), assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId }))
+// 스터디 플래너는 데일리 플래너 바로 뒤에 둔다.
+const menuItems = [...reusableMenu.slice(0, 1), STUDY_PLANNER_MENU_ITEM, ...reusableMenu.slice(1)]
+export const reusableTemplates = (orientation = 'landscape') => menuItems.map(item => ({ ...item, name: displayName(item), assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId }))
 export const REUSABLE_TEMPLATES = reusableTemplates()
 const assets = new Map(catalog.assets.map(asset => [asset.id, { ...asset, name: displayName(asset) }]))
-for (const asset of UNDATED_TEMPLATES) assets.set(asset.id, asset)
+for (const asset of [...UNDATED_TEMPLATES, ...STUDY_PLANNER_TEMPLATES]) assets.set(asset.id, asset)
 
 export class TemplateError extends Error {
   constructor(message = '내지를 불러오지 못했어요. 다시 시도해 주세요.', cause) {

@@ -412,6 +412,13 @@ export function editorReducer(state, action) {
     // 페이지 목록에서 썸네일을 끌어 순서를 바꾼다. (지금 보던 페이지는 그대로)
     // 여러 페이지를 순서 그대로 anchorId 페이지 앞(before)이나 뒤(after)로 함께 옮긴다. 되돌리기 한 번.
     // 속지 색: all 이면 모든 페이지와 문서 기본값(새로 추가할 페이지)에, 아니면 지금 페이지에만. 되돌리기 한 번.
+    // 스터디 플래너 기록(칠한 칸 · 체크 · 옵션). after: 같은 되돌리기 단위로 먼저 적용할 동작(지우개가 획과 칸을 함께 지울 때)
+    case 'setPlanner': {
+      const base = action.after ? editorReducer(state, action.after) : withHistory(state)
+      const pageId = action.pageId ?? getCurrentPage(state).id
+      return { ...base, doc: { ...base.doc, pages: base.doc.pages.map((page) => (page.id === pageId ? { ...page, planner: action.planner } : page)) } }
+    }
+
     case 'setPaperAppearance': {
       const pageId = getCurrentPage(state).id
       const appearance = normalizePaperAppearance(action.appearance)
