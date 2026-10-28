@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.f106.DIO.media.domain.MediaFile;
+import com.f106.DIO.media.domain.MediaStorageDeletionTask;
 import com.f106.DIO.media.repository.MediaFileRepository;
 import com.f106.DIO.media.storage.MediaFiles;
 
@@ -20,14 +21,16 @@ public class ExpiredMediaCleanup {
 	private static final Logger log = LoggerFactory.getLogger(ExpiredMediaCleanup.class);
 	private static final int MAX_PAGES = 5;
 	private final MediaFileRepository mediaFiles;
+	private final MediaStorageDeletionQueueService deletionQueue;
 	private final MediaFiles files;
 	private final Duration retention;
 	private final int batchSize;
 
-	public ExpiredMediaCleanup(MediaFileRepository mediaFiles, MediaFiles files,
+	public ExpiredMediaCleanup(MediaFileRepository mediaFiles, MediaStorageDeletionQueueService deletionQueue, MediaFiles files,
 		@Value("${dio.media.expiry-cleanup.retention:PT24H}") Duration retention,
 		@Value("${dio.media.expiry-cleanup.batch-size:100}") int batchSize) {
 		this.mediaFiles = mediaFiles;
+		this.deletionQueue = deletionQueue;
 		this.files = files;
 		this.retention = retention;
 		this.batchSize = batchSize;
@@ -43,41 +46,68 @@ public class ExpiredMediaCleanup {
 	 */
 	Result purgeExpiredAt(Instant now) {
 		Instant cutoff = now.minus(retention);
-		int deleted = 0;
-		int failed = 0;
+		Result queuedResult = retryQueuedStorageDeletes();
+		int deleted = queuedResult.deleted();
+		int failed = queuedResult.failed();
+		int remaining = batchSize - queuedResult.attempted();
+		if (remaining <= 0) return new Result(deleted, failed);
 		int removedRows = 0;
 		MediaFile last = null;
-		for (int page = 0; page < MAX_PAGES && removedRows < batchSize; page++) {
-			PageRequest limit = PageRequest.of(0, batchSize);
+		for (int page = 0; page < MAX_PAGES && removedRows < remaining; page++) {
+			PageRequest limit = PageRequest.of(0, remaining);
 			List<MediaFile> candidates = last == null
 				? mediaFiles.findPhysicallyDeletable(cutoff, limit)
 				: mediaFiles.findPhysicallyDeletableAfter(cutoff, last.getDeletedAt(), last.getMediaFileId(), limit);
 			for (MediaFile mediaFile : candidates) {
 				last = mediaFile;
-				if (removedRows >= batchSize) break;
+				if (removedRows >= remaining) break;
 				try {
-					int removed = mediaFiles.deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff);
-					if (removed != 1) continue;
+					MediaStorageDeletionTask task = deletionQueue.enqueueAfterPhysicalDelete(mediaFile, cutoff);
+					if (task == null) continue;
 					removedRows++;
-
-					try {
-						files.delete(mediaFile.getStorageKey());
-						deleted++;
-					} catch (RuntimeException error) {
-						failed++;
-						// DB 행은 참조 경합을 막기 위해 먼저 삭제했다. 키는 운영 정리 대상으로 남긴다.
-						log.error("Media database row was removed but storage cleanup failed: mediaFileId={}, key={}",
-							mediaFile.getMediaFileId(), mediaFile.getStorageKey(), error);
-					}
+					Result result = deleteStorage(task);
+					deleted += result.deleted();
+					failed += result.failed();
 				} catch (RuntimeException error) {
 					failed++;
 					log.warn("Expired media cleanup failed: mediaFileId={}, key={}", mediaFile.getMediaFileId(), mediaFile.getStorageKey(), error);
 				}
 			}
-			if (candidates.size() < batchSize) break;
+			if (candidates.size() < remaining) break;
 		}
 		return new Result(deleted, failed);
 	}
 
-	public record Result(int deleted, int failed) {}
+	private Result retryQueuedStorageDeletes() {
+		int deleted = 0;
+		int failed = 0;
+		List<MediaStorageDeletionTask> tasks = deletionQueue.next(batchSize);
+		for (MediaStorageDeletionTask task : tasks) {
+			Result result = deleteStorage(task);
+			deleted += result.deleted();
+			failed += result.failed();
+		}
+		return new Result(deleted, failed, tasks.size());
+	}
+
+	private Result deleteStorage(MediaStorageDeletionTask task) {
+		try {
+			files.delete(task.getStorageKey());
+			deletionQueue.complete(task);
+			return new Result(1, 0);
+		} catch (RuntimeException error) {
+			try {
+				deletionQueue.recordFailure(task, error);
+			} catch (RuntimeException queueError) {
+				log.error("Media storage deletion retry could not be recorded: deletionId={}", task.getDeletionId(), queueError);
+			}
+			log.warn("Media storage deletion failed and will be retried: deletionId={}, mediaFileId={}, key={}",
+				task.getDeletionId(), task.getMediaFileId(), task.getStorageKey(), error);
+			return new Result(0, 1);
+		}
+	}
+
+	public record Result(int deleted, int failed, int attempted) {
+		public Result(int deleted, int failed) { this(deleted, failed, 0); }
+	}
 }
