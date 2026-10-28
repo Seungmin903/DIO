@@ -1,4 +1,4 @@
-import { penSweeps } from './strokes.js'
+import { penSweeps, samplePenPart } from './strokes.js'
 
 // 바깥 지름 안에서만 번진다. 중심 72%는 선명하게, 가장자리 14%는 점진적으로 옅게.
 // alpha는 합성 후 목표 농도다. 같은 획의 구간들을 한 Path로 합쳐 접합부가 진해지지 않는다.
@@ -15,7 +15,8 @@ const cache = new WeakMap()
 export function feltPaths(part, width) {
   const previous = cache.get(part)
   if (previous?.width === width) return previous.paths
-  const paths = FELT_LAYERS.map(layer => penSweeps(part.points, width * layer.scale, 'felt', 0,
+  const points = samplePenPart(part)
+  const paths = FELT_LAYERS.map(layer => penSweeps(points, width * layer.scale, 'felt', 0,
     { capStart: !part.key, capEnd: !part.continuing }).map(piece => piece.path).join(''))
   cache.set(part, { width, paths })
   return paths

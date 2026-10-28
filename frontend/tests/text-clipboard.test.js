@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import * as text from '../src/editor/utils/text.js'
+import * as textKeyboard from '../src/editor/utils/textKeyboard.js'
 import * as formats from '../src/editor/utils/textFormats.js'
 import * as ranges from '../src/editor/utils/textRanges.js'
 import * as placement from '../src/editor/utils/popoverPlacement.js'
@@ -59,6 +60,7 @@ function editor(readText = async () => '붙임😀\n둘째 줄', canPaste = true
     useEffect: (effect) => effects.push(effect),
   }
   const Editor = load('../src/editor/components/TextEditor.js', {
+    '../utils/textKeyboard': textKeyboard,
     react: hooks,
     'react-native': { Platform: { OS: 'ios' }, Keyboard: { dismiss() {}, addListener() {} }, StyleSheet: { create: (s) => s }, View: 'View', Text: 'Text', TextInput: 'TextInput' },
     '../../shared/theme': { colors: {} }, '../utils/text': text, '../hooks/useTextFont': { useTextFont: () => 0 },
@@ -72,10 +74,12 @@ function editor(readText = async () => '붙임😀\n둘째 줄', canPaste = true
   })
   const input = find(node, (n) => n.type === 'TextInput').props
   input.ref.current = { focus() {}, setNativeProps: (props) => { nativeValue = props }, measureInWindow() {} }
+  const oldCAF = globalThis.cancelAnimationFrame
+  globalThis.cancelAnimationFrame = () => {}
   const oldRAF = globalThis.requestAnimationFrame
   globalThis.requestAnimationFrame = () => 0
   try { effects.forEach((effect) => { const cleanup = effect(); if (cleanup) cleanups.push(cleanup) }) }
-  finally { globalThis.requestAnimationFrame = oldRAF }
+  finally { globalThis.requestAnimationFrame = oldRAF; globalThis.cancelAnimationFrame = oldCAF }
   const actions = palette ? find(palette.content, (n) => n.type === 'ActionBar').props : null
   return { input, actions, saves, messages, value: () => nativeValue }
 }
