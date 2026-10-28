@@ -2,7 +2,6 @@ package com.f106.DIO.media;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -10,7 +9,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import com.f106.DIO.media.support.MediaMultipartExceptionResolver;
 
 class MediaMultipartExceptionResolverTests {
-	private final MediaMultipartExceptionResolver resolver = new MediaMultipartExceptionResolver(new ObjectMapper());
+	private final MediaMultipartExceptionResolver resolver = new MediaMultipartExceptionResolver();
 
 	@Test
 	void handlesTooLargeOnlyForMediaPaths() throws Exception {
