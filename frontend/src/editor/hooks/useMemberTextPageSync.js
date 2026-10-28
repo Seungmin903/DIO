@@ -49,7 +49,7 @@ export function useMemberTextPageSync({ diary, page, loaded, readOnly, dispatch 
             if(texts(current)!==texts(expected)) {
               try { await session.retainLocal(current) }
               catch(error) { if(engine.current===session) setStatus(error.status===409?'conflict':'local-error'); return }
-              if(engine.current===session) setStatus('saving')
+              if(engine.current===session) { setStatus('saving'); setRetry(n=>n+1) }
               return
             }
             dispatch({type:'importPageTexts',pageId:page.id,expectedObjects:current,objects:result.objects})
