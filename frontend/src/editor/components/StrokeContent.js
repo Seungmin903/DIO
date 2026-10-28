@@ -13,8 +13,8 @@ export default function StrokeContent({ object, zoom, transform, areaPreview = f
   const variable = kind === 'fountain' || kind === 'brush'
   const modern = object.renderVersion === 2 || object.renderVersion === 3
   const outline = useMemo(() => variable && !modern && points.length > 1
-    ? strokeOutline(points, width)
-    : '', [points, width, kind, variable, modern])
+    ? strokeOutline(points, width, object.eraserCaps)
+    : '', [points, width, kind, variable, modern, object.eraserCaps])
   const path = useMemo(() => outline ? '' : strokePath(points), [points, outline])
   const pencil = kind === 'pencil'
   const highlighter = kind === 'highlighter'

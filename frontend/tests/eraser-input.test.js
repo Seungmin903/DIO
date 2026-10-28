@@ -89,3 +89,18 @@ test('플래너 지우기와 일반 획 삭제는 한 action으로 확정하고 
     assert.equal(drafts.at(-1), null)
   }
 })
+
+
+test('대상 선택은 실제 입력 세션에 전달되고 선택 지우기에서 플래너 기록은 보존된다', () => {
+  for (const mode of ['stroke', 'area']) for (const target of ['pen', 'highlighter']) {
+    let plannerCalls = 0
+    const original = { cells: { a: '#123456' } }
+    const f = input(1, 24, { mode, target, planner: original,
+      onPlannerErase: () => { plannerCalls++; return { cells: {} } } })
+    f.handlers.onStart({ locationX: 100, locationY: 100 })
+    f.handlers.onEnd({ cancelled: false })
+    assert.equal(plannerCalls, 0)
+    assert.equal(f.actions.length, target === 'pen' ? 1 : 0)
+    if (target === 'pen') assert.equal(f.actions[0].type, mode === 'area' ? 'replaceObjects' : 'removeObjects')
+  }
+})

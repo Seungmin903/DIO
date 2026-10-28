@@ -35,7 +35,7 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
 }
 
 // 가변 굵기를 하나의 닫힌 경로로 표현해 SVG 요소 수가 늘어나지 않게 한다.
-export function strokeOutline(points, width) {
+export function strokeOutline(points, width, { start = false, end = false } = {}) {
   if (points.length < 2) return ''
   const left = [], right = []
   points.forEach((p, i) => {
@@ -45,7 +45,16 @@ export function strokeOutline(points, width) {
     left.push(`${p.x - dy / distance * radius} ${p.y + dx / distance * radius}`)
     right.push(`${p.x + dy / distance * radius} ${p.y - dx / distance * radius}`)
   })
-  return `M${left.join('L')}L${right.reverse().join('L')}Z`
+  if (!start && !end) return `M${left.join('L')}L${right.reverse().join('L')}Z`
+  const cap = (point, neighbour) => {
+    const angle = Math.atan2(point.y - neighbour.y, point.x - neighbour.x) + Math.PI / 2
+    const radius = width * (point.pressure ?? 1) / 2
+    return Array.from({ length: 12 }, (_, n) => {
+      const a = angle - Math.PI * (n + 1) / 12
+      return `${point.x + Math.cos(a) * radius} ${point.y + Math.sin(a) * radius}`
+    })
+  }
+  return `M${left.join('L')}L${end ? cap(points.at(-1), points.at(-2)).join('L') : right.at(-1)}L${right.slice().reverse().join('L')}${start ? 'L' + cap(points[0], points[1]).join('L') : ''}Z`
 }
 
 export function strokePath(points) {
