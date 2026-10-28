@@ -61,3 +61,10 @@ dio:
     local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-data/media}
     s3-bucket: ${MEDIA_S3_BUCKET:}
     s3-region: ${MEDIA_S3_REGION:ap-northeast-2}
+  retention-cleanup:
+    enabled: ${RETENTION_CLEANUP_ENABLED:true}
+    delay-ms: ${RETENTION_CLEANUP_DELAY_MS:3600000}
+    initial-delay-ms: ${RETENTION_CLEANUP_INITIAL_DELAY_MS:900000}
+    batch-size: ${RETENTION_CLEANUP_BATCH_SIZE:100}
+    media-retention: ${MEDIA_DELETE_RETENTION:PT24H}
+    diary-retention: ${DIARY_DELETE_RETENTION:P30D}
