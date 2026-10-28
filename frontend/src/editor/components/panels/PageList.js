@@ -186,7 +186,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
       </View>
       {!readOnly && <View style={{ paddingHorizontal: 8 }}>
         {pickMode ? <PageBulkDelete pages={pages} ids={picked} onDelete={onRemovePages} onReset={onReset} onDone={endPickMode} />
-          : <Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Text style={styles.pickDoneText}>편집</Text></Pressable>}
+          : <View style={styles.editRow}><Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="pen" size={14} /><Text style={styles.editText}>편집</Text></Pressable></View>}
       </View>}
       <FlatList
         ref={listRef}
@@ -412,6 +412,10 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
 ))
 
 const styles = StyleSheet.create({
+  editRow: { minHeight: 44, marginVertical: 2, justifyContent: 'center' },
+  editButton: { height: 32, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
+  editText: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
+  editPressed: { opacity: 0.65 },
   panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'visible', zIndex: 3 },
   list: { flexGrow: 1, alignItems: 'center', gap: 16, paddingVertical: 16 },
   emptyArea: { flexGrow: 1, alignSelf: 'stretch', minHeight: 24 },
@@ -427,10 +431,10 @@ const styles = StyleSheet.create({
   thumbPage: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', borderRadius: 7, backgroundColor: '#FFFFFF' },
   thumbActive: { borderColor: 'transparent' },
   carried: { opacity: 0.4 },
-  pickBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 32, paddingLeft: 10, paddingRight: 3, borderRadius: 9, backgroundColor: 'rgba(11,25,87,0.06)' },
-  pickText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
-  pickDone: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 7, backgroundColor: colors.surface },
-  pickDoneText: { fontSize: 12.5, fontWeight: '700', color: colors.primaryStrong },
+  pickBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 32, padding: 2, borderRadius: 9, backgroundColor: 'rgba(11,25,87,0.06)' },
+  pickText: { flex: 1, textAlign: 'center', fontSize: 11.5, fontWeight: '700', color: colors.textMuted },
+  pickDone: { height: 28, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 7, backgroundColor: colors.surface },
+  pickDoneText: { fontSize: 11.5, fontWeight: '700', color: colors.textMuted },
   countBadge: { position: 'absolute', top: -8, right: 4, zIndex: 3, minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryStrong },
   countText: { fontSize: 12, fontWeight: '700', color: colors.surface },
   pickedCheck: { position: 'absolute', right: 6, bottom: 6, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryStrong },
