@@ -13,8 +13,6 @@ public class MediaExceptionHandler {
 	}
 	@ExceptionHandler(MediaRequestException.class) public ProblemDetail invalid(MediaRequestException exception) { return problem(exception.status(), exception.code(), exception.getMessage()); }
 	@ExceptionHandler(MediaStorageException.class) public ProblemDetail storage(MediaStorageException exception) { return problem(exception.status(), exception.code(), exception.getMessage()); }
-	@ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
-	public ProblemDetail tooLarge() { return problem(HttpStatus.PAYLOAD_TOO_LARGE, "MEDIA_FILE_TOO_LARGE", "미디어 파일은 5MB 이하로 올려 주세요."); }
 	private static ProblemDetail problem(HttpStatus status, String code, String detail) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail); problem.setTitle(status.getReasonPhrase()); problem.setProperty("code", code); return problem;
 	}
