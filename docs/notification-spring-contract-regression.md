@@ -31,3 +31,9 @@ backend-test CI는 Spring 생산자에 출력 경로를 주입한 뒤 Node 컨�
 실제 기본 설정을 사용하는 SwaggerDocumentationTests에서 알림 목록/미읽음 수/개별 읽음/삭제4개, bearerAuth와401오류 스키마·404·204무본문, 기존 로그인·다이어리·페이지 경로를 함께 검사한다. 기존 Swagger UI/다이어리 응답·알림 인증/사용자격리/읽음/삭제/프런트 계약 회귀도 실행했다.
 
 검증: backend에서 `.\gradlew.bat test --tests '*Swagger*Tests' --tests '*Notification*Tests'` 성공. 총28개 중26개 통과·PostgreSQL 명시 환경이 필요한2개는 skip, 실패0. 실제 서버 DB·개발/운영 컨테이너 배포는 수행하지 않았다. 개발8443 Swagger는 접근 인증401로 배포된 문서 내용을 직접 대조하지 못했으므로 병합·재배포 후 확인한다.
+
+## Swagger 알림 그룹명 (2026-10-28)
+
+NotificationController에 @Tag(name="알림")과 API 설명을 지정해 자동 클래스명 notification-controller 대신 알림으로 표시한다. API 경로·동작·인증·데이터 변경 없음. SwaggerDocumentationTests에서 알림4개 작업의 tags[0]이 모두 알림인지 검증한다. 기존 로그인/다이어리/페이지 문서·알림 오류응답·Swagger UI도 함께 검증한다.
+
+backend `.\gradlew.bat test --tests '*Swagger*Tests'` 성공:4개 통과·실패/skip0. 실제 개발/운영 Swagger 화면 반영은 병합·재배포 후 확인한다.

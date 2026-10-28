@@ -22,3 +22,5 @@
 실제 PostgreSQL 최종: 회원·휴지통 45개와 페이지 1개·기존 다이어리 3개 모두 통과. 기존 정렬 fixture의 Instant 직접 바인딩을 Timestamp로 고친 뒤 해당 1개만 재검증했다. 운영 SQL은 변경하지 않았다.
 
 추가 develop 2951762도 반영했다. 최신 텍스트·펜·회원 편집 문서 회귀 46개, Swagger 및 회원 OpenAPI 4개가 통과했으며 알림 경로도 함께 보존했다. 최종 웹 번들 및 각 4개 크기의 회원·휴지통·영구 삭제 QA는 pageerror 0이다.
+
+최종 추가 기준은 develop 8c500e3이다. 알림 Swagger 태그 변경을 충돌 없이 보존하고 SwaggerDocumentationTests 3개를 재검증해 통과했다. 이전 PostgreSQL·FE 검증 결과는 코드 영향이 없어 유지한다.
