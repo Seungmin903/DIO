@@ -1,4 +1,5 @@
 import { normalizeEmail, normalizeNickname } from './validation.js';
+import { developmentAuthorization } from './developmentAccess.js';
 
 export function authBaseUrl(value) {
   const base = value.replace(/\/+$/, '');
@@ -7,9 +8,10 @@ export function authBaseUrl(value) {
 }
 
 // Tokens stay in memory. Never save passwords or tokens in AsyncStorage.
-export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now, accessTokenHeader = 'Authorization' }) {
+export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
+  let developmentAccess = null;
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   const acceptSession = result => {
     if (!Number.isSafeInteger(result?.expiresIn) || result.expiresIn <= 0 || result.expiresIn > 86400) {
@@ -21,7 +23,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     accessRefreshAt = now() + lifetime - Math.min(30000, lifetime / 2);
   };
   const unauthorized = () => Object.assign(new Error('다시 로그인해 주세요.'), { status: 401, code: 'AUTHENTICATION_REQUIRED' });
-  let passwordReset = null, resetRevision = 0, resetVerifying = null;
+  let passwordReset = null, resetRevision = 0, resetVerifying = null, verificationRevision = 0;
 
   const userView = (user) => ({
     mode: 'authenticated', provider: 'email', userId: user.userId,
@@ -35,19 +37,28 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       const response = await fetchImpl(`${base}/auth/${path}`, {
         method: 'POST', signal: controller.signal,
         headers: { ...(!multipart && body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          ...(accessToken ? { [accessTokenHeader]: accessTokenHeader === 'Authorization' ? `Bearer ${accessToken}` : accessToken } : {}) },
+          ...(developmentAccess ? { Authorization: developmentAccess } : {}),
+          ...(accessToken ? { [developmentAccess ? 'X-DIO-Access-Token' : accessTokenHeader]:
+            !developmentAccess && accessTokenHeader === 'Authorization' ? `Bearer ${accessToken}` : accessToken } : {}) },
         ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }),
       });
       const data = response.status === 204 ? null : await response.json().catch(() => null);
       if (!response.ok) {
+        const challenge = response.headers?.get?.('WWW-Authenticate');
+        if (response.status === 401 && /^Basic(?:\s|$)/i.test(challenge ?? '')) {
+          throw Object.assign(new Error('개발 서버 접근 인증이 필요해요. 서버 담당자에게 앱의 API 접근 방법을 확인해 주세요.'),
+            { status: 401, code: 'DEVELOPMENT_ACCESS_REQUIRED' });
+        }
         const error = new Error(data?.detail || '요청을 처리하지 못했어요. 다시 시도해 주세요.');
         error.status = response.status;
         error.code = data?.code;
+        const retryAfter = Number(response.headers?.get?.('Retry-After'));
+        if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter;
         throw error;
       }
       return data;
     } catch (error) {
-      if (error.status) throw error;
+      if (error?.status) throw error;
       throw new Error('서버에 연결하지 못했어요. 서버 주소와 네트워크를 확인해 주세요.');
     } finally { clearTimeout(timer); }
   }
@@ -69,7 +80,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       revision++;
       resetRevision++; passwordReset = null; resetVerifying = null;
 
-      if (!keepEnrollment) { draft = null; verification = null; }
+      if (!keepEnrollment) { verificationRevision++; draft = null; verification = null; }
     },
     async login({ email, password }) {
       const attempt = ++revision;
@@ -89,17 +100,38 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (verification?.email !== normalized) verification = null;
       return { provider: 'email', email: normalized };
     },
+    async checkEmailAvailability(email) {
+      const attempt = revision;
+      const result = await request('email-availability', { email: normalizeEmail(email) });
+      if (attempt !== revision) throw new Error('이메일 확인 요청이 취소되었어요.');
+      if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
+      if (!result.available) throw new Error('이미 사용 중인 이메일이에요.');
+    },
     async checkNickname(nickname) {
       return (await request('nickname-availability', { nickname: normalizeNickname(nickname) })).available;
     },
-    // Frontend can call these when its verification controls have been added.
     async sendVerification(email) {
+      const attempt = ++verificationRevision;
       verification = null;
-      return request('email-verifications', { email: normalizeEmail(email) });
+      const result = await request('email-verifications', { email: normalizeEmail(email) });
+      if (attempt !== verificationRevision) throw new Error('인증번호 발송 요청이 취소되었어요.');
+      if (!Number.isSafeInteger(result?.expiresIn) || result.expiresIn <= 0 ||
+        !Number.isSafeInteger(result?.resendAfter) || result.resendAfter < 0) {
+        throw new Error('인증번호 발송 정보를 확인하지 못했어요. 다시 시도해 주세요.');
+      }
+      return { expiresIn: result.expiresIn, retryAfter: result.resendAfter };
     },
     async verifyEmail(email, code) {
+      const attempt = ++verificationRevision;
       const normalized = normalizeEmail(email);
+      verification = null;
       const result = await request('email-verifications/verify', { email: normalized, code });
+      if (attempt !== verificationRevision) throw new Error('인증번호 확인 요청이 취소되었어요.');
+      if (typeof result?.signupToken !== 'string' || !result.signupToken.trim() ||
+        !Number.isSafeInteger(result?.expiresIn) || result.expiresIn <= 0 ||
+        !Number.isSafeInteger(now() + result.expiresIn * 1000)) {
+        throw new Error('이메일 인증 결과를 확인하지 못했어요. 다시 인증해 주세요.');
+      }
       verification = { email: normalized, token: result.signupToken, expiresAt: now() + result.expiresIn * 1000 };
       return { expiresIn: result.expiresIn };
     },
@@ -199,6 +231,22 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
           await request('logout', undefined, current.accessToken);
         }
       } finally { session = null; api.cancelPending(); }
+    },
+  };
+  api.verificationService = {
+    ...(allowDevelopmentAccess ? { setDevelopmentAccess(username, password) {
+      developmentAccess = developmentAuthorization(base, username, password);
+    } } : {}),
+    async send(email) {
+      await api.checkEmailAvailability(email);
+      return api.sendVerification(email);
+    },
+    verify: (email, code) => api.verifyEmail(email, code),
+    prepareSignup: values => {
+      if (!verification || verification.email !== normalizeEmail(values.email) || verification.expiresAt <= now()) {
+        return Promise.reject(new Error('이메일 인증이 만료됐어요. 이전 화면에서 다시 인증해 주세요.'));
+      }
+      return api.signup(values);
     },
   };
   return api;

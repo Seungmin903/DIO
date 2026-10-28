@@ -11,6 +11,24 @@ function root(dev,mode,session=null){
 }
 const nodes=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
 const has=(tree,name)=>nodes(tree).some(n=>n.type===name||n.type?.name===name)
+
+test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자로 전달하고 운영 개발접속을 끈다', () => {
+ const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+ }).code
+ for (const dev of [true, false]) {
+  const mod = { exports: {} }
+  const mocks = { 'react-native': { Platform: { OS: 'android' } }, './authApi': {
+   authBaseUrl: value => `${value}/api/v1`, createAuthApi: options => options,
+  }, './photoUpload': { buildPhotoBody() {} }, 'expo/fetch': { fetch() {} } }
+  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, dev,
+   { env: { EXPO_PUBLIC_API_BASE_URL: 'https://server.example', EXPO_PUBLIC_AUTH_TOKEN_HEADER: 'X-DIO-Access-Token' } })
+  assert.equal(mod.exports.authService.baseUrl, mod.exports.apiBaseUrl)
+  assert.equal(mod.exports.authService.accessTokenHeader, mod.exports.accessTokenHeader)
+  assert.equal(mod.exports.accessTokenHeader, 'X-DIO-Access-Token')
+  assert.equal(mod.exports.authService.allowDevelopmentAccess, dev)
+ }
+})
 test('기본 실행은 로그인, 게스트·체험은 로컬 보관함이고 실제 로그인만 회원 API로 진입한다',()=>{
  assert.ok(has(root(true,undefined),'./src/auth/AuthScreen'))
  assert.ok(has(root(false,'mock'),'./src/auth/AuthScreen'))
