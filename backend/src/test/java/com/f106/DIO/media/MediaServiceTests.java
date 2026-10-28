@@ -12,20 +12,21 @@ import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import com.f106.DIO.media.domain.MediaFile;
-import com.f106.DIO.media.repository.MediaFileRepository;
+import com.f106.DIO.media.dto.MediaFileResponse;
+import com.f106.DIO.media.service.MediaFileTransactionService;
 import com.f106.DIO.media.service.MediaService;
 import com.f106.DIO.media.storage.MediaFiles;
 import com.f106.DIO.media.support.MediaRequestException;
 
 class MediaServiceTests {
-	private final MediaFileRepository mediaFiles = mock(MediaFileRepository.class);
 	private final MediaFiles storage = mock(MediaFiles.class);
-	private final MediaService service = new MediaService(mediaFiles, storage);
+	private final MediaFileTransactionService transactions = mock(MediaFileTransactionService.class);
+	private final MediaService service = new MediaService(storage, transactions);
 
 	@Test
 	void gifIsStoredAsImageAndKeepsGifMimeType() {
 		MockMultipartFile file = new MockMultipartFile("file", "animated.gif", "image/gif", "GIF89a".getBytes());
-		when(mediaFiles.save(any(MediaFile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		stubPersist();
 
 		var response = service.upload(file, "STICKER", 7L);
 
@@ -39,7 +40,7 @@ class MediaServiceTests {
 	@Test
 	void wavIsStoredAsAudioWithAudioCategoryByDefault() {
 		byte[] wav = new byte[] {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E'};
-		when(mediaFiles.save(any(MediaFile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		stubPersist();
 
 		var response = service.upload(new MockMultipartFile("file", "memo.wav", "audio/wav", wav), null, 7L);
 
@@ -54,5 +55,25 @@ class MediaServiceTests {
 
 		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "memo.wav", "audio/wav", wav), "PHOTO", 7L))
 			.isInstanceOf(MediaRequestException.class);
+	}
+
+	@Test
+	void rejectsHeicInsteadOfTreatingItAsM4a() {
+		byte[] heic = new byte[] {0, 0, 0, 24, 'f', 't', 'y', 'p', 'h', 'e', 'i', 'c'};
+
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "photo.heic", "image/heic", heic), null, 7L))
+			.isInstanceOf(MediaRequestException.class);
+	}
+
+	@Test
+	void rejectsGenericMp4VideoInsteadOfTreatingItAsM4a() {
+		byte[] mp4 = new byte[] {0, 0, 0, 24, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'};
+
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "movie.mp4", "video/mp4", mp4), null, 7L))
+			.isInstanceOf(MediaRequestException.class);
+	}
+
+	private void stubPersist() {
+		when(transactions.persist(any(MediaFile.class))).thenAnswer(invocation -> MediaFileResponse.from(invocation.getArgument(0)));
 	}
 }

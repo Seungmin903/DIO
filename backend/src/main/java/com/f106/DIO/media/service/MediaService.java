@@ -4,22 +4,16 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.f106.DIO.media.domain.MediaFile;
 import com.f106.DIO.media.domain.MediaLibraryCategory;
 import com.f106.DIO.media.domain.MediaType;
 import com.f106.DIO.media.dto.MediaFileListResponse;
 import com.f106.DIO.media.dto.MediaFileResponse;
-import com.f106.DIO.media.repository.MediaFileRepository;
-import com.f106.DIO.media.support.MediaFileNotFoundException;
 import com.f106.DIO.media.support.MediaRequestException;
 import com.f106.DIO.media.storage.MediaFiles;
 import com.f106.DIO.media.storage.MediaStorageKeys;
@@ -29,11 +23,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class MediaService {
 	private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 	private static final int MAX_FILE_SIZE = 5 * 1024 * 1024;
-	private final MediaFileRepository mediaFiles;
 	private final MediaFiles files;
-	public MediaService(MediaFileRepository mediaFiles, MediaFiles files) { this.mediaFiles = mediaFiles; this.files = files; }
+	private final MediaFileTransactionService transactions;
+	public MediaService(MediaFiles files, MediaFileTransactionService transactions) { this.files = files; this.transactions = transactions; }
 
-	@Transactional
 	public MediaFileResponse upload(MultipartFile upload, String requestedCategory, Long userId) {
 		byte[] content = read(upload);
 		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
@@ -46,54 +39,28 @@ public class MediaService {
 		try {
 			files.put(key, content, kind.mimeType());
 			stored = true;
-			mediaFiles.save(mediaFile);
-			registerRollbackCleanup(key);
-			return MediaFileResponse.from(mediaFile);
+			return transactions.persist(mediaFile);
 		} catch (RuntimeException error) {
 			if (stored) deleteOrLog(key);
 			throw error;
 		}
 	}
 
-	@Transactional(readOnly = true)
 	public MediaFileListResponse list(Long userId) {
-		List<MediaFileResponse> results = mediaFiles.findAllByOwnerUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId).stream()
-			.map(MediaFileResponse::from).toList();
-		return new MediaFileListResponse(results);
+		return transactions.list(userId);
 	}
 
-	@Transactional(readOnly = true)
 	public MediaFileResponse detail(UUID mediaFileId, Long userId) {
-		return MediaFileResponse.from(findOwned(mediaFileId, userId));
+		return transactions.detail(mediaFileId, userId);
 	}
 
-	@Transactional(readOnly = true)
 	public DownloadedMedia file(UUID mediaFileId, Long userId) {
-		MediaFile mediaFile = findOwned(mediaFileId, userId);
-		return new DownloadedMedia(mediaFile.getMimeType(), files.read(mediaFile.getStorageKey()));
+		MediaFileTransactionService.StorageReference reference = transactions.storageReference(mediaFileId, userId);
+		return new DownloadedMedia(reference.mimeType(), files.read(reference.storageKey()));
 	}
 
-	@Transactional
 	public void delete(UUID mediaFileId, Long userId) {
-		MediaFile mediaFile = mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, userId).orElseThrow(MediaFileNotFoundException::new);
-		mediaFile.softDelete();
-		mediaFiles.flush();
-		if (TransactionSynchronizationManager.isSynchronizationActive()) {
-			String key = mediaFile.getStorageKey();
-			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-				@Override public void afterCommit() { deleteOrLog(key); }
-			});
-		} else deleteOrLog(mediaFile.getStorageKey());
-	}
-
-	private MediaFile findOwned(UUID mediaFileId, Long userId) {
-		return mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, userId).orElseThrow(MediaFileNotFoundException::new);
-	}
-	private void registerRollbackCleanup(String key) {
-		if (!TransactionSynchronizationManager.isSynchronizationActive()) return;
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override public void afterCompletion(int status) { if (status == STATUS_ROLLED_BACK) deleteOrLog(key); }
-		});
+		transactions.delete(mediaFileId, userId);
 	}
 	private void deleteOrLog(String key) {
 		try { files.delete(key); }
