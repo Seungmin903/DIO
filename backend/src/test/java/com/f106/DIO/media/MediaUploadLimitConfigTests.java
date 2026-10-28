@@ -25,8 +25,8 @@ class MediaUploadLimitConfigTests {
 		YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
 		yaml.setResources(new FileSystemResource("src/main/resources/application.yml"));
 		Properties properties = yaml.getObject();
-		DataSize maxFile = DataSize.parse(properties.getProperty("spring.servlet.multipart.max-file-size"));
-		DataSize maxRequest = DataSize.parse(properties.getProperty("spring.servlet.multipart.max-request-size"));
+		DataSize maxFile = requiredSize(properties, "spring.servlet.multipart.max-file-size");
+		DataSize maxRequest = requiredSize(properties, "spring.servlet.multipart.max-request-size");
 
 		assertThat(maxFile).isGreaterThanOrEqualTo(SERVICE_LIMIT);
 		assertThat(maxRequest).isGreaterThan(maxFile);
@@ -34,6 +34,12 @@ class MediaUploadLimitConfigTests {
 			assertThat(nginxBodyLimit(Path.of("..", "infra", "nginx", profile, "default.conf")))
 				.as("%s nginx client_max_body_size", profile).isGreaterThanOrEqualTo(maxRequest);
 		}
+	}
+
+	private static DataSize requiredSize(Properties properties, String key) {
+		String value = properties.getProperty(key);
+		assertThat(value).as("application.yml에 %s가 있어야 한다", key).isNotBlank();
+		return DataSize.parse(value);
 	}
 
 	private static DataSize nginxBodyLimit(Path conf) throws Exception {
