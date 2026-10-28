@@ -47,3 +47,13 @@ backend·CI 설정·패키지·lockfile은 변경하지 않았다. 기존 회원
 - 안내 버튼은 기존 secondaryText 스타일을 사용한다. 간격 12/8은 기존 회원 생성·휴지통 안내와 동일한 값이다.
 
 최신 자동 리뷰의 응답 유실 일괄 이동/단일 복원 경합을 수정했다. 재확인할 일괄 작업이 남으면 단일 작업과 새 일괄 작업을 거부한다. 재확인하거나 안내를 명시적으로 닫으면 이후 작업이 가능하고, 닫은 작업은 재시도할 수 없다. 해당 회귀 테스트를 추가했다. 재시도 가능 여부는 store 스냅샷 한 곳에서 계산하며 QA 스크립트에 사전 준비와 브라우저 채널 옵션을 명시했다.
+
+### 회원 페이지 텍스트 서버 연결 (로컬 미커밋 작업)
+
+- 실제 EditorScreen에서 회원 계정·현재 페이지에만 useMemberTextPageSync를 연결한다. 기존 기기 자동 저장과 필기/사진 객체는 유지하고, 텍스트만 기존 GET /pages/{pageId}, POST /pages/{pageId}/elements/batch로 전송·재조회한다. 서버 페이지 ID가 있는 기존 회원 편집 문서가 대상이며 신규 페이지 생성·다른 기기의 보관함 문서 초기화·사진/필기 업로드는 이번 범위 밖이다.
+- textPageSync 초안을 보완해 3자리 좌표·요소 버전·JSON 속성을 기존 BE DTO에 맞췄다. 최초 로컬/서버 양쪽에 텍스트가 있으면 내용이 같아도 자동 병합/덮어쓰기를 하지 않는다. 충돌 해소/원본 선택 UI는 추가하지 않으며 서버 연결 보류 상태를 표시한다.
+- 계정별 memberDocumentKey 아래 페이지별 text-sync:v1 journal에 로컬 텍스트·서버 기준·미확인 요청을 먼저 저장한 뒤 전송한다. 네트워크/409 후 새 세션에서 복구하고, 응답 유실은 재조회로 확인해 중복 생성하지 않는다. 기기 저장 실패 시 서버 전송을 멈춘다. journal과 일반 편집 문서는 별도이므로 서버 실패가 로컬 자동 저장 성공으로 오인되지 않도록 표시를 구분한다.
+- 서버에서 가져온 텍스트는 비텍스트 객체/레이어 위치·새 로컬 변경을 보호하는 reducer action으로 반영하고 별도 Undo 이력을 만들지 않는다. 텍스트 삭제/Undo 복구/Redo는 기존 삭제·복구 batch를 사용한다. 복구 후 수정은 BE 처리 순서상 별도 batch이고 실패 시 journal을 유지한다.
+- 신규 Node 통합/실제 hook·회원 저장·히스토리 회귀45개 통과. opt-in Spring 실제 HTTP+JWT+H2 서버와 Node 프런트 엔진 연동, 페이지 API/rollback 검증11개 통과·PostgreSQL 환경필요1개 skip. 실제 운영·개발 서버/실기기 QA는 수행하지 않았다.
+- 프런트 웹 export 성공. 커밋·푸시·배포하지 않는다. 409 및 서버 내용 변경 충돌은 자동 강제 덮어쓰기로 해소하지 않는다. 서버 삭제 API에는 버전 필드가 없어 삭제 직전 GET 이후의 동시 삭제/수정 완전 직렬화는 BE 계약상 보장하지 않는다.
+- 실행: frontend `node --test tests/text-page-sync.test.js tests/text-page-hook.test.js tests/member-editor-docs.test.js tests/member-app-store.test.js tests/member-diary-api.test.js tests/editor-history.test.js tests/storage-qa.test.js`; backend에서 DIO_TEXT_SYNC_HTTP_QA=true, DIO_NODE_BINARY=node 실행경로를 지정한 뒤 `gradlew.bat test --tests '*TextPageFrontendHttpTests' --tests '*PageApiTests' --tests '*PageBatchRollbackTests'`.

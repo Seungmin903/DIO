@@ -1,5 +1,7 @@
 # 알림 로그인 연결과 남은 공유 QA
 
+공유 담당 API를 제외한 연결 준비 코드와 현재 의존성은 [초대 알림 연결 준비](./notification-invitation-binding.md)를 따른다. 인증 transport를 공유하는 초대 gateway factory와 화면 전달 callback 경계는 준비되었으며 실제 공유 API·이벤트·화면 연결 완료를 뜻하지 않는다.
+
 ## 실제 로그인 연결
 
 알림 기본 4개 API는 기존 loginJwtDecoder와 loginBearerTokenResolver를 재사용한다. 서명·issuer/audience·access 용도·만료와 활성 refresh 세션·회원 상태를 검증한 Authentication만 NotificationUserPrincipal로 변환한다. 요청 userId·헤더·커서로 수신자를 선택하지 않는다. 기존 로그아웃 및 다른 기능의 보안 범위는 바꾸지 않는다.
