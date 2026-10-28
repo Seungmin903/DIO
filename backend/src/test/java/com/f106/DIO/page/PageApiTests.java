@@ -2,11 +2,14 @@ package com.f106.DIO.page;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.f106.DIO.diary.domain.DiaryMember;
+import com.f106.DIO.diary.repository.DiaryMemberRepository;
 import com.f106.DIO.page.domain.PageTemplate;
 import com.f106.DIO.page.repository.PageTemplateRepository;
 import org.junit.jupiter.api.Test;
@@ -28,6 +31,7 @@ class PageApiTests {
 
 	@Autowired MockMvc mvc;
 	@Autowired PageTemplateRepository pageTemplateRepository;
+	@Autowired DiaryMemberRepository diaryMemberRepository;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Test
@@ -96,6 +100,32 @@ class PageApiTests {
 		mvc.perform(get("/api/v1/diaries/" + diaryId).with(authenticated("2")))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("DIARY_ACCESS_DENIED"));
+	}
+
+	@Test
+	void membershipRolesControlWritesDeletionAndDiaryLists() throws Exception {
+		String diaryId = createDiary("역할 검증");
+		UUID id = UUID.fromString(diaryId);
+		diaryMemberRepository.saveAndFlush(new DiaryMember(id, 2L, "EDITOR"));
+		diaryMemberRepository.saveAndFlush(new DiaryMember(id, 3L, "VIEWER"));
+		DiaryMember departed = new DiaryMember(id, 4L, "EDITOR");
+		setField(departed, "leftAt", Instant.now());
+		diaryMemberRepository.saveAndFlush(departed);
+
+		mvc.perform(post("/api/v1/diaries/" + diaryId + "/pages").with(authenticated("2"))
+			.contentType(MediaType.APPLICATION_JSON).content("{}"))
+			.andExpect(status().isCreated());
+		mvc.perform(get("/api/v1/diaries/" + diaryId + "/pages").with(authenticated("3")))
+			.andExpect(status().isOk());
+		mvc.perform(post("/api/v1/diaries/" + diaryId + "/pages").with(authenticated("3"))
+			.contentType(MediaType.APPLICATION_JSON).content("{}"))
+			.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("DIARY_ACCESS_DENIED"));
+		mvc.perform(delete("/api/v1/diaries/" + diaryId).with(authenticated("2")))
+			.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("DIARY_ACCESS_DENIED"));
+		mvc.perform(get("/api/v1/diaries").with(authenticated("2")))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.items[?(@.diaryId == '" + diaryId + "')]").isNotEmpty());
+		mvc.perform(get("/api/v1/diaries/" + diaryId).with(authenticated("4")))
+			.andExpect(status().isForbidden());
 	}
 
 	@Test

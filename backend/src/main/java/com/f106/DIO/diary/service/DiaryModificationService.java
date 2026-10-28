@@ -9,7 +9,6 @@ import com.f106.DIO.diary.domain.Diary;
 import com.f106.DIO.diary.dto.DiaryResponse;
 import com.f106.DIO.diary.dto.DiaryUpdateRequest;
 import com.f106.DIO.diary.repository.DiaryRepository;
-import com.f106.DIO.diary.support.DiaryNotFoundException;
 
 @Service
 public class DiaryModificationService {
@@ -23,15 +22,6 @@ public class DiaryModificationService {
 	}
 
 	@Transactional
-	public DiaryResponse update(UUID diaryId, DiaryUpdateRequest request) {
-		Diary diary = diaryRepository.findByDiaryIdAndDeletedAtIsNull(diaryId)
-			.orElseThrow(DiaryNotFoundException::new);
-		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverStyle(), request.getVisibility());
-		diaryRepository.flush();
-		return new DiaryResponse(DiaryMapper.toData(diary));
-	}
-
-	@Transactional
 	public DiaryResponse update(UUID diaryId, DiaryUpdateRequest request, Long userId) {
 		Diary diary = accessService.requireWrite(diaryId, userId);
 		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverStyle(), request.getVisibility());
@@ -40,16 +30,8 @@ public class DiaryModificationService {
 	}
 
 	@Transactional
-	public void delete(UUID diaryId) {
-		Diary diary = diaryRepository.findByDiaryIdAndDeletedAtIsNull(diaryId)
-			.orElseThrow(DiaryNotFoundException::new);
-		diary.softDelete();
-		diaryRepository.flush();
-	}
-
-	@Transactional
 	public void delete(UUID diaryId, Long userId) {
-		Diary diary = accessService.requireWrite(diaryId, userId);
+		Diary diary = accessService.requireOwner(diaryId, userId);
 		diary.softDelete();
 		diaryRepository.flush();
 	}

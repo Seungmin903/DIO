@@ -38,6 +38,13 @@ public class DiaryAccessService {
 		return diary;
 	}
 
+	@Transactional(readOnly = true)
+	public Diary requireOwner(UUID diaryId, Long userId) {
+		Diary diary = diaries.findByDiaryIdAndDeletedAtIsNull(diaryId).orElseThrow(DiaryNotFoundException::new);
+		if (!isOwner(diary, userId)) throw new DiaryAccessDeniedException();
+		return diary;
+	}
+
 	private DiaryMember member(Diary diary, Long userId) {
 		if (isOwner(diary, userId)) return new DiaryMember(diary.getDiaryId(), userId, "OWNER");
 		return members.findByDiaryIdAndUserIdAndLeftAtIsNull(diary.getDiaryId(), userId)

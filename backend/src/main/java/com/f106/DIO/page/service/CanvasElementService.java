@@ -34,26 +34,9 @@ public class CanvasElementService {
 	}
 
 	@Transactional(readOnly = true)
-	public CanvasElementListResponse list(UUID pageId) {
-		pageService.requirePage(pageId);
-		return listWithoutPageCheck(pageId);
-	}
-
-	@Transactional(readOnly = true)
 	public CanvasElementListResponse list(UUID pageId, Long userId) {
 		pageService.requireReadablePage(pageId, userId);
 		return listWithoutPageCheck(pageId);
-	}
-
-	@Transactional
-	public CanvasElementResponse create(UUID pageId, CanvasElementCreateRequest request) {
-		pageService.requirePage(pageId);
-		if (request.getElementId() != null && elementRepository.existsById(request.getElementId())) {
-			throw new IllegalArgumentException("이미 사용 중인 elementId입니다.");
-		}
-		CanvasElement element = newElement(pageId, request, nextSortKey(pageId));
-		elementRepository.saveAndFlush(element);
-		return new CanvasElementResponse(PageMapper.toElementData(element));
 	}
 
 	@Transactional
@@ -68,15 +51,6 @@ public class CanvasElementService {
 	}
 
 	@Transactional
-	public CanvasElementResponse update(UUID pageId, UUID elementId, CanvasElementUpdateRequest request) {
-		pageService.requirePage(pageId);
-		CanvasElement element = requireActiveElement(pageId, elementId);
-		applyUpdate(element, request);
-		elementRepository.flush();
-		return new CanvasElementResponse(PageMapper.toElementData(element));
-	}
-
-	@Transactional
 	public CanvasElementResponse update(UUID pageId, UUID elementId, CanvasElementUpdateRequest request, Long userId) {
 		pageService.requireWritablePage(pageId, userId);
 		CanvasElement element = requireActiveElement(pageId, elementId);
@@ -86,28 +60,10 @@ public class CanvasElementService {
 	}
 
 	@Transactional
-	public void delete(UUID pageId, UUID elementId) {
-		pageService.requirePage(pageId);
-		requireActiveElement(pageId, elementId).softDelete();
-		elementRepository.flush();
-	}
-
-	@Transactional
 	public void delete(UUID pageId, UUID elementId, Long userId) {
 		pageService.requireWritablePage(pageId, userId);
 		requireActiveElement(pageId, elementId).softDelete();
 		elementRepository.flush();
-	}
-
-	@Transactional
-	public CanvasElementResponse restore(UUID pageId, UUID elementId) {
-		pageService.requirePage(pageId);
-		CanvasElement element = elementRepository.findByElementIdAndPageId(elementId, pageId)
-			.orElseThrow(CanvasElementNotFoundException::new);
-		if (element.getDeletedAt() == null) { throw new ElementNotDeletedException(); }
-		element.restore();
-		elementRepository.flush();
-		return new CanvasElementResponse(PageMapper.toElementData(element));
 	}
 
 	@Transactional
@@ -119,36 +75,6 @@ public class CanvasElementService {
 		element.restore();
 		elementRepository.flush();
 		return new CanvasElementResponse(PageMapper.toElementData(element));
-	}
-
-	@Transactional
-	public CanvasElementListResponse batch(UUID pageId, CanvasElementBatchRequest request) {
-		pageService.requirePage(pageId);
-		validateBatchIds(request);
-
-		BigDecimal nextSortKey = nextSortKey(pageId);
-		for (CanvasElementCreateRequest create : safe(request.creates())) {
-			if (create.getElementId() != null && elementRepository.existsById(create.getElementId())) {
-				throw new IllegalArgumentException("이미 사용 중인 elementId입니다.");
-			}
-			elementRepository.save(newElement(pageId, create, nextSortKey));
-			nextSortKey = nextSortKey.add(SORT_STEP);
-		}
-		for (CanvasElementUpdateRequest update : safe(request.updates())) {
-			CanvasElement element = requireActiveElement(pageId, update.getElementId());
-			applyUpdate(element, update);
-		}
-		for (UUID elementId : safe(request.deleteElementIds())) {
-			requireActiveElement(pageId, elementId).softDelete();
-		}
-		for (UUID elementId : safe(request.restoreElementIds())) {
-			CanvasElement element = elementRepository.findByElementIdAndPageId(elementId, pageId)
-				.orElseThrow(CanvasElementNotFoundException::new);
-			if (element.getDeletedAt() == null) { throw new ElementNotDeletedException(); }
-			element.restore();
-		}
-		elementRepository.flush();
-		return listWithoutPageCheck(pageId);
 	}
 
 	@Transactional
@@ -176,15 +102,6 @@ public class CanvasElementService {
 		}
 		elementRepository.flush();
 		return listWithoutPageCheck(pageId);
-	}
-
-	private CanvasElement newElement(UUID pageId, CanvasElementCreateRequest request, BigDecimal sortKey) {
-		return new CanvasElement(request.getElementId(), pageId, request.getElementType(), request.getGroupId(),
-			request.getName(), sortKey, request.getX(), request.getY(), request.getWidth(), request.getHeight(),
-			request.getRotation() == null ? BigDecimal.ZERO : request.getRotation(),
-			request.getOpacity() == null ? BigDecimal.ONE : request.getOpacity(),
-			Boolean.TRUE.equals(request.getIsLocked()), Boolean.TRUE.equals(request.getIsHidden()), request.getMediaFileId(),
-			request.getPropertiesJson() == null ? null : request.getPropertiesJson().toString());
 	}
 
 	private CanvasElement newElement(UUID pageId, CanvasElementCreateRequest request, BigDecimal sortKey, Long userId) {

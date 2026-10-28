@@ -83,7 +83,7 @@
 
 ## 오류
 
-로그인하지 않은 요청은 401 `INVALID_TOKEN`이다. 잘못된 UUID·본문·범위·순서 목록은 400이다. 소유자·멤버가 아닌 사용자는 403 `DIARY_ACCESS_DENIED`를 받는다. 존재하지 않거나 삭제된 다이어리·페이지·요소는 404이며 각각 `DIARY_NOT_FOUND`, `PAGE_NOT_FOUND`, `CANVAS_ELEMENT_NOT_FOUND` 코드가 담긴 `application/problem+json` 응답을 반환한다. 활성 요소 복구는 409 `CANVAS_ELEMENT_NOT_DELETED`다.
+로그인하지 않은 요청은 401 `INVALID_TOKEN`이다. 잘못된 UUID·본문·범위·순서 목록은 400이다. 소유자·멤버가 아닌 사용자는 403 `DIARY_ACCESS_DENIED`를 받는다. 존재하지 않거나 삭제된 다이어리·페이지·요소는 404이며 각각 `DIARY_NOT_FOUND`, `PAGE_NOT_FOUND`, `CANVAS_ELEMENT_NOT_FOUND` 코드가 담긴 `application/problem+json` 응답을 반환한다. 활성 요소 복구는 409 `CANVAS_ELEMENT_NOT_DELETED`다. 같은 요소를 동시에 수정해 낙관적 락 충돌이 나면 409 `CANVAS_ELEMENT_VERSION_CONFLICT`를 반환하며, 최신 페이지를 다시 조회한 뒤 재시도해야 한다.
 
 ## 검증
 

@@ -15,7 +15,7 @@ import jakarta.validation.constraints.Size;
 public class CanvasElementCreateForm {
 	@Schema(description = "선택값. 프런트에서 만든 UUID를 유지할 때 사용") private UUID elementId;
 	@NotNull @Pattern(regexp = "(?i)TEXT|PHOTO|STICKER|TAPE|STROKE|SHAPE") @Schema(example = "TEXT") private String type;
-	@Schema(example = "텍스트") private UUID groupId;
+	@Schema(description = "같은 묶음 요소를 식별하는 선택 UUID") private UUID groupId;
 	@Size(min = 1, max = 100) @Pattern(regexp = "(?s).*\\S.*") @Schema(example = "제목") private String name;
 	@NotNull @Digits(integer = 9, fraction = 3) @Schema(example = "100") private BigDecimal x;
 	@NotNull @Digits(integer = 9, fraction = 3) @Schema(example = "120") private BigDecimal y;

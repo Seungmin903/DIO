@@ -1,6 +1,7 @@
 package com.f106.DIO.page.support;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -47,6 +48,12 @@ public class PageExceptionHandler extends ResponseEntityExceptionHandler {
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ProblemDetail invalidRequest(IllegalArgumentException exception) {
 		return problem(HttpStatus.BAD_REQUEST, "Invalid page request", "INVALID_PAGE_REQUEST", exception.getMessage());
+	}
+
+	@ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+	public ProblemDetail concurrentModification(ObjectOptimisticLockingFailureException exception) {
+		return problem(HttpStatus.CONFLICT, "Concurrent canvas update", "CANVAS_ELEMENT_VERSION_CONFLICT",
+			"다른 사용자의 변경이 먼저 저장되었습니다. 최신 내용을 조회한 뒤 다시 시도해 주세요.");
 	}
 
 	private static ProblemDetail problem(HttpStatus status, String title, String code, String detail) {
