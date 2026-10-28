@@ -42,7 +42,16 @@ export function createTextPageSession({ api, storage, key, pageId, diaryId, isAc
   let journal = { revision: 1, pageId, diaryId, local: null, base: null, deleted: [], pending: null }, writes=Promise.resolve(), running=null
   const active = () => { if(!isActive()) throw new Error('편집 세션이 종료됐어요.') }
   const persist = () => { const raw=JSON.stringify(journal); const task=writes.catch(()=>{}).then(()=>storage.setItem(key,raw)); writes=task; return task }
-  const record = objects => { active(); journal.local=copy(objects.filter(o=>o.type==='text')); return persist() }
+  const record = objects => {
+    active()
+    const local=copy(objects.filter(o=>o.type==='text'))
+    // A downloaded snapshot must reach the editor before its old contents can
+    // become a new upload/delete request. Persist this barrier across restarts.
+    if(journal.awaitingImport && !same(local,journal.local)) throw conflict()
+    journal.awaitingImport=false
+    journal.local=local
+    return persist()
+  }
   return {
     async restore() {
       const raw=await storage.getItem(key); active()
@@ -64,12 +73,12 @@ export function createTextPageSession({ api, storage, key, pageId, diaryId, isAc
         if(journal.base===null){
           if(journal.local.length && remote.length) throw conflict()
           journal.base=remote
-          if(!journal.local.length && remote.length){ journal.local=remote.map(decodeText); await persist(); return {objects:copy(journal.local),status:'downloaded'} }
+          if(!journal.local.length && remote.length){ journal.local=remote.map(decodeText); journal.awaitingImport=true; await persist(); return {objects:copy(journal.local),status:'downloaded'} }
           await persist()
         } else if(!sameRemote(remote,journal.base)) {
           const local = journal.local.map(encodeText).sort((a,b)=>a.elementId.localeCompare(b.elementId))
           if (!same(local,content(journal.base))) throw conflict()
-          journal.base=remote; journal.local=remote.map(decodeText); await persist()
+          journal.base=remote; journal.local=remote.map(decodeText); journal.awaitingImport=true; await persist()
           return {objects:copy(journal.local),status:'downloaded'}
         }
         // Restore deleted text first: the backend applies batch updates before restores.

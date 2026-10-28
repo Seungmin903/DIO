@@ -36,14 +36,19 @@ export function useMemberTextPageSync({ diary, page, loaded, readOnly, dispatch 
     if(!member || !loaded || !ready.current || !session) return
     let alive=true, timer
     const expected=page.objects
-    // Persist immediately, independently of the ordinary editor save debounce.
+    // Persist immediately, independently from the ordinary editor save debounce.
     session.record(expected).then(()=>{
       if(!alive) return
       setStatus('saving')
       timer=setTimeout(()=>{
         session.synchronize().then(result=>{
-          if(!alive) return
-          if(result.objects) dispatch({type:'importPageTexts',pageId:page.id,expectedObjects:expected,objects:result.objects})
+          if(engine.current!==session || authService.getSessionKey()!==sessionKey) return
+          if(result.objects) {
+            const current=latest.current.objects
+            const texts=objects=>JSON.stringify(objects.filter(o=>o.type==='text'))
+            if(texts(current)!==texts(expected)) {setStatus('conflict');return}
+            dispatch({type:'importPageTexts',pageId:page.id,expectedObjects:current,objects:result.objects})
+          } else if(!alive) return
           setStatus(result.status==='pending'?'saving':'saved')
           if(result.status==='pending') setRetry(n=>n+1)
         }).catch(error=>{if(alive)setStatus(error.status===409?'conflict':'error')})
