@@ -10,5 +10,6 @@ export const authService = createAuthApi({
   baseUrl: apiBaseUrl,
   buildPhotoBody,
   fetchImpl: authFetch,
-  accessTokenHeader: process.env.EXPO_PUBLIC_AUTH_TOKEN_HEADER || 'Authorization',
+  allowDevelopmentAccess: __DEV__,
+  accessTokenHeader,
 });

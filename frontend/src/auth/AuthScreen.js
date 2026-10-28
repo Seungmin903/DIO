@@ -51,7 +51,7 @@ export default function AuthScreen({
   onContinue,
   service = authService,
   photoPicker = pickProfilePhoto,
-  verificationService,
+  verificationService = service.verificationService,
   emailVerificationEnabled = typeof __DEV__ !== 'undefined' && __DEV__,
 }) {
   const { isPhone, formFactor } = useFormFactor();

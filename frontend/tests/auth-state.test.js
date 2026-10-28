@@ -1,6 +1,7 @@
 import {readFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
 import * as validation from '../src/auth/validation.js'
+import { createAuthApi } from '../src/auth/authApi.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
@@ -17,6 +18,20 @@ function setup(service,photoPicker,options={emailVerificationEnabled:true}){
 const nodes=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
 const find=(tree,label)=>nodes(tree).find(n=>n.props.accessibilityLabel===label||n.props.label===label)
 const tick=()=>new Promise(resolve=>setImmediate(resolve))
+
+test('실제 서비스는 배포 모드에서도 인증 화면에 서버 어댑터를 전달한다', () => {
+  const service = createAuthApi({ baseUrl: 'https://server.example' });
+  const ui = setup(service, undefined, { emailVerificationEnabled: false });
+  find(ui.render(), '회원가입').props.onPress();
+  find(ui.render(), '이메일').props.onChange('member@example.com');
+  find(ui.render(), '비밀번호').props.onChange('Password123!');
+  find(ui.render(), '비밀번호 확인').props.onChange('Password123!');
+  find(ui.render(), '다음').props.onPress();
+  const verification = nodes(ui.render()).find(node => node.props.email === 'member@example.com' && node.props.onComplete);
+  assert.equal(verification.props.service, service.verificationService);
+  assert.equal(verification.props.service.preview, undefined);
+  ui.unmount();
+});
 test('닉네임 변경 후 늦은 중복 확인 응답을 무시하고 완료 버튼을 잠근다',async()=>{
  let resolveCheck;const service={social:async()=>({provider:'kakao'}),checkNickname:()=>new Promise(r=>resolveCheck=r)}
  const ui=setup(service);find(ui.render(),'카카오로 로그인').props.onPress();await tick()
