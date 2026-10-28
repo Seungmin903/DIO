@@ -5,8 +5,11 @@ import { UNDATED_ASSETS } from './undatedAssets'
 import { getTemplate, templateCanvasSize, TemplateError } from './catalog.js'
 import { createTemplateCache } from './cache.js'
 import { readSvg } from './readSvg'
+import { isStudyPlannerId, plannerBaseSvg } from './studyPlanner.js'
 
 const load = createTemplateCache(async id => {
+  // 스터디 플래너는 파일 없이 바탕을 만든다. 기록은 PageBackground 가 덮개로 겹치고, 내보내기는 기록을 넣어 다시 만든다.
+  if (isStudyPlannerId(id)) { const xml = plannerBaseSvg(getTemplate(id).orientation); return { xml, ast: parse(xml) } }
   const module = UNDATED_ASSETS[id] ?? TEMPLATE_ASSETS[id]
   if (!module) throw new TemplateError()
   const asset = Asset.fromModule(module)

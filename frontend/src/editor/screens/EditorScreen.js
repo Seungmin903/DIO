@@ -843,7 +843,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
         setTextEditing(null)
         setActiveTool('select')
       }}
-                onCreateText={(box) => { setTextSettingsOpen(false); setTextEditing({ ...box, ...textDefaults, id: createId(), pageId: page.id, text: '' }) }}
+                onCreateText={(box) => { setTextSettingsOpen(false); setTextEditing({ ...textDefaults, ...box, id: createId(), pageId: page.id, text: '' }) }}
                 readOnly={readOnly}
                 page={page}
                 zoom={zoom}
