@@ -144,6 +144,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
   const [straightAssist, setStraightAssist] = useState(true)
   const [eraserSize, setEraserSize] = useState(ERASER_RADIUS * 2)
+  const [eraserTarget, setEraserTarget] = useState('all')
   const [eraserMode, setEraserMode] = useState('stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -826,6 +827,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
                 straightAssist={straightAssist}
                 eraserSize={eraserSize}
                 eraserMode={eraserMode}
+                eraserTarget={eraserTarget}
                 textBoundary={textBoundary}
                 onRevealText={(dy) => commitView(resolvePan({ scale: view.scale, zoom, x: offset.x, y: offset.y }, 0, -dy))}
                 textEditingTop={stageOrigin.y + (compact ? 8 : 80)}
@@ -941,7 +943,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           )}
           {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
             <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} onClose={() => setPenSettingsOpen(false)} />
+              <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} target={eraserTarget} onTargetChange={setEraserTarget} onClose={() => setPenSettingsOpen(false)} />
             </View>
           )}
 
