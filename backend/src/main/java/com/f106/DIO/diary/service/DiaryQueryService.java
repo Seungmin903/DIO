@@ -11,7 +11,6 @@ import com.f106.DIO.diary.dto.DiaryListResponse;
 import com.f106.DIO.diary.dto.DiaryResponse;
 import com.f106.DIO.diary.repository.DiaryRepository;
 import com.f106.DIO.diary.repository.DiaryMemberRepository;
-import com.f106.DIO.diary.support.DiaryNotFoundException;
 
 @Service
 public class DiaryQueryService {
@@ -27,12 +26,6 @@ public class DiaryQueryService {
 	}
 
 	@Transactional(readOnly = true)
-	public DiaryListResponse list() {
-		return new DiaryListResponse(diaryRepository.findAllByDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc()
-			.stream().map(DiaryMapper::toData).toList());
-	}
-
-	@Transactional(readOnly = true)
 	public DiaryListResponse list(Long userId) {
 		var diaryIds = new LinkedHashSet<UUID>();
 		diaryIds.addAll(diaryRepository.findAllByOwnerUserIdAndDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc(userId)
@@ -41,12 +34,6 @@ public class DiaryQueryService {
 		if (diaryIds.isEmpty()) return new DiaryListResponse(java.util.List.of());
 		return new DiaryListResponse(diaryRepository.findAllByDiaryIdInAndDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc(diaryIds)
 			.stream().map(DiaryMapper::toData).toList());
-	}
-
-	@Transactional(readOnly = true)
-	public DiaryResponse detail(UUID diaryId) {
-		return new DiaryResponse(DiaryMapper.toData(diaryRepository.findByDiaryIdAndDeletedAtIsNull(diaryId)
-			.orElseThrow(DiaryNotFoundException::new)));
 	}
 
 	@Transactional(readOnly = true)

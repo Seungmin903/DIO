@@ -21,15 +21,12 @@ public class DiaryCreationService {
 	}
 
 	@Transactional
-	public DiaryCreateResponse create(DiaryCreateRequest request) {
-		return create(request, null);
-	}
-
-	@Transactional
 	public DiaryCreateResponse create(DiaryCreateRequest request, Long ownerUserId) {
+		// 소유자 없는 다이어리는 누구도 접근할 수 없으므로 만들지 않는다.
+		java.util.Objects.requireNonNull(ownerUserId, "ownerUserId");
 		Diary diary = diaryRepository.saveAndFlush(new Diary(request.diaryTitle(), request.coverColor(),
 			request.coverStyle(), request.visibility(), ownerUserId));
-		if (ownerUserId != null) memberRepository.saveAndFlush(new DiaryMember(diary.getDiaryId(), ownerUserId, "OWNER"));
+		memberRepository.saveAndFlush(new DiaryMember(diary.getDiaryId(), ownerUserId, "OWNER"));
 		return new DiaryCreateResponse(DiaryMapper.toData(diary));
 	}
 }

@@ -18,7 +18,9 @@ import com.f106.DIO.page.dto.CanvasElementResponse;
 import com.f106.DIO.page.dto.CanvasElementUpdateRequest;
 import com.f106.DIO.page.repository.CanvasElementRepository;
 import com.f106.DIO.page.support.CanvasElementNotFoundException;
+import com.f106.DIO.page.support.CanvasElementVersionConflictException;
 import com.f106.DIO.page.support.ElementNotDeletedException;
+import com.f106.DIO.page.support.MediaFileNotSupportedException;
 
 @Service
 public class CanvasElementService {
@@ -105,6 +107,7 @@ public class CanvasElementService {
 	}
 
 	private CanvasElement newElement(UUID pageId, CanvasElementCreateRequest request, BigDecimal sortKey, Long userId) {
+		validateReferences(pageId, request.getGroupId(), request.getMediaFileId());
 		return new CanvasElement(request.getElementId(), pageId, request.getElementType(), request.getGroupId(),
 			request.getName(), sortKey, request.getX(), request.getY(), request.getWidth(), request.getHeight(),
 			request.getRotation() == null ? BigDecimal.ZERO : request.getRotation(),
@@ -114,10 +117,21 @@ public class CanvasElementService {
 	}
 
 	private void applyUpdate(CanvasElement element, CanvasElementUpdateRequest request) {
+		// 오래된 화면 기준의 수정이 다른 편집자의 변경을 덮어쓰지 않게 한다.
+		if (!request.getVersion().equals(element.getVersion())) throw new CanvasElementVersionConflictException();
+		validateReferences(element.getPageId(), request.getGroupId(), request.getMediaFileId());
 		element.update(request.getGroupId(), request.getName(), request.getSortKey(), request.getX(), request.getY(),
 			request.getWidth(), request.getHeight(), request.getRotation(), request.getOpacity(), request.getIsLocked(),
 			request.getIsHidden(), request.getMediaFileId(),
 			request.getPropertiesJson() == null ? null : request.getPropertiesJson().toString());
+	}
+
+	/** 미디어 소유권 모델이 없어 mediaFileId는 받지 않고, 그룹은 같은 페이지 안에서만 쓰게 한다. */
+	private void validateReferences(UUID pageId, UUID groupId, UUID mediaFileId) {
+		if (mediaFileId != null) throw new MediaFileNotSupportedException();
+		if (groupId != null && elementRepository.existsByGroupIdAndPageIdNot(groupId, pageId)) {
+			throw new IllegalArgumentException("다른 페이지에서 사용 중인 groupId입니다.");
+		}
 	}
 
 	private CanvasElement requireActiveElement(UUID pageId, UUID elementId) {

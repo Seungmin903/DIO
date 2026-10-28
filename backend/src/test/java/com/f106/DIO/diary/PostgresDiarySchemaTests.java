@@ -44,7 +44,7 @@ class PostgresDiarySchemaTests {
 	@Test
 	void flywayV1CreatesTheUuidDiarySchema() {
 		assertThat(jdbc.queryForObject("select version()", String.class)).contains("PostgreSQL");
-		Diary diary = diaries.saveAndFlush(new Diary("POSTGRES_SCHEMA_TEST", "#D6BFA7", "PLAIN", "PRIVATE"));
+		Diary diary = diaries.saveAndFlush(new Diary("POSTGRES_SCHEMA_TEST", "#D6BFA7", "PLAIN", "PRIVATE", owner().getUserId()));
 		UUID id = diary.getDiaryId();
 		assertThat(jdbc.queryForObject("select diary_id from diaries where diary_id = ?", UUID.class, id)).isEqualTo(id);
 		assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version = '1' and success", Long.class))
@@ -68,9 +68,10 @@ class PostgresDiarySchemaTests {
 
 	@Test
 	void postgresListsSameTimestampDiariesByUuidDescending() {
-		Diary oldest = diaries.saveAndFlush(new Diary("POSTGRES_OLDEST", "#D6BFA7", "PLAIN", "PRIVATE"));
-		Diary lower = diaries.saveAndFlush(new Diary("POSTGRES_LOWER", "#D6BFA7", "PLAIN", "PRIVATE"));
-		Diary higher = diaries.saveAndFlush(new Diary("POSTGRES_HIGHER", "#D6BFA7", "PLAIN", "PRIVATE"));
+		Long ownerUserId = owner().getUserId();
+		Diary oldest = diaries.saveAndFlush(new Diary("POSTGRES_OLDEST", "#D6BFA7", "PLAIN", "PRIVATE", ownerUserId));
+		Diary lower = diaries.saveAndFlush(new Diary("POSTGRES_LOWER", "#D6BFA7", "PLAIN", "PRIVATE", ownerUserId));
+		Diary higher = diaries.saveAndFlush(new Diary("POSTGRES_HIGHER", "#D6BFA7", "PLAIN", "PRIVATE", ownerUserId));
 		UUID lowerId = UUID.fromString("00000000-0000-0000-0000-000000000011");
 		UUID higherId = UUID.fromString("00000000-0000-0000-0000-000000000012");
 		Instant oldestTime = Instant.parse("2026-01-01T00:00:00Z");
@@ -80,7 +81,7 @@ class PostgresDiarySchemaTests {
 		jdbc.update("update diaries set diary_id = ?, created_at = ? where diary_id = ?", lowerId, sameTime, lower.getDiaryId());
 		jdbc.update("update diaries set diary_id = ?, created_at = ? where diary_id = ?", higherId, sameTime, higher.getDiaryId());
 
-		List<UUID> orderedRelevantIds = diaries.findAllByDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc().stream()
+		List<UUID> orderedRelevantIds = diaries.findAllByOwnerUserIdAndDeletedAtIsNullOrderByCreatedAtDescDiaryIdDesc(ownerUserId).stream()
 			.map(Diary::getDiaryId)
 			.filter(id -> id.equals(oldest.getDiaryId()) || id.equals(lowerId) || id.equals(higherId))
 			.toList();

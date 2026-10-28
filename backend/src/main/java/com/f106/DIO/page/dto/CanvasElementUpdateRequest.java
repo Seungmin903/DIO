@@ -13,6 +13,8 @@ public class CanvasElementUpdateRequest {
 	@Digits(integer=4,fraction=3) private BigDecimal rotation;
 	@DecimalMin("0") @DecimalMax("1") @Digits(integer=1,fraction=3) private BigDecimal opacity;
 	private Boolean isLocked,isHidden; private JsonNode propertiesJson;
+	/** 클라이언트가 마지막으로 받은 요소 버전. 서버 버전과 다르면 409로 거절한다. */
+	@NotNull(message="version은 필수입니다.") private Long version;
 	@JsonSetter(nulls=Nulls.FAIL) public void setElementId(UUID value){elementId=value;}
 	@JsonSetter(nulls=Nulls.FAIL) public void setGroupId(UUID value){groupId=value;}
 	@JsonSetter(nulls=Nulls.FAIL) public void setName(String value){name=value.strip();}
@@ -27,8 +29,9 @@ public class CanvasElementUpdateRequest {
 	@JsonSetter(nulls=Nulls.FAIL) @JsonAlias("hidden") public void setIsHidden(Boolean value){isHidden=value;}
 	@JsonSetter(nulls=Nulls.FAIL) public void setMediaFileId(UUID value){mediaFileId=value;}
 	@JsonSetter(nulls=Nulls.FAIL) public void setPropertiesJson(JsonNode value){propertiesJson=value;}
+	@JsonSetter(nulls=Nulls.FAIL) public void setVersion(Long value){version=value;}
 	@JsonAnySetter public void rejectUnsupportedField(String name,Object value){throw new IllegalArgumentException("수정할 수 없는 요소 필드입니다: "+name);}
 	@AssertTrue(message="수정할 필드를 하나 이상 전달해야 합니다.") public boolean isAnyFieldPresent(){return groupId!=null||name!=null||sortKey!=null||x!=null||y!=null||width!=null||height!=null||rotation!=null||opacity!=null||isLocked!=null||isHidden!=null||mediaFileId!=null||propertiesJson!=null;}
 	@AssertTrue(message="propertiesJson은 128KiB 이하여야 합니다.") public boolean isPropertiesJsonSizeValid(){return JsonPayloadLimits.fits(propertiesJson,JsonPayloadLimits.MAX_ELEMENT_PROPERTIES_BYTES);}
-	public UUID getElementId(){return elementId;} public UUID getGroupId(){return groupId;} public String getName(){return name;} public BigDecimal getSortKey(){return sortKey;} public BigDecimal getX(){return x;} public BigDecimal getY(){return y;} public BigDecimal getWidth(){return width;} public BigDecimal getHeight(){return height;} public BigDecimal getRotation(){return rotation;} public BigDecimal getOpacity(){return opacity;} public Boolean getIsLocked(){return isLocked;} public Boolean getIsHidden(){return isHidden;} public UUID getMediaFileId(){return mediaFileId;} public JsonNode getPropertiesJson(){return propertiesJson;}
+	public UUID getElementId(){return elementId;} public UUID getGroupId(){return groupId;} public String getName(){return name;} public BigDecimal getSortKey(){return sortKey;} public BigDecimal getX(){return x;} public BigDecimal getY(){return y;} public BigDecimal getWidth(){return width;} public BigDecimal getHeight(){return height;} public BigDecimal getRotation(){return rotation;} public BigDecimal getOpacity(){return opacity;} public Boolean getIsLocked(){return isLocked;} public Boolean getIsHidden(){return isHidden;} public UUID getMediaFileId(){return mediaFileId;} public JsonNode getPropertiesJson(){return propertiesJson;} public Long getVersion(){return version;}
 }

@@ -55,7 +55,7 @@ class PageApiTests {
 			.andExpect(jsonPath("$.element.width").value(300)).andReturn()).at("/element/elementId").asText();
 
 		mvc.perform(patch("/api/v1/pages/" + pageId + "/elements/" + elementId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"x\":42,\"isLocked\":true}"))
+			.content("{\"version\":1,\"x\":42,\"isLocked\":true}"))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.element.x").value(42))
 			.andExpect(jsonPath("$.element.isLocked").value(true));
 
@@ -68,7 +68,7 @@ class PageApiTests {
 
 		mvc.perform(post("/api/v1/pages/" + copiedPageId + "/elements/batch").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 			.content("""
-				{"updates":[{"elementId":"%s","isHidden":true}],"creates":[{"type":"STICKER","x":1,"y":2,"w":30,"h":40}]}
+				{"updates":[{"elementId":"%s","version":1,"isHidden":true}],"creates":[{"type":"STICKER","x":1,"y":2,"w":30,"h":40}]}
 				""".formatted(copiedElementId)))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2));
 
@@ -159,6 +159,7 @@ class PageApiTests {
 
 		mvc.perform(patch("/api/v1/pages/" + pageId + "/elements/" + elementId).with(authenticated())
 			.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+			.param("version", "1")
 			.param("x", "42")
 			.param("locked", "true"))
 			.andExpect(status().isOk())
@@ -203,6 +204,58 @@ class PageApiTests {
 			.andExpect(status().isOk()).andExpect(jsonPath("$.page.canvasWidth").value(700))
 			.andExpect(jsonPath("$.page.canvasHeight").value(900))
 			.andExpect(jsonPath("$.page.templateConfig.lineSpacing").value(32));
+	}
+
+	@Test
+	void staleElementVersionIsRejectedInsteadOfOverwriting() throws Exception {
+		String pageId=createPage(createDiary("버전 검증"),"{}");
+		String elementId=createElement(pageId,"");
+
+		mvc.perform(patch("/api/v1/pages/"+pageId+"/elements/"+elementId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"version\":1,\"x\":5}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.element.version").value(2));
+		mvc.perform(patch("/api/v1/pages/"+pageId+"/elements/"+elementId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"version\":1,\"x\":9}"))
+			.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CANVAS_ELEMENT_VERSION_CONFLICT"));
+		mvc.perform(post("/api/v1/pages/"+pageId+"/elements/batch").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"updates\":[{\"elementId\":\""+elementId+"\",\"version\":1,\"x\":9}]}"))
+			.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CANVAS_ELEMENT_VERSION_CONFLICT"));
+		mvc.perform(patch("/api/v1/pages/"+pageId+"/elements/"+elementId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"x\":9}"))
+			.andExpect(status().isBadRequest());
+		mvc.perform(get("/api/v1/pages/"+pageId).with(authenticated())).andExpect(jsonPath("$.elements[0].x").value(5));
+	}
+
+	@Test
+	void externalMediaAndOtherPageGroupsAreNotAccepted() throws Exception {
+		String diaryId=createDiary("참조 검증");
+		String pageId=createPage(diaryId,"{}");
+		String otherPageId=createPage(diaryId,"{}");
+		String groupId=UUID.randomUUID().toString();
+		String elementId=createElement(pageId,",\"groupId\":\""+groupId+"\"");
+
+		mvc.perform(post("/api/v1/pages/"+pageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"type\":\"PHOTO\",\"x\":0,\"y\":0,\"w\":1,\"h\":1,\"mediaFileId\":\""+UUID.randomUUID()+"\"}"))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MEDIA_FILE_NOT_SUPPORTED"));
+		mvc.perform(patch("/api/v1/pages/"+pageId+"/elements/"+elementId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"version\":1,\"mediaFileId\":\""+UUID.randomUUID()+"\"}"))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MEDIA_FILE_NOT_SUPPORTED"));
+		mvc.perform(post("/api/v1/pages/"+otherPageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"type\":\"TEXT\",\"x\":0,\"y\":0,\"w\":1,\"h\":1,\"groupId\":\""+groupId+"\"}"))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGE_REQUEST"));
+		createElement(pageId,",\"groupId\":\""+groupId+"\"");
+
+		String copiedPageId=body(mvc.perform(post("/api/v1/pages/"+pageId+"/copies").with(authenticated()))
+			.andExpect(status().isCreated()).andReturn()).at("/page/pageId").asText();
+		JsonNode copied=body(mvc.perform(get("/api/v1/pages/"+copiedPageId).with(authenticated())).andExpect(status().isOk()).andReturn());
+		assertThat(copied.at("/elements/0/groupId").asText()).isNotEqualTo(groupId)
+			.isEqualTo(copied.at("/elements/1/groupId").asText());
+	}
+
+	private String createElement(String pageId,String extraFields) throws Exception {
+		return body(mvc.perform(post("/api/v1/pages/"+pageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"type\":\"TEXT\",\"x\":0,\"y\":0,\"w\":1,\"h\":1"+extraFields+"}"))
+			.andExpect(status().isCreated()).andReturn()).at("/element/elementId").asText();
 	}
 
 	private String createDiary(String title) throws Exception {

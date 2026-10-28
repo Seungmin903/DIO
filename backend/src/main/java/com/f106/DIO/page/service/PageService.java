@@ -36,7 +36,8 @@ public class PageService {
 	@Transactional public PageResponse copy(UUID pageId,Long userId){
 		DiaryPage source=requirePage(pageId); diaryAccessService.requireWrite(source.getDiaryId(),userId); DiaryPage copied=new DiaryPage(source.getDiaryId(),source.getTemplateId(),source.getTemplateConfig(),source.getTitle(),nextSortKey(source.getDiaryId()),source.getCanvasWidth(),source.getCanvasHeight(),source.isGridVisible(),source.getGridColor());
 		pageRepository.saveAndFlush(copied);
-		elementRepository.saveAll(elementRepository.findAllByPageIdAndDeletedAtIsNullOrderBySortKeyAscElementIdAsc(pageId).stream().map(e->e.copyFor(copied.getPageId(),e.getSortKey(),userId)).toList()); elementRepository.flush();
+		Map<UUID,UUID> copiedGroups=new HashMap<>();
+		elementRepository.saveAll(elementRepository.findAllByPageIdAndDeletedAtIsNullOrderBySortKeyAscElementIdAsc(pageId).stream().map(e->e.copyFor(copied.getPageId(),e.getSortKey(),e.getGroupId()==null?null:copiedGroups.computeIfAbsent(e.getGroupId(),g->UUID.randomUUID()),userId)).toList()); elementRepository.flush();
 		return new PageResponse(PageMapper.toPageData(copied));
 	}
 	@Transactional public PageListResponse reorder(UUID diaryId,PageOrderRequest r,Long userId){

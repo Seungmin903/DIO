@@ -45,6 +45,16 @@ public class PageExceptionHandler extends ResponseEntityExceptionHandler {
 		return problem(HttpStatus.CONFLICT, "Canvas element is active", "CANVAS_ELEMENT_NOT_DELETED", exception.getMessage());
 	}
 
+	@ExceptionHandler(CanvasElementVersionConflictException.class)
+	public ProblemDetail staleElementVersion(CanvasElementVersionConflictException exception) {
+		return problem(HttpStatus.CONFLICT, "Concurrent canvas update", "CANVAS_ELEMENT_VERSION_CONFLICT", exception.getMessage());
+	}
+
+	@ExceptionHandler(MediaFileNotSupportedException.class)
+	public ProblemDetail mediaFileNotSupported(MediaFileNotSupportedException exception) {
+		return problem(HttpStatus.BAD_REQUEST, "Media file not supported", "MEDIA_FILE_NOT_SUPPORTED", exception.getMessage());
+	}
+
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ProblemDetail invalidRequest(IllegalArgumentException exception) {
 		return problem(HttpStatus.BAD_REQUEST, "Invalid page request", "INVALID_PAGE_REQUEST", exception.getMessage());

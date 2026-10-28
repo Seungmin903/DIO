@@ -7,5 +7,6 @@ public interface CanvasElementRepository extends JpaRepository<CanvasElement, UU
 	List<CanvasElement> findAllByPageIdAndDeletedAtIsNullOrderBySortKeyAscElementIdAsc(UUID pageId);
 	Optional<CanvasElement> findByElementIdAndPageIdAndDeletedAtIsNull(UUID elementId, UUID pageId);
 	Optional<CanvasElement> findByElementIdAndPageId(UUID elementId, UUID pageId);
+	boolean existsByGroupIdAndPageIdNot(UUID groupId, UUID pageId);
 	@Query("select max(e.sortKey) from CanvasElement e where e.pageId = :pageId and e.deletedAt is null") BigDecimal findMaxSortKeyByPageId(UUID pageId);
 }

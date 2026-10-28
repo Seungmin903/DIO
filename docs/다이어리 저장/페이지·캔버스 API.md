@@ -50,7 +50,7 @@
 { "pageIds": ["page-uuid-1", "page-uuid-2"] }
 ```
 
-상세 응답은 `{ "page": { ... }, "elements": [ ... ] }`이고, 목록·생성·수정·복사 응답은 각각 `items` 또는 `page` 래퍼를 사용한다. 페이지 복사는 속지 설정과 삭제되지 않은 요소를 새 UUID로 복제해 해당 다이어리의 마지막에 추가한다. 페이지 삭제는 소프트 삭제이므로 이후 조회·수정·복사의 대상이 될 수 없다.
+상세 응답은 `{ "page": { ... }, "elements": [ ... ] }`이고, 목록·생성·수정·복사 응답은 각각 `items` 또는 `page` 래퍼를 사용한다. 페이지 복사는 속지 설정과 삭제되지 않은 요소를 새 UUID로 복제해 해당 다이어리의 마지막에 추가한다. 요소의 `groupId`도 복사본 안에서만 쓰는 새 UUID로 바꾸며, 같은 그룹이던 요소는 복사본에서도 같은 그룹이다. 페이지 삭제는 소프트 삭제이므로 이후 조회·수정·복사의 대상이 될 수 없다.
 
 ## 캔버스 요소
 
@@ -70,12 +70,16 @@
 
 `propertiesJson`과 `templateConfig`는 JSONB로 보존되며 응답에서는 객체·배열 형태 그대로 반환한다. `propertiesJson`은 요소 하나당 최대 128KiB, `templateConfig`는 최대 512KiB다. 요소 목록은 레이어 순서인 `sortKey` 오름차순이다. 삭제는 소프트 삭제이며 복구 API는 삭제된 요소에만 적용된다.
 
+요소 수정과 일괄 변경의 `updates` 항목에는 마지막으로 조회한 요소의 `version`이 필수다. 서버의 현재 버전과 다르면 덮어쓰지 않고 409 `CANVAS_ELEMENT_VERSION_CONFLICT`를 반환한다. 수정에 성공하면 응답의 `version`이 1 올라가므로 다음 수정에는 그 값을 보낸다.
+
+`groupId`는 한 페이지 안에서만 쓰는 묶음 식별자다. 다른 페이지의 요소가 이미 쓰는 `groupId`는 400 `INVALID_PAGE_REQUEST`로 거절한다. 미디어 소유권 검증이 아직 없으므로 `mediaFileId`를 보내면 생성·수정 모두 400 `MEDIA_FILE_NOT_SUPPORTED`로 거절한다. 미디어 API를 붙일 때 해당 다이어리 보관함 소속인지 검증한 뒤 허용한다.
+
 일괄 변경은 하나의 트랜잭션으로 처리한다. `creates`, `updates`, `deleteElementIds`, `restoreElementIds`는 각각 최대 100개이며, 각 배열에 `null`은 넣을 수 없다. `creates`와 `updates`에 담긴 `propertiesJson`의 합계는 4MiB 이하다. 같은 요소를 한 요청에서 두 번 조작하면 전체 요청을 400으로 거절한다. 멀티파트 요청의 서버 전체 상한은 6MB다.
 
 ```json
 {
   "creates": [{ "type": "STICKER", "x": 16, "y": 24, "w": 100, "h": 100 }],
-  "updates": [{ "elementId": "element-uuid", "x": 80, "isLocked": true }],
+  "updates": [{ "elementId": "element-uuid", "version": 3, "x": 80, "isLocked": true }],
   "deleteElementIds": ["old-element-uuid"],
   "restoreElementIds": []
 }
@@ -83,7 +87,9 @@
 
 ## 오류
 
-로그인하지 않은 요청은 401 `INVALID_TOKEN`이다. 잘못된 UUID·본문·범위·순서 목록은 400이다. 소유자·멤버가 아닌 사용자는 403 `DIARY_ACCESS_DENIED`를 받는다. 존재하지 않거나 삭제된 다이어리·페이지·요소는 404이며 각각 `DIARY_NOT_FOUND`, `PAGE_NOT_FOUND`, `CANVAS_ELEMENT_NOT_FOUND` 코드가 담긴 `application/problem+json` 응답을 반환한다. 활성 요소 복구는 409 `CANVAS_ELEMENT_NOT_DELETED`다. 같은 요소를 동시에 수정해 낙관적 락 충돌이 나면 409 `CANVAS_ELEMENT_VERSION_CONFLICT`를 반환하며, 최신 페이지를 다시 조회한 뒤 재시도해야 한다.
+로그인하지 않은 요청은 401 `INVALID_TOKEN`이다. 잘못된 UUID·본문·범위·순서 목록은 400이다. 소유자·멤버가 아닌 사용자는 403 `DIARY_ACCESS_DENIED`를 받는다. 존재하지 않거나 삭제된 다이어리·페이지·요소는 404이며 각각 `DIARY_NOT_FOUND`, `PAGE_NOT_FOUND`, `CANVAS_ELEMENT_NOT_FOUND` 코드가 담긴 `application/problem+json` 응답을 반환한다. 활성 요소 복구는 409 `CANVAS_ELEMENT_NOT_DELETED`다. 보낸 `version`이 현재 버전과 다르거나 같은 요소를 동시에 수정해 낙관적 락 충돌이 나면 409 `CANVAS_ELEMENT_VERSION_CONFLICT`를 반환하며, 최신 페이지를 다시 조회한 뒤 재시도해야 한다. `mediaFileId`를 보내면 400 `MEDIA_FILE_NOT_SUPPORTED`다.
+
+인증 이전에 만들어져 `owner_user_id`가 비어 있고 `diary_members` 행도 없는 다이어리는 누구도 조회·수정할 수 없다. 운영 DB에 이런 행이 있는지 확인하고, 소유자 지정 또는 정리 정책을 정한 뒤 별도 Flyway 마이그레이션으로 처리한다. 임의 소유자를 채우지 않는다.
 
 ## 검증
 

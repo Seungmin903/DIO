@@ -47,10 +47,6 @@ public class Diary {
 
 	private Instant deletedAt;
 
-	public Diary(String title, String coverColor, String coverStyle, String visibility) {
-		this(title, coverColor, coverStyle, visibility, null);
-	}
-
 	public Diary(String title, String coverColor, String coverStyle, String visibility, Long ownerUserId) {
 		this.title = title;
 		this.coverColor = coverColor;

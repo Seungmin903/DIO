@@ -62,12 +62,9 @@ public class CanvasElement {
 	}
 	public void softDelete() { deletedAt = now(); }
 	public void restore() { deletedAt = null; }
-	public CanvasElement copyFor(UUID newPageId, BigDecimal nextSortKey) {
-		return new CanvasElement(null, newPageId, elementType, groupId, name, nextSortKey, x, y, width, height, rotation,
-			opacity, isLocked, isHidden, mediaFileId, propertiesJson);
-	}
-	public CanvasElement copyFor(UUID newPageId, BigDecimal nextSortKey, Long copiedBy) {
-		return new CanvasElement(null, newPageId, elementType, groupId, name, nextSortKey, x, y, width, height, rotation,
+	/** 그룹은 페이지 안에서만 유효하므로 복사본에는 새 그룹 ID를 넘겨받는다. */
+	public CanvasElement copyFor(UUID newPageId, BigDecimal nextSortKey, UUID newGroupId, Long copiedBy) {
+		return new CanvasElement(null, newPageId, elementType, newGroupId, name, nextSortKey, x, y, width, height, rotation,
 			opacity, isLocked, isHidden, mediaFileId, propertiesJson, copiedBy);
 	}
 	@PrePersist void initialize() { if (elementId == null) elementId = UUID.randomUUID(); if (version == null) version = 1L; Instant now = now(); createdAt = now; updatedAt = now; }
