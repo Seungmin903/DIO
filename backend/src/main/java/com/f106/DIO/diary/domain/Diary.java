@@ -68,6 +68,11 @@ public class Diary {
 		updatedAt = now;
 	}
 
+	public void transferOwnership(Long ownerUserId) {
+		this.ownerUserId = java.util.Objects.requireNonNull(ownerUserId);
+		updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+	}
+
 	@PrePersist
 	void initializeTimestamps() {
 		Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
