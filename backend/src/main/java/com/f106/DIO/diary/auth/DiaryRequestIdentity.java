@@ -35,6 +35,8 @@ public class DiaryRequestIdentity {
             // 로그인 필터는 서명/issuer/audience/token_use/만료와 활성 사용자·세션을 검증한다.
             // 현재 요청의 실제 Bearer와 일치하는 인증 완료 JWT만 재사용한다.
             // 일반 principal, 미인증 JWT, 다른 요청의 토큰은 이 경로로 신뢰하지 않는다.
+            // 폴백도 @Qualifier("loginJwtDecoder")를 사용하므로 LoginJwt의 token_use 검사와
+            // EmailLoginService.active의 세션 폐기/만료·사용자 활성 검사를 동일하게 거친다.
             var authentication = SecurityContextHolder.getContext().getAuthentication();
             String subject = authentication instanceof JwtAuthenticationToken jwt && jwt.isAuthenticated()
                     && token.equals(jwt.getToken().getTokenValue())
