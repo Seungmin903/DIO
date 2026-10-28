@@ -25,7 +25,7 @@ public class DiaryTrashService {
     private final DiaryDetailRepository diaries;
     private final DiaryMembershipAccess memberships;
     // Fixed product contract: restore is allowed only before deletedAt + 30 days.
-    private static final Duration RETENTION = Duration.ofDays(30);
+    private static final Duration RETENTION = com.f106.DIO.diary.support.DiaryRetention.PERIOD;
     private final Clock clock;
     private final ObjectMapper json = new ObjectMapper();
     public record Cursor(int v, String q, String scope, String deletedAt, String id) {}
