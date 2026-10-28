@@ -133,6 +133,14 @@ class MemberDiaryHttpTests {
         noneCreated();
     }
 
+    @Test void clientSuppliedDatabaseTemplateIdCannotOverrideTheCodeVersionMapping() throws Exception {
+        var node=(tools.jackson.databind.node.ObjectNode)json.readTree(body(1));
+        ((tools.jackson.databind.node.ObjectNode)node.get("initialPages").get(0)).put("templateId",987);
+        mvc.perform(memberPost().header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(node.toString()))
+            .andExpect(status().isBadRequest());
+        noneCreated();
+    }
+
     @Test void patchRequiresMetadataAndAnExactNonNullTimestampAndRejectsUnknownFields() throws Exception {
         var created=create(); String id=id(created),stamp=created.get("diary").get("updatedAt").asString();
         for(String body:List.of("{}","{\"diaryTitle\":\"x\"}","{\"expectedUpdatedAt\":null,\"diaryTitle\":\"x\"}",

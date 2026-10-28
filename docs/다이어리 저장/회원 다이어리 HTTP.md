@@ -101,3 +101,14 @@ PostgreSQL 비ASCII 검색 정규화와 제목 정렬 수정으로 목록 커서
 ### ICU 지원이 없는 PostgreSQL의 목록 응답 (2026-10-27)
 
 Unicode 검색(q가 공백 제거 후 비어 있지 않음) 또는 sort=title 요청은 503 DIARY_LIST_UNAVAILABLE로 실패한다. 검색 없는 created/updated/pages 목록·생성·상세·수정·인증의 가용성을 이 조건으로 막지 않는다. 목록 예외는 안전한 Problem 응답이며 no-store다. 프런트는 503을 인증 만료로 처리하거나 자동 재시도하지 않고 기존 목록/문서를 유지한 채 재시도를 안내한다. PostgreSQL ICU root 확인은 요청 시점이며 지원을 복구하면 같은 앱에서 재시도할 수 있다. 기존 검색 의미·v2 커서 형식·저장 데이터는 바뀌지 않는다.
+
+
+## 속지 식별자 충돌 처리 (2026-10-28)
+
+프런트 templateId/backgroundAssetId는 에셋 문자열 ID이고 DB page_templates.template_id는 환경별 숫자 PK다. 회원 생성 HTTP는 templateCode+templateVersion만 받고 DB PK 입력은 거부한다. 서버가 코드·버전으로 유일한 활성 행을 확인하고 그 행의 실제 PK를 pages.template_id에 저장한다. 코드가 다른 행의 숫자 ID와 프런트 ID를 직접 대조하거나 DB 행을 덮어쓰지 않는다.
+
+같은 코드·버전이 여러 행에 있으면 일부가 비활성이어도 INVALID_INITIAL_PAGES(400)로 거부한다. 다이어리·OWNER·페이지·생성 영수증을 남기지 않고 기존 카탈로그는 보존한다. 버전/규격 불일치도 기존 검증으로 거부한다. 기존 비활성 중복은 운영자가 원인을 확인해야 하며 앱에서 임의 선택·병합·삭제하지 않는다.
+
+카탈로그 전체 분리 작업은 철회했다. V9 카탈로그와 서버 초기 페이지 생성·앱 서버 페이지 ID 연결을 유지하며 V10/V11은 변경하지 않는다. 기존 분리 변경은 로컬 stash mr166-catalog-split-before-id-conflict-scope-correction에 보존했다. 숫자 PK 시퀀스가 수동 ID 삽입으로 뒤처진 DB에서의 PK 중복 오류는 별도 DB 상태 문제이며, 이번 변경에서 ID/시퀀스/기존 FK를 자동 수정하지 않는다.
+
+검증: 전체 backend test 266개 통과(조건부 DB 89개 제외), 실제 PostgreSQL 생성/카탈로그/목록 47개와 상세/권한 16개 총 63개 통과(실패·제외 0), 전체 프런트 875개 통과, 카탈로그 288개 생성물 일치 검사 통과. 원본 QA·공유 DB는 변경하지 않았고 작업 전용 테스트 클러스터만 사용했다. 검증 후 ID 충돌 방지 변경만 MR !166에 반영한다.
