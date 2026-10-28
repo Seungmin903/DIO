@@ -133,6 +133,28 @@ const nodes = (n) =>
 const find = (tree, label) =>
   nodes(tree).find((n) => n.props.accessibilityLabel === label || n.props.label === label);
 const tick = () => new Promise((r) => setImmediate(r));
+test('실제 공유는 편집자도 링크를 만들고 지원하지 않는 내보내기 설정을 숨긴다', async () => {
+  const diary = { id: 'server-diary', title: '서버 기록', members: [{ id: 'self', nickname: '소연', role: 'EDITOR' }] };
+  const ui = setup({ server: true, supportsExportSettings: false, canOpenDiary: false,
+    registerDiary: () => diary, getSharing: async () => diary }, undefined, { diary });
+  await tick();
+  const tree = ui.render();
+  assert.ok(find(tree, '초대 링크 만들기'));
+  assert.equal(find(tree, '참여자의 내보내기 허용'), undefined);
+  assert.equal(find(tree, '다이어리 열기'), undefined);
+  assert.ok(find(tree, '완료'));
+  ui.unmount();
+});
+
+test('실제 받은 초대는 읽음·삭제를 가장하지 않고 별칭 형식 확인만 제공한다', async () => {
+  const ui = setup({ server: true, supportsReadState: false, checkNickname: async () => '소연' });
+  assert.equal(find(ui.render(), '모두 읽음'), undefined);
+  assert.equal(find(ui.render(), '초대 알림 삭제'), undefined);
+  await nickname(ui);
+  assert.ok(find(ui.render(), '다이어리 닉네임 형식 확인'));
+  assert.equal(find(ui.render(), '다이어리 닉네임 중복 확인'), undefined);
+  ui.unmount();
+});
 async function nickname(ui) {
   find(ui.render(), '초대 초대 수락').props.onPress();
   await tick();

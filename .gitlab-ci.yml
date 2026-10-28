@@ -197,6 +197,7 @@ backend-postgres-test:
         # Flyway, datasource 설정, JPA 영속성 계층 또는 해당 통합 테스트 변경 시에만 실행한다.
         - backend/src/main/resources/**/*
         - backend/src/main/java/**/auth/**/*
+        - backend/src/main/java/**/sharing/**/*
         - backend/src/main/java/**/diary/**/*
         - backend/src/main/java/**/media/**/*
         - backend/src/main/java/**/page/**/*
@@ -223,6 +224,7 @@ backend-postgres-test:
     reports:
       junit:
         - backend/build/test-results/authPostgresTest/*.xml
+        - backend/build/test-results/sharingPostgresTest/*.xml
         - backend/build/test-results/postgresMemberDiaryCreationTest/*.xml
         - backend/build/test-results/postgresDiaryDetailTest/*.xml
         - backend/build/test-results/postgresDiaryTrashTest/*.xml
@@ -230,6 +232,7 @@ backend-postgres-test:
         - backend/build/test-results/postgresMemberDiaryHttpTest/*.xml
     paths:
       - backend/build/reports/tests/authPostgresTest/
+      - backend/build/reports/tests/sharingPostgresTest/
       - backend/build/reports/tests/postgresMemberDiaryCreationTest/
       - backend/build/reports/tests/postgresDiaryDetailTest/
       - backend/build/reports/tests/postgresDiaryTrashTest/
