@@ -12,15 +12,21 @@ class DeploymentAuthContractTests {
         var application = loader.load("application", new FileSystemResource(Path.of("src/main/resources/application.yml"))).get(0);
         assertThat(application.getProperty("management.health.mail.enabled")).isEqualTo(false);
         var ci = loader.load("ci", new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
-        assertThat(ci.getProperty("backend-postgres-test.stage")).isEqualTo("quality");
-        assertThat(ci.getProperty("backend-postgres-test.needs[0].job")).isEqualTo("backend-test");
-        assertThat(ci.getProperty("backend-postgres-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh");
-        assertThat(ci.getProperty("backend-postgres-test.allow_failure")).isNull();
+        for (String job : new String[]{"backend-postgres-auth-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test"}) {
+            assertThat(ci.getProperty(job + ".stage")).isEqualTo("quality");
+            assertThat(ci.getProperty(job + ".needs[0].job")).isEqualTo("backend-test");
+            assertThat(ci.getProperty(job + ".allow_failure")).isNull();
+        }
+        assertThat(ci.getProperty("backend-postgres-auth-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh auth");
+        assertThat(ci.getProperty("backend-postgres-diary-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh diary");
+        assertThat(ci.getProperty("backend-postgres-lifecycle-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh lifecycle");
         String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh"));
-        assertThat(script).contains("CREATE DATABASE dio_trash_qa","postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon", "postgresMemberDiaryHttpTest --no-daemon", "CREATE DATABASE dio_member_contract_qa","-e DIO_LIST_QUERY_PG=true");
-        String[] invocations=script.split("docker run --rm",-1);assertThat(invocations).hasSize(4);
-        for(int i=1;i<invocations.length;i++) assertThat(invocations[i].split("-e DB_URL=",-1)).hasSize(2);
-        assertThat(script).contains("-e DIO_AUTH_SCHEMA_TEST=true", "--network \"container:$pg_name\"", "trap cleanup EXIT", "authPostgresTest postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "CREATE DATABASE dio_member_ci", "-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_ci", "-e POSTGRES_USER=postgres");
+        assertThat(script).contains("auth|diary|lifecycle|all", "trap cleanup EXIT", "--network \"container:$pg_name\"",
+            "CREATE DATABASE dio_reset_qa", "authPostgresTest --no-daemon", "CREATE DATABASE dio_member_ci",
+            "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "CREATE DATABASE dio_member_contract_qa",
+            "postgresMemberDiaryHttpTest --no-daemon", "CREATE DATABASE dio_trash_qa",
+            "postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon", "-e DIO_AUTH_SCHEMA_TEST=true",
+            "-e DIO_LIST_QUERY_PG=true", "-e POSTGRES_USER=postgres");
     }
     @Test void ciContainerIncludesReadOnlyDeploymentInputsBesideBackend() throws Exception {
         var properties = new YamlPropertySourceLoader().load("ci",
