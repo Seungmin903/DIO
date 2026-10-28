@@ -1,4 +1,4 @@
-import { penSweeps } from './strokes.js'
+import { penSweeps, samplePenPart } from './strokes.js'
 
 export function penMaterialSeed(id = '') {
   let value = 2166136261
@@ -30,12 +30,13 @@ const cache = new WeakMap()
 function feltPart(part, width, seed) {
   const key = `${width}:${seed}`, cached = cache.get(part)
   if (cached?.key === key) return cached.paths
-  const paths = FELT.map(layer => penSweeps(part.points, width * layer.scale, 'felt', 0,
+  const points = samplePenPart(part)
+  const paths = FELT.map(layer => penSweeps(points, width * layer.scale, 'felt', 0,
     { capStart: !part.key, capEnd: !part.continuing }).map(piece => piece.path).join(''))
   const dots = [], spacing = Math.max(0.6, width * 0.16)
   let distance = part.startDistance ?? 0
-  for (let i = 1; i < part.points.length; i++) {
-    const a = part.points[i - 1], b = part.points[i], dx = b.x - a.x, dy = b.y - a.y
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i], dx = b.x - a.x, dy = b.y - a.y
     const length = Math.hypot(dx, dy)
     if (!length) continue
     const start = a.inkDistance ?? distance, end = b.inkDistance ?? start + length

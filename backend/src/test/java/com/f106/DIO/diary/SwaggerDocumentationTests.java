@@ -43,6 +43,23 @@ class SwaggerDocumentationTests {
 	}
 
 	@Test
+	void documentsNotificationsAlongsideExistingApiGroups() throws Exception {
+		mvc.perform(get("/v3/api-docs"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.paths['/api/v1/auth/login'].post").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/diaries'].get").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/pages/{pageId}'].get").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/notifications'].get").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/notifications/unread-count'].get").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/notifications/{notificationId}'].patch").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/notifications/{notificationId}'].delete").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/notifications'].get.security[0].bearerAuth").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/notifications'].get.responses['401'].content['application/problem+json'].schema['$ref']").value("#/components/schemas/NotificationAuthenticationProblem"))
+			.andExpect(jsonPath("$.paths['/api/v1/notifications/{notificationId}'].patch.responses['404']").exists())
+			.andExpect(jsonPath("$.paths['/api/v1/notifications/{notificationId}'].delete.responses['204'].content").doesNotExist());
+	}
+
+	@Test
 	void servesSwaggerUiWithoutToken() throws Exception {
 		mvc.perform(get("/swagger-ui.html")).andExpect(status().is3xxRedirection());
 		mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());

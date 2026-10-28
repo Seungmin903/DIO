@@ -53,13 +53,77 @@ export function strokePath(points) {
   const [first] = points
   // round linecap으로 단순 탭도 점을 남긴다.
   if (points.length === 1) return `M${first.x} ${first.y}l0.01 0`
-  return `M${first.x} ${first.y}` + points.slice(1).map((p) => `L${p.x} ${p.y}`).join('')
+  if (points.length === 2) return `M${first.x} ${first.y}L${points[1].x} ${points[1].y}`
+  // 점과 점을 직선으로 이으면 작은 동그라미가 다각형처럼 각진다. 입력 점을 조절점으로 두고 이웃 점의 가운데를 잇는
+  // 2차 곡선으로 그린다(점 수만큼의 명령이라 미리보기 비용은 같다). 시작 · 끝점은 그대로 지난다.
+  let path = `M${first.x} ${first.y}`
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i], q = points[i + 1]
+    path += `Q${p.x} ${p.y} ${(p.x + q.x) / 2} ${(p.y + q.y) / 2}`
+  }
+  const last = points[points.length - 1]
+  return path + `L${last.x} ${last.y}`
 }
 
-// 원형 펜촉을 구간마다 이어 붙인다. 되짚기에서도 끝을 한 점으로 접지 않는다.
-// 모든 부분 도형은 같은 winding으로 채워 겹침이 빈틈을 만들지 않는다.
+const boundedTangent = (value, delta) => delta === 0 ? 0 : delta * Math.max(0, Math.min(3, value / delta))
+
+// 두 점 사이 곡선 위의 점. 앞뒤 점으로 접선을 잡되 구간 길이 비율로 줄여(chordal) 점 간격이 고르지 않아도 튀지 않는다.
+function curvePoint(p0, a, b, p3, t) {
+  const dab = Math.hypot(b.x - a.x, b.y - a.y)
+  const d0 = Math.hypot(a.x - p0.x, a.y - p0.y), d3 = Math.hypot(p3.x - b.x, p3.y - b.y)
+  const ka = dab / ((d0 + dab) || 1), kb = dab / ((dab + d3) || 1)
+  // cubic Bézier 제어점(a + ta/3, b - tb/3)을 구간 경계 안에 제한한다.
+  // 얇은 ㄱ자도 기존 저장 AABB 밖으로 부풀지 않으며 원본 점·크기는 유지한다.
+  const tax = boundedTangent((b.x - p0.x) * ka, b.x - a.x), tay = boundedTangent((b.y - p0.y) * ka, b.y - a.y)
+  const tbx = boundedTangent((p3.x - a.x) * kb, b.x - a.x), tby = boundedTangent((p3.y - a.y) * kb, b.y - a.y)
+  const t2 = t * t, t3 = t2 * t, h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2
+  return { x: h00 * a.x + h10 * tax + h01 * b.x + h11 * tbx, y: h00 * a.y + h10 * tay + h01 * b.y + h11 * tby }
+}
+
+// Render-only samples: document coordinates, pressure and sensor records stay intact.
+// Use a per-segment budget so preview chunks and the saved stroke share geometry.
+export function samplePenCurve(points, startDistance = 0, { first = 0, last = points.length - 1 } = {}) {
+  if (!points.length) return []
+  const sampled = [{ ...points[first], inkDistance: points[first].inkDistance ?? startDistance }]
+  let travelled = startDistance
+  for (let i = first + 1; i <= last; i++) {
+    const a = points[i - 1], b = points[i], p0 = points[i - 2] ?? a, p3 = points[i + 1] ?? b
+    const length = Math.hypot(b.x - a.x, b.y - a.y)
+    const from = a.inkDistance ?? travelled, to = b.inkDistance ?? from + length
+    const curved = [0.25, 0.5, 0.75].some(t => {
+      const p = curvePoint(p0, a, b, p3, t)
+      return Math.hypot(p.x - a.x - (b.x - a.x) * t, p.y - a.y - (b.y - a.y) * t) > 0.01
+    })
+    const steps = Math.min(512, Math.max(curved ? 2 : 1, Math.ceil(length / 6 - 1e-9)))
+    for (let j = 1; j <= steps; j++) {
+      const t = j / steps
+      const point = j === steps ? { ...b } : { ...a,
+        ...(curved ? curvePoint(p0, a, b, p3, t) : { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }),
+        pressure: (a.pressure ?? 1) + ((b.pressure ?? 1) - (a.pressure ?? 1)) * t }
+      if (j !== steps) for (const key of Object.keys(SENSOR_PRECISION)) {
+        if (a[key] != null && b[key] != null) point[key] = a[key] + (b[key] - a[key]) * t
+      }
+      point.inkDistance = from + (to - from) * t
+      sampled.push(point)
+    }
+    travelled += length
+  }
+  return sampled
+}
+
+// Preview overlaps need the preceding neighbour too; the trailing point is
+// tangent context only, otherwise cached chunks freeze an unfinished curve.
+export function samplePenPart(part) {
+  const points = part.curveBefore ? [part.curveBefore, ...part.points] : part.points
+  return samplePenCurve(points, part.startDistance ?? 0, {
+    first: part.curveBefore ? 1 : 0,
+    last: points.length - (part.continuing ? 2 : 1),
+  })
+}
+
+// Keep the material renderer's continuous, consistently wound nib sweeps.
 export function penContour(points, width, kind) {
-  return penSweeps(points, width, kind).map(piece => piece.path).join('')
+  return penSweeps(samplePenCurve(points), width, kind).map(piece => piece.path).join('')
 }
 
 const polygonPath = points => {
@@ -100,10 +164,11 @@ export function penSweeps(points, width, kind, startDistance = 0, { capStart = t
     pieces.push({ path: polygonPath(vertices), distance, point: p })
   }
   if (clean.length === 1) { arc(clean[0], 0, Math.PI * 2, startDistance); return pieces }
-  let travelled = startDistance, previousAngle
+  let travelled = clean[0].inkDistance ?? startDistance, previousAngle
   for (let i = 1; i < clean.length; i++) {
     const a = clean[i - 1], b = clean[i]
     const length = Math.hypot(b.x - a.x, b.y - a.y)
+    const endDistance = b.inkDistance ?? travelled + length
     const angle = Math.atan2(b.y - a.y, b.x - a.x)
     if (i === 1) { if (capStart) arc(a, angle + Math.PI / 2, Math.PI, travelled) }
     else {
@@ -118,10 +183,10 @@ export function penSweeps(points, width, kind, startDistance = 0, { capStart = t
     pieces.push({ path: polygonPath([
       { x: a.x + da.x - ox, y: a.y + da.y - oy }, { x: b.x + db.x + ox, y: b.y + db.y + oy },
       { x: b.x - db.x + ox, y: b.y - db.y + oy }, { x: a.x - da.x - ox, y: a.y - da.y - oy },
-    ]), distance: travelled + length / 2, point: { ...a,
+    ]), distance: (travelled + endDistance) / 2, point: { ...a,
       ...(a.force != null && b.force != null && { force: (a.force + b.force) / 2 }),
       ...(a.speed != null && b.speed != null && { speed: (a.speed + b.speed) / 2 }) } })
-    travelled += length
+    travelled = endDistance
     previousAngle = angle
     if (i === clean.length - 1 && capEnd) arc(b, angle - Math.PI / 2, Math.PI, travelled)
   }

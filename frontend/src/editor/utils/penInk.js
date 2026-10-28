@@ -1,5 +1,5 @@
 import { simplifyInkPreview } from './inkPreviewGeometry.js'
-import { penSweeps } from './strokes.js'
+import { penSweeps, samplePenPart } from './strokes.js'
 import { fountainInkOpacity } from './penMaterials.js'
 
 const smooth = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t) }
@@ -29,23 +29,8 @@ export function inkPaths(part, width, kind, endPool = false, renderVersion = 2, 
   const key = `${width}:${kind}:${endPool}:${renderVersion}:${preview}`
   const previous = cache.get(part)
   if (previous?.key === key) return previous.paths
-  const points = part.points, sampled = points.length ? [points[0]] : []
-  let totalDistance = 0
-  for (let i = 1; i < points.length; i++) totalDistance += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
-  const spacing = Math.max(6, totalDistance / 512)
-  let length = part.startDistance ?? 0
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1], b = points[i], distance = Math.hypot(b.x - a.x, b.y - a.y)
-    length += distance
-    const steps = Math.max(1, Math.ceil(distance / spacing))
-    for (let j = 1; j <= steps; j++) {
-      const t = j / steps
-      sampled.push({ ...a, x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t,
-        ...(a.force != null && b.force != null && { force: a.force + (b.force - a.force) * t }),
-        ...(a.speed != null && b.speed != null && { speed: a.speed + (b.speed - a.speed) * t }),
-        pressure: (a.pressure ?? 1) + ((b.pressure ?? 1) - (a.pressure ?? 1)) * t })
-    }
-  }
+  const sampled = samplePenPart(part)
+  const length = sampled.at(-1)?.inkDistance ?? part.startDistance ?? 0
   const levels = inkLevels(kind, renderVersion, preview), buckets = levels.map(() => [])
   for (const piece of penSweeps(preview ? simplifyInkPreview(sampled, width) : sampled, width, kind, part.startDistance ?? 0,
     { capStart: !part.key && !endPool, capEnd: !part.continuing })) {
@@ -68,19 +53,21 @@ export function strokeInkLayers(parts, width, kind, renderVersion = 2, preview =
     let total = tail.startDistance ?? 0
     for (let i = 1; i < tail.points.length; i++) total += Math.hypot(tail.points[i].x - tail.points[i - 1].x, tail.points[i].y - tail.points[i - 1].y)
     const ending = []
-    let travelled = 0, previousIndex = Infinity
+    let travelled = 0, previousIndex = Infinity, curveBefore, needsContext = false
     outer: for (let partIndex = parts.length - 1; partIndex >= 0; partIndex--) {
       const part = parts[partIndex], offset = Math.max(0, (part.key ?? 0) - 1)
       for (let i = part.points.length - 1; i >= 0; i--) {
         const index = offset + i
         if (index >= previousIndex) continue
-        const point = part.points[i], before = ending.at(-1)
+        const point = part.points[i]
+        if (needsContext) { curveBefore = point; break outer }
+        const before = ending.at(-1)
         if (before) travelled += Math.hypot(point.x - before.x, point.y - before.y)
         ending.push(point); previousIndex = index
-        if (travelled >= 24) break outer
+        if (travelled >= 24) needsContext = true
       }
     }
-    paths.push(inkPaths({ points: ending.reverse(), startDistance: total - travelled }, width, kind, true, renderVersion, preview))
+    paths.push(inkPaths({ points: ending.reverse(), curveBefore, startDistance: total - travelled }, width, kind, true, renderVersion, preview))
   }
   return inkLevels(kind, renderVersion, preview).map((_, index) => paths.map(part => part[index]).join(''))
 }
