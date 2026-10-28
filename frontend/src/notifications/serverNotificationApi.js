@@ -76,7 +76,8 @@ export function createServerNotificationApi(transport) {
 }
 
 // useNotifications(session.api, session.invitations)へ渡す。アカウント変更時は再生成する。
-export function createServerNotificationSession({ invitations, ...httpOptions }) {
-  return { api: createServerNotificationApi(createNotificationHttpTransport(httpOptions)),
-    invitations: invitations ?? { async get() { throw new NotificationError('INVITATION_NOT_CONNECTED', '초대 상세 연결을 기다리고 있어요.'); } } };
+export function createServerNotificationSession({ invitations, createInvitations, ...httpOptions }) {
+  const transport = createNotificationHttpTransport(httpOptions);
+  return { api: createServerNotificationApi(transport),
+    invitations: invitations ?? createInvitations?.({ transport }) ?? { async get() { throw new NotificationError('INVITATION_NOT_CONNECTED', '초대 상세 연결을 기다리고 있어요.'); } } };
 }

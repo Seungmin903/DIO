@@ -3,9 +3,64 @@ import assert from 'node:assert/strict';
 import { createAuthApi } from '../src/auth/authApi.js';
 import { createAuthenticatedNotificationSession } from '../src/notifications/authenticatedNotifications.js';
 import { notificationErrorNotice } from '../src/notifications/notificationErrorNotice.js';
+import { createNotificationStore } from '../src/notifications/notificationStore.js';
 const tokens = (id, token) => ({ user: { userId: id, email: id+'@example.test', nickname: '회원' }, accessToken: token, refreshToken: 'refresh-'+token, expiresIn: 60 });
 const reply = (data, status=200) => ({ ok: status<400, status, json: async () => data });
 const login = auth => auth.login({email:'member@example.test',password:'DioMember123!'});
+test('공유 어댑터는 알림과 같은 인증 transport와 AbortSignal을 사용한다', async () => {
+  const f=fixture(); await login(f.auth);
+  const requests=[], controller=new AbortController();
+  const session=createAuthenticatedNotificationSession({auth:f.auth,userId:'1',
+    fetchImpl:async (url, options)=>{requests.push({url,...options});return reply({inviteId:'invite-1',status:'PENDING',canOpen:true});},
+    createInvitations:({transport})=>({get:(id,options)=>transport({...options,path:'/test-invitation/'+id})})});
+  f.expire();
+  assert.equal((await session.invitations.get('invite-1',{signal:controller.signal})).inviteId,'invite-1');
+  assert.equal(f.refreshes(),1);
+  assert.equal(requests[0].headers.Authorization,'Bearer access-2');
+  assert.equal(requests[0].signal,controller.signal);
+  assert.equal(requests[0].url,'https://api.example.test/api/v1/test-invitation/invite-1');
+});
+test('계정 전환 뒤 지연된 공유 상세는 전달하지 않고 옛 gateway 재호출도 차단한다',async()=>{
+  const f=fixture();await login(f.auth);let finish,calls=0;
+  const session=createAuthenticatedNotificationSession({auth:f.auth,userId:'1',
+    invitations:{get:()=>{calls++;return new Promise(resolve=>{finish=resolve;});}}});
+  const pending=session.invitations.get('invite-1');
+  f.switchTo('2');await login(f.auth);
+  finish({inviteId:'invite-1',status:'PENDING',canOpen:true});
+  await assert.rejects(pending,e=>e.status===401);
+  await assert.rejects(session.invitations.get('invite-1'),e=>e.status===401);
+  assert.equal(calls,1);
+});
+test('공유 adapter가 취소를 무시해도 닫힌 상세 결과는 전달하지 않는다',async()=>{
+  const f=fixture();await login(f.auth);let finish;
+  const session=createAuthenticatedNotificationSession({auth:f.auth,userId:'1',
+    invitations:{get:()=>new Promise(resolve=>{finish=resolve;})}});
+  const controller=new AbortController();
+  const pending=session.invitations.get('invite-1',{signal:controller.signal});
+  controller.abort();finish({inviteId:'invite-1'});
+  await assert.rejects(pending,{name:'AbortError'});
+  await assert.rejects(session.invitations.get('invite-1',{signal:controller.signal}),{name:'AbortError'});
+});
+test('인증된 공유 상세에서 이동 직전 취소된 초대는 화면 callback을 실행하지 않는다',async()=>{
+  const f=fixture();await login(f.auth);let status='PENDING',moves=0;
+  const session=createAuthenticatedNotificationSession({auth:f.auth,userId:'1',
+    invitations:{get:async id=>({inviteId:id,status,canOpen:status==='PENDING'})}});
+  const store=createNotificationStore({list:async()=>({items:[],nextCursor:null}),count:async()=>({unreadCount:0})},session.invitations);
+  await store.open({id:'n1',notificationType:'DIARY_INVITE',inviteId:'invite-1',readAt:'read'});
+  status='REVOKED';await store.proceedToInvitation(()=>{moves++;});
+  assert.equal(moves,0);assert.equal(store.getSnapshot().invitation.data.status,'REVOKED');
+  store.dispose();
+});
+test('유효한 실제 gateway 응답은 이동 직전 재조회한 상세만 전달한다',async()=>{
+  const f=fixture();await login(f.auth);let calls=0;
+  const session=createAuthenticatedNotificationSession({auth:f.auth,userId:'1',
+    createInvitations:()=>({get:async id=>({inviteId:id,status:'PENDING',canOpen:true,revision:++calls})})});
+  const store=createNotificationStore({list:async()=>({items:[],nextCursor:null}),count:async()=>({unreadCount:0})},session.invitations);
+  await store.open({id:'n1',notificationType:'DIARY_INVITE',inviteId:'invite-1',readAt:'read'});
+  let delivered;await store.proceedToInvitation(detail=>{delivered=detail;});
+  assert.equal(delivered.inviteId,'invite-1');assert.equal(delivered.revision,2);
+  store.dispose();
+});
 function fixture(options={}) {
   let time=0, serial=0, activeId='1', refreshes=0;
   const auth=createAuthApi({baseUrl:'https://api.example.test/api',now:()=>time,fetchImpl:async url=>{

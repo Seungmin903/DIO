@@ -26,9 +26,9 @@ export function useSharedNotifications() {
 }
 
 
-export function AuthenticatedNotificationProvider({ auth, userId, children }) {
+export function AuthenticatedNotificationProvider({ auth, userId, createInvitations, children }) {
   const sessionKey = auth.getSessionKey();
-  const session = useMemo(() => createAuthenticatedNotificationSession({ auth, userId }), [auth, userId, sessionKey]);
+  const session = useMemo(() => createAuthenticatedNotificationSession({ auth, userId, createInvitations }), [auth, userId, sessionKey, createInvitations]);
   return createElement(NotificationProvider, { key: sessionKey, api: session.api, invitations: session.invitations }, children);
 }
 export function useOptionalSharedNotifications() { return useContext(NotificationContext); }
