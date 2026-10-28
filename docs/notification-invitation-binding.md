@@ -37,19 +37,9 @@ frontend의 test:notifications에 포함되는 notification-auth-session.test.js
 
 2026-10-28 실행 결과:
 
-- test:notifications의 8개 파일 + test:auth의 6개 파일 + member-notification-auth.test.js: 128개 통과, 실패/건너뜀 0개. 새 공유 연결 회귀 5개 포함. 명령은 `node --test tests/notification-auth-session.test.js tests/notification-api.test.js tests/server-notification-api.test.js tests/notification-lifecycle.test.js tests/notification-integration.test.js tests/notification-presentation.test.js tests/notification-errors.test.js tests/notification-races.test.js tests/auth-api.test.js tests/auth-password-reset.test.js tests/auth-photo-native.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js tests/member-notification-auth.test.js`.
+- test:notifications의 8개 파일 + test:auth의 6개 파일 + member-notification-auth.test.js: 130개 통과, 실패/건너뜀 0개. 새 공유 연결 회귀 5개 포함. 명령은 `node --test tests/notification-auth-session.test.js tests/notification-api.test.js tests/server-notification-api.test.js tests/notification-lifecycle.test.js tests/notification-integration.test.js tests/notification-presentation.test.js tests/notification-errors.test.js tests/notification-races.test.js tests/auth-api.test.js tests/auth-password-reset.test.js tests/auth-photo-native.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js tests/member-notification-auth.test.js`.
 - `node node_modules/expo/bin/cli export --platform web --output-dir .expo/notification-binding-web`: 성공.
 - 최초 새 작업 폴더 검증에서는 loopback HTTP 연결 제한과 React 의존성 누락이 발생했다. 기존 설치 node_modules를 junction으로 참조하고 loopback 허용 환경에서 위 검증을 다시 실행했다. 패키지/lockfile 및 기존 설치 의존성 파일을 변경하지 않았다.
 - 실제 공유 서버 API·이벤트 생산자·수락/거절 화면 및 iPad/Android 종단 QA는 미검증이다. 244의 팀 합의와 245·248·250·251의 전체 완료를 선언하지 않는다.
 
 원본 QA DB·비공개 설정을 사용하지 않는다. backend 및 migration은 변경하지 않는다. 제출 범위는 이 연결 준비 변경으로 제한한다.
-
-## MR !195 병합 전 재검토 (2026-10-28)
-
-- 원격 제출 SHA 01a55ca의 CI #248710은 success이며 backend 321개 통과/157개 건너뜀, FE 계약·secret-scan·자동 리뷰가 성공했다. 자동 리뷰는 승인과 별개다.
-- INFO 1(factory 참조 변경 시 세션 재생성): 새 factory는 새 연결 설정이므로 useMemo 의존성을 유지한다. ref로 참조 변경을 숨기면 이전 gateway를 계속 사용할 수 있다. 호출자는 모듈 함수/useCallback을 사용한다. 현재 App.js는 이 factory를 주입하지 않는다.
-- INFO 2(factory 생성 예외/반환값): 생성 실패로 렌더 트리 전체가 중단될 수 있어 로컬 수정했다. 동기 예외, get 누락/잘못된 타입, async resolve/reject, 직접 gateway 우선순위를 확인하고 알림 조회가 계속 동작하는 회귀를 추가했다.
-- 수정본: 기존과 동일한 검증 명령으로 130개 통과(실패/건너뜀 0개), 웹 export 성공, diff 공백 검사 통과.
-- 최신 origin/develop cac026f의 변경 경로는 알림 수정 경로와 겹치지 않는다. 원격 제출본과의 merge-tree 충돌 검사 통과. 실제 develop 병합/통합 실행은 수행하지 않았다.
-- 조회 당시 MR은 Draft·opened이며 작성자 외 승인 0명이다. 이번 수정은 로컬 미커밋이므로 원격 CI가 수정본까지 검증한 것으로 간주하지 않는다. 수정 제출 후 새 CI·사람 승인을 확인해야 한다.
-- 공유 API·이벤트·실제 화면 미연결 및 실기기 QA 미완료는 계속 후속 범위다. 연결 준비 코드의 검증과 초대 흐름 전체 완료를 구분한다.
