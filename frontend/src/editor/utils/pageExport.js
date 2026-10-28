@@ -1,6 +1,7 @@
 import { colorTemplateXml, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from './pageGeometry.js'
 import { templateReference } from '../templates/catalog.js'
+import { isStudyPlannerId, studyPlannerSvg } from '../templates/studyPlanner.js'
 import { normalizeTextLink } from './textFormats.js'
 import { EDITOR_SHAPES, SHAPE_BORDER_STYLES } from './editorShapes.js'
 import { RETIRED_TEXT_FONTS, TEXT_FONTS } from './text.js'
@@ -50,7 +51,7 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
   try { template = templateReference(page) }
   catch (error) { throw new PageExportError('EXPORT_TEMPLATE_FAILED', error.message, error) }
   // 종이색과 SVG 참조를 분리한다. 배경은 사용자 요소나 보조 UI가 아니다.
-  return { pageId: page.id, width, height, pixelWidth, pixelHeight, background: normalizePaperAppearance(page.paperAppearance).backgroundColor, paperAppearance: normalizePaperAppearance(page.paperAppearance), template, objects }
+  return { pageId: page.id, width, height, pixelWidth, pixelHeight, background: normalizePaperAppearance(page.paperAppearance).backgroundColor, paperAppearance: normalizePaperAppearance(page.paperAppearance), template, objects, ...(page.planner ? { planner: JSON.parse(JSON.stringify(page.planner)) } : {}) }
 }
 
 /** 출력 작업이 만든 임시 참조만 소유한다. 화면 표시 캐시/원본 파일은 건드리지 않는다. */
@@ -65,7 +66,8 @@ export async function prepareExportSnapshot(snapshot, resolveImage, resolveTempl
     if (snapshot.template) {
       try {
         if (!resolveTemplate) throw new Error('Missing template resolver')
-        backgroundXml = await resolveTemplate(snapshot.template)
+        const planner = isStudyPlannerId(snapshot.template.backgroundAssetId)
+        backgroundXml = planner ? studyPlannerSvg(snapshot.template.backgroundAssetId.endsWith('portrait') ? 'portrait' : 'landscape', snapshot.planner) : await resolveTemplate(snapshot.template)
         if (!backgroundXml) throw new Error('Empty template')
         backgroundXml = colorTemplateXml(backgroundXml, snapshot.paperAppearance)
       } catch (error) { throw new PageExportError('EXPORT_TEMPLATE_FAILED', '속지를 준비하지 못했어요. 다시 시도해 주세요.', error) }

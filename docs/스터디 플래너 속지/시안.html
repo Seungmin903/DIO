@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스터디 플래너 속지</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+<style>
+:root { --bg:#CED9EE; --surface:#FFFFFF; --muted:#EEF2F9; --primary:#6E92C6; --text:#0B1957; --sub:#5B6B8C; --line:#DCE5F1; }
+* { box-sizing:border-box; }
+html, body { margin:0; height:100%; }
+body { background:var(--bg); color:var(--text); font:600 12.5px/1.5 -apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif; }
+.app { display:flex; flex-direction:column; height:100vh; }
+.bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:10px 16px; background:var(--surface); box-shadow:0 2px 10px rgba(11,25,87,.08); z-index:2; }
+.grp { display:flex; align-items:center; gap:4px; padding:3px; background:var(--muted); border-radius:11px; }
+.grp button { border:0; background:transparent; color:var(--text); font:inherit; font-weight:700; height:34px; min-width:34px; padding:0 10px; border-radius:8px; cursor:pointer; }
+.grp button.on { background:var(--surface); font-weight:800; box-shadow:0 1px 3px rgba(11,25,87,.12); }
+.sw { width:26px; height:26px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; }
+.sw.on { box-shadow:0 0 0 2px var(--primary); }
+.lbl { font-size:12px; font-weight:700; color:var(--sub); }
+.sep { width:1px; height:24px; background:var(--line); }
+.stage { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:16px; overflow:hidden; }
+#page { background:#fff; border-radius:6px; box-shadow:0 6px 24px rgba(11,25,87,.14); touch-action:none; user-select:none; -webkit-user-select:none; max-width:100%; max-height:100%; }
+.hint { position:fixed; right:16px; bottom:16px; max-width:260px; background:var(--surface); border-radius:16px; padding:12px 14px; box-shadow:0 6px 24px rgba(11,25,87,.14); font-size:12px; line-height:1.55; }
+.hint b { font-weight:800; } .hint ul { margin:6px 0 0; padding-left:16px; } .hint .x { float:right; border:0; background:none; font-size:16px; cursor:pointer; color:var(--sub); }
+body.bare .bar, body.bare .hint { display:none; }
+body.bare { background:#fff; } body.bare .stage { padding:0; display:block; } body.bare #page { box-shadow:none; border-radius:0; max-width:none; max-height:none; }
+@media (max-width:700px) { .hint { display:none; } .bar { padding:8px 16px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <div class="grp" id="orient"><button data-o="land" class="on">가로</button><button data-o="port">세로</button></div>
+    <div class="sep"></div>
+    <div class="grp" id="tools">
+      <button data-t="hand" title="손">손</button>
+      <button data-t="pen" title="펜">펜</button>
+      <button data-t="hl" class="on" title="형광펜">형광펜</button>
+      <button data-t="eraser" title="지우개">지우개</button>
+    </div>
+    <div id="swatches" style="display:flex;gap:6px;align-items:center"></div>
+    <div class="sep"></div>
+    <div class="grp" id="paper"><button data-p="#FFFFFF" class="on">흰 종이</button><button data-p="#FFF8E7">아이보리</button><button data-p="#EDF3FA">하늘</button></div>
+    <div class="grp"><button id="undo">되돌리기</button><button id="redo">다시</button><button id="clear">비우기</button><button id="demo">예시</button></div>
+  </div>
+  <div class="stage"><svg id="page" xmlns="http://www.w3.org/2000/svg"></svg></div>
+</div>
+<div class="hint" id="hint"><button class="x" onclick="this.parentNode.remove()">×</button>
+  <b>해 보기</b>
+  <ul>
+    <li><b>형광펜</b>으로 시간표를 쓸면 지나간 10분 칸이 통째로 칠해지고 합계가 바뀐다</li>
+    <li>할 일 줄을 <b>형광펜</b>으로 쓸면 그 줄만 반듯하게 칠해진다</li>
+    <li><b>펜</b>으로 네모 칸을 톡 · 쓱 하면 그 펜 색 체크</li>
+    <li>요일 · 기분도 펜 색으로 표시, 나머지는 자유 필기</li>
+    <li><b>지우개</b>로 칸 · 체크 · 획을 지운다</li>
+  </ul>
+</div>
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const HL = ['#FFE066', '#FFB3C7', '#B5EAD7', '#A0C4FF', '#D0B8FF', '#FFD6A5', '#C7F0A0'];
+const PEN = ['#1D1D1F', '#14B8A6', '#22A06B', '#F59E0B', '#EF476F', '#9B6BDF', '#6B7280'];
+const INK = '#0B1957', FRAME = '#9FB6D9', DASH = '#B9C7DE', LABEL = '#6E92C6', SOFT = '#EDF3FA';
+const HOUR0 = 6, ROWS = 24, COLS = 6;
+const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
+
+// 페이지 좌표 기준 영역. 가로 1280×800 · 세로 800×1280
+const LAYOUT = {
+  land: { w: 1280, h: 800,
+    date: { x: 36, y: 32, w: 400, h: 64 }, dday: { x: 452, y: 32, w: 140, h: 64 }, goal: { x: 608, y: 32, w: 396, h: 64 }, total: { x: 1020, y: 32, w: 224, h: 64 },
+    todo: { x: 36, y: 116, w: 400, h: 412, rows: 13 }, memo: { x: 36, y: 548, w: 400, h: 216 },
+    time: { x: 456, y: 116, w: 444, h: 648 },
+    sum: { x: 920, y: 116, w: 324, h: 300 }, review: { x: 920, y: 436, w: 324, h: 236 }, mood: { x: 920, y: 692, w: 324, h: 72 } },
+  port: { w: 800, h: 1280,
+    date: { x: 32, y: 28, w: 488, h: 60 }, dday: { x: 536, y: 28, w: 232, h: 60 }, goal: { x: 32, y: 100, w: 488, h: 56 }, total: { x: 536, y: 100, w: 232, h: 56 },
+    todo: { x: 32, y: 176, w: 468, h: 532, rows: 17 }, memo: null,
+    time: { x: 520, y: 176, w: 248, h: 1072 },
+    sum: { x: 32, y: 728, w: 468, h: 236 }, review: { x: 32, y: 984, w: 468, h: 180 }, mood: { x: 32, y: 1184, w: 468, h: 64 } },
+};
+
+let orient = 'land', tool = 'hl', hlColor = HL[0], penColor = PEN[0], paper = '#FFFFFF';
+let S = blank(), past = [], future = [], ghost = null;
+
+function blank() { return { cells: {}, bands: {}, checks: {}, day: null, mood: null, strokes: [], notes: [] }; }
+function snap() { past.push(JSON.stringify(S)); if (past.length > 80) past.shift(); future = []; }
+function L() { return LAYOUT[orient]; }
+
+// ---------- 시간표 좌표 ----------
+function grid() {
+  const t = L().time, head = 26, hc = orient === 'land' ? 44 : 38;
+  return { x0: t.x + hc, y0: t.y + head, cw: (t.w - hc) / COLS, rh: (t.h - head) / ROWS, t, head, hc };
+}
+function cellAt(x, y) {
+  const g = grid(); const c = Math.floor((x - g.x0) / g.cw), r = Math.floor((y - g.y0) / g.rh);
+  return c >= 0 && c < COLS && r >= 0 && r < ROWS ? r + ',' + c : null;
+}
+function todoGeom() {
+  const t = L().todo, head = 26, rh = (t.h - head) / t.rows;
+  return { t, head, rh, box: 18, tx: t.x + 40, tw: t.w - 52 };
+}
+function todoRowAt(x, y) {
+  const g = todoGeom(); const r = Math.floor((y - g.t.y - g.head) / g.rh);
+  if (r < 0 || r >= g.t.rows || x < g.t.x || x > g.t.x + g.t.w) return null;
+  return { r, inBox: x < g.t.x + 36 };
+}
+function inRect(p, R) { return R && p.x >= R.x && p.x <= R.x + R.w && p.y >= R.y && p.y <= R.y + R.h; }
+function sample(pts, step = 3) {
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1] || a; const d = Math.hypot(b.x - a.x, b.y - a.y), n = Math.max(1, Math.ceil(d / step));
+    for (let k = 0; k < n; k++) out.push({ x: a.x + (b.x - a.x) * k / n, y: a.y + (b.y - a.y) * k / n });
+  }
+  return out;
+}
+function dayGeom() { const d = L().date, r = orient === 'land' ? 13 : 13, x0 = d.x + d.w - 7 * 2 * (r + 3) - 8; return DAYS.map((_, i) => ({ cx: x0 + r + 3 + i * 2 * (r + 3), cy: d.y + d.h / 2 + 6, r })); }
+function moodGeom() { const m = L().mood, n = 5, gap = 10, s = 26, x0 = m.x + m.w - n * (s + gap) - 6; return [...Array(n)].map((_, i) => ({ cx: x0 + s / 2 + i * (s + gap), cy: m.y + m.h / 2 + 8, r: s / 2 })); }
+function hitCircle(list, p) { return list.findIndex(c => Math.hypot(p.x - c.cx, p.y - c.cy) <= c.r + 6); }
+
+// ---------- 그리기 ----------
+const svg = document.getElementById('page');
+function el(tag, attrs, parent, text) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; (parent || svg).appendChild(e); return e; }
+function label(x, y, en, ko, parent) {
+  const t = el('text', { x, y, 'font-size': 11, 'font-weight': 800, fill: LABEL, 'letter-spacing': 1.2 }, parent, en);
+  if (ko) el('tspan', { 'font-weight': 700, fill: '#8AA3C8', 'letter-spacing': 0, dx: 6 }, t, ko);
+}
+function frame(R, parent, fill) { return el('rect', { x: R.x, y: R.y, width: R.w, height: R.h, rx: 10, fill: fill || 'none', stroke: FRAME, 'stroke-width': 1.25 }, parent); }
+function dline(x1, y1, x2, y2, parent, dash = '2 4', color = DASH, w = 1) { return el('line', { x1, y1, x2, y2, stroke: color, 'stroke-width': w, 'stroke-dasharray': dash, 'stroke-linecap': 'round' }, parent); }
+function hand(x, y, text, color, size = 22, parent, anchor) { return el('text', { x, y, fill: color, 'font-size': size, 'font-family': '"Nanum Pen Script", cursive', 'text-anchor': anchor || 'start' }, parent, text); }
+function smooth(pts) {
+  if (!pts.length) return '';
+  let d = `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 1; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1]; d += ` Q${a.x.toFixed(1)} ${a.y.toFixed(1)} ${((a.x + b.x) / 2).toFixed(1)} ${((a.y + b.y) / 2).toFixed(1)}`; }
+  const z = pts[pts.length - 1]; return d + ` L${z.x.toFixed(1)} ${z.y.toFixed(1)}`;
+}
+function checkPath(cx, cy, s) { return `M${cx - s * .42} ${cy + s * .02} L${cx - s * .1} ${cy + s * .34} L${cx + s * .48} ${cy - s * .38}`; }
+function fmt(min) { const h = Math.floor(min / 60), m = min % 60; return { h, m }; }
+function hhmm(r, c) { const t = (HOUR0 + r) * 60 + c * 10; return String(Math.floor(t / 60) % 24).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); }
+
+function render() {
+  const lay = L();
+  svg.setAttribute('viewBox', `0 0 ${lay.w} ${lay.h}`);
+  svg.setAttribute('width', lay.w); svg.setAttribute('height', lay.h);
+  fit();
+  svg.innerHTML = '';
+  el('rect', { x: 0, y: 0, width: lay.w, height: lay.h, fill: paper });
+  drawHeader(); drawTodo(); drawTime(); drawSum(); drawReview(); drawMood(); if (lay.memo) drawMemo();
+  const top = el('g', {});
+  for (const n of S.notes.filter(n => n.o === orient || !n.o)) hand(n.x, n.y, n.text, n.color, n.size || 22, top, n.anchor);
+  for (const s of S.strokes.filter(s => s.o === orient)) el('path', { d: smooth(s.pts), fill: 'none', stroke: s.color, 'stroke-width': s.hl ? 16 : 2.4, 'stroke-opacity': s.hl ? .42 : 1, 'stroke-linecap': s.hl ? 'butt' : 'round', 'stroke-linejoin': 'round' }, top);
+  if (ghost) drawGhost(top);
+  if (window.MAP) drawMap();
+}
+
+function drawHeader() {
+  const lay = L(), g = el('g', {});
+  // 날짜 · 요일
+  const d = lay.date; frame(d, g);
+  label(d.x + 14, d.y + 20, 'DATE', '날짜', g);
+  const ny = d.y + d.h / 2 + 12;
+  el('text', { x: d.x + 14, y: ny, 'font-size': 13, 'font-weight': 700, fill: '#A9B8D2' }, g, '20     .        .');
+  dayGeom().forEach((c, i) => {
+    const on = S.day && S.day.i === i;
+    if (on && S.day.hl) el('circle', { cx: c.cx, cy: c.cy, r: c.r, fill: S.day.color, 'fill-opacity': .55 }, g);
+    el('text', { x: c.cx, y: c.cy + 4.5, 'text-anchor': 'middle', 'font-size': 12.5, 'font-weight': 800, fill: i === 5 ? '#6E92C6' : i === 6 ? '#E5848A' : INK }, g, DAYS[i]);
+    if (on && !S.day.hl) el('ellipse', { cx: c.cx, cy: c.cy, rx: c.r + 2, ry: c.r, transform: `rotate(-12 ${c.cx} ${c.cy})`, fill: 'none', stroke: S.day.color, 'stroke-width': 2.2 }, g);
+  });
+  // D-day
+  const dd = lay.dday; frame(dd, g);
+  label(dd.x + 14, dd.y + 20, 'D-DAY', null, g);
+  el('text', { x: dd.x + 14, y: dd.y + dd.h - 14, 'font-size': 20, 'font-weight': 900, fill: '#C3CFE3' }, g, 'D-');
+  dline(dd.x + 40, dd.y + dd.h - 12, dd.x + dd.w - 14, dd.y + dd.h - 12, g);
+  // 목표
+  const gl = lay.goal; frame(gl, g);
+  label(gl.x + 14, gl.y + 20, 'GOAL', '오늘의 한 줄', g);
+  dline(gl.x + 14, gl.y + gl.h - 12, gl.x + gl.w - 14, gl.y + gl.h - 12, g);
+  // 합계 (자동)
+  const t = lay.total; frame(t, g, SOFT);
+  label(t.x + 14, t.y + 20, 'TOTAL', '자동', g);
+  const cells = Object.keys(S.cells); const { h, m } = fmt(cells.length * 10);
+  const ty = t.y + t.h - 13;
+  const big = el('text', { x: t.x + 14, y: ty, 'font-size': 26, 'font-weight': 900, fill: INK, 'letter-spacing': -.5 }, g);
+  el('tspan', {}, big, h); el('tspan', { 'font-size': 13, 'font-weight': 800, fill: LABEL, dx: 2 }, big, 'H');
+  el('tspan', { dx: 8 }, big, String(m).padStart(2, '0')); el('tspan', { 'font-size': 13, 'font-weight': 800, fill: LABEL, dx: 2 }, big, 'M');
+  if (cells.length) {
+    const rc = cells.map(k => k.split(',').map(Number)).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const a = rc[0], z = rc[rc.length - 1];
+    el('text', { x: t.x + t.w - 12, y: t.y + 20, 'text-anchor': 'end', 'font-size': 10.5, 'font-weight': 700, fill: '#5B6B8C' }, g, `${hhmm(a[0], a[1])} – ${hhmm(z[0], z[1] + 1)}`);
+  }
+}
+
+function drawTodo() {
+  const g = el('g', {}), T = todoGeom(), t = T.t;
+  frame(t, g);
+  label(t.x + 14, t.y + 18, 'TO DO', '할 일', g);
+  for (let r = 0; r < t.rows; r++) {
+    const y = t.y + T.head + r * T.rh;
+    const band = S.bands[orient + r];
+    if (band) el('rect', { x: T.tx - 4, y: y + T.rh * .2, width: T.tw + 4, height: T.rh * .6, rx: 3, fill: band, 'fill-opacity': .6 }, g);
+    if (r > 0) dline(t.x + 10, y, t.x + t.w - 10, y, g);
+    const bx = t.x + 14, by = y + (T.rh - T.box) / 2;
+    el('rect', { x: bx, y: by, width: T.box, height: T.box, rx: 5, fill: '#fff', stroke: FRAME, 'stroke-width': 1.25 }, g);
+    const ck = S.checks[orient + r];
+    if (ck) el('path', { d: checkPath(bx + T.box / 2, by + T.box / 2, T.box * 1.15), fill: 'none', stroke: ck, 'stroke-width': 2.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
+  }
+}
+
+function drawTime() {
+  const g = el('g', {}), G = grid(), t = G.t;
+  frame(t, g);
+  // 머리줄: 10분 눈금
+  el('text', { x: t.x + G.hc / 2, y: t.y + 17, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 800, fill: LABEL }, g, 'TIME');
+  for (let c = 1; c <= COLS; c++) el('text', { x: G.x0 + c * G.cw - 4, y: t.y + 17, 'text-anchor': 'end', 'font-size': 9.5, 'font-weight': 700, fill: '#8AA3C8' }, g, c * 10);
+  el('line', { x1: t.x, y1: G.y0, x2: t.x + t.w, y2: G.y0, stroke: FRAME, 'stroke-width': 1.25 }, g);
+  el('line', { x1: G.x0, y1: t.y, x2: G.x0, y2: t.y + t.h, stroke: FRAME, 'stroke-width': 1.25 }, g);
+  // 칠한 칸: 같은 줄 · 같은 색 연속 칸은 하나의 막대로
+  const fills = el('g', {}, g);
+  for (let r = 0; r < ROWS; r++) {
+    let c = 0;
+    while (c < COLS) {
+      const col = S.cells[r + ',' + c];
+      if (!col) { c++; continue; }
+      let e = c; while (e + 1 < COLS && S.cells[r + ',' + (e + 1)] === col) e++;
+      el('rect', { x: G.x0 + c * G.cw + 1.5, y: G.y0 + r * G.rh + 2.5, width: (e - c + 1) * G.cw - 3, height: G.rh - 5, rx: 3, fill: col, 'fill-opacity': .78 }, fills);
+      c = e + 1;
+    }
+  }
+  // 안쪽 칸: 점선 윤곽
+  for (let r = 1; r < ROWS; r++) {
+    const y = G.y0 + r * G.rh, strong = (HOUR0 + r) % 6 === 0;
+    dline(t.x + 6, y, t.x + t.w - 6, y, g, strong ? '4 3' : '2 4', strong ? '#9FB6D9' : DASH, strong ? 1.1 : 1);
+  }
+  for (let c = 1; c < COLS; c++) dline(G.x0 + c * G.cw, G.y0 + 3, G.x0 + c * G.cw, t.y + t.h - 3, g, c === 3 ? '4 3' : '1.5 4', c === 3 ? '#A9BBD8' : DASH);
+  for (let r = 0; r < ROWS; r++) {
+    const hr = (HOUR0 + r) % 24;
+    el('text', { x: t.x + G.hc / 2, y: G.y0 + r * G.rh + G.rh / 2 + 4, 'text-anchor': 'middle', 'font-size': orient === 'land' ? 11 : 12, 'font-weight': 800, fill: hr < 6 ? '#A9B8D2' : INK }, g, hr);
+  }
+}
+
+function sums() {
+  const m = {}; for (const k in S.cells) m[S.cells[k]] = (m[S.cells[k]] || 0) + 1;
+  return Object.entries(m).sort((a, b) => b[1] - a[1]);
+}
+function drawSum() {
+  const g = el('g', {}), s = L().sum; frame(s, g);
+  label(s.x + 14, s.y + 20, 'COLORS', '색별 기록 · 자동', g);
+  const list = sums(), max = Math.max(1, ...list.map(x => x[1]));
+  const rows = 7, rh = (s.h - 40) / rows, lw = orient === 'land' ? 74 : 110;
+  for (let i = 0; i < rows; i++) {
+    const y = s.y + 34 + i * rh, cy = y + rh / 2;
+    const it = list[i];
+    el('rect', { x: s.x + 14, y: cy - 8, width: 16, height: 16, rx: 5, fill: it ? it[0] : '#fff', stroke: it ? 'none' : DASH, 'stroke-dasharray': it ? '' : '2 3' }, g);
+    dline(s.x + 38, cy + 8, s.x + 38 + lw, cy + 8, g);
+    const bx = s.x + 50 + lw, bw = s.w - (50 + lw) - 64;
+    el('rect', { x: bx, y: cy - 4, width: bw, height: 8, rx: 4, fill: SOFT }, g);
+    if (it) {
+      el('rect', { x: bx, y: cy - 4, width: Math.max(8, bw * it[1] / max), height: 8, rx: 4, fill: it[0] }, g);
+      const { h, m } = fmt(it[1] * 10);
+      el('text', { x: s.x + s.w - 14, y: cy + 4.5, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 800, fill: INK }, g, `${h}h ${String(m).padStart(2, '0')}m`);
+    }
+  }
+}
+function lined(R, en, ko, g, step = 30) {
+  frame(R, g); label(R.x + 14, R.y + 20, en, ko, g);
+  for (let y = R.y + 32 + step; y < R.y + R.h - 6; y += step) dline(R.x + 14, y, R.x + R.w - 14, y, g);
+}
+function drawReview() { lined(L().review, 'REVIEW', '오늘 돌아보기', el('g', {})); }
+function drawMemo() { lined(L().memo, 'MEMO', '메모 · 꾸미기', el('g', {})); }
+function drawMood() {
+  const g = el('g', {}), m = L().mood; frame(m, g);
+  label(m.x + 14, m.y + 20, 'MOOD', '오늘 만족도', g);
+  moodGeom().forEach((c, i) => {
+    const on = S.mood && i <= S.mood.i;
+    const hp = `M${c.cx} ${c.cy + c.r * .75} C${c.cx - c.r * 1.3} ${c.cy - c.r * .1} ${c.cx - c.r * .55} ${c.cy - c.r * 1.05} ${c.cx} ${c.cy - c.r * .35} C${c.cx + c.r * .55} ${c.cy - c.r * 1.05} ${c.cx + c.r * 1.3} ${c.cy - c.r * .1} ${c.cx} ${c.cy + c.r * .75}Z`;
+    el('path', { d: hp, fill: on ? S.mood.color : '#fff', 'fill-opacity': on ? (S.mood.hl ? .75 : 1) : 1, stroke: on ? S.mood.color : FRAME, 'stroke-width': 1.4, 'stroke-dasharray': on ? '' : '2 3' }, g);
+  });
+}
+
+function drawGhost(g) {
+  const gh = ghost;
+  if (gh.cells) { const G = grid(); for (const k of gh.cells) { const [r, c] = k.split(',').map(Number); el('rect', { x: G.x0 + c * G.cw + 1.5, y: G.y0 + r * G.rh + 2.5, width: G.cw - 3, height: G.rh - 5, rx: 3, fill: gh.color, 'fill-opacity': .22, stroke: shade(gh.color), 'stroke-width': 1.2, 'stroke-dasharray': '3 2' }, g); } }
+  if (gh.rows) { const T = todoGeom(); for (const r of gh.rows) { const y = T.t.y + T.head + r * T.rh; el('rect', { x: T.tx - 4, y: y + T.rh * .2, width: T.tw + 4, height: T.rh * .6, rx: 3, fill: gh.color, 'fill-opacity': .22, stroke: shade(gh.color), 'stroke-width': 1.2, 'stroke-dasharray': '3 2' }, g); } }
+  if (gh.pts && gh.pts.length) el('path', { d: smooth(gh.pts), fill: 'none', stroke: gh.color, 'stroke-width': gh.hl ? 16 : 2.4, 'stroke-opacity': gh.hl ? .42 : 1, 'stroke-linecap': gh.hl ? 'butt' : 'round', 'stroke-linejoin': 'round' }, g);
+}
+function shade(hex) { const n = parseInt(hex.slice(1), 16); const f = v => Math.round(v * .62).toString(16).padStart(2, '0'); return '#' + f(n >> 16) + f((n >> 8) & 255) + f(n & 255); }
+
+function drawMap() {
+  const lay = L(), g = el('g', {});
+  const items = [['date', '1'], ['dday', '2'], ['goal', '3'], ['total', '4'], ['todo', '5'], ['time', '6'], ['sum', '7'], ['review', '8'], ['mood', '9'], ['memo', '10']];
+  for (const [k, n] of items) {
+    const R = lay[k]; if (!R) continue;
+    el('rect', { x: R.x, y: R.y, width: R.w, height: R.h, rx: 10, fill: '#6E92C6', 'fill-opacity': .08, stroke: '#E85D8C', 'stroke-width': 2 }, g);
+    const cx = R.x + R.w - 18, cy = R.y + 18;
+    el('circle', { cx, cy, r: 14, fill: '#E85D8C' }, g);
+    el('text', { x: cx, y: cy + 5, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 900, fill: '#fff' }, g, n);
+  }
+}
+
+// ---------- 입력 ----------
+function toPage(e) { const r = svg.getBoundingClientRect(), lay = L(); return { x: (e.clientX - r.left) * lay.w / r.width, y: (e.clientY - r.top) * lay.h / r.height }; }
+let drag = null;
+svg.addEventListener('pointerdown', e => {
+  if (tool === 'hand' || drag) return;
+  svg.setPointerCapture(e.pointerId);
+  const p = toPage(e);
+  drag = { id: e.pointerId, pts: [p], start: zoneOf(p) };
+  if (tool === 'eraser') { snap(); eraseAt(p); }
+  else ghost = { pts: drag.pts, color: tool === 'hl' ? hlColor : penColor, hl: tool === 'hl', cells: drag.start === 'time' && tool === 'hl' ? [] : null, rows: drag.start === 'todo' && tool === 'hl' ? [] : null };
+  update();
+});
+svg.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const p = toPage(e); drag.pts.push(p);
+  if (tool === 'eraser') { eraseAt(p); return render(); }
+  update();
+});
+const end = e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  if (e.type === 'pointercancel') { drag = null; ghost = null; return render(); }
+  if (tool !== 'eraser') commit();
+  drag = null; ghost = null; render();
+};
+svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+
+function zoneOf(p) { if (cellAt(p.x, p.y)) return 'time'; const tr = todoRowAt(p.x, p.y); if (tr) return tr.inBox ? 'box' : 'todo'; if (hitCircle(dayGeom(), p) >= 0) return 'day'; if (hitCircle(moodGeom(), p) >= 0) return 'mood'; return 'free'; }
+function update() {
+  if (ghost && ghost.cells) { const set = new Set(); for (const q of sample(drag.pts)) { const k = cellAt(q.x, q.y); if (k) set.add(k); } ghost.cells = [...set]; }
+  if (ghost && ghost.rows) { const set = new Set(); const T = todoGeom(); for (const q of sample(drag.pts)) { const tr = todoRowAt(q.x, q.y); if (tr && q.x >= T.tx - 6) set.add(tr.r); } ghost.rows = [...set]; }
+  render();
+}
+function commit() {
+  const pts = drag.pts, z = drag.start, first = pts[0];
+  const span = Math.hypot(pts[pts.length - 1].x - first.x, pts[pts.length - 1].y - first.y);
+  if (tool === 'hl' && z === 'time') { if (!ghost.cells.length) return; snap(); for (const k of ghost.cells) S.cells[k] = hlColor; return; }
+  if (tool === 'hl' && z === 'todo') { if (!ghost.rows.length) return; snap(); for (const r of ghost.rows) S.bands[orient + r] = hlColor; return; }
+  if (z === 'box') { const tr = todoRowAt(first.x, first.y); snap(); S.checks[orient + tr.r] = tool === 'hl' ? hlColor : penColor; return; }
+  if (z === 'day' && span < 40) { snap(); S.day = { i: hitCircle(dayGeom(), first), color: tool === 'hl' ? hlColor : penColor, hl: tool === 'hl' }; return; }
+  if (z === 'mood' && span < 40) { snap(); S.mood = { i: hitCircle(moodGeom(), first), color: tool === 'hl' ? hlColor : penColor, hl: tool === 'hl' }; return; }
+  if (pts.length < 2) return;
+  snap(); S.strokes.push({ o: orient, pts: pts.map(q => ({ x: +q.x.toFixed(1), y: +q.y.toFixed(1) })), color: tool === 'hl' ? hlColor : penColor, hl: tool === 'hl' });
+}
+function eraseAt(p) {
+  const rad = 12;
+  for (const q of [p, { x: p.x - rad / 2, y: p.y }, { x: p.x + rad / 2, y: p.y }]) { const k = cellAt(q.x, q.y); if (k) delete S.cells[k]; }
+  const tr = todoRowAt(p.x, p.y); if (tr) { if (tr.inBox) delete S.checks[orient + tr.r]; else delete S.bands[orient + tr.r]; }
+  if (hitCircle(dayGeom(), p) >= 0 && S.day && S.day.i === hitCircle(dayGeom(), p)) S.day = null;
+  if (hitCircle(moodGeom(), p) >= 0) S.mood = null;
+  S.strokes = S.strokes.filter(s => s.o !== orient || !s.pts.some(q => Math.hypot(q.x - p.x, q.y - p.y) < rad + (s.hl ? 8 : 2)));
+  S.notes = S.notes.filter(n => n.o !== orient || Math.hypot(n.x + 20 - p.x, n.y - 8 - p.y) > 26);
+}
+
+// ---------- 예시 ----------
+function demo(o) {
+  const s = blank();
+  const runs = [[3, 0, 5, 0], [4, 0, 2, 0], [4, 4, 5, 3], [5, 0, 5, 3], [7, 3, 5, 1], [8, 0, 5, 1], [9, 2, 5, 2], [10, 0, 3, 2], [13, 0, 5, 0], [14, 0, 4, 0], [15, 0, 5, 4], [16, 0, 1, 4]];
+  for (const [r, a, b, ci] of runs) for (let c = a; c <= b; c++) s.cells[r + ',' + c] = HL[ci];
+  const todos = ['수학 쎈 p.120~135', '영단어 Day 14 암기', '국어 비문학 3지문', '과탐 개념 2단원', '오답노트 정리', '인강 1강 + 복습'];
+  const bandc = [0, 3, 1, 2]; const checks = { 0: PEN[0], 1: PEN[4], 2: PEN[1], 4: PEN[5] };
+  for (const oo of ['land', 'port']) {
+    const prev = orient; orient = oo; const lay = L(), T = todoGeom();
+    todos.forEach((tx, r) => { s.notes.push({ o: oo, x: T.tx + 4, y: T.t.y + T.head + r * T.rh + T.rh / 2 + 7, text: tx, color: '#1D1D1F', size: 23 }); });
+    bandc.forEach((ci, r) => s.bands[oo + r] = HL[ci]);
+    for (const r in checks) s.checks[oo + r] = checks[r];
+    const d = lay.date; s.notes.push({ o: oo, x: d.x + 34, y: d.y + d.h / 2 + 13, text: '26   10   27', color: '#1D1D1F', size: 25 });
+    const dd = lay.dday; s.notes.push({ o: oo, x: dd.x + 46, y: dd.y + dd.h - 15, text: '23  수능 모의', color: PEN[4], size: 25 });
+    const gl = lay.goal; s.notes.push({ o: oo, x: gl.x + 18, y: gl.y + gl.h - 16, text: '수학은 끝까지 집중! 폰은 서랍에 ✿', color: PEN[5], size: 25 });
+    const sm = lay.sum, rh = (sm.h - 40) / 7; ['수학', '국어', '영어', '과탐', '복습'].forEach((tx, i) => s.notes.push({ o: oo, x: sm.x + 42, y: sm.y + 34 + i * rh + rh / 2 + 6, text: tx, color: '#1D1D1F', size: 22 }));
+    const rv = lay.review; ['쎈 B단계 3문제 막힘 → 내일 해설 다시', '저녁 집중 잘 됨, 점심 뒤 졸림 ㅠ', '내일은 9시 전에 시작하기'].forEach((tx, i) => s.notes.push({ o: oo, x: rv.x + 18, y: rv.y + 32 + 30 * (i + 1) - 6, text: tx, color: i === 2 ? PEN[1] : '#1D1D1F', size: 22 }));
+    if (lay.memo) { const m = lay.memo; ['오늘의 단어: meticulous 꼼꼼한', '쉬는 시간 10분은 스트레칭'].forEach((tx, i) => s.notes.push({ o: oo, x: m.x + 18, y: m.y + 32 + 30 * (i + 1) - 6, text: tx, color: '#1D1D1F', size: 22 })); }
+    orient = prev;
+  }
+  s.day = { i: 1, color: PEN[4], hl: false }; s.mood = { i: 3, color: '#EF476F', hl: false };
+  return s;
+}
+
+// 문서용 장면: ?scene=fill1 등. 진행 중 상태(ghost)를 고정해 그린다
+function scene(name) {
+  S = blank(); const G = () => grid(); const T = () => todoGeom();
+  const cpt = (r, c, fx = .5, fy = .5) => { const g = G(); return { x: g.x0 + (c + fx) * g.cw, y: g.y0 + (r + fy) * g.rh }; };
+  const wob = (a, b, n = 14, amp = 3) => [...Array(n + 1)].map((_, i) => ({ x: a.x + (b.x - a.x) * i / n, y: a.y + (b.y - a.y) * i / n + Math.sin(i * 1.3) * amp }));
+  const hlFill = (pts, color) => { const set = new Set(); for (const q of sample(pts)) { const k = cellAt(q.x, q.y); if (k) set.add(k); } return [...set]; };
+  const pre = () => { for (let c = 0; c <= 5; c++) S.cells['3,' + c] = HL[0]; for (let c = 0; c <= 1; c++) S.cells['4,' + c] = HL[0]; };
+  if (name === 'fill1' || name === 'fill2') {
+    pre();
+    const pts = [...wob(cpt(4, 2, .1, .42), cpt(4, 5, .85, .62), 12, 2.5), ...wob(cpt(5, 0, .15, .45), cpt(5, 3, .7, .55), 12, 2.5)];
+    // 두 줄을 한 번에 쓸기: 줄 끝에서 펜을 들지 않고 다음 줄 처음으로
+    const path = [...pts.slice(0, 13), cpt(4, 5, .9, .9), cpt(5, 0, .05, .2), ...pts.slice(13)];
+    const cells = hlFill(path, HL[3]);
+    if (name === 'fill1') ghost = { pts: path, color: HL[3], hl: true, cells };
+    else for (const k of cells) S.cells[k] = HL[3];
+  }
+  if (name === 'recolor1' || name === 'recolor2') {
+    pre(); for (let c = 2; c <= 5; c++) S.cells['4,' + c] = HL[3];
+    const path = wob(cpt(4, 2, .2, .5), cpt(4, 3, .8, .5), 8, 2);
+    const cells = hlFill(path);
+    if (name === 'recolor1') ghost = { pts: path, color: HL[1], hl: true, cells }; else for (const k of cells) S.cells[k] = HL[1];
+  }
+  if (name === 'erase') { pre(); for (let c = 2; c <= 3; c++) S.cells['4,' + c] = HL[3]; delete S.cells['3,4']; delete S.cells['3,5']; ghost = { pts: wob(cpt(3, 4, .2, .5), cpt(3, 5, .8, .5), 6, 1), color: '#C9D3E6', hl: true }; }
+  if (name.startsWith('band') || name.startsWith('check')) {
+    const t = T(); const rowY = r => t.t.y + t.head + r * t.rh + t.rh / 2;
+    ['수학 쎈 p.120~135', '영단어 Day 14 암기', '국어 비문학 3지문'].forEach((tx, r) => S.notes.push({ o: orient, x: t.tx + 4, y: rowY(r) + 7, text: tx, color: '#1D1D1F', size: 23 }));
+    S.bands[orient + 0] = HL[0];
+    if (name === 'band1') ghost = { pts: wob({ x: t.tx + 10, y: rowY(1) - 3 }, { x: t.tx + 250, y: rowY(1) + 6 }, 16, 3), color: HL[3], hl: true, rows: [1] };
+    if (name === 'band2') S.bands[orient + 1] = HL[3];
+    if (name === 'check1') { const bx = t.t.x + 14 + t.box / 2, by = rowY(1); S.checks[orient + 0] = PEN[0]; ghost = { pts: [{ x: bx - 12, y: by - 4 }, { x: bx - 9, y: by + 1 }, { x: bx - 6, y: by + 6 }, { x: bx - 3, y: by + 10 }, { x: bx - 1, y: by + 9 }, { x: bx + 4, y: by }, { x: bx + 9, y: by - 9 }, { x: bx + 15, y: by - 16 }, { x: bx + 19, y: by - 19 }], color: PEN[4], hl: false }; }
+    if (name === 'check2') { S.checks[orient + 0] = PEN[0]; S.checks[orient + 1] = PEN[4]; }
+  }
+}
+
+// ---------- 화면 맞춤 · UI ----------
+function fit() {
+  if (document.body.classList.contains('bare')) return;
+  const st = document.querySelector('.stage'), lay = L();
+  const k = Math.min((st.clientWidth - 32) / lay.w, (st.clientHeight - 32) / lay.h, 1.2);
+  svg.style.width = lay.w * k + 'px'; svg.style.height = lay.h * k + 'px';
+}
+window.addEventListener('resize', fit);
+function swatches() {
+  const box = document.getElementById('swatches'); box.innerHTML = '';
+  if (tool !== 'hl' && tool !== 'pen') return;
+  const list = tool === 'hl' ? HL : PEN, cur = tool === 'hl' ? hlColor : penColor;
+  for (const c of list) { const b = document.createElement('button'); b.className = 'sw' + (c === cur ? ' on' : ''); b.style.background = c; b.title = c; b.onclick = () => { if (tool === 'hl') hlColor = c; else penColor = c; swatches(); }; box.appendChild(b); }
+}
+function seg(id, attr, fn) { document.getElementById(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; [...e.currentTarget.children].forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset[attr]); }); }
+seg('orient', 'o', v => { orient = v; render(); });
+seg('tools', 't', v => { tool = v; swatches(); });
+seg('paper', 'p', v => { paper = v; render(); });
+document.getElementById('undo').onclick = () => { if (!past.length) return; future.push(JSON.stringify(S)); S = JSON.parse(past.pop()); render(); };
+document.getElementById('redo').onclick = () => { if (!future.length) return; past.push(JSON.stringify(S)); S = JSON.parse(future.pop()); render(); };
+document.getElementById('clear').onclick = () => { snap(); S = blank(); render(); };
+document.getElementById('demo').onclick = () => { snap(); S = demo(); render(); };
+
+const q = new URLSearchParams(location.search);
+if (q.get('o')) { orient = q.get('o'); document.querySelectorAll('#orient button').forEach(b => b.classList.toggle('on', b.dataset.o === orient)); }
+if (q.get('paper')) paper = '#' + q.get('paper');
+if (q.has('bare')) document.body.classList.add('bare');
+if (q.has('map')) window.MAP = true;
+if (q.get('scene')) scene(q.get('scene')); else if (!q.has('blank')) S = demo();
+swatches();
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(render);
+render();
+</script>
+</body>
+</html>

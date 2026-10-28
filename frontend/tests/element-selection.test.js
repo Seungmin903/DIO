@@ -6,6 +6,7 @@ import * as common from '../src/editor/utils/common.js'
 import * as text from '../src/editor/utils/text.js'
 import * as reducer from '../src/editor/state/editorReducer.js'
 import { pageSize } from '../src/editor/utils/pageGeometry.js'
+import * as studyPlanner from '../src/editor/templates/studyPlanner.js'
 
 const require = createRequire(import.meta.url)
 const expo = createRequire(require.resolve('expo/package.json'))
@@ -23,7 +24,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
   const dispatch = (action) => { actions.push(action); state = reducer.editorReducer(state, action) }
   const module = { exports: {} }
   const load = (id) => {
-    if (id === 'react') return { useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useEffect() {} }
+    if (id === 'react') return { useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useEffect() {}, useMemo: fn => fn() }
     if (id === 'react-native') return { View: 'view', Text: 'text', Pressable: 'pressable', Keyboard: { dismiss() {} }, Platform: { OS: 'android', select: (options) => options.default }, StyleSheet: { create: (value) => value } }
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
     if (id.endsWith('/editorReducer')) return reducer
@@ -31,6 +32,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     if (id.endsWith('/text')) return text
     if (id.endsWith('/modifiers')) return { isMultiSelectKey: () => multi }
     if (id.endsWith('/pageGeometry.js')) return { pageSize }
+    if (id.endsWith('/studyPlanner.js')) return studyPlanner
     if (id.endsWith('/theme')) return { colors: {} }
     if (id.endsWith('/constants')) return { PHOTO_SHAPES: [] }
     if (id.endsWith('/objects')) return {}
