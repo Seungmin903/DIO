@@ -1,5 +1,6 @@
 package com.f106.DIO.media.domain;
 
+import java.sql.Types;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -13,6 +14,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
 
 @Entity
 @Table(name = "media_files")
@@ -41,6 +43,7 @@ public class MediaFile {
 	private String mimeType;
 	@Column(name = "file_size", nullable = false)
 	private long fileSize;
+	@JdbcTypeCode(Types.CHAR)
 	@Column(name = "checksum_sha256", columnDefinition = "char(64)")
 	private String checksumSha256;
 	@Enumerated(EnumType.STRING)
