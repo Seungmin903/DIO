@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:notificationfrontend;MODE=PostgreSQL",
     "spring.jpa.hibernate.ddl-auto=none",
-    "spring.sql.init.mode=always", "spring.sql.init.schema-locations=classpath:notification-core-h2.sql"
+    "spring.sql.init.mode=always", "spring.sql.init.schema-locations=classpath:notification-core-h2.sql,classpath:notification-watermark-h2.sql"
 })
 @Transactional
 class NotificationFrontendContractTests {
@@ -86,6 +86,9 @@ class NotificationFrontendContractTests {
         capture(cases, "invalidDeleteId", delete("/api/v1/notifications/abc").principal(user(USER)), 400);
         capture(cases, "overflowReadId", patch("/api/v1/notifications/999999999999999999999").principal(user(USER)), 400);
         capture(cases, "oldRead", patch("/api/v1/notifications/90003/read").principal(user(USER)), 404);
+        String prepared = capture(cases, "prepareReadAll", post("/api/v1/notifications/read-watermarks").principal(user(USER)), 201);
+        String watermark = prepared.replaceFirst("(?s).*\"readWatermark\":\"([^\"]+)\".*", "$1");
+        capture(cases, "readAll", post("/api/v1/notifications/read-all").principal(user(USER)).contentType("application/json").content("{\"readWatermark\":\"" + watermark + "\"}"), 204);
         String openapi = mvc.perform(get("/v3/api-docs")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         String output = System.getenv("DIO_NOTIFICATION_CONTRACT_OUTPUT");
         if (output != null && !output.isBlank()) {

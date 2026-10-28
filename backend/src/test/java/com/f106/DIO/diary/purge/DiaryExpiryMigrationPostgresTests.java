@@ -23,10 +23,10 @@ class DiaryExpiryMigrationPostgresTests extends DiaryPurgePostgresFixture {
             Map.entry("diary_handwriting_fonts","diary_id,font_media_file_id"),Map.entry("ai_jobs","ai_job_id"),
             Map.entry("notifications","notification_id"),Map.entry("diary_creation_receipts","user_id,key_hash"));
         var before=new HashMap<String,List<String>>();keys.forEach((table,key)->before.put(table,snapshot(table,key)));
-        var result=Flyway.configure().dataSource(jdbc.getDataSource()).defaultSchema(schema).load().migrate();
+        var result=Flyway.configure().dataSource(jdbc.getDataSource()).defaultSchema(schema).target("14").load().migrate();
         assertThat(result.migrationsExecuted).isEqualTo(1);
         keys.forEach((table,key)->assertThat(snapshot(table,key)).as(table+" rows preserved").isEqualTo(before.get(table)));
         assertThat(jdbc.queryForObject("select count(*) from pg_indexes where schemaname=? and indexname='diaries_expiry_cleanup_idx'",Long.class,schema)).isEqualTo(1);
-        assertThat(Flyway.configure().dataSource(jdbc.getDataSource()).defaultSchema(schema).load().migrate().migrationsExecuted).isZero();
+        assertThat(Flyway.configure().dataSource(jdbc.getDataSource()).defaultSchema(schema).target("14").load().migrate().migrationsExecuted).isZero();
     }
 }
