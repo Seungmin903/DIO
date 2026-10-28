@@ -62,10 +62,6 @@ public class MediaFileTransactionService {
 		MediaFile mediaFile = findOwned(mediaFileId, userId);
 		mediaFile.softDelete();
 		mediaFiles.flush();
-		String key = mediaFile.getStorageKey();
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override public void afterCommit() { deleteOrLog(key); }
-		});
 	}
 
 	private MediaFile findOwned(UUID mediaFileId, Long userId) {
@@ -73,7 +69,7 @@ public class MediaFileTransactionService {
 	}
 	private void deleteOrLog(String key) {
 		try { files.delete(key); }
-		catch (RuntimeException error) { log.warn("Media storage cleanup failed: key={}", key, error); }
+		catch (RuntimeException error) { log.warn("Unreferenced media storage cleanup failed: key={}", key, error); }
 	}
 
 	public record StorageReference(String mimeType, String storageKey) {}

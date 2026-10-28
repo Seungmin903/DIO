@@ -73,6 +73,22 @@ class MediaServiceTests {
 			.isInstanceOf(MediaRequestException.class);
 	}
 
+	@Test
+	void rejectsAnInvalidMp3FrameHeader() {
+		byte[] invalid = new byte[] {(byte)0xFF, (byte)0xE0, 0, 0};
+
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "broken.mp3", "audio/mpeg", invalid), null, 7L))
+			.isInstanceOf(MediaRequestException.class);
+	}
+
+	@Test
+	void rejectsWebmWithAVideoTrack() {
+		byte[] videoWebm = new byte[] {0x1A, 0x45, (byte)0xDF, (byte)0xA3, 'w', 'e', 'b', 'm', (byte)0x83, (byte)0x81, 0x01};
+
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "movie.webm", "video/webm", videoWebm), null, 7L))
+			.isInstanceOf(MediaRequestException.class);
+	}
+
 	private void stubPersist() {
 		when(transactions.persist(any(MediaFile.class))).thenAnswer(invocation -> MediaFileResponse.from(invocation.getArgument(0)));
 	}
