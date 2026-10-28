@@ -63,7 +63,7 @@ class EmailInviteTests extends SharingTestSupport {
         var owner=actor();var editor=actor();var to=actor();var outsider=actor();var id=diary(owner);
         links.accept(links.create(id,owner.id()).token(),editor.id());
         send(id,owner,to);long first=pending(id,to).getInviteId();
-        mvc.perform(post("/api/v1/me/invites/"+first+"/decline").header("Authorization","Bearer "+outsider.token())).andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/me/invites/"+first+"/decline").header("Authorization","Bearer "+outsider.token())).andExpect(status().isNotFound());
         mvc.perform(post("/api/v1/me/invites/"+first+"/decline").header("Authorization","Bearer "+to.token())).andExpect(status().isNoContent());
         send(id,editor,to);long second=pending(id,to).getInviteId();
         mvc.perform(delete("/api/v1/diaries/"+id+"/invites/"+second).header("Authorization","Bearer "+editor.token())).andExpect(status().isNoContent());

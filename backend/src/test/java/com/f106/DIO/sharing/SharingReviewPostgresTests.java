@@ -33,6 +33,54 @@ class SharingReviewPostgresTests extends SharingReviewTests {
             reader.get(30,TimeUnit.SECONDS);release.countDown();writer.get(10,TimeUnit.SECONDS);
         } finally {release.countDown();pool.shutdownNow();}
     }
+    @Test void foreignDeclineDoesNotWaitForTheDiaryWriteLock() throws Exception {
+        var owner=actor();var recipient=actor();var outsider=actor();var id=diary(owner);
+        var invite=invites.saveAndFlush(com.f106.DIO.sharing.domain.DiaryInvite.email(id,owner.id(),recipient.id(),java.time.Instant.now()));
+        var pool=Executors.newFixedThreadPool(2);var locked=new CountDownLatch(1);var release=new CountDownLatch(1);
+        try {
+            var writer=pool.submit(()->new TransactionTemplate(manager).execute(tx->{diaries.findForUpdate(id).orElseThrow();locked.countDown();
+                try{if(!release.await(60,TimeUnit.SECONDS))throw new AssertionError("Release timeout");}catch(InterruptedException e){throw new RuntimeException(e);}return null;}));
+            assertThat(locked.await(10,TimeUnit.SECONDS)).isTrue();
+            var reader=pool.submit(()->{
+                mvc.perform(post("/api/v1/me/invites/"+invite.getInviteId()+"/decline").header("Authorization","Bearer "+outsider.token()))
+                    .andExpect(status().isNotFound());
+                mvc.perform(post("/api/v1/me/invites/"+Long.MAX_VALUE+"/decline").header("Authorization","Bearer "+outsider.token()))
+                    .andExpect(status().isNotFound());return null;
+            });
+            reader.get(15,TimeUnit.SECONDS);release.countDown();writer.get(10,TimeUnit.SECONDS);
+            assertThat(invites.findById(invite.getInviteId()).orElseThrow().pendingEmail()).isTrue();
+        } finally {release.countDown();pool.shutdownNow();}
+    }
+    @Test void invitationDeletedWhileDeclineWaitsForTheDiaryLockReturns404() throws Exception {
+        var owner=actor();var recipient=actor();var id=diary(owner);
+        var invite=invites.saveAndFlush(com.f106.DIO.sharing.domain.DiaryInvite.email(id,owner.id(),recipient.id(),java.time.Instant.now()));
+        var pool=Executors.newFixedThreadPool(2);var locked=new CountDownLatch(1);var delete=new CountDownLatch(1);
+        var writerPid=new java.util.concurrent.atomic.AtomicInteger();
+        try {
+            var writer=pool.submit(()->new TransactionTemplate(manager).execute(tx->{
+                diaries.findForUpdate(id).orElseThrow();
+                writerPid.set(jdbc.queryForObject("select pg_backend_pid()",Integer.class));locked.countDown();
+                try{if(!delete.await(60,TimeUnit.SECONDS))throw new AssertionError("Delete timeout");}
+                catch(InterruptedException e){throw new RuntimeException(e);}
+                jdbc.update("delete from diary_invites where invite_id=?",invite.getInviteId());return null;
+            }));
+            assertThat(locked.await(10,TimeUnit.SECONDS)).isTrue();
+            var reader=pool.submit(()->mvc.perform(post("/api/v1/me/invites/"+invite.getInviteId()+"/decline")
+                .header("Authorization","Bearer "+recipient.token()))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("code").value("INVITE_NOT_FOUND")));
+            long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(30);boolean waiting=false;
+            while(System.nanoTime()<deadline){
+                waiting=Boolean.TRUE.equals(jdbc.queryForObject(
+                    "select exists(select 1 from pg_stat_activity where ?=any(pg_blocking_pids(pid)))",Boolean.class,writerPid.get()));
+                if(waiting)break;
+                if(reader.isDone()){reader.get();throw new AssertionError("Decline did not wait for the diary lock");}
+                Thread.sleep(20);
+            }
+            assertThat(waiting).as("Decline must load the invitation before waiting for the diary lock").isTrue();
+            delete.countDown();writer.get(10,TimeUnit.SECONDS);reader.get(15,TimeUnit.SECONDS);
+            assertThat(invites.findById(invite.getInviteId())).isEmpty();assertThat(diaries.findById(id)).isPresent();
+        } finally {delete.countDown();pool.shutdownNow();}
+    }
     @Test void lastMemberCanDeleteAnApiCreatedDiaryWhileReceiptsAndMediaJobsRemainConsistent() throws Exception {
         var owner=actor();
         var template=jdbc.queryForMap("select code,template_version,default_config from page_templates where code='2026-cover-landscape' and is_active");
