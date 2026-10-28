@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
   track: { flex: 1, height: 44, justifyContent: 'center' },
-  trackLine: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2, backgroundColor: colors.surfaceSoft },
+  trackLine: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2, backgroundColor: colors.primarySoft },
   trackFill: { position: 'absolute', left: 0, height: 4, borderRadius: 2, backgroundColor: colors.primary },
   thumb: {
     position: 'absolute',

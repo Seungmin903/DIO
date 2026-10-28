@@ -1,8 +1,9 @@
-// DIO 디자인 토큰 (docs/design-guide.md · 2장 색, 4장 모서리·그림자)
+// DIO 디자인 토큰 (docs/디자인 가이드.md · 2장 색, 4장 모서리·그림자)
 export const colors = {
   surface: '#FFFFFF',
-  surfaceSoft: '#CED9EE',
+  surfaceSoft: '#F1F3F7',
   primary: '#6E92C6',
+  primaryStrong: '#4F74AE', // 흰 글자·아이콘을 올리는 채운 주요 버튼
   secondary: '#9FB6D9',
   text: '#0B1957',
   textMuted: 'rgba(11,25,87,0.68)',

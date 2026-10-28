@@ -63,7 +63,7 @@ export default function AppInformation() {
 
 const styles = StyleSheet.create({
   card: { marginTop: 20, padding: 25, borderRadius: 20, backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
-  title: { color: C.ink, fontSize: 18, fontWeight: '900', marginBottom: 8 },
+  title: { color: C.ink, fontSize: 18, fontWeight: '800', marginBottom: 8 },
   policy: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.line },
   licenses: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 18, paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line },
   contact: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingTop: 18 },
