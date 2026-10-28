@@ -19,7 +19,7 @@ server:
   port: 8080
 
 springdoc:
-  paths-to-match: /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/member/diaries/**, /api/v1/member/diaries, /api/v1/auth/**, /api/v1/notifications, /api/v1/notifications/**, /api/v1/invites/**, /api/v1/me/invites/**
+  paths-to-match: /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/media/**, /api/v1/member/diaries/**, /api/v1/member/diaries, /api/v1/auth/**, /api/v1/notifications, /api/v1/notifications/**, /api/v1/invites/**, /api/v1/me/invites/**
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
@@ -56,3 +56,14 @@ dio:
     service-terms-version: ${SIGNUP_SERVICE_TERMS_VERSION:v1}
     privacy-terms-version: ${SIGNUP_PRIVACY_TERMS_VERSION:v1}
     marketing-terms-version: ${SIGNUP_MARKETING_TERMS_VERSION:v1}
+  media:
+    storage: ${MEDIA_STORAGE:local}
+    local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-data/media}
+    s3-bucket: ${MEDIA_S3_BUCKET:}
+    s3-region: ${MEDIA_S3_REGION:ap-northeast-2}
+    expiry-cleanup:
+      enabled: ${MEDIA_EXPIRY_CLEANUP_ENABLED:false}
+      delay-ms: ${MEDIA_EXPIRY_CLEANUP_DELAY_MS:3600000}
+      initial-delay-ms: ${MEDIA_EXPIRY_CLEANUP_INITIAL_DELAY_MS:900000}
+      batch-size: ${MEDIA_EXPIRY_CLEANUP_BATCH_SIZE:100}
+      retention: ${MEDIA_DELETE_RETENTION:PT24H}

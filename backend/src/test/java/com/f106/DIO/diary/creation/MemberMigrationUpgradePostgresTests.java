@@ -53,9 +53,9 @@ class MemberMigrationUpgradePostgresTests {
             var expectedVersions=Arrays.stream(upgrade.info().all()).map(info->info.getVersion()).filter(Objects::nonNull)
                 .distinct().sorted().map(Object::toString).toList();
             // Known migration files must remain present; later versions may be appended.
-            assertThat(expectedVersions).contains("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16");
+            assertThat(expectedVersions).contains("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19");
             assertThat(Arrays.stream(upgrade.info().pending()).map(info->info.getVersion().toString()).toList())
-                .contains("7","8","11","12","13","14","15","16");
+                .contains("7","8","11","12","13","14","15","16","17","18","19");
             int pending=upgrade.info().pending().length;
             assertThat(pending).isPositive();
             var result=upgrade.migrate();

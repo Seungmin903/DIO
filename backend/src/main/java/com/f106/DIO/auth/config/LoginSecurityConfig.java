@@ -39,7 +39,7 @@ public class LoginSecurityConfig {
     }
     @Bean
     public SecurityFilterChain loginSecurity(HttpSecurity http, JwtDecoder loginJwtDecoder, BearerTokenResolver loginBearerTokenResolver) throws Exception {
-        return http.securityMatcher("/api/v1/auth/logout", "/api/v1/diaries", "/api/v1/diaries/**", "/api/v1/pages/**")
+        return http.securityMatcher("/api/v1/auth/logout", "/api/v1/diaries", "/api/v1/diaries/**", "/api/v1/pages/**", "/api/v1/media/**")
             .cors(org.springframework.security.config.Customizer.withDefaults())
             .csrf(csrf -> csrf.disable()).formLogin(form -> form.disable()).httpBasic(basic -> basic.disable())
             .logout(logout -> logout.disable()).requestCache(cache -> cache.disable())
