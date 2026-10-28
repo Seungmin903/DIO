@@ -33,6 +33,24 @@ class SharingReviewPostgresTests extends SharingReviewTests {
             reader.get(30,TimeUnit.SECONDS);release.countDown();writer.get(10,TimeUnit.SECONDS);
         } finally {release.countDown();pool.shutdownNow();}
     }
+    @Test void foreignDeclineDoesNotWaitForTheDiaryWriteLock() throws Exception {
+        var owner=actor();var recipient=actor();var outsider=actor();var id=diary(owner);
+        var invite=invites.saveAndFlush(com.f106.DIO.sharing.domain.DiaryInvite.email(id,owner.id(),recipient.id(),java.time.Instant.now()));
+        var pool=Executors.newFixedThreadPool(2);var locked=new CountDownLatch(1);var release=new CountDownLatch(1);
+        try {
+            var writer=pool.submit(()->new TransactionTemplate(manager).execute(tx->{diaries.findForUpdate(id).orElseThrow();locked.countDown();
+                try{if(!release.await(60,TimeUnit.SECONDS))throw new AssertionError("Release timeout");}catch(InterruptedException e){throw new RuntimeException(e);}return null;}));
+            assertThat(locked.await(10,TimeUnit.SECONDS)).isTrue();
+            var reader=pool.submit(()->{
+                mvc.perform(post("/api/v1/me/invites/"+invite.getInviteId()+"/decline").header("Authorization","Bearer "+outsider.token()))
+                    .andExpect(status().isNotFound());
+                mvc.perform(post("/api/v1/me/invites/"+Long.MAX_VALUE+"/decline").header("Authorization","Bearer "+outsider.token()))
+                    .andExpect(status().isNotFound());return null;
+            });
+            reader.get(15,TimeUnit.SECONDS);release.countDown();writer.get(10,TimeUnit.SECONDS);
+            assertThat(invites.findById(invite.getInviteId()).orElseThrow().pendingEmail()).isTrue();
+        } finally {release.countDown();pool.shutdownNow();}
+    }
     @Test void lastMemberCanDeleteAnApiCreatedDiaryWhileReceiptsAndMediaJobsRemainConsistent() throws Exception {
         var owner=actor();
         var template=jdbc.queryForMap("select code,template_version,default_config from page_templates where code='2026-cover-landscape' and is_active");

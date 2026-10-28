@@ -17,10 +17,10 @@ public class InviteMailDispatch {
     @org.springframework.context.event.EventListener
     public void dispatch(Requested request){
         try{executor.execute(()->{try{if(state.deliverable(request.inviteId()))sender.send(request.email(),request.title(),request.url());}
-            catch(RuntimeException error){failed(request.inviteId());}});}catch(RuntimeException error){failed(request.inviteId());}
+            catch(RuntimeException error){failed(request.inviteId(),"DELIVERY",error);}});}catch(RuntimeException error){failed(request.inviteId(),"QUEUE",error);}
     }
-    private void failed(long id){
-        LOG.warn("Invite email delivery failed: inviteId={}",id);
+    private void failed(long id,String stage,RuntimeException failure){
+        LOG.warn("Invite email delivery failed: inviteId={},stage={},errorType={}",id,stage,failure.getClass().getSimpleName());
         try{state.failed(id);}catch(RuntimeException error){LOG.warn("Invite delivery failure state update failed: inviteId={},errorType={}",id,error.getClass().getSimpleName());}
     }
     @Configuration(proxyBeanMethods=false)

@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EmailInviteService {
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entities;
     private final SharingAccessService access;private final DiaryInviteRepository invites;private final DiaryMemberRepository members;
     private final UserRepository users;private final InviteTokens tokens;private final InviteMailSender mail;
     private final org.springframework.transaction.support.TransactionTemplate write;
@@ -79,12 +80,18 @@ public class EmailInviteService {
     }
     @Transactional
     public void decline(long inviteId,long actor){
-        access.activeUser(actor);UUID diaryId=invites.diaryId(inviteId).orElseThrow(tokens::notFound);access.lock(diaryId);
-        var invite=invites.findById(inviteId).orElseThrow(tokens::notFound);
-        if(!invite.email()||!Long.valueOf(actor).equals(invite.getInviteeUserId()))throw SharingException.forbidden();
+        access.activeUser(actor);
+        var invite=recipientInvite(inviteId,actor);
+        access.lock(invite.getDiaryId());
+        // Cancellation/acceptance may commit while waiting for the diary lock.
+        entities.refresh(invite);invite=recipientInvite(inviteId,actor);
         if("DECLINED".equals(invite.status()))return;
         if(!invite.pendingEmail())throw conflict();
         invite.decline(Instant.now());
+    }
+    private DiaryInvite recipientInvite(long id,long actor){
+        return invites.findById(id).filter(i->i.email()&&Long.valueOf(actor).equals(i.getInviteeUserId()))
+            .orElseThrow(tokens::notFound);
     }
     private PageRequest pagination(int page,int size){
         if(page<0||size<1||size>100)throw SharingException.invalid("page는 0 이상, size는 1~100으로 입력해 주세요.");
