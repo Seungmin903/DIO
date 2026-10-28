@@ -23,6 +23,10 @@ public class Diary {
 
 	private Long ownerUserId;
 
+	@Version
+	@Column(nullable=false,columnDefinition="bigint default 1")
+	private Long version;
+
 	@Column(length = 64)
 	private String ownerDeviceId;
 
@@ -86,6 +90,7 @@ public class Diary {
 	@PrePersist
 	void initializeTimestamps() {
 		Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+		if (version == null) version=1L;
 		if (diaryId == null) { diaryId = UUID.randomUUID(); }
 		if (coverColor == null) { coverColor = "#CED9EE"; }
 		if (coverStyle == null) { coverStyle = "PLAIN"; }

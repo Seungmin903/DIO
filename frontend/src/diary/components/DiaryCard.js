@@ -72,7 +72,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
             <Text testID={`diary-page-count-${diary.id}`} style={s.cardPageCount}>{countLabel}</Text>
           </View>
           {/* 스와이프 화면의 옆 카드는 넘기려고 누르는 자리라 가운데 카드에만 둔다. */}
-          {!selecting && diary.canManage !== false && (layout !== 'carousel' || carouselActive) && <Pressable
+          {!selecting && diary.canManage !== false && diary.canDelete !== false && (layout !== 'carousel' || carouselActive) && <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 휴지통으로 이동`}
             disabled={!onDelete}
