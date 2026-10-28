@@ -43,11 +43,18 @@ public class ExpiredMediaCleanup {
 		int failed = 0;
 		for (MediaFile mediaFile : candidates) {
 			try {
-				// 현재·향후 연결 경로는 deletedAt이 null인 미디어만 허용한다. 현재 캔버스 API도 mediaFileId를 거절한다.
-				files.delete(mediaFile.getStorageKey());
 				int removed = mediaFiles.deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff);
-				if (removed == 1) deleted++;
-				else log.error("Media reference appeared after storage cleanup; mediaFileId={}", mediaFile.getMediaFileId());
+				if (removed != 1) continue;
+
+				try {
+					files.delete(mediaFile.getStorageKey());
+					deleted++;
+				} catch (RuntimeException error) {
+					failed++;
+					// DB 행은 참조 경합을 막기 위해 먼저 삭제했다. 키는 운영 정리 대상으로 남긴다.
+					log.error("Media database row was removed but storage cleanup failed: mediaFileId={}, key={}",
+						mediaFile.getMediaFileId(), mediaFile.getStorageKey(), error);
+				}
 			} catch (RuntimeException error) {
 				failed++;
 				log.warn("Expired media cleanup failed: mediaFileId={}, key={}", mediaFile.getMediaFileId(), mediaFile.getStorageKey(), error);

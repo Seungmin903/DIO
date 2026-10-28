@@ -74,6 +74,17 @@ class MediaServiceTests {
 	}
 
 	@Test
+	void acceptsM4bAudioBrand() {
+		byte[] m4b = new byte[] {0, 0, 0, 24, 'f', 't', 'y', 'p', 'M', '4', 'B', ' '};
+		stubPersist();
+
+		var response = service.upload(new MockMultipartFile("file", "book.m4b", "audio/mp4", m4b), null, 7L);
+
+		assertThat(response.mediaType()).isEqualTo("AUDIO");
+		assertThat(response.mimeType()).isEqualTo("audio/mp4");
+	}
+
+	@Test
 	void rejectsAnInvalidMp3FrameHeader() {
 		byte[] invalid = new byte[] {(byte)0xFF, (byte)0xE0, 0, 0};
 

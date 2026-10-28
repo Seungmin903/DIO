@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.context.annotation.Configuration;
@@ -36,29 +37,43 @@ public class MediaExpirySchedule {
 		initialDelayString = "${dio.media.expiry-cleanup.initial-delay-ms:900000}")
 	public void run() {
 		try {
-			if (postgres) jdbc.execute((ConnectionCallback<Void>) connection -> {
-				if (!tryLock(connection)) return null;
-				try { logResult(cleanup.purgeExpired()); }
-				finally { unlock(connection); }
-				return null;
-			});
+			if (postgres) runWithTransactionLock();
 			else logResult(cleanup.purgeExpired());
 		} catch (RuntimeException error) {
 			log.error("Expired media cleanup failed: errorType={}", error.getClass().getSimpleName(), error);
 		}
 	}
 
-	private static boolean tryLock(java.sql.Connection connection) throws java.sql.SQLException {
-		try (PreparedStatement statement = connection.prepareStatement("select pg_try_advisory_lock(?)")) {
+	private void runWithTransactionLock() {
+		jdbc.execute((ConnectionCallback<Void>) connection -> {
+			boolean originalAutoCommit = connection.getAutoCommit();
+			try {
+				connection.setAutoCommit(false);
+				if (!tryTransactionLock(connection)) return null;
+				logResult(cleanup.purgeExpired());
+				connection.commit();
+				return null;
+			} catch (java.sql.SQLException error) {
+				throw new DataAccessResourceFailureException("Media cleanup advisory transaction failed", error);
+			} finally {
+				rollbackAndRestoreAutoCommit(connection, originalAutoCommit);
+			}
+		});
+	}
+
+	private static boolean tryTransactionLock(java.sql.Connection connection) throws java.sql.SQLException {
+		try (PreparedStatement statement = connection.prepareStatement("select pg_try_advisory_xact_lock(?)")) {
 			statement.setLong(1, ADVISORY_LOCK_KEY);
 			try (ResultSet result = statement.executeQuery()) { return result.next() && result.getBoolean(1); }
 		}
 	}
-	private static void unlock(java.sql.Connection connection) {
-		try (PreparedStatement statement = connection.prepareStatement("select pg_advisory_unlock(?)")) {
-			statement.setLong(1, ADVISORY_LOCK_KEY);
-			statement.execute();
-		} catch (java.sql.SQLException error) { log.warn("Media cleanup advisory lock release failed", error); }
+	private static void rollbackAndRestoreAutoCommit(java.sql.Connection connection, boolean originalAutoCommit) {
+		try {
+			if (!connection.getAutoCommit()) connection.rollback();
+			connection.setAutoCommit(originalAutoCommit);
+		} catch (java.sql.SQLException error) {
+			log.error("Media cleanup advisory transaction rollback failed", error);
+		}
 	}
 	private void logResult(ExpiredMediaCleanup.Result result) {
 		if (result.deleted() > 0 || result.failed() > 0)

@@ -28,7 +28,10 @@ final class MediaUploadInspector {
 	}
 	private static boolean startsText(byte[] content, String text) { return hasText(content, 0, text); }
 	/** ISO BMFF의 ftyp만으로는 HEIC·AVIF·MP4 영상과 M4A를 구분할 수 없다. */
-	private static boolean isM4a(byte[] content) { return content.length >= 12 && hasText(content, 4, "ftyp") && hasText(content, 8, "M4A "); }
+	private static boolean isM4a(byte[] content) {
+		return content.length >= 12 && hasText(content, 4, "ftyp")
+			&& (hasText(content, 8, "M4A ") || hasText(content, 8, "M4B "));
+	}
 	private static boolean isMp3Frame(byte[] content) {
 		if (content.length < 4 || (content[0] & 0xFF) != 0xFF || ((content[1] & 0xE0) != 0xE0)) return false;
 		int version = (content[1] >> 3) & 0x03;

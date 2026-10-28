@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,21 +39,36 @@ class ExpiredMediaCleanupTests {
 
 		assertThat(cleanup.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(1, 0));
 
-		verify(files).delete(mediaFile.getStorageKey());
-		verify(mediaFiles).deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff);
+		var order = inOrder(mediaFiles, files);
+		order.verify(mediaFiles).deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff);
+		order.verify(files).delete(mediaFile.getStorageKey());
 	}
 
 	@Test
-	void leavesTheDatabaseRowForRetryWhenStorageDeletionFails() {
+	void leavesStorageKeyInLogsForManualRetryWhenStorageDeletionFails() {
 		Instant now = Instant.parse("2026-10-28T00:00:00Z");
 		Instant cutoff = now.minus(Duration.ofDays(1));
 		MediaFile mediaFile = media();
 		when(mediaFiles.findPhysicallyDeletable(eq(cutoff), any(Pageable.class))).thenReturn(List.of(mediaFile));
+		when(mediaFiles.deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff)).thenReturn(1);
 		doThrow(new IllegalStateException("S3 unavailable")).when(files).delete(mediaFile.getStorageKey());
 
 		assertThat(cleanup.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(0, 1));
 
-		verify(mediaFiles, never()).deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff);
+		verify(mediaFiles).deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff);
+	}
+
+	@Test
+	void doesNotDeleteStorageWhenAReferenceAppearsBeforeConditionalDatabaseDelete() {
+		Instant now = Instant.parse("2026-10-28T00:00:00Z");
+		Instant cutoff = now.minus(Duration.ofDays(1));
+		MediaFile mediaFile = media();
+		when(mediaFiles.findPhysicallyDeletable(eq(cutoff), any(Pageable.class))).thenReturn(List.of(mediaFile));
+		when(mediaFiles.deletePhysicallyIfDeletable(mediaFile.getMediaFileId(), cutoff)).thenReturn(0);
+
+		assertThat(cleanup.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(0, 0));
+
+		verify(files, never()).delete(mediaFile.getStorageKey());
 	}
 
 	private static MediaFile media() {
