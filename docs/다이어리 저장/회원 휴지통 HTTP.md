@@ -25,11 +25,11 @@
 | --- | --- |
 | `DELETE /api/v1/member/diaries/{UUID}` | 최초 deleted_at을 서버 UTC로 기록하고 updated_at 갱신, 204. 이미 휴지통이면 204이며 삭제 시각·보관 기한을 연장하지 않음 |
 | `GET /api/v1/member/diaries/trash?q=여행&limit=20&cursor=...` | 본인 휴지통 `{items,nextCursor,hasNext}`. 기본 20, 1~100. 제목 대소문자 무시 부분 검색(공백 제거 후 최대 100자), `%`·`_`·`!`는 문자 그대로. 삭제 시각/UUID 내림차순, 커서는 현재 회원·검색어에 연결 |
-| `POST /api/v1/member/diaries/{UUID}/restore` | 본문 없음. `{diary:...}` 200, canEdit=true. 기본 30일 직전까지 복원, 정확히 만료 시각부터 410/DIARY_RESTORE_EXPIRED. 이미 활성인 자료 재요청은 updated_at을 다시 바꾸지 않음 |
+| `POST /api/v1/member/diaries/{UUID}/restore` | 본문 없음. `{diary:...}` 200, canEdit=true. 고정 30일 직전까지 복원, 정확히 만료 시각부터 410/DIARY_RESTORE_EXPIRED. 이미 활성인 자료 재요청은 updated_at을 다시 바꾸지 않음 |
 
 휴지통 항목은 diaryId/diaryTitle/coverColor/coverStyle/visibility/createdAt/updatedAt/deletedAt/purgeAt/canRestore를 포함한다. 만료 후 물리 정리 전 항목도 canRestore=false로 반환하며 조회 자체는 삭제하지 않는다. 빈·끝 페이지는 nextCursor=null/hasNext=false다. 잘못된 조건·커서는 400/INVALID_DIARY_TRASH_QUERY, 잘못된 UUID는 400이다. 모든 응답에 Cache-Control: no-store를 적용한다. 회원 API CORS에 DELETE를 추가한다.
 
-기본 보관 기간은 `dio.diary.trash.retention-days=30`이다. 운영에서 기간을 바꾸면 기존 삭제 시각에도 새 기간이 적용되므로 정책 합의 없이 변경하지 않는다. 서버 시각은 마이크로초 단위이며 updated_at은 기존 값보다 단조 증가해 !166의 수정 기준 토큰과 호환된다.
+보관 기간은 삭제 시각부터 정확히 30일로 고정한다. `DiaryTrashService`의 단일 `RETENTION` 상수를 조회의 `purgeAt`과 복원 만료 판정에 함께 사용한다. 보관 기간 설정 주입과 생성자 `days` 인자는 제거했으며, 기존 `dio.diary.trash.retention-days` 설정은 더 이상 읽지 않는다. 별도 설정 없이 기동하고 정확한 만료 시각부터 복원을 거부한다. 서버 시각은 마이크로초 단위이며 updated_at은 기존 값보다 단조 증가해 !166의 수정 기준 토큰과 호환된다.
 
 삭제된 자료는 !166의 활성 목록·상세·수정에서 숨긴다. 기존 비회원 `/api/v1/diaries` 경로는 회원 자료를 취급하지 않아 우회할 수 없다. 복원은 다이어리 deleted_at만 해제한다. 개별 삭제 페이지·left_at·취소된 초대·공유 권한을 변경하거나 물리 파일을 삭제하지 않는다. 공유 초대의 실제 검증 서비스는 다이어리 삭제 상태를 확인해야 하며 공유 구현과의 종단 검증은 별도다.
 

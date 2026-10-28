@@ -8,7 +8,6 @@ import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -25,20 +24,19 @@ public class DiaryTrashService {
     private final DiaryRequestIdentity identity;
     private final DiaryDetailRepository diaries;
     private final DiaryMembershipAccess memberships;
-    private final Duration retention;
+    // Fixed product contract: restore is allowed only before deletedAt + 30 days.
+    private static final Duration RETENTION = Duration.ofDays(30);
     private final Clock clock;
     private final ObjectMapper json = new ObjectMapper();
     public record Cursor(int v, String q, String scope, String deletedAt, String id) {}
 
     @Autowired
-    public DiaryTrashService(JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries, DiaryMembershipAccess memberships,
-        @Value("${dio.diary.trash.retention-days:30}") int days) {
-        this(jdbc, identity, diaries, memberships, days, Clock.systemUTC());
+    public DiaryTrashService(JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries, DiaryMembershipAccess memberships) {
+        this(jdbc, identity, diaries, memberships, Clock.systemUTC());
     }
-    public DiaryTrashService(JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries, DiaryMembershipAccess memberships, int days, Clock clock) {
-        if (days < 1 || days > 36500) throw new IllegalArgumentException("Invalid diary retention days");
+    public DiaryTrashService(JdbcTemplate jdbc, DiaryRequestIdentity identity, DiaryDetailRepository diaries, DiaryMembershipAccess memberships, Clock clock) {
         this.postgres=Boolean.TRUE.equals(jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Boolean>) c -> "PostgreSQL".equals(c.getMetaData().getDatabaseProductName())));
-        this.jdbc = jdbc; this.identity = identity; this.diaries = diaries; this.memberships = memberships; if(days!=30) throw new IllegalArgumentException("Retention must be 30 days"); this.retention = Duration.ofDays(30); this.clock = clock;
+        this.jdbc = jdbc; this.identity = identity; this.diaries = diaries; this.memberships = memberships; this.clock = clock;
     }
     private DiaryDetailException invalid() { return new DiaryDetailException(HttpStatus.BAD_REQUEST, "INVALID_DIARY_TRASH_QUERY", "휴지통 조회 조건이나 커서를 확인해 주세요."); }
     private long authenticate() {
@@ -49,7 +47,7 @@ public class DiaryTrashService {
     private DiaryTrashResponse.Item item(ResultSet rs, Instant now) throws SQLException {
         Timestamp deleted = rs.getTimestamp("deleted_at");
         Instant deletedAt = deleted == null ? null : deleted.toInstant();
-        Instant purgeAt = deletedAt == null ? null : deletedAt.plus(retention);
+        Instant purgeAt = deletedAt == null ? null : deletedAt.plus(RETENTION);
         return new DiaryTrashResponse.Item(rs.getString("diary_id"), rs.getString("title"),
             rs.getString("cover_color"), rs.getString("cover_style"), rs.getString("visibility"),
             rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant(),
@@ -111,7 +109,7 @@ public class DiaryTrashService {
         Instant updatedAt = row.updatedAt();
         if (row.deletedAt() != null) {
             Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
-            if (!now.isBefore(row.deletedAt().plus(retention))) throw new DiaryDetailException(HttpStatus.GONE, "DIARY_RESTORE_EXPIRED", "복원 가능한 보관 기간이 지났어요.");
+            if (!now.isBefore(row.deletedAt().plus(RETENTION))) throw new DiaryDetailException(HttpStatus.GONE, "DIARY_RESTORE_EXPIRED", "복원 가능한 보관 기간이 지났어요.");
             long version=version(id);
             if(jdbc.update("UPDATE diaries SET deleted_at=NULL,updated_at=?,version=version+1 WHERE diary_id=? AND version=? AND deleted_at IS NOT NULL",Timestamp.from(now.isAfter(row.updatedAt())?now:row.updatedAt().plus(1,ChronoUnit.MICROS)),id,version)!=1) throw conflict();
             updatedAt = now.isAfter(row.updatedAt()) ? now : row.updatedAt().plus(1, ChronoUnit.MICROS);

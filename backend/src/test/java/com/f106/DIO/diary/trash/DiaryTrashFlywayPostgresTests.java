@@ -32,7 +32,7 @@ class DiaryTrashFlywayPostgresTests {
             var identity=org.mockito.Mockito.mock(DiaryRequestIdentity.class);
             org.mockito.Mockito.when(identity.requireUserId(org.mockito.ArgumentMatchers.any())).thenReturn(101L);
             var repo=new DiaryDetailRepository(jdbc);
-            var service=new DiaryTrashService(jdbc,identity,repo,new JdbcDiaryMembershipAccess(jdbc,repo),30,Clock.systemUTC());
+            var service=new DiaryTrashService(jdbc,identity,repo,new JdbcDiaryMembershipAccess(jdbc,repo),Clock.systemUTC());
             tx.executeWithoutResult(s -> service.trash(id));
             var list=tx.execute(s -> service.list(null,20,null));
             assertThat(list.items()).hasSize(1);assertThat(list.items().get(0).canRestore()).isTrue();

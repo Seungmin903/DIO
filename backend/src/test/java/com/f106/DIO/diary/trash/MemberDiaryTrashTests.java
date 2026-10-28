@@ -30,7 +30,7 @@ class MemberDiaryTrashTests {
     }
     DiaryTrashService service(long user, Clock clock) {
         var repo=new DiaryDetailRepository(jdbc);
-        return new DiaryTrashService(jdbc,owner(user),repo,new JdbcDiaryMembershipAccess(jdbc,repo),30,clock);
+        return new DiaryTrashService(jdbc,owner(user),repo,new JdbcDiaryMembershipAccess(jdbc,repo),clock);
     }
     @BeforeEach void setup() {
         DriverManagerDataSource source;
@@ -100,13 +100,17 @@ class MemberDiaryTrashTests {
         assertThat(service.list(null, 20, null).items()).extracting(x -> x.diaryId()).containsExactly(b.toString());
     }
     @Test void beforeExpiryRestoresButExactAndAfterExpiryDoNotChangeDeletion() {
-        assertThatThrownBy(() -> restore(b)).isInstanceOf(DiaryDetailException.class);
+        assertThatThrownBy(() -> restore(b)).isInstanceOfSatisfying(DiaryDetailException.class,
+            e -> assertThat(e.status().value()).isEqualTo(410));
         assertThat(jdbc.queryForObject("SELECT deleted_at FROM diaries WHERE diary_id=?", Timestamp.class, b).toInstant()).isEqualTo(now.minus(Duration.ofDays(30)));
         var before = service(1,Clock.fixed(now.minusNanos(1000),ZoneOffset.UTC));
         var restored = tx.execute(status -> before.restore(b));
         assertThat(restored).isNotNull();
         jdbc.update("UPDATE diaries SET deleted_at=? WHERE diary_id=?", Timestamp.from(now.minus(Duration.ofDays(31))), b);
-        assertThatThrownBy(() -> restore(b)).isInstanceOf(DiaryDetailException.class);
+        assertThatThrownBy(() -> restore(b)).isInstanceOfSatisfying(DiaryDetailException.class,
+            e -> assertThat(e.status().value()).isEqualTo(410));
+        assertThat(jdbc.queryForObject("SELECT deleted_at FROM diaries WHERE diary_id=?", Timestamp.class, b).toInstant())
+            .isEqualTo(now.minus(Duration.ofDays(31)));
     }
     @Test void nonexistentAndOtherOwnerLookTheSameAndAccessFailureDoesNotWrite() {
         assertThatThrownBy(() -> restore(other)).isInstanceOf(DiaryDetailException.class);

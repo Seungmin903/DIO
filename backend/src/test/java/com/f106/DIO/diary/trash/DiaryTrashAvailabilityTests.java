@@ -19,7 +19,7 @@ class DiaryTrashAvailabilityTests {
   when(identity.requireUserId(any())).thenReturn(101L);
   var diaries=mock(DiaryDetailRepository.class);
   when(diaries.lockActiveUser(101L)).thenReturn(true);
-  var service=new DiaryTrashService(jdbc,identity,diaries,mock(DiaryMembershipAccess.class),30,Clock.systemUTC());
+  var service=new DiaryTrashService(jdbc,identity,diaries,mock(DiaryMembershipAccess.class),Clock.systemUTC());
   assertThatThrownBy(()->service.list("É",20,null)).isInstanceOfSatisfying(DiaryDetailException.class,e->{
    assertThat(e.status().value()).isEqualTo(503);
    assertThat(e.code()).isEqualTo("DIARY_TRASH_SEARCH_UNAVAILABLE");
