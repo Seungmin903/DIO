@@ -33,6 +33,26 @@ function setup(service, dev = false) {
     unmount: () => cleanups.forEach(fn => fn?.()), previewLoads: () => previewLoads, timers, listeners };
 }
 
+test('발송 제한 응답은 처음 발송할 때도 대기 시간을 적용하고 이후 재시도를 허용한다', async () => {
+  const original = Date.now;
+  let now = 100000, sends = 0;
+  Date.now = () => now;
+  const ui = setup({ send: async () => {
+    if (++sends === 1) throw Object.assign(new Error('잠시 후 다시 요청해 주세요.'), { retryAfter: 47 });
+    return { expiresIn: 600, retryAfter: 60 };
+  } });
+  try {
+    ui.find('인증번호 받기').props.onPress(); await tick();
+    assert.equal(ui.find('재전송 (47초)').props.disabled, true);
+    ui.find('재전송 (47초)').props.onPress(); await tick();
+    assert.equal(sends, 1);
+    now += 47000; ui.refresh();
+    ui.find('인증번호 받기').props.onPress(); await tick();
+    assert.equal(sends, 2);
+    assert.ok(ui.find('인증번호'));
+  } finally { ui.unmount(); Date.now = original; }
+});
+
 test('개발용 서비스는 개발 모드이면서 주입 서비스가 없을 때만 한 번 불러온다', () => {
   for (const [dev, service, loads] of [[false, undefined, 0], [true, preview.createVerificationPreview(), 0], [true, undefined, 1]]) {
     const ui = setup(service, dev);
@@ -40,6 +60,27 @@ test('개발용 서비스는 개발 모드이면서 주입 서비스가 없을 �
     assert.equal(ui.previewLoads(), loads);
     if (!dev && !service) assert.equal(ui.find('인증번호 받기').props.disabled, true);
     ui.unmount();
+  }
+});
+
+test('개발 모드에서 Basic 차단 시 접속 정보를 입력하고 다시 발송하며 비밀번호 입력은 비운다', async () => {
+  let authorized = false, sends = 0;
+  const gateway = { setDevelopmentAccess(id, password) { assert.equal(id, 'tester'); assert.equal(password, 'secret'); authorized = true; },
+    send: async () => { sends++; if (!authorized) throw Object.assign(new Error('접속 인증 필요'), { code: 'DEVELOPMENT_ACCESS_REQUIRED' });
+      return { expiresIn: 600, retryAfter: 60 }; } };
+  for (const dev of [false, true]) {
+    const ui = setup(gateway, dev);
+    try {
+      ui.find('인증번호 받기').props.onPress(); await tick();
+      if (!dev) { assert.equal(ui.find('개발 서버 ID'), undefined); continue; }
+      ui.find('개발 서버 ID').props.onChange('tester');
+      ui.find('개발 서버 비밀번호').props.onChange('secret');
+      assert.equal(ui.find('개발 서버 비밀번호').props.password, true);
+      ui.find('접속 인증 후 다시 시도').props.onPress(); await tick();
+      assert.ok(ui.find('인증번호'));
+      assert.equal(ui.find('개발 서버 비밀번호'), undefined);
+      assert.equal(sends, 3);
+    } finally { ui.unmount(); }
   }
 });
 
