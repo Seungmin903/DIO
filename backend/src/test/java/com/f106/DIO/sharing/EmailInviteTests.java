@@ -99,12 +99,38 @@ class EmailInviteTests extends SharingTestSupport {
     @Test void concurrentDuplicateSendsCreateOneInvitationAndOneMail() throws Exception {
         var owner=actor();var to=actor();var id=diary(owner);var gate=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(5);
         try{
-            var results=new ArrayList<Future<?>>();
-            for(int i=0;i<5;i++)results.add(pool.submit(()->{gate.await();send(id,owner,to);return null;}));
-            gate.countDown();for(var result:results)result.get(30,TimeUnit.SECONDS);drain();
+            var results=new ArrayList<Future<Boolean>>();
+            for(int i=0;i<5;i++)results.add(pool.submit(()->{gate.await();try{send(id,owner,to);return true;}catch(SharingException error){assertThat(error.code).isEqualTo("EMAIL_INVITE_RATE_LIMITED");return false;}}));
+            gate.countDown();int accepted=0;for(var result:results)if(result.get(30,TimeUnit.SECONDS))accepted++;drain();
+            assertThat(accepted).isEqualTo(3);
             assertThat(invites.recentEmails(id,to.id(),java.time.Instant.now().minusSeconds(300))).hasSize(1);
             verify(inviteMail,times(1)).send(eq(address(to)),anyString(),anyString());
         }finally{gate.countDown();pool.shutdownNow();}
+    }
+    @Test void responseLimitIsTheSameForRegisteredInactiveExistingMemberAndMissingEmails() throws Exception {
+        var owner=actor();var recipient=actor();var inactive=actor();var id=diary(owner);
+        jdbc.update("update users set status='WITHDRAWN' where user_id=?",inactive.id());
+        for(String email:List.of(address(recipient),address(inactive),address(owner),UUID.randomUUID()+"@example.com")) {
+            for(int i=0;i<3;i++)mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+owner.token())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\""+email+"\"}"))
+                .andExpect(status().isAccepted()).andExpect(jsonPath("message").value("가입된 이메일이라면 초대가 전달됩니다."));
+            mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+owner.token())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\""+email+"\"}"))
+                .andExpect(status().isTooManyRequests()).andExpect(jsonPath("code").value("EMAIL_INVITE_RATE_LIMITED"));
+        }
+    }
+    @Test void durableSendQuotaDoesNotExposeTheRecipientAfterAnInstanceRestart() throws Exception {
+        var owner=actor();var recipient=actor();var id=diary(owner);
+        // Reproduce invitations created by a previous instance without consuming this instance's request budget.
+        for(int i=0;i<3;i++) {
+            var row=invites.saveAndFlush(DiaryInvite.email(id,owner.id(),recipient.id(),java.time.Instant.now()));
+            row.initializeHash(tokenSigner.hash(tokenSigner.token(row)));row.cancel(java.time.Instant.now());invites.saveAndFlush(row);
+        }
+        mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+owner.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\""+address(recipient)+"\"}"))
+            .andExpect(status().isAccepted());
+        assertThat(invites.recentEmails(id,recipient.id(),java.time.Instant.now().minusSeconds(300))).hasSize(3);
+        verify(inviteMail,never()).send(eq(address(recipient)),anyString(),anyString());
     }
     @Test void capacityIsCheckedAtAcceptanceAndPendingInvitationSurvivesFullDiary() throws Exception {
         var owner=actor();var to=actor();var id=diary(owner);var link=links.create(id,owner.id());Actor leaver=null;

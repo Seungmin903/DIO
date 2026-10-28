@@ -443,7 +443,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       diary.members.some(member => member.id === sharing.runtime.self.id && member.role === 'OWNER') && diary.members.length > 1,
     ).map(diary => diary.id));
     return [...diaries.filter(diary => !diary.trashedAt).map(diary => ({ ...diary, isShared: member ? Boolean(diary.isShared) : sharedOwnedIds.has(diary.id) })), ...(member ? [] : sharing.library)];
-  }, [diaries, sharing.diaries, sharing.library, member]);
+  }, [diaries, sharing.diaries, sharing.library, member, sharing.runtime]);
   const libraryMetadata = useLibraryMetadata(visibleDiaries, page, member);
   const libraryDiaries = member ? (memberLibraryMatches ? diaryState.library.items : []) : visibleDiaries;
   useEffect(() => {

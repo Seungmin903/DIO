@@ -21,7 +21,7 @@ public class DiaryInviteController {
     public DiaryInvitationsResponse current(@PathVariable UUID diaryId,@AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){return emails.sent(diaryId,SharingActor.require(jwt),page,size);}
     @PostMapping("/email") @ResponseStatus(HttpStatus.ACCEPTED)
-    @Operation(summary="이메일 초대 발송",description="가입된 활성 회원에게만 발송. 대기 중 중복 발송 없음. 자동 만료 없음. 다이어리·수신자 기준 5분 3회. 결과는 202 공통 안내, 메일은 커밋 후 비동기 전송.")
+    @Operation(summary="이메일 초대 발송",description="가입된 활성 회원에게만 발송. 대기 중 중복 발송 없음. 자동 만료 없음. 서버별 다이어리·정규화 이메일 요청은 가입 여부와 무관하게 5분 3회이며 중복 요청도 포함. 실제 발송 생성은 DB에서도 다이어리·수신자 기준 5분 3회 제한. 결과는 202 공통 안내, 메일은 커밋 후 비동기 전송.")
     public EmailInviteAcknowledgement email(@PathVariable UUID diaryId,@AuthenticationPrincipal Jwt jwt,@jakarta.validation.Valid @RequestBody EmailInviteRequest request){return emails.send(diaryId,SharingActor.require(jwt),request);}
     @DeleteMapping("/{inviteId}") @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary="보낸 초대 취소",description="소유자·편집자 모두 가능. 기존 참여에는 영향 없음.")

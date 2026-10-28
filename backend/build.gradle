@@ -148,6 +148,7 @@ tasks.register('sharingPostgresTest', Test) {
         includeTestsMatching 'com.f106.DIO.sharing.SharingPostgresTests'
         includeTestsMatching 'com.f106.DIO.sharing.EmailInvitePostgresTests'
         includeTestsMatching 'com.f106.DIO.sharing.DiaryProfilePostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.SharingReviewPostgresTests'
     }
     environment 'DIO_SHARING_POSTGRES_QA', 'true'
     doFirst {

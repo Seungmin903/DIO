@@ -13,12 +13,15 @@ public class SharingSecurityConfig {
     public SecurityFilterChain sharingSecurity(HttpSecurity http,@Qualifier("loginJwtDecoder") JwtDecoder decoder,
             @Qualifier("loginBearerTokenResolver") BearerTokenResolver resolver) throws Exception {
         // Match only sharing endpoints; leave existing diary routes to their owning domain.
-        return http.securityMatcher(request -> {
-            String path=request.getRequestURI().substring(request.getContextPath().length());
-            return path.matches("/api/v1/diaries/[^/]+/(profile|members(?:/[^/]+(?:/profile-photo)?)?|transfer-owner|invites(?:/[^/]+)?)")
-                ||path.matches("/api/v1/invites/[^/]+(?:/accept)?")
-                ||path.matches("/api/v1/me/invites(?:/[^/]+/decline)?");
-        }).cors(org.springframework.security.config.Customizer.withDefaults())
+        var paths=org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher.withDefaults();
+        var matcher=new org.springframework.security.web.util.matcher.OrRequestMatcher(java.util.stream.Stream.of(
+            "/api/v1/diaries/{diaryId}/profile", "/api/v1/diaries/{diaryId}/members",
+            "/api/v1/diaries/{diaryId}/members/{userId}", "/api/v1/diaries/{diaryId}/members/{userId}/profile-photo",
+            "/api/v1/diaries/{diaryId}/transfer-owner", "/api/v1/diaries/{diaryId}/invites",
+            "/api/v1/diaries/{diaryId}/invites/{inviteId}", "/api/v1/invites/{token}",
+            "/api/v1/invites/{token}/accept", "/api/v1/me/invites", "/api/v1/me/invites/{inviteId}/decline"
+        ).map(paths::matcher).map(m->(org.springframework.security.web.util.matcher.RequestMatcher)m).toList());
+        return http.securityMatcher(matcher).cors(org.springframework.security.config.Customizer.withDefaults())
             .csrf(c -> c.disable()).formLogin(c -> c.disable()).httpBasic(c -> c.disable()).logout(c -> c.disable())
             .requestCache(c -> c.disable()).sessionManagement(c -> c.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(c -> c.requestMatchers(org.springframework.http.HttpMethod.OPTIONS,"/**").permitAll()

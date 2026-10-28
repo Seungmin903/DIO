@@ -16,12 +16,12 @@ public class DiaryMemberPhotoService {
     private final SharingAccessService access;private final DiaryMemberRepository members;private final SharingProfileMediaRepository media;
     private final SharingPhotoStorage storage;private final TransactionTemplate transaction;
     public DiaryMemberPhotoService(SharingAccessService access,DiaryMemberRepository members,SharingProfileMediaRepository media,SharingPhotoStorage storage,PlatformTransactionManager manager){
-        this.access=access;this.members=members;this.media=media;this.storage=storage;transaction=new TransactionTemplate(manager);
+        this.access=access;this.members=members;this.media=media;this.storage=storage;transaction=new TransactionTemplate(manager);transaction.setReadOnly(true);
     }
     @Transactional(propagation=Propagation.NEVER)
     public byte[] read(UUID diary,long actor,long target){
         var metadata=transaction.execute(tx->{
-            access.member(access.lock(diary),actor);
+            access.readMember(access.read(diary),actor);
             var member=members.findById(new DiaryMemberId(diary,target)).filter(DiaryMember::active).orElseThrow(this::missing);
             access.activeUser(target);UUID id=member.getMemberProfilePhotoId();if(id==null)throw missing();
             return media.findById(id).filter(m->m.usableBy(target)).orElseThrow(this::missing);

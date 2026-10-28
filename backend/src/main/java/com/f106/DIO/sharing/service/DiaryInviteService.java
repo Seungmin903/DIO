@@ -20,11 +20,13 @@ public class DiaryInviteService {
     private final DiaryMemberRepository members;
     private final DiaryInviteRepository invites;
     private final InviteTokens tokens;
-    public DiaryInviteService(SharingAccessService access,DiaryMemberRepository members,DiaryInviteRepository invites,InviteTokens tokens){
-        this.access=access;this.members=members;this.invites=invites;this.tokens=tokens;
+    private final jakarta.persistence.EntityManager entities;
+    public DiaryInviteService(SharingAccessService access,DiaryMemberRepository members,DiaryInviteRepository invites,InviteTokens tokens,jakarta.persistence.EntityManager entities){
+        this.access=access;this.members=members;this.invites=invites;this.tokens=tokens;this.entities=entities;
     }
+    @Transactional(readOnly=true)
     public InviteLinkResponse current(UUID id,long actor) {
-        var diary=access.lock(id);access.member(diary,actor);tokens.configured();
+        var diary=access.read(id);access.readMember(diary,actor);tokens.configured();
         var invite=invites.findFirstByDiaryIdAndInviteTypeAndRevokedAtIsNullOrderByInviteIdDesc(id,"LINK").orElse(null);
         if(invite==null||!invite.getExpiresAt().isAfter(Instant.now()))return new InviteLinkResponse(false,null,null,null);
         String token=tokens.token(invite);
@@ -46,18 +48,24 @@ public class DiaryInviteService {
         diary.updateSettings(null,null,null,"MEMBERS");
         return link(invite,token);
     }
+    @Transactional(readOnly=true)
     public InvitePreviewResponse preview(String token) {return preview(token,null);}
+    @Transactional(readOnly=true)
     public InvitePreviewResponse preview(String token,Long actor) {
         long inviteId=tokens.id(token);
-        UUID id=invites.diaryId(inviteId).orElseThrow(tokens::notFound);
-        var diary=access.lock(id);var invite=valid(inviteId,token,actor);access.initializeOwner(diary);
-        int count=Math.toIntExact(members.countByDiaryIdAndLeftAtIsNull(id));
+        var invite=valid(inviteId,token,actor);UUID id=invite.getDiaryId();
+        var diary=access.read(id);
+        int count=access.visibleMembers(diary).size();
         return new InvitePreviewResponse(id,diary.getTitle(),invite.publicExpiresAt(),count,SharingPolicy.MAX_MEMBERS,count>=SharingPolicy.MAX_MEMBERS,invite.email()?"EMAIL":"LINK",invite.status());
     }
     public InviteAcceptResponse accept(String token,long actor) {
-        access.activeUser(actor);long inviteId=tokens.id(token);
-        UUID id=invites.diaryId(inviteId).orElseThrow(tokens::notFound);
-        var diary=access.lock(id);var invite=valid(inviteId,token,actor);access.initializeOwner(diary);
+        long inviteId=tokens.id(token);
+        var invite=valid(inviteId,token,actor);UUID id=invite.getDiaryId();
+        var diary=access.lock(id);
+        // Another transaction may have cancelled/consumed the invite while we waited.
+        // Refresh the first-level JPA cache before validating again under the parent lock.
+        entities.refresh(invite);invite=valid(inviteId,token,actor);
+        access.activeUser(actor);access.initializeOwner(diary);
         var member=members.findById(new DiaryMemberId(id,actor)).orElse(null);
         int count=Math.toIntExact(members.countByDiaryIdAndLeftAtIsNull(id));
         if(member!=null&&member.active()) {

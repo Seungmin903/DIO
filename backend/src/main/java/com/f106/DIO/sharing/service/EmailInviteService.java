@@ -24,10 +24,11 @@ public class EmailInviteService {
     private final UserRepository users;private final InviteTokens tokens;private final InviteMailSender mail;
     private final org.springframework.transaction.support.TransactionTemplate write;
     private final ApplicationEventPublisher events;private final InviteViews views;private final DiaryInviteService links;
+    private final com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts;
     public EmailInviteService(SharingAccessService access,DiaryInviteRepository invites,DiaryMemberRepository members,UserRepository users,
-            InviteTokens tokens,InviteMailSender mail,ApplicationEventPublisher events,InviteViews views,DiaryInviteService links,org.springframework.transaction.PlatformTransactionManager manager){
+            InviteTokens tokens,InviteMailSender mail,ApplicationEventPublisher events,InviteViews views,DiaryInviteService links,org.springframework.transaction.PlatformTransactionManager manager,com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts){
         this.write=new org.springframework.transaction.support.TransactionTemplate(manager);
-        this.access=access;this.invites=invites;this.members=members;this.users=users;this.tokens=tokens;this.mail=mail;this.events=events;this.views=views;this.links=links;
+        this.access=access;this.invites=invites;this.members=members;this.users=users;this.tokens=tokens;this.mail=mail;this.events=events;this.views=views;this.links=links;this.attempts=attempts;
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NEVER)
     public EmailInviteAcknowledgement send(UUID diaryId,long actor,EmailInviteRequest request){
@@ -38,6 +39,8 @@ public class EmailInviteService {
     }
     private InviteMailDispatch.Requested prepare(UUID diaryId,long actor,EmailInviteRequest request){
         var diary=access.lock(diaryId);access.member(diary,actor);tokens.emailConfigured();mail.configured();
+        Instant now=Instant.now().truncatedTo(ChronoUnit.MICROS);
+        attempts.reserve(diaryId,request.email(),now);
         var recipient=users.findByEmail(request.email()).filter(u->u.isActive()).orElse(null);
         if(recipient==null)return null;
         if(members.findById(new DiaryMemberId(diaryId,recipient.getUserId())).filter(DiaryMember::active).isPresent())return null;
@@ -46,19 +49,19 @@ public class EmailInviteService {
             if(tokens.matches(pending,tokens.token(pending)))return null;
             pending.cancel(Instant.now());
         }
-        Instant now=Instant.now().truncatedTo(ChronoUnit.MICROS);
         var recent=invites.recentEmails(diaryId,recipient.getUserId(),now.minusSeconds(SharingPolicy.INVITE_WINDOW_SECONDS));
         if(recent.size()>=SharingPolicy.MAX_INVITES){
-            long retry=Math.max(1,(Duration.between(now,recent.get(0).getCreatedAt().plusSeconds(SharingPolicy.INVITE_WINDOW_SECONDS)).toMillis()+999)/1000);
-            throw new SharingException(HttpStatus.TOO_MANY_REQUESTS,"EMAIL_INVITE_RATE_LIMITED","같은 다이어리와 수신자에게는 5분에 3회까지 초대할 수 있어요.",retry);
+            // Durable send quota remains authoritative after restarts/across instances.
+            // Its outcome must not expose whether a matching account exists.
+            return null;
         }
         var invite=invites.saveAndFlush(DiaryInvite.email(diaryId,actor,recipient.getUserId(),now));
         String token=tokens.token(invite);invite.initializeHash(tokens.hash(token));diary.updateSettings(null,null,null,"MEMBERS");
         return new InviteMailDispatch.Requested(invite.getInviteId(),recipient.getEmail(),diary.getTitle(),tokens.url(token));
     }
-    @Transactional
+    @Transactional(readOnly=true)
     public DiaryInvitationsResponse sent(UUID diaryId,long actor,int page,int size){
-        var diary=access.lock(diaryId);access.member(diary,actor);
+        var diary=access.read(diaryId);access.readMember(diary,actor);
         var current=links.current(diaryId,actor);
         return new DiaryInvitationsResponse(current.available(),current.token(),current.inviteUrl(),current.expiresAt(),current.token()==null?null:tokens.id(current.token()).toString(),views.page(invites.sentEmails(diaryId,pagination(page,size))));
     }

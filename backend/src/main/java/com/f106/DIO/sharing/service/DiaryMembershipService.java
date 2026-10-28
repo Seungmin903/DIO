@@ -24,9 +24,10 @@ public class DiaryMembershipService {
             MemberProfileResolver views,DiaryPermanentDeletionRepository deletion) {
         this.access=access;this.members=members;this.invites=invites;this.views=views;this.deletion=deletion;
     }
+    @Transactional(readOnly=true)
     public MemberListResponse list(UUID id,long actor) {
-        var diary=access.lock(id);access.member(diary,actor);
-        var result=members.findByDiaryIdAndLeftAtIsNullOrderByJoinedAtAscUserIdAsc(id).stream().map(views::member).toList();
+        var diary=access.read(id);access.readMember(diary,actor);
+        var result=access.visibleMembers(diary).stream().map(views::member).toList();
         return new MemberListResponse(result,result.size(),SharingPolicy.MAX_MEMBERS);
     }
     public void remove(UUID id,long actor,long target) {
