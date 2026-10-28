@@ -13,7 +13,7 @@ const { code } = fromExpo('@babel/core').transformSync(readFileSync(new URL('../
   configFile: false, babelrc: false,
   plugins: [[fromExpo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], fromExpo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
-function input(zoom = 1, diameter) {
+function input(zoom = 1, diameter, props = {}) {
   let handlers
   const actions = [], previews = []
   const module = { exports: {} }
@@ -22,12 +22,13 @@ function input(zoom = 1, diameter) {
     if (name === '../../shared/theme') return { colors: {} }
     if (name === '../hooks/usePan') return { usePan: (value) => { handlers = value; return {} } }
     if (name === '../utils/eraser.js') return eraser
+    if (name === '../utils/penPerformance.js') return { startPenMeasurement: () => null }
     return require(name)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
   renderToStaticMarkup(React.createElement(module.exports.default, {
     zoom, diameter, objects: [createStroke([{ x: 100, y: 50 }, { x: 100, y: 150 }], { id: 'stroke', width: 2 })],
-    dispatch: (action) => actions.push(action), onPreview: (ids) => previews.push(ids),
+    dispatch: (action) => actions.push(action), onPreview: (ids) => previews.push(ids), ...props,
   }))
   return { handlers, actions, previews }
 }
@@ -72,5 +73,19 @@ test('크기 설정은 실제 삭제 반경에 반영되고 확대 상태에서�
       handlers.onEnd({ cancelled: false })
       assert.deepEqual(actions, expected)
     }
+  }
+})
+
+
+test('플래너 지우기와 일반 획 삭제는 한 action으로 확정하고 취소 시 둘 다 버린다', () => {
+  for (const cancelled of [false, true]) {
+    const original = { cells: { a: '#123456' } }, erased = { cells: {} }, drafts = []
+    const f = input(1, 24, { planner: original, onPlannerErase: () => erased, onPlannerPreview: value => drafts.push(value) })
+    f.handlers.onStart({ locationX: 100, locationY: 100 })
+    assert.deepEqual(f.actions, [])
+    f.handlers.onEnd({ cancelled })
+    f.handlers.onEnd({ cancelled })
+    assert.deepEqual(f.actions, cancelled ? [] : [{ type: 'setPlanner', planner: erased, after: { type: 'removeObjects', ids: ['stroke'] } }])
+    assert.equal(drafts.at(-1), null)
   }
 })

@@ -8,24 +8,26 @@ import * as geometry from '../src/editor/utils/pageGeometry.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const contexts = { TextMeasure: { Provider: 'measure' }, objectOpacity: object => object.opacity ?? 1 }
-function loadComponent(file) {
+function loadComponent(file, platform = 'ios', cacheOverride = null) {
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL(`../src/editor/components/canvas/${file}.js`, import.meta.url), 'utf8'), {
     configFile: false, babelrc: false,
     plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
   })
+  const cacheContext = {}
   const module = { exports: {} }, refs = []
   let cursor = 0
   const load = id => {
     if (id === 'react') return {
       memo: (component, compare) => Object.assign(component, { compare }),
       useRef: value => refs[cursor++] ??= { current: value },
-      createContext: () => ({}), useContext: () => ({ moving: false, visible: null }),
+      createContext: () => ({}), useContext: context => context === cacheContext ? cacheOverride : ({ moving: false, visible: null }),
     }
-    if (id === 'react-native') return { PixelRatio: { get: () => 2 }, View: 'view', StyleSheet: { create: value => value } }
+    if (id === 'react-native') return { Platform: { OS: platform }, PixelRatio: { get: () => 2 }, View: 'view', StyleSheet: { create: value => value } }
     if (id.endsWith('/completedStrokePlan.js')) return planner
     if (id.endsWith('/pageGeometry.js')) return geometry
+    if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
     if (id === './ObjectView') return contexts
-    if (['./PageObject', '../PageBackground', './CompletedStrokeLayer'].includes(id)) return { __esModule: true, default: id }
+    if (['./PageObject', '../PageBackground', './CompletedStrokeLayer', './WebStrokeCache'].includes(id)) return { __esModule: true, default: id }
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
@@ -67,4 +69,20 @@ test('필기에서만 캐시를 사용하고 일반 표시·선택 조작·내�
     assert.equal(direct[0].props.object, objects[0])
   }
   assert.equal(component.compare({ page, zoom: 1, cacheStrokes: false }, { page, zoom: 1, cacheStrokes: true }), false)
+})
+
+
+test('정식 웹 필기층은 기본 캐시, 썸네일·출력·변형은 원본이며 QA 끄기는 유지한다', () => {
+  const web = loadComponent('StaticPage', 'web')
+  const draw = options => web.render({ page, zoom: 1, ...options }).props.children[1].props.children
+  assert.equal(draw({ cacheStrokes: true }).type, './WebStrokeCache')
+  for (const options of [{}, { cacheStrokes: true, cropId: 'photo' }, { cacheStrokes: true, fadeIds: ['s0'] }, { cacheStrokes: true, stillIds: ['s0'] }]) {
+    const direct = draw(options)
+    assert.equal(direct.length, objects.length)
+    assert.equal(direct[0].props.object, objects[0])
+  }
+  const off = loadComponent('StaticPage', 'web', false).render({ page, zoom: 1, cacheStrokes: true }).props.children[1].props.children
+  assert.equal(off.type, './CompletedStrokeLayer')
+  const native = loadComponent('StaticPage', 'ios', true).render({ page, zoom: 1, cacheStrokes: true }).props.children[1].props.children
+  assert.equal(native.type, './CompletedStrokeLayer')
 })

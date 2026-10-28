@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Icon from '../controls/Icon'
 import { colors, DISABLED_OPACITY } from '../../../shared/theme'
 import { PHOTO_SHAPES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
+import { installDrawingSelectionGuard } from '../../utils/drawingSelectionGuard.js'
 import { expandGroups } from '../../state/editorReducer'
 import { centerOf, clamp, rotateVector, unionBounds } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
@@ -104,6 +105,12 @@ export default function Canvas({
   onCancelText,
   readOnly = false,
 }) {
+  const drawingSurface = useRef(null)
+  const suppressBrowserSelection = Platform.OS === 'web' && !readOnly && !textEditing
+    && ['pen', 'highlighter', 'eraser'].includes(activeTool)
+  useEffect(() => {
+    if (suppressBrowserSelection) return installDrawingSelectionGuard(drawingSurface.current)
+  }, [suppressBrowserSelection])
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   // 스터디 플래너 속지: 형광펜 · 펜 · 지우개 획을 칸 기록으로 받는다.
   const plannerOrientation = !readOnly && isStudyPlannerId(page.backgroundAssetId) ? (page.backgroundAssetId.endsWith('portrait') ? 'portrait' : 'landscape') : null
@@ -150,10 +157,20 @@ export default function Canvas({
   }
   const [erasingIds, setErasingIds] = useState([])
   const [erasingPieces, setErasingPieces] = useState(null) // 영역 지우기 중: 원래 획 id → 남은 조각
-  const previewErase = (ids, pieces = null) => { setErasingIds(ids); setErasingPieces(pieces) }
+  const erasePreviewTicket = useRef(null)
+  useLayoutEffect(() => {
+    const ticket = erasePreviewTicket.current
+    if (ticket && !ticket.committed) { ticket.committed = true; ticket.measurement.record(ticket.metric ?? 'eraserPreviewToLayoutMs', ticket.measurement.clock() - ticket.started) }
+  })
+  const previewErase = (ids, pieces = null, ticket = null) => { erasePreviewTicket.current = ticket; setErasingIds(ids); setErasingPieces(pieces) }
   // 그림 층에서 빼는 요소: 지우개로 지우는 중인 획, 편집 중인 텍스트(입력창이 투명이라 원래 글자가 겹쳐 보이지 않게)
   const hiddenIds = [...(activeTool === 'eraser' ? erasingIds : []), ...(textEditing?.id ? [textEditing.id] : [])]
   const pieces = activeTool === 'eraser' ? erasingPieces : null
+  const fastEraseObjects = useRef(new WeakSet())
+  const areaPreviewObjects = useMemo(() => {
+    if (Platform.OS === 'web' && pieces) for (const object of Object.values(pieces).flat()) fastEraseObjects.current.add(object)
+    return Platform.OS === 'web' && pieces ? new Set(Object.values(pieces).flat()) : null
+  }, [pieces])
   const hiddenSet = new Set(hiddenIds)
   const drawingPage = hiddenIds.length
     ? { ...page, objects: page.objects.flatMap((object) => pieces?.[object.id] ?? (hiddenSet.has(object.id) ? [] : [object])) }
@@ -286,8 +303,9 @@ export default function Canvas({
 
   return (
     <View
+      ref={drawingSurface}
       accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', eraser: '지우개', text: '텍스트', lasso: '올가미' }[activeTool]} 캔버스`}
-      style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
+      style={[styles.page, suppressBrowserSelection && styles.drawingSurface, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
     >
       {showBackground ? <PageBackground page={backgroundPage} zoom={zoom} underlay={guideUnderlay} /> : guideUnderlay}
@@ -296,7 +314,7 @@ export default function Canvas({
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <StaticPage page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting ? null : fitTextHeight} cacheStrokes={!readOnly && (activeTool === 'pen' || activeTool === 'highlighter')} />
+        <StaticPage deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting ? null : fitTextHeight} cacheStrokes={!readOnly && (activeTool === 'pen' || activeTool === 'highlighter' || (Platform.OS === 'web' && activeTool === 'eraser'))} />
       </View>
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
       {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
@@ -799,6 +817,9 @@ function panCrop(photo, startCrop, dx, dy, zoom, dispatch) {
 }
 
 const styles = StyleSheet.create({
+  drawingSurface: Platform.select({ web: {
+    userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', WebkitTapHighlightColor: 'transparent',
+  }, default: {} }),
   page: {
     // 웹 터치: 페이지 위 드래그를 브라우저가 스크롤·뒤로 가기 스와이프로 가져가지 않게 한다. (영역 선택·이동용)
     ...Platform.select({ web: { touchAction: 'none' }, default: {} }),

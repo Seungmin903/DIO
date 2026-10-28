@@ -126,7 +126,7 @@ multipart의 전체 Content-Type은 boundary를 포함하도록 클라이언트�
 
 ## 이메일 발송 설정
 
-실제 발송은 Spring JavaMailSender/SMTP를 사용한다. 아래 환경변수를 실행 환경에서 설정한다. 자격 증명과 비밀키는 커밋하지 않는다. 로컬 프로필은 저장소 루트 `.env`의 Spring 속성도 읽는다.
+실제 발송은 Spring JavaMailSender/SMTP를 사용한다. 아래 환경변수를 실행 환경에서 설정한다. 자격 증명과 비밀키는 커밋하지 않는다. 로컬 프로필은 저장소 루트 또는 `backend/`의 `.env`를 properties 파일로 읽는다. 이 경우 `SPRING_MAIL_*` 이름이 `spring.mail.*`로 자동 변환되지 않으므로 `application-local.yml`에서 직접 연결한다(2026-10-27). 발송 실패 시 서버 로그에 `Signup mail is not configured` 또는 `Signup mail delivery failed: error=…, cause=…`가 남는다. cause가 `AuthenticationFailedException`이면 SMTP 계정·앱 비밀번호를 확인한다.
 
 | 환경변수 | 의미 |
 |---|---|
@@ -149,6 +149,17 @@ multipart의 전체 Content-Type은 boundary를 포함하도록 클라이언트�
 - V2 마이그레이션이 `users`, `user_auth_providers`, `user_terms_agreements`, `signup_email_verifications`를 추가한다. V3 적용 후 인증 계정 테이블은 `user_auth_accounts`이며 ID는 `auth_account_id`, 제공자 식별값은 `provider_subject`, 연결 시각은 `linked_at`이다. 기존 V1 다이어리 데이터는 변경하지 않는다. V6는 일반 로그인용 `refresh_tokens`와 토큰 교체 이력 테이블을 추가한다.
 - EMAIL provider_user_id는 정규화 이메일이다. 인증번호는 이메일과 결합한 HMAC-SHA256, 가입 토큰은 무작위 256비트 값의 SHA-256만 저장한다.
 - 인증번호 10분, 재발송 간격 60초, 오답 최대 5회. 재발송 시 이전 번호·가입 토큰을 무효화한다. 인증 성공한 번호로 토큰을 다시 발급하지 않는다.
+- 이메일 형식 검사(`x@y.z`, 최대 254자)는 중복 확인·인증번호 발송·인증번호 확인·회원가입 요청에서 같은 규칙(`SignupDtos.EMAIL_PATTERN`)을 쓴다. 점이 없는 도메인(`member@localhost`)은 네 API 모두 400이다.
+
+### 인증 429 Retry-After 정리 (2026-10-27)
+
+| code | Retry-After | 클라이언트 처리 |
+|---|---|---|
+| `VERIFICATION_RATE_LIMITED` (60초 안에 재발송) | 다음 발송까지 **남은 초**(올림, 최소 1). 메시지에도 같은 초를 넣는다. 신규 INSERT 경합으로 막힌 요청은 방금 발송됐으므로 60 | 헤더 값만큼 재발송 버튼을 막는다 |
+| `VERIFICATION_ATTEMPTS_EXCEEDED` (오답 5회 초과) | **보내지 않는다**. 기다려도 같은 번호로는 풀리지 않는다 | 새 인증번호 요청으로 안내한다 |
+| `SIGNUP_MAIL_IP_RATE_LIMITED` (IP 15분 20회) | 현재 제한 창의 남은 초(변경 없음) | 헤더 값만큼 발송을 막는다 |
+
+`SignupException`은 Retry-After 값이 있을 때만 헤더를 붙인다. 요청·응답 본문, 상태 코드, DB는 바꾸지 않았다.
 - 가입 토큰은 이메일에 귀속되고 발급 후 10분, 가입 성공 시 소비한다. 회원·인증 계정·약관·토큰 소비는 같은 트랜잭션이다. 실패하면 함께 롤백한다.
 - 같은 이메일의 검증·가입은 DB 행 잠금으로 직렬화한다. 최초 인증 요청의 동시 생성은 PK 제약으로 충돌을 처리한다. 이메일/닉네임/로그인 제공자 키에도 UNIQUE 제약을 적용한다.
 - 오류는 `application/problem+json`을 사용한다. 입력 오류 400, 중복·동시 충돌 409, 횟수 제한 429, 인증 설정·SMTP 실패 503이다. 서비스 오류의 `code` 필드로 구분한다. validation 오류는 Spring 기본 ProblemDetail이다.
@@ -172,7 +183,7 @@ V3 후속 검증(2026-10-26): 전체 테스트 111개 중 102개 통과, Postgre
 
 MR !149 자동 리뷰의 메일 발송 남용 항목만 보완했다. `POST /api/v1/auth/email-verifications`는 유효한 요청 본문 검증 후 같은 클라이언트 IP의 요청을 **15분에 최대 20회** 허용한다. 이메일 주소를 바꾸거나 이미 가입된 이메일을 요청하거나 SMTP 발송이 실패해도 요청 횟수에 포함한다. 제한 초과 시 SMTP·인증 서비스 호출 전에 429, `SIGNUP_MAIL_IP_RATE_LIMITED`, `Retry-After`(현재 제한 창의 남은 초), `Cache-Control: no-store`를 반환한다. 다른 IP의 예산은 독립적이다.
 
-이메일별 기존 재발송 간격 60초와 기존 `VERIFICATION_RATE_LIMITED` 오류·Retry-After 60은 유지한다. 성공 응답 본문과 인증번호 확인·가입·로그인·Refresh 정책은 변경하지 않았다. DB 마이그레이션·새 환경변수·프론트 변경은 없다.
+이메일별 기존 재발송 간격 60초와 기존 `VERIFICATION_RATE_LIMITED` 오류는 유지한다. (2026-10-27 변경: Retry-After는 아래 "인증 429 Retry-After 정리" 참고) 성공 응답 본문과 인증번호 확인·가입·로그인·Refresh 정책은 변경하지 않았다. DB 마이그레이션·새 환경변수·프론트 변경은 없다.
 
 IP는 servlet의 remoteAddr를 사용하며 외부 X-Forwarded-For 값을 직접 파싱하지 않는다. 기존 개발/운영 신뢰 Nginx 설정이 정확히 주입되어야 실제 사용자 IP로 제한된다. 같은 NAT·공유 네트워크는 IP 예산을 공유한다.
 

@@ -7,9 +7,22 @@ import { Platform } from 'react-native'
  *   Android 는 plugins/withPointerEvents.js 로 포인터 이벤트를 켠다. Expo Go 에서는 오지 않아 'unknown' 이다.
  * 펜이 한 번이라도 보이면(stylus.seen) 그 뒤로는 펜만 그린다.
  */
-export const stylus = { seen: false, pointerEvents: false }
+export const stylus = { seen: false, pointerEvents: false, activePen: false }
 
 const kinds = new Map()
+const refreshActive = () => { stylus.activePen = [...kinds.values()].some(kind => kind === 'pen') }
+
+export function setPenPointerActive(id, active) {
+  if (id == null) return
+  if (active) { kinds.set(id, 'pen'); stylus.seen = true }
+  else kinds.delete(id)
+  refreshActive()
+}
+
+export function resetStylusPointers() {
+  kinds.clear()
+  stylus.activePen = false
+}
 
 /** 보는 영역에서 포인터가 닿을 때(capture) 부른다 */
 export function notePointerDown(event) {
@@ -18,12 +31,16 @@ export function notePointerDown(event) {
   stylus.pointerEvents = true
   kinds.set(e.pointerId, e.pointerType)
   if (e.pointerType === 'pen') stylus.seen = true
+  refreshActive()
 }
 
 /** 포인터가 떨어지거나 취소될 때. Android 는 pointerId 를 다시 쓰므로 지워 둔다. */
 export function notePointerUp(event) {
   const id = event.nativeEvent?.pointerId
-  if (id != null) kinds.delete(id)
+  if (id != null) {
+    kinds.delete(id)
+    refreshActive()
+  }
 }
 
 /** 'pen' | 'touch' | 'unknown' */

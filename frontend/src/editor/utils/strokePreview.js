@@ -13,13 +13,13 @@ export function createStrokePreview() {
         const end = cursor + PREVIEW_SEGMENT_POINTS
         // 다음 점을 포함해 구간 접합부의 접선·압력 문맥을 유지한다.
         const start = Math.max(0, cursor - 1)
-        finished.push({ key: cursor, points: points.slice(start, end + 2),
+        finished.push({ key: cursor, points: points.slice(start, end + 2), curveBefore: points[start - 1],
           startDistance: travelled - (cursor ? distance(points[cursor - 1], points[cursor]) : 0), continuing: true })
         for (let i = cursor + 1; i <= end; i++) travelled += distance(points[i - 1], points[i])
         cursor = end
       }
       const start = Math.max(0, cursor - 1)
-      return [...finished, { key: cursor, points: points.slice(start),
+      return [...finished, { key: cursor, points: points.slice(start), curveBefore: points[start - 1],
         startDistance: travelled - (cursor ? distance(points[cursor - 1], points[cursor]) : 0), continuing: false }]
     },
   }
@@ -27,8 +27,6 @@ export function createStrokePreview() {
 
 export function previewGeometry(part, settings) {
   return part.points.length > 1 && (settings.kind === 'brush' || settings.kind === 'fountain')
-    ? { outline: penContour(part.points, settings.width, settings.kind, {
-      startDistance: part.startDistance, continueEnd: part.continuing, maxSamples: 512,
-    }) }
+    ? { outline: penContour(part.points, settings.width, settings.kind) }
     : { path: strokePath(part.points) }
 }

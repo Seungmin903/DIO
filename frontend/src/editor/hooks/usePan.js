@@ -1,6 +1,8 @@
-import { useContext, useLayoutEffect, useRef, useState } from 'react'
-import { PanResponder } from 'react-native'
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { AppState, PanResponder } from 'react-native'
 import { PalmRejectionContext, usePalmRejectingPan } from './usePalmRejection'
+import { createPenPointerInput } from '../utils/penPointerInput.js'
+import { setPenPointerActive } from '../utils/stylus'
 
 const MOVE_THRESHOLD = 3
 
@@ -44,6 +46,20 @@ export function usePan(handlers) {
   })
   const [responder] = useState(() => createResponder(handlersRef))
   const palm = useContext(PalmRejectionContext)
-  const palmHandlers = usePalmRejectingPan(handlers)
-  return palm ? palmHandlers : responder.panHandlers
+  const pointer = useRef(null)
+  if (!pointer.current) pointer.current = createPenPointerInput(() => handlersRef.current,
+    (active, id) => setPenPointerActive(id, active))
+  useEffect(() => {
+    const subscription = AppState?.addEventListener('change', state => { if (state !== 'active') pointer.current.cancel() })
+    return () => subscription?.remove()
+  }, [])
+  useLayoutEffect(() => () => pointer.current.cancel(), [palm, handlers.disabled])
+  const owned = { ...handlers }
+  for (const name of ['onStart', 'onMove', 'onEnd']) owned[name] = (...args) => {
+    if (!pointer.current.active) handlersRef.current[name]?.(...args)
+  }
+  const palmHandlers = usePalmRejectingPan(owned)
+  // Eraser and other palm-aware tools also need the Pencil path after iOS
+  // pointers are enabled. PenInput owns its richer preview lifecycle itself.
+  return palm ? handlers.externalPointer ? palmHandlers : { ...palmHandlers, ...pointer.current.handlers } : responder.panHandlers
 }

@@ -1,0 +1,389 @@
+{
+  "date": "2026-10-27",
+  "revision": "safari-cache-fallback-v1",
+  "fixture": {
+    "strokes": 100,
+    "kind": "fountain",
+    "zoom": 0.6
+  },
+  "userVisualFeedback": "두 조건에서 빈틈·잔상 없음",
+  "cases": [
+    {
+      "faultMode": "failure",
+      "windowUTC": [
+        "2026-10-27T12:41:34.462Z",
+        "2026-10-27T12:42:52.441Z"
+      ],
+      "expectedFailures": 64,
+      "unexpectedErrors": 0,
+      "erase": [
+        {
+          "cancelled": false,
+          "affectedObjects": 12,
+          "maxFrameGapMs": 129
+        },
+        {
+          "cancelled": false,
+          "affectedObjects": 8,
+          "maxFrameGapMs": 94
+        },
+        {
+          "cancelled": false,
+          "affectedObjects": 10,
+          "maxFrameGapMs": 73
+        },
+        {
+          "cancelled": false,
+          "affectedObjects": 9,
+          "maxFrameGapMs": 40
+        }
+      ],
+      "checkpoints": [
+        {
+          "phase": "fallback",
+          "objects": 100,
+          "beforeMatch": null,
+          "erasedMatch": null,
+          "readyCaches": 0,
+          "preciseSvgObjects": 100,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 25,
+            "budgetSkipped": 0
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objects": 103,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 60,
+          "temporarySvgObjects": 43,
+          "fallback": {
+            "expectedFailures": 25,
+            "budgetSkipped": 0
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objects": 103,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 53,
+          "temporarySvgObjects": 50,
+          "fallback": {
+            "expectedFailures": 27,
+            "budgetSkipped": 0
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objects": 103,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 33,
+          "temporarySvgObjects": 70,
+          "fallback": {
+            "expectedFailures": 27,
+            "budgetSkipped": 0
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objects": 103,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 17,
+          "temporarySvgObjects": 86,
+          "fallback": {
+            "expectedFailures": 27,
+            "budgetSkipped": 0
+          },
+          "history": null
+        },
+        {
+          "phase": "undo",
+          "objects": 103,
+          "beforeMatch": true,
+          "erasedMatch": false,
+          "readyCaches": 0,
+          "preciseSvgObjects": 75,
+          "temporarySvgObjects": 28,
+          "fallback": {
+            "expectedFailures": 50,
+            "budgetSkipped": 0
+          },
+          "history": {
+            "requestId": "mvqocuzj-history-7",
+            "executions": 1,
+            "oneStep": true,
+            "beforePast": 4,
+            "beforeFuture": 0,
+            "afterPast": 3,
+            "afterFuture": 1,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "svg-undo",
+          "objects": 103,
+          "beforeMatch": true,
+          "erasedMatch": false,
+          "readyCaches": 0,
+          "preciseSvgObjects": 103,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 57,
+            "budgetSkipped": 0
+          },
+          "history": {
+            "requestId": "mvqocuzj-history-7",
+            "executions": 1,
+            "oneStep": true,
+            "beforePast": 4,
+            "beforeFuture": 0,
+            "afterPast": 3,
+            "afterFuture": 1,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "redo",
+          "objects": 103,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 75,
+          "temporarySvgObjects": 28,
+          "fallback": {
+            "expectedFailures": 57,
+            "budgetSkipped": 0
+          },
+          "history": {
+            "requestId": "mvqocuzj-history-10",
+            "executions": 2,
+            "oneStep": true,
+            "beforePast": 3,
+            "beforeFuture": 1,
+            "afterPast": 4,
+            "afterFuture": 0,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "svg-redo",
+          "objects": 103,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 103,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 64,
+            "budgetSkipped": 0
+          },
+          "history": {
+            "requestId": "mvqocuzj-history-10",
+            "executions": 2,
+            "oneStep": true,
+            "beforePast": 3,
+            "beforeFuture": 1,
+            "afterPast": 4,
+            "afterFuture": 0,
+            "observedEditorCommit": true
+          }
+        }
+      ]
+    },
+    {
+      "faultMode": "budget",
+      "windowUTC": [
+        "2026-10-27T12:42:52.729Z",
+        "2026-10-27T12:43:22.855Z"
+      ],
+      "expectedFailures": 0,
+      "unexpectedErrors": 0,
+      "erase": [
+        {
+          "cancelled": false,
+          "affectedObjects": 5,
+          "maxFrameGapMs": 146
+        },
+        {
+          "cancelled": false,
+          "affectedObjects": 8,
+          "maxFrameGapMs": 164.00000000001455
+        },
+        {
+          "cancelled": false,
+          "affectedObjects": 44,
+          "maxFrameGapMs": 216
+        }
+      ],
+      "checkpoints": [
+        {
+          "phase": "fallback",
+          "objects": 100,
+          "beforeMatch": null,
+          "erasedMatch": null,
+          "readyCaches": 0,
+          "preciseSvgObjects": 100,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 0,
+            "budgetSkipped": 25
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objects": 100,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 100,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 0,
+            "budgetSkipped": 25
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objects": 101,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 101,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 0,
+            "budgetSkipped": 26
+          },
+          "history": null
+        },
+        {
+          "phase": "erased",
+          "objects": 114,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 114,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 0,
+            "budgetSkipped": 33
+          },
+          "history": null
+        },
+        {
+          "phase": "undo",
+          "objects": 101,
+          "beforeMatch": true,
+          "erasedMatch": false,
+          "readyCaches": 0,
+          "preciseSvgObjects": 101,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 0,
+            "budgetSkipped": 27
+          },
+          "history": {
+            "requestId": "mvqocuzj-history-18",
+            "executions": 3,
+            "oneStep": true,
+            "beforePast": 3,
+            "beforeFuture": 0,
+            "afterPast": 2,
+            "afterFuture": 1,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "svg-undo",
+          "objects": 101,
+          "beforeMatch": true,
+          "erasedMatch": false,
+          "readyCaches": 0,
+          "preciseSvgObjects": 101,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 0,
+            "budgetSkipped": 27
+          },
+          "history": {
+            "requestId": "mvqocuzj-history-18",
+            "executions": 3,
+            "oneStep": true,
+            "beforePast": 3,
+            "beforeFuture": 0,
+            "afterPast": 2,
+            "afterFuture": 1,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "redo",
+          "objects": 114,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 114,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 0,
+            "budgetSkipped": 33
+          },
+          "history": {
+            "requestId": "mvqocuzj-history-21",
+            "executions": 4,
+            "oneStep": true,
+            "beforePast": 2,
+            "beforeFuture": 1,
+            "afterPast": 3,
+            "afterFuture": 0,
+            "observedEditorCommit": true
+          }
+        },
+        {
+          "phase": "svg-redo",
+          "objects": 114,
+          "beforeMatch": false,
+          "erasedMatch": true,
+          "readyCaches": 0,
+          "preciseSvgObjects": 114,
+          "temporarySvgObjects": 0,
+          "fallback": {
+            "expectedFailures": 0,
+            "budgetSkipped": 33
+          },
+          "history": {
+            "requestId": "mvqocuzj-history-21",
+            "executions": 4,
+            "oneStep": true,
+            "beforePast": 2,
+            "beforeFuture": 1,
+            "afterPast": 3,
+            "afterFuture": 0,
+            "observedEditorCommit": true
+          }
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "QA 전환은 캐시 시작 실패 및1px 예산으로 강제한 조건이며 실제 Safari GPU/디코더 고장·OOM을 재현한 것은 아님",
+    "정밀 SVG 기능·데이터 보존 및 육안 확인이며 성능 통과가 아님",
+    "SVG 대체에서 지우기 중 최대 프레임 간격216ms",
+    "사용자 좌표·필기 내용·계정·원본 id 수록 없음"
+  ]
+}

@@ -1,8 +1,18 @@
 // 페이지 논리 좌표를 요소 내부 좌표로 변환한다. w/h는 현재 크기,
 // baseWidth/baseHeight는 원래 좌표계이므로 공통 이동·회전·리사이즈를 재사용한다.
 export const DEFAULT_PEN = { color: '#0B1957', width: 3 }
+const SENSOR_PRECISION = { force: 10000, time: 10, speed: 10000, tiltX: 10, tiltY: 10, inkDistance: 10000 }
+const storedPoint = (point, x, y, renderVersion) => {
+  const result = { x: point.x - x, y: point.y - y, ...(point.pressure != null && { pressure: point.pressure }) }
+  // Only the new material version needs sensor metadata. Never serialize event
+  // objects/arbitrary keys or round existing geometry and width multipliers.
+  if (renderVersion === 3) for (const [key, scale] of Object.entries(SENSOR_PRECISION)) {
+    if (point[key] != null) result[key] = Math.round(point[key] * scale) / scale
+  }
+  return result
+}
 
-export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball', lineCap = 'round' } = {}) {
+export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball', lineCap = 'round', renderVersion = 2, materialSeed } = {}) {
   if (!points.length) return null
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const p of points) {
@@ -17,9 +27,10 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
   const x = (minX + maxX - w) / 2, y = (minY + maxY - h) / 2
   return {
     id, type: 'stroke', name: kind === 'highlighter' ? '형광펜 획' : '펜 획', x, y, w, h, rotation: 0,
-    baseWidth: w, baseHeight: h, color, strokeWidth: width, penKind: kind, renderVersion: 2,
+    baseWidth: w, baseHeight: h, color, strokeWidth: width, penKind: kind, renderVersion,
+    ...(renderVersion === 3 && { materialSeed: materialSeed ?? 0 }),
     ...(kind === 'highlighter' && { lineCap }),
-    points: points.map((p) => ({ x: p.x - x, y: p.y - y, ...(p.pressure != null && { pressure: p.pressure }) })),
+    points: points.map((p) => storedPoint(p, x, y, renderVersion)),
   }
 }
 
@@ -69,51 +80,117 @@ function curvePoint(p0, a, b, p3, t) {
   return { x: h00 * a.x + h10 * tax + h01 * b.x + h11 * tbx, y: h00 * a.y + h10 * tay + h01 * b.y + h11 * tby }
 }
 
-// 입력 간격과 무관한 거리 기반 테이퍼와 45도 펜촉을 적용한다.
-export function penContour(points, width, kind, { startDistance = 0, continueEnd = false, maxSamples } = {}) {
-  if (points.length < 2) return ''
-  // 빠른 입력으로 두 끝점만 들어와도 중간 몸통이 테이퍼에 소실되지 않게 한다.
-  const sampled = [points[0]]
-  // 실시간 미리보기만 재표본 수를 제한한다. 저장·내보내기 윤곽은 기존 간격 그대로다.
-  let spacing = 2
-  if (maxSamples) {
-    let length = 0
-    for (let i = 1; i < points.length; i++) length += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
-    spacing = Math.max(spacing, length / maxSamples)
-  }
-  // 입력 점 사이를 직선이 아니라 곡선으로 채워 작은 원 · 빠른 곡선이 각지지 않게 한다.
-  for (let i = 1; i < points.length; i++) {
+// Render-only samples: document coordinates, pressure and sensor records stay intact.
+// Use a per-segment budget so preview chunks and the saved stroke share geometry.
+export function samplePenCurve(points, startDistance = 0, { first = 0, last = points.length - 1 } = {}) {
+  if (!points.length) return []
+  const sampled = [{ ...points[first], inkDistance: points[first].inkDistance ?? startDistance }]
+  let travelled = startDistance
+  for (let i = first + 1; i <= last; i++) {
     const a = points[i - 1], b = points[i], p0 = points[i - 2] ?? a, p3 = points[i + 1] ?? b
-    const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / spacing))
+    const length = Math.hypot(b.x - a.x, b.y - a.y)
+    const from = a.inkDistance ?? travelled, to = b.inkDistance ?? from + length
+    const curved = [0.25, 0.5, 0.75].some(t => {
+      const p = curvePoint(p0, a, b, p3, t)
+      return Math.hypot(p.x - a.x - (b.x - a.x) * t, p.y - a.y - (b.y - a.y) * t) > 0.01
+    })
+    const steps = Math.min(512, Math.max(curved ? 2 : 1, Math.ceil(length / 6 - 1e-9)))
     for (let j = 1; j <= steps; j++) {
       const t = j / steps
-      sampled.push({ ...(j === steps ? { x: b.x, y: b.y } : curvePoint(p0, a, b, p3, t)), pressure: (a.pressure ?? 1) + ((b.pressure ?? 1) - (a.pressure ?? 1)) * t })
+      const point = j === steps ? { ...b } : { ...a,
+        ...(curved ? curvePoint(p0, a, b, p3, t) : { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }),
+        pressure: (a.pressure ?? 1) + ((b.pressure ?? 1) - (a.pressure ?? 1)) * t }
+      if (j !== steps) for (const key of Object.keys(SENSOR_PRECISION)) {
+        if (a[key] != null && b[key] != null) point[key] = a[key] + (b[key] - a[key]) * t
+      }
+      point.inkDistance = from + (to - from) * t
+      sampled.push(point)
     }
+    travelled += length
   }
-  points = sampled
-  const distances = [startDistance]
-  for (let i = 1; i < points.length; i++) distances.push(distances[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y))
-  const total = distances[distances.length - 1]
-  const left = [], right = []
-  points.forEach((p, i) => {
-    const a = points[Math.max(0, i - 1)], b = points[Math.min(points.length - 1, i + 1)]
-    const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy) || 1
-    const nx = -dy / length, ny = dx / length
-    const pressure = (a.pressure ?? 1) * 0.25 + (p.pressure ?? 1) * 0.5 + (b.pressure ?? 1) * 0.25
-    const nib = kind === 'fountain' ? 0.28 + 0.72 * Math.abs((nx + ny) / Math.SQRT2) : 1
-    const taper = kind === 'brush' ? Math.max(0.06, Math.min(1, distances[i] / Math.max(6, width), continueEnd ? 1 : (total - distances[i]) / Math.max(12, width * 2))) : 1
-    const radius = width * pressure * nib * taper / 2
-    left.push({ x: p.x + nx * radius, y: p.y + ny * radius })
-    right.push({ x: p.x - nx * radius, y: p.y - ny * radius })
-  })
-  return smoothClosed([...left, ...right.reverse()])
+  return sampled
 }
 
-function smoothClosed(points) {
-  const midpoint = (a, b) => `${(a.x + b.x) / 2} ${(a.y + b.y) / 2}`
-  let path = `M${midpoint(points[points.length - 1], points[0])}`
-  points.forEach((p, i) => { path += `Q${p.x} ${p.y} ${midpoint(p, points[(i + 1) % points.length])}` })
-  return path + 'Z'
+// Preview overlaps need the preceding neighbour too; the trailing point is
+// tangent context only, otherwise cached chunks freeze an unfinished curve.
+export function samplePenPart(part) {
+  const points = part.curveBefore ? [part.curveBefore, ...part.points] : part.points
+  return samplePenCurve(points, part.startDistance ?? 0, {
+    first: part.curveBefore ? 1 : 0,
+    last: points.length - (part.continuing ? 2 : 1),
+  })
+}
+
+// Keep the material renderer's continuous, consistently wound nib sweeps.
+export function penContour(points, width, kind) {
+  return penSweeps(samplePenCurve(points), width, kind).map(piece => piece.path).join('')
+}
+
+const polygonPath = points => {
+  points = points.map(p => ({ x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000 }))
+  let area = 0
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i], b = points[(i + 1) % points.length]
+    area += a.x * b.y - b.x * a.y
+  }
+  if (Math.abs(area) < 1e-10) return ''
+  if (area < 0) points.reverse()
+  return points.map((p, i) => `${i ? 'L' : 'M'}${Math.round(p.x * 1000) / 1000} ${Math.round(p.y * 1000) / 1000}`).join('') + 'Z'
+}
+
+// 농도도 화면 x/y가 아닌 실제 누적 이동 거리를 사용한다.
+export function penSweeps(points, width, kind, startDistance = 0, { capStart = true, capEnd = true } = {}) {
+  if (!points.length) return []
+  const pieces = []
+  // 중복 위치는 마지막 압력을 사용한다. 0 길이 구간의 접선은 만들지 않는다.
+  const clean = []
+  for (const p of points) {
+    const previous = clean.at(-1)
+    if (previous && Math.hypot(p.x - previous.x, p.y - previous.y) < 1e-8) clean[clean.length - 1] = p
+    else clean.push(p)
+  }
+  const offset = (angle, radius) => {
+    const x = Math.cos(angle) * radius, y = Math.sin(angle) * radius
+    return kind === 'fountain' ? { x: x * 0.94 + y * 0.06, y: x * 0.06 + y * 0.94 } : { x, y }
+  }
+  const radius = p => width * (p.pressure ?? 1) / 2
+  const arc = (p, angle, turn, distance) => {
+    const steps = Math.max(1, Math.ceil(Math.abs(turn) / (Math.PI / 12)))
+    const vertices = [p]
+    for (let i = 0; i <= steps; i++) {
+      const d = offset(angle + turn * i / steps, radius(p))
+      vertices.push({ x: p.x + d.x, y: p.y + d.y })
+    }
+    pieces.push({ path: polygonPath(vertices), distance, point: p })
+  }
+  if (clean.length === 1) { arc(clean[0], 0, Math.PI * 2, startDistance); return pieces }
+  let travelled = clean[0].inkDistance ?? startDistance, previousAngle
+  for (let i = 1; i < clean.length; i++) {
+    const a = clean[i - 1], b = clean[i]
+    const length = Math.hypot(b.x - a.x, b.y - a.y)
+    const endDistance = b.inkDistance ?? travelled + length
+    const angle = Math.atan2(b.y - a.y, b.x - a.x)
+    if (i === 1) { if (capStart) arc(a, angle + Math.PI / 2, Math.PI, travelled) }
+    else {
+      const turn = Math.atan2(Math.sin(angle - previousAngle), Math.cos(angle - previousAngle))
+      if (Math.abs(turn) > 1e-8) arc(a, previousAngle - Math.sign(turn) * Math.PI / 2, turn, travelled)
+    }
+    const da = offset(angle + Math.PI / 2, radius(a)), db = offset(angle + Math.PI / 2, radius(b))
+    // 반올림된 접합선이 딱 맞닿기만 하면 SVG 래스터화에서 가는 밝은 이음선이 생긴다.
+    // 끝/조인 안쪽으로만 아주 작게 겹쳐 같은 Path의 채움으로 합친다.
+    const overlap = Math.min(0.04, radius(a) * 0.02, radius(b) * 0.02)
+    const ox = Math.cos(angle) * overlap, oy = Math.sin(angle) * overlap
+    pieces.push({ path: polygonPath([
+      { x: a.x + da.x - ox, y: a.y + da.y - oy }, { x: b.x + db.x + ox, y: b.y + db.y + oy },
+      { x: b.x - db.x + ox, y: b.y - db.y + oy }, { x: a.x - da.x - ox, y: a.y - da.y - oy },
+    ]), distance: (travelled + endDistance) / 2, point: { ...a,
+      ...(a.force != null && b.force != null && { force: (a.force + b.force) / 2 }),
+      ...(a.speed != null && b.speed != null && { speed: (a.speed + b.speed) / 2 }) } })
+    travelled = endDistance
+    previousAngle = angle
+    if (i === clean.length - 1 && capEnd) arc(b, angle - Math.PI / 2, Math.PI, travelled)
+  }
+  return pieces
 }
 
 // 종이 결은 좌표가 고정된 SVG 패턴으로 표현해 저장·새로고침·출력 시 바뀌지 않는다.
