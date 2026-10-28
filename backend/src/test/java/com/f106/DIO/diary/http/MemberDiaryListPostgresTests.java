@@ -56,6 +56,46 @@ class MemberDiaryListPostgresTests {
             assertThatThrownBy(() -> query.list(null,"title",1,old)).isInstanceOf(MemberDiaryRequestException.class);
         }
     }
+    @Test void explainActualListQueryBoundsPageCountsWhenNotSortingByPages() throws Exception {
+        // Synthetic account: 200 diaries x 25 pages. Inspect execution, never assert wall-clock speed.
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility)"
+            + " select md5('plan-diary-'||g)::uuid,101,'Plan '||g,'#123456','PLAIN','PRIVATE' from generate_series(1,200) g");
+        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) select diary_id,101,'OWNER','#123456' from diaries");
+        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) select diary_id,202,'EDITOR','#654321' from diaries");
+        jdbc.update("insert into pages(page_id,diary_id,sort_key) select md5(d.diary_id::text||'-'||g)::uuid,d.diary_id,g from diaries d cross join generate_series(1,25) g");
+        for(String table:List.of("diaries","diary_members","pages")) jdbc.execute("analyze "+table);
+        class RecordingJdbc extends JdbcTemplate {
+            String sql;Object[] args;
+            RecordingJdbc() {super(jdbc.getDataSource());}
+            @Override public <T> List<T> query(String statement,org.springframework.jdbc.core.RowMapper<T> mapper,Object... parameters) {
+                if(statement.startsWith("SELECT * FROM (")) {sql=statement;args=parameters.clone();}
+                return super.query(statement,mapper,parameters);
+            }
+        }
+        var recording=new RecordingJdbc();var identity=mock(DiaryRequestIdentity.class);when(identity.requireUserId(any())).thenReturn(101L);
+        var measured=new MemberDiaryListQuery(recording,identity);
+        var output=java.nio.file.Path.of("build","reports","member-list-plans");java.nio.file.Files.createDirectories(output);
+        for(String sort:List.of("updated","pages")) for(String filter:List.of("all","shared")) {
+            var page=measured.list(null,sort,20,null,filter,false);
+            assertThat(page.items()).hasSize(20);assertThat(page.hasNext()).isTrue();
+            assertThat(page.items()).allSatisfy(item->{assertThat(item.pageCount()).isEqualTo(25);assertThat(item.shared()).isTrue();});
+            assertThat(recording.sql).isNotNull();
+            String plan=jdbc.queryForObject("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) "+recording.sql,String.class,recording.args);
+            java.nio.file.Files.writeString(output.resolve(sort+"-"+filter+".json"),plan,StandardCharsets.UTF_8);
+            var tree=new tools.jackson.databind.ObjectMapper().readTree(plan);var loops=new ArrayList<Integer>();
+            pageScanLoops(tree,loops);
+            assertThat(loops).isNotEmpty();
+            if(!sort.equals("pages")) assertThat(loops).allSatisfy(n->assertThat(n).isLessThanOrEqualTo(21));
+        }
+    }
+    private void pageScanLoops(tools.jackson.databind.JsonNode node,List<Integer> loops) {
+        if(node.isArray()) {for(var child:node) pageScanLoops(child,loops);return;}
+        if(!node.isObject()) return;
+        if(node.has("Relation Name") && "pages".equals(node.get("Relation Name").asString())) loops.add(node.get("Actual Loops").asInt());
+        if(node.has("Plan")) pageScanLoops(node.get("Plan"),loops);
+        if(node.has("Plans")) pageScanLoops(node.get("Plans"),loops);
+    }
+
     @Test void activeCountsAndCursorOrderingStayExactWithDeletedPagesAndFormerMembers() {
         for(int i=1;i<=8;i++) {
             UUID id=add(i,"Title "+i);

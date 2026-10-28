@@ -18,8 +18,8 @@ public final class MemberDiaryRequests {
 
     public record Create(
         @NotBlank @Size(max=100) String diaryTitle,
-        @Pattern(regexp="#[0-9a-fA-F]{6}") String coverColor,
-        @Size(max=30) @Pattern(regexp="(?s).*\\S.*") String coverStyle,
+        @Schema(description="생략 또는 null이면 #CED9EE. 지문 계산과 저장 전에 기본값 적용") @Pattern(regexp="#[0-9a-fA-F]{6}") String coverColor,
+        @Schema(description="생략 또는 null이면 PLAIN. 지문 계산과 저장 전에 기본값 적용") @Size(max=30) @Pattern(regexp="(?s).*\\S.*") String coverStyle,
         @NotNull @Size(min=1,max=4096) @Valid List<@NotNull @Valid InitialPage> initialPages
     ) {
         public Create { if(diaryTitle!=null) diaryTitle=com.f106.DIO.diary.support.DiaryTitle.normalize(diaryTitle); }

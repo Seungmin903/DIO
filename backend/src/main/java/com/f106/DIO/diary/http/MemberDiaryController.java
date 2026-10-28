@@ -44,7 +44,7 @@ public class MemberDiaryController {
     }
 
     @PostMapping
-    @Operation(summary="회원 다이어리와 초기 페이지 생성",description="PRIVATE 생성. 초기 페이지 기본 상한 512. Idempotency-Key 필수(8~128자 영숫자·._:-). 같은 사용자·키·정규화된 본문은 최초 응답을 재사용하며 다른 본문은 409입니다.")
+    @Operation(summary="회원 다이어리와 초기 페이지 생성",description="PRIVATE 생성. coverColor/coverStyle 생략 또는 null은 #CED9EE/PLAIN으로 정규화합니다. 초기 페이지 기본 상한 512. Idempotency-Key 필수(8~128자 영숫자·._:-). 같은 사용자·키·정규화된 본문은 최초 생성 시점의 응답 스냅샷을 재사용하며 다른 본문은 409입니다. Idempotency-Replayed=true의 diary.version/updatedAt/제목/표지는 최신 상태가 아닐 수 있습니다. 후속 편집 전 상세 GET으로 최신 version을 조회하세요.")
     @ApiResponse(responseCode="201",description="다이어리·OWNER·초기 페이지 전체 생성")
     public ResponseEntity<MemberDiaryResponses.Created> create(@Valid @RequestBody MemberDiaryRequests.Create request,
             @RequestHeader(value="Idempotency-Key",required=false) @io.swagger.v3.oas.annotations.Parameter(required=true,description="사용자별 생성 키. 재시도 시 같은 값, 새 생성에는 새 값.") String idempotencyKey) {

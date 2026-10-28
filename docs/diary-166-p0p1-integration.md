@@ -12,6 +12,8 @@
 - 활성 역할은 OWNER·EDITOR만 허용한다. VIEWER·비참여·탈퇴·불일치 OWNER는 404이며 기존 역할 데이터를 일괄 수정하지 않는다. 활성 EDITOR는 상세/내용 편집 권한이 있지만 메타데이터 수정은 403이다. metadata canEdit과 permissions.canEditCanvas를 구분해 EDITOR의 로컬 편집을 불필요하게 막지 않는다. 원격 캔버스 쓰기 구현은 아니다.
 - 목록·상세·생성·수정 DTO에 양의 BIGINT 문자열 `version`, `myRole`, `myMembership.isFavorite`, `permissions`를 제공한다. 기존 nested diary 및 canEdit 필드는 호환을 위해 유지한다. 서버 휴지통 API·화면은 이번 범위가 아니며 canTrash는 도메인 권한이다.
 - PATCH는 문자열 `expectedVersion` 필수다. 숫자·0·선행 0·BIGINT 초과·이전 expectedUpdatedAt 필드는 400이다. 권한 확인 및 행 잠금 안에서 version을 비교하고 SQL의 동일 version 조건으로 원자 갱신한다. 오래된 기준은 409 DIARY_METADATA_CONFLICT, 변경할 수 없는 최댓값은 409 VERSION_EXHAUSTED다. 동일 내용은 시각·version을 증가시키지 않는다. 기존 내부/비회원 수정 서비스의 시각 기반 함수는 별개로 유지한다.
+- 표지 색·스타일은 선택값이다. 생략 또는 null은 DiaryCreateRequest 생성자에서 #CED9EE/PLAIN으로 보정하고 같은 값으로 지문 계산·JDBC 저장·응답을 만든다. 생략/null/명시적 기본값은 같은 멱등 요청으로 취급한다.
+- 생성 재전송은 최초 생성 시점의 응답 스냅샷을 유지한다. 후속 PATCH가 있어도 Idempotency-Replayed=true의 제목·표지·updatedAt·version이 최신임을 보장하지 않는다. 생성 성공/동일 키 재전송 뒤 편집 전에는 상세 GET으로 최신 version을 확인한다. 구 스냅샷의 version으로 PATCH하면 409이며 상세를 갱신해 새 version으로 수정한다. 최신 상태를 섞어 최초 응답 동일성·생성 ID를 바꾸지 않는다.
 - 생성 응답은 최초 완료 시각부터 24시간 전까지만 재사용한다. 정확한 만료 시각부터 409 IDEMPOTENCY_KEY_EXPIRED이고 키를 다시 생성에 사용하지 않는다. 요청 해시 충돌은 기존대로 409다. 응답 본문만 60초마다 최대 500건 정리하며 사용자·키·요청 해시·완료 시각과 다이어리 FK는 보존한다. 다이어리/사용자 삭제 시 기존 FK·응답 정리 정책을 유지한다.
 - FE의 신규 키는 기존 UUID 생성기로 발급한다. 서버는 기존 미확인 요청을 깨뜨리지 않도록 기존 8~128자 키도 계속 허용한다. 재시도에는 기존 키·본문을 그대로 쓴다. 만료 시 자동 재생성하지 않는다. 사용자가 요청 정리를 확인하면 최신 목록 조회 성공 후 계정별 pending-archive에 원문을 보관하고 미확인 상태를 해제한다. 조회 실패 시 미확인 요청을 유지한다.
 - 회원 기본 생성 UI는 가로/세로 무지 1장으로 시작한다. 서버의 기존 initialPages·카탈로그 확장 API와 기기 보관함의 여러 페이지·달력 구성은 유지한다. 과거 미확인 생성 요청의 내용을 무지 1장으로 바꾸지 않는다. 전체 페이지·OWNER·생성 응답 기록의 원자 생성은 기존 구현을 재사용한다.
@@ -47,3 +49,23 @@ V1~V11을 보존하고 미제출 V12__align_member_diary_contract.sql만 추가�
 - 최종 develop 및 !166 후속 변경·팀 계약·MR 순차 갱신 확인 전 이 사본을 그대로 병합 가능한 상태로 해석하지 않는다. 기존 MR 본문과 승인·Draft 상태는 변경하지 않았다.
 
 최종 보존 감사: 원본·248 관련 작업을 포함한 기존 9개 작업 폴더의 HEAD·브랜치·index·추적/비무시 파일 SHA-256은 작업 시작과 동일했다. 새 통합 사본의 V1~V11은 기준 !166과 동일하고 index는 비어 있다. 원본 서버·DB·MR은 변경하지 않았다. 최소 H2 fixture에서 백그라운드 정리가 실행되지 않도록 테스트 프로필에서 타이머만 끄며, 정리 SQL은 전용 fixture에서 직접 검증한다. 이 설정 후 만료 정리·실제 응답 생산자 두 항목과 실제 Spring→FE 소비 3개를 재확인했다.
+
+
+## !184 기본값·재전송·목록 비용 INFO 검증 (2026-10-28)
+
+표지 생략/null/명시적 기본값으로 동일 키를 전송하면 최초 응답을 재사용하고 DB에 #CED9EE/PLAIN을 저장하는 것을 실제 HTTP로 검증했다. 기본값은 기존 DiaryCreateRequest 생성자에서 지문·INSERT 전에 적용하므로 중복 보정 로직을 추가하지 않았다. OpenAPI에 선택값·기본값을 명시했다.
+
+생성→PATCH(version=2)→같은 키 재전송에서도 최초 생성 스냅샷(version=1, 최초 메타데이터/페이지 ID)을 그대로 반환한다. 구 version으로 수정하면 409, 상세 GET 뒤 version=2로 수정하면 version=3으로 진행하며 새 다이어리는 생성하지 않는다. 최초 스냅샷의 동일성을 유지하고 후속 편집 전에 상세 GET을 요구하는 계약을 OpenAPI에도 명시했다.
+
+목록 비용은 실제 MemberDiaryListQuery가 JDBC에 전달한 SQL과 바인딩을 수집해 폐기용 PostgreSQL 17에서 EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)으로 확인했다. 합성 데이터는 본인 다이어리 200개·활성 멤버 400개·페이지 5,000개, limit=20이다. 데이터베이스 통계를 갱신했으며 반복 시간이나 운영 부하/TPS를 측정한 결과는 아니다.
+
+| 정렬/필터 | pages 스캔 Actual Loops | 판정 |
+|---|---:|---|
+| updated/all | 21 | 반환 후보 limit+1에 대해서만 페이지 수 집계 |
+| updated/shared | 21 | 멤버 판정은 후보 200개, 페이지 수는 반환 후보만 집계 |
+| pages/all | 200 | 페이지 수 정렬에 후보 전체 집계 필요 |
+| pages/shared | 200 | 공유 필터 및 페이지 수 정렬에 후보 판정/집계 필요 |
+
+이 환경에서는 일반 목록도 전체 페이지 수를 모두 집계한다는 우려가 재현되지 않았다. PostgreSQL이 일반 정렬의 페이지 집계를 LIMIT 뒤로 지연한다. shared/personal의 멤버 판정과 pages 정렬용 집계는 정확한 필터·페이지 이동을 위해 LIMIT 전에 필요하다. 실행 시간 표본은 각 1~4ms 수준이었으나 성능 보장으로 사용하지 않는다. 근거 없이 GROUP BY 조인이나 필터 전 LIMIT로 재작성하지 않았다. 실행 계획 회귀 테스트는 벽시계 시간 대신 일반 정렬의 pages 스캔이 limit+1 이하인지 검증한다. 실제 운영 규모·분포·플래너가 다를 때 추가 EXPLAIN ANALYZE와 최적화 검토가 필요하다.
+
+검증 결과: H2 회원 HTTP 27개, 실제 PostgreSQL 목록/계획 5개와 회원 HTTP 34개, 실제 Spring 응답 기반 FE API·계약·스토어 24개가 통과했다. 실패·오류·제외는 0이다. 새 표지/재전송 HTTP 검증은 H2와 PostgreSQL에서 모두 실행했다. 임시 클러스터는 종료했다. 원본·248·다른 세션 작업과 SQL/migration/FE 제품 코드는 변경하지 않는다. 로컬 실행 계획 JSON 및 로그는 워크스페이스 tmp/diary184-defaults-replay-plan/에 보존하고, 최종 CI·자동 리뷰는 !184 본문을 따른다.

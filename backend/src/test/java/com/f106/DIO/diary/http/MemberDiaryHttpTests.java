@@ -269,6 +269,46 @@ class MemberDiaryHttpTests {
         java.nio.file.Files.writeString(output,json.writeValueAsString(result),java.nio.charset.StandardCharsets.UTF_8);
     }
 
+    @Test void omittedAndNullCoverMetadataUseDefaultsBeforePersistenceAndFingerprinting() throws Exception {
+        var input=(tools.jackson.databind.node.ObjectNode)json.readTree(body(1));
+        input.remove("coverColor");input.remove("coverStyle");
+        String key="default-cover-"+UUID.randomUUID();
+        var first=mvc.perform(post(PATH).header("Authorization","Bearer "+owner).header("Idempotency-Key",key)
+            .contentType(MediaType.APPLICATION_JSON).content(input.toString())).andExpect(status().isCreated())
+            .andExpect(jsonPath("$.diary.coverColor").value("#CED9EE")).andExpect(jsonPath("$.diary.coverStyle").value("PLAIN"))
+            .andReturn().getResponse().getContentAsString();
+        var id=UUID.fromString(json.readTree(first).get("diary").get("diaryId").asString());
+        assertThat(jdbc.queryForObject("select cover_color from diaries where diary_id=?",String.class,id)).isEqualTo("#CED9EE");
+        assertThat(jdbc.queryForObject("select cover_style from diaries where diary_id=?",String.class,id)).isEqualTo("PLAIN");
+        for(boolean explicitNull:new boolean[]{true,false}) {
+            if(explicitNull) {input.putNull("coverColor");input.putNull("coverStyle");}
+            else {input.put("coverColor","#CED9EE");input.put("coverStyle","PLAIN");}
+            var replay=mvc.perform(post(PATH).header("Authorization","Bearer "+owner).header("Idempotency-Key",key)
+                .contentType(MediaType.APPLICATION_JSON).content(input.toString())).andExpect(status().isCreated())
+                .andExpect(header().string("Idempotency-Replayed","true")).andReturn().getResponse().getContentAsString();
+            assertThat(replay).isEqualTo(first);
+        }
+        assertThat(jdbc.queryForObject("select count(*) from diaries",Long.class)).isEqualTo(1);
+    }
+
+    @Test void replayAfterPatchKeepsCreationSnapshotAndDetailProvidesCurrentVersion() throws Exception {
+        var created=create();String key=lastKey,id=id(created);
+        mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+            .content(patchBody(created,"latest title"))).andExpect(status().isOk()).andExpect(jsonPath("$.diary.version").value("2"));
+        var replay=json.readTree(mvc.perform(post(PATH).header("Authorization","Bearer "+owner).header("Idempotency-Key",key)
+            .contentType(MediaType.APPLICATION_JSON).content(body(2))).andExpect(status().isCreated())
+            .andExpect(header().string("Idempotency-Replayed","true")).andReturn().getResponse().getContentAsByteArray());
+        assertThat(replay).isEqualTo(created);
+        mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+            .content(patchBody(replay,"stale title"))).andExpect(status().isConflict());
+        var current=json.readTree(mvc.perform(get(PATH+"/"+id).header("Authorization","Bearer "+owner))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.diary.diaryTitle").value("latest title"))
+            .andExpect(jsonPath("$.diary.version").value("2")).andReturn().getResponse().getContentAsByteArray());
+        mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+            .content(patchBody(current,"after refresh"))).andExpect(status().isOk()).andExpect(jsonPath("$.diary.version").value("3"));
+        assertThat(jdbc.queryForObject("select count(*) from diaries",Long.class)).isEqualTo(1);
+    }
+
     @Test void sameHttpKeyReplaysTheSameResponseAndDifferentContentsAre409() throws Exception {
         String key="same-http-key";
         var first=mvc.perform(post(PATH).header("Idempotency-Key",key).header("Authorization","Bearer "+owner)
