@@ -46,8 +46,8 @@ public class DiaryDetailRepository {
 	}
 
 	public boolean update(Snapshot before, String title, String color, String style, Instant nextUpdatedAt) {
-		return jdbc.update("update diaries set title = ?, cover_color = ?, cover_style = ?, updated_at = ?"
-			+ " where diary_id = ? and deleted_at is null and updated_at = ?", title, color, style, Timestamp.from(nextUpdatedAt),
+		return jdbc.update("update diaries set title = ?, cover_color = ?, cover_style = ?, updated_at = ?, version=version+1"
+			+ " where diary_id = ? and deleted_at is null and updated_at = ? and version < 9223372036854775807", title, color, style, Timestamp.from(nextUpdatedAt),
 			before.id(), Timestamp.from(before.updatedAt())) == 1;
 	}
 

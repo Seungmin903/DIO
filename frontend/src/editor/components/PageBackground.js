@@ -1,10 +1,11 @@
 import { Component, memo, useMemo, useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { SvgAst, SvgXml } from 'react-native-svg'
+import { SvgAst, SvgXml, parse } from 'react-native-svg'
 import { templateReference } from '../templates/catalog.js'
 import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
+import { isStudyPlannerId, normalizePlanner, plannerBaseSvg, plannerOverlaySvg } from '../templates/studyPlanner.js'
 
 class SvgBoundary extends Component {
   state = { error: null }
@@ -59,12 +60,24 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   // 가이드는 종이 바탕과 속지 글씨 사이에만 넣는다. 출력용 XML 경로에는 가이드를 넣지 않는다.
   const guideUnderlay = preparedXml == null ? underlay : null
   const transparentPaper = Boolean(guideUnderlay)
-  const styledAst = useMemo(() => svg?.ast ? colorTemplateAst(svg.ast, appearance, { transparentPaper }) : null, [svg?.ast, appearance.backgroundColor, appearance.layoutColor, transparentPaper])
+  // 스터디 플래너: 바탕은 캐시한 속지 그대로 두고, 칠한 칸 · 체크 · 합계는 작은 덮개 SVG로 위에 겹친다.
+  // 기록이 바뀌어도 덮개만 다시 만들어 지우기 · 칠하기가 가볍다. 시간표 시작 시각을 바꾼 페이지만 바탕을 다시 만든다.
+  const planner = preparedXml == null && isStudyPlannerId(page.backgroundAssetId) ? page.planner ?? null : null
+  const plannerOrientation = page.backgroundAssetId?.endsWith('portrait') ? 'portrait' : 'landscape'
+  const startHour = planner ? normalizePlanner(planner).options.startHour : 6
+  const shiftedBase = useMemo(() => startHour === 6 ? null : parse(plannerBaseSvg(plannerOrientation, startHour)), [plannerOrientation, startHour])
+  const plannerAst = useMemo(() => planner ? parse(plannerOverlaySvg(plannerOrientation, planner)) : null, [plannerOrientation, planner])
+  const baseAst = shiftedBase ?? svg?.ast
+  const styledAst = useMemo(() => baseAst ? colorTemplateAst(baseAst, appearance, { transparentPaper }) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper])
+  const styledPlanner = useMemo(() => plannerAst ? colorTemplateAst(plannerAst, appearance) : null, [plannerAst, appearance.backgroundColor, appearance.layoutColor])
   if (page.backgroundAssetId == null) return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]}>{guideUnderlay}</View>
   return <View style={[StyleSheet.absoluteFill, { backgroundColor: appearance.backgroundColor }]} pointerEvents="box-none">
     {guideUnderlay}
     {svg && !error && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <SvgBoundary onError={fail}><RenderedSvg xml={svg.xml} ast={styledAst} width={width * zoom} height={height * zoom} onReady={() => callbacks.current.onReady?.()} /></SvgBoundary>
+    </View>}
+    {svg && !error && styledPlanner && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <SvgBoundary onError={fail}><SvgAst ast={styledPlanner} override={{ width: width * zoom, height: height * zoom }} /></SvgBoundary>
     </View>}
     {/* 속지는 기기에 있는 파일이라 곧바로 준비된다. 준비 전에는 빈 종이로 두고 로딩 문구를 띄우지 않는다. */}
     {error && <View style={styles.error} accessibilityRole="alert">

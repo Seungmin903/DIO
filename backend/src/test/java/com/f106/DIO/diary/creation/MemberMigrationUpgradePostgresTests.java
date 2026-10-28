@@ -38,22 +38,27 @@ class MemberMigrationUpgradePostgresTests {
             jdbc.update("insert into diary_creation_receipts(user_id,key_hash,request_hash,diary_id,response_body,completed_at) values(101,?,?,?,'{\"legacy\":true}'::jsonb,now())","1".repeat(64),"2".repeat(64),diary);
             var tables=List.of("users","diaries","diary_members","pages","page_templates","diary_creation_receipts");
             var snapshots=new HashMap<String,List<String>>();
-            for(var table:tables) snapshots.put(table,jdbc.queryForList("select row_to_json(t)::text from "+table+" t order by row_to_json(t)::text",String.class));
+            for(var table:tables) snapshots.put(table,fingerprint(jdbc,table));
             var current=Flyway.configure().dataSource(ds).schemas(schema).defaultSchema(schema).load();
             assertThatThrownBy(current::validate).isInstanceOf(org.flywaydb.core.api.exception.FlywayValidateException.class);
             assertThat(jdbc.update("update flyway_schema_history set version='9',script='V9__seed_page_template_catalog.sql' where version='7' and script='V7__seed_page_template_catalog.sql' and success")).isEqualTo(1);
             assertThat(jdbc.update("update flyway_schema_history set version='10',script='V10__create_diary_creation_receipts.sql' where version='8' and script='V8__create_diary_creation_receipts.sql' and success")).isEqualTo(1);
             var result=Flyway.configure().dataSource(ds).schemas(schema).defaultSchema(schema).outOfOrder(true).load().migrate();
-            assertThat(result.migrationsExecuted).isEqualTo(3);
+            assertThat(result.migrationsExecuted).isEqualTo(4);
+            assertThat(jdbc.queryForObject("select version from diaries where diary_id=?",Long.class,diary)).isEqualTo(2L);
             current.validate();
             assertThat(current.migrate().migrationsExecuted).isZero();
-            for(var table:tables) assertThat(jdbc.queryForList("select row_to_json(t)::text from "+table+" t order by row_to_json(t)::text",String.class)).as(table).isEqualTo(snapshots.get(table));
-            assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by version::integer",String.class)).containsExactly("1","2","3","4","5","6","7","8","9","10","11");
+            for(var table:tables) assertThat(fingerprint(jdbc,table)).as(table).isEqualTo(snapshots.get(table));
+            assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by version::integer",String.class)).containsExactly("1","2","3","4","5","6","7","8","9","10","11","12");
             assertThat(jdbc.queryForObject("select count(*) from pg_indexes where schemaname=? and indexname='pages_active_diary_idx'",Long.class,schema)).isEqualTo(1);
             assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema=? and table_name='password_reset_verifications'",Long.class,schema)).isEqualTo(1);
         } finally {
             if(schema.matches("member_upgrade_[0-9a-f]{32}")) admin.execute("drop schema if exists "+schema+" cascade");
             try(var paths=Files.walk(directory)) { for(var path:paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path); }
         }
+    }
+    private static java.util.List<String> fingerprint(JdbcTemplate jdbc,String table) {
+        String projection=table.equals("diaries")?"(to_jsonb(t)-'version')::text":"to_jsonb(t)::text";
+        return jdbc.queryForList("select "+projection+" from "+table+" t order by "+projection,String.class);
     }
 }

@@ -115,15 +115,17 @@ function cloneObjects(objects, offset) {
 
 /**
  * 페이지 복제본은 원본과 같은 소재(mediaFileId)는 참조하되, 편집 대상인
- * 페이지·요소·그룹 ID는 모두 새로 만든다. 따라서 한쪽 페이지의 요소를
+ * 속지·배색·플래너 기록 등 페이지 내용을 깊게 복사하고 페이지·요소·그룹 ID는
+ * 모두 새로 만든다. 따라서 한쪽 페이지의 요소를
  * 이동·삭제·수정해도 다른 페이지에는 영향을 주지 않는다.
  */
 function clonePage(page) {
+  const copyPage = JSON.parse(JSON.stringify(page))
   const groupMap = new Map()
   return {
+    ...copyPage,
     id: createId(),
-    objects: page.objects.map((object) => {
-      const copy = JSON.parse(JSON.stringify(object))
+    objects: copyPage.objects.map((copy) => {
       let groupId = copy.groupId
       if (groupId) {
         if (!groupMap.has(groupId)) groupMap.set(groupId, createId())
@@ -412,6 +414,13 @@ export function editorReducer(state, action) {
     // 페이지 목록에서 썸네일을 끌어 순서를 바꾼다. (지금 보던 페이지는 그대로)
     // 여러 페이지를 순서 그대로 anchorId 페이지 앞(before)이나 뒤(after)로 함께 옮긴다. 되돌리기 한 번.
     // 속지 색: all 이면 모든 페이지와 문서 기본값(새로 추가할 페이지)에, 아니면 지금 페이지에만. 되돌리기 한 번.
+    // 스터디 플래너 기록(칠한 칸 · 체크 · 옵션). after: 같은 되돌리기 단위로 먼저 적용할 동작(지우개가 획과 칸을 함께 지울 때)
+    case 'setPlanner': {
+      const base = action.after ? editorReducer(state, action.after) : withHistory(state)
+      const pageId = action.pageId ?? getCurrentPage(state).id
+      return { ...base, doc: { ...base.doc, pages: base.doc.pages.map((page) => (page.id === pageId ? { ...page, planner: action.planner } : page)) } }
+    }
+
     case 'setPaperAppearance': {
       const pageId = getCurrentPage(state).id
       const appearance = normalizePaperAppearance(action.appearance)

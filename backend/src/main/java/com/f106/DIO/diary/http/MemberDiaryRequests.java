@@ -22,7 +22,7 @@ public final class MemberDiaryRequests {
         @Size(max=30) @Pattern(regexp="(?s).*\\S.*") String coverStyle,
         @NotNull @Size(min=1,max=4096) @Valid List<@NotNull @Valid InitialPage> initialPages
     ) {
-        public Create { if(diaryTitle!=null) diaryTitle=diaryTitle.strip(); }
+        public Create { if(diaryTitle!=null) diaryTitle=com.f106.DIO.diary.support.DiaryTitle.normalize(diaryTitle); }
         public DiaryCreateRequest metadata() { return new DiaryCreateRequest(diaryTitle,coverColor,coverStyle,"PRIVATE"); }
         @JsonAnySetter public void unsupported(String name,Object value) { throw new IllegalArgumentException("Unsupported create field"); }
     }
@@ -39,17 +39,17 @@ public final class MemberDiaryRequests {
     }
 
     public static class Update {
-        @NotNull private Instant expectedUpdatedAt;
+        @NotNull @Pattern(regexp="[1-9][0-9]{0,18}") private String expectedVersion;
         @Size(min=1,max=100) private String diaryTitle;
         @Pattern(regexp="#[0-9a-fA-F]{6}") private String coverColor;
         @Size(max=30) @Pattern(regexp="(?s).*\\S.*") private String coverStyle;
 
-        public Instant getExpectedUpdatedAt() { return expectedUpdatedAt; }
+        public String getExpectedVersion() { return expectedVersion; }
         public String getDiaryTitle() { return diaryTitle; }
         public String getCoverColor() { return coverColor; }
         public String getCoverStyle() { return coverStyle; }
-        @JsonSetter(nulls=Nulls.FAIL) public void setExpectedUpdatedAt(Instant value) { expectedUpdatedAt=value; }
-        @JsonSetter(nulls=Nulls.FAIL) public void setDiaryTitle(String value) { diaryTitle=value.strip(); }
+        @JsonSetter(nulls=Nulls.FAIL) public void setExpectedVersion(Object value) { if(!(value instanceof String s) || !s.matches("[1-9][0-9]{0,18}")) throw new IllegalArgumentException("Invalid version"); Long.parseLong(s); expectedVersion=s; }
+        @JsonSetter(nulls=Nulls.FAIL) public void setDiaryTitle(String value) { diaryTitle=com.f106.DIO.diary.support.DiaryTitle.normalize(value); }
         @JsonSetter(nulls=Nulls.FAIL) public void setCoverColor(String value) { coverColor=value; }
         @JsonSetter(nulls=Nulls.FAIL) public void setCoverStyle(String value) { coverStyle=value; }
         @JsonAnySetter public void unsupported(String name,Object value) { throw new IllegalArgumentException("Unsupported update field"); }

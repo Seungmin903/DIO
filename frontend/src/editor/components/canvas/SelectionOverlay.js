@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     borderRadius: ROTATE_HANDLE / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryStrong,
     borderColor: colors.surface,
     borderWidth: 1,
     shadowOpacity: 0.12,

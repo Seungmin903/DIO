@@ -134,13 +134,13 @@ class DiaryAuthenticationIntegrationTests {
         assertThat(jdbc.queryForObject("select title from diaries where diary_id=?",String.class,id)).isEqualTo("diary");
     }
 
-    @Test void viewerCanReadButCannotModifyMetadata() {
+    @Test void viewerCannotReadOrModifyMetadata() {
         request(ownerToken); var created = create(); UUID id = UUID.fromString(created.diary().diaryId());
         jdbc.update("insert into diary_members(diary_id,user_id,role,member_color,joined_at) values (?,202,'VIEWER','#123456',?)",id,Timestamp.from(Instant.now()));
-        request(otherToken); assertThat(detail.get(id).diary().diaryId()).isEqualTo(id.toString());
+        request(otherToken); assertThatThrownBy(() -> detail.get(id)).isInstanceOfSatisfying(DiaryDetailException.class,e -> assertThat(e.status().value()).isEqualTo(404));
         var patch = new DiaryUpdateRequest(); patch.setDiaryTitle("attack");
         assertThatThrownBy(() -> detail.update(id,patch,created.diary().updatedAt())).isInstanceOfSatisfying(DiaryDetailException.class,
-            e -> assertThat(e.status().value()).isEqualTo(403));
+            e -> assertThat(e.status().value()).isEqualTo(404));
     }
 
     @Test void absentMalformedExpiredTamperedAndForeignSignedTokensAreRejected() {

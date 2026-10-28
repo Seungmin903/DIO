@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Icon from '../controls/Icon'
 import { colors, DISABLED_OPACITY } from '../../../shared/theme'
@@ -28,6 +28,7 @@ import TextLinkOverlay from '../TextLinkOverlay'
 import PalmRejectionArea from './PalmRejectionArea'
 import GridOverlay, { DEFAULT_GUIDES, hasGuides } from './GridOverlay'
 import PaperColorSettings from '../PaperColorSettings'
+import { applyPlannerStroke, erasePlanner, isStudyPlannerId, normalizePlanner, plannerTextSlot, setPlannerOptions } from '../../templates/studyPlanner.js'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
@@ -104,6 +105,25 @@ export default function Canvas({
   readOnly = false,
 }) {
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
+  // 스터디 플래너 속지: 형광펜 · 펜 · 지우개 획을 칸 기록으로 받는다.
+  const plannerOrientation = !readOnly && isStudyPlannerId(page.backgroundAssetId) ? (page.backgroundAssetId.endsWith('portrait') ? 'portrait' : 'landscape') : null
+  const plannerStroke = plannerOrientation ? (points, settings) => {
+    const planner = applyPlannerStroke(page.planner, plannerOrientation, points, settings)
+    if (planner) dispatch({ type: 'setPlanner', planner })
+    return Boolean(planner)
+  } : undefined
+  const plannerErase = plannerOrientation ? (planner, points) => erasePlanner(planner, plannerOrientation, points, eraserMode) : undefined
+  // 지우는 중인 플래너 기록(손을 떼면 문서에 확정). 그동안 속지는 이 기록으로 그린다.
+  const [plannerDraft, setPlannerDraft] = useState(null)
+  const backgroundPage = useMemo(() => plannerDraft ? { ...page, planner: plannerDraft } : page, [page, plannerDraft])
+  // 텍스트 도구로 할 일 · 메모 · 돌아보기 줄을 탭하면 그 줄에 맞춘 글상자(폭 · 글자 크기 · 줄간격 고정)를 만든다.
+  const createText = ({ tap, ...box }) => {
+    const slot = plannerOrientation && tap ? plannerTextSlot(plannerOrientation, tap) : null
+    if (!slot) return onCreateText(box)
+    const { width, ...rest } = slot
+    onCreateText({ ...rest, width, w: width, baseWidth: width, h: slot.fontSize * slot.lineSpacing })
+  }
+  const changePlannerOptions = (patch) => dispatch({ type: 'setPlanner', planner: setPlannerOptions(page.planner, patch) })
   const [lassoDrawing, setLassoDrawing] = useState(false)
   const [lassoCapture, setLassoCapture] = useState(false)
   const [lassoOutline, setLassoOutline] = useState(null)
@@ -270,7 +290,7 @@ export default function Canvas({
       style={[styles.page, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
     >
-      {showBackground ? <PageBackground page={page} zoom={zoom} underlay={guideUnderlay} /> : guideUnderlay}
+      {showBackground ? <PageBackground page={backgroundPage} zoom={zoom} underlay={guideUnderlay} /> : guideUnderlay}
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
@@ -323,18 +343,18 @@ export default function Canvas({
       {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
           {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
-          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} objectCount={page.objects.length} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} />
+          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} objectCount={page.objects.length} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onPlannerStroke={plannerStroke} />
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
-        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}`} objects={page.objects} diameter={eraserSize} mode={eraserMode} zoom={zoom} dispatch={dispatch} onPreview={previewErase} />
+        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}`} objects={page.objects} diameter={eraserSize} mode={eraserMode} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
       </View>}
       </PalmRejectionArea>
       {/* 창을 닫으려고 누른 터치는 여기서 삼키고 창만 닫는다. 펜·형광펜에 점이 찍히던 문제 */}
       {inputBlocker && ['pen', 'highlighter', 'eraser'].includes(activeTool) && (
         <View style={StyleSheet.absoluteFill} onStartShouldSetResponder={() => true} {...inputBlocker} accessibilityElementsHidden />
       )}
-      {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={onCreateText} />}
+      {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={createText} />}
       {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
       {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
 
@@ -369,7 +389,9 @@ export default function Canvas({
           appearance={paperAppearance}
           onChange={(appearance, all) => onPaperAppearance?.(appearance, all)}
           onClose={() => setEmptyMenu(null)}
-          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT)}
+          planner={plannerOrientation ? normalizePlanner(page.planner) : null}
+          onPlannerOptions={changePlannerOptions}
+          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, Boolean(plannerOrientation))}
         />
       )}
       {emptyMenu && !emptyMenu.panel && canSelect && (
@@ -380,6 +402,7 @@ export default function Canvas({
           pageHeight={PAGE_HEIGHT}
           canPaste={canPaste}
           onPaste={() => { setEmptyMenu(null); onPaste?.(emptyMenu) }}
+          paperLabel={plannerOrientation ? '속지 옵션' : '속지 색'}
           onPaperColor={() => setEmptyMenu({ ...emptyMenu, panel: 'paper' })}
         />
       )}
@@ -453,22 +476,23 @@ export default function Canvas({
 const pointBox = (at, zoom) => ({ top: at.y * zoom, bottom: at.y * zoom, handleY: null })
 // 속지 색 말풍선
 const PAPER_BUBBLE = { width: 300, height: 290 }
-function paperBubblePosition(at, zoom, pageWidth, pageHeight) {
+function paperBubblePosition(at, zoom, pageWidth, pageHeight, planner = false) {
   const left = placeHorizontal(at.x * zoom, PAPER_BUBBLE.width, pageWidth * zoom)
-  const { top } = placeVertical(pointBox(at, zoom), PAPER_BUBBLE.height, pageHeight * zoom)
+  // 스터디 플래너 옵션이 붙으면 창이 길어진다.
+  const { top } = placeVertical(pointBox(at, zoom), PAPER_BUBBLE.height + (planner ? 250 : 0), pageHeight * zoom)
   return { position: 'absolute', zIndex: 6, width: PAPER_BUBBLE.width, left, top }
 }
 
 /** 빈 곳 길게 누르기 메뉴. 요소 편집 바와 같은 모양으로 누른 자리 위에 띄운다 */
 const EMPTY_MENU = { width: 210, height: 52 }
-function EmptyMenu({ at, zoom, pageWidth, pageHeight, canPaste, onPaste, onPaperColor }) {
+function EmptyMenu({ at, zoom, pageWidth, pageHeight, canPaste, onPaste, onPaperColor, paperLabel = '속지 색' }) {
   const { width } = EMPTY_MENU
   const left = placeHorizontal(at.x * zoom, width, pageWidth * zoom)
   const { top } = placeVertical(pointBox(at, zoom), EMPTY_MENU.height, pageHeight * zoom)
   return (
     <View style={[styles.emptyMenu, { left, top, width }]} accessibilityLabel="빈 곳 메뉴">
       <MenuButton icon="clipboard" label="붙여넣기" disabled={!canPaste} onPress={onPaste} />
-      <MenuButton icon="roller" label="속지 색" onPress={onPaperColor} />
+      <MenuButton icon="roller" label={paperLabel} onPress={onPaperColor} />
     </View>
   )
 }
@@ -852,10 +876,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryStrong,
     color: colors.surface,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   angleBadge: {
     borderRadius: 16,
@@ -866,5 +890,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.text,
   },
-  angleText: { color: colors.surface, fontSize: 13, fontWeight: '800' },
+  angleText: { color: colors.surface, fontSize: 13, fontWeight: '700' },
 })

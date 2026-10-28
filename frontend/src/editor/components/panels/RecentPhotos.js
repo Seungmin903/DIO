@@ -68,7 +68,7 @@ const s = StyleSheet.create({
   tile: { flex: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.primarySoft, borderWidth: 2, borderColor: 'transparent' },
   selected: { borderColor: colors.primary },
   check: { position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-  checked: { backgroundColor: colors.primary },
-  checkText: { color: colors.surface, fontWeight: '800' },
+  checked: { backgroundColor: colors.primaryStrong },
+  checkText: { color: colors.surface, fontWeight: '700' },
   remove: { position: 'absolute', right: 8, bottom: 8, minHeight: 44, paddingHorizontal: 10, justifyContent: 'center', backgroundColor: colors.surface, borderRadius: 10 },
 })

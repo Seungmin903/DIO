@@ -1,3 +1,4 @@
+import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -215,14 +216,15 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   }, [sharing.library, active?.id]);
 
   const favorite = useCallback((id) => {
+    if (member) { notify('즐겨찾기', '회원 즐겨찾기 변경 연결을 준비하고 있어요.'); return; }
     const shared = sharedLibraryRef.current.find(item => item.id === id);
     if (shared) { sharing.runtime.toggleFavorite(shared.sharedDiaryId); return; }
     setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, favorite: !diary.favorite } : diary)));
     setActive((current) => (current?.id === id ? { ...current, favorite: !current.favorite } : current));
-  }, [setDiaries, sharing.runtime]);
+  }, [member, setDiaries, sharing.runtime]);
 
   const navigate = useCallback((next, nextFilter) => {
-    if (member && next === 'trash') { notify('회원 휴지통', '회원 휴지통 API 연결을 준비하고 있어요. 기기 자료를 대신 삭제하지 않아요.'); return; }
+    if (member && next === 'trash') diaryState.store.loadTrash().catch(()=>{});
     const move = () => {
       setSelection(null);
       if (next === 'library') {
@@ -232,7 +234,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       setPage(next);
     };
     if (next !== 'profile' && profileLeaveGuard.current) profileLeaveGuard.current(move); else move();
-  }, [member]);
+  }, [member,diaryState.store]);
 
   // 모든 화면 규격의 Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
   // 편집기는 열린 도구·패널을 먼저 닫아야 하므로 EditorScreen에서 별도로 처리한다.
@@ -290,6 +292,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const moveDiaryToTrash = useCallback((diary) => {
     if (savingRef.current) return;
     if (!diary || diary.canManage === false) return;
+    if(member) {
+      confirmAction({title:'휴지통으로 옮길까요?',message:`“${diary.title}”는 삭제한 시각부터 30일 동안 복원할 수 있어요.`,confirmLabel:'휴지통으로',onConfirm:async()=>{
+        try {await moveToTrash(diary.id);setActive(current=>current?.id===diary.id?null:current);setTabIds(current=>current.filter(id=>id!==diary.id));setCreateOpen(false);setEditingDiaryId(null);}
+        catch(error){notify('휴지통 변경을 확인하지 못했어요',error.message);}
+      }});return;
+    }
 
     confirmAction({
       title: '휴지통으로 옮길까요?',
@@ -303,7 +311,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         setEditingDiaryId(null);
       },
     });
-  }, [moveToTrash]);
+  }, [member,moveToTrash]);
 
   // 고른 다이어리를 한 번에 휴지통으로 옮긴다. 저장에 성공했을 때만 관리 모드를 끝내고, 실패하면 그대로 두고 알린다.
   const moveSelectedToTrash = useCallback((requestedIds) => {
@@ -424,7 +432,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     const ordered = queryDiaries(visibleDiaries, { sort: librarySort, metadata: libraryMetadata });
     setCarousel(Math.max(0, ordered.findIndex(diary => diary.id === returnDiaryId.current)));
   }, [libraryMetadata, librarySort, page, visibleDiaries]);
-  const trashedDiaries = useMemo(() => diaries.filter((diary) => diary.trashedAt), [diaries]);
+  const trashedDiaries = useMemo(() => member ? diaryState.trash : diaries.filter((diary) => diary.trashedAt), [member,diaryState.trash,diaries]);
 
   // 열린 탭 (휴지통으로 간 다이어리는 뺀다)
   const tabs = useMemo(() => tabIds
@@ -493,25 +501,29 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       onOpen={open}
       onFavorite={favorite}
       onEdit={edit}
-      onDelete={member ? undefined : moveDiaryToTrash}
+      onDelete={moveDiaryToTrash}
       onCreate={create}
       railWidthRef={isPhone ? null : railWidthRef}
       selection={selection}
-      onSelectionChange={setSelection}
-      onTrashSelected={moveSelectedToTrash}
+      onSelectionChange={member?undefined:setSelection}
+      onTrashSelected={member?undefined:moveSelectedToTrash}
       trashing={trashing}
-      requestNotice={member ? <MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
+      requestNotice={member ? <><MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/><MemberRequestNotice pending={diaryState.pending} error={diaryState.error} busy={saving} refreshing={diaryState.refreshing}
         onReload={() => diaryState.store.load().catch(() => {})}
+        onArchiveExpired={() => confirmAction({title:'이전 생성 요청을 정리할까요?',message:'서버 목록을 다시 확인한 뒤 새 생성을 허용해요. 이미 생성된 다이어리는 삭제하지 않고 이전 요청은 이 계정의 기록에 보관해요.',confirmLabel:'요청 정리',onConfirm:async()=>{
+          if(savingRef.current) return; savingRef.current=true;setSaving(true);
+          try {await diaryState.store.archiveExpiredCreation();} catch(error) {notify('요청을 정리하지 못했어요',error.message);} finally {savingRef.current=false;setSaving(false);}
+        }})}
         onRetry={async () => {
           if (savingRef.current) return;
           savingRef.current = true; setSaving(true);
           try { const d = await diaryState.retryCreation(); setCreateOpen(false); await enterEditor(d); }
           catch (error) { notify('이전 생성을 확인하지 못했어요', error.message); }
           finally { savingRef.current = false; setSaving(false); }
-        }} /> : null}
+        }} /></> : null}
       suppressEmpty={member && Boolean(diaryState.error || diaryState.refreshing)}
     />
-  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, visibleDiaries, member, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.store, saving, enterEditor]);
+  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, visibleDiaries, member, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
@@ -526,7 +538,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         onToggleOrientation={isPhone && CAN_LOCK_ORIENTATION ? () => setEditorOrientation(isLandscape ? 'portrait' : 'landscape') : undefined}
         onHome={returnToLibrary}
         onOpenSharing={member ? undefined : () => setSharingRequest({ diary: active })}
-        readOnly={member && active?.canEdit === false}
+        readOnly={member && active?.permissions?.canEditCanvas !== true}
         invitationCount={unreadInvites}
         sharingMembers={sharingMembers}
         onRenameDiary={async title => {
@@ -545,21 +557,26 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   } else if (page === 'trash') {
     content = (
       <TrashScreen
+        serverMode={member}
+        busy={member && Boolean(diaryState.lifecycle?.busy)}
+        suppressEmpty={member && Boolean(diaryState.trashLoading || diaryState.trashError)}
+        requestNotice={member?<MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/>:null}
         compact={isPhone}
         diaries={trashedDiaries}
         now={trashNow}
         cleanupError={trashError}
         onRetryCleanup={cleanupTrash}
         onRestore={(id) => {
+          if(member){restoreFromTrash(id).catch(error=>notify('복원을 확인하지 못했어요',error.message));return;}
           if (!restoreFromTrash(id)) notify('복원할 수 없어요', '보관 기한이 지났거나 영구 삭제 중인 다이어리예요.');
         }}
         onDeletePermanently={(diary) => {
           confirmAction({
             title: '영구 삭제할까요?',
-            message: `“${diary.title}”의 페이지와 로컬 기록은 복구할 수 없어요.`,
+            message: member ? `“${diary.title}”의 다이어리와 페이지는 복구할 수 없어요. 보관함의 공용 미디어 원본은 유지돼요.` : `“${diary.title}”의 페이지와 로컬 기록은 복구할 수 없어요.`,
             confirmLabel: '영구 삭제',
             onConfirm: async () => {
-              if (!await deletePermanently(diary.id)) notify('삭제하지 못했어요', '저장소를 확인한 뒤 다시 시도해 주세요.');
+              try { if (!await deletePermanently(diary.id)) notify('삭제하지 못했어요', '저장소를 확인한 뒤 다시 시도해 주세요.'); } catch(error) { notify('영구 삭제를 확인하지 못했어요',error.message); }
             },
           });
         }}
@@ -572,6 +589,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const createModal = createOpen && (
     <DiaryCreateModal
       key={editingDiaryId ?? 'new'}
+      blankOnly={member && !editingDiaryId}
       sheet={isPhone}
       bottomInset={insets.bottom}
       diary={editingDiaryId ? diaries.find(item => item.id === editingDiaryId) : null}

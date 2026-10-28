@@ -17,6 +17,7 @@ import EditorModal from '../editor/components/controls/EditorModal';
 import ConfirmDialog from '../editor/components/controls/ConfirmDialog';
 import Icon from '../editor/components/controls/Icon';
 import Cover from '../diary/components/Cover';
+import { FALLBACK_COVER_COLOR } from '../diary/constants';
 import { pickProfilePhoto } from '../auth/profilePhoto';
 import MemberAvatar from './MemberAvatar';
 import { invitationStatusLabel } from '../notifications/NotificationPanel';
@@ -727,7 +728,7 @@ export default function SharingHub({
                               accessibilityLabel={`${row.title} 다이어리 표지`}
                             >
                               <Cover
-                                diary={row.diary || { title: row.title, color: colors.surfaceSoft }}
+                                diary={row.diary || { title: row.title, color: FALLBACK_COVER_COLOR }}
                                 thumbnailWidth={56}
                               />
                             </View>

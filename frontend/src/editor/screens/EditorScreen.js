@@ -843,7 +843,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
         setTextEditing(null)
         setActiveTool('select')
       }}
-                onCreateText={(box) => { setTextSettingsOpen(false); setTextEditing({ ...box, ...textDefaults, id: createId(), pageId: page.id, text: '' }) }}
+                onCreateText={(box) => { setTextSettingsOpen(false); setTextEditing({ ...textDefaults, ...box, id: createId(), pageId: page.id, text: '' }) }}
                 readOnly={readOnly}
                 page={page}
                 zoom={zoom}
@@ -1105,7 +1105,7 @@ const styles = StyleSheet.create({
   rootReadOnlyRail: { paddingRight: 0 },
   focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   focusExitPortrait: { top: 72 },
-  focusExitText: { fontSize: 12.5, fontWeight: '800', color: colors.text },
+  focusExitText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: BODY_PADDING },
   bodyCompact: { padding: 8 },
   // 폰: 페이지 목록·레이어는 작업창을 줄이지 않고 그 위에 띄운다.
@@ -1137,8 +1137,8 @@ const styles = StyleSheet.create({
   floatingStacked: { bottom: 12 + 44 + 8 },
   floatingDivider: { width: 1, height: 20, backgroundColor: colors.border },
   roundButton: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  roundActive: { backgroundColor: colors.surfaceSoft },
-  roundPressed: { backgroundColor: colors.primarySoft },
+  roundActive: { backgroundColor: colors.primarySoft },
+  roundPressed: { opacity: 0.65 },
   roundDisabled: { opacity: DISABLED_OPACITY },
   toast: {
     position: 'absolute',

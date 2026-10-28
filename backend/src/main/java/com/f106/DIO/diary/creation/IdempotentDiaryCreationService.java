@@ -31,6 +31,7 @@ public class IdempotentDiaryCreationService {
         var receipt=claim.receipt();
         if(!receipt.requestHash().equals(requestHash)) throw DiaryIdempotencyException.conflict();
         if(!fresh) {
+            if(receipt.completedAt()!=null && !java.time.Instant.now().isBefore(receipt.completedAt().plus(java.time.Duration.ofHours(24)))) throw DiaryIdempotencyException.expired();
             if(!receipts.accessible(user,receipt.diaryId())) throw DiaryIdempotencyException.unavailable();
             if(receipt.body()==null) throw DiaryIdempotencyException.pending();
             try {

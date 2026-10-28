@@ -73,8 +73,8 @@ abstract class DiaryDetailContract {
 	}
 
 	@Test
-	void activeOwnerEditorAndViewerCanRead() {
-		for (long user=1; user<=3; user++) {
+	void activeOwnerAndEditorCanRead() {
+		for (long user=1; user<=2; user++) {
 			actor.set(user);
 			assertThat(tx.execute(s -> service.get(ID)).diary().diaryTitle()).isEqualTo("original");
 		}
@@ -98,7 +98,7 @@ abstract class DiaryDetailContract {
 	void editorAndViewerMetadataWritesAreForbidden() {
 		for (long user=2; user<=3; user++) {
 			actor.set(user);
-			error(403,"DIARY_METADATA_FORBIDDEN", () -> tx.execute(s -> service.update(ID, patch("no"), AT)));
+			error(user==2?403:404,user==2?"DIARY_METADATA_FORBIDDEN":"DIARY_NOT_FOUND", () -> tx.execute(s -> service.update(ID, patch("no"), AT)));
 		}
 		assertThat(jdbc.queryForObject("select title from diaries where diary_id=?", String.class, ID)).isEqualTo("original");
 	}

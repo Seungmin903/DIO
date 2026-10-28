@@ -6,14 +6,18 @@ const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-
 function diary(body) {
   const row = body?.diary
   if (!row || !uuid(row.diaryId)
-    || typeof row.diaryTitle !== 'string' || typeof row.coverStyle !== 'string' || typeof row.canEdit !== 'boolean'
+    || typeof row.version !== 'string' || !/^[1-9][0-9]{0,18}$/.test(row.version) || BigInt(row.version)>9223372036854775807n
+    || !['OWNER','EDITOR'].includes(row.myRole) || typeof row.myMembership?.isFavorite!=='boolean'
+    || !row.permissions || ['canEditMetadata','canEditCanvas','canTrash','canRestore','canPermanentlyDelete'].some(k=>typeof row.permissions[k]!=='boolean')
+    || row.canEdit !== (row.myRole==='OWNER') || row.permissions.canEditMetadata !== row.canEdit || row.permissions.canEditCanvas !== true
+    || typeof row.diaryTitle !== 'string' || !row.diaryTitle.trim() || typeof row.coverStyle !== 'string' || typeof row.canEdit !== 'boolean'
     || typeof row.coverColor !== 'string' || !/^#[0-9a-f]{6}$/i.test(row.coverColor)
     || !['PRIVATE', 'MEMBERS', 'LINK'].includes(row.visibility)
     || typeof row.createdAt !== 'string' || !Number.isFinite(Date.parse(row.createdAt))
     || typeof row.updatedAt !== 'string' || !Number.isFinite(Date.parse(row.updatedAt))) throw invalid()
   return { id: row.diaryId, title: row.diaryTitle, color: row.coverColor, coverStyle: row.coverStyle,
     pattern: row.coverStyle === 'PLAIN' ? null : row.coverStyle.toLowerCase(), visibility: row.visibility,
-    canEdit: row.canEdit, createdAt: row.createdAt, updatedAt: row.updatedAt }
+    version: row.version, myRole: row.myRole, favorite: row.myMembership.isFavorite, permissions: row.permissions, canEdit: row.canEdit, createdAt: row.createdAt, updatedAt: row.updatedAt }
 }
 function keyedOptions(options) {
   if (typeof options.requestId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(options.requestId)) {
@@ -22,6 +26,7 @@ function keyedOptions(options) {
   return options
 }
 const idempotencyMessages = {
+  IDEMPOTENCY_KEY_EXPIRED: '생성 키의 응답 보관 기간이 지났어요. 보관함에서 상태를 확인해 주세요.',
   IDEMPOTENCY_IN_PROGRESS: '같은 생성 요청을 처리 중이에요. 처음 사용한 키로 잠시 후 다시 확인해 주세요.',
   IDEMPOTENCY_KEY_REUSED: '이 키는 다른 생성 내용에 사용됐어요. 내용을 바꾼 새 작업에는 새 키가 필요해요.',
   IDEMPOTENCY_RESULT_UNAVAILABLE: '기존 생성 결과를 반환할 수 없어요. 보관함에서 상태를 확인해 주세요.',
@@ -29,8 +34,24 @@ const idempotencyMessages = {
 // 기존 목/비회원 API와 분리한 실제 회원 HTTP 경계.
 export function createMemberDiaryApi(transport) {
   return {
-    async list({ cursor, q, sort = 'created', limit = 100, signal } = {}) {
-      const body = await transport({ path: '/member/diaries', query: { cursor, q, sort, limit }, signal })
+    async trashList({cursor,limit=100,q,signal}={}) {
+      const body=await transport({path:'/member/diaries/trash',query:{cursor,limit,q},signal});
+      if(!Array.isArray(body?.items) || typeof body.hasNext!=='boolean' || (body.hasNext?typeof body.nextCursor!=='string'||!body.nextCursor:body.nextCursor!==null)) throw invalid();
+      const items=body.items.map(row=>{
+        const deleted=Date.parse(row.deletedAt),expiry=Date.parse(row.purgeAt);
+        if(!uuid(row.diaryId) || typeof row.diaryTitle!=='string' || !row.diaryTitle.trim() || !/^#[0-9a-f]{6}$/i.test(row.coverColor) || typeof row.coverStyle!=='string'
+            || typeof row.version!=='string' || !/^[1-9][0-9]{0,18}$/.test(row.version) || BigInt(row.version)>9223372036854775807n
+            || !Number.isFinite(deleted) || !Number.isFinite(expiry) || expiry-deleted!==30*86400000 || typeof row.canRestore!=='boolean' || typeof row.canPermanentlyDelete!=='boolean') throw invalid();
+        return {id:row.diaryId,title:row.diaryTitle,color:row.coverColor,coverStyle:row.coverStyle,pattern:row.coverStyle==='PLAIN'?null:row.coverStyle.toLowerCase(),version:row.version,
+          trashedAt:row.deletedAt,expiresAt:row.purgeAt,canRestore:row.canRestore,retentionStatus:row.canRestore?'RESTORABLE':'EXPIRED',canPermanentlyDelete:row.canPermanentlyDelete};
+      });
+      if(new Set(items.map(x=>x.id)).size!==items.length) throw invalid();return {items,hasNext:body.hasNext,nextCursor:body.nextCursor};
+    },
+    async purge(id,options={}) {if(!uuid(id))throw invalid();await transport({...options,method:'DELETE',path:`/member/diaries/${encodeURIComponent(id)}/purge`});},
+    async trash(id,options={}) {if(!uuid(id))throw invalid();await transport({...options,method:'DELETE',path:`/member/diaries/${encodeURIComponent(id)}`});},
+    async restore(id,options={}) {if(!uuid(id))throw invalid();const result=diary(await transport({...options,method:'POST',path:`/member/diaries/${encodeURIComponent(id)}/restore`}));if(result.id!==id)throw invalid();return result;},
+    async list({ cursor, q, sort = 'updated', limit = 100, filter = 'all', favorite = false, signal } = {}) {
+      const body = await transport({ path: '/member/diaries', query: { cursor, q, sort, limit, filter, favorite }, signal })
       if (!Array.isArray(body?.items) || typeof body.hasNext !== 'boolean' ||
           (body.hasNext ? typeof body.nextCursor !== 'string' || !body.nextCursor.trim() : body.nextCursor !== null)) throw invalid()
       const items = body.items.map(item => {
@@ -63,8 +84,8 @@ export function createMemberDiaryApi(transport) {
       return result
     },
     async update(id, input, options = {}) {
-      if (typeof input.expectedUpdatedAt !== 'string') throw new DiaryApiError('INVALID_REQUEST', '최신 수정 시각이 필요해요.', 400)
-      const body = { expectedUpdatedAt: input.expectedUpdatedAt }
+      if (typeof input.expectedVersion !== 'string' || !/^[1-9][0-9]{0,18}$/.test(input.expectedVersion) || BigInt(input.expectedVersion)>9223372036854775807n) throw new DiaryApiError('INVALID_REQUEST', '최신 수정 시각이 필요해요.', 400)
+      const body = { expectedVersion: input.expectedVersion }
       if (input.title !== undefined) body.diaryTitle = input.title
       if (input.color !== undefined) body.coverColor = input.color
       if (input.coverStyle !== undefined) body.coverStyle = input.coverStyle

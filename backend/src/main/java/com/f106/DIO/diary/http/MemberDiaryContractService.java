@@ -1,0 +1,52 @@
+package com.f106.DIO.diary.http;
+
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.HttpStatus;
+import com.f106.DIO.diary.detail.*;
+import com.f106.DIO.diary.auth.DiaryRequestIdentity;
+
+/** Keep authorization, version check and DTO enrichment in the same locked transaction. */
+@Service
+@Transactional
+public class MemberDiaryContractService {
+    private final DiaryDetailService detail;
+    private final JdbcTemplate jdbc;
+    private final DiaryRequestIdentity identity;
+    public MemberDiaryContractService(DiaryDetailService detail, JdbcTemplate jdbc, DiaryRequestIdentity identity) {
+        this.detail=detail; this.jdbc=jdbc; this.identity=identity;
+    }
+    public MemberDiaryResponses.Diary get(UUID id) {
+        return enrich(id,detail.getAuthorized(id));
+    }
+    public MemberDiaryResponses.Diary update(UUID id,MemberDiaryRequests.Update request) {
+        // Authorized get holds shared locks; acquire the diary write lock first to avoid lock upgrades.
+        long user=identity.requireUserId(DiaryDetailException::unauthorized);
+        // Preserve user -> diary -> membership lock ordering used by the existing chain.
+        jdbc.queryForList("select user_id from users where user_id=? and status='ACTIVE' and deleted_at is null for update",Long.class,user);
+        jdbc.queryForList("select diary_id from diaries where diary_id=? for update",UUID.class,id);
+        var before=detail.getAuthorized(id);
+        if(!before.canEdit()) throw new DiaryDetailException(HttpStatus.FORBIDDEN,"DIARY_METADATA_FORBIDDEN","소유자만 제목과 표지를 수정할 수 있어요.");
+        long current=jdbc.queryForObject("select version from diaries where diary_id=?",Long.class,id);
+        if(!Long.toString(current).equals(request.getExpectedVersion())) throw new DiaryDetailException(HttpStatus.CONFLICT,"DIARY_METADATA_CONFLICT","최신 내용을 확인한 뒤 다시 시도해 주세요.");
+        var patch=request.patch();var previous=before.diary();
+        String title=patch.getDiaryTitle()==null?previous.diaryTitle():patch.getDiaryTitle();
+        String color=patch.getCoverColor()==null?previous.coverColor():patch.getCoverColor();
+        String style=patch.getCoverStyle()==null?previous.coverStyle():patch.getCoverStyle();
+        if(title.equals(previous.diaryTitle()) && color.equals(previous.coverColor()) && style.equals(previous.coverStyle())) return enrich(id,before);
+        if(current==Long.MAX_VALUE) throw new DiaryDetailException(HttpStatus.CONFLICT,"VERSION_EXHAUSTED","다이어리 버전을 더 갱신할 수 없어요.");
+        var now=java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        if(!now.isAfter(previous.updatedAt())) now=previous.updatedAt().plus(1,java.time.temporal.ChronoUnit.MICROS);
+        int changed=jdbc.update("update diaries set title=?,cover_color=?,cover_style=?,updated_at=?,version=version+1 where diary_id=? and version=? and deleted_at is null",
+            title,color,style,java.sql.Timestamp.from(now),id,current);
+        if(changed!=1) throw new DiaryDetailException(HttpStatus.CONFLICT,"DIARY_METADATA_CONFLICT","최신 내용을 확인한 뒤 다시 시도해 주세요.");
+        return enrich(id,detail.getAuthorized(id));
+    }
+    private MemberDiaryResponses.Diary enrich(UUID id,DiaryDetailService.Authorized authorized) {
+        long user=identity.requireUserId(DiaryDetailException::unauthorized);
+        return jdbc.queryForObject("select d.version,m.role,m.is_favorite from diaries d join diary_members m on m.diary_id=d.diary_id and m.user_id=? where d.diary_id=?",
+            (rs,n)->MemberDiaryResponses.Diary.from(authorized.diary(),authorized.canEdit(),Long.toString(rs.getLong("version")),rs.getString("role"),rs.getBoolean("is_favorite")),user,id);
+    }
+}

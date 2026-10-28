@@ -30,15 +30,17 @@ import org.springframework.web.bind.annotation.*;
 })
 public class MemberDiaryController {
     private final IdempotentDiaryCreationService creation;
-    private final DiaryDetailService detail;
+    private final MemberDiaryContractService detail;
     private final MemberDiaryListQuery lists;
-    public MemberDiaryController(IdempotentDiaryCreationService creation,DiaryDetailService detail,MemberDiaryListQuery lists) { this.creation=creation; this.detail=detail; this.lists=lists; }
+    public MemberDiaryController(IdempotentDiaryCreationService creation,MemberDiaryContractService detail,MemberDiaryListQuery lists) { this.creation=creation; this.detail=detail; this.lists=lists; }
 
+    @ApiResponse(responseCode="200",description="회원 활성 다이어리 목록",content=@Content(mediaType="application/json",schema=@Schema(implementation=MemberDiaryListQuery.Page.class)))
     @GetMapping
     @Operation(summary="회원 다이어리 목록",description="활성 멤버십 기준. q는 제목 부분 검색, sort는 created/updated/title/pages, limit는 1~100. nextCursor는 같은 계정·검색·정렬에서만 재사용합니다. PostgreSQL ICU 미지원 시 검색·title 정렬은 503 DIARY_LIST_UNAVAILABLE이며 검색 없는 created/updated/pages 목록은 유지됩니다.")
     public ResponseEntity<MemberDiaryListQuery.Page> list(@RequestParam(required=false) String q,@RequestParam(required=false) String sort,
-            @RequestParam(required=false) Integer limit,@RequestParam(required=false) String cursor) {
-        return ResponseEntity.ok().header("Cache-Control","no-store").body(lists.list(q,sort,limit,cursor));
+            @RequestParam(required=false) Integer limit,@RequestParam(required=false) String cursor,
+            @RequestParam(defaultValue="all") String filter,@RequestParam(defaultValue="false") boolean favorite) {
+        return ResponseEntity.ok().header("Cache-Control","no-store").body(lists.list(q,sort,limit,cursor,filter,favorite));
     }
 
     @PostMapping
@@ -56,14 +58,14 @@ public class MemberDiaryController {
     @Operation(summary="회원 다이어리 상세",description="활성 멤버만 조회합니다. 삭제·비참여 자료는 존재 여부를 숨겨 404로 응답합니다.")
     @ApiResponse(responseCode="200",description="활성 멤버의 상세 조회 성공")
     public ResponseEntity<MemberDiaryResponses.Detail> get(@PathVariable UUID diaryId) {
-        var result=detail.getAuthorized(diaryId);
-        return ResponseEntity.ok().header("Cache-Control","no-store").body(new MemberDiaryResponses.Detail(MemberDiaryResponses.Diary.from(result.diary(),result.canEdit())));
+        var result=detail.get(diaryId);
+        return ResponseEntity.ok().header("Cache-Control","no-store").body(new MemberDiaryResponses.Detail(result));
     }
     @PatchMapping("/{diaryId}")
-    @Operation(summary="회원 다이어리 메타데이터 수정",description="OWNER만 제목·표지색·스타일 수정. expectedUpdatedAt에 직전 응답 updatedAt을 그대로 전달합니다. 공개 범위·소유자 변경은 지원하지 않습니다.")
+    @Operation(summary="회원 다이어리 메타데이터 수정",description="OWNER만 제목·표지색·스타일 수정. expectedVersion에 직전 응답의 양의 BIGINT 문자열 version을 전달합니다. 공개 범위·소유자 변경은 지원하지 않습니다.")
     @ApiResponse(responseCode="200",description="OWNER 수정 성공")
     public ResponseEntity<MemberDiaryResponses.Detail> update(@PathVariable UUID diaryId,@Valid @RequestBody MemberDiaryRequests.Update request) {
-        var result=detail.update(diaryId,request.patch(),request.getExpectedUpdatedAt());
-        return ResponseEntity.ok().header("Cache-Control","no-store").body(new MemberDiaryResponses.Detail(MemberDiaryResponses.Diary.from(result.diary(),true)));
+        var result=detail.update(diaryId,request);
+        return ResponseEntity.ok().header("Cache-Control","no-store").body(new MemberDiaryResponses.Detail(result));
     }
 }

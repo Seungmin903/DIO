@@ -105,7 +105,7 @@ const OverviewItem = memo(function OverviewItem({ page, number, active, managing
         <View style={styles.thumbPage} pointerEvents="none">
           <StaticPage page={page} zoom={zoom} still />
         </View>
-        {managing && <Text style={{ position: 'absolute', top: 8, right: 8, fontSize: 22, color: colors.primary }}>{active ? '☑' : '☐'}</Text>}
+        {managing && <Text style={{ position: 'absolute', top: 8, right: 8, fontSize: 22, color: colors.primaryStrong }}>{active ? '☑' : '☐'}</Text>}
         {active && <View style={styles.activeRing} pointerEvents="none" />}
       </Pressable>
       {onToggleIndex && (
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   phoneCount: { marginLeft: 0 },
   headerSide: { flex: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
-  title: { fontSize: 17, fontWeight: '800', color: colors.text },
+  title: { fontSize: 17, fontWeight: '700', color: colors.text },
   tabs: { flexDirection: 'row', padding: 3, borderRadius: 10, backgroundColor: 'rgba(11,25,87,0.06)' },
   tab: { paddingHorizontal: 16, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   tabActive: { backgroundColor: colors.surface, ...shadow.card },

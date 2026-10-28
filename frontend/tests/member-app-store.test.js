@@ -49,7 +49,7 @@ test('늦은 목록 응답은 동시 생성 결과를 덮어쓰거나 로그아�
 function fixture() {
   const values = new Map([[STORAGE_KEYS.diaries, '[{"id":"guest","title":"기존 기기 다이어리"}]']]), writes = []
   let failIndex = false, failRead = false, loseResponse = false, calls = 0, applied = 0
-  let row = { id, title: form.title, color: form.color, coverStyle: 'PLAIN', pattern: null, canEdit: true, visibility: 'PRIVATE', createdAt: stamp, updatedAt: stamp }
+  let row = { id, title: form.title, color: form.color, coverStyle: 'PLAIN', pattern: null, canEdit: true, visibility: 'PRIVATE', createdAt: stamp, updatedAt: stamp, version: '1' }
   const receipts = new Map(), sent = []
   const storage = {
     async getItem(key) { if (failRead) throw new Error('read failed'); return values.get(key) ?? null },
@@ -65,14 +65,14 @@ function fixture() {
     },
     async get() { return copy(row) },
     async update(target, input) {
-      if (input.expectedUpdatedAt !== row.updatedAt) throw Object.assign(new Error('conflict'), { status: 409 })
-      row = { ...row, title: input.title, updatedAt: nextStamp }; return copy(row)
+      if (input.expectedVersion !== row.version) throw Object.assign(new Error('conflict'), { status: 409 })
+      row = { ...row, title: input.title, updatedAt: nextStamp, version: String(BigInt(row.version)+1n) }; return copy(row)
     },
   }
   const store = (accountId = '101') => createMemberAppStore({ accountId, api: { ...api, list: async () => ({ items: accountId === '101' && applied ? [{ ...row, pageCount: 1, isShared: false }] : [], hasNext: false, nextCursor: null }) }, storage, makeRequestId: () => 'member-test-key' })
   return { store, storage, api, values, writes, sent, get calls() { return calls }, get applied() { return applied },
     failIndex: () => { failIndex = true }, failRead: () => { failRead = true }, loseResponse: () => { loseResponse = true },
-    changeRemote: () => { row = { ...row, title: '다른 기기에서 수정', updatedAt: nextStamp } }, get row() { return row } }
+    changeRemote: () => { row = { ...row, title: '다른 기기에서 수정', updatedAt: nextStamp, version: '2' } }, get row() { return row } }
 }
 
 test('회원 생성은 서버 페이지 ID·빈 세로 규격을 저장하고 비회원 자료와 계정별 키를 분리한다', async () => {
@@ -194,4 +194,19 @@ test('목록 갱신 뒤 도착한 이전 상세가 최신 목록 메타데이터
   response.resolve(captured); await reading
   assert.equal(store.getSnapshot().diaries[0].title, '다른 기기에서 수정')
   assert.equal(store.getSnapshot().diaries[0].updatedAt, nextStamp)
+})
+
+
+test('만료 키는 자동 재생성하지 않고 목록 확인 성공 후 요청 원문을 보관하고 새 생성을 허용한다',async()=>{
+ const f=fixture(),base=f.api;let attempts=0,failList=false;
+ const store=createMemberAppStore({accountId:'101',storage:f.storage,makeRequestId:()=> 'expired-old-key',api:{...base,
+  list:async()=>{if(failList)throw Error('offline');return {items:[],hasNext:false,nextCursor:null}},
+  create:async()=>{attempts++;throw Object.assign(Error('expired'),{code:'IDEMPOTENCY_KEY_EXPIRED',status:409})}}})
+ await store.load();await assert.rejects(store.create(form),{code:'IDEMPOTENCY_KEY_EXPIRED'});
+ const pending=store.getSnapshot().pending;assert.equal(pending.expired,true);
+ await assert.rejects(store.retryCreation(),{code:'IDEMPOTENCY_KEY_EXPIRED'});assert.equal(attempts,1);
+ failList=true;await assert.rejects(store.archiveExpiredCreation(),/offline/);assert.equal(store.getSnapshot().pending.requestId,pending.requestId);
+ failList=false;await store.archiveExpiredCreation();assert.equal(store.getSnapshot().pending,null);
+ const archived=JSON.parse(f.values.get(memberKeys('101').pendingArchive));assert.deepEqual(archived,[pending]);
+ assert.equal(f.values.has(memberKeys('101').pending),false);assert.equal(attempts,1);
 })

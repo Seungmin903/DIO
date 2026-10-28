@@ -26,6 +26,7 @@ public class JdbcDiaryMembershipAccess implements DiaryMembershipAccess {
 		catch (RuntimeException unknownRole) { throw DiaryDetailException.notFound(); }
 		// OWNER 소유권과 멤버십이 어긋난 자료는 추정해서 허용하지 않는다.
 		if ((role == Role.OWNER) != (ownerUserId == userId)) throw DiaryDetailException.notFound();
+		if (role == Role.VIEWER) throw DiaryDetailException.notFound();
 		return role;
 	}
 

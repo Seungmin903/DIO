@@ -46,6 +46,9 @@ dependencies {
 }
 
 tasks.named('test') {
+    // Missing generated contracts invalidate UP-TO-DATE on reused runner workspaces.
+    outputs.files('build/contracts/member-diary-http.json',
+        'build/contracts/member-diary-trash-http.json','build/contracts/member-diary-purge-http.json')
 	useJUnitPlatform()
 }
 
@@ -132,4 +135,59 @@ tasks.register('notificationBrowserQa', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.f106.DIO.notification.NotificationBrowserQa'
+}
+
+
+tasks.register('postgresDiaryTrashTest',Test) {
+    group='verification'
+    description='Runs member trash tests only against explicit disposable dio_trash_qa.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.f106.DIO.diary.trash.*'
+        includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryTrashContractPostgresTests'
+    }
+    environment 'DIO_MEMBER_TRASH_PG','true'
+    outputs.upToDateWhen {false}
+    outputs.cacheIf {false}
+    doFirst {
+        if(environment['DIO_LIST_QUERY_PG']!='true' || !(environment['DB_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_trash_qa/) || !environment['POSTGRES_USER'] || !environment['POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_trash_qa and DIO_LIST_QUERY_PG=true required; no fallback.')
+    }
+}
+
+tasks.register('postgresDiaryPurgeTest',Test) {
+    group='verification'
+    description='Runs member purge tests only against explicit disposable dio_trash_qa.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.f106.DIO.diary.purge.*'
+        includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryPurgeContractPostgresTests'
+    }
+    environment 'DIO_MEMBER_PURGE_PG','true'
+    outputs.upToDateWhen {false}
+    outputs.cacheIf {false}
+    doFirst {
+        if(environment['DIO_LIST_QUERY_PG']!='true' || !(environment['DB_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_trash_qa/) || !environment['POSTGRES_USER'] || !environment['POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_trash_qa and DIO_LIST_QUERY_PG=true required; no fallback.')
+    }
+}
+
+tasks.register('postgresMemberDiaryHttpTest',Test) {
+    group='verification'
+    description='Runs real member diary HTTP contracts on disposable PostgreSQL only.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryContractPostgresTests'}
+    environment 'DIO_MEMBER_CONTRACT_PG','true'
+    outputs.upToDateWhen {false}
+    outputs.cacheIf {false}
+    doFirst {
+        if(!(environment['DB_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_member_contract_qa/) || !environment['POSTGRES_USER'] || !environment['POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_member_contract_qa required; no fallback.')
+    }
 }

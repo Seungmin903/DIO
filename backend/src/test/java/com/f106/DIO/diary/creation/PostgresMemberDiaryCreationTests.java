@@ -119,14 +119,13 @@ class PostgresMemberDiaryCreationTests extends MemberDiaryCreationContract {
 		org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from diaries",Long.class)).isZero();
 	}
     @org.junit.jupiter.api.Test
-    void oldCommittedKeysStillReplayRatherThanCreateAnotherDiary() {
+    void expiredCommittedKeysAre409AndNeverCreateAnotherDiary() {
         var keyed=keyed(service);
         var first=tx.execute(s -> keyed.create("old-committed-key",metadata(),selections(1)));
         var old=java.sql.Timestamp.from(AT.minus(java.time.Duration.ofDays(3650)));
         jdbc.update("update diary_creation_receipts set created_at=?,completed_at=?",old,old);
-        var replay=tx.execute(s -> keyed.create("old-committed-key",metadata(),selections(1)));
-        org.assertj.core.api.Assertions.assertThat(replay.replayed()).isTrue();
-        org.assertj.core.api.Assertions.assertThat(replay.created()).isEqualTo(first.created());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> tx.execute(s -> keyed.create("old-committed-key",metadata(),selections(1))))
+            .isInstanceOfSatisfying(DiaryIdempotencyException.class,e -> org.assertj.core.api.Assertions.assertThat(e.code()).isEqualTo("IDEMPOTENCY_KEY_EXPIRED"));
         org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from diaries",Long.class)).isEqualTo(1);
         org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from diary_creation_receipts",Long.class)).isEqualTo(1);
     }

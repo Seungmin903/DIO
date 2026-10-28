@@ -57,11 +57,12 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onAdd,
       <Text style={styles.hint}>글 입력은 선택 사항 · 도형을 두 번 눌러 입력해요.</Text>
     </Content>
     {onAdd && <View style={styles.footer}>
-      <Pressable accessibilityRole="button" accessibilityLabel="도형 캔버스에 추가" onPress={onAdd} style={styles.add}><Text style={[styles.buttonText,{color:colors.surface}]}>캔버스에 추가</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="도형 캔버스에 추가" onPress={onAdd} style={styles.add}><Text style={[styles.buttonText,styles.addText]}>캔버스에 추가</Text></Pressable>
     </View>}
   </View>
 }
 const styles = StyleSheet.create({
+  addText: { color: colors.surface },
   borderPreview:{flex:0,minWidth:76,minHeight:56,paddingHorizontal:8,paddingVertical:4},borderPreviewLabel:{color:colors.textMuted,fontSize:11,fontWeight:'600'},
   footer:{paddingHorizontal:16,paddingBottom:16,paddingTop:8},shapeList:{maxHeight:176,flexShrink:0},
   categoryTab:{flex:0,flexGrow:0,flexShrink:0,flexBasis:'auto',minWidth:64,minHeight:44,paddingHorizontal:12},
@@ -70,5 +71,5 @@ const styles = StyleSheet.create({
   category:{minHeight:44,paddingHorizontal:12,borderRadius:11,borderWidth:1.5,borderColor:'transparent',backgroundColor:colors.surfaceMuted,justifyContent:'center'},
   section:{gap:8}, shapes:{flexDirection:'row',flexWrap:'wrap',gap:0}, shape:{width:'16.666%',height:44,alignItems:'center',justifyContent:'center',borderRadius:10,borderWidth:1.5,borderColor:'transparent'},
   selected:{borderColor:colors.primary,backgroundColor:colors.primarySoft}, swatches:{flexDirection:'row',flexWrap:'wrap',gap:4}, swatch:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
-  none:{color:colors.textMuted,fontSize:18},plus:{color:colors.text,fontSize:18},add:{minHeight:44,borderRadius:14,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},secondary:{minHeight:44,borderRadius:14,backgroundColor:colors.surfaceMuted,alignItems:'center',justifyContent:'center'},buttonText:{color:colors.text,fontSize:13,fontWeight:'800'},hint:{color:colors.textMuted,fontSize:11,fontWeight:'600'},
+  none:{color:colors.textMuted,fontSize:18},plus:{color:colors.text,fontSize:18},add:{minHeight:44,borderRadius:14,backgroundColor:colors.primaryStrong,alignItems:'center',justifyContent:'center'},secondary:{minHeight:44,borderRadius:14,backgroundColor:colors.surfaceMuted,alignItems:'center',justifyContent:'center'},buttonText:{color:colors.text,fontSize:13,fontWeight:'700'},hint:{color:colors.textMuted,fontSize:11,fontWeight:'600'},
 })

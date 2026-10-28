@@ -16,7 +16,7 @@ test('실제 Spring 생성·조회·수정 응답을 회원 프런트 어댑터�
   assert.deepEqual(created.pageIds, receipt.created.pageIds)
   assert.equal(created.canEdit, true)
   await api.get(created.id)
-  const updated = await api.update(created.id, { title: receipt.updateRequest.diaryTitle, expectedUpdatedAt: created.updatedAt })
+  const updated = await api.update(created.id, { title: receipt.updateRequest.diaryTitle, expectedVersion: created.version })
   assert.deepEqual(calls[2].body, receipt.updateRequest)
   assert.equal(updated.updatedAt, receipt.updated.diary.updatedAt)
   assert.equal(updated.title, 'renamed')

@@ -39,7 +39,8 @@ export default function TextBoxInput({ zoom, onCreate, pageWidth: PAGE_WIDTH = D
         const width = Math.min(TAP_BOX_WIDTH, PAGE_WIDTH)
         const x = clamp(tapAt.x, 0, PAGE_WIDTH - width)
         // autoWidth: 입력하는 동안 글자만큼 넓어지고, maxWidth(페이지 오른쪽 끝까지)에서 줄을 바꾼다
-        onCreate({ x, y: tapAt.y, width, h: 38, w: width, baseWidth: width, autoWidth: true, maxWidth: Math.max(width, PAGE_WIDTH - x - 8) })
+        // tap: 실제로 누른 자리(상자 x 는 페이지 안으로 당겨질 수 있다). 속지 칸 맞춤이 쓴다.
+        onCreate({ x, y: tapAt.y, width, h: 38, w: width, baseWidth: width, autoWidth: true, maxWidth: Math.max(width, PAGE_WIDTH - x - 8), tap: tapAt })
       }
     },
   })

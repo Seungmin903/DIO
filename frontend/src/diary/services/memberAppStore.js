@@ -7,8 +7,8 @@ const clone = value => JSON.parse(JSON.stringify(value))
 const failure = (code, message) => Object.assign(new Error(message), { code })
 export function createMemberAppStore({ accountId, api, storage, makeRequestId }) {
   const keys = memberKeys(accountId), listeners = new Set()
-  let state = { diaries: [], loaded: false, refreshing: false, pending: null, error: null }, disposed = false, creating = null, starting = null, writable = false
-  let revision = 0, listing = null
+  let state = { diaries: [], loaded: false, refreshing: false, pending: null, error: null, trash:[],trashLoaded:false,trashLoading:false,trashError:null,lifecycle:null }, disposed = false, creating = null, starting = null, writable = false
+  let revision = 0, listing = null, trashListing=null, lifecycleRequest=null, lifecycleRunning=null
   const metadataVersions = new Map(), detailRequests = new Map()
   const version = id => metadataVersions.get(id) ?? 0
   const invalidateDetails = ids => { for (const id of ids) metadataVersions.set(id, version(id) + 1) }
@@ -23,7 +23,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
   const write = (key, value) => storage.setItem(key, JSON.stringify(value))
   const active = () => { if (disposed) throw failure('STALE_ACCOUNT', '계정이 바뀌어 요청을 중단했어요.') }
   const entry = (result, previous = {}) => ({ ...previous, ...result, source: 'member-api', memberAccountId: accountId,
-    type: (result.isShared ?? previous.isShared) ? '공유' : '개인', canManage: result.canEdit, canDelete: false, trashedAt: null })
+    type: (result.isShared ?? previous.isShared) ? '공유' : '개인', canManage: result.canEdit, canDelete: result.permissions?.canTrash===true, trashedAt: null })
   const publish = (diary, detailRequest) => {
     // Mutations invalidate reads as soon as their result is ready, including while
     // persistence is queued. The read check itself runs inside that same queue.
@@ -56,6 +56,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
   const performCreate = async () => {
     if (creating) return creating
     const pending = state.pending
+    if (pending?.expired) throw failure('IDEMPOTENCY_KEY_EXPIRED', '응답 보관 기간이 지난 요청이에요. 목록 확인 후 요청을 정리해 주세요.')
     if (!pending) throw failure('NO_PENDING_CREATION', '확인할 생성 요청이 없어요.')
     creating = (async () => {
       active()
@@ -76,7 +77,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
         if (disposed) throw error
         const definite = !pending.uncertain && !received && [400, 403, 404, 422].includes(error.status)
         if (definite) { await storage.removeItem(keys.pending); emit({ pending: null, error }) }
-        else { const retained = { ...pending, uncertain: true }; await write(keys.pending, retained); emit({ pending: retained, error }) }
+        else { const retained = { ...pending, uncertain: true, expired: error.code === 'IDEMPOTENCY_KEY_EXPIRED' || pending.expired === true }; await write(keys.pending, retained); emit({ pending: retained, error }) }
         throw error
       }
     })().finally(() => { creating = null })
@@ -123,6 +124,41 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
       })().finally(() => { listing = null })
       return listing
     },
+    loadTrash() {
+      if(trashListing) return trashListing;
+      trashListing=(async()=>{active();const startRevision=revision;emit({trashLoading:true});try {
+        const rows=new Map(),seen=new Set();let cursor;
+        do {const page=await api.trashList({cursor});active();for(const item of page.items)rows.set(item.id,item);
+          if(!page.hasNext)break;if(!page.nextCursor||seen.has(page.nextCursor))throw failure('INVALID_LIST_CURSOR','휴지통 다음 목록을 확인하지 못했어요.');seen.add(page.nextCursor);cursor=page.nextCursor;
+        }while(true);
+        active();if(startRevision!==revision)throw failure('LIST_CHANGED','휴지통을 다시 확인해 주세요.');emit({trash:[...rows.values()],trashLoaded:true,trashError:null});return [...rows.values()];
+      }catch(error){if(!disposed)emit({trashError:error});throw error;}finally {if(!disposed)emit({trashLoading:false});}})().finally(()=>{trashListing=null});return trashListing;
+    },
+    lifecycle(kind,id) {
+      active();if(!['trash','restore','purge'].includes(kind))return Promise.reject(failure('INVALID_OPERATION','지원하지 않는 작업이에요.'));if(lifecycleRunning) {
+        if(lifecycleRequest?.id===id && lifecycleRequest.kind===kind)return lifecycleRunning;
+        return Promise.reject(failure('OPERATION_PENDING','진행 중인 휴지통 작업을 먼저 확인해 주세요.'));
+      }
+      if(lifecycleRequest && (lifecycleRequest.id!==id||lifecycleRequest.kind!==kind) && state.lifecycle?.canRetry) return Promise.reject(failure('OPERATION_PENDING','이전 작업 결과를 먼저 확인해 주세요.'));
+      if(!lifecycleRequest || lifecycleRequest.id!==id || lifecycleRequest.kind!==kind) {
+        const row=(kind==='trash'?state.diaries:state.trash).find(x=>x.id===id);
+        if(kind==='trash'?!row?.permissions?.canTrash:!(kind==='purge'?row?.canPermanentlyDelete:row?.canRestore)) return Promise.reject(failure('FORBIDDEN','이 작업을 할 수 있는 최신 권한을 확인해 주세요.'));
+        lifecycleRequest={kind,id,committed:false,result:null};
+      }
+      const request=lifecycleRequest;revision++;invalidateDetails([id]);emit({lifecycle:{kind,id,busy:true,canRetry:false,error:null}});
+      lifecycleRunning=(async()=>{try {
+        if(!request.committed){request.result=kind==='trash'?await api.trash(id):kind==='purge'?await api.purge(id):await api.restore(id);request.committed=true;active();revision++;invalidateDetails([id]);}
+        if(kind==='restore') await publish(entry(request.result,state.diaries.find(x=>x.id===id)));
+        else await enqueue(async()=>{active();const diaries=state.diaries.filter(x=>x.id!==id);await write(keys.index,diaries);active();emit({diaries});});
+        // Await older list requests before issuing the authoritative post-mutation refresh.
+        if(listing)await listing.catch(()=>{});if(trashListing)await trashListing.catch(()=>{});
+        await this.reload();await this.loadTrash();active();lifecycleRequest=null;emit({lifecycle:null});return true;
+      }catch(error){if(!disposed){const canRetry=request.committed||(![400,401,403,404,409,410].includes(error.status));
+        emit({lifecycle:{kind,id,busy:false,canRetry,error,resultKnown:request.committed}});
+        if(!canRetry){lifecycleRequest=null;await this.reload().catch(()=>{});await this.loadTrash().catch(()=>{});}
+      }throw error;}})().finally(()=>{lifecycleRunning=null});return lifecycleRunning;
+    },
+    retryLifecycle() {if(!state.lifecycle?.canRetry || !lifecycleRequest)return Promise.reject(failure('NO_PENDING_OPERATION','재시도할 작업이 없어요.'));return this.lifecycle(lifecycleRequest.kind,lifecycleRequest.id);},
     create(form) {
       if (starting) return starting
       starting = (async () => {
@@ -139,6 +175,16 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
       return starting
     },
     retryCreation: performCreate,
+    async archiveExpiredCreation() {
+      active(); const pending=state.pending;
+      if(!pending?.expired) throw failure('PENDING_NOT_EXPIRED','미확인 생성 요청은 같은 키로 먼저 확인해 주세요.')
+      await this.reload(); active();
+      if(state.pending?.requestId!==pending.requestId) throw failure('PENDING_CHANGED','이전 생성 요청을 다시 확인해 주세요.')
+      const archive=await read(keys.pendingArchive,[]); active();
+      if(!Array.isArray(archive)) throw failure('INVALID_LOCAL_CACHE','요청 보관 기록을 확인하지 못했어요.')
+      if(!archive.some(item=>item.requestId===pending.requestId)) await write(keys.pendingArchive,[...archive,pending]);
+      active(); await storage.removeItem(keys.pending); active(); emit({pending:null,error:null});
+    },
     async refresh(id) {
       active()
       const detailRequest = { version: version(id), sequence: (detailRequests.get(id) ?? 0) + 1 }
@@ -159,7 +205,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId })
       const previous = state.diaries.find(d => d.id === id)
       if (!previous?.canEdit) throw failure('FORBIDDEN', '소유자만 제목과 표지를 수정할 수 있어요.')
       try {
-        const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', expectedUpdatedAt: previous.updatedAt })
+        const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', expectedVersion: previous.version })
         active(); return await publish(entry(result, previous))
       } catch (error) {
         if (error.status === 409) await this.refresh(id).catch(() => {})

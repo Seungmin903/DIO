@@ -9,7 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * Receipts intentionally have no TTL: expiring a key would allow an old retry
+ * Key tombstones intentionally have no TTL: expiring a key would allow an old retry
  * to create a second diary. V10 scrubs response_body on permanent diary deletion
  * and keeps the key tombstone; permanent user deletion cascades to receipts.
  * See docs/다이어리 저장/회원 생성 중복 방지.md for retention and capacity limits.
@@ -50,8 +50,8 @@ public class DiaryCreationReceiptRepository {
         return false;
     }
     private Receipt lock(long user,String key) {
-        return jdbc.queryForObject("select request_hash,diary_id,response_body from diary_creation_receipts where user_id=? and key_hash=? for update",
-            (rs,row) -> new Receipt(rs.getString("request_hash"),rs.getObject("diary_id",UUID.class),rs.getString("response_body")),user,key);
+        return jdbc.queryForObject("select request_hash,diary_id,response_body,completed_at from diary_creation_receipts where user_id=? and key_hash=? for update",
+            (rs,row) -> new Receipt(rs.getString("request_hash"),rs.getObject("diary_id",UUID.class),rs.getString("response_body"),rs.getTimestamp("completed_at")==null?null:rs.getTimestamp("completed_at").toInstant()),user,key);
     }
     public boolean accessible(long user,UUID diary) {
         if(diary==null) return false;
@@ -63,6 +63,11 @@ public class DiaryCreationReceiptRepository {
         if(jdbc.update("update diary_creation_receipts set diary_id=?,response_body="+parameter+",completed_at=? where user_id=? and key_hash=? and response_body is null",
             diary,body,Timestamp.from(Instant.now()),user,key)!=1) throw DiaryCreationException.invalidState();
     }
-    public record Receipt(String requestHash,UUID diaryId,String body) {}
+    public record Receipt(String requestHash,UUID diaryId,String body,Instant completedAt) {
+        public Receipt(String requestHash,UUID diaryId,String body) { this(requestHash,diaryId,body,Instant.now()); }
+    }
+    public int clearExpiredResponses() {
+        return jdbc.update("update diary_creation_receipts set response_body=null where (user_id,key_hash) in (select user_id,key_hash from diary_creation_receipts where response_body is not null and completed_at<=? order by completed_at limit 500)",Timestamp.from(Instant.now().minus(java.time.Duration.ofHours(24))));
+    }
     public record Claim(boolean fresh,Receipt receipt) {}
 }

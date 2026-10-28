@@ -47,7 +47,7 @@ const s = StyleSheet.create({
   container: { width: '100%', flex: 1, minHeight: 0, gap: 10 },
   compact: { flex: undefined, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12, marginBottom: 12 },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  title: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  title: { color: colors.text, fontSize: 15, fontWeight: '700' },
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   month: { color: colors.text, fontSize: 13, fontWeight: '700' },
   arrow: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.surface },

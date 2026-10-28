@@ -49,7 +49,7 @@ class MemberDiaryListPostgresTests {
     }
     @Test void cursorsFromThePreviousFoldVersionAreRejected() {
         add(1,"Ä");add(2,"É");String cursor=query.list(null,"title",1,null).nextCursor();
-        String json=new String(Base64.getUrlDecoder().decode(cursor),StandardCharsets.UTF_8).replace("\"v\":2","\"v\":1");
+        String json=new String(Base64.getUrlDecoder().decode(cursor),StandardCharsets.UTF_8).replace("\"v\":3","\"v\":2");
         String old=Base64.getUrlEncoder().withoutPadding().encodeToString(json.getBytes(StandardCharsets.UTF_8));
         assertThatThrownBy(() -> query.list(null,"title",1,old)).isInstanceOf(MemberDiaryRequestException.class);
     }

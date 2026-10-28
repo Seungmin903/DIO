@@ -1,3 +1,5 @@
+import { FALLBACK_COVER_COLOR } from '../constants.js';
+
 // 229 합의 전 DTO는 이 어댑터 한 곳에서만 화면 모델로 변환한다.
 export class DiaryApiError extends Error {
   constructor(code, message, status = 0) { super(message); this.code = code; this.status = status; }
@@ -7,7 +9,7 @@ export function toDiary(row) {
     throw new DiaryApiError('INVALID_RESPONSE', '다이어리 정보를 확인하지 못했어요. 다시 시도해 주세요.');
   }
   return {
-    id: row.diaryId, title: row.diaryTitle, color: row.coverColor || '#CED9EE',
+    id: row.diaryId, title: row.diaryTitle, color: row.coverColor || FALLBACK_COVER_COLOR,
     pattern: row.coverPattern?.toLowerCase() || null, binding: row.bindingType,
     type: row.visibility === 'MEMBERS' ? '공유' : '개인',
     favorite: row.myMembership?.isFavorite === true,

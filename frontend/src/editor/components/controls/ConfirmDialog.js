@@ -37,14 +37,14 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = 'ì‚
 const styles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.scrim },
   card: { width: 320, maxWidth: '100%', padding: 20, borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
-  title: { fontSize: 16, fontWeight: '800', color: colors.text },
+  title: { fontSize: 16, fontWeight: '700', color: colors.text },
   message: { marginTop: 8, fontSize: 13, lineHeight: 19, color: colors.textMuted },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 18 },
   button: { minWidth: 76, height: 42, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: colors.primarySoft },
   danger: { backgroundColor: colors.danger },
-  primary: { backgroundColor: colors.primary },
+  primary: { backgroundColor: colors.primaryStrong },
   confirmPressed: { opacity: 0.85 },
   cancelText: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
-  confirmText: { fontSize: 14, fontWeight: '800', color: colors.surface },
+  confirmText: { fontSize: 14, fontWeight: '700', color: colors.surface },
 })

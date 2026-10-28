@@ -55,16 +55,16 @@ class MemberDiaryHttpTests {
     RefreshToken ownerSession;
 
     @BeforeEach void fixtures() {
-        jdbc.execute("create table if not exists page_templates(template_id bigint primary key,code varchar(100),template_version varchar(30),orientation varchar(20),canvas_width decimal(10,2),canvas_height decimal(10,2),default_config jsonb,is_active boolean default true)");
+        jdbc.execute("create table if not exists page_templates(template_id bigint primary key,code varchar(100),template_version varchar(30),name varchar(100),category varchar(30),orientation varchar(20),canvas_width decimal(10,2),canvas_height decimal(10,2),default_config jsonb,is_active boolean default true)");
         jdbc.execute("create table if not exists pages(page_id uuid primary key,diary_id uuid,template_id bigint,template_config jsonb,sort_key decimal(20,10),canvas_width decimal(10,2),canvas_height decimal(10,2),created_at timestamp(6) with time zone,updated_at timestamp(6) with time zone,deleted_at timestamp(6) with time zone)");
-        jdbc.execute("create table if not exists diary_members(diary_id uuid,user_id bigint,role varchar(20),member_color char(7),joined_at timestamp(6) with time zone,left_at timestamp(6) with time zone,primary key(diary_id,user_id))");
+        jdbc.execute("create table if not exists diary_members(diary_id uuid,user_id bigint,role varchar(20),is_favorite boolean not null default false,member_color char(7),joined_at timestamp(6) with time zone,left_at timestamp(6) with time zone,primary key(diary_id,user_id))");
         jdbc.execute("create table if not exists diary_creation_receipts(user_id bigint,key_hash char(64),request_hash char(64),diary_id uuid,response_body jsonb,created_at timestamp(6) with time zone default current_timestamp,completed_at timestamp(6) with time zone,primary key(user_id,key_hash))");
         jdbc.update("delete from diary_creation_receipts");
         jdbc.update("delete from pages"); jdbc.update("delete from diary_members"); jdbc.update("delete from diaries");
         jdbc.update("delete from page_templates"); history.deleteAll(); sessions.deleteAll(); jdbc.update("delete from users");
         for(long id:new long[]{101,202}) jdbc.update("insert into users(user_id,nickname,nickname_key,profile_color,status,created_at,updated_at) values(?,?,?,'#123456','ACTIVE',?,?)",
             id,"user"+id,"user"+id,Timestamp.from(Instant.now()),Timestamp.from(Instant.now()));
-        jdbc.update("insert into page_templates(template_id,code,template_version,orientation,canvas_width,canvas_height) values(10,'2026-cover-landscape','1.0.0','LANDSCAPE',1024,768)");
+        jdbc.update("insert into page_templates(template_id,code,template_version,name,category,orientation,canvas_width,canvas_height) values(10,'2026-cover-landscape','1.0.0','QA cover','COVER','LANDSCAPE',1024,768)");
         ownerSession=session(101); owner=access(101,ownerSession);
         other=access(202,session(202));
     }
@@ -89,7 +89,7 @@ class MemberDiaryHttpTests {
         return node;
     }
     String id(JsonNode created) { return created.get("diary").get("diaryId").asString(); }
-    String patchBody(JsonNode created,String title) { return json.writeValueAsString(Map.of("diaryTitle",title,"expectedUpdatedAt",created.get("diary").get("updatedAt").asString())); }
+    String patchBody(JsonNode created,String title) { return json.writeValueAsString(Map.of("diaryTitle",title,"expectedVersion",created.get("diary").get("version").asString())); }
     void noneCreated() {
         for(var table:List.of("diaries","diary_members","pages","diary_creation_receipts")) assertThat(jdbc.queryForObject("select count(*) from "+table,Long.class)).isZero();
     }
@@ -133,6 +133,14 @@ class MemberDiaryHttpTests {
         noneCreated();
     }
 
+    @Test void clientSuppliedDatabaseTemplateIdCannotOverrideTheCodeVersionMapping() throws Exception {
+        var node=(tools.jackson.databind.node.ObjectNode)json.readTree(body(1));
+        ((tools.jackson.databind.node.ObjectNode)node.get("initialPages").get(0)).put("templateId",987);
+        mvc.perform(memberPost().header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(node.toString()))
+            .andExpect(status().isBadRequest());
+        noneCreated();
+    }
+
     @Test void patchRequiresMetadataAndAnExactNonNullTimestampAndRejectsUnknownFields() throws Exception {
         var created=create(); String id=id(created),stamp=created.get("diary").get("updatedAt").asString();
         for(String body:List.of("{}","{\"diaryTitle\":\"x\"}","{\"expectedUpdatedAt\":null,\"diaryTitle\":\"x\"}",
@@ -147,7 +155,7 @@ class MemberDiaryHttpTests {
     @Test void nonMembersDeletedAndLeftMembershipsAre404AndViewersCannotEdit() throws Exception {
         var created=create(); String id=id(created);
         mvc.perform(get(PATH+"/"+id).header("Authorization","Bearer "+other)).andExpect(status().isNotFound());
-        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,202,'VIEWER','#654321')",UUID.fromString(id));
+        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,202,'EDITOR','#654321')",UUID.fromString(id));
         mvc.perform(get(PATH+"/"+id).header("Authorization","Bearer "+other)).andExpect(status().isOk()).andExpect(jsonPath("$.diary.canEdit").value(false));
         mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+other).contentType(MediaType.APPLICATION_JSON).content(patchBody(created,"forbidden")))
             .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("DIARY_METADATA_FORBIDDEN"));
@@ -189,7 +197,7 @@ class MemberDiaryHttpTests {
         doThrow(new com.f106.DIO.diary.detail.DiaryDetailException(
             org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"DIARY_LIST_UNAVAILABLE",
             "회원 목록을 사용할 수 없어요. 잠시 후 다시 확인해 주세요."))
-            .when(lists).list(eq("É"),any(),any(),any());
+            .when(lists).list(eq("É"),any(),any(),any(),anyString(),anyBoolean());
         var unavailable=mvc.perform(get(PATH).param("q","É").header("Authorization","Bearer "+owner))
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.code").value("DIARY_LIST_UNAVAILABLE"))
@@ -245,7 +253,7 @@ class MemberDiaryHttpTests {
         result.put("conflict",json.readTree(mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(patch)).andExpect(status().isConflict()).andReturn().getResponse().getContentAsByteArray()));
         result.put("unauthorized",json.readTree(mvc.perform(get(PATH+"/"+id)).andExpect(status().isUnauthorized()).andReturn().getResponse().getContentAsByteArray()));
         result.put("missing",json.readTree(mvc.perform(get(PATH+"/"+id).header("Authorization","Bearer "+other)).andExpect(status().isNotFound()).andReturn().getResponse().getContentAsByteArray()));
-        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,202,'VIEWER','#654321')",UUID.fromString(id));
+        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,202,'EDITOR','#654321')",UUID.fromString(id));
         result.put("forbidden",json.readTree(mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+other).contentType(MediaType.APPLICATION_JSON).content(patch)).andExpect(status().isForbidden()).andReturn().getResponse().getContentAsByteArray()));
         result.put("invalid",json.readTree(mvc.perform(memberPost().header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isBadRequest()).andReturn().getResponse().getContentAsByteArray()));
         result.put("openapi",json.readTree(mvc.perform(get("/v3/api-docs")).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray()));
@@ -292,7 +300,7 @@ class MemberDiaryHttpTests {
         mvc.perform(get(PATH).header("Authorization","Bearer "+owner)).andExpect(status().isOk())
             .andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].diary.diaryId").value(id(owned)))
             .andExpect(jsonPath("$.items[0].pageCount").value(2)).andExpect(jsonPath("$.hasNext").value(false));
-        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,101,'VIEWER','#123456')",UUID.fromString(id(remote)));
+        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,101,'EDITOR','#123456')",UUID.fromString(id(remote)));
         mvc.perform(get(PATH).param("q","member").param("sort","title").header("Authorization","Bearer "+owner))
             .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2));
         String listed=mvc.perform(get(PATH).header("Authorization","Bearer "+owner)).andReturn().getResponse().getContentAsString();
@@ -333,4 +341,78 @@ class MemberDiaryHttpTests {
             .andExpect(status().isConflict()).andExpect(header().string("Retry-After","1")).andExpect(jsonPath("$.code").value("IDEMPOTENCY_IN_PROGRESS"));
         noneCreated();
     }
+
+    @Test void unicodeWhitespaceCannotPoisonCreateOrPatchResponses() throws Exception {
+        for(String blank:List.of("\u00a0","\u2007","\u202f","\ufeff","\u3000","\u2028","\u2029")) {
+            var input=(tools.jackson.databind.node.ObjectNode)json.readTree(body(1));input.put("diaryTitle",blank);
+            mvc.perform(memberPost().header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(input.toString())).andExpect(status().isBadRequest());
+        }
+        noneCreated();
+        var created=create();
+        for(String blank:List.of("\u00a0","\ufeff","\u202f"))
+            mvc.perform(patch(PATH+"/"+id(created)).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(patchBody(created,blank))).andExpect(status().isBadRequest());
+        mvc.perform(patch(PATH+"/"+id(created)).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(patchBody(created,"\u00a0\ufefftrimmed\u202f")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.diary.diaryTitle").value("trimmed")).andExpect(jsonPath("$.diary.version").value("2"));
+    }
+    @Test void viewerHasNoAccessButEditorHasCanvasPermissionsAndCannotEditMetadata() throws Exception {
+        var created=create();var id=UUID.fromString(id(created));
+        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,202,'VIEWER','#123456')",id);
+        mvc.perform(get(PATH+"/"+id).header("Authorization","Bearer "+other)).andExpect(status().isNotFound());
+        mvc.perform(get(PATH).header("Authorization","Bearer "+other)).andExpect(jsonPath("$.items").isEmpty());
+        jdbc.update("update diary_members set role='EDITOR',is_favorite=true where user_id=202");
+        mvc.perform(get(PATH+"/"+id).header("Authorization","Bearer "+other)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.diary.myRole").value("EDITOR")).andExpect(jsonPath("$.diary.myMembership.isFavorite").value(true))
+            .andExpect(jsonPath("$.diary.permissions.canEditCanvas").value(true)).andExpect(jsonPath("$.diary.permissions.canEditMetadata").value(false));
+        mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+other).contentType(MediaType.APPLICATION_JSON).content(patchBody(created,"no"))).andExpect(status().isForbidden());
+    }
+    @Test void expiredKeyNeverCreatesAgainAndCleanupPreservesTheLiveDiaryAndTombstone() throws Exception {
+        create();
+        jdbc.update("update diary_creation_receipts set completed_at=?",Timestamp.from(Instant.now().minusSeconds(86400)));
+        mvc.perform(post(PATH).header("Authorization","Bearer "+owner).header("Idempotency-Key","expired-key-unique").contentType(MediaType.APPLICATION_JSON).content(body(1))).andExpect(status().isCreated());
+        jdbc.update("update diary_creation_receipts set completed_at=? where key_hash=?",Timestamp.from(Instant.now().minusSeconds(86400)),sha("expired-key-unique"));
+        mvc.perform(post(PATH).header("Authorization","Bearer "+owner).header("Idempotency-Key","expired-key-unique").contentType(MediaType.APPLICATION_JSON).content(body(1))).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_EXPIRED"));
+        var receipts=new com.f106.DIO.diary.creation.DiaryCreationReceiptRepository(jdbc,5000);
+        assertThat(receipts.clearExpiredResponses()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from diaries",Long.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from diary_creation_receipts where response_body is null and diary_id is not null",Long.class)).isEqualTo(2);
+        mvc.perform(post(PATH).header("Authorization","Bearer "+owner).header("Idempotency-Key","expired-key-unique").contentType(MediaType.APPLICATION_JSON).content(body(1))).andExpect(status().isConflict());
+    }
+    private static String sha(String value) throws Exception {return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}
+    @Test void listFiltersFavoriteAndCursorScopeAreBoundToTheRequest() throws Exception {
+        var first=create();create();
+        jdbc.update("update diary_members set is_favorite=true where diary_id=?",UUID.fromString(id(first)));
+        mvc.perform(get(PATH).param("favorite","true").header("Authorization","Bearer "+owner)).andExpect(jsonPath("$.items.length()").value(1));
+        mvc.perform(get(PATH).param("filter","shared").header("Authorization","Bearer "+owner)).andExpect(jsonPath("$.items").isEmpty());
+        var page=json.readTree(mvc.perform(get(PATH).param("limit","1").header("Authorization","Bearer "+owner)).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray());
+        mvc.perform(get(PATH).param("cursor",page.get("nextCursor").asString()).param("filter","personal").header("Authorization","Bearer "+owner)).andExpect(status().isBadRequest());
+    }
+
+
+    @Test void versionMustBeAStringAndNoopAndExhaustionAreExplicit() throws Exception {
+        var created=create();String path=PATH+"/"+id(created);
+        for(String token:List.of("1","null","\"0\"","\"01\"","\"9223372036854775808\"")) {
+            mvc.perform(patch(path).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"diaryTitle\":\"changed\",\"expectedVersion\":"+token+"}")).andExpect(status().isBadRequest());
+        }
+        mvc.perform(patch(path).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(patchBody(created,"member")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.diary.version").value("1"));
+        jdbc.update("update diaries set version=9223372036854775807");
+        String max="{\"diaryTitle\":\"changed\",\"expectedVersion\":\"9223372036854775807\"}";
+        mvc.perform(patch(path).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(max))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("VERSION_EXHAUSTED"));
+        mvc.perform(patch(path).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(max.replace("changed","member")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.diary.version").value("9223372036854775807"));
+    }
+    @Test void concurrentSameVersionWritesHaveExactlyOneWinner() throws Exception {
+        var created=create();String path=PATH+"/"+id(created),payload=patchBody(created,"winner");
+        var executor=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var gate=new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.Callable<Integer> action=()->{gate.await();return mvc.perform(patch(path).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(payload)).andReturn().getResponse().getStatus();};
+            var a=executor.submit(action);var b=executor.submit(action);gate.countDown();
+            assertThat(List.of(a.get(15,java.util.concurrent.TimeUnit.SECONDS),b.get(15,java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder(200,409);
+            assertThat(jdbc.queryForObject("select version from diaries",Long.class)).isEqualTo(2L);
+        } finally {executor.shutdownNow();}
+    }
+
 }

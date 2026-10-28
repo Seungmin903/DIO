@@ -85,7 +85,7 @@ public class DiaryDetailService {
 
 	private DiaryMembershipAccess.Role requireRole(long userId, DiaryDetailRepository.Snapshot diary) {
 		var role = memberships.requireActiveRole(userId, diary.id(), diary.ownerUserId());
-		if (role == null || diary.ownerUserId() == null || (role == DiaryMembershipAccess.Role.OWNER) != (diary.ownerUserId() == userId)) {
+		if (role == null || role == DiaryMembershipAccess.Role.VIEWER || diary.ownerUserId() == null || (role == DiaryMembershipAccess.Role.OWNER) != (diary.ownerUserId() == userId)) {
 			throw DiaryDetailException.notFound();
 		}
 		return role;

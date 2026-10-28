@@ -60,7 +60,7 @@ export const toolPanelStyles = StyleSheet.create({
   },
   heading: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 16, paddingRight: 8, paddingTop: 6 },
   titleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  title: { color: colors.text, fontSize: 15, fontWeight: '700' },
   close: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
   content: { paddingHorizontal: 16, paddingBottom: 18, paddingTop: 2, gap: 12 },
   // 구역 제목 (MorePanel 의 sectionTitle 과 같다)
