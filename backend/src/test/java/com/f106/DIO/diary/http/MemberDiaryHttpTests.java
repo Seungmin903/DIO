@@ -392,6 +392,48 @@ class MemberDiaryHttpTests {
         mvc.perform(get(PATH).param("filter","shared").header("Authorization","Bearer "+owner)).andExpect(jsonPath("$.items").isEmpty());
         var page=json.readTree(mvc.perform(get(PATH).param("limit","1").header("Authorization","Bearer "+owner)).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray());
         mvc.perform(get(PATH).param("cursor",page.get("nextCursor").asString()).param("filter","personal").header("Authorization","Bearer "+owner)).andExpect(status().isBadRequest());
+        var old=(tools.jackson.databind.node.ObjectNode)json.readTree(java.util.Base64.getUrlDecoder().decode(page.get("nextCursor").asString()));
+        old.put("v",3);
+        String oldCursor=java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(old.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        mvc.perform(get(PATH).param("cursor",oldCursor).header("Authorization","Bearer "+owner))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_DIARY_LIST_QUERY"));
+    }
+
+    @Test void sharedFilterAndBadgeUseActiveMembersInsteadOfVisibilityAcrossPages() throws Exception {
+        String privateShared=id(create()),membersSolo=id(create()),linkSolo=id(create()),formerShared=id(create()),membersShared=id(create());
+        jdbc.update("update diaries set visibility='MEMBERS' where diary_id in (?,?)",UUID.fromString(membersSolo),UUID.fromString(membersShared));
+        jdbc.update("update diaries set visibility='LINK' where diary_id=?",UUID.fromString(linkSolo));
+        for(String id:List.of(privateShared,formerShared,membersShared))
+            jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,202,'EDITOR','#654321')",UUID.fromString(id));
+        jdbc.update("update diary_members set left_at=current_timestamp where diary_id=? and user_id=202",UUID.fromString(formerShared));
+        var shared=java.util.Set.of(privateShared,membersShared);
+        var personal=java.util.Set.of(membersSolo,linkSolo,formerShared);
+        for(String sort:List.of("created","updated","title","pages")) {
+            for(String filter:List.of("all","personal","shared")) {
+                var seen=new java.util.HashSet<String>();String cursor=null;
+                do {
+                    var request=get(PATH).param("filter",filter).param("sort",sort).param("limit","1").header("Authorization","Bearer "+owner);
+                    if(cursor!=null) request.param("cursor",cursor);
+                    var page=json.readTree(mvc.perform(request).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray());
+                    for(var item:page.get("items")) {
+                        String id=item.get("diary").get("diaryId").asString();
+                        assertThat(seen.add(id)).isTrue();
+                        assertThat(item.get("shared").asBoolean()).isEqualTo(shared.contains(id));
+                    }
+                    cursor=page.get("nextCursor").isNull()?null:page.get("nextCursor").asString();
+                    assertThat(page.get("hasNext").asBoolean()).isEqualTo(cursor!=null);
+                    assertThat(seen.size()).isLessThanOrEqualTo(5);
+                } while(cursor!=null);
+                assertThat(seen).containsExactlyInAnyOrderElementsOf(filter.equals("shared")?shared:filter.equals("personal")?personal:java.util.Set.of(privateShared,membersSolo,linkSolo,formerShared,membersShared));
+            }
+        }
+        jdbc.update("update diary_members set is_favorite=true where user_id=101 and diary_id in (?,?)",UUID.fromString(privateShared),UUID.fromString(linkSolo));
+        mvc.perform(get(PATH).param("filter","shared").param("favorite","true").header("Authorization","Bearer "+owner))
+            .andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].diary.diaryId").value(privateShared)).andExpect(jsonPath("$.items[0].shared").value(true));
+        mvc.perform(get(PATH).param("filter","personal").param("favorite","true").header("Authorization","Bearer "+owner))
+            .andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].diary.diaryId").value(linkSolo)).andExpect(jsonPath("$.items[0].shared").value(false));
+        mvc.perform(get(PATH).param("filter","shared").header("Authorization","Bearer "+other))
+            .andExpect(jsonPath("$.items.length()").value(2));
     }
 
 

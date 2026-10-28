@@ -105,10 +105,61 @@ class MemberDiaryContractPostgresTests extends MemberDiaryHttpTests {
         }
     }
 
+    @Test void rejectedMemberPatchesDoNotWaitForAnOwnersDiaryLock() throws Exception {
+        String a=id(create());
+        jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,202,'EDITOR','#654321')",UUID.fromString(a));
+        try(var held=new HeldPatch(a)) {
+            assertThat(held.pool.submit(()->patchStatus(a,"forbidden","1",other)).get(5,TimeUnit.SECONDS)).isEqualTo(403);
+            for(String role:java.util.List.of("VIEWER","OWNER")) {
+                jdbc.update("update diary_members set role=? where diary_id=? and user_id=202",role,UUID.fromString(a));
+                assertThat(held.pool.submit(()->patchStatus(a,"not visible","1",other)).get(5,TimeUnit.SECONDS)).isEqualTo(404);
+            }
+            jdbc.update("update diary_members set role='EDITOR',left_at=current_timestamp where diary_id=? and user_id=202",UUID.fromString(a));
+            assertThat(held.pool.submit(()->patchStatus(a,"left member","1",other)).get(5,TimeUnit.SECONDS)).isEqualTo(404);
+            jdbc.update("delete from diary_members where diary_id=? and user_id=202",UUID.fromString(a));
+            assertThat(held.pool.submit(()->patchStatus(a,"nonmember","1",other)).get(5,TimeUnit.SECONDS)).isEqualTo(404);
+            assertThat(held.release.getCount()).isEqualTo(1);
+            assertThat(held.first.isDone()).isFalse();
+        }
+        assertThat(jdbc.queryForObject("select version from diaries where diary_id=?",Long.class,UUID.fromString(a))).isEqualTo(2);
+    }
+
+    @Test void alreadyDeletedDiaryPatchDoesNotWaitForItsRowLock() throws Exception {
+        String a=id(create());
+        mvc.perform(delete(PATH+"/"+a).header("Authorization","Bearer "+owner)).andExpect(status().isNoContent());
+        try(var held=new HeldDiary(a)) {
+            assertThat(held.pool.submit(()->patchStatus(a,"deleted","2")).get(5,TimeUnit.SECONDS)).isEqualTo(404);
+            assertThat(held.release.getCount()).isEqualTo(1);
+            assertThat(held.first.isDone()).isFalse();
+        }
+    }
+
+    @Test void membershipRevokedAfterPrecheckStillRejectsTheWaitingPatch() throws Exception {
+        String a=id(create());
+        try(var held=new HeldDiary(a)) {
+            var patchPid=new CompletableFuture<Integer>();
+            var writer=held.pool.submit(()->{
+                var status=new java.util.concurrent.atomic.AtomicInteger();
+                try {tx().executeWithoutResult(s->{patchPid.complete(pid());status.set(patchStatus(a,"revoked","1"));});}
+                catch(org.springframework.transaction.UnexpectedRollbackException expected) {assertThat(status.get()).isEqualTo(404);}
+                return status.get();
+            });
+            blockedBy(held.pid.get(5,TimeUnit.SECONDS),patchPid.get(5,TimeUnit.SECONDS));
+            // Precheck did not lock membership; revoke while the PATCH waits for the diary.
+            assertThat(jdbc.update("update diary_members set left_at=current_timestamp where diary_id=? and user_id=101",UUID.fromString(a))).isEqualTo(1);
+            held.release.countDown();
+            assertThat(writer.get(10,TimeUnit.SECONDS)).isEqualTo(404);
+        }
+        assertThat(jdbc.queryForObject("select version from diaries where diary_id=?",Long.class,UUID.fromString(a))).isEqualTo(1);
+    }
+
     private TransactionTemplate tx() {return new TransactionTemplate(transactionManager);}
     private int pid() {return jdbc.queryForObject("select pg_backend_pid()",Integer.class);}
     private int patchStatus(String id,String title,String version) {
-        try {return mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON)
+        return patchStatus(id,title,version,owner);
+    }
+    private int patchStatus(String id,String title,String version,String token) {
+        try {return mvc.perform(patch(PATH+"/"+id).header("Authorization","Bearer "+token).contentType(MediaType.APPLICATION_JSON)
             .content(json.writeValueAsString(Map.of("diaryTitle",title,"expectedVersion",version)))).andReturn().getResponse().getStatus();}
         catch(Exception e){throw new IllegalStateException(e);}
     }
@@ -132,6 +183,25 @@ class MemberDiaryContractPostgresTests extends MemberDiaryHttpTests {
         }
         public void close() throws Exception {
             release.countDown();try {assertThat(first.get(15,TimeUnit.SECONDS)).isEqualTo(200);}
+            finally {pool.shutdown();if(!pool.awaitTermination(15,TimeUnit.SECONDS)){pool.shutdownNow();assertThat(pool.awaitTermination(15,TimeUnit.SECONDS)).isTrue();}}
+        }
+    }
+    private final class HeldDiary implements AutoCloseable {
+        final ExecutorService pool=Executors.newFixedThreadPool(3);
+        final CountDownLatch release=new CountDownLatch(1);
+        final CompletableFuture<Integer> pid=new CompletableFuture<>();
+        final Future<Integer> first;
+        HeldDiary(String id) throws Exception {
+            first=pool.submit(()->tx().execute(s->{
+                jdbc.queryForList("select diary_id from diaries where diary_id=? for update",UUID.class,UUID.fromString(id));
+                pid.complete(MemberDiaryContractPostgresTests.this.pid());
+                awaitRelease(release);return 1;
+            }));
+            try {pid.get(10,TimeUnit.SECONDS);}
+            catch(Exception failure) {release.countDown();pool.shutdownNow();throw failure;}
+        }
+        public void close() throws Exception {
+            release.countDown();try {assertThat(first.get(15,TimeUnit.SECONDS)).isEqualTo(1);}
             finally {pool.shutdown();if(!pool.awaitTermination(15,TimeUnit.SECONDS)){pool.shutdownNow();assertThat(pool.awaitTermination(15,TimeUnit.SECONDS)).isTrue();}}
         }
     }

@@ -36,7 +36,7 @@ public class MemberDiaryController {
 
     @ApiResponse(responseCode="200",description="회원 활성 다이어리 목록",content=@Content(mediaType="application/json",schema=@Schema(implementation=MemberDiaryListQuery.Page.class)))
     @GetMapping
-    @Operation(summary="회원 다이어리 목록",description="활성 멤버십 기준. q는 제목 부분 검색, sort는 created/updated/title/pages, limit는 1~100. nextCursor는 같은 계정·검색·정렬에서만 재사용합니다. PostgreSQL ICU 미지원 시 검색·title 정렬은 503 DIARY_LIST_UNAVAILABLE이며 검색 없는 created/updated/pages 목록은 유지됩니다.")
+    @Operation(summary="회원 다이어리 목록",description="활성 멤버십 기준. filter=shared와 shared 배지는 활성 멤버 수가 2명 이상, personal은 1명인 다이어리이며 visibility와 독립적입니다. q는 제목 부분 검색, sort는 created/updated/title/pages, limit는 1~100. v4 nextCursor는 같은 계정·검색·정렬·filter·favorite에서만 재사용하며 구 버전은 첫 페이지부터 다시 조회합니다. PostgreSQL ICU 미지원 시 검색·title 정렬은 503 DIARY_LIST_UNAVAILABLE이며 검색 없는 created/updated/pages 목록은 유지됩니다.")
     public ResponseEntity<MemberDiaryListQuery.Page> list(@RequestParam(required=false) String q,@RequestParam(required=false) String sort,
             @RequestParam(required=false) Integer limit,@RequestParam(required=false) String cursor,
             @RequestParam(defaultValue="all") String filter,@RequestParam(defaultValue="false") boolean favorite) {

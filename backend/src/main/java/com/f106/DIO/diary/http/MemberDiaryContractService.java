@@ -28,6 +28,14 @@ public class MemberDiaryContractService {
         // SHARE prevents account revocation without serializing this user's unrelated diaries.
         // Keep user -> diary UPDATE -> membership SHARE; do not acquire membership locks first.
         if(!diaries.lockActiveUser(user)) throw DiaryDetailException.unauthorized();
+        // A non-locking rejection check avoids waiting on or locking another owner's diary.
+        // This is not authorization: getAuthorized below rechecks under the existing locks.
+        var roles=jdbc.queryForList("select m.role from diaries d join diary_members m on m.diary_id=d.diary_id"
+            + " where d.diary_id=? and d.deleted_at is null and m.user_id=? and m.left_at is null"
+            + " and ((m.role='OWNER' and d.owner_user_id=m.user_id) or (m.role='EDITOR' and d.owner_user_id<>m.user_id))",
+            String.class,id,user);
+        if(roles.isEmpty()) throw DiaryDetailException.notFound();
+        if(!"OWNER".equals(roles.get(0))) throw new DiaryDetailException(HttpStatus.FORBIDDEN,"DIARY_METADATA_FORBIDDEN","소유자만 제목과 표지를 수정할 수 있어요.");
         jdbc.queryForList("select diary_id from diaries where diary_id=? for update",UUID.class,id);
         var before=detail.getAuthorized(id);
         if(!before.canEdit()) throw new DiaryDetailException(HttpStatus.FORBIDDEN,"DIARY_METADATA_FORBIDDEN","소유자만 제목과 표지를 수정할 수 있어요.");
