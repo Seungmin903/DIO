@@ -47,8 +47,9 @@ export function useMemberTextPageSync({ diary, page, loaded, readOnly, dispatch 
             const current=latest.current.objects
             const texts=objects=>JSON.stringify(objects.filter(o=>o.type==='text'))
             if(texts(current)!==texts(expected)) {
-              await session.retainLocal(current)
-              if(engine.current===session) setStatus('conflict')
+              try { await session.retainLocal(current) }
+              catch(error) { if(engine.current===session) setStatus(error.status===409?'conflict':'local-error'); return }
+              if(engine.current===session) setStatus('saving')
               return
             }
             dispatch({type:'importPageTexts',pageId:page.id,expectedObjects:current,objects:result.objects})

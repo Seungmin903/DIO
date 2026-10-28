@@ -64,8 +64,8 @@ export function createTextPageSession({ api, storage, key, pageId, diaryId, isAc
       active()
       journal.local=copy(objects.filter(o=>o.type==='text'))
       journal.awaitingImport=false
-      // Re-enter initial reconciliation: neither side may overwrite the other.
-      journal.base=null
+      // Keep the downloaded server snapshot as the comparison base. The next
+      // sync can now send the user's retained local edits as a normal update.
       await persist()
     },
     synchronize() {
