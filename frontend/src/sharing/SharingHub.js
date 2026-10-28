@@ -179,8 +179,18 @@ export default function SharingHub({
     dismissInput();
     if (request.diary) {
       try {
-        setDiary(runtime.registerDiary(request.diary));
+        const registered = runtime.registerDiary(request.diary);
+        setDiary(registered);
         setScreen('sharing');
+        if (runtime.server) {
+          const pending = job.current;
+          setBusy(true);
+          runtime.getSharing(registered.id).then(value => {
+            if (alive.current && pending === job.current) setDiary(value);
+          }).catch(error => {
+            if (alive.current && pending === job.current) { setError(error.message); setScreen('invitations'); }
+          }).finally(() => { if (alive.current && pending === job.current) setBusy(false); });
+        }
       } catch (error) {
         setError(error.message);
         setScreen('invitations');
@@ -542,7 +552,7 @@ export default function SharingHub({
                           )}
                         </View>
                       ))}
-                      {isOwner && (
+                      {(isOwner || (runtime.server && mine?.role === 'EDITOR')) && (
                         <View style={s.section}>
                           <Text style={s.label}>초대 링크</Text>
                           <View style={s.linkRow}>
@@ -616,7 +626,7 @@ export default function SharingHub({
                           </View>
                         </View>
                       )}
-                      <View style={[s.section, s.row]}>
+                      {runtime.supportsExportSettings !== false && (<View style={[s.section, s.row]}>
                         <View style={s.grow}>
                           <Text style={s.bold}>참여자의 내보내기 허용</Text>
                         </View>
@@ -630,7 +640,7 @@ export default function SharingHub({
                           trackColor={{ false: colors.border, true: colors.primary }}
                           thumbColor={colors.surface}
                         />
-                      </View>
+                      </View>)}
                       {!isOwner && (
                         <Button
                           label="다이어리 참여 해제"
@@ -641,9 +651,9 @@ export default function SharingHub({
                         />
                       )}
                       <Button
-                        label={!isOwner && onOpenDiary ? '다이어리 열기' : '완료'}
+                        label={!isOwner && onOpenDiary && runtime.canOpenDiary !== false ? '다이어리 열기' : '완료'}
                         onPress={() => {
-                          if (!isOwner && onOpenDiary) onOpenDiary(diary.id);
+                          if (!isOwner && onOpenDiary && runtime.canOpenDiary !== false) onOpenDiary(diary.id);
                           else close();
                         }}
                         disabled={busy}
@@ -669,7 +679,7 @@ export default function SharingHub({
                         >
                           <Icon name="rotate" size={18} />
                         </Pressable>
-                        <Pressable
+                        {runtime.supportsReadState !== false && <Pressable
                           accessibilityRole="button"
                           accessibilityLabel="모두 읽음"
                           disabled={
@@ -688,7 +698,7 @@ export default function SharingHub({
                         >
                           <Icon name="check" size={17} />
                           <Text style={s.notificationActionText}>모두 읽음</Text>
-                        </Pressable>
+                        </Pressable>}
                       </View>
                       {(list.status === 'loading' || list.status === 'idle') && (
                         <ActivityIndicator
@@ -737,13 +747,13 @@ export default function SharingHub({
                                 {row.title}
                               </Text>
                               <Text style={s.muted}>
-                                {row.actor}님의 초대 · {row.readAt ? '읽음' : '안 읽음'}
+                                {row.actor}님의 초대{runtime.supportsReadState !== false ? ` · ${row.readAt ? '읽음' : '안 읽음'}` : ''}
                               </Text>
                               <Text style={s.muted}>{invitationStatusLabel(row.status)}</Text>
                               {isPhone && row.actionable && invitationActions(row)}
                             </View>
                             {!isPhone && row.actionable && invitationActions(row)}
-                            <Pressable
+                            {runtime.supportsReadState !== false && <Pressable
                               accessibilityRole="button"
                               accessibilityLabel={`${row.title} 알림 삭제`}
                               disabled={busy || mutationLocked}
@@ -751,7 +761,7 @@ export default function SharingHub({
                               style={s.iconButton}
                             >
                               <Icon name="close" size={16} />
-                            </Pressable>
+                            </Pressable>}
                           </View>
                           {row.status === 'ACCEPTED' && runtime.hasMembership(row.inviteId) && (
                             <Button
@@ -863,8 +873,8 @@ export default function SharingHub({
                           onSubmitEditing={checkNickname}
                         />
                         <Button
-                          label="다이어리 닉네임 중복 확인"
-                          text="중복 확인"
+                          label={runtime.server ? "다이어리 닉네임 형식 확인" : "다이어리 닉네임 중복 확인"}
+                          text={runtime.server ? "형식 확인" : "중복 확인"}
                           secondary
                           disabled={busy || checking || !!sharingNicknameError(nickname)}
                           onPress={checkNickname}
@@ -909,9 +919,9 @@ export default function SharingHub({
                                   setScreen('sharing');
                                   store.refresh();
                                   setToast(
-                                    editingProfile
+                                    result.profileWarning || (editingProfile
                                       ? '다이어리 프로필을 변경했어요.'
-                                      : '다이어리에 참여했어요.',
+                                      : '다이어리에 참여했어요.'),
                                   );
                                 },
                               );
