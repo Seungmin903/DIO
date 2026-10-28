@@ -44,12 +44,13 @@ class MemberMigrationUpgradePostgresTests {
             assertThat(jdbc.update("update flyway_schema_history set version='9',script='V9__seed_page_template_catalog.sql' where version='7' and script='V7__seed_page_template_catalog.sql' and success")).isEqualTo(1);
             assertThat(jdbc.update("update flyway_schema_history set version='10',script='V10__create_diary_creation_receipts.sql' where version='8' and script='V8__create_diary_creation_receipts.sql' and success")).isEqualTo(1);
             var result=Flyway.configure().dataSource(ds).schemas(schema).defaultSchema(schema).outOfOrder(true).load().migrate();
-            assertThat(result.migrationsExecuted).isEqualTo(4);
+            assertThat(result.migrationsExecuted).isEqualTo(5);
             assertThat(jdbc.queryForObject("select version from diaries where diary_id=?",Long.class,diary)).isEqualTo(2L);
             current.validate();
             assertThat(current.migrate().migrationsExecuted).isZero();
             for(var table:tables) assertThat(fingerprint(jdbc,table)).as(table).isEqualTo(snapshots.get(table));
-            assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by version::integer",String.class)).containsExactly("1","2","3","4","5","6","7","8","9","10","11","12");
+            assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by version::integer",String.class)).containsExactly("1","2","3","4","5","6","7","8","9","10","11","12","13");
+            assertThat(jdbc.queryForObject("select count(*) from diary_purge_receipts",Long.class)).isZero();
             assertThat(jdbc.queryForObject("select count(*) from pg_indexes where schemaname=? and indexname='pages_active_diary_idx'",Long.class,schema)).isEqualTo(1);
             assertThat(jdbc.queryForObject("select count(*) from information_schema.tables where table_schema=? and table_name='password_reset_verifications'",Long.class,schema)).isEqualTo(1);
         } finally {
