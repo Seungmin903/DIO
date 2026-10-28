@@ -1,0 +1,130 @@
+{
+  "date": "2026-10-27",
+  "windowUTC": [
+    "2026-10-27T03:42:30.115Z",
+    "2026-10-27T03:45:28.102Z"
+  ],
+  "status": "partial improvement; eraser/marker report discrepancy pending",
+  "cases": [
+    {
+      "case": "100",
+      "receivedPenStrokes": 11,
+      "zoom": [
+        0.8015167391025011
+      ],
+      "cancelled": 0,
+      "eraserStarts": 0,
+      "eraserEnds": 0,
+      "feedback": [
+        "smooth"
+      ],
+      "stallMarkers": 0,
+      "rasterBuilds": 42,
+      "reusedSourceBuilds": 26,
+      "maxBuildMs": 166,
+      "maxDrawJsMs": 7,
+      "metrics": {
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 11,
+          "max": 32
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 24,
+          "max": 38
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17,
+          "max": 31
+        },
+        "finalizeJsMs": {
+          "medianPerStrokeP95": 0,
+          "max": 1
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 8,
+          "max": 13
+        }
+      }
+    },
+    {
+      "case": "300",
+      "receivedPenStrokes": 10,
+      "zoom": [
+        0.9235678130949188
+      ],
+      "cancelled": 0,
+      "eraserStarts": 0,
+      "eraserEnds": 0,
+      "feedback": [
+        "smooth"
+      ],
+      "stallMarkers": 0,
+      "rasterBuilds": 54,
+      "reusedSourceBuilds": 14,
+      "maxBuildMs": 596,
+      "maxDrawJsMs": 520,
+      "metrics": {
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 20,
+          "max": 46.0
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 20,
+          "max": 37.0
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17,
+          "max": 21
+        },
+        "finalizeJsMs": {
+          "medianPerStrokeP95": 0,
+          "max": 1
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 13,
+          "max": 15
+        }
+      }
+    },
+    {
+      "case": "long30",
+      "receivedPenStrokes": 19,
+      "zoom": [
+        1.126913507501753
+      ],
+      "cancelled": 0,
+      "eraserStarts": 0,
+      "eraserEnds": 0,
+      "feedback": [
+        "smooth"
+      ],
+      "stallMarkers": 0,
+      "rasterBuilds": 12,
+      "reusedSourceBuilds": 4,
+      "maxBuildMs": 517,
+      "maxDrawJsMs": 148,
+      "metrics": {
+        "eventToFirstPreviewCommitMs": {
+          "medianPerStrokeP95": 20,
+          "max": 138
+        },
+        "jsFrameGapMs": {
+          "medianPerStrokeP95": 21,
+          "max": 134
+        },
+        "jsMoveGapMs": {
+          "medianPerStrokeP95": 17,
+          "max": 22.0
+        },
+        "finalizeJsMs": {
+          "medianPerStrokeP95": 0,
+          "max": 1
+        },
+        "previewToDocumentCommitMs": {
+          "medianPerStrokeP95": 13.0,
+          "max": 17
+        }
+      }
+    }
+  ]
+}

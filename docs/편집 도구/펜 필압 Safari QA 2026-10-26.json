@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-26",
+  "timezone": "Asia/Seoul",
+  "environment": {
+    "device": "iPad (user-reported)",
+    "input": "Apple Pencil (user-reported; exact model not recorded)",
+    "browser": "Safari (user-reported; exact version not recorded)",
+    "iPadOS": "not recorded",
+    "runtime": "web; native iOS not tested"
+  },
+  "fountain": {
+    "browserStrokes": 36,
+    "browserSamples": 977,
+    "browserPressureMin": 0,
+    "browserPressureMax": 0.605204701423645,
+    "variedStrokes": 36,
+    "cancelledStrokes": 0,
+    "savedPressureMin": 0,
+    "savedPressureMax": 0.4732990562915802,
+    "renderVersion": 3,
+    "savedReportCaveat": "Initial collector could report the same saved stroke repeatedly; per-stroke matching and reload validation were not performed for fountain."
+  },
+  "felt": {
+    "browserStrokes": 12,
+    "browserSamples": 360,
+    "browserPressureMin": 0.0006379699916578829,
+    "browserPressureMax": 0.5125015377998352,
+    "savedStrokes": 12,
+    "savedPressureMin": 0.00855496246367693,
+    "savedPressureMax": 0.49940401315689087,
+    "widthMultiplierMin": 0.8928849498947619,
+    "widthMultiplierMax": 0.9639186208484415,
+    "widthVariedStrokes": 12,
+    "reloadMatchedStrokes": 12,
+    "renderVersion": 3
+  },
+  "scope": "Aggregated trusted pen input only; synthetic input excluded. Stroke geometry, handwriting, account data and raw identifiers are not included."
+}

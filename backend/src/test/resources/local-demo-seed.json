@@ -1,0 +1,35 @@
+{
+  "users": [
+    {
+      "email": "local.seed@example.com",
+      "nickname": "로컬시드",
+      "password": "local1234!",
+      "photoId": "e1000000-0000-4000-8000-000000009001",
+      "photoPngBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNk+M/wHwAF/gL+ZKcu0QAAAABJRU5ErkJggg=="
+    }
+  ],
+  "diaries": [
+    {
+      "diaryId": "e1000000-0000-4000-8000-000000000001",
+      "ownerEmail": "local.seed@example.com",
+      "title": "통합 테스트 시드",
+      "pages": [
+        {
+          "pageId": "e1000000-0000-4000-8000-000000000101",
+          "title": "시드 페이지",
+          "elements": [
+            {
+              "elementId": "e1000000-0000-4000-8000-000000001001",
+              "elementType": "TEXT",
+              "x": 10,
+              "y": 20,
+              "width": 100,
+              "height": 30,
+              "propertiesJson": { "text": "시드" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

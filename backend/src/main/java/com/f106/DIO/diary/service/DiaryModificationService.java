@@ -9,30 +9,33 @@ import com.f106.DIO.diary.domain.Diary;
 import com.f106.DIO.diary.dto.DiaryResponse;
 import com.f106.DIO.diary.dto.DiaryUpdateRequest;
 import com.f106.DIO.diary.repository.DiaryRepository;
-import com.f106.DIO.diary.support.DiaryNotFoundException;
 
 @Service
 public class DiaryModificationService {
 
 	private final DiaryRepository diaryRepository;
+	private final DiaryAccessService accessService;
+	private final MemberDiaryWriteBoundary memberBoundary;
 
-	public DiaryModificationService(DiaryRepository diaryRepository) {
+	public DiaryModificationService(DiaryRepository diaryRepository, DiaryAccessService accessService, MemberDiaryWriteBoundary memberBoundary) {
 		this.diaryRepository = diaryRepository;
+		this.accessService = accessService;
+		this.memberBoundary = memberBoundary;
 	}
 
 	@Transactional
-	public DiaryResponse update(UUID diaryId, DiaryUpdateRequest request) {
-		Diary diary = diaryRepository.findGuestForUpdate(diaryId)
-			.orElseThrow(DiaryNotFoundException::new);
+	public DiaryResponse update(UUID diaryId, DiaryUpdateRequest request, Long userId) {
+		memberBoundary.requireLegacyWrite(diaryId);
+		Diary diary = accessService.requireWrite(diaryId, userId);
 		diary.updateSettings(request.getDiaryTitle(), request.getCoverColor(), request.getCoverStyle(), request.getVisibility());
 		diaryRepository.flush();
 		return new DiaryResponse(DiaryMapper.toData(diary));
 	}
 
 	@Transactional
-	public void delete(UUID diaryId) {
-		Diary diary = diaryRepository.findGuestForUpdate(diaryId)
-			.orElseThrow(DiaryNotFoundException::new);
+	public void delete(UUID diaryId, Long userId) {
+		memberBoundary.requireLegacyWrite(diaryId);
+		Diary diary = accessService.requireOwner(diaryId, userId);
 		diary.softDelete();
 		diaryRepository.flush();
 	}

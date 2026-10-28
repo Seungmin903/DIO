@@ -60,6 +60,7 @@ class MemberDiaryHttpTests {
         jdbc.execute("create table if not exists diary_members(diary_id uuid,user_id bigint,role varchar(20),is_favorite boolean not null default false,member_color char(7),joined_at timestamp(6) with time zone,left_at timestamp(6) with time zone,primary key(diary_id,user_id))");
         jdbc.execute("create table if not exists diary_creation_receipts(user_id bigint,key_hash char(64),request_hash char(64),diary_id uuid,response_body jsonb,created_at timestamp(6) with time zone default current_timestamp,completed_at timestamp(6) with time zone,primary key(user_id,key_hash))");
         jdbc.update("delete from diary_creation_receipts");
+        com.f106.DIO.diary.MemberH2Fixture.align(jdbc);
         jdbc.update("delete from pages"); jdbc.update("delete from diary_members"); jdbc.update("delete from diaries");
         jdbc.update("delete from page_templates"); history.deleteAll(); sessions.deleteAll(); jdbc.update("delete from users");
         for(long id:new long[]{101,202}) jdbc.update("insert into users(user_id,nickname,nickname_key,profile_color,status,created_at,updated_at) values(?,?,?,'#123456','ACTIVE',?,?)",
@@ -165,15 +166,21 @@ class MemberDiaryHttpTests {
         mvc.perform(get(PATH+"/"+id).header("Authorization","Bearer "+owner)).andExpect(status().isNotFound());
     }
 
-    @Test void publicLegacyRoutesCannotReadModifyDeleteOrListMemberDiaries() throws Exception {
-        var created=create(); String path="/api/v1/diaries/"+id(created);
-        mvc.perform(get(path)).andExpect(status().isNotFound());
-        mvc.perform(patch(path).contentType(MediaType.APPLICATION_JSON).content("{\"diaryTitle\":\"attack\"}")).andExpect(status().isNotFound());
-        mvc.perform(delete(path)).andExpect(status().isNotFound());
-        var list=mvc.perform(get("/api/v1/diaries")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(list).doesNotContain(id(created));
+    @Test void authenticatedLegacyReadsDoNotBypassMemberMetadataAndRetentionWrites() throws Exception {
+        var created=create();String path="/api/v1/diaries/"+id(created);
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        mvc.perform(patch(path).contentType(MediaType.APPLICATION_JSON).content("{\"diaryTitle\":\"attack\"}")).andExpect(status().isUnauthorized());
+        mvc.perform(delete(path)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/diaries")).andExpect(status().isUnauthorized());
+        mvc.perform(get(path).header("Authorization","Bearer "+owner)).andExpect(status().isOk());
+        mvc.perform(get(path).header("Authorization","Bearer "+other)).andExpect(status().isForbidden());
+        for(boolean expired:new boolean[]{false,true}) {
+            if(expired)jdbc.update("update diary_creation_receipts set completed_at=?,response_body=null",Timestamp.from(Instant.now().minusSeconds(25*3600)));
+            mvc.perform(patch(path).header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content("{\"diaryTitle\":\"attack\"}")).andExpect(status().isNotFound());
+            mvc.perform(delete(path).header("Authorization","Bearer "+owner)).andExpect(status().isNotFound());
+        }
         assertThat(jdbc.queryForObject("select title from diaries",String.class)).isEqualTo("member");
-        assertThat(jdbc.queryForObject("select count(*) from diaries where deleted_at is null",Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from diaries where deleted_at is null and version=1",Long.class)).isEqualTo(1);
     }
 
     @Test void realSecondPageFailureRollsBackAllRowsAndDoesNotExposeSql() throws Exception {

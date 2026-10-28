@@ -1,0 +1,267 @@
+{
+  "date": "2026-10-28",
+  "revision": "safari-large-v4-page-panel",
+  "browser": "Safari 18.7.5",
+  "case": "300",
+  "viewport": [
+    1180,
+    713
+  ],
+  "pixelRatio": 2,
+  "syntheticFixture": true,
+  "openFrameWindows": [
+    {
+      "maxGapMs": 46,
+      "elapsedMs": 481,
+      "interrupted": true,
+      "phase": "before-thumbnail-clear",
+      "openOrdinal": 1
+    },
+    {
+      "maxGapMs": 39,
+      "elapsedMs": 335,
+      "interrupted": true,
+      "phase": "before-thumbnail-clear",
+      "openOrdinal": 2
+    },
+    {
+      "maxGapMs": 26,
+      "elapsedMs": 159.99999999999272,
+      "interrupted": true,
+      "phase": "before-thumbnail-clear",
+      "openOrdinal": 3
+    },
+    {
+      "maxGapMs": 33,
+      "elapsedMs": 328,
+      "interrupted": true,
+      "phase": "before-thumbnail-clear",
+      "openOrdinal": 4
+    },
+    {
+      "maxGapMs": 31,
+      "elapsedMs": 226,
+      "interrupted": true,
+      "phase": "before-thumbnail-clear",
+      "openOrdinal": 5
+    },
+    {
+      "maxGapMs": 33,
+      "elapsedMs": 581.0000000000073,
+      "interrupted": true,
+      "phase": "before-thumbnail-clear",
+      "openOrdinal": 6
+    },
+    {
+      "maxGapMs": 34,
+      "elapsedMs": 708.0000000000073,
+      "interrupted": null,
+      "phase": "after-thumbnail-clear",
+      "openOrdinal": 7
+    },
+    {
+      "maxGapMs": 21,
+      "elapsedMs": 204,
+      "interrupted": true,
+      "phase": "after-thumbnail-clear",
+      "openOrdinal": 8
+    },
+    {
+      "maxGapMs": 23,
+      "elapsedMs": 186.99999999999272,
+      "interrupted": true,
+      "phase": "after-thumbnail-clear",
+      "openOrdinal": 9
+    },
+    {
+      "maxGapMs": 33,
+      "elapsedMs": 221.00000000000728,
+      "interrupted": true,
+      "phase": "after-thumbnail-clear",
+      "openOrdinal": 10
+    },
+    {
+      "maxGapMs": 32,
+      "elapsedMs": 268,
+      "interrupted": true,
+      "phase": "after-thumbnail-clear",
+      "openOrdinal": 11
+    },
+    {
+      "maxGapMs": 29,
+      "elapsedMs": 710.0000000000073,
+      "interrupted": null,
+      "phase": "after-thumbnail-clear",
+      "openOrdinal": 12
+    }
+  ],
+  "thumbnailPlans": [
+    {
+      "reusedBatches": 77,
+      "pendingBatches": 0
+    },
+    {
+      "reusedBatches": 77,
+      "pendingBatches": 0
+    },
+    {
+      "reusedBatches": 77,
+      "pendingBatches": 0
+    },
+    {
+      "reusedBatches": 77,
+      "pendingBatches": 0
+    },
+    {
+      "reusedBatches": 77,
+      "pendingBatches": 0
+    },
+    {
+      "reusedBatches": 77,
+      "pendingBatches": 0
+    },
+    {
+      "reusedBatches": 56,
+      "pendingBatches": 42
+    },
+    {
+      "reusedBatches": 86,
+      "pendingBatches": 12
+    },
+    {
+      "reusedBatches": 86,
+      "pendingBatches": 12
+    },
+    {
+      "reusedBatches": 86,
+      "pendingBatches": 12
+    },
+    {
+      "reusedBatches": 86,
+      "pendingBatches": 12
+    },
+    {
+      "reusedBatches": 86,
+      "pendingBatches": 12
+    }
+  ],
+  "thumbnailReady": [
+    {
+      "batches": 77,
+      "fallbackBatches": 0,
+      "plannedReusedBatches": 77,
+      "generatedBatches": null,
+      "elapsedMs": 2,
+      "maxSourceCommitMs": null,
+      "maxCloneMs": null,
+      "maxSerializeMs": null,
+      "maxImageWaitMs": null,
+      "maxDrawMs": null
+    },
+    {
+      "batches": 77,
+      "fallbackBatches": 0,
+      "plannedReusedBatches": 77,
+      "generatedBatches": null,
+      "elapsedMs": 1,
+      "maxSourceCommitMs": null,
+      "maxCloneMs": null,
+      "maxSerializeMs": null,
+      "maxImageWaitMs": null,
+      "maxDrawMs": null
+    },
+    {
+      "batches": 77,
+      "fallbackBatches": 0,
+      "plannedReusedBatches": 77,
+      "generatedBatches": null,
+      "elapsedMs": 0,
+      "maxSourceCommitMs": null,
+      "maxCloneMs": null,
+      "maxSerializeMs": null,
+      "maxImageWaitMs": null,
+      "maxDrawMs": null
+    },
+    {
+      "batches": 77,
+      "fallbackBatches": 0,
+      "plannedReusedBatches": 77,
+      "generatedBatches": null,
+      "elapsedMs": 1,
+      "maxSourceCommitMs": null,
+      "maxCloneMs": null,
+      "maxSerializeMs": null,
+      "maxImageWaitMs": null,
+      "maxDrawMs": null
+    },
+    {
+      "batches": 77,
+      "fallbackBatches": 0,
+      "plannedReusedBatches": 77,
+      "generatedBatches": null,
+      "elapsedMs": 1,
+      "maxSourceCommitMs": null,
+      "maxCloneMs": null,
+      "maxSerializeMs": null,
+      "maxImageWaitMs": null,
+      "maxDrawMs": null
+    },
+    {
+      "batches": 77,
+      "fallbackBatches": 0,
+      "plannedReusedBatches": 77,
+      "generatedBatches": null,
+      "elapsedMs": 0,
+      "maxSourceCommitMs": null,
+      "maxCloneMs": null,
+      "maxSerializeMs": null,
+      "maxImageWaitMs": null,
+      "maxDrawMs": null
+    },
+    {
+      "batches": 98,
+      "fallbackBatches": 0,
+      "plannedReusedBatches": 86,
+      "generatedBatches": 12,
+      "elapsedMs": 1512,
+      "maxSourceCommitMs": 20,
+      "maxCloneMs": 3,
+      "maxSerializeMs": 1.000000000007276,
+      "maxImageWaitMs": 19.000000000007276,
+      "maxDrawMs": 1
+    }
+  ],
+  "persistence": [
+    {
+      "action": "save-before-reentry",
+      "ok": true,
+      "diskMatch": true,
+      "editorMatch": null,
+      "objects": null
+    },
+    {
+      "action": "restored",
+      "ok": true,
+      "diskMatch": true,
+      "editorMatch": true,
+      "objects": 302
+    }
+  ],
+  "limitations": [
+    "Frame windows cover approximately the first 700ms and can end early on close.",
+    "No physical paint timestamps or controlled improvement percentage.",
+    "No per-dispatch Undo/Redo logs in this run; user confirmation and final persisted equality only.",
+    "No post-ready reopen event after the final 98-batch ready event.",
+    "No new pen input in this run.",
+    "34ms refers only to openOrdinal=7 after clearing thumbnails; all opens maximum is 46ms before clearing. Cache was partially repopulated when opened, not fully cold."
+  ],
+  "v3Comparison": {
+    "v3ObservedOpenMaxGapMs": 342,
+    "v4FirstOpenAfterThumbnailClearMaxGapMs": 34,
+    "controlledComparison": false,
+    "matchedCachePreparation": false,
+    "v3WindowSelection": "Observed v3 open with 47 reused / 28 pending batches; not a fully cold cache.",
+    "v4WindowSelection": "First open after thumbnail-cleared, openOrdinal=7, reusedBatches=56/pendingBatches=42. Not the maximum across all opens.",
+    "v4AllOpensMaxGapMs": 46.0
+  }
+}

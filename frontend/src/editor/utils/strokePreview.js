@@ -27,8 +27,6 @@ export function createStrokePreview() {
 
 export function previewGeometry(part, settings) {
   return part.points.length > 1 && (settings.kind === 'brush' || settings.kind === 'fountain')
-    ? { outline: penContour(part.points, settings.width, settings.kind, {
-      startDistance: part.startDistance, continueEnd: part.continuing, maxSamples: 512,
-    }) }
+    ? { outline: penContour(part.points, settings.width, settings.kind) }
     : { path: strokePath(part.points) }
 }

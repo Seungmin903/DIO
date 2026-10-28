@@ -59,6 +59,7 @@ class MemberDiaryTrashHttpTests {
         jdbc.execute("create table if not exists diary_members(diary_id uuid,user_id bigint,role varchar(20),is_favorite boolean not null default false,member_color char(7),joined_at timestamp(6) with time zone,left_at timestamp(6) with time zone,primary key(diary_id,user_id))");
         jdbc.execute("create table if not exists diary_creation_receipts(user_id bigint,key_hash char(64),request_hash char(64),diary_id uuid,response_body jsonb,created_at timestamp(6) with time zone default current_timestamp,completed_at timestamp(6) with time zone,primary key(user_id,key_hash))");
         jdbc.update("delete from diary_creation_receipts");
+        com.f106.DIO.diary.MemberH2Fixture.align(jdbc);
         jdbc.update("delete from pages"); jdbc.update("delete from diary_members"); jdbc.update("delete from diaries");
         jdbc.update("delete from page_templates"); history.deleteAll(); sessions.deleteAll(); jdbc.update("delete from users");
         for(long id:new long[]{101,202}) jdbc.update("insert into users(user_id,nickname,nickname_key,profile_color,status,created_at,updated_at) values(?,?,?,'#123456','ACTIVE',?,?)",
@@ -157,7 +158,8 @@ class MemberDiaryTrashHttpTests {
         String id=id(create());
         mvc.perform(options(PATH+"/"+id).header("Origin","http://localhost:8081").header("Access-Control-Request-Method","DELETE").header("Access-Control-Request-Headers","authorization")).andExpect(status().isOk());
         mvc.perform(options(PATH+"/"+id).header("Origin","https://foreign.example").header("Access-Control-Request-Method","DELETE")).andExpect(status().isForbidden());
-        mvc.perform(delete("/api/v1/diaries/"+id)).andExpect(status().isNotFound());
+        mvc.perform(delete("/api/v1/diaries/"+id)).andExpect(status().isUnauthorized());
+        mvc.perform(delete("/api/v1/diaries/"+id).header("Authorization","Bearer "+owner)).andExpect(status().isNotFound());
         jdbc.update("update users set status='SUSPENDED' where user_id=101");
         mvc.perform(get(PATH+"/trash").header("Authorization","Bearer "+owner)).andExpect(status().isUnauthorized());
         mvc.perform(delete(PATH+"/"+id).header("Authorization","Bearer "+owner)).andExpect(status().isUnauthorized());

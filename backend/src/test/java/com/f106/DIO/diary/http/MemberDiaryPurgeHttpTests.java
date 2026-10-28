@@ -68,6 +68,7 @@ class MemberDiaryPurgeHttpTests {
         jdbc.execute("create table if not exists diary_purge_receipts(diary_id uuid primary key,owner_user_id bigint not null,completed_at timestamp(6) with time zone not null)");
         jdbc.update("delete from diary_purge_receipts");
         jdbc.update("delete from diary_creation_receipts");
+        com.f106.DIO.diary.MemberH2Fixture.align(jdbc);
         jdbc.update("delete from pages"); jdbc.update("delete from diary_members"); jdbc.update("delete from diaries");
         jdbc.update("delete from page_templates"); history.deleteAll(); sessions.deleteAll(); jdbc.update("delete from users");
         for(long id:new long[]{101,202}) jdbc.update("insert into users(user_id,nickname,nickname_key,profile_color,status,created_at,updated_at) values(?,?,?,'#123456','ACTIVE',?,?)",
