@@ -17,7 +17,10 @@ class DeploymentAuthContractTests {
         assertThat(ci.getProperty("backend-postgres-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh");
         assertThat(ci.getProperty("backend-postgres-test.allow_failure")).isNull();
         String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh"));
-        assertThat(script).contains("-e DIO_AUTH_SCHEMA_TEST=true", "--network \"container:$pg_name\"", "trap cleanup EXIT", "authPostgresTest --no-daemon");
+        assertThat(script).contains("-e DIO_AUTH_SCHEMA_TEST=true", "--network \"container:$pg_name\"", "trap cleanup EXIT", "authPostgresTest sharingPostgresTest --no-daemon",
+            "CREATE DATABASE dio_sharing_qa", "DIO_SHARING_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_sharing_qa");
+        assertThat(ci.getProperty("backend-postgres-test.artifacts.reports.junit[1]"))
+            .isEqualTo("backend/build/test-results/sharingPostgresTest/*.xml");
     }
     @Test void ciContainerIncludesReadOnlyDeploymentInputsBesideBackend() throws Exception {
         var properties = new YamlPropertySourceLoader().load("ci",
@@ -41,6 +44,10 @@ class DeploymentAuthContractTests {
             assertThat(properties.getProperty("services.backend.environment.SIGNUP_PHOTO_S3_REGION")).isNotNull();
             assertThat(properties.getProperty("services.backend.environment.SIGNUP_PHOTO_MIGRATE_LEGACY"))
                 .isEqualTo("${SIGNUP_PHOTO_MIGRATE_LEGACY:-false}");
+            assertThat(properties.getProperty("services.backend.environment.SHARING_INVITE_SECRET"))
+                .isEqualTo("${SHARING_INVITE_SECRET:-}");
+            assertThat(properties.getProperty("services.backend.environment.SHARING_INVITE_BASE_URL"))
+                .isEqualTo("${SHARING_INVITE_BASE_URL:-/invite/}");
             String nginx = Files.readString(Path.of("../infra/nginx/" + profile + "/default.conf"));
             assertThat(nginx).contains("proxy_set_header X-Forwarded-For $remote_addr;")
                 .doesNotContain("$proxy_add_x_forwarded_for");

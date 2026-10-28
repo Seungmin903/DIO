@@ -81,3 +81,24 @@ tasks.register('postgresTest', Test) {
 	filter { includeTestsMatching 'com.f106.DIO.diary.PostgresDiary*Tests' }
 	systemProperty 'dio.postgres-test', 'true'
 }
+
+// Uses a separate disposable database; never falls back to a developer database.
+tasks.register('sharingPostgresTest', Test) {
+    description = 'Verifies sharing permissions, concurrency and permanent deletion against dedicated dio_sharing_qa PostgreSQL.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.f106.DIO.sharing.SharingPostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.EmailInvitePostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.DiaryProfilePostgresTests'
+    }
+    environment 'DIO_SHARING_POSTGRES_QA', 'true'
+    doFirst {
+        def required = ['DIO_SHARING_POSTGRES_URL', 'DIO_SHARING_POSTGRES_PASSWORD']
+        if (required.any { !environment[it]?.toString()?.trim() }) {
+            throw new GradleException('Explicit DIO_SHARING_POSTGRES_URL/PASSWORD for disposable dio_sharing_qa required. No fallback. See docs/diary-sharing.md.')
+        }
+    }
+}

@@ -136,9 +136,12 @@ backend-postgres-test:
   artifacts:
     when: always
     reports:
-      junit: backend/build/test-results/authPostgresTest/*.xml
+      junit:
+        - backend/build/test-results/authPostgresTest/*.xml
+        - backend/build/test-results/sharingPostgresTest/*.xml
     paths:
       - backend/build/reports/tests/authPostgresTest/
+      - backend/build/reports/tests/sharingPostgresTest/
     expire_in: 7 days
 
 secret-scan:
