@@ -71,6 +71,38 @@ class ExpiredMediaCleanupTests {
 		verify(files, never()).delete(mediaFile.getStorageKey());
 	}
 
+	@Test
+	void rowsThatKeepFailingDoNotBlockLaterCandidates() {
+		Instant now = Instant.parse("2026-10-28T00:00:00Z");
+		Instant cutoff = now.minus(Duration.ofDays(1));
+		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, files, Duration.ofDays(1), 2);
+		MediaFile broken1 = media(), broken2 = media(), healthy = media();
+		when(mediaFiles.findPhysicallyDeletable(eq(cutoff), any(Pageable.class))).thenReturn(List.of(broken1, broken2));
+		when(mediaFiles.findPhysicallyDeletableAfter(eq(cutoff), any(), eq(broken2.getMediaFileId()), any(Pageable.class)))
+			.thenReturn(List.of(healthy));
+		doThrow(new IllegalStateException("fk violation")).when(mediaFiles).deletePhysicallyIfDeletable(broken1.getMediaFileId(), cutoff);
+		doThrow(new IllegalStateException("fk violation")).when(mediaFiles).deletePhysicallyIfDeletable(broken2.getMediaFileId(), cutoff);
+		when(mediaFiles.deletePhysicallyIfDeletable(healthy.getMediaFileId(), cutoff)).thenReturn(1);
+
+		assertThat(smallBatch.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(1, 2));
+
+		verify(files).delete(healthy.getStorageKey());
+	}
+
+	@Test
+	void stopsAfterDeletingOneBatchOfRows() {
+		Instant now = Instant.parse("2026-10-28T00:00:00Z");
+		Instant cutoff = now.minus(Duration.ofDays(1));
+		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, files, Duration.ofDays(1), 2);
+		MediaFile first = media(), second = media();
+		when(mediaFiles.findPhysicallyDeletable(eq(cutoff), any(Pageable.class))).thenReturn(List.of(first, second));
+		when(mediaFiles.deletePhysicallyIfDeletable(any(), eq(cutoff))).thenReturn(1);
+
+		assertThat(smallBatch.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(2, 0));
+
+		verify(mediaFiles, never()).findPhysicallyDeletableAfter(any(), any(), any(), any());
+	}
+
 	private static MediaFile media() {
 		UUID id = UUID.randomUUID();
 		return new MediaFile(id, 1L, MediaType.IMAGE, MediaLibraryCategory.PHOTO,
