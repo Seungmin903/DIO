@@ -131,6 +131,23 @@ class ExpiredMediaCleanupTests {
 		verify(mediaFiles, never()).findPhysicallyDeletable(any(), any());
 	}
 
+	@Test
+	void reservesHalfOfTheBatchForNewExpiredMediaWhenRetriesAreDue() {
+		Instant now = Instant.parse("2026-10-28T00:00:00Z");
+		Instant cutoff = now.minus(Duration.ofDays(1));
+		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, Duration.ofDays(1), 4);
+		MediaStorageDeletionTask queuedFirst = task(media()), queuedSecond = task(media());
+		MediaFile first = media(), second = media();
+		when(deletionQueue.next(2)).thenReturn(List.of(queuedFirst, queuedSecond));
+		when(mediaFiles.findPhysicallyDeletable(eq(cutoff), any(Pageable.class))).thenReturn(List.of(first, second));
+		when(deletionQueue.enqueueAfterPhysicalDelete(eq(first), eq(cutoff))).thenReturn(task(first));
+		when(deletionQueue.enqueueAfterPhysicalDelete(eq(second), eq(cutoff))).thenReturn(task(second));
+
+		assertThat(smallBatch.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(4, 0));
+
+		verify(mediaFiles).findPhysicallyDeletable(eq(cutoff), any(Pageable.class));
+	}
+
 	private static MediaFile media() {
 		UUID id = UUID.randomUUID();
 		return new MediaFile(id, 1L, MediaType.IMAGE, MediaLibraryCategory.PHOTO,

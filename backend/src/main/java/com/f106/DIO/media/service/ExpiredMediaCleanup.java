@@ -81,7 +81,7 @@ public class ExpiredMediaCleanup {
 	private Result retryQueuedStorageDeletes() {
 		int deleted = 0;
 		int failed = 0;
-		List<MediaStorageDeletionTask> tasks = deletionQueue.next(batchSize);
+		List<MediaStorageDeletionTask> tasks = deletionQueue.next(Math.max(1, batchSize / 2));
 		for (MediaStorageDeletionTask task : tasks) {
 			Result result = deleteStorage(task);
 			deleted += result.deleted();

@@ -1,6 +1,7 @@
 package com.f106.DIO.media.service;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
@@ -15,6 +16,7 @@ import com.f106.DIO.media.repository.MediaStorageDeletionTaskRepository;
 /** 조건부 DB 삭제와 저장소 삭제 대기 등록을 같은 트랜잭션으로 보장한다. */
 @Service
 public class MediaStorageDeletionQueueService {
+	private static final Duration UPLOAD_GUARD_DELAY = Duration.ofMinutes(10);
 	private final MediaFileRepository mediaFiles;
 	private final MediaStorageDeletionTaskRepository tasks;
 
@@ -29,9 +31,15 @@ public class MediaStorageDeletionQueueService {
 		return tasks.save(new MediaStorageDeletionTask(mediaFile.getMediaFileId(), mediaFile.getStorageKey()));
 	}
 
+	/** 저장소 쓰기 전에 등록한다. 앱이 중단되면 보호 행이 남아 고아 객체를 회수한다. */
+	@Transactional
+	public MediaStorageDeletionTask reserveUploadCleanup(java.util.UUID mediaFileId, String storageKey) {
+		return tasks.save(new MediaStorageDeletionTask(mediaFileId, storageKey, Instant.now().plus(UPLOAD_GUARD_DELAY)));
+	}
+
 	@Transactional(readOnly = true)
 	public List<MediaStorageDeletionTask> next(int limit) {
-		return tasks.findAllByOrderByQueuedAtAscDeletionIdAsc(PageRequest.of(0, limit));
+		return tasks.findAllByNextAttemptAtLessThanEqualOrderByNextAttemptAtAscDeletionIdAsc(Instant.now(), PageRequest.of(0, limit));
 	}
 
 	@Transactional

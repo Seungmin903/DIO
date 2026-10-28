@@ -31,19 +31,28 @@ public class MediaStorageDeletionTask {
 	private int attemptCount;
 	@Column(name = "last_attempt_at")
 	private Instant lastAttemptAt;
+	@Column(name = "next_attempt_at", nullable = false)
+	private Instant nextAttemptAt;
 	@Column(name = "last_error", length = 1000)
 	private String lastError;
 
 	public MediaStorageDeletionTask(UUID mediaFileId, String storageKey) {
+		this(mediaFileId, storageKey, Instant.now());
+	}
+
+	public MediaStorageDeletionTask(UUID mediaFileId, String storageKey, Instant nextAttemptAt) {
 		this.deletionId = UUID.randomUUID();
 		this.mediaFileId = mediaFileId;
 		this.storageKey = storageKey;
 		this.queuedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+		this.nextAttemptAt = nextAttemptAt.truncatedTo(ChronoUnit.MICROS);
 	}
 
 	public void recordFailure(String error) {
 		attemptCount++;
 		lastAttemptAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+		long delayMinutes = 1L << Math.min(attemptCount - 1, 6);
+		nextAttemptAt = lastAttemptAt.plus(delayMinutes, ChronoUnit.MINUTES);
 		lastError = error == null ? null : error.substring(0, Math.min(error.length(), 1000));
 	}
 }

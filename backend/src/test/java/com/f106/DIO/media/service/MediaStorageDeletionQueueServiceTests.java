@@ -63,6 +63,7 @@ class MediaStorageDeletionQueueServiceTests {
 
 		assertThat(task.getAttemptCount()).isEqualTo(1);
 		assertThat(task.getLastAttemptAt()).isNotNull();
+		assertThat(task.getNextAttemptAt()).isAfter(task.getLastAttemptAt());
 		assertThat(task.getLastError()).isEqualTo("IllegalStateException");
 	}
 

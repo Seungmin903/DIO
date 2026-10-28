@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.inOrder;
 
 import java.util.Optional;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.Base64;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import com.f106.DIO.media.repository.MediaFileRepository;
+import com.f106.DIO.media.repository.MediaStorageDeletionTaskRepository;
 import com.f106.DIO.media.domain.MediaFile;
 import com.f106.DIO.media.domain.MediaLibraryCategory;
 import com.f106.DIO.media.domain.MediaType;
@@ -24,7 +26,20 @@ import com.f106.DIO.media.support.MediaRequestException;
 
 class MediaFileTransactionServiceTests {
 	private final MediaFileRepository mediaFiles = mock(MediaFileRepository.class);
-	private final MediaFileTransactionService service = new MediaFileTransactionService(mediaFiles, mock(MediaFiles.class));
+	private final MediaStorageDeletionTaskRepository deletionTasks = mock(MediaStorageDeletionTaskRepository.class);
+	private final MediaFileTransactionService service = new MediaFileTransactionService(mediaFiles, deletionTasks);
+
+	@Test
+	void removesTheUploadCleanupTaskWithTheSuccessfulMediaPersistence() {
+		MediaFile mediaFile = media(2L);
+		UUID cleanupTaskId = UUID.randomUUID();
+
+		service.persist(mediaFile, cleanupTaskId);
+
+		var order = inOrder(mediaFiles, deletionTasks);
+		order.verify(mediaFiles).save(mediaFile);
+		order.verify(deletionTasks).deleteById(cleanupTaskId);
+	}
 
 	@Test
 	void rejectsAnotherUsersMediaAsNotFound() {

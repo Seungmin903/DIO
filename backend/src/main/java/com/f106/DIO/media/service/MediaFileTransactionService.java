@@ -6,42 +6,32 @@ import java.time.Instant;
 import java.time.DateTimeException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.f106.DIO.media.domain.MediaFile;
 import com.f106.DIO.media.dto.MediaFileListResponse;
 import com.f106.DIO.media.dto.MediaFileResponse;
 import com.f106.DIO.media.repository.MediaFileRepository;
+import com.f106.DIO.media.repository.MediaStorageDeletionTaskRepository;
 import com.f106.DIO.media.support.MediaFileNotFoundException;
 import com.f106.DIO.media.support.MediaRequestException;
-import com.f106.DIO.media.storage.MediaFiles;
 
 /** DB 작업만 트랜잭션으로 묶고, 저장소 읽기·쓰기는 MediaService가 트랜잭션 밖에서 수행한다. */
 @Service
 public class MediaFileTransactionService {
-	private static final Logger log = LoggerFactory.getLogger(MediaFileTransactionService.class);
 	private final MediaFileRepository mediaFiles;
-	private final MediaFiles files;
+	private final MediaStorageDeletionTaskRepository deletionTasks;
 
-	public MediaFileTransactionService(MediaFileRepository mediaFiles, MediaFiles files) {
+	public MediaFileTransactionService(MediaFileRepository mediaFiles, MediaStorageDeletionTaskRepository deletionTasks) {
 		this.mediaFiles = mediaFiles;
-		this.files = files;
+		this.deletionTasks = deletionTasks;
 	}
 
 	@Transactional
-	public MediaFileResponse persist(MediaFile mediaFile) {
+	public MediaFileResponse persist(MediaFile mediaFile, UUID uploadCleanupTaskId) {
 		mediaFiles.save(mediaFile);
-		String key = mediaFile.getStorageKey();
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override public void afterCompletion(int status) {
-				if (status == STATUS_ROLLED_BACK) deleteOrLog(key);
-			}
-		});
+		deletionTasks.deleteById(uploadCleanupTaskId);
 		return MediaFileResponse.from(mediaFile);
 	}
 
@@ -78,10 +68,6 @@ public class MediaFileTransactionService {
 
 	private MediaFile findOwned(UUID mediaFileId, Long userId) {
 		return mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, userId).orElseThrow(MediaFileNotFoundException::new);
-	}
-	private void deleteOrLog(String key) {
-		try { files.delete(key); }
-		catch (RuntimeException error) { log.warn("Unreferenced media storage cleanup failed: key={}", key, error); }
 	}
 	private static String encode(MediaFile mediaFile) {
 		String raw = mediaFile.getCreatedAt() + "|" + mediaFile.getMediaFileId();

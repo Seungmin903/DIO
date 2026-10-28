@@ -6,22 +6,26 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import com.f106.DIO.media.domain.MediaFile;
+import com.f106.DIO.media.domain.MediaStorageDeletionTask;
 import com.f106.DIO.media.dto.MediaFileResponse;
 import com.f106.DIO.media.service.MediaFileTransactionService;
 import com.f106.DIO.media.service.MediaService;
+import com.f106.DIO.media.service.MediaStorageDeletionQueueService;
 import com.f106.DIO.media.storage.MediaFiles;
 import com.f106.DIO.media.support.MediaRequestException;
 
 class MediaServiceTests {
 	private final MediaFiles storage = mock(MediaFiles.class);
 	private final MediaFileTransactionService transactions = mock(MediaFileTransactionService.class);
-	private final MediaService service = new MediaService(storage, transactions);
+	private final MediaStorageDeletionQueueService deletionQueue = mock(MediaStorageDeletionQueueService.class);
+	private final MediaService service = new MediaService(storage, transactions, deletionQueue);
 
 	@Test
 	void gifIsStoredAsImageAndKeepsGifMimeType() {
@@ -119,7 +123,22 @@ class MediaServiceTests {
 			.isInstanceOf(MediaRequestException.class);
 	}
 
+	@Test
+	void keepsTheUploadCleanupTaskWhenPersistenceAndImmediateStorageCleanupFail() {
+		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
+			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));
+		when(transactions.persist(any(MediaFile.class), any())).thenThrow(new IllegalStateException("database unavailable"));
+		doThrow(new IllegalStateException("S3 unavailable")).when(storage).delete(any());
+
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "failed.gif", "image/gif", "GIF89a".getBytes()), null, 7L))
+			.isInstanceOf(IllegalStateException.class);
+
+		verify(deletionQueue).recordFailure(any(MediaStorageDeletionTask.class), any());
+	}
+
 	private void stubPersist() {
-		when(transactions.persist(any(MediaFile.class))).thenAnswer(invocation -> MediaFileResponse.from(invocation.getArgument(0)));
+		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
+			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));
+		when(transactions.persist(any(MediaFile.class), any())).thenAnswer(invocation -> MediaFileResponse.from(invocation.getArgument(0)));
 	}
 }

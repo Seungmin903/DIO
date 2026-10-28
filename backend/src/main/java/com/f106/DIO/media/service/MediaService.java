@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import com.f106.DIO.media.domain.MediaFile;
+import com.f106.DIO.media.domain.MediaStorageDeletionTask;
 import com.f106.DIO.media.domain.MediaLibraryCategory;
 import com.f106.DIO.media.domain.MediaType;
 import com.f106.DIO.media.dto.MediaFileListResponse;
@@ -25,7 +26,10 @@ public class MediaService {
 	private static final int MAX_FILE_SIZE = 5 * 1024 * 1024;
 	private final MediaFiles files;
 	private final MediaFileTransactionService transactions;
-	public MediaService(MediaFiles files, MediaFileTransactionService transactions) { this.files = files; this.transactions = transactions; }
+	private final MediaStorageDeletionQueueService deletionQueue;
+	public MediaService(MediaFiles files, MediaFileTransactionService transactions, MediaStorageDeletionQueueService deletionQueue) {
+		this.files = files; this.transactions = transactions; this.deletionQueue = deletionQueue;
+	}
 
 	public MediaFileResponse upload(MultipartFile upload, String requestedCategory, Long userId) {
 		byte[] content = read(upload);
@@ -35,13 +39,15 @@ public class MediaService {
 		String key = MediaStorageKeys.create(kind.mediaType(), kind.extension(), id);
 		MediaFile mediaFile = new MediaFile(id, userId, kind.mediaType(), category, key, filename(upload.getOriginalFilename()),
 			kind.mimeType(), content.length, checksum(content));
+		MediaStorageDeletionTask cleanupTask = deletionQueue.reserveUploadCleanup(id, key);
 		boolean stored = false;
 		try {
 			files.put(key, content, kind.mimeType());
 			stored = true;
-			return transactions.persist(mediaFile);
+			return transactions.persist(mediaFile, cleanupTask.getDeletionId());
 		} catch (RuntimeException error) {
-			if (stored) deleteOrLog(key);
+			if (stored) deleteOrQueue(cleanupTask);
+			else completeOrLog(cleanupTask);
 			throw error;
 		}
 	}
@@ -62,9 +68,19 @@ public class MediaService {
 	public void delete(UUID mediaFileId, Long userId) {
 		transactions.delete(mediaFileId, userId);
 	}
-	private void deleteOrLog(String key) {
-		try { files.delete(key); }
-		catch (RuntimeException error) { log.warn("Media storage cleanup failed: key={}", key, error); }
+	private void deleteOrQueue(MediaStorageDeletionTask task) {
+		try {
+			files.delete(task.getStorageKey());
+			completeOrLog(task);
+		} catch (RuntimeException error) {
+			try { deletionQueue.recordFailure(task, error); }
+			catch (RuntimeException queueError) { log.error("Upload cleanup failure could not be recorded: deletionId={}", task.getDeletionId(), queueError); }
+			log.warn("Media upload cleanup will be retried: deletionId={}, key={}", task.getDeletionId(), task.getStorageKey(), error);
+		}
+	}
+	private void completeOrLog(MediaStorageDeletionTask task) {
+		try { deletionQueue.complete(task); }
+		catch (RuntimeException error) { log.error("Upload cleanup task completion failed: deletionId={}", task.getDeletionId(), error); }
 	}
 	private static byte[] read(MultipartFile upload) {
 		if (upload == null || upload.isEmpty()) throw MediaRequestException.invalidFile();
