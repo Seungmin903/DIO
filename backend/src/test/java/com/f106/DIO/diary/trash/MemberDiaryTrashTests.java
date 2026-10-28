@@ -74,6 +74,13 @@ class MemberDiaryTrashTests {
         var someoneElse = service(2,Clock.fixed(now,ZoneOffset.UTC));
         assertThatThrownBy(() -> someoneElse.list("여행_1%", 1, first.nextCursor())).isInstanceOf(DiaryDetailException.class);
     }
+    @Test void unicodeSearchUsesTheSameRulesForStoredTitlesAndQueries() {
+        jdbc.update("UPDATE diaries SET title='ÉÄ diary' WHERE diary_id IN (?,?)",a,other);
+        for(String query:List.of("ÉÄ","éä")) {
+            assertThat(tx.execute(status -> service.list(query,20,null)).items())
+                .extracting(item -> item.diaryId()).containsExactly(a.toString());
+        }
+    }
     @Test void restoreIsIdempotentAndPreservesMetadataAndChildStates() {
         UUID page = UUID.randomUUID(); Instant previous = now.minusSeconds(100);
         jdbc.update("INSERT INTO pages VALUES (?,?,?)", page, a, Timestamp.from(previous));

@@ -17,7 +17,8 @@ class DeploymentAuthContractTests {
         assertThat(ci.getProperty("backend-postgres-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh");
         assertThat(ci.getProperty("backend-postgres-test.allow_failure")).isNull();
         String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh"));
-        assertThat(script).contains("-e DIO_AUTH_SCHEMA_TEST=true", "--network \"container:$pg_name\"", "trap cleanup EXIT", "authPostgresTest --no-daemon");
+        assertThat(script).contains("-e DIO_AUTH_SCHEMA_TEST=true", "--network \"container:$pg_name\"", "trap cleanup EXIT", "authPostgresTest postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "CREATE DATABASE dio_trash_qa", "-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_trash_qa", "-e POSTGRES_USER=postgres", "-e DIO_LIST_QUERY_PG=true");
+        assertThat(script.split("-e DB_URL=",-1)).hasSize(2);
     }
     @Test void ciContainerIncludesReadOnlyDeploymentInputsBesideBackend() throws Exception {
         var properties = new YamlPropertySourceLoader().load("ci",

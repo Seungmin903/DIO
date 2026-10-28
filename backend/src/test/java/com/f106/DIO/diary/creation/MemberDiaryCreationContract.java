@@ -229,6 +229,23 @@ abstract class MemberDiaryCreationContract {
 		error(400,() -> tx.execute(s -> service.create(metadata(),selections(1)))); noCreatedRows();
 	}
 
+    @Test void inactiveDuplicateCodeVersionDoesNotSilentlyChooseTheActiveRow() {
+        jdbc.update("insert into page_templates(template_id,code,template_version,name,category,orientation,canvas_width,canvas_height,is_active) values (-11,'BLANK','1','different template','BASIC','LANDSCAPE',1024,768,false)");
+        error(400,() -> tx.execute(s -> keyed(service).create("ambiguous-catalog-key",metadata(),selections(1))));
+        noCreatedRows();
+        assertThat(jdbc.queryForObject("select count(*) from diary_creation_receipts",Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from page_templates where code='BLANK' and template_version='1'",Long.class)).isEqualTo(2);
+    }
+
+    @Test void codeVersionResolvesTheActualPkInsteadOfReusingAnOldNumericId() {
+        jdbc.update("update page_templates set template_id=987 where template_id=-10");
+        jdbc.update("insert into page_templates(template_id,code,template_version,name,category,orientation,canvas_width,canvas_height) values (-10,'OTHER','1','other template','BASIC','LANDSCAPE',1024,768)");
+        var result=tx.execute(s -> service.create(metadata(),selections(1)));
+        assertThat(result.pageIds()).hasSize(1);
+        assertThat(jdbc.queryForObject("select template_id from pages",Long.class)).isEqualTo(987);
+        assertThat(jdbc.queryForObject("select code from page_templates where template_id=-10",String.class)).isEqualTo("OTHER");
+    }
+
 	@Test void realDatabaseFailureOnTheSecondPageRollsBackAndCanBeRetried() {
 		jdbc.execute("alter table pages add constraint qa_second_page_failure check(sort_key<2)");
 		assertThatThrownBy(() -> tx.execute(s -> service.create(metadata(),selections(2))))

@@ -6,6 +6,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.BadJwtException;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
@@ -57,6 +58,30 @@ class DiaryRequestIdentityTests {
         request("second");
         when(decoder.decode("second")).thenReturn(decoded("23"));
         assertThat(user()).isEqualTo(23);
+    }
+
+    @Test void reusesOnlyAuthenticatedJwtMatchingTheCurrentBearer() {
+        request("encoded");
+        SecurityContextHolder.getContext().setAuthentication(
+            new JwtAuthenticationToken(decoded("12"), java.util.List.of()));
+        assertThat(user()).isEqualTo(12);
+        assertThat(user()).isEqualTo(12);
+        verifyNoInteractions(decoder);
+        request("second");
+        when(decoder.decode("second")).thenReturn(decoded("23"));
+        assertThat(user()).isEqualTo(23);
+        verify(decoder).decode("second");
+    }
+
+    @Test void unauthenticatedJwtAndGenericPrincipalsCannotBypassValidation() {
+        request("encoded");
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(decoded("12")));
+        when(decoder.decode("encoded")).thenThrow(new BadJwtException("revoked"));
+        assertThatThrownBy(this::user).hasMessage("unauthorized");
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken("12", "ignored", java.util.List.of()));
+        assertThatThrownBy(this::user).hasMessage("unauthorized");
+        verify(decoder,times(2)).decode("encoded");
     }
 
     @Test void rejectsMissingMalformedNonPositiveAndOverflowingSubjects() {

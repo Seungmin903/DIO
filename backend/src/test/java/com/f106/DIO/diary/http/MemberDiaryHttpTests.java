@@ -50,6 +50,7 @@ class MemberDiaryHttpTests {
     @Autowired RefreshTokenRepository sessions;
     @Autowired RefreshTokenHistoryRepository history;
     @MockitoSpyBean MemberDiaryCreationService creation;
+    @MockitoSpyBean MemberDiaryListQuery lists;
     String owner,other,lastKey;
     RefreshToken ownerSession;
 
@@ -132,6 +133,14 @@ class MemberDiaryHttpTests {
         noneCreated();
     }
 
+    @Test void clientSuppliedDatabaseTemplateIdCannotOverrideTheCodeVersionMapping() throws Exception {
+        var node=(tools.jackson.databind.node.ObjectNode)json.readTree(body(1));
+        ((tools.jackson.databind.node.ObjectNode)node.get("initialPages").get(0)).put("templateId",987);
+        mvc.perform(memberPost().header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(node.toString()))
+            .andExpect(status().isBadRequest());
+        noneCreated();
+    }
+
     @Test void patchRequiresMetadataAndAnExactNonNullTimestampAndRejectsUnknownFields() throws Exception {
         var created=create(); String id=id(created),stamp=created.get("diary").get("updatedAt").asString();
         for(String body:List.of("{}","{\"diaryTitle\":\"x\"}","{\"expectedUpdatedAt\":null,\"diaryTitle\":\"x\"}",
@@ -182,6 +191,25 @@ class MemberDiaryHttpTests {
         var response=mvc.perform(memberPost().header("Authorization","Bearer "+owner).contentType(MediaType.APPLICATION_JSON).content(body(1)))
             .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("DIARY_PERSISTENCE_UNAVAILABLE")).andReturn().getResponse().getContentAsString();
         assertThat(response).doesNotContain("sensitive database url"); noneCreated();
+    }
+
+    @Test void unavailableSearchDoesNotBlockOtherMemberRoutesOrAuthentication() throws Exception {
+        doThrow(new com.f106.DIO.diary.detail.DiaryDetailException(
+            org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"DIARY_LIST_UNAVAILABLE",
+            "회원 목록을 사용할 수 없어요. 잠시 후 다시 확인해 주세요."))
+            .when(lists).list(eq("É"),any(),any(),any());
+        var unavailable=mvc.perform(get(PATH).param("q","É").header("Authorization","Bearer "+owner))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.code").value("DIARY_LIST_UNAVAILABLE"))
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(header().string("Cache-Control","no-store")).andReturn().getResponse().getContentAsString();
+        assertThat(unavailable).doesNotContain("pg_collation","und-x-icu",owner);
+        mvc.perform(get(PATH)).andExpect(status().isUnauthorized());
+        mvc.perform(get(PATH).header("Authorization","Bearer "+owner)).andExpect(status().isOk());
+        var created=mvc.perform(memberPost().header("Authorization","Bearer "+owner)
+            .contentType(MediaType.APPLICATION_JSON).content(body(1)))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        mvc.perform(get(PATH+"/"+id(json.readTree(created))).header("Authorization","Bearer "+owner)).andExpect(status().isOk());
     }
 
     @Test void memberPreflightAllowsCreateKeyAndPatchAndRejectsForeignOrigins() throws Exception {
