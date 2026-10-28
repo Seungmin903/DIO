@@ -69,6 +69,14 @@ export function createServerNotificationApi(transport) {
     read(notificationId, options = {}) {
       return transport({ ...options, method: 'PATCH', path: `/notifications/${encodeURIComponent(notificationId)}` });
     },
+    async prepareReadAll(options = {}) {
+      const body = await transport({ ...options, method: 'POST', path: '/notifications/read-watermarks' });
+      if (!id(body?.readWatermark) || !id(body?.expiresAt)) throw invalid();
+      return body;
+    },
+    readAll(readWatermark, options = {}) {
+      return transport({ ...options, method: 'POST', path: '/notifications/read-all', body: { readWatermark } });
+    },
     remove(notificationId, options = {}) {
       return transport({ ...options, method: 'DELETE', path: `/notifications/${encodeURIComponent(notificationId)}` });
     },

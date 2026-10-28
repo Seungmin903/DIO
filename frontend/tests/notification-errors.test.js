@@ -14,6 +14,14 @@ test('401·403·404는 같은 요청 재시도 대신 로그인/권한/목록 �
   assert.match(notificationErrorNotice({ code: 'NETWORK_ERROR' }).message, /네트워크/);
 });
 
+test('전체 읽음 경계 오류는 새 요청 또는 대기 방법을 안내한다', () => {
+  const invalid = notificationErrorNotice({ status: 400, code: 'INVALID_READ_WATERMARK' });
+  assert.match(invalid.message, /다시 눌러/);
+  assert.equal(invalid.canRetry, false);
+  const limit = notificationErrorNotice({ status: 429, code: 'READ_WATERMARK_LIMIT' });
+  assert.match(limit.message, /잠시 후 다시 시도/);
+});
+
 test('카운트401·403·404 뒤 주기 재요청은 막고 명시적 전체 새로고침으로 회복한다', async () => {
   for (const mode of ['unauthorized', 'forbidden', 'not-found']) {
     const mock = createMockNotificationTransport({ delay: 0 }); const api = createNotificationApi(mock.transport);

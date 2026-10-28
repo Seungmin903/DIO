@@ -37,6 +37,14 @@ test('Spring 카운트·읽음200 DTO·삭제204와 반복204를 FE가 소비한
   assert.equal(read.notificationId, '90001'); assert.equal(typeof read.readAt, 'string'); assert.equal(read.notificationType, 'DIARY_INVITE');
   assert.equal(await apiFor('delete').remove('90001'), null); assert.equal(await apiFor('deleteAgain').remove('90001'), null);
 });
+test('Spring 전체 읽음 준비 응답과 204 응답을 FE가 소비한다', async () => {
+  const prepared = await apiFor('prepareReadAll').prepareReadAll();
+  assert.match(prepared.readWatermark, /^[0-9a-f-]{36}$/);
+  assert.ok(!Number.isNaN(Date.parse(prepared.expiresAt)));
+  assert.equal(await apiFor('readAll').readAll(prepared.readWatermark), null);
+  assert.ok(paths['/api/v1/notifications/read-watermarks'].post.responses['201']);
+  assert.ok(paths['/api/v1/notifications/read-all'].post.responses['204']);
+});
 test('Spring ProblemDetail·프레임워크400의 code 부재를 FE 오류로 처리한다', async () => {
   for (const [name, status, code] of [['notFound', 404, 'NOTIFICATION_NOT_FOUND'], ['unauthorized', 401, 'AUTHENTICATION_REQUIRED'],
     ['invalidLimit', 400, 'INVALID_NOTIFICATION_LIMIT'], ['invalidType', 400, 'HTTP_ERROR']]) {
