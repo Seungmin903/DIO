@@ -1,5 +1,5 @@
 // 다이어리 목록 저장 형식. React/저장소를 모르는 순수 함수만 둔다.
-import { COVER_PATTERNS, FIRST_PAGES, PAGE_SIZES } from '../constants.js';
+import { COVER_PATTERNS, FIRST_PAGES, PAGE_SIZES, FALLBACK_COVER_COLOR } from '../constants.js';
 
 import { normalizePaperAppearance } from '../../editor/templates/appearance.js';
 import { normalizeTemplateConfig } from '../../editor/templates/creation.js';
@@ -9,7 +9,7 @@ function restoredTemplateConfig(value) {
   try { return { templateConfig: normalizeTemplateConfig(value) }; } catch { return {}; }
 }
 
-const DEFAULT_COLOR = '#CED9EE';
+const DEFAULT_COLOR = FALLBACK_COVER_COLOR;
 
 const isText = (value) => typeof value === 'string' && value.trim().length > 0;
 const oneOf = (options, value, fallback) => (options.some((option) => option.id === value) ? value : fallback);

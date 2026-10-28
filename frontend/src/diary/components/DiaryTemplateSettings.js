@@ -93,15 +93,15 @@ export default function DiaryTemplateSettings({ value, onChange }) {
 }
 
 const s = StyleSheet.create({
-  intro: { fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: 8, marginTop: 6 },
+  intro: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 8, marginTop: 6 },
   section: { marginTop: 14, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   row: { minHeight: 44, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  title: { fontSize: 14, fontWeight: '800', color: colors.text, flexShrink: 1 },
+  title: { fontSize: 14, fontWeight: '700', color: colors.text, flexShrink: 1 },
   hint: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 9 },
   label: { fontSize: 13, color: colors.text, flexShrink: 1 },
   check: { width: 24, height: 24, borderRadius: 7, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  checked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tick: { color: '#FFFFFF', fontWeight: '800' },
+  checked: { backgroundColor: colors.primaryStrong, borderColor: colors.primary },
+  tick: { color: '#FFFFFF', fontWeight: '700' },
   disabled: { opacity: 0.4 },
   preview: { width: 176, height: 132, backgroundColor: '#FFFFFF', overflow: 'hidden', borderWidth: 1, borderColor: colors.border, borderRadius: 5 },
   choices: { gap: 8, paddingVertical: 4 },

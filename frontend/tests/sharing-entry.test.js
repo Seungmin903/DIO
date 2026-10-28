@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { notificationCountLabel } from '../src/notifications/notificationCount.js';
 const require = createRequire(import.meta.url),
   expo = createRequire(require.resolve('expo/package.json')),
   babel = expo('@babel/core');
@@ -19,6 +20,7 @@ const code = babel.transformSync(
 const nodes = (n) =>
   !n || typeof n !== 'object' ? [] : [n, ...[n.props?.children].flat(Infinity).flatMap(nodes)];
 function setup({
+  props = {},
   width = 390,
   height = 844,
   insets = { left: 0, right: 0, top: 0, bottom: 0 },
@@ -64,6 +66,8 @@ function setup({
           ? native
           : id === 'react-native-safe-area-context'
             ? { useSafeAreaInsets: () => insets }
+            : id === '../notifications/notificationCount.js'
+              ? { notificationCountLabel }
             : id === 'react/jsx-runtime'
               ? require(id)
               : id === './styles'
@@ -79,7 +83,7 @@ function setup({
   }));
   const render = () => {
     ri = ei = 0;
-    return mod.exports.default({ members, onPress() {} });
+    return mod.exports.default({ members, onPress() {}, ...props });
   };
   let tree = render();
   nodes(tree).find((n) => n.props.ref).props.ref.current = {
@@ -89,6 +93,7 @@ function setup({
   };
   return {
     render,
+    setProps(next) { props = next; },
     open: () =>
       nodes(render())
         .find((n) => n.props.accessibilityLabel === '참여자 8명 보기')
@@ -130,5 +135,25 @@ test('가로 폰의 노치·홈 영역 안으로 참여자 목록 위치와 높�
   assert.ok(box.left >= 52);
   assert.ok(box.left + box.width <= 792);
   assert.ok(box.top + box.maxHeight <= 362);
+  ui.unmount();
+});
+
+
+test('실제 알림 진입점은 전체 미읽음 숫자를 표시하고 빨간 점으로 가장하지 않는다', () => {
+  const props = { notifications: true, compact: true, notificationLabel: '알림', notificationCount: { status: 'success', data: { unreadCount: 4 } } };
+  const ui = setup({ props });
+  assert.ok(nodes(ui.render()).some(n => n.props.accessibilityLabel === '알림, 안 읽은 알림 4개'));
+  assert.ok(nodes(ui.render()).some(n => n.type === 'Text' && n.props.children === 4));
+  assert.ok(!nodes(ui.render()).some(n => n.props.testID === 'notification-dot'));
+  ui.setProps({ ...props, notificationCount: { status: 'error', data: { unreadCount: 4 } } });
+  assert.ok(nodes(ui.render()).some(n => n.props.accessibilityLabel === '알림, 안 읽은 알림 4개, 알림 수 확인 필요'));
+  ui.setProps({ ...props, notificationCount: { status: 'success', data: { unreadCount: 200 } } });
+  assert.ok(nodes(ui.render()).some(n => n.props.accessibilityLabel === '알림, 안 읽은 알림 200개'));
+  assert.ok(nodes(ui.render()).some(n => n.type === 'Text' && n.props.children === '99+'));
+  ui.setProps({ ...props, notificationCount: { status: 'loading', data: null } });
+  assert.ok(!nodes(ui.render()).some(n => n.type === 'Text' && n.props.children === 0));
+  ui.setProps({ ...props, notificationCount: { status: 'success', data: { actionableUnreadCount: 2 } } });
+  assert.ok(nodes(ui.render()).some(n => n.props.accessibilityLabel === '알림, 새 초대 2개'));
+  assert.ok(nodes(ui.render()).some(n => n.props.testID === 'notification-dot'));
   ui.unmount();
 });

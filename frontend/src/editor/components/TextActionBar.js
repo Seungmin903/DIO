@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   iconButton: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  active: { backgroundColor: colors.surfaceSoft },
+  active: { backgroundColor: colors.primarySoft },
   pressed: { backgroundColor: colors.primarySoft },
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },
   swatch: { width: 25, height: 25, borderRadius: 13, borderWidth: 1, borderColor: colors.border },

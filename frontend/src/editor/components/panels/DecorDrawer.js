@@ -20,6 +20,9 @@ import TapeCropper from './TapeCropper'
 import TapeOptions from './TapeOptions'
 import TapeView from '../canvas/TapeView'
 import RecentPhotos from './RecentPhotos'
+import StickerSplitModal from './StickerSplitModal'
+import DecorSaveNotice from './DecorSaveNotice'
+import { stickerSplit } from '../../services/stickerSplit'
 
 export const DRAWER_TABS = [
   { id: 'sticker', name: '스티커', icon: 'sticker' },
@@ -75,10 +78,13 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
   const custom = useCustomDecor()
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState(null) // 없으면 첫 칩
+  // 보관함을 닫거나 앱을 다시 열어도 마지막 스티커 칩을 복원한다.
+  const category = custom.lastStickerCategory
+  const setCategory = custom.setStickerCategory
   const [editingList, setEditingList] = useState(false) // 분류 목록 편집 (순서·숨기기)
   const [listDragging, setListDragging] = useState(false) // 목록 편집에서 끄는 중이면 목록 스크롤을 멈춘다
   const [folderDraft, setFolderDraft] = useState(null) // 새 폴더·이름 바꾸기 입력 { id?, name }
+  const [splitTarget, setSplitTarget] = useState(null)
   // 새 테이프의 색·규격·무늬만 기기별로 기억한다. 기존 캔버스 요소는 수정하지 않는다.
   const [tapePreferences, updateTapePreferences, tapePreferencesReady] = useTapePreferences()
   const tapeSize = TAPE_SIZES.find(item => item.id === tapePreferences.size)
@@ -155,7 +161,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
   }
   const sorted = orderable.map((item, index) => ({ item, r: rank(item, index) })).sort((a, b) => a.r - b.r).map((x) => x.item)
   const hidden = new Set(custom.items.hiddenCategories)
-  // 즐겨찾기는 비어 있어도 맨 앞에 두고 처음 열면 여기부터 보여 준다
+  // 기록이 없거나 마지막 칩이 삭제·숨김 상태이면 즐겨찾기로 돌아간다.
   const chips = [
     { id: 'favorites', name: '즐겨찾기' },
     ...(recents.length ? [{ id: 'recent', name: '최근' }] : []),
@@ -267,6 +273,8 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
         )}
       </ToolPanelHeader>
 
+      <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} />
+
       {tab === 'sticker' && (
         <View style={styles.fixed}>
           <View style={styles.search}>
@@ -373,8 +381,12 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
               )}
               {!editingList && folder && (
                 <FolderView
+                  key={folder.id}
                   folder={folder}
-                  busy={busy}
+                  busy={busy || !custom.loaded}
+                  onSplit={() => setSplitTarget({ folder, name: '' })}
+                  splitAvailable={stickerSplit.available}
+                  splitReason={stickerSplit.reason}
                   tileProps={tileProps}
                   onRemove={(item) => ask('이 스티커를 지울까요?', `'${folder.name}' 폴더에서 지워져요.`, () => custom.removeFromFolder(folder.id, item))}
                   onAdd={() => addCustom('stickers', folder.id)}
@@ -504,6 +516,13 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
           }}
         />
       )}
+      {splitTarget && <StickerSplitModal folder={splitTarget.folder} initialName={splitTarget.name}
+        onClose={() => setSplitTarget(null)} onSave={async (folderId, name, stickers) => {
+          if (orderable.some(item => item.name === name.trim() && item.id !== `folder:${folderId}`)) throw new Error('같은 이름의 폴더나 분류가 있어요.')
+          const id = await custom.saveGenerated(folderId, name, stickers)
+          setCategory(`folder:${id}`); setFolderDraft(null)
+          onToast(`${stickers.length}개 스티커를 폴더에 저장했어요.`)
+        }} />}
       <View
         {...resizeHandlers}
         style={styles.resize}
@@ -592,6 +611,9 @@ function Pill({ label, icon, dashed, active, onPress }) {
 function FolderView({
   folder,
   busy,
+  onSplit,
+  splitAvailable,
+  splitReason,
   tileProps,
   renaming,
   canCommitRename,
@@ -603,6 +625,7 @@ function FolderView({
   onRenameCancel,
   onDelete,
 }) {
+  const [adding, setAdding] = useState(false)
   const editing = renaming != null
   return (
     <View style={styles.section}>
@@ -654,8 +677,22 @@ function FolderView({
             <StickerThumb item={item} />
           </Tile>
         ))}
-        <AddTile busy={busy} label={`${folder.name}에 스티커 추가`} onPress={onAdd} />
+        <AddTile busy={busy} label={`${folder.name}에 스티커 추가`} onPress={() => setAdding(value => !value)} />
       </View>
+      {adding && <View style={styles.stickerAddMenu}>
+        <Pressable accessibilityRole="button" accessibilityLabel="이미지 그대로 추가" disabled={busy}
+          accessibilityState={{ disabled: busy }} style={styles.stickerAddOption}
+          onPress={() => { setAdding(false); onAdd() }}>
+          <Text style={styles.stickerAddText}>이미지 그대로 추가</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="이미지 분리해서 추가" disabled={busy || !splitAvailable}
+          accessibilityState={{ disabled: busy || !splitAvailable }}
+          style={[styles.stickerAddOption, (busy || !splitAvailable) && { opacity: DISABLED_OPACITY }]}
+          onPress={() => { setAdding(false); onSplit() }}>
+          <Text style={styles.stickerAddText}>이미지 분리해서 추가</Text>
+        </Pressable>
+        {!splitAvailable && !!splitReason && <Text style={styles.stickerAddText}>{splitReason}</Text>}
+      </View>}
     </View>
   )
 }
@@ -858,6 +895,9 @@ function FavoriteStar() {
 const TILE_GAP = 3
 
 const styles = StyleSheet.create({
+  stickerAddMenu: { marginTop: 8, padding: 8, gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
+  stickerAddOption: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
+  stickerAddText: { fontSize: 14, fontWeight: '600', color: colors.text },
   drawer: {
     width: 300,
     maxWidth: '100%',
@@ -879,10 +919,10 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   titleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 38 },
-  title: { fontSize: 15, fontWeight: '800', color: colors.text },
+  title: { fontSize: 15, fontWeight: '700', color: colors.text },
   close: { padding: 8 },
   headerButton: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 32, paddingHorizontal: 10, borderRadius: 9 },
-  headerButtonActive: { backgroundColor: colors.surfaceSoft },
+  headerButtonActive: { backgroundColor: colors.primarySoft },
   headerButtonText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
   headerButtonTextActive: { color: colors.text },
   fixed: { paddingHorizontal: BODY_X, paddingBottom: 8, gap: 8 },
@@ -951,10 +991,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   folderInputButton: { height: 38, paddingHorizontal: 12, borderRadius: 10, justifyContent: 'center' },
-  folderOk: { backgroundColor: colors.primary },
+  folderOk: { backgroundColor: colors.primaryStrong },
   folderOkDisabled: { opacity: DISABLED_OPACITY },
   folderCancelText: { fontSize: 12.5, fontWeight: '700', color: colors.textMuted },
-  folderOkText: { fontSize: 12.5, fontWeight: '800', color: colors.surface },
+  folderOkText: { fontSize: 12.5, fontWeight: '700', color: colors.surface },
   folderAction: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   // 스티커 추가 칸: 예전 추가 영역의 점선·색을 스티커 한 칸에
   addTile: {
@@ -1027,10 +1067,10 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
     overflow: 'hidden',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryStrong,
     color: colors.surface,
     fontSize: 9.5,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   custom: {
     marginTop: 6,
@@ -1129,7 +1169,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primarySoft,
   },
-  uploadTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
+  uploadTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
   uploadHint: {
     fontSize: 11.5,
     lineHeight: 17,

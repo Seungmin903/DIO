@@ -13,11 +13,11 @@ const TABS = [
 ];
 
 // 폰 홈의 하단 탭. 태블릿 사이드 메뉴(SideRail)와 같은 navigate를 쓴다.
-function BottomTabs({ page, filter, navigate, bottomInset = 0, onNotifications, invitationCount = 0 }) {
+function BottomTabs({ page, filter, navigate, bottomInset = 0, onNotifications, invitationCount = 0, notificationLabel = '받은 초대', notificationCount }) {
   return (
     <View style={[s.tabBarWrap, { paddingBottom: Math.max(bottomInset, 10) + 8 }]}>
       <View style={s.tabBar} accessibilityRole="tablist">
-        {onNotifications && <SharingEntry notifications compact count={invitationCount} onPress={onNotifications}/>}
+        {onNotifications && <SharingEntry notifications notificationCount={notificationCount} notificationLabel={notificationLabel} compact count={invitationCount} onPress={onNotifications}/>}
         {TABS.map((tab) => {
           const selected = page === tab.id && (!tab.filter || filter === tab.filter);
           return (

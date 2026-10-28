@@ -7,6 +7,7 @@ import { loadTemplateAst } from '../templates/loadTemplate'
 import { hydrateMedia } from './mediaStore'
 import { saveJSON, STORAGE_KEYS } from './storage'
 import { isSessionDocumentKey, readSessionDocument, writeSessionDocument, forgetSessionDocument } from './sessionDocuments.js'
+import { loadViewedPage } from './editorViewState'
 
 // 홈에서 미리 읽는 다이어리 수(8)와 최근에 연 문서를 담을 만큼만 메모리에 둔다.
 const DOC_CACHE_LIMIT = 12
@@ -38,8 +39,9 @@ export function rememberEditorDoc(key, doc) {
 }
 
 export function forgetEditorDoc(key) {
-  if (isSessionDocumentKey(key)) { forgetSessionDocument(key); return }
+  if (isSessionDocumentKey(key)) { forgetSessionDocument(key); return true }
   docs.delete(key)
+  return true
 }
 
 /** 일반 문서는 기존 저장소, 임시 공유 문서는 세션 메모리에 저장한다. */
@@ -85,9 +87,12 @@ export function prefetchPageTemplate(page) {
  * 사진이 많아도 화면 전환이 늦어지지 않게 한다. 실패해도 편집기는 연다.
  */
 export async function prepareEditor(diary, { media = true, mediaWaitMs = 400 } = {}) {
-  const saved = await loadEditorDoc(diary).catch(() => null)
+  const [saved, pageId] = await Promise.all([
+    loadEditorDoc(diary).catch(() => null),
+    loadViewedPage(editorDocKey(diary)).catch(() => null),
+  ])
   const doc = saved ?? createDefaultDoc(diary)
-  const tasks = [prefetchPageTemplate(doc.pages[0])]
+  const tasks = [prefetchPageTemplate(doc.pages.find((page) => page.id === pageId) ?? doc.pages[0])]
   if (saved && media) tasks.push(Promise.race([hydrateMedia(saved).catch(() => {}), wait(mediaWaitMs)]))
   await Promise.all(tasks)
 }

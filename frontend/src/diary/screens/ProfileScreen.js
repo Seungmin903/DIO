@@ -55,7 +55,7 @@ const local = StyleSheet.create({
   profileAction: { minHeight: 44, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start', paddingHorizontal: 8, flexShrink: 0 },
   profileActionText: { fontSize: 13, fontWeight: '700', color: colors.surface },
   guestAction: { backgroundColor: colors.surface, borderRadius: radius.md, paddingHorizontal: 14, marginTop: 6 },
-  guestActionText: { fontSize: 13, fontWeight: '800', color: colors.text },
+  guestActionText: { fontSize: 13, fontWeight: '700', color: colors.text },
   logoutButton: { minHeight: 48, width: '100%', marginTop: 20, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', paddingVertical: 12 },
   logoutText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
   pressed: { opacity: 0.7 },

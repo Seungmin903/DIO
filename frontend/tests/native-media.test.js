@@ -8,6 +8,8 @@ test('네이티브 파일 복사 완료·메타데이터 저장을 기다리고 
   let failMetadata = false
   let outputCount = 0
   let released = 0
+  let failRead = false
+  let closedHandles = 0
   class Directory {
     constructor(...paths) { this.uri = paths.map((p) => p.uri ?? p).join('/') }
     create() {}
@@ -21,7 +23,19 @@ test('네이티브 파일 복사 완료·메타데이터 저장을 기다리고 
       files.set(target.uri, files.get(this.uri).slice())
     }
     delete() { files.delete(this.uri) }
-    open() { return { readBytes: (n) => files.get(this.uri).slice(0, n), close() {} } }
+    open() {
+      let closed = false
+      return {
+        readBytes: async (n) => {
+          // SDK 58: a close before the asynchronous read finishes must fail.
+          await new Promise(resolve => setImmediate(resolve))
+          if (closed) throw new Error('file handle is closed')
+          if (failRead) throw new Error('read failed')
+          return files.get(this.uri).slice(0, n)
+        },
+        close() { closed = true; closedHandles += 1 },
+      }
+    }
   }
   globalThis.__mediaNativeTest = {
     fs: { Directory, File, FileMode: { ReadOnly: 'r' }, Paths: { document: 'file:///documents' } },
@@ -69,6 +83,8 @@ test('네이티브 파일 복사 완료·메타데이터 저장을 기다리고 
   t.after(() => { hooks.deregister(); delete globalThis.__mediaNativeTest })
   const repository = await import('../src/editor/utils/mediaRepository.native.js')
   const source = await repository.readAsset({ uri: 'file:///picker/motion.gif' })
+  assert.ok(source.header instanceof Uint8Array)
+  assert.equal(closedHandles, 1)
   const media = { mediaFileId: 'local-1', extension: 'gif', fileSize: source.size, width: 128, height: 128 }
   const uri = await repository.save(source.source, media)
   assert.deepEqual(files.get(uri), files.get('file:///picker/motion.gif'))
@@ -101,4 +117,11 @@ test('네이티브 파일 복사 완료·메타데이터 저장을 기다리고 
   await assert.rejects(repository.save(source.source, failedDisplayMedia, { source: displaySource }), (e) => e.code === 'STORAGE_FULL')
   assert.equal(files.has('file:///documents/dio-media/failed-display.gif'), false)
   assert.equal(files.has('file:///documents/dio-media/failed-display.display.jpg'), false)
+
+  // Both import and restore must await rejection and still close the handle.
+  const beforeFailures = closedHandles
+  failRead = true
+  await assert.rejects(repository.readAsset({ uri: 'file:///picker/motion.gif' }), e => e.code === 'MEDIA_READ_FAILED')
+  await assert.rejects(repository.get('local-1'), e => e.code === 'STORAGE_READ_FAILED')
+  assert.equal(closedHandles, beforeFailures + 2)
 })

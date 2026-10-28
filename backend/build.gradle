@@ -50,13 +50,27 @@ tasks.named('test') {
 }
 
 tasks.register('authPostgresTest', Test) {
-	description = 'Verifies auth migrations and session cleanup against an isolated PostgreSQL database.'
+	description = 'Verifies auth, password reset and notification SQL using separate disposable databases; requires DIO_AUTH_SCHEMA_TEST_URL/PASSWORD and DIO_RESET_POSTGRES_URL/PASSWORD (see docs/password-reset.md).'
 	group = 'verification'
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
 	useJUnitPlatform()
-	filter { includeTestsMatching 'com.f106.DIO.auth.login.AuthInitialSchemaPostgresTests' }
+	filter {
+		includeTestsMatching 'com.f106.DIO.auth.integration.AuthInitialSchemaPostgresTests'
+		includeTestsMatching 'com.f106.DIO.notification.NotificationPostgresSchemaTests'
+		includeTestsMatching 'com.f106.DIO.auth.integration.PasswordResetPostgresTests'
+	}
 	environment 'DIO_AUTH_SCHEMA_TEST', 'true'
+	environment 'DIO_RESET_POSTGRES_QA', 'true'
+	doFirst {
+		def required = ['DIO_AUTH_SCHEMA_TEST_URL', 'DIO_AUTH_SCHEMA_TEST_PASSWORD',
+			'DIO_RESET_POSTGRES_URL', 'DIO_RESET_POSTGRES_PASSWORD']
+		def missing = required.findAll { !environment[it]?.toString()?.trim() }
+		if (!missing.isEmpty()) {
+			throw new GradleException('Missing disposable PostgreSQL test configuration: ' + missing.join(', ')
+				+ '. Use separate auth_ci / dio_reset_qa test databases. See docs/password-reset.md (authPostgresTest local setup). No database fallback is allowed.')
+		}
+	}
 }
 
 tasks.register('postgresTest', Test) {
@@ -70,4 +84,13 @@ tasks.register('postgresTest', Test) {
 		includeTestsMatching 'com.f106.DIO.page.Postgres*Tests'
 	}
 	systemProperty 'dio.postgres-test', 'true'
+}
+
+
+tasks.register('notificationBrowserQa', JavaExec) {
+    group = 'verification'
+    description = 'Starts the explicitly opted-in loopback H2 notification browser QA fixture.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.f106.DIO.notification.NotificationBrowserQa'
 }

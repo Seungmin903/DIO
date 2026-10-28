@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { authBaseUrl, createAuthApi } from '../src/auth/authApi.js';
 
 const user = { userId: '7', email: 'member@example.com', nickname: '회원', profilePhotoUrl: '/api/v1/auth/profile-photos/photo-id' };
-const tokens = (suffix = '') => ({ user, accessToken: `access${suffix}`, refreshToken: `refresh${suffix}` });
+const tokens = (suffix = '') => ({ user, accessToken: `access${suffix}`, refreshToken: `refresh${suffix}`, expiresIn: 900 });
 const response = (data, status = 200) => ({ status, ok: status < 400, json: async () => data });
 function setup(handler, options = {}) {
   const calls = [];

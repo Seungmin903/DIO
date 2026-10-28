@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   tileOn: { borderColor: colors.primary, backgroundColor: colors.surface },
   tileThumb: { width: 96, overflow: 'hidden', borderRadius: 4, backgroundColor: colors.surface },
   tileText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
-  tileTextOn: { color: colors.primary },
+  tileTextOn: { color: colors.primaryStrong },
   spec: { height: 42, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 11, color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'left', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
   input: { width: 56, height: 38, borderWidth: 1, borderColor: colors.border, borderRadius: 10, textAlign: 'center', color: colors.text, fontSize: 14, fontWeight: '700' },
 })

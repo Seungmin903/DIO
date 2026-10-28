@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Modal from '../../editor/components/controls/EditorModal';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
@@ -52,7 +52,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   const { width, height } = useWindowDimensions();
   const { isPhone } = useFormFactor();
   const [viewport, setViewport] = useState({ width, height });
-  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height, Platform.OS);
+  const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height);
   const mock = useMemo(() => createMockDiaryTransport(account === 'A' ? {} : { initialRows: [{
     diaryId: 'mock-account-b', diaryTitle: '다른 계정 일기', coverColor: '#9FB6D9', visibility: 'PRIVATE',
     pageCount: 3, version: '1', canEdit: true, myMembership: { isFavorite: true }, createdAt: '2026-10-24T03:00:00Z', updatedAt: '2026-10-24T03:00:00Z',
@@ -339,6 +339,6 @@ const s = StyleSheet.create({
   notice: { gap: 8, padding: 12, backgroundColor: C.white },
   button: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, backgroundColor: C.pale },
   buttonSelected: { borderWidth: 2, borderColor: C.blue },
-  text: { color: C.ink, fontSize: 14 }, title: { color: C.ink, fontSize: 20, fontWeight: '800' },
+  text: { color: C.ink, fontSize: 14 }, title: { color: C.ink, fontSize: 20, fontWeight: '700' },
   detail: { padding: 20, gap: 12, backgroundColor: C.white, flexGrow: 1 },
 });

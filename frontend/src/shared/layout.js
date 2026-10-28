@@ -3,8 +3,7 @@ export const TABLET_WIDTH = 1280
 export const TABLET_HEIGHT = 800
 export const TABLET_ASPECT_RATIO = TABLET_WIDTH / TABLET_HEIGHT
 
-// 홈·편집기 UI를 맞추는 플랫폼별 기준 프레임.
-// 실제 기기 크기를 고정하지 않고, 현재 창 안에서 이 비율을 가장 크게 유지한다.
+// 디자인 검증에 사용하는 플랫폼별 기준 크기. 앱 바깥 프레임 비율을 제한하지 않는다.
 export const TABLET_FRAME_SPECS = Object.freeze({
   ios: Object.freeze({ width: 1024, height: 768 }), // iPad 기준 4:3
   android: Object.freeze({ width: 1280, height: 800 }), // Android 태블릿 기준 16:10
@@ -15,15 +14,13 @@ export function tabletFrameSpec(platform = 'android') {
   return TABLET_FRAME_SPECS[platform] ?? TABLET_FRAME_SPECS.android
 }
 
-export function fitTabletFrame(windowWidth, windowHeight, platform = 'android') {
+// 안전 영역을 제외하고 측정한 창 전체를 쓴다. 속지 비율·좌표·배율 계산과는 별개다.
+export function fitTabletFrame(windowWidth, windowHeight) {
   const safeWidth = Math.max(0, windowWidth)
   const safeHeight = Math.max(0, windowHeight)
-  const spec = tabletFrameSpec(platform)
-  const scale = Math.min(safeWidth / spec.width, safeHeight / spec.height)
-
   return {
-    width: spec.width * scale,
-    height: spec.height * scale,
+    width: safeWidth,
+    height: safeHeight,
   }
 }
 
