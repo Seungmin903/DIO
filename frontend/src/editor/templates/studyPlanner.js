@@ -14,7 +14,7 @@ export const STUDY_PLANNER_TEMPLATES = ['landscape', 'portrait'].map(orientation
 export const STUDY_PLANNER_MENU_ITEM = { type: 'study', name: '스터디 플래너', assets: STUDY_PLANNER_TEMPLATES.map(t => ({ orientation: t.orientation, assetId: t.id })) }
 
 export const START_HOURS = [5, 6, 7]
-const ROWS = 24, COLS = 6, DAYS = ['월', '화', '수', '목', '금', '토', '일']
+const ROWS = 24, COLS = 6, DAYS = ['월', '화', '수', '목', '금', '토', '일'], HEARTS = [0, 1, 2, 3, 4]
 // 다른 속지와 같은 6색 팔레트라 속지 옵션의 레이아웃 색이 그대로 먹는다(appearance.js).
 const TEXT = '#292929', LABEL = '#666666', LINE = '#d7d9dc', LINE_SOFT = '#e8e9eb'
 const FILL_OPACITY = 0.78
@@ -48,12 +48,14 @@ export function normalizePlanner(value) {
   const cells = map(v.cells, k => /^\d{1,2},\d$/.test(k) && +k.split(',')[0] < ROWS && +k.split(',')[1] < COLS)
   const rowKey = k => /^\d{1,2}$/.test(k)
   const mark = m => m && Number.isInteger(m.i) && color(m.color) ? { i: m.i, color: color(m.color), hl: Boolean(m.hl) } : null
-  // 만족도: 0 ~ i 번째 하트를 채우고, 지우개로 지운 하트(off)만 비운다. 다 지우면 없음.
+  // 만족도: 하트 5개 각각의 { color, hl } 또는 null. 하트마다 다른 색으로 칠할 수 있다. 다 비면 없음.
+  // 예전 기록 { i, color, hl, off } 은 0 ~ i 번째(off 제외)를 그 색으로 읽는다.
   const moodMark = m => {
-    const base = mark(m)
-    if (!base) return null
-    const off = [...new Set((Array.isArray(m.off) ? m.off : []).filter(k => Number.isInteger(k) && k >= 0 && k <= base.i))].sort((a, b) => a - b)
-    return off.length > base.i ? null : { ...base, off }
+    if (!m || typeof m !== 'object') return null
+    const legacy = mark(m), off = Array.isArray(m.off) ? m.off : []
+    const list = Array.isArray(m.hearts) ? m.hearts : legacy ? HEARTS.map((_, k) => k <= legacy.i && !off.includes(k) ? legacy : null) : []
+    const hearts = HEARTS.map((_, k) => list[k] && color(list[k].color) ? { color: color(list[k].color), hl: Boolean(list[k].hl) } : null)
+    return hearts.some(Boolean) ? { hearts } : null
   }
   const o = v.options ?? {}
   const used = new Set(Object.values(cells))
@@ -90,7 +92,7 @@ function todoAt(L, p) {
   return { r, part: p.x < g.t.x + CHECK_W ? 'box' : p.x >= g.cx ? 'color' : 'text' }
 }
 function days(L) { const w = L.week; return DAYS.map((_, i) => ({ cx: w.x + i * 26, cy: w.cy, r: 11 })) }
-function hearts(L) { const m = L.mood, s = 20, gap = 8, x0 = m.x + m.w - 12 - 5 * s - 4 * gap; return [0, 1, 2, 3, 4].map(i => ({ cx: x0 + s / 2 + i * (s + gap), cy: m.y + m.h / 2, r: s / 2 })) }
+function hearts(L) { const m = L.mood, s = 20, gap = 8, x0 = m.x + m.w - 12 - 5 * s - 4 * gap; return HEARTS.map(i => ({ cx: x0 + s / 2 + i * (s + gap), cy: m.y + m.h / 2, r: s / 2 })) }
 const hitCircle = (list, p) => list.findIndex(c => Math.hypot(p.x - c.cx, p.y - c.cy) <= c.r + 6)
 function sample(points, step = 3) {
   const out = []
@@ -166,8 +168,14 @@ export function applyPlannerStroke(value, orientation, points, settings) {
   }
   const day = hitCircle(days(L), first)
   if (day >= 0 && tap) return { ...planner, day: { i: day, color: c, hl } }
-  const heart = hitCircle(hearts(L), first)
-  if (heart >= 0 && tap) return { ...planner, mood: { i: heart, color: c, hl, off: [] } }
+  const heartHits = hearts(L), heart = hitCircle(heartHits, first)
+  // 하트에서 시작해 형광펜으로 여러 개를 그으면 지나간 하트가 한 번에 찬다. 이미 찬 하트에 누적하고 색은 새 색으로 맞춘다.
+  // 이웃한 하트 둘은 톡 판정 거리보다 가까워서, 지나간 하트 수로 긋기를 가른다.
+  const passed = heart >= 0 && hl ? new Set(sample(points).map(p => hitCircle(heartHits, p)).filter(i => i >= 0)) : null
+  const paint = { color: c, hl }
+  if (heart >= 0 && tap && !(passed?.size > 1)) return { ...planner, mood: { hearts: HEARTS.map(k => k <= heart ? paint : null) } }
+  // 그은 하트만 새 색으로 칠하고, 나머지 하트는 원래 색 그대로 둔다(누적).
+  if (passed) return { ...planner, mood: { hearts: HEARTS.map(k => passed.has(k) ? paint : planner.mood?.hearts[k] ?? null) } }
   return null
 }
 
@@ -208,7 +216,7 @@ export function erasePlanner(value, orientation, points, mode = 'stroke') {
     const d = hitCircle(dayHits, p)
     if (d >= 0 && day?.i === d) { day = null; changed = true }
     const h = hitCircle(heartHits, p)
-    if (mood && h >= 0 && h <= mood.i && !mood.off.includes(h)) { mood = { ...mood, off: [...mood.off, h] }; changed = true }
+    if (h >= 0 && mood?.hearts[h]) { mood = { hearts: mood.hearts.map((x, k) => k === h ? null : x) }; changed = true }
   }
   return changed ? normalizePlanner({ ...planner, cells, caps, checks, bands, day, mood }) : null
 }
@@ -395,7 +403,8 @@ function overlayBody(orientation, value) {
 
   // 만족도
   if (p.mood) hearts(L).forEach((c, i) => {
-    if (i <= p.mood.i && !p.mood.off.includes(i)) out.push(`<path d="${heartPath(c)}" fill="${p.mood.color}" ${p.mood.hl ? 'fill-opacity="0.75" ' : ''}stroke="${p.mood.color}" stroke-width="1.2"/>`)
+    const h = p.mood.hearts[i]
+    if (h) out.push(`<path d="${heartPath(c)}" fill="${h.color}" ${h.hl ? 'fill-opacity="0.75" ' : ''}stroke="${h.color}" stroke-width="1.2"/>`)
   })
   return out.join('')
 }

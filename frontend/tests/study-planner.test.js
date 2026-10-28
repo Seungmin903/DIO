@@ -124,18 +124,21 @@ test('만족도 하트는 획 · 영역 지우개 모두 닿은 하트 하나씩
   const M = plannerLayout('landscape').mood
   const heart = i => { const s = 20, gap = 8, x0 = M.x + M.w - 12 - 5 * s - 4 * gap; return { x: x0 + s / 2 + i * (s + gap), y: M.y + M.h / 2 } }
   const p = applyPlannerStroke(null, 'landscape', [heart(3)], PEN)
-  assert.equal(p.mood.i, 3)
+  const filled = planner => normalizePlanner(planner).mood?.hearts.map(h => h ? h.color : null) ?? null
+  assert.deepEqual(filled(p), ['#EF476F', '#EF476F', '#EF476F', '#EF476F', null])
   for (const mode of ['stroke', 'area']) {
     const one = erasePlanner(p, 'landscape', [heart(3)], mode)
-    assert.deepEqual(one.mood.off, [3])
+    assert.deepEqual(filled(one), ['#EF476F', '#EF476F', '#EF476F', null, null])
     assert.equal(erasePlanner(one, 'landscape', [heart(3)], mode), null)
-    assert.deepEqual(erasePlanner(one, 'landscape', [heart(1)], mode).mood.off, [1, 3])
+    assert.deepEqual(filled(erasePlanner(one, 'landscape', [heart(1)], mode)), ['#EF476F', null, '#EF476F', null, null])
   }
   let all = p
   for (const i of [0, 1, 2, 3]) all = erasePlanner(all, 'landscape', [heart(i)], 'area')
-  assert.equal(all.mood, null)
+  assert.equal(normalizePlanner(all).mood, null)
   // 다시 톡 하면 처음부터 채운다
-  assert.deepEqual(applyPlannerStroke(erasePlanner(p, 'landscape', [heart(1)]), 'landscape', [heart(2)], PEN).mood.off, [])
+  assert.deepEqual(filled(applyPlannerStroke(erasePlanner(p, 'landscape', [heart(1)]), 'landscape', [heart(2)], PEN)), ['#EF476F', '#EF476F', '#EF476F', null, null])
+  // 예전 기록 { i, color, off } 도 읽는다
+  assert.deepEqual(filled({ mood: { i: 2, color: '#ef476f', off: [1] } }), ['#EF476F', null, '#EF476F', null, null])
 })
 
 test('텍스트 도구로 칸을 누르면 그 칸 · 줄에 맞춘 글상자 자리를 준다', () => {
@@ -161,6 +164,30 @@ test('텍스트 도구로 칸을 누르면 그 칸 · 줄에 맞춘 글상자 �
     assert.equal(plannerTextSlot(o, { x: L.week.x, y: 63 }), null)
   }
   assert.ok(plannerTextSlot('landscape', { x: 100, y: 600 }))
+})
+
+test('형광펜으로 하트를 여러 개 그으면 지나간 하트가 한 번에 찬다', () => {
+  const M = plannerLayout('landscape').mood
+  const heart = i => { const s = 20, gap = 8, x0 = M.x + M.w - 12 - 5 * s - 4 * gap; return { x: x0 + s / 2 + i * (s + gap), y: M.y + M.h / 2 } }
+  const p = applyPlannerStroke(null, 'landscape', [heart(0), heart(2)], HL)
+  const filled = planner => normalizePlanner(planner).mood?.hearts.map(h => h ? h.color : null) ?? null, Y = '#FFE066', P = '#FFB3C7'
+  assert.deepEqual(filled(p), [Y, Y, Y, null, null])
+  assert.equal(p.mood.hearts[0].hl, true)
+  // 가운데부터 그으면 지나간 하트만
+  assert.deepEqual(filled(applyPlannerStroke(null, 'landscape', [heart(2), heart(4)], HL)), [null, null, Y, Y, Y])
+  // 이미 찬 하트에 누적한다: 1~2번째를 채운 뒤 4~5번째를 그으면 1 · 2 · 4 · 5번째
+  const more = applyPlannerStroke(applyPlannerStroke(null, 'landscape', [heart(0), heart(1)], HL), 'landscape', [heart(3), heart(4)], HL)
+  assert.deepEqual(filled(more), [Y, Y, null, Y, Y])
+  // 가운데를 이어 그으면 빈 곳 없이 다 찬다
+  assert.deepEqual(filled(applyPlannerStroke(more, 'landscape', [heart(2), heart(3)], HL)), [Y, Y, Y, Y, Y])
+  // 다른 색으로 그으면 그은 하트만 그 색, 나머지는 원래 색
+  const mixed = applyPlannerStroke(more, 'landscape', [heart(1), heart(2)], { kind: 'highlighter', color: P })
+  assert.deepEqual(filled(mixed), [Y, P, P, Y, Y])
+  const svg = plannerOverlaySvg('landscape', mixed)
+  assert.equal(svg.match(/fill="#FFB3C7" fill-opacity="0.75"/g).length, 2)
+  assert.equal(svg.match(/fill="#FFE066" fill-opacity="0.75"/g).length, 3)
+  // 펜으로 그은 건 그대로 자유 필기
+  assert.equal(applyPlannerStroke(null, 'landscape', [heart(0), heart(3)], PEN), null)
 })
 
 test('시작 시각 옵션이 시간 숫자와 시작–끝 표기에 반영된다', () => {
