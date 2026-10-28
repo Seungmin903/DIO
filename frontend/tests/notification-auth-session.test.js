@@ -29,6 +29,41 @@ test('직접 주입한 gateway가 있으면 factory를 호출하지 않고 잘�
   await assert.rejects(invalid.invitations.get('invite-1'),e=>e.code==='INVITATION_NOT_CONNECTED');
   assert.equal(called,0);assert.deepEqual(await invalid.api.count(),{unreadCount:1});
 });
+test('AuthenticatedNotificationProvider는 createInvitations를 세션 gateway까지 전달한다', async () => {
+  const { createRequire } = await import('node:module');
+  const { readFileSync } = await import('node:fs');
+  const require = createRequire(import.meta.url);
+  const expoRequire = createRequire(require.resolve('expo/package.json'));
+  const { transformSync } = expoRequire('@babel/core');
+  const file = new URL('../src/notifications/NotificationProvider.js', import.meta.url);
+  const { code } = transformSync(readFileSync(file, 'utf8'), {
+    babelrc: false, configFile: false,
+    plugins: [[expoRequire.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expoRequire.resolve('@babel/plugin-transform-modules-commonjs')],
+  });
+  let memoValue, providerProps;
+  const react = { createContext: value => ({ value }), useContext: context => context.value,
+    useMemo: factory => { memoValue = factory(); return memoValue; },
+    createElement: (type, props, children) => { providerProps = { type, props: { ...props, children } }; return providerProps; } };
+  const module = { exports: {} };
+  new Function('require', 'module', 'exports', code)(name => {
+    if (name === 'react') return react;
+    if (name.endsWith('/useNotifications.js')) return { useNotifications: () => ({}) };
+    if (name.endsWith('/useServerNotifications.js')) return { useServerNotifications: () => ({}) };
+    if (name.endsWith('/authenticatedNotifications.js')) return { createAuthenticatedNotificationSession: ({ createInvitations }) => ({ api: {}, invitations: createInvitations({}) }) };
+    return require(name);
+  }, module, module.exports);
+  const factory = () => ({ get: async () => ({}) });
+  const auth = { getSessionKey: () => 'session-1', getConnectionOptions: () => ({}), getAccessToken: async () => 'token' };
+  module.exports.AuthenticatedNotificationProvider({ auth, userId: 'user-1', createInvitations: factory, children: 'child' });
+  assert.equal(providerProps.props.invitations.get instanceof Function, true);
+  assert.equal(memoValue.invitations.get instanceof Function, true);
+});
+test('AuthenticatedNotificationDialog는 onInvitationReady를 NotificationPanel에 전달한다', async () => {
+  const { readFileSync } = await import('node:fs');
+  const file = new URL('../src/notifications/AuthenticatedNotificationDialog.js', import.meta.url);
+  const source = readFileSync(file, 'utf8');
+  assert.match(source, /<NotificationPanel\s+model=\{model\}\s+onInvitationReady=\{onInvitationReady\}\s*\/>/);
+});
 test('공유 어댑터는 알림과 같은 인증 transport와 AbortSignal을 사용한다', async () => {
   const f=fixture(); await login(f.auth);
   const requests=[], controller=new AbortController();

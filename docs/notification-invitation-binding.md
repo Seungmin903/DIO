@@ -37,7 +37,7 @@ frontend의 test:notifications에 포함되는 notification-auth-session.test.js
 
 2026-10-28 실행 결과:
 
-- test:notifications의 8개 파일 + test:auth의 6개 파일 + member-notification-auth.test.js: 130개 통과, 실패/건너뜀 0개. 새 공유 연결 회귀 5개 포함. 명령은 `node --test tests/notification-auth-session.test.js tests/notification-api.test.js tests/server-notification-api.test.js tests/notification-lifecycle.test.js tests/notification-integration.test.js tests/notification-presentation.test.js tests/notification-errors.test.js tests/notification-races.test.js tests/auth-api.test.js tests/auth-password-reset.test.js tests/auth-photo-native.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js tests/member-notification-auth.test.js`.
+- test:notifications의 8개 파일 + test:auth의 6개 파일 + member-notification-auth.test.js: 132개 통과, 실패/건너뜀 0개. 새 공유 연결 회귀 7개와 Provider/Dialog 전달 경계 회귀 2개 포함. 명령은 `node --test tests/notification-auth-session.test.js tests/notification-api.test.js tests/server-notification-api.test.js tests/notification-lifecycle.test.js tests/notification-integration.test.js tests/notification-presentation.test.js tests/notification-errors.test.js tests/notification-races.test.js tests/auth-api.test.js tests/auth-password-reset.test.js tests/auth-photo-native.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js tests/member-notification-auth.test.js`.
 - `node node_modules/expo/bin/cli export --platform web --output-dir .expo/notification-binding-web`: 성공.
 - 최초 새 작업 폴더 검증에서는 loopback HTTP 연결 제한과 React 의존성 누락이 발생했다. 기존 설치 node_modules를 junction으로 참조하고 loopback 허용 환경에서 위 검증을 다시 실행했다. 패키지/lockfile 및 기존 설치 의존성 파일을 변경하지 않았다.
 - 실제 공유 서버 API·이벤트 생산자·수락/거절 화면 및 iPad/Android 종단 QA는 미검증이다. 244의 팀 합의와 245·248·250·251의 전체 완료를 선언하지 않는다.
