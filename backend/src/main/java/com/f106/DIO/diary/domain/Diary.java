@@ -48,10 +48,29 @@ public class Diary {
 	private Instant deletedAt;
 
 	public Diary(String title, String coverColor, String coverStyle, String visibility) {
+		this(title, coverColor, coverStyle, visibility, null);
+	}
+
+	public Diary(String title, String coverColor, String coverStyle, String visibility, Long ownerUserId) {
 		this.title = title;
 		this.coverColor = coverColor;
 		this.coverStyle = coverStyle;
 		this.visibility = visibility;
+		this.ownerUserId = ownerUserId;
+	}
+
+	/** 로컬 시드처럼 외부에서 안정적인 식별자를 정해 복원할 때만 사용한다. */
+	public Diary(UUID diaryId, String title, String coverColor, String coverStyle, String visibility) {
+		this.diaryId = diaryId;
+		this.title = title;
+		this.coverColor = coverColor;
+		this.coverStyle = coverStyle;
+		this.visibility = visibility;
+	}
+
+	/** 로컬 전용 시드의 기존 행에만 소유자를 연결한다. */
+	public void claimOwnerIfMissing(Long userId) {
+		if (ownerUserId == null) ownerUserId = userId;
 	}
 
 	public void updateSettings(String title, String coverColor, String coverStyle, String visibility) {

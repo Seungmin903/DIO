@@ -34,3 +34,8 @@ management:
   endpoint:
     health:
       show-details: always
+
+dio:
+  local-seed:
+    enabled: ${DIO_LOCAL_SEED_ENABLED:false}
+    file: ${DIO_LOCAL_SEED_FILE:src/main/resources/db/seed/local-demo.json}
