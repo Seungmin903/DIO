@@ -40,7 +40,7 @@ test('일반/미지원 알림은 상세 gateway 없이 읽음·삭제하고 이�
 
 // Expo가 사용하는 Babel로 JSX만 변환하고 실제 RN Web 컴포넌트를 렌더링한다.
 // 별도 UI 테스트 라이브러리나 앱 진입점 변경 없이 같은 패널의 어댑터별 노출을 검증한다.
-test('공통 패널은 서버 모두 읽음을 숨기고 목 모두 읽음과 기본 동작을 유지한다', async () => {
+test('공통 패널은 서버와 목 모두 읽음과 기본 동작을 제공한다', async () => {
   const { createRequire } = await import('node:module');
   const { readFileSync } = await import('node:fs');
   const { createElement } = await import('react');
@@ -69,7 +69,7 @@ test('공통 패널은 서버 모두 읽음을 숨기고 목 모두 읽음과 �
     ? { unreadCount: 1 } : { items: [{ notification: { notificationId: '1', notificationType: 'NOTICE', createdAt: 'date', readAt: null }, invitation: null }], hasNext: false, nextCursor: null });
   const serverStore = createNotificationStore(serverApi, {});
   try {
-    for (const [store, expected] of [[serverStore, false], [mockStore, true]]) {
+    for (const [store, expected] of [[serverStore, true], [mockStore, true]]) {
       await store.refresh();
       assert.equal(store.getSnapshot().canReadAll, expected);
       const html = renderToStaticMarkup(createElement(Panel, { model: { ...store.getSnapshot(), store } }));

@@ -69,6 +69,14 @@ export function createServerNotificationApi(transport) {
     read(notificationId, options = {}) {
       return transport({ ...options, method: 'PATCH', path: `/notifications/${encodeURIComponent(notificationId)}` });
     },
+    async prepareReadAll(options = {}) {
+      const body = await transport({ ...options, method: 'POST', path: '/notifications/read-watermarks' });
+      if (!id(body?.readWatermark) || !id(body?.expiresAt)) throw invalid();
+      return body;
+    },
+    readAll(readWatermark, options = {}) {
+      return transport({ ...options, method: 'POST', path: '/notifications/read-all', body: { readWatermark } });
+    },
     remove(notificationId, options = {}) {
       return transport({ ...options, method: 'DELETE', path: `/notifications/${encodeURIComponent(notificationId)}` });
     },
@@ -76,7 +84,27 @@ export function createServerNotificationApi(transport) {
 }
 
 // useNotifications(session.api, session.invitations)へ渡す。アカウント変更時は再生成する。
-export function createServerNotificationSession({ invitations, ...httpOptions }) {
-  return { api: createServerNotificationApi(createNotificationHttpTransport(httpOptions)),
-    invitations: invitations ?? { async get() { throw new NotificationError('INVITATION_NOT_CONNECTED', '초대 상세 연결을 기다리고 있어요.'); } } };
+export function createServerNotificationSession({ invitations, createInvitations, ...httpOptions }) {
+  const transport = createNotificationHttpTransport(httpOptions);
+  const disconnected = { async get() { throw new NotificationError('INVITATION_NOT_CONNECTED', '초대 상세 연결을 기다리고 있어요.'); } };
+  const warnFactoryFailure = (error) => {
+    if (typeof __DEV__ !== 'undefined' && __DEV__ && typeof console?.warn === 'function') {
+      const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      console.warn('[notifications] invitation gateway 연결 실패', detail);
+    }
+  };
+  let gateway = disconnected;
+  try {
+    const candidate = invitations ?? createInvitations?.({ transport });
+    if (typeof candidate?.then === 'function') {
+      // factory는 동기 계약이다. 잘못 전달한 async factory의 rejection도 격리한다.
+      Promise.resolve(candidate).catch(warnFactoryFailure);
+    } else if (typeof candidate?.get === 'function') gateway = candidate;
+    else if (candidate != null) warnFactoryFailure(new TypeError('get 메서드가 없는 초대 게이트웨이'));
+  } catch (error) {
+    // 공유 설정 실패로 기본 알림 목록까지 중단하거나 내부 오류를 노출하지 않는다.
+    warnFactoryFailure(error);
+  }
+  return { api: createServerNotificationApi(transport),
+    invitations: gateway };
 }

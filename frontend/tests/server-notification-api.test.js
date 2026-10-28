@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { createNotificationHttpTransport, createServerNotificationSession, toServerNotification } from '../src/notifications/serverNotificationApi.js';
 import { createNotificationStore } from '../src/notifications/notificationStore.js';
 
-test('실제 HTTP 기본 알림은 전체 읽음 호출 없이 목록·카운트·개별 읽음·삭제를 제공한다', async t => {
+test('실제 HTTP 알림은 목록·카운트·개별 읽음·삭제와 전체 읽음을 제공한다', async t => {
   const requests = [];
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
@@ -14,6 +14,7 @@ test('실제 HTTP 기본 알림은 전체 읽음 호출 없이 목록·카운트
       notificationId: '9007199254740993', notificationType: 'DIARY_INVITED', createdAt: '2026-10-27T00:00:00Z', readAt: null,
     }, invitation: null }], hasNext: false, nextCursor: null }));
     if (req.url.endsWith('/unread-count')) return res.end(JSON.stringify({ unreadCount: 2 }));
+    if (req.url.endsWith('/read-watermarks')) return res.end(JSON.stringify({ readWatermark: 'opaque-token', expiresAt: '2026-10-28T01:00:00Z' }));
     if (req.method === 'PATCH') return res.end('{}');
     res.statusCode = 204; res.end();
   });
@@ -26,20 +27,82 @@ test('실제 HTTP 기본 알림은 전체 읽음 호출 없이 목록·카운트
   assert.equal(store.getSnapshot().list.status, 'success', store.getSnapshot().list.error?.stack);
   assert.equal(store.getSnapshot().items[0].id, '9007199254740993');
   assert.deepEqual(store.getSnapshot().count.data, { unreadCount: 2 });
-  assert.equal(session.api.prepareReadAll, undefined);
-  assert.equal(session.api.readAll, undefined);
-  assert.equal(store.getSnapshot().canReadAll, false);
-  const before = requests.length;
-  await store.readAll(); await store.retryMutation();
-  assert.equal(requests.length, before);
-  assert.equal(store.getSnapshot().mutation.status, 'idle');
+  assert.equal(store.getSnapshot().canReadAll, true);
+  await store.readAll();
+  assert.equal(store.getSnapshot().mutation.status, 'success');
+  assert.deepEqual(requests.find(row => row.url.endsWith('/read-all')).body, { readWatermark: 'opaque-token' });
   token = 'refreshed';
   await store.open(store.getSnapshot().items[0]);
   await store.remove('9007199254740993');
   assert.ok(requests.some(row => row.method === 'PATCH' && row.url.endsWith('/9007199254740993') && !row.body));
   assert.equal(requests.find(row => row.method === 'PATCH').token, 'Bearer refreshed');
-  assert.ok(requests.every(row => !/read-watermarks|read-all/.test(row.url)));
+  assert.equal(requests.filter(row => row.url.endsWith('/read-watermarks')).length, 1);
   assert.ok(requests.some(row => row.method === 'DELETE' && row.url.endsWith('/9007199254740993')));
+});
+
+test('전체 읽음 실패 후 재시도는 같은 watermark를 사용한다', async () => {
+  const calls = []; let attempts = 0;
+  const api = {
+    list: async () => ({ items: [{ id: '1' }], nextCursor: null }),
+    count: async () => ({ unreadCount: 1 }),
+    prepareReadAll: async () => { calls.push('prepare'); return { readWatermark: 'fixed' }; },
+    readAll: async token => { calls.push(token); if (++attempts === 1) throw new Error('network'); },
+  };
+  const store = createNotificationStore(api, { get: async () => null });
+  try {
+    await store.refresh(); await store.readAll();
+    assert.equal(store.getSnapshot().mutation.canRetry, true);
+    await store.retryMutation();
+    assert.deepEqual(calls, ['prepare', 'fixed', 'fixed']);
+    assert.equal(store.getSnapshot().mutation.status, 'success');
+  } finally { store.dispose(); }
+});
+
+test('공유 초대 gateway와 전체 읽음은 같은 인증 세션에서 공존한다', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    const body = url.endsWith('/read-watermarks') ? { readWatermark: 'snapshot', expiresAt: '2026-10-29T01:00:00Z' } : { inviteId: 'invite-1' };
+    return { ok: true, status: url.endsWith('/read-all') ? 204 : 200, json: async () => body };
+  };
+  const session = createServerNotificationSession({ baseUrl: 'https://example.test/api/v1', getAccessToken: async () => 'session-token', fetchImpl,
+    createInvitations: ({ transport }) => ({ get: (inviteId, options) => transport({ ...options, path: `/invites/${inviteId}` }) }) });
+  const invitation = await session.invitations.get('invite-1', {});
+  const boundary = await session.api.prepareReadAll();
+  await session.api.readAll(boundary.readWatermark);
+  assert.equal(invitation.inviteId, 'invite-1');
+  assert.deepEqual(calls.map(call => call.options.headers.Authorization), ['Bearer session-token', 'Bearer session-token', 'Bearer session-token']);
+  assert.deepEqual(JSON.parse(calls[2].options.body), { readWatermark: 'snapshot' });
+});
+
+test('watermark 발급 응답을 잃으면 새 스냅샷을 자동 재발급하지 않는다', async () => {
+  let preparations = 0;
+  const api = { list: async () => ({ items: [{ id: '1' }], nextCursor: null }), count: async () => ({ unreadCount: 1 }),
+    prepareReadAll: async () => { preparations++; throw new Error('lost'); }, readAll: async () => { throw new Error('unexpected'); } };
+  const store = createNotificationStore(api, { get: async () => null });
+  try {
+    await store.refresh(); await store.readAll();
+    assert.equal(store.getSnapshot().mutation.canRetry, false);
+    await store.retryMutation(); assert.equal(preparations, 1);
+    await store.readAll(); assert.equal(preparations, 2);
+  } finally { store.dispose(); }
+});
+
+test('만료되거나 잘못된 경계는 재시도하지 않고 새 요청에서 새 경계를 발급한다', async () => {
+  for (const [status, code] of [[410, 'READ_WATERMARK_EXPIRED'], [400, 'INVALID_READ_WATERMARK']]) {
+    const calls = []; let preparations = 0;
+    const api = { list: async () => ({ items: [{ id: '1' }], nextCursor: null }), count: async () => ({ unreadCount: 1 }),
+      prepareReadAll: async () => ({ readWatermark: `token-${++preparations}` }),
+      readAll: async token => { calls.push(token); if (calls.length === 1) throw Object.assign(new Error(code), { status, code }); } };
+    const store = createNotificationStore(api, { get: async () => null });
+    try {
+      await store.refresh(); await store.readAll();
+      assert.equal(store.getSnapshot().mutation.canRetry, false);
+      await store.retryMutation(); assert.deepEqual(calls, ['token-1']);
+      await store.readAll(); assert.deepEqual(calls, ['token-1', 'token-2']);
+      assert.equal(store.getSnapshot().mutation.status, 'success');
+    } finally { store.dispose(); }
+  }
 });
 
 test('인증 미연결은 fetch 전 401, 취소는 AbortError', async () => {

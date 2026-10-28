@@ -488,6 +488,23 @@ export function editorReducer(state, action) {
         pendingCheckpoint: null,
       })
 
+    // Server import/recovery never replaces other objects or newer local edits.
+    // Keep this outside Undo history so it cannot erase already-made edits.
+    case 'importPageTexts': {
+      const page = state.doc.pages.find(p => p.id === action.pageId)
+      if (!page || page.objects !== action.expectedObjects) return state
+      const incoming = new Map(action.objects.map(o => [o.id, o]))
+      const objects = page.objects.flatMap(o => {
+        if (o.type !== 'text') return [o]
+        const next = incoming.get(o.id)
+        incoming.delete(o.id)
+        return next ? [next] : []
+      }).concat([...incoming.values()])
+      const currentTexts = page.objects.filter(o => o.type === 'text')
+      const nextTexts = objects.filter(o => o.type === 'text')
+      if (JSON.stringify(currentTexts) === JSON.stringify(nextTexts)) return state
+      return { ...state, externalDirty: true, doc: { ...state.doc, pages: state.doc.pages.map(p => p === page ? { ...p, objects } : p) } }
+    }
     case 'load':
       return createInitialState(action.doc, action.pageId)
 

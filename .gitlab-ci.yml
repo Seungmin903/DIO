@@ -91,31 +91,28 @@ backend-test:
   stage: quality
   tags:
     - ec2-deploy
+  cache:
+    key: backend-gradle-v1
+    paths:
+      - backend/.gradle/caches/
+      - backend/.gradle/wrapper/
+    policy: pull-push
+  interruptible: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes: &member_contract_changes
+      # 백엔드 산출물을 만드는 작업이므로 프런트엔드 전용 변경에서는 실행하지 않는다.
+      changes: &backend_contract_changes
         - backend/**/*
         - .gitlab-ci.yml
         - infra/compose/compose.*.yml
         - infra/nginx/**/default.conf
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
-        - frontend/src/notifications/**/*
-        - frontend/tests/*notification*
-        - frontend/qa/run-notification-contract.*
-        - frontend/src/diary/**/*
-        - frontend/src/editor/utils/**/*
-        - frontend/src/editor/templates/**/*
-        - frontend/src/shared/**/*
-        - frontend/tests/member-*
-        - frontend/qa/run-member-contract*
-        - frontend/package.json
-        - frontend/pnpm-lock.yaml
   script:
     - >
       docker run --rm
       --user "$(id -u):$(id -g)"
-      -e GRADLE_USER_HOME=/tmp/gradle
+      -e GRADLE_USER_HOME=/workspace/backend/.gradle
       -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/workspace/backend/build/notification-frontend-contract.json
       -v "$CI_PROJECT_DIR/backend:/workspace/backend"
       -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro"
@@ -145,18 +142,26 @@ diary-fe-contract-test:
   stage: quality
   tags:
     - ec2-deploy
+  cache:
+    key: frontend-pnpm-v1
+    paths:
+      - frontend/.npm/
+      - frontend/.pnpm-store/
+    policy: pull-push
+  interruptible: true
   needs:
     - job: backend-test
       artifacts: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes: *member_contract_changes
+      # backend-test의 계약 산출물을 필요로 하므로 동일한 변경 범위에서만 생성한다.
+      changes: *backend_contract_changes
   script:
     - mkdir -p frontend/build/member-contract
     - >
       docker run --rm
       --user "$(id -u):$(id -g)"
-      -e npm_config_cache=/tmp/member-contract-npm
+      -e npm_config_cache=/workspace/frontend/.npm
       -e XDG_CACHE_HOME=/tmp/member-contract-cache
       -e XDG_DATA_HOME=/tmp/member-contract-data
       -v "$CI_PROJECT_DIR/frontend:/workspace/frontend"
@@ -179,10 +184,36 @@ backend-postgres-test:
       artifacts: false
   tags:
     - ec2-deploy
+  cache:
+    key: backend-gradle-v1
+    paths:
+      - backend/.gradle/caches/
+      - backend/.gradle/wrapper/
+    policy: pull-push
+  interruptible: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        - backend/**/*
+        # Flyway, datasource 설정, JPA 영속성 계층 또는 해당 통합 테스트 변경 시에만 실행한다.
+        - backend/src/main/resources/**/*
+        - backend/src/main/java/**/auth/**/*
+        - backend/src/main/java/**/sharing/**/*
+        - backend/src/main/java/**/diary/**/*
+        - backend/src/main/java/**/media/**/*
+        - backend/src/main/java/**/page/**/*
+        - backend/src/main/java/**/user/**/*
+        - backend/src/main/java/**/repository/**/*
+        - backend/src/main/java/**/persistence/**/*
+        - backend/src/main/java/**/infrastructure/**/*
+        - backend/src/main/java/**/*Entity.java
+        - backend/src/main/java/**/*Repository.java
+        - backend/src/main/java/**/*Configuration.java
+        - backend/src/main/java/**/*Properties.java
+        - backend/src/test/**/*
+        - backend/build.gradle
+        - backend/settings.gradle
+        - backend/settings.gradle.kts
+        - backend/gradle/**/*
         - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
@@ -213,6 +244,7 @@ secret-scan:
   stage: quality
   tags:
     - ec2-deploy
+  interruptible: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   script:

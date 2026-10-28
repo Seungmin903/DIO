@@ -29,7 +29,7 @@ docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE
 
 # 테스트 JVM만 이 DB의 네트워크 네임스페이스를 공유하므로 URL은 루프백으로 유지한다.
 docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
-  -e GRADLE_USER_HOME=/tmp/gradle -e DIO_AUTH_SCHEMA_TEST=true \
+  -e GRADLE_USER_HOME=/workspace/backend/.gradle -e DIO_AUTH_SCHEMA_TEST=true \
   -e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_ci \
   -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$test_password" \
   -e DIO_AUTH_SCHEMA_TEST_URL=jdbc:postgresql://127.0.0.1:5432/auth_ci \
@@ -45,7 +45,7 @@ docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
 
 # HTTP contracts use their own explicit disposable DB; Gradle calls are sequential.
 docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
-  -e GRADLE_USER_HOME=/tmp/gradle \
+  -e GRADLE_USER_HOME=/workspace/backend/.gradle \
   -e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_contract_qa \
   -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$test_password" \
   -v "$CI_PROJECT_DIR/backend:/workspace/backend" \
@@ -53,7 +53,7 @@ docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
 
 # Separate from auth/member DB_URL; never override a duplicate docker environment variable.
 docker run --rm --user "$(id -u):$(id -g)" --network "container:$pg_name" \
-  -e GRADLE_USER_HOME=/tmp/gradle -e DIO_LIST_QUERY_PG=true \
+  -e GRADLE_USER_HOME=/workspace/backend/.gradle -e DIO_LIST_QUERY_PG=true \
   -e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_trash_qa \
   -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$test_password" \
   -v "$CI_PROJECT_DIR/backend:/workspace/backend" \
