@@ -170,7 +170,7 @@ export const styles = StyleSheet.create({
   cardCheckOn: { backgroundColor: C.blueStrong },
   cardCheckMark: { color: C.white, fontSize: 16, fontWeight: '800', lineHeight: 18 },
   cardActions: { position: 'absolute', top: 12, right: 11, zIndex: 3, flexDirection: 'row', gap: 5 },
-  cardAction: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,.78)', backgroundColor: 'rgba(255,255,255,.84)', shadowColor: C.ink, shadowOpacity: 0.1, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  cardAction: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.1, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   cardHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
   cardTitleWrap: { flex: 1, minWidth: 0 },
   cardDelete: { width: 44, height: 44, marginTop: -8, marginRight: -8, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
