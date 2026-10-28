@@ -208,5 +208,5 @@ const styles = StyleSheet.create({
   viewport: { flex: 1, overflow: 'hidden', ...Platform.select({ web: { touchAction: 'none' }, default: {} }) },
   // 툴바 바로 아래 가운데
   zoomBadge: { position: 'absolute', top: 84, alignSelf: 'center', paddingHorizontal: 14, height: 34, justifyContent: 'center', borderRadius: 17, backgroundColor: colors.surface, ...shadow.float },
-  zoomText: { fontSize: 13, fontWeight: '800', color: colors.text },
+  zoomText: { fontSize: 13, fontWeight: '700', color: colors.text },
 })

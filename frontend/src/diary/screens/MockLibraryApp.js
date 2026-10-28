@@ -339,6 +339,6 @@ const s = StyleSheet.create({
   notice: { gap: 8, padding: 12, backgroundColor: C.white },
   button: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, backgroundColor: C.pale },
   buttonSelected: { borderWidth: 2, borderColor: C.blue },
-  text: { color: C.ink, fontSize: 14 }, title: { color: C.ink, fontSize: 20, fontWeight: '800' },
+  text: { color: C.ink, fontSize: 14 }, title: { color: C.ink, fontSize: 20, fontWeight: '700' },
   detail: { padding: 20, gap: 12, backgroundColor: C.white, flexGrow: 1 },
 });

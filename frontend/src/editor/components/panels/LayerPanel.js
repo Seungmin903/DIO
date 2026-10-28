@@ -601,9 +601,9 @@ const styles = StyleSheet.create({
   multiBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: 10, paddingVertical: 2, paddingLeft: 12, paddingRight: 4, borderRadius: 10, backgroundColor: colors.surfaceMuted },
   multiText: { fontSize: 13, fontWeight: '700', color: colors.text },
   multiDone: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.surface },
-  multiDoneText: { fontSize: 13, fontWeight: '800', color: colors.primary },
-  countBadge: { position: 'absolute', top: -6, right: 8, zIndex: 3, minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
-  countText: { fontSize: 12, fontWeight: '800', color: colors.surface },
+  multiDoneText: { fontSize: 13, fontWeight: '700', color: colors.primaryStrong },
+  countBadge: { position: 'absolute', top: -6, right: 8, zIndex: 3, minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryStrong },
+  countText: { fontSize: 12, fontWeight: '700', color: colors.surface },
   // 화면 오른쪽 끝에 붙는 패널 (EditorScreen 의 바깥 여백을 음수 여백으로 덮는다)
   panel: {
     width: LAYER_PANEL_WIDTH,
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     height: 36, // 여러 개 고르기 막대로 바뀌어도 높이가 같아 목록이 밀리지 않게
   },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  title: { fontSize: 19, fontWeight: '800', color: colors.text },
+  title: { fontSize: 19, fontWeight: '700', color: colors.text },
   nameInput: {
     height: 30,
     paddingHorizontal: 6,

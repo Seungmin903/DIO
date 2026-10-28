@@ -92,8 +92,8 @@ const styles = StyleSheet.create({
   },
   ribbon: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   tool: { width: 42, height: 42, borderRadius: 11, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  toolActive: { backgroundColor: colors.surfaceSoft, borderColor: colors.primary },
-  toolPressed: { backgroundColor: colors.primarySoft },
+  toolActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  toolPressed: { opacity: 0.65 },
   toolDim: { opacity: 0.32 },
   divider: { width: 1, height: 24, marginHorizontal: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
 })

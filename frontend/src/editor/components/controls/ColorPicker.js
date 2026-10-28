@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   hueThumb: { top: (HUE_HEIGHT + 8 - THUMB) / 2 },
   hexRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   preview: { width: 32, height: 32, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
-  hash: { fontSize: 12, fontWeight: '800', color: colors.textMuted },
+  hash: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
   hexInput: {
     flex: 1,
     width: 0, // 웹 입력창의 기본 너비 때문에 패널 밖으로 넘치지 않게

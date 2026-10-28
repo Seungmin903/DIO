@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.14)' },
   tabText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
   tabTextActive: { color: colors.text, fontWeight: '800' },
-  title: { fontSize: 15, fontWeight: '800', color: colors.text },
+  title: { fontSize: 15, fontWeight: '700', color: colors.text },
   close: { padding: 6 },
   scroll: { flexShrink: 1 },
   body: { paddingHorizontal: 16, paddingBottom: 18 },

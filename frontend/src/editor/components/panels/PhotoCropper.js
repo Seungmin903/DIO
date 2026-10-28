@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   card: { padding: 24, borderRadius: 24, backgroundColor: colors.surface, ...shadow.float },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  cardTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   hint: { marginTop: 6, fontSize: 12.5, color: colors.textMuted },
   stage: {
     marginTop: 16,
@@ -564,5 +564,5 @@ const styles = StyleSheet.create({
   footerRight: { flexDirection: 'row', gap: 8 },
   // 적용: 흰 바탕에 남색 글씨 (다른 버튼과 같은 모양에 테두리·글씨만 진하게)
   confirm: { borderColor: colors.text },
-  confirmText: { color: colors.text, fontWeight: '800' },
+  confirmText: { color: colors.text, fontWeight: '700' },
 })

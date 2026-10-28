@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   railDivider: { width: 28, height: 1, marginVertical: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
   // iOS HIG 최소 터치 영역 44pt
   tool: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  toolActive: { backgroundColor: colors.surfaceSoft, borderColor: colors.primary },
-  toolPressed: { backgroundColor: colors.primarySoft },
+  toolActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  toolPressed: { opacity: 0.65 },
   colorLine: { position: 'absolute', bottom: 5, width: 16, height: 3, borderRadius: 2 },
 })

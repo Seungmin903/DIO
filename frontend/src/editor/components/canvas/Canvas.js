@@ -852,10 +852,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryStrong,
     color: colors.surface,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   angleBadge: {
     borderRadius: 16,
@@ -866,5 +866,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.text,
   },
-  angleText: { color: colors.surface, fontSize: 13, fontWeight: '800' },
+  angleText: { color: colors.surface, fontSize: 13, fontWeight: '700' },
 })

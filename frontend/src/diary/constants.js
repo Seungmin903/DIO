@@ -1,5 +1,8 @@
 import { colors } from '../shared/theme.js';
 
+// 표지 색이 없는 기존 문서·API 응답의 호환 기본값. UI 배경색과 독립적으로 유지한다.
+export const FALLBACK_COVER_COLOR = '#CED9EE';
+
 // 화면 틀 색은 편집 화면과 같은 디자인 토큰(shared/theme)을 쓴다. 표지·꾸밈 색은 아래에 따로 둔다.
 export const C = {
   ink: colors.text,
@@ -8,8 +11,9 @@ export const C = {
   line: colors.border,
   canvas: colors.surfaceSoft, // 편집 화면 작업 영역과 같은 바탕
   blue: colors.primary,
+  blueStrong: colors.primaryStrong,
   pale: colors.surfaceMuted, // 편집 옵션 창의 회색 칩·세그먼트 판
-  active: colors.surfaceSoft, // 흰 막대에서 고른 항목 (편집 상단의 켜진 페이지·레이어 버튼과 같게)
+  active: colors.primarySoft, // 중립 배경과 구분되는 파란 선택 표시
   danger: colors.danger,
   white: colors.surface,
   navy: '#152965',
