@@ -1,7 +1,7 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { File } from 'expo-file-system';
 
-export async function buildPhotoBody(signup, uri) {
+export async function buildPhotoBody(signup, uri, partName = 'signup') {
   const context = ImageManipulator.manipulate(uri);
   let rendered, photo;
   const dispose = () => {
@@ -13,7 +13,7 @@ export async function buildPhotoBody(signup, uri) {
     rendered = await context.renderAsync();
     photo = await rendered.saveAsync({ format: SaveFormat.PNG, compress: 1 });
     const body = new FormData();
-    body.append('signup', new Blob([JSON.stringify(signup)], { type: 'application/json' }), 'signup.json');
+    body.append(partName, new Blob([JSON.stringify(signup)], { type: 'application/json' }), `${partName}.json`);
     body.append('photo', new File(photo.uri));
     return { body, dispose };
   } catch (error) { dispose(); throw error; }

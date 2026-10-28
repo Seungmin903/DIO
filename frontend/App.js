@@ -97,9 +97,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
   const [sharingRequest, setSharingRequest] = useState(null);
   const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
   const openInvitations = useCallback(() => {
-    const open = () => setSharingRequest({ mode: 'invitations' });
+    const open = () => setSharingRequest({ mode: previewUser.mode === 'authenticated' ? 'notifications' : 'invitations' });
     if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open();
-  }, []);
+  }, [previewUser.mode]);
   const insets = useSafeAreaInsets();
   // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -139,7 +139,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
   const [trashing, setTrashing] = useState(false);
   const trashingRef = useRef(false);
   const [active, setActive] = useState(null);
-  useEffect(() => { if (active?.id) sharing.runtime.registerDiary(active); }, [active, sharing.runtime]);
+  useEffect(() => { if (active?.id && !sharing.runtime.server) sharing.runtime.registerDiary(active); }, [active, sharing.runtime]);
   const sharedLibraryRef = useRef(sharing.library);
   sharedLibraryRef.current = sharing.library;
   const sharingMembers = sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members || [];
@@ -371,7 +371,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
 
   const visibleDiaries = useMemo(() => {
     const sharedOwnedIds = new Set(sharing.diaries.filter(diary =>
-      diary.members.some(member => member.id === 'self' && member.role === 'OWNER') && diary.members.length > 1,
+      diary.members.some(member => member.id === sharing.runtime.self.id && member.role === 'OWNER') && diary.members.length > 1,
     ).map(diary => diary.id));
     return [...diaries.filter(diary => !diary.trashedAt).map(diary => ({ ...diary, isShared: sharedOwnedIds.has(diary.id) })), ...sharing.library];
   }, [diaries, sharing.diaries, sharing.library]);
@@ -571,8 +571,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
 
   return (
     <>
-      {authenticatedNotifications && sharingRequest
-        ? <AuthenticatedNotificationDialog sharingPending={sharingRequest?.mode !== 'invitations'} model={authenticatedNotifications} onClose={() => setSharingRequest(null)} />
+      {authenticatedNotifications && sharingRequest?.mode === 'notifications'
+        ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => setSharingRequest(null)} />
         : <SharingHub onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
