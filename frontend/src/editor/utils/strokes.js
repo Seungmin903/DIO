@@ -42,7 +42,26 @@ export function strokePath(points) {
   const [first] = points
   // round linecap으로 단순 탭도 점을 남긴다.
   if (points.length === 1) return `M${first.x} ${first.y}l0.01 0`
-  return `M${first.x} ${first.y}` + points.slice(1).map((p) => `L${p.x} ${p.y}`).join('')
+  if (points.length === 2) return `M${first.x} ${first.y}L${points[1].x} ${points[1].y}`
+  // 점과 점을 직선으로 이으면 작은 동그라미가 다각형처럼 각진다. 입력 점을 조절점으로 두고 이웃 점의 가운데를 잇는
+  // 2차 곡선으로 그린다(점 수만큼의 명령이라 미리보기 비용은 같다). 시작 · 끝점은 그대로 지난다.
+  let path = `M${first.x} ${first.y}`
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i], q = points[i + 1]
+    path += `Q${p.x} ${p.y} ${(p.x + q.x) / 2} ${(p.y + q.y) / 2}`
+  }
+  const last = points[points.length - 1]
+  return path + `L${last.x} ${last.y}`
+}
+
+// 두 점 사이 곡선 위의 점. 앞뒤 점으로 접선을 잡되 구간 길이 비율로 줄여(chordal) 점 간격이 고르지 않아도 튀지 않는다.
+function curvePoint(p0, a, b, p3, t) {
+  const dab = Math.hypot(b.x - a.x, b.y - a.y)
+  const d0 = Math.hypot(a.x - p0.x, a.y - p0.y), d3 = Math.hypot(p3.x - b.x, p3.y - b.y)
+  const ka = dab / ((d0 + dab) || 1), kb = dab / ((dab + d3) || 1)
+  const tax = (b.x - p0.x) * ka, tay = (b.y - p0.y) * ka, tbx = (p3.x - a.x) * kb, tby = (p3.y - a.y) * kb
+  const t2 = t * t, t3 = t2 * t, h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2
+  return { x: h00 * a.x + h10 * tax + h01 * b.x + h11 * tbx, y: h00 * a.y + h10 * tay + h01 * b.y + h11 * tby }
 }
 
 // 입력 간격과 무관한 거리 기반 테이퍼와 45도 펜촉을 적용한다.
@@ -57,12 +76,13 @@ export function penContour(points, width, kind, { startDistance = 0, continueEnd
     for (let i = 1; i < points.length; i++) length += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
     spacing = Math.max(spacing, length / maxSamples)
   }
+  // 입력 점 사이를 직선이 아니라 곡선으로 채워 작은 원 · 빠른 곡선이 각지지 않게 한다.
   for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1], b = points[i]
+    const a = points[i - 1], b = points[i], p0 = points[i - 2] ?? a, p3 = points[i + 1] ?? b
     const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / spacing))
     for (let j = 1; j <= steps; j++) {
       const t = j / steps
-      sampled.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, pressure: (a.pressure ?? 1) + ((b.pressure ?? 1) - (a.pressure ?? 1)) * t })
+      sampled.push({ ...(j === steps ? { x: b.x, y: b.y } : curvePoint(p0, a, b, p3, t)), pressure: (a.pressure ?? 1) + ((b.pressure ?? 1) - (a.pressure ?? 1)) * t })
     }
   }
   points = sampled
