@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AppState, Platform, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
-import { readingGestureAction } from '../../utils/readingGestures.js'
+import { readingDragLocked, readingGestureAction } from '../../utils/readingGestures.js'
 import { notePointerDown, notePointerUp, touchKind, stylus, resetStylusPointers } from '../../utils/stylus'
 
 const WHEEL_IDLE_MS = 160 // 휠이 이만큼 멈추면 확대·이동을 확정한다
@@ -162,10 +162,12 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
     onResponderMove: (event) => {
       if (latest.current.interactionLocked) return
       if (latest.current.reading && readerGesture.current) {
-        readerGesture.current.lastX = event.nativeEvent.pageX
-        readerGesture.current.lastY = event.nativeEvent.pageY
-        readerGesture.current.maxDistance = Math.max(readerGesture.current.maxDistance, Math.hypot(event.nativeEvent.pageX - readerGesture.current.x, event.nativeEvent.pageY - readerGesture.current.y))
-        if (twoFingers(event)) readerGesture.current.pinched = true
+        const g = readerGesture.current
+        g.lastX = event.nativeEvent.pageX
+        g.lastY = event.nativeEvent.pageY
+        g.maxDistance = Math.max(g.maxDistance, Math.hypot(g.lastX - g.x, g.lastY - g.y))
+        g.dragged = readingDragLocked({ dx: g.lastX - g.x, dy: g.lastY - g.y, duration: Date.now() - g.at, scale: g.scale, dragged: g.dragged })
+        if (twoFingers(event)) g.pinched = true
       }
       if (tap.current && Math.hypot(event.nativeEvent.pageX - tap.current.x, event.nativeEvent.pageY - tap.current.y) > 10)
         tap.current = null
@@ -214,7 +216,7 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
       const maxDistance = g ? Math.max(g.maxDistance, Math.hypot((e?.pageX ?? g.lastX) - g.x, (e?.pageY ?? g.lastY) - g.y)) : 0
       const action = latest.current.reading && g ? readingGestureAction({
         dx: (e?.pageX ?? g.lastX) - g.x, dy: (e?.pageY ?? g.lastY) - g.y,
-        duration: Date.now() - g.at, scale: g.scale, pinched: g.pinched, maxDistance,
+        duration: Date.now() - g.at, scale: g.scale, pinched: g.pinched, dragged: g.dragged, maxDistance,
         x: g.x - origin.current.x, width: viewportWidth.current,
       }) : null
       readerGesture.current = null

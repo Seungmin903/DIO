@@ -153,8 +153,8 @@ for (const [x, action] of [[100, 'previous'], [500, 'menu'], [900, 'next']]) tes
   assert.deepEqual(f.readingActions, [action])
   assert.equal(f.commits.length, 0)
 })
-test('읽기 스와이프는 한 장만 넘기고 확대 드래그·세로 이동·취소는 넘기지 않는다', () => {
-  for (const [scale, dx, dy, cancel, expected] of [[1,-100,0,false,['next']],[1,100,0,false,['previous']],[2,-100,0,false,[]],[1,20,100,false,[]],[1,-100,0,true,[]]]) {
+test('읽기 스와이프는 확대 상태에서도 빠르게 한 장만 넘기고 세로 이동·취소는 넘기지 않는다', () => {
+  for (const [scale, dx, dy, cancel, expected] of [[1,-100,0,false,['next']],[1,100,0,false,['previous']],[2,-100,0,false,['next']],[1,20,100,false,[]],[1,-100,0,true,[]]]) {
     const f = readerFixture(scale), h = f.handlers
     h.onResponderGrant(readerEvent(500))
     h.onResponderMove(readerEvent(500 + dx, 100 + dy))
@@ -162,6 +162,20 @@ test('읽기 스와이프는 한 장만 넘기고 확대 드래그·세로 이�
     else h.onResponderRelease(readerEvent(500 + dx, 100 + dy))
     assert.deepEqual(f.readingActions, expected)
   }
+})
+
+test('실제 확대 Viewport에서 느린 드래그 후 빠르게 마무리해도 화면 이동만 확정한다', t => {
+  t.mock.timers.enable({apis:['Date'],now:1000})
+  const f=readerFixture(2), h=f.handlers
+  h.onResponderGrant(readerEvent(500))
+  t.mock.timers.tick(200)
+  h.onResponderMove(readerEvent(440))
+  t.mock.timers.tick(20)
+  h.onResponderMove(readerEvent(250))
+  h.onResponderRelease(readerEvent(250))
+  assert.deepEqual(f.readingActions,[])
+  assert.equal(f.commits.length,1)
+  assert.equal(f.commits[0].scale,2)
 })
 test('읽기 핀치 후 한 손가락으로 계속 움직여도 페이지는 넘어가지 않는다', () => {
   const f = readerFixture(), h = f.handlers
