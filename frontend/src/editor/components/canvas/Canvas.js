@@ -228,6 +228,7 @@ export default function Canvas({
   }
   const endLassoMove = cancelled => {
     if (cancelled && lassoMove.current?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
+    else if(lassoMove.current?.checkpointed) dispatch({type:'commitCheckpoint'})
     lassoMove.current = null
     setInteracting(false)
     setDraggingIds(null)
@@ -786,6 +787,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
         if (g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
         return
       }
+      if(g?.checkpointed) dispatch({type:'commitCheckpoint'})
       // 움직이지 않고 길게 누르면 누르기 전 선택에 이 요소를 넣거나 뺀다.
       if (g?.mode === 'move' && !moved && duration >= LONG_PRESS_MS) {
         dispatch({ type: 'select', ids: g.previousSelection })

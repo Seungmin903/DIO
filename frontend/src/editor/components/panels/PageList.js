@@ -31,7 +31,7 @@ export const PAGE_LIST_WIDTH = 156
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onRemovePages, onReset, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null }) {
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null }) {
   useLayoutEffect(() => {
     qaMeasurement?.emit('panel-layout')
     if (!qaMeasurement) return
@@ -185,7 +185,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         )}
       </View>
       {!readOnly && <View style={{ paddingHorizontal: 8 }}>
-        {pickMode ? <PageBulkDelete pages={pages} ids={picked} onDelete={onRemovePages} onReset={onReset} onDone={endPickMode} />
+        {pickMode ? <PageBulkDelete pages={pages} ids={picked} onDelete={onRemovePages} onReset={onReset} canUndoDelete={canUndoDelete} onDone={endPickMode} />
           : <View style={styles.editRow}><Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="pen" size={14} /><Text style={styles.editText}>편집</Text></Pressable></View>}
       </View>}
       <FlatList

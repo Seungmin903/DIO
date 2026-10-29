@@ -232,6 +232,8 @@ backend-postgres-sharing-test:
         # 공유 권한·프로필·영구 삭제에 영향을 주는 변경이다.
         - backend/src/main/java/**/auth/**/*
         - backend/src/main/java/**/sharing/**/*
+        - backend/src/main/java/**/collaboration/**/*
+        - backend/src/test/java/**/collaboration/**/*
         - backend/src/main/java/**/diary/**/*
         - backend/src/main/java/**/media/**/*
         - backend/src/main/java/**/page/**/*
@@ -243,8 +245,10 @@ backend-postgres-sharing-test:
     reports:
       junit:
         - backend/build/test-results/sharingPostgresTest/*.xml
+        - backend/build/test-results/collaborationPostgresTest/*.xml
     paths:
       - backend/build/reports/tests/sharingPostgresTest/
+      - backend/build/reports/tests/collaborationPostgresTest/
     expire_in: 7 days
 
 backend-postgres-diary-test:

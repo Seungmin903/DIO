@@ -7,6 +7,9 @@ import jakarta.validation.constraints.*;
 /** 프런트 객체의 type/w/h/locked/hidden 별칭도 지원한다. */
 public class CanvasElementCreateRequest {
 	private UUID elementId;
+    @Digits(integer=10,fraction=10) private BigDecimal sortKey;
+    public BigDecimal getSortKey(){return sortKey;}
+    @JsonSetter(nulls=Nulls.FAIL) public void setSortKey(BigDecimal value){sortKey=value;}
 	@NotNull @Pattern(regexp="TEXT|PHOTO|STICKER|TAPE|STROKE|SHAPE") private String elementType;
 	private UUID groupId; @Size(min=1,max=100) @Pattern(regexp="(?s).*\\S.*") private String name;
 	@NotNull @Digits(integer=9,fraction=3) private BigDecimal x;

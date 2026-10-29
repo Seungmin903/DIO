@@ -51,7 +51,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
-    "spring.datasource.url=jdbc:h2:mem:login-tests;MODE=PostgreSQL",
+    "spring.datasource.url=jdbc:h2:mem:login-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.signup.verification-secret=testing-only-secret-at-least-32-bytes-long"
 })
 @AutoConfigureMockMvc @ActiveProfiles("test")

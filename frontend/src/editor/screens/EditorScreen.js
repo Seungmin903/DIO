@@ -49,7 +49,7 @@ import { StageOverlayHost } from '../components/canvas/StageOverlay'
 import { ViewportMotion } from '../components/canvas/StaticPage'
 import { PHONE_ZOOM_MAX, ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
-import { useMemberTextPageSync } from '../hooks/useMemberTextPageSync'
+import { useMemberCanvasCollaboration } from '../hooks/useMemberCanvasCollaboration'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
@@ -89,7 +89,9 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const qaHistoryExecutions = useRef(0)
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
-  const textSync = useMemberTextPageSync({ diary, page, loaded, readOnly, dispatch })
+  const textSync = useMemberCanvasCollaboration({ diary, page, state, loaded, readOnly, dispatch })
+  const localUndo=state.past.length>0&&!state.collaborationPast?.at(-1)?.hasCanvas
+  const localRedo=state.future.length>0&&!state.collaborationFuture?.[0]?.hasCanvas
   // 페이지 목록·레이어는 캔버스를 먼저 그린 뒤 따라 그린다 (지우개·이동을 끝내고 손을 뗄 때 한꺼번에 다시 그려 멈칫하던 것)
   const deferredPages = useDeferredValue(state.doc.pages)
   const deferredObjects = useDeferredValue(page.objects)
@@ -334,6 +336,33 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
     closeAfterInsert()
   }
 
+  const movePage = async (id,toIndex) => {
+    try{
+      if(textSync.enabled)await textSync.movePage(id,toIndex)
+      else dispatch({type:'movePage',id,toIndex})
+    }catch(error){showToast(error.message||'페이지 순서를 저장하지 못했어요. 다시 확인해 주세요.')}
+  }
+  const movePages = async (ids,anchorId,place) => {
+    try{
+      if(textSync.enabled)await textSync.movePages(ids,anchorId,place)
+      else dispatch({type:'movePages',ids,anchorId,place})
+    }catch(error){showToast(error.message||'페이지 순서를 저장하지 못했어요. 다시 확인해 주세요.')}
+  }
+  const removePages = async ids => {
+    if(cropId)finishCrop(false)
+    try{
+      if(textSync.enabled){await textSync.removePages(ids);showToast('페이지를 삭제했어요.')}
+      else{dispatch({type:'removePages',ids});showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.')}
+    }catch(error){showToast(error.message||'페이지를 삭제하지 못했어요. 다시 확인해 주세요.')}
+  }
+  const copyPage = async id => {
+    try{
+      if(textSync.enabled)await textSync.copyPage(id)
+      else dispatch({type:'duplicatePage',id})
+      showToast('페이지를 복제했어요.')
+    }catch(error){showToast(error.message||'페이지 복제 결과를 확인하지 못했어요. 목록을 확인해 주세요.')}
+  }
+
   // 사진은 스티커·테이프처럼 틀 없이 바로 붙인다 (자르기는 두 번 누르거나 선택 바에서)
   const addPhotos = async () => {
     try {
@@ -449,6 +478,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   }
 
   const undo = () => {
+    if(textSync.enabled&&!localUndo){textSync.undo().then(()=>showToast('내 캔버스 작업을 되돌렸어요.')).catch(error=>showToast(error.message));return}
     if (!state.past.length) return
     if (cropId) setCropId(null)
     qaController?.onHistoryDispatch?.({ phase: 'undo', execution: ++qaHistoryExecutions.current, past: state.past.length, future: state.future.length })
@@ -457,6 +487,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   }
 
   const redo = () => {
+    if(textSync.enabled&&!localRedo){textSync.redo().then(()=>showToast('내 캔버스 작업을 다시 실행했어요.')).catch(error=>showToast(error.message));return}
     if (!state.future.length) return
     qaController?.onHistoryDispatch?.({ phase: 'redo', execution: ++qaHistoryExecutions.current, past: state.past.length, future: state.future.length })
     dispatch({ type: 'redo' })
@@ -818,18 +849,25 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
       {exportSnapshot && <PageExportPreview snapshot={exportSnapshot} onReselect={exportSnapshot.region ? () => setExportSnapshot(null) : undefined} onClose={() => { setExportSnapshot(null); setRegionOpen(false) }} />}
       {overviewFilter && (
         <PageOverview
+          canUndoDelete={!textSync.enabled}
           pages={state.doc.pages}
           currentId={page.id}
           initialFilter={overviewFilter}
           onSelect={(id) => { if (cropId) finishCrop(false); dispatch({ type: 'selectPage', id }) }}
           onToggleIndex={readOnly ? null : (id) => dispatch({ type: 'togglePageIndex', id })}
-          onReset={readOnly ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
-          onDelete={readOnly ? null : (ids) => { if (cropId) finishCrop(false); dispatch({ type: 'removePages', ids }); showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.') }}
+          onReset={readOnly || textSync.enabled ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
+          onDelete={readOnly ? null : removePages}
           onClose={() => setOverviewFilter(null)}
         />
       )}
       {templatePickerOpen && !readOnly && <PageAddPicker compact={compact} orientation={templateOrientation} appearance={state.doc.paperAppearance} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 + bottomInset }}
-        onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
+        onClose={() => setTemplatePickerOpen(false)} onSelect={async backgroundAssetId => {
+          try{
+            if(textSync.enabled)await textSync.addPage(backgroundAssetId)
+            else dispatch({type:'addPage',backgroundAssetId})
+            setTemplatePickerOpen(false);fitToScreen()
+          }catch(error){showToast(error.message||'페이지를 생성하지 못했어요. 다시 확인해 주세요.')}
+        }} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={[styles.body, compact && styles.bodyCompact]}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
@@ -837,30 +875,25 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
         {showPages && loaded && (
           <PhonePanelSlot compact={compact} side={styles.phonePanelLeft} onWidth={(left) => setPhonePanelWidths((prev) => ({ ...prev, left }))}>
           <PageList
+            canUndoDelete={!textSync.enabled}
             qaMeasurement={pagePanelMeasurement.current}
             readOnly={readOnly}
             pages={deferredPages}
             currentId={page.id}
             cropId={cropTarget?.id ?? null}
-            onMove={(id, toIndex) => dispatch({ type: 'movePage', id, toIndex })}
-            onMovePages={(ids, anchorId, place) => dispatch({ type: 'movePages', ids, anchorId, place })}
+            onMove={movePage}
+            onMovePages={movePages}
             onEmptyTap={clearSelection}
             onSelect={(id) => {
               if (cropId) finishCrop(false)
               dispatch({ type: 'selectPage', id })
             }}
             onAdd={() => { if (cropId) finishCrop(false); setTemplatePickerOpen(true) }}
-            onDuplicate={(id) => {
-              dispatch({ type: 'duplicatePage', id })
-              showToast('페이지를 복제했어요.')
-            }}
+            onDuplicate={copyPage}
             onToggleIndex={(id) => dispatch({ type: 'togglePageIndex', id })}
-            onReset={readOnly ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
-            onRemovePages={(ids) => { if (cropId) finishCrop(false); dispatch({ type: 'removePages', ids }); showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.') }}
-            onRemove={(id) => {
-              dispatch({ type: 'removePage', id })
-              showToast('페이지를 삭제했어요. 되돌리기로 복구할 수 있어요.')
-            }}
+            onReset={readOnly || textSync.enabled ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
+            onRemovePages={removePages}
+            onRemove={id=>removePages([id])}
           />
           </PhonePanelSlot>
         )}
@@ -1067,15 +1100,15 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
 
           {/* 폰은 패널이 작업창 위를 덮으므로, 되돌리기·저장 상태 막대를 열린 패널의 반대쪽으로 옮긴다. */}
           <View style={[styles.floating, undoOnRight ? styles.floatingRight : styles.floatingLeft]}>
-            <RoundButton icon="undo" label="되돌리기" disabled={readOnly || !state.past.length} onPress={undo} />
+            <RoundButton icon="undo" label="되돌리기" disabled={readOnly || (textSync.enabled ? textSync.busy || (!localUndo&&!textSync.canUndo) : !state.past.length)} onPress={undo} />
             <View style={styles.floatingDivider} />
-            <RoundButton icon="redo" label="다시 실행" disabled={readOnly || !state.future.length} onPress={redo} />
+            <RoundButton icon="redo" label="다시 실행" disabled={readOnly || (textSync.enabled ? textSync.busy || (!localRedo&&!textSync.canRedo) : !state.future.length)} onPress={redo} />
             <View style={styles.floatingDivider} />
             <SaveIndicator status={saveStatus} onInfo={showToast} />
-            {textSync.status && <Pressable accessibilityRole="button" accessibilityLabel="텍스트 서버 연결 상태" onPress={() => {
-              showToast(({ conflict: '서버와 기기의 내용이 달라 자동 덮어쓰기를 멈췄어요. 기기 내용은 유지돼요.', error: '서버 연결에 실패했어요. 기기 내용을 유지하고 다시 시도해요.', 'local-error': '기기 연결 기록을 읽거나 저장하지 못해 서버 전송을 멈췄어요.' })[textSync.status] ?? '현재 페이지의 텍스트만 서버에 연결해요. 사진·필기는 기기에 유지돼요.')
+            {textSync.status && <Pressable accessibilityRole="button" accessibilityLabel="캔버스 서버 연결 상태" onPress={() => {
+              showToast(({ conflict: '서버와 기기의 내용이 달라 자동 덮어쓰기를 멈췄어요. 기기 내용은 유지돼요.', error: textSync.errorMessage || '서버 연결에 실패했어요. 기기 내용을 유지하고 다시 시도해요.', 'local-error': '기기 연결 기록을 읽거나 저장하지 못해 서버 전송을 멈췄어요.' })[textSync.status] ?? '텍스트·필기·기본 스티커와 테이프를 서버에 연결해요. 사진 파일 공유는 보류 중이에요.')
               if (textSync.status === 'error') textSync.retry()
-            }}><Text style={{ fontSize: 11, color: ['conflict','error','local-error'].includes(textSync.status) ? colors.danger : colors.textMuted }}>{({ loading: '텍스트 확인 중', saving: '텍스트 전송 중', saved: '텍스트 서버 저장됨', conflict: '텍스트 충돌 · 기기 보존', error: '텍스트 연결 실패 · 재시도', 'local-error': '텍스트 연결 보류' })[textSync.status]}</Text></Pressable>}
+            }}><Text style={{ fontSize: 11, color: ['conflict','error','local-error'].includes(textSync.status) ? colors.danger : colors.textMuted }}>{({ loading: '캔버스 확인 중', saving: '캔버스 전송 중', saved: '캔버스 서버 저장됨', conflict: '캔버스 충돌 · 기기 보존', error: '캔버스 연결 실패 · 재시도', 'local-error': '캔버스 연결 보류' })[textSync.status]}</Text></Pressable>}
           </View>
 
           {/* 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. 폰 가로도 −/+ 버튼 없이 손가락으로 확대하고 이 버튼으로 되돌린다.

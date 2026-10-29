@@ -1,0 +1,138 @@
+import {decodeElement,sharedObject} from './canvasElements.js'
+import { canvasContent, canvasDelta, stable, sameElements } from './canvasApi.js'
+const copy=v=>JSON.parse(JSON.stringify(v))
+export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,createId,isActive=()=>true}){
+  let journal={format:2,pageId,diaryId,base:null,uiLocal:null,queue:[],control:null,recent:[]},writes=Promise.resolve(),running=null,restored=false
+  const active=()=>{if(!isActive())throw new Error('편집 세션이 종료됐어요.')}
+  const persist=()=>{const raw=JSON.stringify(journal);const task=writes.catch(()=>{}).then(()=>storage.setItem(key,raw));writes=task;return task}
+  const accept=async response=>{active();journal.base=copy(response.items);await persist()}
+  const preview=()=>{
+    let objects=(journal.base??[]).map(decodeElement)
+    for(const entry of journal.queue){const delta=canvasDelta(entry.before,entry.after),byId=new Map(objects.map(o=>[o.id,o]));
+      for(const id of delta.touched){if(delta.next.has(id))byId.set(id,entry.after.find(o=>o.id===id));else byId.delete(id)}
+      objects=[...byId.values()]
+      if(delta.reordered){const rank=new Map(entry.after.map((o,i)=>[o.id,i]));objects.sort((a,b)=>(rank.get(a.id)??Number.MAX_SAFE_INTEGER)-(rank.get(b.id)??Number.MAX_SAFE_INTEGER))}
+    }
+    return copy(objects)
+  }
+  const requestFor=entry=>{
+    const delta=canvasDelta(entry.before,entry.after),remote=new Map(journal.base.map(e=>[e.elementId,e]))
+    const creates=[],updates=[],deleteElementIds=[],expectedVersions={}
+    const equal=(a,b)=>stable(a)===stable(b)
+    // Rebase only the locally changed fields; unrelated remote edits remain intact.
+    const merge=(before,after,current)=>{
+      const next={...current}
+      for(const key of new Set([...Object.keys(before),...Object.keys(after)])){
+        if(equal(before[key],after[key]))continue
+        if(key==='propertiesJson'){
+          const props={...current.propertiesJson}
+          for(const name of new Set([...Object.keys(before.propertiesJson??{}),...Object.keys(after.propertiesJson??{})])){
+            if(equal(before.propertiesJson?.[name],after.propertiesJson?.[name]))continue
+            if(name in (after.propertiesJson??{}))props[name]=after.propertiesJson[name];else delete props[name]
+          }
+          next.propertiesJson=props
+        }else if(key in after)next[key]=after[key];else delete next[key]
+      }
+      return next
+    }
+    for(const id of delta.touched){const before=delta.old.get(id),after=delta.next.get(id),current=remote.get(id)
+      if(!before){if(!current)creates.push({...after,sortKey:Math.max(0,...journal.base.map(e=>Number(e.sortKey)||0))+creates.length+1});continue}
+      // A remote deletion wins over a stale update; never resurrect a deleted object.
+      if(!current)continue
+      if(!after){deleteElementIds.push(id);expectedVersions[id]=current.version;continue}
+      const merged=merge(before,after,canvasContent([decodeElement(current)])[0])
+      const {elementType,...patch}=merged
+      if(!equal(merged,canvasContent([decodeElement(current)])[0])||delta.reordered)
+        updates.push({...patch,version:current.version,...(delta.reordered?{sortKey:[...delta.next.keys()].indexOf(id)+1}:{})})
+    }
+    if(!creates.length&&!updates.length&&!deleteElementIds.length)return null
+    return {clientOperationId:entry.id,changes:{...(creates.length?{creates}:{}),...(updates.length?{updates}:{}),...(deleteElementIds.length?{deleteElementIds}: {})},expectedVersions}
+  }
+  const apiSession={
+    async restore(seed,savedAt=0){
+      const raw=await storage.getItem(key);active()
+      if(raw){const saved=JSON.parse(raw);if(![1,2].includes(saved.format)||saved.pageId!==pageId||saved.diaryId!==diaryId||!Array.isArray(saved.queue)||!Array.isArray(saved.recent))throw new Error('기기 편집 기록을 확인하지 못했어요.');journal=saved}
+      else if(legacyKey){const legacy=await storage.getItem(legacyKey);active();if(legacy){const saved=JSON.parse(legacy);if(saved.pageId===pageId&&saved.diaryId===diaryId&&Array.isArray(saved.local))journal.uiLocal=[...saved.local,...seed.filter(o=>sharedObject(o)&&o.type!=='text')]}}
+      if(journal.uiLocal===null)journal.uiLocal=copy(seed.filter(sharedObject))
+      if(journal.format===1){
+        const present=new Set(journal.uiLocal.map(o=>o.id)),extras=seed.filter(o=>sharedObject(o)&&o.type!=='text'&&!present.has(o.id))
+        if(extras.length){journal.queue.push({id:createId(),pageId,before:copy(journal.uiLocal),after:[...copy(journal.uiLocal),...copy(extras)]});journal.uiLocal=[...journal.uiLocal,...copy(extras)]}
+        journal.format=2;await persist()
+      }
+      if(raw&&savedAt>(journal.uiLocalAt??0)&&!sameElements(seed,journal.uiLocal)){
+        journal.queue.push({id:createId(),pageId,before:copy(journal.uiLocal),after:copy(seed.filter(sharedObject))})
+        journal.uiLocal=copy(seed.filter(sharedObject));journal.uiLocalAt=savedAt;await persist()
+      }
+      // Preserve previously prepared media operations without sending them through removed APIs.
+      const deferred=entry=>[...(entry.request?.changes?.creates??[]),...(entry.request?.changes?.updates??[])].some(row=>row.elementType==='PHOTO'||row.mediaFileId||row.propertiesJson?.mediaFileId||row.propertiesJson?.src)
+      const held=journal.queue.filter(deferred)
+      if(held.length){journal.deferredMedia=[...(journal.deferredMedia??[]),...held];journal.queue=journal.queue.filter(entry=>!deferred(entry));await persist()}
+      canvasContent(journal.uiLocal);restored=true;return copy(journal.uiLocal)
+    },
+    async enqueue(entry){
+      active();if(!restored)throw new Error('편집 기록을 먼저 확인해 주세요.')
+      if(journal.recent.includes(entry.id)||journal.queue.some(row=>row.id===entry.id))return
+      canvasContent(entry.before);canvasContent(entry.after)
+      journal.queue.push(copy(entry));journal.uiLocal=copy(entry.after);journal.uiLocalAt=Date.now();await persist()
+    },
+    async acceptImport(objects){active();journal.uiLocal=copy(objects);journal.uiLocalAt=Date.now();await persist()},
+    synchronize(){
+      if(running)return running
+      running=(async()=>{
+        await writes;active();const remote=await api.load(pageId,diaryId);active()
+        if(journal.base===null&&!journal.queue.length&&!journal.control){
+          if(journal.uiLocal.length){
+            const localIds=new Set(journal.uiLocal.map(o=>o.id)),overlap=remote.map(decodeElement).filter(o=>localIds.has(o.id))
+            const localOverlap=journal.uiLocal.filter(o=>overlap.some(r=>r.id===o.id))
+            if(!sameElements(localOverlap,overlap)){
+              // No edit journal exists for this stale snapshot. Preserve a recovery copy,
+              // then use the server for existing IDs rather than freezing the whole page.
+              journal.recoveredLocal=[...(journal.recoveredLocal??[]),{objects:copy(journal.uiLocal),at:Date.now()}]
+              // uiLocal stays unchanged until the editor accepts the remote import.
+            }
+            if(journal.uiLocal.some(o=>!overlap.some(r=>r.id===o.id)))journal.queue.push({id:createId(),pageId,before:overlap,after:[...copy(overlap),...copy(journal.uiLocal.filter(o=>!overlap.some(r=>r.id===o.id)))]})
+          }
+        }
+        journal.base=copy(remote);await persist()
+        let direction=null,historyClientOperationId=null
+        if(journal.control){const pending=journal.control;direction=pending.direction
+          try{const result=await api.control(pageId,pending.direction,pending.request);active();historyClientOperationId=result.clientOperationId;journal.control=null;await accept(result)}
+          catch(error){if(error.status===409){journal.rejectedControls=[...(journal.rejectedControls??[]),copy(pending)];journal.control=null;await persist()}throw error}
+        }
+        while(journal.queue.length){
+          active();const entry=journal.queue[0]
+          if(!entry.request){entry.request=requestFor(entry);active();await persist()}
+          if(entry.request){
+            try{const result=await api.apply(pageId,entry.request);active();journal.base=copy(result.items)}
+            catch(error){
+              if(error.status!==409)throw error
+              // A definitive rejection was not committed. Use a fresh command ID for
+              // the rebased payload. Unknown/network outcomes keep the original ID.
+              journal.rejectedRequests=[...(journal.rejectedRequests??[]),copy(entry.request)]
+              entry.id=createId();delete entry.request;await persist();throw error
+            }
+          }
+          journal.queue.shift();journal.recent=[...journal.recent,entry.id].slice(-128);await persist()
+        }
+        const history=await api.history(pageId);active()
+        return {objects:preview(),expectedLocal:copy(journal.uiLocal),history,status:'saved',direction,historyClientOperationId}
+      })().finally(()=>{running=null})
+      return running
+    },
+    async control(direction){
+      const pending=journal.control?.direction
+      const synchronized=await apiSession.synchronize();active()
+      if(pending)return {...synchronized,direction:pending}
+      const history=await api.history(pageId);active();const candidate=direction==='undo'?history.nextUndo:history.nextRedo
+      if(!candidate)throw Object.assign(new Error(direction==='undo'?'취소할 내 작업이 없어요.':'다시 실행할 내 작업이 없어요.'),{code:'NO_CANVAS_HISTORY'})
+      journal.control={direction,request:{operationId:candidate.operationId,expectedRevision:candidate.revision,clientOperationId:createId()}};await persist()
+      let result
+      try{result=await api.control(pageId,direction,journal.control.request);active();journal.control=null;await accept(result)}
+      catch(error){if(error.status===409){journal.rejectedControls=[...(journal.rejectedControls??[]),copy(journal.control)];journal.control=null;await persist()}throw error}
+      return {objects:preview(),expectedLocal:copy(journal.uiLocal),history:await api.history(pageId),status:'saved',direction,historyClientOperationId:result.clientOperationId}
+    },
+    ownsCommand(id){return journal.recent.includes(id)||journal.queue.some(e=>e.id===id)||journal.control?.request.clientOperationId===id},
+    snapshot(){return copy(journal)},
+  }
+  return apiSession
+}

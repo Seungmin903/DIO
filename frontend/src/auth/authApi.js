@@ -66,6 +66,15 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   const api = {
     getConnectionOptions() { return { baseUrl: base, accessTokenHeader }; },
     getSessionKey() { return session ? `${session.user.userId}:${sessionSequence}` : null; },
+    // Optional collaboration bridge: dev Basic stays in memory and only reaches this API's origin.
+    getCollaborationHeaders({ url, userId, sessionKey }) {
+      if (!session || String(session.user.userId) !== String(userId) || api.getSessionKey() !== sessionKey) throw unauthorized();
+      const target=new URL(url), origin=new URL(base);
+      const protocol=target.protocol==='wss:'?'https:':target.protocol==='ws:'?'http:':target.protocol;
+      if(target.username || target.password || protocol!==origin.protocol || target.host!==origin.host ||
+        !(target.pathname.startsWith(`${origin.pathname}/pages/`) || (target.pathname.startsWith(`${origin.pathname}/diaries/`)&&/^\/diaries\/[0-9a-f-]{36}\/pages(?:\/order)?$/i.test(target.pathname.slice(origin.pathname.length))) || target.pathname.startsWith('/ws/diaries/'))) throw unauthorized();
+      return developmentAccess ? { Authorization:developmentAccess } : {};
+    },
     async getAccessToken({ userId, sessionKey } = {}) {
       const matches = () => session && String(session.user.userId) === String(userId) && sessionKey === api.getSessionKey();
       if (!matches()) throw unauthorized();

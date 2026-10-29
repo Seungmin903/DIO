@@ -30,6 +30,7 @@ dependencies {
 	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -220,5 +221,20 @@ tasks.register('postgresMemberDiaryHttpTest',Test) {
     doFirst {
         if(!(environment['DB_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_member_contract_qa/) || !environment['POSTGRES_USER'] || !environment['POSTGRES_PASSWORD'])
             throw new GradleException('Explicit disposable dio_member_contract_qa required; no fallback.')
+    }
+}
+
+// Existing ERD tables only. Never use a developer database for mutation/locking tests.
+tasks.register('collaborationPostgresTest', Test) {
+    group='verification'
+    description='Runs canvas history, concurrency and real WebSocket tests on disposable dio_collaboration_qa.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {includeTestsMatching 'com.f106.DIO.collaboration.CanvasCollaborationPostgresTests'}
+    environment 'DIO_COLLABORATION_POSTGRES_QA','true'
+    doFirst {
+        if(!(environment['DIO_COLLABORATION_POSTGRES_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_collaboration_qa/) || !environment['DIO_COLLABORATION_POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_collaboration_qa URL/password required; no fallback.')
     }
 }

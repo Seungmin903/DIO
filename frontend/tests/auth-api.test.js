@@ -257,3 +257,18 @@ test('임시 사진 정리 실패가 서버 가입 성공 또는 원래 서버 �
     else await assert.rejects(pending, { status: 413, code: 'PROFILE_PHOTO_TOO_LARGE' });
   }
 });
+
+
+test('공동 편집 개발 인증은 같은 서버의 허용 경로·현재 계정에만 전달한다',async()=>{
+ const {api}=setup(()=>response(tokens()),{baseUrl:'https://dio.example/api/v1',allowDevelopmentAccess:true})
+ api.verificationService.setDevelopmentAccess('qa-user','qa-pass')
+ await api.login({email:user.email,password:'Password123!'})
+ const current={userId:user.userId,sessionKey:api.getSessionKey()}
+ assert.match(api.getCollaborationHeaders({...current,url:'wss://dio.example/ws/diaries/diary-id'}).Authorization,/^Basic /)
+ assert.match(api.getCollaborationHeaders({...current,url:'https://dio.example/api/v1/pages/page-id'}).Authorization,/^Basic /)
+ assert.match(api.getCollaborationHeaders({...current,url:'https://dio.example/api/v1/diaries/10000000-0000-4000-8000-000000000001/pages'}).Authorization,/^Basic /)
+ assert.match(api.getCollaborationHeaders({...current,url:'https://dio.example/api/v1/diaries/10000000-0000-4000-8000-000000000001/pages/order'}).Authorization,/^Basic /)
+ for(const url of ['https://other.example/api/v1/pages/page-id','ws://dio.example/ws/diaries/diary-id','https://dio.example/not-allowed','https://name@dio.example/api/v1/pages/page-id'])
+  assert.throws(()=>api.getCollaborationHeaders({...current,url}))
+ assert.throws(()=>api.getCollaborationHeaders({...current,userId:'other',url:'https://dio.example/api/v1/pages/page-id'}))
+})

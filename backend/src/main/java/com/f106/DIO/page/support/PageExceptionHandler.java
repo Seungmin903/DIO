@@ -16,6 +16,9 @@ import com.f106.DIO.page.domain.DiaryPage;
 @RestControllerAdvice(assignableTypes = {PageController.class, CanvasElementController.class})
 public class PageExceptionHandler extends ResponseEntityExceptionHandler {
 
+    @ExceptionHandler(com.f106.DIO.collaboration.exception.CollaborationException.class)
+    public ProblemDetail collaboration(com.f106.DIO.collaboration.exception.CollaborationException error){return problem(error.status,"Canvas operation failed",error.code,error.getMessage());}
+
 	@ExceptionHandler(DiaryNotFoundException.class)
 	public ProblemDetail diaryNotFound(DiaryNotFoundException exception) {
 		return problem(HttpStatus.NOT_FOUND, "Diary not found", "DIARY_NOT_FOUND", exception.getMessage());
@@ -25,6 +28,9 @@ public class PageExceptionHandler extends ResponseEntityExceptionHandler {
 	public ProblemDetail diaryAccessDenied(DiaryAccessDeniedException exception) {
 		return problem(HttpStatus.FORBIDDEN, "Diary access denied", "DIARY_ACCESS_DENIED", exception.getMessage());
 	}
+
+    @ExceptionHandler(PageCreationConflictException.class)
+    public ProblemDetail pageCreationConflict(PageCreationConflictException error){return problem(HttpStatus.CONFLICT,"Page creation conflict","PAGE_CREATION_CONFLICT",error.getMessage());}
 
 	@ExceptionHandler(PageNotFoundException.class)
 	public ProblemDetail pageNotFound(PageNotFoundException exception) {

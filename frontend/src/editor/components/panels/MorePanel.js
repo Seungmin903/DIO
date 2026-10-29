@@ -92,7 +92,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
           <Text style={styles.hint}>잠긴 요소예요. 잠금을 풀면 편집할 수 있어요.</Text>
         ) : current === 'style' ? (
           <>
-            {isShape && <ShapeSettings embedded showShapePicker={false} settings={single} onCheckpoint={() => dispatch({type:'checkpoint'})} onChange={(patch,record=true) => updateEach(()=>patch,record)} />}
+            {isShape && <ShapeSettings embedded showShapePicker={false} settings={single} onCheckpoint={() => dispatch({type:'checkpoint'})} onCommit={() => dispatch({type:'commitCheckpoint'})} onChange={(patch,record=true) => updateEach(()=>patch,record)} />}
             {/* 여러 칸 틀은 칸마다 '칸 사진'에서 바꾼다 */}
             {isPhoto && !isStripFrame(single.frame) && (
               <Pressable
@@ -118,6 +118,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
                 unit="%"
                 label="불투명도"
                 onStart={() => dispatch({ type: 'checkpoint' })}
+                onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => updateEach(() => ({ opacity: Math.round(value * 100) / 100 }), false)}
               />
             </Section>
@@ -154,6 +155,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
                   dispatch({ type: 'checkpoint' })
                   pivotRef.current = unionCenter(editable)
                 }}
+                onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => rotateTo(Math.round(value))}
               />
             </Section>

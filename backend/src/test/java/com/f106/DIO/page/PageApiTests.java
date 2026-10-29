@@ -36,6 +36,11 @@ class PageApiTests {
 
     @Autowired org.springframework.jdbc.core.JdbcTemplate boundaryJdbc;
     @org.junit.jupiter.api.BeforeEach void memberReceiptFixture() {
+        // JWT fixture subjects represent active accounts, as required by collaboration writes.
+        for (long id : new long[]{101,102,103,104}) {
+            boundaryJdbc.update("insert into users(user_id,email,nickname,nickname_key,profile_color,status,created_at,updated_at) select ?,?,?,?,'#6F9FC6', 'ACTIVE',current_timestamp,current_timestamp where not exists(select 1 from users where user_id=?)", id,"page-fixture-"+id+"@example.com","page-"+id,"page-"+id,id);
+        }
+
         boundaryJdbc.execute("create table if not exists diary_creation_receipts(user_id bigint,key_hash char(64),request_hash char(64),diary_id uuid,response_body jsonb,created_at timestamp(6) with time zone default current_timestamp,completed_at timestamp(6) with time zone,primary key(user_id,key_hash))");
     }
 
