@@ -1,4 +1,4 @@
-import { normalizeEmail, normalizeNickname } from './validation.js';
+import { normalizeEmail, normalizeNickname, nicknameError } from './validation.js';
 import { developmentAuthorization } from './developmentAccess.js';
 
 export function authBaseUrl(value) {
@@ -12,6 +12,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   let developmentAccess = null;
+  let signupPending = false;
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   const acceptSession = result => {
     if (!Number.isSafeInteger(result?.expiresIn) || result.expiresIn <= 0 || result.expiresIn > 86400) {
@@ -95,6 +96,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       const normalized = normalizeEmail(email);
       const result = await request('email-availability', { email: normalized });
       if (attempt !== revision) throw new Error('가입 요청이 취소되었어요.');
+      if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
       if (!result.available) throw new Error('이미 사용 중인 이메일이에요.');
       draft = { email: normalized, password };
       if (verification?.email !== normalized) verification = null;
@@ -108,7 +110,9 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (!result.available) throw new Error('이미 사용 중인 이메일이에요.');
     },
     async checkNickname(nickname) {
-      return (await request('nickname-availability', { nickname: normalizeNickname(nickname) })).available;
+      const result = await request('nickname-availability', { nickname: normalizeNickname(nickname) });
+      if (typeof result?.available !== 'boolean') throw new Error('닉네임 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
+      return result.available;
     },
     async sendVerification(email) {
       const attempt = ++verificationRevision;
@@ -180,23 +184,46 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
 
     async completeProfile({ email, nickname, photoUri, terms }) {
+      if (signupPending) throw new Error('회원가입을 처리하고 있어요. 잠시만 기다려 주세요.');
       if (!draft || draft.email !== normalizeEmail(email) || !verification ||
           verification.email !== draft.email || verification.expiresAt <= now()) {
-        throw new Error('회원가입 전에 이메일 인증이 필요해요. 현재 화면에는 인증 입력 단계가 아직 없어요.');
+        throw new Error('이메일 인증이 필요해요. 이전 화면으로 돌아가 다시 인증해 주세요.');
       }
+      if (nicknameError(nickname)) throw new Error(nicknameError(nickname));
+      if (terms?.service !== true || terms?.privacy !== true) throw new Error('필수 약관에 동의해 주세요.');
+      const currentDraft = draft, currentVerification = verification, attempt = revision;
+      const isCurrent = () => attempt === revision && draft === currentDraft && verification === currentVerification;
       const body = {
-        ...draft, signupToken: verification.token, nickname: normalizeNickname(nickname),
+        ...currentDraft, signupToken: currentVerification.token, nickname: normalizeNickname(nickname),
         agreements: ['service', 'privacy', 'marketing'].map((key) => ({
           termsType: key.toUpperCase(), termsVersion: 'v1', agreed: terms?.[key] === true,
         })),
       };
+      signupPending = true;
       let upload;
       try {
         if (photoUri) upload = await buildPhotoBody(body, photoUri);
+        if (!isCurrent()) throw new Error('가입 요청이 취소되었어요.');
+        if (currentVerification.expiresAt <= now()) throw new Error('이메일 인증이 만료됐어요. 이전 화면에서 다시 인증해 주세요.');
         const user = await request('signup', upload?.body ?? body, undefined, !!upload);
+        if (!isCurrent()) throw new Error('가입 요청 이후 화면이 변경되었어요. 가입 여부는 로그인 화면에서 확인해 주세요.');
+        if (typeof user?.userId !== 'string' || !user.userId.trim() ||
+            typeof user.email !== 'string' || normalizeEmail(user.email) !== body.email ||
+            user.nickname !== body.nickname ||
+            (user.profilePhotoUrl != null && (typeof user.profilePhotoUrl !== 'string' || !user.profilePhotoUrl.trim()))) {
+          throw new Error('가입 결과를 확인하지 못했어요. 로그인 화면에서 가입 여부를 확인해 주세요.');
+        }
+        const result = { ...userView(user), mode: 'registered' };
         draft = null; verification = null;
-        return { ...userView(user), mode: 'registered' };
-      } finally { await upload?.dispose?.(); }
+        return result;
+      } catch (error) {
+        if (isCurrent() && error?.code === 'INVALID_SIGNUP_TOKEN') verification = null;
+        throw error;
+      } finally {
+        // Temporary photo cleanup must not turn a successful signup into a retry.
+        try { await upload?.dispose?.(); } catch {}
+        signupPending = false;
+      }
     },
     async social() { throw new Error('소셜 로그인 API는 아직 연결되지 않았어요.'); },
     async refresh() {

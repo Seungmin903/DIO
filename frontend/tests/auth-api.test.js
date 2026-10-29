@@ -26,6 +26,7 @@ test('로그인은 실제 서버 사용자·사진을 표시하고 view에는 �
   assert.equal(result.accessToken, undefined);
   assert.deepEqual(JSON.parse(calls[0].body), { email: user.email, password: 'Password123!' });
 });
+
 test('로그인 실패는 실제 오류이며 mock 성공으로 대체하지 않는다', async () => {
   const { api } = setup(() => response({ detail: '이메일 또는 비밀번호가 맞지 않아요.', code: 'INVALID_CREDENTIALS' }, 401));
   await assert.rejects(api.login({ email: user.email, password: 'wrong' }), { code: 'INVALID_CREDENTIALS', status: 401 });
@@ -39,7 +40,7 @@ test('이메일 확인·닉네임 확인을 연결하고 인증 UI가 없으면 
 });
 test('검증 토큰·3가지 실제 약관 상태를 보내고 회원가입 후 자동 로그인하지 않는다', async () => {
   const { api, calls } = setup(call => response(call.path === 'email-verifications/verify'
-    ? { signupToken: 'verified', expiresIn: 600 } : call.path === 'signup' ? user : { available: true }));
+    ? { signupToken: 'verified', expiresIn: 600 } : call.path === 'signup' ? { ...user, nickname: '닉네임' } : { available: true }));
   const profile = await api.signup({ email: user.email, password: 'Password123!' });
   await api.verifyEmail(user.email, '123456');
   const result = await api.completeProfile({ ...profile, nickname: '닉네임', terms: { service: true, privacy: true, marketing: false } });
@@ -57,7 +58,7 @@ test('사진 multipart는 Content-Type을 강제하지 않고 실패해도 임�
   { buildPhotoBody: async () => ({ body: form, dispose: () => disposed++ }) });
   const profile = await api.signup({ email: user.email, password: 'Password123!' });
   await api.verifyEmail(user.email, '123456');
-  await assert.rejects(api.completeProfile({ ...profile, nickname: '닉네임', photoUri: 'local-photo', terms: {} }));
+  await assert.rejects(api.completeProfile({ ...profile, nickname: '닉네임', photoUri: 'local-photo', terms: { service: true, privacy: true } }));
   assert.equal(calls.at(-1).body, form); assert.equal(calls.at(-1).headers['Content-Type'], undefined);
   assert.equal(disposed, 1);
 });
@@ -99,4 +100,160 @@ test('개발 프록시에서는 Basic 헤더와 충돌하지 않는 별도 토�
   await api.logout();
   assert.equal(calls.at(-1).headers['X-DIO-Access-Token'], 'access');
   assert.equal(calls.at(-1).headers.Authorization, undefined);
+});
+
+const signupValues = { email: user.email, nickname: '회원', terms: { service: true, privacy: true, marketing: false } };
+const signupResponse = call => response(call.path === 'email-verifications/verify'
+  ? { signupToken: 'server-signup-token', expiresIn: 600 }
+  : call.path === 'signup' ? { ...user, profilePhotoUrl: null } : { available: true });
+async function prepareSignup(api, email = user.email) {
+  await api.verifyEmail(email, '482901');
+  return api.verificationService.prepareSignup({ email, password: 'Password123!' });
+}
+
+test('닉네임·가입 초안의 가용성 응답이 boolean이 아니면 통과시키지 않는다', async () => {
+  for (const value of [null, {}, { available: 'true' }, { available: 1 }]) {
+    const { api } = setup(() => response(value));
+    await assert.rejects(api.checkNickname('회원'), /닉네임 확인 정보/);
+    await assert.rejects(api.signup({ email: user.email, password: 'Password123!' }), /이메일 확인 정보/);
+  }
+});
+
+test('필수 약관·닉네임 검증 실패 시 가입 요청 없이 같은 인증으로 다시 입력할 수 있다', async () => {
+  const { api, calls } = setup(signupResponse);
+  await prepareSignup(api);
+  for (const terms of [{}, { service: true }, { service: true, privacy: false }]) {
+    await assert.rejects(api.completeProfile({ ...signupValues, terms }), /필수 약관/);
+  }
+  await assert.rejects(api.completeProfile({ ...signupValues, nickname: '!' }), /닉네임|2~12/);
+  assert.equal(calls.filter(call => call.path === 'signup').length, 0);
+  const result = await api.completeProfile({ ...signupValues, nickname: ' 회원 ' });
+  assert.equal(result.mode, 'registered');
+  const body = JSON.parse(calls.at(-1).body);
+  assert.equal(body.email, user.email);
+  assert.equal(body.password, 'Password123!');
+  assert.equal(body.nickname, '회원');
+  assert.deepEqual(body.agreements, [
+    { termsType: 'SERVICE', termsVersion: 'v1', agreed: true },
+    { termsType: 'PRIVACY', termsVersion: 'v1', agreed: true },
+    { termsType: 'MARKETING', termsVersion: 'v1', agreed: false },
+  ]);
+  await assert.rejects(api.completeProfile(signupValues), /이메일 인증/);
+  assert.equal(api.getSessionKey(), null);
+});
+
+test('사진 변환 중 가입 연타는 한 요청만 보내고 사진 multipart와 가입 토큰을 유지한다', async () => {
+  let release, photoBody, disposed = 0;
+  const form = new FormData();
+  const { api, calls } = setup(signupResponse, { buildPhotoBody: (body, uri) => {
+    photoBody = body;
+    assert.equal(uri, 'picker/profile');
+    return new Promise(resolve => { release = () => resolve({ body: form, dispose: () => disposed++ }); });
+  } });
+  await prepareSignup(api);
+  const pending = api.completeProfile({ ...signupValues, photoUri: 'picker/profile' });
+  await assert.rejects(api.completeProfile(signupValues), /처리하고/);
+  assert.equal(calls.some(call => call.path === 'signup'), false);
+  release();
+  assert.equal((await pending).mode, 'registered');
+  assert.equal(photoBody.signupToken, 'server-signup-token');
+  assert.equal(calls.at(-1).body, form);
+  assert.equal(calls.at(-1).headers['Content-Type'], undefined);
+  assert.equal(calls.filter(call => call.path === 'signup').length, 1);
+  assert.equal(disposed, 1);
+});
+
+test('사진 변환 중 화면 이탈 또는 인증 만료 시 가입을 전송하지 않고 변환 사진을 정리한다', async () => {
+  for (const leave of [true, false]) {
+    let release, disposed = 0, time = 0;
+    const { api, calls } = setup(signupResponse, { now: () => time,
+      buildPhotoBody: () => new Promise(resolve => { release = () => resolve({ body: new FormData(), dispose: () => disposed++ }); }) });
+    await prepareSignup(api);
+    const pending = api.completeProfile({ ...signupValues, photoUri: 'picker/profile' });
+    if (leave) api.cancelPending(); else time = 600000;
+    release();
+    await assert.rejects(pending, leave ? /취소/ : /만료/);
+    assert.equal(calls.some(call => call.path === 'signup'), false);
+    assert.equal(disposed, 1);
+  }
+});
+
+test('이전 가입 성공·토큰 오류가 늦게 도착해도 새 이메일의 가입 초안을 지우지 않는다', async () => {
+  for (const status of [201, 400]) {
+    let release;
+    const { api, calls } = setup(call => call.path === 'signup' && !release
+      ? new Promise(resolve => { release = () => resolve(status === 201 ? response(user, status)
+        : response({ code: 'INVALID_SIGNUP_TOKEN', detail: '다시 인증해 주세요.' }, status)); })
+      : call.path === 'signup' ? response({ ...user, email: 'new@example.com', profilePhotoUrl: null }, 201)
+      : signupResponse(call));
+    await prepareSignup(api);
+    const pending = api.completeProfile(signupValues);
+    api.cancelPending();
+    await prepareSignup(api, 'new@example.com');
+    release();
+    await assert.rejects(pending);
+    const result = await api.completeProfile({ ...signupValues, email: 'new@example.com' });
+    assert.equal(result.email, 'new@example.com');
+    assert.equal(calls.filter(call => call.path === 'signup').length, 2);
+  }
+});
+
+test('사진 변환·통신·닉네임 충돌 오류 후 입력을 보존하고 가입을 재시도한다', async () => {
+  for (const failure of ['photo', 'network', 'nickname']) {
+    let failed = false;
+    const { api, calls } = setup(call => {
+      if (call.path !== 'signup' || failed) return signupResponse(call);
+      failed = true;
+      if (failure === 'network') throw new Error('offline');
+      return response({ code: 'NICKNAME_UNAVAILABLE', detail: '사용할 수 없는 닉네임이에요.' }, 409);
+    }, { buildPhotoBody: async () => {
+      if (!failed) { failed = true; throw new Error('사진 변환 실패'); }
+      return { body: new FormData(), dispose() {} };
+    } });
+    await prepareSignup(api);
+    await assert.rejects(api.completeProfile({ ...signupValues, ...(failure === 'photo' ? { photoUri: 'picker/profile' } : {}) }));
+    const result = await api.completeProfile(signupValues);
+    assert.equal(result.mode, 'registered');
+    assert.equal(JSON.parse(calls.at(-1).body).signupToken, 'server-signup-token');
+  }
+});
+
+test('서버가 거절한 인증 토큰으로 다시 가입하지 않고 재인증 후에는 가입할 수 있다', async () => {
+  let rejected = false;
+  const { api, calls } = setup(call => {
+    if (call.path === 'signup' && !rejected) {
+      rejected = true;
+      return response({ code: 'INVALID_SIGNUP_TOKEN', detail: '이메일 인증을 다시 진행해 주세요.' }, 400);
+    }
+    return signupResponse(call);
+  });
+  await prepareSignup(api);
+  await assert.rejects(api.completeProfile(signupValues), { code: 'INVALID_SIGNUP_TOKEN' });
+  await assert.rejects(api.completeProfile(signupValues), /이메일 인증/);
+  assert.equal(calls.filter(call => call.path === 'signup').length, 1);
+  await prepareSignup(api);
+  assert.equal((await api.completeProfile(signupValues)).mode, 'registered');
+});
+
+test('비정상·다른 계정의 가입 응답은 완료로 표시하지 않는다', async () => {
+  for (const data of [null, {}, { ...user, userId: '' }, { ...user, email: 'other@example.com' },
+    { ...user, nickname: '다른이름' }, { ...user, profilePhotoUrl: 7 }]) {
+    const { api } = setup(call => call.path === 'signup' ? response(data, 201) : signupResponse(call));
+    await prepareSignup(api);
+    await assert.rejects(api.completeProfile(signupValues), /가입 결과/);
+    assert.equal(api.getSessionKey(), null);
+  }
+});
+
+test('임시 사진 정리 실패가 서버 가입 성공 또는 원래 서버 오류를 덮어쓰지 않는다', async () => {
+  for (const status of [201, 413]) {
+    const { api } = setup(call => call.path === 'signup'
+      ? response(status === 201 ? user : { code: 'PROFILE_PHOTO_TOO_LARGE', detail: '사진이 너무 커요.' }, status)
+      : signupResponse(call),
+    { buildPhotoBody: async () => ({ body: new FormData(), dispose: async () => { throw new Error('cleanup failed'); } }) });
+    await prepareSignup(api);
+    const pending = api.completeProfile({ ...signupValues, photoUri: 'picker/profile' });
+    if (status === 201) assert.equal((await pending).mode, 'registered');
+    else await assert.rejects(pending, { status: 413, code: 'PROFILE_PHOTO_TOO_LARGE' });
+  }
 });

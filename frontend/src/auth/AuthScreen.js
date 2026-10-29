@@ -184,7 +184,7 @@ export default function AuthScreen({
     });
     return () => listener.remove();
   }, [route, profile, info]);
-  const run = async (action, onSuccess) => {
+  const run = async (action, onSuccess, onFailure) => {
     if (running.current) return;
     running.current = true;
     setBusy(true);
@@ -194,9 +194,11 @@ export default function AuthScreen({
       const result = await action();
       if (alive.current && id === job.current) onSuccess(result);
     } catch (error) {
-      if (alive.current && id === job.current)
+      if (alive.current && id === job.current) {
+        onFailure?.(error);
         setMessage(typeof error?.message === 'string' && error.message.trim()
           ? error.message : '처리하지 못했어요. 다시 시도해 주세요.');
+      }
     } finally {
       if (alive.current && id === job.current) {
         running.current = false;
@@ -288,6 +290,13 @@ export default function AuthScreen({
             Keyboard.dismiss();
             setValues(emptyValues());
             onContinue(result);
+          }
+        },
+        (error) => {
+          if (error?.code === 'NICKNAME_UNAVAILABLE') {
+            setChecked(null);
+            setCheckState('taken');
+            setCheckMessage('사용할 수 없는 닉네임이에요. 다른 닉네임을 확인해 주세요.');
           }
         },
       );
