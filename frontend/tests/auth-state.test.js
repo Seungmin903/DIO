@@ -137,11 +137,13 @@ test('실제 서비스는 배포 모드에서도 인증 화면에 서버 어댑�
   assert.equal(verification.props.service.preview, undefined);
   ui.unmount();
 });
-test('닉네임 변경 후 늦은 중복 확인 응답을 무시하고 완료 버튼을 잠근다',async()=>{
- let resolveCheck;const service={social:async()=>({provider:'kakao'}),checkNickname:()=>new Promise(r=>resolveCheck=r)}
- const ui=setup(service);find(ui.render(),'카카오로 로그인').props.onPress();await tick()
- let tree=ui.render();find(tree,'닉네임').props.onChange('소연');tree=ui.render();find(tree,'닉네임 중복 확인').props.onPress();find(ui.render(),'닉네임').props.onChange('다른이름');resolveCheck(true);await tick();tree=ui.render();assert.ok(find(tree,'가입 완료').props.disabled);assert.ok(!nodes(tree).some(n=>n.props.children==='사용할 수 있는 닉네임이에요.'));ui.unmount()
+test('닉네임 중복 확인 없이 형식과 동의로 가입 가능하다',async()=>{
+ const ui=setup({social:async()=>({provider:'kakao'}),checkNickname:()=>{throw new Error('must not call')}})
+ find(ui.render(),'카카오로 로그인').props.onPress();await tick();find(ui.render(),'닉네임').props.onChange('소연');find(ui.render(),'전체 동의').props.onPress()
+ assert.equal(find(ui.render(),'닉네임 중복 확인'),undefined);assert.equal(find(ui.render(),'가입 완료').props.disabled,false)
+ find(ui.render(),'닉네임').props.onChange('a');assert.equal(find(ui.render(),'가입 완료').props.disabled,true);ui.unmount()
 })
+
 test('중복 제출을 막고 Android 뒤로가기 후 늦은 진입 응답을 무시한다',async()=>{
  let resolveSocial,calls=0;const ui=setup({social:()=>{calls++;return new Promise(r=>resolveSocial=r)}})
  const button=find(ui.render(),'카카오로 로그인');button.props.onPress();button.props.onPress();assert.equal(calls,1)
@@ -197,15 +199,12 @@ test('회원가입 진입 시 입력·오류·스크롤을 초기화한다',()=>
  for(const label of ['이메일','비밀번호','비밀번호 확인'])assert.equal(find(ui.render(),label).props.value,'')
  assert.deepEqual(moves,[{y:0,animated:false}]);ui.unmount()
 })
-test('중복 확인은 연타를 막고 재확인 중에는 가입을 막는다',async()=>{
- let resolveCheck,calls=0
- const ui=setup({social:async()=>({provider:'kakao'}),checkNickname:()=>{calls++;return new Promise(r=>resolveCheck=r)}})
- find(ui.render(),'카카오로 로그인').props.onPress();await tick();find(ui.render(),'닉네임').props.onChange('소연')
- let control=find(ui.render(),'닉네임 중복 확인');control.props.onPress();control.props.onPress();assert.equal(calls,1)
- resolveCheck(true);await tick();find(ui.render(),'전체 동의').props.onPress();assert.ok(!find(ui.render(),'가입 완료').props.disabled)
- find(ui.render(),'닉네임 중복 확인').props.onPress();assert.ok(find(ui.render(),'가입 완료').props.disabled)
- resolveCheck(true);await tick();ui.unmount()
+test('유효한 닉네임으로 수정해도 재확인을 요구하지 않는다',async()=>{
+ const ui=setup({social:async()=>({provider:'kakao'})});find(ui.render(),'카카오로 로그인').props.onPress();await tick()
+ find(ui.render(),'닉네임').props.onChange('소연');find(ui.render(),'전체 동의').props.onPress();find(ui.render(),'닉네임').props.onChange('다른이름')
+ assert.equal(find(ui.render(),'가입 완료').props.disabled,false);ui.unmount()
 })
+
 test('사진 선택 도중 화면을 떠나면 늦은 결과를 적용하지 않는다',async()=>{
  let resolvePhoto
  const ui=setup({social:async()=>({provider:'kakao'})},()=>new Promise(r=>resolvePhoto=r))
@@ -220,7 +219,7 @@ test('이메일 가입 완료 후 자동 로그인하지 않고 이메일만 채
  find(ui.render(),'회원가입').props.onPress()
  find(ui.render(),'이메일').props.onChange('new@example.com');find(ui.render(),'비밀번호').props.onChange('Password123');find(ui.render(),'비밀번호 확인').props.onChange('Password123')
  find(ui.render(),'다음').props.onPress();await tick();nodes(ui.render()).find(n=>n.type==='./EmailVerification').props.onComplete();await tick();find(ui.render(),'닉네임').props.onChange('소연')
- find(ui.render(),'닉네임 중복 확인').props.onPress();await tick();find(ui.render(),'전체 동의').props.onPress()
+ await tick();find(ui.render(),'전체 동의').props.onPress()
  find(ui.render(),'가입 완료').props.onPress();await tick()
  const tree=ui.render();assert.ok(find(tree,'로그인'));assert.equal(find(tree,'이메일').props.value,'new@example.com');assert.equal(find(tree,'비밀번호').props.value,'');assert.deepEqual(ui.sessions,[]);const notice=nodes(tree).find(n=>n.props.children==='가입이 완료됐어요.');assert.equal(notice.props.accessibilityRole,'text');t.mock.timers.tick(2500);assert.ok(!nodes(ui.render()).some(n=>n.props.children==='가입이 완료됐어요.'));ui.unmount()
 })
@@ -340,7 +339,7 @@ test('실제 가입 어댑터로 닉네임·동의·가입 충돌·재시도 후
     calls.push({ path, body });
     const data = path === 'email-verifications/verify' ? { signupToken: 'server-token', expiresIn: 600 }
       : path === 'signup' ? (++signupCount === 1
-        ? { code: 'NICKNAME_UNAVAILABLE', detail: '사용할 수 없는 닉네임이에요.' }
+        ? { code: 'SIGNUP_TEMPORARY_ERROR', detail: '사용할 수 없는 닉네임이에요.' }
         : { userId: 'member-1', email: body.email, nickname: body.nickname, profilePhotoUrl: null })
       : { available: true };
     const status = path === 'signup' ? signupCount === 1 ? 409 : 201 : 200;
@@ -358,7 +357,7 @@ test('실제 가입 어댑터로 닉네임·동의·가입 충돌·재시도 후
     verification.props.onComplete(); await tick();
     find(ui.render(), '닉네임').props.onChange('소연');
     assert.equal(find(ui.render(), '가입 완료').props.disabled, true);
-    find(ui.render(), '닉네임 중복 확인').props.onPress(); await tick();
+    await tick();
     assert.equal(find(ui.render(), '가입 완료').props.disabled, true);
     find(ui.render(), '[필수] 이용약관 동의').props.onPress();
     assert.equal(find(ui.render(), '가입 완료').props.disabled, true);
@@ -368,10 +367,9 @@ test('실제 가입 어댑터로 닉네임·동의·가입 충돌·재시도 후
     complete.props.onPress(); complete.props.onPress(); await tick();
     assert.equal(signupCount, 1);
     assert.equal(find(ui.render(), '닉네임').props.value, '소연');
-    assert.equal(find(ui.render(), '가입 완료').props.disabled, true);
-    assert.ok(nodes(ui.render()).some(node => node.props.children === '사용할 수 없는 닉네임이에요. 다른 닉네임을 확인해 주세요.'));
+    assert.equal(find(ui.render(), '가입 완료').props.disabled, false);
     find(ui.render(), '닉네임').props.onChange('새소연');
-    find(ui.render(), '닉네임 중복 확인').props.onPress(); await tick();
+    await tick();
     find(ui.render(), '가입 완료').props.onPress(); await tick();
     assert.equal(signupCount, 2);
     assert.ok(find(ui.render(), '로그인'));

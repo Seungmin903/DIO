@@ -19,24 +19,20 @@ async function setup() {
 }
 test('본인 닉네임 허용·계정 수정·사진 삭제를 재로그인에 반영하고 비밀번호를 노출하지 않는다', async () => {
   const { service, user } = await setup();
-  assert.equal(await service.checkProfileNickname(user, user.nickname), user.nickname);
   const updated = await service.updateProfile(user, { nickname: '바뀐이름', photoUri: null });
   assert.equal(updated.accountId, user.accountId);
   assert.equal(updated.photoUri, undefined);
   assert.equal('password' in updated, false);
   assert.deepEqual(await service.login(credentials), updated);
   assert.equal(user.nickname, '처음이름');
-  assert.equal(await service.checkNickname(user.nickname), true);
-  assert.equal(await service.checkNickname(updated.nickname), false);
 });
-test('중복 이름·손상 사진 저장은 원본을 유지하고 확인 후 선점된 이름을 저장 단계에서 재검사한다', async () => {
+test('중복 이름은 허용하고 손상 사진·닉네임 형식 오류는 거절한다', async () => {
   const { service, user } = await setup();
-  await service.checkProfileNickname(user, '다른이름');
   await service.completeProfile({ provider: 'google', nickname: '다른이름' });
-  await assert.rejects(service.updateProfile(user, { nickname: '다른이름' }), /이미 사용/);
+  assert.equal((await service.updateProfile(user, { nickname: '다른이름' })).nickname, '다른이름');
   await assert.rejects(service.updateProfile(user, { nickname: '새이름', photoUri: '' }), /사진/);
-  await assert.rejects(service.checkProfileNickname(user, '관리자'), /이미 사용/);
-  assert.deepEqual(await service.login(credentials), user);
+  await assert.rejects(service.updateProfile(user, { nickname: '!' }), /2~12/);
+  assert.equal((await service.login(credentials)).nickname, '다른이름');
 });
 test('비밀번호 변경은 현재 값·새 형식·확인·동일값을 검사하고 이전 비밀번호 로그인을 차단한다', async () => {
   const { service, user } = await setup();
@@ -62,7 +58,6 @@ test('탈퇴는 본인만 제거하고 같은 이메일 재가입은 다른 계�
   const other = await service.completeProfile({ provider: 'apple', nickname: '다른회원' });
   await service.withdraw(user);
   await assert.rejects(service.login(credentials), /맞지 않아요/);
-  assert.equal(await service.checkProfileNickname(other, other.nickname), other.nickname);
   const enrollment = await service.signup(credentials);
   const next = await service.completeProfile({ ...enrollment, nickname: user.nickname });
   assert.notEqual(user.accountId, next.accountId);
@@ -75,7 +70,7 @@ test('소셜 회원 수정·탈퇴를 지원하고 이메일 비밀번호 변경
   assert.equal((await service.updateProfile(user, { nickname: '수정회원' })).nickname, '수정회원');
   await assert.rejects(service.changePassword(user, {}), /소셜/);
   await service.withdraw(user);
-  await assert.rejects(service.checkProfileNickname(user, '새이름'), /로그인/);
+  await assert.rejects(service.updateProfile(user, { nickname: '새이름' }), /로그인/);
 });
 test('계정 사진·닉네임 변경은 기존 공유 프로필과 문서를 유지하고 이후 생성 기본값만 변경한다', async () => {
   const runtime = createSharingPreview({

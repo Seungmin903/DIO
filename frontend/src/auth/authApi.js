@@ -148,11 +148,6 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
       if (!result.available) throw new Error('이미 사용 중인 이메일이에요.');
     },
-    async checkNickname(nickname) {
-      const result = await request('nickname-availability', { nickname: normalizeNickname(nickname) });
-      if (typeof result?.available !== 'boolean') throw new Error('닉네임 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
-      return result.available;
-    },
     async sendVerification(email) {
       const attempt = ++verificationRevision;
       verification = null;

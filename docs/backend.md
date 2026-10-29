@@ -95,7 +95,6 @@ HTTP Request
 |---|---|---|---|
 | 상태 확인 | `/api/health`, `/actuator/health` | 불필요 | 서버·의존성 상태 확인 |
 | 가입 준비 | `/api/v1/auth/email-verifications/**` | 불필요 | 이메일 인증번호 발송·확인, signupToken 발급 |
-| 사용자 확인 | `/api/v1/auth/email-availability`, `/nickname-availability` | 불필요 | 가입 전 이메일·닉네임 중복 확인 |
 | 회원가입 | `/api/v1/auth/signup` | 불필요 | JSON 또는 프로필 사진 포함 multipart 가입 |
 | 로그인·세션 | `/api/v1/auth/login`, `/refresh`, `/logout` | 로그아웃만 필요 | Access·Refresh Token 관리 |
 | 프로필 사진 | `/api/v1/auth/profile-photos/{photoId}` | 불필요 | 공개 PNG 조회 |
@@ -231,3 +230,7 @@ Swagger에서 로그인한 뒤에는 **Authorize**에 로그인 응답의 Access
 기본 테스트는 H2 인메모리 DB에서 실행하고, `postgresTest`는 로컬 PostgreSQL에서 Flyway 스키마를 검증한다. 주요 검증 범위는 로그인·토큰 회전, 프로필 사진 처리, 다이어리 CRUD, 페이지·캔버스 저장, 폼 입력, 권한 없는 접근 401/403, 로컬 시드다.
 
 현재 멤버 권한 검사는 동작하지만, 초대 생성·수락·멤버 역할 변경 API는 아직 별도 구현이 필요하다. 실시간 공동 편집 WebSocket, 편집용 미디어 업로드·보관함 API, 캔버스 작업 이력/Undo API, AI 작업·알림 API도 DB 설계는 준비돼 있으나 API 연결 범위는 후속 작업이다.
+
+닉네임은 표시 이름으로 중복을 허용한다. 중복 확인 API·버튼·선행 확인 조건은 제거하며 trim/NFKC 정규화와 한글·영문·숫자·밑줄 2~12자 검증은 유지한다. 이메일 중복 검사는 유지한다. V20은 기존 nickname_key 컬럼과 회원 데이터를 보존하고 users_nickname_key_unique 제약만 해제한다. 기존 V2는 변경하지 않는다.
+
+가입 전 이메일 확인: POST `/api/v1/auth/email-availability` (인증 불필요). 공개 프로필 사진 조회 API도 유지한다.

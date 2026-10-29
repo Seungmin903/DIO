@@ -12,7 +12,7 @@ public class User {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long userId;
     @Column(unique = true, length = 255) private String email;
     @Column(nullable = false, length = 30) private String nickname;
-    @Column(nullable = false, unique = true, length = 30) private String nicknameKey;
+    @Column(nullable = false, length = 30) private String nicknameKey;
     @Column(nullable = false, columnDefinition = "char(7)") @JdbcTypeCode(SqlTypes.CHAR) private String profileColor;
     @Column(nullable = false, length = 20) private String status;
     private Instant lastLoginAt;

@@ -273,13 +273,12 @@ class EmailSignupTests {
             error -> assertThat(error.code).isEqualTo("EMAIL_ALREADY_REGISTERED"));
         assertThat(users.count()).isEqualTo(1);
     }
-    @Test void duplicateNicknameDoesNotConsumeOtherEmailToken() {
+    @Test void duplicateNormalizedNicknamesCanRegisterDifferentEmails() {
         signup.signup(request(EMAIL, verifyEmail(EMAIL), "DioUser"));
-        String other = "other@example.com", token = verifyEmail(other);
-        assertThatThrownBy(() -> signup.signup(request(other, token, "diouser"))).isInstanceOf(UserException.class);
-        assertThat(verifications.findById(other).orElseThrow().getConsumedAt()).isNull();
-        signup.signup(request(other, token, "다른닉네임"));
+        String other="other@example.com";
+        signup.signup(request(other,verifyEmail(other),"diouser"));
         assertThat(users.count()).isEqualTo(2);
+        assertThat(verifications.findById(other).orElseThrow().getConsumedAt()).isNotNull();
     }
     @Test void optionalMarketingDeclineIsRecorded() {
         signup.signup(request(EMAIL, verifyEmail(EMAIL), "디오사용자"));
@@ -306,12 +305,12 @@ class EmailSignupTests {
         }
         assertThat(users.count()).isZero();
     }
-    @Test void databaseUniquenessStopsDuplicateEmailAndNickname() {
+    @Test void databaseUniquenessStopsDuplicateEmailButAllowsDuplicateNickname() {
         signup.signup(request(EMAIL, verifyEmail(EMAIL), "디오사용자"));
         assertThatThrownBy(() -> users.saveAndFlush(newUser(request(EMAIL, SignupSecrets.token(), "다른사용자"), Instant.now())))
             .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
-        assertThatThrownBy(() -> users.saveAndFlush(newUser(request("other@example.com", SignupSecrets.token(), "디오사용자"), Instant.now())))
-            .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        users.saveAndFlush(newUser(request("other@example.com", SignupSecrets.token(), "디오사용자"), Instant.now()));
+        assertThat(users.count()).isEqualTo(2);
     }
     @Test void credentialPersistenceFailureRollsBackUserAndTokenConsumption() {
         String token = verifyEmail(EMAIL);
@@ -335,32 +334,6 @@ class EmailSignupTests {
         mvc.perform(post("/api/v1/auth/email-verifications/verify").contentType(MediaType.APPLICATION_JSON)
             .content("{\"email\":\"member@example.com\",\"code\":\"123\"}")).andExpect(status().isBadRequest());
         verifyNoInteractions(mail);
-    }
-    @Test void nicknameAvailabilityUsesNormalizedCaseInsensitiveRegistrationPolicy() throws Exception {
-        String body = "{\"nickname\":\"  Ｄｉｏ＿Ｍｅｍｂｅｒ  \"}";
-        mvc.perform(post("/api/v1/auth/nickname-availability").contentType(MediaType.APPLICATION_JSON).content(body))
-            .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
-            .andExpect(jsonPath("$.available").value(true));
-        signup.signup(request(EMAIL, verifyEmail(EMAIL), "Dio_Member"));
-        mvc.perform(post("/api/v1/auth/nickname-availability").contentType(MediaType.APPLICATION_JSON).content(body))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.available").value(false));
-    }
-    @Test void nicknameAvailabilityRejectsReservedNamesWithoutCreatingRecords() throws Exception {
-        for (String nickname : List.of("관리자", "DIO", " ｄｉｏ ")) {
-            mvc.perform(post("/api/v1/auth/nickname-availability").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"nickname\":\"" + nickname + "\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.available").value(false));
-        }
-        assertThat(users.count()).isZero();
-        assertThat(verifications.count()).isZero();
-        verifyNoInteractions(mail);
-    }
-    @Test void nicknameAvailabilityValidatesInput() throws Exception {
-        for (String body : List.of("{}", "{\"nickname\":null}", "{\"nickname\":\" \"}",
-                "{\"nickname\":\"a\"}", "{\"nickname\":\"1234567890123\"}", "{\"nickname\":\"닉 네임\"}")) {
-            mvc.perform(post("/api/v1/auth/nickname-availability").contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isBadRequest());
-        }
     }
     MockMultipartFile signupPart(String token) {
         return new MockMultipartFile("signup", "signup.json", "application/json", signupJson(EMAIL, token).getBytes(StandardCharsets.UTF_8));
@@ -469,7 +442,7 @@ class EmailSignupTests {
         mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
             .andExpect(jsonPath("$.paths['/api/v1/auth/signup'].post").exists())
             .andExpect(jsonPath("$.paths['/api/v1/auth/email-availability'].post").exists())
-            .andExpect(jsonPath("$.paths['/api/v1/auth/nickname-availability'].post").exists())
+            .andExpect(jsonPath("$.paths['/api/v1/auth/nickname-availability']").doesNotExist())
             .andExpect(jsonPath("$.paths['/api/v1/auth/email-verifications'].post").exists())
             .andExpect(jsonPath("$.paths['/api/v1/auth/email-verifications/verify'].post").exists())
             .andExpect(jsonPath("$.components.schemas.SignupRequest.properties.password.writeOnly").value(true))

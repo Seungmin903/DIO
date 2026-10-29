@@ -3,7 +3,6 @@
 > 최신 develop 통합: 새 V1 initial schema 이후 인증 V2·V3과 사진 V4·V5를 적용한다. 아래 예전 V2~V6 설명은 기존 배포 이력의 기록이며, 이전 SQL 원본과 전환 주의사항은 [인증 마이그레이션 이력](./legacy-auth-migrations/README.md)을 참고한다. 기존 DB를 자동 초기화하거나 Flyway repair하지 않는다.
 
 
-이 문서의 범위: 이메일·닉네임 중복 확인, 가입 인증번호 발송·확인, 회원가입. 일반 로그인·JWT·재발급·로그아웃은 [email-login.md](./email-login.md)에 별도로 정리했다. 소셜 인증, 비밀번호 재설정, 프론트 연결은 아직 포함하지 않는다. 가입 성공 후 로그인 화면으로 돌아가는 기존 화면 흐름에 맞춰 회원가입 응답에는 로그인 토큰을 발급하지 않는다.
 
 ## API와 Swagger 확인 순서
 
@@ -12,7 +11,6 @@
 | Method | 경로 | 요청 | 성공 |
 |---|---|---|---|
 | POST | `/api/v1/auth/email-availability` | `{"email":"member@example.com"}` | 200 `{"available":true}` |
-| POST | `/api/v1/auth/nickname-availability` | `{"nickname":"디오사용자"}` | 200 `{"available":true}` |
 | POST | `/api/v1/auth/email-verifications` | `{"email":"member@example.com"}` | 200 `{"expiresIn":600,"resendAfter":60}` |
 | POST | `/api/v1/auth/email-verifications/verify` | `{"email":"member@example.com","code":"메일로 받은 6자리"}` | 200 `{"signupToken":"일회용 토큰","expiresIn":600}` |
 | POST | `/api/v1/auth/signup` | 아래 예시 | 201 회원 정보. ID는 문자열 |
@@ -33,7 +31,6 @@
 
 성공 응답은 `userId`, `email`, `nickname`, `profilePhotoUrl`, `createdAt`이다. 비밀번호·해시·가입 토큰·인증번호는 포함하지 않는다. 회원가입 요청·응답과 Swagger에서 `profileColor`를 제거했다. 사진이 없으면 `profilePhotoUrl`은 null이다. 기존 `users.profile_color`는 호환을 위해 보존하며 신규 회원에는 내부 기본값만 저장한다.
 
-닉네임 중복 확인은 프론트의 `checkNickname(value)` 버튼용이며 인증 없이 호출한다. 형식 오류는 400, 중복·예약어는 200 `{"available":false}`다. 프론트에서 응답의 `available`을 반환하면 기존 버튼 흐름에 연결할 수 있다. 앞뒤 공백 제거·NFKC 정규화, 한글·영문·숫자·밑줄 2~12자, 영문 대소문자 무관, 관리자/dio 예약어 정책은 실제 가입 검사와 공유한다. 이 조회는 닉네임을 예약하지 않으므로 가입 시 재검사와 DB UNIQUE를 유지한다. DB·마이그레이션·프론트 변경은 없다.
 
 현재 화면의 프로필 사진 선택을 지원하는 백엔드 저장/조회와 API의 색상 제거를 구현했다. 프론트는 아직 previewAuth이므로 파일 업로드 연결, 이메일 인증 화면, 실제 API 연동, 비밀번호 ASCII 허용 범위 통일은 후속 작업이다.
 
@@ -120,7 +117,7 @@ multipart의 전체 Content-Type은 boundary를 포함하도록 클라이언트�
 
 - 이메일은 trim 및 소문자 정규화, 최대 254자. 전체 회원 이메일을 중복 확인하며 가입 시 재검사하고 DB UNIQUE로 동시 중복도 막는다. 소셜 계정의 이메일만 같다고 자동 연결하지 않는다.
 - 비밀번호는 영문과 숫자를 모두 포함한 공백 없는 ASCII 8~32자. BCrypt 비용 12로 해시한다. 원문을 DB·응답·로그에 기록하지 않는다.
-- 닉네임은 trim/NFKC 정규화 후 한글·영문·숫자·밑줄 2~12자. `nickname_key`로 영문 대소문자 무관 중복을 막으며 관리자/dio는 예약어다. 이 컬럼은 제공 ERD에서 추가한 파생 키다.
+- 닉네임은 trim/NFKC 정규화 후 한글·영문·숫자·밑줄 2~12자. `nickname_key`는 호환성을 위해 유지하지만 중복 제한에는 사용하지 않는다. 이 컬럼은 호환성 유지를 위한 파생 키다.
 - SERVICE/PRIVACY 동의는 필수, MARKETING은 선택이다. 중복 종류·현재 버전 불일치·필수 미동의는 거절한다. 전달된 선택 미동의도 저장한다.
 - 약관 버전 기본값 `v1`은 개발용이다. 배포 전 실제 게시된 약관 버전을 환경변수로 지정해야 한다. 버전별 약관 본문 제공 API는 이번 범위 밖이다.
 
@@ -161,7 +158,7 @@ multipart의 전체 Content-Type은 boundary를 포함하도록 클라이언트�
 
 `SignupException`은 Retry-After 값이 있을 때만 헤더를 붙인다. 요청·응답 본문, 상태 코드, DB는 바꾸지 않았다.
 - 가입 토큰은 이메일에 귀속되고 발급 후 10분, 가입 성공 시 소비한다. 회원·인증 계정·약관·토큰 소비는 같은 트랜잭션이다. 실패하면 함께 롤백한다.
-- 같은 이메일의 검증·가입은 DB 행 잠금으로 직렬화한다. 최초 인증 요청의 동시 생성은 PK 제약으로 충돌을 처리한다. 이메일/닉네임/로그인 제공자 키에도 UNIQUE 제약을 적용한다.
+- 같은 이메일의 검증·가입은 DB 행 잠금으로 직렬화한다. 최초 인증 요청의 동시 생성은 PK 제약으로 충돌을 처리한다. 이메일/로그인 제공자 키의 UNIQUE 제약은 유지하고, 닉네임 UNIQUE는 V20에서 해제한다.
 - 오류는 `application/problem+json`을 사용한다. 입력 오류 400, 중복·동시 충돌 409, 횟수 제한 429, 인증 설정·SMTP 실패 503이다. 서비스 오류의 `code` 필드로 구분한다. validation 오류는 Spring 기본 ProblemDetail이다.
 - 이메일 중복 확인은 가입 여부를 공개하는 API다. 가입 인증 메일에는 아래 IP별 제한을 추가했다. 다중 서버 공통 제한·일일 총 발송량·악용 탐지 정책은 인프라와 별도로 협의한다.
 - 인증 행은 이메일별 한 건을 갱신한다. 만료·소비된 행의 정기 삭제/보관 기간은 운영 정책 확정 후 적용해야 한다. 만료/소비 여부는 매 요청 검증하므로 오래된 행으로 인증할 수는 없다.
@@ -213,3 +210,5 @@ GET profile-photos는 짧은 읽기 트랜잭션으로 사진의 저장소 위�
 이미지 리더의 헤더 확인·디코딩·리사이즈 중 RuntimeException은 400 INVALID_PROFILE_PHOTO로 변환한다. 파일/S3 업로드·DB 저장 등 다른 처리의 오류를 사진 입력 오류로 바꾸지는 않는다. 기존 5MB 초과 응답 413과 이미지 크기 제한은 유지한다. 실제 잘린 JPEG/PNG와 디코더의 런타임 실패를 검증한다.
 
 새 이메일 인증 행은 Persistable 신규 상태로 INSERT하며, 이미 커밋된 인증 행을 merge로 덮어쓰지 않는다. 같은 신규 이메일의 요청이 경합하면 성공한 요청만 발송하고, 다른 요청의 신규 INSERT PK 충돌(SQLState 23505)은 429 VERIFICATION_RATE_LIMITED 및 Retry-After: 60으로 응답하면서 해당 트랜잭션을 롤백한다. 기존 행은 종전처럼 행 잠금과 60초 간격을 적용한다. NOT NULL·CHECK 등 다른 무결성 오류는 429로 숨기지 않는다. H2와 격리 PostgreSQL에서 동시 HTTP 요청 2개가 200/429로 나뉘고 실제 발송이 한 번이며 승자의 인증번호가 유효함을 확인한다.
+
+닉네임은 표시 이름으로 중복을 허용한다. 중복 확인 API·버튼·선행 확인 조건은 제거하며 trim/NFKC 정규화와 한글·영문·숫자·밑줄 2~12자 검증은 유지한다. 이메일 중복 검사는 유지한다. V20은 기존 nickname_key 컬럼과 회원 데이터를 보존하고 users_nickname_key_unique 제약만 해제한다. 기존 V2는 변경하지 않는다.

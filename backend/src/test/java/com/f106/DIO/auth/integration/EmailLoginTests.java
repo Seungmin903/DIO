@@ -139,7 +139,7 @@ class EmailLoginTests {
         assertThat(history.count()).isEqualTo(2);
     }
     @Test void authCorsAllowsLocalFrontendIncludingLogoutPreflightOnly() throws Exception {
-        for (String path : List.of("login", "logout", "signup", "nickname-availability")) {
+        for (String path : List.of("login", "logout", "signup")) {
             mvc.perform(options("/api/v1/auth/" + path).header("Origin", "http://localhost:8081")
                 .header("Access-Control-Request-Method", "POST")
                 .header("Access-Control-Request-Headers", "content-type,authorization"))

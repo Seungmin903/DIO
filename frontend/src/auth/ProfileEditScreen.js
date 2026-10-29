@@ -36,8 +36,6 @@ export default function ProfileEditScreen({
   const [saved, setSaved] = useState(user);
   const [nickname, setNickname] = useState(user.nickname);
   const [photoUri, setPhotoUri] = useState(user.photoUri || null);
-  const [checked, setChecked] = useState(null);
-  const [checkMessage, setCheckMessage] = useState('');
   const [dialog, setDialog] = useState(null);
   const [withdrawText, setWithdrawText] = useState('');
   const [passwords, setPasswords] = useState(emptyPasswords);
@@ -50,11 +48,9 @@ export default function ProfileEditScreen({
     pendingLeave = useRef(null);
   const form = useProfileKeyboard(),
     modalForm = useProfileKeyboard();
-  const name = normalizeNickname(nickname),
-    originalName = normalizeNickname(saved.nickname);
+  const name = normalizeNickname(nickname);
   const changed = nickname !== saved.nickname || photoUri !== (saved.photoUri || null);
-  const ready = changed && !nicknameError(nickname) && (name === originalName || checked === name);
-  const canCheckNickname = !busy && name !== originalName && !nicknameError(nickname);
+  const ready = changed && !nicknameError(nickname);
   const passwordDirty = Object.values(passwords).some(Boolean);
   const passwordReady =
     passwords.currentPassword &&
@@ -155,27 +151,15 @@ export default function ProfileEditScreen({
         setSaved(result);
         setNickname(result.nickname);
         setPhotoUri(result.photoUri || null);
-        setChecked(null);
-        setCheckMessage('');
         form.dismiss();
         setNotice('회원정보를 저장했어요.');
       },
       onUpdate,
     );
   };
-  const check = () =>
-    run(
-      () => service.checkProfileNickname(saved, nickname),
-      (result) => {
-        setChecked(result);
-        setCheckMessage('사용할 수 있는 닉네임이에요.');
-      },
-    );
   const changeNickname = (value) => {
     request.current++;
     setNickname(value);
-    setChecked(null);
-    setCheckMessage('');
     setError('');
     setNotice('');
   };
@@ -194,8 +178,6 @@ export default function ProfileEditScreen({
     if (dialog === 'discard') {
       setNickname(saved.nickname);
       setPhotoUri(saved.photoUri || null);
-      setChecked(null);
-      setCheckMessage('');
     }
     action?.();
   };
@@ -320,20 +302,9 @@ export default function ProfileEditScreen({
                     maxLength={12}
                   />
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="닉네임 중복 확인"
-                  disabled={!canCheckNickname}
-                  accessibilityState={{ disabled: !canCheckNickname }}
-                  onPress={check}
-                  style={[s.check, !canCheckNickname && s.disabled]}
-                >
-                  <Text style={s.checkText}>중복 확인</Text>
-                </Pressable>
               </View>
               <Text accessibilityLiveRegion="polite" style={s.hint}>
-                {checkMessage ||
-                  (nicknameError(nickname) && nickname
+                {(nicknameError(nickname) && nickname
                     ? nicknameError(nickname)
                     : '한글·영문·숫자·밑줄 2~12자')}
               </Text>
