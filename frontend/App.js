@@ -40,6 +40,7 @@ import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
 import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
 import { randomUUID } from 'expo-crypto';
 import { createId, setUuidGenerator } from './src/editor/utils/common';
+import HandwritingStudio from './src/handwriting/HandwritingStudio';
 
 // 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
 if (Platform.OS !== 'web') setUuidGenerator(randomUUID);
@@ -64,7 +65,7 @@ export default function App() {
   useHiddenNavigationBar();
   const SessionDiaryApp = previewSession?.mode === 'authenticated' ? MemberDiaryApp : LocalDiaryApp;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-library') {
-    return <SafeAreaProvider style={s.provider}><MockLibraryApp /></SafeAreaProvider>;
+    return <SafeAreaProvider style={s.provider}><MockLibraryApp /><HandwritingStudio /></SafeAreaProvider>;
   }
   return (
     <SafeAreaProvider style={s.provider}>
@@ -75,6 +76,8 @@ export default function App() {
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} /> : <AuthScreen onContinue={setPreviewSession} />
       )}
+      <HandwritingStudio />
+
     </SafeAreaProvider>
   );
 }

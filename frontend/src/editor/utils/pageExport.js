@@ -4,8 +4,9 @@ import { templateReference } from '../templates/catalog.js'
 import { isStudyPlannerId, studyPlannerSvg } from '../templates/studyPlanner.js'
 import { normalizeTextLink } from './textFormats.js'
 import { EDITOR_SHAPES, SHAPE_BORDER_STYLES } from './editorShapes.js'
-import { RETIRED_TEXT_FONTS, TEXT_FONTS } from './text.js'
+import { RETIRED_TEXT_FONTS, getTextFonts } from './text.js'
 import { stripCellBoxes } from './photoStrip.js'
+
 
 /** 화면 줌·선택 상태·저장 지연과 독립적인 출력 입력. 현재 로컬 요소 배열은 뒤→앞 순서다. */
 export class PageExportError extends Error {
@@ -25,7 +26,7 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
       (object.styleRanges != null && (!Array.isArray(object.styleRanges) || object.styleRanges.some((r, i, list) => !r || !Number.isInteger(r.start) || !Number.isInteger(r.end) || r.start < 0 || r.end > object.text.length || r.start >= r.end || (i > 0 && list[i - 1].end > r.start) || (r.fontSize == null && !r.href) || (r.fontSize != null && (!Number.isFinite(r.fontSize) || r.fontSize < 8 || r.fontSize > 96)) || (r.href != null && (typeof r.href !== 'string' || !normalizeTextLink(r.href)))))) ||
       (object.fontSize != null && (!Number.isFinite(object.fontSize) || object.fontSize < 8 || object.fontSize > 96)) ||
       // 글꼴 목록의 글꼴(앱에 넣은 한국어 글꼴 포함)과 예전 문서의 고정폭(mono)만 받는다
-      (object.font != null && !RETIRED_TEXT_FONTS.includes(object.font) && !TEXT_FONTS.some((font) => font.id === object.font)) ||
+      (object.font != null && !RETIRED_TEXT_FONTS.includes(object.font) && !getTextFonts().some((font) => font.id === object.font)) ||
       (object.textAlign != null && !['left', 'center', 'right', 'justify'].includes(object.textAlign))
     )) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '텍스트 서식을 확인해 주세요.')
     if (object.type === 'shape' && (
@@ -37,7 +38,7 @@ export function createExportSnapshot(page, { width = pageSize(page).width, heigh
       !SHAPE_BORDER_STYLES.some(item=>item.id===object.borderStyle) ||
       !Number.isFinite(object.fontSize) || object.fontSize < 8 || object.fontSize > 96 ||
       !['left','center','right','justify'].includes(object.align) ||
-      !TEXT_FONTS.some(font => font.id === object.font)
+      !getTextFonts().some(font => font.id === object.font)
     )) throw new PageExportError('EXPORT_GEOMETRY_INVALID', '도형 내용을 확인해 주세요.')
     if (object.type === 'stroke' && (
       !Array.isArray(object.points) || !object.points.length ||
