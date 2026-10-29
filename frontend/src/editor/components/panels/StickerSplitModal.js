@@ -14,6 +14,7 @@ import { stickerSplit } from '../../services/stickerSplit'
 import { FULL_CROP, splitError } from '../../utils/stickerSplit.js'
 import { discardGeneratedMedia, importMedia } from '../../services/mediaStore'
 import { saveSplitSelection, splitSaveError } from '../../utils/stickerSplitSave.js'
+import { initialStickerGrouping } from '../../utils/stickerInitialGrouping.js'
 
 export default function StickerSplitModal({ folder, initialName = '', onSave, onClose }) {
   const insets = useSafeAreaInsets()
@@ -26,7 +27,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   const previewHeight = Math.max(140, Math.min(width < 600 ? 380 : 480, height * 0.42, height - insets.top - insets.bottom - 220,
     source ? (width - insets.left - insets.right - 32) * source.height / source.width : height * 0.42))
   const [crop, setCrop] = useState(FULL_CROP)
-  const [cropDefined, setCropDefined] = useState(false)
+  const [cropDefined, setCropDefined] = useState(true)
   const [addCrop, setAddCrop] = useState(null)
   const [sourceReady, setSourceReady] = useState(false)
   const [background, setBackground] = useState(null)
@@ -41,6 +42,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   const [interacting, setInteracting] = useState(false)
   const [parts, setParts] = useState([])
   const alive = useRef(true), operation = useRef(null), jobIds = useRef([]), sourceRef = useRef(null), closing = useRef(false), busy = useRef(false)
+  const runCancelled = useRef(false)
   const editing = useStickerSplitEditing(parts, source, crop, jobIds)
   const { selected, setSelected } = editing
   const groups = editing.groups
@@ -70,13 +72,14 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
       await stickerSplit.cleanup(jobIds.current); jobIds.current = []
       if (!alive.current) { stickerSplit.disposeSource(next); return }
       if (sourceRef.current) stickerSplit.disposeSource(sourceRef.current)
-      sourceRef.current = next; setSourceReady(false); setSource(next); setParts([]); editing.reset(); setCrop(FULL_CROP); setCropDefined(false); setAddCrop(null); setBackground(null); setToleranceDraft(null); setMode('crop'); setDirty(false); setSection('region'); setManualMerge(false); setMergeTargets([]); setMore(false); setSmallOnly(false); setZoomed(null); setView({ zoom: 1, x: 0, y: 0 })
+      sourceRef.current = next; setSourceReady(false); setSource(next); setParts([]); editing.reset(); setCrop(FULL_CROP); setCropDefined(true); setAddCrop(null); setBackground(null); setToleranceDraft(null); setMode('crop'); setDirty(false); setSection('region'); setManualMerge(false); setMergeTargets([]); setMore(false); setSmallOnly(false); setZoomed(null); setView({ zoom: 1, x: 0, y: 0 })
     } catch (failure) { if (alive.current) setError(/이미지|GIF|선택/.test(failure.message) ? failure.message : splitError(failure)) }
     finally { busy.current = false; if (alive.current) setPhase('idle') }
   }
   async function run(kind = 'replace', targetCrop = crop) {
     if (busy.current || !source || !sourceReady) return
     busy.current = true; setPhase('analyzing'); setError('')
+    runCancelled.current = false
     if (kind === 'replace') setDirty(true)
     try {
       const job = stickerSplit.analyze(source.uri, { crop: targetCrop, autoBackground: !background, backgroundX: background?.x, backgroundY: background?.y, tolerance })
@@ -85,9 +88,22 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
       if (!alive.current || closing.current) return
       if (!result.parts.length) { setError(stickerSplit.completeRegions ? '영역 안에서 분리할 그림이 없어요. 가로·세로 모두 3px 이상인 그림이 들어오도록 영역을 조정하거나 배경 설정을 확인해 주세요.' : '분리한 그림이 없어요. 배경이나 허용 범위를 바꿔 주세요.'); return }
       if (kind === 'add' && parts.length + result.parts.length > 4096) { setError(splitError(new Error('TOO_MANY_PARTS'))); await stickerSplit.cleanup([job.id]); return }
+      let initial = null
+      const checkRun = () => { if (!alive.current || closing.current || runCancelled.current) throw new Error('CANCELLED') }
+      checkRun()
+      if (kind === 'replace' && !parts.length && editing.enabled) {
+        setPhase('grouping')
+        initial = await initialStickerGrouping(result.parts, Math.min(source.width * targetCrop.width, source.height * targetCrop.height), async pixels => {
+          checkRun()
+          const query = stickerSplit.groupEdges(result.parts, pixels)
+          operation.current = query.id; jobIds.current.push(query.id)
+          try { return await query.promise } finally { await stickerSplit.cleanup([query.id]) }
+        }, checkRun)
+      }
+      checkRun()
       setParts(prev => kind === 'add' ? [...prev, ...result.parts] : result.parts)
       if (kind === 'add') setSelected(prev => [...prev, ...result.parts.map(p => p.id)])
-      else editing.reset(result.parts.map(p => p.id))
+      else editing.reset(result.parts.map(p => p.id), initial ? { ...initial, parts: result.parts } : { distance: editing.distance })
       if (kind === 'replace') setDirty(false)
       setAddCrop(null)
       setMode('review')
@@ -108,9 +124,11 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   }
   function merge() {
     const targets = groups.filter(group => mergeTargets.includes(group.id))
-    if (busy.current || !editing.ready || dirty || targets.length < 2) return
+    if (busy.current || !editing.ready || dirty || (manualMerge === 'split' ? !targets.length || targets.some(group => group.members.length < 2) : targets.length < 2)) return
     const mergingIds = targets.flatMap(group => group.members.map(part => part.id))
-    editing.mergeSelected(mergingIds); setManualMerge(false); setMergeTargets([]); setSection(null); setMode('review')
+    if (manualMerge === 'split') editing.splitSelected(mergingIds)
+    else editing.mergeSelected(mergingIds)
+    setManualMerge(false); setMergeTargets([]); setSection(null); setMode('review')
   }
   async function brush(path, brushRadius, add) {
     if (busy.current || dirty || !editing.enabled || !editing.ready || manualMerge) return
@@ -152,6 +170,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   }
   function close() {
     if (saving || phase === 'picking') return
+    runCancelled.current = true
     closing.current = true
     if (operation.current) stickerSplit.cancel(operation.current)
     onClose()
@@ -166,6 +185,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   }
   function chooseGroup(group) {
     if (locked) return
+    if (manualMerge === 'split' && group.members.length < 2) return
     if (manualMerge) setMergeTargets(previous => previous.includes(group.id) ? previous.filter(id => id !== group.id) : [...previous, group.id])
     else setSelected(previous => excludeStickerGroup(previous, group))
   }
@@ -173,10 +193,10 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
     if (locked || manualMerge) return
     setSelected(all ? parts.map(part => part.id) : []); setMore(false)
   }
-  const primaryLabel = working ? (saving ? '저장 중' : phase === 'analyzing' ? '분리 중' : phase === 'picking' ? '이미지 준비 중' : '처리 중')
-    : manualMerge ? '선택한 항목 묶기' : adding ? '이 영역 추가' : mustAnalyze ? (parts.length ? '다시 분리하기' : '분리하기') : `${saveCount}개 저장`
+  const primaryLabel = working ? (saving ? '저장 중' : phase === 'analyzing' ? '분리 중' : phase === 'grouping' ? '초기 묶음 계산 중' : phase === 'picking' ? '이미지 준비 중' : '처리 중')
+    : manualMerge ? (manualMerge === 'split' ? '선택한 묶음 분리' : '선택한 항목 묶기') : adding ? '이 영역 추가' : mustAnalyze ? (parts.length ? '다시 분리하기' : '분리하기') : `${saveCount}개 저장`
   const primaryDisabled = working || !sourceReady || interacting ||
-    (manualMerge ? locked || mergeTargets.length < 2 : adding ? !addCrop : mustAnalyze ? false : !editing.ready || !selected.length || !name.trim())
+    (manualMerge ? locked || mergeTargets.length < (manualMerge === 'split' ? 1 : 2) : adding ? !addCrop : mustAnalyze ? false : !editing.ready || !selected.length || !name.trim())
   const primaryAction = () => manualMerge ? merge() : adding ? run('add', addCrop) : mustAnalyze ? requestRun() : save()
   const tileWidth = (width - insets.left - insets.right - 32 - (columns - 1) * 8) / columns
   return <EditorModal visible animationType="slide" onRequestClose={() => zoomed ? setZoomed(null) : close()}>
@@ -208,8 +228,6 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
             <StickerSplitTools section={section} onChange={changeSection} disabled={working || !sourceReady} hasResults={!!parts.length}>
               {section === 'region' && <View style={s.row}>
                 <Action label="영역 조정" active={mode === 'crop'} disabled={working} onPress={() => { setAddCrop(null); setMode('crop') }} />
-                <Action label="전체 영역" disabled={working} onPress={() => { if (adding) setAddCrop(FULL_CROP); else { setCrop(FULL_CROP); setCropDefined(true); setDirty(parts.length > 0) } }} />
-                {!!parts.length && <Action label="다른 영역 추가" active={mode === 'add'} disabled={locked} onPress={() => { setAddCrop(null); setMode('add') }} />}
               </View>}
               {section === 'selection' && <>
                 <View style={s.row}>
@@ -226,13 +244,14 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
                 </>}
               </>}
               {section === 'grouping' && <>
-                {manualMerge ? <View style={s.row}><Text style={s.body}>묶을 스티커 {mergeTargets.length}개 선택</Text><Action label="묶기 취소" disabled={working} onPress={() => { setManualMerge(false); setMergeTargets([]) }} /></View> : <>
+                {manualMerge ? <View style={s.row}><Text style={s.body}>{manualMerge === 'split' ? '분리할 묶음' : '묶을 스티커'} {mergeTargets.length}개 선택</Text><Action label={manualMerge === 'split' ? '분리 취소' : '묶기 취소'} disabled={working} onPress={() => { setManualMerge(false); setMergeTargets([]) }} /></View> : <>
                   {editing.enabled && <>
                     <Text style={s.body}>가까운 객체 묶기 · {editing.distance === 0 ? '묶지 않음' : `${editing.distance.toFixed(1)}%`}</Text>
                     <StickerSplitSlider label="가까운 객체 묶기" min={0} max={5} step={0.1} value={editing.distance} disabled={working || dirty}
                       onPreview={editing.previewDistance} onCommit={editing.setDistance} onCancel={editing.cancelDistance} onInteraction={setInteracting} />
                   </>}
-                  <Action label="직접 묶기" disabled={locked || groups.length < 2} onPress={() => { setManualMerge(true); setMergeTargets([]); setSmallOnly(false); setMode('review') }} />
+                  <Action label="직접 묶기" disabled={locked || groups.length < 2} onPress={() => { setManualMerge('merge'); setMergeTargets([]); setSmallOnly(false); setMode('review') }} />
+                  <Action label="직접 분리" disabled={locked || !groups.some(group => group.members.length > 1)} onPress={() => { setManualMerge('split'); setMergeTargets([]); setSmallOnly(false); setMode('review') }} />
                 </>}
               </>}
               {section === 'background' && <>
@@ -249,7 +268,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
           </>}
           {!!parts.length && <>
             <View style={s.resultHeader}>
-              <Text accessibilityRole="header" style={s.sectionTitle}>{manualMerge ? '묶을 스티커 선택' : `${saveCount}개 스티커`}</Text>
+              <Text accessibilityRole="header" style={s.sectionTitle}>{manualMerge ? (manualMerge === 'split' ? '분리할 묶음 선택' : '묶을 스티커 선택') : `${saveCount}개 스티커`}</Text>
               <IconAction label="목록 더보기" icon="more" active={more} disabled={locked || manualMerge} onPress={() => setMore(value => !value)} />
             </View>
             {more && <View style={s.menu}>
@@ -260,14 +279,14 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
             {!visibleGroups.length && <Text style={s.emptyText}>{editing.pending ? '묶음 계산 중' : smallOnly ? '작은 스티커 없음' : '선택된 스티커 없음'}</Text>}
           </>}
         </>}
-        renderItem={({ item }) => <Pressable disabled={locked} accessibilityRole="checkbox"
-          accessibilityLabel={manualMerge ? `스티커 ${item.number} 묶기 대상으로 선택` : `스티커 ${item.number} 제외`}
-          accessibilityState={{ checked: manualMerge ? mergeTargets.includes(item.id) : true, disabled: locked }}
-          aria-checked={manualMerge ? mergeTargets.includes(item.id) : true} aria-disabled={locked}
+        renderItem={({ item }) => <Pressable disabled={locked || (manualMerge === 'split' && item.members.length < 2)} accessibilityRole="checkbox"
+          accessibilityLabel={manualMerge ? `스티커 ${item.number} ${manualMerge === 'split' ? '분리' : '묶기'} 대상으로 선택` : `스티커 ${item.number} 제외`}
+          accessibilityState={{ checked: manualMerge ? mergeTargets.includes(item.id) : true, disabled: locked || (manualMerge === 'split' && item.members.length < 2) }}
+          aria-checked={manualMerge ? mergeTargets.includes(item.id) : true} aria-disabled={locked || (manualMerge === 'split' && item.members.length < 2)}
           onPressIn={() => { longPressGroup.current = null }}
           onPress={() => { if (longPressGroup.current === item.id) { longPressGroup.current = null; return }; chooseGroup(item) }}
           onLongPress={() => { longPressGroup.current = item.id; setZoomed(item) }}
-          style={[s.card, { maxWidth: tileWidth }, (!manualMerge || mergeTargets.includes(item.id)) && s.cardSelected, locked && s.disabled]}>
+          style={[s.card, { maxWidth: tileWidth }, (!manualMerge || mergeTargets.includes(item.id)) && s.cardSelected, (locked || (manualMerge === 'split' && item.members.length < 2)) && s.disabled]}>
           <StickerGroupThumbnail group={item} style={s.thumbnail} />
           <View pointerEvents="none" style={s.number}><Text style={s.badgeText}>{item.number}</Text></View>
           <View pointerEvents="none" style={[s.check, (!manualMerge || mergeTargets.includes(item.id)) && s.checked]}><Text style={[s.badgeText, (!manualMerge || mergeTargets.includes(item.id)) && s.checkedText]}>{!manualMerge || mergeTargets.includes(item.id) ? '✓' : ''}</Text></View>
@@ -275,7 +294,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
       {(!!source || !!error) && <View style={s.footer}>
         {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
         {!!editing.error && <View><Text accessibilityRole="alert" style={s.error}>{editing.error}</Text><Action label="묶음 계산 다시 시도" disabled={working || dirty} onPress={editing.retry} /></View>}
-        {(working || editing.pending) && <View accessibilityLiveRegion="polite" style={s.row}><ActivityIndicator color={colors.primary} /><Text style={s.body}>{working ? primaryLabel : '묶음 계산 중'}</Text>{operation.current && phase !== 'saving' && <Action label="작업 취소" onPress={() => stickerSplit.cancel(operation.current)} />}</View>}
+        {(working || editing.pending) && <View accessibilityLiveRegion="polite" style={s.row}><ActivityIndicator color={colors.primary} /><Text style={s.body}>{working ? primaryLabel : '묶음 계산 중'}</Text>{operation.current && phase !== 'saving' && <Action label="작업 취소" onPress={() => { runCancelled.current = true; stickerSplit.cancel(operation.current) }} />}</View>}
         {!!parts.length && !mustAnalyze && !manualMerge && !adding && (folder ? <Text style={s.body}>{folder.name}</Text> : <PenSafeTextInput value={name} editable={!working} onChangeText={setName} maxLength={12} placeholder="폴더 이름" placeholderTextColor={colors.text} accessibilityLabel="스티커 폴더 이름" style={s.input} />)}
         {!!source && <Action label={primaryLabel} primary disabled={primaryDisabled} onPress={primaryAction} />}
       </View>}

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import * as groups from '../src/editor/utils/stickerSplitGroups.js'
+import { initialStickerGrouping } from '../src/editor/utils/stickerInitialGrouping.js'
 import * as split from '../src/editor/utils/stickerSplit.js'
 import { saveSplitSelection, splitSaveError } from '../src/editor/utils/stickerSplitSave.js'
 import * as cropUtils from '../src/editor/utils/stickerSplitCrop.js'
@@ -33,6 +34,7 @@ function harness(path, dependencies = {}) {
     if (id.endsWith('/theme')) return { colors: {}, radius: {}, DISABLED_OPACITY: 0.4 }
     if (id.endsWith('/stickerSplit.js')) return split
     if (id.endsWith('/stickerSplitGroups.js')) return groups
+    if (id.endsWith('/stickerInitialGrouping.js')) return { initialStickerGrouping }
     if (id.endsWith('/stickerSplitCrop.js')) return cropUtils
     throw new Error(`unexpected dependency ${id}`)
   }, m, m.exports, fn => { timers.set(++timerId, fn); return timerId }, id => timers.delete(id), true)
@@ -44,6 +46,19 @@ function harness(path, dependencies = {}) {
   }
 }
 const settle = () => new Promise(resolve => setImmediate(resolve))
+test('초기 묶음은 즉시 표시하고 같은 거리를 중복 조회하지 않으며 사용자 조정 이력을 유지한다', async () => {
+  const h = editingHarness()
+  h.render().reset(candidates.map(p => p.id), { parts: candidates, distance: 2, edges: [['a', 'b']] })
+  assert.equal(h.render().distance, 2); assert.equal(h.render().ready, true)
+  assert.equal(h.render().groups.length, 2); assert.equal(h.render().canUndo, false)
+  h.timers(); assert.equal(h.jobs.length, 0)
+  h.render().setDistance(3); h.render(); h.timers(); h.jobs[0].resolve([['a', 'b'], ['b', 'c']]); await settle()
+  assert.equal(h.render().groups.length, 1)
+  h.render().undo(); assert.equal(h.render().distance, 2)
+  h.render().reset(candidates.map(p => p.id), { distance: 3 }); h.render(); h.timers()
+  assert.equal(h.render().distance, 3); assert.equal(h.render().ready, false)
+  h.unmount()
+})
 const candidates = ['a', 'b', 'c'].map((id, i) => ({ id, x: i * 3, y: 0, width: 1, height: 1 }))
 const image = { width: 200, height: 100 }
 function editingHarness(enabled = true) {
@@ -57,6 +72,30 @@ function editingHarness(enabled = true) {
   render().reset(['a', 'b', 'c'])
   return { ...h, render, jobs, cancelled, cleaned, tracked }
 }
+test('자동·수동 묶음을 원래 조각으로 분리하고 선택·이력·나머지 묶음을 보존한다', async () => {
+  const h = editingHarness()
+  h.render().reset(['a', 'b', 'c'], { parts: candidates, distance: 1, edges: [['a', 'b']] })
+  h.render().splitSelected(['a', 'b']); assert.equal(h.render().groups.length, 3)
+  assert.deepEqual(h.render().selected, ['a', 'b', 'c']); assert.equal(h.render().distance, 1)
+  h.timers(); assert.equal(h.jobs.length, 0)
+  h.render().undo(); assert.equal(h.render().groups.length, 2)
+  h.render().redo(); assert.equal(h.render().groups.length, 3)
+  h.render().mergeSelected(['a', 'b']); assert.equal(h.render().groups.length, 2)
+  h.render().splitSelected(['a', 'b']); assert.equal(h.render().groups.length, 3)
+  h.render().setDistance(2); h.render(); h.timers(); h.jobs[0].resolve([['a', 'b']]); await settle()
+  assert.equal(h.render().groups.length, 2)
+  h.unmount()
+})
+test('분리된 조각의 제외·복구와 미지원 환경의 수동 묶음 분리를 유지한다', async () => {
+  const h = editingHarness(false)
+  h.render().mergeSelected(['a', 'b']); assert.equal(h.render().groups.length, 2)
+  h.render().splitSelected(['a', 'b']); assert.equal(h.render().groups.length, 3)
+  h.render().setSelected(['b', 'c']); h.render().setSelected(['a', 'b', 'c'])
+  assert.equal(h.render().groups.length, 3)
+  h.render().splitSelected(['a']); assert.equal(h.render().groups.length, 3)
+  h.render().reset(['a', 'b', 'c']); assert.equal(h.render().canUndo, false)
+  assert.equal(h.jobs.length, 0); h.unmount()
+})
 test('새 거리·선택 요청이 이전 결과를 무시하고 최신 미리보기 준비 전 저장을 차단한다', async () => {
   const h = editingHarness()
   h.render().setDistance(1); assert.equal(h.render().ready, false); h.timers()
@@ -238,10 +277,12 @@ test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같
   let selected = [], ready = true, failed = true, closes = 0, published = 0, discarded = 0, merges = 0
   const cleaned = [], alerts = []
   let pickError = false, analyses = 0
+  let splitDone = false, splitCalls = 0
   const parts = candidates.map(p => ({ ...p, uri: `file:///${p.id}.png`, area: 1 }))
   const editing = { enabled: true, get selected() { return selected }, get ready() { return ready },
-    get groups() { return groups.sortedStickerGroups(groups.splitGroups(parts, selected, [['a', 'b']])) },
+    get groups() { return groups.sortedStickerGroups(groups.splitGroups(parts, selected, splitDone ? [] : [['a', 'b']])) },
     reset(value = []) { selected = value }, setSelected(value) { selected = typeof value === 'function' ? value(selected) : value }, distance: 0,
+    splitSelected(ids) { assert.deepEqual(ids, ['a', 'b']); splitDone = true; splitCalls++ }, canUndo: true, undo() { splitDone = false },
   }
   const h = harness('components/panels/StickerSplitModal.js', {
     'react-native': { View: 'View', Text: 'Text', Image: 'Image', Pressable: 'Pressable', FlatList: 'FlatList', ActivityIndicator: 'ActivityIndicator', useWindowDimensions: () => ({ width: 360, height: 800 }), Alert: { alert: (...values) => alerts.push(values) }, StyleSheet: { create: x => x } },
@@ -261,11 +302,29 @@ test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같
   const props = { initialName: '별', onClose: () => { closes++ }, onSave: async (_folder, _name, items) => { if (failed) throw new Error('PNG_WRITE_FAILED /private/result.png', { cause: new Error('/private/source.png') }); assert.equal(items.length, 2); published++ } }
   const render = () => h.render(props), action = label => find(render(), node => node.props?.label === label).props
   await action('이미지 선택').onPress()
+  assert.deepEqual(find(render(), node => node.type === 'Preview').props.crop, split.FULL_CROP)
+  assert.equal(find(render(), node => node.type === 'Preview').props.cropDefined, true)
+  const regionPanel = find(render(), node => node.type === 'Tools').props.children[0]
+  assert.deepEqual([regionPanel.props.children].flat().filter(Boolean).map(node => node.props.label), ['영역 조정'])
   assert.equal(action('분리하기').disabled, true)
   find(render(), node => node.type === 'Preview').props.onReady('file:///sheet', true)
   await action('분리하기').onPress()
   assert.equal(find(render(), node => node.type === 'Tools').props.section, null)
   const cards = () => find(render(), node => node.type === 'FlatList').props
+  find(render(), node => node.type === 'Tools').props.onChange('grouping')
+  action('직접 분리').onPress()
+  assert.equal(action('선택한 묶음 분리').disabled, true)
+  const single = cards().renderItem({ item: cards().data.find(g => g.members.length === 1) }).props
+  assert.equal(single.disabled, true); single.onPress()
+  assert.equal(action('선택한 묶음 분리').disabled, true)
+  action('분리 취소').onPress(); assert.equal(splitCalls, 0); assert.equal(selected.length, 3)
+  action('직접 분리').onPress()
+  cards().renderItem({ item: cards().data.find(g => g.members.length === 2) }).props.onPress()
+  assert.equal(action('선택한 묶음 분리').disabled, false)
+  action('선택한 묶음 분리').onPress()
+  assert.equal(splitCalls, 1); assert.equal(selected.length, 3); assert.equal(cards().data.length, 3)
+  action('실행 취소').onPress()
+  assert.equal(cards().data.length, 2)
   const firstCard = cards().renderItem({ item: cards().data[0] }).props
   firstCard.onPressIn(); firstCard.onPress(); assert.deepEqual(selected, ['c'])
   action('목록 더보기').onPress(); action('모두 선택').onPress(); assert.equal(selected.length, 3)
@@ -293,9 +352,10 @@ test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같
   action('다시 분리하기').onPress(); assert.equal(alerts.length, 1)
   await alerts[0][2][1].onPress(); assert.equal(analyses, 2)
   find(render(), node => node.type === 'Tools').props.onChange('region')
-  action('다른 영역 추가').onPress()
-  find(render(), node => node.type === 'Preview').props.onCrop({ x: 0.2, y: 0.2, width: 0.4, height: 0.4 })
-  assert.equal(analyses, 2); assert.equal(action('이 영역 추가').disabled, false)
+  assert.deepEqual(find(render(), node => node.type === 'Preview').props.crop, { x: 0.1, y: 0.1, width: 0.8, height: 0.8 })
+  assert.equal(find(render(), node => node.type === 'Preview').props.cropDefined, true)
+  assert.equal(find(render(), node => node.props?.label === '전체 영역'), null)
+  assert.equal(find(render(), node => node.props?.label === '다른 영역 추가'), null)
   find(render(), node => node.type === 'Tools').props.onChange(null)
   pickError = true; await action('이미지 바꾸기').onPress()
   assert.equal(find(render(), node => node.type === 'Preview').props.source.uri, 'file:///sheet')
@@ -319,6 +379,59 @@ test('구형 Android·iOS·Expo Go 분기는 새 네이티브 메서드를 호�
   h.render().setDistance(2); h.render(); h.timers(); assert.equal(h.jobs.length, 0)
   h.render().mergeSelected(['a', 'b']); assert.equal(h.render().groups.length, 2); assert.equal(h.jobs.length, 0)
   h.unmount()
+})
+
+test('모달은 첫 분석의 초기 묶기를 기다리고 취소·재분리·미지원 환경에서는 설정을 지킨다', async () => {
+  for (const scenario of ['success', 'cancel', 'unsupported']) {
+    const parts = Array.from({ length: 120 }, (_, i) => ({ id: `p${i}`, uri: `file:///p${i}.png`, x: i * 2, y: 0, width: 1, height: 1 }))
+    let selected = [], distance = 0, edges = [], firstResolve, queries = 0, analyses = 0
+    const cleaned = [], cancelled = []
+    const makeEdges = pixels => parts.slice(1, parts.length - (pixels < 23 ? 80 : 40) + 1).map(p => [parts[0].id, p.id])
+    const editing = { enabled: scenario !== 'unsupported', ready: true, get selected() { return selected }, get distance() { return distance },
+      get groups() { return groups.sortedStickerGroups(groups.splitGroups(parts, selected, edges)) },
+      reset(ids = [], initial) { selected = ids; distance = initial?.distance ?? 0; edges = initial?.edges ?? [] },
+      setDistance(value) { distance = value },
+    }
+    const h = harness('components/panels/StickerSplitModal.js', {
+      'react-native': { View: 'View', Text: 'Text', Image: 'Image', Pressable: 'Pressable', FlatList: 'FlatList', ActivityIndicator: 'ActivityIndicator', useWindowDimensions: () => ({ width: 360, height: 800 }), Alert: { alert: (_title, _text, buttons) => buttons[1].onPress() }, StyleSheet: { create: x => x } },
+      'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) },
+      '../controls/EditorModal': { __esModule: true, default: 'EditorModal' }, './StickerSplitPreview': { __esModule: true, default: 'Preview' },
+      './StickerSplitSlider': { __esModule: true, default: 'Slider' }, '../controls/PenSafeTextInput': { __esModule: true, default: 'Input' },
+      './StickerSplitTools': { __esModule: true, default: 'Tools', SplitAction: 'Action', SplitIconAction: 'IconAction' },
+      './StickerGroupThumbnail': { __esModule: true, default: 'Thumbnail' }, '../../hooks/useStickerSplitEditing': { __esModule: true, default: () => editing },
+      '../../utils/stickerSplitSave.js': { saveSplitSelection, splitSaveError },
+      '../../services/mediaStore': {},
+      '../../services/stickerSplit': { stickerSplit: { completeRegions: true, pick: async () => ({ width: 1000, height: 1000, uri: 'file:///sheet' }),
+        analyze() { analyses++; return { id: `analysis${analyses}`, promise: Promise.resolve({ parts }) } },
+        groupEdges(_parts, pixels) {
+          const index = ++queries
+          return { id: `query${index}`, promise: index === 1 ? new Promise(resolve => { firstResolve = () => resolve(makeEdges(pixels)) }) : Promise.resolve(makeEdges(pixels)) }
+        }, cleanup: async ids => cleaned.push(...ids), cancel: id => cancelled.push(id), disposeSource() {} } },
+    })
+    const render = () => h.render({ initialName: '초기', onClose() {} }), action = label => find(render(), n => n.props?.label === label)?.props
+    await action('이미지 선택').onPress()
+    find(render(), n => n.type === 'Preview').props.onReady('file:///sheet', true)
+    const running = action('분리하기').onPress(); await settle()
+    if (scenario === 'unsupported') {
+      await running; assert.equal(queries, 0); assert.equal(distance, 0); assert.ok(action('120개 저장')); continue
+    }
+    assert.equal(action('초기 묶음 계산 중').disabled, true); assert.equal(selected.length, 0)
+    if (scenario === 'cancel') action('작업 취소').onPress()
+    firstResolve(); await running
+    if (scenario === 'cancel') {
+      assert.deepEqual(cancelled, ['query1']); assert.equal(queries, 1); assert.equal(selected.length, 0)
+      assert.match(find(render(), n => n.props?.accessibilityRole === 'alert').props.children, /취소/)
+    } else {
+      assert.equal(distance, 2.3); assert.equal(selected.length, 120); assert.equal(action('40개 저장').disabled, false)
+      assert.ok(queries <= 8); assert.equal(cleaned.filter(id => id.startsWith('query')).length, queries)
+      const before = queries
+      editing.setDistance(3)
+      find(render(), n => n.type === 'Tools').props.onChange('region')
+      find(render(), n => n.type === 'Preview').props.onCrop({ x: 0, y: 0, width: 0.8, height: 0.8 })
+      action('다시 분리하기').onPress(); await settle()
+      assert.equal(analyses, 2); assert.equal(queries, before); assert.equal(distance, 3)
+    }
+  }
 })
 
 const event = (pageX, pageY, locationX = 999, locationY = 999, touches = []) => ({ nativeEvent: { pageX, pageY, locationX, locationY, touches } })
