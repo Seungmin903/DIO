@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSharingApi } from '../src/sharing/sharingApi.js';
 import { createAuthenticatedNotificationSession } from '../src/notifications/authenticatedNotifications.js';
-import { canLeaveForInvitation } from '../src/notifications/editorInvitationGuard.js';
+import { canLeaveForInvitation, openCopyIfSafe } from '../src/notifications/editorInvitationGuard.js';
 
 test('실제 공유 gateway가 받은 초대를 조회하고 세션 교체 후 늦은 응답을 거부한다', async () => {
   let key='A', status='PENDING', release;
@@ -23,4 +23,18 @@ test('편집 입력·자르기·저장 실패·저장 중·로드 전에는 초�
   assert.equal(canLeaveForInvitation({loaded:true,saveStatus:'saved',editing:false}),true);
   for(const value of [{loaded:false,saveStatus:'saved',editing:false},{loaded:true,saveStatus:'saving',editing:false},{loaded:true,saveStatus:'error',editing:false},{loaded:true,saveStatus:'saved',editing:true}])
     assert.equal(canLeaveForInvitation(value),false);
+});
+
+
+test('개인 사본 열기는 편집 중 이동과 패널 닫기를 막고 저장 완료 후 허용한다', () => {
+  const diary = { id: 'copy' }, calls = [];
+  const close = () => calls.push('close'), open = value => calls.push(value);
+  for (const saveStatus of ['saving', 'error']) {
+    assert.equal(openCopyIfSafe(diary, () => canLeaveForInvitation({loaded:true,saveStatus,editing:false}), close, open), false);
+    assert.deepEqual(calls, []);
+  }
+  assert.equal(openCopyIfSafe(diary, () => canLeaveForInvitation({loaded:true,saveStatus:'saved',editing:true}), close, open), false);
+  assert.deepEqual(calls, []);
+  assert.equal(openCopyIfSafe(diary, () => canLeaveForInvitation({loaded:true,saveStatus:'saved',editing:false}), close, open), true);
+  assert.deepEqual(calls, ['close', diary]);
 });
