@@ -1,8 +1,10 @@
 package com.f106.DIO.media.service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
+import com.f106.DIO.diary.support.DiaryRetention;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.f106.DIO.media.domain.MediaFile;
@@ -64,7 +66,8 @@ public class MediaFileTransactionService {
 	@Transactional
 	public void delete(UUID mediaFileId, Long userId) {
 		MediaFile mediaFile = mediaFiles.findOwnedForUpdate(mediaFileId, userId).orElseThrow(MediaFileNotFoundException::new);
-		if (mediaFiles.existsInSharedLibrary(mediaFileId)) throw MediaRequestException.sharedLibraryReference();
+		Instant restorableSince = Instant.now().minus(DiaryRetention.PERIOD);
+		if (mediaFiles.existsInSharedLibrary(mediaFileId, restorableSince)) throw MediaRequestException.sharedLibraryReference();
 		mediaFile.softDelete();
 		mediaFiles.flush();
 	}

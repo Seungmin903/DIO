@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
+import com.f106.DIO.diary.support.DiaryRetention;
 import com.f106.DIO.media.library.repository.DiaryMediaLibraryRepository;
 import com.f106.DIO.media.repository.MediaFileRepository;
 
@@ -23,8 +24,8 @@ import com.f106.DIO.media.repository.MediaFileRepository;
 @EnabledIfEnvironmentVariable(named = "DIO_LIST_QUERY_PG", matches = "true")
 class MediaSharedLibraryPostgresTests {
 	private static final long OWNER = 1, MEMBER = 2, LEFT_MEMBER = 3, OUTSIDER = 4;
-	private final UUID diary = UUID.randomUUID(), deletedDiary = UUID.randomUUID();
-	private final UUID sticker = UUID.randomUUID(), onlyInDeletedDiary = UUID.randomUUID();
+	private final UUID diary = UUID.randomUUID(), deletedDiary = UUID.randomUUID(), expiredDiary = UUID.randomUUID();
+	private final UUID sticker = UUID.randomUUID(), onlyInDeletedDiary = UUID.randomUUID(), onlyInExpiredDiary = UUID.randomUUID();
 	private JdbcTemplate admin, jdbc;
 	private NamedParameterJdbcTemplate named;
 	private String schema;
@@ -46,9 +47,11 @@ class MediaSharedLibraryPostgresTests {
 			jdbc.update("insert into users(user_id,nickname,nickname_key) values(?,?,?)", id, "member" + id, "member" + id);
 		jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'shared')", diary, OWNER);
 		jdbc.update("insert into diaries(diary_id,owner_user_id,title,deleted_at) values(?,?,'gone',?)", deletedDiary, OWNER, Timestamp.from(Instant.now()));
+		jdbc.update("insert into diaries(diary_id,owner_user_id,title,deleted_at) values(?,?,'expired',?)", expiredDiary, OWNER,
+			Timestamp.from(Instant.now().minus(DiaryRetention.PERIOD).minusSeconds(60)));
 		jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,?,'EDITOR','#123456')", diary, MEMBER);
 		jdbc.update("insert into diary_members(diary_id,user_id,role,member_color,left_at) values(?,?,'EDITOR','#123456',?)", diary, LEFT_MEMBER, Timestamp.from(Instant.now()));
-		for (UUID media : new UUID[] {sticker, onlyInDeletedDiary})
+		for (UUID media : new UUID[] {sticker, onlyInDeletedDiary, onlyInExpiredDiary})
 			jdbc.update("insert into media_files(media_file_id,owner_user_id,media_type,library_category,storage_key,mime_type,file_size,status) values(?,?,'IMAGE','STICKER',?,'image/png',1,'READY')",
 				media, OWNER, "test/" + media);
 	}
@@ -81,12 +84,14 @@ class MediaSharedLibraryPostgresTests {
 	}
 
 	@Test
-	void onlyLinksInActiveDiariesBlockDeletingTheOriginal() {
+	void linksInActiveOrStillRestorableDiariesBlockDeletingTheOriginal() {
 		insert(diary, sticker, OWNER);
 		insert(deletedDiary, onlyInDeletedDiary, OWNER);
+		insert(expiredDiary, onlyInExpiredDiary, OWNER);
 
-		assertThat(sharedInActiveDiary(sticker)).isTrue();
-		assertThat(sharedInActiveDiary(onlyInDeletedDiary)).isFalse();
+		assertThat(sharedInRestorableDiary(sticker)).isTrue();
+		assertThat(sharedInRestorableDiary(onlyInDeletedDiary)).as("휴지통에서 복원할 수 있는 다이어리").isTrue();
+		assertThat(sharedInRestorableDiary(onlyInExpiredDiary)).as("복원 기간이 지난 다이어리").isFalse();
 	}
 
 	private int insert(UUID diaryId, UUID mediaFileId, long addedBy) {
@@ -98,7 +103,8 @@ class MediaSharedLibraryPostgresTests {
 		return named.queryForObject(DiaryMediaLibraryRepository.READABLE_BY_MEMBER, Map.of("mediaFileId", mediaFileId, "userId", userId), Boolean.class);
 	}
 
-	private boolean sharedInActiveDiary(UUID mediaFileId) {
-		return named.queryForObject(MediaFileRepository.EXISTS_IN_ACTIVE_SHARED_LIBRARY, Map.of("mediaFileId", mediaFileId), Boolean.class);
+	private boolean sharedInRestorableDiary(UUID mediaFileId) {
+		return named.queryForObject(MediaFileRepository.EXISTS_IN_RESTORABLE_SHARED_LIBRARY, Map.of("mediaFileId", mediaFileId,
+			"restorableSince", Timestamp.from(Instant.now().minus(DiaryRetention.PERIOD))), Boolean.class);
 	}
 }
