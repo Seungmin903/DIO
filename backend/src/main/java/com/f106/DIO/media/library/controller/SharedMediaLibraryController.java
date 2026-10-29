@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.f106.DIO.media.library.dto.SharedMediaLibraryAddRequest;
@@ -43,9 +44,11 @@ public class SharedMediaLibraryController {
 	}
 
 	@GetMapping
-	@Operation(summary = "다이어리 공유 보관함 조회", description = "로그인한 다이어리 참여자가 공유 보관함을 최신 추가순으로 조회합니다.")
-	public SharedMediaLibraryListResponse list(@PathVariable UUID diaryId, @AuthenticationPrincipal Jwt jwt) {
-		return library.list(diaryId, userId(jwt));
+	@Operation(summary = "다이어리 공유 보관함 조회", description = "로그인한 다이어리 참여자가 공유 보관함을 최신 추가순으로 조회합니다. "
+		+ "limit은 1~100(기본 30)이고, 응답의 nextCursor를 다음 요청의 cursor에 넣습니다.")
+	public SharedMediaLibraryListResponse list(@PathVariable UUID diaryId, @RequestParam(defaultValue = "30") int limit,
+			@RequestParam(required = false) String cursor, @AuthenticationPrincipal Jwt jwt) {
+		return library.list(diaryId, userId(jwt), limit, cursor);
 	}
 
 	@DeleteMapping("/{mediaFileId}")

@@ -1,9 +1,11 @@
 package com.f106.DIO.media.library.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -21,7 +23,23 @@ public interface DiaryMediaLibraryRepository extends JpaRepository<DiaryMediaLib
 		+ "where library.media_file_id = :mediaFileId and diary.deleted_at is null "
 		+ "and (diary.owner_user_id = :userId or member.user_id is not null))";
 
-	List<DiaryMediaLibrary> findAllByDiaryIdOrderByCreatedAtDescMediaFileIdDesc(UUID diaryId);
+	/** 삭제된 원본은 쿼리에서 빼서, 한 페이지가 삭제 항목 때문에 비거나 짧아지지 않게 한다. */
+	@Query("""
+		select library from DiaryMediaLibrary library
+		where library.diaryId = :diaryId
+		  and exists (select 1 from MediaFile media where media.mediaFileId = library.mediaFileId and media.deletedAt is null)
+		order by library.createdAt desc, library.mediaFileId desc
+		""")
+	List<DiaryMediaLibrary> findFirstActivePage(@Param("diaryId") UUID diaryId, Pageable pageable);
+	@Query("""
+		select library from DiaryMediaLibrary library
+		where library.diaryId = :diaryId
+		  and exists (select 1 from MediaFile media where media.mediaFileId = library.mediaFileId and media.deletedAt is null)
+		  and (library.createdAt < :createdAt or (library.createdAt = :createdAt and library.mediaFileId < :mediaFileId))
+		order by library.createdAt desc, library.mediaFileId desc
+		""")
+	List<DiaryMediaLibrary> findActivePageAfter(@Param("diaryId") UUID diaryId, @Param("createdAt") Instant createdAt,
+		@Param("mediaFileId") UUID mediaFileId, Pageable pageable);
 	Optional<DiaryMediaLibrary> findByDiaryIdAndMediaFileId(UUID diaryId, UUID mediaFileId);
 	@Modifying
 	@Query(value = INSERT_IF_ABSENT, nativeQuery = true)

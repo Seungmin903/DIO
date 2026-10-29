@@ -9,6 +9,7 @@ import com.f106.DIO.diary.support.DiaryAccessDeniedException;
 import com.f106.DIO.diary.support.DiaryNotFoundException;
 import com.f106.DIO.media.library.controller.SharedMediaLibraryController;
 import com.f106.DIO.media.support.MediaFileNotFoundException;
+import com.f106.DIO.media.support.MediaRequestException;
 
 @RestControllerAdvice(assignableTypes = SharedMediaLibraryController.class)
 public class SharedMediaLibraryExceptionHandler {
@@ -20,6 +21,8 @@ public class SharedMediaLibraryExceptionHandler {
 	ProblemDetail mediaNotFound(MediaFileNotFoundException error) { return problem(HttpStatus.NOT_FOUND, "MEDIA_FILE_NOT_FOUND", error.getMessage()); }
 	@ExceptionHandler(SharedMediaLibraryException.class)
 	ProblemDetail library(SharedMediaLibraryException error) { return problem(error.status(), error.code(), error.getMessage()); }
+	@ExceptionHandler(MediaRequestException.class)
+	ProblemDetail invalidRequest(MediaRequestException error) { return problem(error.status(), error.code(), error.getMessage()); }
 
 	private static ProblemDetail problem(HttpStatus status, String code, String detail) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);

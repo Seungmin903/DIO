@@ -25,8 +25,10 @@
 | 기능 | 메서드·경로 | 요청·응답 |
 | --- | --- | --- |
 | 추가 | `POST /api/v1/diaries/{diaryId}/media-library` | 본문 `{ "mediaFileId": "UUID" }`, `201 Created` |
-| 목록 | `GET /api/v1/diaries/{diaryId}/media-library` | `200 OK`, 최신 추가순 `mediaFiles` 배열 |
+| 목록 | `GET /api/v1/diaries/{diaryId}/media-library?limit=30&cursor={nextCursor}` | `200 OK`, 최신 추가순 `mediaFiles` 배열과 `nextCursor` |
 | 연결 삭제 | `DELETE /api/v1/diaries/{diaryId}/media-library/{mediaFileId}` | `204 No Content` |
+
+공유 보관함 목록도 개인 보관함과 같은 커서 페이지네이션을 쓴다. `limit`은 1~100이고 기본값은 30이다. 응답의 `nextCursor`가 있으면 다음 요청의 `cursor`에 그대로 넣는다. 범위를 벗어난 `limit`은 `400 INVALID_MEDIA_LIMIT`, 잘못된 커서는 `400 INVALID_MEDIA_CURSOR`다. 원본이 삭제된 공유 항목은 조회 단계에서 빠지므로 페이지가 짧아지지 않는다.
 
 공유 보관함 삭제는 해당 다이어리의 연결만 없애며 원본 미디어는 삭제하지 않는다. 반대로 원본 미디어가 삭제되지 않은 다이어리의 공유 보관함에 하나라도 남아 있으면 `409 MEDIA_FILE_SHARED`로 삭제를 거절한다. 먼저 그 연결을 제거해야 한다. 삭제된 다이어리의 연결은 세지 않는다. 이런 연결은 다이어리를 물리 삭제할 때 지워지고, 그때까지는 정리 배치가 원본 파일을 남겨 둔다.
 

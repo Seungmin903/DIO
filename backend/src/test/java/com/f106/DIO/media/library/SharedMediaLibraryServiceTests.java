@@ -72,14 +72,42 @@ class SharedMediaLibraryServiceTests {
 		UUID diaryId = UUID.randomUUID(); UUID activeId = UUID.randomUUID(); UUID deletedId = UUID.randomUUID();
 		DiaryMediaLibrary active = new DiaryMediaLibrary(diaryId, activeId, 11L, MediaLibraryCategory.STICKER);
 		DiaryMediaLibrary deleted = new DiaryMediaLibrary(diaryId, deletedId, 12L, MediaLibraryCategory.TAPE);
-		when(library.findAllByDiaryIdOrderByCreatedAtDescMediaFileIdDesc(diaryId)).thenReturn(List.of(active, deleted));
+		when(library.findFirstActivePage(org.mockito.ArgumentMatchers.eq(diaryId), org.mockito.ArgumentMatchers.any())).thenReturn(List.of(active, deleted));
 		when(mediaFiles.findAllByMediaFileIdInAndDeletedAtIsNull(List.of(activeId, deletedId)))
 			.thenReturn(List.of(media(activeId, 11L, MediaLibraryCategory.STICKER)));
 
-		var result = service.list(diaryId, 22L);
+		var result = service.list(diaryId, 22L, 30, null);
 
 		assertThat(result.mediaFiles()).extracting(item -> item.mediaFileId()).containsExactly(activeId);
+		assertThat(result.nextCursor()).isNull();
 		verify(diaryAccess).requireRead(diaryId, 22L);
+	}
+
+	@Test
+	void pagesTheSharedLibraryWithTheSameCursorContractAsThePersonalLibrary() {
+		UUID diaryId = UUID.randomUUID(); UUID first = UUID.randomUUID(), second = UUID.randomUUID(), third = UUID.randomUUID();
+		var entries = List.of(new DiaryMediaLibrary(diaryId, first, 11L, MediaLibraryCategory.STICKER),
+			new DiaryMediaLibrary(diaryId, second, 11L, MediaLibraryCategory.STICKER),
+			new DiaryMediaLibrary(diaryId, third, 11L, MediaLibraryCategory.STICKER));
+		when(library.findFirstActivePage(org.mockito.ArgumentMatchers.eq(diaryId), org.mockito.ArgumentMatchers.eq(org.springframework.data.domain.PageRequest.of(0, 3))))
+			.thenReturn(entries);
+		when(mediaFiles.findAllByMediaFileIdInAndDeletedAtIsNull(List.of(first, second)))
+			.thenReturn(List.of(media(first, 11L, MediaLibraryCategory.STICKER), media(second, 11L, MediaLibraryCategory.STICKER)));
+
+		var page = service.list(diaryId, 22L, 2, null);
+
+		assertThat(page.mediaFiles()).extracting(item -> item.mediaFileId()).containsExactly(first, second);
+		var cursor = com.f106.DIO.media.support.MediaListCursor.decode(page.nextCursor());
+		assertThat(cursor.mediaFileId()).isEqualTo(second);
+		assertThat(cursor.createdAt()).isEqualTo(entries.get(1).getCreatedAt());
+	}
+
+	@Test
+	void rejectsOutOfRangeLimitsAndBrokenCursors() {
+		UUID diaryId = UUID.randomUUID();
+		assertThatThrownBy(() -> service.list(diaryId, 22L, 0, null)).isInstanceOf(com.f106.DIO.media.support.MediaRequestException.class);
+		assertThatThrownBy(() -> service.list(diaryId, 22L, 101, null)).isInstanceOf(com.f106.DIO.media.support.MediaRequestException.class);
+		assertThatThrownBy(() -> service.list(diaryId, 22L, 30, "not-a-cursor")).isInstanceOf(com.f106.DIO.media.support.MediaRequestException.class);
 	}
 
 	@Test
