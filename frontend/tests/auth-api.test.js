@@ -27,9 +27,49 @@ test('로그인은 실제 서버 사용자·사진을 표시하고 view에는 �
   assert.deepEqual(JSON.parse(calls[0].body), { email: user.email, password: 'Password123!' });
 });
 
+test('프로필 사진은 같은 서버의 사진 경로에만 개발 접속 인증을 보내고 회원 토큰은 보내지 않는다', async () => {
+  const uri = 'https://server.example/api/v1/auth/profile-photos/12345678-1234-1234-1234-123456789abc';
+  const api = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true,
+    fetchImpl: async () => response(tokens()) });
+  assert.deepEqual(api.getProfilePhotoSource(uri), { uri });
+  api.verificationService.setDevelopmentAccess('tester', 'secret');
+  const view = await api.login({ email: user.email, password: 'Password123!' });
+  const source = api.getProfilePhotoSource(uri);
+  assert.equal(source.headers.Authorization, `Basic ${Buffer.from('tester:secret').toString('base64')}`);
+  assert.equal(source.headers['X-DIO-Access-Token'], undefined);
+  assert.equal(JSON.stringify(view).includes('Basic '), false);
+  for (const other of [uri.replace('server.example', 'other.example'), uri.replace('https:', 'http:'),
+    uri.replace('/auth/profile-photos/', '/other/'), `${uri}?redirect=1`, 'file:///local.png']) {
+    assert.deepEqual(api.getProfilePhotoSource(other), { uri: other });
+  }
+  const production = createAuthApi({ baseUrl: 'https://server.example' });
+  assert.deepEqual(production.getProfilePhotoSource(uri), { uri });
+  assert.equal(production.verificationService.setDevelopmentAccess, undefined);
+});
 test('로그인 실패는 실제 오류이며 mock 성공으로 대체하지 않는다', async () => {
   const { api } = setup(() => response({ detail: '이메일 또는 비밀번호가 맞지 않아요.', code: 'INVALID_CREDENTIALS' }, 401));
   await assert.rejects(api.login({ email: user.email, password: 'wrong' }), { code: 'INVALID_CREDENTIALS', status: 401 });
+});
+
+test('잘못된 로그인 응답은 사용자 화면·세션으로 채택하지 않는다', async () => {
+  for (const bad of [null, {}, { ...tokens(), accessToken: '' }, { ...tokens(), refreshToken: null },
+    { ...tokens(), user: null }, { ...tokens(), user: { ...user, userId: '' } },
+    { ...tokens(), user: { ...user, nickname: '' } },
+    { ...tokens(), user: { ...user, email: 'other@example.com' } },
+    { ...tokens(), user: { ...user, profilePhotoUrl: 'javascript:alert(1)' } }]) {
+    const { api } = setup(() => response(bad));
+    await assert.rejects(api.login({ email: user.email, password: 'Password123!' }), { code: 'INVALID_AUTH_RESPONSE' });
+    assert.equal(api.getSessionKey(), null);
+  }
+});
+
+test('통신 실패와 자격 증명 오류를 구분하고 실패 후 다시 로그인할 수 있다', async () => {
+  let fail = true;
+  const { api } = setup(() => { if (fail) throw new TypeError('offline'); return response(tokens()); });
+  await assert.rejects(api.login({ email: user.email, password: 'Password123!' }), /서버에 연결하지 못했어요/);
+  assert.equal(api.getSessionKey(), null);
+  fail = false;
+  assert.equal((await api.login({ email: user.email, password: 'Password123!' })).userId, user.userId);
 });
 test('이메일 확인·닉네임 확인을 연결하고 인증 UI가 없으면 가입 생성 요청을 보내지 않는다', async () => {
   const { api, calls } = setup(() => response({ available: true }));
@@ -256,4 +296,18 @@ test('임시 사진 정리 실패가 서버 가입 성공 또는 원래 서버 �
     if (status === 201) assert.equal((await pending).mode, 'registered');
     else await assert.rejects(pending, { status: 413, code: 'PROFILE_PHOTO_TOO_LARGE' });
   }
+});
+
+test('서버 계약의 사진 없는 null 응답은 로그인·갱신 모두 허용한다', async () => {
+  const { api } = setup(() => response({ ...tokens(), user: { ...user, profilePhotoUrl: null } }));
+  assert.equal((await api.login({ email: user.email, password: 'Password123!' })).photoUri, null);
+  await api.refresh();
+  assert.ok(await api.getAccessToken({ userId: user.userId, sessionKey: api.getSessionKey() }));
+});
+
+test('서버 계약과 달리 사용자 정보 없는 갱신 응답은 세션으로 채택하지 않는다', async () => {
+  const { api } = setup(call => response(call.path === 'refresh' ? { ...tokens(), user: undefined } : tokens()));
+  await api.login({ email: user.email, password: 'Password123!' });
+  await assert.rejects(api.refresh(), { code: 'INVALID_AUTH_RESPONSE' });
+  assert.equal(api.getSessionKey(), null);
 });

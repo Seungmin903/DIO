@@ -5,7 +5,9 @@ export function createAuthenticatedMemberTransport({ auth, accountId, ...options
   const requireSession = () => {
     if (!sessionKey || auth.getSessionKey() !== sessionKey) throw new DiaryApiError('UNAUTHENTICATED', '다시 로그인해 주세요.', 401)
   }
-  const transport = createHttpTransport({ ...options, getAccessToken: async () => {
+  const transport = createHttpTransport({ ...options,
+    getAuthHeaders: auth.getConnectionOptions?.().getAuthHeaders,
+    getAccessToken: async () => {
     requireSession()
     const token = await auth.getAccessToken({ userId: accountId, sessionKey })
     requireSession()
