@@ -35,6 +35,20 @@ class MediaControllerAuthenticationTests {
 	}
 
 	@Test
+	void addingToTheSharedLibraryReturnsCreatedWithoutAnUnfollowableLocation() throws Exception {
+		UUID diaryId = UUID.randomUUID(); UUID mediaFileId = UUID.randomUUID();
+		org.mockito.Mockito.when(sharedMediaLibraryService.add(diaryId, mediaFileId, 2L)).thenReturn(new com.f106.DIO.media.library.dto.SharedMediaLibraryItemResponse(
+			mediaFileId, "IMAGE", "STICKER", "sticker.png", "image/png", 10, 2L, java.time.Instant.parse("2026-10-29T00:00:00Z")));
+
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/diaries/" + diaryId + "/media-library")
+				.with(jwt().jwt(token -> token.subject("2"))).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+				.content("{\"mediaFileId\":\"" + mediaFileId + "\"}"))
+			.andExpect(status().isCreated())
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().doesNotExist("Location"))
+			.andExpect(jsonPath("$.mediaFileId").value(mediaFileId.toString()));
+	}
+
+	@Test
 	void hidesAnotherUsersMediaAsNotFound() throws Exception {
 		UUID mediaFileId = UUID.randomUUID();
 		doThrow(new MediaFileNotFoundException()).when(mediaService).detail(mediaFileId, 2L);

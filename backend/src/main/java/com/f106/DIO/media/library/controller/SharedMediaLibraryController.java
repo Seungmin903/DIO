@@ -1,6 +1,5 @@
 package com.f106.DIO.media.library.controller;
 
-import java.net.URI;
 import java.util.UUID;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -8,6 +7,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -38,7 +38,8 @@ public class SharedMediaLibraryController {
 	public ResponseEntity<SharedMediaLibraryItemResponse> add(@PathVariable UUID diaryId,
 			@Valid @RequestBody SharedMediaLibraryAddRequest request, @AuthenticationPrincipal Jwt jwt) {
 		SharedMediaLibraryItemResponse response = library.add(diaryId, request.mediaFileId(), userId(jwt));
-		return ResponseEntity.created(URI.create("/api/v1/diaries/" + diaryId + "/media-library/" + response.mediaFileId())).body(response);
+		// 공유 항목 단건 조회 API가 없으므로 따라갈 수 없는 Location은 보내지 않는다.
+		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
 	@GetMapping
@@ -48,7 +49,7 @@ public class SharedMediaLibraryController {
 	}
 
 	@DeleteMapping("/{mediaFileId}")
-	@Operation(summary = "공유 보관함 삭제", description = "로그인한 OWNER 또는 EDITOR가 공유 보관함에서만 미디어 연결을 제거합니다. 원본 미디어는 삭제하지 않습니다.")
+	@Operation(summary = "공유 보관함 삭제", description = "로그인한 OWNER 또는 EDITOR가 공유 보관함에서만 미디어 연결을 제거합니다. 미디어 원본 소유자는 다이어리 권한과 관계없이 자기 미디어의 연결을 제거할 수 있습니다. 원본 미디어는 삭제하지 않습니다.")
 	@ApiResponse(responseCode = "204", description = "삭제 성공")
 	public ResponseEntity<Void> delete(@PathVariable UUID diaryId, @PathVariable UUID mediaFileId, @AuthenticationPrincipal Jwt jwt) {
 		library.delete(diaryId, mediaFileId, userId(jwt));

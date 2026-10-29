@@ -73,6 +73,27 @@ class MediaFileTransactionServiceTests {
 	}
 
 	@Test
+	void hidesSharedMediaFromUsersWhoCannotReadAnySharingDiary() {
+		// 비참여자·탈퇴자·삭제된 다이어리는 모두 isReadableByMember=false로 모인다. 쿼리 자체는 PostgreSQL 테스트가 검증한다.
+		MediaFile mediaFile = media(1L);
+		when(mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFile.getMediaFileId(), 2L)).thenReturn(Optional.empty());
+		when(mediaFiles.findByMediaFileIdAndDeletedAtIsNull(mediaFile.getMediaFileId())).thenReturn(Optional.of(mediaFile));
+		when(sharedLibrary.isReadableByMember(mediaFile.getMediaFileId(), 2L)).thenReturn(false);
+
+		assertThatThrownBy(() -> service.storageReference(mediaFile.getMediaFileId(), 2L)).isInstanceOf(MediaFileNotFoundException.class);
+	}
+
+	@Test
+	void hidesDeletedSharedMediaEvenFromReadMembers() {
+		UUID mediaFileId = UUID.randomUUID();
+		when(mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, 2L)).thenReturn(Optional.empty());
+		when(mediaFiles.findByMediaFileIdAndDeletedAtIsNull(mediaFileId)).thenReturn(Optional.empty());
+		when(sharedLibrary.isReadableByMember(mediaFileId, 2L)).thenReturn(true);
+
+		assertThatThrownBy(() -> service.storageReference(mediaFileId, 2L)).isInstanceOf(MediaFileNotFoundException.class);
+	}
+
+	@Test
 	void limitsTheLibraryAndProvidesACursorForTheNextPage() {
 		MediaFile first = media(2L);
 		MediaFile second = media(2L);
