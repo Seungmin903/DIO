@@ -26,17 +26,13 @@ services:
       AUTH_ALLOWED_ORIGINS: "${AUTH_ALLOWED_ORIGINS:-http://localhost:8081,http://127.0.0.1:8081}"
       # 인증 배포 계약: ../auth-deployment.md (Nginx가 X-Forwarded-For를 덮어쓴다.)
       AUTH_TRUSTED_PROXY_REGEX: "${AUTH_TRUSTED_PROXY_REGEX:?AUTH_TRUSTED_PROXY_REGEX is required; see infra/auth-deployment.md}"
-      SIGNUP_PHOTO_STORAGE: "${SIGNUP_PHOTO_STORAGE:-s3}"
       SIGNUP_PHOTO_MIGRATE_LEGACY: "${SIGNUP_PHOTO_MIGRATE_LEGACY:-false}"
       SIGNUP_PHOTO_LOCAL_DIRECTORY: /app/.local-data/profile-photos
-      # 프로필 사진과 미디어는 키 접두사(profile-photos/, media/)가 달라 같은 버킷을 써도 된다.
-      # 둘 중 하나만 설정하면 나머지가 같은 값을 쓰고, 둘 다 없으면 배포 단계에서 실패한다.
-      SIGNUP_PHOTO_S3_BUCKET: "${SIGNUP_PHOTO_S3_BUCKET:-${MEDIA_S3_BUCKET:?SIGNUP_PHOTO_S3_BUCKET or MEDIA_S3_BUCKET is required}}"
-      SIGNUP_PHOTO_S3_REGION: "${SIGNUP_PHOTO_S3_REGION:-${MEDIA_S3_REGION:-ap-northeast-2}}"
-      # 미디어 원본은 배포 서버에서 항상 S3에 둔다.
+      # 미디어와 프로필 사진은 같은 MEDIA_* 저장소 설정을 쓴다(키 접두사 profile-photos/, media/로 구분).
+      # 배포 서버에서는 항상 S3에 두며, 버킷이 없으면 배포 단계에서 실패한다.
       MEDIA_STORAGE: "${MEDIA_STORAGE:-s3}"
-      MEDIA_S3_BUCKET: "${MEDIA_S3_BUCKET:-${SIGNUP_PHOTO_S3_BUCKET:?MEDIA_S3_BUCKET or SIGNUP_PHOTO_S3_BUCKET is required}}"
-      MEDIA_S3_REGION: "${MEDIA_S3_REGION:-${SIGNUP_PHOTO_S3_REGION:-ap-northeast-2}}"
+      MEDIA_S3_BUCKET: "${MEDIA_S3_BUCKET:?MEDIA_S3_BUCKET is required}"
+      MEDIA_S3_REGION: "${MEDIA_S3_REGION:-ap-northeast-2}"
       MEDIA_DELETE_RETENTION: "${MEDIA_DELETE_RETENTION:-PT24H}"
       MEDIA_EXPIRY_CLEANUP_ENABLED: "${MEDIA_EXPIRY_CLEANUP_ENABLED:-false}"
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}"

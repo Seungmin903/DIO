@@ -18,8 +18,8 @@
 
 ## 사진 저장소
 
-- dev 기본은 `SIGNUP_PHOTO_STORAGE=local`, prod 기본은 `s3`다.
-- S3 사용 시 `SIGNUP_PHOTO_S3_BUCKET`은 실제 비공개 버킷 이름, `SIGNUP_PHOTO_S3_REGION`은 해당 리전으로 설정한다(기본 ap-northeast-2). 버킷·리전이 비어 있으면 애플리케이션 기동이 실패한다.
+- 프로필 사진은 미디어와 같은 `MEDIA_STORAGE`·`MEDIA_S3_BUCKET`·`MEDIA_S3_REGION`을 쓴다. dev·prod 기본은 `s3`다.
+- `MEDIA_S3_BUCKET`은 실제 비공개 버킷 이름, `MEDIA_S3_REGION`은 해당 리전으로 설정한다(기본 ap-northeast-2). 버킷이 비어 있으면 배포 단계에서 실패한다.
 - EC2 IAM 역할 등 AWS 기본 자격 증명 체인으로 해당 사진 객체의 Put/Get/Delete 권한을 부여한다. AWS 키를 저장소나 프론트에 넣지 않는다.
 - 로컬은 Compose의 `signup-profile-photos` 볼륨에 저장한다. 저장소를 옮길 때 원본 볼륨을 보존한다.
 - `SIGNUP_PHOTO_MIGRATE_LEGACY`는 기본 false이며 필요할 때만 true로 주입한다. 이전 중 항목별 실패는 ID와 개수만 기록하고 다음 ID로 진행한다. 실패 항목은 원본 참조를 유지하며 다음 실행에서 다시 시도한다. 모든 대상이 완료되면 옵션을 끈다.

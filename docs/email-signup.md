@@ -52,14 +52,14 @@ V2는 로컬 DB에 실제 적용된 원본(email NOT NULL, 체크섬 -1086657833
 
 ### 로컬 파일 / S3 저장 설정
 
-`ProfilePhotoStorage` 인터페이스를 `LocalProfilePhotoStorage`, `S3ProfilePhotoStorage`가 구현한다. 회원가입/사진 조회의 URL과 요청·응답은 저장소 전환 시 바뀌지 않는다. S3도 비공개 버킷의 객체를 서버에서 읽어 기존 PNG API로 반환한다. 공개 ACL을 설정하지 않는다.
+`ProfilePhotoStorage` 인터페이스를 `LocalProfilePhotoStorage`, `S3ProfilePhotoStorage`가 구현한다. 저장 방식·버킷·리전은 미디어와 같은 `MEDIA_*` 환경변수를 본다(이전 `SIGNUP_PHOTO_STORAGE`·`SIGNUP_PHOTO_S3_*`는 더 이상 읽지 않음). 회원가입/사진 조회의 URL과 요청·응답은 저장소 전환 시 바뀌지 않는다. S3도 비공개 버킷의 객체를 서버에서 읽어 기존 PNG API로 반환한다. 공개 ACL을 설정하지 않는다.
 
 | 설정 | 기본값 / 용도 |
 |---|---|
-| `SIGNUP_PHOTO_STORAGE` | `local`. `s3`로 명시하면 S3 구현 사용 |
+| `MEDIA_STORAGE` | `local`(dev·prod 프로필은 `s3`). 미디어와 공용. `s3`로 명시하면 S3 구현 사용 |
 | `SIGNUP_PHOTO_LOCAL_DIRECTORY` | `.local-data/profile-photos`. backend 작업 폴더 기준. 실행 폴더에 따라 달라지지 않도록 공유 실행 환경에서는 고정 절대 경로 권장 |
-| `SIGNUP_PHOTO_S3_BUCKET` | S3 모드에서 필수, 기존 버킷 이름. 앱이 버킷을 생성하지 않음 |
-| `SIGNUP_PHOTO_S3_REGION` | `ap-northeast-2`. 실제 버킷의 리전에 맞출 것 |
+| `MEDIA_S3_BUCKET` | S3 모드에서 필수, 기존 버킷 이름. 미디어와 같은 버킷을 쓴다. 앱이 버킷을 생성하지 않음 |
+| `MEDIA_S3_REGION` | `ap-northeast-2`. 실제 버킷의 리전에 맞출 것 |
 | `dio.signup.photos.migrate-legacy` | 기본 false. 실행 인자로 true를 주면 DB/로컬 사진을 현재 저장소로 이전 |
 
 local 프로필은 루트 .env를 읽으므로 지금은 추가 설정 없이 파일로 저장한다. .local-data는 Git에서 제외한다. 파일은 재시작 후에도 유지되지만 디렉터리를 삭제하거나 실행 위치를 바꾸면 읽을 수 없다. 로컬 데이터 복구에는 **DB와 사진 디렉터리 둘 다** 필요하다. Docker에서 로컬 모드를 쓰려면 영속 볼륨을 따로 마운트해야 한다.
@@ -71,14 +71,14 @@ S3 자격 증명은 AWS SDK v2 기본 자격 증명 공급자를 사용한다. �
 S3 전환 시 실제 설정 예시(버킷 이름은 인프라에서 생성한 실제 값으로 교체):
 
 ```properties
-SIGNUP_PHOTO_STORAGE=s3
-SIGNUP_PHOTO_S3_BUCKET=your-existing-private-bucket
-SIGNUP_PHOTO_S3_REGION=ap-northeast-2
+MEDIA_STORAGE=s3
+MEDIA_S3_BUCKET=your-existing-private-bucket
+MEDIA_S3_REGION=ap-northeast-2
 ```
 
 1. DB는 `pg_dump -Fc`로, 로컬 사진은 디렉터리 단위로 백업하고 Git 외부의 팀 승인 보관 위치에 둔다.
 2. 기존 사진 파일에 접근 가능한 머신에서 S3 설정/권한을 준비한다. DB에 저장한 provider/key/bucket을 사용하므로 새 사진만 S3로 저장해도 기존 로컬 사진은 기존 디렉터리가 있으면 계속 읽는다.
-3. 기존 사진도 이전하려면 한 번만 실행한다. `backend/`에서 `./gradlew.bat bootRun --args="--spring.profiles.active=local --dio.signup.photos.migrate-legacy=true"` (이때 SIGNUP_PHOTO_STORAGE=s3). 로컬 모드에서 실행하면 기존 DB 사진만 로컬 파일로 이전한다.
+3. 기존 사진도 이전하려면 한 번만 실행한다. `backend/`에서 `./gradlew.bat bootRun --args="--spring.profiles.active=local --dio.signup.photos.migrate-legacy=true"` (이때 MEDIA_STORAGE=s3). 로컬 모드에서 실행하면 기존 DB 사진만 로컬 파일로 이전한다.
 4. 사진별 잠금·트랜잭션으로 복사 성공 후 DB 참조만 바꾸고 기존 사진 URL은 유지한다. 실패한 사진은 이전 참조를 유지하며, 재실행 시 완료된 항목을 건너뛴다. 자동 이전은 기본으로 켜지 않는다. 기존 로컬 원본은 즉시 삭제하지 않으므로 이전 완료·백업 확인 후 별도로 정리한다.
 
 파일 업로드는 DB 커밋 전 수행되므로 롤백 보상 삭제가 있다. 강제 종료 등으로 남은 객체는 DB의 storage_key와 대조해 정리해야 한다. 서로 다른 저장소의 데이터가 남아 있는 동안에는 해당 파일/버킷 읽기 권한을 유지한다. S3→local 역전환은 현재 S3 어댑터가 비활성화되므로 자동 이전 대상으로 지원하지 않는다.

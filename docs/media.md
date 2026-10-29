@@ -20,7 +20,7 @@
 
 ## 저장소 설정
 
-로컬 개발·테스트의 기본값은 로컬 디렉터리 `.local-data/media`다. 배포 서버의 컨테이너 디스크는 재배포·증설 때 사라지므로 `dev`·`prod` 프로필에서는 로컬 저장소로 기동하지 않고, 두 프로필 모두 `MEDIA_STORAGE=s3`이 기본값이다. 개발·운영은 **서로 다른 S3 버킷**을 설정한다. `infra/compose/compose.{dev,prod}.yml`이 `MEDIA_STORAGE`, `MEDIA_S3_BUCKET`, `MEDIA_S3_REGION`, `MEDIA_DELETE_RETENTION`, `MEDIA_EXPIRY_CLEANUP_ENABLED`를 컨테이너에 넘긴다. 미디어와 프로필 사진은 키 접두사(`media/`, `profile-photos/`)가 달라 같은 버킷을 써도 된다. 그래서 `MEDIA_S3_BUCKET`과 `SIGNUP_PHOTO_S3_BUCKET`(리전도 마찬가지) 중 하나만 설정하면 나머지가 같은 값을 쓴다. 따로 두려면 둘 다 설정한다. 러너의 `dio-env/{dev,prod}.env`에 둘 다 없으면 배포 단계의 `docker compose config`에서 실패한다. S3 객체 키는 서버가 `media/{image|audio}/YYYY/MM/{uuid}.{ext}` 형식으로 생성하며, 클라이언트가 키나 버킷을 지정할 수 없다.
+로컬 개발·테스트의 기본값은 로컬 디렉터리 `.local-data/media`다. 배포 서버의 컨테이너 디스크는 재배포·증설 때 사라지므로 `dev`·`prod` 프로필에서는 로컬 저장소로 기동하지 않고, 두 프로필 모두 `MEDIA_STORAGE=s3`이 기본값이다. 개발·운영은 **서로 다른 S3 버킷**을 설정한다. `infra/compose/compose.{dev,prod}.yml`이 `MEDIA_STORAGE`, `MEDIA_S3_BUCKET`, `MEDIA_S3_REGION`, `MEDIA_DELETE_RETENTION`, `MEDIA_EXPIRY_CLEANUP_ENABLED`를 컨테이너에 넘긴다. 프로필 사진도 같은 `MEDIA_STORAGE`·`MEDIA_S3_BUCKET`·`MEDIA_S3_REGION`을 쓴다. 키 접두사(`media/`, `profile-photos/`)가 달라 한 버킷에서 충돌하지 않는다. 이전의 `SIGNUP_PHOTO_STORAGE`·`SIGNUP_PHOTO_S3_*`는 읽지 않는다. 기존 사진은 DB에 기록된 provider·버킷에서 읽으므로 계속 조회된다. 러너의 `dio-env/{dev,prod}.env`에 `MEDIA_S3_BUCKET`이 없으면 배포 단계의 `docker compose config`에서 실패한다. S3 객체 키는 서버가 `media/{image|audio}/YYYY/MM/{uuid}.{ext}` 형식으로 생성하며, 클라이언트가 키나 버킷을 지정할 수 없다.
 
 삭제 API는 DB 행에 `deletedAt`만 기록하는 소프트 삭제다. 원본 객체는 즉시 지우지 않는다. 삭제 직후부터 이 API의 메타데이터·원본 조회는 404다.
 

@@ -86,8 +86,12 @@ class DeploymentAuthContractTests {
                 assertThat(properties.getProperty("services.backend.environment." + key).toString())
                     .startsWith("${" + key + ":?").endsWith("}");
             }
-            assertThat(properties.getProperty("services.backend.environment.SIGNUP_PHOTO_S3_BUCKET")).isNotNull();
-            assertThat(properties.getProperty("services.backend.environment.SIGNUP_PHOTO_S3_REGION")).isNotNull();
+            // 프로필 사진은 미디어와 같은 MEDIA_* 저장소 설정만 본다.
+            assertThat(properties.getProperty("services.backend.environment.MEDIA_S3_BUCKET"))
+                .isEqualTo("${MEDIA_S3_BUCKET:?MEDIA_S3_BUCKET is required}");
+            for (String removed : new String[]{"SIGNUP_PHOTO_STORAGE", "SIGNUP_PHOTO_S3_BUCKET", "SIGNUP_PHOTO_S3_REGION"}) {
+                assertThat(properties.getProperty("services.backend.environment." + removed)).isNull();
+            }
             assertThat(properties.getProperty("services.backend.environment.SIGNUP_PHOTO_MIGRATE_LEGACY"))
                 .isEqualTo("${SIGNUP_PHOTO_MIGRATE_LEGACY:-false}");
             assertThat(properties.getProperty("services.backend.environment.SHARING_INVITE_SECRET"))
