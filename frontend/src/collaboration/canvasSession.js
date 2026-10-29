@@ -6,7 +6,8 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
   let journal={format:2,pageId,diaryId,base:null,uiLocal:null,queue:[],control:null,recent:[]},writes=Promise.resolve(),running=null,restored=false
   const active=()=>{if(!isActive())throw new Error('편집 세션이 종료됐어요.')}
   const persist=()=>{const raw=JSON.stringify(journal);const task=writes.catch(()=>{}).then(()=>storage.setItem(key,raw));writes=task;return task}
-  const accept=async response=>{active();journal.base=copy(response.items);await persist()}
+  const setBase=items=>{journal.orderKeys=copy(items.sortKeys??items.map(e=>Number(e.sortKey)).filter(Number.isFinite));journal.base=copy(items)}
+  const accept=async response=>{active();setBase(response.items);await persist()}
   const preview=()=>{
     let objects=(journal.base??[]).map(decodeElement)
     for(const entry of journal.queue){const delta=canvasDelta(entry.before,entry.after),byId=new Map(objects.map(o=>[o.id,o]));
@@ -19,6 +20,18 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
   const requestFor=entry=>{
     const delta=canvasDelta(entry.before,entry.after),remote=new Map(journal.base.map(e=>[e.elementId,e]))
     const creates=[],updates=[],deleteElementIds=[],expectedVersions={}
+    const allKeys=journal.orderKeys??journal.base.map(e=>Number(e.sortKey)),top=Math.max(0,...allKeys)
+    const order=new Map()
+    if(delta.reordered){
+      const ids=[...delta.next.keys()].filter(id=>remote.has(id)||!delta.old.has(id))
+      let slots=ids.filter(id=>remote.has(id)).map(id=>Number(remote.get(id).sortKey)).sort((a,b)=>a-b)
+      const counts=new Map();for(const key of allKeys)counts.set(key,(counts.get(key)??0)+1)
+      // Reuse existing slots so media outside the shared subset stays untouched.
+      // Legacy duplicate keys cannot express a strict order; use free slots above all media.
+      if(slots.some(key=>!Number.isFinite(key)||counts.get(key)!==1))slots=[]
+      while(slots.length<ids.length)slots.push(top+slots.length+1)
+      ids.forEach((id,index)=>order.set(id,slots[index]))
+    }
     const equal=(a,b)=>stable(a)===stable(b)
     // Rebase only the locally changed fields; unrelated remote edits remain intact.
     const merge=(before,after,current)=>{
@@ -37,14 +50,14 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
       return next
     }
     for(const id of delta.touched){const before=delta.old.get(id),after=delta.next.get(id),current=remote.get(id)
-      if(!before){if(!current)creates.push({...after,sortKey:Math.max(0,...journal.base.map(e=>Number(e.sortKey)||0))+creates.length+1});continue}
+      if(!before){if(!current)creates.push({...after,sortKey:order.get(id)??top+creates.length+1});continue}
       // A remote deletion wins over a stale update; never resurrect a deleted object.
       if(!current)continue
       if(!after){deleteElementIds.push(id);expectedVersions[id]=current.version;continue}
       const merged=merge(before,after,canvasContent([decodeElement(current)])[0])
       const {elementType,...patch}=merged
       if(!equal(merged,canvasContent([decodeElement(current)])[0])||delta.reordered)
-        updates.push({...patch,version:current.version,...(delta.reordered?{sortKey:[...delta.next.keys()].indexOf(id)+1}:{})})
+        updates.push({...patch,version:current.version,...(delta.reordered?{sortKey:order.get(id)}:{})})
     }
     if(!creates.length&&!updates.length&&!deleteElementIds.length)return null
     return {clientOperationId:entry.id,changes:{...(creates.length?{creates}:{}),...(updates.length?{updates}:{}),...(deleteElementIds.length?{deleteElementIds}: {})},expectedVersions}
@@ -94,7 +107,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
             if(journal.uiLocal.some(o=>!overlap.some(r=>r.id===o.id)))journal.queue.push({id:createId(),pageId,before:overlap,after:[...copy(overlap),...copy(journal.uiLocal.filter(o=>!overlap.some(r=>r.id===o.id)))]})
           }
         }
-        journal.base=copy(remote);await persist()
+        setBase(remote);await persist()
         let direction=null,historyClientOperationId=null,rejectedCount=0
         if(journal.control){const pending=journal.control;direction=pending.direction
           try{const result=await api.control(pageId,pending.direction,pending.request);active();historyClientOperationId=result.clientOperationId;journal.control=null;await accept(result)}
@@ -104,7 +117,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
           active();const entry=journal.queue[0]
           if(!entry.request){entry.request=requestFor(entry);active();await persist()}
           if(entry.request){
-            try{const result=await api.apply(pageId,entry.request);active();journal.base=copy(result.items)}
+            try{const result=await api.apply(pageId,entry.request);active();setBase(result.items)}
             catch(error){
               if(error.status===404&&error.code==='CANVAS_ELEMENT_NOT_FOUND'){
                 journal.rejectedRequests=[...(journal.rejectedRequests??[]),copy(entry.request)]

@@ -64,4 +64,18 @@ class CollaborationEfficiencyTests {
             assertThat(delivered.await(2,java.util.concurrent.TimeUnit.SECONDS)).isTrue();assertThat(fastIds).containsExactly("1","2");
         }finally{release.countDown();pool.shutdownNow();}
     }
+    @Test void globalCapacityUsesRetryLaterWithoutChangingUnauthenticatedIpPolicy()throws Exception{
+        var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);var json=JsonMapper.builder().build();
+        var handler=new CollaborationSocket(access,decoder,json,Runnable::run,Runnable::run);UUID diary=UUID.randomUUID();
+        for(int i=0;i<512;i++)handler.afterConnectionEstablished(pendingSocket("conn-"+i,diary,"ip-"+i));
+        var full=pendingSocket("full",diary,"new-ip");handler.afterConnectionEstablished(full);
+        verify(full).close(argThat(status->status.getCode()==1013));
+        var limited=new CollaborationSocket(access,decoder,json,Runnable::run,Runnable::run);
+        for(int i=0;i<4;i++)limited.afterConnectionEstablished(pendingSocket("ip-conn-"+i,diary,"same-ip"));
+        var extra=pendingSocket("extra",diary,"same-ip");limited.afterConnectionEstablished(extra);
+        verify(extra).close(CloseStatus.POLICY_VIOLATION);
+    }
+    private WebSocketSession pendingSocket(String id,UUID diary,String ip){
+        var socket=mock(WebSocketSession.class);when(socket.getId()).thenReturn(id);when(socket.getAttributes()).thenReturn(Map.of("diaryId",diary,"remoteIp",ip));return socket;
+    }
 }

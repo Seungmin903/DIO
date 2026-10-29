@@ -6,6 +6,8 @@ const rows=value=>{
   if(!Array.isArray(value))fail()
   const result=value.filter(sharedElement);result.forEach(decodeElement)
   if(new Set(result.map(e=>e.elementId)).size!==result.length)fail()
+  // Keep ordering bounds from unsupported media too; never upload those elements.
+  Object.defineProperty(result,'sortKeys',{value:value.map(e=>Number(e.sortKey)).filter(Number.isFinite)})
   return result
 }
 export function createCanvasApi(transport){

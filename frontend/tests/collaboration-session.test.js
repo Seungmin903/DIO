@@ -133,3 +133,27 @@ test('요소 삭제 404는 같은 묶음의 다른 수정까지 버리지 않고
  const result=await s.synchronize();assert.equal(result.objects.length,1);assert.equal(result.objects[0].text,'Y changed')
  assert.notEqual(f.calls[0].clientOperationId,oldRequest.clientOperationId);assert.equal(f.calls[0].changes.updates.length,1)
 })
+
+for(const duplicate of [false,true])test(`순서 변경은 재조회·세션 재시작 후 유지하고 비공유 사진의 키는 보존한다 (${duplicate?'중복 복구':'기존 슬롯'})`,async()=>{
+ const {createCanvasApi}=await import('../src/collaboration/canvasApi.js')
+ const a=text('A'),b=text('B','60000000-0000-4000-8000-000000000001'),c=text('C','60000000-0000-4000-8000-000000000002')
+ const photoId='60000000-0000-4000-8000-000000000003',photoKey=duplicate?10:15
+ let rows=[{...row(a),sortKey:10},{...row(b),sortKey:20},{...row(c),sortKey:30},{elementId:photoId,pageId,elementType:'PHOTO',sortKey:photoKey}],request,sequence=0
+ const ordered=()=>structuredClone(rows).sort((a,b)=>a.sortKey-b.sortKey||a.elementId.localeCompare(b.elementId))
+ const api=createCanvasApi(async options=>{
+  if(options.path.endsWith('/history/me'))return {items:[],nextUndo:null,nextRedo:null}
+  if(!options.method)return {page:{pageId,diaryId},elements:ordered()}
+  request=options.body
+  for(const update of request.changes.updates??[]){const old=rows.find(e=>e.elementId===update.elementId);Object.assign(old,update,{version:old.version+1})}
+  return {operationId:'1',revision:0,items:ordered()}
+ })
+ const disk=new Map(),storage={getItem:async key=>disk.get(key)??null,setItem:async(key,value)=>disk.set(key,value)}
+ const session=()=>createCanvasSession({api,storage,key:'ordering',pageId,diaryId,createId:()=>`order-${++sequence}`})
+ const first=session();await first.restore([a,b,c]);await first.synchronize()
+ await first.enqueue({id:'reorder',pageId,before:[a,b,c],after:[c,a,b]});const result=await first.synchronize()
+ assert.deepEqual(result.objects.map(o=>o.id),[c.id,a.id,b.id]);assert.equal(rows.find(e=>e.elementId===photoId).sortKey,photoKey)
+ assert.equal(request.changes.updates.some(e=>e.elementId===photoId),false)
+ assert.equal(new Set(rows.map(e=>e.sortKey)).size,4)
+ await first.acceptImport(result.objects);const restored=session();await restored.restore(result.objects)
+ assert.deepEqual((await restored.synchronize()).objects.map(o=>o.id),[c.id,a.id,b.id])
+})

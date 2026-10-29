@@ -30,7 +30,8 @@ public class CollaborationSocket extends TextWebSocketHandler {
     public CollaborationSocket(CollaborationAccess access,@Qualifier("loginJwtDecoder") JwtDecoder decoder,ObjectMapper json,@Qualifier("collaborationEventsExecutor") TaskExecutor executor,@Qualifier("collaborationSocketSendExecutor") TaskExecutor sendExecutor){this.access=access;this.decoder=decoder;this.json=json;this.executor=executor;this.sendExecutor=sendExecutor;}
     @Override public synchronized void afterConnectionEstablished(WebSocketSession socket)throws IOException{
         String ip=(String)socket.getAttributes().getOrDefault("remoteIp","unknown");
-        if(connections.size()>=512||connections.values().stream().filter(c->c.actor<0&&c.ip.equals(ip)).count()>=4){socket.close(CloseStatus.POLICY_VIOLATION);return;}
+        if(connections.size()>=512){socket.close(new CloseStatus(1013,"Try again later"));return;}
+        if(connections.values().stream().filter(c->c.actor<0&&c.ip.equals(ip)).count()>=4){socket.close(CloseStatus.POLICY_VIOLATION);return;}
         socket.setTextMessageSizeLimit(4096);socket.setBinaryMessageSizeLimit(1024);
         connections.put(socket.getId(),new Connection(socket));
     }

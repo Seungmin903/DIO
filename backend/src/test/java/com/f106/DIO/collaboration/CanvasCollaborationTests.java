@@ -321,4 +321,23 @@ class CanvasCollaborationTests {
         assertThat(json.readTree(retry).path("page").path("pageId")).isEqualTo(json.readTree(first).path("page").path("pageId"));
         assertThat(jdbc.queryForObject("select count(*) from pages where diary_id=?",Integer.class,diary)).isEqualTo(1);
     }
+    @Test void reorderedElementsRemainOrderedOnBothMembersReloadAndPreserveMediaSlot()throws Exception{
+        var owner=actor();var friend=actor();UUID diary=diary(owner),page=page(diary);join(diary,friend);
+        UUID a=UUID.randomUUID(),b=UUID.randomUUID(),c=UUID.randomUUID(),photo=UUID.randomUUID();
+        create(page,owner,a,"a");create(page,owner,b,"b");create(page,owner,c,"c");create(page,owner,photo,"media slot");
+        jdbc.update("update canvas_elements set sort_key=10 where element_id=?",a);jdbc.update("update canvas_elements set sort_key=20 where element_id=?",b);
+        jdbc.update("update canvas_elements set sort_key=30 where element_id=?",c);jdbc.update("update canvas_elements set sort_key=15,element_type='PHOTO' where element_id=?",photo);
+        var updates=new ArrayList<Map<String,Object>>();
+        for(var entry:Map.of(a,20,b,30,c,10).entrySet()){
+            var element=jdbc.queryForMap("select version from canvas_elements where element_id=?",entry.getKey());
+            updates.add(Map.of("elementId",entry.getKey(),"version",((Number)element.get("version")).longValue(),"sortKey",entry.getValue()));
+        }
+        apply(page,owner,UUID.randomUUID(),Map.of("updates",updates));
+        for(var actor:List.of(owner,friend)){
+            var result=json.readTree(mvc.perform(get("/api/v1/pages/"+page).header("Authorization","Bearer "+actor.token())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            var ids=new ArrayList<String>();result.path("elements").forEach(e->ids.add(e.path("elementId").asText()));
+            assertThat(ids).containsExactly(c.toString(),photo.toString(),a.toString(),b.toString());
+        }
+        assertThat(jdbc.queryForObject("select sort_key from canvas_elements where element_id=?",BigDecimal.class,photo)).isEqualByComparingTo("15");
+    }
 }
