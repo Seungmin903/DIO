@@ -4,6 +4,18 @@ import { brushSelection, editHistory, linkSelection, materializeGroups, moveHist
 import { saveSplitSelection } from '../src/editor/utils/stickerSplitSave.js'
 
 const parts = ['a', 'b', 'c'].map((id, i) => ({ id, uri: `file:///${id}.png`, x: i * 10, y: 2, width: 3, height: 4 }))
+test('직접 분리한 조각은 거리 묶기에서 빠지며 명시적으로 다시 묶을 수 있다', () => {
+  const all = [...parts, { ...parts[0], id: 'd' }, { ...parts[1], id: 'e' }]
+  const ids = all.map(p => p.id), edges = [['a', 'b'], ['b', 'c'], ['d', 'e']]
+  assert.deepEqual(splitGroups(all, ids, edges, [], ['a', 'b', 'c']).map(g => g.members.map(p => p.id)), [['a'], ['b'], ['c'], ['d', 'e']])
+  assert.deepEqual(splitGroups(all, ids, edges, [['a', 'b']], ['a', 'b', 'c']).map(g => g.members.map(p => p.id)), [['a', 'b'], ['c'], ['d', 'e']])
+})
+test('직접 분리한 묶음은 원본 PNG를 각각 저장하며 합성이나 새 분석을 하지 않는다', async () => {
+  const separated = splitGroups(parts, ['a', 'b', 'c'], [['a', 'b']], [], ['a', 'b'])
+  const saved = await materializeGroups(separated, () => assert.fail('must reuse original PNGs'), () => assert.fail())
+  assert.deepEqual(saved.map(part => part.id), ['a', 'b', 'c'])
+  assert.equal(saved[0], parts[0]); assert.equal(saved[1], parts[1])
+})
 test('최종 묶음을 가로×세로 면적으로 정렬하고 동률 순서·원본 ID·좌표를 유지한다', () => {
   const input = [{ id: 'small', width: 3, height: 3, area: 1000 }, { id: 'wide', width: 100, height: 3, area: 1 }, { id: 'tie', width: 10, height: 30, area: 2 }]
   const result = sortedStickerGroups(input)

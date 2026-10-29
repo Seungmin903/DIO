@@ -1,25 +1,25 @@
 import { ToolPanelHeader, toolPanelStyles } from '../ToolPanel'
 import { createContext, useContext, useRef, useState } from 'react'
-import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, radius, shadow, DISABLED_OPACITY } from '../../../shared/theme'
-import { TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
-import { RECENT_LIMIT, stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
+import { PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
+import { stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
 import { useTapePreferences } from '../../hooks/useTapePreferences'
-import { STICKER_GROUPS, stickerSource } from '../../stickerAssets'
+import { stickerLibrary } from '../../stickerLibrary'
 import Svg, { Path, Polygon } from 'react-native-svg'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { mediaFailureMessage } from '../../utils/mediaRecovery.js'
 import { pickImages } from '../../services/image'
-import { useMediaUri } from '../../hooks/useMediaUri'
 import ChipScroller, { justDragged } from '../controls/ChipScroller'
 import ConfirmDialog from '../controls/ConfirmDialog'
 import Icon from '../controls/Icon'
+import StickerThumbImage from '../controls/StickerThumbImage'
 import PenSafeTextInput from '../controls/PenSafeTextInput'
 import TapeCropper from './TapeCropper'
 import TapeOptions from './TapeOptions'
 import TapeView from '../canvas/TapeView'
-import RecentPhotos from './RecentPhotos'
+import PhotoFramePicker from './PhotoFramePicker'
 import StickerSplitModal from './StickerSplitModal'
 import DecorSaveNotice from './DecorSaveNotice'
 import { stickerSplit } from '../../services/stickerSplit'
@@ -38,30 +38,6 @@ const tapePreviewHeight = (sizeId) => {
 }
 const TAPE_PREVIEW = { width: 236, height: 44 }
 
-// 기본 스티커는 출처별로 묶는다. 저장된 asset ID와 표시 순서는 유지한다.
-// Noto의 기존 motion ID는 분류 숨김·순서 설정 호환을 위해 유지한다.
-const BASE_GROUPS = [
-  {
-    id: 'fluent-emoji',
-    title: 'Fluent Emoji',
-    name: 'Fluent Emoji',
-    items: STICKER_GROUPS.filter((g) => !g.id.startsWith('motion') && g.id !== 'twemoji').flatMap((g) => g.items),
-  },
-  {
-    id: 'motion',
-    title: 'Noto Animated Emoji',
-    name: 'Noto Animated Emoji',
-    badge: 'GIF',
-    items: STICKER_GROUPS.filter((g) => g.id.startsWith('motion')).flatMap((g) => g.items),
-  },
-  {
-    id: 'twemoji',
-    title: 'Twemoji',
-    name: 'Twemoji',
-    items: STICKER_GROUPS.find((g) => g.id === 'twemoji').items,
-  },
-]
-
 // 보관함 크기: 왼쪽 아래 손잡이로 넓히고 늘린다. 닫았다 열어도 유지되도록 모듈에 기억해 둔다.
 const SIZE_LIMITS = { minWidth: 280, maxWidth: 640, minHeight: 260 }
 const TILE_MIN_PX = 68
@@ -71,9 +47,10 @@ const ColumnsContext = createContext(4)
 
 /**
  * 스티커·테이프·사진 보관함. 항목을 누르면 페이지 가운데에 붙는다.
- * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다. 사진은 붙인 뒤 자르기에서 틀·모양을 고른다.
+ * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다.
+ * 사진: 불러오면 틀 없이 붙고, 사진 틀을 누르면 빈 틀이 붙는다(캔버스의 + 로 채운다).
  */
-export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPhoto, onTapeInserted, recentPhotos, onToast, onClose, onPanelWidth }) {
+export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, onToast, onClose, onPanelWidth }) {
   const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]
   const custom = useCustomDecor()
   const [busy, setBusy] = useState(false)
@@ -143,42 +120,8 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
     onAdd({ kind: 'sticker', ...item })
   }
   const keyword = query.trim()
-  const matches = (sticker) => !keyword || sticker.name?.includes(keyword) || sticker.emoji === keyword
   // 분류 칩: 즐겨찾기·최근(있을 때) + 기본 분류와 내 폴더(사용자가 정한 순서, 숨긴 기본 분류는 빼고)
-  const folders = custom.items.folders
-  const favorites = custom.items.favorites
-  // 예전에 12개까지 저장된 기록도 8개만 보여 준다
-  const recents = custom.items.recentStickers.slice(0, RECENT_LIMIT)
-  const favoriteKeys = new Set(favorites.map(stickerKey))
-  const orderable = [
-    ...BASE_GROUPS.map((g) => ({ id: g.id, name: g.name, base: true })),
-    ...folders.map((f) => ({ id: `folder:${f.id}`, name: f.name })),
-  ]
-  const order = custom.items.categoryOrder
-  const rank = (item, index) => {
-    const at = order.indexOf(item.id)
-    return at >= 0 ? at : order.length + index
-  }
-  const sorted = orderable.map((item, index) => ({ item, r: rank(item, index) })).sort((a, b) => a.r - b.r).map((x) => x.item)
-  const hidden = new Set(custom.items.hiddenCategories)
-  // 기록이 없거나 마지막 칩이 삭제·숨김 상태이면 즐겨찾기로 돌아간다.
-  const chips = [
-    { id: 'favorites', name: '즐겨찾기' },
-    ...(recents.length ? [{ id: 'recent', name: '최근' }] : []),
-    ...sorted.filter((c) => !hidden.has(c.id)),
-  ]
-  const active = chips.some((c) => c.id === category) ? category : chips[0]?.id
-  const folder = !keyword && active?.startsWith('folder:') ? folders.find((f) => `folder:${f.id}` === active) : null
-  // 검색: 출처별 기본 분류 전체 + 폴더. 스티커 이름과 출처 이름으로 찾는다.
-  const groups = keyword
-    ? BASE_GROUPS.map((group) => ({
-        ...group,
-        items: group.title.includes(keyword) ? group.items : group.items.filter(matches),
-      })).filter((g) => g.items.length)
-    : BASE_GROUPS.filter((g) => g.id === active)
-  const folderMatches = keyword
-    ? folders.flatMap((f) => f.items.filter(matches).map((item) => ({ ...item, folderId: f.id })))
-    : []
+  const { favorites, recents, favoriteKeys, orderable, sorted, hidden, chips, active, folder, groups, folderMatches } = stickerLibrary(custom.items, category, keyword)
   // 길게 누르면 즐겨찾기에 넣고 뺀다
   const toggleFavorite = (item) => {
     const has = favoriteKeys.has(stickerKey(item))
@@ -488,8 +431,12 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
                 </View>
                 <Text style={styles.uploadTitle}>{busy ? '원본을 저장하고 있어요…' : '사진 · GIF 불러오기'}</Text>
               </Pressable>
-              <RecentPhotos photos={recentPhotos} columns={columns} onAdd={onAdd}
-                onRemove={onRemoveRecentPhoto} renderThumb={(photo) => <RecentPhotoThumb photo={photo} />} />
+              {/* 누르면 빈 틀이 붙는다 (오프라인 에셋 '④ 사진 틀'). 사진 틀 · 티켓 · 네컷으로 묶는다 */}
+              {PHOTO_FRAME_GROUPS.map((group) => (
+                <Section key={group.id} title={group.name}>
+                  <PhotoFramePicker group={group.id} onSelect={(frame) => onAdd({ kind: 'frame', frame: frame.id })} />
+                </Section>
+              ))}
             </>
           )}
         </ScrollView>
@@ -538,19 +485,9 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
   )
 }
 
+// 칸 그림은 썸네일 · 캐시 · 다시 시도를 하는 공용 부품으로 그린다
 function StickerThumb({ item }) {
-  const uri = useMediaUri(item, { still: true })
-  const source = stickerSource(item, true, uri)
-  return source ? (
-    <Image source={source} style={styles.tileImage} resizeMode="contain" />
-  ) : (
-    <Text style={styles.tileEmoji}>{item.emoji}</Text>
-  )
-}
-
-function RecentPhotoThumb({ photo }) {
-  const uri = useMediaUri(photo, { still: true })
-  return <Image source={uri ? { uri } : null} style={styles.photoImage} resizeMode="cover" />
+  return <StickerThumbImage item={item} style={styles.tileImage} />
 }
 
 function Section({ title, badge, children }) {
@@ -1105,7 +1042,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F7FB',
   },
   pressed: { backgroundColor: colors.primarySoft },
-  tileEmoji: { fontSize: 34 },
   tileImage: { width: '74%', height: '74%' },
   remove: {
     position: 'absolute',
@@ -1170,20 +1106,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   uploadTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
-  uploadHint: {
-    fontSize: 11.5,
-    lineHeight: 17,
-    textAlign: 'center',
-    color: colors.textMuted,
-  },
-  photoCell: { width: '50%', aspectRatio: 4 / 5, padding: TILE_GAP },
-  photoTile: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#E7EEF7',
-  },
-  photoPressed: { opacity: 0.7 },
-  photoRemove: { position: 'absolute', right: TILE_GAP + 4, bottom: TILE_GAP + 4, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  photoImage: { width: '100%', height: '100%' },
 })

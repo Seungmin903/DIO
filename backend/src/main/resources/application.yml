@@ -46,10 +46,11 @@ dio:
       initial-delay-ms: ${AUTH_SESSION_CLEANUP_INITIAL_DELAY_MS:300000}
   signup:
     photos:
-      storage: ${SIGNUP_PHOTO_STORAGE:local}
+      # 저장 방식·버킷·리전은 미디어와 같은 MEDIA_* 환경변수를 본다. 키 접두사(profile-photos/, media/)가 달라 충돌하지 않는다.
+      storage: ${MEDIA_STORAGE:local}
       local-directory: ${SIGNUP_PHOTO_LOCAL_DIRECTORY:.local-data/profile-photos}
-      s3-bucket: ${SIGNUP_PHOTO_S3_BUCKET}
-      s3-region: ${SIGNUP_PHOTO_S3_REGION}
+      s3-bucket: ${MEDIA_S3_BUCKET:}
+      s3-region: ${MEDIA_S3_REGION:ap-northeast-2}
       migrate-legacy: ${SIGNUP_PHOTO_MIGRATE_LEGACY:false}
     verification-secret: ${SIGNUP_VERIFICATION_SECRET:}
     mail-from: ${SIGNUP_MAIL_FROM:}

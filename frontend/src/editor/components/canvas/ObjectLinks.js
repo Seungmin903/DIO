@@ -16,12 +16,13 @@ const boxStyle = (object, zoom) => ({
 })
 
 /** 읽기 모드: 링크가 걸린 스티커·테이프·사진을 누르면 링크를 연다 */
-export function ObjectLinkOverlay({ objects, zoom, onError }) {
+export function ObjectLinkOverlay({ objects, zoom, onError, onInteractionStart }) {
   return linked(objects).map((object) => (
     <Pressable
       key={object.id}
       accessibilityRole="link"
       accessibilityLabel="링크 열기"
+      onPressIn={onInteractionStart}
       onPress={() => Linking.openURL(normalizeTextLink(object.href)).catch(() => onError?.('링크를 열지 못했어요.'))}
       style={boxStyle(object, zoom)}
     />

@@ -7,12 +7,13 @@ import { useMediaUri } from '../../hooks/useMediaUri'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
-import { getObjectName, tapeSizeOf } from '../../utils/objects'
+import { getObjectName, hasPhotoMedia, tapeSizeOf } from '../../utils/objects'
 import { buildLayerRows } from '../../utils/layerRows'
 import Icon from '../controls/Icon'
 import TapCatcher from '../controls/TapCatcher'
 import TapeView from '../canvas/TapeView'
 import ObjectContent from '../canvas/ObjectView'
+import { isStripFrame } from '../../utils/photoStrip'
 
 const ROW_HEIGHT = 62
 const ROW_GAP = 2
@@ -565,6 +566,8 @@ const LayerThumb = memo(function LayerThumb({ object }) {
     ) : (
       <Text style={styles.thumbEmoji}>{object.emoji}</Text>
     )
+  } else if (object.type === 'photo' && (isStripFrame(object.frame) || !hasPhotoMedia(object))) {
+    content = <ObjectContent object={object} zoom={Math.min(30 / object.w, 30 / object.h)} still />
   } else if (object.type === 'photo') {
     content = <Image source={uri ? { uri } : null} style={styles.thumbPhoto} resizeMode="cover" />
   } else {

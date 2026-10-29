@@ -1,4 +1,4 @@
-import { createContext, memo, useContext } from 'react'
+import { createContext, memo, useContext, useRef } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
@@ -10,16 +10,17 @@ import { reportMediaDisplayError, mediaRegistry } from '../../services/mediaStor
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { useMediaUri } from '../../hooks/useMediaUri'
-import { coverLayout, photoInnerBox, tapeSizeOf } from '../../utils/objects'
+import { coverLayout, hasPhotoMedia, photoInnerBox, tapeSizeOf } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
-import FrameBackdrop, { stampPath } from './PhotoFrame'
+import FrameBackdrop, { emptySlotColor, isDarkColor, isTicketFrame, StripBackdrop, STRIP_DEFAULT_COLOR, stampPath } from './PhotoFrame'
+import { isStripFrame, stripCellBoxes } from '../../utils/photoStrip'
 import PhotoPathShadow from './PhotoPathShadow'
 import StrokeContent from '../StrokeContent'
 import ShapeContent from './ShapeContent'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
-import { textSettings, textStyle } from '../../utils/text'
+import { loadedFontFamily, textSettings, textStyle } from '../../utils/text'
 import { useTextFont } from '../../hooks/useTextFont'
 import { useStickerPlayback } from '../../hooks/useStickerPlayback'
 
@@ -34,12 +35,16 @@ export const TextMeasure = createContext(null)
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
 function ObjectContent({ object, zoom, areaPreview = false, still = false, onAssetLoad, onAssetError }) {
-  useTextFont(object.type === 'text' ? object.font : null)
+  const fontStatus = useTextFont(object.type === 'text' ? object.font : null)
+
   const width = object.w * zoom
   const height = object.h * zoom
   const uri = useMediaUri(object, { still })
   const onTextMeasure = useContext(TextMeasure)
   const failed = mediaRegistry.get(mediaId(object))?.status === 'error'
+  if (object.type === 'text' && object.font?.startsWith('personal-') && !loadedFontFamily(object.font)) return (
+    <View style={{ width, height, justifyContent: 'center' }}><Text style={{ fontSize: Math.max(8, 12 * zoom), color: colors.textMuted }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져와 주세요.'}</Text></View>
+  )
   if (mediaId(object) && !uri) return (
     <View style={{ width, height, backgroundColor: failed ? colors.surfaceSoft : colors.surface, borderWidth: failed ? 1 : 0, borderStyle: 'dashed', borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: Math.max(8, 12 * zoom), color: failed ? colors.text : colors.textMuted }}>{failed ? '이미지 확인 필요' : '이미지 불러오는 중…'}</Text>
@@ -79,6 +84,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
         </View>
       )
     case 'photo':
+      if (isStripFrame(object.frame)) return <PhotoStripContent photo={object} zoom={zoom} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
       return <PhotoContent photo={object} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     default:
       return null
@@ -97,11 +103,11 @@ export const shadowOn = (object) => shadowOf(object).on
 export const objectOpacity = (object) => object.opacity ?? (object.type === 'tape' ? TAPE_DEFAULT_OPACITY : 1)
 // 특수 외곽(하트·별·우표)은 SVG 경로로, 나머지는 기존 View 그림자로 그린다.
 export const photoSupportsShadow = (photo) =>
-  ['polaroid', 'film', 'frame', 'stamp'].includes(photo.frame) || (photo.frame === 'shape' && ['rect', 'round', 'circle', 'heart', 'star'].includes(photo.shape))
+  ['polaroid', 'film', 'frame', 'stamp', 'fourcut', 'filmstrip'].includes(photo.frame) || isTicketFrame(photo.frame) || (photo.frame === 'shape' && ['rect', 'round', 'circle', 'heart', 'star'].includes(photo.shape))
 // 틀 색: 사용자가 고른 HEX. 예전 문서의 프리셋 id(white·cream…)도 읽는다.
 const LEGACY_FRAME_COLORS = { white: '#FFFFFF', cream: '#FBF3E1', sky: '#CED9EE', pink: '#F9DDE2', black: '#22262F' }
-// 처음 색: 액자는 짙은 나무색, 나머지(폴라로이드·우표)는 흰색
-const FRAME_DEFAULT_COLORS = { frame: '#6B5444' }
+// 처음 색: 액자는 짙은 나무색, 티켓은 종류별 색, 인생네컷은 검정, 나머지(폴라로이드·우표·공연 티켓)는 흰색
+const FRAME_DEFAULT_COLORS = { frame: '#6B5444', ticketCinema: '#FBE7A1', ticketMatch: '#DDEFE3', ticketBoarding: '#D6E6F5', fourcut: STRIP_DEFAULT_COLOR }
 export const frameColorOf = (photo) =>
   photo.frameColor?.startsWith?.('#')
     ? photo.frameColor
@@ -315,25 +321,18 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
   const frameH = photo.h * zoom
   return (
     <View
-      style={[
-        {
-          width: frameW,
-          height: frameH,
-          backgroundColor: photo.frame === 'polaroid' ? frameColorOf(photo) : 'transparent',
-        },
-        photo.frame !== 'stamp' && boxShadowStyle(shadow, zoom),
-      ]}
+      style={[{ width: frameW, height: frameH }, photo.frame !== 'stamp' && boxShadowStyle(shadow, zoom)]}
     >
       {photo.frame === 'stamp' && !shadow.inset && <PhotoPathShadow d={stampPath(frameW, frameH)} width={frameW} height={frameH} shadow={shadow} zoom={zoom} />}
-      {photo.frame !== 'polaroid' && (
-        <FrameBackdrop
-          frame={photo.frame}
-          width={frameW}
-          height={frameH}
-          inner={{ left: inner.left * zoom, top: inner.top * zoom, width: box.width, height: box.height }}
-          color={frameColorOf(photo)}
-        />
-      )}
+      {/* 폴라로이드 판도 바탕이 그린다. 바깥 선과 같은 모양이라 양옆 가장자리가 같게 보인다 */}
+      <FrameBackdrop
+        frame={photo.frame}
+        width={frameW}
+        height={frameH}
+        inner={{ left: inner.left * zoom, top: inner.top * zoom, width: box.width, height: box.height }}
+        color={frameColorOf(photo)}
+        text={photo.frameText}
+      />
       <View
         style={[
           styles.photoInner,
@@ -346,11 +345,51 @@ export function PhotoContent({ photo, zoom, still = false, onAssetLoad, onAssetE
           },
         ]}
       >
-        <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" resizeMethod="scale" />
+        {/* 사진 없이 붙인 틀은 빈 자리 색만 (캔버스에서는 + 로 채운다) */}
+        {hasPhotoMedia(photo)
+          ? <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { reportMediaDisplayError(photo); onAssetError?.() }} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" resizeMethod="scale" />
+          : <View style={[StyleSheet.absoluteFill, { backgroundColor: emptySlotColor(photo.frame === 'film' || isDarkColor(frameColorOf(photo))) }]} />}
         {/* 안쪽 그림자: 틀 안 사진이 오목하게 들어가 보이게 */}
         {shadow.inset && photo.frame !== 'stamp' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, insetShadowStyle(shadow, zoom)]} />}
       </View>
       {photo.frame === 'stamp' && shadow.inset && <PhotoPathShadow d={stampPath(frameW, frameH)} width={frameW} height={frameH} shadow={shadow} zoom={zoom} />}
+    </View>
+  )
+}
+
+/**
+ * 여러 칸 틀(인생네컷 · 필름 4컷). 바탕 위 칸마다 사진을 꽉 채워(cover) 넣는다. 빈 칸은 바탕의 빈 칸 색이 보인다.
+ * 칸 사진은 늘 첫 장면으로 그리고(GIF 도), 사진이 있는 칸이 모두 그려지면 onAssetLoad 를 한 번 알린다(내보내기 대기).
+ */
+export function PhotoStripContent({ photo, zoom, onAssetLoad, onAssetError }) {
+  const loaded = useRef(new Set())
+  const width = photo.w * zoom
+  const height = photo.h * zoom
+  const boxes = stripCellBoxes(photo).map((b) => ({ left: b.left * zoom, top: b.top * zoom, width: b.width * zoom, height: b.height * zoom }))
+  const filled = (photo.cells ?? []).filter(Boolean).length
+  const shadow = shadowOf(photo)
+  const cellLoaded = (index) => {
+    loaded.current.add(index)
+    if (loaded.current.size === filled) onAssetLoad?.()
+  }
+  return (
+    <View style={[{ width, height }, boxShadowStyle(shadow, zoom)]}>
+      <StripBackdrop frame={photo.frame} width={width} height={height} cells={boxes} color={frameColorOf(photo)} text={photo.frameText} />
+      {boxes.map((box, i) => photo.cells?.[i] && (
+        <StripCell key={i} cell={photo.cells[i]} box={box} flip={flipTransform(photo)} shadow={shadow} zoom={zoom}
+          onLoad={() => cellLoaded(i)} onError={() => { reportMediaDisplayError(photo.cells[i]); onAssetError?.() }} />
+      ))}
+    </View>
+  )
+}
+
+function StripCell({ cell, box, flip, shadow, zoom, onLoad, onError }) {
+  const uri = useMediaUri(cell, { still: true })
+  const layout = coverLayout(cell, box.width, box.height)
+  return (
+    <View style={[styles.photoInner, { ...box, transform: flip }]}>
+      <MediaImage onLoad={onLoad} onError={onError} source={uri ? { uri } : null} style={[styles.photoImage, layout]} resizeMode="stretch" resizeMethod="scale" />
+      {shadow.inset && <View pointerEvents="none" style={[StyleSheet.absoluteFill, insetShadowStyle(shadow, zoom)]} />}
     </View>
   )
 }

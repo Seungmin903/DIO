@@ -89,8 +89,6 @@ const server = http.createServer((req, res) => {
       await page.getByRole('button', { name: /^받은 초대/ }).click();
       await button('우리의 여행 기록 초대 수락').click();
       await page.getByRole('textbox', { name: '다이어리 닉네임', exact: true }).fill('참여검증');
-      await button('다이어리 닉네임 중복 확인').click();
-      await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
       await button('수락하고 참여하기').click();
       await button('다이어리 열기').waitFor();
       await button('공유 창 닫기').click();

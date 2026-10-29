@@ -6,6 +6,7 @@ import { pageImageQuality } from '../utils/pageImageQuality.js'
 import { capturePage } from '../utils/capturePage'
 import { exportObjectPosition } from '../utils/regionExport.js'
 import { PageExportError } from '../utils/pageExport.js'
+import { ensurePersonalFonts } from '../../handwriting/library.js'
 
 /** PNG/PDF가 공유하는 전용 surface. 편집 UI와 저장 UI는 포함하지 않는다. */
 export default function PageImageSurface({ job }) {
@@ -14,11 +15,18 @@ export default function PageImageSurface({ job }) {
   const [laidOut, setLaidOut] = useState(false)
   const [loaded, setLoaded] = useState(() => new Set())
   const [backgroundReady, setBackgroundReady] = useState(!snapshot.template)
+  const [fontsReady, setFontsReady] = useState(false)
+  useEffect(() => {
+    let live = true
+    ensurePersonalFonts(snapshot.objects).then(() => { if (live) setFontsReady(true) }).catch(error => { if (live) reject(new PageExportError('EXPORT_FONT_FAILED', error.message, error)) })
+    return () => { live = false }
+  }, [snapshot, reject])
   const surface = useRef(null), started = useRef(false), failed = useRef(false)
   const scale = Platform.OS === 'web' || !area ? 1 : Math.min(1, area.width / snapshot.width, area.height / snapshot.height)
-  const ready = snapshot.objects.filter((o) => o.src).every((o) => loaded.has(o.id))
+  // 여러 칸 사진 틀은 사진이 든 칸이 모두 그려지면 한 번 알린다.
+  const ready = snapshot.objects.filter((o) => o.src || o.cells?.some(Boolean)).every((o) => loaded.has(o.id))
   useEffect(() => {
-    if (!ready || !backgroundReady || !laidOut || started.current || signal.aborted || failed.current) return
+    if (!ready || !backgroundReady || !fontsReady || !laidOut || started.current || signal.aborted || failed.current) return
     started.current = true
     let frame1, frame2
     frame1 = requestAnimationFrame(() => {
@@ -33,7 +41,7 @@ export default function PageImageSurface({ job }) {
       })
     })
     return () => { cancelAnimationFrame(frame1); if (frame2 != null) cancelAnimationFrame(frame2) }
-  }, [ready, backgroundReady, laidOut, snapshot, signal, resolve, reject])
+  }, [ready, backgroundReady, fontsReady, laidOut, snapshot, signal, resolve, reject])
   const backgroundError = () => {
     failed.current = true
     reject(new PageExportError('EXPORT_TEMPLATE_FAILED', '속지를 표시하지 못했어요. 다시 시도해 주세요.'))

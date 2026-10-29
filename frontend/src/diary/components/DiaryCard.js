@@ -23,6 +23,8 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
       accessibilityState={selecting ? { checked: selected } : layout === 'carousel' ? { selected: carouselActive } : undefined}
       aria-checked={selecting ? selected : undefined}
       onPress={() => (selecting ? onToggleSelect?.(diary) : onOpen(diary))}
+      // 누르면 반투명해진다. 안드로이드가 자식마다 따로 투명하게 해 그림자 · 뒤 요소가 비치지 않도록 한 장으로 합쳐 그린다
+      needsOffscreenAlphaCompositing
       style={({ pressed }) => [
         s.card,
         layout === 'list' ? s.cardList : layout === 'carousel' ? s.cardCarousel : s.cardGrid,
@@ -33,11 +35,12 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
       ]}
     >
       <View style={s.cardCoverWrap}>
-        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact} />
+        {/* 펜 · 별 버튼과 선택 표시는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
+        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact}>
         {selecting && diary.canManage !== false && diary.canDelete !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
           <Text style={s.cardCheckMark}>{selected ? '✓' : ''}</Text>
         </View>}
-        {!selecting && <View style={s.cardActions}>
+        {!selecting && (layout !== 'carousel' || carouselActive) && <View style={s.cardActions}>
           {diary.canManage !== false && <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 수정`}
@@ -61,6 +64,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
             <AppIcon name="star" size={18} color={diary.favorite ? '#E8AF45' : C.inkSoft} fill={diary.favorite ? '#E8AF45' : 'none'} />
           </Pressable>
         </View>}
+        </Cover>
       </View>
       <View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid]}>
         <View style={s.cardHeading}>
@@ -88,7 +92,9 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
     </Pressable>
   );
 
-  return layout === 'carousel' ? <Animated.View style={[animatedStyle, carouselActive && s.carouselCardTop]}>{card}</Animated.View> : card;
+  // 옆 카드는 흐리게 보인다. 안드로이드는 기본으로 자식마다 투명도를 따로 적용해 라벨 뒤 고무줄 · 버튼 그림자가 비치므로
+  // 카드를 한 장으로 합친 뒤 투명하게 한다.
+  return layout === 'carousel' ? <Animated.View needsOffscreenAlphaCompositing renderToHardwareTextureAndroid style={[animatedStyle, carouselActive && s.carouselCardTop]}>{card}</Animated.View> : card;
 }
 
 export default memo(DiaryCard);

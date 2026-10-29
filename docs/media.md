@@ -1,6 +1,6 @@
 # 미디어 API
 
-모든 `/api/v1/media/**` API는 Bearer access token이 필요하며, 본인 소유의 파일만 조회·삭제할 수 있다.
+모든 `/api/v1/media/**` API는 Bearer access token이 필요하다. 메타데이터·삭제는 본인 소유 파일만 가능하며, 원본 파일은 소유자 또는 해당 미디어가 추가된 공유 보관함의 현재 참여자만 조회할 수 있다.
 
 | 기능 | 메서드·경로 | 응답 |
 | --- | --- | --- |
@@ -18,13 +18,29 @@
 
 보관함 목록은 최신순 커서 페이지네이션을 사용한다. `limit`은 1~100이며 기본값은 30이다. 응답의 `nextCursor`가 있으면 다음 요청의 `cursor`에 그대로 넣는다.
 
+## 다이어리 공유 보관함
+
+모든 `/api/v1/diaries/{diaryId}/media-library/**` API도 Bearer access token이 필요하다. OWNER·EDITOR는 본인이 올린 활성 미디어 중 `STICKER`·`TAPE`만 공유 보관함에 추가하거나 제거할 수 있고, OWNER·EDITOR·VIEWER는 목록을 조회할 수 있다.
+
+| 기능 | 메서드·경로 | 요청·응답 |
+| --- | --- | --- |
+| 추가 | `POST /api/v1/diaries/{diaryId}/media-library` | 본문 `{ "mediaFileId": "UUID" }`, `201 Created` |
+| 목록 | `GET /api/v1/diaries/{diaryId}/media-library?limit=30&cursor={nextCursor}` | `200 OK`, 최신 추가순 `mediaFiles` 배열과 `nextCursor` |
+| 연결 삭제 | `DELETE /api/v1/diaries/{diaryId}/media-library/{mediaFileId}` | `204 No Content` |
+
+공유 보관함 목록도 개인 보관함과 같은 커서 페이지네이션을 쓴다. `limit`은 1~100이고 기본값은 30이다. 응답의 `nextCursor`가 있으면 다음 요청의 `cursor`에 그대로 넣는다. 범위를 벗어난 `limit`은 `400 INVALID_MEDIA_LIMIT`, 잘못된 커서는 `400 INVALID_MEDIA_CURSOR`다. 원본이 삭제된 공유 항목은 조회 단계에서 빠지므로 페이지가 짧아지지 않는다.
+
+공유 보관함 삭제는 해당 다이어리의 연결만 없애며 원본 미디어는 삭제하지 않는다. 반대로 원본 미디어가 공유 보관함에 하나라도 남아 있으면 `409 MEDIA_FILE_SHARED`로 삭제를 거절한다. 대상은 활성 다이어리와, 휴지통에 있지만 아직 복원할 수 있는 다이어리(삭제 후 30일, `DiaryRetention.PERIOD`)다. 먼저 그 연결을 제거해야 한다. 휴지통 다이어리를 복원했을 때 공유한 스티커·테이프가 아무 안내 없이 사라져 있지 않도록 복원 기간 동안에도 막는다. 복원 기간이 지난 다이어리는 복원 API가 `410 DIARY_RESTORE_EXPIRED`로 거절하므로 연결을 세지 않는다. 이런 연결은 다이어리를 물리 삭제할 때 지워지고, 그때까지는 정리 배치가 원본 파일을 남겨 둔다.
+
+연결 제거는 원래 OWNER·EDITOR만 할 수 있다. 다만 **미디어 원본 소유자**는 다이어리에서 나갔거나 VIEWER가 된 뒤에도, 다이어리가 삭제된 뒤에도 자기 미디어의 공유 연결을 제거할 수 있다. 그래서 공유 때문에 원본 삭제가 영구히 막히지 않는다. 공유 보관함 추가와 원본 삭제는 같은 미디어 행을 `PESSIMISTIC_WRITE`로 잠근다. 동시에 일어나도 삭제된 미디어의 공유 연결이 새로 생기지 않는다. 같은 미디어를 같은 다이어리에 다시 추가하면 `409 MEDIA_LIBRARY_ALREADY_CONTAINS_MEDIA`, 사진·오디오를 추가하면 `400 UNSUPPORTED_SHARED_MEDIA_CATEGORY`다.
+
 ## 저장소 설정
 
-기본값은 로컬 디렉터리 `.local-data/media`다. `prod` 프로필에서는 로컬 저장소를 사용할 수 없고, `MEDIA_STORAGE=s3`이 기본값이다. 개발·운영은 **서로 다른 S3 버킷**을 설정한다. S3 객체 키는 서버가 `media/{image|audio}/YYYY/MM/{uuid}.{ext}` 형식으로 생성하며, 클라이언트가 키나 버킷을 지정할 수 없다.
+로컬 개발·테스트의 기본값은 로컬 디렉터리 `.local-data/media`다. 배포 서버의 컨테이너 디스크는 재배포·증설 때 사라지므로 `dev`·`prod` 프로필에서는 로컬 저장소로 기동하지 않고, 두 프로필 모두 `MEDIA_STORAGE=s3`이 기본값이다. 개발·운영은 **서로 다른 S3 버킷**을 설정한다. `infra/compose/compose.{dev,prod}.yml`이 `MEDIA_STORAGE`, `MEDIA_S3_BUCKET`, `MEDIA_S3_REGION`, `MEDIA_DELETE_RETENTION`, `MEDIA_EXPIRY_CLEANUP_ENABLED`를 컨테이너에 넘긴다. 프로필 사진도 같은 `MEDIA_STORAGE`·`MEDIA_S3_BUCKET`·`MEDIA_S3_REGION`을 쓴다. 키 접두사(`media/`, `profile-photos/`)가 달라 한 버킷에서 충돌하지 않는다. 이전의 `SIGNUP_PHOTO_STORAGE`·`SIGNUP_PHOTO_S3_*`는 읽지 않는다. 기존 사진은 DB에 기록된 provider·버킷에서 읽으므로 계속 조회된다. 러너의 `dio-env/{dev,prod}.env`에 `MEDIA_S3_BUCKET`이 없으면 배포 단계의 `docker compose config`에서 실패한다. S3 객체 키는 서버가 `media/{image|audio}/YYYY/MM/{uuid}.{ext}` 형식으로 생성하며, 클라이언트가 키나 버킷을 지정할 수 없다.
 
 삭제 API는 DB 행에 `deletedAt`만 기록하는 소프트 삭제다. 원본 객체는 즉시 지우지 않는다. 삭제 직후부터 이 API의 메타데이터·원본 조회는 404다.
 
-정리 배치가 참조로 보는 곳은 캔버스 요소, 공유 보관함(`diary_media_library`), 손글씨 폰트(`diary_handwriting_fonts`), AI 작업(`ai_jobs`), 파생 미디어(`media_files.source_media_file_id`)다. 현재 이 참조를 만드는 API는 없다. 캔버스 요소 API는 `mediaFileId`를 받지 않고(400 `MEDIA_FILE_NOT_SUPPORTED`), 나머지 테이블은 다이어리 물리 삭제에서만 지운다. 그래서 보관함 삭제로 다른 화면의 이미지·오디오가 깨지는 경로는 아직 없다.
+정리 배치가 참조로 보는 곳은 캔버스 요소, 공유 보관함(`diary_media_library`), 손글씨 폰트(`diary_handwriting_fonts`), AI 작업(`ai_jobs`), 파생 미디어(`media_files.source_media_file_id`)다. 캔버스 요소 API는 `mediaFileId`를 받지 않고(400 `MEDIA_FILE_NOT_SUPPORTED`) 공유 보관함만 현재 참조를 만드는 API다. 공유 보관함에 연결된 원본은 직접 삭제를 409로 막아 표시가 깨지지 않게 한다.
 
 위 참조를 만드는 기능을 추가할 때는 같은 작업에서 두 가지를 함께 넣는다. 첫째, 활성 참조가 있는 미디어의 보관함 삭제를 409로 거절하는 정책을 넣는다. 둘째, 그 정책을 검증하는 테스트를 넣는다. 소프트 삭제 직후 조회 404로 참조하는 쪽 표시가 깨지거나, 참조가 사라진 뒤 바로 물리 삭제되는 일을 막기 위해서다.
 

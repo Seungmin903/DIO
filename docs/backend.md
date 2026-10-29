@@ -207,7 +207,7 @@ Flyway 마이그레이션은 `backend/src/main/resources/db/migration/`에 둔�
 | DB 접속 | `DB_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD` |
 | JWT 서명 키 | `AUTH_JWT_SECRET` |
 | SMTP | `SPRING_MAIL_*` |
-| 프로필 사진 저장소 | `SIGNUP_PHOTO_STORAGE`, S3 관련 환경변수 |
+| 프로필 사진 저장소 | `MEDIA_STORAGE`, `MEDIA_S3_BUCKET`, `MEDIA_S3_REGION` (미디어와 공용) |
 | 로컬 시드 | `DIO_LOCAL_SEED_ENABLED`, `DIO_LOCAL_SEED_FILE` |
 
 인증 관련 CORS는 `AUTH_ALLOWED_ORIGINS`에 지정한 출처에만 `/api/v1/auth/**` 경로로 적용된다. 다이어리·페이지 API를 브라우저 웹에서 직접 호출할 경우에는 별도 CORS 정책과 프런트 API 어댑터가 필요하다.

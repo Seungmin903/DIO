@@ -6,7 +6,6 @@
 
 - 최신 develop `4cd34b2fa47955bbe784d168b1e30df608124640`의 카드 액션 boxShadow 한 부분만 반영했다. 통합 사본의 휴지통 44px 버튼과 다른 변경을 보존했다. 내용 통합이며 HEAD 이동·merge·commit은 하지 않았다.
 - 회원 응답 생산자 3개(`member-diary-http.json`, `member-diary-trash-http.json`, `member-diary-purge-http.json`)를 Gradle test 출력으로 등록했다. 출력이 없어지면 재사용 작업 공간에서도 UP-TO-DATE로 생략되지 않는다. backend-test가 `backend/build/contracts/`를 artifact로 전달한다.
-- 새 `diary-fe-contract-test`는 backend-test의 artifact를 명시적으로 받는다. 두 job이 같은 changes 목록을 사용하므로 FE 계약 코드·테스트·실행기·package.json·lockfile 변경만 있어도 생산자와 소비자가 함께 선택된다. 기존 알림 CI·배포 입력 마운트는 유지했다.
 - 소비 실행기는 누락·손상된 JSON을 실패와 JUnit으로 기록한다. 실제 Spring 응답의 생성·조회·수정·휴지통·복원·영구 삭제, 오류·권한·version·재시도·지연 응답 계약을 소비한다. 테스트를 skip해 성공시키지 않는다.
 - 간접 React 참조가 있어 무설치 실행으로 가정하지 않는다. CI에서는 package.json의 `pnpm@11.25.0`과 고정 lockfile로 의존성을 설치하고 lifecycle scripts는 실행하지 않는다. 비특권 Docker 사용자의 npm/pnpm 캐시는 `/tmp`를 사용한다. 이 작업에서 원본 설치 폴더나 통합 사본의 node_modules junction, package.json·lockfile은 변경하지 않았다.
 - 새 `postgresMemberDiaryHttpTest`는 명시적인 루프백 `dio_member_contract_qa` DB에서 실제 회원 HTTP 24개를 실행한다. `postgresDiaryTrashTest`는 휴지통 HTTP 10개를 추가로 선택하고 opt-in을 설정한다. 기존 영구 삭제 PostgreSQL HTTP 연결은 유지한다.

@@ -35,12 +35,22 @@ class MediaStorageTests {
 		assertThat(storage.read(key)).containsExactly(1, 2, 3);
 	}
 
-	@Test
-	void rejectsLocalStorageInTheProductionProfile() {
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.ValueSource(strings = {"prod", "dev"})
+	void rejectsLocalStorageOnDeployedProfiles(String profile) {
 		MediaStorage local = new LocalMediaStorage(directory.toString());
 		MockEnvironment environment = new MockEnvironment();
-		environment.setActiveProfiles("prod");
+		environment.setActiveProfiles(profile);
 
 		assertThatThrownBy(() -> new MediaFiles(java.util.List.of(local), "local", environment)).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void allowsLocalStorageForLocalDevelopment() {
+		MediaStorage local = new LocalMediaStorage(directory.toString());
+		MockEnvironment environment = new MockEnvironment();
+		environment.setActiveProfiles("local");
+
+		new MediaFiles(java.util.List.of(local), "local", environment).put(MediaStorageKeys.create(MediaType.IMAGE, "png", UUID.randomUUID()), new byte[] {1}, "image/png");
 	}
 }

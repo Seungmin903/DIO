@@ -60,6 +60,15 @@ export const TEXT_FONTS = [
   { id: 'nanum-pen', label: '나눔손글씨 펜', family: 'NanumPenScript' },
   { id: 'poor-story', label: '푸어스토리', family: 'PoorStory' },
 ]
+let personalFonts = [], allFonts = TEXT_FONTS, fontListRevision = 0
+export const getTextFonts = () => allFonts
+export const textFontListSnapshot = () => fontListRevision
+export function registerPersonalTextFonts(fonts) {
+  personalFonts = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family)).map(f => ({ id: f.id, label: f.label, family: f.family, personal: true }))
+  allFonts = [...TEXT_FONTS, ...personalFonts]
+  fontListRevision++
+  fontListeners.forEach(listener => listener())
+}
 // 목록에서 뺀 글꼴. 저장된 글자는 기본 고딕으로 그리고 내보내기도 막지 않는다.
 // - mono(고정폭): 한글 글리프가 없어 실제로는 고딕으로 보였다.
 // - black-han-sans(검은고딕): 한글 11,172자 중 2,581자만 있어 드문 글자는 다른 글꼴로 섞여 보였다.
@@ -83,18 +92,19 @@ export function markTextFontFailed(family) {
   fontListeners.forEach(listener => listener())
 }
 export function textFontSnapshot(id) {
-  const font = TEXT_FONTS.find(f => f.id === id)
+  const font = getTextFonts().find(f => f.id === id)
   return [font?.family, font?.boldFamily].filter(Boolean).map(f => `${f}:${loadedFamilies.has(f) ? 'loaded' : failedFamilies.has(f) ? 'error' : 'loading'}`).join('|')
 }
 /** 글꼴 id → 지금 쓸 수 있는 fontFamily. 앱 글꼴이 아니거나 아직 불러오기 전이면 null */
 export function loadedFontFamily(id, bold = false) {
-  const font = TEXT_FONTS.find((font) => font.id === id)
+  const font = getTextFonts().find((font) => font.id === id)
   const family = bold && font?.boldFamily && loadedFamilies.has(font.boldFamily) ? font.boldFamily : font?.family
   return family && loadedFamilies.has(family) ? family : null
 }
 
 export function textStyleSupport(id, platform = 'android') {
-  const font = TEXT_FONTS.find(f => f.id === id)
+  if (id?.startsWith('personal-')) return { bold: false, italic: false }
+  const font = getTextFonts().find(f => f.id === id)
   if (font?.family) return { bold: Boolean(font.boldFamily), italic: false }
   // iOS 기본 고딕의 한글 대체 서체 Apple SD Gothic Neo에는 italic face가 없다.
   if (platform === 'ios' && id === 'sans') return { bold: true, italic: false }
@@ -102,7 +112,7 @@ export function textStyleSupport(id, platform = 'android') {
 }
 
 export function textStyleReady(id, style) {
-  const font = TEXT_FONTS.find(f => f.id === id)
+  const font = getTextFonts().find(f => f.id === id)
   return !font?.family || (loadedFamilies.has(font.family) && (style !== 'bold' || !font.boldFamily || loadedFamilies.has(font.boldFamily)))
 }
 

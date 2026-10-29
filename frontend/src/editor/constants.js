@@ -158,27 +158,68 @@ export const PHOTO_STYLES = [
   { id: 'heart', name: '하트' },
 ]
 
-// 여백이 있는 사진 프레임: 틀 여백 (사진 너비 대비). 안쪽 사진은 네모로 들어간다.
+// 여백이 있는 사진 프레임: 틀 여백 (사진 너비 대비). 안쪽 사진은 네모로 들어간다. right 가 없으면 좌우가 side 로 같다.
 export const FRAME_INSETS = {
   polaroid: { top: 0.06, side: 0.06, bottom: 0.2 },
   film: { top: 0.13, side: 0.03, bottom: 0.13 }, // 위아래 필름 구멍 띠
   stamp: { top: 0.09, side: 0.09, bottom: 0.09 }, // 톱니 가장자리 우표
-  frame: { top: 0.13, side: 0.13, bottom: 0.13 }, // 액자 (틀 띠 + 흰 매트)
+  // 티켓: 사진은 작게, 나머지는 글자 · 바코드 · 절취선 칸 (실제 티켓처럼). 탑승권은 사진이 글자 아래 가운데.
+  ticketConcert: { top: 0.04, side: 0.035, right: 0.605, bottom: 0.04 },
+  ticketCinema: { top: 0.04, side: 0.035, right: 0.605, bottom: 0.04 },
+  ticketMatch: { top: 0.04, side: 0.035, right: 0.605, bottom: 0.04 },
+  ticketBoarding: { top: 0.26, side: 0.45, right: 0.33, bottom: 0.05 },
+  frame: { top: 0.13, side: 0.13, bottom: 0.13 }, // 액자: 예전 문서 표시용 (이제 고르지 않는다)
 }
 export const POLAROID_INSETS = FRAME_INSETS.polaroid
 
-// 프레임 고르기 (옵션 패널 '꾸미기'). shape 는 사진 자체를 그 모양으로 자르고, border 는 여백 있는 틀에 넣는다.
-export const PHOTO_FRAMES = [
-  { id: 'rect', name: '없음', kind: 'shape' },
-  { id: 'round', name: '라운드', kind: 'shape' },
-  { id: 'circle', name: '원형', kind: 'shape' },
-  { id: 'heart', name: '하트', kind: 'shape' },
-  { id: 'star', name: '별', kind: 'shape' },
-  { id: 'polaroid', name: '폴라로이드', kind: 'border', colored: true },
-  { id: 'film', name: '필름', kind: 'border' },
-  { id: 'stamp', name: '우표', kind: 'border', colored: true },
-  { id: 'frame', name: '액자', kind: 'border', colored: true },
+// 사진 틀 (사진 보관함에서 누르면 빈 틀이 붙고, 옵션 패널에서는 붙인 사진의 틀을 바꾼다). 오프라인 에셋 '④ 사진 틀'.
+// border 는 여백 있는 한 장 틀, strip 은 여러 칸 틀(utils/photoStrip). ratio 는 빈 틀의 안쪽 비율. group 은 보관함 묶음.
+export const PHOTO_FRAME_GROUPS = [
+  { id: 'basic', name: '사진 틀' },
+  { id: 'ticket', name: '티켓' },
+  { id: 'multi', name: '네컷' },
 ]
+export const PHOTO_FRAME_ASSETS = [
+  { id: 'polaroid', name: '폴라로이드', group: 'basic', kind: 'border', colored: true, ratio: '1:1' },
+  { id: 'film', name: '필름', group: 'basic', kind: 'border', ratio: '4:3' },
+  { id: 'stamp', name: '우표', group: 'basic', kind: 'border', colored: true, ratio: '4:5' },
+  { id: 'ticketConcert', name: '공연', group: 'ticket', kind: 'border', colored: true, ratio: '1:1' },
+  { id: 'ticketCinema', name: '영화', group: 'ticket', kind: 'border', colored: true, ratio: '1:1' },
+  { id: 'ticketMatch', name: '경기', group: 'ticket', kind: 'border', colored: true, ratio: '1:1' },
+  { id: 'ticketBoarding', name: '탑승권', group: 'ticket', kind: 'border', colored: true, ratio: '4:3' },
+  { id: 'fourcut', name: '인생네컷', group: 'multi', kind: 'strip', colored: true, cells: 4 },
+  { id: 'filmstrip', name: '필름 4컷', group: 'multi', kind: 'strip', cells: 4 },
+]
+
+// 틀에 인쇄된 글자 (티켓 · 인생네컷). 처음엔 기본 글자가 들어 있고 옵션 패널에서 고친다 (photo.frameText).
+// fields 의 순서가 옵션 패널 입력칸 순서다.
+export const FRAME_TEXT = {
+  ticketConcert: {
+    defaults: { label: 'CONCERT', title: 'WORLD TOUR', info: '2026.12.01 18:00', detail: '2F · F구역 12열' },
+    fields: [{ key: 'label', name: '종류' }, { key: 'title', name: '공연 이름' }, { key: 'info', name: '일시' }, { key: 'detail', name: '좌석' }],
+  },
+  ticketCinema: {
+    defaults: { label: 'CINEMA', title: 'MOVIE NIGHT', info: 'SCREEN 7 · 19:30', detail: 'SEAT F12' },
+    fields: [{ key: 'label', name: '종류' }, { key: 'title', name: '영화 제목' }, { key: 'info', name: '상영 정보' }, { key: 'detail', name: '좌석' }],
+  },
+  ticketMatch: {
+    defaults: { label: 'MATCH DAY', title: 'HOME vs AWAY', detail: 'GATE 3 · BLOCK 112' },
+    fields: [{ key: 'label', name: '종류' }, { key: 'title', name: '경기' }, { key: 'detail', name: '입장 정보' }],
+  },
+  ticketBoarding: {
+    defaults: { label: 'BOARDING PASS', title: 'ICN → CDG', info: 'DIO AIR · 10:25', seat: '12A', gate: 'GATE 23' },
+    fields: [{ key: 'label', name: '종류' }, { key: 'title', name: '구간' }, { key: 'info', name: '항공편' }, { key: 'seat', name: '좌석' }, { key: 'gate', name: '게이트' }],
+  },
+  fourcut: {
+    defaults: { caption: 'DIO 네컷' },
+    fields: [{ key: 'caption', name: '아래 글자' }],
+  },
+  // 칸마다 위에 필름 이름, 아래에 번호 (번호의 맨 앞 숫자는 칸마다 하나씩 늘어난다)
+  filmstrip: {
+    defaults: { brand: 'DIO 400', number: '12A' },
+    fields: [{ key: 'brand', name: '필름 이름' }, { key: 'number', name: '첫 번호' }],
+  },
+}
 
 export const CROP_ZOOM_MIN = 1
 // 사진·테이프 자르기 확대는 900% 까지 (자유 자르기도 같은 한도)

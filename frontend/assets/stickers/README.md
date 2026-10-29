@@ -13,3 +13,8 @@
 - 파일 이름 ↔ 스티커 이름 표는 `src/editor/stickerAssets.js`에 있습니다.
 
 - Twemoji는 이미지 파일만 사용한다. JS 라이브러리는 추가하지 않았으며 이미지에 적용되는 CC BY 4.0으로 고지한다. 원본 저작권·고지는 twemoji/UPSTREAM-README.md에 보존한다.
+
+## 보관함 썸네일
+
+`thumbs/` 는 보관함 칸(40~60px)에서만 쓰는 128px · 256색 썸네일이다(움직이는 스티커는 첫 장면). 캔버스에 붙인 스티커는 원본을 쓴다.
+스티커를 더하거나 바꾸면 `python frontend/scripts/generate-sticker-thumbs.py` 로 `thumbs/` 와 `src/editor/stickerThumbs.js` 를 다시 만든다.

@@ -6,7 +6,7 @@ import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'rea
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
-import { prepareEditor, rememberEditorDoc, editorDocKey } from './src/editor/services/editorDocs';
+import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { useSharing } from './src/sharing/useSharing';
@@ -40,6 +40,7 @@ import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
 import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
 import { randomUUID } from 'expo-crypto';
 import { createId, setUuidGenerator } from './src/editor/utils/common';
+import HandwritingStudio from './src/handwriting/HandwritingStudio';
 
 // 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
 if (Platform.OS !== 'web') setUuidGenerator(randomUUID);
@@ -63,8 +64,12 @@ export default function App() {
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
   const SessionDiaryApp = previewSession?.mode === 'authenticated' ? MemberDiaryApp : LocalDiaryApp;
+  if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-sharing') {
+    const SharingFixture = require('./tests/fixtures/diary-sharing.fixture').default;
+    return <SharingFixture />;
+  }
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-library') {
-    return <SafeAreaProvider style={s.provider}><MockLibraryApp /></SafeAreaProvider>;
+    return <SafeAreaProvider style={s.provider}><MockLibraryApp /><HandwritingStudio /></SafeAreaProvider>;
   }
   return (
     <SafeAreaProvider style={s.provider}>
@@ -75,6 +80,8 @@ export default function App() {
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} /> : <AuthScreen onContinue={setPreviewSession} />
       )}
+      <HandwritingStudio />
+
     </SafeAreaProvider>
   );
 }
@@ -232,7 +239,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const favorite = useCallback((id) => {
     if (member) { notify('즐겨찾기', '회원 즐겨찾기 변경 연결을 준비하고 있어요.'); return; }
     const shared = sharedLibraryRef.current.find(item => item.id === id);
-    if (shared) { sharing.runtime.toggleFavorite(shared.sharedDiaryId); return; }
+    if (shared) { sharing.runtime.toggleFavorite(shared.sharedDiaryId || shared.id); return; }
     setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, favorite: !diary.favorite } : diary)));
     setActive((current) => (current?.id === id ? { ...current, favorite: !current.favorite } : current));
   }, [member, setDiaries, sharing.runtime]);
@@ -388,16 +395,18 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       catch (failure) { return failure.message; }
     }
     const updatedAt = new Date().toISOString();
+    const paperAppearance = normalizePaperAppearance(form.paperAppearance);
     const diary = original
-      ? { ...original, title, color: form.color, pattern: form.pattern, updatedAt }
+      ? { ...original, title, color: form.color, pattern: form.pattern, cover: form.cover, paperAppearance, updatedAt }
       : {
         id: pendingCreateId.current ?? createId(),
         createdAt: updatedAt,
         templateConfig: config,
-        paperAppearance: normalizePaperAppearance(form.paperAppearance),
+        paperAppearance,
         title,
         color: form.color,
         pattern: form.pattern,
+        cover: form.cover,
         pageSize: config.orientation,
         type: '개인',
         favorite: false,
@@ -420,6 +429,25 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         setSaving(false);
       }
     }
+    // 수정에서 속지 스타일을 바꾸면 새 페이지에 쓸 색을 바꾸고, '모든 페이지'면 이미 있는 페이지도 칠한다.
+    if (original && JSON.stringify(normalizePaperAppearance(original.paperAppearance)) !== JSON.stringify(paperAppearance)) {
+      savingRef.current = true;
+      setSaving(true);
+      try {
+        const key = editorDocKey(original);
+        const doc = await loadEditorDoc(original);
+        if (doc?.pages?.length) {
+          const next = { ...doc, paperAppearance, pages: form.appearanceScope === 'all' ? doc.pages.map(page => ({ ...page, paperAppearance })) : doc.pages };
+          if (!await saveEditorDoc(key, next)) throw new Error('속지 스타일을 저장하지 못했어요. 다시 시도해 주세요.');
+          rememberEditorDoc(key, next);
+        }
+      } catch (failure) {
+        return failure.message;
+      } finally {
+        savingRef.current = false;
+        setSaving(false);
+      }
+    }
     // 먼저 만든 다이어리가 앞(왼쪽)에 오도록 새 다이어리는 뒤에 붙인다.
     if (original) setDiaries((current) => current.map((item) => (item.id === diary.id ? diary : item)));
     setActive((current) => (current?.id === diary.id ? diary : current));
@@ -427,7 +455,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     setEditingDiaryId(null);
     if (!original) {
       setCarousel(0);
-      enterEditor(diary);
+      // 새 문서는 위에서 이미 메모리에 올려 두었으므로 준비를 기다리지 않고 바로 편집기로 넘어간다
+      opening.current = null;
+      setEditorOrientation(null);
+      setActive(diary);
+      setTabIds((current) => (current.includes(diary.id) ? current : [...current, diary.id]));
+      setPage('editor');
     }
     return undefined;
   };
@@ -452,7 +485,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     const ordered = member ? libraryDiaries : queryDiaries(visibleDiaries, { sort: librarySort, metadata: libraryMetadata });
     setCarousel(Math.max(0, ordered.findIndex(diary => diary.id === returnDiaryId.current)));
     if (member) returnDiaryId.current = null;
-  }, [member, memberLibraryMatches, diaryState.library.ready, diaryState.library.loading, libraryDiaries, libraryMetadata, librarySort, page, visibleDiaries]);
+  }, [member, memberLibraryMatches, diaryState.library?.ready, diaryState.library?.loading, libraryDiaries, libraryMetadata, librarySort, page, visibleDiaries]);
   const trashedDiaries = useMemo(() => member ? diaryState.trash : diaries.filter((diary) => diary.trashedAt), [member,diaryState.trash,diaries]);
 
   // 열린 탭 (휴지통으로 간 다이어리는 뺀다)
@@ -615,7 +648,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       />
     );
   } else if (page === 'profile') {
-    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard} />;
+    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
+      getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
 
   const createModal = createOpen && (
@@ -684,7 +718,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     <>
       {authenticatedNotifications && sharingRequest?.mode === 'notifications'
         ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => setSharingRequest(null)} />
-        : <SharingHub onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />}
+        : <SharingHub onOpenCopy={diary => { setSharingRequest(null); enterEditor(diary); }} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
         {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}
