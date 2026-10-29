@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.*;
 
 @EnabledIfEnvironmentVariable(named="DIO_LIST_QUERY_PG",matches="true")
 class DiaryExpiryMigrationPostgresTests extends DiaryPurgePostgresFixture {
+    @Override boolean migratesItself() {return true;}
     @Override void migrate(DriverManagerDataSource source) {
         Flyway.configure().dataSource(source).defaultSchema(schema).target("13").load().migrate();
     }

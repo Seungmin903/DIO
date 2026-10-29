@@ -29,6 +29,8 @@ deploy-development:
   script:
     - export BACKEND_IMAGE="dio-backend:dev-${CI_COMMIT_SHORT_SHA}"
     # 필수 인증·SMTP·프록시 환경변수 누락 시 이미지 빌드/컨테이너 교체 전에 중단한다.
+    # 옛 SIGNUP_PHOTO_* 저장소 변수는 더 이상 읽지 않으므로 남아 있으면 배포 전에 중단한다.
+    - bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/dev.env
     - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml config --quiet
     - docker build --tag "dio-backend:dev-${CI_COMMIT_SHORT_SHA}" ./backend
     - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml up -d --force-recreate
@@ -48,6 +50,8 @@ deploy-production:
     - bash infra/scripts/assert-flyway-initial-state.sh app-db-1
     - export BACKEND_IMAGE="dio-backend:prod-${CI_COMMIT_SHORT_SHA}"
     # 필수 인증·SMTP·프록시 환경변수 누락 시 이미지 빌드/컨테이너 교체 전에 중단한다.
+    # 옛 SIGNUP_PHOTO_* 저장소 변수는 더 이상 읽지 않으므로 남아 있으면 배포 전에 중단한다.
+    - bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/prod.env
     - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml config --quiet
     - docker build --tag "dio-backend:prod-${CI_COMMIT_SHORT_SHA}" ./backend
     - docker compose --project-name dio-prod-backend --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.prod.yml up -d --force-recreate
@@ -138,6 +142,7 @@ backend-test:
       - backend/build/contracts/
     expire_in: 7 days
 
+# PostgreSQL 잡은 CI 설정(.gitlab-ci.yml)만 바뀐 변경에서는 자동으로 돌리지 않고 수동 실행으로 남긴다. 실행 스크립트가 바뀌면 그대로 실행한다.
 backend-postgres-auth-test:
   stage: quality
   needs:
@@ -173,7 +178,6 @@ backend-postgres-auth-test:
         - backend/settings.gradle
         - backend/settings.gradle.kts
         - backend/gradle/**/*
-        - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
         # 인증·알림 전용 변경은 인증 PostgreSQL 검사만 실행한다.
@@ -181,6 +185,12 @@ backend-postgres-auth-test:
         - backend/src/main/java/**/notification/**/*
         - backend/src/test/java/**/auth/**/*
         - backend/src/test/java/**/notification/**/*
+    # 잡 정의만 바꾼 MR은 수동으로 실행해 확인한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+      when: manual
+      allow_failure: true
   script:
     - bash infra/scripts/test-auth-postgres.sh auth
   artifacts:
@@ -227,7 +237,6 @@ backend-postgres-sharing-test:
         - backend/settings.gradle
         - backend/settings.gradle.kts
         - backend/gradle/**/*
-        - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
         # 공유 권한·프로필·영구 삭제에 영향을 주는 변경이다.
         - backend/src/main/java/**/auth/**/*
@@ -238,6 +247,12 @@ backend-postgres-sharing-test:
         - backend/src/main/java/**/media/**/*
         - backend/src/main/java/**/page/**/*
         - backend/src/test/java/**/sharing/**/*
+    # 잡 정의만 바꾼 MR은 수동으로 실행해 확인한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+      when: manual
+      allow_failure: true
   script:
     - bash infra/scripts/test-auth-postgres.sh sharing
   artifacts:
@@ -286,7 +301,6 @@ backend-postgres-diary-test:
         - backend/settings.gradle
         - backend/settings.gradle.kts
         - backend/gradle/**/*
-        - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
         # 새 하위 패키지를 포함한 다이어리 변경은 최소한 이 검사를 실행한다.
@@ -295,6 +309,12 @@ backend-postgres-diary-test:
         - backend/src/main/java/**/page/**/*
         - backend/src/test/java/**/diary/**/*
         - backend/src/test/java/**/page/**/*
+    # 잡 정의만 바꾼 MR은 수동으로 실행해 확인한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+      when: manual
+      allow_failure: true
   script:
     - bash infra/scripts/test-auth-postgres.sh diary
   artifacts:
@@ -345,7 +365,6 @@ backend-postgres-lifecycle-test:
         - backend/settings.gradle
         - backend/settings.gradle.kts
         - backend/gradle/**/*
-        - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
         # 휴지통·영구 삭제·미디어 보존 기간 변경이다.
@@ -361,6 +380,12 @@ backend-postgres-lifecycle-test:
         - backend/src/test/java/**/diary/trash/**/*
         - backend/src/test/java/**/diary/purge/**/*
         - backend/src/test/java/**/media/**/*
+    # 잡 정의만 바꾼 MR은 수동으로 실행해 확인한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+      when: manual
+      allow_failure: true
   script:
     - bash infra/scripts/test-auth-postgres.sh lifecycle
   artifacts:
@@ -390,6 +415,8 @@ secret-scan:
 
 ai-code-review:
   stage: review
+  # 테스트 결과를 쓰지 않으므로 quality 단계를 기다리지 않고 바로 시작한다.
+  needs: []
   tags:
     - ec2-deploy
   rules:

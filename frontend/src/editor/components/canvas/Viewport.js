@@ -4,6 +4,7 @@ import { colors, shadow } from '../../../shared/theme'
 import { notePointerDown, notePointerUp, touchKind, stylus, resetStylusPointers } from '../../utils/stylus'
 
 const WHEEL_IDLE_MS = 160 // 휠이 이만큼 멈추면 확대·이동을 확정한다
+const LONG_PRESS_MS = 450 // 캔버스 빈 곳 길게 누르기와 같은 시간
 
 /**
  * 편집 화면의 보는 영역. 페이지를 offset 위치에 zoom 배율로 둔다.
@@ -18,8 +19,10 @@ const WHEEL_IDLE_MS = 160 // 휠이 이만큼 멈추면 확대·이동을 확정
  * (매 프레임 배율이 바뀌면 속지 SVG·요소·썸네일이 전부 다시 그려져 버벅였다) 손을 떼면 onView 로 한 번만 확정한다.
  * resolveZoom(scale, pagePoint, screenPoint) / resolvePan(view, dx, dy): 부모의 배율·위치 제한을 적용한 보기 { scale, zoom, x, y }
  * onMovingChange(moving): 확대·이동을 시작할 때 true, 확정할 때 false (그동안 GIF 를 멈추는 데 쓴다)
+ * onLongPress(point): 한 손가락을 움직이지 않고 오래 누르면 그 자리의 페이지 좌표 { x, y } 를 알린다.
+ *   손바닥 도구에서는 페이지도 이 영역이 받으므로, 캔버스 빈 곳 메뉴(붙여넣기 · 속지 색)를 여기서 연다. 그 뒤 손을 뗄 때까지 화면을 옮기지 않는다.
  */
-export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan = false, interactionLocked = false, children, style, onLayout }) {
+export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, onLongPress, dragToPan = false, interactionLocked = false, children, style, onLayout }) {
   const pinch = useRef(null)
   const [live, setLive] = useState(null) // 손가락으로 움직이는 중인 보기 (확정 전)
   const liveRef = useRef(null)
@@ -27,6 +30,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
   const nodeRef = useRef(null)
   const tap = useRef(null) // 페이지 밖 여백을 한 손가락으로 누른 위치
   const panFrom = useRef(null) // 손바닥 도구: 지난번 손가락 위치
+  const hold = useRef(null) // 길게 누르기 { timer, fired }
   const motion = useRef({ panY: 0, zoomed: false, cancelled: false })
   const latest = useRef({})
   useEffect(() => {
@@ -46,9 +50,10 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
         window.removeEventListener('blur', reset)
       }
       reset()
+      clearTimeout(hold.current?.timer)
     }
   }, [])
-  latest.current = { zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, dragToPan: interactionLocked ? false : dragToPan, interactionLocked }
+  latest.current = { zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, onLongPress, dragToPan: interactionLocked ? false : dragToPan, interactionLocked }
   const currentView = () => liveRef.current ?? { scale: latest.current.scale, zoom: latest.current.zoom, x: latest.current.offset.x, y: latest.current.offset.y }
   const preview = (view) => {
     if (!liveRef.current) latest.current.onMovingChange?.(true)
@@ -78,6 +83,25 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
     const touches = event.nativeEvent.touches ?? []
     return touches.length >= 2 && !touches.some((t) => touchKind(t) === 'pen')
   }
+  const cancelHold = () => {
+    clearTimeout(hold.current?.timer)
+    hold.current = null
+  }
+  // 누른 자리(창 좌표)를 기억해 두고, 그 자리에 머물러 있으면 페이지 좌표로 알린다
+  const startHold = (pageX, pageY) => {
+    cancelHold()
+    if (!latest.current.onLongPress) return
+    const current = { fired: false }
+    current.timer = setTimeout(() => {
+      if (hold.current !== current || !tap.current || pinch.current) return
+      current.fired = true
+      const point = local({ pageX, pageY })
+      const { zoom: z, x, y } = currentView()
+      latest.current.onLongPress?.({ x: (point.x - x) / z, y: (point.y - y) / z })
+    }, LONG_PRESS_MS)
+    hold.current = current
+  }
+
   const startPinch = (event) => {
     const [a, b] = event.nativeEvent.touches
     const p = local(a)
@@ -107,12 +131,18 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       resetMotion()
       panFrom.current = latest.current.dragToPan ? { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY } : null
       if (twoFingers(event)) startPinch(event)
-      else tap.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }
+      else {
+        tap.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }
+        startHold(event.nativeEvent.pageX, event.nativeEvent.pageY)
+      }
     },
     onResponderMove: (event) => {
       if (latest.current.interactionLocked) return
       if (tap.current && Math.hypot(event.nativeEvent.pageX - tap.current.x, event.nativeEvent.pageY - tap.current.y) > 10)
         tap.current = null
+      if (!tap.current && hold.current && !hold.current.fired) cancelHold()
+      // 메뉴를 띄운 터치는 손을 뗄 때까지 화면을 옮기지 않는다 (메뉴가 손가락을 따라 밀려나지 않게)
+      if (hold.current?.fired) return
       if (!twoFingers(event)) {
         // 한 손가락으로 줄어든 뒤의 새 핀치는 현재 배율과 새 거리에서 시작한다.
         pinch.current = null
@@ -130,6 +160,7 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       }
       panFrom.current = null
       tap.current = null
+      cancelHold()
       if (!pinch.current) startPinch(event)
       const [a, b] = event.nativeEvent.touches
       const p = local(a)
@@ -145,13 +176,16 @@ export default function Viewport({ zoom, offset, scale, resolveZoom, resolvePan,
       if (!twoFingers(event)) { pinch.current = null; panFrom.current = null }
     },
     onResponderRelease: () => {
+      const held = hold.current?.fired
+      cancelHold()
       pinch.current = null
       panFrom.current = null
       commit()
-      if (tap.current) latest.current.onTapEmpty?.()
+      if (tap.current && !held) latest.current.onTapEmpty?.()
       tap.current = null
     },
     onResponderTerminate: () => {
+      cancelHold()
       pinch.current = null
       panFrom.current = null
       commit(true)

@@ -21,7 +21,7 @@ const TITLE_LIMIT = 24;
 const SHEET_SLIDE = 600;
 // 표지는 세로 3:4, 가로 4:3
 const COVER_RATIO = 3 / 4;
-const SECTIONS = { basic: ['기본', 'edit'], cover: ['표지', 'book'], paper: ['속지', 'pages'], style: ['속지 스타일', 'roller'] };
+const SECTIONS = { basic: ['이름 · 방향', 'edit'], cover: ['표지', 'book'], paper: ['속지', 'pages'], style: ['속지 색', 'roller'] };
 
 // 표지 글꼴은 편집기 텍스트 도구와 같은 파일을 쓴다. 다 불러오면 표지를 다시 그린다.
 preloadTextFonts();
@@ -34,7 +34,7 @@ function CoverFrame({ cover, name, width, height, edit }) {
 
 /**
  * 새 다이어리 · 다이어리 수정 (2안 · 구역 카드 + 스위치 목록).
- * 왼쪽 구역 카드(기본 · 표지 · 속지 · 속지 스타일)는 순서 없이 오가고, 가운데는 지금 고치는 것만 미리 보며,
+ * 왼쪽 구역 카드(이름 · 방향 · 표지 · 속지 · 속지 색)는 순서 없이 오가고, 가운데는 지금 고치는 것만 미리 보며,
  * 오른쪽은 요소 줄을 한 번에 하나만 펼친다. 수정에서는 방향을 잠그고 속지 구역이 없다.
  * sheet: 폰에서는 아래에서 올라오는 시트로 띄운다.
  */

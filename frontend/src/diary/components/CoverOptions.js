@@ -19,10 +19,10 @@ import {
   bandAutoColor, changeCoverKind, coverElementSummary,
 } from '../utils/coverDesign'
 
-// 표지 종류(위 세 갈래)는 바탕만 바꾸고, 아래 다섯 줄은 종류와 상관없이 같은 값을 쓴다.
-// 글씨(글 · 색 · 크기)는 '글', 판과 자리(9칸 · 끌어 옮기기)는 '라벨'에서만 고친다.
-export const COVER_ELEMENTS = [['base', '바탕'], ['band', '고무줄'], ['text', '글'], ['plate', '라벨'], ['stickers', '스티커']]
-const KINDS = [{ id: 'none', label: '표지 없음' }, { id: 'plain', label: '색 · 패턴' }, { id: 'photo', label: '사진' }]
+// 표지 종류(위 세 갈래)는 배경만 바꾸고, 아래 다섯 줄은 종류와 상관없이 같은 값을 쓴다.
+// 글씨(내용 · 글씨체 · 크기 · 색)는 '제목 · 소제목', 라벨 모양과 위치(9칸 · 끌어 옮기기)는 '라벨 · 위치'에서만 고친다.
+export const COVER_ELEMENTS = [['base', '배경'], ['band', '고무줄'], ['text', '제목 · 소제목'], ['plate', '라벨 · 위치'], ['stickers', '스티커']]
+const KINDS = [{ id: 'none', label: '표지 없음' }, { id: 'plain', label: '색 · 무늬' }, { id: 'photo', label: '사진' }]
 const chips = list => list.map(([id, label]) => ({ id, label }))
 
 function GradientTile({ id, stops }) {
@@ -41,8 +41,8 @@ function BaseOptions({ cover, onChange }) {
   const set = patch => onChange({ ...cover, ...patch })
   const customStops = cover.gradientColors
   return <>
-    <OptionRow label="바탕색">
-      <ColorRow label="바탕색" value={cover.color} active={cover.gradient == null} swatches={COVER_COLORS} onChange={color => set({ color, gradient: null })}
+    <OptionRow label="색">
+      <ColorRow label="배경색" value={cover.color} active={cover.gradient == null} swatches={COVER_COLORS} onChange={color => set({ color, gradient: null })}
         picking={picking === 'solid'} onPicking={open => setPicking(open ? 'solid' : null)}
         after={<>
           {COVER_GRADIENTS.map(([name, stops], index) => <Swatch key={name} label={`바탕 그라데이션 ${name}`} on={cover.gradient === index}
@@ -59,7 +59,7 @@ function BaseOptions({ cover, onChange }) {
       </View>}
     </OptionRow>
     <OptionRow label="무늬"><PatternGrid cover={cover} onChange={type => set({ pattern: { ...cover.pattern, type } })} /></OptionRow>
-    {cover.pattern.type !== 'none' && <OptionRow label="무늬 색"><Segmented items={[{ id: 'dark', label: '어둡게' }, { id: 'light', label: '밝게' }]} selected={id => id === cover.pattern.tone} onPress={tone => set({ pattern: { ...cover.pattern, tone } })} /></OptionRow>}
+    {cover.pattern.type !== 'none' && <OptionRow label="무늬 밝기"><Segmented items={[{ id: 'dark', label: '어둡게' }, { id: 'light', label: '밝게' }]} selected={id => id === cover.pattern.tone} onPress={tone => set({ pattern: { ...cover.pattern, tone } })} /></OptionRow>}
   </>
 }
 
@@ -102,7 +102,7 @@ function PhotoOptions({ cover, onChange, onNotice, pickNow, onPickHandled }) {
     <OptionRow label="사진">
       <View style={styles.tiles}>
         <Pressable accessibilityRole="button" accessibilityLabel="내 사진 고르기" disabled={busy} onPress={choose} style={({ pressed }) => [styles.addPhoto, busy && styles.dim, pressed && styles.pressed]}>
-          <Icon name="image" size={16} /><Text style={styles.addPhotoText}>{busy ? '여는 중…' : cover.photo?.src ? '다른 사진' : '사진 고르기'}</Text>
+          <Icon name="image" size={16} /><Text style={styles.addPhotoText}>{busy ? '여는 중…' : cover.photo?.src ? '사진 바꾸기' : '사진 고르기'}</Text>
         </Pressable>
         {cover.photo?.src ? <View style={[styles.photoTile, styles.photoTileOn]}><OwnPhotoTile photo={cover.photo} /></View> : null}
       </View>
@@ -142,7 +142,7 @@ function StickerPicker({ cover, onChange, onNotice }) {
     : active === 'favorites' ? favorites : active === 'recent' ? recents : folder ? folder.items : groups[0]?.items ?? []
   const add = item => {
     custom.markRecent(item)
-    onChange({ ...cover, stickers: [...cover.stickers, { id: createId(), asset: item.asset, src: item.src, mediaFileId: item.mediaFileId, name: item.name, x: 40 + Math.random() * 25, y: 45 + Math.random() * 25, size: 14 }] })
+    onChange({ ...cover, stickers: [...cover.stickers, { id: createId(), asset: item.asset, src: item.src, mediaFileId: item.mediaFileId, name: item.name, x: 40 + Math.random() * 25, y: 45 + Math.random() * 25, size: 14, rotation: 0 }] })
   }
   const toggleFavorite = item => {
     const has = favoriteKeys.has(stickerKey(item))
@@ -172,7 +172,7 @@ function ElementOptions({ element, cover, onChange, onNotice, pickNow, onPickHan
   // 꺼진 고무줄도 고칠 수 있게 두되 흐리게 보인다
   if (element === 'band') return <View style={!cover.band.on && styles.off}>
     <OptionRow label="방향"><Segmented items={[{ id: 'v', label: '세로' }, { id: 'h', label: '가로' }]} selected={id => id === cover.band.dir} onPress={dir => set({ band: { ...cover.band, dir } })} /></OptionRow>
-    <OptionRow label="자리"><Segmented items={[{ id: 'near', label: cover.band.dir === 'v' ? '오른쪽' : '아래쪽' }, { id: 'center', label: '가운데' }]} selected={id => id === cover.band.pos} onPress={pos => set({ band: { ...cover.band, pos } })} /></OptionRow>
+    <OptionRow label="위치"><Segmented items={[{ id: 'near', label: cover.band.dir === 'v' ? '오른쪽' : '아래쪽' }, { id: 'center', label: '가운데' }]} selected={id => id === cover.band.pos} onPress={pos => set({ band: { ...cover.band, pos } })} /></OptionRow>
     <OptionRow label="색">
       <ColorRow label="고무줄 색" value={cover.band.color === 'auto' ? bandAutoColor(cover) : cover.band.color} active={cover.band.color !== 'auto'} swatches={BAND_COLORS}
         lead={<AutoSwatch label="고무줄 색 표지에 맞춤" color={bandAutoColor(cover)} on={cover.band.color === 'auto'} onPress={() => set({ band: { ...cover.band, color: 'auto' } })} />}
@@ -181,7 +181,7 @@ function ElementOptions({ element, cover, onChange, onNotice, pickNow, onPickHan
   </View>
   if (element === 'text') return <>
     <OptionRow label="제목">
-      <ChipGroup label="제목 글" columns={2} items={[{ id: 'name', label: '다이어리 이름' }, { id: 'own', label: '직접 쓰기' }]} value={cover.title.useName ? 'name' : 'own'} onChange={id => set({ title: { ...cover.title, useName: id === 'name' } })} />
+      <ChipGroup label="제목 내용" columns={2} items={[{ id: 'name', label: '다이어리 이름' }, { id: 'own', label: '직접 쓰기' }]} value={cover.title.useName ? 'name' : 'own'} onChange={id => set({ title: { ...cover.title, useName: id === 'name' } })} />
       {!cover.title.useName && <TextInput accessibilityLabel="표지 제목" placeholder="표지 제목" placeholderTextColor={colors.textMuted} maxLength={24} value={cover.title.text} onChangeText={text => set({ title: { ...cover.title, text } })} style={styles.input} />}
     </OptionRow>
     <OptionRow label="글씨체"><ChipGroup label="제목 글씨체" columns={3} items={fontChips()} value={cover.title.font} onChange={font => set({ title: { ...cover.title, font } })} /></OptionRow>
@@ -192,22 +192,22 @@ function ElementOptions({ element, cover, onChange, onNotice, pickNow, onPickHan
       <Text style={styles.subTitle}>소제목</Text>
     </View>
     {cover.subtitle.on && <>
-      <OptionRow label="글"><TextInput accessibilityLabel="소제목" maxLength={30} value={cover.subtitle.text} onChangeText={text => set({ subtitle: { ...cover.subtitle, text } })} style={styles.input} /></OptionRow>
+      <OptionRow label="내용"><TextInput accessibilityLabel="소제목" maxLength={30} value={cover.subtitle.text} onChangeText={text => set({ subtitle: { ...cover.subtitle, text } })} style={styles.input} /></OptionRow>
       <OptionRow label="크기"><NumberField label="소제목 크기" unit="pt" min={SUBTITLE_SIZE.min} max={SUBTITLE_SIZE.max} value={cover.subtitle.size} onChange={size => set({ subtitle: { ...cover.subtitle, size } })} /></OptionRow>
       <OptionRow label="색"><ColorRow label="소제목 색" value={cover.subtitle.color} swatches={SUBTITLE_COLORS} onChange={color => set({ subtitle: { ...cover.subtitle, color } })} /></OptionRow>
     </>}
   </>
   if (element === 'plate') return <>
-    <OptionRow label="판"><Segmented items={chips(PLATES)} selected={id => id === cover.plate} onPress={plate => set({ plate })} /></OptionRow>
-    {cover.plate === 'ribbon' && <OptionRow label="종이색"><ColorRow label="띠지 종이색" value={cover.ribbon.color} swatches={RIBBON_COLORS} onChange={color => set({ ribbon: { ...cover.ribbon, color } })} /></OptionRow>}
-    <OptionRow label="자리"><AnchorGrid value={cover.title.at ? null : cover.title.anchor} onChange={anchor => set({ title: { ...cover.title, anchor, at: null } })} /></OptionRow>
+    <OptionRow label="모양"><Segmented items={chips(PLATES)} selected={id => id === cover.plate} onPress={plate => set({ plate })} /></OptionRow>
+    {cover.plate === 'ribbon' && <OptionRow label="띠지 색"><ColorRow label="띠지 색" value={cover.ribbon.color} swatches={RIBBON_COLORS} onChange={color => set({ ribbon: { ...cover.ribbon, color } })} /></OptionRow>}
+    <OptionRow label="위치"><AnchorGrid value={cover.title.at ? null : cover.title.anchor} onChange={anchor => set({ title: { ...cover.title, anchor, at: null } })} /></OptionRow>
   </>
   if (element === 'stickers') return <StickerPicker cover={cover} onChange={onChange} onNotice={onNotice} />
   return null
 }
 
 /**
- * 표지 구역: 위에 세 갈래(표지 없음 · 색 · 패턴 · 사진), 아래에 요소 줄. 한 번에 한 줄만 펼친다.
+ * 표지 구역: 위에 세 갈래(표지 없음 · 색 · 무늬 · 사진), 아래에 요소 줄. 한 번에 한 줄만 펼친다.
  * 고무줄은 줄 머리의 스위치로, 소제목은 '글' 안의 스위치로 켜고 끈다. 꺼도 설정은 남는다.
  */
 /**

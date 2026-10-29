@@ -100,6 +100,7 @@ export default function Canvas({
   canPaste,
   paperAppearance, // 지금 페이지 속지 색 { backgroundColor, layoutColor }
   onPaperAppearance, // (appearance, all) => 속지 색 바꾸기
+  menuRequest = null, // 손바닥 도구에서 보는 영역이 알려 준 길게 누른 자리 { x, y, key } (페이지 좌표). null 이면 메뉴를 닫는다.
   onTextLink,
   onObjectLink,
   onCopyLink,
@@ -242,7 +243,15 @@ export default function Canvas({
   const [marquee, setMarquee] = useState(null) // 논리 좌표 { left, top, right, bottom }
   const marqueeRef = useRef(null)
   // 빈 곳을 길게 누르면 뜨는 메뉴: 붙여넣기 · 속지 색. { x, y } 는 페이지 좌표, panel: 'paper' 면 그 자리에 속지 색 말풍선
+  // 선택 도구는 이 페이지가 터치를 받아 직접 열고, 손바닥 도구는 화면을 옮기는 보는 영역이 길게 누른 자리를 알려 준다(menuRequest).
   const [emptyMenu, setEmptyMenu] = useState(null)
+  const canPageMenu = canSelect || (!readOnly && !textEditing && activeTool === 'hand')
+  useEffect(() => {
+    const inside = menuRequest && menuRequest.x >= 0 && menuRequest.y >= 0 && menuRequest.x <= PAGE_WIDTH && menuRequest.y <= PAGE_HEIGHT
+    setEmptyMenu(inside ? { x: menuRequest.x, y: menuRequest.y } : null)
+  }, [menuRequest]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 도구를 바꾸면 열어 둔 메뉴를 닫는다 (다른 도구로 갔다 돌아왔을 때 예전 메뉴가 다시 보이지 않게)
+  useEffect(() => { setEmptyMenu(null) }, [activeTool])
   const backgroundHandlers = usePan({
     onStart: (event) => {
       Keyboard.dismiss()
@@ -434,7 +443,7 @@ export default function Canvas({
       )}
       {/* 영역 선택 중: 지금 네모 안에 들어와 선택될 요소마다 선택 테두리 모양의 선을 보여 준다. */}
       {marquee && selected.map((object) => <HitOutline key={object.id} object={object} zoom={zoom} />)}
-      {emptyMenu?.panel === 'paper' && canSelect && (
+      {emptyMenu?.panel === 'paper' && canPageMenu && (
         <PaperColorSettings
           appearance={paperAppearance}
           onChange={(appearance, all) => onPaperAppearance?.(appearance, all)}
@@ -444,7 +453,7 @@ export default function Canvas({
           style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, Boolean(plannerOrientation))}
         />
       )}
-      {emptyMenu && !emptyMenu.panel && canSelect && (
+      {emptyMenu && !emptyMenu.panel && canPageMenu && (
         <EmptyMenu
           at={emptyMenu}
           zoom={zoom}

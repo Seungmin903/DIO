@@ -125,7 +125,7 @@ curl -X PATCH "$API/api/v1/diaries/$DIARY_ID/profile" \
 
 ### 저장·조회·권한
 
-- 파일은 기존 프로필 저장소 설정(SIGNUP_PHOTO_STORAGE=local/s3, 동일 버킷/디렉터리)을 재사용하고, 메타데이터는 기존 media_files에 등록한다. signup_profile_photos의 사용자당 1개 제약을 변경하지 않는다.
+- 파일은 기존 프로필 저장소 설정(MEDIA_STORAGE=local/s3, 동일 버킷/디렉터리)을 재사용하고, 메타데이터는 기존 media_files에 등록한다. signup_profile_photos의 사용자당 1개 제약을 변경하지 않는다.
 - media_files.storage_key는 기존 규칙의 객체 키만 저장한다. 임시 URL·클라이언트 파일 경로·버킷 주소를 저장하지 않는다. 기존 media_files 컬럼 값 IMAGE/UPLOAD/PHOTO/READY를 사용한다.
 - 다이어리 전용 사진 응답 URL은 `GET /api/v1/diaries/{diaryId}/members/{userId}/profile-photo?v={사진ID}`다. 이것은 업무 기능 추가가 아닌 파일 조회 경로이며 현재 참여자의 Bearer 인증이 필요하다. 프론트 이미지 요청에도 인증 헤더를 전달해야 한다. v는 사진 변경 시 이미지 소스를 갱신하기 위한 버전 값이다.
 - 계정 사진을 사용할 때는 기존 공개 계정 사진 URL을 그대로 반환한다. 별도 사진은 사진 주인이 나갔거나 조회자가 강퇴된 경우 읽을 수 없다.

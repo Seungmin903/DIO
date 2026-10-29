@@ -47,6 +47,11 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
+// 테스트는 compose·infra 파일과 DB 환경변수처럼 선언되지 않은 입력에 의존하므로 빌드 캐시 결과로 건너뛰지 않는다.
+tasks.withType(Test).configureEach {
+	outputs.cacheIf { false }
+}
+
 tasks.named('test') {
     // Missing generated contracts invalidate UP-TO-DATE on reused runner workspaces.
     outputs.files('build/contracts/member-diary-http.json',
