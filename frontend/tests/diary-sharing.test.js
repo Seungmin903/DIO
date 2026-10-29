@@ -71,11 +71,11 @@ test('소유자 설정·권한 변경·참여 해제는 원본 로컬 다이어�
   await assert.rejects(runtime.leave(diary.id), /소유자/);
   assert.deepEqual(source, original);
 });
-test('참여자는 소유자 설정을 바꿀 수 없고 참여 해제 후 조회할 수 없다', async () => {
+test('편집자는 링크를 만들지만 소유자 설정은 바꿀 수 없고 참여 해제 후 조회할 수 없다', async () => {
   const runtime = create(),
     invite = pending(runtime),
     diary = await runtime.accept(invite.inviteId, '여행가');
-  await assert.rejects(runtime.createLink(diary.id), /소유자/);
+  assert.ok((await runtime.createLink(diary.id)).link);
   await assert.rejects(runtime.setExportAllowed(diary.id, false), /소유자/);
   await runtime.leave(diary.id);
   await assert.rejects(runtime.getSharing(diary.id), /참여하고 있지/);

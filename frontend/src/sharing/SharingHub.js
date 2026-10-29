@@ -6,7 +6,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   View,
@@ -23,7 +22,7 @@ import MemberAvatar from './MemberAvatar';
 import { invitationStatusLabel } from '../notifications/NotificationPanel';
 import { colors } from '../shared/theme';
 import { useFormFactor } from '../shared/useFormFactor';
-import { normalizeSharingNickname, sharingNicknameError } from './sharingPreview';
+import { normalizeSharingNickname, sharingNicknameError, inviteEmailError, MAX_SHARING_MEMBERS } from './sharingPreview';
 import { sharingStyles as s } from './styles';
 
 function Button({
@@ -87,6 +86,9 @@ export default function SharingHub({
   const [question, setQuestion] = useState(null);
   const [toast, setToast] = useState('');
   const [linkInput, setLinkInput] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [capacityInfo, setCapacityInfo] = useState(false);
+  const [linkExpired, setLinkExpired] = useState(false);
   const job = useRef(0),
     checkJob = useRef(0),
     running = useRef(false),
@@ -94,6 +96,7 @@ export default function SharingHub({
   const alive = useRef(true);
   const nicknameField = useRef(null);
   const linkField = useRef(null);
+  const emailField = useRef(null);
   const formScroll = useRef(null);
   const focusedInput = useRef(null);
   const scrollOffset = useRef(0);
@@ -173,6 +176,8 @@ export default function SharingHub({
     setNicknameMessage('');
     setInvite(null);
     setLinkInput('');
+    setInviteEmail('');
+    setCapacityInfo(false);
     focusedInput.current = null;
     clearTimeout(focusTimer.current);
     if (!request) return;
@@ -203,6 +208,13 @@ export default function SharingHub({
     const timer = setTimeout(() => setToast(''), 2500);
     return () => clearTimeout(timer);
   }, [toast]);
+  useEffect(() => {
+    const remaining = Date.parse(diary?.linkExpiresAt) - Date.now();
+    setLinkExpired(Number.isFinite(remaining) && remaining <= 0);
+    if (!request || !Number.isFinite(remaining) || remaining <= 0) return;
+    const timer = setTimeout(() => setLinkExpired(true), Math.min(remaining, 2147483647));
+    return () => clearTimeout(timer);
+  }, [request, diary?.link, diary?.linkExpiresAt]);
   useEffect(() => {
     dismissInput();
     formScroll.current?.scrollTo({ y: 0, animated: false });
@@ -244,7 +256,9 @@ export default function SharingHub({
       setQuestion(null);
       return;
     }
-    if (screen === 'nickname' || screen === 'profile') {
+    if (screen === 'email') {
+      setScreen('sharing'); setError(''); setToast('');
+    } else if (screen === 'nickname' || screen === 'profile') {
       checkJob.current++;
       checkRunning.current = false;
       setChecking(false);
@@ -346,7 +360,12 @@ export default function SharingHub({
   const confirmQuestion = () => {
     const current = question;
     setQuestion(null);
-    if (current.kind === 'decline')
+    if (current.kind === 'cancel-email')
+      run(
+        () => runtime.cancelEmailInvite(diary.id, current.inviteId),
+        (result) => { setDiary(result); setToast('초대를 취소했어요.'); },
+      );
+    else if (current.kind === 'decline')
       run(
         () => runtime.decline(current.inviteId),
         () => {
@@ -410,6 +429,8 @@ export default function SharingHub({
   if (!request) return null;
   const mine = diary?.members.find((member) => member.id === runtime.self.id);
   const isOwner = mine?.role === 'OWNER';
+  const isFull = (diary?.members.length || 0) >= MAX_SHARING_MEMBERS;
+  const emailPreview = !runtime.server && typeof runtime.sendEmailInvite === 'function';
   const nicknameReady =
     checked === normalizeSharingNickname(nickname) && !sharingNicknameError(nickname) && !checking;
   const editingProfile = screen === 'profile';
@@ -456,6 +477,7 @@ export default function SharingHub({
                   <Text accessibilityRole="header" style={s.title}>
                     {screen === 'sharing'
                       ? '다이어리 공유'
+                      : screen === 'email' ? '이메일로 초대'
                       : screen === 'profile'
                         ? isPhone
                           ? '프로필 수정'
@@ -504,7 +526,7 @@ export default function SharingHub({
                       <DiarySummary diary={diary} />
                       <View style={s.row}>
                         <Text style={[s.label, s.grow]}>함께 편집하는 사람</Text>
-                        <Text style={s.muted}>{diary.members.length}명</Text>
+                        <Text style={s.muted}>{diary.members.length}/{MAX_SHARING_MEMBERS}명</Text>
                       </View>
                       {diary.members.map((member) => (
                         <View key={member.id} style={s.participant}>
@@ -531,7 +553,10 @@ export default function SharingHub({
                               {member.nickname}
                               {member.id === runtime.self.id ? ' · 나' : ''}
                             </Text>
-                            <Text style={s.muted}>{member.presence}</Text>
+                            <Text style={s.muted}>
+                              {member.role === 'OWNER' ? '소유자' : '편집자'}
+                              {member.presence && !['소유자', '편집자'].includes(member.presence) ? ` · ${member.presence}` : ''}
+                            </Text>
                           </View>
                           {isOwner && member.role !== 'OWNER' ? (
                             <View style={s.wrap}>
@@ -545,30 +570,38 @@ export default function SharingHub({
                                 <Icon name="close" size={16} />
                               </Pressable>
                             </View>
-                          ) : (
-                            <Text style={s.muted}>
-                              {member.role === 'OWNER' ? '소유자' : '함께 편집'}
-                            </Text>
-                          )}
+                          ) : null}
                         </View>
                       ))}
-                      {(isOwner || (runtime.server && mine?.role === 'EDITOR')) && (
+                      {isFull && (
+                        <View style={s.notice}>
+                          <Text style={s.bold}>소유자 포함 4명이 함께하고 있어요.</Text>
+                          <Button label="추가 인원 안내" secondary disabled={busy}
+                            onPress={() => setCapacityInfo(value => !value)} />
+                          {capacityInfo && <Text style={s.text}>더 많은 인원이 함께하는 유료 이용은 준비 중이에요.</Text>}
+                        </View>
+                      )}
+                      {isOwner && <Button label="이메일로 초대" secondary disabled={busy}
+                        onPress={() => { setScreen('email'); setError(''); setToast(''); }} />}
+                      {(isOwner || mine?.role === 'EDITOR') && (
                         <View style={s.section}>
                           <Text style={s.label}>초대 링크</Text>
                           <View style={s.linkRow}>
                             <View style={s.link}>
                               <Text selectable numberOfLines={1} style={[s.text, s.grow]}>
-                                {diary.link || '초대 링크를 만들어 주세요.'}
+                                {linkExpired ? '만료된 초대 링크예요.' : diary.link || '초대 링크를 만들어 주세요.'}
                               </Text>
                               {diary.link && (
                                 <Pressable
                                   accessibilityRole="button"
                                   accessibilityLabel="초대 링크 복사"
-                                  disabled={busy}
+                                  disabled={busy || linkExpired}
                                   style={s.iconButton}
                                   onPress={() =>
                                     run(
                                       async () => {
+                                        if (diary.linkExpiresAt && Date.parse(diary.linkExpiresAt) <= Date.now())
+                                          throw new Error('만료된 링크예요. 초대 링크를 다시 만들어 주세요.');
                                         const copied = await Clipboard.setStringAsync(diary.link);
                                         if (copied === false)
                                           throw new Error(
@@ -589,7 +622,7 @@ export default function SharingHub({
                                   <Pressable
                                     accessibilityRole="button"
                                     accessibilityLabel="초대 링크 다시 만들기"
-                                    disabled={busy}
+                                    disabled={busy || isFull}
                                     style={s.iconButton}
                                     onPress={() =>
                                       run(
@@ -610,7 +643,7 @@ export default function SharingHub({
                                 <Button
                                   label="초대 링크 만들기"
                                   text="만들기"
-                                  disabled={busy}
+                                  disabled={busy || isFull}
                                   onPress={() =>
                                     run(
                                       () => runtime.createLink(diary.id),
@@ -624,23 +657,13 @@ export default function SharingHub({
                               )}
                             </View>
                           </View>
+                          {!runtime.server && <Text style={s.muted}>
+                            {diary.linkExpiresAt
+                              ? `만료 ${new Date(diary.linkExpiresAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`
+                              : '1시간 유효'} · 5분에 최대 3회
+                          </Text>}
                         </View>
                       )}
-                      {runtime.supportsExportSettings !== false && (<View style={[s.section, s.row]}>
-                        <View style={s.grow}>
-                          <Text style={s.bold}>참여자의 내보내기 허용</Text>
-                        </View>
-                        <Switch
-                          accessibilityLabel="참여자의 내보내기 허용"
-                          value={diary.allowExport}
-                          disabled={!isOwner || busy}
-                          onValueChange={(value) =>
-                            run(() => runtime.setExportAllowed(diary.id, value), setDiary)
-                          }
-                          trackColor={{ false: colors.border, true: colors.primary }}
-                          thumbColor={colors.surface}
-                        />
-                      </View>)}
                       {!isOwner && (
                         <Button
                           label="다이어리 참여 해제"
@@ -660,6 +683,47 @@ export default function SharingHub({
                       />
                     </>
                   )}
+                  {screen === 'email' && diary && isOwner && (
+                    <View style={s.body}>
+                      {!runtime.server && <Text style={s.muted}>미리보기예요. 실제 이메일은 발송되지 않아요.</Text>}
+                      {runtime.server && <Text style={s.muted}>이메일 초대 연결을 준비하고 있어요.</Text>}
+                      <TextInput ref={emailField} accessibilityLabel="초대할 이메일"
+                        placeholder="이메일 주소" placeholderTextColor={colors.textMuted}
+                        keyboardType="email-address" autoCapitalize="none" autoCorrect={false}
+                        maxLength={254} value={inviteEmail} editable={!busy && emailPreview && !isFull}
+                        onFocus={() => focusInput(emailField.current)} onBlur={() => blurInput(emailField.current)}
+                        onChangeText={value => { setInviteEmail(value); setError(''); }}
+                        style={s.field} />
+                      {!!inviteEmail && !!inviteEmailError(inviteEmail) &&
+                        <Text accessibilityLiveRegion="polite" style={s.error}>{inviteEmailError(inviteEmail)}</Text>}
+                      <Button label="이메일 초대 보내기" text={busy ? '처리 중…' : '초대 보내기'}
+                        disabled={busy || !emailPreview || isFull || !!inviteEmailError(inviteEmail)}
+                        onPress={() => {
+                          dismissInput();
+                          run(() => runtime.sendEmailInvite(diary.id, inviteEmail), result => {
+                            setDiary(result);
+                            setInviteEmail('');
+                            setToast('가입된 이메일이라면 초대가 전달됩니다.');
+                          });
+                        }} />
+                      {emailPreview && <>
+                        <Text style={s.label}>보낸 초대</Text>
+                        {!diary.emailInvites?.length && <Text style={s.muted}>보낸 초대가 없어요.</Text>}
+                        {diary.emailInvites?.map(row => (
+                          <View key={row.id} style={s.sentInvite}>
+                            <View style={s.grow}>
+                              <Text style={s.bold}>{row.email}</Text>
+                              <Text style={s.muted}>{({ PENDING: '수락 대기', CANCELLED: '취소됨', ACCEPTED: '수락됨', DECLINED: '거절됨', DELIVERY_FAILED: '전송 실패' })[row.status] || '처리됨'}</Text>
+                            </View>
+                            {row.status === 'PENDING' && <Button label={`${row.email} 초대 취소`} text="취소"
+                              secondary disabled={busy} onPress={() => setQuestion({ kind: 'cancel-email', inviteId: row.id })} />}
+                          </View>
+                        ))}
+                      </>}
+                      <Button label="공유 화면으로 돌아가기" text="완료" onPress={back} disabled={busy} />
+                    </View>
+                  )}
+
                   {screen === 'invitations' && (
                     <>
                       <Text style={s.muted}>
@@ -991,13 +1055,15 @@ export default function SharingHub({
         )}
         <ConfirmDialog
           open={!!question}
-          title={question?.kind === 'decline' ? '초대를 거절할까요?' : '참여를 해제할까요?'}
+          title={question?.kind === 'cancel-email' ? '보낸 초대를 취소할까요?' : question?.kind === 'decline' ? '초대를 거절할까요?' : '참여를 해제할까요?'}
           message={
-            question?.kind === 'decline'
+            question?.kind === 'cancel-email'
+              ? '이 초대로는 다이어리에 참여할 수 없어요. 이미 참여한 멤버는 그대로 남아요.'
+              : question?.kind === 'decline'
               ? '이 초대로는 다이어리에 참여할 수 없어요.'
               : '참여가 해제되면 이 다이어리를 함께 편집할 수 없어요.'
           }
-          confirmLabel={question?.kind === 'decline' ? '거절' : '참여 해제'}
+          confirmLabel={question?.kind === 'cancel-email' ? '초대 취소' : question?.kind === 'decline' ? '거절' : '참여 해제'}
           onConfirm={confirmQuestion}
           onCancel={() => setQuestion(null)}
         />
