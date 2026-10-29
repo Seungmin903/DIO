@@ -84,7 +84,7 @@ function OwnPhotoTile({ photo }) {
   return uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null
 }
 
-function PhotoOptions({ cover, onChange, onNotice, pickNow }) {
+function PhotoOptions({ cover, onChange, onNotice, pickNow, onPickHandled }) {
   const [busy, setBusy] = useState(false)
   const latest = useRef(null)
   const choose = async () => {
@@ -96,8 +96,8 @@ function PhotoOptions({ cover, onChange, onNotice, pickNow }) {
     } catch (error) { onNotice?.(mediaFailureMessage(error)) } finally { setBusy(false) }
   }
   latest.current = { cover, onChange }
-  // 사진 표지로 바꿨는데 사진이 없으면 바로 사진 고르기를 연다
-  useEffect(() => { if (pickNow) choose() }, [pickNow]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 사진 표지로 바꿨는데 사진이 없으면 바로 사진 고르기를 연다. 요청은 한 번만 처리하고 비운다 (줄을 접었다 펴도 다시 열리지 않게)
+  useEffect(() => { if (!pickNow) return; onPickHandled?.(); choose() }, [pickNow]) // eslint-disable-line react-hooks/exhaustive-deps
   return <>
     <OptionRow label="사진">
       <View style={styles.tiles}>
@@ -165,9 +165,9 @@ const FONT_SCALE = { 'nanum-pen': 1.35, 'poor-story': 1.1 }
 const fontChips = () => COVER_FONTS.map(([id, label]) => ({ id, label,
   textStyle: (({ fontFamily, fontWeight, fontSize }) => ({ fontFamily, fontWeight, fontSize }))(textStyle({ font: id, fontSize: 12.5 * (FONT_SCALE[id] ?? 1), color: colors.text }, 1, Platform.OS)) }))
 
-function ElementOptions({ element, cover, onChange, onNotice, pickNow }) {
+function ElementOptions({ element, cover, onChange, onNotice, pickNow, onPickHandled }) {
   const set = patch => onChange({ ...cover, ...patch })
-  if (element === 'base' && cover.kind === 'photo') return <PhotoOptions cover={cover} onChange={onChange} onNotice={onNotice} pickNow={pickNow} />
+  if (element === 'base' && cover.kind === 'photo') return <PhotoOptions cover={cover} onChange={onChange} onNotice={onNotice} pickNow={pickNow} onPickHandled={onPickHandled} />
   if (element === 'base') return <BaseOptions cover={cover} onChange={onChange} />
   // 꺼진 고무줄도 고칠 수 있게 두되 흐리게 보인다
   if (element === 'band') return <View style={!cover.band.on && styles.off}>
@@ -232,10 +232,11 @@ export function usePhotoTone(cover, onChange) {
 }
 
 export default function CoverOptions({ cover, onChange, openElement, onOpenElement, onNotice }) {
-  const [pickNow, setPickNow] = useState(0)
+  // 사진 표지로 바꿨는데 사진이 없으면 사진 고르기를 한 번 연다 (처리하면 false 로 비운다)
+  const [pickNow, setPickNow] = useState(false)
   const changeKind = kind => {
     onChange(changeCoverKind(cover, kind))
-    if (kind === 'photo' && !cover.photo?.src) { onOpenElement('base'); setPickNow(value => value + 1) }
+    if (kind === 'photo' && !cover.photo?.src) { onOpenElement('base'); setPickNow(true) }
   }
   const toggles = {
     band: { value: cover.band.on, onChange: on => onChange({ ...cover, band: { ...cover.band, on } }) },
@@ -245,7 +246,7 @@ export default function CoverOptions({ cover, onChange, openElement, onOpenEleme
     {cover.enabled && <View style={styles.elements}>
         {COVER_ELEMENTS.map(([id, name]) => <ElementRow key={id} title={name} summary={coverElementSummary(cover, id)}
           open={openElement === id} onToggleOpen={() => onOpenElement(openElement === id ? null : id)} toggle={toggles[id]}>
-          <ElementOptions element={id} cover={cover} onChange={onChange} onNotice={onNotice} pickNow={pickNow} />
+          <ElementOptions element={id} cover={cover} onChange={onChange} onNotice={onNotice} pickNow={pickNow} onPickHandled={() => setPickNow(false)} />
         </ElementRow>)}
     </View>}
   </View>
