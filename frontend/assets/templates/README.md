@@ -17,3 +17,7 @@
 새 다이어리의 날짜 속지(표지 연도 · 월 구분지 · 먼슬리 · 위클리)는 연도별 SVG 를 더하지 않고, 같은 양식의 만년형 속지(`undated/`) 위에 날짜를 얹어 앱이 만든다(`src/editor/templates/dated.js`, ID 예: `dated-monthly-2027-03-portrait`).
 글자 윤곽 · 커닝 · 글자 자리는 이 폴더의 2026 원본에서 뽑은 `src/editor/templates/datedGlyphs.js` 를 쓴다(`scripts/generate-dated-glyphs.py` 로 다시 만든다). 2026 원본 262장과 만든 속지는 글자 · 색 · 자리가 같은지 `tests/dated-templates.test.js` 가 확인한다.
 2026 SVG 파일은 예전 다이어리 페이지가 가리키므로 지우지 않는다.
+
+## 자유 노트 무늬
+
+자유 노트의 모눈 · 도트(여백 없이 페이지 끝까지) 와 줄 노트의 선 색은 `scripts/generate-note-grids.py` 로 다시 만든다. 같은 ID 의 파일을 제자리에서 고치므로, 이미 이 속지를 쓰는 페이지도 새 무늬로 보인다.

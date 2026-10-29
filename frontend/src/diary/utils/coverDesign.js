@@ -1,4 +1,5 @@
 import { COLORS, DIARY_DEFAULTS } from '../constants.js'
+import { createId, normalizeAngle } from '../../editor/utils/common.js'
 
 // 표지 요소를 하나씩 따로 고른다: 바탕(색 · 그라데이션 · 패턴 또는 사진) · 고무줄 · 제목 · 소제목 · 라벨 · 스티커.
 // 표지를 빼도(enabled = false) 설정은 남겨 두어 다시 켜면 그대로 돌아온다.
@@ -87,8 +88,14 @@ export function normalizeCover(diary) {
     stickers: (Array.isArray(saved.stickers) ? saved.stickers : []).filter(item => item && typeof item.id === 'string' && (item.asset || item.src)).map(item => ({
       id: item.id, asset: item.asset, src: item.src, mediaFileId: item.mediaFileId, name: item.name,
       x: percent(item.x, 50), y: percent(item.y, 50), size: size(item.size, STICKER_SIZE, 14),
+      rotation: Number.isFinite(item.rotation) ? Math.round(normalizeAngle(item.rotation) * 10) / 10 : 0,
     })),
   }
+}
+
+/** 표지 스티커 복제: 새 ID 로 오른쪽 아래에 조금 비켜 둔다 (편집기 복제와 같은 방향) */
+export function createStickerCopy(item) {
+  return { ...item, id: createId(), x: Math.min(100, item.x + 4), y: Math.min(100, item.y + 4) }
 }
 
 /** 표지 종류는 바탕만 바꾼다. 고무줄 · 글 · 라벨 · 스티커는 종류를 오가도 그대로 둔다. */
@@ -132,4 +139,4 @@ export function coverElementSummary(cover, element) {
   }
 }
 
-export const coverSummary = cover => !cover.enabled ? '표지 없음' : cover.kind === 'photo' ? '사진 표지' : '색 · 패턴 표지'
+export const coverSummary = cover => !cover.enabled ? '표지 없음' : cover.kind === 'photo' ? '사진 표지' : '색 · 무늬 표지'
