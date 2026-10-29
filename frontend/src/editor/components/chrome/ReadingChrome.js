@@ -1,17 +1,45 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import BrandLogo from '../../../shared/BrandLogo'
 import Icon from '../controls/Icon'
 import { pageFromProgress } from '../../utils/readingGestures.js'
+import { createPageRepeat } from '../../utils/pageRepeat.js'
 
 export const READING_PADDING = { top: 64, bottom: 76, side: 12 }
 
-function Action({ icon, label, onPress, disabled = false }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled}
+function Action({ icon, label, onPress, disabled = false, ...pressProps }) {
+  return <Pressable {...pressProps} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled}
     onPress={onPress} style={({ pressed }) => [styles.action, pressed && styles.pressed, disabled && styles.disabled]}>
     <Icon name={icon} size={20} />
   </Pressable>
+}
+
+export function PageTurnAction({ direction, index, count, onSelect }) {
+  const latest = useRef(null), repeat = useRef(null)
+  latest.current = { index, count, onSelect }
+  if (!repeat.current) repeat.current = createPageRepeat(() => {
+    const state = latest.current
+    const next = state.index + direction
+    if (next < 0 || next >= state.count) return false
+    state.index = next
+    state.onSelect(next)
+    return direction < 0 ? next > 0 : next < state.count - 1
+  })
+  const disabled = count <= 1 || (direction < 0 ? index <= 0 : index >= count - 1)
+  useEffect(() => { if (disabled) repeat.current.cancel() }, [disabled])
+  useEffect(() => {
+    const cancel = () => repeat.current.cancel()
+    const subscription = AppState?.addEventListener('change', state => { if (state !== 'active') cancel() })
+    const browserWindow = typeof window === 'undefined' ? null : window
+    browserWindow?.addEventListener?.('blur', cancel)
+    return () => { subscription?.remove(); browserWindow?.removeEventListener?.('blur', cancel); cancel() }
+  }, [])
+  return <Action icon={direction < 0 ? 'chevronLeft' : 'chevronRight'} label={direction < 0 ? '이전 페이지' : '다음 페이지'}
+    disabled={disabled} accessibilityHint="누르고 있으면 페이지를 빠르게 넘겨요."
+    onPressIn={() => repeat.current.start()} onPressOut={() => repeat.current.release()}
+    onTouchCancel={() => repeat.current.cancel()} onPointerCancel={() => repeat.current.cancel()}
+    onPress={() => repeat.current.press()} />
 }
 
 export function ReadingModeControls({ reading, canEdit, onFit, onToggle, controlsRef, onLayout, bottomInset = 0 }) {
@@ -31,7 +59,7 @@ export function ReadingHeader({ title, onHome }) {
   </View>
 }
 
-export function ReadingNavigation({ index, count, onSelect }) {
+export function ReadingNavigation({ index, count, onSelect, canEdit, onFit, onToggle, controlsRef, onLayout }) {
   const [preview, setPreview] = useState(null)
   const width = useRef(1), origin = useRef(null), draft = useRef(null)
   useEffect(() => { draft.current = null; setPreview(null) }, [index, count])
@@ -43,10 +71,10 @@ export function ReadingNavigation({ index, count, onSelect }) {
   const cancel = () => { draft.current = null; origin.current = null; setPreview(null) }
   const shown = preview ?? index
   const ratio = count > 1 ? shown / (count - 1) : 0
-  return <View style={styles.navigation}>
+  return <View ref={controlsRef} onLayout={onLayout} testID="reading-bottom-menu" style={styles.navigation}>
     <Text accessibilityLabel={`현재 ${index + 1}페이지, 전체 ${count}페이지`} style={styles.pageNumber}>{shown + 1} / {count}</Text>
     <View style={styles.pager}>
-      <Action icon="chevronLeft" label="이전 페이지" disabled={index <= 0} onPress={() => onSelect(index - 1)} />
+      <PageTurnAction direction={-1} index={index} count={count} onSelect={onSelect} />
       <View accessibilityRole="adjustable" accessibilityLabel="페이지 이동" accessibilityState={{ disabled }}
         accessibilityValue={{ min: 1, max: count, now: shown + 1, text: `${shown + 1} / ${count}` }}
         accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
@@ -68,9 +96,12 @@ export function ReadingNavigation({ index, count, onSelect }) {
         <View pointerEvents="none" style={[styles.fill, { width: `${ratio * 100}%` }]} />
         <View pointerEvents="none" style={[styles.thumb, { left: `${ratio * 100}%` }]} />
       </View>
-      <Action icon="chevronRight" label="다음 페이지" disabled={index >= count - 1} onPress={() => onSelect(index + 1)} />
+      <PageTurnAction direction={1} index={index} count={count} onSelect={onSelect} />
     </View>
-    <View style={styles.modeSpace} />
+    <View style={styles.readingActions}>
+      <Action icon="fit" label="화면에 맞춤" onPress={onFit} />
+      {canEdit && <Action icon="edit" label="편집 모드로 전환" onPress={onToggle} />}
+    </View>
   </View>
 }
 
@@ -81,7 +112,7 @@ const styles = StyleSheet.create({
   navigation: { position: 'absolute', bottom: 12, left: 0, right: 0, minHeight: 52, flexDirection: 'row', alignItems: 'center', paddingLeft: 8, paddingRight: 12, backgroundColor: colors.surface, borderRadius: 14, zIndex: 25 },
   pageNumber: { width: 58, fontSize: 11, fontWeight: '700', color: colors.text, textAlign: 'center', fontVariant: ['tabular-nums'] },
   pager: { flex: 1, minWidth: 0, maxWidth: 520, flexDirection: 'row', alignItems: 'center', marginHorizontal: 'auto' },
-  modeSpace: { width: 96 },
+  readingActions: { flexDirection: 'row', marginLeft: 4, flexShrink: 0 },
   modeControls: { position: 'absolute', right: 12, bottom: 12, height: 52, padding: 4, flexDirection: 'row', alignItems: 'center', borderRadius: 14, backgroundColor: colors.surface, zIndex: 30, ...shadow.card },
   action: { width: 44, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.65 }, disabled: { opacity: DISABLED_OPACITY },
