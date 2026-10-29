@@ -29,13 +29,14 @@ const BAR_SHORT = 8
  * - 자유: 사진 전체를 보여 주고 자르는 틀의 모서리·변을 끌어 정한다. 틀은 사진 밖으로 나가지 않는다.
  *   확대하면 틀은 화면에서 그대로 두고 사진이 커진다. (다른 비율의 확대와 같은 느낌)
  * '적용'을 눌러야 사진에 반영된다 (취소하면 그대로).
+ * fixedAspect: 칸 비율이 정해진 곳(여러 칸 틀의 칸)은 비율 고르기 없이 보이는 영역·확대만 정한다 (적용하면 { crop } 만).
  */
-export default function PhotoCropper({ photo, onApply, onCancel }) {
+export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, title = '사진 자르기' }) {
   const window = useWindowDimensions()
   const uri = useMediaUri(photo)
   const bordered = isBorderFrame(photo.frame)
   const square = photo.frame === 'shape' && PHOTO_SHAPES.find((s) => s.id === photo.shape)?.square
-  const ratios = bordered ? POLAROID_RATIOS : square ? [] : [...CROP_RATIOS, FREE]
+  const ratios = fixedAspect ? [] : bordered ? POLAROID_RATIOS : square ? [] : [...CROP_RATIOS, FREE]
   const [crop, setCrop] = useState(photo.crop ?? ORIGINAL)
   // 고른 비율 (null: 지금 크기 그대로 = 캔버스에서 자유로 잘랐던 비율)
   const [ratio, setRatio] = useState(ratios.some((r) => r.id === photo.ratio) ? photo.ratio : null)
@@ -45,7 +46,9 @@ export default function PhotoCropper({ photo, onApply, onCancel }) {
   const [rect, setRect] = useState(() => visibleRect(photo.crop ?? ORIGINAL, photo.w / photo.h, imageAspect))
 
   // 자르는 틀의 가로:세로
-  const aspect = square
+  const aspect = fixedAspect
+    ? fixedAspect
+    : square
     ? 1
     : free
       ? ((rect.u1 - rect.u0) * photo.imageWidth) / ((rect.v1 - rect.v0) * photo.imageHeight)
@@ -208,7 +211,7 @@ export default function PhotoCropper({ photo, onApply, onCancel }) {
         <View style={[styles.card, { width: cardWidth }]}>
           <View style={styles.header}>
             <View style={styles.titleGroup}>
-              <Text style={styles.cardTitle}>사진 자르기</Text>
+              <Text style={styles.cardTitle}>{title}</Text>
             </View>
             <Pressable onPress={onCancel} hitSlop={10} accessibilityLabel="자르기 닫기">
               <Icon name="close" size={20} />

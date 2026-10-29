@@ -54,7 +54,9 @@ import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
-import { createObjectFromDecor } from '../utils/objects'
+import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox } from '../utils/objects'
+import { isTicketFrame } from '../components/canvas/PhotoFrame'
+import { isStripFrame, photoCell, stripCellBoxes } from '../utils/photoStrip'
 import { startPagePanelMeasurement } from '../utils/pagePanelPerformance.js'
 
 import PageAddPicker from '../components/PageAddPicker'
@@ -74,6 +76,13 @@ const PHONE_STAGE_PADDING = { top: 16, bottom: 68, side: 12 }
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
 // compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 상단 도구 막대),
 // 가로는 정밀 편집(왼쪽 화면 막대 + 오른쪽 전체 도구 막대 + 확대·축소). onToggleOrientation이 있으면 세로·가로를 버튼으로 바꾼다.
+/** 여러 칸 틀의 칸 하나를 자르기 창에 넘길 사진 모양 (칸 크기의 사각 사진). 빈 칸이면 null */
+function cellCropPhoto(strip, index) {
+  const cell = strip.cells?.[index]
+  const box = stripCellBoxes(strip)[index]
+  return cell && box ? { ...cell, id: `${strip.id}:${index}`, cell: index, x: 0, y: 0, w: box.width, h: box.height, frame: 'shape', shape: 'rect' } : null
+}
+
 export default function EditorScreen({ sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, fixedViewportZoom = null, qaController = null }) {
   // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
   const qaHistoryExecutions = useRef(0)
@@ -129,6 +138,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const [lasso, setLasso] = useState({ shape: 'rectangle', mode: 'replace' })
   useEffect(() => { setLasso(current => ({ ...current, mode: 'replace' })) }, [page.id])
   const [textEditing, setTextEditing] = useState(null)
+  // 사진 틀(티켓 · 네컷)의 인쇄 글자를 캔버스에서 바로 고치는 중 { pageId, id, line }
+  const [frameTextEdit, setFrameTextEdit] = useState(null)
   const textBoundary = useRef(null)
   const textPaletteBounds = useRef(null)
   const [textPalette, setTextPalette] = useState(null)
@@ -168,11 +179,11 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   // 폰 집중 편집: 막대를 모두 숨기고 종료 버튼만 남긴다.
   const phoneFocus = compact && focusMode
   const [cropId, setCropId] = useState(null)
-  const [recentPhotos, setRecentPhotos] = useState([])
   const [importFailure, setImportFailure] = useState(null)
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
   const [photoCropId, setPhotoCropId] = useState(null) // 자르기 창을 연 사진
+  const [photoCropCell, setPhotoCropCell] = useState(null) // 여러 칸 틀이면 자르는 칸 번호
   // 복사한 요소: 다른 페이지·다른 다이어리 탭에도 붙여 넣는다 (services/objectClipboard)
   const copiedObjects = useObjectClipboard()
   // at({ x, y }): 빈 곳을 길게 누른 자리. 주면 복사한 요소들의 가운데를 그 자리에 맞춰 붙인다
@@ -318,33 +329,23 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
     const object = createObjectFromDecor(item, randomCenter())
     dispatch({ type: 'addObjects', objects: [object] })
     closeAfterInsert()
-    // 사진은 붙이자마자 자르기를 연다 (틀·모양·영역을 여기서 고른다)
-    if (object.type === 'photo') startCrop(object.id)
   }
 
+  // 사진은 스티커·테이프처럼 틀 없이 바로 붙인다 (자르기는 두 번 누르거나 선택 바에서)
   const addPhotos = async () => {
     try {
       setImportFailure(null)
       const images = await pickImages()
       if (!images.length) return
-      const photos = images.map((image) => ({
-        id: createId(),
-        src: image.src,
-        mediaFileId: image.mediaFileId,
-        poster: image.poster,
-        name: image.name,
-        imageWidth: image.width,
-        imageHeight: image.height,
-      }))
-      setRecentPhotos((prev) => [...photos, ...prev].slice(0, 12))
       const center = randomCenter()
-      const objects = photos.map((photo, index) =>
-        createObjectFromDecor({ kind: 'photo', ...photo }, { x: center.x + index * 24, y: center.y + index * 24 }),
+      const objects = images.map((image, index) =>
+        createObjectFromDecor(
+          { kind: 'photo', frame: 'none', src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, imageWidth: image.width, imageHeight: image.height },
+          { x: center.x + index * 24, y: center.y + index * 24 },
+        ),
       )
       dispatch({ type: 'addObjects', objects })
       closeAfterInsert()
-      // 한 장이면 붙이자마자 자르기를 연다 (틀·모양·영역을 여기서 고른다)
-      if (objects.length === 1) startCrop(objects[0].id)
     } catch (error) {
       showToast(mediaFailureMessage(error), () => addPhotos())
     }
@@ -356,6 +357,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
       setImportFailure(null)
       const [image] = await pickImages({ multiple: false })
       if (!image) return
+      const filling = !hasPhotoMedia(page.objects.find((o) => o.id === id))
       dispatch({
         type: 'updateObject',
         id,
@@ -370,20 +372,72 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           crop: { fx: 0.5, fy: 0.5, zoom: 1 },
         },
       })
-      showToast('사진을 바꿨어요.')
+      showToast(filling ? '사진을 넣었어요.' : '사진을 바꿨어요.')
     } catch (error) {
       showToast(mediaFailureMessage(error), () => replacePhoto(id))
     }
   }
 
+  // 빈 사진 틀 채우기 (선택 바 '사진 채우기' · 빈 자리의 +). 여러 칸 틀은 start 칸부터 빈 칸을 차례로 채운다.
+  const fillCells = async (id, start = 0) => {
+    const target = page.objects.find((o) => o.id === id)
+    if (target && !isStripFrame(target.frame)) { if (!hasPhotoMedia(target)) replacePhoto(id); return }
+    try {
+      setImportFailure(null)
+      const all = emptyPhotoSlots(target)
+      const empty = [...all.filter((i) => i >= start), ...all.filter((i) => i < start)]
+      if (!empty.length) return
+      const images = await pickImages()
+      if (!images.length) return
+      const latest = page.objects.find((o) => o.id === id)
+      if (!latest?.cells) return
+      const cells = [...latest.cells]
+      empty.slice(0, images.length).forEach((index, i) => {
+        cells[index] = photoCell({ ...images[i], imageWidth: images[i].width, imageHeight: images[i].height })
+      })
+      dispatch({ type: 'updateObject', id, record: true, patch: { cells } })
+      showToast(images.length > empty.length ? `빈 칸 ${empty.length}개를 채웠어요. 나머지 ${images.length - empty.length}장은 넣지 않았어요.` : `사진 ${images.length}장을 넣었어요.`)
+    } catch (error) {
+      showToast(mediaFailureMessage(error), () => fillCells(id))
+    }
+  }
+
+  // 사진·이미지 테이프를 두 번 누르면 자른다. 여러 칸 틀은 누른 칸이 비었으면 사진을 넣고, 찼으면 그 칸을 자른다.
+  const editMedia = (object, cell) => {
+    if (object.type === 'tape') { setTapeCropId(object.id); return }
+    if (!isStripFrame(object.frame)) { if (hasPhotoMedia(object)) startCrop(object.id); else replacePhoto(object.id); return }
+    if (cell == null || cell < 0) return
+    if (object.cells?.[cell]) startCrop(object.id, cell)
+    else fillCells(object.id, cell)
+  }
+
+  // 여러 칸 틀의 칸 하나만 바꾼다. 다른 칸·틀 설정은 그대로 둔다.
+  const replaceCell = async (id, index) => {
+    try {
+      setImportFailure(null)
+      const [image] = await pickImages({ multiple: false })
+      if (!image) return
+      const target = page.objects.find((o) => o.id === id)
+      if (!target?.cells) return
+      const cell = photoCell({ ...image, imageWidth: image.width, imageHeight: image.height })
+      dispatch({ type: 'updateObject', id, record: true, patch: { cells: target.cells.map((c, i) => (i === index ? cell : c)) } })
+      showToast(target.cells[index] ? `${index + 1}번 칸 사진을 바꿨어요.` : `${index + 1}번 칸에 사진을 넣었어요.`)
+    } catch (error) {
+      showToast(mediaFailureMessage(error), () => replaceCell(id, index))
+    }
+  }
+
   // 사진 자르기: 화면 가운데 자르기 창을 연다. '적용'할 때만 사진이 바뀐다.
-  const startCrop = (id) => {
+  // cell: 여러 칸 틀이면 자를 칸 번호
+  const startCrop = (id, cell = null) => {
     setDrawerTab(null)
     setMoreOpen(false)
     dispatch({ type: 'select', ids: [id] })
+    setPhotoCropCell(cell)
     setPhotoCropId(id)
   }
-  const photoCrop = photoCropId ? page.objects.find((o) => o.id === photoCropId && o.type === 'photo') : null
+  const photoCropTarget = photoCropId ? page.objects.find((o) => o.id === photoCropId && o.type === 'photo') : null
+  const photoCrop = !photoCropTarget ? null : isStripFrame(photoCropTarget.frame) ? cellCropPhoto(photoCropTarget, photoCropCell) : hasPhotoMedia(photoCropTarget) ? photoCropTarget : null
 
   const finishCrop = (apply) => {
     if (!apply) dispatch({ type: 'revertToCheckpoint' })
@@ -638,6 +692,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
       if (textLinkTarget) { setTextLinkTarget(null); return true }
       if (objectLinkTarget) { setObjectLinkTarget(null); return true }
       if (textEditing) { Keyboard.dismiss(); setTextEditing(null); return true }
+      if (frameTextEdit) { Keyboard.dismiss(); setFrameTextEdit(null); return true }
       if (cropId) { finishCrop(false); return true }
       if (importFailure) { setImportFailure(null); return true }
       if (bubbleOpen) { closeBubbles(); return true }
@@ -649,7 +704,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
       return true
     })
     return () => subscription.remove()
-  }, [bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget])
+  }, [bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget])
 
   const phoneToolbar = !readOnly && compact ? (
     <PhoneToolbar
@@ -887,6 +942,11 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
                   setMoreOpen(!showMore)
                 }}
                 onCrop={(id) => (page.objects.find((o) => o.id === id)?.type === 'tape' ? setTapeCropId(id) : startCrop(id))}
+                onEditMedia={editMedia}
+                frameTextEdit={frameTextEdit?.pageId === page.id ? frameTextEdit : null}
+                onEditFrameText={(object, line) => setFrameTextEdit(object ? { pageId: page.id, id: object.id, line } : null)}
+                onFillCells={fillCells}
+                onFillSlot={(object, slot) => fillCells(object.id, slot ?? 0)}
                 onToast={showToast}
                 contextBarInside={markInside}
               />
@@ -962,7 +1022,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           {showMore && !drawerTab && stageSize && (
             // 옵션 패널은 고른 요소 옆(가리지 않는 쪽)에 띄운다
             <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)]} pointerEvents="box-none" {...markInside}>
-              <MorePanel objects={selectedObjects} dispatch={dispatch} onReplacePhoto={replacePhoto} onClose={() => setMoreOpen(false)} />
+              <MorePanel objects={selectedObjects} dispatch={dispatch} onReplacePhoto={replacePhoto} onReplaceCell={replaceCell} onCropCell={startCrop} onClose={() => setMoreOpen(false)} />
             </View>
           )}
 
@@ -975,9 +1035,6 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
                 onTapeInserted={closeAfterInsert}
                 onAdd={addDecor}
                 onAddPhotos={addPhotos}
-                recentPhotos={recentPhotos}
-                // 최근 목록만 변경한다. 캔버스 문서·편집 이력과 공유 원본 미디어는 유지한다.
-                onRemoveRecentPhoto={(ids) => setRecentPhotos((photos) => photos.filter((photo) => !ids.includes(photo.id)))}
                 onToast={showToast}
                 onClose={() => setDrawerTab(null)}
               />
@@ -1011,9 +1068,13 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
             <PhotoCropper
               key={photoCrop.id}
               photo={photoCrop}
+              // 칸 · 티켓은 글자 자리가 정해져 있어 비율을 바꾸지 않는다
+              fixedAspect={photoCrop.cell != null ? photoCrop.w / photoCrop.h : isTicketFrame(photoCrop.frame) ? photoInnerBox(photoCrop).width / photoInnerBox(photoCrop).height : undefined}
+              title={photoCrop.cell != null ? `${photoCrop.cell + 1}번 칸 자르기` : undefined}
               onCancel={() => setPhotoCropId(null)}
               onApply={(patch) => {
-                dispatch({ type: 'updateObject', id: photoCrop.id, record: true, patch })
+                const cells = photoCrop.cell != null && photoCropTarget.cells.map((c, i) => (i === photoCrop.cell ? { ...c, crop: patch.crop } : c))
+                dispatch({ type: 'updateObject', id: photoCropTarget.id, record: true, patch: cells ? { cells } : patch })
                 setPhotoCropId(null)
                 showToast('사진 자르기를 적용했어요.')
               }}

@@ -16,7 +16,8 @@ export default function PageImageSurface({ job }) {
   const [backgroundReady, setBackgroundReady] = useState(!snapshot.template)
   const surface = useRef(null), started = useRef(false), failed = useRef(false)
   const scale = Platform.OS === 'web' || !area ? 1 : Math.min(1, area.width / snapshot.width, area.height / snapshot.height)
-  const ready = snapshot.objects.filter((o) => o.src).every((o) => loaded.has(o.id))
+  // 여러 칸 사진 틀은 사진이 든 칸이 모두 그려지면 한 번 알린다.
+  const ready = snapshot.objects.filter((o) => o.src || o.cells?.some(Boolean)).every((o) => loaded.has(o.id))
   useEffect(() => {
     if (!ready || !backgroundReady || !laidOut || started.current || signal.aborted || failed.current) return
     started.current = true
