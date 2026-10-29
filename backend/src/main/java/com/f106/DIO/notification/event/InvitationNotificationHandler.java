@@ -73,7 +73,9 @@ public class InvitationNotificationHandler {
 
 	private Outcome outcome(Snapshot snapshot, Instant now) {
 		if (snapshot.eligibility() == InvitationNotificationSource.Eligibility.REVOKED) return Outcome.SKIPPED_REVOKED;
-		if (snapshot.eligibility() == InvitationNotificationSource.Eligibility.EXPIRED || !now.isBefore(snapshot.expiresAt())) return Outcome.SKIPPED_EXPIRED;
+		// 이메일 초대는 무기한이다. 레거시 expires_at이나 DB/JVM 시간대와 무관하게 상태를 따른다.
+		if (snapshot.kind() != InvitationNotificationSource.Kind.DIRECT
+			&& (snapshot.eligibility() == InvitationNotificationSource.Eligibility.EXPIRED || !now.isBefore(snapshot.expiresAt()))) return Outcome.SKIPPED_EXPIRED;
 		if (snapshot.kind() != InvitationNotificationSource.Kind.DIRECT
 			|| snapshot.eligibility() != InvitationNotificationSource.Eligibility.NOTIFIABLE) return Outcome.SKIPPED_INELIGIBLE;
 		return Outcome.CREATED;
@@ -87,7 +89,7 @@ public class InvitationNotificationHandler {
 	private void validateSnapshot(InvitationConfirmedEvent event, Snapshot snapshot) {
 		if (snapshot.inviteId() != event.inviteId() || snapshot.recipientUserId() != event.recipientUserId()
 			|| snapshot.inviterUserId() <= 0 || snapshot.diaryId() == null || snapshot.kind() == null
-			|| snapshot.eligibility() == null || !validTime(snapshot.expiresAt())) {
+			|| snapshot.eligibility() == null || (snapshot.kind() != InvitationNotificationSource.Kind.DIRECT && !validTime(snapshot.expiresAt()))) {
 			throw new InvitationEventException("초대 조회 결과가 이벤트와 맞지 않습니다.", false);
 		}
 	}

@@ -69,7 +69,7 @@ class InvitationLookupBootHttpTests {
   long recipient=user("lookup-r@example.com","lookup-r"), actor=user("lookup-a@example.com","lookup-a");
   UUID diary=UUID.randomUUID();
   jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'boot lookup')",diary,actor);
-  Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor,recipient,new byte[32],java.sql.Timestamp.valueOf("9999-12-31 23:59:59"));
+  Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor,recipient,new byte[32],java.sql.Timestamp.from(Instant.now().minusSeconds(3600)));
   jdbc.update("insert into notifications(user_id,diary_id,notification_type,payload_json) values(?,?,'DIARY_INVITE',cast(? as jsonb))",recipient,diary,"{\"inviteId\":\""+invite+"\"}");
   var session=login("lookup-r@example.com"); var other=login("lookup-a@example.com");
   var response=request("GET","/api/v1/notifications",session.accessToken(),null);
