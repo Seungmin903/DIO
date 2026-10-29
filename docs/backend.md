@@ -234,3 +234,7 @@ Swagger에서 로그인한 뒤에는 **Authorize**에 로그인 응답의 Access
 닉네임은 표시 이름으로 중복을 허용한다. 중복 확인 API·버튼·선행 확인 조건은 제거하며 trim/NFKC 정규화와 한글·영문·숫자·밑줄 2~12자 검증은 유지한다. 이메일 중복 검사는 유지한다. V20은 기존 nickname_key 컬럼과 회원 데이터를 보존하고 users_nickname_key_unique 제약만 해제한다. 기존 V2는 변경하지 않는다.
 
 가입 전 이메일 확인: POST `/api/v1/auth/email-availability` (인증 불필요). 공개 프로필 사진 조회 API도 유지한다.
+
+## 로그인 상태의 비밀번호 변경
+
+PATCH `/api/v1/me/password`는 구현됐으며 현재 비밀번호 검증 후 모든 세션을 폐기한다. 기존 내 공간의 변경 대화상자로 연결한다. [요청·응답과 검증 범위](./password-change.md)를 참고한다. 내 정보 조회·수정·탈퇴 API 구현은 포함하지 않는다.

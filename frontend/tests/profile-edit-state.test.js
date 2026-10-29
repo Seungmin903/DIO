@@ -15,7 +15,7 @@ const compile = (path) =>
       expo.resolve('@babel/plugin-transform-modules-commonjs'),
     ],
   }).code;
-function setup(service = {}, photoPicker = async () => null) {
+function setup(service = {}, photoPicker = async () => null, options = {}) {
   const states = [],
     refs = [],
     deps = [],
@@ -134,6 +134,7 @@ function setup(service = {}, photoPicker = async () => null) {
         ended++;
       },
       registerLeaveGuard,
+      ...options,
     });
   };
   return {
@@ -314,4 +315,14 @@ test('사진 선택의 늦은 응답과 실패는 언마운트·기존 프로필
   assert.ok(nodes(failed.render()).some(n => n.type === 'Image' && n.props.source.uri === 'file:///old.jpg'));
   assert.ok(nodes(failed.render()).some(n => n.props.children === '사진 선택 오류'));
   assert.equal(find(failed, '변경사항 저장').props.disabled, true); failed.unmount();
+});
+
+test('서버 계정은 기존 비밀번호 창만 열고 성공 후 세션을 종료한다',async()=>{
+ let calls=0;const ui=setup({changePassword:async()=>{calls++}},undefined,{passwordOnly:true,user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
+ assert.equal(find(ui,'닉네임'),undefined);assert.equal(find(ui,'회원 탈퇴'),undefined);
+ find(ui,'현재 비밀번호').props.onChangeText('Password123!');find(ui,'새 비밀번호').props.onChangeText('Changed123!');find(ui,'새 비밀번호 확인').props.onChangeText('Changed123!');
+ press(ui,'변경');await tick();assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
+});
+test('서버 비밀번호 창 취소는 회원정보 수정 화면으로 넘어가지 않는다',()=>{
+ const ui=setup({},undefined,{passwordOnly:true});press(ui,'취소');assert.equal(ui.closed(),1);ui.unmount();
 });

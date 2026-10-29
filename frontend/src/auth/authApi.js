@@ -1,4 +1,4 @@
-import { normalizeEmail, normalizeNickname, nicknameError } from './validation.js';
+import { normalizeEmail, normalizeNickname, nicknameError, passwordError } from './validation.js';
 import { developmentAuthorization } from './developmentAccess.js';
 
 export function authBaseUrl(value) {
@@ -50,14 +50,14 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         !developmentAccess && accessTokenHeader === 'Authorization' ? `Bearer ${accessToken}` : accessToken } : {}),
     };
   };
-  async function request(path, body, accessToken, multipart = false) {
+  async function request(path, body, accessToken, multipart = false, method = 'POST', memberPath = false) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetchImpl(`${base}/auth/${path}`, {
-        method: 'POST', signal: controller.signal,
+      const response = await fetchImpl(`${base}/${memberPath ? path : `auth/${path}`}`, {
+        method, signal: controller.signal,
         headers: { ...(!multipart && body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          ...getAuthHeaders(`${base}/auth/${path}`, accessToken) },
+          ...getAuthHeaders(`${base}/${memberPath ? path : `auth/${path}`}`, accessToken) },
         ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }),
       });
       const data = response.status === 204 ? null : await response.json().catch(() => null);
@@ -258,6 +258,23 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         try { await upload?.dispose?.(); } catch {}
         signupPending = false;
       }
+    },
+    async changePassword(user, { currentPassword, password, confirmation }) {
+      if (!session || String(user?.userId) !== String(session.user.userId)) throw new Error('다시 로그인해 주세요.');
+      if (!currentPassword || passwordError(password) || password !== confirmation || currentPassword === password)
+        throw new Error('현재 비밀번호와 새 비밀번호·확인 입력을 확인해 주세요.');
+      if (refreshing) await refreshing;
+      if (!session || String(user?.userId) !== String(session.user.userId)) throw new Error('로그인 상태가 변경되었어요.');
+      let current = session;
+      try { await request('me/password', { currentPassword, newPassword: password }, current.accessToken, false, 'PATCH', true); }
+      catch (error) {
+        if (error.status !== 401 || error.code === 'DEVELOPMENT_ACCESS_REQUIRED') throw error;
+        if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+        await api.refresh(); current = session;
+        await request('me/password', { currentPassword, newPassword: password }, current.accessToken, false, 'PATCH', true);
+      }
+      if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+      session = null; api.cancelPending();
     },
     async social() { throw new Error('소셜 로그인 API는 아직 연결되지 않았어요.'); },
     async refresh() {

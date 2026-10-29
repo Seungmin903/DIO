@@ -98,6 +98,42 @@ class EmailLoginTests {
                 new Agreement(TermsType.PRIVACY, "v1", true))));
     }
     LoginResponse login() { return service.login(new LoginRequest(EMAIL, "DioMember123!", "휴대폰"), "127.0.0.1"); }
+    @Test void passwordChangeRequiresAuthenticationAndRejectsWrongCurrentPassword()throws Exception{
+        register();var login=login();
+        String body="{\"currentPassword\":\"wrong\",\"newPassword\":\"ChangedDio123!\"}";
+        mvc.perform(patch("/api/v1/me/password").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isUnauthorized());
+        mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CURRENT_PASSWORD_MISMATCH"));
+        assertThat(service.active(jwt.decode(login.accessToken()))).isTrue();
+        assertThat(login()).isNotNull();
+    }
+    @Test void passwordChangeRevokesAllSessionsAndRequiresTheNewPassword()throws Exception{
+        register();var first=login();var second=login();
+        mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+first.accessToken()).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"currentPassword\":\"DioMember123!\",\"newPassword\":\"ChangedDio123!\"}"))
+            .andExpect(status().isNoContent()).andExpect(content().string(""));
+        assertThat(service.active(jwt.decode(first.accessToken()))).isFalse();
+        assertThat(service.active(jwt.decode(second.accessToken()))).isFalse();
+        assertThatThrownBy(this::login).isInstanceOf(LoginException.class);
+        assertThat(service.login(new LoginRequest(EMAIL,"ChangedDio123!","phone"),"127.0.0.1")).isNotNull();
+        mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+first.accessToken()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isUnauthorized());
+    }
+    @Test void passwordChangeRejectsSameOrMalformedPasswordWithoutRevokingSession()throws Exception{
+        register();var login=login();
+        for(String next:List.of("DioMember123!","short","abcdefgh","한글12345678"))
+            mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currentPassword\":\"DioMember123!\",\"newPassword\":\""+next+"\"}"))
+                .andExpect(status().isBadRequest());
+        assertThat(service.active(jwt.decode(login.accessToken()))).isTrue();
+        assertThat(login()).isNotNull();
+    }
+    @Test void socialOnlyAccountCannotChangeEmailPassword()throws Exception{
+        register();var login=login();accounts.deleteAll();
+        mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"currentPassword\":\"DioMember123!\",\"newPassword\":\"ChangedDio123!\"}"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("EMAIL_PASSWORD_REQUIRED"));
+    }
     @Test void cleanupOnlyRemovesExpiredSessionsAndTheirHistory() {
         register();
         var expiredResponse = login(); var activeResponse = login(); var revokedResponse = login();
