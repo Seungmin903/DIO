@@ -45,6 +45,7 @@ import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
 import TopBar from '../components/chrome/TopBar'
 import Viewport from '../components/canvas/Viewport'
+import { StageOverlayHost } from '../components/canvas/StageOverlay'
 import { ViewportMotion } from '../components/canvas/StaticPage'
 import { PHONE_ZOOM_MAX, ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
@@ -121,6 +122,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const [toolAnchor, setToolAnchor] = useState(null)
   const [drawerWidth, setDrawerWidth] = useState(320)
   const [stageOrigin, setStageOrigin] = useState({ x: 0, y: 0 })
+  const [ribbonBottom, setRibbonBottom] = useState(OPTIONS_TOP) // 태블릿 툴바 아래 끝 (작업창 좌표)
+  const [phonePanelWidths, setPhonePanelWidths] = useState({ left: 0, right: 0 }) // 폰에서 작업창 위에 띄운 패널 너비
   const toolPopoverStyle = (width = 320) => {
     // 폰: 세로 리본 바로 아래, 가로 리본의 상단 옆에 설정 창을 붙인다.
     // 작업 영역 안에서만 펼쳐지게 해 하단 되돌리기 바도 가리지 않는다.
@@ -574,9 +577,23 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const compactMenuLive = compactMenu && compactMenu.pageId === page.id && compactMenu.key === selectedObjects.map((o) => o.id).join(',')
     && compactMenu.zoom === zoom && compactMenu.ox === offset.x && compactMenu.oy === offset.y
   useEffect(() => { if (compactMenu && !compactMenuLive) setCompactMenu(null) }, [compactMenu, compactMenuLive])
+  // 선택 바를 둘 보이는 작업 영역 (작업창 좌표). 태블릿은 툴바 아래, 폰은 작업창 위에 띄운 페이지 목록·레이어를 뺀 나머지.
+  // 태블릿의 페이지 목록·레이어는 작업창 옆에 놓여 작업창이 이미 그만큼 좁다. 패널을 닫으면 영역도 바로 넓어진다.
+  const phonePanelLeft = compact && ((showPages && loaded) || (phoneLandscape && showLayers && !readOnly))
+  const phonePanelRight = compact && !phoneLandscape && showLayers && !readOnly
+  const contextBarFrame = stageSize && {
+    x: offset.x,
+    y: offset.y,
+    area: {
+      left: phonePanelLeft ? phonePanelWidths.left : 0,
+      top: !readOnly && !compact ? ribbonBottom : 0,
+      right: stageSize.width - (phonePanelRight ? phonePanelWidths.right : 0),
+      bottom: stageSize.height,
+    },
+  }
   const compactMenuLayout = compactMenuLive && stageSize && placeCompactMenu({
-    bar: { left: offset.x + compactMenu.anchor.left, top: offset.y + compactMenu.anchor.top, width: compactMenu.anchor.width, height: compactMenu.anchor.height },
-    floor: stageSize.height - (12 + 44 + 8), ceil: 8, stageWidth: stageSize.width,
+    bar: compactMenu.anchor, // 선택 바가 작업창 좌표로 넘긴다
+    floor: stageSize.height - (12 + 44 + 8), ceil: contextBarFrame.area.top + 8, left: contextBarFrame.area.left, right: contextBarFrame.area.right,
   })
   // 레이어 패널을 열고 닫을 때도 페이지 목록처럼 새 작업창 크기를 바로 써서 툴바와 페이지가 한 번에 같이 움직이게 한다.
   // 패널은 오른쪽 바깥 여백(16)을 덮으므로 작업창 폭은 패널 폭 + 간격 - 16 만큼 바뀐다.
@@ -817,7 +834,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
         <TapCatcher onTap={clearSelection} style={StyleSheet.absoluteFill} />
         {showPages && loaded && (
-          <PhonePanelSlot compact={compact} side={styles.phonePanelLeft}>
+          <PhonePanelSlot compact={compact} side={styles.phonePanelLeft} onWidth={(left) => setPhonePanelWidths((prev) => ({ ...prev, left }))}>
           <PageList
             qaMeasurement={pagePanelMeasurement.current}
             readOnly={readOnly}
@@ -849,6 +866,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
 
         <View ref={stageRef} collapsable={false} style={styles.stage}
           onLayout={() => stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y }))}>
+          {/* 선택 바는 페이지 밖(보이는 작업 영역 안)까지 나가므로 페이지가 아니라 작업창 위 층에 그린다. 확대·이동하는 동안은 숨긴다. */}
+          <StageOverlayHost hidden={viewMoving}>
           <Viewport
             zoom={zoom}
             scale={viewportLocked ? 1 : view.scale}
@@ -948,11 +967,14 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
                 onFillSlot={(object, slot) => fillCells(object.id, slot ?? 0)}
                 onToast={showToast}
                 contextBarInside={markInside}
+                contextBarFrame={contextBarFrame}
               />
             </ViewportMotion.Provider>
           </Viewport>
+          </StageOverlayHost>
 
-          {!readOnly && !compact && <View style={styles.ribbonWrap} pointerEvents="box-none" {...markInside}>
+          {!readOnly && !compact && <View style={styles.ribbonWrap} pointerEvents="box-none" {...markInside}
+            onLayout={(event) => { const { y, height } = event.nativeEvent.layout; setRibbonBottom(y + height) }}>
             <Ribbon
               onAnchor={setToolAnchor}
               penColor={penSettings.color}
@@ -1111,7 +1133,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
         </View>
 
         {showLayers && !readOnly && (
-          <PhonePanelSlot compact={compact} side={phoneLandscape ? styles.phonePanelLeft : styles.phonePanelRight}>
+          <PhonePanelSlot compact={compact} side={phoneLandscape ? styles.phonePanelLeft : styles.phonePanelRight}
+            onWidth={(width) => setPhonePanelWidths((prev) => (phoneLandscape ? { ...prev, left: width } : { ...prev, right: width }))}>
             <LayerPanel
               objects={deferredObjects}
               selectedIds={state.selectedIds}
@@ -1170,9 +1193,9 @@ function optionsPlacement(objects, zoom, offset, stage) {
 }
 
 // 폰에서만 패널을 작업창 위에 띄우는 틀로 감싼다. 태블릿은 감싸지 않아 기존 배치·겹침 순서를 그대로 쓴다.
-function PhonePanelSlot({ compact, side, children }) {
+function PhonePanelSlot({ compact, side, onWidth, children }) {
   if (!compact) return children
-  return <View style={[styles.phonePanel, side]} pointerEvents="box-none">{children}</View>
+  return <View style={[styles.phonePanel, side]} pointerEvents="box-none" onLayout={(event) => onWidth?.(event.nativeEvent.layout.width)}>{children}</View>
 }
 
 function RoundButton({ icon, label, disabled, active, onPress }) {

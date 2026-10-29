@@ -53,6 +53,7 @@ export default function ContextBar({
   onCopyLink, // 링크 카드의 복사
   onObjectLink, // 스티커·테이프·사진에 링크 걸기
   textSettingsOpen = false, // 텍스트 서식 창이 열려 있음 ('서식' 버튼 표시)
+  frame = null, // 작업창 위에 그릴 때 { x, y: 페이지 왼쪽 위의 작업창 좌표, area: 바를 둘 보이는 영역 { left, top, right, bottom } }. 없으면 페이지 안
 }) {
   const [barWidth, setBarWidth] = useState(0)
   const [chipWidth, setChipWidth] = useState(0)
@@ -67,19 +68,23 @@ export default function ContextBar({
   const editable = objects.filter((o) => !o.locked)
   const single = objects.length === 1 ? objects[0] : null
   const bounds = unionBounds(objects)
-  const pageW = pageWidth * zoom
-  const pageH = pageHeight * zoom
-  // 바는 늘 페이지 안쪽에 둔다. Android·iOS 는 부모(페이지) 영역 밖으로 나간 버튼에 터치를 전달하지 않는다.
+  // 바를 둘 영역과 좌표: 작업창 위에 그리면(frame) 화면에 보이는 작업 영역(툴바·페이지 목록·레이어 제외), 아니면 페이지.
+  // 화면을 옮기거나 확대해 요소가 가장자리로 가도 바는 이 영역 안으로 들어온다.
+  const origin = frame ?? { x: 0, y: 0 }
+  const area = frame?.area ?? { left: 0, top: 0, right: pageWidth * zoom, bottom: pageHeight * zoom }
+  const areaW = area.right - area.left
   // 자리 규칙은 utils/popoverPlacement: 선택 상자 + 회전 손잡이(돌린 방향 그대로)를 피해 위 먼저, 안 되면 아래,
   // 둘 다 안 되면 손잡이 반대쪽에 붙인다. 회전 손잡이는 잠기지 않은 요소 하나를 골랐을 때만 보인다.
-  const keepOut = keepOutBox(bounds, zoom, single && !single.locked ? single : null)
-  const { top, side } = placeVertical(keepOut, BAR_HEIGHT, pageH)
-  // 순서 메뉴는 바 위·아래 중 페이지 안에 더 넉넉한 쪽으로 편다.
-  const menuBelow = pageH - (top + BAR_HEIGHT) >= top
-  const left = placeHorizontal(bounds.cx * zoom, barWidth, pageW)
+  const box = keepOutBox(bounds, zoom, single && !single.locked ? single : null)
+  const keepOut = { ...box, left: box.left + origin.x, right: box.right + origin.x, cx: box.cx + origin.x, top: box.top + origin.y, bottom: box.bottom + origin.y, handleY: box.handleY == null ? null : box.handleY + origin.y }
+  const centerX = bounds.cx * zoom + origin.x
+  const { top, side } = placeVertical(keepOut, BAR_HEIGHT, area)
+  // 순서 메뉴는 바 위·아래 중 영역 안에 더 넉넉한 쪽으로 편다.
+  const menuBelow = area.bottom - (top + BAR_HEIGHT) >= top - area.top
+  const left = placeHorizontal(centerX, barWidth, area)
   // 링크 카드: Google 슬라이드처럼 편집 바와 따로, 요소의 반대쪽(바가 위면 아래)에 띄운다. 주소를 누르면 열린다.
-  const chipTop = placeVertical(keepOut, CHIP_HEIGHT, pageH, { prefer: side === 'above' ? 'below' : 'above' }).top
-  const chipLeft = placeHorizontal(bounds.cx * zoom, chipWidth, pageW)
+  const chipTop = placeVertical(keepOut, CHIP_HEIGHT, area, { prefer: side === 'above' ? 'below' : 'above' }).top
+  const chipLeft = placeHorizontal(centerX, chipWidth, area)
   const linkCard = href && single && !single.locked && (
     <View style={[styles.chip, { top: chipTop, left: chipLeft, opacity: chipWidth ? 1 : 0 }]} onLayout={(event) => setChipWidth(event.nativeEvent.layout.width)} onStartShouldSetResponder={() => true} {...insideHandlers}>
       <Pressable onPress={openLink} accessibilityRole="link" accessibilityLabel="링크 열기" style={({ pressed }) => [styles.chipLink, pressed && styles.pressed]}>
@@ -127,8 +132,13 @@ export default function ContextBar({
         dispatch({ type: 'removeObjects', ids: editable.map((o) => o.id) })
       } },
     ]
-    const inlineCount = fitInline(leading, actions, Math.max(120, pageW - EDGE * 2))
-    const overflow = actions.slice(inlineCount).map((action) => ({ ...action, onPress: () => {
+    const barMax = Math.max(120, areaW - EDGE * 2)
+    // 앞쪽 버튼조차 다 못 넣을 만큼 좁으면(폰에서 레이어를 연 옆자리 등) 앞쪽 버튼도 동작들과 이어 붙여 넘치는 만큼 더보기로 옮긴다.
+    const squeezed = !leadingFits(leading, barMax)
+    const shownLeading = squeezed ? [] : leading
+    const rest = squeezed ? [...leading, ...actions] : actions
+    const inlineCount = fitInline(shownLeading, rest, barMax)
+    const overflow = rest.slice(inlineCount).map((action) => ({ ...action, onPress: () => {
       onCompactMenu?.(null)
       if (action.label === '순서') return setOrderOpen(true)
       action.onPress()
@@ -136,22 +146,22 @@ export default function ContextBar({
     // 메뉴는 페이지(캔버스) 밖, stage 위에 그린다. Android 는 부모 경계 밖에 그려진 자식에 터치를 주지 않아서 페이지 안에 두면 아래로 삐져나간 항목을 누를 수 없다.
     const openCompactMenu = () => onCompactMenu?.(compactMenuOpen ? null : { key: selectionKey, anchor: { left, top, width: barWidth, height: BAR_HEIGHT }, actions: overflow })
     return <>
-      <View accessibilityLabel="객체 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]}
+      <View accessibilityLabel="객체 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, areaW - EDGE * 2), opacity: barWidth ? 1 : 0 }]}
         onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} onStartShouldSetResponder={() => true} {...insideHandlers}>
-        {leading.map((action) => <BarButton key={action.label} {...action} />)}
-        {leading.length > 0 && <View style={styles.divider} />}
-        {actions.slice(0, inlineCount).map((action) => <BarButton key={action.label} {...action} onPress={() => { onCompactMenu?.(null); action.onPress() }} />)}
+        {shownLeading.map((action) => <BarButton key={action.label} {...action} />)}
+        {shownLeading.length > 0 && <View style={styles.divider} />}
+        {rest.slice(0, inlineCount).map((action) => <BarButton key={action.label} {...action} onPress={() => { onCompactMenu?.(null); action.onPress() }} />)}
         {overflow.length > 0 && <BarButton icon="more" label="더보기" active={compactMenuOpen} onPress={() => { openCompactMenu(); setOrderOpen(false) }} />}
         {orderOpen && <OrderMenu placement={menuBelow ? 'below' : 'above'} right={Math.max(MENU_WIDTH, barWidth - 5)} objects={objects} allObjects={allObjects} onPick={(mode) => dispatch({ type: 'reorder', ids, mode })} />}
       </View>
       {linkCard}
-      {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} anchor={{ top, height: BAR_HEIGHT }} />}
+      {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} origin={origin} area={area} anchor={{ top, height: BAR_HEIGHT }} />}
     </>
   }
 
   // 텍스트 요소 선택: 문자열 복사는 편집 모드에서, 여기서는 상자 전체를 복제한다.
   if (editingText) return <>
-    <View accessibilityLabel="텍스트 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
+    <View accessibilityLabel="텍스트 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, areaW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
         <BarButton icon="edit" label="수정" onPress={() => onEditText?.(single)} />
         <BarButton icon="text" label="서식" active={textSettingsOpen} onPress={() => onTextSettings?.()} />
@@ -162,11 +172,11 @@ export default function ContextBar({
       </ScrollView>
     </View>
     {linkCard}
-    {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} anchor={{ top, height: BAR_HEIGHT }} />}
+    {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} origin={origin} area={area} anchor={{ top, height: BAR_HEIGHT }} />}
   </>
 
   if (editingStroke) return <>
-    <View accessibilityLabel="필기 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, pageW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
+    <View accessibilityLabel="필기 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, areaW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
         {EDITOR_COLORS.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 요소 색상 ${color}`} accessibilityState={{ selected: single.color?.toUpperCase() === color.toUpperCase() }}
           onPress={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color } })}
@@ -181,7 +191,7 @@ export default function ContextBar({
         <BarButton icon="more" label="정렬·보정" active={moreOpen} onPress={onToggleMore} />
       </ScrollView>
     </View>
-    {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} anchor={{ top, height: BAR_HEIGHT }} />}
+    {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} origin={origin} area={area} anchor={{ top, height: BAR_HEIGHT }} />}
   </>
 
   return null
@@ -190,6 +200,9 @@ export default function ContextBar({
 // 바 버튼 너비 어림값: 좌우 여백 20 + 아이콘 17 + 간격 5 + 글자(12.5px 굵은 한글 ≈ 13px) + 버튼 사이 2
 const barButtonWidth = (label) => 44 + label.length * 13
 const BAR_DIVIDER = 11 // 구분선 1 + 좌우 4 + 버튼 사이 2
+/** 앞쪽 버튼 전부와 구분선 · 더보기 버튼이 바(좌우 안쪽 여백 10)에 들어가는지 */
+const leadingFits = (leading, barMax) => !leading.length
+  || leading.reduce((sum, action) => sum + barButtonWidth(action.label), 0) + BAR_DIVIDER + barButtonWidth('더보기') <= barMax - 10
 /** 바(좌우 안쪽 여백 10)에 앞쪽 버튼과 함께 넣을 수 있는 동작 수. 다 못 넣으면 더보기 버튼 자리를 남긴다. */
 export function fitInline(leading, actions, barMax) {
   const space = barMax - 10 - leading.reduce((sum, action) => sum + barButtonWidth(action.label), 0) - (leading.length ? BAR_DIVIDER : 0)
@@ -201,16 +214,16 @@ export function fitInline(leading, actions, barMax) {
 }
 
 /**
- * 폰 더보기 메뉴. ContextBar 가 넘긴 명세(anchor: 바의 페이지 좌표·크기, actions)로 EditorScreen 이 stage 위에 그린다.
- * stage 좌표의 바 위치와 위·아래 한계(floor/ceil)를 받아, 바 오른쪽 끝에 맞춰 아래로 펴고 자리가 모자라면 바 바로 위로 편다.
+ * 폰 더보기 메뉴. ContextBar 가 넘긴 명세(anchor: 바의 좌표·크기, actions)로 EditorScreen 이 stage 위에 그린다.
+ * stage 좌표의 바 위치와 위·아래 한계(floor/ceil), 좌우 한계(left/right)를 받아, 바 오른쪽 끝에 맞춰 아래로 펴고 자리가 모자라면 바 바로 위로 편다.
  */
-export function placeCompactMenu({ bar, floor, ceil, stageWidth }) {
+export function placeCompactMenu({ bar, floor, ceil, left = 0, right }) {
   const spaceBelow = floor - (bar.top + bar.height + 6)
   const spaceAbove = bar.top - 6 - ceil
   // 아래 자리가 두 항목(88)도 안 될 때만 위로 올린다.
   const below = spaceBelow >= 88 || spaceBelow >= spaceAbove
   const maxHeight = clamp(below ? spaceBelow : spaceAbove, 88, COMPACT_MENU_HEIGHT)
-  return { maxHeight, position: { left: clamp(bar.left + bar.width - 166, EDGE, Math.max(EDGE, stageWidth - 166 - EDGE)), top: below ? bar.top + bar.height + 6 : bar.top - 6 - maxHeight } }
+  return { maxHeight, position: { left: clamp(bar.left + bar.width - 166, left + EDGE, Math.max(left + EDGE, right - 166 - EDGE)), top: below ? bar.top + bar.height + 6 : bar.top - 6 - maxHeight } }
 }
 
 export function CompactMenu({ position, maxHeight, insideHandlers, actions }) {

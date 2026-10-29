@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Icon from '../controls/Icon'
 import { colors, DISABLED_OPACITY } from '../../../shared/theme'
@@ -16,6 +16,7 @@ import { fitTextHeightPatch, textLayoutKey } from '../../utils/text'
 import { createLassoOutline, resolveLassoOutline } from '../../utils/lassoOutline.js'
 import PageBackground from '../PageBackground'
 import ContextBar from './ContextBar'
+import { StageOverlay } from './StageOverlay'
 import CropHandles from './CropHandles'
 import SlotAddButtons from './SlotAddButtons'
 import FrameTextEditor, { frameTextAt } from './FrameTextEditor'
@@ -70,6 +71,7 @@ export default function Canvas({
   moreOpen,
   onToggleMore,
   contextBarInside,
+  contextBarFrame = null, // 선택 바를 작업창 위 층(StageOverlay)에 그릴 때의 자리 { x, y, area } (ContextBar frame)
   onCrop,
   onToast,
   activeTool = 'select',
@@ -311,6 +313,9 @@ export default function Canvas({
     <GridOverlay guides={gridGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
     <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
   </> : null
+  // 선택 바는 작업창 좌표(contextBarFrame)가 있을 때만 작업창 위 층으로 보낸다.
+  // 작업창 크기를 재기 전(null)에는 페이지 좌표 그대로 페이지 안에 그린다. 작업창 층에 보내면 확대·이동한 만큼 어긋난다.
+  const SelectionBarLayer = contextBarFrame ? StageOverlay : Fragment
 
   return (
     <View
@@ -481,7 +486,8 @@ export default function Canvas({
       )}
 
       {canTouch && selected.length > 0 && !cropping && !interacting && !marquee && (
-        <View pointerEvents="box-none" style={styles.selectionMenu}>
+        <SelectionBarLayer>
+        <View pointerEvents="box-none" style={contextBarFrame ? StyleSheet.absoluteFill : styles.selectionMenu}>
         <ContextBar
           compact={compact}
           compactMenu={compactMenu}
@@ -510,8 +516,10 @@ export default function Canvas({
           onFillCells={onFillCells}
           onToast={onToast}
           insideHandlers={contextBarInside}
+          frame={contextBarFrame}
         />
         </View>
+        </SelectionBarLayer>
       )}
     </View>
   )
