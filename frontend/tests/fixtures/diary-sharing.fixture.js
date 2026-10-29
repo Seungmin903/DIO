@@ -36,6 +36,7 @@ export default function Fixture() {
         />
         <Text testID="joined">{sharing.joined.length}</Text>
         <Text testID="opened">{opened}</Text>
+        <Text testID="personal-copies">{sharing.library.filter(diary => !diary.sharedDiaryId).map(diary => diary.title).join(',')}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="소유자 참여자 관리 재현"
           onPress={async () => {
             const id = sharing.runtime.preview.receiveInvitation({ title: '참여자 관리 기록', members: [
@@ -66,6 +67,7 @@ export default function Fixture() {
           model={sharing.notifications}
           onClose={() => setRequest(null)}
           onOpenDiary={id => { setOpened(id); setRequest(null); }}
+          onOpenCopy={diary => { setOpened(diary.title); setRequest(null); }}
         />
       </View>
     </SafeAreaProvider>

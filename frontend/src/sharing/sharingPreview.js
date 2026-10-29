@@ -1,6 +1,6 @@
 import { createMockNotificationTransport } from '../notifications/mockNotificationTransport.js';
 import { createNotificationApi } from '../notifications/notificationApi.js';
-import { createSessionDocuments } from '../editor/services/sessionDocuments.js';
+import { createSessionDocuments, readSessionDocument, writeSessionDocument } from '../editor/services/sessionDocuments.js';
 
 export class SharingError extends Error {
   constructor(code, message) {
@@ -10,6 +10,15 @@ export class SharingError extends Error {
 }
 export const normalizeSharingNickname = (value) => value.trim().normalize('NFKC');
 export const MAX_SHARING_MEMBERS = 4;
+export const COPY_TITLE_LIMIT = 24;
+// TextInput.maxLength와 같은 UTF-16 코드 단위 제한을 사용한다.
+export const copyTitleError = value => !value.trim() ? '사본 이름을 입력해 주세요.'
+  : value.trim().length > COPY_TITLE_LIMIT ? '이름은 24자 이내로 입력해 주세요.' : '';
+export const defaultCopyTitle = title => {
+  // 잘린 끝의 high surrogate를 제거해 이모지의 서로게이트 쌍을 나누지 않는다.
+  const prefix = title.slice(0, COPY_TITLE_LIMIT - 3).replace(/[\uD800-\uDBFF]$/, '');
+  return `${prefix} 사본`;
+};
 export const normalizeInviteEmail = (value) => value.trim().toLowerCase();
 export const inviteEmailError = (value) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeInviteEmail(value)) && value.trim().length <= 254
@@ -19,6 +28,8 @@ export const sharingNicknameError = (value) =>
     ? ''
     : '한글·영문·숫자·밑줄로 2~12자를 입력해 주세요.';
 const copy = (value) => JSON.parse(JSON.stringify(value));
+const emptySharingTemplate = { version: 2, dateMode: 'dated', orientation: 'landscape', cover: false,
+  dividers: false, monthly: false, weekly: false, daily: false, dailyTemplates: [], reusable: [], legacyEndPages: [] };
 const fail = (code, message) => {
   throw new SharingError(code, message);
 };
@@ -33,10 +44,12 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
   });
   const documents = createSessionDocuments();
   const diaries = new Map();
+  const personalCopies = new Map();
   const invites = new Map();
   const linkAttempts = new Map();
   const listeners = new Set();
   let active = true;
+  let copyGeneration = 0;
   let serial = 0;
   let snapshot = { joined: [], diaries: [], library: [] };
   const publish = () => {
@@ -44,7 +57,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
       value.members.some((member) => member.id === self.id && member.role !== 'OWNER'),
     );
     snapshot = {
-      library: joined.filter(value => !value.localSource).map((value) => {
+      library: [...joined.filter(value => !value.localSource).map((value) => {
         const key = documents.key(value.id);
         return {
           id: key,
@@ -60,21 +73,9 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
           updatedAt: value.joinedAt,
           templateConfig: value.templateConfig
             ? copy(value.templateConfig)
-            : {
-                version: 2,
-                dateMode: 'dated',
-                orientation: 'landscape',
-                cover: false,
-                dividers: false,
-                monthly: false,
-                weekly: false,
-                daily: false,
-                dailyTemplates: [],
-                reusable: [],
-                legacyEndPages: [],
-              },
+            : copy(emptySharingTemplate),
         };
-      }),
+      }), ...copy([...personalCopies.values()])],
       diaries: copy([...diaries.values()]),
       joined: copy(
         [...diaries.values()].filter((value) =>
@@ -205,7 +206,9 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
     },
     dispose() {
       active = false;
+      copyGeneration++;
       documents.dispose();
+      personalCopies.clear();
     },
     // 이미 존재하는 로컬 다이어리는 소유자용 공유 UI에만 등록한다. 원본 객체와 저장소를 변경하지 않는다.
     registerDiary(source) {
@@ -234,10 +237,31 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
       return copy(own(source.id));
     },
     toggleFavorite(id) {
-      const diary = own(id);
+      const diary = personalCopies.get(id) || own(id);
       diary.favorite = !diary.favorite;
       publish();
       return copy(diary);
+    },
+    async createPersonalCopy(id, title) {
+      const generation = copyGeneration;
+      await wait();
+      if (generation !== copyGeneration) fail('DISPOSED', '화면을 다시 열어 주세요.');
+      const source = own(id);
+      if (source.localSource) fail('UNAVAILABLE', '공유 다이어리에서 사본을 만들어 주세요.');
+      const error = copyTitleError(title);
+      if (error) fail('INVALID_TITLE', error);
+      const copyId = `personal-copy-${++serial}`;
+      const key = documents.key(copyId);
+      const time = new Date(now()).toISOString();
+      const result = { id: key, sessionStorageKey: key, title: title.trim(),
+        color: source.color, pattern: source.pattern, type: '개인',
+        canManage: false, canDelete: false, favorite: false, createdAt: time, updatedAt: time,
+        templateConfig: copy(source.templateConfig || emptySharingTemplate) };
+      const doc = readSessionDocument(documents.key(id));
+      if (doc && !writeSessionDocument(key, copy(doc))) fail('COPY_FAILED', '사본을 만들지 못했어요. 다시 시도해 주세요.');
+      personalCopies.set(key, result);
+      publish();
+      return copy(result);
     },
     async resolveLink(value) {
       const match = /^https:\/\/dio\.example\/invite\/([^/?#]+)\/?$/.exec(value.trim());

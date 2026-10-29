@@ -239,7 +239,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const favorite = useCallback((id) => {
     if (member) { notify('즐겨찾기', '회원 즐겨찾기 변경 연결을 준비하고 있어요.'); return; }
     const shared = sharedLibraryRef.current.find(item => item.id === id);
-    if (shared) { sharing.runtime.toggleFavorite(shared.sharedDiaryId); return; }
+    if (shared) { sharing.runtime.toggleFavorite(shared.sharedDiaryId || shared.id); return; }
     setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, favorite: !diary.favorite } : diary)));
     setActive((current) => (current?.id === id ? { ...current, favorite: !current.favorite } : current));
   }, [member, setDiaries, sharing.runtime]);
@@ -718,7 +718,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     <>
       {authenticatedNotifications && sharingRequest?.mode === 'notifications'
         ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => setSharingRequest(null)} />
-        : <SharingHub onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />}
+        : <SharingHub onOpenCopy={diary => { setSharingRequest(null); enterEditor(diary); }} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
         {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}
