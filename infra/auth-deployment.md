@@ -34,7 +34,7 @@ CI는 이미지 빌드·컨테이너 교체 **전에** `docker compose ... confi
 
 ## 자동 PostgreSQL 검증과 헬스 체크
 
-MR에서는 변경 경로에 따라 `backend-postgres-auth-test`, `backend-postgres-sharing-test`, `backend-postgres-diary-test`, `backend-postgres-lifecycle-test`를 필수 품질 작업으로 실행한다. 마이그레이션·공통 영속성 계층 변경은 모든 작업을 실행하고, 인증·공유·다이어리 생성/상세·휴지통/영구 삭제 변경은 영향 범위의 작업만 실행한다. 각 작업은 CI_JOB_ID별 폐기용 PostgreSQL 17을 만들고 호스트 포트를 공개하지 않는다. 테스트 JVM만 DB 네트워크 네임스페이스에 참여하며 실제 배포 환경 파일·DB·볼륨을 사용하지 않고, 성공·실패 시 trap으로 테스트 DB와 익명 볼륨을 정리한다. 결과는 각 테스트 task의 JUnit artifact에 남긴다. 일반 H2 테스트도 별도로 유지한다.
+MR에서는 변경 경로에 따라 `backend-postgres-auth-test`, `backend-postgres-sharing-test`, `backend-postgres-diary-test`, `backend-postgres-lifecycle-test`를 필수 품질 작업으로 실행한다. Flyway migration·datasource·공통 영속성 계층 변경은 모든 작업을 실행하고, 인증·공유·다이어리 생성/상세·휴지통/영구 삭제 변경은 영향 범위의 작업만 실행한다. 공유 작업은 공유 패키지와 다이어리·페이지 도메인/저장소 변경에만 선택되어 일반 다이어리 API 변경에서는 불필요하게 실행되지 않는다. 각 작업은 CI_JOB_ID별 폐기용 PostgreSQL 17을 만들고 호스트 포트를 공개하지 않는다. 테스트 JVM만 DB 네트워크 네임스페이스에 참여하며 실제 배포 환경 파일·DB·볼륨을 사용하지 않고, 성공·실패 시 trap으로 테스트 DB와 익명 볼륨을 정리한다. 결과는 각 테스트 task의 JUnit artifact에 남긴다. 일반 H2 테스트도 별도로 유지한다.
 
 `management.health.mail.enabled=false`로 외부 SMTP 장애를 기본 `/actuator/health`에서 제외한다. DB 등 다른 헬스 검사는 유지한다. 메일 발송 API의 실패 응답·오류 처리는 유지하므로 운영자는 실제 테스트 메일 도착과 발송 실패를 별도로 관찰한다.
 
