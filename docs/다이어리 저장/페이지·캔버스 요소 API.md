@@ -137,3 +137,9 @@ ID는 모두 UUID 문자열이다. 오류는 `application/problem+json`이며 `c
 |---|---|
 | `./gradlew test` | H2에서 `PageApiTests`(페이지·요소 전체 흐름)와 `PageBatchRollbackTests`(일괄 변경 전체 취소) 실행 |
 | `./gradlew postgresTest` | 로컬 PostgreSQL(Flyway V1, jsonb)에서 같은 흐름을 `PostgresPageApiTests`로 실행, 테스트 행은 롤백 |
+
+### 요소 생성 순서와 페이지 생성 재시도
+
+기존 요소 생성 API와 batch의 `creates`는 선택적 숫자 `sortKey`를 받는다. 정수부 최대 10자리·소수부 최대 10자리이며 명시적 `null`은 400이다. 생략하면 서버가 현재 마지막 순서(최대값 + 1)에 배치한다. 지정하면 해당 레이어 순서로 저장한다.
+
+페이지 생성 시 사용한 `templateConfig.clientPageRequestId`는 서버가 설정 수정·속지 변경 후에도 보존하는 생성 식별자다. 수정 요청에서 다른 ID로 교체하거나 기존 ID가 없는 페이지에 추가할 수 없다(400). 설정 변경 후 원래 생성 요청을 재시도하면 409 `PAGE_CREATION_CONFLICT`로 안내하며 중복 페이지는 만들지 않는다. 페이지 복제본은 원본의 생성 식별자를 물려받지 않는다.

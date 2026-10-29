@@ -53,6 +53,7 @@ public class PageService {
 		if(t!=null&&w==null){w=t.getCanvasWidth();h=t.getCanvasHeight();}
 		boolean replaceTemplateConfig=r.getTemplateConfig()!=null||t!=null;
 		String templateConfig=r.getTemplateConfig()==null?defaultConfig(t):copy(r.getTemplateConfig());
+		if(replaceTemplateConfig)templateConfig=preserveCreationRequestId(page.getTemplateConfig(),templateConfig);
 		page.updateSettings(r.getTemplateId(),templateConfig,replaceTemplateConfig,r.getTitle(),w,h,r.getGridVisible(),r.getGridColor()); pageRepository.flush(); events.publishEvent(new PageCatalogChanged(page.getDiaryId())); return new PageResponse(pageData(page));
 	}
 	@Transactional public PageResponse copy(UUID pageId,Long userId){
@@ -71,6 +72,18 @@ public class PageService {
 	@Transactional(readOnly=true) public DiaryPage requirePage(UUID pageId){return pageRepository.findByPageIdAndDeletedAtIsNull(pageId).orElseThrow(PageNotFoundException::new);}
 	@Transactional(readOnly=true) public DiaryPage requireReadablePage(UUID pageId,Long userId){DiaryPage page=requirePage(pageId);diaryAccessService.requireRead(page.getDiaryId(),userId);return page;}
 	@Transactional(readOnly=true) public DiaryPage requireWritablePage(UUID pageId,Long userId){DiaryPage page=requirePage(pageId);diaryAccessService.requireWrite(page.getDiaryId(),userId);return page;}
+    private static String preserveCreationRequestId(String previous,String replacement){
+        var old=previous==null?null:JSON.readTree(previous);
+        var requestId=old==null?null:old.get("clientPageRequestId");
+        var next=replacement==null?null:JSON.readTree(replacement);
+        var supplied=next==null?null:next.get("clientPageRequestId");
+        if(supplied!=null&&!supplied.equals(requestId))throw new IllegalArgumentException("clientPageRequestId는 변경할 수 없습니다.");
+        if(requestId==null)return replacement;
+        if(next==null)next=JSON.createObjectNode();
+        if(!(next instanceof tools.jackson.databind.node.ObjectNode object))throw new IllegalArgumentException("생성 요청 ID가 있는 페이지 설정은 객체여야 합니다.");
+        object.set("clientPageRequestId",requestId);
+        return object.toString();
+    }
     private static boolean sameConfig(JsonNode a,JsonNode b){
         if(a==null||b==null)return a==b;
         if(a.isNumber()&&b.isNumber())return a.decimalValue().compareTo(b.decimalValue())==0;

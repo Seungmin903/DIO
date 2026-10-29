@@ -216,6 +216,15 @@ class PageApiTests {
 			.andExpect(jsonPath("$.page.templateConfig.lineSpacing").value(32));
 	}
 
+    @Test void changingTemplatePreservesTheOriginalCreationRequestId()throws Exception{
+        String diaryId=createDiary("생성 식별자 보존");String nonce=java.util.UUID.randomUUID().toString();
+        String pageId=createPage(diaryId,"{\"templateConfig\":{\"clientPageRequestId\":\""+nonce+"\"}}");
+        PageTemplate template=activeTemplate("identity-lined",new BigDecimal("700.00"),new BigDecimal("900.00"),"{\"lineSpacing\":32}");
+        mvc.perform(patch("/api/v1/pages/"+pageId).with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"templateId\":"+template.getTemplateId()+"}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.clientPageRequestId").value(nonce)).andExpect(jsonPath("$.page.templateConfig.lineSpacing").value(32));
+    }
+
+
 	@Test
 	void staleElementVersionIsRejectedInsteadOfOverwriting() throws Exception {
 		String pageId=createPage(createDiary("버전 검증"),"{}");

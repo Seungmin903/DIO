@@ -52,6 +52,21 @@ class CanvasCollaborationTests {
     JsonNode update(UUID page,Actor actor,UUID element,String value,long version)throws Exception{return apply(page,actor,UUID.randomUUID(),Map.of("updates",List.of(Map.of("elementId",element,"version",version,"propertiesJson",Map.of("text",value)))));}
     JsonNode history(UUID page,Actor actor)throws Exception{return json.readTree(mvc.perform(get("/api/v1/pages/"+page+"/history/me").header("Authorization","Bearer "+actor.token())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());}
     Map<String,Object> command(JsonNode item,UUID client){return Map.of("operationId",item.path("operationId").asText(),"expectedRevision",item.path("revision").asInt(),"clientOperationId",client);}
+    @Test void settingsReplacementKeepsCreationIdentityAndPreventsDuplicateRetry()throws Exception{
+        var owner=actor();var diary=diary(owner);String nonce=UUID.randomUUID().toString();
+        String body=json.writeValueAsString(Map.of("templateConfig",Map.of("clientPageRequestId",nonce,"blank",true)));
+        var created=mvc.perform(post("/api/v1/diaries/"+diary+"/pages").header("Authorization","Bearer "+owner.token()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated()).andReturn();
+        String id=json.readTree(created.getResponse().getContentAsString()).path("page").path("pageId").asText();
+        mvc.perform(patch("/api/v1/pages/"+id).header("Authorization","Bearer "+owner.token()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"templateConfig\":{\"blank\":false}}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.page.templateConfig.clientPageRequestId").value(nonce));
+        mvc.perform(post("/api/v1/diaries/"+diary+"/pages").header("Authorization","Bearer "+owner.token()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body)).andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("select count(*) from pages where diary_id=?",Integer.class,diary)).isEqualTo(1);
+        mvc.perform(patch("/api/v1/pages/"+id).header("Authorization","Bearer "+owner.token()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("templateConfig",Map.of("clientPageRequestId",UUID.randomUUID().toString()))))).andExpect(status().isBadRequest());
+        mvc.perform(patch("/api/v1/pages/"+id).header("Authorization","Bearer "+owner.token()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"templateConfig\":[]}")).andExpect(status().isBadRequest());
+        UUID legacy=page(diary);
+        mvc.perform(patch("/api/v1/pages/"+legacy).header("Authorization","Bearer "+owner.token()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
+    }
+
     @Test void createUndoRedoAndOwnHistorySurviveRetries()throws Exception{
         var owner=actor();UUID page=page(diary(owner)),element=UUID.randomUUID(),client=UUID.randomUUID();
         var request=Map.<String,Object>of("creates",List.of(text(element,"hello")));

@@ -148,6 +148,19 @@ class CollaborationEfficiencyTests {
         for(int i=0;i<5;i++)handler.handleMessage(socket,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
         verify(decoder,times(4)).decode("token");verify(socket).close(CloseStatus.POLICY_VIOLATION);
     }
+    @Test void malformedFramesArePolicyViolationsBeforeAndAfterAuthentication()throws Exception{
+        for(boolean authenticated:new boolean[]{false,true})for(String payload:new String[]{"{","not-json","","null","[]","\"PING\"","{\"type\":}"}){
+            var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);
+            when(decoder.decode(anyString())).thenReturn(Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",UUID.randomUUID().toString()).expiresAt(Instant.now().plusSeconds(600)).build());
+            var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
+            var socket=pendingSocket("malformed",UUID.randomUUID(),"ip");handler.afterConnectionEstablished(socket);
+            if(authenticated)handler.handleMessage(socket,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
+            clearInvocations(access,decoder);
+            handler.handleMessage(socket,new TextMessage(payload));
+            verify(socket).close(CloseStatus.POLICY_VIOLATION);verify(socket,never()).close(CloseStatus.SERVER_ERROR);
+            verifyNoInteractions(access,decoder);
+        }
+    }
     private WebSocketSession pendingSocket(String id,UUID diary,String ip){
         var socket=mock(WebSocketSession.class);when(socket.getId()).thenReturn(id);when(socket.isOpen()).thenReturn(true);when(socket.getAttributes()).thenReturn(Map.of("diaryId",diary,"remoteIp",ip));return socket;
     }

@@ -44,7 +44,10 @@ public class CollaborationSocket extends TextWebSocketHandler {
         var connection=connections.get(socket.getId());if(connection==null)return;
         try{
             if(message.getPayloadLength()>4096)throw new IllegalArgumentException();
-            var frame=json.readTree(message.getPayload());String type=frame.path("type").asText();
+            tools.jackson.databind.JsonNode frame;
+            try{frame=json.readTree(message.getPayload());}
+            catch(tools.jackson.core.JacksonException malformed){close(connection,CloseStatus.POLICY_VIOLATION);return;}
+            if(frame==null||!frame.isObject())throw new IllegalArgumentException();String type=frame.path("type").asText();
             if("AUTH".equals(type)){
                 reserveAuth(connection);
                 String token=frame.path("accessToken").asText();var jwt=decoder.decode(token);long actor=Long.parseLong(jwt.getSubject());UUID sessionId=sessionId(jwt);access.requireDiary(connection.diary,actor);
