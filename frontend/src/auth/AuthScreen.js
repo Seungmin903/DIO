@@ -255,7 +255,7 @@ export default function AuthScreen({
         onContinue(result);
       },
       (error) => {
-        if (canSetDevelopmentAccess && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') {
+        if (canSetDevelopmentAccess && ['DEVELOPMENT_ACCESS_REQUIRED', 'AUTH_CONNECTION_FAILED'].includes(error?.code)) {
           Keyboard.dismiss();
           setNeedsLoginAccess(true);
         }
@@ -472,6 +472,8 @@ export default function AuthScreen({
                     onSubmitEditing={credentialsSubmit}
                   />
                 )}
+                {!signup && !needsLoginAccess && canSetDevelopmentAccess && !busy ?
+                  link('개발 서버 접속 인증', () => { setMessage(''); setNeedsLoginAccess(true); }) : null}
                 {!signup && needsLoginAccess && canSetDevelopmentAccess ? <>
                   <Text style={s.muted}>개발 서버 접속 인증 · 앱을 다시 실행하면 초기화돼요.</Text>
                   <FormField label="개발 서버 ID" value={accessId} onChange={setAccessId}

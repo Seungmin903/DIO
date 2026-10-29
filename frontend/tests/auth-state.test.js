@@ -19,6 +19,50 @@ const nodes=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinit
 const find=(tree,label)=>nodes(tree).find(n=>n.props.accessibilityLabel===label||n.props.label===label)
 const tick=()=>new Promise(resolve=>setImmediate(resolve))
 
+test('개발 접속 인증을 먼저 입력하면 첫 로그인부터 인증을 보내고 운영 화면에서는 숨긴다', async () => {
+  const requests = [];
+  const service = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true,
+    fetchImpl: async (url, init) => {
+      requests.push(init);
+      return new Response(JSON.stringify({ accessToken: 'test-access', refreshToken: 'test-refresh', expiresIn: 900,
+        user: { userId: '7', email: 'member@example.com', nickname: '회원', profilePhotoUrl: null } }), { status: 200 });
+    } });
+  const production = setup(service);
+  try { assert.equal(find(production.render(), '개발 서버 접속 인증'), undefined); }
+  finally { production.unmount(); }
+  const ui = setup(service, undefined, { developmentMode: true });
+  try {
+    find(ui.render(), '이메일').props.onChange('member@example.com');
+    find(ui.render(), '비밀번호').props.onChange('Password123!');
+    find(ui.render(), '개발 서버 접속 인증').props.onPress();
+    assert.equal(requests.length, 0);
+    find(ui.render(), '개발 서버 ID').props.onChange('tester');
+    find(ui.render(), '개발 서버 비밀번호').props.onChange('secret');
+    find(ui.render(), '접속 인증 후 로그인').props.onPress();
+    await tick();
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].headers.Authorization, `Basic ${Buffer.from('tester:secret').toString('base64')}`);
+    assert.equal(ui.sessions.length, 1);
+    assert.equal(find(ui.render(), '개발 서버 비밀번호'), undefined);
+    assert.equal(find(ui.render(), '비밀번호').props.value, '');
+  } finally { ui.unmount(); }
+});
+
+test('개발 빌드 연결 실패 후 접근 인증을 입력할 수 있고 계정 입력을 유지한다', async () => {
+  const service = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true,
+    fetchImpl: async () => { throw new TypeError('Network request failed'); } });
+  const ui = setup(service, undefined, { developmentMode: true });
+  try {
+    find(ui.render(), '이메일').props.onChange('member@example.com');
+    find(ui.render(), '비밀번호').props.onChange('Password123!');
+    find(ui.render(), '로그인').props.onPress(); await tick();
+    assert.ok(find(ui.render(), '개발 서버 ID'));
+    assert.equal(find(ui.render(), '이메일').props.value, 'member@example.com');
+    assert.equal(find(ui.render(), '비밀번호').props.value, 'Password123!');
+    assert.deepEqual(ui.sessions, []);
+  } finally { ui.unmount(); }
+});
+
 test('로그인은 개발 접근 인증 후 같은 입력으로 재시도하고 연타를 막는다', async () => {
   const requests = [];
   let release;

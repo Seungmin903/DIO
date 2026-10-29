@@ -77,7 +77,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       return data;
     } catch (error) {
       if (error?.status) throw error;
-      throw new Error('서버에 연결하지 못했어요. 서버 주소와 네트워크를 확인해 주세요.');
+      throw Object.assign(new Error('서버에 연결하지 못했어요. 서버 주소와 네트워크를 확인해 주세요.'), { code: 'AUTH_CONNECTION_FAILED' });
     } finally { clearTimeout(timer); }
   }
   const api = {
