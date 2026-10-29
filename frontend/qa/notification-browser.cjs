@@ -19,7 +19,7 @@ const server = http.createServer((req, res) => {
   let browser;
   try {
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(Number(process.env.DIO_NOTIFICATION_QA_PORT || 0), '127.0.0.1', resolve); });
-    browser = await chromium.launch({ channel: 'msedge', headless: true });
+    browser = await chromium.launch({ headless: true, ...(process.env.DIO_QA_BROWSER_CHANNEL ? { channel: process.env.DIO_QA_BROWSER_CHANNEL } : {}) });
     fs.mkdirSync(out, { recursive: true });
     for (const viewport of [{ width: 1280, height: 800 }, { width: 412, height: 892 }]) {
       const context = await browser.newContext({ viewport });
@@ -28,10 +28,19 @@ const server = http.createServer((req, res) => {
       await p.goto(`http://127.0.0.1:${server.address().port}`);
       await p.evaluate(() => localStorage.setItem('dio:notification-qa-sentinel', 'keep'));
       const button = name => p.getByRole('button', { name, exact: true });
+      await button('목 응답 설정').click();
+      await p.getByTestId('library-mock-controls').waitFor();
+      await button('목 응답 설정 닫기').click();
+      await p.getByTestId('library-mock-controls').waitFor({ state: 'hidden' });
       await button('알림 연결 검증').click();
       await button('알림 · 새 초대 2개').waitFor();
       await button('알림 더 보기').click(); await button('초대 확인 1').waitFor();
       await button('알림 목 응답 설정').click();
+      await button('공유 버튼 연결 검증 · 새 초대 2개').waitFor();
+      await button('알림 목 응답 설정').click();
+      await button('알림 샘플 계정 변경').waitFor({ state: 'hidden' });
+      await button('알림 목 응답 설정').click();
+      await button('알림 샘플 계정 변경').waitFor();
       await button('목록 한 번 실패').click(); await button('알림 새로고침').click();
       await button('알림 목록 다시 시도').waitFor();
       await p.getByText('서버 오류로 요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.', { exact: true }).waitFor();
