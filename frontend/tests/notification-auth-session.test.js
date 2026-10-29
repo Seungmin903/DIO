@@ -4,7 +4,7 @@ import { createAuthApi } from '../src/auth/authApi.js';
 import { createAuthenticatedNotificationSession } from '../src/notifications/authenticatedNotifications.js';
 import { notificationErrorNotice } from '../src/notifications/notificationErrorNotice.js';
 import { createNotificationStore } from '../src/notifications/notificationStore.js';
-const tokens = (id, token) => ({ user: { userId: id, email: id+'@example.test', nickname: '회원' }, accessToken: token, refreshToken: 'refresh-'+token, expiresIn: 60 });
+const tokens = (id, token) => ({ user: { userId: id, email: 'member@example.test', nickname: '회원' }, accessToken: token, refreshToken: 'refresh-'+token, expiresIn: 60 });
 const reply = (data, status=200) => ({ ok: status<400, status, json: async () => data });
 const login = auth => auth.login({email:'member@example.test',password:'DioMember123!'});
 test('공유 factory 생성 실패·잘못된 반환값에도 기본 알림 조회와 미연결 안내는 유지한다',async()=>{

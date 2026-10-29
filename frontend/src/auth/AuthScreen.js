@@ -70,6 +70,11 @@ export default function AuthScreen({
   const [terms, setTerms] = useState(emptyTerms);
   const [photoUri, setPhotoUri] = useState(null);
   const [signupComplete, setSignupComplete] = useState(false);
+  const [needsLoginAccess, setNeedsLoginAccess] = useState(false);
+  const [accessId, setAccessId] = useState('');
+  const [accessPassword, setAccessPassword] = useState('');
+  const canSetDevelopmentAccess = typeof __DEV__ !== 'undefined' && __DEV__ &&
+    typeof verificationService?.setDevelopmentAccess === 'function';
   const job = useRef(0);
   const checking = useRef(0);
   const checkRunning = useRef(false);
@@ -156,6 +161,9 @@ export default function AuthScreen({
     setTouched({});
     setInfo(null);
     setSignupComplete(false);
+    setNeedsLoginAccess(false);
+    setAccessId('');
+    setAccessPassword('');
     setCheckState('idle');
     setChecked(null);
     setCheckMessage('');
@@ -176,6 +184,10 @@ export default function AuthScreen({
         setInfo(null);
         return true;
       }
+      if (route === 'welcome' && needsLoginAccess) {
+        navigate('welcome');
+        return true;
+      }
       if (route !== 'welcome') {
         back();
         return true;
@@ -183,7 +195,7 @@ export default function AuthScreen({
       return false;
     });
     return () => listener.remove();
-  }, [route, profile, info]);
+  }, [route, profile, info, needsLoginAccess]);
   const run = async (action, onSuccess, onFailure) => {
     if (running.current) return;
     running.current = true;
@@ -231,15 +243,24 @@ export default function AuthScreen({
       setTerms(emptyTerms());
       navigate('verification');
     }
-    else
-      run(
-        () => service.login(values),
-        (result) => {
+    else if (!needsLoginAccess) submitLogin();
+  };
+  const submitLogin = () => {
+    if (!credentialsValid(values, false)) return;
+    run(
+      () => service.login(values),
+      (result) => {
+        Keyboard.dismiss();
+        setValues(emptyValues());
+        onContinue(result);
+      },
+      (error) => {
+        if (canSetDevelopmentAccess && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') {
           Keyboard.dismiss();
-          setValues(emptyValues());
-          onContinue(result);
-        },
-      );
+          setNeedsLoginAccess(true);
+        }
+      },
+    );
   };
   const changeNickname = (value) => {
     checking.current++;
@@ -451,6 +472,24 @@ export default function AuthScreen({
                     onSubmitEditing={credentialsSubmit}
                   />
                 )}
+                {!signup && needsLoginAccess && canSetDevelopmentAccess ? <>
+                  <Text style={s.muted}>개발 서버 접속 인증 · 앱을 다시 실행하면 초기화돼요.</Text>
+                  <FormField label="개발 서버 ID" value={accessId} onChange={setAccessId}
+                    onInputFocus={focusInput} onInputBlur={blurInput} editable={!busy} />
+                  <FormField label="개발 서버 비밀번호" value={accessPassword} onChange={setAccessPassword} password
+                    onInputFocus={focusInput} onInputBlur={blurInput} editable={!busy} />
+                  {primary('접속 인증 후 로그인', () => {
+                    if (running.current) return;
+                    try {
+                      verificationService.setDevelopmentAccess(accessId, accessPassword);
+                      setAccessPassword('');
+                      setNeedsLoginAccess(false);
+                      submitLogin();
+                    } catch (error) {
+                      setMessage(error?.message || '개발 서버 접속 정보를 확인해 주세요.');
+                    }
+                  }, !accessId.trim() || !accessPassword || !credentialsValid(values, false))}
+                </> : null}
                 <View style={s.submitArea}>
                   {message ? (
                     <Text
@@ -461,10 +500,10 @@ export default function AuthScreen({
                       {message}
                     </Text>
                   ) : null}
-                  {primary(
+                  {(signup || !needsLoginAccess) && primary(
                     signup ? '다음' : '로그인',
                     credentialsSubmit,
-                    !credentialsValid(values, signup),
+                    !credentialsValid(values, signup) || (!signup && needsLoginAccess),
                   )}
                 </View>
                 {signup ? (

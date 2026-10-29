@@ -5,7 +5,7 @@ const invalid = () => new NotificationError('INVALID_RESPONSE', '알림 응답�
 const id = value => typeof value === 'string' && value.trim().length > 0;
 
 // baseUrl은 /api/v1까지 포함한다. 인증 갱신·저장은 호출자 책임이다.
-export function createNotificationHttpTransport({ baseUrl, getAccessToken = async () => null, fetchImpl = globalThis.fetch, accessTokenHeader = 'Authorization', allowDevelopmentHttp = typeof __DEV__ !== 'undefined' && __DEV__ }) {
+export function createNotificationHttpTransport({ baseUrl, getAccessToken = async () => null, fetchImpl = globalThis.fetch, accessTokenHeader = 'Authorization', getAuthHeaders, allowDevelopmentHttp = typeof __DEV__ !== 'undefined' && __DEV__ }) {
   const localHttp = id(baseUrl) && /^http:\/\/(?:localhost|127\.0\.0\.1|10\.0\.2\.2|\[::1\])(?::[0-9]+)?(?:\/|$)/i.test(baseUrl);
   const secure = id(baseUrl) && (/^https:\/\//i.test(baseUrl) || localHttp || allowDevelopmentHttp);
   const configured = secure && ['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader) && id(baseUrl) && /^https?:\/\/[^/?#\s]+(?:\/[^?#\s]*)?$/i.test(baseUrl);
@@ -17,11 +17,19 @@ export function createNotificationHttpTransport({ baseUrl, getAccessToken = asyn
     if (!id(token)) throw new NotificationError('AUTHENTICATION_REQUIRED', '로그인이 필요해요.', 401);
     const search = Object.entries(query).filter(([, value]) => value != null)
       .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`).join('&');
+    const url = `${baseUrl.replace(/\/+$/, '')}${path}${search ? `?${search}` : ''}`;
+    let authHeaders;
+    try {
+      authHeaders = getAuthHeaders ? getAuthHeaders(url, token)
+        : { [accessTokenHeader]: accessTokenHeader === 'Authorization' ? `Bearer ${token}` : token };
+    } catch {
+      throw new NotificationError('API_NOT_CONFIGURED', '알림 서버 인증 설정을 확인해 주세요.');
+    }
     let response;
     try {
-      response = await fetchImpl(`${baseUrl.replace(/\/+$/, '')}${path}${search ? `?${search}` : ''}`, {
+      response = await fetchImpl(url, {
         method, signal, credentials: 'omit', redirect: 'error',
-        headers: { Accept: 'application/json', [accessTokenHeader]: accessTokenHeader === 'Authorization' ? `Bearer ${token}` : token, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        headers: { Accept: 'application/json', ...authHeaders, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
     } catch (error) {
