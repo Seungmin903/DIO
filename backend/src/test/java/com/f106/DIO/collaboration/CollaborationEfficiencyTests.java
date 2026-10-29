@@ -109,6 +109,45 @@ class CollaborationEfficiencyTests {
         handler.handleMessage(active,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
         Thread.sleep(5100);handler.expirePendingConnections();verify(pending).close(CloseStatus.POLICY_VIOLATION);verify(active,never()).close(any());
     }
+    @Test void transientInfrastructureAndRevokedAccessUseDifferentCloseCodesAcrossValidationPaths()throws Exception{
+        for(String path:List.of("canvas","pages","check"))for(boolean sessionFailure:List.of(true,false))for(boolean transientFailure:List.of(true,false)){
+            var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID(),sid=UUID.randomUUID();
+            when(decoder.decode("token")).thenReturn(Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",sid.toString()).expiresAt(Instant.now().plusSeconds(600)).build());
+            var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
+            var socket=pendingSocket("validation",diary,"ip");handler.afterConnectionEstablished(socket);
+            handler.handleMessage(socket,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
+            RuntimeException error=transientFailure?new org.springframework.dao.TransientDataAccessResourceException("temporary outage"):
+                new com.f106.DIO.collaboration.exception.CollaborationException(sessionFailure?org.springframework.http.HttpStatus.UNAUTHORIZED:org.springframework.http.HttpStatus.FORBIDDEN,"DENIED","denied");
+            if(sessionFailure)doThrow(error).when(access).requireSession(sid,42);else doThrow(error).when(access).requireDiary(diary,42);
+            switch(path){
+                case "canvas"->handler.committed(new CanvasCommitted(diary,UUID.randomUUID(),"1",UUID.randomUUID(),42,0,"APPLY"));
+                case "pages"->handler.pagesChanged(new com.f106.DIO.page.domain.PageCatalogChanged(diary));
+                default->handler.checkConnections();
+            }
+            verify(socket).close(transientFailure?CloseStatus.SERVER_ERROR:CloseStatus.POLICY_VIOLATION);
+            verify(socket,never()).close(transientFailure?CloseStatus.POLICY_VIOLATION:CloseStatus.SERVER_ERROR);
+        }
+    }
+    @Test void immediatePingAndReauthenticationAreAllowedButPingFloodIsRejected()throws Exception{
+        var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID(),sid=UUID.randomUUID();
+        when(decoder.decode(anyString())).thenAnswer(call->Jwt.withTokenValue(call.getArgument(0)).header("alg","HS256").subject("42").claim("sid",sid.toString()).expiresAt(Instant.now().plusSeconds(600)).build());
+        var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
+        var socket=pendingSocket("heartbeat",diary,"ip");var types=new ArrayList<String>();var json=JsonMapper.builder().build();
+        doAnswer(call->{types.add(json.readTree(((TextMessage)call.getArgument(0)).getPayload()).path("type").asText());return null;}).when(socket).sendMessage(any());
+        handler.afterConnectionEstablished(socket);
+        handler.handleMessage(socket,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"first\"}"));
+        handler.handleMessage(socket,new TextMessage("{\"type\":\"PING\"}"));
+        handler.handleMessage(socket,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"renewed\"}"));
+        assertThat(types).containsExactly("READY","PONG","READY");verify(socket,never()).close(any());
+        handler.handleMessage(socket,new TextMessage("{\"type\":\"PING\"}"));verify(socket).close(CloseStatus.POLICY_VIOLATION);
+    }
+    @Test void authBurstStillHasBoundedDatabaseVerificationBudget()throws Exception{
+        var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID();
+        when(decoder.decode("token")).thenReturn(Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",UUID.randomUUID().toString()).expiresAt(Instant.now().plusSeconds(600)).build());
+        var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);var socket=pendingSocket("burst",diary,"ip");handler.afterConnectionEstablished(socket);
+        for(int i=0;i<5;i++)handler.handleMessage(socket,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
+        verify(decoder,times(4)).decode("token");verify(socket).close(CloseStatus.POLICY_VIOLATION);
+    }
     private WebSocketSession pendingSocket(String id,UUID diary,String ip){
         var socket=mock(WebSocketSession.class);when(socket.getId()).thenReturn(id);when(socket.isOpen()).thenReturn(true);when(socket.getAttributes()).thenReturn(Map.of("diaryId",diary,"remoteIp",ip));return socket;
     }

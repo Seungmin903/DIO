@@ -350,4 +350,10 @@ class CanvasCollaborationTests {
         assertThat(jdbc.queryForObject("select count(*) from canvas_history_operations where page_id=? and actor_user_id=? and snapshot_format='COLLAB_PRUNED_V1'",Integer.class,page,owner.id())).isEqualTo(223);
         assertThat(jdbc.queryForObject("select count(*) from canvas_history_operations where page_id=? and actor_user_id=? and snapshot_format='COLLAB_ELEMENTS_V1'",Integer.class,page,friend.id())).isEqualTo(1);
     }
+    @Test void legacyBatchChecksPagePermissionBeforeDuplicateIdValidation()throws Exception{
+        var owner=actor();var outsider=actor();UUID page=page(diary(owner)),element=UUID.randomUUID();
+        String body=json.writeValueAsString(Map.of("deleteElementIds",List.of(element,element)));
+        mvc.perform(post("/api/v1/pages/"+page+"/elements/batch").header("Authorization","Bearer "+outsider.token()).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/pages/"+page+"/elements/batch").header("Authorization","Bearer "+owner.token()).contentType("application/json").content(body)).andExpect(status().isBadRequest());
+    }
 }

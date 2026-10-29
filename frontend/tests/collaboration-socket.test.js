@@ -35,13 +35,13 @@ test('1008 이후 토큰 갱신으로 재접속하고 READY 없는 반복 거절
  const count=scheduled.length;sockets[2].onclose({code:1008});assert.equal(scheduled.length,count);client.close()
 })
 
-test('1013 서버 정원 초과는 인증 강제 갱신 없이 백오프로 다시 연결한다',async()=>{
+for(const code of [1011,1013])test(`${code} 일시 오류는 인증 강제 갱신 없이 백오프로 다시 연결한다`,async()=>{
  const sockets=[],jobs=[],tokens=[]
  class Socket{constructor(){this.readyState=1;sockets.push(this)}send(){}close(){}}
  const client=connectCollaboration({baseUrl:'https://dio.test/api/v1',diaryId,WebSocketImpl:Socket,onChange:()=>{},getAccessToken:async options=>{tokens.push(options);return 'token'},
   schedule:(fn,delay)=>{const job={fn,delay};jobs.push(job);return job},cancel:job=>{if(job)job.cancelled=true}})
  for(let i=0;i<4;i++){
-  sockets[i].onopen();await new Promise(r=>setImmediate(r));sockets[i].onclose({code:1013})
+  sockets[i].onopen();await new Promise(r=>setImmediate(r));sockets[i].onclose({code})
   const retry=jobs.at(-1);assert.equal(retry.delay,Math.min(30000,1000*2**i));retry.fn()
  }
  assert.equal(sockets.length,5);assert.equal(tokens.some(t=>t.forceRefresh),false);client.close()

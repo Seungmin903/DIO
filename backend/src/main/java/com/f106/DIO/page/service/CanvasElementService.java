@@ -96,12 +96,12 @@ public class CanvasElementService {
     }
     @Transactional
     public CanvasElementListResponse batchTracked(UUID pageId,CanvasElementBatchRequest request,Long userId,UUID clientId,String hash){
+        pageService.requireWritablePage(pageId,userId);
         for(var create:safe(request.creates()))if(create.getElementId()==null)create.setElementId(UUID.randomUUID());
         validateBatchIds(request);
         var ids=new java.util.LinkedHashSet<UUID>();
         safe(request.creates()).forEach(c->ids.add(c.getElementId()));safe(request.updates()).forEach(u->ids.add(u.getElementId()));
         ids.addAll(safe(request.deleteElementIds()));ids.addAll(safe(request.restoreElementIds()));
-        pageService.requireWritablePage(pageId,userId);
         var ticket=journal.begin(pageId,userId,ids,clientId,hash,"BATCH");
         pageService.requireWritablePage(pageId,userId);
 
