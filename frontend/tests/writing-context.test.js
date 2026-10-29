@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import * as common from '../src/editor/utils/common.js'
 import * as pen from '../src/editor/utils/penSettings.js'
 import * as formats from '../src/editor/utils/textFormats.js'
+import * as photoStrip from '../src/editor/utils/photoStrip.js'
 import * as text from '../src/editor/utils/text.js'
 import * as placement from '../src/editor/utils/popoverPlacement.js'
 import { createInitialState, editorReducer } from '../src/editor/state/editorReducer.js'
@@ -25,6 +26,8 @@ function fixture(object, options = {}) {
     if (id.endsWith('/penSettings')) return pen
     if (id.endsWith('/text')) return text
     if (id.endsWith('/textFormats')) return formats
+    if (id.endsWith('/photoStrip')) return photoStrip
+    if (id.endsWith('/utils/objects')) return { hasPhotoMedia: o => Boolean(o?.src || o?.mediaFileId), emptyPhotoSlots: () => [] }
     if (id === '../TextActionBar') {
       const m = { exports: {} }
       const compiled = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/TextActionBar.js', import.meta.url), 'utf8'), { configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')] })

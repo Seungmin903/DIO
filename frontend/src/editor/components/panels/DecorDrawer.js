@@ -2,7 +2,7 @@ import { ToolPanelHeader, toolPanelStyles } from '../ToolPanel'
 import { createContext, useContext, useRef, useState } from 'react'
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, radius, shadow, DISABLED_OPACITY } from '../../../shared/theme'
-import { TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
+import { PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
 import { RECENT_LIMIT, stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
 import { useTapePreferences } from '../../hooks/useTapePreferences'
 import { STICKER_GROUPS, stickerSource } from '../../stickerAssets'
@@ -19,7 +19,7 @@ import PenSafeTextInput from '../controls/PenSafeTextInput'
 import TapeCropper from './TapeCropper'
 import TapeOptions from './TapeOptions'
 import TapeView from '../canvas/TapeView'
-import RecentPhotos from './RecentPhotos'
+import PhotoFramePicker from './PhotoFramePicker'
 import StickerSplitModal from './StickerSplitModal'
 import DecorSaveNotice from './DecorSaveNotice'
 import { stickerSplit } from '../../services/stickerSplit'
@@ -71,9 +71,10 @@ const ColumnsContext = createContext(4)
 
 /**
  * 스티커·테이프·사진 보관함. 항목을 누르면 페이지 가운데에 붙는다.
- * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다. 사진은 붙인 뒤 자르기에서 틀·모양을 고른다.
+ * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다.
+ * 사진: 불러오면 틀 없이 붙고, 사진 틀을 누르면 빈 틀이 붙는다(캔버스의 + 로 채운다).
  */
-export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPhoto, onTapeInserted, recentPhotos, onToast, onClose, onPanelWidth }) {
+export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, onToast, onClose, onPanelWidth }) {
   const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]
   const custom = useCustomDecor()
   const [busy, setBusy] = useState(false)
@@ -488,8 +489,12 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onRemoveRecentPho
                 </View>
                 <Text style={styles.uploadTitle}>{busy ? '원본을 저장하고 있어요…' : '사진 · GIF 불러오기'}</Text>
               </Pressable>
-              <RecentPhotos photos={recentPhotos} columns={columns} onAdd={onAdd}
-                onRemove={onRemoveRecentPhoto} renderThumb={(photo) => <RecentPhotoThumb photo={photo} />} />
+              {/* 누르면 빈 틀이 붙는다 (오프라인 에셋 '④ 사진 틀'). 사진 틀 · 티켓 · 네컷으로 묶는다 */}
+              {PHOTO_FRAME_GROUPS.map((group) => (
+                <Section key={group.id} title={group.name}>
+                  <PhotoFramePicker group={group.id} onSelect={(frame) => onAdd({ kind: 'frame', frame: frame.id })} />
+                </Section>
+              ))}
             </>
           )}
         </ScrollView>
@@ -546,11 +551,6 @@ function StickerThumb({ item }) {
   ) : (
     <Text style={styles.tileEmoji}>{item.emoji}</Text>
   )
-}
-
-function RecentPhotoThumb({ photo }) {
-  const uri = useMediaUri(photo, { still: true })
-  return <Image source={uri ? { uri } : null} style={styles.photoImage} resizeMode="cover" />
 }
 
 function Section({ title, badge, children }) {
@@ -1170,20 +1170,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   uploadTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
-  uploadHint: {
-    fontSize: 11.5,
-    lineHeight: 17,
-    textAlign: 'center',
-    color: colors.textMuted,
-  },
-  photoCell: { width: '50%', aspectRatio: 4 / 5, padding: TILE_GAP },
-  photoTile: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#E7EEF7',
-  },
-  photoPressed: { opacity: 0.7 },
-  photoRemove: { position: 'absolute', right: TILE_GAP + 4, bottom: TILE_GAP + 4, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  photoImage: { width: '100%', height: '100%' },
 })
