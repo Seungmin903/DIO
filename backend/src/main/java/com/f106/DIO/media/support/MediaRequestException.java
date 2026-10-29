@@ -23,6 +23,9 @@ public class MediaRequestException extends RuntimeException {
 	public static MediaRequestException invalidLimit() {
 		return new MediaRequestException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_LIMIT", "미디어 목록 limit은 1에서 100 사이여야 합니다.");
 	}
+	public static MediaRequestException sharedLibraryReference() {
+		return new MediaRequestException(HttpStatus.CONFLICT, "MEDIA_FILE_SHARED", "공유 보관함에서 제거한 뒤 미디어를 삭제할 수 있습니다.");
+	}
 	public HttpStatus status() { return status; }
 	public String code() { return code; }
 }
