@@ -340,4 +340,14 @@ class CanvasCollaborationTests {
         }
         assertThat(jdbc.queryForObject("select sort_key from canvas_elements where element_id=?",BigDecimal.class,photo)).isEqualByComparingTo("15");
     }
+    @Test void snapshotCleanupCatchesUpBacklogBeyondFirstBatchAndPreservesOtherUser()throws Exception{
+        var owner=actor();var friend=actor();UUID diary=diary(owner),page=page(diary);join(diary,friend);
+        var backlog=new ArrayList<com.f106.DIO.collaboration.domain.CanvasHistoryOperation>();
+        for(int i=0;i<300;i++)backlog.add(new com.f106.DIO.collaboration.domain.CanvasHistoryOperation(page,owner.id(),UUID.randomUUID(),"UPDATE","{\"elements\":{}}","{\"elements\":{},\"expected\":{},\"revision\":0}"));
+        historyRows.saveAllAndFlush(backlog);create(page,friend,UUID.randomUUID(),"other user");
+        for(int i=0;i<3;i++)create(page,owner,UUID.randomUUID(),"catchup-"+i);
+        assertThat(jdbc.queryForObject("select count(*) from canvas_history_operations where page_id=? and actor_user_id=? and snapshot_format='COLLAB_ELEMENTS_V1'",Integer.class,page,owner.id())).isEqualTo(80);
+        assertThat(jdbc.queryForObject("select count(*) from canvas_history_operations where page_id=? and actor_user_id=? and snapshot_format='COLLAB_PRUNED_V1'",Integer.class,page,owner.id())).isEqualTo(223);
+        assertThat(jdbc.queryForObject("select count(*) from canvas_history_operations where page_id=? and actor_user_id=? and snapshot_format='COLLAB_ELEMENTS_V1'",Integer.class,page,friend.id())).isEqualTo(1);
+    }
 }

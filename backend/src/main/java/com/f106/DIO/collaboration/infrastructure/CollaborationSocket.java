@@ -16,6 +16,8 @@ import org.springframework.web.socket.handler.*;
 import tools.jackson.databind.ObjectMapper;
 @Component
 public class CollaborationSocket extends TextWebSocketHandler {
+    private static final int MAX_PENDING=64;
+    private static final long AUTH_WAIT_MILLIS=5000;
     private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(CollaborationSocket.class);
     private static final class Connection {
         final WebSocketSession socket;final UUID diary;final String ip;final long connected=System.currentTimeMillis();
@@ -29,7 +31,9 @@ public class CollaborationSocket extends TextWebSocketHandler {
     private final java.util.concurrent.atomic.AtomicLong droppedEvents=new java.util.concurrent.atomic.AtomicLong(),droppedMessages=new java.util.concurrent.atomic.AtomicLong();
     public CollaborationSocket(CollaborationAccess access,@Qualifier("loginJwtDecoder") JwtDecoder decoder,ObjectMapper json,@Qualifier("collaborationEventsExecutor") TaskExecutor executor,@Qualifier("collaborationSocketSendExecutor") TaskExecutor sendExecutor){this.access=access;this.decoder=decoder;this.json=json;this.executor=executor;this.sendExecutor=sendExecutor;}
     @Override public synchronized void afterConnectionEstablished(WebSocketSession socket)throws IOException{
+        expirePendingConnections();
         String ip=(String)socket.getAttributes().getOrDefault("remoteIp","unknown");
+        if(connections.values().stream().filter(c->c.actor<0).count()>=MAX_PENDING){socket.close(new CloseStatus(1013,"Authentication capacity exceeded"));return;}
         if(connections.size()>=512){socket.close(new CloseStatus(1013,"Try again later"));return;}
         if(connections.values().stream().filter(c->c.actor<0&&c.ip.equals(ip)).count()>=4){socket.close(CloseStatus.POLICY_VIOLATION);return;}
         socket.setTextMessageSizeLimit(4096);socket.setBinaryMessageSizeLimit(1024);
@@ -41,8 +45,9 @@ public class CollaborationSocket extends TextWebSocketHandler {
             if(message.getPayloadLength()>4096||System.currentTimeMillis()-connection.lastMessage<1000)throw new IllegalArgumentException();
             var frame=json.readTree(message.getPayload());String type=frame.path("type").asText();
             if("AUTH".equals(type)){
-                String token=frame.path("accessToken").asText();var jwt=decoder.decode(token);long actor=Long.parseLong(jwt.getSubject());UUID sessionId=UUID.fromString(jwt.getClaimAsString("sid"));access.requireDiary(connection.diary,actor);
+                String token=frame.path("accessToken").asText();var jwt=decoder.decode(token);long actor=Long.parseLong(jwt.getSubject());UUID sessionId=sessionId(jwt);access.requireDiary(connection.diary,actor);
                 synchronized(this){
+                    if(!connections.containsKey(socket.getId()))return;
                     if(connection.actor>=0&&connection.actor!=actor)throw new IllegalArgumentException();
                     if(connections.values().stream().filter(c->c!=connection&&c.actor==actor).count()>=8)throw new IllegalArgumentException();
                     connection.sessionId=sessionId;connection.expiresAt=jwt.getExpiresAt();
@@ -56,6 +61,15 @@ public class CollaborationSocket extends TextWebSocketHandler {
             connection.lastMessage=System.currentTimeMillis();
         }catch(JwtException|CollaborationException|IllegalArgumentException error){close(connection,CloseStatus.POLICY_VIOLATION);}
         catch(RuntimeException error){close(connection,CloseStatus.SERVER_ERROR);}
+    }
+    private UUID sessionId(Jwt jwt){
+        String sid=jwt.getClaimAsString("sid");
+        if(sid==null||!sid.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))throw new IllegalArgumentException("Invalid session claim");
+        return UUID.fromString(sid);
+    }
+    @Scheduled(fixedDelay=1000) public synchronized void expirePendingConnections(){
+        long now=System.currentTimeMillis();
+        for(var connection:connections.values())if(connection.actor<0&&now-connection.connected>=AUTH_WAIT_MILLIS)close(connection,CloseStatus.POLICY_VIOLATION);
     }
     private void validateToken(Connection connection){
         // AUTH already verified the signature; keep expiry rather than the bearer credential.
@@ -105,7 +119,7 @@ public class CollaborationSocket extends TextWebSocketHandler {
         var permissions=new HashMap<String,Boolean>();
         for(var connection:connections.values()){
             if(connection.sendingSince>0&&System.currentTimeMillis()-connection.sendingSince>2000){close(connection,CloseStatus.SERVER_ERROR);continue;}
-            if(connection.actor<0){if(System.currentTimeMillis()-connection.connected>10000)close(connection,CloseStatus.POLICY_VIOLATION);continue;}
+            if(connection.actor<0){if(System.currentTimeMillis()-connection.connected>=AUTH_WAIT_MILLIS)close(connection,CloseStatus.POLICY_VIOLATION);continue;}
             try{validate(connection,permissions);}catch(RuntimeException error){close(connection,CloseStatus.POLICY_VIOLATION);}
         }
     }

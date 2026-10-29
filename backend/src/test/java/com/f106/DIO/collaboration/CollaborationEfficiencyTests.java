@@ -67,7 +67,12 @@ class CollaborationEfficiencyTests {
     @Test void globalCapacityUsesRetryLaterWithoutChangingUnauthenticatedIpPolicy()throws Exception{
         var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);var json=JsonMapper.builder().build();
         var handler=new CollaborationSocket(access,decoder,json,Runnable::run,Runnable::run);UUID diary=UUID.randomUUID();
-        for(int i=0;i<512;i++)handler.afterConnectionEstablished(pendingSocket("conn-"+i,diary,"ip-"+i));
+        when(decoder.decode(anyString())).thenAnswer(call->Jwt.withTokenValue(call.getArgument(0)).header("alg","HS256").subject(call.getArgument(0))
+            .claim("sid",UUID.randomUUID().toString()).expiresAt(Instant.now().plusSeconds(600)).build());
+        for(int i=0;i<512;i++){
+            var socket=pendingSocket("conn-"+i,diary,"ip-"+i);handler.afterConnectionEstablished(socket);
+            handler.handleMessage(socket,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\""+(i+1)+"\"}"));
+        }
         var full=pendingSocket("full",diary,"new-ip");handler.afterConnectionEstablished(full);
         verify(full).close(argThat(status->status.getCode()==1013));
         var limited=new CollaborationSocket(access,decoder,json,Runnable::run,Runnable::run);
@@ -75,7 +80,36 @@ class CollaborationEfficiencyTests {
         var extra=pendingSocket("extra",diary,"same-ip");limited.afterConnectionEstablished(extra);
         verify(extra).close(CloseStatus.POLICY_VIOLATION);
     }
+    @Test void missingOrMalformedSessionClaimClosesWithPolicyViolation()throws Exception{
+        for(String sid:Arrays.asList(null,"invalid","1-1-1-1-1")){
+            var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);
+            var builder=Jwt.withTokenValue("token").header("alg","HS256").subject("42").expiresAt(Instant.now().plusSeconds(600));
+            if(sid!=null)builder.claim("sid",sid);when(decoder.decode("token")).thenReturn(builder.build());
+            var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
+            var socket=pendingSocket("sid-test",UUID.randomUUID(),"ip");handler.afterConnectionEstablished(socket);
+            handler.handleMessage(socket,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
+            verify(socket).close(CloseStatus.POLICY_VIOLATION);verifyNoInteractions(access);
+        }
+    }
+    @Test void pendingQuotaDoesNotConsumeAllCapacityAndAuthenticationFreesPendingSlot()throws Exception{
+        var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID();
+        when(decoder.decode("token")).thenReturn(Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",UUID.randomUUID().toString()).expiresAt(Instant.now().plusSeconds(600)).build());
+        var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
+        var first=pendingSocket("first",diary,"first-ip");handler.afterConnectionEstablished(first);
+        for(int i=1;i<64;i++)handler.afterConnectionEstablished(pendingSocket("pending-"+i,diary,"ip-"+i));
+        var rejected=pendingSocket("rejected",diary,"another-ip");handler.afterConnectionEstablished(rejected);verify(rejected).close(argThat(status->status.getCode()==1013));
+        handler.handleMessage(first,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
+        var accepted=pendingSocket("accepted",diary,"new-ip");handler.afterConnectionEstablished(accepted);verify(accepted,never()).close(any());verify(first,never()).close(any());
+    }
+    @Test void expiredPendingConnectionIsReleasedWithoutClosingAuthenticatedSocket()throws Exception{
+        var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID();
+        when(decoder.decode("token")).thenReturn(Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",UUID.randomUUID().toString()).expiresAt(Instant.now().plusSeconds(600)).build());
+        var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
+        var pending=pendingSocket("pending",diary,"one");var active=pendingSocket("active",diary,"two");handler.afterConnectionEstablished(pending);handler.afterConnectionEstablished(active);
+        handler.handleMessage(active,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
+        Thread.sleep(5100);handler.expirePendingConnections();verify(pending).close(CloseStatus.POLICY_VIOLATION);verify(active,never()).close(any());
+    }
     private WebSocketSession pendingSocket(String id,UUID diary,String ip){
-        var socket=mock(WebSocketSession.class);when(socket.getId()).thenReturn(id);when(socket.getAttributes()).thenReturn(Map.of("diaryId",diary,"remoteIp",ip));return socket;
+        var socket=mock(WebSocketSession.class);when(socket.getId()).thenReturn(id);when(socket.isOpen()).thenReturn(true);when(socket.getAttributes()).thenReturn(Map.of("diaryId",diary,"remoteIp",ip));return socket;
     }
 }
