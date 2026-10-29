@@ -91,12 +91,21 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         ? { uri: target.href, headers: getAuthHeaders(target.href) } : { uri };
     },
     getSessionKey() { return session ? `${session.user.userId}:${sessionSequence}` : null; },
-    async getAccessToken({ userId, sessionKey } = {}) {
+    // Optional collaboration bridge: dev Basic stays in memory and only reaches this API's origin.
+    getCollaborationHeaders({ url, userId, sessionKey }) {
+      if (!session || String(session.user.userId) !== String(userId) || api.getSessionKey() !== sessionKey) throw unauthorized();
+      const target=new URL(url), origin=new URL(base);
+      const protocol=target.protocol==='wss:'?'https:':target.protocol==='ws:'?'http:':target.protocol;
+      if(target.username || target.password || protocol!==origin.protocol || target.host!==origin.host ||
+        !(target.pathname.startsWith(`${origin.pathname}/pages/`) || (target.pathname.startsWith(`${origin.pathname}/diaries/`)&&/^\/diaries\/[0-9a-f-]{36}\/pages(?:\/order)?$/i.test(target.pathname.slice(origin.pathname.length))) || target.pathname.startsWith('/ws/diaries/'))) throw unauthorized();
+      return developmentAccess ? { Authorization:developmentAccess } : {};
+    },
+    async getAccessToken({ userId, sessionKey, forceRefresh = false } = {}) {
       const matches = () => session && String(session.user.userId) === String(userId) && sessionKey === api.getSessionKey();
       if (!matches()) throw unauthorized();
-      if (refreshing) { try { await refreshing; } catch (error) { if (!matches()) throw unauthorized(); throw error; } }
+      if (refreshing) { try { await refreshing; forceRefresh = false; } catch (error) { if (!matches()) throw unauthorized(); throw error; } }
       if (!matches()) throw unauthorized();
-      if (now() >= accessRefreshAt) {
+      if (forceRefresh || now() >= accessRefreshAt) {
         try { await api.refresh(); } catch (error) { if (!matches()) throw unauthorized(); throw error; }
       }
       if (!matches()) throw unauthorized();
@@ -138,11 +147,6 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (attempt !== revision) throw new Error('이메일 확인 요청이 취소되었어요.');
       if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
       if (!result.available) throw new Error('이미 사용 중인 이메일이에요.');
-    },
-    async checkNickname(nickname) {
-      const result = await request('nickname-availability', { nickname: normalizeNickname(nickname) });
-      if (typeof result?.available !== 'boolean') throw new Error('닉네임 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
-      return result.available;
     },
     async sendVerification(email) {
       const attempt = ++verificationRevision;

@@ -14,4 +14,4 @@ export function credentialsErrors({email,password,confirmation},signup=false) {
   return {email:emailError(email),password:passwordError(password),...(signup&&{confirmation:password!==confirmation||!confirmation?'비밀번호가 일치하지 않아요.':''})}
 }
 export const credentialsValid = (values,signup=false) => Object.values(credentialsErrors(values,signup)).every(error=>!error)
-export const canCompleteProfile = ({nickname,checkedNickname,terms}) => !nicknameError(nickname) && normalizeNickname(nickname)===checkedNickname && terms.service && terms.privacy
+export const canCompleteProfile = ({nickname,terms}) => !nicknameError(nickname) && terms.service && terms.privacy

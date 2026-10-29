@@ -44,12 +44,12 @@ const server = http.createServer((req, res) => {
     await button('회원가입').click(); await email().fill('new-browser@example.com');
     await password().fill('DioMember123!'); await page.getByLabel('비밀번호 확인', { exact: true }).fill('DioMember123!');
     await button('다음').click(); await page.getByRole('textbox', { name: '닉네임', exact: true }).fill('새회원');
-    await button('닉네임 중복 확인').click(); await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
+    assert.equal(await button('닉네임 중복 확인').count(), 0);
     await page.getByRole('checkbox', { name: '전체 동의', exact: true }).click(); await button('가입 완료').click();
     await page.getByText('회원가입 전에 이메일 인증이 필요해요. 현재 화면에는 인증 입력 단계가 아직 없어요.').waitFor();
-    assert.ok(requests.some(item => item.path.endsWith('/nickname-availability') && item.status === 200));
+    assert.ok(!requests.some(item => item.path.endsWith('/nickname-availability')));
     assert.ok(!requests.some(item => item.path.endsWith('/signup')));
     assert.deepEqual(errors, []);
-    console.log('PASS: real HTTP login error/success, existing profile, logout, nickname availability, signup blocked without verification; no new UI');
+    console.log('PASS: real HTTP login error/success, existing profile, logout, duplicate nickname check removed, signup blocked without verification; no new UI');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

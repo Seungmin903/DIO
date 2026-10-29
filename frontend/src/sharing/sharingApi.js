@@ -144,7 +144,16 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     async createLink(id) { await request(`${path(id)}/invites`, { method: 'POST' }); return getSharing(id); },
     async resolveLink(value) {
       let url;
-      try { url = new URL(value.trim()); } catch { fail('INVALID_LINK', '초대 링크를 확인해 주세요.'); }
+      try {
+        const input = value.trim();
+        // Local servers return /invite/{token} when no public invite base is configured.
+        // Resolve only that explicit relative form; never interpret arbitrary text as a URL.
+        if (input.startsWith('/')) {
+          if (!/^\/invite\/[^/?#]+\/?(?:[?#].*)?$/.test(input)) throw new Error('Invalid relative invite');
+          url = new URL(input, baseUrl);
+          if (!/^\/invite\/[^/]+\/?$/.test(url.pathname)) throw new Error('Invalid invite path');
+        } else url = new URL(input);
+      } catch { fail('INVALID_LINK', '초대 링크를 확인해 주세요.'); }
       if (!['https:', 'http:', 'dio:'].includes(url.protocol)) fail('INVALID_LINK', '초대 링크를 확인해 주세요.');
       let token;
       try { token = decodeURIComponent(url.pathname.split('/').filter(Boolean).at(-1) || ''); }

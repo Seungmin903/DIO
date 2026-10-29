@@ -94,8 +94,6 @@ const server = http.createServer((req, res) => {
       await input('비밀번호 확인').fill('Password123');
       await button('다음').click();
       await input('닉네임').fill('처음이름');
-      await button('닉네임 중복 확인').click();
-      await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
       await page.getByRole('checkbox', { name: '전체 동의', exact: true }).click();
       await button('가입 완료').click();
       await page.getByText('가입이 완료됐어요.').waitFor();
@@ -104,7 +102,6 @@ const server = http.createServer((req, res) => {
       await button('우리의 여행 기록 초대 수락').click();
       await input('다이어리 닉네임').fill('함께이름');
       await button('다이어리 닉네임 중복 확인').click();
-      await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
       await button('수락하고 참여하기').click();
       await button('다이어리 열기').waitFor();
       await button('공유 창 닫기').click();
@@ -148,13 +145,9 @@ const server = http.createServer((req, res) => {
       const after = await input('닉네임').boundingBox();
       assert.ok(Math.abs(before.y - after.y) < 1);
       await input('닉네임').fill('수정이름');
-      assert.ok(await button('변경사항 저장').isDisabled());
-      await button('닉네임 중복 확인').click();
-      await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
+      assert.ok(await button('변경사항 저장').isEnabled());
       await input('닉네임').fill('마지막이름');
-      assert.ok(await button('변경사항 저장').isDisabled());
-      await button('닉네임 중복 확인').click();
-      await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
+      assert.ok(await button('변경사항 저장').isEnabled());
       await button('변경사항 저장').scrollIntoViewIfNeeded();
       await page.screenshot({ path: path.join(out, `profile-${width}.png`) });
       await button('변경사항 저장').click();
@@ -211,8 +204,6 @@ const server = http.createServer((req, res) => {
       await button('로그인·회원가입').click();
       await button('구글로 로그인').click();
       await input('닉네임').fill('소셜회원');
-      await button('닉네임 중복 확인').click();
-      await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
       await page.getByRole('checkbox', { name: '전체 동의', exact: true }).click();
       await button('가입 완료').click();
       await goProfile();
@@ -220,8 +211,6 @@ const server = http.createServer((req, res) => {
       await page.getByLabel('로그인 방식: 구글', { exact: true }).waitFor();
       assert.equal(await input('이메일').count(), 0);
       await input('닉네임').fill('소셜수정');
-      await button('닉네임 중복 확인').click();
-      await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
       await button('변경사항 저장').click();
       await page.getByText('회원정보를 저장했어요.').waitFor();
       await button('변경사항 저장').scrollIntoViewIfNeeded();

@@ -51,7 +51,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
-    "spring.datasource.url=jdbc:h2:mem:login-tests;MODE=PostgreSQL",
+    "spring.datasource.url=jdbc:h2:mem:login-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.signup.verification-secret=testing-only-secret-at-least-32-bytes-long"
 })
 @AutoConfigureMockMvc @ActiveProfiles("test")
@@ -139,7 +139,7 @@ class EmailLoginTests {
         assertThat(history.count()).isEqualTo(2);
     }
     @Test void authCorsAllowsLocalFrontendIncludingLogoutPreflightOnly() throws Exception {
-        for (String path : List.of("login", "logout", "signup", "nickname-availability")) {
+        for (String path : List.of("login", "logout", "signup")) {
             mvc.perform(options("/api/v1/auth/" + path).header("Origin", "http://localhost:8081")
                 .header("Access-Control-Request-Method", "POST")
                 .header("Access-Control-Request-Headers", "content-type,authorization"))

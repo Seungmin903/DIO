@@ -208,6 +208,7 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
       const g = gesture.current
       gesture.current = null
       if (cancelled && g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
+      else if(g?.checkpointed) dispatch({type:'commitCheckpoint'})
       onRotation?.(null)
       onInteracting(false)
     },
