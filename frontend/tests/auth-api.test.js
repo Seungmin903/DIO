@@ -338,3 +338,19 @@ test('서버 계약과 달리 사용자 정보 없는 갱신 응답은 세션으
   await assert.rejects(api.refresh(), { code: 'INVALID_AUTH_RESPONSE' });
   assert.equal(api.getSessionKey(), null);
 });
+
+test('비밀번호 변경은 기존 me/password에 PATCH하고 성공 시 세션을 비운다',async()=>{
+ const calls=[];const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url,init)=>{calls.push({url,...init});return response(url.endsWith('/login')?tokens():null,url.endsWith('/login')?200:204)}});
+ const user=await api.login({email:'member@example.com',password:'Password123!'});
+ await api.changePassword(user,{currentPassword:'Password123!',password:'ChangedDio123!',confirmation:'ChangedDio123!'});
+ assert.equal(calls[1].url,'http://localhost:8080/api/v1/me/password');assert.equal(calls[1].method,'PATCH');
+ assert.deepEqual(JSON.parse(calls[1].body),{currentPassword:'Password123!',newPassword:'ChangedDio123!'});
+ assert.equal(calls[1].headers.Authorization,'Bearer access');assert.equal(api.getSessionKey(),null);
+});
+test('현재 비밀번호 거절과 네트워크 실패는 로그인 세션을 유지한다',async()=>{
+ for(const network of [false,true]){
+  const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url)=>{if(url.endsWith('/login'))return response(tokens());if(network)throw new TypeError('offline');return response({code:'CURRENT_PASSWORD_MISMATCH',detail:'현재 비밀번호가 맞지 않아요.'},400)}});
+  const user=await api.login({email:'member@example.com',password:'Password123!'});const key=api.getSessionKey();
+  await assert.rejects(api.changePassword(user,{currentPassword:'Wrong123!',password:'ChangedDio123!',confirmation:'ChangedDio123!'}));assert.equal(api.getSessionKey(),key);
+ }
+});
