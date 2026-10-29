@@ -95,13 +95,17 @@ function MemberDiaryApp(props) {
   return <DiaryApp {...props} diaryState={diaryState} />;
 }
 function DiaryApp(props) {
-  const content = <DiaryAppContent {...props} />;
+  const sharing = useSharing(props.previewUser);
+  const createInvitations = useCallback(() => sharing.runtime.invitationGateway, [sharing.runtime]);
+  const content = <DiaryAppContent {...props} sharing={sharing} />;
   return props.previewUser.mode === 'authenticated'
-    ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId}>{content}</AuthenticatedNotificationProvider>
+    ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations}>{content}</AuthenticatedNotificationProvider>
     : content;
 }
-function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
+function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryState, sharing }) {
   const member = diaryState.source === 'member-api';
+  const invitationLeaveGuard = useRef(null);
+  const registerInvitationLeaveGuard = useCallback(guard => { invitationLeaveGuard.current = guard; return () => { if (invitationLeaveGuard.current === guard) invitationLeaveGuard.current = null; }; }, []);
   const profileLeaveGuard = useRef(null);
   const profileBackHandler = useRef(null);
   const registerProfileLeaveGuard = useCallback((guard, onBack) => {
@@ -114,7 +118,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       }
     };
   }, []);
-  const sharing = useSharing(previewUser);
   const authenticatedNotifications = useOptionalSharedNotifications();
   const [sharingRequest, setSharingRequest] = useState(null);
   const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
@@ -223,6 +226,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const openSharedDiary = useCallback((id) => {
     const diary = sharedLibraryRef.current.find(item => item.sharedDiaryId === id);
     if (!diary) return;
+    if (invitationLeaveGuard.current && !invitationLeaveGuard.current()) return;
     setSharingRequest(null);
     enterEditor(diary);
   }, [enterEditor]);
@@ -602,6 +606,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         bottomInset={insets.bottom}
         onToggleOrientation={isPhone && CAN_LOCK_ORIENTATION ? () => setEditorOrientation(isLandscape ? 'portrait' : 'landscape') : undefined}
         onHome={returnToLibrary}
+        registerInvitationLeaveGuard={registerInvitationLeaveGuard}
         onOpenSharing={() => setSharingRequest({ diary: active })}
         readOnly={member && active?.permissions?.canEditCanvas !== true}
         invitationCount={unreadInvites}
@@ -717,7 +722,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   return (
     <>
       {authenticatedNotifications && sharingRequest?.mode === 'notifications'
-        ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => setSharingRequest(null)} />
+        ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => setSharingRequest(null)} onInvitationReady={value => setSharingRequest({ mode: 'invitation', inviteId: value.inviteId })} />
         : <SharingHub onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>

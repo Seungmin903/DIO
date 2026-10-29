@@ -1,3 +1,4 @@
+import { canLeaveForInvitation } from '../../notifications/editorInvitationGuard';
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { BackHandler, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../shared/theme'
@@ -85,7 +86,7 @@ function cellCropPhoto(strip, index) {
   return cell && box ? { ...cell, id: `${strip.id}:${index}`, cell: index, x: 0, y: 0, w: box.width, h: box.height, frame: 'shape', shape: 'rect' } : null
 }
 
-export default function EditorScreen({ sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly: permissionReadOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, fixedViewportZoom = null, qaController = null }) {
+export default function EditorScreen({ registerInvitationLeaveGuard, sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly: permissionReadOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, fixedViewportZoom = null, qaController = null }) {
   const [readingMode, setReadingMode] = useState(false)
   const [readerMenuVisible, setReaderMenuVisible] = useState(true)
   const readOnly = permissionReadOnly || readingMode
@@ -198,6 +199,12 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
   const [photoCropId, setPhotoCropId] = useState(null) // 자르기 창을 연 사진
+  useEffect(() => registerInvitationLeaveGuard?.(() => {
+    const allowed = canLeaveForInvitation({ loaded, saveStatus, editing: Boolean(textEditing || cropId || tapeCropId || photoCropId) });
+    if (!allowed) showToast('입력·자르기와 저장을 마친 뒤 다이어리를 열어 주세요.');
+    return allowed;
+  }), [registerInvitationLeaveGuard, loaded, saveStatus, textEditing, cropId, tapeCropId, photoCropId]);
+
   const [photoCropCell, setPhotoCropCell] = useState(null) // 여러 칸 틀이면 자르는 칸 번호
   // 복사한 요소: 다른 페이지·다른 다이어리 탭에도 붙여 넣는다 (services/objectClipboard)
   const copiedObjects = useObjectClipboard()
