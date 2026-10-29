@@ -386,6 +386,8 @@ secret-scan:
 
 ai-code-review:
   stage: review
+  # 테스트 결과를 쓰지 않으므로 quality 단계를 기다리지 않고 바로 시작한다.
+  needs: []
   tags:
     - ec2-deploy
   rules:
