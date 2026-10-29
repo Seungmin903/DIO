@@ -52,7 +52,7 @@ V2는 로컬 DB에 실제 적용된 원본(email NOT NULL, 체크섬 -1086657833
 
 ### 로컬 파일 / S3 저장 설정
 
-`ProfilePhotoStorage` 인터페이스를 `LocalProfilePhotoStorage`, `S3ProfilePhotoStorage`가 구현한다. 저장 방식·버킷·리전은 미디어와 같은 `MEDIA_*` 환경변수를 본다(이전 `SIGNUP_PHOTO_STORAGE`·`SIGNUP_PHOTO_S3_*`는 더 이상 읽지 않음). 회원가입/사진 조회의 URL과 요청·응답은 저장소 전환 시 바뀌지 않는다. S3도 비공개 버킷의 객체를 서버에서 읽어 기존 PNG API로 반환한다. 공개 ACL을 설정하지 않는다.
+`ProfilePhotoStorage` 인터페이스를 `LocalProfilePhotoStorage`, `S3ProfilePhotoStorage`가 구현한다. 저장 방식·버킷·리전은 미디어와 같은 `MEDIA_*` 환경변수를 본다(이전 `SIGNUP_PHOTO_STORAGE`·`SIGNUP_PHOTO_S3_*`는 더 이상 읽지 않음). 미디어와 프로필 사진의 저장 방식·버킷을 따로 둘 수 없으며, `migrate-legacy` 이전도 `MEDIA_STORAGE`가 가리키는 저장소로 옮긴다. 배포 단계는 env 파일에 옛 변수가 남아 있으면 `infra/scripts/assert-no-legacy-photo-env.sh`에서 중단한다. 회원가입/사진 조회의 URL과 요청·응답은 저장소 전환 시 바뀌지 않는다. S3도 비공개 버킷의 객체를 서버에서 읽어 기존 PNG API로 반환한다. 공개 ACL을 설정하지 않는다.
 
 | 설정 | 기본값 / 용도 |
 |---|---|

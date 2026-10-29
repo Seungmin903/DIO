@@ -74,13 +74,20 @@ public final class MigratedPostgresSchema {
         return sql.toString();
     }
 
-    /** 제약·인덱스·트리거·컬럼 수로 만든 구조 지문. 테스트가 구조를 바꾼 채로 끝났는지 확인한다. */
+    /**
+     * 제약·인덱스·트리거 정의와 컬럼(타입·NULL 허용·기본값)을 정렬해 만든 구조 지문.
+     * 개수만 세면 같은 수로 지우고 다시 만든 변경을 놓치므로 정의 전체의 해시를 비교한다.
+     */
     private String fingerprint() {
         return admin.queryForObject("""
-            select (select count(*) from pg_constraint c join pg_namespace n on n.oid=c.connamespace where n.nspname=?)
-              || ',' || (select count(*) from pg_indexes where schemaname=?)
-              || ',' || (select count(*) from pg_trigger t join pg_class r on r.oid=t.tgrelid join pg_namespace n on n.oid=r.relnamespace where n.nspname=?)
-              || ',' || (select count(*) from information_schema.columns where table_schema=?)
+            select md5(concat_ws('|',
+              (select string_agg(r.relname || ':' || c.conname || ':' || pg_get_constraintdef(c.oid), ',' order by r.relname, c.conname)
+                 from pg_constraint c join pg_namespace n on n.oid=c.connamespace left join pg_class r on r.oid=c.conrelid where n.nspname=?),
+              (select string_agg(indexdef, ',' order by tablename, indexname) from pg_indexes where schemaname=?),
+              (select string_agg(pg_get_triggerdef(t.oid), ',' order by r.relname, t.tgname)
+                 from pg_trigger t join pg_class r on r.oid=t.tgrelid join pg_namespace n on n.oid=r.relnamespace where n.nspname=? and not t.tgisinternal),
+              (select string_agg(table_name || '.' || column_name || ':' || data_type || ':' || is_nullable || ':' || coalesce(column_default, ''), ','
+                 order by table_name, ordinal_position) from information_schema.columns where table_schema=?)))
             """, String.class, schema, schema, schema, schema);
     }
 

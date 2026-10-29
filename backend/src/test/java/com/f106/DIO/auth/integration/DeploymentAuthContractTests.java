@@ -17,6 +17,15 @@ class DeploymentAuthContractTests {
             assertThat(ci.getProperty(job + ".needs[0].job")).isEqualTo("backend-test");
             assertThat(ci.getProperty(job + ".allow_failure")).isNull();
         }
+        for (String job : new String[]{"backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test"}) {
+            // CI 설정만 바뀐 MR에서는 자동 실행하지 않고, 파이프라인을 막지 않는 수동 실행만 남긴다.
+            for (int i = 0; ci.getProperty(job + ".rules[0].changes[" + i + "]") != null; i++) {
+                assertThat(ci.getProperty(job + ".rules[0].changes[" + i + "]")).isNotEqualTo(".gitlab-ci.yml");
+            }
+            assertThat(ci.getProperty(job + ".rules[1].changes[0]")).isEqualTo(".gitlab-ci.yml");
+            assertThat(ci.getProperty(job + ".rules[1].when")).isEqualTo("manual");
+            assertThat(ci.getProperty(job + ".rules[1].allow_failure")).isEqualTo(true);
+        }
         assertThat(ci.getProperty("backend-postgres-auth-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh auth");
         assertThat(ci.getProperty("backend-postgres-sharing-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh sharing");
         assertThat(ci.getProperty("backend-postgres-diary-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh diary");
@@ -30,8 +39,7 @@ class DeploymentAuthContractTests {
         for (String job : new String[]{authJob, sharingJob, diaryJob, lifecycleJob}) {
             assertThat(job).contains("backend/src/test/resources/**/*", "backend/src/test/java/**/*Fixture.java",
                 "backend/src/test/java/**/*Contract.java");
-            // CI 설정만 바뀐 MR에서는 PostgreSQL 검사를 다시 돌리지 않는다.
-            assertThat(job).doesNotContain("- .gitlab-ci.yml").contains("infra/scripts/test-auth-postgres.sh");
+            assertThat(job).contains("infra/scripts/test-auth-postgres.sh");
         }
         assertThat(authJob).contains("backend/build/test-results/authPostgresTest/*.xml");
         assertThat(sharingJob).contains("backend/src/main/java/**/sharing/**/*",
@@ -109,6 +117,8 @@ class DeploymentAuthContractTests {
             int validation = ci.indexOf("-f infra/compose/compose." + profile + ".yml config --quiet");
             int build = ci.indexOf("docker build --tag \"dio-backend:" + profile + "-");
             assertThat(validation).isGreaterThanOrEqualTo(0).isLessThan(build);
+            int legacyCheck = ci.indexOf("bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/" + profile + ".env");
+            assertThat(legacyCheck).isGreaterThanOrEqualTo(0).isLessThan(validation);
         }
     }
 
