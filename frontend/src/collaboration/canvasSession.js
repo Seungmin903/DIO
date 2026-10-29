@@ -1,6 +1,7 @@
 import {decodeElement,sharedObject} from './canvasElements.js'
 import { canvasContent, canvasDelta, stable, sameElements } from './canvasApi.js'
 const copy=v=>JSON.parse(JSON.stringify(v))
+const permanentRejection=error=>[400,403,404,405,410,413,415,422].includes(error.status)
 export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,createId,isActive=()=>true}){
   let journal={format:2,pageId,diaryId,base:null,uiLocal:null,queue:[],control:null,recent:[]},writes=Promise.resolve(),running=null,restored=false
   const active=()=>{if(!isActive())throw new Error('편집 세션이 종료됐어요.')}
@@ -94,10 +95,10 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
           }
         }
         journal.base=copy(remote);await persist()
-        let direction=null,historyClientOperationId=null
+        let direction=null,historyClientOperationId=null,rejectedCount=0
         if(journal.control){const pending=journal.control;direction=pending.direction
           try{const result=await api.control(pageId,pending.direction,pending.request);active();historyClientOperationId=result.clientOperationId;journal.control=null;await accept(result)}
-          catch(error){if(error.status===409){journal.rejectedControls=[...(journal.rejectedControls??[]),copy(pending)];journal.control=null;await persist()}throw error}
+          catch(error){if(error.status===409||permanentRejection(error)){journal.rejectedControls=[...(journal.rejectedControls??[]),copy(pending)];journal.control=null;await persist()}throw error}
         }
         while(journal.queue.length){
           active();const entry=journal.queue[0]
@@ -105,6 +106,14 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
           if(entry.request){
             try{const result=await api.apply(pageId,entry.request);active();journal.base=copy(result.items)}
             catch(error){
+              if(permanentRejection(error)){
+                journal.rejectedEdits=[...(journal.rejectedEdits??[]),{...copy(entry),status:error.status,code:error.code??null,rejectedAt:Date.now()}]
+                journal.queue.shift();rejectedCount++;await persist()
+                // Access loss or page deletion must stop writes, but the rejected
+                // head no longer prevents recovery of the remaining local work.
+                if([403,404,410].includes(error.status))throw error
+                continue
+              }
               if(error.status!==409)throw error
               // A definitive rejection was not committed. Use a fresh command ID for
               // the rebased payload. Unknown/network outcomes keep the original ID.
@@ -115,7 +124,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
           journal.queue.shift();journal.recent=[...journal.recent,entry.id].slice(-128);await persist()
         }
         const history=await api.history(pageId);active()
-        return {objects:preview(),expectedLocal:copy(journal.uiLocal),history,status:'saved',direction,historyClientOperationId}
+        return {objects:preview(),expectedLocal:copy(journal.uiLocal),history,status:'saved',direction,historyClientOperationId,rejectedCount:(journal.rejectedEdits??[]).length}
       })().finally(()=>{running=null})
       return running
     },
@@ -128,7 +137,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
       journal.control={direction,request:{operationId:candidate.operationId,expectedRevision:candidate.revision,clientOperationId:createId()}};await persist()
       let result
       try{result=await api.control(pageId,direction,journal.control.request);active();journal.control=null;await accept(result)}
-      catch(error){if(error.status===409){journal.rejectedControls=[...(journal.rejectedControls??[]),copy(journal.control)];journal.control=null;await persist()}throw error}
+      catch(error){if(error.status===409||permanentRejection(error)){journal.rejectedControls=[...(journal.rejectedControls??[]),copy(journal.control)];journal.control=null;await persist()}throw error}
       return {objects:preview(),expectedLocal:copy(journal.uiLocal),history:await api.history(pageId),status:'saved',direction,historyClientOperationId:result.clientOperationId}
     },
     ownsCommand(id){return journal.recent.includes(id)||journal.queue.some(e=>e.id===id)||journal.control?.request.clientOperationId===id},

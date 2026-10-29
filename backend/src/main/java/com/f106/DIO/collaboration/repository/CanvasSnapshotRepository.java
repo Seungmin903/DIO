@@ -13,7 +13,15 @@ public class CanvasSnapshotRepository {
     public CanvasSnapshotRepository(JdbcTemplate jdbc,ObjectMapper json){this.jdbc=jdbc;this.json=json;}
     public Map<String,CanvasElementSnapshot> capture(UUID page,Collection<UUID> ids){
         var result=new LinkedHashMap<String,CanvasElementSnapshot>();
-        for(UUID id:ids){var rows=jdbc.query("select * from canvas_elements where page_id=? and element_id=?",(r,n)->snapshot(r),page,id);result.put(id.toString(),rows.isEmpty()?null:rows.get(0));}
+        for(UUID id:ids)result.put(id.toString(),null);
+        if(result.isEmpty())return result;
+        var unique=new ArrayList<>(result.keySet());
+        for(int offset=0;offset<unique.size();offset+=500){
+            var batch=unique.subList(offset,Math.min(offset+500,unique.size()));
+            var args=new ArrayList<Object>();args.add(page);batch.forEach(id->args.add(UUID.fromString(id)));
+            var rows=jdbc.query("select * from canvas_elements where page_id=? and element_id in ("+String.join(",",Collections.nCopies(batch.size(),"?"))+")",(r,n)->snapshot(r),args.toArray());
+            for(var row:rows)result.put(row.elementId().toString(),row);
+        }
         return result;
     }
     private Instant instant(ResultSet r,String column)throws SQLException{var time=r.getTimestamp(column);return time==null?null:time.toInstant();}

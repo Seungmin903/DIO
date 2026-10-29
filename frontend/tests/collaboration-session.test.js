@@ -102,3 +102,21 @@ test('두 기기가 같은 좌표에 동시에 그린 별도 필기는 모두 �
  const first=await a.synchronize(),second=await b.synchronize()
  assert.deepEqual(new Set(first.objects.map(o=>o.id)),new Set([one.id,two.id]));assert.deepEqual(new Set(second.objects.map(o=>o.id)),new Set([one.id,two.id]))
 })
+
+test('400으로 거절된 작업은 보관하고 다음 편집은 계속 전송한다',async()=>{
+ const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()
+ await s.enqueue({id:'bad',pageId,before:[],after:[text()]})
+ const other=text('valid','60000000-0000-4000-8000-000000000001')
+ await s.enqueue({id:'good',pageId,before:[text()],after:[text(),other]})
+ const apply=f.api.apply;f.api.apply=async(p,r)=>{if(r.clientOperationId==='bad')throw Object.assign(Error('invalid'),{status:400,code:'INVALID_CANVAS'});return apply(p,r)}
+ const result=await s.synchronize();assert.equal(result.rejectedCount,1);assert.equal(s.snapshot().queue.length,0)
+ assert.equal(s.snapshot().rejectedEdits[0].after[0].text,'A');assert.equal(result.objects[0].text,'valid')
+ const restored=f.session();await restored.restore([]);assert.equal(restored.snapshot().rejectedEdits[0].id,'bad')
+})
+for(const status of [403,404])test(`${status} 확정 거절은 보관 후 전송을 멈추고 큐 머리는 해제한다`,async()=>{
+ const f=fixture(),s=f.session();await s.restore([]);await s.synchronize()
+ await s.enqueue({id:'bad',pageId,before:[],after:[text()]});await s.enqueue({id:'next',pageId,before:[text()],after:[text('next')]})
+ let calls=0;f.api.apply=async()=>{calls++;throw Object.assign(Error('denied'),{status})}
+ await assert.rejects(s.synchronize(),e=>e.status===status)
+ assert.equal(calls,1);assert.equal(s.snapshot().rejectedEdits[0].id,'bad');assert.equal(s.snapshot().queue[0].id,'next')
+})

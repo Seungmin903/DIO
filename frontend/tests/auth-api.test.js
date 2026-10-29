@@ -272,3 +272,16 @@ test('공동 편집 개발 인증은 같은 서버의 허용 경로·현재 계�
   assert.throws(()=>api.getCollaborationHeaders({...current,url}))
  assert.throws(()=>api.getCollaborationHeaders({...current,userId:'other',url:'https://dio.example/api/v1/pages/page-id'}))
 })
+
+test('WebSocket 정책 종료의 강제 토큰 갱신도 동시 요청은 한 번으로 합친다',async()=>{
+ let finish,refreshes=0
+ const {api}=setup(call=>{
+  if(call.path==='refresh'){refreshes++;return new Promise(resolve=>{finish=()=>resolve(response(tokens('-new')))})}
+  return response(tokens())
+ })
+ await api.login({email:user.email,password:'Password123!'})
+ const options={userId:user.userId,sessionKey:api.getSessionKey(),forceRefresh:true}
+ const first=api.getAccessToken(options),second=api.getAccessToken(options)
+ assert.equal(refreshes,1);finish()
+ assert.deepEqual(await Promise.all([first,second]),['access-new','access-new']);assert.equal(refreshes,1)
+})

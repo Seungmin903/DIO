@@ -146,7 +146,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
             historyClientOperationId:result.historyClientOperationId,pageId,expectedElements:result.expectedLocal,objects:result.objects})
           await engine.acceptImport(result.objects)
         }
-        if(current.id===pageId&&active())setView(v=>({...v,status:'saved',errorMessage:null,history:result.history,pageId}))
+        if(current.id===pageId&&active())setView(v=>({...v,status:result.rejectedCount?'error':'saved',errorMessage:result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}))
         return result
       }
       const job=r.tail.catch(()=>{}).then(work);r.tail=job
@@ -163,7 +163,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     const refresh=()=>{if(active()){r.sync(latest.current.page.id);refreshPagesQuietly()}}
     const socket=connectCollaboration({baseUrl:apiBaseUrl,diaryId:diary.id,isActive:active,allowDevelopmentHttp:typeof __DEV__!=='undefined'&&__DEV__,
       makeSocket:url=>Platform?.OS==='web'?new globalThis.WebSocket(url):new globalThis.WebSocket(url,[],{headers:headersFor(url)}),
-      getAccessToken:()=>authService.getAccessToken({userId:diary.memberAccountId,sessionKey}),
+      getAccessToken:({forceRefresh=false}={})=>authService.getAccessToken({userId:diary.memberAccountId,sessionKey,forceRefresh}),
       onReady:refresh,onPagesChanged:refreshPagesQuietly,onChange:frame=>{
         if([...r.loaded.values()].some(engine=>engine.ownsCommand(frame.clientOperationId)))return
         if(frame.pageId===latest.current.page.id)refresh()

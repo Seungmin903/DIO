@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"spring.datasource.url=jdbc:h2:mem:collaboration-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","dio.signup.photos.storage=local",
-    "dio.signup.photos.local-directory=build/collaboration-photos","spring.datasource.hikari.maximum-pool-size=12"})
+    "dio.signup.photos.local-directory=build/collaboration-photos","spring.datasource.hikari.maximum-pool-size=12","server.forward-headers-strategy=native","server.tomcat.remoteip.remote-ip-header=X-Forwarded-For","server.tomcat.remoteip.internal-proxies=127\\.0\\.0\\.1|::1"})
 @AutoConfigureMockMvc @ActiveProfiles("test")
 class CanvasCollaborationTests {
     @org.springframework.boot.test.web.server.LocalServerPort int port;
@@ -120,8 +120,11 @@ class CanvasCollaborationTests {
         public void close(){if(socket!=null)socket.abort();}
     }
     SocketProbe connect(UUID diary,String token)throws Exception{
+        return connectFrom(diary,token,"198.51.100.1");
+    }
+    SocketProbe connectFrom(UUID diary,String token,String clientIp)throws Exception{
         var probe=new SocketProbe();
-        java.net.http.HttpClient.newHttpClient().newWebSocketBuilder().header("Origin","http://localhost:8081")
+        java.net.http.HttpClient.newHttpClient().newWebSocketBuilder().header("Origin","http://localhost:8081").header("X-Forwarded-For",clientIp)
             .buildAsync(java.net.URI.create("ws://127.0.0.1:"+port+"/ws/diaries/"+diary),probe).get(10,java.util.concurrent.TimeUnit.SECONDS);
         if(token!=null)probe.socket.sendText(json.writeValueAsString(Map.of("type","AUTH","accessToken",token)),true).join();return probe;
     }
@@ -250,4 +253,28 @@ class CanvasCollaborationTests {
         }
     }
 
+    @Test void trustedProxyKeepsUnauthenticatedIpBudgetsSeparate()throws Exception{
+        var owner=actor();UUID diary=diary(owner);
+        var pending=new ArrayList<SocketProbe>();
+        try{
+            for(int i=0;i<4;i++)pending.add(connectFrom(diary,null,"198.51.100.40"));
+            try(var blocked=connectFrom(diary,null,"198.51.100.40");var other=connectFrom(diary,owner.token(),"198.51.100.41")){
+                assertThat(blocked.closed.await(3,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+                assertThat(blocked.closeCode).isEqualTo(1008);
+                assertThat(frame(other).path("type").asText()).isEqualTo("READY");
+            }
+        }finally{pending.forEach(SocketProbe::close);}
+    }
+    @Test void pageSettingsNotifyBothParticipantsAfterCommit()throws Exception{
+        var owner=actor();var friend=actor();UUID diary=diary(owner),page=page(diary);join(diary,friend);
+        try(var own=connect(diary,owner.token());var peer=connect(diary,friend.token())){
+            frame(own);frame(peer);
+            mvc.perform(patch("/api/v1/pages/"+page).header("Authorization","Bearer "+owner.token()).contentType("application/json")
+                .content("{\"title\":\"updated\",\"gridVisible\":true}")).andExpect(status().isOk());
+            assertThat(frame(own).path("type").asText()).isEqualTo("PAGES_CHANGED");
+            assertThat(frame(peer).path("type").asText()).isEqualTo("PAGES_CHANGED");
+            mvc.perform(get("/api/v1/diaries/"+diary+"/pages").header("Authorization","Bearer "+friend.token()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].title").value("updated")).andExpect(jsonPath("$.items[0].gridVisible").value(true));
+        }
+    }
 }

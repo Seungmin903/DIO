@@ -24,6 +24,7 @@ public class CollaborationWebSocketConfig implements WebSocketConfigurer {
                 try{
                     if(request.getURI().getRawQuery()!=null)throw new IllegalArgumentException();
                     String path=request.getURI().getPath();attributes.put("diaryId",UUID.fromString(path.substring(path.lastIndexOf('/')+1)));
+                    // Uses Tomcat RemoteIpValve (dev/prod native strategy), never raw forwarded headers.
                     attributes.put("remoteIp",request.getRemoteAddress()==null?"unknown":request.getRemoteAddress().getAddress().getHostAddress());return true;
                 }catch(IllegalArgumentException error){response.setStatusCode(HttpStatus.BAD_REQUEST);return false;}
             }

@@ -20,3 +20,17 @@ test('AUTH 프레임 인증 후 변경만 전달하고 종료된 연결의 늦�
  socket.onmessage({data:JSON.stringify({type:'PAGES_CHANGED',diaryId})});assert.equal(pageChanges.length,1)
  client.close();socket.onmessage({data:JSON.stringify(message)});assert.equal(changes.length,1);assert.equal(socket.closed,true)
 })
+
+test('1008 이후 토큰 갱신으로 재접속하고 READY 없는 반복 거절은 두 번만 재시도한다',async()=>{
+ const sockets=[],scheduled=[],tokens=[]
+ class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(raw){this.sent.push(JSON.parse(raw))}close(){}}
+ const client=connectCollaboration({baseUrl:'https://dio.test/api/v1',diaryId,WebSocketImpl:Socket,onChange:()=>{},
+  getAccessToken:async options=>{tokens.push(options);return options.forceRefresh?'renewed':'initial'},
+  schedule:(fn,delay)=>{const job={fn,delay};scheduled.push(job);return job},cancel:job=>{if(job)job.cancelled=true}})
+ const flush=()=>new Promise(r=>setImmediate(r))
+ sockets[0].onopen();await flush();sockets[0].onmessage({data:JSON.stringify({type:'READY',diaryId})})
+ sockets[0].onclose({code:1008});let job=scheduled.find(j=>!j.cancelled&&j.delay===1000);job.fn();sockets[1].onopen();await flush()
+ assert.equal(sockets[1].sent[0].accessToken,'renewed');assert.equal(tokens[1].forceRefresh,true)
+ sockets[1].onclose({code:1008});job=scheduled.find(j=>!j.cancelled&&j.delay===2000);job.fn();sockets[2].onopen();await flush()
+ const count=scheduled.length;sockets[2].onclose({code:1008});assert.equal(scheduled.length,count);client.close()
+})

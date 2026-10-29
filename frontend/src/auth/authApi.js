@@ -75,12 +75,12 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         !(target.pathname.startsWith(`${origin.pathname}/pages/`) || (target.pathname.startsWith(`${origin.pathname}/diaries/`)&&/^\/diaries\/[0-9a-f-]{36}\/pages(?:\/order)?$/i.test(target.pathname.slice(origin.pathname.length))) || target.pathname.startsWith('/ws/diaries/'))) throw unauthorized();
       return developmentAccess ? { Authorization:developmentAccess } : {};
     },
-    async getAccessToken({ userId, sessionKey } = {}) {
+    async getAccessToken({ userId, sessionKey, forceRefresh = false } = {}) {
       const matches = () => session && String(session.user.userId) === String(userId) && sessionKey === api.getSessionKey();
       if (!matches()) throw unauthorized();
-      if (refreshing) { try { await refreshing; } catch (error) { if (!matches()) throw unauthorized(); throw error; } }
+      if (refreshing) { try { await refreshing; forceRefresh = false; } catch (error) { if (!matches()) throw unauthorized(); throw error; } }
       if (!matches()) throw unauthorized();
-      if (now() >= accessRefreshAt) {
+      if (forceRefresh || now() >= accessRefreshAt) {
         try { await api.refresh(); } catch (error) { if (!matches()) throw unauthorized(); throw error; }
       }
       if (!matches()) throw unauthorized();
