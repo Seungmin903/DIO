@@ -73,7 +73,7 @@ export function createDiaryApi(transport) {
   };
 }
 // 합의 후 사용할 HTTP 경계. 앱 기본 경로에는 아직 연결하지 않는다.
-export function createHttpTransport({ baseUrl, getAccessToken, fetchImpl = globalThis.fetch, accessTokenHeader = 'Authorization' }) {
+export function createHttpTransport({ baseUrl, getAccessToken, fetchImpl = globalThis.fetch, accessTokenHeader = 'Authorization', getAuthHeaders }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   return async ({ path, signal, query = {}, method = 'GET', body: payload, requestId }) => {
     const token = await getAccessToken();
@@ -81,11 +81,20 @@ export function createHttpTransport({ baseUrl, getAccessToken, fetchImpl = globa
     if (!token) throw new DiaryApiError('UNAUTHENTICATED', '로그인이 필요해요.', 401);
     const search = new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]));
     const queryString = search.toString();
+    const url = `${baseUrl.replace(/\/$/, '')}${path}${queryString ? `?${queryString}` : ''}`;
+    let authHeaders;
+    try {
+      authHeaders = getAuthHeaders ? getAuthHeaders(url, token)
+        : { [accessTokenHeader]: accessTokenHeader === 'Authorization' ? `Bearer ${token}` : token };
+    } catch {
+      throw new DiaryApiError('API_NOT_CONFIGURED', '다이어리 서버 인증 설정을 확인해 주세요.');
+    }
     let response;
     try {
-      response = await fetchImpl(`${baseUrl.replace(/\/$/, '')}${path}${queryString ? `?${queryString}` : ''}`, {
+      response = await fetchImpl(url, {
+        credentials: 'omit', redirect: 'error',
         signal, method, body: payload === undefined ? undefined : JSON.stringify(payload),
-        headers: { Accept: 'application/json', [accessTokenHeader]: accessTokenHeader === 'Authorization' ? `Bearer ${token}` : token,
+        headers: { Accept: 'application/json', ...authHeaders,
           ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...(requestId ? { 'Idempotency-Key': requestId } : {}) },
       });

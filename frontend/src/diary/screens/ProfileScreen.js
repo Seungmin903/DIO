@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { styles as s } from '../styles';
 import Header from '../components/Header';
 import AppInformation from '../components/AppInformation';
@@ -7,8 +8,16 @@ import { colors, radius } from '../../shared/theme';
 import AppIcon from '../../shared/AppIcon';
 import ProfileEditScreen from '../../auth/ProfileEditScreen';
 
-export default function ProfileScreen({ diaries, compact = false, previewUser, onEndPreview, onUpdatePreview, registerLeaveGuard }) {
+export default function ProfileScreen({ diaries, compact = false, previewUser, onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource }) {
   const [editing, setEditing] = useState(false);
+  const [failedPhoto, setFailedPhoto] = useState(null);
+  const photoUri = previewUser?.photoUri;
+  const photoSource = photoUri
+    ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri }) : null;
+  // 실패 상태는 계정·사진·접근 인증에 묶는다. 인증 변경 후 같은 사진도 다시 시도한다.
+  // 인증 값은 메모리 비교에만 사용하고 캐시 키·로그에는 넣지 않는다.
+  const photoIdentity = JSON.stringify([previewUser?.userId || previewUser?.accountId || 'guest', photoUri, photoSource?.headers || null]);
+  const photoCacheKey = JSON.stringify(['profile', previewUser?.userId || previewUser?.accountId || 'guest', photoUri]);
   const favorites = diaries.filter(diary => diary.favorite).length;
   const guest = previewUser?.provider === 'guest';
   if (editing) return <ProfileEditScreen compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onEndPreview} registerLeaveGuard={registerLeaveGuard} />;
@@ -29,7 +38,13 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
       <Header title="내 공간" compact={compact} />
       <View style={[s.profileHero, compact && s.profileHeroCompact]}>
         <View style={s.profileBadge}>
-          {previewUser?.photoUri ? <Image source={{ uri: previewUser.photoUri }} accessibilityLabel="프로필 사진" style={local.photo} /> : <Text style={s.profileBadgeText}>D</Text>}
+          {photoUri && failedPhoto !== photoIdentity
+            ? <Image source={{ ...photoSource, cacheKey: photoCacheKey }}
+                contentFit="cover" cachePolicy="memory"
+                onError={() => {
+                  setFailedPhoto(photoIdentity);
+                }} accessibilityLabel="프로필 사진" style={local.photo} />
+            : <Text style={s.profileBadgeText}>D</Text>}
         </View>
         <View style={s.profileHeroText}>
           <Text style={s.profileTitle}>{previewUser?.nickname ? `${previewUser.nickname}님의 기록 공간` : '나의 기록 공간'}</Text>
