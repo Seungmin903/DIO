@@ -26,6 +26,7 @@ import com.f106.DIO.page.support.MediaFileNotSupportedException;
 public class CanvasElementService {
 
 	private static final BigDecimal SORT_STEP = BigDecimal.ONE;
+    private static final BigDecimal MAX_SORT_KEY = new BigDecimal("9999999999.9999999999");
 
 	private final PageService pageService;
 	private final CanvasElementRepository elementRepository;
@@ -131,7 +132,7 @@ public class CanvasElementService {
 	private CanvasElement newElement(UUID pageId, CanvasElementCreateRequest request, BigDecimal sortKey, Long userId) {
 		validateReferences(pageId, request.getGroupId(), request.getMediaFileId());
 		return new CanvasElement(request.getElementId(), pageId, request.getElementType(), request.getGroupId(),
-			request.getName(), request.getSortKey()==null?sortKey:request.getSortKey(), request.getX(), request.getY(), request.getWidth(), request.getHeight(),
+			request.getName(), checkedSortKey(request.getSortKey()==null?sortKey:request.getSortKey()), request.getX(), request.getY(), request.getWidth(), request.getHeight(),
 			request.getRotation() == null ? BigDecimal.ZERO : request.getRotation(),
 			request.getOpacity() == null ? BigDecimal.ONE : request.getOpacity(),
 			Boolean.TRUE.equals(request.getIsLocked()), Boolean.TRUE.equals(request.getIsHidden()), request.getMediaFileId(),
@@ -160,6 +161,12 @@ public class CanvasElementService {
 		return elementRepository.findByElementIdAndPageIdAndDeletedAtIsNull(elementId, pageId)
 			.orElseThrow(CanvasElementNotFoundException::new);
 	}
+
+    private static BigDecimal checkedSortKey(BigDecimal value) {
+        if(value.abs().compareTo(MAX_SORT_KEY)>0||Math.max(0,value.stripTrailingZeros().scale())>10)
+            throw new IllegalArgumentException("레이어 순서 범위를 초과했습니다. 기존 요소의 순서를 조정한 뒤 다시 시도해 주세요.");
+        return value;
+    }
 
 	private BigDecimal nextSortKey(UUID pageId) {
 		BigDecimal max = elementRepository.findMaxSortKeyByPageId(pageId);

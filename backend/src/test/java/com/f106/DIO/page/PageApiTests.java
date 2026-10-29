@@ -44,6 +44,37 @@ class PageApiTests {
         boundaryJdbc.execute("create table if not exists diary_creation_receipts(user_id bigint,key_hash char(64),request_hash char(64),diary_id uuid,response_body jsonb,created_at timestamp(6) with time zone default current_timestamp,completed_at timestamp(6) with time zone,primary key(user_id,key_hash))");
     }
 
+    @Test void excessiveAutomaticElementOrderReturns400AndCanBeRepaired()throws Exception{
+        String diaryId=createDiary("순서 경계"),pageId=createPage(diaryId,"{}");
+        String base="{\"type\":\"TEXT\",\"x\":0,\"y\":0,\"w\":10,\"h\":10";
+        var large=body(mvc.perform(post("/api/v1/pages/"+pageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(base+",\"sortKey\":9999999999.9999999999}"))
+            .andExpect(status().isCreated()).andReturn()).path("element");
+        mvc.perform(post("/api/v1/pages/"+pageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(base+"}"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGE_REQUEST"));
+        mvc.perform(post("/api/v1/pages/"+pageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(base+",\"sortKey\":1}"))
+            .andExpect(status().isCreated());
+        mvc.perform(patch("/api/v1/pages/"+pageId+"/elements/"+large.path("elementId").asText()).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"sortKey\":2,\"version\":"+large.path("version").asLong()+"}"))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/pages/"+pageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(base+"}"))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.element.sortKey").value(3));
+    }
+
+    @Test void automaticOrderAtTheNumericBoundaryFitsAndOverflowingBatchRollsBack()throws Exception{
+        String diaryId=createDiary("일괄 순서 경계"),pageId=createPage(diaryId,"{}");
+        String base="{\"type\":\"TEXT\",\"x\":0,\"y\":0,\"w\":10,\"h\":10";
+        mvc.perform(post("/api/v1/pages/"+pageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(base+",\"sortKey\":9999999998.9999999999}"))
+            .andExpect(status().isCreated());
+        long historyBefore=boundaryJdbc.queryForObject("select count(*) from canvas_history_operations where page_id=?",Long.class,java.util.UUID.fromString(pageId));
+        mvc.perform(post("/api/v1/pages/"+pageId+"/elements/batch").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{\"creates\":["+base+"},"+base+"}]}"))
+            .andExpect(status().isBadRequest());
+        assertThat(boundaryJdbc.queryForObject("select count(*) from canvas_elements where page_id=?",Long.class,java.util.UUID.fromString(pageId))).isEqualTo(1);
+        assertThat(boundaryJdbc.queryForObject("select count(*) from canvas_history_operations where page_id=?",Long.class,java.util.UUID.fromString(pageId))).isEqualTo(historyBefore);
+        var response=body(mvc.perform(post("/api/v1/pages/"+pageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content(base+"}"))
+            .andExpect(status().isCreated()).andReturn());
+        assertThat(boundaryJdbc.queryForObject("select max(sort_key) from canvas_elements where page_id=?",BigDecimal.class,java.util.UUID.fromString(pageId))).isEqualByComparingTo("9999999999.9999999999");
+    }
+
 	@Test
 	void pagesAndCanvasElementsSupportTheWholePersistenceFlow() throws Exception {
 		String diaryId = body(mvc.perform(post("/api/v1/diaries").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
