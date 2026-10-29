@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.f106.DIO.media.domain.MediaFile;
 import com.f106.DIO.media.dto.MediaFileListResponse;
+import com.f106.DIO.media.library.repository.DiaryMediaLibraryRepository;
 import com.f106.DIO.media.dto.MediaFileResponse;
 import com.f106.DIO.media.repository.MediaFileRepository;
 import com.f106.DIO.media.repository.MediaStorageDeletionTaskRepository;
@@ -21,10 +22,12 @@ import com.f106.DIO.media.support.MediaRequestException;
 @Service
 public class MediaFileTransactionService {
 	private final MediaFileRepository mediaFiles;
+	private final DiaryMediaLibraryRepository sharedLibrary;
 	private final MediaStorageDeletionTaskRepository deletionTasks;
 
-	public MediaFileTransactionService(MediaFileRepository mediaFiles, MediaStorageDeletionTaskRepository deletionTasks) {
-		this.mediaFiles = mediaFiles;
+	public MediaFileTransactionService(MediaFileRepository mediaFiles, DiaryMediaLibraryRepository sharedLibrary,
+			MediaStorageDeletionTaskRepository deletionTasks) {
+		this.mediaFiles = mediaFiles; this.sharedLibrary = sharedLibrary;
 		this.deletionTasks = deletionTasks;
 	}
 
@@ -55,19 +58,26 @@ public class MediaFileTransactionService {
 
 	@Transactional(readOnly = true)
 	public StorageReference storageReference(UUID mediaFileId, Long userId) {
-		MediaFile mediaFile = findOwned(mediaFileId, userId);
+		MediaFile mediaFile = mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, userId)
+			.orElseGet(() -> readableSharedMedia(mediaFileId, userId));
 		return new StorageReference(mediaFile.getMimeType(), mediaFile.getStorageKey());
 	}
 
 	@Transactional
 	public void delete(UUID mediaFileId, Long userId) {
 		MediaFile mediaFile = findOwned(mediaFileId, userId);
+		if (mediaFiles.existsInSharedLibrary(mediaFileId)) throw MediaRequestException.sharedLibraryReference();
 		mediaFile.softDelete();
 		mediaFiles.flush();
 	}
 
 	private MediaFile findOwned(UUID mediaFileId, Long userId) {
 		return mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, userId).orElseThrow(MediaFileNotFoundException::new);
+	}
+	private MediaFile readableSharedMedia(UUID mediaFileId, Long userId) {
+		MediaFile mediaFile = mediaFiles.findByMediaFileIdAndDeletedAtIsNull(mediaFileId).orElseThrow(MediaFileNotFoundException::new);
+		if (!sharedLibrary.isReadableByMember(mediaFileId, userId)) throw new MediaFileNotFoundException();
+		return mediaFile;
 	}
 	private static String encode(MediaFile mediaFile) {
 		String raw = mediaFile.getCreatedAt() + "|" + mediaFile.getMediaFileId();

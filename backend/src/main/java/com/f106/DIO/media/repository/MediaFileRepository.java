@@ -1,5 +1,6 @@
 package com.f106.DIO.media.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,6 +30,10 @@ public interface MediaFileRepository extends JpaRepository<MediaFile, UUID> {
 	String DELETABLE_AFTER = " and (media_files.deleted_at, media_files.media_file_id) > (:afterDeletedAt, :afterMediaFileId)";
 
 	Optional<MediaFile> findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(UUID mediaFileId, Long ownerUserId);
+	Optional<MediaFile> findByMediaFileIdAndDeletedAtIsNull(UUID mediaFileId);
+	List<MediaFile> findAllByMediaFileIdInAndDeletedAtIsNull(Collection<UUID> mediaFileIds);
+	@Query(value = "select exists (select 1 from diary_media_library where media_file_id = :mediaFileId)", nativeQuery = true)
+	boolean existsInSharedLibrary(@Param("mediaFileId") UUID mediaFileId);
 	@Query("""
 		select mediaFile from MediaFile mediaFile
 		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null

@@ -15,16 +15,23 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import com.f106.DIO.media.service.MediaService;
 import com.f106.DIO.media.support.MediaFileNotFoundException;
+import com.f106.DIO.media.library.service.SharedMediaLibraryService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class MediaControllerAuthenticationTests {
 	@Autowired MockMvc mvc;
 	@MockitoBean MediaService mediaService;
+	@MockitoBean SharedMediaLibraryService sharedMediaLibraryService;
 
 	@Test
 	void rejectsUnauthenticatedMediaRequests() throws Exception {
 		mvc.perform(get("/api/v1/media")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void rejectsUnauthenticatedSharedLibraryRequests() throws Exception {
+		mvc.perform(get("/api/v1/diaries/" + UUID.randomUUID() + "/media-library")).andExpect(status().isUnauthorized());
 	}
 
 	@Test
