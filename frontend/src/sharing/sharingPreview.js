@@ -9,6 +9,11 @@ export class SharingError extends Error {
   }
 }
 export const normalizeSharingNickname = (value) => value.trim().normalize('NFKC');
+export const MAX_SHARING_MEMBERS = 4;
+export const normalizeInviteEmail = (value) => value.trim().toLowerCase();
+export const inviteEmailError = (value) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeInviteEmail(value)) && value.trim().length <= 254
+    ? '' : '이메일 주소를 확인해 주세요.';
 export const sharingNicknameError = (value) =>
   /^[가-힣a-zA-Z0-9_]{2,12}$/.test(normalizeSharingNickname(value))
     ? ''
@@ -19,7 +24,7 @@ const fail = (code, message) => {
 };
 
 // 224 화면 검증용 메모리 서비스. 기존 알림 목 서버를 재사용하며 실제 링크/초대/권한을 만들지 않는다.
-export function createSharingPreview({ user = {}, delay = 250 } = {}) {
+export function createSharingPreview({ user = {}, delay = 250, now = Date.now } = {}) {
   const self = { id: 'self', nickname: user.nickname || '방문자', photoUri: user.photoUri || null };
   const notifications = createMockNotificationTransport({
     account: 'sharing',
@@ -29,6 +34,7 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
   const documents = createSessionDocuments();
   const diaries = new Map();
   const invites = new Map();
+  const linkAttempts = new Map();
   const listeners = new Set();
   let active = true;
   let serial = 0;
@@ -257,8 +263,41 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
     },
     async createLink(id) {
       await wait();
-      const diary = owner(id);
+      const diary = own(id);
+      if (diary.members.length >= MAX_SHARING_MEMBERS)
+        fail('DIARY_FULL', '소유자 포함 최대 4명까지 함께할 수 있어요.');
+      const time = now();
+      const attempts = (linkAttempts.get(id) || []).filter(value => time - value < 5 * 60 * 1000);
+      if (attempts.length >= 3)
+        fail('INVITE_RATE_LIMITED', '링크는 5분에 3번까지 만들 수 있어요. 잠시 후 다시 시도해 주세요.');
+      linkAttempts.set(id, [...attempts, time]);
       diary.link = `https://dio.example/invite/preview-${++serial}`;
+      diary.linkExpiresAt = new Date(time + 60 * 60 * 1000).toISOString();
+      publish();
+      return copy(diary);
+    },
+    async sendEmailInvite(id, email) {
+      await wait();
+      const diary = owner(id);
+      if (inviteEmailError(email)) fail('INVALID_EMAIL', inviteEmailError(email));
+      if (diary.members.length >= MAX_SHARING_MEMBERS)
+        fail('DIARY_FULL', '소유자 포함 최대 4명까지 함께할 수 있어요.');
+      const normalized = normalizeInviteEmail(email);
+      diary.emailInvites ||= [];
+      // 화면 확인용 기록이다. 가입 여부를 조회하거나 실제 메일·알림을 만들지 않는다.
+      if (!diary.emailInvites.some(row => row.email === normalized && row.status === 'PENDING'))
+        diary.emailInvites.unshift({ id: `email-${++serial}`, email: normalized, status: 'PENDING' });
+      publish();
+      return copy(diary);
+    },
+    async cancelEmailInvite(id, inviteId) {
+      await wait();
+      const diary = owner(id);
+      const invite = diary.emailInvites?.find(row => row.id === inviteId);
+      if (!invite) fail('NOT_FOUND', '초대를 찾을 수 없어요.');
+      if (invite.status !== 'PENDING' && invite.status !== 'CANCELLED')
+        fail('UNAVAILABLE', '이미 처리된 초대예요.');
+      invite.status = 'CANCELLED';
       publish();
       return copy(diary);
     },

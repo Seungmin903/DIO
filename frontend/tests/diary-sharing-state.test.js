@@ -133,6 +133,80 @@ const nodes = (n) =>
 const find = (tree, label) =>
   nodes(tree).find((n) => n.props.accessibilityLabel === label || n.props.label === label);
 const tick = () => new Promise((r) => setImmediate(r));
+
+test('이메일 초대는 잘못된 입력·연타를 차단하고 실패 후 입력을 유지해 재시도한다', async () => {
+  const diary = { id: 'local', members: [{ id: 'self', role: 'OWNER' }] };
+  let resolve, calls = 0;
+  const ui = setup({ registerDiary: () => diary, sendEmailInvite: () => {
+    calls++;
+    return new Promise(r => { resolve = r; });
+  } }, undefined, { diary });
+  assert.equal(find(ui.render(), '초대할 이메일'), undefined);
+  assert.equal(find(ui.render(), '참여자의 내보내기 허용'), undefined);
+  find(ui.render(), '이메일로 초대').props.onPress();
+  assert.equal(find(ui.render(), '이메일 초대 보내기').props.disabled, true);
+  find(ui.render(), '초대할 이메일').props.onChangeText('friend@example.com');
+  const send = find(ui.render(), '이메일 초대 보내기');
+  send.props.onPress(); send.props.onPress();
+  assert.equal(calls, 1);
+  assert.equal(find(ui.render(), '이메일 초대 보내기').props.disabled, true);
+  resolve({ ...diary, emailInvites: [{ id: 'sent', email: 'friend@example.com', status: 'PENDING' }] });
+  await tick();
+  assert.equal(find(ui.render(), '초대할 이메일').props.value, '');
+  assert.ok(find(ui.render(), 'friend@example.com 초대 취소'));
+  find(ui.render(), '이전 공유 화면').props.onPress();
+  assert.ok(find(ui.render(), '초대 링크 만들기'));
+  assert.equal(find(ui.render(), '초대할 이메일'), undefined);
+  find(ui.render(), '이메일로 초대').props.onPress();
+  assert.ok(find(ui.render(), 'friend@example.com 초대 취소'));
+  ui.runtime.sendEmailInvite = async () => { throw new Error('통신 실패'); };
+  find(ui.render(), '초대할 이메일').props.onChangeText('retry@example.com');
+  find(ui.render(), '이메일 초대 보내기').props.onPress();
+  await tick();
+  assert.equal(find(ui.render(), '초대할 이메일').props.value, 'retry@example.com');
+  assert.ok(nodes(ui.render()).some(n => n.props?.children === '통신 실패'));
+  assert.equal(find(ui.render(), '이메일 초대 보내기').props.disabled, false);
+  ui.unmount();
+});
+
+test('정원 초과와 서버 미연결에서는 목 이메일 요청을 실행할 수 없다', async () => {
+  const full = { id: 'local', members: [{ id: 'self', role: 'OWNER' }, ...['a', 'b', 'c'].map(id => ({ id, role: 'EDITOR' }))] };
+  const ui = setup({ registerDiary: () => full, sendEmailInvite: async () => full }, undefined, { diary: full });
+  assert.ok(find(ui.render(), '추가 인원 안내'));
+  assert.equal(find(ui.render(), '초대 링크 만들기').props.disabled, true);
+  find(ui.render(), '이메일로 초대').props.onPress();
+  assert.equal(find(ui.render(), '초대할 이메일').props.editable, false);
+  ui.unmount();
+  const diary = { id: 'server', members: [{ id: 'self', role: 'OWNER' }] };
+  const server = setup({ server: true, registerDiary: () => diary, getSharing: async () => diary }, undefined, { diary });
+  await tick();
+  find(server.render(), '이메일로 초대').props.onPress();
+  assert.equal(find(server.render(), '이메일 초대 보내기').props.disabled, true);
+  server.unmount();
+});
+
+test('보낸 초대 취소는 확인 후에만 적용하고 만료된 링크 복사를 막는다', async () => {
+  const diary = { id: 'local', link: 'https://dio.example/invite/old', linkExpiresAt: '2000-01-01T00:00:00Z',
+    members: [{ id: 'self', role: 'OWNER' }],
+    emailInvites: [{ id: 'sent', email: 'friend@example.com', status: 'PENDING' }] };
+  let calls = 0;
+  const ui = setup({ registerDiary: () => diary, sendEmailInvite: async () => diary,
+    cancelEmailInvite: async () => { calls++; return { ...diary, emailInvites: [{ ...diary.emailInvites[0], status: 'CANCELLED' }] }; },
+  }, undefined, { diary });
+  ui.render(); // 만료 상태 effect가 적용된 다음 렌더를 확인한다.
+  assert.equal(find(ui.render(), '초대 링크 복사').props.disabled, true);
+  find(ui.render(), '이메일로 초대').props.onPress();
+  find(ui.render(), 'friend@example.com 초대 취소').props.onPress();
+  const dialog = nodes(ui.render()).find(n => n.props?.confirmLabel === '초대 취소');
+  dialog.props.onCancel();
+  assert.equal(calls, 0);
+  find(ui.render(), 'friend@example.com 초대 취소').props.onPress();
+  nodes(ui.render()).find(n => n.props?.confirmLabel === '초대 취소').props.onConfirm();
+  await tick();
+  assert.equal(calls, 1);
+  assert.equal(find(ui.render(), 'friend@example.com 초대 취소'), undefined);
+  ui.unmount();
+});
 test('실제 공유는 편집자도 링크를 만들고 지원하지 않는 내보내기 설정을 숨긴다', async () => {
   const diary = { id: 'server-diary', title: '서버 기록', members: [{ id: 'self', nickname: '소연', role: 'EDITOR' }] };
   const ui = setup({ server: true, supportsExportSettings: false, canOpenDiary: false,
