@@ -134,6 +134,34 @@ const find = (tree, label) =>
   nodes(tree).find((n) => n.props.accessibilityLabel === label || n.props.label === label);
 const tick = () => new Promise((r) => setImmediate(r));
 
+test('초대 상세는 취소·만료·정원 초과를 구분하고 사용 불가 초대에 수락을 제공하지 않는다', async () => {
+  for (const [status, full, message] of [['REVOKED', false, '취소된 초대예요.'], ['EXPIRED', false, '만료된 초대예요.'], ['PENDING', true, '참여 인원이 가득 찼어요.']]) {
+    const ui = setup({ invitationGateway: { get: async () => ({ inviteId: 'i', status, full, inviter: '친구', memberCount: 4, diary: { title: '초대 기록' } }) } });
+    find(ui.render(), '초대 초대 상세').props.onPress();
+    await tick();
+    const tree = ui.render();
+    assert.ok(nodes(tree).some(n => n.props?.children === message));
+    assert.equal(find(tree, '참여 프로필 설정'), undefined);
+    assert.ok(find(tree, '초대 기록 다이어리 표지'));
+    find(tree, '받은 초대 목록으로').props.onPress();
+    assert.ok(find(ui.render(), '초대 초대 상세'));
+    ui.unmount();
+  }
+});
+
+test('초대 상세에서 참여 프로필로 이동하기 전에 최신 상태를 재확인한다', async () => {
+  let status = 'PENDING';
+  const ui = setup({ invitationGateway: { get: async () => ({ inviteId: 'i', status, diary: { title: '초대 기록' } }) } });
+  find(ui.render(), '초대 초대 상세').props.onPress();
+  await tick();
+  status = 'REVOKED';
+  find(ui.render(), '참여 프로필 설정').props.onPress();
+  await tick();
+  assert.equal(find(ui.render(), '다이어리 닉네임'), undefined);
+  assert.ok(nodes(ui.render()).some(n => n.props?.children === '취소된 초대예요.'));
+  ui.unmount();
+});
+
 test('이메일 초대는 잘못된 입력·연타를 차단하고 실패 후 입력을 유지해 재시도한다', async () => {
   const diary = { id: 'local', members: [{ id: 'self', role: 'OWNER' }] };
   let resolve, calls = 0;
@@ -220,12 +248,12 @@ test('실제 공유는 편집자도 링크를 만들고 지원하지 않는 내�
   ui.unmount();
 });
 
-test('실제 받은 초대는 읽음·삭제를 가장하지 않고 별칭 형식 확인만 제공한다', async () => {
+test('실제 받은 초대는 읽음·삭제를 가장하지 않고 별도 확인 버튼 없이 별칭 형식을 검증한다', async () => {
   const ui = setup({ server: true, supportsReadState: false, checkNickname: async () => '소연' });
   assert.equal(find(ui.render(), '모두 읽음'), undefined);
   assert.equal(find(ui.render(), '초대 알림 삭제'), undefined);
   await nickname(ui);
-  assert.ok(find(ui.render(), '다이어리 닉네임 형식 확인'));
+  assert.equal(find(ui.render(), '다이어리 닉네임 형식 확인'), undefined);
   assert.equal(find(ui.render(), '다이어리 닉네임 중복 확인'), undefined);
   ui.unmount();
 });
@@ -234,22 +262,20 @@ async function nickname(ui) {
   await tick();
   return ui.render();
 }
-test('늦은 중복 확인은 입력 수정·취소·창 닫기 후 적용하지 않는다', async () => {
-  let resolve;
-  const ui = setup({ checkNickname: () => new Promise((r) => (resolve = r)) });
+test('참여 닉네임은 별도 확인 없이 형식으로 판단하고 같은 이름도 입력할 수 있다', async () => {
+  const ui = setup();
   await nickname(ui);
-  find(ui.render(), '다이어리 닉네임 중복 확인').props.onPress();
-  find(ui.render(), '다이어리 닉네임').props.onChangeText('다른이름');
-  resolve('소연');
-  await tick();
-  assert.ok(find(ui.render(), '수락하고 참여하기').props.disabled);
-  find(ui.render(), '다이어리 닉네임 중복 확인').props.onPress();
+  assert.equal(find(ui.render(), '다이어리 닉네임 중복 확인'), undefined);
+  find(ui.render(), '다이어리 닉네임').props.onChangeText('a');
+  assert.equal(find(ui.render(), '수락하고 참여하기').props.disabled, true);
+  find(ui.render(), '다이어리 닉네임').props.onChangeText('하루');
+  assert.equal(find(ui.render(), '수락하고 참여하기').props.disabled, false);
   find(ui.render(), '닉네임 설정 취소').props.onPress();
-  resolve('다른이름');
-  await tick();
-  assert.ok(find(ui.render(), '초대 초대 수락'));
+  await nickname(ui);
+  assert.equal(find(ui.render(), '다이어리 닉네임').props.value, '소연');
   ui.unmount();
 });
+
 test('수락 중 연타를 막고 완료 전 취소는 참여시키지 않는다', async () => {
   let calls = 0,
     resolve;
@@ -264,7 +290,6 @@ test('수락 중 연타를 막고 완료 전 취소는 참여시키지 않는다
   find(ui.render(), '닉네임 설정 취소').props.onPress();
   assert.equal(calls, 0);
   await nickname(ui);
-  find(ui.render(), '다이어리 닉네임 중복 확인').props.onPress();
   await tick();
   const button = find(ui.render(), '수락하고 참여하기');
   assert.equal(button.props.disabled, false);
@@ -459,7 +484,6 @@ test('초대 사진 선택 취소는 유지하고 기본 프로필 복구·최�
   find(ui.render(), '다이어리 프로필 사진 선택').props.onPress();
   find(ui.render(), '다이어리 사진 선택').props.onPress();
   await tick();
-  find(ui.render(), '다이어리 닉네임 중복 확인').props.onPress();
   await tick();
   find(ui.render(), '수락하고 참여하기').props.onPress();
   await tick();
@@ -499,7 +523,7 @@ test('사진이 없는 참여자는 이름 첫 글자 대신 기본 사람 아�
   assert.equal(photo.props.source.uri, 'file:///one.png');
 });
 
-test('공유 창의 프로필 수정은 취소 시 버리고 중복 확인 후 사진·닉네임을 함께 저장한다', async () => {
+test('공유 창의 프로필 수정은 취소 시 버리고 형식 검증으로 사진·닉네임을 함께 저장한다', async () => {
   const original = {
     id: 'd',
     title: '초대',
@@ -519,7 +543,6 @@ test('공유 창의 프로필 수정은 취소 시 버리고 중복 확인 후 �
     async () => 'file:///new.png',
   );
   await nickname(ui);
-  find(ui.render(), '다이어리 닉네임 중복 확인').props.onPress();
   await tick();
   find(ui.render(), '수락하고 참여하기').props.onPress();
   await tick();
@@ -539,8 +562,7 @@ test('공유 창의 프로필 수정은 취소 시 버리고 중복 확인 후 �
     null,
   );
   find(ui.render(), '다이어리 닉네임').props.onChangeText('새이름');
-  assert.ok(find(ui.render(), '변경 사항 저장').props.disabled);
-  find(ui.render(), '다이어리 닉네임 중복 확인').props.onPress();
+  assert.equal(find(ui.render(), '변경 사항 저장').props.disabled, false);
   await tick();
   find(ui.render(), '다이어리 프로필 사진 선택').props.onPress();
   find(ui.render(), '다이어리 사진 선택').props.onPress();
@@ -576,7 +598,6 @@ test('공유 창에서 다른 초대 수락·탈퇴 후 뒤로가면 빈 창 대
   );
   find(ui.render(), '받은 초대 목록 열기').props.onPress();
   await nickname(ui);
-  find(ui.render(), '다이어리 닉네임 중복 확인').props.onPress();
   await tick();
   find(ui.render(), '수락하고 참여하기').props.onPress();
   await tick();
