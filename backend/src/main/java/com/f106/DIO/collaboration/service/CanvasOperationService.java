@@ -40,7 +40,7 @@ public class CanvasOperationService {
         var latest=undo?history.findFirstByPageIdAndActorUserIdAndStatusOrderByOperationIdDesc(page,actor,"APPLIED")
             :history.findFirstByPageIdAndActorUserIdAndStatusOrderByUndoneAtDescOperationIdAsc(page,actor,"UNDONE");
         if(latest.isEmpty()||!latest.get().getOperationId().equals(row.getOperationId())||after.path("revision").asInt()!=request.expectedRevision())throw CollaborationException.conflict();
-        var expected=codec.states(after.path("expected"));var ids=expected.keySet().stream().map(UUID::fromString).toList();
+        var expected=codec.states(after.has("expected")?after.path("expected"):after.path("elements"));var ids=expected.keySet().stream().map(UUID::fromString).toList();
         var current=snapshots.capture(page,ids);
         for(var e:expected.entrySet())if(!codec.same(e.getValue(),current.get(e.getKey())))throw CollaborationException.conflict();
         var desired=codec.states((undo?codec.read(row.getBeforeStateJson()):after).path("elements"));

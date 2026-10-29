@@ -106,6 +106,10 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
           if(entry.request){
             try{const result=await api.apply(pageId,entry.request);active();journal.base=copy(result.items)}
             catch(error){
+              if(error.status===404&&error.code==='CANVAS_ELEMENT_NOT_FOUND'){
+                journal.rejectedRequests=[...(journal.rejectedRequests??[]),copy(entry.request)]
+                entry.id=createId();delete entry.request;await persist();throw error
+              }
               if(permanentRejection(error)){
                 journal.rejectedEdits=[...(journal.rejectedEdits??[]),{...copy(entry),status:error.status,code:error.code??null,rejectedAt:Date.now()}]
                 journal.queue.shift();rejectedCount++;await persist()

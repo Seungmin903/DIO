@@ -120,3 +120,16 @@ for(const status of [403,404])test(`${status} 확정 거절은 보관 후 전송
  await assert.rejects(s.synchronize(),e=>e.status===status)
  assert.equal(calls,1);assert.equal(s.snapshot().rejectedEdits[0].id,'bad');assert.equal(s.snapshot().queue[0].id,'next')
 })
+
+test('요소 삭제 404는 같은 묶음의 다른 수정까지 버리지 않고 최신 상태로 다시 구성한다',async()=>{
+ const f=fixture(),s=f.session(),otherId='60000000-0000-4000-8000-000000000001'
+ const x=text('X'),y=text('Y',otherId);f.setRows([row(x),row(y)])
+ await s.restore([x,y]);await s.synchronize()
+ await s.enqueue({id:'both',pageId,before:[x,y],after:[text('X changed'),text('Y changed',otherId)]})
+ const apply=f.api.apply;let oldRequest
+ f.api.apply=async(p,r)=>{oldRequest=r;f.setRows([row(y,2)]);f.api.apply=apply;throw Object.assign(Error('element deleted'),{status:404,code:'CANVAS_ELEMENT_NOT_FOUND'})}
+ await assert.rejects(s.synchronize(),e=>e.code==='CANVAS_ELEMENT_NOT_FOUND')
+ assert.equal(s.snapshot().queue.length,1);assert.equal(s.snapshot().rejectedEdits,undefined)
+ const result=await s.synchronize();assert.equal(result.objects.length,1);assert.equal(result.objects[0].text,'Y changed')
+ assert.notEqual(f.calls[0].clientOperationId,oldRequest.clientOperationId);assert.equal(f.calls[0].changes.updates.length,1)
+})

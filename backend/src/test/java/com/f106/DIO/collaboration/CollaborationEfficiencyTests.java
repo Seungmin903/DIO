@@ -30,9 +30,9 @@ class CollaborationEfficiencyTests {
     }
     @Test void sameUserSocketsSharePermissionCheckAndDoNotDecodeAgain()throws Exception{
         var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);var json=JsonMapper.builder().build();
-        var jwt=Jwt.withTokenValue("token").header("alg","HS256").subject("42").expiresAt(Instant.now().plusSeconds(600)).build();
+        var jwt=Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",UUID.randomUUID().toString()).expiresAt(Instant.now().plusSeconds(600)).build();
         when(decoder.decode("token")).thenReturn(jwt);
-        var handler=new CollaborationSocket(access,decoder,json,Runnable::run);UUID diary=UUID.randomUUID();
+        var handler=new CollaborationSocket(access,decoder,json,Runnable::run,Runnable::run);UUID diary=UUID.randomUUID();
         for(int i=0;i<2;i++){
             var socket=mock(WebSocketSession.class);when(socket.getId()).thenReturn("socket-"+i);when(socket.isOpen()).thenReturn(true);
             when(socket.getAttributes()).thenReturn(Map.of("diaryId",diary,"remoteIp","127.0.0.1"));
@@ -42,5 +42,26 @@ class CollaborationEfficiencyTests {
         handler.committed(new CanvasCommitted(diary,UUID.randomUUID(),"1",UUID.randomUUID(),42,0,"APPLY"));
         verify(access,times(1)).requireDiary(diary,42);verifyNoInteractions(decoder);
         clearInvocations(access);handler.checkConnections();verify(access,times(1)).requireDiary(diary,42);verifyNoInteractions(decoder);
+    }
+    @Test void blockedRecipientDoesNotDelayOtherSocketAndFramesRemainOrdered()throws Exception{
+        var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);var json=JsonMapper.builder().build();
+        var jwt=Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",UUID.randomUUID().toString()).expiresAt(Instant.now().plusSeconds(600)).build();when(decoder.decode("token")).thenReturn(jwt);
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(2);var release=new java.util.concurrent.CountDownLatch(1);var blocked=new java.util.concurrent.CountDownLatch(1);var delivered=new java.util.concurrent.CountDownLatch(2);
+        var fastIds=new java.util.concurrent.CopyOnWriteArrayList<String>();UUID diary=UUID.randomUUID();
+        try{
+            var handler=new CollaborationSocket(access,decoder,json,Runnable::run,pool::execute);
+            for(String name:List.of("slow","fast")){
+                var socket=mock(WebSocketSession.class);when(socket.getId()).thenReturn(name);when(socket.isOpen()).thenReturn(true);when(socket.getAttributes()).thenReturn(Map.of("diaryId",diary,"remoteIp","127.0.0.1"));
+                doAnswer(call->{var frame=json.readTree(((TextMessage)call.getArgument(0)).getPayload());if("PAGE_CHANGED".equals(frame.path("type").asText())){
+                    if(name.equals("slow")){blocked.countDown();release.await(5,java.util.concurrent.TimeUnit.SECONDS);}
+                    else{fastIds.add(frame.path("operationId").asText());delivered.countDown();}
+                }return null;}).when(socket).sendMessage(any(WebSocketMessage.class));
+                handler.afterConnectionEstablished(socket);handler.handleMessage(socket,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
+            }
+            handler.committed(new CanvasCommitted(diary,UUID.randomUUID(),"1",UUID.randomUUID(),42,0,"APPLY"));
+            assertThat(blocked.await(2,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            handler.committed(new CanvasCommitted(diary,UUID.randomUUID(),"2",UUID.randomUUID(),42,0,"APPLY"));
+            assertThat(delivered.await(2,java.util.concurrent.TimeUnit.SECONDS)).isTrue();assertThat(fastIds).containsExactly("1","2");
+        }finally{release.countDown();pool.shutdownNow();}
     }
 }

@@ -19,13 +19,15 @@ public class CollaborationSocket extends TextWebSocketHandler {
     private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(CollaborationSocket.class);
     private static final class Connection {
         final WebSocketSession socket;final UUID diary;final String ip;final long connected=System.currentTimeMillis();
-        volatile long actor=-1;volatile java.time.Instant expiresAt;volatile long lastMessage;
+        final Deque<TextMessage> outgoing=new ArrayDeque<>();boolean sending;volatile long sendingSince;
+        volatile UUID sessionId;volatile long actor=-1;volatile java.time.Instant expiresAt;volatile long lastMessage;
         Connection(WebSocketSession socket){this.socket=new ConcurrentWebSocketSessionDecorator(socket,2000,65536);diary=(UUID)socket.getAttributes().get("diaryId");ip=(String)socket.getAttributes().getOrDefault("remoteIp","unknown");}
         @Override public String toString(){return "CollaborationConnection[credentials=REDACTED]";}
     }
     private final Map<String,Connection> connections=new ConcurrentHashMap<>();
-    private final CollaborationAccess access;private final JwtDecoder decoder;private final ObjectMapper json;private final TaskExecutor executor;
-    public CollaborationSocket(CollaborationAccess access,@Qualifier("loginJwtDecoder") JwtDecoder decoder,ObjectMapper json,@Qualifier("collaborationEventsExecutor") TaskExecutor executor){this.access=access;this.decoder=decoder;this.json=json;this.executor=executor;}
+    private final CollaborationAccess access;private final JwtDecoder decoder;private final ObjectMapper json;private final TaskExecutor executor;private final TaskExecutor sendExecutor;
+    private final java.util.concurrent.atomic.AtomicLong droppedEvents=new java.util.concurrent.atomic.AtomicLong(),droppedMessages=new java.util.concurrent.atomic.AtomicLong();
+    public CollaborationSocket(CollaborationAccess access,@Qualifier("loginJwtDecoder") JwtDecoder decoder,ObjectMapper json,@Qualifier("collaborationEventsExecutor") TaskExecutor executor,@Qualifier("collaborationSocketSendExecutor") TaskExecutor sendExecutor){this.access=access;this.decoder=decoder;this.json=json;this.executor=executor;this.sendExecutor=sendExecutor;}
     @Override public synchronized void afterConnectionEstablished(WebSocketSession socket)throws IOException{
         String ip=(String)socket.getAttributes().getOrDefault("remoteIp","unknown");
         if(connections.size()>=512||connections.values().stream().filter(c->c.actor<0&&c.ip.equals(ip)).count()>=4){socket.close(CloseStatus.POLICY_VIOLATION);return;}
@@ -38,13 +40,14 @@ public class CollaborationSocket extends TextWebSocketHandler {
             if(message.getPayloadLength()>4096||System.currentTimeMillis()-connection.lastMessage<1000)throw new IllegalArgumentException();
             var frame=json.readTree(message.getPayload());String type=frame.path("type").asText();
             if("AUTH".equals(type)){
-                String token=frame.path("accessToken").asText();var jwt=decoder.decode(token);long actor=Long.parseLong(jwt.getSubject());access.requireDiary(connection.diary,actor);
+                String token=frame.path("accessToken").asText();var jwt=decoder.decode(token);long actor=Long.parseLong(jwt.getSubject());UUID sessionId=UUID.fromString(jwt.getClaimAsString("sid"));access.requireDiary(connection.diary,actor);
                 synchronized(this){
                     if(connection.actor>=0&&connection.actor!=actor)throw new IllegalArgumentException();
                     if(connections.values().stream().filter(c->c!=connection&&c.actor==actor).count()>=8)throw new IllegalArgumentException();
-                    connection.expiresAt=jwt.getExpiresAt();connection.actor=actor;
+                    connection.sessionId=sessionId;connection.expiresAt=jwt.getExpiresAt();
+                    // Queue READY before exposing a newly authenticated connection to broadcasts.
+                    send(connection,Map.of("type","READY","diaryId",connection.diary.toString()));connection.actor=actor;
                 }
-                send(connection,Map.of("type","READY","diaryId",connection.diary.toString()));
             }else if("PING".equals(type)){
                 if(System.currentTimeMillis()-connection.lastMessage<1000)throw new IllegalArgumentException();
                 validateToken(connection);send(connection,Map.of("type","PONG"));
@@ -59,6 +62,11 @@ public class CollaborationSocket extends TextWebSocketHandler {
     }
     private void validate(Connection connection,Map<String,Boolean> permissions){
         validateToken(connection);
+        String sessionKey="session:"+connection.sessionId+":"+connection.actor;
+        if(!permissions.computeIfAbsent(sessionKey,k->{
+            try{access.requireSession(connection.sessionId,connection.actor);return true;}
+            catch(CollaborationException denied){return false;}
+        }))throw new IllegalArgumentException();
         String key=connection.diary+":"+connection.actor;
         boolean allowed=permissions.computeIfAbsent(key,k->{
             try{access.requireDiary(connection.diary,connection.actor);return true;}
@@ -70,7 +78,7 @@ public class CollaborationSocket extends TextWebSocketHandler {
     public void committed(CanvasCommitted event){
         // Dispatch after commit on a separate executor; socket I/O never retains the writer's DB transaction.
         try{executor.execute(()->broadcast(event));}
-        catch(RuntimeException error){LOG.warn("Canvas notification delayed: errorType={}",error.getClass().getSimpleName());}
+        catch(RuntimeException error){LOG.warn("Canvas notification dropped: total={}, errorType={}",droppedEvents.incrementAndGet(),error.getClass().getSimpleName());}
     }
     @TransactionalEventListener(phase=TransactionPhase.AFTER_COMMIT)
     public void pagesChanged(com.f106.DIO.page.domain.PageCatalogChanged event){
@@ -80,7 +88,7 @@ public class CollaborationSocket extends TextWebSocketHandler {
                 try{validate(connection,permissions);send(connection,Map.of("type","PAGES_CHANGED","diaryId",event.diaryId().toString()));}
                 catch(RuntimeException error){close(connection,CloseStatus.POLICY_VIOLATION);}
             }
-        });}catch(RuntimeException error){LOG.warn("Page notification delayed: errorType={}",error.getClass().getSimpleName());}
+        });}catch(RuntimeException error){LOG.warn("Page notification dropped: total={}, errorType={}",droppedEvents.incrementAndGet(),error.getClass().getSimpleName());}
     }
     private void broadcast(CanvasCommitted event){
         var permissions=new HashMap<String,Boolean>();
@@ -95,12 +103,48 @@ public class CollaborationSocket extends TextWebSocketHandler {
     @Scheduled(fixedDelay=5000) public void checkConnections(){
         var permissions=new HashMap<String,Boolean>();
         for(var connection:connections.values()){
+            if(connection.sendingSince>0&&System.currentTimeMillis()-connection.sendingSince>2000){close(connection,CloseStatus.SERVER_ERROR);continue;}
             if(connection.actor<0){if(System.currentTimeMillis()-connection.connected>10000)close(connection,CloseStatus.POLICY_VIOLATION);continue;}
             try{validate(connection,permissions);}catch(RuntimeException error){close(connection,CloseStatus.POLICY_VIOLATION);}
         }
     }
-    private void send(Connection connection,Object frame){try{connection.socket.sendMessage(new TextMessage(json.writeValueAsString(frame)));}catch(IOException|RuntimeException error){close(connection,CloseStatus.SERVER_ERROR);}}
-    private void close(Connection connection,CloseStatus status){connections.remove(connection.socket.getId());try{connection.socket.close(status);}catch(IOException ignored){}}
+    private void send(Connection connection,Object frame){
+        TextMessage message=new TextMessage(json.writeValueAsString(frame));
+        synchronized(connection.outgoing){
+            if(!connections.containsKey(connection.socket.getId()))return;
+            if(connection.outgoing.size()>=32){
+                LOG.warn("Socket send queue full: droppedTotal={}",droppedMessages.incrementAndGet());close(connection,CloseStatus.SERVER_ERROR);return;
+            }
+            connection.outgoing.addLast(message);
+            if(connection.sending)return;
+            connection.sending=true;
+        }
+        dispatchSend(connection);
+    }
+    private void dispatchSend(Connection connection){
+        try{sendExecutor.execute(()->{
+            TextMessage message;
+            synchronized(connection.outgoing){message=connection.outgoing.pollFirst();}
+            if(message==null||!connections.containsKey(connection.socket.getId()))return;
+            try{
+                connection.sendingSince=System.currentTimeMillis();connection.socket.sendMessage(message);
+            }catch(IOException|RuntimeException error){close(connection,CloseStatus.SERVER_ERROR);return;}
+            finally{connection.sendingSince=0;}
+            synchronized(connection.outgoing){
+                if(connection.outgoing.isEmpty()){connection.sending=false;return;}
+            }
+            // One task per frame preserves connection order without monopolising the pool.
+            dispatchSend(connection);
+        });}catch(RuntimeException error){
+            LOG.warn("Socket send rejected: droppedTotal={}, errorType={}",droppedMessages.incrementAndGet(),error.getClass().getSimpleName());
+            close(connection,CloseStatus.SERVER_ERROR);
+        }
+    }
+    private void close(Connection connection,CloseStatus status){
+        connections.remove(connection.socket.getId());
+        synchronized(connection.outgoing){connection.outgoing.clear();}
+        try{connection.socket.close(status);}catch(IOException ignored){}
+    }
     @Override public void afterConnectionClosed(WebSocketSession socket,CloseStatus status){connections.remove(socket.getId());}
     @Override public void handleTransportError(WebSocketSession socket,Throwable error){var connection=connections.get(socket.getId());if(connection!=null)close(connection,CloseStatus.SERVER_ERROR);}
 }

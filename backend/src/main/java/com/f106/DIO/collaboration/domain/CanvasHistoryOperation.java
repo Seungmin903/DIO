@@ -22,5 +22,8 @@ public class CanvasHistoryOperation {
         pageId=page;actorUserId=actor;clientOperationId=client;operationType=type;snapshotFormat="COLLAB_ELEMENTS_V1";
         beforeStateJson=before;afterStateJson=after;status="APPLIED";createdAt=Instant.now();
     }
+    public void expireSnapshots(String before,String after){
+        snapshotFormat="COLLAB_PRUNED_V1";status="EXPIRED";beforeStateJson=before;afterStateJson=after;
+    }
     public void transition(boolean undo,String after){status=undo?"UNDONE":"APPLIED";undoneAt=undo?Instant.now():null;afterStateJson=after;}
 }

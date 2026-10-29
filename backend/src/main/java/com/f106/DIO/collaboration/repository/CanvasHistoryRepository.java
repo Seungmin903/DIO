@@ -8,6 +8,7 @@ public interface CanvasHistoryRepository extends JpaRepository<CanvasHistoryOper
     Optional<CanvasHistoryOperation> findByOperationIdAndPageIdAndActorUserId(long id,UUID page,long actor);
     Optional<CanvasHistoryOperation> findFirstByPageIdAndActorUserIdAndStatusOrderByOperationIdDesc(UUID page,long actor,String status);
     Optional<CanvasHistoryOperation> findFirstByPageIdAndActorUserIdAndStatusOrderByUndoneAtDescOperationIdAsc(UUID page,long actor,String status);
+    List<CanvasHistoryOperation> findByPageIdAndActorUserIdAndSnapshotFormat(UUID page,long actor,String format,Pageable pageable);
     Page<CanvasHistoryOperation> findByPageIdAndActorUserId(UUID page,long actor,Pageable pageable);
     @Modifying @Query("update CanvasHistoryOperation h set h.status='INVALIDATED' where h.pageId=:page and h.actorUserId=:actor and h.status='UNDONE'")
     int invalidateRedo(UUID page,long actor);

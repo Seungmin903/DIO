@@ -27,5 +27,9 @@ public class CollaborationAccess {
         boolean allowed=Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from diaries d join users u on u.user_id=? and u.status='ACTIVE' and u.deleted_at is null where d.diary_id=? and d.deleted_at is null and (d.owner_user_id=u.user_id or exists(select 1 from diary_members m where m.diary_id=d.diary_id and m.user_id=u.user_id and m.left_at is null and m.role in ('OWNER','EDITOR'))))",Boolean.class,actor,diary));
         if(!allowed)throw new CollaborationException(HttpStatus.FORBIDDEN,"COLLABORATION_ACCESS_DENIED","다이어리 편집 권한이 없어요.");
     }
+    @Transactional(readOnly=true) public void requireSession(UUID session,long actor){
+        boolean active=Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from refresh_tokens s join users u on u.user_id=s.user_id where s.session_id=? and s.user_id=? and s.revoked_at is null and s.expires_at>current_timestamp and u.status='ACTIVE' and u.deleted_at is null)",Boolean.class,session,actor));
+        if(!active)throw new CollaborationException(HttpStatus.UNAUTHORIZED,"INVALID_TOKEN","다시 로그인해 주세요.");
+    }
     private CollaborationException missing(){return new CollaborationException(HttpStatus.NOT_FOUND,"PAGE_NOT_FOUND","페이지를 찾을 수 없어요.");}
 }

@@ -277,4 +277,48 @@ class CanvasCollaborationTests {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].title").value("updated")).andExpect(jsonPath("$.items[0].gridVisible").value(true));
         }
     }
+    @Autowired com.f106.DIO.collaboration.infrastructure.CollaborationSocket sockets;
+    @Autowired com.f106.DIO.collaboration.repository.CanvasHistoryRepository historyRows;
+    @Test void revokedLoginSessionClosesOnlyItsSocket()throws Exception{
+        var owner=actor();UUID diary=diary(owner),page=page(diary);
+        String other=login.login(new LoginRequest(users.findById(owner.id()).orElseThrow().getEmail(),"DioMember123!","second"),"127.0.0.1").accessToken();
+        try(var first=connect(diary,owner.token());var second=connect(diary,other)){
+            frame(first);frame(second);
+            mvc.perform(post("/api/v1/auth/logout").header("Authorization","Bearer "+owner.token())).andExpect(status().isNoContent());
+            sockets.checkConnections();assertThat(first.closed.await(3,java.util.concurrent.TimeUnit.SECONDS)).isTrue();assertThat(first.closeCode).isEqualTo(1008);
+            var active=new Actor(owner.id(),other);create(page,active,UUID.randomUUID(),"still active");
+            assertThat(frame(second).path("type").asText()).isEqualTo("PAGE_CHANGED");
+        }
+    }
+    @Test void legacyExpectedSnapshotsRemainUndoable()throws Exception{
+        var owner=actor();UUID page=page(diary(owner));var applied=create(page,owner,UUID.randomUUID(),"legacy");
+        var row=historyRows.findById(Long.valueOf(applied.path("operationId").asText())).orElseThrow();
+        var after=(tools.jackson.databind.node.ObjectNode)json.readTree(row.getAfterStateJson());
+        assertThat(after.has("expected")).isFalse();after.set("expected",after.get("elements"));row.transition(false,after.toString());historyRows.saveAndFlush(row);
+        var result=postJson(page,owner,"/undo",command(history(page,owner).path("nextUndo"),UUID.randomUUID()),200);
+        assertThat(result.path("items").size()).isZero();
+        assertThat(postJson(page,owner,"/redo",command(history(page,owner).path("nextRedo"),UUID.randomUUID()),200).path("items").size()).isEqualTo(1);
+    }
+    @Test void snapshotLimitKeepsOtherUsersAndRejectsExpiredCommandRetries()throws Exception{
+        var owner=actor();var friend=actor();UUID diary=diary(owner),page=page(diary),element=UUID.randomUUID(),client=UUID.randomUUID();join(diary,friend);
+        var changes=Map.<String,Object>of("creates",List.of(text(element,"first")));var result=apply(page,owner,client,changes);
+        create(page,friend,UUID.randomUUID(),"friend");
+        for(int i=0;i<81;i++){
+            long version=0;for(var item:result.path("items"))if(element.toString().equals(item.path("elementId").asText()))version=item.path("version").asLong();
+            result=update(page,owner,element,"edit-"+i,version);
+        }
+        assertThat(jdbc.queryForObject("select count(*) from canvas_history_operations where page_id=? and actor_user_id=? and snapshot_format='COLLAB_ELEMENTS_V1'",Integer.class,page,owner.id())).isEqualTo(80);
+        assertThat(jdbc.queryForObject("select count(*) from canvas_history_operations where page_id=? and actor_user_id=? and snapshot_format='COLLAB_ELEMENTS_V1'",Integer.class,page,friend.id())).isEqualTo(1);
+        var old=historyRows.findFirstByPageIdAndActorUserIdAndClientOperationId(page,owner.id(),client).orElseThrow();
+        assertThat(json.readTree(old.getBeforeStateJson()).has("elements")).isFalse();assertThat(json.readTree(old.getAfterStateJson()).has("elements")).isFalse();
+        postJson(page,owner,"/canvas-operations",Map.of("clientOperationId",client,"changes",changes),409);
+    }
+    @Test void pageCreationRetryNormalizesNumbersAndChecksExactRequestField()throws Exception{
+        var owner=actor();UUID diary=diary(owner);String id=UUID.randomUUID().toString();
+        String body="{\"templateConfig\":{\"clientPageRequestId\":\""+id+"\",\"nested\":{\"size\":1024}},\"canvasWidth\":1024,\"canvasHeight\":768}";
+        var first=mvc.perform(post("/api/v1/diaries/"+diary+"/pages").header("Authorization","Bearer "+owner.token()).contentType("application/json").content(body)).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        var retry=mvc.perform(post("/api/v1/diaries/"+diary+"/pages").header("Authorization","Bearer "+owner.token()).contentType("application/json").content(body.replace("1024","1024.0"))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        assertThat(json.readTree(retry).path("page").path("pageId")).isEqualTo(json.readTree(first).path("page").path("pageId"));
+        assertThat(jdbc.queryForObject("select count(*) from pages where diary_id=?",Integer.class,diary)).isEqualTo(1);
+    }
 }

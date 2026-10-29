@@ -42,4 +42,8 @@ public class CollaborationWebSocketConfig implements WebSocketConfigurer {
         var executor=new ThreadPoolTaskExecutor();executor.setCorePoolSize(1);executor.setMaxPoolSize(1);executor.setQueueCapacity(256);
         executor.setThreadNamePrefix("collaboration-events-");return executor;
     }
+    @Bean(name="collaborationSocketSendExecutor",defaultCandidate=false) static ThreadPoolTaskExecutor collaborationSocketSendExecutor(){
+        var executor=new ThreadPoolTaskExecutor();executor.setCorePoolSize(8);executor.setMaxPoolSize(8);executor.setQueueCapacity(512);
+        executor.setThreadNamePrefix("collaboration-send-");return executor;
+    }
 }

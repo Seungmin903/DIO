@@ -19,9 +19,22 @@ public class CanvasChangeJournal {
         var ids=ticket.before().keySet().stream().map(UUID::fromString).toList();
         var after=snapshots.capture(ticket.page(),ids);var beforeNode=codec.object();
         beforeNode.set("elements",codec.tree(ticket.before()));if(ticket.requestHash()!=null)beforeNode.put("requestHash",ticket.requestHash());
-        var afterNode=codec.object();afterNode.set("elements",codec.tree(after));afterNode.set("expected",codec.tree(after));afterNode.put("revision",0);
+        var afterNode=codec.object();afterNode.set("elements",codec.tree(after));afterNode.put("revision",0);
         history.invalidateRedo(ticket.page(),ticket.actor());
         var row=history.saveAndFlush(new CanvasHistoryOperation(ticket.page(),ticket.actor(),ticket.client(),ticket.type(),beforeNode.toString(),afterNode.toString()));
+        prune(ticket.page(),ticket.actor());
         events.publishEvent(new CanvasCommitted(ticket.diary(),ticket.page(),row.getOperationId().toString(),ticket.client(),ticket.actor(),0,"APPLY"));return row;
+    }
+    private void prune(UUID page,long actor){
+        // Match the editor's 80-step history. Preserve command identities so old retries
+        // are rejected rather than replayed as new mutations after snapshots expire.
+        var older=history.findByPageIdAndActorUserIdAndSnapshotFormat(page,actor,"COLLAB_ELEMENTS_V1",
+            org.springframework.data.domain.PageRequest.of(1,80,org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC,"operationId")));
+        for(var row:older){
+            var before=codec.read(row.getBeforeStateJson());before.remove("elements");
+            var after=codec.read(row.getAfterStateJson());after.remove("elements");after.remove("expected");
+            row.expireSnapshots(before.toString(),after.toString());
+        }
+        if(!older.isEmpty())history.flush();
     }
 }

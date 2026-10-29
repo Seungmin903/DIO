@@ -31,11 +31,11 @@ public class PageService {
             entities.refresh(locked);
             // Re-check membership after waiting for the aggregate lock.
             diaryAccessService.requireWrite(diaryId,userId);
-            for(var existing:pageRepository.findAllByDiaryIdOrderByCreatedAtAscPageIdAsc(diaryId)){
+            for(var existing:pageRepository.findCreationRequestCandidates(diaryId,requestId)){
                 if(existing.getTemplateConfig()==null)continue;
                 var config=JSON.readTree(existing.getTemplateConfig());
                 if(!requestId.equals(config.path("clientPageRequestId").asText(null)))continue;
-                if(existing.getDeletedAt()!=null||!config.equals(r.getTemplateConfig())||!Objects.equals(existing.getTemplateId(),r.getTemplateId())
+                if(existing.getDeletedAt()!=null||!sameConfig(config,r.getTemplateConfig())||!Objects.equals(existing.getTemplateId(),r.getTemplateId())
                     ||!Objects.equals(existing.getTitle(),r.getTitle())||existing.getCanvasWidth().compareTo(r.getCanvasWidth()==null?width(t):r.getCanvasWidth())!=0
                     ||existing.getCanvasHeight().compareTo(r.getCanvasHeight()==null?height(t):r.getCanvasHeight())!=0
                     ||existing.isGridVisible()!=Boolean.TRUE.equals(r.getGridVisible())||!Objects.equals(existing.getGridColor(),r.getGridColor()))throw new PageCreationConflictException();
@@ -71,6 +71,17 @@ public class PageService {
 	@Transactional(readOnly=true) public DiaryPage requirePage(UUID pageId){return pageRepository.findByPageIdAndDeletedAtIsNull(pageId).orElseThrow(PageNotFoundException::new);}
 	@Transactional(readOnly=true) public DiaryPage requireReadablePage(UUID pageId,Long userId){DiaryPage page=requirePage(pageId);diaryAccessService.requireRead(page.getDiaryId(),userId);return page;}
 	@Transactional(readOnly=true) public DiaryPage requireWritablePage(UUID pageId,Long userId){DiaryPage page=requirePage(pageId);diaryAccessService.requireWrite(page.getDiaryId(),userId);return page;}
+    private static boolean sameConfig(JsonNode a,JsonNode b){
+        if(a==null||b==null)return a==b;
+        if(a.isNumber()&&b.isNumber())return a.decimalValue().compareTo(b.decimalValue())==0;
+        if(a.isObject()&&b.isObject())return a.size()==b.size()&&a.properties().stream().allMatch(e->sameConfig(e.getValue(),b.get(e.getKey())));
+        if(a.isArray()&&b.isArray()){
+            if(a.size()!=b.size())return false;
+            for(int i=0;i<a.size();i++)if(!sameConfig(a.get(i),b.get(i)))return false;
+            return true;
+        }
+        return a.equals(b);
+    }
     private static String copyTemplateConfig(String config){
         if(config==null)return null;
         var tree=JSON.readTree(config);
