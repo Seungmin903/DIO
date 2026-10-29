@@ -18,6 +18,15 @@ function setup(handler, options = {}) {
 test('API 주소 형식을 통일한다', () => {
   for (const suffix of ['', '/api', '/api/v1/']) assert.equal(authBaseUrl(`http://localhost:8080${suffix}`), 'http://localhost:8080/api/v1');
 });
+test('전송 실패만 연결 실패로 분류하고 응답 처리 예외는 유지한다', async () => {
+  for (const cause of [new TypeError('network'), Object.assign(new Error('timeout'), { name: 'AbortError' })]) {
+    const { api } = setup(() => { throw cause; });
+    await assert.rejects(api.login({ email: 'member@example.com', password: 'Password123!' }), error => error.code === 'AUTH_CONNECTION_FAILED');
+  }
+  const internal = new Error('invalid response');
+  const { api } = setup(() => ({ get status() { throw internal; } }));
+  await assert.rejects(api.login({ email: 'member@example.com', password: 'Password123!' }), error => error === internal);
+});
 test('로그인은 실제 서버 사용자·사진을 표시하고 view에는 토큰을 노출하지 않는다', async () => {
   const { api, calls } = setup(() => response(tokens()));
   const result = await api.login({ email: ' MEMBER@example.com ', password: 'Password123!' });

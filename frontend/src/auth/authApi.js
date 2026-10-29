@@ -54,12 +54,18 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetchImpl(`${base}/auth/${path}`, {
+      const options = {
         method: 'POST', signal: controller.signal,
         headers: { ...(!multipart && body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...getAuthHeaders(`${base}/auth/${path}`, accessToken) },
         ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }),
-      });
+      };
+      let response;
+      try {
+        response = await fetchImpl(`${base}/auth/${path}`, options);
+      } catch {
+        throw Object.assign(new Error('서버에 연결하지 못했어요. 서버 주소와 네트워크를 확인해 주세요.'), { code: 'AUTH_CONNECTION_FAILED' });
+      }
       const data = response.status === 204 ? null : await response.json().catch(() => null);
       if (!response.ok) {
         const challenge = response.headers?.get?.('WWW-Authenticate');
@@ -75,9 +81,6 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         throw error;
       }
       return data;
-    } catch (error) {
-      if (error?.status) throw error;
-      throw Object.assign(new Error('서버에 연결하지 못했어요. 서버 주소와 네트워크를 확인해 주세요.'), { code: 'AUTH_CONNECTION_FAILED' });
     } finally { clearTimeout(timer); }
   }
   const api = {
