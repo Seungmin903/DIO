@@ -12,7 +12,7 @@ import TextLinkDialog from './TextLinkDialog'
 import { useTextFont } from '../hooks/useTextFont'
 
 // Android는 TextInput의 styled children으로 선택 범위 색상을 즉시 표시한다.
-export default function TextEditor({ object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast, onReveal }) {
+export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast, onReveal }) {
   useTextFont(object.font)
   const input = useRef(null), draft = useRef(object.text ?? ''), composing = useRef(false), saving = useRef(false)
   const cancelled = useRef(false)
@@ -156,6 +156,12 @@ export default function TextEditor({ object, zoom, onSave, onCancel, boundary, o
     const width = object.autoWidth ? boxWidth / zoom : null
     onSave(value, finalRanges, finalFormats, ...(measured || width ? [measured ?? null] : []), ...(width ? [width] : []))
   }
+  useEffect(() => {
+    if (!commitRef) return
+    const commit = () => { if (composing.current || linkEditing.current) return false; save(); return true }
+    commitRef.current = commit
+    return () => { if (commitRef.current === commit) commitRef.current = null }
+  }, [commitRef, save])
   useEffect(() => { const frame = requestAnimationFrame(() => { measure(); reveal() }); return () => cancelAnimationFrame(frame) }, [height, zoom, object.x, object.y])
   // 선택 끝 글자가 있는 줄에 붙이되 화면 오버레이로 표시한다.
   useEffect(() => {
