@@ -13,11 +13,18 @@ import com.f106.DIO.media.library.domain.DiaryMediaLibrary;
 import com.f106.DIO.media.library.domain.DiaryMediaLibraryId;
 
 public interface DiaryMediaLibraryRepository extends JpaRepository<DiaryMediaLibrary, DiaryMediaLibraryId> {
+	/** 네이티브 SQL은 PostgreSQL 통합 테스트가 같은 문자열을 실행해 스키마와 맞는지 확인한다. */
+	String INSERT_IF_ABSENT = "insert into diary_media_library(diary_id, media_file_id, added_by_user_id, library_category) "
+		+ "values (:diaryId, :mediaFileId, :addedByUserId, :libraryCategory) on conflict (diary_id, media_file_id) do nothing";
+	String READABLE_BY_MEMBER = "select exists (select 1 from diary_media_library library join diaries diary on diary.diary_id = library.diary_id "
+		+ "left join diary_members member on member.diary_id = diary.diary_id and member.user_id = :userId and member.left_at is null "
+		+ "where library.media_file_id = :mediaFileId and diary.deleted_at is null "
+		+ "and (diary.owner_user_id = :userId or member.user_id is not null))";
+
 	List<DiaryMediaLibrary> findAllByDiaryIdOrderByCreatedAtDescMediaFileIdDesc(UUID diaryId);
 	Optional<DiaryMediaLibrary> findByDiaryIdAndMediaFileId(UUID diaryId, UUID mediaFileId);
 	@Modifying
-	@Query(value = "insert into diary_media_library(diary_id, media_file_id, added_by_user_id, library_category) "
-		+ "values (:diaryId, :mediaFileId, :addedByUserId, :libraryCategory) on conflict (diary_id, media_file_id) do nothing", nativeQuery = true)
+	@Query(value = INSERT_IF_ABSENT, nativeQuery = true)
 	int insertIfAbsent(@Param("diaryId") UUID diaryId, @Param("mediaFileId") UUID mediaFileId,
 		@Param("addedByUserId") Long addedByUserId, @Param("libraryCategory") String libraryCategory);
 
@@ -25,9 +32,6 @@ public interface DiaryMediaLibraryRepository extends JpaRepository<DiaryMediaLib
 	@Query("delete from DiaryMediaLibrary library where library.diaryId = :diaryId and library.mediaFileId = :mediaFileId")
 	int deleteByDiaryIdAndMediaFileId(@Param("diaryId") UUID diaryId, @Param("mediaFileId") UUID mediaFileId);
 
-	@Query(value = "select exists (select 1 from diary_media_library library join diaries diary on diary.diary_id = library.diary_id "
-		+ "left join diary_members member on member.diary_id = diary.diary_id and member.user_id = :userId and member.left_at is null "
-		+ "where library.media_file_id = :mediaFileId and diary.deleted_at is null "
-		+ "and (diary.owner_user_id = :userId or member.user_id is not null))", nativeQuery = true)
+	@Query(value = READABLE_BY_MEMBER, nativeQuery = true)
 	boolean isReadableByMember(@Param("mediaFileId") UUID mediaFileId, @Param("userId") Long userId);
 }

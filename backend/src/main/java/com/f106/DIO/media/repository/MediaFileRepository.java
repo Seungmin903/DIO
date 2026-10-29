@@ -6,7 +6,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.time.Instant;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
@@ -29,11 +31,25 @@ public interface MediaFileRepository extends JpaRepository<MediaFile, UUID> {
 	String DELETABLE_ORDER = " order by media_files.deleted_at, media_files.media_file_id";
 	String DELETABLE_AFTER = " and (media_files.deleted_at, media_files.media_file_id) > (:afterDeletedAt, :afterMediaFileId)";
 
+	/** 삭제되지 않은 다이어리의 공유 보관함에 남아 있는지. 삭제된 다이어리의 연결은 물리 삭제 때 함께 지워진다. */
+	String EXISTS_IN_ACTIVE_SHARED_LIBRARY = "select exists (select 1 from diary_media_library library "
+		+ "join diaries diary on diary.diary_id = library.diary_id "
+		+ "where library.media_file_id = :mediaFileId and diary.deleted_at is null)";
+
 	Optional<MediaFile> findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(UUID mediaFileId, Long ownerUserId);
 	Optional<MediaFile> findByMediaFileIdAndDeletedAtIsNull(UUID mediaFileId);
 	List<MediaFile> findAllByMediaFileIdInAndDeletedAtIsNull(Collection<UUID> mediaFileIds);
-	@Query(value = "select exists (select 1 from diary_media_library where media_file_id = :mediaFileId)", nativeQuery = true)
+	boolean existsByMediaFileIdAndOwnerUserId(UUID mediaFileId, Long ownerUserId);
+	@Query(value = EXISTS_IN_ACTIVE_SHARED_LIBRARY, nativeQuery = true)
 	boolean existsInSharedLibrary(@Param("mediaFileId") UUID mediaFileId);
+
+	/** 공유 보관함 추가와 원본 삭제가 같은 행을 잠가, 동시에 일어나도 삭제된 미디어의 공유 연결이 남지 않게 한다. */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("""
+		select mediaFile from MediaFile mediaFile
+		where mediaFile.mediaFileId = :mediaFileId and mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null
+		""")
+	Optional<MediaFile> findOwnedForUpdate(@Param("mediaFileId") UUID mediaFileId, @Param("ownerUserId") Long ownerUserId);
 	@Query("""
 		select mediaFile from MediaFile mediaFile
 		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null

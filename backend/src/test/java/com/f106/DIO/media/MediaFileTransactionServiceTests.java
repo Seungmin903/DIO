@@ -54,7 +54,7 @@ class MediaFileTransactionServiceTests {
 	@Test
 	void preventsDeletingMediaWhileItIsInASharedLibrary() {
 		MediaFile mediaFile = media(2L);
-		when(mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFile.getMediaFileId(), 2L)).thenReturn(Optional.of(mediaFile));
+		when(mediaFiles.findOwnedForUpdate(mediaFile.getMediaFileId(), 2L)).thenReturn(Optional.of(mediaFile));
 		when(mediaFiles.existsInSharedLibrary(mediaFile.getMediaFileId())).thenReturn(true);
 
 		assertThatThrownBy(() -> service.delete(mediaFile.getMediaFileId(), 2L))

@@ -28,7 +28,9 @@
 | 목록 | `GET /api/v1/diaries/{diaryId}/media-library` | `200 OK`, 최신 추가순 `mediaFiles` 배열 |
 | 연결 삭제 | `DELETE /api/v1/diaries/{diaryId}/media-library/{mediaFileId}` | `204 No Content` |
 
-공유 보관함 삭제는 해당 다이어리의 연결만 없애며 원본 미디어는 삭제하지 않는다. 반대로 원본 미디어는 하나 이상의 공유 보관함에 남아 있으면 `409 MEDIA_FILE_SHARED`로 삭제를 거절한다. 먼저 모든 공유 보관함 연결을 제거해야 한다. 같은 미디어를 같은 다이어리에 다시 추가하면 `409 MEDIA_LIBRARY_ALREADY_CONTAINS_MEDIA`, 사진·오디오를 추가하면 `400 UNSUPPORTED_SHARED_MEDIA_CATEGORY`다.
+공유 보관함 삭제는 해당 다이어리의 연결만 없애며 원본 미디어는 삭제하지 않는다. 반대로 원본 미디어가 삭제되지 않은 다이어리의 공유 보관함에 하나라도 남아 있으면 `409 MEDIA_FILE_SHARED`로 삭제를 거절한다. 먼저 그 연결을 제거해야 한다. 삭제된 다이어리의 연결은 세지 않는다. 이런 연결은 다이어리를 물리 삭제할 때 지워지고, 그때까지는 정리 배치가 원본 파일을 남겨 둔다.
+
+연결 제거는 원래 OWNER·EDITOR만 할 수 있다. 다만 **미디어 원본 소유자**는 다이어리에서 나갔거나 VIEWER가 된 뒤에도, 다이어리가 삭제된 뒤에도 자기 미디어의 공유 연결을 제거할 수 있다. 그래서 공유 때문에 원본 삭제가 영구히 막히지 않는다. 공유 보관함 추가와 원본 삭제는 같은 미디어 행을 `PESSIMISTIC_WRITE`로 잠근다. 동시에 일어나도 삭제된 미디어의 공유 연결이 새로 생기지 않는다. 같은 미디어를 같은 다이어리에 다시 추가하면 `409 MEDIA_LIBRARY_ALREADY_CONTAINS_MEDIA`, 사진·오디오를 추가하면 `400 UNSUPPORTED_SHARED_MEDIA_CATEGORY`다.
 
 ## 저장소 설정
 

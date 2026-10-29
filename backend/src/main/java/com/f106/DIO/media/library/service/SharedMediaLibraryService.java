@@ -34,8 +34,7 @@ public class SharedMediaLibraryService {
 	@Transactional
 	public SharedMediaLibraryItemResponse add(UUID diaryId, UUID mediaFileId, Long userId) {
 		diaryAccess.requireWrite(diaryId, userId);
-		MediaFile mediaFile = mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, userId)
-			.orElseThrow(MediaFileNotFoundException::new);
+		MediaFile mediaFile = mediaFiles.findOwnedForUpdate(mediaFileId, userId).orElseThrow(MediaFileNotFoundException::new);
 		validateCategory(mediaFile.getLibraryCategory());
 		if (library.insertIfAbsent(diaryId, mediaFileId, userId, mediaFile.getLibraryCategory().name()) == 0) {
 			throw SharedMediaLibraryException.duplicate();
@@ -63,7 +62,9 @@ public class SharedMediaLibraryService {
 
 	@Transactional
 	public void delete(UUID diaryId, UUID mediaFileId, Long userId) {
-		diaryAccess.requireWrite(diaryId, userId);
+		// 원본 소유자는 다이어리에서 나갔거나 VIEWER가 됐거나 다이어리가 삭제돼도 자기 미디어의 공유 연결을 해제할 수 있다.
+		// 그렇지 않으면 공유 중이라는 이유로 원본 삭제가 영구히 막힌다.
+		if (!mediaFiles.existsByMediaFileIdAndOwnerUserId(mediaFileId, userId)) diaryAccess.requireWrite(diaryId, userId);
 		if (library.deleteByDiaryIdAndMediaFileId(diaryId, mediaFileId) == 0) throw SharedMediaLibraryException.notFound();
 	}
 

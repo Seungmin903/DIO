@@ -65,7 +65,7 @@ public class MediaFileTransactionService {
 
 	@Transactional
 	public void delete(UUID mediaFileId, Long userId) {
-		MediaFile mediaFile = findOwned(mediaFileId, userId);
+		MediaFile mediaFile = mediaFiles.findOwnedForUpdate(mediaFileId, userId).orElseThrow(MediaFileNotFoundException::new);
 		if (mediaFiles.existsInSharedLibrary(mediaFileId)) throw MediaRequestException.sharedLibraryReference();
 		mediaFile.softDelete();
 		mediaFiles.flush();

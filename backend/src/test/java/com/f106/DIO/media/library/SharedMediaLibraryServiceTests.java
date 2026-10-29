@@ -33,7 +33,7 @@ class SharedMediaLibraryServiceTests {
 		UUID diaryId = UUID.randomUUID(); UUID mediaFileId = UUID.randomUUID();
 		MediaFile media = media(mediaFileId, 11L, MediaLibraryCategory.STICKER);
 		DiaryMediaLibrary entry = new DiaryMediaLibrary(diaryId, mediaFileId, 11L, MediaLibraryCategory.STICKER);
-		when(mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, 11L)).thenReturn(Optional.of(media));
+		when(mediaFiles.findOwnedForUpdate(mediaFileId, 11L)).thenReturn(Optional.of(media));
 		when(library.insertIfAbsent(diaryId, mediaFileId, 11L, "STICKER")).thenReturn(1);
 		when(library.findByDiaryIdAndMediaFileId(diaryId, mediaFileId)).thenReturn(Optional.of(entry));
 
@@ -47,7 +47,7 @@ class SharedMediaLibraryServiceTests {
 	@Test
 	void rejectsPhotosFromTheSharedStickerAndTapeLibrary() {
 		UUID mediaFileId = UUID.randomUUID();
-		when(mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, 11L))
+		when(mediaFiles.findOwnedForUpdate(mediaFileId, 11L))
 			.thenReturn(Optional.of(media(mediaFileId, 11L, MediaLibraryCategory.PHOTO)));
 
 		assertThatThrownBy(() -> service.add(UUID.randomUUID(), mediaFileId, 11L))
@@ -58,7 +58,7 @@ class SharedMediaLibraryServiceTests {
 	@Test
 	void rejectsDuplicateLibraryEntriesWithoutOverwritingTheOriginalEntry() {
 		UUID diaryId = UUID.randomUUID(); UUID mediaFileId = UUID.randomUUID();
-		when(mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, 11L))
+		when(mediaFiles.findOwnedForUpdate(mediaFileId, 11L))
 			.thenReturn(Optional.of(media(mediaFileId, 11L, MediaLibraryCategory.TAPE)));
 		when(library.insertIfAbsent(diaryId, mediaFileId, 11L, "TAPE")).thenReturn(0);
 
@@ -90,6 +90,20 @@ class SharedMediaLibraryServiceTests {
 		service.delete(diaryId, mediaFileId, 11L);
 
 		verify(diaryAccess).requireWrite(diaryId, 11L);
+		verify(library).deleteByDiaryIdAndMediaFileId(diaryId, mediaFileId);
+	}
+
+	@Test
+	void mediaOwnerCanUnshareWithoutCurrentDiaryWriteAccess() {
+		UUID diaryId = UUID.randomUUID(); UUID mediaFileId = UUID.randomUUID();
+		when(mediaFiles.existsByMediaFileIdAndOwnerUserId(mediaFileId, 11L)).thenReturn(true);
+		org.mockito.Mockito.doThrow(new com.f106.DIO.diary.support.DiaryAccessDeniedException())
+			.when(diaryAccess).requireWrite(diaryId, 11L);
+		when(library.deleteByDiaryIdAndMediaFileId(diaryId, mediaFileId)).thenReturn(1);
+
+		service.delete(diaryId, mediaFileId, 11L);
+
+		verify(diaryAccess, org.mockito.Mockito.never()).requireWrite(diaryId, 11L);
 		verify(library).deleteByDiaryIdAndMediaFileId(diaryId, mediaFileId);
 	}
 
