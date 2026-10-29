@@ -1,9 +1,10 @@
 // Original candidates are immutable. Selection and explicit links are small session-only state.
-export function splitGroups(parts, selected, edges = [], links = []) {
+export function splitGroups(parts, selected, edges = [], links = [], separated = []) {
   const active = new Set(selected), parent = new Map(parts.filter(p => active.has(p.id)).map(p => [p.id, p.id]))
+  const isolated = new Set(separated)
   function root(id) { let p = id; while (parent.get(p) !== p) p = parent.get(p); return p }
   function join(a, b) { if (parent.has(a) && parent.has(b)) parent.set(root(b), root(a)) }
-  for (const [a, b] of edges) join(a, b)
+  for (const [a, b] of edges) if (!isolated.has(a) && !isolated.has(b)) join(a, b)
   // A manual group remains intact when an intermediate member is excluded.
   for (const link of links) { const ids = link.filter(id => active.has(id)); for (const id of ids.slice(1)) join(ids[0], id) }
   const groups = new Map()

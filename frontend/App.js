@@ -478,7 +478,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     const ordered = member ? libraryDiaries : queryDiaries(visibleDiaries, { sort: librarySort, metadata: libraryMetadata });
     setCarousel(Math.max(0, ordered.findIndex(diary => diary.id === returnDiaryId.current)));
     if (member) returnDiaryId.current = null;
-  }, [member, memberLibraryMatches, diaryState.library.ready, diaryState.library.loading, libraryDiaries, libraryMetadata, librarySort, page, visibleDiaries]);
+  }, [member, memberLibraryMatches, diaryState.library?.ready, diaryState.library?.loading, libraryDiaries, libraryMetadata, librarySort, page, visibleDiaries]);
   const trashedDiaries = useMemo(() => member ? diaryState.trash : diaries.filter((diary) => diary.trashedAt), [member,diaryState.trash,diaries]);
 
   // 열린 탭 (휴지통으로 간 다이어리는 뺀다)
