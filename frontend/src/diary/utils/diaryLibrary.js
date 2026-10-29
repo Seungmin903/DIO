@@ -25,6 +25,8 @@ const coverOptions = (item) => ({
   pattern: oneOf(COVER_PATTERNS, item.pattern, null),
   pageSize: oneOf(PAGE_SIZES, item.pageSize, 'landscape'),
   firstPage: oneOf(FIRST_PAGES, item.firstPage, 'blank'),
+  // 표지 요소(고무줄 · 제목 · 스티커 …). 그릴 때 coverDesign 의 normalizeCover 로 값을 맞춘다.
+  ...(item.cover && typeof item.cover === 'object' && !Array.isArray(item.cover) ? { cover: item.cover } : {}),
 });
 
 /** 저장소에서 읽은 값을 화면에서 쓸 수 있는 목록으로 정리한다. 잘못된 항목과 중복 ID는 버린다. */

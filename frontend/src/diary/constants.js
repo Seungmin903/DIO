@@ -24,15 +24,15 @@ export const C = {
 };
 
 // 새 다이어리 표지 색상. 기존 다이어리에 저장된 색은 이 목록에 없어도 그대로 표시한다.
+// 다이어리 기본 바탕색 6종: 국내 다이어리에서 흔히 보이는 무난한 계열(크림 · 베이지 · 핑크 · 그린 · 블루 · 차콜)을
+// 한 브랜드를 떠올리게 하는 색(완전한 검정 · 주황 등)은 피해 조금씩 탁하게 잡았다. 예전 다이어리의 다른 색은 그대로 그린다.
 export const COLORS = [
-  { label: '세이지', value: '#A9BFA6' },
-  { label: '로즈', value: '#F0B0AA' },
-  { label: '페리윙클', value: '#9DABD8' },
-  { label: '머스터드', value: '#EBC56F' },
-  { label: '라벤더', value: '#C3AEDD' },
-  { label: '차콜', value: '#474F55' },
-  { label: '카멜', value: '#D9A87F' },
-  { label: '크림', value: '#EAE3D4' },
+  { label: '크림', value: '#EEE6D6' },
+  { label: '라떼', value: '#D6C2A6' },
+  { label: '더스티 로즈', value: '#E2B9B6' },
+  { label: '세이지', value: '#AABDA4' },
+  { label: '스카이', value: '#B4C9E2' },
+  { label: '차콜', value: '#474D57' },
 ];
 
 export const COVER_PATTERNS = [
@@ -41,6 +41,7 @@ export const COVER_PATTERNS = [
   { id: 'dot', label: '도트' },
   { id: 'gingham', label: '깅엄' },
   { id: 'stripe', label: '스트라이프' },
+  { id: 'check', label: '체크' },
 ];
 
 // 페이지 크기는 만든 뒤에 바꿀 수 없다.
@@ -59,7 +60,7 @@ export const FIRST_PAGES = [
 
 export const DIARY_DEFAULTS = {
   title: '새 다이어리',
-  color: '#9DABD8',
+  color: '#B4C9E2',
   pattern: 'linen',
   pageSize: 'landscape',
   firstPage: 'blank',
@@ -75,6 +76,7 @@ export const FILTERS = [
 
 export const DEFAULT_FILTER = 'personal';
 
-export const CAROUSEL_ITEM_WIDTH = 238;
+// 스와이프 칸은 정사각형(표지 칸 높이 318과 같은 폭)이라 세로 · 가로 다이어리가 같은 크기로 보인다.
+export const CAROUSEL_ITEM_WIDTH = 318;
 export const CAROUSEL_GAP = 42;
 export const CAROUSEL_STEP = CAROUSEL_ITEM_WIDTH + CAROUSEL_GAP;

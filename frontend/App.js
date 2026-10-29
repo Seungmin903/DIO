@@ -6,7 +6,7 @@ import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'rea
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
-import { prepareEditor, rememberEditorDoc, editorDocKey } from './src/editor/services/editorDocs';
+import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { useSharing } from './src/sharing/useSharing';
@@ -388,16 +388,18 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       catch (failure) { return failure.message; }
     }
     const updatedAt = new Date().toISOString();
+    const paperAppearance = normalizePaperAppearance(form.paperAppearance);
     const diary = original
-      ? { ...original, title, color: form.color, pattern: form.pattern, updatedAt }
+      ? { ...original, title, color: form.color, pattern: form.pattern, cover: form.cover, paperAppearance, updatedAt }
       : {
         id: pendingCreateId.current ?? createId(),
         createdAt: updatedAt,
         templateConfig: config,
-        paperAppearance: normalizePaperAppearance(form.paperAppearance),
+        paperAppearance,
         title,
         color: form.color,
         pattern: form.pattern,
+        cover: form.cover,
         pageSize: config.orientation,
         type: '개인',
         favorite: false,
@@ -420,6 +422,25 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         setSaving(false);
       }
     }
+    // 수정에서 속지 스타일을 바꾸면 새 페이지에 쓸 색을 바꾸고, '모든 페이지'면 이미 있는 페이지도 칠한다.
+    if (original && JSON.stringify(normalizePaperAppearance(original.paperAppearance)) !== JSON.stringify(paperAppearance)) {
+      savingRef.current = true;
+      setSaving(true);
+      try {
+        const key = editorDocKey(original);
+        const doc = await loadEditorDoc(original);
+        if (doc?.pages?.length) {
+          const next = { ...doc, paperAppearance, pages: form.appearanceScope === 'all' ? doc.pages.map(page => ({ ...page, paperAppearance })) : doc.pages };
+          if (!await saveEditorDoc(key, next)) throw new Error('속지 스타일을 저장하지 못했어요. 다시 시도해 주세요.');
+          rememberEditorDoc(key, next);
+        }
+      } catch (failure) {
+        return failure.message;
+      } finally {
+        savingRef.current = false;
+        setSaving(false);
+      }
+    }
     // 먼저 만든 다이어리가 앞(왼쪽)에 오도록 새 다이어리는 뒤에 붙인다.
     if (original) setDiaries((current) => current.map((item) => (item.id === diary.id ? diary : item)));
     setActive((current) => (current?.id === diary.id ? diary : current));
@@ -427,7 +448,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     setEditingDiaryId(null);
     if (!original) {
       setCarousel(0);
-      enterEditor(diary);
+      // 새 문서는 위에서 이미 메모리에 올려 두었으므로 준비를 기다리지 않고 바로 편집기로 넘어간다
+      opening.current = null;
+      setEditorOrientation(null);
+      setActive(diary);
+      setTabIds((current) => (current.includes(diary.id) ? current : [...current, diary.id]));
+      setPage('editor');
     }
     return undefined;
   };

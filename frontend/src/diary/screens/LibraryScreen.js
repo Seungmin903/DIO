@@ -3,7 +3,6 @@ import { Animated, FlatList, Pressable, ScrollView, Text, View } from 'react-nat
 import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS, C } from '../constants';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
-import CreateDiaryCard from '../components/CreateDiaryCard';
 import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
 import { toggleSelection, visibleSelection } from '../utils/diarySelection';
@@ -91,12 +90,12 @@ function LibraryScreen({
   const toggleAll = () => {
     if (!trashing && manageable.length) onSelectionChange?.(allSelected ? [] : manageable.map(diary => diary.id));
   };
-  // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 카드는 개인 다이어리 탭에만 둔다. 관리 중에는 숨긴다.
+  // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 버튼은 개인 다이어리 탭에만 둔다. 관리 중에는 숨긴다.
   const canCreate = Boolean(onCreate) && filter === 'personal' && !searchOpen && !selecting;
 
-  const carouselItems = useMemo(() => (canCreate ? [...shown, { id: 'new-diary' }] : shown), [canCreate, shown]);
+  const carouselItems = shown;
   const itemCount = carouselItems.length;
-  const carouselItemWidth = compact ? 202 : CAROUSEL_ITEM_WIDTH;
+  const carouselItemWidth = compact ? 268 : CAROUSEL_ITEM_WIDTH;
   const carouselGap = compact ? 24 : CAROUSEL_GAP;
   const carouselStep = compact ? carouselItemWidth + carouselGap : CAROUSEL_STEP;
   // 카드 수가 바뀔 때만 애니메이션 노드를 새로 만든다. 매 렌더마다 만들면 스와이프마다 모든 카드가 다시 연결된다.
@@ -241,6 +240,7 @@ function LibraryScreen({
   />;
 
   return (
+    <View style={s.libraryRoot}>
     <ScrollView
       contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact, fixedPhoneCarousel && s.libraryScreenCarouselCompact]}
       showsVerticalScrollIndicator={false}
@@ -335,16 +335,6 @@ function LibraryScreen({
               // 카드가 확대·기울기로 자기 영역 밖까지 그려져서 removeClippedSubviews는 쓰지 않는다.
               windowSize={5}
               renderItem={({ item, index }) => (
-                item.id === 'new-diary' ? (
-                  <CreateDiaryCard
-                    key={item.id}
-                    layout="carousel"
-                    compact={compact}
-                    carouselActive={index === activeIndex}
-                    animatedStyle={motions[index]}
-                    onCreate={onCreate}
-                  />
-                ) : (
                   <DiaryCard
                     key={item.id}
                     diary={item}
@@ -361,7 +351,6 @@ function LibraryScreen({
                     selected={selected.includes(item.id)}
                     onToggleSelect={toggleSelect}
                   />
-                )
               )}
             />
             {!compact && <Pressable
@@ -374,18 +363,22 @@ function LibraryScreen({
             </Pressable>}
           </View>
           <View style={[s.carouselFoot, compact && s.carouselFootCompact]}>
-            {/* 개수는 다이어리만 센다. 맨 끝 "새 다이어리" 카드에서는 비워 둔다 (줄 높이는 유지) */}
-            <Text style={s.carouselCount}>{activeIndex < shown.length ? `${activeIndex + 1} / ${shown.length}` : ' '}</Text>
+            <Text style={s.carouselCount}>{`${activeIndex + 1} / ${shown.length}`}</Text>
           </View>
         </View>
       ) : (
         <View style={[s.grid, compact && s.gridCompact]}>
           {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
             selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} />)}
-          {canCreate && <CreateDiaryCard layout="grid" compact={compact} onCreate={onCreate} />}
         </View>
       )}
     </ScrollView>
+    {/* 새 다이어리: 예전 사이드 메뉴의 파란 + 버튼을 화면 오른쪽 아래에 띄운다 */}
+    {canCreate && <Pressable accessibilityRole="button" accessibilityLabel="새 다이어리 만들기" onPress={onCreate}
+      style={({ pressed }) => [s.createFab, compact && s.createFabCompact, pressed && s.pressed]}>
+      <AppIcon name="add" size={compact ? 24 : 26} color={C.white} />
+    </Pressable>}
+    </View>
   );
 }
 

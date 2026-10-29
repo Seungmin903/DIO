@@ -366,16 +366,25 @@ export function editorReducer(state, action) {
         list.map((o) => (action.ids.includes(o.id) ? { ...o, groupId: undefined } : o)),
       )
 
+    // count 장을 position(after: 지금 페이지 뒤 · before: 앞 · end: 맨 끝)에 넣고 첫 새 페이지로 간다.
+    // paperAppearance 를 주면 새 페이지만 그 색으로 칠한다. (없으면 문서 기본 색)
     case 'addPage': {
-      const created = action.backgroundAssetId ? createTemplatePage(action.backgroundAssetId, state.doc.paperAppearance) : createBlankPage(state.doc.orientation)
-      const page = state.doc.paperAppearance ? { ...created, paperAppearance: state.doc.paperAppearance } : created
+      const appearance = action.paperAppearance ? normalizePaperAppearance(action.paperAppearance) : state.doc.paperAppearance
+      // assetIds: 여러 속지를 섞어 넣을 때 순서대로. 없으면 backgroundAssetId 를 count 장
+      const count = Math.max(1, Math.min(50, Math.floor(action.count ?? 1)))
+      const ids = Array.isArray(action.assetIds) && action.assetIds.length ? action.assetIds.slice(0, 200) : Array.from({ length: count }, () => action.backgroundAssetId ?? null)
+      const added = ids.map((id) => {
+        const created = id ? createTemplatePage(id, appearance) : createBlankPage(state.doc.orientation)
+        return appearance ? { ...created, paperAppearance: appearance } : created
+      })
       const index = state.doc.pages.findIndex((p) => p.id === getCurrentPage(state).id)
+      const at = action.position === 'end' ? state.doc.pages.length : action.position === 'before' ? index : index + 1
       const pages = [...state.doc.pages]
-      pages.splice(index + 1, 0, page)
+      pages.splice(at, 0, ...added)
       return {
         ...withHistory(state),
         doc: { ...state.doc, pages },
-        pageId: page.id,
+        pageId: added[0].id,
         selectedIds: [],
       }
     }

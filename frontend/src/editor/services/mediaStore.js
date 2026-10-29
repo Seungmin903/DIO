@@ -9,16 +9,31 @@ import { collectMediaIds, createMediaRegistry, isMediaRef, mediaId, mediaReferen
 export { isMediaRef }
 export function reportMediaDisplayError(item) {
   const id = mediaId(item)
+  if (id) verified.delete(id)
   if (id) mediaRegistry.fail(id, new MediaError('MEDIA_CORRUPT', '이미지를 표시하지 못했어요. 원본 파일을 다시 선택해 주세요.'))
 }
+// 보관함처럼 한꺼번에 여러 장을 열 때 저장소 읽기 · 디코딩 검사가 한 번에 몰려 화면이 멈추지 않게 4장씩 읽는다.
+const LOAD_LIMIT = 4
+let loading = 0
+const waiting = []
+async function limited(task) {
+  if (loading >= LOAD_LIMIT) await new Promise(resolve => waiting.push(resolve))
+  loading += 1
+  try { return await task() } finally { loading -= 1; waiting.shift()?.() }
+}
+// 한 번 표시를 확인한 파일은 다시 열 때 디코딩 검사를 건너뛴다 (앱이 켜져 있는 동안)
+const verified = new Set()
+
 export const mediaRegistry = createMediaRegistry({
-  async load(id) {
+  load: id => limited(async () => {
     const { media, blob, displayBlob } = await repository.get(id)
     const source = displayBlob ?? blob
-    await repository.verifyDisplay(source)
+    if (!verified.has(id)) { await repository.verifyDisplay(source); verified.add(id) }
     return { media, uri: Platform.OS === 'web' ? URL.createObjectURL(source) : source.uri }
-  },
+  }),
   release(uri) { if (Platform.OS === 'web') URL.revokeObjectURL(uri) },
+  // 보관함을 닫았다 다시 열 때 다시 읽지 않도록 잠시 더 들고 있는다 (앱 파일 경로는 메모리를 거의 쓰지 않는다)
+  idleMs: Platform.OS === 'web' ? 60000 : 300000,
 })
 
 export function mediaUri(item, { still = false } = {}) {

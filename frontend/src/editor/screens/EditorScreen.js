@@ -60,7 +60,7 @@ import { isTicketFrame } from '../components/canvas/PhotoFrame'
 import { isStripFrame, photoCell, stripCellBoxes } from '../utils/photoStrip'
 import { startPagePanelMeasurement } from '../utils/pagePanelPerformance.js'
 
-import TemplatePicker from '../components/TemplatePicker'
+import PageAddPicker from '../components/PageAddPicker'
 import { pageSize, pageTemplateOrientation } from '../utils/pageGeometry.js'
 
 // 텍스트 글꼴은 앱이 켜질 때(이 화면 모듈을 불러올 때) 미리 불러오기 시작한다. 편집기를 열 즈음에는 대부분 준비된다.
@@ -828,7 +828,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           onClose={() => setOverviewFilter(null)}
         />
       )}
-      {templatePickerOpen && !readOnly && <TemplatePicker compact={compact} orientation={templateOrientation} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 }} onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
+      {templatePickerOpen && !readOnly && <PageAddPicker compact={compact} orientation={templateOrientation} appearance={state.doc.paperAppearance} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 + bottomInset }}
+        onClose={() => setTemplatePickerOpen(false)} onSelect={(backgroundAssetId) => { dispatch({ type: 'addPage', backgroundAssetId }); setTemplatePickerOpen(false); fitToScreen() }} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
       <View style={[styles.body, compact && styles.bodyCompact]}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}

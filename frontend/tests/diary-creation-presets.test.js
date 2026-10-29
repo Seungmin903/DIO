@@ -5,7 +5,6 @@ import { configuredMonthPageIds, configuredPageIds, defaultTemplateConfig, norma
 import { getTemplate, reusableTemplates } from '../src/editor/templates/catalog.js'
 import { createDefaultDoc, migrateUntouchedAnnualDoc } from '../src/editor/state/defaultDoc.js'
 import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js'
-import { initialCreationFlow, creationFlowReducer as reduce, activeCreationConfig } from '../src/diary/utils/creationFlow.js'
 import { DEFAULT_PAPER_APPEARANCE } from '../src/editor/templates/appearance.js'
 import { normalizeDiaries } from '../src/diary/utils/diaryLibrary.js'
 import { readFile } from 'node:fs/promises'
@@ -68,26 +67,6 @@ test('만년형 SVG 10종의 정적 매핑·날짜 제거·요일 유지·6주 �
   }
 })
 
-test('날짜형·만년형 전환과 화면 왕복에서 직접 구성의 양식과 장수를 보존한다', () => {
-  let flow = reduce(reduce(initialCreationFlow(), { type: 'next' }), { type: 'custom' })
-  flow = reduce(flow, { type: 'configure', value: { ...flow.custom, weeklyStyle: 'journal', daily: true,
-    dailyTemplates: flow.custom.dailyTemplates.map(item => ({ ...item, enabled: true, count: '2' })),
-    reusable: flow.custom.reusable.map(item => ({ ...item, enabled: true, count: '3' })) } })
-  flow = reduce(flow, { type: 'dateMode', value: 'undated' })
-  assert.equal(templateComposition(activeCreationConfig(flow)).total, 9 + 6 + 12)
-  assert.ok(configuredPageIds(activeCreationConfig(flow)).includes('undated-weekly-journal-landscape'))
-  flow = reduce(flow, { type: 'colors' })
-  assert.equal(activeCreationConfig(flow).dateMode, 'undated')
-  flow = reduce(reduce(flow, { type: 'back' }), { type: 'back' })
-  flow = reduce(flow, { type: 'dateMode', value: 'dated' })
-  flow = reduce(flow, { type: 'custom' })
-  assert.equal(activeCreationConfig(flow).weeklyStyle, 'journal')
-  assert.equal(templateComposition(activeCreationConfig(flow)).total, 78 + 18 * 12)
-  flow = reduce(flow, { type: 'orientation', value: 'portrait' })
-  flow = reduce(flow, { type: 'dateMode', value: 'undated' })
-  assert.ok(configuredPageIds(activeCreationConfig(flow)).every(id => id.endsWith('-portrait')))
-})
-
 test('구형 문서는 날짜형으로 해석하며 만년형에서 모두 제외하면 빈 페이지를 유지한다', () => {
   const old = defaultTemplateConfig()
   delete old.dateMode
@@ -136,18 +115,6 @@ for (const orientation of ['landscape', 'portrait']) for (const preset of DIARY_
   })
 }
 
-test('기본 추천은 일정 관리용이며 세부·색상 단계를 건너뛸 수 있다', () => {
-  let flow = reduce(initialCreationFlow(), { type: 'next' })
-  assert.equal(flow.step, 'recommend')
-  assert.equal(flow.preset, 'schedule')
-  assert.deepEqual(activeCreationConfig(flow), defaultTemplateConfig())
-  for (const id of ['schedule', 'journal', 'free']) {
-    flow = reduce(flow, { type: 'preset', id })
-    assert.equal(flow.step, 'recommend')
-    assert.equal(createDefaultDoc({ templateConfig: activeCreationConfig(flow) }).pages.length, templateComposition(activeCreationConfig(flow)).total)
-  }
-})
-
 test('월별 미리보기는 구분 페이지가 없어도 월 배치를 유지하고 맨 뒤 구형 추가 내지를 제외한다', () => {
   const base = presetTemplateConfig('journal')
   const config = { ...base, dividers: false, legacyEndPages: [{ assetId: '2026-reusable-note-dots-landscape', enabled: true, count: 2 }] }
@@ -157,46 +124,6 @@ test('월별 미리보기는 구분 페이지가 없어도 월 배치를 유지�
 
 test('미리보기의 월은 1~12월의 정수만 허용한다', () => {
   for (const month of [0, 13, 1.5, '1', NaN]) assert.throws(() => configuredMonthPageIds(defaultTemplateConfig(), month), /1~12월/)
-})
-
-test('직접 구성·추천·선택 색상·표지 화면 왕복과 방향 변경에도 수정한 장수를 보존한다', () => {
-  let flow = reduce(reduce(initialCreationFlow(), { type: 'next' }), { type: 'preset', id: 'journal' })
-  flow = reduce(flow, { type: 'custom' })
-  assert.equal(flow.custom.daily, true)
-  const config = { ...flow.custom, weekly: true, weeklyStyle: 'journal', cover: false, dividers: false,
-    dailyTemplates: flow.custom.dailyTemplates.map(item => ({ ...item, enabled: true, count: '3' })),
-    reusable: flow.custom.reusable.map(item => ({ ...item, enabled: true, count: '2' })) }
-  flow = reduce(flow, { type: 'configure', value: config })
-  flow = reduce(flow, { type: 'colors' })
-  assert.equal(flow.colorReturn, 'custom')
-  assert.equal(activeCreationConfig(flow), config)
-  flow = reduce(flow, { type: 'back' })
-  flow = reduce(flow, { type: 'back' })
-  flow = reduce(flow, { type: 'preset', id: 'free' })
-  flow = reduce(flow, { type: 'back' })
-  flow = reduce(flow, { type: 'orientation', value: 'portrait' })
-  flow = reduce(flow, { type: 'next' })
-  flow = reduce(flow, { type: 'custom' })
-  assert.equal(flow.custom.weeklyStyle, 'journal')
-  assert.equal(flow.custom.cover, false)
-  assert.equal(flow.custom.dividers, false)
-  assert.ok(flow.custom.dailyTemplates.every(item => item.count === '3' && item.assetId.endsWith('-portrait')))
-  assert.ok(flow.custom.reusable.every(item => item.count === '2'))
-  const summary = templateComposition(flow.custom)
-  assert.equal(summary.perMonth, 17)
-  assert.equal(summary.total, 12 + 53 + 17 * 12)
-  assert.equal(createDefaultDoc({ templateConfig: activeCreationConfig(flow) }).pages.length, summary.total)
-})
-
-test('일부 잘못된 직접 구성은 안내하고, 추천으로 돌아오면 유효한 구성을 사용한다', () => {
-  let flow = reduce(reduce(initialCreationFlow(), { type: 'next' }), { type: 'custom' })
-  const config = { ...flow.custom, reusable: flow.custom.reusable.map(item => ({ ...item, enabled: true, count: '' })) }
-  flow = reduce(flow, { type: 'configure', value: config })
-  assert.throws(() => templateComposition(activeCreationConfig(flow)), /장수/)
-  flow = reduce(flow, { type: 'back' })
-  assert.equal(templateComposition(activeCreationConfig(flow)).total, 78)
-  flow = reduce(flow, { type: 'custom' })
-  assert.equal(flow.custom, config)
 })
 
 test('모두 제외한 직접 구성은 빈 페이지 1장과 월별 추가 0장으로 안내한다', () => {
