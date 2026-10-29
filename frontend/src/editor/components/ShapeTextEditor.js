@@ -12,7 +12,7 @@ import { normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegmen
 import { copyText, readText, useTextClipboardAvailable } from '../services/textClipboard'
 
 // 도형 크기는 글의 길이와 무관하게 유지한다. 빈 글을 저장해도 도형 자체는 지우지 않는다.
-export default function ShapeTextEditor({ object, zoom, onSave, boundary, onReveal, visibleTop = 0, onPaletteChange, paletteBounds, onToast }) {
+export default function ShapeTextEditor({ commitRef, object, zoom, onSave, boundary, onReveal, visibleTop = 0, onPaletteChange, paletteBounds, onToast }) {
   useTextFont(object.font)
   const input = useRef(null), draft = useRef(object.text ?? ''), box = useRef(null), committed = useRef(false)
   const latest = useRef(null), frame = useRef(null), revision = useRef(0), mounted = useRef(true)
@@ -56,6 +56,12 @@ export default function ShapeTextEditor({ object, zoom, onSave, boundary, onReve
   latest.current = { onSave, onReveal, keyboardTop, visibleTop }
   const inputHeight = shapeInputHeight(Infinity, contentHeight, keyboardTop, visibleTop)
   const save = () => { if (!committed.current) { committed.current = true; latest.current.onSave(draft.current,normalizeRanges(draft.current,ranges.current),normalizeTextFormats(draft.current,formats.current)) } }
+  useEffect(() => {
+    if (!commitRef) return
+    const commit = () => { if (composing.current) return false; save(); return true }
+    commitRef.current = commit
+    return () => { if (commitRef.current === commit) commitRef.current = null }
+  }, [commitRef, save])
   const measure = () => {
     const current = ++revision.current
     input.current?.measureInWindow?.((x,y,width,height) => {

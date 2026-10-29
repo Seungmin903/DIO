@@ -1,10 +1,11 @@
 import { useFormFactor } from '../../shared/useFormFactor'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import Svg, { Path } from 'react-native-svg'
-import { fontLabel, TEXT_COLORS, TEXT_FONTS, textStyle, textStyleSupport, textStyleReady, textFontChangePatch } from '../utils/text'
+import { fontLabel, TEXT_COLORS, getTextFonts, subscribeTextFonts, textFontListSnapshot, textStyle, textStyleSupport, textStyleReady, textFontChangePatch } from '../utils/text'
+import { openFontStudio } from '../../handwriting/studioBus.js'
 import { useTextFont } from '../hooks/useTextFont'
 import MyColorPresets from './controls/MyColorPresets'
 import Slider from './controls/Slider'
@@ -35,6 +36,14 @@ const VERTICAL_ALIGNS = [['top','위 정렬'],['middle','세로 가운데 정렬
 
 /** 텍스트 서식. 스티커·마테·사진 옵션과 같은 모양(구역 제목·세그먼트 버튼·막대·색 줄)으로 만든다 */
 export default function TextSettings({ settings, onChange, onClose, verticalAlignment = false }) {
+  useSyncExternalStore(subscribeTextFonts, textFontListSnapshot, textFontListSnapshot)
+  const fonts = getTextFonts()
+  const personalFonts = fonts.filter(font => font.personal)
+  const fontGroups = [
+    ...(personalFonts.length ? [{ label: '내 폰트', fonts: personalFonts }] : []),
+    { label: '기본 글꼴', fonts: fonts.filter(font => !font.personal) },
+  ]
+
   const fontStatus = useTextFont(settings.font)
   const support = textStyleSupport(settings.font, Platform.OS)
   const styleItems = STYLE_TOGGLES.map(item => ({ ...item, disabled: ['bold', 'italic'].includes(item.id) && (!support[item.id] || !textStyleReady(settings.font, item.id)) }))
@@ -50,22 +59,28 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
   }
   return <View style={toolPanelStyles.card}>
     <ToolPanelHeader icon="text" title="텍스트" closeLabel="텍스트 설정 닫기" onClose={onClose} />
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={toolPanelStyles.content}>
+    <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" contentContainerStyle={toolPanelStyles.content}>
       <Text style={toolPanelStyles.label}>글꼴</Text>
       <View style={[styles.row, { zIndex: 10 }]}>
         <View style={{ flex: 1 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="글꼴 선택" accessibilityState={{ expanded: fontsOpen }} onPress={() => setFontsOpen(!fontsOpen)} style={styles.field}>
-            <Text style={[styles.fieldText, previewFont(settings.font)]} numberOfLines={1}>{fontLabel(TEXT_FONTS.find((f) => f.id === settings.font) ?? TEXT_FONTS[0], Platform.OS)}</Text>
+            <Text style={[styles.fieldText, previewFont(settings.font)]} numberOfLines={1}>{fontLabel(fonts.find((f) => f.id === settings.font) ?? fonts[0], Platform.OS)}</Text>
             <Svg width={12} height={12} viewBox="0 0 24 24"><Path d={fontsOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'} fill="none" stroke={colors.text} strokeWidth={2} /></Svg>
           </Pressable>
-          {fontsOpen && <ScrollView style={styles.options} nestedScrollEnabled keyboardShouldPersistTaps="handled">{TEXT_FONTS.map((font) => (
-            <Pressable key={font.id} accessibilityRole="button" accessibilityLabel={fontLabel(font, Platform.OS)} accessibilityState={{ selected: settings.font === font.id }} onPress={() => { onChange(textFontChangePatch(settings, font.id, Platform.OS)); setFontsOpen(false) }} style={[styles.option, settings.font === font.id && styles.optionSelected]}>
-              <Text style={[styles.optionText, previewFont(font.id)]} numberOfLines={1}>{fontLabel(font, Platform.OS)}</Text>
-            </Pressable>
-          ))}</ScrollView>}
         </View>
         <TextInput accessibilityLabel="글자 크기" keyboardType="numeric" value={size} onChangeText={(raw) => { setSize(raw); const value = Number(raw); if (raw.trim() && Number.isFinite(value) && value >= 8 && value <= 96) onChange({ fontSize: value }) }} onEndEditing={(event) => commitSize(event.nativeEvent.text)} onSubmitEditing={(event) => commitSize(event.nativeEvent.text)} selectTextOnFocus style={[styles.size, isPhone && styles.phoneSize]} />
       </View>
+
+      {fontsOpen && <ScrollView accessibilityLabel="글꼴 목록" style={styles.options} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+        {fontGroups.map(group => <View key={group.label}>
+          <Text accessibilityRole="header" style={styles.fontGroup}>{group.label}</Text>
+          {group.fonts.map(font => <Pressable key={font.id} accessibilityRole="button" accessibilityLabel={fontLabel(font, Platform.OS)} accessibilityState={{ selected: settings.font === font.id }} onPress={() => { onChange(textFontChangePatch(settings, font.id, Platform.OS)); setFontsOpen(false) }} style={[styles.option, settings.font === font.id && styles.optionSelected]}>
+            <Text style={[styles.optionText, previewFont(font.id)]} numberOfLines={1}>{fontLabel(font, Platform.OS)}</Text>
+          </Pressable>)}
+        </View>)}
+      </ScrollView>}
+
+      <Pressable accessibilityRole="button" onPress={() => { setFontsOpen(false); openFontStudio({ onUse: font => onChange(textFontChangePatch(settings, font.id, Platform.OS)) }) }} style={styles.field}><Text style={styles.fieldText}>＋ 나만의 폰트 만들기</Text></Pressable>
 
       <Text style={toolPanelStyles.label}>스타일</Text>
       <Segmented items={styleItems} selected={(id) => Boolean(settings[id] && (support[id] !== false))} onPress={(id) => { if (!styleItems.find(item => item.id === id)?.disabled) onChange({ [id]: !settings[id] }) }} />
@@ -114,7 +129,9 @@ const styles = StyleSheet.create({
   // 글자 크기 칸: 자간·줄간격 막대의 숫자 칸과 같은 모양 (태블릿은 오른쪽, 폰은 가운데 정렬)
   size: { width: 52, height: 40, paddingHorizontal: 6, borderRadius: 9, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, color: colors.text, fontSize: 13, fontWeight: '700', textAlign: 'right', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
   phoneSize: { textAlign: 'center' },
-  options: { position: 'absolute', top: '100%', marginTop: 4, left: 0, right: 0, maxHeight: 280, zIndex: 20, elevation: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 11 },
+  // Keep options inside the panel's layout and touch bounds on Android.
+  options: { maxHeight: 280, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 11 },
+  fontGroup: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4, color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   option: { paddingHorizontal: 12, paddingVertical: 10 },
   optionSelected: { backgroundColor: colors.surfaceMuted },
   optionText: { color: colors.text, fontSize: 16 },

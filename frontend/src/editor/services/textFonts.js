@@ -1,5 +1,6 @@
 import { loadAsync } from 'expo-font'
 import { markTextFontLoaded, markTextFontFailed } from '../utils/text'
+import { refreshPersonalFonts } from '../../handwriting/library.js'
 
 // 글꼴 파일. 패키지 index 를 쓰면 모든 굵기 파일이 함께 묶이므로 쓰는 굵기 파일만 직접 가져온다.
 const FONT_FILES = {
@@ -23,11 +24,11 @@ let loading = null
 export function preloadTextFonts() {
   if (!loading) {
     loading = Promise.all(
-      Object.entries(FONT_FILES).map(([family, file]) =>
+      [...Object.entries(FONT_FILES).map(([family, file]) =>
         loadAsync({ [family]: file })
           .then(() => markTextFontLoaded(family))
           .catch(() => markTextFontFailed(family)),
-      ),
+      ), refreshPersonalFonts().catch(() => {})],
     )
   }
   return loading

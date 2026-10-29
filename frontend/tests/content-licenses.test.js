@@ -10,8 +10,9 @@ function load(file, mocks) {
 const all = n => !n || typeof n !== 'object' ? [] : [n, ...[n.props?.children].flat(Infinity).flatMap(all)]
 test('라이선스 모달 방향·상태바·닫기', () => {
   const Screen = load('../src/diary/components/ContentLicenses.js', {
-    react: { useState: v => [v, () => {}] }, 'react-native': { Linking: {}, Pressable: 'button', ScrollView: 'scroll', StatusBar: 'status', StyleSheet: { create: x => x }, Text: 'text', View: 'view' },
+    react: { useMemo: f => f(), useState: v => [v, () => {}] }, 'react-native': { Linking: {}, Pressable: 'button', ScrollView: 'scroll', StatusBar: 'status', StyleSheet: { create: x => x }, Text: 'text', TextInput: 'input', View: 'view' },
     'react-native-safe-area-context': { SafeAreaView: 'safe' }, '../../editor/components/controls/EditorModal': { __esModule: true, default: 'modal' }, '../../shared/AppIcon': { __esModule: true, default: 'icon' }, '../../shared/dialogs': {}, '../constants': { C: {} }, '../data/contentLicenses.json': [],
+    '../../licenses/softwareNotices': { __esModule: true, default: { components: [] } }, '../../licenses/sourceFiles': {},
   }).default
   let closed = false; const t = Screen({ visible: true, onClose: () => { closed = true } })
   assert.equal(t.type, 'modal'); assert.deepEqual(t.props.supportedOrientations, ['portrait', 'landscape']); assert.equal(t.props.statusBarTranslucent, true)

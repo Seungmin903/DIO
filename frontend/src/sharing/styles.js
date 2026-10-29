@@ -33,6 +33,12 @@ export const sharingStyles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   grow: { flex: 1, minWidth: 0 },
   section: { paddingTop: 16, borderTopWidth: 1, borderColor: c.border, gap: 12 },
+  notice: { padding: 12, borderRadius: radius.md, backgroundColor: c.surfaceMuted, gap: 8 },
+  memberActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  memberActionButton: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 8,
+    backgroundColor: c.surface, borderWidth: 1, borderColor: c.border },
+  sentInvite: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+  detailLink: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 12 },
   summary: {
     padding: 12,
     backgroundColor: c.surfaceMuted,

@@ -19,6 +19,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
+    "start:go": "expo start --go",
+    "android:font-dev": "expo run:android",
+    "test:handwriting": "node --test tests/handwriting.test.js",
+    "qa:handwriting": "node tests/handwriting-browser.cjs",
     "web": "expo start --web",
     "test:trash": "node --test tests/trash-retention.test.js tests/trash-lifecycle.test.js tests/diary-library.test.js",
     "test:export": "node --test tests/capture-pixels.test.js tests/export-content.test.js tests/pdf-file-save.test.js tests/region-export.test.js tests/export-selection.test.js tests/region-geometry.test.js tests/region-selection.test.js tests/page-image-renderer.test.js tests/pdf-export.test.js tests/pdf-menu.test.js tests/page-export.test.js tests/gif-first-frame.test.js tests/png-file-save.test.js tests/editor-page-management.test.js",
@@ -33,7 +37,10 @@
     "test:notifications:races": "node --test tests/notification-races.test.js",
     "test:notifications:integration": "node --test tests/notification-integration.test.js",
     "test:notifications:contract": "node qa/run-notification-contract.cjs",
-    "qa:notifications:a11y": "node qa/notification-a11y-browser.cjs"
+    "qa:notifications:a11y": "node qa/notification-a11y-browser.cjs",
+    "licenses:check:android": "node scripts/verify-prepared-licenses.cjs android",
+    "licenses:check:web": "node scripts/verify-prepared-licenses.cjs web",
+    "web:licensed": "node scripts/export-licensed-web.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/nanum-gothic": "^0.4.0",
@@ -70,7 +77,9 @@
     "react-native-svg": "15.16.0",
     "react-native-view-shot": "6.1.1",
     "react-native-web": "~0.21.0",
-    "upng-js": "~2.1.0"
+    "upng-js": "~2.1.0",
+    "expo-modules-core": "~58.0.26",
+    "expo-document-picker": "~58.0.4"
   },
   "devDependencies": {
     "@expo/ngrok": "4.1.0",

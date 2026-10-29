@@ -59,6 +59,8 @@ const MIN_TARGET_PX = 44
  * - 자르기 중인 사진은 드래그하면 보이는 영역이 움직인다.
  */
 export default function Canvas({
+  textCommitRef,
+  onReadingLinkStart,
   showBackground = true,
   compact = false,
   compactMenu = null,
@@ -342,8 +344,8 @@ export default function Canvas({
       <View style={styles.clip} pointerEvents="none">
         <StaticPage deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting ? null : fitTextHeight} cacheStrokes={!readOnly && (activeTool === 'pen' || activeTool === 'highlighter' || (Platform.OS === 'web' && activeTool === 'eraser'))} />
       </View>
-      {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
-      {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
+      {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
+      {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
       {!readOnly && linkBadges && <LinkBadges objects={page.objects} zoom={zoom} selectedIds={selectedIds} onSelect={(id) => dispatch({ type: 'select', ids: [id] })} />}
       {!readOnly && activeTool === 'lasso' && !textEditing && (
         <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
@@ -403,8 +405,8 @@ export default function Canvas({
         <View style={StyleSheet.absoluteFill} onStartShouldSetResponder={() => true} {...inputBlocker} accessibilityElementsHidden />
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={createText} />}
-      {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
-      {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
+      {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor commitRef={textCommitRef} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
+      {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor commitRef={textCommitRef} onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
 
       {/* 사진 틀의 빈 자리 + (선택 도구에서만) */}
       {canSelect && !cropping && !interacting && !marquee && onFillSlot && (
