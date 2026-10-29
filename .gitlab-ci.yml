@@ -160,8 +160,9 @@ backend-postgres-auth-test:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        # 공통 DB 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
-        - backend/src/main/resources/**/*
+        # Flyway·datasource·공통 영속성 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
+        - backend/src/main/resources/db/migration/**/*
+        - backend/src/main/resources/application*.yml
         - backend/src/test/resources/**/*
         - backend/src/test/java/**/support/**/*
         - backend/src/test/java/**/*Fixture.java
@@ -179,7 +180,6 @@ backend-postgres-auth-test:
         - backend/settings.gradle.kts
         - backend/gradle/**/*
         - infra/scripts/test-auth-postgres.sh
-        - infra/scripts/check-member-list-icu.sh
         # 인증·알림 전용 변경은 인증 PostgreSQL 검사만 실행한다.
         - backend/src/main/java/**/auth/**/*
         - backend/src/main/java/**/notification/**/*
@@ -219,8 +219,9 @@ backend-postgres-sharing-test:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        # 공통 DB 계층 변경은 모든 PostgreSQL 검사를 실행한다.
-        - backend/src/main/resources/**/*
+        # Flyway·datasource·공통 영속성 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
+        - backend/src/main/resources/db/migration/**/*
+        - backend/src/main/resources/application*.yml
         - backend/src/test/resources/**/*
         - backend/src/test/java/**/support/**/*
         - backend/src/test/java/**/*Fixture.java
@@ -238,12 +239,13 @@ backend-postgres-sharing-test:
         - backend/settings.gradle.kts
         - backend/gradle/**/*
         - infra/scripts/test-auth-postgres.sh
-        # 공유 권한·프로필·영구 삭제에 영향을 주는 변경이다.
-        - backend/src/main/java/**/auth/**/*
+        # 공유 권한·프로필·영구 삭제에 직접 영향을 주는 변경이다.
         - backend/src/main/java/**/sharing/**/*
-        - backend/src/main/java/**/diary/**/*
+        - backend/src/main/java/**/diary/domain/**/*
+        - backend/src/main/java/**/diary/repository/**/*
         - backend/src/main/java/**/media/**/*
-        - backend/src/main/java/**/page/**/*
+        - backend/src/main/java/**/page/domain/**/*
+        - backend/src/main/java/**/page/repository/**/*
         - backend/src/test/java/**/sharing/**/*
     # 잡 정의만 바꾼 MR은 수동으로 실행해 확인한다. 실행하지 않아도 파이프라인을 막지 않는다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -279,8 +281,9 @@ backend-postgres-diary-test:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        # 공통 DB 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
-        - backend/src/main/resources/**/*
+        # Flyway·datasource·공통 영속성 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
+        - backend/src/main/resources/db/migration/**/*
+        - backend/src/main/resources/application*.yml
         - backend/src/test/resources/**/*
         - backend/src/test/java/**/support/**/*
         - backend/src/test/java/**/*Fixture.java
@@ -343,8 +346,9 @@ backend-postgres-lifecycle-test:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        # 공통 DB 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
-        - backend/src/main/resources/**/*
+        # Flyway·datasource·공통 영속성 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
+        - backend/src/main/resources/db/migration/**/*
+        - backend/src/main/resources/application*.yml
         - backend/src/test/resources/**/*
         - backend/src/test/java/**/support/**/*
         - backend/src/test/java/**/*Fixture.java
@@ -362,7 +366,6 @@ backend-postgres-lifecycle-test:
         - backend/settings.gradle.kts
         - backend/gradle/**/*
         - infra/scripts/test-auth-postgres.sh
-        - infra/scripts/check-member-list-icu.sh
         # 휴지통·영구 삭제·미디어 보존 기간 변경이다.
         - backend/src/main/java/**/diary/auth/**/*
         - backend/src/main/java/**/diary/expiry/**/*
