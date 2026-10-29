@@ -22,7 +22,7 @@ import MemberAvatar from './MemberAvatar';
 import { invitationStatusLabel } from '../notifications/NotificationPanel';
 import { colors } from '../shared/theme';
 import { useFormFactor } from '../shared/useFormFactor';
-import { normalizeSharingNickname, sharingNicknameError, inviteEmailError, MAX_SHARING_MEMBERS } from './sharingPreview';
+import { normalizeSharingNickname, sharingNicknameError, inviteEmailError, MAX_SHARING_MEMBERS, COPY_TITLE_LIMIT, copyTitleError, defaultCopyTitle } from './sharingPreview';
 import { sharingStyles as s } from './styles';
 
 function Button({
@@ -69,6 +69,7 @@ export default function SharingHub({
   model,
   onClose,
   onOpenDiary,
+  onOpenCopy,
   photoPicker = pickProfilePhoto,
 }) {
   const { isPhone } = useFormFactor();
@@ -86,12 +87,15 @@ export default function SharingHub({
   const [inviteEmail, setInviteEmail] = useState('');
   const [capacityInfo, setCapacityInfo] = useState(false);
   const [linkExpired, setLinkExpired] = useState(false);
+  const [copyTitle, setCopyTitle] = useState('');
+  const [createdCopy, setCreatedCopy] = useState(null);
   const job = useRef(0),
     running = useRef(false);
   const alive = useRef(true);
   const nicknameField = useRef(null);
   const linkField = useRef(null);
   const emailField = useRef(null);
+  const copyField = useRef(null);
   const formScroll = useRef(null);
   const focusedInput = useRef(null);
   const scrollOffset = useRef(0);
@@ -167,6 +171,8 @@ export default function SharingHub({
     setLinkInput('');
     setInviteEmail('');
     setCapacityInfo(false);
+    setCreatedCopy(null);
+    setCopyTitle('');
     focusedInput.current = null;
     clearTimeout(focusTimer.current);
     if (!request) return;
@@ -256,7 +262,7 @@ export default function SharingHub({
       setQuestion(null);
       return;
     }
-    if (screen === 'email' || screen === 'members') {
+    if (screen === 'email' || screen === 'members' || screen === 'copy') {
       setScreen('sharing'); setError(''); setToast('');
     } else if (screen === 'detail') {
       setScreen('invitations'); setInvite(null); setError('');
@@ -449,6 +455,7 @@ export default function SharingHub({
                       ? '다이어리 공유'
                       : screen === 'email' ? '이메일로 초대'
                       : screen === 'members' ? '참여자 관리'
+                      : screen === 'copy' ? '개인 사본 만들기'
                       : screen === 'detail' ? '다이어리 초대'
                       : screen === 'profile'
                         ? isPhone
@@ -625,6 +632,10 @@ export default function SharingHub({
                           </Text>}
                         </View>
                       )}
+                      {!runtime.server && !diary.localSource && typeof runtime.createPersonalCopy === 'function' &&
+                        <Button label="개인 사본 만들기" secondary disabled={busy}
+                          onPress={() => { setCopyTitle(defaultCopyTitle(diary.title)); setCreatedCopy(null);
+                            setScreen('copy'); setError(''); setToast(''); }} />}
                       {!isOwner && (
                         <Button
                           label="다이어리 참여 해제"
@@ -644,6 +655,29 @@ export default function SharingHub({
                       />
                     </>
                   )}
+                  {screen === 'copy' && diary && <>
+                    <DiarySummary diary={diary} />
+                    <Text style={s.muted}>미리보기예요. 사본은 이번 실행에서만 유지돼요.</Text>
+                    <Text style={s.label}>사본 이름</Text>
+                    <TextInput ref={copyField} accessibilityLabel="개인 사본 이름" value={copyTitle}
+                      placeholder="사본 이름" placeholderTextColor={colors.textMuted} maxLength={COPY_TITLE_LIMIT}
+                      editable={!busy && !createdCopy} style={s.field}
+                      onFocus={() => focusInput(copyField.current)} onBlur={() => blurInput(copyField.current)}
+                      onChangeText={value => { setCopyTitle(value); setError(''); }} />
+                    {!!copyTitle && !!copyTitleError(copyTitle) && <Text style={s.error}>{copyTitleError(copyTitle)}</Text>}
+                    <Text style={s.muted}>원본과 공유 참여는 유지돼요. 사본의 수정 내용은 원본에 반영되지 않아요.</Text>
+                    {createdCopy ? <>
+                      <Text accessibilityLiveRegion="polite" style={s.text}>개인 사본을 만들었어요.</Text>
+                      {onOpenCopy && <Button label="개인 사본 열기" text="사본 열기" disabled={busy}
+                        onPress={() => onOpenCopy(createdCopy)} />}
+                      <Button label="사본 만들기 완료" text="완료" secondary onPress={back} />
+                    </> : <>
+                      <Button label="개인 사본 생성" text={busy ? '만드는 중…' : '사본 만들기'}
+                        disabled={busy || !!copyTitleError(copyTitle)}
+                        onPress={() => { dismissInput(); run(() => runtime.createPersonalCopy(diary.id, copyTitle), setCreatedCopy); }} />
+                      <Button label="사본 만들기 취소" text="취소" secondary disabled={busy} onPress={back} />
+                    </>}
+                  </>}
                   {screen === 'members' && diary && isOwner && <>
                     <DiarySummary diary={diary} />
                     {diary.members.filter(member => member.id !== runtime.self.id).map(member => (
