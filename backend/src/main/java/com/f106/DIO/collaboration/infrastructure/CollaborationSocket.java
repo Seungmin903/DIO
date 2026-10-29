@@ -50,7 +50,7 @@ public class CollaborationSocket extends TextWebSocketHandler {
             if(frame==null||!frame.isObject())throw new IllegalArgumentException();String type=frame.path("type").asText();
             if("AUTH".equals(type)){
                 reserveAuth(connection);
-                String token=frame.path("accessToken").asText();var jwt=decoder.decode(token);long actor=Long.parseLong(jwt.getSubject());UUID sessionId=sessionId(jwt);access.requireDiary(connection.diary,actor);
+                String token=frame.path("accessToken").asText();var jwt=decoder.decode(token);long actor=Long.parseLong(jwt.getSubject());UUID sessionId=sessionId(jwt);access.requireSession(sessionId,actor);access.requireDiary(connection.diary,actor);
                 synchronized(this){
                     if(!connections.containsKey(socket.getId()))return;
                     if(connection.actor>=0&&connection.actor!=actor)throw new IllegalArgumentException();

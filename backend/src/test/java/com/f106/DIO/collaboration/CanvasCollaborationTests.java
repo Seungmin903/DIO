@@ -67,6 +67,19 @@ class CanvasCollaborationTests {
         mvc.perform(patch("/api/v1/pages/"+legacy).header("Authorization","Bearer "+owner.token()).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
     }
 
+    @Test void emptyBatchesAreRejectedWithoutChangingHistoryOrRedo()throws Exception{
+        var owner=actor();UUID page=page(diary(owner));
+        create(page,owner,UUID.randomUUID(),"keep redo");
+        postJson(page,owner,"/undo",command(history(page,owner).path("nextUndo"),UUID.randomUUID()),200);
+        var before=history(page,owner);
+        for(var empty:List.<Map<String,Object>>of(Map.of(),Map.of("creates",List.of(),"updates",List.of(),"deleteElementIds",List.of(),"restoreElementIds",List.of()))){
+            postJson(page,owner,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",empty),400);
+            postJson(page,owner,"/elements/batch",empty,400);
+            assertThat(history(page,owner)).isEqualTo(before);
+        }
+        assertThat(postJson(page,owner,"/redo",command(before.path("nextRedo"),UUID.randomUUID()),200).path("items").size()).isEqualTo(1);
+    }
+
     @Test void createUndoRedoAndOwnHistorySurviveRetries()throws Exception{
         var owner=actor();UUID page=page(diary(owner)),element=UUID.randomUUID(),client=UUID.randomUUID();
         var request=Map.<String,Object>of("creates",List.of(text(element,"hello")));

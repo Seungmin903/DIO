@@ -161,6 +161,16 @@ class CollaborationEfficiencyTests {
             verifyNoInteractions(access,decoder);
         }
     }
+    @Test void revokedSessionCannotAuthenticateOrReceiveReady()throws Exception{
+        var access=mock(CollaborationAccess.class);var decoder=mock(JwtDecoder.class);UUID diary=UUID.randomUUID(),sid=UUID.randomUUID();
+        when(decoder.decode("token")).thenReturn(Jwt.withTokenValue("token").header("alg","HS256").subject("42").claim("sid",sid.toString()).expiresAt(Instant.now().plusSeconds(600)).build());
+        doThrow(new com.f106.DIO.collaboration.exception.CollaborationException(org.springframework.http.HttpStatus.UNAUTHORIZED,"INVALID_TOKEN","revoked")).when(access).requireSession(sid,42);
+        var handler=new CollaborationSocket(access,decoder,JsonMapper.builder().build(),Runnable::run,Runnable::run);
+        var socket=pendingSocket("revoked-auth",diary,"ip");handler.afterConnectionEstablished(socket);
+        handler.handleMessage(socket,new TextMessage("{\"type\":\"AUTH\",\"accessToken\":\"token\"}"));
+        verify(access).requireSession(sid,42);verify(access,never()).requireDiary(any(),anyLong());
+        verify(socket).close(CloseStatus.POLICY_VIOLATION);verify(socket,never()).sendMessage(any());
+    }
     private WebSocketSession pendingSocket(String id,UUID diary,String ip){
         var socket=mock(WebSocketSession.class);when(socket.getId()).thenReturn(id);when(socket.isOpen()).thenReturn(true);when(socket.getAttributes()).thenReturn(Map.of("diaryId",diary,"remoteIp",ip));return socket;
     }
