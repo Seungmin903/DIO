@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import * as text from '../src/editor/utils/text.js'
 import * as textKeyboard from '../src/editor/utils/textKeyboard.js'
 import * as formats from '../src/editor/utils/textFormats.js'
+import * as photoStrip from '../src/editor/utils/photoStrip.js'
 import * as ranges from '../src/editor/utils/textRanges.js'
 import * as placement from '../src/editor/utils/popoverPlacement.js'
 import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js'
@@ -154,6 +155,8 @@ test('텍스트 상자 선택 바의 복제 버튼은 문자열 복사를 호출
     '../../utils/penSettings': { EDITOR_COLORS: [] },
     '../../utils/popoverPlacement': placement,
     '../../utils/textFormats': formats,
+    '../../utils/photoStrip': photoStrip,
+    '../../utils/objects': { hasPhotoMedia: o => Boolean(o?.src || o?.mediaFileId), emptyPhotoSlots: () => [] },
   })
   const tree = ContextBar({ objects: [{ id: 'text', type: 'text', text: '원문' }], zoom: 1,
     dispatch: (action) => actions.push(action), onCopyText: () => assert.fail('문자열 복사를 호출하면 안 된다'),

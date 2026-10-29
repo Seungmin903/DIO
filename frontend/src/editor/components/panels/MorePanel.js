@@ -9,6 +9,8 @@ import EffectOptions from './EffectOptions'
 import ShapeSettings from '../ShapeSettings'
 import TapeOptions from './TapeOptions'
 import FrameOptions from './FrameOptions'
+import { isStripFrame } from '../../utils/photoStrip'
+import { hasPhotoMedia } from '../../utils/objects'
 import { PaletteInteractionContext } from '../controls/ColorPicker'
 
 const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테이프', shape: '도형' }
@@ -16,10 +18,10 @@ const TYPE_TITLES = { sticker: '스티커', photo: '사진', tape: '마스킹테
 /**
  * 선택한 요소의 세부 옵션 (편집 바의 '더보기').
  * 캔버스 위에 띄우면 요소·편집 바를 가리기 쉬워서 보관함처럼 편집 영역 오른쪽에 붙인다.
- * 탭 두 개: '꾸미기'(사진 프레임·모서리 둥글기·틀 색, 불투명도, 윤곽선·그림자, 테이프 디자인)를 먼저, '배치'(반전·각도)는 뒤에.
+ * 탭 두 개: '꾸미기'(사진 틀·칸 사진·모양·모서리 둥글기·틀 색, 불투명도, 윤곽선·그림자, 테이프 디자인)를 먼저, '배치'(반전·각도)는 뒤에.
  * 꾸밀 것이 없는 요소(이미지 테이프 등)는 배치만 보여 준다.
  */
-export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }) {
+export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplaceCell, onCropCell, onClose }) {
   const [tab, setTab] = useState('style')
   const scrollRef = useRef(null)
   const [paletteDragging, setPaletteDragging] = useState(false)
@@ -91,17 +93,18 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onClose }
         ) : current === 'style' ? (
           <>
             {isShape && <ShapeSettings embedded showShapePicker={false} settings={single} onCheckpoint={() => dispatch({type:'checkpoint'})} onChange={(patch,record=true) => updateEach(()=>patch,record)} />}
-            {isPhoto && (
+            {/* 여러 칸 틀은 칸마다 '칸 사진'에서 바꾼다 */}
+            {isPhoto && !isStripFrame(single.frame) && (
               <Pressable
                 onPress={() => onReplacePhoto(single.id)}
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.replaceButton, pressed && styles.pressed]}
               >
                 <Icon name="swap" size={16} />
-                <Text style={styles.chipText}>사진 바꾸기</Text>
+                <Text style={styles.chipText}>{hasPhotoMedia(single) ? '사진 바꾸기' : '사진 넣기'}</Text>
               </Pressable>
             )}
-            {isPhoto && <FrameOptions photo={single} dispatch={dispatch} />}
+            {isPhoto && <FrameOptions photo={single} dispatch={dispatch} onReplaceCell={onReplaceCell} onCropCell={onCropCell} />}
 
             <Section title="불투명도">
               <Slider
