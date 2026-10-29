@@ -24,7 +24,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
   const dispatch = (action) => { actions.push(action); state = reducer.editorReducer(state, action) }
   const module = { exports: {} }
   const load = (id) => {
-    if (id === 'react') return { useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useEffect() {}, useMemo: fn => fn() }
+    if (id === 'react') return { useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useEffect() {}, useLayoutEffect() {}, useMemo: fn => fn() }
     if (id === 'react-native') return { View: 'view', Text: 'text', Pressable: 'pressable', Keyboard: { dismiss() {} }, Platform: { OS: 'android', select: (options) => options.default }, StyleSheet: { create: (value) => value } }
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
     if (id.endsWith('/editorReducer')) return reducer

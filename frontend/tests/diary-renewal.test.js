@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PAPERS, appendPaper, changeRow, changeRowPaper, clampWhole, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, newRow, newSection, paperPreviewId, removePaper, savedPaperSummary, splitSection, sectionTitle, sectionsTemplateConfig } from '../src/diary/utils/paperChoice.js'
-import { bandAutoColor, changeCoverKind, coverElementSummary, defaultCover, normalizeCover } from '../src/diary/utils/coverDesign.js'
+import { bandAutoColor, changeCoverKind, coverElementSummary, createStickerCopy, defaultCover, normalizeCover } from '../src/diary/utils/coverDesign.js'
 import { photoTone } from '../src/diary/utils/photoTone.js'
 import { configuredPageIds, defaultTemplateConfig, normalizeTemplateConfig, templatePageCount } from '../src/editor/templates/creation.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
@@ -150,7 +150,7 @@ test('속지 목록: 더하면 이어서, 사이를 섞어서로 바꾸면 번�
   list = [{ ...list[0], rows: [{ ...list[0].rows[0], count: 30 }] }, list[1]]
   list = mergeSections(list, 0)
   assert.equal(list.length, 1)
-  assert.equal(mixOrder(list[0]), '하루 일기 3 → 사진 · 스크랩 1 을 10번')
+  assert.equal(mixOrder(list[0]), '하루 일기 3장 → 사진 · 스크랩 1장을 10번 반복')
   assert.equal(configuredPageIds(sectionsTemplateConfig(list, 'portrait')).length, 40)
   // 다시 이어서로 나누면 반복만큼 장수로 펼친다
   const split = splitSection(list, 0, 0)
@@ -220,4 +220,12 @@ test('속지 묶음이 없어도 만들 수 있고 빈 페이지 한 장으로 �
   const pages = createDefaultDoc({ templateConfig: config }).pages
   assert.equal(pages.length, 1)
   assert.equal(pages[0].backgroundAssetId ?? null, null)
+})
+
+test('표지 스티커는 회전 각도를 0~360 으로 저장하고, 복제는 새 ID 로 조금 비켜 둔다', () => {
+  const cover = normalizeCover({ cover: { stickers: [{ id: 'a', asset: 'heart', x: 98, y: 50, size: 14, rotation: -30 }, { id: 'b', asset: 'star', x: 10, y: 10, size: 14 }] } })
+  assert.deepEqual(cover.stickers.map(item => item.rotation), [330, 0])
+  const copy = createStickerCopy(cover.stickers[0])
+  assert.notEqual(copy.id, 'a')
+  assert.deepEqual([copy.x, copy.y, copy.size, copy.rotation], [100, 54, 14, 330])
 })

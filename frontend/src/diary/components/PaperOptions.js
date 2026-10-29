@@ -15,42 +15,45 @@ import {
   removePaper, rowAmount, splitSection,
 } from '../utils/paperChoice'
 
-// 작은 칸의 노트(줄 · 모눈 · 도트): 실제 선은 1 굵기 · 아주 연한 색 · 28 간격이라 통째로 줄이면 0.1px 아래로 사라진다.
-// 그래서 실제 속지 SVG 의 왼쪽 위 일부(폭 NOTE_VIEW)를 확대해 보이고, 선은 화면 1px · 점은 지름 2px 로, 색은 팔레트 한 단계 진하게 그린다.
+// 노트(줄 · 모눈 · 도트) 미리보기: 실제 선은 1 굵기 · 연한 색 · 28 간격이라 그대로 줄이면 흐려지거나 0.1px 아래로 사라진다.
+// 그래서 선은 화면 1px · 점은 지름 2px 로, 색은 팔레트 한 단계 진하게 그린다. 폭 NOTE_THUMB_MAX 아래 칸은 실제 속지의 왼쪽 위 일부(폭 NOTE_VIEW)를 확대해 보인다.
+// (모눈 · 도트는 여백 없이 페이지 끝까지 무늬가 있어 왼쪽 위 끝부터, 줄은 여백 안쪽부터 보인다)
 const NOTE_THUMB_MAX = 160
 const NOTE_VIEW = 260
-const NOTE_ORIGIN = [24, 48]
-const DARKER = { '#e8e9eb': '#bfc1c4', '#d7d9dc': '#aeb3b8' }
+const NOTE_ORIGIN = { ruled: [24, 48], grid: [0, 0], dots: [0, 0] }
+const DARKER = { '#e8e9eb': '#bfc1c4', '#d7d9dc': '#aeb3b8', '#bfc1c4': '#aeb3b8' }
 
-function noteThumbXml(xml, previewWidth, ratio, appearance) {
-  const unit = NOTE_VIEW / previewWidth // 화면 1px 의 속지 단위
-  const boosted = xml
-    .replace(/viewBox="[^"]*"/, `viewBox="${NOTE_ORIGIN[0]} ${NOTE_ORIGIN[1]} ${NOTE_VIEW} ${NOTE_VIEW / ratio}"`)
-    .replace(/stroke-width="1"/g, `stroke-width="${unit.toFixed(3)}"`)
-    .replace(/(<circle\b[^>]*\br=")[\d.]+"/g, `$1${unit.toFixed(3)}"`)
-    .replace(/#(e8e9eb|d7d9dc)\b/gi, color => DARKER[color.toLowerCase()])
+function noteThumbXml(xml, { background, pageWidth, previewWidth, ratio, crop }, appearance) {
+  const [x, y] = NOTE_ORIGIN[background] ?? [0, 0]
+  const view = crop ? NOTE_VIEW : pageWidth
+  const unit = view / previewWidth // 화면 1px 의 속지 단위
+  const boosted = (crop ? xml.replace(/viewBox="[^"]*"/, `viewBox="${x} ${y} ${NOTE_VIEW} ${NOTE_VIEW / ratio}"`) : xml)
+    .replace(/stroke-width="1"/g, `stroke-width="${Math.max(1, unit).toFixed(3)}"`)
+    .replace(/(<circle\b[^>]*\br=")([\d.]+)"/g, (_, head, r) => `${head}${Math.max(Number(r), unit).toFixed(3)}"`)
+    .replace(/#(e8e9eb|d7d9dc|bfc1c4)\b/gi, color => DARKER[color.toLowerCase()])
   return colorTemplateXml(boosted, appearance)
 }
 
-function NoteThumb({ assetId, width, height, appearance }) {
+function NoteThumb({ assetId, background, pageWidth, width, height, crop, appearance }) {
   const [xml, setXml] = useState(null)
   useEffect(() => {
     let active = true
     loadTemplate({ backgroundAssetId: assetId, templateVersion: TEMPLATE_VERSION }).then(text => { if (active) setXml(text) }).catch(() => {})
     return () => { active = false }
   }, [assetId])
-  const shown = useMemo(() => xml ? noteThumbXml(xml, width, width / height, appearance) : null, [xml, width, height, appearance?.backgroundColor, appearance?.layoutColor]) // eslint-disable-line react-hooks/exhaustive-deps
+  const shown = useMemo(() => xml ? noteThumbXml(xml, { background, pageWidth, previewWidth: width, ratio: width / height, crop }, appearance) : null,
+    [xml, background, pageWidth, width, height, crop, appearance?.backgroundColor, appearance?.layoutColor]) // eslint-disable-line react-hooks/exhaustive-deps
   return shown ? <SvgXml xml={shown} width={width} height={height} /> : null
 }
 
-/** 속지 한 장 미리보기. 실제 속지 SVG 로 그리고, 작은 칸의 줄 · 모눈 · 도트는 일부를 확대해 선이 보이게 한다. */
+/** 속지 한 장 미리보기. 실제 속지 SVG 로 그리고, 노트의 줄 · 모눈 · 도트는 선이 또렷하게 보이도록 진하게 그린다. */
 export function TemplatePreview({ assetId, width: previewWidth, appearance, style }) {
   const asset = getTemplate(assetId)
   const { width, height } = templateCanvasSize(asset.orientation)
   const previewHeight = previewWidth * height / width
-  const lined = asset.type === 'note' && asset.background !== 'plain' && previewWidth < NOTE_THUMB_MAX
+  const lined = asset.type === 'note' && asset.background !== 'plain'
   return <View pointerEvents="none" style={[styles.preview, { width: previewWidth, height: previewHeight, backgroundColor: appearance?.backgroundColor ?? '#FFFFFF' }, style]}>
-    {lined ? <NoteThumb assetId={assetId} width={previewWidth} height={previewHeight} appearance={appearance} />
+    {lined ? <NoteThumb assetId={assetId} background={asset.background} pageWidth={width} width={previewWidth} height={previewHeight} crop={previewWidth < NOTE_THUMB_MAX} appearance={appearance} />
       : <PageBackground page={{ id: `preview-${assetId}`, backgroundAssetId: assetId, templateVersion: TEMPLATE_VERSION, canvasWidth: width, canvasHeight: height, paperAppearance: appearance }} zoom={previewWidth / width} compact />}
   </View>
 }
@@ -139,7 +142,7 @@ function PeriodOptions({ section, onChange }) {
     {open && <>
       <OptionRow label="날짜"><Segmented items={[{ id: 'dated', label: '날짜 있음' }, { id: 'undated', label: '날짜 없이' }]} selected={id => (id === 'dated') === section.dated} onPress={id => onChange({ ...section, dated: id === 'dated' })} /></OptionRow>
       {section.dated && <OptionRow label="시작"><PeriodStart year={section.year} month={section.startMonth} onChange={(year, startMonth) => onChange({ ...section, year, startMonth })} /></OptionRow>}
-      <OptionRow label="개월">
+      <OptionRow label="개월 수">
         <NumberField label="기간" unit="개월" min={1} max={MONTH_LIMIT} value={section.months} onChange={months => onChange({ ...section, months })} />
         <QuickValues label="기간" unit="개월" values={MONTH_STEPS} value={section.months} onChange={months => onChange({ ...section, months })} />
       </OptionRow>
@@ -211,7 +214,7 @@ function PaperRow({ section, row, number, orientation, appearance, open, onToggl
  * 속지 구역: 속지를 한 줄 목록으로 넣는 차례대로 둔다. 미리 골라 둔 속지는 없다.
  * 이웃한 두 속지 사이마다 '이어서 | 섞어서' 를 고른다. 섞은 속지는 한 판에 묶여 보이고,
  * 장수 속지끼리는 번갈아 반복(반복 횟수), 날짜 속지가 있으면 달마다 차례로 넣는다(기간).
- * 속지 이름을 누르면 그 자리에서 바꾸고, 맨 아래 '속지 더하기' 는 고르기를 먼저 펼친다.
+ * 속지 이름을 누르면 그 자리에서 바꾸고, 맨 아래 '속지 추가' 는 고르기를 먼저 펼친다.
  */
 export default function PaperOptions({ sections, onChange, orientation, appearance }) {
   const [picking, setPicking] = useState(null) // null | 'new' | 줄 key
@@ -283,25 +286,25 @@ export default function PaperOptions({ sections, onChange, orientation, appearan
             <OptionRow label="반복">
               <NumberField label="반복" unit="번" min={1} max={REPEAT_LIMIT} value={section.repeat} onChange={repeat => set(s, { ...section, repeat })} />
             </OptionRow>
-            <Text style={styles.order}>{mixOrder(section)} · {total}장</Text>
+            <Text style={styles.order}>{mixOrder(section)} · 모두 {total}장</Text>
           </View>}
         </View>
       </Fragment>
     })}
-    {sections.length < 12 && <Pressable accessibilityRole="button" accessibilityLabel="속지 더하기" accessibilityState={{ expanded: picking === 'new' }}
+    {sections.length < 12 && <Pressable accessibilityRole="button" accessibilityLabel="속지 추가" accessibilityState={{ expanded: picking === 'new' }}
       onPress={() => setPicking(picking === 'new' ? null : 'new')} style={({ pressed }) => [styles.addSection, picking === 'new' && styles.addSectionOn, pressed && styles.pressed]}>
-      <Icon name={picking === 'new' ? 'close' : 'plus'} size={16} color={colors.primaryStrong} /><Text style={styles.addSectionText}>속지 더하기</Text>
+      <Icon name={picking === 'new' ? 'close' : 'plus'} size={16} color={colors.primaryStrong} /><Text style={styles.addSectionText}>속지 추가</Text>
     </Pressable>}
     {picking === 'new' && picker(null, id => onChange(appendPaper(sections, id)), null)}
   </View>
 }
 
-/** 속지 스타일: 종이 색 · 선과 글씨 색. 수정에서는 적용 범위(모든 페이지 / 새 페이지부터)를 고른다. */
+/** 속지 색: 종이 색 · 선과 글자 색. 수정에서는 바꿀 페이지(모든 페이지 / 새 페이지만)를 고른다. */
 export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false }) {
   return <View style={styles.panel}>
     <OptionRow label="종이 색"><ColorRow label="종이 색" value={appearance.backgroundColor} swatches={PAPER_BACKGROUNDS} onChange={backgroundColor => onChange({ ...appearance, backgroundColor })} /></OptionRow>
-    {!plainOnly && <OptionRow label="선 · 글씨"><ColorRow label="선과 글씨 색" value={appearance.layoutColor} swatches={PAPER_LAYOUTS} onChange={layoutColor => onChange({ ...appearance, layoutColor })} /></OptionRow>}
-    {onScope && <OptionRow label="적용"><Segmented items={[{ id: 'all', label: '모든 페이지' }, { id: 'new', label: '새 페이지부터' }]} selected={id => id === scope} onPress={onScope} /></OptionRow>}
+    {!plainOnly && <OptionRow label="선 · 글자"><ColorRow label="선과 글씨 색" value={appearance.layoutColor} swatches={PAPER_LAYOUTS} onChange={layoutColor => onChange({ ...appearance, layoutColor })} /></OptionRow>}
+    {onScope && <OptionRow label="바꿀 페이지"><Segmented items={[{ id: 'all', label: '모든 페이지' }, { id: 'new', label: '새 페이지만' }]} selected={id => id === scope} onPress={onScope} /></OptionRow>}
   </View>
 }
 

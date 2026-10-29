@@ -228,9 +228,9 @@ export const changeRowPaper = (section, key, paperId) => tidySection({ ...sectio
 export const changeRow = (section, key, patch) => tidySection({ ...section, rows: section.rows.map(row => row.key === key ? { ...row, ...patch } : row) })
 export const removeRow = (section, key) => tidySection({ ...section, rows: section.rows.filter(row => row.key !== key) })
 
-/** 섞은 묶음이 넣는 차례 (예: 일기 1 → 사진 1 을 30번) */
+/** 섞은 묶음이 넣는 차례 (예: 하루 일기 1장 → 사진 · 스크랩 1장을 30번 반복). 끝 글자가 늘 '장'이라 조사는 '을'이다. */
 export function mixOrder(section) {
-  return `${section.rows.map(row => `${paperById(row.paper).name} ${row.count}`).join(' → ')} 을 ${section.repeat}번`
+  return `${section.rows.map(row => `${paperById(row.paper).name} ${row.count}장`).join(' → ')}을 ${section.repeat}번 반복`
 }
 
 /** 예전 화면 값(플래너 { paper, insert } · 페이지 { items })을 줄 묶음으로 읽는다 */

@@ -137,6 +137,9 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const [view, setView] = useState({ scale: 1, x: null, y: null })
   const [drawerTab, setDrawerTab] = useState(null)
   const [activeTool, setActiveTool] = useState(() => qaController?.initialTool === 'pen' ? 'pen' : 'hand')
+  // 손바닥 도구로 페이지를 길게 누른 자리 (캔버스가 빈 곳 메뉴를 띄운다)
+  const [pageMenuRequest, setPageMenuRequest] = useState(null)
+  useEffect(() => { setPageMenuRequest(null) }, [page.id, activeTool])
   const [lassoSettingsOpen, setLassoSettingsOpen] = useState(false)
   const [lasso, setLasso] = useState({ shape: 'rectangle', mode: 'replace' })
   useEffect(() => { setLasso(current => ({ ...current, mode: 'replace' })) }, [page.id])
@@ -878,7 +881,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
             resolvePan={resolvePan}
             onView={commitView}
             onMovingChange={setViewMoving}
-            onTapEmpty={clearSelection}
+            onTapEmpty={() => { clearSelection(); setPageMenuRequest(null) }}
+            onLongPress={activeTool === 'hand' && !readOnly ? (point) => setPageMenuRequest({ ...point, key: Date.now() }) : null}
             dragToPan={!viewportLocked && activeTool === 'hand'}
             onLayout={(event) => { setStageSize(event.nativeEvent.layout); stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y })) }}
           >
@@ -917,6 +921,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
                 onPaste={paste}
                 canPaste={copiedObjects.length > 0}
                 paperAppearance={normalizePaperAppearance(page.paperAppearance)}
+                menuRequest={pageMenuRequest}
                 onPaperAppearance={(appearance, all) => dispatch({ type: 'setPaperAppearance', appearance, all })}
                 onCut={(objects) => { objectClipboard.set(objects); dispatch({ type: 'removeObjects', ids: objects.filter(o => !o.locked).map(o => o.id) }); showToast('잘라 냈어요.') }}
                 onTextLink={setTextLinkTarget}
