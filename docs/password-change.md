@@ -31,3 +31,7 @@ Authorization: Bearer {accessToken}. 개발용 보조 토큰 헤더도 기존 �
 일반 가입·로그인 후 Swagger Authorize에 accessToken을 넣고 PATCH를 호출한다. 성공 후 기존 토큰 요청과 기존 비밀번호 로그인은 거절되고 새 비밀번호 로그인은 성공해야 한다. 프론트는 같은 계정의 내 공간에서 확인한다.
 
 자동 검증: `frontend/`에서 `pnpm test:auth`, `backend/`에서 `./gradlew test --tests "*EmailLoginTests" --tests "*PasswordResetTests" --tests "*DomainStructureTests"`. 실기기 확인은 별도 수행한다.
+
+## UI 복구
+
+임의로 추가한 내 공간의 독립 비밀번호 변경·회원 탈퇴 버튼과 안내 문구, 전용 표시 모드는 제거했다. 원래 프로필 수정 화면과 그 안의 기존 대화상자를 유지한다. 서버 계정에 해당 진입 UI가 없는 경우 프론트 담당자가 기존 디자인에 맞춰 연결하며, 백엔드 API와 호출 함수는 유지한다.

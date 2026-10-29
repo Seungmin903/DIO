@@ -22,7 +22,7 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
   const photoCacheKey = JSON.stringify(['profile', previewUser?.userId || previewUser?.accountId || 'guest', photoUri]);
   const favorites = diaries.filter(diary => diary.favorite).length;
   const guest = previewUser?.provider === 'guest';
-  if (editing) return <ProfileEditScreen {...(previewUser?.mode === 'authenticated' ? { passwordOnly: editing === 'password', withdrawOnly: editing === 'withdraw', service: accountService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onEndPreview} registerLeaveGuard={registerLeaveGuard} />;
+  if (editing) return <ProfileEditScreen {...(previewUser?.mode === 'authenticated' && accountService ? { service: accountService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onEndPreview} registerLeaveGuard={registerLeaveGuard} />;
 
   const profileAction = guest && onEndPreview ? (
     <Pressable accessibilityRole="button" accessibilityLabel="로그인·회원가입" onPress={onEndPreview} style={({ pressed }) => [local.profileAction, local.guestAction, pressed && local.pressed]}>
@@ -33,15 +33,6 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
       <Text style={local.profileActionText}>프로필 수정</Text>
       <AppIcon name="chevron-right" size={16} color={colors.surface} />
     </Pressable>
-  ) : previewUser?.mode === 'authenticated' && accountService ? (
-    <View style={{ gap: 8 }}>
-      {previewUser.provider === 'email' && <Pressable accessibilityRole="button" accessibilityLabel="비밀번호 변경" onPress={() => setEditing('password')} style={local.profileAction}>
-        <Text style={local.profileActionText}>비밀번호 변경</Text>
-      </Pressable>}
-      <Pressable accessibilityRole="button" accessibilityLabel="회원 탈퇴" onPress={() => setEditing('withdraw')} style={local.profileAction}>
-        <Text style={local.profileActionText}>회원 탈퇴</Text>
-      </Pressable>
-    </View>
   ) : null;
 
   return (

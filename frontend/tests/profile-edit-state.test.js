@@ -317,22 +317,18 @@ test('사진 선택의 늦은 응답과 실패는 언마운트·기존 프로필
   assert.equal(find(failed, '변경사항 저장').props.disabled, true); failed.unmount();
 });
 
-test('서버 계정은 기존 비밀번호 창만 열고 성공 후 세션을 종료한다',async()=>{
- let calls=0;const ui=setup({changePassword:async()=>{calls++}},undefined,{passwordOnly:true,user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
- assert.equal(find(ui,'닉네임'),undefined);assert.equal(find(ui,'회원 탈퇴'),undefined);
+
+
+
+
+test('원래 프로필 폼의 비밀번호 변경 버튼에서 API를 호출한다',async()=>{
+ let calls=0;const ui=setup({changePassword:async()=>{calls++}},undefined,{user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
+ assert.ok(find(ui,'닉네임'));press(ui,'비밀번호 변경');
  find(ui,'현재 비밀번호').props.onChangeText('Password123!');find(ui,'새 비밀번호').props.onChangeText('Changed123!');find(ui,'새 비밀번호 확인').props.onChangeText('Changed123!');
  press(ui,'변경');await tick();assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
 });
-test('서버 비밀번호 창 취소는 회원정보 수정 화면으로 넘어가지 않는다',()=>{
- const ui=setup({},undefined,{passwordOnly:true});press(ui,'취소');assert.equal(ui.closed(),1);ui.unmount();
-});
-
-test('실제 계정 탈퇴 창은 확인 문구가 일치할 때만 API를 호출하고 성공 후 종료한다',async()=>{
- let calls=0;const ui=setup({withdraw:async()=>{calls++}},undefined,{withdrawOnly:true,user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
- assert.equal(find(ui,'닉네임'),undefined);assert.equal(find(ui,'현재 비밀번호'),undefined);
- assert.equal(find(ui,'탈퇴하기').props.disabled,true);find(ui,'탈퇴 확인 문구').props.onChangeText('탈퇴합니다');press(ui,'탈퇴하기');await tick();assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
-});
-test('소유권 양도 오류는 기존 탈퇴 창에 표시하고 로그인 상태를 종료하지 않는다',async()=>{
- const ui=setup({withdraw:async()=>{throw new Error('소유권을 양도해 주세요.')}},undefined,{withdrawOnly:true});
- find(ui,'탈퇴 확인 문구').props.onChangeText('탈퇴합니다');press(ui,'탈퇴하기');await tick();assert.equal(ui.ended(),0);assert.ok(nodes(ui.render()).some(n=>n.props.children==='소유권을 양도해 주세요.'));press(ui,'취소');assert.equal(ui.closed(),1);ui.unmount();
+test('원래 프로필 폼의 탈퇴 확인 창은 오류 시 입력을 유지한다',async()=>{
+ const ui=setup({withdraw:async()=>{throw new Error('소유권을 양도해 주세요.')}});
+ press(ui,'회원 탈퇴');find(ui,'탈퇴 확인 문구').props.onChangeText('탈퇴합니다');press(ui,'탈퇴하기');await tick();
+ assert.equal(ui.ended(),0);assert.equal(find(ui,'탈퇴 확인 문구').props.value,'탈퇴합니다');assert.ok(nodes(ui.render()).some(n=>n.props.children==='소유권을 양도해 주세요.'));ui.unmount();
 });
