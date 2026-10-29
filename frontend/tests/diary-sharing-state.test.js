@@ -134,6 +134,44 @@ const find = (tree, label) =>
   nodes(tree).find((n) => n.props.accessibilityLabel === label || n.props.label === label);
 const tick = () => new Promise((r) => setImmediate(r));
 
+test('참여자 관리의 취소는 유지하고 양도 실패는 재시도, 성공은 편집자 화면으로 복귀한다', async () => {
+  const diary = { id: 'd', title: '관리', members: [
+    { id: 'self', nickname: '소연', role: 'OWNER' },
+    { id: 'friend', nickname: '모아', role: 'EDITOR' },
+  ] };
+  let attempts = 0;
+  const ui = setup({ registerDiary: () => diary, transferOwner: async () => {
+    if (++attempts === 1) throw new Error('다시 시도해 주세요.');
+    return { ...diary, members: diary.members.map(m => ({ ...m, role: m.id === 'self' ? 'EDITOR' : 'OWNER' })) };
+  } }, undefined, { diary });
+  find(ui.render(), '참여자 관리').props.onPress();
+  find(ui.render(), '모아 소유권 양도').props.onPress();
+  const confirm = () => nodes(ui.render()).find(n => n.props.confirmLabel === '양도');
+  confirm().props.onCancel();
+  assert.equal(attempts, 0);
+  find(ui.render(), '모아 소유권 양도').props.onPress();
+  confirm().props.onConfirm();
+  await tick();
+  assert.ok(find(ui.render(), '모아 소유권 양도'));
+  find(ui.render(), '모아 소유권 양도').props.onPress();
+  confirm().props.onConfirm();
+  await tick();
+  assert.equal(attempts, 2);
+  assert.equal(find(ui.render(), '참여자 관리'), undefined);
+  assert.ok(find(ui.render(), '다이어리 참여 해제'));
+});
+
+test('실서버 참여자 관리에는 새로 연결하지 않은 양도 기능을 노출하지 않는다', () => {
+  const diary = { id: 'd', title: '관리', members: [
+    { id: 'self', nickname: '소연', role: 'OWNER' }, { id: 'friend', nickname: '모아', role: 'EDITOR' },
+  ] };
+  const ui = setup({ server: true, registerDiary: () => diary, getSharing: async () => diary,
+    transferOwner: () => { throw new Error('호출하면 안 됨'); } }, undefined, { diary });
+  find(ui.render(), '참여자 관리').props.onPress();
+  assert.equal(find(ui.render(), '모아 소유권 양도'), undefined);
+  assert.ok(find(ui.render(), '모아 참여 해제'));
+});
+
 test('초대 상세는 취소·만료·정원 초과를 구분하고 사용 불가 초대에 수락을 제공하지 않는다', async () => {
   for (const [status, full, message] of [['REVOKED', false, '취소된 초대예요.'], ['EXPIRED', false, '만료된 초대예요.'], ['PENDING', true, '참여 인원이 가득 찼어요.']]) {
     const ui = setup({ invitationGateway: { get: async () => ({ inviteId: 'i', status, full, inviter: '친구', memberCount: 4, diary: { title: '초대 기록' } }) } });

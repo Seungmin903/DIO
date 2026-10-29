@@ -44,7 +44,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
       value.members.some((member) => member.id === self.id && member.role !== 'OWNER'),
     );
     snapshot = {
-      library: joined.map((value) => {
+      library: joined.filter(value => !value.localSource).map((value) => {
         const key = documents.key(value.id);
         return {
           id: key,
@@ -219,6 +219,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
       if (!diaries.has(source.id))
         diaries.set(source.id, {
           id: source.id,
+          localSource: true,
           color: '#9DABD8',
           pattern: 'linen',
           ...metadata,
@@ -332,6 +333,20 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
       const target = diary.members.find((value) => value.id === memberId);
       if (!target || target.role === 'OWNER') fail('FORBIDDEN', '소유자는 참여 해제할 수 없어요.');
       diary.members = diary.members.filter((value) => value.id !== memberId);
+      diary.link = null;
+      delete diary.linkExpiresAt;
+      publish();
+      return copy(diary);
+    },
+    async transferOwner(id, memberId) {
+      await wait();
+      const diary = owner(id);
+      const target = diary.members.find(value => value.id === memberId);
+      if (!target || target.id === self.id || target.role !== 'EDITOR')
+        fail('INVALID_MEMBER', '소유권을 받을 참여자를 다시 선택해 주세요.');
+      member(diary).role = 'EDITOR';
+      target.role = 'OWNER';
+      diary.joinedAt ||= new Date().toISOString();
       publish();
       return copy(diary);
     },

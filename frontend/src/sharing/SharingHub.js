@@ -245,7 +245,7 @@ export default function SharingHub({
       setQuestion(null);
       return;
     }
-    if (screen === 'email') {
+    if (screen === 'email' || screen === 'members') {
       setScreen('sharing'); setError(''); setToast('');
     } else if (screen === 'detail') {
       setScreen('invitations'); setInvite(null); setError('');
@@ -328,12 +328,17 @@ export default function SharingHub({
           setToast('초대를 거절했어요.');
         },
       );
+    else if (current.kind === 'transfer')
+      run(
+        () => runtime.transferOwner(diary.id, current.member.id),
+        result => { setDiary(result); setScreen('sharing'); setToast('소유권을 양도했어요.'); },
+      );
     else if (current.kind === 'remove')
       run(
         () => runtime.removeMember(diary.id, current.member.id),
         (result) => {
           setDiary(result);
-          setToast('참여를 해제했어요.');
+          setToast('참여자를 내보냈어요.');
         },
       );
     else
@@ -432,6 +437,7 @@ export default function SharingHub({
                     {screen === 'sharing'
                       ? '다이어리 공유'
                       : screen === 'email' ? '이메일로 초대'
+                      : screen === 'members' ? '참여자 관리'
                       : screen === 'detail' ? '다이어리 초대'
                       : screen === 'profile'
                         ? isPhone
@@ -513,21 +519,10 @@ export default function SharingHub({
                               {member.presence && !['소유자', '편집자'].includes(member.presence) ? ` · ${member.presence}` : ''}
                             </Text>
                           </View>
-                          {isOwner && member.role !== 'OWNER' ? (
-                            <View style={s.wrap}>
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={`${member.nickname} 참여 해제`}
-                                disabled={busy}
-                                onPress={() => setQuestion({ kind: 'remove', member })}
-                                style={s.iconButton}
-                              >
-                                <Icon name="close" size={16} />
-                              </Pressable>
-                            </View>
-                          ) : null}
                         </View>
                       ))}
+                      {isOwner && diary.members.length > 1 && <Button label="참여자 관리" secondary disabled={busy}
+                        onPress={() => { setScreen('members'); setError(''); setToast(''); }} />}
                       {isFull && (
                         <View style={s.notice}>
                           <Text style={s.bold}>소유자 포함 4명이 함께하고 있어요.</Text>
@@ -638,6 +633,30 @@ export default function SharingHub({
                       />
                     </>
                   )}
+                  {screen === 'members' && diary && isOwner && <>
+                    <DiarySummary diary={diary} />
+                    {diary.members.filter(member => member.id !== runtime.self.id).map(member => (
+                      <View key={member.id} style={s.notice}>
+                        <View style={s.row}>
+                          <View style={s.avatar}><MemberAvatar member={member} /></View>
+                          <View style={s.grow}>
+                            <Text style={s.bold}>{member.nickname}</Text>
+                            <Text style={s.muted}>편집자</Text>
+                          </View>
+                        </View>
+                        <View style={s.memberActions}>
+                          {!runtime.server && typeof runtime.transferOwner === 'function' &&
+                            <Button label={`${member.nickname} 소유권 양도`} text="소유권 양도" secondary disabled={busy}
+                              style={s.memberActionButton}
+                              onPress={() => setQuestion({ kind: 'transfer', member })} />}
+                          <Button label={`${member.nickname} 참여 해제`} text="내보내기" secondary danger disabled={busy}
+                            style={s.memberActionButton}
+                            onPress={() => setQuestion({ kind: 'remove', member })} />
+                        </View>
+                      </View>
+                    ))}
+                    <Button label="참여자 관리 완료" text="완료" disabled={busy} onPress={back} />
+                  </>}
                   {screen === 'email' && diary && isOwner && (
                     <View style={s.body}>
                       {!runtime.server && <Text style={s.muted}>미리보기예요. 실제 이메일은 발송되지 않아요.</Text>}
@@ -1033,15 +1052,20 @@ export default function SharingHub({
         )}
         <ConfirmDialog
           open={!!question}
-          title={question?.kind === 'cancel-email' ? '보낸 초대를 취소할까요?' : question?.kind === 'decline' ? '초대를 거절할까요?' : '참여를 해제할까요?'}
+          title={question?.kind === 'transfer' ? `${question.member.nickname}님에게 소유권을 양도할까요?` : question?.kind === 'remove' ? `${question.member.nickname}님을 내보낼까요?` : question?.kind === 'cancel-email' ? '보낸 초대를 취소할까요?' : question?.kind === 'decline' ? '초대를 거절할까요?' : '참여를 해제할까요?'}
+          danger={question?.kind !== 'transfer'}
           message={
-            question?.kind === 'cancel-email'
+            question?.kind === 'transfer'
+              ? '나는 편집자로 남아요. 참여자 관리 권한은 새 소유자에게 넘어가요.'
+              : question?.kind === 'remove'
+              ? '이 참여자는 다이어리를 열거나 편집할 수 없어요. 작성한 내용은 남고 기존 초대 링크는 무효화돼요.'
+              : question?.kind === 'cancel-email'
               ? '이 초대로는 다이어리에 참여할 수 없어요. 이미 참여한 멤버는 그대로 남아요.'
               : question?.kind === 'decline'
               ? '이 초대로는 다이어리에 참여할 수 없어요.'
               : '참여가 해제되면 이 다이어리를 함께 편집할 수 없어요.'
           }
-          confirmLabel={question?.kind === 'cancel-email' ? '초대 취소' : question?.kind === 'decline' ? '거절' : '참여 해제'}
+          confirmLabel={question?.kind === 'transfer' ? '양도' : question?.kind === 'remove' ? '내보내기' : question?.kind === 'cancel-email' ? '초대 취소' : question?.kind === 'decline' ? '거절' : '참여 해제'}
           onConfirm={confirmQuestion}
           onCancel={() => setQuestion(null)}
         />
