@@ -20,7 +20,7 @@ package.json의 test:notifications:contract도 같은 Node runner를 사용한�
 
 ## CI 경계
 
-backend-test는 Spring 생산자를 포함한 기본 테스트를 실행한다. backend-postgres-test는 별도 폐기용 DB에서 authPostgresTest를 실행하며 NotificationPostgresSchemaTests도 포함한다. 이 테스트는 실제 V1 및 최신 전체 Flyway 체인을 각각 독립 스키마에 적용하고 NotificationRepository의 목록·페이지·읽음·삭제 SQL을 확인한 뒤 스키마를 정리한다.
+backend-test는 Spring 생산자를 포함한 기본 테스트를 실행한다. `backend-postgres-auth-test`는 별도 폐기용 DB에서 authPostgresTest를 실행하며 NotificationPostgresSchemaTests도 포함한다. 이 테스트는 실제 V1 및 최신 전체 Flyway 체인을 각각 독립 스키마에 적용하고 NotificationRepository의 목록·페이지·읽음·삭제 SQL을 확인한 뒤 스키마를 정리한다.
 
 backend-test CI는 Spring 생산자에 출력 경로를 주입한 뒤 Node 컨테이너에서 프런트 계약 소비자를 실행한다. 소비자는 Node 내장 모듈과 알림 어댑터만 사용하므로 프런트 의존성 설치나 PowerShell이 필요하지 않다. 생성 응답 누락·계약 소비자 실패는 CI 실패다. 알림 FE·계약 스크립트 변경도 해당 CI 작업을 실행한다. 현재 실행 결과와 SHA는 [MR !164](https://lab.ssafy.com/s15-final/S15P31F106/-/merge_requests/164)에 기록한다.
 
