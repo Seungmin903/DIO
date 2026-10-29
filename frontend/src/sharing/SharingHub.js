@@ -78,9 +78,6 @@ export default function SharingHub({
   const [nickname, setNickname] = useState('');
   const [draftPhoto, setDraftPhoto] = useState(null);
   const [photoMenu, setPhotoMenu] = useState(null);
-  const [checked, setChecked] = useState(null);
-  const [checking, setChecking] = useState(false);
-  const [nicknameMessage, setNicknameMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [question, setQuestion] = useState(null);
@@ -90,9 +87,7 @@ export default function SharingHub({
   const [capacityInfo, setCapacityInfo] = useState(false);
   const [linkExpired, setLinkExpired] = useState(false);
   const job = useRef(0),
-    checkJob = useRef(0),
-    running = useRef(false),
-    checkRunning = useRef(false);
+    running = useRef(false);
   const alive = useRef(true);
   const nicknameField = useRef(null);
   const linkField = useRef(null);
@@ -157,23 +152,17 @@ export default function SharingHub({
     return () => {
       alive.current = false;
       job.current++;
-      checkJob.current++;
     };
   }, []);
   useEffect(() => {
     job.current++;
-    checkJob.current++;
     running.current = false;
-    checkRunning.current = false;
     setBusy(false);
     setError('');
     setToast('');
     setQuestion(null);
     setPhotoMenu(null);
     setDraftPhoto(null);
-    setChecked(null);
-    setChecking(false);
-    setNicknameMessage('');
     setInvite(null);
     setLinkInput('');
     setInviteEmail('');
@@ -258,13 +247,10 @@ export default function SharingHub({
     }
     if (screen === 'email') {
       setScreen('sharing'); setError(''); setToast('');
+    } else if (screen === 'detail') {
+      setScreen('invitations'); setInvite(null); setError('');
     } else if (screen === 'nickname' || screen === 'profile') {
-      checkJob.current++;
-      checkRunning.current = false;
-      setChecking(false);
       setScreen(screen === 'profile' ? 'sharing' : 'invitations');
-      setChecked(null);
-      setNicknameMessage('');
       setError('');
     } else if (request?.diary && screen === 'invitations') {
       if (
@@ -286,25 +272,20 @@ export default function SharingHub({
   const prepareNickname = (value) => {
     if (value.status !== 'PENDING')
       throw new Error('사용할 수 없는 초대예요. 새 초대를 요청해 주세요.');
+    if (value.full) {
+      setInvite(value); setScreen('detail'); return;
+    }
     dismissInput();
-    checkJob.current++;
     setInvite(value);
     setNickname(runtime.self.nickname);
     setDraftPhoto(runtime.self.photoUri || null);
-    setChecked(null);
-    setNicknameMessage('');
     setScreen('nickname');
   };
   const prepareProfile = () => {
     const current = diary.members.find((member) => member.id === runtime.self.id);
     dismissInput();
-    checkJob.current++;
-    checkRunning.current = false;
     setNickname(current.nickname);
     setDraftPhoto(current.photoUri || null);
-    setChecked(normalizeSharingNickname(current.nickname));
-    setChecking(false);
-    setNicknameMessage('');
     setError('');
     setScreen('profile');
   };
@@ -322,40 +303,13 @@ export default function SharingHub({
         }
       },
     );
+  const openInviteDetail = (row) => run(async () => {
+    await store.open(row);
+    return runtime.invitationGateway.get(row.inviteId);
+  }, value => { setInvite(value); setScreen('detail'); });
   const changeNickname = (value) => {
-    checkJob.current++;
-    checkRunning.current = false;
     setNickname(value);
-    setChecked(null);
-    setChecking(false);
-    setNicknameMessage('');
     setError('');
-  };
-  const checkNickname = async () => {
-    if (checkRunning.current || running.current || sharingNicknameError(nickname)) return;
-    const id = ++checkJob.current,
-      value = normalizeSharingNickname(nickname);
-    checkRunning.current = true;
-    setChecked(null);
-    setChecking(true);
-    setNicknameMessage('');
-    try {
-      const result =
-        screen === 'profile'
-          ? await runtime.checkProfileNickname(diary.id, value)
-          : await runtime.checkNickname(invite.inviteId, value);
-      if (alive.current && id === checkJob.current) {
-        setChecked(result);
-        setNicknameMessage('사용할 수 있는 닉네임이에요.');
-      }
-    } catch (error) {
-      if (alive.current && id === checkJob.current) setNicknameMessage(error.message);
-    } finally {
-      if (alive.current && id === checkJob.current) {
-        checkRunning.current = false;
-        setChecking(false);
-      }
-    }
   };
   const confirmQuestion = () => {
     const current = question;
@@ -370,6 +324,7 @@ export default function SharingHub({
         () => runtime.decline(current.inviteId),
         () => {
           store.refresh();
+          setInvite(value => value?.inviteId === current.inviteId ? { ...value, status: 'DECLINED' } : value);
           setToast('초대를 거절했어요.');
         },
       );
@@ -431,8 +386,7 @@ export default function SharingHub({
   const isOwner = mine?.role === 'OWNER';
   const isFull = (diary?.members.length || 0) >= MAX_SHARING_MEMBERS;
   const emailPreview = !runtime.server && typeof runtime.sendEmailInvite === 'function';
-  const nicknameReady =
-    checked === normalizeSharingNickname(nickname) && !sharingNicknameError(nickname) && !checking;
+  const nicknameReady = !sharingNicknameError(nickname);
   const editingProfile = screen === 'profile';
   const profileDiary = editingProfile ? diary : invite?.diary;
   const profileChanged =
@@ -478,6 +432,7 @@ export default function SharingHub({
                     {screen === 'sharing'
                       ? '다이어리 공유'
                       : screen === 'email' ? '이메일로 초대'
+                      : screen === 'detail' ? '다이어리 초대'
                       : screen === 'profile'
                         ? isPhone
                           ? '프로필 수정'
@@ -814,6 +769,10 @@ export default function SharingHub({
                                 {row.actor}님의 초대{runtime.supportsReadState !== false ? ` · ${row.readAt ? '읽음' : '안 읽음'}` : ''}
                               </Text>
                               <Text style={s.muted}>{invitationStatusLabel(row.status)}</Text>
+                              <Pressable accessibilityRole="button" accessibilityLabel={`${row.title} 초대 상세`}
+                                disabled={busy || mutationLocked} onPress={() => openInviteDetail(row)} style={s.detailLink}>
+                                <Text style={s.bold}>초대 확인</Text>
+                              </Pressable>
                               {isPhone && row.actionable && invitationActions(row)}
                             </View>
                             {!isPhone && row.actionable && invitationActions(row)}
@@ -893,6 +852,39 @@ export default function SharingHub({
                       </View>
                     </>
                   )}
+                  {screen === 'detail' && invite && (
+                    <>
+                      <View style={s.invitedDiary}>
+                        <View style={s.invitedCover} accessibilityLabel={`${invite.diary.title} 다이어리 표지`}>
+                          <Cover diary={invite.diary} thumbnailWidth={143} />
+                        </View>
+                        <Text style={s.invitedTitle}>{invite.diary.title}</Text>
+                        <Text style={s.text}>{invite.inviter || '다이어리 소유자'}님이 초대했어요.</Text>
+                        {Number.isInteger(invite.memberCount) && <Text style={s.muted}>{invite.memberCount}/4명 참여 중</Text>}
+                      </View>
+                      {invite.status !== 'PENDING' || invite.full ? (
+                        <View style={s.notice}>
+                          <Text accessibilityRole="alert" style={s.bold}>
+                            {invite.full && invite.status === 'PENDING' ? '참여 인원이 가득 찼어요.'
+                              : ({ REVOKED: '취소된 초대예요.', EXPIRED: '만료된 초대예요.', ACCEPTED: '이미 수락한 초대예요.', DECLINED: '거절한 초대예요.' })[invite.status] || '사용할 수 없는 초대예요.'}
+                          </Text>
+                          {invite.status !== 'ACCEPTED' && <Text style={s.muted}>초대한 사람에게 문의해 주세요.</Text>}
+                        </View>
+                      ) : (
+                        <View style={s.invitationActions}>
+                          <Button label="상세 초대 거절" text="거절" secondary style={s.cancelParticipation}
+                            disabled={busy} onPress={() => setQuestion({ kind: 'decline', inviteId: invite.inviteId, title: invite.diary.title })} />
+                          <Button label="참여 프로필 설정" text="수락" style={s.acceptParticipation} disabled={busy}
+                            onPress={() => run(() => runtime.invitationGateway.get(invite.inviteId), value => {
+                              setInvite(value);
+                              if (value.status !== 'PENDING' || value.full) return;
+                              prepareNickname(value);
+                            })} />
+                        </View>
+                      )}
+                      <Button label="받은 초대 목록으로" text="목록으로" secondary onPress={back} disabled={busy} />
+                    </>
+                  )}
                   {((screen === 'nickname' && invite) || editingProfile) && (
                     <>
                       <View style={s.invitedDiary}>
@@ -934,23 +926,10 @@ export default function SharingHub({
                           autoCorrect={false}
                           autoCapitalize="none"
                           style={[s.field, s.grow]}
-                          onSubmitEditing={checkNickname}
-                        />
-                        <Button
-                          label={runtime.server ? "다이어리 닉네임 형식 확인" : "다이어리 닉네임 중복 확인"}
-                          text={runtime.server ? "형식 확인" : "중복 확인"}
-                          secondary
-                          disabled={busy || checking || !!sharingNicknameError(nickname)}
-                          onPress={checkNickname}
                         />
                       </View>
                       {!!nickname && !!sharingNicknameError(nickname) && (
                         <Text style={s.error}>{sharingNicknameError(nickname)}</Text>
-                      )}
-                      {!!nicknameMessage && (
-                        <Text accessibilityLiveRegion="polite" style={checked ? s.muted : s.error}>
-                          {nicknameMessage}
-                        </Text>
                       )}
                       <View style={[s.section, s.invitationActions]}>
                         <Button
@@ -966,8 +945,7 @@ export default function SharingHub({
                           style={s.acceptParticipation}
                           disabled={busy || !nicknameReady || !profileChanged}
                           onPress={() => {
-                            if (nicknameReady && !checkRunning.current)
-                              run(
+                            if (nicknameReady) run(
                                 () =>
                                   editingProfile
                                     ? runtime.updateProfile(diary.id, {

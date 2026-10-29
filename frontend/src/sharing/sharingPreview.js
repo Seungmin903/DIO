@@ -134,7 +134,9 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
     if (!active) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const value = invites.get(id);
     if (!value) fail('NOT_FOUND', '초대를 찾을 수 없어요.');
-    return copy({ ...value, status: current.status });
+    const diary = diaries.get(value.diary.diaryId);
+    return copy({ ...value, status: current.status, memberCount: diary?.members.length || 0,
+      full: (diary?.members.length || 0) >= MAX_SHARING_MEMBERS });
   };
   const pending = async (id) => {
     const invite = await detail(id);
@@ -145,14 +147,6 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
   const validateNickname = (diary, nickname) => {
     const error = sharingNicknameError(nickname);
     if (error) fail('INVALID_NICKNAME', error);
-    const normalized = normalizeSharingNickname(nickname).toLowerCase();
-    if (
-      diary.members.some(
-        (value) => value.id !== self.id && value.nickname.toLowerCase() === normalized,
-      )
-    ) {
-      fail('DUPLICATE_NICKNAME', '이미 사용 중인 닉네임이에요.');
-    }
   };
   const transport = async (request) => {
     const result = await notifications.transport(request);
@@ -358,6 +352,8 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
       validateNickname(diary, nickname);
       assertActive();
       if (member(diary)) fail('ALREADY_JOINED', '이미 참여 중인 다이어리예요.');
+      if (diary.members.length >= MAX_SHARING_MEMBERS)
+        fail('DIARY_FULL', '참여 인원이 가득 찼어요. 초대한 사람에게 문의해 주세요.');
       diary.members.push({
         ...self,
         nickname: normalizeSharingNickname(nickname),
@@ -386,6 +382,21 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
       publish();
     },
     // 회귀 테스트에서 최종 상태 변경을 주입하는 경계. 제품 화면에는 노출하지 않는다.
-    preview: notifications,
+    preview: {
+      ...notifications,
+      receiveInvitation({ title = '새로운 다이어리', inviter = '하루', members = [
+        { id: 'host', nickname: inviter, role: 'OWNER', presence: '편집 중' },
+      ] } = {}) {
+        assertActive();
+        notifications.add('PENDING');
+        const incoming = notifications.inspect().invitations.at(-1);
+        const diary = { id: incoming.diary.diaryId, title, color: '#9DABD8', pattern: 'linen',
+          members: copy(members), link: null, allowExport: true };
+        diaries.set(diary.id, diary);
+        invites.set(incoming.inviteId, { ...incoming, diary: { ...diary, diaryId: diary.id }, inviter });
+        publish();
+        return incoming.inviteId;
+      },
+    },
   };
 }

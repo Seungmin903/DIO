@@ -4,6 +4,23 @@ import { createSharingPreview, sharingNicknameError } from '../src/sharing/shari
 const create = () => createSharingPreview({ user: { nickname: '회원이름' }, delay: 0 });
 const pending = (runtime) =>
   runtime.preview.inspect().invitations.find((value) => value.status === 'PENDING');
+
+test('편집 중 도착한 목 초대는 카운트·표지 상세에 반영되고 정원 초과 수락은 참여시키지 않는다', async () => {
+  const runtime = create();
+  const before = (await runtime.notificationApi.count()).actionableUnreadCount;
+  const id = runtime.preview.receiveInvitation({ title: '새 초대 기록', inviter: '친구',
+    members: Array.from({ length: 4 }, (_, i) => ({ id: `member-${i}`, nickname: `멤버${i}`, role: i === 0 ? 'OWNER' : 'EDITOR' })),
+  });
+  assert.equal((await runtime.notificationApi.count()).actionableUnreadCount, before + 1);
+  const detail = await runtime.invitationGateway.get(id);
+  assert.equal(detail.diary.title, '새 초대 기록');
+  assert.equal(detail.inviter, '친구');
+  assert.equal(detail.full, true);
+  await assert.rejects(runtime.accept(id, '여행가'), { code: 'DIARY_FULL' });
+  assert.equal((await runtime.invitationGateway.get(id)).status, 'PENDING');
+  assert.equal(runtime.hasMembership(id), false);
+  runtime.dispose();
+});
 test('가입 닉네임과 다이어리별 이름을 분리하며 확인만으로 참여하지 않는다', async () => {
   const runtime = create(),
     invite = pending(runtime),
@@ -26,12 +43,12 @@ test('가입 닉네임과 다이어리별 이름을 분리하며 확인만으로
     '여행가',
   );
 });
-test('닉네임 중복·만료·취소를 최종 수락 직전에 검사한다', async () => {
+test('닉네임 형식·만료·취소를 최종 수락 직전에 검사한다', async () => {
   const runtime = create(),
     invite = pending(runtime);
   assert.ok(sharingNicknameError('a'));
   assert.ok(sharingNicknameError('이름!'));
-  await assert.rejects(runtime.checkNickname(invite.inviteId, '하루'), /이미 사용/);
+  assert.equal(await runtime.checkNickname(invite.inviteId, '하루'), '하루');
   await runtime.checkNickname(invite.inviteId, '여행가');
   runtime.preview.setInvitationStatus(invite.inviteId, 'REVOKED');
   await assert.rejects(runtime.accept(invite.inviteId, '여행가'), /사용할 수 없는/);
@@ -140,13 +157,9 @@ test('참여 후 닉네임과 사진을 함께 변경해도 다른 다이어리�
   runtime.registerDiary({ id: 'two', title: '둘' });
   assert.equal(await runtime.checkProfileNickname('one', '계정이름'), '계정이름');
   const joined = await runtime.accept(pending(runtime).inviteId, '참여자');
-  await assert.rejects(runtime.checkProfileNickname(joined.id, '하루'), /이미 사용/);
-  const before = await runtime.getSharing(joined.id);
-  await assert.rejects(
-    runtime.updateProfile(joined.id, { nickname: '하루', photoUri: 'file:///invalid.png' }),
-    /이미 사용/,
-  );
-  assert.deepEqual(await runtime.getSharing(joined.id), before);
+  assert.equal(await runtime.checkProfileNickname(joined.id, '하루'), '하루');
+  const duplicate = await runtime.updateProfile(joined.id, { nickname: '하루', photoUri: null });
+  assert.equal(duplicate.members.filter(member => member.nickname === '하루').length, 2);
   const updated = await runtime.updateProfile('one', {
     nickname: '다이어리이름',
     photoUri: 'file:///one.png',

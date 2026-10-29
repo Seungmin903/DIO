@@ -35,6 +35,7 @@ export const sharingStyles = StyleSheet.create({
   section: { paddingTop: 16, borderTopWidth: 1, borderColor: c.border, gap: 12 },
   notice: { padding: 12, borderRadius: radius.md, backgroundColor: c.surfaceMuted, gap: 8 },
   sentInvite: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+  detailLink: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 12 },
   summary: {
     padding: 12,
     backgroundColor: c.surfaceMuted,
