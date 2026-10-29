@@ -17,6 +17,7 @@ test('글꼴 로더는 실제 Regular/Bold 파일을 한 번 등록하고 실패
   new Function('require', 'module', 'exports', code)(id => {
     if (id === 'expo-font') return { loadAsync: files => { calls.push(files); return new Promise((resolve, reject) => pending.set(Object.keys(files)[0], { resolve, reject })) } }
     if (id === '../utils/text') return text
+    if (id === '../../handwriting/library.js') return { refreshPersonalFonts: async () => [] }
     if (id.endsWith('.ttf')) return id
     return require(id)
   }, module, module.exports)

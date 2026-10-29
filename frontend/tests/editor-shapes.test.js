@@ -178,7 +178,7 @@ test('세로 정렬 선택은 도형 서식에서만 표시하고 선택 값을 
  const {code}=expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/TextSettings.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]})
  const module={exports:{}}
  new Function('require','module','exports',code)(id=>{
-  if(id==='react')return {useState:v=>[v,()=>{}],useEffect:()=>{}}
+  if(id==='react')return {useState:v=>[v,()=>{}],useEffect:()=>{},useSyncExternalStore:(_subscribe,snapshot)=>snapshot()}
   if(id==='react-native')return {Platform:{OS:'android'},View:'view',Text:'text',TextInput:'input',ScrollView:'scroll',Pressable:'button',StyleSheet:{create:v=>v}}
   if(id.endsWith('/useFormFactor'))return {useFormFactor:()=>({isPhone:false})}
   if(id.endsWith('/useTextFont'))return {useTextFont:()=>''}

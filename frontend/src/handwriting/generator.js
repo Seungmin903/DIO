@@ -1,0 +1,43 @@
+import { AppState, Platform } from 'react-native'
+import { requireOptionalNativeModule } from 'expo-modules-core'
+import { digestStringAsync, CryptoDigestAlgorithm } from 'expo-crypto'
+import { MODEL_VERSION, PREPROCESS_VERSION, PROMPTS, prepareSample, validateDraft } from './protocol.js'
+import { saveLastJob } from './storage.js'
+
+let module, lifecycle, activeId
+export function nativeGenerator() {
+  if (module === undefined) module = Platform.OS === 'android' ? requireOptionalNativeModule('DioHandwriting') : null
+  return module
+}
+export async function capabilities() {
+  const native = nativeGenerator()
+  return native ? native.capabilities() : { available: false, reason: Platform.OS === 'android' ? '실제 글자 생성은 Android 개발 빌드에서 사용할 수 있어요. Expo Go에서는 작성·자동 크기 맞춤·완성 폰트 적용을 확인할 수 있어요.' : '폰트 생성은 Android 개발 빌드에서 사용할 수 있어요.' }
+}
+export async function createSnapshot(draft, onProgress = () => {}) {
+  validateDraft(draft, true)
+  const inputs = []
+  for (const character of PROMPTS) {
+    let prepared
+    try { prepared = prepareSample(draft.samples[character]) }
+    catch (error) { throw new Error(`${character} 글자: ${error.message}`) }
+    inputs.push({ character, pixels: Array.from(prepared.pixels), metadata: prepared.metadata })
+    onProgress(inputs.length)
+    await new Promise(resolve => setTimeout(resolve, 0))
+  }
+  const body = { modelVersion: MODEL_VERSION, preprocessVersion: PREPROCESS_VERSION, draft: JSON.parse(JSON.stringify(draft)), inputs }
+  const inputHash = await digestStringAsync(CryptoDigestAlgorithm.SHA256, JSON.stringify(body))
+  return { ...body, inputHash }
+}
+function requireGenerator() { const native = nativeGenerator(); if (!native) throw new Error('실제 생성에는 Android 개발 빌드가 필요해요.'); return native }
+export function initializeGeneratorLifecycle() {
+  if (lifecycle) return
+  lifecycle = AppState.addEventListener('change', next => { if (next !== 'active' && activeId) nativeGenerator()?.pauseJob(activeId).catch(() => {}) })
+}
+export async function startJob(snapshot) {
+  const result = JSON.parse(await requireGenerator().createJob(JSON.stringify(snapshot)))
+  activeId = result.id; await saveLastJob(result).catch(() => {}); return result
+}
+export async function latestJob() { const raw = await requireGenerator().latestJob(); return raw ? refreshJob(JSON.parse(raw).id) : null }
+export async function refreshJob(id) { const job = JSON.parse(await requireGenerator().getJob(id)); activeId = job.state === 'processing' ? id : null; await saveLastJob(job).catch(() => {}); return job }
+export async function controlJob(action, id) { const job = JSON.parse(await requireGenerator()[`${action}Job`](id)); if (action === 'resume') activeId = id; await saveLastJob(job); return job }
+export async function generatePreview(snapshot, text) { return JSON.parse(await requireGenerator().preview(JSON.stringify(snapshot), text)) }

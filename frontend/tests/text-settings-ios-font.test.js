@@ -33,6 +33,7 @@ function render(platform, settings) {
     if (id === '../../shared/theme') return { colors: {} }
     if (id === '../utils/text') return text
     if (id === '../hooks/useTextFont') return { useTextFont: () => '' }
+    if (id === '../../handwriting/studioBus.js') return { openFontStudio() {} }
     if (id === './ToolPanel') return {
       Segmented: props => { if (props.items.some(item => item.id === 'italic')) styleControls = props; return null },
       ToolPanelHeader: () => null, toolPanelStyles: {},

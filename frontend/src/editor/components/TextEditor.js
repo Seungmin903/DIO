@@ -4,7 +4,8 @@ import { startTextKeyboard } from '../utils/textKeyboard'
 import { colors } from '../../shared/theme'
 import { colorTextRange, normalizeRanges, remapTextRanges, textSegments } from '../utils/textRanges'
 import { TEXT_AUTO_MAX_WIDTH, TEXT_AUTO_MIN_WIDTH, TEXT_COLORS, textStyle, TEXT_FRAME_PAD } from '../utils/text'
-import { textSettings, textInputHeight } from '../utils/text'
+import { loadedFontFamily, textSettings, textInputHeight } from '../utils/text'
+
 import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle } from '../utils/textFormats'
 import { copyText, readText, useTextClipboardAvailable } from '../services/textClipboard'
 import TextActionBar from './TextActionBar'
@@ -13,7 +14,8 @@ import { useTextFont } from '../hooks/useTextFont'
 
 // Android는 TextInput의 styled children으로 선택 범위 색상을 즉시 표시한다.
 export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast, onReveal }) {
-  useTextFont(object.font)
+  const fontStatus = useTextFont(object.font)
+  const fontPending = object.font?.startsWith('personal-') && !loadedFontFamily(object.font)
   const input = useRef(null), draft = useRef(object.text ?? ''), composing = useRef(false), saving = useRef(false)
   const cancelled = useRef(false)
   const keyboardStartup = useRef(null)
@@ -109,6 +111,7 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
     return () => { boundary.current = null }
   }, [boundary])
   useEffect(() => {
+    if (fontPending) return
     const stop = startTextKeyboard({
       platform: Platform.OS, getInput: () => input.current,
       canFocus: () => mounted.current && !cancelled.current && !saving.current && !linkEditing.current,
@@ -117,9 +120,10 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
     })
     keyboardStartup.current = stop
     return () => { stop(); keyboardStartup.current = null; Keyboard.dismiss() }
-  }, [])
+  }, [fontPending])
   const cancel = () => { cancelled.current = true; keyboardStartup.current?.(); Keyboard.dismiss(); onCancel() }
   const [height, setHeight] = useState(() => textInputHeight(object, zoom))
+
   const scale = (object.w ?? 320) / (object.baseWidth ?? object.w ?? 320) * zoom
   // 글자만큼 넓어지는 상자: 줄바꿈 없이 잰 가장 긴 줄 폭(화면 px)에 맞추고 최대 폭에서 줄을 바꾼다
   const [naturalWidth, setNaturalWidth] = useState(null)
@@ -179,6 +183,10 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
   }, [selected, canPaste, anchor, rendered, onPaletteChange, paletteBounds])
   useEffect(() => () => { paletteBounds.current = null; onPaletteChange(null) }, [onPaletteChange, paletteBounds])
   const top = object.y * zoom
+  if (fontPending) return <View style={{ position: 'absolute', left: object.x * zoom, top, padding: 12, backgroundColor: colors.surface }}>
+    <Text style={{ color: colors.text }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져온 뒤 편집해 주세요.'}</Text>
+    <Pressable accessibilityRole="button" onPress={onCancel} style={{ paddingVertical: 12 }}><Text style={{ color: colors.primary }}>닫기</Text></Pressable>
+  </View>
   return <View style={{ position: 'absolute', left: object.x * zoom, top, width: boxWidth, transform: [{ rotate: `${object.rotation ?? 0}deg` }] }}>
     {object.autoWidth && <View pointerEvents="none" style={styles.widthProbe}>
       <Text accessible={false} onLayout={(event) => setNaturalWidth(event.nativeEvent.layout.width)} style={[styles.widthProbeText, textStyle(object, scale, Platform.OS)]}>

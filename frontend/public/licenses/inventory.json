@@ -1,0 +1,738 @@
+{
+  "schema": 1,
+  "platform": "web",
+  "weightsRightsExcluded": true,
+  "sourceMaps": [
+    {
+      "file": "AppEntry-d040be1d1db6b38d172d14178831c1bc.js.map",
+      "sha256": "1b4eb43c3651ed15c0869616d7d5f409b8cf9465fbe9d07ad8738fdd7d7e9fc1",
+      "sources": 1275
+    },
+    {
+      "file": "gifFirstFrame-fa526bc1ec810b9fd5b2e31fd7fdfc6b.js.map",
+      "sha256": "7c267883d4a6687d733579d71a1d39ca5d369f36874f11d3fdafe7af066629ff",
+      "sources": 1
+    }
+  ],
+  "nativeBinaries": [],
+  "pomEvidence": [],
+  "components": [
+    {
+      "id": "embedded:Emscripten runtime@upstream generated runtime; reference notices 3.1.72",
+      "name": "Emscripten runtime",
+      "version": "upstream generated runtime; reference notices 3.1.72",
+      "license": "MIT / NCSA / runtime subcomponent terms",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/emscripten-core/emscripten",
+      "licenseUrl": "https://github.com/emscripten-core/emscripten",
+      "usage": "Embedded runtime component",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "embedded:Gowun Batang@bundled font files",
+      "name": "Gowun Batang",
+      "version": "bundled font files",
+      "license": "OFL-1.1",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/google/fonts/tree/main/ofl/gowunbatang",
+      "licenseUrl": "https://github.com/google/fonts/tree/main/ofl/gowunbatang",
+      "usage": "Embedded runtime component",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "embedded:Gowun Dodum@bundled font files",
+      "name": "Gowun Dodum",
+      "version": "bundled font files",
+      "license": "OFL-1.1",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/google/fonts/tree/main/ofl/gowundodum",
+      "licenseUrl": "https://github.com/google/fonts/tree/main/ofl/gowundodum",
+      "usage": "Embedded runtime component",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "embedded:libde265@1.0.16",
+      "name": "libde265",
+      "version": "1.0.16",
+      "license": "LGPL-3.0-or-later",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/strukturag/libde265",
+      "licenseUrl": "https://github.com/strukturag/libde265",
+      "usage": "Embedded runtime component",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "sourceArchives": [
+        {
+          "fileName": "heic-decoder-sources.zip",
+          "bytes": 9441955,
+          "sha256": "68572d9099d159b43207a9cd1cb357b57d1819e8846e87b932da14699844a4d7",
+          "url": "licenses/sources/heic-decoder-sources.zip",
+          "asset": "asset:///dio_licenses/sources/heic-decoder-sources.zip"
+        }
+      ]
+    },
+    {
+      "id": "embedded:libheif@1.23.6",
+      "name": "libheif",
+      "version": "1.23.6",
+      "license": "LGPL-3.0-or-later",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/strukturag/libheif",
+      "licenseUrl": "https://github.com/strukturag/libheif",
+      "usage": "Embedded runtime component",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "sourceArchives": [
+        {
+          "fileName": "heic-decoder-sources.zip",
+          "bytes": 9441955,
+          "sha256": "68572d9099d159b43207a9cd1cb357b57d1819e8846e87b932da14699844a4d7",
+          "url": "licenses/sources/heic-decoder-sources.zip",
+          "asset": "asset:///dio_licenses/sources/heic-decoder-sources.zip"
+        }
+      ]
+    },
+    {
+      "id": "npm:@babel/runtime@7.29.10",
+      "name": "@babel/runtime",
+      "version": "7.29.10",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/babel/babel",
+      "licenseUrl": "https://github.com/babel/babel",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "c770ba825368b8421666fe5ffe841d55dc0ebc703415422c31ba7f048a32d14a"
+      }
+    },
+    {
+      "id": "npm:@expo-google-fonts/nanum-gothic@0.4.0",
+      "name": "@expo-google-fonts/nanum-gothic",
+      "version": "0.4.0",
+      "license": "MIT AND OFL-1.1",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/google-fonts",
+      "licenseUrl": "https://github.com/expo/google-fonts",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "9f0fbbde117b6b456395bbff2e0fe8dea7b250db7c8355a3fbe5100f90c1d435"
+      }
+    },
+    {
+      "id": "npm:@expo-google-fonts/nanum-myeongjo@0.4.1",
+      "name": "@expo-google-fonts/nanum-myeongjo",
+      "version": "0.4.1",
+      "license": "MIT AND OFL-1.1",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/google-fonts",
+      "licenseUrl": "https://github.com/expo/google-fonts",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "36405c559a5aca6ecc3df8f5357ac5c1436c63befb735fc4a0ebda1448a49228"
+      }
+    },
+    {
+      "id": "npm:@expo-google-fonts/nanum-pen-script@0.4.0",
+      "name": "@expo-google-fonts/nanum-pen-script",
+      "version": "0.4.0",
+      "license": "MIT AND OFL-1.1",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/google-fonts",
+      "licenseUrl": "https://github.com/expo/google-fonts",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "4c8dd981fd68e75e615cb56c5dcc3b2a1f0302aa00b4144a026d7c9cf73c56db"
+      }
+    },
+    {
+      "id": "npm:@expo-google-fonts/poor-story@0.4.1",
+      "name": "@expo-google-fonts/poor-story",
+      "version": "0.4.1",
+      "license": "MIT AND OFL-1.1",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/google-fonts",
+      "licenseUrl": "https://github.com/expo/google-fonts",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "1657a801c5155b1252dbe0004a04f10199fea035e72fc70e31a7491e7dd03eee"
+      }
+    },
+    {
+      "id": "npm:@expo/cli@58.1.15",
+      "name": "@expo/cli",
+      "version": "58.1.15",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "25db67cff07f26c8c94b72253e158dcb473238befca9c32e98b377c032134f6e"
+      }
+    },
+    {
+      "id": "npm:@react-native-async-storage/async-storage@2.2.0",
+      "name": "@react-native-async-storage/async-storage",
+      "version": "2.2.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/react-native-async-storage/async-storage",
+      "licenseUrl": "https://github.com/react-native-async-storage/async-storage",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "6346a7c16602136ed46fc0aadd02c388ab160540dc32c1c5ad877d7152750d30"
+      }
+    },
+    {
+      "id": "npm:@react-native/js-polyfills@0.88.0",
+      "name": "@react-native/js-polyfills",
+      "version": "0.88.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/react/react-native",
+      "licenseUrl": "https://github.com/react/react-native",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "b6d6fcb90f91450121c21139428dc77bc423a20326417b02d58a04e89331fd9f"
+      }
+    },
+    {
+      "id": "npm:@react-native/normalize-colors@0.74.89",
+      "name": "@react-native/normalize-colors",
+      "version": "0.74.89",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/facebook/react-native",
+      "licenseUrl": "https://github.com/facebook/react-native",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "236927f50672c4cb51f9eed35ac6753aad3e156735333085786f8ec61dd5325f"
+      }
+    },
+    {
+      "id": "npm:css-in-js-utils@3.1.0",
+      "name": "css-in-js-utils",
+      "version": "3.1.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/robinweser/css-in-js-utils",
+      "licenseUrl": "https://github.com/robinweser/css-in-js-utils",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "c812b15d475fe37e52ae20be11811419d48627fe3ef027deb14b1b6f662a1b76"
+      }
+    },
+    {
+      "id": "npm:expo-asset@58.0.18",
+      "name": "expo-asset",
+      "version": "58.0.18",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "1d3d0bd22c3316779e99253e10bc8c11f68b4d17b8f7a2a4aa9d50939c2379c2"
+      }
+    },
+    {
+      "id": "npm:expo-clipboard@58.0.4",
+      "name": "expo-clipboard",
+      "version": "58.0.4",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "5730ba76319b21e144eee7ad6e97de6d3e706eea977191bf9ff70fca15c43547"
+      }
+    },
+    {
+      "id": "npm:expo-crypto@58.0.7",
+      "name": "expo-crypto",
+      "version": "58.0.7",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "95d382241a7f7d9662dafaef7b590988ad4def1144e38b05f9eafc5aac7d8b3b"
+      }
+    },
+    {
+      "id": "npm:expo-font@58.0.10",
+      "name": "expo-font",
+      "version": "58.0.10",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "c5e1bb077f5a2193b58e5942ce0713398d08afa1cd0cf2372e196bce47d5e9c4"
+      }
+    },
+    {
+      "id": "npm:expo-image-picker@58.0.10",
+      "name": "expo-image-picker",
+      "version": "58.0.10",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "4e80fe1e451471d46bb78cc6ab905c7e001344761af26a46dc16edae5bf40768"
+      }
+    },
+    {
+      "id": "npm:expo-image@58.0.17",
+      "name": "expo-image",
+      "version": "58.0.17",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "dc74a5f3ca1ef1a5fbda68e3c7602fee5e319f04a5aba7756528de249d1a7bd9"
+      }
+    },
+    {
+      "id": "npm:expo-modules-core@58.0.26",
+      "name": "expo-modules-core",
+      "version": "58.0.26",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "716641c283a9e597a7e817c3c93275f16f72a9c569f3079b25ea69f223badda1"
+      }
+    },
+    {
+      "id": "npm:expo-screen-orientation@58.0.3",
+      "name": "expo-screen-orientation",
+      "version": "58.0.3",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "e79bccf9862d3e75980a4145d8b86edbcd03cd4aa999341c6d6088a0c2fb0f91"
+      }
+    },
+    {
+      "id": "npm:expo@58.0.19",
+      "name": "expo",
+      "version": "58.0.19",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "17cb6e9b357e9ac6bae7b9c5a6259294a5c7ae330883d74b55a21e85abeccd24"
+      }
+    },
+    {
+      "id": "npm:fbjs@3.0.5",
+      "name": "fbjs",
+      "version": "3.0.5",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://www.npmjs.com/package/fbjs",
+      "licenseUrl": "https://www.npmjs.com/package/fbjs",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "256c03bbd706edf2d9479b7c65020d119511f3ec09344d1bcb2205f87c18f32c"
+      }
+    },
+    {
+      "id": "npm:heic-to@1.6.6",
+      "name": "heic-to",
+      "version": "1.6.6",
+      "license": "LGPL-3.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/hoppergee/heic-to",
+      "licenseUrl": "https://github.com/hoppergee/heic-to",
+      "usage": "웹 HEIC 변환기 · 앱과 분리된 교체 가능 모듈",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "d9cba1bd05d0d1f81f0e7d9a58327e6558269e228dd4e3b2b833d65a06bd549f"
+      },
+      "sourceArchives": [
+        {
+          "fileName": "heic-decoder-sources.zip",
+          "bytes": 9441955,
+          "sha256": "68572d9099d159b43207a9cd1cb357b57d1819e8846e87b932da14699844a4d7",
+          "url": "licenses/sources/heic-decoder-sources.zip",
+          "asset": "asset:///dio_licenses/sources/heic-decoder-sources.zip"
+        }
+      ]
+    },
+    {
+      "id": "npm:html-to-image@1.11.13",
+      "name": "html-to-image",
+      "version": "1.11.13",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/bubkoo/html-to-image",
+      "licenseUrl": "https://github.com/bubkoo/html-to-image",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "2d2de1eb25d1fdbe1f0745728513c5504d69e840f1300009a9a359c222502873"
+      }
+    },
+    {
+      "id": "npm:hyphenate-style-name@1.1.0",
+      "name": "hyphenate-style-name",
+      "version": "1.1.0",
+      "license": "BSD-3-Clause",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/rexxars/hyphenate-style-name#readme",
+      "licenseUrl": "https://github.com/rexxars/hyphenate-style-name#readme",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "9bd6bc7ed52b7572fe6d888de4c2d525e318e3aa048494d0270c9024f798e3c0"
+      }
+    },
+    {
+      "id": "npm:inline-style-prefixer@7.0.1",
+      "name": "inline-style-prefixer",
+      "version": "7.0.1",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/robinweser/inline-style-prefixer",
+      "licenseUrl": "https://github.com/robinweser/inline-style-prefixer",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "f40a742dd64fb55507ced2a4a93699f67ddc31dabb68f801bc71abd2e6e753e0"
+      }
+    },
+    {
+      "id": "npm:invariant@2.2.4",
+      "name": "invariant",
+      "version": "2.2.4",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/zertosh/invariant",
+      "licenseUrl": "https://github.com/zertosh/invariant",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "ef0c08d9f91029e247bb570a04903f3a9bd646c1f2128d29e69ee171794cd2a3"
+      }
+    },
+    {
+      "id": "npm:is-plain-obj@2.1.0",
+      "name": "is-plain-obj",
+      "version": "2.1.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://www.npmjs.com/package/is-plain-obj",
+      "licenseUrl": "https://www.npmjs.com/package/is-plain-obj",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "d5cec30247540a92f16d17b3e98a29341bdd2a610138dc91f468ab5e5343ee1f"
+      }
+    },
+    {
+      "id": "npm:memoize-one@6.0.0",
+      "name": "memoize-one",
+      "version": "6.0.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/alexreardon/memoize-one",
+      "licenseUrl": "https://github.com/alexreardon/memoize-one",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "9941ebd5b052013e100b477c272a8e20d63c1bc7c57646da077a895c0b483e2f"
+      }
+    },
+    {
+      "id": "npm:merge-options@3.0.4",
+      "name": "merge-options",
+      "version": "3.0.4",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://www.npmjs.com/package/merge-options",
+      "licenseUrl": "https://www.npmjs.com/package/merge-options",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "547dad7ef7ef15cb23256d1ee855e4b1ba95ceef55d33ec35f24e0c5dcbd8196"
+      }
+    },
+    {
+      "id": "npm:metro-runtime@0.87.1",
+      "name": "metro-runtime",
+      "version": "0.87.1",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/react/metro",
+      "licenseUrl": "https://github.com/react/metro",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "26eed1885b7589f22eb2073c71a4bc7925db90fe60426e78842aa99c614252b0"
+      }
+    },
+    {
+      "id": "npm:nullthrows@1.1.1",
+      "name": "nullthrows",
+      "version": "1.1.1",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/zertosh/nullthrows",
+      "licenseUrl": "https://github.com/zertosh/nullthrows",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "e1baeb08c11213a4434f0e0001c4358c9b42f4efd1fc817d0b2185568b9f12a0"
+      }
+    },
+    {
+      "id": "npm:omggif@1.0.10",
+      "name": "omggif",
+      "version": "1.0.10",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/deanm/omggif",
+      "licenseUrl": "https://github.com/deanm/omggif",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "983217c91f356a00dd70c89760776ae53414649472596cd3cac101d0908ef2de"
+      }
+    },
+    {
+      "id": "npm:pako@1.0.11",
+      "name": "pako",
+      "version": "1.0.11",
+      "license": "(MIT AND Zlib)",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/nodeca/pako",
+      "licenseUrl": "https://github.com/nodeca/pako",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "0014f350a6834ed6a2d1211e0a2e3aa471cb426edf63379c785f9647ea2b4e01"
+      }
+    },
+    {
+      "id": "npm:pdf-lib@1.17.1",
+      "name": "pdf-lib",
+      "version": "1.17.1",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/Hopding/pdf-lib",
+      "licenseUrl": "https://github.com/Hopding/pdf-lib",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "951726fe11b7376919050c18d2cd9237d6e211d7ee0b01104990cb95105fe182"
+      }
+    },
+    {
+      "id": "npm:postcss-value-parser@4.2.0",
+      "name": "postcss-value-parser",
+      "version": "4.2.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/TrySound/postcss-value-parser",
+      "licenseUrl": "https://github.com/TrySound/postcss-value-parser",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "6cf9201a4d0d15253e7e7b78b4ef808b8cb3354c9809214423453b48bd012bc0"
+      }
+    },
+    {
+      "id": "npm:react-dom@19.3.0",
+      "name": "react-dom",
+      "version": "19.3.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/react/react",
+      "licenseUrl": "https://github.com/react/react",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "136d4af63de473392ea79d6a21932b0ed9eb37fe518ce70f4621250f3d79e9bb"
+      }
+    },
+    {
+      "id": "npm:react-native-safe-area-context@5.10.1",
+      "name": "react-native-safe-area-context",
+      "version": "5.10.1",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/appandflow/react-native-safe-area-context",
+      "licenseUrl": "https://github.com/appandflow/react-native-safe-area-context",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "2ac8132723f5f6fe0ea24ab902724583908ca1f63837def85fa3c3ad19143ac6"
+      }
+    },
+    {
+      "id": "npm:react-native-svg@15.16.0",
+      "name": "react-native-svg",
+      "version": "15.16.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/software-mansion/react-native-svg",
+      "licenseUrl": "https://github.com/software-mansion/react-native-svg",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "13deee84e58f022cd7f7325214a870a3976270a804fbf2fcce06236d3738394f"
+      }
+    },
+    {
+      "id": "npm:react-native-web@0.21.4",
+      "name": "react-native-web",
+      "version": "0.21.4",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/necolas/react-native-web",
+      "licenseUrl": "https://github.com/necolas/react-native-web",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "285d7c1b6cb44d79cbc1a9b5cead1d1788afb29210705ffc15973193e50b0072"
+      }
+    },
+    {
+      "id": "npm:react@19.3.0",
+      "name": "react",
+      "version": "19.3.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/react/react",
+      "licenseUrl": "https://github.com/react/react",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "6e003e4e9ed25afa7fdd55613f8aa877cefa9b359d9c13f81ee704030248e24e"
+      }
+    },
+    {
+      "id": "npm:scheduler@0.28.0",
+      "name": "scheduler",
+      "version": "0.28.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/react/react",
+      "licenseUrl": "https://github.com/react/react",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "06290718f22bcd93f29eaa1ac8d2ec9a7592ba4fec12bf1230e7cdd9a871b324"
+      }
+    },
+    {
+      "id": "npm:styleq@0.1.3",
+      "name": "styleq",
+      "version": "0.1.3",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/necolas/styleq",
+      "licenseUrl": "https://github.com/necolas/styleq",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "c09cc7e385b96599e4175117f717eb19f4ed52d2081a85b90d7f650020f257cf"
+      }
+    },
+    {
+      "id": "npm:upng-js@2.1.0",
+      "name": "upng-js",
+      "version": "2.1.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/photopea/UPNG.js",
+      "licenseUrl": "https://github.com/photopea/UPNG.js",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "267c6445c177c549e0f3b982954b9c33380d008d91c771eea69afefbd1ce4936"
+      }
+    }
+  ]
+}

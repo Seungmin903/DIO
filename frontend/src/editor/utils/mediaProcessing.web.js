@@ -1,4 +1,5 @@
 import { displayDimensions, MediaError } from './mediaPolicy.js'
+import { loadHeicDecoder } from './heicDecoder.web.js'
 
 async function withImage(source, work) {
   const url = URL.createObjectURL(source)
@@ -18,7 +19,7 @@ export async function decode(input, format) {
   if (format.extension === 'heic') {
     try {
       // 이 모듈은 웹 HEIC 선택 시에만 로드한다. 원본 Blob은 변경하지 않는다.
-      const { heicTo } = await import('heic-to/csp')
+      const { heicTo } = await loadHeicDecoder()
       input.decodedSource = await heicTo({ blob: input.source, type: 'image/jpeg', quality: 1 })
     } catch (error) {
       throw new MediaError('HEIC_CONVERSION_FAILED', '이 HEIC 사진을 변환하지 못했어요. JPEG로 저장한 사진을 선택해 주세요.', error)
