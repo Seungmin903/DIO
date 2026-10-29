@@ -138,6 +138,7 @@ backend-test:
       - backend/build/contracts/
     expire_in: 7 days
 
+# PostgreSQL 잡은 CI 설정(.gitlab-ci.yml)만 바뀐 변경에서는 돌리지 않는다. 실행 스크립트가 바뀌면 그대로 실행한다.
 backend-postgres-auth-test:
   stage: quality
   needs:
@@ -173,7 +174,6 @@ backend-postgres-auth-test:
         - backend/settings.gradle
         - backend/settings.gradle.kts
         - backend/gradle/**/*
-        - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
         # 인증·알림 전용 변경은 인증 PostgreSQL 검사만 실행한다.
@@ -227,7 +227,6 @@ backend-postgres-sharing-test:
         - backend/settings.gradle
         - backend/settings.gradle.kts
         - backend/gradle/**/*
-        - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
         # 공유 권한·프로필·영구 삭제에 영향을 주는 변경이다.
         - backend/src/main/java/**/auth/**/*
@@ -282,7 +281,6 @@ backend-postgres-diary-test:
         - backend/settings.gradle
         - backend/settings.gradle.kts
         - backend/gradle/**/*
-        - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
         # 새 하위 패키지를 포함한 다이어리 변경은 최소한 이 검사를 실행한다.
@@ -341,7 +339,6 @@ backend-postgres-lifecycle-test:
         - backend/settings.gradle
         - backend/settings.gradle.kts
         - backend/gradle/**/*
-        - .gitlab-ci.yml
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
         # 휴지통·영구 삭제·미디어 보존 기간 변경이다.

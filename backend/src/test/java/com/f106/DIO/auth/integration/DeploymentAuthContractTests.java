@@ -30,6 +30,8 @@ class DeploymentAuthContractTests {
         for (String job : new String[]{authJob, sharingJob, diaryJob, lifecycleJob}) {
             assertThat(job).contains("backend/src/test/resources/**/*", "backend/src/test/java/**/*Fixture.java",
                 "backend/src/test/java/**/*Contract.java");
+            // CI 설정만 바뀐 MR에서는 PostgreSQL 검사를 다시 돌리지 않는다.
+            assertThat(job).doesNotContain("- .gitlab-ci.yml").contains("infra/scripts/test-auth-postgres.sh");
         }
         assertThat(authJob).contains("backend/build/test-results/authPostgresTest/*.xml");
         assertThat(sharingJob).contains("backend/src/main/java/**/sharing/**/*",
