@@ -1135,7 +1135,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           </View>}
 
           {readOnly && readerMenuVisible && <ReadingHeader title={state.doc.title} onHome={goHome} />}
-          {readOnly && readerMenuVisible && <ReadingNavigation index={pageIndex} count={state.doc.pages.length} onSelect={selectReadingPage} />}
+          {readOnly && readerMenuVisible && <ReadingNavigation index={pageIndex} count={state.doc.pages.length} onSelect={selectReadingPage}
+            controlsRef={modeControlsRef} onLayout={measureModeControls} canEdit={!permissionReadOnly} onFit={fitToScreen} onToggle={toggleReading} />}
           {photoCrop && (
             <PhotoCropper
               key={photoCrop.id}
@@ -1196,7 +1197,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           </PhonePanelSlot>
         )}
       </View>
-      {(!readOnly || readerMenuVisible) && <ReadingModeControls
+      {!readOnly && <ReadingModeControls
         controlsRef={modeControlsRef} onLayout={measureModeControls} bottomInset={!compact ? bottomInset : 0}
         reading={readOnly} canEdit={!permissionReadOnly} onFit={fitToScreen} onToggle={toggleReading}
       />}
