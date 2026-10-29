@@ -95,7 +95,7 @@ Refresh Token 원문 대신 SHA-256 해시만 저장한다. 고정된 세션 행
 
 ### 인증 배포 설정 보완
 
-개발/운영 Compose는 JWT·이메일 인증 비밀키, SMTP 설정과 발신 주소를 컨테이너에 전달한다. 필수 값이 없으면 Compose 단계에서 중단한다. 실제 값은 서버의 배포 환경에만 설정하며 Git에 올리지 않는다. prod의 S3 기본값은 유지하므로 SIGNUP_PHOTO_S3_BUCKET과 IAM 역할 권한도 필요하다. local 저장을 명시한 경우 이름 있는 signup-profile-photos 볼륨에 사진을 보존한다. 배포 시 볼륨을 삭제하지 않는다.
+개발/운영 Compose는 JWT·이메일 인증 비밀키, SMTP 설정과 발신 주소를 컨테이너에 전달한다. 필수 값이 없으면 Compose 단계에서 중단한다. 실제 값은 서버의 배포 환경에만 설정하며 Git에 올리지 않는다. dev·prod의 S3 기본값을 유지하므로 MEDIA_S3_BUCKET과 IAM 역할 권한도 필요하다. local 저장을 명시한 경우 이름 있는 signup-profile-photos 볼륨에 사진을 보존한다. 배포 시 볼륨을 삭제하지 않는다.
 
 AUTH_TRUSTED_PROXY_REGEX에는 백엔드에서 보이는 실제 Nginx 출발지 IP만 일치하는 정규식을 넣는다. 예를 들어 출발지가 172.20.0.2라면 `172\.20\.0\.2`이며, 이는 예시이므로 서버의 실제 네트워크 주소를 확인해 설정한다. 모든 IP에 일치하는 식은 사용하지 않는다. Nginx는 외부 X-Forwarded-For를 덮어쓰고 Tomcat은 신뢰한 프록시에서 온 값만 remoteAddr에 반영한다. 따라서 로그인 실패 제한이 모든 사용자를 프록시 하나로 묶지 않는다. 프록시 IP 변경 시 설정도 갱신한다.
 

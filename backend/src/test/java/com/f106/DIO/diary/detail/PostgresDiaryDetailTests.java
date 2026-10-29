@@ -1,34 +1,28 @@
 package com.f106.DIO.diary.detail;
 
+import com.f106.DIO.support.MigratedPostgresSchema;
 import java.util.Properties;
-import java.util.UUID;
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 @EnabledIfSystemProperty(named="dio.diary-detail-postgres",matches="true")
 class PostgresDiaryDetailTests extends DiaryDetailContract {
 	String schema;
-	JdbcTemplate admin;
 
 	@Override
 	DriverManagerDataSource database() {
 		String url = System.getenv("DB_URL"), username=System.getenv("POSTGRES_USER"), password=System.getenv("POSTGRES_PASSWORD");
 		if (url == null || !url.startsWith("jdbc:postgresql://127.0.0.1:")) throw new IllegalStateException("Explicit isolated local PostgreSQL URL required");
-		admin = new JdbcTemplate(new DriverManagerDataSource(url,username,password));
-		schema = "detail_qa_"+UUID.randomUUID().toString().replace("-","");
-		admin.execute("create schema "+schema);
+		// 마이그레이션은 JVM당 한 번만 하고, 테스트마다 데이터만 마이그레이션 직후 상태로 되돌린다.
+		schema = MigratedPostgresSchema.reset(url,username,password,"detail_qa_");
 		var dataSource = new DriverManagerDataSource(url,username,password);
 		Properties properties = new Properties(); properties.setProperty("currentSchema",schema);
 		dataSource.setConnectionProperties(properties);
-		Flyway.configure().dataSource(dataSource).defaultSchema(schema).load().migrate();
 		return dataSource;
 	}
+	// 다음 테스트의 reset이 데이터를 비우므로 스키마를 지우지 않는다.
 	@Override
-	void cleanupDatabase() {
-		if (schema != null && schema.matches("detail_qa_[0-9a-f]{32}")) admin.execute("drop schema "+schema+" cascade");
-	}
+	void cleanupDatabase() {}
 
 	@org.junit.jupiter.api.Test
 	void membershipChangeCannotSlipBetweenAuthorizationAndCommit() throws Exception {

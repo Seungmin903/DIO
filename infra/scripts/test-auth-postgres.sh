@@ -16,12 +16,15 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 # 포트를 호스트에 공개하지 않는 폐기용 DB. 실제 dev/prod DB와 접속 정보·볼륨을 공유하지 않는다.
+# 잡이 끝나면 버리는 DB라 메모리(tmpfs)에 두고 디스크 동기화를 끈다. 마이그레이션·DDL이 많은 테스트가 빨라진다.
 docker run -d --name "$pg_name" --label dio.purpose=auth-ci-test \
-  -e POSTGRES_DB=auth_ci -e POSTGRES_PASSWORD="$test_password" postgres:17 >/dev/null
+  --tmpfs /var/lib/postgresql/data \
+  -e POSTGRES_DB=auth_ci -e POSTGRES_PASSWORD="$test_password" postgres:17 \
+  -c fsync=off -c synchronous_commit=off -c full_page_writes=off >/dev/null
 ready=false
-for ((i=0; i<30; i++)); do
+for ((i=0; i<120; i++)); do
   if docker exec "$pg_name" pg_isready -h 127.0.0.1 -U postgres -d auth_ci >/dev/null 2>&1; then ready=true; break; fi
-  sleep 2
+  sleep 0.5
 done
 if [ "$ready" != true ]; then echo "Isolated PostgreSQL did not become ready" >&2; exit 1; fi
 
