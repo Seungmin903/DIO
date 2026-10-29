@@ -15,7 +15,7 @@ const compile = (path) =>
       expo.resolve('@babel/plugin-transform-modules-commonjs'),
     ],
   }).code;
-function setup(service = {}, photoPicker = async () => null) {
+function setup(service = {}, photoPicker = async () => null, getProfilePhotoSource) {
   const states = [],
     refs = [],
     deps = [],
@@ -124,6 +124,7 @@ function setup(service = {}, photoPicker = async () => null) {
       user,
       service,
       photoPicker,
+      getProfilePhotoSource,
       onClose() {
         closed++;
       },
@@ -335,4 +336,12 @@ test('사진 선택의 늦은 응답과 실패는 언마운트·기존 프로필
   assert.ok(nodes(failed.render()).some(n => n.type === 'Image' && n.props.source.uri === 'file:///old.jpg'));
   assert.ok(nodes(failed.render()).some(n => n.props.children === '사진 선택 오류'));
   assert.equal(find(failed, '변경사항 저장').props.disabled, true); failed.unmount();
+});
+
+test('저장된 서버 프로필 사진도 회원정보 수정 화면에서 인증 source로 렌더링한다', () => {
+  const source = { uri: 'https://server.example/api/v1/auth/profile-photos/abc', headers: { Authorization: 'Basic test' } };
+  const ui = setup({}, undefined, () => source);
+  const photo = nodes(ui.render()).find((node) => node.type === 'Image' && node.props.accessibilityLabel === '프로필 사진');
+  assert.deepEqual(photo.props.source, source);
+  ui.unmount();
 });

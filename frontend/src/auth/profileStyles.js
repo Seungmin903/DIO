@@ -2,11 +2,10 @@ import { StyleSheet } from 'react-native';
 import { colors as c, radius, DISABLED_OPACITY } from '../shared/theme';
 export const profileStyles = StyleSheet.create({
   root: { flex: 1 },
-  scroll: { flexGrow: 1, padding: 32 },
-  phoneScroll: { padding: 16 },
-  heading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 28 },
-  title: { fontSize: 26, fontWeight: '800', color: c.text, flex: 1 },
-  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  scroll: { flexGrow: 1, paddingHorizontal: 30, paddingTop: 38, paddingBottom: 44 },
+  phoneScroll: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 48 },
+  headerBack: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface },
+  headerBackCompact: { width: 38, height: 38, borderRadius: 10, borderWidth: 0, backgroundColor: 'transparent' },
   card: {
     width: '100%',
     maxWidth: 880,
@@ -130,8 +129,10 @@ export const profileStyles = StyleSheet.create({
   phoneFooter: { flexDirection: 'column-reverse', alignItems: 'stretch', gap: 12 },
   actions: { flexDirection: 'row', gap: 12 },
   phoneActions: { width: '100%' },
-  withdraw: { minHeight: 44, justifyContent: 'center', alignItems: 'flex-start' },
-  withdrawText: { fontSize: 12, color: c.textMuted },
+  // 저장·취소와 거리를 둔 파괴적 작업. 채운 빨간 버튼은 확인 대화상자의 최종
+  // 탈퇴하기에만 쓰고, 여기서는 의도를 분명히 하는 외곽선 버튼으로 유지한다.
+  withdraw: { minHeight: 48, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: c.danger, borderRadius: radius.md, backgroundColor: 'rgba(229,72,77,0.04)' },
+  withdrawText: { fontSize: 14, fontWeight: '700', color: c.danger },
   notice: { color: c.text, fontSize: 13, lineHeight: 20, marginBottom: 16 },
   backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: 'center', alignItems: 'center' },
   modalScroll: { flexGrow: 1, padding: 20, justifyContent: 'center', alignItems: 'center' },

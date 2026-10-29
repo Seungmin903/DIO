@@ -27,7 +27,7 @@ const common = (color, strokeWidth) => ({
   strokeLinejoin: 'round',
 });
 
-/** 앱 전반에서 쓰는 선형 아이콘. 편집 화면에 없는 것(menu·book·person·star·moon)만 여기서 그린다 */
+/** 앱 전반에서 쓰는 선형 아이콘. 편집 화면에 없는 것(menu·book·person·star·moon·lock)만 여기서 그린다 */
 export default function AppIcon({ name, size = 24, color = colors.text, strokeWidth = 1.8, fill = 'none' }) {
   if (EDITOR_ICONS[name]) return <EditorIcon name={EDITOR_ICONS[name]} size={size} color={color} strokeWidth={strokeWidth} />;
   const line = common(color, strokeWidth);
@@ -51,6 +51,15 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
       break;
     case 'moon':
       graphic = <Path {...line} d="M18.7 15.1A7.5 7.5 0 0 1 8.9 5.3 7.5 7.5 0 1 0 18.7 15.1Z" />;
+      break;
+    case 'bell':
+      graphic = <><Path {...line} d="M6 17.5h12l-1.5-2.2v-4a4.5 4.5 0 0 0-9 0v4L6 17.5Z" /><Path {...line} d="M10 20h4" /></>;
+      break;
+    case 'lock':
+      graphic = <><Path {...line} d="M6.5 10V7.8a5.5 5.5 0 0 1 11 0V10" /><Path {...line} d="M5 10h14v10H5z" /><Line {...line} x1="12" y1="14" x2="12" y2="16" /></>;
+      break;
+    case 'info':
+      graphic = <><Circle {...line} cx="12" cy="12" r="8.5" /><Line {...line} x1="12" y1="10.5" x2="12" y2="16.5" /><Circle cx="12" cy="7.5" r="1" fill={color} /></>;
       break;
     default:
       graphic = <Circle {...line} cx="12" cy="12" r="7" />;

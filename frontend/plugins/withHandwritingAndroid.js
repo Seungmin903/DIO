@@ -19,7 +19,7 @@ module.exports = function withHandwritingAndroid(config) {
     const bundleMarker = '// DIO license JSON must invalidate the Hermes bundle'
     if (!mod.modResults.contents.includes(bundleMarker)) mod.modResults.contents += `\n${bundleMarker}\ntasks.configureEach { task ->\n    if (task.name.startsWith('createBundle') && task.name.endsWith('JsAndAssets')) {\n        task.inputs.files(new File(rootDir.parentFile, 'src/licenses/generated/android.json'), new File(rootDir.parentFile, 'src/diary/data/contentLicenses.json'))\n    }\n}\n`
     const pathMarker = '// DIO bounded CMake object paths on Windows'
-    if (!mod.modResults.contents.includes(pathMarker)) mod.modResults.contents += `\n${pathMarker}\nif (System.getProperty('os.name').toLowerCase().contains('windows')) {\n    android.defaultConfig.externalNativeBuild.cmake.arguments '-DCMAKE_OBJECT_PATH_MAX=240'\n}\n`
+    if (!mod.modResults.contents.includes(pathMarker)) mod.modResults.contents += `\n${pathMarker}\nif (System.getProperty('os.name').toLowerCase().contains('windows')) {\n    android.defaultConfig.externalNativeBuild.cmake.arguments '-DCMAKE_OBJECT_PATH_MAX=128'\n    android.externalNativeBuild.cmake.buildStagingDirectory new File(System.getProperty('user.home'), '.dio-cxx')\n}\n`
     return mod
   })
 }

@@ -11,8 +11,20 @@ if (Platform.OS === 'android') {
 // 앱이 다시 앞으로 오면 시스템이 바를 되살릴 수 있어 그때마다 다시 숨긴다.
 export function useHiddenNavigationBar() {
   useEffect(() => {
-    if (!NavigationBar) return undefined
-    const hide = () => { NavigationBar.setVisibilityAsync('hidden').catch(() => {}) }
+    // Expo Go·이전 개발 빌드에서는 JS 모듈만 존재하고 네이티브 구현 또는 메서드가
+    // 빠질 수 있다. 이 경우 내부 색상/표시 설정 호출이 앱의 빨간 오류 화면으로
+    // 이어지지 않도록 기능을 건너뛴다.
+    if (!NavigationBar || typeof NavigationBar.setHidden !== 'function') return undefined
+    const hide = () => {
+      try {
+        const pending = NavigationBar.setHidden(true)
+        // Expo Modules 구현은 환경에 따라 Promise를 돌려줄 수 있다. 예전 개발 빌드의
+        // 네이티브 모듈이 이를 지원하지 않을 때 거부를 처리해 빨간 오류 화면을 막는다.
+        if (pending && typeof pending.catch === 'function') pending.catch(() => {})
+      } catch {
+        // 시스템 내비게이션 바 제어는 보조 기능이므로 지원하지 않는 런타임에서는 무시한다.
+      }
+    }
     hide()
     const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') hide() })
     return () => subscription.remove()

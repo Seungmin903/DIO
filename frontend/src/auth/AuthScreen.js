@@ -33,6 +33,7 @@ import { authStyles as s } from './styles';
 import ProviderIcon from './ProviderIcon';
 import { pickProfilePhoto } from './profilePhoto';
 import EmailVerification from './EmailVerification';
+import PasswordResetScreen from './PasswordResetScreen';
 
 const PROVIDERS = [
   { id: 'kakao', name: '카카오', color: '#FEE500' },
@@ -345,6 +346,19 @@ export default function AuthScreen({
       <Text style={s.buttonText}>{busy ? '처리 중…' : label}</Text>
     </Pressable>
   );
+  if (route === 'password-reset') {
+    return (
+      <SafeAreaView style={s.safe}>
+        <PasswordResetScreen
+          compact={isPhone}
+          email={values.email}
+          service={service}
+          onClose={() => navigate('welcome')}
+          onComplete={() => navigate('welcome')}
+        />
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView
@@ -534,11 +548,7 @@ export default function AuthScreen({
                     </Text>
                     {link(
                       '비밀번호 찾기',
-                      () =>
-                        setInfo({
-                          title: '비밀번호 찾기',
-                          body: '비밀번호 재설정은 계정 서비스 연결 후 이용할 수 있어요. 현재는 메일이 발송되지 않아요.',
-                        }),
+                      () => navigate('password-reset'),
                       s.accountLink,
                     )}
                     <Text

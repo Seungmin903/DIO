@@ -339,17 +339,6 @@ export const styles = StyleSheet.create({
   blankPlus: { color: C.blueStrong, fontSize: 27, lineHeight: 29, fontWeight: '300' },
   blankText: { color: C.ink, fontSize: 12, fontWeight: '700' },
 
-  profileHero: { flexDirection: 'row', alignItems: 'center', gap: 17, padding: 30, borderRadius: 23, backgroundColor: C.navy },
-  profileHeroText: { flex: 1, minWidth: 0 },
-  profileBadge: { width: 60, height: 60, alignItems: 'center', justifyContent: 'center', borderRadius: 21, backgroundColor: C.blueStrong },
-  profileBadgeText: { color: C.white, fontSize: 26, fontWeight: '800' },
-  profileTitle: { color: C.white, fontSize: 21, fontWeight: '800', letterSpacing: -0.6 },
-  profileCopy: { color: '#C2D0EA', fontSize: 12, marginTop: 6 },
-  stats: { flexDirection: 'row', alignItems: 'stretch', padding: 25, marginTop: 20, borderRadius: 20, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
-  stat: { flex: 1, alignItems: 'center' },
-  statNumber: { color: C.ink, fontSize: 25, fontWeight: '800' },
-  statLabel: { color: C.muted, fontSize: 11, fontWeight: '700', marginTop: 6 },
-  statLine: { width: 1, backgroundColor: C.line },
   tip: { padding: 25, marginTop: 20, borderRadius: 20, backgroundColor: C.pale },
   tipKicker: { color: C.blueStrong, fontSize: 10, fontWeight: '800', letterSpacing: 1.1 },
   tipTitle: { color: C.ink, fontSize: 16, fontWeight: '800', marginTop: 8 },
@@ -384,5 +373,4 @@ export const styles = StyleSheet.create({
   trashRowInfo: { flex: 1, minWidth: 0 },
   trashRowTitle: { color: C.ink, fontSize: 16, fontWeight: '700', letterSpacing: -0.3 },
   trashRowDate: { color: C.muted, fontSize: 12, fontWeight: '600', marginTop: 5 },
-  profileHeroCompact: { padding: 20 },
 });

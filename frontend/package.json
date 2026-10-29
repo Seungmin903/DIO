@@ -20,6 +20,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "start:go": "expo start --go",
+    "android:dev": "expo run:android",
     "android:font-dev": "expo run:android",
     "test:handwriting": "node --test tests/handwriting.test.js",
     "qa:handwriting": "node tests/handwriting-browser.cjs",

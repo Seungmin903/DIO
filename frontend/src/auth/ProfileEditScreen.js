@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import AppIcon from '../shared/AppIcon';
+import Header from '../diary/components/Header';
 import Modal from '../editor/components/controls/EditorModal';
 import { colors } from '../shared/theme';
 import { previewAuth } from './previewAuth';
@@ -29,7 +30,9 @@ export default function ProfileEditScreen({
   onClose,
   onUpdate,
   onEndSession,
+  onPasswordReset,
   registerLeaveGuard,
+  getProfilePhotoSource,
   service = previewAuth,
   photoPicker = pickProfilePhoto,
 }) {
@@ -50,6 +53,11 @@ export default function ProfileEditScreen({
     pendingLeave = useRef(null);
   const form = useProfileKeyboard(),
     modalForm = useProfileKeyboard();
+  // 서버 사진은 개발 게이트웨이 인증 헤더가 필요할 수 있다. 홈과 수정 화면이
+  // 서로 다른 source를 쓰면, 이미 설정한 사진이 수정 화면에서만 빈 이미지가 된다.
+  const photoSource = photoUri
+    ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri })
+    : null;
   const name = normalizeNickname(nickname),
     originalName = normalizeNickname(saved.nickname);
   const changed = nickname !== saved.nickname || photoUri !== (saved.photoUri || null);
@@ -248,27 +256,28 @@ export default function ProfileEditScreen({
         scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={s.heading}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="내 공간으로 돌아가기"
-            disabled={busy}
-            onPress={() => leave(onClose)}
-            style={s.back}
-          >
-            <AppIcon name="chevron-left" size={24} />
-          </Pressable>
-          <Text accessibilityRole="header" style={s.title}>
-            회원정보 수정
-          </Text>
-        </View>
+        <Header
+          title="회원정보 수정"
+          compact={compact}
+          right={(
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="마이페이지로 돌아가기"
+              disabled={busy}
+              onPress={() => leave(onClose)}
+              style={({ pressed }) => [s.headerBack, compact && s.headerBackCompact, busy && s.disabled, pressed && s.pressed]}
+            >
+              <AppIcon name="chevron-left" size={22} />
+            </Pressable>
+          )}
+        />
         <View style={[s.card, compact && s.phoneCard]}>
           <Text style={s.section}>프로필 정보</Text>
           <View style={s.avatarRow}>
             <View style={s.avatarWrap}>
-              {photoUri ? (
+              {photoSource ? (
                 <Image
-                  source={{ uri: photoUri }}
+                  source={photoSource}
                   accessibilityLabel="프로필 사진"
                   style={s.photo}
                 />
@@ -355,9 +364,9 @@ export default function ProfileEditScreen({
               <FormRow label="비밀번호" compact={compact}>
                 <View style={{ alignItems: 'flex-start' }}>
                   <Button
-                    label="비밀번호 변경"
+                    label={onPasswordReset ? '비밀번호 재설정' : '비밀번호 변경'}
                     secondary
-                    onPress={() => showDialog('password')}
+                    onPress={() => onPasswordReset ? leave(onPasswordReset) : showDialog('password')}
                     disabled={busy}
                   />
                 </View>

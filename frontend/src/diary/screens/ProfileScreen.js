@@ -6,82 +6,204 @@ import Header from '../components/Header';
 import AppInformation from '../components/AppInformation';
 import { colors, radius } from '../../shared/theme';
 import AppIcon from '../../shared/AppIcon';
+import { C } from '../constants';
 import ProfileEditScreen from '../../auth/ProfileEditScreen';
+import PasswordResetScreen from '../../auth/PasswordResetScreen';
+import NotificationSettingsScreen from './NotificationSettingsScreen';
+import { authService } from '../../auth/authService';
 import { openFontStudio } from '../../handwriting/studioBus.js';
 
-
-export default function ProfileScreen({ diaries, compact = false, previewUser, onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource }) {
-  const [editing, setEditing] = useState(false);
+export default function ProfileScreen({ compact = false, previewUser, onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource }) {
+  const [route, setRoute] = useState('home');
   const [failedPhoto, setFailedPhoto] = useState(null);
+  const guest = !previewUser || previewUser.provider === 'guest';
   const photoUri = previewUser?.photoUri;
   const photoSource = photoUri
-    ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri }) : null;
-  // 실패 상태는 계정·사진·접근 인증에 묶는다. 인증 변경 후 같은 사진도 다시 시도한다.
-  // 인증 값은 메모리 비교에만 사용하고 캐시 키·로그에는 넣지 않는다.
-  const photoIdentity = JSON.stringify([previewUser?.userId || previewUser?.accountId || 'guest', photoUri, photoSource?.headers || null]);
-  const photoCacheKey = JSON.stringify(['profile', previewUser?.userId || previewUser?.accountId || 'guest', photoUri]);
-  const favorites = diaries.filter(diary => diary.favorite).length;
-  const guest = previewUser?.provider === 'guest';
-  if (editing) return <ProfileEditScreen compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onEndPreview} registerLeaveGuard={registerLeaveGuard} />;
+    ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri })
+    : null;
+  const photoIdentity = JSON.stringify([
+    previewUser?.userId || previewUser?.accountId || 'guest',
+    photoUri,
+    photoSource?.headers || null,
+  ]);
+  const photoCacheKey = JSON.stringify([
+    'profile',
+    previewUser?.userId || previewUser?.accountId || 'guest',
+    photoUri,
+  ]);
 
-  const profileAction = guest && onEndPreview ? (
-    <Pressable accessibilityRole="button" accessibilityLabel="로그인·회원가입" onPress={onEndPreview} style={({ pressed }) => [local.profileAction, local.guestAction, pressed && local.pressed]}>
-      <Text style={local.guestActionText}>로그인·회원가입</Text>
-    </Pressable>
-  ) : !guest && previewUser?.accountId ? (
-    <Pressable accessibilityRole="button" accessibilityLabel="회원정보 수정" onPress={() => setEditing(true)} style={({ pressed }) => [local.profileAction, pressed && local.pressed]}>
-      <Text style={local.profileActionText}>프로필 수정</Text>
-      <AppIcon name="chevron-right" size={16} color={colors.surface} />
-    </Pressable>
-  ) : null;
+  if (route === 'edit') {
+    return (
+      <ProfileEditScreen
+        compact={compact}
+        user={previewUser}
+        onClose={() => setRoute('home')}
+        onUpdate={onUpdatePreview}
+        onEndSession={onEndPreview}
+        onPasswordReset={() => setRoute('password')}
+        registerLeaveGuard={registerLeaveGuard}
+        getProfilePhotoSource={getProfilePhotoSource}
+      />
+    );
+  }
+  if (route === 'password') {
+    return (
+      <PasswordResetScreen
+        compact={compact}
+        email={previewUser?.email || ''}
+        service={authService}
+        onClose={() => setRoute('home')}
+        onComplete={onEndPreview}
+      />
+    );
+  }
+  if (route === 'notifications') {
+    return <NotificationSettingsScreen compact={compact} onClose={() => setRoute('home')} />;
+  }
+  if (route === 'app-info') {
+    return <AppInfoScreen compact={compact} onClose={() => setRoute('home')} />;
+  }
 
   return (
     <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
-      <Header title="내 공간" compact={compact} />
-      <View style={[s.profileHero, compact && s.profileHeroCompact]}>
-        <View style={s.profileBadge}>
-          {photoUri && failedPhoto !== photoIdentity
-            ? <Image source={{ ...photoSource, cacheKey: photoCacheKey }}
-                contentFit="cover" cachePolicy="memory"
-                onError={() => {
-                  setFailedPhoto(photoIdentity);
-                }} accessibilityLabel="프로필 사진" style={local.photo} />
-            : <Text style={s.profileBadgeText}>D</Text>}
-        </View>
-        <View style={s.profileHeroText}>
-          <Text style={s.profileTitle}>{previewUser?.nickname ? `${previewUser.nickname}님의 기록 공간` : '나의 기록 공간'}</Text>
-          {compact && profileAction}
-        </View>
-        {!compact && profileAction}
+      <Header title="마이페이지" compact={compact} />
+      <View style={local.content}>
+        {guest ? (
+          <View style={local.guestCard}>
+            <View style={local.guestIcon}><AppIcon name="person" size={26} color={C.blueStrong} /></View>
+            <View style={local.guestCopy}>
+              <Text style={local.guestTitle}>로그인이 필요해요</Text>
+              <Text style={local.guestDescription}>계정에 로그인하거나 새로 가입해 주세요.</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="로그인·회원가입"
+              onPress={onEndPreview}
+              style={({ pressed }) => [local.guestButton, pressed && local.pressed]}
+            >
+              <Text style={local.guestButtonText}>로그인·회원가입</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="회원정보 수정"
+            onPress={() => setRoute('edit')}
+            style={({ pressed }) => [local.profileCard, pressed && local.pressed]}
+          >
+            <View style={local.avatar}>
+              {photoUri && failedPhoto !== photoIdentity ? (
+                <Image
+                  source={{ ...photoSource, cacheKey: photoCacheKey }}
+                  contentFit="cover"
+                  cachePolicy="memory"
+                  accessibilityLabel="프로필 사진"
+                  onError={() => setFailedPhoto(photoIdentity)}
+                  style={local.photo}
+                />
+              ) : (
+                <AppIcon name="person" size={27} color={C.blueStrong} />
+              )}
+            </View>
+            <View style={local.profileCopy}>
+              <Text accessibilityRole="header" style={local.nickname}>{previewUser?.nickname || '사용자'}</Text>
+              {!!previewUser?.email && <Text selectable style={local.email}>{previewUser.email}</Text>}
+            </View>
+            <AppIcon name="chevron-right" size={20} color={C.muted} />
+          </Pressable>
+        )}
+        {!guest && (
+          <>
+            <Text style={local.groupTitle}>계정</Text>
+            <ListSection>
+              {previewUser?.provider === 'email' && (
+                <ListItem label="비밀번호 변경" icon="lock" onPress={() => setRoute('password')} />
+              )}
+              <ListItem label="알림 설정" icon="bell" onPress={() => setRoute('notifications')} />
+            </ListSection>
+          </>
+        )}
+        <Text style={local.groupTitle}>서비스</Text>
+        <ListSection>
+          {!guest && <ListItem label="나만의 폰트 만들기" icon="edit" onPress={() => openFontStudio()} />}
+          <ListItem label="앱 정보" icon="info" onPress={() => setRoute('app-info')} />
+        </ListSection>
+        {!guest && onEndPreview && (
+          <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={onEndPreview} style={({ pressed }) => [local.logout, pressed && local.pressed]}>
+            <Text style={local.logoutText}>로그아웃</Text>
+          </Pressable>
+        )}
       </View>
-      <View style={s.stats}>
-        <Stat value={diaries.length} label="만든 다이어리" />
-        <View style={s.statLine} />
-        <Stat value={favorites} label="즐겨찾기" />
-      </View>
-      <AppInformation />
-      {!guest && onEndPreview && <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={onEndPreview} style={({ pressed }) => [local.logoutButton, pressed && local.pressed]}><Text style={local.logoutText}>로그아웃</Text></Pressable>}
-      <Pressable accessibilityRole="button" onPress={() => openFontStudio()} style={local.fontCard}>
-        <Text style={local.fontTitle}>나만의 폰트 만들기</Text>
-        <Text style={local.fontDescription}>내 손글씨 36자를 쓰고, 다이어리에 쓸 글꼴로 만들어요.</Text>
-      </Pressable>
-
     </ScrollView>
   );
 }
-function Stat({ value, label }) {
-  return <View style={s.stat}><Text style={s.statNumber}>{value}</Text><Text style={s.statLabel}>{label}</Text></View>;
+
+function ListSection({ children }) {
+  return <View style={local.list}>{children}</View>;
 }
+
+function ListItem({ label, icon, onPress }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [local.item, pressed && local.pressed]}>
+      <View style={local.itemIcon}><AppIcon name={icon} size={20} color={colors.primaryStrong} /></View>
+      <Text style={local.itemLabel}>{label}</Text>
+      <AppIcon name="chevron-right" size={20} color={colors.textMuted} />
+    </Pressable>
+  );
+}
+
+function AppInfoScreen({ compact, onClose }) {
+  return (
+    <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
+      <Header
+        title="앱 정보"
+        compact={compact}
+        right={<BackToProfile compact={compact} onPress={onClose} />}
+      />
+      <View style={local.detailContent}>
+        <AppInformation standalone />
+      </View>
+    </ScrollView>
+  );
+}
+
+function BackToProfile({ compact, onPress }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="마이페이지로 돌아가기"
+      onPress={onPress}
+      style={({ pressed }) => [local.headerBack, compact && local.headerBackCompact, pressed && local.pressed]}
+    >
+      <AppIcon name="chevron-left" size={22} color={C.ink} />
+    </Pressable>
+  );
+}
+
 const local = StyleSheet.create({
-  fontCard: { padding: 20, marginTop: 16, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  fontTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
-  fontDescription: { marginTop: 8, fontSize: 13, lineHeight: 21, color: colors.textMuted },
-  photo: { width: 60, height: 60, borderRadius: 21 },
-  profileAction: { minHeight: 44, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start', paddingHorizontal: 8, flexShrink: 0 },
-  profileActionText: { fontSize: 13, fontWeight: '700', color: colors.surface },
-  guestAction: { backgroundColor: colors.surface, borderRadius: radius.md, paddingHorizontal: 14, marginTop: 6 },
-  guestActionText: { fontSize: 13, fontWeight: '700', color: colors.text },
-  logoutButton: { minHeight: 48, width: '100%', marginTop: 20, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', paddingVertical: 12 },
-  logoutText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center' },
+  profileCard: { minHeight: 104, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.line },
+  avatar: { width: 62, height: 62, borderRadius: 20, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: C.active },
+  photo: { width: 62, height: 62 },
+  profileCopy: { flex: 1, gap: 6 },
+  nickname: { color: C.ink, fontSize: 19, fontWeight: '800', letterSpacing: -0.35 },
+  email: { color: C.muted, fontSize: 13 },
+  guestCard: { minHeight: 120, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14, padding: 20, backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.line },
+  guestIcon: { width: 50, height: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: C.active },
+  guestCopy: { flex: 1, minWidth: 170, gap: 6 },
+  guestTitle: { color: C.ink, fontSize: 16, fontWeight: '800' },
+  guestDescription: { color: C.muted, fontSize: 13, lineHeight: 20 },
+  guestButton: { minHeight: 48, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: C.blueStrong },
+  guestButtonText: { color: C.white, fontSize: 14, fontWeight: '800' },
+  groupTitle: { color: C.muted, fontSize: 12, fontWeight: '800', marginTop: 26, marginBottom: 9, paddingHorizontal: 4 },
+  list: { overflow: 'hidden', backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18 },
+  item: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },
+  itemIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: C.pale },
+  itemLabel: { flex: 1, color: C.ink, fontSize: 15, fontWeight: '700' },
+  logout: { minHeight: 52, marginTop: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 14, backgroundColor: C.white },
+  logoutText: { color: C.muted, fontSize: 15, fontWeight: '700' },
+  detailContent: { width: '100%', maxWidth: 760, alignSelf: 'center' },
+  headerBack: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
+  headerBackCompact: { width: 38, height: 38, borderRadius: 10, borderWidth: 0, backgroundColor: 'transparent' },
   pressed: { opacity: 0.7 },
 });
