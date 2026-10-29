@@ -259,6 +259,21 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         signupPending = false;
       }
     },
+    async withdraw(user) {
+      if (!session || String(user?.userId) !== String(session.user.userId)) throw new Error('다시 로그인해 주세요.');
+      if (refreshing) await refreshing;
+      let current = session;
+      if (!current || String(user?.userId) !== String(current.user.userId)) throw new Error('로그인 상태가 변경되었어요.');
+      try { await request('me', undefined, current.accessToken, false, 'DELETE', true); }
+      catch (error) {
+        if (error.status !== 401 || error.code === 'DEVELOPMENT_ACCESS_REQUIRED') throw error;
+        if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+        await api.refresh(); current = session;
+        await request('me', undefined, current.accessToken, false, 'DELETE', true);
+      }
+      if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+      session = null; api.cancelPending();
+    },
     async changePassword(user, { currentPassword, password, confirmation }) {
       if (!session || String(user?.userId) !== String(session.user.userId)) throw new Error('다시 로그인해 주세요.');
       if (!currentPassword || passwordError(password) || password !== confirmation || currentPassword === password)

@@ -26,6 +26,7 @@ const WITHDRAW_TEXT = '탈퇴합니다';
 export default function ProfileEditScreen({
   user,
   passwordOnly = false,
+  withdrawOnly = false,
   compact = false,
   onClose,
   onUpdate,
@@ -37,7 +38,7 @@ export default function ProfileEditScreen({
   const [saved, setSaved] = useState(user);
   const [nickname, setNickname] = useState(user.nickname);
   const [photoUri, setPhotoUri] = useState(user.photoUri || null);
-  const [dialog, setDialog] = useState(passwordOnly ? 'password' : null);
+  const [dialog, setDialog] = useState(withdrawOnly ? 'withdraw' : passwordOnly ? 'password' : null);
   const [withdrawText, setWithdrawText] = useState('');
   const [passwords, setPasswords] = useState(emptyPasswords);
   const [busy, setBusy] = useState(false);
@@ -89,7 +90,7 @@ export default function ProfileEditScreen({
       pendingLeave.current = () => {
         setDialog(null);
         setPasswords(emptyPasswords());
-        if (passwordOnly) onClose?.();
+        if (passwordOnly || withdrawOnly) onClose?.();
       };
       setDialog('discard-password');
     } else {
@@ -97,7 +98,7 @@ export default function ProfileEditScreen({
       setPasswords(emptyPasswords());
       setWithdrawText('');
       pendingLeave.current = null;
-      if (passwordOnly) onClose?.();
+      if (passwordOnly || withdrawOnly) onClose?.();
     }
   };
   const leave = (action) => {
@@ -226,7 +227,7 @@ export default function ProfileEditScreen({
         Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined
       }
     >
-      {!passwordOnly && <ScrollView
+      {!passwordOnly && !withdrawOnly && <ScrollView
         ref={form.scroll}
         contentContainerStyle={[s.scroll, compact && s.phoneScroll]}
         onLayout={form.reveal}
@@ -420,6 +421,7 @@ export default function ProfileEditScreen({
               <View style={s.dialogBody}>
                 {dialog === 'withdraw' && (
                   <>
+                    {withdrawOnly && <Text style={s.muted}>다른 멤버가 있는 다이어리는 소유권을 먼저 양도해 주세요. 혼자 소유한 다이어리는 영구 삭제되고, 다른 사람과 공유한 작업은 남아요.</Text>}
                     <Text style={s.muted}>
                       탈퇴하면 DIO 계정을 더 이상 사용할 수 없어요.{'\n'}탈퇴 전 필요한 기록을
                       내보내 주세요.

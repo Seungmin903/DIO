@@ -20,7 +20,7 @@ function setup(user){
   return ()=>null;
  };
  new Function('require','module','exports',code)(load,mod,mod.exports);
- return {service,PasswordForm,render(){cursor=0;return mod.exports.default({diaries:[],previewUser:user,passwordService:service,onEndPreview(){}})}};
+ return {service,PasswordForm,render(){cursor=0;return mod.exports.default({diaries:[],previewUser:user,accountService:service,onEndPreview(){}})}};
 }
 function find(node,label){if(!node||typeof node!=='object')return null;if(node.props?.accessibilityLabel===label)return node;for(const child of [node.props?.children].flat(Infinity)){const found=find(child,label);if(found)return found;}return null;}
 test('실제 이메일 계정의 내 공간은 기존 비밀번호 창에 인증 서비스를 전달한다',()=>{
@@ -31,4 +31,9 @@ test('실제 이메일 계정의 내 공간은 기존 비밀번호 창에 인증
 });
 test('게스트·소셜 계정에는 이메일 비밀번호 변경 진입을 노출하지 않는다',()=>{
  for(const user of [{provider:'guest'},{mode:'authenticated',provider:'google',userId:'8'}])assert.equal(find(setup(user).render(),'비밀번호 변경'),null);
+});
+
+test('실제 계정 탈퇴 진입도 기존 확인 창과 동일한 인증 서비스를 사용한다',()=>{
+ const ui=setup({mode:'authenticated',userId:'7',provider:'email',nickname:'회원'});find(ui.render(),'회원 탈퇴').props.onPress();
+ const form=ui.render();assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.withdrawOnly,true);assert.equal(form.props.passwordOnly,false);assert.equal(form.props.service,ui.service);
 });

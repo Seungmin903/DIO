@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ProfilePhotoRepository extends JpaRepository<ProfilePhoto, UUID> {
+    @Query("select p.photoId from ProfilePhoto p, User u where p.userId=u.userId and u.deletedAt is not null and u.status='WITHDRAWN' order by p.photoId")
+    List<UUID> withdrawnPhotoIds(Pageable page);
     public Optional<ProfilePhoto> findByUserId(Long userId);
     @Query("select p.photoId from ProfilePhoto p where p.imageBytes is not null or p.storageProvider <> :targetProvider order by p.photoId")
     public List<UUID> migrationPhotoIds(String targetProvider, Pageable page);
