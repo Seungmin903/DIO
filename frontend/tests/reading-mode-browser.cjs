@@ -35,6 +35,16 @@ async function main() {
       assert.equal(await page.getByLabel('되돌리기',{exact:true}).count(),0)
       await page.getByRole('button',{name:'다음 페이지',exact:true}).click()
       await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-1')
+      // Non-pointer activation does not emit onPressIn. The previous arrow was disabled on page 0.
+      await page.getByRole('button',{name:'이전 페이지',exact:true}).evaluate(button=>button.click())
+      await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-0')
+      await page.getByRole('button',{name:'다음 페이지',exact:true}).evaluate(button=>button.click())
+      await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-1')
+      await page.evaluate(()=>window.dispatchEvent(new Event('blur')))
+      await page.getByRole('button',{name:'다음 페이지',exact:true}).evaluate(button=>button.click())
+      await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-2')
+      await page.getByRole('button',{name:'이전 페이지',exact:true}).click()
+      await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-1')
       // Canvas areas are viewport-relative, and the menu must not change its geometry.
       const canvas=page.getByLabel('다이어리 읽기 캔버스',{exact:true}), canvasBefore=await canvas.boundingBox()
       await page.mouse.click(width/2,height/2)
@@ -73,6 +83,10 @@ async function main() {
       assert.equal(await page.getByRole('button',{name:'읽기 모드로 전환',exact:true}).count(),0)
       if(width===1280) {
         for(let i=0;i<3;i++) await page.getByRole('button',{name:'이전 페이지',exact:true}).click()
+        await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-0')
+        await page.getByRole('button',{name:'다음 페이지',exact:true}).press('Space')
+        await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-1')
+        await page.getByRole('button',{name:'이전 페이지',exact:true}).press('Enter')
         await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-0')
         await page.evaluate(()=>{window.open=(url)=>{window.__openedReaderLink=url;return null}})
         await page.getByRole('link').first().click()
@@ -122,7 +136,7 @@ async function main() {
         console.log('PASS touch pinch, slow-drag lock, zoomed fast swipe, link priority, edge tap, text draft commit')
       }
       assert.deepEqual(errors,[])
-      console.log(`PASS ${width}x${height}: integrated menu, hold-to-repeat boundaries, page turn, unchanged document, last page, permissions`)
+      console.log(`PASS ${width}x${height}: standalone activation after re-enable/blur, integrated menu, hold-to-repeat boundaries, unchanged document, last page, permissions`)
       await context.close()
     }
   } finally {await browser.close();server.close()}

@@ -4,7 +4,7 @@ import { colors, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import BrandLogo from '../../../shared/BrandLogo'
 import Icon from '../controls/Icon'
 import { pageFromProgress } from '../../utils/readingGestures.js'
-import { createPageRepeat } from '../../utils/pageRepeat.js'
+import { createPageRepeat, isGesturePagePress } from '../../utils/pageRepeat.js'
 
 export const READING_PADDING = { top: 64, bottom: 76, side: 12 }
 
@@ -39,7 +39,7 @@ export function PageTurnAction({ direction, index, count, onSelect }) {
     disabled={disabled} accessibilityHint="누르고 있으면 페이지를 빠르게 넘겨요."
     onPressIn={() => repeat.current.start()} onPressOut={() => repeat.current.release()}
     onTouchCancel={() => repeat.current.cancel()} onPointerCancel={() => repeat.current.cancel()}
-    onPress={() => repeat.current.press()} />
+    onPress={event => repeat.current.press({ gesture: isGesturePagePress(event) })} />
 }
 
 export function ReadingModeControls({ reading, canEdit, onFit, onToggle, controlsRef, onLayout, bottomInset = 0 }) {

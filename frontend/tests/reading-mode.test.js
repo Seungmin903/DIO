@@ -101,9 +101,9 @@ function timerClock() {
 test('짧게 누르면 한 장만 넘기고 길게 누르면 연속으로 넘긴 뒤 해제 시 추가하지 않는다', () => {
   const clock=timerClock(), calls=[]
   const repeat=pageRepeat.createPageRepeat(()=>{calls.push(calls.length+1);return calls.length<4},clock)
-  repeat.start();clock.tick(349);repeat.release();repeat.press()
+  repeat.start();clock.tick(349);repeat.release();repeat.press({gesture:true})
   assert.equal(calls.length,1)
-  repeat.start();clock.tick(350+90*2);repeat.release();repeat.press();clock.tick(1000)
+  repeat.start();clock.tick(350+90*2);repeat.release();repeat.press({gesture:true});clock.tick(1000)
   assert.equal(calls.length,4)
   assert.equal(clock.size(),0)
 })
@@ -112,7 +112,7 @@ test('페이지 끝·터치 취소·메뉴 해제에서 연속 넘김 타이머�
   for (const cancelBeforeFirst of [false,true]) {
     const clock=timerClock();let calls=0
     const repeat=pageRepeat.createPageRepeat(()=>{calls++;return calls<2},clock)
-    repeat.start();clock.tick(cancelBeforeFirst?100:350);repeat.cancel();repeat.press();clock.tick(1000)
+    repeat.start();clock.tick(cancelBeforeFirst?100:350);repeat.cancel();repeat.press({gesture:true});clock.tick(1000)
     assert.equal(calls,cancelBeforeFirst?0:1)
     assert.equal(clock.size(),0)
     repeat.start();clock.tick(1000)
@@ -130,7 +130,7 @@ test('실제 페이지 버튼은 배경 전환·unmount에서 반복을 정리�
     const button=chrome({effects:true,appListeners,cleanups}).PageTurnAction({direction:1,index:0,count:4,onSelect:i=>calls.push(i)})
     button.props.onPressIn();t.mock.timers.tick(350)
     assert.deepEqual(calls,[1])
-    appListeners[0]('background');t.mock.timers.tick(1000);button.props.onPress()
+    appListeners[0]('background');t.mock.timers.tick(1000);button.props.onPress({type:'responderRelease',nativeEvent:{identifier:1,touches:[]}})
     assert.deepEqual(calls,[1])
     button.props.onPressIn();t.mock.timers.tick(350)
     assert.deepEqual(calls,[1,2])
@@ -138,4 +138,48 @@ test('실제 페이지 버튼은 배경 전환·unmount에서 반복을 정리�
     assert.deepEqual(calls,[1,2])
     assert.equal(appListeners.length,0)
   } finally {if(hadWindow)globalThis.window=previous;else delete globalThis.window}
+})
+
+test('비활성·앱 비활성화 정리 후 첫 독립 접근성 활성화부터 한 장씩 이동한다', () => {
+  const clock=timerClock();let calls=0
+  const repeat=pageRepeat.createPageRepeat(()=>{calls++;return true},clock)
+  repeat.cancel();repeat.press()
+  assert.equal(calls,1)
+  repeat.cancel();repeat.press()
+  assert.equal(calls,2)
+  assert.equal(clock.size(),0)
+})
+
+test('입력 출처는 네이티브 접근성 click·브라우저 비포인터 click과 터치·마우스·키보드를 구분한다', () => {
+  for (const event of [undefined,{type:'click',nativeEvent:{target:1}},{nativeEvent:{type:'click',detail:0,pointerType:''}}]) {
+    assert.equal(pageRepeat.isGesturePagePress(event),false)
+  }
+  for (const event of [{type:'responderRelease',nativeEvent:{identifier:0,touches:[]}},
+    {nativeEvent:{pointerType:'mouse',detail:1}},{type:'click',nativeEvent:{detail:1}},
+    {type:'keyup',nativeEvent:{key:' '}}]) {
+    assert.equal(pageRepeat.isGesturePagePress(event),true)
+  }
+})
+
+test('취소된 누름 직후 새 접근성 활성화는 처리하고 뒤늦은 터치 해제는 추가 이동하지 않는다', () => {
+  for(const long of [false,true]) {
+    const clock=timerClock();let calls=0
+    const repeat=pageRepeat.createPageRepeat(()=>{calls++;return true},clock)
+    repeat.start();clock.tick(long?350:100);repeat.cancel();repeat.press()
+    assert.equal(calls,long?2:1)
+    repeat.press({gesture:true});clock.tick(1000)
+    assert.equal(calls,long?2:1)
+    assert.equal(clock.size(),0)
+  }
+})
+
+test('실제 버튼은 background 복귀 후 onPressIn 없는 접근성 활성화를 첫 회부터 처리한다', () => {
+  const appListeners=[],cleanups=[],calls=[]
+  const button=chrome({effects:true,appListeners,cleanups}).PageTurnAction({direction:1,index:0,count:4,onSelect:i=>calls.push(i)})
+  appListeners[0]('background');appListeners[0]('active')
+  button.props.onPress({type:'click',nativeEvent:{detail:0}})
+  assert.deepEqual(calls,[1])
+  button.props.onPress()
+  assert.deepEqual(calls,[1,2])
+  cleanups.forEach(cleanup=>cleanup())
 })
