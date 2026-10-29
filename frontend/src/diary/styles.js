@@ -28,6 +28,10 @@ export const styles = StyleSheet.create({
   railTogglePressed: { backgroundColor: '#F4F7FC' },
   railToggleText: { color: C.ink, fontSize: 19, lineHeight: 22, fontWeight: '700' },
   // 새 다이어리: 편집 화면의 주 버튼(내보내기)과 같은 색
+  libraryRoot: { flex: 1 },
+  // 보관함 오른쪽 아래에 떠 있는 새 다이어리 버튼 (예전 사이드 메뉴 + 버튼과 같은 색 · 모서리)
+  createFab: { position: 'absolute', right: 32, bottom: 32, width: 60, height: 60, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: C.blueStrong, shadowColor: C.ink, shadowOpacity: 0.16, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+  createFabCompact: { right: 20, bottom: 20, width: 56, height: 56, borderRadius: 16 },
   railCreate: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 14, backgroundColor: C.blueStrong },
   railPlus: { color: C.white, fontSize: 23, lineHeight: 25, fontWeight: '300' },
   railCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
@@ -141,7 +145,7 @@ export const styles = StyleSheet.create({
   carouselCards: { alignItems: 'flex-start', gap: 42, paddingVertical: 28 },
   // 가운데 카드가 커지고(1.06) 위로 올라가는(-12) 만큼 위아래 여백을 둬야 카드 윗부분이 잘리지 않는다.
   carouselCardsCompact: { paddingVertical: 28 },
-  carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
+  carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.08, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   carouselArrowLeft: { left: 4 },
   carouselArrowRight: { right: 4 },
   carouselArrowText: { color: C.ink, fontSize: 32, lineHeight: 35, fontWeight: '300' },
@@ -150,8 +154,8 @@ export const styles = StyleSheet.create({
   swipeHint: { color: C.inkSoft, fontSize: 11.5, fontWeight: '700' },
   carouselCount: { color: C.ink, fontSize: 13, fontWeight: '800' },
   card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18, overflow: 'hidden' },
-  cardCarousel: { width: 238, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
-  cardCarouselCompact: { width: 202 },
+  cardCarousel: { width: 318, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
+  cardCarouselCompact: { width: 268 },
   cardGrid: { width: '18.25%', minWidth: 160, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardGridCompact: { width: '47.5%', minWidth: 0 },
   cardList: { minHeight: 120, flexDirection: 'row', alignItems: 'stretch' },
@@ -181,8 +185,9 @@ export const styles = StyleSheet.create({
   cover: { height: 219, padding: 19, overflow: 'hidden', justifyContent: 'center' },
   coverCarousel: { height: 318, borderTopLeftRadius: 9, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 9 },
   coverCarouselCompact: { height: 268, padding: 16 },
-  coverGrid: { height: 276, borderRadius: 12, shadowColor: C.ink, shadowOpacity: 0.13, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
-  coverGridCompact: { height: 212, padding: 15 },
+  // 한눈에 칸은 정사각형. 세로 · 가로 다이어리 모두 긴 변이 칸 크기와 같다 (선반 배치)
+  coverGrid: { aspectRatio: 1, borderRadius: 12, shadowColor: C.ink, shadowOpacity: 0.13, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  coverGridCompact: { padding: 15 },
   coverSmall: { width: 143, height: '100%', minHeight: 118, padding: 13 },
   coverPreview: { width: 250, height: 330, borderRadius: 14, padding: 27, shadowColor: C.ink, shadowOpacity: 0.19, shadowRadius: 19, shadowOffset: { width: 0, height: 13 }, elevation: 6 },
   coverLine: { position: 'absolute', top: 17, left: 0, width: '54%', height: 4, borderTopRightRadius: 5, borderBottomRightRadius: 5, backgroundColor: 'rgba(255,255,255,.52)' },
