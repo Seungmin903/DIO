@@ -81,6 +81,9 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         throw error;
       }
       return data;
+    } catch (error) {
+      if (error?.status || error?.code === 'AUTH_CONNECTION_FAILED') throw error;
+      throw Object.assign(new Error('요청을 처리하지 못했어요. 다시 시도해 주세요.'), { code: 'AUTH_REQUEST_FAILED' });
     } finally { clearTimeout(timer); }
   }
   const api = {
