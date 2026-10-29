@@ -11,3 +11,9 @@
 - 글꼴 출처: https://hangeul.naver.com/font
 
 세로형, 원본 TTF, PNG는 포함하지 않는다. 향후 템플릿을 수정할 때는 새 버전으로 추가하고 기존 문서가 참조하는 버전의 SVG를 덮어쓰지 않는다.
+
+## 날짜 속지는 앱에서 만든다
+
+새 다이어리의 날짜 속지(표지 연도 · 월 구분지 · 먼슬리 · 위클리)는 연도별 SVG 를 더하지 않고, 같은 양식의 만년형 속지(`undated/`) 위에 날짜를 얹어 앱이 만든다(`src/editor/templates/dated.js`, ID 예: `dated-monthly-2027-03-portrait`).
+글자 윤곽 · 커닝 · 글자 자리는 이 폴더의 2026 원본에서 뽑은 `src/editor/templates/datedGlyphs.js` 를 쓴다(`scripts/generate-dated-glyphs.py` 로 다시 만든다). 2026 원본 262장과 만든 속지는 글자 · 색 · 자리가 같은지 `tests/dated-templates.test.js` 가 확인한다.
+2026 SVG 파일은 예전 다이어리 페이지가 가리키므로 지우지 않는다.

@@ -1,6 +1,6 @@
 export const UNDATED_WEEK_COUNT = 6
 export const isUndated = config => config?.dateMode === 'undated'
-export const monthCount = config => isUndated(config) ? 1 : 12
+export const monthCount = config => isUndated(config) ? 1 : config?.months ?? 12
 export const undatedTemplateId = (kind, orientation = 'landscape') => `undated-${kind}-${orientation}`
 
 const kinds = [
