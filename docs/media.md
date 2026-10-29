@@ -20,7 +20,7 @@
 
 ## 저장소 설정
 
-기본값은 로컬 디렉터리 `.local-data/media`다. `prod` 프로필에서는 로컬 저장소를 사용할 수 없고, `MEDIA_STORAGE=s3`이 기본값이다. 개발·운영은 **서로 다른 S3 버킷**을 설정한다. S3 객체 키는 서버가 `media/{image|audio}/YYYY/MM/{uuid}.{ext}` 형식으로 생성하며, 클라이언트가 키나 버킷을 지정할 수 없다.
+로컬 개발·테스트의 기본값은 로컬 디렉터리 `.local-data/media`다. 배포 서버의 컨테이너 디스크는 재배포·증설 때 사라지므로 `dev`·`prod` 프로필에서는 로컬 저장소로 기동하지 않고, 두 프로필 모두 `MEDIA_STORAGE=s3`이 기본값이다. 개발·운영은 **서로 다른 S3 버킷**을 설정한다. `infra/compose/compose.{dev,prod}.yml`이 `MEDIA_STORAGE`, `MEDIA_S3_BUCKET`, `MEDIA_S3_REGION`, `MEDIA_DELETE_RETENTION`, `MEDIA_EXPIRY_CLEANUP_ENABLED`를 컨테이너에 넘긴다. 러너의 `dio-env/{dev,prod}.env`에 `MEDIA_S3_BUCKET`이 없으면 배포 단계의 `docker compose config`에서 실패한다. S3 객체 키는 서버가 `media/{image|audio}/YYYY/MM/{uuid}.{ext}` 형식으로 생성하며, 클라이언트가 키나 버킷을 지정할 수 없다.
 
 삭제 API는 DB 행에 `deletedAt`만 기록하는 소프트 삭제다. 원본 객체는 즉시 지우지 않는다. 삭제 직후부터 이 API의 메타데이터·원본 조회는 404다.
 

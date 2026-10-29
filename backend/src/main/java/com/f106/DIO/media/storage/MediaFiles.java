@@ -20,8 +20,9 @@ public class MediaFiles {
 		Map<String, MediaStorage> byProvider = stores.stream().collect(Collectors.toMap(
 			store -> store.provider().toUpperCase(Locale.ROOT), Function.identity()));
 		String configured = provider.toUpperCase(Locale.ROOT);
-		if (configured.equals("LOCAL") && environment.acceptsProfiles(Profiles.of("prod"))) {
-			throw new IllegalStateException("Local media storage is not allowed in the production profile");
+		// 배포 서버의 컨테이너 디스크는 재배포·증설 시 사라지므로 로컬 저장소는 로컬 개발·테스트에서만 쓴다.
+		if (configured.equals("LOCAL") && environment.acceptsProfiles(Profiles.of("prod | dev"))) {
+			throw new IllegalStateException("Local media storage is not allowed in the dev or prod profile; set MEDIA_STORAGE=s3");
 		}
 		active = byProvider.get(configured);
 		if (active == null) throw new IllegalStateException("Unknown or unconfigured media storage");
