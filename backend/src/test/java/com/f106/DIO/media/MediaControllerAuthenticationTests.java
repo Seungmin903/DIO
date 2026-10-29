@@ -15,16 +15,37 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import com.f106.DIO.media.service.MediaService;
 import com.f106.DIO.media.support.MediaFileNotFoundException;
+import com.f106.DIO.media.library.service.SharedMediaLibraryService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class MediaControllerAuthenticationTests {
 	@Autowired MockMvc mvc;
 	@MockitoBean MediaService mediaService;
+	@MockitoBean SharedMediaLibraryService sharedMediaLibraryService;
 
 	@Test
 	void rejectsUnauthenticatedMediaRequests() throws Exception {
 		mvc.perform(get("/api/v1/media")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void rejectsUnauthenticatedSharedLibraryRequests() throws Exception {
+		mvc.perform(get("/api/v1/diaries/" + UUID.randomUUID() + "/media-library")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void addingToTheSharedLibraryReturnsCreatedWithoutAnUnfollowableLocation() throws Exception {
+		UUID diaryId = UUID.randomUUID(); UUID mediaFileId = UUID.randomUUID();
+		org.mockito.Mockito.when(sharedMediaLibraryService.add(diaryId, mediaFileId, 2L)).thenReturn(new com.f106.DIO.media.library.dto.SharedMediaLibraryItemResponse(
+			mediaFileId, "IMAGE", "STICKER", "sticker.png", "image/png", 10, 2L, java.time.Instant.parse("2026-10-29T00:00:00Z")));
+
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/diaries/" + diaryId + "/media-library")
+				.with(jwt().jwt(token -> token.subject("2"))).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+				.content("{\"mediaFileId\":\"" + mediaFileId + "\"}"))
+			.andExpect(status().isCreated())
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().doesNotExist("Location"))
+			.andExpect(jsonPath("$.mediaFileId").value(mediaFileId.toString()));
 	}
 
 	@Test
