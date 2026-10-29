@@ -134,6 +134,43 @@ const find = (tree, label) =>
   nodes(tree).find((n) => n.props.accessibilityLabel === label || n.props.label === label);
 const tick = () => new Promise((r) => setImmediate(r));
 
+test('개인 사본은 취소 시 생성하지 않고 이름을 유지해 실패 재시도하며 연타를 차단한다', async () => {
+  const diary = { id: 'd', title: '공유 기록', members: [{ id: 'self', nickname: '소연', role: 'EDITOR' }] };
+  let count = 0, resolve;
+  const ui = setup({ registerDiary: () => diary, createPersonalCopy: (_id, title) => {
+    count++;
+    if (count === 1) return Promise.reject(new Error('다시 시도해 주세요.'));
+    return new Promise(done => { resolve = () => done({ id: 'copy', title }); });
+  } }, undefined, { diary });
+  find(ui.render(), '개인 사본 만들기').props.onPress();
+  assert.equal(find(ui.render(), '개인 사본 이름').props.value, '공유 기록 사본');
+  find(ui.render(), '사본 만들기 취소').props.onPress();
+  assert.equal(count, 0);
+  find(ui.render(), '개인 사본 만들기').props.onPress();
+  find(ui.render(), '개인 사본 이름').props.onChangeText('   ');
+  assert.equal(find(ui.render(), '개인 사본 생성').props.disabled, true);
+  find(ui.render(), '개인 사본 이름').props.onChangeText('나의 기록');
+  find(ui.render(), '개인 사본 생성').props.onPress();
+  await tick();
+  assert.equal(find(ui.render(), '개인 사본 이름').props.value, '나의 기록');
+  const create = find(ui.render(), '개인 사본 생성');
+  create.props.onPress(); create.props.onPress();
+  assert.equal(count, 2);
+  resolve(); await tick();
+  assert.ok(find(ui.render(), '사본 만들기 완료'));
+  assert.equal(find(ui.render(), '개인 사본 생성'), undefined);
+});
+
+test('실서버와 개인 원본에는 목 사본 만들기를 노출하지 않는다', () => {
+  for (const options of [{ server: true }, { localSource: true }]) {
+    const diary = { id: 'd', title: '원본', localSource: options.localSource,
+      members: [{ id: 'self', nickname: '소연', role: 'OWNER' }] };
+    const ui = setup({ ...options, registerDiary: () => diary, getSharing: async () => diary,
+      createPersonalCopy: () => { throw new Error('호출 금지'); } }, undefined, { diary });
+    assert.equal(find(ui.render(), '개인 사본 만들기'), undefined);
+  }
+});
+
 test('참여자 관리의 취소는 유지하고 양도 실패는 재시도, 성공은 편집자 화면으로 복귀한다', async () => {
   const diary = { id: 'd', title: '관리', members: [
     { id: 'self', nickname: '소연', role: 'OWNER' },
