@@ -26,6 +26,7 @@ class DiaryExpiryMigrationPostgresTests extends DiaryPurgePostgresFixture {
 
         assertThat(migrateTo("14").migrationsExecuted).isEqualTo(1);
         keys.forEach((table,key)->assertThat(snapshotBeforeV16(table,key)).as(table+" rows preserved through V14").isEqualTo(before.get(table)));
+        assertThat(jdbc.queryForObject("select count(*) from pg_indexes where schemaname=? and indexname='diaries_expiry_cleanup_idx'",Long.class,schema)).isEqualTo(1);
 
         assertThat(migrateTo("16").migrationsExecuted).isEqualTo(2);
         keys.forEach((table,key)->assertThat(snapshotBeforeV16(table,key)).as(table+" rows preserved").isEqualTo(before.get(table)));
