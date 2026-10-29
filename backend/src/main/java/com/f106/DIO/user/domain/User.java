@@ -25,7 +25,7 @@ public class User {
     public String getNickname() { return nickname; }
     public boolean isActive() { return deletedAt == null && "ACTIVE".equals(status); }
     public void withdraw(Instant now) {
-        email=null;nickname="탈퇴한 사용자";nicknameKey="withdrawn_"+userId;
+        email=null;nickname="탈퇴한 사용자";nicknameKey="#withdrawn:"+userId;
         profileColor="#6F9FC6";lastLoginAt=null;status="WITHDRAWN";deletedAt=updatedAt=now;
     }
     public void recordLogin(Instant now) { lastLoginAt = now; }

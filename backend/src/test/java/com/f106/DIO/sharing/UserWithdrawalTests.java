@@ -24,6 +24,8 @@ class UserWithdrawalTests extends SharingTestSupport {
     com.f106.DIO.user.infrastructure.storage.ProfilePhotoFiles photoFiles;
     @BeforeEach void referenceFixtures(){
         // 기존 SQL 전용 테이블을 H2 테스트에서도 같은 이름으로 제공한다. 운영 마이그레이션은 추가하지 않는다.
+        jdbc.execute("alter table media_files add column if not exists source_media_file_id uuid");
+        jdbc.execute("create table if not exists ai_jobs(source_media_file_id uuid,result_media_file_id uuid)");
         jdbc.execute("create table if not exists notifications(notification_id bigint,user_id bigint,diary_id uuid,page_id uuid)");
         jdbc.execute("create table if not exists element_strokes(element_id uuid)");
         jdbc.execute("create table if not exists diary_handwriting_fonts(diary_id uuid,font_media_file_id uuid)");
@@ -37,6 +39,28 @@ class UserWithdrawalTests extends SharingTestSupport {
         photoCleanup.clean();assertThat(photos.findById(id)).isPresent();
         org.mockito.Mockito.doNothing().when(photoFiles).delete(org.mockito.ArgumentMatchers.any(ProfilePhoto.class));
         photoCleanup.clean();assertThat(photos.findById(id)).isEmpty();
+    }
+    @Test void failingFirstHundredPhotosDoNotStarveLaterPhotos(){
+        var people=new ArrayList<User>();
+        for(int i=0;i<101;i++)people.add(new User(null,"정리테스트",Instant.now()));
+        users.saveAllAndFlush(people);people.forEach(u->u.withdraw(Instant.now()));users.saveAllAndFlush(people);
+        var pending=new ArrayList<ProfilePhoto>();var failed=new HashSet<UUID>();
+        for(int i=0;i<101;i++){
+            var id=UUID.fromString(String.format("10000000-0000-0000-0000-%012x",i+1));
+            pending.add(new ProfilePhoto(id,people.get(i).getUserId(),"LOCAL","profile-photos/"+id+".png",null,Instant.now()));
+            if(i<100)failed.add(id);
+        }
+        photos.saveAllAndFlush(pending);
+        org.mockito.Mockito.doAnswer(call->{if(failed.contains(((ProfilePhoto)call.getArgument(0)).getPhotoId()))throw new IllegalStateException("permanent failure");return null;})
+            .when(photoFiles).delete(org.mockito.ArgumentMatchers.any(ProfilePhoto.class));
+        try{
+            photoCleanup.clean();photoCleanup.clean();
+            assertThat(photos.findById(pending.get(100).getPhotoId())).isEmpty();
+            assertThat(photos.findById(pending.get(0).getPhotoId())).isPresent();
+        }finally{
+            org.mockito.Mockito.doNothing().when(photoFiles).delete(org.mockito.ArgumentMatchers.any(ProfilePhoto.class));
+            photoCleanup.clean();photoCleanup.clean();
+        }
     }
     @Test void authenticationIsRequired()throws Exception{mvc.perform(delete("/api/v1/me")).andExpect(status().isUnauthorized());}
     @Test void withdrawalAnonymizesAccountAndRevokesSessionsButKeepsOtherAccounts()throws Exception{

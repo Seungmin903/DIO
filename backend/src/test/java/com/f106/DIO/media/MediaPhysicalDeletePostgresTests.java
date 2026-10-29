@@ -36,7 +36,7 @@ class MediaPhysicalDeletePostgresTests {
 	private final UUID expiredFree = UUID.randomUUID(), expiredFree2 = UUID.randomUUID();
 	private final UUID recentlyDeleted = UUID.randomUUID(), active = UUID.randomUUID();
 	private final UUID canvas = UUID.randomUUID(), font = UUID.randomUUID(), library = UUID.randomUUID();
-	private final UUID aiSource = UUID.randomUUID(), aiResult = UUID.randomUUID(), derivedSource = UUID.randomUUID();
+	private final UUID aiSource = UUID.randomUUID(), aiResult = UUID.randomUUID(), derivedSource = UUID.randomUUID(), memberPhoto = UUID.randomUUID();
 	private JdbcTemplate admin, jdbc;
 	private NamedParameterJdbcTemplate named;
 	private String schema;
@@ -58,7 +58,7 @@ class MediaPhysicalDeletePostgresTests {
 		jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,1,'owned')", diary);
 		jdbc.update("insert into pages(page_id,diary_id,sort_key) values(?,?,1)", page, diary);
 		Instant expired = now.minusSeconds(2 * 86_400);
-		for (UUID id : List.of(expiredFree, expiredFree2, canvas, font, library, aiSource, aiResult, derivedSource))
+		for (UUID id : List.of(expiredFree, expiredFree2, canvas, font, library, aiSource, aiResult, derivedSource, memberPhoto))
 			media(id, expired, null);
 		media(recentlyDeleted, now.minusSeconds(3_600), null);
 		media(active, null, derivedSource);
@@ -66,6 +66,7 @@ class MediaPhysicalDeletePostgresTests {
 			UUID.randomUUID(), page, canvas);
 		jdbc.update("insert into diary_handwriting_fonts(diary_id,font_media_file_id,granted_by_user_id) values(?,?,1)", diary, font);
 		jdbc.update("insert into diary_media_library(diary_id,media_file_id,added_by_user_id,library_category) values(?,?,1,'STICKER')", diary, library);
+		jdbc.update("insert into diary_members(diary_id,user_id,role,member_color,member_profile_photo_id) values(?,1,'OWNER','#6F9FC6',?)",diary,memberPhoto);
 		jdbc.update("insert into ai_jobs(source_media_file_id,result_media_file_id,status) values(?,?,'PROCESSING')", aiSource, aiResult);
 	}
 
