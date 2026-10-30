@@ -33,9 +33,10 @@ export const styles = StyleSheet.create({
   railScrim: { position: 'absolute', top: 0, bottom: 0, left: 78, width: 4000, backgroundColor: 'rgba(0,0,0,0.32)' },
   railScrimPress: { flex: 1 },
   railOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0 },
-  brandRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
-  brand: { flex: 1, minWidth: 0, minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandSlot: { flex: 1, minWidth: 0, overflow: 'hidden' },
+  // 로고 · 종 · 삼선을 같은 높이(48) 안에서 세로 가운데 맞춤 (로고 칸이 더 높아 로고만 아래로 처지던 것을 맞춤)
+  brandRow: { height: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
+  brand: { flex: 1, minWidth: 0, height: 48, paddingBottom: 6, flexDirection: 'row', alignItems: 'center', gap: 10 }, // 위쪽 점 때문에 D 본체가 아래로 쏠려 보여 로고를 3 올림
+  brandSlot: { flex: 1, minWidth: 0, height: 48, justifyContent: 'center', overflow: 'hidden' },
   railToggle: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
   railTogglePressed: { backgroundColor: '#F5F6FC' },
   railDot: { position: 'absolute', width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: C.white, backgroundColor: C.danger }, // 흰 테두리가 뒤의 아이콘(삼선 · 종)을 살짝 지우듯 가린다

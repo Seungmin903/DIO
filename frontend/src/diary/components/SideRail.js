@@ -78,9 +78,9 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
     >
       <Animated.View style={s.brandRow}>
         <Animated.View pointerEvents={collapsed ? 'none' : 'auto'} style={[s.brandSlot, { opacity: labelOpacity }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="내 다이어리" onPress={() => navigate('library', 'all')} style={s.brand}>
+          <View style={s.brand}>
             <BrandLogo size={32} />
-          </Pressable>
+          </View>
         </Animated.View>
         {/* 알림 종: 삼선 메뉴 왼쪽. 펼친 동안만 보이고(접힌 폭에는 자리도 없다), 접힌 동안은 삼선 메뉴의 점이 대신 알린다. */}
         {onNotifications && (
