@@ -1,0 +1,75 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { coverWithPdfPage, pdfDocPage, pdfOrientation, restoreCoverBase, splitPdfPages, withPdfPages } from '../src/diary/utils/pdfImport.js';
+import { addMyCover, addMyPaper, MY_LIBRARY_LIMIT, normalizeMyCovers, normalizeMyPapers, removeEntry } from '../src/diary/utils/myLibrary.js';
+import { defaultCover } from '../src/diary/utils/coverDesign.js';
+import { createDefaultDoc } from '../src/editor/state/defaultDoc.js';
+
+const page = (n, aspect = 0.75) => ({ src: `media:m${n}`, mediaFileId: `m${n}`, aspect, name: `문서 ${n}쪽` });
+const pages = [page(1), page(2), page(3)];
+
+test('PDF 첫 쪽 비율로 방향을 정한다', () => {
+  assert.equal(pdfOrientation(0.707), 'portrait');
+  assert.equal(pdfOrientation(1.4), 'landscape');
+  assert.equal(pdfOrientation(1), 'landscape');
+});
+
+test('첫 장을 표지로 쓰면 첫 쪽은 표지, 나머지가 속지다', () => {
+  const on = splitPdfPages(pages, true);
+  assert.equal(on.cover, pages[0]); assert.deepEqual(on.papers, pages.slice(1));
+  const off = splitPdfPages(pages, false);
+  assert.equal(off.cover, null); assert.equal(off.papers.length, 3);
+  assert.deepEqual(splitPdfPages([page(1)], true).papers, []);
+  assert.deepEqual(splitPdfPages([], true), { cover: null, papers: [] });
+});
+
+test('표지 바탕을 PDF 쪽으로 바꿔도 다른 요소는 두고, 끄면 원래 바탕으로 돌아간다', () => {
+  const base = { ...defaultCover(), enabled: false };
+  const covered = coverWithPdfPage(base, pages[0]);
+  assert.equal(covered.kind, 'photo'); assert.equal(covered.enabled, true);
+  assert.deepEqual(covered.photo, { src: 'media:m1', mediaFileId: 'm1', aspect: 0.75 });
+  assert.deepEqual(covered.band, base.band); assert.deepEqual(covered.title, base.title);
+  const restored = restoreCoverBase(covered, { kind: base.kind, enabled: base.enabled, photo: base.photo });
+  assert.equal(restored.kind, 'plain'); assert.equal(restored.enabled, false); assert.equal(restored.photo, null);
+  // 원래 사진 표지가 아니었는데 사진이 비어 있으면 색 표지로 돌린다
+  assert.equal(restoreCoverBase(covered, { kind: 'photo', enabled: true, photo: null }).kind, 'plain');
+});
+
+test('PDF 쪽은 비율을 지키며 페이지 안에 잠근 그림 하나로 깔린다', () => {
+  const tall = pdfDocPage(page(1, 0.5), 'landscape', {});
+  const [image] = tall.objects;
+  assert.equal(image.locked, true); assert.equal(image.mediaFileId, 'm1'); assert.equal(image.type, 'sticker');
+  assert.ok(image.x >= 0 && image.y >= 0 && image.x + image.w <= tall.canvasWidth + 1e-6 && image.y + image.h <= tall.canvasHeight + 1e-6);
+  assert.ok(Math.abs(image.w / image.h - 0.5) < 1e-6);
+  const same = pdfDocPage(page(1, 1024 / 768), 'landscape', {}).objects[0];
+  assert.deepEqual([same.x, same.y, Math.round(same.w), Math.round(same.h)], [0, 0, 1024, 768]);
+});
+
+test('문서의 페이지를 PDF 쪽으로 바꾸고, 쪽이 없으면 그대로 둔다', () => {
+  const doc = createDefaultDoc({ title: '시험', pageSize: 'portrait' });
+  assert.equal(withPdfPages(doc, [], 'portrait', {}), doc);
+  assert.equal(withPdfPages(doc, undefined, 'portrait', {}), doc);
+  const next = withPdfPages(doc, pages, 'portrait', {});
+  assert.equal(next.pages.length, 3); assert.equal(next.title, '시험');
+  assert.deepEqual(next.pages.map(item => item.objects[0].mediaFileId), ['m1', 'm2', 'm3']);
+  assert.equal(new Set(next.pages.map(item => item.id)).size, 3);
+  assert.equal(next.pages[0].canvasWidth, 768);
+});
+
+test('나의 표지 · 나의 속지는 저장 값을 맞추고 잘못된 항목을 버린다', () => {
+  const covers = normalizeMyCovers([{ id: 'a', name: '  봄  ', cover: defaultCover() }, { id: 'a', cover: defaultCover() }, { id: 'b' }, null, 'x']);
+  assert.deepEqual(covers.map(item => [item.id, item.name]), [['a', '봄']]);
+  assert.equal(normalizeMyCovers('bad').length, 0);
+  const papers = normalizeMyPapers([{ id: 'p', name: '플래너', orientation: 'portrait', pages: [...pages, { src: 'x' }] }, { id: 'empty', pages: [] }, { id: 'p', pages }]);
+  assert.equal(papers.length, 1); assert.equal(papers[0].pages.length, 3); assert.equal(papers[0].orientation, 'portrait');
+  assert.equal(normalizeMyPapers(null).length, 0);
+});
+
+test('나의 보관함은 새 항목을 맨 앞에 두고 한도를 넘으면 오래된 것을 뺀다', () => {
+  let list = [];
+  for (let i = 0; i < MY_LIBRARY_LIMIT + 3; i += 1) list = addMyCover(list, { name: `표지 ${i}`, cover: defaultCover() });
+  assert.equal(list.length, MY_LIBRARY_LIMIT); assert.equal(list[0].name, `표지 ${MY_LIBRARY_LIMIT + 2}`);
+  const papers = addMyPaper([], { name: '', orientation: 'portrait', pages });
+  assert.equal(papers[0].name, '나의 속지'); assert.equal(papers[0].pages.length, 3);
+  assert.deepEqual(removeEntry(list, list[0].id).length, MY_LIBRARY_LIMIT - 1);
+});

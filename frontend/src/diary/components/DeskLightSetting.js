@@ -4,10 +4,10 @@ import { setDeskMode, useDeskMode } from '../utils/deskTimeStore';
 
 const OPTIONS = [
   { id: 'auto', label: '실시간' },
-  { id: 'noon', label: '한낮 · 창빛 없음' },
+  { id: 'off', label: '조명 없음' },
 ];
 
-/** 내 공간 환경 설정: 홈 책상이 실시간 빛을 따를지, 한낮에 창빛 없이 둘지. 기기에 저장된다. */
+/** 내 공간 환경 설정: 홈 책상이 실시간 빛을 따를지, 조명 없이 둘지(표지에도 조명 효과를 얹지 않는다). 기기에 저장된다. */
 export default function DeskLightSetting() {
   const mode = useDeskMode();
   return (

@@ -20,6 +20,7 @@ import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
+import { withPdfPages } from './src/diary/utils/pdfImport';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import DeskBackdrop from './src/diary/components/DeskBackdrop';
@@ -435,7 +436,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       savingRef.current = true;
       setSaving(true);
       try {
-        const doc = createDefaultDoc(diary);
+        // PDF 로 만든 속지는 쪽마다 잠근 그림 한 장을 깐 페이지가 된다.
+        const doc = withPdfPages(createDefaultDoc(diary), form.importedPages, config.orientation, paperAppearance);
         if (!await saveJSON(STORAGE_KEYS.doc + ':' + diary.id, doc)) throw new Error('다이어리를 저장하지 못했어요. 다시 시도해 주세요.');
         if (!await addDiary(diary)) throw new Error('보관함을 저장하지 못했어요. 다시 시도해 주세요.');
         rememberEditorDoc(STORAGE_KEYS.doc + ':' + diary.id, doc);

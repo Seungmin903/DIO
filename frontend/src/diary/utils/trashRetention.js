@@ -38,7 +38,7 @@ export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateD
     const targetRaw = await storage.getItem(targetKey);
     const allKeys = await storage.getAllKeys();
     const referenceKeys = allKeys.filter(key => (
-      (key.startsWith(`${keys.doc}:`) && key !== targetKey) || key === keys.doc || key === keys.customDecor
+      (key.startsWith(`${keys.doc}:`) && key !== targetKey) || key === keys.doc || key === keys.customDecor || key === keys.myCovers || key === keys.myPapers
     ));
     const references = referenceKeys.length ? await storage.multiGet(referenceKeys) : [];
     // 손상된 참조를 "미사용"으로 해석하지 않는다. 이 경우 미디어 파일은 보수적으로 보존한다.

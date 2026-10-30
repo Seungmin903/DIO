@@ -5,9 +5,9 @@ import { NOON_NO_WINDOW } from './deskLight'
 const RECHECK_MS = 60 * 1000
 const readClock = () => { const now = new Date(); return now.getHours() + now.getMinutes() / 60 }
 
-// 책상 빛 모드: auto 는 지금 시각을 따라가고, noon 은 한낮에 고정하되 창으로 빛이 들지 않는다. 기기에 저장된다.
-export const DESK_MODES = ['auto', 'noon']
-const MODE_HOUR = { noon: NOON_NO_WINDOW }
+// 책상 빛 모드: auto 는 지금 시각을 따라가고, off(조명 없음)는 책상을 창빛 없는 한낮으로 두고 표지에는 조명 효과를 얹지 않는다. 기기에 저장된다.
+export const DESK_MODES = ['auto', 'off']
+const MODE_HOUR = { off: NOON_NO_WINDOW }
 const MODE_KEY = 'dio.desk.lightMode'
 
 const listeners = new Set()
@@ -32,8 +32,10 @@ const getModeNow = () => mode
 let touched = false
 try {
   AsyncStorage.getItem(MODE_KEY).then(saved => {
-    if (touched || !DESK_MODES.includes(saved) || saved === mode) return
-    mode = saved
+    // 예전 '한낮 · 창빛 없음'(noon)은 조명 없음으로 읽는다
+    const next = saved === 'noon' ? 'off' : saved
+    if (touched || !DESK_MODES.includes(next) || next === mode) return
+    mode = next
     notify()
   }).catch(() => {})
 } catch { /* 저장소를 못 읽으면 auto */ }
@@ -46,11 +48,11 @@ export const setDeskMode = next => {
   try { AsyncStorage.setItem(MODE_KEY, next).catch(() => {}) } catch { /* 저장 실패는 이번 실행에서만 유지 */ }
 }
 
-/** 실시간 ↔ 한낮(창빛 없음)을 번갈아 바꾼다. */
+/** 실시간 ↔ 조명 없음을 번갈아 바꾼다. */
 export const cycleDeskMode = () => setDeskMode(DESK_MODES[(DESK_MODES.indexOf(mode) + 1) % DESK_MODES.length])
 
-/** 책상에 보여 줄 시각(auto 면 지금 시각, noon 이면 창빛 없는 한낮). enabled 가 false 면 구독하지 않고 null. */
+/** 책상에 보여 줄 시각(auto 면 지금 시각, off 면 창빛 없는 한낮). enabled 가 false 면 구독하지 않고 null. */
 export const useDeskHour = (enabled = true) => useSyncExternalStore(enabled ? subscribe : noopSubscribe, enabled ? getHourNow : () => null, enabled ? getHourNow : () => null)
 
-/** 현재 모드('auto' | 'noon'). */
+/** 현재 모드('auto' | 'off'). */
 export const useDeskMode = () => useSyncExternalStore(subscribe, getModeNow, getModeNow)

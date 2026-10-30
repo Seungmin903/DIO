@@ -60,3 +60,9 @@ test('실제 생성 입력도 응답 유실·닫기·재열기에서 같은 키�
   assert.equal(mutation.getSnapshot().status,'success');
   assert.equal((await api.list()).items.filter(row=>row.title==='새 여행').length,1);
 });
+
+test('표지 꾸미기는 생성 입력에 실려 기기 저장에 쓰이고, 없으면 필드를 만들지 않는다', () => {
+  const cover = { enabled: true, kind: 'photo', photo: { src: 'media:m1', mediaFileId: 'm1', aspect: 0.7 } };
+  assert.deepEqual(diaryCreateInput({ ...form(), cover }).cover, cover);
+  assert.equal('cover' in diaryCreateInput(form()), false);
+});
