@@ -25,19 +25,15 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
   const between = (from, to) => progress.interpolate({ inputRange: [0, 1], outputRange: [from, to] });
   // 너비가 어느 정도 벌어진 뒤에 글자가 나타나도록 늦게 보인다.
   const labelOpacity = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 0, 1] });
-  const headerProfileOpacity = progress.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0.7, 1] });
-  const collapsedProfileOpacity = progress.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 0.7, 0] });
-  const headerProfileOffset = progress.interpolate({ inputRange: [0, 1], outputRange: [8, 0] });
-  const collapsedProfileOffset = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
   const profileSelected = page === 'profile';
-  const profileButton = (collapsedButton = false) => (
+  const profileButton = () => (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="마이페이지"
       accessibilityState={{ selected: profileSelected }}
       onPress={() => navigate('profile')}
       style={({ pressed }) => [
-        collapsedButton ? s.railCollapsedProfile : s.railHeaderProfile,
+        s.railProfileButton,
         profileSelected && s.railProfileSelected,
         pressed && s.railTogglePressed,
       ]}
@@ -79,13 +75,8 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         { width: between(RAIL_WIDTH.collapsed, RAIL_WIDTH.expanded), paddingHorizontal: between(RAIL_PADDING.collapsed, RAIL_PADDING.expanded), paddingBottom: 24 + bottomInset },
       ]}
     >
-      <Animated.View style={[s.brandRow, { marginBottom: between(18, 25) }]}>
-        <Animated.View pointerEvents={collapsed ? 'none' : 'auto'} style={[s.brandSlot, {
-          opacity: headerProfileOpacity,
-          transform: [{ translateY: headerProfileOffset }],
-        }]}>
-          {profileButton()}
-        </Animated.View>
+      <Animated.View style={[s.brandRow, { marginBottom: 18 }]}>
+        <View style={s.brandSlot} />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
@@ -96,17 +87,15 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
           <AppIcon name="menu" size={24} color={C.ink} />
         </Pressable>
       </Animated.View>
-      <Animated.View pointerEvents={collapsed ? 'auto' : 'none'} style={[s.railCollapsedProfileSlot, {
-        height: between(48, 0),
-        marginTop: between(4, 0),
-        marginBottom: between(-6, 0),
-        opacity: collapsedProfileOpacity,
-        transform: [{ translateY: collapsedProfileOffset }],
+      <Animated.View style={[s.railProfileFloating, {
+        top: between(52, 0),
+        left: between(15, 20),
+        transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }],
       }]}>
-        {profileButton(true)}
+        {profileButton()}
       </Animated.View>
-      <Animated.View style={[s.railGroup, { marginTop: between(42, 25) }]}>
-        <Animated.View style={[s.railSectionSlot, { height: between(0, 23), opacity: labelOpacity }]}>
+      <Animated.View style={[s.railGroup, { marginTop: 18 }]}>
+        <Animated.View style={[s.railSectionSlot, { height: 23, opacity: labelOpacity }]}>
           <Text numberOfLines={1} style={s.railSection}>보관함</Text>
         </Animated.View>
         {item('library', '모든 다이어리', 'book', 'personal')}
