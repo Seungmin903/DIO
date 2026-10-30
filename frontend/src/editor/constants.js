@@ -40,7 +40,7 @@ export const TAPE_PALETTES = [
   { id: 'coral', name: '코랄', bg: '#FDE0D8', fg: '#F2917C', hidden: true },
   { id: 'butter', name: '버터', bg: '#FFF1C2', fg: '#EFC04F' },
   { id: 'mint', name: '민트', bg: '#E3F4EC', fg: '#8FD3B6' },
-  { id: 'sky', name: '스카이', bg: '#DCEBFA', fg: '#6E92C6' },
+  { id: 'sky', name: '스카이', bg: '#E1E4F8', fg: '#818AC3' },
   { id: 'lavender', name: '라벤더', bg: '#ECE5FB', fg: '#B39DED' },
   { id: 'kraft', name: '크라프트', bg: '#D9B98F', fg: '#A27B4E', hidden: true },
   { id: 'charcoal', name: '차콜', bg: '#3E4350', fg: '#F3F1EA' },

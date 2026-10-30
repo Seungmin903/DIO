@@ -7,7 +7,7 @@ import { Segmented, ToolPanelHeader, toolPanelStyles as p } from './ToolPanel'
 import ColorPicker, { PaletteInteractionContext } from './controls/ColorPicker'
 import Slider from './controls/Slider'
 
-const SWATCHES = ['#F8EBA7', '#F4CDD5', '#D4E6CF', '#CED9EE', '#DFD4EE', '#FFFFFF']
+const SWATCHES = ['#F8EBA7', '#F4CDD5', '#D4E6CF', '#D4D7ED', '#DFD4EE', '#FFFFFF']
 export default function ShapeSettings({ settings, onChange, onCheckpoint, onCommit, onAdd, onClose, embedded = false, showShapePicker = true }) {
   const parentPaletteInteraction = useContext(PaletteInteractionContext)
   const Content = embedded ? View : ScrollView

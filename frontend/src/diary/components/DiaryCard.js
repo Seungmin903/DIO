@@ -3,9 +3,25 @@ import { C } from '../constants';
 import { DISABLED_OPACITY } from '../../shared/theme';
 import { Animated, Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
+import FavoriteStar from '../../shared/FavoriteStar';
 import { styles as s } from '../styles';
 import Cover from './Cover';
 import { isSharedDiary } from '../utils/libraryQuery';
+import { useDeskDark } from '../utils/deskInk';
+import { COVER_GRADIENTS, normalizeCover } from '../utils/coverDesign';
+
+// 즐겨찾기 안 한 별의 윤곽선: 표지 위에서는 흰색, 표지 바탕이 밝은 흰 노트이면 남색으로 쓴다(흰색 대비가 1.5:1 아래인 거의 흰 바탕일 때).
+const luminance = hex => {
+  const channel = shift => { const v = ((parseInt(hex.slice(1), 16) >> shift) & 255) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
+};
+function starOutlineFor(diary) {
+  const cover = normalizeCover(diary);
+  if (!cover.enabled) return C.ink; // 표지를 뺀 다이어리는 첫 페이지(밝은 속지)가 보인다
+  if (cover.kind === 'photo') return '#FFFFFF';
+  const top = cover.gradient === 'custom' ? cover.gradientColors[0] : Number.isInteger(cover.gradient) ? COVER_GRADIENTS[cover.gradient][1][0] : cover.color;
+  return 1.05 / (luminance(top) + 0.05) >= 1.5 ? '#FFFFFF' : C.ink;
+}
 
 // onOpen·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다.
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
@@ -13,6 +29,8 @@ import { isSharedDiary } from '../utils/libraryQuery';
 // infoStyle: 스와이프 옆 카드에서 이름 · 페이지 수를 흐리게 하는 애니메이션 값
 function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, portrait = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false, lightMotion = null }) {
   // 로컬 요약이 있으면 그것을 사용한다. null은 조회 실패, undefined는 아직 확인 전이다.
+  // 책상이 어두운 시각에는 책상 위(제목 · 페이지 수) 글씨를 흰색으로 쓴다. 목록 보기는 흰 카드라 그대로 둔다.
+  const onDark = useDeskDark(sunShadow && layout !== 'list');
   const count = pageCount === undefined ? diary.pageCount : pageCount;
   const countLabel = count === undefined ? '페이지 수 확인 중'
     : Number.isSafeInteger(count) && count >= 0 ? `${count}페이지` : '페이지 수 확인 불가';
@@ -32,7 +50,9 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
         s.card,
         layout === 'list' ? s.cardList : layout === 'carousel' ? s.cardCarousel : s.cardGrid,
         compact && layout === 'carousel' && s.cardCarouselCompact,
+        large && layout === 'carousel' && s.cardCarouselLarge,
         compact && layout === 'grid' && s.cardGridCompact,
+        portrait && layout === 'grid' && s.cardGridPortrait,
         selected && s.cardSelected,
         pressed && s.pressed,
       ]}
@@ -55,43 +75,40 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
           >
             <AppIcon name="edit" size={17} color={C.ink} />
           </Pressable>}
-          <Pressable
+          {diary.canManage !== false && diary.canDelete !== false && <Pressable
             accessibilityRole="button"
-            accessibilityLabel={diary.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
-            disabled={!onFavorite}
-            accessibilityState={{ disabled: !onFavorite }}
+            accessibilityLabel={`${diary.title} 휴지통으로 이동`}
+            disabled={!onDelete}
+            accessibilityState={{ disabled: !onDelete }}
             hitSlop={6}
-            onPress={(event) => { event.stopPropagation(); onFavorite?.(diary.id); }}
-            style={({ pressed }) => [s.cardAction, !onFavorite && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
+            onPress={(event) => { event.stopPropagation(); onDelete?.(diary); }}
+            style={({ pressed }) => [s.cardAction, !onDelete && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
           >
-            <AppIcon name="star" size={18} color={diary.favorite ? '#E8AF45' : C.inkSoft} fill={diary.favorite ? '#E8AF45' : 'none'} />
-          </Pressable>
+            <AppIcon name="trash" size={18} color={C.danger} />
+          </Pressable>}
         </View>}
+        {!selecting && (layout !== 'carousel' || carouselActive) && <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={diary.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+          disabled={!onFavorite}
+          accessibilityState={{ disabled: !onFavorite }}
+          hitSlop={12}
+          onPress={(event) => { event.stopPropagation(); onFavorite?.(diary.id); }}
+          style={[s.cardFavorite, !onFavorite && { opacity: DISABLED_OPACITY }]}
+        >
+          <FavoriteStar filled={!!diary.favorite} outline={starOutlineFor(diary)} />
+        </Pressable>}
         </Cover>
       </View>
       <Animated.View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid, infoStyle]}>
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
-        large && layout === 'carousel' && s.cardCarouselLarge,
             <View style={s.cardTitleRow}>
-        portrait && layout === 'grid' && s.cardGridPortrait,
-              <Text numberOfLines={1} style={[s.cardTitle, s.cardTitleInRow]}>{diary.title}</Text>
-              {isSharedDiary(diary) && <View accessible accessibilityLabel="공유 다이어리" style={s.sharedDiaryIcon}><AppIcon name="people" size={16} color={C.inkSoft} /></View>}
+              <Text numberOfLines={1} style={[s.cardTitle, s.cardTitleInRow, onDark && s.onDeskDarkTitle]}>{diary.title}</Text>
+              {isSharedDiary(diary) && <View accessible accessibilityLabel="공유 다이어리" style={s.sharedDiaryIcon}><AppIcon name="people" size={16} color={onDark ? 'rgba(255,255,255,0.78)' : C.inkSoft} /></View>}
             </View>
-            <Text testID={`diary-page-count-${diary.id}`} style={s.cardPageCount}>{countLabel}</Text>
+            <Text testID={`diary-page-count-${diary.id}`} style={[s.cardPageCount, onDark && s.onDeskDarkSoft]}>{countLabel}</Text>
           </View>
-          {/* 스와이프 화면의 옆 카드는 넘기려고 누르는 자리라 가운데 카드에만 둔다. */}
-          {!selecting && diary.canManage !== false && diary.canDelete !== false && (layout !== 'carousel' || carouselActive) && <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${diary.title} 휴지통으로 이동`}
-            disabled={!onDelete}
-            accessibilityState={{ disabled: !onDelete }}
-            hitSlop={4}
-            onPress={(event) => { event.stopPropagation(); onDelete?.(diary); }}
-            style={({ pressed }) => [s.cardDelete, !onDelete && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
-          >
-            <AppIcon name="trash" size={19} color={C.danger} />
-          </Pressable>}
         </View>
       </Animated.View>
     </Pressable>

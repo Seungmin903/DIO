@@ -1,6 +1,6 @@
 // 페이지 논리 좌표를 요소 내부 좌표로 변환한다. w/h는 현재 크기,
 // baseWidth/baseHeight는 원래 좌표계이므로 공통 이동·회전·리사이즈를 재사용한다.
-export const DEFAULT_PEN = { color: '#0B1957', width: 3 }
+export const DEFAULT_PEN = { color: '#0B1766', width: 3 }
 const SENSOR_PRECISION = { force: 10000, time: 10, speed: 10000, tiltX: 10, tiltY: 10, inkDistance: 10000 }
 const storedPoint = (point, x, y, renderVersion) => {
   const result = { x: point.x - x, y: point.y - y, ...(point.pressure != null && { pressure: point.pressure }) }

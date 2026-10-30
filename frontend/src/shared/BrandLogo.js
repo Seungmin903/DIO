@@ -2,7 +2,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 // 원본: assets/brand/dio-logo.svg (746×836). 앱 아이콘·시작 화면 PNG 도 이 그림으로 만든다.
 const INK = '#242424';
-const THEME = '#9FB6D9';
+const THEME = '#ABB1D8';
 export const BRAND_LOGO_RATIO = 746 / 836;
 
 /** DIO 로고 (D 심볼 + 테마 원). size 는 높이 */

@@ -10,6 +10,7 @@ import IconButton from '../components/IconButton';
 import LibrarySearchScreen from '../components/LibrarySearchScreen';
 import { nextSort, parseSort, queryDiaries, SORT_OPTIONS } from '../utils/libraryQuery';
 import { bumpDeskLayout } from '../utils/deskMask';
+import { useDeskDark } from '../utils/deskInk';
 import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
@@ -18,8 +19,8 @@ const CAROUSEL_RESIZE_SETTLE_MS = 120;
 // 버튼으로 한 칸 넘기는 부드러운 스크롤이 끝나기를 기다리는 시간(스크롤 끝 이벤트가 없을 때의 보험)
 const CAROUSEL_MOVE_MS = 450;
 // 가운데가 아닌 옆 카드의 불투명도 (1이면 가운데 카드와 같다)
-const SIDE_CARD_OPACITY = 1; // 옆 카드도 실제 표지다(반투명 유령 · 어두운 막 없음). 멀어 보이는 건 크기 · 높이 차이만 맡는다
 const PORTRAIT_ITEM_WIDTH = 440; // styles.cardCarouselLarge 와 같은 값
+const SIDE_CARD_OPACITY = 1; // 옆 카드도 실제 표지다(반투명 유령 · 어두운 막 없음). 멀어 보이는 건 크기 · 높이 차이만 맡는다
 
 // 카드 위치(index)마다 스크롤 위치에 따라 크기·높이가 바뀌는 애니메이션 스타일.
 // 3D 기울기(rotateY)는 쓰지 않는다. 위를 기준으로 줄이면 기울기 축도 위로 가서 옆 카드 아랫변이 비뚤게 보인다.
@@ -45,9 +46,9 @@ function carouselMotion(scrollX, index, step) {
 
 function LibraryScreen({
   compact = false,
-  diaries,
   portrait = false, // 태블릿을 세로로 든 상태: 격자는 한 줄 3권, 스와이프는 옆 카드 없이 한 권만 크게
 
+  diaries,
   metadata = {},
   sort = 'updated',
   onSortChange,
@@ -73,6 +74,8 @@ function LibraryScreen({
   suppressEmpty = false,
   historyKey,
 }) {
+  // 책상은 태블릿(compact 아님)에서만 보인다. 어두운 시각에는 상판 위 제목을 흰색으로 쓴다.
+  const titleOnDark = useDeskDark(!compact); // 어두운 상판 위 글씨 · 좌우 화살표를 흰색으로
   const scrollX = useRef(new Animated.Value(Math.max(0, carousel) * CAROUSEL_STEP)).current;
   const carouselRef = useRef(null);
   const positioned = useRef(null);
@@ -285,7 +288,7 @@ function LibraryScreen({
   const isGrid = displayView === 'grid';
   const top = (<>
       <View style={[s.libraryHeader, compact && s.libraryHeaderCompact]}>
-        <Text style={[s.libraryTitle, compact && s.libraryTitleCompact]}>{current.label}</Text>
+        <Text style={[s.libraryTitle, compact && s.libraryTitleCompact, titleOnDark && s.onDeskDarkTitle]}>{current.label}</Text>
         <View style={[s.libraryViewSwitch, compact && s.libraryViewSwitchCompact]} accessibilityRole="tablist">
           <Pressable
             accessibilityRole="tab"
@@ -311,16 +314,16 @@ function LibraryScreen({
       </View>
 
       <View style={[s.libraryToolbar, compact && s.libraryToolbarCompact, s.libraryToolbarWrap]}>
-        <View style={[s.filters, !compact && s.filtersWide]}>
+        <View style={[s.filterSwitch, !compact && s.filtersWide]} accessibilityRole="tablist">
           {FILTERS.filter(item => !remoteQuery || remoteQuery.supportsShared || item.id !== 'shared').map((item) => (
             <Pressable
               key={item.id}
               accessibilityRole="tab"
               accessibilityState={{ selected: filter === item.id }}
               onPress={() => { onFilterChange(item.id); resetPosition(); setOptionsOpen(false); }}
-              style={({ pressed }) => [s.chip, compact && s.chipCompact, filter === item.id && s.chipSelected, pressed && s.pressed]}
+              style={({ pressed }) => [s.filterOption, compact && s.filterOptionCompact, filter === item.id && s.libraryViewOptionSelected, pressed && s.pressed]}
             >
-              <Text style={[s.chipText, compact && s.chipTextCompact, filter === item.id && s.chipTextSelected]}>{item.label}</Text>
+              <Text style={[s.libraryViewText, compact && s.filterTextCompact, filter === item.id && s.libraryViewTextSelected]}>{item.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -346,7 +349,7 @@ function LibraryScreen({
               onPress={() => moveCarousel((moveTarget.current ?? activeIndex) - 1)}
               style={({ pressed }) => [s.carouselArrow, s.carouselArrowLeft, portrait && s.carouselArrowPortrait, pressed && s.pressed]}
             >
-              <AppIcon name="chevron-left" size={24} color={C.ink} strokeWidth={2.1} />
+              <AppIcon name="chevron-left" size={24} color={titleOnDark ? '#FFFFFF' : C.ink} strokeWidth={2.1} />
             </Pressable>}
             <AnimatedFlatList
               ref={carouselRef}
@@ -381,10 +384,10 @@ function LibraryScreen({
                     layout="carousel"
                     sunShadow={!compact}
                     compact={compact}
+                    large={portrait}
                     carouselActive={index === activeIndex}
                     animatedStyle={motions[index].card}
                     infoStyle={motions[index].info}
-                    large={portrait}
                     lightMotion={followMotions[index]}
                     onOpen={onOpen}
                     onFavorite={onFavorite}
@@ -403,7 +406,7 @@ function LibraryScreen({
               onPress={() => moveCarousel((moveTarget.current ?? activeIndex) + 1)}
               style={({ pressed }) => [s.carouselArrow, s.carouselArrowRight, portrait && s.carouselArrowPortrait, pressed && s.pressed]}
             >
-              <AppIcon name="chevron-right" size={24} color={C.ink} strokeWidth={2.1} />
+              <AppIcon name="chevron-right" size={24} color={titleOnDark ? '#FFFFFF' : C.ink} strokeWidth={2.1} />
             </Pressable>}
           </View>
         </View>
