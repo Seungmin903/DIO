@@ -19,9 +19,9 @@ class DeploymentAuthContractTests {
             assertThat(ci.getProperty(job + ".allow_failure")).isNull();
         }
         for (String job : new String[]{"backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test"}) {
-            // develop 병합 후에는 백엔드 변경마다 배포 전에 반드시 실행한다.
+            // develop 파이프라인은 변경 경로와 무관하게 배포 전에 반드시 실행한다(앞선 파이프라인 취소 대비).
             assertThat(ci.getProperty(job + ".rules[0].if")).isEqualTo("$CI_COMMIT_BRANCH == \"develop\"");
-            assertThat(ci.getProperty(job + ".rules[0].changes[0]")).isEqualTo("backend/**/*");
+            assertThat(ci.getProperty(job + ".rules[0].changes[0]")).isNull();
             assertThat(ci.getProperty(job + ".rules[0].when")).isNull();
             // MR 자동 실행은 스키마와 PostgreSQL 검사 자체의 변경으로 한정한다.
             assertThat(ci.getProperty(job + ".rules[1].changes[0]")).isEqualTo("backend/src/main/resources/db/migration/**/*");
@@ -53,13 +53,13 @@ class DeploymentAuthContractTests {
         }
         assertThat(authJob).contains("backend/src/test/java/**/auth/**/*Postgres*.java",
             "backend/build/test-results/authPostgresTest/*.xml");
-        assertThat(sharingJob).contains("backend/src/test/java/**/sharing/**/*Postgres*.java",
+        assertThat(sharingJob).contains("backend/src/test/java/**/sharing/**/*",
             "backend/build/test-results/sharingPostgresTest/*.xml", "backend/build/test-results/collaborationPostgresTest/*.xml");
-        assertThat(diaryJob).contains("backend/src/test/java/**/diary/creation/**/*Postgres*.java",
+        assertThat(diaryJob).contains("backend/src/test/java/**/diary/creation/**/*",
             "backend/build/test-results/postgresMemberDiaryCreationTest/*.xml",
             "backend/build/test-results/postgresDiaryDetailTest/*.xml",
             "backend/build/test-results/postgresMemberDiaryHttpTest/*.xml");
-        assertThat(lifecycleJob).contains("backend/src/test/java/**/diary/purge/**/*Postgres*.java",
+        assertThat(lifecycleJob).contains("backend/src/test/java/**/diary/purge/**/*",
             "backend/build/test-results/postgresDiaryTrashTest/*.xml",
             "backend/build/test-results/postgresDiaryPurgeTest/*.xml");
 
@@ -88,6 +88,67 @@ class DeploymentAuthContractTests {
         assertThat(occurrences(lifecycleSuite, "docker run --rm")).isEqualTo(1);
         assertThat(occurrences(lifecycleSuite, "-e DB_URL=")).isEqualTo(1);
         assertThat(lifecycleSuite).contains("-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_trash_qa");
+    }
+    /** MR 자동 실행 경로가 각 묶음이 실제로 돌리는 Gradle 필터 대상과 그 부모 테스트 클래스를 모두 덮는지 확인한다. */
+    @Test void postgresMergeRequestPathsCoverEveryTestTheSuiteRuns() throws Exception {
+        var ci = new YamlPropertySourceLoader().load("ci", new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
+        String gradle = Files.readString(Path.of("build.gradle")).replace("\r\n", "\n");
+        String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh")).replace("\r\n", "\n");
+        java.util.List<Path> testFiles;
+        try (var files = Files.walk(Path.of("src/test/java"))) { testFiles = files.filter(f -> f.toString().endsWith(".java")).toList(); }
+        for (String suite : new String[]{"auth", "sharing", "diary", "lifecycle"}) {
+            var globs = new java.util.ArrayList<java.util.regex.Pattern>();
+            for (int i = 0; ci.getProperty("backend-postgres-" + suite + "-test.rules[1].changes[" + i + "]") != null; i++) {
+                globs.add(glob(ci.getProperty("backend-postgres-" + suite + "-test.rules[1].changes[" + i + "]").toString()));
+            }
+            String suiteScript = suite.equals("lifecycle") ? script.substring(script.indexOf("if [ \"$suite\" = lifecycle ]"))
+                : block(script, "if [ \"$suite\" = " + suite + " ]", "\nfi\n");
+            var tasks = new java.util.ArrayList<String>();
+            var taskCalls = java.util.regex.Pattern.compile("gradlew ([\\w ]+?) --no-daemon").matcher(suiteScript);
+            while (taskCalls.find()) tasks.addAll(java.util.List.of(taskCalls.group(1).trim().split(" +")));
+            assertThat(tasks).as(suite + " gradle tasks").isNotEmpty();
+            for (String task : tasks) {
+                int start = gradle.indexOf("tasks.register('" + task + "'");
+                assertThat(start).as(task + " task").isGreaterThanOrEqualTo(0);
+                int end = gradle.indexOf("tasks.register(", start + 1);
+                var includes = java.util.regex.Pattern.compile("includeTestsMatching '([^']+)'")
+                    .matcher(gradle.substring(start, end < 0 ? gradle.length() : end));
+                int matched = 0;
+                while (includes.find()) {
+                    var classPattern = java.util.regex.Pattern.compile(includes.group(1).replace(".", "/").replace("*", "[^/]*") + "\\.java");
+                    for (Path file : testFiles) {
+                        String relative = Path.of("src/test/java").relativize(file).toString().replace('\\', '/');
+                        if (!classPattern.matcher(relative).matches()) continue;
+                        matched++;
+                        assertCovered(suite, globs, file);
+                        // 같은 패키지의 부모 테스트 클래스가 바뀌어도 이 묶음의 결과가 달라진다.
+                        var parent = java.util.regex.Pattern.compile("class \\w+ extends (\\w+)").matcher(Files.readString(file));
+                        while (parent.find()) {
+                            Path parentFile = file.resolveSibling(parent.group(1) + ".java");
+                            if (Files.exists(parentFile)) assertCovered(suite, globs, parentFile);
+                        }
+                    }
+                }
+                assertThat(matched).as(task + " must include at least one test class").isPositive();
+            }
+        }
+    }
+    private static void assertCovered(String suite, java.util.List<java.util.regex.Pattern> globs, Path file) {
+        String path = "backend/" + file.toString().replace('\\', '/');
+        assertThat(globs.stream().anyMatch(glob -> glob.matcher(path).matches()))
+            .as(suite + " MR auto-run paths must cover " + path).isTrue();
+    }
+    /** GitLab changes 글롭(**, *)을 정규식으로 바꾼다. */
+    private static java.util.regex.Pattern glob(String glob) {
+        var regex = new StringBuilder();
+        for (int i = 0; i < glob.length(); i++) {
+            char c = glob.charAt(i);
+            if (glob.startsWith("**/", i)) { regex.append("(?:.*/)?"); i += 2; }
+            else if (glob.startsWith("**", i)) { regex.append(".*"); i += 1; }
+            else if (c == '*') regex.append("[^/]*");
+            else regex.append(java.util.regex.Pattern.quote(String.valueOf(c)));
+        }
+        return java.util.regex.Pattern.compile(regex.toString());
     }
     @Test void ciContainerIncludesReadOnlyDeploymentInputsBesideBackend() throws Exception {
         var properties = new YamlPropertySourceLoader().load("ci",

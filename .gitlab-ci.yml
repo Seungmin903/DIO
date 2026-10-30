@@ -142,7 +142,7 @@ backend-test:
       - backend/build/contracts/
     expire_in: 7 days
 
-# PostgreSQL 잡: MR에서는 스키마·검사 변경에만 자동 실행하고 나머지는 수동, develop 병합 후에는 배포 전에 항상 실행한다.
+# PostgreSQL 잡: MR에서는 스키마·해당 테스트 변경에만 자동 실행하고 나머지는 수동, develop 파이프라인에서는 배포 전에 항상 실행한다.
 backend-postgres-auth-test:
   stage: quality
   needs:
@@ -160,17 +160,16 @@ backend-postgres-auth-test:
     policy: pull
   interruptible: true
   rules:
-    # develop에 병합된 백엔드 변경은 배포 전에 항상 실행한다. 실패하면 배포 단계로 넘어가지 않는다.
+    # develop 파이프라인은 변경 경로와 무관하게 배포 전에 항상 실행한다.
+    # 앞선 파이프라인이 취소돼도 배포하는 파이프라인이 직접 검증하므로 검증 없이 배포되지 않는다.
     - if: '$CI_COMMIT_BRANCH == "develop"'
-      changes:
-        - backend/**/*
-        - infra/scripts/test-auth-postgres.sh
-    # MR에서는 스키마(Flyway)나 이 검사 자체가 바뀐 경우에만 자동 실행한다.
+    # MR에서는 스키마(Flyway)나 이 묶음이 실행하는 테스트(부모 클래스 포함)가 바뀐 경우에만 자동 실행한다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - backend/src/main/resources/db/migration/**/*
         - infra/scripts/test-auth-postgres.sh
         - backend/src/test/java/**/auth/**/*Postgres*.java
+        - backend/src/test/java/**/auth/integration/PasswordResetTests.java
         - backend/src/test/java/**/notification/**/*Postgres*.java
     # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -207,18 +206,16 @@ backend-postgres-sharing-test:
     policy: pull
   interruptible: true
   rules:
-    # develop에 병합된 백엔드 변경은 배포 전에 항상 실행한다. 실패하면 배포 단계로 넘어가지 않는다.
+    # develop 파이프라인은 변경 경로와 무관하게 배포 전에 항상 실행한다.
+    # 앞선 파이프라인이 취소돼도 배포하는 파이프라인이 직접 검증하므로 검증 없이 배포되지 않는다.
     - if: '$CI_COMMIT_BRANCH == "develop"'
-      changes:
-        - backend/**/*
-        - infra/scripts/test-auth-postgres.sh
-    # MR에서는 스키마(Flyway)나 이 검사 자체가 바뀐 경우에만 자동 실행한다.
+    # MR에서는 스키마(Flyway)나 이 묶음이 실행하는 테스트(부모 클래스 포함)가 바뀐 경우에만 자동 실행한다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - backend/src/main/resources/db/migration/**/*
         - infra/scripts/test-auth-postgres.sh
-        - backend/src/test/java/**/sharing/**/*Postgres*.java
-        - backend/src/test/java/**/collaboration/**/*Postgres*.java
+        - backend/src/test/java/**/sharing/**/*
+        - backend/src/test/java/**/collaboration/**/*
     # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -256,20 +253,19 @@ backend-postgres-diary-test:
     policy: pull
   interruptible: true
   rules:
-    # develop에 병합된 백엔드 변경은 배포 전에 항상 실행한다. 실패하면 배포 단계로 넘어가지 않는다.
+    # develop 파이프라인은 변경 경로와 무관하게 배포 전에 항상 실행한다.
+    # 앞선 파이프라인이 취소돼도 배포하는 파이프라인이 직접 검증하므로 검증 없이 배포되지 않는다.
     - if: '$CI_COMMIT_BRANCH == "develop"'
-      changes:
-        - backend/**/*
-        - infra/scripts/test-auth-postgres.sh
-    # MR에서는 스키마(Flyway)나 이 검사 자체가 바뀐 경우에만 자동 실행한다.
+    # MR에서는 스키마(Flyway)나 이 묶음이 실행하는 테스트(부모 클래스 포함)가 바뀐 경우에만 자동 실행한다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - backend/src/main/resources/db/migration/**/*
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
         - backend/src/test/java/**/support/**/*
-        - backend/src/test/java/**/diary/creation/**/*Postgres*.java
-        - backend/src/test/java/**/diary/detail/**/*Postgres*.java
+        - backend/src/test/java/**/diary/creation/**/*
+        - backend/src/test/java/**/diary/detail/**/*
+        - backend/src/test/java/**/diary/http/MemberDiaryHttpTests.java
         - backend/src/test/java/**/diary/http/MemberDiaryContractPostgresTests.java
         - backend/src/test/java/**/diary/http/MemberDiaryListPostgresTests.java
     # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
@@ -311,21 +307,19 @@ backend-postgres-lifecycle-test:
     policy: pull
   interruptible: true
   rules:
-    # develop에 병합된 백엔드 변경은 배포 전에 항상 실행한다. 실패하면 배포 단계로 넘어가지 않는다.
+    # develop 파이프라인은 변경 경로와 무관하게 배포 전에 항상 실행한다.
+    # 앞선 파이프라인이 취소돼도 배포하는 파이프라인이 직접 검증하므로 검증 없이 배포되지 않는다.
     - if: '$CI_COMMIT_BRANCH == "develop"'
-      changes:
-        - backend/**/*
-        - infra/scripts/test-auth-postgres.sh
-    # MR에서는 스키마(Flyway)나 이 검사 자체가 바뀐 경우에만 자동 실행한다.
+    # MR에서는 스키마(Flyway)나 이 묶음이 실행하는 테스트(부모 클래스 포함)가 바뀐 경우에만 자동 실행한다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - backend/src/main/resources/db/migration/**/*
         - infra/scripts/test-auth-postgres.sh
         - backend/src/test/java/**/support/**/*
-        - backend/src/test/java/**/diary/trash/**/*Postgres*.java
-        - backend/src/test/java/**/diary/purge/**/*Postgres*.java
-        - backend/src/test/java/**/diary/http/*TrashContractPostgresTests.java
-        - backend/src/test/java/**/diary/http/*PurgeContractPostgresTests.java
+        - backend/src/test/java/**/diary/trash/**/*
+        - backend/src/test/java/**/diary/purge/**/*
+        - backend/src/test/java/**/diary/http/MemberDiaryTrash*.java
+        - backend/src/test/java/**/diary/http/MemberDiaryPurge*.java
         - backend/src/test/java/**/media/**/*Postgres*.java
     # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
