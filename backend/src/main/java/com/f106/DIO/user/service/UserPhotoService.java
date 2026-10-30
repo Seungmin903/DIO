@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.*;
 import org.springframework.transaction.support.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.HttpStatus;
+import org.slf4j.LoggerFactory;
 @Service
 public class UserPhotoService {
     private final UserRepository users;
@@ -38,6 +39,23 @@ public class UserPhotoService {
     public byte[] prepareImage(MultipartFile photo) { return ProfilePhotoImages.prepare(photo); }
     @Transactional(propagation = Propagation.NEVER)
     public PreparedPhoto upload(byte[] bytes) { return bytes == null ? null : new PreparedPhoto(UUID.randomUUID(), bytes); }
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String replace(Long userId, PreparedPhoto next, boolean remove, Instant now) {
+        var previous = photos.findByUserId(userId).orElse(null);
+        if (previous != null && (next != null || remove)) {
+            photos.delete(previous);
+            photos.flush();
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() {
+                    try { files.delete(previous); }
+                    catch (RuntimeException error) { LoggerFactory.getLogger(UserPhotoService.class).warn(
+                        "Previous profile photo cleanup failed: photoId={}", previous.getPhotoId(), error); }
+                }
+            });
+        }
+        if (next != null) return next.save(userId, now);
+        return remove ? null : previous == null ? null : previous.url();
+    }
     private UserException notFound() { return new UserException(HttpStatus.NOT_FOUND, "PROFILE_PHOTO_NOT_FOUND", "프로필 사진을 찾을 수 없어요."); }
     public final class PreparedPhoto implements AutoCloseable {
         private final UUID id;

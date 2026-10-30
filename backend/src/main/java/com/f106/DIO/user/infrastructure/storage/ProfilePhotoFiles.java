@@ -68,5 +68,11 @@ public class ProfilePhotoFiles {
         if (storage == null) throw ProfilePhotoStorage.unavailable();
         return storage.read(new ProfilePhotoStorage.Location(photo.getStorageProvider(), photo.getStorageKey(), photo.getStorageBucket()));
     }
+    public void delete(ProfilePhoto photo) {
+        if (photo == null || photo.getImageBytes() != null) return;
+        ProfilePhotoStorage storage = stores.get(photo.getStorageProvider());
+        if (storage == null) throw ProfilePhotoStorage.unavailable();
+        storage.delete(new ProfilePhotoStorage.Location(photo.getStorageProvider(), photo.getStorageKey(), photo.getStorageBucket()));
+    }
     public String provider() { return active.provider(); }
 }

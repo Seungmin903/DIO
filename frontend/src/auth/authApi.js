@@ -81,16 +81,16 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     } finally { clearTimeout(timer); }
   }
   // GET/PATCH /me: one token refresh on 401, then accept only this session's account.
-  async function memberProfile(current, method, body, invalidMessage) {
+  async function memberProfile(current, method, body, invalidMessage, multipart = false) {
     let result;
     try {
-      result = await request('me', body, current.accessToken, false, method, true);
+      result = await request('me', body, current.accessToken, multipart, method, true);
     } catch (error) {
       if (error.status !== 401 || error.code === 'DEVELOPMENT_ACCESS_REQUIRED') throw error;
       if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
       await api.refresh();
       current = session;
-      result = await request('me', body, current.accessToken, false, method, true);
+      result = await request('me', body, current.accessToken, multipart, method, true);
     }
     if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
     const profile = result?.user || result;
@@ -295,8 +295,23 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
       let current = session;
       const currentPhotoUri = current.user.profilePhotoUrl ? new URL(current.user.profilePhotoUrl, base).href : null;
-      if ((photoUri || null) !== currentPhotoUri)
-        throw new Error('프로필 사진 변경 기능은 아직 준비 중이에요.');
+      const nextPhotoUri = photoUri || null;
+      if (nextPhotoUri !== currentPhotoUri) {
+        if (!nextPhotoUri) {
+          return memberProfile(current, 'PATCH', { nickname: nextNickname, removeProfilePhoto: true },
+            '회원정보 저장 결과를 확인하지 못했어요. 다시 시도해 주세요.');
+        }
+        if (typeof buildPhotoBody !== 'function') throw new Error('프로필 사진 기능을 준비하지 못했어요. 앱을 다시 시작해 주세요.');
+        let upload;
+        try {
+          upload = await buildPhotoBody({ nickname: nextNickname, removeProfilePhoto: false }, nextPhotoUri, 'profile');
+          if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
+          return await memberProfile(current, 'PATCH', upload.body,
+            '회원정보 저장 결과를 확인하지 못했어요. 다시 시도해 주세요.', true);
+        } finally {
+          try { await upload?.dispose?.(); } catch {}
+        }
+      }
       return memberProfile(current, 'PATCH', { nickname: nextNickname }, '회원정보 저장 결과를 확인하지 못했어요. 다시 시도해 주세요.');
     },
     // Server profile wins over the login snapshot, e.g. after a nickname change on another device.

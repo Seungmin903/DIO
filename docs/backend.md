@@ -237,4 +237,4 @@ Swagger에서 로그인한 뒤에는 **Authorize**에 로그인 응답의 Access
 
 ## 로그인 상태의 비밀번호 변경
 
-PATCH `/api/v1/me/password`는 구현됐으며 현재 비밀번호 검증 후 모든 세션을 폐기한다. 기존 내 공간의 변경 대화상자로 연결한다. [요청·응답과 검증 범위](./password-change.md)를 참고한다. 내 정보 조회·수정·탈퇴 API 구현은 포함하지 않는다.
+GET·PATCH `/api/v1/me`는 로그인한 회원의 `userId`, `email`, `nickname`, `profilePhotoUrl`을 조회·수정한다. JSON PATCH는 닉네임 수정 및 `removeProfilePhoto: true`의 기본 이미지 복원을 지원하고, 사진 변경은 `profile` JSON 파트와 `photo` 파일을 보내는 multipart PATCH를 쓴다. 기존 사진 파일은 새 사진 메타데이터가 저장된 뒤 삭제를 시도한다. PATCH `/api/v1/me/password`는 현재 비밀번호 검증 후 모든 세션을 폐기한다. [요청·응답과 검증 범위](./password-change.md)를 참고한다. 회원 탈퇴 API는 아직 포함하지 않는다.

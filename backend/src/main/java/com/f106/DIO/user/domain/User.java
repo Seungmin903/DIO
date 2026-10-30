@@ -25,6 +25,11 @@ public class User {
     public String getNickname() { return nickname; }
     public boolean isActive() { return deletedAt == null && "ACTIVE".equals(status); }
     public void recordLogin(Instant now) { lastLoginAt = now; }
+    public void updateNickname(String value, Instant now) {
+        nickname = value;
+        nicknameKey = value.toLowerCase(Locale.ROOT);
+        updatedAt = now;
+    }
     public User(String email, String nickname, Instant now) {
         this.email = email; this.nickname = nickname; nicknameKey = nickname.toLowerCase(Locale.ROOT);
         // 기존 DB/공동 편집 색상 호환용. 회원가입 API에서는 입력·반환하지 않는다.

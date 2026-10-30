@@ -398,10 +398,18 @@ test('회원정보 조회는 다른 계정 응답을 받아들이지 않는다',
   await assert.rejects(api.getProfile(loggedIn), { code: 'INVALID_PROFILE_RESPONSE' });
 });
 
-test('회원정보 수정은 다른 계정과 아직 연결되지 않은 사진 변경을 요청하지 않는다', async () => {
-  const { api, calls } = setup(() => response(tokens()));
+test('회원정보 수정은 본인 계정에서 사진 multipart를 전송하고 다른 계정 요청은 막는다', async () => {
+  const { api, calls } = setup(() => response(tokens()), {
+    buildPhotoBody: async (profile, uri, partName) => ({ body: JSON.stringify({ profile, uri, partName }), dispose() {} }),
+  });
   const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
   await assert.rejects(api.updateProfile({ ...loggedIn, userId: 'other' }, { nickname: '바뀐이름', photoUri: loggedIn.photoUri }), { code: 'AUTHENTICATION_REQUIRED' });
-  await assert.rejects(api.updateProfile(loggedIn, { nickname: '바뀐이름', photoUri: 'file:///new-photo.png' }), /프로필 사진 변경/);
-  assert.equal(calls.length, 1);
+  const updated = await api.updateProfile(loggedIn, { nickname: '바뀐이름', photoUri: 'file:///new-photo.png' });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].method, 'PATCH');
+  assert.equal(calls[1].headers['Content-Type'], undefined);
+  assert.deepEqual(JSON.parse(calls[1].body), {
+    profile: { nickname: '바뀐이름', removeProfilePhoto: false }, uri: 'file:///new-photo.png', partName: 'profile',
+  });
+  assert.equal(updated.nickname, '회원');
 });

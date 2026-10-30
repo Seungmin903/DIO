@@ -62,7 +62,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         registerLeaveGuard={registerLeaveGuard}
         getProfilePhotoSource={getProfilePhotoSource}
         service={authService}
-        photoEditable={false}
+        photoEditable
       />
     );
   }

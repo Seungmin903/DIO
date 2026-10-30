@@ -326,11 +326,11 @@ test('저장된 서버 프로필 사진도 회원정보 수정 화면에서 인�
   ui.unmount();
 });
 
-test('실제 계정은 사진을 표시하되 업로드 API가 연결될 때까지 사진 변경을 막는다', () => {
-  const ui = setup({}, undefined, { photoEditable: false });
-  assert.equal(find(ui, '프로필 사진 변경').props.disabled, true);
-  assert.equal(find(ui, '프로필 사진 삭제').props.disabled, true);
-  assert.ok(nodes(ui.render()).some((node) => node.props.children === '프로필 사진 변경은 준비 중이에요.'));
+test('실제 계정은 현재 사진을 변경하거나 기본 이미지로 되돌릴 수 있다', () => {
+  const ui = setup({}, undefined, { photoEditable: true });
+  assert.equal(find(ui, '프로필 사진 변경').props.disabled, false);
+  assert.equal(find(ui, '프로필 사진 삭제').props.disabled, false);
+  assert.equal(nodes(ui.render()).some((node) => node.props.children === '프로필 사진 변경은 준비 중이에요.'), false);
   ui.unmount();
 });
 

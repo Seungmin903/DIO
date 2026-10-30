@@ -293,7 +293,6 @@ export default function ProfileEditScreen({
             </View>
             <View style={s.grow}>
               <Text style={s.photoTitle}>프로필 사진</Text>
-              {!photoEditable && <Text style={s.hint}>프로필 사진 변경은 준비 중이에요.</Text>}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="프로필 사진 삭제"
