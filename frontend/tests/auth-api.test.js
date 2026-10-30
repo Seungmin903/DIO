@@ -355,6 +355,25 @@ test('현재 비밀번호 거절과 네트워크 실패는 로그인 세션을 �
  }
 });
 
+test('회원 탈퇴는 DELETE me로 요청하고 성공한 세션만 지운다', async () => {
+ const calls=[]; const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url,init)=>{
+  calls.push({url,...init}); return response(url.endsWith('/login') ? tokens() : null, url.endsWith('/login') ? 200 : 204);
+ }});
+ const loggedIn=await api.login({email:user.email,password:'Password123!'});
+ await api.withdraw(loggedIn);
+ assert.equal(calls[1].url,'http://localhost:8080/api/v1/me'); assert.equal(calls[1].method,'DELETE');
+ assert.equal(calls[1].body,undefined); assert.equal(calls[1].headers.Authorization,'Bearer access');
+ assert.equal(api.getSessionKey(),null);
+});
+
+test('회원 탈퇴 실패 시 로그인 세션을 유지해 다시 시도할 수 있다', async () => {
+ const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url)=>
+  response(url.endsWith('/login') ? tokens() : {code:'WITHDRAWAL_FAILED',detail:'탈퇴 처리에 실패했어요.'}, url.endsWith('/login') ? 200 : 500)});
+ const loggedIn=await api.login({email:user.email,password:'Password123!'}), key=api.getSessionKey();
+ await assert.rejects(api.withdraw(loggedIn),{code:'WITHDRAWAL_FAILED',status:500});
+ assert.equal(api.getSessionKey(),key);
+});
+
 test('회원정보 수정은 본인 토큰으로 PATCH me를 호출하고 갱신된 사용자 정보를 반환한다', async () => {
   const calls = [];
   const api = createAuthApi({ baseUrl: 'http://localhost:8080/api', fetchImpl: async (url, init) => {

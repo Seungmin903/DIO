@@ -119,6 +119,21 @@ class EmailLoginTests {
         mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+first.accessToken()).contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isUnauthorized());
     }
+    @Test void withdrawalMarksAccountWithdrawnAndRevokesAllSessions() throws Exception {
+        register(); var first = login(); var second = login();
+        mvc.perform(delete("/api/v1/me").header("Authorization", "Bearer " + first.accessToken()))
+            .andExpect(status().isNoContent()).andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(content().string(""));
+        User account = users.findAll().get(0);
+        assertThat(account.isActive()).isFalse();
+        assertThat(ReflectionTestUtils.getField(account, "status")).isEqualTo("WITHDRAWN");
+        assertThat(ReflectionTestUtils.getField(account, "deletedAt")).isNotNull();
+        assertThat(service.active(jwt.decode(first.accessToken()))).isFalse();
+        assertThat(service.active(jwt.decode(second.accessToken()))).isFalse();
+        assertThatThrownBy(this::login).isInstanceOf(LoginException.class);
+        mvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + first.accessToken()))
+            .andExpect(status().isUnauthorized());
+    }
     @Test void passwordChangeRejectsSameOrMalformedPasswordWithoutRevokingSession()throws Exception{
         register();var login=login();
         for(String next:List.of("DioMember123!","short","abcdefgh","한글12345678"))

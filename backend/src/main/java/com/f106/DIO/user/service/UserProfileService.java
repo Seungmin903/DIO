@@ -1,6 +1,7 @@
 package com.f106.DIO.user.service;
 
 import com.f106.DIO.auth.dto.LoginUserResponse;
+import com.f106.DIO.auth.service.LoginSessionRevoker;
 import com.f106.DIO.user.domain.User;
 import com.f106.DIO.user.dto.ProfileUpdateRequest;
 import com.f106.DIO.user.exception.UserException;
@@ -20,13 +21,16 @@ public class UserProfileService {
     private final UserRepository users;
     private final ProfilePhotoRepository photos;
     private final UserPhotoService photoService;
+    private final LoginSessionRevoker sessions;
     private final TransactionTemplate writeTransaction;
 
     public UserProfileService(UserRepository users, ProfilePhotoRepository photos, UserPhotoService photoService,
+            LoginSessionRevoker sessions,
             PlatformTransactionManager manager) {
         this.users = users;
         this.photos = photos;
         this.photoService = photoService;
+        this.sessions = sessions;
         writeTransaction = new TransactionTemplate(manager);
     }
 
@@ -49,6 +53,14 @@ public class UserProfileService {
                 return response(user, url);
             });
         }
+    }
+
+    @Transactional
+    public void withdraw(long userId) {
+        var user = activeUser(userId);
+        Instant now = Instant.now();
+        user.withdraw(now);
+        sessions.revokeAll(userId, now);
     }
 
     private User activeUser(long userId) {

@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,6 +47,14 @@ public class MyProfileController {
             @Valid @RequestPart("profile") ProfileUpdateRequest request,
             @RequestPart(value = "photo", required = false) MultipartFile photo) {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(profiles.update(userId(jwt), request, photo));
+    }
+
+    @DeleteMapping
+    @Operation(summary = "회원 탈퇴", description = "로그인한 계정을 탈퇴 처리하고 모든 로그인 세션을 폐기합니다. 요청 본문은 없습니다.")
+    @ApiResponse(responseCode = "204", description = "회원 탈퇴 완료")
+    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal Jwt jwt) {
+        profiles.withdraw(userId(jwt));
+        return ResponseEntity.noContent().header("Cache-Control", "no-store").build();
     }
 
     private long userId(Jwt jwt) { return Long.parseLong(jwt.getSubject()); }

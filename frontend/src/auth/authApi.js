@@ -338,6 +338,26 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
       session = null; api.cancelPending();
     },
+    async withdraw(user) {
+      if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
+      if (refreshing) await refreshing;
+      if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
+      let current = session;
+      let withdrawn = false;
+      try {
+        try { await request('me', undefined, current.accessToken, false, 'DELETE', true); }
+        catch (error) {
+          if (error.status !== 401 || error.code === 'DEVELOPMENT_ACCESS_REQUIRED') throw error;
+          if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+          await api.refresh();
+          current = session;
+          await request('me', undefined, current.accessToken, false, 'DELETE', true);
+        }
+        withdrawn = true;
+      } finally {
+        if (withdrawn && session === current) { session = null; api.cancelPending(); }
+      }
+    },
     async social() { throw new Error('소셜 로그인 API는 아직 연결되지 않았어요.'); },
     async refresh() {
       if (refreshing) return refreshing;
