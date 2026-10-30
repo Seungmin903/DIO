@@ -88,7 +88,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         </Pressable>
       </Animated.View>
       <Animated.View style={[s.railProfileFloating, {
-        top: between(56, 8),
+        top: between(52, 0),
         left: between(15, 20),
         transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }],
       }]}>
