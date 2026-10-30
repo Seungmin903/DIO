@@ -270,3 +270,9 @@ V21은 기존 canvas_elements와 canvas_history_operations에 표현식 GIN 인�
 테이블 자체가 아직 없는 새 DB는 준비 작업을 건너뛰며, 기존 Flyway가 빈 테이블에 V21을 적용한다. CONCURRENTLY는 Flyway 트랜잭션 내부가 아닌 전용 연결에서 실행하므로 V21의 executeInTransaction 설정이나 과거 SQL 수정·repair가 필요 없다. 기존 쓰기 트랜잭션을 기다릴 수는 있지만 새 캔버스 쓰기는 막지 않는지 PostgreSQL 동시성 테스트로 확인한다. 운영에서 Spring Boot를 거치지 않고 Flyway를 직접 실행한다면 같은 준비 단계를 먼저 실행해야 한다.
 
 중첩 참조 검증은 생성과 수정의 propertiesJson 전체에서 mediaFileId를 수집해 권한을 확인한다. 다른 사용자 파일을 x.mediaFileId나 배열 안에 숨겨 삭제 보호를 유발하는 요청은 404로 거절하며 요소·이력에 남기지 않는다. UUID를 언급한 일반 텍스트는 참조로 취급하지 않는다. 기존 저장 JSON을 임의로 삭제하거나 파일 읽기 범위를 확장하지 않는다.
+
+### 미디어 검증·기동 보완
+
+- 요소 하나의 이미지 참조는 기본 `mediaFileId`를 포함해 서로 다른 UUID 최대 64개다. 중첩 JSON 전체를 검증하며 초과 시 미디어 조회·행 잠금 전에 400으로 거절한다. 같은 ID의 반복은 한 개로 센다.
+- 물리 삭제 쿼리는 PostgreSQL 전용이다. H2에서는 미디어 만료 정리 스케줄을 켜도 실행을 건너뛴다. 물리 삭제 검증은 전용 PostgreSQL 테스트로 수행한다.
+- 인덱스 사전 생성은 조건부 `FlywayMigrationStrategy`가 아니라 `BEFORE_MIGRATE` 콜백으로 등록한다. 다른 전략에서도 설정된 Flyway의 `migrate()`를 호출하면 먼저 실행되며 기존 V21 SQL·체크섬은 유지한다.

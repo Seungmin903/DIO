@@ -10,6 +10,7 @@ import com.f106.DIO.media.support.MediaFileNotFoundException;
 /** Access to images referenced by the existing canvas APIs, including photo-strip cells. */
 @Service
 public class CanvasMediaAccess {
+    public static final int MAX_REFERENCES_PER_ELEMENT=64;
     private static final JsonMapper JSON=JsonMapper.builder().build();
     private final JdbcTemplate jdbc;
     private final com.f106.DIO.media.config.MediaSqlDialect sql;
@@ -21,7 +22,10 @@ public class CanvasMediaAccess {
         while(!pending.isEmpty()){
             var node=pending.removeFirst();
             if(node.isObject())node.properties().forEach(field->{
-                if("mediaFileId".equals(field.getKey()))add(ids,field.getValue());
+                if("mediaFileId".equals(field.getKey())){
+                    add(ids,field.getValue());
+                    if(ids.size()>MAX_REFERENCES_PER_ELEMENT)throw new IllegalArgumentException("요소당 이미지 참조는 64개까지 사용할 수 있어요.");
+                }
                 pending.add(field.getValue());
             });
             else if(node.isArray())node.forEach(pending::add);

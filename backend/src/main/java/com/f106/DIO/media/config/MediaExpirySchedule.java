@@ -38,7 +38,7 @@ public class MediaExpirySchedule {
 	public void run() {
 		try {
 			if (postgres) runWithTransactionLock();
-			else logResult(cleanup.purgeExpired());
+			else log.debug("Media expiry cleanup skipped: PostgreSQL is required");
 		} catch (RuntimeException error) {
 			log.error("Expired media cleanup failed: errorType={}", error.getClass().getSimpleName(), error);
 		}
