@@ -1167,14 +1167,6 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
             }}><Text style={{ fontSize: 11, color: ['conflict','error','local-error'].includes(textSync.status) ? colors.danger : colors.textMuted }}>{({ loading: '캔버스 확인 중', saving: '캔버스 전송 중', saved: '캔버스 서버 저장됨', conflict: '캔버스 충돌 · 기기 보존', error: '캔버스 연결 실패 · 재시도', 'local-error': '캔버스 연결 보류' })[textSync.status]}</Text></Pressable>}
           </View>}
 
-          {/* 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. 폰 가로도 −/+ 버튼 없이 손가락으로 확대하고 이 버튼으로 되돌린다.
-              (배율 숫자는 확대·축소하는 동안 Viewport 가 띄운다) */}
-          {!readOnly && !fitted && (
-            <View style={[styles.floating, styles.floatingRight, undoOnRight && styles.floatingStacked]} pointerEvents="box-none">
-              <RoundButton icon="fit" label="화면에 맞춤" onPress={fitToScreen} />
-            </View>
-          )}
-
           {readOnly && readerMenuVisible && <ReadingHeader title={state.doc.title} onHome={goHome} />}
           {readOnly && readerMenuVisible && <ReadingNavigation index={pageIndex} count={state.doc.pages.length} onSelect={selectReadingPage}
             controlsRef={modeControlsRef} onLayout={measureModeControls} canEdit={!permissionReadOnly} onFit={fitToScreen} onToggle={toggleReading} />}

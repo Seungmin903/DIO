@@ -21,6 +21,7 @@ import TapeOptions from './TapeOptions'
 import TapeView from '../canvas/TapeView'
 import PhotoFramePicker from './PhotoFramePicker'
 import StickerSplitModal from './StickerSplitModal'
+import StickerCutoutModal from './StickerCutoutModal'
 import DecorSaveNotice from './DecorSaveNotice'
 import { stickerSplit } from '../../services/stickerSplit'
 
@@ -62,6 +63,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
   const [listDragging, setListDragging] = useState(false) // 목록 편집에서 끄는 중이면 목록 스크롤을 멈춘다
   const [folderDraft, setFolderDraft] = useState(null) // 새 폴더·이름 바꾸기 입력 { id?, name }
   const [splitTarget, setSplitTarget] = useState(null)
+  const [cutoutFolder, setCutoutFolder] = useState(null)
   // 새 테이프의 색·규격·무늬만 기기별로 기억한다. 기존 캔버스 요소는 수정하지 않는다.
   const [tapePreferences, updateTapePreferences, tapePreferencesReady] = useTapePreferences()
   const tapeSize = TAPE_SIZES.find(item => item.id === tapePreferences.size)
@@ -328,6 +330,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
                   folder={folder}
                   busy={busy || !custom.loaded}
                   onSplit={() => setSplitTarget({ folder, name: '' })}
+                  onCutout={() => setCutoutFolder(folder)}
                   splitAvailable={stickerSplit.available}
                   splitReason={stickerSplit.reason}
                   tileProps={tileProps}
@@ -470,6 +473,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
           setCategory(`folder:${id}`); setFolderDraft(null)
           onToast(`${stickers.length}개 스티커를 폴더에 저장했어요.`)
         }} />}
+      {cutoutFolder && <StickerCutoutModal folder={cutoutFolder} onClose={() => setCutoutFolder(null)} />}
       <View
         {...resizeHandlers}
         style={styles.resize}
@@ -549,6 +553,7 @@ function FolderView({
   folder,
   busy,
   onSplit,
+  onCutout,
   splitAvailable,
   splitReason,
   tileProps,
@@ -627,6 +632,11 @@ function FolderView({
           style={[styles.stickerAddOption, (busy || !splitAvailable) && { opacity: DISABLED_OPACITY }]}
           onPress={() => { setAdding(false); onSplit() }}>
           <Text style={styles.stickerAddText}>이미지 분리해서 추가</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="사진 속 대상 오리기" disabled={busy}
+          accessibilityState={{ disabled: busy }} style={styles.stickerAddOption}
+          onPress={() => { setAdding(false); onCutout() }}>
+          <Text style={styles.stickerAddText}>사진 속 대상 오리기</Text>
         </Pressable>
         {!splitAvailable && !!splitReason && <Text style={styles.stickerAddText}>{splitReason}</Text>}
       </View>}
