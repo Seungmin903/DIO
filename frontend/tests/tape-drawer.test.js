@@ -22,7 +22,7 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}) {
     react: { createContext: () => ({ Provider: 'provider' }), useContext: () => 4, useRef: value => ({ current: value }), useState: value => [typeof value === 'function' ? value() : value, () => {}] },
     'react-native': { View: 'view', Text: 'text', Platform: { OS: 'web', select: values => values.web }, StyleSheet: { create: value => value } },
     '../../../shared/theme': { colors: {}, radius: {}, shadow: {} },
-    '../../constants': { TAPE_SIZES: sizes, TAPE_DEFAULT: { size: 'standard', palette: 'pink' }, TAPE_PATTERN_NAMES: { dot: '도트', solid: '무지' } },
+    '../../constants': { TAPE_SIZES: sizes, TAPE_DEFAULT: { size: 'standard', palette: 'pink' }, TAPE_PATTERN_NAMES: { dot: '도트', solid: '무지' }, PHOTO_FRAME_ASSETS: [{ id: 'polaroid', name: '폴라로이드', kind: 'border' }] },
     '../../hooks/useCustomDecor': { RECENT_LIMIT: 8, stickerKey: item => item.id, useCustomDecor: () => ({ loaded: true, lastStickerCategory: saveStatus.items?.lastStickerCategory ?? null, items: { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [] }, ...saveStatus }) },
     '../../hooks/useTapePreferences': { useTapePreferences: () => [store.getSnapshot(), store.update, ready] },
     '../../services/stickerSplit': { stickerSplit: { available: false } },

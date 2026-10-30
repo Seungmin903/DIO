@@ -49,7 +49,7 @@ const ColumnsContext = createContext(4)
 /**
  * 스티커·테이프·사진 보관함. 항목을 누르면 페이지 가운데에 붙는다.
  * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다.
- * 사진: 불러오면 틀 없이 붙고, 사진 틀을 누르면 빈 틀이 붙는다(캔버스의 + 로 채운다).
+ * 사진: 불러오면 틀 없이 붙고, 사진 틀을 누르면 빈 틀이 붙는다(캔버스의 + 로 채운다). 붙인 뒤 틀은 옵션 창의 같은 목록에서 바꾼다.
  */
 export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, onToast, onClose, onPanelWidth }) {
   const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]

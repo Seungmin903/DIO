@@ -37,7 +37,7 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
   const longSide = Math.min(cellWidth, cellHeight);
   const boxWidth = ratio < 1 ? longSide * ratio : longSide;
   const boxHeight = ratio < 1 ? longSide : longSide / ratio;
-  const shadow = frame.shadowOpacity ? { shadowColor: frame.shadowColor, shadowOpacity: frame.shadowOpacity, shadowRadius: frame.shadowRadius, shadowOffset: frame.shadowOffset, elevation: frame.elevation } : null;
+  const shadow = frame.boxShadow ? { boxShadow: frame.boxShadow } : frame.shadowOpacity ? { shadowColor: frame.shadowColor, shadowOpacity: frame.shadowOpacity, shadowRadius: frame.shadowRadius, shadowOffset: frame.shadowOffset, elevation: frame.elevation } : null;
   const sx = Math.min(boxWidth, boxHeight) / s.bookPreview.width;
   return (
     <View
@@ -62,7 +62,7 @@ export default memo(Cover);
 
 const styles = StyleSheet.create({
   // 칸은 자리만 잡는다. 바탕 · 그림자는 표지(또는 첫 속지)가 그린다.
-  cell: { padding: 0, overflow: 'visible', justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'transparent', borderRadius: 0, shadowOpacity: 0, elevation: 0 },
+  cell: { padding: 0, overflow: 'visible', justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'transparent', borderRadius: 0, shadowOpacity: 0, elevation: 0, boxShadow: 'none' },
   page: { ...StyleSheet.absoluteFill, backgroundColor: C.white, justifyContent: 'flex-end' },
   pagePreview: { position: 'absolute', top: 0, left: 0, borderWidth: 0 },
   noCover: { alignSelf: 'flex-start', overflow: 'hidden', color: C.inkSoft, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: C.pale },
