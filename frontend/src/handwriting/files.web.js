@@ -33,7 +33,17 @@ export async function writeLocalPackage(name, text) {
   const uri = URL.createObjectURL(new Blob([text], { type: 'application/json' })), a = document.createElement('a')
   a.href = uri; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(uri), 30000); return true
 }
-export async function saveFontBytes(id, bytes) { await stored(id, bytes); return URL.createObjectURL(new Blob([bytes], { type: 'font/ttf' })) }
+export async function saveFontBytes(id, bytes) {
+  if (await stored(id)) throw new Error('폰트 파일 ID가 충돌했어요.')
+  await stored(id, bytes); return URL.createObjectURL(new Blob([bytes], { type: 'font/ttf' }))
+}
+export async function removeFontBytes(id) {
+  const database = await db()
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction('fonts', 'readwrite'); tx.objectStore('fonts').delete(id)
+    tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error)
+  })
+}
 export async function restoreFontUri(font) {
   const bytes = await stored(font.fileId ?? font.id)
   if (!bytes) throw new Error('기기에 저장된 폰트를 찾지 못했어요.')

@@ -11,6 +11,7 @@ export function nativeGenerator() {
 }
 export async function capabilities() {
   const native = nativeGenerator()
+  if (native && (!native.isBusy || !native.getJobDraft)) return { available: false, reason: '폰트 작업 관리를 사용하려면 최신 Android 개발 빌드로 업데이트해 주세요.' }
   return native ? native.capabilities() : { available: false, reason: Platform.OS === 'android' ? '실제 글자 생성은 Android 개발 빌드에서 사용할 수 있어요. Expo Go에서는 작성·자동 크기 맞춤·완성 폰트 적용을 확인할 수 있어요.' : '폰트 생성은 Android 개발 빌드에서 사용할 수 있어요.' }
 }
 export async function createSnapshot(draft, onProgress = () => {}) {

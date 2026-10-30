@@ -1,0 +1,151 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
+import { correctFontSpacing, fontSpacingInfo, FONT_SPACING_VERSION } from '../src/handwriting/fontSpacing.js'
+import * as format from '../src/handwriting/fontFormat.js'
+import * as protocol from '../src/handwriting/protocol.js'
+import { legacyFont, tablesOf, repairChecksum, sum32 } from './helpers/handwriting-font-fixture.js'
+
+const original = legacyFont(), options = { family: 'DIOHW-SpacingTest', displayName: '간격 보정 테스트' }
+test('전체 한글은 잉크 폭+32·LSB 16이며 윤곽선·공백·기준선·원본은 보존된다', async () => {
+  const before = original.slice(), progress = [], result = await correctFontSpacing(original, { ...options, onProgress: n => progress.push(n) })
+  assert.deepEqual(original, before)
+  const a = tablesOf(original), b = tablesOf(result), v = new DataView(result.buffer)
+  for (const tag of ['glyf', 'loca', 'cmap', 'maxp', 'post']) assert.deepEqual(result.subarray(b[tag].offset, b[tag].offset + b[tag].length), original.subarray(a[tag].offset, a[tag].offset + a[tag].length), tag)
+  for (let i = 2; i < 11174; i++) {
+    assert.equal(v.getUint16(b.hmtx.offset + i * 4), [640, 1024, 1536][(i - 2) % 3] + 32)
+    assert.equal(v.getInt16(b.hmtx.offset + i * 4 + 2), 16)
+  }
+  assert.equal(v.getUint16(b.hmtx.offset + 4), 1024)
+  assert.equal(v.getUint16(b.hmtx.offset), 2048)
+  assert.equal(v.getUint16(b.head.offset + 16) & 2, 0)
+  assert.equal(v.getInt16(b.hhea.offset + 4), 1720)
+  assert.equal(v.getInt16(b.hhea.offset + 6), -328)
+  assert.equal(v.getUint16(b.hhea.offset + 34), 11174)
+  assert.equal(sum32(result), 0xb1b0afba)
+  for (const [tag, t] of Object.entries(b)) {
+    const bytes = result.slice(t.offset, t.offset + t.length)
+    if (tag === 'head') new DataView(bytes.buffer).setUint32(8, 0)
+    assert.equal(sum32(bytes), t.checksum, tag)
+  }
+  assert.equal(format.inspectTrueType(result).syllables, 11172)
+  assert.deepEqual(fontSpacingInfo(result), { spacingSupported: true, spacingVersion: FONT_SPACING_VERSION })
+  assert.equal(progress.at(-1), 11172)
+  await assert.rejects(correctFontSpacing(result, options), /이미/)
+})
+test('손상·외부·힌팅·잘못된 윤곽선 폰트를 원본 변경 없이 거부한다', async () => {
+  for (const kind of ['checksum', 'vendor', 'hint', 'coordinate', 'composite']) {
+    const bytes = original.slice(), t = tablesOf(bytes), v = new DataView(bytes.buffer)
+    if (kind === 'checksum') bytes[bytes.length - 1] ^= 1
+    if (kind === 'vendor') bytes[t['OS/2'].offset + 58] = 88
+    if (kind === 'hint') v.setUint16(t.glyf.offset + 12, 1)
+    if (kind === 'coordinate') v.setInt16(t.glyf.offset + 18, 385)
+    if (kind === 'composite') v.setInt16(t.glyf.offset, -1)
+    if (kind !== 'checksum') repairChecksum(bytes)
+    const before = bytes.slice()
+    await assert.rejects(correctFontSpacing(bytes, options), undefined, kind)
+    assert.deepEqual(bytes, before)
+  }
+})
+
+const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
+const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/handwriting/storage.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+})
+function storage() {
+  const disk = new Map(), files = new Map(), removed = [], state = { failList: false, failFile: false, picked: null, exported: null }
+  let seq = 0
+  const mod = { exports: {} }, asyncStorage = {
+    getItem: async key => disk.get(key) ?? null,
+    async setItem(key, value) { if (state.failList && key === 'dio-personal-fonts-v1') throw new Error('disk full'); disk.set(key, value) },
+  }
+  const deps = {
+    '@react-native-async-storage/async-storage': asyncStorage,
+    'expo-crypto': { randomUUID: () => `11111111-2222-4333-8444-${String(++seq).padStart(12, '0')}` },
+    './protocol.js': protocol, './fontFormat.js': format,
+    './fontSpacing.js': { correctFontSpacing, fontSpacingInfo, FONT_SPACING_VERSION },
+    './files': {
+      readFontBytes: async uri => files.get(uri), restoreFontUri: async font => { if (!files.has(font.uri)) throw new Error('missing'); return font.uri },
+      async saveFontBytes(id, bytes) { if (state.failFile) throw new Error('disk full'); const uri = `file:///${id}.ttf`; assert(!files.has(uri)); files.set(uri, bytes); return uri },
+      async removeFontBytes(id) { removed.push(id); files.delete(`file:///${id}.ttf`) },
+      pickLocalFile: async () => state.picked,
+      writeLocalPackage: async (_name, text) => { state.exported = text; return true },
+    },
+  }
+  new Function('require', 'module', 'exports', code)(id => deps[id], mod, mod.exports)
+  files.set('file:///source.ttf', original.slice())
+  return { ...mod.exports, disk, files, removed, state }
+}
+test('보정 사본은 새 ID·이름으로 등록하고 중복 요청·기존 문서를 보존한다', async () => {
+  const s = storage(), old = await s.registerFontFile('file:///source.ttf', '가'.repeat(30), 'old-job')
+  s.disk.set('existing-diary', JSON.stringify({ font: old.id }))
+  const before = s.files.get(old.uri).slice(), a = s.correctRegisteredFont(old), b = s.correctRegisteredFont(old)
+  assert.equal(a, b)
+  const next = await a
+  assert.notEqual(next.id, old.id); assert.notEqual(next.family, old.family)
+  assert.equal(next.sourceFontId, old.id); assert.equal(next.spacingVersion, FONT_SPACING_VERSION)
+  assert(next.label.length <= 30); assert(next.label.endsWith(' (간격 보정)'))
+  assert.equal(s.disk.get('existing-diary'), JSON.stringify({ font: old.id }))
+  assert.deepEqual(s.files.get(old.uri), before)
+  assert.equal((await s.loadFontLibrary()).length, 2)
+  assert.equal((await s.correctRegisteredFont(old)).id, next.id)
+  await assert.rejects(s.correctRegisteredFont(next), /이미/)
+})
+
+test('작업 목록 이관은 기존 폰트와 초안을 보존하고 반복 실행해도 중복되지 않는다', async () => {
+  const s = storage(), font = await s.registerFontFile('file:///source.ttf', '이전 폰트', 'legacy-job')
+  const draft = { schema: 1, id: 'legacy-draft', samples: { 값: { coordinateSize: 1024, strokes: [{ width: 9, points: [{ x: 100, y: 100 }] }] } } }
+  await s.saveDraft(draft); await s.saveLastJob({ id: 'legacy-job', state: 'ready' })
+  const beforeFonts = s.disk.get('dio-personal-fonts-v1'), beforeDraft = s.disk.get('dio-handwriting-draft-v1')
+  const entries = await s.loadWorkflow(); assert.equal(entries.length, 2)
+  assert.equal(entries.find(e => e.fontId === font.id).draft, null)
+  assert.deepEqual(entries.find(e => e.status === 'draft').draft, draft)
+  assert.deepEqual(await s.loadWorkflow(), entries)
+  assert.equal(s.disk.get('dio-personal-fonts-v1'), beforeFonts); assert.equal(s.disk.get('dio-handwriting-draft-v1'), beforeDraft)
+})
+test('완료 등록은 동시 요청·앱 재시작에도 작업 ID 기준으로 중복되지 않는다', async () => {
+  const s = storage()
+  const [a, b] = await Promise.all([s.registerFontFile('file:///source.ttf', 'A', 'same'), s.registerFontFile('file:///source.ttf', 'A', 'same')])
+  assert.equal(a.id, b.id)
+  assert.equal((await s.registerFontFile('file:///source.ttf', 'A', 'same')).id, a.id)
+  assert.equal((await s.loadFontLibrary()).length, 1)
+  await s.renameFont(a.id, '새 이름')
+  const renamed = (await s.loadFontLibrary())[0]; assert.equal(renamed.id, a.id); assert.equal(renamed.family, a.family); assert.equal(renamed.uri, a.uri); assert.equal(renamed.label, '새 이름')
+})
+test('파일·목록 저장 실패 시 원본과 목록을 보존하고 새 파일만 정리한다', async () => {
+  for (const fail of ['failFile', 'failList']) {
+    const s = storage(), old = await s.registerFontFile('file:///source.ttf', '원본')
+    const list = s.disk.get('dio-personal-fonts-v1'), count = s.files.size
+    s.state[fail] = true
+    await assert.rejects(s.correctRegisteredFont(old), /disk full/)
+    assert.equal(s.disk.get('dio-personal-fonts-v1'), list)
+    assert.equal(s.files.size, count)
+    assert.deepEqual(s.files.get(old.uri), original)
+  }
+})
+test('사본 파일이 없으면 기존 ID를 지우지 않고 원본에서 새 사본을 복구한다', async () => {
+  const s = storage(), old = await s.registerFontFile('file:///source.ttf', '가'.repeat(21) + '😀😀')
+  const copy = await s.correctRegisteredFont(old)
+  assert(!/[\uD800-\uDBFF] \(간격 보정\)/.test(copy.label))
+  s.files.delete(copy.uri)
+  const restored = await s.correctRegisteredFont(old)
+  assert.notEqual(restored.id, copy.id)
+  assert.equal((await s.loadFontLibrary()).find(f => f.id === copy.id).missing, true)
+  assert.equal((await s.loadFontLibrary()).find(f => f.id === old.id).missing, undefined)
+})
+test('구형 JSON·TTF 가져오기와 보정 메타데이터 이관을 지원하며 허위 버전은 무시한다', async () => {
+  const s = storage()
+  s.state.picked = { name: 'old.json', bytes: new TextEncoder().encode(JSON.stringify({ kind: 'dio-font', schema: 1, label: '구형', spacingVersion: FONT_SPACING_VERSION, ttf: format.toBase64(original) })) }
+  const old = (await s.importLocalFile()).font
+  assert.equal(old.spacingVersion, undefined)
+  const next = await s.correctRegisteredFont(old)
+  await s.exportFont(next)
+  const data = JSON.parse(s.state.exported)
+  assert.equal(data.sourceFontId, old.id); assert.equal(data.spacingVersion, FONT_SPACING_VERSION)
+  const target = storage(); target.state.picked = { name: 'copy.json', bytes: new TextEncoder().encode(s.state.exported) }
+  const restored = (await target.importLocalFile()).font
+  assert.equal(restored.spacingVersion, FONT_SPACING_VERSION); assert.equal(restored.sourceFontId, old.id)
+  target.state.picked = { name: 'copy.ttf', bytes: s.files.get(next.uri) }
+  assert.equal((await target.importLocalFile()).font.spacingVersion, FONT_SPACING_VERSION)
+})
