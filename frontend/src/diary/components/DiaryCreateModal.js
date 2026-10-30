@@ -1,262 +1,237 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
-import DiaryPaperColors, { DiaryPaperColorButton, DiaryPaperPreview } from './DiaryPaperColors';
-import DiaryMonthPreview from './DiaryMonthPreview';
-import { DEFAULT_PAPER_APPEARANCE } from '../../editor/templates/appearance.js';
-import DiaryTemplateSettings from './DiaryTemplateSettings';
-import { templatePageCount } from '../../editor/templates/creation.js';
-import { activeCreationConfig, creationFlowReducer, initialCreationFlow } from '../utils/creationFlow.js';
-import DiaryPresets, { CompositionSummary } from './DiaryPresets';
-import AppIcon from '../../shared/AppIcon';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { Animated, Easing, Modal, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { DEFAULT_PAPER_APPEARANCE, PAPER_BACKGROUNDS, normalizePaperAppearance } from '../../editor/templates/appearance.js';
+import { configuredPageIds } from '../../editor/templates/creation.js';
+import { normalizeOrientation, templateCanvasSize } from '../../editor/templates/catalog.js';
+import { preloadTextFonts } from '../../editor/services/textFonts';
+import { subscribeTextFonts } from '../../editor/utils/text';
 import { MODAL_ORIENTATIONS } from '../../editor/components/controls/EditorModal';
-import { COLORS, COVER_PATTERNS, DIARY_DEFAULTS, PAGE_SIZES, C } from '../constants';
-import { DISABLED_OPACITY } from '../../shared/theme';
-import { styles as s } from '../styles';
-import Cover from './Cover';
+import { DIARY_DEFAULTS } from '../constants';
+import { colors, shadow } from '../../shared/theme';
+import CoverArt from './CoverArt';
+import CoverOptions, { usePhotoTone } from './CoverOptions';
+import PaperOptions, { BlankPreview, PaperStyleOptions, TemplatePreview } from './PaperOptions';
+import { OptionRow, Segmented } from './FormControls';
+import Workbench, { StagePill, fit } from './Workbench';
+import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
+import { coverSummary, defaultCover, normalizeCover } from '../utils/coverDesign';
+import { defaultSections, savedPaperSummary, sectionTitle, sectionsTemplateConfig } from '../utils/paperChoice';
 
 const TITLE_LIMIT = 24;
 const SHEET_SLIDE = 600;
+// 표지는 세로 3:4, 가로 4:3
+const COVER_RATIO = 3 / 4;
+const SECTIONS = { basic: ['이름 · 방향', 'edit'], cover: ['표지', 'book'], paper: ['속지', 'pages'], style: ['속지 색', 'roller'] };
 
-function Chip({ label, selected, disabled, onPress, children }) {
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityLabel={label}
-      accessibilityState={{ selected, checked: selected, disabled }}
-      aria-checked={selected}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [s.formChip, selected && s.formChipSelected, disabled && s.formChipDisabled, pressed && s.pressed]}
-    >
-      {children}
-      <Text style={[s.formChipText, selected && s.formChipTextSelected]}>{label}</Text>
-    </Pressable>
-  );
+// 표지 글꼴은 편집기 텍스트 도구와 같은 파일을 쓴다. 다 불러오면 표지를 다시 그린다.
+preloadTextFonts();
+
+function CoverFrame({ cover, name, width, height, edit }) {
+  return <View style={[styles.coverFrame, { width, height }]}>
+    <CoverArt cover={cover} name={name} width={width} height={height} edit={edit} shadow={shadow.card} />
+  </View>;
 }
 
-// 입력 상태를 모달 안에 두어 글자를 칠 때마다 홈 화면 전체가 다시 그려지지 않게 한다.
-// sheet: 폰에서는 가운데 창 대신 아래에서 올라오는 시트로 띄운다.
+/**
+ * 새 다이어리 · 다이어리 수정 (2안 · 구역 카드 + 스위치 목록).
+ * 왼쪽 구역 카드(이름 · 방향 · 표지 · 속지 · 속지 색)는 순서 없이 오가고, 가운데는 지금 고치는 것만 미리 보며,
+ * 오른쪽은 요소 줄을 한 번에 하나만 펼친다. 수정에서는 방향을 잠그고 속지 구역이 없다.
+ * sheet: 폰에서는 아래에서 올라오는 시트로 띄운다.
+ */
 export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, bottomInset = 0,
   visible = true, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey }) {
-  const formLocked = saving || locked;
   const editing = Boolean(diary);
+  const formLocked = saving || locked;
+  const [, redraw] = useReducer(value => value + 1, 0);
+  useEffect(() => subscribeTextFonts(redraw), []);
+  const [section, setSection] = useState(editing ? 'cover' : 'basic');
   const [title, setTitle] = useState(diary?.title ?? DIARY_DEFAULTS.title);
-  const [color, setColor] = useState(diary?.color ?? DIARY_DEFAULTS.color);
-  const [pattern, setPattern] = useState(diary ? diary.pattern ?? null : DIARY_DEFAULTS.pattern);
-  const [flow, changeFlow] = useReducer(creationFlowReducer, diary?.pageSize, initialCreationFlow);
-  const { step, orientation: pageSize } = flow;
-  const templateConfig = useMemo(() => activeCreationConfig(flow), [flow]);
-  const submitting = useRef(false);
-  const recommending = !editing && step === 'recommend';
-  const configuring = !editing && step === 'custom';
-  const coloring = !editing && step === 'colors';
-  const choosing = !editing && step !== 'cover';
-  const [paperAppearance, setPaperAppearance] = useState(() => ({ ...DEFAULT_PAPER_APPEARANCE }));
+  const [orientation, setOrientation] = useState(normalizeOrientation(diary?.templateConfig?.orientation ?? diary?.pageSize ?? 'portrait'));
+  const [cover, setCover] = useState(() => editing ? normalizeCover(diary) : defaultCover());
+  const [openElement, setOpenElement] = useState('base');
+  // 속지 묶음: 위에서부터 순서대로 쌓는다 (화면은 한 줄 목록 + 이어서 · 섞어서)
+  const [paperSections, setPaperSections] = useState(defaultSections);
+  const [paperAppearance, setPaperAppearance] = useState(() => normalizePaperAppearance(diary?.paperAppearance ?? DEFAULT_PAPER_APPEARANCE));
+  const [scope, setScope] = useState('all');
+  const [stage, setStage] = useState({ width: 0, height: 0 });
   const [error, setError] = useState('');
+  const [leaving, setLeaving] = useState(false);
+  const [notice, setNotice] = useState('');
   useEffect(() => { setError(''); }, [messageResetKey]);
-  const formScroll = useRef(null);
-  const [paletteDragging, setPaletteDragging] = useState(false);
-  const onPaletteInteraction = useCallback(active => {
-    // 네이티브 스크롤도 즉시 막아 다음 렌더 전의 움직임을 방지한다.
-    formScroll.current?.setNativeProps?.({ scrollEnabled: !active });
-    setPaletteDragging(active);
-  }, []);
-  const actionLabel = saving ? '저장 중…' : submitLabel || (editing ? '완료하기' : choosing ? '이 구성으로 시작' : '내지 구성 선택하기');
-  let count = null, configError = '';
-  if (choosing) {
-    try { count = templatePageCount(templateConfig); } catch (failure) { configError = failure.message; }
-  }
-  const changePageSize = orientation => {
-    changeFlow({ type: 'orientation', value: orientation });
-  };
-  const pageSizeLabel = PAGE_SIZES.find((item) => item.id === pageSize)?.label;
+  const submitting = useRef(false);
   const slide = useRef(new Animated.Value(sheet ? 1 : 0)).current;
   useEffect(() => {
     if (!sheet) return;
     Animated.timing(slide, { toValue: 0, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [sheet, slide]);
 
-  const onTitleChange = (value) => {
-    setTitle(value);
-    setError('');
+  // 수정은 저장된 첫 속지를, 새 다이어리는 고른 속지를 미리 본다.
+  // 새 다이어리는 묶음 전체의 페이지 순서를 한 번 만들어 장수 · 미리보기에 같이 쓴다
+  let allIds = null, configError = '';
+  if (!editing) {
+    try { allIds = configuredPageIds(sectionsTemplateConfig(paperSections, orientation)); } catch (failure) { configError = failure.message; }
+  }
+  const pageCount = allIds?.length ?? null;
+  const firstPageId = useMemo(() => {
+    if (!editing) return allIds?.[0] ?? null;
+    try { return configuredPageIds(diary.templateConfig)[0] ?? null; } catch { return null; }
+  }, [editing, diary, allIds?.[0]]); // eslint-disable-line react-hooks/exhaustive-deps
+  const filledSections = paperSections.filter(item => item.rows.length);
+  const summaries = {
+    basic: `${orientation === 'landscape' ? '가로' : '세로'} · ${title.trim() || '이름 없음'}`,
+    cover: coverSummary(cover),
+    paper: filledSections.length ? `${sectionTitle(filledSections[0])}${filledSections.length > 1 ? ` 외 ${filledSections.length - 1}` : ''}` : '없음',
+    style: PAPER_BACKGROUNDS.find(([, color]) => color === paperAppearance.backgroundColor)?.[0] ?? paperAppearance.backgroundColor,
   };
+  const sections = (editing ? ['basic', 'cover', 'style'] : ['basic', 'cover', 'paper', 'style'])
+    .map(id => ({ id, title: SECTIONS[id][0], icon: SECTIONS[id][1], summary: summaries[id] }));
+  // 처음 연 상태와 다르면 '바꿈'. 수정은 바꾼 게 있을 때만 저장할 수 있고, 바꾼 채로 취소하면 한 번 묻는다.
+  // 사진 대표 색(photo.tone)은 열 때 뽑아 채우는 값이라 고친 것으로 치지 않는다
+  const snapshot = JSON.stringify({ title, orientation, cover: cover.photo?.tone ? { ...cover, photo: { ...cover.photo, tone: null } } : cover, paperSections, paperAppearance, scope });
+  const initial = useRef(snapshot);
+  const dirty = snapshot !== initial.current;
+  const cancel = () => { if (saving) return; if (dirty) setLeaving(true); else onCancel(); };
+  const actionLabel = saving ? '저장 중…' : submitLabel || (editing ? '저장' : '만들기');
+  const disabled = saving || submitDisabled || Boolean(configError) || editing && !dirty;
+
+  const changeTitle = value => { setTitle(value); setError(''); };
+  const changeCover = next => { setCover(next); setError(''); };
+  usePhotoTone(cover, setCover);
 
   const onSave = async () => {
-    if (saving || submitDisabled || submitting.current) return;
+    if (disabled || submitting.current) return;
     const trimmed = title.trim();
-    if (!trimmed) { setError('다이어리 이름을 입력해 주세요.'); return; }
-    if (configError) { setError(configError); return; }
-    if (!editing && step === 'cover') { setError(''); changeFlow({ type: 'next' }); return; }
+    if (!trimmed) { setSection('basic'); setError('다이어리 이름을 입력해 주세요.'); return; }
+    let templateConfig;
+    if (!editing) {
+      try { templateConfig = sectionsTemplateConfig(paperSections, orientation); } catch (failure) { setError(failure.message); return; }
+    }
     submitting.current = true;
     try {
-      const failure = await onSubmit({ title: trimmed, color, pattern, pageSize, templateConfig, paperAppearance });
+      const failure = await onSubmit({ title: trimmed, color: cover.color, pattern: cover.pattern.type === 'none' ? null : cover.pattern.type, cover,
+        pageSize: orientation, templateConfig, paperAppearance, appearanceScope: editing ? scope : 'all' });
       if (failure) setError(failure);
     } catch {
       setError('다이어리를 저장하지 못했어요. 다시 시도해 주세요.');
     } finally { submitting.current = false; }
   };
 
+  // ---------- 가운데 미리보기: 지금 고치는 것만 ----------
+  const paperRatio = (() => { const { width, height } = templateCanvasSize(orientation); return width / height; })();
+  const coverRatio = orientation === 'landscape' ? 1 / COVER_RATIO : COVER_RATIO;
+  let preview = null;
+  if (stage.width > 0) {
+    const maxHeight = stage.height - (sheet ? 44 : 80);
+    const wide = stage.width * (sheet ? 0.86 : 0.8);
+    if (section === 'basic') {
+      const gap = sheet ? 16 : 32;
+      const half = (stage.width - (sheet ? 32 : 80) - gap) / 2;
+      const coverSize = fit(coverRatio, half, maxHeight);
+      const paperSize = fit(paperRatio, half, maxHeight);
+      preview = <>
+        <View style={[styles.pair, { gap }]}>
+          <CoverFrame cover={cover} name={title} width={coverSize.width} height={coverSize.height} />
+          {firstPageId ? <TemplatePreview assetId={firstPageId} width={paperSize.width} appearance={paperAppearance} style={styles.paperShadow} />
+            : <BlankPreview orientation={orientation} width={paperSize.width} appearance={paperAppearance} style={styles.paperShadow} />}
+        </View>
+      </>;
+    } else if (section === 'cover') {
+      const size = fit(coverRatio, wide, maxHeight);
+      preview = <>
+        <CoverFrame cover={cover} name={title} width={size.width} height={size.height}
+          edit={formLocked ? null : { onChange: changeCover, onSelectSticker: id => { if (id && id !== 'title') setOpenElement('stickers'); } }} />
+      </>;
+    } else if (section === 'paper' && allIds && !allIds.length) {
+      // 속지 묶음이 없으면 빈 페이지 한 장으로 시작한다
+      const size = fit(paperRatio, wide, maxHeight);
+      preview = <>
+        <BlankPreview orientation={orientation} width={size.width} appearance={paperAppearance} style={styles.paperShadow} />
+        <StagePill>속지 없음 · 빈 페이지 1장</StagePill>
+      </>;
+    } else if (section === 'paper' && allIds) {
+      // 첫 장을 크게, 그 아래에 처음 몇 장을 순서대로 작게 보여 섞인 차례를 확인한다
+      const ids = allIds;
+      const stripCount = Math.min(ids.length, sheet ? 6 : 8);
+      const stripWidth = Math.min(sheet ? 34 : 46, (wide - (stripCount - 1) * 6) / Math.max(1, stripCount));
+      const stripHeight = stripWidth / paperRatio;
+      const size = fit(paperRatio, wide, maxHeight - stripHeight - (sheet ? 12 : 20));
+      preview = <>
+        <TemplatePreview assetId={ids[0]} width={size.width} appearance={paperAppearance} style={styles.paperShadow} />
+        {stripCount > 1 && <View style={styles.strip}>
+          {ids.slice(0, stripCount).map((id, index) => <TemplatePreview key={`${id}-${index}`} assetId={id} width={stripWidth} appearance={paperAppearance} />)}
+          {ids.length > stripCount && <Text style={styles.stripMore}>…</Text>}
+        </View>}
+        <StagePill>전체 {pageCount}페이지</StagePill>
+      </>;
+    } else if (firstPageId) {
+      const size = fit(paperRatio, wide, maxHeight);
+      preview = <>
+        <TemplatePreview assetId={firstPageId} width={size.width} appearance={paperAppearance} style={styles.paperShadow} />
+        <StagePill>{editing ? savedPaperSummary(diary.templateConfig) : `전체 ${pageCount ?? '—'}페이지`}</StagePill>
+      </>;
+    }
+  }
+
+  // ---------- 오른쪽: 구역별 옵션 ----------
+  let panel;
+  if (section === 'basic') panel = <View>
+    <OptionRow label="이름">
+      <TextInput accessibilityLabel="다이어리 이름" editable={!formLocked} value={title} onChangeText={changeTitle} placeholder="예: 2026 봄의 기록" placeholderTextColor={colors.textMuted}
+        maxLength={TITLE_LIMIT} selectTextOnFocus style={[styles.input, error && !title.trim() && styles.inputError]} />
+      <Text style={styles.count}>{title.length}/{TITLE_LIMIT}</Text>
+    </OptionRow>
+    <OptionRow label="방향">
+      <Segmented disabled={editing} items={[{ id: 'portrait', label: '세로' }, { id: 'landscape', label: '가로' }]} selected={id => id === orientation} onPress={setOrientation} />
+    </OptionRow>
+    {editing && <View style={styles.infoCard}>
+      <Text style={styles.infoTitle}>{savedPaperSummary(diary.templateConfig)}</Text>
+    </View>}
+  </View>;
+  else if (section === 'cover') panel = <CoverOptions cover={cover} onChange={changeCover} openElement={openElement} onOpenElement={setOpenElement} onNotice={setNotice} />;
+  else if (section === 'paper') panel = <PaperOptions sections={paperSections} onChange={next => { setPaperSections(next); setError(''); }} orientation={orientation} appearance={paperAppearance} />;
+  else panel = <PaperStyleOptions appearance={paperAppearance} onChange={setPaperAppearance} plainOnly={!editing && paperSections.every(item => item.rows.every(row => row.paper === 'plain'))}
+    scope={scope} onScope={editing ? setScope : null} />;
+
+  const message = error || configError || notice;
+  const foot = (message || footerNotice) ? <>
+    {message ? <Text accessibilityRole="alert" style={error || configError ? styles.error : styles.notice}>{message}</Text> : null}
+    {footerNotice}
+  </> : null;
+
   return (
     // Android Modal은 앱과 다른 창이라 앱에서 숨긴 상태 바가 다시 나타나고, 그 높이만큼 창 전체가 아래로 밀렸다.
     // 상태 바·내비게이션 바 위까지 그리게 하고 상태 바는 계속 숨긴다. 아래 시스템 바 높이만큼은 여백으로 비운다.
     // iOS Modal 기본값은 세로 전용이라 가로로 고정한 태블릿에서 열면 앱이 종료된다. 두 방향을 모두 허용한다.
-    <Modal
-      visible={visible}
-      transparent
-      supportedOrientations={MODAL_ORIENTATIONS}
-      presentationStyle="overFullScreen"
-      statusBarTranslucent
-      navigationBarTranslucent
-      onRequestClose={() => { if (!saving) onCancel(); }}
-    >
-    <StatusBar hidden />
-    <View accessibilityViewIsModal style={[s.createOverlay, sheet && s.createOverlaySheet, !sheet && { paddingBottom: 16 + bottomInset }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${actionLabel} 닫기`}
-        disabled={saving}
-        onPress={onCancel}
-        style={s.createBackdrop}
-      />
-      <Animated.View style={[s.createDialog, sheet && s.createSheet, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
-        {sheet ? <View style={s.sheetHandle} /> : (
-          <View style={[s.createPreviewPane, recommending && { width: 300, paddingHorizontal: 20, paddingVertical: 24 }]}>
-            {recommending ? <DiaryMonthPreview config={templateConfig} appearance={paperAppearance} />
-              : coloring ? <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} /> : <Cover preview diary={{ title, color, pattern, templateConfig: { dateMode: editing ? diary.templateConfig?.dateMode : flow.dateMode } }} />}
-            <Text style={s.createPreviewMeta}>{pageSizeLabel}</Text>
-          </View>
-        )}
-
-        <View style={[s.createFormPane, sheet && s.createFormPaneSheet]}>
-          <View style={s.createDialogHeader}>
-            <View>
-              <Text style={s.createDialogTitle}>{editing ? '다이어리 수정' : coloring ? '내지 색상' : configuring ? '직접 구성하기' : recommending ? '어떻게 기록할까요?' : '새 다이어리 만들기'}</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${actionLabel} 닫기`}
-              disabled={saving}
-              onPress={onCancel}
-              style={({ pressed }) => [s.createClose, pressed && s.pressed]}
-            >
-              <AppIcon name="close" size={20} color={C.ink} />
-            </Pressable>
-          </View>
-
-          {choosing && !coloring && <DiaryPaperColorButton appearance={paperAppearance} disabled={formLocked || Boolean(configError)}
-            onPress={() => { changeFlow({ type: 'colors' }); setError(''); }} />}
-          {choosing && !coloring && <View style={{ marginBottom: 12 }}>
-            <View style={s.createChips}>
-              <Chip label="날짜형 · 1년" selected={flow.dateMode === 'dated'} disabled={formLocked}
-                onPress={() => { changeFlow({ type: 'dateMode', value: 'dated' }); setError(''); }} />
-              <Chip label="만년형 · 1개월" selected={flow.dateMode === 'undated'} disabled={formLocked}
-                onPress={() => { changeFlow({ type: 'dateMode', value: 'undated' }); setError(''); }} />
-            </View>
-            <Text style={s.helper}>{flow.dateMode === 'undated' ? '날짜를 직접 쓰는 한 달 구성이에요. 달력은 6주 칸, 주간 계획은 포함 시 6장이에요.' : '2026년 1~12월의 날짜가 적힌 일 년 구성이에요.'}</Text>
-          </View>}
-          <ScrollView ref={formScroll} scrollEnabled={!paletteDragging} style={s.createFormScroll} contentContainerStyle={s.createFormBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <View pointerEvents={formLocked ? 'none' : 'auto'}>
-            {!editing && <Text style={[s.helper, { marginBottom: 12 }]}>{coloring ? '선택 사항 · 내지 색상' : choosing ? '2 / 2 · 내지 구성' : '1 / 2 · 이름과 표지'}</Text>}
-            {!choosing && <>
-            <Text style={s.createLabel}>이름</Text>
-            <TextInput
-              accessibilityLabel="다이어리 이름"
-              editable={!formLocked}
-              value={title}
-              onChangeText={onTitleChange}
-              placeholder="예: 2026 봄의 기록"
-              placeholderTextColor={C.muted}
-              maxLength={TITLE_LIMIT}
-              selectTextOnFocus
-              style={[s.createField, error && s.fieldError]}
-            />
-            <View style={s.createHelperRow}>
-              {error ? <Text accessibilityRole="alert" style={s.error}>{error}</Text> : null}
-              <Text style={[s.helper, s.createCount]}>{title.length}/{TITLE_LIMIT}</Text>
-            </View>
-
-            <Text style={s.createLabel}>표지 색상</Text>
-            <View style={[s.createColors, sheet && s.createColorsSheet]}>
-              {COLORS.map((choice) => (
-                <Pressable
-                  key={choice.value}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`${choice.label} 표지 색상`}
-                  accessibilityState={{ selected: color === choice.value }}
-                  disabled={formLocked}
-                  onPress={() => setColor(choice.value)}
-                  style={({ pressed }) => [s.createColorChoice, sheet && s.createColorChoiceSheet, color === choice.value && s.createColorSelected, pressed && s.pressed]}
-                >
-                  <View style={[s.createColorDot, { backgroundColor: choice.value }]} />
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={s.createLabel}>표지 패턴</Text>
-            <View style={s.createChips}>
-              {COVER_PATTERNS.map((item) => (
-                <Chip key={item.id} label={item.label} selected={pattern === item.id} disabled={formLocked} onPress={() => setPattern(item.id)} />
-              ))}
-            </View>
-
-            <View style={s.createLabelRow}>
-              <Text style={[s.createLabel, s.createLabelInline]}>페이지 크기</Text>
-              <Text style={s.createLabelNote}>다이어리 생성 후 변경 불가</Text>
-            </View>
-            <View style={s.createChips}>
-              {PAGE_SIZES.map((item) => (
-                <Chip key={item.id} label={item.label} selected={pageSize === item.id} disabled={editing || formLocked} onPress={() => changePageSize(item.id)}>
-                  <View style={[s.pageSizeIcon, item.id === 'portrait' ? s.pageSizeIconPortrait : s.pageSizeIconLandscape]} />
-                </Chip>
-              ))}
-            </View>
-
-            </>}
-            {recommending && sheet && <DiaryMonthPreview config={templateConfig} appearance={paperAppearance} compact />}
-            {recommending && <DiaryPresets selected={flow.preset} orientation={pageSize} dateMode={flow.dateMode} appearance={paperAppearance}
-              onSelect={id => { changeFlow({ type: 'preset', id }); setError(''); }}
-              onCustomize={() => { changeFlow({ type: 'custom' }); setError(''); }} />}
-            {configuring && <>
-              <CompositionSummary config={templateConfig} />
-              <DiaryTemplateSettings value={templateConfig} onChange={value => { changeFlow({ type: 'configure', value }); setError(''); }} />
-            </>}
-            {coloring && <>
-              {sheet && <DiaryPaperPreview config={templateConfig} appearance={paperAppearance} />}
-              <DiaryPaperColors onInteractionChange={onPaletteInteraction} value={paperAppearance} onChange={setPaperAppearance} />
-            </>}
-            </View>
-          </ScrollView>
-
-          {choosing && <View>
-            <Text accessibilityLiveRegion="polite" style={s.createLabel}>전체 페이지 수 · {count == null ? '—' : count}페이지</Text>
-            {(error || configError) ? <Text accessibilityRole="alert" style={[s.error, { marginBottom: 8 }]}>{error || configError}</Text> : null}
-          </View>}
-          {footerNotice}
-          <View style={[s.createFooter, sheet && { paddingBottom: 16 + bottomInset }]}>
-            {choosing && <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={coloring ? '내지 구성으로 돌아가기' : configuring ? '추천 구성으로 돌아가기' : '이름과 표지로 돌아가기'}
-              disabled={formLocked}
-              onPress={() => { changeFlow({ type: 'back' }); onPaletteInteraction(false); setError(''); }}
-              style={({ pressed }) => [s.createBack, pressed && s.pressed, formLocked && { opacity: DISABLED_OPACITY }]}
-            >
-              <AppIcon name="chevron-left" size={18} color={C.inkSoft} />
-              <Text style={s.createBackText}>{coloring ? '내지 구성' : configuring ? '추천 구성' : '이름과 표지'}</Text>
-            </Pressable>}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={actionLabel}
-              disabled={saving || submitDisabled || Boolean(configError)}
-              onPress={onSave}
-              style={({ pressed }) => [s.createSubmit, pressed && s.pressed, (saving || submitDisabled || Boolean(configError)) && { opacity: DISABLED_OPACITY }]}
-            >
-              <Text style={s.createSubmitText}>{actionLabel}</Text>
-              <AppIcon name="chevron-right" size={20} color="#FFFFFF" />
-            </Pressable>
-          </View>
-        </View>
-      </Animated.View>
-    </View>
+    <Modal visible={visible} transparent supportedOrientations={MODAL_ORIENTATIONS} presentationStyle="overFullScreen"
+      statusBarTranslucent navigationBarTranslucent onRequestClose={cancel}>
+      <StatusBar hidden />
+      <View accessibilityViewIsModal style={styles.overlay}>
+        <Animated.View style={[styles.dialog, !sheet && { paddingBottom: bottomInset }, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
+          <Workbench title={editing ? '다이어리 수정' : '새 다이어리'} actionLabel={actionLabel} onCancel={cancel} cancelDisabled={saving} onSubmit={onSave} submitDisabled={disabled}
+            sections={sections} section={section} onSection={id => { setSection(id); setNotice(''); }} sheet={sheet} bottomInset={bottomInset}
+            onStageLayout={setStage} stage={preview} panel={panel} panelLocked={formLocked} foot={foot} />
+        </Animated.View>
+        <ConfirmDialog open={leaving} title="저장하지 않고 닫을까요?" message="바꾼 내용은 저장되지 않아요." confirmLabel="닫기"
+          onConfirm={() => { setLeaving(false); onCancel(); }} onCancel={() => setLeaving(false)} />
+      </View>
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  // 화면 전체를 쓴다 (폰은 아래에서 올라오며 열린다)
+  overlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 20 },
+  dialog: { flex: 1, overflow: 'hidden', backgroundColor: colors.surfaceSoft },
+  strip: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  stripMore: { color: colors.textMuted, fontSize: 16, fontWeight: '800' },
+  pair: { flexDirection: 'row', alignItems: 'center' },
+  coverFrame: { borderTopLeftRadius: 6, borderBottomLeftRadius: 6, borderTopRightRadius: 14, borderBottomRightRadius: 14 },
+  paperShadow: { ...shadow.card, shadowOpacity: 0.1 },
+  input: { height: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, color: colors.text, fontSize: 14, fontWeight: '700', backgroundColor: colors.surfaceSoft },
+  inputError: { borderColor: colors.danger },
+  count: { alignSelf: 'flex-end', color: colors.textMuted, fontSize: 11 },
+  infoCard: { marginTop: 8, padding: 12, gap: 4, borderRadius: 14, backgroundColor: colors.surfaceSoft },
+  infoTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
+  error: { color: colors.danger, fontSize: 12.5, fontWeight: '700' },
+  notice: { color: colors.textMuted, fontSize: 12.5, fontWeight: '700' },
+});

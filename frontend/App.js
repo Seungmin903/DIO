@@ -3,7 +3,7 @@ import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'rea
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
-import { prepareEditor, rememberEditorDoc } from './src/editor/services/editorDocs';
+import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { useSharing } from './src/sharing/useSharing';
@@ -16,6 +16,10 @@ import { useDiaries } from './src/diary/hooks/useDiaries';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
+import DeskBackdrop from './src/diary/components/DeskBackdrop';
+import { useDeskDecorOn } from './src/diary/utils/deskTimeStore';
+import DeskTimeSlider from './src/diary/components/DeskTimeSlider';
+import { DESK_COLORS } from './src/diary/utils/deskLight';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
@@ -107,6 +111,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
   const { isPhone, isLandscape } = useFormFactor();
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
+  const showDeskDecor = useDeskDecorOn() // 책상 아래쪽 장식 소품(폴라로이드 · 테이프 · 클립 …)을 보일지. 게스트 시각 슬라이더의 '소품' 토글
+  const [deskSize, setDeskSize] = useState(null); // 책상이 깔릴 영역(작업 영역)의 크기
   const [railCollapsed, setRailCollapsed] = useState(true);
   // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
   // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
@@ -319,16 +325,18 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
       catch (failure) { return failure.message; }
     }
     const updatedAt = new Date().toISOString();
+    const paperAppearance = normalizePaperAppearance(form.paperAppearance);
     const diary = original
-      ? { ...original, title, color: form.color, pattern: form.pattern, updatedAt }
+      ? { ...original, title, color: form.color, pattern: form.pattern, cover: form.cover, paperAppearance, updatedAt }
       : {
         id: pendingCreateId.current ?? createId(),
         createdAt: updatedAt,
         templateConfig: config,
-        paperAppearance: normalizePaperAppearance(form.paperAppearance),
+        paperAppearance,
         title,
         color: form.color,
         pattern: form.pattern,
+        cover: form.cover,
         pageSize: config.orientation,
         type: '개인',
         favorite: false,
@@ -351,6 +359,25 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
         setSaving(false);
       }
     }
+    // 수정에서 속지 스타일을 바꾸면 새 페이지에 쓸 색을 바꾸고, '모든 페이지'면 이미 있는 페이지도 칠한다.
+    if (original && JSON.stringify(normalizePaperAppearance(original.paperAppearance)) !== JSON.stringify(paperAppearance)) {
+      savingRef.current = true;
+      setSaving(true);
+      try {
+        const key = editorDocKey(original);
+        const doc = await loadEditorDoc(original);
+        if (doc?.pages?.length) {
+          const next = { ...doc, paperAppearance, pages: form.appearanceScope === 'all' ? doc.pages.map(page => ({ ...page, paperAppearance })) : doc.pages };
+          if (!await saveEditorDoc(key, next)) throw new Error('속지 스타일을 저장하지 못했어요. 다시 시도해 주세요.');
+          rememberEditorDoc(key, next);
+        }
+      } catch (failure) {
+        return failure.message;
+      } finally {
+        savingRef.current = false;
+        setSaving(false);
+      }
+    }
     // 먼저 만든 다이어리가 앞(왼쪽)에 오도록 새 다이어리는 뒤에 붙인다.
     if (original) setDiaries((current) => current.map((item) => (item.id === diary.id ? diary : item)));
     setActive((current) => (current?.id === diary.id ? diary : current));
@@ -358,7 +385,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
     setEditingDiaryId(null);
     if (!original) {
       setCarousel(0);
-      enterEditor(diary);
+      // 새 문서는 위에서 이미 메모리에 올려 두었으므로 준비를 기다리지 않고 바로 편집기로 넘어간다
+      opening.current = null;
+      setEditorOrientation(null);
+      setActive(diary);
+      setTabIds((current) => (current.includes(diary.id) ? current : [...current, diary.id]));
+      setPage('editor');
     }
     return undefined;
   };
@@ -520,15 +552,24 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
     />
   );
 
+  // 다이어리 홈은 '햇살 책상' 위에 놓인다. 사이드 메뉴는 흰 판 그대로, 책상은 작업 영역 뒤(폰은 아래 탭 뒤까지)에 깔린다.
+  const desk = page === 'library' && loaded;
+  const deskLayout = event => { const { width, height } = event.nativeEvent.layout; setDeskSize(current => (current && current.width === width && current.height === height ? current : { width, height })) }
+  const deskTime = desk && previewUser?.provider === 'guest' && <DeskTimeSlider compact={isPhone} />;
+  const deskDecor = !showDeskDecor ? null : isPhone
+    ? (view === 'grid' ? null : { left: { scale: 0.46, left: 16, bottom: 100 + insets.bottom } })
+    : (view === 'grid' ? { right: { scale: 0.62, right: 104, bottom: 8 } } : { left: { scale: 1, left: 52, bottom: 6 }, right: { scale: 1, right: 100, bottom: 6 } });
   let shell;
   if (page === 'editor') {
     shell = content;
   } else if (isPhone) {
     // 폰: 사이드 메뉴 대신 하단 탭. 새 다이어리 시트는 탭까지 덮도록 셸 위에 띄운다.
     shell = (
-      <View style={s.phoneShell}>
-        <View style={s.workspace}>{content}</View>
-        <BottomTabs notificationCount={authenticatedNotifications?.count} notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
+      <View style={s.phoneShell} onLayout={deskLayout}>
+        {desk && <DeskBackdrop compact decor={deskDecor} size={deskSize} />}
+        <View style={[s.workspace, desk && s.workspaceDesk, desk && s.deskAbove]}>{content}</View>
+        <BottomTabs floating={desk} notificationCount={authenticatedNotifications?.count} notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
+        {deskTime}
         {createModal}
       </View>
     );
@@ -547,8 +588,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
           collapsed={railCollapsed}
           onToggle={() => setRailCollapsed((current) => !current)}
         />
-        <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
-          {content}
+        <View style={[s.workspace, { paddingBottom: insets.bottom }]} onLayout={deskLayout}>
+          {desk && <DeskBackdrop decor={deskDecor} size={deskSize} />}
+          {desk ? <View style={s.deskAbove}>{content}</View> : content}
+          {deskTime}
           {createModal}
         </View>
       </View>
@@ -557,9 +600,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview }) {
 
   // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 태블릿 보관함은 흰 사이드 메뉴. 오른쪽: 보관함·편집기 바탕.
   const safeAreaColors = {
-    top: page === 'editor' && !isLandscape ? C.white : C.canvas,
-    left: !isPhone && page !== 'editor' ? C.white : C.canvas,
-    right: C.canvas,
+    top: page === 'editor' && !isLandscape ? C.white : desk ? DESK_COLORS.base : C.canvas,
+    left: !isPhone && page !== 'editor' ? C.white : desk ? DESK_COLORS.base : C.canvas,
+    right: desk ? DESK_COLORS.base : C.canvas,
   };
 
   const measureViewport = ({ nativeEvent: { layout } }) => {

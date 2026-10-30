@@ -14,6 +14,10 @@ export const styles = StyleSheet.create({
   appFill: { flex: 1, alignSelf: 'stretch' },
   phoneShell: { flex: 1 },
   tabBarWrap: { flexShrink: 0, paddingHorizontal: 10, paddingTop: 6, backgroundColor: C.canvas },
+  tabBarWrapDesk: { backgroundColor: 'transparent', zIndex: 2, elevation: 2 }, // 책상 위에서는 탭 막대 뒤 바탕 띠를 없앤다
+  workspaceDesk: { backgroundColor: 'transparent' },
+  // 책상 바탕(맨 뒤) 위에 보관함 내용을 확실히 올린다. 안드로이드는 그리는 순서 말고 zIndex · elevation 으로도 겹침을 정한다.
+  deskAbove: { flex: 1, zIndex: 1, elevation: 1 },
   tabBar: { minHeight: 66, flexDirection: 'row', padding: 5, overflow: 'visible', borderRadius: 24, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   tabItem: { flex: 1, minHeight: 54, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 19 },
   tabItemSelected: { backgroundColor: C.active },
@@ -28,6 +32,10 @@ export const styles = StyleSheet.create({
   railTogglePressed: { backgroundColor: '#F4F7FC' },
   railToggleText: { color: C.ink, fontSize: 19, lineHeight: 22, fontWeight: '700' },
   // 새 다이어리: 편집 화면의 주 버튼(내보내기)과 같은 색
+  libraryRoot: { flex: 1 },
+  // 보관함 오른쪽 아래에 떠 있는 새 다이어리 버튼 (예전 사이드 메뉴 + 버튼과 같은 색 · 모서리)
+  createFab: { position: 'absolute', right: 32, bottom: 32, width: 60, height: 60, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: C.blueStrong, shadowColor: C.ink, shadowOpacity: 0.16, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+  createFabCompact: { right: 20, bottom: 20, width: 56, height: 56, borderRadius: 16 },
   railCreate: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 14, backgroundColor: C.blueStrong },
   railPlus: { color: C.white, fontSize: 23, lineHeight: 25, fontWeight: '300' },
   railCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
@@ -128,8 +136,8 @@ export const styles = StyleSheet.create({
   secondaryText: { color: C.ink, fontSize: 13, fontWeight: '700' },
   secondaryArrow: { color: C.ink, fontSize: 19 },
 
-  carouselShell: { minHeight: 510, flex: 1, paddingTop: 31, paddingBottom: 17, overflow: 'hidden' },
-  carouselShellCompact: { minHeight: 0, paddingTop: 4, paddingBottom: 0, marginHorizontal: -18 },
+  carouselShell: { minHeight: 510, flex: 1, paddingTop: 47, paddingBottom: 3, overflow: 'hidden' },
+  carouselShellCompact: { minHeight: 0, paddingTop: 16, paddingBottom: 0, marginHorizontal: -18 },
   carouselRow: { height: 412, position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   carouselRowCompact: { flex: 1, height: 'auto', minHeight: 0 },
   carouselCardTop: { zIndex: 2 },
@@ -141,17 +149,14 @@ export const styles = StyleSheet.create({
   carouselCards: { alignItems: 'flex-start', gap: 42, paddingVertical: 28 },
   // 가운데 카드가 커지고(1.06) 위로 올라가는(-12) 만큼 위아래 여백을 둬야 카드 윗부분이 잘리지 않는다.
   carouselCardsCompact: { paddingVertical: 28 },
-  carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
+  carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.08, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   carouselArrowLeft: { left: 4 },
   carouselArrowRight: { right: 4 },
   carouselArrowText: { color: C.ink, fontSize: 32, lineHeight: 35, fontWeight: '300' },
-  carouselFoot: { minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, paddingTop: 10 },
-  carouselFootCompact: { minHeight: 28, paddingTop: 0 },
   swipeHint: { color: C.inkSoft, fontSize: 11.5, fontWeight: '700' },
-  carouselCount: { color: C.ink, fontSize: 13, fontWeight: '800' },
   card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18, overflow: 'hidden' },
-  cardCarousel: { width: 238, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
-  cardCarouselCompact: { width: 202 },
+  cardCarousel: { width: 318, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
+  cardCarouselCompact: { width: 268 },
   cardGrid: { width: '18.25%', minWidth: 160, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardGridCompact: { width: '47.5%', minWidth: 0 },
   cardList: { minHeight: 120, flexDirection: 'row', alignItems: 'stretch' },
@@ -179,10 +184,12 @@ export const styles = StyleSheet.create({
   cardType: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
 
   cover: { height: 219, padding: 19, overflow: 'hidden', justifyContent: 'center' },
-  coverCarousel: { height: 318, borderTopLeftRadius: 9, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 9 },
+  // 책상 위 표지: 오후 빛과 같은 방향(오른쪽 아래)의 옅은 그림자
+  coverCarousel: { height: 318, borderTopLeftRadius: 9, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 9, boxShadow: '6px 10px 14px rgba(28,34,51,0.16)' }, // elevation 은 안드로이드에서 표지 둘레에 옅은 테두리를 만들어 방향 있는 boxShadow 를 쓴다
   coverCarouselCompact: { height: 268, padding: 16 },
-  coverGrid: { height: 276, borderRadius: 12, shadowColor: C.ink, shadowOpacity: 0.13, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
-  coverGridCompact: { height: 212, padding: 15 },
+  // 한눈에 칸은 정사각형. 세로 · 가로 다이어리 모두 긴 변이 칸 크기와 같다 (선반 배치)
+  coverGrid: { aspectRatio: 1, borderRadius: 12, shadowColor: C.ink, shadowOpacity: 0.13, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  coverGridCompact: { padding: 15 },
   coverSmall: { width: 143, height: '100%', minHeight: 118, padding: 13 },
   coverPreview: { width: 250, height: 330, borderRadius: 14, padding: 27, shadowColor: C.ink, shadowOpacity: 0.19, shadowRadius: 19, shadowOffset: { width: 0, height: 13 }, elevation: 6 },
   coverLine: { position: 'absolute', top: 17, left: 0, width: '54%', height: 4, borderTopRightRadius: 5, borderBottomRightRadius: 5, backgroundColor: 'rgba(255,255,255,.52)' },
@@ -196,8 +203,8 @@ export const styles = StyleSheet.create({
   coverRule: { flex: 1, height: 1, backgroundColor: 'rgba(11,25,87,.34)' },
   coverYear: { color: 'rgba(11,25,87,.72)', fontSize: 10, fontWeight: '900' },
   coverYearSmall: { fontSize: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 20, rowGap: 34, paddingTop: 4 },
-  gridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between', paddingTop: 18 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 20, rowGap: 34, paddingTop: 44 }, // 첫 줄은 제목 · 칩에서 조금 내려서 시작한다
+  gridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between', paddingTop: 64 },
 
   createCard: { alignItems: 'stretch' },
   createCardCarousel: { width: 238 },

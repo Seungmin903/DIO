@@ -3,7 +3,6 @@ import { Animated, FlatList, Pressable, ScrollView, Text, View } from 'react-nat
 import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS, C } from '../constants';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
-import CreateDiaryCard from '../components/CreateDiaryCard';
 import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
 import { toggleSelection, visibleSelection } from '../utils/diarySelection';
@@ -14,21 +13,28 @@ import { queryDiaries, SORT_OPTIONS } from '../utils/libraryQuery';
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 // 줄 폭 변화가 이만큼 멈춰 있어야 새 폭으로 다시 그린다 (사이드 메뉴 애니메이션 240ms가 끝난 뒤).
 const CAROUSEL_RESIZE_SETTLE_MS = 120;
+// 가운데가 아닌 옆 카드의 불투명도 (1이면 가운데 카드와 같다)
+const SIDE_CARD_OPACITY = 0.55;
 
-// 카드 위치(index)마다 스크롤 위치에 따라 투명도·크기·높이가 바뀌는 애니메이션 스타일.
+// 카드 위치(index)마다 스크롤 위치에 따라 크기·높이가 바뀌는 애니메이션 스타일.
 // 3D 기울기(rotateY)는 쓰지 않는다. 위를 기준으로 줄이면 기울기 축도 위로 가서 옆 카드 아랫변이 비뚤게 보인다.
+// 옆 카드는 카드 자체를 반투명하게 한다(흰 막을 덮으면 표지 위에 흰 층이 티가 난다). 안드로이드가 자식마다 따로 투명하게 하지 않도록 DiaryCard 가 카드를 한 장으로 합쳐 그린다.
+// 가운데와 양옆 한 권씩만 보이고, 두 칸 떨어진 다이어리는 숨는다(넘기는 동안 서서히 나타난다).
 function carouselMotion(scrollX, index, step) {
   const inputRange = [(index - 1) * step, index * step, (index + 1) * step];
   const along = (outputRange) => scrollX.interpolate({ inputRange, outputRange, extrapolate: 'clamp' });
   return {
-    zIndex: 1,
-    opacity: along([0.36, 1, 0.36]),
-    // 카드 높이가 달라도(맨 끝 '새 다이어리' 카드는 정보 줄이 없어 짧다) 윗변이 한 줄에 오도록 위를 기준으로 줄이고 키운다.
-    transformOrigin: 'center top',
-    transform: [
-      { scale: along([0.84, 1.06, 0.84]) },
-      { translateY: along([30, -12, 30]) },
-    ],
+    card: {
+      zIndex: 1,
+      opacity: scrollX.interpolate({ inputRange: [(index - 2) * step, (index - 1) * step, index * step, (index + 1) * step, (index + 2) * step], outputRange: [0, SIDE_CARD_OPACITY, 1, SIDE_CARD_OPACITY, 0], extrapolate: 'clamp' }),
+      // 카드 높이가 달라도(맨 끝 '새 다이어리' 카드는 정보 줄이 없어 짧다) 윗변이 한 줄에 오도록 위를 기준으로 줄이고 키운다.
+      transformOrigin: 'center top',
+      transform: [
+        { scale: along([0.84, 1.06, 0.84]) },
+        { translateY: along([30, -12, 30]) },
+      ],
+    },
+    info: { opacity: along([0.75, 1, 0.75]) }, // 카드 투명도와 겹쳐 곱해지므로 글자는 조금만 더 흐리게
   };
 }
 
@@ -63,6 +69,8 @@ function LibraryScreen({
   const scrollX = useRef(new Animated.Value(Math.max(0, carousel) * CAROUSEL_STEP)).current;
   const carouselRef = useRef(null);
   const positioned = useRef(null);
+  // 폭을 재고 첫 위치를 잡기 전에는 카드가 왼쪽 끝에 그려졌다가 가운데로 튄다. 자리가 잡힐 때까지 숨긴다.
+  const [landed, setLanded] = useState(false);
   // 사이드 메뉴 애니메이션 중에는 매 프레임 바뀌므로 App이 아닌 이 화면 안에서만 들고 있는다.
   const [carouselViewportWidth, setCarouselViewportWidth] = useState(0);
   const [localSearchOpen, setLocalSearchOpen] = useState(false);
@@ -91,12 +99,12 @@ function LibraryScreen({
   const toggleAll = () => {
     if (!trashing && manageable.length) onSelectionChange?.(allSelected ? [] : manageable.map(diary => diary.id));
   };
-  // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 카드는 개인 다이어리 탭에만 둔다. 관리 중에는 숨긴다.
+  // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 버튼은 개인 다이어리 탭에만 둔다. 관리 중에는 숨긴다.
   const canCreate = Boolean(onCreate) && filter === 'personal' && !searchOpen && !selecting;
 
-  const carouselItems = useMemo(() => (canCreate ? [...shown, { id: 'new-diary' }] : shown), [canCreate, shown]);
+  const carouselItems = shown;
   const itemCount = carouselItems.length;
-  const carouselItemWidth = compact ? 202 : CAROUSEL_ITEM_WIDTH;
+  const carouselItemWidth = compact ? 268 : CAROUSEL_ITEM_WIDTH;
   const carouselGap = compact ? 24 : CAROUSEL_GAP;
   const carouselStep = compact ? carouselItemWidth + carouselGap : CAROUSEL_STEP;
   // 카드 수가 바뀔 때만 애니메이션 노드를 새로 만든다. 매 렌더마다 만들면 스와이프마다 모든 카드가 다시 연결된다.
@@ -123,6 +131,7 @@ function LibraryScreen({
       carouselRef.current.scrollToOffset({ offset, animated: false });
       scrollX.setValue(offset);
       positioned.current = key;
+      setLanded(true);
     });
     return () => cancelAnimationFrame(frame);
   }, [activeIndex, carouselStep, carouselViewportWidth, contentWidth, displayView, filter, itemCount, scrollX]);
@@ -241,6 +250,7 @@ function LibraryScreen({
   />;
 
   return (
+    <View style={s.libraryRoot}>
     <ScrollView
       contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact, fixedPhoneCarousel && s.libraryScreenCarouselCompact]}
       showsVerticalScrollIndicator={false}
@@ -299,7 +309,7 @@ function LibraryScreen({
       ) : displayView === 'carousel' ? (
         <View style={[s.carouselShell, compact && s.carouselShellCompact]}>
           {/* 목록은 잰 폭으로 고정하고 줄 가운데에 둔다. 줄 폭이 바뀌어도 가운데 카드는 늘 줄 가운데에 머문다. */}
-          <View style={[s.carouselRow, compact && s.carouselRowCompact]} onLayout={measureCarousel}>
+          <View style={[s.carouselRow, compact && s.carouselRowCompact, !landed && { opacity: 0 }]} onLayout={measureCarousel}>
             {/* 폰은 화면이 좁아 화살표 대신 밀어서 넘긴다. */}
             {!compact && <Pressable
               accessibilityRole="button"
@@ -335,16 +345,6 @@ function LibraryScreen({
               // 카드가 확대·기울기로 자기 영역 밖까지 그려져서 removeClippedSubviews는 쓰지 않는다.
               windowSize={5}
               renderItem={({ item, index }) => (
-                item.id === 'new-diary' ? (
-                  <CreateDiaryCard
-                    key={item.id}
-                    layout="carousel"
-                    compact={compact}
-                    carouselActive={index === activeIndex}
-                    animatedStyle={motions[index]}
-                    onCreate={onCreate}
-                  />
-                ) : (
                   <DiaryCard
                     key={item.id}
                     diary={item}
@@ -352,7 +352,8 @@ function LibraryScreen({
                     layout="carousel"
                     compact={compact}
                     carouselActive={index === activeIndex}
-                    animatedStyle={motions[index]}
+                    animatedStyle={motions[index].card}
+                    infoStyle={motions[index].info}
                     onOpen={onOpen}
                     onFavorite={onFavorite}
                     onEdit={onEdit}
@@ -361,7 +362,6 @@ function LibraryScreen({
                     selected={selected.includes(item.id)}
                     onToggleSelect={toggleSelect}
                   />
-                )
               )}
             />
             {!compact && <Pressable
@@ -373,19 +373,20 @@ function LibraryScreen({
               <AppIcon name="chevron-right" size={24} color={C.ink} strokeWidth={2.1} />
             </Pressable>}
           </View>
-          <View style={[s.carouselFoot, compact && s.carouselFootCompact]}>
-            {/* 개수는 다이어리만 센다. 맨 끝 "새 다이어리" 카드에서는 비워 둔다 (줄 높이는 유지) */}
-            <Text style={s.carouselCount}>{activeIndex < shown.length ? `${activeIndex + 1} / ${shown.length}` : ' '}</Text>
-          </View>
         </View>
       ) : (
         <View style={[s.grid, compact && s.gridCompact]}>
           {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
             selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} />)}
-          {canCreate && <CreateDiaryCard layout="grid" compact={compact} onCreate={onCreate} />}
         </View>
       )}
     </ScrollView>
+    {/* 새 다이어리: 예전 사이드 메뉴의 파란 + 버튼을 화면 오른쪽 아래에 띄운다 */}
+    {canCreate && <Pressable accessibilityRole="button" accessibilityLabel="새 다이어리 만들기" onPress={onCreate}
+      style={({ pressed }) => [s.createFab, compact && s.createFabCompact, pressed && s.pressed]}>
+      <AppIcon name="add" size={compact ? 24 : 26} color={C.white} />
+    </Pressable>}
+    </View>
   );
 }
 
