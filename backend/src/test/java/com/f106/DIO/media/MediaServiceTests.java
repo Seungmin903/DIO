@@ -127,12 +127,11 @@ class MediaServiceTests {
 	}
 
 	@Test
-	void keepsTheUploadCleanupTaskWhenPersistenceAndImmediateStorageCleanupFail() {
+	void doesNotImmediatelyDeleteStorageWhenPersistenceFails() {
 		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
 			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));
 		stubPersist();
 		when(transactions.persist(any(MediaFile.class), any())).thenThrow(new IllegalStateException("database unavailable"));
-		doThrow(new IllegalStateException("S3 unavailable")).when(storage).delete(any());
 
 		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "failed.gif", "image/gif", "GIF89a".getBytes()), null, 7L))
 			.isInstanceOf(IllegalStateException.class);
@@ -141,12 +140,11 @@ class MediaServiceTests {
 	}
 
 	@Test
-	void keepsTheUploadCleanupTaskWhenPutOutcomeIsUnknownAndCleanupFails() {
+	void doesNotImmediatelyDeleteStorageWhenPutOutcomeIsUnknown() {
 		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
 			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));
 		stubPersist();
 		doThrow(new IllegalStateException("S3 timeout")).when(storage).put(any(), any(), any());
-		doThrow(new IllegalStateException("S3 unavailable")).when(storage).delete(any());
 
 		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "timeout.gif", "image/gif", "GIF89a".getBytes()), null, 7L))
 			.isInstanceOf(IllegalStateException.class);
