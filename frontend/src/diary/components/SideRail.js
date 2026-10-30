@@ -38,7 +38,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         pressed && s.railTogglePressed,
       ]}
     >
-      {!collapsedButton && profilePhotoSource ? (
+      {profilePhotoSource ? (
         <Image source={profilePhotoSource} style={s.railHeaderAvatar} contentFit="cover" cachePolicy="memory" />
       ) : (
         <View style={s.railHeaderAvatar}>
