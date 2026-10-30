@@ -64,7 +64,7 @@ import { isTicketFrame } from '../components/canvas/PhotoFrame'
 import { isStripFrame, photoCell, stripCellBoxes } from '../utils/photoStrip'
 import { startPagePanelMeasurement } from '../utils/pagePanelPerformance.js'
 
-import PageAddPicker from '../components/PageAddPicker'
+import PageAddPicker, { prefetchPageAddPapers } from '../components/PageAddPicker'
 import { pageSize, pageTemplateOrientation } from '../utils/pageGeometry.js'
 
 // 텍스트 글꼴은 앱이 켜질 때(이 화면 모듈을 불러올 때) 미리 불러오기 시작한다. 편집기를 열 즈음에는 대부분 준비된다.
@@ -109,6 +109,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const deferredObjects = useDeferredValue(page.objects)
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   const templateOrientation = pageTemplateOrientation(state.doc, page)
+  // 페이지 추가 팝업의 속지(줄 · 모눈 · 도트 …)를 미리 불러 둬 열자마자 그려지게 한다
+  // (편집 화면이 자리 잡은 뒤에 불러 와 첫 화면을 막지 않는다)
+  useEffect(() => {
+    const timer = setTimeout(() => prefetchPageAddPapers(templateOrientation), 1500)
+    return () => clearTimeout(timer)
+  }, [templateOrientation])
   // 앞뒤 페이지 속지를 미리 해석해 두어 페이지를 넘길 때 빈 속지가 보이지 않게 한다.
   // 필기마다 pages 배열이 바뀌므로, 앞뒤 페이지의 속지가 바뀔 때만 다시 실행한다.
   const pageIndex = state.doc.pages.findIndex((item) => item.id === page.id)
@@ -970,7 +976,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           onClose={() => setOverviewFilter(null)}
         />
       )}
-      {templatePickerOpen && !readOnly && <PageAddPicker compact={compact} orientation={templateOrientation} appearance={state.doc.paperAppearance} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 + bottomInset }}
+      {templatePickerOpen && !readOnly && <PageAddPicker compact={compact} orientation={templateOrientation} currentAssetId={page.backgroundAssetId} appearance={state.doc.paperAppearance} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 + bottomInset }}
         onClose={() => setTemplatePickerOpen(false)} onSelect={async backgroundAssetId => {
           try{
             if(textSync.enabled)await textSync.addPage(backgroundAssetId)
