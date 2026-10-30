@@ -19,7 +19,7 @@ test('폰트 제작기 실제 EditorModal은 전체 화면·슬라이드·방향
     if(id==='react')return {useEffect(){},useSyncExternalStore:(_subscribe,snapshot)=>snapshot()};
     if(id.endsWith('/EditorModal'))return {__esModule:true,default:Modal};
     if(id.endsWith('/studioBus.js'))return bus;
-    if(id.endsWith('/theme'))return {colors:{}};
+    if(id.endsWith('/theme'))return {colors:{},radius:{md:12,lg:20}};
     return {};
   });
   let confirmed=0;
