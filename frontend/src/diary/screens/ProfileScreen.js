@@ -80,10 +80,6 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   if (route === 'notifications') {
     return <NotificationSettingsScreen compact={compact} onClose={() => setRoute('home')} />;
   }
-  if (route === 'app-info') {
-    return <AppInfoScreen compact={compact} onClose={() => setRoute('home')} />;
-  }
-
   return (
     <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
       <Header title="마이페이지" compact={compact} />
@@ -125,16 +121,8 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         <ListSection>
           <ListItem label="나만의 폰트 만들기" icon="edit" onPress={() => openFontStudio()} />
         </ListSection>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="앱 정보"
-          onPress={() => setRoute('app-info')}
-          style={({ pressed }) => [local.appInfo, pressed && local.pressed]}
-        >
-          <View style={local.itemIcon}><AppIcon name="info" size={20} color={colors.primaryStrong} /></View>
-          <Text style={local.itemLabel}>앱 정보</Text>
-          <AppIcon name="chevron-right" size={20} color={colors.textMuted} />
-        </Pressable>
+        <Text style={local.groupTitle}>앱 정보</Text>
+        <AppInformation standalone />
         {onEndPreview && (
           <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={onEndPreview} style={({ pressed }) => [local.logout, pressed && local.pressed]}>
             <Text style={local.logoutText}>로그아웃</Text>
@@ -159,34 +147,6 @@ function ListItem({ label, icon, onPress }) {
   );
 }
 
-function AppInfoScreen({ compact, onClose }) {
-  return (
-    <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
-      <Header
-        title="앱 정보"
-        compact={compact}
-        right={<BackToProfile compact={compact} onPress={onClose} />}
-      />
-      <View style={local.detailContent}>
-        <AppInformation standalone />
-      </View>
-    </ScrollView>
-  );
-}
-
-function BackToProfile({ compact, onPress }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="마이페이지로 돌아가기"
-      onPress={onPress}
-      style={({ pressed }) => [local.headerBack, compact && local.headerBackCompact, pressed && local.pressed]}
-    >
-      <AppIcon name="chevron-left" size={22} color={C.ink} />
-    </Pressable>
-  );
-}
-
 const local = StyleSheet.create({
   content: { width: '100%', maxWidth: 760, alignSelf: 'center' },
   profileCard: { minHeight: 104, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.line },
@@ -200,11 +160,7 @@ const local = StyleSheet.create({
   item: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },
   itemIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: C.pale },
   itemLabel: { flex: 1, color: C.ink, fontSize: 15, fontWeight: '700' },
-  appInfo: { minHeight: 62, marginTop: 26, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderWidth: 1, borderColor: C.line, borderRadius: 18, backgroundColor: C.white },
   logout: { minHeight: 52, marginTop: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 14, backgroundColor: C.white },
   logoutText: { color: C.muted, fontSize: 15, fontWeight: '700' },
-  detailContent: { width: '100%', maxWidth: 760, alignSelf: 'center' },
-  headerBack: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
-  headerBackCompact: { width: 38, height: 38, borderRadius: 10, borderWidth: 0, backgroundColor: 'transparent' },
   pressed: { opacity: 0.7 },
 });
