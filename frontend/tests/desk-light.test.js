@@ -92,3 +92,15 @@ test('24 이상 · 음수 시각은 하루로 접고 이름표 · 시계가 맞�
   assert.equal(deskPhaseAt(22), '밤')
   assert.equal(deskPhaseAt(12), '한낮')
 })
+
+test('한낮 창빛 없음: 창빛 패치 · 해 연출 · 가로등이 꺼지고 하늘빛은 한낮 그대로다', () => {
+  const shut = deskLight.deskLightAt(deskLight.NOON_NO_WINDOW)
+  assert.equal(shut.sun, 0)
+  assert.equal(shut.key, 'afterglow')
+  assert.equal(shut.screen.opacity, 0)
+  assert.equal(shut.tint.opacity, 0)
+  assert.equal(shut.accent.opacity, 0)
+  assert.equal(shut.lampOpacity, 0)
+  assert.equal(shut.dim, 0)
+  assert.ok(deskLight.deskLightAt(13).screen.opacity > 0)
+})

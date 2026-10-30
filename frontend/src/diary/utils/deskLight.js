@@ -54,6 +54,10 @@ export const CYCLE = [
 // 가로등: 같은 마스크를 고정 변환으로 쓴다(해 변환과 같은 규칙의 오른쪽 저고도 쪽, 시간에 따라 움직이지 않는다). 호박색, 세기는 행의 lamp(최대 maxOpacity, 코덱스 가로등 단독 밤).
 export const LAMP_PATCH = { patch: [0.18, 0.067, 1.025, 1.14, -6.6, -4.6], color: '#FFD98B', maxOpacity: 0.345 }
 
+// 한낮에 창으로 빛이 들지 않는 고정 시각(사용자 선택). 실제 시계는 1/60 단위라 이 값과 겹치지 않는다.
+// 하늘빛(ambient · wash)은 한낮 그대로 두고, 창빛 패치 · 해 연출 · 가로등만 끈다.
+export const NOON_NO_WINDOW = 12.995
+
 const mix = (a, b, t) => a + (b - a) * t
 
 function hexToRgb(hex) {
@@ -108,14 +112,15 @@ export function deskLightAt(hours) {
   const [washColor, washOpacity] = pair(from.wash, to.wash, t)
   const lampOpacity = mix(from.lamp, to.lamp, t)
   const [afterglowColor, afterglowOpacity] = pair(from.afterglow, to.afterglow, t)
+  const shut = Math.abs(h - NOON_NO_WINDOW) < 1e-9
   return {
     hour: h, phase: deskPhaseAt(h),
-    key: sun > 0.05 && sun >= moon ? 'sun' : moon > 0.05 ? 'moon' : 'afterglow',
+    key: !shut && sun > 0.05 && sun >= moon ? 'sun' : moon > 0.05 ? 'moon' : 'afterglow',
     patch: { x, y, scaleX, scaleY, skewX, rotate },
-    sun, moon,
-    screen: { color: screenColor, opacity: screenOpacity },
-    tint: { color: tintColor, opacity: tintOpacity },
-    accent: { color: accentColor, opacity: accentOpacity },
+    sun: shut ? 0 : sun, moon,
+    screen: { color: screenColor, opacity: shut ? 0 : screenOpacity },
+    tint: { color: tintColor, opacity: shut ? 0 : tintOpacity },
+    accent: { color: accentColor, opacity: shut ? 0 : accentOpacity },
     lamp: lampOpacity / LAMP_PATCH.maxOpacity, lampOpacity,
     ambient: { color: ambientColor, opacity: ambientOpacity },
     wash: { color: washColor, opacity: washOpacity },
