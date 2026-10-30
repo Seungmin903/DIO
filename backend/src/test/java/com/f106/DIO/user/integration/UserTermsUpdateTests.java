@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@org.springframework.test.context.jdbc.Sql("/push-session-h2.sql")
 @SpringBootTest(properties={
     "spring.datasource.url=jdbc:h2:mem:user-terms-update;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",

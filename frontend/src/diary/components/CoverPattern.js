@@ -1,6 +1,6 @@
 import { memo, useRef } from 'react';
-import { StyleSheet } from 'react-native';
-import Svg, { Circle, Defs, Line, Pattern, Rect } from 'react-native-svg';
+import { Circle, Defs, Line, Pattern, Rect } from 'react-native-svg';
+import FillSvg from './FillSvg';
 
 // SVG 무늬 정의는 문서 전체에서 id로 찾으므로 표지마다 겹치지 않는 id가 필요하다.
 let nextPatternId = 0;
@@ -67,8 +67,11 @@ function tile(pattern, tone) {
   }
 }
 
-/** 표지 위에 덮는 무늬. pattern이 없으면 아무것도 그리지 않는다(이전에 만든 다이어리). */
-function CoverPattern({ pattern, tone = 'dark' }) {
+/**
+ * 표지 위에 덮는 무늬. pattern이 없으면 아무것도 그리지 않는다(이전에 만든 다이어리).
+ * scale: 표지 크기 배율(짧은 변 200 기준). 타일을 표지와 같은 비율로 키우고 줄여 한눈에 · 스와이프에서 무늬 비율이 같다.
+ */
+function CoverPattern({ pattern, tone = 'dark', scale = 1 }) {
   const idRef = useRef(null);
   const spec = tile(pattern, tone);
   if (!spec) return null;
@@ -76,14 +79,18 @@ function CoverPattern({ pattern, tone = 'dark' }) {
   const id = idRef.current;
 
   return (
-    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
-      <Defs>
-        <Pattern id={id} patternUnits="userSpaceOnUse" width={spec.size} height={spec.size}>
-          {spec.shapes}
-        </Pattern>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
-    </Svg>
+    <FillSvg>
+      {(width, height) => (
+        <>
+          <Defs>
+            <Pattern id={id} patternUnits="userSpaceOnUse" width={spec.size * scale} height={spec.size * scale} viewBox={`0 0 ${spec.size} ${spec.size}`}>
+              {spec.shapes}
+            </Pattern>
+          </Defs>
+          <Rect x="0" y="0" width={width} height={height} fill={`url(#${id})`} />
+        </>
+      )}
+    </FillSvg>
   );
 }
 

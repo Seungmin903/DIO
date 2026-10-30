@@ -1,111 +1,118 @@
-import { Component, memo, useEffect, useState } from 'react'
+import { Component, memo, useEffect, useRef } from 'react'
 import { Image, StyleSheet, View } from 'react-native'
-import { DESK_COLORS, deskLightAt } from '../utils/deskLight'
-import { useDeskHourOverride } from '../utils/deskTimeStore'
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
+import { DESK_COLORS, LAMP_PATCH, deskLightAt } from '../utils/deskLight'
+import { deskFxAt } from '../utils/deskFx'
+import { useDeskHour } from '../utils/deskTimeStore'
+import { WINDOW_WIDTH, maskFrame, setDeskGeometry } from '../utils/deskMask'
 
 const WOOD = require('../../../assets/desk/desk-wood.jpg')
+// 창은 하나다: 해 · 가로등 모두 이 마스크 한 장(2×2 십자 창, 좌우 대칭 사다리꼴)만 쓴다. 광원마다 달라지는 건 변형 · 색 · 세기 · 가장자리 번짐뿐이다(코덱스 24시간 설계).
 const LIGHT = require('../../../assets/desk/window-light.png')
-const SHADE = 'rgba(150,142,185,0.1)' // 상판 전체의 옅은 그늘. 이 위에 창빛이 얹혀 밝게 보인다
-const RECHECK_MS = 60 * 1000
-const SHADOW_REACH = 0.3 // 빛 그림자 길이를 줄이는 비율 (1이면 키프레임 그대로)
-const SHADOW_MAX = 3.2 // 그림자가 소품에서 밀리는 최대 dp (scale 1 기준)
-const NIGHT_PROP_DIM = 0.3 // 밤에 소품을 덮는 어둠은 상판의 이만큼만 (은색 클립 · 하얀 틀이 어둠에 묻히지 않게)
-const clamp = (value, limit) => Math.max(-limit, Math.min(limit, value))
+const RAINBOW = require('../../../assets/desk/rainbow-streak.png')
+const DUST = require('../../../assets/desk/dust-motes.png')
+const RAINBOW_ASPECT = 0.25 // 1200 × 300
+// 빛은 책상 위에 색을 덮어 칠하는 게 아니라 책상을 밝히는 것이다. 책상 전체에는 하늘빛 그늘을 곱해 어둡게 깔고(multiply),
+// 창빛 조각은 그 위에 밝기를 더해(screen) 나무결이 비친 채로 빛이 닿은 곳만 환해지게 한다.
+const LIGHT_BLEND = 'screen'
 
-// 소품 이미지. 크기(여백 포함)와 돌리기 전 내용 폭은 manifest.json 에 있다 (generate-desk-assets.py 가 만든다).
-// 비스듬히 놓인 각도는 이미지에 미리 구워 둔다: 앱에서 돌리면 안드로이드가 가장자리를 계단처럼 깨뜨려 그린다.
-const MANIFEST = require('../../../assets/desk/props/manifest.json')
-const PROPS = {
-  'polaroid-picnic': { src: require('../../../assets/desk/props/polaroid-picnic.png'), shadow: require('../../../assets/desk/props/polaroid-picnic-shadow.png'), ...MANIFEST['polaroid-picnic'] },
-  'tape-butter': { src: require('../../../assets/desk/props/tape-butter.png'), shadow: require('../../../assets/desk/props/tape-butter-shadow.png'), ...MANIFEST['tape-butter'] },
-  'binder-clip-2': { src: require('../../../assets/desk/props/binder-clip-2.png'), shadow: require('../../../assets/desk/props/binder-clip-2-shadow.png'), ...MANIFEST['binder-clip-2'] },
-  'binder-clip': { src: require('../../../assets/desk/props/binder-clip.png'), shadow: require('../../../assets/desk/props/binder-clip-shadow.png'), ...MANIFEST['binder-clip'] },
-  'polaroid-sky': { src: require('../../../assets/desk/props/polaroid-sky.png'), shadow: require('../../../assets/desk/props/polaroid-sky-shadow.png'), ...MANIFEST['polaroid-sky'] },
-  'tape-lavender': { src: require('../../../assets/desk/props/tape-lavender.png'), shadow: require('../../../assets/desk/props/tape-lavender-shadow.png'), ...MANIFEST['tape-lavender'] },
-  'sticker-heart': { src: require('../../../assets/desk/props/sticker-heart.png'), shadow: require('../../../assets/desk/props/sticker-heart-shadow.png'), ...MANIFEST['sticker-heart'] },
-  'paper-clip': { src: require('../../../assets/desk/props/paper-clip.png'), shadow: require('../../../assets/desk/props/paper-clip-shadow.png'), ...MANIFEST['paper-clip'] },
-}
-
-// 소품 묶음. 설계 크기(1280 × 800 태블릿 기준 dp) 안의 중심 x · y, 보이는 폭(돌리기 전 내용 폭), 떠 있는 정도(lift: 클수록 그림자가 길고 멀다)
-const CLUSTERS = {
-  // 왼쪽 아래: 하늘 소풍 폴라로이드 + 버터 테이프 + 바인더 클립 두 개(방향이 다르다)
-  left: {
-    width: 340, height: 210, items: [
-      ['polaroid-picnic', 74, 105, 147, 0.4],
-      ['tape-butter', 102, 20, 80, 0.1],
-      ['binder-clip', 158, 174, 62, 0.6],
-      ['binder-clip-2', 244, 98, 62, 0.6],
-    ],
-  },
-  // 오른쪽 아래: 하늘 폴라로이드(두리 스티커) + 라벤더 도트 테이프 + 하트 스티커 + 종이 클립
-  right: {
-    width: 340, height: 200, items: [
-      ['polaroid-sky', 179, 107, 165, 0.4],
-      ['tape-lavender', 106, 44, 100, 0.1],
-      ['sticker-heart', 35, 163, 32, 0.2],
-      ['paper-clip', 302, 62, 22, 0.3],
-    ],
-  },
-}
-
-/** 지금 시각(소수). 10분 단위가 아니라 1분마다 다시 읽어 빛이 천천히 움직인다. fixedHour 를 주면 그 시각으로 고정한다. */
-function useDeskHour(fixedHour) {
-  const read = () => { const now = new Date(); return now.getHours() + now.getMinutes() / 60 }
-  const [hour, setHour] = useState(() => fixedHour ?? read())
-  useEffect(() => {
-    if (fixedHour != null) { setHour(fixedHour); return undefined }
-    setHour(read())
-    const timer = setInterval(() => setHour(read()), RECHECK_MS)
-    return () => clearInterval(timer)
-  }, [fixedHour])
-  return hour
-}
-
-// 창빛 그림의 세로 / 가로 (generate-desk-assets.py 가 만든 그대로. 웹에는 Image.resolveAssetSource 가 없어 직접 적는다)
-const LIGHT_ASPECT = 0.6357
-// 창 모양 · 크기 · 각도는 시각이 바뀌어도 그대로다. 움직이는 건 자리 · 세기 · 색뿐이다.
-const WINDOW_WIDTH = { tablet: 0.85, phone: 1.5 } // 책상 폭에 대한 창빛 폭
-
-function Cluster({ name, place, scale, light }) {
-  const spec = CLUSTERS[name]
-  const u = value => value * scale
-  return <View style={{ position: 'absolute', ...place, width: u(spec.width), height: u(spec.height) }}>
-    {spec.items.map(([key, cx, cy, width, lift], index) => {
-      const prop = PROPS[key]
-      const k = u(width) / prop.base
-      const w = prop.w * k, h = prop.h * k
-      // 소품은 책상에 누워 있어 그림자가 바짝 붙는다. 빛 방향만 따르고, 해 질 녘에도 멀리 밀리지 않게 짧게 자른다.
-      const dx = clamp(light.shadow[0] * lift * scale * SHADOW_REACH, SHADOW_MAX * scale) + 0.4, dy = clamp(light.shadow[1] * lift * scale * SHADOW_REACH, SHADOW_MAX * scale) + 0.8
-      const common = { position: 'absolute', width: w, height: h }
-      return <View key={key + index} style={{ position: 'absolute', left: u(cx) - w / 2, top: u(cy) - h / 2, width: w, height: h }}>
-        <Image source={prop.shadow} style={{ ...common, left: dx, top: dy, opacity: Math.min(0.5, Math.max(light.shadowOpacity, 0.2) * 1.7) }} />
-        <Image source={prop.src} style={{ ...common, left: 0, top: 0 }} />
-      </View>
-    })}
+/**
+ * 해 질 녘 · 새벽의 잔광(코덱스): 창 마스크가 아니라 책상 아래에서 위로 옅어지는 전체 화면 세로 그라데이션이다(soft-light).
+ * 아래 0%는 불투명도 전체, 38% 높이에서 0.72배, 78% 높이에서 투명이라 큰 색 판을 칠하지 않고 노을의 공기만 남긴다. 창빛 조각 아래에 깔고 UI 는 물들이지 않는다.
+ */
+function Afterglow({ afterglow }) {
+  return <View pointerEvents="none" style={[styles.fill, { mixBlendMode: 'soft-light' }]}>
+    <Svg width="100%" height="100%" preserveAspectRatio="none">
+      <Defs><LinearGradient id="afterglow" x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0.22" stopColor={afterglow.color} stopOpacity={0} />
+        <Stop offset="0.62" stopColor={afterglow.color} stopOpacity={afterglow.opacity * 0.72} />
+        <Stop offset="1" stopColor={afterglow.color} stopOpacity={afterglow.opacity} />
+      </LinearGradient></Defs>
+      <Rect width="100%" height="100%" fill="url(#afterglow)" />
+    </Svg>
   </View>
+}
+
+/** 마스크 한 겹. patch 변형(늘어남 · 기울기 · 회전)과 자리는 그 광원의 것이고, extra 는 번짐 사본의 확대 · px 이동이다. */
+function maskLayer({ key, patch, size, compact, lightWidth, opacity, tint, blend = LIGHT_BLEND, scale = 1, shift = [0, 0] }) {
+  const frame = maskFrame(patch, size, compact)
+  const { height, transform } = frame
+  const left = frame.left + shift[0]
+  const top = frame.top + shift[1]
+  if (scale !== 1) transform.push({ scale })
+  return <Image key={key} source={LIGHT} resizeMode="stretch"
+    style={{ position: 'absolute', width: lightWidth, height, left, top, opacity, tintColor: tint, mixBlendMode: blend, transform }} />
+}
+
+/**
+ * 창빛 조각 한 장(그 순간의 주 광원 = 해). 같은 마스크를 시각의 변형으로 놓고 세 층(흰 밝기 screen · 시간대 색 multiply · soft-light 색)을 얹는다.
+ * 해 조각에는 연출(fx)을 겹친다: 번짐광 · 유리에서 꺾인 파랑/주황 가장자리 · 무지개 띠 · 빛 속 먼지. 
+ */
+function LightPatch({ light, fx, size, compact, lightWidth }) {
+  const { patch, screen, tint, accent } = light
+  const base = { patch, size, compact, lightWidth }
+  const { height, left, top } = maskFrame(patch, size, compact)
+  const fxStrength = fx.visible * light.sun
+  const fxLayer = (key, extra, opacity, color) => maskLayer({ ...base, key, opacity, tint: color, scale: extra.scale, shift: [(extra.dx ?? 0) * lightWidth, (extra.dy ?? 0) * lightWidth] })
+  return <>
+    {fxStrength > 0.001 && fxLayer('glow', { scale: 1.075, dx: fx.dx, dy: fx.dy }, 0.09 * fxStrength, light.wash.color)}
+    {fxStrength > 0.001 && fxLayer('cool', { scale: 1.008, dx: fx.dx - 0.012, dy: fx.dy - 0.004 }, fx.strength * fxStrength, fx.cool)}
+    {fxStrength > 0.001 && fxLayer('warm', { scale: 0.992, dx: fx.dx + 0.012, dy: fx.dy + 0.004 }, fx.strength * fxStrength, fx.warm)}
+    {screen.opacity > 0.001 && maskLayer({ ...base, key: 'screen', opacity: screen.opacity, tint: '#FFFFFF' })}
+    {tint.opacity > 0.001 && maskLayer({ ...base, key: 'tint', opacity: tint.opacity, tint: tint.color, blend: 'multiply' })}
+    {accent.opacity > 0.001 && maskLayer({ ...base, key: 'accent', opacity: accent.opacity, tint: accent.color, blend: 'soft-light' })}
+    {fxStrength > 0.001 && <Image source={RAINBOW} resizeMode="stretch"
+      style={{ position: 'absolute', width: lightWidth * 0.775, height: lightWidth * 0.775 * RAINBOW_ASPECT,
+        left: left + lightWidth / 2 + (fx.dx - 0.18) * lightWidth - lightWidth * 0.3875, top: top + height / 2 + (fx.dy + 0.19) * lightWidth - lightWidth * 0.775 * RAINBOW_ASPECT / 2, opacity: fx.rainbow * fxStrength, mixBlendMode: LIGHT_BLEND }} />}
+    {fxStrength > 0.001 && <Image source={DUST} resizeMode="stretch"
+      style={{ position: 'absolute', width: lightWidth, height, left, top, opacity: fx.mote * fxStrength, tintColor: '#FFFBEF', mixBlendMode: LIGHT_BLEND }} />}
+  </>
+}
+
+// 가로등의 빛 층(코덱스 가로등 단독 밤). 위에서부터 그린다: 넓은 번짐 → 오른쪽 위 쪽으로 더 밝은 기울기 사본 → 따뜻한 코어 → 호박색 몸통 → 약한 곱하기 접촉색.
+// opacity 는 행의 lampOpacity 에 곱하는 비율이다. 푸른 기운이 없도록 모든 층의 색을 옅은 골드 · 황백색 계열로 명시한다(3000–3500K 느낌, 호박색보다 노랗고 하얗게).
+const LAMP_LAYERS = [
+  { name: 'outer', blend: 'screen', tint: '#E1A45A', ratio: 0.03, scale: 1.15, shifts: [[-5, 0], [5, 0], [0, -4], [0, 4]] },
+  { name: 'wide', blend: 'screen', tint: '#F4C778', ratio: 0.115, scale: 1.065, shifts: [[-2, -1], [2, 1]] },
+  { name: 'falloff', blend: 'screen', tint: '#FFF0C7', ratio: 0.32, scale: 1.035, shifts: [[7, -6]] },
+  { name: 'core', blend: 'screen', tint: '#FFD98B', ratio: 1, scale: 1, shifts: [[0, 0]] },
+  { name: 'body', blend: 'soft-light', tint: '#EFC06A', ratio: 0.58, scale: 0.992, shifts: [[0, 0]] },
+  { name: 'contact', blend: 'multiply', tint: '#C18B4C', ratio: 0.16, scale: 0.986, shifts: [[1, 1]] },
+]
+
+/** 가로등: 같은 마스크를 오른쪽 위 고정 변환으로 따뜻하게 비춘다. 푸른 달빛 없이 이 빛 하나가 밤의 직접광이다. */
+function NightLamp({ light, size, compact, lightWidth }) {
+  const [x, y, scaleX, scaleY, skewX, rotate] = LAMP_PATCH.patch
+  const base = { patch: { x, y, scaleX, scaleY, skewX, rotate }, size, compact, lightWidth }
+  return <>
+    {LAMP_LAYERS.flatMap(spec => spec.shifts.map((shift, index) =>
+      maskLayer({ ...base, key: `${spec.name}${index}`, opacity: light.lampOpacity * spec.ratio, tint: spec.tint, blend: spec.blend, scale: spec.scale, shift })))}
+  </>
 }
 
 /**
  * 다이어리 홈 '햇살 책상' 바탕 (세계 층). 누르지 않고 화면 읽기에서 숨긴다.
- * 원목 상판(고정) + 시각에 따라 자리 · 세기 · 색이 바뀌는 십자 창빛(나무 그림자가 한 장 안에 녹아 있다) + 소품(그림자 방향이 바뀐다) + 밤 어둠.
- * decor: { left?: { scale, left, bottom }, right?: { scale, right, bottom } } 소품 묶음 자리 (없으면 그 묶음은 그리지 않는다).
- * 시각: 게스트 슬라이더가 고정한 값(deskTimeStore)이 있으면 그 시각, 없으면 지금 시각.
+ * 원목 상판(고정) + 시각에 따라 자리 · 세기 · 색이 바뀌는 십자 창빛 + 밤 어둠.
+ * 시각: 지금 시각(deskTimeStore).
  */
-function DeskBackdrop({ compact = false, decor = null, size }) {
-  const light = deskLightAt(useDeskHour(useDeskHourOverride()))
+function DeskBackdrop({ compact = false, size, anchorRight = false }) {
+  const light = deskLightAt(useDeskHour())
+  const root = useRef(null)
+  const measure = () => root.current?.measureInWindow?.((x, y, width, height) => setDeskGeometry({ x, y, width, height, compact }))
+  useEffect(() => () => setDeskGeometry(null), [])
   if (!size?.width || !size?.height) return null
   const lightWidth = size.width * (compact ? WINDOW_WIDTH.phone : WINDOW_WIDTH.tablet)
-  return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-    style={[styles.root, { width: size.width, height: size.height }]}>
+  const fx = deskFxAt(light.hour)
+  return <View ref={root} onLayout={measure} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+    style={[styles.root, anchorRight && styles.rootRight, { width: size.width, height: size.height }]}>
     <Image source={WOOD} resizeMode="cover" style={styles.fill} />
-    <View style={[styles.fill, { backgroundColor: SHADE }]} />
-    {size.width > 0 && <Image source={LIGHT} resizeMode="stretch"
-      style={{ position: 'absolute', width: lightWidth, height: lightWidth * LIGHT_ASPECT, opacity: light.opacity, tintColor: light.color,
-        left: size.width * (compact ? light.x - 0.45 : light.x), top: size.height * (compact ? 0.1 + light.y : light.y) }} />}
-    {light.dim > 0.001 && <View style={[styles.fill, { backgroundColor: `rgba(24,32,70,${light.dim.toFixed(3)})` }]} />}
-    {decor?.left && <Cluster name="left" place={{ left: decor.left.left, bottom: decor.left.bottom }} scale={decor.left.scale} light={light} />}
-    {decor?.right && <Cluster name="right" place={{ right: decor.right.right, bottom: decor.right.bottom }} scale={decor.right.scale} light={light} />}
-    {light.dim > 0.001 && <View style={[styles.fill, { backgroundColor: `rgba(24,32,70,${(light.dim * NIGHT_PROP_DIM).toFixed(3)})` }]} />}
+    <View style={[styles.fill, { backgroundColor: light.ambient.color, opacity: light.ambient.opacity, mixBlendMode: 'multiply' }]} />
+    <View style={[styles.fill, { backgroundColor: light.wash.color, opacity: light.wash.opacity }]} />
+    {/* 밤 어둠은 빛 아래에 깐다: 위에 덮으면 가로등 · 달빛까지 같이 어두워져 묻힌다 */}
+    {light.dim > 0.001 && <View style={[styles.fill, { backgroundColor: `rgba(16,25,47,${light.dim.toFixed(3)})` }]} />}
+    {light.afterglow.opacity > 0.001 && <Afterglow afterglow={light.afterglow} />}
+    {light.key !== 'afterglow' || light.screen.opacity > 0.001 ? <LightPatch light={light} fx={fx} size={size} compact={compact} lightWidth={lightWidth} /> : null}
+    {light.lampOpacity > 0.001 && <NightLamp light={light} size={size} compact={compact} lightWidth={lightWidth} />}
   </View>
 }
 
@@ -122,6 +129,8 @@ export default memo(SafeDeskBackdrop)
 
 const styles = StyleSheet.create({
   // 크기는 부모가 잰 값(size)으로 고정한다. top · bottom 으로 늘리면 안드로이드가 안의 요소 크기에 끌려가 화면보다 커졌다.
-  root: { position: 'absolute', left: 0, top: 0, overflow: 'hidden', backgroundColor: DESK_COLORS.base },
+  root: { position: 'absolute', left: 0, top: 0, overflow: 'hidden', isolation: 'isolate', backgroundColor: DESK_COLORS.base },
+  // 오른쪽 끝에 붙인다: 작업 영역이 왼쪽(사이드바 쪽)에서 줄고 늘어도 상판은 제자리에 있고, 왼쪽만 가려진다.
+  rootRight: { left: undefined, right: 0 },
   fill: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 },
 })

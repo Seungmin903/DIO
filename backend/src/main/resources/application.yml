@@ -19,7 +19,7 @@ server:
   port: 8080
 
 springdoc:
-  paths-to-match: /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/media/**, /api/v1/member/diaries/**, /api/v1/member/diaries, /api/v1/auth/**, /api/v1/notifications, /api/v1/notifications/**, /api/v1/invites/**, /api/v1/me/invites/**, /api/v1/handwriting-fonts
+  paths-to-match: /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/media/**, /api/v1/member/diaries/**, /api/v1/member/diaries, /api/v1/auth/**, /api/v1/notifications, /api/v1/notifications/**, /api/v1/invites/**, /api/v1/me/invites/**, /api/v1/handwriting-fonts, /api/v1/push/installations, /api/v1/push/installations/**
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
@@ -36,6 +36,14 @@ management:
 
 # 실제 발신 계정 및 비밀키는 환경변수로만 전달한다. 미설정 시 이메일 발송은 503.
 dio:
+  push:
+    encryption-key: ${PUSH_ENCRYPTION_KEY:}
+    active-key-id: ${PUSH_ACTIVE_KEY_ID:legacy}
+    encryption-keys: ${PUSH_ENCRYPTION_KEYS:}
+    environment: ${PUSH_ENVIRONMENT:}
+    app-id: ${PUSH_APP_ID:dio}
+    cleanup:
+      enabled: ${PUSH_REGISTRATION_CLEANUP_ENABLED:true}
   auth:
     jwt-secret: ${AUTH_JWT_SECRET:}
     access-token-seconds: ${AUTH_ACCESS_TOKEN_SECONDS:900}

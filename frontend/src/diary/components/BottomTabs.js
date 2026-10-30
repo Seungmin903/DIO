@@ -6,8 +6,8 @@ import { C } from '../constants';
 import { styles as s } from '../styles';
 
 const TABS = [
-  { id: 'library', filter: 'personal', label: '다이어리', icon: 'book' },
-  { id: 'library', filter: 'favorite', label: '즐겨찾기', icon: 'star' },
+  { id: 'library', filter: 'all', label: '다이어리', icon: 'book' },
+  { id: 'studio', label: '꾸미기 공방', displayLabel: '꾸미기\n공방', icon: 'workshop' },
   { id: 'profile', label: '내 공간', icon: 'person' },
   { id: 'trash', label: '휴지통', icon: 'trash' },
 ];
@@ -30,7 +30,7 @@ function BottomTabs({ page, filter, navigate, bottomInset = 0, onNotifications, 
               style={({ pressed }) => [s.tabItem, selected && s.tabItemSelected, pressed && s.pressed]}
             >
               <AppIcon name={tab.icon} size={21} color={selected ? C.ink : C.muted} fill={selected && tab.icon === 'star' ? C.ink : 'none'} />
-              <Text numberOfLines={1} style={[s.tabLabel, selected && s.tabLabelSelected]}>{tab.label}</Text>
+              <Text numberOfLines={tab.id === 'studio' ? 2 : 1} style={[s.tabLabel, selected && s.tabLabelSelected, tab.id === 'studio' && { textAlign: 'center' }]}>{tab.displayLabel || tab.label}</Text>
             </Pressable>
           );
         })}

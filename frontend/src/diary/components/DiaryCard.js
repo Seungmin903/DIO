@@ -9,8 +9,9 @@ import { isSharedDiary } from '../utils/libraryQuery';
 
 // onOpen·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다.
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
+// sunShadow: 책상 위 표지라 그림자를 해 방향에 맞춘다
 // infoStyle: 스와이프 옆 카드에서 이름 · 페이지 수를 흐리게 하는 애니메이션 값
-function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect }) {
+function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false, lightMotion = null }) {
   // 로컬 요약이 있으면 그것을 사용한다. null은 조회 실패, undefined는 아직 확인 전이다.
   const count = pageCount === undefined ? diary.pageCount : pageCount;
   const countLabel = count === undefined ? '페이지 수 확인 중'
@@ -24,6 +25,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
       accessibilityState={selecting ? { checked: selected } : layout === 'carousel' ? { selected: carouselActive } : undefined}
       aria-checked={selecting ? selected : undefined}
       onPress={() => (selecting ? onToggleSelect?.(diary) : onOpen(diary))}
+      onLongPress={!selecting && diary.canManage !== false && diary.canDelete !== false ? () => onEnterEdit?.(diary) : undefined}
       // 누르면 반투명해진다. 안드로이드가 자식마다 따로 투명하게 해 그림자 · 뒤 요소가 비치지 않도록 한 장으로 합쳐 그린다
       needsOffscreenAlphaCompositing
       style={({ pressed }) => [
@@ -37,9 +39,9 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
     >
       <View style={s.cardCoverWrap}>
         {/* 펜 · 별 버튼과 선택 표시는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
-        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact}>
+        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} sunShadow={sunShadow} lightMotion={layout === 'carousel' ? lightMotion : null}>
         {selecting && diary.canManage !== false && diary.canDelete !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
-          <Text style={s.cardCheckMark}>{selected ? '✓' : ''}</Text>
+          {selected && <AppIcon name="check" size={18} color={C.white} strokeWidth={2.6} />}
         </View>}
         {!selecting && (layout !== 'carousel' || carouselActive) && <View style={s.cardActions}>
           {diary.canManage !== false && <Pressable

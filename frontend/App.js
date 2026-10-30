@@ -23,15 +23,14 @@ import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import DeskBackdrop from './src/diary/components/DeskBackdrop';
-import { useDeskDecorOn } from './src/diary/utils/deskTimeStore';
-import DeskTimeSlider from './src/diary/components/DeskTimeSlider';
 import { DESK_COLORS } from './src/diary/utils/deskLight';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
-import { queryDiaries } from './src/diary/utils/libraryQuery';
+import { parseSort, queryDiaries } from './src/diary/utils/libraryQuery';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
+import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
@@ -107,11 +106,18 @@ function DiaryApp(props) {
     ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations}>{content}</AuthenticatedNotificationProvider>
     : content;
 }
+const DESK_ON_PHONE = false;
+
 function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryState, sharing }) {
   const member = diaryState.source === 'member-api';
   const invitationLeaveGuard = useRef(null);
   const registerInvitationLeaveGuard = useCallback(guard => { invitationLeaveGuard.current = guard; return () => { if (invitationLeaveGuard.current === guard) invitationLeaveGuard.current = null; }; }, []);
   const profileLeaveGuard = useRef(null);
+  const studioBackHandler = useRef(null);
+  const registerStudioBackHandler = useCallback(handler => {
+    studioBackHandler.current = handler;
+    return () => { if (studioBackHandler.current === handler) studioBackHandler.current = null; };
+  }, []);
   const profileBackHandler = useRef(null);
   const registerProfileLeaveGuard = useCallback((guard, onBack) => {
     profileLeaveGuard.current = guard;
@@ -137,7 +143,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const { isPhone, isLandscape } = useFormFactor();
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
-  const showDeskDecor = useDeskDecorOn() // 책상 아래쪽 장식 소품(폴라로이드 · 테이프 · 클립 …)을 보일지. 게스트 시각 슬라이더의 '소품' 토글
   const [deskSize, setDeskSize] = useState(null); // 책상이 깔릴 영역(작업 영역)의 크기
   const [railCollapsed, setRailCollapsed] = useState(true);
   // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
@@ -274,6 +279,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   useEffect(() => {
     if (Platform.OS !== 'android' || page === 'editor') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (studioBackHandler.current?.()) return true;
       if (profileBackHandler.current) {
         profileBackHandler.current();
         return true;
@@ -489,7 +495,22 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     return [...diaries.filter(diary => !diary.trashedAt).map(diary => ({ ...diary, isShared: member ? Boolean(diary.isShared) : sharedOwnedIds.has(diary.id) })), ...(member ? [] : sharing.library)];
   }, [diaries, sharing.diaries, sharing.library, member, sharing.runtime]);
   const libraryMetadata = useLibraryMetadata(visibleDiaries, page, member);
-  const libraryDiaries = member ? (memberLibraryMatches ? diaryState.library.items : []) : visibleDiaries;
+  // 서버는 정렬 기준마다 정해진 방향으로만 내려준다(서버 방향 지원 전까지의 임시 처리).
+  // 사용자가 방향을 뒤집으면(예: title:desc) 목록을 뒤집어 보여주는데, 서버 목록은 페이지로 나뉘어 일부만 받은 채 뒤집으면 순서가 틀린다.
+  // 그래서 뒤집을 때는 남은 페이지를 모두 불러온 뒤에만 보여준다(불러오는 동안은 빈 목록 + 불러오는 중 표시).
+  const sortReversed = member && parseSort(librarySort).direction !== parseSort(parseSort(librarySort).key).direction;
+  const fullLoadPending = Boolean(sortReversed && memberLibraryMatches && diaryState.library.hasNext);
+  const libraryDiaries = useMemo(() => {
+    if (!member) return visibleDiaries;
+    const items = memberLibraryMatches ? diaryState.library.items : [];
+    if (!sortReversed) return items;
+    return fullLoadPending ? [] : [...items].reverse();
+  }, [member, memberLibraryMatches, diaryState.library?.items, sortReversed, fullLoadPending, visibleDiaries]);
+  const libraryReady = diaryState.library?.ready, libraryBusy = diaryState.library?.loading, libraryFailed = diaryState.library?.error, libraryCursor = diaryState.library?.nextCursor;
+  useEffect(() => {
+    // 한 페이지씩 이어서 불러온다. 오류가 나면 멈추고, 화면의 다시 시도 버튼이 재개한다.
+    if (page === 'library' && fullLoadPending && libraryReady && !libraryBusy && !libraryFailed) diaryState.store.loadMoreLibrary().catch(() => {});
+  }, [page, fullLoadPending, libraryReady, libraryBusy, libraryFailed, libraryCursor, diaryState.store]);
   useEffect(() => {
     if (page !== 'library' || !returnDiaryId.current) return;
     if (member && (!memberLibraryMatches || !diaryState.library.ready || diaryState.library.loading)) return;
@@ -597,7 +618,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           catch (error) { notify('이전 생성을 확인하지 못했어요', error.message); }
           finally { savingRef.current = false; setSaving(false); }
         }} /></> : null}
-      suppressEmpty={member && Boolean(!memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
+      suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
     />
   ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
@@ -659,6 +680,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         }}
       />
     );
+  } else if (page === 'studio') {
+    content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
     content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
@@ -679,12 +702,15 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   );
 
   // 다이어리 홈은 '햇살 책상' 위에 놓인다. 사이드 메뉴는 흰 판 그대로, 책상은 작업 영역 뒤(폰은 아래 탭 뒤까지)에 깔린다.
-  const desk = page === 'library' && loaded;
+  // 햇살 책상은 태블릿(가로)만 쓴다. 폰(세로)은 가로형과 같은 빛 경험을 실기로 검증하지 못해 잠가 둔다(DESK_ON_PHONE).
+  const desk = page === 'library' && loaded && (!isPhone || DESK_ON_PHONE);
   const deskLayout = event => { const { width, height } = event.nativeEvent.layout; setDeskSize(current => (current && current.width === width && current.height === height ? current : { width, height })) }
-  const deskTime = desk && previewUser?.provider === 'guest' && <DeskTimeSlider compact={isPhone} />;
-  const deskDecor = !showDeskDecor ? null : isPhone
-    ? (view === 'grid' ? null : { left: { scale: 0.46, left: 16, bottom: 100 + insets.bottom } })
-    : (view === 'grid' ? { right: { scale: 0.62, right: 104, bottom: 8 } } : { left: { scale: 1, left: 52, bottom: 6 }, right: { scale: 1, right: 100, bottom: 6 } });
+  // 태블릿 책상은 사이드바가 접힌(가장 넓은) 작업 영역 크기로 고정하고 오른쪽 끝에 붙인다. 사이드바를 여닫는 동안 작업 영역 폭이
+  // 프레임마다 바뀌어도 책상(원목 · 창빛)은 다시 그려지지도 움직이지도 않고, 넓어질 때 뒤 바탕(흰색)이 비치지도 않는다.
+  const tabletDeskSize = useMemo(() => deskSize && {
+    width: Math.max(deskSize.width, windowWidth - insets.left - insets.right - RAIL_WIDTH.collapsed),
+    height: deskSize.height,
+  }, [deskSize, windowWidth, insets.left, insets.right]);
   let shell;
   if (page === 'editor') {
     shell = content;
@@ -692,10 +718,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     // 폰: 사이드 메뉴 대신 하단 탭. 새 다이어리 시트는 탭까지 덮도록 셸 위에 띄운다.
     shell = (
       <View style={s.phoneShell} onLayout={deskLayout}>
-        {desk && <DeskBackdrop compact decor={deskDecor} size={deskSize} />}
+        {desk && <DeskBackdrop compact size={deskSize} />}
         <View style={[s.workspace, desk && s.workspaceDesk, desk && s.deskAbove]}>{content}</View>
         <BottomTabs floating={desk} notificationCount={authenticatedNotifications?.count} notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
-        {deskTime}
         {createModal}
       </View>
     );
@@ -714,11 +739,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           collapsed={railCollapsed}
           onToggle={() => setRailCollapsed((current) => !current)}
         />
-        <View style={[s.workspace, { paddingBottom: insets.bottom }]} onLayout={deskLayout}>
-          {desk && <DeskBackdrop decor={deskDecor} size={deskSize} />}
+        <View style={[s.workspace, { paddingBottom: insets.bottom }, desk && { overflow: 'hidden' }]} onLayout={deskLayout}>
+          {desk && <DeskBackdrop anchorRight size={tabletDeskSize} />}
           {desk ? <View style={s.deskAbove}>{content}</View> : content}
-          {deskTime}
-          {createModal}
+            {createModal}
         </View>
       </View>
     );

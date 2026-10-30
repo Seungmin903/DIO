@@ -69,12 +69,13 @@ export const DIARY_DEFAULTS = {
 
 // 홈 화면 보관함 탭. 고른 탭 이름이 화면 제목이 된다.
 export const FILTERS = [
-  { id: 'personal', label: '모든 다이어리', empty: '다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
+  { id: 'all', label: '모든 다이어리', empty: '다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
   { id: 'favorite', label: '즐겨찾기', empty: '즐겨찾기한 다이어리가 없어요', emptyCopy: '다이어리 카드의 별을 눌러 즐겨찾기에 추가해 보세요.' },
+  { id: 'personal', label: '내 다이어리', empty: '내 다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
   { id: 'shared', label: '공유 다이어리', empty: '공유 중인 다이어리가 없어요', emptyCopy: '다이어리를 공유하거나 받은 초대를 수락해 보세요.' },
 ];
 
-export const DEFAULT_FILTER = 'personal';
+export const DEFAULT_FILTER = 'all';
 
 // 스와이프 칸은 정사각형(표지 칸 높이 318과 같은 폭)이라 세로 · 가로 다이어리가 같은 크기로 보인다.
 export const CAROUSEL_ITEM_WIDTH = 318;
