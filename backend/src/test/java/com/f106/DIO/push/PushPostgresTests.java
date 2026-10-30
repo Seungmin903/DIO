@@ -429,6 +429,11 @@ class PushPostgresTests {
             assertThat(jdbc.queryForObject("select response_key_id from "+schema+".push_registration_requests where installation_id=?",String.class,id)).isEqualTo("legacy");
             byte[] restored=jdbc.queryForObject("select token_ciphertext from "+schema+".push_installations where installation_id=?",byte[].class,id);
             assertThat(new String(legacy.decrypt(restored,aad),java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("ExpoPushToken[legacy]");
+            UUID outbox=UUID.randomUUID();jdbc.update("insert into "+schema+".push_outbox(outbox_id,event_key,recipient_user_id,event_type,status,created_at,expires_at) values(?,?,1,'TEST','PENDING',now(),now()+interval '1 hour')",outbox,outbox.toString());
+            jdbc.update("insert into "+schema+".push_deliveries(outbox_id,installation_id,binding_version,token_version,status) values(?,?,1,1,'PENDING')",outbox,id);
+            jdbc.update("delete from "+schema+".push_installations where installation_id=?",id);
+            assertThat(jdbc.queryForObject("select count(*) from "+schema+".push_deliveries where outbox_id=?",Long.class,outbox)).isZero();
+            assertThat(jdbc.queryForObject("select count(*) from "+schema+".push_outbox where outbox_id=?",Long.class,outbox)).isEqualTo(1);
         } finally {jdbc.execute("drop schema "+schema+" cascade");}
     }
 
@@ -468,6 +473,17 @@ class PushPostgresTests {
         assertThat(jdbc.queryForObject("select count(*) from push_installations where installation_id=?",Long.class,installation)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from push_deliveries where outbox_id=?",Long.class,outbox)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from push_outbox where outbox_id=?",Long.class,outbox)).isEqualTo(1);
+    }
+
+    @Test void registrationRetryReturnsCurrentVersionsAfterUpdateAndUnbind() {
+        var a=person();UUID id=UUID.randomUUID(),request=UUID.randomUUID();var settings=input("ExpoPushToken[retry"+id+"]");
+        var initial=push.register(a.jwt(),id,request,settings);
+        push.mutate(a.jwt(),id,UUID.randomUUID(),initial.installationSecret(),1,"UPDATE",input("ExpoPushToken[updated"+id+"]"));
+        var updated=push.register(a.jwt(),id,request,settings);
+        assertThat(updated.installationSecret()).isEqualTo(initial.installationSecret());assertThat(updated.bindingVersion()).isEqualTo("1");assertThat(updated.tokenVersion()).isEqualTo("2");
+        push.mutate(a.jwt(),id,UUID.randomUUID(),initial.installationSecret(),1,"UNBIND",null);
+        var unbound=push.register(a.jwt(),id,request,settings);
+        assertThat(unbound.installationSecret()).isEqualTo(initial.installationSecret());assertThat(unbound.bindingVersion()).isEqualTo("2");assertThat(unbound.tokenVersion()).isEqualTo("2");
     }
 
 }

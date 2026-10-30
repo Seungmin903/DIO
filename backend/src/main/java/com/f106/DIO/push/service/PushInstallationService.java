@@ -83,7 +83,7 @@ public class PushInstallationService {
             if(current.userId()!=session.getUserId()||!current.sid().equals(session.getSessionId()))throw error(HttpStatus.CONFLICT,"PUSH_BINDING_CONFLICT");
             try {
                 String credential=new String(((int)old[4]==0?s.decryptLegacy((String)old[3],(byte[])old[1],aad(id,"registration:"+requestId)):s.decrypt((String)old[3],(byte[])old[1],aad(id,"registration:"+requestId))),StandardCharsets.UTF_8);
-                return new Registration(id,credential,"1","1");
+                return new Registration(id,credential,Long.toString(current.bindingVersion()),Long.toString(current.tokenVersion()));
             } catch (IllegalArgumentException unavailable) { throw error(HttpStatus.SERVICE_UNAVAILABLE,"PUSH_KEY_UNAVAILABLE"); }
         }
         Instant now=Instant.now();

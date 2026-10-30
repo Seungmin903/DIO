@@ -4,7 +4,7 @@
 
 ## API
 
-로그인 JWT를 사용하며 개발 서버의 X-DIO-Access-Token도 기존 검증을 재사용한다. 최초 등록은 POST /api/v1/push/installations에 installationId, requestId 및 settings(provider, platform, pushToken, permission, enabled)를 전달한다. 성공 시 201과 installationSecret, 문자열 bindingVersion/tokenVersion이 반환된다. 같은 세션·요청 ID·내용의 재시도는 24시간 내 원래 secret을 반환한다. 시간이 지난 응답은 410이며 암호문은 정리 작업이 지우고 요청 이력은 유지한다.
+로그인 JWT를 사용하며 개발 서버의 X-DIO-Access-Token도 기존 검증을 재사용한다. 최초 등록은 POST /api/v1/push/installations에 installationId, requestId 및 settings(provider, platform, pushToken, permission, enabled)를 전달한다. 성공 시 201과 installationSecret, 문자열 bindingVersion/tokenVersion이 반환된다. 같은 세션·요청 ID·내용의 재시도는 24시간 내 원래 secret과 잠금 시점의 현재 bindingVersion/tokenVersion을 반환한다. 활성화 여부 등 현재 상태는 GET으로 확인한다. 시간이 지난 응답은 410이며 암호문은 정리 작업이 지우고 요청 이력은 유지한다.
 
 GET /api/v1/push/installations/{id}는 본인 상태만 반환한다. PUT /{id}, POST /{id}/binding, DELETE /{id}/binding은 X-DIO-Installation-Secret 헤더와 requestId, 문자열 bindingVersion을 사용한다. 계정 전환은 새 로그인 JWT와 기존 자격증명으로 처리하며 버전을 올리고 과거 대상의 대기를 취소한다. 요청 ID 재사용 시 입력이 달라지면 충돌한다. 토큰·secret은 조회 응답에 포함되지 않는다.
 
@@ -95,3 +95,5 @@ java -Dloader.main=com.f106.DIO.push.service.PushKeyOperator -cp dio.jar org.spr
 사용자 삭제가 설치를 cascade 삭제할 때 해당 설치의 전달 이력도 함께 삭제한다. 타 사용자의 outbox는 보존한다. 푸시 암호화 키가 설정돼도 `PUSH_ENVIRONMENT`가 비어 있으면 기기 암호화 작업을 503으로 거부한다. 운영 환경을 개발 범위로 묵시적으로 분류하지 않는다.
 
 등록 요청 이력과 변경 요청 이력의 삭제 정책은 아직 확정되지 않았다. 최초 등록 암호문은 만료 시 제거하지만 재발급 방지를 위한 이력은 남는다. 무기한 증가를 방지할 보존 기간과 재시도 계약을 합의한 후 별도 정리 작업이 필요하다. 기존 ec2-deploy 러너는 배포 호스트와 공유되므로 테스트 전용 러너 또는 운영자가 승인한 자원 격리 설정도 필요하다.
+
+이전 V21 업그레이드 검증용 V22 fixture에는 설치 삭제 시 delivery FK cascade도 포함한다. 실제 배포용 migration은 대상 DB 이력 확인 후 별도 결정한다.

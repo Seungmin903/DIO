@@ -14,3 +14,7 @@ ALTER TABLE push_registration_requests ADD CONSTRAINT push_response_cipher_metad
     (encrypted_response IS NOT NULL AND response_key_id IS NOT NULL AND response_cipher_format IS NOT NULL AND response_cipher_format IN (0,1))
 );
 CREATE INDEX idx_push_registration_rotation ON push_registration_requests(installation_id, expires_at) WHERE encrypted_response IS NOT NULL;
+
+-- Fixture-only: preserve prior delivery cleanup behavior when the legacy installation is deleted.
+ALTER TABLE push_deliveries DROP CONSTRAINT push_deliveries_installation_id_fkey;
+ALTER TABLE push_deliveries ADD CONSTRAINT push_deliveries_installation_id_fkey FOREIGN KEY (installation_id) REFERENCES push_installations(installation_id) ON DELETE CASCADE;
