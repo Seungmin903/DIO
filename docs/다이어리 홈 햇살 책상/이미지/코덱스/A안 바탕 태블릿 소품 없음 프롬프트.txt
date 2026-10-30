@@ -1,0 +1,3 @@
+Use your built-in image generation tool to EDIT the attached image (source.png in the current directory) and save the result as a PNG file named "bg.png" in the current working directory. Do not write code, do not create any other files.
+
+Edit: remove the potted plant, the coffee mug and the pen completely, and fill those areas with the same plain light oak desk and wood grain. Keep everything else identical: same size (1536x1024), same wood color, same cross-shaped window light in the same position, same leaf shadows, same style. No new objects, no text.
