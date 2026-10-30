@@ -25,6 +25,11 @@ export const styles = StyleSheet.create({
   tabLabelSelected: { color: C.ink, fontWeight: '800' },
 
   rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.white, borderRightWidth: 1, borderRightColor: C.line },
+  railSlot: { width: 78, zIndex: 20, elevation: 20 },
+  // 메뉴 오른쪽(접힌 폭 이후)부터 화면 끝까지 덮는 반투명 막. 불투명도는 메뉴 펼침 정도(0~1)를 따른다.
+  railScrim: { position: 'absolute', top: 0, bottom: 0, left: 78, width: 4000, backgroundColor: 'rgba(0,0,0,0.32)' },
+  railScrimPress: { flex: 1 },
+  railOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0 },
   brandRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
   brand: { flex: 1, minWidth: 0, minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandSlot: { flex: 1, minWidth: 0, overflow: 'hidden' },
@@ -157,6 +162,9 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   carouselCards: { alignItems: 'flex-start', gap: 42, paddingVertical: 28 },
   // 가운데 카드가 커지고(1.06) 위로 올라가는(-12) 만큼 위아래 여백을 둬야 카드 윗부분이 잘리지 않는다.
   carouselCardsCompact: { paddingVertical: 28 },
+  carouselShellPortrait: { minHeight: 0, paddingTop: 0, paddingBottom: 80, justifyContent: 'center' }, // 태블릿 세로: 남는 높이의 가운데보다 살짝 위(아래 여백 80 → 40만큼 올라감)에 카드를 둔다
+  carouselRowPortrait: { flex: 0, height: 680 },
+  carouselArrowPortrait: { marginTop: -64 }, // 칸 가운데에 놓인 표지의 가운데에 맞춘다 (웹 834x1194 에서 재서 맞춤)
   carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   carouselArrowLeft: { left: 4 },
   carouselArrowRight: { right: 4 },
@@ -165,6 +173,8 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18, overflow: 'hidden' },
   cardCarousel: { width: 318, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardCarouselCompact: { width: 268 },
+  cardCarouselLarge: { width: 440 }, // 태블릿 세로: 옆 카드 없이 한 권만 크게
+  cardGridPortrait: { width: '31.5%' }, // 태블릿 세로: 한 줄 3권 (가로의 4권과 비슷한 크기)
   cardGrid: { width: '23.5%', minWidth: 0, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardGridCompact: { width: '47.5%', minWidth: 0 },
   cardList: { minHeight: 120, flexDirection: 'row', alignItems: 'stretch' },
@@ -199,6 +209,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   coverCarouselCompact: { height: 268, padding: 16 },
   // 한눈에 칸은 정사각형. 세로 · 가로 다이어리 모두 긴 변이 칸 크기와 같다 (선반 배치)
   coverGrid: { aspectRatio: 1, borderRadius: 12, shadowColor: C.ink, shadowOpacity: 0.13, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  coverCarouselLarge: { height: 440, padding: 22 }, // 태블릿 세로 (cardCarouselLarge 폭과 같은 높이)
   coverGridCompact: { padding: 15 },
   coverSmall: { width: 143, height: '100%', minHeight: 118, padding: 13 },
   coverPreview: { width: 250, height: 330, borderRadius: 14, padding: 27, shadowColor: C.ink, shadowOpacity: 0.19, shadowRadius: 19, shadowOffset: { width: 0, height: 13 }, elevation: 6 },
@@ -367,20 +378,21 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   tipTitle: { color: C.ink, fontSize: 16, fontWeight: '800', marginTop: 8 },
   tipTitleCompact: { fontSize: 15, marginTop: 0 },
   tipCopy: { color: C.inkSoft, fontSize: 12, marginTop: 8 },
-  trashGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 22 },
+  trashGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 14 },
   trashGridCompact: { columnGap: 12, rowGap: 16, justifyContent: 'space-between' },
   trashPolicy: { color: C.muted, fontSize: 13, lineHeight: 21, marginBottom: 16 },
   trashNotice: { padding: 16, borderRadius: 12, backgroundColor: C.pale, marginBottom: 16 },
-  trashCard: { width: '23.5%', padding: 12, borderRadius: 18, borderWidth: 1, borderColor: C.line, backgroundColor: C.white }, // 흰 틀 안에 홈 격자와 같은 표지를 얹는다
-  trashCardCompact: { width: '48%', padding: 10, borderRadius: 16 },
-  trashCover: { position: 'relative' }, // 홈 격자 카드의 표지 칸(cardCoverWrap)과 같게: 자르거나 흐리게 하지 않는다
+  trashCard: { width: '18.3%' }, // 틀 없이 홈 격자와 같은 표지를 바로 얹는다
+  trashCardCompact: { width: '48%' },
+  trashCover: { position: 'relative', alignItems: 'center' }, // 칸(최대 219)이 카드보다 좁을 때 왼쪽으로 쏠리지 않게 가운데 // 홈 격자 카드의 표지 칸(cardCoverWrap)과 같게: 자르거나 흐리게 하지 않는다
   trashCoverCompact: {},
   trashTitle: { color: C.ink, fontSize: 14, fontWeight: '700', marginTop: 12 },
   trashDate: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
   trashActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: C.pale },
+  trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: C.line },
   trashRestoreText: { color: C.ink, fontSize: 12, fontWeight: '700' },
-  trashDelete: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: '#F0D5D4' },
+  trashDelete: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: '#F0D5D4' },
+  trashDeleteText: { color: C.danger, fontSize: 12, fontWeight: '700' },
   // 이전 폰 휴지통 스와이프 목록 스타일. 저장된 화면과의 호환을 위해 당분간 유지한다.
   trashHint: { color: C.muted, fontSize: 13, lineHeight: 21, marginTop: -8, marginBottom: 14 },
   trashList: { gap: 11 },

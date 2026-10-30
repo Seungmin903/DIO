@@ -11,7 +11,7 @@ import { isSharedDiary } from '../utils/libraryQuery';
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
 // sunShadow: 책상 위 표지라 그림자를 해 방향에 맞춘다
 // infoStyle: 스와이프 옆 카드에서 이름 · 페이지 수를 흐리게 하는 애니메이션 값
-function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false, lightMotion = null }) {
+function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, portrait = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false, lightMotion = null }) {
   // 로컬 요약이 있으면 그것을 사용한다. null은 조회 실패, undefined는 아직 확인 전이다.
   const count = pageCount === undefined ? diary.pageCount : pageCount;
   const countLabel = count === undefined ? '페이지 수 확인 중'
@@ -38,8 +38,8 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
       ]}
     >
       <View style={s.cardCoverWrap}>
-        {/* 펜 · 별 버튼과 선택 표시는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
-        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} sunShadow={sunShadow} lightMotion={layout === 'carousel' ? lightMotion : null}>
+        {/* 펜 · 휴지통 버튼과 선택 표시(왼쪽 위 별 포함)는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
+        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large} sunShadow={sunShadow} lightMotion={layout === 'carousel' ? lightMotion : null}>
         {selecting && diary.canManage !== false && diary.canDelete !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
           {selected && <AppIcon name="check" size={18} color={C.white} strokeWidth={2.6} />}
         </View>}
@@ -72,7 +72,9 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
       <Animated.View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid, infoStyle]}>
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
+        large && layout === 'carousel' && s.cardCarouselLarge,
             <View style={s.cardTitleRow}>
+        portrait && layout === 'grid' && s.cardGridPortrait,
               <Text numberOfLines={1} style={[s.cardTitle, s.cardTitleInRow]}>{diary.title}</Text>
               {isSharedDiary(diary) && <View accessible accessibilityLabel="공유 다이어리" style={s.sharedDiaryIcon}><AppIcon name="people" size={16} color={C.inkSoft} /></View>}
             </View>
