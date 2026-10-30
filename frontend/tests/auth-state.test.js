@@ -98,7 +98,7 @@ test('잘못된 개발 접속 정보는 다시 입력할 수 있고 뒤로가기
 test('내 공간은 인증된 사진 소스를 사용하고 사진 로드 실패 시 기본 프로필을 표시한다', () => {
  const source=babel.transformSync(readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
  const states=[];let index=0
- const react={useState:initial=>{const i=index++;if(!(i in states))states[i]=initial;return[states[i],value=>states[i]=value]}}
+ const react={useEffect(){},useState:initial=>{const i=index++;if(!(i in states))states[i]=initial;return[states[i],value=>states[i]=value]}}
  const native={StyleSheet:{create:value=>value}};for(const name of ['Image','Pressable','ScrollView','Text','View'])native[name]=name
  const mocks={react,'react-native':native,'expo-image':{Image:'Image'},'../styles':{styles:{}},'../constants':{C:{white:'#fff',line:'#ddd',active:'#eef',blueStrong:'#467',pale:'#eef',ink:'#112',muted:'#667',canvas:'#f3f4f7'}},'../../shared/theme':{colors:{},radius:{}}},mod={exports:{}}
  new Function('require','module','exports',source)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports)

@@ -6,10 +6,10 @@ const require=createRequire(import.meta.url),expo=createRequire(require.resolve(
 const code=expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8'),{
  configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]
 }).code;
-function setup(user){
- const values=[];let cursor=0;const mod={exports:{}};const PasswordForm=()=>null;const service={changePassword(){}};
+function setup(user,onUpdatePreview){
+ const values=[];let cursor=0;const effects=[];const mod={exports:{}};const PasswordForm=()=>null;const service={changePassword(){}};
  const load=id=>{
-  if(id==='react')return {useState:initial=>{const i=cursor++;if(!(i in values))values[i]=initial;return [values[i],v=>values[i]=v]}};
+  if(id==='react')return {useEffect:(effect,deps)=>effects.push({effect,deps}),useState:initial=>{const i=cursor++;if(!(i in values))values[i]=initial;return [values[i],v=>values[i]=v]}};
   if(id==='react-native')return {Pressable:'Pressable',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:v=>v}};
   if(id==='expo-image')return {Image:'Image'};
   if(id==='../styles')return {styles:{}};
@@ -23,7 +23,7 @@ function setup(user){
   return ()=>null;
  };
  new Function('require','module','exports',code)(load,mod,mod.exports);
- return {service,PasswordForm,render(){cursor=0;return mod.exports.default({diaries:[],previewUser:user,onEndPreview(){}})}};
+ return {service,PasswordForm,effects,render(){cursor=0;effects.length=0;return mod.exports.default({diaries:[],previewUser:user,onEndPreview(){},onUpdatePreview})}};
 }
 function find(node,label){if(!node||typeof node!=='object')return null;if(node.props?.accessibilityLabel===label||node.props?.label===label)return node;for(const child of [node.props?.children].flat(Infinity)){const found=find(child,label);if(found)return found;}return null;}
 test('실제 이메일 계정의 내 공간은 인증번호 기반 비밀번호 재설정 화면에 인증 서비스를 전달한다',()=>{
@@ -42,4 +42,14 @@ test('게스트·기존 체험 세션에는 계정 설정을 숨기고 소셜 �
   const screen=setup(user).render();assert.equal(find(screen,'회원정보 수정'),null);assert.equal(find(screen,'비밀번호 변경'),null);
  }
  const social=setup({mode:'authenticated',provider:'google',userId:'8'}).render();assert.ok(find(social,'회원정보 수정'));assert.equal(find(social,'비밀번호 변경'),null);
+});
+test('내 공간에 들어오면 서버 회원정보로 화면 사용자 정보를 갱신한다',async()=>{
+ const user={mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'};const updates=[];
+ const ui=setup(user,profile=>updates.push(profile));const fresh={...user,nickname:'새닉네임'};let asked=null;
+ ui.service.getProfile=async requested=>{asked=requested;return fresh};
+ ui.render();assert.equal(ui.effects.length,1);assert.deepEqual(ui.effects[0].deps,['7','home']);
+ ui.effects[0].effect();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(asked,user);assert.deepEqual(updates,[fresh]);
+ ui.service.getProfile=async()=>{throw new Error('offline')};updates.length=0;
+ const cleanup=ui.effects[0].effect();cleanup();await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(updates,[]);
 });

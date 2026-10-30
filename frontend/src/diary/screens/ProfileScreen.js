@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image } from 'expo-image';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { styles as s } from '../styles';
@@ -19,6 +19,19 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   // 회원 설정은 서버 인증이 끝난 세션만 접근한다. 이전 체험 세션 값은 앱 진입
   // 단계에서 로그인으로 돌려보내며, 이 화면에서도 방어적으로 렌더링하지 않는다.
   const authenticated = previewUser?.mode === 'authenticated';
+  const userId = authenticated ? previewUser.userId : null;
+  // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다.
+  // 실패하면 로그인 응답 값을 그대로 보여 주고, 다시 들어올 때 재시도한다.
+  useEffect(() => {
+    if (!userId || route !== 'home' || typeof authService.getProfile !== 'function') return undefined;
+    let active = true;
+    authService.getProfile(previewUser)
+      .then((profile) => { if (active) onUpdatePreview?.(profile); })
+      .catch(() => {});
+    return () => { active = false; };
+    // previewUser는 갱신 결과로 바뀌므로 계정·화면 전환 때만 다시 불러온다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, route]);
   if (!authenticated) return null;
   const photoUri = previewUser?.photoUri;
   const photoSource = photoUri

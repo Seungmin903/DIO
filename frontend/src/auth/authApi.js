@@ -80,6 +80,34 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       throw new Error('서버에 연결하지 못했어요. 서버 주소와 네트워크를 확인해 주세요.');
     } finally { clearTimeout(timer); }
   }
+  // GET/PATCH /me: one token refresh on 401, then accept only this session's account.
+  async function memberProfile(current, method, body, invalidMessage) {
+    let result;
+    try {
+      result = await request('me', body, current.accessToken, false, method, true);
+    } catch (error) {
+      if (error.status !== 401 || error.code === 'DEVELOPMENT_ACCESS_REQUIRED') throw error;
+      if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+      await api.refresh();
+      current = session;
+      result = await request('me', body, current.accessToken, false, method, true);
+    }
+    if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+    const profile = result?.user || result;
+    const text = value => typeof value === 'string' && value.trim().length > 0;
+    let validPhoto = profile?.profilePhotoUrl == null;
+    if (text(profile?.profilePhotoUrl)) {
+      try { validPhoto = ['https:', 'http:'].includes(new URL(profile.profilePhotoUrl, base).protocol); } catch {}
+    }
+    if (!text(profile?.userId) || String(profile.userId) !== String(current.user.userId) ||
+        !text(profile?.email) || normalizeEmail(profile.email) !== normalizeEmail(current.user.email) ||
+        !text(profile?.nickname) || !validPhoto) {
+      throw Object.assign(new Error(invalidMessage), { status: 502, code: 'INVALID_PROFILE_RESPONSE' });
+    }
+    const { userId, email, nickname, profilePhotoUrl = null } = profile;
+    session = { ...current, user: { ...current.user, userId, email, nickname, profilePhotoUrl } };
+    return userView(session.user);
+  }
   const api = {
     getConnectionOptions() { return { baseUrl: base, accessTokenHeader, getAuthHeaders }; },
     getProfilePhotoSource(uri) {
@@ -269,30 +297,14 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       const currentPhotoUri = current.user.profilePhotoUrl ? new URL(current.user.profilePhotoUrl, base).href : null;
       if ((photoUri || null) !== currentPhotoUri)
         throw new Error('프로필 사진 변경 기능은 아직 준비 중이에요.');
-      let result;
-      try {
-        result = await request('me', { nickname: nextNickname }, current.accessToken, false, 'PATCH', true);
-      } catch (error) {
-        if (error.status !== 401 || error.code === 'DEVELOPMENT_ACCESS_REQUIRED') throw error;
-        if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
-        await api.refresh();
-        current = session;
-        result = await request('me', { nickname: nextNickname }, current.accessToken, false, 'PATCH', true);
-      }
-      if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
-      const profile = result?.user || result;
-      const text = value => typeof value === 'string' && value.trim().length > 0;
-      let validPhoto = profile?.profilePhotoUrl == null;
-      if (text(profile?.profilePhotoUrl)) {
-        try { validPhoto = ['https:', 'http:'].includes(new URL(profile.profilePhotoUrl, base).protocol); } catch {}
-      }
-      if (!text(profile?.userId) || String(profile.userId) !== String(current.user.userId) ||
-          !text(profile?.email) || normalizeEmail(profile.email) !== normalizeEmail(current.user.email) ||
-          !text(profile?.nickname) || !validPhoto) {
-        throw Object.assign(new Error('회원정보 저장 결과를 확인하지 못했어요. 다시 시도해 주세요.'), { status: 502, code: 'INVALID_PROFILE_RESPONSE' });
-      }
-      session = { ...current, user: { ...current.user, ...profile } };
-      return userView(session.user);
+      return memberProfile(current, 'PATCH', { nickname: nextNickname }, '회원정보 저장 결과를 확인하지 못했어요. 다시 시도해 주세요.');
+    },
+    // Server profile wins over the login snapshot, e.g. after a nickname change on another device.
+    async getProfile(user) {
+      if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
+      if (refreshing) await refreshing;
+      if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
+      return memberProfile(session, 'GET', undefined, '회원정보를 확인하지 못했어요. 다시 시도해 주세요.');
     },
     async changePassword(user, { currentPassword, password, confirmation }) {
       if (!session || String(user?.userId) !== String(session.user.userId)) throw new Error('다시 로그인해 주세요.');

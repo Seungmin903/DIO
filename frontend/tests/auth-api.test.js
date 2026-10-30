@@ -372,6 +372,32 @@ test('회원정보 수정은 본인 토큰으로 PATCH me를 호출하고 갱신
   assert.equal((await api.getAccessToken({ userId: user.userId, sessionKey: api.getSessionKey() })), 'access');
 });
 
+test('회원정보 조회는 본인 토큰으로 GET me를 호출하고 서버 닉네임으로 세션을 갱신한다', async () => {
+  const calls = [];
+  const api = createAuthApi({ baseUrl: 'http://localhost:8080/api', fetchImpl: async (url, init) => {
+    calls.push({ url, ...init });
+    if (url.endsWith('/auth/login')) return response(tokens());
+    return response({ ...user, nickname: '다른기기이름' });
+  } });
+  const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
+  const profile = await api.getProfile(loggedIn);
+  assert.equal(calls[1].url, 'http://localhost:8080/api/v1/me');
+  assert.equal(calls[1].method, 'GET');
+  assert.equal(calls[1].body, undefined);
+  assert.equal(calls[1].headers.Authorization, 'Bearer access');
+  assert.equal(profile.nickname, '다른기기이름');
+  assert.equal(profile.mode, 'authenticated');
+  await assert.rejects(api.getProfile({ ...loggedIn, userId: 'other' }), { code: 'AUTHENTICATION_REQUIRED' });
+  assert.equal(calls.length, 2);
+});
+
+test('회원정보 조회는 다른 계정 응답을 받아들이지 않는다', async () => {
+  const api = createAuthApi({ baseUrl: 'http://localhost:8080/api', fetchImpl: async (url) =>
+    response(url.endsWith('/auth/login') ? tokens() : { ...user, userId: 'other' }) });
+  const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
+  await assert.rejects(api.getProfile(loggedIn), { code: 'INVALID_PROFILE_RESPONSE' });
+});
+
 test('회원정보 수정은 다른 계정과 아직 연결되지 않은 사진 변경을 요청하지 않는다', async () => {
   const { api, calls } = setup(() => response(tokens()));
   const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
