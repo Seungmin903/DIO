@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { DEFAULT_PAPER_APPEARANCE, PAPER_BACKGROUNDS, normalizePaperAppearance } from '../../editor/templates/appearance.js';
 import { configuredPageIds } from '../../editor/templates/creation.js';
 import { normalizeOrientation, templateCanvasSize } from '../../editor/templates/catalog.js';
@@ -47,6 +47,9 @@ function CoverFrame({ cover, name, width, height, edit }) {
 export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, bottomInset = 0,
   visible = true, blankOnly = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey }) {
   const editing = Boolean(diary);
+  // 세로 화면은 폰이 아니어도 구역 카드를 위에, 옵션을 아래에 쌓는다
+  const window = useWindowDimensions();
+  const stacked = sheet || window.height > window.width;
   const formLocked = saving || locked;
   const [, redraw] = useReducer(value => value + 1, 0);
   useEffect(() => subscribeTextFonts(redraw), []);
@@ -203,11 +206,11 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const coverRatio = orientation === 'landscape' ? 1 / COVER_RATIO : COVER_RATIO;
   let preview = null;
   if (stage.width > 0) {
-    const maxHeight = stage.height - (sheet ? 44 : 80);
-    const wide = stage.width * (sheet ? 0.86 : 0.8);
+    const maxHeight = stage.height - (stacked ? 44 : 80);
+    const wide = stage.width * (stacked ? 0.86 : 0.8);
     if (section === 'basic') {
-      const gap = sheet ? 16 : 32;
-      const half = (stage.width - (sheet ? 32 : 80) - gap) / 2;
+      const gap = stacked ? 16 : 32;
+      const half = (stage.width - (stacked ? 32 : 80) - gap) / 2;
       const coverSize = fit(coverRatio, half, maxHeight);
       const paperSize = fit(paperRatio, half, maxHeight);
       preview = <>
@@ -225,9 +228,9 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
           edit={formLocked ? null : { onChange: changeCover, onSelectSticker: id => { if (id && id !== 'title') setOpenElement('stickers'); } }} />
       </>;
     } else if (section === 'paper' && usingPdf) {
-      const stripCount = Math.min(pdfPapers.length, sheet ? 6 : 8);
-      const stripWidth = Math.min(sheet ? 34 : 46, (wide - (stripCount - 1) * 6) / Math.max(1, stripCount));
-      const size = fit(paperRatio, wide, maxHeight - stripWidth / paperRatio - (sheet ? 12 : 20));
+      const stripCount = Math.min(pdfPapers.length, stacked ? 6 : 8);
+      const stripWidth = Math.min(stacked ? 34 : 46, (wide - (stripCount - 1) * 6) / Math.max(1, stripCount));
+      const size = fit(paperRatio, wide, maxHeight - stripWidth / paperRatio - (stacked ? 12 : 20));
       preview = <>
         <PdfPageThumb page={pdfPapers[0]} width={size.width} ratio={paperRatio} style={styles.paperShadow} />
         {stripCount > 1 && <View style={styles.strip}>
@@ -246,10 +249,10 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     } else if (section === 'paper' && allIds) {
       // 첫 장을 크게, 그 아래에 처음 몇 장을 순서대로 작게 보여 섞인 차례를 확인한다
       const ids = allIds;
-      const stripCount = Math.min(ids.length, sheet ? 6 : 8);
-      const stripWidth = Math.min(sheet ? 34 : 46, (wide - (stripCount - 1) * 6) / Math.max(1, stripCount));
+      const stripCount = Math.min(ids.length, stacked ? 6 : 8);
+      const stripWidth = Math.min(stacked ? 34 : 46, (wide - (stripCount - 1) * 6) / Math.max(1, stripCount));
       const stripHeight = stripWidth / paperRatio;
-      const size = fit(paperRatio, wide, maxHeight - stripHeight - (sheet ? 12 : 20));
+      const size = fit(paperRatio, wide, maxHeight - stripHeight - (stacked ? 12 : 20));
       preview = <>
         <TemplatePreview assetId={ids[0]} width={size.width} appearance={paperAppearance} style={styles.paperShadow} />
         {stripCount > 1 && <View style={styles.strip}>
@@ -314,9 +317,9 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       statusBarTranslucent navigationBarTranslucent onRequestClose={cancel}>
       <StatusBar hidden />
       <View accessibilityViewIsModal style={styles.overlay}>
-        <Animated.View style={[styles.dialog, !sheet && { paddingBottom: bottomInset }, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
+        <Animated.View style={[styles.dialog, !stacked && { paddingBottom: bottomInset }, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
           <Workbench title={editing ? '다이어리 수정' : '새 다이어리'} actionLabel={actionLabel} onCancel={cancel} cancelDisabled={saving} onSubmit={onSave} submitDisabled={disabled}
-            sections={sections} section={section} onSection={id => { setSection(id); setNotice(''); }} sheet={sheet} bottomInset={bottomInset}
+            sections={sections} section={section} onSection={id => { setSection(id); setNotice(''); }} sheet={stacked} roomy={!sheet} bottomInset={bottomInset}
             onStageLayout={setStage} stage={preview} panel={panel} panelLocked={formLocked} foot={foot} />
         </Animated.View>
         <ConfirmDialog open={leaving} title="저장하지 않고 닫을까요?" message="바꾼 내용은 저장되지 않아요." confirmLabel="닫기"

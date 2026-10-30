@@ -138,7 +138,7 @@ export function textStyle(object, scale = 1, platform = 'android') {
   // 등록한 단일 face를 직접 선택한다. 파일에 없는 weight/style을 다시 요청하지 않는다.
   // 기존 iOS 기본 고딕 문서는 영문 기울임이 표시됐을 수 있어 렌더링을 보존한다.
   const legacySystemItalic = platform === 'ios' && s.font === 'sans' && s.italic
-  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: s.fontSize * scale, lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && (support.italic || legacySystemItalic) ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
+  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: Math.max(1, s.fontSize * scale), lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && (support.italic || legacySystemItalic) ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
 }
 
 export function textFormatPatch(object, settings) {
