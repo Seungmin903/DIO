@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { Animated, Image, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
 import CoverPattern from './CoverPattern'
+import FillSvg from './FillSvg'
 import Icon from '../../editor/components/controls/Icon'
 import { useMediaUri } from '../../editor/hooks/useMediaUri'
 import { usePan } from '../../editor/hooks/usePan'
@@ -35,12 +36,12 @@ function ElasticBand({ vertical, color, scale, radius, style, lit = null }) {
 }
 function GradientFill({ stops }) {
   const id = useRef(`dio-cover-gradient-${(nextGradientId += 1)}`).current
-  return <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
+  return <FillSvg>{(width, height) => <>
     <Defs><LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
       {stops.map((color, i) => <Stop key={i} offset={i / (stops.length - 1)} stopColor={color} />)}
     </LinearGradient></Defs>
-    <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
-  </Svg>
+    <Rect x="0" y="0" width={width} height={height} fill={`url(#${id})`} />
+  </>}</FillSvg>
 }
 
 function OwnPhoto({ photo }) {

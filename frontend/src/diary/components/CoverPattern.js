@@ -1,6 +1,6 @@
 import { memo, useRef } from 'react';
-import { StyleSheet } from 'react-native';
-import Svg, { Circle, Defs, Line, Pattern, Rect } from 'react-native-svg';
+import { Circle, Defs, Line, Pattern, Rect } from 'react-native-svg';
+import FillSvg from './FillSvg';
 
 // SVG 무늬 정의는 문서 전체에서 id로 찾으므로 표지마다 겹치지 않는 id가 필요하다.
 let nextPatternId = 0;
@@ -76,14 +76,18 @@ function CoverPattern({ pattern, tone = 'dark' }) {
   const id = idRef.current;
 
   return (
-    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
-      <Defs>
-        <Pattern id={id} patternUnits="userSpaceOnUse" width={spec.size} height={spec.size}>
-          {spec.shapes}
-        </Pattern>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
-    </Svg>
+    <FillSvg>
+      {(width, height) => (
+        <>
+          <Defs>
+            <Pattern id={id} patternUnits="userSpaceOnUse" width={spec.size} height={spec.size}>
+              {spec.shapes}
+            </Pattern>
+          </Defs>
+          <Rect x="0" y="0" width={width} height={height} fill={`url(#${id})`} />
+        </>
+      )}
+    </FillSvg>
   );
 }
 
