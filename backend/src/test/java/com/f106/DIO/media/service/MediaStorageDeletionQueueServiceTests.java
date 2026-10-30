@@ -67,6 +67,12 @@ class MediaStorageDeletionQueueServiceTests {
 		assertThat(task.getLastError()).isEqualTo("IllegalStateException");
 	}
 
+	@Test
+	void selectsDueUnlockedTasksWithTheRequestedLimit() {
+		service.next(3);
+		verify(tasks).findDueUnlocked(any(Instant.class), eq(3));
+	}
+
 	private static MediaFile media() {
 		UUID id = UUID.randomUUID();
 		return new MediaFile(id, 1L, MediaType.IMAGE, MediaLibraryCategory.PHOTO,
