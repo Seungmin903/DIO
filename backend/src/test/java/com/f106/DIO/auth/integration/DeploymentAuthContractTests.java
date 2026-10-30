@@ -15,16 +15,28 @@ class DeploymentAuthContractTests {
         for (String job : new String[]{"backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test"}) {
             assertThat(ci.getProperty(job + ".stage")).isEqualTo("quality");
             assertThat(ci.getProperty(job + ".needs[0].job")).isEqualTo("backend-test");
+            assertThat(ci.getProperty(job + ".needs[0].optional")).isEqualTo(true);
             assertThat(ci.getProperty(job + ".allow_failure")).isNull();
         }
         for (String job : new String[]{"backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test"}) {
-            // CI 설정만 바뀐 MR에서는 자동 실행하지 않고, 파이프라인을 막지 않는 수동 실행만 남긴다.
-            for (int i = 0; ci.getProperty(job + ".rules[0].changes[" + i + "]") != null; i++) {
-                assertThat(ci.getProperty(job + ".rules[0].changes[" + i + "]")).isNotEqualTo(".gitlab-ci.yml");
+            // develop 병합 후에는 백엔드 변경마다 배포 전에 반드시 실행한다.
+            assertThat(ci.getProperty(job + ".rules[0].if")).isEqualTo("$CI_COMMIT_BRANCH == \"develop\"");
+            assertThat(ci.getProperty(job + ".rules[0].changes[0]")).isEqualTo("backend/**/*");
+            assertThat(ci.getProperty(job + ".rules[0].when")).isNull();
+            // MR 자동 실행은 스키마와 PostgreSQL 검사 자체의 변경으로 한정한다.
+            assertThat(ci.getProperty(job + ".rules[1].changes[0]")).isEqualTo("backend/src/main/resources/db/migration/**/*");
+            assertThat(ci.getProperty(job + ".rules[1].changes[1]")).isEqualTo("infra/scripts/test-auth-postgres.sh");
+            for (int i = 0; ci.getProperty(job + ".rules[1].changes[" + i + "]") != null; i++) {
+                assertThat(ci.getProperty(job + ".rules[1].changes[" + i + "]").toString())
+                    .satisfiesAnyOf(path -> assertThat(path).startsWith("infra/scripts/"),
+                        path -> assertThat(path).isEqualTo("backend/src/main/resources/db/migration/**/*"),
+                        path -> assertThat(path).startsWith("backend/src/test/java/"));
             }
-            assertThat(ci.getProperty(job + ".rules[1].changes[0]")).isEqualTo(".gitlab-ci.yml");
-            assertThat(ci.getProperty(job + ".rules[1].when")).isEqualTo("manual");
-            assertThat(ci.getProperty(job + ".rules[1].allow_failure")).isEqualTo(true);
+            // 나머지 백엔드·CI 변경은 파이프라인을 막지 않는 수동 실행만 남긴다.
+            assertThat(ci.getProperty(job + ".rules[2].changes[0]")).isEqualTo("backend/**/*");
+            assertThat(ci.getProperty(job + ".rules[2].changes[1]")).isEqualTo(".gitlab-ci.yml");
+            assertThat(ci.getProperty(job + ".rules[2].when")).isEqualTo("manual");
+            assertThat(ci.getProperty(job + ".rules[2].allow_failure")).isEqualTo(true);
         }
         assertThat(ci.getProperty("backend-postgres-auth-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh auth");
         assertThat(ci.getProperty("backend-postgres-sharing-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh sharing");
@@ -37,18 +49,17 @@ class DeploymentAuthContractTests {
         String diaryJob = block(ciText, "backend-postgres-diary-test:\n", "\nbackend-postgres-lifecycle-test:");
         String lifecycleJob = block(ciText, "backend-postgres-lifecycle-test:\n", "\nsecret-scan:");
         for (String job : new String[]{authJob, sharingJob, diaryJob, lifecycleJob}) {
-            assertThat(job).contains("backend/src/test/resources/**/*", "backend/src/test/java/**/*Fixture.java",
-                "backend/src/test/java/**/*Contract.java");
             assertThat(job).contains("infra/scripts/test-auth-postgres.sh");
         }
-        assertThat(authJob).contains("backend/build/test-results/authPostgresTest/*.xml");
-        assertThat(sharingJob).contains("backend/src/main/java/**/sharing/**/*",
-            "backend/build/test-results/sharingPostgresTest/*.xml", "backend/build/test-results/collaborationPostgresTest/*.xml", "backend/src/main/java/**/collaboration/**/*");
-        assertThat(diaryJob).contains("backend/src/main/java/**/diary/**/*",
+        assertThat(authJob).contains("backend/src/test/java/**/auth/**/*Postgres*.java",
+            "backend/build/test-results/authPostgresTest/*.xml");
+        assertThat(sharingJob).contains("backend/src/test/java/**/sharing/**/*Postgres*.java",
+            "backend/build/test-results/sharingPostgresTest/*.xml", "backend/build/test-results/collaborationPostgresTest/*.xml");
+        assertThat(diaryJob).contains("backend/src/test/java/**/diary/creation/**/*Postgres*.java",
             "backend/build/test-results/postgresMemberDiaryCreationTest/*.xml",
             "backend/build/test-results/postgresDiaryDetailTest/*.xml",
             "backend/build/test-results/postgresMemberDiaryHttpTest/*.xml");
-        assertThat(lifecycleJob).contains("backend/src/main/java/**/page/**/*",
+        assertThat(lifecycleJob).contains("backend/src/test/java/**/diary/purge/**/*Postgres*.java",
             "backend/build/test-results/postgresDiaryTrashTest/*.xml",
             "backend/build/test-results/postgresDiaryPurgeTest/*.xml");
 

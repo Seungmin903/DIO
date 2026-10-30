@@ -142,12 +142,14 @@ backend-test:
       - backend/build/contracts/
     expire_in: 7 days
 
-# PostgreSQL 잡은 CI 설정(.gitlab-ci.yml)만 바뀐 변경에서는 자동으로 돌리지 않고 수동 실행으로 남긴다. 실행 스크립트가 바뀌면 그대로 실행한다.
+# PostgreSQL 잡: MR에서는 스키마·검사 변경에만 자동 실행하고 나머지는 수동, develop 병합 후에는 배포 전에 항상 실행한다.
 backend-postgres-auth-test:
   stage: quality
   needs:
     - job: backend-test
       artifacts: false
+      # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
+      optional: true
   tags:
     - ec2-deploy
   cache:
@@ -158,36 +160,22 @@ backend-postgres-auth-test:
     policy: pull
   interruptible: true
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # develop에 병합된 백엔드 변경은 배포 전에 항상 실행한다. 실패하면 배포 단계로 넘어가지 않는다.
+    - if: '$CI_COMMIT_BRANCH == "develop"'
       changes:
-        # Flyway·datasource·공통 영속성 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
-        - backend/src/main/resources/db/migration/**/*
-        - backend/src/main/resources/application*.yml
-        - backend/src/test/resources/**/*
-        - backend/src/test/java/**/support/**/*
-        - backend/src/test/java/**/*Fixture.java
-        - backend/src/test/java/**/*Contract.java
-        - backend/src/main/java/**/user/**/*
-        - backend/src/main/java/**/repository/**/*
-        - backend/src/main/java/**/persistence/**/*
-        - backend/src/main/java/**/infrastructure/**/*
-        - backend/src/main/java/**/*Entity.java
-        - backend/src/main/java/**/*Repository.java
-        - backend/src/main/java/**/*Configuration.java
-        - backend/src/main/java/**/*Properties.java
-        - backend/build.gradle
-        - backend/settings.gradle
-        - backend/settings.gradle.kts
-        - backend/gradle/**/*
+        - backend/**/*
         - infra/scripts/test-auth-postgres.sh
-        # 인증·알림 전용 변경은 인증 PostgreSQL 검사만 실행한다.
-        - backend/src/main/java/**/auth/**/*
-        - backend/src/main/java/**/notification/**/*
-        - backend/src/test/java/**/auth/**/*
-        - backend/src/test/java/**/notification/**/*
-    # 잡 정의만 바꾼 MR은 수동으로 실행해 확인한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    # MR에서는 스키마(Flyway)나 이 검사 자체가 바뀐 경우에만 자동 실행한다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
+        - backend/src/main/resources/db/migration/**/*
+        - infra/scripts/test-auth-postgres.sh
+        - backend/src/test/java/**/auth/**/*Postgres*.java
+        - backend/src/test/java/**/notification/**/*Postgres*.java
+    # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
         - .gitlab-ci.yml
       when: manual
       allow_failure: true
@@ -207,6 +195,8 @@ backend-postgres-sharing-test:
   needs:
     - job: backend-test
       artifacts: false
+      # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
+      optional: true
   tags:
     - ec2-deploy
   cache:
@@ -217,40 +207,22 @@ backend-postgres-sharing-test:
     policy: pull
   interruptible: true
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # develop에 병합된 백엔드 변경은 배포 전에 항상 실행한다. 실패하면 배포 단계로 넘어가지 않는다.
+    - if: '$CI_COMMIT_BRANCH == "develop"'
       changes:
-        # Flyway·datasource·공통 영속성 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
-        - backend/src/main/resources/db/migration/**/*
-        - backend/src/main/resources/application*.yml
-        - backend/src/test/resources/**/*
-        - backend/src/test/java/**/support/**/*
-        - backend/src/test/java/**/*Fixture.java
-        - backend/src/test/java/**/*Contract.java
-        - backend/src/main/java/**/user/**/*
-        - backend/src/main/java/**/repository/**/*
-        - backend/src/main/java/**/persistence/**/*
-        - backend/src/main/java/**/infrastructure/**/*
-        - backend/src/main/java/**/*Entity.java
-        - backend/src/main/java/**/*Repository.java
-        - backend/src/main/java/**/*Configuration.java
-        - backend/src/main/java/**/*Properties.java
-        - backend/build.gradle
-        - backend/settings.gradle
-        - backend/settings.gradle.kts
-        - backend/gradle/**/*
+        - backend/**/*
         - infra/scripts/test-auth-postgres.sh
-        # 공유 권한·프로필·영구 삭제에 직접 영향을 주는 변경이다.
-        - backend/src/main/java/**/sharing/**/*
-        - backend/src/main/java/**/collaboration/**/*
-        - backend/src/test/java/**/collaboration/**/*
-        - backend/src/main/java/**/diary/**/*
-        - backend/src/main/java/**/media/**/*
-        - backend/src/main/java/**/page/domain/**/*
-        - backend/src/main/java/**/page/repository/**/*
-        - backend/src/test/java/**/sharing/**/*
-    # 잡 정의만 바꾼 MR은 수동으로 실행해 확인한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    # MR에서는 스키마(Flyway)나 이 검사 자체가 바뀐 경우에만 자동 실행한다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
+        - backend/src/main/resources/db/migration/**/*
+        - infra/scripts/test-auth-postgres.sh
+        - backend/src/test/java/**/sharing/**/*Postgres*.java
+        - backend/src/test/java/**/collaboration/**/*Postgres*.java
+    # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
         - .gitlab-ci.yml
       when: manual
       allow_failure: true
@@ -272,6 +244,8 @@ backend-postgres-diary-test:
   needs:
     - job: backend-test
       artifacts: false
+      # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
+      optional: true
   tags:
     - ec2-deploy
   cache:
@@ -282,38 +256,26 @@ backend-postgres-diary-test:
     policy: pull
   interruptible: true
   rules:
+    # develop에 병합된 백엔드 변경은 배포 전에 항상 실행한다. 실패하면 배포 단계로 넘어가지 않는다.
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      changes:
+        - backend/**/*
+        - infra/scripts/test-auth-postgres.sh
+    # MR에서는 스키마(Flyway)나 이 검사 자체가 바뀐 경우에만 자동 실행한다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        # Flyway·datasource·공통 영속성 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
         - backend/src/main/resources/db/migration/**/*
-        - backend/src/main/resources/application*.yml
-        - backend/src/test/resources/**/*
-        - backend/src/test/java/**/support/**/*
-        - backend/src/test/java/**/*Fixture.java
-        - backend/src/test/java/**/*Contract.java
-        - backend/src/main/java/**/user/**/*
-        - backend/src/main/java/**/repository/**/*
-        - backend/src/main/java/**/persistence/**/*
-        - backend/src/main/java/**/infrastructure/**/*
-        - backend/src/main/java/**/*Entity.java
-        - backend/src/main/java/**/*Repository.java
-        - backend/src/main/java/**/*Configuration.java
-        - backend/src/main/java/**/*Properties.java
-        - backend/build.gradle
-        - backend/settings.gradle
-        - backend/settings.gradle.kts
-        - backend/gradle/**/*
         - infra/scripts/test-auth-postgres.sh
         - infra/scripts/check-member-list-icu.sh
-        # 새 하위 패키지를 포함한 다이어리 변경은 최소한 이 검사를 실행한다.
-        - backend/src/main/java/**/auth/**/*
-        - backend/src/main/java/**/diary/**/*
-        - backend/src/main/java/**/page/**/*
-        - backend/src/test/java/**/diary/**/*
-        - backend/src/test/java/**/page/**/*
-    # 잡 정의만 바꾼 MR은 수동으로 실행해 확인한다. 실행하지 않아도 파이프라인을 막지 않는다.
+        - backend/src/test/java/**/support/**/*
+        - backend/src/test/java/**/diary/creation/**/*Postgres*.java
+        - backend/src/test/java/**/diary/detail/**/*Postgres*.java
+        - backend/src/test/java/**/diary/http/MemberDiaryContractPostgresTests.java
+        - backend/src/test/java/**/diary/http/MemberDiaryListPostgresTests.java
+    # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
+        - backend/**/*
         - .gitlab-ci.yml
       when: manual
       allow_failure: true
@@ -337,6 +299,8 @@ backend-postgres-lifecycle-test:
   needs:
     - job: backend-test
       artifacts: false
+      # develop 파이프라인에는 backend-test가 없으므로 선택 의존으로 둔다.
+      optional: true
   tags:
     - ec2-deploy
   cache:
@@ -347,44 +311,26 @@ backend-postgres-lifecycle-test:
     policy: pull
   interruptible: true
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # develop에 병합된 백엔드 변경은 배포 전에 항상 실행한다. 실패하면 배포 단계로 넘어가지 않는다.
+    - if: '$CI_COMMIT_BRANCH == "develop"'
       changes:
-        # Flyway·datasource·공통 영속성 계층 변경은 네 PostgreSQL 검사 모두 실행한다.
-        - backend/src/main/resources/db/migration/**/*
-        - backend/src/main/resources/application*.yml
-        - backend/src/test/resources/**/*
-        - backend/src/test/java/**/support/**/*
-        - backend/src/test/java/**/*Fixture.java
-        - backend/src/test/java/**/*Contract.java
-        - backend/src/main/java/**/user/**/*
-        - backend/src/main/java/**/repository/**/*
-        - backend/src/main/java/**/persistence/**/*
-        - backend/src/main/java/**/infrastructure/**/*
-        - backend/src/main/java/**/*Entity.java
-        - backend/src/main/java/**/*Repository.java
-        - backend/src/main/java/**/*Configuration.java
-        - backend/src/main/java/**/*Properties.java
-        - backend/build.gradle
-        - backend/settings.gradle
-        - backend/settings.gradle.kts
-        - backend/gradle/**/*
+        - backend/**/*
         - infra/scripts/test-auth-postgres.sh
-        # 휴지통·영구 삭제·미디어 보존 기간 변경이다.
-        - backend/src/main/java/**/diary/auth/**/*
-        - backend/src/main/java/**/diary/expiry/**/*
-        - backend/src/main/java/**/diary/service/**/*
-        - backend/src/main/java/**/diary/trash/**/*
-        - backend/src/main/java/**/diary/purge/**/*
-        - backend/src/main/java/**/media/**/*
-        - backend/src/main/java/**/page/**/*
-        - backend/src/test/java/**/diary/auth/**/*
-        - backend/src/test/java/**/diary/expiry/**/*
-        - backend/src/test/java/**/diary/trash/**/*
-        - backend/src/test/java/**/diary/purge/**/*
-        - backend/src/test/java/**/media/**/*
-    # 잡 정의만 바꾼 MR은 수동으로 실행해 확인한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    # MR에서는 스키마(Flyway)나 이 검사 자체가 바뀐 경우에만 자동 실행한다.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
+        - backend/src/main/resources/db/migration/**/*
+        - infra/scripts/test-auth-postgres.sh
+        - backend/src/test/java/**/support/**/*
+        - backend/src/test/java/**/diary/trash/**/*Postgres*.java
+        - backend/src/test/java/**/diary/purge/**/*Postgres*.java
+        - backend/src/test/java/**/diary/http/*TrashContractPostgresTests.java
+        - backend/src/test/java/**/diary/http/*PurgeContractPostgresTests.java
+        - backend/src/test/java/**/media/**/*Postgres*.java
+    # 그 밖의 백엔드·CI 변경은 필요할 때 수동으로 실행한다. 실행하지 않아도 파이프라인을 막지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
         - .gitlab-ci.yml
       when: manual
       allow_failure: true
