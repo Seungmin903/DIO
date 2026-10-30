@@ -6,7 +6,9 @@ import Icon from '../controls/Icon'
 import { pageFromProgress } from '../../utils/readingGestures.js'
 import { createPageRepeat, isGesturePagePress } from '../../utils/pageRepeat.js'
 
-export const READING_PADDING = { top: 64, bottom: 64, side: 12 }
+// 메뉴(위 헤더 56 · 아래 바 52)가 보이면 그 사이에 맞추고, 숨기면 화면 전체에 딱 맞춘다.
+export const READING_PADDING = { top: 56, bottom: 52, side: 0 }
+export const READING_PADDING_FULL = { top: 0, bottom: 0, side: 0 }
 
 function Action({ icon, label, onPress, disabled = false, ...pressProps }) {
   return <Pressable {...pressProps} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled}

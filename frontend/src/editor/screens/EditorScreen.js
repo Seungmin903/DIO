@@ -1,6 +1,6 @@
 import { canLeaveForInvitation } from '../../notifications/editorInvitationGuard';
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { BackHandler, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Animated, BackHandler, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
@@ -46,9 +46,11 @@ import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
 import TopBar from '../components/chrome/TopBar'
 import Viewport from '../components/canvas/Viewport'
-import { ReadingHeader, ReadingNavigation, ReadingModeControls, READING_PADDING } from '../components/chrome/ReadingChrome'
+import { ReadingHeader, ReadingNavigation, ReadingModeControls, READING_PADDING, READING_PADDING_FULL } from '../components/chrome/ReadingChrome'
 import { StageOverlayHost } from '../components/canvas/StageOverlay'
 import { ViewportMotion } from '../components/canvas/StaticPage'
+import ReadingPageTurn from '../components/canvas/ReadingPageTurn'
+import { readingEdgeMessage, turnLift, turnProgress, turnShouldComplete } from '../utils/pageTurn.js'
 import { PHONE_ZOOM_MAX, ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
 import { useMemberCanvasCollaboration } from '../hooks/useMemberCanvasCollaboration'
@@ -191,7 +193,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setLayersOpen(false)
     setPagesOpen(false)
   }
-  const stagePadding = readOnly ? READING_PADDING : compact ? PHONE_STAGE_PADDING : STAGE_PADDING
+  const stagePadding = readOnly ? (readerMenuVisible ? READING_PADDING : READING_PADDING_FULL) : compact ? PHONE_STAGE_PADDING : STAGE_PADDING
   const [focusMode, setFocusMode] = useState(false)
   const phoneLandscape = compact && landscape
   // 폰 집중 편집: 막대를 모두 숨기고 종료 버튼만 남긴다.
@@ -345,15 +347,67 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   if (cropId && !cropTarget) setCropId(null)
 
   const fitToScreen = () => setView({ scale: 1, x: null, y: null })
+  // 읽기: 앞장(지금 보이는 캔버스)은 건드리지 않고, 접힘선 너머로 드러나는 새 페이지와 접힌 뒷면만 위에 얹어 움직인다.
+  // 다 넘어간 뒤에야 페이지를 바꾼다. (앞장을 다시 그리거나 위치를 잡지 않으므로 떨리지 않는다)
+  const flip = useRef(new Animated.Value(0)).current
+  const [turn, setTurn] = useState(null) // { page: 드러나는 페이지, from: 넘어가는(보이는) 페이지, dir: 1 다음 · -1 이전, lift }
+  const turnRef = useRef(null)
+  turnRef.current = turn
+  const dragTurn = useRef(null) // 손가락을 따라 넘기는 중 { dir, target, settling }
+  // 읽기 모드를 끄거나 화면을 닫으면 진행 중인 넘김을 멈춘다. (멈추면 완료 콜백은 finished=false 로 끝나 페이지를 바꾸지 않는다)
+  useEffect(() => { if (!readOnly) { flip.stopAnimation(); setTurn(null); dragTurn.current = null } }, [readOnly, flip])
+  useEffect(() => () => flip.stopAnimation(), [flip])
+  const nativeDriver = Platform.OS !== 'web'
+  const startTurn = (from, target, dir, lift) => {
+    flip.stopAnimation()
+    flip.setValue(0)
+    setTurn({ page: target, from, dir, lift })
+  }
+  const finishTurn = (target) => { dispatch({ type: 'selectPage', id: target.id }); fitToScreen(); setTurn(null) }
   const selectReadingPage = (index) => {
+    if (!loaded || dragTurn.current) return
+    const running = turnRef.current
+    const base = running ? running.page : page // 넘기는 중이면 그 목적지가 기준
+    const baseIndex = state.doc.pages.findIndex((item) => item.id === base.id)
     const target = state.doc.pages[index]
-    if (!loaded || !target || target.id === page.id) return
-    dispatch({ type: 'selectPage', id: target.id })
-    fitToScreen()
+    const edge = readingEdgeMessage(index, state.doc.pages.length)
+    if (edge) { showToast(edge); return }
+    if (target.id === base.id) return
+    if (running) dispatch({ type: 'selectPage', id: base.id }) // 진행 중이던 넘김은 바로 끝낸다 (빠르게 연달아 넘길 때)
+    startTurn(base, target, index > baseIndex ? 1 : -1, 0)
+    Animated.timing(flip, { toValue: 1, duration: 620, easing: Easing.inOut(Easing.quad), useNativeDriver: nativeDriver }).start(({ finished }) => { if (finished) finishTurn(target) })
+  }
+  // 손가락 따라 넘기기: 손가락만큼 접고, 놓을 때 넘어간 정도가 충분하면 끝까지 넘기고 아니면 되돌린다.
+  const readingDrag = ({ type, dx = 0, duration = 0, y }) => {
+    const width = PAGE_WIDTH * zoom
+    const drag = dragTurn.current
+    if (type === 'start') {
+      if (!loaded || turnRef.current || drag) return false
+      const dir = dx < 0 ? 1 : -1
+      const target = state.doc.pages[pageIndex + dir]
+      if (!target) return false
+      dragTurn.current = { dir, target }
+      startTurn(page, target, dir, turnLift(y))
+      return true
+    }
+    if (!drag || drag.settling) return undefined
+    const progress = turnProgress({ dir: drag.dir, dx, width })
+    if (type === 'move') { flip.setValue(progress); return undefined }
+    const complete = turnShouldComplete({ progress, dir: drag.dir, dx, duration, cancelled: type !== 'end' })
+    drag.settling = true
+    Animated.timing(flip, { toValue: complete ? 1 : 0, duration: 120 + 380 * (complete ? 1 - progress : progress), easing: Easing.out(Easing.quad), useNativeDriver: nativeDriver }).start(({ finished }) => {
+      if (!finished) return
+      dragTurn.current = null
+      if (complete) finishTurn(drag.target)
+      else setTurn(null)
+    })
+    return undefined
   }
   const readingAction = (action) => {
-    if (action === 'menu') setReaderMenuVisible(visible => !visible)
-    else selectReadingPage(pageIndex + (action === 'next' ? 1 : -1))
+    if (action === 'menu') { setReaderMenuVisible(visible => !visible); return }
+    const base = turnRef.current ? turnRef.current.page : page
+    const baseIndex = state.doc.pages.findIndex((item) => item.id === base.id)
+    selectReadingPage(baseIndex + (action === 'next' ? 1 : -1))
   }
   const toggleReading = () => {
     if (permissionReadOnly) return
@@ -962,6 +1016,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             reading={readOnly}
             readingLinkRef={readingLinkRef}
             onReadingAction={readingAction}
+            onReadingDrag={readingDrag}
             zoom={zoom}
             scale={viewportLocked ? 1 : view.scale}
             interactionLocked={viewportLocked}
@@ -977,6 +1032,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           >
             {/* 확대·이동 중이거나 화면 밖에 있는 GIF 는 첫 장면으로 멈춘다 (StaticPage) */}
             <ViewportMotion.Provider value={{ moving: viewMoving, visible: stageSize ? { x: -offset.x / zoom, y: -offset.y / zoom, width: stageSize.width / zoom, height: stageSize.height / zoom } : null }}>
+              <View style={{ width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }}>
               <Canvas
                 showBackground={loaded}
                 compact={compact}
@@ -1066,6 +1122,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 contextBarInside={markInside}
                 contextBarFrame={contextBarFrame}
               />
+              {readOnly && turn && <ReadingPageTurn page={turn.page} from={turn.from} zoom={zoom} width={PAGE_WIDTH} height={PAGE_HEIGHT} dir={turn.dir} lift={turn.lift ?? 0} progress={flip} />}
+              </View>
             </ViewportMotion.Provider>
           </Viewport>
           </StageOverlayHost>
