@@ -26,6 +26,7 @@ public class MediaRequestException extends RuntimeException {
 	public static MediaRequestException sharedLibraryReference() {
 		return new MediaRequestException(HttpStatus.CONFLICT, "MEDIA_FILE_SHARED", "공유 보관함에서 제거한 뒤 미디어를 삭제할 수 있습니다.");
 	}
+	public static MediaRequestException canvasReference() { return new MediaRequestException(HttpStatus.CONFLICT,"MEDIA_FILE_IN_CANVAS","캔버스에서 사용 중인 이미지 원본은 삭제할 수 없습니다."); }
 	public HttpStatus status() { return status; }
 	public String code() { return code; }
 }

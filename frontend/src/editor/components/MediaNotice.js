@@ -17,7 +17,7 @@ export default function MediaNotice({ references, importFailure, onDismissImport
     if (busy) return
     if (importFailure) { onDismissImport(); importFailure.retry(); return }
     setBusy(true)
-    try { await Promise.allSettled(failures.map(({ id }) => mediaService.resolveDisplay(id))) }
+    try { await Promise.allSettled(failures.map(({ id }) => mediaService.retryDisplay(id))) }
     finally { setBusy(false) }
   }
   return (

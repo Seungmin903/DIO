@@ -25,7 +25,6 @@ const WITHDRAW_TEXT = '탈퇴합니다';
 
 export default function ProfileEditScreen({
   user,
-  passwordOnly = false,
   compact = false,
   onClose,
   onUpdate,
@@ -37,7 +36,7 @@ export default function ProfileEditScreen({
   const [saved, setSaved] = useState(user);
   const [nickname, setNickname] = useState(user.nickname);
   const [photoUri, setPhotoUri] = useState(user.photoUri || null);
-  const [dialog, setDialog] = useState(passwordOnly ? 'password' : null);
+  const [dialog, setDialog] = useState(null);
   const [withdrawText, setWithdrawText] = useState('');
   const [passwords, setPasswords] = useState(emptyPasswords);
   const [busy, setBusy] = useState(false);
@@ -89,7 +88,6 @@ export default function ProfileEditScreen({
       pendingLeave.current = () => {
         setDialog(null);
         setPasswords(emptyPasswords());
-        if (passwordOnly) onClose?.();
       };
       setDialog('discard-password');
     } else {
@@ -97,7 +95,6 @@ export default function ProfileEditScreen({
       setPasswords(emptyPasswords());
       setWithdrawText('');
       pendingLeave.current = null;
-      if (passwordOnly) onClose?.();
     }
   };
   const leave = (action) => {
@@ -149,7 +146,11 @@ export default function ProfileEditScreen({
   const save = () => {
     if (!ready) return;
     run(
-      () => service.updateProfile(saved, { nickname: name, photoUri }),
+      () => {
+        if (typeof service.updateProfile !== 'function')
+          throw new Error('프로필 정보 수정 기능이 아직 연결되지 않았어요.');
+        return service.updateProfile(saved, { nickname: name, photoUri });
+      },
       (result) => {
         setSaved(result);
         setNickname(result.nickname);
@@ -204,7 +205,7 @@ export default function ProfileEditScreen({
         setDialog(null);
         setNotice('비밀번호를 변경했어요.');
       },
-      passwordOnly ? onEndSession : undefined,
+      user?.mode === 'authenticated' ? onEndSession : undefined,
     );
   };
   const withdraw = () => {
@@ -226,7 +227,7 @@ export default function ProfileEditScreen({
         Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined
       }
     >
-      {!passwordOnly && <ScrollView
+      <ScrollView
         ref={form.scroll}
         contentContainerStyle={[s.scroll, compact && s.phoneScroll]}
         onLayout={form.reveal}
@@ -380,7 +381,7 @@ export default function ProfileEditScreen({
             </View>
           </View>
         </View>
-      </ScrollView>}
+      </ScrollView>
       <Modal
         visible={!!dialog}
         transparent
@@ -451,7 +452,6 @@ export default function ProfileEditScreen({
                 )}
                 {dialog === 'password' && (
                   <>
-                    {passwordOnly && <Text style={s.muted}>변경하면 모든 기기에서 로그아웃돼요. 새 비밀번호로 다시 로그인해 주세요.</Text>}
                     {['currentPassword', 'password', 'confirmation'].map((key, index) => (
                       <View key={key}>
                         <Text style={s.text}>

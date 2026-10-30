@@ -20,7 +20,6 @@ import com.f106.DIO.page.repository.CanvasElementRepository;
 import com.f106.DIO.page.support.CanvasElementNotFoundException;
 import com.f106.DIO.page.support.CanvasElementVersionConflictException;
 import com.f106.DIO.page.support.ElementNotDeletedException;
-import com.f106.DIO.page.support.MediaFileNotSupportedException;
 
 @Service
 public class CanvasElementService {
@@ -29,11 +28,12 @@ public class CanvasElementService {
     private static final BigDecimal MAX_SORT_KEY = new BigDecimal("9999999999.9999999999");
 
 	private final PageService pageService;
+    private final com.f106.DIO.media.service.CanvasMediaAccess mediaAccess;
 	private final CanvasElementRepository elementRepository;
 	private final com.f106.DIO.collaboration.service.CanvasChangeJournal journal;
 
-	public CanvasElementService(PageService pageService, CanvasElementRepository elementRepository, com.f106.DIO.collaboration.service.CanvasChangeJournal journal) {
-		this.pageService = pageService;
+	public CanvasElementService(PageService pageService, CanvasElementRepository elementRepository, com.f106.DIO.collaboration.service.CanvasChangeJournal journal, com.f106.DIO.media.service.CanvasMediaAccess mediaAccess) {
+		this.pageService = pageService;this.mediaAccess=mediaAccess;
 		this.elementRepository = elementRepository;
 		this.journal = journal;
 	}
@@ -63,7 +63,7 @@ public class CanvasElementService {
         pageService.requireWritablePage(pageId,userId);
         var ticket=journal.begin(pageId,userId,List.of(elementId),UUID.randomUUID(),null,"UPDATE");
 		CanvasElement element = requireActiveElement(pageId, elementId);
-		applyUpdate(element, request);
+		applyUpdate(element, request, userId);
 		elementRepository.flush();
         journal.complete(ticket);
 		return new CanvasElementResponse(PageMapper.toElementData(element));
@@ -116,7 +116,7 @@ public class CanvasElementService {
 		}
 		for (CanvasElementUpdateRequest update : safe(request.updates())) {
 			CanvasElement element = requireActiveElement(pageId, update.getElementId());
-			applyUpdate(element, update);
+			applyUpdate(element, update, userId);
 		}
 		for (UUID elementId : safe(request.deleteElementIds())) requireActiveElement(pageId, elementId).softDelete();
 		for (UUID elementId : safe(request.restoreElementIds())) {
@@ -130,7 +130,7 @@ public class CanvasElementService {
 	}
 
 	private CanvasElement newElement(UUID pageId, CanvasElementCreateRequest request, BigDecimal sortKey, Long userId) {
-		validateReferences(pageId, request.getGroupId(), request.getMediaFileId());
+		validateReferences(pageId, request.getGroupId(), request.getMediaFileId(), request.getPropertiesJson(), userId);
 		return new CanvasElement(request.getElementId(), pageId, request.getElementType(), request.getGroupId(),
 			request.getName(), checkedSortKey(request.getSortKey()==null?sortKey:request.getSortKey()), request.getX(), request.getY(), request.getWidth(), request.getHeight(),
 			request.getRotation() == null ? BigDecimal.ZERO : request.getRotation(),
@@ -139,19 +139,19 @@ public class CanvasElementService {
 			request.getPropertiesJson() == null ? null : request.getPropertiesJson().toString(), userId);
 	}
 
-	private void applyUpdate(CanvasElement element, CanvasElementUpdateRequest request) {
+	private void applyUpdate(CanvasElement element, CanvasElementUpdateRequest request, Long userId) {
 		// 오래된 화면 기준의 수정이 다른 편집자의 변경을 덮어쓰지 않게 한다.
 		if (!request.getVersion().equals(element.getVersion())) throw new CanvasElementVersionConflictException();
-		validateReferences(element.getPageId(), request.getGroupId(), request.getMediaFileId());
+		validateReferences(element.getPageId(), request.getGroupId(), request.getMediaFileId(), request.getPropertiesJson(), userId);
 		element.update(request.getGroupId(), request.getName(), request.getSortKey(), request.getX(), request.getY(),
 			request.getWidth(), request.getHeight(), request.getRotation(), request.getOpacity(), request.getIsLocked(),
 			request.getIsHidden(), request.getMediaFileId(),
 			request.getPropertiesJson() == null ? null : request.getPropertiesJson().toString());
 	}
 
-	/** Asset attachment remains deferred until the existing asset API and access contract are available. */
-	private void validateReferences(UUID pageId, UUID groupId, UUID mediaFileId) {
-		if (mediaFileId != null) throw new MediaFileNotSupportedException();
+	/** Reuse existing media APIs without accepting another user's private image IDs. */
+	private void validateReferences(UUID pageId, UUID groupId, UUID mediaFileId, tools.jackson.databind.JsonNode properties, Long userId) {
+		mediaAccess.requireAttach(pageId, mediaFileId, properties, userId);
 		if (groupId != null && elementRepository.existsByGroupIdAndPageIdNot(groupId, pageId)) {
 			throw new IllegalArgumentException("다른 페이지에서 사용 중인 groupId입니다.");
 		}

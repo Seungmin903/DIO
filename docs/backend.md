@@ -239,6 +239,11 @@ Swagger에서 로그인한 뒤에는 **Authorize**에 로그인 응답의 Access
 
 PATCH `/api/v1/me/password`는 구현됐으며 현재 비밀번호 검증 후 모든 세션을 폐기한다. 기존 내 공간의 변경 대화상자로 연결한다. [요청·응답과 검증 범위](./password-change.md)를 참고한다.
 
+## 회원 탈퇴
+
+DELETE `/api/v1/me`는 구현됐으며 기존 탈퇴 확인 창에 연결한다. 소유권 양도 확인, 개인 다이어리 정리, 공유 작업 보존과 계정 익명화·자격 증명 폐기를 처리한다. [세부 정책과 검증](./user-withdrawal.md)을 참고한다.
+
 ## 내 회원정보
 
-GET `/api/v1/me`는 Bearer 토큰 회원의 userId·email·nickname·profilePhotoUrl을, PATCH `/api/v1/me`는 닉네임만 변경한 뒤 같은 형태를 반환한다. 닉네임은 형식만 검사하고 중복은 허용한다. [요청·응답과 검증 범위](./my-profile.md)를 참고한다. 프로필 사진 변경·탈퇴 API는 포함하지 않는다.
+GET `/api/v1/me`는 Bearer 토큰 회원의 userId·email·nickname·profilePhotoUrl을, PATCH `/api/v1/me`는 닉네임만 변경한 뒤 같은 형태를 반환한다. 닉네임은 형식만 검사하고 중복은 허용한다. [요청·응답과 검증 범위](./my-profile.md)를 참고한다. 프로필 사진 변경은 포함하지 않는다.
+

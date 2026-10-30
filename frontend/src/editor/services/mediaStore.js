@@ -1,4 +1,5 @@
 // 문서에는 media:{UUID} 참조만, 원본·메타데이터는 플랫폼 보관소에 저장한다.
+import {retryRemoteMedia} from './mediaRetry.js'
 import { Platform } from 'react-native'
 import { randomUUID } from 'expo-crypto'
 import * as repository from '../utils/mediaRepository'
@@ -64,6 +65,7 @@ export const mediaService = {
   async import(asset) { return (await importMedia([asset]))[0] },
   get: repository.get,
   resolveDisplay: (id) => mediaRegistry.ensure(id),
+  async retryDisplay(id) { await retryRemoteMedia(id); return mediaRegistry.ensure(id) },
 }
 
 export async function hydrateMedia(references) {

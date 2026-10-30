@@ -41,6 +41,7 @@ class PushPostgresTests {
     @Autowired com.f106.DIO.push.service.PushSessionLock sessionLock;
     @Autowired com.f106.DIO.push.service.PushKeyRotation rotation;
     @Autowired com.f106.DIO.auth.service.LoginSessionRevoker revoker;
+    @Autowired com.f106.DIO.user.service.UserWithdrawalService withdrawalService;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
     private record Person(long id,UUID sid,Jwt jwt) {}
     Person person(){
@@ -368,9 +369,9 @@ class PushPostgresTests {
         var archive=java.nio.file.Files.createTempFile("dio-push-backup-", ".dump");
         String password=System.getenv("DIO_PUSH_PASSWORD");boolean created=false;
         try {
-            runPg(bin,"pg_dump.exe",password,"-h","127.0.0.1","-p",String.valueOf(uri.getPort()),"-U","postgres","-Fc","-f",archive.toString(),uri.getPath().substring(1));
-            runPg(bin,"createdb.exe",password,"-h","127.0.0.1","-p",String.valueOf(uri.getPort()),"-U","postgres",restore);created=true;
-            runPg(bin,"pg_restore.exe",password,"-h","127.0.0.1","-p",String.valueOf(uri.getPort()),"-U","postgres","--no-owner","--no-privileges","-d",restore,archive.toString());
+            runPg(bin,"pg_dump",password,"-h","127.0.0.1","-p",String.valueOf(uri.getPort()),"-U","postgres","-Fc","-f",archive.toString(),uri.getPath().substring(1));
+            runPg(bin,"createdb",password,"-h","127.0.0.1","-p",String.valueOf(uri.getPort()),"-U","postgres",restore);created=true;
+            runPg(bin,"pg_restore",password,"-h","127.0.0.1","-p",String.valueOf(uri.getPort()),"-U","postgres","--no-owner","--no-privileges","-d",restore,archive.toString());
             var source=new org.springframework.jdbc.datasource.DriverManagerDataSource("jdbc:postgresql://127.0.0.1:"+uri.getPort()+"/"+restore,"postgres",password);
             var restored=new org.springframework.jdbc.core.JdbcTemplate(source);
             byte[] ciphertext=restored.queryForObject("select token_ciphertext from push_installations where installation_id=?",byte[].class,id);
@@ -380,12 +381,12 @@ class PushPostgresTests {
             var wrong=new byte[32];wrong[0]=1;var incorrect=new com.f106.DIO.push.security.PushKeyring("legacy",Map.of("legacy",Base64.getEncoder().encodeToString(wrong)));
             assertThatThrownBy(()->incorrect.decrypt("legacy",ciphertext,aad)).isInstanceOf(IllegalArgumentException.class);
         } finally {
-            if(created)runPg(bin,"dropdb.exe",password,"-h","127.0.0.1","-p",String.valueOf(uri.getPort()),"-U","postgres",restore);
+            if(created)runPg(bin,"dropdb",password,"-h","127.0.0.1","-p",String.valueOf(uri.getPort()),"-U","postgres",restore);
             java.nio.file.Files.deleteIfExists(archive);
         }
     }
     private static void runPg(String bin,String program,String password,String...args) throws Exception {
-        var command=new ArrayList<String>();command.add(java.nio.file.Path.of(bin,program).toString());command.addAll(Arrays.asList(args));
+        var command=new ArrayList<String>();String executable=program+(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).startsWith("windows")?".exe":"");command.add(java.nio.file.Path.of(bin,executable).toString());command.addAll(Arrays.asList(args));
         var builder=new ProcessBuilder(command).redirectErrorStream(true);builder.environment().put("PGPASSWORD",password);
         var process=builder.start();String output=new String(process.getInputStream().readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
         if(!process.waitFor(60,TimeUnit.SECONDS) || process.exitValue()!=0)throw new AssertionError(program+" failed: "+output);
@@ -435,6 +436,34 @@ class PushPostgresTests {
             assertThat(jdbc.queryForObject("select count(*) from "+schema+".push_deliveries where outbox_id=?",Long.class,outbox)).isZero();
             assertThat(jdbc.queryForObject("select count(*) from "+schema+".push_outbox where outbox_id=?",Long.class,outbox)).isEqualTo(1);
         } finally {jdbc.execute("drop schema "+schema+" cascade");}
+    }
+
+    @Test void actualWithdrawalDisablesPushAndDeletesSession() {
+        var person=person(); UUID id=UUID.randomUUID();
+        push.register(person.jwt(),id,UUID.randomUUID(),input("ExpoPushToken[withdraw"+id+"]"));
+        withdrawalService.withdraw(person.id());
+        assertThat(jdbc.queryForObject("select enabled from push_installations where installation_id=?",Boolean.class,id)).isFalse();
+        assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where user_id=?",Long.class,person.id())).isZero();
+        assertThatThrownBy(()->push.register(person.jwt(),UUID.randomUUID(),UUID.randomUUID(),input("ExpoPushToken[stale"+id+"]"))).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test void actualWithdrawalAndRegistrationSerializeInBothOrders() throws Exception {
+        for(boolean withdrawalFirst:new boolean[]{false,true}) {
+            var person=person();UUID id=UUID.randomUUID();var ready=new CountDownLatch(1);var release=new CountDownLatch(1);
+            var pool=Executors.newFixedThreadPool(2);
+            try {
+                var held=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status->{
+                    if(withdrawalFirst) withdrawalService.withdraw(person.id());
+                    else push.register(person.jwt(),id,UUID.randomUUID(),input("ExpoPushToken[race"+id+"]"));
+                    ready.countDown();try {if(!release.await(15,TimeUnit.SECONDS))throw new AssertionError("release timeout");}catch(InterruptedException e){throw new RuntimeException(e);}return null;
+                }));
+                assertThat(ready.await(10,TimeUnit.SECONDS)).isTrue();
+                var contender=pool.submit(()->{if(withdrawalFirst){try{push.register(person.jwt(),id,UUID.randomUUID(),input("ExpoPushToken[race"+id+"]"));return false;}catch(RuntimeException expected){return true;}}withdrawalService.withdraw(person.id());return true;});
+                assertThatThrownBy(()->contender.get(200,TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+                release.countDown();held.get(15,TimeUnit.SECONDS);assertThat(contender.get(15,TimeUnit.SECONDS)).isTrue();
+                assertThat(jdbc.queryForObject("select count(*) from push_installations where installation_id=? and enabled",Long.class,id)).isZero();
+            } finally {release.countDown();pool.shutdownNow();}
+        }
     }
 
     @Test void passwordChangeAndTokenUpdateRaceRevokeInstallation() throws Exception {

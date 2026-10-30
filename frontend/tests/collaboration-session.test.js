@@ -134,11 +134,11 @@ test('요소 삭제 404는 같은 묶음의 다른 수정까지 버리지 않고
  assert.notEqual(f.calls[0].clientOperationId,oldRequest.clientOperationId);assert.equal(f.calls[0].changes.updates.length,1)
 })
 
-for(const duplicate of [false,true])test(`순서 변경은 재조회·세션 재시작 후 유지하고 비공유 사진의 키는 보존한다 (${duplicate?'중복 복구':'기존 슬롯'})`,async()=>{
+for(const duplicate of [false,true])test(`순서 변경은 재조회·세션 재시작 후 유지하고 비공유 오디오의 키는 보존한다 (${duplicate?'중복 복구':'기존 슬롯'})`,async()=>{
  const {createCanvasApi}=await import('../src/collaboration/canvasApi.js')
  const a=text('A'),b=text('B','60000000-0000-4000-8000-000000000001'),c=text('C','60000000-0000-4000-8000-000000000002')
  const photoId='60000000-0000-4000-8000-000000000003',photoKey=duplicate?10:15
- let rows=[{...row(a),sortKey:10},{...row(b),sortKey:20},{...row(c),sortKey:30},{elementId:photoId,pageId,elementType:'PHOTO',sortKey:photoKey}],request,sequence=0
+ let rows=[{...row(a),sortKey:10},{...row(b),sortKey:20},{...row(c),sortKey:30},{elementId:photoId,pageId,elementType:'AUDIO',sortKey:photoKey}],request,sequence=0
  const ordered=()=>structuredClone(rows).sort((a,b)=>a.sortKey-b.sortKey||a.elementId.localeCompare(b.elementId))
  const api=createCanvasApi(async options=>{
   if(options.path.endsWith('/history/me'))return {items:[],nextUndo:null,nextRedo:null}

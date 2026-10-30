@@ -354,3 +354,15 @@ test('현재 비밀번호 거절과 네트워크 실패는 로그인 세션을 �
   await assert.rejects(api.changePassword(user,{currentPassword:'Wrong123!',password:'ChangedDio123!',confirmation:'ChangedDio123!'}));assert.equal(api.getSessionKey(),key);
  }
 });
+
+test('회원 탈퇴는 본문 없는 DELETE me를 호출하고 성공 후 세션을 비운다',async()=>{
+ const calls=[];const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url,init)=>{calls.push({url,...init});return response(url.endsWith('/login')?tokens():null,url.endsWith('/login')?200:204)}});
+ const user=await api.login({email:'member@example.com',password:'Password123!'});await api.withdraw(user);
+ assert.equal(calls[1].url,'http://localhost:8080/api/v1/me');assert.equal(calls[1].method,'DELETE');assert.equal(calls[1].body,undefined);assert.equal(api.getSessionKey(),null);
+});
+test('소유권 양도 필요나 네트워크 오류로 탈퇴가 실패하면 로그인과 재시도 경로를 유지한다',async()=>{
+ for(const offline of [false,true]){
+  const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url)=>{if(url.endsWith('/login'))return response(tokens());if(offline)throw new TypeError('offline');return response({code:'OWNER_TRANSFER_REQUIRED',detail:'소유권을 양도해 주세요.'},409)}});
+  const user=await api.login({email:'member@example.com',password:'Password123!'});const key=api.getSessionKey();await assert.rejects(api.withdraw(user));assert.equal(api.getSessionKey(),key);
+ }
+});

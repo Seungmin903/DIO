@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.test.context.jdbc.Sql("/push-session-h2.sql")
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"spring.datasource.url=jdbc:h2:mem:collaboration-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","dio.signup.photos.storage=local",
-    "dio.signup.photos.local-directory=build/collaboration-photos","spring.datasource.hikari.maximum-pool-size=12","server.forward-headers-strategy=native","server.tomcat.remoteip.remote-ip-header=X-Forwarded-For","server.tomcat.remoteip.internal-proxies=127\\.0\\.0\\.1|::1"})
+    "dio.signup.photos.local-directory=build/collaboration-photos","dio.media.local-directory=build/collaboration-media","spring.datasource.hikari.maximum-pool-size=12","server.forward-headers-strategy=native","server.tomcat.remoteip.remote-ip-header=X-Forwarded-For","server.tomcat.remoteip.internal-proxies=127\\.0\\.0\\.1|::1"})
 @AutoConfigureMockMvc @ActiveProfiles("test")
 class CanvasCollaborationTests {
     @org.springframework.boot.test.web.server.LocalServerPort int port;
@@ -53,6 +53,66 @@ class CanvasCollaborationTests {
     JsonNode update(UUID page,Actor actor,UUID element,String value,long version)throws Exception{return apply(page,actor,UUID.randomUUID(),Map.of("updates",List.of(Map.of("elementId",element,"version",version,"propertiesJson",Map.of("text",value)))));}
     JsonNode history(UUID page,Actor actor)throws Exception{return json.readTree(mvc.perform(get("/api/v1/pages/"+page+"/history/me").header("Authorization","Bearer "+actor.token())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());}
     Map<String,Object> command(JsonNode item,UUID client){return Map.of("operationId",item.path("operationId").asText(),"expectedRevision",item.path("revision").asInt(),"clientOperationId",client);}
+    @Test void hiddenNestedReferencesCannotPinAnotherUsersPrivateFile()throws Exception{
+        var owner=actor();var attacker=actor();UUID page=page(diary(attacker));
+        byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");
+        var file=new org.springframework.mock.web.MockMultipartFile("file","photo.png","image/png",png);
+        var uploaded=mvc.perform(multipart("/api/v1/media").file(file).header("Authorization","Bearer "+owner.token())).andExpect(status().isCreated()).andReturn();
+        String media=json.readTree(uploaded.getResponse().getContentAsString()).path("mediaFileId").asText();
+        var element=UUID.randomUUID();create(page,attacker,element,"safe");
+        var before=history(page,attacker);
+        for(var properties:List.of(Map.of("x",Map.of("mediaFileId",media)),Map.of("x",List.of(Map.of("mediaFileId",media))),Map.of("cells",List.of(Map.of("hidden",Map.of("mediaFileId",media)))))){
+            var hidden=new HashMap<String,Object>(text(UUID.randomUUID(),"hidden"));hidden.put("propertiesJson",properties);
+            postJson(page,attacker,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("creates",List.of(hidden))),404);
+            postJson(page,attacker,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("updates",List.of(Map.of("elementId",element,"version",1,"propertiesJson",properties)))),404);
+        }
+        assertThat(history(page,attacker)).isEqualTo(before);
+        assertThat(jdbc.queryForObject("select count(*) from canvas_elements where page_id=?",Integer.class,page)).isEqualTo(1);
+        mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+attacker.token())).andExpect(status().isNotFound());
+        mvc.perform(delete("/api/v1/media/"+media).header("Authorization","Bearer "+owner.token())).andExpect(status().isNoContent());
+    }
+
+    @Test void photoStripOnlyMediaIsReadableAndProtectedWithoutPrimaryForeignKey()throws Exception{
+        var owner=actor();var editor=actor();var stranger=actor();UUID book=diary(owner),page=page(book);join(book,editor);
+        byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");
+        var file=new org.springframework.mock.web.MockMultipartFile("file","photo.png","image/png",png);
+        var result=mvc.perform(multipart("/api/v1/media").file(file).header("Authorization","Bearer "+owner.token())).andExpect(status().isCreated()).andReturn();
+        String media=json.readTree(result.getResponse().getContentAsString()).path("mediaFileId").asText();
+        var strip=new HashMap<String,Object>(text(UUID.randomUUID(),"strip"));strip.put("elementType","PHOTO");strip.put("propertiesJson",Map.of("cells",List.of(Map.of("mediaFileId",media.toUpperCase(Locale.ROOT)))));
+        postJson(page,owner,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("creates",List.of(strip))),200);
+        mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+editor.token())).andExpect(status().isOk()).andExpect(content().bytes(png));
+        var stolen=new HashMap<String,Object>(strip);stolen.put("elementId",UUID.randomUUID());
+        postJson(page(diary(stranger)),stranger,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("creates",List.of(stolen))),404);
+        mvc.perform(delete("/api/v1/media/"+media).header("Authorization","Bearer "+owner.token())).andExpect(status().isConflict());
+        postJson(page,owner,"/undo",command(history(page,owner).path("nextUndo"),UUID.randomUUID()),200);
+        mvc.perform(delete("/api/v1/media/"+media).header("Authorization","Bearer "+owner.token())).andExpect(status().isConflict());
+        postJson(page,owner,"/redo",command(history(page,owner).path("nextRedo"),UUID.randomUUID()),200);
+        mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+editor.token())).andExpect(status().isOk());
+    }
+
+    @Test void existingMediaApisShareImagesOnlyWithCurrentDiaryMembers()throws Exception{
+        var owner=actor();var editor=actor();var outsider=actor();UUID book=diary(owner),page=page(book);join(book,editor);
+        byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");
+        var upload=new org.springframework.mock.web.MockMultipartFile("file","photo.png","image/png",png);
+        var uploaded=mvc.perform(multipart("/api/v1/media").file(upload).param("libraryCategory","STICKER").header("Authorization","Bearer "+owner.token())).andExpect(status().isCreated()).andReturn();
+        String media=json.readTree(uploaded.getResponse().getContentAsString()).path("mediaFileId").asText();
+        mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+editor.token())).andExpect(status().isNotFound());
+        UUID element=UUID.randomUUID();var image=new HashMap<String,Object>(text(element,"photo"));image.put("elementType","PHOTO");image.put("mediaFileId",media);
+        var created=postJson(page,owner,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("creates",List.of(image))),200);
+        mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+editor.token())).andExpect(status().isOk()).andExpect(content().bytes(png));
+        mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+outsider.token())).andExpect(status().isNotFound());
+        UUID otherPage=page(diary(outsider));var stolen=new HashMap<String,Object>(image);stolen.put("elementId",UUID.randomUUID());
+        postJson(otherPage,outsider,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("creates",List.of(stolen))),404);
+        // Nested strip cells reuse the same file permission, without a new table.
+        var strip=new HashMap<String,Object>(text(UUID.randomUUID(),"strip"));strip.put("elementType","PHOTO");strip.put("propertiesJson",Map.of("cells",List.of(Map.of("mediaFileId",media))));
+        postJson(page,editor,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("creates",List.of(strip))),200);
+        mvc.perform(delete("/api/v1/media/"+media).header("Authorization","Bearer "+owner.token())).andExpect(status().isConflict());
+        postJson(page,owner,"/undo",command(history(page,owner).path("nextUndo"),UUID.randomUUID()),200);
+        postJson(page,owner,"/redo",command(history(page,owner).path("nextRedo"),UUID.randomUUID()),200);
+        jdbc.update("update diary_members set left_at=current_timestamp where diary_id=? and user_id=?",book,editor.id());
+        mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+editor.token())).andExpect(status().isNotFound());
+    }
+
     @Test void settingsReplacementKeepsCreationIdentityAndPreventsDuplicateRetry()throws Exception{
         var owner=actor();var diary=diary(owner);String nonce=UUID.randomUUID().toString();
         String body=json.writeValueAsString(Map.of("templateConfig",Map.of("clientPageRequestId",nonce,"blank",true)));

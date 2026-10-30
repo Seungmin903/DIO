@@ -13,7 +13,7 @@
 
 `pushPostgresTest`는 `DIO_PUSH_TEST_DISPOSABLE=true`, 루프백 JDBC 주소 `jdbc:postgresql://127.0.0.1:<port>/pushqa_<12자리 16진수>`, 비밀번호 및 일회성 `DIO_PUSH_GUARD`가 명시돼야 한다. Spring/Flyway 시작 전에 별도 `push_test_guard.marker` 테이블의 값과 표식을 대조한다. 사용자 데이터가 있는 DB에서 표식을 만들거나 이 테스트를 실행하지 않는다. 일반 `test`에서 `DIO_PUSH_TEST=true`로 직접 켜는 경우에도 동일한 가드가 적용된다.
 
-GitLab MR의 푸시 관련 변경은 `backend-postgres-push-test`가 새 PostgreSQL 17 tmpfs 컨테이너와 네트워크 네임스페이스, 일회성 DB·비밀번호·표식을 만들어 `pushPostgresTest`를 실행하고 결과를 JUnit으로 보관한다. 개발·운영 DB나 환경 파일을 사용하지 않는다. 테스트 JVM 이미지에 PostgreSQL CLI를 설치하지 않으므로 `DIO_PUSH_PGBIN`이 필요한 백업 복원 테스트는 CI에서 조건부 제외된다. 백업 복원은 별도 격리 환경에서 도구를 갖춘 상태로 실행해야 한다.
+보호 브랜치 push의 푸시 관련 변경은 `backend-postgres-push-test`가 새 PostgreSQL 17 tmpfs 컨테이너와 네트워크 네임스페이스, 일회성 DB·비밀번호·표식을 만들어 `pushPostgresTest`를 실행하고 결과를 JUnit으로 보관한다. MR에서는 이 작업이 실행되지 않으므로 별도 격리 환경에서 PostgreSQL 회귀를 수행한다. 개발·운영 DB나 환경 파일을 사용하지 않는다. 테스트 JVM 이미지에 PostgreSQL CLI를 설치하지 않으므로 `DIO_PUSH_PGBIN`이 필요한 백업 복원 테스트는 CI에서 조건부 제외된다. 백업 복원은 별도 격리 환경에서 도구를 갖춘 상태로 실행해야 한다.
 - 보호 표식과 전용 Gradle 작업을 적용한 뒤 develop b67ac45에서 PostgreSQL 28개, 최신 회원 탈퇴 MR !226 9e296f4를 별도 결합한 PostgreSQL 29개가 통과했다. 비밀번호 변경·회원 탈퇴 우선/푸시 등록 우선 경합을 포함한다. 가드 단위 2개 및 잘못된 표식 거부가 통과했다.
 - 설정이 없거나 루프백이 아닌 호스트를 지정한 전용 Gradle 작업은 테스트 DB 접속 전에 실패했다. GitLab YAML 파싱과 bash 문법은 통과했으나 로컬 Docker 엔진이 없어 CI 컨테이너 래퍼와 원격 GitLab CI 실제 실행은 검증하지 못했다.
 - CI 래퍼 정리 안전성: 컨테이너 생성 성공 시에만 정리하도록 수정하고, 모의 Docker로 정상·이름 충돌·테스트 실패 세 경로를 검사했다. 이름 충돌에서는 기존 컨테이너를 삭제하지 않는다. 실제 Docker CI 실행은 미검증이다.
