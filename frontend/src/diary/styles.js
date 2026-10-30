@@ -26,6 +26,11 @@ export const styles = StyleSheet.create({
   brandSlot: { flex: 1, minWidth: 0, overflow: 'hidden' },
   railToggle: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
   railTogglePressed: { backgroundColor: '#F4F7FC' },
+  railHeaderProfile: { width: 48, height: 48, alignItems: 'flex-start', justifyContent: 'center', borderRadius: 15 },
+  railCollapsedProfileSlot: { alignItems: 'center', marginTop: 4, marginBottom: -6 },
+  railCollapsedProfile: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
+  railProfileSelected: { backgroundColor: C.active },
+  railHeaderAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: C.active },
   railToggleText: { color: C.ink, fontSize: 19, lineHeight: 22, fontWeight: '700' },
   // 새 다이어리: 편집 화면의 주 버튼(내보내기)과 같은 색
   libraryRoot: { flex: 1 },

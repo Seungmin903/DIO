@@ -1,7 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import BrandLogo from '../../shared/BrandLogo';
 import AppIcon from '../../shared/AppIcon';
 import SharingEntry from '../../sharing/SharingEntry';
 import { C } from '../constants';
@@ -26,6 +25,28 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
   const between = (from, to) => progress.interpolate({ inputRange: [0, 1], outputRange: [from, to] });
   // 너비가 어느 정도 벌어진 뒤에 글자가 나타나도록 늦게 보인다.
   const labelOpacity = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 0, 1] });
+  const profileSelected = page === 'profile';
+  const profileButton = (collapsedButton = false) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="마이페이지"
+      accessibilityState={{ selected: profileSelected }}
+      onPress={() => navigate('profile')}
+      style={({ pressed }) => [
+        collapsedButton ? s.railCollapsedProfile : s.railHeaderProfile,
+        profileSelected && s.railProfileSelected,
+        pressed && s.railTogglePressed,
+      ]}
+    >
+      {!collapsedButton && profilePhotoSource ? (
+        <Image source={profilePhotoSource} style={s.railHeaderAvatar} contentFit="cover" cachePolicy="memory" />
+      ) : (
+        <View style={s.railHeaderAvatar}>
+          <AppIcon name="person" size={20} color={C.muted} />
+        </View>
+      )}
+    </Pressable>
+  );
   const item = (id, label, icon, nextFilter) => {
     const selected = id === 'library'
       ? page === 'library' && filter === nextFilter
@@ -60,9 +81,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
     >
       <Animated.View style={[s.brandRow, { marginBottom: between(18, 25) }]}>
         <Animated.View pointerEvents={collapsed ? 'none' : 'auto'} style={[s.brandSlot, { opacity: labelOpacity }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="내 다이어리" onPress={() => navigate('library', 'personal')} style={s.brand}>
-            <BrandLogo size={32} />
-          </Pressable>
+          {profileButton()}
         </Animated.View>
         <Pressable
           accessibilityRole="button"
@@ -74,13 +93,13 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
           <AppIcon name="menu" size={24} color={C.ink} />
         </Pressable>
       </Animated.View>
-      <Animated.View style={[s.railGroup, { marginTop: between(18, 25) }]}>
+      {collapsed && <View style={s.railCollapsedProfileSlot}>{profileButton(true)}</View>}
+      <Animated.View style={[s.railGroup, { marginTop: between(42, 25) }]}>
         <Animated.View style={[s.railSectionSlot, { height: between(0, 23), opacity: labelOpacity }]}>
           <Text numberOfLines={1} style={s.railSection}>보관함</Text>
         </Animated.View>
         {item('library', '모든 다이어리', 'book', 'personal')}
         {item('library', '즐겨찾기', 'star', 'favorite')}
-        {item('profile', '마이페이지', 'person')}
         {item('trash', '휴지통', 'trash')}
         {onNotifications && <View style={{ alignItems: 'center', marginTop: 8 }}><SharingEntry notifications notificationCount={notificationCount} notificationLabel={notificationLabel} compact={collapsed} count={invitationCount} onPress={onNotifications}/></View>}
       </Animated.View>
