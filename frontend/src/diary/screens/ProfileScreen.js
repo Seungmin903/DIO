@@ -16,7 +16,10 @@ import { openFontStudio } from '../../handwriting/studioBus.js';
 export default function ProfileScreen({ compact = false, previewUser, onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource }) {
   const [route, setRoute] = useState('home');
   const [failedPhoto, setFailedPhoto] = useState(null);
-  const guest = !previewUser || previewUser.provider === 'guest';
+  // 회원 설정은 서버 인증이 끝난 세션만 접근한다. 이전 체험 세션 값은 앱 진입
+  // 단계에서 로그인으로 돌려보내며, 이 화면에서도 방어적으로 렌더링하지 않는다.
+  const authenticated = previewUser?.mode === 'authenticated';
+  if (!authenticated) return null;
   const photoUri = previewUser?.photoUri;
   const photoSource = photoUri
     ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri })
@@ -34,7 +37,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
     photoUri,
   ]);
 
-  if (route === 'edit') {
+  if (route === 'edit' && authenticated) {
     return (
       <ProfileEditScreen
         compact={compact}
@@ -45,12 +48,12 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         onPasswordReset={() => setRoute('password')}
         registerLeaveGuard={registerLeaveGuard}
         getProfilePhotoSource={getProfilePhotoSource}
-        service={previewUser?.mode === 'authenticated' ? authService : undefined}
-        photoEditable={previewUser?.mode !== 'authenticated'}
+        service={authService}
+        photoEditable={false}
       />
     );
   }
-  if (route === 'password') {
+  if (route === 'password' && authenticated) {
     return (
       <PasswordResetScreen
         compact={compact}
@@ -72,67 +75,45 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
     <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
       <Header title="마이페이지" compact={compact} />
       <View style={local.content}>
-        {guest ? (
-          <View style={local.guestCard}>
-            <View style={local.guestIcon}><AppIcon name="person" size={26} color={C.blueStrong} /></View>
-            <View style={local.guestCopy}>
-              <Text style={local.guestTitle}>로그인이 필요해요</Text>
-              <Text style={local.guestDescription}>계정에 로그인하거나 새로 가입해 주세요.</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="로그인·회원가입"
-              onPress={onEndPreview}
-              style={({ pressed }) => [local.guestButton, pressed && local.pressed]}
-            >
-              <Text style={local.guestButtonText}>로그인·회원가입</Text>
-            </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="회원정보 수정"
+          onPress={() => setRoute('edit')}
+          style={({ pressed }) => [local.profileCard, pressed && local.pressed]}
+        >
+          <View style={local.avatar}>
+            {photoUri && failedPhoto !== photoIdentity ? (
+              <Image
+                source={{ ...photoSource, cacheKey: photoCacheKey }}
+                contentFit="cover"
+                cachePolicy="memory"
+                accessibilityLabel="프로필 사진"
+                onError={() => setFailedPhoto(photoIdentity)}
+                style={local.photo}
+              />
+            ) : (
+              <AppIcon name="person" size={27} color={C.blueStrong} />
+            )}
           </View>
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="회원정보 수정"
-            onPress={() => setRoute('edit')}
-            style={({ pressed }) => [local.profileCard, pressed && local.pressed]}
-          >
-            <View style={local.avatar}>
-              {photoUri && failedPhoto !== photoIdentity ? (
-                <Image
-                  source={{ ...photoSource, cacheKey: photoCacheKey }}
-                  contentFit="cover"
-                  cachePolicy="memory"
-                  accessibilityLabel="프로필 사진"
-                  onError={() => setFailedPhoto(photoIdentity)}
-                  style={local.photo}
-                />
-              ) : (
-                <AppIcon name="person" size={27} color={C.blueStrong} />
-              )}
-            </View>
-            <View style={local.profileCopy}>
-              <Text accessibilityRole="header" style={local.nickname}>{previewUser?.nickname || '사용자'}</Text>
-              {!!previewUser?.email && <Text selectable style={local.email}>{previewUser.email}</Text>}
-            </View>
-            <AppIcon name="chevron-right" size={20} color={C.muted} />
-          </Pressable>
-        )}
-        {!guest && (
-          <>
-            <Text style={local.groupTitle}>계정</Text>
-            <ListSection>
-              {previewUser?.provider === 'email' && (
-                <ListItem label="비밀번호 변경" icon="lock" onPress={() => setRoute('password')} />
-              )}
-              <ListItem label="알림 설정" icon="bell" onPress={() => setRoute('notifications')} />
-            </ListSection>
-          </>
-        )}
+          <View style={local.profileCopy}>
+            <Text accessibilityRole="header" style={local.nickname}>{previewUser?.nickname || '사용자'}</Text>
+            {!!previewUser?.email && <Text selectable style={local.email}>{previewUser.email}</Text>}
+          </View>
+          <AppIcon name="chevron-right" size={20} color={C.muted} />
+        </Pressable>
+        <Text style={local.groupTitle}>계정</Text>
+        <ListSection>
+          {previewUser?.provider === 'email' && (
+            <ListItem label="비밀번호 변경" icon="lock" onPress={() => setRoute('password')} />
+          )}
+          <ListItem label="알림 설정" icon="bell" onPress={() => setRoute('notifications')} />
+        </ListSection>
         <Text style={local.groupTitle}>서비스</Text>
         <ListSection>
-          {!guest && <ListItem label="나만의 폰트 만들기" icon="edit" onPress={() => openFontStudio()} />}
+          <ListItem label="나만의 폰트 만들기" icon="edit" onPress={() => openFontStudio()} />
           <ListItem label="앱 정보" icon="info" onPress={() => setRoute('app-info')} />
         </ListSection>
-        {!guest && onEndPreview && (
+        {onEndPreview && (
           <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={onEndPreview} style={({ pressed }) => [local.logout, pressed && local.pressed]}>
             <Text style={local.logoutText}>로그아웃</Text>
           </Pressable>
@@ -192,13 +173,6 @@ const local = StyleSheet.create({
   profileCopy: { flex: 1, gap: 6 },
   nickname: { color: C.ink, fontSize: 19, fontWeight: '800', letterSpacing: -0.35 },
   email: { color: C.muted, fontSize: 13 },
-  guestCard: { minHeight: 120, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14, padding: 20, backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.line },
-  guestIcon: { width: 50, height: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: C.active },
-  guestCopy: { flex: 1, minWidth: 170, gap: 6 },
-  guestTitle: { color: C.ink, fontSize: 16, fontWeight: '800' },
-  guestDescription: { color: C.muted, fontSize: 13, lineHeight: 20 },
-  guestButton: { minHeight: 48, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: C.blueStrong },
-  guestButtonText: { color: C.white, fontSize: 14, fontWeight: '800' },
   groupTitle: { color: C.muted, fontSize: 12, fontWeight: '800', marginTop: 26, marginBottom: 9, paddingHorizontal: 4 },
   list: { overflow: 'hidden', backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18 },
   item: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },

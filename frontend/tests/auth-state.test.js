@@ -10,7 +10,7 @@ function setup(service,photoPicker,options={emailVerificationEnabled:true}){
  const states=[],refs=[],deps=[],cleanups=[],keyboard={};let si=0,ri=0,ei=0,back
  const react={useState:initial=>{const i=si++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return[states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v}]},useRef:initial=>refs[ri++]??={current:initial},useEffect:(fn,next)=>{const i=ei++;if(!deps[i]||next.some((v,j)=>v!==deps[i][j])){cleanups[i]?.();deps[i]=next;cleanups[i]=fn()}}}
  const native={Keyboard:{dismiss(){},addListener:(name,fn)=>{keyboard[name]=fn;return{remove(){delete keyboard[name]}}}},Platform:{OS:'android'},BackHandler:{addEventListener:(_,fn)=>{back=fn;return{remove(){}}}}};for(const name of ['ActivityIndicator','KeyboardAvoidingView','Pressable','ScrollView','Text','TextInput','View'])native[name]=name
- const mocks={react,'react-native':native,'react-native-safe-area-context':{SafeAreaView:'safe'},'../shared/useFormFactor':{useFormFactor:()=>({isPhone:false,formFactor:'tablet'})},'../shared/useOrientationLock':{useOrientationLock(){}},'./previewAuth':{previewAuth:service},'./validation':validation,'./styles':{authStyles:new Proxy({},{get:(_,key)=>key})},'../shared/theme':{colors:{}}}
+ const mocks={react,'react-native':native,'react-native-safe-area-context':{SafeAreaView:'safe'},'../shared/useFormFactor':{useFormFactor:()=>({isPhone:false,formFactor:'tablet'})},'../shared/useOrientationLock':{useOrientationLock(){}},'./validation':validation,'./styles':{authStyles:new Proxy({},{get:(_,key)=>key})},'../shared/theme':{colors:{}}}
  const mod={exports:{}};new Function('require','module','exports','__DEV__',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,options.developmentMode ?? false)
  const sessions=[],render=()=>{si=ri=ei=0;return mod.exports.default({service,onContinue:session=>sessions.push(session),photoPicker,...options})}
  return{render,sessions,keyboard,back:()=>back(),unmount:()=>cleanups.forEach(fn=>fn?.())}
@@ -103,7 +103,7 @@ test('내 공간은 인증된 사진 소스를 사용하고 사진 로드 실패
  const mocks={react,'react-native':native,'expo-image':{Image:'Image'},'../styles':{styles:{}},'../constants':{C:{white:'#fff',line:'#ddd',active:'#eef',blueStrong:'#467',pale:'#eef',ink:'#112',muted:'#667',canvas:'#f3f4f7'}},'../../shared/theme':{colors:{},radius:{}}},mod={exports:{}}
  new Function('require','module','exports',source)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports)
  const photo={uri:'https://server.example/photo',headers:{Authorization:'test-header'}}
- const render=(uri=photo.uri,userId='one')=>{index=0;return mod.exports.default({diaries:[],previewUser:{photoUri:uri,nickname:'회원',userId},getProfilePhotoSource:uri=>({...photo,uri})})}
+ const render=(uri=photo.uri,userId='one')=>{index=0;return mod.exports.default({diaries:[],previewUser:{mode:'authenticated',photoUri:uri,nickname:'회원',userId},getProfilePhotoSource:uri=>({...photo,uri})})}
  const image=nodes(render()).find(node=>node.type==='Image')
  assert.deepEqual(image.props.source,{...photo,cacheKey:JSON.stringify(['profile','one',photo.uri])})
  assert.equal(image.props.cachePolicy,'memory')
@@ -215,7 +215,7 @@ test('사진 선택 도중 화면을 떠나면 늦은 결과를 적용하지 않
 
 test('이메일 가입 완료 후 자동 로그인하지 않고 이메일만 채운 로그인 화면으로 돌아간다',async t=>{
  t.mock.timers.enable({apis:['setTimeout']})
- const ui=setup({signup:async()=>({provider:'email',email:'new@example.com'}),checkNickname:async()=>true,completeProfile:async value=>({...value,mode:'preview'})})
+ const ui=setup({signup:async()=>({provider:'email',email:'new@example.com'}),checkNickname:async()=>true,completeProfile:async value=>({...value,mode:'authenticated'})})
  find(ui.render(),'회원가입').props.onPress()
  find(ui.render(),'이메일').props.onChange('new@example.com');find(ui.render(),'비밀번호').props.onChange('Password123');find(ui.render(),'비밀번호 확인').props.onChange('Password123')
  find(ui.render(),'다음').props.onPress();await tick();nodes(ui.render()).find(n=>n.type==='./EmailVerification').props.onComplete();await tick();find(ui.render(),'닉네임').props.onChange('소연')

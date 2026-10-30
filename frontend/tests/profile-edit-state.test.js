@@ -85,7 +85,6 @@ function setup(service = {}, photoPicker = async () => null, options = {}) {
     react,
     'react-native': native,
     './validation': validation,
-    './previewAuth': { previewAuth: service },
     './profileStyles': { profileStyles: new Proxy({}, { get: (_, key) => key }) },
     '../shared/theme': { colors: {} },
   };

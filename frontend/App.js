@@ -15,7 +15,6 @@ import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } fro
 import AuthenticatedNotificationDialog from './src/notifications/AuthenticatedNotificationDialog';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
 import { C, DEFAULT_FILTER } from './src/diary/constants';
-import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
@@ -54,16 +53,16 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function App() {
   const [previewSession, setPreviewSession] = useState(null);
+  const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
   const endSession = async () => {
     try {
-      if (previewSession?.mode === 'authenticated') await authService.logout();
+      if (authenticatedSession) await authService.logout();
     } catch (error) { notify('로그아웃', `${error.message} 이 기기의 로그인 정보는 지웠어요.`); }
     finally { setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current); }
   };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
-  const SessionDiaryApp = previewSession?.mode === 'authenticated' ? MemberDiaryApp : LocalDiaryApp;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-sharing') {
     const SharingFixture = require('./tests/fixtures/diary-sharing.fixture').default;
     return <SharingFixture />;
@@ -75,7 +74,7 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <SessionDiaryApp key={`${previewSession.mode}:${previewSession.userId || 'preview'}`} previewUser={previewSession}
+        authenticatedSession ? <MemberDiaryApp key={`authenticated:${authenticatedSession.userId}`} previewUser={authenticatedSession}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} /> : <AuthScreen onContinue={setPreviewSession} />
@@ -86,10 +85,6 @@ export default function App() {
   );
 }
 
-function LocalDiaryApp(props) {
-  const diaryState = useDiaries();
-  return <DiaryApp {...props} diaryState={diaryState} />;
-}
 function MemberDiaryApp(props) {
   const diaryState = useMemberDiaries(String(props.previewUser.userId));
   return <DiaryApp {...props} diaryState={diaryState} />;

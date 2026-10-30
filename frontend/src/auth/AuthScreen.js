@@ -558,21 +558,6 @@ export default function AuthScreen({
                         </Pressable>
                       ))}
                     </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="게스트로 시작하기"
-                      accessibilityState={{ disabled: busy }}
-                      disabled={busy}
-                      onPress={() => {
-                        if (!running.current) {
-                          Keyboard.dismiss();
-                          onContinue({ mode: 'preview', provider: 'guest', nickname: '방문자' });
-                        }
-                      }}
-                      style={s.link}
-                    >
-                      <Text style={s.browseText}>게스트로 시작하기</Text>
-                    </Pressable>
                   </View>
                 )}
               </View>

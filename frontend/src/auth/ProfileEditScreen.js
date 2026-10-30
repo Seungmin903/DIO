@@ -14,7 +14,6 @@ import AppIcon from '../shared/AppIcon';
 import Header from '../diary/components/Header';
 import Modal from '../editor/components/controls/EditorModal';
 import { colors } from '../shared/theme';
-import { previewAuth } from './previewAuth';
 import { pickProfilePhoto } from './profilePhoto';
 import { nicknameError, normalizeNickname, passwordError } from './validation';
 import { useProfileKeyboard } from './useProfileKeyboard';
@@ -35,7 +34,7 @@ export default function ProfileEditScreen({
   registerLeaveGuard,
   getProfilePhotoSource,
   photoEditable = true,
-  service = previewAuth,
+  service,
   photoPicker = pickProfilePhoto,
 }) {
   const [saved, setSaved] = useState(user);
@@ -67,6 +66,12 @@ export default function ProfileEditScreen({
     !passwordError(passwords.password) &&
     passwords.password === passwords.confirmation &&
     passwords.password !== passwords.currentPassword;
+  const canWithdraw = typeof service?.withdraw === 'function';
+  const requireService = (operation) => {
+    if (typeof service?.[operation] !== 'function')
+      throw new Error('회원정보 기능을 준비하지 못했어요. 다시 로그인해 주세요.');
+    return service[operation].bind(service);
+  };
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -158,7 +163,7 @@ export default function ProfileEditScreen({
   const save = () => {
     if (!ready) return;
     run(
-      () => service.updateProfile(saved, { nickname: name, photoUri }),
+      () => requireService('updateProfile')(saved, { nickname: name, photoUri }),
       (result) => {
         setSaved(result);
         setNickname(result.nickname);
@@ -206,7 +211,7 @@ export default function ProfileEditScreen({
   const changePassword = () => {
     if (!passwordReady) return;
     run(
-      () => service.changePassword(saved, passwords),
+      () => requireService('changePassword')(saved, passwords),
       () => {
         modalForm.dismiss();
         setPasswords(emptyPasswords());
@@ -217,8 +222,8 @@ export default function ProfileEditScreen({
     );
   };
   const withdraw = () => {
-    if (withdrawText !== WITHDRAW_TEXT) return;
-    run(() => service.withdraw(saved), null, onEndSession);
+    if (withdrawText !== WITHDRAW_TEXT || !canWithdraw) return;
+    run(() => requireService('withdraw')(saved), null, onEndSession);
   };
   const modalTitle =
     dialog === 'withdraw'
@@ -367,9 +372,10 @@ export default function ProfileEditScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="회원 탈퇴"
-                disabled={busy}
+                accessibilityHint={!canWithdraw ? '회원 탈퇴 기능은 준비 중이에요.' : undefined}
+                disabled={busy || !canWithdraw}
                 onPress={() => showDialog('withdraw')}
-                style={s.withdraw}
+                style={[s.withdraw, !canWithdraw && s.disabled]}
               >
                 <Text style={s.withdrawText}>회원 탈퇴</Text>
               </Pressable>

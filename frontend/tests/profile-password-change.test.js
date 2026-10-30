@@ -37,6 +37,9 @@ test('실제 이메일 계정의 회원정보 수정은 체험 서비스가 아�
  find(ui.render(),'회원정보 수정').props.onPress();
  const form=ui.render();assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.service,ui.service);assert.equal(form.props.photoEditable,false);
 });
-test('게스트·소셜 계정에는 이메일 비밀번호 변경 진입을 노출하지 않는다',()=>{
- for(const user of [{provider:'guest'},{mode:'authenticated',provider:'google',userId:'8'}])assert.equal(find(setup(user).render(),'비밀번호 변경'),null);
+test('게스트·기존 체험 세션에는 계정 설정을 숨기고 소셜 계정에는 비밀번호 변경을 숨긴다',()=>{
+ for(const user of [{provider:'guest'},{mode:'preview',provider:'email',userId:'legacy'}]){
+  const screen=setup(user).render();assert.equal(find(screen,'회원정보 수정'),null);assert.equal(find(screen,'비밀번호 변경'),null);
+ }
+ const social=setup({mode:'authenticated',provider:'google',userId:'8'}).render();assert.ok(find(social,'회원정보 수정'));assert.equal(find(social,'비밀번호 변경'),null);
 });
