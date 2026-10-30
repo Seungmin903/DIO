@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import EditorModal from '../editor/components/controls/EditorModal'
 import Svg, { Circle, Path } from 'react-native-svg'
 import UPNG from 'upng-js'
 import { colors } from '../shared/theme'
@@ -50,9 +51,9 @@ function DrawingPad({ character, sample, onChange, width: penWidth, disabled }) 
 export default function HandwritingStudio() {
   const options = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot)
   useEffect(() => { initializeGeneratorLifecycle() }, [])
-  return <Modal visible={Boolean(options)} animationType="slide" onRequestClose={closeFontStudio} presentationStyle="fullScreen">
+  return <EditorModal visible={Boolean(options)} animationType="slide" onRequestClose={closeFontStudio} presentationStyle="fullScreen">
     {options ? <StudioContent options={options} /> : null}
-  </Modal>
+  </EditorModal>
 }
 
 function StudioContent({ options }) {

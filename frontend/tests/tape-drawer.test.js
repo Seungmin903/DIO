@@ -17,9 +17,9 @@ const load = (source, deps) => { const module = { exports: {} }; new Function('r
 const sizes = [{ id: 'standard', w: 180, h: 34 }, { id: 'wide', w: 200, h: 68 }]
 const make = save => createTapePreferences({ load: async () => ({ size: 'wide', palette: 'sky', pattern: 'dot' }), save: save || (async () => true), sizes: sizes.map(s => s.id), palettes: ['sky', 'pink'], patterns: ['dot', 'solid'], defaultSize: 'standard' })
 const nodes = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)]
-function drawer(store, callbacks = {}, ready = true, saveStatus = {}) {
+function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}) {
   const mocks = {
-    react: { createContext: () => ({ Provider: 'provider' }), useContext: () => 4, useRef: value => ({ current: value }), useState: value => [typeof value === 'function' ? value() : value, () => {}] },
+    react: { createContext: () => ({ Provider: 'provider' }), useContext: () => 4, useRef: value => ({ current: value }), useState: value => [typeof value === 'function' ? value() : value, () => {}], ...hooks },
     'react-native': { View: 'view', Text: 'text', Platform: { OS: 'web', select: values => values.web }, StyleSheet: { create: value => value } },
     '../../../shared/theme': { colors: {}, radius: {}, shadow: {} },
     '../../constants': { TAPE_SIZES: sizes, TAPE_DEFAULT: { size: 'standard', palette: 'pink' }, TAPE_PATTERN_NAMES: { dot: '도트', solid: '무지' }, PHOTO_FRAME_ASSETS: [{ id: 'polaroid', name: '폴라로이드', kind: 'border' }] },
@@ -93,3 +93,36 @@ test('설정 저장 실패를 안내해도 새 테이프 삽입·메모리 설�
   assert.equal(store.getSnapshot().pattern, 'solid')
   assert.match(notices[0], /설정을 저장하지 못했어요/)
 })
+
+test('드로어에서 기존 폴더·내장 분류와 같은 이름으로 생성·이름 변경해도 ID로 구분한다', () => {
+  const states=[], calls=[]; let cursor=0;
+  const items={folders:[{id:'old',name:'Twemoji',items:[]},{id:'other',name:'여행',items:[]}],favorites:[],recentStickers:[],categoryOrder:[],hiddenCategories:[],tapes:[]};
+  const custom={items,lastStickerCategory:null,
+    setStickerCategory(id){custom.lastStickerCategory=id},
+    addFolder(name){calls.push(['add',name]);items.folders.push({id:'new',name,items:[]});return 'new'},
+    renameFolder(id,name){calls.push(['rename',id,name]);items.folders.find(f=>f.id===id).name=name},
+  };
+  const hooks={useState(initial){const i=cursor++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return [states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v}]}};
+  const render=()=>{cursor=0;return drawer(make(),{tab:'sticker'},true,custom,hooks)};
+  const find=(tree,label)=>nodes(tree).find(n=>n.props.accessibilityLabel===label || n.props.label===label);
+  find(render(),'새 폴더').props.onPress();
+  find(render(),'폴더 이름').props.onChangeText(' Twemoji ');
+  assert.equal(find(render(),'폴더 이름 확인').props.disabled,false);
+  find(render(),'폴더 이름 확인').props.onPress();
+  assert.deepEqual(calls,[['add','Twemoji']]);
+  const pills=nodes(render()).filter(n=>n.type?.name==='Pill' && n.props.label==='Twemoji');
+  assert.equal(pills.length,3);
+  assert.equal(new Set(pills.map(n=>n.key)).size,3);
+  const folder=nodes(render()).find(n=>n.props.folder?.id==='new' && n.props.onRename);
+  assert.ok(folder);
+  folder.props.onRename();
+  let renamed=nodes(render()).find(n=>n.props.folder?.id==='new' && n.props.onRename);
+  renamed.props.onRenameChange('  ');
+  assert.equal(nodes(render()).find(n=>n.props.folder?.id==='new' && n.props.onRename).props.canCommitRename,false);
+  renamed.props.onRenameChange('여행');
+  renamed=nodes(render()).find(n=>n.props.folder?.id==='new' && n.props.onRename);
+  assert.equal(renamed.props.canCommitRename,true);
+  renamed.props.onRenameCommit();
+  assert.deepEqual(calls.at(-1),['rename','new','여행']);
+  assert.equal(items.folders.find(f=>f.id==='old').name,'Twemoji');
+});

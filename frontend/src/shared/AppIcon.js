@@ -4,6 +4,10 @@ import { colors } from './theme';
 
 // 편집 화면에도 있는 아이콘은 편집 화면 모양으로 그린다 (휴지통·더하기·연필 등이 화면마다 달라 보이지 않게)
 const EDITOR_ICONS = {
+  workshop: 'roller',
+  text: 'text',
+  crop: 'crop',
+  folder: 'folder',
   people: 'people',
   bell: 'bell',
   add: 'plus',

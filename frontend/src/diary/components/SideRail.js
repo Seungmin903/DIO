@@ -91,6 +91,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
           </Pressable>
         )}
         {item('library', '다이어리', 'book', 'all')}
+        {item('studio', '꾸미기 공방', 'workshop')}
         {item('profile', '내 공간', 'person')}
         {item('trash', '휴지통', 'trash')}
       </Animated.View>
