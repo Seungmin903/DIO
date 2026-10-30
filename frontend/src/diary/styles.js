@@ -2,6 +2,9 @@ import { StyleSheet } from 'react-native';
 import { C } from './constants';
 import { DISABLED_OPACITY, colors } from '../shared/theme';
 
+// 영구 삭제 버튼 테두리 (디자인 가이드 2.2). 휴지통 카드 · 동작 시트가 함께 쓴다.
+const DANGER_BORDER = '#F0D5D4';
+
 export const styles = StyleSheet.create({
   provider: { flex: 1, backgroundColor: C.white },
   safe: { flex: 1, backgroundColor: C.canvas },
@@ -379,24 +382,32 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   tipTitleCompact: { fontSize: 15, marginTop: 0 },
   tipCopy: { color: C.inkSoft, fontSize: 12, marginTop: 8 },
   trashGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 14 },
-  trashGridCompact: { columnGap: 12, rowGap: 16, justifyContent: 'space-between' },
+  trashGridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between' },
   trashPolicy: { color: C.muted, fontSize: 13, lineHeight: 21, marginBottom: 16 },
   trashNotice: { padding: 16, borderRadius: 12, backgroundColor: C.pale, marginBottom: 16 },
-  trashCard: { width: '18.3%' }, // 틀 없이 홈 격자와 같은 표지를 바로 얹는다
-  trashCardCompact: { width: '48%' },
+  trashCard: { width: '23.5%' }, // 틀 없이 홈 한눈에 보기(cardGrid)와 같은 폭 · 같은 한 줄 개수로 표지를 바로 얹는다
+  trashCardCompact: { width: '47.5%' },
+  trashCardPortrait: { width: '31.5%' }, // 태블릿 세로: 홈 한눈에 보기(cardGridPortrait)와 같은 한 줄 3권
   trashCover: { position: 'relative', alignItems: 'center' }, // 칸(최대 219)이 카드보다 좁을 때 왼쪽으로 쏠리지 않게 가운데 // 홈 격자 카드의 표지 칸(cardCoverWrap)과 같게: 자르거나 흐리게 하지 않는다
   trashCoverCompact: {},
   trashTitle: { color: C.ink, fontSize: 14, fontWeight: '700', marginTop: 12 },
   trashDate: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
-  trashActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: C.line },
-  trashRestoreText: { color: C.ink, fontSize: 12, fontWeight: '700' },
-  trashDelete: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: '#F0D5D4' },
-  trashDeleteText: { color: C.danger, fontSize: 12, fontWeight: '700' },
-  // 이전 폰 휴지통 스와이프 목록 스타일. 저장된 화면과의 호환을 위해 당분간 유지한다.
-  trashHint: { color: C.muted, fontSize: 13, lineHeight: 21, marginTop: -8, marginBottom: 14 },
-  trashList: { gap: 11 },
-  trashRow: { overflow: 'hidden', borderRadius: 20, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
+  // 선택 ↔ 완료로 바뀌어도 칩 폭이 같고 글자가 좌우 가운데에 오게 한다 (선택 상태의 테두리 1.5 가 폭을 바꾸지 않도록 항상 1.5)
+  trashSelectChip: { minWidth: 72, paddingHorizontal: 0, borderWidth: 1.5 },
+  trashSelectChipText: { width: '100%', textAlign: 'center' },
+  trashDateUrgent: { color: C.danger },
+  // 카드를 누르면 뜨는 동작 시트 (ConfirmDialog 와 같은 틀: 폭 320, 안쪽 20, 모서리 24, scrim 바탕)
+  trashSheetBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.scrim },
+  trashSheet: { width: 320, maxWidth: '100%', padding: 20, borderRadius: 24, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.22, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
+  trashSheetTitle: { color: C.ink, fontSize: 16, fontWeight: '700' },
+  trashSheetStatus: { color: C.muted, fontSize: 13, fontWeight: '600', marginTop: 6 },
+  trashSheetActions: { gap: 8, marginTop: 18 },
+  trashSheetPrimary: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, backgroundColor: C.blueStrong },
+  trashSheetPrimaryText: { color: C.white, fontSize: 14, fontWeight: '700' },
+  trashSheetDanger: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: DANGER_BORDER },
+  trashSheetDangerText: { color: C.danger, fontSize: 14, fontWeight: '700' },
+  trashSheetClose: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 4, borderRadius: 12 },
+  trashSheetCloseText: { color: C.muted, fontSize: 14, fontWeight: '700' },
   trashRowActions: { position: 'absolute', top: 0, right: 0, bottom: 0, flexDirection: 'row' },
   trashRowAction: { width: 74, alignItems: 'center', justifyContent: 'center' },
   trashRowRestore: { backgroundColor: C.blueStrong },
@@ -406,6 +417,15 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   trashRowMain: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 14, paddingVertical: 12 },
   trashSwatch: { width: 40, height: 52, borderTopLeftRadius: 4, borderBottomLeftRadius: 4, borderTopRightRadius: 9, borderBottomRightRadius: 9, shadowColor: C.ink, shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   trashRowInfo: { flex: 1, minWidth: 0 },
+  trashActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: C.line },
+  trashRestoreText: { color: C.ink, fontSize: 12, fontWeight: '700' },
+  trashDelete: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: DANGER_BORDER },
+  trashDeleteText: { color: C.danger, fontSize: 12, fontWeight: '700' },
+  // 이전 폰 휴지통 스와이프 목록 스타일. 저장된 화면과의 호환을 위해 당분간 유지한다.
+  trashHint: { color: C.muted, fontSize: 13, lineHeight: 21, marginTop: -8, marginBottom: 14 },
+  trashList: { gap: 11 },
+  trashRow: { overflow: 'hidden', borderRadius: 20, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
   trashRowTitle: { color: C.ink, fontSize: 16, fontWeight: '700', letterSpacing: -0.3 },
   trashRowDate: { color: C.muted, fontSize: 12, fontWeight: '600', marginTop: 5 },
   profileHeroCompact: { padding: 20 },

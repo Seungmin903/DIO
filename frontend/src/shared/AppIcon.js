@@ -14,6 +14,7 @@ const EDITOR_ICONS = {
   search: 'search',
   more: 'more',
   trash: 'trash',
+  undo: 'undo',
   grid: 'pages',
   swap: 'swap',
   'chevron-left': 'chevronLeft',
