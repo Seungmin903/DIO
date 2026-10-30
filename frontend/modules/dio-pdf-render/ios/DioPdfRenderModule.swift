@@ -19,7 +19,7 @@ public class DioPdfRenderModule: Module {
     AsyncFunction("pageCount") { (uri: String) -> Int in try self.document(uri).pageCount }
 
     AsyncFunction("renderPage") { (uri: String, index: Int, longEdge: Int) -> [String: Any] in
-      guard longEdge >= 64, longEdge <= 8192 else { throw self.fail("INVALID_SIZE") }
+      guard longEdge >= 64, longEdge <= 4096 else { throw self.fail("INVALID_SIZE") }
       let document = try self.document(uri)
       guard index >= 0, index < document.pageCount, let page = document.page(at: index), let pdfPage = page.pageRef else { throw self.fail("INVALID_PAGE") }
       // 쪽 회전을 반영한 크기로 긴 변을 longEdge 에 맞춘다

@@ -40,7 +40,7 @@ class DioPdfRenderModule : Module() {
     AsyncFunction("pageCount") { uri: String -> withRenderer(uri) { it.pageCount } }
 
     AsyncFunction("renderPage") { uri: String, index: Int, longEdge: Int ->
-      require(longEdge in 64..8192) { "INVALID_SIZE" }
+      require(longEdge in 64..4096) { "INVALID_SIZE" }
       withRenderer(uri) { renderer ->
         check(index in 0 until renderer.pageCount) { "INVALID_PAGE" }
         val page = renderer.openPage(index)
@@ -48,7 +48,8 @@ class DioPdfRenderModule : Module() {
           val scale = longEdge.toFloat() / max(page.width, page.height)
           val width = max(1, (page.width * scale).roundToInt())
           val height = max(1, (page.height * scale).roundToInt())
-          val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+          // OutOfMemoryError 는 Exception 이 아니라 그대로 두면 앱이 종료된다. 오류 코드로 바꿔 JS 가 알리게 한다.
+          val bitmap = try { Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888) } catch (error: OutOfMemoryError) { throw IllegalStateException("INVALID_SIZE") }
           try {
             Canvas(bitmap).drawColor(Color.WHITE)
             // 변환 행렬 없이 그리면 쪽이 원래 크기(1pt = 1px)로 그려져 큰 비트맵에서 흐려진다. 비트맵 크기에 맞게 확대해 그린다.
