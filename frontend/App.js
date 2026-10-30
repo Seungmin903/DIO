@@ -23,8 +23,6 @@ import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import DeskBackdrop from './src/diary/components/DeskBackdrop';
-import { useDeskDecorOn } from './src/diary/utils/deskTimeStore';
-import DeskTimeSlider from './src/diary/components/DeskTimeSlider';
 import { DESK_COLORS } from './src/diary/utils/deskLight';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
@@ -107,6 +105,8 @@ function DiaryApp(props) {
     ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations}>{content}</AuthenticatedNotificationProvider>
     : content;
 }
+const DESK_ON_PHONE = false;
+
 function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryState, sharing }) {
   const member = diaryState.source === 'member-api';
   const invitationLeaveGuard = useRef(null);
@@ -137,7 +137,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const { isPhone, isLandscape } = useFormFactor();
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
-  const showDeskDecor = useDeskDecorOn() // 책상 아래쪽 장식 소품(폴라로이드 · 테이프 · 클립 …)을 보일지. 게스트 시각 슬라이더의 '소품' 토글
   const [deskSize, setDeskSize] = useState(null); // 책상이 깔릴 영역(작업 영역)의 크기
   const [railCollapsed, setRailCollapsed] = useState(true);
   // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
@@ -679,12 +678,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   );
 
   // 다이어리 홈은 '햇살 책상' 위에 놓인다. 사이드 메뉴는 흰 판 그대로, 책상은 작업 영역 뒤(폰은 아래 탭 뒤까지)에 깔린다.
-  const desk = page === 'library' && loaded;
+  // 햇살 책상은 태블릿(가로)만 쓴다. 폰(세로)은 가로형과 같은 빛 경험을 실기로 검증하지 못해 잠가 둔다(DESK_ON_PHONE).
+  const desk = page === 'library' && loaded && (!isPhone || DESK_ON_PHONE);
   const deskLayout = event => { const { width, height } = event.nativeEvent.layout; setDeskSize(current => (current && current.width === width && current.height === height ? current : { width, height })) }
-  const deskTime = desk && previewUser?.provider === 'guest' && <DeskTimeSlider compact={isPhone} />;
-  const deskDecor = !showDeskDecor ? null : isPhone
-    ? (view === 'grid' ? null : { left: { scale: 0.46, left: 16, bottom: 100 + insets.bottom } })
-    : (view === 'grid' ? { right: { scale: 0.62, right: 104, bottom: 8 } } : { left: { scale: 1, left: 52, bottom: 6 }, right: { scale: 1, right: 100, bottom: 6 } });
   let shell;
   if (page === 'editor') {
     shell = content;
@@ -692,10 +688,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     // 폰: 사이드 메뉴 대신 하단 탭. 새 다이어리 시트는 탭까지 덮도록 셸 위에 띄운다.
     shell = (
       <View style={s.phoneShell} onLayout={deskLayout}>
-        {desk && <DeskBackdrop compact decor={deskDecor} size={deskSize} />}
+        {desk && <DeskBackdrop compact size={deskSize} />}
         <View style={[s.workspace, desk && s.workspaceDesk, desk && s.deskAbove]}>{content}</View>
         <BottomTabs floating={desk} notificationCount={authenticatedNotifications?.count} notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
-        {deskTime}
         {createModal}
       </View>
     );
@@ -715,10 +710,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           onToggle={() => setRailCollapsed((current) => !current)}
         />
         <View style={[s.workspace, { paddingBottom: insets.bottom }]} onLayout={deskLayout}>
-          {desk && <DeskBackdrop decor={deskDecor} size={deskSize} />}
+          {desk && <DeskBackdrop size={deskSize} />}
           {desk ? <View style={s.deskAbove}>{content}</View> : content}
-          {deskTime}
-          {createModal}
+            {createModal}
         </View>
       </View>
     );
