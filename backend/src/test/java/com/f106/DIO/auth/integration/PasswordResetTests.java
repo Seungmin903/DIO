@@ -64,6 +64,7 @@ class PasswordResetTests {
     @MockitoBean PasswordResetThrottle throttle;
     @MockitoSpyBean LoginSessionRevoker sessions;
     AtomicReference<String> signupCode, resetCode;
+    CountDownLatch firstResetDelivered, secondResetDelivered;
     @BeforeEach void setup() {
         jdbc.update("delete from password_reset_verifications");
         jdbc.update("delete from refresh_token_history");jdbc.update("delete from refresh_tokens");
@@ -72,8 +73,15 @@ class PasswordResetTests {
         jdbc.update("delete from signup_email_verifications");
         reset(signupMail, resetMail, throttle, org.springframework.test.util.AopTestUtils.getUltimateTargetObject(sessions));
         signupCode=new AtomicReference<>();resetCode=new AtomicReference<>();
+        firstResetDelivered=new CountDownLatch(1);secondResetDelivered=new CountDownLatch(1);
+        var capturedCode=resetCode; var first=firstResetDelivered; var second=secondResetDelivered;
+        var deliveries=new java.util.concurrent.atomic.AtomicInteger();
         doAnswer(i->{signupCode.set(i.getArgument(1));return null;}).when(signupMail).send(anyString(),anyString());
-        doAnswer(i->{resetCode.set(i.getArgument(1));return null;}).when(resetMail).send(anyString(),anyString());
+        doAnswer(i->{capturedCode.set(i.getArgument(1)); if(deliveries.incrementAndGet()==1) first.countDown(); else second.countDown(); return null;}).when(resetMail).send(anyString(),anyString());
+    }
+    String awaitResetCode(int delivery) throws InterruptedException {
+        assertThat((delivery==1?firstResetDelivered:secondResetDelivered).await(3, TimeUnit.SECONDS)).isTrue();
+        return resetCode.get();
     }
     void register(String email,String nickname) {
         signupVerification.send(email);
@@ -86,7 +94,7 @@ class PasswordResetTests {
         mvc.perform(post("/api/v1/auth/password-reset-requests").contentType(MediaType.APPLICATION_JSON)
             .content("{\"email\":\" RESET@example.com \"}")).andExpect(status().isAccepted());
         verify(resetMail,timeout(3000)).send(eq(EMAIL),anyString());
-        return service.verify(new PasswordResetVerificationRequest(EMAIL,resetCode.get())).resetToken();
+        return service.verify(new PasswordResetVerificationRequest(EMAIL,awaitResetCode(1))).resetToken();
     }
     String login(String email,String password) throws Exception {
         return mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -147,10 +155,10 @@ class PasswordResetTests {
     @Test void wrongAttemptsAreCommittedAndCodeCannotBeReused() throws Exception {
         register(EMAIL,"재설정회원");service.send(EMAIL);
         verify(resetMail,timeout(3000)).send(eq(EMAIL),anyString());
-        String wrong=resetCode.get().equals("000000")?"999999":"000000";
+        String wrong=awaitResetCode(1).equals("000000")?"999999":"000000";
         for(int i=0;i<5;i++)assertThatThrownBy(()->service.verify(new PasswordResetVerificationRequest(EMAIL,wrong))).isInstanceOf(PasswordResetException.class);
         assertThat(resets.findById(EMAIL).orElseThrow().getFailedAttempts()).isEqualTo(5);
-        assertThatThrownBy(()->service.verify(new PasswordResetVerificationRequest(EMAIL,resetCode.get()))).isInstanceOf(PasswordResetException.class);
+        assertThatThrownBy(()->service.verify(new PasswordResetVerificationRequest(EMAIL,awaitResetCode(1)))).isInstanceOf(PasswordResetException.class);
     }
     @Test void resendCannotInvalidateVerifiedResetToken() throws Exception {
         register(EMAIL,"재설정회원");String oldToken=sendAndVerify();
@@ -163,7 +171,7 @@ class PasswordResetTests {
     @Test void activeCodeSurvivesResendButExpiredCodeCanBeReplaced() throws Exception {
         register(EMAIL,"코드보존");service.send(EMAIL);
         verify(resetMail,timeout(3000)).send(eq(EMAIL),anyString());
-        String firstCode=resetCode.get();
+        String firstCode=awaitResetCode(1);
         transaction.executeWithoutResult(s->{var row=resets.findForUpdate(EMAIL).orElseThrow();org.springframework.test.util.ReflectionTestUtils.setField(row,"sentAt",Instant.now().minusSeconds(61));});
         service.send(EMAIL);
         verify(resetMail,times(1)).send(eq(EMAIL),anyString());
@@ -172,7 +180,7 @@ class PasswordResetTests {
         service.send(EMAIL);
         verify(resetMail,timeout(3000).times(2)).send(eq(EMAIL),anyString());
         assertThatThrownBy(()->service.complete(new PasswordResetRequest(EMAIL,token,NEW))).isInstanceOf(PasswordResetException.class);
-        assertThat(service.verify(new PasswordResetVerificationRequest(EMAIL,resetCode.get())).resetToken()).isNotBlank();
+        assertThat(service.verify(new PasswordResetVerificationRequest(EMAIL,awaitResetCode(2))).resetToken()).isNotBlank();
     }
     @Test void expiredWrongEmailAndSignupTokensCannotResetPassword() throws Exception {
         register(EMAIL,"재설정회원");register("other@example.com","다른회원");String token=sendAndVerify();
@@ -219,7 +227,7 @@ class PasswordResetTests {
         deliveryFailures.failed(EMAIL,old.getCodeHash(),old.getSentAt());
         var current=resets.findById(EMAIL).orElseThrow();
         assertThat(current.getExpiresAt()).isAfter(Instant.now());
-        String token=service.verify(new PasswordResetVerificationRequest(EMAIL,resetCode.get())).resetToken();
+        String token=service.verify(new PasswordResetVerificationRequest(EMAIL,awaitResetCode(2))).resetToken();
         deliveryFailures.failed(EMAIL,current.getCodeHash(),current.getSentAt());
         service.complete(new PasswordResetRequest(EMAIL,token,NEW));
         login(EMAIL,NEW);

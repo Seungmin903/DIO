@@ -447,7 +447,8 @@ backend-postgres-push-test:
     policy: pull
   interruptible: true
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # MR 변경 스크립트를 배포 호스트에서 실행하지 않는다.
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED == "true"'
       changes:
         - .gitlab-ci.yml
         - infra/scripts/test-push-postgres.sh
