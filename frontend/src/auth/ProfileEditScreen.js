@@ -34,6 +34,7 @@ export default function ProfileEditScreen({
   onPasswordReset,
   registerLeaveGuard,
   getProfilePhotoSource,
+  photoEditable = true,
   service = previewAuth,
   photoPicker = pickProfilePhoto,
 }) {
@@ -275,9 +276,10 @@ export default function ProfileEditScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="프로필 사진 변경"
-                disabled={busy}
+                accessibilityState={{ disabled: busy || !photoEditable }}
+                disabled={busy || !photoEditable}
                 onPress={pickPhoto}
-                style={s.photoHit}
+                style={[s.photoHit, !photoEditable && s.disabled]}
               >
                 <View style={s.photoBadge}>
                   <AppIcon name="edit" size={14} color={colors.surface} />
@@ -286,17 +288,18 @@ export default function ProfileEditScreen({
             </View>
             <View style={s.grow}>
               <Text style={s.photoTitle}>프로필 사진</Text>
+              {!photoEditable && <Text style={s.hint}>프로필 사진 변경은 준비 중이에요.</Text>}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="프로필 사진 삭제"
-                accessibilityState={{ disabled: busy || !photoUri }}
-                disabled={busy || !photoUri}
+                accessibilityState={{ disabled: busy || !photoUri || !photoEditable }}
+                disabled={busy || !photoUri || !photoEditable}
                 onPress={() => {
                   setPhotoUri(null);
                   setError('');
                   setNotice('');
                 }}
-                style={[s.link, !photoUri && s.disabled]}
+                style={[s.link, (!photoUri || !photoEditable) && s.disabled]}
               >
                 <Text style={s.linkText}>기본 이미지로 되돌리기</Text>
               </Pressable>

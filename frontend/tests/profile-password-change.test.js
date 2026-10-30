@@ -32,6 +32,11 @@ test('실제 이메일 계정의 내 공간은 인증번호 기반 비밀번호 
  const form=ui.render();assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.service,ui.service);assert.equal(form.props.email,'member@example.com');
  form.props.onClose();assert.ok(find(ui.render(),'비밀번호 변경'));
 });
+test('실제 이메일 계정의 회원정보 수정은 체험 서비스가 아닌 인증 서비스를 사용한다',()=>{
+ const ui=setup({mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'});
+ find(ui.render(),'회원정보 수정').props.onPress();
+ const form=ui.render();assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.service,ui.service);assert.equal(form.props.photoEditable,false);
+});
 test('게스트·소셜 계정에는 이메일 비밀번호 변경 진입을 노출하지 않는다',()=>{
  for(const user of [{provider:'guest'},{mode:'authenticated',provider:'google',userId:'8'}])assert.equal(find(setup(user).render(),'비밀번호 변경'),null);
 });

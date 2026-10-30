@@ -354,3 +354,28 @@ test('현재 비밀번호 거절과 네트워크 실패는 로그인 세션을 �
   await assert.rejects(api.changePassword(user,{currentPassword:'Wrong123!',password:'ChangedDio123!',confirmation:'ChangedDio123!'}));assert.equal(api.getSessionKey(),key);
  }
 });
+
+test('회원정보 수정은 본인 토큰으로 PATCH me를 호출하고 갱신된 사용자 정보를 반환한다', async () => {
+  const calls = [];
+  const api = createAuthApi({ baseUrl: 'http://localhost:8080/api', fetchImpl: async (url, init) => {
+    calls.push({ url, ...init });
+    if (url.endsWith('/auth/login')) return response(tokens());
+    return response({ ...user, nickname: '바뀐이름' });
+  } });
+  const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
+  const updated = await api.updateProfile(loggedIn, { nickname: ' 바뀐이름 ', photoUri: loggedIn.photoUri });
+  assert.equal(calls[1].url, 'http://localhost:8080/api/v1/me');
+  assert.equal(calls[1].method, 'PATCH');
+  assert.equal(calls[1].headers.Authorization, 'Bearer access');
+  assert.deepEqual(JSON.parse(calls[1].body), { nickname: '바뀐이름' });
+  assert.equal(updated.nickname, '바뀐이름');
+  assert.equal((await api.getAccessToken({ userId: user.userId, sessionKey: api.getSessionKey() })), 'access');
+});
+
+test('회원정보 수정은 다른 계정과 아직 연결되지 않은 사진 변경을 요청하지 않는다', async () => {
+  const { api, calls } = setup(() => response(tokens()));
+  const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
+  await assert.rejects(api.updateProfile({ ...loggedIn, userId: 'other' }, { nickname: '바뀐이름', photoUri: loggedIn.photoUri }), { code: 'AUTHENTICATION_REQUIRED' });
+  await assert.rejects(api.updateProfile(loggedIn, { nickname: '바뀐이름', photoUri: 'file:///new-photo.png' }), /프로필 사진 변경/);
+  assert.equal(calls.length, 1);
+});

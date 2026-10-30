@@ -45,6 +45,8 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         onPasswordReset={() => setRoute('password')}
         registerLeaveGuard={registerLeaveGuard}
         getProfilePhotoSource={getProfilePhotoSource}
+        service={previewUser?.mode === 'authenticated' ? authService : undefined}
+        photoEditable={previewUser?.mode !== 'authenticated'}
       />
     );
   }
