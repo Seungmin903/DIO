@@ -8,6 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.npm/
+.pnpm-store/
 .expo/
 web-build/
 .env
@@ -31,6 +33,15 @@ expo-env.d.ts
 .metro-health-check*
 /ios
 /android
+/modules/dio-handwriting/android/src/main/assets/dio_handwriting/*.onnx
+/modules/dio-handwriting/android/build/
+/modules/dio-handwriting/android/.gradle/
+/qa/handwriting-output/
+/modules/dio-handwriting/android/src/androidTest/assets/
 
 # Generated QA fixtures, reports and downloads
 /qa/.out/
+/qa/license-release-*/
+/third-party/cache/
+# Runtime notices, corresponding sources and the replaceable LGPL decoder are
+# distributed with the feature so a fresh clone has the same legal/runtime assets.

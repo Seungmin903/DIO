@@ -19,7 +19,7 @@ server:
   port: 8080
 
 springdoc:
-  paths-to-match: /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/auth/**
+  paths-to-match: /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/media/**, /api/v1/member/diaries/**, /api/v1/member/diaries, /api/v1/auth/**, /api/v1/notifications, /api/v1/notifications/**, /api/v1/invites/**, /api/v1/me/invites/**
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
@@ -46,13 +46,25 @@ dio:
       initial-delay-ms: ${AUTH_SESSION_CLEANUP_INITIAL_DELAY_MS:300000}
   signup:
     photos:
-      storage: ${SIGNUP_PHOTO_STORAGE:local}
+      # 저장 방식·버킷·리전은 미디어와 같은 MEDIA_* 환경변수를 본다. 키 접두사(profile-photos/, media/)가 달라 충돌하지 않는다.
+      storage: ${MEDIA_STORAGE:local}
       local-directory: ${SIGNUP_PHOTO_LOCAL_DIRECTORY:.local-data/profile-photos}
-      s3-bucket: ${SIGNUP_PHOTO_S3_BUCKET}
-      s3-region: ${SIGNUP_PHOTO_S3_REGION}
+      s3-bucket: ${MEDIA_S3_BUCKET:}
+      s3-region: ${MEDIA_S3_REGION:ap-northeast-2}
       migrate-legacy: ${SIGNUP_PHOTO_MIGRATE_LEGACY:false}
     verification-secret: ${SIGNUP_VERIFICATION_SECRET:}
     mail-from: ${SIGNUP_MAIL_FROM:}
     service-terms-version: ${SIGNUP_SERVICE_TERMS_VERSION:v1}
     privacy-terms-version: ${SIGNUP_PRIVACY_TERMS_VERSION:v1}
     marketing-terms-version: ${SIGNUP_MARKETING_TERMS_VERSION:v1}
+  media:
+    storage: ${MEDIA_STORAGE:local}
+    local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-data/media}
+    s3-bucket: ${MEDIA_S3_BUCKET:}
+    s3-region: ${MEDIA_S3_REGION:ap-northeast-2}
+    expiry-cleanup:
+      enabled: ${MEDIA_EXPIRY_CLEANUP_ENABLED:false}
+      delay-ms: ${MEDIA_EXPIRY_CLEANUP_DELAY_MS:3600000}
+      initial-delay-ms: ${MEDIA_EXPIRY_CLEANUP_INITIAL_DELAY_MS:900000}
+      batch-size: ${MEDIA_EXPIRY_CLEANUP_BATCH_SIZE:100}
+      retention: ${MEDIA_DELETE_RETENTION:PT24H}

@@ -30,6 +30,7 @@ dependencies {
 	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -46,8 +47,58 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
+// 테스트는 compose·infra 파일과 DB 환경변수처럼 선언되지 않은 입력에 의존하므로 빌드 캐시 결과로 건너뛰지 않는다.
+tasks.withType(Test).configureEach {
+	outputs.cacheIf { false }
+}
+
 tasks.named('test') {
+    // Missing generated contracts invalidate UP-TO-DATE on reused runner workspaces.
+    outputs.files('build/contracts/member-diary-http.json',
+        'build/contracts/member-diary-trash-http.json','build/contracts/member-diary-purge-http.json')
 	useJUnitPlatform()
+}
+
+tasks.register('seedMemberDevelopment', JavaExec) {
+	description = 'Seeds a test-only account in the explicitly owned local member app database.'
+	dependsOn testClasses
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'com.f106.DIO.diary.qa.MemberDevelopmentFixture'
+}
+
+tasks.register('writeMemberDevelopmentArtifact') {
+	description = 'Records the exact bootJar output used by the local member development launcher.'
+	dependsOn tasks.named('bootJar')
+	doLast {
+		def manifest = layout.buildDirectory.file('member-development/boot-jar-path.txt').get().asFile
+		manifest.parentFile.mkdirs()
+		manifest.setText(tasks.named('bootJar').get().archiveFile.get().asFile.absolutePath + '\n', 'UTF-8')
+	}
+}
+
+tasks.register('postgresMemberDiaryCreationTest', Test) {
+	description = 'Runs atomic diary/owner/initial-page creation tests in isolated PostgreSQL schemas.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter {
+		includeTestsMatching 'com.f106.DIO.diary.creation.PostgresMemberDiaryCreationTests'
+		includeTestsMatching 'com.f106.DIO.diary.creation.PageCatalogPostgresTests'
+		includeTestsMatching 'com.f106.DIO.diary.creation.MemberMigrationUpgradePostgresTests'
+		includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryListPostgresTests'
+	}
+	systemProperty 'dio.diary-creation-postgres', 'true'
+}
+
+tasks.register('postgresDiaryDetailTest', Test) {
+	description = 'Runs diary metadata permission and conflict tests in isolated PostgreSQL schemas.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	filter { includeTestsMatching 'com.f106.DIO.diary.detail.PostgresDiaryDetailTests' }
+	systemProperty 'dio.diary-detail-postgres', 'true'
 }
 
 // 로컬 전용 시드는 파일 시스템에서만 읽는다. JAR 리소스에는 절대 넣지 않는다.
@@ -92,6 +143,27 @@ tasks.register('postgresTest', Test) {
 	systemProperty 'dio.postgres-test', 'true'
 }
 
+// Uses a separate disposable database; never falls back to a developer database.
+tasks.register('sharingPostgresTest', Test) {
+    description = 'Verifies sharing permissions, concurrency and permanent deletion against dedicated dio_sharing_qa PostgreSQL.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.f106.DIO.sharing.SharingPostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.EmailInvitePostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.DiaryProfilePostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.SharingReviewPostgresTests'
+    }
+    environment 'DIO_SHARING_POSTGRES_QA', 'true'
+    doFirst {
+        def required = ['DIO_SHARING_POSTGRES_URL', 'DIO_SHARING_POSTGRES_PASSWORD']
+        if (required.any { !environment[it]?.toString()?.trim() }) {
+            throw new GradleException('Explicit DIO_SHARING_POSTGRES_URL/PASSWORD for disposable dio_sharing_qa required. No fallback. See docs/diary-sharing.md.')
+        }
+    }
+}
 
 tasks.register('notificationBrowserQa', JavaExec) {
     group = 'verification'
@@ -99,4 +171,75 @@ tasks.register('notificationBrowserQa', JavaExec) {
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.f106.DIO.notification.NotificationBrowserQa'
+}
+
+
+tasks.register('postgresDiaryTrashTest',Test) {
+    group='verification'
+    description='Runs member trash tests only against explicit disposable dio_trash_qa.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.f106.DIO.diary.trash.*'
+        includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryTrashContractPostgresTests'
+    }
+    environment 'DIO_MEMBER_TRASH_PG','true'
+    outputs.upToDateWhen {false}
+    outputs.cacheIf {false}
+    doFirst {
+        if(environment['DIO_LIST_QUERY_PG']!='true' || !(environment['DB_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_trash_qa/) || !environment['POSTGRES_USER'] || !environment['POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_trash_qa and DIO_LIST_QUERY_PG=true required; no fallback.')
+    }
+}
+
+tasks.register('postgresDiaryPurgeTest',Test) {
+    group='verification'
+    description='Runs member purge and media physical-delete tests only against explicit disposable dio_trash_qa.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'com.f106.DIO.diary.purge.*'
+        includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryPurgeContractPostgresTests'
+        includeTestsMatching 'com.f106.DIO.media.*PostgresTests'
+    }
+    environment 'DIO_MEMBER_PURGE_PG','true'
+    outputs.upToDateWhen {false}
+    outputs.cacheIf {false}
+    doFirst {
+        if(environment['DIO_LIST_QUERY_PG']!='true' || !(environment['DB_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_trash_qa/) || !environment['POSTGRES_USER'] || !environment['POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_trash_qa and DIO_LIST_QUERY_PG=true required; no fallback.')
+    }
+}
+
+tasks.register('postgresMemberDiaryHttpTest',Test) {
+    group='verification'
+    description='Runs real member diary HTTP contracts on disposable PostgreSQL only.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {includeTestsMatching 'com.f106.DIO.diary.http.MemberDiaryContractPostgresTests'}
+    environment 'DIO_MEMBER_CONTRACT_PG','true'
+    outputs.upToDateWhen {false}
+    outputs.cacheIf {false}
+    doFirst {
+        if(!(environment['DB_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_member_contract_qa/) || !environment['POSTGRES_USER'] || !environment['POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_member_contract_qa required; no fallback.')
+    }
+}
+
+// Existing ERD tables only. Never use a developer database for mutation/locking tests.
+tasks.register('collaborationPostgresTest', Test) {
+    group='verification'
+    description='Runs canvas history, concurrency and real WebSocket tests on disposable dio_collaboration_qa.'
+    testClassesDirs=sourceSets.test.output.classesDirs
+    classpath=sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {includeTestsMatching 'com.f106.DIO.collaboration.CanvasCollaborationPostgresTests'}
+    environment 'DIO_COLLABORATION_POSTGRES_QA','true'
+    doFirst {
+        if(!(environment['DIO_COLLABORATION_POSTGRES_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_collaboration_qa/) || !environment['DIO_COLLABORATION_POSTGRES_PASSWORD'])
+            throw new GradleException('Explicit disposable dio_collaboration_qa URL/password required; no fallback.')
+    }
 }

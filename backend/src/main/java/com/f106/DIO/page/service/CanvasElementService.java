@@ -26,13 +26,16 @@ import com.f106.DIO.page.support.MediaFileNotSupportedException;
 public class CanvasElementService {
 
 	private static final BigDecimal SORT_STEP = BigDecimal.ONE;
+    private static final BigDecimal MAX_SORT_KEY = new BigDecimal("9999999999.9999999999");
 
 	private final PageService pageService;
 	private final CanvasElementRepository elementRepository;
+	private final com.f106.DIO.collaboration.service.CanvasChangeJournal journal;
 
-	public CanvasElementService(PageService pageService, CanvasElementRepository elementRepository) {
+	public CanvasElementService(PageService pageService, CanvasElementRepository elementRepository, com.f106.DIO.collaboration.service.CanvasChangeJournal journal) {
 		this.pageService = pageService;
 		this.elementRepository = elementRepository;
+		this.journal = journal;
 	}
 
 	@Transactional(readOnly = true)
@@ -43,46 +46,65 @@ public class CanvasElementService {
 
 	@Transactional
 	public CanvasElementResponse create(UUID pageId, CanvasElementCreateRequest request, Long userId) {
-		pageService.requireWritablePage(pageId, userId);
+        pageService.requireWritablePage(pageId,userId);
+        if(request.getElementId()==null)request.setElementId(UUID.randomUUID());
+        var ticket=journal.begin(pageId,userId,List.of(request.getElementId()),UUID.randomUUID(),null,"CREATE");
 		if (request.getElementId() != null && elementRepository.existsById(request.getElementId())) {
 			throw new IllegalArgumentException("이미 사용 중인 elementId입니다.");
 		}
 		CanvasElement element = newElement(pageId, request, nextSortKey(pageId), userId);
 		elementRepository.saveAndFlush(element);
+        journal.complete(ticket);
 		return new CanvasElementResponse(PageMapper.toElementData(element));
 	}
 
 	@Transactional
 	public CanvasElementResponse update(UUID pageId, UUID elementId, CanvasElementUpdateRequest request, Long userId) {
-		pageService.requireWritablePage(pageId, userId);
+        pageService.requireWritablePage(pageId,userId);
+        var ticket=journal.begin(pageId,userId,List.of(elementId),UUID.randomUUID(),null,"UPDATE");
 		CanvasElement element = requireActiveElement(pageId, elementId);
 		applyUpdate(element, request);
 		elementRepository.flush();
+        journal.complete(ticket);
 		return new CanvasElementResponse(PageMapper.toElementData(element));
 	}
 
 	@Transactional
 	public void delete(UUID pageId, UUID elementId, Long userId) {
-		pageService.requireWritablePage(pageId, userId);
+        pageService.requireWritablePage(pageId,userId);
+        var ticket=journal.begin(pageId,userId,List.of(elementId),UUID.randomUUID(),null,"DELETE");
 		requireActiveElement(pageId, elementId).softDelete();
 		elementRepository.flush();
+        journal.complete(ticket);
 	}
 
 	@Transactional
 	public CanvasElementResponse restore(UUID pageId, UUID elementId, Long userId) {
-		pageService.requireWritablePage(pageId, userId);
+        pageService.requireWritablePage(pageId,userId);
+        var ticket=journal.begin(pageId,userId,List.of(elementId),UUID.randomUUID(),null,"RESTORE");
 		CanvasElement element = elementRepository.findByElementIdAndPageId(elementId, pageId)
 			.orElseThrow(CanvasElementNotFoundException::new);
 		if (element.getDeletedAt() == null) { throw new ElementNotDeletedException(); }
 		element.restore();
 		elementRepository.flush();
+        journal.complete(ticket);
 		return new CanvasElementResponse(PageMapper.toElementData(element));
 	}
 
 	@Transactional
 	public CanvasElementListResponse batch(UUID pageId, CanvasElementBatchRequest request, Long userId) {
-		pageService.requireWritablePage(pageId, userId);
-		validateBatchIds(request);
+        return batchTracked(pageId,request,userId,UUID.randomUUID(),null);
+    }
+    @Transactional
+    public CanvasElementListResponse batchTracked(UUID pageId,CanvasElementBatchRequest request,Long userId,UUID clientId,String hash){
+        pageService.requireWritablePage(pageId,userId);
+        for(var create:safe(request.creates()))if(create.getElementId()==null)create.setElementId(UUID.randomUUID());
+        validateBatchIds(request);
+        var ids=new java.util.LinkedHashSet<UUID>();
+        safe(request.creates()).forEach(c->ids.add(c.getElementId()));safe(request.updates()).forEach(u->ids.add(u.getElementId()));
+        ids.addAll(safe(request.deleteElementIds()));ids.addAll(safe(request.restoreElementIds()));
+        var ticket=journal.begin(pageId,userId,ids,clientId,hash,"BATCH");
+        pageService.requireWritablePage(pageId,userId);
 
 		BigDecimal nextSortKey = nextSortKey(pageId);
 		for (CanvasElementCreateRequest create : safe(request.creates())) {
@@ -103,13 +125,14 @@ public class CanvasElementService {
 			element.restore();
 		}
 		elementRepository.flush();
+        journal.complete(ticket);
 		return listWithoutPageCheck(pageId);
 	}
 
 	private CanvasElement newElement(UUID pageId, CanvasElementCreateRequest request, BigDecimal sortKey, Long userId) {
 		validateReferences(pageId, request.getGroupId(), request.getMediaFileId());
 		return new CanvasElement(request.getElementId(), pageId, request.getElementType(), request.getGroupId(),
-			request.getName(), sortKey, request.getX(), request.getY(), request.getWidth(), request.getHeight(),
+			request.getName(), checkedSortKey(request.getSortKey()==null?sortKey:request.getSortKey()), request.getX(), request.getY(), request.getWidth(), request.getHeight(),
 			request.getRotation() == null ? BigDecimal.ZERO : request.getRotation(),
 			request.getOpacity() == null ? BigDecimal.ONE : request.getOpacity(),
 			Boolean.TRUE.equals(request.getIsLocked()), Boolean.TRUE.equals(request.getIsHidden()), request.getMediaFileId(),
@@ -126,7 +149,7 @@ public class CanvasElementService {
 			request.getPropertiesJson() == null ? null : request.getPropertiesJson().toString());
 	}
 
-	/** 미디어 소유권 모델이 없어 mediaFileId는 받지 않고, 그룹은 같은 페이지 안에서만 쓰게 한다. */
+	/** Asset attachment remains deferred until the existing asset API and access contract are available. */
 	private void validateReferences(UUID pageId, UUID groupId, UUID mediaFileId) {
 		if (mediaFileId != null) throw new MediaFileNotSupportedException();
 		if (groupId != null && elementRepository.existsByGroupIdAndPageIdNot(groupId, pageId)) {
@@ -138,6 +161,12 @@ public class CanvasElementService {
 		return elementRepository.findByElementIdAndPageIdAndDeletedAtIsNull(elementId, pageId)
 			.orElseThrow(CanvasElementNotFoundException::new);
 	}
+
+    private static BigDecimal checkedSortKey(BigDecimal value) {
+        if(value.abs().compareTo(MAX_SORT_KEY)>0||Math.max(0,value.stripTrailingZeros().scale())>10)
+            throw new IllegalArgumentException("레이어 순서 범위를 초과했습니다. 기존 요소의 순서를 조정한 뒤 다시 시도해 주세요.");
+        return value;
+    }
 
 	private BigDecimal nextSortKey(UUID pageId) {
 		BigDecimal max = elementRepository.findMaxSortKeyByPageId(pageId);

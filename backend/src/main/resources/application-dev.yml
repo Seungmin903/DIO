@@ -14,6 +14,11 @@ spring:
     enabled: true
 
 dio:
+  media:
+    storage: ${MEDIA_STORAGE:s3}
+  signup:
+    photos:
+      storage: ${MEDIA_STORAGE:s3}
   auth:
     development-token-header: X-DIO-Access-Token
 

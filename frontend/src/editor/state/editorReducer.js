@@ -210,6 +210,35 @@ export function editorReducer(state, action) {
   const objects = getCurrentPage(state).objects
 
   switch (action.type) {
+    case 'reconcileServerPages': {
+      const ids=new Set(action.pageIds),existing=new Map(state.doc.pages.map(p=>[p.id,p]))
+      for(const p of action.pages)if(!existing.has(p.id))existing.set(p.id,p)
+      const removed=state.doc.pages.filter(p=>!ids.has(p.id))
+      if(!state.serverPagesEmpty&&!removed.length&&!action.pages.length&&action.pageIds.length===state.doc.pages.length&&action.pageIds.every((id,i)=>state.doc.pages[i].id===id))return state
+      const recovery=[...(state.doc.pageRecovery??[])]
+      for(const page of removed)if(!recovery.some(r=>r.page.id===page.id))recovery.push({page,reason:'NOT_IN_SERVER_PAGE_LIST'})
+      const pages=action.pageIds.map(id=>existing.get(id)).filter(Boolean)
+      // The editor always needs a visible page. If the server is empty, keep a
+      // read-only recovery view rather than inventing a new server page UUID.
+      if(!pages.length)return {...state,serverPagesEmpty:true,externalDirty:true,doc:{...state.doc,pageRecovery:recovery},collaborationEdits:[]}
+      const selected=ids.has(state.pageId)?state.pageId:pages[0].id
+      const adapt=doc=>({...doc,pages:pages.map(p=>doc.pages.find(old=>old.id===p.id)??p)})
+      return {...state,serverPagesEmpty:false,externalDirty:true,
+        doc:{...state.doc,pages,...(removed.length?{pageRecovery:recovery}:{})},pageId:selected,
+        selectedIds:selected===state.pageId?state.selectedIds:[],
+        past:state.past.map(adapt),future:state.future.map(adapt),
+        pendingCheckpoint:state.pendingCheckpoint?{...state.pendingCheckpoint,doc:adapt(state.pendingCheckpoint.doc)}:null,
+        collaborationGesture:state.collaborationGesture&&ids.has(state.collaborationGesture.pageId)?state.collaborationGesture:null,
+        collaborationEdits:(state.collaborationEdits??[]).filter(e=>ids.has(e.pageId))}
+    }
+    case 'importServerPages': {
+      const known=new Set(state.doc.pages.map(p=>p.id)),added=action.pages.filter(p=>!known.has(p.id))
+      if(!added.length&&!action.selectId)return state
+      const pages=[...state.doc.pages,...added]
+      return {...state,externalDirty:true,doc:{...state.doc,pages},
+        ...(action.selectId&&pages.some(p=>p.id===action.selectId)?{pageId:action.selectId,selectedIds:[]}: {})}
+    }
+    case 'commitCheckpoint': return state
     case 'checkpoint':
       return {
         ...withHistory(state),
@@ -497,6 +526,23 @@ export function editorReducer(state, action) {
         pendingCheckpoint: null,
       })
 
+    // Server import/recovery never replaces other objects or newer local edits.
+    // Keep this outside Undo history so it cannot erase already-made edits.
+    case 'importPageTexts': {
+      const page = state.doc.pages.find(p => p.id === action.pageId)
+      if (!page || page.objects !== action.expectedObjects) return state
+      const incoming = new Map(action.objects.map(o => [o.id, o]))
+      const objects = page.objects.flatMap(o => {
+        if (o.type !== 'text') return [o]
+        const next = incoming.get(o.id)
+        incoming.delete(o.id)
+        return next ? [next] : []
+      }).concat([...incoming.values()])
+      const currentTexts = page.objects.filter(o => o.type === 'text')
+      const nextTexts = objects.filter(o => o.type === 'text')
+      if (JSON.stringify(currentTexts) === JSON.stringify(nextTexts)) return state
+      return { ...state, externalDirty: true, doc: { ...state.doc, pages: state.doc.pages.map(p => p === page ? { ...p, objects } : p) } }
+    }
     case 'load':
       return createInitialState(action.doc, action.pageId)
 

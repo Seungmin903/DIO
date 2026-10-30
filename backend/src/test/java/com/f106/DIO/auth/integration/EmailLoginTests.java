@@ -51,7 +51,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
-    "spring.datasource.url=jdbc:h2:mem:login-tests;MODE=PostgreSQL",
+    "spring.datasource.url=jdbc:h2:mem:login-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.signup.verification-secret=testing-only-secret-at-least-32-bytes-long"
 })
 @AutoConfigureMockMvc @ActiveProfiles("test")
@@ -98,6 +98,91 @@ class EmailLoginTests {
                 new Agreement(TermsType.PRIVACY, "v1", true))));
     }
     LoginResponse login() { return service.login(new LoginRequest(EMAIL, "DioMember123!", "휴대폰"), "127.0.0.1"); }
+    @Test void passwordChangeRequiresAuthenticationAndRejectsWrongCurrentPassword()throws Exception{
+        register();var login=login();
+        String body="{\"currentPassword\":\"wrong\",\"newPassword\":\"ChangedDio123!\"}";
+        mvc.perform(patch("/api/v1/me/password").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isUnauthorized());
+        mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CURRENT_PASSWORD_MISMATCH"));
+        assertThat(service.active(jwt.decode(login.accessToken()))).isTrue();
+        assertThat(login()).isNotNull();
+    }
+    @Test void passwordChangeRevokesAllSessionsAndRequiresTheNewPassword()throws Exception{
+        register();var first=login();var second=login();
+        mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+first.accessToken()).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"currentPassword\":\"DioMember123!\",\"newPassword\":\"ChangedDio123!\"}"))
+            .andExpect(status().isNoContent()).andExpect(content().string(""));
+        assertThat(service.active(jwt.decode(first.accessToken()))).isFalse();
+        assertThat(service.active(jwt.decode(second.accessToken()))).isFalse();
+        assertThatThrownBy(this::login).isInstanceOf(LoginException.class);
+        assertThat(service.login(new LoginRequest(EMAIL,"ChangedDio123!","phone"),"127.0.0.1")).isNotNull();
+        mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+first.accessToken()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isUnauthorized());
+    }
+    @Test void passwordChangeRejectsSameOrMalformedPasswordWithoutRevokingSession()throws Exception{
+        register();var login=login();
+        for(String next:List.of("DioMember123!","short","abcdefgh","한글12345678"))
+            mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"currentPassword\":\"DioMember123!\",\"newPassword\":\""+next+"\"}"))
+                .andExpect(status().isBadRequest());
+        assertThat(service.active(jwt.decode(login.accessToken()))).isTrue();
+        assertThat(login()).isNotNull();
+    }
+    @Test void myProfileRequiresAuthenticationAndReturnsTokenUser()throws Exception{
+        register();var login=login();
+        mvc.perform(get("/api/v1/me")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/me").header("Authorization","Bearer "+login.accessToken()))
+            .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"))
+            .andExpect(jsonPath("$.userId").value(login.user().userId()))
+            .andExpect(jsonPath("$.email").value(EMAIL))
+            .andExpect(jsonPath("$.nickname").value("디오사용자"))
+            .andExpect(jsonPath("$.profilePhotoUrl").value(org.hamcrest.Matchers.nullValue()));
+        service.logout(jwt.decode(login.accessToken()));
+        mvc.perform(get("/api/v1/me").header("Authorization","Bearer "+login.accessToken())).andExpect(status().isUnauthorized());
+    }
+    @Test void myNicknameChangeNormalizesAndAllowsDuplicates()throws Exception{
+        register();var login=login();
+        Long otherId=users.saveAndFlush(new User("other@example.com","새닉네임",Instant.now())).getUserId();
+        mvc.perform(patch("/api/v1/me").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\"  새닉네임 \"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.userId").value(login.user().userId()))
+            .andExpect(jsonPath("$.email").value(EMAIL))
+            .andExpect(jsonPath("$.nickname").value("새닉네임"));
+        var saved=users.findById(Long.valueOf(login.user().userId())).orElseThrow();
+        assertThat(saved.getNickname()).isEqualTo("새닉네임");
+        assertThat(saved.getNicknameKey()).isEqualTo("새닉네임");
+        assertThat(users.findById(otherId).orElseThrow().getNickname()).isEqualTo("새닉네임");
+        mvc.perform(get("/api/v1/me").header("Authorization","Bearer "+login.accessToken()))
+            .andExpect(jsonPath("$.nickname").value("새닉네임"));
+    }
+    @Test void myProfileAllowsWebPreflightForPatch()throws Exception{
+        mvc.perform(options("/api/v1/me").header("Origin","http://localhost:8081").header("Access-Control-Request-Method","PATCH")
+                .header("Access-Control-Request-Headers","Authorization,Content-Type"))
+            .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin","http://localhost:8081"));
+    }
+    @Test void myNicknameChangeRejectsMalformedNicknameAndMissingToken()throws Exception{
+        register();var login=login();
+        for(String body:List.of("{}","{\"nickname\":\"\"}","{\"nickname\":\"a\"}","{\"nickname\":\"열두글자를넘는아주긴닉네임\"}","{\"nickname\":\"공백 포함\"}","{\"nickname\":\"이모지😀\"}"))
+            mvc.perform(patch("/api/v1/me").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+        mvc.perform(patch("/api/v1/me").contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"새닉네임\"}"))
+            .andExpect(status().isUnauthorized());
+        assertThat(users.findAll().get(0).getNickname()).isEqualTo("디오사용자");
+    }
+    @Test void inactiveUserCannotReadOrChangeProfile()throws Exception{
+        register();var login=login();
+        var user=users.findAll().get(0);ReflectionTestUtils.setField(user,"status","WITHDRAWN");users.saveAndFlush(user);
+        mvc.perform(get("/api/v1/me").header("Authorization","Bearer "+login.accessToken())).andExpect(status().isUnauthorized());
+        mvc.perform(patch("/api/v1/me").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"nickname\":\"새닉네임\"}")).andExpect(status().isUnauthorized());
+    }
+    @Test void socialOnlyAccountCannotChangeEmailPassword()throws Exception{
+        register();var login=login();accounts.deleteAll();
+        mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"currentPassword\":\"DioMember123!\",\"newPassword\":\"ChangedDio123!\"}"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("EMAIL_PASSWORD_REQUIRED"));
+    }
     @Test void cleanupOnlyRemovesExpiredSessionsAndTheirHistory() {
         register();
         var expiredResponse = login(); var activeResponse = login(); var revokedResponse = login();
@@ -139,7 +224,7 @@ class EmailLoginTests {
         assertThat(history.count()).isEqualTo(2);
     }
     @Test void authCorsAllowsLocalFrontendIncludingLogoutPreflightOnly() throws Exception {
-        for (String path : List.of("login", "logout", "signup", "nickname-availability")) {
+        for (String path : List.of("login", "logout", "signup")) {
             mvc.perform(options("/api/v1/auth/" + path).header("Origin", "http://localhost:8081")
                 .header("Access-Control-Request-Method", "POST")
                 .header("Access-Control-Request-Headers", "content-type,authorization"))
@@ -310,6 +395,8 @@ class EmailLoginTests {
             .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['204'].content").doesNotExist())
             .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.responses['200']").doesNotExist())
             .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security").doesNotExist())
+            .andExpect(jsonPath("$.paths['/api/v1/me'].get.security[0].bearerAuth").exists())
+            .andExpect(jsonPath("$.paths['/api/v1/me'].patch.security[0].bearerAuth").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/diaries'].get.security[0].bearerAuth").exists());
     }
 }

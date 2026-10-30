@@ -39,7 +39,7 @@ function CoverFrame({ cover, name, width, height, edit }) {
  * sheet: 폰에서는 아래에서 올라오는 시트로 띄운다.
  */
 export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, bottomInset = 0,
-  visible = true, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey }) {
+  visible = true, blankOnly = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey }) {
   const editing = Boolean(diary);
   const formLocked = saving || locked;
   const [, redraw] = useReducer(value => value + 1, 0);
@@ -51,6 +51,8 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [openElement, setOpenElement] = useState('base');
   // 속지 묶음: 위에서부터 순서대로 쌓는다 (화면은 한 줄 목록 + 이어서 · 섞어서)
   const [paperSections, setPaperSections] = useState(defaultSections);
+  // blankOnly: 서버 다이어리는 서버 속지 목록에 있는 속지만 만들 수 있어 빈 페이지 한 장으로 시작한다 (속지 구역 없음)
+  const chosenSections = blankOnly ? [] : paperSections;
   const [paperAppearance, setPaperAppearance] = useState(() => normalizePaperAppearance(diary?.paperAppearance ?? DEFAULT_PAPER_APPEARANCE));
   const [scope, setScope] = useState('all');
   const [stage, setStage] = useState({ width: 0, height: 0 });
@@ -69,7 +71,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   // 새 다이어리는 묶음 전체의 페이지 순서를 한 번 만들어 장수 · 미리보기에 같이 쓴다
   let allIds = null, configError = '';
   if (!editing) {
-    try { allIds = configuredPageIds(sectionsTemplateConfig(paperSections, orientation)); } catch (failure) { configError = failure.message; }
+    try { allIds = configuredPageIds(sectionsTemplateConfig(chosenSections, orientation)); } catch (failure) { configError = failure.message; }
   }
   const pageCount = allIds?.length ?? null;
   const firstPageId = useMemo(() => {
@@ -83,7 +85,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     paper: filledSections.length ? `${sectionTitle(filledSections[0])}${filledSections.length > 1 ? ` 외 ${filledSections.length - 1}` : ''}` : '없음',
     style: PAPER_BACKGROUNDS.find(([, color]) => color === paperAppearance.backgroundColor)?.[0] ?? paperAppearance.backgroundColor,
   };
-  const sections = (editing ? ['basic', 'cover', 'style'] : ['basic', 'cover', 'paper', 'style'])
+  const sections = (editing || blankOnly ? ['basic', 'cover', 'style'] : ['basic', 'cover', 'paper', 'style'])
     .map(id => ({ id, title: SECTIONS[id][0], icon: SECTIONS[id][1], summary: summaries[id] }));
   // 처음 연 상태와 다르면 '바꿈'. 수정은 바꾼 게 있을 때만 저장할 수 있고, 바꾼 채로 취소하면 한 번 묻는다.
   // 사진 대표 색(photo.tone)은 열 때 뽑아 채우는 값이라 고친 것으로 치지 않는다
@@ -104,7 +106,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     if (!trimmed) { setSection('basic'); setError('다이어리 이름을 입력해 주세요.'); return; }
     let templateConfig;
     if (!editing) {
-      try { templateConfig = sectionsTemplateConfig(paperSections, orientation); } catch (failure) { setError(failure.message); return; }
+      try { templateConfig = sectionsTemplateConfig(chosenSections, orientation); } catch (failure) { setError(failure.message); return; }
     }
     submitting.current = true;
     try {

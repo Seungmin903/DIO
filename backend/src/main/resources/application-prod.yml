@@ -14,9 +14,11 @@ spring:
     enabled: true
 
 dio:
+  media:
+    storage: ${MEDIA_STORAGE:s3}
   signup:
     photos:
-      storage: ${SIGNUP_PHOTO_STORAGE:s3}
+      storage: ${MEDIA_STORAGE:s3}
 
 server:
   forward-headers-strategy: native

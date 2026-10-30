@@ -3,6 +3,7 @@ package com.f106.DIO.notification.controller;
 import java.security.Principal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +16,7 @@ import com.f106.DIO.notification.service.NotificationDeleteService;
 import com.f106.DIO.notification.support.NotificationException;
 
 @RestController
+@Tag(name = "알림", description = "본인 알림 목록·미읽음 수·읽음 처리·삭제 API")
 @RequestMapping("/api/v1/notifications")
 @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
 public class NotificationController {

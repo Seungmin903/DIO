@@ -12,12 +12,71 @@ class DeploymentAuthContractTests {
         var application = loader.load("application", new FileSystemResource(Path.of("src/main/resources/application.yml"))).get(0);
         assertThat(application.getProperty("management.health.mail.enabled")).isEqualTo(false);
         var ci = loader.load("ci", new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
-        assertThat(ci.getProperty("backend-postgres-test.stage")).isEqualTo("quality");
-        assertThat(ci.getProperty("backend-postgres-test.needs[0].job")).isEqualTo("backend-test");
-        assertThat(ci.getProperty("backend-postgres-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh");
-        assertThat(ci.getProperty("backend-postgres-test.allow_failure")).isNull();
-        String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh"));
-        assertThat(script).contains("-e DIO_AUTH_SCHEMA_TEST=true", "--network \"container:$pg_name\"", "trap cleanup EXIT", "authPostgresTest --no-daemon");
+        for (String job : new String[]{"backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test"}) {
+            assertThat(ci.getProperty(job + ".stage")).isEqualTo("quality");
+            assertThat(ci.getProperty(job + ".needs[0].job")).isEqualTo("backend-test");
+            assertThat(ci.getProperty(job + ".allow_failure")).isNull();
+        }
+        for (String job : new String[]{"backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test"}) {
+            // CI 설정만 바뀐 MR에서는 자동 실행하지 않고, 파이프라인을 막지 않는 수동 실행만 남긴다.
+            for (int i = 0; ci.getProperty(job + ".rules[0].changes[" + i + "]") != null; i++) {
+                assertThat(ci.getProperty(job + ".rules[0].changes[" + i + "]")).isNotEqualTo(".gitlab-ci.yml");
+            }
+            assertThat(ci.getProperty(job + ".rules[1].changes[0]")).isEqualTo(".gitlab-ci.yml");
+            assertThat(ci.getProperty(job + ".rules[1].when")).isEqualTo("manual");
+            assertThat(ci.getProperty(job + ".rules[1].allow_failure")).isEqualTo(true);
+        }
+        assertThat(ci.getProperty("backend-postgres-auth-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh auth");
+        assertThat(ci.getProperty("backend-postgres-sharing-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh sharing");
+        assertThat(ci.getProperty("backend-postgres-diary-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh diary");
+        assertThat(ci.getProperty("backend-postgres-lifecycle-test.script[0]")).isEqualTo("bash infra/scripts/test-auth-postgres.sh lifecycle");
+
+        String ciText = Files.readString(Path.of("../.gitlab-ci.yml")).replace("\r\n", "\n");
+        String authJob = block(ciText, "backend-postgres-auth-test:\n", "\nbackend-postgres-sharing-test:");
+        String sharingJob = block(ciText, "backend-postgres-sharing-test:\n", "\nbackend-postgres-diary-test:");
+        String diaryJob = block(ciText, "backend-postgres-diary-test:\n", "\nbackend-postgres-lifecycle-test:");
+        String lifecycleJob = block(ciText, "backend-postgres-lifecycle-test:\n", "\nsecret-scan:");
+        for (String job : new String[]{authJob, sharingJob, diaryJob, lifecycleJob}) {
+            assertThat(job).contains("backend/src/test/resources/**/*", "backend/src/test/java/**/*Fixture.java",
+                "backend/src/test/java/**/*Contract.java");
+            assertThat(job).contains("infra/scripts/test-auth-postgres.sh");
+        }
+        assertThat(authJob).contains("backend/build/test-results/authPostgresTest/*.xml");
+        assertThat(sharingJob).contains("backend/src/main/java/**/sharing/**/*",
+            "backend/build/test-results/sharingPostgresTest/*.xml", "backend/build/test-results/collaborationPostgresTest/*.xml", "backend/src/main/java/**/collaboration/**/*");
+        assertThat(diaryJob).contains("backend/src/main/java/**/diary/**/*",
+            "backend/build/test-results/postgresMemberDiaryCreationTest/*.xml",
+            "backend/build/test-results/postgresDiaryDetailTest/*.xml",
+            "backend/build/test-results/postgresMemberDiaryHttpTest/*.xml");
+        assertThat(lifecycleJob).contains("backend/src/main/java/**/page/**/*",
+            "backend/build/test-results/postgresDiaryTrashTest/*.xml",
+            "backend/build/test-results/postgresDiaryPurgeTest/*.xml");
+
+        String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh")).replace("\r\n", "\n");
+        assertThat(script).contains("auth|sharing|diary|lifecycle|all", "trap cleanup EXIT", "--network \"container:$pg_name\"",
+            "CREATE DATABASE dio_reset_qa", "authPostgresTest --no-daemon", "CREATE DATABASE dio_sharing_qa",
+            "sharingPostgresTest collaborationPostgresTest --no-daemon", "CREATE DATABASE dio_member_ci",
+            "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "CREATE DATABASE dio_member_contract_qa",
+            "postgresMemberDiaryHttpTest --no-daemon", "CREATE DATABASE dio_trash_qa",
+            "postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon", "-e DIO_AUTH_SCHEMA_TEST=true",
+            "-e DIO_LIST_QUERY_PG=true", "-e POSTGRES_USER=postgres");
+
+        String authSuite = block(script, "if [ \"$suite\" = auth ]", "if [ \"$suite\" = sharing ]");
+        String sharingSuite = block(script, "if [ \"$suite\" = sharing ]", "if [ \"$suite\" = diary ]");
+        String diarySuite = block(script, "if [ \"$suite\" = diary ]", "if [ \"$suite\" = lifecycle ]");
+        String lifecycleSuite = script.substring(script.indexOf("if [ \"$suite\" = lifecycle ]"));
+        assertThat(occurrences(authSuite, "docker run --rm")).isEqualTo(1);
+        assertThat(authSuite).doesNotContain("-e DB_URL=");
+        assertThat(occurrences(sharingSuite, "docker run --rm")).isEqualTo(1);
+        assertThat(sharingSuite).doesNotContain("-e DB_URL=");
+        assertThat(sharingSuite).contains("-e DIO_SHARING_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_sharing_qa", "CREATE DATABASE dio_collaboration_qa", "DIO_COLLABORATION_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_collaboration_qa");
+        assertThat(occurrences(diarySuite, "docker run --rm")).isEqualTo(2);
+        assertThat(occurrences(diarySuite, "-e DB_URL=")).isEqualTo(2);
+        assertThat(diarySuite).contains("-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_ci",
+            "-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_contract_qa");
+        assertThat(occurrences(lifecycleSuite, "docker run --rm")).isEqualTo(1);
+        assertThat(occurrences(lifecycleSuite, "-e DB_URL=")).isEqualTo(1);
+        assertThat(lifecycleSuite).contains("-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_trash_qa");
     }
     @Test void ciContainerIncludesReadOnlyDeploymentInputsBesideBackend() throws Exception {
         var properties = new YamlPropertySourceLoader().load("ci",
@@ -37,10 +96,18 @@ class DeploymentAuthContractTests {
                 assertThat(properties.getProperty("services.backend.environment." + key).toString())
                     .startsWith("${" + key + ":?").endsWith("}");
             }
-            assertThat(properties.getProperty("services.backend.environment.SIGNUP_PHOTO_S3_BUCKET")).isNotNull();
-            assertThat(properties.getProperty("services.backend.environment.SIGNUP_PHOTO_S3_REGION")).isNotNull();
+            // 프로필 사진은 미디어와 같은 MEDIA_* 저장소 설정만 본다.
+            assertThat(properties.getProperty("services.backend.environment.MEDIA_S3_BUCKET"))
+                .isEqualTo("${MEDIA_S3_BUCKET:?MEDIA_S3_BUCKET is required}");
+            for (String removed : new String[]{"SIGNUP_PHOTO_STORAGE", "SIGNUP_PHOTO_S3_BUCKET", "SIGNUP_PHOTO_S3_REGION"}) {
+                assertThat(properties.getProperty("services.backend.environment." + removed)).isNull();
+            }
             assertThat(properties.getProperty("services.backend.environment.SIGNUP_PHOTO_MIGRATE_LEGACY"))
                 .isEqualTo("${SIGNUP_PHOTO_MIGRATE_LEGACY:-false}");
+            assertThat(properties.getProperty("services.backend.environment.SHARING_INVITE_SECRET"))
+                .isEqualTo("${SHARING_INVITE_SECRET:-}");
+            assertThat(properties.getProperty("services.backend.environment.SHARING_INVITE_BASE_URL"))
+                .isEqualTo("${SHARING_INVITE_BASE_URL:-/invite/}");
             String nginx = Files.readString(Path.of("../infra/nginx/" + profile + "/default.conf"));
             assertThat(nginx).contains("proxy_set_header X-Forwarded-For $remote_addr;")
                 .doesNotContain("$proxy_add_x_forwarded_for");
@@ -50,6 +117,21 @@ class DeploymentAuthContractTests {
             int validation = ci.indexOf("-f infra/compose/compose." + profile + ".yml config --quiet");
             int build = ci.indexOf("docker build --tag \"dio-backend:" + profile + "-");
             assertThat(validation).isGreaterThanOrEqualTo(0).isLessThan(build);
+            int legacyCheck = ci.indexOf("bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/" + profile + ".env");
+            assertThat(legacyCheck).isGreaterThanOrEqualTo(0).isLessThan(validation);
         }
+    }
+
+    private static String block(String source, String start, String end) {
+        int startIndex = source.indexOf(start);
+        int endIndex = source.indexOf(end, startIndex);
+        if (startIndex < 0 || endIndex < 0) throw new AssertionError("Expected CI block was not found: " + start);
+        return source.substring(startIndex, endIndex);
+    }
+
+    private static int occurrences(String source, String value) {
+        int count = 0;
+        for (int index = 0; (index = source.indexOf(value, index)) >= 0; index += value.length()) count++;
+        return count;
     }
 }

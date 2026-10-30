@@ -55,9 +55,20 @@ export const TEXT_FONTS = [
   { id: 'serif', label: '기본 명조', systemNames: { ios: 'AppleMyungjo', android: 'Noto Serif', web: '바탕' } },
   { id: 'nanum-gothic', label: '나눔고딕', family: 'NanumGothic', boldFamily: 'NanumGothicBold' },
   { id: 'nanum-myeongjo', label: '나눔명조', family: 'NanumMyeongjo', boldFamily: 'NanumMyeongjoBold' },
+  { id: 'gowun-dodum', label: '고운돋움', family: 'GowunDodum' },
+  { id: 'gowun-batang', label: '고운바탕', family: 'GowunBatang', boldFamily: 'GowunBatangBold' },
   { id: 'nanum-pen', label: '나눔손글씨 펜', family: 'NanumPenScript' },
   { id: 'poor-story', label: '푸어스토리', family: 'PoorStory' },
 ]
+let personalFonts = [], allFonts = TEXT_FONTS, fontListRevision = 0
+export const getTextFonts = () => allFonts
+export const textFontListSnapshot = () => fontListRevision
+export function registerPersonalTextFonts(fonts) {
+  personalFonts = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family)).map(f => ({ id: f.id, label: f.label, family: f.family, personal: true }))
+  allFonts = [...TEXT_FONTS, ...personalFonts]
+  fontListRevision++
+  fontListeners.forEach(listener => listener())
+}
 // 목록에서 뺀 글꼴. 저장된 글자는 기본 고딕으로 그리고 내보내기도 막지 않는다.
 // - mono(고정폭): 한글 글리프가 없어 실제로는 고딕으로 보였다.
 // - black-han-sans(검은고딕): 한글 11,172자 중 2,581자만 있어 드문 글자는 다른 글꼴로 섞여 보였다.
@@ -81,25 +92,27 @@ export function markTextFontFailed(family) {
   fontListeners.forEach(listener => listener())
 }
 export function textFontSnapshot(id) {
-  const font = TEXT_FONTS.find(f => f.id === id)
+  const font = getTextFonts().find(f => f.id === id)
   return [font?.family, font?.boldFamily].filter(Boolean).map(f => `${f}:${loadedFamilies.has(f) ? 'loaded' : failedFamilies.has(f) ? 'error' : 'loading'}`).join('|')
 }
 /** 글꼴 id → 지금 쓸 수 있는 fontFamily. 앱 글꼴이 아니거나 아직 불러오기 전이면 null */
 export function loadedFontFamily(id, bold = false) {
-  const font = TEXT_FONTS.find((font) => font.id === id)
+  const font = getTextFonts().find((font) => font.id === id)
   const family = bold && font?.boldFamily && loadedFamilies.has(font.boldFamily) ? font.boldFamily : font?.family
   return family && loadedFamilies.has(family) ? family : null
 }
 
 export function textStyleSupport(id, platform = 'android') {
-  const font = TEXT_FONTS.find(f => f.id === id)
+  if (id?.startsWith('personal-')) return { bold: false, italic: false }
+  const font = getTextFonts().find(f => f.id === id)
   if (font?.family) return { bold: Boolean(font.boldFamily), italic: false }
-  // AppleMyungjo는 단일 Regular 서체다. System은 iOS의 시스템 서식 선택을 사용한다.
+  // iOS 기본 고딕의 한글 대체 서체 Apple SD Gothic Neo에는 italic face가 없다.
+  if (platform === 'ios' && id === 'sans') return { bold: true, italic: false }
   return platform === 'ios' && id === 'serif' ? { bold: false, italic: false } : { bold: true, italic: true }
 }
 
 export function textStyleReady(id, style) {
-  const font = TEXT_FONTS.find(f => f.id === id)
+  const font = getTextFonts().find(f => f.id === id)
   return !font?.family || (loadedFamilies.has(font.family) && (style !== 'bold' || !font.boldFamily || loadedFamilies.has(font.boldFamily)))
 }
 
@@ -123,7 +136,9 @@ export function textStyle(object, scale = 1, platform = 'android') {
   const support = textStyleSupport(s.font, platform)
   const family = loadedFontFamily(s.font, s.bold && support.bold)
   // 등록한 단일 face를 직접 선택한다. 파일에 없는 weight/style을 다시 요청하지 않는다.
-  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: s.fontSize * scale, lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && support.italic ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
+  // 기존 iOS 기본 고딕 문서는 영문 기울임이 표시됐을 수 있어 렌더링을 보존한다.
+  const legacySystemItalic = platform === 'ios' && s.font === 'sans' && s.italic
+  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: s.fontSize * scale, lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && (support.italic || legacySystemItalic) ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
 }
 
 export function textFormatPatch(object, settings) {

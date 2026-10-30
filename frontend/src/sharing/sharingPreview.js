@@ -1,6 +1,6 @@
 import { createMockNotificationTransport } from '../notifications/mockNotificationTransport.js';
 import { createNotificationApi } from '../notifications/notificationApi.js';
-import { createSessionDocuments } from '../editor/services/sessionDocuments.js';
+import { createSessionDocuments, readSessionDocument, writeSessionDocument } from '../editor/services/sessionDocuments.js';
 
 export class SharingError extends Error {
   constructor(code, message) {
@@ -9,17 +9,33 @@ export class SharingError extends Error {
   }
 }
 export const normalizeSharingNickname = (value) => value.trim().normalize('NFKC');
+export const MAX_SHARING_MEMBERS = 4;
+export const COPY_TITLE_LIMIT = 24;
+// TextInput.maxLength와 같은 UTF-16 코드 단위 제한을 사용한다.
+export const copyTitleError = value => !value.trim() ? '사본 이름을 입력해 주세요.'
+  : value.trim().length > COPY_TITLE_LIMIT ? '이름은 24자 이내로 입력해 주세요.' : '';
+export const defaultCopyTitle = title => {
+  // 잘린 끝의 high surrogate를 제거해 이모지의 서로게이트 쌍을 나누지 않는다.
+  const prefix = title.slice(0, COPY_TITLE_LIMIT - 3).replace(/[\uD800-\uDBFF]$/, '');
+  return `${prefix} 사본`;
+};
+export const normalizeInviteEmail = (value) => value.trim().toLowerCase();
+export const inviteEmailError = (value) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeInviteEmail(value)) && value.trim().length <= 254
+    ? '' : '이메일 주소를 확인해 주세요.';
 export const sharingNicknameError = (value) =>
   /^[가-힣a-zA-Z0-9_]{2,12}$/.test(normalizeSharingNickname(value))
     ? ''
     : '한글·영문·숫자·밑줄로 2~12자를 입력해 주세요.';
 const copy = (value) => JSON.parse(JSON.stringify(value));
+const emptySharingTemplate = { version: 2, dateMode: 'dated', orientation: 'landscape', cover: false,
+  dividers: false, monthly: false, weekly: false, daily: false, dailyTemplates: [], reusable: [], legacyEndPages: [] };
 const fail = (code, message) => {
   throw new SharingError(code, message);
 };
 
 // 224 화면 검증용 메모리 서비스. 기존 알림 목 서버를 재사용하며 실제 링크/초대/권한을 만들지 않는다.
-export function createSharingPreview({ user = {}, delay = 250 } = {}) {
+export function createSharingPreview({ user = {}, delay = 250, now = Date.now } = {}) {
   const self = { id: 'self', nickname: user.nickname || '방문자', photoUri: user.photoUri || null };
   const notifications = createMockNotificationTransport({
     account: 'sharing',
@@ -28,9 +44,12 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
   });
   const documents = createSessionDocuments();
   const diaries = new Map();
+  const personalCopies = new Map();
   const invites = new Map();
+  const linkAttempts = new Map();
   const listeners = new Set();
   let active = true;
+  let copyGeneration = 0;
   let serial = 0;
   let snapshot = { joined: [], diaries: [], library: [] };
   const publish = () => {
@@ -38,7 +57,7 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
       value.members.some((member) => member.id === self.id && member.role !== 'OWNER'),
     );
     snapshot = {
-      library: joined.map((value) => {
+      library: [...joined.filter(value => !value.localSource).map((value) => {
         const key = documents.key(value.id);
         return {
           id: key,
@@ -54,21 +73,9 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
           updatedAt: value.joinedAt,
           templateConfig: value.templateConfig
             ? copy(value.templateConfig)
-            : {
-                version: 2,
-                dateMode: 'dated',
-                orientation: 'landscape',
-                cover: false,
-                dividers: false,
-                monthly: false,
-                weekly: false,
-                daily: false,
-                dailyTemplates: [],
-                reusable: [],
-                legacyEndPages: [],
-              },
+            : copy(emptySharingTemplate),
         };
-      }),
+      }), ...copy([...personalCopies.values()])],
       diaries: copy([...diaries.values()]),
       joined: copy(
         [...diaries.values()].filter((value) =>
@@ -128,7 +135,9 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
     if (!active) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const value = invites.get(id);
     if (!value) fail('NOT_FOUND', '초대를 찾을 수 없어요.');
-    return copy({ ...value, status: current.status });
+    const diary = diaries.get(value.diary.diaryId);
+    return copy({ ...value, status: current.status, memberCount: diary?.members.length || 0,
+      full: (diary?.members.length || 0) >= MAX_SHARING_MEMBERS });
   };
   const pending = async (id) => {
     const invite = await detail(id);
@@ -139,14 +148,6 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
   const validateNickname = (diary, nickname) => {
     const error = sharingNicknameError(nickname);
     if (error) fail('INVALID_NICKNAME', error);
-    const normalized = normalizeSharingNickname(nickname).toLowerCase();
-    if (
-      diary.members.some(
-        (value) => value.id !== self.id && value.nickname.toLowerCase() === normalized,
-      )
-    ) {
-      fail('DUPLICATE_NICKNAME', '이미 사용 중인 닉네임이에요.');
-    }
   };
   const transport = async (request) => {
     const result = await notifications.transport(request);
@@ -205,7 +206,9 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
     },
     dispose() {
       active = false;
+      copyGeneration++;
       documents.dispose();
+      personalCopies.clear();
     },
     // 이미 존재하는 로컬 다이어리는 소유자용 공유 UI에만 등록한다. 원본 객체와 저장소를 변경하지 않는다.
     registerDiary(source) {
@@ -219,6 +222,7 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
       if (!diaries.has(source.id))
         diaries.set(source.id, {
           id: source.id,
+          localSource: true,
           color: '#9DABD8',
           pattern: 'linen',
           ...metadata,
@@ -233,10 +237,31 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
       return copy(own(source.id));
     },
     toggleFavorite(id) {
-      const diary = own(id);
+      const diary = personalCopies.get(id) || own(id);
       diary.favorite = !diary.favorite;
       publish();
       return copy(diary);
+    },
+    async createPersonalCopy(id, title) {
+      const generation = copyGeneration;
+      await wait();
+      if (generation !== copyGeneration) fail('DISPOSED', '화면을 다시 열어 주세요.');
+      const source = own(id);
+      if (source.localSource) fail('UNAVAILABLE', '공유 다이어리에서 사본을 만들어 주세요.');
+      const error = copyTitleError(title);
+      if (error) fail('INVALID_TITLE', error);
+      const copyId = `personal-copy-${++serial}`;
+      const key = documents.key(copyId);
+      const time = new Date(now()).toISOString();
+      const result = { id: key, sessionStorageKey: key, title: title.trim(),
+        color: source.color, pattern: source.pattern, type: '개인',
+        canManage: false, canDelete: false, favorite: false, createdAt: time, updatedAt: time,
+        templateConfig: copy(source.templateConfig || emptySharingTemplate) };
+      const doc = readSessionDocument(documents.key(id));
+      if (doc && !writeSessionDocument(key, copy(doc))) fail('COPY_FAILED', '사본을 만들지 못했어요. 다시 시도해 주세요.');
+      personalCopies.set(key, result);
+      publish();
+      return copy(result);
     },
     async resolveLink(value) {
       const match = /^https:\/\/dio\.example\/invite\/([^/?#]+)\/?$/.exec(value.trim());
@@ -257,8 +282,41 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
     },
     async createLink(id) {
       await wait();
-      const diary = owner(id);
+      const diary = own(id);
+      if (diary.members.length >= MAX_SHARING_MEMBERS)
+        fail('DIARY_FULL', '소유자 포함 최대 4명까지 함께할 수 있어요.');
+      const time = now();
+      const attempts = (linkAttempts.get(id) || []).filter(value => time - value < 5 * 60 * 1000);
+      if (attempts.length >= 3)
+        fail('INVITE_RATE_LIMITED', '링크는 5분에 3번까지 만들 수 있어요. 잠시 후 다시 시도해 주세요.');
+      linkAttempts.set(id, [...attempts, time]);
       diary.link = `https://dio.example/invite/preview-${++serial}`;
+      diary.linkExpiresAt = new Date(time + 60 * 60 * 1000).toISOString();
+      publish();
+      return copy(diary);
+    },
+    async sendEmailInvite(id, email) {
+      await wait();
+      const diary = owner(id);
+      if (inviteEmailError(email)) fail('INVALID_EMAIL', inviteEmailError(email));
+      if (diary.members.length >= MAX_SHARING_MEMBERS)
+        fail('DIARY_FULL', '소유자 포함 최대 4명까지 함께할 수 있어요.');
+      const normalized = normalizeInviteEmail(email);
+      diary.emailInvites ||= [];
+      // 화면 확인용 기록이다. 가입 여부를 조회하거나 실제 메일·알림을 만들지 않는다.
+      if (!diary.emailInvites.some(row => row.email === normalized && row.status === 'PENDING'))
+        diary.emailInvites.unshift({ id: `email-${++serial}`, email: normalized, status: 'PENDING' });
+      publish();
+      return copy(diary);
+    },
+    async cancelEmailInvite(id, inviteId) {
+      await wait();
+      const diary = owner(id);
+      const invite = diary.emailInvites?.find(row => row.id === inviteId);
+      if (!invite) fail('NOT_FOUND', '초대를 찾을 수 없어요.');
+      if (invite.status !== 'PENDING' && invite.status !== 'CANCELLED')
+        fail('UNAVAILABLE', '이미 처리된 초대예요.');
+      invite.status = 'CANCELLED';
       publish();
       return copy(diary);
     },
@@ -299,6 +357,20 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
       const target = diary.members.find((value) => value.id === memberId);
       if (!target || target.role === 'OWNER') fail('FORBIDDEN', '소유자는 참여 해제할 수 없어요.');
       diary.members = diary.members.filter((value) => value.id !== memberId);
+      diary.link = null;
+      delete diary.linkExpiresAt;
+      publish();
+      return copy(diary);
+    },
+    async transferOwner(id, memberId) {
+      await wait();
+      const diary = owner(id);
+      const target = diary.members.find(value => value.id === memberId);
+      if (!target || target.id === self.id || target.role !== 'EDITOR')
+        fail('INVALID_MEMBER', '소유권을 받을 참여자를 다시 선택해 주세요.');
+      member(diary).role = 'EDITOR';
+      target.role = 'OWNER';
+      diary.joinedAt ||= new Date().toISOString();
       publish();
       return copy(diary);
     },
@@ -319,6 +391,8 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
       validateNickname(diary, nickname);
       assertActive();
       if (member(diary)) fail('ALREADY_JOINED', '이미 참여 중인 다이어리예요.');
+      if (diary.members.length >= MAX_SHARING_MEMBERS)
+        fail('DIARY_FULL', '참여 인원이 가득 찼어요. 초대한 사람에게 문의해 주세요.');
       diary.members.push({
         ...self,
         nickname: normalizeSharingNickname(nickname),
@@ -347,6 +421,21 @@ export function createSharingPreview({ user = {}, delay = 250 } = {}) {
       publish();
     },
     // 회귀 테스트에서 최종 상태 변경을 주입하는 경계. 제품 화면에는 노출하지 않는다.
-    preview: notifications,
+    preview: {
+      ...notifications,
+      receiveInvitation({ title = '새로운 다이어리', inviter = '하루', members = [
+        { id: 'host', nickname: inviter, role: 'OWNER', presence: '편집 중' },
+      ] } = {}) {
+        assertActive();
+        notifications.add('PENDING');
+        const incoming = notifications.inspect().invitations.at(-1);
+        const diary = { id: incoming.diary.diaryId, title, color: '#9DABD8', pattern: 'linen',
+          members: copy(members), link: null, allowExport: true };
+        diaries.set(diary.id, diary);
+        invites.set(incoming.inviteId, { ...incoming, diary: { ...diary, diaryId: diary.id }, inviter });
+        publish();
+        return incoming.inviteId;
+      },
+    },
   };
 }

@@ -39,7 +39,7 @@ export default function EffectOptions({ objects, dispatch }) {
             minusLabel="윤곽선 얇게"
             plusLabel="윤곽선 두껍게"
             label="윤곽선 두께"
-            onStart={checkpoint}
+            onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
             onChange={(value) => {
               const width = Math.round(value)
               apply(outlineTargets, width ? { outline: true, outlineWidth: width } : { outline: false }, false)
@@ -49,7 +49,7 @@ export default function EffectOptions({ objects, dispatch }) {
             <ColorField
               label="윤곽선 색"
               value={outline.color}
-              onStart={checkpoint}
+              onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
               onChange={(value) => apply(outlineTargets, { outlineColor: value }, false)}
             />
           )}
@@ -66,7 +66,7 @@ export default function EffectOptions({ objects, dispatch }) {
             minusLabel="그림자 작게"
             plusLabel="그림자 크게"
             label="그림자 크기"
-            onStart={checkpoint}
+            onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
             onChange={(value) => {
               const size = Math.round(value)
               apply(shadowTargets, size ? { shadow: true, shadowSpread: size } : { shadow: false }, false)
@@ -137,7 +137,7 @@ export default function EffectOptions({ objects, dispatch }) {
                 minusLabel="그림자 가깝게"
                 plusLabel="그림자 멀게"
                 label="그림자 거리"
-                onStart={checkpoint}
+                onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => apply(shadowTargets, { shadowDistance: Math.round(value), shadowX: undefined, shadowY: undefined }, false)}
               />
               <Label text="흐림" />
@@ -149,7 +149,7 @@ export default function EffectOptions({ objects, dispatch }) {
                 minusLabel="그림자 선명하게"
                 plusLabel="그림자 흐리게"
                 label="그림자 흐림"
-                onStart={checkpoint}
+                onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => apply(shadowTargets, { shadowBlur: Math.round(value) }, false)}
               />
               <Label text="불투명도" />
@@ -163,13 +163,13 @@ export default function EffectOptions({ objects, dispatch }) {
                 scale={100}
                 unit="%"
                 label="그림자 불투명도"
-                onStart={checkpoint}
+                onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => apply(shadowTargets, { shadowOpacity: Math.round(value * 100) / 100 }, false)}
               />
               <ColorField
                 label="그림자 색"
                 value={shadow.color}
-                onStart={checkpoint}
+                onStart={checkpoint} onEnd={() => dispatch({type:'commitCheckpoint'})}
                 onChange={(value) => apply(shadowTargets, { shadowColor: value }, false)}
               />
             </>

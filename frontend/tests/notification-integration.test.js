@@ -16,6 +16,8 @@ async function fixture(t) {
     state.requests.push({ path: url.pathname, query: url.search, method: req.method, body });
     const send = (value, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json', Connection: 'close' }); res.end(status === 204 ? undefined : JSON.stringify(value)); };
     const loseOrSend = kind => { if (state.lose === kind) { state.lose = null; req.socket.destroy(); } else send(null, 204); };
+    if (url.pathname.endsWith('/read-watermarks')) { state.snapshot = state.rows.filter(row => !row.deleted && !row.readAt).map(row => row.notificationId); return send({ readWatermark: 'snapshot', expiresAt: '2030-01-01T00:00:00Z' }, 201); }
+    if (url.pathname.endsWith('/read-all')) { assert.equal(body.readWatermark, 'snapshot'); state.rows.filter(row => state.snapshot.includes(row.notificationId)).forEach(row => { row.readAt ||= '2026-10-27T00:01:00Z'; }); return loseOrSend('readAll'); }
     if (url.pathname.endsWith('/unread-count')) return send({ unreadCount: state.rows.filter(row => !row.readAt && !row.deleted).length }, state.countError ? 503 : 200);
     if (url.pathname === '/api/v1/notifications') {
       const rows = state.rows.filter(row => !row.deleted), start = Number(url.searchParams.get('cursor') || 0);
@@ -41,17 +43,15 @@ async function until(predicate) {
   while (!predicate()) { if (Date.now() > deadline) throw new Error('통합 검증 대기 시간 초과'); await new Promise(resolve => setTimeout(resolve, 5)); }
 }
 
-test('251: 서버 전체 읽음은 직접 호출·재시도·새 알림 도착에도 HTTP 요청을 만들지 않는다', async t => {
+test('서버 전체 읽음 응답 유실 후 재시도는 새 도착 알림을 보존한다', async t => {
   const { state, store } = await fixture(t); await store.refresh();
-  assert.equal(store.getSnapshot().canReadAll, false);
-  const before = state.requests.length;
-  await store.readAll(); state.add(); await store.retryMutation(); await store.readAll();
-  assert.equal(state.requests.length, before);
-  assert.ok(state.rows.every(row => row.readAt === null));
-  assert.equal(store.getSnapshot().mutation.status, 'idle');
+  assert.equal(store.getSnapshot().canReadAll, true);
+  state.lose = 'readAll'; await store.readAll(); state.add(); await store.retryMutation();
+  assert.equal(store.getSnapshot().mutation.status, 'success');
   await store.refresh();
-  assert.equal(store.getSnapshot().count.data.unreadCount, 4);
-  assert.ok(state.requests.every(row => !/read-watermarks|read-all/.test(row.path)));
+  assert.equal(store.getSnapshot().count.data.unreadCount, 1);
+  assert.equal(state.requests.filter(row => row.path.endsWith('/read-watermarks')).length, 1);
+  assert.equal(state.requests.filter(row => row.path.endsWith('/read-all')).length, 2);
 });
 
 test('251: HTTP 페이지 조회 후 오류·잘못된 DTO에서 이전 목록과 카운트 보존·복구', async t => {

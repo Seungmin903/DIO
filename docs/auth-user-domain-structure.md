@@ -35,7 +35,6 @@
 | SignupController | POST /api/v1/auth/signup (JSON·multipart) |
 | EmailVerificationController | POST /api/v1/auth/email-verifications, POST /api/v1/auth/email-verifications/verify |
 | LoginController | POST /api/v1/auth/login, /refresh, /logout |
-| UserController | POST /api/v1/auth/email-availability, /nickname-availability; GET /api/v1/auth/profile-photos/{photoId} |
 
 내 정보 조회·수정 등 새로운 API는 이 구조 변경에서 추가하지 않는다. 기존 닉네임 정책도 변경하지 않는다.
 
@@ -56,3 +55,7 @@ backend 폴더에서 `./gradlew.bat test`로 회귀 테스트를 실행한다. [
 - 프론트 test:auth: 29개 통과.
 - 변경 파일 비밀키 검사 및 git diff --check 통과.
 - 이번 작업에서는 Expo Go 실기기 수동 검증을 추가로 수행하지 않았다.
+
+닉네임은 표시 이름으로 중복을 허용한다. 중복 확인 API·버튼·선행 확인 조건은 제거하며 trim/NFKC 정규화와 한글·영문·숫자·밑줄 2~12자 검증은 유지한다. 이메일 중복 검사는 유지한다. V20은 기존 nickname_key 컬럼과 회원 데이터를 보존하고 users_nickname_key_unique 제약만 해제한다. 기존 V2는 변경하지 않는다.
+
+UserController는 POST `/api/v1/auth/email-availability`와 GET `/api/v1/auth/profile-photos/{photoId}`를 유지한다.

@@ -6,7 +6,8 @@ import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-@RestControllerAdvice(assignableTypes = LoginController.class)
+@RestControllerAdvice(assignableTypes = {LoginController.class, com.f106.DIO.auth.controller.PasswordChangeController.class,
+    com.f106.DIO.auth.controller.MyProfileController.class})
 public class LoginExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(LoginException.class)
     public ResponseEntity<ProblemDetail> login(LoginException error) {

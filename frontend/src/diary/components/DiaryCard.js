@@ -17,7 +17,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
     : Number.isSafeInteger(count) && count >= 0 ? `${count}페이지` : '페이지 수 확인 불가';
   const card = (
     <Pressable
-      disabled={selecting && diary.canManage === false}
+      disabled={selecting && (diary.canManage === false || diary.canDelete === false)}
       accessibilityRole={selecting ? 'checkbox' : 'button'}
       accessibilityLabel={selecting ? `${diary.title} 선택` : `${diary.title} 열기`}
       accessibilityHint={`${isSharedDiary(diary) ? '공유 다이어리, ' : ''}${countLabel}`}
@@ -38,7 +38,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
       <View style={s.cardCoverWrap}>
         {/* 펜 · 별 버튼과 선택 표시는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
         <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact}>
-        {selecting && diary.canManage !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
+        {selecting && diary.canManage !== false && diary.canDelete !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
           <Text style={s.cardCheckMark}>{selected ? '✓' : ''}</Text>
         </View>}
         {!selecting && (layout !== 'carousel' || carouselActive) && <View style={s.cardActions}>
@@ -77,7 +77,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
             <Text testID={`diary-page-count-${diary.id}`} style={s.cardPageCount}>{countLabel}</Text>
           </View>
           {/* 스와이프 화면의 옆 카드는 넘기려고 누르는 자리라 가운데 카드에만 둔다. */}
-          {!selecting && diary.canManage !== false && (layout !== 'carousel' || carouselActive) && <Pressable
+          {!selecting && diary.canManage !== false && diary.canDelete !== false && (layout !== 'carousel' || carouselActive) && <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${diary.title} 휴지통으로 이동`}
             disabled={!onDelete}

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Icon from '../controls/Icon'
 import { colors, DISABLED_OPACITY } from '../../../shared/theme'
@@ -59,6 +59,8 @@ const MIN_TARGET_PX = 44
  * - 자르기 중인 사진은 드래그하면 보이는 영역이 움직인다.
  */
 export default function Canvas({
+  textCommitRef,
+  onReadingLinkStart,
   showBackground = true,
   compact = false,
   compactMenu = null,
@@ -81,6 +83,7 @@ export default function Canvas({
   straightAssist = true,
   eraserSize,
   eraserMode = 'stroke',
+  eraserTarget = 'all',
   lassoShape = 'rectangle',
   lassoMode = 'replace',
   onLassoCommit,
@@ -228,6 +231,7 @@ export default function Canvas({
   }
   const endLassoMove = cancelled => {
     if (cancelled && lassoMove.current?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
+    else if(lassoMove.current?.checkpointed) dispatch({type:'commitCheckpoint'})
     lassoMove.current = null
     setInteracting(false)
     setDraggingIds(null)
@@ -321,6 +325,9 @@ export default function Canvas({
     <GridOverlay guides={gridGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
     <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
   </> : null
+  // 선택 바는 작업창 좌표(contextBarFrame)가 있을 때만 작업창 위 층으로 보낸다.
+  // 작업창 크기를 재기 전(null)에는 페이지 좌표 그대로 페이지 안에 그린다. 작업창 층에 보내면 확대·이동한 만큼 어긋난다.
+  const SelectionBarLayer = contextBarFrame ? StageOverlay : Fragment
 
   return (
     <View
@@ -337,8 +344,8 @@ export default function Canvas({
       <View style={styles.clip} pointerEvents="none">
         <StaticPage deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting ? null : fitTextHeight} cacheStrokes={!readOnly && (activeTool === 'pen' || activeTool === 'highlighter' || (Platform.OS === 'web' && activeTool === 'eraser'))} />
       </View>
-      {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
-      {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} />}
+      {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
+      {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
       {!readOnly && linkBadges && <LinkBadges objects={page.objects} zoom={zoom} selectedIds={selectedIds} onSelect={(id) => dispatch({ type: 'select', ids: [id] })} />}
       {!readOnly && activeTool === 'lasso' && !textEditing && (
         <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
@@ -390,7 +397,7 @@ export default function Canvas({
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
-        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}`} objects={page.objects} diameter={eraserSize} mode={eraserMode} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
+        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
       </View>}
       </PalmRejectionArea>
       {/* 창을 닫으려고 누른 터치는 여기서 삼키고 창만 닫는다. 펜·형광펜에 점이 찍히던 문제 */}
@@ -398,8 +405,8 @@ export default function Canvas({
         <View style={StyleSheet.absoluteFill} onStartShouldSetResponder={() => true} {...inputBlocker} accessibilityElementsHidden />
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={createText} />}
-      {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
-      {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
+      {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor commitRef={textCommitRef} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
+      {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor commitRef={textCommitRef} onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
 
       {/* 사진 틀의 빈 자리 + (선택 도구에서만) */}
       {canSelect && !cropping && !interacting && !marquee && onFillSlot && (
@@ -491,7 +498,7 @@ export default function Canvas({
       )}
 
       {canTouch && selected.length > 0 && !cropping && !interacting && !marquee && (
-        <StageOverlay>
+        <SelectionBarLayer>
         <View pointerEvents="box-none" style={contextBarFrame ? StyleSheet.absoluteFill : styles.selectionMenu}>
         <ContextBar
           compact={compact}
@@ -524,7 +531,7 @@ export default function Canvas({
           frame={contextBarFrame}
         />
         </View>
-        </StageOverlay>
+        </SelectionBarLayer>
       )}
     </View>
   )
@@ -791,6 +798,7 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
         if (g?.checkpointed) dispatch({ type: 'revertToCheckpoint' })
         return
       }
+      if(g?.checkpointed) dispatch({type:'commitCheckpoint'})
       // 움직이지 않고 길게 누르면 누르기 전 선택에 이 요소를 넣거나 뺀다.
       if (g?.mode === 'move' && !moved && duration >= LONG_PRESS_MS) {
         dispatch({ type: 'select', ids: g.previousSelection })

@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWi
 import Modal from '../../editor/components/controls/EditorModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from '../constants';
+import { TOOL_CONTENT_GAP, toolMaxHeight } from '../../devtools/layout';
 import LibraryScreen from './LibraryScreen';
 import DiaryMutationPanel from './DiaryMutationPanel';
 import { useDiaryQuery } from '../hooks/useDiaryQuery';
@@ -22,7 +23,7 @@ function RequestState({ request, retryLabel }) {
 // 실 서버 연결 시 transport만 교체하고 인증 사용자별로 이 컴포넌트를 key로 분리한다.
 export default function ConnectedDiaryLibrary() {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const mock = useMemo(() => createMockDiaryTransport(), []);
   const api = useMemo(() => createDiaryApi(mock.transport), [mock]);
   const list = useDiaryQuery(api.list);
@@ -32,6 +33,8 @@ export default function ConnectedDiaryLibrary() {
   const [sort, setSort] = useState('updated');
   const [view, setView] = useState('grid');
   const [carousel, setCarousel] = useState(0);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [toolsMounted, setToolsMounted] = useState(false);
   const [scenario, setScenario] = useState('success');
   useEffect(() => { list.run(); }, [list.run]);
   const metadata = useMemo(() => Object.fromEntries((list.data?.items || []).map(row => [row.id, { pageCount: row.pageCount }])), [list.data]);
@@ -40,12 +43,16 @@ export default function ConnectedDiaryLibrary() {
   const selectScenario = value => { mock.setScenario(value); setScenario(value); close(); list.reset(); list.run(); };
   return <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
     <View style={styles.panel}>
-      <Text style={styles.text}>API 연결 검증 · 목 응답 · 샘플 데이터</Text>
+      <Text accessibilityRole="header" style={styles.title}>개발·테스트 화면 / API 응답 검증</Text>
+      <Text style={styles.text}>샘플 데이터 · 실제 서버에 연결하지 않아요.</Text>
+      <Button label={toolsOpen ? "테스트 도구 닫기" : "테스트 도구 열기"} onPress={() => { setToolsMounted(true); setToolsOpen(value => !value); }} />
+      {toolsMounted && <ScrollView testID="api-mock-controls" style={[{ maxHeight: toolMaxHeight(height) }, !toolsOpen && styles.hidden]} contentContainerStyle={styles.toolsContent}>
       <DiaryMutationPanel api={api} mock={mock} diaries={list.data?.items || []} onChanged={list.run} />
       <ScrollView horizontal contentContainerStyle={styles.row}>
         {[['success', '정상'], ['fail-once', '한 번 실패'], ['error', '계속 실패'], ['empty', '빈 목록'], ['not-found', '상세 없음']].map(([value, label]) => <Button key={value} label={`${scenario === value ? '✓ ' : ''}${label}`} onPress={() => selectScenario(value)} />)}
         <Button label="목록 새로고침" onPress={() => list.run()} />
       </ScrollView>
+      </ScrollView>}
       <RequestState request={list} retryLabel="목록 다시 시도" />
     </View>
     {list.data && <LibraryScreen compact={width < 700} diaries={list.data.items} metadata={metadata} sort={sort} onSortChange={setSort} filter={filter} view={view} carousel={carousel} onFilterChange={setFilter} onViewChange={setView} onCarouselChange={setCarousel} onOpen={open} />}
@@ -54,12 +61,14 @@ export default function ConnectedDiaryLibrary() {
         <Button label="상세 닫기" onPress={close} />
         <Text style={styles.title}>다이어리 상세</Text>
         <RequestState request={detail} retryLabel="상세 다시 시도" />
-        {detail.data && <View style={styles.panel}><Text style={styles.title}>{detail.data.title}</Text><Text style={styles.text}>{detail.data.type} · {detail.data.pageCount}페이지</Text><Text style={styles.text}>편집 연결은 페이지 API 계약 확정 후 제공해요.</Text></View>}
+        {detail.data && <View style={styles.panel}><Text style={styles.title}>{detail.data.title}</Text><Text style={styles.text}>{detail.data.type} · {detail.data.pageCount}페이지</Text><Text style={styles.text}>이 테스트 화면은 상세 조회까지만 확인해요. 실제 편집기는 일반 앱에서 열어 주세요.</Text></View>}
       </ScrollView>
     </Modal>
   </View>;
 }
 const styles = StyleSheet.create({
+  hidden: { display: 'none' },
+  toolsContent: { gap: TOOL_CONTENT_GAP },
   root: { flex: 1, backgroundColor: C.canvas },
   panel: { padding: 20, gap: 12, backgroundColor: C.white },
   row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },

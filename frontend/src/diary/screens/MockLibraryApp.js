@@ -6,6 +6,7 @@ import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import { fitTabletFrame } from '../../shared/layout';
 import { useFormFactor } from '../../shared/useFormFactor';
 import { C } from '../constants';
+import { toolMaxHeight } from '../../devtools/layout';
 import { styles as shell } from '../styles';
 import SideRail, { RAIL_WIDTH } from '../components/SideRail';
 import BottomTabs from '../components/BottomTabs';
@@ -204,19 +205,22 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
     remoteQuery={{ query: options.query, searchOpen, onQueryChange: query => change({ query }), onSearchOpenChange: value => { reader.close(); setSearchOpen(value); } }}
     requestNotice={notice} hasMore={Boolean(list.data?.hasNext)} suppressEmpty={list.status !== 'success'} historyKey={`dio:qa:mock-library:search:${account}`} />;
   const content = <View style={shell.workspace}>
+    <View style={s.notice}><Text style={s.text}>샘플 데이터 · 실제 서버에 연결하지 않아요. 아래는 서비스 화면을 사용하는 테스트 영역이에요.</Text></View>
     <View style={s.banner}>
-      <Text style={s.text}>{`목 보관함 · 샘플 계정 ${account}`}</Text>
+      <Text style={s.text}>{`개발·테스트 화면 / 보관함 · 샘플 계정 ${account}`}</Text>
       <Button label="알림 연결 검증" onPress={onOpenNotifications} />
       <Button label="목록 새로고침" onPress={page === 'trash' ? () => trash.run() : reader.refresh} disabled={removalBusy} />
       <Button label={controlsOpen ? '목 응답 설정 닫기' : '목 응답 설정'} onPress={() => setControlsOpen(value => !value)} />
     </View>
-    {controlsOpen && <View style={s.notice}>
+    {controlsOpen && <ScrollView testID="library-mock-controls" style={[s.controls, { maxHeight: toolMaxHeight(height) }]} contentContainerStyle={s.notice}>
+      <Text accessibilityRole="header" style={s.text}>조회 응답 · 샘플 계정</Text>
       <ScrollView horizontal contentContainerStyle={s.row}>
         {[['success', '정상'], ['fail-once', '한 번 실패'], ['error', '계속 실패'], ['empty', '빈 목록'], ['not-found', '상세 없음']].map(([value, label]) =>
           <Button key={value} label={`${scenario === value ? '✓ ' : ''}${label}`} disabled={removalBusy} onPress={() => { mock.setScenario(value); setScenario(value); reader.close(); reader.refresh(); if (page === 'trash') trash.run(); }} />)}
         <Button label="샘플 계정 변경" disabled={removalBusy} onPress={onSwitchAccount} />
       </ScrollView>
       <Text style={s.text}>목 데이터로 조회·생성·수정·휴지통·영구 삭제를 확인해요. 실제 서버에는 연결하지 않았어요.</Text>
+      <Text accessibilityRole="header" style={s.text}>목록 더 보기</Text>
       <ScrollView horizontal contentContainerStyle={s.row}>
         <Button label={pagination ? '페이지 나누기 끄기' : '페이지 나누기 켜기'} disabled={removalLocked} onPress={() => {
           mock.setPagination(!pagination); setPagination(!pagination); reader.close(); reader.refresh();
@@ -226,6 +230,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
         <Button label="더 보기 커서 무효화" disabled={removalLocked || !list.data?.hasNext} onPress={mock.invalidateCursors} />
       </ScrollView>
       {pagination && <Text style={s.text}>활성 보관함을 두 개씩 조회해요. 샘플 네 개가 추가되며 끄면 추가 샘플도 한 번에 표시해요. 새로 열면 초기화돼요.</Text>}
+      <Text accessibilityRole="header" style={s.text}>이동·복원·삭제 응답</Text>
       <ScrollView horizontal contentContainerStyle={s.row}>
         {[['success', '이동·복원 정상'], ['fail-once', '이동·복원 한 번 실패'], ['partial', '일괄 부분 실패'], ['forbidden', '이동·복원 권한 없음'], ['response-lost', '이동·복원 응답 유실'], ['expired', '복원 기한 만료']].map(([value, label]) =>
           <Button key={value} label={label} selected={writeMode === value} disabled={removalBusy} onPress={() => { mock.setWriteScenario(value); setWriteMode(value); }} />)}
@@ -243,7 +248,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
         {cleanup.status === 'success' && <Text style={s.text}>목 서버 만료 정리를 완료했어요. 목록 조회 상태도 확인해 주세요.</Text>}
         {cleanup.error && <><Text accessibilityLiveRegion="polite" style={s.text}>{cleanup.error}</Text><Button label="목 만료 정리 다시 시도" disabled={removalLocked} onPress={runMockCleanup} /></>}
       </View>}
-    </View>}
+    </ScrollView>}
     {!!createdMessage && <Text accessibilityLiveRegion="polite" style={s.notice}>{createdMessage}</Text>}
     {removal.status !== 'idle' && <View accessibilityLiveRegion="polite" style={s.notice}>
       {removalBusy ? <Text style={s.text}>처리 중이에요. 잠시 기다려 주세요.</Text> : <>
@@ -327,13 +332,14 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
         <Text style={s.title}>다이어리 상세</Text>
         <Notice state={detail} retry={reader.retryDetail} detail />
         {detail.data && <><Text style={s.title}>{detail.data.title}</Text><Text style={s.text}>{detail.data.type} · {detail.data.pageCount}페이지</Text>
-          <Text style={s.text}>편집 연결은 페이지 API 계약 확정 후 제공해요.</Text></>}
+          <Text style={s.text}>이 테스트 화면은 상세 조회까지만 확인해요. 실제 편집기는 일반 앱에서 열어 주세요.</Text></>}
       </ScrollView>
     </Modal>
   </View>;
 }
 
 const s = StyleSheet.create({
+  controls: { flexGrow: 0 },
   banner: { padding: 12, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, backgroundColor: C.white },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   notice: { gap: 8, padding: 12, backgroundColor: C.white },

@@ -14,7 +14,7 @@ const cancelFrame = (id) => { if (id && typeof cancelAnimationFrame === 'functio
  * 스터디 플래너 페이지: planner(지금 기록) · onPlannerErase(기록, 구간 점들) → 지운 결과(바뀐 것이 없으면 null).
  * 지나가는 구간마다 바로 지워 onPlannerPreview(기록)로 보여 주고, 손을 떼면 획 지우기와 한 번의 되돌리기로 묶어 확정한다.
  */
-export default function EraserInput({ objects, zoom, dispatch, onPreview, diameter = ERASER_RADIUS * 2, mode = 'stroke', planner, onPlannerErase, onPlannerPreview }) {
+export default function EraserInput({ objects, zoom, dispatch, onPreview, diameter = ERASER_RADIUS * 2, mode = 'stroke', target = 'all', planner, onPlannerErase, onPlannerPreview }) {
   const gesture = useRef(null)
   const frame = useRef(null)
   const pending = useRef(null)
@@ -60,7 +60,7 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, diamet
   useEffect(() => () => { gesture.current?.measurement?.end({ cancelled: true, reason: 'unmount' }); gesture.current?.session.finish(true); reset() }, [])
   const erasePlanner = points => {
     const g = gesture.current
-    if (!g || !onPlannerErase) return
+    if (!g || !onPlannerErase || target !== 'all') return
     const next = onPlannerErase(g.planner, points)
     if (next) { g.planner = next; g.plannerShown = false }
   }
@@ -72,7 +72,7 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, diamet
       const start = { x: event.locationX / zoom, y: event.locationY / zoom }
       const measurement = startPenMeasurement({ kind: 'eraser', eraserMode: mode, width: diameter, zoom, objectCount: objects.length })
       const setupStarted = measurement?.clock()
-      const session = createEraserSession(objects, normalizeEraserSize(diameter) / 2, mode)
+      const session = createEraserSession(objects, normalizeEraserSize(diameter) / 2, mode, target)
       if (measurement) measurement.record('eraserSetupMs', measurement.clock() - setupStarted)
       gesture.current = { start, previous: start, session, measurement, planner, plannerShown: true }
       erasePlanner([start])

@@ -19,6 +19,9 @@ export default function EmailVerification({ email, service, onComplete, Field, p
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [verified, setVerified] = useState(false);
+  const [needsAccess, setNeedsAccess] = useState(false);
+  const [accessId, setAccessId] = useState('');
+  const [accessPassword, setAccessPassword] = useState('');
   const alive = useRef(true), running = useRef(false), input = useRef(null);
   const expires = remainingSeconds(deadline, now), cooldown = remainingSeconds(retryAt, now);
   useEffect(() => {
@@ -34,8 +37,16 @@ export default function EmailVerification({ email, service, onComplete, Field, p
     setError('');
     try { await task(); }
     catch (reason) {
-      if (alive.current) setError(typeof reason?.message === 'string' && reason.message.trim()
-        ? reason.message : '처리하지 못했어요. 다시 시도해 주세요.');
+      if (alive.current) {
+        if (__DEV__ && reason?.code === 'DEVELOPMENT_ACCESS_REQUIRED' && gateway?.setDevelopmentAccess) setNeedsAccess(true);
+        setError(typeof reason?.message === 'string' && reason.message.trim()
+          ? reason.message : '처리하지 못했어요. 다시 시도해 주세요.');
+        if (Number.isFinite(reason?.retryAfter) && reason.retryAfter > 0 &&
+          Number.isSafeInteger(Date.now() + Math.ceil(reason.retryAfter * 1000))) {
+          setNow(Date.now());
+          setRetryAt(Date.now() + Math.ceil(reason.retryAfter * 1000));
+        }
+      }
     }
     finally { running.current = false; if (alive.current) setBusy(false); }
   };
@@ -71,7 +82,21 @@ export default function EmailVerification({ email, service, onComplete, Field, p
     <Text style={[s.muted, { textAlign: 'center' }]}>{email}</Text>
     {!gateway && <Text style={s.muted}>이메일 인증 서비스 연결을 준비하고 있어요.</Text>}
     {gateway?.preview && !verified && <Text style={s.verificationPreview}>{gateway.notice}</Text>}
-    {!deadline && primary(busy ? '전송 중…' : '인증번호 받기', send, busy || !gateway)}
+    {__DEV__ && needsAccess && <>
+      <Text style={s.muted}>개발 서버 접속 인증 · 앱을 다시 실행하면 초기화돼요.</Text>
+      <Field label="개발 서버 ID" value={accessId} onChange={setAccessId}
+        onInputFocus={focusInput} onInputBlur={blurInput} editable={!busy} />
+      <Field label="개발 서버 비밀번호" value={accessPassword} onChange={setAccessPassword} password
+        onInputFocus={focusInput} onInputBlur={blurInput} editable={!busy} />
+      {primary('접속 인증 후 다시 시도', () => {
+        try {
+          gateway.setDevelopmentAccess(accessId, accessPassword);
+          setAccessPassword(''); setNeedsAccess(false);
+          send();
+        } catch (reason) { setError(reason.message); }
+      }, busy || !accessId || !accessPassword)}
+    </>}
+    {!deadline && !needsAccess && primary(busy ? '전송 중…' : cooldown ? `재전송 (${cooldown}초)` : '인증번호 받기', send, busy || !gateway || cooldown > 0)}
     {verified ? <>
       <View style={s.verificationComplete}>
         <View style={s.verificationCheck} accessible={false}>

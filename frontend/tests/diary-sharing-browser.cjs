@@ -66,7 +66,6 @@ const server = http.createServer((req, res) => {
       await page.getByRole('textbox', { name: '다이어리 닉네임', exact: true }).waitFor();
       for (const name of [
         '다이어리 프로필 사진 선택',
-        '다이어리 닉네임 중복 확인',
         '닉네임 설정 취소',
         '수락하고 참여하기',
       ]) {
@@ -90,8 +89,6 @@ const server = http.createServer((req, res) => {
     await button('이 다이어리 프로필 수정').click();
     const editName = page.getByRole('textbox', { name: '다이어리 닉네임', exact: true });
     await editName.fill('소연수정');
-    await button('다이어리 닉네임 중복 확인').click();
-    await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
     await button('다이어리 프로필 사진 선택').click();
     const chooserPromise = page.waitForEvent('filechooser');
     await button('다이어리 사진 선택').click();
@@ -126,24 +123,17 @@ const server = http.createServer((req, res) => {
     await button('초대 목록 열기').click();
     await button('우리의 여행 기록 초대 수락').click();
     const nick = page.getByRole('textbox', { name: '다이어리 닉네임', exact: true }),
-      check = button('다이어리 닉네임 중복 확인'),
       accept = button('수락하고 참여하기');
     await nick.fill('하루');
-    await check.click();
-    await page.getByText('이미 사용 중인 닉네임이에요.').waitFor();
     await nick.fill('여행자');
-    await check.click();
-    await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
     assert.ok(await accept.isEnabled());
-    await nick.fill('여행자2');
+    await nick.fill('a');
     assert.ok(await accept.isDisabled());
     await button('닉네임 설정 취소').click();
     await button('우리의 여행 기록 초대 수락').waitFor();
     assert.equal(await page.getByTestId('joined').textContent(), '0');
     await button('우리의 여행 기록 초대 수락').click();
     await nick.fill('여행자');
-    await check.click();
-    await page.getByText('사용할 수 있는 닉네임이에요.').waitFor();
     await accept.click();
     await button('다이어리 참여 해제').waitFor();
     assert.equal(await page.getByTestId('joined').textContent(), '1');

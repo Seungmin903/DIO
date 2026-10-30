@@ -19,6 +19,7 @@ export default function StickerSplitSlider({ label, value, max, min = 0, step = 
     <Pressable disabled={disabled || value <= min} onPress={() => nudge(-step)} accessibilityLabel={`${label} 줄이기`} style={s.button}><Text style={s.text}>−</Text></Pressable>
     <View collapsable={false} style={s.track} onLayout={e => { width.current = e.nativeEvent.layout.width; setTrackWidth(width.current) }} accessibilityRole="adjustable" accessibilityLabel={label}
       accessibilityValue={{ min, max, now: value }} accessibilityState={{ disabled }} accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-disabled={Boolean(disabled)}
       onAccessibilityAction={e => { if (!disabled) nudge(e.nativeEvent.actionName === 'increment' ? step : -step) }}
       onStartShouldSetResponder={() => !disabled} onMoveShouldSetResponder={() => !disabled}
       onResponderGrant={e => { drag.current = { origin: e.nativeEvent.pageX - e.nativeEvent.locationX, value }; onInteraction?.(true); change(e.nativeEvent.locationX) }}

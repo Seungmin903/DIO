@@ -1,4 +1,4 @@
-export async function buildPhotoBody(signup, uri) {
+export async function buildPhotoBody(signup, uri, partName = 'signup') {
   const response = await fetch(uri);
   if (!response.ok) throw new Error('프로필 사진을 읽지 못했어요.');
   const source = await response.blob();
@@ -14,7 +14,7 @@ export async function buildPhotoBody(signup, uri) {
     if (!photo) throw new Error('프로필 사진을 변환하지 못했어요.');
   } finally { bitmap.close(); }
   const body = new FormData();
-  body.append('signup', new Blob([JSON.stringify(signup)], { type: 'application/json' }), 'signup.json');
+  body.append(partName, new Blob([JSON.stringify(signup)], { type: 'application/json' }), `${partName}.json`);
   body.append('photo', photo, 'profile.png');
   return { body, dispose() {} };
 }

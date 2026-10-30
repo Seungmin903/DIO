@@ -20,7 +20,7 @@ const FILTERS = [['all', '전체'], ['bookmarked', '북마크']]
  * - 탭: 그 페이지로 이동하고 닫힘
  * - 책갈피: 북마크 넣기·빼기
  */
-export default function PageOverview({ pages, currentId, initialFilter = 'all', onSelect, onToggleIndex, onDelete, onReset, onClose }) {
+export default function PageOverview({ pages, currentId, initialFilter = 'all', onSelect, onToggleIndex, onDelete, onReset, onClose, canUndoDelete = true }) {
   const { isPhone } = useFormFactor()
   const [filter, setFilter] = useState(initialFilter)
   const [managing, setManaging] = useState(false)
@@ -61,7 +61,7 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
         </View>
         {onDelete && <View style={{ paddingHorizontal: 20, paddingVertical: 8 }}>
           <Pressable accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => managing ? finish() : setManaging(true)}><Text style={styles.tabText}>{managing ? '완료' : '편집'}</Text></Pressable>
-          {managing && <PageBulkDelete pages={pages} ids={picked} onDelete={onDelete} onReset={onReset} onDone={finish} />}
+          {managing && <PageBulkDelete pages={pages} ids={picked} onDelete={onDelete} onReset={onReset} canUndoDelete={canUndoDelete} onDone={finish} />}
         </View>}
         {filter === 'bookmarked'  && !shown.length ? (
           <Text style={styles.empty}>북마크한 페이지가 없어요.</Text>

@@ -5,6 +5,8 @@ services:
     ports:
       - "127.0.0.1:8081:8080"
     environment:
+      SHARING_INVITE_SECRET: "${SHARING_INVITE_SECRET:-}"
+      SHARING_INVITE_BASE_URL: "${SHARING_INVITE_BASE_URL:-/invite/}"
       SPRING_PROFILES_ACTIVE: dev
       DB_URL: "jdbc:postgresql://db:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
       POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
@@ -24,11 +26,15 @@ services:
       AUTH_ALLOWED_ORIGINS: "${AUTH_ALLOWED_ORIGINS:-http://localhost:8081,http://127.0.0.1:8081}"
       # 인증 배포 계약: ../auth-deployment.md (Nginx가 X-Forwarded-For를 덮어쓴다.)
       AUTH_TRUSTED_PROXY_REGEX: "${AUTH_TRUSTED_PROXY_REGEX:?AUTH_TRUSTED_PROXY_REGEX is required; see infra/auth-deployment.md}"
-      SIGNUP_PHOTO_STORAGE: "${SIGNUP_PHOTO_STORAGE:-local}"
       SIGNUP_PHOTO_MIGRATE_LEGACY: "${SIGNUP_PHOTO_MIGRATE_LEGACY:-false}"
       SIGNUP_PHOTO_LOCAL_DIRECTORY: /app/.local-data/profile-photos
-      SIGNUP_PHOTO_S3_BUCKET: "${SIGNUP_PHOTO_S3_BUCKET:-}"
-      SIGNUP_PHOTO_S3_REGION: "${SIGNUP_PHOTO_S3_REGION:-ap-northeast-2}"
+      # 미디어와 프로필 사진은 같은 MEDIA_* 저장소 설정을 쓴다(키 접두사 profile-photos/, media/로 구분).
+      # 배포 서버에서는 항상 S3에 두며, 버킷이 없으면 배포 단계에서 실패한다.
+      MEDIA_STORAGE: "${MEDIA_STORAGE:-s3}"
+      MEDIA_S3_BUCKET: "${MEDIA_S3_BUCKET:?MEDIA_S3_BUCKET is required}"
+      MEDIA_S3_REGION: "${MEDIA_S3_REGION:-ap-northeast-2}"
+      MEDIA_DELETE_RETENTION: "${MEDIA_DELETE_RETENTION:-PT24H}"
+      MEDIA_EXPIRY_CLEANUP_ENABLED: "${MEDIA_EXPIRY_CLEANUP_ENABLED:-false}"
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}"
       SIGNUP_SERVICE_TERMS_VERSION: "${SIGNUP_SERVICE_TERMS_VERSION:-v1}"

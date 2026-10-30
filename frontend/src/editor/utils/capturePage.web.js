@@ -1,12 +1,14 @@
 import { waitForExportFonts } from './exportFonts.js'
 import { toBlob } from 'html-to-image'
 import { PageExportError } from './pageExport.js'
+import { personalFontExportCSS } from '../../handwriting/library.js'
 
 export async function capturePage(node, snapshot) {
   await waitForExportFonts(snapshot.objects, document.fonts)
+  const fontEmbedCSS = await personalFontExportCSS(snapshot.objects)
   const blob = await toBlob(node, {
     width: snapshot.width, height: snapshot.height, canvasWidth: snapshot.pixelWidth, canvasHeight: snapshot.pixelHeight,
-    pixelRatio: 1, skipAutoScale: true, backgroundColor: snapshot.background, skipFonts: true,
+    pixelRatio: 1, skipAutoScale: true, backgroundColor: snapshot.background, skipFonts: true, fontEmbedCSS,
   })
   if (!blob) throw new PageExportError('EXPORT_CAPTURE_FAILED', 'PNG를 만들지 못했어요. 다시 시도해 주세요.')
   const uri = URL.createObjectURL(blob)

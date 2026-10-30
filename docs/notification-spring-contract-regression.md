@@ -20,6 +20,20 @@ package.json의 test:notifications:contract도 같은 Node runner를 사용한�
 
 ## CI 경계
 
-backend-test는 Spring 생산자를 포함한 기본 테스트를 실행한다. backend-postgres-test는 별도 폐기용 DB에서 authPostgresTest를 실행하며 NotificationPostgresSchemaTests도 포함한다. 이 테스트는 실제 V1 및 최신 전체 Flyway 체인을 각각 독립 스키마에 적용하고 NotificationRepository의 목록·페이지·읽음·삭제 SQL을 확인한 뒤 스키마를 정리한다.
+backend-test는 Spring 생산자를 포함한 기본 테스트를 실행한다. `backend-postgres-auth-test`는 별도 폐기용 DB에서 authPostgresTest를 실행하며 NotificationPostgresSchemaTests도 포함한다. 이 테스트는 실제 V1 및 최신 전체 Flyway 체인을 각각 독립 스키마에 적용하고 NotificationRepository의 목록·페이지·읽음·삭제 SQL을 확인한 뒤 스키마를 정리한다.
 
 backend-test CI는 Spring 생산자에 출력 경로를 주입한 뒤 Node 컨테이너에서 프런트 계약 소비자를 실행한다. 소비자는 Node 내장 모듈과 알림 어댑터만 사용하므로 프런트 의존성 설치나 PowerShell이 필요하지 않다. 생성 응답 누락·계약 소비자 실패는 CI 실패다. 알림 FE·계약 스크립트 변경도 해당 CI 작업을 실행한다. 현재 실행 결과와 SHA는 [MR !164](https://lab.ssafy.com/s15-final/S15P31F106/-/merge_requests/164)에 기록한다.
+
+## Swagger 경로 필터 보완 (2026-10-28)
+
+기본 application.yml의 springdoc.paths-to-match가 인증·다이어리·페이지 경로만 포함해 알림 컨트롤러가 OpenAPI에서 제외됐다. 기존 항목을 유지하면서 /api/v1/notifications 및 /api/v1/notifications/**를 추가했다. 인증 정책·API 동작·DB 스키마 변경은 없다.
+
+실제 기본 설정을 사용하는 SwaggerDocumentationTests에서 알림 목록/미읽음 수/개별 읽음/삭제4개, bearerAuth와401오류 스키마·404·204무본문, 기존 로그인·다이어리·페이지 경로를 함께 검사한다. 기존 Swagger UI/다이어리 응답·알림 인증/사용자격리/읽음/삭제/프런트 계약 회귀도 실행했다.
+
+검증: backend에서 `.\gradlew.bat test --tests '*Swagger*Tests' --tests '*Notification*Tests'` 성공. 총28개 중26개 통과·PostgreSQL 명시 환경이 필요한2개는 skip, 실패0. 실제 서버 DB·개발/운영 컨테이너 배포는 수행하지 않았다. 개발8443 Swagger는 접근 인증401로 배포된 문서 내용을 직접 대조하지 못했으므로 병합·재배포 후 확인한다.
+
+## Swagger 알림 그룹명 (2026-10-28)
+
+NotificationController에 @Tag(name="알림")과 API 설명을 지정해 자동 클래스명 notification-controller 대신 알림으로 표시한다. API 경로·동작·인증·데이터 변경 없음. SwaggerDocumentationTests에서 알림4개 작업의 tags[0]이 모두 알림인지 검증한다. 기존 로그인/다이어리/페이지 문서·알림 오류응답·Swagger UI도 함께 검증한다.
+
+backend `.\gradlew.bat test --tests '*Swagger*Tests'` 성공:4개 통과·실패/skip0. 실제 개발/운영 Swagger 화면 반영은 병합·재배포 후 확인한다.

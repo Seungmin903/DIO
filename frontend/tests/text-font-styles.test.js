@@ -17,15 +17,18 @@ test('글꼴 로더는 실제 Regular/Bold 파일을 한 번 등록하고 실패
   new Function('require', 'module', 'exports', code)(id => {
     if (id === 'expo-font') return { loadAsync: files => { calls.push(files); return new Promise((resolve, reject) => pending.set(Object.keys(files)[0], { resolve, reject })) } }
     if (id === '../utils/text') return text
+    if (id === '../../handwriting/library.js') return { refreshPersonalFonts: async () => [] }
     if (id.endsWith('.ttf')) return id
     return require(id)
   }, module, module.exports)
   const job = module.exports.preloadTextFonts()
   assert.equal(module.exports.preloadTextFonts(), job)
-  assert.equal(calls.length, 6)
+  assert.equal(calls.length, 9)
   const files = Object.assign({}, ...calls)
   assert.match(files.NanumGothicBold, /700Bold\/NanumGothic_700Bold.ttf$/)
   assert.match(files.NanumMyeongjoBold, /700Bold\/NanumMyeongjo_700Bold.ttf$/)
+  assert.match(files.GowunDodum, /GowunDodum-Regular.ttf$/)
+  assert.match(files.GowunBatangBold, /GowunBatang-Bold.ttf$/)
   assert.equal(text.textStyleReady('nanum-gothic', 'bold'), false)
   for (const [family, task] of pending) family === 'NanumMyeongjoBold' ? task.reject(Error('font unavailable')) : task.resolve()
   await job
@@ -37,7 +40,7 @@ test('글꼴 로더는 실제 Regular/Bold 파일을 한 번 등록하고 실패
 
 test('나눔 굵게는 등록된 Bold face를 직접 선택하고 해제 시 Regular로 돌아간다', () => {
   text.markTextFontLoaded('NanumMyeongjoBold')
-  for (const [id, family] of [['nanum-gothic', 'NanumGothic'], ['nanum-myeongjo', 'NanumMyeongjo']]) for (const platform of ['ios', 'android', 'web']) {
+  for (const [id, family] of [['nanum-gothic', 'NanumGothic'], ['nanum-myeongjo', 'NanumMyeongjo'], ['gowun-batang', 'GowunBatang']]) for (const platform of ['ios', 'android', 'web']) {
     const bold = text.textStyle({ font: id, bold: true, italic: true }, 1.5, platform)
     assert.equal(bold.fontFamily, family + 'Bold')
     assert.equal(bold.fontWeight, '400')
@@ -47,7 +50,7 @@ test('나눔 굵게는 등록된 Bold face를 직접 선택하고 해제 시 Reg
 })
 
 test('원본 서체가 없는 스타일은 미지원이며 글꼴 전환 시 호환되지 않는 설정만 해제한다', () => {
-  for (const id of ['nanum-pen', 'poor-story']) {
+  for (const id of ['nanum-pen', 'poor-story', 'gowun-dodum']) {
     assert.deepEqual(text.textStyleSupport(id, 'ios'), { bold: false, italic: false })
     const patch = text.textFontChangePatch({ bold: true, italic: true }, id, 'ios')
     assert.deepEqual(patch, { font: id, bold: false, italic: false })
@@ -56,7 +59,12 @@ test('원본 서체가 없는 스타일은 미지원이며 글꼴 전환 시 호
   }
   assert.deepEqual(text.textStyleSupport('serif', 'ios'), { bold: false, italic: false })
   assert.deepEqual(text.textFontChangePatch({ bold: true, italic: true }, 'nanum-gothic', 'ios'), { font: 'nanum-gothic', bold: true, italic: false })
-  assert.deepEqual(text.textFontChangePatch({ bold: true, italic: true }, 'sans', 'ios'), { font: 'sans', bold: true, italic: true })
+  assert.deepEqual(text.textStyleSupport('sans', 'ios'), { bold: true, italic: false })
+  assert.deepEqual(text.textFontChangePatch({ bold: true, italic: true }, 'sans', 'ios'), { font: 'sans', bold: true, italic: false })
+  for (const platform of ['android', 'web']) {
+    assert.deepEqual(text.textStyleSupport('sans', platform), { bold: true, italic: true })
+    assert.equal(text.textStyle({ font: 'sans', italic: true }, 1, platform).fontStyle, 'italic')
+  }
   const system = text.textStyle({ font: 'sans', bold: true, italic: true }, 1, 'ios')
   assert.equal(system.fontFamily, 'System'); assert.equal(system.fontWeight, '700'); assert.equal(system.fontStyle, 'italic')
 })

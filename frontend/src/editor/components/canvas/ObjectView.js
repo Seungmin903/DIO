@@ -20,7 +20,7 @@ import PhotoPathShadow from './PhotoPathShadow'
 import StrokeContent from '../StrokeContent'
 import ShapeContent from './ShapeContent'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
-import { textSettings, textStyle } from '../../utils/text'
+import { loadedFontFamily, textSettings, textStyle } from '../../utils/text'
 import { useTextFont } from '../../hooks/useTextFont'
 import { useStickerPlayback } from '../../hooks/useStickerPlayback'
 
@@ -35,12 +35,16 @@ export const TextMeasure = createContext(null)
  * 편집 화면, 페이지 썸네일에서 함께 쓴다.
  */
 function ObjectContent({ object, zoom, areaPreview = false, still = false, onAssetLoad, onAssetError }) {
-  useTextFont(object.type === 'text' ? object.font : null)
+  const fontStatus = useTextFont(object.type === 'text' ? object.font : null)
+
   const width = object.w * zoom
   const height = object.h * zoom
   const uri = useMediaUri(object, { still })
   const onTextMeasure = useContext(TextMeasure)
   const failed = mediaRegistry.get(mediaId(object))?.status === 'error'
+  if (object.type === 'text' && object.font?.startsWith('personal-') && !loadedFontFamily(object.font)) return (
+    <View style={{ width, height, justifyContent: 'center' }}><Text style={{ fontSize: Math.max(8, 12 * zoom), color: colors.textMuted }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져와 주세요.'}</Text></View>
+  )
   if (mediaId(object) && !uri) return (
     <View style={{ width, height, backgroundColor: failed ? colors.surfaceSoft : colors.surface, borderWidth: failed ? 1 : 0, borderStyle: 'dashed', borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: Math.max(8, 12 * zoom), color: failed ? colors.text : colors.textMuted }}>{failed ? '이미지 확인 필요' : '이미지 불러오는 중…'}</Text>

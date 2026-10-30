@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createSharingPreview } from '../src/sharing/sharingPreview.js';
 import * as memory from '../src/editor/services/sessionDocuments.js';
+import * as memberStorage from '../src/diary/services/memberStorage.js';
 import { createDefaultDoc, migrateUntouchedAnnualDoc } from '../src/editor/state/defaultDoc.js';
 const require = createRequire(import.meta.url),
   expo = createRequire(require.resolve('expo/package.json')),
@@ -29,6 +30,7 @@ function docsFixture() {
         },
       },
     },
+    '../../diary/services/memberStorage.js': memberStorage,
     '../state/defaultDoc': { createDefaultDoc, migrateUntouchedAnnualDoc },
     '../templates/catalog.js': { templateReference: () => null },
     '../templates/loadTemplate': {},
@@ -117,4 +119,21 @@ test('문서 캐시 무효화는 개인 열람 기록과 문서를 삭제하지 
   const sessionKey = owner.key('shared-cache');
   assert.equal(docs.forgetEditorDoc(sessionKey), true);
   owner.dispose();
+});
+
+
+test('회원 문서는 같은 다이어리 ID라도 계정별 저장 키·캐시를 분리하고 비회원·공유 저장을 유지한다', async () => {
+  const docs = docsFixture();
+  const first = { id: 'same-diary', source: 'member-api', memberAccountId: '1' };
+  const second = { ...first, memberAccountId: '2' };
+  const firstKey = docs.editorDocKey(first), secondKey = docs.editorDocKey(second);
+  assert.equal(firstKey, memberStorage.memberKeys('1').doc(first.id));
+  assert.notEqual(firstKey, secondKey);
+  assert.notEqual(firstKey, docs.editorDocKey({ id: first.id }));
+  const firstDoc = { id: first.id, memberAccountId: '1', pages: [{ id: 'server-page', objects: [{ id: 'ink' }] }] };
+  assert.equal(await docs.saveEditorDoc(firstKey, firstDoc), true);
+  assert.deepEqual(await docs.loadEditorDoc(first), firstDoc);
+  assert.equal(await docs.loadEditorDoc(second), null);
+  assert.equal(docs.disk.has(secondKey), false);
+  assert.equal(docs.disk.has(`personal:doc:${first.id}`), false);
 });

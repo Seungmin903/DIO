@@ -26,7 +26,6 @@ import {
   credentialsErrors,
   credentialsValid,
   nicknameError,
-  normalizeNickname,
   normalizeEmail,
 } from './validation';
 import { authStyles as s } from './styles';
@@ -51,7 +50,7 @@ export default function AuthScreen({
   onContinue,
   service = authService,
   photoPicker = pickProfilePhoto,
-  verificationService,
+  verificationService = service.verificationService,
   emailVerificationEnabled = typeof __DEV__ !== 'undefined' && __DEV__,
 }) {
   const { isPhone, formFactor } = useFormFactor();
@@ -64,15 +63,15 @@ export default function AuthScreen({
   const [info, setInfo] = useState(null);
   const [profile, setProfile] = useState(null);
   const [nickname, setNickname] = useState('');
-  const [checked, setChecked] = useState(null);
-  const [checkState, setCheckState] = useState('idle');
-  const [checkMessage, setCheckMessage] = useState('');
   const [terms, setTerms] = useState(emptyTerms);
   const [photoUri, setPhotoUri] = useState(null);
   const [signupComplete, setSignupComplete] = useState(false);
+  const [needsLoginAccess, setNeedsLoginAccess] = useState(false);
+  const [accessId, setAccessId] = useState('');
+  const [accessPassword, setAccessPassword] = useState('');
+  const canSetDevelopmentAccess = typeof __DEV__ !== 'undefined' && __DEV__ &&
+    typeof verificationService?.setDevelopmentAccess === 'function';
   const job = useRef(0);
-  const checking = useRef(0);
-  const checkRunning = useRef(false);
   const running = useRef(false);
   const alive = useRef(true);
   const passwordInput = useRef(null);
@@ -131,7 +130,6 @@ export default function AuthScreen({
     return () => {
       alive.current = false;
       job.current++;
-      checking.current++;
       service.cancelPending?.();
     };
   }, []);
@@ -147,18 +145,16 @@ export default function AuthScreen({
     clearTimeout(focusTimer.current);
     scrollOffset.current = 0;
     formScroll.current?.scrollTo({ y: 0, animated: false });
-    checkRunning.current = false;
     job.current++;
-    checking.current++;
     running.current = false;
     setBusy(false);
     setMessage('');
     setTouched({});
     setInfo(null);
     setSignupComplete(false);
-    setCheckState('idle');
-    setChecked(null);
-    setCheckMessage('');
+    setNeedsLoginAccess(false);
+    setAccessId('');
+    setAccessPassword('');
     setRoute(next);
     if (next === 'welcome') {
       setPhotoUri(null);
@@ -176,6 +172,10 @@ export default function AuthScreen({
         setInfo(null);
         return true;
       }
+      if (route === 'welcome' && needsLoginAccess) {
+        navigate('welcome');
+        return true;
+      }
       if (route !== 'welcome') {
         back();
         return true;
@@ -183,8 +183,8 @@ export default function AuthScreen({
       return false;
     });
     return () => listener.remove();
-  }, [route, profile, info]);
-  const run = async (action, onSuccess) => {
+  }, [route, profile, info, needsLoginAccess]);
+  const run = async (action, onSuccess, onFailure) => {
     if (running.current) return;
     running.current = true;
     setBusy(true);
@@ -194,9 +194,11 @@ export default function AuthScreen({
       const result = await action();
       if (alive.current && id === job.current) onSuccess(result);
     } catch (error) {
-      if (alive.current && id === job.current)
+      if (alive.current && id === job.current) {
+        onFailure?.(error);
         setMessage(typeof error?.message === 'string' && error.message.trim()
           ? error.message : '처리하지 못했어요. 다시 시도해 주세요.');
+      }
     } finally {
       if (alive.current && id === job.current) {
         running.current = false;
@@ -229,54 +231,32 @@ export default function AuthScreen({
       setTerms(emptyTerms());
       navigate('verification');
     }
-    else
-      run(
-        () => service.login(values),
-        (result) => {
+    else if (!needsLoginAccess) submitLogin();
+  };
+  const submitLogin = () => {
+    if (!credentialsValid(values, false)) return;
+    run(
+      () => service.login(values),
+      (result) => {
+        Keyboard.dismiss();
+        setValues(emptyValues());
+        onContinue(result);
+      },
+      (error) => {
+        if (canSetDevelopmentAccess && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') {
           Keyboard.dismiss();
-          setValues(emptyValues());
-          onContinue(result);
-        },
-      );
+          setNeedsLoginAccess(true);
+        }
+      },
+    );
   };
   const changeNickname = (value) => {
-    checking.current++;
-    checkRunning.current = false;
     setNickname(value);
-    setChecked(null);
-    setCheckState('idle');
-    setCheckMessage('');
     setMessage('');
   };
-  const checkNickname = async () => {
-    const value = normalizeNickname(nickname),
-      error = nicknameError(value);
-    if (error || checkRunning.current) return;
-    const id = ++checking.current;
-    checkRunning.current = true;
-    setChecked(null);
-    setCheckState('checking');
-    setCheckMessage('');
-    try {
-      const available = await service.checkNickname(value);
-      if (!alive.current || id !== checking.current) return;
-      setChecked(available ? value : null);
-      setCheckState(available ? 'available' : 'taken');
-      setCheckMessage(available ? '사용할 수 있는 닉네임이에요.' : '이미 사용 중인 닉네임이에요.');
-    } catch (error) {
-      if (alive.current && id === checking.current) {
-        setChecked(null);
-        setCheckState('error');
-        setCheckMessage(typeof error?.message === 'string' && error.message.trim()
-          ? error.message : '중복 확인에 실패했어요. 다시 시도해 주세요.');
-      }
-    } finally {
-      if (id === checking.current) checkRunning.current = false;
-    }
-  };
-  const profileReady = canCompleteProfile({ nickname, checkedNickname: checked, terms });
+  const profileReady = canCompleteProfile({ nickname, terms });
   const complete = () => {
-    if (profileReady && !checkRunning.current)
+    if (profileReady)
       run(
         () => service.completeProfile({ ...profile, nickname, photoUri, terms }),
         (result) => {
@@ -442,6 +422,24 @@ export default function AuthScreen({
                     onSubmitEditing={credentialsSubmit}
                   />
                 )}
+                {!signup && needsLoginAccess && canSetDevelopmentAccess ? <>
+                  <Text style={s.muted}>개발 서버 접속 인증 · 앱을 다시 실행하면 초기화돼요.</Text>
+                  <FormField label="개발 서버 ID" value={accessId} onChange={setAccessId}
+                    onInputFocus={focusInput} onInputBlur={blurInput} editable={!busy} />
+                  <FormField label="개발 서버 비밀번호" value={accessPassword} onChange={setAccessPassword} password
+                    onInputFocus={focusInput} onInputBlur={blurInput} editable={!busy} />
+                  {primary('접속 인증 후 로그인', () => {
+                    if (running.current) return;
+                    try {
+                      verificationService.setDevelopmentAccess(accessId, accessPassword);
+                      setAccessPassword('');
+                      setNeedsLoginAccess(false);
+                      submitLogin();
+                    } catch (error) {
+                      setMessage(error?.message || '개발 서버 접속 정보를 확인해 주세요.');
+                    }
+                  }, !accessId.trim() || !accessPassword || !credentialsValid(values, false))}
+                </> : null}
                 <View style={s.submitArea}>
                   {message ? (
                     <Text
@@ -452,10 +450,10 @@ export default function AuthScreen({
                       {message}
                     </Text>
                   ) : null}
-                  {primary(
+                  {(signup || !needsLoginAccess) && primary(
                     signup ? '다음' : '로그인',
                     credentialsSubmit,
-                    !credentialsValid(values, signup),
+                    !credentialsValid(values, signup) || (!signup && needsLoginAccess),
                   )}
                 </View>
                 {signup ? (
@@ -627,39 +625,11 @@ export default function AuthScreen({
                         onChange={changeNickname}
                         editable={!busy}
                         maxLength={12}
-                        onSubmitEditing={checkNickname}
                       />
                     </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="닉네임 중복 확인"
-                      accessibilityState={{
-                        disabled: !!nicknameError(nickname) || checkState === 'checking' || busy,
-                        busy: checkState === 'checking',
-                      }}
-                      disabled={!!nicknameError(nickname) || checkState === 'checking' || busy}
-                      onPress={checkNickname}
-                      style={[
-                        s.checkButton,
-                        (!!nicknameError(nickname) || checkState === 'checking' || busy) &&
-                          s.disabled,
-                      ]}
-                    >
-                      <Text style={s.linkText}>
-                        {checkState === 'checking' ? '확인 중…' : '중복 확인'}
-                      </Text>
-                    </Pressable>
                   </View>
                   {nickname && nicknameError(nickname) ? (
                     <Text style={s.error}>{nicknameError(nickname)}</Text>
-                  ) : null}
-                  {checkMessage ? (
-                    <Text
-                      accessibilityLiveRegion="polite"
-                      style={checkState === 'available' ? s.success : s.error}
-                    >
-                      {checkMessage}
-                    </Text>
                   ) : null}
                 </View>
                 <View style={s.terms}>

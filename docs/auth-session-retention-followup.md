@@ -11,4 +11,4 @@
 
 설정: `AUTH_SESSION_CLEANUP_ENABLED`(기본 true), `AUTH_SESSION_CLEANUP_DELAY_MS`(60000), `AUTH_SESSION_CLEANUP_INITIAL_DELAY_MS`(300000). 테스트에서는 스케줄만 끄고 서비스는 직접 검증한다.
 
-검증에는 배치 500개 제한·반복 실행·유효 세션과 이력 보존·격리 PostgreSQL의 실제 FK/삭제 검사를 포함한다. CI의 `backend-postgres-test`는 이 검증을 필수로 실행한다. 실제 공유·운영 DB를 검증용으로 사용하지 않는다.
+검증에는 배치 500개 제한·반복 실행·유효 세션과 이력 보존·격리 PostgreSQL의 실제 FK/삭제 검사를 포함한다. CI의 `backend-postgres-auth-test`는 인증 관련 변경에서 이 검증을 필수로 실행한다. 실제 공유·운영 DB를 검증용으로 사용하지 않는다.

@@ -95,7 +95,6 @@ HTTP Request
 |---|---|---|---|
 | 상태 확인 | `/api/health`, `/actuator/health` | 불필요 | 서버·의존성 상태 확인 |
 | 가입 준비 | `/api/v1/auth/email-verifications/**` | 불필요 | 이메일 인증번호 발송·확인, signupToken 발급 |
-| 사용자 확인 | `/api/v1/auth/email-availability`, `/nickname-availability` | 불필요 | 가입 전 이메일·닉네임 중복 확인 |
 | 회원가입 | `/api/v1/auth/signup` | 불필요 | JSON 또는 프로필 사진 포함 multipart 가입 |
 | 로그인·세션 | `/api/v1/auth/login`, `/refresh`, `/logout` | 로그아웃만 필요 | Access·Refresh Token 관리 |
 | 프로필 사진 | `/api/v1/auth/profile-photos/{photoId}` | 불필요 | 공개 PNG 조회 |
@@ -207,7 +206,7 @@ Flyway 마이그레이션은 `backend/src/main/resources/db/migration/`에 둔�
 | DB 접속 | `DB_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD` |
 | JWT 서명 키 | `AUTH_JWT_SECRET` |
 | SMTP | `SPRING_MAIL_*` |
-| 프로필 사진 저장소 | `SIGNUP_PHOTO_STORAGE`, S3 관련 환경변수 |
+| 프로필 사진 저장소 | `MEDIA_STORAGE`, `MEDIA_S3_BUCKET`, `MEDIA_S3_REGION` (미디어와 공용) |
 | 로컬 시드 | `DIO_LOCAL_SEED_ENABLED`, `DIO_LOCAL_SEED_FILE` |
 
 인증 관련 CORS는 `AUTH_ALLOWED_ORIGINS`에 지정한 출처에만 `/api/v1/auth/**` 경로로 적용된다. 다이어리·페이지 API를 브라우저 웹에서 직접 호출할 경우에는 별도 CORS 정책과 프런트 API 어댑터가 필요하다.
@@ -231,3 +230,15 @@ Swagger에서 로그인한 뒤에는 **Authorize**에 로그인 응답의 Access
 기본 테스트는 H2 인메모리 DB에서 실행하고, `postgresTest`는 로컬 PostgreSQL에서 Flyway 스키마를 검증한다. 주요 검증 범위는 로그인·토큰 회전, 프로필 사진 처리, 다이어리 CRUD, 페이지·캔버스 저장, 폼 입력, 권한 없는 접근 401/403, 로컬 시드다.
 
 현재 멤버 권한 검사는 동작하지만, 초대 생성·수락·멤버 역할 변경 API는 아직 별도 구현이 필요하다. 실시간 공동 편집 WebSocket, 편집용 미디어 업로드·보관함 API, 캔버스 작업 이력/Undo API, AI 작업·알림 API도 DB 설계는 준비돼 있으나 API 연결 범위는 후속 작업이다.
+
+닉네임은 표시 이름으로 중복을 허용한다. 중복 확인 API·버튼·선행 확인 조건은 제거하며 trim/NFKC 정규화와 한글·영문·숫자·밑줄 2~12자 검증은 유지한다. 이메일 중복 검사는 유지한다. V20은 기존 nickname_key 컬럼과 회원 데이터를 보존하고 users_nickname_key_unique 제약만 해제한다. 기존 V2는 변경하지 않는다.
+
+가입 전 이메일 확인: POST `/api/v1/auth/email-availability` (인증 불필요). 공개 프로필 사진 조회 API도 유지한다.
+
+## 로그인 상태의 비밀번호 변경
+
+PATCH `/api/v1/me/password`는 구현됐으며 현재 비밀번호 검증 후 모든 세션을 폐기한다. 기존 내 공간의 변경 대화상자로 연결한다. [요청·응답과 검증 범위](./password-change.md)를 참고한다.
+
+## 내 회원정보
+
+GET `/api/v1/me`는 Bearer 토큰 회원의 userId·email·nickname·profilePhotoUrl을, PATCH `/api/v1/me`는 닉네임만 변경한 뒤 같은 형태를 반환한다. 닉네임은 형식만 검사하고 중복은 허용한다. [요청·응답과 검증 범위](./my-profile.md)를 참고한다. 프로필 사진 변경·탈퇴 API는 포함하지 않는다.
