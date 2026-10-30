@@ -29,6 +29,9 @@ public class User {
         profileColor="#6F9FC6";lastLoginAt=null;status="WITHDRAWN";deletedAt=updatedAt=now;
     }
     public void recordLogin(Instant now) { lastLoginAt = now; }
+    public void changeNickname(String nickname, Instant now) {
+        this.nickname = nickname; nicknameKey = nickname.toLowerCase(Locale.ROOT); updatedAt = now;
+    }
     public User(String email, String nickname, Instant now) {
         this.email = email; this.nickname = nickname; nicknameKey = nickname.toLowerCase(Locale.ROOT);
         // 기존 DB/공동 편집 색상 호환용. 회원가입 API에서는 입력·반환하지 않는다.

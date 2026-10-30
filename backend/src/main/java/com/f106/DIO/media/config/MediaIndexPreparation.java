@@ -4,7 +4,7 @@ import com.f106.DIO.media.repository.MediaReferenceSql;
 import java.sql.*;
 import javax.sql.DataSource;
 
-/** Prebuild V21 indexes outside Flyway's transaction; keep the published V21 checksum intact. */
+/** Prebuild canvas indexes outside Flyway's transaction without changing index SQL. */
 public final class MediaIndexPreparation {
     private MediaIndexPreparation() {}
     private record Index(String name,String table,String column){}
@@ -24,7 +24,7 @@ public final class MediaIndexPreparation {
                 int created=0;
                 for(var index:INDEXES){
                     String table=quoted(schema)+"."+quoted(index.table()),name=quoted(schema)+"."+quoted(index.name());
-                    // Fresh databases have no live canvas writers yet. V21 builds their empty indexes normally.
+                    // Fresh databases have no live canvas writers yet. V22 builds their empty indexes normally.
                     if(!exists(connection,table))continue;
                     if(exists(connection,name)){
                         try(var query=connection.prepareStatement("select indisvalid from pg_index where indexrelid=to_regclass(?) and indrelid=to_regclass(?)")){
@@ -43,7 +43,7 @@ public final class MediaIndexPreparation {
                 }
                 return created;
             }finally{try(var statement=connection.createStatement()){statement.execute("select pg_advisory_unlock(106,21021)");}}
-        }catch(SQLException error){throw new IllegalStateException("Concurrent media index preparation failed; V21 was not modified",error);}
+        }catch(SQLException error){throw new IllegalStateException("Concurrent media index preparation failed; index SQL was not modified",error);}
     }
     private static boolean exists(Connection connection,String relation)throws SQLException{
         try(var query=connection.prepareStatement("select to_regclass(?) is not null")){

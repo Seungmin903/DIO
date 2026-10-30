@@ -1,6 +1,6 @@
 package com.f106.DIO.media.repository;
 
-/** PostgreSQL expressions intentionally match the V21 GIN indexes exactly. */
+/** PostgreSQL expressions intentionally match the V22 GIN indexes exactly. */
 public final class MediaReferenceSql {
     private MediaReferenceSql() {}
     public static String jsonIds(String column) {

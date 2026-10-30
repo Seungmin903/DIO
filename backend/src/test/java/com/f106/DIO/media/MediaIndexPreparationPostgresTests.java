@@ -50,11 +50,11 @@ class MediaIndexPreparationPostgresTests {
             }finally{blocker.rollback();pool.shutdown();assertThat(pool.awaitTermination(30,TimeUnit.SECONDS)).isTrue();}
         }
     }
-    @Test void alreadyAppliedV21KeepsItsChecksumAndValidIndexes(){
+    @Test void alreadyAppliedV22KeepsItsChecksumAndValidIndexes(){
         var flyway=Flyway.configure().dataSource(source).defaultSchema(schema).load();flyway.migrate();
-        Integer checksum=jdbc.queryForObject("select checksum from flyway_schema_history where version='21'",Integer.class);
+        Integer checksum=jdbc.queryForObject("select checksum from flyway_schema_history where version='22'",Integer.class);
         assertThat(MediaIndexPreparation.prepare(source,schema)).isZero();flyway.validate();
-        assertThat(jdbc.queryForObject("select checksum from flyway_schema_history where version='21'",Integer.class)).isEqualTo(checksum);
+        assertThat(jdbc.queryForObject("select checksum from flyway_schema_history where version='22'",Integer.class)).isEqualTo(checksum);
         assertThat(jdbc.queryForObject("select count(*) from pg_index i join pg_class c on c.oid=i.indexrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname=? and c.relname in ('idx_canvas_elements_json_media_refs','idx_canvas_history_before_media_refs','idx_canvas_history_after_media_refs') and i.indisvalid",Integer.class,schema)).isEqualTo(3);
     }
     private void insert(Connection connection)throws Exception{
