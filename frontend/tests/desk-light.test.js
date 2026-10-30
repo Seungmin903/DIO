@@ -104,3 +104,14 @@ test('한낮 창빛 없음: 창빛 패치 · 해 연출 · 가로등이 꺼지�
   assert.equal(shut.dim, 0)
   assert.ok(deskLight.deskLightAt(13).screen.opacity > 0)
 })
+
+test('책상 위 글씨색 기준: 낮에는 밝은 상판, 해 질 녘 · 밤에는 어두운 상판으로 판단하고 경계에서 뒤집힌다', () => {
+  assert.equal(deskLight.isDeskDarkAt(12), false)
+  assert.equal(deskLight.isDeskDarkAt(deskLight.NOON_NO_WINDOW), false)
+  assert.equal(deskLight.isDeskDarkAt(23), true)
+  assert.equal(deskLight.isDeskDarkAt(2), true)
+  // 낮(밝음)에서 밤(어두움)으로 하루 한 번씩만 뒤집힌다: 15분 단위로 훑어 전환 횟수를 센다
+  let flips = 0, prev = deskLight.isDeskDarkAt(0)
+  for (let h = 0.25; h <= 24; h += 0.25) { const dark = deskLight.isDeskDarkAt(h % 24); if (dark !== prev) flips++; prev = dark }
+  assert.equal(flips, 2)
+})
