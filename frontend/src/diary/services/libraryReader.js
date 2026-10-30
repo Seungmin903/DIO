@@ -1,10 +1,11 @@
 import { createDiaryQuery } from './diaryQuery.js';
 import { DiaryApiError } from './diaryApi.js';
+import { parseSort } from '../utils/libraryQuery.js';
 
 const sorts = { updated: 'updatedAtDesc', created: 'createdAtDesc', pages: 'pageCountDesc', title: 'titleAsc' };
 const requiresFirstPage = error => ['INVALID_CURSOR', 'INVALID_RESPONSE'].includes(error?.code);
-export function libraryRequest({ filter = 'personal', query = '', sort = 'updated' } = {}) {
-  return { status: 'active', q: query.trim(), sort: sorts[sort] || sorts.updated,
+export function libraryRequest({ filter = 'all', query = '', sort = 'updated' } = {}) {
+  return { status: 'active', q: query.trim(), sort: sorts[parseSort(sort).key],
     ...(filter === 'favorite' ? { favorite: true } : {}) };
 }
 

@@ -29,7 +29,7 @@ export default function ConnectedDiaryLibrary() {
   const list = useDiaryQuery(api.list);
   const detail = useDiaryQuery(api.get);
   const [selected, setSelected] = useState(null);
-  const [filter, setFilter] = useState('personal');
+  const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState('updated');
   const [view, setView] = useState('grid');
   const [carousel, setCarousel] = useState(0);
