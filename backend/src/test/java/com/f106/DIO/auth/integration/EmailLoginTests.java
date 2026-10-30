@@ -50,6 +50,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@org.springframework.test.context.jdbc.Sql("/push-session-h2.sql")
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:login-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.signup.verification-secret=testing-only-secret-at-least-32-bytes-long"

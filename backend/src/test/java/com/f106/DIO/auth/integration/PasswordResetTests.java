@@ -39,6 +39,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@org.springframework.test.context.jdbc.Sql("/push-session-h2.sql")
 @SpringBootTest(properties = {"spring.datasource.url=jdbc:h2:mem:reset-tests;MODE=PostgreSQL",
     "dio.signup.verification-secret=reset-test-only-secret-at-least-32-bytes"})
 @AutoConfigureMockMvc @ActiveProfiles("test")

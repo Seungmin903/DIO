@@ -430,3 +430,45 @@ ai-code-review:
   allow_failure: true
   script:
     - bash infra/review/mr-review.sh
+
+backend-postgres-push-test:
+  stage: quality
+  needs:
+    - job: backend-test
+      artifacts: false
+  tags:
+    - ec2-deploy
+  cache:
+    key: backend-gradle-v1
+    paths:
+      - backend/.gradle/caches/
+      - backend/.gradle/wrapper/
+    policy: pull
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+        - infra/scripts/test-push-postgres.sh
+        - backend/build.gradle
+        - backend/settings.gradle
+        - backend/gradle/**/*
+        - backend/src/main/resources/db/migration/**/*
+        - backend/src/main/resources/application*.yml
+        - backend/src/test/resources/push*/**/*
+        - backend/src/test/resources/push-session-h2.sql
+        - backend/src/main/java/**/push/**/*
+        - backend/src/test/java/**/push/**/*
+        - backend/src/main/java/**/auth/**/*
+        - backend/src/main/java/**/user/**/*
+        - backend/src/test/java/**/auth/**/*
+  script:
+    - bash infra/scripts/test-push-postgres.sh
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - backend/build/test-results/pushPostgresTest/*.xml
+    paths:
+      - backend/build/reports/tests/pushPostgresTest/
+    expire_in: 7 days
