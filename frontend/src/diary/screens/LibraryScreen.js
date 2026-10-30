@@ -15,6 +15,8 @@ import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 // 줄 폭 변화가 이만큼 멈춰 있어야 새 폭으로 다시 그린다 (사이드 메뉴 애니메이션 240ms가 끝난 뒤).
 const CAROUSEL_RESIZE_SETTLE_MS = 120;
+// 버튼으로 한 칸 넘기는 부드러운 스크롤이 끝나기를 기다리는 시간(스크롤 끝 이벤트가 없을 때의 보험)
+const CAROUSEL_MOVE_MS = 450;
 // 가운데가 아닌 옆 카드의 불투명도 (1이면 가운데 카드와 같다)
 const SIDE_CARD_OPACITY = 1; // 옆 카드도 실제 표지다(반투명 유령 · 어두운 막 없음). 멀어 보이는 건 크기 · 높이 차이만 맡는다
 
@@ -151,11 +153,19 @@ function LibraryScreen({
     if (carousel !== activeIndex) onCarouselChange(activeIndex);
   }, [activeIndex, carousel, onCarouselChange]);
 
+  // 이전/다음 버튼: 부드럽게 스크롤만 시작하고, 가운데 카드(상태)는 이동이 끝난 뒤에 바꾼다.
+  // 누르는 순간 상태를 바꾸면 이동 도중에 모든 카드의 활성 표시 · contentOffset · 빛 따라가기 값이 한꺼번에 바뀌어,
+  // 카드들이 한 번 커졌다가 작아지며 넘어가 보인다. 끝은 스크롤 끝 이벤트가 알려 주고, 없는 환경(웹)을 위해 시간이 지나면 직접 바꾼다.
+  const moveTarget = useRef(null);
+  const moveTimer = useRef(null);
+  useEffect(() => () => clearTimeout(moveTimer.current), []);
   const moveCarousel = (nextIndex) => {
     const next = Math.max(0, Math.min(nextIndex, itemCount - 1));
+    moveTarget.current = next;
     positioned.current = positionKey(next);
-    onCarouselChange(next);
     carouselRef.current?.scrollToOffset?.({ offset: next * carouselStep, animated: true });
+    clearTimeout(moveTimer.current);
+    moveTimer.current = setTimeout(() => { moveTarget.current = null; onCarouselChange(next); }, CAROUSEL_MOVE_MS);
   };
 
   // 카드 줄 폭 · 레이아웃이 바뀌어 멈춘 뒤에만 표지들이 책상 위 자기 자리를 다시 잰다(카드를 넘길 때는 스크롤 값으로 따라가므로 다시 재지 않는다).
@@ -167,6 +177,7 @@ function LibraryScreen({
   const syncCarouselIndex = useCallback(({ nativeEvent }) => {
     const index = Math.max(0, Math.min(Math.round(nativeEvent.contentOffset.x / carouselStep), itemCount - 1));
     positioned.current = [filter, view, carouselViewportWidth, contentWidth, index].join(':');
+    clearTimeout(moveTimer.current); moveTarget.current = null;
     onCarouselChange(index);
   }, [carouselStep, carouselViewportWidth, contentWidth, filter, itemCount, onCarouselChange, view]);
 
@@ -296,7 +307,7 @@ function LibraryScreen({
       </View>
 
       <View style={[s.libraryToolbar, compact && s.libraryToolbarCompact, s.libraryToolbarWrap]}>
-        <View style={s.filters}>
+        <View style={[s.filters, !compact && s.filtersWide]}>
           {FILTERS.filter(item => !remoteQuery || remoteQuery.supportsShared || item.id !== 'shared').map((item) => (
             <Pressable
               key={item.id}
@@ -328,7 +339,7 @@ function LibraryScreen({
             {!compact && <Pressable
               accessibilityRole="button"
               accessibilityLabel="이전 다이어리"
-              onPress={() => moveCarousel(activeIndex - 1)}
+              onPress={() => moveCarousel((moveTarget.current ?? activeIndex) - 1)}
               style={({ pressed }) => [s.carouselArrow, s.carouselArrowLeft, pressed && s.pressed]}
             >
               <AppIcon name="chevron-left" size={24} color={C.ink} strokeWidth={2.1} />
@@ -384,7 +395,7 @@ function LibraryScreen({
             {!compact && <Pressable
               accessibilityRole="button"
               accessibilityLabel="다음 다이어리"
-              onPress={() => moveCarousel(activeIndex + 1)}
+              onPress={() => moveCarousel((moveTarget.current ?? activeIndex) + 1)}
               style={({ pressed }) => [s.carouselArrow, s.carouselArrowRight, pressed && s.pressed]}
             >
               <AppIcon name="chevron-right" size={24} color={C.ink} strokeWidth={2.1} />
