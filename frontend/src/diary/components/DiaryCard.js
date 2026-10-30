@@ -39,9 +39,9 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
     >
       <View style={s.cardCoverWrap}>
         {/* 펜 · 별 버튼과 선택 표시는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
-        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} compact={compact} sunShadow={sunShadow} lightMotion={layout === 'carousel' ? lightMotion : null}>
+        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} sunShadow={sunShadow} lightMotion={layout === 'carousel' ? lightMotion : null}>
         {selecting && diary.canManage !== false && diary.canDelete !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
-          <Text style={s.cardCheckMark}>{selected ? '✓' : ''}</Text>
+          {selected && <AppIcon name="check" size={18} color={C.white} strokeWidth={2.6} />}
         </View>}
         {!selecting && (layout !== 'carousel' || carouselActive) && <View style={s.cardActions}>
           {diary.canManage !== false && <Pressable

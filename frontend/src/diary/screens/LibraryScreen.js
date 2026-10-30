@@ -8,7 +8,7 @@ import EmptyState from '../components/EmptyState';
 import { toggleSelection, visibleSelection } from '../utils/diarySelection';
 import IconButton from '../components/IconButton';
 import LibrarySearchScreen from '../components/LibrarySearchScreen';
-import { queryDiaries, SORT_OPTIONS } from '../utils/libraryQuery';
+import { nextSort, parseSort, queryDiaries, SORT_OPTIONS } from '../utils/libraryQuery';
 import { bumpDeskLayout } from '../utils/deskMask';
 import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
 
@@ -106,7 +106,7 @@ function LibraryScreen({
     if (!trashing && manageable.length) onSelectionChange?.(allSelected ? [] : manageable.map(diary => diary.id));
   };
   // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 버튼은 개인 다이어리 탭에만 둔다. 관리 중에는 숨긴다.
-  const canCreate = Boolean(onCreate) && filter === 'personal' && !searchOpen && !selecting;
+  const canCreate = Boolean(onCreate) && (filter === 'all' || filter === 'personal') && !searchOpen && !selecting;
 
   const carouselItems = shown;
   const itemCount = carouselItems.length;
@@ -177,7 +177,12 @@ function LibraryScreen({
   const settleTimer = useRef(null);
   useEffect(() => () => clearTimeout(settleTimer.current), []);
   const appliedWidth = useRef(0);
+  // 책상(상판)은 사이드바가 움직여도 제자리라 책상 쪽에서는 카드 자리가 바뀐 걸 알 수 없다. 줄이 움직임을 멈추면 표지가 자기 자리를 다시 재도록 알린다.
+  const deskTimer = useRef(null);
+  useEffect(() => () => clearTimeout(deskTimer.current), []);
   const measureCarousel = useCallback(({ nativeEvent: { layout } }) => {
+    clearTimeout(deskTimer.current);
+    deskTimer.current = setTimeout(bumpDeskLayout, CAROUSEL_RESIZE_SETTLE_MS + 120);
     const span = () => layout.width + (railWidthRef?.current ?? 0);
     const apply = () => {
       const width = span();
@@ -196,14 +201,15 @@ function LibraryScreen({
     { useNativeDriver: true },
   ), [scrollX]);
 
+  const { key: sortKey, direction } = parseSort(sort);
   const optionsMenu = !selecting && <>
-    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sort)?.label }} accessibilityState={{ expanded: optionsOpen }} onPress={() => setOptionsOpen(!optionsOpen)} style={({ pressed }) => [s.iconButton, pressed && s.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} onPress={() => setOptionsOpen(!optionsOpen)} style={({ pressed }) => [s.iconButton, pressed && s.pressed]}>
       <View style={s.librarySortIcon}><AppIcon name="more" size={21} color={C.ink} /></View>
     </Pressable>
     {optionsOpen && <View style={s.librarySortMenu} accessibilityLabel="보관함 옵션 목록">
       <View accessibilityRole="radiogroup" accessibilityLabel="정렬 기준">
-        {SORT_OPTIONS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: sort === item.id }} onPress={() => { onSortChange(item.id); setOptionsOpen(false); resetPosition(); }} style={({ pressed }) => [s.chip, s.librarySortOption, sort === item.id && s.chipSelected, pressed && s.pressed]}>
-          <Text style={s.chipText}>{sort === item.id ? '✓ ' : ''}{item.label}</Text>
+        {SORT_OPTIONS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: sortKey === item.id }} accessibilityLabel={`${item.label}, ${sortKey === item.id ? (direction === 'asc' ? '오름차순' : '내림차순') + ', 누르면 방향 바꾸기' : '선택'}`} onPress={() => { onSortChange(nextSort(sort, item.id)); resetPosition(); }} style={({ pressed }) => [s.chip, s.librarySortOption, sortKey === item.id && s.chipSelected, pressed && s.pressed]}>
+          <View style={s.sortOptionRow}><View style={s.sortOptionCheck}>{sortKey === item.id && <AppIcon name={direction === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} color={C.ink} strokeWidth={2.4} />}</View><Text style={s.chipText}>{item.label}</Text></View>
         </Pressable>)}
       </View>
     </View>}
@@ -260,13 +266,9 @@ function LibraryScreen({
     requestNotice={requestNotice} hasMore={hasMore} suppressEmpty={suppressEmpty} historyKey={historyKey}
   />;
 
-  return (
-    <View style={s.libraryRoot}>
-    <ScrollView
-      contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact, fixedPhoneCarousel && s.libraryScreenCarouselCompact]}
-      showsVerticalScrollIndicator={false}
-      scrollEnabled={!fixedPhoneCarousel}
-    >
+  // 한눈에 보기는 제목 · 필터 · 도구를 위에 고정하고 카드 목록만 스크롤한다.
+  const isGrid = displayView === 'grid';
+  const top = (<>
       <View style={[s.libraryHeader, compact && s.libraryHeaderCompact]}>
         <Text style={[s.libraryTitle, compact && s.libraryTitleCompact]}>{current.label}</Text>
         <View style={[s.libraryViewSwitch, compact && s.libraryViewSwitchCompact]} accessibilityRole="tablist">
@@ -314,7 +316,8 @@ function LibraryScreen({
       </View>
       {selectionBar}
       {requestNotice}
-
+  </>);
+  const body = (<>
       {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
         <EmptyState compact={compact} title={current.empty} />
       ) : displayView === 'carousel' ? (
@@ -394,7 +397,17 @@ function LibraryScreen({
             selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} onEnterEdit={enterEdit} />)}
         </View>
       )}
-    </ScrollView>
+  </>);
+  return (
+    <View style={s.libraryRoot}>
+    {isGrid ? <>
+      <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
+      <ScrollView contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact]} showsVerticalScrollIndicator={false}>{body}</ScrollView>
+    </> : <ScrollView
+      contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact, fixedPhoneCarousel && s.libraryScreenCarouselCompact]}
+      showsVerticalScrollIndicator={false}
+      scrollEnabled={!fixedPhoneCarousel}
+    >{top}{body}</ScrollView>}
     {/* 새 다이어리: 예전 사이드 메뉴의 파란 + 버튼을 화면 오른쪽 아래에 띄운다 */}
     {canCreate && <Pressable accessibilityRole="button" accessibilityLabel="새 다이어리 만들기" onPress={onCreate}
       style={({ pressed }) => [s.createFab, compact && s.createFabCompact, pressed && s.pressed]}>
