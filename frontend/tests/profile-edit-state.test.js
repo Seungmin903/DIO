@@ -332,3 +332,15 @@ test('원래 프로필 폼의 탈퇴 확인 창은 오류 시 입력을 유지�
  press(ui,'회원 탈퇴');find(ui,'탈퇴 확인 문구').props.onChangeText('탈퇴합니다');press(ui,'탈퇴하기');await tick();
  assert.equal(ui.ended(),0);assert.equal(find(ui,'탈퇴 확인 문구').props.value,'탈퇴합니다');assert.ok(nodes(ui.render()).some(n=>n.props.children==='소유권을 양도해 주세요.'));ui.unmount();
 });
+
+test('서버 프로필 저장 미연결 시 기존 오류 영역에 안내하고 입력과 계정 상태를 보존한다',async()=>{
+ const ui=setup({},undefined,{user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
+ find(ui,'닉네임').props.onChangeText('수정닉네임');press(ui,'변경사항 저장');await tick();
+ assert.equal(ui.updates.length,0);assert.equal(ui.ended(),0);assert.equal(find(ui,'닉네임').props.value,'수정닉네임');
+ assert.ok(nodes(ui.render()).some(n=>n.props.children==='프로필 정보 수정 기능이 아직 연결되지 않았어요.'));ui.unmount();
+});
+test('서버 계정도 기존 탈퇴 대화상자에서 계정 API를 호출하고 세션을 종료한다',async()=>{
+ let calls=0;const ui=setup({withdraw:async user=>{assert.equal(user.userId,'7');calls++}},undefined,{user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
+ press(ui,'회원 탈퇴');find(ui,'탈퇴 확인 문구').props.onChangeText('탈퇴합니다');press(ui,'탈퇴하기');await tick();
+ assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
+});

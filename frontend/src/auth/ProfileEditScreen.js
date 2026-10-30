@@ -146,7 +146,11 @@ export default function ProfileEditScreen({
   const save = () => {
     if (!ready) return;
     run(
-      () => service.updateProfile(saved, { nickname: name, photoUri }),
+      () => {
+        if (typeof service.updateProfile !== 'function')
+          throw new Error('프로필 정보 수정 기능이 아직 연결되지 않았어요.');
+        return service.updateProfile(saved, { nickname: name, photoUri });
+      },
       (result) => {
         setSaved(result);
         setNickname(result.nickname);

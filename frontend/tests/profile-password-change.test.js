@@ -27,8 +27,17 @@ test('실제 계정의 내 공간에 임의의 비밀번호 변경·탈퇴 버�
  const ui=setup({mode:'authenticated',userId:'7',provider:'email',nickname:'회원'});
  assert.equal(find(ui.render(),'비밀번호 변경'),null);assert.equal(find(ui.render(),'회원 탈퇴'),null);
 });
-test('기존 프로필 수정 진입 버튼과 계정 API 전달만 유지한다',()=>{
- const ui=setup({mode:'authenticated',accountId:'original-entry',userId:'7',provider:'email',nickname:'회원'});
+test('accountId 없는 실제 서버 계정도 기존 프로필 수정 버튼으로 계정 API에 접근한다',()=>{
+ const ui=setup({mode:'authenticated',userId:'7',provider:'email',nickname:'회원'});
  find(ui.render(),'회원정보 수정').props.onPress();const form=ui.render();assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.service,ui.service);
  assert.equal(form.props.passwordOnly,undefined);assert.equal(form.props.withdrawOnly,undefined);
+});
+
+test('체험 계정은 기존 진입과 기본 프로필 서비스 선택을 유지한다',()=>{
+ const ui=setup({mode:'preview',accountId:'preview-account',provider:'email',nickname:'체험'});
+ find(ui.render(),'회원정보 수정').props.onPress();assert.equal(ui.render().props.service,undefined);
+});
+test('비회원에게 프로필 수정 버튼을 추가하지 않는다',()=>{
+ const ui=setup({mode:'guest',provider:'guest',nickname:'비회원'});
+ assert.equal(find(ui.render(),'회원정보 수정'),null);assert.ok(find(ui.render(),'로그인·회원가입'));
 });

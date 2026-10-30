@@ -28,7 +28,7 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
     <Pressable accessibilityRole="button" accessibilityLabel="로그인·회원가입" onPress={onEndPreview} style={({ pressed }) => [local.profileAction, local.guestAction, pressed && local.pressed]}>
       <Text style={local.guestActionText}>로그인·회원가입</Text>
     </Pressable>
-  ) : !guest && previewUser?.accountId ? (
+  ) : !guest && (previewUser?.accountId || (previewUser?.mode === 'authenticated' && accountService)) ? (
     <Pressable accessibilityRole="button" accessibilityLabel="회원정보 수정" onPress={() => setEditing(true)} style={({ pressed }) => [local.profileAction, pressed && local.pressed]}>
       <Text style={local.profileActionText}>프로필 수정</Text>
       <AppIcon name="chevron-right" size={16} color={colors.surface} />
