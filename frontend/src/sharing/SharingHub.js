@@ -177,7 +177,18 @@ export default function SharingHub({
     clearTimeout(focusTimer.current);
     if (!request) return;
     dismissInput();
-    if (request.diary) {
+    if (request.inviteId) {
+      const pending = job.current;
+      setScreen('invitations'); setBusy(true);
+      runtime.invitationGateway.get(request.inviteId).then(value => {
+        if (!alive.current || pending !== job.current) return;
+        if (value.inviteId !== request.inviteId || value.status !== 'PENDING' || value.canOpen !== true)
+          throw new Error('사용할 수 없는 초대예요. 최신 상태를 확인해 주세요.');
+        setInvite(value); setScreen('detail');
+      }).catch(error => {
+        if (alive.current && pending === job.current) setError(error.message);
+      }).finally(() => { if (alive.current && pending === job.current) setBusy(false); });
+    } else if (request.diary) {
       try {
         const registered = runtime.registerDiary(request.diary);
         setDiary(registered);

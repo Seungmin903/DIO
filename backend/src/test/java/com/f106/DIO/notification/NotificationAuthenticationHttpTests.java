@@ -22,7 +22,7 @@ import com.f106.DIO.user.repository.UserRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** 실제 HTTP 로그인·JWT 필터·활성 세션·알림 SQL을 함께 검증한다. 공유 모듈은 미연결이다. */
-@org.springframework.test.context.jdbc.Sql("/push-session-h2.sql")
+@org.springframework.test.context.jdbc.Sql(scripts={"classpath:invitation-notification-h2.sql", "classpath:push-session-h2.sql"})
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
     "spring.datasource.url=jdbc:h2:mem:notification-auth-http;MODE=PostgreSQL",
     "dio.auth.session-cleanup.enabled=false"

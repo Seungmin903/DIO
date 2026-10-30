@@ -1,4 +1,4 @@
--- 격리 구현 초안: 발송 worker는 포함하지 않는다. 번호는 제출 시 최신 develop과 재확인한다.
+-- 푸시 기기와 대기열 스키마. 대기열 생산 및 발송 worker는 포함하지 않는다.
 CREATE TABLE push_installations (
     installation_id UUID PRIMARY KEY,
     environment VARCHAR(32) NOT NULL,

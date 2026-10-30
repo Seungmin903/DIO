@@ -6,6 +6,14 @@ import * as gestures from '../src/editor/utils/readingGestures.js'
 import * as pageRepeat from '../src/editor/utils/pageRepeat.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
+test('편집 화면에서 fitted 참조는 해당 범위에 선언되어 있다', () => {
+  const editor = readFileSync(new URL('../src/editor/screens/EditorScreen.js', import.meta.url), 'utf8')
+  const ast = expo('@babel/parser').parse(editor, { sourceType: 'module', plugins: ['jsx'] })
+  expo('@babel/traverse').default(ast, { ReferencedIdentifier(path) {
+    if (path.node.name !== 'fitted') return
+    assert.ok(path.scope.getBinding('fitted'), '텍스트 편집 콜백 밖의 화면 맞춤 상태도 선언되어야 한다')
+  } })
+})
 const source = readFileSync(new URL('../src/editor/components/chrome/ReadingChrome.js', import.meta.url), 'utf8')
 const { code } = expo('@babel/core').transformSync(source, { configFile: false, babelrc: false,
   plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')] })

@@ -97,3 +97,7 @@ java -Dloader.main=com.f106.DIO.push.service.PushKeyOperator -cp dio.jar org.spr
 등록 요청 이력과 변경 요청 이력의 삭제 정책은 아직 확정되지 않았다. 최초 등록 암호문은 만료 시 제거하지만 재발급 방지를 위한 이력은 남는다. 무기한 증가를 방지할 보존 기간과 재시도 계약을 합의한 후 별도 정리 작업이 필요하다. 기존 ec2-deploy 러너는 배포 호스트와 공유되므로 테스트 전용 러너 또는 운영자가 승인한 자원 격리 설정도 필요하다.
 
 이전 V21 업그레이드 검증용 V22 fixture에는 설치 삭제 시 delivery FK cascade도 포함한다. 실제 배포용 migration은 대상 DB 이력 확인 후 별도 결정한다.
+
+## !222 병합 후 migration 번호
+
+최신 develop의 V21은 초대 알림 이력이며, 이 MR의 푸시 스키마는 V22로 조정했다. 위 V21·V22 언급은 당시 초안과 격리 업그레이드 fixture에 관한 과거 기록이다. 운영 및 공유 환경의 실제 Flyway 이력은 여전히 배포 전에 확인해야 한다.

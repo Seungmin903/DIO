@@ -237,4 +237,8 @@ Swagger에서 로그인한 뒤에는 **Authorize**에 로그인 응답의 Access
 
 ## 로그인 상태의 비밀번호 변경
 
-PATCH `/api/v1/me/password`는 구현됐으며 현재 비밀번호 검증 후 모든 세션을 폐기한다. 기존 내 공간의 변경 대화상자로 연결한다. [요청·응답과 검증 범위](./password-change.md)를 참고한다. 내 정보 조회·수정·탈퇴 API 구현은 포함하지 않는다.
+PATCH `/api/v1/me/password`는 구현됐으며 현재 비밀번호 검증 후 모든 세션을 폐기한다. 기존 내 공간의 변경 대화상자로 연결한다. [요청·응답과 검증 범위](./password-change.md)를 참고한다.
+
+## 내 회원정보
+
+GET `/api/v1/me`는 Bearer 토큰 회원의 userId·email·nickname·profilePhotoUrl을, PATCH `/api/v1/me`는 닉네임만 변경한 뒤 같은 형태를 반환한다. 닉네임은 형식만 검사하고 중복은 허용한다. [요청·응답과 검증 범위](./my-profile.md)를 참고한다. 프로필 사진 변경·탈퇴 API는 포함하지 않는다.

@@ -58,6 +58,8 @@ public class EmailInviteService {
         }
         var invite=invites.saveAndFlush(DiaryInvite.email(diaryId,actor,recipient.getUserId(),now));
         String token=tokens.token(invite);invite.initializeHash(tokens.hash(token));diary.updateSettings(null,null,null,"MEMBERS");
+        entities.flush();
+        events.publishEvent(new com.f106.DIO.notification.event.InvitationConfirmedEvent(UUID.randomUUID(),invite.getInviteId(),recipient.getUserId(),now));
         return new InviteMailDispatch.Requested(invite.getInviteId(),recipient.getEmail(),diary.getTitle(),tokens.url(token));
     }
     @Transactional(readOnly=true)
