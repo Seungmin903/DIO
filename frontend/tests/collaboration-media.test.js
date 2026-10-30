@@ -98,3 +98,35 @@ test('느린 이미지 다운로드는 상대 텍스트와 캔버스 동기화�
   assert.equal(result.objects[0].mediaFileId,remoteId)
  }finally{f.resume()}
 })
+
+
+function failingDownloads(error){
+ let time=0,attempts=0,failed=0,broken=true;const media='a0000000-0000-4000-8000-000000000001',good='a0000000-0000-4000-8000-000000000002',saved=[]
+ const instance=createCanvasMedia({now:()=>time,storage:{},key:'retry',files:{cached:async()=>false,save:async(id)=>{if(id===media&&error.code==='MEDIA_DECODE_FAILED'&&broken)throw error;saved.push(id)},fail:()=>failed++},request:async path=>{
+  if(path.includes(media)){attempts++;if(broken&&error.code!=='MEDIA_DECODE_FAILED')throw error}return new Uint8Array([1])
+ }})
+ const rows=[{mediaFileId:media},{mediaFileId:good}]
+ return {instance,media,rows,saved,counts:()=>({attempts,failed}),advance:n=>time+=n,recover:()=>broken=false}
+}
+test('일시 다운로드 실패는 5초·15초·60초 백오프 후 자동 시도를 중단한다',async()=>{
+ const f=failingDownloads(Object.assign(Error('network'),{status:503}));await f.instance.hydrate(f.rows)
+ assert.equal(f.counts().attempts,1);assert.equal(f.saved.length,1)
+ for(let n=0;n<20;n++)await f.instance.hydrate(f.rows);assert.equal(f.counts().attempts,1)
+ for(const delay of [5000,15000,60000]){f.advance(delay-1);await f.instance.hydrate(f.rows);const before=f.counts().attempts;f.advance(1);await f.instance.hydrate(f.rows);assert.equal(f.counts().attempts,before+1)}
+ f.advance(86400000);await f.instance.hydrate(f.rows);assert.equal(f.counts().attempts,4)
+ f.recover();await f.instance.retry(f.media);assert.ok(f.saved.includes(f.media));f.instance.dispose()
+})
+for(const error of [Object.assign(Error('missing'),{status:404}),Object.assign(Error('decode'),{code:'MEDIA_DECODE_FAILED'})])test(`영구 오류 ${error.status??error.code}는 매 응답마다 다운로드하지 않고 수동 재조회만 허용한다`,async()=>{
+ const f=failingDownloads(error);await f.instance.hydrate(f.rows)
+ f.advance(86400000);for(let n=0;n<20;n++)await f.instance.hydrate(f.rows)
+ assert.equal(f.counts().attempts,1);assert.equal(f.saved.length,1);assert.equal(f.counts().failed,1)
+ f.recover();await f.instance.retry(f.media);assert.equal(f.counts().attempts,2);assert.ok(f.saved.includes(f.media));f.instance.dispose()
+})
+test('기존 이미지 다시 조회 연결은 세션 종료 시 해제된다',async()=>{
+ const {registerRemoteMediaRetry,retryRemoteMedia}=await import('../src/editor/services/mediaRetry.js')
+ let calls=0,ok=false
+ const instance=createCanvasMedia({storage:{},key:'registered',request:async()=>{calls++;if(!ok)throw Object.assign(Error('missing'),{status:404});return new Uint8Array([1])},files:{cached:async()=>false,save:async()=>{},fail(){},registerRetry:registerRemoteMediaRetry}})
+ await instance.hydrate([{mediaFileId:remoteId}]);ok=true
+ assert.equal(await retryRemoteMedia(remoteId),true);assert.equal(calls,2)
+ instance.dispose();assert.equal(await retryRemoteMedia(remoteId),false);await assert.rejects(instance.retry(remoteId),/세션/)
+})

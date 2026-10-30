@@ -1,8 +1,10 @@
 import { File, Paths } from 'expo-file-system'
 import * as repository from '../utils/mediaRepository.native.js'
+import {registerRemoteMediaRetry} from './mediaRetry.js'
 import {mediaRegistry} from './mediaStore'
 import {detectMediaType,checkDimensions} from '../utils/mediaPolicy.js'
 export const canvasMediaFiles={
+ registerRetry:registerRemoteMediaRetry,
  fail(id,error){mediaRegistry.fail(id,error)},
  async upload(id,category){
   const stored=await repository.get(id)
