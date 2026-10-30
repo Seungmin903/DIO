@@ -154,13 +154,13 @@ test('보관함 검색·초기화·빈 결과·정렬 선택을 연결하고 새
  assert.deepEqual(nodes(tree).filter(n=>n.type==='../components/DiaryCard').map(n=>n.props.diary.id),['b','a']);
  assert.ok(nodes(tree).some(n=>n.props?.accessibilityLabel==='새 다이어리 만들기'));
 });
-test('접힌·펼친 사이드바 모두 생성 버튼 없이 기존 탐색을 제공한다',()=>{
+test('접힌·펼친 사이드바 모두 생성 버튼 없이 보관함 탐색과 마이페이지 진입을 제공한다',()=>{
  const render=setup('../src/diary/components/SideRail.js');
  for(const collapsed of [true,false]){
  const tree=render({collapsed,page:'library',filter:'personal'});
  const labels=nodes(tree).map(n=>n.props.accessibilityLabel);
  assert.ok(!labels.includes('새 다이어리'));
- for(const label of ['모든 다이어리','즐겨찾기','내 공간','휴지통'])assert.ok(labels.includes(label));
+ for(const label of ['모든 다이어리','즐겨찾기','마이페이지','휴지통'])assert.ok(labels.includes(label));
  }
 });
 

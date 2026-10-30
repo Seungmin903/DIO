@@ -26,6 +26,28 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
   const between = (from, to) => progress.interpolate({ inputRange: [0, 1], outputRange: [from, to] });
   // 너비가 어느 정도 벌어진 뒤에 글자가 나타나도록 늦게 보인다.
   const labelOpacity = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 0, 1] });
+  const profileSelected = page === 'profile';
+  const profileShortcut = (placement) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="마이페이지"
+      accessibilityState={{ selected: profileSelected }}
+      onPress={() => navigate('profile')}
+      style={({ pressed }) => [
+        placement === 'collapsed' ? s.railProfileCollapsed : s.railProfileTop,
+        profileSelected && s.railProfileSelected,
+        pressed && s.railTogglePressed,
+      ]}
+    >
+      {profilePhotoSource ? (
+        <Image source={profilePhotoSource} style={s.railProfileAvatar} contentFit="cover" cachePolicy="memory" />
+      ) : (
+        <View style={s.railProfileAvatar}>
+          <AppIcon name="person" size={20} color={C.muted} />
+        </View>
+      )}
+    </Pressable>
+  );
 
   const item = (id, label, icon, nextFilter) => {
     const selected = id === 'library'
@@ -65,6 +87,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
             <BrandLogo size={32} />
           </Pressable>
         </Animated.View>
+        {!collapsed && <Animated.View style={{ opacity: labelOpacity }}>{profileShortcut('top')}</Animated.View>}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
@@ -75,13 +98,13 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
           <AppIcon name="menu" size={24} color={C.ink} />
         </Pressable>
       </Animated.View>
+      {collapsed && <View style={s.railProfileCollapsedSlot}>{profileShortcut('collapsed')}</View>}
       <Animated.View style={[s.railGroup, { marginTop: between(18, 25) }]}>
         <Animated.View style={[s.railSectionSlot, { height: between(0, 23), opacity: labelOpacity }]}>
           <Text numberOfLines={1} style={s.railSection}>보관함</Text>
         </Animated.View>
         {item('library', '모든 다이어리', 'book', 'personal')}
         {item('library', '즐겨찾기', 'star', 'favorite')}
-        {item('profile', '내 공간', 'person')}
         {item('trash', '휴지통', 'trash')}
         {onNotifications && <View style={{ alignItems: 'center', marginTop: 8 }}><SharingEntry notifications notificationCount={notificationCount} notificationLabel={notificationLabel} compact={collapsed} count={invitationCount} onPress={onNotifications}/></View>}
       </Animated.View>
