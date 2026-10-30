@@ -45,3 +45,16 @@ test('누른 자리 메뉴는 위 먼저, 위가 좁으면 아래에 뜬다', ()
   assert.equal(placeHorizontal(5, 210, 1280), 8)
   assert.equal(placeHorizontal(1275, 210, 1280), 1280 - 210 - 8)
 })
+
+test('보이는 작업 영역을 주면 페이지가 아니라 그 영역 안에 놓는다 (툴바 아래 · 패널 옆)', () => {
+  const area = { left: 160, top: 76, right: 900, bottom: 700 }
+  // 요소가 툴바 바로 아래에 있으면 위로 못 올리고 아래로
+  const nearRibbon = placeVertical({ top: 90, bottom: 140, handleY: null }, BAR, area)
+  assert.equal(nearRibbon.side, 'below'); assert.equal(nearRibbon.top, 140 + POPOVER_GAP)
+  // 요소가 화면 밖(위)으로 나가도 바는 영역 안으로 들어온다
+  assert.equal(placeVertical({ top: -400, bottom: -300, handleY: null }, BAR, area).top, area.top + 8)
+  assert.equal(placeVertical({ top: 900, bottom: 1000, handleY: null }, BAR, area).top, area.bottom - BAR - 8)
+  // 가로: 왼쪽 패널 옆, 오른쪽 끝 안으로
+  assert.equal(placeHorizontal(100, 300, area), area.left + 8)
+  assert.equal(placeHorizontal(1200, 300, area), area.right - 300 - 8)
+})

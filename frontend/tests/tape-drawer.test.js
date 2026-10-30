@@ -9,6 +9,11 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   configFile: false, babelrc: false,
   plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
+// 스티커 분류 계산(stickerLibrary)은 실제 모듈을 같은 가짜 의존성으로 불러 쓴다
+const library = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/stickerLibrary.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+}).code
+const load = (source, deps) => { const module = { exports: {} }; new Function('require', 'module', 'exports', source)(id => deps[id], module, module.exports); return module.exports }
 const sizes = [{ id: 'standard', w: 180, h: 34 }, { id: 'wide', w: 200, h: 68 }]
 const make = save => createTapePreferences({ load: async () => ({ size: 'wide', palette: 'sky', pattern: 'dot' }), save: save || (async () => true), sizes: sizes.map(s => s.id), palettes: ['sky', 'pink'], patterns: ['dot', 'solid'], defaultSize: 'standard' })
 const nodes = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)]
@@ -17,7 +22,7 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}) {
     react: { createContext: () => ({ Provider: 'provider' }), useContext: () => 4, useRef: value => ({ current: value }), useState: value => [typeof value === 'function' ? value() : value, () => {}] },
     'react-native': { View: 'view', Text: 'text', Platform: { OS: 'web', select: values => values.web }, StyleSheet: { create: value => value } },
     '../../../shared/theme': { colors: {}, radius: {}, shadow: {} },
-    '../../constants': { TAPE_SIZES: sizes, TAPE_DEFAULT: { size: 'standard', palette: 'pink' }, TAPE_PATTERN_NAMES: { dot: '도트', solid: '무지' } },
+    '../../constants': { TAPE_SIZES: sizes, TAPE_DEFAULT: { size: 'standard', palette: 'pink' }, TAPE_PATTERN_NAMES: { dot: '도트', solid: '무지' }, PHOTO_FRAME_ASSETS: [{ id: 'polaroid', name: '폴라로이드', kind: 'border' }] },
     '../../hooks/useCustomDecor': { RECENT_LIMIT: 8, stickerKey: item => item.id, useCustomDecor: () => ({ loaded: true, lastStickerCategory: saveStatus.items?.lastStickerCategory ?? null, items: { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [] }, ...saveStatus }) },
     '../../hooks/useTapePreferences': { useTapePreferences: () => [store.getSnapshot(), store.update, ready] },
     '../../services/stickerSplit': { stickerSplit: { available: false } },
@@ -26,21 +31,25 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}) {
     '../ToolPanel': { toolPanelStyles: {}, ToolPanelHeader: 'header' },
     '../../utils/common': { clamp: value => value },
   }
+  mocks['../../stickerLibrary'] = load(library, { './stickerAssets': mocks['../../stickerAssets'], './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'] })
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), module, module.exports)
   return module.exports.default({ tab: 'tape', ...callbacks })
 }
 const options = tree => nodes(tree).find(node => node.type === './TapeOptions')
-test('스티커 칩 복원·선택 저장과 삭제·숨김 칩의 즐겨찾기 대체', () => {
+test('스티커 칩 복원·선택 저장과 삭제·숨김 칩은 비어 있지 않은 첫 칩으로 대체', () => {
   const picked = [], items = { folders: [{ id: 'mine', name: '내 폴더', items: [] }], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], lastStickerCategory: 'folder:mine' }
   const render = () => drawer(make(), { tab: 'sticker' }, true, { items, setStickerCategory: id => picked.push(id) })
   const pills = () => nodes(render()).filter(node => node.type?.name === 'Pill')
   assert.equal(pills().find(node => node.props.active).props.label, '내 폴더')
   pills().find(node => node.props.label === 'Twemoji').props.onPress()
   assert.deepEqual(picked, ['twemoji'])
+  // 즐겨찾기 · 최근이 비어 있으면 첫 분류로
   items.lastStickerCategory = 'folder:deleted'
-  assert.equal(pills().find(node => node.props.active).props.label, '즐겨찾기')
+  assert.equal(pills().find(node => node.props.active).props.label, 'Fluent Emoji')
   items.lastStickerCategory = 'twemoji'; items.hiddenCategories = ['twemoji']
+  assert.equal(pills().find(node => node.props.active).props.label, 'Fluent Emoji')
+  items.favorites = [{ id: 'a' }]
   assert.equal(pills().find(node => node.props.active).props.label, '즐겨찾기')
 })
 

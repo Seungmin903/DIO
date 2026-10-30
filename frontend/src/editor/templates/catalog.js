@@ -1,6 +1,7 @@
 import { catalog, annualBook, portraitAnnualBook, reusableMenu } from './data.js'
 import { UNDATED_TEMPLATES } from './undated.js'
 import { STUDY_PLANNER_MENU_ITEM, STUDY_PLANNER_TEMPLATES } from './studyPlanner.js'
+import { datedTemplate } from './dated.js'
 
 export const TEMPLATE_VERSION = catalog.templateVersion
 export const ANNUAL_PAGE_IDS = annualBook.pages
@@ -31,7 +32,8 @@ export class TemplateError extends Error {
 }
 
 export function getTemplate(id, version = TEMPLATE_VERSION) {
-  const asset = assets.get(id)
+  // 날짜 속지(dated-…)는 파일 없이 ID 에서 항목을 만든다
+  const asset = assets.get(id) ?? datedTemplate(id)
   if (!asset || !['landscape', 'portrait'].includes(asset.orientation) || version !== asset.templateVersion) {
     throw new TemplateError('이 페이지의 내지 또는 버전을 찾을 수 없어요.')
   }

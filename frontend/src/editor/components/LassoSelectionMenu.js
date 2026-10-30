@@ -8,14 +8,15 @@ const EDGE = 8
 const GAP = 16
 
 // 화면 픽셀 크기를 유지하고 선택 영역 바로 아래에 붙인다. 아래 공간이 없으면 위로 옮긴다.
-export default function LassoSelectionMenu({ objects, mode, zoom, pageWidth, pageHeight, onModeChange, anchor }) {
+// origin: 페이지 왼쪽 위의 좌표, area: 메뉴를 둘 영역 { left, top, right, bottom } (선택 바와 같은 좌표계)
+export default function LassoSelectionMenu({ objects, mode, zoom, origin = { x: 0, y: 0 }, area, onModeChange, anchor }) {
   const [size, setSize] = useState({ width: 0, height: 44 })
   const bounds = unionBounds(objects)
-  const width = pageWidth * zoom, height = pageHeight * zoom
-  const below = anchor ? anchor.top + anchor.height + 8 : bounds.bottom * zoom + GAP
-  const top = clamp(below + size.height <= height - EDGE ? below : (anchor ? anchor.top - 8 : bounds.top * zoom - GAP) - size.height,
-    EDGE, Math.max(EDGE, height - size.height - EDGE))
-  const left = clamp(bounds.cx * zoom - size.width / 2, EDGE, Math.max(EDGE, width - size.width - EDGE))
+  const width = area.right - area.left
+  const below = anchor ? anchor.top + anchor.height + 8 : bounds.bottom * zoom + origin.y + GAP
+  const top = clamp(below + size.height <= area.bottom - EDGE ? below : (anchor ? anchor.top - 8 : bounds.top * zoom + origin.y - GAP) - size.height,
+    area.top + EDGE, Math.max(area.top + EDGE, area.bottom - size.height - EDGE))
+  const left = clamp(bounds.cx * zoom + origin.x - size.width / 2, area.left + EDGE, Math.max(area.left + EDGE, area.right - size.width - EDGE))
   return <View accessibilityLabel="올가미 선택 메뉴" style={[styles.menu, { top, left, maxWidth: Math.max(1, width - EDGE * 2), opacity: size.width ? 1 : 0 }]}
     onLayout={({ nativeEvent: { layout } }) => setSize(current => current.width === layout.width && current.height === layout.height ? current : { width: layout.width, height: layout.height })}
     onStartShouldSetResponder={() => true}>

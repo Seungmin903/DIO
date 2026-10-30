@@ -98,3 +98,40 @@ test('고정 비교 Viewport는 핀치와 손바닥 이동을 수용하거나 �
     assert.equal(f.commits.length, 0)
   }
 })
+
+test('손바닥 도구로 움직이지 않고 오래 누르면 그 자리의 페이지 좌표를 알리고, 탭 · 끌기는 메뉴를 열지 않는다', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const module = { exports: {} }
+  const load = id => {
+    if (id === 'react') return { useRef: current => ({ current }), useState: value => [value, () => {}], useEffect() {} }
+    if (id === 'react-native') return { AppState: { addEventListener: () => ({ remove() {} }) }, Platform: { OS: 'ios', select: v => v.default }, View: 'view', Text: 'text', StyleSheet: { create: v => v } }
+    if (id.endsWith('/theme')) return { colors: {}, shadow: {} }
+    if (id.endsWith('/stylus')) return { stylus: { activePen: false }, touchKind: () => 'touch', notePointerDown() {}, notePointerUp() {}, resetStylusPointers() {} }
+    return require(id)
+  }
+  new Function('require', 'module', 'exports', code)(load, module, module.exports)
+  const pressed = [], taps = []
+  const h = module.exports.default({ scale: 1, zoom: 0.5, offset: { x: 100, y: 100 }, dragToPan: true, onView() {},
+    resolvePan: (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }), resolveZoom: () => null,
+    onTapEmpty: () => taps.push(1), onLongPress: point => pressed.push(point) }).props
+  const touch = (pageX, pageY) => ({ nativeEvent: { pageX, pageY, touches: [{ pageX, pageY }] } })
+
+  h.onResponderGrant(touch(300, 200))
+  t.mock.timers.tick(450)
+  assert.deepEqual(pressed, [{ x: 400, y: 200 }])
+  h.onResponderRelease()
+  assert.equal(taps.length, 0, '메뉴를 띄운 터치는 빈 곳 탭(선택 해제)으로 치지 않는다')
+
+  h.onResponderGrant(touch(300, 200))
+  h.onResponderMove(touch(340, 200))
+  t.mock.timers.tick(450)
+  h.onResponderRelease()
+  assert.equal(pressed.length, 1, '끌어서 화면을 옮기면 메뉴를 열지 않는다')
+
+  h.onResponderGrant(touch(300, 200))
+  t.mock.timers.tick(200)
+  h.onResponderRelease()
+  t.mock.timers.tick(500)
+  assert.equal(pressed.length, 1, '짧은 탭은 메뉴를 열지 않는다')
+  assert.equal(taps.length, 1)
+})

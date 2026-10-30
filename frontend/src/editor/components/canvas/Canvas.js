@@ -9,13 +9,17 @@ import { expandGroups } from '../../state/editorReducer'
 import { centerOf, clamp, rotateVector, unionBounds } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
 import { coverLayout, photoInnerBox } from '../../utils/objects'
+import { isStripFrame, stripCellAt } from '../../utils/photoStrip'
 import { pageSize } from '../../utils/pageGeometry.js'
 import { placeHorizontal, placeVertical } from '../../utils/popoverPlacement'
 import { fitTextHeightPatch, textLayoutKey } from '../../utils/text'
 import { createLassoOutline, resolveLassoOutline } from '../../utils/lassoOutline.js'
 import PageBackground from '../PageBackground'
 import ContextBar from './ContextBar'
+import { StageOverlay } from './StageOverlay'
 import CropHandles from './CropHandles'
+import SlotAddButtons from './SlotAddButtons'
+import FrameTextEditor, { frameTextAt } from './FrameTextEditor'
 import LassoOutline from './LassoOutline'
 import StaticPage from './StaticPage'
 import SelectionOverlay from './SelectionOverlay'
@@ -67,6 +71,7 @@ export default function Canvas({
   moreOpen,
   onToggleMore,
   contextBarInside,
+  contextBarFrame = null, // 선택 바를 작업창 위 층(StageOverlay)에 그릴 때의 자리 { x, y, area } (ContextBar frame)
   onCrop,
   onToast,
   activeTool = 'select',
@@ -82,6 +87,11 @@ export default function Canvas({
   onLassoModeChange,
   onCreateText,
   onEditText,
+  onEditMedia,
+  onFillCells,
+  onFillSlot,
+  frameTextEdit, // 사진 틀의 인쇄 글자를 그 자리에서 고치는 중 { id, line } (이 페이지 것만)
+  onEditFrameText, // (object, line) 고치기 시작 · (null) 끝
   onTextSettings,
   onCopy,
   onCut,
@@ -89,6 +99,7 @@ export default function Canvas({
   canPaste,
   paperAppearance, // 지금 페이지 속지 색 { backgroundColor, layoutColor }
   onPaperAppearance, // (appearance, all) => 속지 색 바꾸기
+  menuRequest = null, // 손바닥 도구에서 보는 영역이 알려 준 길게 누른 자리 { x, y, key } (페이지 좌표). null 이면 메뉴를 닫는다.
   onTextLink,
   onObjectLink,
   onCopyLink,
@@ -132,6 +143,8 @@ export default function Canvas({
   }
   const changePlannerOptions = (patch) => dispatch({ type: 'setPlanner', planner: setPlannerOptions(page.planner, patch) })
   const [lassoDrawing, setLassoDrawing] = useState(false)
+  // 고치는 중인 틀. 틀 선택이 풀리거나 잠기면 입력칸을 내린다.
+  const frameTextObject = frameTextEdit && selectedIds.includes(frameTextEdit.id) ? page.objects.find((o) => o.id === frameTextEdit.id && !o.locked) : null
   const [lassoCapture, setLassoCapture] = useState(false)
   const [lassoOutline, setLassoOutline] = useState(null)
   const outlinePaths = activeTool === 'lasso'
@@ -228,7 +241,15 @@ export default function Canvas({
   const [marquee, setMarquee] = useState(null) // 논리 좌표 { left, top, right, bottom }
   const marqueeRef = useRef(null)
   // 빈 곳을 길게 누르면 뜨는 메뉴: 붙여넣기 · 속지 색. { x, y } 는 페이지 좌표, panel: 'paper' 면 그 자리에 속지 색 말풍선
+  // 선택 도구는 이 페이지가 터치를 받아 직접 열고, 손바닥 도구는 화면을 옮기는 보는 영역이 길게 누른 자리를 알려 준다(menuRequest).
   const [emptyMenu, setEmptyMenu] = useState(null)
+  const canPageMenu = canSelect || (!readOnly && !textEditing && activeTool === 'hand')
+  useEffect(() => {
+    const inside = menuRequest && menuRequest.x >= 0 && menuRequest.y >= 0 && menuRequest.x <= PAGE_WIDTH && menuRequest.y <= PAGE_HEIGHT
+    setEmptyMenu(inside ? { x: menuRequest.x, y: menuRequest.y } : null)
+  }, [menuRequest]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 도구를 바꾸면 열어 둔 메뉴를 닫는다 (다른 도구로 갔다 돌아왔을 때 예전 메뉴가 다시 보이지 않게)
+  useEffect(() => { setEmptyMenu(null) }, [activeTool])
   const backgroundHandlers = usePan({
     onStart: (event) => {
       Keyboard.dismiss()
@@ -335,7 +356,9 @@ export default function Canvas({
           }} />
       )}
       {/* 터치 층: 요소마다 같은 자리에 투명한 상자를 두고 선택·이동을 받는다. */}
-      <View style={[styles.hitLayer, (activeTool === 'lasso' || textTool) && { zIndex: 1 }]} pointerEvents={canTouch && !outlinePaths ? 'box-none' : 'none'}>
+      <View style={[styles.hitLayer, (activeTool === 'lasso' || textTool) && { zIndex: 1 }]} pointerEvents={canTouch && !outlinePaths ? 'box-none' : 'none'}
+        // 틀 글자를 고치다 캔버스를 누르면 입력을 끝낸다 (네이티브는 입력칸 밖을 눌러도 포커스가 남는다)
+        onTouchStart={frameTextEdit ? () => { Keyboard.dismiss(); onEditFrameText(null) } : undefined}>
         {visible.filter((object) => (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
           <CanvasObject
             key={object.id}
@@ -352,6 +375,8 @@ export default function Canvas({
             onInteracting={setInteracting}
             onDragging={setDraggingIds}
             onEditText={onEditText}
+            onEditMedia={onEditMedia}
+            onEditFrameText={onEditFrameText}
           />
         ))}
       </View>
@@ -376,6 +401,17 @@ export default function Canvas({
       {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
       {!readOnly && textEditing && textEditing.type !== 'shape' && <TextEditor onToast={onToast} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} boundary={textBoundary} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} onCancel={onCancelText} onReveal={onRevealText} />}
 
+      {/* 사진 틀의 빈 자리 + (선택 도구에서만) */}
+      {canSelect && !cropping && !interacting && !marquee && onFillSlot && (
+        <View pointerEvents="box-none" style={styles.selectionControls}>
+          <SlotAddButtons objects={page.objects} zoom={zoom} onFill={onFillSlot} />
+        </View>
+      )}
+      {!readOnly && frameTextObject && !interacting && (
+        <View pointerEvents="box-none" style={styles.selectionControls}>
+          <FrameTextEditor key={`${frameTextEdit.id}-${frameTextEdit.line}`} object={frameTextObject} line={frameTextEdit.line} zoom={zoom} dispatch={dispatch} onClose={() => onEditFrameText(null)} onReveal={onRevealText} />
+        </View>
+      )}
       {freeCropTarget && <View pointerEvents="box-none" style={styles.selectionControls}><CropHandles photo={freeCropTarget} zoom={zoom} dispatch={dispatch} /></View>}
 
       {guides?.x != null && <View style={[styles.guideV, { left: guides.x * zoom }]} pointerEvents="none" />}
@@ -402,7 +438,7 @@ export default function Canvas({
       )}
       {/* 영역 선택 중: 지금 네모 안에 들어와 선택될 요소마다 선택 테두리 모양의 선을 보여 준다. */}
       {marquee && selected.map((object) => <HitOutline key={object.id} object={object} zoom={zoom} />)}
-      {emptyMenu?.panel === 'paper' && canSelect && (
+      {emptyMenu?.panel === 'paper' && canPageMenu && (
         <PaperColorSettings
           appearance={paperAppearance}
           onChange={(appearance, all) => onPaperAppearance?.(appearance, all)}
@@ -412,7 +448,7 @@ export default function Canvas({
           style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, Boolean(plannerOrientation))}
         />
       )}
-      {emptyMenu && !emptyMenu.panel && canSelect && (
+      {emptyMenu && !emptyMenu.panel && canPageMenu && (
         <EmptyMenu
           at={emptyMenu}
           zoom={zoom}
@@ -455,7 +491,8 @@ export default function Canvas({
       )}
 
       {canTouch && selected.length > 0 && !cropping && !interacting && !marquee && (
-        <View pointerEvents="box-none" style={styles.selectionMenu}>
+        <StageOverlay>
+        <View pointerEvents="box-none" style={contextBarFrame ? StyleSheet.absoluteFill : styles.selectionMenu}>
         <ContextBar
           compact={compact}
           compactMenu={compactMenu}
@@ -481,10 +518,13 @@ export default function Canvas({
           moreOpen={moreOpen}
           onToggleMore={onToggleMore}
           onCrop={onCrop}
+          onFillCells={onFillCells}
           onToast={onToast}
           insideHandlers={contextBarInside}
+          frame={contextBarFrame}
         />
         </View>
+        </StageOverlay>
       )}
     </View>
   )
@@ -638,9 +678,12 @@ function containsPoint(object, point) {
 
 const FADE_WHILE_DRAGGING = ['sticker', 'tape', 'photo']
 // 텍스트: 한 번 누르면 선택, 선택된 채 다시 누르거나 두 번 빠르게 누르면(더블 탭) 내용 수정
+// 사진·이미지 테이프: 더블 탭으로 자르기 (여러 칸 틀은 누른 칸을 채우거나 자른다)
 const DOUBLE_TAP_MS = 350
 const lastTextTap = { id: null, time: 0 }
-/** 이 텍스트를 방금 전에도 눌렀으면 true (더블 탭) */
+/** 더블 탭으로 고칠 그림이 있는 요소 (선택 바의 '자르기' · '사진 채우기'와 같은 대상) */
+const editsMedia = (object) => object.type === 'photo' || (object.type === 'tape' && (object.src || object.mediaFileId) && object.imageWidth)
+/** 이 요소를 방금 전에도 눌렀으면 true (더블 탭) */
 function isDoubleTap(id) {
   const now = Date.now()
   const double = lastTextTap.id === id && now - lastTextTap.time < DOUBLE_TAP_MS
@@ -649,7 +692,7 @@ function isDoubleTap(id) {
   return double
 }
 
-function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onDragging, onEditText }) {
+function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onDragging, onEditText, onEditMedia, onEditFrameText }) {
   const gesture = useRef(null)
   const moveFrame = useRef(null)
   const pendingPatches = useRef(null)
@@ -704,6 +747,8 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
         others: objects.filter((o) => !ids.includes(o.id) && !o.hidden),
         checkpointed: false,
         stack,
+        // 누른 자리 (요소 안 좌표, 회전 전). 여러 칸 틀에서 몇 번째 칸인지 고를 때 쓴다.
+        local: { x: event.locationX / zoom, y: event.locationY / zoom },
       }
       if (!wasSelected) dispatch({ type: insideGroup ? 'selectExact' : 'select', ids: [object.id] })
     },
@@ -760,6 +805,13 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
       // 텍스트 더블 탭은 겹친 요소가 있어도 바로 수정한다.
       if (g?.mode === 'move' && !moved && ['text', 'shape'].includes(object.type) && !object.locked && isDoubleTap(object.id)) {
         onEditText(object)
+        return
+      }
+      // 사진 더블 탭: 틀에 인쇄된 글자 자리면 그 글자를 고치고, 아니면 사진(칸)을 고친다.
+      if (g?.mode === 'move' && !moved && editsMedia(object) && !object.locked && isDoubleTap(object.id)) {
+        const line = object.type === 'photo' && onEditFrameText ? frameTextAt(object, g.local.x, g.local.y) : -1
+        if (line >= 0) onEditFrameText(object, line)
+        else onEditMedia?.(object, isStripFrame(object.frame) ? stripCellAt(object, g.local.x, g.local.y) : null)
         return
       }
       // 겹침이 없는 선택 텍스트는 재탭으로 편집한다. 겹친 요소의 순환 선택은 유지한다.
