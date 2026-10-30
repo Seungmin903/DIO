@@ -94,7 +94,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
     const diary = {
       id: invite.diary.diaryId,
       title,
-      color: ['#F0B0AA', '#C3AEDD', '#9DABD8', '#A9BFA6'][index],
+      color: ['#F0B0AA', '#C3AEDD', '#A9AFD7', '#A9BFA6'][index],
       pattern: 'linen',
     };
     diaries.set(diary.id, {
@@ -180,7 +180,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
             diary: copy(
               invites.get(row.inviteId)?.diary || {
                 title: row.title,
-                color: '#9DABD8',
+                color: '#A9AFD7',
                 pattern: 'linen',
               },
             ),
@@ -223,7 +223,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
         diaries.set(source.id, {
           id: source.id,
           localSource: true,
-          color: '#9DABD8',
+          color: '#A9AFD7',
           pattern: 'linen',
           ...metadata,
           allowExport: true,
@@ -429,7 +429,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
         assertActive();
         notifications.add('PENDING');
         const incoming = notifications.inspect().invitations.at(-1);
-        const diary = { id: incoming.diary.diaryId, title, color: '#9DABD8', pattern: 'linen',
+        const diary = { id: incoming.diary.diaryId, title, color: '#A9AFD7', pattern: 'linen',
           members: copy(members), link: null, allowExport: true };
         diaries.set(diary.id, diary);
         invites.set(incoming.inviteId, { ...incoming, diary: { ...diary, diaryId: diary.id }, inviter });

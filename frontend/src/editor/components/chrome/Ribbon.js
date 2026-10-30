@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: 'rgba(110,146,198,0.2)',
+    borderColor: 'rgba(129,138,195,0.2)',
     backgroundColor: 'rgba(255,255,255,0.95)',
     shadowColor: colors.text,
     shadowOpacity: 0.16,
@@ -95,5 +95,5 @@ const styles = StyleSheet.create({
   toolActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   toolPressed: { opacity: 0.65 },
   toolDim: { opacity: 0.32 },
-  divider: { width: 1, height: 24, marginHorizontal: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
+  divider: { width: 1, height: 24, marginHorizontal: 5, backgroundColor: 'rgba(11,23,102,0.12)' },
 })

@@ -10,7 +10,7 @@
 // 패치가 꺼지는 행(잔광)의 patch 는 앞뒤 광원의 모양을 이어 붙여, 보간해도 패치가 가로질러 쓸려 가지 않는다(그 구간은 불투명도가 0).
 
 export const DESK_COLORS = {
-  base: '#DEEAF5', // 상판 기본색(원목 + 푸른 기 + 그늘의 평균). 그림이 뜨기 전 · 안전 영역에 쓴다
+  base: '#E9E8FB', // 상판 기본색(원목 + 푸른 기 + 그늘의 평균). 그림이 뜨기 전 · 안전 영역에 쓴다
 }
 
 export const CYCLE = [
@@ -123,6 +123,25 @@ export function deskLightAt(hours) {
     afterglow: { color: afterglowColor, opacity: afterglowOpacity }, // 잔광: 책상 아래쪽에서 올라오는 세로 그라데이션(soft-light, 창 마스크가 아니다)
   }
 }
+
+// 책상 위 글씨색을 고르는 기준: 그 시각 상판의 겉보기 밝기(상대 휘도). 해 질 녘 · 밤에는 곤색 글씨의 대비가 흰 글씨보다 낮아진다(휘도 약 0.27 부근).
+// 중간 회색으로 섞으면 어느 쪽도 읽히지 않아서 기준을 넘으면 한 번에 바꾼다.
+const DARK_DESK_LUMINANCE = 0.265
+const linear = value => { const v = value / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+export function deskLuminanceAt(hours) {
+  const light = deskLightAt(hours)
+  const base = hexToRgb(DESK_COLORS.base)
+  const ambient = hexToRgb(light.ambient.color)
+  const wash = hexToRgb(light.wash.color)
+  const [r, g, b] = base.map((value, index) => {
+    const multiplied = value + (value * ambient[index] / 255 - value) * light.ambient.opacity
+    const washed = multiplied + (wash[index] - multiplied) * light.wash.opacity
+    return washed * (1 - light.dim) + 16 * light.dim
+  })
+  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+}
+/** 그 시각의 상판이 어두워서 위의 글씨를 흰색으로 써야 하는가 */
+export const isDeskDarkAt = hours => deskLuminanceAt(hours) < DARK_DESK_LUMINANCE
 
 /** 슬라이더 이름표용 시간대 이름 */
 export function deskPhaseAt(hours) {

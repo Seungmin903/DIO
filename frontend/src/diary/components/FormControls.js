@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
   ringOn: { borderColor: colors.primary },
-  swatch: { overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(11,25,87,.14)', alignItems: 'center', justifyContent: 'center' },
+  swatch: { overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(11,23,102,.14)', alignItems: 'center', justifyContent: 'center' },
   custom: { borderStyle: 'dashed', borderColor: colors.textMuted, backgroundColor: colors.surface },
   checkWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   autoText: { fontSize: 10.5, fontWeight: '800' },

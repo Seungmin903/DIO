@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     borderRadius: THUMB / 2,
     borderWidth: 3,
     borderColor: '#FFFFFF',
-    boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.35)',
+    boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.35)',
   },
   hueThumb: { top: (HUE_HEIGHT + 8 - THUMB) / 2 },
   hexRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

@@ -105,7 +105,7 @@ export const objectOpacity = (object) => object.opacity ?? (object.type === 'tap
 export const photoSupportsShadow = (photo) =>
   ['polaroid', 'film', 'frame', 'stamp', 'fourcut', 'filmstrip'].includes(photo.frame) || isTicketFrame(photo.frame) || (photo.frame === 'shape' && ['rect', 'round', 'circle', 'heart', 'star'].includes(photo.shape))
 // 틀 색: 사용자가 고른 HEX. 예전 문서의 프리셋 id(white·cream…)도 읽는다.
-const LEGACY_FRAME_COLORS = { white: '#FFFFFF', cream: '#FBF3E1', sky: '#CED9EE', pink: '#F9DDE2', black: '#22262F' }
+const LEGACY_FRAME_COLORS = { white: '#FFFFFF', cream: '#FBF3E1', sky: '#D4D7ED', pink: '#F9DDE2', black: '#22262F' }
 // 처음 색: 액자는 짙은 나무색, 티켓은 종류별 색, 인생네컷은 검정, 나머지(폴라로이드·우표·공연 티켓)는 흰색
 const FRAME_DEFAULT_COLORS = { frame: '#6B5444', ticketCinema: '#FBE7A1', ticketMatch: '#DDEFE3', ticketBoarding: '#D6E6F5', fourcut: STRIP_DEFAULT_COLOR }
 export const frameColorOf = (photo) =>

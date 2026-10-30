@@ -31,6 +31,8 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
   // 너비가 어느 정도 벌어진 뒤에 글자가 나타나도록 늦게 보인다.
   const scrimOpacity = progress.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
   const labelOpacity = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 0, 1] });
+  // 삼선 메뉴의 점은 메뉴가 열리기 시작하면 바로 꺼지고, 알림 아이콘의 점은 글자와 함께 나타난다.
+  const dotOpacity = progress.interpolate({ inputRange: [0, 0.3, 1], outputRange: [1, 0, 0] });
 
   const summary = notificationCount ? notificationCountLabel(notificationCount.data) : null;
   const showDot = summary ? summary.showDot : invitationCount > 0;
@@ -80,6 +82,22 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
             <BrandLogo size={32} />
           </Pressable>
         </Animated.View>
+        {/* 알림 종: 삼선 메뉴 왼쪽. 펼친 동안만 보이고(접힌 폭에는 자리도 없다), 접힌 동안은 삼선 메뉴의 점이 대신 알린다. */}
+        {onNotifications && (
+          <Animated.View pointerEvents={collapsed ? 'none' : 'auto'} style={{ width: between(0, 48), opacity: labelOpacity, overflow: 'hidden' }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${notificationLabel}${countDescription}${needsCheck}`}
+              accessibilityElementsHidden={collapsed}
+              importantForAccessibility={collapsed ? 'no-hide-descendants' : 'auto'}
+              onPress={onNotifications}
+              style={({ pressed }) => [s.railToggle, pressed && s.railTogglePressed]}
+            >
+              <AppIcon name="bell" size={22} color={C.ink} />
+              {showDot && <View testID="notification-dot" pointerEvents="none" style={[s.railDot, s.railMenuDot]} />}
+            </Pressable>
+          </Animated.View>
+        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
@@ -88,23 +106,11 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
           style={({ pressed }) => [s.railToggle, pressed && s.railTogglePressed]}
         >
           <AppIcon name="menu" size={24} color={C.ink} />
+          {/* 메뉴가 접혀 알림 버튼이 보이지 않을 때만 삼선 메뉴에 점을 둔다. 펼치면 점이 알림 아이콘으로 옮겨 간다. */}
+          {showDot && <Animated.View testID="menu-notification-dot" pointerEvents="none" style={[s.railDot, s.railMenuDot, { opacity: dotOpacity }]} />}
         </Pressable>
       </Animated.View>
       <Animated.View style={s.railGroup}>
-        {onNotifications && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${notificationLabel}${countDescription}${needsCheck}`}
-            onPress={onNotifications}
-            style={({ pressed }) => [s.railItem, pressed && s.pressed]}
-          >
-            <View style={s.railIconSlot}>
-              <AppIcon name="bell" size={20} color={C.muted} />
-              {showDot && <View testID="notification-dot" style={{ position: 'absolute', top: -2, right: -3, width: 7, height: 7, borderRadius: 4, backgroundColor: C.danger ?? '#D64545' }} />}
-            </View>
-            <Animated.Text numberOfLines={1} style={[s.railLabel, { opacity: labelOpacity }]}>알림{summary && summary.value !== null ? ` ${summary.value > 99 ? '99+' : summary.value}` : ''}</Animated.Text>
-          </Pressable>
-        )}
         {item('library', '다이어리', 'book', 'all')}
         {item('studio', '꾸미기 공방', 'workshop')}
         {item('profile', '내 공간', 'person')}
