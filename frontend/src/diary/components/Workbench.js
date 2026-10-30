@@ -12,7 +12,7 @@ export const PanelScroll = createContext(null)
  * sheet(폰)에서는 구역 카드를 위쪽 가로 줄로, 미리보기를 그 아래 낮은 판으로, 옵션을 남은 높이에 둔다.
  */
 export default function Workbench({ title, actionLabel, onCancel, onSubmit, submitDisabled = false, cancelDisabled = false,
-  sections, section, onSection, sheet = false, bottomInset = 0, onStageLayout, stage, panel, foot, panelLocked = false }) {
+  sections, section, onSection, sheet = false, roomy = false, bottomInset = 0, onStageLayout, stage, panel, foot, panelLocked = false }) {
   const scrollRef = useRef(null), contentRef = useRef(null)
   const view = useRef({ y: 0, height: 0 })
   const scroll = useMemo(() => ({
@@ -48,10 +48,10 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
     <View style={[styles.main, sheet && styles.mainSheet]}>
       {sheet ? <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsSheetScroll} contentContainerStyle={styles.cardsSheet}>{cards}</ScrollView>
         : <ScrollView style={styles.cards} contentContainerStyle={styles.cardsBody}>{cards}</ScrollView>}
-      <View style={[styles.stage, sheet && styles.stageSheet]} onLayout={event => { const { width, height } = event.nativeEvent.layout; onStageLayout({ width, height }) }}>
+      <View style={[styles.stage, sheet && styles.stageSheet, sheet && (roomy ? styles.stageRoomy : styles.stagePhone)]} onLayout={event => { const { width, height } = event.nativeEvent.layout; onStageLayout({ width, height }) }}>
         {stage}
       </View>
-      <View style={[styles.panel, sheet && styles.panelSheet]}>
+      <View style={[styles.panel, sheet && styles.panelSheet, sheet && roomy && styles.panelRoomy]}>
         <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" scrollEventThrottle={64}
           onScroll={event => { view.current.y = event.nativeEvent.contentOffset.y }} onLayout={event => { view.current.height = event.nativeEvent.layout.height }}
           contentContainerStyle={[styles.panelBody, sheet && !foot && { paddingBottom: 16 + bottomInset }]}>
@@ -98,7 +98,11 @@ const styles = StyleSheet.create({
   cardIconSheet: { width: 30, height: 30, borderRadius: 15 },
   cardTitle: { flexShrink: 1, color: colors.text, fontSize: 14.5, fontWeight: '800' },
   stage: { flex: 1, minWidth: 0, marginRight: 12, marginBottom: 12, borderRadius: 24, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: '#E9EDF4' },
-  stageSheet: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', height: 240, marginHorizontal: 16, marginBottom: 0, borderRadius: 20, gap: 8 },
+  stageSheet: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', marginHorizontal: 16, marginBottom: 0, borderRadius: 20, gap: 8 },
+  stagePhone: { height: 240 },
+  // 세로 태블릿: 구역 카드와 옵션 사이 남은 높이를 미리보기와 옵션이 나눠 쓴다
+  stageRoomy: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 240 },
+  panelRoomy: { flexGrow: 1.4 },
   panel: { width: 420, borderTopLeftRadius: 24, backgroundColor: colors.surface, ...shadow.card, shadowOpacity: 0.06 },
   panelSheet: { flex: 1, width: '100%', marginTop: 12, borderTopRightRadius: 24 },
   panelBody: { padding: 16 },

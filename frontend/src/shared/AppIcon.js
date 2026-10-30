@@ -46,7 +46,8 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
       graphic = <><Line {...line} x1="4" y1="7" x2="20" y2="7" /><Line {...line} x1="4" y1="12" x2="20" y2="12" /><Line {...line} x1="4" y1="17" x2="20" y2="17" /></>;
       break;
     case 'book':
-      graphic = <><Path {...line} d="M6 4.5h10.5a1.5 1.5 0 0 1 1.5 1.5v13H7.5A1.5 1.5 0 0 0 6 20.5v-16Z" /><Path {...line} d="M6 4.5v16" /><Line {...line} x1="9" y1="8" x2="15" y2="8" /></>;
+      // 글줄 책. Lucide `book-text` (ISC, https://github.com/lucide-icons/lucide) 의 선을 그대로 쓴다.
+      graphic = <><Path {...line} d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" /><Path {...line} d="M8 11h8" /><Path {...line} d="M8 7h6" /></>;
       break;
     case 'person':
       graphic = <><Circle {...line} cx="12" cy="8" r="3.2" /><Path {...line} d="M5.5 20c.6-3.6 3.1-5.6 6.5-5.6s5.9 2 6.5 5.6" /></>;

@@ -38,7 +38,7 @@ function ToggleRow({ label, value, onChange, disabled }) {
 
 /**
  * 이름 · 방향 아래의 PDF 불러오기: 버튼 + 불러온 파일 요약 + 옵션 셋(첫 장을 표지로 · 나의 표지에 추가 · 나의 속지에 추가).
- * 옵션은 PDF 를 불러온 뒤에 켜고 끌 수 있다. papers = false 이면(서버 다이어리) 속지 옵션을 감춘다.
+ * 옵션은 PDF 를 불러온 뒤에만 보이고, 그때부터 켜고 끌 수 있다. papers = false 이면(서버 다이어리) 속지 옵션을 감춘다.
  */
 export default function PdfImport({ pdf, busy, progress, disabled, onPick, onClear, firstAsCover, onFirstAsCover,
   addToMyCovers, onAddToMyCovers, addToMyPapers, onAddToMyPapers, papers = true }) {
@@ -57,9 +57,11 @@ export default function PdfImport({ pdf, busy, progress, disabled, onPick, onCle
       </View>
       {pdf ? <Text numberOfLines={1} style={styles.file}>{`${pdf.name} · ${pdf.totalPages > total ? `${total}쪽 (전체 ${pdf.totalPages}쪽 중)` : `${total}쪽`}`}</Text> : null}
     </OptionRow>
-    <ToggleRow label="첫 장을 표지로" value={firstAsCover} onChange={onFirstAsCover} disabled={!ready || !papers} />
-    <ToggleRow label="표지를 나의 표지에 추가" value={addToMyCovers} onChange={onAddToMyCovers} disabled={!ready} />
-    {papers ? <ToggleRow label="속지를 나의 속지에 추가" value={addToMyPapers} onChange={onAddToMyPapers} disabled={!ready || (firstAsCover && total < 2)} /> : null}
+    {pdf ? <>
+      <ToggleRow label="첫 장을 표지로" value={firstAsCover} onChange={onFirstAsCover} disabled={!ready || !papers} />
+      <ToggleRow label="표지를 나의 표지에 추가" value={addToMyCovers} onChange={onAddToMyCovers} disabled={!ready} />
+      {papers ? <ToggleRow label="속지를 나의 속지에 추가" value={addToMyPapers} onChange={onAddToMyPapers} disabled={!ready || (firstAsCover && total < 2)} /> : null}
+    </> : null}
   </>
 }
 

@@ -12,6 +12,7 @@ const failure = error => {
   const message = String(error?.message ?? '')
   if (message.includes('PASSWORD_PROTECTED')) return new PdfImportError('PASSWORD', '암호가 걸린 PDF는 불러올 수 없어요.', error)
   if (message.includes('INVALID_FILE') || message.includes('FILE_NOT_FOUND')) return new PdfImportError('INVALID', 'PDF 파일을 열지 못했어요. 파일이 손상되지 않았는지 확인해 주세요.', error)
+  if (message.includes('OUT_OF_MEMORY')) return new PdfImportError('MEMORY', '기기 메모리가 부족해 PDF를 불러오지 못했어요. 다른 앱을 닫고 다시 시도해 주세요.', error)
   return new PdfImportError('RENDER', 'PDF 페이지를 그림으로 바꾸지 못했어요. 다시 시도해 주세요.', error)
 }
 
@@ -34,7 +35,7 @@ export async function pickPdfPages({ onProgress } = {}) {
     for (let index = 0; index < total; index += 1) {
       onProgress?.(index, total)
       let rendered
-      try { rendered = await native.renderPage(file.uri, index, PDF_RENDER_EDGE) } catch (error) { throw failure(error) }
+      try { rendered = await renderWithRetry(file.uri, index) } catch (error) { throw failure(error) }
       const [media] = await importMedia([{ uri: rendered.uri, fileName: `${baseName}-${index + 1}.png`, width: rendered.width, height: rendered.height }], { usage: 'photo' })
       saved.push(media)
       pages.push({ src: media.src, mediaFileId: media.mediaFileId, aspect: rendered.width / rendered.height, name: `${baseName} ${index + 1}쪽` })

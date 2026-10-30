@@ -40,8 +40,9 @@ class DioPdfRenderModule : Module() {
     AsyncFunction("pageCount") { uri: String -> withRenderer(uri) { it.pageCount } }
 
     AsyncFunction("renderPage") { uri: String, index: Int, longEdge: Int ->
-      require(longEdge in 64..8192) { "INVALID_SIZE" }
-      withRenderer(uri) { renderer ->
+      require(longEdge in 64..4096) { "INVALID_SIZE" }
+      // OutOfMemoryError 는 Exception 이 아니라 그대로 두면 앱이 종료된다. 비트맵 생성·그리기·저장 어디서든 OUT_OF_MEMORY 로 바꿔 JS 가 알리게 한다.
+      try { withRenderer(uri) { renderer ->
         check(index in 0 until renderer.pageCount) { "INVALID_PAGE" }
         val page = renderer.openPage(index)
         try {
@@ -60,7 +61,7 @@ class DioPdfRenderModule : Module() {
             mapOf("uri" to Uri.fromFile(out).toString(), "width" to width, "height" to height)
           } finally { bitmap.recycle() }
         } finally { page.close() }
-      }
+      } } catch (error: OutOfMemoryError) { throw IllegalStateException("OUT_OF_MEMORY") }
     }
 
     AsyncFunction("cleanup") {
