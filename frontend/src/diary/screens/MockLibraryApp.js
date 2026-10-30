@@ -85,7 +85,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   useEffect(() => { mock.setWriteScenario(writeMode); }, [mock, writeMode]);
   const [createdMessage, setCreatedMessage] = useState('');
   const saving = creation.status === 'saving';
-  const [options, setOptions] = useState({ filter: 'personal', query: '', sort: 'updated' });
+  const [options, setOptions] = useState({ filter: 'all', query: '', sort: 'updated' });
   const [searchOpen, setSearchOpen] = useState(false);
   const [view, setView] = useState('carousel');
   const [carousel, setCarousel] = useState(0);
@@ -109,7 +109,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   const navigate = (next, filter) => {
     if (removalBusy) return;
     reader.close(); setPage(next); setSearchOpen(false); setSelection(null);
-    if (next === 'library') change({ filter: filter || 'personal', query: '' });
+    if (next === 'library') change({ filter: filter || 'all', query: '' });
   };
   const rows = list.data?.items || [];
   const askRemoval = (kind, ids) => {
@@ -272,7 +272,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
       requestNotice={<Notice state={trash} retry={() => trash.retry()} />} suppressEmpty={trash.status !== 'success'} /> : <View style={shell.screen}>
       <Text style={s.title}>{page === 'trash' ? '휴지통' : '내 공간'}</Text>
       <Text style={s.text}>이 목 모드에서는 보관함 조회만 연결되어 있어요.</Text>
-      <Button label="보관함으로 돌아가기" onPress={() => navigate('library', 'personal')} />
+      <Button label="보관함으로 돌아가기" onPress={() => navigate('library', 'all')} />
     </View>}
   </View>;
   return <View style={[shell.safe, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]}>

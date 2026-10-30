@@ -6,8 +6,7 @@ import { C } from '../constants';
 import { styles as s } from '../styles';
 
 const TABS = [
-  { id: 'library', filter: 'personal', label: '다이어리', icon: 'book' },
-  { id: 'library', filter: 'favorite', label: '즐겨찾기', icon: 'star' },
+  { id: 'library', filter: 'all', label: '다이어리', icon: 'book' },
   { id: 'profile', label: '내 공간', icon: 'person' },
   { id: 'trash', label: '휴지통', icon: 'trash' },
 ];
