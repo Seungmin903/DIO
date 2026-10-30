@@ -549,7 +549,7 @@ function FormRow({ label, compact, children }) {
 function ReadOnly({ label, value }) {
   return (
     <View accessibilityLabel={`${label}: ${value}`} style={s.readOnly}>
-      <Text selectable style={s.text}>
+      <Text selectable style={s.readOnlyText}>
         {value}
       </Text>
     </View>

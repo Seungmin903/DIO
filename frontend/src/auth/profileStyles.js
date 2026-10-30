@@ -78,15 +78,9 @@ export const profileStyles = StyleSheet.create({
     fontSize: 14,
     color: c.text,
   },
-  readOnly: {
-    minHeight: 48,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-    backgroundColor: c.surfaceMuted,
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: radius.md,
-  },
+  // 읽기 전용 값은 입력칸처럼 보이지 않게 박스 없이 회색 텍스트로만 보여준다.
+  readOnly: { minHeight: 48, justifyContent: 'center' },
+  readOnlyText: { color: c.textMuted, fontSize: 14 },
   text: { color: c.text, fontSize: 14 },
   muted: { color: c.textMuted, fontSize: 13, lineHeight: 20 },
   hint: { minHeight: 22, marginTop: 8, fontSize: 12, lineHeight: 18, color: c.textMuted },
