@@ -12,7 +12,7 @@ const REHIDE_DELAY_MS = 1800
 
 // Android 하단 내비게이션(뒤로가기) 바를 숨긴다. 아래에서 위로 쓸어 올리면 잠시 나타났다가 다시 숨는다.
 // 시스템은 앱이 앞으로 올 때뿐 아니라 키보드 · 대화상자(Modal) · 창 크기/회전이 바뀔 때도 바를 되살릴 수 있어서,
-// 그런 때마다 다시 숨기고, 바가 실제로 보이게 되면(시스템이 알려 준다) 잠시 뒤 숨긴다.
+// 그런 때마다 바로 다시 숨긴다. 바가 보이게 됐다고 시스템이 알리면(사용자가 쓸어 올린 경우 포함) 즉시가 아니라 잠시 뒤에 숨긴다.
 export function useHiddenNavigationBar() {
   useEffect(() => {
     if (!NavigationBar) return undefined
@@ -20,13 +20,15 @@ export function useHiddenNavigationBar() {
     const hide = () => { NavigationBar.setVisibilityAsync('hidden').catch(() => {}) }
     // 바뀐 직후엔 시스템이 아직 바를 그리는 중일 수 있어 바로 한 번, 조금 뒤에 한 번 더 숨긴다.
     const hideSoon = () => { hide(); clearTimeout(timer); timer = setTimeout(hide, REHIDE_DELAY_MS) }
+    // 바가 나타났다는 알림에서는 바로 숨기지 않는다: 쓸어 올려 뒤로가기 등을 누를 시간을 주고 잠시 뒤에 숨긴다.
+    const hideLater = () => { clearTimeout(timer); timer = setTimeout(hide, REHIDE_DELAY_MS) }
     hide()
     const subscriptions = [
       AppState.addEventListener('change', state => { if (state === 'active') hideSoon() }),
       Dimensions.addEventListener('change', hideSoon),
       Keyboard.addListener('keyboardDidHide', hideSoon),
       Keyboard.addListener('keyboardDidShow', hideSoon),
-      NavigationBar.addVisibilityListener?.(({ visibility }) => { if (visibility === 'visible') hideSoon() }),
+      NavigationBar.addVisibilityListener?.(({ visibility }) => { if (visibility === 'visible') hideLater() }),
     ].filter(Boolean)
     return () => { clearTimeout(timer); subscriptions.forEach(subscription => subscription.remove()) }
   }, [])
