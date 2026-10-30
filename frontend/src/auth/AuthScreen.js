@@ -299,7 +299,7 @@ export default function AuthScreen({
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView
         style={s.keyboard}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           ref={formScroll}
@@ -748,6 +748,7 @@ function FormField({
           }}
           editable={editable}
           secureTextEntry={password && !visible}
+          keyboardType={password && visible && Platform.OS === 'android' ? 'visible-password' : props.keyboardType}
           autoCapitalize="none"
           autoCorrect={false}
           autoComplete={props.autoComplete ?? 'off'}
