@@ -124,8 +124,17 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         <Text style={local.groupTitle}>서비스</Text>
         <ListSection>
           <ListItem label="나만의 폰트 만들기" icon="edit" onPress={() => openFontStudio()} />
-          <ListItem label="앱 정보" icon="info" onPress={() => setRoute('app-info')} />
         </ListSection>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="앱 정보"
+          onPress={() => setRoute('app-info')}
+          style={({ pressed }) => [local.appInfo, pressed && local.pressed]}
+        >
+          <View style={local.itemIcon}><AppIcon name="info" size={20} color={colors.primaryStrong} /></View>
+          <Text style={local.itemLabel}>앱 정보</Text>
+          <AppIcon name="chevron-right" size={20} color={colors.textMuted} />
+        </Pressable>
         {onEndPreview && (
           <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={onEndPreview} style={({ pressed }) => [local.logout, pressed && local.pressed]}>
             <Text style={local.logoutText}>로그아웃</Text>
@@ -191,6 +200,7 @@ const local = StyleSheet.create({
   item: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },
   itemIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: C.pale },
   itemLabel: { flex: 1, color: C.ink, fontSize: 15, fontWeight: '700' },
+  appInfo: { minHeight: 62, marginTop: 26, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderWidth: 1, borderColor: C.line, borderRadius: 18, backgroundColor: C.white },
   logout: { minHeight: 52, marginTop: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 14, backgroundColor: C.white },
   logoutText: { color: C.muted, fontSize: 15, fontWeight: '700' },
   detailContent: { width: '100%', maxWidth: 760, alignSelf: 'center' },
