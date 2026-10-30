@@ -1,6 +1,8 @@
 package com.f106.DIO.media.service;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import com.f106.DIO.media.domain.MediaType;
 import com.f106.DIO.media.support.MediaRequestException;
 
@@ -8,6 +10,8 @@ final class MediaUploadInspector {
 	private MediaUploadInspector() {}
 
 	static FileKind inspect(byte[] content) {
+		if (isTtf(content)) { validateFontDirectory(content, false); return new FileKind(MediaType.FONT, "font/ttf", "ttf"); }
+		if (isOtf(content)) { validateFontDirectory(content, true); return new FileKind(MediaType.FONT, "font/otf", "otf"); }
 		if (starts(content, 0xFF, 0xD8, 0xFF)) return new FileKind(MediaType.IMAGE, "image/jpeg", "jpg");
 		if (starts(content, 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)) return new FileKind(MediaType.IMAGE, "image/png", "png");
 		if (startsText(content, "GIF87a") || startsText(content, "GIF89a")) return new FileKind(MediaType.IMAGE, "image/gif", "gif");
@@ -21,6 +25,30 @@ final class MediaUploadInspector {
 		throw MediaRequestException.invalidFile();
 	}
 
+	static boolean isFontHeader(byte[] bytes) { return isTtf(bytes) || isOtf(bytes); }
+	private static boolean isTtf(byte[] bytes) { return starts(bytes, 0x00, 0x01, 0x00, 0x00) || startsText(bytes, "true"); }
+	private static boolean isOtf(byte[] bytes) { return startsText(bytes, "OTTO"); }
+
+	// Bounded sfnt directory checks; these do not replace a full font parser.
+	private static void validateFontDirectory(byte[] bytes, boolean otf) {
+		if (bytes.length < 12) throw MediaRequestException.invalidFile();
+		int tables = ((bytes[4] & 0xff) << 8) | (bytes[5] & 0xff);
+		long directoryEnd = 12L + 16L * tables;
+		if (tables < 1 || tables > 4096 || directoryEnd > bytes.length) throw MediaRequestException.invalidFile();
+		Set<String> names = new HashSet<>(), nonempty = new HashSet<>();
+		for (int i = 0; i < tables; i++) {
+			int at = 12 + 16 * i;
+			String name = new String(bytes, at, 4, java.nio.charset.StandardCharsets.ISO_8859_1);
+			long offset = uint32(bytes, at + 8), length = uint32(bytes, at + 12);
+			if (!names.add(name) || offset > bytes.length || length > bytes.length - offset || (length > 0 && offset < directoryEnd)) throw MediaRequestException.invalidFile();
+			if (length > 0) nonempty.add(name);
+		}
+		if (!nonempty.containsAll(Set.of("head", "maxp", "cmap", "name", "hhea", "hmtx"))) throw MediaRequestException.invalidFile();
+		if (otf ? !(nonempty.contains("CFF ") || nonempty.contains("CFF2")) : !(nonempty.contains("glyf") && nonempty.contains("loca"))) throw MediaRequestException.invalidFile();
+	}
+	private static long uint32(byte[] bytes, int at) {
+		return ((long)(bytes[at] & 0xff) << 24) | ((long)(bytes[at + 1] & 0xff) << 16) | ((long)(bytes[at + 2] & 0xff) << 8) | (bytes[at + 3] & 0xffL);
+	}
 	private static boolean starts(byte[] content, int... values) {
 		if (content.length < values.length) return false;
 		for (int i = 0; i < values.length; i++) if ((content[i] & 0xFF) != values[i]) return false;

@@ -31,23 +31,25 @@ class ExpiredMediaCleanupTests {
 	private final MediaFileRepository mediaFiles = mock(MediaFileRepository.class);
 	private final MediaStorageDeletionQueueService deletionQueue = mock(MediaStorageDeletionQueueService.class);
 	private final MediaFiles files = mock(MediaFiles.class);
+	private final GuardedMediaOperations guarded = mock(GuardedMediaOperations.class);
 	private ExpiredMediaCleanup cleanup;
 
 	@BeforeEach
 	void setUp() {
-		cleanup = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, Duration.ofDays(1), 100);
+		cleanup = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, guarded, Duration.ofDays(1), 100);
 		when(deletionQueue.next(anyInt())).thenReturn(List.of());
+		when(guarded.deleteIfUnlocked(any())).thenReturn(true);
 	}
 
-    @Test
-    void excessiveConfiguredBatchSizeIsCappedAtOneHundred() {
-        var capped=new ExpiredMediaCleanup(mediaFiles,deletionQueue,files,Duration.ofDays(1),100000);
-        when(mediaFiles.findPhysicallyDeletable(any(),any(Pageable.class))).thenReturn(List.of());
-        capped.purgeExpiredAt(Instant.now());
-        var page=org.mockito.ArgumentCaptor.forClass(Pageable.class);
-        verify(mediaFiles).findPhysicallyDeletable(any(),page.capture());
-        assertThat(page.getValue().getPageSize()).isEqualTo(100);
-    }
+	@Test
+	void excessiveConfiguredBatchSizeIsCappedAtOneHundred() {
+		var capped = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, guarded, Duration.ofDays(1), 100000);
+		when(mediaFiles.findPhysicallyDeletable(any(), any(Pageable.class))).thenReturn(List.of());
+		capped.purgeExpiredAt(Instant.now());
+		var page = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+		verify(mediaFiles).findPhysicallyDeletable(any(), page.capture());
+		assertThat(page.getValue().getPageSize()).isEqualTo(100);
+	}
 
 	@Test
 	void removesTheExpiredUnreferencedStorageObjectAndDatabaseRow() {
@@ -60,10 +62,9 @@ class ExpiredMediaCleanupTests {
 
 		assertThat(cleanup.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(1, 0));
 
-		var order = inOrder(deletionQueue, files);
+		var order = inOrder(deletionQueue, guarded);
 		order.verify(deletionQueue).enqueueAfterPhysicalDelete(mediaFile, cutoff);
-		order.verify(files).delete(mediaFile.getStorageKey());
-		order.verify(deletionQueue).complete(task);
+		order.verify(guarded).deleteIfUnlocked(task.getDeletionId());
 	}
 
 	@Test
@@ -74,7 +75,7 @@ class ExpiredMediaCleanupTests {
 		when(mediaFiles.findPhysicallyDeletable(eq(cutoff), any(Pageable.class))).thenReturn(List.of(mediaFile));
 		MediaStorageDeletionTask task = task(mediaFile);
 		when(deletionQueue.enqueueAfterPhysicalDelete(mediaFile, cutoff)).thenReturn(task);
-		doThrow(new IllegalStateException("S3 unavailable")).when(files).delete(mediaFile.getStorageKey());
+		when(guarded.deleteIfUnlocked(task.getDeletionId())).thenThrow(new IllegalStateException("S3 unavailable"));
 
 		assertThat(cleanup.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(0, 1));
 
@@ -91,14 +92,14 @@ class ExpiredMediaCleanupTests {
 
 		assertThat(cleanup.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(0, 0));
 
-		verify(files, never()).delete(mediaFile.getStorageKey());
+		verify(guarded, never()).deleteIfUnlocked(any());
 	}
 
 	@Test
 	void rowsThatKeepFailingDoNotBlockLaterCandidates() {
 		Instant now = Instant.parse("2026-10-28T00:00:00Z");
 		Instant cutoff = now.minus(Duration.ofDays(1));
-		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, Duration.ofDays(1), 2);
+		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, guarded, Duration.ofDays(1), 2);
 		MediaFile broken1 = media(), broken2 = media(), healthy = media();
 		when(mediaFiles.findPhysicallyDeletable(eq(cutoff), any(Pageable.class))).thenReturn(List.of(broken1, broken2));
 		when(mediaFiles.findPhysicallyDeletableAfter(eq(cutoff), any(), eq(broken2.getMediaFileId()), any(Pageable.class)))
@@ -109,14 +110,14 @@ class ExpiredMediaCleanupTests {
 
 		assertThat(smallBatch.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(1, 2));
 
-		verify(files).delete(healthy.getStorageKey());
+		verify(guarded).deleteIfUnlocked(any());
 	}
 
 	@Test
 	void stopsAfterDeletingOneBatchOfRows() {
 		Instant now = Instant.parse("2026-10-28T00:00:00Z");
 		Instant cutoff = now.minus(Duration.ofDays(1));
-		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, Duration.ofDays(1), 2);
+		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, guarded, Duration.ofDays(1), 2);
 		MediaFile first = media(), second = media();
 		when(mediaFiles.findPhysicallyDeletable(eq(cutoff), any(Pageable.class))).thenReturn(List.of(first, second));
 		when(deletionQueue.enqueueAfterPhysicalDelete(eq(first), eq(cutoff))).thenReturn(task(first));
@@ -131,13 +132,12 @@ class ExpiredMediaCleanupTests {
 	void retriesAQueuedStorageDeleteBeforeLookingForNewExpiredRows() {
 		MediaFile mediaFile = media();
 		MediaStorageDeletionTask task = task(mediaFile);
-		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, Duration.ofDays(1), 1);
+		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, guarded, Duration.ofDays(1), 1);
 		when(deletionQueue.next(1)).thenReturn(List.of(task));
 
 		assertThat(smallBatch.purgeExpiredAt(Instant.parse("2026-10-28T00:00:00Z"))).isEqualTo(new ExpiredMediaCleanup.Result(1, 0));
 
-		verify(files).delete(mediaFile.getStorageKey());
-		verify(deletionQueue).complete(task);
+		verify(guarded).deleteIfUnlocked(task.getDeletionId());
 		verify(mediaFiles, never()).findPhysicallyDeletable(any(), any());
 	}
 
@@ -145,7 +145,7 @@ class ExpiredMediaCleanupTests {
 	void reservesHalfOfTheBatchForNewExpiredMediaWhenRetriesAreDue() {
 		Instant now = Instant.parse("2026-10-28T00:00:00Z");
 		Instant cutoff = now.minus(Duration.ofDays(1));
-		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, Duration.ofDays(1), 4);
+		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, guarded, Duration.ofDays(1), 4);
 		MediaStorageDeletionTask queuedFirst = task(media()), queuedSecond = task(media());
 		MediaFile first = media(), second = media();
 		when(deletionQueue.next(2)).thenReturn(List.of(queuedFirst, queuedSecond));
@@ -156,6 +156,33 @@ class ExpiredMediaCleanupTests {
 		assertThat(smallBatch.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(4, 0));
 
 		verify(mediaFiles).findPhysicallyDeletable(eq(cutoff), any(Pageable.class));
+	}
+
+	@Test
+	void lockedTaskIsSkippedWithoutFailureAndRetriedAfterUnlock() {
+		MediaStorageDeletionTask locked = task(media()), available = task(media());
+		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, guarded, Duration.ofDays(1), 4);
+		when(deletionQueue.next(2)).thenReturn(List.of(locked, available), List.of(locked));
+		when(guarded.deleteIfUnlocked(locked.getDeletionId())).thenReturn(false, true);
+		Instant now = Instant.parse("2026-10-28T00:00:00Z");
+		assertThat(smallBatch.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(1, 0));
+		verify(deletionQueue, never()).recordFailure(eq(locked), any());
+		assertThat(smallBatch.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(1, 0));
+		verify(guarded, org.mockito.Mockito.times(2)).deleteIfUnlocked(locked.getDeletionId());
+		verify(guarded).deleteIfUnlocked(available.getDeletionId());
+	}
+
+	@Test
+	void taskLockedAfterSelectionIsSkippedAndRetriedOnNextRun() {
+		MediaStorageDeletionTask locked = task(media());
+		ExpiredMediaCleanup smallBatch = new ExpiredMediaCleanup(mediaFiles, deletionQueue, files, guarded, Duration.ofDays(1), 2);
+		when(deletionQueue.next(1)).thenReturn(List.of(locked));
+		when(guarded.deleteIfUnlocked(locked.getDeletionId())).thenReturn(false, true);
+		Instant now = Instant.parse("2026-10-28T00:00:00Z");
+		assertThat(smallBatch.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(0, 0));
+		assertThat(smallBatch.purgeExpiredAt(now)).isEqualTo(new ExpiredMediaCleanup.Result(1, 0));
+		verify(deletionQueue, org.mockito.Mockito.times(2)).next(1);
+		verify(guarded, org.mockito.Mockito.times(2)).deleteIfUnlocked(locked.getDeletionId());
 	}
 
 	private static MediaFile media() {
