@@ -551,7 +551,7 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, ligh
   <View style={[styles.layer, styles.clip, body, { backgroundColor: base }]}>
     {cover.kind === 'photo' ? (cover.photo?.src ? <OwnPhoto photo={cover.photo} />
       : <View style={styles.noPhoto}><Icon name="image" size={Math.max(18, 30 * scale)} color="#FFFFFF" /></View>)
-      : <>{stops && <GradientFill stops={stops} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} /></>}
+      : <>{stops && <GradientFill stops={stops} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} /></>}
     {edit && <Pressable accessibilityLabel="표지 스티커 선택 해제" onPress={() => select(null)} style={StyleSheet.absoluteFill} />}
     <View pointerEvents="none" style={[styles.spine, { width: '4.9%' }]} />
     {light && windowMask && <CoverWindowLight mask={windowMask} originX={bandOut} originY={bandOut} boxWidth={width} boxHeight={height ?? width} photo={cover.kind === 'photo'} />}

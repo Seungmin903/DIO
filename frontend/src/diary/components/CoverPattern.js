@@ -67,8 +67,11 @@ function tile(pattern, tone) {
   }
 }
 
-/** 표지 위에 덮는 무늬. pattern이 없으면 아무것도 그리지 않는다(이전에 만든 다이어리). */
-function CoverPattern({ pattern, tone = 'dark' }) {
+/**
+ * 표지 위에 덮는 무늬. pattern이 없으면 아무것도 그리지 않는다(이전에 만든 다이어리).
+ * scale: 표지 크기 배율(짧은 변 200 기준). 타일을 표지와 같은 비율로 키우고 줄여 한눈에 · 스와이프에서 무늬 비율이 같다.
+ */
+function CoverPattern({ pattern, tone = 'dark', scale = 1 }) {
   const idRef = useRef(null);
   const spec = tile(pattern, tone);
   if (!spec) return null;
@@ -80,7 +83,7 @@ function CoverPattern({ pattern, tone = 'dark' }) {
       {(width, height) => (
         <>
           <Defs>
-            <Pattern id={id} patternUnits="userSpaceOnUse" width={spec.size} height={spec.size}>
+            <Pattern id={id} patternUnits="userSpaceOnUse" width={spec.size * scale} height={spec.size * scale} viewBox={`0 0 ${spec.size} ${spec.size}`}>
               {spec.shapes}
             </Pattern>
           </Defs>
