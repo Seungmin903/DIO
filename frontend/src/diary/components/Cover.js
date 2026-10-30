@@ -12,6 +12,7 @@ import { LAMP_PATCH, deskLightAt } from '../utils/deskLight';
 import { coverLightAt } from '../utils/coverLight';
 import { useDeskHour } from '../utils/deskTimeStore';
 import { carouselFollowNodes, carouselRestAt, followOffset } from '../utils/carouselFollow';
+import { useRailMoving } from '../utils/railMotion';
 import { maskFrame, useDeskGeometry, useDeskLayoutTick } from '../utils/deskMask';
 
 // fill 표지는 이 크기(긴 변)로 한 번만 그리고, 칸 폭에 맞춰 크기 변환(scale)으로 늘리고 줄인다 (패턴 · 글자를 다시 그리지 않는다)
@@ -39,7 +40,15 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
     : carousel ? (compact ? s.cardCarouselCompact.width : s.cardCarousel.width) : s.bookPreview.width);
   const styleHeight = thumbnailWidth ? thumbnailWidth * 246 / 185 : typeof frame.height === 'number' ? frame.height : frame.aspectRatio ? styleWidth / frame.aspectRatio : styleWidth * 246 / 185;
   const [measured, setMeasured] = useState(null);
+  // 사이드 메뉴가 움직이는 동안은 칸 폭이 프레임마다 바뀌므로 다시 재지 않고, 멈춘 뒤 마지막 크기로 한 번만 맞춘다.
+  const railMoving = useRailMoving();
+  const pendingSize = useRef(null);
   const cellWidth = measured?.width || styleWidth, cellHeight = measured?.height || styleHeight;
+  useEffect(() => {
+    if (railMoving || !pendingSize.current) return;
+    const next = pendingSize.current; pendingSize.current = null;
+    setMeasured(current => (current && Math.round(current.width) === Math.round(next.width) && Math.round(current.height) === Math.round(next.height) ? current : next));
+  }, [railMoving]);
   const cover = useMemo(() => normalizeCover(diary), [diary]);
   const orientation = normalizeOrientation(diary.templateConfig?.orientation ?? diary.pageSize);
   const pageId = useMemo(() => (cover.enabled ? null : firstPageId(diary)), [cover.enabled, diary]);
@@ -85,16 +94,26 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
     };
     return { lit, inverse: nodes.inverse, sun: place(lit.patch), lamp: place({ x: LAMP_PATCH.patch[0], y: LAMP_PATCH.patch[1], scaleX: LAMP_PATCH.patch[2], scaleY: LAMP_PATCH.patch[3], skewX: LAMP_PATCH.patch[4], rotate: LAMP_PATCH.patch[5] }) };
   }, [light != null, desk, origin, hour, lightMotion?.scrollX, lightMotion?.index, lightMotion?.step, boxWidth, q]);
+  // 칸이 정사각형인 격자 표지(fill + grid)는 표지 칸을 퍼센트 + 가로세로 비율로 레이아웃에 맡기고, 그림 배율만 칸이 바뀔 때마다 ref 로 직접 바꾼다.
+  // 사이드 메뉴가 움직이는 동안에도 상태 · 다시 그리기 없이 칸과 함께 매 프레임 같이 커지고 작아진다.
+  const liveFill = cover.enabled && fill && grid;
+  const art = useRef(null);
+  const onBoxLayout = useCallback(event => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0) art.current?.setNativeProps?.({ style: { transform: [{ scale: width / artWidth }] } });
+  }, [artWidth]);
   return (
     <View
       onLayout={event => {
         const { width, height } = event.nativeEvent.layout;
+        if (measured && railMoving) { pendingSize.current = { width, height }; return; }
+        pendingSize.current = null;
         if (Math.round(width) !== Math.round(measured?.width ?? -1) || Math.round(height) !== Math.round(measured?.height ?? -1)) setMeasured({ width, height });
       }}
       // fill: 폭을 재기 전의 첫 그림은 짐작한 크기라 달라 보이므로, 잰 뒤에 한 번에 보인다.
       style={[frame, styles.cell, centered && styles.fillCenter, fill && !measured && styles.unmeasured, thumbnailWidth && { width: thumbnailWidth, height: styleHeight, minHeight: 0 }]}>
-      <View ref={box} collapsable={false} style={{ width: boxWidth, height: boxHeight }}>
-        {cover.enabled && fill ? <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: artWidth, height: artHeight, transform: [{ scale: boxWidth / artWidth }], transformOrigin: 'top left' }}>
+      <View ref={box} collapsable={false} onLayout={liveFill ? onBoxLayout : undefined} style={liveFill ? { width: ratio < 1 ? `${ratio * 100}%` : '100%', aspectRatio: ratio } : { width: boxWidth, height: boxHeight }}>
+        {cover.enabled && fill ? <View ref={art} pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: artWidth, height: artHeight, transform: [{ scale: boxWidth / artWidth }], transformOrigin: 'top left' }}>
           <CoverArt cover={cover} name={diary.title} width={artWidth} height={artHeight} shadow={shadow} light={light} windowMask={windowMask} />
         </View>
           : cover.enabled ? <CoverArt cover={cover} name={diary.title} width={boxWidth} height={boxHeight} shadow={shadow} light={light} windowMask={windowMask} />

@@ -25,6 +25,11 @@ export const styles = StyleSheet.create({
   tabLabelSelected: { color: C.ink, fontWeight: '800' },
 
   rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.white, borderRightWidth: 1, borderRightColor: C.line },
+  railSlot: { width: 78, zIndex: 20, elevation: 20 },
+  // 메뉴 오른쪽(접힌 폭 이후)부터 화면 끝까지 덮는 반투명 막. 불투명도는 메뉴 펼침 정도(0~1)를 따른다.
+  railScrim: { position: 'absolute', top: 0, bottom: 0, left: 78, width: 4000, backgroundColor: 'rgba(0,0,0,0.32)' },
+  railScrimPress: { flex: 1 },
+  railOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0 },
   brandRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
   brand: { flex: 1, minWidth: 0, minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandSlot: { flex: 1, minWidth: 0, overflow: 'hidden' },
@@ -367,20 +372,21 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   tipTitle: { color: C.ink, fontSize: 16, fontWeight: '800', marginTop: 8 },
   tipTitleCompact: { fontSize: 15, marginTop: 0 },
   tipCopy: { color: C.inkSoft, fontSize: 12, marginTop: 8 },
-  trashGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 22 },
+  trashGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 14 },
   trashGridCompact: { columnGap: 12, rowGap: 16, justifyContent: 'space-between' },
   trashPolicy: { color: C.muted, fontSize: 13, lineHeight: 21, marginBottom: 16 },
   trashNotice: { padding: 16, borderRadius: 12, backgroundColor: C.pale, marginBottom: 16 },
-  trashCard: { width: '23.5%', padding: 12, borderRadius: 18, borderWidth: 1, borderColor: C.line, backgroundColor: C.white }, // 흰 틀 안에 홈 격자와 같은 표지를 얹는다
-  trashCardCompact: { width: '48%', padding: 10, borderRadius: 16 },
-  trashCover: { position: 'relative' }, // 홈 격자 카드의 표지 칸(cardCoverWrap)과 같게: 자르거나 흐리게 하지 않는다
+  trashCard: { width: '18.3%' }, // 틀 없이 홈 격자와 같은 표지를 바로 얹는다
+  trashCardCompact: { width: '48%' },
+  trashCover: { position: 'relative', alignItems: 'center' }, // 칸(최대 219)이 카드보다 좁을 때 왼쪽으로 쏠리지 않게 가운데 // 홈 격자 카드의 표지 칸(cardCoverWrap)과 같게: 자르거나 흐리게 하지 않는다
   trashCoverCompact: {},
   trashTitle: { color: C.ink, fontSize: 14, fontWeight: '700', marginTop: 12 },
   trashDate: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
   trashActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: C.pale },
+  trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: C.line },
   trashRestoreText: { color: C.ink, fontSize: 12, fontWeight: '700' },
-  trashDelete: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: '#F0D5D4' },
+  trashDelete: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: '#F0D5D4' },
+  trashDeleteText: { color: C.danger, fontSize: 12, fontWeight: '700' },
   // 이전 폰 휴지통 스와이프 목록 스타일. 저장된 화면과의 호환을 위해 당분간 유지한다.
   trashHint: { color: C.muted, fontSize: 13, lineHeight: 21, marginTop: -8, marginBottom: 14 },
   trashList: { gap: 11 },

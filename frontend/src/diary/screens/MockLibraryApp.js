@@ -90,11 +90,10 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   const [view, setView] = useState('carousel');
   const [carousel, setCarousel] = useState(0);
   const [page, setPage] = useState('library');
-  const [collapsed, setCollapsed] = useState(true);
-  const [controlsOpen, setControlsOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);  const [controlsOpen, setControlsOpen] = useState(false);
   const [scenario, setScenario] = useState('success');
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
-  useEffect(() => { railWidthRef.current = collapsed ? RAIL_WIDTH.collapsed : RAIL_WIDTH.expanded; }, [collapsed]);
+  // 메뉴는 메인 화면 위에 겹쳐 열리므로 메인 화면을 비켜 주는 폭은 늘 접힌 폭이다.
   useEffect(() => {
     const sub = AppState.addEventListener('change', value => { if (value === 'active') { reader.refresh(); if (page === 'trash') trash.run(); } });
     return () => sub.remove();

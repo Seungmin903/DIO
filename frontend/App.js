@@ -144,11 +144,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
   const [deskSize, setDeskSize] = useState(null); // 책상이 깔릴 영역(작업 영역)의 크기
-  const [railCollapsed, setRailCollapsed] = useState(true);
-  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
+  const [railCollapsed, setRailCollapsed] = useState(true);  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
   // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
-  useEffect(() => { railWidthRef.current = railCollapsed ? RAIL_WIDTH.collapsed : RAIL_WIDTH.expanded; }, [railCollapsed]);
+  // 메뉴는 메인 화면 위에 겹쳐 열리므로 메인 화면을 비켜 주는 폭은 늘 접힌 폭이다.
   // FILTERS에 없는 all을 초기값으로 쓰면 새 다이어리 카드가 제외되어 빈 안내만 보인다.
   const [filter, setFilter] = useState(DEFAULT_FILTER);
   const [view, setView] = useState('carousel');
@@ -622,6 +621,35 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     />
   ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
+  // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
+  const trashScreen = useMemo(() => (
+    <TrashScreen
+      serverMode={member}
+      busy={member && Boolean(diaryState.lifecycle?.busy || diaryState.bulkTrash?.busy)}
+      suppressEmpty={member && Boolean(diaryState.trashLoading || diaryState.trashError)}
+      requestNotice={member?<MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/>:null}
+      compact={isPhone}
+      diaries={trashedDiaries}
+      now={trashNow}
+      cleanupError={trashError}
+      onRetryCleanup={cleanupTrash}
+      onRestore={(id) => {
+        if(member){restoreFromTrash(id).catch(error=>notify('복원을 확인하지 못했어요',error.message));return;}
+        if (!restoreFromTrash(id)) notify('복원할 수 없어요', '보관 기한이 지났거나 영구 삭제 중인 다이어리예요.');
+      }}
+      onDeletePermanently={(diary) => {
+        confirmAction({
+          title: '영구 삭제할까요?',
+          message: member ? `“${diary.title}”의 다이어리와 페이지는 복구할 수 없어요. 보관함의 공용 미디어 원본은 유지돼요.` : `“${diary.title}”의 페이지와 로컬 기록은 복구할 수 없어요.`,
+          confirmLabel: '영구 삭제',
+          onConfirm: async () => {
+            try { if (!await deletePermanently(diary.id)) notify('삭제하지 못했어요', '저장소를 확인한 뒤 다시 시도해 주세요.'); } catch(error) { notify('영구 삭제를 확인하지 못했어요',error.message); }
+          },
+        });
+      }}
+    />
+  ), [member, diaryState.lifecycle, diaryState.bulkTrash, diaryState.trashLoading, diaryState.trashError, diaryState.store, isPhone, trashedDiaries, trashNow, trashError, cleanupTrash, restoreFromTrash, deletePermanently]);
+
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
   if (page === 'editor') {
@@ -653,33 +681,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       />
     );
   } else if (page === 'trash') {
-    content = (
-      <TrashScreen
-        serverMode={member}
-        busy={member && Boolean(diaryState.lifecycle?.busy || diaryState.bulkTrash?.busy)}
-        suppressEmpty={member && Boolean(diaryState.trashLoading || diaryState.trashError)}
-        requestNotice={member?<MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/>:null}
-        compact={isPhone}
-        diaries={trashedDiaries}
-        now={trashNow}
-        cleanupError={trashError}
-        onRetryCleanup={cleanupTrash}
-        onRestore={(id) => {
-          if(member){restoreFromTrash(id).catch(error=>notify('복원을 확인하지 못했어요',error.message));return;}
-          if (!restoreFromTrash(id)) notify('복원할 수 없어요', '보관 기한이 지났거나 영구 삭제 중인 다이어리예요.');
-        }}
-        onDeletePermanently={(diary) => {
-          confirmAction({
-            title: '영구 삭제할까요?',
-            message: member ? `“${diary.title}”의 다이어리와 페이지는 복구할 수 없어요. 보관함의 공용 미디어 원본은 유지돼요.` : `“${diary.title}”의 페이지와 로컬 기록은 복구할 수 없어요.`,
-            confirmLabel: '영구 삭제',
-            onConfirm: async () => {
-              try { if (!await deletePermanently(diary.id)) notify('삭제하지 못했어요', '저장소를 확인한 뒤 다시 시도해 주세요.'); } catch(error) { notify('영구 삭제를 확인하지 못했어요',error.message); }
-            },
-          });
-        }}
-      />
-    );
+    content = trashScreen;
   } else if (page === 'studio') {
     content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
@@ -704,7 +706,13 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   // 다이어리 홈은 '햇살 책상' 위에 놓인다. 사이드 메뉴는 흰 판 그대로, 책상은 작업 영역 뒤(폰은 아래 탭 뒤까지)에 깔린다.
   // 햇살 책상은 태블릿(가로)만 쓴다. 폰(세로)은 가로형과 같은 빛 경험을 실기로 검증하지 못해 잠가 둔다(DESK_ON_PHONE).
   const desk = page === 'library' && loaded && (!isPhone || DESK_ON_PHONE);
-  const deskLayout = event => { const { width, height } = event.nativeEvent.layout; setDeskSize(current => (current && current.width === width && current.height === height ? current : { width, height })) }
+  // 태블릿은 사이드 메뉴를 여닫는 동안 작업 영역 폭이 프레임마다 바뀐다. 책상은 접힌 폭(가장 넓은 폭) 밑으로는 줄지 않으므로
+  // 그보다 좁은 폭은 접힌 폭으로 보고 값을 바꾸지 않는다. 안 그러면 프레임마다 App · 책상(햇빛 · 마스크)이 다시 그려져 끊긴다.
+  const deskLayout = event => {
+    const { width: rawWidth, height } = event.nativeEvent.layout;
+    const width = isPhone ? rawWidth : Math.max(rawWidth, windowWidth - insets.left - insets.right - RAIL_WIDTH.collapsed);
+    setDeskSize(current => (current && current.width === width && current.height === height ? current : { width, height }));
+  }
   // 태블릿 책상은 사이드바가 접힌(가장 넓은) 작업 영역 크기로 고정하고 오른쪽 끝에 붙인다. 사이드바를 여닫는 동안 작업 영역 폭이
   // 프레임마다 바뀌어도 책상(원목 · 창빛)은 다시 그려지지도 움직이지도 않고, 넓어질 때 뒤 바탕(흰색)이 비치지도 않는다.
   const tabletDeskSize = useMemo(() => deskSize && {
@@ -736,8 +744,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           filter={filter}
           navigate={navigate}
           bottomInset={insets.bottom}
-          collapsed={railCollapsed}
-          onToggle={() => setRailCollapsed((current) => !current)}
+          collapsed={railCollapsed}          onToggle={() => setRailCollapsed((current) => !current)}
         />
         <View style={[s.workspace, { paddingBottom: insets.bottom }, desk && { overflow: 'hidden' }]} onLayout={deskLayout}>
           {desk && <DeskBackdrop anchorRight size={tabletDeskSize} />}
