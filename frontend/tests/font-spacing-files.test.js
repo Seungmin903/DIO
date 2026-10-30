@@ -16,6 +16,8 @@ function files() {
     async writeAsStringAsync(uri, text, options) { data.set(uri, options.encoding === 'base64' ? format.fromBase64(text) : text); if (state.fail) throw new Error('disk full') },
     async moveAsync({ from, to }) { data.set(to, data.get(from)); data.delete(from) },
     async deleteAsync(uri) { data.delete(uri) },
+    readAsStringAsync: async uri => data.get(uri),
+    readDirectoryAsync: async () => [...data.keys()].filter(uri => uri.startsWith('file:///docs/dio-handwriting-workflow/')).map(uri => uri.split('/').at(-1)),
   }
   const deps = { 'expo-file-system/legacy': fs, 'expo-file-system': {}, 'expo-document-picker': {},
     'expo-sharing': { isAvailableAsync: async () => true, async shareAsync(uri, options) { state.shared = { text: data.get(uri), options } } },
@@ -41,4 +43,19 @@ test('iPad 로컬 이관은 공유 창에 JSON을 전달하고 임시 파일을 
   assert.equal(f.state.shared.text, text)
   assert.equal(f.state.shared.options.UTI, 'public.json')
   assert.equal(f.data.size, 0)
+})
+
+test('네이티브 작업 파일은 큰 한글 입력을 검증 후 저장하고 실패·충돌·정리로 원본을 잃지 않는다', async () => {
+  const f = files(), ref = '11111111-2222-4333-8444-555555555555', other = '11111111-2222-4333-8444-666666666666'
+  const text = JSON.stringify({ draft: '한글'.repeat(400000) })
+  f.state.fail = true
+  await assert.rejects(f.workflowBlobs.write(ref, text), /disk full/)
+  assert.equal(f.data.size, 0)
+  f.state.fail = false; await f.workflowBlobs.write(ref, text)
+  assert.equal(await f.workflowBlobs.read(ref), text)
+  await assert.rejects(f.workflowBlobs.write(ref, 'overwrite'), /충돌/)
+  await f.workflowBlobs.write(other, 'orphan')
+  await f.workflowBlobs.prune(new Set([ref]))
+  assert.equal(await f.workflowBlobs.read(ref), text); assert.equal(f.data.size, 1)
+  assert.throws(() => f.workflowBlobs.read('../outside'), /ID/)
 })

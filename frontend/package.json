@@ -21,7 +21,7 @@
     "ios": "expo start --ios",
     "start:go": "expo start --go",
     "android:font-dev": "expo run:android",
-    "test:handwriting": "node --test tests/handwriting.test.js tests/handwriting-input.test.js tests/handwriting-workflow.test.js tests/font-spacing.test.js tests/font-spacing-files.test.js",
+    "test:handwriting": "node --test tests/handwriting.test.js tests/handwriting-persistence.test.js tests/handwriting-input.test.js tests/handwriting-workflow.test.js tests/font-spacing.test.js tests/font-spacing-files.test.js",
     "qa:handwriting": "node tests/handwriting-browser.cjs",
     "web": "expo start --web",
     "test:trash": "node --test tests/trash-retention.test.js tests/trash-lifecycle.test.js tests/trash-selection.test.js tests/diary-library.test.js",

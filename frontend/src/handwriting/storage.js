@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { randomUUID } from 'expo-crypto'
 import { validateDraft } from './protocol.js'
 import { inspectTrueType, fromBase64, toBase64, decodeUtf8 } from './fontFormat.js'
-import { pickLocalFile, readFontBytes, restoreFontUri, saveFontBytes, removeFontBytes, writeLocalPackage } from './files'
+import { pickLocalFile, readFontBytes, restoreFontUri, saveFontBytes, removeFontBytes, writeLocalPackage, workflowBlobs } from './files'
+import { createWorkflowPersistence } from './workflowPersistence.js'
 import { correctFontSpacing, fontSpacingInfo, FONT_SPACING_VERSION } from './fontSpacing.js'
 
 const DRAFT_KEY = 'dio-handwriting-draft-v1', FONTS_KEY = 'dio-personal-fonts-v1', JOB_KEY = 'dio-handwriting-job-v1'
@@ -63,14 +64,16 @@ export function renameFont(id, label) {
 }
 
 const WORKFLOW_KEY = 'dio-handwriting-workflow-v2'
+const workflowPersistence = createWorkflowPersistence({ storage: AsyncStorage, blobs: workflowBlobs, uuid: randomUUID })
 export function saveWorkflow(entries) {
-  const snapshot = JSON.stringify({ schema: 2, entries })
-  return enqueue(() => AsyncStorage.setItem(WORKFLOW_KEY, snapshot))
+  const snapshot = JSON.parse(JSON.stringify(entries))
+  return enqueue(() => workflowPersistence.save(snapshot))
 }
 export async function loadWorkflow(current) {
-  const saved = await read(WORKFLOW_KEY, null)
+  const modern = await workflowPersistence.load()
+  const saved = modern == null ? await read(WORKFLOW_KEY, null) : null
   if (saved && (saved.schema !== 2 || !Array.isArray(saved.entries))) throw new Error('폰트 작업 목록을 읽을 수 없어요. 기존 데이터는 보존되어 있어요.')
-  const entries = current ? JSON.parse(JSON.stringify(current)) : saved?.entries || []
+  const entries = current ? JSON.parse(JSON.stringify(current)) : modern ?? saved?.entries ?? []
   const fonts = await loadFontLibrary()
   for (const font of fonts) {
     const existing = entries.find(e => e.fontId === font.id)
@@ -83,11 +86,16 @@ export async function loadWorkflow(current) {
       jobId: font.sourceJob || null, draft: null, createdAt: Date.parse(font.createdAt) || Date.now(),
     })
   }
-  if (!saved) {
+  if (modern == null && !saved) {
     const draft = await loadDraft(), job = await loadLastJob()
     if (Object.keys(draft.samples).length) entries.push({ id: `draft-${draft.id}`, name: '나의 손글씨', status: 'draft', draft, createdAt: Date.now() })
-    if (job && !entries.some(e => e.jobId === job.id)) entries.push({ id: `legacy-${job.id}`, name: '이전 생성 폰트', status: job.state, jobId: job.id, job, draft: null, createdAt: Date.now() })
+    if (job && !entries.some(e => e.jobId === job.id)) entries.push({ id: `legacy-${job.id}`, name: '이전 생성 폰트', status: job.state === 'ready' ? 'registering' : job.state, jobId: job.id, job, draft: null, createdAt: Date.now() })
+  }
+  if (modern == null) {
+    // Publish the new file/IndexedDB snapshot before retiring the oversized key.
+    // If legacy reading or any write fails, the old data remains untouched.
     await saveWorkflow(entries)
+    await AsyncStorage.removeItem(WORKFLOW_KEY).catch(() => {})
   }
   return entries
 }
@@ -117,7 +125,9 @@ export async function importLocalFile() {
     return { kind: 'font', font }
   }
   const data = JSON.parse(decodeUtf8(file.bytes))
-  if (data.kind === 'dio-handwriting-draft') { const draft = validateDraft(data); await saveDraft(draft); return { kind: 'draft', draft } }
+  // The caller saves imported strokes into the v3 item store. Do not duplicate
+  // large input in the legacy single-value AsyncStorage draft key.
+  if (data.kind === 'dio-handwriting-draft') return { kind: 'draft', draft: validateDraft(data) }
   if (data.kind === 'dio-font' && data.schema === 1 && typeof data.label === 'string') {
     const bytes = fromBase64(data.ttf)
     const source = typeof data.sourceFontId === 'string' && /^personal-[0-9a-f-]{36}$/i.test(data.sourceFontId) && fontSpacingInfo(bytes).spacingVersion ? { sourceFontId: data.sourceFontId } : {}

@@ -84,7 +84,7 @@ export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = 
   }
   async function pump() {
     if (!state.loaded || !state.support.available) return
-    for (const value of state.entries.filter(e => e.jobId && !['ready', 'cancelled', 'failed'].includes(e.status))) {
+    for (const value of state.entries.filter(e => e.jobId && (!['ready', 'cancelled', 'failed'].includes(e.status) || (e.status === 'ready' && !e.fontId)))) {
       await reconcile(value)
     }
     const active = state.entries.find(e => e.status === 'processing')
@@ -131,11 +131,11 @@ export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = 
           const latest = await engine.latest()
           if (latest && !entries.some(e => e.jobId === latest.id)) {
             const interrupted = entries.find(e => e.inputHash && e.inputHash === latest.inputHash && e.status !== 'ready')
-            if (interrupted) await update(interrupted.id, { jobId: latest.id, job: latest, status: latest.state })
+            if (interrupted) await update(interrupted.id, { jobId: latest.id, job: latest, status: latest.state === 'ready' ? 'registering' : latest.state })
             else {
               const draft = await engine.jobDraft(latest.id).catch(() => null)
               const font = await repository.fontForJob(latest.id)
-              await persist([...state.entries, { id: uuid(), name: font?.label || '이전 생성 폰트', baseName: font?.label || '이전 생성 폰트', draft, jobId: latest.id, job: latest, status: font ? 'ready' : latest.state, fontId: font?.id, createdAt: Date.now() }])
+              await persist([...state.entries, { id: uuid(), name: font?.label || '이전 생성 폰트', baseName: font?.label || '이전 생성 폰트', draft, jobId: latest.id, job: latest, status: font ? 'ready' : latest.state === 'ready' ? 'registering' : latest.state, fontId: font?.id, createdAt: Date.now() }])
             }
           }
           // Recover input snapshots only from their own native job, never from the current draft.

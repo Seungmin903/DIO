@@ -5,6 +5,32 @@ import * as Sharing from 'expo-sharing'
 import { Platform } from 'react-native'
 import { fromBase64, toBase64 } from './fontFormat.js'
 
+const workflowDirectory = () => `${FS.documentDirectory}dio-handwriting-workflow/`
+function workflowPath(ref) {
+  if (!/^[0-9a-f-]{36}$/i.test(ref)) throw new Error('폰트 작업 파일 ID가 올바르지 않아요.')
+  return `${workflowDirectory()}${ref}.json`
+}
+export const workflowBlobs = {
+  read: ref => FS.readAsStringAsync(workflowPath(ref), { encoding: FS.EncodingType.UTF8 }),
+  async write(ref, text) {
+    const uri = workflowPath(ref), pending = `${uri}.pending`
+    await FS.makeDirectoryAsync(workflowDirectory(), { intermediates: true })
+    if ((await FS.getInfoAsync(uri)).exists) throw new Error('폰트 작업 파일 ID가 충돌했어요.')
+    try {
+      await FS.writeAsStringAsync(pending, text, { encoding: FS.EncodingType.UTF8 })
+      if (await FS.readAsStringAsync(pending, { encoding: FS.EncodingType.UTF8 }) !== text) throw new Error('입력을 모두 저장하지 못했어요. 저장 공간을 확인해 주세요.')
+      await FS.moveAsync({ from: pending, to: uri })
+    } catch (error) { await FS.deleteAsync(pending, { idempotent: true }).catch(() => {}); throw error }
+  },
+  remove: ref => FS.deleteAsync(workflowPath(ref), { idempotent: true }),
+  async prune(keep) {
+    for (const name of await FS.readDirectoryAsync(workflowDirectory())) {
+      const match = /^([0-9a-f-]{36})\.json(?:\.pending)?$/i.exec(name)
+      if (match && (!keep.has(match[1]) || name.endsWith('.pending'))) await FS.deleteAsync(`${workflowDirectory()}${name}`, { idempotent: true })
+    }
+  },
+}
+
 export async function pickLocalFile() {
   // Android's picker grants access to its content URI. In Expo Go, the picker's
   // global cache directory is outside the legacy file system's scoped root.

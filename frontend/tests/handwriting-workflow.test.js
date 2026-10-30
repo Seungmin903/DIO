@@ -154,3 +154,35 @@ test('생성 직후 앱 종료를 inputHash로 복구하고 이전 폰트에 현
   const legacy = setup([{ id: 'old', name: '이전 폰트', fontId: 'f-old', status: 'ready', draft: null }]); await legacy.flow.init()
   await assert.rejects(legacy.flow.create('old'), /원래 입력/)
 })
+
+test('완료 직후 종료된 작업은 모든 복원 경로에서 실제 등록하고 재실행에도 중복되지 않는다', async () => {
+  for (const scenario of ['hash', 'unknown', 'legacy-ready', 'registering']) {
+    const job = { id: 'done', state: 'ready', completed: 11172, fontUri: 'file://font.ttf', inputHash: 'hash', draft: draft('original') }
+    const saved = scenario === 'hash' ? [{ id: 'entry', name: '원본', status: 'queued', inputHash: 'hash' }]
+      : scenario === 'unknown' ? [] : [{ id: 'entry', name: '원본', status: scenario === 'legacy-ready' ? 'ready' : 'registering', jobId: 'done' }]
+    const h = setup(saved, new Map([['done', job]])); await h.flow.init(); await h.flow.tick()
+    const item = h.flow.getSnapshot().entries[0]
+    assert.equal(item.status, 'ready', scenario); assert.equal(item.fontId, 'font-done', scenario)
+    assert.deepEqual(item.draft, job.draft)
+    assert.equal(h.calls.filter(c => c === 'register:done').length, 1)
+    const restarted = setup(h.saved(), h.jobs)
+    for (const [id, font] of h.fonts) restarted.fonts.set(id, font)
+    await restarted.flow.init(); await restarted.flow.tick()
+    assert.equal(restarted.flow.getSnapshot().entries[0].fontId, 'font-done')
+    assert.equal(restarted.calls.filter(c => c === 'register:done').length, 0)
+    assert.equal(restarted.calls.filter(c => c.startsWith('start:')).length, 0)
+  }
+})
+
+test('복구된 완료 작업의 등록 실패는 재시도 가능하며 기존 등록은 재사용한다', async () => {
+  const job = { id: 'done', state: 'ready', inputHash: 'hash', fontUri: 'file://font.ttf', draft: draft('original') }
+  const h = setup([], new Map([['done', job]])); h.failRegister(true); await h.flow.init()
+  const id = h.flow.getSnapshot().entries[0].id
+  assert.equal(h.item(id).status, 'failed')
+  h.failRegister(false); await h.flow.control(id, 'resume')
+  assert.equal(h.item(id).status, 'ready'); assert.equal(h.item(id).fontId, 'font-done')
+  const existing = setup([], new Map([['done', job]])); existing.fonts.set('done', {id:'already-registered',label:'원본'})
+  await existing.flow.init()
+  assert.equal(existing.flow.getSnapshot().entries[0].fontId, 'already-registered')
+  assert.deepEqual(existing.calls, [])
+})

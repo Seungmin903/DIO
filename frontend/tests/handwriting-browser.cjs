@@ -21,21 +21,27 @@ async function openStudio(page) {
   await page.getByRole('button', { name: /나만의 폰트 만들기/ }).click()
   await page.getByRole('button', { name: '+ 새로 만들기', exact: true }).waitFor()
 }
+// Read the committed v3 snapshot through the real browser IndexedDB adapter.
+async function storedDraft(expectedStrokes) {
+  const raw = Object.entries(localStorage).find(([key]) => key.endsWith('dio-handwriting-workflow-v3'))?.[1]
+  if (!raw) return expectedStrokes == null ? null : false
+  const db = await new Promise((resolve, reject) => { const r = indexedDB.open('dio-handwriting-workflow', 1); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error) })
+  try {
+    const read = key => new Promise((resolve, reject) => { const tx = db.transaction('records', 'readonly'), request = tx.objectStore('records').get(key); let text; request.onsuccess = () => { text = request.result }; tx.oncomplete = () => resolve(JSON.parse(text)); tx.onerror = () => reject(tx.error) })
+    const index = await read(JSON.parse(raw).index), item = index.records.find(r => r.value.status === 'draft')
+    const draft = item ? (await read(item.payload)).draft : null
+    return expectedStrokes == null ? draft : (draft?.samples['값']?.strokes.length ?? 0) === expectedStrokes
+  } finally { db.close() }
+}
 async function stroke(page, points) {
   await page.getByLabel('값 손글씨 입력칸', { exact: true }).scrollIntoViewIfNeeded()
-  const before = await page.evaluate(() => {
-    const raw = Object.entries(localStorage).find(([key]) => key.endsWith('dio-handwriting-workflow-v2'))?.[1]
-    return raw ? JSON.parse(raw).entries.find(e => e.status === 'draft').draft.samples['값']?.strokes.length ?? 0 : 0
-  })
+  const before = (await page.evaluate(storedDraft))?.samples['값']?.strokes.length ?? 0
   const box = await page.getByLabel('값 손글씨 입력칸', { exact: true }).boundingBox()
   assert(box && box.width > 20)
   await page.mouse.move(box.x + box.width * points[0][0], box.y + box.height * points[0][1]); await page.mouse.down()
   for (const [x, y] of points.slice(1)) await page.mouse.move(box.x + box.width * x, box.y + box.height * y, { steps: 12 })
   await page.mouse.up()
-  await page.waitForFunction(before => {
-    const raw = Object.entries(localStorage).find(([key]) => key.endsWith('dio-handwriting-workflow-v2'))?.[1]
-    return raw && JSON.parse(raw).entries.find(e => e.status === 'draft').draft.samples['값']?.strokes.length === before + 1
-  }, before)
+  await page.waitForFunction(storedDraft, before + 1)
 }
 ;(async () => {
   await new Promise(resolve => server.listen(54841, '127.0.0.1', resolve))
@@ -52,19 +58,19 @@ async function stroke(page, points) {
     await page.getByText('폰트 생성은 Android 개발 빌드에서 사용할 수 있어요.', { exact: true }).waitFor()
     assert(await page.getByRole('button', { name: '샘플 확인', exact: true }).isDisabled())
     await stroke(page, [[.25, .3], [.6, .32], [.55, .65]])
-    await page.waitForFunction(() => { const raw = Object.entries(localStorage).find(([key]) => key.endsWith('dio-handwriting-workflow-v2'))?.[1]; return raw && JSON.parse(raw).entries.find(e => e.status === 'draft')?.draft.samples['값']?.strokes.length > 0 })
+    await page.waitForFunction(storedDraft, 1)
     assert.equal(await page.getByRole('button', { name: '샘플 확인', exact: true }).isDisabled(), true)
     await page.screenshot({ path: path.join(output, 'phone-input.png'), fullPage: true })
     await page.getByRole('button', { name: '폰트 화면 뒤로가기', exact: true }).click()
     await page.reload(); await openStudio(page)
     await page.getByRole('button', { name: '나의 손글씨 작성 중', exact: true }).click()
-    await page.waitForFunction(() => { const raw = Object.entries(localStorage).find(([key]) => key.endsWith('dio-handwriting-workflow-v2'))?.[1]; return raw && JSON.parse(raw).entries.find(e => e.status === 'draft')?.draft.samples['값']?.strokes.length > 0 })
-    const saved = await page.evaluate(() => Object.entries(localStorage).find(([key]) => key.endsWith('dio-handwriting-workflow-v2'))?.[1])
-    const draft = JSON.parse(saved).entries.find(e => e.status === 'draft').draft; assert.equal(draft.samples['값'].strokes.length, 1)
+    await page.waitForFunction(storedDraft, 1)
+    const draft = await page.evaluate(storedDraft); assert.equal(draft.samples['값'].strokes.length, 1)
     await stroke(page, [[.3, .55], [.6, .72]])
     await page.getByRole('button', { name: '획 되돌리기', exact: true }).click()
     await page.getByText('이 기기에 저장됨', { exact: true }).waitFor()
-    assert.equal(await page.evaluate(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.endsWith('dio-handwriting-workflow-v2'))[1]).entries.find(e => e.status === 'draft').draft.samples['값'].strokes.length), 1)
+    await page.waitForFunction(storedDraft, 1)
+    assert.equal((await page.evaluate(storedDraft)).samples['값'].strokes.length, 1)
     const fontPath = process.env.HANDWRITING_TEST_TTF || path.resolve(__dirname, '../../../outputs/dio-handwriting-java-test/full-fixture.ttf')
     await page.getByRole('button', { name: '폰트 보조 메뉴', exact: true }).click()
     const fileChooser = page.waitForEvent('filechooser')

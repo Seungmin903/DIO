@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import { correctFontSpacing, fontSpacingInfo, FONT_SPACING_VERSION } from '../src/handwriting/fontSpacing.js'
 import * as format from '../src/handwriting/fontFormat.js'
 import * as protocol from '../src/handwriting/protocol.js'
+import { createWorkflowPersistence } from '../src/handwriting/workflowPersistence.js'
 import { legacyFont, tablesOf, repairChecksum, sum32 } from './helpers/handwriting-font-fixture.js'
 
 const original = legacyFont(), options = { family: 'DIOHW-SpacingTest', displayName: '간격 보정 테스트' }
@@ -54,18 +55,21 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
 })
 function storage() {
-  const disk = new Map(), files = new Map(), removed = [], state = { failList: false, failFile: false, picked: null, exported: null }
+  const disk = new Map(), files = new Map(), workflowData = new Map(), removed = [], state = { failList: false, failFile: false, failWorkflow: false, picked: null, exported: null }
   let seq = 0
   const mod = { exports: {} }, asyncStorage = {
     getItem: async key => disk.get(key) ?? null,
+    removeItem: async key => disk.delete(key),
     async setItem(key, value) { if (state.failList && key === 'dio-personal-fonts-v1') throw new Error('disk full'); disk.set(key, value) },
   }
   const deps = {
     '@react-native-async-storage/async-storage': asyncStorage,
     'expo-crypto': { randomUUID: () => `11111111-2222-4333-8444-${String(++seq).padStart(12, '0')}` },
     './protocol.js': protocol, './fontFormat.js': format,
+    './workflowPersistence.js': { createWorkflowPersistence },
     './fontSpacing.js': { correctFontSpacing, fontSpacingInfo, FONT_SPACING_VERSION },
     './files': {
+      workflowBlobs: { read: async id => workflowData.get(id), write: async (id, text) => { if (state.failWorkflow) throw new Error('disk full'); workflowData.set(id, text) }, remove: async id => workflowData.delete(id) },
       readFontBytes: async uri => files.get(uri), restoreFontUri: async font => { if (!files.has(font.uri)) throw new Error('missing'); return font.uri },
       async saveFontBytes(id, bytes) { if (state.failFile) throw new Error('disk full'); const uri = `file:///${id}.ttf`; assert(!files.has(uri)); files.set(uri, bytes); return uri },
       async removeFontBytes(id) { removed.push(id); files.delete(`file:///${id}.ttf`) },
@@ -103,6 +107,33 @@ test('작업 목록 이관은 기존 폰트와 초안을 보존하고 반복 실
   assert.deepEqual(entries.find(e => e.status === 'draft').draft, draft)
   assert.deepEqual(await s.loadWorkflow(), entries)
   assert.equal(s.disk.get('dio-personal-fonts-v1'), beforeFonts); assert.equal(s.disk.get('dio-handwriting-draft-v1'), beforeDraft)
+})
+
+test('v2 작업은 파일 저장을 확정한 후에만 기존 키를 정리하고 이관 실패는 재시도한다', async () => {
+  const s = storage(), entries = [{ id: 'old', name: '원본', status: 'ready', jobId: 'done', draft: { samples: { 값: 'original' } }, preview: { 안: 'data:image/png;base64,original' } }]
+  const old = JSON.stringify({ schema: 2, entries }); s.disk.set('dio-handwriting-workflow-v2', old)
+  s.state.failWorkflow = true
+  await assert.rejects(s.loadWorkflow(), /disk full/)
+  assert.equal(s.disk.get('dio-handwriting-workflow-v2'), old)
+  assert.equal(s.disk.has('dio-handwriting-workflow-v3'), false)
+  s.state.failWorkflow = false
+  assert.deepEqual(await s.loadWorkflow(), entries)
+  assert.equal(s.disk.has('dio-handwriting-workflow-v2'), false)
+  assert(s.disk.get('dio-handwriting-workflow-v3').length < 150)
+  assert.deepEqual(await s.loadWorkflow(), entries)
+})
+
+test('구형 완료 작업의 이관은 폰트가 등록될 때까지 등록 대기 상태를 유지한다', async () => {
+  const s = storage(); s.disk.set('dio-handwriting-job-v1', JSON.stringify({id:'done',state:'ready',fontUri:'file:///font.ttf'}))
+  const entries = await s.loadWorkflow()
+  assert.equal(entries.find(e => e.jobId === 'done').status, 'registering')
+})
+
+test('가져온 초안은 구형 단일 AsyncStorage 값에 중복 저장하지 않는다', async () => {
+  const s = storage(), draft = { schema: 1, kind: 'dio-handwriting-draft', id: 'import', samples: {}, updatedAt: 'now' }
+  s.state.picked = { name: 'draft.json', bytes: new TextEncoder().encode(JSON.stringify(draft)) }
+  assert.deepEqual((await s.importLocalFile()).draft, draft)
+  assert.equal(s.disk.has('dio-handwriting-draft-v1'), false)
 })
 test('완료 등록은 동시 요청·앱 재시작에도 작업 ID 기준으로 중복되지 않는다', async () => {
   const s = storage()
