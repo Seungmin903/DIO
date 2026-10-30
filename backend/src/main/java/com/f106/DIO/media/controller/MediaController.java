@@ -38,7 +38,7 @@ public class MediaController {
 		return mediaService.detail(mediaFileId, userId(jwt));
 	}
 	@GetMapping("/{mediaFileId}/file")
-	@Operation(summary = "미디어 파일 조회", description = "소유자만 원본 파일 바이트를 조회합니다.")
+	@Operation(summary = "미디어 파일 조회", description = "소유자 또는 해당 이미지를 사용하는 활성 다이어리 참여자가 원본 파일 바이트를 조회합니다.")
 	public ResponseEntity<byte[]> file(@PathVariable UUID mediaFileId, @AuthenticationPrincipal Jwt jwt) {
 		MediaService.DownloadedMedia file = mediaService.file(mediaFileId, userId(jwt));
 		return ResponseEntity.ok().contentType(MediaType.parseMediaType(file.mimeType())).header(HttpHeaders.CACHE_CONTROL, "private, no-store").body(file.content());

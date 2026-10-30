@@ -20,14 +20,7 @@ public interface MediaFileRepository extends JpaRepository<MediaFile, UUID> {
 	 * 보존 기간이 지났고 어느 테이블에서도 참조하지 않는 미디어 조건. 조회와 조건부 삭제가 같은 문자열을 써서
 	 * 두 쿼리의 판단이 어긋나지 않게 하고, PostgreSQL 통합 테스트도 이 문자열을 그대로 실행한다.
 	 */
-	String PHYSICALLY_DELETABLE = """
-		media_files.deleted_at <= :cutoff
-		  and not exists (select 1 from canvas_elements element where element.media_file_id = media_files.media_file_id)
-		  and not exists (select 1 from diary_handwriting_fonts font where font.font_media_file_id = media_files.media_file_id)
-		  and not exists (select 1 from diary_media_library library where library.media_file_id = media_files.media_file_id)
-		  and not exists (select 1 from ai_jobs job where job.source_media_file_id = media_files.media_file_id or job.result_media_file_id = media_files.media_file_id)
-		  and not exists (select 1 from media_files derived where derived.source_media_file_id = media_files.media_file_id)
-		""";
+	String PHYSICALLY_DELETABLE = "media_files.deleted_at <= :cutoff " + MediaReferenceSql.UNREFERENCED;
 	String DELETABLE_ORDER = " order by media_files.deleted_at, media_files.media_file_id";
 	String DELETABLE_AFTER = " and (media_files.deleted_at, media_files.media_file_id) > (:afterDeletedAt, :afterMediaFileId)";
 

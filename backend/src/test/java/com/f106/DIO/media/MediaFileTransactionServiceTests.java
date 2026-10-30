@@ -29,7 +29,7 @@ class MediaFileTransactionServiceTests {
 	private final MediaFileRepository mediaFiles = mock(MediaFileRepository.class);
 	private final DiaryMediaLibraryRepository sharedLibrary = mock(DiaryMediaLibraryRepository.class);
 	private final MediaStorageDeletionTaskRepository deletionTasks = mock(MediaStorageDeletionTaskRepository.class);
-	private final MediaFileTransactionService service = new MediaFileTransactionService(mediaFiles, sharedLibrary, deletionTasks);
+	private final MediaFileTransactionService service = new MediaFileTransactionService(mediaFiles, sharedLibrary, deletionTasks, org.mockito.Mockito.mock(com.f106.DIO.media.service.CanvasMediaAccess.class));
 
 	@Test
 	void removesTheUploadCleanupTaskWithTheSuccessfulMediaPersistence() {

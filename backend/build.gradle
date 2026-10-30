@@ -152,6 +152,7 @@ tasks.register('sharingPostgresTest', Test) {
     useJUnitPlatform()
     filter {
         includeTestsMatching 'com.f106.DIO.sharing.SharingPostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.UserWithdrawalPostgresTests'
         includeTestsMatching 'com.f106.DIO.sharing.EmailInvitePostgresTests'
         includeTestsMatching 'com.f106.DIO.sharing.DiaryProfilePostgresTests'
         includeTestsMatching 'com.f106.DIO.sharing.SharingReviewPostgresTests'

@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
+import * as mediaModule from '../src/collaboration/canvasMedia.js'
 import * as apiModule from '../src/collaboration/canvasApi.js'
 import * as pagesModule from '../src/collaboration/serverPages.js'
 import * as sessionModule from '../src/collaboration/canvasSession.js'
@@ -46,6 +47,8 @@ function fixture(failure=null){
   if(name.endsWith('/memberTransport.js'))return {createAuthenticatedMemberTransport:()=>transport}
   if(name.endsWith('/memberStorage.js'))return memberStorage
   if(name.endsWith('/serverPages.js'))return pagesModule
+  if(name.endsWith('/canvasMedia.js'))return mediaModule
+  if(name.endsWith('/canvasMediaFiles'))return {canvasMediaFiles:{cached:async()=>true}}
   if(name.endsWith('/canvasApi.js'))return apiModule
   if(name.endsWith('/canvasSession.js'))return sessionModule
   if(name.endsWith('/collaborationSocket.js'))return {connectCollaboration:options=>{onChange=options.onChange;onReady=options.onReady;onPagesChanged=options.onPagesChanged;return {close(){}}}}
@@ -192,6 +195,18 @@ test('보고 있지 않은 페이지도 상대 요소를 알림만으로 갱신�
   app.remoteAdd(remote);await app.settle()
   assert.equal(app.state().pageId,added.id)
   assert.equal(app.state().doc.pages.find(p=>p.id===pageId).objects.some(o=>o.id===remote.id),true)
+  assert.equal(app.requests.some(r=>r.method==='POST'&&r.path.endsWith('/canvas-operations')),false)
+ }finally{app.close()}
+})
+
+test('원격 사용자 사진은 별도 사용자 액션 없이 기존 편집기 상태에 반영된다',async()=>{
+ const app=fixture()
+ try{await app.settle()
+  const media='70000000-0000-4000-8000-000000000001'
+  const remote={id:'70000000-0000-4000-8000-000000000002',type:'photo',x:10,y:20,w:30,h:40,mediaFileId:media,src:`media:${media}`}
+  app.remoteAdd(remote);await app.settle()
+  const photo=app.state().doc.pages.find(p=>p.id===pageId).objects.find(o=>o.id===remote.id)
+  assert.equal(photo.src,`media:${media}`)
   assert.equal(app.requests.some(r=>r.method==='POST'&&r.path.endsWith('/canvas-operations')),false)
  }finally{app.close()}
 })

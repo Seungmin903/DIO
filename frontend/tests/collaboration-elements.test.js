@@ -4,15 +4,20 @@ import {encodeElement,decodeElement,sharedObject,sharedElement} from '../src/col
 import {createCanvasSession} from '../src/collaboration/canvasSession.js'
 const page='10000000-0000-4000-8000-000000000001',diary='10000000-0000-4000-8000-000000000002',id='20000000-0000-4000-8000-000000000001'
 const object=type=>({id,type,x:1,y:2,w:80,h:40})
-test('필압·스타일·기본 스티커는 보존하고 사진·사용자 이미지는 전송 대상에서 제외한다',()=>{
- for(const input of [{...object('stroke'),points:[{x:1,y:2,pressure:.3}],penKind:'brush'}, {...object('sticker'),asset:'tw-1f600'}]){
-  const encoded=encodeElement(input);assert.deepEqual(encodeElement(decodeElement({...encoded,version:1})),encoded)
+test('기기 URL은 제외하고 기존 에셋 ID와 사진 칸을 왕복한다',()=>{
+ const media='50000000-0000-4000-8000-000000000001'
+ for(const type of ['photo','sticker','tape']){
+  const input={...object(type),mediaFileId:media,src:`media:${media}`,poster:'data:private-preview'}
+  assert.equal(sharedObject(input),true)
+  const encoded=encodeElement(input);assert.equal(encoded.mediaFileId,media)
+  assert.equal(JSON.stringify(encoded).includes('private-preview'),false)
+  const decoded=decodeElement({...encoded,version:1})
+  assert.equal(decoded.src,`media:${media}`)
  }
- for(const input of [object('photo'),{...object('sticker'),mediaFileId:id,src:`media:${id}`},{...object('tape'),src:'file:///private-image'}]){
-  assert.equal(sharedObject(input),false);assert.throws(()=>encodeElement(input))
- }
- assert.equal(sharedElement({elementType:'PHOTO'}),false)
- assert.equal(sharedElement({elementType:'STICKER',mediaFileId:id}),false)
+ assert.equal(sharedObject({...object('photo'),src:'file:///private-image'}),false)
+ const frame=encodeElement({...object('photo'),cells:[{mediaFileId:media,src:`media:${media}`,poster:'data:preview'},null]})
+ assert.equal(frame.propertiesJson.cells[0].src,undefined)
+ assert.equal(decodeElement({...frame,version:1}).cells[0].src,`media:${media}`)
 })
 test('과거 이미지 포함 전송 대기는 보관하고 제거한 경로·파일 전송을 재시도하지 않는다',async()=>{
  const pending={id,pageId:page,before:[],after:[object('photo')],request:{clientOperationId:id,changes:{creates:[{elementId:id,elementType:'PHOTO',mediaFileId:id}]}}}

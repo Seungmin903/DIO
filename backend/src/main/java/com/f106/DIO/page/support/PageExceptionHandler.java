@@ -15,6 +15,9 @@ import com.f106.DIO.page.domain.DiaryPage;
 
 @RestControllerAdvice(assignableTypes = {PageController.class, CanvasElementController.class})
 public class PageExceptionHandler extends ResponseEntityExceptionHandler {
+    @ExceptionHandler(com.f106.DIO.media.support.MediaFileNotFoundException.class)
+    public ProblemDetail missingMedia(com.f106.DIO.media.support.MediaFileNotFoundException error){var result=ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND,"이미지 파일 또는 접근 권한을 확인해 주세요.");result.setProperty("code","MEDIA_FILE_NOT_FOUND");return result;}
+
 
     @ExceptionHandler(com.f106.DIO.collaboration.exception.CollaborationException.class)
     public ProblemDetail collaboration(com.f106.DIO.collaboration.exception.CollaborationException error){return problem(error.status,"Canvas operation failed",error.code,error.getMessage());}
