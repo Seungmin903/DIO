@@ -27,7 +27,7 @@ export const styles = StyleSheet.create({
   railToggle: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
   railTogglePressed: { backgroundColor: '#F4F7FC' },
   railHeaderProfile: { width: 48, height: 48, alignItems: 'flex-start', justifyContent: 'center', borderRadius: 15 },
-  railCollapsedProfileSlot: { alignItems: 'center', marginTop: 4, marginBottom: -6 },
+  railCollapsedProfileSlot: { position: 'absolute', top: 90, left: 15, zIndex: 2 },
   railCollapsedProfile: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
   railProfileSelected: { backgroundColor: C.active },
   railHeaderAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: C.active },

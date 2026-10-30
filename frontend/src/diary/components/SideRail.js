@@ -75,7 +75,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         { width: between(RAIL_WIDTH.collapsed, RAIL_WIDTH.expanded), paddingHorizontal: between(RAIL_PADDING.collapsed, RAIL_PADDING.expanded), paddingBottom: 24 + bottomInset },
       ]}
     >
-      <Animated.View style={[s.brandRow, { marginBottom: between(18, 25) }]}>
+      <Animated.View style={[s.brandRow, { marginBottom: 25 }]}>
         <Animated.View pointerEvents={collapsed ? 'none' : 'auto'} style={[s.brandSlot, { opacity: labelOpacity }]}>
           {profileButton()}
         </Animated.View>
@@ -90,8 +90,8 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         </Pressable>
       </Animated.View>
       {collapsed && <View style={s.railCollapsedProfileSlot}>{profileButton(true)}</View>}
-      <Animated.View style={[s.railGroup, { marginTop: between(42, 25) }]}>
-        <Animated.View style={[s.railSectionSlot, { height: between(0, 23), opacity: labelOpacity }]}>
+      <Animated.View style={[s.railGroup, { marginTop: 25 }]}>
+        <Animated.View style={[s.railSectionSlot, { height: 23, opacity: labelOpacity }]}>
           <Text numberOfLines={1} style={s.railSection}>보관함</Text>
         </Animated.View>
         {item('library', '모든 다이어리', 'book', 'personal')}
