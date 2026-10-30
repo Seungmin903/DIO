@@ -16,15 +16,20 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name="bearerAuth")
 public class FontController {
     private final FontService service;
-    public FontController(FontService service) { this.service=service; }
+    private final FontDownloadAdmission admission;
+    public FontController(FontService service, FontDownloadAdmission admission) { this.service=service; this.admission=admission; }
     public record Share(@NotNull UUID mediaFileId) {}
     public record State(@NotNull Boolean enabled) {}
     @GetMapping("/diaries/{diaryId}/fonts/{mediaFileId}/file")
     @Operation(summary="다이어리 공유 폰트 다운로드", description="활성 OWNER·EDITOR만 enabled·FONT·READY·미삭제 공유 파일을 조회합니다.")
     public ResponseEntity<byte[]> file(@PathVariable UUID diaryId,@PathVariable UUID mediaFileId) {
-        var file=service.download(diaryId,mediaFileId);
-        return ResponseEntity.ok().header("Cache-Control","private, no-store").header("X-Content-Type-Options","nosniff")
-            .contentType(org.springframework.http.MediaType.parseMediaType(file.mimeType())).body(file.content());
+        var permit=admission.tryAcquire();
+        if (permit == null) return ResponseEntity.status(503).header("Retry-After", "1").header("Cache-Control", "no-store").build();
+        try (permit) {
+            var file=service.download(diaryId,mediaFileId);
+            return ResponseEntity.ok().header("Cache-Control","private, no-store").header("X-Content-Type-Options","nosniff")
+                .contentType(org.springframework.http.MediaType.parseMediaType(file.mimeType())).body(file.content());
+        }
     }
     @GetMapping("/handwriting-fonts") @Operation(summary="내 손글씨 폰트 목록")
     public ResponseEntity<List<FontService.Font>> mine() { return ResponseEntity.ok().header("Cache-Control","no-store").body(service.mine()); }

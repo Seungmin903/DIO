@@ -14,6 +14,6 @@ public class FontWebConfiguration implements WebMvcConfigurer {
     @Override public void addCorsMappings(CorsRegistry registry) {
         for(String path:new String[]{"/api/v1/handwriting-fonts","/api/v1/diaries/*/fonts","/api/v1/diaries/*/fonts/*","/api/v1/diaries/*/fonts/*/file"})
             registry.addMapping(path).allowedOrigins(origins).allowedMethods("GET","POST","PATCH","OPTIONS")
-                .allowedHeaders("Content-Type","Authorization","X-DIO-Access-Token").allowCredentials(false).maxAge(600);
+                .allowedHeaders("Content-Type","Authorization","X-DIO-Access-Token").exposedHeaders("Retry-After").allowCredentials(false).maxAge(600);
     }
 }
