@@ -60,9 +60,8 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
     );
   };
 
-  // 자리(slot)는 접힌 폭으로 고정하고, 펼친 메뉴는 그 위에 겹쳐 연다. 메뉴가 움직여도 오른쪽 작업 영역의 폭은 바뀌지 않아
-  // 카드·표지가 프레임마다 다시 배치되지 않는다. 움직이는 건 메뉴 자신뿐이다.
-  // 자리(slot)는 접힌 폭으로 고정하고 메뉴는 그 위에 겹쳐 늘어난다. 메인 화면은 움직이지도 줄어들지도 않아 오른쪽이 가려지지 않는다.
+  // 자리(slot)는 접힌 폭의 빈 칸으로 고정하고, 펼친 메뉴는 shell 바로 아래에서 그 위에 겹쳐 늘어난다(부모 영역 밖 터치가 안드로이드에서 막히지 않도록 slot 안에 두지 않는다).
+  // 메뉴가 움직여도 오른쪽 작업 영역의 폭은 바뀌지 않아 카드·표지가 프레임마다 다시 배치되지 않는다. 메인 화면은 움직이지도 줄어들지도 않아 오른쪽이 가려지지 않는다.
   return (
     <>
     {/* 펼쳐지면 메인 화면을 어둡게 가리고, 메인 쪽은 누르기·쓸기·스크롤 모두 여기서 막혀 메뉴만 닫힌다. 메뉴(아래 Animated.View)가 이 막 위에 그려진다.
@@ -70,7 +69,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
     <Animated.View pointerEvents={collapsed ? 'none' : 'auto'} style={[s.railScrim, { opacity: scrimOpacity }]}>
       <Pressable accessibilityRole="button" accessibilityLabel="메뉴 닫기" accessibilityElementsHidden={collapsed} importantForAccessibility={collapsed ? 'no-hide-descendants' : 'auto'} onPress={onToggle} style={s.railScrimPress} />
     </Animated.View>
-    <View style={s.railSlot}>
+    <View style={s.railSlot} />
     <Animated.View
       style={[
         s.rail,
@@ -119,7 +118,6 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         {item('trash', '휴지통', 'trash')}
       </Animated.View>
     </Animated.View>
-    </View>
     </>
   );
 }

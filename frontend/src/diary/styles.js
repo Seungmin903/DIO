@@ -28,11 +28,11 @@ export const styles = StyleSheet.create({
   tabLabelSelected: { color: C.ink, fontWeight: '800' },
 
   rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.white, borderRightWidth: 1, borderRightColor: C.line },
-  railSlot: { width: 78, zIndex: 20, elevation: 20 },
+  railSlot: { width: 78 },
   // 메뉴 오른쪽(접힌 폭 이후)부터 화면 끝까지 덮는 반투명 막. 불투명도는 메뉴 펼침 정도(0~1)를 따른다.
-  railScrim: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 19, backgroundColor: 'rgba(0,0,0,0.32)' },
+  railScrim: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 19, elevation: 19, backgroundColor: 'rgba(0,0,0,0.32)' },
   railScrimPress: { flex: 1 },
-  railOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0 },
+  railOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, zIndex: 20, elevation: 20 },
   // 로고 · 종 · 삼선을 같은 높이(48) 안에서 세로 가운데 맞춤 (로고 칸이 더 높아 로고만 아래로 처지던 것을 맞춤)
   brandRow: { height: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
   brand: { flex: 1, minWidth: 0, height: 48, paddingBottom: 6, flexDirection: 'row', alignItems: 'center', gap: 10 }, // 위쪽 점 때문에 D 본체가 아래로 쏠려 보여 로고를 3 올림
