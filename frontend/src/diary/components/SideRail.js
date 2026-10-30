@@ -76,6 +76,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         </Animated.View>
         {item('library', '모든 다이어리', 'book', 'personal')}
         {item('library', '즐겨찾기', 'star', 'favorite')}
+        {item('studio', '꾸미기 공방', 'workshop')}
         {item('profile', '내 공간', 'person')}
         {item('trash', '휴지통', 'trash')}
         {onNotifications && <View style={{ alignItems: 'center', marginTop: 8 }}><SharingEntry notifications notificationCount={notificationCount} notificationLabel={notificationLabel} compact={collapsed} count={invitationCount} onPress={onNotifications}/></View>}
