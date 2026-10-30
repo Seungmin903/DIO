@@ -20,7 +20,7 @@ class MediaMultipartExceptionResolverTests {
 
 		assertThat(result).isNotNull();
 		assertThat(response.getStatus()).isEqualTo(413);
-		assertThat(response.getContentAsString()).contains("MEDIA_FILE_TOO_LARGE");
+		assertThat(response.getContentAsString()).contains("MEDIA_FILE_TOO_LARGE", "5MiB", "25MiB");
 	}
 
 	@Test

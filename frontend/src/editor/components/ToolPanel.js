@@ -68,7 +68,7 @@ export const toolPanelStyles = StyleSheet.create({
   // 칸 사이 3 간격: 여러 칸을 함께 켰을 때(보조선·굵게/기울임) 흰 칸끼리 붙어 보이지 않게
   segment: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 11, backgroundColor: colors.surfaceMuted },
   segmentItem: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
-  segmentActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.14)' },
+  segmentActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.14)' },
   chips: { flexDirection: 'row', gap: 8 },
   chip: { backgroundColor: colors.surfaceMuted, borderWidth: 1.5, borderColor: 'transparent', borderRadius: 11 },
   chipActive: { backgroundColor: colors.surface, borderColor: colors.primary },

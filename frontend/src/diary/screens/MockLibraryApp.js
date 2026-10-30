@@ -48,14 +48,16 @@ export default function MockLibraryApp() {
   </>;
 }
 
+const EMPTY_ROWS = [];
+
 function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { isPhone } = useFormFactor();
+  const { isPhone, isLandscape } = useFormFactor();
   const [viewport, setViewport] = useState({ width, height });
   const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height);
   const mock = useMemo(() => createMockDiaryTransport(account === 'A' ? {} : { initialRows: [{
-    diaryId: 'mock-account-b', diaryTitle: '다른 계정 일기', coverColor: '#9FB6D9', visibility: 'PRIVATE',
+    diaryId: 'mock-account-b', diaryTitle: '다른 계정 일기', coverColor: '#ABB1D8', visibility: 'PRIVATE',
     pageCount: 3, version: '1', canEdit: true, myMembership: { isFavorite: true }, createdAt: '2026-10-24T03:00:00Z', updatedAt: '2026-10-24T03:00:00Z',
   }] }), [account]);
   const api = useMemo(() => createDiaryApi(mock.transport), [mock]);
@@ -85,16 +87,15 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   useEffect(() => { mock.setWriteScenario(writeMode); }, [mock, writeMode]);
   const [createdMessage, setCreatedMessage] = useState('');
   const saving = creation.status === 'saving';
-  const [options, setOptions] = useState({ filter: 'personal', query: '', sort: 'updated' });
+  const [options, setOptions] = useState({ filter: 'all', query: '', sort: 'updated' });
   const [searchOpen, setSearchOpen] = useState(false);
   const [view, setView] = useState('carousel');
   const [carousel, setCarousel] = useState(0);
   const [page, setPage] = useState('library');
-  const [collapsed, setCollapsed] = useState(true);
-  const [controlsOpen, setControlsOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);  const [controlsOpen, setControlsOpen] = useState(false);
   const [scenario, setScenario] = useState('success');
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
-  useEffect(() => { railWidthRef.current = collapsed ? RAIL_WIDTH.collapsed : RAIL_WIDTH.expanded; }, [collapsed]);
+  // 메뉴는 메인 화면 위에 겹쳐 열리므로 메인 화면을 비켜 주는 폭은 늘 접힌 폭이다.
   useEffect(() => {
     const sub = AppState.addEventListener('change', value => { if (value === 'active') { reader.refresh(); if (page === 'trash') trash.run(); } });
     return () => sub.remove();
@@ -109,9 +110,10 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   const navigate = (next, filter) => {
     if (removalBusy) return;
     reader.close(); setPage(next); setSearchOpen(false); setSelection(null);
-    if (next === 'library') change({ filter: filter || 'personal', query: '' });
+    if (next === 'library') change({ filter: filter || 'all', query: '' });
   };
   const rows = list.data?.items || [];
+  const trashItems = trash.data?.items || EMPTY_ROWS;
   const askRemoval = (kind, ids) => {
     if (removalRunning.current || removal.getSnapshot().status === 'saving' || removal.getPendingInput()) return;
     removal.dismiss();
@@ -266,13 +268,15 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
       <Text style={s.text}>결과 확인이 필요한 수정 요청이 있어요.</Text>
       <Button label="수정 요청 이어서 확인" onPress={() => editing.editor.open(editing.source.id)} />
     </View>}
-    {page === 'library' ? library : page === 'trash' ? <TrashScreen compact={isPhone} diaries={trash.data?.items || []}
+    {page === 'library' ? library : page === 'trash' ? <TrashScreen compact={isPhone} portrait={!isPhone && !isLandscape} diaries={trashItems}
       serverMode busy={removalLocked} onRestore={id => askRemoval('restore', [id])}
       onDeletePermanently={row => askRemoval('permanentlyDelete', [row.id])}
+      onRestoreMany={ids => askRemoval('restore', ids)}
+      onDeleteMany={rows => askRemoval('permanentlyDelete', rows.map(row => row.id))}
       requestNotice={<Notice state={trash} retry={() => trash.retry()} />} suppressEmpty={trash.status !== 'success'} /> : <View style={shell.screen}>
       <Text style={s.title}>{page === 'trash' ? '휴지통' : '내 공간'}</Text>
       <Text style={s.text}>이 목 모드에서는 보관함 조회만 연결되어 있어요.</Text>
-      <Button label="보관함으로 돌아가기" onPress={() => navigate('library', 'personal')} />
+      <Button label="보관함으로 돌아가기" onPress={() => navigate('library', 'all')} />
     </View>}
   </View>;
   return <View style={[shell.safe, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]}>
@@ -321,7 +325,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
         <ScrollView horizontal contentContainerStyle={s.row}>
           {[['success', '저장 정상'], ['fail-once', '저장 한 번 실패'], ['error', '저장 계속 실패'], ['forbidden', '권한 없음'], ['conflict', '버전 충돌'], ['response-lost', '응답 유실']].map(([value, label]) =>
             <Button key={value} label={`${writeMode === value ? '✓ ' : ''}${label}`} disabled={editSaving} onPress={() => {
-              if (value === 'conflict') mock.simulateEdit(editing.source.id, { diaryTitle: '다른 기기에서 수정한 이름', coverColor: '#9FB6D9', coverPattern: 'STRIPE' });
+              if (value === 'conflict') mock.simulateEdit(editing.source.id, { diaryTitle: '다른 기기에서 수정한 이름', coverColor: '#ABB1D8', coverPattern: 'STRIPE' });
               mock.setWriteScenario(value); setWriteMode(value);
             }} />)}
         </ScrollView>

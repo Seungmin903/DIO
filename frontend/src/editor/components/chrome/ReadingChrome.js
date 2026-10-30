@@ -6,7 +6,9 @@ import Icon from '../controls/Icon'
 import { pageFromProgress } from '../../utils/readingGestures.js'
 import { createPageRepeat, isGesturePagePress } from '../../utils/pageRepeat.js'
 
-export const READING_PADDING = { top: 64, bottom: 76, side: 12 }
+// 메뉴(위 헤더 56 · 아래 바 52)가 보이면 그 사이에 맞추고, 숨기면 화면 전체에 딱 맞춘다.
+export const READING_PADDING = { top: 56, bottom: 52, side: 0 }
+export const READING_PADDING_FULL = { top: 0, bottom: 0, side: 0 }
 
 function Action({ icon, label, onPress, disabled = false, ...pressProps }) {
   return <Pressable {...pressProps} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled}
@@ -109,7 +111,8 @@ const styles = StyleSheet.create({
   header: { position: 'absolute', top: 0, left: 0, right: 0, height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, backgroundColor: colors.surface, zIndex: 40 },
   home: { width: 72, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   title: { flex: 1, minWidth: 0, textAlign: 'center', fontSize: 13, fontWeight: '700', color: colors.text },
-  navigation: { position: 'absolute', bottom: 12, left: 0, right: 0, minHeight: 52, flexDirection: 'row', alignItems: 'center', paddingLeft: 8, paddingRight: 12, backgroundColor: colors.surface, borderRadius: 14, zIndex: 25 },
+  // 위 헤더처럼 화면 끝에 붙인다(떠 있지 않게). 아래 모서리는 화면 모서리에 맡기고 위쪽만 둥글게 둔다.
+  navigation: { position: 'absolute', bottom: 0, left: 0, right: 0, minHeight: 52, flexDirection: 'row', alignItems: 'center', paddingLeft: 8, paddingRight: 12, backgroundColor: colors.surface, borderTopLeftRadius: 14, borderTopRightRadius: 14, zIndex: 25 },
   pageNumber: { width: 58, fontSize: 11, fontWeight: '700', color: colors.text, textAlign: 'center', fontVariant: ['tabular-nums'] },
   pager: { flex: 1, minWidth: 0, maxWidth: 520, flexDirection: 'row', alignItems: 'center', marginHorizontal: 'auto' },
   readingActions: { flexDirection: 'row', marginLeft: 4, flexShrink: 0 },

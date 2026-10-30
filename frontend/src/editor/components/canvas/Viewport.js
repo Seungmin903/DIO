@@ -23,9 +23,10 @@ const LONG_PRESS_MS = 450 // 캔버스 빈 곳 길게 누르기와 같은 시간
  * onLongPress(point): 한 손가락을 움직이지 않고 오래 누르면 그 자리의 페이지 좌표 { x, y } 를 알린다.
  *   손바닥 도구에서는 페이지도 이 영역이 받으므로, 캔버스 빈 곳 메뉴(붙여넣기 · 속지 색)를 여기서 연다. 그 뒤 손을 뗄 때까지 화면을 옮기지 않는다.
  */
-export default function Viewport({ reading = false, readingLinkRef, onReadingAction, zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, onLongPress, dragToPan = false, interactionLocked = false, children, style, onLayout }) {
+export default function Viewport({ reading = false, readingLinkRef, onReadingAction, onReadingDrag, zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, onLongPress, dragToPan = false, interactionLocked = false, children, style, onLayout }) {
   const readerGesture = useRef(null)
   const viewportWidth = useRef(0)
+  const viewportHeight = useRef(0)
   const pinch = useRef(null)
   const [live, setLive] = useState(null) // 손가락으로 움직이는 중인 보기 (확정 전)
   const liveRef = useRef(null)
@@ -56,7 +57,7 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
       clearTimeout(hold.current?.timer)
     }
   }, [])
-  latest.current = { reading, readingLinkRef, onReadingAction, zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, onLongPress, dragToPan: interactionLocked ? false : dragToPan, interactionLocked }
+  latest.current = { reading, readingLinkRef, onReadingAction, onReadingDrag, zoom, offset, scale, resolveZoom, resolvePan, onView, onMovingChange, onTapEmpty, onLongPress, dragToPan: interactionLocked ? false : dragToPan, interactionLocked }
   const currentView = () => liveRef.current ?? { scale: latest.current.scale, zoom: latest.current.zoom, x: latest.current.offset.x, y: latest.current.offset.y }
   const preview = (view) => {
     if (!liveRef.current) latest.current.onMovingChange?.(true)
@@ -168,6 +169,17 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
         g.maxDistance = Math.max(g.maxDistance, Math.hypot(g.lastX - g.x, g.lastY - g.y))
         g.dragged = readingDragLocked({ dx: g.lastX - g.x, dy: g.lastY - g.y, duration: Date.now() - g.at, scale: g.scale, dragged: g.dragged })
         if (twoFingers(event)) g.pinched = true
+        // 확대하지 않은 상태의 가로 끌기: 손가락을 따라 책장이 넘어간다
+        const drag = latest.current.onReadingDrag
+        if (drag && g.scale <= 1) {
+          const dx = g.lastX - g.x, dy = g.lastY - g.y
+          if (g.turning && g.pinched) { drag({ type: 'cancel' }); g.turning = false; g.lockChecked = true }
+          else if (!g.pinched && !g.lockChecked && Math.hypot(dx, dy) > 12) {
+            g.lockChecked = true
+            if (Math.abs(dx) >= Math.abs(dy) * 1.5) g.turning = drag({ type: 'start', dx, y: viewportHeight.current > 0 ? (g.y - origin.current.y) / viewportHeight.current : undefined }) === true
+          }
+          if (g.turning) drag({ type: 'move', dx })
+        }
       }
       if (tap.current && Math.hypot(event.nativeEvent.pageX - tap.current.x, event.nativeEvent.pageY - tap.current.y) > 10)
         tap.current = null
@@ -213,6 +225,13 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
       panFrom.current = null
       const g = readerGesture.current
       const e = event?.nativeEvent
+      if (g?.turning) {
+        latest.current.onReadingDrag?.({ type: 'end', dx: (e?.pageX ?? g.lastX) - g.x, duration: Date.now() - g.at })
+        readerGesture.current = null
+        commit()
+        tap.current = null
+        return
+      }
       const maxDistance = g ? Math.max(g.maxDistance, Math.hypot((e?.pageX ?? g.lastX) - g.x, (e?.pageY ?? g.lastY) - g.y)) : 0
       const action = latest.current.reading && g ? readingGestureAction({
         dx: (e?.pageX ?? g.lastX) - g.x, dy: (e?.pageY ?? g.lastY) - g.y,
@@ -229,6 +248,7 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
       cancelHold()
       pinch.current = null
       panFrom.current = null
+      if (readerGesture.current?.turning) latest.current.onReadingDrag?.({ type: 'cancel' })
       readerGesture.current = null
       commit(true)
       tap.current = null
@@ -280,6 +300,7 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
       onLayout={(event) => {
         measure()
         viewportWidth.current = event.nativeEvent.layout.width
+        viewportHeight.current = event.nativeEvent.layout.height
         onLayout?.(event)
       }}
       {...responder}

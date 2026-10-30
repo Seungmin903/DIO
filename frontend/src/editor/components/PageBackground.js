@@ -95,7 +95,7 @@ function PageBackground(props) {
 export default memo(PageBackground)
 
 const styles = StyleSheet.create({
-  notice: { color: '#557496', fontSize: 12, padding: 8 },
+  notice: { color: '#606BB2', fontSize: 12, padding: 8 },
   error: { alignSelf: 'center', margin: 12, backgroundColor: '#FFF2F0', borderRadius: 8, padding: 6, alignItems: 'center' },
   retry: { padding: 8, backgroundColor: '#FFFFFF', borderRadius: 6 },
 })

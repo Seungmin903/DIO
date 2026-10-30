@@ -1,7 +1,7 @@
 import { colors } from '../shared/theme.js';
 
 // 표지 색이 없는 기존 문서·API 응답의 호환 기본값. UI 배경색과 독립적으로 유지한다.
-export const FALLBACK_COVER_COLOR = '#CED9EE';
+export const FALLBACK_COVER_COLOR = '#D4D7ED';
 
 // 화면 틀 색은 편집 화면과 같은 디자인 토큰(shared/theme)을 쓴다. 표지·꾸밈 색은 아래에 따로 둔다.
 export const C = {
@@ -16,7 +16,7 @@ export const C = {
   active: colors.primarySoft, // 중립 배경과 구분되는 파란 선택 표시
   danger: colors.danger,
   white: colors.surface,
-  navy: '#152965',
+  navy: '#182473',
   green: '#71B99D',
   coral: '#E9938B',
   violet: '#A894D0',
@@ -31,7 +31,7 @@ export const COLORS = [
   { label: '라떼', value: '#D6C2A6' },
   { label: '더스티 로즈', value: '#E2B9B6' },
   { label: '세이지', value: '#AABDA4' },
-  { label: '스카이', value: '#B4C9E2' },
+  { label: '스카이', value: '#BDC2E1' },
   { label: '차콜', value: '#474D57' },
 ];
 
@@ -60,7 +60,7 @@ export const FIRST_PAGES = [
 
 export const DIARY_DEFAULTS = {
   title: '새 다이어리',
-  color: '#B4C9E2',
+  color: '#BDC2E1',
   pattern: 'linen',
   pageSize: 'landscape',
   firstPage: 'blank',
@@ -69,12 +69,13 @@ export const DIARY_DEFAULTS = {
 
 // 홈 화면 보관함 탭. 고른 탭 이름이 화면 제목이 된다.
 export const FILTERS = [
-  { id: 'personal', label: '모든 다이어리', empty: '다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
+  { id: 'all', label: '모든 다이어리', empty: '다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
   { id: 'favorite', label: '즐겨찾기', empty: '즐겨찾기한 다이어리가 없어요', emptyCopy: '다이어리 카드의 별을 눌러 즐겨찾기에 추가해 보세요.' },
+  { id: 'personal', label: '내 다이어리', empty: '내 다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
   { id: 'shared', label: '공유 다이어리', empty: '공유 중인 다이어리가 없어요', emptyCopy: '다이어리를 공유하거나 받은 초대를 수락해 보세요.' },
 ];
 
-export const DEFAULT_FILTER = 'personal';
+export const DEFAULT_FILTER = 'all';
 
 // 스와이프 칸은 정사각형(표지 칸 높이 318과 같은 폭)이라 세로 · 가로 다이어리가 같은 크기로 보인다.
 export const CAROUSEL_ITEM_WIDTH = 318;

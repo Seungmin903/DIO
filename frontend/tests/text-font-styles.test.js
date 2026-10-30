@@ -92,3 +92,10 @@ test('저장된 글꼴 ID/서식·부분 스타일은 유지하고 출력은 동
   assert.deepEqual(request, ['normal 400 28px NanumGothicBold', '한글 Bold'])
   assert.equal(text.textStyle(snapshot.objects[0], 1, 'ios').fontFamily, 'NanumGothicBold')
 })
+
+test('배율이 0이어도 글자 크기는 1 이상이고 줄간격·자간이 같은 크기를 따른다', () => {
+  const style = text.textStyle({ font: 'sans', fontSize: 20, lineSpacing: 1.5, letterSpacing: 0.1 }, 0, 'android')
+  assert.equal(style.fontSize, 1)
+  assert.equal(style.lineHeight, 1.5)
+  assert.equal(style.letterSpacing, 0.1)
+})

@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   preview: { backgroundColor: '#FAFAF7', borderRadius: 12 },
   types: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: 11, backgroundColor: colors.surfaceMuted },
   type: { flex: 1, borderRadius: 8, paddingVertical: 6 },
-  typeSelected: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.14)' },
+  typeSelected: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.14)' },
   typeText: { textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '600' },
   typeTextSelected: { color: colors.text, fontWeight: '800' },
   palette: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

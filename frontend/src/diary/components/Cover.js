@@ -10,9 +10,13 @@ import { C } from '../constants';
 import { coverShadowAt } from '../utils/deskShadow';
 import { LAMP_PATCH, deskLightAt } from '../utils/deskLight';
 import { coverLightAt } from '../utils/coverLight';
-import { useDeskHour } from '../utils/deskTimeStore';
+import { useDeskHour, useDeskMode } from '../utils/deskTimeStore';
 import { carouselFollowNodes, carouselRestAt, followOffset } from '../utils/carouselFollow';
+import { useRailMoving } from '../utils/railMotion';
 import { maskFrame, useDeskGeometry, useDeskLayoutTick } from '../utils/deskMask';
+
+// fill 표지는 이 크기(긴 변)로 한 번만 그리고, 칸 폭에 맞춰 크기 변환(scale)으로 늘리고 줄인다 (패턴 · 글자를 다시 그리지 않는다)
+const ART_LONG_SIDE = 219
 
 // 표지는 세로 3:4, 가로 4:3
 const COVER_RATIO = { portrait: 3 / 4, landscape: 4 / 3 };
@@ -26,16 +30,25 @@ function firstPageId(diary) {
  * 칸 크기는 화면마다 정해져 있고, 그 안에 다이어리 방향대로 그린다 (선반 배치):
  * 세로 · 가로 모두 긴 변을 칸의 짧은 변에 맞춰 같은 크기로 보이고, 칸 아래에 맞춘다. 표지가 없으면 첫 속지를 그 방향대로 보인다.
  * sunShadow: 책상 위 표지의 그림자를 햇빛(달빛) 방향 · 길이에 맞춘다(아침엔 오른쪽, 정오엔 아래, 저녁엔 왼쪽으로 지고 해가 낮을수록 길다).
+ * fill: 칸을 고정 높이(219) 대신 부모 폭에 맞춘다(최대 219). 좁은 카드 밖으로 칸이 넘치지 않는다. centered: 표지를 칸 위아래 가운데에 둔다.
  * children(펜 · 별 버튼 등)은 칸이 아니라 실제 표지 위에 얹는다.
  */
-function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel = false, grid = false, compact = false, sunShadow = false, lightMotion = null, children }) {
-  const frame = StyleSheet.flatten([s.cover, small && s.coverSmall, carousel && s.coverCarousel, compact && carousel && s.coverCarouselCompact, grid && s.coverGrid, compact && grid && s.coverGridCompact, preview && s.bookPreview]);
+function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel = false, grid = false, compact = false, large = false, fill = false, centered = false, sunShadow = false, lightMotion = null, children }) {
+  const frame = StyleSheet.flatten([s.cover, small && s.coverSmall, carousel && s.coverCarousel, compact && carousel && s.coverCarouselCompact, large && carousel && s.coverCarouselLarge, grid && s.coverGrid, compact && grid && s.coverGridCompact, preview && s.bookPreview, fill && styles.fill]);
   // 칸 크기: 고정 칸은 스타일 값으로 첫 프레임부터 맞게 그리고, 반응형 칸(격자 · 목록)은 실제 크기를 재서 다시 맞춘다.
   const styleWidth = thumbnailWidth ?? (preview ? s.bookPreview.width : small ? s.coverSmall.width
-    : carousel ? (compact ? s.cardCarouselCompact.width : s.cardCarousel.width) : s.bookPreview.width);
+    : carousel ? (large ? s.cardCarouselLarge.width : compact ? s.cardCarouselCompact.width : s.cardCarousel.width) : s.bookPreview.width);
   const styleHeight = thumbnailWidth ? thumbnailWidth * 246 / 185 : typeof frame.height === 'number' ? frame.height : frame.aspectRatio ? styleWidth / frame.aspectRatio : styleWidth * 246 / 185;
   const [measured, setMeasured] = useState(null);
+  // 사이드 메뉴가 움직이는 동안은 칸 폭이 프레임마다 바뀌므로 다시 재지 않고, 멈춘 뒤 마지막 크기로 한 번만 맞춘다.
+  const railMoving = useRailMoving();
+  const pendingSize = useRef(null);
   const cellWidth = measured?.width || styleWidth, cellHeight = measured?.height || styleHeight;
+  useEffect(() => {
+    if (railMoving || !pendingSize.current) return;
+    const next = pendingSize.current; pendingSize.current = null;
+    setMeasured(current => (current && Math.round(current.width) === Math.round(next.width) && Math.round(current.height) === Math.round(next.height) ? current : next));
+  }, [railMoving]);
   const cover = useMemo(() => normalizeCover(diary), [diary]);
   const orientation = normalizeOrientation(diary.templateConfig?.orientation ?? diary.pageSize);
   const pageId = useMemo(() => (cover.enabled ? null : firstPageId(diary)), [cover.enabled, diary]);
@@ -44,10 +57,15 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
   const longSide = Math.min(cellWidth, cellHeight);
   const boxWidth = ratio < 1 ? longSide * ratio : longSide;
   const boxHeight = ratio < 1 ? longSide : longSide / ratio;
-  const hour = useDeskHour(sunShadow)
-  const shadow = sunShadow && hour != null && (frame.boxShadow || frame.shadowOpacity) ? { boxShadow: coverShadowAt(hour, Boolean(frame.boxShadow), deskLightAt(hour).lamp) } : frame.boxShadow ? { boxShadow: frame.boxShadow } : frame.shadowOpacity ? { shadowColor: frame.shadowColor, shadowOpacity: frame.shadowOpacity, shadowRadius: frame.shadowRadius, shadowOffset: frame.shadowOffset, elevation: frame.elevation } : null;
+  const artWidth = ratio < 1 ? ART_LONG_SIDE * ratio : ART_LONG_SIDE, artHeight = ratio < 1 ? ART_LONG_SIDE : ART_LONG_SIDE / ratio
+  // 조명 없음 모드에서는 표지에 빛 · 그늘을 얹지 않는다(hour 가 없으면 조명 · 시간대 그림자 모두 꺼진다)
+  const lightOff = useDeskMode() === 'off'
+  const hour = useDeskHour(sunShadow && !lightOff)
+  // shadow · light 는 같은 값이면 같은 객체를 넘긴다. 매번 새 객체를 만들면 memo 인 CoverArt 가 값이 같아도 다시 그려져 패턴(SVG)까지 새로 그려진다.
+  const { boxShadow, shadowOpacity, shadowColor, shadowRadius, elevation } = frame, shadowOffset = frame.shadowOffset
+  const shadow = useMemo(() => sunShadow && hour != null && (frame.boxShadow || frame.shadowOpacity) ? { boxShadow: coverShadowAt(hour, Boolean(frame.boxShadow), deskLightAt(hour).lamp) } : frame.boxShadow ? { boxShadow: frame.boxShadow } : frame.shadowOpacity ? { shadowColor: frame.shadowColor, shadowOpacity: frame.shadowOpacity, shadowRadius: frame.shadowRadius, shadowOffset: frame.shadowOffset, elevation: frame.elevation } : null, [sunShadow, hour, boxShadow, shadowOpacity, shadowColor, shadowRadius, elevation, shadowOffset?.width, shadowOffset?.height]);
   // 책상 위 표지(sunShadow)는 책상 빛을 받는다.
-  const light = sunShadow && hour != null ? coverLightAt(hour) : null;
+  const light = useMemo(() => sunShadow && hour != null ? coverLightAt(hour) : null, [sunShadow, hour]);
   const sx = Math.min(boxWidth, boxHeight) / s.bookPreview.width;
   // 표지 위에도 책상과 같은 창빛 마스크를 같은 자리에 비춘다(십자 창살 자리는 빛이 들지 않는다).
   // 카드가 쉬는 동안 표지 왼쪽 위 좌표를 한 번 재서 스크롤과 무관한 기준(anchor)을 만들고, 카드를 넘기는 동안에는 스크롤 값으로 마스크 자리를 매 프레임 따라간다.
@@ -65,7 +83,8 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
   }), []);
   useEffect(() => { if (light && desk && lightMotion) measure(); }, [light != null, desk, layoutTick, measure, boxWidth, boxHeight, lightMotion != null]);
   // 가로 표지는 칸 아래에 붙어 카드 맨 위에서 q 만큼 내려와 있다
-  const q = Math.max(0, cellHeight - boxHeight);
+  // centered 표지는 칸 가운데에 놓여 위쪽 여백이 남는 높이의 절반이다
+  const q = Math.max(0, cellHeight - boxHeight) / (centered ? 2 : 1);
   const windowMask = useMemo(() => {
     if (!light || !desk || !origin || !lightMotion) return null;
     const rest = carouselRestAt(lightMotion.index, origin.rest, lightMotion.step);
@@ -78,15 +97,39 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
     };
     return { lit, inverse: nodes.inverse, sun: place(lit.patch), lamp: place({ x: LAMP_PATCH.patch[0], y: LAMP_PATCH.patch[1], scaleX: LAMP_PATCH.patch[2], scaleY: LAMP_PATCH.patch[3], skewX: LAMP_PATCH.patch[4], rotate: LAMP_PATCH.patch[5] }) };
   }, [light != null, desk, origin, hour, lightMotion?.scrollX, lightMotion?.index, lightMotion?.step, boxWidth, q]);
+  // 창빛 마스크를 쓰는 표지(스와이프)는 마스크 자리를 재기 전에는 표지 전체에 임시 조명을 입혀 그리고, 잰 뒤에 마스크 방식으로 바꿔 그려서
+  // 색이 한 번 튄다. 마스크가 준비될 때까지 표지를 숨겼다가 한 번에 보인다. 자리를 못 재는 경우를 위해 일정 시간 뒤에는 그냥 보인다.
+  const awaitingMask = Boolean(light && desk && lightMotion && !windowMask);
+  const [maskGaveUp, setMaskGaveUp] = useState(false);
+  useEffect(() => {
+    if (!awaitingMask) { setMaskGaveUp(false); return undefined; }
+    const timer = setTimeout(() => setMaskGaveUp(true), 600);
+    return () => clearTimeout(timer);
+  }, [awaitingMask]);
+  const hideUntilMask = awaitingMask && !maskGaveUp;
+  // 칸이 정사각형인 격자 표지(fill + grid)는 표지 칸을 퍼센트 + 가로세로 비율로 레이아웃에 맡기고, 그림 배율만 칸이 바뀔 때마다 ref 로 직접 바꾼다.
+  // 사이드 메뉴가 움직이는 동안에도 상태 · 다시 그리기 없이 칸과 함께 매 프레임 같이 커지고 작아진다.
+  const liveFill = cover.enabled && fill && grid;
+  const art = useRef(null);
+  const onBoxLayout = useCallback(event => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0) art.current?.setNativeProps?.({ style: { transform: [{ scale: width / artWidth }] } });
+  }, [artWidth]);
   return (
     <View
       onLayout={event => {
         const { width, height } = event.nativeEvent.layout;
+        if (measured && railMoving) { pendingSize.current = { width, height }; return; }
+        pendingSize.current = null;
         if (Math.round(width) !== Math.round(measured?.width ?? -1) || Math.round(height) !== Math.round(measured?.height ?? -1)) setMeasured({ width, height });
       }}
-      style={[frame, styles.cell, thumbnailWidth && { width: thumbnailWidth, height: styleHeight, minHeight: 0 }]}>
-      <View ref={box} collapsable={false} style={{ width: boxWidth, height: boxHeight }}>
-        {cover.enabled ? <CoverArt cover={cover} name={diary.title} width={boxWidth} height={boxHeight} shadow={shadow} light={light} windowMask={windowMask} />
+      // fill: 폭을 재기 전의 첫 그림은 짐작한 크기라 달라 보이므로, 잰 뒤에 한 번에 보인다.
+      style={[frame, styles.cell, centered && styles.fillCenter, fill && !measured && styles.unmeasured, thumbnailWidth && { width: thumbnailWidth, height: styleHeight, minHeight: 0 }]}>
+      <View ref={box} collapsable={false} onLayout={liveFill ? onBoxLayout : undefined} style={[liveFill ? { width: ratio < 1 ? `${ratio * 100}%` : '100%', aspectRatio: ratio } : { width: boxWidth, height: boxHeight }, hideUntilMask && styles.unmeasured]}>
+        {cover.enabled && fill ? <View ref={art} pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: artWidth, height: artHeight, transform: [{ scale: boxWidth / artWidth }], transformOrigin: 'top left' }}>
+          <CoverArt cover={cover} name={diary.title} width={artWidth} height={artHeight} shadow={shadow} light={light} windowMask={windowMask} />
+        </View>
+          : cover.enabled ? <CoverArt cover={cover} name={diary.title} width={boxWidth} height={boxHeight} shadow={shadow} light={light} windowMask={windowMask} />
           : <View style={[styles.page, { borderRadius: 4 * sx }, shadow]}>
             {pageId ? <TemplatePreview assetId={pageId} width={boxWidth} appearance={diary.paperAppearance} style={styles.pagePreview} /> : null}
             <Text style={[styles.noCover, { fontSize: Math.max(9, 9 * sx), margin: 8 * sx }]}>표지 없음</Text>
@@ -101,6 +144,10 @@ export default memo(Cover);
 
 const styles = StyleSheet.create({
   // 칸은 자리만 잡는다. 바탕 · 그림자는 표지(또는 첫 속지)가 그린다.
+  // fill: 고정 높이 대신 부모 폭에 맞춘 정사각형 칸 (카드가 219보다 좁아도 표지가 옆 카드를 덮지 않게)
+  fill: { width: '100%', maxWidth: 219, height: 'auto' },
+  unmeasured: { opacity: 0 },
+  fillCenter: { justifyContent: 'center' },
   cell: { padding: 0, overflow: 'visible', justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'transparent', borderRadius: 0, shadowOpacity: 0, elevation: 0, boxShadow: 'none' },
   page: { ...StyleSheet.absoluteFill, backgroundColor: C.white, justifyContent: 'flex-end' },
   pagePreview: { position: 'absolute', top: 0, left: 0, borderWidth: 0 },

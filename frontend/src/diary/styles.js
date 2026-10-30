@@ -2,6 +2,9 @@ import { StyleSheet } from 'react-native';
 import { C } from './constants';
 import { DISABLED_OPACITY, colors } from '../shared/theme';
 
+// 영구 삭제 버튼 테두리 (디자인 가이드 2.2). 휴지통 카드 · 동작 시트가 함께 쓴다.
+const DANGER_BORDER = '#F0D5D4';
+
 export const styles = StyleSheet.create({
   provider: { flex: 1, backgroundColor: C.white },
   safe: { flex: 1, backgroundColor: C.canvas },
@@ -25,24 +28,35 @@ export const styles = StyleSheet.create({
   tabLabelSelected: { color: C.ink, fontWeight: '800' },
 
   rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.white, borderRightWidth: 1, borderRightColor: C.line },
-  brandRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
-  brand: { flex: 1, minWidth: 0, minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandSlot: { flex: 1, minWidth: 0, overflow: 'hidden' },
-  railToggle: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
-  railTogglePressed: { backgroundColor: '#F4F7FC' },
+  railSlot: { width: 78 },
+  // 메뉴 오른쪽(접힌 폭 이후)부터 화면 끝까지 덮는 반투명 막. 불투명도는 메뉴 펼침 정도(0~1)를 따른다.
+  railScrim: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 19, elevation: 19 }, // elevation 은 배경 있는 뷰에 주면 안드로이드가 가장자리에 그림자 띠를 그려, 배경 없는 래퍼에만 둔다
+  railScrimTint: { flex: 1, backgroundColor: 'rgba(0,0,0,0.32)' },
+  railScrimPress: { flex: 1 },
+  railOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, zIndex: 20, elevation: 20 }, // 배경 없는 래퍼(그림자 띠 방지). 흰 배경은 안쪽 rail
+  railInner: { flex: 1, width: '100%' },
+  // 로고 · 종 · 삼선을 같은 높이(48) 안에서 세로 가운데 맞춤 (로고 칸이 더 높아 로고만 아래로 처지던 것을 맞춤)
+  brandRow: { height: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
+  brand: { flex: 1, minWidth: 0, height: 48, paddingBottom: 6, flexDirection: 'row', alignItems: 'center', gap: 10 }, // 위쪽 점 때문에 D 본체가 아래로 쏠려 보여 로고를 3 올림
+  brandSlot: { flex: 1, minWidth: 0, height: 48, justifyContent: 'center', overflow: 'hidden' },
+  railToggle: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
+  railTogglePressed: { backgroundColor: '#F5F6FC' },
+  railDot: { position: 'absolute', width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: C.white, backgroundColor: C.danger }, // 흰 테두리가 뒤의 아이콘(삼선 · 종)을 살짝 지우듯 가린다
+  railMenuDot: { top: 7, right: 7 },
   railToggleText: { color: C.ink, fontSize: 19, lineHeight: 22, fontWeight: '700' },
   // 새 다이어리: 편집 화면의 주 버튼(내보내기)과 같은 색
   libraryRoot: { flex: 1 },
   // 보관함 오른쪽 아래에 떠 있는 새 다이어리 버튼 (예전 사이드 메뉴 + 버튼과 같은 색 · 모서리)
-  createFab: { position: 'absolute', right: 32, bottom: 32, width: 60, height: 60, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: C.blueStrong, shadowColor: C.ink, shadowOpacity: 0.16, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
-  createFabCompact: { right: 20, bottom: 20, width: 56, height: 56, borderRadius: 16 },
-  railCreate: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 14, backgroundColor: C.blueStrong },
+  createFab: { position: 'absolute', right: 32, bottom: 32, width: 60, height: 60, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: C.blueStrong, shadowColor: C.ink, shadowOpacity: 0.16, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+  createFabCompact: { right: 20, bottom: 20, width: 56, height: 56, borderRadius: 18 },
+  railCreate: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 16, backgroundColor: C.blueStrong },
   railPlus: { color: C.white, fontSize: 23, lineHeight: 25, fontWeight: '300' },
   railCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   railGroup: { marginTop: 25 },
   railSectionSlot: { overflow: 'hidden' },
   railSection: { color: C.muted, fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 9, paddingHorizontal: 12 },
-  railItem: { minHeight: 48, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: 12 },
+  // 접힌 사이드바의 항목 폭은 47(78 - 좌우 15 - 오른쪽 테두리 1)이라 아이콘(20)이 가운데에 오려면 왼쪽 여백이 13.5여야 한다 (12면 1.5px 왼쪽으로 쏠린다)
+  railItem: { minHeight: 48, paddingHorizontal: 13.5, flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: 16 },
   railItemSelected: { backgroundColor: C.active },
   railIconSlot: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   railIcon: { width: 19, textAlign: 'center', color: C.muted, fontSize: 17, fontWeight: '700' },
@@ -56,16 +70,20 @@ export const styles = StyleSheet.create({
   libraryScreen: { flexGrow: 1, paddingHorizontal: 30, paddingTop: 38, paddingBottom: 34 },
   // 폰의 모든 탭은 위 여백·제목 줄 높이를 같게 둬서 탭을 바꿔도 제목이 움직이지 않는다.
   libraryScreenCompact: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 20 },
+  // 한눈에 보기: 위쪽(제목 · 필터 · 도구)은 고정하고 카드 목록만 스크롤한다. 정렬 메뉴가 목록 위로 펼쳐지도록 zIndex 를 높인다.
+  libraryFixedTop: { flexGrow: 0, flexShrink: 0, paddingBottom: 0, zIndex: 3, elevation: 3 },
+  libraryGridScroll: { flexGrow: 1, paddingHorizontal: 30, paddingBottom: 34 },
+  libraryGridScrollCompact: { paddingHorizontal: 18, paddingBottom: 20 },
   libraryScreenCarouselCompact: { flexGrow: 1, paddingBottom: 8 },
   libraryHeader: { minHeight: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   // 제목이 짧으면 보기 전환과 한 줄, 길면 보기 전환이 다음 줄 오른쪽으로 내려간다.
   libraryHeaderCompact: { minHeight: 48, flexWrap: 'nowrap', columnGap: 12 },
   libraryTitleCompact: { fontSize: 30, letterSpacing: -0.6 },
-  libraryViewSwitchCompact: { minHeight: 48, marginLeft: 'auto' },
-  libraryViewOptionCompact: { width: 44, minHeight: 44, paddingHorizontal: 0 },
+  libraryViewSwitchCompact: { minHeight: 44, marginLeft: 'auto' },
+  libraryViewOptionCompact: { width: 38, minHeight: 36, paddingHorizontal: 0 },
   libraryTitle: { color: C.ink, fontSize: 29, letterSpacing: -0.6, fontWeight: '800' },
-  libraryViewSwitch: { minHeight: 47, flexDirection: 'row', alignItems: 'center', padding: 3, borderRadius: 15, borderWidth: 1, borderColor: C.line, backgroundColor: 'rgba(255,255,255,.72)' },
-  libraryViewOption: { minHeight: 39, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 11 },
+  libraryViewSwitch: { minHeight: 44, flexDirection: 'row', alignItems: 'center', padding: 3, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: 'rgba(255,255,255,.72)' },
+  libraryViewOption: { minHeight: 36, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 11 },
   libraryViewOptionSelected: { backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   libraryViewIcon: { color: C.inkSoft, fontSize: 16, lineHeight: 18, fontWeight: '800' },
   libraryViewText: { color: C.inkSoft, fontSize: 12, fontWeight: '700' },
@@ -75,7 +93,8 @@ export const styles = StyleSheet.create({
   libraryActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   librarySortMenu: { position: 'absolute', top: '100%', right: 0, width: 230, backgroundColor: C.white, borderRadius: 14, padding: 8, gap: 4, zIndex: 20, borderWidth: 1, borderColor: C.line },
   libraryOptionsDivider: { height: 1, backgroundColor: C.line, marginVertical: 8 },
-  librarySortOption: { minHeight: 44, alignSelf: 'stretch', alignItems: 'flex-start', borderWidth: 0, borderRadius: 10 },
+  // 고른 항목의 파란 테두리(1.5)와 같은 두께를 모든 항목이 갖고(안 고른 건 투명), 체크 자리를 따로 두므로 왼쪽 여백은 줄인다. 그래야 글자가 항목마다 같은 자리에 선다.
+  librarySortOption: { minHeight: 44, alignSelf: 'stretch', alignItems: 'flex-start', paddingHorizontal: 10, borderWidth: 1.5, borderColor: 'transparent', borderRadius: 10 },
   librarySearchHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10 },
   librarySearchPageInput: { height: 48, marginTop: 32, borderWidth: 1, borderColor: C.blue },
   librarySearchClearSlot: { width: 44, height: 44, flexShrink: 0 },
@@ -90,7 +109,7 @@ export const styles = StyleSheet.create({
   librarySearchResults: { marginTop: 24, gap: 16 },
   librarySearchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, borderRadius: 14, paddingHorizontal: 12 },
   librarySearchInput: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 8, color: C.ink, fontSize: 15 },
-  libraryToolbar: { minHeight: 47, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24 },
+  libraryToolbar: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24 },
   libraryToolbarCompact: { marginTop: 8 },
   // 관리 모드 막대: 선택 개수 + 휴지통 이동·취소. 좁은 폰에서는 다음 줄로 내려간다.
   selectBar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 14, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
@@ -107,22 +126,29 @@ export const styles = StyleSheet.create({
   headerTitleCompact: { fontSize: 30, letterSpacing: -0.6 },
   headerRight: { alignItems: 'flex-end' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
-  iconButtonCompact: { width: 38, height: 38, borderRadius: 10, borderWidth: 0, backgroundColor: 'transparent' },
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(255,255,255,.58)', borderWidth: 1, borderColor: C.line },
+  iconButtonCompact: { width: 44, height: 44, borderRadius: 14, borderWidth: 0, backgroundColor: 'transparent' },
   iconButtonSelected: { backgroundColor: C.blueStrong, borderColor: C.blue },
   icon: { color: C.ink, fontSize: 23, lineHeight: 26 },
   iconSelected: { color: C.white },
   pressed: { opacity: 0.76, transform: [{ scale: 0.985 }] },
-  headerCreate: { minHeight: 48, paddingHorizontal: 17, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: C.blueStrong },
-  headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
+  headerCreate: { minHeight: 48, paddingHorizontal: 17, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: C.blueStrong },
+headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
 
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 36, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 999, backgroundColor: 'rgba(255,255,255,.58)' },
+  // 태블릿은 칩 네 개가 한 줄에 다 들어가므로 줄바꿈 없이 검색 · ⋯ 와 같은 줄에 둔다.
+  filtersWide: { flexWrap: 'nowrap', flexShrink: 0 },
+  // 보관함 필터(모든 다이어리 ~ 공유 다이어리): 스와이프 · 한눈에 보기 전환과 같은 모양. 뒤에 전체를 감싸는 판이 있고 고른 항목만 흰 알약으로 떠 있다.
+  filterSwitch: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 2, padding: 3, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: 'rgba(255,255,255,.72)' },
+  filterOption: { minHeight: 36, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
+  filterOptionCompact: { paddingHorizontal: 10 },
+  filterTextCompact: { fontSize: 12.5 },
+  chip: { minHeight: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.58)' },
   // 고른 칩: 편집 옵션 창의 고른 칩처럼 흰 바탕 + 파란 테두리
   chipSelected: { backgroundColor: C.white, borderColor: C.blue, borderWidth: 1.5 },
   chipText: { color: C.inkSoft, fontSize: 12, fontWeight: '700' },
   chipTextSelected: { color: C.ink, fontWeight: '800' },
-  chipCompact: { minHeight: 44, paddingHorizontal: 18 },
+  chipCompact: { minHeight: 44, paddingHorizontal: 18, borderRadius: 14 },
   chipTextCompact: { fontSize: 13.5 },
 
   // 빈 화면은 폰·태블릿 모두 테두리 상자 없이 아이콘과 문구만 둔다.
@@ -149,7 +175,10 @@ export const styles = StyleSheet.create({
   carouselCards: { alignItems: 'flex-start', gap: 42, paddingVertical: 28 },
   // 가운데 카드가 커지고(1.06) 위로 올라가는(-12) 만큼 위아래 여백을 둬야 카드 윗부분이 잘리지 않는다.
   carouselCardsCompact: { paddingVertical: 28 },
-  carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.08, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  carouselShellPortrait: { minHeight: 0, paddingTop: 0, paddingBottom: 80, justifyContent: 'center' }, // 태블릿 세로: 남는 높이의 가운데보다 살짝 위(아래 여백 80 → 40만큼 올라감)에 카드를 둔다
+  carouselRowPortrait: { flex: 0, height: 680 },
+  carouselArrowPortrait: { marginTop: -64 }, // 칸 가운데에 놓인 표지의 가운데에 맞춘다 (웹 834x1194 에서 재서 맞춤)
+  carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   carouselArrowLeft: { left: 4 },
   carouselArrowRight: { right: 4 },
   carouselArrowText: { color: C.ink, fontSize: 32, lineHeight: 35, fontWeight: '300' },
@@ -157,7 +186,9 @@ export const styles = StyleSheet.create({
   card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18, overflow: 'hidden' },
   cardCarousel: { width: 318, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardCarouselCompact: { width: 268 },
-  cardGrid: { width: '18.25%', minWidth: 160, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
+  cardCarouselLarge: { width: 440 }, // 태블릿 세로: 옆 카드 없이 한 권만 크게
+  cardGridPortrait: { width: '31.5%' }, // 태블릿 세로: 한 줄 3권 (가로의 4권과 비슷한 크기)
+  cardGrid: { width: '23.5%', minWidth: 0, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardGridCompact: { width: '47.5%', minWidth: 0 },
   cardList: { minHeight: 120, flexDirection: 'row', alignItems: 'stretch' },
   cardInfo: { minHeight: 91, padding: 13, justifyContent: 'space-between' },
@@ -171,14 +202,18 @@ export const styles = StyleSheet.create({
   cardCoverWrap: { position: 'relative' },
   // 관리 모드: 고른 카드는 파란 테두리, 표지 위 오른쪽에 체크 원을 띄운다. 테두리 두께는 그대로 둬 카드가 밀리지 않게 한다.
   cardSelected: { borderColor: C.blue },
-  cardCheck: { position: 'absolute', top: 12, right: 12, zIndex: 3, width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 2, borderColor: C.white, backgroundColor: 'rgba(11,25,87,.28)' },
+  cardCheck: { position: 'absolute', top: 12, right: 12, zIndex: 3, width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 2, borderColor: C.white, backgroundColor: 'rgba(11,23,102,.28)' },
   cardCheckOn: { backgroundColor: C.blueStrong },
+  sortOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  sortOptionCheck: { width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }, // 화살표가 없는 항목도 자리를 비워 둬 글자가 맞는다
   cardCheckMark: { color: C.white, fontSize: 16, fontWeight: '800', lineHeight: 18 },
   cardActions: { position: 'absolute', top: 12, right: 11, zIndex: 3, flexDirection: 'row', gap: 5 },
-  cardAction: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.12)' },
+  cardFavorite: { position: 'absolute', top: 12, left: 11, zIndex: 3, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }, // 배경 없는 별: 오른쪽 버튼들과 같은 여백으로 왼쪽 위 모서리에 붙인다
+  cardAction: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 13, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.12)' },
   cardHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
   cardTitleWrap: { flex: 1, minWidth: 0 },
-  cardDelete: { width: 44, height: 44, marginTop: -8, marginRight: -8, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  onDeskDarkTitle: { color: '#FFFFFF' }, // 어두운 책상 위 글씨
+  onDeskDarkSoft: { color: 'rgba(255,255,255,0.78)' },
   cardTitle: { color: C.ink, fontSize: 14, fontWeight: '700', letterSpacing: -0.35 },
   cardPageCount: { color: C.inkSoft, fontSize: 12, lineHeight: 18, marginTop: 3 },
   cardType: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
@@ -187,6 +222,7 @@ export const styles = StyleSheet.create({
   // 책상 위 표지: 오후 빛과 같은 방향(오른쪽 아래)의 옅은 그림자
   coverCarousel: { height: 318, borderTopLeftRadius: 9, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 9, boxShadow: '6px 10px 14px rgba(28,34,51,0.16)' }, // elevation 은 안드로이드에서 표지 둘레에 옅은 테두리를 만들어 방향 있는 boxShadow 를 쓴다
   coverCarouselCompact: { height: 268, padding: 16 },
+  coverCarouselLarge: { height: 440, padding: 22 }, // 태블릿 세로 (cardCarouselLarge 폭과 같은 높이)
   // 한눈에 칸은 정사각형. 세로 · 가로 다이어리 모두 긴 변이 칸 크기와 같다 (선반 배치)
   coverGrid: { aspectRatio: 1, borderRadius: 12, shadowColor: C.ink, shadowOpacity: 0.13, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
   coverGridCompact: { padding: 15 },
@@ -194,17 +230,17 @@ export const styles = StyleSheet.create({
   coverPreview: { width: 250, height: 330, borderRadius: 14, padding: 27, shadowColor: C.ink, shadowOpacity: 0.19, shadowRadius: 19, shadowOffset: { width: 0, height: 13 }, elevation: 6 },
   coverLine: { position: 'absolute', top: 17, left: 0, width: '54%', height: 4, borderTopRightRadius: 5, borderBottomRightRadius: 5, backgroundColor: 'rgba(255,255,255,.52)' },
   coverRing: { position: 'absolute', top: -28, right: -21, width: 116, height: 116, borderRadius: 58, borderWidth: 16, borderColor: 'rgba(255,255,255,.20)' },
-  coverKicker: { color: 'rgba(11,25,87,.65)', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginBottom: 12 },
+  coverKicker: { color: 'rgba(11,23,102,.65)', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginBottom: 12 },
   coverKickerSmall: { fontSize: 7, marginBottom: 8 },
   coverTitle: { color: C.ink, fontSize: 22, lineHeight: 27, fontWeight: '900', letterSpacing: -0.85 },
   coverTitleSmall: { fontSize: 14, lineHeight: 17 },
   coverTitleGridCompact: { fontSize: 18, lineHeight: 23, letterSpacing: -0.6 },
   coverFooter: { position: 'absolute', left: 19, right: 19, bottom: 17, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  coverRule: { flex: 1, height: 1, backgroundColor: 'rgba(11,25,87,.34)' },
-  coverYear: { color: 'rgba(11,25,87,.72)', fontSize: 10, fontWeight: '900' },
+  coverRule: { flex: 1, height: 1, backgroundColor: 'rgba(11,23,102,.34)' },
+  coverYear: { color: 'rgba(11,23,102,.72)', fontSize: 10, fontWeight: '900' },
   coverYearSmall: { fontSize: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 20, rowGap: 34, paddingTop: 44 }, // 첫 줄은 제목 · 칩에서 조금 내려서 시작한다
-  gridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between', paddingTop: 64 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 34, paddingTop: 30 }, // 첫 줄은 제목 · 칩에서 조금 내려서 시작한다
+  gridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between', paddingTop: 50 },
 
   createCard: { alignItems: 'stretch' },
   createCardCarousel: { width: 238 },
@@ -222,7 +258,7 @@ export const styles = StyleSheet.create({
   formScreen: { flexGrow: 1, paddingHorizontal: 48, paddingTop: 43, paddingBottom: 38 },
   formContent: { flex: 1, flexDirection: 'row', gap: 48, alignItems: 'center', justifyContent: 'center', paddingBottom: 12 },
   previewArea: { width: 330, minHeight: 460, alignItems: 'center', justifyContent: 'center' },
-  previewGlow: { position: 'absolute', width: 315, height: 315, borderRadius: 158, backgroundColor: '#DDE9F9' },
+  previewGlow: { position: 'absolute', width: 315, height: 315, borderRadius: 158, backgroundColor: '#E5E7F4' },
   previewNote: { color: C.muted, fontSize: 11, fontWeight: '600', marginTop: 21 },
   formPanel: { width: 430, padding: 29, borderRadius: 22, backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
   formEyebrow: { color: C.blueStrong, fontSize: 10, fontWeight: '800', letterSpacing: 1.05 },
@@ -236,8 +272,8 @@ export const styles = StyleSheet.create({
   colorLabel: { marginTop: 24 },
   colors: { flexDirection: 'row', justifyContent: 'space-between', gap: 7 },
   colorChoice: { width: 66, minHeight: 67, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: 13, borderWidth: 1, borderColor: 'transparent' },
-  colorSelected: { borderColor: C.ink, backgroundColor: '#F5F8FD' },
-  colorDot: { width: 29, height: 29, borderRadius: 15, borderWidth: 2, borderColor: 'rgba(11,25,87,.10)' },
+  colorSelected: { borderColor: C.ink, backgroundColor: '#F7F8FD' },
+  colorDot: { width: 29, height: 29, borderRadius: 15, borderWidth: 2, borderColor: 'rgba(11,23,102,.10)' },
   colorName: { color: C.inkSoft, fontSize: 10, fontWeight: '700' },
   formDivider: { height: 1, marginTop: 25, backgroundColor: C.line },
   formTip: { color: C.muted, fontSize: 10.5, lineHeight: 16, marginTop: 14, marginBottom: 18 },
@@ -260,8 +296,8 @@ export const styles = StyleSheet.create({
   createPreviewMeta: { color: C.inkSoft, fontSize: 11.5, fontWeight: '700', marginTop: 26 },
   createPreviewCopy: { color: C.inkSoft, fontSize: 11.5, fontWeight: '600', marginTop: 5, textAlign: 'center' },
   bookPreview: { width: 185, height: 246, overflow: 'hidden', borderTopLeftRadius: 6, borderBottomLeftRadius: 6, borderTopRightRadius: 14, borderBottomRightRadius: 14, shadowColor: C.ink, shadowOpacity: 0.22, shadowRadius: 16, shadowOffset: { width: 0, height: 12 }, elevation: 8 },
-  bookSpine: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 9, backgroundColor: 'rgba(11,25,87,.16)' },
-  bookBand: { position: 'absolute', top: 0, bottom: 0, right: 30, width: 7, backgroundColor: 'rgba(11,25,87,.20)' },
+  bookSpine: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 9, backgroundColor: 'rgba(11,23,102,.16)' },
+  bookBand: { position: 'absolute', top: 0, bottom: 0, right: 30, width: 7, backgroundColor: 'rgba(11,23,102,.20)' },
   bookLabel: { position: 'absolute', top: 50, left: 25, right: 26, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 3, backgroundColor: 'rgba(255,253,248,.96)', shadowColor: C.ink, shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
   bookLabelTitle: { color: '#3B3F4A', fontSize: 15, fontWeight: '700' },
   bookLabelMeta: { color: '#9A9DA6', fontSize: 8.5, fontWeight: '800', letterSpacing: 1.4, marginTop: 6 },
@@ -275,14 +311,14 @@ export const styles = StyleSheet.create({
   createLabelRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 9 },
   createLabelInline: { marginBottom: 0 },
   createLabelNote: { color: C.muted, fontSize: 10.5, fontWeight: '600' },
-  createField: { height: 46, paddingHorizontal: 14, color: C.ink, fontSize: 14, fontWeight: '700', borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: '#F6F9FD' },
+  createField: { height: 46, paddingHorizontal: 14, color: C.ink, fontSize: 14, fontWeight: '700', borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: '#F7F8FD' },
   createHelperRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, marginBottom: 16 },
   // 오류 문구가 없어도 글자 수는 늘 오른쪽 끝에 둔다.
   createCount: { marginLeft: 'auto' },
   createColors: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 18 },
   createColorChoice: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, borderWidth: 2, borderColor: 'transparent' },
   createColorSelected: { borderColor: C.ink },
-  createColorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(11,25,87,.10)' },
+  createColorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(11,23,102,.10)' },
   createChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 18 },
   formChip: { minHeight: 36, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 11, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
   formChipSelected: { borderColor: C.blue, backgroundColor: C.white },
@@ -296,7 +332,7 @@ export const styles = StyleSheet.create({
   firstPage: { flex: 1, alignItems: 'center', gap: 7, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
   firstPageSelected: { borderColor: C.blue, backgroundColor: C.white },
   firstPageText: { color: C.ink, fontSize: 11, fontWeight: '700' },
-  calendar: { marginTop: 12, marginBottom: 18, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: '#F8FAFD' },
+  calendar: { marginTop: 12, marginBottom: 18, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: '#F9FAFD' },
   calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   calendarArrow: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: C.white },
   calendarArrowDisabled: { opacity: DISABLED_OPACITY },
@@ -333,7 +369,7 @@ export const styles = StyleSheet.create({
   dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: C.muted },
   detailPrimary: { width: 235, marginTop: 27 },
   detailBottom: { flexDirection: 'row', alignItems: 'stretch', gap: 22, marginTop: 24 },
-  detailMessage: { flex: 1, padding: 25, borderRadius: 20, backgroundColor: '#E3EDFA' },
+  detailMessage: { flex: 1, padding: 25, borderRadius: 20, backgroundColor: '#E9EBF6' },
   detailMessageKicker: { color: C.blueStrong, fontSize: 10, fontWeight: '800', letterSpacing: 1.05 },
   detailMessageTitle: { color: C.ink, fontSize: 17, fontWeight: '800', marginTop: 8, letterSpacing: -0.4 },
   detailMessageCopy: { color: C.inkSoft, fontSize: 12, lineHeight: 18, marginTop: 7 },
@@ -346,7 +382,7 @@ export const styles = StyleSheet.create({
   profileBadge: { width: 60, height: 60, alignItems: 'center', justifyContent: 'center', borderRadius: 21, backgroundColor: C.blueStrong },
   profileBadgeText: { color: C.white, fontSize: 26, fontWeight: '800' },
   profileTitle: { color: C.white, fontSize: 21, fontWeight: '800', letterSpacing: -0.6 },
-  profileCopy: { color: '#C2D0EA', fontSize: 12, marginTop: 6 },
+  profileCopy: { color: '#C8CDE9', fontSize: 12, marginTop: 6 },
   stats: { flexDirection: 'row', alignItems: 'stretch', padding: 25, marginTop: 20, borderRadius: 20, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
   stat: { flex: 1, alignItems: 'center' },
   statNumber: { color: C.ink, fontSize: 25, fontWeight: '800' },
@@ -357,20 +393,38 @@ export const styles = StyleSheet.create({
   tipTitle: { color: C.ink, fontSize: 16, fontWeight: '800', marginTop: 8 },
   tipTitleCompact: { fontSize: 15, marginTop: 0 },
   tipCopy: { color: C.inkSoft, fontSize: 12, marginTop: 8 },
-  trashGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 22 },
-  trashGridCompact: { columnGap: 12, rowGap: 16, justifyContent: 'space-between' },
+  trashGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 14 },
+  trashGridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between' },
   trashPolicy: { color: C.muted, fontSize: 13, lineHeight: 21, marginBottom: 16 },
   trashNotice: { padding: 16, borderRadius: 12, backgroundColor: C.pale, marginBottom: 16 },
-  trashCard: { width: 210, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
-  trashCardCompact: { width: '48%', padding: 10, borderRadius: 16 },
-  trashCover: { height: 180, overflow: 'hidden', borderRadius: 12, opacity: 0.72 },
-  trashCoverCompact: { height: 142, borderRadius: 10 },
+  trashCard: { width: '23.5%' }, // 틀 없이 홈 한눈에 보기(cardGrid)와 같은 폭 · 같은 한 줄 개수로 표지를 바로 얹는다
+  trashCardCompact: { width: '47.5%' },
+  trashCardPortrait: { width: '31.5%' }, // 태블릿 세로: 홈 한눈에 보기(cardGridPortrait)와 같은 한 줄 3권
+  trashCover: { position: 'relative', alignItems: 'center' }, // 칸(최대 219)이 카드보다 좁을 때 왼쪽으로 쏠리지 않게 가운데 // 홈 격자 카드의 표지 칸(cardCoverWrap)과 같게: 자르거나 흐리게 하지 않는다
+  trashCoverCompact: {},
   trashTitle: { color: C.ink, fontSize: 14, fontWeight: '700', marginTop: 12 },
   trashDate: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
+  // 선택 ↔ 완료로 바뀌어도 칩 폭이 같고 글자가 좌우 가운데에 오게 한다 (선택 상태의 테두리 1.5 가 폭을 바꾸지 않도록 항상 1.5)
+  trashSelectChip: { minWidth: 72, paddingHorizontal: 0, borderWidth: 1.5 },
+  trashSelectChipText: { width: '100%', textAlign: 'center' },
+  trashDateUrgent: { color: C.danger },
+  // 카드를 누르면 뜨는 동작 시트 (ConfirmDialog 와 같은 틀: 폭 320, 안쪽 20, 모서리 24, scrim 바탕)
+  trashSheetBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.scrim },
+  trashSheet: { width: 320, maxWidth: '100%', padding: 20, borderRadius: 24, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.22, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
+  trashSheetTitle: { color: C.ink, fontSize: 16, fontWeight: '700' },
+  trashSheetStatus: { color: C.muted, fontSize: 13, fontWeight: '600', marginTop: 6 },
+  trashSheetActions: { gap: 8, marginTop: 18 },
+  trashSheetPrimary: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, backgroundColor: C.blueStrong },
+  trashSheetPrimaryText: { color: C.white, fontSize: 14, fontWeight: '700' },
+  trashSheetDanger: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: DANGER_BORDER },
+  trashSheetDangerText: { color: C.danger, fontSize: 14, fontWeight: '700' },
+  trashSheetClose: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 4, borderRadius: 12 },
+  trashSheetCloseText: { color: C.muted, fontSize: 14, fontWeight: '700' },
   trashActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: C.pale },
+  trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: C.line },
   trashRestoreText: { color: C.ink, fontSize: 12, fontWeight: '700' },
-  trashDelete: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: '#F0D5D4' },
+  trashDelete: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: DANGER_BORDER },
+  trashDeleteText: { color: C.danger, fontSize: 12, fontWeight: '700' },
   // 이전 폰 휴지통 스와이프 목록 스타일. 저장된 화면과의 호환을 위해 당분간 유지한다.
   trashHint: { color: C.muted, fontSize: 13, lineHeight: 21, marginTop: -8, marginBottom: 14 },
   trashList: { gap: 11 },

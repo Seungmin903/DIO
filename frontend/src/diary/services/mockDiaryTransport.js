@@ -1,8 +1,8 @@
 import { DiaryApiError } from './diaryApi.js';
 const copy = value => JSON.parse(JSON.stringify(value));
 const seeds = [
-  { diaryId: 'mock-travel', diaryTitle: '여행 기록', coverColor: '#CED9EE', coverPattern: 'LINEN', visibility: 'PRIVATE', pageCount: 9, canEdit: true },
-  { diaryId: 'mock-shared', diaryTitle: '함께 쓰는 일기', coverColor: '#9FB6D9', coverPattern: 'DOT', visibility: 'MEMBERS', pageCount: 5, canEdit: false },
+  { diaryId: 'mock-travel', diaryTitle: '여행 기록', coverColor: '#D4D7ED', coverPattern: 'LINEN', visibility: 'PRIVATE', pageCount: 9, canEdit: true },
+  { diaryId: 'mock-shared', diaryTitle: '함께 쓰는 일기', coverColor: '#ABB1D8', coverPattern: 'DOT', visibility: 'MEMBERS', pageCount: 5, canEdit: false },
 ].map(row => ({ ...row, myMembership: { isFavorite: false }, createdAt: '2026-10-24T01:00:00Z', updatedAt: '2026-10-24T02:00:00Z', version: '1', deletedAt: null }));
 export function createMockDiaryTransport({ delay = 600, scenario = 'success', schedule = setTimeout, unschedule = clearTimeout, now = Date.now, initialRows = seeds } = {}) {
   let mode = scenario, failures = 0, writeMode = 'success', writeFailures = 0, nextId = 0;

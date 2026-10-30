@@ -95,17 +95,26 @@ function NightLamp({ light, size, compact, lightWidth }) {
  * 원목 상판(고정) + 시각에 따라 자리 · 세기 · 색이 바뀌는 십자 창빛 + 밤 어둠.
  * 시각: 지금 시각(deskTimeStore).
  */
-function DeskBackdrop({ compact = false, size }) {
+function DeskBackdrop({ compact = false, size, anchorRight = false }) {
   const light = deskLightAt(useDeskHour())
   const root = useRef(null)
-  const measure = () => root.current?.measureInWindow?.((x, y, width, height) => setDeskGeometry({ x, y, width, height, compact }))
+  // 크기가 그대로면 다시 재지 않는다. 사이드 메뉴를 여닫는 동안 부모 안에서의 자리만 프레임마다 바뀌어 onLayout 이 계속 오는데,
+  // 그때마다 measureInWindow(비동기 브리지 호출)를 부르면 끊긴다. 화면 안 자리는 그대로다.
+  const laidOut = useRef(null)
+  const measure = event => {
+    const { width, height } = event?.nativeEvent?.layout ?? {}
+    if (laidOut.current && laidOut.current.width === width && laidOut.current.height === height && laidOut.current.compact === compact) return
+    laidOut.current = { width, height, compact }
+    root.current?.measureInWindow?.((x, y, w, h) => setDeskGeometry({ x, y, width: w, height: h, compact }))
+  }
   useEffect(() => () => setDeskGeometry(null), [])
   if (!size?.width || !size?.height) return null
   const lightWidth = size.width * (compact ? WINDOW_WIDTH.phone : WINDOW_WIDTH.tablet)
   const fx = deskFxAt(light.hour)
   return <View ref={root} onLayout={measure} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-    style={[styles.root, { width: size.width, height: size.height }]}>
-    <Image source={WOOD} resizeMode="cover" style={styles.fill} />
+    style={[styles.root, anchorRight && styles.rootRight, { width: size.width, height: size.height }]}>
+    {/* 이미지 칸은 top · bottom 대신 크기로 직접 준다: 웹에서 그림 원본 높이에서 멈춰 세로로 긴 화면 아래가 단색으로 비었다 */}
+    <Image source={WOOD} resizeMode="cover" style={[styles.fill, { right: undefined, bottom: undefined, width: size.width, height: size.height }]} />
     <View style={[styles.fill, { backgroundColor: light.ambient.color, opacity: light.ambient.opacity, mixBlendMode: 'multiply' }]} />
     <View style={[styles.fill, { backgroundColor: light.wash.color, opacity: light.wash.opacity }]} />
     {/* 밤 어둠은 빛 아래에 깐다: 위에 덮으면 가로등 · 달빛까지 같이 어두워져 묻힌다 */}
@@ -130,5 +139,7 @@ export default memo(SafeDeskBackdrop)
 const styles = StyleSheet.create({
   // 크기는 부모가 잰 값(size)으로 고정한다. top · bottom 으로 늘리면 안드로이드가 안의 요소 크기에 끌려가 화면보다 커졌다.
   root: { position: 'absolute', left: 0, top: 0, overflow: 'hidden', isolation: 'isolate', backgroundColor: DESK_COLORS.base },
+  // 오른쪽 끝에 붙인다: 작업 영역이 왼쪽(사이드바 쪽)에서 줄고 늘어도 상판은 제자리에 있고, 왼쪽만 가려진다.
+  rootRight: { left: undefined, right: 0 },
   fill: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 },
 })

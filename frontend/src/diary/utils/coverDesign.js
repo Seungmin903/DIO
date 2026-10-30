@@ -8,18 +8,20 @@ export const COVER_COLORS = COLORS.map(({ label, value }) => [label, value])
 export const COVER_PATTERNS = [['none', '없음'], ['linen', '린넨'], ['leather', '레더'], ['dot', '도트'], ['gingham', '깅엄'], ['stripe', '스트라이프'], ['check', '체크']]
 // 편집기 텍스트 도구와 같은 글씨체 (editor/utils/text.js TEXT_FONTS 의 id)
 export const COVER_FONTS = [['sans', '기본 고딕'], ['serif', '기본 명조'], ['nanum-gothic', '나눔고딕'], ['nanum-myeongjo', '나눔명조'], ['nanum-pen', '나눔손글씨 펜'], ['poor-story', '푸어스토리']]
-export const INK_COLORS = [['흰색', '#FFFFFF'], ['먹색', '#3B3F4A'], ['네이비', '#0B1957'], ['파랑', '#4F74AE'], ['빨강', '#C8423F'], ['초록', '#2F6B4F']]
+export const INK_COLORS = [['흰색', '#FFFFFF'], ['먹색', '#3B3F4A'], ['네이비', '#0B1766'], ['파랑', '#606BB2'], ['빨강', '#C8423F'], ['초록', '#2F6B4F']]
 // 색 견본은 한 줄 6색 + 직접 고르기로 맞춘다
 export const SUBTITLE_COLORS = [['회색', '#9A9DA6'], ...INK_COLORS.slice(0, 5)]
 // 고무줄 색 'auto' 는 표지 색을 어둡게 한 색 (CoverArt 에서 계산)
 export const BAND_COLORS = [['네이비', '#7D88B5'], ['흰색', '#FFFFFF'], ['먹색', '#3B3F4A'], ['빨강', '#C8423F'], ['카멜', '#B5835A']]
 export const PLATES = [['paper', '종이 라벨'], ['ribbon', '띠지'], ['none', '없음']]
+// 화면에서 고르는 라벨 모양. '없음'은 라벨 줄의 스위치로 끈다(plate = 'none'). 끄기 전 모양은 plateStyle 에 남는다.
+export const PLATE_SHAPES = PLATES.filter(([id]) => id !== 'none')
 // 띠지 종이색. 책 띠지처럼 밝은 종이 셋과 짙은 종이 둘을 둔다. 글씨 색은 '글'에서 따로 고른다.
-export const RIBBON_COLORS = [['아이보리', '#F3F2ED'], ['크라프트', '#D9C4A3'], ['연회색', '#E3E5EA'], ['먹색', '#3B3F4A'], ['네이비', '#0B1957']]
+export const RIBBON_COLORS = [['아이보리', '#F3F2ED'], ['크라프트', '#D9C4A3'], ['연회색', '#E3E5EA'], ['먹색', '#3B3F4A'], ['네이비', '#0B1766']]
 export const ANCHORS = [['tl', '왼쪽 위'], ['tc', '가운데 위'], ['tr', '오른쪽 위'], ['ml', '왼쪽 가운데'], ['mc', '한가운데'], ['mr', '오른쪽 가운데'], ['bl', '왼쪽 아래'], ['bc', '가운데 아래'], ['br', '오른쪽 아래']]
 // 바탕 그라데이션. 색 · 패턴 표지의 바탕색에서 단색 대신 고른다. [이름, 위→아래 색]
 export const COVER_GRADIENTS = [
-  ['노을', ['#F6C9B8', '#F3D9C2', '#BFD3EA', '#8FB0DA']],
+  ['노을', ['#F6C9B8', '#F3D9C2', '#C7CCE9', '#9DA5D8']],
   ['숲', ['#DCEBD0', '#9CC29A', '#4E7D5B']],
   ['모래', ['#FBEFD9', '#F0D3A8', '#C99E6E']],
   ['밤하늘', ['#1F2A5A', '#3B4C8C', '#8A7DB8']],
@@ -48,7 +50,7 @@ export function defaultCover({ color = DIARY_DEFAULTS.color, pattern = DIARY_DEF
   return {
     // 도트 · 깅엄 · 스트라이프는 예전 표지처럼 밝은 무늬로 시작한다.
     enabled: true, kind: 'plain', color, gradient: null, gradientColors: CUSTOM_GRADIENT, pattern: { type: pattern || 'none', tone: ['dot', 'gingham', 'stripe'].includes(pattern) ? 'light' : 'dark' }, photo: null,
-    band: { on: true, dir: 'v', pos: 'near', color: 'auto' }, plate: 'ribbon', ribbon: { color: RIBBON_COLORS[0][1] },
+    band: { on: true, dir: 'v', pos: 'near', color: 'auto' }, plate: 'ribbon', plateStyle: 'ribbon', ribbon: { color: RIBBON_COLORS[0][1] },
     title: { useName: true, text: '', font: 'sans', size: 17, color: PLAIN_TITLE, anchor: 'bc', at: null },
     subtitle: { on: true, text: `DIARY · ${dateMode === 'undated' ? '만년형' : '2026'}`, size: 8, color: '#9A9DA6' },
     stickers: [],
@@ -74,6 +76,7 @@ export function normalizeCover(diary) {
     photo,
     band: { on: saved.band?.on !== false, dir: saved.band?.dir === 'h' ? 'h' : 'v', pos: saved.band?.pos === 'center' ? 'center' : 'near', color: saved.band?.color === 'auto' ? 'auto' : hex(saved.band?.color, base.band.color) },
     plate: pick(saved.plate, PLATES, base.plate),
+    plateStyle: pick(saved.plateStyle ?? (saved.plate !== 'none' ? saved.plate : null), PLATE_SHAPES, base.plateStyle),
     ribbon: { color: RIBBON_COLORS.some(([, color]) => color === hex(saved.ribbon?.color)) ? hex(saved.ribbon.color) : base.ribbon.color },
     title: {
       useName: saved.title?.useName !== false, text: typeof saved.title?.text === 'string' ? saved.title.text.slice(0, 24) : '',
@@ -133,7 +136,8 @@ export function coverElementSummary(cover, element) {
     case 'base': return cover.kind === 'photo' ? (cover.photo?.src ? '내 사진' : '사진 없음') : `${cover.gradient === 'custom' ? '직접 고른 그라데이션' : cover.gradient != null ? COVER_GRADIENTS[cover.gradient][0] : colorName(COVER_COLORS, cover.color)} · ${label(COVER_PATTERNS, cover.pattern.type)}`
     case 'band': return cover.band.on ? (cover.band.dir === 'v' ? '세로' : '가로') : '꺼짐'
     case 'text': return `${label(COVER_FONTS, cover.title.font)}${cover.subtitle.on && cover.subtitle.text ? ' · 소제목' : ''}`
-    case 'plate': return `${cover.plate === 'ribbon' ? `띠지 · ${colorName(RIBBON_COLORS, cover.ribbon.color)}` : label(PLATES, cover.plate)} · ${anchorName(cover)}`
+    case 'plate': if (cover.plate === 'none') return '꺼짐'
+      return `${cover.plate === 'ribbon' ? `띠지 · ${colorName(RIBBON_COLORS, cover.ribbon.color)}` : label(PLATES, cover.plate)} · ${anchorName(cover)}`
     case 'stickers': return cover.stickers.length ? `${cover.stickers.length}개` : '없음'
     default: return ''
   }

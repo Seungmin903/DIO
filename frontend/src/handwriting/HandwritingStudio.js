@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import EditorModal from '../editor/components/controls/EditorModal'
 import Svg, { Circle, Path } from 'react-native-svg'
 import { colors, radius, DISABLED_OPACITY } from '../shared/theme'
 import { loadedFontFamily } from '../editor/utils/text.js'
@@ -27,9 +28,9 @@ export default function HandwritingStudio() {
   const options = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot)
   // This host stays mounted even when the studio modal closes.
   useEffect(() => { initializeFontWorkflow() }, [])
-  return <Modal visible={Boolean(options)} animationType="slide" onRequestClose={closeFontStudio} presentationStyle="fullScreen" supportedOrientations={['portrait', 'landscape']}>
+  return <EditorModal visible={Boolean(options)} animationType="slide" onRequestClose={closeFontStudio} presentationStyle="fullScreen" supportedOrientations={['portrait', 'landscape']}>
     {options ? <StudioContent options={options} /> : null}
-  </Modal>
+  </EditorModal>
 }
 
 export function StudioContent({ options = {}, controller = defaultWorkflow }) {

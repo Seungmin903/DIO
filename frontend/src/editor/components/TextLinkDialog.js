@@ -42,7 +42,7 @@ export default function TextLinkDialog({ initialValue = '', onSave, onCancel, ba
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(11,25,87,0.2)' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(11,23,102,0.2)' },
   keyboardArea: { flex: 1 },
   scroll: { flex: 1 },
   content: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },

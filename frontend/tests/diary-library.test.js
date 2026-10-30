@@ -16,7 +16,7 @@ test('저장된 목록은 잘못된 항목과 중복 ID를 버리고 기본값�
   ]);
   assert.deepEqual(list.map((d) => d.id), ['a', 'c']);
   assert.equal(list[0].type, '공유');
-  assert.deepEqual(list[1], { id: 'c', title: '일기', color: '#CED9EE', type: '개인', favorite: false, updatedAt: null, trashedAt: null, firstPageDate: null, pattern: null, pageSize: 'landscape', firstPage: 'blank' });
+  assert.deepEqual(list[1], { id: 'c', title: '일기', color: '#D4D7ED', type: '개인', favorite: false, updatedAt: null, trashedAt: null, firstPageDate: null, pattern: null, pageSize: 'landscape', firstPage: 'blank' });
   assert.deepEqual(normalizeDiaries({ not: 'array' }), []);
   assert.deepEqual(normalizeDiaries(undefined), []);
 });

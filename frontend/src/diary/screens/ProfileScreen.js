@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { styles as s } from '../styles';
 import Header from '../components/Header';
 import AppInformation from '../components/AppInformation';
+import DeskLightSetting from '../components/DeskLightSetting';
 import { colors, radius } from '../../shared/theme';
 import AppIcon from '../../shared/AppIcon';
 import ProfileEditScreen from '../../auth/ProfileEditScreen';
@@ -59,6 +60,8 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
         <View style={s.statLine} />
         <Stat value={favorites} label="즐겨찾기" />
       </View>
+      {/* 책상은 태블릿 홈에만 있어 폰에서는 설정을 보이지 않는다 */}
+      {!compact && <DeskLightSetting />}
       <AppInformation />
       {!guest && onEndPreview && <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={onEndPreview} style={({ pressed }) => [local.logoutButton, pressed && local.pressed]}><Text style={local.logoutText}>로그아웃</Text></Pressable>}
       <Pressable accessibilityRole="button" onPress={() => openFontStudio()} style={local.fontCard}>

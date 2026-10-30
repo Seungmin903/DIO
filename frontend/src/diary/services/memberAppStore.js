@@ -47,7 +47,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
   }
   const createDocument = (result, input) => {
     const diary = entry({ ...result, title: result.title, templateConfig: input.templateConfig, pageSize: input.pageSize,
-      paperAppearance: input.paperAppearance, favorite: false, pageCount: result.pageIds.length })
+      paperAppearance: input.paperAppearance, favorite: false, pageCount: result.pageIds.length, ...(input.cover ? { cover: input.cover } : {}) })
     const doc = createDefaultDoc(diary)
     doc.memberAccountId = accountId
     doc.pages = input.initialPages.map((selected, index) => {
@@ -324,7 +324,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       if (!previous?.canEdit) throw failure('FORBIDDEN', '소유자만 제목과 표지를 수정할 수 있어요.')
       try {
         const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', expectedVersion: previous.version })
-        active(); const updated = await publish(entry(result, previous))
+        active(); const updated = await publish(entry(form.cover ? { ...result, cover: form.cover } : result, previous))
         if (serverLibrary) await this.reload().catch(() => {})
         return updated
       } catch (error) {

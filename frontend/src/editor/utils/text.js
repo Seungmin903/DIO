@@ -38,7 +38,7 @@ export function textPatch(text, width = 320, settings = {}) {
 
 export function createText({ id, x, y, text, width = 320, ...settings }) {
   const largest = Math.max(settings.fontSize ?? TEXT_FONT_SIZE, ...(settings.styleRanges ?? []).map((range) => range.fontSize ?? 0))
-  return { id, type: 'text', name: '텍스트', x, y, w: width, rotation: 0, color: '#0B1957', ...settings, ...textPatch(text, width, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) }) }
+  return { id, type: 'text', name: '텍스트', x, y, w: width, rotation: 0, color: '#0B1766', ...settings, ...textPatch(text, width, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) }) }
 }
 
 // family 가 있는 글꼴은 앱에 넣은 한국어 글꼴(Google Fonts, OFL 라이선스로 상업 이용 가능). services/textFonts.js 가 불러온다.
@@ -137,8 +137,10 @@ export function textStyle(object, scale = 1, platform = 'android') {
   const family = loadedFontFamily(s.font, s.bold && support.bold)
   // 등록한 단일 face를 직접 선택한다. 파일에 없는 weight/style을 다시 요청하지 않는다.
   // 기존 iOS 기본 고딕 문서는 영문 기울임이 표시됐을 수 있어 렌더링을 보존한다.
+  // 크기가 0이면 안드로이드가 예외를 던진다. 줄간격·자간도 같은 크기를 기준으로 맞춘다.
+  const size = Math.max(1, s.fontSize * scale)
   const legacySystemItalic = platform === 'ios' && s.font === 'sans' && s.italic
-  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: s.fontSize * scale, lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && (support.italic || legacySystemItalic) ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
+  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: size, lineHeight: size * s.lineSpacing, letterSpacing: size * s.letterSpacing, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && (support.italic || legacySystemItalic) ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
 }
 
 export function textFormatPatch(object, settings) {
