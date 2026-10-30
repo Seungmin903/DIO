@@ -30,7 +30,7 @@ export const styles = StyleSheet.create({
   rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.white, borderRightWidth: 1, borderRightColor: C.line },
   railSlot: { width: 78, zIndex: 20, elevation: 20 },
   // 메뉴 오른쪽(접힌 폭 이후)부터 화면 끝까지 덮는 반투명 막. 불투명도는 메뉴 펼침 정도(0~1)를 따른다.
-  railScrim: { position: 'absolute', top: 0, bottom: 0, left: 78, width: 4000, backgroundColor: 'rgba(0,0,0,0.32)' },
+  railScrim: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 19, backgroundColor: 'rgba(0,0,0,0.32)' },
   railScrimPress: { flex: 1 },
   railOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0 },
   // 로고 · 종 · 삼선을 같은 높이(48) 안에서 세로 가운데 맞춤 (로고 칸이 더 높아 로고만 아래로 처지던 것을 맞춤)
