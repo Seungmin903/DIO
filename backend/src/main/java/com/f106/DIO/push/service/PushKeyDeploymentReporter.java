@@ -17,7 +17,7 @@ public class PushKeyDeploymentReporter {
     private final String instance,environment,app,versions;
     public PushKeyDeploymentReporter(PushInstallationService installations,
             @Value("${PUSH_INSTANCE_ID:}") String instance,
-            @Value("${dio.push.environment:development}") String environment,
+            @Value("${dio.push.environment:}") String environment,
             @Value("${dio.push.app-id:dio}") String app,
             @Value("${PUSH_KEY_SECRET_VERSIONS:}") String versions) {
         this.installations=installations;this.instance=instance;this.environment=environment;this.app=app;this.versions=versions;

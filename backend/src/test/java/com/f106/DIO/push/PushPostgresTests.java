@@ -29,6 +29,7 @@ class PushPostgresTests {
         r.add("spring.datasource.url",()->safeUrl);r.add("spring.datasource.username",()->"postgres");r.add("spring.datasource.password",()->System.getenv("DIO_PUSH_PASSWORD"));
         r.add("spring.jpa.hibernate.ddl-auto",()->"none");r.add("spring.flyway.enabled",()->true);
         r.add("dio.push.encryption-key",()->Base64.getEncoder().encodeToString(new byte[32]));
+        r.add("dio.push.environment",()->"development");
         r.add("dio.auth.jwt-secret",()->Base64.getEncoder().encodeToString(new byte[32]));
         r.add("dio.auth.session-cleanup.enabled",()->false);
     }
@@ -453,6 +454,20 @@ class PushPostgresTests {
         var env=new HashMap<>(System.getenv());
         String actual=env.get("DIO_PUSH_GUARD");env.put("DIO_PUSH_GUARD",actual.equals("0".repeat(32))?"1".repeat(32):"0".repeat(32));
         assertThatThrownBy(()->PushTestDatabaseGuard.verify(env)).isInstanceOf(IllegalStateException.class).hasMessageContaining("marker");
+    }
+
+    @Test void deletingTransferredOwnerCascadesDeliveryButPreservesOriginalOutbox() {
+        var a=person();var b=person();UUID installation=UUID.randomUUID(),outbox=UUID.randomUUID();
+        var reg=push.register(a.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[delete"+installation+"]"));
+        jdbc.update("insert into push_outbox(outbox_id,event_key,recipient_user_id,event_type,status,created_at,expires_at) values(?,?,?,'TEST','PENDING',now(),now()+interval '1 hour')",outbox,outbox.toString(),a.id());
+        jdbc.update("insert into push_deliveries(outbox_id,installation_id,binding_version,token_version,status) values(?,?,1,1,'PENDING')",outbox,installation);
+        push.mutate(b.jwt(),installation,UUID.randomUUID(),reg.installationSecret(),1,"BIND",null);
+        assertThat(jdbc.queryForObject("select status from push_deliveries where outbox_id=?",String.class,outbox)).isEqualTo("CANCELLED");
+        jdbc.update("delete from refresh_tokens where user_id=?",b.id());
+        jdbc.update("delete from users where user_id=?",b.id());
+        assertThat(jdbc.queryForObject("select count(*) from push_installations where installation_id=?",Long.class,installation)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from push_deliveries where outbox_id=?",Long.class,outbox)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from push_outbox where outbox_id=?",Long.class,outbox)).isEqualTo(1);
     }
 
 }

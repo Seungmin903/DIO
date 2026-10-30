@@ -436,6 +436,7 @@ backend-postgres-push-test:
   needs:
     - job: backend-test
       artifacts: false
+      optional: true
   tags:
     - ec2-deploy
   cache:

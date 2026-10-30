@@ -53,7 +53,7 @@ CREATE TABLE push_outbox (
 );
 CREATE TABLE push_deliveries (
     outbox_id UUID NOT NULL REFERENCES push_outbox(outbox_id) ON DELETE CASCADE,
-    installation_id UUID NOT NULL REFERENCES push_installations(installation_id),
+    installation_id UUID NOT NULL REFERENCES push_installations(installation_id) ON DELETE CASCADE,
     binding_version BIGINT NOT NULL CHECK (binding_version > 0),
     token_version BIGINT NOT NULL CHECK (token_version > 0),
     status VARCHAR(24) NOT NULL CHECK (status IN ('PENDING','LEASED','SENT','CANCELLED','FAILED')),

@@ -40,7 +40,7 @@ dio:
     encryption-key: ${PUSH_ENCRYPTION_KEY:}
     active-key-id: ${PUSH_ACTIVE_KEY_ID:legacy}
     encryption-keys: ${PUSH_ENCRYPTION_KEYS:}
-    environment: ${PUSH_ENVIRONMENT:development}
+    environment: ${PUSH_ENVIRONMENT:}
     app-id: ${PUSH_APP_ID:dio}
     cleanup:
       enabled: ${PUSH_REGISTRATION_CLEANUP_ENABLED:true}

@@ -30,7 +30,7 @@ public class PushInstallationService {
     private final String appId;
     public PushInstallationService(JdbcTemplate jdbc, PushSessionLock sessions,
             @Value("${dio.push.encryption-key:}") String key,
-            @Value("${dio.push.environment:development}") String environment,
+            @Value("${dio.push.environment:}") String environment,
             @Value("${dio.push.app-id:dio}") String appId) {
         this.jdbc=jdbc; this.sessions=sessions; this.key=key; this.environment=environment; this.appId=appId;
     }
@@ -41,6 +41,7 @@ public class PushInstallationService {
     boolean scopeMatches(String env,String app) { return environment.equals(env) && appId.equals(app); }
     PushKeyring secrets() {
         try {
+            if(environment==null || !environment.matches("[A-Za-z0-9_.-]{1,32}") || appId==null || !appId.matches("[A-Za-z0-9_.-]{1,160}")) throw new IllegalArgumentException();
             var values=new java.util.LinkedHashMap<String,String>();
             if(configuredKeys!=null && !configuredKeys.isBlank()) for(String entry:configuredKeys.split(";")) {
                 int separator=entry.indexOf('=');
