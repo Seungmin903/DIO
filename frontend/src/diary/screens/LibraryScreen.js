@@ -96,6 +96,10 @@ function LibraryScreen({
   const toggleSelect = useCallback((diary) => {
     if (!trashing && diary.canManage !== false && diary.canDelete !== false) onSelectionChange?.(toggleSelection(selected, diary.id));
   }, [onSelectionChange, selected, trashing]);
+  // 다이어리를 꾹 누르면 그 다이어리를 고른 채 편집(관리) 모드로 들어간다.
+  const enterEdit = useCallback((diary) => {
+    if (!trashing && onSelectionChange) onSelectionChange([diary.id]);
+  }, [onSelectionChange, trashing]);
   const allSelected = manageable.length > 0 && selected.length === manageable.length;
   // 렌더링/스크롤 위치와 무관하게 현재 검색·필터 결과 전체를 대상으로 한다.
   const toggleAll = () => {
@@ -202,12 +206,6 @@ function LibraryScreen({
           <Text style={s.chipText}>{sort === item.id ? '✓ ' : ''}{item.label}</Text>
         </Pressable>)}
       </View>
-      {onSelectionChange && manageable.length > 0 && (!searchOpen || query.trim()) && <>
-        <View style={s.libraryOptionsDivider} />
-        <Pressable accessibilityRole="button" accessibilityLabel="편집" onPress={() => { setOptionsOpen(false); onSelectionChange?.([]); }} style={({ pressed }) => [s.chip, s.librarySortOption, pressed && s.pressed]}>
-          <Text style={s.chipText}>편집</Text>
-        </Pressable>
-      </>}
     </View>}
   </>;
   const selectionBar = selecting && <View style={s.selectBar} accessibilityRole="toolbar">
@@ -258,7 +256,7 @@ function LibraryScreen({
     }}
     diaries={shown} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
     metadata={metadata} optionsMenu={optionsMenu} selectionBar={selectionBar}
-    selecting={selecting} selected={selected} onToggleSelect={toggleSelect}
+    selecting={selecting} selected={selected} onToggleSelect={toggleSelect} onEnterEdit={enterEdit}
     requestNotice={requestNotice} hasMore={hasMore} suppressEmpty={suppressEmpty} historyKey={historyKey}
   />;
 
@@ -376,6 +374,7 @@ function LibraryScreen({
                     selecting={selecting}
                     selected={selected.includes(item.id)}
                     onToggleSelect={toggleSelect}
+                    onEnterEdit={enterEdit}
                   />
               )}
             />
@@ -392,7 +391,7 @@ function LibraryScreen({
       ) : (
         <View style={[s.grid, compact && s.gridCompact]}>
           {shown.map((diary) => <DiaryCard key={diary.id} sunShadow={!compact} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
-            selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} />)}
+            selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} onEnterEdit={enterEdit} />)}
         </View>
       )}
     </ScrollView>
