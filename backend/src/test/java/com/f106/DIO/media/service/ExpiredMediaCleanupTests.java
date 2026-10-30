@@ -39,6 +39,16 @@ class ExpiredMediaCleanupTests {
 		when(deletionQueue.next(anyInt())).thenReturn(List.of());
 	}
 
+    @Test
+    void excessiveConfiguredBatchSizeIsCappedAtOneHundred() {
+        var capped=new ExpiredMediaCleanup(mediaFiles,deletionQueue,files,Duration.ofDays(1),100000);
+        when(mediaFiles.findPhysicallyDeletable(any(),any(Pageable.class))).thenReturn(List.of());
+        capped.purgeExpiredAt(Instant.now());
+        var page=org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(mediaFiles).findPhysicallyDeletable(any(),page.capture());
+        assertThat(page.getValue().getPageSize()).isEqualTo(100);
+    }
+
 	@Test
 	void removesTheExpiredUnreferencedStorageObjectAndDatabaseRow() {
 		Instant now = Instant.parse("2026-10-28T00:00:00Z");

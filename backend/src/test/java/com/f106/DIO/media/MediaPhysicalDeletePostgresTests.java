@@ -104,6 +104,21 @@ class MediaPhysicalDeletePostgresTests {
 		assertThat(after).containsExactly(ordered.get(1));
 	}
 
+    @Test
+    void jsonReferenceChecksUseGinIndexesWithLargeUnrelatedHistory() throws Exception {
+        jdbc.update("insert into canvas_elements(element_id,page_id,element_type,sort_key,x,y,width,height,properties_json) select gen_random_uuid(),?,'PHOTO',100+n,0,0,10,10,jsonb_build_object('cells',jsonb_build_array(jsonb_build_object('mediaFileId',gen_random_uuid()::text)),'text',repeat('x',200)) from generate_series(1,10000) n",page);
+        jdbc.update("insert into canvas_history_operations(page_id,actor_user_id,client_operation_id,operation_type,before_state_json,after_state_json) select ?,1,gen_random_uuid(),'UPDATE',jsonb_build_object('elements',jsonb_build_object(n::text,jsonb_build_object('mediaFileId',gen_random_uuid()::text))),jsonb_build_object('elements',jsonb_build_object(n::text,jsonb_build_object('propertiesJson',jsonb_build_object('cells',jsonb_build_array(jsonb_build_object('mediaFileId',gen_random_uuid()::text)))))) from generate_series(1,10000) n",page);
+        jdbc.execute("analyze canvas_elements");jdbc.execute("analyze canvas_history_operations");jdbc.execute("analyze media_files");
+        String plan=String.join("\n",named.queryForList("explain (analyze,buffers) "+SELECT+MediaFileRepository.DELETABLE_ORDER,Map.of("cutoff",Timestamp.from(cutoff)),String.class));
+        assertThat(plan).contains("idx_canvas_elements_json_media_refs","idx_canvas_history_before_media_refs","idx_canvas_history_after_media_refs");
+        assertThat(named.queryForList(SELECT,Map.of("cutoff",Timestamp.from(cutoff)),UUID.class)).containsExactlyInAnyOrder(expiredFree,expiredFree2);
+        String lookup="select e.media_file_id,e.properties_json from canvas_elements e join pages p on p.page_id=e.page_id join diaries d on d.diary_id=p.diary_id where e.deleted_at is null and p.deleted_at is null and d.deleted_at is null and (e.media_file_id=? or "+com.f106.DIO.media.repository.MediaReferenceSql.jsonIds("e.properties_json")+" @> jsonb_build_array(cast(? as text))) and d.owner_user_id=1";
+        String readPlan=String.join("\n",jdbc.queryForList("explain (analyze,buffers) "+lookup,String.class,stripCell,stripCell.toString()));
+        assertThat(readPlan).contains("idx_canvas_elements_json_media_refs");
+        java.nio.file.Files.createDirectories(java.nio.file.Path.of("build"));
+        java.nio.file.Files.writeString(java.nio.file.Path.of("build/media-reference-explain.txt"),"CLEANUP\n"+plan+"\nFILE LOOKUP\n"+readPlan);
+    }
+
 	private void media(UUID id, Instant deletedAt, UUID source) {
 		jdbc.update("insert into media_files(media_file_id,owner_user_id,media_type,storage_key,mime_type,file_size,status,source_media_file_id,deleted_at) values(?,1,'IMAGE',?,'image/png',1,'READY',?,?)",
 			id, "test/" + id, source, deletedAt == null ? null : Timestamp.from(deletedAt));

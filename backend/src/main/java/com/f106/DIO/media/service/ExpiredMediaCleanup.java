@@ -33,7 +33,7 @@ public class ExpiredMediaCleanup {
 		this.deletionQueue = deletionQueue;
 		this.files = files;
 		this.retention = retention;
-		this.batchSize = batchSize;
+		this.batchSize = Math.max(1, Math.min(100, batchSize));
 	}
 
 	public Result purgeExpired() {
