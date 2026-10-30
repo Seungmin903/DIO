@@ -66,11 +66,11 @@ export const styles = StyleSheet.create({
   // 제목이 짧으면 보기 전환과 한 줄, 길면 보기 전환이 다음 줄 오른쪽으로 내려간다.
   libraryHeaderCompact: { minHeight: 48, flexWrap: 'nowrap', columnGap: 12 },
   libraryTitleCompact: { fontSize: 30, letterSpacing: -0.6 },
-  libraryViewSwitchCompact: { minHeight: 48, marginLeft: 'auto' },
-  libraryViewOptionCompact: { width: 44, minHeight: 44, paddingHorizontal: 0 },
+  libraryViewSwitchCompact: { minHeight: 44, marginLeft: 'auto' },
+  libraryViewOptionCompact: { width: 38, minHeight: 36, paddingHorizontal: 0 },
   libraryTitle: { color: C.ink, fontSize: 29, letterSpacing: -0.6, fontWeight: '800' },
-  libraryViewSwitch: { minHeight: 48, flexDirection: 'row', alignItems: 'center', padding: 3, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: 'rgba(255,255,255,.72)' },
-  libraryViewOption: { minHeight: 39, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 13 },
+  libraryViewSwitch: { minHeight: 44, flexDirection: 'row', alignItems: 'center', padding: 3, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: 'rgba(255,255,255,.72)' },
+  libraryViewOption: { minHeight: 36, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 11 },
   libraryViewOptionSelected: { backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   libraryViewIcon: { color: C.inkSoft, fontSize: 16, lineHeight: 18, fontWeight: '800' },
   libraryViewText: { color: C.inkSoft, fontSize: 12, fontWeight: '700' },
@@ -96,7 +96,7 @@ export const styles = StyleSheet.create({
   librarySearchResults: { marginTop: 24, gap: 16 },
   librarySearchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, borderRadius: 14, paddingHorizontal: 12 },
   librarySearchInput: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 8, color: C.ink, fontSize: 15 },
-  libraryToolbar: { minHeight: 47, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24 },
+  libraryToolbar: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24 },
   libraryToolbarCompact: { marginTop: 8 },
   // 관리 모드 막대: 선택 개수 + 휴지통 이동·취소. 좁은 폰에서는 다음 줄로 내려간다.
   selectBar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 14, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
@@ -113,7 +113,7 @@ export const styles = StyleSheet.create({
   headerTitleCompact: { fontSize: 30, letterSpacing: -0.6 },
   headerRight: { alignItems: 'flex-end' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(255,255,255,.58)', borderWidth: 1, borderColor: C.line },
   iconButtonCompact: { width: 44, height: 44, borderRadius: 14, borderWidth: 0, backgroundColor: 'transparent' },
   iconButtonSelected: { backgroundColor: C.blueStrong, borderColor: C.blue },
   icon: { color: C.ink, fontSize: 23, lineHeight: 26 },
@@ -123,7 +123,9 @@ export const styles = StyleSheet.create({
 headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
 
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 48, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 16, backgroundColor: 'rgba(255,255,255,.58)' },
+  // 태블릿은 칩 네 개가 한 줄에 다 들어가므로 줄바꿈 없이 검색 · ⋯ 와 같은 줄에 둔다.
+  filtersWide: { flexWrap: 'nowrap', flexShrink: 0 },
+  chip: { minHeight: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.58)' },
   // 고른 칩: 편집 옵션 창의 고른 칩처럼 흰 바탕 + 파란 테두리
   chipSelected: { backgroundColor: C.white, borderColor: C.blue, borderWidth: 1.5 },
   chipText: { color: C.inkSoft, fontSize: 12, fontWeight: '700' },
