@@ -10,6 +10,7 @@ public class UserWithdrawalCredentialAdapter implements UserWithdrawalCredential
     private final EmailAuthProviderRepository accounts;
     private final LoginSessionRevoker sessions;
     private final JdbcTemplate jdbc;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entities;
     public UserWithdrawalCredentialAdapter(EmailAuthProviderRepository accounts,LoginSessionRevoker sessions,JdbcTemplate jdbc){this.accounts=accounts;this.sessions=sessions;this.jdbc=jdbc;}
     public void lock(long id){accounts.findAllForUserUpdate(id);}
     public void erase(long id,String email,Instant now){
@@ -18,6 +19,8 @@ public class UserWithdrawalCredentialAdapter implements UserWithdrawalCredential
             jdbc.update("delete from signup_email_verifications where email=?",email);
         }
         sessions.revokeAll(id,now);
+        // JPA의 세션 폐기 변경을 JDBC 삭제보다 먼저 반영한다.
+        entities.flush();
         jdbc.update("delete from refresh_token_history where token_id in (select token_id from refresh_tokens where user_id=?)",id);
         jdbc.update("delete from refresh_tokens where user_id=?",id);
         jdbc.update("delete from user_auth_accounts where user_id=?",id);

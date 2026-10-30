@@ -45,10 +45,13 @@ public class EmailLoginService {
     private final TransactionTemplate writeTransaction;
     private final PasswordEncoder passwords;
     private final String dummyHash;
+    private final com.f106.DIO.push.service.PushSessionRevocation pushRevocation;
     public EmailLoginService(UserRepository users, EmailAuthProviderRepository accounts, ProfilePhotoRepository photos,
             RefreshTokenRepository tokens, RefreshTokenHistoryRepository history, LoginJwt jwt, LoginProperties properties,
             LoginThrottle throttle, PlatformTransactionManager transactionManager,
+            com.f106.DIO.push.service.PushSessionRevocation pushRevocation,
             @Qualifier("authPasswordEncoder") PasswordEncoder passwords) {
+        this.pushRevocation = pushRevocation;
         this.passwords = passwords;
         this.dummyHash = passwords.encode("dummy-password-never-authenticates");
         this.users = users; this.accounts = accounts; this.photos = photos; this.tokens = tokens;
@@ -106,10 +109,10 @@ public class EmailLoginService {
         Instant now = Instant.now();
         if (!token.active(now)) throw LoginException.token();
         if (!LoginSecrets.matches(hash, token.getTokenHash())) {
-            token.revoke(now); throw LoginException.token();
+            pushRevocation.revokeLockedSession(token.getSessionId(), token.getUserId(), now); token.revoke(now); throw LoginException.token();
         }
         User user = users.findById(token.getUserId()).orElse(null);
-        if (user == null || !user.isActive()) { token.revoke(now); throw LoginException.token(); }
+        if (user == null || !user.isActive()) { pushRevocation.revokeLockedSession(token.getSessionId(), token.getUserId(), now); token.revoke(now); throw LoginException.token(); }
         String nextRefresh = LoginSecrets.refresh();
         // 설정/서명 실패 전에 기존 토큰을 소비하지 않는다.
         LoginResponse response = response(user, token, nextRefresh, now);
@@ -142,6 +145,8 @@ public class EmailLoginService {
         Long id = tokens.findIdBySessionId(sid).orElseThrow(LoginException::token);
         RefreshToken token = tokens.findForUpdate(id).orElseThrow(LoginException::token);
         if (!token.active(Instant.now()) || !token.getUserId().toString().equals(access.getSubject())) throw LoginException.token();
-        token.revoke(Instant.now());
+        Instant now = Instant.now();
+        pushRevocation.revokeLockedSession(token.getSessionId(), token.getUserId(), now);
+        token.revoke(now);
     }
 }

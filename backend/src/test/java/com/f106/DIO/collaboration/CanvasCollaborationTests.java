@@ -25,6 +25,7 @@ import tools.jackson.databind.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+@org.springframework.test.context.jdbc.Sql("/push-session-h2.sql")
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"spring.datasource.url=jdbc:h2:mem:collaboration-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","dio.signup.photos.storage=local",
     "dio.signup.photos.local-directory=build/collaboration-photos","dio.media.local-directory=build/collaboration-media","spring.datasource.hikari.maximum-pool-size=12","server.forward-headers-strategy=native","server.tomcat.remoteip.remote-ip-header=X-Forwarded-For","server.tomcat.remoteip.internal-proxies=127\\.0\\.0\\.1|::1"})

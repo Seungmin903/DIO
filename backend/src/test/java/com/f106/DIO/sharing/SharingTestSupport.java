@@ -29,7 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@org.springframework.test.context.jdbc.Sql(scripts="classpath:invitation-notification-h2.sql")
+@org.springframework.test.context.jdbc.Sql(scripts={"classpath:invitation-notification-h2.sql", "classpath:push-session-h2.sql"})
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:sharing-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     "dio.signup.photos.storage=local", "dio.signup.photos.local-directory=build/test-member-photos",
