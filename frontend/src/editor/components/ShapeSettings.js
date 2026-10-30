@@ -8,7 +8,7 @@ import ColorPicker, { PaletteInteractionContext } from './controls/ColorPicker'
 import Slider from './controls/Slider'
 
 const SWATCHES = ['#F8EBA7', '#F4CDD5', '#D4E6CF', '#CED9EE', '#DFD4EE', '#FFFFFF']
-export default function ShapeSettings({ settings, onChange, onCheckpoint, onAdd, onClose, embedded = false, showShapePicker = true }) {
+export default function ShapeSettings({ settings, onChange, onCheckpoint, onCommit, onAdd, onClose, embedded = false, showShapePicker = true }) {
   const parentPaletteInteraction = useContext(PaletteInteractionContext)
   const Content = embedded ? View : ScrollView
   const scroll = useRef(null)
@@ -27,7 +27,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onAdd,
       {SWATCHES.map(color => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`${label} ${color}`} disabled={disabled} accessibilityState={{ selected: value[key] === color, disabled }} onPress={() => onChange({ [key]: color })} style={[styles.swatch, { backgroundColor: color }, value[key] === color && styles.chosen]} />)}
       <Pressable accessibilityRole="button" accessibilityLabel={`${label} 직접 선택`} disabled={disabled} accessibilityState={{ expanded: !disabled && picker === key, disabled }} onPress={() => setPicker(picker === key ? null : key)} style={styles.customColor}><Text style={styles.plus}>+</Text></Pressable>
     </View>
-    {!disabled && picker === key && <ColorPicker onInteractionChange={onPaletteInteraction} label={label} value={value[key] === 'none' ? '#FFFFFF' : value[key]} onStart={onCheckpoint} onChange={color => onChange({ [key]: color }, false)} />}
+    {!disabled && picker === key && <ColorPicker onInteractionChange={onPaletteInteraction} label={label} value={value[key] === 'none' ? '#FFFFFF' : value[key]} onStart={onCheckpoint} onEnd={onCommit} onChange={color => onChange({ [key]: color }, false)} />}
   </View>
   return <View style={embedded ? {marginTop:14} : p.card}>
     {!embedded && <ToolPanelHeader icon="shape" title="도형" onClose={onClose} />}
@@ -45,7 +45,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onAdd,
       </>}
       {palette('fill', '채우기')}
       <Text style={p.label}>테두리 두께</Text>
-      <Slider centerValue label="테두리 두께" value={value.borderWidth} min={0} max={16} step={1} onStart={onCheckpoint} onChange={borderWidth => onChange({ borderWidth }, false)} />
+      <Slider centerValue label="테두리 두께" value={value.borderWidth} min={0} max={16} step={1} onStart={onCheckpoint} onEnd={onCommit} onChange={borderWidth => onChange({ borderWidth }, false)} />
       {palette('borderColor', '테두리 색상', !value.borderWidth)}
       <Text style={p.label}>테두리 모양</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[p.segment,!value.borderWidth&&p.dim]}>

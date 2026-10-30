@@ -92,6 +92,16 @@ class PasswordResetTests {
             .content("{\"email\":\""+email+"\",\"password\":\""+password+"\"}"))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
     }
+    @Test void authenticatedPasswordChangeInvalidatesPreviouslyVerifiedResetToken()throws Exception{
+        register(EMAIL,"비밀번호변경");String token=sendAndVerify();String session=login(EMAIL,OLD);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/me/password")
+            .header("Authorization","Bearer "+JsonPath.<String>read(session,"$.accessToken")).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"currentPassword\":\""+OLD+"\",\"newPassword\":\""+NEW+"\"}"))
+            .andExpect(status().isNoContent());
+        assertThat(resets.findById(EMAIL).orElseThrow().getConsumedAt()).isNotNull();
+        assertThatThrownBy(()->service.complete(new PasswordResetRequest(EMAIL,token,"AnotherDio123!"))).isInstanceOf(PasswordResetException.class);
+        login(EMAIL,NEW);
+    }
     @Test void sameResponseForExistingMissingSocialAndInactiveAccounts() throws Exception {
         register(EMAIL,"재설정회원");
         String known=mvc.perform(post("/api/v1/auth/password-reset-requests").contentType(MediaType.APPLICATION_JSON)

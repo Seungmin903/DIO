@@ -303,8 +303,18 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       return publish(entry(result, previous), detailRequest)
     },
     async open(id) {
-      const diary = await this.refresh(id), doc = await read(keys.doc(id), null)
-      active()
+      const diary = await this.refresh(id)
+      let doc = await read(keys.doc(id), null);active()
+      if (!doc && typeof api.loadPages === 'function') {
+        const pages = await api.loadPages(id);active()
+        if (!Array.isArray(pages) || !pages.length) throw failure('MISSING_MEMBER_DOCUMENT', '서버의 편집 페이지를 찾지 못했어요.')
+        const candidate = {...createDefaultDoc({...diary,pageSize:pages[0].canvasWidth>=pages[0].canvasHeight?'landscape':'portrait'}),memberAccountId:accountId,pages}
+        doc = await enqueue(async()=>{
+          active();const existing=await read(keys.doc(id),null);active()
+          if(existing)return existing
+          await write(keys.doc(id),candidate);active();return candidate
+        })
+      }
       if (!doc || doc.memberAccountId !== accountId || doc.id !== id || !doc.pages?.length) throw failure('MISSING_MEMBER_DOCUMENT', '이 기기의 편집 문서를 찾지 못했어요. 빈 문서로 대체하지 않았어요.')
       return { diary, doc }
     },

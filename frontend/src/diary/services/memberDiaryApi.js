@@ -1,3 +1,4 @@
+import {loadServerPages} from '../../collaboration/serverPages.js'
 import { DiaryApiError } from './diaryApi.js'
 import { toServerInitialPageSelections } from '../../editor/templates/serverCatalog.js'
 
@@ -34,6 +35,7 @@ const idempotencyMessages = {
 // 기존 목/비회원 API와 분리한 실제 회원 HTTP 경계.
 export function createMemberDiaryApi(transport) {
   return {
+    loadPages: id => loadServerPages(transport,id),
     async trashList({cursor,limit=100,q,signal}={}) {
       const body=await transport({path:'/member/diaries/trash',query:{cursor,limit,q},signal});
       if(!Array.isArray(body?.items) || typeof body.hasNext!=='boolean' || (body.hasNext?typeof body.nextCursor!=='string'||!body.nextCursor:body.nextCursor!==null)) throw invalid();

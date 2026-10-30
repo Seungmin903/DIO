@@ -56,6 +56,13 @@ class AuthInitialSchemaPostgresTests {
         assertThat(jdbc.queryForObject("select count(*) from pg_indexes where schemaname='public' and indexname in ('signup_verification_expiry_idx','password_reset_verification_expiry_idx')", Long.class)).isEqualTo(2);
     }
     @Test @org.springframework.transaction.annotation.Transactional
+    void nicknameMigrationPreservesRowsAndAllowsDuplicateNamesButNotEmails() {
+        assertThat(jdbc.queryForObject("select count(*) from pg_constraint where conrelid='users'::regclass and conname='users_nickname_key_unique'",Long.class)).isZero();
+        jdbc.update("insert into users(email,nickname,nickname_key) values ('nickname-migration-a@example.com','같은이름','같은이름'),('nickname-migration-b@example.com','같은이름','같은이름')");
+        assertThat(jdbc.queryForObject("select count(*) from users where email in ('nickname-migration-a@example.com','nickname-migration-b@example.com')",Long.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from pg_constraint where conrelid='users'::regclass and conname='users_email_unique'",Long.class)).isEqualTo(1);
+    }
+    @Test @org.springframework.transaction.annotation.Transactional
     void expiredSessionCleanupPreservesActiveSessionsAndRemovesTheirHistoryOnly() {
         jdbc.update("insert into users(user_id,email,nickname,nickname_key) values (987,'cleanup@example.com','cleanup','cleanup')");
         jdbc.update("insert into refresh_tokens(token_id,user_id,token_hash,expires_at) values (987,987,?,now()-interval '1 day')", "cd".repeat(32));

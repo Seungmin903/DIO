@@ -21,6 +21,8 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   const photoSource = photoUri
     ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri })
     : null;
+  // 실패 상태는 계정·사진·접근 인증에 묶는다. 인증 변경 후 같은 사진도 다시 시도한다.
+  // 인증 값은 메모리 비교에만 사용하고 캐시 키·로그에는 넣지 않는다.
   const photoIdentity = JSON.stringify([
     previewUser?.userId || previewUser?.accountId || 'guest',
     photoUri,

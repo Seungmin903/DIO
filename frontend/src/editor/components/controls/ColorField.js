@@ -8,7 +8,7 @@ import Icon from './Icon'
  * 색 한 줄: 지금 색과 HEX 를 보여 주고, 누르면 아래에 색 피커를 펼친다. (프리셋 없이 사용자가 직접 고른다)
  * 윤곽선·그림자·사진 틀 색에 같이 쓴다.
  */
-export default function ColorField({ label, value, onStart, onChange, title = '색' }) {
+export default function ColorField({ label, value, onStart, onEnd, onChange, title = '색' }) {
   const [open, setOpen] = useState(false)
   return (
     <View>
@@ -28,7 +28,7 @@ export default function ColorField({ label, value, onStart, onChange, title = '�
           </View>
         </View>
       </Pressable>
-      {open && <ColorPicker value={value} label={label} onStart={onStart} onChange={onChange} />}
+      {open && <ColorPicker value={value} label={label} onStart={onStart} onEnd={onEnd} onChange={onChange} />}
     </View>
   )
 }

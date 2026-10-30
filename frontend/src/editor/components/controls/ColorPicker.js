@@ -14,10 +14,10 @@ const HUE_STOPS = ['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00
 export const PaletteInteractionContext = createContext(null)
 
 /** 팔레트 전용 입력: 화면 좌표를 측정한 팔레트 좌표로 바꾸고 스크롤에 터치를 넘기지 않는다. */
-function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }) {
+function usePaletteDrag({ width, height, onStart, onEnd, onPoint, onInteractionChange }) {
   const drag = useRef(null)
   const handlers = useRef(null)
-  handlers.current = { width, height, onStart, onPoint, onInteractionChange }
+  handlers.current = { width, height, onStart, onEnd, onPoint, onInteractionChange }
   const [responder] = useState(() => {
     const point = event => {
       const native = event.nativeEvent
@@ -33,10 +33,11 @@ function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }
       const y = current.localY + current.pageY - current.startY
       handlers.current.onPoint(clamp(x / Math.max(1, current.width), 0, 1), clamp(y / Math.max(1, current.height), 0, 1))
     }
-    const finish = () => {
+    const finish = (cancelled = false) => {
       if (!drag.current) return
       drag.current = null
       handlers.current.onInteractionChange?.(false)
+      handlers.current.onEnd?.({ cancelled })
     }
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -70,11 +71,11 @@ function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }
         }
         finish()
       },
-      onPanResponderTerminate: finish,
+      onPanResponderTerminate: () => finish(true),
     })
   })
   useEffect(() => () => {
-    if (drag.current) { drag.current = null; handlers.current.onInteractionChange?.(false) }
+    if (drag.current) { drag.current = null; handlers.current.onInteractionChange?.(false); handlers.current.onEnd?.({ cancelled: true }) }
   }, [])
   return responder.panHandlers
 }
@@ -83,7 +84,7 @@ function usePaletteDrag({ width, height, onStart, onPoint, onInteractionChange }
  * 색을 직접 고르는 피커. 위 네모에서 채도(가로)·밝기(세로), 아래 막대에서 색상(hue)을 고르고 HEX 로도 넣을 수 있다.
  * onStart 는 끌기·입력을 시작할 때 한 번 (되돌리기 지점), onChange(hex) 는 바뀔 때마다.
  */
-export default function ColorPicker({ value, onChange, onStart, label = '색', showHex = true, onInteractionChange }) {
+export default function ColorPicker({ value, onChange, onStart, onEnd, label = '색', showHex = true, onInteractionChange }) {
   const panelInteraction = useContext(PaletteInteractionContext)
   const interactionChange = onInteractionChange ?? panelInteraction
   const [hsv, setHsv] = useState(() => hexToHsv(value))
@@ -106,11 +107,11 @@ export default function ColorPicker({ value, onChange, onStart, label = '색', s
     onChange(hsvToHex(next))
   }
   const svPan = usePaletteDrag({
-    width: size.sv, height: SV_HEIGHT, onStart, onInteractionChange: interactionChange,
+    width: size.sv, height: SV_HEIGHT, onStart, onEnd, onInteractionChange: interactionChange,
     onPoint: (x, y) => apply({ ...hsv, s: x, v: 1 - y }),
   })
   const huePan = usePaletteDrag({
-    width: size.hue, height: HUE_HEIGHT + 8, onStart, onInteractionChange: interactionChange,
+    width: size.hue, height: HUE_HEIGHT + 8, onStart, onEnd, onInteractionChange: interactionChange,
     onPoint: x => apply({ ...hsv, h: x * 360 }),
   })
 
@@ -123,6 +124,7 @@ export default function ColorPicker({ value, onChange, onStart, label = '색', s
     if (hex !== value.toUpperCase()) {
       onStart?.()
       onChange(hex)
+      onEnd?.({ cancelled: false })
     }
   }
   const hueColor = hsvToHex({ h: hsv.h, s: 1, v: 1 })

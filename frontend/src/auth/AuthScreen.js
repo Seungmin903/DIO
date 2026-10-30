@@ -26,7 +26,6 @@ import {
   credentialsErrors,
   credentialsValid,
   nicknameError,
-  normalizeNickname,
   normalizeEmail,
 } from './validation';
 import { authStyles as s } from './styles';
@@ -65,9 +64,6 @@ export default function AuthScreen({
   const [info, setInfo] = useState(null);
   const [profile, setProfile] = useState(null);
   const [nickname, setNickname] = useState('');
-  const [checked, setChecked] = useState(null);
-  const [checkState, setCheckState] = useState('idle');
-  const [checkMessage, setCheckMessage] = useState('');
   const [terms, setTerms] = useState(emptyTerms);
   const [photoUri, setPhotoUri] = useState(null);
   const [signupComplete, setSignupComplete] = useState(false);
@@ -77,8 +73,6 @@ export default function AuthScreen({
   const canSetDevelopmentAccess = typeof __DEV__ !== 'undefined' && __DEV__ &&
     typeof verificationService?.setDevelopmentAccess === 'function';
   const job = useRef(0);
-  const checking = useRef(0);
-  const checkRunning = useRef(false);
   const running = useRef(false);
   const alive = useRef(true);
   const passwordInput = useRef(null);
@@ -137,7 +131,6 @@ export default function AuthScreen({
     return () => {
       alive.current = false;
       job.current++;
-      checking.current++;
       service.cancelPending?.();
     };
   }, []);
@@ -153,9 +146,7 @@ export default function AuthScreen({
     clearTimeout(focusTimer.current);
     scrollOffset.current = 0;
     formScroll.current?.scrollTo({ y: 0, animated: false });
-    checkRunning.current = false;
     job.current++;
-    checking.current++;
     running.current = false;
     setBusy(false);
     setMessage('');
@@ -165,9 +156,6 @@ export default function AuthScreen({
     setNeedsLoginAccess(false);
     setAccessId('');
     setAccessPassword('');
-    setCheckState('idle');
-    setChecked(null);
-    setCheckMessage('');
     setRoute(next);
     if (next === 'welcome') {
       setPhotoUri(null);
@@ -264,43 +252,12 @@ export default function AuthScreen({
     );
   };
   const changeNickname = (value) => {
-    checking.current++;
-    checkRunning.current = false;
     setNickname(value);
-    setChecked(null);
-    setCheckState('idle');
-    setCheckMessage('');
     setMessage('');
   };
-  const checkNickname = async () => {
-    const value = normalizeNickname(nickname),
-      error = nicknameError(value);
-    if (error || checkRunning.current) return;
-    const id = ++checking.current;
-    checkRunning.current = true;
-    setChecked(null);
-    setCheckState('checking');
-    setCheckMessage('');
-    try {
-      const available = await service.checkNickname(value);
-      if (!alive.current || id !== checking.current) return;
-      setChecked(available ? value : null);
-      setCheckState(available ? 'available' : 'taken');
-      setCheckMessage(available ? '사용할 수 있는 닉네임이에요.' : '이미 사용 중인 닉네임이에요.');
-    } catch (error) {
-      if (alive.current && id === checking.current) {
-        setChecked(null);
-        setCheckState('error');
-        setCheckMessage(typeof error?.message === 'string' && error.message.trim()
-          ? error.message : '중복 확인에 실패했어요. 다시 시도해 주세요.');
-      }
-    } finally {
-      if (id === checking.current) checkRunning.current = false;
-    }
-  };
-  const profileReady = canCompleteProfile({ nickname, checkedNickname: checked, terms });
+  const profileReady = canCompleteProfile({ nickname, terms });
   const complete = () => {
-    if (profileReady && !checkRunning.current)
+    if (profileReady)
       run(
         () => service.completeProfile({ ...profile, nickname, photoUri, terms }),
         (result) => {
@@ -312,13 +269,6 @@ export default function AuthScreen({
             Keyboard.dismiss();
             setValues(emptyValues());
             onContinue(result);
-          }
-        },
-        (error) => {
-          if (error?.code === 'NICKNAME_UNAVAILABLE') {
-            setChecked(null);
-            setCheckState('taken');
-            setCheckMessage('사용할 수 없는 닉네임이에요. 다른 닉네임을 확인해 주세요.');
           }
         },
       );
@@ -685,39 +635,11 @@ export default function AuthScreen({
                         onChange={changeNickname}
                         editable={!busy}
                         maxLength={12}
-                        onSubmitEditing={checkNickname}
                       />
                     </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="닉네임 중복 확인"
-                      accessibilityState={{
-                        disabled: !!nicknameError(nickname) || checkState === 'checking' || busy,
-                        busy: checkState === 'checking',
-                      }}
-                      disabled={!!nicknameError(nickname) || checkState === 'checking' || busy}
-                      onPress={checkNickname}
-                      style={[
-                        s.checkButton,
-                        (!!nicknameError(nickname) || checkState === 'checking' || busy) &&
-                          s.disabled,
-                      ]}
-                    >
-                      <Text style={s.linkText}>
-                        {checkState === 'checking' ? '확인 중…' : '중복 확인'}
-                      </Text>
-                    </Pressable>
                   </View>
                   {nickname && nicknameError(nickname) ? (
                     <Text style={s.error}>{nicknameError(nickname)}</Text>
-                  ) : null}
-                  {checkMessage ? (
-                    <Text
-                      accessibilityLiveRegion="polite"
-                      style={checkState === 'available' ? s.success : s.error}
-                    >
-                      {checkMessage}
-                    </Text>
                   ) : null}
                 </View>
                 <View style={s.terms}>
