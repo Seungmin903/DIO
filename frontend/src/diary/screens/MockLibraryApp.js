@@ -48,10 +48,12 @@ export default function MockLibraryApp() {
   </>;
 }
 
+const EMPTY_ROWS = [];
+
 function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { isPhone } = useFormFactor();
+  const { isPhone, isLandscape } = useFormFactor();
   const [viewport, setViewport] = useState({ width, height });
   const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height);
   const mock = useMemo(() => createMockDiaryTransport(account === 'A' ? {} : { initialRows: [{
@@ -111,6 +113,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
     if (next === 'library') change({ filter: filter || 'all', query: '' });
   };
   const rows = list.data?.items || [];
+  const trashItems = trash.data?.items || EMPTY_ROWS;
   const askRemoval = (kind, ids) => {
     if (removalRunning.current || removal.getSnapshot().status === 'saving' || removal.getPendingInput()) return;
     removal.dismiss();
@@ -265,7 +268,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
       <Text style={s.text}>결과 확인이 필요한 수정 요청이 있어요.</Text>
       <Button label="수정 요청 이어서 확인" onPress={() => editing.editor.open(editing.source.id)} />
     </View>}
-    {page === 'library' ? library : page === 'trash' ? <TrashScreen compact={isPhone} diaries={trash.data?.items || []}
+    {page === 'library' ? library : page === 'trash' ? <TrashScreen compact={isPhone} portrait={!isPhone && !isLandscape} diaries={trashItems}
       serverMode busy={removalLocked} onRestore={id => askRemoval('restore', [id])}
       onDeletePermanently={row => askRemoval('permanentlyDelete', [row.id])}
       onRestoreMany={ids => askRemoval('restore', ids)}

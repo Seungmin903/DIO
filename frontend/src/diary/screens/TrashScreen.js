@@ -9,9 +9,9 @@ import EmptyState from '../components/EmptyState';
 import Header from '../components/Header';
 import Cover from '../components/Cover';
 import { isTrashExpired, trashDeadline, trashStatus } from '../utils/trashRetention';
+import { isAllSelected, isTrashUrgent, pruneSelection, selectableIds, splitSelection, toggleSelection } from '../utils/trashSelection';
 
 const DAY = 24 * 60 * 60 * 1000;
-const URGENT_DAYS = 3;
 
 // 보관함 카드(DiaryCard)처럼 memo 로 감싸 메뉴를 여닫을 때 값이 같은 카드(표지 · 패턴)는 다시 그리지 않는다.
 // now 같이 매번 바뀌는 값은 카드에 넘기지 않고 계산한 문구·불리언만 넘긴다.
@@ -98,7 +98,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
   // 목록이 바뀌어(복원 · 삭제) 사라진 다이어리는 선택 · 시트에서 뺀다.
   useEffect(() => {
     const ids = new Set(diaries.map(diary => diary.id));
-    setSelected(current => (current === null ? current : current.filter(id => ids.has(id))));
+    setSelected(current => pruneSelection(current, ids));
     setSheetId(current => (current && !ids.has(current) ? null : current));
   }, [diaries]);
 
@@ -109,7 +109,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
       status: server
         ? (diary.retentionStatus === 'EXPIRED' ? '보관 기한 만료 · 복원할 수 없어요' : diary.expiresAt ? `${Math.max(0, Math.ceil((deadline - at) / DAY))}일 후 영구 삭제` : '보관 기한 확인 필요')
         : trashStatus(diary, at),
-      urgent: Number.isFinite(deadline) && deadline - at <= URGENT_DAYS * DAY,
+      urgent: isTrashUrgent(deadline, at),
       canRestore: Boolean(restore || latest.current.onRestoreMany) && (server ? Boolean(diary.canRestore) : !isTrashExpired(diary, at)),
       canDelete: Boolean(purge || purgeMany) && (!server || diary.canPermanentlyDelete === true),
     };
@@ -119,16 +119,14 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
   const byId = useMemo(() => new Map(rows.map(row => [row.diary.id, row])), [rows]);
 
   const toggle = useCallback((diary) => {
-    setSelected(current => (current === null ? current : current.includes(diary.id) ? current.filter(id => id !== diary.id) : [...current, diary.id]));
+    setSelected(current => toggleSelection(current, diary.id));
   }, []);
   const press = useCallback((diary) => { if (selecting) toggle(diary); else setSheetId(diary.id); }, [selecting, toggle]);
   const longPress = useCallback((diary) => { setSelected([diary.id]); }, []);
 
-  const selectedRows = (selected ?? []).map(id => byId.get(id)).filter(Boolean);
-  const restorable = selectedRows.filter(row => row.canRestore);
-  const deletable = selectedRows.filter(row => row.canDelete);
-  const selectableRows = rows.filter(row => row.canRestore || row.canDelete);
-  const allSelected = selectableRows.length > 0 && selectableRows.every(row => (selected ?? []).includes(row.diary.id));
+  const { picked: selectedRows, restorable, deletable } = splitSelection(rows, selected);
+  const selectableCount = selectableIds(rows).length;
+  const allSelected = isAllSelected(rows, selected);
   const canBulkRestore = Boolean(onRestoreMany || onRestore), canBulkDelete = Boolean(onDeleteMany);
 
   const sheet = sheetId ? byId.get(sheetId) : null;
@@ -161,9 +159,9 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={allSelected ? '전체 해제' : '전체 선택'}
-          disabled={busy || !selectableRows.length}
-          onPress={() => setSelected(allSelected ? [] : selectableRows.map(row => row.diary.id))}
-          style={({ pressed }) => [s.selectButton, (busy || !selectableRows.length) && s.selectButtonDisabled, pressed && s.pressed]}
+          disabled={busy || !selectableCount}
+          onPress={() => setSelected(allSelected ? [] : selectableIds(rows))}
+          style={({ pressed }) => [s.selectButton, (busy || !selectableCount) && s.selectButtonDisabled, pressed && s.pressed]}
         >
           <Text style={s.selectButtonText}>{allSelected ? '전체 해제' : '전체 선택'}</Text>
         </Pressable>

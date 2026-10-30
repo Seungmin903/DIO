@@ -644,7 +644,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       onRestoreMany={async (ids) => {
         let failed = 0;
         for (const id of ids) {
-          try { if ((await restoreFromTrash(id)) === false) failed += 1; } catch { failed += 1; }
+          // 로컬은 false 가 실패, 서버(회원)는 거부(reject)가 실패다. 서버가 돌려주는 값은 성공 여부가 아니다.
+          try { const result = await restoreFromTrash(id); if (!member && !result) failed += 1; } catch { failed += 1; }
         }
         if (failed) notify('복원하지 못한 다이어리가 있어요', `${failed}개를 복원하지 못했어요. 보관 기한이 지났거나 영구 삭제 중일 수 있어요.`);
       }}
@@ -656,7 +657,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           onConfirm: async () => {
             let failed = 0;
             for (const item of items) {
-              try { if ((await deletePermanently(item.id)) === false) failed += 1; } catch { failed += 1; }
+              try { if (!await deletePermanently(item.id)) failed += 1; } catch { failed += 1; }
             }
             if (failed) notify('삭제하지 못한 다이어리가 있어요', `${failed}개를 삭제하지 못했어요. 저장소를 확인한 뒤 다시 시도해 주세요.`);
           },
