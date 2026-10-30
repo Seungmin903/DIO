@@ -88,8 +88,8 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         </Pressable>
       </Animated.View>
       <Animated.View style={[s.railProfileFloating, {
-        top: between(70, 0),
-        left: 0,
+        top: between(90, 20),
+        left: between(15, 20),
       }]}>
         {profileButton()}
       </Animated.View>
