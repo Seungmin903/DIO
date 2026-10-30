@@ -15,13 +15,13 @@ import CoverPattern from './CoverPattern'
 import { textStyle } from '../../editor/utils/text'
 import { loadPhotoTone } from '../utils/loadPhotoTone'
 import {
-  ANCHORS, BAND_COLORS, COVER_COLORS, COVER_FONTS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, PLATES, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
+  ANCHORS, BAND_COLORS, COVER_COLORS, COVER_FONTS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, PLATE_SHAPES, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
   bandAutoColor, changeCoverKind, coverElementSummary,
 } from '../utils/coverDesign'
 
 // 표지 종류(위 세 갈래)는 배경만 바꾸고, 아래 다섯 줄은 종류와 상관없이 같은 값을 쓴다.
-// 글씨(내용 · 글씨체 · 크기 · 색)는 '제목 · 소제목', 라벨 모양과 위치(9칸 · 끌어 옮기기)는 '라벨 · 위치'에서만 고친다.
-export const COVER_ELEMENTS = [['base', '배경'], ['band', '고무줄'], ['text', '제목 · 소제목'], ['plate', '라벨 · 위치'], ['stickers', '스티커']]
+// 글씨(내용 · 글씨체 · 크기 · 색)는 '제목 · 소제목', 라벨 모양과 위치(9칸 · 끌어 옮기기)는 '라벨'에서만 고친다.
+export const COVER_ELEMENTS = [['base', '배경'], ['band', '고무줄'], ['text', '제목 · 소제목'], ['plate', '라벨'], ['stickers', '스티커']]
 const KINDS = [{ id: 'none', label: '표지 없음' }, { id: 'plain', label: '색 · 무늬' }, { id: 'photo', label: '사진' }]
 const chips = list => list.map(([id, label]) => ({ id, label }))
 
@@ -197,11 +197,12 @@ function ElementOptions({ element, cover, onChange, onNotice, pickNow, onPickHan
       <OptionRow label="색"><ColorRow label="소제목 색" value={cover.subtitle.color} swatches={SUBTITLE_COLORS} onChange={color => set({ subtitle: { ...cover.subtitle, color } })} /></OptionRow>
     </>}
   </>
-  if (element === 'plate') return <>
-    <OptionRow label="모양"><Segmented items={chips(PLATES)} selected={id => id === cover.plate} onPress={plate => set({ plate })} /></OptionRow>
-    {cover.plate === 'ribbon' && <OptionRow label="띠지 색"><ColorRow label="띠지 색" value={cover.ribbon.color} swatches={RIBBON_COLORS} onChange={color => set({ ribbon: { ...cover.ribbon, color } })} /></OptionRow>}
+  // 꺼진 라벨도 고칠 수 있게 두되 흐리게 보인다. 모양을 고르면 라벨이 다시 켜진다.
+  if (element === 'plate') return <View style={cover.plate === 'none' && styles.off}>
+    <OptionRow label="모양"><Segmented items={chips(PLATE_SHAPES)} selected={id => id === cover.plateStyle} onPress={plate => set({ plate, plateStyle: plate })} /></OptionRow>
+    {cover.plateStyle === 'ribbon' && <OptionRow label="띠지 색"><ColorRow label="띠지 색" value={cover.ribbon.color} swatches={RIBBON_COLORS} onChange={color => set({ ribbon: { ...cover.ribbon, color } })} /></OptionRow>}
     <OptionRow label="위치"><AnchorGrid value={cover.title.at ? null : cover.title.anchor} onChange={anchor => set({ title: { ...cover.title, anchor, at: null } })} /></OptionRow>
-  </>
+  </View>
   if (element === 'stickers') return <StickerPicker cover={cover} onChange={onChange} onNotice={onNotice} />
   return null
 }
@@ -240,6 +241,7 @@ export default function CoverOptions({ cover, onChange, openElement, onOpenEleme
   }
   const toggles = {
     band: { value: cover.band.on, onChange: on => onChange({ ...cover, band: { ...cover.band, on } }) },
+    plate: { value: cover.plate !== 'none', onChange: on => onChange({ ...cover, plate: on ? cover.plateStyle : 'none' }) },
   }
   return <View style={styles.panel}>
     <Segmented items={KINDS} selected={id => id === (cover.enabled ? cover.kind : 'none')} onPress={changeKind} />

@@ -18,8 +18,9 @@ const luminance = hex => {
 function starOutlineFor(diary) {
   const cover = normalizeCover(diary);
   if (!cover.enabled) return C.ink; // 표지를 뺀 다이어리는 첫 페이지(밝은 속지)가 보인다
-  if (cover.kind === 'photo') return '#FFFFFF';
-  const top = cover.gradient === 'custom' ? cover.gradientColors[0] : Number.isInteger(cover.gradient) ? COVER_GRADIENTS[cover.gradient][1][0] : cover.color;
+  // 사진 표지는 사진의 대표 색(photo.tone)으로 정한다. 흰 PDF 표지처럼 밝은 사진에서 흰 윤곽이 묻히지 않게. 아직 대표 색이 없으면 흰색.
+  if (cover.kind === 'photo' && !cover.photo?.tone) return '#FFFFFF';
+  const top = cover.kind === 'photo' ? cover.photo.tone : cover.gradient === 'custom' ? cover.gradientColors[0] : Number.isInteger(cover.gradient) ? COVER_GRADIENTS[cover.gradient][1][0] : cover.color;
   return 1.05 / (luminance(top) + 0.05) >= 1.5 ? '#FFFFFF' : C.ink;
 }
 

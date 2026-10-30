@@ -10,7 +10,7 @@ import { C } from '../constants';
 import { coverShadowAt } from '../utils/deskShadow';
 import { LAMP_PATCH, deskLightAt } from '../utils/deskLight';
 import { coverLightAt } from '../utils/coverLight';
-import { useDeskHour } from '../utils/deskTimeStore';
+import { useDeskHour, useDeskMode } from '../utils/deskTimeStore';
 import { carouselFollowNodes, carouselRestAt, followOffset } from '../utils/carouselFollow';
 import { useRailMoving } from '../utils/railMotion';
 import { maskFrame, useDeskGeometry, useDeskLayoutTick } from '../utils/deskMask';
@@ -58,7 +58,9 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
   const boxWidth = ratio < 1 ? longSide * ratio : longSide;
   const boxHeight = ratio < 1 ? longSide : longSide / ratio;
   const artWidth = ratio < 1 ? ART_LONG_SIDE * ratio : ART_LONG_SIDE, artHeight = ratio < 1 ? ART_LONG_SIDE : ART_LONG_SIDE / ratio
-  const hour = useDeskHour(sunShadow)
+  // 조명 없음 모드에서는 표지에 빛 · 그늘을 얹지 않는다(hour 가 없으면 조명 · 시간대 그림자 모두 꺼진다)
+  const lightOff = useDeskMode() === 'off'
+  const hour = useDeskHour(sunShadow && !lightOff)
   // shadow · light 는 같은 값이면 같은 객체를 넘긴다. 매번 새 객체를 만들면 memo 인 CoverArt 가 값이 같아도 다시 그려져 패턴(SVG)까지 새로 그려진다.
   const { boxShadow, shadowOpacity, shadowColor, shadowRadius, elevation } = frame, shadowOffset = frame.shadowOffset
   const shadow = useMemo(() => sunShadow && hour != null && (frame.boxShadow || frame.shadowOpacity) ? { boxShadow: coverShadowAt(hour, Boolean(frame.boxShadow), deskLightAt(hour).lamp) } : frame.boxShadow ? { boxShadow: frame.boxShadow } : frame.shadowOpacity ? { shadowColor: frame.shadowColor, shadowOpacity: frame.shadowOpacity, shadowRadius: frame.shadowRadius, shadowOffset: frame.shadowOffset, elevation: frame.elevation } : null, [sunShadow, hour, boxShadow, shadowOpacity, shadowColor, shadowRadius, elevation, shadowOffset?.width, shadowOffset?.height]);
