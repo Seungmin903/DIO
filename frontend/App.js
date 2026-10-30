@@ -495,13 +495,22 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     return [...diaries.filter(diary => !diary.trashedAt).map(diary => ({ ...diary, isShared: member ? Boolean(diary.isShared) : sharedOwnedIds.has(diary.id) })), ...(member ? [] : sharing.library)];
   }, [diaries, sharing.diaries, sharing.library, member, sharing.runtime]);
   const libraryMetadata = useLibraryMetadata(visibleDiaries, page, member);
-  // 서버는 정렬 기준마다 정해진 방향으로만 내려준다. 사용자가 방향을 뒤집었으면(예: title:desc) 받아 둔 목록을 뒤집어 보여준다.
+  // 서버는 정렬 기준마다 정해진 방향으로만 내려준다(서버 방향 지원 전까지의 임시 처리).
+  // 사용자가 방향을 뒤집으면(예: title:desc) 목록을 뒤집어 보여주는데, 서버 목록은 페이지로 나뉘어 일부만 받은 채 뒤집으면 순서가 틀린다.
+  // 그래서 뒤집을 때는 남은 페이지를 모두 불러온 뒤에만 보여준다(불러오는 동안은 빈 목록 + 불러오는 중 표시).
+  const sortReversed = member && parseSort(librarySort).direction !== parseSort(parseSort(librarySort).key).direction;
+  const fullLoadPending = Boolean(sortReversed && memberLibraryMatches && diaryState.library.hasNext);
   const libraryDiaries = useMemo(() => {
     if (!member) return visibleDiaries;
     const items = memberLibraryMatches ? diaryState.library.items : [];
-    const { key, direction } = parseSort(librarySort);
-    return direction === parseSort(key).direction ? items : [...items].reverse();
-  }, [member, memberLibraryMatches, diaryState.library?.items, librarySort, visibleDiaries]);
+    if (!sortReversed) return items;
+    return fullLoadPending ? [] : [...items].reverse();
+  }, [member, memberLibraryMatches, diaryState.library?.items, sortReversed, fullLoadPending, visibleDiaries]);
+  const libraryReady = diaryState.library?.ready, libraryBusy = diaryState.library?.loading, libraryFailed = diaryState.library?.error, libraryCursor = diaryState.library?.nextCursor;
+  useEffect(() => {
+    // 한 페이지씩 이어서 불러온다. 오류가 나면 멈추고, 화면의 다시 시도 버튼이 재개한다.
+    if (page === 'library' && fullLoadPending && libraryReady && !libraryBusy && !libraryFailed) diaryState.store.loadMoreLibrary().catch(() => {});
+  }, [page, fullLoadPending, libraryReady, libraryBusy, libraryFailed, libraryCursor, diaryState.store]);
   useEffect(() => {
     if (page !== 'library' || !returnDiaryId.current) return;
     if (member && (!memberLibraryMatches || !diaryState.library.ready || diaryState.library.loading)) return;
@@ -609,7 +618,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           catch (error) { notify('이전 생성을 확인하지 못했어요', error.message); }
           finally { savingRef.current = false; setSaving(false); }
         }} /></> : null}
-      suppressEmpty={member && Boolean(!memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
+      suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
     />
   ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
