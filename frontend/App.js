@@ -28,7 +28,7 @@ import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
-import { queryDiaries } from './src/diary/utils/libraryQuery';
+import { parseSort, queryDiaries } from './src/diary/utils/libraryQuery';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
@@ -488,7 +488,13 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     return [...diaries.filter(diary => !diary.trashedAt).map(diary => ({ ...diary, isShared: member ? Boolean(diary.isShared) : sharedOwnedIds.has(diary.id) })), ...(member ? [] : sharing.library)];
   }, [diaries, sharing.diaries, sharing.library, member, sharing.runtime]);
   const libraryMetadata = useLibraryMetadata(visibleDiaries, page, member);
-  const libraryDiaries = member ? (memberLibraryMatches ? diaryState.library.items : []) : visibleDiaries;
+  // 서버는 정렬 기준마다 정해진 방향으로만 내려준다. 사용자가 방향을 뒤집었으면(예: title:desc) 받아 둔 목록을 뒤집어 보여준다.
+  const libraryDiaries = useMemo(() => {
+    if (!member) return visibleDiaries;
+    const items = memberLibraryMatches ? diaryState.library.items : [];
+    const { key, direction } = parseSort(librarySort);
+    return direction === parseSort(key).direction ? items : [...items].reverse();
+  }, [member, memberLibraryMatches, diaryState.library?.items, librarySort, visibleDiaries]);
   useEffect(() => {
     if (page !== 'library' || !returnDiaryId.current) return;
     if (member && (!memberLibraryMatches || !diaryState.library.ready || diaryState.library.loading)) return;
@@ -681,6 +687,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   // 햇살 책상은 태블릿(가로)만 쓴다. 폰(세로)은 가로형과 같은 빛 경험을 실기로 검증하지 못해 잠가 둔다(DESK_ON_PHONE).
   const desk = page === 'library' && loaded && (!isPhone || DESK_ON_PHONE);
   const deskLayout = event => { const { width, height } = event.nativeEvent.layout; setDeskSize(current => (current && current.width === width && current.height === height ? current : { width, height })) }
+  // 태블릿 책상은 사이드바가 접힌(가장 넓은) 작업 영역 크기로 고정하고 오른쪽 끝에 붙인다. 사이드바를 여닫는 동안 작업 영역 폭이
+  // 프레임마다 바뀌어도 책상(원목 · 창빛)은 다시 그려지지도 움직이지도 않고, 넓어질 때 뒤 바탕(흰색)이 비치지도 않는다.
+  const tabletDeskSize = useMemo(() => deskSize && {
+    width: Math.max(deskSize.width, windowWidth - insets.left - insets.right - RAIL_WIDTH.collapsed),
+    height: deskSize.height,
+  }, [deskSize, windowWidth, insets.left, insets.right]);
   let shell;
   if (page === 'editor') {
     shell = content;
@@ -709,8 +721,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           collapsed={railCollapsed}
           onToggle={() => setRailCollapsed((current) => !current)}
         />
-        <View style={[s.workspace, { paddingBottom: insets.bottom }]} onLayout={deskLayout}>
-          {desk && <DeskBackdrop size={deskSize} />}
+        <View style={[s.workspace, { paddingBottom: insets.bottom }, desk && { overflow: 'hidden' }]} onLayout={deskLayout}>
+          {desk && <DeskBackdrop anchorRight size={tabletDeskSize} />}
           {desk ? <View style={s.deskAbove}>{content}</View> : content}
             {createModal}
         </View>

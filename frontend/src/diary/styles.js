@@ -56,6 +56,10 @@ export const styles = StyleSheet.create({
   libraryScreen: { flexGrow: 1, paddingHorizontal: 30, paddingTop: 38, paddingBottom: 34 },
   // 폰의 모든 탭은 위 여백·제목 줄 높이를 같게 둬서 탭을 바꿔도 제목이 움직이지 않는다.
   libraryScreenCompact: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 20 },
+  // 한눈에 보기: 위쪽(제목 · 필터 · 도구)은 고정하고 카드 목록만 스크롤한다. 정렬 메뉴가 목록 위로 펼쳐지도록 zIndex 를 높인다.
+  libraryFixedTop: { flexGrow: 0, flexShrink: 0, paddingBottom: 0, zIndex: 3, elevation: 3 },
+  libraryGridScroll: { flexGrow: 1, paddingHorizontal: 30, paddingBottom: 34 },
+  libraryGridScrollCompact: { paddingHorizontal: 18, paddingBottom: 20 },
   libraryScreenCarouselCompact: { flexGrow: 1, paddingBottom: 8 },
   libraryHeader: { minHeight: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   // 제목이 짧으면 보기 전환과 한 줄, 길면 보기 전환이 다음 줄 오른쪽으로 내려간다.
@@ -75,7 +79,8 @@ export const styles = StyleSheet.create({
   libraryActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   librarySortMenu: { position: 'absolute', top: '100%', right: 0, width: 230, backgroundColor: C.white, borderRadius: 14, padding: 8, gap: 4, zIndex: 20, borderWidth: 1, borderColor: C.line },
   libraryOptionsDivider: { height: 1, backgroundColor: C.line, marginVertical: 8 },
-  librarySortOption: { minHeight: 44, alignSelf: 'stretch', alignItems: 'flex-start', borderWidth: 0, borderRadius: 10 },
+  // 고른 항목의 파란 테두리(1.5)와 같은 두께를 모든 항목이 갖고(안 고른 건 투명), 체크 자리를 따로 두므로 왼쪽 여백은 줄인다. 그래야 글자가 항목마다 같은 자리에 선다.
+  librarySortOption: { minHeight: 44, alignSelf: 'stretch', alignItems: 'flex-start', paddingHorizontal: 10, borderWidth: 1.5, borderColor: 'transparent', borderRadius: 10 },
   librarySearchHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10 },
   librarySearchPageInput: { height: 48, marginTop: 32, borderWidth: 1, borderColor: C.blue },
   librarySearchClearSlot: { width: 44, height: 44, flexShrink: 0 },
@@ -157,7 +162,7 @@ export const styles = StyleSheet.create({
   card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18, overflow: 'hidden' },
   cardCarousel: { width: 318, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardCarouselCompact: { width: 268 },
-  cardGrid: { width: '18.25%', minWidth: 160, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
+  cardGrid: { width: '23.5%', minWidth: 0, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardGridCompact: { width: '47.5%', minWidth: 0 },
   cardList: { minHeight: 120, flexDirection: 'row', alignItems: 'stretch' },
   cardInfo: { minHeight: 91, padding: 13, justifyContent: 'space-between' },
@@ -173,6 +178,8 @@ export const styles = StyleSheet.create({
   cardSelected: { borderColor: C.blue },
   cardCheck: { position: 'absolute', top: 12, right: 12, zIndex: 3, width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 2, borderColor: C.white, backgroundColor: 'rgba(11,25,87,.28)' },
   cardCheckOn: { backgroundColor: C.blueStrong },
+  sortOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  sortOptionCheck: { width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }, // 화살표가 없는 항목도 자리를 비워 둬 글자가 맞는다
   cardCheckMark: { color: C.white, fontSize: 16, fontWeight: '800', lineHeight: 18 },
   cardActions: { position: 'absolute', top: 12, right: 11, zIndex: 3, flexDirection: 'row', gap: 5 },
   cardAction: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.12)' },
@@ -203,7 +210,7 @@ export const styles = StyleSheet.create({
   coverRule: { flex: 1, height: 1, backgroundColor: 'rgba(11,25,87,.34)' },
   coverYear: { color: 'rgba(11,25,87,.72)', fontSize: 10, fontWeight: '900' },
   coverYearSmall: { fontSize: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 20, rowGap: 34, paddingTop: 44 }, // 첫 줄은 제목 · 칩에서 조금 내려서 시작한다
+  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 34, paddingTop: 44 }, // 첫 줄은 제목 · 칩에서 조금 내려서 시작한다
   gridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between', paddingTop: 64 },
 
   createCard: { alignItems: 'stretch' },
@@ -357,14 +364,14 @@ export const styles = StyleSheet.create({
   tipTitle: { color: C.ink, fontSize: 16, fontWeight: '800', marginTop: 8 },
   tipTitleCompact: { fontSize: 15, marginTop: 0 },
   tipCopy: { color: C.inkSoft, fontSize: 12, marginTop: 8 },
-  trashGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 22 },
+  trashGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 22 },
   trashGridCompact: { columnGap: 12, rowGap: 16, justifyContent: 'space-between' },
   trashPolicy: { color: C.muted, fontSize: 13, lineHeight: 21, marginBottom: 16 },
   trashNotice: { padding: 16, borderRadius: 12, backgroundColor: C.pale, marginBottom: 16 },
-  trashCard: { width: 210, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: C.line, backgroundColor: C.white },
+  trashCard: { width: '23.5%', padding: 12, borderRadius: 18, borderWidth: 1, borderColor: C.line, backgroundColor: C.white }, // 흰 틀 안에 홈 격자와 같은 표지를 얹는다
   trashCardCompact: { width: '48%', padding: 10, borderRadius: 16 },
-  trashCover: { height: 180, overflow: 'hidden', borderRadius: 12, opacity: 0.72 },
-  trashCoverCompact: { height: 142, borderRadius: 10 },
+  trashCover: { position: 'relative' }, // 홈 격자 카드의 표지 칸(cardCoverWrap)과 같게: 자르거나 흐리게 하지 않는다
+  trashCoverCompact: {},
   trashTitle: { color: C.ink, fontSize: 14, fontWeight: '700', marginTop: 12 },
   trashDate: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
   trashActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
