@@ -11,7 +11,7 @@ import { isSharedDiary } from '../utils/libraryQuery';
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
 // sunShadow: 책상 위 표지라 그림자를 해 방향에 맞춘다
 // infoStyle: 스와이프 옆 카드에서 이름 · 페이지 수를 흐리게 하는 애니메이션 값
-function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, sunShadow = false, lightMotion = null }) {
+function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false, lightMotion = null }) {
   // 로컬 요약이 있으면 그것을 사용한다. null은 조회 실패, undefined는 아직 확인 전이다.
   const count = pageCount === undefined ? diary.pageCount : pageCount;
   const countLabel = count === undefined ? '페이지 수 확인 중'
@@ -25,6 +25,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
       accessibilityState={selecting ? { checked: selected } : layout === 'carousel' ? { selected: carouselActive } : undefined}
       aria-checked={selecting ? selected : undefined}
       onPress={() => (selecting ? onToggleSelect?.(diary) : onOpen(diary))}
+      onLongPress={!selecting && diary.canManage !== false && diary.canDelete !== false ? () => onEnterEdit?.(diary) : undefined}
       // 누르면 반투명해진다. 안드로이드가 자식마다 따로 투명하게 해 그림자 · 뒤 요소가 비치지 않도록 한 장으로 합쳐 그린다
       needsOffscreenAlphaCompositing
       style={({ pressed }) => [
