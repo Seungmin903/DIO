@@ -41,6 +41,7 @@ export const styles = StyleSheet.create({
   railItem: { minHeight: 48, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: 12 },
   railItemSelected: { backgroundColor: C.active },
   railIconSlot: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  navigationAvatar: { width: 20, height: 20, borderRadius: 10, backgroundColor: C.active },
   railIcon: { width: 19, textAlign: 'center', color: C.muted, fontSize: 17, fontWeight: '700' },
   railIconSelected: { color: C.ink },
   railLabel: { flexShrink: 0, color: C.inkSoft, fontSize: 13, fontWeight: '600' },

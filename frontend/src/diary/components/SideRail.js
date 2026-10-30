@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import BrandLogo from '../../shared/BrandLogo';
 import AppIcon from '../../shared/AppIcon';
 import SharingEntry from '../../sharing/SharingEntry';
@@ -9,7 +10,7 @@ import { styles as s } from '../styles';
 export const RAIL_WIDTH = { collapsed: 78, expanded: 218 };
 const RAIL_PADDING = { collapsed: 15, expanded: 20 };
 
-function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle, onNotifications, invitationCount = 0, notificationLabel = '받은 초대', notificationCount }) {
+function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle, onNotifications, invitationCount = 0, notificationLabel = '받은 초대', notificationCount, profilePhotoSource }) {
   // 0 = 접힘, 1 = 펼침. 너비·여백·글자 투명도를 한 값으로 함께 움직인다.
   const progress = useRef(new Animated.Value(collapsed ? 0 : 1)).current;
 
@@ -40,7 +41,11 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         style={({ pressed }) => [s.railItem, selected && s.railItemSelected, pressed && s.pressed]}
       >
         <View style={s.railIconSlot}>
-          <AppIcon name={icon} size={20} color={selected ? C.ink : C.muted} fill={selected && icon === 'star' ? C.ink : 'none'} />
+          {id === 'profile' && profilePhotoSource ? (
+            <Image source={profilePhotoSource} style={s.navigationAvatar} contentFit="cover" cachePolicy="memory" />
+          ) : (
+            <AppIcon name={icon} size={20} color={selected ? C.ink : C.muted} fill={selected && icon === 'star' ? C.ink : 'none'} />
+          )}
         </View>
         <Animated.Text numberOfLines={1} style={[s.railLabel, selected && s.railLabelSelected, { opacity: labelOpacity }]}>{label}</Animated.Text>
       </Pressable>

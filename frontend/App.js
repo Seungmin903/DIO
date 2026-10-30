@@ -97,6 +97,8 @@ function DiaryApp(props) {
 }
 function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
   const member = diaryState.source === 'member-api';
+  const profilePhotoSource = previewUser?.photoUri && previewUser.mode === 'authenticated'
+    ? authService.getProfilePhotoSource(previewUser.photoUri) : null;
   const profileLeaveGuard = useRef(null);
   const profileBackHandler = useRef(null);
   const registerProfileLeaveGuard = useCallback((guard, onBack) => {
@@ -668,7 +670,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     shell = (
       <View style={s.phoneShell}>
         <View style={s.workspace}>{content}</View>
-        <BottomTabs notificationCount={authenticatedNotifications?.count} notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
+        <BottomTabs notificationCount={authenticatedNotifications?.count} notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} profilePhotoSource={profilePhotoSource} />
         {createModal}
       </View>
     );
@@ -686,6 +688,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           bottomInset={insets.bottom}
           collapsed={railCollapsed}
           onToggle={() => setRailCollapsed((current) => !current)}
+          profilePhotoSource={profilePhotoSource}
         />
         <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
           {content}

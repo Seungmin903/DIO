@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import AppIcon from '../../shared/AppIcon';
 import SharingEntry from '../../sharing/SharingEntry';
 import { C } from '../constants';
@@ -13,7 +14,7 @@ const TABS = [
 ];
 
 // 폰 홈의 하단 탭. 태블릿 사이드 메뉴(SideRail)와 같은 navigate를 쓴다.
-function BottomTabs({ page, filter, navigate, bottomInset = 0, onNotifications, invitationCount = 0, notificationLabel = '받은 초대', notificationCount }) {
+function BottomTabs({ page, filter, navigate, bottomInset = 0, onNotifications, invitationCount = 0, notificationLabel = '받은 초대', notificationCount, profilePhotoSource }) {
   return (
     <View style={[s.tabBarWrap, { paddingBottom: Math.max(bottomInset, 10) + 8 }]}>
       <View style={s.tabBar} accessibilityRole="tablist">
@@ -29,7 +30,11 @@ function BottomTabs({ page, filter, navigate, bottomInset = 0, onNotifications, 
               onPress={() => navigate(tab.id, tab.filter)}
               style={({ pressed }) => [s.tabItem, selected && s.tabItemSelected, pressed && s.pressed]}
             >
-              <AppIcon name={tab.icon} size={21} color={selected ? C.ink : C.muted} fill={selected && tab.icon === 'star' ? C.ink : 'none'} />
+              {tab.id === 'profile' && profilePhotoSource ? (
+                <Image source={profilePhotoSource} style={s.navigationAvatar} contentFit="cover" cachePolicy="memory" />
+              ) : (
+                <AppIcon name={tab.icon} size={21} color={selected ? C.ink : C.muted} fill={selected && tab.icon === 'star' ? C.ink : 'none'} />
+              )}
               <Text numberOfLines={1} style={[s.tabLabel, selected && s.tabLabelSelected]}>{tab.label}</Text>
             </Pressable>
           );
