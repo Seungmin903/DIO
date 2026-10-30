@@ -14,6 +14,10 @@ export const styles = StyleSheet.create({
   appFill: { flex: 1, alignSelf: 'stretch' },
   phoneShell: { flex: 1 },
   tabBarWrap: { flexShrink: 0, paddingHorizontal: 10, paddingTop: 6, backgroundColor: C.canvas },
+  tabBarWrapDesk: { backgroundColor: 'transparent', zIndex: 2, elevation: 2 }, // 책상 위에서는 탭 막대 뒤 바탕 띠를 없앤다
+  workspaceDesk: { backgroundColor: 'transparent' },
+  // 책상 바탕(맨 뒤) 위에 보관함 내용을 확실히 올린다. 안드로이드는 그리는 순서 말고 zIndex · elevation 으로도 겹침을 정한다.
+  deskAbove: { flex: 1, zIndex: 1, elevation: 1 },
   tabBar: { minHeight: 66, flexDirection: 'row', padding: 5, overflow: 'visible', borderRadius: 24, borderWidth: 1, borderColor: C.line, backgroundColor: C.white, shadowColor: C.ink, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   tabItem: { flex: 1, minHeight: 54, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 19 },
   tabItemSelected: { backgroundColor: C.active },
@@ -132,8 +136,8 @@ export const styles = StyleSheet.create({
   secondaryText: { color: C.ink, fontSize: 13, fontWeight: '700' },
   secondaryArrow: { color: C.ink, fontSize: 19 },
 
-  carouselShell: { minHeight: 510, flex: 1, paddingTop: 31, paddingBottom: 17, overflow: 'hidden' },
-  carouselShellCompact: { minHeight: 0, paddingTop: 4, paddingBottom: 0, marginHorizontal: -18 },
+  carouselShell: { minHeight: 510, flex: 1, paddingTop: 47, paddingBottom: 3, overflow: 'hidden' },
+  carouselShellCompact: { minHeight: 0, paddingTop: 16, paddingBottom: 0, marginHorizontal: -18 },
   carouselRow: { height: 412, position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   carouselRowCompact: { flex: 1, height: 'auto', minHeight: 0 },
   carouselCardTop: { zIndex: 2 },
@@ -149,10 +153,7 @@ export const styles = StyleSheet.create({
   carouselArrowLeft: { left: 4 },
   carouselArrowRight: { right: 4 },
   carouselArrowText: { color: C.ink, fontSize: 32, lineHeight: 35, fontWeight: '300' },
-  carouselFoot: { minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, paddingTop: 10 },
-  carouselFootCompact: { minHeight: 28, paddingTop: 0 },
   swipeHint: { color: C.inkSoft, fontSize: 11.5, fontWeight: '700' },
-  carouselCount: { color: C.ink, fontSize: 13, fontWeight: '800' },
   card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18, overflow: 'hidden' },
   cardCarousel: { width: 318, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardCarouselCompact: { width: 268 },
@@ -183,7 +184,8 @@ export const styles = StyleSheet.create({
   cardType: { color: C.muted, fontSize: 10.5, fontWeight: '600', marginTop: 5 },
 
   cover: { height: 219, padding: 19, overflow: 'hidden', justifyContent: 'center' },
-  coverCarousel: { height: 318, borderTopLeftRadius: 9, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 9 },
+  // 책상 위 표지: 오후 빛과 같은 방향(오른쪽 아래)의 옅은 그림자
+  coverCarousel: { height: 318, borderTopLeftRadius: 9, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 9, boxShadow: '6px 10px 14px rgba(28,34,51,0.16)' }, // elevation 은 안드로이드에서 표지 둘레에 옅은 테두리를 만들어 방향 있는 boxShadow 를 쓴다
   coverCarouselCompact: { height: 268, padding: 16 },
   // 한눈에 칸은 정사각형. 세로 · 가로 다이어리 모두 긴 변이 칸 크기와 같다 (선반 배치)
   coverGrid: { aspectRatio: 1, borderRadius: 12, shadowColor: C.ink, shadowOpacity: 0.13, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
@@ -201,8 +203,8 @@ export const styles = StyleSheet.create({
   coverRule: { flex: 1, height: 1, backgroundColor: 'rgba(11,25,87,.34)' },
   coverYear: { color: 'rgba(11,25,87,.72)', fontSize: 10, fontWeight: '900' },
   coverYearSmall: { fontSize: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 20, rowGap: 34, paddingTop: 4 },
-  gridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between', paddingTop: 18 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 20, rowGap: 34, paddingTop: 44 }, // 첫 줄은 제목 · 칩에서 조금 내려서 시작한다
+  gridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between', paddingTop: 64 },
 
   createCard: { alignItems: 'stretch' },
   createCardCarousel: { width: 238 },

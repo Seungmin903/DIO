@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- 실물 클립 구조대로 그린 책상 소품 (위에서 본 평면). 클립 그리기.cjs 가 요소마다 투명 PNG 로 찍는다. -->
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; }
+  svg { display: block; margin: 0 0 40px; }
+</style>
+<body>
+<svg id="종이 클립 골드" width="240" height="840" viewBox="-0.8 -0.3 9.6 33.6">
+  <!-- 젬 클립: 철사 한 줄이 안쪽 작은 고리(위) → 아래 고리 → 바깥 큰 고리(위) 순서로 돈다 -->
+  <defs>
+    <path id="gem" d="M 2.6 22 L 2.6 8.5 A 1.7 1.7 0 0 1 6 8.5 L 6 29.4 A 3 3 0 0 1 0 29.4 L 0 4.5 A 4 4 0 0 1 8 4.5 L 8 25" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+  </defs>
+  <use href="#gem" stroke="#555B64" stroke-width="0.8" />
+  <use href="#gem" stroke="#A9AFB8" stroke-width="0.6" />
+  <use href="#gem" stroke="#FFFFFF" stroke-width="0.22" transform="translate(-0.12 -0.08)" opacity="0.95" />
+</svg>
+
+<svg id="하트 클립 골드" width="560" height="520" viewBox="-11 -10.6 22 20.6">
+  <!-- 하트 클립(실물): 철사 한 줄(한붓그리기, 되돌아가지 않는다). 왼쪽 아래 열린 끝(안쪽 하트의 왼쪽 빗변 아래)에서 출발해 빗변을 따라 올라 안쪽 작은 하트를 돌아 아래 꼭짓점에 닿고,
+       같은 철사가 꼭짓점에서 바깥 하트의 왼쪽을 따라 올라가 한 바퀴 돌고 오른쪽 아래 꼭짓점 직전에서 끝난다(양 끝이 모두 열려 있다) -->
+  <defs>
+    <path id="heart" d="M -3 4.2 L -7.4 -1.8
+      C -7.7 -4.6 -5.9 -6.6 -3.9 -6.6 C -2 -6.6 -0.7 -5.6 0 -3.9 C 0.7 -5.6 2 -6.6 3.9 -6.6 C 5.9 -6.6 7.7 -4.6 7.4 -1.8 C 7 1 4.2 4.2 0.7 7.2 L 0 9
+      C -6 4 -10 0 -10 -4 C -10 -7.5 -7.4 -9.5 -5 -9.5 C -2.6 -9.5 -0.8 -8 0 -5.8 C 0.8 -8 2.6 -9.5 5 -9.5 C 7.4 -9.5 10 -7.5 10 -4 C 10 -0.8 7.6 2.6 3.2 6.3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+  </defs>
+  <use href="#heart" stroke="#555B64" stroke-width="0.8" />
+  <use href="#heart" stroke="#A9AFB8" stroke-width="0.58" />
+  <use href="#heart" stroke="#FFFFFF" stroke-width="0.18" transform="translate(-0.1 -0.08)" opacity="0.95" />
+</svg>
+
+<svg id="바인더 클립 버터" width="528" height="756" viewBox="-22 -36 44 63">
+  <!-- 실물 구조(특허 · 위키): 스프링강 몸통(옆에서 보면 이등변삼각형)의 꼭짓점에 말린 경첩이 있고, 그 고리에 철사 손잡이 두 개가 끼워진다.
+       손잡이는 몸통보다 폭이 좁은 둥근 귀 모양이고, 둘이 살짝 어긋나 겹쳐 보인다. 위에서 눕혀 본 모습 -->
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F3DA8E" />
+      <stop offset="0.55" stop-color="#F1D47F" />
+      <stop offset="0.9" stop-color="#E8C66A" />
+      <stop offset="1" stop-color="#D8B358" />
+    </linearGradient>
+    <linearGradient id="roll" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D9B860" />
+      <stop offset="0.35" stop-color="#FBEDBE" />
+      <stop offset="1" stop-color="#E5C46C" />
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0" />
+      <stop offset="0.3" stop-color="#FFFFFF" stop-opacity="0.32" />
+      <stop offset="0.42" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <!-- 손잡이: 철사 끝이 경첩 양쪽 홈에 걸림 → 위로 갈수록 살짝 좁아지는 귀 모양 -->
+    <path id="handleA" d="M -15.5 0.8 L -13.6 -5 C -12.6 -12 -11.6 -20 -10.4 -26.5 A 10.4 6.2 0 0 1 10.4 -26.5 C 11.6 -20 12.6 -12 13.6 -5 L 15.5 0.8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+    <path id="handleB" d="M -13 0.8 L -11.6 -5 C -10.8 -11 -10 -18 -9 -24 A 9.2 5.6 0 0 1 9.2 -24 C 10.2 -18 11 -11 11.8 -5 L 13 0.8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+  </defs>
+  <g transform="translate(2.2 1)">
+    <use href="#handleB" stroke="#555B64" stroke-width="1.15" />
+    <use href="#handleB" stroke="#B4BAC3" stroke-width="0.86" />
+  </g>
+  <use href="#handleA" stroke="#555B64" stroke-width="1.2" />
+  <use href="#handleA" stroke="#D3D8DF" stroke-width="0.9" />
+  <use href="#handleA" stroke="#FFFFFF" stroke-width="0.3" transform="translate(-0.2 -0.14)" opacity="0.9" />
+  <rect x="-20" y="0" width="40" height="25.5" rx="1.4" fill="url(#body)" />
+  <rect x="-20" y="0" width="40" height="25.5" rx="1.4" fill="url(#sheen)" />
+  <rect x="-20" y="24.1" width="40" height="1.4" rx="0.7" fill="#CFA94E" opacity="0.7" />
+  <rect x="-20.6" y="-1.6" width="41.2" height="3.6" rx="1.8" fill="url(#roll)" />
+  <rect x="-20.6" y="-1.6" width="41.2" height="3.6" rx="1.8" fill="none" stroke="#C9A453" stroke-width="0.25" opacity="0.6" />
+  <!-- 경첩 안쪽 철사 끝이 걸린 두 홈 -->
+  <rect x="-16.4" y="-0.9" width="3.2" height="1.8" rx="0.9" fill="#8E7430" opacity="0.55" />
+  <rect x="13.2" y="-0.9" width="3.2" height="1.8" rx="0.9" fill="#8E7430" opacity="0.55" />
+</svg>
+</body>

@@ -9,7 +9,8 @@ import { isSharedDiary } from '../utils/libraryQuery';
 
 // onOpen·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다.
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
-function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, selecting = false, selected = false, onToggleSelect }) {
+// infoStyle: 스와이프 옆 카드에서 이름 · 페이지 수를 흐리게 하는 애니메이션 값
+function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect }) {
   // 로컬 요약이 있으면 그것을 사용한다. null은 조회 실패, undefined는 아직 확인 전이다.
   const count = pageCount === undefined ? diary.pageCount : pageCount;
   const countLabel = count === undefined ? '페이지 수 확인 중'
@@ -66,7 +67,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
         </View>}
         </Cover>
       </View>
-      <View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid]}>
+      <Animated.View style={[s.cardInfo, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid, infoStyle]}>
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
             <View style={s.cardTitleRow}>
@@ -88,11 +89,11 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, onOpen,
             <AppIcon name="trash" size={19} color={C.danger} />
           </Pressable>}
         </View>
-      </View>
+      </Animated.View>
     </Pressable>
   );
 
-  // 옆 카드는 흐리게 보인다. 안드로이드는 기본으로 자식마다 투명도를 따로 적용해 라벨 뒤 고무줄 · 버튼 그림자가 비치므로
+  // 옆 카드는 반투명하다. 안드로이드는 기본으로 자식마다 투명도를 따로 적용해 라벨 뒤 고무줄 · 버튼 그림자가 비치므로
   // 카드를 한 장으로 합친 뒤 투명하게 한다.
   return layout === 'carousel' ? <Animated.View needsOffscreenAlphaCompositing renderToHardwareTextureAndroid style={[animatedStyle, carouselActive && s.carouselCardTop]}>{card}</Animated.View> : card;
 }
