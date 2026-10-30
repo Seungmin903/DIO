@@ -32,11 +32,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
       accessibilityLabel="마이페이지"
       accessibilityState={{ selected: profileSelected }}
       onPress={() => navigate('profile')}
-      style={({ pressed }) => [
-        s.railProfileButton,
-        profileSelected && s.railProfileSelected,
-        pressed && s.railTogglePressed,
-      ]}
+      style={s.railProfileButton}
     >
       {profilePhotoSource ? (
         <Image source={profilePhotoSource} style={s.railHeaderAvatar} contentFit="cover" cachePolicy="memory" />
