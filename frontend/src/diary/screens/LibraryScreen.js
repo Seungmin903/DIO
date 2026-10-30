@@ -9,12 +9,14 @@ import { toggleSelection, visibleSelection } from '../utils/diarySelection';
 import IconButton from '../components/IconButton';
 import LibrarySearchScreen from '../components/LibrarySearchScreen';
 import { queryDiaries, SORT_OPTIONS } from '../utils/libraryQuery';
+import { bumpDeskLayout } from '../utils/deskMask';
+import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 // 줄 폭 변화가 이만큼 멈춰 있어야 새 폭으로 다시 그린다 (사이드 메뉴 애니메이션 240ms가 끝난 뒤).
 const CAROUSEL_RESIZE_SETTLE_MS = 120;
 // 가운데가 아닌 옆 카드의 불투명도 (1이면 가운데 카드와 같다)
-const SIDE_CARD_OPACITY = 0.55;
+const SIDE_CARD_OPACITY = 1; // 옆 카드도 실제 표지다(반투명 유령 · 어두운 막 없음). 멀어 보이는 건 크기 · 높이 차이만 맡는다
 
 // 카드 위치(index)마다 스크롤 위치에 따라 크기·높이가 바뀌는 애니메이션 스타일.
 // 3D 기울기(rotateY)는 쓰지 않는다. 위를 기준으로 줄이면 기울기 축도 위로 가서 옆 카드 아랫변이 비뚤게 보인다.
@@ -30,11 +32,11 @@ function carouselMotion(scrollX, index, step) {
       // 카드 높이가 달라도(맨 끝 '새 다이어리' 카드는 정보 줄이 없어 짧다) 윗변이 한 줄에 오도록 위를 기준으로 줄이고 키운다.
       transformOrigin: 'center top',
       transform: [
-        { scale: along([0.84, 1.06, 0.84]) },
-        { translateY: along([30, -12, 30]) },
+        { scale: along(CAROUSEL_SCALE) },
+        { translateY: along(CAROUSEL_LIFT) },
       ],
     },
-    info: { opacity: along([0.75, 1, 0.75]) }, // 카드 투명도와 겹쳐 곱해지므로 글자는 조금만 더 흐리게
+    info: { opacity: along([0.75, 1, 0.75]) }, // 옆 카드 정보 글자만 조금 흐리게
   };
 }
 
@@ -113,6 +115,11 @@ function LibraryScreen({
     [carouselStep, itemCount, scrollX],
   );
   const activeIndex = Math.max(0, Math.min(carousel, Math.max(0, itemCount - 1)));
+  // 표지가 카드 이동에 맞춰 책상 창빛을 따라 받는 데 쓰는 값 (쉬는 위치 rest 는 가운데 카드가 정해진 스크롤)
+  const followMotions = useMemo(
+    () => Array.from({ length: itemCount }, (_, index) => ({ scrollX, index, step: carouselStep, rest: activeIndex * carouselStep })),
+    [activeIndex, carouselStep, itemCount, scrollX],
+  );
   const carouselSidePadding = Math.max(0, (carouselViewportWidth - carouselItemWidth) / 2);
   const fixedPhoneCarousel = compact && displayView === 'carousel' && carouselItems.length > 0;
   // 웹의 콘텐츠 크기 이벤트를 기다리지 않고 고정 카드·간격·양쪽 여백으로 이동 공간을 확보한다.
@@ -146,6 +153,12 @@ function LibraryScreen({
     onCarouselChange(next);
     carouselRef.current?.scrollToOffset?.({ offset: next * carouselStep, animated: true });
   };
+
+  // 카드 줄 폭 · 레이아웃이 바뀌어 멈춘 뒤에만 표지들이 책상 위 자기 자리를 다시 잰다(카드를 넘길 때는 스크롤 값으로 따라가므로 다시 재지 않는다).
+  useEffect(() => {
+    const timers = [450, 900].map(delay => setTimeout(bumpDeskLayout, delay));
+    return () => timers.forEach(clearTimeout);
+  }, [carouselViewportWidth, contentWidth, displayView, itemCount, landed]);
 
   const syncCarouselIndex = useCallback(({ nativeEvent }) => {
     const index = Math.max(0, Math.min(Math.round(nativeEvent.contentOffset.x / carouselStep), itemCount - 1));
@@ -350,10 +363,12 @@ function LibraryScreen({
                     diary={item}
                     pageCount={metadata[item.id]?.pageCount}
                     layout="carousel"
+                    sunShadow={!compact}
                     compact={compact}
                     carouselActive={index === activeIndex}
                     animatedStyle={motions[index].card}
                     infoStyle={motions[index].info}
+                    lightMotion={followMotions[index]}
                     onOpen={onOpen}
                     onFavorite={onFavorite}
                     onEdit={onEdit}
@@ -376,7 +391,7 @@ function LibraryScreen({
         </View>
       ) : (
         <View style={[s.grid, compact && s.gridCompact]}>
-          {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
+          {shown.map((diary) => <DiaryCard key={diary.id} sunShadow={!compact} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
             selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} />)}
         </View>
       )}
