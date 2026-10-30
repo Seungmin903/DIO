@@ -71,12 +71,12 @@ test('통신 실패와 자격 증명 오류를 구분하고 실패 후 다시 �
   fail = false;
   assert.equal((await api.login({ email: user.email, password: 'Password123!' })).userId, user.userId);
 });
-test('이메일 확인·닉네임 확인을 연결하고 인증 UI가 없으면 가입 생성 요청을 보내지 않는다', async () => {
+test('이메일 확인은 유지하고 닉네임 확인 API 없이 이메일 인증을 요구한다', async () => {
   const { api, calls } = setup(() => response({ available: true }));
   const profile = await api.signup({ email: user.email, password: 'Password123!' });
-  assert.equal(await api.checkNickname(' 닉네임 '), true);
+  assert.equal(api.checkNickname, undefined);
   await assert.rejects(api.completeProfile({ ...profile, nickname: '닉네임', terms: {} }), /이메일 인증/);
-  assert.deepEqual(calls.map(call => call.path), ['email-availability', 'nickname-availability']);
+  assert.deepEqual(calls.map(call => call.path), ['email-availability']);
 });
 test('검증 토큰·3가지 실제 약관 상태를 보내고 회원가입 후 자동 로그인하지 않는다', async () => {
   const { api, calls } = setup(call => response(call.path === 'email-verifications/verify'
@@ -151,10 +151,10 @@ async function prepareSignup(api, email = user.email) {
   return api.verificationService.prepareSignup({ email, password: 'Password123!' });
 }
 
-test('닉네임·가입 초안의 가용성 응답이 boolean이 아니면 통과시키지 않는다', async () => {
+test('가입 초안의 이메일 가용성 응답이 boolean이 아니면 통과시키지 않는다', async () => {
   for (const value of [null, {}, { available: 'true' }, { available: 1 }]) {
     const { api } = setup(() => response(value));
-    await assert.rejects(api.checkNickname('회원'), /닉네임 확인 정보/);
+    assert.equal(api.checkNickname, undefined);
     await assert.rejects(api.signup({ email: user.email, password: 'Password123!' }), /이메일 확인 정보/);
   }
 });
@@ -239,13 +239,13 @@ test('이전 가입 성공·토큰 오류가 늦게 도착해도 새 이메일�
 });
 
 test('사진 변환·통신·닉네임 충돌 오류 후 입력을 보존하고 가입을 재시도한다', async () => {
-  for (const failure of ['photo', 'network', 'nickname']) {
+  for (const failure of ['photo', 'network', 'server']) {
     let failed = false;
     const { api, calls } = setup(call => {
       if (call.path !== 'signup' || failed) return signupResponse(call);
       failed = true;
       if (failure === 'network') throw new Error('offline');
-      return response({ code: 'NICKNAME_UNAVAILABLE', detail: '사용할 수 없는 닉네임이에요.' }, 409);
+      return response({ code: 'SIGNUP_PERSISTENCE_FAILED', detail: '가입을 완료하지 못했어요.' }, 409);
     }, { buildPhotoBody: async () => {
       if (!failed) { failed = true; throw new Error('사진 변환 실패'); }
       return { body: new FormData(), dispose() {} };
@@ -298,6 +298,33 @@ test('임시 사진 정리 실패가 서버 가입 성공 또는 원래 서버 �
   }
 });
 
+
+test('공동 편집 개발 인증은 같은 서버의 허용 경로·현재 계정에만 전달한다',async()=>{
+ const {api}=setup(()=>response(tokens()),{baseUrl:'https://dio.example/api/v1',allowDevelopmentAccess:true})
+ api.verificationService.setDevelopmentAccess('qa-user','qa-pass')
+ await api.login({email:user.email,password:'Password123!'})
+ const current={userId:user.userId,sessionKey:api.getSessionKey()}
+ assert.match(api.getCollaborationHeaders({...current,url:'wss://dio.example/ws/diaries/diary-id'}).Authorization,/^Basic /)
+ assert.match(api.getCollaborationHeaders({...current,url:'https://dio.example/api/v1/pages/page-id'}).Authorization,/^Basic /)
+ assert.match(api.getCollaborationHeaders({...current,url:'https://dio.example/api/v1/diaries/10000000-0000-4000-8000-000000000001/pages'}).Authorization,/^Basic /)
+ assert.match(api.getCollaborationHeaders({...current,url:'https://dio.example/api/v1/diaries/10000000-0000-4000-8000-000000000001/pages/order'}).Authorization,/^Basic /)
+ for(const url of ['https://other.example/api/v1/pages/page-id','ws://dio.example/ws/diaries/diary-id','https://dio.example/not-allowed','https://name@dio.example/api/v1/pages/page-id'])
+  assert.throws(()=>api.getCollaborationHeaders({...current,url}))
+ assert.throws(()=>api.getCollaborationHeaders({...current,userId:'other',url:'https://dio.example/api/v1/pages/page-id'}))
+})
+
+test('WebSocket 정책 종료의 강제 토큰 갱신도 동시 요청은 한 번으로 합친다',async()=>{
+ let finish,refreshes=0
+ const {api}=setup(call=>{
+  if(call.path==='refresh'){refreshes++;return new Promise(resolve=>{finish=()=>resolve(response(tokens('-new')))})}
+  return response(tokens())
+ })
+ await api.login({email:user.email,password:'Password123!'})
+ const options={userId:user.userId,sessionKey:api.getSessionKey(),forceRefresh:true}
+ const first=api.getAccessToken(options),second=api.getAccessToken(options)
+ assert.equal(refreshes,1);finish()
+ assert.deepEqual(await Promise.all([first,second]),['access-new','access-new']);assert.equal(refreshes,1)
+})
 test('서버 계약의 사진 없는 null 응답은 로그인·갱신 모두 허용한다', async () => {
   const { api } = setup(() => response({ ...tokens(), user: { ...user, profilePhotoUrl: null } }));
   assert.equal((await api.login({ email: user.email, password: 'Password123!' })).photoUri, null);
@@ -310,4 +337,20 @@ test('서버 계약과 달리 사용자 정보 없는 갱신 응답은 세션으
   await api.login({ email: user.email, password: 'Password123!' });
   await assert.rejects(api.refresh(), { code: 'INVALID_AUTH_RESPONSE' });
   assert.equal(api.getSessionKey(), null);
+});
+
+test('비밀번호 변경은 기존 me/password에 PATCH하고 성공 시 세션을 비운다',async()=>{
+ const calls=[];const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url,init)=>{calls.push({url,...init});return response(url.endsWith('/login')?tokens():null,url.endsWith('/login')?200:204)}});
+ const user=await api.login({email:'member@example.com',password:'Password123!'});
+ await api.changePassword(user,{currentPassword:'Password123!',password:'ChangedDio123!',confirmation:'ChangedDio123!'});
+ assert.equal(calls[1].url,'http://localhost:8080/api/v1/me/password');assert.equal(calls[1].method,'PATCH');
+ assert.deepEqual(JSON.parse(calls[1].body),{currentPassword:'Password123!',newPassword:'ChangedDio123!'});
+ assert.equal(calls[1].headers.Authorization,'Bearer access');assert.equal(api.getSessionKey(),null);
+});
+test('현재 비밀번호 거절과 네트워크 실패는 로그인 세션을 유지한다',async()=>{
+ for(const network of [false,true]){
+  const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url)=>{if(url.endsWith('/login'))return response(tokens());if(network)throw new TypeError('offline');return response({code:'CURRENT_PASSWORD_MISMATCH',detail:'현재 비밀번호가 맞지 않아요.'},400)}});
+  const user=await api.login({email:'member@example.com',password:'Password123!'});const key=api.getSessionKey();
+  await assert.rejects(api.changePassword(user,{currentPassword:'Wrong123!',password:'ChangedDio123!',confirmation:'ChangedDio123!'}));assert.equal(api.getSessionKey(),key);
+ }
 });

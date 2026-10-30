@@ -1,4 +1,4 @@
-import { normalizeEmail, normalizeNickname, nicknameError } from './validation.js';
+import { normalizeEmail, normalizeNickname, nicknameError, passwordError } from './validation.js';
 import { developmentAuthorization } from './developmentAccess.js';
 
 export function authBaseUrl(value) {
@@ -50,14 +50,14 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         !developmentAccess && accessTokenHeader === 'Authorization' ? `Bearer ${accessToken}` : accessToken } : {}),
     };
   };
-  async function request(path, body, accessToken, multipart = false) {
+  async function request(path, body, accessToken, multipart = false, method = 'POST', memberPath = false) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetchImpl(`${base}/auth/${path}`, {
-        method: 'POST', signal: controller.signal,
+      const response = await fetchImpl(`${base}/${memberPath ? path : `auth/${path}`}`, {
+        method, signal: controller.signal,
         headers: { ...(!multipart && body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          ...getAuthHeaders(`${base}/auth/${path}`, accessToken) },
+          ...getAuthHeaders(`${base}/${memberPath ? path : `auth/${path}`}`, accessToken) },
         ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }),
       });
       const data = response.status === 204 ? null : await response.json().catch(() => null);
@@ -91,12 +91,21 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         ? { uri: target.href, headers: getAuthHeaders(target.href) } : { uri };
     },
     getSessionKey() { return session ? `${session.user.userId}:${sessionSequence}` : null; },
-    async getAccessToken({ userId, sessionKey } = {}) {
+    // Optional collaboration bridge: dev Basic stays in memory and only reaches this API's origin.
+    getCollaborationHeaders({ url, userId, sessionKey }) {
+      if (!session || String(session.user.userId) !== String(userId) || api.getSessionKey() !== sessionKey) throw unauthorized();
+      const target=new URL(url), origin=new URL(base);
+      const protocol=target.protocol==='wss:'?'https:':target.protocol==='ws:'?'http:':target.protocol;
+      if(target.username || target.password || protocol!==origin.protocol || target.host!==origin.host ||
+        !(target.pathname.startsWith(`${origin.pathname}/pages/`) || (target.pathname.startsWith(`${origin.pathname}/diaries/`)&&/^\/diaries\/[0-9a-f-]{36}\/pages(?:\/order)?$/i.test(target.pathname.slice(origin.pathname.length))) || target.pathname.startsWith('/ws/diaries/'))) throw unauthorized();
+      return developmentAccess ? { Authorization:developmentAccess } : {};
+    },
+    async getAccessToken({ userId, sessionKey, forceRefresh = false } = {}) {
       const matches = () => session && String(session.user.userId) === String(userId) && sessionKey === api.getSessionKey();
       if (!matches()) throw unauthorized();
-      if (refreshing) { try { await refreshing; } catch (error) { if (!matches()) throw unauthorized(); throw error; } }
+      if (refreshing) { try { await refreshing; forceRefresh = false; } catch (error) { if (!matches()) throw unauthorized(); throw error; } }
       if (!matches()) throw unauthorized();
-      if (now() >= accessRefreshAt) {
+      if (forceRefresh || now() >= accessRefreshAt) {
         try { await api.refresh(); } catch (error) { if (!matches()) throw unauthorized(); throw error; }
       }
       if (!matches()) throw unauthorized();
@@ -138,11 +147,6 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (attempt !== revision) throw new Error('이메일 확인 요청이 취소되었어요.');
       if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
       if (!result.available) throw new Error('이미 사용 중인 이메일이에요.');
-    },
-    async checkNickname(nickname) {
-      const result = await request('nickname-availability', { nickname: normalizeNickname(nickname) });
-      if (typeof result?.available !== 'boolean') throw new Error('닉네임 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
-      return result.available;
     },
     async sendVerification(email) {
       const attempt = ++verificationRevision;
@@ -254,6 +258,23 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         try { await upload?.dispose?.(); } catch {}
         signupPending = false;
       }
+    },
+    async changePassword(user, { currentPassword, password, confirmation }) {
+      if (!session || String(user?.userId) !== String(session.user.userId)) throw new Error('다시 로그인해 주세요.');
+      if (!currentPassword || passwordError(password) || password !== confirmation || currentPassword === password)
+        throw new Error('현재 비밀번호와 새 비밀번호·확인 입력을 확인해 주세요.');
+      if (refreshing) await refreshing;
+      if (!session || String(user?.userId) !== String(session.user.userId)) throw new Error('로그인 상태가 변경되었어요.');
+      let current = session;
+      try { await request('me/password', { currentPassword, newPassword: password }, current.accessToken, false, 'PATCH', true); }
+      catch (error) {
+        if (error.status !== 401 || error.code === 'DEVELOPMENT_ACCESS_REQUIRED') throw error;
+        if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+        await api.refresh(); current = session;
+        await request('me/password', { currentPassword, newPassword: password }, current.accessToken, false, 'PATCH', true);
+      }
+      if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
+      session = null; api.cancelPending();
     },
     async social() { throw new Error('소셜 로그인 API는 아직 연결되지 않았어요.'); },
     async refresh() {

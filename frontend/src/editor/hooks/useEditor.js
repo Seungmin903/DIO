@@ -1,3 +1,5 @@
+import { collaborationReducer } from '../../collaboration/collaborationReducer.js'
+import { createId } from '../utils/common.js'
 import { AppState } from 'react-native'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { createDefaultDoc } from '../state/defaultDoc'
@@ -27,10 +29,11 @@ export function useEditor(diary) {
   // 홈에서 미리 읽어 둔 문서가 있으면 첫 렌더부터 그 문서로 시작한다. (로딩 단계 없음)
   const [initial] = useState(() => peekEditorDoc(storageKey))
   const [initialPage] = useState(() => peekViewedPage(storageKey))
-  const [state, dispatch] = useReducer(editorReducer, null, () => createInitialState(
+  const [state, rawDispatch] = useReducer((state,action)=>diary?.source==='member-api'?collaborationReducer(editorReducer,state,action):editorReducer(state,action), null, () => createInitialState(
     initial?.doc ? withDiary(initial.doc, diary) : createDefaultDoc(diary),
     initialPage,
   ))
+  const dispatch=useCallback(action=>rawDispatch(diary?.source==='member-api'?{...action,collaborationId:action.collaborationId??createId()}:action),[diary?.source])
   const [loaded, setLoaded] = useState(initial !== null && initialPage !== undefined)
   // 저장 문서를 읽지 못했으면 기존 문서를 빈 문서로 덮어쓰지 않도록 이번에는 저장하지 않는다.
   const [writable, setWritable] = useState(true)

@@ -31,7 +31,7 @@ public class SignupExceptionHandler extends ResponseEntityExceptionHandler {
             }
         }
         boolean duplicate = "23505".equals(state) && constraint != null && java.util.Set.of(
-            "users_email_unique", "users_nickname_key_unique", "users_email_key", "users_nickname_key_key")
+            "users_email_unique", "users_email_key")
             .contains(constraint);
         if (!duplicate) {
             // SQL·예외 본문에는 이메일이나 해시가 포함될 수 있어 출력하지 않는다.

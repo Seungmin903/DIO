@@ -44,7 +44,7 @@ public class EmailSignupService {
     public SignupResponse signup(SignupRequest request, MultipartFile photo) {
         terms.validate(request.agreements());
         readTransaction.executeWithoutResult(status -> {
-            users.assertAvailable(request.email(), request.nickname());
+            users.assertAvailable(request.email());
             validateToken(verifications.findById(request.email()).orElseThrow(this::invalidToken), request, Instant.now());
         });
         byte[] bytes = photos.prepareImage(photo);
@@ -52,7 +52,7 @@ public class EmailSignupService {
         try (var pending = photos.upload(bytes)) {
             return writeTransaction.execute(status -> {
                 if (pending != null) pending.enlist();
-                users.assertAvailable(request.email(), request.nickname());
+                users.assertAvailable(request.email());
                 var verification = verifications.findForUpdate(request.email()).orElseThrow(this::invalidToken);
                 Instant now = Instant.now(); validateToken(verification, request, now);
                 var user = users.create(request.email(), request.nickname(), now);

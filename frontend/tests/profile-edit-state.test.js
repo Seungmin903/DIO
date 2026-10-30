@@ -15,7 +15,7 @@ const compile = (path) =>
       expo.resolve('@babel/plugin-transform-modules-commonjs'),
     ],
   }).code;
-function setup(service = {}, photoPicker = async () => null) {
+function setup(service = {}, photoPicker = async () => null, options = {}) {
   const states = [],
     refs = [],
     deps = [],
@@ -134,6 +134,7 @@ function setup(service = {}, photoPicker = async () => null) {
         ended++;
       },
       registerLeaveGuard,
+      ...options,
     });
   };
   return {
@@ -199,11 +200,11 @@ test('사이드 메뉴 이탈도 미저장 확인을 거치며 취소하면 기�
 });
 test('사진 선택 취소 보존·사진만 변경 저장·새 기준값 이후 이탈은 추가 경고가 없다', async () => {
   const ui = setup({ updateProfile: async (user, draft) => ({ ...user, ...draft }) });
-  assert.equal(find(ui, '닉네임 중복 확인').props.disabled, true);
+  assert.equal(find(ui, '닉네임 중복 확인'), undefined);
   find(ui, '닉네임').props.onChangeText('다른이름');
-  assert.equal(find(ui, '닉네임 중복 확인').props.disabled, false);
+  assert.equal(find(ui, '변경사항 저장').props.disabled, false);
   find(ui, '닉네임').props.onChangeText('소연');
-  assert.equal(find(ui, '닉네임 중복 확인').props.disabled, true);
+  assert.equal(find(ui, '닉네임 중복 확인'), undefined);
   press(ui, '프로필 사진 변경');
   await tick();
   assert.equal(find(ui, '변경사항 저장').props.disabled, true);
@@ -217,34 +218,13 @@ test('사진 선택 취소 보존·사진만 변경 저장·새 기준값 이후
   assert.equal(ui.closed(), 1);
   ui.unmount();
 });
-test('늦은 닉네임 확인 결과 무시·수정 시 확인 초기화·저장 실패 시 draft 유지', async () => {
-  let resolve;
-  const ui = setup({
-    checkProfileNickname: () =>
-      new Promise((r) => {
-        resolve = r;
-      }),
-    updateProfile: async () => {
-      throw new Error('저장 실패');
-    },
-  });
-  find(ui, '닉네임').props.onChangeText('새이름');
-  press(ui, '닉네임 중복 확인');
-  find(ui, '닉네임').props.onChangeText('다른이름');
-  resolve('새이름');
-  await tick();
-  assert.equal(find(ui, '변경사항 저장').props.disabled, true);
-  press(ui, '닉네임 중복 확인');
-  resolve('다른이름');
-  await tick();
-  assert.equal(find(ui, '변경사항 저장').props.disabled, false);
-  press(ui, '변경사항 저장');
-  await tick();
-  assert.equal(find(ui, '닉네임').props.value, '다른이름');
-  assert.equal(ui.updates.length, 0);
-  assert.ok(nodes(ui.render()).some((n) => n.props.children === '저장 실패'));
-  ui.unmount();
+test('중복 확인 없이 저장하고 실패 시 입력을 유지한다', async () => {
+ const ui=setup({updateProfile:async()=>{throw new Error('저장 실패')}});
+ find(ui,'닉네임').props.onChangeText('다른이름');assert.equal(find(ui,'변경사항 저장').props.disabled,false);
+ press(ui,'변경사항 저장');await tick();assert.equal(find(ui,'닉네임').props.value,'다른이름');assert.equal(ui.updates.length,0);
+ assert.ok(nodes(ui.render()).some(n=>n.props.children==='저장 실패'));ui.unmount();
 });
+
 test('탈퇴합니다 정확히 입력해야 탈퇴 가능하고 취소는 수정값을 보존하며 연타는 한 번만 실행한다', async () => {
   let resolve,
     calls = 0;
@@ -335,4 +315,14 @@ test('사진 선택의 늦은 응답과 실패는 언마운트·기존 프로필
   assert.ok(nodes(failed.render()).some(n => n.type === 'Image' && n.props.source.uri === 'file:///old.jpg'));
   assert.ok(nodes(failed.render()).some(n => n.props.children === '사진 선택 오류'));
   assert.equal(find(failed, '변경사항 저장').props.disabled, true); failed.unmount();
+});
+
+test('서버 계정은 기존 비밀번호 창만 열고 성공 후 세션을 종료한다',async()=>{
+ let calls=0;const ui=setup({changePassword:async()=>{calls++}},undefined,{passwordOnly:true,user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
+ assert.equal(find(ui,'닉네임'),undefined);assert.equal(find(ui,'회원 탈퇴'),undefined);
+ find(ui,'현재 비밀번호').props.onChangeText('Password123!');find(ui,'새 비밀번호').props.onChangeText('Changed123!');find(ui,'새 비밀번호 확인').props.onChangeText('Changed123!');
+ press(ui,'변경');await tick();assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
+});
+test('서버 비밀번호 창 취소는 회원정보 수정 화면으로 넘어가지 않는다',()=>{
+ const ui=setup({},undefined,{passwordOnly:true});press(ui,'취소');assert.equal(ui.closed(),1);ui.unmount();
 });

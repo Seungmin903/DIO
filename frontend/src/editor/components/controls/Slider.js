@@ -21,6 +21,7 @@ export default function Slider({
   step,
   onChange,
   onStart,
+  onEnd,
   minusLabel = '줄이기',
   plusLabel = '늘리기',
   scale = 1,
@@ -44,11 +45,13 @@ export default function Slider({
       onChange(toValue(event.locationX))
     },
     onMove: (dx) => onChange(toValue(startRef.current + dx)),
+    onEnd: event => onEnd?.(event),
   })
 
   const nudge = (delta) => {
     onStart?.()
     onChange(clamp(Math.round((value + delta) / step) * step, min, max))
+    onEnd?.({cancelled:false})
   }
 
   // 숫자 칸: 입력 중에는 친 글자를 그대로 두고, 확정(엔터·포커스 아웃) 때 범위 안으로 맞춰 반영한다.
@@ -74,6 +77,7 @@ export default function Slider({
     if (next !== value) {
       onStart?.()
       onChange(next)
+      onEnd?.({cancelled:false})
     }
     setDraft(format(next))
   }
