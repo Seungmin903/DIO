@@ -160,7 +160,7 @@ const local = StyleSheet.create({
   item: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },
   itemIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: C.pale },
   itemLabel: { flex: 1, color: C.ink, fontSize: 15, fontWeight: '700' },
-  logout: { minHeight: 52, marginTop: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 14, backgroundColor: C.white },
-  logoutText: { color: C.muted, fontSize: 15, fontWeight: '700' },
+  logout: { minHeight: 52, marginTop: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.danger, borderRadius: 14, backgroundColor: 'rgba(229,72,77,0.04)' },
+  logoutText: { color: C.danger, fontSize: 15, fontWeight: '700' },
   pressed: { opacity: 0.7 },
 });
