@@ -43,6 +43,11 @@ export async function loadTemplateAst(reference) {
   return (await loadEntry(reference)).ast
 }
 
+/** 이미 불러온 속지면 원본 XML을 바로, 아니면 undefined를 돌려준다. */
+export function peekTemplate(reference) {
+  return load.peek(reference.backgroundAssetId)?.xml
+}
+
 /** 이미 불러온 속지면 해석된 SVG를 바로, 아니면 undefined를 돌려준다. */
 export function peekTemplateAst(reference) {
   return load.peek(reference.backgroundAssetId)?.ast
