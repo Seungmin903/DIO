@@ -49,7 +49,8 @@ import Viewport from '../components/canvas/Viewport'
 import { ReadingHeader, ReadingNavigation, ReadingModeControls, READING_PADDING, READING_PADDING_FULL } from '../components/chrome/ReadingChrome'
 import { StageOverlayHost } from '../components/canvas/StageOverlay'
 import { ViewportMotion } from '../components/canvas/StaticPage'
-import ReadingPageTurn, { turnLift } from '../components/canvas/ReadingPageTurn'
+import ReadingPageTurn from '../components/canvas/ReadingPageTurn'
+import { readingEdgeMessage, turnLift, turnProgress, turnShouldComplete } from '../utils/pageTurn.js'
 import { PHONE_ZOOM_MAX, ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
 import { useMemberCanvasCollaboration } from '../hooks/useMemberCanvasCollaboration'
@@ -353,7 +354,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const turnRef = useRef(null)
   turnRef.current = turn
   const dragTurn = useRef(null) // 손가락을 따라 넘기는 중 { dir, target, settling }
-  useEffect(() => { if (!readOnly) { setTurn(null); dragTurn.current = null } }, [readOnly])
+  // 읽기 모드를 끄거나 화면을 닫으면 진행 중인 넘김을 멈춘다. (멈추면 완료 콜백은 finished=false 로 끝나 페이지를 바꾸지 않는다)
+  useEffect(() => { if (!readOnly) { flip.stopAnimation(); setTurn(null); dragTurn.current = null } }, [readOnly, flip])
+  useEffect(() => () => flip.stopAnimation(), [flip])
   const nativeDriver = Platform.OS !== 'web'
   const startTurn = (from, target, dir, lift) => {
     flip.stopAnimation()
@@ -367,7 +370,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const base = running ? running.page : page // 넘기는 중이면 그 목적지가 기준
     const baseIndex = state.doc.pages.findIndex((item) => item.id === base.id)
     const target = state.doc.pages[index]
-    if (!target) { showToast(index < 0 ? '첫 페이지입니다' : '마지막 페이지입니다'); return }
+    const edge = readingEdgeMessage(index, state.doc.pages.length)
+    if (edge) { showToast(edge); return }
     if (target.id === base.id) return
     if (running) dispatch({ type: 'selectPage', id: base.id }) // 진행 중이던 넘김은 바로 끝낸다 (빠르게 연달아 넘길 때)
     startTurn(base, target, index > baseIndex ? 1 : -1, 0)
@@ -387,10 +391,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       return true
     }
     if (!drag || drag.settling) return undefined
-    const progress = Math.max(0, Math.min(1, (drag.dir > 0 ? -dx : dx) / (width * 0.9)))
+    const progress = turnProgress({ dir: drag.dir, dx, width })
     if (type === 'move') { flip.setValue(progress); return undefined }
-    const flick = Math.abs(dx) / Math.max(1, duration) > 0.4 && (drag.dir > 0 ? dx < 0 : dx > 0)
-    const complete = type === 'end' && (progress > 0.3 || flick)
+    const complete = turnShouldComplete({ progress, dir: drag.dir, dx, duration, cancelled: type !== 'end' })
     drag.settling = true
     Animated.timing(flip, { toValue: complete ? 1 : 0, duration: 120 + 380 * (complete ? 1 - progress : progress), easing: Easing.out(Easing.quad), useNativeDriver: nativeDriver }).start(({ finished }) => {
       if (!finished) return
@@ -1029,7 +1032,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           >
             {/* 확대·이동 중이거나 화면 밖에 있는 GIF 는 첫 장면으로 멈춘다 (StaticPage) */}
             <ViewportMotion.Provider value={{ moving: viewMoving, visible: stageSize ? { x: -offset.x / zoom, y: -offset.y / zoom, width: stageSize.width / zoom, height: stageSize.height / zoom } : null }}>
-              <View>
+              <View style={{ width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }}>
               <Canvas
                 showBackground={loaded}
                 compact={compact}

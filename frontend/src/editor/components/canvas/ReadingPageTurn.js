@@ -12,13 +12,6 @@ function Shade({ stops, style }) {
 
 const SAMPLES = 240 // 접힘선 위치를 이만큼 찍어 두고 그 사이를 이어서 움직인다 (Animated 는 직선 보간만 한다)
 
-/** 손가락을 처음 댄 높이(0 위 ~ 1 아래)를 접힘선 기울기 lift(-1 위 모서리 · 0 가운데 · 1 아래 모서리)로. 가운데 근처는 곧게 접는다. */
-export function turnLift(y) {
-  if (!Number.isFinite(y)) return 0
-  const lift = Math.max(-1, Math.min(1, (y - 0.5) / 0.35))
-  return Math.abs(lift) < 0.25 ? 0 : lift
-}
-
 /**
  * 접힘선 기하. 오른쪽 가장자리의 한 점 C 를 잡아 왼쪽으로 끌어 T 로 옮기면(이전 페이지는 전체를 좌우로 뒤집어 쓴다)
  * 접힘선은 C 와 T 의 수직이등분선이고, 접힌 조각은 접힘선을 기준으로 뒤집힌 종이 뒷면이다.
@@ -74,7 +67,7 @@ function fold(W, H, lift) {
  *  - 접힘선 안쪽: 아직 안 넘어간 앞면 (제자리, 불투명)
  *  - 접힘선 너머로 접혀 넘어온 조각: 종이 뒷면. 접힘선 쪽이 어둡다.
  *  - 접힘선 바깥: 새 페이지. 접힌 종이가 드리운 그림자가 접힘선 쪽에 깔린다.
- * dir: 1 다음 페이지(오른쪽에서 왼쪽으로 넘김), -1 이전 페이지(좌우 반대). lift: turnLift 참고.
+ * dir: 1 다음 페이지(오른쪽에서 왼쪽으로 넘김), -1 이전 페이지(좌우 반대). lift: utils/pageTurn 의 turnLift 참고.
  * progress: Animated.Value 0(안 넘어감) → 1(다 넘어감)
  */
 function NativePageTurn({ page, from, zoom, width, height, dir, lift = 0, progress }) {
@@ -149,9 +142,9 @@ function WebPageTurn({ page, from, zoom, width, height, dir, lift = 0, progress 
   const paper = normalizePaperAppearance((from ?? page).paperAppearance).backgroundColor
   const revealPaper = normalizePaperAppearance(page.paperAppearance).backgroundColor
   const { castBand, at } = useMemo(() => fold(w, h, lift), [w, h, lift])
-  const [p, setP] = useState(() => Math.max(0, Math.min(1, progress.__getValue())))
+  // 넘김은 항상 progress 0 에서 시작하므로 초기값은 0 이고 이후 값은 리스너로만 받는다. (비공개 __getValue 를 쓰지 않는다)
+  const [p, setP] = useState(0)
   useLayoutEffect(() => {
-    setP(Math.max(0, Math.min(1, progress.__getValue())))
     const id = progress.addListener(({ value }) => setP(Math.max(0, Math.min(1, value))))
     return () => progress.removeListener(id)
   }, [progress])
@@ -171,17 +164,19 @@ function WebPageTurn({ page, from, zoom, width, height, dir, lift = 0, progress 
     const t0 = (px - w / 2) * dx + (py - h / 2) * dy + length / 2
     return `linear-gradient(${angle * 180 / Math.PI}deg, ${stops.map(([distance, alpha]) => `rgba(0,0,0,${alpha}) ${(t0 + distance).toFixed(2)}px`).join(', ')})`
   }
+  // 프레임마다 바뀌는 건 다각형 자르기뿐이므로 무거운 속지는 그대로 둔다 (StaticPage 도 memo)
+  const revealPage = useMemo(() => (
+    <View style={{ width: w, height: h, transform: [{ scaleX: dir > 0 ? 1 : -1 }] }}>
+      <StaticPage page={page} zoom={zoom} background={revealPaper} still />
+    </View>
+  ), [page, zoom, revealPaper, w, h, dir])
   const fade = p < 0.85 ? 1 - 0.1 * (p / 0.85) : 0.9 * (1 - (p - 0.85) / 0.15)
   const flapBand = Math.hypot(w, h) * 0.1
   const sx = dir > 0 ? 1 : -1
   const layer = (poly, extra) => <View pointerEvents="none" style={[styles.fill, { clipPath: polygonStyle(poly) }, extra]} />
   return (
     <View pointerEvents="none" style={[styles.fill, styles.clip, { transform: [{ scaleX: sx }] }]}>
-      {revealPoly.length >= 3 && <View pointerEvents="none" style={[styles.fill, { clipPath: polygonStyle(revealPoly) }]}>
-        <View style={{ width: w, height: h, transform: [{ scaleX: sx }] }}>
-          <StaticPage page={page} zoom={zoom} background={revealPaper} still />
-        </View>
-      </View>}
+      {revealPoly.length >= 3 && <View pointerEvents="none" style={[styles.fill, { clipPath: polygonStyle(revealPoly) }]}>{revealPage}</View>}
       {castPoly.length >= 3 && layer(castPoly, { backgroundImage: gradient(1, [[-1, 0], [0, 0.36 * fade], [castBand * 0.4, 0.16 * fade], [castBand, 0]]) })}
       {flapPoly.length >= 3 && layer(flapPoly, { backgroundColor: paper, backgroundImage: gradient(-1, [[0, 0.3], [flapBand * 0.45, 0.04], [flapBand, 0]]) })}
     </View>
