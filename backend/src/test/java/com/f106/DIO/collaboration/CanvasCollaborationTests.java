@@ -52,6 +52,25 @@ class CanvasCollaborationTests {
     JsonNode update(UUID page,Actor actor,UUID element,String value,long version)throws Exception{return apply(page,actor,UUID.randomUUID(),Map.of("updates",List.of(Map.of("elementId",element,"version",version,"propertiesJson",Map.of("text",value)))));}
     JsonNode history(UUID page,Actor actor)throws Exception{return json.readTree(mvc.perform(get("/api/v1/pages/"+page+"/history/me").header("Authorization","Bearer "+actor.token())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());}
     Map<String,Object> command(JsonNode item,UUID client){return Map.of("operationId",item.path("operationId").asText(),"expectedRevision",item.path("revision").asInt(),"clientOperationId",client);}
+    @Test void hiddenNestedReferencesCannotPinAnotherUsersPrivateFile()throws Exception{
+        var owner=actor();var attacker=actor();UUID page=page(diary(attacker));
+        byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");
+        var file=new org.springframework.mock.web.MockMultipartFile("file","photo.png","image/png",png);
+        var uploaded=mvc.perform(multipart("/api/v1/media").file(file).header("Authorization","Bearer "+owner.token())).andExpect(status().isCreated()).andReturn();
+        String media=json.readTree(uploaded.getResponse().getContentAsString()).path("mediaFileId").asText();
+        var element=UUID.randomUUID();create(page,attacker,element,"safe");
+        var before=history(page,attacker);
+        for(var properties:List.of(Map.of("x",Map.of("mediaFileId",media)),Map.of("x",List.of(Map.of("mediaFileId",media))),Map.of("cells",List.of(Map.of("hidden",Map.of("mediaFileId",media)))))){
+            var hidden=new HashMap<String,Object>(text(UUID.randomUUID(),"hidden"));hidden.put("propertiesJson",properties);
+            postJson(page,attacker,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("creates",List.of(hidden))),404);
+            postJson(page,attacker,"/canvas-operations",Map.of("clientOperationId",UUID.randomUUID(),"changes",Map.of("updates",List.of(Map.of("elementId",element,"version",1,"propertiesJson",properties)))),404);
+        }
+        assertThat(history(page,attacker)).isEqualTo(before);
+        assertThat(jdbc.queryForObject("select count(*) from canvas_elements where page_id=?",Integer.class,page)).isEqualTo(1);
+        mvc.perform(get("/api/v1/media/"+media+"/file").header("Authorization","Bearer "+attacker.token())).andExpect(status().isNotFound());
+        mvc.perform(delete("/api/v1/media/"+media).header("Authorization","Bearer "+owner.token())).andExpect(status().isNoContent());
+    }
+
     @Test void photoStripOnlyMediaIsReadableAndProtectedWithoutPrimaryForeignKey()throws Exception{
         var owner=actor();var editor=actor();var stranger=actor();UUID book=diary(owner),page=page(book);join(book,editor);
         byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");

@@ -251,7 +251,7 @@ Origin은 기존 `AUTH_ALLOWED_ORIGINS`를 재사용한다. dev/prod Nginx에 `/
 
 서버 에셋 한도는 5MiB이며 JPEG·PNG·WebP·GIF를 지원한다. HEIC 또는 큰 정지 이미지는 이미 만들어 둔 JPEG/PNG 표시본이 있으면 사용한다. 표시본도 한도를 넘거나 GIF 원본이 너무 크면 기기 원본을 유지하고 해당 작업을 보관하며 나머지 동기화를 진행한다. 과거 삭제된 전용 API의 준비 요청은 기존 deferredMedia에 계속 보관하며 임의 재전송하지 않는다.
 
-캔버스의 활성·복원 가능한 요소, 사진 칸 JSON, Undo/Redo 이력에서 참조하는 파일은 원본 삭제 및 정리에서 보호한다. 운영 PostgreSQL은 V21의 GIN 인덱스로 JSON 안의 mediaFileId 값을 검색한다. 본문에 적힌 UUID 문구는 이미지 참조로 취급하지 않으며, 파일 조회 권한은 실제 미디어 필드와 다이어리 멤버십을 추가 확인한다. 로컬 파일 캐시는 계정/다이어리 문서에 서버 ID로 연결되며, 업로드 성공 후 매핑 저장 전 앱이 강제 종료되는 경우 기존 비멱등 업로드 API 특성상 미참조 업로드가 남을 수 있다. 이 경우 캔버스 요청은 아직 전송되지 않는다.
+캔버스의 활성·복원 가능한 요소, 사진 칸 JSON, Undo/Redo 이력에서 참조하는 파일은 원본 삭제 및 정리에서 보호한다. 운영 PostgreSQL은 V21의 GIN 인덱스로 JSON 안의 mediaFileId 값을 검색한다. 본문에 적힌 UUID 문구는 이미지 참조로 취급하지 않으며, 저장 시에는 임의 중첩 객체·배열까지 모든 mediaFileId를 첨부 권한 검증한다. 파일 읽기 권한은 앱이 표시하는 기존 필드와 다이어리 멤버십으로만 판단해 숨은 메타데이터의 읽기 권한을 넓히지 않는다. 로컬 파일 캐시는 계정/다이어리 문서에 서버 ID로 연결되며, 업로드 성공 후 매핑 저장 전 앱이 강제 종료되는 경우 기존 비멱등 업로드 API 특성상 미참조 업로드가 남을 수 있다. 이 경우 캔버스 요청은 아직 전송되지 않는다.
 
 실제 Expo Go 두 기기의 화면·GIF·배포 S3 확인은 수동 검증 대상이다.
 
@@ -259,6 +259,14 @@ Origin은 기존 `AUTH_ALLOWED_ORIGINS`를 재사용한다. dev/prod Nginx에 `/
 
 V21은 기존 canvas_elements와 canvas_history_operations에 표현식 GIN 인덱스 3개만 추가한다. 테이블·컬럼·API는 추가하지 않는다. 사진 칸, 대문자 UUID, Undo/Redo 스냅샷의 mediaFileId를 소문자 배열로 추출한 인덱스와 같은 @> 조건을 사용한다. 파일 조회·첨부·삭제, 탈퇴, 물리 정리에서 PostgreSQL의 전체 JSON LIKE 검색을 제거한다. H2 테스트 호환 경로만 문자열 검색을 유지하며 DB 종류는 컴포넌트 초기화 시 한 번 확인한다. 정리 배치 크기는 설정값이 크더라도 1~100으로 제한하고 기존 최대 5페이지 커서를 유지한다.
 
-실제 PostgreSQL 회귀는 요소 10,000개와 이력 10,000개를 추가한 후 ANALYZE 및 EXPLAIN(ANALYZE,BUFFERS)로 파일 조회와 정리 조건의 GIN 인덱스 사용을 확인한다. 측정 결과는 backend/build/media-reference-explain.txt에 남긴다. 이는 테스트 데이터 실행 계획 확인이며 운영 트래픽 부하 시험을 대신하지 않는다.
+기본 PostgreSQL 회귀는 요소 10,000개와 이력 10,000개를 추가해 정리 결과 집합을 검증한다. 특정 실행 계획·인덱스 선택이나 실행 시간은 기본 CI의 성공 조건으로 삼지 않는다. DIO_MEDIA_EXPLAIN_QA=true를 지정한 선택 진단만 트랜잭션 안에서 SET LOCAL enable_seqscan=off로 인덱스 사용 가능성을 확인하고 backend/build/media-reference-explain.txt를 기록한다. 설정은 진단 트랜잭션 종료 시 복구하며, 진단 결과가 운영 비용 기반 플래너 선택이나 실서비스 부하 시험을 대신하지 않는다.
 
 다운로드의 일시 오류(네트워크·5xx·408·429)는 실패 후 5초, 15초, 60초 간격으로 다음 조회에서 재시도하며 자동 시도는 최초 포함 최대 4회다. 4xx(408·429 제외), 손상/지원 불가 이미지, 저장 공간 부족은 자동 재시도를 멈춘다. 다른 이미지와 캔버스 편집은 계속 진행한다. 기존 ‘이미지 다시 조회’ 버튼만 실패 상태를 초기화해 즉시 한 번 더 시도한다. 일반 렌더링의 resolveDisplay는 이 제한을 초기화하지 않는다. 재시도 상태는 해당 편집 세션의 메모리에만 보관하고 화면 종료 시 등록한 재조회 연결도 해제한다. 버튼·문구·스타일이나 프로필 UI는 변경하지 않는다.
+
+### V21 호환성·배포 인덱스 생성
+
+이미 적용됐을 수 있는 V21 SQL과 체크섬은 변경하지 않는다. Spring Boot의 MediaIndexMigrationConfiguration이 Flyway migrate 호출 전에 MediaIndexPreparation을 실행한다. 기존 테이블이 있는 PostgreSQL은 별도 auto-commit 연결에서 누락된 V21 인덱스를 CREATE INDEX CONCURRENTLY로 먼저 생성한다. 완료 후 기존 V21의 IF NOT EXISTS는 생성 작업을 건너뛴다. 이미 적용된 유효한 인덱스도 다시 만들지 않는다. 여러 서버의 준비 작업은 이 기능 전용 세션 advisory lock으로 직렬화하며 캔버스 DML을 잠그지 않는다. 중단된 동시 생성으로 남은 무효 인덱스는 해당 테이블의 예약된 이름에 한해서 DROP INDEX CONCURRENTLY 후 재시도한다.
+
+테이블 자체가 아직 없는 새 DB는 준비 작업을 건너뛰며, 기존 Flyway가 빈 테이블에 V21을 적용한다. CONCURRENTLY는 Flyway 트랜잭션 내부가 아닌 전용 연결에서 실행하므로 V21의 executeInTransaction 설정이나 과거 SQL 수정·repair가 필요 없다. 기존 쓰기 트랜잭션을 기다릴 수는 있지만 새 캔버스 쓰기는 막지 않는지 PostgreSQL 동시성 테스트로 확인한다. 운영에서 Spring Boot를 거치지 않고 Flyway를 직접 실행한다면 같은 준비 단계를 먼저 실행해야 한다.
+
+중첩 참조 검증은 생성과 수정의 propertiesJson 전체에서 mediaFileId를 수집해 권한을 확인한다. 다른 사용자 파일을 x.mediaFileId나 배열 안에 숨겨 삭제 보호를 유발하는 요청은 404로 거절하며 요소·이력에 남기지 않는다. UUID를 언급한 일반 텍스트는 참조로 취급하지 않는다. 기존 저장 JSON을 임의로 삭제하거나 파일 읽기 범위를 확장하지 않는다.

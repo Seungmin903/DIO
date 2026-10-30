@@ -14,7 +14,22 @@ public class CanvasMediaAccess {
     private final JdbcTemplate jdbc;
     private final com.f106.DIO.media.config.MediaSqlDialect sql;
     public CanvasMediaAccess(JdbcTemplate jdbc,com.f106.DIO.media.config.MediaSqlDialect sql){this.jdbc=jdbc;this.sql=sql;}
+    /** Every mediaFileId recognized by the recursive retention index must be authorized on write. */
     public static Set<UUID> references(UUID primary,JsonNode properties){
+        var ids=new TreeSet<UUID>();if(primary!=null)ids.add(primary);
+        var pending=new ArrayDeque<JsonNode>();if(properties!=null)pending.add(properties);
+        while(!pending.isEmpty()){
+            var node=pending.removeFirst();
+            if(node.isObject())node.properties().forEach(field->{
+                if("mediaFileId".equals(field.getKey()))add(ids,field.getValue());
+                pending.add(field.getValue());
+            });
+            else if(node.isArray())node.forEach(pending::add);
+        }
+        return ids;
+    }
+    // Do not widen reads for old/hidden metadata: only references rendered by the app grant access.
+    private static Set<UUID> visibleReferences(UUID primary,JsonNode properties){
         var ids=new TreeSet<UUID>();if(primary!=null)ids.add(primary);
         if(properties!=null){
             add(ids,properties.get("mediaFileId"));
@@ -23,12 +38,12 @@ public class CanvasMediaAccess {
         return ids;
     }
     private static void add(Set<UUID> ids,JsonNode value){
-        if(value!=null&&!value.isNull())try{ids.add(UUID.fromString(value.asText()));}catch(IllegalArgumentException error){throw new IllegalArgumentException("이미지 참조 ID를 확인해 주세요.");}
+        if(value!=null&&!value.isNull())try{var id=UUID.fromString(value.asText());if(!id.toString().equalsIgnoreCase(value.asText()))throw new IllegalArgumentException();ids.add(id);}catch(IllegalArgumentException error){throw new IllegalArgumentException("이미지 참조 ID를 확인해 주세요.");}
     }
     private boolean referenced(UUID media,String scope,Object... args){
         var parameters=new ArrayList<Object>();parameters.add(media);parameters.add(sql.parameter(media));Collections.addAll(parameters,args);
         return jdbc.query("select e.media_file_id,e.properties_json from canvas_elements e join pages p on p.page_id=e.page_id join diaries d on d.diary_id=p.diary_id where e.deleted_at is null and p.deleted_at is null and d.deleted_at is null and (e.media_file_id=? or "+sql.matches("e.properties_json")+") and "+scope,
-            (rs,n)->references(rs.getObject(1,UUID.class),rs.getString(2)==null?null:JSON.readTree(rs.getString(2))).contains(media),parameters.toArray()).stream().anyMatch(Boolean.TRUE::equals);
+            (rs,n)->visibleReferences(rs.getObject(1,UUID.class),rs.getString(2)==null?null:JSON.readTree(rs.getString(2))).contains(media),parameters.toArray()).stream().anyMatch(Boolean.TRUE::equals);
     }
     public boolean readable(UUID media,long actor){
         return referenced(media,"(d.owner_user_id=? or exists(select 1 from diary_members m where m.diary_id=d.diary_id and m.user_id=? and m.left_at is null and m.role in ('OWNER','EDITOR')))",actor,actor);
