@@ -268,6 +268,8 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
     {page === 'library' ? library : page === 'trash' ? <TrashScreen compact={isPhone} diaries={trash.data?.items || []}
       serverMode busy={removalLocked} onRestore={id => askRemoval('restore', [id])}
       onDeletePermanently={row => askRemoval('permanentlyDelete', [row.id])}
+      onRestoreMany={ids => askRemoval('restore', ids)}
+      onDeleteMany={rows => askRemoval('permanentlyDelete', rows.map(row => row.id))}
       requestNotice={<Notice state={trash} retry={() => trash.retry()} />} suppressEmpty={trash.status !== 'success'} /> : <View style={shell.screen}>
       <Text style={s.title}>{page === 'trash' ? '휴지통' : '내 공간'}</Text>
       <Text style={s.text}>이 목 모드에서는 보관함 조회만 연결되어 있어요.</Text>

@@ -640,6 +640,28 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         if(member){restoreFromTrash(id).catch(error=>notify('복원을 확인하지 못했어요',error.message));return;}
         if (!restoreFromTrash(id)) notify('복원할 수 없어요', '보관 기한이 지났거나 영구 삭제 중인 다이어리예요.');
       }}
+      // 선택 모드의 묶음 작업. 하나씩 차례로 처리하고(서버 작업은 동시에 하나만 가능) 못 한 것만 모아 알린다.
+      onRestoreMany={async (ids) => {
+        let failed = 0;
+        for (const id of ids) {
+          try { if ((await restoreFromTrash(id)) === false) failed += 1; } catch { failed += 1; }
+        }
+        if (failed) notify('복원하지 못한 다이어리가 있어요', `${failed}개를 복원하지 못했어요. 보관 기한이 지났거나 영구 삭제 중일 수 있어요.`);
+      }}
+      onDeleteMany={(items) => {
+        confirmAction({
+          title: '영구 삭제할까요?',
+          message: member ? `선택한 ${items.length}개의 다이어리와 페이지는 복구할 수 없어요. 보관함의 공용 미디어 원본은 유지돼요.` : `선택한 ${items.length}개의 페이지와 로컬 기록은 복구할 수 없어요.`,
+          confirmLabel: '영구 삭제',
+          onConfirm: async () => {
+            let failed = 0;
+            for (const item of items) {
+              try { if ((await deletePermanently(item.id)) === false) failed += 1; } catch { failed += 1; }
+            }
+            if (failed) notify('삭제하지 못한 다이어리가 있어요', `${failed}개를 삭제하지 못했어요. 저장소를 확인한 뒤 다시 시도해 주세요.`);
+          },
+        });
+      }}
       onDeletePermanently={(diary) => {
         confirmAction({
           title: '영구 삭제할까요?',
