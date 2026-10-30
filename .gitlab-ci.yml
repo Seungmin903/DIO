@@ -120,6 +120,7 @@ backend-test:
       -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/workspace/backend/build/notification-frontend-contract.json
       -v "$CI_PROJECT_DIR/backend:/workspace/backend"
       -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro"
+      -v "$CI_PROJECT_DIR/frontend/assets/fonts/gowundodum:/workspace/frontend/assets/fonts/gowundodum:ro"
       -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro"
       -w /workspace/backend
       eclipse-temurin:17-jdk
