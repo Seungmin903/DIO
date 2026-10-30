@@ -19,7 +19,7 @@ function fixture(file,props) {
  const module={exports:{}}
  new Function('require','module','exports',code)(id=>{
   if(mocks[id])return mocks[id]
-  if(id.endsWith('/theme'))return {colors:{},shadow:{}}
+  if(id.endsWith('/theme'))return {colors:{},shadow:{},radius:{},DISABLED_OPACITY:.4}
   if(id.endsWith('/common'))return common
   if(id.endsWith('/effects'))return effects
   if(id.endsWith('/editorShapes'))return shapes
@@ -65,8 +65,11 @@ test('도형 하나도 공용 꾸미기·배치에서 불투명도·반전·각�
  all=nodes(f.render())
  all.find(n=>n.type==='button'&&n.props?.children?.props?.children==='좌우 반전').props.onPress()
  assert.deepEqual(f.events.at(-1).patches[object.id],{flipX:true})
- all.find(n=>n.type==='Slider'&&n.props.label==='각도').props.onChange(90)
+ const angle=all.find(n=>n.type==='Slider'&&n.props.label==='각도')
+ angle.props.onStart();angle.props.onChange(90)
  assert.deepEqual(f.events.at(-1).patches[object.id],{rotation:90})
+ angle.props.onEnd({cancelled:false});assert.equal(f.events.at(-1).type,'commitCheckpoint')
+ embedded.props.onCheckpoint();embedded.props.onCommit();assert.equal(f.events.at(-1).type,'commitCheckpoint')
  const locked=nodes(fixture('panels/MorePanel.js',{objects:[{...object,locked:true}]}).render())
  assert.ok(!locked.some(n=>n.type==='ShapeSettings'||n.type==='Slider'))
 })
@@ -76,4 +79,20 @@ test('도형 그림자 효과를 변경하고 중복 윤곽선은 제공하지 �
  assert.ok(!all.some(n=>n.type==='Slider'&&n.props.label==='윤곽선 두께'))
  all.find(n=>n.type==='Slider'&&n.props.label==='그림자 크기').props.onChange(5)
  assert.deepEqual(f.events.at(-1).patches[object.id],{shadow:true,shadowSpread:5})
+})
+
+test('도형 테두리 슬라이더와 색상 입력은 편집 완료 콜백을 전달한다',()=>{
+ let starts=0,ends=0
+ const f=fixture('ShapeSettings.js',{settings:shapes.createShape({}, {x:200,y:200}),onChange:()=>{},onCheckpoint:()=>starts++,onCommit:()=>ends++})
+ const slider=nodes(f.render()).find(n=>n.type==='Slider'&&n.props.label==='테두리 두께')
+ slider.props.onStart();slider.props.onChange(5);slider.props.onEnd();assert.equal(starts,1);assert.equal(ends,1)
+ const end=()=>ends++,field=fixture('controls/ColorField.js',{value:'#FFFFFF',onStart:()=>starts++,onEnd:end,onChange:()=>{},label:'테두리'})
+ nodes(field.render()).find(n=>n.type==='button').props.onPress()
+ assert.equal(nodes(field.render()).find(n=>n.type==='picker').props.onEnd,end)
+})
+
+test('서버 페이지 삭제 안내는 기기 되돌리기로 복구할 수 있다고 약속하지 않는다',()=>{
+ const all=nodes(fixture('controls/PageBulkDelete.js',{pages:[{id:'a'},{id:'b'}],ids:['a'],canUndoDelete:false,onDone:()=>{}}).render())
+ assert.match(all.find(n=>n.type==='ConfirmDialog').props.message,/여기서 되돌릴 수 없어요/)
+ assert.equal(all.some(n=>n.props?.accessibilityLabel==='다이어리 초기화'),false)
 })

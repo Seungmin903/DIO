@@ -13,7 +13,7 @@ function main(){
  }
  if(process.argv.includes('--check-artifacts'))return 0;
  const result=spawnSync(process.execPath,['--test','--test-reporter=spec','--test-reporter-destination=stdout','--test-reporter=junit',`--test-reporter-destination=${path.join(report,'junit.xml')}`,
-  'tests/member-diary-api.test.js','tests/member-app-store.test.js','tests/member-diary-spring-contract.test.js','tests/member-diary-lifecycle.test.js','tests/member-diary-purge.test.js','tests/member-contract-ci.test.cjs','tests/member-library-integration.test.js'],{cwd:frontend,stdio:'inherit'});
+  'tests/member-diary-api.test.js','tests/member-app-store.test.js','tests/member-diary-spring-contract.test.js','tests/member-diary-lifecycle.test.js','tests/member-diary-purge.test.js','tests/member-contract-ci.test.cjs','tests/member-library-integration.test.js','tests/collaboration-reducer.test.js','tests/collaboration-session.test.js','tests/collaboration-socket.test.js','tests/collaboration-hook.test.js','tests/collaboration-options.test.js','tests/editor-shape-options.test.js','tests/collaboration-elements.test.js','tests/collaboration-open-document.test.js'],{cwd:frontend,stdio:'inherit'});
  if(result.error)console.error(result.error);return result.status??1;
 }
 module.exports={checkContracts,files};if(require.main===module)process.exitCode=main();

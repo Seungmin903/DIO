@@ -43,7 +43,7 @@ class DeploymentAuthContractTests {
         }
         assertThat(authJob).contains("backend/build/test-results/authPostgresTest/*.xml");
         assertThat(sharingJob).contains("backend/src/main/java/**/sharing/**/*",
-            "backend/build/test-results/sharingPostgresTest/*.xml");
+            "backend/build/test-results/sharingPostgresTest/*.xml", "backend/build/test-results/collaborationPostgresTest/*.xml", "backend/src/main/java/**/collaboration/**/*");
         assertThat(diaryJob).contains("backend/src/main/java/**/diary/**/*",
             "backend/build/test-results/postgresMemberDiaryCreationTest/*.xml",
             "backend/build/test-results/postgresDiaryDetailTest/*.xml",
@@ -55,7 +55,7 @@ class DeploymentAuthContractTests {
         String script = Files.readString(Path.of("../infra/scripts/test-auth-postgres.sh")).replace("\r\n", "\n");
         assertThat(script).contains("auth|sharing|diary|lifecycle|all", "trap cleanup EXIT", "--network \"container:$pg_name\"",
             "CREATE DATABASE dio_reset_qa", "authPostgresTest --no-daemon", "CREATE DATABASE dio_sharing_qa",
-            "sharingPostgresTest --no-daemon", "CREATE DATABASE dio_member_ci",
+            "sharingPostgresTest collaborationPostgresTest --no-daemon", "CREATE DATABASE dio_member_ci",
             "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "CREATE DATABASE dio_member_contract_qa",
             "postgresMemberDiaryHttpTest --no-daemon", "CREATE DATABASE dio_trash_qa",
             "postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon", "-e DIO_AUTH_SCHEMA_TEST=true",
@@ -69,7 +69,7 @@ class DeploymentAuthContractTests {
         assertThat(authSuite).doesNotContain("-e DB_URL=");
         assertThat(occurrences(sharingSuite, "docker run --rm")).isEqualTo(1);
         assertThat(sharingSuite).doesNotContain("-e DB_URL=");
-        assertThat(sharingSuite).contains("-e DIO_SHARING_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_sharing_qa");
+        assertThat(sharingSuite).contains("-e DIO_SHARING_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_sharing_qa", "CREATE DATABASE dio_collaboration_qa", "DIO_COLLABORATION_POSTGRES_URL=jdbc:postgresql://127.0.0.1:5432/dio_collaboration_qa");
         assertThat(occurrences(diarySuite, "docker run --rm")).isEqualTo(2);
         assertThat(occurrences(diarySuite, "-e DB_URL=")).isEqualTo(2);
         assertThat(diarySuite).contains("-e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_ci",

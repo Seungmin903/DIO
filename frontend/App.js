@@ -655,6 +655,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     );
   } else if (page === 'profile') {
     content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
+      passwordService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
 
@@ -723,8 +724,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   return (
     <>
       {authenticatedNotifications && sharingRequest?.mode === 'notifications'
-        ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => setSharingRequest(null)} onInvitationReady={value => setSharingRequest({ mode: 'invitation', inviteId: value.inviteId })} />
-        : <SharingHub onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => setSharingRequest(null), enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => setSharingRequest(null)} />}
+        ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} onInvitationReady={value => setSharingRequest({ mode: 'invitation', inviteId: value.inviteId })} />
+        : <SharingHub onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
         {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}

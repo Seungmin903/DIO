@@ -23,6 +23,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PageBatchRollbackTests {
 
 	@Autowired MockMvc mvc;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @org.junit.jupiter.api.BeforeEach void activeAccount() {
+        jdbc.update("insert into users(user_id,email,nickname,nickname_key,profile_color,status,created_at,updated_at) select 201,'page-rollback@example.com','page-rollback','page-rollback','#6F9FC6','ACTIVE',current_timestamp,current_timestamp where not exists(select 1 from users where user_id=201)");
+    }
+
 
 	@Test
 	void rollsBackTheWholeBatchWhenOneChangeFails() throws Exception {

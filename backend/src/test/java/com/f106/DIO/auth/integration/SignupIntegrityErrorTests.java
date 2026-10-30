@@ -17,9 +17,9 @@ class SignupIntegrityErrorTests {
         return new DataIntegrityViolationException("sensitive SQL values",
             new ConstraintViolationException("private SQL", database, constraint));
     }
-    @Test void onlyKnownEmailAndNicknameUniqueConstraintsReturnConflict() {
+    @Test void onlyKnownEmailUniqueConstraintsReturnConflict() {
         var handler = new SignupExceptionHandler();
-        for (String name : new String[]{"users_email_unique", "users_nickname_key_unique"})
+        for (String name : new String[]{"users_email_unique", "users_email_key"})
             assertThat(handler.conflict(violation("23505", name)).getStatus()).isEqualTo(409);
     }
     @Test void checkNullAndUnexpectedUniqueFailuresReturnServerErrorWithoutSensitiveLogs(CapturedOutput output) {

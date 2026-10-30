@@ -4,7 +4,7 @@ import { colors, DISABLED_OPACITY, radius } from '../../../shared/theme'
 import ConfirmDialog from './ConfirmDialog'
 import Icon from './Icon'
 
-export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone }) {
+export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone, canUndoDelete = true }) {
   const [pending, setPending] = useState(null)
   const confirmed = useRef(false)
   const selected = pages.filter(page => ids.includes(page.id)).map(page => page.id)
@@ -25,7 +25,7 @@ export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone }
     </Pressable>}
     <ConfirmDialog open={Boolean(pending)} title={pending === 'reset' ? '다이어리를 초기화할까요?' : `${pending?.length ?? 0}개 페이지를 삭제할까요?`}
       confirmLabel={pending === 'reset' ? '초기화' : '삭제'}
-      message={pending === 'reset' ? `필터와 선택에 관계없이 모든 ${pages.length}개 페이지와 내용을 지우고 빈 페이지 한 장을 남겨요. 제목과 표지는 유지돼요. 되돌리기는 현재 편집 중에만 가능해요.` : '선택한 페이지의 내용이 함께 삭제돼요. 되돌리기로 복구할 수 있어요.'}
+      message={pending === 'reset' ? `필터와 선택에 관계없이 모든 ${pages.length}개 페이지와 내용을 지우고 빈 페이지 한 장을 남겨요. 제목과 표지는 유지돼요. 되돌리기는 현재 편집 중에만 가능해요.` : (canUndoDelete ? '선택한 페이지의 내용이 함께 삭제돼요. 되돌리기로 복구할 수 있어요.' : '선택한 페이지의 내용이 함께 삭제되고 공유 멤버에게도 반영돼요. 여기서 되돌릴 수 없어요.')}
       onCancel={() => setPending(null)} onConfirm={() => {
         if (!pending || confirmed.current) return
         confirmed.current = true

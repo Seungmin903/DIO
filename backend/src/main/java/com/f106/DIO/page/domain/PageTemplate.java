@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 public class PageTemplate {
 	@Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long templateId;
 	@Column(nullable = false, length = 100) private String code;
+    @Column(length = 30) private String templateVersion;
 	@Column(nullable = false, precision = 10, scale = 2) private BigDecimal canvasWidth;
 	@Column(nullable = false, precision = 10, scale = 2) private BigDecimal canvasHeight;
 	@JdbcTypeCode(SqlTypes.JSON) private String defaultConfig;

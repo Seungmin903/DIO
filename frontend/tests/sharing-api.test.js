@@ -71,6 +71,23 @@ test('붙여넣은 링크의 외부 주소로 인증 토큰을 보내지 않고 
   await assert.rejects(f.runtime.resolveLink('javascript:alert(1)'), { code: 'INVALID_LINK' });
 });
 
+test('서버 기본 상대 초대 링크도 같은 서버 API에서 확인한다', async () => {
+  const f = fixture();
+  const result = await f.runtime.resolveLink('  /invite/local-link-token  ');
+  assert.equal(result.token, 'local-link-token');
+  assert.equal(f.calls.at(-1).url, 'https://api.dio.test/api/v1/invites/local-link-token');
+  await f.runtime.resolveLink('/invite/encoded%2Dtoken/?from=clipboard');
+  assert.equal(f.calls.at(-1).url, 'https://api.dio.test/api/v1/invites/encoded-token');
+});
+
+test('잘못된 상대 경로나 빈 토큰은 네트워크 요청 전에 거절한다', async () => {
+  const f = fixture();
+  for (const value of ['/invite/', '/invite/../other', '/invite/token/extra', '//other.example/invite/token', 'token-only', '/invite/%ZZ']) {
+    await assert.rejects(f.runtime.resolveLink(value), { code: 'INVALID_LINK' });
+  }
+  assert.equal(f.calls.length, 0);
+});
+
 test('별칭은 중복 확인 요청 없이 검증하고 사진 초기화는 null, 파일은 profile multipart로 전송한다', async () => {
   const f = fixture();
   await f.runtime.getSharing(diaryId);
