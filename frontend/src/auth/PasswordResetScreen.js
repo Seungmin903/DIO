@@ -143,7 +143,7 @@ export default function PasswordResetScreen({
         <Header
           title={heading}
           compact={compact}
-          right={step !== 'success' ? (
+          left={step !== 'success' ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="마이페이지로 돌아가기"

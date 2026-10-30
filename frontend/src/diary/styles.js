@@ -98,6 +98,8 @@ export const styles = StyleSheet.create({
   selectButtonText: { color: C.ink, fontSize: 13, fontWeight: '700' },
   selectButtonTextDanger: { color: C.white },
   header: { minHeight: 45, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
+  headerStart: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  headerLeft: { marginRight: 8 },
   headerTitle: { color: C.ink, fontSize: 29, fontWeight: '800', letterSpacing: -0.6 },
   headerCompact: { minHeight: 48, alignItems: 'center', marginBottom: 16 },
   headerTitleCompact: { fontSize: 30, letterSpacing: -0.6 },

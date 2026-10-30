@@ -53,7 +53,7 @@ export default function NotificationSettingsScreen({ compact = false, onClose })
       <Header
         title="알림 설정"
         compact={compact}
-        right={(
+        left={(
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="마이페이지로 돌아가기"
