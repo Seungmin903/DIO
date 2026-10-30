@@ -152,10 +152,9 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
     custom.setCategoryOrder(hiding ? [...visible, ...rest, id] : [...visible, id, ...rest])
     custom.toggleHidden(id)
   }
-  // 폴더 이름: 1글자 이상, 다른 폴더·분류와 겹치지 않아야 확정할 수 있다.
+  // 폴더는 ID로 구분한다. 이름 중복은 허용하며 공백만 있는 이름은 저장하지 않는다.
   const draftName = folderDraft?.name.trim() ?? ''
-  const nameTaken = orderable.some((c) => c.name === draftName && c.id !== `folder:${folderDraft?.id}`)
-  const canCommitFolder = draftName.length > 0 && !nameTaken
+  const canCommitFolder = draftName.length > 0
 
   async function addCustom(kind, folderId) {
     if (busy) return
@@ -468,7 +467,6 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
       )}
       {splitTarget && <StickerSplitModal folder={splitTarget.folder} initialName={splitTarget.name}
         onClose={() => setSplitTarget(null)} onSave={async (folderId, name, stickers) => {
-          if (orderable.some(item => item.name === name.trim() && item.id !== `folder:${folderId}`)) throw new Error('같은 이름의 폴더나 분류가 있어요.')
           const id = await custom.saveGenerated(folderId, name, stickers)
           setCategory(`folder:${id}`); setFolderDraft(null)
           onToast(`${stickers.length}개 스티커를 폴더에 저장했어요.`)

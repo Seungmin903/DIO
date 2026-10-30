@@ -386,3 +386,34 @@ test('보관함 재진입에서도 저장 실패와 편집 내용이 유지되�
   assert.equal(restarted.api.saveError, null)
   restarted.unmount()
 })
+
+test('같은 폴더 이름으로 새로 저장해도 ID와 내용이 분리되며 빈 이름은 거부한다', async () => {
+  const storage = { value: { folders: [{ id: 'old', name: '여행', items: [{ emoji: '🌼' }] }] } };
+  const h = await decorHarness(storage);
+  const id = await h.api.saveGenerated(null, ' 여행 ', [{ emoji: '⭐' }]);
+  h.render(); await new Promise(resolve => setImmediate(resolve));
+  const folders = h.render().items.folders;
+  assert.notEqual(id, 'old');
+  assert.deepEqual(folders.map(f => f.name), ['여행', '여행']);
+  assert.equal(folders.find(f => f.id === 'old').items[0].emoji, '🌼');
+  assert.equal(folders.find(f => f.id === id).items[0].emoji, '⭐');
+  await assert.rejects(h.render().saveGenerated(null, '  ', [{ emoji: '⭐' }]), /이름/);
+  h.api.removeFolder(id); h.render();
+  assert.deepEqual(h.render().items.folders.map(f => f.id), ['old']);
+  h.unmount();
+});
+
+test('일반 폴더 생성·이름 변경도 중복을 허용하고 대상 ID의 내용만 변경한다', async () => {
+  const storage={value:{folders:[{id:'old',name:'여행',items:[{emoji:'🌼'}]}]}};
+  const h=await decorHarness(storage);
+  const id=h.api.addFolder('여행');h.render();
+  const another=h.render().addFolder('다른 이름');h.render();
+  h.render().renameFolder(another,'여행');h.render();
+  await new Promise(resolve=>setImmediate(resolve));
+  const folders=h.render().items.folders;
+  assert.deepEqual(folders.map(f=>f.name),['여행','여행','여행']);
+  assert.equal(new Set(folders.map(f=>f.id)).size,3);
+  assert.deepEqual(folders.find(f=>f.id==='old').items,[{emoji:'🌼'}]);
+  assert.notEqual(id,another);
+  h.unmount();
+});

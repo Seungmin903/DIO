@@ -30,6 +30,7 @@ import MockLibraryApp from './src/diary/screens/MockLibraryApp';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
 import { queryDiaries } from './src/diary/utils/libraryQuery';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
+import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
@@ -112,6 +113,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const invitationLeaveGuard = useRef(null);
   const registerInvitationLeaveGuard = useCallback(guard => { invitationLeaveGuard.current = guard; return () => { if (invitationLeaveGuard.current === guard) invitationLeaveGuard.current = null; }; }, []);
   const profileLeaveGuard = useRef(null);
+  const studioBackHandler = useRef(null);
+  const registerStudioBackHandler = useCallback(handler => {
+    studioBackHandler.current = handler;
+    return () => { if (studioBackHandler.current === handler) studioBackHandler.current = null; };
+  }, []);
   const profileBackHandler = useRef(null);
   const registerProfileLeaveGuard = useCallback((guard, onBack) => {
     profileLeaveGuard.current = guard;
@@ -273,6 +279,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   useEffect(() => {
     if (Platform.OS !== 'android' || page === 'editor') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (studioBackHandler.current?.()) return true;
       if (profileBackHandler.current) {
         profileBackHandler.current();
         return true;
@@ -658,6 +665,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         }}
       />
     );
+  } else if (page === 'studio') {
+    content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
     content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
