@@ -27,14 +27,14 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
   // 너비가 어느 정도 벌어진 뒤에 글자가 나타나도록 늦게 보인다.
   const labelOpacity = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 0, 1] });
   const profileSelected = page === 'profile';
-  const profileShortcut = (placement) => (
+  const profileShortcut = () => (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="마이페이지"
       accessibilityState={{ selected: profileSelected }}
       onPress={() => navigate('profile')}
       style={({ pressed }) => [
-        placement === 'collapsed' ? s.railProfileCollapsed : s.railProfileTop,
+        s.railProfileButton,
         profileSelected && s.railProfileSelected,
         pressed && s.railTogglePressed,
       ]}
@@ -87,7 +87,6 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
             <BrandLogo size={32} />
           </Pressable>
         </Animated.View>
-        {!collapsed && <Animated.View style={{ opacity: labelOpacity }}>{profileShortcut('top')}</Animated.View>}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
@@ -98,8 +97,10 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
           <AppIcon name="menu" size={24} color={C.ink} />
         </Pressable>
       </Animated.View>
-      {collapsed && <View style={s.railProfileCollapsedSlot}>{profileShortcut('collapsed')}</View>}
-      <Animated.View style={[s.railGroup, { marginTop: between(18, 25) }]}>
+      <Animated.View style={[s.railProfileFloating, { top: between(52, 0), left: between(15, 102) }]}>
+        {profileShortcut()}
+      </Animated.View>
+      <Animated.View style={[s.railGroup, { marginTop: between(42, 25) }]}>
         <Animated.View style={[s.railSectionSlot, { height: between(0, 23), opacity: labelOpacity }]}>
           <Text numberOfLines={1} style={s.railSection}>보관함</Text>
         </Animated.View>
