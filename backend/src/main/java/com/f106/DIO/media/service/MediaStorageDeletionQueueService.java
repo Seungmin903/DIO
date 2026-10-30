@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.time.Duration;
 import java.util.List;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,9 +36,10 @@ public class MediaStorageDeletionQueueService {
 		return tasks.save(new MediaStorageDeletionTask(mediaFileId, storageKey, Instant.now().plus(UPLOAD_GUARD_DELAY)));
 	}
 
-	@Transactional(readOnly = true)
+	// Selection locks last only for this transaction; deleteIfUnlocked rechecks after selection.
+	@Transactional
 	public List<MediaStorageDeletionTask> next(int limit) {
-		return tasks.findAllByNextAttemptAtLessThanEqualOrderByNextAttemptAtAscDeletionIdAsc(Instant.now(), PageRequest.of(0, limit));
+		return tasks.findDueUnlocked(Instant.now(), limit);
 	}
 
 	@Transactional

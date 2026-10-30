@@ -21,7 +21,7 @@ import com.f106.DIO.media.library.repository.DiaryMediaLibraryRepository;
 import com.f106.DIO.media.repository.MediaFileRepository;
 
 /** 공유 보관함 네이티브 SQL을 Flyway로 만든 실제 PostgreSQL 스키마에서 저장소와 같은 문자열로 실행한다. */
-@EnabledIfEnvironmentVariable(named = "DIO_LIST_QUERY_PG", matches = "true")
+@EnabledIfEnvironmentVariable(named = "DIO_FONT348_POSTGRES", matches = "true")
 class MediaSharedLibraryPostgresTests {
 	private static final long OWNER = 1, MEMBER = 2, LEFT_MEMBER = 3, OUTSIDER = 4;
 	private final UUID diary = UUID.randomUUID(), deletedDiary = UUID.randomUUID(), expiredDiary = UUID.randomUUID();
@@ -32,11 +32,14 @@ class MediaSharedLibraryPostgresTests {
 
 	@BeforeEach
 	void setup() {
-		String url = System.getenv("DB_URL"), user = System.getenv("POSTGRES_USER"), password = System.getenv("POSTGRES_PASSWORD");
-		if (url == null || !url.matches("jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/dio_trash_qa"))
-			throw new IllegalStateException("Dedicated loopback dio_trash_qa required");
+		String url = System.getenv("DIO_FONT348_PG_URL"), user = System.getenv("DIO_FONT348_PG_USER"), password = "";
+		if (url == null || !url.matches("jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/dio_font348_isolated"))
+			throw new IllegalStateException("Dedicated loopback dio_font348_isolated required");
 		admin = new JdbcTemplate(new DriverManagerDataSource(url, user, password));
-		schema = "library_qa_" + UUID.randomUUID().toString().replace("-", "");
+		assertThat(user).isEqualTo("font348");
+        assertThat(admin.queryForObject("select token from public.font348_isolation_marker", String.class)).isEqualTo(System.getenv("DIO_FONT348_PG_NONCE"));
+        assertThat(java.nio.file.Path.of(admin.queryForObject("show data_directory", String.class)).normalize()).isEqualTo(java.nio.file.Path.of(System.getenv("DIO_FONT348_PG_DATA")).normalize());
+        schema = "library_qa_" + UUID.randomUUID().toString().replace("-", "");
 		admin.execute("create schema " + schema);
 		DriverManagerDataSource source = new DriverManagerDataSource(url + "?currentSchema=" + schema, user, password);
 		jdbc = new JdbcTemplate(source);

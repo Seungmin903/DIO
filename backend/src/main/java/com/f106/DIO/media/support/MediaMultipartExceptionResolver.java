@@ -23,7 +23,7 @@ public class MediaMultipartExceptionResolver extends AbstractHandlerExceptionRes
 		response.setStatus(HttpStatus.PAYLOAD_TOO_LARGE.value());
 		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
 		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-		try { response.getWriter().write("{\"status\":413,\"title\":\"Payload Too Large\",\"detail\":\"미디어 파일은 5MB 이하로 올려 주세요.\",\"code\":\"MEDIA_FILE_TOO_LARGE\"}"); }
+		try { response.getWriter().write("{\"status\":413,\"title\":\"Payload Too Large\",\"detail\":\"업로드 요청이 허용 크기를 초과했어요. 이미지·오디오는 5MiB, 폰트는 25MiB 이하로 올려 주세요.\",\"code\":\"MEDIA_FILE_TOO_LARGE\"}"); }
 		catch (IOException error) { return null; }
 		return new ModelAndView();
 	}

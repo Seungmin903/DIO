@@ -23,7 +23,7 @@ import com.f106.DIO.media.repository.MediaFileRepository;
  * 미디어 물리 삭제 네이티브 SQL을 Flyway로 만든 실제 PostgreSQL 스키마에서 실행한다.
  * 저장소와 같은 SQL 상수를 써서 컬럼명 오타나 참조 조건 누락을 배치 활성화 전에 잡는다.
  */
-@EnabledIfEnvironmentVariable(named = "DIO_MEMBER_PURGE_PG", matches = "true")
+@EnabledIfEnvironmentVariable(named = "DIO_FONT348_POSTGRES", matches = "true")
 class MediaPhysicalDeletePostgresTests {
 	private static final String SELECT = "select media_files.media_file_id from media_files where "
 		+ MediaFileRepository.PHYSICALLY_DELETABLE;
@@ -44,11 +44,14 @@ class MediaPhysicalDeletePostgresTests {
 
 	@BeforeEach
 	void setup() {
-		String url = System.getenv("DB_URL"), user = System.getenv("POSTGRES_USER"), password = System.getenv("POSTGRES_PASSWORD");
-		if (url == null || !url.matches("jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/dio_trash_qa"))
-			throw new IllegalStateException("Dedicated loopback dio_trash_qa required");
+		String url = System.getenv("DIO_FONT348_PG_URL"), user = System.getenv("DIO_FONT348_PG_USER"), password = "";
+		if (url == null || !url.matches("jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/dio_font348_isolated"))
+			throw new IllegalStateException("Dedicated loopback dio_font348_isolated required");
 		admin = new JdbcTemplate(new DriverManagerDataSource(url, user, password));
-		schema = "media_qa_" + UUID.randomUUID().toString().replace("-", "");
+		assertThat(user).isEqualTo("font348");
+        assertThat(admin.queryForObject("select token from public.font348_isolation_marker",String.class)).isEqualTo(System.getenv("DIO_FONT348_PG_NONCE"));
+        assertThat(java.nio.file.Path.of(admin.queryForObject("show data_directory",String.class)).normalize()).isEqualTo(java.nio.file.Path.of(System.getenv("DIO_FONT348_PG_DATA")).normalize());
+        schema = "media_qa_" + UUID.randomUUID().toString().replace("-", "");
 		admin.execute("create schema " + schema);
 		DriverManagerDataSource source = new DriverManagerDataSource(url + "?currentSchema=" + schema, user, password);
 		jdbc = new JdbcTemplate(source);

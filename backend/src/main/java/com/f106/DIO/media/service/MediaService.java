@@ -1,6 +1,7 @@
 package com.f106.DIO.media.service;
 
 import java.io.IOException;
+import java.io.PushbackInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -24,29 +25,29 @@ import org.springframework.web.multipart.MultipartFile;
 public class MediaService {
 	private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 	private static final int MAX_FILE_SIZE = 5 * 1024 * 1024;
+	private static final int MAX_FONT_SIZE = 25 * 1024 * 1024;
 	private final MediaFiles files;
 	private final MediaFileTransactionService transactions;
 	private final MediaStorageDeletionQueueService deletionQueue;
-	public MediaService(MediaFiles files, MediaFileTransactionService transactions, MediaStorageDeletionQueueService deletionQueue) {
-		this.files = files; this.transactions = transactions; this.deletionQueue = deletionQueue;
+	private final GuardedMediaOperations guarded;
+	private final MediaUploadAdmission admission;
+	public MediaService(MediaFiles files, MediaFileTransactionService transactions, MediaStorageDeletionQueueService deletionQueue, GuardedMediaOperations guarded, MediaUploadAdmission admission) {
+		this.files = files; this.transactions = transactions; this.deletionQueue = deletionQueue; this.guarded = guarded; this.admission = admission;
 	}
 
 	public MediaFileResponse upload(MultipartFile upload, String requestedCategory, Long userId) {
+		try (var permit = admission.acquire()) {
 		byte[] content = read(upload);
 		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
+		if (kind.mediaType() != MediaType.FONT && content.length > MAX_FILE_SIZE) throw MediaRequestException.tooLarge();
 		MediaLibraryCategory category = category(kind.mediaType(), requestedCategory);
 		UUID id = UUID.randomUUID();
 		String key = MediaStorageKeys.create(kind.mediaType(), kind.extension(), id);
 		MediaFile mediaFile = new MediaFile(id, userId, kind.mediaType(), category, key, filename(upload.getOriginalFilename()),
 			kind.mimeType(), content.length, checksum(content));
 		MediaStorageDeletionTask cleanupTask = deletionQueue.reserveUploadCleanup(id, key);
-		try {
-			files.put(key, content, kind.mimeType());
-			return transactions.persist(mediaFile, cleanupTask.getDeletionId());
-		} catch (RuntimeException error) {
-			// PutObject가 타임아웃으로 실패해도 원격 저장소에는 객체가 생성됐을 수 있다.
-			deleteOrQueue(cleanupTask);
-			throw error;
+		// A failure leaves the independently committed reservation for delayed recovery.
+		return guarded.upload(mediaFile, cleanupTask.getDeletionId(), content, kind.mimeType());
 		}
 	}
 
@@ -66,32 +67,26 @@ public class MediaService {
 	public void delete(UUID mediaFileId, Long userId) {
 		transactions.delete(mediaFileId, userId);
 	}
-	private void deleteOrQueue(MediaStorageDeletionTask task) {
-		try {
-			files.delete(task.getStorageKey());
-			deletionQueue.complete(task);
-		} catch (RuntimeException error) {
-			try { deletionQueue.recordFailure(task, error); }
-			catch (RuntimeException queueError) { log.error("Upload cleanup failure could not be recorded: deletionId={}", task.getDeletionId(), queueError); }
-			log.warn("Media upload cleanup will be retried: deletionId={}, key={}", task.getDeletionId(), task.getStorageKey(), error);
-		}
-	}
 	private static byte[] read(MultipartFile upload) {
 		if (upload == null || upload.isEmpty()) throw MediaRequestException.invalidFile();
-		if (upload.getSize() > MAX_FILE_SIZE) throw MediaRequestException.tooLarge();
-		try {
-			byte[] content = upload.getInputStream().readNBytes(MAX_FILE_SIZE + 1);
-			if (content.length == 0) throw MediaRequestException.invalidFile();
-			if (content.length > MAX_FILE_SIZE) throw MediaRequestException.tooLarge();
+		try (var in = new PushbackInputStream(upload.getInputStream(), 12)) {
+			byte[] header = in.readNBytes(12);
+			if (header.length == 0) throw MediaRequestException.invalidFile();
+			in.unread(header);
+			boolean font = MediaUploadInspector.isFontHeader(header);
+			int limit = font ? MAX_FONT_SIZE : MAX_FILE_SIZE;
+			if (upload.getSize() > limit) throw font ? MediaRequestException.fontTooLarge() : MediaRequestException.tooLarge();
+			byte[] content = in.readNBytes(limit + 1);
+			if (content.length > limit) throw font ? MediaRequestException.fontTooLarge() : MediaRequestException.tooLarge();
 			return content;
 		} catch (IOException error) { throw MediaRequestException.invalidFile(); }
 	}
 	private static MediaLibraryCategory category(MediaType mediaType, String requestedCategory) {
-		if (requestedCategory == null || requestedCategory.isBlank()) return mediaType == MediaType.IMAGE ? MediaLibraryCategory.PHOTO : MediaLibraryCategory.AUDIO;
+		if (requestedCategory == null || requestedCategory.isBlank()) return mediaType == MediaType.IMAGE ? MediaLibraryCategory.PHOTO : mediaType == MediaType.FONT ? MediaLibraryCategory.FONT : MediaLibraryCategory.AUDIO;
 		try {
 			MediaLibraryCategory category = MediaLibraryCategory.valueOf(requestedCategory.strip().toUpperCase(Locale.ROOT));
-			if ((mediaType == MediaType.IMAGE && category == MediaLibraryCategory.AUDIO)
-				|| (mediaType == MediaType.AUDIO && category != MediaLibraryCategory.AUDIO)) throw MediaRequestException.invalidCategory();
+			if ((mediaType == MediaType.IMAGE && (category == MediaLibraryCategory.AUDIO || category == MediaLibraryCategory.FONT))
+				|| (mediaType == MediaType.AUDIO && category != MediaLibraryCategory.AUDIO) || (mediaType == MediaType.FONT && category != MediaLibraryCategory.FONT)) throw MediaRequestException.invalidCategory();
 			return category;
 		} catch (IllegalArgumentException error) { throw MediaRequestException.invalidCategory(); }
 	}

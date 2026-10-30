@@ -23,15 +23,17 @@ public class ExpiredMediaCleanup {
 	private final MediaFileRepository mediaFiles;
 	private final MediaStorageDeletionQueueService deletionQueue;
 	private final MediaFiles files;
+	private final GuardedMediaOperations guarded;
 	private final Duration retention;
 	private final int batchSize;
 
-	public ExpiredMediaCleanup(MediaFileRepository mediaFiles, MediaStorageDeletionQueueService deletionQueue, MediaFiles files,
+	public ExpiredMediaCleanup(MediaFileRepository mediaFiles, MediaStorageDeletionQueueService deletionQueue, MediaFiles files, GuardedMediaOperations guarded,
 		@Value("${dio.media.expiry-cleanup.retention:PT24H}") Duration retention,
 		@Value("${dio.media.expiry-cleanup.batch-size:100}") int batchSize) {
 		this.mediaFiles = mediaFiles;
 		this.deletionQueue = deletionQueue;
 		this.files = files;
+		this.guarded = guarded;
 		this.retention = retention;
 		this.batchSize = Math.max(1, Math.min(100, batchSize));
 	}
@@ -92,9 +94,7 @@ public class ExpiredMediaCleanup {
 
 	private Result deleteStorage(MediaStorageDeletionTask task) {
 		try {
-			files.delete(task.getStorageKey());
-			deletionQueue.complete(task);
-			return new Result(1, 0);
+			return new Result(guarded.deleteIfUnlocked(task.getDeletionId()) ? 1 : 0, 0);
 		} catch (RuntimeException error) {
 			try {
 				deletionQueue.recordFailure(task, error);
