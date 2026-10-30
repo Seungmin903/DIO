@@ -86,6 +86,26 @@ class UserWithdrawalTests extends SharingTestSupport {
         assertThat(diaries.existsById(personal)).isFalse();assertThat(diaries.findById(shared).orElseThrow().getOwnerUserId()).isEqualTo(friend.id());
         assertThat(membership.list(shared,friend.id()).currentMembers()).isEqualTo(1);
     }
+    @Test void withdrawalRevokesUsedLinksButKeepsJoinedMembersAndOtherInvitersLinks()throws Exception{
+        var owner=actor();var editor=actor();var joined=actor();var shared=diary(owner);
+        links.accept(links.create(shared,owner.id()).token(),editor.id());
+        var used=links.create(shared,editor.id());links.accept(used.token(),joined.id());
+        var otherDiary=diary(owner);var otherLink=links.create(otherDiary,owner.id());
+        var accepted= com.f106.DIO.sharing.domain.DiaryInvite.email(shared,editor.id(),joined.id(),Instant.now());
+        accepted.acceptedEmail();var acceptedId=invites.saveAndFlush(accepted).getInviteId();
+        mvc.perform(delete("/api/v1/me").header("Authorization","Bearer "+editor.token())).andExpect(status().isNoContent());
+        var revoked=invites.findById(Long.parseLong(used.token().split("\\.")[0])).orElseThrow();
+        assertThat(revoked.getUseCount()).isEqualTo(1);assertThat(revoked.getRevokedAt()).isNotNull();
+        assertThatThrownBy(()->links.preview(used.token())).isInstanceOf(com.f106.DIO.sharing.exception.SharingException.class)
+            .hasMessageContaining("새 초대 링크");
+        assertThatThrownBy(()->links.accept(used.token(),owner.id())).isInstanceOf(com.f106.DIO.sharing.exception.SharingException.class)
+            .hasMessageContaining("새 초대 링크");
+        assertThat(membership.list(shared,owner.id()).currentMembers()).isEqualTo(2);
+        assertThat(membership.list(shared,joined.id()).currentMembers()).isEqualTo(2);
+        assertThat(links.preview(otherLink.token()).diaryId()).isEqualTo(otherDiary);
+        var history=invites.findById(acceptedId).orElseThrow();
+        assertThat(history.getInviteType()).isEqualTo("EMAIL_ACCEPTED");assertThat(history.getRevokedAt()).isNull();
+    }
     @Test void otherOwnersDiaryAndItsCanvasRemainAfterEditorWithdraws()throws Exception{
         var owner=actor();var editor=actor();var shared=diary(owner);links.accept(links.create(shared,owner.id()).token(),editor.id());
         var page=UUID.randomUUID();

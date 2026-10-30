@@ -27,6 +27,6 @@ public class UserWithdrawalDiaryAdapter implements UserWithdrawalDiaries {
         }
         for(var id:owned)deletion.delete(id);
         jdbc.update("update diary_members set left_at=coalesce(left_at,?),member_nickname=null,member_profile_photo_id=null,last_opened_page_id=null,is_favorite=false where user_id=?",java.sql.Timestamp.from(now),actor);
-        jdbc.update("update diary_invites set revoked_at=?,invite_type=case when invite_type='EMAIL' then 'EMAIL_CANCELLED' else invite_type end where (inviter_user_id=? or invitee_user_id=?) and revoked_at is null and use_count=0",java.sql.Timestamp.from(now),actor,actor);
+        jdbc.update("update diary_invites set revoked_at=?,invite_type=case when invite_type='EMAIL' then 'EMAIL_CANCELLED' else invite_type end where revoked_at is null and ((invite_type='LINK' and inviter_user_id=?) or ((inviter_user_id=? or invitee_user_id=?) and use_count=0))",java.sql.Timestamp.from(now),actor,actor,actor);
     }
 }
