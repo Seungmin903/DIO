@@ -1,0 +1,48 @@
+package com.f106.DIO.media.service;
+
+import java.util.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import com.f106.DIO.media.support.MediaFileNotFoundException;
+
+/** Access to images referenced by the existing canvas APIs, including photo-strip cells. */
+@Service
+public class CanvasMediaAccess {
+    private static final JsonMapper JSON=JsonMapper.builder().build();
+    private final JdbcTemplate jdbc;
+    public CanvasMediaAccess(JdbcTemplate jdbc){this.jdbc=jdbc;}
+    public static Set<UUID> references(UUID primary,JsonNode properties){
+        var ids=new TreeSet<UUID>();if(primary!=null)ids.add(primary);
+        if(properties!=null){
+            add(ids,properties.get("mediaFileId"));
+            var cells=properties.get("cells");if(cells!=null&&cells.isArray())for(var cell:cells)add(ids,cell.get("mediaFileId"));
+        }
+        return ids;
+    }
+    private static void add(Set<UUID> ids,JsonNode value){
+        if(value!=null&&!value.isNull())try{ids.add(UUID.fromString(value.asText()));}catch(IllegalArgumentException error){throw new IllegalArgumentException("이미지 참조 ID를 확인해 주세요.");}
+    }
+    private boolean referenced(UUID media,String scope,Object... args){
+        var parameters=new ArrayList<Object>();parameters.add(media);parameters.add("%"+media+"%");Collections.addAll(parameters,args);
+        return jdbc.query("select e.media_file_id,e.properties_json from canvas_elements e join pages p on p.page_id=e.page_id join diaries d on d.diary_id=p.diary_id where e.deleted_at is null and p.deleted_at is null and d.deleted_at is null and (e.media_file_id=? or lower(cast(e.properties_json as varchar)) like ?) and "+scope,
+            (rs,n)->references(rs.getObject(1,UUID.class),rs.getString(2)==null?null:JSON.readTree(rs.getString(2))).contains(media),parameters.toArray()).stream().anyMatch(Boolean.TRUE::equals);
+    }
+    public boolean readable(UUID media,long actor){
+        return referenced(media,"(d.owner_user_id=? or exists(select 1 from diary_members m where m.diary_id=d.diary_id and m.user_id=? and m.left_at is null and m.role in ('OWNER','EDITOR')))",actor,actor);
+    }
+    public void requireAttach(UUID page,UUID primary,JsonNode properties,long actor){
+        for(var media:references(primary,properties)){
+            var owners=jdbc.queryForList("select owner_user_id from media_files where media_file_id=? and deleted_at is null and status='READY' and media_type='IMAGE' for update",Long.class,media);
+            if(owners.isEmpty())throw new MediaFileNotFoundException();
+            if(Objects.equals(owners.get(0),actor))continue;
+            boolean library=Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from diary_media_library l join pages p on p.diary_id=l.diary_id where p.page_id=? and l.media_file_id=?)",Boolean.class,page,media));
+            if(!library&&!referenced(media,"d.diary_id=(select diary_id from pages where page_id=?)",page))throw new MediaFileNotFoundException();
+        }
+    }
+    /** Include soft-deleted elements, which can still be restored or undone. */
+    public boolean retained(UUID media){
+        return Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from canvas_elements e where e.media_file_id=? or lower(cast(e.properties_json as varchar)) like ?) or exists(select 1 from canvas_history_operations h where lower(cast(h.before_state_json as varchar)) like ? or lower(cast(h.after_state_json as varchar)) like ?)",Boolean.class,media,"%"+media+"%","%"+media+"%","%"+media+"%"));
+    }
+}
