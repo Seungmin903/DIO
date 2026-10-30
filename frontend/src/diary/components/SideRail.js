@@ -66,15 +66,18 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
     <>
     {/* 펼쳐지면 메인 화면을 어둡게 가리고, 메인 쪽은 누르기·쓸기·스크롤 모두 여기서 막혀 메뉴만 닫힌다. 메뉴(아래 Animated.View)가 이 막 위에 그려진다.
         막은 자리(slot) 안이 아니라 shell 바로 아래 형제로 둔다 — 부모 영역 밖의 터치는 안드로이드에서 전달되지 않기 때문이다. */}
-    <Animated.View pointerEvents={collapsed ? 'none' : 'auto'} style={[s.railScrim, { opacity: scrimOpacity }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="메뉴 닫기" accessibilityElementsHidden={collapsed} importantForAccessibility={collapsed ? 'no-hide-descendants' : 'auto'} onPress={onToggle} style={s.railScrimPress} />
+    <Animated.View pointerEvents={collapsed ? 'none' : 'auto'} style={s.railScrim}>
+      <Animated.View style={[s.railScrimTint, { opacity: scrimOpacity }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="메뉴 닫기" accessibilityElementsHidden={collapsed} importantForAccessibility={collapsed ? 'no-hide-descendants' : 'auto'} onPress={onToggle} style={s.railScrimPress} />
+      </Animated.View>
     </Animated.View>
     <View style={s.railSlot} />
+    <Animated.View style={[s.railOverlay, { width: between(RAIL_WIDTH.collapsed, RAIL_WIDTH.expanded) }]}>
     <Animated.View
       style={[
         s.rail,
-        s.railOverlay,
-        { width: between(RAIL_WIDTH.collapsed, RAIL_WIDTH.expanded), paddingHorizontal: between(RAIL_PADDING.collapsed, RAIL_PADDING.expanded), paddingBottom: 24 + bottomInset },
+        s.railInner,
+        { paddingHorizontal: between(RAIL_PADDING.collapsed, RAIL_PADDING.expanded), paddingBottom: 24 + bottomInset },
       ]}
     >
       <Animated.View style={s.brandRow}>
@@ -117,6 +120,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         {item('profile', '내 공간', 'person')}
         {item('trash', '휴지통', 'trash')}
       </Animated.View>
+    </Animated.View>
     </Animated.View>
     </>
   );
