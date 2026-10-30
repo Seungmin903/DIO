@@ -8,18 +8,18 @@ export const COVER_COLORS = COLORS.map(({ label, value }) => [label, value])
 export const COVER_PATTERNS = [['none', '없음'], ['linen', '린넨'], ['leather', '레더'], ['dot', '도트'], ['gingham', '깅엄'], ['stripe', '스트라이프'], ['check', '체크']]
 // 편집기 텍스트 도구와 같은 글씨체 (editor/utils/text.js TEXT_FONTS 의 id)
 export const COVER_FONTS = [['sans', '기본 고딕'], ['serif', '기본 명조'], ['nanum-gothic', '나눔고딕'], ['nanum-myeongjo', '나눔명조'], ['nanum-pen', '나눔손글씨 펜'], ['poor-story', '푸어스토리']]
-export const INK_COLORS = [['흰색', '#FFFFFF'], ['먹색', '#3B3F4A'], ['네이비', '#0B1957'], ['파랑', '#4F74AE'], ['빨강', '#C8423F'], ['초록', '#2F6B4F']]
+export const INK_COLORS = [['흰색', '#FFFFFF'], ['먹색', '#3B3F4A'], ['네이비', '#0B1766'], ['파랑', '#606BB2'], ['빨강', '#C8423F'], ['초록', '#2F6B4F']]
 // 색 견본은 한 줄 6색 + 직접 고르기로 맞춘다
 export const SUBTITLE_COLORS = [['회색', '#9A9DA6'], ...INK_COLORS.slice(0, 5)]
 // 고무줄 색 'auto' 는 표지 색을 어둡게 한 색 (CoverArt 에서 계산)
 export const BAND_COLORS = [['네이비', '#7D88B5'], ['흰색', '#FFFFFF'], ['먹색', '#3B3F4A'], ['빨강', '#C8423F'], ['카멜', '#B5835A']]
 export const PLATES = [['paper', '종이 라벨'], ['ribbon', '띠지'], ['none', '없음']]
 // 띠지 종이색. 책 띠지처럼 밝은 종이 셋과 짙은 종이 둘을 둔다. 글씨 색은 '글'에서 따로 고른다.
-export const RIBBON_COLORS = [['아이보리', '#F3F2ED'], ['크라프트', '#D9C4A3'], ['연회색', '#E3E5EA'], ['먹색', '#3B3F4A'], ['네이비', '#0B1957']]
+export const RIBBON_COLORS = [['아이보리', '#F3F2ED'], ['크라프트', '#D9C4A3'], ['연회색', '#E3E5EA'], ['먹색', '#3B3F4A'], ['네이비', '#0B1766']]
 export const ANCHORS = [['tl', '왼쪽 위'], ['tc', '가운데 위'], ['tr', '오른쪽 위'], ['ml', '왼쪽 가운데'], ['mc', '한가운데'], ['mr', '오른쪽 가운데'], ['bl', '왼쪽 아래'], ['bc', '가운데 아래'], ['br', '오른쪽 아래']]
 // 바탕 그라데이션. 색 · 패턴 표지의 바탕색에서 단색 대신 고른다. [이름, 위→아래 색]
 export const COVER_GRADIENTS = [
-  ['노을', ['#F6C9B8', '#F3D9C2', '#BFD3EA', '#8FB0DA']],
+  ['노을', ['#F6C9B8', '#F3D9C2', '#C7CCE9', '#9DA5D8']],
   ['숲', ['#DCEBD0', '#9CC29A', '#4E7D5B']],
   ['모래', ['#FBEFD9', '#F0D3A8', '#C99E6E']],
   ['밤하늘', ['#1F2A5A', '#3B4C8C', '#8A7DB8']],

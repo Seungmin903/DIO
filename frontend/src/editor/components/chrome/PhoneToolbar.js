@@ -131,7 +131,7 @@ const card = {
   padding: 4,
   borderRadius: 20,
   borderWidth: 1,
-  borderColor: 'rgba(110,146,198,0.2)',
+  borderColor: 'rgba(129,138,195,0.2)',
   backgroundColor: 'rgba(255,255,255,0.97)',
   ...shadow.card,
 }
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   bar: card,
   barViewport: { overflow: 'hidden' },
   barRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 },
-  rowDivider: { width: 1, height: 28, marginHorizontal: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
+  rowDivider: { width: 1, height: 28, marginHorizontal: 5, backgroundColor: 'rgba(11,23,102,0.12)' },
   // 가로 배치의 양옆 막대
   rail: { position: 'absolute', top: 8, width: PHONE_TOOLBAR_RAIL - 8 },
   railLeft: { left: 8, bottom: 8 },
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   railColumn: { alignItems: 'center', gap: 2 },
   railSpread: { flexGrow: 1, justifyContent: 'space-between' },
   railGroup: { alignItems: 'center', gap: 2 },
-  railDivider: { width: 28, height: 1, marginVertical: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
+  railDivider: { width: 28, height: 1, marginVertical: 5, backgroundColor: 'rgba(11,23,102,0.12)' },
   // iOS HIG 최소 터치 영역 44pt
   tool: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   toolActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },

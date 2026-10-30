@@ -34,9 +34,9 @@ function ElasticBand({ vertical, color, scale, radius, style, lit = null }) {
     {lit && <View style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: 'hidden' }]}>{lit}</View>}
   </View>
 }
-function GradientFill({ stops }) {
+function GradientFill({ stops, initialWidth, initialHeight }) {
   const id = useRef(`dio-cover-gradient-${(nextGradientId += 1)}`).current
-  return <FillSvg>{(width, height) => <>
+  return <FillSvg initialWidth={initialWidth} initialHeight={initialHeight}>{(width, height) => <>
     <Defs><LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
       {stops.map((color, i) => <Stop key={i} offset={i / (stops.length - 1)} stopColor={color} />)}
     </LinearGradient></Defs>
@@ -542,16 +542,19 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, ligh
   // 고무줄을 끄거나 방향을 바꿔도 본체는 같은 자리 · 크기다. (예전에는 고무줄을 켠 방향으로만 줄여 높이가 달라 보였다)
   const body = { ...corners, top: bandOut, bottom: bandOut, left: bandOut, right: bandOut }
   const base = cover.kind === 'photo' ? '#C9CED8' : stops ? stops[0] : cover.color
+  const hasGradient = cover.kind !== 'photo' && Boolean(stops)
+  const bodyInset = { top: bandOut + 1, bottom: bandOut + 1, left: bandOut + 1, right: bandOut + 1 }
   // 광택은 어두운 표지에만 비친다(밝은 무광 표지에는 창 반사가 없다)
   const glossy = cover.kind !== 'photo' && /^#[0-9a-f]{6}$/i.test(base) && luminance(base) < 0.35
   // 웹에서 스티커 · 라벨을 끄는 동안 제목 글자가 선택되지 않게
   return <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, edit && Platform.OS === 'web' && styles.noSelect]}>
   {/* 그림자는 잘라 그리는 본체에서는 iOS 에서 잘리므로 같은 자리에 따로 깐다 */}
-  {shadow && <View pointerEvents="none" style={[styles.layer, body, { backgroundColor: base }, shadow]} />}
-  <View style={[styles.layer, styles.clip, body, { backgroundColor: base }]}>
+  {/* 그라데이션 표지: 첫 색(바탕색)을 깔면 둥근 모서리의 반투명 가장자리로 그 색이 선처럼 비친다(예: 노을의 분홍이 파란 아래쪽 바깥으로). 그림자 층은 1px 안쪽으로 줄여 가려 두고, 잘라 그리는 층은 바탕 없이 그라데이션만 그린다 */}
+  {shadow && <View pointerEvents="none" style={[styles.layer, body, { backgroundColor: base }, hasGradient && bodyInset, shadow]} />}
+  <View style={[styles.layer, styles.clip, body, { backgroundColor: hasGradient ? 'transparent' : base }]}>
     {cover.kind === 'photo' ? (cover.photo?.src ? <OwnPhoto photo={cover.photo} />
       : <View style={styles.noPhoto}><Icon name="image" size={Math.max(18, 30 * scale)} color="#FFFFFF" /></View>)
-      : <>{stops && <GradientFill stops={stops} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} /></>}
+      : <>{stops && <GradientFill stops={stops} initialWidth={bodyWidth} initialHeight={bodyHeight} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} initialWidth={bodyWidth} initialHeight={bodyHeight} /></>}
     {edit && <Pressable accessibilityLabel="표지 스티커 선택 해제" onPress={() => select(null)} style={StyleSheet.absoluteFill} />}
     <View pointerEvents="none" style={[styles.spine, { width: '4.9%' }]} />
     {light && windowMask && <CoverWindowLight mask={windowMask} originX={bandOut} originY={bandOut} boxWidth={width} boxHeight={height ?? width} photo={cover.kind === 'photo'} />}
@@ -581,7 +584,7 @@ const styles = StyleSheet.create({
   fill: { alignSelf: 'stretch' },
   // 한글 제목은 낱말 가운데에서 끊지 않는다 (iOS 는 lineBreakStrategyIOS, 웹은 word-break)
   keepWords: Platform.OS === 'web' ? { wordBreak: 'keep-all' } : {},
-  spine: { position: 'absolute', top: 0, bottom: 0, left: 0, backgroundColor: 'rgba(11,25,87,.16)' },
+  spine: { position: 'absolute', top: 0, bottom: 0, left: 0, backgroundColor: 'rgba(11,23,102,.16)' },
   band: { position: 'absolute' },
   bandShadow: { backgroundColor: 'rgba(0,0,0,.12)' },
   titleBox: { position: 'absolute' },
@@ -605,7 +608,7 @@ const styles = StyleSheet.create({
   cornerHandle: { backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary },
   rotateHandle: { backgroundColor: colors.primaryStrong, borderWidth: 1, borderColor: colors.surface },
   stickerBar: { position: 'absolute', width: BAR.width, height: BAR.height, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 2, borderRadius: 12,
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(110,146,198,0.2)', shadowColor: colors.text, shadowOpacity: 0.16, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,138,195,0.2)', shadowColor: colors.text, shadowOpacity: 0.16, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
   barButton: { width: 42, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   barPressed: { backgroundColor: colors.primarySoft },
   none: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, backgroundColor: 'rgba(255,255,255,.7)' },

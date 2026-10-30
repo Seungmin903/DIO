@@ -95,6 +95,16 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
     };
     return { lit, inverse: nodes.inverse, sun: place(lit.patch), lamp: place({ x: LAMP_PATCH.patch[0], y: LAMP_PATCH.patch[1], scaleX: LAMP_PATCH.patch[2], scaleY: LAMP_PATCH.patch[3], skewX: LAMP_PATCH.patch[4], rotate: LAMP_PATCH.patch[5] }) };
   }, [light != null, desk, origin, hour, lightMotion?.scrollX, lightMotion?.index, lightMotion?.step, boxWidth, q]);
+  // 창빛 마스크를 쓰는 표지(스와이프)는 마스크 자리를 재기 전에는 표지 전체에 임시 조명을 입혀 그리고, 잰 뒤에 마스크 방식으로 바꿔 그려서
+  // 색이 한 번 튄다. 마스크가 준비될 때까지 표지를 숨겼다가 한 번에 보인다. 자리를 못 재는 경우를 위해 일정 시간 뒤에는 그냥 보인다.
+  const awaitingMask = Boolean(light && desk && lightMotion && !windowMask);
+  const [maskGaveUp, setMaskGaveUp] = useState(false);
+  useEffect(() => {
+    if (!awaitingMask) { setMaskGaveUp(false); return undefined; }
+    const timer = setTimeout(() => setMaskGaveUp(true), 600);
+    return () => clearTimeout(timer);
+  }, [awaitingMask]);
+  const hideUntilMask = awaitingMask && !maskGaveUp;
   // 칸이 정사각형인 격자 표지(fill + grid)는 표지 칸을 퍼센트 + 가로세로 비율로 레이아웃에 맡기고, 그림 배율만 칸이 바뀔 때마다 ref 로 직접 바꾼다.
   // 사이드 메뉴가 움직이는 동안에도 상태 · 다시 그리기 없이 칸과 함께 매 프레임 같이 커지고 작아진다.
   const liveFill = cover.enabled && fill && grid;
@@ -113,7 +123,7 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
       }}
       // fill: 폭을 재기 전의 첫 그림은 짐작한 크기라 달라 보이므로, 잰 뒤에 한 번에 보인다.
       style={[frame, styles.cell, centered && styles.fillCenter, fill && !measured && styles.unmeasured, thumbnailWidth && { width: thumbnailWidth, height: styleHeight, minHeight: 0 }]}>
-      <View ref={box} collapsable={false} onLayout={liveFill ? onBoxLayout : undefined} style={liveFill ? { width: ratio < 1 ? `${ratio * 100}%` : '100%', aspectRatio: ratio } : { width: boxWidth, height: boxHeight }}>
+      <View ref={box} collapsable={false} onLayout={liveFill ? onBoxLayout : undefined} style={[liveFill ? { width: ratio < 1 ? `${ratio * 100}%` : '100%', aspectRatio: ratio } : { width: boxWidth, height: boxHeight }, hideUntilMask && styles.unmeasured]}>
         {cover.enabled && fill ? <View ref={art} pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: artWidth, height: artHeight, transform: [{ scale: boxWidth / artWidth }], transformOrigin: 'top left' }}>
           <CoverArt cover={cover} name={diary.title} width={artWidth} height={artHeight} shadow={shadow} light={light} windowMask={windowMask} />
         </View>

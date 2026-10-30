@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   title: { marginBottom: 8, fontSize: 12, fontWeight: '700', color: colors.textMuted },
   segment: { flexDirection: 'row', padding: 3, borderRadius: 11, backgroundColor: colors.surfaceMuted },
   slotItem: { flexDirection: 'row', gap: 6 },
-  slotSwatch: { width: 14, height: 14, borderRadius: 7, borderWidth: 1, borderColor: 'rgba(11,25,87,0.15)' },
+  slotSwatch: { width: 14, height: 14, borderRadius: 7, borderWidth: 1, borderColor: 'rgba(11,23,102,0.15)' },
   segmentItem: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   segmentActive: { backgroundColor: colors.surface },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   // 무늬 색: 오른쪽 아래 작은 점
   swatchInner: { position: 'absolute', right: 3, bottom: 3, width: 8, height: 8, borderRadius: 4 },
   swatchActive: { borderWidth: 3, borderColor: colors.primary },
-  swatchCustom: { backgroundColor: colors.surface, borderStyle: 'dashed', borderWidth: 1.5, borderColor: 'rgba(11,25,87,0.35)' },
+  swatchCustom: { backgroundColor: colors.surface, borderStyle: 'dashed', borderWidth: 1.5, borderColor: 'rgba(11,23,102,0.35)' },
   custom: { marginTop: 12, gap: 10 },
   customItem: { flexDirection: 'row', gap: 6, minHeight: 40 },
   customDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border },

@@ -100,7 +100,7 @@ export const SHAPE_BORDER_STYLES = [
 ]
 export const shapeBorderDash = (id,width) => SHAPE_BORDER_STYLES.find(item=>item.id===id)?.dash?.map(unit=>unit*width)
 
-export const DEFAULT_SHAPE_STYLE = { shape: 'round', fill: '#F8EBA7', borderColor: '#9D9866', borderWidth: 0, borderStyle: 'solid', color: '#0B1957', font: 'sans', fontSize: 20, bold: false, align: 'center', verticalAlign: 'middle' }
+export const DEFAULT_SHAPE_STYLE = { shape: 'round', fill: '#F8EBA7', borderColor: '#9D9866', borderWidth: 0, borderStyle: 'solid', color: '#0B1766', font: 'sans', fontSize: 20, bold: false, align: 'center', verticalAlign: 'middle' }
 export const shapeDefinition = id => EDITOR_SHAPES.find(item => item.id === id) ?? EDITOR_SHAPES[1]
 export function createShape(settings, center) {
   const value = { ...DEFAULT_SHAPE_STYLE, ...settings }, ratio = shapeDefinition(value.shape).ratio ?? 1

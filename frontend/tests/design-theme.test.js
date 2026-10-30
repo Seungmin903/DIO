@@ -27,7 +27,7 @@ test('중립 앱 배경과 파란 선택 배경을 분리하고 선택 글자 �
 
 test('표지 기본색은 앱 배경과 독립적이며 서버에 저장된 표지색은 보존한다', () => {
   const row = { diaryId: 'cover-test', diaryTitle: '표지 검증' };
-  assert.equal(FALLBACK_COVER_COLOR, '#CED9EE');
+  assert.equal(FALLBACK_COVER_COLOR, '#D4D7ED');
   assert.notEqual(FALLBACK_COVER_COLOR, colors.surfaceSoft);
   assert.equal(toDiary(row).color, FALLBACK_COVER_COLOR);
   assert.equal(toDiary({ ...row, coverColor: '#123456' }).color, '#123456');

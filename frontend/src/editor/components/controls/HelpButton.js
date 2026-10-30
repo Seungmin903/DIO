@@ -23,7 +23,7 @@ export default function HelpButton({ open, onToggle, label = '도움말' }) {
       accessibilityState={{ expanded: open }}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
     >
-      <Icon name="help" size={19} strokeWidth={2} color={open ? colors.primary : 'rgba(11,25,87,0.5)'} />
+      <Icon name="help" size={19} strokeWidth={2} color={open ? colors.primary : 'rgba(11,23,102,0.5)'} />
     </Pressable>
   )
 }

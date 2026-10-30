@@ -38,7 +38,7 @@ export function textPatch(text, width = 320, settings = {}) {
 
 export function createText({ id, x, y, text, width = 320, ...settings }) {
   const largest = Math.max(settings.fontSize ?? TEXT_FONT_SIZE, ...(settings.styleRanges ?? []).map((range) => range.fontSize ?? 0))
-  return { id, type: 'text', name: '텍스트', x, y, w: width, rotation: 0, color: '#0B1957', ...settings, ...textPatch(text, width, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) }) }
+  return { id, type: 'text', name: '텍스트', x, y, w: width, rotation: 0, color: '#0B1766', ...settings, ...textPatch(text, width, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) }) }
 }
 
 // family 가 있는 글꼴은 앱에 넣은 한국어 글꼴(Google Fonts, OFL 라이선스로 상업 이용 가능). services/textFonts.js 가 불러온다.

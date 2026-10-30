@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   hitLayer: { ...StyleSheet.absoluteFillObject },
-  emptyMenu: { position: 'absolute', zIndex: 6, flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(110,146,198,0.2)', boxShadow: '0px 6px 14px rgba(11, 25, 87, 0.16)' },
+  emptyMenu: { position: 'absolute', zIndex: 6, flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,138,195,0.2)', boxShadow: '0px 6px 14px rgba(11, 23, 102, 0.16)' },
   menuButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   menuPressed: { backgroundColor: colors.primarySoft },
   menuDisabled: { opacity: DISABLED_OPACITY },
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: colors.primary,
     borderRadius: 4,
-    backgroundColor: 'rgba(110,146,198,0.12)',
+    backgroundColor: 'rgba(129,138,195,0.12)',
   },
   groupFrame: {
     position: 'absolute',
@@ -948,7 +948,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderRadius: 12,
   },
-  groupFrameInside: { borderWidth: 1.5, borderColor: 'rgba(110,146,198,0.55)' },
+  groupFrameInside: { borderWidth: 1.5, borderColor: 'rgba(129,138,195,0.55)' },
   groupLabel: {
     position: 'absolute',
     top: -26,

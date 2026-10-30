@@ -7,7 +7,7 @@ let nextPatternId = 0;
 
 // 패턴 색: 어둡게(남색을 옅게) · 밝게(흰색을 옅게). 한 패턴 안의 진한 선·옅은 선은 같은 색의 농도로 나눈다.
 const TONES = {
-  dark: { strong: 'rgba(11,25,87,.12)', soft: 'rgba(11,25,87,.07)', dot: 'rgba(11,25,87,.16)' },
+  dark: { strong: 'rgba(11,23,102,.12)', soft: 'rgba(11,23,102,.07)', dot: 'rgba(11,23,102,.16)' },
   light: { strong: 'rgba(255,255,255,.38)', soft: 'rgba(255,255,255,.22)', dot: 'rgba(255,255,255,.55)' },
 };
 
@@ -69,9 +69,9 @@ function tile(pattern, tone) {
 
 /**
  * 표지 위에 덮는 무늬. pattern이 없으면 아무것도 그리지 않는다(이전에 만든 다이어리).
- * scale: 표지 크기 배율(짧은 변 200 기준). 타일을 표지와 같은 비율로 키우고 줄여 한눈에 · 스와이프에서 무늬 비율이 같다.
+ * initialWidth · initialHeight: 무늬를 깔 영역의 크기(알면 첫 프레임부터 그린다). scale: 표지 크기 배율(짧은 변 200 기준). 타일을 표지와 같은 비율로 키우고 줄여 한눈에 · 스와이프에서 무늬 비율이 같다.
  */
-function CoverPattern({ pattern, tone = 'dark', scale = 1 }) {
+function CoverPattern({ pattern, tone = 'dark', scale = 1, initialWidth, initialHeight }) {
   const idRef = useRef(null);
   const spec = tile(pattern, tone);
   if (!spec) return null;
@@ -79,7 +79,7 @@ function CoverPattern({ pattern, tone = 'dark', scale = 1 }) {
   const id = idRef.current;
 
   return (
-    <FillSvg>
+    <FillSvg initialWidth={initialWidth} initialHeight={initialHeight}>
       {(width, height) => (
         <>
           <Defs>

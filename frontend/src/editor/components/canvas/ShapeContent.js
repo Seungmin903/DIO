@@ -30,7 +30,7 @@ export default function ShapeContent({ object, zoom = 1, hideText = false }) {
         </Svg>
       </View>}
       <Svg width={width} height={height} style={{position:'absolute'}}>
-        <Path d={shapeDefinition(object.shape).path} transform={transform} fill={object.fill === 'none' ? 'none' : object.fill ?? '#F8EBA7'} stroke={stroke ? object.borderColor ?? '#0B1957' : 'none'} strokeWidth={stroke} strokeDasharray={dash} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <Path d={shapeDefinition(object.shape).path} transform={transform} fill={object.fill === 'none' ? 'none' : object.fill ?? '#F8EBA7'} stroke={stroke ? object.borderColor ?? '#0B1766' : 'none'} strokeWidth={stroke} strokeDasharray={dash} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       </Svg>
     </View>
     {!hideText && Boolean(object.text) && <View style={{position:'absolute',...box,overflow:'visible',justifyContent:object.verticalAlign==='top'?'flex-start':object.verticalAlign==='bottom'?'flex-end':'center'}}><Text style={[shapeTextStyle(object, zoom, Platform.OS), { padding:0,flexShrink:0 }]}>{richTextSegments(object.text,object.colorRanges,object.styleRanges).map((segment,index)=><Text key={index} style={segmentTextStyle(segment,zoom,textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text></View>}

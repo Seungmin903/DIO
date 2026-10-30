@@ -6,7 +6,8 @@ import { PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from
 import { stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
 import { useTapePreferences } from '../../hooks/useTapePreferences'
 import { stickerLibrary } from '../../stickerLibrary'
-import Svg, { Path, Polygon } from 'react-native-svg'
+import Svg, { Path } from 'react-native-svg'
+import FavoriteStar from '../../../shared/FavoriteStar'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { mediaFailureMessage } from '../../utils/mediaRecovery.js'
@@ -480,7 +481,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
       >
         {/* iPadOS 창 손잡이처럼 보관함 모서리 곡선과 같은 중심의 호 */}
         <Svg width={GRIP} height={GRIP} pointerEvents="none">
-          <Path d={GRIP_ARC} stroke="rgba(11,25,87,0.32)" strokeWidth={4} strokeLinecap="round" fill="none" />
+          <Path d={GRIP_ARC} stroke="rgba(11,23,102,0.32)" strokeWidth={4} strokeLinecap="round" fill="none" />
         </Svg>
       </View>
     </View>
@@ -658,7 +659,7 @@ function Tile({ onPress, onLongPress, onRemove, favorite, label, children }) {
       </Pressable>
       {favorite && (
         <View style={styles.favorite} pointerEvents="none">
-          <FavoriteStar />
+          <FavoriteStar filled outline={colors.surface} size={17} />
         </View>
       )}
       {onRemove && (
@@ -824,19 +825,6 @@ const GRIP_ARC = (() => {
   const [x2, y2] = point(78)
   return `M${x1} ${y1} A${r} ${r} 0 0 0 ${x2} ${y2}`
 })()
-// 즐겨찾기 별: 글자 ★ 대신 그림으로 그려 꼭짓점을 살짝 둥글게 (같은 색 테두리 + 둥근 이음)
-const STAR_POINTS = Array.from({ length: 10 }, (_, i) => {
-  const angle = (Math.PI / 5) * i - Math.PI / 2
-  const radius = i % 2 ? 2.6 : 6
-  return `${(7 + radius * Math.cos(angle)).toFixed(2)},${(7.3 + radius * Math.sin(angle)).toFixed(2)}`
-}).join(' ')
-function FavoriteStar() {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 14 14">
-      <Polygon points={STAR_POINTS} fill="#F2B705" stroke="#F2B705" strokeWidth={1.6} strokeLinejoin="round" />
-    </Svg>
-  )
-}
 const TILE_GAP = 3
 
 const styles = StyleSheet.create({
@@ -949,8 +937,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: 'rgba(110,146,198,0.6)',
-    backgroundColor: 'rgba(110,146,198,0.06)',
+    borderColor: 'rgba(129,138,195,0.6)',
+    backgroundColor: 'rgba(129,138,195,0.06)',
   },
   addTileBusy: { opacity: 0.5 },
   // 칸 테두리(TILE_GAP 안쪽)에서 위·왼쪽 모두 4 만큼 들어온 자리

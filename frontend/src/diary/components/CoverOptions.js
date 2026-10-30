@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   patternCell: { width: '25%', alignItems: 'center', gap: 4 },
   patternTile: { width: 48, height: 48, padding: 2, borderRadius: 12, borderWidth: 2, borderColor: 'transparent' },
   patternTileOn: { borderColor: colors.primary },
-  patternFill: { flex: 1, overflow: 'hidden', borderRadius: 9, borderWidth: 1, borderColor: 'rgba(11,25,87,.12)' },
+  patternFill: { flex: 1, overflow: 'hidden', borderRadius: 9, borderWidth: 1, borderColor: 'rgba(11,23,102,.12)' },
   patternName: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   patternNameOn: { color: colors.text, fontWeight: '800' },
   input: { height: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, color: colors.text, fontSize: 14, fontWeight: '700', backgroundColor: colors.surfaceSoft },
