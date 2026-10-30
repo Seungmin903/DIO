@@ -29,7 +29,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, c
         <View style={[s.trashGrid, compact && s.trashGridCompact]}>
           {diaries.map((diary) => (
             <View key={diary.id} style={[s.trashCard, compact && s.trashCardCompact]}>
-              <View style={[s.trashCover, compact && s.trashCoverCompact]}><Cover diary={diary} grid compact={compact} /></View>
+              <View style={[s.trashCover, compact && s.trashCoverCompact]}><Cover diary={diary} grid fill centered compact={compact} /></View>
               <Text numberOfLines={1} style={s.trashTitle}>{diary.title}</Text>
               <Text style={s.trashDate}>삭제 {formatUpdatedAt(diary.trashedAt)}</Text>
               <Text style={s.trashDate}>{serverMode ? (diary.retentionStatus === 'EXPIRED' ? '보관 기한 만료 · 복원할 수 없어요' : diary.expiresAt ? `보관 기한 ${new Date(diary.expiresAt).toLocaleDateString('ko-KR')}` : '보관 기한 확인 필요') : trashStatus(diary, now)}</Text>

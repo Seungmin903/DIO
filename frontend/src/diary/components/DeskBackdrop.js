@@ -95,7 +95,7 @@ function NightLamp({ light, size, compact, lightWidth }) {
  * 원목 상판(고정) + 시각에 따라 자리 · 세기 · 색이 바뀌는 십자 창빛 + 밤 어둠.
  * 시각: 지금 시각(deskTimeStore).
  */
-function DeskBackdrop({ compact = false, size }) {
+function DeskBackdrop({ compact = false, size, anchorRight = false }) {
   const light = deskLightAt(useDeskHour())
   const root = useRef(null)
   const measure = () => root.current?.measureInWindow?.((x, y, width, height) => setDeskGeometry({ x, y, width, height, compact }))
@@ -104,7 +104,7 @@ function DeskBackdrop({ compact = false, size }) {
   const lightWidth = size.width * (compact ? WINDOW_WIDTH.phone : WINDOW_WIDTH.tablet)
   const fx = deskFxAt(light.hour)
   return <View ref={root} onLayout={measure} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-    style={[styles.root, { width: size.width, height: size.height }]}>
+    style={[styles.root, anchorRight && styles.rootRight, { width: size.width, height: size.height }]}>
     <Image source={WOOD} resizeMode="cover" style={styles.fill} />
     <View style={[styles.fill, { backgroundColor: light.ambient.color, opacity: light.ambient.opacity, mixBlendMode: 'multiply' }]} />
     <View style={[styles.fill, { backgroundColor: light.wash.color, opacity: light.wash.opacity }]} />
@@ -130,5 +130,7 @@ export default memo(SafeDeskBackdrop)
 const styles = StyleSheet.create({
   // 크기는 부모가 잰 값(size)으로 고정한다. top · bottom 으로 늘리면 안드로이드가 안의 요소 크기에 끌려가 화면보다 커졌다.
   root: { position: 'absolute', left: 0, top: 0, overflow: 'hidden', isolation: 'isolate', backgroundColor: DESK_COLORS.base },
+  // 오른쪽 끝에 붙인다: 작업 영역이 왼쪽(사이드바 쪽)에서 줄고 늘어도 상판은 제자리에 있고, 왼쪽만 가려진다.
+  rootRight: { left: undefined, right: 0 },
   fill: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 },
 })
