@@ -68,20 +68,22 @@ export default function AppInformation({ standalone = false }) {
 }
 
 const styles = StyleSheet.create({
-  card: { marginTop: 20, padding: 25, borderRadius: 20, backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
+  // 마이페이지의 목록과 같은 좌우 기준선을 사용한다. 각 행의 보조 버튼은
+  // 오른쪽 조작 영역에 고정해 긴 이메일도 버튼을 바깥으로 밀어내지 않는다.
+  card: { marginTop: 20, overflow: 'hidden', borderRadius: 18, backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
   standalone: { marginTop: 0 },
-  title: { color: C.ink, fontSize: 18, fontWeight: '800', marginBottom: 8 },
-  policy: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.line },
-  version: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottomWidth: 1, borderBottomColor: C.line },
+  title: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 8, color: C.ink, fontSize: 18, fontWeight: '800' },
+  policy: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },
+  version: { minHeight: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },
   versionText: { color: C.inkSoft, fontSize: 15 },
-  licenses: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 18, paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line },
-  contact: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingTop: 18 },
-  copy: { flex: 1, minWidth: 180, gap: 6 },
+  licenses: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16 },
+  contact: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },
+  copy: { flex: 1, minWidth: 0, gap: 4 },
   label: { color: C.ink, fontSize: 15, fontWeight: '700' },
   hint: { color: C.muted, fontSize: 13 },
   email: { color: C.inkSoft, fontSize: 14, lineHeight: 21 },
-  copyButton: { minWidth: 64, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 12, backgroundColor: C.pale },
+  copyButton: { width: 64, minHeight: 44, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: C.pale },
   copyLabel: { color: C.ink, fontSize: 14, fontWeight: '700' },
-  status: { marginTop: 14, color: C.inkSoft, fontSize: 13, lineHeight: 20 },
+  status: { paddingHorizontal: 16, paddingBottom: 14, color: C.inkSoft, fontSize: 13, lineHeight: 20 },
   pressed: { opacity: 0.65 },
 });
