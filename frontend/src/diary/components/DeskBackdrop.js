@@ -113,7 +113,8 @@ function DeskBackdrop({ compact = false, size, anchorRight = false }) {
   const fx = deskFxAt(light.hour)
   return <View ref={root} onLayout={measure} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
     style={[styles.root, anchorRight && styles.rootRight, { width: size.width, height: size.height }]}>
-    <Image source={WOOD} resizeMode="cover" style={styles.fill} />
+    {/* 이미지 칸은 top · bottom 대신 크기로 직접 준다: 웹에서 그림 원본 높이에서 멈춰 세로로 긴 화면 아래가 단색으로 비었다 */}
+    <Image source={WOOD} resizeMode="cover" style={[styles.fill, { right: undefined, bottom: undefined, width: size.width, height: size.height }]} />
     <View style={[styles.fill, { backgroundColor: light.ambient.color, opacity: light.ambient.opacity, mixBlendMode: 'multiply' }]} />
     <View style={[styles.fill, { backgroundColor: light.wash.color, opacity: light.wash.opacity }]} />
     {/* 밤 어둠은 빛 아래에 깐다: 위에 덮으면 가로등 · 달빛까지 같이 어두워져 묻힌다 */}

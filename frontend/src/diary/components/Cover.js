@@ -33,11 +33,11 @@ function firstPageId(diary) {
  * fill: 칸을 고정 높이(219) 대신 부모 폭에 맞춘다(최대 219). 좁은 카드 밖으로 칸이 넘치지 않는다. centered: 표지를 칸 위아래 가운데에 둔다.
  * children(펜 · 별 버튼 등)은 칸이 아니라 실제 표지 위에 얹는다.
  */
-function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel = false, grid = false, compact = false, fill = false, centered = false, sunShadow = false, lightMotion = null, children }) {
-  const frame = StyleSheet.flatten([s.cover, small && s.coverSmall, carousel && s.coverCarousel, compact && carousel && s.coverCarouselCompact, grid && s.coverGrid, compact && grid && s.coverGridCompact, preview && s.bookPreview, fill && styles.fill]);
+function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel = false, grid = false, compact = false, large = false, fill = false, centered = false, sunShadow = false, lightMotion = null, children }) {
+  const frame = StyleSheet.flatten([s.cover, small && s.coverSmall, carousel && s.coverCarousel, compact && carousel && s.coverCarouselCompact, large && carousel && s.coverCarouselLarge, grid && s.coverGrid, compact && grid && s.coverGridCompact, preview && s.bookPreview, fill && styles.fill]);
   // 칸 크기: 고정 칸은 스타일 값으로 첫 프레임부터 맞게 그리고, 반응형 칸(격자 · 목록)은 실제 크기를 재서 다시 맞춘다.
   const styleWidth = thumbnailWidth ?? (preview ? s.bookPreview.width : small ? s.coverSmall.width
-    : carousel ? (compact ? s.cardCarouselCompact.width : s.cardCarousel.width) : s.bookPreview.width);
+    : carousel ? (large ? s.cardCarouselLarge.width : compact ? s.cardCarouselCompact.width : s.cardCarousel.width) : s.bookPreview.width);
   const styleHeight = thumbnailWidth ? thumbnailWidth * 246 / 185 : typeof frame.height === 'number' ? frame.height : frame.aspectRatio ? styleWidth / frame.aspectRatio : styleWidth * 246 / 185;
   const [measured, setMeasured] = useState(null);
   // 사이드 메뉴가 움직이는 동안은 칸 폭이 프레임마다 바뀌므로 다시 재지 않고, 멈춘 뒤 마지막 크기로 한 번만 맞춘다.
@@ -81,7 +81,8 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
   }), []);
   useEffect(() => { if (light && desk && lightMotion) measure(); }, [light != null, desk, layoutTick, measure, boxWidth, boxHeight, lightMotion != null]);
   // 가로 표지는 칸 아래에 붙어 카드 맨 위에서 q 만큼 내려와 있다
-  const q = Math.max(0, cellHeight - boxHeight);
+  // centered 표지는 칸 가운데에 놓여 위쪽 여백이 남는 높이의 절반이다
+  const q = Math.max(0, cellHeight - boxHeight) / (centered ? 2 : 1);
   const windowMask = useMemo(() => {
     if (!light || !desk || !origin || !lightMotion) return null;
     const rest = carouselRestAt(lightMotion.index, origin.rest, lightMotion.step);

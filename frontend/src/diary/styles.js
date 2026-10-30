@@ -162,6 +162,9 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   carouselCards: { alignItems: 'flex-start', gap: 42, paddingVertical: 28 },
   // 가운데 카드가 커지고(1.06) 위로 올라가는(-12) 만큼 위아래 여백을 둬야 카드 윗부분이 잘리지 않는다.
   carouselCardsCompact: { paddingVertical: 28 },
+  carouselShellPortrait: { minHeight: 0, paddingTop: 0, paddingBottom: 80, justifyContent: 'center' }, // 태블릿 세로: 남는 높이의 가운데보다 살짝 위(아래 여백 80 → 40만큼 올라감)에 카드를 둔다
+  carouselRowPortrait: { flex: 0, height: 680 },
+  carouselArrowPortrait: { marginTop: -64 }, // 칸 가운데에 놓인 표지의 가운데에 맞춘다 (웹 834x1194 에서 재서 맞춤)
   carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   carouselArrowLeft: { left: 4 },
   carouselArrowRight: { right: 4 },
@@ -170,6 +173,8 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18, overflow: 'hidden' },
   cardCarousel: { width: 318, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardCarouselCompact: { width: 268 },
+  cardCarouselLarge: { width: 440 }, // 태블릿 세로: 옆 카드 없이 한 권만 크게
+  cardGridPortrait: { width: '31.5%' }, // 태블릿 세로: 한 줄 3권 (가로의 4권과 비슷한 크기)
   cardGrid: { width: '23.5%', minWidth: 0, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardGridCompact: { width: '47.5%', minWidth: 0 },
   cardList: { minHeight: 120, flexDirection: 'row', alignItems: 'stretch' },
@@ -204,6 +209,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   coverCarouselCompact: { height: 268, padding: 16 },
   // 한눈에 칸은 정사각형. 세로 · 가로 다이어리 모두 긴 변이 칸 크기와 같다 (선반 배치)
   coverGrid: { aspectRatio: 1, borderRadius: 12, shadowColor: C.ink, shadowOpacity: 0.13, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  coverCarouselLarge: { height: 440, padding: 22 }, // 태블릿 세로 (cardCarouselLarge 폭과 같은 높이)
   coverGridCompact: { padding: 15 },
   coverSmall: { width: 143, height: '100%', minHeight: 118, padding: 13 },
   coverPreview: { width: 250, height: 330, borderRadius: 14, padding: 27, shadowColor: C.ink, shadowOpacity: 0.19, shadowRadius: 19, shadowOffset: { width: 0, height: 13 }, elevation: 6 },

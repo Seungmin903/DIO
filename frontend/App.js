@@ -141,6 +141,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // 폰 배치는 유지하고 태블릿 바깥 프레임도 측정한 안전 영역 전체를 쓴다. 속지 좌표계는 그대로다.
   const { isPhone, isLandscape } = useFormFactor();
+  const tabletPortrait = !isPhone && !isLandscape;
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
   const [deskSize, setDeskSize] = useState(null); // 책상이 깔릴 영역(작업 영역)의 크기
@@ -574,6 +575,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const libraryScreen = useMemo(() => (
     <LibraryScreen
       compact={isPhone}
+      portrait={tabletPortrait}
       diaries={libraryDiaries}
       metadata={libraryMetadata}
       sort={librarySort}
@@ -619,7 +621,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         }} /></> : null}
       suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
     />
-  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
+  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
   // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
   const trashScreen = useMemo(() => (
@@ -629,6 +631,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       suppressEmpty={member && Boolean(diaryState.trashLoading || diaryState.trashError)}
       requestNotice={member?<MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/>:null}
       compact={isPhone}
+      portrait={tabletPortrait}
       diaries={trashedDiaries}
       now={trashNow}
       cleanupError={trashError}
@@ -648,7 +651,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         });
       }}
     />
-  ), [member, diaryState.lifecycle, diaryState.bulkTrash, diaryState.trashLoading, diaryState.trashError, diaryState.store, isPhone, trashedDiaries, trashNow, trashError, cleanupTrash, restoreFromTrash, deletePermanently]);
+  ), [member, diaryState.lifecycle, diaryState.bulkTrash, diaryState.trashLoading, diaryState.trashError, diaryState.store, isPhone, tabletPortrait, trashedDiaries, trashNow, trashError, cleanupTrash, restoreFromTrash, deletePermanently]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
@@ -717,8 +720,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   // 프레임마다 바뀌어도 책상(원목 · 창빛)은 다시 그려지지도 움직이지도 않고, 넓어질 때 뒤 바탕(흰색)이 비치지도 않는다.
   const tabletDeskSize = useMemo(() => deskSize && {
     width: Math.max(deskSize.width, windowWidth - insets.left - insets.right - RAIL_WIDTH.collapsed),
-    height: deskSize.height,
-  }, [deskSize, windowWidth, insets.left, insets.right]);
+    // 높이도 화면 높이 아래로는 줄지 않게 한다. 처음 잰 작업 영역이 화면보다 낮으면(세로) 상판 아래가 이미지 없이 단색으로 비었다.
+    height: Math.max(deskSize.height, windowHeight - insets.top - insets.bottom),
+  }, [deskSize, windowWidth, windowHeight, insets.left, insets.right, insets.top, insets.bottom]);
   let shell;
   if (page === 'editor') {
     shell = content;
