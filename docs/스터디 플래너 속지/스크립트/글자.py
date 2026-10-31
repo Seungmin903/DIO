@@ -22,7 +22,7 @@ TEXT = {
     "Bold": "스터디 플래너 데일리 TO DO LIST TIMELINE RECORD" + DIGITS + "시간분",
     # 머리줄 · 소제목 · 칸 이름 · 숫자
     "Regular": "날짜 월화수목금토일 D- 오늘의 목표 완료 할 일 색 메모 총 공부 시간 "
-               "색깔별 공부 시간 오늘 돌아보기 오늘 만족도 쉬는 시간 쉼 분 종일 시작 진행 오전 오후" + DIGITS + ":~%.",
+               "시간 분포 오늘 돌아보기 오늘 만족도 쉬는 시간 쉼 분 종일 시작 진행 오전 오후" + DIGITS + ":~%.",
 }
 OUT = Path(__file__).resolve().parents[3] / "frontend/src/editor/templates/studyPlannerGlyphs.js"
 

@@ -155,7 +155,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tr>
 <tr>
 <td>자동 계산</td>
-<td>총 공부 시간(칸 수 × 10분), 시작 ~ 끝 시각, 색깔별 공부 시간 막대 · 비율(정수, 합 100)</td>
+<td>총 공부 시간(칸 수 × 10분), 시작 ~ 끝 시각, 시간 분포 막대 · 비율(정수, 합 100)</td>
 </tr>
 <tr>
 <td>새 도구가 필요한가</td>
@@ -395,7 +395,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tr>
 <tr>
 <td><span class="tag hi">필수</span></td>
-<td>색깔별 공부 시간 자동</td>
+<td>시간 분포 자동</td>
 <td>—</td>
 <td>색 칩 · 막대 · 시간 · 비율(%), 처음 칠한 순</td>
 </tr>
@@ -450,7 +450,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </div>
 <ul>
 <li><strong>① 쓰는 중</strong> — 형광펜 획은 원래대로 반투명하게 보이고, 그 밑에 "칠해질 칸"이 같은 색 점선 테두리로 미리 보인다. 줄 끝에서 펜을 들지 않고 다음 줄로 내려가도 한 동작으로 이어진다.</li>
-<li><strong>② 펜을 떼면</strong> — 손으로 그은 획은 사라지고, 미리보기 칸이 반듯하게 칠해진다. 같은 줄의 같은 색 칸은 하나의 둥근 막대로 이어 그려 종이에 형광펜으로 칠한 느낌을 낸다. 총 공부 시간 · 색깔별 공부 시간이 바로 바뀐다.</li>
+<li><strong>② 펜을 떼면</strong> — 손으로 그은 획은 사라지고, 미리보기 칸이 반듯하게 칠해진다. 같은 줄의 같은 색 칸은 하나의 둥근 막대로 이어 그려 종이에 형광펜으로 칠한 느낌을 낸다. 총 공부 시간 · 시간 분포이 바로 바뀐다.</li>
 </ul>
 <p>규칙</p>
 <ol>
@@ -512,7 +512,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <td>숨김</td>
 </tr>
 <tr>
-<td>색깔별 공부 시간</td>
+<td>시간 분포</td>
 <td>색별 칸 수 × 10분(<code>1시간 40분</code> · <code>50분</code>)과 공부 시간 중 비율(<code>43%</code>), 처음 칠한 순 최대 7색(쉬는 시간 색은 맨 아래, 비율 대신 <code>쉼</code>). 막대 길이는 가장 많은 색 기준</td>
 <td>빈 칩 · 빈 막대 7줄</td>
 </tr>
@@ -618,7 +618,13 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <li>페이지 속지 ID는 <code>study-planner-landscape</code> · <code>study-planner-portrait</code>, 기록은 <code>page.planner</code>에 저장한다: <code>cells: {"줄,칸": 색}</code>, <code>checks: {줄: 색}</code>, <code>bands: {줄: 색}</code>, <code>day</code>, <code>mood</code>, <code>colorOrder</code>, <code>options: {restColor, startHour, snap}</code>. 획 · 스티커 같은 요소는 기존 형식 그대로.</li>
 <li>합계는 저장하지 않고 열 때마다 계산한다(기록과 숫자가 어긋나지 않게).</li>
 <li>속지 그림은 파일이 아니라 코드로 만든 SVG이고, 기록을 같은 SVG에 그린다. 그래서 편집 화면 · 썸네일 · PNG/PDF 내보내기가 같은 결과를 쓴다(속지 → 기록 → 사용자 요소 순).</li>
-<li>가로 · 세로 속지는 좌표가 다르므로 서로 바꿔도 기록을 옮기지 않는다. 바꾸기 전에 "기록이 이 방향 속지에만 남아요" 안내.</li>
+<li>
+<p>가로 · 세로 속지는 좌표가 다르므로 서로 바꿔도 기록을 옮기지 않는다. 바꾸기 전에 "기록이 이 방향 속지에만 남아요" 안내.</p>
+</li>
+<li>
+<p>페이지 복제는 속지 ID·방향·배색·플래너 기록과 옵션을 함께 복사한다. 페이지·요소·그룹 ID는 새로 만들고, 복제 후 기록 수정과 Undo/Redo는 원본에 영향을 주지 않는다.</p>
+</li>
+<li>속지 배경색·레이아웃색을 바꿔도 사용자가 칠한 칸·체크·요일·만족도와 집계 색상표의 색은 유지한다. 자동 집계 글자·기본 선만 속지 배색을 따른다. 편집 화면과 PNG/PDF 모두 같은 규칙이다. 기존 저장 형식은 바꾸지 않는다.</li>
 </ul></div>
 </section><section class="doc" id="doc-03" data-title="03 디자인 — 가로형 · 세로형">
 <h1 id="03-디자인-가로형-세로형">03 디자인 — 가로형 · 세로형</h1>
@@ -630,7 +636,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <p>앱에 들어간 속지는 아래 시안의 칸 구성을 그대로 두고, <strong>테두리 · 글자 · 제목을 데일리 플래너 등 다른 속지와 맞췄다.</strong> 아래 '가로형' 이후 절은 처음 시안(둥근 상자 · 하늘색 선) 기록이다.</p>
 <ul>
 <li><strong>제목 · 머리줄</strong> — 왼쪽 위 <code>스터디 플래너</code>(MaruBuri Bold 30, <code>#292929</code>), 오른쪽에 날짜 밑줄 · 요일 · D-day, 그 아래 가로선과 <code>오늘의 목표</code> 밑줄. 데일리 플래너와 같은 자리.</li>
-<li><strong>칸 묶음 제목</strong> — <code>TO DO LIST</code> · <code>TIMELINE</code> · <code>RECORD</code>(Bold 16). 칸 안 이름은 <code>총 공부 시간</code> · <code>색깔별 공부 시간</code> · <code>오늘 돌아보기</code> · <code>오늘 만족도</code> · <code>메모</code>(Regular 14, <code>#666666</code>).</li>
+<li><strong>칸 묶음 제목</strong> — <code>TO DO LIST</code> · <code>TIMELINE</code> · <code>RECORD</code>(Bold 16). 칸 안 이름은 <code>총 공부 시간</code> · <code>시간 분포</code> · <code>오늘 돌아보기</code> · <code>오늘 만족도</code> · <code>메모</code>(Regular 14, <code>#666666</code>).</li>
 <li><strong>테두리</strong> — 모서리 없는 네모, 바깥선 · 칸 나눔 <code>#d7d9dc</code>, 안쪽 줄 · 시간표 칸 <code>#e8e9eb</code>, 모두 실선 1. 체크칸은 12 × 12 <code>#666666</code>. 시간 숫자는 <code>06</code>처럼 두 자리.</li>
 <li><strong>글자</strong> — 다른 속지처럼 MaruBuri 글자 윤곽을 path 로 넣는다. 쓰는 글자만 <a href="스크립트/글자.py">스크립트/글자.py</a>로 뽑아 <code>studyPlannerGlyphs.js</code>에 둔다(새 글자를 쓰면 다시 만든다).</li>
 <li><strong>레이아웃 색</strong> — 같은 6색 팔레트라 속지 옵션의 레이아웃 색(네이비 · 브라운 …)이 스터디 플래너에도 먹는다.</li>

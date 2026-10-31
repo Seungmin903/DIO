@@ -336,7 +336,7 @@ function baseBody(orientation, startHour = 6) {
   // 기록 칸
   out.push(box(L.total), label(L.total.x + 12, L.total.y + 26, '총 공부 시간'))
   const S = L.sum
-  out.push(box(S), label(S.x + 12, S.y + 26, '색깔별 공부 시간'))
+  out.push(box(S), label(S.x + 12, S.y + 26, '시간 분포'))
   for (let i = 0; i < SLOTS; i++) {
     const row = colorRow(S, i)
     out.push(rect(S.x + 12, row.cy - 6, 12, 12, `fill="none" stroke="${LINE}" stroke-width="1"`), rect(row.bar.x, row.cy - 3, row.bar.w, 6, `rx="3" fill="${LINE_SOFT}"`))
@@ -394,7 +394,7 @@ function overlayBody(orientation, value) {
     if (totals.rest) out.push(write(R.x + R.w - 12, R.y + R.h - 16, { s: `쉬는 시간 ${formatMinutes(totals.rest)}`, size: 11.5 }, 'end'))
   }
 
-  // 색깔별 공부 시간 — 줄은 처음 칠한 순서로 고정한다. 시간 옆에 공부 시간 중 비율(정수, 합 100)
+  // 시간 분포(색깔별 공부 시간) — 줄은 처음 칠한 순서로 고정한다. 시간 옆에 공부 시간 중 비율(정수, 합 100)
   const S = L.sum, max = Math.max(1, ...totals.colors.map(c => c.minutes))
   totals.colors.slice(0, SLOTS).forEach((item, i) => {
     const row = colorRow(S, i), ink = item.rest ? LABEL : TEXT
