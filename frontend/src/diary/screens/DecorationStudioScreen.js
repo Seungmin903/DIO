@@ -106,7 +106,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       <DioButton variant="ghost" icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => setFolderId(null)} />
       <DioButton variant="icon" icon="trash" label="스티커 폴더 삭제" onPress={() => setQuestion({ folder })} />
     </> : <>
-      <StudioTool icon="crop" title="사진 속 대상 오리기" description="사진 속 원하는 대상만" variant="filled" onPress={() => setTool('cutout')} />
+      <StudioTool icon="scissors" title="사진 속 대상 오리기" description="사진 속 원하는 대상만" variant="filled" onPress={() => setTool('cutout')} />
       <StudioTool icon="grid" title="스티커 시트 분리" description="시트 속 그림을 개별 스티커로" variant="tonal" onPress={() => setTool('split')}
         disabled={!custom.loaded || !stickerSplit.available} state={!stickerSplit.available ? '준비 중' : null} />
     </>}>

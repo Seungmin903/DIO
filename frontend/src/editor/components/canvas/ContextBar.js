@@ -117,7 +117,7 @@ export default function ContextBar({
       cropable && { icon: 'crop', label: '자르기', onPress: () => onCrop(single.id) },
       fillable && { icon: 'image', label: '사진 채우기', onPress: () => onFillCells(single.id) },
       linkable && { icon: 'link', label: '링크', active: Boolean(single.href), onPress: () => onObjectLink?.(single) },
-      objects.length > 1 && { icon: 'folder', label: grouped ? '그룹 해제' : '그룹', onPress: () => {
+      objects.length > 1 && { icon: 'group', label: grouped ? '그룹 해제' : '그룹', onPress: () => {
         dispatch({ type: grouped ? 'ungroup' : 'group', ids })
         onToast(grouped ? '그룹을 풀었어요.' : '그룹으로 묶었어요. 레이어에서 폴더로 보여요.')
       } },

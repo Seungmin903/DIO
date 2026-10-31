@@ -1,10 +1,11 @@
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { PanResponder, PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import FavoriteStar from '../../shared/FavoriteStar';
 import { C } from '../constants';
 import { styles as s } from '../styles';
 import CoverArt, { CoverSurface } from './CoverArt';
+import { PAGE_COUNT_ROW } from './DiaryCard';
 import DiaryActionBubble from './DiaryActionBubble';
 import StaticPage from '../../editor/components/canvas/StaticPage';
 import { pageSize } from '../../editor/utils/pageGeometry.js';
@@ -13,7 +14,9 @@ import { createDefaultDoc } from '../../editor/state/defaultDoc';
 import { normalizeOrientation } from '../../editor/templates/catalog.js';
 import { bandAutoColor, coverTone, mix, normalizeCover } from '../utils/coverDesign';
 import { spreadOf } from '../utils/bookSpread';
-import { DESK_COLORS } from '../utils/deskLight';
+import { DESK_COLORS, deskLightAt } from '../utils/deskLight';
+import { coverShadowAt } from '../utils/deskShadow';
+import { useDeskHour, useDeskMode } from '../utils/deskTimeStore';
 
 // '펼쳐서' 보기: 책상 가운데 '펼침 자리'에 한 권만 실제 하드커버처럼 펼쳐 두고, 양옆에는 나머지 다이어리가 닫힌 채 순서대로 놓인다.
 // - 움직이는 연출은 없다. 끄는 동안에도 그대로 있다가 놓으면(또는 좌우 화살표 · 옆 책을 누르면) 바로 옆 다이어리가 펼친 모습으로 바뀐다
@@ -43,17 +46,23 @@ const REACH = 3; // 펼친 다이어리 앞뒤로 그려 두는 닫힌 권수
 const SWIPE = 36; // 이만큼 밀리면(손을 떼기 전이라도) 옆 다이어리를 펼친다
 const FLICK = 0.3; // 이보다 빠르게(px/ms) 튕기고 놓으면 SWIPE 보다 덜 밀었어도 넘긴다
 const FLICK_MIN = 16; // 튕기기로 치는 가장 짧은 거리(톡 친 것과 구분)
-const SHADOW = '0 8px 16px rgba(11,23,102,0.12)';
+const SHADOW = '0 8px 16px rgba(11,23,102,0.12)'; // 폰(책상 빛 없음) · 조명 끔 모드의 그림자
+const SHADOW_REF = 380; // coverShadowAt 의 스와이프 프로필이 기준으로 삼은 표지 폭. 책 한 권이 이보다 크면 그림자 길이만 같은 비율로 키운다
+const PORTRAIT = { templateConfig: { orientation: 'portrait' } };
 
 const orientationOf = diary => normalizeOrientation(diary?.templateConfig?.orientation ?? diary?.pageSize);
+const devicePx = value => PixelRatio.roundToNearestPixel(value); // 기기 픽셀(1px)의 정수배로
 const leafOf = (area, ratio) => ({ width: Math.sqrt(area * ratio), height: Math.sqrt(area / ratio) });
 
 /** 다이어리 한 권의 크기: 종이 한 면 · 표지 판 두께 · 반쪽(책등에서 바깥 끝까지 = 닫힌 책 폭) · 높이 */
 function bookSize(diary, paper) {
-  const leaf = leafOf(paper, RATIO[orientationOf(diary)]);
+  const exact = leafOf(paper, RATIO[orientationOf(diary)]);
+  // 종이 높이와 표지 판 두께를 기기 픽셀 단위로 맞춘다. 배율 1.75 태블릿에서 6dp 는 10.5px 라 위 · 아래 가장자리가 따로 반올림돼 아래쪽 속지~표지 여백이 2px 좁아 보였다(위 · 아래 여백이 항상 같다)
+  const leaf = { width: exact.width, height: devicePx(exact.height) };
   const scale = Math.max(leaf.width, leaf.height) / 680;
-  const board = { top: Math.round(6 * scale), side: Math.round(8 * scale) };
-  return { leaf, scale, board, half: Math.round(leaf.width + board.side), height: Math.round(leaf.height + board.top * 2) };
+  // 표지 판이 종이 밖으로 나오는 폭. 긴 변에 비례해 세로 · 가로 다이어리, 가로 · 세로 화면이 모두 같은 비율이다(하드커버 노트의 2~3mm 오버행 ≈ 긴 변의 1.2%)
+  const board = { top: devicePx(Math.round(8 * scale)), side: Math.round(10 * scale) };
+  return { leaf, scale, board, half: Math.round(leaf.width + board.side), height: leaf.height + board.top * 2 };
 }
 
 /** k 번째가 펼쳐졌을 때의 배치: 펼친 책 자리(left · width)와 닫힌 책마다의 왼쪽 끝 x */
@@ -137,7 +146,7 @@ function Leaf({ page, width, height, endpaper, style }) {
 }
 
 /** 펼침 자리의 다이어리: 표지 판(종이 밖으로 보이는 가장자리) · 양면 · 책등 · 머리띠 · 제본선 골 · 캡션 */
-function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null, onDark, onOpen, onFavorite, onEdit, onDelete }) {
+function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null, shadow, onDark, onOpen, onFavorite, onEdit, onDelete }) {
   const loaded = useSpread(diary);
   const cover = useMemo(() => normalizeCover(diary), [diary]);
   const [menu, setMenu] = useState(null);
@@ -147,7 +156,7 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
   const radius = Math.round(14 * scale);
   const spread = loaded?.spread ?? null;
   const tone = cover.enabled ? (coverTone(cover) ?? '#C9CED8') : C.cardBorder;
-  const endpaper = mix(mix(tone, PAPER, 0.7), '#E9DFC8', 0.15); // 면지: 표지색이 옅게 비치는(표지색 30%) 조금 따뜻한 무지
+  const endpaper = mix(tone, PAPER, 0.9); // 면지: 종이에 표지색이 10%만 옅게 비치는 무지(예전 30% + 베이지 15%는 짙은 표지에서 종이보다 훨씬 어두워 보였다)
   const captionInk = onDark ? C.white : C.ink;
   const headband = mix(cover.enabled ? (cover.band.color !== 'auto' ? cover.band.color : bandAutoColor(cover)) : '#7D88B5', '#8A8FA8', 0.35); // 고무줄 색을 한 단계 탁하게
   const spine = { width: 24, groove: 1.5, band: 18, bandOut: 4 }; // 책등 띠 폭 · 홈 굵기 · 머리띠 폭 · 종이 밖으로 보이는 머리띠 높이
@@ -155,7 +164,9 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
   // 세로로 세운 태블릿(peek = 화면 가운데 x): 양면을 그대로 펼치되 가장 최근 쪽을 화면 가운데에 두고, 마주 보는 쪽은 화면 끝에 잘려 살짝 보인다.
   // 좌철이라 홀수 쪽은 오른쪽 면, 짝수 쪽은 왼쪽 면. 캡션은 화면 가운데에 둔다.
   const left = peek == null ? placed : Math.round(peek - (spread && spread.latest % 2 === 0 ? half / 2 : half * 1.5));
-  const captionLeft = peek == null ? 0 : peek - left - width / 2;
+  // 이름 줄은 책 전체 폭에 맞춘다. 세로 태블릿은 책이 화면 밖으로 나가므로 화면 가운데에 놓인 한 면의 폭에 맞춘다.
+  const railWidth = peek == null ? width : leaf.width;
+  const captionLeft = peek == null ? 0 : peek - left - leaf.width / 2;
   const act = fn => () => { setMenu(null); fn?.(); };
   const actions = diary.canManage === false ? [] : [
     { id: 'edit', label: `${diary.title} 수정`, text: '수정', icon: 'edit', disabled: !onEdit || diary.canEdit === false, onPress: act(() => onEdit?.(diary)) },
@@ -164,9 +175,9 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
 
   return (
     <View pointerEvents={shown ? 'auto' : 'none'} accessibilityElementsHidden={!shown} importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
-      style={[styles.book, { left, top, width, height: height + CAPTION, opacity: shown ? 1 : 0 }]}>
+      style={[styles.book, { left: devicePx(left), top: devicePx(top), width, height: height + CAPTION, opacity: shown ? 1 : 0 }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${diary.title} 열기`} onPress={() => onOpen(diary)}
-        style={[styles.board, { width, height, borderRadius: radius, backgroundColor: tone, paddingVertical: board.top },
+        style={[styles.board, { width, height, borderRadius: radius, backgroundColor: tone, paddingVertical: board.top, boxShadow: shadow },
           compact ? { paddingRight: board.side, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 } : { paddingHorizontal: board.side }]}>
         {/* 표지 판: 종이 밖으로 보이는 가장자리에 표지 무늬(그라데이션 · 사진) 그대로 */}
         {cover.enabled && <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.clip, { borderRadius: radius }, compact && { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }]}>
@@ -194,22 +205,27 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
           compact ? { left: 0, width: 10, backgroundImage: 'linear-gradient(to right, rgba(11,23,102,0.12), rgba(11,23,102,0))' }
             : { left: width / 2 - 20, width: 40, backgroundImage: 'linear-gradient(to right, rgba(11,23,102,0) 0%, rgba(11,23,102,0.07) 38%, rgba(11,23,102,0.16) 50%, rgba(11,23,102,0.07) 62%, rgba(11,23,102,0) 100%)' }]} />
       </Pressable>
-      {/* 캡션: 펼친 책 아래 가운데. 카드 · 테두리 없이 글자만. 이름 · 쪽수는 스와이프 카드와 같은 서식 */}
-      <View style={[styles.caption, { width, left: captionLeft, top: height + 22 }]}>
-        <Text numberOfLines={1} style={[s.cardTitle, styles.captionName, onDark && s.onDeskDarkTitle]}>{diary.title}</Text>
-        {spread && <Text style={[s.cardPageCount, styles.captionPages, onDark && s.onDeskDarkSoft]}>{compact ? `${spread.latest} / ${spread.total}` : spread.label}</Text>}
-        {onFavorite && <Pressable accessibilityRole="button" accessibilityLabel={diary.favorite ? `${diary.title} 즐겨찾기 해제` : `${diary.title} 즐겨찾기`}
-          accessibilityState={{ selected: !!diary.favorite }} onPress={() => onFavorite(diary)} hitSlop={10}>
-          <FavoriteStar filled={!!diary.favorite} outline={captionInk} size={22} />
-        </Pressable>}
-        {actions.length > 0 && <Pressable ref={moreRef} accessibilityRole="button" accessibilityLabel={`${diary.title} 더보기`} accessibilityState={{ expanded: menu !== null }} hitSlop={10}
-          onPress={() => {
-            const node = moreRef.current;
-            if (node?.measureInWindow) node.measureInWindow((mx, my, w, h) => setMenu({ anchor: { x: mx, y: my, width: w, height: h } }));
-            else setMenu({ anchor: null });
-          }}>
-          <AppIcon name="more" size={22} color={captionInk} />
-        </Pressable>}
+      {/* 이름 줄: 한눈에 · 스와이프 카드와 같은 구조 — 책 왼쪽 끝에 맞춘 이름 · 쪽수 두 줄, 오른쪽 끝에 별 · ⋯. 카드 · 테두리 없이 글자만
+          (별은 판 위가 아니라 줄 안: 판 가장자리는 6~8px 뿐이라 별이 사용자의 속지 위에 놓인다) */}
+      <View style={[styles.caption, { width: railWidth, left: captionLeft, top: height + 10 }]}>
+        <View style={styles.captionText}>
+          <Text numberOfLines={1} style={[s.cardTitle, onDark && s.onDeskDarkTitle]}>{diary.title}</Text>
+          {spread && <Text style={[s.cardPageCount, onDark && s.onDeskDarkSoft]}>{compact ? `${spread.latest} / ${spread.total}` : spread.label}</Text>}
+        </View>
+        <View style={styles.captionTools}>
+          {onFavorite && <Pressable accessibilityRole="button" accessibilityLabel={diary.favorite ? `${diary.title} 즐겨찾기 해제` : `${diary.title} 즐겨찾기`}
+            accessibilityState={{ selected: !!diary.favorite }} onPress={() => onFavorite(diary)} hitSlop={10}>
+            <FavoriteStar filled={!!diary.favorite} outline={captionInk} size={22} />
+          </Pressable>}
+          {actions.length > 0 && <Pressable ref={moreRef} accessibilityRole="button" accessibilityLabel={`${diary.title} 더보기`} accessibilityState={{ expanded: menu !== null }} hitSlop={10}
+            onPress={() => {
+              const node = moreRef.current;
+              if (node?.measureInWindow) node.measureInWindow((mx, my, w, h) => setMenu({ anchor: { x: mx, y: my, width: w, height: h + PAGE_COUNT_ROW } })); // 말풍선이 이름 밑 쪽수 줄을 가리지 않게 그만큼 아래에 연다(DiaryCard 와 같은 값)
+              else setMenu({ anchor: null });
+            }}>
+            <AppIcon name="more" size={22} color={captionInk} />
+          </Pressable>}
+        </View>
       </View>
       {menu && <DiaryActionBubble anchor={menu.anchor} title={diary.title} actions={actions} onClose={() => setMenu(null)} />}
     </View>
@@ -217,14 +233,15 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
 }
 
 /** 닫힌 다이어리: 사용자가 꾸민 표지 그대로(고무줄 포함). 누르면 그 다이어리를 펼친다 */
-const ClosedBook = memo(function ClosedBook({ diary, size, top, left, side, onPick }) {
+const ClosedBook = memo(function ClosedBook({ diary, size, top, left, side, shadow, onPick }) {
   const cover = useMemo(() => normalizeCover(diary), [diary]);
   const { half, height, scale } = size;
+  const coverShadow = useMemo(() => ({ boxShadow: shadow }), [shadow]);
   return (
     <View style={[styles.book, { left, top, width: half, height }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${side === 'left' ? '이전' : '다음'} 다이어리 ${diary.title} 펼치기`} onPress={onPick} style={StyleSheet.absoluteFill}>
-        {cover.enabled ? <CoverArt cover={cover} name={diary.title} width={half} height={height} shadow={styles.coverShadow} />
-          : <View style={[StyleSheet.absoluteFill, styles.noCover, { borderRadius: Math.round(14 * scale) }]}><Text numberOfLines={2} style={styles.noCoverTitle}>{diary.title}</Text></View>}
+        {cover.enabled ? <CoverArt cover={cover} name={diary.title} width={half} height={height} shadow={coverShadow} />
+          : <View style={[StyleSheet.absoluteFill, styles.noCover, { borderRadius: Math.round(14 * scale), boxShadow: shadow }]}><Text numberOfLines={2} style={styles.noCoverTitle}>{diary.title}</Text></View>}
       </Pressable>
     </View>
   );
@@ -260,6 +277,12 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
   // 앞뒤 다이어리의 속지 그림도 미리 해석해 둔다(숨겨 그려 둔 옆 책이 넘기는 순간 다 그려져 있게)
   useEffect(() => { preloadOpenBooks(diaries, index); }, [diaries, index]);
   const settled = useDeferredValue(index);
+  // 그림자는 한눈에 · 스와이프 표지와 같은 해 방향 3겹(coverShadowAt). 폰 · 조명 끔 모드는 고정 그림자. 크기 배율은 모든 책이 같게(가로 책이 더 길어지지 않게) 세로 책 기준
+  const lightOff = useDeskMode() === 'off';
+  const hour = useDeskHour(!compact && !lightOff);
+  const shadow = useMemo(() => (layout && hour != null
+    ? coverShadowAt(hour, true, deskLightAt(hour).lamp, bookSize(PORTRAIT, layout.paper).half / SHADOW_REF)
+    : SHADOW), [layout, hour]);
 
   // 끄는 동안에는 아무것도 움직이지 않는다. 손을 떼기를 기다리지 않고 SWIPE 만큼 밀린 그 순간 바로 옆 다이어리로 바뀐다(한 번 끌기에 한 권).
   // 짧게 튕긴 손짓(FLICK 속도 이상)은 덜 밀었어도 놓을 때 넘긴다. 좌우 화살표 · 옆 책을 눌러도 같다.
@@ -287,7 +310,7 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
     if (!single) {
       for (let at = Math.max(0, index - REACH); at <= Math.min(diaries.length - 1, index + REACH); at += 1) {
         if (at === index) continue;
-        closed.push(<ClosedBook key={diaries[at].id} diary={diaries[at]} size={sizes[at]} top={layout.base - sizes[at].height} side={at < index ? 'left' : 'right'}
+        closed.push(<ClosedBook key={diaries[at].id} diary={diaries[at]} size={sizes[at]} top={layout.base - sizes[at].height} side={at < index ? 'left' : 'right'} shadow={shadow}
           left={now.xs[at]} onPick={() => onIndexChange(at)} />);
       }
     }
@@ -296,14 +319,14 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
     const near = new Set([settled - 1, settled, settled + 1, index]);
     const opened = [...near].sort((a, b) => a - b).filter(at => diaries[at] && Math.abs(at - index) <= 1).map(at => (
       <OpenBook key={diaries[at].id} shown={at === index} diary={diaries[at]} size={sizes[at]} left={layoutAt(at, sizes, layout.width, single).openLeft}
-        top={layout.base - sizes[at].height} compact={compact} peek={upright && !compact ? Math.round(layout.width / 2) : null} onDark={onDark} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} />
+        top={layout.base - sizes[at].height} compact={compact} peek={upright && !compact ? Math.round(layout.width / 2) : null} shadow={shadow} onDark={onDark} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} />
     ));
     // 세로 태블릿: 옆 다이어리는 화면 끝에 책등 쪽만 SPINE 만큼 걸쳐(펼친 책 가장자리 위에 얹혀) 옆으로 넘길 수 있음을 보여 준다
     // 마주 보는 쪽이 걸쳐 보이는 쪽에는 두지 않는다(홀수 쪽이면 왼쪽 면이, 짝수 쪽이면 오른쪽 면이 걸친다)
     // (폰은 한 면만 보여 마주 보는 쪽이 없다: 양옆 책등을 모두 걸친다. 마주 보는 쪽 · 가운데 맞춤(peek)은 세로 태블릿 계산이다)
     const facing = compact ? 0 : current?.spread && current.spread.latest % 2 === 0 ? 1 : -1;
     const edges = upright ? [index - 1, index + 1].filter(at => diaries[at] && Math.sign(at - index) !== facing).map(at => (
-      <ClosedBook key={diaries[at].id} diary={diaries[at]} size={sizes[at]} top={layout.base - sizes[at].height} side={at < index ? 'left' : 'right'}
+      <ClosedBook key={diaries[at].id} diary={diaries[at]} size={sizes[at]} top={layout.base - sizes[at].height} side={at < index ? 'left' : 'right'} shadow={shadow}
         left={at < index ? SPINE - sizes[at].half : layout.width - SPINE} onPick={() => onIndexChange(at)} />
     )) : null;
     view = <>
@@ -354,7 +377,6 @@ const styles = StyleSheet.create({
   arrowHalo: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   book: { position: 'absolute', left: 0 },
   board: { flexDirection: 'row', boxShadow: SHADOW },
-  coverShadow: { boxShadow: SHADOW },
   clip: { overflow: 'hidden' },
   leaf: { backgroundColor: PAPER, overflow: 'hidden' },
   // 종이 모서리는 거의 각지고(4), 제본선 쪽은 각지다
@@ -367,7 +389,8 @@ const styles = StyleSheet.create({
   gutter: { position: 'absolute' },
   noCover: { backgroundColor: PAPER, justifyContent: 'center', alignItems: 'center', padding: 16, boxShadow: SHADOW },
   noCoverTitle: { color: C.ink, fontSize: 16, fontWeight: '700', textAlign: 'center' },
-  caption: { position: 'absolute', left: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
-  captionName: { maxWidth: 420 },
-  captionPages: { marginTop: 0 }, // 스와이프 카드는 이름 아래 줄이라 위 여백이 있다. 여기서는 한 줄로 나란히
+  // 이름 줄: DiaryCard 의 cardInfoGrid(위 10 · 좌우 4)와 같은 여백, 별 · ⋯ 는 cardMoreSlot 처럼 이름 첫 줄에 맞춘다
+  caption: { position: 'absolute', left: 0, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, paddingHorizontal: 4 },
+  captionText: { flex: 1, minWidth: 0 },
+  captionTools: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: -1 },
 });

@@ -28,7 +28,7 @@ export const styles = StyleSheet.create({
   railOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, zIndex: 20, elevation: 20 }, // 배경 없는 래퍼(그림자 띠 방지). 흰 배경은 안쪽 rail
   railInner: { flex: 1, width: '100%' },
   // 로고 · 종 · 삼선을 같은 높이(48) 안에서 세로 가운데 맞춤 (로고 칸이 더 높아 로고만 아래로 처지던 것을 맞춤)
-  brandRow: { height: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
+  brandRow: { height: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   brand: { flex: 1, minWidth: 0, height: 48, paddingBottom: 6, flexDirection: 'row', alignItems: 'center', gap: 10 }, // 위쪽 점 때문에 D 본체가 아래로 쏠려 보여 로고를 3 올림
   brandSlot: { flex: 1, minWidth: 0, height: 48, justifyContent: 'center', overflow: 'hidden' },
   railToggle: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
@@ -52,7 +52,7 @@ export const styles = StyleSheet.create({
   railCreate: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 12, backgroundColor: C.blueStrong },
   railPlus: { color: C.white, fontSize: 23, lineHeight: 25, fontWeight: '300' },
   railCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
-  railGroup: { marginTop: 25 },
+  railGroup: { marginTop: 12 }, // 태블릿 삼선 줄과 첫 항목 사이 = 12 + 12 = 24(항목 피치 48의 절반, 코덱스 안). 폰은 brandRowPhone · railGroupPhone 이 따로 덮는다
   railSectionSlot: { overflow: 'hidden' },
   railSection: { color: C.muted, fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 9, paddingHorizontal: 12 },
   // 접힌 사이드바의 항목 폭은 47(78 - 좌우 15 - 오른쪽 테두리 1)이라 아이콘(20)이 가운데에 오려면 왼쪽 여백이 13.5여야 한다 (12면 1.5px 왼쪽으로 쏠린다)
@@ -183,7 +183,6 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   emptyCopy: { maxWidth: 390, color: C.muted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 9 },
   secondary: { minHeight: 48, paddingHorizontal: 17, flexDirection: 'row', alignItems: 'center', gap: 16, borderRadius: 12, marginTop: 22, borderWidth: 1, borderColor: C.ink, backgroundColor: C.white },
   secondaryText: { color: C.ink, fontSize: 13, fontWeight: '700' },
-  secondaryArrow: { color: C.ink, fontSize: 19 },
 
   carouselShell: { minHeight: 510, flex: 1, paddingTop: 47, paddingBottom: 3, overflow: 'hidden' },
   carouselShellCompact: { minHeight: 0, paddingTop: 12, paddingBottom: 0, marginHorizontal: -14 },
@@ -232,9 +231,10 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   sortOptionCheck: { width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }, // 화살표가 없는 항목도 자리를 비워 둬 글자가 맞는다
   cardCheckMark: { color: C.white, fontSize: 16, fontWeight: '800', lineHeight: 18 },
   cardFavorite: { position: 'absolute', top: 12, left: 11, zIndex: 3, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }, // 배경 없는 별: 오른쪽 ⋯ 버튼과 같은 여백으로 왼쪽 위 모서리에 붙인다
-  // 표지 오른쪽 위 더보기 버튼(동작 시트를 연다). 36 + hitSlop 6 = 터치 48
-  cardMore: { position: 'absolute', top: 12, right: 11, zIndex: 3, width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, borderWidth: 1, borderColor: C.cardBorder, backgroundColor: C.white, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.06)' },
-  cardHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  // 제목 줄 오른쪽 끝 더보기 버튼(동작 말풍선을 연다). 배경 없는 글자색 아이콘 22 + hitSlop 9 = 터치 40. 자리(slot)는 버튼이 숨는 스와이프 옆 카드에도 남겨 제목 줄 높이가 같게 한다
+  cardMoreSlot: { width: 22, height: 22, flexShrink: 0, marginTop: -1 },
+  cardMore: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
+  cardHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 },
   cardTitleWrap: { flex: 1, minWidth: 0 },
   onDeskDarkTitle: { color: '#FFFFFF' }, // 어두운 책상 위 글씨
   onDeskDarkSoft: { color: 'rgba(255,255,255,0.78)' },

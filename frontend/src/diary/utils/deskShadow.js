@@ -28,8 +28,11 @@ const GROUND = {
   small: { alpha: { contact: 1.22, core: 1.05, penumbra: 1 }, blur: { contact: 0, core: 1, penumbra: 2 } },
 }
 
-/** 시각(0 ≤ h < 24) → 표지 그림자 box-shadow 문자열. big 이면 스와이프 표지, 아니면 한눈에 표지. lamp(0~1)는 가로등 세기. */
-export function coverShadowAt(h, big, lamp = 0) {
+/**
+ * 시각(0 ≤ h < 24) → 표지 그림자 box-shadow 문자열. big 이면 스와이프 표지, 아니면 한눈에 표지. lamp(0~1)는 가로등 세기.
+ * size 는 그 프로필이 기준으로 삼은 표지 폭보다 큰(작은) 물건에 길이 · 퍼짐만 같은 비율로 키운다(진하기는 그대로). 펼쳐서의 책이 쓴다.
+ */
+export function coverShadowAt(h, big, lamp = 0, size = 1) {
   const t = h < 5 ? h + 24 : h
   const next = PROFILES.findIndex(profile => profile.at > t)
   const to = PROFILES[next < 0 ? PROFILES.length - 1 : next]
@@ -50,6 +53,6 @@ export function coverShadowAt(h, big, lamp = 0) {
     blur += ground.blur[layer]
     alpha *= ground.alpha[layer]
     const color = lampWeight > 0 ? mixList(rgb.split(',').map(Number), LAMP_SHADOW.rgb, lampWeight).map(Math.round).join(',') : rgb
-    return `${dx.toFixed(1)}px ${dy.toFixed(1)}px ${blur.toFixed(1)}px ${spread.toFixed(1)}px rgba(${color},${alpha.toFixed(3)})`
+    return `${(dx * size).toFixed(1)}px ${(dy * size).toFixed(1)}px ${(blur * size).toFixed(1)}px ${(spread * size).toFixed(1)}px rgba(${color},${alpha.toFixed(3)})`
   }).join(', ')
 }

@@ -1,4 +1,4 @@
-import Svg, { Circle, G, Line, Path } from 'react-native-svg';
+import Svg, { Circle, G, Path } from 'react-native-svg';
 import { APP_INK, textIconSpec } from './iconInk';
 import EditorIcon from '../editor/components/controls/Icon';
 import { colors } from './theme';
@@ -7,6 +7,7 @@ import { colors } from './theme';
 const EDITOR_ICONS = {
   text: 'text',
   crop: 'crop',
+  scissors: 'scissors',
   folder: 'folder',
   people: 'people',
   bell: 'bell',
@@ -23,7 +24,16 @@ const EDITOR_ICONS = {
   'chevron-right': 'chevronRight',
   close: 'close',
   eye: 'eye',
+  check: 'check',
   'eye-off': 'eyeOff',
+  mail: 'mail',
+  menu: 'menu',
+  book: 'book',
+  person: 'person',
+  star: 'star',
+  moon: 'moon',
+  'arrow-up': 'up',
+  'arrow-down': 'down',
 };
 
 const common = (color, strokeWidth) => ({
@@ -34,9 +44,9 @@ const common = (color, strokeWidth) => ({
   strokeLinejoin: 'round',
 });
 
-/** 앱 전반에서 쓰는 선형 아이콘. 편집 화면에 없는 것(menu·book·person·star·workshop·check·moon)만 여기서 그린다 */
+/** 앱 전반에서 쓰는 선형 아이콘. 편집 화면에 없는 것(book-user·book-open·library·workshop)만 여기서 그린다 */
 export default function AppIcon({ name, size = 24, color = colors.text, strokeWidth = 1.8, fill = 'none', forText }) {
-  if (EDITOR_ICONS[name]) return <EditorIcon name={EDITOR_ICONS[name]} size={size} color={color} strokeWidth={strokeWidth} forText={forText} />;
+  if (EDITOR_ICONS[name]) return <EditorIcon name={EDITOR_ICONS[name]} size={size} color={color} strokeWidth={strokeWidth} fill={fill} forText={forText} />;
   // forText: 글자 크기(px). 주면 그 글자와 같은 높이로 보이게 size · 선 굵기 · 세로 위치를 계산한다(디자인 가이드 "글자 옆 아이콘")
   const spec = forText ? textIconSpec(APP_INK, name, forText) : null;
   if (spec) { size = spec.size; strokeWidth = spec.strokeWidth; }
@@ -44,16 +54,6 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
 
   let graphic = null;
   switch (name) {
-    case 'mail':
-      graphic = <><Path {...line} d="M3 5h18v14H3z" /><Path {...line} d="m3 6 9 7 9-7" /></>;
-      break;
-    case 'menu':
-      graphic = <><Line {...line} x1="4" y1="7" x2="20" y2="7" /><Line {...line} x1="4" y1="12" x2="20" y2="12" /><Line {...line} x1="4" y1="17" x2="20" y2="17" /></>;
-      break;
-    case 'book':
-      // 글줄 책. Lucide `book-text` (ISC, https://github.com/lucide-icons/lucide) 의 선을 그대로 쓴다.
-      graphic = <><Path {...line} d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" /><Path {...line} d="M8 11h8" /><Path {...line} d="M8 7h6" /></>;
-      break;
     case 'book-user':
       // 사람이 든 책(공유된 다이어리). '내 다이어리'(book)와 같은 책 모양에 Lucide `book-user` (ISC) 의 선을 쓴다.
       graphic = <><Path {...line} d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" /><Path {...line} d="M15 13a3 3 0 1 0-6 0" /><Circle {...line} cx="12" cy="8" r="2" /></>;
@@ -66,28 +66,9 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
       // 책꽂이(전체 기록). Lucide `library` (ISC) 의 선을 그대로 쓴다.
       graphic = <><Path {...line} d="m16 6 4 14" /><Path {...line} d="M12 6v14" /><Path {...line} d="M8 8v12" /><Path {...line} d="M4 4v16" /></>;
       break;
-    case 'person':
-      graphic = <><Circle {...line} cx="12" cy="8" r="3.2" /><Path {...line} d="M5.5 20c.6-3.6 3.1-5.6 6.5-5.6s5.9 2 6.5 5.6" /></>;
-      break;
-    case 'star':
-      graphic = <Path {...line} fill={fill} d="m12 3.8 2.48 5.02 5.54.81-4.01 3.91.95 5.52L12 16.43l-4.96 2.61.95-5.52-4.01-3.91 5.54-.81L12 3.8Z" />;
-      break;
-    case 'arrow-up':
-      graphic = <><Line {...line} x1="12" y1="19" x2="12" y2="5" /><Path {...line} d="m6 11 6-6 6 6" /></>;
-      break;
-    case 'arrow-down':
-      graphic = <><Line {...line} x1="12" y1="5" x2="12" y2="19" /><Path {...line} d="m6 13 6 6 6-6" /></>;
-      break;
     case 'workshop':
       // 팔레트. Lucide `palette` (ISC, https://github.com/lucide-icons/lucide) 의 선을 그대로 쓰고, 물감 점은 윤곽선 색으로 꽉 채운 원(선 굵기와 무관한 크기)으로 그린다.
       graphic = <><Path {...line} d="M12 22a1 1 0 0 1 0-20a10 9 0 0 1 10 9a5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" /><Circle fill={color} cx="13.5" cy="6.5" r="1.3" /><Circle fill={color} cx="17.5" cy="10.5" r="1.3" /><Circle fill={color} cx="6.5" cy="12.5" r="1.3" /><Circle fill={color} cx="8.5" cy="7.5" r="1.3" /></>;
-      break;
-    case 'check':
-      // 직선 두 획. 끝을 둥글리지 않고 모서리도 뾰족하게 둔다.
-      graphic = <Path {...line} strokeLinecap="butt" strokeLinejoin="miter" d="M5 12.5 10 17.5 19 7.5" />;
-      break;
-    case 'moon':
-      graphic = <Path {...line} d="M18.7 15.1A7.5 7.5 0 0 1 8.9 5.3 7.5 7.5 0 1 0 18.7 15.1Z" />;
       break;
     default:
       graphic = <Circle {...line} cx="12" cy="12" r="7" />;
