@@ -1,7 +1,11 @@
 import { memo, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
+
+// 메뉴 이름은 펼칠 때 옅게 나타난다. 앱 UI 글꼴(Pretendard) 글자를 그대로 움직이도록 직접 만든다(Animated.Text 는 글꼴을 거치지 않는다)
+const AnimatedText = Animated.createAnimatedComponent(Text);
 import BrandLogo from '../../shared/BrandLogo';
 import AppIcon from '../../shared/AppIcon';
+import ProfileAvatar from './ProfileAvatar';
 import { notificationCountLabel } from '../../notifications/notificationCount.js';
 import { C } from '../constants';
 import { markRailMoving } from '../utils/railMotion';
@@ -11,7 +15,8 @@ export const RAIL_WIDTH = { collapsed: 78, expanded: 218 };
 const RAIL_PADDING = { collapsed: 15, expanded: 20 };
 const RAIL_MS = 240;
 
-function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle, onNotifications, invitationCount = 0, notificationLabel = '받은 초대', notificationCount }) {
+// user · getProfilePhotoSource: 메뉴 맨 아래 '내 공간' 자리에 프로필 그림(접힘)과 닉네임(펼침)을 보인다.
+function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle, onNotifications, invitationCount = 0, notificationLabel = '받은 초대', notificationCount, user = null, getProfilePhotoSource }) {
   // 0 = 접힘, 1 = 펼침. 너비·여백·글자 투명도를 한 값으로 함께 움직인다.
   // 메뉴 폭은 레이아웃 값이라 메인 화면(flex)이 메뉴와 함께 프레임마다 줄고 늘어난다.
   // 보관함 · 휴지통은 요소를 memo 해 두어 이 동안 카드를 다시 그리지 않는다(App.js libraryScreen · trashScreen).
@@ -53,9 +58,9 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         style={({ pressed }) => [s.railItem, selected && s.railItemSelected, pressed && s.pressed]}
       >
         <View style={s.railIconSlot}>
-          <AppIcon name={icon} size={20} color={selected ? C.ink : C.muted} fill={selected && icon === 'star' ? C.ink : 'none'} />
+          <AppIcon name={icon} size={22} color={selected ? C.ink : C.muted} fill={selected && icon === 'star' ? C.ink : 'none'} />
         </View>
-        <Animated.Text numberOfLines={1} style={[s.railLabel, selected && s.railLabelSelected, { opacity: labelOpacity }]}>{label}</Animated.Text>
+        <AnimatedText numberOfLines={1} style={[s.railLabel, selected && s.railLabelSelected, { opacity: labelOpacity }]}>{label}</AnimatedText>
       </Pressable>
     );
   };
@@ -117,9 +122,21 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
       <Animated.View style={s.railGroup}>
         {item('library', '다이어리', 'book', 'all')}
         {item('studio', '꾸미기 공방', 'workshop')}
-        {item('profile', '내 공간', 'person')}
-        {item('trash', '휴지통', 'trash')}
+        {item('trash', '휴지통', 'bin')}
       </Animated.View>
+      {/* 내 공간: 메뉴 맨 아래, 위에 구분선 하나. 접으면 프로필 그림, 펼치면 닉네임이 그 옆에 나온다. 고른 상태 바탕은 깔지 않고 글자 굵기로만 보인다 */}
+      {/* 구분선은 메뉴 좌우 끝에서 끝까지: 메뉴 안쪽 여백(접힘 15 · 펼침 20)만큼 밖으로 늘린다 */}
+      <Animated.View style={[s.railProfileLine, { marginHorizontal: between(-RAIL_PADDING.collapsed, -RAIL_PADDING.expanded) }]} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="내 공간"
+        accessibilityState={{ selected: page === 'profile' }}
+        onPress={() => navigate('profile')}
+        style={[s.railItem, s.railProfile]}
+      >
+        <View style={s.railAvatarSlot}><ProfileAvatar user={user} getSource={getProfilePhotoSource} size={30} /></View>
+        <AnimatedText numberOfLines={1} style={[s.railLabel, page === 'profile' && s.railLabelSelected, { opacity: labelOpacity }]}>{user?.nickname || '내 공간'}</AnimatedText>
+      </Pressable>
     </Animated.View>
     </Animated.View>
     </>

@@ -33,6 +33,7 @@ function render(platform, settings) {
     if (id === '../../shared/theme') return { colors: {} }
     if (id === '../utils/text') return text
     if (id === '../hooks/useTextFont') return { useTextFont: () => '' }
+    if (id === '../hooks/usePalettes') return {} // 공방 프리셋 저장소가 없으면 기본 글자 색을 쓴다
     if (id === '../../handwriting/studioBus.js') return { openFontStudio() {} }
     if (id === './ToolPanel') return {
       Segmented: props => { if (props.items.some(item => item.id === 'italic')) styleControls = props; return null },

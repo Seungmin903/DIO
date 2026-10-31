@@ -42,7 +42,7 @@ const TAPE_PREVIEW = { width: 236, height: 44 }
 
 // 보관함 크기: 왼쪽 아래 손잡이로 넓히고 늘린다. 닫았다 열어도 유지되도록 모듈에 기억해 둔다.
 const SIZE_LIMITS = { minWidth: 280, maxWidth: 640, minHeight: 260 }
-const TILE_MIN_PX = 68
+const TILE_MIN_PX = 72 // 스티커 칸 64 + 칸 간격 8 (코덱스 17번)
 let rememberedSize = { width: 320, height: null }
 // 넓이에 맞춘 스티커 칸 수 (Tile 이 읽는다)
 const ColumnsContext = createContext(4)
@@ -194,7 +194,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
 
   return (
     <View
-      style={[styles.drawer, toolPanelStyles.card, { width: size.width }, size.height != null && { height: size.height }]}
+      style={[styles.drawer, toolPanelStyles.card, { width: size.width }, size.height != null && { height: size.height, maxHeight: '100%' }]}
       onLayout={(event) => {
         measured.current = event.nativeEvent.layout.height
         onPanelWidth?.(event.nativeEvent.layout.width)
@@ -813,7 +813,7 @@ const BODY_X = 16
 // 목록 편집 한 줄 높이 + 줄 간격 (끌어서 옮길 때 몇 칸 움직였는지 계산)
 const EDIT_ROW = 46
 const EDIT_STEP = EDIT_ROW + 6
-const DRAWER_RADIUS = 24 // 다른 옵션 창과 같은 둥글기 (ToolPanel 의 PANEL_RADIUS)
+const DRAWER_RADIUS = 12 // 다른 옵션 창과 같은 둥글기 (ToolPanel 의 PANEL_RADIUS)
 // 크기 조절 손잡이: 왼쪽 아래 모서리 곡선(반경 24)과 중심이 같은 호를 안쪽으로 7px 들여 그린다.
 const GRIP = 44
 const GRIP_ARC = (() => {
@@ -825,23 +825,15 @@ const GRIP_ARC = (() => {
   const [x2, y2] = point(78)
   return `M${x1} ${y1} A${r} ${r} 0 0 0 ${x2} ${y2}`
 })()
-const TILE_GAP = 3
+const TILE_GAP = 4 // 칸 사이 8 (코덱스 17번: 셀 64, 간격 8, 안쪽 여백 16)
 
 const styles = StyleSheet.create({
   stickerAddMenu: { marginTop: 8, padding: 8, gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
   stickerAddOption: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
   stickerAddText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  // 앵커 패널: 흰 면 + 1px 테두리, 그림자 없음, 최대 높이 480 (공용 카드 toolPanelStyles.card 가 정한다)
   drawer: {
-    width: 300,
-    maxWidth: '100%',
-    maxHeight: '100%',
-    flexShrink: 1,
     borderRadius: DRAWER_RADIUS,
-    backgroundColor: 'rgba(255,255,255,0.97)',
-    // 웹에서는 뒤 캔버스가 살짝 비치는 유리 질감 (네이티브는 불투명 흰 배경)
-    ...Platform.select({ web: { backgroundColor: 'rgba(255,255,255,0.86)', backdropFilter: 'blur(18px)' }, default: {} }),
-    overflow: 'hidden',
-    ...shadow.float,
   },
   tabs: {
     flexDirection: 'row',
@@ -872,8 +864,10 @@ const styles = StyleSheet.create({
     gap: 6,
     height: 44,
     paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceMuted,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
   },
   searchInput: {
     flex: 1,
@@ -898,12 +892,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     justifyContent: 'center',
     borderRadius: 17,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
   },
-  // 선택: 흰 바탕 + 파란 테두리 (docs/design-guide.md 7장)
-  pillActive: { backgroundColor: colors.surface, borderColor: colors.primary },
+  // 선택: 흰 바탕 + primaryStrong 2px 테두리
+  pillActive: { backgroundColor: colors.surface, borderColor: colors.primaryStrong, borderWidth: 2 },
   pillWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   pillDashed: { borderStyle: 'dashed', borderWidth: 1, borderColor: colors.border, backgroundColor: 'transparent' },
   folderInputRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -934,7 +928,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: 'rgba(129,138,195,0.6)',
@@ -1034,10 +1028,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: '#F5F7FB',
   },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   tileImage: { width: '74%', height: '74%' },
   remove: {
     position: 'absolute',
@@ -1073,7 +1067,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     paddingHorizontal: 8,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: '#F5F7FB',
   },
   tapeName: {
@@ -1084,19 +1078,20 @@ const styles = StyleSheet.create({
   },
   upload: {
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 4,
     marginTop: 4,
-    paddingVertical: 20,
+    height: 96, // 코덱스 24번: 불러오기 영역 288×96 (패널 안쪽 폭)
     paddingHorizontal: 12,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.secondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
   },
   uploadIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primarySoft,

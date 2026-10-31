@@ -88,7 +88,9 @@ export default function FrameTextEditor({ object, line: index, zoom, dispatch, o
         transform: [{ rotate: `${object.rotation ?? 0}deg` }],
       }}
     >
+      {/* 틀에 인쇄되는 글자라 앱 UI 글꼴(Pretendard)을 넣지 않는다 */}
       <TextInput
+        dioFont={false}
         ref={input}
         autoFocus
         selectTextOnFocus

@@ -30,5 +30,5 @@ const s = StyleSheet.create({
   buttonText: { fontSize: 14, fontWeight: '700', color: colors.text }, active: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   primary: { backgroundColor: colors.primary, borderColor: colors.primary }, primaryText: { color: colors.surface },
   iconButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surface },
-  disabled: { opacity: DISABLED_OPACITY }, pressed: { opacity: 0.7 },
+  disabled: { opacity: DISABLED_OPACITY }, pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

@@ -4,6 +4,7 @@ import { colors } from '../../shared/theme'
 import MyColorPresets from './controls/MyColorPresets'
 import Slider from './controls/Slider'
 import { EDITOR_COLORS, HIGHLIGHTER_COLORS, PEN_TYPES, penPressure } from '../utils/penSettings'
+import { usePalette } from '../hooks/usePalettes'
 import { createStroke } from '../utils/strokes'
 import ObjectContent from './canvas/ObjectView'
 
@@ -25,7 +26,8 @@ export function PenSample({ settings, small = false }) {
 export default function PenSettings({ settings, onChange, onClose, straightAssist = true, onStraightAssistChange }) {
   const highlighter = settings.kind === 'highlighter'
   const label = highlighter ? '형광펜' : '펜'
-  const palette = highlighter ? HIGHLIGHTER_COLORS : EDITOR_COLORS
+  // 색 줄은 꾸미기 공방 '내 프리셋'에서 바꾼 목록을 따른다(바꾼 적 없으면 기본 색)
+  const palette = usePalette?.(highlighter ? 'highlighter' : 'pen')?.colors ?? (highlighter ? HIGHLIGHTER_COLORS : EDITOR_COLORS)
   const chooseColor = (color) => onChange({ ...settings, color })
   return <View style={toolPanelStyles.card}>
     <ToolPanelHeader icon={highlighter ? 'highlighter' : 'pen'} title={label} closeLabel={`${label} 설정 닫기`} onClose={onClose} />
@@ -68,7 +70,7 @@ const styles = StyleSheet.create({
   preview: { backgroundColor: '#FAFAF7', borderRadius: 12 },
   types: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: 11, backgroundColor: colors.surfaceMuted },
   type: { flex: 1, borderRadius: 8, paddingVertical: 6 },
-  typeSelected: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.14)' },
+  typeSelected: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.07)' },
   typeText: { textAlign: 'center', color: colors.textMuted, fontSize: 11.5, fontWeight: '600' },
   typeTextSelected: { color: colors.text, fontWeight: '800' },
   palette: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

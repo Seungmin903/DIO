@@ -55,21 +55,21 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
   header: { height: 64, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.9)' },
   close: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  closePressed: { backgroundColor: colors.primarySoft },
+  closePressed: {}, // 눌림 효과 없음(사용자 지시)
   title: { flex: 1, fontSize: 17, fontWeight: '700', color: colors.text },
   body: { flex: 1, flexDirection: 'row', gap: 16, padding: 16 },
   bodyNarrow: { flexDirection: 'column' },
   // 작업 영역: 편집 화면의 작업창처럼 둥근 판 위에 미리보기를 가운데 둔다
-  stage: { flex: 1, minWidth: 0, minHeight: 200, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(255,255,255,0.35)' },
+  stage: { flex: 1, minWidth: 0, minHeight: 200, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(255,255,255,0.35)' },
   sideContent: { paddingTop: 18, paddingBottom: 18 },
   side: { width: 320, alignSelf: 'flex-start', maxHeight: '100%' },
   sideNarrow: { width: '100%', maxHeight: '45%' },
-  button: { minHeight: 36, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors.surfaceMuted, borderWidth: 1.5, borderColor: 'transparent' },
+  button: { minHeight: 40, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
-  selected: { backgroundColor: colors.surface, borderColor: colors.primary },
-  pressed: { opacity: 0.75 },
+  selected: { backgroundColor: colors.surface, borderColor: colors.primaryStrong, borderWidth: 2 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   disabled: { opacity: DISABLED_OPACITY },
-  primary: { minHeight: 44, backgroundColor: colors.primaryStrong },
+  primary: { minHeight: 48, borderColor: colors.primaryStrong, backgroundColor: colors.primaryStrong }, // 만들기 버튼 48 · 모서리 10
   primaryText: { fontSize: 14, fontWeight: '700', color: colors.surface },
   info: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   infoLabel: { flexShrink: 0, fontSize: 12.5, fontWeight: '700', color: colors.textMuted },

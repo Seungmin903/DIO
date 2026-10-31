@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """다이어리 홈 '햇살 책상' 이미지 만들기 → frontend/assets/desk/
 
-python scripts/generate-desk-assets.py <코덱스 원목.png> <코덱스 창빛.png> <소품 폴더 (docs/.../책상 시안 3차/소품)>
+python scripts/generate-desk-assets.py <코덱스 창빛.png> <소품 폴더 (docs/.../책상 시안 3차/소품)>
 
-- desk-wood.jpg    : 빛 없는 원목 상판 (코덱스) 을 라벤더 쪽으로 살짝 보정
+(상판은 그림 없이 단색이라 원목 그림은 만들지 않는다. 예전 desk-wood.jpg 는 지웠다)
 - window-light.png : 코덱스가 검은 바탕에 그린 십자 창빛 + 그 안에 녹은 나무 그림자 → 흰색 + 알파. 앱에서 시간대 색 · 자리를 입힌다
 - 책갈피 · 별 클립은 이 스크립트가 아니라 scripts/process-bookmark.py · draw-star-clip.py 가 만든다.
 - props/<이름>.png · <이름>-shadow.png : 화이트 밸런스를 맞춘 소품과 같은 모양의 부드러운 그림자(검정 + 알파)
@@ -42,14 +42,6 @@ ROTATE = {'polaroid-picnic': 6, 'tape-butter': 6, 'binder-clip': 22, 'binder-cli
 def smooth(x, a, b):
     t = np.clip((x - a) / (b - a), 0, 1)
     return t * t * (3 - 2 * t)
-
-
-def wood(src: Path) -> None:
-    rgb = np.asarray(Image.open(src).convert('RGB')).astype(np.float32)
-    x = 255 - (255 - rgb) * (1 - 0.1)  # 아주 조금 밝게
-    m = x.mean(-1, keepdims=True)
-    x = m + (x - m) * 0.85 + np.array([-1, -3, 6], np.float32)  # 라벤더 쪽
-    Image.fromarray(np.clip(x, 0, 255).astype(np.uint8)).save(OUT / 'desk-wood.jpg', quality=88, optimize=True)
 
 
 def window(src: Path) -> None:
@@ -349,6 +341,5 @@ def props(folder: Path) -> None:
 
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
-    wood(Path(sys.argv[1]))
-    window(Path(sys.argv[2]))
-    props(Path(sys.argv[3]))
+    window(Path(sys.argv[1]))
+    props(Path(sys.argv[2]))

@@ -1,5 +1,5 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, shadow, DISABLED_OPACITY } from '../../shared/theme'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { colors, DISABLED_OPACITY } from '../../shared/theme'
 import Icon from './controls/Icon'
 
 // 도구 옵션·보관함·내보내기가 공유하는 제목과 표면 기준.
@@ -43,35 +43,35 @@ export function Segmented({ items, selected, onPress, disabled = false, separate
 }
 
 // 떠 있는 창(옵션·도구 설정·보관함·대화상자·버블)의 모서리 둥글기. 선택 바는 16.
-export const PANEL_RADIUS = 24
+// B안: 카드 12 (코덱스 17·21·22번). 앵커 패널은 그림자 없이 테두리만
+export const PANEL_RADIUS = 12
 
 export const toolPanelStyles = StyleSheet.create({
   card: {
-    width: 300,
+    width: 320, // 코덱스 17·18·22·23·24번: 앵커 패널 폭 320
     maxWidth: '100%',
-    maxHeight: '100%',
+    maxHeight: 480, // 최대 480, 바깥 칸이 더 작으면 flexShrink 로 줄어든다(내부 스크롤)
     flexShrink: 1,
     borderRadius: PANEL_RADIUS,
-    backgroundColor: 'rgba(255,255,255,0.97)',
-    // 웹에서는 뒤 캔버스가 살짝 비치는 유리 질감 (네이티브는 불투명에 가까운 흰 배경)
-    ...Platform.select({ web: { backgroundColor: 'rgba(255,255,255,0.86)', backdropFilter: 'blur(18px)' }, default: {} }),
+    backgroundColor: colors.surface, // 흰 면 + 1px 테두리, 그림자 없음
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
     overflow: 'hidden',
-    ...shadow.float,
   },
   heading: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 16, paddingRight: 8, paddingTop: 6 },
   titleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { color: colors.text, fontSize: 15, fontWeight: '700' },
   close: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
-  content: { paddingHorizontal: 16, paddingBottom: 18, paddingTop: 2, gap: 12 },
+  content: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 2, gap: 12 },
   // 구역 제목 (MorePanel 의 sectionTitle 과 같다)
   label: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  // 칸 사이 3 간격: 여러 칸을 함께 켰을 때(보조선·굵게/기울임) 흰 칸끼리 붙어 보이지 않게
-  segment: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 11, backgroundColor: colors.surfaceMuted },
-  segmentItem: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
-  segmentActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.14)' },
+  // B안 테두리 칩: 칸마다 흰 면 + cardBorder 테두리, 고른 칸은 primaryStrong 테두리(그림자 · 회색 판 없음). 칸 사이 6
+  segment: { flexDirection: 'row', gap: 6 },
+  segmentItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
+  segmentActive: { borderColor: colors.primaryStrong, borderWidth: 2 },
   chips: { flexDirection: 'row', gap: 8 },
-  chip: { backgroundColor: colors.surfaceMuted, borderWidth: 1.5, borderColor: 'transparent', borderRadius: 11 },
-  chipActive: { backgroundColor: colors.surface, borderColor: colors.primary },
+  chip: {},
+  chipActive: { borderColor: colors.primaryStrong, borderWidth: 2 },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
   segmentTextActive: { color: colors.text, fontWeight: '800' },
   dim: { opacity: DISABLED_OPACITY },

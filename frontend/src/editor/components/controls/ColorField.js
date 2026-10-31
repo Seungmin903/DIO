@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     borderRadius: 10,
   },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   title: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
   value: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   chip: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border },

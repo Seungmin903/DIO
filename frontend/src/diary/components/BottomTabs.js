@@ -7,9 +7,9 @@ import { styles as s } from '../styles';
 
 const TABS = [
   { id: 'library', filter: 'all', label: '다이어리', icon: 'book' },
-  { id: 'studio', label: '꾸미기 공방', displayLabel: '꾸미기\n공방', icon: 'workshop' },
+  { id: 'studio', label: '꾸미기 공방', icon: 'workshop' },
   { id: 'profile', label: '내 공간', icon: 'person' },
-  { id: 'trash', label: '휴지통', icon: 'trash' },
+  { id: 'trash', label: '휴지통', icon: 'bin' },
 ];
 
 // 폰 홈의 하단 탭. 태블릿 사이드 메뉴(SideRail)와 같은 navigate를 쓴다.
@@ -27,10 +27,12 @@ function BottomTabs({ page, filter, navigate, bottomInset = 0, onNotifications, 
               accessibilityLabel={tab.label}
               accessibilityState={{ selected }}
               onPress={() => navigate(tab.id, tab.filter)}
-              style={({ pressed }) => [s.tabItem, selected && s.tabItemSelected, pressed && s.pressed]}
+              style={({ pressed }) => [s.tabItem, pressed && s.pressed]}
             >
-              <AppIcon name={tab.icon} size={21} color={selected ? C.ink : C.muted} fill={selected && tab.icon === 'star' ? C.ink : 'none'} />
-              <Text numberOfLines={tab.id === 'studio' ? 2 : 1} style={[s.tabLabel, selected && s.tabLabelSelected, tab.id === 'studio' && { textAlign: 'center' }]}>{tab.displayLabel || tab.label}</Text>
+              <View style={[s.tabIconPill, selected && s.tabIconPillSelected]}>
+                <AppIcon name={tab.icon} size={22} color={C.ink} fill="none" />
+              </View>
+              <Text numberOfLines={1} style={[s.tabLabel, selected && s.tabLabelSelected]}>{tab.label}</Text>
             </Pressable>
           );
         })}

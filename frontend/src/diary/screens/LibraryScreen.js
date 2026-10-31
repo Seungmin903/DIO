@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+import PopoverMenu from '../components/PopoverMenu';
 import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS, C } from '../constants';
 import AppIcon from '../../shared/AppIcon';
 import { styles as s } from '../styles';
@@ -90,6 +91,15 @@ function LibraryScreen({
   const query = remoteQuery ? remoteQuery.query : localQuery;
   const setQuery = remoteQuery ? remoteQuery.onQueryChange : setLocalQuery;
   const [optionsOpen, setOptionsOpen] = useState(false);
+  // 옵션 말풍선은 버튼 자리에 맞춰 띄우고, 바깥을 누르면 닫힌다(투명한 바탕 · Modal)
+  const optionsButton = useRef(null);
+  const [optionsAnchor, setOptionsAnchor] = useState(null);
+  const openOptions = () => {
+    if (optionsOpen) { setOptionsOpen(false); return; }
+    const node = optionsButton.current;
+    if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => { setOptionsAnchor({ x, y, width, height }); setOptionsOpen(true); });
+    else { setOptionsAnchor(null); setOptionsOpen(true); }
+  };
   const shown = useMemo(() => remoteQuery ? diaries : queryDiaries(diaries, { filter, query: searchOpen ? query : '', sort, metadata }), [diaries, filter, query, searchOpen, sort, metadata, remoteQuery]);
   const displayView = searchOpen ? 'grid' : view;
   const resetPosition = () => { positioned.current = null; onCarouselChange(0); };
@@ -120,7 +130,8 @@ function LibraryScreen({
   const itemCount = carouselItems.length;
   const carouselItemWidth = portrait ? PORTRAIT_ITEM_WIDTH : compact ? 268 : CAROUSEL_ITEM_WIDTH;
   // 세로는 간격을 카드 폭만큼 줘서 옆 카드가 화면 밖에 있게 한다.
-  const carouselGap = portrait ? PORTRAIT_ITEM_WIDTH : compact ? 24 : CAROUSEL_GAP;
+  // 폰은 옆 카드가 28px 만 보이도록 간격을 좁힌다(가운데 카드 1.06배 · 옆 카드 0.84배 기준)
+  const carouselGap = portrait ? PORTRAIT_ITEM_WIDTH : compact ? 11 : CAROUSEL_GAP;
   const carouselStep = portrait || compact ? carouselItemWidth + carouselGap : CAROUSEL_STEP;
   // 카드 수가 바뀔 때만 애니메이션 노드를 새로 만든다. 매 렌더마다 만들면 스와이프마다 모든 카드가 다시 연결된다.
   const motions = useMemo(
@@ -128,6 +139,8 @@ function LibraryScreen({
     [carouselStep, itemCount, scrollX],
   );
   const activeIndex = Math.max(0, Math.min(carousel, Math.max(0, itemCount - 1)));
+  // 가장 왼쪽 · 오른쪽 다이어리에서는 갈 곳이 없는 쪽 화살표를 숨긴다
+  const hasPrevious = activeIndex > 0, hasNext = activeIndex < itemCount - 1;
   // 표지가 카드 이동에 맞춰 책상 창빛을 따라 받는 데 쓰는 값 (쉬는 위치 rest 는 가운데 카드가 정해진 스크롤)
   const followMotions = useMemo(
     () => Array.from({ length: itemCount }, (_, index) => ({ scrollX, index, step: carouselStep, rest: activeIndex * carouselStep })),
@@ -221,16 +234,16 @@ function LibraryScreen({
 
   const { key: sortKey, direction } = parseSort(sort);
   const optionsMenu = !selecting && <>
-    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} onPress={() => setOptionsOpen(!optionsOpen)} style={({ pressed }) => [s.iconButton, pressed && s.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} ref={optionsButton} onPress={openOptions} style={({ pressed }) => [s.iconButton, pressed && s.pressed]}>
       <View style={s.librarySortIcon}><AppIcon name="more" size={21} color={C.ink} /></View>
     </Pressable>
-    {optionsOpen && <View style={s.librarySortMenu} accessibilityLabel="보관함 옵션 목록">
+    <PopoverMenu open={optionsOpen} anchor={optionsAnchor} width={230} height={170} label="보관함 옵션 목록" style={s.librarySortMenu} onClose={() => setOptionsOpen(false)}>
       <View accessibilityRole="radiogroup" accessibilityLabel="정렬 기준">
         {SORT_OPTIONS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: sortKey === item.id }} accessibilityLabel={`${item.label}, ${sortKey === item.id ? (direction === 'asc' ? '오름차순' : '내림차순') + ', 누르면 방향 바꾸기' : '선택'}`} onPress={() => { onSortChange(nextSort(sort, item.id)); resetPosition(); }} style={({ pressed }) => [s.chip, s.librarySortOption, sortKey === item.id && s.chipSelected, pressed && s.pressed]}>
           <View style={s.sortOptionRow}><View style={s.sortOptionCheck}>{sortKey === item.id && <AppIcon name={direction === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} color={C.ink} strokeWidth={2.4} />}</View><Text style={s.chipText}>{item.label}</Text></View>
         </Pressable>)}
       </View>
-    </View>}
+    </PopoverMenu>
   </>;
   const selectionBar = selecting && <View style={s.selectBar} accessibilityRole="toolbar">
         <Text accessibilityLiveRegion="polite" style={s.selectCount}>{`${selected.length}개 선택됨`}</Text>
@@ -261,7 +274,7 @@ function LibraryScreen({
             accessibilityState={{ disabled: !selected.length || trashing }}
             disabled={!selected.length || trashing}
             onPress={() => onTrashSelected?.(selected)}
-            style={({ pressed }) => [s.selectButton, s.selectButtonDanger, (!selected.length || trashing) && s.selectButtonDisabled, pressed && s.pressed]}
+            style={({ pressed }) => [s.selectButton, s.selectButtonTrash, (!selected.length || trashing) && s.selectButtonDisabled, pressed && s.pressed]}
           >
             <AppIcon name="trash" size={17} color={C.white} />
             <Text style={[s.selectButtonText, s.selectButtonTextDanger]}>{trashing ? '옮기는 중…' : '휴지통으로'}</Text>
@@ -288,7 +301,10 @@ function LibraryScreen({
   const isGrid = displayView === 'grid';
   const top = (<>
       <View style={[s.libraryHeader, compact && s.libraryHeaderCompact]}>
-        <Text style={[s.libraryTitle, compact && s.libraryTitleCompact, titleOnDark && s.onDeskDarkTitle]}>{current.label}</Text>
+        <View style={s.headerTitleRow}>
+          <AppIcon name="book" size={compact ? 28 : 27} color={titleOnDark ? '#FFFFFF' : C.ink} strokeWidth={2.4} />
+          <Text accessibilityRole="header" style={[s.libraryTitle, compact && s.libraryTitleCompact, titleOnDark && s.onDeskDarkTitle]}>다이어리</Text>
+        </View>
         <View style={[s.libraryViewSwitch, compact && s.libraryViewSwitchCompact]} accessibilityRole="tablist">
           <Pressable
             accessibilityRole="tab"
@@ -313,21 +329,29 @@ function LibraryScreen({
         </View>
       </View>
 
-      <View style={[s.libraryToolbar, compact && s.libraryToolbarCompact, s.libraryToolbarWrap]}>
-        <View style={[s.filterSwitch, !compact && s.filtersWide]} accessibilityRole="tablist">
-          {FILTERS.filter(item => !remoteQuery || remoteQuery.supportsShared || item.id !== 'shared').map((item) => (
-            <Pressable
-              key={item.id}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: filter === item.id }}
-              onPress={() => { onFilterChange(item.id); resetPosition(); setOptionsOpen(false); }}
-              style={({ pressed }) => [s.filterOption, compact && s.filterOptionCompact, filter === item.id && s.libraryViewOptionSelected, pressed && s.pressed]}
-            >
-              <Text style={[s.libraryViewText, compact && s.filterTextCompact, filter === item.id && s.libraryViewTextSelected]}>{item.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-        {!selecting && <View style={s.libraryActions}>
+      <View style={[s.libraryToolbar, s.libraryToolbarWrap, compact && s.libraryToolbarCompact]}>
+        {(() => {
+          const filterChips = (
+            <View style={[s.filterSwitch, !compact && s.filtersWide]} accessibilityRole="tablist">
+              {FILTERS.filter(item => !remoteQuery || remoteQuery.supportsShared || item.id !== 'shared').map((item) => (
+                <Pressable
+                  key={item.id}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: filter === item.id }}
+                  onPress={() => { onFilterChange(item.id); resetPosition(); setOptionsOpen(false); }}
+                  style={({ pressed }) => [s.filterOption, compact && s.filterOptionCompact, filter === item.id && s.filterOptionSelected, pressed && s.pressed]}
+                >
+                  <Text style={[s.libraryViewText, compact && s.filterTextCompact, filter === item.id && s.filterTextSelected]}>{item.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          );
+          // 폰: 필터 칩은 가로로 밀리고, 검색 · 더보기는 같은 줄 오른쪽에 붙는다(한 줄 44)
+          return compact
+            ? <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.libraryFilterScroll} contentContainerStyle={s.libraryFilterScrollContent}>{filterChips}</ScrollView>
+            : filterChips;
+        })()}
+        {!selecting && <View style={[s.libraryActions, compact && s.libraryActionsCompact]}>
           <IconButton label="다이어리 검색" iconName="search" onPress={() => { setSearchOpen(true); setQuery(''); setOptionsOpen(false); resetPosition(); }} />
           {optionsMenu}
         </View>}
@@ -337,13 +361,13 @@ function LibraryScreen({
   </>);
   const body = (<>
       {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
-        <EmptyState compact={compact} title={current.empty} />
+        <EmptyState compact={compact} raised title={current.empty} />
       ) : displayView === 'carousel' ? (
         <View style={[s.carouselShell, compact && s.carouselShellCompact, portrait && s.carouselShellPortrait]}>
           {/* 목록은 잰 폭으로 고정하고 줄 가운데에 둔다. 줄 폭이 바뀌어도 가운데 카드는 늘 줄 가운데에 머문다. */}
           <View style={[s.carouselRow, compact && s.carouselRowCompact, portrait && s.carouselRowPortrait, !landed && { opacity: 0 }]} onLayout={measureCarousel}>
             {/* 폰은 화면이 좁아 화살표 대신 밀어서 넘긴다. */}
-            {!compact && <Pressable
+            {!compact && hasPrevious && <Pressable
               accessibilityRole="button"
               accessibilityLabel="이전 다이어리"
               onPress={() => moveCarousel((moveTarget.current ?? activeIndex) - 1)}
@@ -400,7 +424,7 @@ function LibraryScreen({
                   />
               )}
             />
-            {!compact && <Pressable
+            {!compact && hasNext && <Pressable
               accessibilityRole="button"
               accessibilityLabel="다음 다이어리"
               onPress={() => moveCarousel((moveTarget.current ?? activeIndex) + 1)}

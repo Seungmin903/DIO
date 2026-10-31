@@ -94,5 +94,5 @@ const s = StyleSheet.create({
   button: { minHeight: 44, minWidth: 44, maxWidth: '100%', flexShrink: 1, justifyContent: 'center', paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: C.surfaceMuted },
   selected: { borderWidth: 2, borderColor: C.primary },
   text: { color: C.text, fontSize: 14 }, title: { color: C.text, fontSize: 18, fontWeight: '700' },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.danger },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.notifyPink }, // 읽지 않음 점은 쿨톤 핑크(사용자 지시, 색 규칙의 유일한 예외)
 });

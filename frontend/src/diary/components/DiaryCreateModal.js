@@ -22,6 +22,7 @@ import { defaultSections, savedPaperSummary, sectionTitle, sectionsTemplateConfi
 import { PdfImportError, coverWithPdfPage, pdfOrientation, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
 import useMyLibrary from '../hooks/useMyLibrary';
+import { loadDefaultPaperStyle } from '../hooks/useDefaultPaperStyle';
 
 const TITLE_LIMIT = 24;
 const SHEET_SLIDE = 600;
@@ -64,6 +65,10 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const chosenSections = blankOnly ? [] : paperSections;
   const [paperAppearance, setPaperAppearance] = useState(() => normalizePaperAppearance(diary?.paperAppearance ?? DEFAULT_PAPER_APPEARANCE));
   const [scope, setScope] = useState('all');
+  // 새 다이어리의 속지 스타일은 꾸미기 공방의 기본 속지 설정에서 시작한다. 사용자가 고르기 전에만 채우고, 만든 다이어리는 자기 설정을 따로 갖는다.
+  const appearanceTouched = useRef(false);
+  const changeAppearance = next => { appearanceTouched.current = true; setPaperAppearance(next); };
+  const [defaultApplied, setDefaultApplied] = useState(Boolean(editing));
   const [stage, setStage] = useState({ width: 0, height: 0 });
   const [error, setError] = useState('');
   const [leaving, setLeaving] = useState(false);
@@ -119,6 +124,14 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     pdf: pdf?.pages.length ?? 0, myPaper: myPaper?.id ?? null });
   const initial = useRef(snapshot);
   const dirty = snapshot !== initial.current;
+  useEffect(() => {
+    if (editing) return undefined;
+    let live = true;
+    loadDefaultPaperStyle().then(style => { if (live && !appearanceTouched.current) setPaperAppearance(style); }).finally(() => { if (live) setDefaultApplied(true); });
+    return () => { live = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 기본값을 채운 것은 사용자가 바꾼 것이 아니다: 채운 뒤의 모습을 '처음 상태'로 다시 잡는다
+  useEffect(() => { if (!editing && defaultApplied) initial.current = snapshot; }, [defaultApplied]); // eslint-disable-line react-hooks/exhaustive-deps
   const cancel = () => { if (saving) return; if (dirty) setLeaving(true); else onCancel(); };
   const actionLabel = saving ? '저장 중…' : submitLabel || (editing ? '저장' : '만들기');
   const disabled = saving || submitDisabled || Boolean(configError) || editing && !dirty;
@@ -209,10 +222,10 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     const maxHeight = stage.height - (stacked ? 44 : 80);
     const wide = stage.width * (stacked ? 0.86 : 0.8);
     if (section === 'basic') {
-      const gap = stacked ? 16 : 32;
+      const gap = stacked ? 16 : 32; // 표지 · 속지 높이는 최대 352(264×352 · 200×352), 둘은 같은 기준선(코덱스 8번)
       const half = (stage.width - (stacked ? 32 : 80) - gap) / 2;
-      const coverSize = fit(coverRatio, half, maxHeight);
-      const paperSize = fit(paperRatio, half, maxHeight);
+      const coverSize = fit(coverRatio, half, Math.min(maxHeight, 352));
+      const paperSize = fit(paperRatio, half, Math.min(maxHeight, 352));
       preview = <>
         <View style={[styles.pair, { gap }]}>
           <CoverFrame cover={cover} name={title} width={coverSize.width} height={coverSize.height} />
@@ -297,10 +310,10 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     {usingPdf ? <View style={styles.infoCard}>
       <Text style={styles.infoTitle}>{`${pdfSource} · ${pdfPapers.length}장`}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="PDF 속지 빼기" disabled={formLocked} onPress={() => { if (myPaper) setMyPaper(null); else setSkipPdfPapers(true); }}
-        style={({ pressed }) => [styles.drop, pressed && { opacity: 0.6 }]}><Text style={styles.dropText}>속지에서 빼기</Text></Pressable>
+        style={({ pressed }) => [styles.drop]}><Text style={styles.dropText}>속지에서 빼기</Text></Pressable>
     </View> : <PaperOptions sections={paperSections} onChange={next => { setPaperSections(next); setError(''); }} orientation={orientation} appearance={paperAppearance} />}
   </View>;
-  else panel = <PaperStyleOptions appearance={paperAppearance} onChange={setPaperAppearance} plainOnly={!editing && (usingPdf || paperSections.every(item => item.rows.every(row => row.paper === 'plain')))}
+  else panel = <PaperStyleOptions appearance={paperAppearance} onChange={changeAppearance} plainOnly={!editing && (blankOnly || usingPdf || paperSections.every(item => item.rows.every(row => row.paper === 'plain')))}
     scope={scope} onScope={editing ? setScope : null} />;
 
   const message = error || configError || notice;
@@ -337,11 +350,11 @@ const styles = StyleSheet.create({
   stripMore: { color: colors.textMuted, fontSize: 16, fontWeight: '800' },
   pair: { flexDirection: 'row', alignItems: 'center' },
   coverFrame: { borderTopLeftRadius: 6, borderBottomLeftRadius: 6, borderTopRightRadius: 14, borderBottomRightRadius: 14 },
-  paperShadow: { ...shadow.card, shadowOpacity: 0.1 },
+  paperShadow: { ...shadow.card, shadowOpacity: 0.06 },
   input: { height: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, color: colors.text, fontSize: 14, fontWeight: '700', backgroundColor: colors.surfaceSoft },
   inputError: { borderColor: colors.danger },
   count: { alignSelf: 'flex-end', color: colors.textMuted, fontSize: 11 },
-  infoCard: { marginTop: 8, padding: 12, gap: 4, borderRadius: 14, backgroundColor: colors.surfaceSoft },
+  infoCard: { marginTop: 8, padding: 12, gap: 4, borderRadius: 12, backgroundColor: colors.surfaceSoft },
   coverPanel: { gap: 4 },
   drop: { alignSelf: 'flex-start', height: 36, paddingHorizontal: 14, marginTop: 4, borderRadius: 999, justifyContent: 'center', backgroundColor: colors.surfaceMuted },
   dropText: { color: colors.text, fontSize: 12.5, fontWeight: '700' },

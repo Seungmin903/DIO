@@ -1,14 +1,16 @@
 // 격자와 펜이 함께 사용하는 MVP1 색상 체계.
 // 앱 테마 파랑 계열 6색은 빼고, 기본 펜 색(검정)을 맨 앞에 둔다. 형광펜과 같은 7색이라 옵션 창에서 한 줄로 보인다.
-export const EDITOR_COLORS = ['#1D1D1F', '#14B8A6', '#22A06B', '#F59E0B', '#EF476F', '#9B6BDF', '#6B7280']
+// 기본 프리셋 색(코덱스 2026-10-31): DIO 성격(차분 · 따뜻)에 맞춘 한 세트 — 채도 · 명도를 맞춰 따뜻 · 차가움 · 무채를 고르게, 패널 한 줄에 들어가는 7색. 펜 · 글자는 흰 바탕 4.5:1 이상
+export const EDITOR_COLORS = ['#18224D', '#A33C4B', '#917019', '#397A5B', '#34769F', '#7653A6', '#626878']
 export const PEN_TYPES = [
   // 저장 식별자는 유지해 기존 획과 새 펜의 만년필 필기감을 그대로 보존한다.
   { id: 'fountain', label: '만년필' }, { id: 'felt', label: '펠트펜' },
   { id: 'brush', label: '붓펜' }, { id: 'pencil', label: '연필' },
 ]
-export const DEFAULT_PEN_SETTINGS = { kind: 'fountain', color: '#1D1D1F', width: 2.5 }
-export const HIGHLIGHTER_COLORS = ['#FFE066', '#FFB3C7', '#B5EAD7', '#A0C4FF', '#D0B8FF', '#FFD6A5', '#C7F0A0']
-export const DEFAULT_HIGHLIGHTER_SETTINGS = { kind: 'highlighter', color: '#FFE066', width: 18, lineCap: 'square' }
+export const DEFAULT_PEN_SETTINGS = { kind: 'fountain', color: '#18224D', width: 2.5 }
+// 형광펜: 0.42 로 겹쳐 칠해도 · 속지 종이 색으로 깔아도 뽀얀 톤
+export const HIGHLIGHTER_COLORS = ['#F7DF8A', '#F6C79B', '#F2B4AE', '#D8C5EF', '#C6D0F0', '#BDE4D1', '#E5DDD2']
+export const DEFAULT_HIGHLIGHTER_SETTINGS = { kind: 'highlighter', color: '#F7DF8A', width: 18, lineCap: 'square' }
 export const HIGHLIGHTER_OPACITY = 0.42
 export function normalizeHex(value) {
   const hex = value.trim().replace(/^#/, '')

@@ -38,6 +38,7 @@ import { setDayDate, setDayRow, suggestStart } from '../../templates/dayPlanner.
 import DayNowLine from './DayNowLine'
 import DayTimePicker, { DAY_TIME_PICKER, DayPickBackdrop } from '../DayTimePicker'
 import DayDatePicker, { DAY_DATE_PICKER } from '../DayDatePicker'
+import { paperPrintsText } from '../../templates/paperFont.js'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
@@ -532,8 +533,9 @@ export default function Canvas({
           onClose={() => setEmptyMenu(null)}
           planner={planner ? planner.normalize(page.planner) : null}
           plannerKind={planner?.kind}
+          showFont={paperPrintsText(page.backgroundAssetId)}
           onPlannerOptions={changePlannerOptions}
-          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, planner ? (planner.kind === 'day' ? 70 : 250) : 0)}
+          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, (planner ? (planner.kind === 'day' ? 70 : 250) : 0) + (paperPrintsText(page.backgroundAssetId) ? 96 : 0))}
         />
       )}
       {emptyMenu && !emptyMenu.panel && canPageMenu && (
@@ -979,10 +981,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     // 테두리 선은 두지 않는다: 태블릿에서 종이 위쪽에 회색 띠처럼 보였다. 종이와 바탕은 그림자로 구분한다.
     shadowColor: colors.text,
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6,
+    // 캔버스 그림자는 0 6 16 / 6% 만(코덱스 안)
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   clip: {
     position: 'absolute',
@@ -993,7 +996,7 @@ const styles = StyleSheet.create({
   hitLayer: { ...StyleSheet.absoluteFillObject },
   emptyMenu: { position: 'absolute', zIndex: 6, flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,138,195,0.2)', boxShadow: '0px 6px 14px rgba(11, 23, 102, 0.16)' },
   menuButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
-  menuPressed: { backgroundColor: colors.primarySoft },
+  menuPressed: {}, // 눌림 효과 없음(사용자 지시)
   menuDisabled: { opacity: DISABLED_OPACITY },
   menuText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   selectionControls: { ...StyleSheet.absoluteFillObject, zIndex: 2 },

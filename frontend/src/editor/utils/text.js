@@ -122,9 +122,10 @@ export function textFontChangePatch(settings, id, platform) {
   return { font: id, bold: Boolean(settings.bold && support.bold), italic: Boolean(settings.italic && support.italic) }
 }
 // 펜·형광펜·마스킹테이프처럼 한 줄 7색 (같은 톤의 라벤더를 더했다)
-export const TEXT_COLORS = ['#1D1D1F', '#8D96A8', '#DD887A', '#E1B4CA', '#A3C5F0', '#96B49F', '#B4A3E0']
+// 글자 기본 색(코덱스 2026-10-31): 펜과 같은 계열, 흰 바탕 4.5:1 이상
+export const TEXT_COLORS = ['#18224D', '#9B3E4B', '#856D2A', '#4F7553', '#4C7896', '#75579A', '#666D7A']
 // letterSpacing: 자간(글자 크기 대비 비율, 0.1 = 10%), lineSpacing: 줄간격(글자 크기 대비 배수), strike: 취소선
-export const DEFAULT_TEXT_SETTINGS = { font: 'sans', fontSize: 18, color: '#1D1D1F', bold: false, italic: false, underline: false, strike: false, textAlign: 'left', letterSpacing: 0, lineSpacing: DEFAULT_LINE_SPACING }
+export const DEFAULT_TEXT_SETTINGS = { font: 'sans', fontSize: 18, color: '#18224D', bold: false, italic: false, underline: false, strike: false, textAlign: 'left', letterSpacing: 0, lineSpacing: DEFAULT_LINE_SPACING }
 
 export function textSettings(object) {
   return { ...DEFAULT_TEXT_SETTINGS, ...Object.fromEntries(Object.keys(DEFAULT_TEXT_SETTINGS).filter((key) => object?.[key] != null).map((key) => [key, object[key]])), fontSize: object?.fontSize ?? (object?.type === 'text' ? TEXT_FONT_SIZE : 18) }

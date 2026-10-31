@@ -38,7 +38,8 @@ const PATHS = {
   external: 'M14 4h6v6 M20 4l-9 9 M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
   // 복사: 종이 두 장이 겹친 모양 (모서리를 복제·붙여넣기 아이콘과 같게 둥글게)
   copy: 'M8 8h11a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2z M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3',
-  trash: 'M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3',
+  // 휴지통: 앱 전체(좌측 메뉴 · 삭제 버튼)가 같은 모양. Lucide `trash-2` (ISC, https://github.com/lucide-icons/lucide) 의 선을 그대로 쓴다.
+  trash: 'M3 6h18 M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6 M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2 M10 11v6 M14 11v6',
   crop: 'M6 2v14a2 2 0 0 0 2 2h14 M2 6h14a2 2 0 0 1 2 2v14',
   flip: 'M12 3v18 M8 7L3 12l5 5z M16 7l5 5-5 5z',
   lock: 'M6 11h12v9H6z M8 11V8a4 4 0 0 1 8 0v3',

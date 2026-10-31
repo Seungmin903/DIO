@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import AppIcon from '../../shared/AppIcon';
+import DioButton from '../../shared/DioButton';
 import { notify } from '../../shared/dialogs';
 import { C } from '../constants';
+import { colors } from '../../shared/theme';
 import ContentLicenses from './ContentLicenses';
 
 const PRIVACY_POLICY_URL = 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVThQYxck0l_bwzg33FxGShE6rpqd0/edit?usp=sharing';
@@ -45,10 +47,7 @@ export default function AppInformation() {
           <Text style={styles.label}>문의 이메일</Text>
           <Text selectable style={styles.email}>{SUPPORT_EMAIL}</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="문의 이메일 주소 복사" onPress={copyEmail}
-          style={({ pressed }) => [styles.copyButton, pressed && styles.pressed]}>
-          <Text style={styles.copyLabel}>복사</Text>
-        </Pressable>
+        <DioButton variant="tonal" label="문의 이메일 주소 복사" text="복사" onPress={copyEmail} />
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="오픈소스 및 콘텐츠 라이선스" onPress={() => setLicensesOpen(true)}
         style={({ pressed }) => [styles.licenses, pressed && styles.pressed]}>
@@ -61,18 +60,17 @@ export default function AppInformation() {
   );
 }
 
+// 카드로 감싸지 않는다: 제목(18/800) + 구분선으로 나눈 조용한 목록(행 64, 이메일 행 72).
 const styles = StyleSheet.create({
-  card: { marginTop: 20, padding: 25, borderRadius: 20, backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
-  title: { color: C.ink, fontSize: 18, fontWeight: '800', marginBottom: 8 },
-  policy: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.line },
-  licenses: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 18, paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.line },
-  contact: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingTop: 18 },
-  copy: { flex: 1, minWidth: 180, gap: 6 },
+  card: {},
+  title: { color: C.ink, fontSize: 18, fontWeight: '800', marginBottom: 4 },
+  policy: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+  licenses: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderTopWidth: 1, borderTopColor: colors.border },
+  contact: { minHeight: 72, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingVertical: 10 },
+  copy: { flex: 1, minWidth: 180, gap: 2 },
   label: { color: C.ink, fontSize: 15, fontWeight: '700' },
   hint: { color: C.muted, fontSize: 13 },
-  email: { color: C.inkSoft, fontSize: 14, lineHeight: 21 },
-  copyButton: { minWidth: 64, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 12, backgroundColor: C.pale },
-  copyLabel: { color: C.ink, fontSize: 14, fontWeight: '700' },
-  status: { marginTop: 14, color: C.inkSoft, fontSize: 13, lineHeight: 20 },
-  pressed: { opacity: 0.65 },
+  email: { color: colors.primaryText, fontSize: 15, lineHeight: 21, fontWeight: '700' },
+  status: { marginTop: 10, color: C.inkSoft, fontSize: 13, lineHeight: 20 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 });

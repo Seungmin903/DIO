@@ -7,7 +7,7 @@ import { stripCellBoxes, stripHeight } from '../../utils/photoStrip'
 import { frameColorOf } from '../canvas/ObjectView'
 import FrameBackdrop, { FrameShape, PREVIEW_EDGE, StripBackdrop } from '../canvas/PhotoFrame'
 
-export const PREVIEW = 46
+export const PREVIEW = 54 // 코덱스 24번: 틀 모양이 크게 보이게 (카드 88×92)
 export const PHOTO_FILL = '#B9CBE6' // 미리보기 안의 사진 자리
 const PREVIEW_SHADOW = 'rgba(11,23,102,0.14)'
 
@@ -104,23 +104,23 @@ function PreviewShadow({ frame, width, height }) {
 }
 
 const styles = StyleSheet.create({
-  // 한 줄 4칸이 패널 폭에 꽉 차게 (7종 → 두 줄)
-  grid: { flexDirection: 'row', flexWrap: 'wrap', margin: -3 },
-  slot: { width: '25%', padding: 3 },
+  // 코덱스 24번: 3열, 카드 88×92, 카드 사이 8 (칸 padding 4 × 2)
+  grid: { flexDirection: 'row', flexWrap: 'wrap', margin: -4 },
+  slot: { width: '33.333%', padding: 4 },
   cell: {
-    minHeight: 76,
+    height: 92,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
-    paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: '#F4F6FA',
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
   },
-  cellActive: { borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  cellActive: { borderWidth: 2, borderColor: colors.primaryStrong },
   preview: { height: PREVIEW, justifyContent: 'center' },
   disabled: { opacity: DISABLED_OPACITY },
-  pressed: { opacity: 0.7 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   shadow: { position: 'absolute', left: 0, top: 1.5 },
   name: { fontSize: 11, fontWeight: '600', color: colors.text },
 })

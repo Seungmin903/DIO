@@ -11,7 +11,7 @@ import { createDiaryApi } from '../services/diaryApi';
 import { createMockDiaryTransport } from '../services/mockDiaryTransport';
 
 function Button({ label, onPress }) {
-  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.button, pressed && { opacity: 0.6 }]}><Text style={styles.text}>{label}</Text></Pressable>;
+  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.button]}><Text style={styles.text}>{label}</Text></Pressable>;
 }
 function RequestState({ request, retryLabel }) {
   if (request.status === 'loading') return <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={C.blue} /><Text style={styles.text}>불러오는 중이에요.</Text></View>;

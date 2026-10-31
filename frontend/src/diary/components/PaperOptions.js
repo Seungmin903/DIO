@@ -8,7 +8,10 @@ import { TEMPLATE_VERSION, getTemplate, templateCanvasSize } from '../../editor/
 import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, colorTemplateXml } from '../../editor/templates/appearance.js'
 import { loadTemplate, peekTemplate } from '../../editor/templates/loadTemplate'
 import { colors } from '../../shared/theme'
-import { ColorRow, NumberField, OptionRow, QuickValues, Segmented } from './FormControls'
+import { ChipGroup, ColorRow, NumberField, OptionRow, QuickValues, Segmented } from './FormControls'
+import { paperFontChips } from '../../editor/components/PaperFontChips'
+import PaperFontDropdown from './PaperFontDropdown'
+import { DEFAULT_PAPER_FONT } from '../../editor/templates/paperFont.js'
 import {
   COUNT_LIMIT, COUNT_STEPS, INSERT_LIMIT, MONTH_LIMIT, MONTH_STEPS, PAPER_EVERY, PAPER_GROUPS, PAPER_YEARS, REPEAT_LIMIT, ROW_LIMIT,
   appendPaper, changeRow, changeRowPaper, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, paperById, paperPreviewId, papersIn, periodLabel,
@@ -326,11 +329,19 @@ export default function PaperOptions({ sections, onChange, orientation, appearan
   </View>
 }
 
-/** 속지 색: 종이 색 · 선과 글자 색. 수정에서는 바꿀 페이지(모든 페이지 / 새 페이지만)를 고른다. */
-export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false }) {
+/**
+ * 속지 스타일: 종이 색 · 선과 글자 색 · 글꼴. 수정에서는 바꿀 페이지(이 다이어리의 모든 페이지 / 새 페이지만)를 고르고 세 가지가 같은 범위를 따른다.
+ * 글꼴은 인쇄 글자가 있는 속지에만 있다(plainOnly 면 선 · 글씨 색과 함께 숨긴다).
+ */
+// fontDropdown: 글꼴을 칩 대신 드롭다운으로 고른다(꾸미기 공방 기본 속지 설정)
+export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false, fontDropdown = false }) {
   return <View style={styles.panel}>
     <OptionRow label="종이 색"><ColorRow label="종이 색" value={appearance.backgroundColor} swatches={PAPER_BACKGROUNDS} onChange={backgroundColor => onChange({ ...appearance, backgroundColor })} /></OptionRow>
     {!plainOnly && <OptionRow label="선 · 글자"><ColorRow label="선과 글씨 색" value={appearance.layoutColor} swatches={PAPER_LAYOUTS} onChange={layoutColor => onChange({ ...appearance, layoutColor })} /></OptionRow>}
+    {!plainOnly && <OptionRow label="글꼴">{fontDropdown
+      ? <PaperFontDropdown value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={font => onChange({ ...appearance, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
+      : <ChipGroup label="속지 글꼴" columns={3} items={paperFontChips()} value={appearance.font ?? DEFAULT_PAPER_FONT}
+      onChange={font => onChange({ ...appearance, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />}</OptionRow>}
     {onScope && <OptionRow label="바꿀 페이지"><Segmented items={[{ id: 'all', label: '모든 페이지' }, { id: 'new', label: '새 페이지만' }]} selected={id => id === scope} onPress={onScope} /></OptionRow>}
   </View>
 }
@@ -338,7 +349,7 @@ export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainO
 
 const styles = StyleSheet.create({
   panel: { gap: 8 },
-  pressed: { opacity: 0.7 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   dim: { opacity: 0.3 },
   preview: { overflow: 'hidden', borderRadius: 5, borderWidth: 1, borderColor: colors.border },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border },
@@ -353,7 +364,7 @@ const styles = StyleSheet.create({
   tileOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   tileName: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   tileNameOn: { color: colors.text, fontWeight: '800' },
-  context: { padding: 12, borderRadius: 16, backgroundColor: colors.surfaceSoft },
+  context: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
   period: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 40, paddingHorizontal: 2, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   step: { width: 28, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
@@ -368,7 +379,7 @@ const styles = StyleSheet.create({
   rowName: { color: colors.text, fontSize: 13.5, fontWeight: '800' },
   rowAmount: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   grip: { width: 32, height: 40, alignItems: 'center', justifyContent: 'center' },
-  rowDragging: { zIndex: 2, shadowColor: colors.text, shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
+  rowDragging: { zIndex: 2, shadowColor: colors.text, shadowOpacity: 0.09, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
   dropLine: { position: 'absolute', left: 8, right: 8, height: 3, borderRadius: 2, backgroundColor: colors.primary },
   dropBefore: { top: -5 },
   dropAfter: { bottom: -5 },
@@ -378,14 +389,14 @@ const styles = StyleSheet.create({
   every: { flexGrow: 1, flexBasis: 160, minWidth: 0 },
   flip: { transform: [{ rotate: '180deg' }] },
   order: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  addSection: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary },
+  addSection: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary },
   addSectionOn: { borderStyle: 'solid', backgroundColor: colors.primarySoft },
   // 섞은 속지는 한 판에 묶어 보인다
   group: { gap: 6 },
   // 끄는 줄이 다른 판 위로 지나가도 위에 그려지게
   groupDragging: { zIndex: 2 },
   noSelect: { userSelect: 'none' },
-  groupMixed: { padding: 6, borderRadius: 16, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  groupMixed: { padding: 6, borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primarySoft },
   joint: { flexDirection: 'row', alignSelf: 'center', gap: 2, padding: 2, borderRadius: 999, backgroundColor: colors.surfaceMuted },
   jointItem: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 28, paddingHorizontal: 12, borderRadius: 999 },
   jointItemOn: { backgroundColor: colors.surface },

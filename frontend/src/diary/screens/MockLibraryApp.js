@@ -25,7 +25,7 @@ import { createMockDiaryTransport } from '../services/mockDiaryTransport';
 import MockNotifications from '../../notifications/MockNotifications';
 
 function Button({ label, onPress, disabled = false, selected }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} aria-pressed={selected} accessibilityState={{ disabled, ...(selected === undefined ? {} : { selected }) }} disabled={disabled} onPress={onPress} style={({ pressed }) => [s.button, selected && s.buttonSelected, disabled && { opacity: DISABLED_OPACITY }, pressed && { opacity: 0.6 }]}><Text style={s.text}>{selected ? '✓ ' : ''}{label}</Text></Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} aria-pressed={selected} accessibilityState={{ disabled, ...(selected === undefined ? {} : { selected }) }} disabled={disabled} onPress={onPress} style={({ pressed }) => [s.button, selected && s.buttonSelected, disabled && { opacity: DISABLED_OPACITY }]}><Text style={s.text}>{selected ? '✓ ' : ''}{label}</Text></Pressable>;
 }
 function Notice({ state, retry, detail = false }) {
   if (state.status === 'loading' || state.status === 'idle') return <View accessibilityLiveRegion="polite" style={s.row}><ActivityIndicator color={C.blue} /><Text style={s.text}>불러오는 중이에요.</Text></View>;

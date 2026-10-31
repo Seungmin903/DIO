@@ -127,14 +127,50 @@ export function mix(from, to, t) {
   return '#' + [0, 1, 2].map(i => Math.round(channel(from, i) + (channel(to, i) - channel(from, i)) * t).toString(16).padStart(2, '0')).join('').toUpperCase()
 }
 
+const toHsl = hex => {
+  const [r, g, b] = [0, 1, 2].map(i => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255)
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min
+  if (!d) return [0, 0, l]
+  const s = d / (1 - Math.abs(2 * l - 1))
+  const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return [h * 60, s, l]
+}
+const fromHsl = (h, s, l) => {
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l - c / 2
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]
+  return '#' + [r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('').toUpperCase()
+}
+
+// 고무줄 '맞춤' 색(사용자 지시 2026-10-31): 표지 전체의 대표색보다 살짝 진하게. 색조 · 채도는 대표색 그대로 두고 밝기만 낮춘다
+// (아주 어두운 표지는 반대로 살짝 밝게). 진한 남색을 섞던 예전 방식은 밝은 표지가 모두 회색이 됐다.
+function bandTone(hex) {
+  const [h, s, l] = toHsl(hex)
+  return fromHsl(h, s, l < 0.3 ? l + 0.12 : Math.max(0, l - (l > 0.85 ? 0.14 : 0.12)))
+}
+
+// 그라데이션은 끝 색 하나가 아니라 전체를 대표하는 색(선형 RGB 평균)을 기준으로 한다. 끝 색만 따르면 반대쪽 색과 튄다.
+function averageColor(stops) {
+  const linear = v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
+  const gamma = v => Math.round(255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055))
+  const sums = [0, 1, 2].map(i => stops.reduce((sum, hex) => sum + linear(parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)), 0) / stops.length)
+  return '#' + sums.map(v => gamma(v).toString(16).padStart(2, '0')).join('').toUpperCase()
+}
+
 /**
- * 고무줄 색 'auto': 바탕(단색 또는 그라데이션 아래쪽 색)을 같은 계열로 조금 어둡게.
- * 사진 표지는 사진의 대표 색(photo.tone, 사진을 고를 때 뽑는다)을 같은 방식으로 어둡게, 아직 없으면 기본 남색.
+ * 표지 전체의 대표색: 바탕(단색, 그라데이션은 색들의 선형 평균)에 무늬(밝은 무늬는 흰색, 짙은 무늬는 남색)를 조금(8%) 얹은 색.
+ * 사진 표지는 사진의 대표 색(photo.tone, 사진을 고를 때 뽑는다), 아직 없으면 null.
  */
-export function bandAutoColor(cover) {
-  if (cover.kind === 'photo') return cover.photo?.tone ? mix(cover.photo.tone, '#1C2233', 0.22) : '#7D88B5'
+export function coverTone(cover) {
+  if (cover.kind === 'photo') return cover.photo?.tone ?? null
   const stops = gradientStops(cover)
-  return mix(stops ? stops[stops.length - 1] : cover.color, '#1C2233', 0.22)
+  const base = stops ? averageColor(stops) : cover.color
+  return cover.pattern?.type && cover.pattern.type !== 'none' ? mix(base, cover.pattern.tone === 'light' ? '#FFFFFF' : '#1C2233', 0.08) : base
+}
+
+/** 고무줄 색 'auto': 표지 대표색(coverTone)보다 살짝 진하게. 대표색이 없는 사진 표지는 기본 남색. */
+export function bandAutoColor(cover) {
+  const tone = coverTone(cover)
+  return tone ? bandTone(tone) : '#7D88B5'
 }
 
 export const coverTitle =(cover, name) => cover.title.useName ? (name?.trim() || DIARY_DEFAULTS.title) : cover.title.text

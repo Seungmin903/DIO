@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   bubble: { position: 'absolute', maxHeight: '90%', overflow: 'hidden', borderRadius: PANEL_RADIUS, backgroundColor: colors.surface, ...shadow.float },
   scroll: { flexShrink: 1 },
   content: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
-  pressed: { opacity: 0.7 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   current: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primarySoft },
   currentText: { flex: 1, minWidth: 0, gap: 2 },
   currentLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },

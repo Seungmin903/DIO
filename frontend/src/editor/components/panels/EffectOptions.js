@@ -224,5 +224,5 @@ const styles = StyleSheet.create({
   directionTextActive: { color: colors.text, fontWeight: '800' },
   previewShadow: { position: 'absolute', width: 16, height: 16, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.22)' },
   previewGlow: { width: 22, height: 22, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.16)' },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

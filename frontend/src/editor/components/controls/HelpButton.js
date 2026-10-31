@@ -30,5 +30,5 @@ export default function HelpButton({ open, onToggle, label = '도움말' }) {
 
 const styles = StyleSheet.create({
   button: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
-  pressed: { opacity: 0.6 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

@@ -36,15 +36,20 @@ export const TAPE_DEFAULT = { size: 'standard', pattern: 'solid', palette: 'pink
 // 테이프 색: 바탕(bg) + 무늬(fg) 한 쌍. 무늬는 그대로 두고 색만 바꿀 수 있다.
 // hidden: 이미 붙인 테이프는 그대로 그리되 색 고르기에서는 뺀 색 (코랄·크라프트)
 export const TAPE_PALETTES = [
-  { id: 'pink', name: '핑크', bg: '#FAD3DC', fg: '#F59AB2' },
-  { id: 'coral', name: '코랄', bg: '#FDE0D8', fg: '#F2917C', hidden: true },
-  { id: 'butter', name: '버터', bg: '#FFF1C2', fg: '#EFC04F' },
-  { id: 'mint', name: '민트', bg: '#E3F4EC', fg: '#8FD3B6' },
-  { id: 'sky', name: '스카이', bg: '#E1E4F8', fg: '#818AC3' },
-  { id: 'lavender', name: '라벤더', bg: '#ECE5FB', fg: '#B39DED' },
-  { id: 'kraft', name: '크라프트', bg: '#D9B98F', fg: '#A27B4E', hidden: true },
-  { id: 'charcoal', name: '차콜', bg: '#3E4350', fg: '#F3F1EA' },
-  { id: 'ivory', name: '아이보리', bg: '#F3F1EA', fg: '#3E4350' }, // 차콜을 뒤집은 흰 바탕 + 검은 무늬
+  // 테이프 색 12쌍(코덱스 2026-10-31). 프리셋 기본은 7쌍(hidden 이 아닌 것) — 나머지는 이미 붙인 테이프와 고른 색을 위해 남긴다. 이미 붙인 테이프는 ID 로 색을 찾으므로 예전 ID 를 가까운 새 색에 이었다
+  // (핑크 → 딸기, 코랄 → 살구, 스카이 → 하늘, 크라프트 → 코코아). 올리브 · 페리 · 자두는 새 ID
+  { id: 'pink', name: '딸기', bg: '#F8D9DF', fg: '#C96B7B' },
+  { id: 'coral', name: '살구', bg: '#F8DEC9', fg: '#C97B55', hidden: true },
+  { id: 'butter', name: '버터', bg: '#FEF0BF', fg: '#D8A93E' },
+  { id: 'olive', name: '올리브', bg: '#E1E8C7', fg: '#84944D', hidden: true },
+  { id: 'mint', name: '민트', bg: '#D7EDE2', fg: '#65A889' },
+  { id: 'sky', name: '하늘', bg: '#D5EAF4', fg: '#5F9BBC' },
+  { id: 'peri', name: '페리', bg: '#E1E4F8', fg: '#818AC3' },
+  { id: 'lavender', name: '라벤더', bg: '#E8DDF6', fg: '#9A7AC4', hidden: true },
+  { id: 'plum', name: '자두', bg: '#E8D8EB', fg: '#9A6699', hidden: true },
+  { id: 'kraft', name: '코코아', bg: '#E8DDD2', fg: '#8A6650', hidden: true },
+  { id: 'charcoal', name: '차콜', bg: '#424957', fg: '#F3F1EA' },
+  { id: 'ivory', name: '아이보리', bg: '#F3F1EA', fg: '#555B68' }, // 차콜을 뒤집은 흰 바탕 + 진한 무늬
 ]
 
 // 기본 테이프: 규격마다 6종, 18종 모두 다른 무늬. pattern 은 무늬 모양(TapeView), palette 는 처음 색

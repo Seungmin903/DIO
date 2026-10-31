@@ -12,6 +12,7 @@ import { createCanvasSession } from '../../collaboration/canvasSession.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../services/canvasMediaFiles'
 import { connectCollaboration } from '../../collaboration/collaborationSocket.js'
+import { serverPaperAppearance } from '../../diary/services/serverPaperFont.js'
 
 export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch}){
   const enabled=diary?.source==='member-api'&&!readOnly
@@ -77,7 +78,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     r.addPage=backgroundAssetId=>mutatePages(async()=>{
       dispatch({type:'commitCheckpoint'})
       const page=await createServerPage({transport,diaryId:diary.id,backgroundAssetId,
-        orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:latest.current.state.doc.paperAppearance,
+        orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:serverPaperAppearance(latest.current.state.doc.paperAppearance),
         storage:AsyncStorage,key:`${memberDocumentKey(diary)}:page-create:v1`,createId,isActive:active})
       if(active()){r.pageIds?.add(page.id);dispatch({type:'importServerPages',pages:[page],selectId:page.id})}
       return page

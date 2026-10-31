@@ -1,5 +1,7 @@
 import { Children, cloneElement, isValidElement } from 'react'
-// 사용자 요소와 분리한 속지 전용 색상. 기존 문서는 기본 팔레트를 그대로 쓴다.
+import { isPaperFontId, swapPaperFont } from './paperFont.js'
+// 사용자 요소와 분리한 속지 전용 색상 · 글꼴. 기존 문서는 기본 팔레트와 원본 글꼴(마루부리)을 그대로 쓴다.
+// font 는 고른 때만 들어간다(없으면 원본 글꼴). 속지의 인쇄 글자를 고른 글꼴로 다시 그린다(paperFont.js).
 export const DEFAULT_PAPER_APPEARANCE = { backgroundColor: '#FFFFFF', layoutColor: '#292929' }
 // 고를 수 있는 속지 배경색·레이아웃(글자·선) 색 [이름, 색]
 export const PAPER_BACKGROUNDS = [
@@ -13,7 +15,7 @@ export const PAPER_LAYOUTS = [
 const palette = new Set(['#292929', '#666666', '#aeb3b8', '#bfc1c4', '#d7d9dc', '#e8e9eb'])
 const hex = (value, fallback) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : fallback
 export function normalizePaperAppearance(value) {
-  return { backgroundColor: hex(value?.backgroundColor, '#FFFFFF'), layoutColor: hex(value?.layoutColor, '#292929') }
+  return { backgroundColor: hex(value?.backgroundColor, '#FFFFFF'), layoutColor: hex(value?.layoutColor, '#292929'), ...(isPaperFontId(value?.font) ? { font: value.font } : {}) }
 }
 const rgb = value => [1, 3, 5].map(index => parseInt(value.slice(index, index + 2), 16))
 function layoutPaint(value, appearance) {
@@ -41,9 +43,10 @@ export function colorTemplateAst(ast, value, { transparentPaper = false } = {}) 
   }
   return { ...ast, children: Children.map(ast.children, child => visit(child)) }
 }
-/** PNG/PDF도 같은 배색 규칙으로 원본 XML의 색상 속성만 바꾼다. */
-export function colorTemplateXml(xml, value) {
+/** PNG/PDF도 같은 배색 규칙으로 원본 XML의 색상 속성만 바꾼다. 속지 글꼴을 골랐으면 글자 윤곽을 먼저 그 글꼴로 바꾼다. */
+export function colorTemplateXml(source, value) {
   const appearance = normalizePaperAppearance(value)
+  const xml = swapPaperFont(source, appearance.font)
   return xml.replace(/<([a-zA-Z][\w:.-]*)\b[^>]*>/g, (tag, name) => {
     const props = {}
     tag.replace(/([\w:-]+)\s*=\s*(["'])(.*?)\2/g, (_, key, quote, text) => { props[key] = text; return _ })

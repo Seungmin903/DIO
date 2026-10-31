@@ -248,5 +248,5 @@ const styles = StyleSheet.create({
   },
   actionText: { fontSize: 13, fontWeight: '600', color: colors.text },
   disabled: { opacity: DISABLED_OPACITY },
-  pressed: { opacity: 0.7 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

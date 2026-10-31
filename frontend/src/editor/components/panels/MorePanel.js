@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     maxHeight: '100%',
     flexShrink: 1,
-    borderRadius: 24,
+    borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.97)',
     // 웹에서는 뒤 캔버스가 살짝 비치는 유리 질감 (네이티브는 불투명 흰 배경)
     ...Platform.select({ web: { backgroundColor: 'rgba(255,255,255,0.86)', backdropFilter: 'blur(18px)' }, default: {} }),
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
   tab: { flex: 1, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 9 },
-  tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.14)' },
+  tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.07)' },
   tabText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
   tabTextActive: { color: colors.text, fontWeight: '800' },
   title: { fontSize: 15, fontWeight: '700', color: colors.text },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   replaceButton: {
     flexDirection: 'row',
     alignItems: 'center',

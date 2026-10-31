@@ -15,6 +15,14 @@ export const C = {
   pale: colors.surfaceMuted, // 편집 옵션 창의 회색 칩·세그먼트 판
   active: colors.primarySoft, // 중립 배경과 구분되는 파란 선택 표시
   danger: colors.danger,
+  dangerStrong: colors.dangerStrong,
+  lavender100: colors.lavender100,
+  cardBorder: colors.cardBorder,
+  blueText: colors.primaryText, // 회색 바탕 위 파란 글자
+  butter: colors.butter,
+  butterTape: colors.butterTape,
+  butterStrong: colors.butterStrong,
+  notifyPink: colors.notifyPink,
   white: colors.surface,
   navy: '#182473',
   green: '#71B99D',
@@ -67,12 +75,12 @@ export const DIARY_DEFAULTS = {
   firstPageDate: '2026-01-01',
 };
 
-// 홈 화면 보관함 탭. 고른 탭 이름이 화면 제목이 된다.
+// 홈 화면 보관함 탭. 고른 탭 이름이 화면 제목이 된다. 이름은 1020 감성 점검 B안('사진부 아카이브')의 말투를 따른다.
 export const FILTERS = [
-  { id: 'all', label: '모든 다이어리', empty: '다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
-  { id: 'favorite', label: '즐겨찾기', empty: '즐겨찾기한 다이어리가 없어요', emptyCopy: '다이어리 카드의 별을 눌러 즐겨찾기에 추가해 보세요.' },
-  { id: 'personal', label: '내 다이어리', empty: '내 다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
-  { id: 'shared', label: '공유 다이어리', empty: '공유 중인 다이어리가 없어요', emptyCopy: '다이어리를 공유하거나 받은 초대를 수락해 보세요.' },
+  { id: 'all', label: '전체 기록', empty: '다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
+  { id: 'favorite', label: '자주 보는 기록', empty: '자주 보는 기록이 없어요', emptyCopy: '다이어리 카드의 별을 눌러 즐겨찾기에 추가해 보세요.' },
+  { id: 'personal', label: '내 기록', empty: '내 기록이 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
+  { id: 'shared', label: '함께 쓰는 기록', empty: '함께 쓰는 기록이 없어요', emptyCopy: '다이어리를 공유하거나 받은 초대를 수락해 보세요.' },
 ];
 
 export const DEFAULT_FILTER = 'all';

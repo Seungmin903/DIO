@@ -215,8 +215,9 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
 }
 
 const s = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: colors.scrim, justifyContent: 'center', padding: 12 },
-  card: { width: '100%', maxWidth: 1040, maxHeight: '100%', alignSelf: 'center', backgroundColor: colors.surface, borderRadius: radius.xl, overflow: 'hidden' },
+  // 창 전체를 덮는다(좌우·상하 끝까지). 안전 영역은 SafeAreaView 가 비우고 같은 바탕색으로 칠한다.
+  backdrop: { flex: 1, backgroundColor: colors.surface },
+  card: { flex: 1, width: '100%', backgroundColor: colors.surface, overflow: 'hidden' },
   header: { flexDirection: 'row', alignItems: 'center', padding: 8, gap: 4, borderBottomWidth: 1, borderColor: colors.border },
   title: { flex: 1, color: colors.text, fontSize: 18, fontWeight: '800' }, icon: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   content: { padding: 16, gap: 16 }, notice: { color: colors.text, backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: 12, fontSize: 12, lineHeight: 18 },

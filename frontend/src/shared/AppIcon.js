@@ -14,6 +14,7 @@ const EDITOR_ICONS = {
   search: 'search',
   more: 'more',
   trash: 'trash',
+  bin: 'trash', // 좌측 메뉴 휴지통도 삭제 버튼과 같은 모양
   undo: 'undo',
   grid: 'pages',
   swap: 'swap',
@@ -62,8 +63,8 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
       graphic = <><Line {...line} x1="12" y1="5" x2="12" y2="19" /><Path {...line} d="m6 13 6 6 6-6" /></>;
       break;
     case 'workshop':
-      // 팔레트. Lucide `palette` (ISC, https://github.com/lucide-icons/lucide) 의 선 · 점을 그대로 쓴다.
-      graphic = <><Path {...line} d="M12 22a1 1 0 0 1 0-20a10 9 0 0 1 10 9a5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" /><Circle {...line} fill={color} cx="13.5" cy="6.5" r=".5" /><Circle {...line} fill={color} cx="17.5" cy="10.5" r=".5" /><Circle {...line} fill={color} cx="6.5" cy="12.5" r=".5" /><Circle {...line} fill={color} cx="8.5" cy="7.5" r=".5" /></>;
+      // 팔레트. Lucide `palette` (ISC, https://github.com/lucide-icons/lucide) 의 선을 그대로 쓰고, 물감 점은 윤곽선 색으로 꽉 채운 원(선 굵기와 무관한 크기)으로 그린다.
+      graphic = <><Path {...line} d="M12 22a1 1 0 0 1 0-20a10 9 0 0 1 10 9a5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" /><Circle fill={color} cx="13.5" cy="6.5" r="1.3" /><Circle fill={color} cx="17.5" cy="10.5" r="1.3" /><Circle fill={color} cx="6.5" cy="12.5" r="1.3" /><Circle fill={color} cx="8.5" cy="7.5" r="1.3" /></>;
       break;
     case 'check':
       // 직선 두 획. 끝을 둥글리지 않고 모서리도 뾰족하게 둔다.

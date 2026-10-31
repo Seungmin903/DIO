@@ -1,4 +1,4 @@
-import { Component, memo, useMemo, useEffect, useRef, useState } from 'react'
+import { Component, Fragment, memo, useMemo, useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SvgAst, SvgXml, parse } from 'react-native-svg'
 import { templateReference } from '../templates/catalog.js'
@@ -6,6 +6,11 @@ import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
 import { plannerFor } from '../templates/planners.js'
+import { swapPaperFont } from '../templates/paperFont.js'
+import { KeepFont } from '../../shared/fontScope'
+
+// 속지 · 특수 속지 · 캔버스 요소는 정해진 글꼴을 그대로 쓴다(앱 UI 글꼴 Pretendard 를 넣지 않는다). 가짜 모듈인 테스트에서는 Fragment 로 그린다
+const Keep = KeepFont ?? Fragment
 
 class SvgBoundary extends Component {
   state = { error: null }
@@ -26,9 +31,12 @@ function RenderedSvg({ xml, ast, width, height, onReady }) {
     : <SvgXml xml={xml} width={width} height={height} onError={throwSvgError} />
 }
 
+// 속지 글꼴을 골랐으면 그 글꼴로 바꾼 속지를 불러온다(캐시 키가 다르다)
+const referenceOf = page => { const reference = templateReference(page); return reference ? { ...reference, font: normalizePaperAppearance(page.paperAppearance).font } : null }
+
 function cachedAst(page) {
   try {
-    const reference = templateReference(page)
+    const reference = referenceOf(page)
     return reference ? peekTemplateAst(reference) ?? null : null
   } catch { return null }
 }
@@ -49,7 +57,7 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
     let active = true
     if (preparedXml != null || svg) return undefined
     let reference
-    try { reference = templateReference(page) }
+    try { reference = referenceOf(page) }
     catch (failure) { fail(failure); return undefined }
     if (!reference) { callbacks.current.onReady?.(); return undefined }
     loadTemplateAst(reference).then(ast => { if (active) setSvg({ ast }) }).catch(failure => { if (active) fail(failure) })
@@ -67,8 +75,8 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   // 데일리 플래너는 할 일 글(글상자)을 막대 · 종일 칸에 비춰 그리므로, 글이 바뀌면 덮개도 다시 만든다.
   const titles = plannerApi?.titles(page.objects) ?? null, titleKey = titles ? JSON.stringify(titles) : ''
   const startHour = planner ? plannerApi.startHour(planner) : 6
-  const shiftedBase = useMemo(() => startHour === 6 ? null : parse(plannerApi.baseSvg(startHour)), [page.backgroundAssetId, startHour]) // eslint-disable-line react-hooks/exhaustive-deps
-  const plannerAst = useMemo(() => planner || (titleKey && titleKey !== '{}') ? parse(plannerApi.overlaySvg(planner, page.objects)) : null, [page.backgroundAssetId, planner, titleKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  const shiftedBase = useMemo(() => startHour === 6 ? null : parse(swapPaperFont(plannerApi.baseSvg(startHour), appearance.font)), [page.backgroundAssetId, startHour, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
+  const plannerAst = useMemo(() => planner || (titleKey && titleKey !== '{}') ? parse(swapPaperFont(plannerApi.overlaySvg(planner, page.objects), appearance.font)) : null, [page.backgroundAssetId, planner, titleKey, appearance.font]) // eslint-disable-line react-hooks/exhaustive-deps
   const baseAst = shiftedBase ?? svg?.ast
   const styledAst = useMemo(() => baseAst ? colorTemplateAst(baseAst, appearance, { transparentPaper }) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper])
   const styledPlanner = useMemo(() => plannerAst ? colorTemplateAst(plannerAst, appearance) : null, [plannerAst, appearance.backgroundColor, appearance.layoutColor])
@@ -91,8 +99,9 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
 
 function PageBackground(props) {
   const [attempt, setAttempt] = useState(0)
-  const key = [props.page.id, props.page.backgroundAssetId, props.page.templateVersion, attempt].join(':')
-  return <BackgroundAttempt key={key} {...props} onRetry={props.preparedXml == null ? () => setAttempt(value => value + 1) : undefined} />
+  // 속지 글꼴이 바뀌면 처음부터 다시 불러온다
+  const key = [props.page.id, props.page.backgroundAssetId, props.page.templateVersion, normalizePaperAppearance(props.page.paperAppearance).font ?? '', attempt].join(':')
+  return <Keep><BackgroundAttempt key={key} {...props} onRetry={props.preparedXml == null ? () => setAttempt(value => value + 1) : undefined} /></Keep>
 }
 export default memo(PageBackground)
 
