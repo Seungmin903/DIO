@@ -13,7 +13,6 @@ export const PAPER_GROUPS = [
 
 // kind: 'period' 는 기간으로 장수가 정해지는 날짜 속지(every 마다 한 장), 'cover' 는 묶음 앞 한 장,
 //       'count' 는 장수를 직접 고르는 속지. type: 장수형의 공용 속지 종류 (catalog 의 reusable type · note background)
-// pageOnly: 편집기의 페이지 추가에만 보이고 새 다이어리 속지 고르기에는 나오지 않는다.
 export const PAPERS = [
   { id: 'plain', group: 'note', name: '무지', kind: 'count', type: 'note', background: 'plain' },
   { id: 'ruled', group: 'note', name: '줄', kind: 'count', type: 'note', background: 'ruled' },
@@ -24,14 +23,15 @@ export const PAPERS = [
   { id: 'monthly', group: 'planner', name: '월간 달력', kind: 'period', every: 'month' },
   { id: 'weekly-blocks', group: 'planner', name: '주간 · 블록', kind: 'period', every: 'week' },
   { id: 'weekly-journal', group: 'planner', name: '주간 · 저널', kind: 'period', every: 'week' },
-  { id: 'daily', group: 'planner', name: '하루 계획', kind: 'count', type: 'daily' },
+  { id: 'day', group: 'planner', name: '데일리 플래너', kind: 'count', type: 'day' },
   { id: 'study', group: 'planner', name: '스터디 플래너', kind: 'count', type: 'study' },
-  { id: 'day', group: 'planner', name: '데일리 플래너', kind: 'count', type: 'day', pageOnly: true },
   { id: 'diary', group: 'diary', name: '하루 일기', kind: 'count', type: 'diary' },
   { id: 'scrap', group: 'diary', name: '사진 · 스크랩', kind: 'count', type: 'scrap' },
 ]
 // 예전에 저장한 다이어리 요약에만 쓰는 이름
 const LEGACY_NAMES = { year: '1년 플래너' }
+// 없어진 속지 ID → 대신 쓰는 속지 (하루 계획 → 데일리 플래너). 예전에 저장한 다이어리 설정을 읽을 때만 쓴다.
+const REPLACED_PAPERS = { daily: 'day' }
 
 export const COUNT_STEPS = [10, 30, 50, 100]
 export const MONTH_STEPS = [3, 6, 12]
@@ -41,7 +41,7 @@ const THIS_YEAR = new Date().getFullYear()
 export const PAPER_YEARS = Array.from({ length: 7 }, (_, i) => THIS_YEAR - 1 + i)
 export const MONTH_LIMIT = 12
 
-export const paperById = id => PAPERS.find(paper => paper.id === id) ?? (LEGACY_NAMES[id] ? { id, name: LEGACY_NAMES[id], kind: 'period' } : PAPERS[0])
+export const paperById = id => PAPERS.find(paper => paper.id === (REPLACED_PAPERS[id] ?? id)) ?? (LEGACY_NAMES[id] ? { id, name: LEGACY_NAMES[id], kind: 'period' } : PAPERS[0])
 export const papersIn = group => PAPERS.filter(paper => paper.group === group)
 
 /** 장수형 속지(표지 포함) → 그 방향의 속지 ID. 날짜 없는 표지를 쓴다. */

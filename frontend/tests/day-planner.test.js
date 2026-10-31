@@ -7,7 +7,7 @@ import {
 } from '../src/editor/templates/dayPlanner.js'
 import { plannerFor } from '../src/editor/templates/planners.js'
 import { getTemplate, reusableTemplates } from '../src/editor/templates/catalog.js'
-import { PAPERS, countAssetId, papersIn } from '../src/diary/utils/paperChoice.js'
+import { PAPERS, countAssetId, papersIn, paperById } from '../src/diary/utils/paperChoice.js'
 import { editorReducer, createInitialState } from '../src/editor/state/editorReducer.js'
 import { createText } from '../src/editor/utils/text.js'
 
@@ -34,31 +34,30 @@ const datePoint = (o = 'landscape') => ({ x: dayPlannerLayout(o).date.line[0] + 
 // 할 일 칸에 글자가 있는 글상자
 const title = (r, text = '공부', o = 'landscape') => { const { x, y } = listPoint(r, 'text', o); return { id: `t${r}`, type: 'text', text, x: x - 50, y: y - 14, w: 100, h: 28 } }
 
-test('데일리 플래너 속지가 메뉴와 카탈로그에 가로 · 세로로 있고 하루 계획 · 스터디 플래너 뒤에 놓인다', () => {
+test('데일리 플래너 속지가 메뉴와 카탈로그에 가로 · 세로로 있고 하루 계획 자리를 대신한다', () => {
   for (const o of ['landscape', 'portrait']) {
     const menu = reusableTemplates(o)
     const item = menu.find(t => t.type === 'day')
     assert.equal(item.assetId, dayPlannerId(o))
     assert.equal(item.name, '데일리 플래너')
     assert.equal(getTemplate(item.assetId).orientation, o)
-    assert.deepEqual(menu.slice(0, 3).map(t => t.type), ['daily', 'study', 'day'])
+    assert.deepEqual(menu.slice(0, 2).map(t => t.type), ['study', 'day'])
+    assert.equal(menu.some(t => t.type === 'daily'), false)
   }
   assert.deepEqual(DAY_PLANNER_TEMPLATES.map(t => t.id), ['day-planner-landscape', 'day-planner-portrait'])
 })
 
-test('원본 하루 계획 속지는 그대로 남는다', () => {
-  const daily = reusableTemplates('landscape').find(t => t.type === 'daily')
-  assert.equal(daily.name, '하루 계획')
-  assert.equal(daily.assetId, '2026-reusable-daily-landscape')
+test('하루 계획은 메뉴에서 빠지고 이미 만든 다이어리의 옛 속지 파일만 남는다', () => {
+  assert.equal(getTemplate('2026-reusable-daily-landscape').type, 'daily')
   assert.equal(getTemplate('2026-reusable-daily-portrait').type, 'daily')
+  assert.equal(paperById('daily').id, 'day')
 })
 
-test('페이지 추가에만 나오고 새 다이어리 속지 고르기에는 나오지 않는다', () => {
+test('데일리 플래너가 새 다이어리 속지 고르기의 하루 계획 자리에 나온다', () => {
   const day = PAPERS.find(p => p.id === 'day')
   assert.equal(day.name, '데일리 플래너')
-  assert.equal(day.pageOnly, true)
-  assert.deepEqual(PAPERS.filter(p => p.pageOnly).map(p => p.id), ['day'])
-  assert.deepEqual(papersIn('planner').filter(p => p.kind === 'count').map(p => p.id), ['daily', 'study', 'day'])
+  assert.equal(PAPERS.some(p => p.id === 'daily'), false)
+  assert.deepEqual(papersIn('planner').filter(p => p.kind === 'count').map(p => p.id), ['day', 'study'])
   for (const o of ['landscape', 'portrait']) assert.equal(countAssetId('day', o), dayPlannerId(o))
 })
 
