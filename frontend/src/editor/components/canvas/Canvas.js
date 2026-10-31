@@ -167,8 +167,11 @@ export default function Canvas({
   // 도구를 바꾸거나 페이지를 넘기면 고르던 값을 반영하고 창을 닫는다.
   useEffect(() => () => closeDayPickRef.current(), [page.id, activeTool])
   // 할 일 · 시작 · 진행이 채워진 줄에 색이 저절로 채워진다. 글자를 쓰는 일이 따로 되돌리기 단위라, 색은 되돌리기 단위를 만들지 않는다.
+  // 페이지를 막 열었을 때는 건너뛴다: 열람만으로 문서가 바뀌어 저장 · 동기화가 일어나지 않게 한다(색은 그 뒤 편집에서 채워진다).
+  const autoColorPage = useRef(null)
   useEffect(() => {
     if (planner?.kind !== 'day') return
+    if (autoColorPage.current !== page.id) { autoColorPage.current = page.id; return }
     const next = planner.autoColor(page.planner, page.objects)
     if (next) dispatch({ type: 'setPlanner', planner: next, pageId: page.id, silent: true })
   }, [page.planner, page.objects, page.backgroundAssetId]) // eslint-disable-line react-hooks/exhaustive-deps

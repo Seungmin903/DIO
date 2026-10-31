@@ -118,8 +118,8 @@ export function suggestStart(value) {
 
 /** 09:05 */
 export const clock = minute => `${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
-/** 진행 시간을 고르는 시간 목록(0~12시간). 하루 종일은 종일 칸이라 그보다 긴 일정은 따로 고르지 않는다. */
-export const DURATION_HOURS = Array.from({ length: 13 }, (_, i) => i)
+/** 진행 시간을 고르는 시간 목록(0~24시간, 일정 최대 길이까지). 시간표를 길게 긋거나 자정을 넘긴 일정도 휠에 맞는 값이 있다. */
+export const DURATION_HOURS = Array.from({ length: DURATION_RANGE.max / 60 + 1 }, (_, i) => i)
 
 // ---------- 영역 판정 ----------
 function listGeo(L) {

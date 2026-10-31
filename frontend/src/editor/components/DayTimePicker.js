@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { usePan } from '../hooks/usePan'
-import { DAY_STEP, DURATION_HOURS } from '../templates/dayPlanner.js'
+import { DAY_STEP, DURATION_HOURS, DURATION_RANGE } from '../templates/dayPlanner.js'
 import { PlannerPopup, PopupButton, PopupLabels, PopupToggle, PopupWheel, PopupWheelGroup, PopupWheels, popupSize } from './PlannerPopup'
 
 export { ITEM_H, SHOWN } from './PlannerPopup'
@@ -24,7 +24,8 @@ export default function DayTimePicker({ row, value, suggest, onChange, onClear, 
   const pick = patch => set({ ...shown, allDay: false, ...patch }) // 휠을 돌리면 종일은 풀린다
   const hour = Math.floor(shown.start / 60), minute = shown.start % 60
   const hours = Math.floor(shown.dur / 60), minutes = shown.dur % 60
-  const pickDuration = (h, m) => pick({ dur: Math.max(DAY_STEP, h * 60 + m) }) // 0시간 0분은 가장 짧은 5분
+  // 0시간 0분은 가장 짧은 5분, 24시간을 넘는 분은 24시간으로(넘기면 일정 기록이 버려진다)
+  const pickDuration = (h, m) => pick({ dur: Math.min(DURATION_RANGE.max, Math.max(DURATION_RANGE.min, h * 60 + m)) })
   return (
     <PlannerPopup label={`일정 ${row + 1}`} closeLabel="일정 닫기" onClose={onClose} style={style}
       headerLeft={<PopupToggle label="종일" on={shown.allDay} onPress={() => shown.allDay ? pick({}) : set({ ...shown, allDay: true })} />}>

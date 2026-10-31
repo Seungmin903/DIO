@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  DAY_PALETTE, DAY_PLANNER_TEMPLATES, DURATION_HOURS, applyDayStroke, assignDayColors, clock, dayCellTap, dayEditTap, dayNowLine, dayPlannerBaseSvg, dayPlannerBlocks, dayPlannerId, dayPlannerLayout,
+  DAY_PALETTE, DAY_PLANNER_TEMPLATES, DURATION_HOURS, DURATION_RANGE, applyDayStroke, assignDayColors, clock, dayCellTap, dayEditTap, dayNowLine, dayPlannerBaseSvg, dayPlannerBlocks, dayPlannerId, dayPlannerLayout,
   dayPlannerOverlaySvg, dayPlannerSvg, dayTextSlot, dayTitleAt, dayTitleRows, dayTitles, effectiveDay, eraseDayPlanner, isScheduled, normalizeDayPlanner, setDayDate, setDayPlannerOptions,
   setDayRow, suggestStart, weekdayOf,
 } from '../src/editor/templates/dayPlanner.js'
@@ -369,9 +369,9 @@ test('SVG는 앱 좌표계 viewBox 와 종이 사각형을 가진다', () => {
 
 test('고를 수 있는 모든 시각 · 진행 시간 · 날짜의 글자 윤곽이 있다', () => {
   for (let start = 0; start < 24 * 60; start += 5) dayPlannerOverlaySvg('landscape', setDayRow(null, 0, { color: YELLOW, start, dur: 60 }))
-  for (const h of DURATION_HOURS) for (let m = 0; m < 60; m += 5) dayPlannerOverlaySvg('portrait', setDayRow(null, 0, { color: YELLOW, start: at(9), dur: Math.max(5, h * 60 + m) }))
+  for (const h of DURATION_HOURS) for (let m = 0; m < 60; m += 5) dayPlannerOverlaySvg('portrait', setDayRow(null, 0, { color: YELLOW, start: at(9), dur: Math.min(1440, Math.max(5, h * 60 + m)) }))
   for (let m = 1; m <= 12; m++) for (const d of [1, 9, 10, 28]) dayPlannerOverlaySvg('landscape', setDayDate(null, { y: 2026, m, d }))
-  assert.deepEqual([DURATION_HOURS[0], DURATION_HOURS.at(-1)], [0, 12])
+  assert.deepEqual([DURATION_HOURS[0], DURATION_HOURS.at(-1)], [0, 24])
   assert.equal(clock(at(23, 55)), '23:55')
 })
 
@@ -495,4 +495,15 @@ test('시간표 현재 시각 줄은 지금이 든 열의 그 시각 높이에 �
   assert.equal(plannerFor('study-planner-landscape').nowLine(null, noon), null)
   // 화면 표시 전용: 속지 SVG(내보내기 포함)에는 들어가지 않는다
   assert.doesNotMatch(dayPlannerSvg('landscape', null, []), /EF476F/i)
+})
+
+test('진행 시간 휠은 일정 최대 길이(24시간)까지 있어 긴 일정도 휠에 맞는 값이 있다', () => {
+  assert.equal(DURATION_HOURS[DURATION_HOURS.length - 1], DURATION_RANGE.max / 60)
+  // 시간표를 길게 그은 일정(자정 넘김 포함)의 시간이 휠 값으로 표현된다
+  const long = applyDayStroke(null, 'landscape', [gridPoint(at(1)), gridPoint(at(23, 50))], HL)
+  const row = normalizeDayPlanner(long.planner).rows[0]
+  assert.ok(DURATION_HOURS.includes(Math.floor(row.dur / 60)))
+  // 24시간은 그대로 기록되고, 분이 더해져 넘치는 값은 기록에서 버려지므로 창이 24시간으로 자른다(DayTimePicker.pickDuration)
+  assert.deepEqual(normalizeDayPlanner(setDayRow(null, 0, { color: null, start: 0, dur: DURATION_RANGE.max })).rows[0], { color: null, start: 0, dur: DURATION_RANGE.max })
+  assert.equal(normalizeDayPlanner(setDayRow(null, 0, { color: null, start: 0, dur: DURATION_RANGE.max + 5 })).rows[0], undefined)
 })

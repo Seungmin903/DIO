@@ -167,6 +167,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 데일리 플래너 할 일을 펜 · 형광펜으로 눌러 쓴 경우, 글 입력을 마치면 그 도구로 돌아간다(그 밖에는 선택 도구)
   const textReturnTool = useRef(null)
   const returnableTool = (tool) => (tool === 'pen' || tool === 'highlighter' ? tool : null)
+  // 글 입력이 저장 · 취소 · 그 밖의 어떤 경로로 끝나도 돌아갈 도구를 비워, 다음 입력(도형 글 등)이 옛 도구로 돌아가지 않게 한다.
+  useEffect(() => { if (!textEditing) textReturnTool.current = null }, [textEditing])
   // 사진 틀(티켓 · 네컷)의 인쇄 글자를 캔버스에서 바로 고치는 중 { pageId, id, line }
   const [frameTextEdit, setFrameTextEdit] = useState(null)
   const textBoundary = useRef(null)

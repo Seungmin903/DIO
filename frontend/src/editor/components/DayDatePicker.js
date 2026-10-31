@@ -13,8 +13,9 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
 export default function DayDatePicker({ value, suggest, onChange, onClear, onClose, style }) {
   const [draft, setDraft] = useState(value)
   const shown = draft ?? suggest
-  const years = Array.from({ length: 10 }, (_, i) => suggest.y - 3 + i)
+  const years = Array.from({ length: 16 }, (_, i) => suggest.y - 5 + i)
   if (!years.includes(shown.y)) years.push(shown.y)
+  years.sort((a, b) => a - b) // 저장된 날짜가 범위 밖이어도 휠은 오름차순
   const pick = patch => {
     const next = { ...shown, ...patch }
     next.d = Math.min(next.d, daysInMonth(next.y, next.m)) // 짧은 달로 옮기면 그 달 마지막 날로
