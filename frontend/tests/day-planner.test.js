@@ -272,12 +272,16 @@ test('시간표에 펜으로 쓰는 것은 자유 필기이고, 목록이 가득
   assert.equal(applyDayStroke(full, 'landscape', [gridPoint(at(9, 7)), gridPoint(at(10, 20))], HL), null)
 })
 
-test('할 일이 채워지면 형광펜 프리셋 색이 겹치지 않게 돌아가며 자동으로 붙는다(시간이 있든 없든)', () => {
+test('할 일 · 시간 · 종일이 채워지면 형광펜 프리셋 색이 겹치지 않게 돌아가며 자동으로 붙는다', () => {
   let p = null
   for (let i = 0; i < 9; i++) p = setDayRow(p, i, { color: null, start: at(6) + i * 60, dur: 30 })
   const objects = Array.from({ length: 9 }, (_, i) => title(i))
-  // 글자가 없으면 시간이 있어도 붙지 않는다(회색 막대)
-  assert.equal(assignDayColors(p, 'landscape', []), null)
+  // 글자가 없어도 시간이 있으면 색이 붙는다(할 일보다 시간을 먼저 적은 경우)
+  const timeFirst = assignDayColors(p, 'landscape', [])
+  assert.deepEqual(Object.keys(timeFirst.rows).map(k => timeFirst.rows[k].color), [...DAY_PALETTE, DAY_PALETTE[0], DAY_PALETTE[1]])
+  assert.equal(assignDayColors(timeFirst, 'landscape', []), null)
+  // 시간도 글자도 없이 색만 비어 있는 줄은 받지 않는다
+  assert.equal(assignDayColors(null, 'landscape', []), null)
   const colored = assignDayColors(p, 'landscape', objects)
   assert.deepEqual(Object.keys(colored.rows).map(k => colored.rows[k].color), [...DAY_PALETTE, DAY_PALETTE[0], DAY_PALETTE[1]])
   // 한 번 붙은 색은 그대로, 다시 불러도 바뀌지 않는다
@@ -288,8 +292,8 @@ test('할 일이 채워지면 형광펜 프리셋 색이 겹치지 않게 돌아
   // 형광펜으로 고른 색은 지키고, 그 색은 이미 쓰인 것으로 세어 다음 줄이 피한다
   const mine = setDayRow(setDayRow(null, 0, { color: YELLOW, start: at(9), dur: 60 }), 1, { color: null, start: at(10), dur: 60 })
   assert.equal(assignDayColors(mine, 'landscape', [title(0), title(1)]).rows[1].color, PINK)
-  // 비어 있는 글상자 · 숨긴 글상자는 할 일이 아니다
-  assert.equal(assignDayColors(p, 'landscape', [{ ...title(0), text: '  ' }, { ...title(1), hidden: true }]), null)
+  // 비어 있는 글상자 · 숨긴 글상자는 할 일이 아니다(시간이 없는 줄이면 색도 붙지 않는다)
+  assert.equal(assignDayColors(null, 'landscape', [{ ...title(0), text: '  ' }, { ...title(1), hidden: true }]), null)
   assert.deepEqual([...dayTitleRows('landscape', [title(3), { ...title(4), x: 700 }])], [3])
 })
 

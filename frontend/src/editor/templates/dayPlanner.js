@@ -230,7 +230,7 @@ export function dayTitleAt(orientation, point, objects) {
 }
 
 /**
- * 할 일이 있는데 색이 없는 줄에 색을 준다(시간이 있든 없든). 형광펜 프리셋을 안 겹치게 돌려 가며(가장 적게 쓰인 색, 같으면 프리셋 순서) 위 줄부터.
+ * 할 일 · 시간(시작 · 진행) · 종일 중 하나라도 있는데 색이 없는 줄에 색을 준다. 형광펜 프리셋을 안 겹치게 돌려 가며(가장 적게 쓰인 색, 같으면 프리셋 순서) 위 줄부터.
  * 이미 색이 있는 줄(형광펜으로 고른 색)은 그대로 둔다. 바뀐 것이 없으면 null.
  */
 export function assignDayColors(value, orientation, objects) {
@@ -238,7 +238,8 @@ export function assignDayColors(value, orientation, objects) {
   const used = Object.fromEntries(DAY_PALETTE.map(c => [c, 0]))
   for (const r of Object.values(rows)) if (r.color && r.color in used) used[r.color]++
   let changed = false
-  const targets = new Set([...Object.keys(titles), ...Object.entries(rows).filter(([, r]) => r.allDay).map(([k]) => k)]) // 할 일이 있거나 종일로 정한 줄
+  // 할 일이 있거나, 종일로 정했거나, 시간이 정해진 줄(할 일보다 시간을 먼저 적어도 색이 붙는다)
+  const targets = new Set([...Object.keys(titles), ...Object.entries(rows).filter(([, r]) => r.allDay || isScheduled(r)).map(([k]) => k)])
   for (const k of [...targets].sort((a, b) => a - b)) {
     if (rows[k]?.color) continue
     const pick = DAY_PALETTE.reduce((best, c) => used[c] < used[best] ? c : best, DAY_PALETTE[0])
