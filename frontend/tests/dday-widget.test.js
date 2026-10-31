@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addDays, ddayDateText, createDdayWidget, daysUntil, ddayCaption, ddayText, isDdayAlertDay, monthShift, normalizeWidget, parseDateKey, WIDGET_ITEMS } from '../src/editor/widgets/dday.js'
+import { shiftDate, addDays, ddayDateText, createDdayWidget, daysUntil, ddayCaption, ddayText, isDdayAlertDay, monthShift, normalizeWidget, parseDateKey, WIDGET_ITEMS } from '../src/editor/widgets/dday.js'
 
 const today = { y: 2026, m: 10, d: 31 }
 
@@ -48,4 +48,18 @@ test('저장된 값을 읽을 때 종류가 다르면 버리고 이름은 14자�
   assert.equal(normalizeWidget(undefined), null)
   assert.equal(normalizeWidget({ kind: 'dday', style: 'x', title: '가'.repeat(20), date: '2026-12-01' }).title.length, 14)
   assert.deepEqual(parseDateKey('2026-12-01'), { y: 2026, m: 12, d: 1 })
+})
+
+test('연도는 1000~9999 안에서만 옮기고 범위를 벗어나는 이동은 null 이다', () => {
+  assert.equal(shiftDate({ y: 1000, m: 6, d: 1 }, 'y', -1), null)
+  assert.equal(shiftDate({ y: 9999, m: 6, d: 1 }, 'y', 1), null)
+  assert.equal(shiftDate({ y: 1000, m: 1, d: 1 }, 'd', -1), null)
+  assert.equal(shiftDate({ y: 9999, m: 12, d: 31 }, 'd', 1), null)
+  assert.equal(shiftDate({ y: 1000, m: 1, d: 15 }, 'm', -1), null)
+  assert.deepEqual(shiftDate({ y: 1000, m: 6, d: 1 }, 'y', 1), { y: 1001, m: 6, d: 1 })
+  assert.deepEqual(shiftDate({ y: 2026, m: 1, d: 31 }, 'm', 1), { y: 2026, m: 2, d: 28 })
+})
+test('4자리 미만 연도로 저장된 값은 읽지 않는다 (Date.UTC 의 0~99년 보정 방지)', () => {
+  for (const value of ['0099-01-01', '0999-12-31']) assert.equal(parseDateKey(value), null)
+  assert.deepEqual(parseDateKey('1000-01-01'), { y: 1000, m: 1, d: 1 })
 })

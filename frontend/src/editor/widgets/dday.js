@@ -7,6 +7,9 @@ export const DDAY_STYLES = [
   { id: 'stamp', name: '도장', w: 168, h: 168 },
 ]
 export const DDAY_TITLE_MAX = 14
+// 저장 형식(YYYY-MM-DD)이 4자리 연도만 받고, Date.UTC 가 0~99년을 1900년대로 읽으므로 연도는 이 범위만 쓴다
+export const DDAY_YEAR_MIN = 1000
+export const DDAY_YEAR_MAX = 9999
 export const DDAY_DEFAULT_OFFSET = 30
 const DAY_MS = 24 * 60 * 60 * 1000
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
@@ -22,6 +25,7 @@ export function parseDateKey(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? '')
   if (!match) return null
   const [y, m, d] = match.slice(1).map(Number)
+  if (y < DDAY_YEAR_MIN) return null
   const check = new Date(Date.UTC(y, m - 1, d))
   return check.getUTCFullYear() === y && check.getUTCMonth() === m - 1 && check.getUTCDate() === d ? { y, m, d } : null
 }
@@ -39,6 +43,15 @@ export function monthShift(parts, months) {
   const m = (index % 12) + 1
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate()
   return { y, m, d: Math.min(parts.d, last) }
+}
+
+/**
+ * 옵션의 년·월·일 스테퍼: unit('y'|'m'|'d')을 step(±1)만큼 옮긴다.
+ * 결과 연도가 범위(1000~9999)를 벗어나면 null — 호출한 쪽은 그 이동을 무시한다.
+ */
+export function shiftDate(parts, unit, step) {
+  const next = unit === 'd' ? addDays(parts, step) : monthShift(parts, unit === 'm' ? step : step * 12)
+  return next.y < DDAY_YEAR_MIN || next.y > DDAY_YEAR_MAX ? null : next
 }
 
 /** 오늘에서 목표 날짜까지 남은 날 (지났으면 음수). 날짜가 올바르지 않으면 null */

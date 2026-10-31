@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import PenSafeTextInput from '../components/controls/PenSafeTextInput'
 import Icon from '../components/controls/Icon'
-import { DDAY_TITLE_MAX, addDays, dateKey, monthShift, normalizeWidget, parseDateKey, todayParts } from './dday'
+import { DDAY_TITLE_MAX, dateKey, normalizeWidget, parseDateKey, shiftDate, todayParts } from './dday'
 
 /** 디데이 위젯의 옵션 (옵션 패널 '꾸미기'): 이름 · 기준 날짜. 모양은 붙일 때 정해 바꾸지 않는다. */
 export default function DdayOptions({ object, dispatch }) {
@@ -13,9 +13,9 @@ export default function DdayOptions({ object, dispatch }) {
     dispatch({ type: 'updateObject', id: object.id, record, patch: { widget: { ...widget, ...patch }, ...extra } })
 
   // 월·일을 넘기면 달력대로 이어진다. 1월 1일에서 하루 전은 지난해 12월 31일.
-  const shiftDate = (unit, step) => {
-    const next = unit === 'd' ? addDays(date, step) : monthShift(date, unit === 'm' ? step : step * 12)
-    patchWidget({ date: dateKey(next) })
+  const moveDate = (unit, step) => {
+    const next = shiftDate(date, unit, step)
+    if (next) patchWidget({ date: dateKey(next) }) // 연도 범위를 벗어나는 이동은 무시한다
   }
 
   return (
@@ -35,9 +35,9 @@ export default function DdayOptions({ object, dispatch }) {
       </Section>
       <Section title="기준 날짜">
         <View style={styles.dates}>
-          <Stepper label="년" flex={1.35} value={date.y} onStep={(step) => shiftDate('y', step)} />
-          <Stepper label="월" value={date.m} onStep={(step) => shiftDate('m', step)} />
-          <Stepper label="일" value={date.d} onStep={(step) => shiftDate('d', step)} />
+          <Stepper label="년" flex={1.35} value={date.y} onStep={(step) => moveDate('y', step)} />
+          <Stepper label="월" value={date.m} onStep={(step) => moveDate('m', step)} />
+          <Stepper label="일" value={date.d} onStep={(step) => moveDate('d', step)} />
         </View>
       </Section>
     </>

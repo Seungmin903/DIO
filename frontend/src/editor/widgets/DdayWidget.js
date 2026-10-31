@@ -1,9 +1,11 @@
 import { memo } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
-import { ddayCaption, ddayDateText, ddayText, daysUntil, normalizeWidget, todayParts } from './dday'
+import { ddayCaption, ddayDateText, ddayText, daysUntil, normalizeWidget } from './dday'
+import { useToday } from './useToday'
 
-// 종이 스티커 색: 라벨은 연한 남보라, 티켓은 버터 노랑, 도장은 옅은 붉은 잉크
+// 종이 스티커 그림 색: 앱 화면(UI) 색이 아니라 PDF 시안(속지 에셋 아이디어 54쪽)의 스티커 그림 색이라 theme 토큰이 아닌 고정값을 쓴다.
+// 라벨은 연한 남보라, 티켓은 버터 노랑, 도장은 옅은 붉은 잉크
 const LABEL_COLOR = '#9FA9D9'
 const TICKET_FILL = '#FEF0BF'
 const TICKET_EDGE = '#EBC95E'
@@ -21,9 +23,10 @@ export const fitFont = (text, base, available) => Math.min(base, available / (Ma
  * 남은 날은 그릴 때마다 오늘 기준으로 다시 센다. today 는 테스트·미리보기에서 날짜를 고정할 때만 넘긴다.
  */
 function DdayWidget({ widget, width, height, today }) {
+  const current = useToday()
   const value = normalizeWidget(widget)
   if (!value) return null
-  const text = ddayText(daysUntil(value.date, today ?? todayParts()))
+  const text = ddayText(daysUntil(value.date, today ?? current))
   const label = `${value.title ? `${value.title} ` : ''}${text}`
   const box = { width, height }
   return (

@@ -8,7 +8,7 @@ import { stickerSource } from '../../stickerAssets'
 import { STICKER_THUMBS } from '../../stickerThumbs'
 import { colors } from '../../../shared/theme'
 import DdayWidget from '../../widgets/DdayWidget'
-import { ddayStyleOf } from '../../widgets/dday'
+import { DDAY_STYLES, ddayStyleOf } from '../../widgets/dday'
 
 const RETRIES = 2
 
@@ -23,6 +23,10 @@ export default function StickerThumbImage({ item, style }) {
   return <ImageThumb item={item} style={style} />
 }
 
+// 미리보기는 늘 'D-37' 샘플이다. 매 렌더 새 객체를 만들어 위젯의 memo 가 무력화되지 않게 모듈 상수로 둔다.
+const THUMB_TODAY = { y: 2000, m: 1, d: 1 }
+const THUMB_WIDGETS = Object.fromEntries(DDAY_STYLES.map((style) => [style.id, { kind: 'dday', style: style.id, title: '', date: '2000-02-07' }]))
+
 // 위젯은 이미지가 없어 칸 크기에 맞춰 직접 그린다 (칸 안에서 가로로 꽉 차게, 긴 변은 칸에 맞춤).
 function WidgetThumb({ item, style }) {
   const [box, setBox] = useState(null)
@@ -30,7 +34,7 @@ function WidgetThumb({ item, style }) {
   const fit = box ? Math.min(box.width / size.w, box.height / size.h) * 0.92 : 0 // 가장자리 여백: 칸 끝에서 잘려 보이지 않게
   return (
     <View style={[style, styles.widgetBox]} onLayout={(event) => setBox(event.nativeEvent.layout)}>
-      {fit > 0 && <DdayWidget widget={{ kind: 'dday', style: size.id, title: '', date: '2000-02-07' }} width={size.w * fit} height={size.h * fit} today={{ y: 2000, m: 1, d: 1 }} />}
+      {fit > 0 && <DdayWidget widget={THUMB_WIDGETS[size.id]} width={size.w * fit} height={size.h * fit} today={THUMB_TODAY} />}
     </View>
   )
 }
