@@ -148,6 +148,17 @@ test('이미 만든 하루 계획 페이지는 같은 방향의 데일리 플래
   assert.equal(migrateUntouchedAnnualDoc(plain), plain)
 })
 
+test('예전에 저장한 설정의 하루 계획 속지 ID 는 데일리 플래너로 읽는다', () => {
+  const base = defaultTemplateConfig('landscape')
+  const saved = { ...base, daily: true, dailyTemplates: base.dailyTemplates.filter(item => item.assetId !== 'day-planner-landscape').concat({ assetId: '2026-reusable-daily-landscape', enabled: true, count: 3 }) }
+  const config = normalizeTemplateConfig(saved)
+  const day = config.dailyTemplates.find(item => item.assetId === 'day-planner-landscape')
+  assert.deepEqual({ enabled: day.enabled, count: day.count }, { enabled: true, count: 3 })
+  assert.equal(config.dailyTemplates.some(item => item.assetId.includes('reusable-daily')), false)
+  const sections = normalizeTemplateConfig({ ...base, sections: [{ kind: 'pages', repeat: 1, items: [{ assetId: '2026-reusable-daily-portrait', count: 2 }] }] }, 'portrait')
+  assert.deepEqual(configuredPageIds(sections), ['day-planner-portrait', 'day-planner-portrait'])
+})
+
 test('내지 표시명 변경은 기존 ID·버전과 이전 문서 편집을 유지한다', () => {
   const menu = reusableTemplates()
   assert.equal(getTemplate('2026-reusable-daily-landscape').name, '하루 계획')

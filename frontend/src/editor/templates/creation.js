@@ -39,9 +39,12 @@ function positiveCount(value, label) {
   return count
 }
 
+// 예전에 저장한 설정의 하루 계획 속지 ID 는 같은 방향의 데일리 플래너로 읽는다 (메뉴에서 빠진 속지)
+const replacedAssetId = id => id.replace(/^2026-reusable-daily-(landscape|portrait)$/, 'day-planner-$1')
+
 function normalizeChoices(templates, choices, label, active = true) {
   return templates.map(item => {
-    const choice = choices?.find(entry => typeof entry?.assetId === 'string' && templateIdForOrientation(entry.assetId, getTemplate(item.assetId).orientation) === item.assetId)
+    const choice = choices?.find(entry => typeof entry?.assetId === 'string' && templateIdForOrientation(replacedAssetId(entry.assetId), getTemplate(item.assetId).orientation) === item.assetId)
     return { assetId: item.assetId, enabled: choice?.enabled === true,
       count: choice?.enabled === true && active ? positiveCount(choice.count, label + item.name) : 1 }
   })
@@ -189,7 +192,7 @@ const UNDATED_MONTH_WEEKS = 5
 function sectionItem(item, orientation, max) {
   if (typeof item?.assetId !== 'string') return null
   let asset
-  try { asset = getTemplate(templateIdForOrientation(item.assetId, orientation)) } catch { return null }
+  try { asset = getTemplate(templateIdForOrientation(replacedAssetId(item.assetId), orientation)) } catch { return null }
   const count = Number.isInteger(item.count) ? Math.min(max, Math.max(1, item.count)) : 1
   return { assetId: asset.id, count }
 }
