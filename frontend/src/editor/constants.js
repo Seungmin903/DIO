@@ -71,7 +71,7 @@ export const TAPES = [
   { id: 'wide-border', size: 'wide', pattern: 'border', palette: 'lavender', name: '보더' },
 ]
 
-// 테이프 무늬 18종 (붙인 뒤 어떤 규격에서도 고를 수 있다)
+// 테이프 무늬 21종 (붙인 뒤 어떤 규격에서도 고를 수 있다). 레이스 3종은 구멍이 뚫려 밑이 비치고 규격 높이를 꽉 채운다. (도안은 laceTapes.js)
 export const TAPE_PATTERN_NAMES = {
   solid: '무지',
   dash: '대시',
@@ -91,6 +91,9 @@ export const TAPE_PATTERN_NAMES = {
   star: '별',
   awning: '어닝 스트라이프',
   border: '보더',
+  'lace-flower': '아이렛 레이스',
+  'lace-net': '크로셰 레이스',
+  'lace-chain': '데이지 레이스',
 }
 
 // 예전 문서에서 이름 없이 저장된 테이프의 이름
