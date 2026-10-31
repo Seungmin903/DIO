@@ -13,6 +13,7 @@ export const PAPER_GROUPS = [
 
 // kind: 'period' 는 기간으로 장수가 정해지는 날짜 속지(every 마다 한 장), 'cover' 는 묶음 앞 한 장,
 //       'count' 는 장수를 직접 고르는 속지. type: 장수형의 공용 속지 종류 (catalog 의 reusable type · note background)
+// pageOnly: 편집기의 페이지 추가에만 보이고 새 다이어리 속지 고르기에는 나오지 않는다.
 export const PAPERS = [
   { id: 'plain', group: 'note', name: '무지', kind: 'count', type: 'note', background: 'plain' },
   { id: 'ruled', group: 'note', name: '줄', kind: 'count', type: 'note', background: 'ruled' },
@@ -25,6 +26,7 @@ export const PAPERS = [
   { id: 'weekly-journal', group: 'planner', name: '주간 · 저널', kind: 'period', every: 'week' },
   { id: 'daily', group: 'planner', name: '하루 계획', kind: 'count', type: 'daily' },
   { id: 'study', group: 'planner', name: '스터디 플래너', kind: 'count', type: 'study' },
+  { id: 'day', group: 'planner', name: '데일리 플래너', kind: 'count', type: 'day', pageOnly: true },
   { id: 'diary', group: 'diary', name: '하루 일기', kind: 'count', type: 'diary' },
   { id: 'scrap', group: 'diary', name: '사진 · 스크랩', kind: 'count', type: 'scrap' },
 ]

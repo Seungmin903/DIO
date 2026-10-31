@@ -5,7 +5,7 @@ import { templateReference } from '../templates/catalog.js'
 import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
-import { isStudyPlannerId, normalizePlanner, plannerBaseSvg, plannerOverlaySvg } from '../templates/studyPlanner.js'
+import { plannerFor } from '../templates/planners.js'
 
 class SvgBoundary extends Component {
   state = { error: null }
@@ -60,13 +60,15 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   // 가이드는 종이 바탕과 속지 글씨 사이에만 넣는다. 출력용 XML 경로에는 가이드를 넣지 않는다.
   const guideUnderlay = preparedXml == null ? underlay : null
   const transparentPaper = Boolean(guideUnderlay)
-  // 스터디 플래너: 바탕은 캐시한 속지 그대로 두고, 칠한 칸 · 체크 · 합계는 작은 덮개 SVG로 위에 겹친다.
+  // 스터디 · 데일리 플래너: 바탕은 캐시한 속지 그대로 두고, 칠한 칸 · 일정 · 체크 · 합계는 작은 덮개 SVG로 위에 겹친다.
   // 기록이 바뀌어도 덮개만 다시 만들어 지우기 · 칠하기가 가볍다. 시간표 시작 시각을 바꾼 페이지만 바탕을 다시 만든다.
-  const planner = preparedXml == null && isStudyPlannerId(page.backgroundAssetId) ? page.planner ?? null : null
-  const plannerOrientation = page.backgroundAssetId?.endsWith('portrait') ? 'portrait' : 'landscape'
-  const startHour = planner ? normalizePlanner(planner).options.startHour : 6
-  const shiftedBase = useMemo(() => startHour === 6 ? null : parse(plannerBaseSvg(plannerOrientation, startHour)), [plannerOrientation, startHour])
-  const plannerAst = useMemo(() => planner ? parse(plannerOverlaySvg(plannerOrientation, planner)) : null, [plannerOrientation, planner])
+  const plannerApi = preparedXml == null ? plannerFor(page.backgroundAssetId) : null
+  const planner = plannerApi ? page.planner ?? null : null
+  // 데일리 플래너는 할 일 글(글상자)을 막대 · 종일 칸에 비춰 그리므로, 글이 바뀌면 덮개도 다시 만든다.
+  const titles = plannerApi?.titles(page.objects) ?? null, titleKey = titles ? JSON.stringify(titles) : ''
+  const startHour = planner ? plannerApi.startHour(planner) : 6
+  const shiftedBase = useMemo(() => startHour === 6 ? null : parse(plannerApi.baseSvg(startHour)), [page.backgroundAssetId, startHour]) // eslint-disable-line react-hooks/exhaustive-deps
+  const plannerAst = useMemo(() => planner || (titleKey && titleKey !== '{}') ? parse(plannerApi.overlaySvg(planner, page.objects)) : null, [page.backgroundAssetId, planner, titleKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const baseAst = shiftedBase ?? svg?.ast
   const styledAst = useMemo(() => baseAst ? colorTemplateAst(baseAst, appearance, { transparentPaper }) : null, [baseAst, appearance.backgroundColor, appearance.layoutColor, transparentPaper])
   const styledPlanner = useMemo(() => plannerAst ? colorTemplateAst(plannerAst, appearance) : null, [plannerAst, appearance.backgroundColor, appearance.layoutColor])
