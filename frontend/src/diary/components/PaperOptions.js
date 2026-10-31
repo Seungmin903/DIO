@@ -133,7 +133,7 @@ function PaperPicker({ groups, selected, onSelect, orientation, appearance, peri
   </View>
 }
 
-const ALL_GROUPS = PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group.id).filter(paper => !paper.pageOnly) }))
+const ALL_GROUPS = PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group.id) }))
 
 function Stepper({ label, text, onPrev, onNext, prevDisabled, nextDisabled }) {
   return <View style={styles.stepper}>

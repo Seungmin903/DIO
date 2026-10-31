@@ -67,5 +67,21 @@ export function createBlankPage(orientation) {
   return { id: createId(), ...(orientation === 'portrait' ? { canvasWidth: 768, canvasHeight: 1024 } : {}), objects: [] }
 }
 
-/** 기존 호출자와 호환하면서 저장된 페이지를 축소하거나 재구성하지 않는다. */
-export function migrateUntouchedAnnualDoc(doc) { return doc }
+const REPLACED_DAILY_ASSET = /^2026-reusable-daily-(landscape|portrait)$/
+
+/**
+ * 저장된 페이지를 축소하거나 재구성하지 않는다. 단 없어진 하루 계획 속지는 같은 방향의 데일리 플래너로 바꾼다
+ * (올려 둔 글 · 그림 · 스티커는 그대로). 바꿀 페이지가 없으면 받은 문서를 그대로 돌려준다.
+ */
+export function migrateUntouchedAnnualDoc(doc) {
+  if (!Array.isArray(doc?.pages) || !doc.pages.some(page => REPLACED_DAILY_ASSET.test(page?.backgroundAssetId))) return doc
+  return {
+    ...doc,
+    pages: doc.pages.map(page => {
+      const match = REPLACED_DAILY_ASSET.exec(page?.backgroundAssetId)
+      if (!match) return page
+      const template = getTemplate(`day-planner-${match[1]}`)
+      return { ...page, backgroundAssetId: template.id, templateVersion: template.templateVersion }
+    }),
+  }
+}

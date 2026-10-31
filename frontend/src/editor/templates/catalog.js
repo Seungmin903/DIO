@@ -19,8 +19,8 @@ function displayName(item) {
   if (item.type === 'weekly') return `주간 계획 · ${item.name}`
   return item.name
 }
-// 스터디 플래너 · 데일리 플래너(구글 일간식)는 하루 계획 바로 뒤에 둔다.
-const menuItems = [...reusableMenu.slice(0, 1), STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ...reusableMenu.slice(1)]
+// 예전 하루 계획(reusableMenu 첫 항목)은 메뉴에서 빼고 데일리 플래너(구글 일간식)로 대체한다. 옛 속지 파일은 이미 만든 다이어리를 위해 아래 assets 에 남긴다.
+const menuItems = [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ...reusableMenu.slice(1)]
 export const reusableTemplates = (orientation = 'landscape') => menuItems.map(item => ({ ...item, name: displayName(item), assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId }))
 export const REUSABLE_TEMPLATES = reusableTemplates()
 const assets = new Map(catalog.assets.map(asset => [asset.id, { ...asset, name: displayName(asset) }]))
