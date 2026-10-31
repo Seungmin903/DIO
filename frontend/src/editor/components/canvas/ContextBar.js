@@ -7,6 +7,7 @@ import { keepOutBox, placeHorizontal, placeVertical, POPOVER_EDGE } from '../../
 import Icon from '../controls/Icon'
 import LassoSelectionMenu from '../LassoSelectionMenu'
 import { EDITOR_COLORS } from '../../utils/penSettings'
+import { usePalette } from '../../hooks/usePalettes'
 import { normalizeTextLink } from '../../utils/textFormats'
 import { isStripFrame } from '../../utils/photoStrip'
 import { emptyPhotoSlots, hasPhotoMedia } from '../../utils/objects'
@@ -55,6 +56,7 @@ export default function ContextBar({
   textSettingsOpen = false, // 텍스트 서식 창이 열려 있음 ('서식' 버튼 표시)
   frame = null, // 작업창 위에 그릴 때 { x, y: 페이지 왼쪽 위의 작업창 좌표, area: 바를 둘 보이는 영역 { left, top, right, bottom } }. 없으면 페이지 안
 }) {
+  const penColors = usePalette?.('pen')?.colors ?? EDITOR_COLORS // 꾸미기 공방 '내 프리셋'의 펜 색
   const [barWidth, setBarWidth] = useState(0)
   const [chipWidth, setChipWidth] = useState(0)
   // 링크가 걸린 요소를 고르면 바에 '링크 열기' 를 바로 보여 준다
@@ -178,7 +180,7 @@ export default function ContextBar({
   if (editingStroke) return <>
     <View accessibilityLabel="필기 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, areaW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
-        {EDITOR_COLORS.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 요소 색상 ${color}`} accessibilityState={{ selected: single.color?.toUpperCase() === color.toUpperCase() }}
+        {penColors.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 요소 색상 ${color}`} accessibilityState={{ selected: single.color?.toUpperCase() === color.toUpperCase() }}
           onPress={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color } })}
           style={[styles.swatch, { backgroundColor: color }, single.color?.toUpperCase() === color.toUpperCase() && styles.swatchChosen]} />)}
         <View style={styles.divider} />
@@ -371,7 +373,7 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   buttonDisabled: { opacity: DISABLED_OPACITY },
   iconButton: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  pressed: { opacity: 0.65 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },
   chipActive: { backgroundColor: colors.primarySoft },
   // 텍스트·필기 바도 스티커·마테·사진 바(bar)와 같은 모양: 둥글기 16, 테두리 없음, 버튼 간격 2

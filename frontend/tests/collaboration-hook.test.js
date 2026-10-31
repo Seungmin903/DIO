@@ -6,6 +6,7 @@ import * as mediaModule from '../src/collaboration/canvasMedia.js'
 import * as apiModule from '../src/collaboration/canvasApi.js'
 import * as pagesModule from '../src/collaboration/serverPages.js'
 import * as sessionModule from '../src/collaboration/canvasSession.js'
+import * as serverPaperFontModule from '../src/diary/services/serverPaperFont.js'
 import * as memberStorage from '../src/diary/services/memberStorage.js'
 import {createInitialState,editorReducer} from '../src/editor/state/editorReducer.js'
 import {collaborationReducer} from '../src/collaboration/collaborationReducer.js'
@@ -51,6 +52,7 @@ function fixture(failure=null){
   if(name.endsWith('/canvasMediaFiles'))return {canvasMediaFiles:{cached:async()=>true}}
   if(name.endsWith('/canvasApi.js'))return apiModule
   if(name.endsWith('/canvasSession.js'))return sessionModule
+  if(name.endsWith('/serverPaperFont.js'))return serverPaperFontModule
   if(name.endsWith('/collaborationSocket.js'))return {connectCollaboration:options=>{onChange=options.onChange;onReady=options.onReady;onPagesChanged=options.onPagesChanged;return {close(){}}}}
   if(name.endsWith('/common.js'))return {createId:()=>`40000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`}
   return require(name)

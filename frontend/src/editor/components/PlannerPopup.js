@@ -110,7 +110,7 @@ export function PopupButton({ label, a11y = label, onPress }) {
 const styles = StyleSheet.create({
   card: {
     width: CARD.width, backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: LINE, overflow: 'hidden',
-    boxShadow: '0px 6px 18px rgba(41, 41, 41, 0.14)',
+    boxShadow: '0px 6px 18px rgba(41, 41, 41, 0.07)',
   },
   header: { height: CARD.header, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 6 },
   close: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },

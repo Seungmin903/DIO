@@ -153,6 +153,7 @@ test('텍스트 상자 선택 바의 복제 버튼은 문자열 복사를 호출
     '../controls/Icon': { __esModule: true, default: 'Icon' },
     '../LassoSelectionMenu': { __esModule: true, default: 'Lasso' },
     '../../utils/penSettings': { EDITOR_COLORS: [] },
+    '../../hooks/usePalettes': {}, // 공방 프리셋 저장소가 없으면 기본 펜 색을 쓴다
     '../../utils/popoverPlacement': placement,
     '../../utils/textFormats': formats,
     '../../utils/photoStrip': photoStrip,

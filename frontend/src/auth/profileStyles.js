@@ -41,7 +41,7 @@ export const profileStyles = StyleSheet.create({
   photoBadge: {
     width: 26,
     height: 26,
-    borderRadius: 13,
+    borderRadius: 12,
     backgroundColor: c.primaryStrong,
     alignItems: 'center',
     justifyContent: 'center',
@@ -65,11 +65,11 @@ export const profileStyles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 48,
     borderWidth: 1,
-    borderColor: c.border,
+    borderColor: c.primary, // 입력칸 경계는 흰색 위 3:1 이상(c.border 1.39:1은 장식용)
     borderRadius: radius.md,
     backgroundColor: c.surface,
   },
-  focused: { borderColor: c.primary },
+  focused: { borderColor: c.primaryStrong, borderWidth: 2 },
   input: {
     flex: 1,
     minWidth: 0,
@@ -91,7 +91,7 @@ export const profileStyles = StyleSheet.create({
   text: { color: c.text, fontSize: 14 },
   muted: { color: c.textMuted, fontSize: 13, lineHeight: 20 },
   hint: { minHeight: 22, marginTop: 8, fontSize: 12, lineHeight: 18, color: c.textMuted },
-  error: { color: c.danger, fontSize: 13, lineHeight: 19 },
+  error: { color: c.dangerStrong, fontSize: 13, lineHeight: 19 },
   button: {
     minHeight: 48,
     paddingHorizontal: 22,
@@ -106,9 +106,9 @@ export const profileStyles = StyleSheet.create({
   buttonText: { color: c.surface, fontSize: 14, fontWeight: '700' },
   secondary: { backgroundColor: c.surface, borderWidth: 1, borderColor: c.border },
   secondaryText: { color: c.text },
-  danger: { backgroundColor: c.danger },
+  danger: { backgroundColor: c.dangerStrong }, // 흰 글자 대비 6.0:1
   disabled: { opacity: DISABLED_OPACITY },
-  pressed: { opacity: 0.72 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   check: {
     minHeight: 48,
     paddingHorizontal: 16,

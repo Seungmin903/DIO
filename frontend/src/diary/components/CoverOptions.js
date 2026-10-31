@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   panel: { gap: 12 },
   elements: { gap: 8 },
   dim: { opacity: 0.4 },
-  pressed: { opacity: 0.6 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   subHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border },
   subTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
   off: { opacity: 0.45 },

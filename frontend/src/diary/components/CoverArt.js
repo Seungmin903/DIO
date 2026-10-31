@@ -20,6 +20,12 @@ const BASE = 200
 
 let nextGradientId = 0
 
+/** 표지 본체(고무줄이 튀어나올 만큼 안쪽으로 줄인 둥근 판)의 크기에 따른 값. 포커스 프레임(Cover)이 같은 값으로 본체를 감싼다. */
+export function coverBody(width, height) {
+  const scale = Math.min(width, height ?? width) / BASE
+  return { scale, bandOut: Math.max(0.75, 1.25 * scale), left: 6 * scale, right: 14 * scale }
+}
+
 /**
  * 고무줄 밴드. 로디아 · 몰스킨 하드커버 노트의 고무줄처럼 광택 없이 평평한 띠다.
  * 둘레(긴 변 · 위아래 끝)에 아주 얇은 어두운 선을 두고, 표지에서 살짝 떠 있도록 한쪽(세로는 오른쪽, 가로는 아래)에 옅은 그림자를 둔다.
@@ -468,7 +474,7 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, ligh
   const titleOrigin = useRef({ x: 0, y: 0 })
   const drafts = useRef(null)
   if (!drafts.current) drafts.current = createDraftStore()
-  const scale = Math.min(width, height ?? width) / BASE
+  const { scale, bandOut, left: cornerLeft, right: cornerRight } = coverBody(width, height)
   if (!cover.enabled) return <View style={[styles.none, { borderRadius: 6 * scale }]}>
     <Text style={styles.noneTitle}>표지 없음</Text>
   </View>
@@ -502,7 +508,6 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, ligh
   const titleFont = textStyle({ font: cover.title.font, fontSize: cover.title.size * (FONT_SCALE[cover.title.font] ?? 1), color: cover.title.color, bold: true, lineSpacing: 1.15 }, scale, Platform.OS)
   const bandWidth = Math.max(4.5, 9 * scale)
   // 실제 고무줄처럼 표지 위아래(가로 띠는 좌우) 가장자리 밖으로 살짝 튀어나온다
-  const bandOut = Math.max(0.75, 1.25 * scale)
   // 표지 본체 크기. 고무줄을 켜고 끄거나 방향을 바꿔도 표지 크기가 달라지지 않게 늘 네 변을 bandOut 만큼 줄인다.
   const bodyWidth = width - bandOut * 2, bodyHeight = (height ?? width) - bandOut * 2
   // 'auto' 는 표지 색을 같은 계열로 조금 어둡게 한 고무줄 (사진 표지는 따를 바탕색이 없어 기본 남색)
@@ -535,7 +540,7 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, ligh
     edit.onChange({ ...cover, stickers: [...cover.stickers, copy] })
     select(copy.id)
   }
-  const corners = { borderTopLeftRadius: 6 * scale, borderBottomLeftRadius: 6 * scale, borderTopRightRadius: 14 * scale, borderBottomRightRadius: 14 * scale }
+  const corners = { borderTopLeftRadius: cornerLeft, borderBottomLeftRadius: cornerLeft, borderTopRightRadius: cornerRight, borderBottomRightRadius: cornerRight }
   // 표지 본체는 고무줄이 튀어나올 만큼 안쪽으로 줄여 둥근 모서리로 자르고, 고무줄은 이 영역 끝까지 그린다.
   // 튀어나온 끝이 영역 안에 있어 목록 · 스와이프 · 편집 어디서 부모가 잘라도 똑같이 보인다.
   // 띠지는 고무줄 아래(고무줄이 띠지 위로 지나감), 종이 라벨 · 판 없음과 스티커는 고무줄 위에 놓인다.
@@ -610,7 +615,7 @@ const styles = StyleSheet.create({
   stickerBar: { position: 'absolute', width: BAR.width, height: BAR.height, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 2, borderRadius: 12,
     backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,138,195,0.2)', shadowColor: colors.text, shadowOpacity: 0.16, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
   barButton: { width: 42, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  barPressed: { backgroundColor: colors.primarySoft },
+  barPressed: {}, // 눌림 효과 없음(사용자 지시)
   none: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, backgroundColor: 'rgba(255,255,255,.7)' },
   noneTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
 })

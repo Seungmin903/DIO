@@ -117,9 +117,9 @@ const styles = StyleSheet.create({
   pageNumber: { width: 58, fontSize: 11, fontWeight: '700', color: colors.text, textAlign: 'center', fontVariant: ['tabular-nums'] },
   pager: { flex: 1, minWidth: 0, maxWidth: 520, flexDirection: 'row', alignItems: 'center', marginHorizontal: 'auto' },
   readingActions: { flexDirection: 'row', marginLeft: 4, flexShrink: 0 },
-  modeControls: { position: 'absolute', right: 12, bottom: 12, height: 52, padding: 4, flexDirection: 'row', alignItems: 'center', borderRadius: 14, backgroundColor: colors.surface, zIndex: 30, ...shadow.card },
+  modeControls: { position: 'absolute', right: 12, bottom: 12, height: 52, padding: 4, flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: colors.surface, zIndex: 30, ...shadow.card },
   action: { width: 44, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  pressed: { opacity: 0.65 }, disabled: { opacity: DISABLED_OPACITY },
+  pressed: {}, disabled: { opacity: DISABLED_OPACITY }, // 눌림 효과 없음(사용자 지시)
   track: { flex: 1, minWidth: 8, height: 44, justifyContent: 'center', marginHorizontal: 8, touchAction: 'none' },
   trackLine: { height: 4, borderRadius: 2, backgroundColor: colors.primarySoft },
   fill: { position: 'absolute', height: 4, borderRadius: 2, backgroundColor: colors.primary },

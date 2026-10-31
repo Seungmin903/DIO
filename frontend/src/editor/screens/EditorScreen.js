@@ -76,7 +76,7 @@ const exportEnabled = true
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 // 폰: 도구 막대가 작업창 밖(위·오른쪽)에 있어서 스테이지에는 되돌리기 바 여백만 남긴다.
-const PHONE_STAGE_PADDING = { top: 16, bottom: 68, side: 12 }
+const PHONE_STAGE_PADDING = { top: 24, bottom: 68, side: 12 } // 도구 막대 아래 여백 24(코덱스 안)
 
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
 // compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 상단 도구 막대),
@@ -750,12 +750,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 패널은 오른쪽 바깥 여백(16)을 덮으므로 작업창 폭은 패널 폭 + 간격 - 16 만큼 바뀐다.
   const toggleLayers = (open) => {
     if (open === showLayers) return
-    if (compact && open) setPagesOpen(false)
+    // 페이지 목록과 레이어는 동시에 펼치지 않는다. 한쪽을 열면 다른 쪽은 닫는다(캔버스가 양쪽에서 밀리지 않게).
+    const closePages = open && showPages
+    if (closePages) setPagesOpen(false)
     setLayersOpen(open)
     // 폰은 레이어를 작업창 위에 띄우므로 작업창 크기가 그대로다.
     if (compact) return
     const delta = LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING
-    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) })
+    const pagesDelta = closePages ? PAGE_LIST_WIDTH + BODY_GAP : 0
+    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) + pagesDelta })
   }
 
   // 리본(태블릿)과 폰 도구 막대가 함께 쓰는 도구·보관함·내보내기 동작
@@ -817,13 +820,16 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const open = !showPages
     pagePanelMeasurement.current?.dispose()
     pagePanelMeasurement.current = startPagePanelMeasurement({ open, tool: activeTool, objects: page.objects.length, pages: state.doc.pages.length })
-    if (compact && open) setLayersOpen(false)
+    // 레이어 패널과 동시에 펼치지 않는다.
+    const closeLayers = open && showLayers
+    if (closeLayers) setLayersOpen(false)
     setPagesOpen(open)
     // 작업창 왼쪽 끝이 움직이므로 새 크기를 같은 화면에서 바로 써서 한 번에 맞춘다.
     // (측정값을 기다리면 페이지가 왼쪽 끝을 따라 한 번 밀렸다가 다시 가운데로 와서 두 번 움직였다)
     // 폰은 페이지 목록을 작업창 위에 띄우므로 작업창 크기가 그대로다.
     const delta = compact ? 0 : PAGE_LIST_WIDTH + BODY_GAP
-    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) })
+    const layersDelta = !compact && closeLayers ? LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING : 0
+    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) + layersDelta })
   }
   const switchLayers = () => {
     setFocusMode(false)
@@ -1389,7 +1395,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
   // 폰 가로 편집: 양옆 막대만큼 작업창을 비켜 둔다. 읽기는 양쪽 막대를 숨긴다.
   rootBetweenRails: { paddingLeft: PHONE_TOOLBAR_RAIL, paddingRight: PHONE_TOOLBAR_RAIL },
-  focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
+  focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   focusExitPortrait: { top: 72 },
   focusExitText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: BODY_PADDING },
@@ -1399,7 +1405,7 @@ const styles = StyleSheet.create({
   phonePanel: { position: 'absolute', top: 8, bottom: 8, zIndex: 20, flexDirection: 'row', ...shadow.float },
   phonePanelLeft: { left: 8 },
   phonePanelRight: { right: 8, maxWidth: '86%' },
-  stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 18 },
+  stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 16 },
   textPaletteWrap: { position: 'absolute', maxWidth: '100%' },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
   lassoSettingsWrap: { position: 'absolute', top: 76, left: 12, right: 12, alignItems: 'center' },
@@ -1414,7 +1420,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
     padding: 4,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.95)',
     ...shadow.card,
   },
@@ -1425,7 +1431,7 @@ const styles = StyleSheet.create({
   floatingDivider: { width: 1, height: 20, backgroundColor: colors.border },
   roundButton: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   roundActive: { backgroundColor: colors.primarySoft },
-  roundPressed: { opacity: 0.65 },
+  roundPressed: {}, // 눌림 효과 없음(사용자 지시)
   roundDisabled: { opacity: DISABLED_OPACITY },
   toast: {
     position: 'absolute',

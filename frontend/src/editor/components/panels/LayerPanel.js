@@ -15,7 +15,7 @@ import TapeView from '../canvas/TapeView'
 import ObjectContent from '../canvas/ObjectView'
 import { isStripFrame } from '../../utils/photoStrip'
 
-const ROW_HEIGHT = 62
+const ROW_HEIGHT = 48 // 레이어 행 높이 48(코덱스 안)
 const ROW_GAP = 2
 const ROW_STEP = ROW_HEIGHT + ROW_GAP
 // 끌기 중 자동 스크롤: 목록 위·아래 끝에서 이만큼 안쪽부터, 끝에 가까울수록(바깥으로 나갈수록) 빨리 넘긴다 (페이지 목록과 같다)
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     marginRight: -16,
     borderLeftWidth: 1,
     borderLeftColor: 'rgba(11,23,102,0.08)',
-    backgroundColor: '#E4ECF7',
+    backgroundColor: colors.surfaceSoft, // 열린 패널 바탕은 앱 바탕색(#F7F8FD)
   },
   close: { padding: 4 },
   header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10 },
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     height: 36, // 여러 개 고르기 막대로 바뀌어도 높이가 같아 목록이 밀리지 않게
   },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  title: { fontSize: 19, fontWeight: '700', color: colors.text },
+  title: { fontSize: 20, fontWeight: '700', color: colors.text },
   nameInput: {
     height: 30,
     paddingHorizontal: 6,
@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
   rowDragging: {
     backgroundColor: '#F5F6FC',
     shadowColor: colors.text,
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.09,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 5,

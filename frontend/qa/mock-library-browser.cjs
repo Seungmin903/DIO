@@ -209,9 +209,9 @@ const server = http.createServer((req, res) => {
       // 240: 기존 카드 삭제·관리 선택·휴지통 화면을 그대로 사용한다.
       const nav = label => p.getByRole(viewport.width < 600 ? 'tab' : 'button',{name:label,exact:true}).last();
       await button('이동·복원 정상').click();
-      await button('여행 기록 휴지통으로 이동').click();
+      await button('여행 기록 더보기').click();await button('여행 기록 휴지통으로 이동').click();
       await button('취소').click();assert.equal(await button('여행 기록 열기').count(),1);
-      await button('여행 기록 휴지통으로 이동').click();await button('휴지통으로 옮기기').click();
+      await button('여행 기록 더보기').click();await button('여행 기록 휴지통으로 이동').click();await button('휴지통으로 옮기기').click();
       await p.getByText('처리 완료 1개 · 실패 0개',{exact:true}).waitFor();
       await nav('휴지통').click();await button('여행 기록 복원').waitFor();
       assert.equal(await button('여행 기록 영구 삭제').count(),1);
@@ -242,7 +242,7 @@ const server = http.createServer((req, res) => {
       await button('실패 항목 다시 시도').waitFor();await button('이동·복원 정상').click();await button('실패 항목 다시 시도').click();
       await p.getByText('휴지통이 비어 있어요',{exact:true}).waitFor(); await button('처리 결과 닫기').waitFor();
       await nav(viewport.width < 600 ? '다이어리' : '모든 다이어리').click();await button('여행 기록 열기').waitFor();
-      await button('여행 기록 휴지통으로 이동').click();await button('휴지통으로 옮기기').click();
+      await button('여행 기록 더보기').click();await button('여행 기록 휴지통으로 이동').click();await button('휴지통으로 옮기기').click();
       await p.getByText('처리 완료 1개 · 실패 0개',{exact:true}).waitFor();
       await nav('휴지통').click();await button('여행 기록 복원').waitFor();
       await button('복원 기한 만료').click();await button('여행 기록 복원').click();await button('복원하기').click();
@@ -262,13 +262,13 @@ const server = http.createServer((req, res) => {
       await button('여행 기록 영구 삭제').waitFor({state:'detached'});
       await nav(viewport.width < 600 ? '다이어리' : '모든 다이어리').click();
       await button('함께 쓰는 일기 열기').waitFor();assert.equal(await button('여행 기록 열기').count(),0);
-      await button('이동·복원 정상').click();await button('함께 쓰는 일기 휴지통으로 이동').click();await button('휴지통으로 옮기기').click();
+      await button('이동·복원 정상').click();await button('함께 쓰는 일기 더보기').click();await button('함께 쓰는 일기 휴지통으로 이동').click();await button('휴지통으로 옮기기').click();
       await button('처리 결과 닫기').waitFor();await nav('휴지통').click();await button('함께 쓰는 일기 영구 삭제').waitFor();
       await button('이동·복원 응답 유실').click();await button('함께 쓰는 일기 영구 삭제').click();await button('영구 삭제하기').click();
       await button('실패 항목 다시 시도').waitFor();await button('이동·복원 정상').click();await button('실패 항목 다시 시도').click();
       await button('처리 결과 닫기').waitFor();await p.getByText('휴지통이 비어 있어요',{exact:true}).waitFor();
       await nav(viewport.width < 600 ? '다이어리' : '모든 다이어리').click();await button('QA 수정 응답유실 열기').waitFor();
-      await button('QA 수정 응답유실 휴지통으로 이동').click();await button('휴지통으로 옮기기').click();await button('처리 결과 닫기').waitFor();
+      await button('QA 수정 응답유실 더보기').click();await button('QA 수정 응답유실 휴지통으로 이동').click();await button('휴지통으로 옮기기').click();await button('처리 결과 닫기').waitFor();
       await nav('휴지통').click();await button('QA 수정 응답유실 복원').waitFor();
       await button('목 서버 30일 경과').click();
       await p.getByText('보관 기한 만료 · 복원할 수 없어요',{exact:true}).waitFor();

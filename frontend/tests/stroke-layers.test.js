@@ -26,6 +26,7 @@ function loadComponent(file, platform = 'ios', cacheOverride = null) {
     if (id.endsWith('/completedStrokePlan.js')) return planner
     if (id.endsWith('/pageGeometry.js')) return geometry
     if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
+    if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' }
     if (id === './ObjectView') return contexts
     if (['./PageObject', '../PageBackground', './CompletedStrokeLayer', './WebStrokeCache'].includes(id)) return { __esModule: true, default: id }
     return require(id)

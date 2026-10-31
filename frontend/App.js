@@ -3,7 +3,9 @@ import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
 import MemberLibraryNotice from './src/diary/components/MemberLibraryNotice';
 import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'react-native';
+import { AppState, BackHandler, Platform, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
+import PinScreen from './src/diary/components/PinScreen';
+import { appLockScope, checkAppLock, clearAppLock, hasAppLock } from './src/shared/appLock';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
@@ -47,6 +49,8 @@ import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
 import { randomUUID } from 'expo-crypto';
 import { createId, setUuidGenerator } from './src/editor/utils/common';
 import HandwritingStudio from './src/handwriting/HandwritingStudio';
+import { useFonts } from 'expo-font';
+import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
 
 // 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
 if (Platform.OS !== 'web') setUuidGenerator(randomUUID);
@@ -59,6 +63,8 @@ const EDITOR_PREPARE_LIMIT_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function App() {
+  // 앱 UI 글꼴(Pretendard)을 처음 그리기 전에 불러온다. 못 불러오면(fontError) 기본 글꼴로 그대로 연다
+  const [fontsLoaded, fontError] = useFonts(PRETENDARD_FILES);
   const [previewSession, setPreviewSession] = useState(null);
   const endSession = async () => {
     try {
@@ -70,6 +76,7 @@ export default function App() {
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
   const SessionDiaryApp = previewSession?.mode === 'authenticated' ? MemberDiaryApp : LocalDiaryApp;
+  if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider} />;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-sharing') {
     const SharingFixture = require('./tests/fixtures/diary-sharing.fixture').default;
     return <SharingFixture />;
@@ -132,6 +139,26 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     };
   }, []);
   const authenticatedNotifications = useOptionalSharedNotifications();
+  // 앱 잠금(내 공간 → 보안): 이 계정에 잠금이 있으면 세션을 열 때와 백그라운드에서 돌아올 때 비밀번호 화면으로 덮는다(null = 읽는 중)
+  const lockScope = appLockScope(previewUser);
+  const [appLocked, setAppLocked] = useState(null);
+  useEffect(() => {
+    let alive = true, away = false;
+    hasAppLock(lockScope).then(value => { if (alive) setAppLocked(value); }).catch(() => { if (alive) setAppLocked(false); });
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'background') away = true;
+      else if (state === 'active' && away) {
+        away = false;
+        hasAppLock(lockScope).then(value => { if (alive && value) setAppLocked(true); }).catch(() => {});
+      }
+    });
+    return () => { alive = false; subscription.remove(); };
+  }, [lockScope]);
+  // 회원은 비밀번호를 잊으면 로그아웃으로 잠금을 푼다(다시 로그인해야 들어온다). 게스트는 되찾을 길이 없어 두지 않는다
+  const forgotAppLock = previewUser.mode === 'authenticated' ? () => confirmAction({
+    title: '비밀번호를 잊었나요?', message: '로그아웃하면 이 계정의 앱 잠금이 풀려요.', confirmLabel: '로그아웃',
+    onConfirm: async () => { await clearAppLock(lockScope).catch(() => {}); onEndPreview(); },
+  }) : undefined;
   const [sharingRequest, setSharingRequest] = useState(null);
   const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
   const openInvitations = useCallback(() => {
@@ -449,7 +476,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         setSaving(false);
       }
     }
-    // 수정에서 속지 스타일을 바꾸면 새 페이지에 쓸 색을 바꾸고, '모든 페이지'면 이미 있는 페이지도 칠한다.
+    // 수정에서 속지 스타일(종이 색 · 선 색 · 글꼴)을 바꾸면 새 페이지에 쓸 값을 바꾸고, '모든 페이지'면 이 다이어리에 이미 있는 페이지도 바꾼다. 다른 다이어리는 건드리지 않는다.
     if (original && JSON.stringify(normalizePaperAppearance(original.paperAppearance)) !== JSON.stringify(paperAppearance)) {
       savingRef.current = true;
       setSaving(true);
@@ -774,6 +801,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           filter={filter}
           navigate={navigate}
           bottomInset={insets.bottom}
+          user={previewUser}
+          getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
           collapsed={railCollapsed}          onToggle={() => setRailCollapsed((current) => !current)}
         />
         <View style={[s.workspace, { paddingBottom: insets.bottom }, desk && { overflow: 'hidden' }]} onLayout={deskLayout}>
@@ -817,6 +846,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           {insets.right > 0 && <View style={{ width: insets.right, backgroundColor: safeAreaColors.right }} />}
         </View>
       </View>
+      {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.white }]} />}
+      {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
+        check={value => checkAppLock(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}
     </>
   );
 }

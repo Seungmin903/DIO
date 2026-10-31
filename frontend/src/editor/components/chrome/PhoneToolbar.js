@@ -129,7 +129,7 @@ function Tool({ icon, label, active, onPress, color }) {
 
 const card = {
   padding: 4,
-  borderRadius: 20,
+  borderRadius: 16,
   borderWidth: 1,
   borderColor: 'rgba(129,138,195,0.2)',
   backgroundColor: 'rgba(255,255,255,0.97)',
@@ -153,8 +153,8 @@ const styles = StyleSheet.create({
   railGroup: { alignItems: 'center', gap: 2 },
   railDivider: { width: 28, height: 1, marginVertical: 5, backgroundColor: 'rgba(11,23,102,0.12)' },
   // iOS HIG 최소 터치 영역 44pt
-  tool: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  toolActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  toolPressed: { opacity: 0.65 },
+  tool: { width: 44, height: 44, borderRadius: 10, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  toolActive: { backgroundColor: colors.surface, borderColor: colors.primary }, // 선택: 흰 면 + 테두리 2px
+  toolPressed: {}, // 눌림 효과 없음(사용자 지시)
   colorLine: { position: 'absolute', bottom: 5, width: 16, height: 3, borderRadius: 2 },
 })

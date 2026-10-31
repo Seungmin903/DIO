@@ -51,5 +51,5 @@ const styles = StyleSheet.create({
   resetText: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   hint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   disabled: { opacity: DISABLED_OPACITY },
-  pressed: { opacity: 0.65 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

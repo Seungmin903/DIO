@@ -89,5 +89,5 @@ function covered(frame, box, size, above) {
 
 const styles = StyleSheet.create({
   plus: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  pressed: { opacity: 0.5 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

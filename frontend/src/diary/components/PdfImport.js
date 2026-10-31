@@ -47,10 +47,10 @@ export default function PdfImport({ pdf, busy, progress, disabled, onPick, onCle
   return <>
     <OptionRow label="PDF">
       <View style={styles.line}>
-        <Pressable accessibilityRole="button" accessibilityLabel="PDF 불러오기" accessibilityState={{ busy, disabled: disabled || busy }} disabled={disabled || busy} onPress={onPick}
+        <Pressable accessibilityRole="button" accessibilityLabel="PDF에서 시작하기" accessibilityState={{ busy, disabled: disabled || busy }} disabled={disabled || busy} onPress={onPick}
           style={({ pressed }) => [styles.button, (disabled || busy) && styles.dim, pressed && styles.pressed]}>
           <Icon name="upload" size={16} />
-          <Text style={styles.buttonText}>{busy ? (progress?.total ? `불러오는 중 ${progress.done}/${progress.total}` : '여는 중…') : pdf ? 'PDF 바꾸기' : 'PDF 불러오기'}</Text>
+          <Text style={styles.buttonText}>{busy ? (progress?.total ? `불러오는 중 ${progress.done}/${progress.total}` : '여는 중…') : pdf ? 'PDF 바꾸기' : 'PDF에서 시작하기'}</Text>
         </Pressable>
         {pdf && !busy ? <Pressable accessibilityRole="button" accessibilityLabel="불러온 PDF 빼기" disabled={disabled} onPress={onClear} hitSlop={6}
           style={({ pressed }) => [styles.clear, pressed && styles.pressed]}><Icon name="close" size={16} color={colors.textMuted} /></Pressable> : null}
@@ -109,7 +109,7 @@ export function MyPaperList({ items, selectedId, onPick, onRemove, disabled }) {
 
 const styles = StyleSheet.create({
   dim: { opacity: 0.4 },
-  pressed: { opacity: 0.6 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   thumb: { backgroundColor: '#FFFFFF', overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   line: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   button: { height: 44, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },

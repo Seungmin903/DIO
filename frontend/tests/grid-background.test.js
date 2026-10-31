@@ -43,6 +43,8 @@ function fixture() {
     if (id.endsWith('/loadTemplate')) return { peekTemplateAst: () => ast }
     if (id.endsWith('/appearance.js')) return { colorTemplateAst, normalizePaperAppearance: a => ({ backgroundColor: a?.backgroundColor ?? '#FFFFFF', layoutColor: '#292929' }) }
     if (id.endsWith('/pageGeometry.js')) return { pageSize: () => ({ width: 1024, height: 768 }) }
+    if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' } // 속지는 정해진 글꼴 구역 안에서 그린다
+    if (id.endsWith('/paperFont.js')) return { swapPaperFont: xml => xml } // 속지 글꼴 바꾸기는 paper-font.test.js 가 본다
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)

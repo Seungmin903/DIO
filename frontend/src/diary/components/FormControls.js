@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   rowLabel: { width: 64, paddingTop: 11, color: colors.textMuted, fontSize: 12.5, fontWeight: '700' },
   rowValue: { flex: 1, minWidth: 0, gap: 8 },
   dim: { opacity: 0.4 },
-  pressed: { opacity: 0.6 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   number: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   step: { width: 40, height: 40, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
   numberInput: { width: 56, height: 40, borderRadius: 9, borderWidth: 1, borderColor: colors.border, textAlign: 'center', color: colors.text, fontSize: 14, fontWeight: '800', backgroundColor: colors.surface, padding: 0 },
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   checkWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   autoText: { fontSize: 10.5, fontWeight: '800' },
   picker: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
-  element: { borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
+  element: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
   elementOpen: { borderColor: colors.primary },
   elementHead: { flexDirection: 'row', alignItems: 'center', paddingLeft: 10 },
   elementToggle: { paddingRight: 12 },

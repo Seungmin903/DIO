@@ -8,7 +8,8 @@ import EditorModal from '../../editor/components/controls/EditorModal';
 import EmptyState from '../components/EmptyState';
 import Header from '../components/Header';
 import Cover from '../components/Cover';
-import { isTrashExpired, trashDeadline, trashStatus } from '../utils/trashRetention';
+import ProgressRing from '../components/ProgressRing';
+import { TRASH_RETENTION_MS, isTrashExpired, trashDeadline, trashStatus } from '../utils/trashRetention';
 import { isAllSelected, isTrashUrgent, pruneSelection, selectableIds, splitSelection, toggleSelection } from '../utils/trashSelection';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -16,11 +17,14 @@ const DAY = 24 * 60 * 60 * 1000;
 // 보관함 카드(DiaryCard)처럼 memo 로 감싸 메뉴를 여닫을 때 값이 같은 카드(표지 · 패턴)는 다시 그리지 않는다.
 // now 같이 매번 바뀌는 값은 카드에 넘기지 않고 계산한 문구·불리언만 넘긴다.
 // 누르면 동작 시트(복원 · 영구 삭제)를 열고, 선택 모드에서는 보관함 편집처럼 체크만 바꾼다.
-const TrashCard = memo(function TrashCard({ diary, compact, portrait, status, urgent, selecting, selected, selectable, onPress, onLongPress }) {
+const TrashCard = memo(function TrashCard({ diary, compact, portrait, status, urgent, remaining, selecting, selected, selectable, onPress, onLongPress }) {
+  // 세로 표지는 칸보다 좁아 가운데에 놓인다. 제목 · 남은 기간을 홈 한눈에 보기처럼 그 표지의 왼쪽 끝에 맞추려고 Cover 가 알려 주는 값
+  const [coverInset, setCoverInset] = useState(0);
   return (
     <Pressable
       accessibilityRole={selecting ? 'checkbox' : 'button'}
-      accessibilityLabel={selecting ? `${diary.title} 선택` : `${diary.title} 복원 또는 영구 삭제`}
+      // 남은 기간(status)을 이름에 함께 넣어 화면 읽기 프로그램에서도 임박 여부를 알 수 있게 한다(색 · 고리만으로 전하지 않는다)
+      accessibilityLabel={selecting ? `${diary.title} 선택, ${status}` : `${diary.title}, ${status}, 복원 또는 영구 삭제`}
       accessibilityState={selecting ? { checked: selected, disabled: !selectable } : undefined}
       aria-checked={selecting ? selected : undefined}
       disabled={selecting && !selectable}
@@ -29,14 +33,21 @@ const TrashCard = memo(function TrashCard({ diary, compact, portrait, status, ur
       style={({ pressed }) => [s.trashCard, compact && s.trashCardCompact, portrait && s.trashCardPortrait, selecting && !selectable && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
     >
       <View style={[s.trashCover, compact && s.trashCoverCompact]}>
-        <Cover diary={diary} grid fill centered compact={compact}>
+        <Cover diary={diary} grid fill centered compact={compact} onInset={setCoverInset}>
           {selecting && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
             {selected && <AppIcon name="check" size={18} color={C.white} strokeWidth={2.6} />}
           </View>}
         </Cover>
       </View>
-      <Text numberOfLines={1} style={s.trashTitle}>{diary.title}</Text>
-      <Text style={[s.trashDate, urgent && s.trashDateUrgent]}>{status}</Text>
+      {/* 제목 자리는 홈 한눈에 보기(cardInfoGrid)와 같다: 표지 왼쪽 끝에 맞추고 안쪽 여백 4 · 위 10 */}
+      <View style={[s.trashInfo, coverInset > 0 && { marginLeft: coverInset }]}>
+        <Text numberOfLines={1} style={s.trashTitle}>{diary.title}</Text>
+        {/* 남은 기간: 고리 + 글자. 3일 이하는 버터 칩 + 네이비 글자(적색을 쓰지 않는다) */}
+        <View style={[s.trashDateRow, urgent && s.trashDateRowUrgent]}>
+          {remaining != null && <ProgressRing ratio={remaining} />}
+          <Text style={[s.trashDate, urgent && s.trashDateUrgent]}>{status}</Text>
+        </View>
+      </View>
     </Pressable>
   );
 });
@@ -71,7 +82,7 @@ function TrashSheet({ diary, status, busy, canRestore, canDelete, onRestore, onD
               onPress={() => onDelete(diary)}
               style={({ pressed }) => [s.trashSheetDanger, busy && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
             >
-              <AppIcon name="trash" size={18} color={C.danger} />
+              <AppIcon name="trash" size={18} color={C.dangerStrong} />
               <Text style={s.trashSheetDangerText}>영구 삭제</Text>
             </Pressable>}
           </View>
@@ -110,6 +121,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
         ? (diary.retentionStatus === 'EXPIRED' ? '보관 기한 만료 · 복원할 수 없어요' : diary.expiresAt ? `${Math.max(0, Math.ceil((deadline - at) / DAY))}일 후 영구 삭제` : '보관 기한 확인 필요')
         : trashStatus(diary, at),
       urgent: isTrashUrgent(deadline, at),
+      remaining: Number.isFinite(deadline) ? Math.max(0, Math.min(1, (deadline - at) / TRASH_RETENTION_MS)) : null, // 보관 기간(30일) 대비 남은 비율(고리)
       canRestore: Boolean(restore || latest.current.onRestoreMany) && (server ? Boolean(diary.canRestore) : !isTrashExpired(diary, at)),
       canDelete: Boolean(purge || purgeMany) && (!server || diary.canPermanentlyDelete === true),
     };
@@ -136,6 +148,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
   const header = (
     <Header
       title="휴지통"
+      icon="bin"
       compact={compact}
       right={rows.length ? (
         <Pressable
@@ -209,10 +222,10 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
         </Pressable>
       </View>}
       {!rows.length ? (suppressEmpty ? null :
-        <EmptyState compact={compact} title="휴지통이 비어 있어요" />
+        <EmptyState compact={compact} art="duri" raised title="휴지통이 비어 있어요" />
       ) : (
         <View style={[s.trashGrid, compact && s.trashGridCompact]}>
-          {rows.map(({ diary, status, urgent, canRestore, canDelete }) => (
+          {rows.map(({ diary, status, urgent, remaining, canRestore, canDelete }) => (
             <TrashCard
               key={diary.id}
               diary={diary}
@@ -220,6 +233,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
               portrait={portrait}
               status={status}
               urgent={urgent}
+              remaining={remaining}
               selecting={selecting}
               selected={selecting && selected.includes(diary.id)}
               selectable={canRestore || canDelete}

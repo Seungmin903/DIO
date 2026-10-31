@@ -19,7 +19,7 @@ const MODES = [
 ]
 const FORMATS = [{ id: 'png', label: 'PNG' }, { id: 'pdf', label: 'PDF' }, { id: 'gif', label: 'GIF' }]
 const RUN_TITLES = { png: 'PNG 만들기', pdf: 'PDF 만들기', gif: 'GIF 만들기' }
-const BUBBLE_WIDTH = 380
+const BUBBLE_WIDTH = 360 // 코덱스 21번: 내보내기 버튼 아래 360 폭 앵커 패널
 
 /** 무엇을·어떤 형식으로 내보낼지 고르는 말풍선. 만들기를 누르면 닫히고, 만들기·저장은 편집 화면이 화면 없이 진행한다 (ExportRunner) */
 export default function ExportMenu({ mobilePortrait = false, anchor, doc, currentId, onClose, onRegion, onPng, onGif, onPdf }) {
@@ -120,12 +120,12 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
   </EditorModal>
 }
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.surface }, // 둥글기·그림자는 공용 옵션 창(카드)을 따른다
+  card: { backgroundColor: colors.surface }, // 둥글기 12·테두리·그림자 없음은 공용 옵션 창(카드)을 따른다
   portraitRoot: { flex: 1 },
   portraitCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 16 },
   // 말풍선 꼬리: 카드 위쪽에서 내보내기 버튼 가운데를 가리킨다
-  tail: { position: 'absolute', width: 16, height: 16, borderRadius: 3, backgroundColor: colors.surface, transform: [{ rotate: '45deg' }] },
+  tail: { position: 'absolute', width: 16, height: 16, borderRadius: 3, backgroundColor: colors.surface, borderLeftWidth: 1, borderTopWidth: 1, borderColor: colors.cardBorder, transform: [{ rotate: '45deg' }] },
   notice: { gap: 6 },
   hint: { color: colors.textMuted, fontSize: 12.5, lineHeight: 19 },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -134,6 +134,6 @@ const styles = StyleSheet.create({
   tileThumb: { width: 96, overflow: 'hidden', borderRadius: 4, backgroundColor: colors.surface },
   tileText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
   tileTextOn: { color: colors.primaryStrong },
-  spec: { height: 42, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 11, color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'left', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
+  spec: { height: 40, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 10, color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'left', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
   input: { width: 56, height: 38, borderWidth: 1, borderColor: colors.border, borderRadius: 10, textAlign: 'center', color: colors.text, fontSize: 14, fontWeight: '700' },
 })

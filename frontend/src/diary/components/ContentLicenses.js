@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   close: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingTop: 4, gap: 16 },
   search: { marginHorizontal: 20, marginBottom: 12, minHeight: 44, borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 12, color: C.ink, backgroundColor: C.white },
-  card: { padding: 20, backgroundColor: C.white, borderRadius: 16, borderWidth: 1, borderColor: C.line, gap: 8 },
+  card: { padding: 20, backgroundColor: C.white, borderRadius: 12, borderWidth: 1, borderColor: C.line, gap: 8 },
   name: { color: C.ink, fontSize: 19, fontWeight: '700' },
   body: { color: C.ink, fontSize: 14, lineHeight: 22 },
   notice: { color: C.inkSoft, fontSize: 13, lineHeight: 21, marginTop: 4 },

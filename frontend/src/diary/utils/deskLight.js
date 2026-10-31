@@ -10,7 +10,7 @@
 // 패치가 꺼지는 행(잔광)의 patch 는 앞뒤 광원의 모양을 이어 붙여, 보간해도 패치가 가로질러 쓸려 가지 않는다(그 구간은 불투명도가 0).
 
 export const DESK_COLORS = {
-  base: '#E9E8FB', // 상판 기본색(원목 + 푸른 기 + 그늘의 평균). 그림이 뜨기 전 · 안전 영역에 쓴다
+  base: '#F3F3F7', // 상판 기본색: 꾸미기 공방 · 휴지통 · 내 공간과 같은 앱 바탕(surfaceSoft) 단색. 사진 · 질감 없이 이 색 위에 시간대 빛만 얹는다
 }
 
 export const CYCLE = [
@@ -131,7 +131,8 @@ export function deskLightAt(hours) {
 
 // 책상 위 글씨색을 고르는 기준: 그 시각 상판의 겉보기 밝기(상대 휘도). 해 질 녘 · 밤에는 곤색 글씨의 대비가 흰 글씨보다 낮아진다(휘도 약 0.27 부근).
 // 중간 회색으로 섞으면 어느 쪽도 읽히지 않아서 기준을 넘으면 한 번에 바꾼다.
-const DARK_DESK_LUMINANCE = 0.265
+// 단색 상판(base #F3F3F7)으로 바꾼 뒤에도 글씨색이 같은 시각(약 05:15 · 19:45)에 뒤집히도록 맞춘 문턱(옛 원목 상판은 0.265)
+const DARK_DESK_LUMINANCE = 0.285
 const linear = value => { const v = value / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
 export function deskLuminanceAt(hours) {
   const light = deskLightAt(hours)

@@ -11,7 +11,7 @@ import { PAPERS, countAssetId, papersIn, paperById } from '../src/diary/utils/pa
 import { editorReducer, createInitialState } from '../src/editor/state/editorReducer.js'
 import { createText } from '../src/editor/utils/text.js'
 
-const HL = { kind: 'highlighter', color: '#FFE066' }
+const HL = { kind: 'highlighter', color: '#F7DF8A' }
 const PEN = { kind: 'fountain', color: '#EF476F' }
 const [YELLOW, PINK, GREEN, BLUE] = DAY_PALETTE
 const at = (h, m = 0) => h * 60 + m
@@ -119,10 +119,10 @@ test('겹치는 일정은 같은 열 안에서 폭을 나눠 나란히 놓고, �
 
 test('기록을 읽을 때 잘못된 값은 버리고, 색이 없는 일정은 그대로 둔다', () => {
   const p = normalizeDayPlanner({
-    rows: { 0: { color: '#ffe066', start: 540, dur: 60 }, 1: { color: 'red', start: 10, dur: 10 }, 2: { start: 600 }, 3: { color: PINK, start: 2000, dur: 60 }, 99: { color: YELLOW }, x: { color: YELLOW }, 4: { color: BLUE, start: 60, dur: 0 } },
+    rows: { 0: { color: '#f7df8a', start: 540, dur: 60 }, 1: { color: 'red', start: 10, dur: 10 }, 2: { start: 600 }, 3: { color: PINK, start: 2000, dur: 60 }, 99: { color: YELLOW }, x: { color: YELLOW }, 4: { color: BLUE, start: 60, dur: 0 } },
     checks: { 0: '#EF476F', 12: '#EF476F' }, lane: { 0: YELLOW }, day: { i: 9, color: PINK }, date: { y: 2026, m: 2, d: 30 },
   })
-  assert.deepEqual(p.rows[0], { color: '#FFE066', start: 540, dur: 60 })
+  assert.deepEqual(p.rows[0], { color: '#F7DF8A', start: 540, dur: 60 })
   assert.deepEqual(p.rows[1], { color: null, start: 10, dur: 10 })
   assert.equal(p.rows[2], undefined)
   assert.deepEqual(p.rows[3], { color: PINK, start: null, dur: null })
@@ -226,7 +226,7 @@ test('시간 없이 할 일만 쓴 줄은 종일 칸에 위에서부터 올라�
   assert.doesNotMatch(tall, />\+\d<\/text>/)
   // 아직 색이 없으면 회색, 색이 붙으면 그 색
   assert.match(svg, /fill="#e8e9eb" stroke="#d7d9dc"/)
-  assert.match(dayPlannerOverlaySvg('landscape', assignDayColors(planner, 'landscape', objects), objects), /fill="#FFE066" fill-opacity="0.78" data-preserve-paint="true"/)
+  assert.match(dayPlannerOverlaySvg('landscape', assignDayColors(planner, 'landscape', objects), objects), /fill="#F7DF8A" fill-opacity="0.78" data-preserve-paint="true"/)
   // 할 일 글이 없으면 아무것도 올라오지 않는다
   assert.doesNotMatch(dayPlannerOverlaySvg('landscape', null, []), /<text/)
 })
@@ -277,12 +277,12 @@ test('할 일 · 시간 · 종일이 채워지면 형광펜 프리셋 색이 겹
   const objects = Array.from({ length: 9 }, (_, i) => title(i))
   // 글자가 없어도 시간이 있으면 색이 붙는다(할 일보다 시간을 먼저 적은 경우)
   const timeFirst = assignDayColors(p, 'landscape', [])
-  assert.deepEqual(Object.keys(timeFirst.rows).map(k => timeFirst.rows[k].color), [...DAY_PALETTE, DAY_PALETTE[0], DAY_PALETTE[1]])
+  assert.deepEqual(Object.keys(timeFirst.rows).map(k => timeFirst.rows[k].color), Array.from({ length: 9 }, (_, i) => DAY_PALETTE[i % DAY_PALETTE.length]))
   assert.equal(assignDayColors(timeFirst, 'landscape', []), null)
   // 시간도 글자도 없이 색만 비어 있는 줄은 받지 않는다
   assert.equal(assignDayColors(null, 'landscape', []), null)
   const colored = assignDayColors(p, 'landscape', objects)
-  assert.deepEqual(Object.keys(colored.rows).map(k => colored.rows[k].color), [...DAY_PALETTE, DAY_PALETTE[0], DAY_PALETTE[1]])
+  assert.deepEqual(Object.keys(colored.rows).map(k => colored.rows[k].color), Array.from({ length: 9 }, (_, i) => DAY_PALETTE[i % DAY_PALETTE.length]))
   // 한 번 붙은 색은 그대로, 다시 불러도 바뀌지 않는다
   assert.equal(assignDayColors(colored, 'landscape', objects), null)
   // 시간 없이 할 일만 있는 줄(기록이 아직 없는 줄)도 색이 붙어 종일 칸에 올라간다
@@ -309,7 +309,7 @@ test('색이 아직 없는 일정은 회색 막대, 색이 정해지면 그 색 
   assert.match(pending, /fill="#e8e9eb" stroke="#d7d9dc"/)
   assert.doesNotMatch(pending, /data-preserve-paint/)
   const colored = dayPlannerOverlaySvg('landscape', setDayRow(null, 0, { color: GREEN, start: at(9), dur: 60 }))
-  assert.match(colored, /fill="#B5EAD7" fill-opacity="0.78" data-preserve-paint="true"/)
+  assert.match(colored, /fill="#F2B4AE" fill-opacity="0.78" data-preserve-paint="true"/)
 })
 
 test('지우개: 막대 · 시작 · 진행 칸은 시간을 비우고 색 칸은 줄을, 체크 · 날짜는 하나씩 지운다', () => {
@@ -351,10 +351,10 @@ test('텍스트 도구로 할 일 줄 · 오늘의 목표 · 메모를 탭하면
 
 test('바탕에는 기록이 없고 덮개에는 기록만 있다', () => {
   const p = setDayRow(null, 0, { color: YELLOW, start: at(9), dur: 90 })
-  assert.doesNotMatch(dayPlannerBaseSvg('landscape'), /#FFE066/)
+  assert.doesNotMatch(dayPlannerBaseSvg('landscape'), /#F7DF8A/)
   assert.match(dayPlannerBaseSvg('landscape'), /aria-label="데일리 플래너"/)
   const overlay = dayPlannerOverlaySvg('landscape', p)
-  assert.match(overlay, /fill="#FFE066"/)
+  assert.match(overlay, /fill="#F7DF8A"/)
   assert.match(overlay, /aria-label="09:00"/)
   assert.match(overlay, /aria-label="1시간 30분"/)
   assert.match(overlay, /aria-label="09:00 ~ 10:30"/)
@@ -413,7 +413,7 @@ test('PNG · PDF 내보내기 속지에도 일정과 날짜가 들어간다', as
   const planner = setDayDate(setDayRow(null, 2, { color: BLUE, start: at(14), dur: 45 }), { y: 2026, m: 10, d: 31 })
   const page = { id: 'p1', backgroundAssetId: dayPlannerId('portrait'), templateVersion: '1.0.0', canvasWidth: 768, canvasHeight: 1024, objects: [createText({ id: 'exported-title', x: listPoint(2, 'text', 'portrait').x - 50, y: listPoint(2, 'text', 'portrait').y - 19, width: 100, text: '운동' })], planner }
   const prepared = await prepareExportSnapshot(createExportSnapshot(page), null, () => { throw new Error('파일 속지를 읽으면 안 된다') })
-  assert.match(prepared.backgroundXml, /fill="#A0C4FF"/)
+  assert.ok(prepared.backgroundXml.includes(`fill="${BLUE}"`)) // 형광펜 프리셋 넷째 색
   assert.match(prepared.backgroundXml, /aria-label="14:00"/)
   assert.match(prepared.backgroundXml, /aria-label="45분"/)
   assert.match(prepared.backgroundXml, /aria-label="2026\. 10\. 31"/)

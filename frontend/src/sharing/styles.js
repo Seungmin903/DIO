@@ -59,7 +59,7 @@ export const sharingStyles = StyleSheet.create({
   avatar: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 16,
     backgroundColor: c.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -107,7 +107,7 @@ export const sharingStyles = StyleSheet.create({
   profileControl: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 16,
     backgroundColor: c.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -175,9 +175,9 @@ export const sharingStyles = StyleSheet.create({
   buttonText: { fontSize: 14, fontWeight: '700', color: c.surface },
   secondary: { backgroundColor: c.surfaceMuted },
   secondaryText: { color: c.text },
-  dangerText: { color: c.danger },
+  dangerText: { color: c.dangerStrong }, // 흰 바탕 위 글자 대비 6.0:1
   disabled: { opacity: DISABLED_OPACITY },
-  error: { fontSize: 12, fontWeight: '600', lineHeight: 18, color: c.danger },
+  error: { fontSize: 12, fontWeight: '600', lineHeight: 18, color: c.dangerStrong },
   empty: { alignItems: 'center', paddingVertical: 32, gap: 12 },
   dot: {
     position: 'absolute',
@@ -186,7 +186,7 @@ export const sharingStyles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: c.danger,
+    backgroundColor: c.notifyPink, // 알림 점은 쿨톤 핑크(사용자 지시, 색 규칙의 유일한 예외)
   },
   peopleBackdrop: { flex: 1 },
   peopleCard: {
@@ -204,7 +204,7 @@ export const sharingStyles = StyleSheet.create({
   peopleAvatar: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 16,
     backgroundColor: c.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -217,7 +217,7 @@ export const sharingStyles = StyleSheet.create({
   memberCircle: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 12,
     marginLeft: -8,
     borderWidth: 2,
     borderColor: c.surface,

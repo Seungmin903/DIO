@@ -41,10 +41,10 @@ const styles = StyleSheet.create({
   message: { marginTop: 8, fontSize: 13, lineHeight: 19, color: colors.textMuted },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 18 },
   button: { minWidth: 76, height: 42, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   danger: { backgroundColor: colors.danger },
   primary: { backgroundColor: colors.primaryStrong },
-  confirmPressed: { opacity: 0.85 },
+  confirmPressed: {}, // 눌림 효과 없음(사용자 지시)
   cancelText: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
   confirmText: { fontSize: 14, fontWeight: '700', color: colors.surface },
 })

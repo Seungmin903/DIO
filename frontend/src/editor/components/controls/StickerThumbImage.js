@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { Image } from 'expo-image'
 import { useMediaUri } from '../../hooks/useMediaUri'
-import { mediaService, mediaRegistry } from '../../services/mediaStore'
+import { mediaService, mediaRegistry, reportMediaDisplayError } from '../../services/mediaStore'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { stickerSource } from '../../stickerAssets'
 import { STICKER_THUMBS } from '../../stickerThumbs'
@@ -55,7 +55,7 @@ function ImageThumb({ item, style }) {
     return item.emoji ? <Text style={styles.emoji}>{item.emoji}</Text> : <View style={[styles.placeholder, style]} />
   }
   return <Image key={attempt} source={source} style={style} contentFit="contain" cachePolicy="memory-disk" transition={0} recyclingKey={String(item.asset ?? id ?? item.src)}
-    onError={() => { if (attempt < RETRIES) setTimeout(() => setAttempt(value => value + 1), 400 * (attempt + 1)) }} />
+    onError={() => { if (attempt < RETRIES) setTimeout(() => setAttempt(value => value + 1), 400 * (attempt + 1)); else if (id) reportMediaDisplayError(item) }} />
 }
 
 const styles = StyleSheet.create({

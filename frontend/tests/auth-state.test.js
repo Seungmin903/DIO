@@ -96,29 +96,31 @@ test('잘못된 개발 접속 정보는 다시 입력할 수 있고 뒤로가기
 });
 
 test('내 공간은 인증된 사진 소스를 사용하고 사진 로드 실패 시 기본 프로필을 표시한다', () => {
+ const photoNode=node=>node.type==='Image'&&node.props.accessibilityLabel==='프로필 사진'
  const source=babel.transformSync(readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
  const states=[];let index=0
- const react={useState:initial=>{const i=index++;if(!(i in states))states[i]=initial;return[states[i],value=>states[i]=value]}}
+ const react={useState:initial=>{const i=index++;if(!(i in states))states[i]=initial;return[states[i],value=>states[i]=value]},useEffect(){}}
  const native={StyleSheet:{create:value=>value}};for(const name of ['Image','Pressable','ScrollView','Text','View'])native[name]=name
- const mocks={react,'react-native':native,'expo-image':{Image:'Image'},'../styles':{styles:{}},'../../shared/theme':{colors:{},radius:{}}},mod={exports:{}}
+ const appLock={appLockScope:()=>'guest',hasAppLock:async()=>false,checkAppLock:async()=>false,setAppLock:async()=>{},clearAppLock:async()=>{}}
+ const mocks={react,'react-native':native,'expo-image':{Image:'Image'},'../styles':{styles:{}},'../../shared/theme':{colors:{},radius:{}},'../../shared/appLock':appLock},mod={exports:{}}
  new Function('require','module','exports',source)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports)
  const photo={uri:'https://server.example/photo',headers:{Authorization:'test-header'}}
  const render=(uri=photo.uri,userId='one')=>{index=0;return mod.exports.default({diaries:[],previewUser:{photoUri:uri,nickname:'회원',userId},getProfilePhotoSource:uri=>({...photo,uri})})}
- const image=nodes(render()).find(node=>node.type==='Image')
+ const image=nodes(render()).find(photoNode)
  assert.deepEqual(image.props.source,{...photo,cacheKey:JSON.stringify(['profile','one',photo.uri])})
  assert.equal(image.props.cachePolicy,'memory')
  assert.equal(image.props.contentFit,'cover')
  image.props.onError()
- assert.equal(nodes(render()).some(node=>node.type==='Image'),false)
- assert.ok(nodes(render()).some(node=>node.props.children==='D'))
- assert.ok(nodes(render('https://server.example/new-photo')).some(node=>node.type==='Image'))
+ assert.equal(nodes(render()).some(photoNode),false)
+ assert.ok(nodes(render()).some(node=>node.props?.accessibilityLabel==='기본 프로필 사진'))
+ assert.ok(nodes(render('https://server.example/new-photo')).some(photoNode))
  photo.headers={Authorization:'changed-header'}
- const retried=nodes(render()).find(node=>node.type==='Image')
+ const retried=nodes(render()).find(photoNode)
  assert.ok(retried)
  assert.equal(retried.props.source.cacheKey,image.props.source.cacheKey)
  retried.props.onError()
- assert.equal(nodes(render()).some(node=>node.type==='Image'),false)
- const other=nodes(render(photo.uri,'two')).find(node=>node.type==='Image')
+ assert.equal(nodes(render()).some(photoNode),false)
+ const other=nodes(render(photo.uri,'two')).find(photoNode)
  assert.ok(other)
  assert.notEqual(other.props.source.cacheKey,image.props.source.cacheKey)
  assert.ok(!other.props.source.cacheKey.includes('changed-header'))

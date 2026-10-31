@@ -1,15 +1,16 @@
 import PageBulkDelete from '../controls/PageBulkDelete'
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
-import { colors, radius } from '../../../shared/theme'
+import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { bubble, colors, radius } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
+import EditorModal from '../controls/EditorModal'
 import Icon from '../controls/Icon'
 import TapCatcher from '../controls/TapCatcher'
 import PageThumbnail from './PageThumbnail'
 
-const THUMB_WIDTH = 124
+const THUMB_WIDTH = 128 // 코덱스 안: 썸네일 128폭
 const THUMB_BORDER = 1
 const HOLD_MS = 280 // 이만큼 누르고 있으면 끌어서 순서 바꾸기 시작 (그 전에 움직이면 목록 스크롤)
 const TAP_SLOP = 8
@@ -19,7 +20,7 @@ const AUTO_SCROLL_EDGE = 56
 const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
 
 // 왼쪽 페이지 목록 폭. 열고 닫을 때 작업창 크기를 한 번에 맞추는 데도 쓴다 (EditorScreen)
-export const PAGE_LIST_WIDTH = 156
+export const PAGE_LIST_WIDTH = 176
 
 /**
  * 페이지 목록. 같은 원본으로 표시하되 웹의 무거운 썸네일은 축소 캐시를 재사용한다.
@@ -148,17 +149,34 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   const menuIndex = menuPage ? pages.findIndex((page) => page.id === menuPage.id) : -1
   const menuActionCount = 1 + Number(pages.length > 1)
   const menuHeight = 42 + menuActionCount * 48
+  // 작업 메뉴는 패널 밖(캔버스)을 눌러도 닫혀야 해서 창 전체를 덮는 투명 모달로 띄운다(안드로이드 · iOS는 부모 밖 영역의 터치를 받지 못한다).
+  // 그래서 패널의 창 안 자리를 재어 두고, 화면 크기(회전)가 바뀌면 자리가 어긋나므로 닫는다.
+  const panelRef = useRef(null)
+  const [origin, setOrigin] = useState(null)
+  const window = useWindowDimensions()
+  useEffect(() => {
+    if (!menuId) { setOrigin(null); return }
+    const node = panelRef.current
+    if (node?.measureInWindow) node.measureInWindow((x, y) => setOrigin({ x, y }))
+    else setOrigin({ x: 0, y: 0 })
+  }, [menuId])
+  const windowSize = useRef(`${window.width}x${window.height}`)
+  useEffect(() => {
+    if (windowSize.current !== `${window.width}x${window.height}`) setMenuId(null)
+    windowSize.current = `${window.width}x${window.height}`
+  }, [window.width, window.height])
   const openMenu = (id) => setMenuId((current) => (current === id ? null : id))
-  const [headerHeight, setHeaderHeight] = useState(0)
+  // 목록이 패널 안에서 시작하는 y(탭 줄 + 편집 줄 아래). 메뉴를 누른 페이지 높이에 맞추는 기준
+  const [listTop, setListTop] = useState(0)
   // 메뉴는 그 페이지 높이에 맞춘다. 항목 위치는 앞 항목들 높이를 더해 구한다 (FlatList 항목의 onLayout y 는 늘 0)
   const menuItemTop = menuId ? itemTop(shown, layouts.current, menuId) : 0
-  const rawMenuTop = menuId ? headerHeight + LIST_PADDING + menuItemTop - scrollY : 8
+  const rawMenuTop = menuId ? listTop + LIST_PADDING + menuItemTop - scrollY : 8
   // 하단 페이지에서도 메뉴가 잘리지 않도록 패널 안쪽으로만 보정한다.
   const menuTop = Math.max(8, Math.min(rawMenuTop, Math.max(8, panelHeight - menuHeight - 8)))
 
   return (
-    <View style={styles.panel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
-      <View style={styles.header} onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}>
+    <View ref={panelRef} collapsable={false} style={styles.panel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
+      <View style={styles.header}>
         {/* 여러 개 고르기 중에는 탭 줄이 'N개 선택 · 해제' 로 바뀐다 (같은 높이라 목록이 밀리지 않는다) */}
         {pickMode ? (
           <View style={styles.pickBar}>
@@ -198,7 +216,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
           scrollOffset.current = event.nativeEvent.contentOffset.y
           setScrollY(event.nativeEvent.contentOffset.y)
         }}
-        onLayout={(event) => (listHeight.current = event.nativeEvent.layout.height)}
+        onLayout={(event) => { listHeight.current = event.nativeEvent.layout.height; setListTop(event.nativeEvent.layout.y) }}
         onContentSizeChange={(_, height) => (contentHeight.current = height)}
         scrollEventThrottle={32}
         initialNumToRender={4}
@@ -248,18 +266,22 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         }}
         ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
       />
-      {menuPage && (
-        <View style={[styles.actionMenu, { top: menuTop }]}>
-          <Text style={styles.actionMenuTitle}>{pages.findIndex((page) => page.id === menuId) + 1}페이지</Text>
-          <Pressable onPress={() => { onDuplicate(menuId); setMenuId(null) }} style={styles.action} accessibilityLabel="페이지 복제">
-            <Icon name="copy" size={18} color={colors.primary} /><Text style={styles.actionText}>페이지 복제</Text>
-          </Pressable>
-          {pages.length > 1 && (
-            <Pressable onPress={() => { onRemove(menuId); setMenuId(null) }} style={styles.action} accessibilityLabel="페이지 삭제">
-              <Icon name="trash" size={18} color={colors.danger} /><Text style={styles.deleteText}>페이지 삭제</Text>
+      {menuPage && origin && (
+        <EditorModal transparent animationType="fade" statusBarTranslucent onRequestClose={() => setMenuId(null)}>
+          {/* 메뉴 바깥(캔버스 · 다른 패널 포함)을 누르면 닫는다 */}
+          <Pressable accessibilityLabel="페이지 작업 메뉴 닫기" style={StyleSheet.absoluteFill} onPress={() => setMenuId(null)} />
+          <View style={[styles.actionMenu, { top: origin.y + menuTop, left: origin.x + THUMB_WIDTH + 22 }]}>
+            <Text style={styles.actionMenuTitle}>{pages.findIndex((page) => page.id === menuId) + 1}페이지</Text>
+            <Pressable onPress={() => { onDuplicate(menuId); setMenuId(null) }} style={styles.action} accessibilityLabel="페이지 복제">
+              <Icon name="copy" size={18} color={colors.primary} /><Text style={styles.actionText}>페이지 복제</Text>
             </Pressable>
-          )}
-        </View>
+            {pages.length > 1 && (
+              <Pressable onPress={() => { onRemove(menuId); setMenuId(null) }} style={styles.action} accessibilityLabel="페이지 삭제">
+                <Icon name="trash" size={18} color={colors.danger} /><Text style={styles.deleteText}>페이지 삭제</Text>
+              </Pressable>
+            )}
+          </View>
+        </EditorModal>
       )}
       {!readOnly && (
         <Pressable onPress={onAdd} style={({ pressed }) => [styles.add, pressed && styles.addPressed]} accessibilityLabel="페이지 추가">
@@ -415,8 +437,8 @@ const styles = StyleSheet.create({
   editRow: { minHeight: 44, marginVertical: 2, justifyContent: 'center' },
   editButton: { height: 32, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
   editText: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
-  editPressed: { opacity: 0.65 },
-  panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'visible', zIndex: 3 },
+  editPressed: {}, // 눌림 효과 없음(사용자 지시)
+  panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: colors.surfaceSoft, overflow: 'visible', zIndex: 3 },
   list: { flexGrow: 1, alignItems: 'center', gap: 16, paddingVertical: 16 },
   emptyArea: { flexGrow: 1, alignSelf: 'stretch', minHeight: 24 },
   item: { position: 'relative', alignItems: 'center', gap: 6 },
@@ -448,7 +470,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: colors.text },
   thumbDragging: {
     shadowColor: colors.text,
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.12,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
@@ -471,7 +493,7 @@ const styles = StyleSheet.create({
   },
   moreActive: { backgroundColor: colors.primarySoft },
   indexBadge: { position: 'absolute', top: 6, left: 6, width: 26, height: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', zIndex: 4 },
-  actionMenu: { position: 'absolute', left: THUMB_WIDTH + 14, width: 178, padding: 8, gap: 2, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(11,23,102,0.12)', elevation: 8, zIndex: 10 },
+  actionMenu: { ...bubble, position: 'absolute', width: 178, padding: 8, gap: 2, elevation: 8, zIndex: 10 }, // 썸네일 · ⋯ 버튼과 8 떨어진 말풍선
   actionMenuTitle: { paddingHorizontal: 8, paddingVertical: 5, fontSize: 11, fontWeight: '700', color: colors.textMuted },
   action: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, borderRadius: 9 },
   actionText: { fontSize: 14, fontWeight: '700', color: colors.text },
@@ -486,5 +508,5 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(129,138,195,0.34)',
     backgroundColor: 'rgba(255,255,255,0.35)',
   },
-  addPressed: { backgroundColor: colors.primarySoft },
+  addPressed: {}, // 눌림 효과 없음(사용자 지시)
 })

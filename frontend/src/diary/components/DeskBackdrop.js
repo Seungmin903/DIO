@@ -6,14 +6,13 @@ import { deskFxAt } from '../utils/deskFx'
 import { useDeskHour } from '../utils/deskTimeStore'
 import { WINDOW_WIDTH, maskFrame, setDeskGeometry } from '../utils/deskMask'
 
-const WOOD = require('../../../assets/desk/desk-wood.jpg')
 // 창은 하나다: 해 · 가로등 모두 이 마스크 한 장(2×2 십자 창, 좌우 대칭 사다리꼴)만 쓴다. 광원마다 달라지는 건 변형 · 색 · 세기 · 가장자리 번짐뿐이다(코덱스 24시간 설계).
 const LIGHT = require('../../../assets/desk/window-light.png')
 const RAINBOW = require('../../../assets/desk/rainbow-streak.png')
 const DUST = require('../../../assets/desk/dust-motes.png')
 const RAINBOW_ASPECT = 0.25 // 1200 × 300
 // 빛은 책상 위에 색을 덮어 칠하는 게 아니라 책상을 밝히는 것이다. 책상 전체에는 하늘빛 그늘을 곱해 어둡게 깔고(multiply),
-// 창빛 조각은 그 위에 밝기를 더해(screen) 나무결이 비친 채로 빛이 닿은 곳만 환해지게 한다.
+// 창빛 조각은 그 위에 밝기를 더해(screen) 빛이 닿은 곳만 환해지게 한다.
 const LIGHT_BLEND = 'screen'
 
 /**
@@ -92,7 +91,7 @@ function NightLamp({ light, size, compact, lightWidth }) {
 
 /**
  * 다이어리 홈 '햇살 책상' 바탕 (세계 층). 누르지 않고 화면 읽기에서 숨긴다.
- * 원목 상판(고정) + 시각에 따라 자리 · 세기 · 색이 바뀌는 십자 창빛 + 밤 어둠.
+ * 단색 상판(공방 · 휴지통과 같은 앱 바탕색) + 시각에 따라 자리 · 세기 · 색이 바뀌는 십자 창빛 + 밤 어둠.
  * 시각: 지금 시각(deskTimeStore).
  */
 function DeskBackdrop({ compact = false, size, anchorRight = false }) {
@@ -113,8 +112,7 @@ function DeskBackdrop({ compact = false, size, anchorRight = false }) {
   const fx = deskFxAt(light.hour)
   return <View ref={root} onLayout={measure} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
     style={[styles.root, anchorRight && styles.rootRight, { width: size.width, height: size.height }]}>
-    {/* 이미지 칸은 top · bottom 대신 크기로 직접 준다: 웹에서 그림 원본 높이에서 멈춰 세로로 긴 화면 아래가 단색으로 비었다 */}
-    <Image source={WOOD} resizeMode="cover" style={[styles.fill, { right: undefined, bottom: undefined, width: size.width, height: size.height }]} />
+    {/* 상판은 그림 없이 root 의 단색(DESK_COLORS.base)이다. 그 위에 시간대 그늘 · 창빛만 얹는다 */}
     <View style={[styles.fill, { backgroundColor: light.ambient.color, opacity: light.ambient.opacity, mixBlendMode: 'multiply' }]} />
     <View style={[styles.fill, { backgroundColor: light.wash.color, opacity: light.wash.opacity }]} />
     {/* 밤 어둠은 빛 아래에 깐다: 위에 덮으면 가로등 · 달빛까지 같이 어두워져 묻힌다 */}

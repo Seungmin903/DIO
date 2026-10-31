@@ -7,6 +7,7 @@ export const STORAGE_KEYS = Object.freeze({
   tapePreferences: 'dio:editor:tape-preferences:v1', // 기기 공통 새 테이프 도구 설정. 문서·미디어 참조는 저장하지 않는다.
   myCovers: 'dio:diary:my-covers:v1', // 나의 표지 보관함 (표지 디자인 목록, 사진은 미디어 참조)
   myPapers: 'dio:diary:my-papers:v1', // 나의 속지 보관함 (PDF 등으로 만든 속지 묶음, 쪽은 미디어 참조)
+  defaultPaperStyle: 'dio:diary:paper-style-default:v1', // 꾸미기 공방에서 정한 새 다이어리의 기본 속지 스타일(종이 색 · 선 색 · 글꼴). 만든 다이어리 · 속지는 따로 저장해 이 값이 바뀌어도 그대로다.
   diaries: 'dio:diary:list:v1', // 보관함 다이어리 목록. 각 편집 문서는 doc 키 뒤에 `:<diaryId>`를 붙여 저장한다.
 })
 

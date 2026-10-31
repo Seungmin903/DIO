@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   barCompact: { height: 60, gap: 4, paddingHorizontal: 8, backgroundColor: colors.surface },
   homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 2 },
   home: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 },
-  homePressed: { opacity: 0.6 },
+  homePressed: {}, // 눌림 효과 없음(사용자 지시)
   lead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16 },
   // 탭 줄: 왼쪽 버튼들과 오른쪽 버튼들 사이를 채우고, 넘치면 ‹ › 로 넘긴다
   tabStrip: { flex: 1, minWidth: 0, marginLeft: 6 },
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: 'rgba(11,23,102,0.1)',
-    boxShadow: '0px 1px 2px rgba(11, 23, 102, 0.12)',
+    boxShadow: '0px 1px 2px rgba(11, 23, 102, 0.06)',
     overflow: 'hidden',
   },
   docTitle: { flex: 1, minWidth: 0, marginLeft: 4, justifyContent: 'center' },
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 10, borderRadius: 12 },
   toggleCompact: { width: 44, height: 44, justifyContent: 'center', paddingHorizontal: 0 },
   toggleActive: { backgroundColor: colors.primarySoft },
-  togglePressed: { opacity: 0.65 },
+  togglePressed: {}, // 눌림 효과 없음(사용자 지시)
   toggleText: { fontSize: 13, fontWeight: '700', color: colors.text },
   // 내보내기: 크기·둥글기는 레이어 버튼과 같게 (색은 강조색 그대로)
   share: {
