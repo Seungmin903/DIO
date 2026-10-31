@@ -4,31 +4,31 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppIcon from '../../shared/AppIcon';
 import { colors, radius } from '../../shared/theme';
 import Header from '../components/Header';
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  loadNotificationPreferences,
+  saveNotificationPreferences,
+} from '../services/notificationPreferences';
 
-const STORAGE_KEY = 'dio:preferences:notifications:v1';
-const DEFAULTS = { service: true, marketing: false };
-
-export default function NotificationSettingsScreen({ compact = false, onClose }) {
-  const [settings, setSettings] = useState(DEFAULTS);
+export default function NotificationSettingsScreen({ compact = false, onClose, userId }) {
+  const [settings, setSettings] = useState(DEFAULT_NOTIFICATION_PREFERENCES);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
 
   useEffect(() => {
     let active = true;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
-        if (!active || !raw) return;
-        const saved = JSON.parse(raw);
-        setSettings({
-          service: typeof saved.service === 'boolean' ? saved.service : DEFAULTS.service,
-          marketing: typeof saved.marketing === 'boolean' ? saved.marketing : DEFAULTS.marketing,
-        });
+    setLoaded(false);
+    setStatus('');
+    loadNotificationPreferences(AsyncStorage, userId)
+      .then(({ settings: saved, error }) => {
+        if (!active) return;
+        setSettings(saved);
+        if (error) setStatus(error);
       })
-      .catch(() => active && setStatus('이 기기의 알림 설정을 불러오지 못했어요.'))
       .finally(() => active && setLoaded(true));
     return () => { active = false; };
-  }, []);
+  }, [userId]);
 
   const set = (key, value) => {
     setSettings((previous) => ({ ...previous, [key]: value }));
@@ -39,7 +39,7 @@ export default function NotificationSettingsScreen({ compact = false, onClose })
     setSaving(true);
     setStatus('');
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      await saveNotificationPreferences(AsyncStorage, userId, settings);
       setStatus('알림 설정을 이 기기에 저장했어요.');
     } catch {
       setStatus('알림 설정을 저장하지 못했어요. 다시 시도해 주세요.');

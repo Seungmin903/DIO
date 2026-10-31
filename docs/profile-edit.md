@@ -21,7 +21,7 @@ Figma 파일 `9gy5UQdNJxL67XLZS1VDPg`, MVP2의 `소셜 회원정보 수정`(101-
 
 ## API 경계와 데이터 영향
 
-체험 계정·메모리 회원정보 서비스는 사용하지 않는다. 회원정보 수정은 로그인한 실제 계정의 `authService`만 호출하며, 서버 API가 준비되지 않은 동작을 로컬 값으로 성공한 것처럼 처리하지 않는다. 현재 닉네임 저장은 `PATCH /api/v1/me` 연결을 사용하고, 사진 변경과 회원 탈퇴는 해당 서버 API가 배포될 때까지 비활성화한다.
+체험 계정·메모리 회원정보 서비스는 사용하지 않는다. 회원정보 수정은 로그인한 실제 계정의 `authService`만 호출하며, 서버 API가 준비되지 않은 동작을 로컬 값으로 성공한 것처럼 처리하지 않는다. 닉네임·사진 변경은 `PATCH /api/v1/me`, 회원 탈퇴는 `DELETE /api/v1/me`에 연결한다. 탈퇴 성공 시 계정은 `WITHDRAWN`으로 처리되고 모든 로그인 세션을 폐기한 뒤 로그인 화면으로 돌아간다.
 
 계정 프로필 변경 시 공유 런타임은 유지한다. 기존 공유 다이어리의 닉네임·사진·참여 상태·편집 문서는 변경하지 않는다. 이후 새 다이어리에 복사할 기본 계정 프로필만 갱신한다. 기존 개인 다이어리 목록·문서 저장 형식에는 변경이나 마이그레이션이 없다. 목업 탈퇴도 기기의 개인 다이어리를 삭제하지 않는다.
 
@@ -29,10 +29,8 @@ OAuth·사진 업로드/영구 보관·실제 탈퇴 시 데이터 처리 정책
 
 ## 검증
 
-- `node --test --test-concurrency=1 tests/*.test.js`
-- `pnpm exec expo export --platform all --output-dir .expo/profile-export --max-workers 2`
-- `node tests/profile-edit-browser.cjs`: 배포 웹으로 1280×800/1024×768/390×844/320×568에서 실제 로그인 뒤 직접 폼 진입, 취소·메뉴 이동 확인, 사진 삭제 전후 배치, 중복 재확인, 저장, 비밀번호 변경·재로그인, 정확한 탈퇴 문구를 검증한다.
-- 기본 브라우저는 Playwright Chromium이다(`pnpm exec playwright-core install chromium`으로 설치). 기존 브라우저를 사용할 때는 `PLAYWRIGHT_EXECUTABLE_PATH`에 실행 파일 경로를 지정한다. Windows Edge 경로는 코드에 고정하지 않는다.
+- `node --test tests/profile-edit-state.test.js tests/password-reset-screen.test.js tests/notification-preferences.test.js`
+- 이전 `profile-edit-browser.cjs`는 삭제된 체험 계정·게스트 인증 흐름을 호출해 더 이상 유효한 검증이 아니므로 제거했다. 회원정보 수정·탈퇴의 입력 보존과 탈퇴 문구는 `profile-edit-state.test.js`, 이메일·인증번호·새 비밀번호·완료 단계는 `password-reset-screen.test.js`, 사용자별 알림 저장과 오류 복구는 `notification-preferences.test.js`에서 API를 대체한 상태로 검증한다.
 - 모달은 기존 EditorModal의 방향 정책·스크롤·키보드 회피를 사용한다. iOS·Android 실기기 갤러리/키보드·시스템 뒤로가기는 별도 확인이 필요하다. 번들 생성·웹 성공과 실기기 실행을 구분한다.
 
 ## 추가 점검 보완

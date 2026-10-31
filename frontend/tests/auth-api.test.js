@@ -410,6 +410,15 @@ test('회원정보 조회는 본인 토큰으로 GET me를 호출하고 서버 �
   assert.equal(calls.length, 2);
 });
 
+test('회원정보 조회는 숫자 userId 응답도 현재 로그인 계정으로 받아들인다', async () => {
+  const api = createAuthApi({ baseUrl: 'http://localhost:8080/api', fetchImpl: async (url) =>
+    response(url.endsWith('/auth/login') ? tokens() : { ...user, userId: 7, nickname: '숫자 식별자' }) });
+  const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
+  const profile = await api.getProfile(loggedIn);
+  assert.equal(profile.userId, 7);
+  assert.equal(profile.nickname, '숫자 식별자');
+});
+
 test('회원정보 조회는 다른 계정 응답을 받아들이지 않는다', async () => {
   const api = createAuthApi({ baseUrl: 'http://localhost:8080/api', fetchImpl: async (url) =>
     response(url.endsWith('/auth/login') ? tokens() : { ...user, userId: 'other' }) });

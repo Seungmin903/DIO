@@ -54,11 +54,12 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export default function App() {
   const [previewSession, setPreviewSession] = useState(null);
   const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
+  const clearSession = () => setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current);
   const endSession = async () => {
     try {
       if (authenticatedSession) await authService.logout();
     } catch (error) { notify('로그아웃', `${error.message} 이 기기의 로그인 정보는 지웠어요.`); }
-    finally { setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current); }
+    finally { clearSession(); }
   };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
@@ -77,7 +78,7 @@ export default function App() {
         authenticatedSession ? <MemberDiaryApp key={`authenticated:${authenticatedSession.userId}`} previewUser={authenticatedSession}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
-          onEndPreview={endSession} /> : <AuthScreen onContinue={setPreviewSession} />
+          onEndPreview={endSession} onClearSession={clearSession} /> : <AuthScreen onContinue={setPreviewSession} />
       )}
       <HandwritingStudio />
 
@@ -95,7 +96,7 @@ function DiaryApp(props) {
     ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId}>{content}</AuthenticatedNotificationProvider>
     : content;
 }
-function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryState }) {
+function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, diaryState }) {
   const member = diaryState.source === 'member-api';
   const profilePhotoSource = previewUser?.photoUri && previewUser.mode === 'authenticated'
     ? authService.getProfilePhotoSource(previewUser.photoUri) : null;
@@ -645,7 +646,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       />
     );
   } else if (page === 'profile') {
-    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
+    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
 

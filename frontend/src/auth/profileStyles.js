@@ -127,7 +127,7 @@ export const profileStyles = StyleSheet.create({
   phoneActions: { width: '100%' },
   // 저장·취소와 거리를 둔 파괴적 작업. 채운 빨간 버튼은 확인 대화상자의 최종
   // 탈퇴하기에만 쓰고, 여기서는 의도를 분명히 하는 외곽선 버튼으로 유지한다.
-  withdraw: { minHeight: 48, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: c.danger, borderRadius: radius.md, backgroundColor: 'rgba(229,72,77,0.04)' },
+  withdraw: { minHeight: 48, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: c.danger, borderRadius: radius.md, backgroundColor: c.dangerSoft },
   withdrawText: { fontSize: 14, fontWeight: '700', color: c.danger },
   notice: { color: c.text, fontSize: 13, lineHeight: 20, marginBottom: 16 },
   backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: 'center', alignItems: 'center' },

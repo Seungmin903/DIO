@@ -32,7 +32,7 @@
 성공 응답은 `userId`, `email`, `nickname`, `profilePhotoUrl`, `createdAt`이다. 비밀번호·해시·가입 토큰·인증번호는 포함하지 않는다. 회원가입 요청·응답과 Swagger에서 `profileColor`를 제거했다. 사진이 없으면 `profilePhotoUrl`은 null이다. 기존 `users.profile_color`는 호환을 위해 보존하며 신규 회원에는 내부 기본값만 저장한다.
 
 
-현재 화면의 프로필 사진 선택을 지원하는 백엔드 저장/조회와 API의 색상 제거를 구현했다. 프론트는 아직 previewAuth이므로 파일 업로드 연결, 이메일 인증 화면, 실제 API 연동, 비밀번호 ASCII 허용 범위 통일은 후속 작업이다.
+현재 화면의 프로필 사진 선택을 지원하는 백엔드 저장/조회와 API의 색상 제거를 구현했다. 프론트는 `authService`로 파일 업로드·이메일 인증·실제 API를 연결하며, 체험용 임시 인증 모듈은 사용하지 않는다. 비밀번호 ASCII 허용 범위 통일은 후속 작업이다.
 
 최신 ERD에 맞춰 회원가입 요청·응답과 Swagger에서 생년월일(`birthDate`)을 제거했다. Method와 Endpoint는 유지한다. 내 정보 조회·수정 API는 아직 구현되지 않았으며 구현 시 생년월일을 포함하지 않는다.
 

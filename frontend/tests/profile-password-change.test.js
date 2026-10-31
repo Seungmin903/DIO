@@ -6,7 +6,7 @@ const require=createRequire(import.meta.url),expo=createRequire(require.resolve(
 const code=expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8'),{
  configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]
 }).code;
-function setup(user,onUpdatePreview){
+function setup(user,onUpdatePreview,onClearSession){
  const values=[];let cursor=0;const effects=[];const mod={exports:{}};const PasswordForm=()=>null;const service={changePassword(){}};
  const load=id=>{
   if(id==='react')return {useEffect:(effect,deps)=>effects.push({effect,deps}),useState:initial=>{const i=cursor++;if(!(i in values))values[i]=initial;return [values[i],v=>values[i]=v]}};
@@ -23,7 +23,7 @@ function setup(user,onUpdatePreview){
   return ()=>null;
  };
  new Function('require','module','exports',code)(load,mod,mod.exports);
- return {service,PasswordForm,effects,render(){cursor=0;effects.length=0;return mod.exports.default({diaries:[],previewUser:user,onEndPreview(){},onUpdatePreview})}};
+ return {service,PasswordForm,effects,render(){cursor=0;effects.length=0;return mod.exports.default({diaries:[],previewUser:user,onEndPreview(){},onClearSession,onUpdatePreview})}};
 }
 function find(node,label){if(!node||typeof node!=='object')return null;if(node.props?.accessibilityLabel===label||node.props?.label===label)return node;for(const child of [node.props?.children].flat(Infinity)){const found=find(child,label);if(found)return found;}return null;}
 test('실제 이메일 계정의 내 공간은 인증번호 기반 비밀번호 재설정 화면에 인증 서비스를 전달한다',()=>{
@@ -32,10 +32,18 @@ test('실제 이메일 계정의 내 공간은 인증번호 기반 비밀번호 
  const form=ui.render();assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.service,ui.service);assert.equal(form.props.email,'member@example.com');
  form.props.onClose();assert.ok(find(ui.render(),'비밀번호 변경'));
 });
+test('비밀번호 재설정 완료는 서버 로그아웃 대신 로컬 세션 정리로 끝낸다',()=>{
+ let cleared=0;
+ const ui=setup({mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'},undefined,()=>{cleared+=1});
+ find(ui.render(),'비밀번호 변경').props.onPress();
+ const form=ui.render();
+ form.props.onComplete();
+ assert.equal(cleared,1);
+});
 test('실제 이메일 계정의 회원정보 수정은 체험 서비스가 아닌 인증 서비스를 사용한다',()=>{
  const ui=setup({mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'});
  find(ui.render(),'회원정보 수정').props.onPress();
- const form=ui.render();assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.service,ui.service);assert.equal(form.props.photoEditable,false);
+ const form=ui.render();assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.service,ui.service);assert.equal(form.props.photoEditable,true);
 });
 test('게스트·기존 체험 세션에는 계정 설정을 숨기고 소셜 계정에는 비밀번호 변경을 숨긴다',()=>{
  for(const user of [{provider:'guest'},{mode:'preview',provider:'email',userId:'legacy'}]){

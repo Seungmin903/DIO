@@ -13,7 +13,7 @@ import NotificationSettingsScreen from './NotificationSettingsScreen';
 import { authService } from '../../auth/authService';
 import { openFontStudio } from '../../handwriting/studioBus.js';
 
-export default function ProfileScreen({ compact = false, previewUser, onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource }) {
+export default function ProfileScreen({ compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource }) {
   const [route, setRoute] = useState('home');
   const [failedPhoto, setFailedPhoto] = useState(null);
   // 회원 설정은 서버 인증이 끝난 세션만 접근한다. 이전 체험 세션 값은 앱 진입
@@ -73,12 +73,12 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         email={previewUser?.email || ''}
         service={authService}
         onClose={() => setRoute('home')}
-        onComplete={onEndPreview}
+        onComplete={onClearSession}
       />
     );
   }
   if (route === 'notifications') {
-    return <NotificationSettingsScreen compact={compact} onClose={() => setRoute('home')} />;
+    return <NotificationSettingsScreen compact={compact} userId={userId} onClose={() => setRoute('home')} />;
   }
   return (
     <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
@@ -160,7 +160,7 @@ const local = StyleSheet.create({
   item: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },
   itemIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: C.pale },
   itemLabel: { flex: 1, color: C.ink, fontSize: 15, fontWeight: '700' },
-  logout: { minHeight: 52, marginTop: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.danger, borderRadius: 14, backgroundColor: 'rgba(229,72,77,0.04)' },
+  logout: { minHeight: 52, marginTop: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.danger, borderRadius: 14, backgroundColor: colors.dangerSoft },
   logoutText: { color: C.danger, fontSize: 15, fontWeight: '700' },
   pressed: { opacity: 0.7 },
 });

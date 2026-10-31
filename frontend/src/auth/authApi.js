@@ -16,13 +16,14 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   const acceptSession = result => {
     const text = value => typeof value === 'string' && value.trim().length > 0;
+    const identifier = value => value != null && String(value).trim().length > 0;
     let validPhoto = result?.user?.profilePhotoUrl == null;
     if (text(result?.user?.profilePhotoUrl)) {
       try { validPhoto = ['https:', 'http:'].includes(new URL(result.user.profilePhotoUrl, base).protocol); } catch {}
     }
     if (!Number.isSafeInteger(result?.expiresIn) || result.expiresIn <= 0 || result.expiresIn > 86400 ||
         !text(result.accessToken) || !text(result.refreshToken) ||
-        !text(result.user?.userId) || !text(result.user?.email) || !text(result.user?.nickname) || !validPhoto) {
+        !identifier(result.user?.userId) || !text(result.user?.email) || !text(result.user?.nickname) || !validPhoto) {
       session = null; accessRefreshAt = 0;
       throw Object.assign(new Error('로그인 응답을 확인하지 못했어요. 다시 로그인해 주세요.'), { status: 502, code: 'INVALID_AUTH_RESPONSE' });
     }
@@ -95,11 +96,12 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
     const profile = result?.user || result;
     const text = value => typeof value === 'string' && value.trim().length > 0;
+    const identifier = value => value != null && String(value).trim().length > 0;
     let validPhoto = profile?.profilePhotoUrl == null;
     if (text(profile?.profilePhotoUrl)) {
       try { validPhoto = ['https:', 'http:'].includes(new URL(profile.profilePhotoUrl, base).protocol); } catch {}
     }
-    if (!text(profile?.userId) || String(profile.userId) !== String(current.user.userId) ||
+    if (!identifier(profile?.userId) || String(profile.userId) !== String(current.user.userId) ||
         !text(profile?.email) || normalizeEmail(profile.email) !== normalizeEmail(current.user.email) ||
         !text(profile?.nickname) || !validPhoto) {
       throw Object.assign(new Error(invalidMessage), { status: 502, code: 'INVALID_PROFILE_RESPONSE' });

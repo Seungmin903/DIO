@@ -13,6 +13,7 @@ export const colors = {
   surfaceMuted: '#EEF2F9', // 회색 판: 선택 안 된 칩·세그먼트, ± 버튼, 보조 버튼 바탕
   panel: 'rgba(255,255,255,0.72)',
   danger: '#E5484D',
+  dangerSoft: 'rgba(229,72,77,0.04)',
   overlay: 'rgba(11,25,87,0.34)',
   scrim: 'rgba(11,25,87,0.28)', // 대화상자 뒤 어둡게 덮기
 }
