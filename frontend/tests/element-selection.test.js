@@ -6,7 +6,7 @@ import * as common from '../src/editor/utils/common.js'
 import * as text from '../src/editor/utils/text.js'
 import * as reducer from '../src/editor/state/editorReducer.js'
 import { pageSize } from '../src/editor/utils/pageGeometry.js'
-import * as studyPlanner from '../src/editor/templates/studyPlanner.js'
+import * as planners from '../src/editor/templates/planners.js'
 
 const require = createRequire(import.meta.url)
 const expo = createRequire(require.resolve('expo/package.json'))
@@ -32,7 +32,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     if (id.endsWith('/text')) return text
     if (id.endsWith('/modifiers')) return { isMultiSelectKey: () => multi }
     if (id.endsWith('/pageGeometry.js')) return { pageSize }
-    if (id.endsWith('/studyPlanner.js')) return studyPlanner
+    if (id.endsWith('/planners.js')) return planners
     if (id.endsWith('/theme')) return { colors: {} }
     if (id.endsWith('/constants')) return { PHOTO_SHAPES: [] }
     if (id.endsWith('/objects')) return {}

@@ -57,6 +57,7 @@ export const TEXT_FONTS = [
   { id: 'nanum-myeongjo', label: '나눔명조', family: 'NanumMyeongjo', boldFamily: 'NanumMyeongjoBold' },
   { id: 'gowun-dodum', label: '고운돋움', family: 'GowunDodum' },
   { id: 'gowun-batang', label: '고운바탕', family: 'GowunBatang', boldFamily: 'GowunBatangBold' },
+  { id: 'maruburi', label: '마루부리', family: 'MaruBuri', boldFamily: 'MaruBuriBold' },
   { id: 'nanum-pen', label: '나눔손글씨 펜', family: 'NanumPenScript' },
   { id: 'poor-story', label: '푸어스토리', family: 'PoorStory' },
 ]

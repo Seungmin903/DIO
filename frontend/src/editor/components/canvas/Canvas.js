@@ -33,7 +33,11 @@ import TextLinkOverlay from '../TextLinkOverlay'
 import PalmRejectionArea from './PalmRejectionArea'
 import GridOverlay, { DEFAULT_GUIDES, hasGuides } from './GridOverlay'
 import PaperColorSettings from '../PaperColorSettings'
-import { applyPlannerStroke, erasePlanner, isStudyPlannerId, normalizePlanner, plannerTextSlot, setPlannerOptions } from '../../templates/studyPlanner.js'
+import { plannerFor } from '../../templates/planners.js'
+import { setDayDate, setDayRow, suggestStart } from '../../templates/dayPlanner.js'
+import DayNowLine from './DayNowLine'
+import DayTimePicker, { DAY_TIME_PICKER, DayPickBackdrop } from '../DayTimePicker'
+import DayDatePicker, { DAY_DATE_PICKER } from '../DayDatePicker'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
@@ -126,25 +130,65 @@ export default function Canvas({
     if (suppressBrowserSelection) return installDrawingSelectionGuard(drawingSurface.current)
   }, [suppressBrowserSelection])
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
-  // 스터디 플래너 속지: 형광펜 · 펜 · 지우개 획을 칸 기록으로 받는다.
-  const plannerOrientation = !readOnly && isStudyPlannerId(page.backgroundAssetId) ? (page.backgroundAssetId.endsWith('portrait') ? 'portrait' : 'landscape') : null
-  const plannerStroke = plannerOrientation ? (points, settings) => {
-    const planner = applyPlannerStroke(page.planner, plannerOrientation, points, settings)
-    if (planner) dispatch({ type: 'setPlanner', planner })
-    return Boolean(planner)
+  // 스터디 · 데일리 플래너 속지: 형광펜 · 펜 · 지우개 획을 칸 · 일정 기록으로 받는다.
+  const planner = readOnly ? null : plannerFor(page.backgroundAssetId)
+  // 데일리 플래너: 시작 · 진행 · 날짜 칸을 누르면 뜨는 고르는 창. draft 는 고르는 중인 기록이고 닫을 때 한 번에 문서에 반영한다(되돌리기 한 번).
+  const [dayPick, setDayPick] = useState(null) // { page, kind: 'time' | 'date', row?, at, draft }
+  const dayPickRef = useRef(null)
+  dayPickRef.current = dayPick
+  // 할 일 칸은 글자만 받는다: 이미 쓴 글이 있으면 그 글을 고치고, 없으면 칸에 맞춘 글상자를 만든다.
+  const editTitle = (point) => {
+    const existing = planner.titleAt(point, page.objects)
+    if (existing && onEditText) onEditText(existing)
+    else createText({ tap: point })
+  }
+  // 속지가 받은 입력(획 · 선택 도구로 누른 칸)의 결과를 문서에 반영한다: 새 기록 · 고르는 창 열기 · 할 일 글 입력
+  const applyPlannerResult = (result, at) => {
+    if (result.planner) dispatch({ type: 'setPlanner', planner: result.planner })
+    if (result.picker) setDayPick({ page: page.id, ...result.picker, at, draft: null })
+    if (result.text) editTitle(result.text)
+  }
+  const plannerStroke = planner ? (points, settings) => {
+    const result = planner.stroke(page.planner, points, settings, page.objects)
+    if (!result) return false
+    applyPlannerResult(result, points[0])
+    return true
   } : undefined
-  const plannerErase = plannerOrientation ? (planner, points) => erasePlanner(planner, plannerOrientation, points, eraserMode) : undefined
-  // 지우는 중인 플래너 기록(손을 떼면 문서에 확정). 그동안 속지는 이 기록으로 그린다.
+  const plannerErase = planner ? (value, points) => planner.erase(value, points, eraserMode) : undefined
+  // 고르는 중인 기록에도 색을 미리 채워 막대가 바로 제 색으로 보이게 한다(닫을 때 한 번에 반영되므로 되돌리기도 한 번).
+  const withAutoColor = (value) => planner.autoColor(value, page.objects) ?? value
+  const closeDayPick = () => {
+    const pick = dayPickRef.current
+    if (pick?.draft) dispatch({ type: 'setPlanner', planner: pick.draft, pageId: pick.page })
+    setDayPick(null)
+  }
+  const closeDayPickRef = useRef(closeDayPick)
+  closeDayPickRef.current = closeDayPick
+  // 도구를 바꾸거나 페이지를 넘기면 고르던 값을 반영하고 창을 닫는다.
+  useEffect(() => () => closeDayPickRef.current(), [page.id, activeTool])
+  // 할 일 · 시작 · 진행이 채워진 줄에 색이 저절로 채워진다. 글자를 쓰는 일이 따로 되돌리기 단위라, 색은 되돌리기 단위를 만들지 않는다.
+  // 페이지를 막 열었을 때는 건너뛴다: 열람만으로 문서가 바뀌어 저장 · 동기화가 일어나지 않게 한다(색은 그 뒤 편집에서 채워진다).
+  const autoColorPage = useRef(null)
+  useEffect(() => {
+    if (planner?.kind !== 'day') return
+    if (autoColorPage.current !== page.id) { autoColorPage.current = page.id; return }
+    const next = planner.autoColor(page.planner, page.objects)
+    if (next) dispatch({ type: 'setPlanner', planner: next, pageId: page.id, silent: true })
+  }, [page.planner, page.objects, page.backgroundAssetId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 지우는 중인 플래너 기록(손을 떼면 문서에 확정). 그동안 속지는 이 기록으로 그린다. 시간 창에서 고르는 중인 일정도 같은 식으로 속지에 바로 보인다.
   const [plannerDraft, setPlannerDraft] = useState(null)
-  const backgroundPage = useMemo(() => plannerDraft ? { ...page, planner: plannerDraft } : page, [page, plannerDraft])
+  const shownPlanner = plannerDraft ?? (dayPick?.page === page.id ? dayPick.draft : null)
+  const backgroundPage = useMemo(() => shownPlanner ? { ...page, planner: shownPlanner } : page, [page, shownPlanner])
   // 텍스트 도구로 할 일 · 메모 · 돌아보기 줄을 탭하면 그 줄에 맞춘 글상자(폭 · 글자 크기 · 줄간격 고정)를 만든다.
   const createText = ({ tap, ...box }) => {
-    const slot = plannerOrientation && tap ? plannerTextSlot(plannerOrientation, tap) : null
+    const cell = planner && tap ? planner.cellTap(tap) : null
+    if (cell) { setDayPick({ page: page.id, ...cell.picker, at: tap, draft: null }); return }
+    const slot = planner && tap ? planner.textSlot(tap) : null
     if (!slot) return onCreateText(box)
     const { width, ...rest } = slot
     onCreateText({ ...rest, width, w: width, baseWidth: width, h: slot.fontSize * slot.lineSpacing })
   }
-  const changePlannerOptions = (patch) => dispatch({ type: 'setPlanner', planner: setPlannerOptions(page.planner, patch) })
+  const changePlannerOptions = (patch) => dispatch({ type: 'setPlanner', planner: planner.setOptions(page.planner, patch) })
   const [lassoDrawing, setLassoDrawing] = useState(false)
   // 고치는 중인 틀. 틀 선택이 풀리거나 잠기면 입력칸을 내린다.
   const frameTextObject = frameTextEdit && selectedIds.includes(frameTextEdit.id) ? page.objects.find((o) => o.id === frameTextEdit.id && !o.locked) : null
@@ -316,6 +360,9 @@ export default function Canvas({
       if (!start || cancelled || cropping || start.maxMove >= TAP_MOVE_PX) return
       // 요소를 살짝 빗나가게 눌렀으면 가장 가까운 요소를 고른다 (지도 게임·노트 앱의 '가까운 것 고르기').
       // 이미 선택된 요소 근처를 누른 것은 '선택 풀기'로 본다. (요소가 하나뿐일 때 빈 곳을 눌러도 안 풀리던 문제)
+      // 속지의 칸(완료 · 할 일 · 시작 · 진행 · 날짜 · 일정 막대)을 누르면 선택 도구에서도 바로 그 칸의 입력이 열린다.
+      const edit = planner && start ? planner.editTap(page.planner, start, page.objects, penSettings.color) : null
+      if (edit) { dispatch({ type: 'select', ids: [] }); applyPlannerResult(edit, start); return }
       const near = start && nearestObject(touchSelectable, start, TAP_SLOP_PX / zoom)
       dispatch({ type: 'select', ids: near && !selectedIds.includes(near.id) ? [near.id] : [] })
     },
@@ -337,6 +384,7 @@ export default function Canvas({
       {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
     >
       {showBackground ? <PageBackground page={backgroundPage} zoom={zoom} underlay={guideUnderlay} /> : guideUnderlay}
+      {planner?.kind === 'day' && showBackground && <DayNowLine planner={planner} value={page.planner} zoom={zoom} />}
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
@@ -384,6 +432,7 @@ export default function Canvas({
             onEditText={onEditText}
             onEditMedia={onEditMedia}
             onEditFrameText={onEditFrameText}
+            directEdit={Boolean(planner?.titleAt({ x: object.x + object.w / 2, y: object.y + object.h / 2 }, [object]))}
           />
         ))}
       </View>
@@ -399,10 +448,41 @@ export default function Canvas({
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
         <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
       </View>}
+      {planner?.kind === 'day' && dayPick?.page === page.id && <View style={styles.penClip}><DayPickBackdrop onClose={closeDayPick} /></View>}
       </PalmRejectionArea>
       {/* 창을 닫으려고 누른 터치는 여기서 삼키고 창만 닫는다. 펜·형광펜에 점이 찍히던 문제 */}
       {inputBlocker && ['pen', 'highlighter', 'eraser'].includes(activeTool) && (
         <View style={StyleSheet.absoluteFill} onStartShouldSetResponder={() => true} {...inputBlocker} accessibilityElementsHidden />
+      )}
+      {planner?.kind === 'day' && dayPick?.page === page.id && dayPick.kind === 'time' && (
+        <DayTimePicker
+          key={`${dayPick.page}-${dayPick.row}`}
+          row={dayPick.row}
+          value={planner.normalize(page.planner).rows[dayPick.row] ?? null}
+          suggest={{ start: suggestStart(page.planner), dur: 60 }}
+          onChange={(next) => setDayPick(current => current && { ...current, draft: withAutoColor(setDayRow(page.planner, current.row, { color: null, ...planner.normalize(page.planner).rows[current.row], ...(next.allDay ? { start: null, dur: null, allDay: true } : { start: next.start, dur: next.dur, allDay: false }) })) })}
+          onClear={() => {
+            const row = planner.normalize(page.planner).rows[dayPick.row]
+            if (row) dispatch({ type: 'setPlanner', planner: setDayRow(page.planner, dayPick.row, row.color ? { ...row, start: null, dur: null, allDay: false } : null) })
+            setDayPick(null)
+          }}
+          onClose={closeDayPick}
+          style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, DAY_TIME_PICKER)}
+        />
+      )}
+      {planner?.kind === 'day' && dayPick?.page === page.id && dayPick.kind === 'date' && (
+        <DayDatePicker
+          key={`${dayPick.page}-date`}
+          value={planner.normalize(page.planner).date}
+          suggest={todayDate()}
+          onChange={(next) => setDayPick(current => current && { ...current, draft: setDayDate(page.planner, next) })}
+          onClear={() => {
+            if (planner.normalize(page.planner).date) dispatch({ type: 'setPlanner', planner: setDayDate(page.planner, null) })
+            setDayPick(null)
+          }}
+          onClose={closeDayPick}
+          style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, DAY_DATE_PICKER)}
+        />
       )}
       {!readOnly && activeTool === 'text' && !textEditing && <TextBoxInput key={`${page.id}-${zoom}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} onCreate={createText} />}
       {!readOnly && textEditing?.type === 'shape' && <ShapeTextEditor commitRef={textCommitRef} key={textEditing.id} object={textEditing} zoom={zoom} onSave={onSaveText} boundary={textBoundary} onReveal={onRevealText} visibleTop={textEditingTop} onPaletteChange={onTextPaletteChange} paletteBounds={textPaletteBounds} onToast={onToast} />}
@@ -450,9 +530,10 @@ export default function Canvas({
           appearance={paperAppearance}
           onChange={(appearance, all) => onPaperAppearance?.(appearance, all)}
           onClose={() => setEmptyMenu(null)}
-          planner={plannerOrientation ? normalizePlanner(page.planner) : null}
+          planner={planner ? planner.normalize(page.planner) : null}
+          plannerKind={planner?.kind}
           onPlannerOptions={changePlannerOptions}
-          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, Boolean(plannerOrientation))}
+          style={paperBubblePosition(emptyMenu, zoom, PAGE_WIDTH, PAGE_HEIGHT, planner ? (planner.kind === 'day' ? 70 : 250) : 0)}
         />
       )}
       {emptyMenu && !emptyMenu.panel && canPageMenu && (
@@ -463,7 +544,7 @@ export default function Canvas({
           pageHeight={PAGE_HEIGHT}
           canPaste={canPaste}
           onPaste={() => { setEmptyMenu(null); onPaste?.(emptyMenu) }}
-          paperLabel={plannerOrientation ? '속지 옵션' : '속지 색'}
+          paperLabel={planner ? '속지 옵션' : '속지 색'}
           onPaperColor={() => setEmptyMenu({ ...emptyMenu, panel: 'paper' })}
         />
       )}
@@ -541,12 +622,19 @@ export default function Canvas({
 const pointBox = (at, zoom) => ({ top: at.y * zoom, bottom: at.y * zoom, handleY: null })
 // 속지 색 말풍선
 const PAPER_BUBBLE = { width: 300, height: 290 }
-function paperBubblePosition(at, zoom, pageWidth, pageHeight, planner = false) {
+function paperBubblePosition(at, zoom, pageWidth, pageHeight, extraHeight = 0) {
   const left = placeHorizontal(at.x * zoom, PAPER_BUBBLE.width, pageWidth * zoom)
-  // 스터디 플래너 옵션이 붙으면 창이 길어진다.
-  const { top } = placeVertical(pointBox(at, zoom), PAPER_BUBBLE.height + (planner ? 250 : 0), pageHeight * zoom)
+  // 플래너 옵션이 붙으면 창이 길어진다.
+  const { top } = placeVertical(pointBox(at, zoom), PAPER_BUBBLE.height + extraHeight, pageHeight * zoom)
   return { position: 'absolute', zIndex: 6, width: PAPER_BUBBLE.width, left, top }
 }
+// 데일리 플래너 고르는 창(시간 · 날짜): 누른 칸 위에 먼저, 안 되면 아래
+function pickerPosition(at, zoom, pageWidth, pageHeight, size) {
+  const left = placeHorizontal(at.x * zoom, size.width, pageWidth * zoom)
+  const { top } = placeVertical(pointBox(at, zoom), size.height, pageHeight * zoom)
+  return { position: 'absolute', zIndex: 6, width: size.width, left, top }
+}
+const todayDate = () => { const now = new Date(); return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() } }
 
 /** 빈 곳 길게 누르기 메뉴. 요소 편집 바와 같은 모양으로 누른 자리 위에 띄운다 */
 const EMPTY_MENU = { width: 210, height: 52 }
@@ -699,7 +787,7 @@ function isDoubleTap(id) {
   return double
 }
 
-function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onDragging, onEditText, onEditMedia, onEditFrameText }) {
+function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onDragging, onEditText, onEditMedia, onEditFrameText, directEdit = false }) {
   const gesture = useRef(null)
   const moveFrame = useRef(null)
   const pendingPatches = useRef(null)
@@ -803,6 +891,11 @@ function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE
       if (g?.mode === 'move' && !moved && duration >= LONG_PRESS_MS) {
         dispatch({ type: 'select', ids: g.previousSelection })
         dispatch({ type: 'toggleSelect', id: object.id })
+        return
+      }
+      // 속지 목록의 할 일 글은 한 번 누르면 바로 고친다. (끌면 이동, 길게 누르면 선택에 넣고 뺀다)
+      if (g?.mode === 'move' && !moved && directEdit && !object.locked) {
+        onEditText(object)
         return
       }
       // 이미 선택된 그룹을 한 번 더 탭하면 그 요소만 골라 따로 고칠 수 있다. (빈 곳을 누르면 다시 그룹 단위)

@@ -3,7 +3,7 @@
 // 그림은 두 장이다. 바탕(plannerBaseSvg)은 기록과 상관없어 캐시해 두고, 칠한 10분 칸 · 체크 · 합계 같은 기록(page.planner)은
 // 덮개(plannerOverlaySvg)에만 그려 기록이 바뀔 때 덮개만 다시 만든다. 내보내기는 둘을 합친 studyPlannerSvg 를 쓴다.
 // 기록은 획 요소가 아니라 칸 단위 데이터라 레이어 목록에 쌓이지 않고, 색 바꾸기 · 지우기 · 합계가 칸 단위로 된다.
-import { GLYPHS } from './studyPlannerGlyphs.js'
+import { LABEL, LINE, LINE_SOFT, TEXT, box, checkPath, hitCircle, label, line, n, onWhite, rect, ruled, sample, span, svgOpen, write } from './plannerDraw.js'
 
 export const STUDY_PLANNER_VERSION = '1.0.0'
 export const studyPlannerId = (orientation = 'landscape') => `study-planner-${orientation === 'portrait' ? 'portrait' : 'landscape'}`
@@ -15,8 +15,6 @@ export const STUDY_PLANNER_MENU_ITEM = { type: 'study', name: '스터디 플래�
 
 export const START_HOURS = [5, 6, 7]
 const ROWS = 24, COLS = 6, DAYS = ['월', '화', '수', '목', '금', '토', '일'], HEARTS = [0, 1, 2, 3, 4]
-// 다른 속지와 같은 6색 팔레트라 속지 옵션의 레이아웃 색이 그대로 먹는다(appearance.js).
-const TEXT = '#292929', LABEL = '#666666', LINE = '#d7d9dc', LINE_SOFT = '#e8e9eb'
 const FILL_OPACITY = 0.78
 const TAP_SPAN = 30
 const CHECK_W = 34, COLOR_W = 36, TODO_HEAD = 30, SLOTS = 7
@@ -93,34 +91,28 @@ function todoAt(L, p) {
 }
 function days(L) { const w = L.week; return DAYS.map((_, i) => ({ cx: w.x + i * 26, cy: w.cy, r: 11 })) }
 function hearts(L) { const m = L.mood, s = 20, gap = 8, x0 = m.x + m.w - 12 - 5 * s - 4 * gap; return HEARTS.map(i => ({ cx: x0 + s / 2 + i * (s + gap), cy: m.y + m.h / 2, r: s / 2 })) }
-const hitCircle = (list, p) => list.findIndex(c => Math.hypot(p.x - c.cx, p.y - c.cy) <= c.r + 6)
-function sample(points, step = 3) {
-  const out = []
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i], b = points[i + 1] ?? a, n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / step))
-    for (let k = 0; k < n; k++) out.push({ x: a.x + (b.x - a.x) * k / n, y: a.y + (b.y - a.y) * k / n })
-  }
-  return out
-}
-const span = points => points.reduce((m, p) => Math.max(m, Math.hypot(p.x - points[0].x, p.y - points[0].y)), 0)
 
 // 줄 맞춤 글상자: 줄 간격 28 에 맞는 글자 크기. 줄 높이 = 글자 × 줄간격 = 28 이라 여러 줄도 다음 칸 · 다음 줄에 그대로 맞는다.
-export const PLANNER_TEXT_SIZE = 16
-const LINE_PITCH = 28
+// 속지에 쓰는 글자는 속지 글꼴(마루부리)이 기본이다. 글자 크기는 칸 이름과 맞춘다: 머리줄 · 메모 · 돌아보기 14(칸 이름과 같다), 할 일 13.
+export const PLANNER_TEXT_FONT = 'maruburi'
+export const PLANNER_TEXT_SIZE = 14, TODO_TEXT_SIZE = 13
+const LINE_PITCH = 28, TODO_LINE = 20
+const SIT = 6 // 줄 칸(28) 안에서 글자 상자를 내려 앉히는 만큼: 14 크기 글자가 칸 이름과 같은 높이로 밑줄 위에 앉는다
 /**
  * 텍스트 도구로 날짜 · D-day · 오늘의 목표 · 할 일 · 메모 · 오늘 돌아보기를 탭한 자리에 줄 맞춘 글상자 자리. 그 밖이면 null.
- * { x, y, width, fontSize, lineSpacing } — 할 일은 탭한 줄 칸 가운데, 메모 · 돌아보기는 탭한 줄 바로 위에 글자가 앉는다.
+ * { x, y, width, font, fontSize, lineSpacing } — 할 일은 탭한 줄 칸 가운데, 메모 · 돌아보기는 탭한 줄 바로 위에 글자가 앉는다.
  */
 export function plannerTextSlot(orientation, point) {
   const L = plannerLayout(orientation)
-  const style = { fontSize: PLANNER_TEXT_SIZE, lineSpacing: LINE_PITCH / PLANNER_TEXT_SIZE }
+  const style = { font: PLANNER_TEXT_FONT, fontSize: PLANNER_TEXT_SIZE, lineSpacing: LINE_PITCH / PLANNER_TEXT_SIZE }
   const row = todoAt(L, point)
   if (row?.part === 'text') {
+    // 한 줄짜리 칸이라 줄 높이를 글자에 가깝게(20) 줄여 줄 가운데에 앉힌다. 28 로 두면 입력 중 테두리와 커서가 칸 아래로 튀어나온다.
     const g = todo(L), x = g.t.x + CHECK_W + 10
-    return { x, y: g.t.y + g.head + row.r * g.rh + (g.rh - LINE_PITCH) / 2, width: g.cx - 8 - x, ...style }
+    return { x, y: g.t.y + g.head + row.r * g.rh + (g.rh - TODO_LINE) / 2, width: g.cx - 8 - x, font: PLANNER_TEXT_FONT, fontSize: TODO_TEXT_SIZE, lineSpacing: TODO_LINE / TODO_TEXT_SIZE }
   }
   // 머리줄 밑줄 칸(날짜 · D-day · 오늘의 목표): 밑줄 폭만큼 상자를 잡고 글자가 밑줄 위에 앉게 한다. 정렬은 사용자가 고른다.
-  const underline = (from, to, lineY) => ({ x: from, y: lineY - LINE_PITCH + 3, width: to - from, ...style })
+  const underline = (from, to, lineY) => ({ x: from, y: lineY - LINE_PITCH + SIT, width: to - from, ...style })
   if (point.y >= 40 && point.y <= 88) {
     if (point.x >= L.date.x - 4 && point.x <= L.date.line[1]) return underline(L.date.line[0], L.date.line[1], 71)
     if (point.x >= L.dday.x - 4 && point.x <= L.dday.line[1]) return underline(L.dday.line[0], L.dday.line[1], 71)
@@ -131,7 +123,49 @@ export function plannerTextSlot(orientation, point) {
     // 밑줄은 R.y + 58 부터 28 간격. 글자 줄 칸은 그 위 28. 줄 칸 가운데보다 조금 내려 글자가 밑줄에 가깝게 앉게 한다.
     const lines = Math.max(1, Math.floor((R.h - 8 - 30) / LINE_PITCH))
     const k = Math.max(0, Math.min(lines - 1, Math.floor((point.y - (R.y + 30)) / LINE_PITCH)))
-    return { x: R.x + 12, y: R.y + 30 + k * LINE_PITCH + 3, width: R.w - 24, ...style }
+    return { x: R.x + 12, y: R.y + 30 + k * LINE_PITCH + SIT, width: R.w - 24, ...style }
+  }
+  return null
+}
+
+const inGoal = (L, p) => p.y > 96 && p.y <= 142 && p.x >= 40 && p.x <= L.right
+/** 글 입력 칸의 이름: 'todo-3'(할 일 줄) · 'date' · 'dday' · 'goal'. 입력 칸이 아니면 null. 메모 · 돌아보기는 넓은 빈 곳이라 포함하지 않는다. */
+function fieldOf(L, p) {
+  const row = todoAt(L, p)
+  if (row) return row.part === 'text' ? `todo-${row.r}` : null
+  if (p.y >= 40 && p.y <= 88 && p.x >= L.date.x - 4 && p.x <= L.date.line[1]) return 'date'
+  if (p.y >= 40 && p.y <= 88 && p.x >= L.dday.x - 4 && p.x <= L.dday.line[1]) return 'dday'
+  return inGoal(L, p) ? 'goal' : null
+}
+/** point 가 가리키는 글 입력 칸(할 일 · 날짜 · D-day · 오늘의 목표)에 이미 있는 글상자(없으면 null). 눌렀을 때 새로 만들지 않고 그 글을 고친다. */
+export function plannerTitleAt(orientation, point, objects) {
+  const L = plannerLayout(orientation), field = fieldOf(L, point)
+  if (!field) return null
+  return (objects ?? []).find(o => o?.type === 'text' && !o.hidden && !o.locked && [o.x, o.y, o.w, o.h].every(Number.isFinite)
+    && fieldOf(L, { x: o.x + o.w / 2, y: o.y + o.h / 2 }) === field) ?? null
+}
+
+/**
+ * 선택(화살표) 도구로 칸을 톡 눌렀을 때 그 칸의 입력을 연다. 칸이 아니면 null.
+ *   완료: 체크를 켜고 끈다(color 로 친다)   할 일 · 날짜 · D-day · 오늘의 목표: 글 입력   요일: 동그라미를 켜고 끈다   하트: 그 하트를 칠하고 끈다
+ * 결과는 applyPlannerStroke 와 달리 { planner } | { text: 점 } 로 돌려준다(속지 모음의 editTap 과 같은 모양).
+ */
+export function plannerEditTap(orientation, point, value, markColor) {
+  const planner = normalizePlanner(value), L = plannerLayout(orientation), c = color(markColor) ?? color(TEXT)
+  const row = todoAt(L, point)
+  if (row?.part === 'box') {
+    const checks = { ...planner.checks }
+    if (checks[row.r]) delete checks[row.r]; else checks[row.r] = c
+    return { planner: normalizePlanner({ ...planner, checks }) }
+  }
+  if (fieldOf(L, point)) return { text: point }
+  if (row) return null
+  const day = hitCircle(days(L), point)
+  if (day >= 0) return { planner: normalizePlanner({ ...planner, day: planner.day?.i === day ? null : { i: day, color: c, hl: false } }) }
+  const heart = hitCircle(hearts(L), point)
+  if (heart >= 0) {
+    const kept = planner.mood?.hearts ?? HEARTS.map(() => null)
+    return { planner: normalizePlanner({ ...planner, mood: { hearts: HEARTS.map(k => k === heart ? (kept[k] ? null : { color: c, hl: false }) : kept[k]) } }) }
   }
   return null
 }
@@ -259,51 +293,13 @@ export function formatMinutes(minutes) {
 }
 
 // ---------- SVG ----------
-// 반투명 색을 흰 바탕에 올린 것과 같은 불투명 색
-const onWhite = (hex, alpha) => '#' + [1, 3, 5].map(i => Math.round(255 - (255 - parseInt(hex.slice(i, i + 2), 16)) * alpha).toString(16).padStart(2, '0')).join('').toUpperCase()
-const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-const n = v => Math.round(v * 100) / 100
-const rect = (x, y, w, h, a = '') => `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" ${a}/>`
-const box = (R, stroke = LINE) => rect(R.x, R.y, R.w, R.h, `fill="none" stroke="${stroke}" stroke-width="1"`)
-const line = (x1, y1, x2, y2, stroke = LINE_SOFT) => `<line x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}" fill="none" stroke="${stroke}" stroke-width="1"/>`
-const checkPath = (cx, cy, s) => `M${n(cx - s * .42)} ${n(cy + s * .02)} L${n(cx - s * .1)} ${n(cy + s * .34)} L${n(cx + s * .48)} ${n(cy - s * .38)}`
 const heartPath = ({ cx, cy, r }) => `M${n(cx)} ${n(cy + r * .75)} C${n(cx - r * 1.3)} ${n(cy - r * .1)} ${n(cx - r * .55)} ${n(cy - r * 1.05)} ${n(cx)} ${n(cy - r * .35)} C${n(cx + r * .55)} ${n(cy - r * 1.05)} ${n(cx + r * 1.3)} ${n(cy - r * .1)} ${n(cx)} ${n(cy + r * .75)}Z`
 
-// 글자: 다른 속지처럼 글자마다 윤곽 path 를 놓는다(기기에 폰트가 없어도 같은 모양).
-function glyph(ch, weight) {
-  const g = GLYPHS[weight][ch]
-  if (!g) throw new Error(`스터디 플래너 글자 윤곽 없음: "${ch}" (${weight}) — docs/스터디 플래너 속지/스크립트/글자.py`)
-  return g
-}
-const textWidth = (s, size, weight = 'R') => [...String(s)].reduce((sum, ch) => sum + glyph(ch, weight)[0], 0) * size / 1000
-/** runs: [{ s, size, weight?, fill? }] 를 이어 쓴다. anchor: 'start' | 'middle' | 'end' */
-function write(x, y, runs, anchor = 'start') {
-  const list = Array.isArray(runs) ? runs : [runs]
-  const width = list.reduce((sum, r) => sum + textWidth(r.s, r.size, r.weight), 0)
-  let cx = anchor === 'end' ? x - width : anchor === 'middle' ? x - width / 2 : x
-  return list.map(({ s, size, weight = 'R', fill = LABEL }) => {
-    const k = size / 1000
-    let paths = ''
-    for (const ch of String(s)) {
-      const [adv, d] = glyph(ch, weight)
-      if (d) paths += `<path d="${d}" transform="translate(${n(cx)} ${n(y)}) scale(${k} ${-k})"/>`
-      cx += adv * k
-    }
-    return `<g fill="${fill}" aria-label="${esc(s)}">${paths}</g>`
-  }).join('')
-}
-const label = (x, y, s, size = 14) => write(x, y, { s, size })
-function ruled(R, name) {
-  let s = box(R) + label(R.x + 12, R.y + 26, name)
-  for (let y = R.y + 58; y < R.y + R.h - 8; y += 28) s += line(R.x + 12, y, R.x + R.w - 12, y)
-  return s
-}
 function colorRow(S, i) {
   const srh = (S.h - 46) / SLOTS, cy = S.y + 38 + i * srh + srh / 2
   const bar = { x: S.x + 32, w: S.w - 32 - 12 - 34 - 6 - 72 }
   return { cy, bar, time: S.x + S.w - 52, pct: S.x + S.w - 12 }
 }
-const svgOpen = L => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${L.w} ${L.h}" width="${L.w}" height="${L.h}">`
 
 /** 기록과 상관없는 바탕. 시간표 시작 시각만 숫자에 반영한다. */
 function baseBody(orientation, startHour = 6) {
@@ -340,7 +336,7 @@ function baseBody(orientation, startHour = 6) {
   // 기록 칸
   out.push(box(L.total), label(L.total.x + 12, L.total.y + 26, '총 공부 시간'))
   const S = L.sum
-  out.push(box(S), label(S.x + 12, S.y + 26, '색깔별 공부 시간'))
+  out.push(box(S), label(S.x + 12, S.y + 26, '시간 분포'))
   for (let i = 0; i < SLOTS; i++) {
     const row = colorRow(S, i)
     out.push(rect(S.x + 12, row.cy - 6, 12, 12, `fill="none" stroke="${LINE}" stroke-width="1"`), rect(row.bar.x, row.cy - 3, row.bar.w, 6, `rx="3" fill="${LINE_SOFT}"`))
@@ -398,7 +394,7 @@ function overlayBody(orientation, value) {
     if (totals.rest) out.push(write(R.x + R.w - 12, R.y + R.h - 16, { s: `쉬는 시간 ${formatMinutes(totals.rest)}`, size: 11.5 }, 'end'))
   }
 
-  // 색깔별 공부 시간 — 줄은 처음 칠한 순서로 고정한다. 시간 옆에 공부 시간 중 비율(정수, 합 100)
+  // 시간 분포(색깔별 공부 시간) — 줄은 처음 칠한 순서로 고정한다. 시간 옆에 공부 시간 중 비율(정수, 합 100)
   const S = L.sum, max = Math.max(1, ...totals.colors.map(c => c.minutes))
   totals.colors.slice(0, SLOTS).forEach((item, i) => {
     const row = colorRow(S, i), ink = item.rest ? LABEL : TEXT

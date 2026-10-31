@@ -164,6 +164,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [lasso, setLasso] = useState({ shape: 'rectangle', mode: 'replace' })
   useEffect(() => { setLasso(current => ({ ...current, mode: 'replace' })) }, [page.id])
   const [textEditing, setTextEditing] = useState(null)
+  // 데일리 플래너 할 일을 펜 · 형광펜으로 눌러 쓴 경우, 글 입력을 마치면 그 도구로 돌아간다(그 밖에는 선택 도구)
+  const textReturnTool = useRef(null)
+  const returnableTool = (tool) => (tool === 'pen' || tool === 'highlighter' ? tool : null)
+  // 글 입력이 저장 · 취소 · 그 밖의 어떤 경로로 끝나도 돌아갈 도구를 비워, 다음 입력(도형 글 등)이 옛 도구로 돌아가지 않게 한다.
+  useEffect(() => { if (!textEditing) textReturnTool.current = null }, [textEditing])
   // 사진 틀(티켓 · 네컷)의 인쇄 글자를 캔버스에서 바로 고치는 중 { pageId, id, line }
   const [frameTextEdit, setFrameTextEdit] = useState(null)
   const textBoundary = useRef(null)
@@ -1070,7 +1075,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 textCommitRef={textCommitRef}
                 onReadingLinkStart={() => { readingLinkRef.current = true }}
                 textEditing={textEditing?.pageId === page.id ? textEditing : null}
-                onEditText={(object) => { setTextSettingsOpen(false); setTextEditing({ ...object, pageId: page.id, existing: true }) }}
+                onEditText={(object) => { setTextSettingsOpen(false); textReturnTool.current = returnableTool(activeTool); setTextEditing({ ...object, pageId: page.id, existing: true }) }}
                 onTextSettings={() => { setTextSettingsOpen(current => !current); setMoreOpen(false) }}
                 onCopy={(objects) => { objectClipboard.set(objects); showToast(`${objects.length}개를 복사했어요.`) }}
                 onPaste={paste}
@@ -1106,9 +1111,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           } else if (text.trim()) dispatch({ type: 'addObjects', objects: [{ ...createText({ ...textEditing, ...(fitted.w && { width: fitted.w }), text, colorRanges, styleRanges }), ...fitted }] })
         }
         setTextEditing(null)
-        setActiveTool('select')
+        setActiveTool(textReturnTool.current ?? 'select')
       }}
-                onCreateText={(box) => { setTextSettingsOpen(false); setTextEditing({ ...textDefaults, ...box, id: createId(), pageId: page.id, text: '' }) }}
+                onCreateText={(box) => { setTextSettingsOpen(false); textReturnTool.current = returnableTool(activeTool); setTextEditing({ ...textDefaults, ...box, id: createId(), pageId: page.id, text: '' }) }}
                 readOnly={readOnly}
                 page={page}
                 zoom={zoom}

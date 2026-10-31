@@ -13,9 +13,9 @@ const SNAP = [{ id: 'on', label: '켬' }, { id: 'off', label: '끔' }]
 /**
  * 속지 색 (빈 곳을 길게 눌러 연다). 다이어리를 만들 때 고르는 배경색·레이아웃 색과 같은 색들이다.
  * appearance: 지금 페이지의 { backgroundColor, layoutColor }. onChange(appearance, all): all 이면 모든 페이지(와 새로 추가할 페이지)에 쓴다.
- * planner: 스터디 플래너 페이지면 기록의 옵션({ restColor, startHour, snap })을 함께 보여 준다. onPlannerOptions(patch)
+ * planner: 스터디 · 데일리 플래너 페이지면 기록의 옵션을 함께 보여 준다. 스터디는 { restColor, startHour, snap }, 데일리(plannerKind 'day')는 { snap }. onPlannerOptions(patch)
  */
-export default function PaperColorSettings({ appearance, onChange, onClose, style, planner = null, onPlannerOptions }) {
+export default function PaperColorSettings({ appearance, onChange, onClose, style, planner = null, plannerKind = 'study', onPlannerOptions }) {
   const [scope, setScope] = useState('page')
   const pick = (patch) => onChange({ ...appearance, ...patch }, scope === 'all')
   return (
@@ -37,7 +37,7 @@ export default function PaperColorSettings({ appearance, onChange, onClose, styl
             </View>
           </View>
         ))}
-        {planner && <PlannerOptions options={planner.options} onChange={onPlannerOptions} />}
+        {planner && (plannerKind === 'day' ? <DayPlannerOptions options={planner.options} onChange={onPlannerOptions} /> : <PlannerOptions options={planner.options} onChange={onPlannerOptions} />)}
       </View>
     </View>
   )
@@ -72,6 +72,16 @@ function PlannerOptions({ options, onChange }) {
         <Segmented items={SNAP} selected={(id) => (id === 'on') === options.snap} onPress={(id) => onChange?.({ snap: id === 'on' })} />
       </View>
     </>
+  )
+}
+
+/** 데일리 플래너 옵션. 이 페이지에만 쓴다. */
+function DayPlannerOptions({ options, onChange }) {
+  return (
+    <View style={styles.section}>
+      <Text style={toolPanelStyles.label}>펜 · 형광펜 칸 맞춤</Text>
+      <Segmented items={SNAP} selected={(id) => (id === 'on') === options.snap} onPress={(id) => onChange?.({ snap: id === 'on' })} />
+    </View>
   )
 }
 

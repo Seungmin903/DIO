@@ -5,12 +5,13 @@ import { UNDATED_ASSETS } from './undatedAssets'
 import { getTemplate, templateCanvasSize, TemplateError } from './catalog.js'
 import { createTemplateCache } from './cache.js'
 import { readSvg } from './readSvg'
-import { isStudyPlannerId, plannerBaseSvg } from './studyPlanner.js'
+import { plannerFor } from './planners.js'
 import { datedBaseId, datedSvg, isDatedId } from './dated.js'
 
 const load = createTemplateCache(async id => {
-  // 스터디 플래너는 파일 없이 바탕을 만든다. 기록은 PageBackground 가 덮개로 겹치고, 내보내기는 기록을 넣어 다시 만든다.
-  if (isStudyPlannerId(id)) { const xml = plannerBaseSvg(getTemplate(id).orientation); return { xml, ast: parse(xml) } }
+  // 스터디 · 데일리 플래너는 파일 없이 바탕을 만든다. 기록은 PageBackground 가 덮개로 겹치고, 내보내기는 기록을 넣어 다시 만든다.
+  const planner = plannerFor(id)
+  if (planner) { const xml = planner.baseSvg(); return { xml, ast: parse(xml) } }
   // 날짜 속지는 같은 양식의 만년형 속지를 불러와 날짜를 얹는다
   const fileId = isDatedId(id) ? datedBaseId(id) : id
   const module = UNDATED_ASSETS[fileId] ?? TEMPLATE_ASSETS[fileId]
