@@ -415,7 +415,7 @@ export default function AuthScreen({
                     value={values.confirmation}
                     onChange={(value) => change('confirmation', value)}
                     onBlur={() => blur('confirmation')}
-                    error={touched.confirmation ? errors.confirmation : ''}
+                    error={touched.confirmation || values.confirmation ? errors.confirmation : ''}
                     editable={!busy}
                     password
                     returnKeyType="done"
