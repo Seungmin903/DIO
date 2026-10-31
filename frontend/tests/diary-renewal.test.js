@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PAPERS, appendPaper, changeRow, changeRowPaper, clampWhole, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, newRow, newSection, paperPreviewId, removePaper, savedPaperSummary, splitSection, sectionTitle, sectionsTemplateConfig } from '../src/diary/utils/paperChoice.js'
-import { bandAutoColor, changeCoverKind, coverElementSummary, createStickerCopy, defaultCover, normalizeCover } from '../src/diary/utils/coverDesign.js'
+import { bandAutoColor, changeCoverKind, coverElementSummary, coverTabPaint, createStickerCopy, defaultCover, normalizeCover } from '../src/diary/utils/coverDesign.js'
 import { photoTone } from '../src/diary/utils/photoTone.js'
 import { configuredPageIds, defaultTemplateConfig, normalizeTemplateConfig, templatePageCount } from '../src/editor/templates/creation.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
@@ -228,4 +228,19 @@ test('표지 스티커는 회전 각도를 0~360 으로 저장하고, 복제는 
   const copy = createStickerCopy(cover.stickers[0])
   assert.notEqual(copy.id, 'a')
   assert.deepEqual([copy.x, copy.y, copy.size, copy.rotation], [100, 54, 14, 330])
+})
+
+test('상단바 탭 색 띠는 표지에 보이는 색을 따라간다: 그라데이션은 전체 색, 사진은 대표 색, 그 밖은 바탕색', () => {
+  assert.deepEqual(coverTabPaint({ color: '#F2A7A0' }), { color: '#F2A7A0', stops: null })
+  const sunset = coverTabPaint({ color: '#F2A7A0', cover: { gradient: 0 } })
+  assert.deepEqual(sunset.stops, ['#F6C9B8', '#F3D9C2', '#C7CCE9', '#9DA5D8'])
+  assert.equal(sunset.color, '#F6C9B8')
+  const custom = coverTabPaint({ color: '#F2A7A0', cover: { gradient: 'custom', gradientColors: ['#112233', '#445566'] } })
+  assert.deepEqual(custom.stops, ['#112233', '#445566'])
+  const photo = { src: 'file://a.jpg', mediaFileId: 'm1' }
+  assert.equal(coverTabPaint({ color: '#F2A7A0', cover: { kind: 'photo', photo: { ...photo, tone: '#508CDC' } } }).color, '#508CDC')
+  assert.deepEqual(coverTabPaint({ color: '#F2A7A0', cover: { kind: 'photo', photo } }), { color: '#F2A7A0', stops: null })
+  // 사진 표지로 바꾸면 그라데이션 설정이 남아 있어도 쓰지 않는다
+  assert.equal(coverTabPaint({ color: '#F2A7A0', cover: { kind: 'photo', gradient: 0, photo } }).stops, null)
+  assert.deepEqual(coverTabPaint({ color: '#F2A7A0', cover: { enabled: false, gradient: 0 } }), { color: '#F2A7A0', stops: null })
 })

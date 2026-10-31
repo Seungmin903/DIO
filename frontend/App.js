@@ -21,6 +21,7 @@ import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import { withPdfPages } from './src/diary/utils/pdfImport';
+import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
 import DeskBackdrop from './src/diary/components/DeskBackdrop';
@@ -526,8 +527,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const tabs = useMemo(() => tabIds
     .map((id) => visibleDiaries.find((diary) => diary.id === id))
     .filter(Boolean)
-    // 다이어리 목록의 표지 색 이름은 color (편집 문서에서는 coverColor)
-    .map((diary) => ({ id: diary.id, title: diary.title, coverColor: diary.color })), [tabIds, visibleDiaries]);
+    // 다이어리 목록의 표지 색 이름은 color (편집 문서에서는 coverColor). 그라데이션 · 사진 표지는 paint 가 표지에 보이는 색을 따라간다
+    .map((diary) => ({ id: diary.id, title: diary.title, coverColor: diary.color, paint: coverTabPaint(diary) })), [tabIds, visibleDiaries]);
 
   // 편집하던 다이어리를 모든 다이어리 목록에서 찾아 홈의 중심 카드로 복원한다.
   const returnToLibrary = useCallback(() => {

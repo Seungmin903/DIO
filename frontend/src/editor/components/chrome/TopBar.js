@@ -81,6 +81,8 @@ export default function TopBar({
       <ChipScroller style={styles.tabStrip} contentContainerStyle={styles.tabStripContent} reveal={activeTabBox} arrowLabels={['앞 탭 보기', '다음 탭 보기']}>
         {(tabs?.length ? tabs : [{ id: activeTabId, title: doc.title, coverColor: doc.coverColor }]).map((tab) => {
           const active = tab.id === activeTabId
+          // 표지 색을 따라간다: 그라데이션은 위 → 아래 색 그대로, 그 밖은 단색
+          const paint = tab.paint ?? { color: (active ? doc.coverColor : tab.coverColor) ?? colors.primary }
           return (
             <View
               key={tab.id ?? 'current'}
@@ -88,7 +90,7 @@ export default function TopBar({
               onLayout={active ? (event) => { const { x, width } = event.nativeEvent.layout; setActiveTabBox((prev) => (prev?.x === x && prev?.width === width ? prev : { x, width })) } : undefined}
             >
               {/* 인덱스 스티커 모양: 표지 색의 둥근 머리 + 이름을 적는 흰 몸통 */}
-              <View style={[styles.spine, { backgroundColor: (active ? doc.coverColor : tab.coverColor) ?? colors.primary }, !active && styles.spineInactive]} />
+              <View style={[styles.spine, { backgroundColor: paint.color, ...(paint.stops && { backgroundImage: `linear-gradient(to bottom, ${paint.stops.join(', ')})` }) }, !active && styles.spineInactive]} />
               {active ? (
                 <TitleField title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} />
               ) : (

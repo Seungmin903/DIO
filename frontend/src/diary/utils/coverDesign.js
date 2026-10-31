@@ -96,6 +96,19 @@ export function normalizeCover(diary) {
   }
 }
 
+/**
+ * 편집기 상단바 탭의 색 띠 ({ color, stops }). 표지에 실제로 보이는 색을 따라간다.
+ * 그라데이션 표지는 위 → 아래 색 전체(stops), 사진 표지는 사진 대표 색, 그 밖은 바탕색이다.
+ * diary.color 는 그라데이션이나 사진을 골라도 예전 단색 그대로라서 그것만 쓰면 표지와 다른 색이 나온다.
+ */
+export function coverTabPaint(diary) {
+  const cover = normalizeCover(diary)
+  if (!cover.enabled) return { color: cover.color, stops: null }
+  const stops = gradientStops(cover)
+  if (stops) return { color: stops[0], stops }
+  return { color: cover.kind === 'photo' && cover.photo?.tone ? cover.photo.tone : cover.color, stops: null }
+}
+
 /** 표지 스티커 복제: 새 ID 로 오른쪽 아래에 조금 비켜 둔다 (편집기 복제와 같은 방향) */
 export function createStickerCopy(item) {
   return { ...item, id: createId(), x: Math.min(100, item.x + 4), y: Math.min(100, item.y + 4) }
