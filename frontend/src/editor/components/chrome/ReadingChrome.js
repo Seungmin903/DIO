@@ -44,9 +44,10 @@ export function PageTurnAction({ direction, index, count, onSelect }) {
     onPress={event => repeat.current.press({ gesture: isGesturePagePress(event) })} />
 }
 
-export function ReadingModeControls({ reading, canEdit, onFit, onToggle, controlsRef, onLayout, bottomInset = 0 }) {
+// fitted: 이미 화면에 맞춰진 상태면 맞춤 버튼을 비활성화한다
+export function ReadingModeControls({ reading, canEdit, fitted = false, onFit, onToggle, controlsRef, onLayout, bottomInset = 0 }) {
   return <View ref={controlsRef} onLayout={onLayout} style={[styles.modeControls, { bottom: 12 + bottomInset }]}>
-    <Action icon="fit" label="화면에 맞춤" onPress={onFit} />
+    <Action icon="fit" label="화면에 맞춤" disabled={fitted} onPress={onFit} />
     {canEdit ? <Action icon={reading ? 'edit' : 'eye'} label={reading ? '편집 모드로 전환' : '읽기 모드로 전환'} onPress={onToggle} /> : <View style={styles.action} />}
   </View>
 }
@@ -61,7 +62,7 @@ export function ReadingHeader({ title, onHome }) {
   </View>
 }
 
-export function ReadingNavigation({ index, count, onSelect, canEdit, onFit, onToggle, controlsRef, onLayout }) {
+export function ReadingNavigation({ index, count, onSelect, canEdit, fitted = false, onFit, onToggle, controlsRef, onLayout }) {
   const [preview, setPreview] = useState(null)
   const width = useRef(1), origin = useRef(null), draft = useRef(null)
   useEffect(() => { draft.current = null; setPreview(null) }, [index, count])
@@ -101,7 +102,7 @@ export function ReadingNavigation({ index, count, onSelect, canEdit, onFit, onTo
       <PageTurnAction direction={1} index={index} count={count} onSelect={onSelect} />
     </View>
     <View style={styles.readingActions}>
-      <Action icon="fit" label="화면에 맞춤" onPress={onFit} />
+      <Action icon="fit" label="화면에 맞춤" disabled={fitted} onPress={onFit} />
       {canEdit && <Action icon="edit" label="편집 모드로 전환" onPress={onToggle} />}
     </View>
   </View>

@@ -57,7 +57,7 @@ import { useMemberCanvasCollaboration } from '../hooks/useMemberCanvasCollaborat
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
-import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, panView } from '../utils/viewport.js'
+import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox } from '../utils/objects'
 import { isTicketFrame } from '../components/canvas/PhotoFrame'
@@ -267,6 +267,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const viewportLocked = Number.isFinite(fixedViewportZoom) && fixedViewportZoom > 0
   const zoom = viewportLocked ? fixedViewportZoom : fitZoom * view.scale
   const offset = viewportLocked || view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) : { x: view.x, y: view.y }
+  // 이미 화면에 맞춰져 있으면 우하단 "화면에 맞춤" 버튼을 비활성화한다 (고정 보기는 옮길 수 없으니 늘 맞춤)
+  const viewFitted = viewportLocked || isFitView(view, centeredOffset(stageSize, fitZoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding))
 
   // 페이지가 화면 밖으로 다 사라지지 않게 가장자리 80px 은 남긴다.
   const clampOffset = (next, z) => clampViewportOffset(next, z, stageSize, PAGE_WIDTH, PAGE_HEIGHT)
@@ -1240,7 +1242,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
           {readOnly && readerMenuVisible && <ReadingHeader title={state.doc.title} onHome={goHome} />}
           {readOnly && readerMenuVisible && <ReadingNavigation index={pageIndex} count={state.doc.pages.length} onSelect={selectReadingPage}
-            controlsRef={modeControlsRef} onLayout={measureModeControls} canEdit={!permissionReadOnly} onFit={fitToScreen} onToggle={toggleReading} />}
+            controlsRef={modeControlsRef} onLayout={measureModeControls} canEdit={!permissionReadOnly} fitted={viewFitted} onFit={fitToScreen} onToggle={toggleReading} />}
           {photoCrop && (
             <PhotoCropper
               key={photoCrop.id}
@@ -1303,7 +1305,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       </View>
       {!readOnly && <ReadingModeControls
         controlsRef={modeControlsRef} onLayout={measureModeControls} bottomInset={!compact ? bottomInset : 0}
-        reading={readOnly} canEdit={!permissionReadOnly} onFit={fitToScreen} onToggle={toggleReading}
+        reading={readOnly} canEdit={!permissionReadOnly} fitted={viewFitted} onFit={fitToScreen} onToggle={toggleReading}
       />}
       {phoneFocus && (
         <Pressable onPress={() => setFocusMode(false)} accessibilityRole="button" accessibilityLabel="집중 편집 모드 종료" style={[styles.focusExit, !landscape && styles.focusExitPortrait]}>

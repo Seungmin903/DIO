@@ -33,6 +33,13 @@ export function centeredOffset(stage, zoom, pageWidth, pageHeight, padding) {
   }
 }
 
+// "화면에 맞춤" 상태인지: 배율 1 이고 페이지가 가운데에 있다. 이때는 맞춤 버튼이 할 일이 없다.
+// view.x 가 null 이면 가운데로 두는 보기이고, 숫자면 옮겨 둔 보기라 가운데와 같은 자리일 때만 맞춤으로 본다.
+export function isFitView(view, centered) {
+  if (Math.abs(view.scale - 1) > 0.001) return false
+  return view.x == null || (Math.abs(view.x - centered.x) < 1 && Math.abs(view.y - centered.y) < 1)
+}
+
 export function clampOffset(next, zoom, stage, pageWidth, pageHeight) {
   if (!stage) return next
   const keep = PAGE_VISIBLE_EDGE
