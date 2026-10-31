@@ -368,7 +368,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
                 <Section key={group.id} title={group.title} badge={group.badge}>
                   <View style={styles.grid}>
                     {group.items.map((sticker) => (
-                      <Tile key={sticker.asset} {...tileProps(sticker)}>
+                      <Tile key={stickerKey(sticker)} {...tileProps(sticker)}>
                         <StickerThumb item={sticker} />
                       </Tile>
                     ))}

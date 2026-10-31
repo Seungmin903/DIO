@@ -7,6 +7,8 @@ import { mediaId } from '../../utils/mediaReferences.js'
 import { stickerSource } from '../../stickerAssets'
 import { STICKER_THUMBS } from '../../stickerThumbs'
 import { colors } from '../../../shared/theme'
+import DdayWidget from '../../widgets/DdayWidget'
+import { DDAY_STYLES, ddayStyleOf } from '../../widgets/dday'
 
 const RETRIES = 2
 
@@ -17,6 +19,27 @@ const RETRIES = 2
  * - 불러오지 못하면 잠깐 뒤 두 번까지 다시 시도하고, 그래도 안 되면 흐린 자리표시만 남긴다.
  */
 export default function StickerThumbImage({ item, style }) {
+  if (item.widget) return <WidgetThumb item={item} style={style} />
+  return <ImageThumb item={item} style={style} />
+}
+
+// 미리보기는 늘 'D-37' 샘플이다. 매 렌더 새 객체를 만들어 위젯의 memo 가 무력화되지 않게 모듈 상수로 둔다.
+const THUMB_TODAY = { y: 2000, m: 1, d: 1 }
+const THUMB_WIDGETS = Object.fromEntries(DDAY_STYLES.map((style) => [style.id, { kind: 'dday', style: style.id, title: '', date: '2000-02-07' }]))
+
+// 위젯은 이미지가 없어 칸 크기에 맞춰 직접 그린다 (칸 안에서 가로로 꽉 차게, 긴 변은 칸에 맞춤).
+function WidgetThumb({ item, style }) {
+  const [box, setBox] = useState(null)
+  const size = ddayStyleOf(item.style)
+  const fit = box ? Math.min(box.width / size.w, box.height / size.h) * 0.92 : 0 // 가장자리 여백: 칸 끝에서 잘려 보이지 않게
+  return (
+    <View style={[style, styles.widgetBox]} onLayout={(event) => setBox(event.nativeEvent.layout)}>
+      {fit > 0 && <DdayWidget widget={THUMB_WIDGETS[size.id]} width={size.w * fit} height={size.h * fit} today={THUMB_TODAY} />}
+    </View>
+  )
+}
+
+function ImageThumb({ item, style }) {
   const id = item.asset ? null : mediaId(item.poster ?? item)
   const uri = useMediaUri(item.asset ? null : item, { still: true })
   const [attempt, setAttempt] = useState(0)
@@ -37,5 +60,6 @@ export default function StickerThumbImage({ item, style }) {
 
 const styles = StyleSheet.create({
   emoji: { fontSize: 28, textAlign: 'center' },
+  widgetBox: { alignItems: 'center', justifyContent: 'center' },
   placeholder: { borderRadius: 8, backgroundColor: colors.surfaceMuted },
 })

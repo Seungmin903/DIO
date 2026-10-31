@@ -23,6 +23,7 @@ import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
 import { loadedFontFamily, textSettings, textStyle } from '../../utils/text'
 import { useTextFont } from '../../hooks/useTextFont'
 import { useStickerPlayback } from '../../hooks/useStickerPlayback'
+import DdayWidget from '../../widgets/DdayWidget'
 
 /**
  * 텍스트가 실제로 그려진 높이를 알려 받는 곳 (id, 논리 높이). 편집 화면 캔버스만 주고, 썸네일은 null 이다.
@@ -61,6 +62,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
     case 'stroke':
       return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} />
     case 'sticker':
+      if (object.widget) return <View style={{ transform: flipTransform(object) }}><DdayWidget widget={object.widget} width={width} height={height} /></View>
       return <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'tape':
       return (

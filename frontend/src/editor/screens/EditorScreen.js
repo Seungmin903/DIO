@@ -452,6 +452,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const object = createObjectFromDecor(item, randomCenter())
     dispatch({ type: 'addObjects', objects: [object] })
     closeAfterInsert()
+    // 위젯은 붙이자마자 옵션을 열어 기준 날짜부터 정하게 한다
+    if (object.widget) setMoreOpen(true)
   }
 
   const movePage = async (id,toIndex) => {

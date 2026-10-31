@@ -9,6 +9,7 @@ import EffectOptions from './EffectOptions'
 import ShapeSettings from '../ShapeSettings'
 import TapeOptions from './TapeOptions'
 import FrameOptions from './FrameOptions'
+import DdayOptions from '../../widgets/DdayOptions'
 import { isStripFrame } from '../../utils/photoStrip'
 import { hasPhotoMedia } from '../../utils/objects'
 import { PaletteInteractionContext } from '../controls/ColorPicker'
@@ -36,6 +37,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
   const isPhoto = single?.type === 'photo' && !single.locked
   const isShape = single?.type === 'shape' && !single.locked
   const isTape = single?.type === 'tape' && !single.locked
+  const isWidget = single?.type === 'sticker' && Boolean(single.widget) && !single.locked
   const hasStyle = true // 불투명도는 모든 요소에 있어 꾸미기 탭이 늘 있다
   const current = hasStyle ? tab : 'layout'
   const title = objects.length > 1 ? `${objects.length}개 요소` : `${TYPE_TITLES[single?.type] ?? '요소'} 옵션`
@@ -106,6 +108,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
             )}
             {isPhoto && <FrameOptions photo={single} dispatch={dispatch} onReplaceCell={onReplaceCell} onCropCell={onCropCell} />}
 
+            {isWidget && <DdayOptions object={single} dispatch={dispatch} />}
             <Section title="불투명도">
               <Slider
                 value={objectOpacity(editable[0])}
@@ -123,7 +126,8 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
               />
             </Section>
 
-            <EffectOptions objects={editable} dispatch={dispatch} />
+            {/* 위젯은 코드로 그려 윤곽선·그림자를 따라 그릴 수 없다 */}
+            <EffectOptions objects={editable.filter((o) => !o.widget)} dispatch={dispatch} />
 
             {isTape && (
               <TapeOptions tape={single} dispatch={dispatch} />
