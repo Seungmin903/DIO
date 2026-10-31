@@ -1,0 +1,51 @@
+import { bioError, nicknameError, normalizeBio, normalizeNickname } from './validation.js';
+
+const fail = (message) => {
+  throw new Error(message);
+};
+const text = (value) => (typeof value === 'string' ? value : '');
+
+// 저장된 값에서 쓸 수 있는 칸만 걸러 낸다. 손상된 값은 없는 것으로 본다.
+function clean(saved) {
+  const nickname = text(saved?.nickname),
+    bio = text(saved?.bio),
+    photoUri = text(saved?.photoUri).trim();
+  return {
+    ...(!nicknameError(nickname) && { nickname: normalizeNickname(nickname) }),
+    ...(!bioError(bio) && normalizeBio(bio) && { bio: normalizeBio(bio) }),
+    ...(photoUri && { photoUri }),
+  };
+}
+// 세션 사용자에 프로필을 얹는다. 비어 있는 칸은 키째 뺀다.
+const merge = (user, profile) => {
+  const { bio, photoUri, ...rest } = user;
+  return { ...rest, ...clean(profile) };
+};
+
+/**
+ * 게스트 프로필: 로그인한 회원처럼 닉네임 · 한 줄 소개 · 사진을 고치고, 기기에 남긴다.
+ * load / save 는 기기 저장소, keepPhoto 는 고른 사진을 앱이 지우지 않는 자리로 옮기는 함수다.
+ */
+export function createGuestProfile({ load, save, keepPhoto = async (uri) => uri }) {
+  return {
+    /** 게스트로 시작할 때: 지난번에 고친 프로필을 얹은 사용자를 돌려준다. */
+    async start(user) {
+      try {
+        return merge(user, await load());
+      } catch {
+        return user;
+      }
+    },
+    async updateProfile(user, { nickname, photoUri = null, bio = '' }) {
+      if (nicknameError(nickname)) fail(nicknameError(nickname));
+      if (bioError(bio)) fail(bioError(bio));
+      if (photoUri !== null && (typeof photoUri !== 'string' || !photoUri.trim()))
+        fail('사진을 다시 선택해 주세요.');
+      const kept =
+        photoUri && photoUri !== user.photoUri ? await keepPhoto(photoUri, user.photoUri) : photoUri;
+      const profile = { nickname: normalizeNickname(nickname), bio: normalizeBio(bio), photoUri: kept };
+      if (!(await save(profile))) fail('프로필을 저장하지 못했어요. 다시 시도해 주세요.');
+      return merge(user, profile);
+    },
+  };
+}
