@@ -19,12 +19,12 @@ import java.util.UUID;
 public class DiaryProfileController {
     private final DiaryProfileService profiles;private final DiaryMemberPhotoService photos;
     public DiaryProfileController(DiaryProfileService profiles,DiaryMemberPhotoService photos){this.profiles=profiles;this.photos=photos;}
-    @PatchMapping(value="/profile",consumes=MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(value="/membership",consumes=MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary="내 다이어리 상태·프로필 수정",description="별칭 중복 허용. 생략은 유지, nickname:null은 계정 닉네임, memberProfilePhotoId:null은 계정 사진 사용. 커서 색은 변경하지 않음.",
         requestBody=@io.swagger.v3.oas.annotations.parameters.RequestBody(content=@io.swagger.v3.oas.annotations.media.Content(
             mediaType=MediaType.APPLICATION_JSON_VALUE,examples=@io.swagger.v3.oas.annotations.media.ExampleObject(value="{\"nickname\":\"여행친구\",\"favorite\":true}"))))
     public DiaryProfileResponse update(@PathVariable UUID diaryId,@AuthenticationPrincipal Jwt jwt,@RequestBody DiaryProfileUpdateRequest request){return profiles.update(diaryId,SharingActor.require(jwt),request,null);}
-    @PatchMapping(value="/profile",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PatchMapping(value="/membership",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary="내 다이어리 상태·프로필 수정",description="profile JSON 파트와 photo 파일 파트. JPEG/PNG 최대 5MB. 사진은 S3/로컬에, 참조는 기존 media_files에 저장. 사진 업로드와 사진 ID 선택은 동시에 전달하지 않음.",
         requestBody=@io.swagger.v3.oas.annotations.parameters.RequestBody(content=@io.swagger.v3.oas.annotations.media.Content(
             mediaType=MediaType.MULTIPART_FORM_DATA_VALUE,encoding=@io.swagger.v3.oas.annotations.media.Encoding(name="profile",contentType=MediaType.APPLICATION_JSON_VALUE))))

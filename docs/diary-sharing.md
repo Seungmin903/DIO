@@ -6,7 +6,7 @@ Jira S15P31F106-324~333의 기존 공유 구현에 이메일 초대를 확장했
 
 | Method | Endpoint | 동작 |
 |---|---|---|
-| PATCH | `/api/v1/diaries/{diaryId}/profile` | 내 즐겨찾기·마지막 페이지 UUID·다이어리별 별칭·사진 수정 |
+| PATCH | `/api/v1/diaries/{diaryId}/membership` | 내 즐겨찾기·마지막 페이지 UUID·다이어리별 별칭·사진 수정 |
 | GET | `/api/v1/diaries/{diaryId}/members` | 멤버·계정 닉네임/사진·현재 인원/최대 인원 |
 | DELETE | `/api/v1/diaries/{diaryId}/members/{userId}` | 본인 나가기·소유자의 강퇴, 204 |
 | POST | `/api/v1/diaries/{diaryId}/transfer-owner` | 소유권 양도만 처리, 기존 소유자는 편집자로 유지, 204 |
@@ -95,7 +95,7 @@ GET `/diaries/{diaryId}/invites`는 기존 최상위 available/token/inviteUrl/e
 
 ## 다이어리별 별칭·사진 (확정 명세)
 
-- `PATCH /api/v1/diaries/{diaryId}/profile`로 경로 변경. 예전 `/membership` 경로는 유지하지 않는다.
+- 명세 경로 `PATCH /api/v1/diaries/{diaryId}/membership`을 사용한다. 잘못 사용했던 `/profile` 수정 경로는 제거한다.
 - `POST /api/v1/diaries/{diaryId}/transfer-owner`로 경로/동작 변경. 예전 양도 후 나가기 경로는 유지하지 않는다.
 - `nickname`: 한글·영문·숫자·밑줄 2~12자, NFKC 정규화. 중복 허용. 필드를 생략하면 유지, 명시적 null이면 계정 닉네임으로 복원.
 - `memberProfilePhotoId`: 본인이 이 프로필 기능으로 업로드한 유효한 이미지 ID를 선택할 수 있다. 생략하면 유지, 명시적 null이면 계정 사진 자동 사용. 다른 사람의 사진 ID·삭제된 사진·일반 에셋의 임의 저장 경로는 사용할 수 없다.
@@ -115,7 +115,7 @@ JSON 예시:
 
 예시:
 ```bash
-curl -X PATCH "$API/api/v1/diaries/$DIARY_ID/profile" \
+curl -X PATCH "$API/api/v1/diaries/$DIARY_ID/membership" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -F 'profile={"nickname":"여행친구"};type=application/json' \
   -F 'photo=@profile.png;type=image/png'
