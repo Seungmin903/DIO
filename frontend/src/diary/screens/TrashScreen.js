@@ -9,6 +9,7 @@ import EmptyState from '../components/EmptyState';
 import Header from '../components/Header';
 import Cover from '../components/Cover';
 import ProgressRing from '../components/ProgressRing';
+import { useDiaryGrid } from '../utils/useDiaryGrid';
 import { TRASH_RETENTION_MS, isTrashExpired, trashDeadline, trashStatus } from '../utils/trashRetention';
 import { isAllSelected, isTrashUrgent, pruneSelection, selectableIds, splitSelection, toggleSelection } from '../utils/trashSelection';
 
@@ -17,7 +18,7 @@ const DAY = 24 * 60 * 60 * 1000;
 // 보관함 카드(DiaryCard)처럼 memo 로 감싸 메뉴를 여닫을 때 값이 같은 카드(표지 · 패턴)는 다시 그리지 않는다.
 // now 같이 매번 바뀌는 값은 카드에 넘기지 않고 계산한 문구·불리언만 넘긴다.
 // 누르면 동작 시트(복원 · 영구 삭제)를 열고, 선택 모드에서는 보관함 편집처럼 체크만 바꾼다.
-const TrashCard = memo(function TrashCard({ diary, compact, portrait, status, urgent, remaining, selecting, selected, selectable, onPress, onLongPress }) {
+const TrashCard = memo(function TrashCard({ diary, compact, cell, status, urgent, remaining, selecting, selected, selectable, onPress, onLongPress }) {
   // 세로 표지는 칸보다 좁아 가운데에 놓인다. 제목 · 남은 기간을 홈 한눈에 보기처럼 그 표지의 왼쪽 끝에 맞추려고 Cover 가 알려 주는 값
   const [coverInset, setCoverInset] = useState(0);
   return (
@@ -30,7 +31,7 @@ const TrashCard = memo(function TrashCard({ diary, compact, portrait, status, ur
       disabled={selecting && !selectable}
       onPress={() => onPress(diary)}
       onLongPress={selecting ? undefined : () => onLongPress(diary)}
-      style={({ pressed }) => [s.trashCard, compact && s.trashCardCompact, portrait && s.trashCardPortrait, selecting && !selectable && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
+      style={({ pressed }) => [s.trashCard, compact && s.trashCardCompact, cell && { width: cell }, selecting && !selectable && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
     >
       <View style={[s.trashCover, compact && s.trashCoverCompact]}>
         <Cover diary={diary} grid fill centered compact={compact} onInset={setCoverInset}>
@@ -40,7 +41,7 @@ const TrashCard = memo(function TrashCard({ diary, compact, portrait, status, ur
         </Cover>
       </View>
       {/* 제목 자리는 홈 한눈에 보기(cardInfoGrid)와 같다: 표지 왼쪽 끝에 맞추고 안쪽 여백 4 · 위 10 */}
-      <View style={[s.trashInfo, coverInset > 0 && { marginLeft: coverInset }]}>
+      <View style={[s.trashInfo, !cell && coverInset > 0 && { marginLeft: coverInset }]}>
         <Text numberOfLines={1} style={s.trashTitle}>{diary.title}</Text>
         {/* 남은 기간: 고리 + 글자. 3일 이하는 버터 칩 + 네이비 글자(적색을 쓰지 않는다) */}
         <View style={[s.trashDateRow, urgent && s.trashDateRowUrgent]}>
@@ -97,12 +98,13 @@ function TrashSheet({ diary, status, busy, canRestore, canDelete, onRestore, onD
 
 // 폰과 태블릿 모두 같은 카드 · 동작 시트 · 선택 모드를 사용한다.
 // onRestoreMany(ids) · onDeleteMany(diaries)는 선택 모드의 묶음 작업이다. 없으면 그 버튼을 보이지 않는다.
-export default function TrashScreen({ diaries, onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, compact = false, portrait = false, now = Date.now(), cleanupError, onRetryCleanup,
+export default function TrashScreen({ diaries, onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, compact = false, now = Date.now(), cleanupError, onRetryCleanup,
   serverMode = false, busy = false, requestNotice = null, suppressEmpty = false }) {
   // 부모가 매번 새 함수를 넘겨도 카드(memo)가 다시 그려지지 않도록 최신 값을 ref 로 들고 고정된 함수만 카드에 준다.
   const latest = useRef({ onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, now, serverMode, busy });
   latest.current = { onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, now, serverMode, busy };
 
+  const grid = useDiaryGrid(compact); // 홈 한눈에 보기와 같은 칸 크기 · 한 줄 개수 (폰은 null)
   const [selected, setSelected] = useState(null); // null 이면 선택 모드가 아니다
   const [sheetId, setSheetId] = useState(null);
   const selecting = selected !== null;
@@ -224,13 +226,13 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
       {!rows.length ? (suppressEmpty ? null :
         <EmptyState compact={compact} art="duri" raised title="휴지통이 비어 있어요" />
       ) : (
-        <View style={[s.trashGrid, compact && s.trashGridCompact]}>
+        <View onLayout={grid?.onLayout}><View style={[s.trashGrid, compact && s.trashGridCompact, grid?.style]}>
           {rows.map(({ diary, status, urgent, remaining, canRestore, canDelete }) => (
             <TrashCard
               key={diary.id}
               diary={diary}
               compact={compact}
-              portrait={portrait}
+              cell={grid?.cell}
               status={status}
               urgent={urgent}
               remaining={remaining}
@@ -241,7 +243,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
               onLongPress={longPress}
             />
           ))}
-        </View>
+        </View></View>
       )}
     </ScrollView>
     <TrashSheet

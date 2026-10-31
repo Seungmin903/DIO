@@ -209,7 +209,6 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   carouselEffectSpace: { marginHorizontal: -48, paddingHorizontal: 48, marginTop: -28, paddingTop: 28, marginBottom: -36, paddingBottom: 36 },
   cardCarouselCompact: { width: 268 },
   cardCarouselLarge: { width: 440 }, // 태블릿 세로: 옆 카드 없이 한 권만 크게
-  cardGridPortrait: { width: '31.5%' }, // 태블릿 세로: 한 줄 3권 (가로의 4권과 비슷한 크기)
   cardGrid: { width: '23.5%', minWidth: 0, borderWidth: 0, borderRadius: 0, overflow: 'visible', backgroundColor: 'transparent' },
   cardGridCompact: { width: '47.5%', minWidth: 0 },
   cardList: { minHeight: 120, flexDirection: 'row', alignItems: 'stretch' },
@@ -265,7 +264,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   coverRule: { flex: 1, height: 1, backgroundColor: 'rgba(11,23,102,.34)' },
   coverYear: { color: 'rgba(11,23,102,.72)', fontSize: 10, fontWeight: '900' },
   coverYearSmall: { fontSize: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 34, paddingTop: 16 }, // 첫 줄은 필터 · 칩 바로 아래(16)에서 시작한다
+  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '2%', rowGap: 32, paddingTop: 16 }, // 태블릿은 useDiaryGrid 가 폭 · 칸 간격을 정해 덮는다(utils/gridLayout). 첫 줄은 필터 · 칩 바로 아래(16)에서 시작한다
   gridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between', paddingTop: 28 },
 
   createCard: { alignItems: 'stretch' },
@@ -423,9 +422,8 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   trashGridCompact: { columnGap: 0, rowGap: 22, justifyContent: 'space-between' },
   trashPolicy: { color: C.muted, fontSize: 13, lineHeight: 21, marginBottom: 16 },
   trashNotice: { padding: 16, borderRadius: 12, backgroundColor: C.pale, marginBottom: 16 },
-  trashCard: { width: '23.5%' }, // 틀 없이 홈 한눈에 보기(cardGrid)와 같은 폭 · 같은 한 줄 개수로 표지를 바로 얹는다
+  trashCard: { width: '23.5%' }, // 폰 전용 퍼센트 폭의 바탕값. 태블릿은 홈 한눈에 보기와 같은 칸 크기 · 한 줄 개수를 useDiaryGrid 에서 받는다
   trashCardCompact: { width: '47.5%' },
-  trashCardPortrait: { width: '31.5%' }, // 태블릿 세로: 홈 한눈에 보기(cardGridPortrait)와 같은 한 줄 3권
   trashCover: { position: 'relative', alignItems: 'center' }, // 칸(최대 219)이 카드보다 좁을 때 왼쪽으로 쏠리지 않게 가운데 // 홈 격자 카드의 표지 칸(cardCoverWrap)과 같게: 자르거나 흐리게 하지 않는다
   trashCoverCompact: {},
   trashInfo: { paddingHorizontal: 4, paddingTop: 10 }, // 홈 한눈에 보기 cardInfoGrid 와 같은 안쪽 여백

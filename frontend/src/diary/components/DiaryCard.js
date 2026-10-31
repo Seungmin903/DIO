@@ -33,9 +33,10 @@ function starOutlineFor(diary) {
 // onOpen·onCenter·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다. onCenter 는 스와이프 옆 카드를 눌렀을 때.
 // 표지 왼쪽 위의 별(배경 없음)을 누르면 즐겨찾기를 켜고 끈다. 오른쪽 위 `⋯` 버튼은 동작 말풍선(수정 · 휴지통으로 이동)을 띄운다.
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
+// cell: 태블릿 한눈에 보기의 칸 크기(px). 주면 카드 폭을 이 값으로 고정하고 제목을 칸 왼쪽 끝에 맞춘다(폰은 퍼센트 폭에 제목을 표지 왼쪽 끝에 맞춤)
 // sunShadow: 책상 위 표지라 그림자를 해 방향에 맞춘다
 // infoStyle: 스와이프 옆 카드에서 이름 · 페이지 수를 흐리게 하는 애니메이션 값
-function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, portrait = false, onOpen, onCenter, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false }) {
+function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, cell = null, onOpen, onCenter, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false }) {
   // 동작 말풍선: null 이면 닫힘, 열리면 ⋯ 버튼의 창 안 자리(anchor)를 들고 있다(재지 못하면 anchor 는 null)
   const [menu, setMenu] = useState(null);
   const moreRef = useRef(null);
@@ -76,7 +77,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
         compact && layout === 'carousel' && s.cardCarouselCompact,
         large && layout === 'carousel' && s.cardCarouselLarge,
         compact && layout === 'grid' && s.cardGridCompact,
-        portrait && layout === 'grid' && s.cardGridPortrait,
+        cell && layout === 'grid' && { width: cell },
         selected && s.cardSelected,
         pressed && s.pressed,
       ]}
@@ -118,7 +119,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
         </Pressable>}
         </Cover>
       </View>
-      <Animated.View style={[s.cardInfo, layout !== 'list' && coverInset > 0 && { marginLeft: coverInset }, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid, infoStyle]}>
+      <Animated.View style={[s.cardInfo, (layout === 'carousel' || (layout === 'grid' && !cell)) && coverInset > 0 && { marginLeft: coverInset }, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid, infoStyle]}>
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
             <View style={s.cardTitleRow}>
