@@ -15,7 +15,7 @@ public class SharingSecurityConfig {
         // Match only sharing endpoints; leave existing diary routes to their owning domain.
         var paths=org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher.withDefaults();
         var matcher=new org.springframework.security.web.util.matcher.OrRequestMatcher(java.util.stream.Stream.of(
-            "/api/v1/diaries/{diaryId}/profile", "/api/v1/diaries/{diaryId}/members",
+            "/api/v1/diaries/{diaryId}/membership", "/api/v1/diaries/{diaryId}/members",
             "/api/v1/diaries/{diaryId}/members/{userId}", "/api/v1/diaries/{diaryId}/members/{userId}/profile-photo",
             "/api/v1/diaries/{diaryId}/transfer-owner", "/api/v1/diaries/{diaryId}/invites",
             "/api/v1/diaries/{diaryId}/invites/{inviteId}", "/api/v1/invites/{token}",
