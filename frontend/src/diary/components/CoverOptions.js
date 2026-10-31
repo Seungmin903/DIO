@@ -15,7 +15,7 @@ import CoverPattern from './CoverPattern'
 import { textStyle } from '../../editor/utils/text'
 import { loadPhotoTone } from '../utils/loadPhotoTone'
 import {
-  ANCHORS, BAND_COLORS, COVER_COLORS, COVER_FONTS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, PLATE_SHAPES, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
+  ANCHORS, BAND_COLORS, COVER_COLORS, COVER_FONTS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, isLegacyGradient, PLATE_SHAPES, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
   bandAutoColor, changeCoverKind, coverElementSummary, paintStops,
 } from '../utils/coverDesign'
 
@@ -26,8 +26,8 @@ const KINDS = [{ id: 'none', label: '표지 없음' }, { id: 'plain', label: '�
 const chips = list => list.map(([id, label]) => ({ id, label }))
 
 // 견본도 표지와 같이 물감 섞기로 중간색을 채워 그린다
-function GradientTile({ id, stops: keys }) {
-  const stops = paintStops(keys)
+function GradientTile({ id, stops: keys, legacy = false }) {
+  const stops = legacy ? keys : paintStops(keys) // 예전 프리셋은 표지와 같이 고른 색만 잇는다
   return <Svg width="100%" height="100%"><Defs><LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
     {stops.map((color, i) => <Stop key={i} offset={i / (stops.length - 1)} stopColor={color} />)}
   </LinearGradient></Defs><Rect width="100%" height="100%" fill={`url(#${id})`} /></Svg>
@@ -47,8 +47,9 @@ function BaseOptions({ cover, onChange }) {
       <ColorRow label="배경색" value={cover.color} active={cover.gradient == null} swatches={COVER_COLORS} onChange={color => set({ color, gradient: null })}
         picking={picking === 'solid'} onPicking={open => setPicking(open ? 'solid' : null)}
         after={<>
-          {COVER_GRADIENTS.map(([name, stops], index) => <Swatch key={name} label={`바탕 그라데이션 ${name}`} on={cover.gradient === index}
-            onPress={() => { set({ gradient: index }); setPicking(null) }}><GradientTile id={`cover-gradient-${index}`} stops={stops} /></Swatch>)}
+          {/* 예전 프리셋은 이 표지가 지금 쓰고 있을 때만(맨 앞에) 보인다. 새로 고를 수는 없다 */}
+          {COVER_GRADIENTS.map(([name, stops], index) => (!isLegacyGradient(index) || cover.gradient === index) && <Swatch key={index} label={`바탕 그라데이션 ${name}`} on={cover.gradient === index}
+            onPress={() => { set({ gradient: index }); setPicking(null) }}><GradientTile id={`cover-gradient-${index}`} stops={stops} legacy={isLegacyGradient(index)} /></Swatch>)}
           <CustomSwatch label="바탕 그라데이션 직접 고르기" on={cover.gradient === 'custom'} open={picking === 'gradient'}
             onPress={() => { if (cover.gradient !== 'custom') set({ gradient: 'custom' }); setPicking(picking === 'gradient' ? null : 'gradient') }}>
             <GradientTile id="cover-gradient-custom" stops={customStops} />

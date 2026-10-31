@@ -233,8 +233,8 @@ test('표지 스티커는 회전 각도를 0~360 으로 저장하고, 복제는 
 test('상단바 탭 색 띠는 표지에 보이는 색을 따라간다: 그라데이션은 전체 색, 사진은 대표 색, 그 밖은 바탕색', () => {
   assert.deepEqual(coverTabPaint({ color: '#F2A7A0' }), { color: '#F2A7A0', stops: null })
   const sunset = coverTabPaint({ color: '#F2A7A0', cover: { gradient: 0 } })
-  assert.deepEqual(sunset.stops, ['#FCE8EE', '#F6B6CA', '#E98EAE'])
-  assert.equal(sunset.color, '#FCE8EE')
+  assert.deepEqual(sunset.stops, ['#F6C9B8', '#F3D9C2', '#C7CCE9', '#9DA5D8'])
+  assert.equal(sunset.color, '#F6C9B8')
   const custom = coverTabPaint({ color: '#F2A7A0', cover: { gradient: 'custom', gradientColors: ['#112233', '#445566'] } })
   assert.deepEqual(custom.stops, ['#112233', '#445566'])
   const photo = { src: 'file://a.jpg', mediaFileId: 'm1' }
@@ -257,4 +257,23 @@ test('상단바 탭 그라데이션 색은 #RRGGBB 로 맞춘 값만 쓰고 색�
   assert.equal(coverTabPaint({ color: '#F2A7A0', cover: { kind: 'photo', photo: { src: 'file://a.jpg', tone: 'url(x)' } } }).color, '#F2A7A0')
   // 프리셋 그라데이션은 모두 두 색 이상이다
   for (let index = 0; index < 6; index++) assert.ok(coverTabPaint({ cover: { gradient: index } }).stops.length >= 2)
+})
+
+test('출시된 표지가 고른 예전 그라데이션(0~5번)은 번호 · 색 · 그리는 방식이 그대로이고, 새 프리셋은 그 뒤에서만 고른다', async () => {
+  const { COVER_GRADIENTS, GRADIENT_PICK_FROM, gradientStops } = await import('../src/diary/utils/coverDesign.js')
+  const legacy = [
+    ['노을', ['#F6C9B8', '#F3D9C2', '#C7CCE9', '#9DA5D8']],
+    ['숲', ['#DCEBD0', '#9CC29A', '#4E7D5B']],
+    ['모래', ['#FBEFD9', '#F0D3A8', '#C99E6E']],
+    ['밤하늘', ['#1F2A5A', '#3B4C8C', '#8A7DB8']],
+    ['벚꽃', ['#FDE3EA', '#F7B9CB']],
+    ['바다', ['#CFEAF6', '#8CCBE6', '#3E8DB8']],
+  ]
+  assert.deepEqual(COVER_GRADIENTS.slice(0, 6), legacy)
+  assert.equal(GRADIENT_PICK_FROM, 6)
+  for (let index = 0; index < 6; index++) {
+    assert.deepEqual(gradientStops(normalizeCover({ cover: { gradient: index } })), legacy[index][1])
+  }
+  // 새 프리셋은 물감 섞기로 중간색을 채운다
+  assert.ok(gradientStops(normalizeCover({ cover: { gradient: GRADIENT_PICK_FROM } })).length > COVER_GRADIENTS[GRADIENT_PICK_FROM][1].length)
 })
