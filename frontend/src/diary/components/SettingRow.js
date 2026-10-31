@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../shared/theme';
+import { colors, DISABLED_OPACITY } from '../../shared/theme';
 
 /**
  * 내 공간 설정 목록의 제목(18/800). 아래에 SettingRow 를 잇는다.
@@ -15,10 +15,36 @@ export function SettingTitle({ children, on, onToggle }) {
   );
 }
 
-function Switch({ label, on, onToggle }) {
+/**
+ * 설정 카드(코덱스 3차, 2026-10-31): 흰 면 + cardBorder 1px + 모서리 16 한 장. 안에 구역(SettingSection)이 여러 개 들어간다.
+ * 카드는 화면당 2장 이내로 쓰고, 행마다 카드로 만들지 않는다. 그림자 없음.
+ * 안쪽 위 · 아래 1px 를 겹쳐 첫 구역의 윗선과 마지막 행의 아랫선이 카드 테두리와 겹치지 않게 한다.
+ */
+export function SettingCard({ compact = false, children }) {
   return (
-    <Pressable accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: on }}
-      onPress={() => onToggle(!on)} hitSlop={8} style={[local.switch, on && local.switchOn]}>
+    <View style={[local.card, compact && local.cardCompact]}>
+      <View style={local.cardInner}>{children}</View>
+    </View>
+  );
+}
+
+/**
+ * 카드 안의 구역: 위에 1px 구분선(첫 구역은 카드가 가린다), 제목(18/800)과 본문 행들.
+ * on · onToggle 은 SettingTitle 과 같다(제목 줄의 마스터 스위치). compact 는 받기만 한다(폰 · 태블릿이 같은 모양).
+ */
+export function SettingSection({ title, on, onToggle, children }) {
+  return (
+    <View style={local.section}>
+      <SettingTitle on={on} onToggle={onToggle}>{title}</SettingTitle>
+      <View style={local.sectionBody}>{children}</View>
+    </View>
+  );
+}
+
+function Switch({ label, on, onToggle, disabled = false }) {
+  return (
+    <Pressable accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: on, disabled }} disabled={disabled}
+      onPress={() => onToggle(!on)} hitSlop={8} style={[local.switch, on && local.switchOn, disabled && local.disabled]}>
       <View style={[local.knob, on && local.knobOn, on && local.knobMove]} />
     </Pressable>
   );
@@ -29,16 +55,17 @@ export const ON_OFF = [{ id: 'on', label: '켬' }, { id: 'off', label: '끔' }];
 
 /**
  * 설정 한 줄(60, 앱 정보 행과 같은 높이 · 같은 아래 구분선): 왼쪽 이름, 오른쪽에 스위치(ON_OFF) · 테두리 칩 선택(options) · children.
+ * disabled: 값은 그대로 보이되 누를 수 없다(알림을 끈 동안의 세부 설정처럼).
  * options: [{ id, label }], value: 고른 id, onChange(id). 눌림 효과는 없다(B안: 상태는 면 · 테두리 · 손잡이 자리로만 보인다).
  */
-export default function SettingRow({ label, options, value, onChange, children }) {
+export default function SettingRow({ label, options, value, onChange, disabled = false, children }) {
   const toggle = options === ON_OFF;
   // 이름은 왼쪽, 조작(스위치 · 칩 · 드롭다운 · 버튼)은 오른쪽 끝: 프로필 버튼 · 앱 정보 화살표와 같은 오른쪽 선에 맞춘다(라벨 열 240 고정은 실기기에서 오른쪽 선이 들쭉날쭉했다)
   return (
     <View style={local.row}>
       <Text style={local.label}>{label}</Text>
       {toggle ? (
-        <Switch label={label} on={value === 'on'} onToggle={next => onChange(next ? 'on' : 'off')} />
+        <Switch label={label} on={value === 'on'} disabled={disabled} onToggle={next => onChange(next ? 'on' : 'off')} />
       ) : options ? (
         <View style={local.chips} accessibilityRole="radiogroup" accessibilityLabel={label}>
           {options.map(option => {
@@ -58,14 +85,20 @@ export default function SettingRow({ label, options, value, onChange, children }
 }
 
 const local = StyleSheet.create({
-  title: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 4 },
-  titleRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 4 },
-  titleFlex: { flex: 1, marginBottom: 0 },
+  card: { overflow: 'hidden', paddingHorizontal: 20, borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
+  cardCompact: { paddingHorizontal: 16 },
+  cardInner: { marginVertical: -1 },
+  section: { paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.cardBorder },
+  sectionBody: { marginBottom: -1 },
+  title: { fontSize: 18, fontWeight: '800', color: colors.text, marginTop: 12, marginBottom: 4 },
+  titleRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  titleFlex: { flex: 1, marginTop: 0, marginBottom: 0 },
   // 앱 정보 목록의 행과 같게: 행(60) 바로 아래에 구분선. 이름과 오른쪽 조작은 높이 가운데에 맞춘다
-  row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
-  label: { flex: 1, minWidth: 80, fontSize: 15, lineHeight: 20, fontWeight: '700', color: colors.text, textAlignVertical: 'center' },
+  row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.cardBorder }, // 위아래 12: 스위치(32) 줄과 같은 여백을 칩(44) · 버튼(48) 줄에도 둔다
+  label: { flex: 1, minWidth: 80, fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.text, textAlignVertical: 'center' },
   // 스위치 52×32(터치는 hitSlop 으로 48 이상): 끔은 옅은 판 + 왼쪽 손잡이, 켬은 primaryStrong + 오른쪽 손잡이
   switch: { width: 52, height: 32, borderRadius: 16, padding: 4, justifyContent: 'center', backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.cardBorder }, // 끔: #F0F1F9 면 + #D9DCEF 테두리(코덱스 6 · 7번)
+  disabled: { opacity: DISABLED_OPACITY },
   switchOn: { backgroundColor: colors.primaryStrong, borderColor: colors.primaryStrong },
   knob: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.secondary },
   knobOn: { backgroundColor: colors.surface },
