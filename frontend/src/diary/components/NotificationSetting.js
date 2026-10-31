@@ -53,7 +53,7 @@ export default function NotificationSetting() {
       <SettingTitle on={settings.enabled} onToggle={enabled => setNotificationSettings({ enabled })}>알림</SettingTitle>
       {settings.enabled && <>
       <SettingRow label="다이어리 초대" options={ON_OFF} value={onOff(settings.invite)} onChange={id => setNotificationSettings({ invite: id === 'on' })} />
-      <SettingRow label="함께 쓰는 다이어리 소식" options={ON_OFF} value={onOff(settings.activity)} onChange={id => setNotificationSettings({ activity: id === 'on' })} />
+      <SettingRow label="공유된 다이어리 소식" options={ON_OFF} value={onOff(settings.activity)} onChange={id => setNotificationSettings({ activity: id === 'on' })} />
       <SettingRow label="매일 기록 알림" options={ON_OFF} value={onOff(settings.reminder)} onChange={id => setNotificationSettings({ reminder: id === 'on' })} />
       {settings.reminder && (
         <SettingRow label="기록 알림 시각">

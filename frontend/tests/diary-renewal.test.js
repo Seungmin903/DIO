@@ -258,3 +258,22 @@ test('상단바 탭 그라데이션 색은 #RRGGBB 로 맞춘 값만 쓰고 색�
   // 프리셋 그라데이션은 모두 두 색 이상이다
   for (let index = 0; index < 6; index++) assert.ok(coverTabPaint({ cover: { gradient: index } }).stops.length >= 2)
 })
+
+test('출시된 표지가 고른 예전 그라데이션(0~5번)은 번호 · 색 · 그리는 방식이 그대로이고, 새 프리셋은 그 뒤에서만 고른다', async () => {
+  const { COVER_GRADIENTS, GRADIENT_PICK_FROM, gradientStops } = await import('../src/diary/utils/coverDesign.js')
+  const legacy = [
+    ['노을', ['#F6C9B8', '#F3D9C2', '#C7CCE9', '#9DA5D8']],
+    ['숲', ['#DCEBD0', '#9CC29A', '#4E7D5B']],
+    ['모래', ['#FBEFD9', '#F0D3A8', '#C99E6E']],
+    ['밤하늘', ['#1F2A5A', '#3B4C8C', '#8A7DB8']],
+    ['벚꽃', ['#FDE3EA', '#F7B9CB']],
+    ['바다', ['#CFEAF6', '#8CCBE6', '#3E8DB8']],
+  ]
+  assert.deepEqual(COVER_GRADIENTS.slice(0, 6), legacy)
+  assert.equal(GRADIENT_PICK_FROM, 6)
+  for (let index = 0; index < 6; index++) {
+    assert.deepEqual(gradientStops(normalizeCover({ cover: { gradient: index } })), legacy[index][1])
+  }
+  // 새 프리셋은 물감 섞기로 중간색을 채운다
+  assert.ok(gradientStops(normalizeCover({ cover: { gradient: GRADIENT_PICK_FROM } })).length > COVER_GRADIENTS[GRADIENT_PICK_FROM][1].length)
+})

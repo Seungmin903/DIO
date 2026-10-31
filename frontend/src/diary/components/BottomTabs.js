@@ -2,11 +2,12 @@ import { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import SharingEntry from '../../sharing/SharingEntry';
-import { C } from '../constants';
+import { C, LIBRARY_SCOPES } from '../constants';
+import { filterScope } from '../utils/libraryQuery';
 import { styles as s } from '../styles';
 
 const TABS = [
-  { id: 'library', filter: 'all', label: '다이어리', icon: 'book' },
+  ...LIBRARY_SCOPES.map(scope => ({ id: 'library', filter: scope.id, label: scope.tabLabel, icon: scope.icon })),
   { id: 'studio', label: '꾸미기 공방', icon: 'workshop' },
   { id: 'profile', label: '내 공간', icon: 'person' },
   { id: 'trash', label: '휴지통', icon: 'bin' },
@@ -19,7 +20,7 @@ function BottomTabs({ page, filter, navigate, bottomInset = 0, onNotifications, 
       <View style={s.tabBar} accessibilityRole="tablist">
         {onNotifications && <SharingEntry notifications notificationCount={notificationCount} notificationLabel={notificationLabel} compact count={invitationCount} onPress={onNotifications}/>}
         {TABS.map((tab) => {
-          const selected = page === tab.id && (!tab.filter || filter === tab.filter);
+          const selected = page === tab.id && (!tab.filter || filterScope(filter) === tab.filter);
           return (
             <Pressable
               key={tab.label}

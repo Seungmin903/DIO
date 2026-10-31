@@ -20,7 +20,9 @@ export const PLATE_SHAPES = PLATES.filter(([id]) => id !== 'none')
 export const RIBBON_COLORS = [['아이보리', '#F3F2ED'], ['크라프트', '#D9C4A3'], ['연회색', '#E3E5EA'], ['먹색', '#3B3F4A'], ['네이비', '#0B1766']]
 export const ANCHORS = [['tl', '왼쪽 위'], ['tc', '가운데 위'], ['tr', '오른쪽 위'], ['ml', '왼쪽 가운데'], ['mc', '한가운데'], ['mr', '오른쪽 가운데'], ['bl', '왼쪽 아래'], ['bc', '가운데 아래'], ['br', '오른쪽 아래']]
 // 바탕 그라데이션. 색 · 패턴 표지의 바탕색에서 단색 대신 고른다. [이름, 위→아래 색]
-export const COVER_GRADIENTS = [
+// 표지에는 번호(이 배열의 순서)로 저장된다. 출시된 앱에서 이미 고른 표지가 다른 색으로 바뀌지 않도록
+// 앞의 6개(예전 프리셋)는 번호 · 색 · 그리는 방식을 그대로 두고 고르는 칸에서만 뺀다. 새 프리셋은 맨 뒤에만 덧붙인다(순서 변경 · 중간 삭제 금지).
+const LEGACY_GRADIENTS = [
   ['노을', ['#F6C9B8', '#F3D9C2', '#C7CCE9', '#9DA5D8']],
   ['숲', ['#DCEBD0', '#9CC29A', '#4E7D5B']],
   ['모래', ['#FBEFD9', '#F0D3A8', '#C99E6E']],
@@ -28,13 +30,57 @@ export const COVER_GRADIENTS = [
   ['벚꽃', ['#FDE3EA', '#F7B9CB']],
   ['바다', ['#CFEAF6', '#8CCBE6', '#3E8DB8']],
 ]
+/** 고르는 칸에 보이는 첫 번호. 그 앞은 예전 프리셋(저장된 표지를 그릴 때만 쓴다) */
+export const GRADIENT_PICK_FROM = LEGACY_GRADIENTS.length
+/** 예전 프리셋인지: 저장 당시처럼 고른 색만 잇고(물감 섞기 없이) 고르는 칸에는 내지 않는다 */
+export const isLegacyGradient = gradient => Number.isInteger(gradient) && gradient < GRADIENT_PICK_FROM
+// 고르는 프리셋: 1020 다꾸 사용자 기준 · 물감 혼합(paintStops)에서 중간색이 탁해지지 않는 조합(코덱스 자문 2026-10-31).
+// 1~4번은 한 색의 농담(밝은 → 진한), 5~7번은 서로 다른 세 색을 잇는다. 첫 번째(분홍)가 가장 먼저 보이는 기본 후보.
+export const COVER_GRADIENTS = [
+  ...LEGACY_GRADIENTS,
+  ['벚꽃', ['#FCE8EE', '#F6B6CA', '#E98EAE']],
+  ['라일락', ['#EEE8F6', '#C8BCE4', '#9486BE']],
+  ['버터', ['#FFF5CF', '#F9DF92', '#EFC06C']],
+  ['청포도', ['#EEF5C9', '#C8E09D', '#85BD83']],
+  // 5~7번: 위 · 가운데 · 아래가 서로 다른 색 계열(코덱스 자문). 물감 혼합에서도 중간이 회색 · 갈색으로 죽지 않는 조합
+  ['홀로', ['#FFE1C7', '#E8B8EB', '#AFC6F4']], // 피치 → 오키드 → 페리윙클
+  ['젤리', ['#FFD4D8', '#FFC68F', '#BDE59C']], // 딸기우유 → 살구 → 청포도
+  ['오로라', ['#C4F1D5', '#8CDED3', '#A69CE3']], // 민트 → 아쿠아 → 라벤더
+]
 // 직접 고르는 그라데이션의 처음 두 색 (위 → 아래)
 export const CUSTOM_GRADIENT = ['#F3D9C2', '#9DB6DA']
-/** 바탕 그라데이션 색 (위 → 아래). 단색이면 null */
-export function gradientStops(cover) {
+/** 바탕 그라데이션의 고른 색 (위 → 아래). 단색이면 null */
+export function gradientKeys(cover) {
   if (cover.kind !== 'plain' || cover.gradient == null) return null
   if (cover.gradient === 'custom') return cover.gradientColors ?? CUSTOM_GRADIENT
   return COVER_GRADIENTS[cover.gradient]?.[1] ?? null
+}
+/** 그릴 그라데이션 색 (위 → 아래, 물감처럼 섞은 중간색까지 촘촘히). 단색이면 null. 예전 프리셋은 저장 당시 모습 그대로 고른 색만 잇는다 */
+export function gradientStops(cover) {
+  const keys = gradientKeys(cover)
+  if (!keys) return null
+  return isLegacyGradient(cover.gradient) ? keys : paintStops(keys)
+}
+
+// 물감 섞기: 색을 빛(RGB 평균)이 아니라 물감처럼 섞는다. 파랑 + 노랑이 회색이 아니라 초록 쪽으로 간다.
+// 쿠벨카-뭉크 혼합을 채널마다 근사한다: 선형 반사율 R → 흡수/산란 비 K/S = (1-R)²/2R 를 섞고 다시 R 로 되돌린다.
+const toLinear = v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
+const toGamma = v => Math.round(255 * Math.min(1, Math.max(0, v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055)))
+const toKS = r => { const R = Math.min(0.999, Math.max(0.001, r)); return (1 - R) ** 2 / (2 * R) }
+const fromKS = ks => 1 + ks - Math.sqrt(ks * ks + 2 * ks)
+/** 두 색을 물감처럼 섞는다(t = 0 이면 from, 1 이면 to) */
+export function paintMix(from, to, t) {
+  const channel = (hex, i) => toLinear(parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16))
+  return '#' + [0, 1, 2].map(i => toGamma(fromKS(toKS(channel(from, i)) * (1 - t) + toKS(channel(to, i)) * t)).toString(16).padStart(2, '0')).join('').toUpperCase()
+}
+/** 고른 색 사이를 물감 섞기로 촘촘히 채운 색 목록(같은 간격). SVG 그라데이션은 RGB 로만 섞어서 중간색을 직접 넣어 준다 */
+export function paintStops(keys, steps = 8) {
+  if (keys.length < 2) return keys
+  const out = [keys[0]]
+  for (let i = 0; i < keys.length - 1; i += 1) {
+    for (let k = 1; k <= steps; k += 1) out.push(k === steps ? keys[i + 1] : paintMix(keys[i], keys[i + 1], k / steps))
+  }
+  return out
 }
 export const TITLE_SIZE = { min: 8, max: 48 }
 export const SUBTITLE_SIZE = { min: 6, max: 24 }
@@ -105,7 +151,7 @@ export function normalizeCover(diary) {
 export function coverTabPaint(diary) {
   const cover = normalizeCover(diary)
   if (!cover.enabled) return { color: cover.color, stops: null }
-  const stops = gradientStops(cover)
+  const stops = gradientKeys(cover) // 얇은 띠라 고른 색만 쓴다(스타일 문자열에 이어 붙이는 값)
   if (stops?.length >= 2) return { color: stops[0], stops }
   return { color: cover.kind === 'photo' && cover.photo?.tone ? cover.photo.tone : cover.color, stops: null }
 }

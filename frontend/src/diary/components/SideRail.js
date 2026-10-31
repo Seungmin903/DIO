@@ -7,7 +7,8 @@ import BrandLogo from '../../shared/BrandLogo';
 import AppIcon from '../../shared/AppIcon';
 import ProfileAvatar from './ProfileAvatar';
 import { notificationCountLabel } from '../../notifications/notificationCount.js';
-import { C } from '../constants';
+import { C, LIBRARY_SCOPES } from '../constants';
+import { filterScope } from '../utils/libraryQuery';
 import { markRailMoving } from '../utils/railMotion';
 import { styles as s } from '../styles';
 
@@ -46,7 +47,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
 
   const item = (id, label, icon, nextFilter) => {
     const selected = id === 'library'
-      ? page === 'library' && filter === nextFilter
+      ? page === 'library' && filterScope(filter) === nextFilter
       : page === id;
     return (
       <Pressable
@@ -120,7 +121,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, collapsed, onToggle
         </Pressable>
       </Animated.View>
       <Animated.View style={s.railGroup}>
-        {item('library', '다이어리', 'book', 'all')}
+        {LIBRARY_SCOPES.map(scope => item('library', scope.label, scope.icon, scope.id))}
         {item('studio', '꾸미기 공방', 'workshop')}
         {item('trash', '휴지통', 'bin')}
       </Animated.View>

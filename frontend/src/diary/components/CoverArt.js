@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { Animated, Image, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
+import { Image, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
 import { Image as CachedImage } from 'expo-image'
 import CoverPattern from './CoverPattern'
 import FillSvg from './FillSvg'
@@ -33,14 +33,13 @@ export function coverBody(width, height) {
  * 고무줄 밴드. 로디아 · 몰스킨 하드커버 노트의 고무줄처럼 광택 없이 평평한 띠다.
  * 둘레(긴 변 · 위아래 끝)에 아주 얇은 어두운 선을 두고, 표지에서 살짝 떠 있도록 한쪽(세로는 오른쪽, 가로는 아래)에 옅은 그림자를 둔다.
  */
-function ElasticBand({ vertical, color, scale, radius, style, lit = null }) {
+function ElasticBand({ vertical, color, scale, radius, style }) {
   const edge = mix(color, '#1C2233', 0.24)
   const line = Math.max(0.5, 0.6 * scale)
   const shadow = Math.max(1, 1.4 * scale)
   return <View pointerEvents="none" style={[styles.band, style]}>
     <View style={[StyleSheet.absoluteFill, styles.bandShadow, { borderRadius: radius }, vertical ? { left: shadow, right: -shadow } : { top: shadow, bottom: -shadow }]} />
     <View style={[StyleSheet.absoluteFill, { backgroundColor: color, borderColor: edge, borderRadius: radius, borderWidth: line }]} />
-    {lit && <View style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: 'hidden' }]}>{lit}</View>}
   </View>
 }
 function GradientFill({ stops, initialWidth, initialHeight }) {
@@ -51,6 +50,19 @@ function GradientFill({ stops, initialWidth, initialHeight }) {
     </LinearGradient></Defs>
     <Rect x="0" y="0" width={width} height={height} fill={`url(#${id})`} />
   </>}</FillSvg>
+}
+
+/**
+ * 표지 겉면만(바탕색 · 그라데이션 · 무늬, 사진 표지는 사진). 제목 · 띠지 · 고무줄 · 스티커는 없다.
+ * 펼쳐서 보기에서 종이 밖으로 보이는 표지 판에 쓴다. scale 은 닫힌 표지와 같은 단위(짧은 변 200 = 1)라 무늬 크기가 같다.
+ */
+export function CoverSurface({ cover, width, height, scale }) {
+  const stops = cover.kind === 'photo' ? null : gradientStops(cover)
+  const base = cover.kind === 'photo' ? cover.photo?.tone ?? '#C9CED8' : stops ? stops[0] : cover.color
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: base }]}>
+    {cover.kind === 'photo' ? (cover.photo?.src ? <OwnPhoto photo={cover.photo} /> : null)
+      : <>{stops && <GradientFill stops={stops} initialWidth={width} initialHeight={height} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} initialWidth={width} initialHeight={height} /></>}
+  </View>
 }
 
 const PHOTO_RETRIES = 3
@@ -72,7 +84,8 @@ function OwnPhoto({ photo }) {
   const [drawAttempt, setDrawAttempt] = useState(0)
   if (!uri) return null
   // expo-image: PDF 쪽처럼 큰 사진도 표지 크기에 맞춰 줄여 풀고 메모리 · 디스크에 캐시해 다시 들어올 때 바로 뜬다
-  return <CachedImage key={drawAttempt} source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={0} recyclingKey={id ?? uri}    onError={event => {
+  return <CachedImage key={drawAttempt} source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={0} recyclingKey={id ?? uri}
+    onError={event => {
       if (drawAttempt >= PHOTO_RETRIES) return
       if (__DEV__) console.warn('[cover photo] 그리기 실패, 다시 시도', id, event?.error)
       setTimeout(() => setDrawAttempt(value => value + 1), 500 * (drawAttempt + 1))
@@ -267,233 +280,11 @@ function TitleBox({ edit, ribbon, width, height, at, origin, onSelect, onMove, s
   </View>
 }
 
-const luminance = hex => { const v = parseInt(hex.slice(1), 16); return (0.2126 * ((v >> 16) & 255) + 0.7152 * ((v >> 8) & 255) + 0.0722 * (v & 255)) / 255 }
-
-/**
- * 책상 빛을 받는 표지 층(코덱스 표지 조명 설계). 표지 본체(둥근 모서리로 잘림) 안에만 들어가고 글자 · 고무줄 · 스티커 · 버튼에는 얹히지 않는다.
- * 흰 밝기(screen) + 시간대 색(soft-light) + 그늘 쪽 차가운 곱하기, 빛이 오는 쪽 가장자리의 얇은 빛띠, 반대쪽의 얇은 어두운 선.
- */
-function CoverLightReceiver({ light, scale, windowed }) {
-  const edge = Math.max(0.6, 1 * scale)
-  const side = light.keySide
-  return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-    {!windowed && <>
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: light.screen.color, opacity: light.screen.opacity, mixBlendMode: 'screen' }]} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: light.tint.color, opacity: light.tint.opacity, mixBlendMode: 'soft-light' }]} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: light.shade.color, opacity: light.shade.opacity, mixBlendMode: 'multiply' }]} />
-    </>}
-    {side && <>
-      <View style={{ position: 'absolute', top: 0, bottom: 0, width: edge, [side]: 0, backgroundColor: '#FFF4E3', opacity: light.edge, mixBlendMode: 'screen' }} />
-      <View style={{ position: 'absolute', top: 0, bottom: 0, width: edge, [side === 'left' ? 'right' : 'left']: 0, backgroundColor: 'rgb(36,43,62)', opacity: light.farEdge, mixBlendMode: 'multiply' }} />
-    </>}
-  </View>
-}
-
-// 표지가 받는 책상 빛(코덱스 표지 명암 설계): 표지 전체에 시간대 그늘(곱하기)을 깔고, 창빛 마스크 안만 그 그늘을 되돌려 본래 색에 가깝게 밝힌다.
-// 마스크 밖 · 창살(+) 자리는 그늘 그대로라 책상처럼 받는 쪽 / 안 받는 쪽이 갈린다. 사진 표지는 곱하기만으로는 묻혀서 soft-light 그늘과 더 센 되돌림을 쓴다.
-// 행: [시각, 색, 불투명도] (0 ~ 23 시, 24 는 0 시와 같다)
-const SHADE = [
-  [0, '#423D52', 0.165],
-  [6.5, '#617187', 0.1],
-  [8, '#718096', 0.125],
-  [10, '#77869A', 0.135],
-  [12, '#788596', 0.145],
-  [15, '#897567', 0.145],
-  [17.5, '#8B6D63', 0.15],
-  [19, '#685A68', 0.155],
-  [20, '#4B5068', 0.17],
-  [21, '#4A4050', 0.185],
-  [23, '#443846', 0.205],
-  [24, '#423D52', 0.165],
-]
-const SHADE_PHOTO = [
-  [0, '#403549', 0.185],
-  [6.5, '#52687F', 0.12],
-  [8, '#647C94', 0.15],
-  [10, '#6B8095', 0.165],
-  [12, '#6D7E91', 0.175],
-  [15, '#826D61', 0.175],
-  [17.5, '#805F59', 0.18],
-  [19, '#615064', 0.18],
-  [20, '#434963', 0.2],
-  [21, '#453746', 0.22],
-  [23, '#3E303D', 0.235],
-  [24, '#403549', 0.185],
-]
-const SHADE_SOFT_PHOTO = [
-  [0, '#4C3553', 0.07],
-  [6.5, '#6687A5', 0.04],
-  [8, '#7691A8', 0.055],
-  [10, '#7A91A6', 0.06],
-  [12, '#7D8DA0', 0.065],
-  [15, '#967766', 0.065],
-  [17.5, '#956B61', 0.07],
-  [19, '#74566D', 0.065],
-  [20, '#50546F', 0.07],
-  [21, '#593C49', 0.085],
-  [23, '#512F40', 0.095],
-  [24, '#4C3553', 0.07],
-]
-const RESTORE_SCREEN = [
-  [0, '#FFE6B8', 0.085],
-  [6.5, '#EAF4FF', 0.055],
-  [8, '#FFF3DF', 0.08],
-  [10, '#FFF1D5', 0.09],
-  [12, '#FFF0D2', 0.1],
-  [15, '#FFE6C8', 0.1],
-  [17.5, '#FFDDBE', 0.105],
-  [19, '#F1D6CD', 0.095],
-  [20, '#DCE5FF', 0.085],
-  [21, '#FFD89A', 0.14],
-  [23, '#FFD08A', 0.165],
-  [24, '#FFE6B8', 0.085],
-]
-const RESTORE_SCREEN_PHOTO = [
-  [0, '#FFE1AF', 0.11],
-  [6.5, '#E5F2FF', 0.07],
-  [8, '#FFF0D7', 0.1],
-  [10, '#FFECD0', 0.115],
-  [12, '#FFE9C7', 0.125],
-  [15, '#FFDFC0', 0.125],
-  [17.5, '#FFD4B2', 0.13],
-  [19, '#EBC7C5', 0.115],
-  [20, '#D8E2FF', 0.105],
-  [21, '#FFD187', 0.175],
-  [23, '#FFC071', 0.205],
-  [24, '#FFE1AF', 0.11],
-]
-const RESTORE_SOFT = [
-  [0, '#EFC590', 0.075],
-  [6.5, '#B8D6F2', 0.045],
-  [8, '#FFE0B7', 0.065],
-  [10, '#FFD7A6', 0.075],
-  [12, '#FFD29B', 0.085],
-  [15, '#FFC38D', 0.085],
-  [17.5, '#EEAD8D', 0.09],
-  [19, '#C69AAF', 0.075],
-  [20, '#9EABD3', 0.06],
-  [21, '#E9A464', 0.115],
-  [23, '#D9905A', 0.135],
-  [24, '#EFC590', 0.075],
-]
-const RESTORE_SOFT_PHOTO = [
-  [0, '#E9B678', 0.11],
-  [6.5, '#A9D0F3', 0.065],
-  [8, '#FFD19B', 0.095],
-  [10, '#FFC98E', 0.11],
-  [12, '#FFC184', 0.12],
-  [15, '#FFB377', 0.12],
-  [17.5, '#E99B7F', 0.125],
-  [19, '#BC8DA8', 0.105],
-  [20, '#97A8D2', 0.09],
-  [21, '#E2944E', 0.145],
-  [23, '#CA703D', 0.165],
-  [24, '#E9B678', 0.11],
-]
-const LAMP = { screen: [['#FFD58A', 0.075], ['#FFC978', 0.105]], soft: [['#EAA058', 0.07], ['#CD7B48', 0.09]] } // 21시 · 23시
-const LAMP_PHOTO = { screen: [['#FFCD75', 0.105], ['#FFB85D', 0.135]], soft: [['#DF813C', 0.095], ['#BC6032', 0.12]] } // 21시 · 23시
-// 가로등 층: 21시 · 23시 값 사이를 이어 쓰고 그 뒤는 23시 값을 쓴다
-const WINDOW_LIGHT = require('../../../assets/desk/window-light.png')
-const mixNum = (a, b, t) => a + (b - a) * t
-const mixColor = (a, b, t) => { const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16); const c = shift => Math.round(mixNum((A >> shift) & 255, (B >> shift) & 255, t)).toString(16).padStart(2, '0'); return `#${c(16)}${c(8)}${c(0)}` }
-function rowAt(table, hour) {
-  const next = table.findIndex(row => row[0] > hour)
-  const to = table[next < 0 ? table.length - 1 : next], from = table[next < 0 ? table.length - 1 : Math.max(0, next - 1)]
-  const t = to[0] === from[0] ? 0 : (hour - from[0]) / (to[0] - from[0])
-  return { color: mixColor(from[1], to[1], t), opacity: mixNum(from[2], to[2], t) }
-}
-// 코덱스 표의 되돌림 값을 태블릿에서 실측하니 어두운 표지의 받는 쪽 / 안 받는 쪽 밝기 차가 목표(약 17%)의 절반(약 7%)이라 되돌림에 곱하는 보정이다(클로드 보정값).
-// 합친 상한은 코덱스 safety_caps(밝힘 screen 0.27 · 사진 0.34, soft-light 0.225 · 0.285)를 넘지 않는다.
-const RESTORE_GAIN = 1.6
-const CAP = { solid: { screen: 0.27, soft: 0.225 }, photo: { screen: 0.34, soft: 0.285 } }
-const lampAt = (pair, hour) => { const t = Math.max(0, Math.min(1, ((hour < 5 ? hour + 24 : hour) - 21) / 2)); return { color: mixColor(pair[0][0], pair[1][0], t), opacity: mixNum(pair[0][1], pair[1][1], t) } }
-
-/**
- * 책상과 같은 창빛 마스크를 표지 위에 같은 자리에 비춘다(순서: 전체 그늘 → 마스크 안 되돌림 → 가로등).
- * mask 는 표지 상자 기준 마스크 자리(Cover 가 책상과 맞춰 계산), origin 은 이 층의 왼쪽 위가 표지 상자의 어디인지, photo 는 사진 표지 여부다.
- */
-function CoverWindowLight({ mask, originX, originY, boxWidth, boxHeight, photo = false }) {
-  const { lit } = mask
-  // 마스크는 화면 px 로 놓고(표지 상자 왼쪽 위가 기준), 카드가 커지고 줄어든 만큼(inverse)만 되돌려 크기를 맞춘다. 자리는 카드 이동에 맞춰 애니메이션 값이 옮긴다.
-  const layer = (key, frame, opacity, tint, blend) => opacity > 0.001 && <Animated.Image key={key} source={WINDOW_LIGHT} resizeMode="stretch"
-    style={{ position: 'absolute', left: 0, top: 0, width: frame.width, height: frame.height, opacity, tintColor: tint, mixBlendMode: blend,
-      transform: [{ translateX: frame.offset.x }, { translateY: frame.offset.y }, ...frame.transform] }} />
-  const hour = lit.hour
-  const shade = rowAt(photo ? SHADE_PHOTO : SHADE, hour)
-  const softShade = photo ? rowAt(SHADE_SOFT_PHOTO, hour) : null
-  const lampWeight = Math.max(0, Math.min(1, lit.lampOpacity / 0.3))
-  const sunWeight = Math.min(1, lit.sun)
-  // 낮에는 해 마스크 자리, 밤에는 가로등 마스크 자리. 둘 다 없는 때(잔광이 끝난 20시 무렵)에는 되돌림 없이 그늘만 남는다.
-  const useLamp = lampWeight > sunWeight
-  const frame = useLamp ? mask.lamp : mask.sun
-  const weight = Math.max(sunWeight, lampWeight)
-  const screen = rowAt(photo ? RESTORE_SCREEN_PHOTO : RESTORE_SCREEN, hour)
-  const soft = rowAt(photo ? RESTORE_SOFT_PHOTO : RESTORE_SOFT, hour)
-  const lampSet = photo ? LAMP_PHOTO : LAMP
-  const lampScreen = lampAt(lampSet.screen, hour), lampSoft = lampAt(lampSet.soft, hour)
-  const cap = photo ? CAP.photo : CAP.solid
-  const restoreScreen = screen.opacity * weight * RESTORE_GAIN, restoreSoft = soft.opacity * weight * RESTORE_GAIN
-  const lampScreenRaw = lampScreen.opacity * lampWeight * RESTORE_GAIN, lampSoftRaw = lampSoft.opacity * lampWeight * RESTORE_GAIN
-  // 합친 밝힘이 상한을 넘으면 같은 비율로 줄인다
-  const screenScale = Math.min(1, cap.screen / Math.max(0.001, restoreScreen + lampScreenRaw))
-  const softScale = Math.min(1, cap.soft / Math.max(0.001, restoreSoft + lampSoftRaw))
-  const screenOpacity = restoreScreen * screenScale, softOpacity = restoreSoft * softScale
-  const lampScreenOpacity = lampScreenRaw * screenScale, lampSoftOpacity = lampSoftRaw * softScale
-  return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: shade.color, opacity: shade.opacity, mixBlendMode: 'multiply' }]} />
-    {softShade && <View style={[StyleSheet.absoluteFill, { backgroundColor: softShade.color, opacity: softShade.opacity, mixBlendMode: 'soft-light' }]} />}
-    <Animated.View style={{ position: 'absolute', left: -originX, top: -originY, width: boxWidth, height: boxHeight, transformOrigin: 'left top', transform: [{ scale: mask.inverse }] }}>
-      {weight > 0.001 && <>
-        {layer('screen', frame, screenOpacity, screen.color, 'screen')}
-        {layer('soft', frame, softOpacity, soft.color, 'soft-light')}
-      </>}
-      {lampWeight > 0.001 && <>
-        {layer('lampScreen', mask.lamp, lampScreenOpacity, lampScreen.color, 'screen')}
-        {layer('lampSoft', mask.lamp, lampSoftOpacity, lampSoft.color, 'soft-light')}
-      </>}
-    </Animated.View>
-  </View>
-}
-
-/** 라벨 종이판이 책상 빛에 아주 살짝 반응한다(저녁엔 따뜻하게, 그늘에선 차갑게). 글자 아래에 깔리고 글자 색은 바꾸지 않는다. */
-function PaperLightResponse({ light }) {
-  return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: light.paper.color, opacity: light.paper.opacity }]} />
-}
-
-/**
- * 광택 있는 어두운 표지에 비치는 창 모양 반사(screen). 빛이 오는 쪽을 따라 아침엔 왼쪽, 저녁엔 오른쪽에 길게 누운 막대와 얇은 문살 두 줄이 있다.
- * 밤에는 가로등의 작은 따뜻한 반짝임만 남는다. 밝은 무광 표지에는 쓰지 않는다.
- */
-function CoverGloss({ light }) {
-  if (light.gloss < 0.004) return null
-  const lamp = light.glossLamp
-  const shape = lamp ? { left: '58%', top: '16%', width: '22%', height: '5%', rotate: '-18deg', color: '#FFE5AB' }
-    : light.glossPhase === 'morning' ? { left: '5%', top: '18%', width: '46%', height: '7%', rotate: '18deg', color: '#FFF8EB' }
-    : light.glossPhase === 'noon' ? { left: '27%', top: '18%', width: '46%', height: '7%', rotate: '3deg', color: '#FFF8EB' }
-    : { left: '49%', top: '18%', width: '46%', height: '7%', rotate: '-18deg', color: '#FFF8EB' }
-  return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { mixBlendMode: 'screen', opacity: light.gloss }]}>
-    <View style={{ position: 'absolute', left: shape.left, top: shape.top, width: shape.width, height: shape.height, transform: [{ rotate: shape.rotate }], overflow: 'hidden', borderRadius: 4 }}>
-      <Svg width="100%" height="100%" preserveAspectRatio="none">
-        <Defs><LinearGradient id="gloss" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor={shape.color} stopOpacity={0} />
-          <Stop offset="0.5" stopColor={shape.color} stopOpacity={1} />
-          <Stop offset="1" stopColor={shape.color} stopOpacity={0} />
-        </LinearGradient></Defs>
-        <Rect width="100%" height="100%" fill="url(#gloss)" />
-      </Svg>
-      {!lamp && <>
-        <View style={{ position: 'absolute', left: '13%', top: 0, bottom: 0, width: 1, backgroundColor: '#FFFFFF', opacity: 0.2 }} />
-        <View style={{ position: 'absolute', left: '66%', top: 0, bottom: 0, width: 1, backgroundColor: '#FFFFFF', opacity: 0.2 }} />
-      </>}
-    </View>
-  </View>
-}
-
 /**
  * 표지 그림. width · height 를 알면 그 크기로, height 가 없으면 부모를 채우고 width 로만 글자 크기를 맞춘다.
  * edit 를 넘기면 표지 위 제목 라벨과 스티커를 끌어 옮길 수 있다.
  */
-function CoverArt({ cover, name, width, height, edit = null, shadow = null, light = null, windowMask = null }) {
+function CoverArt({ cover, name, width, height, edit = null, shadow = null }) {
   const [selected, setSelected] = useState(null)
   const titleOrigin = useRef({ x: 0, y: 0 })
   const drafts = useRef(null)
@@ -537,10 +328,6 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, ligh
   // 'auto' 는 표지 색을 같은 계열로 조금 어둡게 한 고무줄 (사진 표지는 따를 바탕색이 없어 기본 남색)
   const stops = gradientStops(cover)
   const bandColor = cover.band.color !== 'auto' ? cover.band.color : bandAutoColor(cover)
-  // 고무줄은 표지 본체 밖으로 나온 별개 층이라 책상 빛을 따로 받는다. 표지 상자 기준 왼쪽 위 자리를 구해 같은 마스크를 맞춘다.
-  const boxH = height ?? width
-  const bandLeft = cover.band.dir === 'v' ? (cover.band.pos === 'center' ? width / 2 - bandWidth / 2 : width * 0.85 - bandWidth) : 0
-  const bandTop = cover.band.dir === 'v' ? 0 : (cover.band.pos === 'center' ? boxH / 2 - bandWidth / 2 : boxH * 0.86 - bandWidth)
   const band = cover.band.on && (cover.band.dir === 'v'
     ? { top: 0, bottom: 0, width: bandWidth, ...(cover.band.pos === 'center' ? { left: '50%', marginLeft: -bandWidth / 2 } : { right: '15%' }) }
     : { left: 0, right: 0, height: bandWidth, ...(cover.band.pos === 'center' ? { top: '50%', marginTop: -bandWidth / 2 } : { bottom: '14%' }) })
@@ -549,7 +336,6 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, ligh
     <TitleBox edit={edit} ribbon={ribbon} width={bodyWidth} height={bodyHeight} at={at} origin={titleOrigin}
       onSelect={() => select(null)} onMove={next => edit.onChange({ ...cover, title: { ...cover.title, at: next } })}
       style={[plate, !ribbon && { maxWidth: at ? bodyWidth * 0.78 : centered ? '100%' : '78%' }]}>
-      {light && plate && <PaperLightResponse light={light} />}
       {ribbonEdges}
       {title ? <Text numberOfLines={3} lineBreakStrategyIOS="hangul-word" style={[titleFont, styles.fill, styles.keepWords, { textAlign }]}>{title}</Text> : null}
       {rule}
@@ -574,8 +360,6 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, ligh
   const base = cover.kind === 'photo' ? cover.photo?.tone ?? '#C9CED8' : stops ? stops[0] : cover.color
   const hasGradient = cover.kind !== 'photo' && Boolean(stops)
   const bodyInset = { top: bandOut + 1, bottom: bandOut + 1, left: bandOut + 1, right: bandOut + 1 }
-  // 광택은 어두운 표지에만 비친다(밝은 무광 표지에는 창 반사가 없다)
-  const glossy = cover.kind !== 'photo' && /^#[0-9a-f]{6}$/i.test(base) && luminance(base) < 0.35
   // 웹에서 스티커 · 라벨을 끄는 동안 제목 글자가 선택되지 않게
   return <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, edit && Platform.OS === 'web' && styles.noSelect]}>
   {/* 그림자는 잘라 그리는 본체에서는 iOS 에서 잘리므로 같은 자리에 따로 깐다 */}
@@ -587,13 +371,9 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, ligh
       : <>{stops && <GradientFill stops={stops} initialWidth={bodyWidth} initialHeight={bodyHeight} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} initialWidth={bodyWidth} initialHeight={bodyHeight} /></>}
     {edit && <Pressable accessibilityLabel="표지 스티커 선택 해제" onPress={() => select(null)} style={StyleSheet.absoluteFill} />}
     <View pointerEvents="none" style={[styles.spine, { width: '4.9%' }]} />
-    {light && windowMask && <CoverWindowLight mask={windowMask} originX={bandOut} originY={bandOut} boxWidth={width} boxHeight={height ?? width} photo={cover.kind === 'photo'} />}
-    {light && <CoverLightReceiver light={light} scale={scale} windowed={Boolean(windowMask)} />}
-    {light && glossy && <CoverGloss light={light} />}
     {ribbon && titleArea}
   </View>
-  {band && <ElasticBand vertical={cover.band.dir === 'v'} color={bandColor} scale={scale} radius={bandWidth * 0.3} style={band}
-    lit={light && windowMask ? <CoverWindowLight mask={windowMask} originX={bandLeft} originY={bandTop} boxWidth={width} boxHeight={height ?? width} photo={cover.kind === 'photo'} /> : null} />}
+  {band && <ElasticBand vertical={cover.band.dir === 'v'} color={bandColor} scale={scale} radius={bandWidth * 0.3} style={band} />}
   <View pointerEvents="box-none" style={[styles.layer, styles.clip, body]}>
     {!ribbon && titleArea}
     {cover.stickers.map(item => <StickerView key={item.id} item={item} scale={scale} store={drafts.current} />)}

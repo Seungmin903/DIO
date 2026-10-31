@@ -50,6 +50,18 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
       // 글줄 책. Lucide `book-text` (ISC, https://github.com/lucide-icons/lucide) 의 선을 그대로 쓴다.
       graphic = <><Path {...line} d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" /><Path {...line} d="M8 11h8" /><Path {...line} d="M8 7h6" /></>;
       break;
+    case 'book-user':
+      // 사람이 든 책(공유된 다이어리). '내 다이어리'(book)와 같은 책 모양에 Lucide `book-user` (ISC) 의 선을 쓴다.
+      graphic = <><Path {...line} d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" /><Path {...line} d="M15 13a3 3 0 1 0-6 0" /><Circle {...line} cx="12" cy="8" r="2" /></>;
+      break;
+    case 'book-open':
+      // 펼친 책. Lucide `book-open` (ISC) 의 선을 그대로 쓴다.
+      graphic = <><Path {...line} d="M12 7v14" /><Path {...line} d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></>;
+      break;
+    case 'library':
+      // 책꽂이(전체 기록). Lucide `library` (ISC) 의 선을 그대로 쓴다.
+      graphic = <><Path {...line} d="m16 6 4 14" /><Path {...line} d="M12 6v14" /><Path {...line} d="M8 8v12" /><Path {...line} d="M4 4v16" /></>;
+      break;
     case 'person':
       graphic = <><Circle {...line} cx="12" cy="8" r="3.2" /><Path {...line} d="M5.5 20c.6-3.6 3.1-5.6 6.5-5.6s5.9 2 6.5 5.6" /></>;
       break;

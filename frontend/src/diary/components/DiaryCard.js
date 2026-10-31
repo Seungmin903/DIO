@@ -30,12 +30,12 @@ function starOutlineFor(diary) {
   return 1.05 / (luminance(top) + 0.05) >= 1.5 ? '#FFFFFF' : C.ink;
 }
 
-// onOpen·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다.
+// onOpen·onCenter·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다. onCenter 는 스와이프 옆 카드를 눌렀을 때.
 // 표지 왼쪽 위의 별(배경 없음)을 누르면 즐겨찾기를 켜고 끈다. 오른쪽 위 `⋯` 버튼은 동작 말풍선(수정 · 휴지통으로 이동)을 띄운다.
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
 // sunShadow: 책상 위 표지라 그림자를 해 방향에 맞춘다
 // infoStyle: 스와이프 옆 카드에서 이름 · 페이지 수를 흐리게 하는 애니메이션 값
-function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, portrait = false, onOpen, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false, lightMotion = null }) {
+function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, portrait = false, onOpen, onCenter, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false }) {
   // 동작 말풍선: null 이면 닫힘, 열리면 ⋯ 버튼의 창 안 자리(anchor)를 들고 있다(재지 못하면 anchor 는 null)
   const [menu, setMenu] = useState(null);
   const moreRef = useRef(null);
@@ -48,6 +48,8 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
   const countLabel = count === undefined ? '페이지 수 확인 중'
     : Number.isSafeInteger(count) && count >= 0 ? `${count}페이지` : '페이지 수 확인 불가';
   const showTools = !selecting && (layout !== 'carousel' || carouselActive);
+  // 스와이프 옆 카드: 누르면 열지 않고 가운데로 오기만 한다(밀다 손이 떨어져 잘못 열리지 않게). 열기는 가운데 카드에서
+  const sideCard = layout === 'carousel' && !carouselActive && Boolean(onCenter);
   const closeMenu = () => setMenu(null);
   // 말풍선을 먼저 닫고 동작을 실행한다(동작이 확인 창을 열어도 시트가 남지 않게)
   const act = fn => () => { closeMenu(); fn?.(); };
@@ -60,11 +62,11 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
     <Pressable
       disabled={selecting && (diary.canManage === false || diary.canDelete === false)}
       accessibilityRole={selecting ? 'checkbox' : 'button'}
-      accessibilityLabel={selecting ? `${diary.title} 선택` : `${diary.title} 열기`}
+      accessibilityLabel={selecting ? `${diary.title} 선택` : sideCard ? `${diary.title} 가운데로` : `${diary.title} 열기`}
       accessibilityHint={`${isSharedDiary(diary) ? '공유 다이어리, ' : ''}${diary.favorite ? '즐겨찾기, ' : ''}${countLabel}`}
       accessibilityState={selecting ? { checked: selected } : layout === 'carousel' ? { selected: carouselActive } : undefined}
       aria-checked={selecting ? selected : undefined}
-      onPress={() => (selecting ? onToggleSelect?.(diary) : onOpen(diary))}
+      onPress={() => (selecting ? onToggleSelect?.(diary) : sideCard ? onCenter(diary) : onOpen(diary))}
       onLongPress={!selecting && diary.canManage !== false && diary.canDelete !== false ? () => onEnterEdit?.(diary) : undefined}
       // 누르면 반투명해진다. 안드로이드가 자식마다 따로 투명하게 해 그림자 · 뒤 요소가 비치지 않도록 한 장으로 합쳐 그린다
       needsOffscreenAlphaCompositing
@@ -81,7 +83,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
     >
       <View style={s.cardCoverWrap}>
         {/* 더보기 버튼과 선택 표시(왼쪽 위 별 포함)는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
-        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large} sunShadow={sunShadow} lightMotion={layout === 'carousel' ? lightMotion : null}
+        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large} sunShadow={sunShadow}
           frame={layout === 'carousel' ? (carouselActive ? 'active' : 'idle') : null} onInset={layout === 'list' ? null : setCoverInset}>
         {/* 스와이프의 표지 프레임(가운데 표지는 흰 3px + 그림자, 옆 표지는 얇은 라벤더 2px)은 표지 크기에서 모서리를 계산하는 Cover 가 그린다 */}
         {selecting && diary.canManage !== false && diary.canDelete !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>

@@ -8,12 +8,9 @@ import { configuredPageIds } from '../../editor/templates/creation.js';
 import { normalizeOrientation, templateCanvasSize } from '../../editor/templates/catalog.js';
 import { C } from '../constants';
 import { coverShadowAt } from '../utils/deskShadow';
-import { LAMP_PATCH, deskLightAt } from '../utils/deskLight';
-import { coverLightAt } from '../utils/coverLight';
+import { deskLightAt } from '../utils/deskLight';
 import { useDeskHour, useDeskMode } from '../utils/deskTimeStore';
-import { carouselFollowNodes, carouselRestAt, followOffset } from '../utils/carouselFollow';
 import { useRailMoving } from '../utils/railMotion';
-import { maskFrame, useDeskGeometry, useDeskLayoutTick } from '../utils/deskMask';
 
 // fill 표지는 이 크기(긴 변)로 한 번만 그리고, 칸 폭에 맞춰 크기 변환(scale)으로 늘리고 줄인다 (패턴 · 글자를 다시 그리지 않는다)
 const ART_LONG_SIDE = 219
@@ -35,7 +32,7 @@ function firstPageId(diary) {
  * frame: 'active' | 'idle' 이면 표지를 감싸는 포커스 프레임(스와이프)을 그린다. 모서리 둥글기는 표지 본체와 같은 계산이라 표지 크기가 달라도 맞는다.
  * onInset(px): 표지가 칸 가운데에 놓여 칸 왼쪽에서 떨어진 만큼(세로 표지는 칸보다 좁다). 이름 · 페이지 수를 표지 왼쪽 끝에 맞출 때 쓴다.
  */
-function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel = false, grid = false, compact = false, large = false, fill = false, centered = false, sunShadow = false, lightMotion = null, frame: frameTone = null, onInset = null, children }) {
+function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel = false, grid = false, compact = false, large = false, fill = false, centered = false, sunShadow = false, frame: frameTone = null, onInset = null, children }) {
   const frame = StyleSheet.flatten([s.cover, small && s.coverSmall, carousel && s.coverCarousel, compact && carousel && s.coverCarouselCompact, large && carousel && s.coverCarouselLarge, grid && s.coverGrid, compact && grid && s.coverGridCompact, preview && s.bookPreview, fill && styles.fill]);
   // 칸 크기: 고정 칸은 스타일 값으로 첫 프레임부터 맞게 그리고, 반응형 칸(격자 · 목록)은 실제 크기를 재서 다시 맞춘다.
   const styleWidth = thumbnailWidth ?? (preview ? s.bookPreview.width : small ? s.coverSmall.width
@@ -72,55 +69,14 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
     top: open.bandOut - ring, left: open.bandOut - ring, right: open.bandOut - ring, bottom: open.bandOut - ring,
     borderTopLeftRadius: open.left + ring, borderBottomLeftRadius: open.left + ring, borderTopRightRadius: open.right + ring, borderBottomRightRadius: open.right + ring,
   }] : null;
-  // 조명 없음 모드에서는 표지에 빛 · 그늘을 얹지 않는다(hour 가 없으면 조명 · 시간대 그림자 모두 꺼진다)
+  // 창빛은 표지 위에 얹지 않는다(사용자 · 코덱스 결정 2026-10-31): 표지는 사용자가 만든 그대로 어느 화면에서나 같은 색이고,
+  // 시간대는 책상 바닥 빛과 표지 그림자(방향 · 길이 · 진하기)로만 전한다. 조명 없음 모드에서는 시간대 그림자도 끈다.
   const lightOff = useDeskMode() === 'off'
   const hour = useDeskHour(sunShadow && !lightOff)
-  // shadow · light 는 같은 값이면 같은 객체를 넘긴다. 매번 새 객체를 만들면 memo 인 CoverArt 가 값이 같아도 다시 그려져 패턴(SVG)까지 새로 그려진다.
+  // shadow 는 같은 값이면 같은 객체를 넘긴다. 매번 새 객체를 만들면 memo 인 CoverArt 가 값이 같아도 다시 그려져 패턴(SVG)까지 새로 그려진다.
   const { boxShadow, shadowOpacity, shadowColor, shadowRadius, elevation } = frame, shadowOffset = frame.shadowOffset
   const shadow = useMemo(() => sunShadow && hour != null && (frame.boxShadow || frame.shadowOpacity) ? { boxShadow: coverShadowAt(hour, Boolean(frame.boxShadow), deskLightAt(hour).lamp) } : frame.boxShadow ? { boxShadow: frame.boxShadow } : frame.shadowOpacity ? { shadowColor: frame.shadowColor, shadowOpacity: frame.shadowOpacity, shadowRadius: frame.shadowRadius, shadowOffset: frame.shadowOffset, elevation: frame.elevation } : null, [sunShadow, hour, boxShadow, shadowOpacity, shadowColor, shadowRadius, elevation, shadowOffset?.width, shadowOffset?.height]);
-  // 책상 위 표지(sunShadow)는 책상 빛을 받는다.
-  const light = useMemo(() => sunShadow && hour != null ? coverLightAt(hour) : null, [sunShadow, hour]);
   const sx = Math.min(boxWidth, boxHeight) / s.bookPreview.width;
-  // 표지 위에도 책상과 같은 창빛 마스크를 같은 자리에 비춘다(십자 창살 자리는 빛이 들지 않는다).
-  // 카드가 쉬는 동안 표지 왼쪽 위 좌표를 한 번 재서 스크롤과 무관한 기준(anchor)을 만들고, 카드를 넘기는 동안에는 스크롤 값으로 마스크 자리를 매 프레임 따라간다.
-  const desk = useDeskGeometry();
-  const layoutTick = useDeskLayoutTick();
-  const box = useRef(null);
-  const [origin, setOrigin] = useState(null);
-  // 쉬는 위치(rest)는 잰 순간의 값을 함께 저장한다. 기준(anchor)은 스크롤과 무관하므로 카드를 넘길 때마다 다시 잴 필요가 없다 —
-  // 넘기는 중에 다시 재면 움직이는 자리를 기준으로 잡아 마스크가 튄다. 다시 재는 건 책상 · 칸 크기가 바뀔 때뿐이다.
-  const motionRef = useRef(lightMotion);
-  motionRef.current = lightMotion;
-  const measure = useCallback(() => box.current?.measureInWindow?.((x, y) => {
-    const rest = motionRef.current?.rest;
-    if (rest != null) setOrigin(prev => prev && prev.rest === rest && Math.abs(prev.x - x) < 0.5 && Math.abs(prev.y - y) < 0.5 ? prev : { x, y, rest });
-  }), []);
-  useEffect(() => { if (light && desk && lightMotion) measure(); }, [light != null, desk, layoutTick, measure, boxWidth, boxHeight, lightMotion != null]);
-  // 가로 표지는 칸 아래에 붙어 카드 맨 위에서 q 만큼 내려와 있다
-  // centered 표지는 칸 가운데에 놓여 위쪽 여백이 남는 높이의 절반이다
-  const q = Math.max(0, cellHeight - boxHeight) / (centered ? 2 : 1);
-  const windowMask = useMemo(() => {
-    if (!light || !desk || !origin || !lightMotion) return null;
-    const rest = carouselRestAt(lightMotion.index, origin.rest, lightMotion.step);
-    const anchor = { cx: origin.x + boxWidth * rest.scale / 2 + origin.rest, yc: origin.y - rest.lift - q * rest.scale };
-    const nodes = carouselFollowNodes(lightMotion.scrollX, lightMotion.index, lightMotion.step);
-    const lit = deskLightAt(hour);
-    const place = patch => {
-      const f = maskFrame(patch, desk, desk.compact);
-      return { width: f.width, height: f.height, transform: f.transform, offset: followOffset(nodes, anchor, boxWidth, q, desk.x + f.left, desk.y + f.top) };
-    };
-    return { lit, inverse: nodes.inverse, sun: place(lit.patch), lamp: place({ x: LAMP_PATCH.patch[0], y: LAMP_PATCH.patch[1], scaleX: LAMP_PATCH.patch[2], scaleY: LAMP_PATCH.patch[3], skewX: LAMP_PATCH.patch[4], rotate: LAMP_PATCH.patch[5] }) };
-  }, [light != null, desk, origin, hour, lightMotion?.scrollX, lightMotion?.index, lightMotion?.step, boxWidth, q]);
-  // 창빛 마스크를 쓰는 표지(스와이프)는 마스크 자리를 재기 전에는 표지 전체에 임시 조명을 입혀 그리고, 잰 뒤에 마스크 방식으로 바꿔 그려서
-  // 색이 한 번 튄다. 마스크가 준비될 때까지 표지를 숨겼다가 한 번에 보인다. 자리를 못 재는 경우를 위해 일정 시간 뒤에는 그냥 보인다.
-  const awaitingMask = Boolean(light && desk && lightMotion && !windowMask);
-  const [maskGaveUp, setMaskGaveUp] = useState(false);
-  useEffect(() => {
-    if (!awaitingMask) { setMaskGaveUp(false); return undefined; }
-    const timer = setTimeout(() => setMaskGaveUp(true), 600);
-    return () => clearTimeout(timer);
-  }, [awaitingMask]);
-  const hideUntilMask = awaitingMask && !maskGaveUp;
   // 칸이 정사각형인 격자 표지(fill + grid)는 표지 칸을 퍼센트 + 가로세로 비율로 레이아웃에 맡기고, 그림 배율만 칸이 바뀔 때마다 ref 로 직접 바꾼다.
   // 사이드 메뉴가 움직이는 동안에도 상태 · 다시 그리기 없이 칸과 함께 매 프레임 같이 커지고 작아진다.
   const liveFill = cover.enabled && fill && grid;
@@ -139,11 +95,11 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
       }}
       // fill: 폭을 재기 전의 첫 그림은 짐작한 크기라 달라 보이므로, 잰 뒤에 한 번에 보인다.
       style={[frame, styles.cell, centered && styles.fillCenter, fill && !measured && styles.unmeasured, thumbnailWidth && { width: thumbnailWidth, height: styleHeight, minHeight: 0 }]}>
-      <View ref={box} collapsable={false} onLayout={liveFill ? onBoxLayout : undefined} style={[liveFill ? { width: ratio < 1 ? `${ratio * 100}%` : '100%', aspectRatio: ratio } : { width: boxWidth, height: boxHeight }, hideUntilMask && styles.unmeasured]}>
+      <View onLayout={liveFill ? onBoxLayout : undefined} style={[liveFill ? { width: ratio < 1 ? `${ratio * 100}%` : '100%', aspectRatio: ratio } : { width: boxWidth, height: boxHeight }]}>
         {cover.enabled && fill ? <View ref={art} pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: artWidth, height: artHeight, transform: [{ scale: boxWidth / artWidth }], transformOrigin: 'top left' }}>
-          <CoverArt cover={cover} name={diary.title} width={artWidth} height={artHeight} shadow={shadow} light={light} windowMask={windowMask} />
+          <CoverArt cover={cover} name={diary.title} width={artWidth} height={artHeight} shadow={shadow} />
         </View>
-          : cover.enabled ? <CoverArt cover={cover} name={diary.title} width={boxWidth} height={boxHeight} shadow={shadow} light={light} windowMask={windowMask} />
+          : cover.enabled ? <CoverArt cover={cover} name={diary.title} width={boxWidth} height={boxHeight} shadow={shadow} />
           : <View style={[styles.page, { borderRadius: 4 * sx }, shadow]}>
             {pageId ? <TemplatePreview assetId={pageId} width={boxWidth} appearance={diary.paperAppearance} style={styles.pagePreview} /> : null}
             <Text style={[styles.noCover, { fontSize: Math.max(9, 9 * sx), margin: 8 * sx }]}>표지 없음</Text>

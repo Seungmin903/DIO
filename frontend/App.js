@@ -45,7 +45,7 @@ import { CAN_LOCK_ORIENTATION, useOrientationLock } from './src/shared/useOrient
 import { useHiddenNavigationBar } from './src/shared/useHiddenNavigationBar';
 import { normalizeTemplateConfig } from './src/editor/templates/creation.js';
 import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
-import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
+import { loadJSON, saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
 import { randomUUID } from 'expo-crypto';
 import { createId, setUuidGenerator } from './src/editor/utils/common';
 import HandwritingStudio from './src/handwriting/HandwritingStudio';
@@ -178,9 +178,14 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
   // 메뉴는 메인 화면 위에 겹쳐 열리므로 메인 화면을 비켜 주는 폭은 늘 접힌 폭이다.
-  // FILTERS에 없는 all을 초기값으로 쓰면 새 다이어리 카드가 제외되어 빈 안내만 보인다.
+  // 보관함 필터: 범위(내 다이어리 · 공유된 다이어리) + 즐겨찾기 여부 (libraryQuery.filterScope · filterFavorite)
   const [filter, setFilter] = useState(DEFAULT_FILTER);
   const [view, setView] = useState('carousel');
+  // 사용자가 마지막으로 고른 보기(펼쳐서 · 스와이프 · 한눈에)를 기기에 남겨 다음에 열 때 그 보기로 시작한다.
+  useEffect(() => {
+    loadJSON(STORAGE_KEYS.libraryView, null).then(saved => { if (['open', 'carousel', 'grid'].includes(saved)) setView(saved); }).catch(() => {});
+  }, []);
+  const changeView = useCallback((next) => { setView(next); saveJSON(STORAGE_KEYS.libraryView, next).catch(() => {}); }, []);
   const [carousel, setCarousel] = useState(0);
   const [librarySort, setLibrarySort] = useState('updated');
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
@@ -614,7 +619,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       view={view}
       carousel={carousel}
       onFilterChange={changeFilter}
-      onViewChange={setView}
+      onViewChange={changeView}
       onCarouselChange={changeCarousel}
       onOpen={open}
       onFavorite={member ? undefined : favorite}
@@ -651,7 +656,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         }} /></> : null}
       suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
     />
-  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
+  ), [carousel, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
   // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
   const trashScreen = useMemo(() => (

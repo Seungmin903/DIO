@@ -81,7 +81,7 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
     // 현재 페이지는 PNG 부터, 여러 페이지는 PDF 한 파일, 영역은 PNG
     setFormat(value === 'current' ? 'png' : 'pdf')
   }
-  return <EditorModal visible transparent animationType="fade" onRequestClose={onClose}>
+  return <EditorModal visible transparent animationType="none" onRequestClose={onClose}>
     <Root {...(mobilePortrait ? { style: styles.portraitRoot, onLayout: (event) => setModalHeight(event.nativeEvent.layout.height) } : {})}>
     {/* 화면을 어둡게 덮지 않는다 (덮으면 뒤의 요소가 반투명해 보였다). 바깥을 누르면 닫는다 */}
     <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="내보내기 닫기" />

@@ -75,15 +75,19 @@ export const DIARY_DEFAULTS = {
   firstPageDate: '2026-01-01',
 };
 
-// 홈 화면 보관함 탭. 고른 탭 이름이 화면 제목이 된다. 이름은 1020 감성 점검 B안('사진부 아카이브')의 말투를 따른다.
-export const FILTERS = [
-  { id: 'all', label: '전체 기록', empty: '다이어리가 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
-  { id: 'favorite', label: '자주 보는 기록', empty: '자주 보는 기록이 없어요', emptyCopy: '다이어리 카드의 별을 눌러 즐겨찾기에 추가해 보세요.' },
-  { id: 'personal', label: '내 기록', empty: '내 기록이 없어요', emptyCopy: '새 다이어리를 만들어 기록을 시작해 보세요.' },
-  { id: 'shared', label: '함께 쓰는 기록', empty: '함께 쓰는 기록이 없어요', emptyCopy: '다이어리를 공유하거나 받은 초대를 수락해 보세요.' },
+// 보관함 범위. 왼쪽 메뉴(폰은 아래 탭)에서 고르고, 고른 범위 이름이 화면 제목이 된다.
+export const LIBRARY_SCOPES = [
+  { id: 'personal', label: '내 다이어리', tabLabel: '내 다이어리', icon: 'book', empty: '내 다이어리가 없어요' },
+  { id: 'shared', label: '공유된 다이어리', tabLabel: '공유된 다이어리', icon: 'book-user', empty: '공유된 다이어리가 없어요' },
 ];
 
-export const DEFAULT_FILTER = 'all';
+// 범위 안의 칩. 이름은 1020 감성 점검 B안('사진부 아카이브')의 말투를 따른다. (필터 값은 libraryQuery.withFavorite 로 범위와 합친다)
+export const FILTERS = [
+  { id: 'all', label: '전체 기록', icon: 'library' },
+  { id: 'favorite', label: '즐겨찾기', empty: '즐겨찾기한 다이어리가 없어요' }, // 표준국어대사전 '즐겨-찾기'(명사) — 붙여 쓴다
+];
+
+export const DEFAULT_FILTER = 'personal';
 
 // 스와이프 칸은 정사각형(표지 칸 높이 318과 같은 폭)이라 세로 · 가로 다이어리가 같은 크기로 보인다.
 export const CAROUSEL_ITEM_WIDTH = 318;
