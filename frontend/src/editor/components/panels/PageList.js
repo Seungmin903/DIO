@@ -267,7 +267,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
       />
       {menuPage && origin && (
-        <EditorModal transparent animationType="fade" statusBarTranslucent onRequestClose={() => setMenuId(null)}>
+        <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={() => setMenuId(null)}>
           {/* 메뉴 바깥(캔버스 · 다른 패널 포함)을 누르면 닫는다 */}
           <Pressable accessibilityLabel="페이지 작업 메뉴 닫기" style={StyleSheet.absoluteFill} onPress={() => setMenuId(null)} />
           <View style={[styles.actionMenu, { top: origin.y + menuTop, left: origin.x + THUMB_WIDTH + 22 }]}>

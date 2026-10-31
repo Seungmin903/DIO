@@ -155,7 +155,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   filtersWide: { flexWrap: 'nowrap', flexShrink: 0 },
   // 보관함 필터 · 스와이프/한눈에 보기 전환(B안 테두리 칩): 감싸는 판 없이 칩마다 흰 면 + cardBorder 테두리, 고른 칩만 primaryStrong 테두리 · text 굵은 글자
   filterSwitch: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  filterOption: { minHeight: 40, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
+  filterOption: { minHeight: 40, paddingHorizontal: 14, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
   filterOptionSelected: { borderColor: colors.primaryStrong },
   filterTextSelected: { color: C.ink, fontWeight: '800' },
   filterOptionCompact: { paddingHorizontal: 10 },
@@ -195,7 +195,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   carouselCards: { alignItems: 'flex-start', gap: 42, paddingVertical: 28 },
   // 가운데 카드가 커지고(1.06) 위로 올라가는(-12) 만큼 위아래 여백을 둬야 카드 윗부분이 잘리지 않는다.
   carouselCardsCompact: { paddingVertical: 28 },
-  carouselShellPortrait: { minHeight: 0, paddingTop: 0, paddingBottom: 80, justifyContent: 'center' }, // 태블릿 세로: 남는 높이의 가운데보다 살짝 위(아래 여백 80 → 40만큼 올라감)에 카드를 둔다
+  carouselShellPortrait: { minHeight: 0, paddingTop: 0, paddingBottom: 120, justifyContent: 'center' }, // 태블릿 세로: 남는 높이의 가운데보다 살짝 위(아래 여백 120 → 60만큼 올라감)에 카드를 둔다. 펼쳐서 보기의 가운데 축과 같은 높이
   carouselRowPortrait: { flex: 0, height: 680 },
   carouselArrowPortrait: { marginTop: -64 }, // 칸 가운데에 놓인 표지의 가운데에 맞춘다 (웹 834x1194 에서 재서 맞춤)
   carouselArrow: { position: 'absolute', zIndex: 4, width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },

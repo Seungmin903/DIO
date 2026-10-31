@@ -16,7 +16,7 @@ import { textStyle } from '../../editor/utils/text'
 import { loadPhotoTone } from '../utils/loadPhotoTone'
 import {
   ANCHORS, BAND_COLORS, COVER_COLORS, COVER_FONTS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, PLATE_SHAPES, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
-  bandAutoColor, changeCoverKind, coverElementSummary,
+  bandAutoColor, changeCoverKind, coverElementSummary, paintStops,
 } from '../utils/coverDesign'
 
 // 표지 종류(위 세 갈래)는 배경만 바꾸고, 아래 다섯 줄은 종류와 상관없이 같은 값을 쓴다.
@@ -25,7 +25,9 @@ export const COVER_ELEMENTS = [['base', '배경'], ['band', '고무줄'], ['text
 const KINDS = [{ id: 'none', label: '표지 없음' }, { id: 'plain', label: '색 · 무늬' }, { id: 'photo', label: '사진' }]
 const chips = list => list.map(([id, label]) => ({ id, label }))
 
-function GradientTile({ id, stops }) {
+// 견본도 표지와 같이 물감 섞기로 중간색을 채워 그린다
+function GradientTile({ id, stops: keys }) {
+  const stops = paintStops(keys)
   return <Svg width="100%" height="100%"><Defs><LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
     {stops.map((color, i) => <Stop key={i} offset={i / (stops.length - 1)} stopColor={color} />)}
   </LinearGradient></Defs><Rect width="100%" height="100%" fill={`url(#${id})`} /></Svg>

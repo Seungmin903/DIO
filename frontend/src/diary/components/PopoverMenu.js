@@ -22,7 +22,7 @@ export default function PopoverMenu({ open, anchor = null, width = 230, height =
   const below = anchor ? anchor.y + anchor.height + GAP : 96;
   const top = anchor && below + height > window.height - EDGE ? Math.max(EDGE, anchor.y - GAP - height) : below;
   return (
-    <EditorModal transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+    <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="닫기" />
       <View accessibilityLabel={label} style={[style, { position: 'absolute', left, top, right: undefined, width, zIndex: undefined }]}>{children}</View>
     </EditorModal>

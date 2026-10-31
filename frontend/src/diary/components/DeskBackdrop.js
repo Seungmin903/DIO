@@ -1,10 +1,10 @@
-import { Component, memo, useEffect, useRef } from 'react'
+import { Component, memo } from 'react'
 import { Image, StyleSheet, View } from 'react-native'
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
 import { DESK_COLORS, LAMP_PATCH, deskLightAt } from '../utils/deskLight'
 import { deskFxAt } from '../utils/deskFx'
 import { useDeskHour } from '../utils/deskTimeStore'
-import { WINDOW_WIDTH, maskFrame, setDeskGeometry } from '../utils/deskMask'
+import { WINDOW_WIDTH, maskFrame } from '../utils/deskMask'
 
 // 창은 하나다: 해 · 가로등 모두 이 마스크 한 장(2×2 십자 창, 좌우 대칭 사다리꼴)만 쓴다. 광원마다 달라지는 건 변형 · 색 · 세기 · 가장자리 번짐뿐이다(코덱스 24시간 설계).
 const LIGHT = require('../../../assets/desk/window-light.png')
@@ -96,21 +96,10 @@ function NightLamp({ light, size, compact, lightWidth }) {
  */
 function DeskBackdrop({ compact = false, size, anchorRight = false }) {
   const light = deskLightAt(useDeskHour())
-  const root = useRef(null)
-  // 크기가 그대로면 다시 재지 않는다. 사이드 메뉴를 여닫는 동안 부모 안에서의 자리만 프레임마다 바뀌어 onLayout 이 계속 오는데,
-  // 그때마다 measureInWindow(비동기 브리지 호출)를 부르면 끊긴다. 화면 안 자리는 그대로다.
-  const laidOut = useRef(null)
-  const measure = event => {
-    const { width, height } = event?.nativeEvent?.layout ?? {}
-    if (laidOut.current && laidOut.current.width === width && laidOut.current.height === height && laidOut.current.compact === compact) return
-    laidOut.current = { width, height, compact }
-    root.current?.measureInWindow?.((x, y, w, h) => setDeskGeometry({ x, y, width: w, height: h, compact }))
-  }
-  useEffect(() => () => setDeskGeometry(null), [])
   if (!size?.width || !size?.height) return null
   const lightWidth = size.width * (compact ? WINDOW_WIDTH.phone : WINDOW_WIDTH.tablet)
   const fx = deskFxAt(light.hour)
-  return <View ref={root} onLayout={measure} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+  return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
     style={[styles.root, anchorRight && styles.rootRight, { width: size.width, height: size.height }]}>
     {/* 상판은 그림 없이 root 의 단색(DESK_COLORS.base)이다. 그 위에 시간대 그늘 · 창빛만 얹는다 */}
     <View style={[styles.fill, { backgroundColor: light.ambient.color, opacity: light.ambient.opacity, mixBlendMode: 'multiply' }]} />

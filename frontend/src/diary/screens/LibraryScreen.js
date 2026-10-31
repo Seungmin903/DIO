@@ -1,16 +1,17 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import PopoverMenu from '../components/PopoverMenu';
-import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS, C } from '../constants';
+import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS, LIBRARY_SCOPES, C } from '../constants';
 import AppIcon from '../../shared/AppIcon';
+import FavoriteStar from '../../shared/FavoriteStar';
 import { styles as s } from '../styles';
 import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
 import { toggleSelection, visibleSelection } from '../utils/diarySelection';
 import IconButton from '../components/IconButton';
 import LibrarySearchScreen from '../components/LibrarySearchScreen';
-import { nextSort, parseSort, queryDiaries, SORT_OPTIONS } from '../utils/libraryQuery';
-import { bumpDeskLayout } from '../utils/deskMask';
+import { filterFavorite, filterScope, nextSort, parseSort, queryDiaries, SORT_OPTIONS, withFavorite } from '../utils/libraryQuery';
+import OpenBookShelf, { preloadOpenBooks } from '../components/OpenBookShelf';
 import { useDeskDark } from '../utils/deskInk';
 import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
 
@@ -101,10 +102,14 @@ function LibraryScreen({
     else { setOptionsAnchor(null); setOptionsOpen(true); }
   };
   const shown = useMemo(() => remoteQuery ? diaries : queryDiaries(diaries, { filter, query: searchOpen ? query : '', sort, metadata }), [diaries, filter, query, searchOpen, sort, metadata, remoteQuery]);
-  const displayView = searchOpen ? 'grid' : view;
-  const resetPosition = () => { positioned.current = null; onCarouselChange(0); };
-  const current = FILTERS.find((item) => item.id === filter) || FILTERS[0];
   const selecting = selection !== null;
+  // 펼쳐서 보기는 한 권만 보여 고르기(관리 모드)를 할 수 없어, 관리 중에는 한눈에 보기로 보인다
+  const displayView = searchOpen || (selecting && view === 'open') ? 'grid' : view;
+  const resetPosition = () => { positioned.current = null; onCarouselChange(0); };
+  // 범위(왼쪽 메뉴)와 즐겨찾기 칩
+  const scope = LIBRARY_SCOPES.find(item => item.id === filterScope(filter)) ?? null;
+  const favoriteOnly = filterFavorite(filter);
+  const emptyTitle = favoriteOnly ? FILTERS[1].empty : scope?.empty ?? '다이어리가 없어요';
   // 보이는 다이어리만 선택으로 센다. 필터를 바꾸면 숨은 다이어리는 선택에서 빠진다.
   const manageable = useMemo(() => shown.filter(diary => diary.canManage !== false && diary.canDelete !== false), [shown]);
   const selected = useMemo(() => (selecting ? visibleSelection(selection, manageable) : []), [selecting, selection, manageable]);
@@ -124,7 +129,7 @@ function LibraryScreen({
     if (!trashing && manageable.length) onSelectionChange?.(allSelected ? [] : manageable.map(diary => diary.id));
   };
   // 새로 만든 다이어리는 개인 다이어리로 들어가므로 만들기 버튼은 개인 다이어리 탭에만 둔다. 관리 중에는 숨긴다.
-  const canCreate = Boolean(onCreate) && (filter === 'all' || filter === 'personal') && !searchOpen && !selecting;
+  const canCreate = Boolean(onCreate) && filterScope(filter) !== 'shared' && !favoriteOnly && !searchOpen && !selecting;
 
   const carouselItems = shown;
   const itemCount = carouselItems.length;
@@ -139,13 +144,10 @@ function LibraryScreen({
     [carouselStep, itemCount, scrollX],
   );
   const activeIndex = Math.max(0, Math.min(carousel, Math.max(0, itemCount - 1)));
+  // 다른 보기에 있을 때도 지금 다이어리와 앞뒤 한 권의 문서 · 속지를 읽어 둬, 펼쳐서로 넘어온 순간 속지가 바로 그려지게 한다
+  useEffect(() => { preloadOpenBooks(carouselItems, activeIndex); }, [carouselItems, activeIndex]);
   // 가장 왼쪽 · 오른쪽 다이어리에서는 갈 곳이 없는 쪽 화살표를 숨긴다
   const hasPrevious = activeIndex > 0, hasNext = activeIndex < itemCount - 1;
-  // 표지가 카드 이동에 맞춰 책상 창빛을 따라 받는 데 쓰는 값 (쉬는 위치 rest 는 가운데 카드가 정해진 스크롤)
-  const followMotions = useMemo(
-    () => Array.from({ length: itemCount }, (_, index) => ({ scrollX, index, step: carouselStep, rest: activeIndex * carouselStep })),
-    [activeIndex, carouselStep, itemCount, scrollX],
-  );
   const carouselSidePadding = Math.max(0, (carouselViewportWidth - carouselItemWidth) / 2);
   const fixedPhoneCarousel = (compact || portrait) && displayView === 'carousel' && carouselItems.length > 0;
   // 웹의 콘텐츠 크기 이벤트를 기다리지 않고 고정 카드·간격·양쪽 여백으로 이동 공간을 확보한다.
@@ -188,12 +190,6 @@ function LibraryScreen({
     moveTimer.current = setTimeout(() => { moveTarget.current = null; onCarouselChange(next); }, CAROUSEL_MOVE_MS);
   };
 
-  // 카드 줄 폭 · 레이아웃이 바뀌어 멈춘 뒤에만 표지들이 책상 위 자기 자리를 다시 잰다(카드를 넘길 때는 스크롤 값으로 따라가므로 다시 재지 않는다).
-  useEffect(() => {
-    const timers = [450, 900].map(delay => setTimeout(bumpDeskLayout, delay));
-    return () => timers.forEach(clearTimeout);
-  }, [carouselViewportWidth, contentWidth, displayView, itemCount, landed]);
-
   const syncCarouselIndex = useCallback(({ nativeEvent }) => {
     const index = Math.max(0, Math.min(Math.round(nativeEvent.contentOffset.x / carouselStep), itemCount - 1));
     positioned.current = [filter, view, carouselViewportWidth, contentWidth, index].join(':');
@@ -208,12 +204,7 @@ function LibraryScreen({
   const settleTimer = useRef(null);
   useEffect(() => () => clearTimeout(settleTimer.current), []);
   const appliedWidth = useRef(0);
-  // 책상(상판)은 사이드바가 움직여도 제자리라 책상 쪽에서는 카드 자리가 바뀐 걸 알 수 없다. 줄이 움직임을 멈추면 표지가 자기 자리를 다시 재도록 알린다.
-  const deskTimer = useRef(null);
-  useEffect(() => () => clearTimeout(deskTimer.current), []);
   const measureCarousel = useCallback(({ nativeEvent: { layout } }) => {
-    clearTimeout(deskTimer.current);
-    deskTimer.current = setTimeout(bumpDeskLayout, CAROUSEL_RESIZE_SETTLE_MS + 120);
     const span = () => layout.width + (railWidthRef?.current ?? 0);
     const apply = () => {
       const width = span();
@@ -302,10 +293,20 @@ function LibraryScreen({
   const top = (<>
       <View style={[s.libraryHeader, compact && s.libraryHeaderCompact]}>
         <View style={s.headerTitleRow}>
-          <AppIcon name="book" size={compact ? 28 : 27} color={titleOnDark ? '#FFFFFF' : C.ink} strokeWidth={2.4} />
-          <Text accessibilityRole="header" style={[s.libraryTitle, compact && s.libraryTitleCompact, titleOnDark && s.onDeskDarkTitle]}>다이어리</Text>
+          <AppIcon name={scope?.icon ?? 'book'} size={compact ? 28 : 27} color={titleOnDark ? '#FFFFFF' : C.ink} strokeWidth={2.4} />
+          <Text accessibilityRole="header" style={[s.libraryTitle, compact && s.libraryTitleCompact, titleOnDark && s.onDeskDarkTitle]}>{scope?.label ?? '다이어리'}</Text>
         </View>
         <View style={[s.libraryViewSwitch, compact && s.libraryViewSwitchCompact]} accessibilityRole="tablist">
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityLabel="펼쳐서 보기"
+            accessibilityState={{ selected: displayView === 'open' }}
+            onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('open'); }}
+            style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'open' && s.libraryViewOptionSelected, pressed && s.pressed]}
+          >
+            <AppIcon name="book-open" size={15} color={C.inkSoft} />
+            {!compact && <Text style={[s.libraryViewText, displayView === 'open' && s.libraryViewTextSelected]}>펼쳐서</Text>}
+          </Pressable>
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel="스와이프 보기"
@@ -313,7 +314,7 @@ function LibraryScreen({
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('carousel'); resetPosition(); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
-            <AppIcon name="swap" size={18} color={C.inkSoft} />
+            <AppIcon name="swap" size={16} color={C.inkSoft} />
             {!compact && <Text style={[s.libraryViewText, displayView === 'carousel' && s.libraryViewTextSelected]}>스와이프</Text>}
           </Pressable>
           <Pressable
@@ -323,7 +324,7 @@ function LibraryScreen({
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('grid'); resetPosition(); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
-            <AppIcon name="grid" size={17} color={C.inkSoft} />
+            <AppIcon name="grid" size={16} color={C.inkSoft} />
             {!compact && <Text style={[s.libraryViewText, displayView === 'grid' && s.libraryViewTextSelected]}>한눈에</Text>}
           </Pressable>
         </View>
@@ -333,17 +334,23 @@ function LibraryScreen({
         {(() => {
           const filterChips = (
             <View style={[s.filterSwitch, !compact && s.filtersWide]} accessibilityRole="tablist">
-              {FILTERS.filter(item => !remoteQuery || remoteQuery.supportsShared || item.id !== 'shared').map((item) => (
+              {FILTERS.map((item) => {
+                const on = favoriteOnly === (item.id === 'favorite');
+                return (
                 <Pressable
                   key={item.id}
                   accessibilityRole="tab"
-                  accessibilityState={{ selected: filter === item.id }}
-                  onPress={() => { onFilterChange(item.id); resetPosition(); setOptionsOpen(false); }}
-                  style={({ pressed }) => [s.filterOption, compact && s.filterOptionCompact, filter === item.id && s.filterOptionSelected, pressed && s.pressed]}
+                  accessibilityState={{ selected: on }}
+                  onPress={() => { onFilterChange(withFavorite(filter, item.id === 'favorite')); resetPosition(); setOptionsOpen(false); }}
+                  style={({ pressed }) => [s.filterOption, compact && s.filterOptionCompact, on && s.filterOptionSelected, pressed && s.pressed]}
                 >
-                  <Text style={[s.libraryViewText, compact && s.filterTextCompact, filter === item.id && s.filterTextSelected]}>{item.label}</Text>
+                  {/* 즐겨찾기 칩의 별은 다이어리 카드의 즐겨찾기 별과 같은 그림(고르면 채워진다). 칩 · 보기 버튼 아이콘은 글자 높이(위아래 끝)에 맞춘 크기 */}
+                  {item.id === 'favorite' ? <FavoriteStar filled={on} outline={C.inkSoft} size={compact ? 13 : 14} />
+                    : <AppIcon name={item.icon} size={compact ? 15 : 16} color={C.inkSoft} />}
+                  <Text style={[s.libraryViewText, compact && s.filterTextCompact, on && s.filterTextSelected]}>{item.label}</Text>
                 </Pressable>
-              ))}
+                );
+              })}
             </View>
           );
           // 폰: 필터 칩은 가로로 밀리고, 검색 · 더보기는 같은 줄 오른쪽에 붙는다(한 줄 44)
@@ -361,7 +368,9 @@ function LibraryScreen({
   </>);
   const body = (<>
       {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
-        <EmptyState compact={compact} raised title={current.empty} />
+        <EmptyState compact={compact} raised title={emptyTitle} />
+      ) : displayView === 'open' ? (
+        <OpenBookShelf diaries={carouselItems} index={activeIndex} onIndexChange={onCarouselChange} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} compact={compact} onDark={titleOnDark} />
       ) : displayView === 'carousel' ? (
         <View style={[s.carouselShell, compact && s.carouselShellCompact, portrait && s.carouselShellPortrait]}>
           {/* 목록은 잰 폭으로 고정하고 줄 가운데에 둔다. 줄 폭이 바뀌어도 가운데 카드는 늘 줄 가운데에 머문다. */}
@@ -412,8 +421,8 @@ function LibraryScreen({
                     carouselActive={index === activeIndex}
                     animatedStyle={motions[index].card}
                     infoStyle={motions[index].info}
-                    lightMotion={followMotions[index]}
                     onOpen={onOpen}
+                    onCenter={() => moveCarousel(index)}
                     onFavorite={onFavorite}
                     onEdit={onEdit}
                     onDelete={onDelete}
@@ -446,6 +455,10 @@ function LibraryScreen({
     {isGrid ? <>
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
       <ScrollView contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact]} showsVerticalScrollIndicator={false}>{body}</ScrollView>
+    </> : displayView === 'open' ? <>
+      {/* 펼쳐서 보기는 스크롤 없이 남은 화면 전체를 책상으로 쓴다(스크롤 안에서는 최소 높이만 받아 책이 작아졌다) */}
+      <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
+      <View style={[s.libraryGridScroll, compact && s.libraryGridScrollCompact]}>{body}</View>
     </> : <ScrollView
       contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact, fixedPhoneCarousel && s.libraryScreenCarouselCompact]}
       showsVerticalScrollIndicator={false}

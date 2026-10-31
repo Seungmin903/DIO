@@ -56,7 +56,7 @@ const TrashCard = memo(function TrashCard({ diary, compact, portrait, status, ur
 function TrashSheet({ diary, status, busy, canRestore, canDelete, onRestore, onDelete, onClose }) {
   if (!diary) return null;
   return (
-    <EditorModal transparent animationType="fade" onRequestClose={onClose}>
+    <EditorModal transparent animationType="none" onRequestClose={onClose}>
       <Pressable style={s.trashSheetBackdrop} onPress={onClose} accessibilityLabel="닫기">
         {/* 카드 안을 눌러도 닫히지 않게 터치를 여기서 받는다 */}
         <Pressable style={s.trashSheet} onPress={() => {}} accessibilityRole="menu">

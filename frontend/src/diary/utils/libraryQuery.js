@@ -22,12 +22,21 @@ const time = value => Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0
 export const createdTime = diary => time(diary.createdAt) || Number(/^diary-(\d+)$/.exec(diary.id)?.[1]) || 0;
 const titleKey = value => String(value ?? '').normalize('NFC').trim().toLocaleLowerCase('ko');
 export const isSharedDiary = diary => Boolean(diary.sharedDiaryId || diary.isShared);
+// 보관함 필터는 '범위(왼쪽 메뉴: 내 다이어리 · 공유된 다이어리)'와 '즐겨찾기만(화면 위 칩)' 두 가지를 한 문자열로 담는다.
+// 'personal' · 'personal:favorite' · 'shared' · 'shared:favorite'. 예전 값 'all' · 'favorite' 은 범위 없이 전체로 읽는다.
+export const filterScope = filter => String(filter).split(':')[0] === 'shared' ? 'shared' : String(filter).split(':')[0] === 'personal' ? 'personal' : 'all';
+export const filterFavorite = filter => filter === 'favorite' || String(filter).endsWith(':favorite');
+export const withFavorite = (filter, favorite) => {
+  const scope = filterScope(filter);
+  return scope === 'all' ? (favorite ? 'favorite' : 'all') : `${scope}${favorite ? ':favorite' : ''}`;
+};
 export function queryDiaries(diaries, { filter = 'all', query = '', sort = 'updated', metadata = {} } = {}) {
   const needle = titleKey(query);
   const metric = diary => metadata[diary.id] ?? {};
   const { key, direction } = parseSort(sort);
   const flip = direction === DEFAULT_DIRECTION[key] ? 1 : -1;
-  return diaries.filter(d => !d.trashedAt && (filter !== 'favorite' || d.favorite) && (filter !== 'shared' || isSharedDiary(d)) && (filter !== 'personal' || !isSharedDiary(d)) && titleKey(d.title).includes(needle))
+  const scope = filterScope(filter), favorite = filterFavorite(filter);
+  return diaries.filter(d => !d.trashedAt && (!favorite || d.favorite) && (scope !== 'shared' || isSharedDiary(d)) && (scope !== 'personal' || !isSharedDiary(d)) && titleKey(d.title).includes(needle))
     .map((diary, index) => ({ diary, index }))
     .sort((a, b) => {
       const x = a.diary, y = b.diary;

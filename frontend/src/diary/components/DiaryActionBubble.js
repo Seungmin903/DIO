@@ -39,7 +39,7 @@ export default function DiaryActionBubble({ anchor, title, actions, onClose }) {
   useEffect(() => { if (size.current !== `${window.width}x${window.height}`) onClose(); }, [window.width, window.height]); // eslint-disable-line react-hooks/exhaustive-deps
   const place = bubblePlacement(anchor, actions.length, window);
   return (
-    <EditorModal transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+    <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
       {/* 바깥을 누르면 닫힌다. 막(scrim)은 깔지 않는다 */}
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="닫기" />
       <View accessibilityRole="menu" accessibilityLabel={`${title} 동작`} style={[local.bubble, { left: place.left, top: place.top, height: place.height }]}>

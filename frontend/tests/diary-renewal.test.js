@@ -233,8 +233,8 @@ test('표지 스티커는 회전 각도를 0~360 으로 저장하고, 복제는 
 test('상단바 탭 색 띠는 표지에 보이는 색을 따라간다: 그라데이션은 전체 색, 사진은 대표 색, 그 밖은 바탕색', () => {
   assert.deepEqual(coverTabPaint({ color: '#F2A7A0' }), { color: '#F2A7A0', stops: null })
   const sunset = coverTabPaint({ color: '#F2A7A0', cover: { gradient: 0 } })
-  assert.deepEqual(sunset.stops, ['#F6C9B8', '#F3D9C2', '#C7CCE9', '#9DA5D8'])
-  assert.equal(sunset.color, '#F6C9B8')
+  assert.deepEqual(sunset.stops, ['#FCE8EE', '#F6B6CA', '#E98EAE'])
+  assert.equal(sunset.color, '#FCE8EE')
   const custom = coverTabPaint({ color: '#F2A7A0', cover: { gradient: 'custom', gradientColors: ['#112233', '#445566'] } })
   assert.deepEqual(custom.stops, ['#112233', '#445566'])
   const photo = { src: 'file://a.jpg', mediaFileId: 'm1' }
