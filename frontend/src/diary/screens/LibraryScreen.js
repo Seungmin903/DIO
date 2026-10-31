@@ -13,6 +13,7 @@ import LibrarySearchScreen from '../components/LibrarySearchScreen';
 import { filterFavorite, filterScope, nextSort, parseSort, queryDiaries, SORT_OPTIONS, withFavorite } from '../utils/libraryQuery';
 import OpenBookShelf, { preloadOpenBooks } from '../components/OpenBookShelf';
 import { useDeskDark } from '../utils/deskInk';
+import { useDiaryGrid } from '../utils/useDiaryGrid';
 import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
@@ -133,6 +134,7 @@ function LibraryScreen({
 
   const carouselItems = shown;
   const itemCount = carouselItems.length;
+  const grid = useDiaryGrid(compact); // 태블릿 한눈에 보기 칸 크기 · 간격 (폰은 null)
   const carouselItemWidth = portrait ? PORTRAIT_ITEM_WIDTH : compact ? 268 : CAROUSEL_ITEM_WIDTH;
   // 세로는 간격을 카드 폭만큼 줘서 옆 카드가 화면 밖에 있게 한다.
   // 폰은 옆 카드가 28px 만 보이도록 간격을 좁힌다(가운데 카드 1.06배 · 옆 카드 0.84배 기준)
@@ -274,7 +276,7 @@ function LibraryScreen({
       </View>;
 
   if (searchOpen) return <LibrarySearchScreen
-    compact={compact} portrait={portrait} query={query} onQueryChange={setQuery}
+    compact={compact} query={query} onQueryChange={setQuery}
     onBack={() => {
       if (selecting) {
         if (!trashing) onSelectionChange?.(null);
@@ -444,9 +446,11 @@ function LibraryScreen({
           </View>
         </View>
       ) : (
-        <View style={[s.grid, compact && s.gridCompact]}>
-          {shown.map((diary) => <DiaryCard key={diary.id} sunShadow={!compact} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} portrait={portrait} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
-            selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} onEnterEdit={enterEdit} />)}
+        <View onLayout={grid?.onLayout}>
+          <View style={[s.grid, compact && s.gridCompact, grid?.style]}>
+            {shown.map((diary) => <DiaryCard key={diary.id} sunShadow={!compact} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} cell={grid?.cell} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
+              selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} onEnterEdit={enterEdit} />)}
+          </View>
         </View>
       )}
   </>);

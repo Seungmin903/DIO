@@ -268,7 +268,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
       <Text style={s.text}>결과 확인이 필요한 수정 요청이 있어요.</Text>
       <Button label="수정 요청 이어서 확인" onPress={() => editing.editor.open(editing.source.id)} />
     </View>}
-    {page === 'library' ? library : page === 'trash' ? <TrashScreen compact={isPhone} portrait={!isPhone && !isLandscape} diaries={trashItems}
+    {page === 'library' ? library : page === 'trash' ? <TrashScreen compact={isPhone} diaries={trashItems}
       serverMode busy={removalLocked} onRestore={id => askRemoval('restore', [id])}
       onDeletePermanently={row => askRemoval('permanentlyDelete', [row.id])}
       onRestoreMany={ids => askRemoval('restore', ids)}
