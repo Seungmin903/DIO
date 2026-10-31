@@ -244,3 +244,17 @@ test('상단바 탭 색 띠는 표지에 보이는 색을 따라간다: 그라�
   assert.equal(coverTabPaint({ color: '#F2A7A0', cover: { kind: 'photo', gradient: 0, photo } }).stops, null)
   assert.deepEqual(coverTabPaint({ color: '#F2A7A0', cover: { enabled: false, gradient: 0 } }), { color: '#F2A7A0', stops: null })
 })
+
+test('상단바 탭 그라데이션 색은 #RRGGBB 로 맞춘 값만 쓰고 색이 모자라면 기본 쌍으로 채운다', () => {
+  // 스타일 문자열에 이어 붙는 값이라 CSS 조각이 섞여 들어오면 기본 색으로 바꾼다
+  const injected = coverTabPaint({ color: '#F2A7A0', cover: { gradient: 'custom', gradientColors: ['red); background:url(x', '#445566'] } })
+  assert.deepEqual(injected.stops, ['#F3D9C2', '#445566'])
+  assert.ok(injected.stops.every(color => /^#[0-9A-F]{6}$/.test(color)))
+  // 색이 하나뿐이거나 없으면 기본 두 색
+  assert.deepEqual(coverTabPaint({ color: '#F2A7A0', cover: { gradient: 'custom', gradientColors: ['#112233'] } }).stops, ['#F3D9C2', '#9DB6DA'])
+  assert.deepEqual(coverTabPaint({ color: '#F2A7A0', cover: { gradient: 'custom' } }).stops, ['#F3D9C2', '#9DB6DA'])
+  // 사진 대표 색도 같은 형식만 받는다
+  assert.equal(coverTabPaint({ color: '#F2A7A0', cover: { kind: 'photo', photo: { src: 'file://a.jpg', tone: 'url(x)' } } }).color, '#F2A7A0')
+  // 프리셋 그라데이션은 모두 두 색 이상이다
+  for (let index = 0; index < 6; index++) assert.ok(coverTabPaint({ cover: { gradient: index } }).stops.length >= 2)
+})
