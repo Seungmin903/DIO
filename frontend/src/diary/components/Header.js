@@ -7,7 +7,7 @@ export default function Header({ title, icon, right, compact = false }) {
   return (
     <View style={[s.header, compact && s.headerCompact]}>
       <View style={s.headerTitleRow}>
-        {icon && <AppIcon name={icon} size={compact ? 28 : 27} color={s.headerTitle.color} strokeWidth={2.4} />}
+        {icon && <AppIcon name={icon} size={compact ? 24 : 27} color={s.headerTitle.color} strokeWidth={2.4} />}
         <Text accessibilityRole="header" style={[s.headerTitle, compact && s.headerTitleCompact]}>{title}</Text>
       </View>
       <View style={s.headerRight}>{right}</View>

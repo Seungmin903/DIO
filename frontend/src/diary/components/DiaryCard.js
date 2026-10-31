@@ -7,9 +7,11 @@ import FavoriteStar from '../../shared/FavoriteStar';
 import { styles as s } from '../styles';
 import Cover from './Cover';
 import DiaryActionBubble from './DiaryActionBubble';
+import SelectionMark from './SelectionMark';
 import { isSharedDiary } from '../utils/libraryQuery';
 import { useDeskDark } from '../utils/deskInk';
 import { COVER_GRADIENTS, normalizeCover } from '../utils/coverDesign';
+import { cardTapAction } from '../utils/libraryView';
 
 // 스와이프 카드는 한 장으로 합쳐 그린다(아래 renderToHardwareTextureAndroid). 합친 그림은 View 경계에서 잘리는데, 가로 다이어리 표지는 카드 폭을 가득 채워
 // 표지 바깥으로 나가는 효과(프레임 3px · 해 방향 그림자)가 좌우에서 통째로 잘렸다. 해 방향 그림자는 시간대에 따라 표지 밖으로 왼쪽 약 43 · 오른쪽 약 40(스와이프 가운데 카드는 1.06배) · 위 약 25 · 아래 약 31px 나가므로
@@ -50,7 +52,8 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
     : Number.isSafeInteger(count) && count >= 0 ? `${count}페이지` : '페이지 수 확인 불가';
   const showTools = !selecting && (layout !== 'carousel' || carouselActive);
   // 스와이프 옆 카드: 누르면 열지 않고 가운데로 오기만 한다(밀다 손이 떨어져 잘못 열리지 않게). 열기는 가운데 카드에서
-  const sideCard = layout === 'carousel' && !carouselActive && Boolean(onCenter);
+  const tap = cardTapAction({ selecting, layout, carouselActive, canCenter: Boolean(onCenter) });
+  const sideCard = tap === 'center';
   const closeMenu = () => setMenu(null);
   // 말풍선을 먼저 닫고 동작을 실행한다(동작이 확인 창을 열어도 시트가 남지 않게)
   const act = fn => () => { closeMenu(); fn?.(); };
@@ -67,8 +70,10 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
       accessibilityHint={`${isSharedDiary(diary) ? '공유 다이어리, ' : ''}${diary.favorite ? '즐겨찾기, ' : ''}${countLabel}`}
       accessibilityState={selecting ? { checked: selected } : layout === 'carousel' ? { selected: carouselActive } : undefined}
       aria-checked={selecting ? selected : undefined}
-      onPress={() => (selecting ? onToggleSelect?.(diary) : sideCard ? onCenter(diary) : onOpen(diary))}
-      onLongPress={!selecting && diary.canManage !== false && diary.canDelete !== false ? () => onEnterEdit?.(diary) : undefined}
+      onPress={() => (tap === 'select' ? onToggleSelect?.(diary) : tap === 'center' ? onCenter(diary) : onOpen(diary))}
+      // 꾹 눌러 선택 모드에 들어온 손가락을 뗄 때 같은 터치가 onPress 로 한 번 더 와서 방금 고른 다이어리가 풀렸다.
+      // 누르는 중에 onLongPress 가 사라지면 Pressable 이 '긴 누름이 눌림을 취소'했는지 판단하지 못하므로, 선택 중에도 관리할 수 있는 카드는 늘 넘긴다.
+      onLongPress={canManage && diary.canDelete !== false ? () => (selecting ? onToggleSelect?.(diary) : onEnterEdit?.(diary)) : undefined}
       // 누르면 반투명해진다. 안드로이드가 자식마다 따로 투명하게 해 그림자 · 뒤 요소가 비치지 않도록 한 장으로 합쳐 그린다
       needsOffscreenAlphaCompositing
       style={({ pressed }) => [
@@ -87,9 +92,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
         <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large} sunShadow={sunShadow}
           frame={layout === 'carousel' ? (carouselActive ? 'active' : 'idle') : null} onInset={layout === 'list' ? null : setCoverInset}>
         {/* 스와이프의 표지 프레임(가운데 표지는 흰 3px + 그림자, 옆 표지는 얇은 라벤더 2px)은 표지 크기에서 모서리를 계산하는 Cover 가 그린다 */}
-        {selecting && diary.canManage !== false && diary.canDelete !== false && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
-          {selected && <AppIcon name="check" size={18} color={C.white} strokeWidth={2.6} />}
-        </View>}
+        {selecting && diary.canManage !== false && diary.canDelete !== false && <SelectionMark selected={selected} />}
         {showTools && actions.length > 0 && <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${diary.title} 더보기`}

@@ -12,6 +12,7 @@ import EditorScreen from './src/editor/screens/EditorScreen';
 import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
+import { guestProfile } from './src/auth/guestProfileDevice';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
@@ -25,7 +26,6 @@ import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import { withPdfPages } from './src/diary/utils/pdfImport';
 import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
-import BottomTabs from './src/diary/components/BottomTabs';
 import DeskBackdrop from './src/diary/components/DeskBackdrop';
 import { DESK_COLORS } from './src/diary/utils/deskLight';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
@@ -33,11 +33,13 @@ import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
 import { parseSort, queryDiaries } from './src/diary/utils/libraryQuery';
+import { savedLibraryView } from './src/diary/utils/libraryView';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
 import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
+import DialogHost from './src/shared/DialogHost';
 import { normalizePaperAppearance } from './src/editor/templates/appearance.js';
 import { fitTabletFrame } from './src/shared/layout';
 import { useFormFactor } from './src/shared/useFormFactor';
@@ -66,6 +68,8 @@ export default function App() {
   // 앱 UI 글꼴(Pretendard)을 처음 그리기 전에 불러온다. 못 불러오면(fontError) 기본 글꼴로 그대로 연다
   const [fontsLoaded, fontError] = useFonts(PRETENDARD_FILES);
   const [previewSession, setPreviewSession] = useState(null);
+  // 게스트는 지난번에 고친 프로필(닉네임 · 한 줄 소개 · 사진)을 이어서 시작한다
+  const startSession = async session => setPreviewSession(session?.provider === 'guest' ? await guestProfile.start(session) : session);
   const endSession = async () => {
     try {
       if (previewSession?.mode === 'authenticated') await authService.logout();
@@ -91,7 +95,7 @@ export default function App() {
         previewSession ? <SessionDiaryApp key={`${previewSession.mode}:${previewSession.userId || 'preview'}`} previewUser={previewSession}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
-          onEndPreview={endSession} /> : <AuthScreen onContinue={setPreviewSession} />
+          onEndPreview={endSession} /> : <AuthScreen onContinue={startSession} />
       )}
       <HandwritingStudio />
 
@@ -182,10 +186,17 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const [filter, setFilter] = useState(DEFAULT_FILTER);
   const [view, setView] = useState('carousel');
   // 사용자가 마지막으로 고른 보기(펼쳐서 · 스와이프 · 한눈에)를 기기에 남겨 다음에 열 때 그 보기로 시작한다.
+  // 읽어 오는 사이에 사용자가 이미 보기를 바꿨으면 늦게 도착한 저장값으로 되돌리지 않는다.
+  const viewChosen = useRef(false);
   useEffect(() => {
-    loadJSON(STORAGE_KEYS.libraryView, null).then(saved => { if (['open', 'carousel', 'grid'].includes(saved)) setView(saved); }).catch(() => {});
+    let alive = true;
+    loadJSON(STORAGE_KEYS.libraryView, null).then(saved => {
+      const restored = savedLibraryView(saved);
+      if (alive && restored && !viewChosen.current) setView(restored);
+    }).catch(() => {});
+    return () => { alive = false; };
   }, []);
-  const changeView = useCallback((next) => { setView(next); saveJSON(STORAGE_KEYS.libraryView, next).catch(() => {}); }, []);
+  const changeView = useCallback((next) => { viewChosen.current = true; setView(next); saveJSON(STORAGE_KEYS.libraryView, next).catch(() => {}); }, []);
   const [carousel, setCarousel] = useState(0);
   const [librarySort, setLibrarySort] = useState('updated');
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
@@ -216,7 +227,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     return () => clearTimeout(timer);
   }, [member, loaded, diaryState.store, memberQuery]);
   const memberLibraryMatches = member && JSON.stringify(memberQuery) === JSON.stringify(diaryState.library.criteria);
-  const remoteQuery = useMemo(() => member ? { supportsShared: true, query: memberSearch, searchOpen: memberSearchOpen,
+  const remoteQuery = useMemo(() => member ? { query: memberSearch, searchOpen: memberSearchOpen,
     onQueryChange: value => { setSelection(current => current === null ? null : []); setMemberSearch(value); setCarousel(0); },
     onSearchOpenChange: value => { setSelection(null); setMemberSearchOpen(value); if (!value) setMemberSearch(''); setCarousel(0); } } : null, [member, memberSearch, memberSearchOpen]);
   const [trashing, setTrashing] = useState(false);
@@ -328,7 +339,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         setEditingDiaryId(null);
         return true;
       }
-      if (!isPhone && !railCollapsed) {
+      if (!railCollapsed) {
         setRailCollapsed(true);
         return true;
       }
@@ -366,7 +377,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     if (savingRef.current) return;
     if (!diary || diary.canManage === false) return;
     if(member) {
-      confirmAction({title:'휴지통으로 옮길까요?',message:`“${diary.title}”는 삭제한 시각부터 30일 동안 복원할 수 있어요.`,confirmLabel:'휴지통으로',onConfirm:async()=>{
+      confirmAction({title:'휴지통으로 옮길까요?',message:`“${diary.title}”는 삭제한 시각부터 30일 동안 복원할 수 있어요.`,confirmLabel:'휴지통으로',danger:false,onConfirm:async()=>{
         try {await moveToTrash(diary.id);setActive(current=>current?.id===diary.id?null:current);setTabIds(current=>current.filter(id=>id!==diary.id));setCreateOpen(false);setEditingDiaryId(null);}
         catch(error){notify('휴지통 변경을 확인하지 못했어요',error.message);}
       }});return;
@@ -376,6 +387,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       title: '휴지통으로 옮길까요?',
       message: `“${diary.title}”는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요. 앱이 꺼져 있으면 다음 실행 시 정리해요.`,
       confirmLabel: '휴지통으로',
+      danger: false, // 30일 안에 되돌릴 수 있어 위험색을 쓰지 않는다
       onConfirm: () => {
         moveToTrash(diary.id);
         setActive((current) => (current?.id === diary.id ? null : current));
@@ -394,6 +406,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       title: `${ids.length}개를 휴지통으로 옮길까요?`,
       message: member ? '선택한 다이어리를 각각 휴지통으로 옮겨요. 삭제 시각부터 30일 동안 복원할 수 있어요. 일부 항목을 처리하지 못하면 남은 결과를 따로 안내해요.' : '고른 다이어리는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요. 앱이 꺼져 있으면 다음 실행 시 정리해요.',
       confirmLabel: '휴지통으로',
+      danger: false,
       onConfirm: async () => {
         if (trashingRef.current) return;
         trashingRef.current = true;
@@ -748,6 +761,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   } else if (page === 'profile') {
     content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
+      guestService={previewUser?.provider === 'guest' ? guestProfile : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
 
@@ -785,12 +799,28 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   if (page === 'editor') {
     shell = content;
   } else if (isPhone) {
-    // 폰: 사이드 메뉴 대신 하단 탭. 새 다이어리 시트는 탭까지 덮도록 셸 위에 띄운다.
+    // 폰: 하단 탭 대신 좁은 좌측 바(접힘 60 · 펼침 236). 새 다이어리 시트는 바까지 덮도록 셸 위에 띄운다.
     shell = (
-      <View style={s.phoneShell} onLayout={deskLayout}>
-        {desk && <DeskBackdrop compact size={deskSize} />}
-        <View style={[s.workspace, desk && s.workspaceDesk, desk && s.deskAbove]}>{content}</View>
-        <BottomTabs floating={desk} notificationCount={authenticatedNotifications?.count} notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} />
+      <View style={s.shell}>
+        <SideRail
+          compact
+          onNotifications={openInvitations}
+          notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'}
+          notificationCount={authenticatedNotifications?.count}
+          invitationCount={unreadInvites}
+          page={page}
+          filter={filter}
+          navigate={navigate}
+          bottomInset={insets.bottom}
+          user={previewUser}
+          getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
+          collapsed={railCollapsed}
+          onToggle={() => setRailCollapsed((current) => !current)}
+        />
+        <View style={[s.workspace, desk && s.workspaceDesk, desk && s.deskAbove, { paddingBottom: insets.bottom }]} onLayout={deskLayout}>
+          {desk && <DeskBackdrop compact size={deskSize} />}
+          {content}
+        </View>
         {createModal}
       </View>
     );
@@ -822,7 +852,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 태블릿 보관함은 흰 사이드 메뉴. 오른쪽: 보관함·편집기 바탕.
   const safeAreaColors = {
     top: page === 'editor' && !isLandscape ? C.white : desk ? DESK_COLORS.base : C.canvas,
-    left: !isPhone && page !== 'editor' ? C.white : desk ? DESK_COLORS.base : C.canvas,
+    left: page !== 'editor' ? C.white : desk ? DESK_COLORS.base : C.canvas,
     right: desk ? DESK_COLORS.base : C.canvas,
   };
 
@@ -854,6 +884,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.white }]} />}
       {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
         check={value => checkAppLock(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}
+      <DialogHost />
     </>
   );
 }

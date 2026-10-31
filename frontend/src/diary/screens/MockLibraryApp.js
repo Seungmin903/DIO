@@ -9,7 +9,6 @@ import { C } from '../constants';
 import { toolMaxHeight } from '../../devtools/layout';
 import { styles as shell } from '../styles';
 import SideRail, { RAIL_WIDTH } from '../components/SideRail';
-import BottomTabs from '../components/BottomTabs';
 import DiaryCreateModal from '../components/DiaryCreateModal';
 import LibraryScreen from './LibraryScreen';
 import TrashScreen from './TrashScreen';
@@ -42,7 +41,7 @@ export default function MockLibraryApp() {
   const [notifications, setNotifications] = useState(false);
   return <>
     <RemoteLibrary key={account} account={account} onOpenNotifications={() => setNotifications(true)} onSwitchAccount={() => setAccount(value => value === 'A' ? 'B' : 'A')} />
-    <Modal visible={notifications} onRequestClose={() => setNotifications(false)} animationType="fade">
+    <Modal visible={notifications} onRequestClose={() => setNotifications(false)} animationType="none">
       {notifications && <MockNotifications onClose={() => setNotifications(false)} />}
     </Modal>
   </>;
@@ -286,8 +285,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
       onCancel={() => setConfirmation(null)} onConfirm={() => performRemoval()} />
     <View style={shell.viewport} onLayout={({ nativeEvent: { layout } }) => setViewport({ width: layout.width, height: layout.height })}>
       <View style={[shell.app, frame ? { width: frame.width, height: frame.height } : shell.appFill]}>
-        {isPhone ? <View style={shell.phoneShell}>{content}<BottomTabs page={page} filter={options.filter} navigate={navigate} bottomInset={insets.bottom} /></View>
-          : <View style={shell.shell}><SideRail page={page} filter={options.filter} navigate={navigate} collapsed={collapsed} onToggle={() => setCollapsed(value => !value)} bottomInset={insets.bottom} />{content}</View>}
+        <View style={shell.shell}><SideRail compact={isPhone} page={page} filter={options.filter} navigate={navigate} collapsed={collapsed} onToggle={() => setCollapsed(value => !value)} bottomInset={insets.bottom} />{content}</View>
       </View>
     </View>
     {createMounted && <DiaryCreateModal visible={createOpen} sheet={isPhone} bottomInset={insets.bottom}
@@ -300,7 +298,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
             <Button key={value} label={`${writeMode === value ? '✓ ' : ''}${label}`} disabled={saving} onPress={() => { mock.setWriteScenario(value); setWriteMode(value); }} />)}
         </ScrollView>
       </View>} />}
-    <Modal visible={editing.visible && !editing.source} onRequestClose={editing.editor.close} animationType="fade">
+    <Modal visible={editing.visible && !editing.source} onRequestClose={editing.editor.close} animationType="none">
       <View style={[s.detail, { paddingTop: insets.top + 20 }]}>
         <Button label="수정 정보 닫기" onPress={editing.editor.close} />
         <Text style={s.title}>수정할 다이어리 확인</Text>
@@ -330,7 +328,7 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
             }} />)}
         </ScrollView>
       </View>} />}
-    <Modal visible={selectedId !== null} onRequestClose={reader.close} animationType="fade">
+    <Modal visible={selectedId !== null} onRequestClose={reader.close} animationType="none">
       <ScrollView contentContainerStyle={[s.detail, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
         <Button label="상세 닫기" onPress={reader.close} />
         <Text style={s.title}>다이어리 상세</Text>

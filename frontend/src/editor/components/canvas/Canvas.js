@@ -656,7 +656,7 @@ function MenuButton({ icon, label, disabled, onPress }) {
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }}
       style={({ pressed }) => [styles.menuButton, pressed && styles.menuPressed, disabled && styles.menuDisabled]}>
-      <Icon name={icon} size={17} color={colors.text} />
+      <Icon name={icon} size={17} forText={12.5} color={colors.text} />
       <Text style={styles.menuText}>{label}</Text>
     </Pressable>
   )

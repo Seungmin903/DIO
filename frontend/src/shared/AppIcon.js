@@ -1,4 +1,5 @@
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, G, Line, Path } from 'react-native-svg';
+import { APP_INK, textIconSpec } from './iconInk';
 import EditorIcon from '../editor/components/controls/Icon';
 import { colors } from './theme';
 
@@ -34,8 +35,11 @@ const common = (color, strokeWidth) => ({
 });
 
 /** 앱 전반에서 쓰는 선형 아이콘. 편집 화면에 없는 것(menu·book·person·star·workshop·check·moon)만 여기서 그린다 */
-export default function AppIcon({ name, size = 24, color = colors.text, strokeWidth = 1.8, fill = 'none' }) {
-  if (EDITOR_ICONS[name]) return <EditorIcon name={EDITOR_ICONS[name]} size={size} color={color} strokeWidth={strokeWidth} />;
+export default function AppIcon({ name, size = 24, color = colors.text, strokeWidth = 1.8, fill = 'none', forText }) {
+  if (EDITOR_ICONS[name]) return <EditorIcon name={EDITOR_ICONS[name]} size={size} color={color} strokeWidth={strokeWidth} forText={forText} />;
+  // forText: 글자 크기(px). 주면 그 글자와 같은 높이로 보이게 size · 선 굵기 · 세로 위치를 계산한다(디자인 가이드 "글자 옆 아이콘")
+  const spec = forText ? textIconSpec(APP_INK, name, forText) : null;
+  if (spec) { size = spec.size; strokeWidth = spec.strokeWidth; }
   const line = common(color, strokeWidth);
 
   let graphic = null;
@@ -89,5 +93,5 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
       graphic = <Circle {...line} cx="12" cy="12" r="7" />;
   }
 
-  return <Svg width={size} height={size} viewBox="0 0 24 24">{graphic}</Svg>;
+  return <Svg width={size} height={size} viewBox="0 0 24 24">{spec && Math.abs(spec.dy) > 0.05 ? <G transform={`translate(0 ${spec.dy})`}>{graphic}</G> : graphic}</Svg>;
 }

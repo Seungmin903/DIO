@@ -39,3 +39,14 @@ test('알림 설정은 기본값에서 시작해 바꾼 값만 저장하고 목�
   assert.equal(settings.reminderTimeLabel('09:00'),'오전 9시');
   assert.equal(settings.reminderTimeLabel('21:00'),'오후 9시');
 });
+
+test('알림을 끄면 세부 설정도 모두 꺼지고, 다시 켜면 끄기 직전의 세부 설정이 돌아온다', async()=>{
+  const storage=memoryStorage();
+  const settings=load('../src/shared/notificationSettings.js',{'@react-native-async-storage/async-storage':{__esModule:true,default:storage},react:{useSyncExternalStore:()=>null}});
+  const read=()=>JSON.parse(storage.data.get('dio.notifications.settings.v1'));
+  settings.setNotificationSettings({invite:false,reminder:true,reminderTime:'09:00'});
+  settings.setNotificationSettings({enabled:false});
+  assert.deepEqual(read(),{enabled:false,invite:false,activity:false,reminder:false,reminderTime:'09:00',last:{invite:false,activity:true,reminder:true}});
+  settings.setNotificationSettings({enabled:true});
+  assert.deepEqual(read(),{enabled:true,invite:false,activity:true,reminder:true,reminderTime:'09:00'});
+});

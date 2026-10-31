@@ -10,6 +10,11 @@ export function passwordError(value) {
 export function nicknameError(value) {
   return !/^[가-힣a-zA-Z0-9_]{2,12}$/.test(normalizeNickname(value)) ? '한글·영문·숫자·밑줄로 2~12자를 입력해 주세요.' : ''
 }
+export const BIO_MAX = 30
+export const normalizeBio = value => (value || '').replace(/\s+/g, ' ').trim().normalize('NFKC')
+export function bioError(value) {
+  return [...normalizeBio(value)].length > BIO_MAX ? `한 줄 소개는 ${BIO_MAX}자까지 쓸 수 있어요.` : ''
+}
 export function credentialsErrors({email,password,confirmation},signup=false) {
   return {email:emailError(email),password:passwordError(password),...(signup&&{confirmation:password!==confirmation||!confirmation?'비밀번호가 일치하지 않아요.':''})}
 }

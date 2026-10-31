@@ -33,6 +33,9 @@ import ProviderIcon from './ProviderIcon';
 import { pickProfilePhoto } from './profilePhoto';
 import EmailVerification from './EmailVerification';
 
+// 사진이 없을 때의 기본 프로필: 메뉴 아래 · 내 공간과 같은 그림
+import DefaultAvatar from '../shared/DefaultAvatar';
+
 const PROVIDERS = [
   { id: 'kakao', name: '카카오', color: '#FEE500' },
   { id: 'google', name: '구글', color: '#FFFFFF' },
@@ -589,7 +592,7 @@ export default function AuthScreen({
                           style={s.avatarPhoto}
                         />
                       ) : (
-                        <AppIcon name="person" size={36} />
+                        <DefaultAvatar accessibilityLabel="기본 프로필" style={s.avatarPhoto} />
                       )}
                       <View style={s.avatarEdit}>
                         <AppIcon name="edit" size={14} />
@@ -681,7 +684,7 @@ export default function AuthScreen({
       <EditorModal
         visible={!!info}
         transparent
-        animationType="fade"
+        animationType="none"
         onRequestClose={() => setInfo(null)}
         statusBarTranslucent
       >

@@ -7,11 +7,12 @@ import { notify } from '../../shared/dialogs';
 import { C } from '../constants';
 import { colors } from '../../shared/theme';
 import ContentLicenses from './ContentLicenses';
+import { SettingSection } from './SettingRow';
 
 const PRIVACY_POLICY_URL = 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVThQYxck0l_bwzg33FxGShE6rpqd0/edit?usp=sharing';
 const SUPPORT_EMAIL = 'dioapp.official@gmail.com';
 
-export default function AppInformation() {
+export default function AppInformation({ compact = false }) {
   const [copyMessage, setCopyMessage] = useState('');
   const [licensesOpen, setLicensesOpen] = useState(false);
 
@@ -33,8 +34,7 @@ export default function AppInformation() {
   };
 
   return (
-    <View style={styles.card}>
-      <Text accessibilityRole="header" style={styles.title}>앱 정보</Text>
+    <SettingSection title="앱 정보" compact={compact}>
       <Pressable accessibilityRole="link" accessibilityLabel="개인정보 처리방침, 브라우저로 열기" onPress={openPrivacyPolicy}
         style={({ pressed }) => [styles.policy, pressed && styles.pressed]}>
         <View style={styles.copy}>
@@ -56,14 +56,12 @@ export default function AppInformation() {
       </Pressable>
       <ContentLicenses visible={licensesOpen} onClose={() => setLicensesOpen(false)} />
       {!!copyMessage && <Text accessibilityLiveRegion="polite" role="status" style={styles.status}>{copyMessage}</Text>}
-    </View>
+    </SettingSection>
   );
 }
 
-// 카드로 감싸지 않는다: 제목(18/800) + 구분선으로 나눈 조용한 목록(행 64, 이메일 행 72).
+// 카드로 감싸지 않는다: 구역(SettingSection) 안의 구분선으로 나눈 조용한 목록(행 64, 이메일 행 72).
 const styles = StyleSheet.create({
-  card: {},
-  title: { color: C.ink, fontSize: 18, fontWeight: '800', marginBottom: 4 },
   policy: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   licenses: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderTopWidth: 1, borderTopColor: colors.border },
   contact: { minHeight: 72, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingVertical: 10 },

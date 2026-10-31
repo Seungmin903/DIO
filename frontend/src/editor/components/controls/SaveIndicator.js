@@ -29,7 +29,7 @@ export default function SaveIndicator({ status, onInfo }) {
       <Icon
         name={error ? 'alert' : status === 'saving' ? 'saving' : 'saved'}
         size={15}
-        strokeWidth={2}
+        forText={11}
         color={error ? colors.danger : colors.textMuted}
       />
       {text && <Text style={[styles.saveText, error && styles.saveTextError]}>{text}</Text>}

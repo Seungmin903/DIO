@@ -32,7 +32,7 @@ export function Note({ children, tone }) {
 export default function ExportScreen({ title, onClose, closeLabel, closeDisabled = false, preview, children, visible = true }) {
   const { width } = useWindowDimensions()
   const wide = width >= 720
-  return <EditorModal visible={visible} animationType="fade" onRequestClose={onClose}>
+  return <EditorModal visible={visible} animationType="none" onRequestClose={onClose}>
     <View style={styles.root}>
       <View style={styles.header}>
         <Pressable onPress={onClose} disabled={closeDisabled} hitSlop={8} accessibilityRole="button" accessibilityLabel={closeLabel ?? `${title} 닫기`} accessibilityState={{ disabled: closeDisabled }}

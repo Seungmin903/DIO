@@ -750,8 +750,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 패널은 오른쪽 바깥 여백(16)을 덮으므로 작업창 폭은 패널 폭 + 간격 - 16 만큼 바뀐다.
   const toggleLayers = (open) => {
     if (open === showLayers) return
-    // 페이지 목록과 레이어는 동시에 펼치지 않는다. 한쪽을 열면 다른 쪽은 닫는다(캔버스가 양쪽에서 밀리지 않게).
-    const closePages = open && showPages
+    // 태블릿은 페이지 목록(왼쪽)과 레이어(오른쪽)를 각각 켜고 끌 수 있다. 폰은 둘 다 작업창 위에 띄우므로 한쪽을 열면 다른 쪽은 닫는다.
+    const closePages = compact && open && showPages
     if (closePages) setPagesOpen(false)
     setLayersOpen(open)
     // 폰은 레이어를 작업창 위에 띄우므로 작업창 크기가 그대로다.
@@ -820,8 +820,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const open = !showPages
     pagePanelMeasurement.current?.dispose()
     pagePanelMeasurement.current = startPagePanelMeasurement({ open, tool: activeTool, objects: page.objects.length, pages: state.doc.pages.length })
-    // 레이어 패널과 동시에 펼치지 않는다.
-    const closeLayers = open && showLayers
+    // 태블릿은 레이어 패널과 각각 켜고 끈다. 폰은 한쪽을 열면 다른 쪽은 닫는다.
+    const closeLayers = compact && open && showLayers
     if (closeLayers) setLayersOpen(false)
     setPagesOpen(open)
     // 작업창 왼쪽 끝이 움직이므로 새 크기를 같은 화면에서 바로 써서 한 번에 맞춘다.
@@ -1322,7 +1322,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       />}
       {phoneFocus && (
         <Pressable onPress={() => setFocusMode(false)} accessibilityRole="button" accessibilityLabel="집중 편집 모드 종료" style={[styles.focusExit, !landscape && styles.focusExitPortrait]}>
-          <Icon name="focus" size={17} />
+          <Icon name="focus" size={17} forText={12.5} />
           <Text style={styles.focusExitText}>집중 모드 종료</Text>
         </Pressable>
       )}

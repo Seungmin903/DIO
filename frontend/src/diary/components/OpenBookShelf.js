@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import FavoriteStar from '../../shared/FavoriteStar';
@@ -40,7 +40,9 @@ const PAGE_EDGE = 24; // 세로 태블릿에서 가운데 한 면과 화면 끝 
 const SWIPE_CENTER_UP = 79;
 const CAPTION = 64; // 기준선 아래 캡션 자리
 const REACH = 3; // 펼친 다이어리 앞뒤로 그려 두는 닫힌 권수
-const SWIPE = 48; // 이만큼 밀고 놓으면 옆 다이어리를 펼친다
+const SWIPE = 36; // 이만큼 밀리면(손을 떼기 전이라도) 옆 다이어리를 펼친다
+const FLICK = 0.3; // 이보다 빠르게(px/ms) 튕기고 놓으면 SWIPE 보다 덜 밀었어도 넘긴다
+const FLICK_MIN = 16; // 튕기기로 치는 가장 짧은 거리(톡 친 것과 구분)
 const SHADOW = '0 8px 16px rgba(11,23,102,0.12)';
 
 const orientationOf = diary => normalizeOrientation(diary?.templateConfig?.orientation ?? diary?.pageSize);
@@ -70,13 +72,14 @@ let lastArea = null; // 마지막으로 잰 책상 크기
 
 // 펼침면 계산 결과. 같은 문서면 다시 계산하지 않는다(기본 문서 만들기 · 쪽 훑기를 화면을 열 때마다 하지 않게)
 const spreads = new WeakMap(); // 저장된 문서 → 펼침면
-const fallbacks = new Map(); // 저장된 문서가 없는 다이어리 id → 기본 문서의 펼침면
+// 저장된 문서가 없는 다이어리 → 기본 문서의 펼침면. 다이어리 객체를 키로 둬, 다이어리가 고쳐지면(새 객체) 다시 계산하고 옛 항목은 저절로 사라진다.
+const fallbacks = new WeakMap();
 function spreadFrom(diary, saved) {
   if (saved && spreads.has(saved)) return spreads.get(saved);
-  if (!saved && fallbacks.has(diary.id)) return fallbacks.get(diary.id);
+  if (!saved && fallbacks.has(diary)) return fallbacks.get(diary);
   const doc = saved ?? (diary.source === 'member-api' ? null : createDefaultDoc(diary));
   const value = { pages: doc?.pages ?? [], spread: spreadOf(doc?.pages) };
-  if (saved) spreads.set(saved, value); else fallbacks.set(diary.id, value);
+  if (saved) spreads.set(saved, value); else fallbacks.set(diary, value);
   return value;
 }
 /** 메모리에 이미 읽어 둔 문서가 있으면 기다리지 않고 바로 펼침면을, 아직이면 undefined */
@@ -145,7 +148,7 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
   const spread = loaded?.spread ?? null;
   const tone = cover.enabled ? (coverTone(cover) ?? '#C9CED8') : C.cardBorder;
   const endpaper = mix(mix(tone, PAPER, 0.7), '#E9DFC8', 0.15); // 면지: 표지색이 옅게 비치는(표지색 30%) 조금 따뜻한 무지
-  const captionInk = onDark ? '#FFFFFF' : C.ink;
+  const captionInk = onDark ? C.white : C.ink;
   const headband = mix(cover.enabled ? (cover.band.color !== 'auto' ? cover.band.color : bandAutoColor(cover)) : '#7D88B5', '#8A8FA8', 0.35); // 고무줄 색을 한 단계 탁하게
   const spine = { width: 24, groove: 1.5, band: 18, bandOut: 4 }; // 책등 띠 폭 · 홈 굵기 · 머리띠 폭 · 종이 밖으로 보이는 머리띠 높이
   const page = side => (!spread ? null : compact ? loaded.pages[spread.latest - 1] : spread[side]);
@@ -256,14 +259,25 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
   const sizes = useMemo(() => (layout ? diaries.map(diary => bookSize(diary, layout.paper)) : []), [diaries, layout]);
   // 앞뒤 다이어리의 속지 그림도 미리 해석해 둔다(숨겨 그려 둔 옆 책이 넘기는 순간 다 그려져 있게)
   useEffect(() => { preloadOpenBooks(diaries, index); }, [diaries, index]);
+  const settled = useDeferredValue(index);
 
-  // 끄는 동안에는 아무것도 움직이지 않는다. 놓았을 때 SWIPE 넘게 밀었으면 바로 옆 다이어리로 바뀐다(좌우 화살표 · 옆 책을 눌러도 같다).
+  // 끄는 동안에는 아무것도 움직이지 않는다. 손을 떼기를 기다리지 않고 SWIPE 만큼 밀린 그 순간 바로 옆 다이어리로 바뀐다(한 번 끌기에 한 권).
+  // 짧게 튕긴 손짓(FLICK 속도 이상)은 덜 밀었어도 놓을 때 넘긴다. 좌우 화살표 · 옆 책을 눌러도 같다.
   const goRef = useRef(null);
   goRef.current = step => { const next = index + step; if (next >= 0 && next < diaries.length) onIndexChange(next); };
-  const pan = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
-    onPanResponderRelease: (_, g) => { if (g.dx <= -SWIPE) goRef.current(1); else if (g.dx >= SWIPE) goRef.current(-1); },
-  }), []);
+  const pan = useMemo(() => {
+    let turned = false;
+    const turn = step => { if (!turned) { turned = true; goRef.current(step); } };
+    return PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderGrant: () => { turned = false; },
+      onPanResponderMove: (_, g) => { if (g.dx <= -SWIPE) turn(1); else if (g.dx >= SWIPE) turn(-1); },
+      onPanResponderRelease: (_, g) => {
+        if (Math.abs(g.dx) < FLICK_MIN || Math.abs(g.vx) < FLICK) return;
+        turn(g.dx < 0 ? 1 : -1);
+      },
+    });
+  }, []);
 
   if (!diaries[index]) return null;
   let view = null;
@@ -278,13 +292,16 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
       }
     }
     // 바로 옆 두 권도 펼친 모습으로 미리 그려 두고 숨긴다. 넘기면 같은 그림을 보이게만 해서 넘긴 순간 속지가 이미 다 그려져 있다.
-    const opened = [index - 1, index, index + 1].filter(at => diaries[at]).map(at => (
+    // 새로 옆이 된 책은 넘긴 뒤 한 박자 늦게(deferred) 그린다. 넘기는 그 순간에는 이미 그려 둔 책을 보이게만 해 바로 바뀐다.
+    const near = new Set([settled - 1, settled, settled + 1, index]);
+    const opened = [...near].sort((a, b) => a - b).filter(at => diaries[at] && Math.abs(at - index) <= 1).map(at => (
       <OpenBook key={diaries[at].id} shown={at === index} diary={diaries[at]} size={sizes[at]} left={layoutAt(at, sizes, layout.width, single).openLeft}
-        top={layout.base - sizes[at].height} compact={compact} peek={upright ? Math.round(layout.width / 2) : null} onDark={onDark} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} />
+        top={layout.base - sizes[at].height} compact={compact} peek={upright && !compact ? Math.round(layout.width / 2) : null} onDark={onDark} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} />
     ));
     // 세로 태블릿: 옆 다이어리는 화면 끝에 책등 쪽만 SPINE 만큼 걸쳐(펼친 책 가장자리 위에 얹혀) 옆으로 넘길 수 있음을 보여 준다
     // 마주 보는 쪽이 걸쳐 보이는 쪽에는 두지 않는다(홀수 쪽이면 왼쪽 면이, 짝수 쪽이면 오른쪽 면이 걸친다)
-    const facing = current?.spread && current.spread.latest % 2 === 0 ? 1 : -1;
+    // (폰은 한 면만 보여 마주 보는 쪽이 없다: 양옆 책등을 모두 걸친다. 마주 보는 쪽 · 가운데 맞춤(peek)은 세로 태블릿 계산이다)
+    const facing = compact ? 0 : current?.spread && current.spread.latest % 2 === 0 ? 1 : -1;
     const edges = upright ? [index - 1, index + 1].filter(at => diaries[at] && Math.sign(at - index) !== facing).map(at => (
       <ClosedBook key={diaries[at].id} diary={diaries[at]} size={sizes[at]} top={layout.base - sizes[at].height} side={at < index ? 'left' : 'right'}
         left={at < index ? SPINE - sizes[at].half : layout.width - SPINE} onPick={() => onIndexChange(at)} />
@@ -322,7 +339,7 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             <View style={styles.arrowHalo}><AppIcon name={`chevron-${side}`} size={24} color={onDark ? INK_DARK_HALO : DESK_COLORS.base} strokeWidth={6.5} /></View>
           </View>
-          <AppIcon name={`chevron-${side}`} size={24} color={onDark ? '#FFFFFF' : C.ink} strokeWidth={2.1} />
+          <AppIcon name={`chevron-${side}`} size={24} color={onDark ? C.white : C.ink} strokeWidth={2.1} />
         </Pressable>
       ))}
     </View>

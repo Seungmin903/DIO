@@ -49,7 +49,7 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
   const searching = Boolean(query.trim());
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact]}>
     <View style={s.librarySearchHeading}>
-      <IconButton label={selecting ? '편집 완료' : '검색 닫기'} iconName="chevron-left" onPress={onBack} />
+      <IconButton label={selecting ? '선택 닫기' : '검색 닫기'} iconName="chevron-left" onPress={onBack} />
       <Text style={[s.libraryTitle, compact && s.libraryTitleCompact, { flex: 1 }]}>다이어리 검색</Text>
       {optionsMenu}
     </View>
@@ -79,7 +79,7 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
       </View>)}
     </View> : <View style={s.librarySearchResults}>
       {!suppressEmpty && <Text accessibilityLiveRegion="polite" style={s.chipText}>{`‘${query.trim()}’ 검색 결과 ${diaries.length}개${hasMore ? ' 불러옴 · 더 있음' : ''}`}</Text>}
-      {!diaries.length && suppressEmpty ? null : !diaries.length ? <EmptyState compact={compact} search title="검색 결과가 없어요." /> : <View onLayout={grid?.onLayout}><View style={[s.grid, compact && s.gridCompact, grid?.style]}>
+      {!diaries.length && suppressEmpty ? null : !diaries.length ? <EmptyState compact={compact} search title="검색 결과가 없어요" /> : <View onLayout={grid?.onLayout}><View style={[s.grid, compact && s.gridCompact, grid?.style]}>
         {diaries.map(diary => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} cell={grid?.cell} layout="grid" onOpen={item => { remember(query); onOpen(item); }} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={onToggleSelect} onEnterEdit={onEnterEdit} />)}
       </View></View>}
     </View>}

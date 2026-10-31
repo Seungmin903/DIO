@@ -206,8 +206,10 @@ test('사진 선택 취소 보존·사진만 변경 저장·새 기준값 이후
   find(ui, '닉네임').props.onChangeText('소연');
   assert.equal(find(ui, '닉네임 중복 확인'), undefined);
   press(ui, '프로필 사진 변경');
+  press(ui, '프로필 사진 선택');
   await tick();
   assert.equal(find(ui, '변경사항 저장').props.disabled, true);
+  press(ui, '프로필 사진 변경');
   press(ui, '프로필 사진 삭제');
   assert.equal(find(ui, '변경사항 저장').props.disabled, false);
   press(ui, '변경사항 저장');
@@ -309,9 +311,9 @@ test('탈퇴 요청 실패 후 문구·프로필을 유지하고 다시 시도�
 test('사진 선택의 늦은 응답과 실패는 언마운트·기존 프로필을 손상시키지 않는다', async () => {
   let resolve;
   const ui = setup({}, () => new Promise(r => { resolve = r; }));
-  press(ui, '프로필 사진 변경'); ui.unmount(); resolve('file:///late.jpg'); await tick(); assert.deepEqual(ui.updates, []);
+  press(ui, '프로필 사진 변경'); press(ui, '프로필 사진 선택'); ui.unmount(); resolve('file:///late.jpg'); await tick(); assert.deepEqual(ui.updates, []);
   const failed = setup({}, async () => { throw new Error('사진 선택 오류'); });
-  press(failed, '프로필 사진 변경'); await tick();
+  press(failed, '프로필 사진 변경'); press(failed, '프로필 사진 선택'); await tick();
   assert.ok(nodes(failed.render()).some(n => n.type === 'Image' && n.props.source.uri === 'file:///old.jpg'));
   assert.ok(nodes(failed.render()).some(n => n.props.children === '사진 선택 오류'));
   assert.equal(find(failed, '변경사항 저장').props.disabled, true); failed.unmount();
@@ -343,4 +345,22 @@ test('서버 계정도 기존 탈퇴 대화상자에서 계정 API를 호출하�
  let calls=0;const ui=setup({withdraw:async user=>{assert.equal(user.userId,'7');calls++}},undefined,{user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
  press(ui,'회원 탈퇴');find(ui,'탈퇴 확인 문구').props.onChangeText('탈퇴합니다');press(ui,'탈퇴하기');await tick();
  assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
+});
+test('서버 계정은 한 줄 소개를 받지 않고, 체험 · 게스트는 소개를 함께 저장한다', async () => {
+  const sent = [];
+  const service = { updateProfile: async (user, draft) => (sent.push(draft), { ...user, ...draft }) };
+  const member = setup(service, async () => null, { user: { mode: 'authenticated', userId: '7', provider: 'email', nickname: '소연', email: 'a@b.com' } });
+  assert.equal(find(member, '한 줄 소개'), undefined);
+  find(member, '닉네임').props.onChangeText('수정이름');
+  press(member, '변경사항 저장');
+  await tick();
+  assert.equal('bio' in sent[0], false);
+  member.unmount();
+  const guest = setup(service, async () => null, { user: { mode: 'preview', provider: 'guest', nickname: '방문자' } });
+  assert.ok(find(guest, '한 줄 소개'));
+  find(guest, '한 줄 소개').props.onChangeText('  오늘도   한 장 ');
+  press(guest, '변경사항 저장');
+  await tick();
+  assert.equal(sent[1].bio, '오늘도 한 장');
+  guest.unmount();
 });

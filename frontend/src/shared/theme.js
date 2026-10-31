@@ -23,7 +23,7 @@ export const colors = {
   butterStrong: '#B98208', // 노랑 점 · 고리(흰색 위 3.35:1)
   notifyPink: '#B63F7C', // 알림 점(읽지 않음) 전용 쿨톤 핑크. 사용자 지시로 색 규칙의 유일한 예외다(흰색 위 5.26:1 · 앱 바탕 위 4.75:1). 위험색(dangerStrong)과 섞어 쓰지 않는다
   overlay: 'rgba(11,23,102,0.34)',
-  scrim: 'rgba(11,23,102,0.28)', // 대화상자 뒤 어둡게 덮기
+  scrim: 'rgba(0,0,0,0.32)', // 대화상자 뒤 어둡게 덮기. 사이드 메뉴를 펼칠 때 덮는 막(railScrimTint)과 같은 검정
 }
 
 // 누를 수 없는 상태 (docs/design-guide.md 7장)

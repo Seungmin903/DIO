@@ -56,7 +56,7 @@ export default function ConnectedDiaryLibrary() {
       <RequestState request={list} retryLabel="목록 다시 시도" />
     </View>
     {list.data && <LibraryScreen compact={width < 700} diaries={list.data.items} metadata={metadata} sort={sort} onSortChange={setSort} filter={filter} view={view} carousel={carousel} onFilterChange={setFilter} onViewChange={setView} onCarouselChange={setCarousel} onOpen={open} />}
-    <Modal visible={selected !== null} onRequestClose={close} animationType="fade">
+    <Modal visible={selected !== null} onRequestClose={close} animationType="none">
       <ScrollView contentContainerStyle={[styles.panel, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
         <Button label="상세 닫기" onPress={close} />
         <Text style={styles.title}>다이어리 상세</Text>

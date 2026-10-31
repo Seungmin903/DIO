@@ -17,7 +17,7 @@ export default function DioButton({ variant = 'tonal', label, text = label, icon
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{ disabled }}
       disabled={disabled} onPress={onPress} onLongPress={onLongPress}
       style={[local.base, iconOnly ? local.icon : local.text, local[variant], outline && variant === 'ghost' && local.outline, block && local.block, disabled && local.disabled, style]}>
-      {icon ? <AppIcon name={icon} size={iconOnly ? 22 : 18} color={ink} /> : null}
+      {icon ? <AppIcon name={icon} size={iconOnly ? 22 : 18} forText={iconOnly ? undefined : 15} color={ink} /> : null}
       {!iconOnly && <Text numberOfLines={1} style={[local.label, { color: ink }]}>{text}</Text>}
       {badge ? <View style={local.badge}><Text style={local.badgeText}>{badge}</Text></View> : null}
     </Pressable>

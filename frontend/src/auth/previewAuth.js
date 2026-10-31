@@ -3,6 +3,8 @@ import {
   normalizeEmail,
   normalizeNickname,
   nicknameError,
+  bioError,
+  normalizeBio,
   passwordError,
 } from './validation.js';
 const PROVIDERS = ['kakao', 'google', 'apple'];
@@ -23,6 +25,7 @@ export function createPreviewAuth({
     accountId: account.id,
     provider: account.provider,
     nickname: account.nickname,
+    ...(account.bio && { bio: account.bio }),
     ...(account.email && { email: account.email }),
     ...(account.photoUri && { photoUri: account.photoUri }),
   });
@@ -77,13 +80,14 @@ export function createPreviewAuth({
       profiles.set(account.id, account);
       return result(account);
     },
-    async updateProfile(user, { nickname, photoUri = null }) {
+    async updateProfile(user, { nickname, photoUri = null, bio }) {
       await wait();
       const account = current(user),
         name = validateName(nickname);
       if (photoUri !== null && (typeof photoUri !== 'string' || !photoUri.trim()))
         fail('사진을 다시 선택해 주세요.');
-      Object.assign(account, { nickname: name, photoUri });
+      if (bio !== undefined && bioError(bio)) fail(bioError(bio));
+      Object.assign(account, { nickname: name, photoUri, ...(bio !== undefined && { bio: normalizeBio(bio) }) });
       return result(account);
     },
     async changePassword(user, { currentPassword, password, confirmation }) {
