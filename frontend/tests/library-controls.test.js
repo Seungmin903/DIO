@@ -250,3 +250,16 @@ test('공유 다이어리는 보관함 전체 선택·개인 휴지통 대상에
  const card=nodes(tree).find(n=>n.type==='../components/DiaryCard'&&n.props.diary.id==='shared');card.props.onToggleSelect(card.props.diary);assert.deepEqual(props.selection,['own']);
  props.diaries=[props.diaries[1]];tree=render(props);assert.deepEqual(props.selection,[]);assert.ok(findControl(tree,'전체 선택').props.disabled);
 });
+test('보기만 바꿀 때는 보던 다이어리를 이어 가고, 목록이 바뀌는 검색에서는 처음으로 돌아간다', () => {
+ const moved=[], views=[];
+ const props={compact:false,diaries:[{id:'a',title:'가'},{id:'b',title:'나'},{id:'c',title:'다'}],filter:'personal',sort:'title',view:'open',carousel:2,onCarouselChange:index=>moved.push(index),onViewChange:view=>views.push(view)};
+ const render=setup('../src/diary/screens/LibraryScreen.js');
+ const tree=render(props);
+ findControl(tree,'스와이프 보기').props.onPress();
+ findControl(tree,'한눈에 보기').props.onPress();
+ findControl(tree,'펼쳐서 보기').props.onPress();
+ assert.deepEqual(views,['carousel','grid','open']);
+ assert.deepEqual(moved,[],'보기를 바꿔도 다이어리 위치는 건드리지 않는다');
+ findControl(tree,'다이어리 검색').props.onPress();
+ assert.deepEqual(moved,[0],'검색을 열면 처음으로 돌아간다');
+});

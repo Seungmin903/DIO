@@ -7,28 +7,23 @@ import { bubble, colors, radius, DISABLED_OPACITY } from '../../shared/theme';
 // 말풍선 크기: 폭 224, 행 높이 48(터치 기준), 안쪽 여백 6, 버튼과의 간격 8
 const WIDTH = 224, ROW = 48, PAD = 6, GAP = 8, EDGE = 12;
 
-// ⋯ 버튼이 표지 모서리에서 떨어진 만큼(styles.cardMore 의 right 11 · top 12). 버튼 자리에서 표지의 오른쪽 · 위쪽 가장자리를 알아낸다.
-const BUTTON_INSET_X = 11, BUTTON_INSET_Y = 12;
-
 /**
- * 말풍선 자리: 표지를 가리지 않게 표지 바깥에 둔다. ① 표지 오른쪽(위쪽 모서리에 맞춤) ② 표지 위쪽(오른쪽 끝에 맞춤) ③ 자리가 없으면 버튼 아래(표지 위로 겹침).
- * 표지 가장자리는 버튼 자리에서 구한다(버튼은 표지 오른쪽 위 모서리 안쪽에 있다).
+ * 말풍선 자리: 제목 줄 오른쪽 끝의 ⋯ 버튼 아래에 버튼 오른쪽 끝을 맞춰 연다(간격 8). 아래에 자리가 없으면 버튼 위, 위도 없으면 화면 안으로 밀어 넣는다.
+ * anchor 가 없으면(재지 못함) 화면 가운데.
  */
 export function bubblePlacement(anchor, size, window) {
   const height = PAD * 2 + size * ROW;
   const clampTop = top => Math.max(EDGE, Math.min(top, window.height - EDGE - height));
-  if (!anchor) return { left: (window.width - WIDTH) / 2, top: clampTop((window.height - height) / 2), height, outside: false };
-  const coverRight = anchor.x + anchor.width + BUTTON_INSET_X, coverTop = anchor.y - BUTTON_INSET_Y;
-  if (coverRight + GAP + WIDTH <= window.width - EDGE) return { left: coverRight + GAP, top: clampTop(coverTop), height, outside: true };
-  const above = coverTop - GAP - height;
-  if (above >= EDGE) return { left: Math.max(EDGE, Math.min(coverRight - WIDTH, window.width - EDGE - WIDTH)), top: above, height, outside: true };
+  if (!anchor) return { left: (window.width - WIDTH) / 2, top: clampTop((window.height - height) / 2), height };
   const left = Math.max(EDGE, Math.min(anchor.x + anchor.width - WIDTH, window.width - EDGE - WIDTH));
-  return { left, top: clampTop(anchor.y + anchor.height + GAP), height, outside: false };
+  const below = anchor.y + anchor.height + GAP, above = anchor.y - GAP - height;
+  if (below + height <= window.height - EDGE) return { left, top: below, height };
+  return { left, top: clampTop(above >= EDGE ? above : below), height };
 }
 
 /**
- * 표지 오른쪽 위 `⋯` 버튼을 누르면 버튼 옆에 뜨는 동작 말풍선: 즐겨찾기 · 수정 · 휴지통으로 이동.
- * 꼬리 없는 작은 말풍선을 표지 바깥(오른쪽 → 위쪽 순)에 띄워 표지를 가리지 않는다. 바깥을 누르면 닫힌다.
+ * 제목 줄 오른쪽 끝 `⋯` 버튼을 누르면 버튼 아래에 뜨는 동작 말풍선: 수정 · 휴지통으로 이동.
+ * 꼬리 없는 작은 말풍선이다. 바깥을 누르면 닫힌다.
  * anchor: 버튼의 창 안 자리 { x, y, width, height } (재지 못했으면 null, 화면 가운데에 뜬다).
  * actions: [{ id, label(접근성 이름), text, icon, filled, disabled, onPress }]. 휴지통으로 보내기는 30일 안에 되돌릴 수 있어 적색이 아니라 네이비다.
  */

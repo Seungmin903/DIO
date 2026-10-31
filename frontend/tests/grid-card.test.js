@@ -60,16 +60,16 @@ const cardStyle = tree => flat(nodes(tree).find(node => node.type === 'button').
 const infoStyle = tree => flat(nodes(tree).find(node => node.type === 'animated' && flat(node.props.style).includes('cardInfo')).props.style);
 const has = (styles, key) => styles.some(style => typeof style === 'object' && key in style);
 
-test('태블릿 칸(cell)을 주면 카드 폭을 그 값으로 고정하고 제목을 칸 왼쪽 끝에 둔다', () => {
+test('태블릿 칸(cell)을 주면 카드 폭을 그 값으로 고정하고 제목 · ⋯ 는 표지 양끝에 맞춘다', () => {
   const tree = withInset({ layout: 'grid', cell: 212 });
   assert.ok(cardStyle(tree).some(style => style?.width === 212), '카드 폭');
-  assert.ok(!has(infoStyle(tree), 'marginLeft'), '제목은 표지 안쪽 간격을 따르지 않는다');
+  assert.ok(infoStyle(tree).some(style => style?.marginLeft === 40 && style?.marginRight === 40), '표지 양끝');
 });
 
-test('cell 이 없으면(폰) 퍼센트 폭 그대로 두고 제목을 표지 왼쪽 끝에 맞춘다', () => {
+test('cell 이 없으면(폰) 퍼센트 폭 그대로 두고 제목 · ⋯ 를 표지 양끝에 맞춘다', () => {
   const tree = withInset({ layout: 'grid', compact: true });
   assert.ok(!has(cardStyle(tree), 'width'), '고정 폭이 없다');
-  assert.ok(infoStyle(tree).some(style => style?.marginLeft === 40), '표지 왼쪽 끝');
+  assert.ok(infoStyle(tree).some(style => style?.marginLeft === 40 && style?.marginRight === 40), '표지 양끝');
 });
 
 test('스와이프는 cell 과 무관하게 제목이 표지 왼쪽 끝을 따른다', () => {

@@ -108,7 +108,10 @@ function LibraryScreen({
   const selecting = selection !== null;
   // 펼쳐서 보기는 한 권만 보여 고르기(관리 모드)를 할 수 없어, 관리 중에는 한눈에 보기로 보인다
   const displayView = searchOpen || (selecting && view === 'open') ? 'grid' : view;
+  // 목록이 바뀌는 때(필터 · 정렬 · 검색)는 처음으로 돌아가고, 보기만 바꿀 때는 지금 보던 다이어리를 그대로 이어 간다
   const resetPosition = () => { positioned.current = null; onCarouselChange(0); };
+  // 스와이프로 돌아올 때는 보던 다이어리가 가운데에 다시 놓이기까지 줄을 숨긴다(0번 자리에서 튀어 오지 않게)
+  const showCurrentAtCenter = () => { if (displayView === 'carousel') return; positioned.current = null; setLanded(false); };
   // 범위(왼쪽 메뉴)와 즐겨찾기 칩
   const scope = LIBRARY_SCOPES.find(item => item.id === filterScope(filter)) ?? null;
   const favoriteOnly = filterFavorite(filter);
@@ -299,7 +302,7 @@ function LibraryScreen({
             accessibilityLabel="스와이프 보기"
             hitSlop={compact ? { top: 5, bottom: 5, left: 2, right: 2 } : undefined}
             accessibilityState={{ selected: displayView === 'carousel' }}
-            onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('carousel'); resetPosition(); }}
+            onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('carousel'); showCurrentAtCenter(); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
             <AppIcon name="swap" size={16} forText={12} color={C.inkSoft} />
@@ -310,7 +313,7 @@ function LibraryScreen({
             accessibilityLabel="한눈에 보기"
             hitSlop={compact ? { top: 5, bottom: 5, left: 2, right: 2 } : undefined}
             accessibilityState={{ selected: displayView === 'grid' }}
-            onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('grid'); resetPosition(); }}
+            onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('grid'); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
             <AppIcon name="grid" size={16} forText={12} color={C.inkSoft} />

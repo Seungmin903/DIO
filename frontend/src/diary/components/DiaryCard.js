@@ -18,6 +18,9 @@ import { cardTapAction } from '../utils/libraryView';
 // 그만큼의 여백을 두고 같은 크기의 음수 마진으로 자리는 그대로 둔다(styles.carouselEffectSpace 와 같은 값).
 export const CAROUSEL_EFFECT_PAD = { x: 48, top: 28, bottom: 36 };
 
+// 페이지 수 줄 높이(줄 18 + 위 간격 3, styles.cardPageCount)
+const PAGE_COUNT_ROW = 21;
+
 // 즐겨찾기 별의 윤곽선: 표지 위에서는 흰색, 표지 바탕이 밝은 흰 노트이면 남색으로 쓴다(흰색 대비가 1.5:1 아래인 거의 흰 바탕일 때).
 const luminance = hex => {
   const channel = shift => { const v = ((parseInt(hex.slice(1), 16) >> shift) & 255) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -33,9 +36,9 @@ function starOutlineFor(diary) {
 }
 
 // onOpen·onCenter·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다. onCenter 는 스와이프 옆 카드를 눌렀을 때.
-// 표지 왼쪽 위의 별(배경 없음)을 누르면 즐겨찾기를 켜고 끈다. 오른쪽 위 `⋯` 버튼은 동작 말풍선(수정 · 휴지통으로 이동)을 띄운다.
+// 표지 왼쪽 위의 별(배경 없음)을 누르면 즐겨찾기를 켜고 끈다. 제목 줄 오른쪽 끝 `⋯` 버튼은 동작 말풍선(수정 · 휴지통으로 이동)을 띄운다.
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
-// cell: 태블릿 한눈에 보기의 칸 크기(px). 주면 카드 폭을 이 값으로 고정하고 제목을 칸 왼쪽 끝에 맞춘다(폰은 퍼센트 폭에 제목을 표지 왼쪽 끝에 맞춤)
+// cell: 태블릿 한눈에 보기의 칸 크기(px). 주면 카드 폭을 이 값으로 고정한다(폰은 퍼센트 폭). 제목 · ⋯ 는 어느 쪽이든 표지 양끝에 맞춘다
 // sunShadow: 책상 위 표지라 그림자를 해 방향에 맞춘다
 // infoStyle: 스와이프 옆 카드에서 이름 · 페이지 수를 흐리게 하는 애니메이션 값
 function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, cell = null, onOpen, onCenter, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false }) {
@@ -93,22 +96,6 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
           frame={layout === 'carousel' ? (carouselActive ? 'active' : 'idle') : null} onInset={layout === 'list' ? null : setCoverInset}>
         {/* 스와이프의 표지 프레임(가운데 표지는 흰 3px + 그림자, 옆 표지는 얇은 라벤더 2px)은 표지 크기에서 모서리를 계산하는 Cover 가 그린다 */}
         {selecting && diary.canManage !== false && diary.canDelete !== false && <SelectionMark selected={selected} />}
-        {showTools && actions.length > 0 && <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${diary.title} 더보기`}
-          accessibilityState={{ expanded: menu !== null }}
-          hitSlop={6}
-          ref={moreRef}
-          onPress={(event) => {
-            event.stopPropagation();
-            const node = moreRef.current;
-            if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => setMenu({ anchor: { x, y, width, height } }));
-            else setMenu({ anchor: null });
-          }}
-          style={({ pressed }) => [s.cardMore, pressed && s.pressed]}
-        >
-          <AppIcon name="more" size={19} color={C.ink} />
-        </Pressable>}
         {showTools && <Pressable
           accessibilityRole="button"
           accessibilityLabel={diary.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
@@ -122,7 +109,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
         </Pressable>}
         </Cover>
       </View>
-      <Animated.View style={[s.cardInfo, (layout === 'carousel' || (layout === 'grid' && !cell)) && coverInset > 0 && { marginLeft: coverInset }, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid, infoStyle]}>
+      <Animated.View style={[s.cardInfo, (layout === 'carousel' || layout === 'grid') && coverInset > 0 && { marginLeft: coverInset, marginRight: coverInset }, layout === 'list' && s.cardInfoList, layout === 'carousel' && s.cardInfoCarousel, compact && layout === 'carousel' && s.cardInfoCarouselCompact, layout === 'grid' && s.cardInfoGrid, infoStyle]}>
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
             <View style={s.cardTitleRow}>
@@ -131,6 +118,24 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
             </View>
             <Text testID={`diary-page-count-${diary.id}`} style={[s.cardPageCount, onDark && s.onDeskDarkSoft]}>{countLabel}</Text>
           </View>
+          {actions.length > 0 && <View style={s.cardMoreSlot}>
+            {showTools && <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${diary.title} 더보기`}
+              accessibilityState={{ expanded: menu !== null }}
+              hitSlop={9}
+              ref={moreRef}
+              onPress={(event) => {
+                event.stopPropagation();
+                const node = moreRef.current;
+                if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => setMenu({ anchor: { x, y, width, height: height + PAGE_COUNT_ROW } })); // 말풍선이 제목 밑 페이지 수 줄을 가리지 않게 그만큼 아래에 연다
+                else setMenu({ anchor: null });
+              }}
+              style={s.cardMore}
+            >
+              <AppIcon name="more" size={22} color={onDark ? C.white : C.ink} />
+            </Pressable>}
+          </View>}
         </View>
       </Animated.View>
     </Pressable>

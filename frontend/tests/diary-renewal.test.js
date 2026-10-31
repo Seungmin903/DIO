@@ -92,7 +92,7 @@ test('띠지 종이색은 목록 안의 색만 받고, 고무줄 맞춤 색은 �
   assert.equal(defaultCover().ribbon.color, '#F3F2ED')
   assert.equal(normalizeCover({ cover: { ribbon: { color: '#d9c4a3' } } }).ribbon.color, '#D9C4A3')
   assert.equal(normalizeCover({ cover: { ribbon: { color: '#123456' } } }).ribbon.color, '#F3F2ED')
-  const navy = { ...defaultCover(), ribbon: { color: '#0B1957' } }
+  const navy = { ...defaultCover(), ribbon: { color: '#0B1766' } }
   assert.equal(coverElementSummary(navy, 'plate'), '띠지 · 네이비 · 가운데 아래')
   assert.equal(coverElementSummary({ ...navy, title: { ...navy.title, at: { x: 0, y: 20 } } }, 'plate'), '띠지 · 네이비 · 옮긴 자리')
   const plain = defaultCover({ color: '#FFFFFF' })
