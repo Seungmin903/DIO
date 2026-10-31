@@ -22,7 +22,7 @@ export default function DayDatePicker({ value, suggest, onChange, onClear, onClo
   }
   const dates = Array.from({ length: daysInMonth(shown.y, shown.m) }, (_, i) => i + 1)
   return (
-    <PlannerPopup title="날짜" label="날짜 고르기" closeLabel="날짜 닫기" onClose={onClose} style={style}>
+    <PlannerPopup label="날짜 고르기" closeLabel="날짜 닫기" onClose={onClose} style={style}>
       <PopupLabels items={[{ name: '년', flex: 1.4 }, { name: '월' }, { name: '일' }]} />
       <PopupWheels>
         <PopupWheelGroup flex={1.4}><PopupWheel items={years} selected={shown.y} text={String} label="년" onPick={y => pick({ y })} /></PopupWheelGroup>
