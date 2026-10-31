@@ -143,9 +143,10 @@ const fromHsl = (h, s, l) => {
 
 // 고무줄 '맞춤' 색(사용자 지시 2026-10-31): 표지 전체의 대표색보다 살짝 진하게. 색조 · 채도는 대표색 그대로 두고 밝기만 낮춘다
 // (아주 어두운 표지는 반대로 살짝 밝게). 진한 남색을 섞던 예전 방식은 밝은 표지가 모두 회색이 됐다.
+// 그려진 표지의 대표색보다 아주 살짝만 어둡게(사용자 지시): 밝기 0.035 낮춤. 아주 밝은 표지만 흰 띠지와 구분되게 0.05.
 function bandTone(hex) {
   const [h, s, l] = toHsl(hex)
-  return fromHsl(h, s, l < 0.3 ? l + 0.12 : Math.max(0, l - (l > 0.85 ? 0.14 : 0.12)))
+  return fromHsl(h, s, l < 0.3 ? l + 0.04 : Math.max(0, l - (l > 0.85 ? 0.05 : 0.035)))
 }
 
 // 그라데이션은 끝 색 하나가 아니라 전체를 대표하는 색(선형 RGB 평균)을 기준으로 한다. 끝 색만 따르면 반대쪽 색과 튄다.
@@ -156,15 +157,24 @@ function averageColor(stops) {
   return '#' + sums.map(v => gamma(v).toString(16).padStart(2, '0')).join('').toUpperCase()
 }
 
+// 무늬가 표지를 실제로 덮는 양: 무늬 타일(CoverPattern)의 면적 × 투명도를 겹침까지 계산한 값. 무늬 색은 어두운 무늬 #0B1766 · 밝은 무늬 흰색.
+// CoverPattern 의 타일 · 투명도를 바꾸면 이 표도 다시 잰다.
+const PATTERN_COVERAGE = {
+  dark: { linen: 0.042, leather: 0.011, dot: 0.012, gingham: 0.069, stripe: 0.051, check: 0.020 },
+  light: { linen: 0.129, leather: 0.036, dot: 0.043, gingham: 0.208, stripe: 0.162, check: 0.062 },
+}
+
 /**
- * 표지 전체의 대표색: 바탕(단색, 그라데이션은 색들의 선형 평균)에 무늬(밝은 무늬는 흰색, 짙은 무늬는 남색)를 조금(8%) 얹은 색.
+ * 표지 전체의 대표색: 그려진 표지의 평균색. 바탕(단색, 그라데이션은 색들의 선형 평균)에 무늬가 실제로 덮는 만큼(PATTERN_COVERAGE) 무늬 색을 섞는다.
  * 사진 표지는 사진의 대표 색(photo.tone, 사진을 고를 때 뽑는다), 아직 없으면 null.
  */
 export function coverTone(cover) {
   if (cover.kind === 'photo') return cover.photo?.tone ?? null
   const stops = gradientStops(cover)
   const base = stops ? averageColor(stops) : cover.color
-  return cover.pattern?.type && cover.pattern.type !== 'none' ? mix(base, cover.pattern.tone === 'light' ? '#FFFFFF' : '#1C2233', 0.08) : base
+  const light = cover.pattern?.tone === 'light'
+  const coverage = PATTERN_COVERAGE[light ? 'light' : 'dark'][cover.pattern?.type]
+  return coverage ? mix(base, light ? '#FFFFFF' : '#0B1766', coverage) : base
 }
 
 /** 고무줄 색 'auto': 표지 대표색(coverTone)보다 살짝 진하게. 대표색이 없는 사진 표지는 기본 남색. */

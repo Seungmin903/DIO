@@ -205,7 +205,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       if (failure) { submitted.current = false; setError(failure); }
       else if (!editing) {
         // 만든 뒤에 보관함에 남긴다. 보관함 저장이 실패해도 다이어리는 이미 만들어졌다.
-        if (pdf && addToMyCovers) await library.addCover({ name: trimmed, cover });
+        if (pdf && addToMyCovers) await library.addCover({ name: trimmed, orientation, cover });
         if (usingPdf && addToMyPapers && !myPaper) await library.addPaper({ name: pdf.name, orientation, pages: pdfPapers });
       }
     } catch {

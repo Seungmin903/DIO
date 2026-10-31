@@ -4,8 +4,9 @@ import { colors } from '../../shared/theme';
 import CoverArt from './CoverArt';
 import { PdfPageThumb } from './PdfImport';
 
-// 견본 칸: 116×154(모서리 14). 표지는 3:4 세로 그대로, 가로 속지는 칸 안에 가로로 눕힌다.
+// 견본 칸(모서리 14): 세로 116×154, 가로 154×116. 표지 · 속지 모두 저장한 방향대로 칸을 세우거나 눕힌다.
 const SLOT = { width: 116, height: 154 };
+const WIDE_SLOT = { width: 154, height: 116 };
 
 /**
  * 내 표지 · 내 속지 진열: 가로로 미는 선반 한 줄. 칸 사이 14, 화면 끝에서 다음 칸이 잘려 보여 더 있다는 것을 알린다.
@@ -17,14 +18,14 @@ export default function StudioShelf({ kind, items, onRemove }) {
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={local.row}>
       {items.map(item => {
         const paper = kind === 'paper';
-        const landscape = paper && item.orientation === 'landscape';
+        const slot = item.orientation === 'landscape' ? WIDE_SLOT : SLOT;
         const label = paper ? `${item.name} · ${item.pages.length}장` : item.name;
         return (
-          <View key={item.id} style={local.tile}>
-            <View accessible accessibilityRole="image" accessibilityLabel={paper ? `${label} 속지` : `${label} 표지`} style={local.art}>
+          <View key={item.id} style={{ width: slot.width }}>
+            <View accessible accessibilityRole="image" accessibilityLabel={paper ? `${label} 속지` : `${label} 표지`} style={[local.art, slot]}>
               {paper
-                ? <PdfPageThumb page={item.pages[0]} width={landscape ? SLOT.width : SLOT.width - 16} ratio={landscape ? 4 / 3 : 3 / 4} />
-                : <CoverArt cover={item.cover} name={item.name} width={SLOT.width} height={SLOT.height} />}
+                ? <PdfPageThumb page={item.pages[0]} width={slot.width - 16} ratio={slot.width / slot.height} />
+                : <CoverArt cover={item.cover} name={item.name} width={slot.width} height={slot.height} />}
             </View>
             <View style={local.meta}>
               <View style={local.names}>
@@ -45,8 +46,7 @@ export default function StudioShelf({ kind, items, onRemove }) {
 
 const local = StyleSheet.create({
   row: { gap: 14, paddingRight: 36, paddingVertical: 4 },
-  tile: { width: SLOT.width },
-  art: { ...SLOT, overflow: 'hidden', borderRadius: 12, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  art: { overflow: 'hidden', borderRadius: 12, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   meta: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
   names: { flex: 1, minWidth: 0, paddingLeft: 2 },
   name: { fontSize: 14, fontWeight: '700', color: colors.text },

@@ -119,32 +119,6 @@ export default function TapeOptions({ tape, dispatch, onUpdate, draft = false })
         </Section>
       )}
 
-      {draft && !isImage && (
-        <Section title="무늬">
-          <View style={styles.patterns}>
-            {Object.entries(TAPE_PATTERN_NAMES).map(([pattern, name]) => {
-              const active = activePattern === pattern
-              return (
-                <Pressable
-                  key={pattern}
-                  onPress={() => update(draft ? { pattern } : { pattern, palette: look.palette })}
-                  accessibilityRole="button"
-                  accessibilityLabel={`무늬 ${name}`}
-                  accessibilityState={{ selected: active }}
-                  style={[styles.patternCell, active && styles.patternActive]}
-                >
-                  <View style={styles.previewBox}>
-                    <TapeView pattern={pattern} palette={look.palette} edge="straight" width={PREVIEW_W} height={previewH} scale={previewH / sizeInfo.h} />
-                  </View>
-                  <Text style={styles.patternName} numberOfLines={1}>
-                    {name}
-                  </Text>
-                </Pressable>
-              )
-            })}
-          </View>
-        </Section>
-      )}
       {/* 내 색상: 테이프만의 저장 목록. 저장한 색은 바탕색으로, + 로 연 피커에서는 바탕색·무늬색을 골라 바꾼다 */}
       {draft && !isImage && (
         <Section title="내 색상">
@@ -177,6 +151,33 @@ export default function TapeOptions({ tape, dispatch, onUpdate, draft = false })
               </View>
             )}
           />
+        </Section>
+      )}
+
+      {draft && !isImage && (
+        <Section title="무늬">
+          <View style={styles.patterns}>
+            {Object.entries(TAPE_PATTERN_NAMES).map(([pattern, name]) => {
+              const active = activePattern === pattern
+              return (
+                <Pressable
+                  key={pattern}
+                  onPress={() => update(draft ? { pattern } : { pattern, palette: look.palette })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`무늬 ${name}`}
+                  accessibilityState={{ selected: active }}
+                  style={[styles.patternCell, active && styles.patternActive]}
+                >
+                  <View style={styles.previewBox}>
+                    <TapeView pattern={pattern} palette={look.palette} edge="straight" width={PREVIEW_W} height={previewH} scale={previewH / sizeInfo.h} />
+                  </View>
+                  <Text style={styles.patternName} numberOfLines={1}>
+                    {name}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
         </Section>
       )}
 
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
   swatch: {
     width: 30,
     height: 30,
-    borderRadius: 12,
+    borderRadius: 15, // 펜 · 형광펜 · 글자 색과 같은 원
     borderWidth: 1,
     borderColor: colors.cardBorder,
     alignItems: 'center',
