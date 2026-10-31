@@ -36,7 +36,7 @@ import PaperColorSettings from '../PaperColorSettings'
 import { plannerFor } from '../../templates/planners.js'
 import { setDayDate, setDayRow, suggestStart } from '../../templates/dayPlanner.js'
 import DayNowLine from './DayNowLine'
-import DayTimePicker, { DAY_DUR_PICKER, DAY_START_PICKER, DayPickBackdrop } from '../DayTimePicker'
+import DayTimePicker, { DAY_TIME_PICKER, DayPickBackdrop } from '../DayTimePicker'
 import DayDatePicker, { DAY_DATE_PICKER } from '../DayDatePicker'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
 
@@ -132,8 +132,8 @@ export default function Canvas({
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   // 스터디 · 데일리 플래너 속지: 형광펜 · 펜 · 지우개 획을 칸 · 일정 기록으로 받는다.
   const planner = readOnly ? null : plannerFor(page.backgroundAssetId)
-  // 데일리 플래너: 시작 · 진행 · 날짜 칸을 누르면 뜨는 고르는 창(시작과 진행은 따로). draft 는 고르는 중인 기록이고 닫을 때 한 번에 문서에 반영한다(되돌리기 한 번).
-  const [dayPick, setDayPick] = useState(null) // { page, kind: 'time' | 'date', row?, part?: 'start' | 'dur', at, draft }
+  // 데일리 플래너: 시작 · 진행 · 날짜 칸을 누르면 뜨는 고르는 창. draft 는 고르는 중인 기록이고 닫을 때 한 번에 문서에 반영한다(되돌리기 한 번).
+  const [dayPick, setDayPick] = useState(null) // { page, kind: 'time' | 'date', row?, at, draft }
   const dayPickRef = useRef(null)
   dayPickRef.current = dayPick
   // 할 일 칸은 글자만 받는다: 이미 쓴 글이 있으면 그 글을 고치고, 없으면 칸에 맞춘 글상자를 만든다.
@@ -453,9 +453,8 @@ export default function Canvas({
       )}
       {planner?.kind === 'day' && dayPick?.page === page.id && dayPick.kind === 'time' && (
         <DayTimePicker
-          key={`${dayPick.page}-${dayPick.row}-${dayPick.part}`}
+          key={`${dayPick.page}-${dayPick.row}`}
           row={dayPick.row}
-          part={dayPick.part}
           value={planner.normalize(page.planner).rows[dayPick.row] ?? null}
           suggest={{ start: suggestStart(page.planner), dur: 60 }}
           onChange={(next) => setDayPick(current => current && { ...current, draft: withAutoColor(setDayRow(page.planner, current.row, { color: null, ...planner.normalize(page.planner).rows[current.row], ...(next.allDay ? { start: null, dur: null, allDay: true } : { start: next.start, dur: next.dur, allDay: false }) })) })}
@@ -465,7 +464,7 @@ export default function Canvas({
             setDayPick(null)
           }}
           onClose={closeDayPick}
-          style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, dayPick.part === 'dur' ? DAY_DUR_PICKER : DAY_START_PICKER)}
+          style={pickerPosition(dayPick.at, zoom, PAGE_WIDTH, PAGE_HEIGHT, DAY_TIME_PICKER)}
         />
       )}
       {planner?.kind === 'day' && dayPick?.page === page.id && dayPick.kind === 'date' && (

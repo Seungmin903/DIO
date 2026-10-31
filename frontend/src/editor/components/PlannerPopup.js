@@ -15,10 +15,10 @@ const CARD = { width: 300, header: 40, top: 2, label: 18, wheels: ITEM_H * SHOWN
 export const popupFont = (bold = false) => { const fontFamily = loadedFontFamily('maruburi', bold); return fontFamily ? { fontFamily, fontWeight: '400' } : { fontWeight: bold ? '700' : '400' } }
 
 /** 위치를 정할 때 쓰는 창 크기. withClear: 지우기 줄이 있을 때. */
-export const popupSize = ({ width = CARD.width, toggle = false } = {}) => ({ width, height: CARD.header + CARD.top + CARD.label + CARD.gap + CARD.wheels + CARD.gap + (toggle ? CARD.clear + CARD.gap : 0) + CARD.clear + CARD.bottom })
+export const popupSize = ({ width = CARD.width } = {}) => ({ width, height: CARD.header + CARD.top + CARD.label + CARD.gap + CARD.wheels + CARD.gap + CARD.clear + CARD.bottom })
 
-/** 속지 모양 창: 위 오른쪽에 닫기 버튼만 두고(제목 없음) 그 아래에 내용. */
-export function PlannerPopup({ label, closeLabel, onClose, style, children }) {
+/** 속지 모양 창: 맨 윗줄에 왼쪽 자리(headerLeft, 예: 종일 토글)와 오른쪽 닫기 버튼만 두고(제목 없음) 그 아래에 내용. */
+export function PlannerPopup({ label, closeLabel, onClose, headerLeft = null, style, children }) {
   const card = useRef(null)
   // 웹: 창 위의 마우스 휠은 휠(목록)만 돌리고, 뒤의 작업창(Viewport 의 휠 이동 · 확대)까지 가지 않게 막는다.
   useEffect(() => {
@@ -31,6 +31,7 @@ export function PlannerPopup({ label, closeLabel, onClose, style, children }) {
   return (
     <View ref={card} style={[styles.card, style]} accessibilityLabel={label} onStartShouldSetResponder={() => true}>
       <View style={styles.header}>
+        {headerLeft}
         <Pressable accessibilityRole="button" accessibilityLabel={closeLabel} onPress={onClose} style={styles.close}><Icon name="close" size={16} color={LABEL} /></Pressable>
       </View>
       <View style={styles.body}>{children}</View>
@@ -93,7 +94,7 @@ export function PopupWheel({ items, selected, text, label, onPick }) {
   </ScrollView>
 }
 
-/** 켜고 끄는 줄(예: 종일). 속지 양식의 스위치: 꺼짐은 회색 틀, 켜짐은 진한 틀에 흰 동그라미. */
+/** 켜고 끄는 스위치(예: 종일). 속지 양식: 꺼짐은 회색 틀, 켜짐은 진한 틀에 흰 동그라미. */
 export function PopupToggle({ label, on, onPress }) {
   return <Pressable accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: on }} onPress={onPress} style={styles.toggle}>
     <Text style={[styles.toggleText, popupFont()]}>{label}</Text>
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
     width: CARD.width, backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: LINE, overflow: 'hidden',
     boxShadow: '0px 6px 18px rgba(41, 41, 41, 0.14)',
   },
-  header: { height: CARD.header, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 },
+  header: { height: CARD.header, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 6 },
   close: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   body: { paddingHorizontal: 16, paddingTop: CARD.top, paddingBottom: CARD.bottom, gap: CARD.gap },
   // 글자 높이보다 넉넉한 줄 높이: 한글 받침이 잘리지 않게 한다
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
   itemText: { fontSize: 14, lineHeight: 22, color: LABEL },
   itemTextOn: { fontSize: 15.5, lineHeight: 24, color: TEXT },
   itemFar: { opacity: 0.55 },
-  toggle: { height: CARD.clear, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: LINE },
+  toggle: { height: CARD.header - 4, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 16, paddingRight: 8 },
   toggleText: { fontSize: 13, lineHeight: 20, color: TEXT },
   track: { width: 36, height: 20, borderRadius: 10, backgroundColor: LINE, padding: 2 },
   trackOn: { backgroundColor: TEXT },

@@ -294,10 +294,10 @@ export function dayTextSlot(orientation, point) {
   return null
 }
 
-/** 텍스트 도구로 시작 · 진행 · 날짜 칸을 탭하면 글상자 대신 고르는 창을 연다(시작 칸은 시작 창, 진행 칸은 진행 창). 그 밖이면 null. */
+/** 텍스트 도구로 시작 · 진행 · 날짜 칸을 탭하면 글상자 대신 고르는 창을 연다. 그 밖이면 null. */
 export function dayCellTap(orientation, point) {
   const L = dayPlannerLayout(orientation), at = rowAt(L, point)
-  if (at?.part === 'start' || at?.part === 'dur') return { picker: { kind: 'time', row: at.r, part: at.part } }
+  if (at?.part === 'start' || at?.part === 'dur') return { picker: { kind: 'time', row: at.r } }
   return inDateZone(L, point) ? { picker: { kind: 'date' } } : null
 }
 
@@ -315,16 +315,16 @@ export function dayEditTap(orientation, point, value, objects, markColor) {
       return { planner: { ...planner, checks } }
     }
     if (at.part === 'text') return { text: point }
-    if (at.part === 'start' || at.part === 'dur') return { picker: { kind: 'time', row: at.r, part: at.part } }
+    if (at.part === 'start' || at.part === 'dur') return { picker: { kind: 'time', row: at.r } }
     return null
   }
   if (inDateZone(L, point)) return { picker: { kind: 'date' } }
   if (inGoalZone(L, point)) return { text: point }
   const block = [...blocksOf(L, planner)].reverse().find(b => within(b, point))
-  if (block) return { picker: { kind: 'time', row: block.row, part: 'start' } } // 막대는 시작 시각을 고친다
+  if (block) return { picker: { kind: 'time', row: block.row } } // 막대를 누르면 그 줄의 시간 창
   const G = grid(L), lane = laneItems(L, planner, dayTitles(orientation, objects))
   const item = lane.items.find((_, i) => point.x >= G.laneX && point.x <= G.t.x + G.t.w && point.y >= G.t.y + i * G.t.laneRh && point.y < G.t.y + (i + 1) * G.t.laneRh)
-  return item ? { picker: { kind: 'time', row: item.row, part: 'dur' } } : null // 종일 칸 막대는 진행(종일)을 고친다
+  return item ? { picker: { kind: 'time', row: item.row } } : null // 종일 칸 막대도 그 줄의 시간 창
 }
 
 // ---------- 획 → 기록 ----------
@@ -344,7 +344,7 @@ export function applyDayStroke(value, orientation, points, settings, objects) {
   if (at) {
     if (at.part === 'box') return { planner: { ...planner, checks: { ...planner.checks, [at.r]: c } } }
     if (at.part === 'text') return { text: first }
-    if (at.part === 'start' || at.part === 'dur') return { picker: { kind: 'time', row: at.r, part: at.part } }
+    if (at.part === 'start' || at.part === 'dur') return { picker: { kind: 'time', row: at.r } }
     // 색 칸을 형광펜으로 쓸면 지나간 줄의 색이 그 색으로 바뀐다(막대 색도 따라 바뀐다). 펜은 받지 않는다.
     if (!hl) return {}
     const rows = { ...planner.rows }

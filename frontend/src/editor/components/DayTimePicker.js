@@ -10,14 +10,14 @@ const MINUTE_MARKS = Array.from({ length: 60 / DAY_STEP }, (_, i) => i * DAY_STE
 const pad = value => String(value).padStart(2, '0')
 
 /**
- * 데일리 플래너 일정 한 줄의 시작 시각 또는 진행(지속 시간)을 고르는 창. 누른 칸에 따라 따로 뜬다.
- *   part 'start': 시 · 분 두 휠   part 'dur': 시간 · 분 두 휠 + 「종일」 토글(켜면 시간표 대신 종일 칸에 올라간다)
+ * 데일리 플래너 일정 한 줄의 시작 시각 · 진행(지속 시간)을 한 창에서 같이 고르는 창 (시작 · 진행 칸 어디를 눌러도 뜬다).
+ * 맨 위에 「종일」 토글(켜면 시간표 대신 종일 칸에 올라간다), 그 아래에 시작(시 · 분)과 진행(시간 · 분) 휠 넷이 있다.
  * 고른 값은 휠 가운데 한 줄에 나란히 놓인다. 색은 여기서 고르지 않는다(자동으로 주고, 형광펜으로 바꾼다).
  * value: 그 줄의 지금 기록({ start, dur, allDay }, 없으면 null). suggest: 아직 시간이 없는 줄에 처음 보일 값 { start, dur }.
  * onChange({ start, dur, allDay }): 고를 때마다 알린다(시간표에 바로 보인다). 시작 · 진행 중 하나라도 고르면 둘 다 정해져 일정이 생긴다.
  * onClear(): 그 줄의 시간을 비운다.
  */
-export default function DayTimePicker({ row, part = 'start', value, suggest, onChange, onClear, onClose, style }) {
+export default function DayTimePicker({ row, value, suggest, onChange, onClear, onClose, style }) {
   const [draft, setDraft] = useState(value?.start != null || value?.allDay ? { start: value.start ?? suggest.start, dur: value.dur ?? suggest.dur, allDay: Boolean(value.allDay) } : null)
   const shown = draft ?? { start: suggest.start, dur: suggest.dur, allDay: false }
   const set = next => { setDraft(next); onChange(next) }
@@ -26,22 +26,19 @@ export default function DayTimePicker({ row, part = 'start', value, suggest, onC
   const hours = Math.floor(shown.dur / 60), minutes = shown.dur % 60
   const pickDuration = (h, m) => pick({ dur: Math.max(DAY_STEP, h * 60 + m) }) // 0시간 0분은 가장 짧은 5분
   return (
-    <PlannerPopup label={`일정 ${row + 1}`} closeLabel="일정 닫기" onClose={onClose} style={style}>
-      <PopupLabels items={[{ name: part === 'dur' ? '진행' : '시작' }]} />
+    <PlannerPopup label={`일정 ${row + 1}`} closeLabel="일정 닫기" onClose={onClose} style={style}
+      headerLeft={<PopupToggle label="종일" on={shown.allDay} onPress={() => shown.allDay ? pick({}) : set({ ...shown, allDay: true })} />}>
+      <PopupLabels items={[{ name: '시작' }, { name: '진행' }]} />
       <PopupWheels>
-        {part === 'dur' ? (
-          <PopupWheelGroup dim={shown.allDay}>
-            <PopupWheel items={DURATION_HOURS} selected={hours} text={h => `${h}시간`} label="진행 시간" onPick={h => pickDuration(h, minutes)} />
-            <PopupWheel items={MINUTE_MARKS} selected={minutes} text={m => `${m}분`} label="진행 분" onPick={m => pickDuration(hours, m)} />
-          </PopupWheelGroup>
-        ) : (
-          <PopupWheelGroup separator=":" dim={shown.allDay}>
-            <PopupWheel items={HOURS} selected={hour} text={pad} label="시작 시" onPick={h => pick({ start: h * 60 + minute })} />
-            <PopupWheel items={MINUTE_MARKS} selected={minute} text={pad} label="시작 분" onPick={m => pick({ start: hour * 60 + m })} />
-          </PopupWheelGroup>
-        )}
+        <PopupWheelGroup separator=":" dim={shown.allDay}>
+          <PopupWheel items={HOURS} selected={hour} text={pad} label="시작 시" onPick={h => pick({ start: h * 60 + minute })} />
+          <PopupWheel items={MINUTE_MARKS} selected={minute} text={pad} label="시작 분" onPick={m => pick({ start: hour * 60 + m })} />
+        </PopupWheelGroup>
+        <PopupWheelGroup dim={shown.allDay}>
+          <PopupWheel items={DURATION_HOURS} selected={hours} text={h => `${h}시간`} label="진행 시간" onPick={h => pickDuration(h, minutes)} />
+          <PopupWheel items={MINUTE_MARKS} selected={minutes} text={m => `${m}분`} label="진행 분" onPick={m => pickDuration(hours, m)} />
+        </PopupWheelGroup>
       </PopupWheels>
-      {part === 'dur' && <PopupToggle label="종일" on={shown.allDay} onPress={() => shown.allDay ? pick({}) : set({ ...shown, allDay: true })} />}
       {draft && <PopupButton label="지우기" a11y="일정 지우기" onPress={onClear} />}
     </PlannerPopup>
   )
@@ -53,6 +50,5 @@ export function DayPickBackdrop({ onClose }) {
   return <View style={StyleSheet.absoluteFill} accessibilityLabel="일정 닫기" {...handlers} />
 }
 
-// 위치를 정할 때 쓰는 크기: 휠 둘이라 좁고, 진행 창은 종일 토글 줄이 더 있다
-export const DAY_START_PICKER = popupSize({ width: 240 })
-export const DAY_DUR_PICKER = popupSize({ width: 240, toggle: true })
+// 위치를 정할 때 쓰는 크기
+export const DAY_TIME_PICKER = popupSize({ width: 300 })

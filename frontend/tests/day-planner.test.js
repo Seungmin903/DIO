@@ -159,10 +159,10 @@ test('할 일 칸은 글자만 받는다: 눌러도 그어도 글 입력이 열�
 
 test('시작 · 진행 칸을 누르면(어떤 획이든) 시간 고르는 창을 연다', () => {
   for (const part of ['start', 'dur']) {
-    assert.deepEqual(applyDayStroke(null, 'landscape', [listPoint(2, part)], PEN), { picker: { kind: 'time', part: part, row: 2 } })
-    assert.deepEqual(applyDayStroke(null, 'landscape', [listPoint(5, part)], HL), { picker: { kind: 'time', part: part, row: 5 } })
+    assert.deepEqual(applyDayStroke(null, 'landscape', [listPoint(2, part)], PEN), { picker: { kind: 'time', row: 2 } })
+    assert.deepEqual(applyDayStroke(null, 'landscape', [listPoint(5, part)], HL), { picker: { kind: 'time', row: 5 } })
     const a = listPoint(1, part)
-    assert.deepEqual(applyDayStroke(null, 'landscape', [a, { x: a.x + 20, y: a.y + 40 }], PEN), { picker: { kind: 'time', part, row: 1 } })
+    assert.deepEqual(applyDayStroke(null, 'landscape', [a, { x: a.x + 20, y: a.y + 40 }], PEN), { picker: { kind: 'time', row: 1 } })
   }
 })
 
@@ -181,8 +181,8 @@ test('날짜 칸을 누르면 날짜 고르는 창을 열고, 텍스트 도구�
   assert.deepEqual(applyDayStroke(null, 'landscape', [datePoint()], PEN), { picker: { kind: 'date' } })
   assert.deepEqual(applyDayStroke(null, 'portrait', [datePoint('portrait')], HL), { picker: { kind: 'date' } })
   assert.deepEqual(dayCellTap('landscape', datePoint()), { picker: { kind: 'date' } })
-  assert.deepEqual(dayCellTap('landscape', listPoint(4, 'start')), { picker: { kind: 'time', part: 'start', row: 4 } })
-  assert.deepEqual(dayCellTap('landscape', listPoint(4, 'dur')), { picker: { kind: 'time', part: 'dur', row: 4 } })
+  assert.deepEqual(dayCellTap('landscape', listPoint(4, 'start')), { picker: { kind: 'time', row: 4 } })
+  assert.deepEqual(dayCellTap('landscape', listPoint(4, 'dur')), { picker: { kind: 'time', row: 4 } })
   assert.equal(dayCellTap('landscape', listPoint(4, 'text')), null)
 })
 
@@ -378,7 +378,7 @@ test('속지 모음은 속지 ID 로 스터디 · 데일리 플래너를 같은 
   assert.equal(plannerFor('2026-reusable-daily-landscape'), null)
   assert.equal(plannerFor(undefined), null)
   assert.equal(day.startHour(), 6)
-  assert.deepEqual(day.stroke(null, [listPoint(0, 'start', 'portrait')], PEN), { picker: { kind: 'time', part: 'start', row: 0 } })
+  assert.deepEqual(day.stroke(null, [listPoint(0, 'start', 'portrait')], PEN), { picker: { kind: 'time', row: 0 } })
   assert.match(day.svg(setDayRow(null, 0, { color: YELLOW, start: at(9), dur: 60 }), [title(0, '독서', 'portrait')]), />독서<\/text>/)
   assert.deepEqual(day.titles([title(2, '운동', 'portrait')]), { 2: '운동' })
   assert.equal(study.titles([title(2)]), null)
@@ -441,8 +441,8 @@ test('진행을 종일로 정한 줄은 시간표 대신 종일 칸에 올라가
 
 test('선택 도구로 칸을 누르면 그 칸의 입력이 열린다', () => {
   const objects = [title(0)]
-  assert.deepEqual(dayEditTap('landscape', listPoint(3, 'start'), null, objects), { picker: { kind: 'time', part: 'start', row: 3 } })
-  assert.deepEqual(dayEditTap('landscape', listPoint(3, 'dur'), null, objects), { picker: { kind: 'time', part: 'dur', row: 3 } })
+  assert.deepEqual(dayEditTap('landscape', listPoint(3, 'start'), null, objects), { picker: { kind: 'time', row: 3 } })
+  assert.deepEqual(dayEditTap('landscape', listPoint(3, 'dur'), null, objects), { picker: { kind: 'time', row: 3 } })
   assert.deepEqual(dayEditTap('landscape', datePoint(), null, objects), { picker: { kind: 'date' } })
   assert.deepEqual(dayEditTap('landscape', listPoint(4, 'text'), null, objects), { text: listPoint(4, 'text') })
   assert.equal(dayEditTap('landscape', listPoint(4, 'color'), null, objects), null)
@@ -453,9 +453,9 @@ test('선택 도구로 칸을 누르면 그 칸의 입력이 열린다', () => {
   assert.equal(normalizeDayPlanner(dayEditTap('landscape', listPoint(1, 'box'), on.planner, objects, '#3366FF').planner).checks[1], undefined)
   // 시간표 막대와 종일 칸 막대
   const v = setDayRow(setDayRow(null, 5, { color: null, start: at(14), dur: 60 }), 6, { color: null, start: null, dur: null, allDay: true })
-  assert.deepEqual(dayEditTap('landscape', gridPoint(at(14, 30)), v, []), { picker: { kind: 'time', part: 'start', row: 5 } })
+  assert.deepEqual(dayEditTap('landscape', gridPoint(at(14, 30)), v, []), { picker: { kind: 'time', row: 5 } })
   const t = dayPlannerLayout('landscape').time
-  assert.deepEqual(dayEditTap('landscape', { x: t.x + 100, y: t.y + 10 }, v, []), { picker: { kind: 'time', part: 'dur', row: 6 } })
+  assert.deepEqual(dayEditTap('landscape', { x: t.x + 100, y: t.y + 10 }, v, []), { picker: { kind: 'time', row: 6 } })
   assert.equal(dayEditTap('landscape', gridPoint(at(3)), v, []), null) // 빈 시간표
   // 스터디 플래너는 이 입력이 없다
   assert.equal(plannerFor('study-planner-landscape').editTap(null, { x: 700, y: 400 }), null)
