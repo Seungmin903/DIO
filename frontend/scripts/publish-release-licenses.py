@@ -111,8 +111,8 @@ pathlib.Path('publicsuffixes.gz').write_bytes(gzip.compress(payload,mtime=0))
 
 def additions(platform, native_inventory, ndk):
     records=[]; sources=[]
-    for folder,name in [('gowundodum','Gowun Dodum'),('gowunbatang','Gowun Batang')]:
-        records.append(component(name,'bundled font files','OFL-1.1','https://github.com/google/fonts/tree/main/ofl/'+folder,[('Bundled original OFL.txt',audit.read(ROOT/'assets/fonts'/folder/'OFL.txt'))]))
+    for folder,name in [('gowundodum','Gowun Dodum'),('gowunbatang','Gowun Batang'),('maruburi','MaruBuri')]:
+        records.append(component(name,'bundled font files','OFL-1.1','https://hangeul.naver.com/font' if folder=='maruburi' else 'https://github.com/google/fonts/tree/main/ofl/'+folder,[('Bundled original OFL.txt',audit.read(ROOT/'assets/fonts'/folder/'OFL.txt'))]))
     if platform=='web':
         archive=heic_sources();sources.append(archive)
         for name,version,file in [('libheif','1.23.6','libheif-source.tar.gz'),('libde265','1.0.16','libde265-source.tar.gz')]:
