@@ -14,6 +14,7 @@ import { TRASH_RETENTION_MS, isTrashExpired, trashDeadline, trashStatus } from '
 import { isAllSelected, isTrashUrgent, pruneSelection, selectableIds, splitSelection, toggleSelection } from '../utils/trashSelection';
 
 const DAY = 24 * 60 * 60 * 1000;
+const TRASH_ROW_GAP = 14; // 카드 아래에 남은 기간 줄이 붙어 홈 한눈에 보기(32)보다 좁게 둔다
 
 // 보관함 카드(DiaryCard)처럼 memo 로 감싸 메뉴를 여닫을 때 값이 같은 카드(표지 · 패턴)는 다시 그리지 않는다.
 // now 같이 매번 바뀌는 값은 카드에 넘기지 않고 계산한 문구·불리언만 넘긴다.
@@ -104,7 +105,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
   const latest = useRef({ onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, now, serverMode, busy });
   latest.current = { onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, now, serverMode, busy };
 
-  const grid = useDiaryGrid(compact); // 홈 한눈에 보기와 같은 칸 크기 · 한 줄 개수 (폰은 null)
+  const grid = useDiaryGrid(compact, TRASH_ROW_GAP); // 홈 한눈에 보기와 같은 칸 크기 · 한 줄 개수 (폰은 null)
   const [selected, setSelected] = useState(null); // null 이면 선택 모드가 아니다
   const [sheetId, setSheetId] = useState(null);
   const selecting = selected !== null;

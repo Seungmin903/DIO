@@ -5,6 +5,7 @@
 export const GRID_CELL_MAX = 212; // 표지 칸(정사각) 최대 크기
 export const GRID_GAP_X = 20; // 칸 사이 가로 간격
 export const GRID_GAP_Y = 32; // 줄 사이 세로 간격
+export const LIBRARY_SIDE_PADDING = 30; // 본문 좌우 여백. 스타일(libraryScreen · libraryGridScroll)과 격자 폭 계산이 같은 값을 쓴다
 
 /** 한 줄 권수: 안쪽 폭(메뉴와 좌우 여백을 뺀 격자 사용 폭, px) 기준 */
 export function gridColumns(width) {
