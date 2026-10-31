@@ -3,7 +3,7 @@
 
 실행:  python "docs/1020 감성 점검/빌드.py"            (어디서나)
        python "docs/1020 감성 점검/빌드.py" --no-pdf   HTML만
-필요:  pip install markdown · 크롬 설치(PDF 단계, 없으면 HTML만 만든다)
+필요:  pip install markdown · 크롬 설치(PDF 단계, 없으면 HTML만 만들고 실패 코드로 끝낸다)
 md가 원본이다. 그림(이미지/)은 목업/인덱스 탭과 소품.html 을 찍어 만든다.
 """
 import shutil
@@ -40,8 +40,8 @@ def main():
         return
     chrome = next((c for c in CHROME if Path(c).exists() or shutil.which(c)), None)
     if not chrome:
-        print("크롬이 없어 PDF는 건너뜀")
-        return
+        # PDF 도 커밋하는 파생물이라, 조용히 넘어가면 md 와 어긋난 PDF 가 남는다
+        sys.exit("크롬이 없어 PDF를 만들지 못했어요. PDF가 md와 어긋나 있으니 크롬이 있는 곳에서 다시 돌리거나 --no-pdf 로 HTML만 만드세요.")
     subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-pdf-header-footer", "--window-size=1280,1800",
                     f"--print-to-pdf={OUT_PDF}", OUT_HTML.as_uri()], check=True, timeout=180)
     print("PDF:", OUT_PDF)
