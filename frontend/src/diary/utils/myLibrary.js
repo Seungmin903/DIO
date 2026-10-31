@@ -16,10 +16,14 @@ export function normalizeMyCovers(raw) {
   return raw.flatMap(item => {
     if (!item || typeof item.id !== 'string' || seen.has(item.id) || !item.cover || typeof item.cover !== 'object') return []
     seen.add(item.id)
+    const cover = normalizeCover({ cover: item.cover })
     return [{ id: item.id, name: text(item.name, '나의 표지'), createdAt: typeof item.createdAt === 'string' ? item.createdAt : null,
-      cover: normalizeCover({ cover: item.cover }) }]
+      orientation: item.orientation ? normalizeOrientation(item.orientation) : guessCoverOrientation(cover), cover }]
   })
 }
+
+// 방향을 저장하기 전에 넣은 표지: 나의 표지는 PDF 첫 쪽을 표지 바탕으로 쓴 것만 담기므로 그 사진 비율로 방향을 짐작한다
+const guessCoverOrientation = cover => (cover.photo?.aspect >= 1 ? 'landscape' : 'portrait')
 
 /** 저장된 값 → 쓸 수 있는 나의 속지 목록. 쪽이 하나도 없는 묶음은 버린다. */
 export function normalizeMyPapers(raw) {
@@ -39,8 +43,8 @@ export function normalizeMyPapers(raw) {
 // 새 항목은 맨 앞에 두고 한도를 넘는 오래된 항목은 뺀다.
 const prepend = (list, entry) => [entry, ...list].slice(0, MY_LIBRARY_LIMIT)
 
-export function addMyCover(list, { name, cover }, now = new Date()) {
-  return prepend(list, { id: createId(), name: text(name, '나의 표지'), createdAt: now.toISOString(), cover })
+export function addMyCover(list, { name, orientation, cover }, now = new Date()) {
+  return prepend(list, { id: createId(), name: text(name, '나의 표지'), createdAt: now.toISOString(), orientation: normalizeOrientation(orientation), cover })
 }
 
 export function addMyPaper(list, { name, orientation, pages }, now = new Date()) {

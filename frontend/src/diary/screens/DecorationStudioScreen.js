@@ -190,7 +190,7 @@ const s = StyleSheet.create({
   itemTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   empty: { color: colors.textMuted, fontSize: 13, fontWeight: '600', lineHeight: 19, paddingVertical: 4 },
   error: { color: colors.dangerStrong, fontSize: 12, lineHeight: 18, fontWeight: '600' },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: 4 },
+  divider: { height: 1, backgroundColor: colors.cardBorder, marginVertical: 4 }, // 탭 아래 선 · 프리셋 구분선과 같은 굵기 · 색
   // 스티커 폴더: 서랍 앞면 같은 얕은 타일, 위에 앞 스티커 두 장, 아래 이름 · 개수. 마지막은 '+' 칸
   folders: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   // 폭 164 = 스티커 두 장(64 + 8 + 64) + 좌우 여백 14씩: 오른쪽 여백이 왼쪽과 같다

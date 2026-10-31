@@ -6,10 +6,10 @@ import { isAnimatedMedia, stickerSource } from '../../stickerAssets'
 import MediaImage from './MediaImage'
 import StickerFrame from './StickerFrame'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
-import { reportMediaDisplayError, mediaRegistry } from '../../services/mediaStore'
+import { reportMediaDisplayError } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
-import { useMediaUri } from '../../hooks/useMediaUri'
+import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout, hasPhotoMedia, photoInnerBox, tapeSizeOf } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
@@ -42,7 +42,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
   const height = object.h * zoom
   const uri = useMediaUri(object, { still })
   const onTextMeasure = useContext(TextMeasure)
-  const failed = mediaRegistry.get(mediaId(object))?.status === 'error'
+  const failed = useMediaEntry(mediaId(object))?.status === 'error'
   if (object.type === 'text' && object.font?.startsWith('personal-') && !loadedFontFamily(object.font)) return (
     <View style={{ width, height, justifyContent: 'center' }}><Text style={{ fontSize: Math.max(8, 12 * zoom), color: colors.textMuted }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져와 주세요.'}</Text></View>
   )

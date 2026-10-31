@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { Image } from 'expo-image'
-import { useMediaUri } from '../../hooks/useMediaUri'
-import { mediaService, mediaRegistry, reportMediaDisplayError } from '../../services/mediaStore'
+import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
+import { mediaService, reportMediaDisplayError } from '../../services/mediaStore'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { stickerSource } from '../../stickerAssets'
 import { STICKER_THUMBS } from '../../stickerThumbs'
@@ -43,7 +43,7 @@ function ImageThumb({ item, style }) {
   const id = item.asset ? null : mediaId(item.poster ?? item)
   const uri = useMediaUri(item.asset ? null : item, { still: true })
   const [attempt, setAttempt] = useState(0)
-  const failed = id && mediaRegistry.get(id)?.status === 'error'
+  const failed = useMediaEntry(id)?.status === 'error'
   // 사용자 스티커: 보관소에서 읽다 실패하면(잠깐 바쁜 저장소 등) 다시 읽는다
   useEffect(() => {
     if (!failed || attempt >= RETRIES) return undefined

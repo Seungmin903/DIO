@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { coverWithPdfPage, pdfDocPage, pdfOrientation, restoreCoverBase, splitPdfPages, withPdfPages } from '../src/diary/utils/pdfImport.js';
 import { addMyCover, addMyPaper, MY_LIBRARY_LIMIT, normalizeMyCovers, normalizeMyPapers, removeEntry } from '../src/diary/utils/myLibrary.js';
 import { defaultCover } from '../src/diary/utils/coverDesign.js';
@@ -72,4 +74,47 @@ test('나의 보관함은 새 항목을 맨 앞에 두고 한도를 넘으면 �
   const papers = addMyPaper([], { name: '', orientation: 'portrait', pages });
   assert.equal(papers[0].name, '나의 속지'); assert.equal(papers[0].pages.length, 3);
   assert.deepEqual(removeEntry(list, list[0].id).length, MY_LIBRARY_LIMIT - 1);
+});
+
+test('나의 표지는 방향을 저장하고, 방향 없이 담긴 옛 표지는 사진 비율로 짐작한다', () => {
+  const cover = { ...defaultCover(), kind: 'photo', photo: { src: 'media:m1', mediaFileId: 'm1', aspect: 1.29 } };
+  assert.equal(addMyCover([], { name: '가로', orientation: 'landscape', cover })[0].orientation, 'landscape');
+  const [old] = normalizeMyCovers([{ id: 'a', name: '옛 표지', cover }]);
+  assert.equal(old.orientation, 'landscape');
+  const [plain] = normalizeMyCovers([{ id: 'b', name: '기본', cover: defaultCover() }]);
+  assert.equal(plain.orientation, 'portrait');
+});
+
+// 기기 쪽 흐름(pdfPages.native.js)을 가짜 네이티브 모듈로 돌린다. 정의되지 않은 함수를 부르면 여기서 깨진다.
+const loadNativePages = native => {
+  const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json')), babel = expo('@babel/core');
+  const code = babel.transformSync(readFileSync(new URL('../src/diary/utils/pdfPages.native.js', import.meta.url), 'utf8'), { configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')] }).code;
+  class PdfImportError extends Error { constructor(code, message) { super(message); this.code = code; } }
+  const mocks = {
+    'expo-document-picker': { getDocumentAsync: async () => ({ canceled: false, assets: [{ uri: 'file:///a.pdf', name: '문서.pdf' }] }) },
+    'expo-modules-core': { requireOptionalNativeModule: () => native },
+    '../../editor/services/mediaStore': { importMedia: async ([asset]) => [{ src: `media:${asset.fileName}`, mediaFileId: asset.fileName }], discardGeneratedMedia: async () => {} },
+    '../../editor/utils/mediaPolicy.js': { MediaError: class extends Error {} },
+    './pdfImport.js': { PDF_PAGE_LIMIT: 60, PDF_RENDER_EDGE: 3000, PdfImportError },
+  };
+  const mod = { exports: {} };
+  new Function('require', 'module', 'exports', code)(id => mocks[id] ?? require(id), mod, mod.exports);
+  return mod.exports;
+};
+
+test('기기에서 PDF 쪽마다 그림으로 바꾸고, 메모리가 모자라면 절반 크기로 한 번 더 그린다', async () => {
+  const edges = [];
+  const native = {
+    pageCount: async () => 2,
+    renderPage: async (uri, index, edge) => {
+      edges.push([index, edge]);
+      if (index === 1 && edge === 3000) throw new Error('OUT_OF_MEMORY');
+      return { uri: `file:///p${index}.png`, width: edge * 0.75, height: edge };
+    },
+    cleanup: async () => {},
+  };
+  const result = await loadNativePages(native).pickPdfPages();
+  assert.equal(result.pages.length, 2);
+  assert.deepEqual(edges, [[0, 3000], [1, 3000], [1, 1500]]);
+  assert.equal(result.pages[1].name, '문서 2쪽');
 });

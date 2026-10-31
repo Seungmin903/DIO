@@ -1,10 +1,13 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { Animated, Image, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
+import { Image as CachedImage } from 'expo-image'
 import CoverPattern from './CoverPattern'
 import FillSvg from './FillSvg'
 import Icon from '../../editor/components/controls/Icon'
-import { useMediaUri } from '../../editor/hooks/useMediaUri'
+import { useMediaEntry, useMediaUri } from '../../editor/hooks/useMediaUri'
+import { mediaService } from '../../editor/services/mediaStore'
+import { mediaId } from '../../editor/utils/mediaReferences.js'
 import { usePan } from '../../editor/hooks/usePan'
 import { stickerSource } from '../../editor/stickerAssets'
 import { clamp, normalizeAngle, rotateVector } from '../../editor/utils/common'
@@ -50,9 +53,30 @@ function GradientFill({ stops, initialWidth, initialHeight }) {
   </>}</FillSvg>
 }
 
+const PHOTO_RETRIES = 3
+
+// 들어가자마자 사진이 안 뜨던 원인은 useMediaUri 가 React Compiler 에 기억된 옛 값을 돌려준 것이었다(useMediaUri 참고).
+// 그와 별개로 보관소 읽기 실패와 그림 풀기 실패는 잠깐 뒤(0.5 · 1 · 1.5초) 다시 시도한다.
 function OwnPhoto({ photo }) {
   const uri = useMediaUri(photo)
-  return uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null
+  const id = mediaId(photo)
+  const entry = useMediaEntry(id)
+  const [attempt, setAttempt] = useState(0)
+  const failed = entry?.status === 'error'
+  useEffect(() => {
+    if (!failed || attempt >= PHOTO_RETRIES) return undefined
+    if (__DEV__) console.warn('[cover photo] 읽기 실패, 다시 시도', id, entry.error?.code ?? entry.error?.message)
+    const timer = setTimeout(() => { setAttempt(value => value + 1); mediaService.resolveDisplay(id).catch(() => {}) }, 500 * (attempt + 1))
+    return () => clearTimeout(timer)
+  }, [failed, attempt, id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [drawAttempt, setDrawAttempt] = useState(0)
+  if (!uri) return null
+  // expo-image: PDF 쪽처럼 큰 사진도 표지 크기에 맞춰 줄여 풀고 메모리 · 디스크에 캐시해 다시 들어올 때 바로 뜬다
+  return <CachedImage key={drawAttempt} source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={0} recyclingKey={id ?? uri}    onError={event => {
+      if (drawAttempt >= PHOTO_RETRIES) return
+      if (__DEV__) console.warn('[cover photo] 그리기 실패, 다시 시도', id, event?.error)
+      setTimeout(() => setDrawAttempt(value => value + 1), 500 * (drawAttempt + 1))
+    }} />
 }
 
 function StickerImage({ item }) {
@@ -546,7 +570,8 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null, ligh
   // 띠지는 고무줄 아래(고무줄이 띠지 위로 지나감), 종이 라벨 · 판 없음과 스티커는 고무줄 위에 놓인다.
   // 고무줄을 끄거나 방향을 바꿔도 본체는 같은 자리 · 크기다. (예전에는 고무줄을 켠 방향으로만 줄여 높이가 달라 보였다)
   const body = { ...corners, top: bandOut, bottom: bandOut, left: bandOut, right: bandOut }
-  const base = cover.kind === 'photo' ? '#C9CED8' : stops ? stops[0] : cover.color
+  // 사진 표지는 사진이 뜨기 전에 사진의 대표색(photo.tone)을 깔아 회색으로 비치지 않게 한다
+  const base = cover.kind === 'photo' ? cover.photo?.tone ?? '#C9CED8' : stops ? stops[0] : cover.color
   const hasGradient = cover.kind !== 'photo' && Boolean(stops)
   const bodyInset = { top: bandOut + 1, bottom: bandOut + 1, left: bandOut + 1, right: bandOut + 1 }
   // 광택은 어두운 표지에만 비친다(밝은 무광 표지에는 창 반사가 없다)

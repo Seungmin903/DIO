@@ -38,7 +38,7 @@ function Group({ group, compact }) {
         <Text style={local.groupTitle}>{group.label}</Text>
         {edited ? <DioButton variant="ghost" outline label={`${group.label} 기본 색으로`} text="기본 색으로" onPress={reset} style={local.reset} /> : null}
       </View>
-      <View style={local.line} />
+      <View style={[local.line, compact && local.lineCompact]} />
       <View style={[local.row, compact && local.rowCompact]}>
         {list.map((entry, index) => {
           const { bg, fg } = tape ? tapeColors(entry) : { bg: entry, fg: null };
@@ -65,7 +65,7 @@ function Group({ group, compact }) {
 
 /**
  * 내 프리셋 본문: 도구마다 한 묶음 — 위에 도구 미리보기 + 이름(+ 바꾼 도구만 '기본 색으로'), 아래에 색 견본 한 줄.
- * 카드 면 · 테두리 없이 여백으로 나누고, 이름과 색 사이에만 옅은 선을 둔다(사용자 지시). 태블릿은 2×2(두 열이 화면 폭을 반씩), 폰은 1열.
+ * 카드 면 · 테두리 없이 여백으로 나누고, 이름과 색 사이에만 옅은 선을 둔다(사용자 지시). 태블릿은 3열, 폰은 1열.
  */
 export default function StudioPresets({ compact = false }) {
   return (
@@ -76,17 +76,19 @@ export default function StudioPresets({ compact = false }) {
 }
 
 const local = StyleSheet.create({
-  // 2×2: 두 열(사이 32), 두 줄(사이 32). 면 · 테두리 없이 묶음끼리 여백으로 나눈다
-  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 32, rowGap: 32 },
+  // 태블릿 3열(사용자 지시): 열 31% × 3 + 사이 3.5% × 2 = 100%. 넷째 묶음은 다음 줄 첫 칸에 같은 폭으로 선다(늘어나지 않는다). 면 · 테두리 없이 여백으로 나눈다
+  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: '3.5%', rowGap: 32 },
   gridCompact: { flexDirection: 'column', rowGap: 24 },
-  card: { flexGrow: 1, flexBasis: '40%', gap: 8 },
-  cardCompact: { flexBasis: 'auto' },
+  card: { width: '31%', gap: 8 },
+  cardCompact: { width: 'auto' },
   head: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 10 },
   preview: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   groupTitle: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.text },
   reset: { minHeight: 32, paddingHorizontal: 10 },
-  // 이름과 색 사이의 옅은 선(사용자 지시로 다시 넣음)
-  line: { height: 1, backgroundColor: colors.cardBorder },
+  // 이름과 색 사이의 옅은 선(사용자 지시로 다시 넣음). 길이는 색 7개의 마지막 원 오른쪽 끝까지:
+  // 칸 7×44 + 사이 6×8 − 줄 당김 7 − 마지막 칸 안 여백 7 = 342 (폰은 사이 5라 324). 좁은 화면에서는 칸 폭을 넘지 않는다
+  line: { width: 342, maxWidth: '100%', height: 1, backgroundColor: colors.cardBorder },
+  lineCompact: { width: 324 },
   // 터치 칸(44)이 원(30)보다 7씩 넓어, 첫 원의 왼쪽 끝이 제목 왼쪽 끝과 맞도록 줄을 7 당긴다
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginLeft: -7 },
   rowCompact: { gap: 5 },

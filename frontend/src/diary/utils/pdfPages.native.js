@@ -16,6 +16,14 @@ const failure = error => {
   return new PdfImportError('RENDER', 'PDF 페이지를 그림으로 바꾸지 못했어요. 다시 시도해 주세요.', error)
 }
 
+// 3000px 비트맵(약 36MB)을 못 잡는 기기에서는 긴 변을 절반으로 줄여 한 번 더 그린다. 그래도 모자라면 메모리 부족으로 알린다.
+async function renderWithRetry(uri, index) {
+  try { return await native.renderPage(uri, index, PDF_RENDER_EDGE) } catch (error) {
+    if (!String(error?.message ?? '').includes('OUT_OF_MEMORY')) throw error
+    return native.renderPage(uri, index, Math.round(PDF_RENDER_EDGE / 2))
+  }
+}
+
 /**
  * PDF 한 개를 골라 쪽마다 그림으로 바꿔 미디어 보관함에 저장한다. 취소하면 null.
  * 반환: { name, pages: [{ src, mediaFileId, aspect, name }] } (aspect = 가로 / 세로)

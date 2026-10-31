@@ -72,20 +72,24 @@ function Remove({ label, onPress }) {
 }
 
 const COVER_TILE = { width: 54, height: 72 }
+const WIDE_COVER_TILE = { width: 66, height: 50 } // 가로 다이어리에서 담은 표지: 테두리 · 안쪽 여백(10)을 더해도 칸 폭 76 안에 든다
 
 /** 나의 표지: 저장해 둔 표지를 누르면 지금 표지를 그걸로 바꾼다. */
 export function MyCoverList({ items, name, selectedId, onPick, onRemove, disabled }) {
   if (!items.length) return null
   return <OptionRow label="나의 표지">
     <View style={styles.tiles}>
-      {items.map(item => <View key={item.id} style={[styles.tileBox, disabled && styles.dim]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`나의 표지 ${item.name} 쓰기`} accessibilityState={{ selected: selectedId === item.id }} disabled={disabled} onPress={() => onPick(item)}
-          style={({ pressed }) => [styles.coverTile, selectedId === item.id && styles.tileOn, pressed && styles.pressed]}>
-          <View style={COVER_TILE}><CoverArt cover={item.cover} name={name} width={COVER_TILE.width} height={COVER_TILE.height} /></View>
-        </Pressable>
-        <Text numberOfLines={1} style={styles.tileName}>{item.name}</Text>
-        {!disabled && <Remove label={`나의 표지 ${item.name} 지우기`} onPress={() => onRemove(item)} />}
-      </View>)}
+      {items.map(item => {
+        const tile = item.orientation === 'landscape' ? WIDE_COVER_TILE : COVER_TILE
+        return <View key={item.id} style={[styles.tileBox, disabled && styles.dim]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`나의 표지 ${item.name} 쓰기`} accessibilityState={{ selected: selectedId === item.id }} disabled={disabled} onPress={() => onPick(item)}
+            style={({ pressed }) => [styles.coverTile, selectedId === item.id && styles.tileOn, pressed && styles.pressed]}>
+            <View style={tile}><CoverArt cover={item.cover} name={name} width={tile.width} height={tile.height} /></View>
+          </Pressable>
+          <Text numberOfLines={1} style={styles.tileName}>{item.name}</Text>
+          {!disabled && <Remove label={`나의 표지 ${item.name} 지우기`} onPress={() => onRemove(item)} />}
+        </View>
+      })}
     </View>
   </OptionRow>
 }
