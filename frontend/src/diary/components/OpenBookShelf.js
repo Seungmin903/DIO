@@ -1,10 +1,11 @@
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { PanResponder, PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import FavoriteStar from '../../shared/FavoriteStar';
 import { C } from '../constants';
 import { styles as s } from '../styles';
 import CoverArt, { CoverSurface } from './CoverArt';
+import { PAGE_COUNT_ROW } from './DiaryCard';
 import DiaryActionBubble from './DiaryActionBubble';
 import StaticPage from '../../editor/components/canvas/StaticPage';
 import { pageSize } from '../../editor/utils/pageGeometry.js';
@@ -50,17 +51,18 @@ const SHADOW_REF = 380; // coverShadowAt 의 스와이프 프로필이 기준으
 const PORTRAIT = { templateConfig: { orientation: 'portrait' } };
 
 const orientationOf = diary => normalizeOrientation(diary?.templateConfig?.orientation ?? diary?.pageSize);
+const devicePx = value => PixelRatio.roundToNearestPixel(value); // 기기 픽셀(1px)의 정수배로
 const leafOf = (area, ratio) => ({ width: Math.sqrt(area * ratio), height: Math.sqrt(area / ratio) });
 
 /** 다이어리 한 권의 크기: 종이 한 면 · 표지 판 두께 · 반쪽(책등에서 바깥 끝까지 = 닫힌 책 폭) · 높이 */
 function bookSize(diary, paper) {
   const exact = leafOf(paper, RATIO[orientationOf(diary)]);
-  // 종이 높이를 정수로 맞춘다: 책 높이(반올림)와 소수점만큼 어긋나 아래쪽 속지~표지 여백이 위쪽보다 조금 커지던 것을 막는다(위 · 아래 여백이 항상 같다)
-  const leaf = { width: exact.width, height: Math.round(exact.height) };
+  // 종이 높이와 표지 판 두께를 기기 픽셀 단위로 맞춘다. 배율 1.75 태블릿에서 6dp 는 10.5px 라 위 · 아래 가장자리가 따로 반올림돼 아래쪽 속지~표지 여백이 2px 좁아 보였다(위 · 아래 여백이 항상 같다)
+  const leaf = { width: exact.width, height: devicePx(exact.height) };
   const scale = Math.max(leaf.width, leaf.height) / 680;
   // 표지 판이 종이 밖으로 나오는 폭. 긴 변에 비례해 세로 · 가로 다이어리, 가로 · 세로 화면이 모두 같은 비율이다(하드커버 노트의 2~3mm 오버행 ≈ 긴 변의 1.2%)
-  const board = { top: Math.round(8 * scale), side: Math.round(10 * scale) };
-  return { leaf, scale, board, half: Math.round(leaf.width + board.side), height: Math.round(leaf.height + board.top * 2) };
+  const board = { top: devicePx(Math.round(8 * scale)), side: Math.round(10 * scale) };
+  return { leaf, scale, board, half: Math.round(leaf.width + board.side), height: leaf.height + board.top * 2 };
 }
 
 /** k 번째가 펼쳐졌을 때의 배치: 펼친 책 자리(left · width)와 닫힌 책마다의 왼쪽 끝 x */
@@ -173,7 +175,7 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
 
   return (
     <View pointerEvents={shown ? 'auto' : 'none'} accessibilityElementsHidden={!shown} importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
-      style={[styles.book, { left, top, width, height: height + CAPTION, opacity: shown ? 1 : 0 }]}>
+      style={[styles.book, { left: devicePx(left), top: devicePx(top), width, height: height + CAPTION, opacity: shown ? 1 : 0 }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${diary.title} 열기`} onPress={() => onOpen(diary)}
         style={[styles.board, { width, height, borderRadius: radius, backgroundColor: tone, paddingVertical: board.top, boxShadow: shadow },
           compact ? { paddingRight: board.side, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 } : { paddingHorizontal: board.side }]}>
@@ -218,7 +220,7 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
           {actions.length > 0 && <Pressable ref={moreRef} accessibilityRole="button" accessibilityLabel={`${diary.title} 더보기`} accessibilityState={{ expanded: menu !== null }} hitSlop={10}
             onPress={() => {
               const node = moreRef.current;
-              if (node?.measureInWindow) node.measureInWindow((mx, my, w, h) => setMenu({ anchor: { x: mx, y: my, width: w, height: h + 21 } })); // 말풍선이 이름 밑 쪽수 줄을 가리지 않게 그만큼 아래에 연다(DiaryCard 와 같은 값)
+              if (node?.measureInWindow) node.measureInWindow((mx, my, w, h) => setMenu({ anchor: { x: mx, y: my, width: w, height: h + PAGE_COUNT_ROW } })); // 말풍선이 이름 밑 쪽수 줄을 가리지 않게 그만큼 아래에 연다(DiaryCard 와 같은 값)
               else setMenu({ anchor: null });
             }}>
             <AppIcon name="more" size={22} color={captionInk} />

@@ -19,7 +19,7 @@ import { cardTapAction } from '../utils/libraryView';
 export const CAROUSEL_EFFECT_PAD = { x: 48, top: 28, bottom: 36 };
 
 // 페이지 수 줄 높이(줄 18 + 위 간격 3, styles.cardPageCount)
-const PAGE_COUNT_ROW = 21;
+export const PAGE_COUNT_ROW = 21;
 
 // 즐겨찾기 별의 윤곽선: 표지 위에서는 흰색, 표지 바탕이 밝은 흰 노트이면 남색으로 쓴다(흰색 대비가 1.5:1 아래인 거의 흰 바탕일 때).
 const luminance = hex => {

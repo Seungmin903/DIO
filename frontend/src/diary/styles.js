@@ -183,7 +183,6 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   emptyCopy: { maxWidth: 390, color: C.muted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 9 },
   secondary: { minHeight: 48, paddingHorizontal: 17, flexDirection: 'row', alignItems: 'center', gap: 16, borderRadius: 12, marginTop: 22, borderWidth: 1, borderColor: C.ink, backgroundColor: C.white },
   secondaryText: { color: C.ink, fontSize: 13, fontWeight: '700' },
-  secondaryArrow: { color: C.ink, fontSize: 19 },
 
   carouselShell: { minHeight: 510, flex: 1, paddingTop: 47, paddingBottom: 3, overflow: 'hidden' },
   carouselShellCompact: { minHeight: 0, paddingTop: 12, paddingBottom: 0, marginHorizontal: -14 },
