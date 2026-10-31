@@ -346,3 +346,21 @@ test('서버 계정도 기존 탈퇴 대화상자에서 계정 API를 호출하�
  press(ui,'회원 탈퇴');find(ui,'탈퇴 확인 문구').props.onChangeText('탈퇴합니다');press(ui,'탈퇴하기');await tick();
  assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
 });
+test('서버 계정은 한 줄 소개를 받지 않고, 체험 · 게스트는 소개를 함께 저장한다', async () => {
+  const sent = [];
+  const service = { updateProfile: async (user, draft) => (sent.push(draft), { ...user, ...draft }) };
+  const member = setup(service, async () => null, { user: { mode: 'authenticated', userId: '7', provider: 'email', nickname: '소연', email: 'a@b.com' } });
+  assert.equal(find(member, '한 줄 소개'), undefined);
+  find(member, '닉네임').props.onChangeText('수정이름');
+  press(member, '변경사항 저장');
+  await tick();
+  assert.equal('bio' in sent[0], false);
+  member.unmount();
+  const guest = setup(service, async () => null, { user: { mode: 'preview', provider: 'guest', nickname: '방문자' } });
+  assert.ok(find(guest, '한 줄 소개'));
+  find(guest, '한 줄 소개').props.onChangeText('  오늘도   한 장 ');
+  press(guest, '변경사항 저장');
+  await tick();
+  assert.equal(sent[1].bio, '오늘도 한 장');
+  guest.unmount();
+});

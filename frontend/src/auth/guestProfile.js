@@ -24,9 +24,10 @@ const merge = (user, profile) => {
 
 /**
  * 게스트 프로필: 로그인한 회원처럼 닉네임 · 한 줄 소개 · 사진을 고치고, 기기에 남긴다.
- * load / save 는 기기 저장소, keepPhoto 는 고른 사진을 앱이 지우지 않는 자리로 옮기는 함수다.
+ * load / save 는 기기 저장소, keepPhoto 는 고른 사진을 앱이 지우지 않는 자리로 옮기는 함수, releasePhoto 는 그렇게 옮겨 둔 파일을 지우는 함수다.
+ * 사진 파일은 저장이 성공한 뒤에만 이전 것을 지우고, 저장이 실패하면 방금 옮긴 새 것을 지운다.
  */
-export function createGuestProfile({ load, save, keepPhoto = async (uri) => uri }) {
+export function createGuestProfile({ load, save, keepPhoto = async (uri) => uri, releasePhoto = async () => {} }) {
   return {
     /** 게스트로 시작할 때: 지난번에 고친 프로필을 얹은 사용자를 돌려준다. */
     async start(user) {
@@ -41,10 +42,20 @@ export function createGuestProfile({ load, save, keepPhoto = async (uri) => uri 
       if (bioError(bio)) fail(bioError(bio));
       if (photoUri !== null && (typeof photoUri !== 'string' || !photoUri.trim()))
         fail('사진을 다시 선택해 주세요.');
-      const kept =
-        photoUri && photoUri !== user.photoUri ? await keepPhoto(photoUri, user.photoUri) : photoUri;
+      const moved = !!photoUri && photoUri !== user.photoUri;
+      const kept = moved ? await keepPhoto(photoUri) : photoUri;
       const profile = { nickname: normalizeNickname(nickname), bio: normalizeBio(bio), photoUri: kept };
-      if (!(await save(profile))) fail('프로필을 저장하지 못했어요. 다시 시도해 주세요.');
+      let saved = false;
+      try {
+        saved = !!(await save(profile));
+      } catch {
+        saved = false;
+      }
+      if (!saved) {
+        if (moved) await releasePhoto(kept).catch(() => {});
+        fail('프로필을 저장하지 못했어요. 다시 시도해 주세요.');
+      }
+      if (user.photoUri && user.photoUri !== kept) await releasePhoto(user.photoUri).catch(() => {});
       return merge(user, profile);
     },
   };

@@ -54,11 +54,13 @@ export default function ProfileEditScreen({
     modalForm = useProfileKeyboard();
   const name = normalizeNickname(nickname);
   const guest = saved.provider === 'guest';
+  // 서버 계정은 프로필 저장 API에 한 줄 소개가 아직 없어 입력을 받지 않는다(체험 · 게스트만).
+  const bioEditable = saved.mode !== 'authenticated';
   const changed =
     nickname !== saved.nickname ||
     photoUri !== (saved.photoUri || null) ||
-    normalizeBio(bio) !== (saved.bio || '');
-  const ready = changed && !nicknameError(nickname) && !bioError(bio);
+    (bioEditable && normalizeBio(bio) !== (saved.bio || ''));
+  const ready = changed && !nicknameError(nickname) && !(bioEditable && bioError(bio));
   const passwordDirty = Object.values(passwords).some(Boolean);
   const passwordReady =
     passwords.currentPassword &&
@@ -157,7 +159,11 @@ export default function ProfileEditScreen({
       () => {
         if (typeof service.updateProfile !== 'function')
           throw new Error('프로필 정보 수정 기능이 아직 연결되지 않았어요.');
-        return service.updateProfile(saved, { nickname: name, photoUri, bio: normalizeBio(bio) });
+        return service.updateProfile(saved, {
+          nickname: name,
+          photoUri,
+          ...(bioEditable && { bio: normalizeBio(bio) }),
+        });
       },
       (result) => {
         setSaved(result);
@@ -330,19 +336,21 @@ export default function ProfileEditScreen({
                 : '한글·영문·숫자·밑줄 2~12자'}
             </Text>
           </FormRow>
-          <FormRow label="한 줄 소개">
-            <Field
-              label="한 줄 소개"
-              value={bio}
-              onChangeText={changeBio}
-              disabled={busy}
-              form={form}
-              maxLength={BIO_MAX}
-            />
-            <Text accessibilityLiveRegion="polite" style={[s.hint, s.counter]}>
-              {[...normalizeBio(bio)].length}/{BIO_MAX}
-            </Text>
-          </FormRow>
+          {bioEditable && (
+            <FormRow label="한 줄 소개">
+              <Field
+                label="한 줄 소개"
+                value={bio}
+                onChangeText={changeBio}
+                disabled={busy}
+                form={form}
+                maxLength={BIO_MAX}
+              />
+              <Text accessibilityLiveRegion="polite" style={[s.hint, s.counter]}>
+                {[...normalizeBio(bio)].length}/{BIO_MAX}
+              </Text>
+            </FormRow>
+          )}
           {!guest && (
             <>
               <Text accessibilityRole="header" style={[s.sectionTitle, s.sectionGap]}>
