@@ -31,7 +31,7 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
     '../ToolPanel': { toolPanelStyles: {}, ToolPanelHeader: 'header' },
     '../../utils/common': { clamp: value => value },
   }
-  mocks['../../stickerLibrary'] = load(library, { './stickerAssets': mocks['../../stickerAssets'], './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'] })
+  mocks['../../stickerLibrary'] = load(library, { './stickerAssets': mocks['../../stickerAssets'], './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'], './widgets/dday': { WIDGET_ITEMS: [{ widget: 'dday', style: 'label', name: '디데이 라벨' }] } })
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), module, module.exports)
   return module.exports.default({ tab: 'tape', ...callbacks })

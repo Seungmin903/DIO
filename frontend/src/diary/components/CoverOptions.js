@@ -137,7 +137,7 @@ function StickerPicker({ cover, onChange, onNotice }) {
   const custom = useCustomDecor()
   const [query, setQuery] = useState('')
   const keyword = query.trim()
-  const { favorites, recents, favoriteKeys, chips, active, folder, groups, folderMatches } = stickerLibrary(custom.items, custom.lastStickerCategory, keyword)
+  const { favorites, recents, favoriteKeys, chips, active, folder, groups, folderMatches } = stickerLibrary(custom.items, custom.lastStickerCategory, keyword, { widgets: false })
   const list = keyword ? [...groups.flatMap(group => group.items), ...folderMatches]
     : active === 'favorites' ? favorites : active === 'recent' ? recents : folder ? folder.items : groups[0]?.items ?? []
   const add = item => {
