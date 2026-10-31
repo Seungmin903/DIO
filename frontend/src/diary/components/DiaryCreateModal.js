@@ -28,7 +28,7 @@ const TITLE_LIMIT = 24;
 const SHEET_SLIDE = 600;
 // 표지는 세로 3:4, 가로 4:3
 const COVER_RATIO = 3 / 4;
-const SECTIONS = { basic: ['기본', 'edit'], cover: ['표지', 'book'], paper: ['속지', 'pages'], style: ['속지 색', 'roller'] };
+const SECTIONS = { basic: ['기본', 'edit'], cover: ['표지', 'book'], paper: ['속지', 'paper'], style: ['속지 색', 'roller'] };
 
 // 표지 글꼴은 편집기 텍스트 도구와 같은 파일을 쓴다. 다 불러오면 표지를 다시 그린다.
 preloadTextFonts();

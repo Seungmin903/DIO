@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import EditorModal from '../editor/components/controls/EditorModal'
+import Icon from '../editor/components/controls/Icon'
 import Svg, { Circle, Path } from 'react-native-svg'
 import { colors, radius, DISABLED_OPACITY } from '../shared/theme'
 import { loadedFontFamily } from '../editor/utils/text.js'
@@ -90,7 +91,7 @@ export function StudioContent({ options = {}, controller = defaultWorkflow }) {
       {!state.loaded ? <View style={s.card}><Text style={s.muted}>내 폰트를 불러오고 있어요.</Text><Button onPress={() => run('다시 불러오고 있어요.', () => workflow.init())}>다시 불러오기</Button></View> : route.screen === 'home' ? <View style={[s.home, narrow && s.vertical]}>
         <View style={s.intro}><Text style={s.eyebrow}>나만의 손글씨</Text><Text style={s.hero}>나만의 폰트 만들기</Text><Text style={s.description}>손글씨를 폰트로 만들어 다이어리에 활용해 보세요!</Text><Text style={s.muted}>36자의 손글씨가 한글 11,172자로 이어져요.</Text></View>
         <View style={[s.card, s.library]}><Text style={s.heading}>내 폰트</Text>{state.entries.length ? state.entries.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.name} ${statusText[item.status] || '상태 확인 중'}`} onPress={() => open(item)} style={({ pressed }) => [s.libraryRow, pressed && s.dim]}>
-          <View style={s.grow}><Text style={s.fontName} numberOfLines={2}>{item.name}</Text><Text style={s.muted}>{item.status === 'queued' ? `대기 ${queuePosition(state.entries, item.id)}번째` : statusText[item.status]}{item.status === 'processing' ? ` · ${completedCount(item).toLocaleString()} / 11,172` : ''}</Text></View><Text style={s.chevron}>›</Text>
+          <View style={s.grow}><Text style={s.fontName} numberOfLines={2}>{item.name}</Text><Text style={s.muted}>{item.status === 'queued' ? `대기 ${queuePosition(state.entries, item.id)}번째` : statusText[item.status]}{item.status === 'processing' ? ` · ${completedCount(item).toLocaleString()} / 11,172` : ''}</Text></View><Icon name="chevronRight" size={22} color={colors.textMuted} />
         </Pressable>) : <Text style={s.empty}>완성할 폰트가 여기에 모여요.</Text>}<Button primary onPress={() => start()} disabled={Boolean(busy)}>+ 새로 만들기</Button></View>
       </View> : !value ? <Text style={s.error}>폰트 항목을 찾지 못했어요.</Text> : route.screen === 'input' ? <InputScreen key={value.id} workflow={workflow} onInputActiveChange={onInputActiveChange} value={value} narrow={narrow} busy={busy} support={state.support} inputSave={inputSave} onSample={showSample} /> : route.screen === 'preview' ? <View style={s.card}>
         <Text style={s.eyebrow}>{value.name}</Text><Text style={s.title}>내 글씨로 만든 샘플이에요</Text><Sample entry={value} /><Text style={s.muted}>글씨를 확인한 뒤 확정하면 전체 폰트를 만들어요. 다른 폰트를 만들고 있다면 대기열에 추가돼요.</Text>

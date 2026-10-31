@@ -28,7 +28,7 @@ const FULL_TOOLS = [
   ],
 ]
 
-const GUIDE_TOOL = { action: 'guides', icon: 'grid', label: '격자 가이드' }
+const GUIDE_TOOL = { action: 'guides', icon: 'guides', label: '격자 가이드' }
 
 // 가로 배치에서 양옆에 세운 막대의 폭 (버튼 44 + 막대 안쪽 여백·테두리 10 + 바깥 여백 8)
 export const PHONE_TOOLBAR_RAIL = 62

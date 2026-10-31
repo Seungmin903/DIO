@@ -26,7 +26,7 @@ export default function EmptyState({ title, onCreate, search = false, compact = 
       {onCreate && (
         <Pressable accessibilityRole="button" onPress={onCreate} style={({ pressed }) => [s.secondary, pressed && s.pressed]}>
           <Text style={s.secondaryText}>새 다이어리 만들기</Text>
-          <Text style={s.secondaryArrow}>→</Text>
+          <AppIcon name="chevron-right" size={20} color={C.ink} />
         </Pressable>
       )}
     </View>

@@ -204,7 +204,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
       </View>
       {!readOnly && <View style={{ paddingHorizontal: 8 }}>
         {pickMode ? <PageBulkDelete pages={pages} ids={picked} onDelete={onRemovePages} onReset={onReset} canUndoDelete={canUndoDelete} onDone={endPickMode} />
-          : <View style={styles.editRow}><Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="pen" size={14} forText={11.5} /><Text style={styles.editText}>편집</Text></Pressable></View>}
+          : <View style={styles.editRow}><Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="edit" size={14} forText={11.5} /><Text style={styles.editText}>편집</Text></Pressable></View>}
       </View>}
       <FlatList
         ref={listRef}
