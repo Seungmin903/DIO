@@ -40,7 +40,7 @@ const server = http.createServer((req,res) => {
       const navBox=await navigate('꾸미기 공방').boundingBox();
       assert.ok(navBox.width>=44 && navBox.height>=44);
       assert.equal(await button('스티커 시트 분리').isDisabled(),true);
-      await page.getByText('아직 만든 폰트가 없어요.',{exact:true}).waitFor();
+      await page.getByText('아직 만든 폰트가 없어요',{exact:true}).waitFor();
       await page.screenshot({path:path.join(out,`studio-${width}.png`)});
       await button('내 폰트 만들기').click();
       await page.getByText('내 손글씨 36자로 만드는 한글 폰트',{exact:true}).waitFor();

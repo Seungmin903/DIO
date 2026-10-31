@@ -93,7 +93,7 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
       </View>
     </Contents>
   )
-  return isPhone ? <EditorModal visible transparent animationType="fade" onRequestClose={onClose}>{content}</EditorModal> : content
+  return isPhone ? <EditorModal visible transparent animationType="none" onRequestClose={onClose}>{content}</EditorModal> : content
 }
 
 const OverviewItem = memo(function OverviewItem({ page, number, active, managing, onSelect, onToggleIndex }) {

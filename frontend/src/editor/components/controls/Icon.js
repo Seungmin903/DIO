@@ -1,10 +1,13 @@
 import Svg, { G, Path } from 'react-native-svg'
 import { colors } from '../../../shared/theme'
+import { EDITOR_INK, textIconSpec } from '../../../shared/iconInk'
 
 // 24x24 라인 아이콘 (목업 아이콘 세트 기준)
-const PATHS = {
+export const PATHS = {
   bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4',
   people: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M2 21v-2a7 7 0 0 1 14 0v2 M17 3a4 4 0 0 1 0 8 M19 14a6 6 0 0 1 3 5v2',
+  // 사람 추가(공유 · 초대 버튼): 사람 윤곽 + 더하기 (Lucide user-plus 모양 참고, ISC)
+  userPlus: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M19 8v6 M22 11h-6',
   book: 'M5 3h14v18H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2 M4 17h15 M8 7h7',
   person: 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2',
   panel: 'M4 4h16v16H4z M9 4v16',
@@ -106,11 +109,15 @@ const FIT = {
 // 점선으로 그리는 부분 (같은 아이콘의 실선 path 와 겹쳐 그린다)
 const DASHED_PARTS = { lasso: 'M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1' }
 
-export default function Icon({ name, size = 22, color = colors.text, strokeWidth = 1.8, fill = 'none' }) {
+// forText: 글자 크기(px). 주면 그 글자와 같은 높이로 보이게 size · 선 굵기 · 세로 위치를 계산한다(디자인 가이드 "글자 옆 아이콘")
+export default function Icon({ name, size = 22, color = colors.text, strokeWidth = 1.8, fill = 'none', forText }) {
+  const spec = forText ? textIconSpec(EDITOR_INK, name, forText) : null
+  if (spec) { size = spec.size; strokeWidth = spec.strokeWidth }
   // 줄여 그린 아이콘도 선 굵기는 같게
   const width = strokeWidth / (SCALE[name] ?? 1)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <G transform={spec && Math.abs(spec.dy) > 0.05 ? `translate(0 ${spec.dy})` : undefined}>
       <G transform={FIT[name]}>
       {DASHED_PARTS[name] && (
         <Path d={DASHED_PARTS[name]} stroke={color} strokeWidth={width} strokeLinecap="round" strokeDasharray="3 2.6" />
@@ -123,6 +130,7 @@ export default function Icon({ name, size = 22, color = colors.text, strokeWidth
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      </G>
       </G>
     </Svg>
   )

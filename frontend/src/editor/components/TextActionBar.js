@@ -61,7 +61,7 @@ function LabeledButton({ icon, label, active, onPress }) {
       onPress={onPress}
       style={({ pressed }) => [styles.button, active && styles.active, pressed && styles.pressed]}
     >
-      <Icon name={icon} size={17} color={colors.text} />
+      <Icon name={icon} size={17} forText={14} color={colors.text} />
       <Text style={styles.buttonText}>{label}</Text>
     </Pressable>
   )

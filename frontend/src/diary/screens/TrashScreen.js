@@ -8,9 +8,11 @@ import EditorModal from '../../editor/components/controls/EditorModal';
 import EmptyState from '../components/EmptyState';
 import Header from '../components/Header';
 import Cover from '../components/Cover';
-import ProgressRing from '../components/ProgressRing';
+import SelectionBar from '../components/SelectionBar';
+import SelectionButton from '../components/SelectionButton';
+import SelectionMark from '../components/SelectionMark';
 import { useDiaryGrid } from '../utils/useDiaryGrid';
-import { TRASH_RETENTION_MS, isTrashExpired, trashDeadline, trashStatus } from '../utils/trashRetention';
+import { isTrashExpired, trashDeadline, trashStatus } from '../utils/trashRetention';
 import { isAllSelected, isTrashUrgent, pruneSelection, selectableIds, splitSelection, toggleSelection } from '../utils/trashSelection';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -19,7 +21,7 @@ const TRASH_ROW_GAP = 14; // 카드 아래에 남은 기간 줄이 붙어 홈 �
 // 보관함 카드(DiaryCard)처럼 memo 로 감싸 메뉴를 여닫을 때 값이 같은 카드(표지 · 패턴)는 다시 그리지 않는다.
 // now 같이 매번 바뀌는 값은 카드에 넘기지 않고 계산한 문구·불리언만 넘긴다.
 // 누르면 동작 시트(복원 · 영구 삭제)를 열고, 선택 모드에서는 보관함 편집처럼 체크만 바꾼다.
-const TrashCard = memo(function TrashCard({ diary, compact, cell, status, urgent, remaining, selecting, selected, selectable, onPress, onLongPress }) {
+const TrashCard = memo(function TrashCard({ diary, compact, cell, status, urgent, selecting, selected, selectable, onPress, onLongPress }) {
   // 세로 표지는 칸보다 좁아 가운데에 놓인다. 제목 · 남은 기간을 홈 한눈에 보기처럼 그 표지의 왼쪽 끝에 맞추려고 Cover 가 알려 주는 값
   const [coverInset, setCoverInset] = useState(0);
   return (
@@ -31,22 +33,21 @@ const TrashCard = memo(function TrashCard({ diary, compact, cell, status, urgent
       aria-checked={selecting ? selected : undefined}
       disabled={selecting && !selectable}
       onPress={() => onPress(diary)}
-      onLongPress={selecting ? undefined : () => onLongPress(diary)}
+      // 꾹 눌러 선택 모드에 들어온 손가락을 뗄 때 같은 터치가 onPress 로 한 번 더 와서 방금 고른 카드가 풀렸다.
+      // 누르는 중에 onLongPress 가 사라지면 Pressable 이 '긴 누름이 눌림을 취소'했는지 판단하지 못하므로 선택 중에도 늘 넘긴다.
+      onLongPress={() => (selecting ? onPress(diary) : onLongPress(diary))}
       style={({ pressed }) => [s.trashCard, compact && s.trashCardCompact, cell && { width: cell }, selecting && !selectable && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
     >
       <View style={[s.trashCover, compact && s.trashCoverCompact]}>
-        <Cover diary={diary} grid fill centered compact={compact} onInset={setCoverInset}>
-          {selecting && <View pointerEvents="none" style={[s.cardCheck, selected && s.cardCheckOn]}>
-            {selected && <AppIcon name="check" size={18} color={C.white} strokeWidth={2.6} />}
-          </View>}
+        <Cover diary={diary} grid fill compact={compact} onInset={setCoverInset}>
+          {selecting && <SelectionMark selected={selected} />}
         </Cover>
       </View>
       {/* 제목 자리는 홈 한눈에 보기(cardInfoGrid)와 같다: 표지 왼쪽 끝에 맞추고 안쪽 여백 4 · 위 10 */}
       <View style={[s.trashInfo, !cell && coverInset > 0 && { marginLeft: coverInset }]}>
         <Text numberOfLines={1} style={s.trashTitle}>{diary.title}</Text>
-        {/* 남은 기간: 고리 + 글자. 3일 이하는 버터 칩 + 네이비 글자(적색을 쓰지 않는다) */}
+        {/* 남은 기간: 글자만. 3일 이하는 버터 칩 + 네이비 글자(적색을 쓰지 않는다) */}
         <View style={[s.trashDateRow, urgent && s.trashDateRowUrgent]}>
-          {remaining != null && <ProgressRing ratio={remaining} />}
           <Text style={[s.trashDate, urgent && s.trashDateUrgent]}>{status}</Text>
         </View>
       </View>
@@ -73,7 +74,7 @@ function TrashSheet({ diary, status, busy, canRestore, canDelete, onRestore, onD
               onPress={() => onRestore(diary)}
               style={({ pressed }) => [s.trashSheetPrimary, (busy || !canRestore) && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
             >
-              <AppIcon name="undo" size={18} color={C.white} />
+              <AppIcon name="undo" size={18} forText={14} color={C.white} />
               <Text style={s.trashSheetPrimaryText}>복원</Text>
             </Pressable>
             {canDelete && <Pressable
@@ -84,7 +85,7 @@ function TrashSheet({ diary, status, busy, canRestore, canDelete, onRestore, onD
               onPress={() => onDelete(diary)}
               style={({ pressed }) => [s.trashSheetDanger, busy && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
             >
-              <AppIcon name="trash" size={18} color={C.dangerStrong} />
+              <AppIcon name="trash" size={18} forText={14} color={C.dangerStrong} />
               <Text style={s.trashSheetDangerText}>영구 삭제</Text>
             </Pressable>}
           </View>
@@ -124,7 +125,6 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
         ? (diary.retentionStatus === 'EXPIRED' ? '보관 기한 만료 · 복원할 수 없어요' : diary.expiresAt ? `${Math.max(0, Math.ceil((deadline - at) / DAY))}일 후 영구 삭제` : '보관 기한 확인 필요')
         : trashStatus(diary, at),
       urgent: isTrashUrgent(deadline, at),
-      remaining: Number.isFinite(deadline) ? Math.max(0, Math.min(1, (deadline - at) / TRASH_RETENTION_MS)) : null, // 보관 기간(30일) 대비 남은 비율(고리)
       canRestore: Boolean(restore || latest.current.onRestoreMany) && (server ? Boolean(diary.canRestore) : !isTrashExpired(diary, at)),
       canDelete: Boolean(purge || purgeMany) && (!server || diary.canPermanentlyDelete === true),
     };
@@ -153,60 +153,38 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
       title="휴지통"
       icon="bin"
       compact={compact}
-      right={rows.length ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={selecting ? '선택 완료' : '선택'}
-          accessibilityState={{ selected: selecting, disabled: busy }}
-          disabled={busy}
-          onPress={() => setSelected(selecting ? null : [])}
-          style={({ pressed }) => [s.chip, s.trashSelectChip, selecting && s.chipSelected, busy && { opacity: DISABLED_OPACITY }, pressed && s.pressed]}
-        >
-          <Text style={[s.chipText, s.trashSelectChipText, selecting && s.chipTextSelected]}>{selecting ? '완료' : '선택'}</Text>
-        </Pressable>
-      ) : null}
     />
   );
 
   const selectionBar = selecting && (
-    <View style={s.selectBar} accessibilityRole="toolbar">
-      <Text accessibilityLiveRegion="polite" style={s.selectCount}>{`${selectedRows.length}개 선택됨`}</Text>
-      <View style={s.selectActions}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={allSelected ? '전체 해제' : '전체 선택'}
-          disabled={busy || !selectableCount}
-          onPress={() => setSelected(allSelected ? [] : selectableIds(rows))}
-          style={({ pressed }) => [s.selectButton, (busy || !selectableCount) && s.selectButtonDisabled, pressed && s.pressed]}
-        >
-          <Text style={s.selectButtonText}>{allSelected ? '전체 해제' : '전체 선택'}</Text>
-        </Pressable>
-        {canBulkRestore && <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`선택한 ${restorable.length}개 복원`}
-          disabled={busy || !restorable.length}
-          onPress={() => {
-            const ids = restorable.map(row => row.diary.id);
-            if (latest.current.onRestoreMany) latest.current.onRestoreMany(ids); else ids.forEach(id => latest.current.onRestore(id));
-            finishSelecting();
-          }}
-          style={({ pressed }) => [s.selectButton, (busy || !restorable.length) && s.selectButtonDisabled, pressed && s.pressed]}
-        >
-          <AppIcon name="undo" size={17} color={C.ink} />
-          <Text style={s.selectButtonText}>복원</Text>
-        </Pressable>}
-        {canBulkDelete && <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`선택한 ${deletable.length}개 영구 삭제`}
-          disabled={busy || !deletable.length}
-          onPress={() => { latest.current.onDeleteMany(deletable.map(row => row.diary)); finishSelecting(); }}
-          style={({ pressed }) => [s.selectButton, s.selectButtonDanger, (busy || !deletable.length) && s.selectButtonDisabled, pressed && s.pressed]}
-        >
-          <AppIcon name="trash" size={17} color={C.white} />
-          <Text style={[s.selectButtonText, s.selectButtonTextDanger]}>영구 삭제</Text>
-        </Pressable>}
-      </View>
-    </View>
+    <SelectionBar count={selectedRows.length}>
+      <SelectionButton
+        label={allSelected ? '전체 해제' : '전체 선택'}
+        disabled={busy || !selectableCount}
+        onPress={() => setSelected(allSelected ? [] : selectableIds(rows))}
+      />
+      {canBulkRestore && <SelectionButton
+        label={`선택한 ${restorable.length}개 복원`}
+        text="복원"
+        icon="undo"
+        tone="primary"
+        disabled={busy || !restorable.length}
+        onPress={() => {
+          const ids = restorable.map(row => row.diary.id);
+          if (latest.current.onRestoreMany) latest.current.onRestoreMany(ids); else ids.forEach(id => latest.current.onRestore(id));
+          finishSelecting();
+        }}
+      />}
+      {canBulkDelete && <SelectionButton
+        label={`선택한 ${deletable.length}개 영구 삭제`}
+        text="영구 삭제"
+        icon="trash"
+        tone="danger"
+        disabled={busy || !deletable.length}
+        onPress={() => { latest.current.onDeleteMany(deletable.map(row => row.diary)); finishSelecting(); }}
+      />}
+      <SelectionButton label="선택 완료" text="완료" disabled={busy} onPress={finishSelecting} />
+    </SelectionBar>
   );
 
   return (
@@ -227,8 +205,8 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
       {!rows.length ? (suppressEmpty ? null :
         <EmptyState compact={compact} art="duri" raised title="휴지통이 비어 있어요" />
       ) : (
-        <View onLayout={grid?.onLayout}><View style={[s.trashGrid, compact && s.trashGridCompact, grid?.style]}>
-          {rows.map(({ diary, status, urgent, remaining, canRestore, canDelete }) => (
+        <View onLayout={grid?.onLayout}><View style={[s.trashGrid, compact && s.trashGridCompact, selecting && (compact ? s.trashGridSelectingCompact : s.trashGridSelecting), grid?.style]}>
+          {rows.map(({ diary, status, urgent, canRestore, canDelete }) => (
             <TrashCard
               key={diary.id}
               diary={diary}
@@ -236,7 +214,6 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
               cell={grid?.cell}
               status={status}
               urgent={urgent}
-              remaining={remaining}
               selecting={selecting}
               selected={selecting && selected.includes(diary.id)}
               selectable={canRestore || canDelete}

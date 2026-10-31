@@ -90,7 +90,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     right={<StudioTool icon="text" title="내 폰트 만들기" description="손글씨를 나만의 글꼴로" variant="filled" onPress={() => openFontStudio()} />}>
     {fontState === 'loading' ? <Text style={s.empty}>폰트를 불러오고 있어요.</Text>
       : fontState === 'error' ? <View accessibilityRole="alert" style={s.alert}><Text style={s.empty}>폰트 목록을 불러오지 못했어요.</Text><DioButton variant="tonal" label="폰트 목록 다시 불러오기" onPress={refreshFonts} /></View>
-      : !fonts.length ? <EmptyState compact={compact} art="duri" raised title="아직 만든 폰트가 없어요." />
+      : !fonts.length ? <EmptyState compact={compact} art="duri" raised title="아직 만든 폰트가 없어요" />
       : <View style={s.fontList}>{fonts.map(font => {
         const family = !font.missing && loadedFontFamily(font.id);
         return <View key={font.id} style={[s.fontRow, compact && s.fontRowCompact]}>
@@ -112,7 +112,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     </>}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
     {!custom.loaded ? <Text style={s.empty}>스티커를 불러오고 있어요.</Text>
-      : folder ? (!folder.items.length ? <EmptyState compact={compact} art="duri" raised title="아직 스티커가 없어요." />
+      : folder ? (!folder.items.length ? <EmptyState compact={compact} art="duri" raised title="아직 스티커가 없어요" />
         : <View style={s.stickers}>{folder.items.map((item, index) => <View key={item.id || `${item.mediaFileId || item.src}-${index}`} style={s.sticker}>
             <StickerThumbImage item={item} style={s.stickerThumb} />
             <Pressable accessibilityRole="button" accessibilityLabel={`${index + 1}번 스티커 삭제`} hitSlop={12}
@@ -120,7 +120,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
               <AppIcon name="close" size={12} color={colors.primaryText} />
             </Pressable>
           </View>)}</View>)
-      : !custom.items.folders.length ? <EmptyState compact={compact} art="duri" raised title="아직 스티커 폴더가 없어요." />
+      : !custom.items.folders.length ? <EmptyState compact={compact} art="duri" raised title="아직 스티커 폴더가 없어요" />
       : <View style={s.folders}>
           {custom.items.folders.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.name} 스티커 폴더`}
             onPress={() => setFolderId(item.id)} style={[s.folderTile, compact && s.folderTileCompact]}>
@@ -138,7 +138,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
 
   const coverSection = <StudioSection fill={library.ready && !library.covers.length} title="표지" count={library.ready ? count(library.covers) : null}>
     {!library.ready ? <Text style={s.empty}>표지를 불러오고 있어요.</Text>
-      : !library.covers.length ? <EmptyState compact={compact} art="duri" raised title="아직 저장한 표지가 없어요." />
+      : !library.covers.length ? <EmptyState compact={compact} art="duri" raised title="아직 저장한 표지가 없어요" />
       : <StudioShelf kind="cover" items={library.covers} onRemove={cover => setQuestion({ cover })} />}
     {shelfError === 'cover' && <Text accessibilityRole="alert" style={s.error}>표지를 지우지 못했어요. 다시 시도해 주세요.</Text>}
   </StudioSection>;
@@ -149,7 +149,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     {papersReady && <StudioPaperStyle style={paperStyle.style} save={paperStyle.save} />}
     {papersReady && <View style={s.divider} />}
     {!papersReady ? <Text style={s.empty}>속지를 불러오고 있어요.</Text>
-      : !library.papers.length ? <EmptyState compact={compact} art="duri" raised title="아직 저장한 속지가 없어요." />
+      : !library.papers.length ? <EmptyState compact={compact} art="duri" raised title="아직 저장한 속지가 없어요" />
       : <StudioShelf kind="paper" items={library.papers} onRemove={paper => setQuestion({ paper })} />}
     {shelfError === 'paper' && <Text accessibilityRole="alert" style={s.error}>속지를 지우지 못했어요. 다시 시도해 주세요.</Text>}
   </StudioSection>;

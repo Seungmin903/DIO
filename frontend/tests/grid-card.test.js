@@ -38,6 +38,7 @@ const RawCard = compile('../src/diary/components/DiaryCard.js', id => {
   if (id === '../constants') return { C: {} };
   if (id === '../utils/libraryQuery') return { isSharedDiary };
   if (id === '../utils/libraryView') return { cardTapAction };
+  if (id === './SelectionMark') return { __esModule: true, default: 'SelectionMark' };
   if (id === '../../shared/theme') return { DISABLED_OPACITY: 0.45 };
   if (id === '../styles') return { styles: new Proxy({}, { get: (_, key) => key }) };
   if (id.endsWith('/AppIcon') || id === './Cover') return { __esModule: true, default: 'mock' };

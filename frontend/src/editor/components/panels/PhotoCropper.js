@@ -509,7 +509,7 @@ function Chip({ label, icon, active, onPress }) {
       accessibilityState={active != null ? { selected: active } : undefined}
       style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}
     >
-      {icon && <Icon name={icon} size={15} />}
+      {icon && <Icon name={icon} size={15} forText={12} />}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   )

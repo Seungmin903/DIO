@@ -10,7 +10,7 @@ import { normalizeTextLink } from '../utils/textFormats'
 export default function TextLinkDialog({ initialValue = '', onSave, onCancel, badge = null }) {
   const [value, setValue] = useState(initialValue), [error, setError] = useState('')
   const normalized = normalizeTextLink(value)
-  return <EditorModal visible transparent animationType="fade" supportedOrientations={['portrait', 'landscape']} onRequestClose={onCancel}>
+  return <EditorModal visible transparent animationType="none" supportedOrientations={['portrait', 'landscape']} onRequestClose={onCancel}>
     <SafeAreaProvider>
       <SafeAreaView style={styles.backdrop}>
         <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>

@@ -204,7 +204,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
       </View>
       {!readOnly && <View style={{ paddingHorizontal: 8 }}>
         {pickMode ? <PageBulkDelete pages={pages} ids={picked} onDelete={onRemovePages} onReset={onReset} canUndoDelete={canUndoDelete} onDone={endPickMode} />
-          : <View style={styles.editRow}><Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="pen" size={14} /><Text style={styles.editText}>편집</Text></Pressable></View>}
+          : <View style={styles.editRow}><Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="pen" size={14} forText={11.5} /><Text style={styles.editText}>편집</Text></Pressable></View>}
       </View>}
       <FlatList
         ref={listRef}
@@ -273,11 +273,11 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
           <View style={[styles.actionMenu, { top: origin.y + menuTop, left: origin.x + THUMB_WIDTH + 22 }]}>
             <Text style={styles.actionMenuTitle}>{pages.findIndex((page) => page.id === menuId) + 1}페이지</Text>
             <Pressable onPress={() => { onDuplicate(menuId); setMenuId(null) }} style={styles.action} accessibilityLabel="페이지 복제">
-              <Icon name="copy" size={18} color={colors.primary} /><Text style={styles.actionText}>페이지 복제</Text>
+              <Icon name="copy" size={18} forText={11} color={colors.primary} /><Text style={styles.actionText}>페이지 복제</Text>
             </Pressable>
             {pages.length > 1 && (
               <Pressable onPress={() => { onRemove(menuId); setMenuId(null) }} style={styles.action} accessibilityLabel="페이지 삭제">
-                <Icon name="trash" size={18} color={colors.danger} /><Text style={styles.deleteText}>페이지 삭제</Text>
+                <Icon name="trash" size={18} forText={11.5} color={colors.danger} /><Text style={styles.deleteText}>페이지 삭제</Text>
               </Pressable>
             )}
           </View>

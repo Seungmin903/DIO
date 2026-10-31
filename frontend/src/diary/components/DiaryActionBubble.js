@@ -53,7 +53,7 @@ export default function DiaryActionBubble({ anchor, title, actions, onClose }) {
             onPress={action.onPress}
             style={({ pressed }) => [local.row, index > 0 && local.rowDivider, action.disabled && { opacity: DISABLED_OPACITY }, pressed && local.pressed]}
           >
-            <AppIcon name={action.icon} size={20} color={colors.text} fill={action.filled ? colors.text : 'none'} />
+            <AppIcon name={action.icon} size={20} forText={15} color={colors.text} fill={action.filled ? colors.text : 'none'} />
             <Text style={local.rowText}>{action.text}</Text>
           </Pressable>
         ))}

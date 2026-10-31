@@ -128,7 +128,7 @@ function CellOptions({ photo, dispatch, onReplaceCell, onCropCell }) {
           accessibilityLabel={filled ? `${index + 1}번 칸 사진 바꾸기` : `${index + 1}번 칸에 사진 넣기`}
           style={({ pressed }) => [styles.action, pressed && styles.pressed]}
         >
-          <Icon name={filled ? 'swap' : 'image'} size={16} />
+          <Icon name={filled ? 'swap' : 'image'} size={16} forText={13} />
           <Text style={styles.actionText}>{filled ? '바꾸기' : `${index + 1}번 칸에 넣기`}</Text>
         </Pressable>
         {filled && (
@@ -138,7 +138,7 @@ function CellOptions({ photo, dispatch, onReplaceCell, onCropCell }) {
             accessibilityLabel={`${index + 1}번 칸 자르기`}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <Icon name="crop" size={16} />
+            <Icon name="crop" size={16} forText={13} />
             <Text style={styles.actionText}>자르기</Text>
           </Pressable>
         )}

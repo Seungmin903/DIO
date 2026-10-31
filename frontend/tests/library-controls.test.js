@@ -67,7 +67,7 @@ function selectionProps(compact=false) {
  props.onSortChange=value=>{props.sort=value};
  return props;
 }
-test('폰·태블릿은 옵션 메뉴에서 편집에 진입하고 필터·정렬을 유지한다',()=>{
+test('폰·태블릿은 카드 길게 누르기로 선택 모드에 들어가고 완료 칩으로 나오며 필터·정렬을 유지한다',()=>{
  for(const compact of [true,false]) {
   const render=setup('../src/diary/screens/LibraryScreen.js'),props=selectionProps(compact);
   let tree=render(props);
@@ -76,26 +76,28 @@ test('폰·태블릿은 옵션 메뉴에서 편집에 진입하고 필터·정�
   findControl(tree,'보관함 옵션').props.onPress();tree=render(props);
   assert.equal(nodes(tree).filter(n=>n.props.accessibilityRole==='radio').length,4);
   assert.ok(findControl(tree,'정렬 기준'));
-  assert.equal(findControl(tree,'편집').props.accessibilityRole,'button');
-  findControl(tree,'편집').props.onPress();tree=render(props);
-  assert.deepEqual(props.selection,[]);
+  assert.ok(!findControl(tree,'편집'));assert.ok(!findControl(tree,'선택'));assert.ok(!findControl(tree,'선택 완료'));
+  findControl(tree,'보관함 옵션').props.onPress();tree=render(props);
+  const first=nodes(tree).find(n=>n.type==='../components/DiaryCard');
+  first.props.onEnterEdit(first.props.diary);tree=render(props);
+  assert.deepEqual(props.selection,[first.props.diary.id]);
   assert.equal(props.sort,'title');assert.equal(props.filter,'personal');
   assert.ok(!findControl(tree,'보관함 옵션'));assert.ok(!findControl(tree,'다이어리 검색'));
-  assert.ok(findControl(tree,'선택한 0개 휴지통으로 이동').props.disabled);
+  assert.ok(!findControl(tree,'선택한 1개 휴지통으로 이동').props.disabled);
   assert.ok(!nodes(tree).some(n=>n.props?.accessibilityLabel==='새 다이어리 만들기'));
-  const card=nodes(tree).find(n=>n.type==='../components/DiaryCard');
+  const card=nodes(tree).filter(n=>n.type==='../components/DiaryCard')[1];
   card.props.onToggleSelect(card.props.diary);tree=render(props);
-  assert.equal(props.selection.length,1);
-  findControl(tree,'편집 완료').props.onPress();tree=render(props);
+  assert.equal(props.selection.length,2);
+  findControl(tree,'선택 완료').props.onPress();tree=render(props);
   assert.equal(props.selection,null);
   assert.equal(findControl(tree,'보관함 옵션').props.accessibilityState.expanded,false);
  }
 });
-test('빈 보관함과 빈 필터 결과에는 편집과 구분선이 없다',()=>{
+test('빈 보관함과 빈 필터 결과에는 선택 칩과 구분선이 없다',()=>{
  for(const diaries of [[],[{id:'a',title:'일기',favorite:false}]]) {
   const render=setup('../src/diary/screens/LibraryScreen.js'),props={...selectionProps(),diaries,filter:'favorite'};
   let tree=render(props);findControl(tree,'보관함 옵션').props.onPress();tree=render(props);
-  assert.ok(!findControl(tree,'편집'));
+  assert.ok(!findControl(tree,'편집'));assert.ok(!findControl(tree,'선택'));
   assert.ok(!nodes(tree).some(n=>n.props.style==='libraryOptionsDivider'));
   assert.equal(nodes(tree).filter(n=>n.props.accessibilityRole==='radio').length,4);
  }
@@ -108,10 +110,9 @@ test('검색 결과에서 선택·취소·삭제 요청은 검색어·필터·�
  findControl(tree.props.optionsMenu,'보관함 옵션').props.onPress();tree=render(props);
  assert.ok(!findControl(tree.props.optionsMenu,'편집'));
  tree.props.onQueryChange('여행');tree=render(props);
- findControl(tree.props.optionsMenu,'편집').props.onPress();tree=render(props);
+ tree.props.onEnterEdit(tree.props.diaries[0]);tree=render(props);
  assert.equal(tree.props.query,'여행');assert.equal(tree.props.selecting,true);
  assert.equal(tree.props.optionsMenu,false);assert.deepEqual(tree.props.diaries.map(d=>d.id),['a']);
- tree.props.onToggleSelect(tree.props.diaries[0]);tree=render(props);
  findControl(tree.props.selectionBar,'선택한 1개 휴지통으로 이동').props.onPress();
  assert.deepEqual(trashed,['a']);
  tree.props.onBack();tree=render(props);
@@ -176,7 +177,7 @@ test('검색 화면은 입력 전에 최근 검색어를 표시하고 제출·�
  assert.ok(!nodes(tree).some(n=>n.props.accessibilityLabel==='보관함 옵션'));
  find(tree,'2026 다시 검색').props.onPress();tree=render(props);
  assert.equal(props.query,'2026');
- assert.ok(nodes(tree).some(n=>n.type==='./EmptyState'&&n.props.title==='검색 결과가 없어요.'));
+ assert.ok(nodes(tree).some(n=>n.type==='./EmptyState'&&n.props.title==='검색 결과가 없어요'));
  find(tree,'검색어 지우기').props.onPress();tree=render(props);
  find(tree,'2026 검색어 삭제').props.onPress();tree=render(props);
  assert.ok(!find(tree,'2026 다시 검색'));
@@ -228,16 +229,17 @@ test('검색과 즐겨찾기의 교집합만 전체 선택하고 휴지통으로
  props.filter='favorite';props.onTrashSelected=ids=>{trashed=ids};
  let tree=render(props);findControl(tree,'다이어리 검색').props.onPress();tree=render(props);
  tree.props.onQueryChange('여행');tree=render(props);findControl(tree.props.optionsMenu,'보관함 옵션').props.onPress();tree=render(props);
- findControl(tree.props.optionsMenu,'편집').props.onPress();tree=render(props);
+ tree.props.onEnterEdit(tree.props.diaries[0]);tree=render(props);assert.deepEqual(props.selection,['a']);
+ findControl(tree.props.selectionBar,'전체 해제').props.onPress();tree=render(props);assert.deepEqual(props.selection,[]);
  findControl(tree.props.selectionBar,'전체 선택').props.onPress();tree=render(props);assert.deepEqual(props.selection,['a']);
  findControl(tree.props.selectionBar,'선택한 1개 휴지통으로 이동').props.onPress();assert.deepEqual(trashed,['a']);
- findControl(tree.props.selectionBar,'편집 완료').props.onPress();tree=render(props);assert.equal(tree.props.query,'여행');assert.equal(props.filter,'favorite');
+ findControl(tree.props.selectionBar,'선택 완료').props.onPress();tree=render(props);assert.equal(tree.props.query,'여행');assert.equal(props.filter,'favorite');
 });
 test('빈 결과와 이동 중에는 전체 선택을 막고 개별 선택도 유지한다',()=>{
  const render=setup('../src/diary/screens/LibraryScreen.js'),props=selectionProps();props.selection=[];props.diaries=[];
  let tree=render(props);assert.equal(findControl(tree,'전체 선택').props.disabled,true);
  props.diaries=[{id:'a',title:'일기'}];props.trashing=true;tree=render(props);
- assert.equal(findControl(tree,'전체 선택').props.disabled,true);assert.equal(findControl(tree,'편집 완료').props.disabled,true);
+ assert.equal(findControl(tree,'전체 선택').props.disabled,true);assert.equal(findControl(tree,'선택 완료').props.disabled,true);
  findControl(tree,'전체 선택').props.onPress();assert.deepEqual(props.selection,[]);
  const card=nodes(tree).find(n=>n.type==='../components/DiaryCard');card.props.onToggleSelect(card.props.diary);assert.deepEqual(props.selection,[]);
 });

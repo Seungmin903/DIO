@@ -538,7 +538,7 @@ function Pill({ label, icon, dashed, active, onPress }) {
       accessibilityState={{ selected: active }}
       style={({ pressed }) => [styles.pill, icon && styles.pillWithIcon, dashed && styles.pillDashed, active && styles.pillActive, pressed && !active && styles.pressed]}
     >
-      {icon && <Icon name={icon} size={13} strokeWidth={2} color={active ? colors.text : colors.textMuted} />}
+      {icon && <Icon name={icon} size={13} forText={12} strokeWidth={2} color={active ? colors.text : colors.textMuted} />}
       <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
     </Pressable>
   )

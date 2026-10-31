@@ -41,13 +41,13 @@ const server = http.createServer((req, res) => {
       await button('목 응답 설정').click();
       await button('페이지 나누기 켜기').click();
       await p.getByText('2개 불러왔어요. 더 불러올 수 있어요.', {exact:true}).waitFor();
-      await button('보관함 옵션').click(); await button('편집').click();
+      { const c = await p.getByRole('button', { name: / 열기$/ }).first().boundingBox(); await p.mouse.move(c.x + c.width / 2, c.y + c.height / 2); await p.mouse.down(); await p.waitForTimeout(900); await p.mouse.up(); }
       await button('불러온 항목 모두 선택').click();
       await p.getByText('2개 선택됨',{exact:true}).waitFor();
       assert.equal(await button('선택한 2개 휴지통으로 이동').count(),1);
       await button('불러온 항목 모두 해제').click();
       await p.getByText('0개 선택됨',{exact:true}).waitFor();
-      await button('편집 완료').click();
+      await button('선택 완료').click();
       await button('더 보기 커서 무효화').click(); await button('다이어리 더 보기').click();
       await button('목록 새로고침으로 복구').waitFor();
       assert.equal(await button('더 보기 다시 시도').count(),0);
@@ -102,14 +102,14 @@ const server = http.createServer((req, res) => {
       await p.getByRole('radio',{name:'이름순'}).click();
       await button('여행 기록 열기').waitFor();
       await input.fill('존재하지않음');
-      await p.getByText('검색 결과가 없어요.',{exact:true}).waitFor();
+      await p.getByText('검색 결과가 없어요',{exact:true}).waitFor();
       await input.fill('함께');
       await button('함께 쓰는 일기 열기').waitFor();
       await button('목 응답 설정').click();
       await p.getByRole('button',{name:/계속 실패/}).click();
       await button('목록 다시 시도').waitFor();
       assert.equal(await button('함께 쓰는 일기 열기').count(),1);
-      assert.equal(await p.getByText('검색 결과가 없어요.',{exact:true}).count(),0);
+      assert.equal(await p.getByText('검색 결과가 없어요',{exact:true}).count(),0);
       await p.getByRole('button',{name:/^정상$|^✓ 정상$/}).click();
       await button('목록 다시 시도').waitFor({state:'hidden'});
       await p.getByRole('button',{name:/상세 없음/}).click();
@@ -220,7 +220,7 @@ const server = http.createServer((req, res) => {
       await p.getByText('휴지통이 비어 있어요',{exact:true}).waitFor(); await button('처리 결과 닫기').waitFor();
       await nav(viewport.width < 600 ? '다이어리' : '모든 다이어리').click();
       await button('여행 기록 열기').waitFor();
-      await button('보관함 옵션').click();await button('편집').click();
+      { const c = await p.getByRole('button', { name: / 열기$/ }).first().boundingBox(); await p.mouse.move(c.x + c.width / 2, c.y + c.height / 2); await p.mouse.down(); await p.waitForTimeout(900); await p.mouse.up(); }
       await p.getByRole('checkbox',{name:'여행 기록 선택',exact:true}).click();
       await p.getByRole('checkbox',{name:'함께 쓰는 일기 선택',exact:true}).click();
       await button('일괄 부분 실패').click();await button('선택한 2개 휴지통으로 이동').click();

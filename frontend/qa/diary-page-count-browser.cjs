@@ -69,11 +69,11 @@ const server = http.createServer((req, res) => {
       await button('다이어리 검색').click();
       await page.getByRole('textbox', { name: '다이어리 제목 검색' }).fill(mock ? '여행' : diary.title);
       await expectCount(mock ? 9 : 3);
-      await button('보관함 옵션').click(); await button('편집').click();
+      { const c = await page.getByRole('button', { name: / 열기$/ }).first().boundingBox(); await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2); await page.mouse.down(); await page.waitForTimeout(900); await page.mouse.up(); }
       await page.getByRole('checkbox', { name: `${mock ? '여행 기록' : diary.title} 선택`, exact: true }).click();
       await page.getByText('1개 선택됨', { exact: true }).waitFor();
       await expectCount(mock ? 9 : 3);
-      await page.getByRole('toolbar').getByRole('button', { name: '편집 완료', exact: true }).click();
+      await page.getByRole('button', { name: '선택 완료', exact: true }).click();
       await button('검색 닫기').click();
       if (!mock) {
         await button(`${diary.title} 열기`).click(); await button('다이어리 홈').waitFor();

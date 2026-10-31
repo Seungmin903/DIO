@@ -218,7 +218,7 @@ test('초대 상세는 취소·만료·정원 초과를 구분하고 사용 불�
     assert.ok(nodes(tree).some(n => n.props?.children === message));
     assert.equal(find(tree, '참여 프로필 설정'), undefined);
     assert.ok(find(tree, '초대 기록 다이어리 표지'));
-    find(tree, '받은 초대 목록으로').props.onPress();
+    find(tree, '이전 공유 화면').props.onPress();
     assert.ok(find(ui.render(), '초대 초대 상세'));
     ui.unmount();
   }
@@ -671,7 +671,7 @@ test('공유 창에서 다른 초대 수락·탈퇴 후 뒤로가면 빈 창 대
     undefined,
     { diary: { id: 'a', title: '원래 다이어리' } },
   );
-  find(ui.render(), '받은 초대 목록 열기').props.onPress();
+  find(ui.render(), '알림, 새 초대 없음').props.onPress();
   await nickname(ui);
   await tick();
   find(ui.render(), '수락하고 참여하기').props.onPress();
@@ -681,7 +681,9 @@ test('공유 창에서 다른 초대 수락·탈퇴 후 뒤로가면 빈 창 대
     .find((n) => n.props.confirmLabel === '참여 해제')
     .props.onConfirm();
   await tick();
-  find(ui.render(), '이전 공유 화면').props.onPress();
+  // 알림 화면에는 뒤로 가기 버튼이 없다. 기기 뒤로 가기(창의 onRequestClose)로 원래 다이어리 공유 화면에 돌아온다.
+  assert.equal(find(ui.render(), '이전 공유 화면'), undefined);
+  nodes(ui.render()).find((n) => n.props.onRequestClose).props.onRequestClose();
   await tick();
   const summary = nodes(ui.render()).find((n) => n.type?.name === 'DiarySummary');
   assert.equal(summary?.props.diary.id, 'a');

@@ -102,7 +102,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.replaceButton, pressed && styles.pressed]}
               >
-                <Icon name="swap" size={16} />
+                <Icon name="swap" size={16} forText={12} />
                 <Text style={styles.chipText}>{hasPhotoMedia(single) ? '사진 바꾸기' : '사진 넣기'}</Text>
               </Pressable>
             )}

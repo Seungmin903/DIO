@@ -9,6 +9,8 @@ import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
 import { toggleSelection, visibleSelection } from '../utils/diarySelection';
 import IconButton from '../components/IconButton';
+import SelectionBar from '../components/SelectionBar';
+import SelectionButton from '../components/SelectionButton';
 import LibrarySearchScreen from '../components/LibrarySearchScreen';
 import { filterFavorite, filterScope, nextSort, parseSort, queryDiaries, SORT_OPTIONS, withFavorite } from '../utils/libraryQuery';
 import OpenBookShelf, { preloadOpenBooks } from '../components/OpenBookShelf';
@@ -122,7 +124,7 @@ function LibraryScreen({
   }, [onSelectionChange, selected, trashing]);
   // 다이어리를 꾹 누르면 그 다이어리를 고른 채 편집(관리) 모드로 들어간다.
   const enterEdit = useCallback((diary) => {
-    if (!trashing && onSelectionChange) onSelectionChange([diary.id]);
+    if (!trashing && onSelectionChange) { setOptionsOpen(false); onSelectionChange([diary.id]); }
   }, [onSelectionChange, trashing]);
   const allSelected = manageable.length > 0 && selected.length === manageable.length;
   // 렌더링/스크롤 위치와 무관하게 현재 검색·필터 결과 전체를 대상으로 한다.
@@ -227,7 +229,7 @@ function LibraryScreen({
 
   const { key: sortKey, direction } = parseSort(sort);
   const optionsMenu = !selecting && <>
-    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} ref={optionsButton} onPress={openOptions} style={({ pressed }) => [s.iconButton, pressed && s.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} ref={optionsButton} onPress={openOptions} hitSlop={compact ? 2 : undefined} style={({ pressed }) => [s.iconButton, compact && s.iconButtonPhone, pressed && s.pressed]}>
       <View style={s.librarySortIcon}><AppIcon name="more" size={21} color={C.ink} /></View>
     </Pressable>
     <PopoverMenu open={optionsOpen} anchor={optionsAnchor} width={230} height={170} label="보관함 옵션 목록" style={s.librarySortMenu} onClose={() => setOptionsOpen(false)}>
@@ -238,42 +240,24 @@ function LibraryScreen({
       </View>
     </PopoverMenu>
   </>;
-  const selectionBar = selecting && <View style={s.selectBar} accessibilityRole="toolbar">
-        <Text accessibilityLiveRegion="polite" style={s.selectCount}>{`${selected.length}개 선택됨`}</Text>
-        <View style={s.selectActions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={hasMore ? (allSelected ? '불러온 항목 모두 해제' : '불러온 항목 모두 선택') : (allSelected ? '전체 해제' : '전체 선택')}
-            accessibilityHint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${manageable.length}개에 적용해요`}
-            accessibilityState={{ disabled: trashing || !manageable.length }}
-            disabled={trashing || !manageable.length}
-            onPress={toggleAll}
-            style={({ pressed }) => [s.selectButton, (trashing || !manageable.length) && s.selectButtonDisabled, pressed && s.pressed]}
-          >
-            <Text style={s.selectButtonText}>{hasMore ? (allSelected ? '불러온 항목 모두 해제' : '불러온 항목 모두 선택') : (allSelected ? '전체 해제' : '전체 선택')}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="편집 완료"
-            disabled={trashing}
-            onPress={() => onSelectionChange?.(null)}
-            style={({ pressed }) => [s.selectButton, trashing && s.selectButtonDisabled, pressed && s.pressed]}
-          >
-            <Text style={s.selectButtonText}>완료</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`선택한 ${selected.length}개 휴지통으로 이동`}
-            accessibilityState={{ disabled: !selected.length || trashing }}
-            disabled={!selected.length || trashing}
-            onPress={() => onTrashSelected?.(selected)}
-            style={({ pressed }) => [s.selectButton, s.selectButtonTrash, (!selected.length || trashing) && s.selectButtonDisabled, pressed && s.pressed]}
-          >
-            <AppIcon name="trash" size={17} color={C.white} />
-            <Text style={[s.selectButtonText, s.selectButtonTextDanger]}>{trashing ? '옮기는 중…' : '휴지통으로'}</Text>
-          </Pressable>
-        </View>
-      </View>;
+  const allLabel = hasMore ? (allSelected ? '불러온 항목 모두 해제' : '불러온 항목 모두 선택') : (allSelected ? '전체 해제' : '전체 선택');
+  const selectionBar = selecting && <SelectionBar count={selected.length}>
+    <SelectionButton
+      label={allLabel}
+      hint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${manageable.length}개에 적용해요`}
+      disabled={trashing || !manageable.length}
+      onPress={toggleAll}
+    />
+    <SelectionButton
+      label={`선택한 ${selected.length}개 휴지통으로 이동`}
+      text={trashing ? '옮기는 중…' : '휴지통으로'}
+      icon="trash"
+      tone="primary"
+      disabled={!selected.length || trashing}
+      onPress={() => onTrashSelected?.(selected)}
+    />
+    <SelectionButton label="선택 완료" text="완료" disabled={trashing} onPress={() => onSelectionChange?.(null)} />
+  </SelectionBar>;
 
   if (searchOpen) return <LibrarySearchScreen
     compact={compact} query={query} onQueryChange={setQuery}
@@ -295,38 +279,41 @@ function LibraryScreen({
   const top = (<>
       <View style={[s.libraryHeader, compact && s.libraryHeaderCompact]}>
         <View style={s.headerTitleRow}>
-          <AppIcon name={scope?.icon ?? 'book'} size={compact ? 28 : 27} color={titleOnDark ? '#FFFFFF' : C.ink} strokeWidth={2.4} />
+          <AppIcon name={scope?.icon ?? 'book'} size={compact ? 24 : 27} color={titleOnDark ? '#FFFFFF' : C.ink} strokeWidth={2.4} />
           <Text accessibilityRole="header" style={[s.libraryTitle, compact && s.libraryTitleCompact, titleOnDark && s.onDeskDarkTitle]}>{scope?.label ?? '다이어리'}</Text>
         </View>
         <View style={[s.libraryViewSwitch, compact && s.libraryViewSwitchCompact]} accessibilityRole="tablist">
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel="펼쳐서 보기"
+            hitSlop={compact ? { top: 5, bottom: 5, left: 2, right: 2 } : undefined}
             accessibilityState={{ selected: displayView === 'open' }}
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('open'); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'open' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
-            <AppIcon name="book-open" size={15} color={C.inkSoft} />
+            <AppIcon name="book-open" size={15} forText={12} color={C.inkSoft} />
             {!compact && <Text style={[s.libraryViewText, displayView === 'open' && s.libraryViewTextSelected]}>펼쳐서</Text>}
           </Pressable>
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel="스와이프 보기"
+            hitSlop={compact ? { top: 5, bottom: 5, left: 2, right: 2 } : undefined}
             accessibilityState={{ selected: displayView === 'carousel' }}
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('carousel'); resetPosition(); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
-            <AppIcon name="swap" size={16} color={C.inkSoft} />
+            <AppIcon name="swap" size={16} forText={12} color={C.inkSoft} />
             {!compact && <Text style={[s.libraryViewText, displayView === 'carousel' && s.libraryViewTextSelected]}>스와이프</Text>}
           </Pressable>
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel="한눈에 보기"
+            hitSlop={compact ? { top: 5, bottom: 5, left: 2, right: 2 } : undefined}
             accessibilityState={{ selected: displayView === 'grid' }}
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('grid'); resetPosition(); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
-            <AppIcon name="grid" size={16} color={C.inkSoft} />
+            <AppIcon name="grid" size={16} forText={12} color={C.inkSoft} />
             {!compact && <Text style={[s.libraryViewText, displayView === 'grid' && s.libraryViewTextSelected]}>한눈에</Text>}
           </Pressable>
         </View>
@@ -346,9 +333,9 @@ function LibraryScreen({
                   onPress={() => { onFilterChange(withFavorite(filter, item.id === 'favorite')); resetPosition(); setOptionsOpen(false); }}
                   style={({ pressed }) => [s.filterOption, compact && s.filterOptionCompact, on && s.filterOptionSelected, pressed && s.pressed]}
                 >
-                  {/* 즐겨찾기 칩의 별은 다이어리 카드의 즐겨찾기 별과 같은 그림(고르면 채워진다). 칩 · 보기 버튼 아이콘은 글자 높이(위아래 끝)에 맞춘 크기 */}
-                  {item.id === 'favorite' ? <FavoriteStar filled={on} outline={C.inkSoft} size={compact ? 13 : 14} />
-                    : <AppIcon name={item.icon} size={compact ? 15 : 16} color={C.inkSoft} />}
+                  {/* 즐겨찾기 칩의 별은 다이어리 카드의 즐겨찾기 별과 같은 그림이되, 골라도 금색으로 채우지 않는다(고른 표시는 칩 테두리). 칩 · 보기 버튼 아이콘은 글자 높이(위아래 끝)에 맞춘 크기 */}
+                  {item.id === 'favorite' ? <FavoriteStar filled={false} outline={C.inkSoft} size={compact ? 13 : 14} />
+                    : <AppIcon name={item.icon} size={compact ? 15 : 16} forText={12} color={C.inkSoft} />}
                   <Text style={[s.libraryViewText, compact && s.filterTextCompact, on && s.filterTextSelected]}>{item.label}</Text>
                 </Pressable>
                 );
@@ -361,7 +348,7 @@ function LibraryScreen({
             : filterChips;
         })()}
         {!selecting && <View style={[s.libraryActions, compact && s.libraryActionsCompact]}>
-          <IconButton label="다이어리 검색" iconName="search" onPress={() => { setSearchOpen(true); setQuery(''); setOptionsOpen(false); resetPosition(); }} />
+          <IconButton small={compact} label="다이어리 검색" iconName="search" onPress={() => { setSearchOpen(true); setQuery(''); setOptionsOpen(false); resetPosition(); }} />
           {optionsMenu}
         </View>}
       </View>

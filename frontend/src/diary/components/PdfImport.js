@@ -49,7 +49,7 @@ export default function PdfImport({ pdf, busy, progress, disabled, onPick, onCle
       <View style={styles.line}>
         <Pressable accessibilityRole="button" accessibilityLabel="PDF에서 시작하기" accessibilityState={{ busy, disabled: disabled || busy }} disabled={disabled || busy} onPress={onPick}
           style={({ pressed }) => [styles.button, (disabled || busy) && styles.dim, pressed && styles.pressed]}>
-          <Icon name="upload" size={16} />
+          <Icon name="upload" size={16} forText={14} />
           <Text style={styles.buttonText}>{busy ? (progress?.total ? `불러오는 중 ${progress.done}/${progress.total}` : '여는 중…') : pdf ? 'PDF 바꾸기' : 'PDF에서 시작하기'}</Text>
         </Pressable>
         {pdf && !busy ? <Pressable accessibilityRole="button" accessibilityLabel="불러온 PDF 빼기" disabled={disabled} onPress={onClear} hitSlop={6}

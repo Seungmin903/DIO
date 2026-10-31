@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { toggleSelection, visibleSelection } from '../src/diary/utils/diarySelection.js';
 import { markTrashed } from '../src/diary/utils/trashRetention.js';
 import { isSharedDiary } from '../src/diary/utils/libraryQuery.js';
+import { cardTapAction } from '../src/diary/utils/libraryView.js';
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'));
 const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/components/DiaryCard.js', import.meta.url), 'utf8'), {
@@ -24,11 +25,13 @@ function loadCard() {
     };
     if (id === '../../shared/FavoriteStar') return { __esModule: true, default: 'star' };
     if (id === './DiaryActionBubble') return { __esModule: true, default: 'sheet' };
+    if (id === './SelectionMark') return { __esModule: true, default: 'SelectionMark' };
     if (id === '../utils/deskInk') return { useDeskDark: () => false };
     if (id === '../utils/coverDesign') return { COVER_GRADIENTS: [], normalizeCover: () => ({ enabled: true, kind: 'color', color: '#BDC2E1' }) };
     if (id === 'react-native') return { Animated: { View: 'animated' }, Pressable: 'button', Text: 'text', View: 'view' };
     if (id === '../constants') return { C: {} };
     if (id === '../utils/libraryQuery') return { isSharedDiary };
+    if (id === '../utils/libraryView') return { cardTapAction };
     if (id === '../../shared/theme') return { DISABLED_OPACITY: 0.45 };
     if (id === '../styles') return { styles: new Proxy({}, { get: (_, key) => key }) };
     if (id.endsWith('/AppIcon') || id === './Cover') return { __esModule: true, default: 'mock' };
@@ -153,4 +156,22 @@ test('더보기 시트는 권한 · 콜백이 없는 동작을 숨기거나 끄�
   const calls = [];
   star({ props: { onFavorite: (id) => calls.push(id) } }).props.onPress({ stopPropagation() { calls.push('stop'); } });
   assert.deepEqual(calls, ['stop', 'd1']);
+});
+
+test('꾹 눌러 선택 모드에 들어와도 손가락을 뗄 때 선택이 풀리지 않는다: 선택 중에도 onLongPress 를 넘겨 긴 누름이 눌림을 취소하게 한다', () => {
+  const entered = [], toggled = [];
+  const root = props => nodes(Card({ diary, onOpen() {}, onEnterEdit: item => entered.push(item.id), onToggleSelect: item => toggled.push(item.id), ...props })).find(node => node.type === 'button');
+  // 들어가기 전: 길게 누르면 그 다이어리를 고르며 들어간다
+  const before = root({ selecting: false });
+  assert.equal(typeof before.props.onLongPress, 'function');
+  before.props.onLongPress();
+  assert.deepEqual(entered, ['d1']);
+  // 들어간 직후(손가락이 아직 닿은 채): onLongPress 가 사라지면 뗄 때 onPress 가 와서 선택이 바로 풀린다 → 사라지지 않아야 하고, 이어진 긴 누름은 선택을 바꾸지 않는다
+  const after = root({ selecting: true, selected: true });
+  assert.equal(typeof after.props.onLongPress, 'function');
+  // 선택 중 다른 카드를 길게 눌러도 일반 누름처럼 고르고 푼다
+  after.props.onLongPress();
+  assert.deepEqual(toggled, ['d1']);
+  // 관리할 수 없는 카드는 길게 눌러도 들어가지 않는다
+  assert.equal(root({ selecting: false, diary: { ...diary, canManage: false } }).props.onLongPress, undefined);
 });

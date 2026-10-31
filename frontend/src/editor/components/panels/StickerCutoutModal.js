@@ -16,7 +16,7 @@ function Action({ label, onPress, active, disabled, primary, variant = 'secondar
   return <Pressable accessibilityRole="button" accessibilityLabel={label}
     accessibilityState={{ disabled: Boolean(disabled), selected: Boolean(active) }} disabled={disabled} onPress={onPress}
     style={({ pressed }) => [s.button, s[variant], active && s.active, primary && s.primary, (pressed || disabled) && s.dim]}>
-    {icon && <Icon name={icon} size={18} color={primary ? colors.surface : active ? colors.primaryStrong : colors.textMuted} />}
+    {icon && <Icon name={icon} size={18} forText={14} color={primary ? colors.surface : active ? colors.primaryStrong : colors.textMuted} />}
     {!iconOnly && <Text style={[s.buttonText, active && s.activeText, primary && s.primaryText]}>{label}</Text>}
   </Pressable>
 }
@@ -96,7 +96,7 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
     setDraft({ ...gesture.current, points: [...gesture.current.points] })
   }
   const paths = [...history.strokes, ...(draft ? [draft] : [])]
-  return <EditorModal visible transparent animationType="fade" onRequestClose={back}>
+  return <EditorModal visible transparent animationType="none" onRequestClose={back}>
     <SafeAreaView style={s.backdrop}>
       <View style={s.card}>
         <View style={s.header}>

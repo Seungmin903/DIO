@@ -41,10 +41,10 @@ function Button({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         s.button,
         secondary && s.secondary,
-        (disabled || pressed) && s.disabled,
+        disabled && s.disabled,
         style,
       ]}
     >
@@ -54,10 +54,15 @@ function Button({
     </Pressable>
   );
 }
+// 받은 초대 목록의 상태 칩 글자(취소 · 만료는 짧은 명사로, 나머지는 기존 상태 이름 그대로)
+// 상태 묶음: 응답 대기 · 참여 완료 · 그 밖의 끝난 초대(거절 · 취소 · 만료 · 사용 횟수 끝 · 사용 불가)
+const chipTone = status => (status === 'PENDING' ? 'Pending' : status === 'ACCEPTED' ? 'Joined' : null);
+const chipLabel = status =>
+  ({ EXPIRED: '초대 만료', REVOKED: '초대 취소' })[status] || invitationStatusLabel(status);
 function DiarySummary({ diary }) {
   return (
     <View style={s.summary}>
-      <Icon name="book" size={20} />
+      <Icon name="book" size={20} forText={14} />
       <Text style={[s.bold, s.grow]}>{diary?.title}</Text>
     </View>
   );
@@ -150,6 +155,8 @@ export default function SharingHub({
   }, []);
   const { store, list, count, items, more, nextCursor, mutation } = model;
   const countValue = count.data?.actionableUnreadCount || 0;
+  // 공유 창 맨 위 알림 행의 상태 글자 (100개 이상은 99개 이상)
+  const noticeState = countValue ? `새 초대 ${countValue > 99 ? '99개 이상' : `${countValue}개`}` : '새 초대 없음';
   const mutationLocked = mutation.status === 'saving' || mutation.canRetry;
   useEffect(() => {
     alive.current = true;
@@ -320,10 +327,21 @@ export default function SharingHub({
         }
       },
     );
-  const openInviteDetail = (row) => run(async () => {
-    await store.open(row);
-    return runtime.invitationGateway.get(row.inviteId);
-  }, value => { setInvite(value); setScreen('detail'); });
+  // 먼저 초대 상세 화면으로 넘어가고(가운데에 불러오는 표시), 불러오지 못하면 목록으로 돌아온다
+  const openInviteDetail = (row) => {
+    if (running.current) return;
+    setInvite(null);
+    setScreen('detail');
+    run(async () => {
+      try {
+        await store.open(row);
+        return await runtime.invitationGateway.get(row.inviteId);
+      } catch (error) {
+        setScreen('invitations');
+        throw error;
+      }
+    }, value => setInvite(value));
+  };
   const changeNickname = (value) => {
     setNickname(value);
     setError('');
@@ -340,9 +358,13 @@ export default function SharingHub({
       run(
         () => runtime.decline(current.inviteId),
         () => {
-          store.refresh();
-          setInvite(value => value?.inviteId === current.inviteId ? { ...value, status: 'DECLINED' } : value);
-          setToast('초대를 거절했어요.');
+          // 거절은 곧 삭제: 알림 목록에서도 지운다(지울 수 없는 환경은 목록만 새로 고친다)
+          const row = items.find((value) => value.inviteId === current.inviteId);
+          if (row && runtime.supportsReadState !== false) store.remove(row.id);
+          else store.refresh();
+          setInvite(null);
+          if (screen === 'detail') setScreen('invitations');
+          setToast('초대를 삭제했어요.');
         },
       );
     else if (current.kind === 'transfer')
@@ -384,25 +406,63 @@ export default function SharingHub({
       },
     );
   };
-  const invitationActions = (row) => (
-    <View style={s.invitationActionsRow}>
-      <Button
-        label={`${row.title} 초대 거절`}
-        text="거절"
-        style={isPhone ? s.phoneInvitationButton : undefined}
-        secondary
-        disabled={busy || mutationLocked}
-        onPress={() => setQuestion({ kind: 'decline', inviteId: row.inviteId, title: row.title })}
-      />
-      <Button
-        label={`${row.title} 초대 수락`}
-        text="수락"
-        style={isPhone ? s.phoneInvitationButton : undefined}
-        disabled={busy || mutationLocked}
-        onPress={() => openInvite(row)}
-      />
-    </View>
+  // 새로고침하는 동안에는 새로고침이 꺼지고, 이미 받은 목록이 있으면 '모두 읽음'은 그대로 둔다. 모두 읽은 목록이면 꺼진다
+  const refreshing = list.status === 'loading' || count.status === 'loading';
+  const readAllDisabled =
+    busy || mutationLocked || !items.length || ['idle', 'error'].includes(list.status) || items.every((row) => row.readAt);
+  // 버튼 줄 맨 끝의 '더보기 ›'(초대 상세). 카드 위쪽을 눌러도 같은 화면이 열린다
+  const moreLink = (row) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${row.title} 초대 더보기`}
+      disabled={busy || mutationLocked}
+      onPress={() => openInviteDetail(row)}
+      style={[s.moreLink, (busy || mutationLocked) && s.disabled]}
+    >
+      <Text style={s.moreLinkText}>더보기</Text>
+      <Icon name="chevronRight" size={16} color={colors.primaryText} />
+    </Pressable>
   );
+  // 카드 아래(폰) · 오른쪽(태블릿) 버튼 줄: 삭제 · 수락 · 더보기. 끝난 초대는 수락 없이 삭제(알림 삭제) · 더보기
+  const invitationActions = (row) => {
+    const size = isPhone ? s.phoneInvitationButton : s.invitationButton;
+    return (
+      <View style={s.invitationActionsRow}>
+        {row.actionable ? (
+          <>
+            <Button
+              label={`${row.title} 초대 삭제`}
+              text="삭제"
+              style={size}
+              secondary
+              disabled={busy || mutationLocked}
+              onPress={() => setQuestion({ kind: 'decline', inviteId: row.inviteId, title: row.title })}
+            />
+            <Button
+              label={`${row.title} 초대 수락`}
+              text="수락"
+              style={size}
+              disabled={busy || mutationLocked}
+              onPress={() => openInvite(row)}
+            />
+          </>
+        ) : (
+          // 알림을 지울 수 없는 계정에는 삭제가 없다
+          runtime.supportsReadState !== false && (
+            <Button
+              label={`${row.title} 알림 삭제`}
+              text="삭제"
+              style={size}
+              secondary
+              disabled={busy || mutationLocked}
+              onPress={() => store.remove(row.id)}
+            />
+          )
+        )}
+        {moreLink(row)}
+      </View>
+    );
+  };
   if (!request) return null;
   const mine = diary?.members.find((member) => member.id === runtime.self.id);
   const isOwner = mine?.role === 'OWNER';
@@ -416,7 +476,7 @@ export default function SharingHub({
     normalizeSharingNickname(nickname) !== mine?.nickname ||
     draftPhoto !== (mine?.photoUri || null);
   return (
-    <EditorModal transparent animationType="fade" visible onRequestClose={back}>
+    <EditorModal transparent animationType="none" visible onRequestClose={back}>
       <SafeAreaView style={s.backdrop}>
         <Pressable testID="sharing-outside" accessible={false} style={s.keyboard} onPress={close}>
           <KeyboardAvoidingView
@@ -439,7 +499,7 @@ export default function SharingHub({
                 onPress={(event) => event.stopPropagation()}
               >
                 <View style={s.header}>
-                  {screen !== 'sharing' && (
+                  {screen !== 'sharing' && screen !== 'invitations' && (
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="이전 공유 화면"
@@ -450,7 +510,7 @@ export default function SharingHub({
                       <Icon name="chevronLeft" size={20} />
                     </Pressable>
                   )}
-                  <Text accessibilityRole="header" style={s.title}>
+                  <Text accessibilityRole="header" numberOfLines={1} style={s.title}>
                     {screen === 'sharing'
                       ? '다이어리 공유'
                       : screen === 'email' ? '이메일로 초대'
@@ -465,7 +525,7 @@ export default function SharingHub({
                           ? isPhone
                             ? '프로필 설정'
                             : '다이어리 프로필 설정'
-                          : '다른 다이어리 공유 알림'}
+                          : '알림'}
                   </Text>
                   <Pressable
                     accessibilityRole="button"
@@ -474,7 +534,7 @@ export default function SharingHub({
                     disabled={busy}
                     style={s.iconButton}
                   >
-                    <Icon name="close" size={18} />
+                    <Icon name="close" size={20} />
                   </Pressable>
                 </View>
                 <View style={s.body}>
@@ -482,25 +542,25 @@ export default function SharingHub({
                     <>
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="받은 초대 목록 열기"
+                        accessibilityLabel={`알림, ${noticeState}`}
                         disabled={busy}
                         onPress={() => {
                           setScreen('invitations');
                           setError('');
                           store.refresh();
                         }}
-                        style={s.banner}
+                        style={[s.banner, countValue > 0 ? s.bannerNew : s.bannerIdle]}
                       >
-                        <Icon name="bell" size={18} />
-                        <View style={s.grow}>
-                          <Text style={s.bold}>다른 다이어리 공유 알림</Text>
-                          <Text style={s.muted}>
-                            {countValue
-                              ? `새 초대 ${countValue}개를 확인해 보세요.`
-                              : '받은 초대를 확인해 보세요.'}
-                          </Text>
+                        {/* 새 초대가 있으면 종 위에 앱 공용 안 읽음 점. 수는 아래 상태 글자가 말한다 */}
+                        <View accessible={false}>
+                          <Icon name="bell" size={20} color={colors.primaryText} />
+                          {countValue > 0 && <View style={s.bannerDot} />}
                         </View>
-                        <Icon name="chevronRight" size={18} />
+                        <View style={s.grow}>
+                          <Text style={countValue > 0 ? s.bannerTitleNew : s.bannerTitle}>알림</Text>
+                          <Text style={s.bannerState}>{noticeState}</Text>
+                        </View>
+                        <Icon name="chevronRight" size={20} color={colors.primaryText} />
                       </Pressable>
                       <DiarySummary diary={diary} />
                       <View style={s.row}>
@@ -745,49 +805,37 @@ export default function SharingHub({
 
                   {screen === 'invitations' && (
                     <>
-                      <Text style={s.muted}>
-                        초대를 수락하면 다이어리 닉네임을 설정하고 참여해요.
-                      </Text>
                       <View style={s.notificationToolbar}>
-                        <Text style={[s.label, s.grow]}>받은 초대</Text>
+                        <Text style={s.invitationsLabel}>받은 초대</Text>
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel="새로고침"
-                          disabled={busy || mutation.status === 'saving'}
+                          disabled={busy || mutation.status === 'saving' || refreshing}
                           onPress={store.refresh}
-                          style={({ pressed }) => [
-                            s.iconButton,
-                            (pressed || busy || mutation.status === 'saving') && s.disabled,
-                          ]}
+                          hitSlop={4}
+                          style={[s.toolbarButton, (busy || mutation.status === 'saving' || refreshing) && s.disabled]}
                         >
-                          <Icon name="rotate" size={18} />
+                          <Icon name="rotate" size={15} color={colors.primaryText} />
                         </Pressable>
+                        <View style={s.grow} />
                         {runtime.supportsReadState !== false && <Pressable
                           accessibilityRole="button"
                           accessibilityLabel="모두 읽음"
-                          disabled={
-                            busy || mutationLocked || !items.length || list.status !== 'success'
-                          }
+                          disabled={readAllDisabled}
                           onPress={store.readAll}
-                          style={({ pressed }) => [
-                            s.notificationReadAll,
-                            (pressed ||
-                              busy ||
-                              mutationLocked ||
-                              !items.length ||
-                              list.status !== 'success') &&
-                              s.disabled,
-                          ]}
+                          hitSlop={4}
+                          style={[s.toolbarButton, readAllDisabled && s.disabled]}
                         >
-                          <Icon name="check" size={17} />
+                          <Icon name="check" size={18} color={colors.primaryText} />
                           <Text style={s.notificationActionText}>모두 읽음</Text>
                         </Pressable>}
                       </View>
-                      {(list.status === 'loading' || list.status === 'idle') && (
-                        <ActivityIndicator
-                          accessibilityLabel="받은 초대 불러오는 중"
-                          color={colors.primary}
-                        />
+                      {/* 처음 불러올 때만 자리표시를 둔다. 새로고침 · 모두 읽음 뒤 다시 불러올 때는 있는 목록을 그대로 둔다 */}
+                      {(list.status === 'loading' || list.status === 'idle') && items.length === 0 && (
+                        <View accessibilityLabel="받은 초대 불러오는 중" style={s.invitationList}>
+                          <View style={s.skeleton} />
+                          <View style={s.skeleton} />
+                        </View>
                       )}
                       {(list.status === 'error' || count.status === 'error') && (
                         <View>
@@ -809,47 +857,50 @@ export default function SharingHub({
                       )}
                       {list.status === 'success' && items.length === 0 && (
                         <View style={s.empty}>
-                          <Icon name="bell" size={32} />
-                          <Text style={s.bold}>받은 초대가 없어요.</Text>
+                          <Icon name="bell" size={24} color={colors.primary} />
+                          <Text style={s.emptyText}>받은 초대가 없어요.</Text>
                         </View>
                       )}
+                      {items.length > 0 && <View style={s.invitationList}>
                       {items.map((row) => (
-                        <View key={row.id} style={s.invitation}>
-                          <View style={s.row}>
-                            <View
-                              style={s.invitationCover}
-                              accessibilityLabel={`${row.title} 다이어리 표지`}
-                            >
-                              <Cover
-                                diary={row.diary || { title: row.title, color: FALLBACK_COVER_COLOR }}
-                                thumbnailWidth={56}
-                              />
-                            </View>
-                            <View style={s.grow}>
-                              <Text style={s.bold} numberOfLines={2}>
-                                {row.title}
-                              </Text>
-                              <Text style={s.muted}>
-                                {row.actor}님의 초대{runtime.supportsReadState !== false ? ` · ${row.readAt ? '읽음' : '안 읽음'}` : ''}
-                              </Text>
-                              <Text style={s.muted}>{invitationStatusLabel(row.status)}</Text>
-                              <Pressable accessibilityRole="button" accessibilityLabel={`${row.title} 초대 상세`}
-                                disabled={busy || mutationLocked} onPress={() => openInviteDetail(row)} style={s.detailLink}>
-                                <Text style={s.bold}>초대 확인</Text>
-                              </Pressable>
-                              {isPhone && row.actionable && invitationActions(row)}
-                            </View>
-                            {!isPhone && row.actionable && invitationActions(row)}
-                            {runtime.supportsReadState !== false && <Pressable
+                        <View key={row.id} style={[s.invitation, !chipTone(row.status) && s.invitationPast]}>
+                          <View style={s.invitationBody}>
+                            <Pressable
                               accessibilityRole="button"
-                              accessibilityLabel={`${row.title} 알림 삭제`}
+                              accessibilityLabel={`${row.title} 초대 상세`}
+                              accessibilityHint={runtime.supportsReadState !== false && !row.readAt ? '안 읽음' : undefined}
                               disabled={busy || mutationLocked}
-                              onPress={() => store.remove(row.id)}
-                              style={s.iconButton}
+                              onPress={() => openInviteDetail(row)}
+                              style={[s.invitationInfo, s.grow]}
                             >
-                              <Icon name="close" size={16} />
-                            </Pressable>}
+                              <View
+                                style={s.invitationCover}
+                                accessibilityLabel={`${row.title} 다이어리 표지`}
+                              >
+                                <Cover
+                                  diary={row.diary || { title: row.title, color: FALLBACK_COVER_COLOR }}
+                                  thumbnailWidth={42}
+                                  centered
+                                />
+                              </View>
+                              <View style={s.grow}>
+                                <View style={s.invitationHead}>
+                                  <View style={s.invitationTitleRow}>
+                                    <Text style={s.invitationTitle} numberOfLines={1}>
+                                      {row.title}
+                                    </Text>
+                                  </View>
+                                  {runtime.supportsReadState !== false && !row.readAt && <View style={s.unreadDot} />}
+                                  <View style={[s.statusChip, chipTone(row.status) && s[`statusChip${chipTone(row.status)}`]]}>
+                                    <Text style={[s.statusChipText, chipTone(row.status) && s[`statusChipText${chipTone(row.status)}`]]}>{chipLabel(row.status)}</Text>
+                                  </View>
+                                </View>
+                                <Text style={s.invitationActor} numberOfLines={1}>{row.actor}님의 초대</Text>
+                              </View>
+                            </Pressable>
+                            {!isPhone && invitationActions(row)}
                           </View>
+                          {isPhone && invitationActions(row)}
                           {row.status === 'ACCEPTED' && runtime.hasMembership(row.inviteId) && (
                             <Button
                               label={`${row.title} 공유 설정`}
@@ -871,6 +922,7 @@ export default function SharingHub({
                           )}
                         </View>
                       ))}
+                      </View>}
                       {nextCursor && (
                         <Button
                           label="초대 더 보기"
@@ -880,63 +932,70 @@ export default function SharingHub({
                         />
                       )}
                       {more.status === 'error' && <Text style={s.error}>{more.error.message}</Text>}
-                      <View style={s.section}>
-                        <Text style={s.label}>초대 링크로 확인</Text>
-                        <TextInput
-                          accessibilityLabel="받은 초대 링크"
-                          ref={linkField}
-                          onFocus={() => focusInput(linkField.current)}
-                          onBlur={() => blurInput(linkField.current)}
-                          placeholder="초대 링크를 붙여 넣어 주세요"
-                          value={linkInput}
-                          onChangeText={setLinkInput}
-                          editable={!busy}
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                          keyboardType="url"
-                          style={s.field}
-                        />
-                        <Button
-                          label="초대 링크 확인"
-                          secondary
-                          disabled={busy || !linkInput.trim()}
-                          onPress={() =>
-                            run(
-                              () => runtime.resolveLink(linkInput),
-                              (value) => {
-                                try {
-                                  prepareNickname(value);
-                                } catch (error) {
-                                  setError(error.message);
-                                }
-                              },
-                            )
-                          }
-                        />
+                      <View style={s.linkSection}>
+                        <Text style={s.bold}>초대 링크 확인</Text>
+                        <View style={s.linkCheck}>
+                          <TextInput
+                            accessibilityLabel="받은 초대 링크"
+                            ref={linkField}
+                            onFocus={() => focusInput(linkField.current)}
+                            onBlur={() => blurInput(linkField.current)}
+                            placeholder="초대 링크를 붙여 넣어 주세요" placeholderTextColor={colors.textMuted}
+                            value={linkInput}
+                            onChangeText={setLinkInput}
+                            editable={!busy}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            keyboardType="url"
+                            style={[s.field, s.grow]}
+                          />
+                          <Button
+                            label="초대 링크 확인"
+                            text="확인"
+                            style={s.linkCheckButton}
+                            secondary
+                            disabled={busy || !linkInput.trim()}
+                            onPress={() =>
+                              run(
+                                () => runtime.resolveLink(linkInput),
+                                (value) => {
+                                  try {
+                                    prepareNickname(value);
+                                  } catch (error) {
+                                    setError(error.message);
+                                  }
+                                },
+                              )
+                            }
+                          />
+                        </View>
                       </View>
                     </>
                   )}
                   {screen === 'detail' && invite && (
-                    <>
+                    <View style={s.detailBody}>
                       <View style={s.invitedDiary}>
                         <View style={s.invitedCover} accessibilityLabel={`${invite.diary.title} 다이어리 표지`}>
-                          <Cover diary={invite.diary} thumbnailWidth={143} />
+                          <Cover diary={invite.diary} thumbnailWidth={144} centered />
                         </View>
                         <Text style={s.invitedTitle}>{invite.diary.title}</Text>
-                        <Text style={s.text}>{invite.inviter || '다이어리 소유자'}님이 초대했어요.</Text>
-                        {Number.isInteger(invite.memberCount) && <Text style={s.muted}>{invite.memberCount}/4명 참여 중</Text>}
+                        {/* 상태 알약: 목록 카드와 같은 규칙(응답 대기 버터 · 참여 완료 라벤더 · 그 밖은 회색 판) */}
+                        <View style={[s.statusChip, chipTone(invite.full && invite.status === 'PENDING' ? null : invite.status) && s[`statusChip${chipTone(invite.status)}`]]}>
+                          <Text style={[s.statusChipText, !(invite.full && invite.status === 'PENDING') && chipTone(invite.status) && s[`statusChipText${chipTone(invite.status)}`]]}>
+                            {invite.full && invite.status === 'PENDING' ? '정원 가득' : chipLabel(invite.status)}
+                          </Text>
+                        </View>
+                        <Text style={s.invitedSender}>{invite.inviter || '다이어리 소유자'}님이 초대했어요.</Text>
+                        {Number.isInteger(invite.memberCount) && <Text style={s.invitedCount}>참여 {invite.memberCount}/4명</Text>}
                       </View>
                       {invite.status !== 'PENDING' || invite.full ? (
-                        <View style={s.notice}>
-                          <Text accessibilityRole="alert" style={s.bold}>
-                            {invite.full && invite.status === 'PENDING' ? '참여 인원이 가득 찼어요.'
-                              : ({ REVOKED: '취소된 초대예요.', EXPIRED: '만료된 초대예요.', ACCEPTED: '이미 수락한 초대예요.', DECLINED: '거절한 초대예요.' })[invite.status] || '사용할 수 없는 초대예요.'}
-                          </Text>
-                          {invite.status !== 'ACCEPTED' && <Text style={s.muted}>초대한 사람에게 문의해 주세요.</Text>}
-                        </View>
+                        <Text accessibilityRole="alert" style={s.invitedState}>
+                          {invite.full && invite.status === 'PENDING' ? '참여 인원이 가득 찼어요.'
+                            : ({ REVOKED: '취소된 초대예요.', EXPIRED: '만료된 초대예요.', ACCEPTED: '이미 수락한 초대예요.', DECLINED: '거절한 초대예요.' })[invite.status] || '사용할 수 없는 초대예요.'}
+                        </Text>
                       ) : (
                         <View style={s.invitationActions}>
-                          <Button label="상세 초대 거절" text="거절" secondary style={s.cancelParticipation}
+                          <Button label="상세 초대 삭제" text="삭제" secondary style={[s.cancelParticipation, s.detailDelete]}
                             disabled={busy} onPress={() => setQuestion({ kind: 'decline', inviteId: invite.inviteId, title: invite.diary.title })} />
                           <Button label="참여 프로필 설정" text="수락" style={s.acceptParticipation} disabled={busy}
                             onPress={() => run(() => runtime.invitationGateway.get(invite.inviteId), value => {
@@ -946,8 +1005,7 @@ export default function SharingHub({
                             })} />
                         </View>
                       )}
-                      <Button label="받은 초대 목록으로" text="목록으로" secondary onPress={back} disabled={busy} />
-                    </>
+                    </View>
                   )}
                   {((screen === 'nickname' && invite) || editingProfile) && (
                     <>
@@ -982,7 +1040,7 @@ export default function SharingHub({
                           ref={nicknameField}
                           onFocus={() => focusInput(nicknameField.current)}
                           onBlur={() => blurInput(nicknameField.current)}
-                          placeholder="닉네임을 입력해 주세요"
+                          placeholder="닉네임을 입력해 주세요" placeholderTextColor={colors.textMuted}
                           value={nickname}
                           onChangeText={changeNickname}
                           editable={!busy}
@@ -1036,7 +1094,12 @@ export default function SharingHub({
                       </View>
                     </>
                   )}
-                  {busy && (
+                  {busy && screen === 'detail' && !invite && (
+                    <View style={s.pageLoading}>
+                      <ActivityIndicator accessibilityLabel="초대 불러오는 중" color={colors.primary} />
+                    </View>
+                  )}
+                  {busy && !(screen === 'detail' && !invite) && (
                     <ActivityIndicator
                       accessibilityLabel="공유 요청 처리 중"
                       color={colors.primary}
@@ -1097,7 +1160,7 @@ export default function SharingHub({
         )}
         <ConfirmDialog
           open={!!question}
-          title={question?.kind === 'transfer' ? `${question.member.nickname}님에게 소유권을 양도할까요?` : question?.kind === 'remove' ? `${question.member.nickname}님을 내보낼까요?` : question?.kind === 'cancel-email' ? '보낸 초대를 취소할까요?' : question?.kind === 'decline' ? '초대를 거절할까요?' : '참여를 해제할까요?'}
+          title={question?.kind === 'transfer' ? `${question.member.nickname}님에게 소유권을 양도할까요?` : question?.kind === 'remove' ? `${question.member.nickname}님을 내보낼까요?` : question?.kind === 'cancel-email' ? '보낸 초대를 취소할까요?' : question?.kind === 'decline' ? '초대를 삭제할까요?' : '참여를 해제할까요?'}
           danger={question?.kind !== 'transfer'}
           message={
             question?.kind === 'transfer'
@@ -1107,10 +1170,10 @@ export default function SharingHub({
               : question?.kind === 'cancel-email'
               ? '이 초대로는 다이어리에 참여할 수 없어요. 이미 참여한 멤버는 그대로 남아요.'
               : question?.kind === 'decline'
-              ? '이 초대로는 다이어리에 참여할 수 없어요.'
+              ? '삭제하면 이 초대로는 다이어리에 참여할 수 없어요.'
               : '참여가 해제되면 이 다이어리를 함께 편집할 수 없어요.'
           }
-          confirmLabel={question?.kind === 'transfer' ? '양도' : question?.kind === 'remove' ? '내보내기' : question?.kind === 'cancel-email' ? '초대 취소' : question?.kind === 'decline' ? '거절' : '참여 해제'}
+          confirmLabel={question?.kind === 'transfer' ? '양도' : question?.kind === 'remove' ? '내보내기' : question?.kind === 'cancel-email' ? '초대 취소' : question?.kind === 'decline' ? '삭제' : '참여 해제'}
           onConfirm={confirmQuestion}
           onCancel={() => setQuestion(null)}
         />

@@ -105,7 +105,7 @@ function PhotoOptions({ cover, onChange, onNotice, pickNow, onPickHandled }) {
     <OptionRow label="사진">
       <View style={styles.tiles}>
         <Pressable accessibilityRole="button" accessibilityLabel="내 사진 고르기" disabled={busy} onPress={choose} style={({ pressed }) => [styles.addPhoto, busy && styles.dim, pressed && styles.pressed]}>
-          <Icon name="image" size={16} /><Text style={styles.addPhotoText}>{busy ? '여는 중…' : cover.photo?.src ? '사진 바꾸기' : '사진 고르기'}</Text>
+          <Icon name="image" size={16} forText={12.5} /><Text style={styles.addPhotoText}>{busy ? '여는 중…' : cover.photo?.src ? '사진 바꾸기' : '사진 고르기'}</Text>
         </Pressable>
         {cover.photo?.src ? <View style={[styles.photoTile, styles.photoTileOn]}><OwnPhotoTile photo={cover.photo} /></View> : null}
       </View>
