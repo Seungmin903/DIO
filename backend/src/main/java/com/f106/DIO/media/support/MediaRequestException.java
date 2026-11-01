@@ -20,6 +20,9 @@ public class MediaRequestException extends RuntimeException {
 	public static MediaRequestException fontTooLarge() {
 		return new MediaRequestException(HttpStatus.PAYLOAD_TOO_LARGE, "MEDIA_FILE_TOO_LARGE", "폰트 파일은 25MiB 이하로 올려 주세요.");
 	}
+	public static MediaRequestException documentTooLarge() {
+		return new MediaRequestException(HttpStatus.PAYLOAD_TOO_LARGE, "MEDIA_FILE_TOO_LARGE", "PDF 원본은 25MiB 이하로 올려 주세요.");
+	}
 	public static MediaRequestException invalidCategory() {
 		return new MediaRequestException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_CATEGORY", "파일 종류에 맞는 미디어 분류가 아닙니다.");
 	}

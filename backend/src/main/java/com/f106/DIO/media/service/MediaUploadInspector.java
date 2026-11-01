@@ -22,10 +22,20 @@ final class MediaUploadInspector {
 			return new FileKind(MediaType.AUDIO, "audio/mpeg", "mp3");
 		}
 		if (isM4a(content)) return new FileKind(MediaType.AUDIO, "audio/mp4", "m4a");
+		if (hasPdfHeader(content)) return new FileKind(MediaType.DOCUMENT, "application/pdf", "pdf");
 		throw MediaRequestException.invalidFile();
 	}
 
 	static boolean isFontHeader(byte[] bytes) { return isTtf(bytes) || isOtf(bytes); }
+	/** Allows the larger PDF read only when no known image, audio, or font signature wins. */
+	static boolean isPdfDocumentHeader(byte[] bytes) {
+		if (!hasPdfHeader(bytes)) return false;
+		return !(isFontHeader(bytes) || starts(bytes, 0xFF, 0xD8, 0xFF)
+			|| starts(bytes, 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+			|| startsText(bytes, "GIF87a") || startsText(bytes, "GIF89a")
+			|| (startsText(bytes, "RIFF") && (hasText(bytes, 8, "WEBP") || hasText(bytes, 8, "WAVE")))
+			|| startsText(bytes, "OggS") || startsText(bytes, "ID3") || isMp3Frame(bytes) || isM4a(bytes));
+	}
 	private static boolean isTtf(byte[] bytes) { return starts(bytes, 0x00, 0x01, 0x00, 0x00) || startsText(bytes, "true"); }
 	private static boolean isOtf(byte[] bytes) { return startsText(bytes, "OTTO"); }
 
@@ -67,6 +77,12 @@ final class MediaUploadInspector {
 		int bitrate = (content[2] >> 4) & 0x0F;
 		int sampleRate = (content[2] >> 2) & 0x03;
 		return version != 0x01 && layer != 0 && bitrate != 0 && bitrate != 0x0F && sampleRate != 0x03;
+	}
+	/** PDF spec permits the header before byte 1,024. No document contents are parsed here. */
+	static boolean hasPdfHeader(byte[] content) {
+		int last = Math.min(content.length - 5, 1019);
+		for (int offset = 0; offset <= last; offset++) if (hasText(content, offset, "%PDF-")) return true;
+		return false;
 	}
 	private static boolean hasText(byte[] content, int offset, String text) {
 		byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
