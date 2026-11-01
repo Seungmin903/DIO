@@ -16,10 +16,10 @@ function load({ dev = false, env = {}, store = {} } = {}) {
   return { ...module.exports, store }
 }
 
-test('개발자 모드 고르기는 개발 빌드 또는 EXPO_PUBLIC_DEV_ACCESS=true 일 때만 켜진다', () => {
+test('개발자 모드 고르기는 개발 빌드에서만 켜지고 빌드 환경 변수로는 켜지지 않는다', () => {
   assert.equal(load({ dev: true }).DEV_ACCESS, true)
   assert.equal(load({ dev: false }).DEV_ACCESS, false)
-  assert.equal(load({ dev: false, env: { EXPO_PUBLIC_DEV_ACCESS: 'true' } }).DEV_ACCESS, true)
+  assert.equal(load({ dev: false, env: { EXPO_PUBLIC_DEV_ACCESS: 'true' } }).DEV_ACCESS, false)
 })
 
 test('예전 예시 다이어리만 지우고 사용자가 만든 다이어리는 남긴다', async () => {

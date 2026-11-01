@@ -119,8 +119,8 @@ export default function App() {
   const clearSession = () => {
     const target = previewSession, current = sessionRef.current;
     if (!(current === target || (current?.accountId && current.accountId === target?.accountId))) return;
-    setPreviewSession(null);
-    if (target?.developer) setDeveloper(null); else startGuest(false);
+    // 개발자 모드는 세션을 비워 시작 화면으로, 일반 사용자는 세션을 비우지 않고 게스트 세션으로 바로 바꾼다(그사이 빈 화면이 없다)
+    if (target?.developer) { setPreviewSession(null); setDeveloper(null); } else startGuest(false);
   };
   const endSession = async () => {
     try {
