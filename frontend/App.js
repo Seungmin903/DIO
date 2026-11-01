@@ -94,7 +94,9 @@ export default function App() {
   // 개발자 모드 게스트는 로그인한 사용자처럼 다 열리고 받은 초대 목업이 들어 있다. 일반 사용자는 목업이 없다.
   const startGuest = async dev => {
     await clearMockLibrary().catch(() => {});
-    await startSession({ mode: 'preview', provider: 'guest', nickname: '방문자', ...(dev ? { developer: true } : {}) });
+    const session = { mode: 'preview', provider: 'guest', nickname: '방문자', ...(dev ? { developer: true } : {}) };
+    // 지난 프로필을 못 읽어도 빈 화면에 갇히지 않게 기본 게스트로 시작한다
+    try { await startSession(session); } catch { setPreviewSession(session); }
   };
   useEffect(() => { if (developer !== null) startGuest(developer); }, [developer]);
   const chooseStartMode = dev => {
@@ -119,7 +121,9 @@ export default function App() {
     } catch (error) { notify('로그아웃', `${error.message} 이 기기의 로그인 정보는 지웠어요.`); }
     finally { clearSession(); }
   };
-  const continueFromLogin = session => { setLoginRequest(null); startSession(session); };
+  // 로그인하면 게스트 보관함(LocalDiaryApp)이 회원 보관함(MemberDiaryApp)으로 통째로 바뀐다. 누른 기능(loginRequest.action)은
+  // 사라진 게스트 화면의 것이라 실행하지 않고, 게스트가 기기에 만든 다이어리는 회원 보관함으로 옮기지 않는다(기기에는 남는다).
+  const continueFromLogin = session => { setLoginRequest(null); startSession(session).catch(() => setPreviewSession(session)); };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();

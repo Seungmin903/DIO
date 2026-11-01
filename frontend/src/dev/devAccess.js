@@ -3,10 +3,12 @@
 // - 개발자 모드: 로그인한 사용자처럼 모든 기능이 열리고, 받은 초대 알림(목업)이 들어 있다.
 // - 일반 사용자: 로그인 전 게스트 그대로. 목업은 하나도 없다.
 // 보관함 예시 다이어리는 두 모드 모두 넣지 않는다(전에 넣어 둔 것은 지운다).
-// 빼는 법: DEV_ACCESS 를 false 로 두면 고르는 화면 없이 일반 사용자로 시작한다. 완전히 지우려면 이 폴더와 App.js 의 devAccess · StartModeScreen import · 쓰는 곳을 지운다.
+// 개발 빌드(__DEV__)에서만 켜진다. 출시 빌드는 고르는 화면 없이 일반 사용자로 시작하고, 개발자 모드로 로그인 안내를 건너뛸 수 없다.
+// 출시 빌드로 내부 확인이 필요하면 빌드할 때 EXPO_PUBLIC_DEV_ACCESS=true 를 준다.
+// 완전히 지우려면 이 폴더와 App.js 의 devAccess · StartModeScreen import · 쓰는 곳을 지운다.
 import { loadJSON, removeJSON, saveJSON, STORAGE_KEYS } from '../editor/services/storage'
 
-export const DEV_ACCESS = true
+export const DEV_ACCESS = (typeof __DEV__ !== 'undefined' && __DEV__) || process.env.EXPO_PUBLIC_DEV_ACCESS === 'true'
 
 // 전에 쓰던 '예시 다이어리를 한 번 넣었는지' 표시. 이제 쓰지 않으므로 지운다.
 const LEGACY_MOCK_SEEDED = 'dio:dev:mock-seeded:v1'
