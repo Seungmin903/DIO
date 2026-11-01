@@ -1,4 +1,11 @@
 -- Keep the former reusable daily templates for rollback and historical page records.
+CREATE TABLE page_template_v25_backups (
+    page_id UUID PRIMARY KEY,
+    previous_template_id BIGINT,
+    previous_template_config JSONB,
+    backed_up_at TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 DO $planner_templates$
 DECLARE
     seed RECORD;
@@ -34,6 +41,50 @@ BEGIN
     END LOOP;
 END
 $planner_templates$;
+
+-- Do not change a page when either its source template or its own canvas differs from the replacement.
+DO $planner_compatibility$
+BEGIN
+    IF EXISTS (
+        WITH replacements(old_code, new_code) AS (
+            VALUES
+                ('2026-reusable-daily-landscape', 'day-planner-landscape'),
+                ('2026-reusable-daily-portrait', 'day-planner-portrait')
+        )
+        SELECT 1
+        FROM pages page
+        JOIN page_templates source ON source.template_id = page.template_id
+        JOIN replacements replacement ON replacement.old_code = source.code
+        JOIN page_templates target ON target.code = replacement.new_code AND target.template_version = '1.0.0'
+        WHERE source.template_version = '1.0.0'
+          AND (source.canvas_width IS DISTINCT FROM target.canvas_width
+               OR source.canvas_height IS DISTINCT FROM target.canvas_height
+               OR source.orientation IS DISTINCT FROM target.orientation
+               OR page.canvas_width IS DISTINCT FROM target.canvas_width
+               OR page.canvas_height IS DISTINCT FROM target.canvas_height)
+    ) THEN
+        RAISE EXCEPTION 'Reusable daily page geometry does not match its day planner replacement';
+    END IF;
+END
+$planner_compatibility$;
+
+WITH replacements(old_code, new_code) AS (
+    VALUES
+        ('2026-reusable-daily-landscape', 'day-planner-landscape'),
+        ('2026-reusable-daily-portrait', 'day-planner-portrait')
+), targets AS (
+    SELECT replacement.old_code, target.template_id, target.code, target.template_version
+    FROM replacements replacement
+    JOIN page_templates target
+      ON target.code = replacement.new_code AND target.template_version = '1.0.0'
+)
+INSERT INTO page_template_v25_backups(page_id, previous_template_id, previous_template_config)
+SELECT page.page_id, page.template_id, page.template_config
+FROM pages page
+JOIN page_templates source ON source.template_id = page.template_id
+JOIN targets target ON target.old_code = source.code
+WHERE source.template_version = '1.0.0'
+ON CONFLICT (page_id) DO NOTHING;
 
 WITH replacements(old_code, new_code) AS (
     VALUES

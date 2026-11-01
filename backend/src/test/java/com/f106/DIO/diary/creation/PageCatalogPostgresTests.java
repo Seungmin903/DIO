@@ -118,6 +118,17 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,landscapeWithoutCode)).isEqualTo("day-planner-landscape");
         assertThat(jdbc.queryForObject("select template_config::text from pages where page_id=?",String.class,landscapeWithoutCode)).isEqualTo("{\"keep\": true}");
         assertThat(jdbc.queryForObject("select updated_at > timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,landscapeWithoutCode)).isTrue();
+        assertThat(jdbc.queryForObject("select count(*) from page_template_v25_backups",Long.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("select previous_template_config->>'templateCode' from page_template_v25_backups where page_id=?",String.class,landscapeWithCode)).isEqualTo("2026-reusable-daily-landscape");
+        assertThat(jdbc.queryForObject("select previous_template_config ? 'templateCode' from page_template_v25_backups where page_id=?",Boolean.class,landscapeWithoutCode)).isFalse();
+    }
+
+    @Test void V25RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() {
+        flyway("24").migrate();
+        jdbc.update("update page_templates set canvas_width=999 where code='2026-reusable-daily-landscape' and template_version='1.0.0'");
+        assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class);
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='25' and success",Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from page_templates where code='day-planner-landscape'",Long.class)).isZero();
     }
 
     private void insertPage(UUID diary,UUID page,String templateCode,String config,long version,int sortKey) {
