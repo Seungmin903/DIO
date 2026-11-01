@@ -8,7 +8,7 @@ const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url)
 function root(dev,mode,session=null,loginRequest=null,developer=false){
  let calls=0
  const states=[session,true,loginRequest,developer,false]
- const mod={exports:{}},mocks={react:{useState:()=>[states[calls++],()=>{}],useEffect(){},useCallback:f=>f},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',StyleSheet:{absoluteFill:{}}},'./src/dev/devAccess':{DEV_ACCESS:true,clearMockLibrary:async()=>{}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const mod={exports:{}},mocks={react:{useState:()=>[states[calls++],()=>{}],useEffect(){},useCallback:f=>f,useRef:current=>({current})},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',StyleSheet:{absoluteFill:{}}},'./src/dev/devAccess':{DEV_ACCESS:true,clearMockLibrary:async()=>{}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  new Function('require','module','exports','__DEV__','process',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,dev,{env:{EXPO_PUBLIC_DIARY_SOURCE:mode}})
  return mod.exports.default()
 }

@@ -113,9 +113,14 @@ export default function App() {
   // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
   // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아가고,
   // 개발자 모드에서 나가면 시작 화면에서 다시 고른다.
+  // 늦게 온 콜백(비밀번호 재설정 완료 등)이 그사이 바뀐 세션을 지우지 않게, 지금 세션이 지우려던 세션일 때만 끝낸다
+  const sessionRef = useRef(previewSession);
+  sessionRef.current = previewSession;
   const clearSession = () => {
-    setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current);
-    if (previewSession?.developer) setDeveloper(null); else startGuest(false);
+    const target = previewSession, current = sessionRef.current;
+    if (!(current === target || (current?.accountId && current.accountId === target?.accountId))) return;
+    setPreviewSession(null);
+    if (target?.developer) setDeveloper(null); else startGuest(false);
   };
   const endSession = async () => {
     try {
