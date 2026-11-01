@@ -18,6 +18,7 @@ function setup(user,onUpdatePreview,onClearSession){
   if(id==='../../auth/ProfileEditScreen')return PasswordForm;
   if(id==='../../auth/PasswordResetScreen')return PasswordForm;
   if(id==='../../auth/authService')return {authService:service};
+  if(id==='../../auth/loginGate')return {useLoginGate:()=>(_feature,action)=>action()};
   if(id==='../../handwriting/studioBus.js')return {openFontStudio(){}};
   if(id==='react/jsx-runtime')return require(id);
   return ()=>null;

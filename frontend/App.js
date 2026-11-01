@@ -13,6 +13,9 @@ import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEdit
 import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { guestProfile } from './src/auth/guestProfileDevice';
+import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
+import { DEV_ACCESS, clearMockLibrary } from './src/dev/devAccess';
+import StartModeScreen from './src/dev/StartModeScreen';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
@@ -52,6 +55,8 @@ import { randomUUID } from 'expo-crypto';
 import { createId, setUuidGenerator } from './src/editor/utils/common';
 import HandwritingStudio from './src/handwriting/HandwritingStudio';
 import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import BootSplash from './src/shared/BootSplash';
 import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
 
 // 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
@@ -63,25 +68,66 @@ const PREFETCH_DELAY_MS = 400;
 // 편집기 진입 전 준비를 기다리는 최대 시간. 보통은 이보다 훨씬 빨리 끝난다.
 const EDITOR_PREPARE_LIMIT_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// 시작 화면(로고)은 보관함이 다 그려질 때까지 둔다. 첫 렌더에 바로 내려가면 글꼴 · 게스트 · 보관함을 읽는 동안 빈 화면이 보인다.
+// 네이티브 시작 화면을 붙잡고, 같은 모양의 BootSplash 도 덮어 둔다(개발 빌드는 네이티브 쪽이 JS 실행 전에 내려간다).
+// 무엇이 실패해도 로고에 갇히지 않도록 SPLASH_LIMIT_MS 뒤에는 내린다.
+const SPLASH_LIMIT_MS = 8000;
+SplashScreen.preventAutoHideAsync().catch(() => {});
+const hideSplash = () => { SplashScreen.hideAsync().catch(() => {}); };
 
 export default function App() {
   // 앱 UI 글꼴(Pretendard)을 처음 그리기 전에 불러온다. 못 불러오면(fontError) 기본 글꼴로 그대로 연다
   const [fontsLoaded, fontError] = useFonts(PRETENDARD_FILES);
   const [previewSession, setPreviewSession] = useState(null);
   const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
+  const [booting, setBooting] = useState(true);
+  const finishBoot = useCallback(() => { setBooting(false); hideSplash(); }, []);
+  // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
+  const [loginRequest, setLoginRequest] = useState(null);
+  // 개발자 모드인지(src/dev/devAccess). null 이면 아직 고르지 않았다(시작 화면에서 고른다). DEV_ACCESS 가 꺼져 있으면 늘 일반 사용자다.
+  const [developer, setDeveloper] = useState(DEV_ACCESS ? null : false);
+  // 시작 화면에서 고른 뒤 보관함이 다 그려질 때까지 시작 화면을 그대로 덮어 둔다(로고 화면을 다시 띄우면 로고 자리가 바뀌며 깜박인다)
+  const [starting, setStarting] = useState(false);
+  // 게스트는 지난번에 고친 프로필(닉네임 · 한 줄 소개 · 사진)을 이어서 시작한다
+  const startSession = async session => setPreviewSession(session?.provider === 'guest' ? await guestProfile.start(session) : session);
+  // 로그인 화면 없이 게스트(방문자)로 시작한다. 로그인은 로그인이 필요한 기능을 누를 때만 묻는다(loginGate).
+  // 개발자 모드 게스트는 로그인한 사용자처럼 다 열리고 받은 초대 목업이 들어 있다. 일반 사용자는 목업이 없다.
+  const startGuest = async dev => {
+    await clearMockLibrary().catch(() => {});
+    await startSession({ mode: 'preview', provider: 'guest', nickname: '방문자', ...(dev ? { developer: true } : {}) });
+  };
+  useEffect(() => { if (developer !== null) startGuest(developer); }, [developer]);
+  const chooseStartMode = dev => {
+    if (starting) return;
+    setStarting(true);
+    setDeveloper(dev);
+    setTimeout(() => setStarting(false), SPLASH_LIMIT_MS);
+  };
+  const sessionReady = useCallback(() => { finishBoot(); setStarting(false); }, [finishBoot]);
+  // 시작 화면을 고르는 동안은 로고를 내린다
+  useEffect(() => { if ((fontsLoaded || fontError) && developer === null) finishBoot(); }, [fontsLoaded, fontError, developer, finishBoot]);
   // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
-  // 이 기기의 메모리 세션만 지운다.
-  const clearSession = () => setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current);
+  // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아가고,
+  // 개발자 모드에서 나가면 시작 화면에서 다시 고른다.
+  const clearSession = () => {
+    setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current);
+    if (previewSession?.developer) setDeveloper(null); else startGuest(false);
+  };
   const endSession = async () => {
     try {
       if (authenticatedSession) await authService.logout();
     } catch (error) { notify('로그아웃', `${error.message} 이 기기의 로그인 정보는 지웠어요.`); }
     finally { clearSession(); }
   };
+  const continueFromLogin = session => { setLoginRequest(null); startSession(session); };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
-  if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider} />;
+  useEffect(() => { const timer = setTimeout(finishBoot, SPLASH_LIMIT_MS); return () => clearTimeout(timer); }, [finishBoot]);
+  // 개발용 목업 화면(EXPO_PUBLIC_DIARY_SOURCE=mock*)은 보관함 로딩을 거치지 않으니 글꼴만 준비되면 내린다
+  useEffect(() => { if ((fontsLoaded || fontError) && __DEV__ && /^mock/.test(process.env.EXPO_PUBLIC_DIARY_SOURCE || '')) finishBoot(); }, [fontsLoaded, fontError, finishBoot]);
+  const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
+  if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider}><BootSplash /></SafeAreaProvider>;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-sharing') {
     const SharingFixture = require('./tests/fixtures/diary-sharing.fixture').default;
     return <SharingFixture />;
@@ -93,13 +139,16 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        authenticatedSession ? <MemberDiaryApp key={`authenticated:${authenticatedSession.userId}`} previewUser={authenticatedSession}
+        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession || !!previewSession.developer} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}` : 'preview'} previewUser={previewSession}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
-          onEndPreview={endSession} onClearSession={clearSession} /> : <AuthScreen onContinue={setPreviewSession} />
+          onEndPreview={endSession} onClearSession={clearSession} onReady={sessionReady} /></LoginGateProvider> : null
       )}
+      {/* 보관함의 앱 잠금 확인 덮개(zIndex 100)보다 위. 안드로이드는 감싸는 View 를 펼쳐 zIndex 가 같은 층에서 겨룬다 */}
+      {((developer === null && !previewSession) || starting) && <View style={[StyleSheet.absoluteFill, { zIndex: 200 }]}><StartModeScreen onChoose={chooseStartMode} /></View>}
+      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
       <HandwritingStudio />
-
+      {booting && <BootSplash />}
     </SafeAreaProvider>
   );
 }
@@ -122,7 +171,7 @@ function DiaryApp(props) {
 }
 const DESK_ON_PHONE = false;
 
-function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, diaryState, sharing }) {
+function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, onReady, diaryState, sharing }) {
   const member = diaryState.source === 'member-api';
   const invitationLeaveGuard = useRef(null);
   const registerInvitationLeaveGuard = useCallback(guard => { invitationLeaveGuard.current = guard; return () => { if (invitationLeaveGuard.current === guard) invitationLeaveGuard.current = null; }; }, []);
@@ -165,11 +214,17 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     onConfirm: async () => { await clearAppLock(lockScope).catch(() => {}); onEndPreview(); },
   }) : undefined;
   const [sharingRequest, setSharingRequest] = useState(null);
+  // 공유는 로그인한 사용자(개발자 모드 포함)만 쓴다. 게스트는 편집 화면에 함께하는 사람을 띄우지 않고, 공유를 누르면 로그인 안내부터 본다.
+  const signedIn = previewUser.mode === 'authenticated' || !!previewUser.developer;
+  const loginGate = useLoginGate();
+  const shareDiary = useCallback(diary => { if (diary) loginGate('다이어리 공유', () => setSharingRequest({ diary })); }, [loginGate]);
   const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
   const openInvitations = useCallback(() => {
     const open = () => setSharingRequest({ mode: previewUser.mode === 'authenticated' ? 'notifications' : 'invitations' });
-    if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open();
-  }, [previewUser.mode]);
+    const go = () => { if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open(); };
+    // 게스트는 초대를 받을 계정이 없다: 공유 버튼처럼 로그인 안내부터 띄운다
+    loginGate('받은 초대', go);
+  }, [previewUser.mode, loginGate]);
   const insets = useSafeAreaInsets();
   // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -234,10 +289,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const [trashing, setTrashing] = useState(false);
   const trashingRef = useRef(false);
   const [active, setActive] = useState(null);
-  useEffect(() => { if (active?.id && !member && !sharing.runtime.server) sharing.runtime.registerDiary(active); }, [active, sharing.runtime, member]);
+  useEffect(() => { if (signedIn && active?.id && !member && !sharing.runtime.server) sharing.runtime.registerDiary(active); }, [signedIn, active, sharing.runtime, member]);
   const sharedLibraryRef = useRef(sharing.library);
   sharedLibraryRef.current = sharing.library;
-  const sharingMembers = sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members || [];
+  const sharingMembers = (signedIn && sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members) || [];
   // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.
   const [tabIds, setTabIds] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -609,6 +664,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const prefetchKey = prefetchTargets.map((diary) => diary.id).join(',');
   const prefetchRef = useRef(prefetchTargets);
   prefetchRef.current = prefetchTargets;
+  useEffect(() => { if (loaded) onReady?.(); }, [loaded, onReady]);
   useEffect(() => {
     if (!loaded || page !== 'library') return undefined;
     let cancelled = false;
@@ -738,7 +794,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         onToggleOrientation={isPhone && CAN_LOCK_ORIENTATION ? () => setEditorOrientation(isLandscape ? 'portrait' : 'landscape') : undefined}
         onHome={returnToLibrary}
         registerInvitationLeaveGuard={registerInvitationLeaveGuard}
-        onOpenSharing={() => setSharingRequest({ diary: active })}
+        onOpenSharing={() => shareDiary(active)}
         readOnly={member && active?.permissions?.canEditCanvas !== true}
         invitationCount={unreadInvites}
         sharingMembers={sharingMembers}

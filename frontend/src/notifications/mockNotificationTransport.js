@@ -11,7 +11,8 @@ function wait(ms, signal) {
   });
 }
 // 개발용 메모리 서버. 저장소/인증/로컬 다이어리와 접촉하지 않는다.
-export function createMockNotificationTransport({ account = 'A', delay = 500, pageSize = 2 } = {}) {
+// seed: 처음부터 받은 초대 4건(대기 · 만료 · 취소 · 대기)을 넣어 둘지. 끄면 빈 알림함으로 시작한다.
+export function createMockNotificationTransport({ account = 'A', delay = 500, pageSize = 2, seed = true } = {}) {
   let serial = 0;
   const rows = [], invitations = new Map(), modes = new Map();
   const add = (status = 'PENDING') => {
@@ -22,7 +23,7 @@ export function createMockNotificationTransport({ account = 'A', delay = 500, pa
       invitation: { inviteId, status }, action: { enabled: status === 'PENDING' }, readAt: null, createdAt: new Date().toISOString() });
     return notificationId;
   };
-  ['PENDING', 'EXPIRED', 'REVOKED', 'PENDING'].forEach(add);
+  if (seed) ['PENDING', 'EXPIRED', 'REVOKED', 'PENDING'].forEach(add);
   const project = row => { if (!row.invitation) return row; const status = invitations.get(row.invitation.inviteId)?.status || 'UNAVAILABLE';
     return { ...row, invitation: { ...row.invitation, status }, action: { enabled: status === 'PENDING' } }; };
   const fail = () => { throw new NotificationError('TEMPORARILY_UNAVAILABLE', '알림 요청을 처리하지 못했어요. 다시 시도해 주세요.', 503); };

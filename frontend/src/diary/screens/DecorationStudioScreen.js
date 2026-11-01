@@ -24,6 +24,7 @@ import StickerCutoutModal from '../../editor/components/panels/StickerCutoutModa
 import StickerThumbImage from '../../editor/components/controls/StickerThumbImage';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import DecorSaveNotice from '../../editor/components/panels/DecorSaveNotice';
+import { useLoginGate } from '../../auth/loginGate';
 
 const STICKER_REMOVE_MESSAGE = '편집기 스티커 보관함에서도 사라져요. 다이어리에 이미 붙인 내용은 유지돼요.';
 
@@ -43,6 +44,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const library = useMyLibrary();
   const paperStyle = useDefaultPaperStyle();
   const studio = useSyncExternalStore(subscribeStudio, studioSnapshot, studioSnapshot);
+  const loginGate = useLoginGate();
   const [fonts, setFonts] = useState([]), [fontState, setFontState] = useState('loading');
   const [tool, setTool] = useState(null), [folderId, setFolderId] = useState(null);
   const [question, setQuestion] = useState(null), [shelfError, setShelfError] = useState(null);
@@ -87,7 +89,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
 
   // 폰트 관리는 '내 폰트 만들기'와 같은 손글씨 공방을 열어 따로 두지 않는다
   const fontSection = <StudioSection fill={fontState === 'ready' && !fonts.length} title="폰트" count={fontState === 'ready' ? count(fonts) : null}
-    right={<StudioTool icon="text" title="내 폰트 만들기" description="손글씨를 나만의 글꼴로" variant="filled" onPress={() => openFontStudio()} />}>
+    right={<StudioTool icon="text" title="내 폰트 만들기" description="손글씨를 나만의 글꼴로" variant="filled" onPress={() => loginGate('내 폰트 만들기', () => openFontStudio())} />}>
     {fontState === 'loading' ? <Text style={s.empty}>폰트를 불러오고 있어요.</Text>
       : fontState === 'error' ? <View accessibilityRole="alert" style={s.alert}><Text style={s.empty}>폰트 목록을 불러오지 못했어요.</Text><DioButton variant="tonal" label="폰트 목록 다시 불러오기" onPress={refreshFonts} /></View>
       : !fonts.length ? <EmptyState compact={compact} art="duri" raised title="아직 만든 폰트가 없어요" />
@@ -106,8 +108,8 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       <DioButton variant="ghost" icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => setFolderId(null)} />
       <DioButton variant="icon" icon="trash" label="스티커 폴더 삭제" onPress={() => setQuestion({ folder })} />
     </> : <>
-      <StudioTool icon="scissors" title="사진 속 대상 오리기" description="사진 속 원하는 대상만" variant="filled" onPress={() => setTool('cutout')} />
-      <StudioTool icon="grid" title="스티커 시트 분리" description="시트 속 그림을 개별 스티커로" variant="tonal" onPress={() => setTool('split')}
+      <StudioTool icon="scissors" title="사진 속 대상 오리기" description="사진 속 원하는 대상만" variant="filled" onPress={() => loginGate('사진 속 대상 오리기', () => setTool('cutout'))} />
+      <StudioTool icon="grid" title="스티커 시트 분리" description="시트 속 그림을 개별 스티커로" variant="tonal" onPress={() => loginGate('스티커 시트 분리', () => setTool('split'))}
         disabled={!custom.loaded || !stickerSplit.available} state={!stickerSplit.available ? '준비 중' : null} />
     </>}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
@@ -129,7 +131,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
             <View style={s.folderText}><Text numberOfLines={1} style={s.itemTitle}>{item.name}</Text><Text style={s.folderCount}>{item.items.length}개 스티커</Text></View>
           </Pressable>)}
           {/* 마지막 칸은 늘 '+': 사진에서 오려 새 스티커를 만든다 */}
-          <Pressable accessibilityRole="button" accessibilityLabel="새 스티커 만들기" onPress={() => setTool('cutout')}
+          <Pressable accessibilityRole="button" accessibilityLabel="새 스티커 만들기" onPress={() => loginGate('사진 속 대상 오리기', () => setTool('cutout'))}
             style={[s.folderTile, s.addTile, compact && s.folderTileCompact]}>
             <AppIcon name="add" size={24} color={colors.primaryText} />
           </Pressable>

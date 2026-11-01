@@ -28,7 +28,7 @@ const server = http.createServer((req, res) => {
       const page = await context.newPage(), errors = [];
       page.setDefaultTimeout(20000); page.on('pageerror', error => errors.push(error.message));
       const button = name => page.getByRole('button', { name, exact: true });
-      const enter = async () => { await button('게스트로 시작하기').click(); await button('테이프 확인 열기').click(); await button('다이어리 홈').waitFor(); };
+      const enter = async () => { await button('개발자 모드로 시작').click(); await button('테이프 확인 열기').click(); await button('다이어리 홈').waitFor(); };
       const tape = () => button('마스킹테이프').click();
       const selected = async label => { const locator = page.getByLabel(label, { exact: true }); await locator.waitFor(); await page.waitForFunction(({ label, width }) => { const node = document.querySelector(`[aria-label="${label}"]`); return node && getComputedStyle(node).borderTopWidth === width; }, { label, width: label.startsWith('테이프 색') ? '3px' : '2px' }); };
       await page.goto(`http://127.0.0.1:${server.address().port}`); await enter(); await tape();

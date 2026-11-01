@@ -18,7 +18,7 @@ const server = http.createServer((req,res) => {
     await context.addInitScript(({keys,diary,doc})=>{localStorage.setItem(keys.diaries,JSON.stringify([diary]));localStorage.setItem(keys.doc+':'+diary.id,JSON.stringify(doc))},{keys:STORAGE_KEYS,diary,doc:createDefaultDoc(diary)});
     const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
     await page.goto(`http://127.0.0.1:${server.address().port}`);
-    await page.getByRole('button',{name:'게스트로 시작하기',exact:true}).click();
+    await page.getByRole('button',{name:'개발자 모드로 시작',exact:true}).click();
     await page.getByRole('button',{name:'여백 확인 열기',exact:true}).click();
     await page.getByRole('button',{name:'텍스트',exact:true}).click();
     const closeSettings=page.getByLabel('텍스트 설정 닫기',{exact:true});

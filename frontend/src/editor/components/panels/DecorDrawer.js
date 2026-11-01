@@ -25,6 +25,7 @@ import StickerSplitModal from './StickerSplitModal'
 import StickerCutoutModal from './StickerCutoutModal'
 import DecorSaveNotice from './DecorSaveNotice'
 import { stickerSplit } from '../../services/stickerSplit'
+import { useLoginGate } from '../../../auth/loginGate'
 
 export const DRAWER_TABS = [
   { id: 'sticker', name: '스티커', icon: 'sticker' },
@@ -55,6 +56,7 @@ const ColumnsContext = createContext(4)
 export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, onToast, onClose, onPanelWidth }) {
   const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]
   const custom = useCustomDecor()
+  const loginGate = useLoginGate()
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')
   // 보관함을 닫거나 앱을 다시 열어도 마지막 스티커 칩을 복원한다.
@@ -329,8 +331,8 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
                   key={folder.id}
                   folder={folder}
                   busy={busy || !custom.loaded}
-                  onSplit={() => setSplitTarget({ folder, name: '' })}
-                  onCutout={() => setCutoutFolder(folder)}
+                  onSplit={() => loginGate('스티커 시트 분리', () => setSplitTarget({ folder, name: '' }))}
+                  onCutout={() => loginGate('사진 속 대상 오리기', () => setCutoutFolder(folder))}
                   splitAvailable={stickerSplit.available}
                   splitReason={stickerSplit.reason}
                   tileProps={tileProps}

@@ -26,6 +26,7 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
     '../../hooks/useCustomDecor': { RECENT_LIMIT: 8, stickerKey: item => item.id, useCustomDecor: () => ({ loaded: true, lastStickerCategory: saveStatus.items?.lastStickerCategory ?? null, items: { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [] }, ...saveStatus }) },
     '../../hooks/useTapePreferences': { useTapePreferences: () => [store.getSnapshot(), store.update, ready] },
     '../../services/stickerSplit': { stickerSplit: { available: false } },
+    '../../../auth/loginGate': { useLoginGate: () => (_feature, action) => action() }, // 로그인한 사용자: 그대로 통과
     '../../stickerAssets': { STICKER_GROUPS: [{ id: 'twemoji', items: [] }] },
     '../../hooks/usePan': { usePan: () => ({}) },
     '../ToolPanel': { toolPanelStyles: {}, ToolPanelHeader: 'header' },
