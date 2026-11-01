@@ -5,7 +5,7 @@ import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Platform, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
 import PinScreen from './src/diary/components/PinScreen';
-import { appLockScope, checkAppLock, clearAppLock, hasAppLock } from './src/shared/appLock';
+import { appLockGraceOver, appLockScope, checkAppLock, clearAppLock, hasAppLock } from './src/shared/appLock';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
@@ -52,6 +52,7 @@ import { createId, setUuidGenerator } from './src/editor/utils/common';
 import HandwritingStudio from './src/handwriting/HandwritingStudio';
 import { useFonts } from 'expo-font';
 import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
+import ActionToast, { ACTION_TOAST_MS } from './src/shared/ActionToast';
 
 // 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
 if (Platform.OS !== 'web') setUuidGenerator(randomUUID);
@@ -142,17 +143,18 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     };
   }, []);
   const authenticatedNotifications = useOptionalSharedNotifications();
-  // 앱 잠금(내 공간 → 보안): 이 계정에 잠금이 있으면 세션을 열 때와 백그라운드에서 돌아올 때 비밀번호 화면으로 덮는다(null = 읽는 중)
+  // 앱 잠금(내 공간 → 보안): 이 계정에 잠금이 있으면 세션을 열 때와 백그라운드에서 1분 넘게 있다 돌아올 때 비밀번호 화면으로 덮는다(null = 읽는 중)
   const lockScope = appLockScope(previewUser);
   const [appLocked, setAppLocked] = useState(null);
   useEffect(() => {
-    let alive = true, away = false;
+    let alive = true, awayAt = null;
     hasAppLock(lockScope).then(value => { if (alive) setAppLocked(value); }).catch(() => { if (alive) setAppLocked(false); });
     const subscription = AppState.addEventListener('change', state => {
-      if (state === 'background') away = true;
-      else if (state === 'active' && away) {
-        away = false;
-        hasAppLock(lockScope).then(value => { if (alive && value) setAppLocked(true); }).catch(() => {});
+      if (state === 'background') awayAt ??= Date.now();
+      else if (state === 'active' && awayAt != null) {
+        const over = appLockGraceOver(awayAt);
+        awayAt = null;
+        if (over) hasAppLock(lockScope).then(value => { if (alive && value) setAppLocked(true); }).catch(() => {});
       }
     });
     return () => { alive = false; subscription.remove(); };
@@ -696,12 +698,14 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         }
         if (failed) notify('복원하지 못한 다이어리가 있어요', `${failed}개를 복원하지 못했어요. 보관 기한이 지났거나 영구 삭제 중일 수 있어요.`);
       }}
-      onDeleteMany={(items) => {
+      // 확인창에서 취소하면 고른 것을 그대로 두고, 지우기로 하면 선택을 끝낸다
+      onDeleteMany={(items, onConfirmed) => {
         confirmAction({
           title: '영구 삭제할까요?',
           message: member ? `선택한 ${items.length}개의 다이어리와 페이지는 복구할 수 없어요. 보관함의 공용 미디어 원본은 유지돼요.` : `선택한 ${items.length}개의 페이지와 로컬 기록은 복구할 수 없어요.`,
           confirmLabel: '영구 삭제',
           onConfirm: async () => {
+            onConfirmed?.();
             let failed = 0;
             for (const item of items) {
               try { if (!await deletePermanently(item.id)) failed += 1; } catch { failed += 1; }
@@ -764,6 +768,33 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
 
+  // 새 다이어리를 만든 뒤 나의 표지 · 속지 저장만 실패하면, 작업대가 닫힌 뒤(편집기로 들어간 뒤) 알약으로 알리고 다시 시도하게 한다.
+  // 다시 시도해 성공하면 완료 알약을 2초 띄운다.
+  const [libraryNotice, setLibraryNotice] = useState(null);
+  const libraryTarget = kinds => kinds.length > 1 ? '표지와 속지를 나의 표지 · 속지에' : kinds[0] === 'cover' ? '표지를 나의 표지에' : '속지를 나의 속지에';
+  const showLibraryFailure = ({ kinds, retry }) => setLibraryNotice({ key: createId(), kinds, retry, busy: false });
+  const retryLibrarySave = async () => {
+    const notice = libraryNotice;
+    if (!notice?.retry || notice.busy) return;
+    setLibraryNotice({ ...notice, busy: true });
+    // retry(kinds) 는 그중 또 실패한 것만 돌려준다
+    const left = await notice.retry(notice.kinds).catch(() => notice.kinds);
+    setLibraryNotice(left.length
+      ? { key: createId(), kinds: left, retry: notice.retry, busy: false }
+      : { key: createId(), done: libraryTarget(notice.kinds) });
+  };
+  useEffect(() => {
+    if (!libraryNotice || libraryNotice.busy) return undefined;
+    const timer = setTimeout(() => setLibraryNotice(null), libraryNotice.done ? 2000 : ACTION_TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [libraryNotice]);
+  const libraryToast = libraryNotice && (
+    <ActionToast key={libraryNotice.key} compact={isPhone}
+      bottom={(page === 'editor' ? 112 : isPhone ? 76 : 96) + insets.bottom}
+      message={libraryNotice.done ? `${libraryNotice.done} 추가했어요.` : `${libraryTarget(libraryNotice.kinds)} 추가하지 못했어요.`}
+      actionLabel={libraryNotice.done ? undefined : '다시 시도'} busy={libraryNotice.busy} onAction={retryLibrarySave} />
+  );
+
   const createModal = createOpen && (
     <DiaryCreateModal
       key={editingDiaryId ?? 'new'}
@@ -773,6 +804,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       diary={editingDiaryId ? diaries.find(item => item.id === editingDiaryId) : null}
       saving={saving}
       onSubmit={save}
+      onLibrarySaveFailed={showLibraryFailure}
       onCancel={() => { if (savingRef.current) return; setCreateOpen(false); setEditingDiaryId(null); }}
     />
   );
@@ -863,6 +895,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           {insets.right > 0 && <View style={{ width: insets.right, backgroundColor: safeAreaColors.right }} />}
         </View>
       </View>
+      {libraryToast}
       {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.white }]} />}
       {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
         check={value => checkAppLock(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}

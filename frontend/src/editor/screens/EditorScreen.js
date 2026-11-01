@@ -104,6 +104,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const qaHistoryExecutions = useRef(0)
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
+  // 앨범을 고르는 동안 동기화로 바뀐 내용을 덮지 않게, await 뒤에는 이 최신 페이지를 읽는다
+  const pageNow = useRef(page)
+  pageNow.current = page
   useMemberPagePosition({ diary, pageId: page.id, loaded })
   const textSync = useMemberCanvasCollaboration({ diary, page, state, loaded, readOnly: permissionReadOnly, dispatch })
   const localUndo=state.past.length>0&&!state.collaborationPast?.at(-1)?.hasCanvas
@@ -557,14 +560,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       if (!empty.length) return
       const images = await pickImages()
       if (!images.length) return
-      const latest = page.objects.find((o) => o.id === id)
+      const latest = pageNow.current.objects.find((o) => o.id === id)
       if (!latest?.cells) return
       const cells = [...latest.cells]
-      empty.slice(0, images.length).forEach((index, i) => {
+      const stillEmpty = empty.filter((index) => !cells[index])
+      stillEmpty.slice(0, images.length).forEach((index, i) => {
         cells[index] = photoCell({ ...images[i], imageWidth: images[i].width, imageHeight: images[i].height })
       })
       dispatch({ type: 'updateObject', id, record: true, patch: { cells } })
-      showToast(images.length > empty.length ? `빈 칸 ${empty.length}개를 채웠어요. 나머지 ${images.length - empty.length}장은 넣지 않았어요.` : `사진 ${images.length}장을 넣었어요.`)
+      showToast(images.length > stillEmpty.length ? `빈 칸 ${stillEmpty.length}개를 채웠어요. 나머지 ${images.length - stillEmpty.length}장은 넣지 않았어요.` : `사진 ${images.length}장을 넣었어요.`)
     } catch (error) {
       showToast(mediaFailureMessage(error), () => fillCells(id))
     }
@@ -585,7 +589,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       setImportFailure(null)
       const [image] = await pickImages({ multiple: false })
       if (!image) return
-      const target = page.objects.find((o) => o.id === id)
+      const target = pageNow.current.objects.find((o) => o.id === id)
       if (!target?.cells) return
       const cell = photoCell({ ...image, imageWidth: image.width, imageHeight: image.height })
       dispatch({ type: 'updateObject', id, record: true, patch: { cells: target.cells.map((c, i) => (i === index ? cell : c)) } })
@@ -772,8 +776,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     // 폰은 레이어를 작업창 위에 띄우므로 작업창 크기가 그대로다.
     if (compact) return
     const delta = LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING
-    const pagesDelta = closePages ? PAGE_LIST_WIDTH + BODY_GAP : 0
-    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) + pagesDelta })
+    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) })
   }
 
   // 리본(태블릿)과 폰 도구 막대가 함께 쓰는 도구·보관함·내보내기 동작
@@ -842,8 +845,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     // (측정값을 기다리면 페이지가 왼쪽 끝을 따라 한 번 밀렸다가 다시 가운데로 와서 두 번 움직였다)
     // 폰은 페이지 목록을 작업창 위에 띄우므로 작업창 크기가 그대로다.
     const delta = compact ? 0 : PAGE_LIST_WIDTH + BODY_GAP
-    const layersDelta = !compact && closeLayers ? LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING : 0
-    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) + layersDelta })
+    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) })
   }
   const switchLayers = () => {
     setFocusMode(false)

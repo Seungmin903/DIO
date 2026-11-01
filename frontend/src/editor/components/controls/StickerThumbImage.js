@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { Image } from 'expo-image'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
@@ -66,12 +66,19 @@ function ImageThumb({ item, style }) {
     const timer = setTimeout(() => { setAttempt(value => value + 1); mediaService.resolveDisplay(id).catch(() => {}) }, 500 * (attempt + 1))
     return () => clearTimeout(timer)
   }, [failed, attempt, id])
+  // 그리기 실패 재시도 타이머는 칸이 사라지면 함께 멈춘다
+  const drawRetry = useRef(null)
+  useEffect(() => () => clearTimeout(drawRetry.current), [])
   const source = stickerSource(item, true, uri)
   if (!source || failed && attempt >= RETRIES) {
     return item.emoji ? <Text style={styles.emoji}>{item.emoji}</Text> : <View style={[styles.placeholder, style]} />
   }
   return <Image key={attempt} source={source} style={style} contentFit="contain" cachePolicy="memory-disk" transition={0} recyclingKey={String(item.asset ?? id ?? item.src)}
-    onError={() => { if (attempt < RETRIES) setTimeout(() => setAttempt(value => value + 1), 400 * (attempt + 1)); else if (id) reportMediaDisplayError(item) }} />
+    onError={() => {
+      // 보관소 읽기 실패는 위 effect 가 다시 시도하므로 여기서 한 번 더 올리지 않는다
+      if (failed) return
+      if (attempt < RETRIES) { clearTimeout(drawRetry.current); drawRetry.current = setTimeout(() => setAttempt(value => value + 1), 400 * (attempt + 1)) } else if (id) reportMediaDisplayError(item)
+    }} />
 }
 
 const styles = StyleSheet.create({

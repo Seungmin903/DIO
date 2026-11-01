@@ -80,13 +80,18 @@ function NativePageTurn({ page, from, zoom, width, height, dir, lift = 0, progre
   }, [w, h, lift])
   // 상자 위치·각도·페이지 위치는 전부 progress 하나에서 파생시킨다. (값을 따로 setValue 하면 서로 다른 때에 반영돼 앞면이 밀렸다)
   // 표본을 촘촘히 잡아 직선 보간 오차를 1px 아래로 줄인다.
-  const input = rows.map((row) => row.p)
-  const track = (key, format = (value) => value) => progress.interpolate({ inputRange: input, outputRange: rows.map((row) => format(row[key])), extrapolate: 'clamp' })
-  const deg = (value) => `${value}deg`
-  const alpha = track('deg', deg), unAlpha = track('deg', (value) => deg(-value))
-  const boxLeft = track('boxLeft'), boxTop = track('boxTop'), revealBoxLeft = track('revealBoxLeft'), revealBoxTop = track('revealBoxTop'), revealLeft = track('revealLeft'), revealTop = track('revealTop')
-  const flapLeft = track('flapLeft'), flapTop = track('flapTop'), castLeft = track('castLeft'), castTop = track('castTop')
-  const castFade = progress.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 0.9, 0], extrapolate: 'clamp' })
+  // 넘기는 도중 다시 그려져도 보간 노드를 새로 만들지 않는다 (표본 241칸 × 12개)
+  const { alpha, unAlpha, boxLeft, boxTop, revealBoxLeft, revealBoxTop, revealLeft, revealTop, flapLeft, flapTop, castLeft, castTop, castFade } = useMemo(() => {
+    const input = rows.map((row) => row.p)
+    const track = (key, format = (value) => value) => progress.interpolate({ inputRange: input, outputRange: rows.map((row) => format(row[key])), extrapolate: 'clamp' })
+    const deg = (value) => `${value}deg`
+    return {
+      alpha: track('deg', deg), unAlpha: track('deg', (value) => deg(-value)),
+      boxLeft: track('boxLeft'), boxTop: track('boxTop'), revealBoxLeft: track('revealBoxLeft'), revealBoxTop: track('revealBoxTop'), revealLeft: track('revealLeft'), revealTop: track('revealTop'),
+      flapLeft: track('flapLeft'), flapTop: track('flapTop'), castLeft: track('castLeft'), castTop: track('castTop'),
+      castFade: progress.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 0.9, 0], extrapolate: 'clamp' }),
+    }
+  }, [progress, rows])
   const sx = dir > 0 ? 1 : -1 // 이전 페이지는 전체를 좌우로 뒤집어 계산하므로 페이지 그림은 한 번 더 뒤집어 바로 세운다
   const flapBand = Math.hypot(w, h) * 0.1
   // 위치는 left/top 이 아니라 translate 로 옮긴다: 레이아웃을 건드리지 않아 네이티브 드라이버로 UI 스레드에서

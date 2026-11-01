@@ -12,6 +12,8 @@ function usePageUri(page) {
   const id = mediaId(page)
   const [uri, setUri] = useState(() => mediaUri(page))
   useEffect(() => {
+    // 다른 쪽으로 바뀌면 이전 쪽 그림을 남기지 않는다
+    setUri(mediaUri(page))
     if (!id) return undefined
     let live = true
     const release = mediaRegistry.retain(id)

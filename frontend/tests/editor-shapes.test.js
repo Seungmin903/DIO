@@ -14,7 +14,9 @@ test('70종 이상 고유 도형을 실제 경로와 6개 분류로 제공한다
   assert.equal(new Set(EDITOR_SHAPES.map(s=>s.id)).size, EDITOR_SHAPES.length)
   assert.equal(new Set(EDITOR_SHAPES.map(s=>s.label)).size, EDITOR_SHAPES.length)
   for (const item of EDITOR_SHAPES) {
-    assert.ok(SHAPE_CATEGORIES.some(c=>c.id===item.category))
+    // 메모 위젯 종이(art)는 고르기 목록 밖이라 분류 탭이 없다
+    if (item.art) assert.equal(item.category, 'memo')
+    else assert.ok(SHAPE_CATEGORIES.some(c=>c.id===item.category))
     assert.match(item.path,/^M/)
     assert.ok(!/NaN|undefined|Infinity/.test(item.path))
     const object=createShape({shape:item.id},{x:500,y:300})

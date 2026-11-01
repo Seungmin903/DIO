@@ -444,7 +444,7 @@ function LibraryScreen({
     <View style={s.libraryRoot}>
     {isGrid ? <>
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
-      <ScrollView {...grid?.scroll} contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact]} showsVerticalScrollIndicator={false}>{body}</ScrollView>
+      <ScrollView {...grid?.scroll} contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact, canCreate && (compact ? s.libraryGridScrollFabCompact : s.libraryGridScrollFab)]} showsVerticalScrollIndicator={false}>{body}</ScrollView>
     </> : displayView === 'open' ? <>
       {/* 펼쳐서 보기는 스크롤 없이 남은 화면 전체를 책상으로 쓴다(스크롤 안에서는 최소 높이만 받아 책이 작아졌다) */}
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>

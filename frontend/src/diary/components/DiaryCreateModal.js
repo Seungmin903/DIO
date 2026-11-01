@@ -46,7 +46,7 @@ function CoverFrame({ cover, name, width, height, edit }) {
  * sheet: 폰에서는 아래에서 올라오는 시트로 띄운다.
  */
 export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, bottomInset = 0,
-  visible = true, blankOnly = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey }) {
+  visible = true, blankOnly = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey, onLibrarySaveFailed }) {
   const editing = Boolean(diary);
   // 세로 화면은 폰이 아니어도 구역 카드를 위에, 옵션을 아래에 쌓는다
   const window = useWindowDimensions();
@@ -77,6 +77,8 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [pdf, setPdf] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(null);
+  // PDF 를 바꾸는 동안에는 표지 · 제목 · 보관함을 잠근다: 끝난 뒤 시작 시점의 표지로 덮어쓰지 않게
+  const editLocked = formLocked || pdfBusy;
   const [firstAsCover, setFirstAsCover] = useState(true);
   const [coverAlsoPaper, setCoverAlsoPaper] = useState(false);
   const [addToMyCovers, setAddToMyCovers] = useState(false);
@@ -146,7 +148,8 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const submitted = useRef(false);
   const unsaved = useRef(null);
   unsaved.current = pdf ?? null;
-  useEffect(() => () => { if (!submitted.current && unsaved.current) discardPdfImport(unsaved.current).catch(() => {}); }, []);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; if (!submitted.current && unsaved.current) discardPdfImport(unsaved.current).catch(() => {}); }, []);
 
   // 첫 쪽을 표지 바탕으로 쓰고 끈다. 끄면 쓰기 전의 바탕으로 되돌린다.
   const applyPdfCover = (on, page, base = cover) => {
@@ -168,6 +171,8 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     try {
       const result = await pickPdfPages({ onProgress: (done, total) => setPdfProgress({ done, total }) });
       if (!result?.pages.length) return;
+      // 바꾸는 동안 화면이 닫혔으면 아무 데도 쓰이지 않으니 바로 지운다
+      if (!mounted.current) { discardPdfImport(result).catch(() => {}); return; }
       const previous = pdf;
       // 새 PDF 의 첫 쪽으로 표지를 다시 만들 수 있게 이전 PDF 표지를 먼저 되돌린다
       const base = coverBackup.current ? restoreCoverBase(cover, coverBackup.current) : cover;
@@ -176,6 +181,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       if (firstAsCover) applyPdfCover(true, result.pages[0], base); else setCover(base);
       if (previous) discardPdfImport(previous).catch(() => {});
     } catch (failure) {
+      if (!mounted.current) return;
       setNotice(failure instanceof PdfImportError ? failure.message : mediaFailureMessage(failure));
     } finally { setPdfBusy(false); setPdfProgress(null); }
   };
@@ -205,9 +211,21 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         pageSize: orientation, templateConfig, paperAppearance, appearanceScope: editing ? scope : 'all', importedPages: usingPdf ? pdfPapers : undefined });
       if (failure) { submitted.current = false; setError(failure); }
       else if (!editing) {
-        // 만든 뒤에 보관함에 남긴다. 보관함 저장이 실패해도 다이어리는 이미 만들어졌다.
-        if (pdf && addToMyCovers) await library.addCover({ name: pdf.name, orientation, cover: coverForLibrary(cover) });
-        if (usingPdf && addToMyPapers && !myPaper) await library.addPaper({ name: pdf.name, orientation, pages: pdfPapers });
+        // 만든 뒤에 보관함에 남긴다. 보관함 저장이 실패해도 다이어리는 이미 만들어졌으니, 창이 닫힌 뒤 알약으로 알리고 다시 시도하게 넘긴다.
+        const entries = {
+          ...(pdf && addToMyCovers && { cover: { name: pdf.name, orientation, cover: coverForLibrary(cover) } }),
+          ...(usingPdf && addToMyPapers && !myPaper && { paper: { name: pdf.name, orientation, pages: pdfPapers } }),
+        };
+        const saveToLibrary = async kinds => {
+          const left = [];
+          for (const kind of kinds) {
+            const ok = await (kind === 'cover' ? library.addCover(entries.cover) : library.addPaper(entries.paper)).catch(() => false);
+            if (!ok) left.push(kind);
+          }
+          return left;
+        };
+        const left = await saveToLibrary(Object.keys(entries));
+        if (left.length) onLibrarySaveFailed?.({ kinds: left, retry: saveToLibrary });
       }
     } catch {
       submitted.current = false;
@@ -239,7 +257,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       const size = fit(coverRatio, wide, maxHeight);
       preview = <>
         <CoverFrame cover={cover} name={title} width={size.width} height={size.height}
-          edit={formLocked ? null : { onChange: changeCover, onSelectSticker: id => { if (id && id !== 'title') setOpenElement('stickers'); } }} />
+          edit={editLocked ? null : { onChange: changeCover, onSelectSticker: id => { if (id && id !== 'title') setOpenElement('stickers'); } }} />
       </>;
     } else if (section === 'paper' && usingPdf) {
       const stripCount = Math.min(pdfPapers.length, stacked ? 6 : 8);
@@ -288,7 +306,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   let panel;
   if (section === 'basic') panel = <View>
     <OptionRow label="이름">
-      <TextInput accessibilityLabel="다이어리 이름" editable={!formLocked} value={title} onChangeText={changeTitle} placeholder="예: 2026 봄의 기록" placeholderTextColor={colors.textMuted}
+      <TextInput accessibilityLabel="다이어리 이름" editable={!editLocked} value={title} onChangeText={changeTitle} placeholder="예: 2026 봄의 기록" placeholderTextColor={colors.textMuted}
         maxLength={TITLE_LIMIT} selectTextOnFocus style={[styles.input, error && !title.trim() && styles.inputError]} />
       <Text style={styles.count}>{title.length}/{TITLE_LIMIT}</Text>
     </OptionRow>
@@ -303,14 +321,14 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     </View>}
   </View>;
   else if (section === 'cover') panel = <View style={styles.coverPanel}>
-    {!editing && <MyCoverList items={library.covers} name={title} selectedId={myCoverId} onPick={useMyCover} onRemove={removeMyCover} disabled={formLocked} />}
+    {!editing && <MyCoverList items={library.covers} name={title} selectedId={myCoverId} onPick={useMyCover} onRemove={removeMyCover} disabled={editLocked} />}
     <CoverOptions cover={cover} name={title} onChange={changeCover} openElement={openElement} onOpenElement={setOpenElement} onNotice={setNotice} />
   </View>;
   else if (section === 'paper') panel = <View style={styles.coverPanel}>
-    <MyPaperList items={library.papers} selectedId={myPaper?.id} onPick={useMyPaper} onRemove={removeMyPaper} disabled={formLocked} />
+    <MyPaperList items={library.papers} selectedId={myPaper?.id} onPick={useMyPaper} onRemove={removeMyPaper} disabled={editLocked} />
     {usingPdf ? <View style={styles.infoCard}>
       <Text style={styles.infoTitle}>{`${pdfSource} · ${pdfPapers.length}장`}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="PDF 속지 빼기" disabled={formLocked} onPress={() => { if (myPaper) setMyPaper(null); else setSkipPdfPapers(true); }}
+      <Pressable accessibilityRole="button" accessibilityLabel="PDF 속지 빼기" disabled={editLocked} onPress={() => { if (myPaper) setMyPaper(null); else setSkipPdfPapers(true); }}
         style={({ pressed }) => [styles.drop]}><Text style={styles.dropText}>속지에서 빼기</Text></Pressable>
     </View> : <PaperOptions sections={paperSections} onChange={next => { setPaperSections(next); setError(''); }} orientation={orientation} appearance={paperAppearance} />}
   </View>;
@@ -334,7 +352,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         <Animated.View style={[styles.dialog, !stacked && { paddingBottom: bottomInset }, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
           <Workbench title={editing ? '다이어리 수정' : '새 다이어리'} actionLabel={actionLabel} onCancel={cancel} cancelDisabled={saving} onSubmit={onSave} submitDisabled={disabled}
             sections={sections} section={section} onSection={id => { setSection(id); setNotice(''); }} sheet={stacked} roomy={!sheet} bottomInset={bottomInset}
-            onStageLayout={setStage} stage={preview} panel={panel} panelLocked={formLocked} foot={foot} />
+            onStageLayout={setStage} stage={preview} panel={panel} panelLocked={editLocked} foot={foot} />
         </Animated.View>
         <ConfirmDialog open={leaving} title="저장하지 않고 닫을까요?" message="바꾼 내용은 저장되지 않아요." confirmLabel="닫기"
           onConfirm={() => { setLeaving(false); onCancel(); }} onCancel={() => setLeaving(false)} />

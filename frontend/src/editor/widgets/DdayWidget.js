@@ -107,6 +107,5 @@ function Stamp({ value, text, width, height }) {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
-  fill: { ...StyleSheet.absoluteFill },
   number: { fontWeight: '800', includeFontPadding: false, textAlign: 'center' },
 })

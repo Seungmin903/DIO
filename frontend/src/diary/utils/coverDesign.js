@@ -108,7 +108,7 @@ export function defaultCover({ color = DIARY_DEFAULTS.color, pattern = DIARY_DEF
     enabled: true, kind: 'plain', color, gradient: null, gradientColors: CUSTOM_GRADIENT, pattern: { type: pattern || 'none', tone: ['dot', 'gingham', 'stripe'].includes(pattern) ? 'light' : 'dark' }, photo: null,
     band: { on: true, dir: 'v', pos: 'near', color: 'auto' }, plate: 'ribbon', plateStyle: 'ribbon', ribbon: { color: RIBBON_COLORS[0][1] },
     title: { useName: true, text: '', font: 'nanum-gothic', size: 17, color: PLAIN_TITLE, anchor: 'bc', at: null },
-    subtitle: { on: true, text: `DIARY · ${dateMode === 'undated' ? '만년형' : '2026'}`, size: 7, color: '#9A9DA6' }, // 조밀한 서점 라벨 비율(코덱스 2026-11-01)
+    subtitle: { on: true, text: `DIARY · ${dateMode === 'undated' ? '만년형' : new Date().getFullYear()}`, size: 7, color: '#9A9DA6' }, // 조밀한 서점 라벨 비율(코덱스 2026-11-01)
     stickers: [],
   }
 }

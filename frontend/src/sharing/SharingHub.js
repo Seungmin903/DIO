@@ -25,6 +25,11 @@ import { useFormFactor } from '../shared/useFormFactor';
 import { normalizeSharingNickname, sharingNicknameError, inviteEmailError, MAX_SHARING_MEMBERS, COPY_TITLE_LIMIT, copyTitleError, defaultCopyTitle } from './sharingPreview';
 import { sharingStyles as s } from './styles';
 
+// 미리보기 초대는 full 을 채우고, 서버 초대는 참여 인원(memberCount)만 준다
+function isInviteFull(invite) {
+  return invite.full ?? (Number.isInteger(invite.memberCount) && invite.memberCount >= MAX_SHARING_MEMBERS);
+}
+
 function Button({
   label,
   text = label,
@@ -296,7 +301,7 @@ export default function SharingHub({
   const prepareNickname = (value) => {
     if (value.status !== 'PENDING')
       throw new Error('사용할 수 없는 초대예요. 새 초대를 요청해 주세요.');
-    if (value.full) {
+    if (isInviteFull(value)) {
       setInvite(value); setScreen('detail'); return;
     }
     dismissInput();
@@ -987,17 +992,17 @@ export default function SharingHub({
                         </View>
                         <Text style={s.invitedTitle}>{invite.diary.title}</Text>
                         {/* 상태 알약: 목록 카드와 같은 규칙(응답 대기 버터 · 참여 완료 라벤더 · 그 밖은 회색 판) */}
-                        <View style={[s.statusChip, chipTone(invite.full && invite.status === 'PENDING' ? null : invite.status) && s[`statusChip${chipTone(invite.status)}`]]}>
-                          <Text style={[s.statusChipText, !(invite.full && invite.status === 'PENDING') && chipTone(invite.status) && s[`statusChipText${chipTone(invite.status)}`]]}>
-                            {invite.full && invite.status === 'PENDING' ? '정원 가득' : chipLabel(invite.status)}
+                        <View style={[s.statusChip, chipTone(isInviteFull(invite) && invite.status === 'PENDING' ? null : invite.status) && s[`statusChip${chipTone(invite.status)}`]]}>
+                          <Text style={[s.statusChipText, !(isInviteFull(invite) && invite.status === 'PENDING') && chipTone(invite.status) && s[`statusChipText${chipTone(invite.status)}`]]}>
+                            {isInviteFull(invite) && invite.status === 'PENDING' ? '정원 가득' : chipLabel(invite.status)}
                           </Text>
                         </View>
                         <Text style={s.invitedSender}>{invite.inviter || '다이어리 소유자'}님이 초대했어요.</Text>
-                        {Number.isInteger(invite.memberCount) && <Text style={s.invitedCount}>참여 {invite.memberCount}/4명</Text>}
+                        {Number.isInteger(invite.memberCount) && <Text style={s.invitedCount}>참여 {invite.memberCount}/{MAX_SHARING_MEMBERS}명</Text>}
                       </View>
-                      {invite.status !== 'PENDING' || invite.full ? (
+                      {invite.status !== 'PENDING' || isInviteFull(invite) ? (
                         <Text accessibilityRole="alert" style={s.invitedState}>
-                          {invite.full && invite.status === 'PENDING' ? '참여 인원이 가득 찼어요.'
+                          {isInviteFull(invite) && invite.status === 'PENDING' ? '참여 인원이 가득 찼어요.'
                             : ({ REVOKED: '취소된 초대예요.', EXPIRED: '만료된 초대예요.', ACCEPTED: '이미 수락한 초대예요.', DECLINED: '거절한 초대예요.' })[invite.status] || '사용할 수 없는 초대예요.'}
                         </Text>
                       ) : (
@@ -1007,7 +1012,7 @@ export default function SharingHub({
                           <Button label="참여 프로필 설정" text="수락" style={s.acceptParticipation} disabled={busy}
                             onPress={() => run(() => runtime.invitationGateway.get(invite.inviteId), value => {
                               setInvite(value);
-                              if (value.status !== 'PENDING' || value.full) return;
+                              if (value.status !== 'PENDING' || isInviteFull(value)) return;
                               prepareNickname(value);
                             })} />
                         </View>

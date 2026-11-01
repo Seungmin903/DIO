@@ -87,6 +87,9 @@ export const styles = StyleSheet.create({
   libraryFixedTop: { flexGrow: 0, flexShrink: 0, paddingBottom: 0, zIndex: 3, elevation: 3 },
   libraryGridScroll: { flexGrow: 1, paddingHorizontal: LIBRARY_SIDE_PADDING, paddingBottom: 34 },
   libraryGridScrollCompact: { paddingHorizontal: 14, paddingBottom: 20 },
+  // 새 다이어리 버튼이 떠 있을 때는 마지막 줄이 버튼 밑에 깔리지 않게 버튼 높이 + 위아래 여백만큼 비운다
+  libraryGridScrollFab: { paddingBottom: 24 + 56 + 16 },
+  libraryGridScrollFabCompact: { paddingBottom: 16 + 44 + 16 },
   libraryScreenCarouselCompact: { flexGrow: 1, paddingBottom: 8 },
   libraryHeader: { minHeight: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   // 제목이 짧으면 보기 전환과 한 줄, 길면 보기 전환이 다음 줄 오른쪽으로 내려간다.
@@ -179,8 +182,6 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   chipSelected: { backgroundColor: C.white, borderColor: C.blueStrong, borderWidth: 1.5 },
   chipText: { color: C.inkSoft, fontSize: 12, fontWeight: '700' },
   chipTextSelected: { color: C.ink, fontWeight: '800' },
-  chipCompact: { minHeight: 44, paddingHorizontal: 18, borderRadius: 12 },
-  chipTextCompact: { fontSize: 13.5 },
 
   // 빈 화면은 폰·태블릿 모두 테두리 상자 없이 아이콘과 문구만 둔다.
   empty: { flex: 1, minHeight: 380, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
@@ -460,11 +461,8 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   trashSheetDangerText: { color: C.dangerStrong, fontSize: 14, fontWeight: '700' },
   trashSheetClose: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 4, borderRadius: 12 },
   trashSheetCloseText: { color: C.muted, fontSize: 14, fontWeight: '700' },
-  trashActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
   trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: C.line },
   trashRestoreText: { color: C.ink, fontSize: 12, fontWeight: '700' },
-  trashDelete: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: DANGER_BORDER },
-  trashDeleteText: { color: C.dangerStrong, fontSize: 12, fontWeight: '700' },
   // 이전 폰 휴지통 스와이프 목록 스타일. 저장된 화면과의 호환을 위해 당분간 유지한다.
   trashHint: { color: C.muted, fontSize: 13, lineHeight: 21, marginTop: -8, marginBottom: 14 },
   trashList: { gap: 11 },

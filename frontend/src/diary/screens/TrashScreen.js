@@ -182,7 +182,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
         icon="trash"
         tone="danger"
         disabled={busy || !deletable.length}
-        onPress={() => { latest.current.onDeleteMany(deletable.map(row => row.diary)); finishSelecting(); }}
+        onPress={() => latest.current.onDeleteMany(deletable.map(row => row.diary), finishSelecting)}
       />}
       <SelectionButton label="선택 완료" text="완료" disabled={busy} onPress={finishSelecting} />
     </SelectionBar>

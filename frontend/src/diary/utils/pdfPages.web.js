@@ -38,7 +38,8 @@ function selectPdf() {
     const onFocus = () => { timer = setTimeout(() => { if (!input.files?.length) finish(null) }, 500) }
     input.onchange = () => finish(input.files?.[0] ?? null)
     input.oncancel = () => finish(null)
-    window.addEventListener('focus', onFocus)
+    // oncancel 을 모르는 브라우저만 창이 다시 포커스를 받은 뒤 파일이 없으면 취소로 본다
+    if (!('oncancel' in input)) window.addEventListener('focus', onFocus)
     document.body.appendChild(input)
     try { input.click() } catch (error) { settled = true; cleanup(); reject(error) }
   })
@@ -53,9 +54,11 @@ const toBlob = canvas => new Promise((resolve, reject) => canvas.toBlob(blob => 
 export async function pickPdfPages({ onProgress } = {}) {
   const file = await selectPdf()
   if (!file) return null
-  let pdf
+  let pdfjs, pdf
+  try { pdfjs = await loadPdfJs() } catch (error) {
+    throw new PdfImportError('UNAVAILABLE', 'PDF를 여는 기능을 불러오지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.', error)
+  }
   try {
-    const pdfjs = await loadPdfJs()
     pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise
   } catch (error) {
     if (error?.name === 'PasswordException') throw new PdfImportError('PASSWORD', '암호가 걸린 PDF는 불러올 수 없어요.')
@@ -81,10 +84,12 @@ export async function pickPdfPages({ onProgress } = {}) {
         context.fillStyle = '#FFFFFF'; context.fillRect(0, 0, canvas.width, canvas.height)
         await page.render({ canvasContext: context, viewport }).promise
         const blob = await toBlob(canvas)
+        const { width, height } = canvas
+        canvas.width = 0; canvas.height = 0 // 큰 캔버스를 바로 놓아 Safari 캔버스 메모리 한도를 넘지 않게
         const [media] = await importMedia([{ file: new File([blob], `${baseName}-${number}.png`, { type: 'image/png' }), fileName: `${baseName}-${number}.png`, fileSize: blob.size, opaque: true }], { usage: 'photo' })
         saved.push(media)
-        pages.push({ src: media.src, mediaFileId: media.mediaFileId, aspect: canvas.width / canvas.height, name: `${baseName} ${number}쪽`,
-          pdfSource: { sourceId, pageIndex: number - 1, edge: Math.max(canvas.width, canvas.height) } })
+        pages.push({ src: media.src, mediaFileId: media.mediaFileId, aspect: width / height, name: `${baseName} ${number}쪽`,
+          pdfSource: { sourceId, pageIndex: number - 1, edge: Math.max(width, height) } })
       } finally { page.cleanup() }
     }
     onProgress?.(total, total)

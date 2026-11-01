@@ -586,7 +586,6 @@ export default function Canvas({
         <SelectionBarLayer>
         <View pointerEvents="box-none" style={contextBarFrame ? StyleSheet.absoluteFill : styles.selectionMenu}>
         <ContextBar
-          compact={compact}
           compactMenu={compactMenu}
           onCompactMenu={onCompactMenu}
           onTextLink={onTextLink}
