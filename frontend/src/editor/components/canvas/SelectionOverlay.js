@@ -4,6 +4,8 @@ import { colors } from '../../../shared/theme'
 import { usePan } from '../../hooks/usePan'
 import { centerOf, normalizeAngle, rotateVector } from '../../utils/common'
 import { textFormatPatch, textSettings, TEXT_FRAME_PAD } from '../../utils/text'
+import { tapeUnitH } from '../../utils/objects'
+import { TAPE_SIZES } from '../../constants'
 import { ROTATE_HANDLE as ROTATE_HANDLE_SIZE, ROTATE_OFFSET } from '../../utils/popoverPlacement'
 import Icon from '../controls/Icon'
 
@@ -33,13 +35,20 @@ const SIDES = [
 const LENGTH_KNOBS = [
   { key: 'w', sx: -1, sy: 0, knob: true },
   { key: 'e', sx: 1, sy: 0, knob: true },
+  { key: 'n', sx: 0, sy: -1, knob: true },
+  { key: 's', sx: 0, sy: 1, knob: true },
 ]
 const KNOB = HANDLE // 회전 손잡이와 같은 크기
+// 테이프 폭(높이) 범위: 가장 얇은 예전 규격(슬림)부터 와이드의 두 배까지
+const TAPE_MIN_H = TAPE_SIZES[0].h
+const TAPE_MAX_H = TAPE_SIZES[2].h * 2
 
 /** 오브젝트 종류별로 쓸 수 있는 크기 조절 핸들 */
 function handlesFor(object) {
   if (object.type === 'sticker') return CORNERS
-  // 테이프: 폭은 규격으로 정해져 있고 길이만 늘이고 줄인다. 양쪽 끝 동그라미 손잡이 두 개.
+  // 메모 종이는 그림이라 비율을 지켜 모서리로만 바꾼다
+  if (object.type === 'shape' && object.art) return CORNERS
+  // 테이프: 양쪽 끝 동그라미로 길이, 위아래 동그라미로 폭을 바꾼다.
   if (object.type === 'tape') return LENGTH_KNOBS
   // 사진: 비율은 '자르기'에서 정하고, 캔버스에서는 모서리로 크기만 바꾼다 (변을 끌어 비율이 바뀌지 않게)
   if (object.type === 'photo') return CORNERS
@@ -100,8 +109,9 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
           />
           {handlesFor(object).map((handle) => {
             const corner = Boolean(handle.sx && handle.sy)
-            // 테이프 길이 손잡이: 변 가운데에 보이는 동그라미
+            // 테이프 손잡이: 변 가운데에 보이는 동그라미. 얇은 테이프에서는 위아래 손잡이가 겹치지 않게 바깥으로 벌린다.
             if (handle.knob) {
+              const knobY = handle.sy < 0 ? Math.min(0, height / 2 - KNOB * 0.6) : handle.sy > 0 ? Math.max(height, height / 2 + KNOB * 0.6) : height / 2
               return (
                 <Handle
                   key={handle.key}
@@ -117,7 +127,7 @@ export default function SelectionOverlay({ object, zoom, dispatch, onRotation, o
                     styles.knob,
                     {
                       left: MARGIN + ((handle.sx + 1) / 2) * width - KNOB / 2,
-                      top: MARGIN + height / 2 - KNOB / 2,
+                      top: MARGIN + knobY - KNOB / 2,
                     },
                     Platform.OS === 'web' && { cursor: cursorFor(handle, object.rotation) },
                   ]}
@@ -252,6 +262,8 @@ function resizePatch(g, handle, pointer) {
     h = start.h * scale
   } else if (sx) {
     w = Math.max(MIN_SIZE, sx * (q.x - anchor.x))
+  } else if (start.type === 'tape') {
+    h = Math.min(TAPE_MAX_H, Math.max(TAPE_MIN_H, sy * (q.y - anchor.y)))
   } else {
     // 실측 전에는 현재 높이를 더 줄이지 않아 글꼴별 폭 추정 오차로 인한 잘림을 막는다.
     const contentHeight = start.type === 'text' ? g.textMinHeight ?? Math.max(start.h, textFormatPatch(start, textSettings(start)).h) : 0
@@ -272,7 +284,11 @@ function resizePatch(g, handle, pointer) {
     y: reflowText ? (h - start.h) / 2 : sy ? anchor.y + (sy * h) / 2 : 0,
   }
   const offset = rotateVector(localCenter.x, localCenter.y, start.rotation)
-  return { w, h, x: center.x + offset.x - w / 2, y: center.y + offset.y - h / 2, ...(baseWidth != null ? { baseWidth } : {}), ...(reflowText && start.autoWidth ? { autoWidth: false } : {}) }
+  // 테이프 폭을 바꾸면 무늬 기준 높이와 이미지 한 조각 길이도 같은 비율로 바꿔 무늬 · 그림 크기를 지킨다.
+  const tapeWidth = start.type === 'tape' && sy && Math.abs(h - start.h) >= 1e-8
+    ? { unitH: (tapeUnitH(start) * h) / start.h, ...(start.segmentW ? { segmentW: (start.segmentW * h) / start.h } : {}) }
+    : {}
+  return { ...tapeWidth, w, h, x: center.x + offset.x - w / 2, y: center.y + offset.y - h / 2, ...(baseWidth != null ? { baseWidth } : {}), ...(reflowText && start.autoWidth ? { autoWidth: false } : {}) }
 }
 
 const styles = StyleSheet.create({

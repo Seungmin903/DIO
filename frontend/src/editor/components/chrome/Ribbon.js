@@ -21,7 +21,7 @@ const INPUT_TOOLS = [
 
 const DECOR_TOOLS = [
   { tab: 'sticker', icon: 'sticker', label: '스티커' },
-  { id: 'shape', icon: 'shape', label: '도형' },
+  { tab: 'widget', icon: 'widget', label: '위젯' },
   { tab: 'tape', icon: 'tape', label: '마스킹테이프' },
   { tab: 'photo', icon: 'image', label: '사진' },
 ]

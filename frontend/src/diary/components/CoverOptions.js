@@ -133,19 +133,19 @@ function StickerTile({ item, favorite, onPress, onLongPress }) {
 }
 
 /**
- * 편집기 스티커 보관함과 같은 모음: 찾기 · 즐겨찾기 · 최근 · 출처별 분류 · 내 폴더 (순서 · 숨김 · 마지막 칩도 같다).
+ * 편집기 스티커 보관함과 같은 모음: 찾기 · 즐겨찾기 · 최근 · 내 폴더 (순서 · 마지막 칩도 같다).
  * 누르면 표지 가운데쯤 붙고 최근에 남는다. 길게 누르면 즐겨찾기에 넣고 뺀다.
  */
 function StickerPicker({ cover, onChange, onNotice }) {
   const custom = useCustomDecor()
   const [query, setQuery] = useState('')
   const keyword = query.trim()
-  const { favorites, recents, favoriteKeys, chips, active, folder, groups, folderMatches } = stickerLibrary(custom.items, custom.lastStickerCategory, keyword, { widgets: false })
-  const list = keyword ? [...groups.flatMap(group => group.items), ...folderMatches]
-    : active === 'favorites' ? favorites : active === 'recent' ? recents : folder ? folder.items : groups[0]?.items ?? []
+  const { favorites, recents, favoriteKeys, chips, active, folder, folderMatches } = stickerLibrary(custom.items, custom.lastStickerCategory, keyword)
+  const list = keyword ? folderMatches
+    : active === 'favorites' ? favorites : active === 'recent' ? recents : folder ? folder.items : []
   const add = item => {
     custom.markRecent(item)
-    onChange({ ...cover, stickers: [...cover.stickers, { id: createId(), asset: item.asset, src: item.src, mediaFileId: item.mediaFileId, name: item.name, x: 40 + Math.random() * 25, y: 45 + Math.random() * 25, size: 14, rotation: 0 }] })
+    onChange({ ...cover, stickers: [...cover.stickers, { id: createId(), src: item.src, mediaFileId: item.mediaFileId, name: item.name, x: 40 + Math.random() * 25, y: 45 + Math.random() * 25, size: 14, rotation: 0 }] })
   }
   const toggleFavorite = item => {
     const has = favoriteKeys.has(stickerKey(item))

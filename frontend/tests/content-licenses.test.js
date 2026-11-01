@@ -35,22 +35,6 @@ test('출처 순서·숨김을 저장하고 앱 재시작 후 복원·숨김 해
   r.toggleHidden('fluent-emoji'); await restart(); assert.deepEqual(JSON.parse(disk.get('dio:editor:custom-decor:v2')).hiddenCategories,[])
 })
 
-test('Twemoji 64종은 공식 SVG에서 생성한 512px PNG이며 기존 asset ID를 유지한다', async () => {
-  const { createHash } = await import('node:crypto')
-  const manifest = JSON.parse(readFileSync(new URL('../assets/stickers/twemoji/manifest.json', import.meta.url), 'utf8'))
-  assert.equal(manifest.items.length, 64)
-  assert.equal(new Set(manifest.items.map(x => x.asset)).size, 64)
-  for (const item of manifest.items) {
-    const png = readFileSync(new URL(`../assets/stickers/twemoji/${item.codepoint}.png`, import.meta.url))
-    const svg = readFileSync(new URL(`../assets/stickers/twemoji/svg/${item.codepoint}.svg`, import.meta.url))
-    assert.equal(item.asset, `tw-${item.codepoint}`)
-    assert.equal(png.readUInt32BE(16), 512); assert.equal(png.readUInt32BE(20), 512)
-    assert.equal(createHash('sha256').update(png).digest('hex'), item.sha256)
-    assert.equal(createHash('sha256').update(svg).digest('hex'), item.sourceSha256)
-    assert.equal(item.url, `https://raw.githubusercontent.com/twitter/twemoji/v14.0.2/assets/svg/${item.codepoint}.svg`)
-  }
-})
-
 test('실제 EditorModal을 거쳐도 폰·태블릿 모두 방향·상태바·닫기 props를 유지한다', () => {
   for (const isPhone of [true, false]) {
     const Modal = load('../src/editor/components/controls/EditorModal.js', {

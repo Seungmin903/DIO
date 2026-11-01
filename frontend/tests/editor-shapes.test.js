@@ -63,19 +63,19 @@ test('공용 도형 렌더러는 채우기·선 스타일·글자와 줌을 반�
   const module={exports:{}}, mocks={
     'react/jsx-runtime':require('react/jsx-runtime'),
     'react-native':{View:'view',Text:'text',Platform:{OS:'web'}},
-    'react-native-svg':{__esModule:true,default:'svg',Path:'path',Defs:'defs',Filter:'filter',FeGaussianBlur:'blur',G:'group'},
+    'react-native-svg':{__esModule:true,default:'svg',Path:'path',Defs:'defs',Filter:'filter',FeGaussianBlur:'blur',G:'group',SvgXml:'svgxml'},
     '../../hooks/useTextFont':{useTextFont(){}},
     '../../utils/textFormats':textFormats,
     '../../utils/text':text,
     '../../utils/effects':effects,
     '../../utils/svgId':{useSvgId:()=> 'shadow-test'},
-    '../../utils/editorShapes':{shapeDefinition:id=>EDITOR_SHAPES.find(s=>s.id===id),shapeTextStyle,shapeBorderDash,shapeTextBox},
+    '../../utils/editorShapes':{shapeDefinition:id=>EDITOR_SHAPES.find(s=>s.id===id),shapeTextStyle,shapeBorderDash,shapeTextBox,memoArtOf:()=>null},
   }
   new Function('require','module','exports',code)(id=>mocks[id],module,module.exports)
   const object={...createShape({fill:'none',borderWidth:3,borderStyle:'dotted',bold:true},{x:100,y:100}),text:'도형'}
   const node=module.exports.default({object,zoom:2}),children=node.props.children
   const graphic=children[0],mainSvg=graphic.props.children[1]
-  const path=mainSvg.props.children
+  const path=[mainSvg.props.children].flat()[0]
   assert.equal(path.props.fill,'none')
   assert.equal(path.props.strokeWidth,6)
   assert.deepEqual(path.props.strokeDasharray,[6,12])
@@ -87,7 +87,7 @@ test('공용 도형 렌더러는 채우기·선 스타일·글자와 줌을 반�
   assert.equal(shadowGraphic.props.style.height,object.h*2)
   assert.equal(shadowGraphic.props.children[1].props.width,mainSvg.props.width)
   assert.equal(shadowGraphic.props.children[1].props.height,mainSvg.props.height)
-  assert.equal(shadowGraphic.props.children[1].props.children.props.transform,path.props.transform)
+  assert.equal([shadowGraphic.props.children[1].props.children].flat()[0].props.transform,path.props.transform)
   assert.equal(shadowGraphic.props.children[1].props.viewBox,undefined)
   assert.ok(shadowSvg.props.width>object.w*2)
   assert.ok(shadowSvg.props.viewBox.startsWith('0 0 '))

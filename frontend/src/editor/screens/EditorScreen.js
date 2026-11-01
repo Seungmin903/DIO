@@ -22,8 +22,7 @@ import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
 import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail } from '../components/chrome/PhoneToolbar'
 import PenSettings from '../components/PenSettings'
-import ShapeSettings from '../components/ShapeSettings'
-import { createShape, DEFAULT_SHAPE_STYLE, shapeTextSettings, shapeTextFormatPatch } from '../utils/editorShapes'
+import { shapeTextSettings, shapeTextFormatPatch } from '../utils/editorShapes'
 import EraserSettings from '../components/EraserSettings'
 import { normalizePaperAppearance } from '../templates/appearance.js'
 import { ERASER_RADIUS } from '../utils/eraser.js'
@@ -177,8 +176,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const textPaletteBounds = useRef(null)
   const [textPalette, setTextPalette] = useState(null)
   const [textDefaults, setTextDefaults] = useState(DEFAULT_TEXT_SETTINGS)
-  const [shapeSettingsOpen, setShapeSettingsOpen] = useState(false)
-  const [shapeSettings, setShapeSettings] = useState(DEFAULT_SHAPE_STYLE)
   const [textSettingsOpen, setTextSettingsOpen] = useState(false)
   const [textLinkTarget, setTextLinkTarget] = useState(null)
   const [objectLinkTarget, setObjectLinkTarget] = useState(null) // 링크를 거는 중인 스티커·테이프·사진
@@ -254,7 +251,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setLassoSettingsOpen(false)
     setDrawerTab(null)
     setTextEditing(null)
-    setShapeSettingsOpen(false)
     setTextSettingsOpen(false)
     setPenSettingsOpen(false)
     setMoreOpen(false)
@@ -486,7 +482,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }
 
   // 사진은 스티커·테이프처럼 틀 없이 바로 붙인다 (자르기는 두 번 누르거나 선택 바에서)
+  const pickingPhotos = useRef(false)
   const addPhotos = async () => {
+    // 고르는 창이 떠 있는 동안 다시 누르면 무시한다
+    if (pickingPhotos.current) return
+    pickingPhotos.current = true
     try {
       setImportFailure(null)
       const images = await pickImages()
@@ -502,6 +502,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       closeAfterInsert()
     } catch (error) {
       showToast(mediaFailureMessage(error), () => addPhotos())
+    } finally {
+      pickingPhotos.current = false
     }
   }
 
@@ -698,7 +700,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 툴바에서 연 창(보관함·펜/텍스트/올가미 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
   // 터치를 가로채지 않고(목록 스크롤과 다투지 않게) 누른 위치만 본다:
   // 창·툴바 안의 터치는 그 영역이 먼저 표시하고, 바깥(root)에서는 표시가 없을 때만 닫는다.
-  const bubbleOpen = Boolean(drawerTab || showMore || shapeSettingsOpen || penSettingsOpen || textSettingsOpen || guidesOpen || (activeTool === 'lasso' && lassoSettingsOpen))
+  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || guidesOpen || (activeTool === 'lasso' && lassoSettingsOpen))
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
@@ -707,7 +709,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setMoreOpen(false)
     setPenSettingsOpen(false)
     setLassoSettingsOpen(false)
-    setShapeSettingsOpen(false)
     setTextSettingsOpen(false)
     setGuidesOpen(false)
   }
@@ -765,9 +766,16 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
   // 리본(태블릿)과 폰 도구 막대가 함께 쓰는 도구·보관함·내보내기 동작
   const openDrawer = (tab) => {
+    // 사진은 보관함 없이 바로 앨범을 연다 (빈 사진 틀은 위젯 칸에 있다)
+    if (tab === 'photo') {
+      closeBubbles()
+      if (cropId) finishCrop(false)
+      setActiveTool('select')
+      addPhotos()
+      return
+    }
     setLassoSettingsOpen(false)
     setGuidesOpen(false)
-    setShapeSettingsOpen(false)
     setTextSettingsOpen(false)
     setPenSettingsOpen(false)
     if (cropId) finishCrop(false)
@@ -776,14 +784,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setDrawerTab(drawerTab === tab ? null : tab)
   }
   const selectTool = (tool) => {
-    if (tool === 'shape') {
-      const next = !shapeSettingsOpen
-      closeBubbles()
-      setShapeSettingsOpen(next)
-      setActiveTool('select')
-      return
-    }
-    setShapeSettingsOpen(false)
     setGuidesOpen(false)
     setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
     setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
@@ -891,7 +891,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       {...markInside}
       vertical={landscape}
       bottomInset={landscape ? Math.max(bottomInset, 76) : 0}
-      activeTool={shapeSettingsOpen ? 'shape' : activeTool}
+      activeTool={activeTool}
       drawerTab={drawerTab}
       guidesActive={guidesOpen || hasGuides(guides)}
       penColor={penSettings.color}
@@ -1157,7 +1157,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               onAnchor={setToolAnchor}
               penColor={penSettings.color}
               highlighterColor={highlighterSettings.color}
-              activeTool={shapeSettingsOpen ? 'shape' : activeTool}
+              activeTool={activeTool}
               drawerTab={drawerTab}
               onOpenDrawer={openDrawer}
               onSelectTool={selectTool}
@@ -1209,15 +1209,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             </View>
           )}
 
-          {!readOnly && shapeSettingsOpen && !drawerTab && (
-            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <ShapeSettings settings={shapeSettings} onChange={patch => setShapeSettings(current => ({...current,...patch}))} onClose={() => setShapeSettingsOpen(false)} onAdd={() => {
-                dispatch({type:'addObjects',objects:[createShape(shapeSettings,randomCenter())]})
-                setShapeSettingsOpen(false)
-                setActiveTool('select')
-              }} />
-            </View>
-          )}
           {showMore && !drawerTab && stageSize && (
             // 옵션 패널은 고른 요소 옆(가리지 않는 쪽)에 띄운다
             <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)]} pointerEvents="box-none" {...markInside}>
@@ -1233,7 +1224,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 // 테이프를 넣으면 보관함을 닫는다 (옵션 창은 자동으로 열지 않는다)
                 onTapeInserted={closeAfterInsert}
                 onAdd={addDecor}
-                onAddPhotos={addPhotos}
                 onToast={showToast}
                 onClose={() => setDrawerTab(null)}
               />
