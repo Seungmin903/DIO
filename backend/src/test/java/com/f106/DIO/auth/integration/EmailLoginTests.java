@@ -86,9 +86,16 @@ class EmailLoginTests {
     @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
     @MockitoBean SignupMailSender mail;
     @MockitoBean LoginThrottle throttle;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     AtomicReference<String> code;
 
     @BeforeEach void setup() {
+        // 탈퇴 정리가 참조하는 SQL 전용 테이블을 H2 테스트에서도 같은 이름으로 제공한다.
+        jdbc.execute("alter table media_files add column if not exists source_media_file_id uuid");
+        jdbc.execute("create table if not exists ai_jobs(source_media_file_id uuid,result_media_file_id uuid)");
+        jdbc.execute("create table if not exists notifications(notification_id bigint,user_id bigint,diary_id uuid,page_id uuid)");
+        jdbc.execute("create table if not exists diary_handwriting_fonts(diary_id uuid,font_media_file_id uuid)");
+        jdbc.execute("create table if not exists diary_media_library(diary_id uuid,media_file_id uuid)");
         reset(history);
         history.deleteAll(); tokens.deleteAll(); photos.deleteAll(); agreements.deleteAll();
         accounts.deleteAll(); users.deleteAll(); verifications.deleteAll(); reset(mail, throttle);
