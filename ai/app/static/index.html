@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스티커 만들기 비교</title>
+<style>
+  :root { --bg:#faf7f2; --fg:#2b2622; --muted:#8a8077; --line:#e5ddd2; --keep:#2f9e6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:820px; margin:0 auto; padding:40px 16px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  p { color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 24px; }
+  .cards { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:600px) { .cards { grid-template-columns:1fr; } }
+  a.card { display:block; text-decoration:none; color:inherit; background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; transition:border-color .15s, transform .15s; }
+  a.card:hover { border-color:var(--fg); transform:translateY(-2px); }
+  .tag { display:inline-block; font-size:12px; font-weight:600; padding:2px 10px; border-radius:999px; background:var(--fg); color:#fff; margin-bottom:10px; }
+  h2 { font-size:18px; margin:0 0 8px; }
+  ul { margin:0; padding-left:18px; color:var(--muted); font-size:14px; line-height:1.7; }
+  .ask { margin-top:28px; background:#fff; border:1px dashed var(--line); border-radius:12px; padding:16px 20px; font-size:14px; line-height:1.7; }
+</style>
+</head>
+<body>
+<main>
+  <h1>사진으로 스티커 만들기 · 어떤 방식이 더 좋을까?</h1>
+  <p>같은 AI 모델(SAM 2)로 사진 속 대상을 따서 다꾸 스티커를 만듭니다. 고르는 방식만 다른 두 버전을 써 보고 의견을 알려주세요.</p>
+  <div class="cards">
+    <a class="card" href="/tap">
+      <span class="tag">A안</span>
+      <h2>탭해서 고르기</h2>
+      <ul><li>원하는 대상을 톡 찍기</li><li>잘못 잡히면 '제외'로 찍어서 빼기</li><li>단순하고 빠름</li></ul>
+    </a>
+    <a class="card" href="/brush">
+      <span class="tag">B안</span>
+      <h2>붓으로 칠해서 고르기</h2>
+      <ul><li>원하는 대상을 대충 칠하기</li><li>지우개로 칠한 곳은 확실히 빠짐</li><li>세밀하게 다듬기 좋음</li></ul>
+    </a>
+  </div>
+  <div class="ask">
+    <b>써 보고 알려주세요</b><br>
+    1. 어느 쪽이 더 재밌고 편했나요?<br>
+    2. 원하는 모양이 나올 때까지 몇 번 정도 손이 갔나요?<br>
+    3. 휴대폰(손가락)으로 쓴다면 어느 쪽이 나을까요?
+  </div>
+</main>
+</body>
+</html>
