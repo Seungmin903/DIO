@@ -45,9 +45,9 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
     const term = value.trim();
     if (term) updateHistory([term, ...history.filter(item => item !== term)]);
   };
-  const grid = useDiaryGrid(compact);
+  const grid = useDiaryGrid(compact, undefined, { count: diaries.length, padTop: 16 }); // 16 은 s.grid 의 위 여백
   const searching = Boolean(query.trim());
-  return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact]}>
+  return <ScrollView {...grid?.scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact]}>
     <View style={s.librarySearchHeading}>
       <IconButton label={selecting ? '선택 닫기' : '검색 닫기'} iconName="chevron-left" onPress={onBack} />
       <Text style={[s.libraryTitle, compact && s.libraryTitleCompact, { flex: 1 }]}>다이어리 검색</Text>

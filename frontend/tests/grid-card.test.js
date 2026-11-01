@@ -32,8 +32,7 @@ const RawCard = compile('../src/diary/components/DiaryCard.js', id => {
   if (id === 'react') return react;
   if (id === '../../shared/FavoriteStar') return { __esModule: true, default: 'star' };
   if (id === './DiaryActionBubble') return { __esModule: true, default: 'sheet' };
-  if (id === '../utils/deskInk') return { useDeskDark: () => false };
-  if (id === '../utils/coverDesign') return { COVER_GRADIENTS: [], normalizeCover: () => ({ enabled: true, kind: 'color', color: '#BDC2E1' }) };
+  if (id === '../utils/coverDesign') return { COVER_GRADIENTS: [], relativeLuminance: () => 0.5, normalizeCover: () => ({ enabled: true, kind: 'color', color: '#BDC2E1' }) };
   if (id === 'react-native') return { Animated: { View: 'animated' }, Pressable: 'button', Text: 'text', View: 'view' };
   if (id === '../constants') return { C: {} };
   if (id === '../utils/libraryQuery') return { isSharedDiary };
@@ -97,10 +96,10 @@ test('useDiaryGrid: 폰이면 null 이라 퍼센트 배치를 그대로 쓴다',
 
 test('useDiaryGrid: 태블릿은 첫 프레임에 창 폭으로 짐작한 칸 크기 · 간격을 돌려준다', () => {
   states = [];
-  // 1194 - 메뉴 78 - 좌우 여백 30x2 = 1056 → 5권, 칸 195
+  // 1194 - 메뉴 78 - 좌우 여백 30x2 = 1056 → 4권(최소 칸 208 + 간격 32), 칸은 폭에 맞춰 240(최대 264). 격자는 제목 왼쪽 선부터
   const grid = useGrid({ windowWidth: 1194 }, false);
-  assert.equal(grid.cell, 195);
-  assert.deepEqual(grid.style, { width: 5 * 195 + 4 * 20, columnGap: 20, rowGap: 32, alignSelf: 'center' });
+  assert.equal(grid.cell, 240);
+  assert.deepEqual(grid.style, { width: 4 * 240 + 3 * 32, columnGap: 32, rowGap: 32, alignSelf: 'flex-start' });
   assert.equal(typeof grid.onLayout, 'function');
 });
 
@@ -111,6 +110,6 @@ test('useDiaryGrid: 줄 간격은 화면이 정할 수 있고, 잰 폭이 짐작
   assert.equal(first.style.rowGap, 14);
   first.onLayout({ nativeEvent: { layout: { width: 696 } } }); // 세로로 든 폭
   cursor = 0; const measured = hook(false, 14);
-  assert.equal(measured.cell, 212);
-  assert.equal(measured.style.width, 3 * 212 + 2 * 20);
+  assert.equal(measured.cell, 210);
+  assert.equal(measured.style.width, 3 * 210 + 2 * 32);
 });
