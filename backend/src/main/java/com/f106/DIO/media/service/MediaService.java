@@ -75,7 +75,7 @@ public class MediaService {
 			if (header.length == 0) throw MediaRequestException.invalidFile();
 			in.unread(header);
 			boolean font = MediaUploadInspector.isFontHeader(header);
-			boolean document = MediaUploadInspector.hasPdfHeader(header);
+			boolean document = MediaUploadInspector.isPdfDocumentHeader(header);
 			int limit = font ? MAX_FONT_SIZE : document ? MAX_DOCUMENT_SIZE : MAX_FILE_SIZE;
 			if (upload.getSize() > limit) throw tooLarge(font, document);
 			byte[] content = in.readNBytes(limit + 1);

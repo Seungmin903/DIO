@@ -27,6 +27,15 @@ final class MediaUploadInspector {
 	}
 
 	static boolean isFontHeader(byte[] bytes) { return isTtf(bytes) || isOtf(bytes); }
+	/** Allows the larger PDF read only when no known image, audio, or font signature wins. */
+	static boolean isPdfDocumentHeader(byte[] bytes) {
+		if (!hasPdfHeader(bytes)) return false;
+		return !(isFontHeader(bytes) || starts(bytes, 0xFF, 0xD8, 0xFF)
+			|| starts(bytes, 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+			|| startsText(bytes, "GIF87a") || startsText(bytes, "GIF89a")
+			|| (startsText(bytes, "RIFF") && (hasText(bytes, 8, "WEBP") || hasText(bytes, 8, "WAVE")))
+			|| startsText(bytes, "OggS") || startsText(bytes, "ID3") || isMp3Frame(bytes) || isM4a(bytes));
+	}
 	private static boolean isTtf(byte[] bytes) { return starts(bytes, 0x00, 0x01, 0x00, 0x00) || startsText(bytes, "true"); }
 	private static boolean isOtf(byte[] bytes) { return startsText(bytes, "OTTO"); }
 

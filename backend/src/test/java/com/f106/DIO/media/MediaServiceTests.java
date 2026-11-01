@@ -78,6 +78,19 @@ class MediaServiceTests {
 	}
 
 	@Test
+	void doesNotGrantThePdfSizeLimitToAnImageWithAnEmbeddedPdfMarker() {
+		byte[] forged = new byte[6 * 1024 * 1024];
+		forged[0] = (byte) 0xFF; forged[1] = (byte) 0xD8; forged[2] = (byte) 0xFF;
+		System.arraycopy("%PDF-1.7".getBytes(), 0, forged, 100, 8);
+
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "forged.pdf", "application/pdf", forged), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, error -> {
+				assertThat(error.status().value()).isEqualTo(413);
+				assertThat(error.getMessage()).contains("5MiB");
+			});
+	}
+
+	@Test
 	void documentsUseTheirOwnSizeLimit() {
 		stubPersist();
 		byte[] medium = new byte[6 * 1024 * 1024]; System.arraycopy("%PDF-1.7".getBytes(), 0, medium, 0, 8);
