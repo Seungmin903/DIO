@@ -14,7 +14,6 @@ import SelectionButton from '../components/SelectionButton';
 import LibrarySearchScreen from '../components/LibrarySearchScreen';
 import { filterFavorite, filterScope, nextSort, parseSort, queryDiaries, SORT_OPTIONS, withFavorite } from '../utils/libraryQuery';
 import OpenBookShelf, { preloadOpenBooks } from '../components/OpenBookShelf';
-import { useDeskDark } from '../utils/deskInk';
 import { useDiaryGrid } from '../utils/useDiaryGrid';
 import { CAROUSEL_LIFT, CAROUSEL_SCALE } from '../utils/carouselFollow';
 
@@ -80,7 +79,6 @@ function LibraryScreen({
   historyKey,
 }) {
   // 책상은 태블릿(compact 아님)에서만 보인다. 어두운 시각에는 상판 위 제목을 흰색으로 쓴다.
-  const titleOnDark = useDeskDark(!compact); // 어두운 상판 위 글씨 · 좌우 화살표를 흰색으로
   const scrollX = useRef(new Animated.Value(Math.max(0, carousel) * CAROUSEL_STEP)).current;
   const carouselRef = useRef(null);
   const positioned = useRef(null);
@@ -139,7 +137,7 @@ function LibraryScreen({
 
   const carouselItems = shown;
   const itemCount = carouselItems.length;
-  const grid = useDiaryGrid(compact); // 태블릿 한눈에 보기 칸 크기 · 간격 (폰은 null)
+  const grid = useDiaryGrid(compact, undefined, { count: shown.length, padTop: 16 }); // 태블릿 한눈에 보기 칸 크기 · 간격 (폰은 null). 16 은 s.grid 의 위 여백
   const carouselItemWidth = portrait ? PORTRAIT_ITEM_WIDTH : compact ? 268 : CAROUSEL_ITEM_WIDTH;
   // 세로는 간격을 카드 폭만큼 줘서 옆 카드가 화면 밖에 있게 한다.
   // 폰은 옆 카드가 28px 만 보이도록 간격을 좁힌다(가운데 카드 1.06배 · 옆 카드 0.84배 기준)
@@ -232,7 +230,7 @@ function LibraryScreen({
 
   const { key: sortKey, direction } = parseSort(sort);
   const optionsMenu = !selecting && <>
-    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} ref={optionsButton} onPress={openOptions} hitSlop={compact ? 2 : undefined} style={({ pressed }) => [s.iconButton, compact && s.iconButtonPhone, pressed && s.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel="보관함 옵션" accessibilityValue={{ text: SORT_OPTIONS.find(item => item.id === sortKey)?.label }} accessibilityState={{ expanded: optionsOpen }} ref={optionsButton} onPress={openOptions} hitSlop={2} style={({ pressed }) => [s.iconButton, s.iconButtonBare, pressed && s.pressed]}>
       <View style={s.librarySortIcon}><AppIcon name="more" size={21} color={C.ink} /></View>
     </Pressable>
     <PopoverMenu open={optionsOpen} anchor={optionsAnchor} width={230} height={170} label="보관함 옵션 목록" style={s.librarySortMenu} onClose={() => setOptionsOpen(false)}>
@@ -282,42 +280,39 @@ function LibraryScreen({
   const top = (<>
       <View style={[s.libraryHeader, compact && s.libraryHeaderCompact]}>
         <View style={s.headerTitleRow}>
-          <AppIcon name={scope?.icon ?? 'book'} size={compact ? 24 : 27} color={titleOnDark ? '#FFFFFF' : C.ink} strokeWidth={2.4} />
-          <Text accessibilityRole="header" style={[s.libraryTitle, compact && s.libraryTitleCompact, titleOnDark && s.onDeskDarkTitle]}>{scope?.label ?? '다이어리'}</Text>
+          <AppIcon name={scope?.icon ?? 'book'} size={compact ? 24 : 27} color={C.ink} strokeWidth={2.4} />
+          <Text accessibilityRole="header" style={[s.libraryTitle, compact && s.libraryTitleCompact]}>{scope?.label ?? '다이어리'}</Text>
         </View>
         <View style={[s.libraryViewSwitch, compact && s.libraryViewSwitchCompact]} accessibilityRole="tablist">
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel="펼쳐서 보기"
-            hitSlop={compact ? { top: 5, bottom: 5, left: 2, right: 2 } : undefined}
+            hitSlop={VIEW_HIT_SLOP}
             accessibilityState={{ selected: displayView === 'open' }}
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('open'); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'open' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
-            <AppIcon name="book-open" size={15} forText={12} color={C.inkSoft} />
-            {!compact && <Text style={[s.libraryViewText, displayView === 'open' && s.libraryViewTextSelected]}>펼쳐서</Text>}
+            <AppIcon name="book-open" size={compact ? 16 : 18} color={displayView === 'open' ? C.blueText : C.blue} />
           </Pressable>
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel="스와이프 보기"
-            hitSlop={compact ? { top: 5, bottom: 5, left: 2, right: 2 } : undefined}
+            hitSlop={VIEW_HIT_SLOP}
             accessibilityState={{ selected: displayView === 'carousel' }}
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('carousel'); showCurrentAtCenter(); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'carousel' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
-            <AppIcon name="swap" size={16} forText={12} color={C.inkSoft} />
-            {!compact && <Text style={[s.libraryViewText, displayView === 'carousel' && s.libraryViewTextSelected]}>스와이프</Text>}
+            <AppIcon name="swap" size={compact ? 16 : 18} color={displayView === 'carousel' ? C.blueText : C.blue} />
           </Pressable>
           <Pressable
             accessibilityRole="tab"
             accessibilityLabel="한눈에 보기"
-            hitSlop={compact ? { top: 5, bottom: 5, left: 2, right: 2 } : undefined}
+            hitSlop={VIEW_HIT_SLOP}
             accessibilityState={{ selected: displayView === 'grid' }}
             onPress={() => { setSearchOpen(false); setQuery(''); onViewChange('grid'); }}
             style={({ pressed }) => [s.libraryViewOption, compact && s.libraryViewOptionCompact, displayView === 'grid' && s.libraryViewOptionSelected, pressed && s.pressed]}
           >
-            <AppIcon name="grid" size={16} forText={12} color={C.inkSoft} />
-            {!compact && <Text style={[s.libraryViewText, displayView === 'grid' && s.libraryViewTextSelected]}>한눈에</Text>}
+            <AppIcon name="grid" size={compact ? 16 : 18} color={displayView === 'grid' ? C.blueText : C.blue} />
           </Pressable>
         </View>
       </View>
@@ -351,7 +346,7 @@ function LibraryScreen({
             : filterChips;
         })()}
         {!selecting && <View style={[s.libraryActions, compact && s.libraryActionsCompact]}>
-          <IconButton small={compact} label="다이어리 검색" iconName="search" onPress={() => { setSearchOpen(true); setQuery(''); setOptionsOpen(false); resetPosition(); }} />
+          <IconButton bare label="다이어리 검색" iconName="search" onPress={() => { setSearchOpen(true); setQuery(''); setOptionsOpen(false); resetPosition(); }} />
           {optionsMenu}
         </View>}
       </View>
@@ -362,7 +357,7 @@ function LibraryScreen({
       {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
         <EmptyState compact={compact} raised title={emptyTitle} />
       ) : displayView === 'open' ? (
-        <OpenBookShelf diaries={carouselItems} index={activeIndex} onIndexChange={onCarouselChange} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} compact={compact} onDark={titleOnDark} />
+        <OpenBookShelf diaries={carouselItems} index={activeIndex} onIndexChange={onCarouselChange} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} compact={compact} />
       ) : displayView === 'carousel' ? (
         <View style={[s.carouselShell, compact && s.carouselShellCompact, portrait && s.carouselShellPortrait]}>
           {/* 목록은 잰 폭으로 고정하고 줄 가운데에 둔다. 줄 폭이 바뀌어도 가운데 카드는 늘 줄 가운데에 머문다. */}
@@ -374,7 +369,7 @@ function LibraryScreen({
               onPress={() => moveCarousel((moveTarget.current ?? activeIndex) - 1)}
               style={({ pressed }) => [s.carouselArrow, s.carouselArrowLeft, portrait && s.carouselArrowPortrait, pressed && s.pressed]}
             >
-              <AppIcon name="chevron-left" size={24} color={titleOnDark ? '#FFFFFF' : C.ink} strokeWidth={2.1} />
+              <AppIcon name="chevron-left" size={24} color={C.ink} strokeWidth={2.1} />
             </Pressable>}
             <AnimatedFlatList
               ref={carouselRef}
@@ -407,7 +402,6 @@ function LibraryScreen({
                     diary={item}
                     pageCount={metadata[item.id]?.pageCount}
                     layout="carousel"
-                    sunShadow={!compact}
                     compact={compact}
                     large={portrait}
                     carouselActive={index === activeIndex}
@@ -431,14 +425,14 @@ function LibraryScreen({
               onPress={() => moveCarousel((moveTarget.current ?? activeIndex) + 1)}
               style={({ pressed }) => [s.carouselArrow, s.carouselArrowRight, portrait && s.carouselArrowPortrait, pressed && s.pressed]}
             >
-              <AppIcon name="chevron-right" size={24} color={titleOnDark ? '#FFFFFF' : C.ink} strokeWidth={2.1} />
+              <AppIcon name="chevron-right" size={24} color={C.ink} strokeWidth={2.1} />
             </Pressable>}
           </View>
         </View>
       ) : (
         <View onLayout={grid?.onLayout}>
           <View style={[s.grid, compact && s.gridCompact, grid?.style]}>
-            {shown.map((diary) => <DiaryCard key={diary.id} sunShadow={!compact} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} cell={grid?.cell} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
+            {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} cell={grid?.cell} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
               selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} onEnterEdit={enterEdit} />)}
           </View>
         </View>
@@ -448,7 +442,7 @@ function LibraryScreen({
     <View style={s.libraryRoot}>
     {isGrid ? <>
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
-      <ScrollView contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact]} showsVerticalScrollIndicator={false}>{body}</ScrollView>
+      <ScrollView {...grid?.scroll} contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact]} showsVerticalScrollIndicator={false}>{body}</ScrollView>
     </> : displayView === 'open' ? <>
       {/* 펼쳐서 보기는 스크롤 없이 남은 화면 전체를 책상으로 쓴다(스크롤 안에서는 최소 높이만 받아 책이 작아졌다) */}
       <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>{top}</View>
@@ -458,13 +452,16 @@ function LibraryScreen({
       showsVerticalScrollIndicator={false}
       scrollEnabled={!fixedPhoneCarousel}
     >{top}{body}</ScrollView>}
-    {/* 새 다이어리: 예전 사이드 메뉴의 파란 + 버튼을 화면 오른쪽 아래에 띄운다 */}
+    {/* 새 다이어리: + 아이콘 버튼을 본문 오른쪽 아래에 띄운다 */}
     {canCreate && <Pressable accessibilityRole="button" accessibilityLabel="새 다이어리 만들기" onPress={onCreate}
       style={({ pressed }) => [s.createFab, compact && s.createFabCompact, pressed && s.pressed]}>
-      <AppIcon name="add" size={compact ? 24 : 26} color={C.white} />
+      <AppIcon name="add" size={compact ? 20 : 24} strokeWidth={2} color={C.white} />
     </Pressable>}
     </View>
   );
 }
+
+// 보기 전환 칸: 보이는 28×28 둘레를 넓혀 터치 44
+const VIEW_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 };
 
 export default memo(LibraryScreen);

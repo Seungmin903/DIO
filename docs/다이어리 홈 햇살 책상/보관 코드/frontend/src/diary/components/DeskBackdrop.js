@@ -14,6 +14,10 @@ const RAINBOW_ASPECT = 0.25 // 1200 × 300
 // 빛은 책상 위에 색을 덮어 칠하는 게 아니라 책상을 밝히는 것이다. 책상 전체에는 하늘빛 그늘을 곱해 어둡게 깔고(multiply),
 // 창빛 조각은 그 위에 밝기를 더해(screen) 빛이 닿은 곳만 환해지게 한다.
 const LIGHT_BLEND = 'screen'
+// 태블릿 창빛 자리: 책상 전체가 아니라 오른쪽 위 폭 44% · 높이 38% 안에서만 비춘다(앱 디자인 점검 원 페이저 01).
+// 창빛 조각 · 가로등은 이 칸을 책상 삼아 같은 계산(maskFrame)으로 놓인다. 칸 밖으로 조금 번져도 자르지 않는다(잘린 직선이 생기지 않게).
+// 세기는 그대로다: 한낮 흰 밝기 0.54(screen)가 상판 #F3F3F7 위에서 대비 약 6%라 원 페이저의 4~6% 안이다.
+const LIGHT_AREA = { width: 0.44, height: 0.38 }
 
 /**
  * 해 질 녘 · 새벽의 잔광(코덱스): 창 마스크가 아니라 책상 아래에서 위로 옅어지는 전체 화면 세로 그라데이션이다(soft-light).
@@ -97,7 +101,8 @@ function NightLamp({ light, size, compact, lightWidth }) {
 function DeskBackdrop({ compact = false, size, anchorRight = false }) {
   const light = deskLightAt(useDeskHour())
   if (!size?.width || !size?.height) return null
-  const lightWidth = size.width * (compact ? WINDOW_WIDTH.phone : WINDOW_WIDTH.tablet)
+  const area = compact ? size : { width: size.width * LIGHT_AREA.width, height: size.height * LIGHT_AREA.height }
+  const lightWidth = area.width * (compact ? WINDOW_WIDTH.phone : WINDOW_WIDTH.tablet)
   const fx = deskFxAt(light.hour)
   return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
     style={[styles.root, anchorRight && styles.rootRight, { width: size.width, height: size.height }]}>
@@ -107,8 +112,10 @@ function DeskBackdrop({ compact = false, size, anchorRight = false }) {
     {/* 밤 어둠은 빛 아래에 깐다: 위에 덮으면 가로등 · 달빛까지 같이 어두워져 묻힌다 */}
     {light.dim > 0.001 && <View style={[styles.fill, { backgroundColor: `rgba(16,25,47,${light.dim.toFixed(3)})` }]} />}
     {light.afterglow.opacity > 0.001 && <Afterglow afterglow={light.afterglow} />}
-    {light.key !== 'afterglow' || light.screen.opacity > 0.001 ? <LightPatch light={light} fx={fx} size={size} compact={compact} lightWidth={lightWidth} /> : null}
-    {light.lampOpacity > 0.001 && <NightLamp light={light} size={size} compact={compact} lightWidth={lightWidth} />}
+    <View style={compact ? styles.fill : [styles.lightArea, { width: area.width, height: area.height }]}>
+      {light.key !== 'afterglow' || light.screen.opacity > 0.001 ? <LightPatch light={light} fx={fx} size={area} compact={compact} lightWidth={lightWidth} /> : null}
+      {light.lampOpacity > 0.001 && <NightLamp light={light} size={area} compact={compact} lightWidth={lightWidth} />}
+    </View>
   </View>
 }
 
@@ -129,4 +136,5 @@ const styles = StyleSheet.create({
   // 오른쪽 끝에 붙인다: 작업 영역이 왼쪽(사이드바 쪽)에서 줄고 늘어도 상판은 제자리에 있고, 왼쪽만 가려진다.
   rootRight: { left: undefined, right: 0 },
   fill: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 },
+  lightArea: { position: 'absolute', right: 0, top: 0 },
 })
