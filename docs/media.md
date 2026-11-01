@@ -32,7 +32,7 @@ PDF를 페이지별 PNG로 표시하는 요소는 기존 `mediaFileId`에 PNG의
 }
 ```
 
-`pdfSource.mediaFileId`는 반드시 `DOCUMENT`여야 하고, 기존 `mediaFileId` 및 `cells[].mediaFileId`를 포함한 나머지 참조는 반드시 `IMAGE`여야 한다. 같은 UUID를 이미지와 PDF 원본 슬롯에 동시에 둘 수 없다. 이 참조는 다이어리 OWNER·EDITOR의 원본 파일 읽기 권한 및 삭제 보존 대상에 포함된다.
+`pdfSource`는 `propertiesJson`의 **최상위 객체 하나**여야 하며, `pdfSource.mediaFileId`는 반드시 `DOCUMENT`여야 한다. 기존 `mediaFileId` 및 `cells[].mediaFileId`를 포함한 나머지 참조는 반드시 `IMAGE`여야 한다. 같은 UUID를 이미지와 PDF 원본 슬롯에 동시에 둘 수 없다. 중첩 객체·배열의 `pdfSource`는 저장 전에 거절한다. 이 참조는 다이어리 OWNER·EDITOR의 원본 파일 읽기 권한 및 삭제 보존 대상에 포함된다.
 
 보관함 목록은 최신순 커서 페이지네이션을 사용한다. `limit`은 1~100이며 기본값은 30이다. 응답의 `nextCursor`가 있으면 다음 요청의 `cursor`에 그대로 넣는다.
 

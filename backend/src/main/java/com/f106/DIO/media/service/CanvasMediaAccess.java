@@ -17,6 +17,7 @@ public class CanvasMediaAccess {
     public CanvasMediaAccess(JdbcTemplate jdbc,com.f106.DIO.media.config.MediaSqlDialect sql){this.jdbc=jdbc;this.sql=sql;}
     /** Every mediaFileId recognized by the recursive retention index must be authorized on write. */
     public static Set<UUID> references(UUID primary,JsonNode properties){
+        validatePdfSourceLocation(properties);
         var ids=new TreeSet<UUID>();if(primary!=null)ids.add(primary);
         var pending=new ArrayDeque<JsonNode>();if(properties!=null)pending.add(properties);
         while(!pending.isEmpty()){
@@ -34,6 +35,7 @@ public class CanvasMediaAccess {
     }
     // Do not widen reads for old/hidden metadata: only references rendered by the app grant access.
     private static Set<UUID> visibleReferences(UUID primary,JsonNode properties){
+        validatePdfSourceLocation(properties);
         var ids=new TreeSet<UUID>();if(primary!=null)ids.add(primary);
         if(properties!=null){
             add(ids,properties.get("mediaFileId"));
@@ -65,16 +67,22 @@ public class CanvasMediaAccess {
 
     /** PDF source is the one document reference slot; every other mediaFileId remains an image slot. */
     private static Map<UUID,String> attachmentReferences(UUID primary,JsonNode properties){
+        validatePdfSourceLocation(properties);
         var references=new TreeMap<UUID,String>();
         if(primary!=null)putReference(references,primary,"IMAGE");
-        collectAttachmentReferences(references,properties,"IMAGE");
+        if(properties!=null&&properties.isObject())properties.properties().forEach(field->{
+            if("pdfSource".equals(field.getKey()))putReference(references,field.getValue().get("mediaFileId"),"DOCUMENT");
+            else if("mediaFileId".equals(field.getKey()))putReference(references,field.getValue(),"IMAGE");
+            else collectAttachmentReferences(references,field.getValue(),"IMAGE");
+        });
+        else collectAttachmentReferences(references,properties,"IMAGE");
         return references;
     }
     private static void collectAttachmentReferences(Map<UUID,String> references,JsonNode node,String type){
         if(node==null||node.isNull())return;
         if(node.isObject())node.properties().forEach(field->{
             if("mediaFileId".equals(field.getKey()))putReference(references,field.getValue(),type);
-            else collectAttachmentReferences(references,field.getValue(),"pdfSource".equals(field.getKey()) ? "DOCUMENT" : type);
+            else collectAttachmentReferences(references,field.getValue(),type);
         });
         else if(node.isArray())node.forEach(value->collectAttachmentReferences(references,value,type));
     }
@@ -88,6 +96,23 @@ public class CanvasMediaAccess {
         if(previous!=null){if(!previous.equals(type))throw new IllegalArgumentException("같은 미디어 ID를 이미지와 PDF 원본에 함께 사용할 수 없어요.");return;}
         if(references.size()>=MAX_REFERENCES_PER_ELEMENT)throw new IllegalArgumentException("요소당 이미지 참조는 64개까지 사용할 수 있어요.");
         references.put(id,type);
+    }
+    /** The PDF source contract has one top-level object slot; nested or array slots are rejected before persistence. */
+    private static void validatePdfSourceLocation(JsonNode properties){
+        if(properties==null||properties.isNull())return;
+        if(!properties.isObject()){rejectNestedPdfSource(properties);return;}
+        var pdfSource=properties.get("pdfSource");
+        if(pdfSource!=null&&!pdfSource.isNull()&&!pdfSource.isObject())throw new IllegalArgumentException("pdfSource는 최상위 객체여야 해요.");
+        rejectNestedPdfSource(pdfSource);
+        properties.properties().forEach(field->{if(!"pdfSource".equals(field.getKey()))rejectNestedPdfSource(field.getValue());});
+    }
+    private static void rejectNestedPdfSource(JsonNode node){
+        if(node==null||node.isNull())return;
+        if(node.isObject())node.properties().forEach(field->{
+            if("pdfSource".equals(field.getKey()))throw new IllegalArgumentException("pdfSource는 최상위 객체여야 해요.");
+            rejectNestedPdfSource(field.getValue());
+        });
+        else if(node.isArray())node.forEach(CanvasMediaAccess::rejectNestedPdfSource);
     }
     /** Include soft-deleted elements, which can still be restored or undone. */
     public boolean retained(UUID media){

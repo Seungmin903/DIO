@@ -62,10 +62,26 @@ class CanvasMediaReferenceTests {
         var access=new CanvasMediaAccess(jdbc,dialect);
         var imageProperties=json.readTree("{\"mediaFileId\":\""+imageSlot+"\"}");
 
-        assertThatThrownBy(()->access.requireAttach(UUID.randomUUID(),null,imageProperties,1L)).isInstanceOf(com.f106.DIO.media.support.MediaFileNotFoundException.class);
-        org.mockito.Mockito.verify(jdbc).queryForList(org.mockito.ArgumentMatchers.contains("media_type=?"), org.mockito.ArgumentMatchers.eq(Long.class), org.mockito.ArgumentMatchers.eq(imageSlot), org.mockito.ArgumentMatchers.eq("IMAGE"));
+        org.mockito.Mockito.when(jdbc.queryForList(org.mockito.ArgumentMatchers.contains("media_type=?"), org.mockito.ArgumentMatchers.eq(Long.class), org.mockito.ArgumentMatchers.eq(imageSlot), org.mockito.ArgumentMatchers.eq("IMAGE")))
+            .thenReturn(java.util.List.of(1L));
+        assertThatCode(()->access.requireAttach(UUID.randomUUID(),null,imageProperties,1L)).doesNotThrowAnyException();
 
         var conflicting=json.readTree("{\"mediaFileId\":\""+pdf+"\",\"pdfSource\":{\"mediaFileId\":\""+pdf+"\"}}");
         assertThatThrownBy(()->access.requireAttach(UUID.randomUUID(),null,conflicting,1L)).isInstanceOf(IllegalArgumentException.class);
+    }
+    @Test void pdfSourceIsOnlyAllowedAsOneTopLevelObjectSlot(){
+        var pdf=UUID.randomUUID();
+        for(String raw:java.util.List.of(
+            "{\"cells\":[{\"pdfSource\":{\"mediaFileId\":\""+pdf+"\"}}]}",
+            "{\"pdfSource\":[{\"mediaFileId\":\""+pdf+"\"}]}",
+            "{\"pdfSource\":{\"nested\":{\"pdfSource\":{\"mediaFileId\":\""+pdf+"\"}}}}",
+            "{\"x\":{\"pdfSource\":{\"mediaFileId\":\""+pdf+"\"}}}")) {
+            var properties=json.readTree(raw);
+            assertThatThrownBy(()->CanvasMediaAccess.references(null,properties)).isInstanceOf(IllegalArgumentException.class);
+            var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+            assertThatThrownBy(()->new CanvasMediaAccess(jdbc,org.mockito.Mockito.mock(com.f106.DIO.media.config.MediaSqlDialect.class)).requireAttach(UUID.randomUUID(),null,properties,1L))
+                .isInstanceOf(IllegalArgumentException.class);
+            org.mockito.Mockito.verifyNoInteractions(jdbc);
+        }
     }
 }
