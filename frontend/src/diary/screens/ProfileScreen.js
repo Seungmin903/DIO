@@ -23,6 +23,8 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   // 게스트(시작 화면에서 고른 일반 사용자 · 개발자 모드)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
   // 개발자 모드는 로그인한 사용자처럼 로그아웃이 있고, 누르면 시작 화면으로 돌아가 모드를 다시 고른다.
   const guest = !authenticated && previewUser?.provider === 'guest';
+  // 게스트 프로필은 기기 저장(guestService)이 있어야 고칠 수 있다. 없으면 수정 칸을 누를 수 없게 둔다.
+  const canEdit = authenticated || (guest && !!guestService);
   const userId = authenticated ? previewUser.userId : null;
   const loginGate = useLoginGate();
   // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다.
@@ -55,7 +57,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
     photoUri,
   ]);
 
-  if (route === 'edit' && (authenticated || (guest && guestService))) {
+  if (route === 'edit' && canEdit) {
     return (
       <ProfileEditScreen
         compact={compact}
@@ -95,6 +97,8 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={guest ? '프로필 수정' : '회원정보 수정'}
+          accessibilityState={{ disabled: !canEdit }}
+          disabled={!canEdit}
           onPress={() => setRoute('edit')}
           style={({ pressed }) => [local.profileHero, pressed && local.heroPressed]}
         >
@@ -116,10 +120,10 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
             <Text accessibilityRole="header" numberOfLines={1} style={local.nickname}>{previewUser?.nickname || '사용자'}</Text>
             {!!previewUser?.email && <Text selectable numberOfLines={1} style={local.email}>{previewUser.email}</Text>}
           </View>
-          <View style={local.profileAction}>
+          {canEdit && <View style={local.profileAction}>
             <Text style={local.profileActionText}>{guest ? '프로필 수정' : '회원정보 수정'}</Text>
             <AppIcon name="chevron-right" size={18} color={colors.surface} />
-          </View>
+          </View>}
         </Pressable>
         {authenticated && <>
           <Text style={local.groupTitle}>계정</Text>
