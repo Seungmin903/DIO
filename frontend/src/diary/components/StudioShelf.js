@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { colors } from '../../shared/theme';
 import CoverArt from './CoverArt';
@@ -11,9 +12,17 @@ const WIDE_SLOT = { width: 154, height: 116 };
 /**
  * 내 표지 · 내 속지 진열: 가로로 미는 선반 한 줄. 칸 사이 14, 화면 끝에서 다음 칸이 잘려 보여 더 있다는 것을 알린다.
  * 이름 아래 줄 오른쪽에 지우기 버튼(48)을 둔다(견본 위에는 아무것도 띄우지 않는다).
- * kind: 'cover' | 'paper', items: useMyLibrary 의 covers / papers, onRemove(item): 지우기 확인을 여는 쪽이 정한다.
+ * 이름을 누르면 그 자리에서 고친다(저장은 확인 · 포커스를 옮길 때, 비우면 원래 이름).
+ * onOpen(item): 있으면 견본을 눌러 그 안을 펼친다(속지: 전체 쪽 목록).
+ * kind: 'cover' | 'paper', items: useMyLibrary 의 covers / papers, onRemove(item): 지우기 확인을 여는 쪽이 정한다, onRename(item, name): 이름 저장.
  */
-export default function StudioShelf({ kind, items, onRemove }) {
+export default function StudioShelf({ kind, items, onRemove, onRename, onOpen }) {
+  const [editing, setEditing] = useState(null); // { id, draft }
+  const finish = item => {
+    const name = editing?.draft.trim();
+    setEditing(null);
+    if (name && name !== item.name) onRename?.(item, name);
+  };
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={local.row}>
       {items.map(item => {
@@ -22,14 +31,25 @@ export default function StudioShelf({ kind, items, onRemove }) {
         const label = paper ? `${item.name} · ${item.pages.length}장` : item.name;
         return (
           <View key={item.id} style={{ width: slot.width }}>
-            <View accessible accessibilityRole="image" accessibilityLabel={paper ? `${label} 속지` : `${label} 표지`} style={[local.art, slot]}>
-              {paper
+            {(() => {
+              const art = paper
                 ? <PdfPageThumb page={item.pages[0]} width={slot.width - 16} ratio={slot.width / slot.height} />
-                : <CoverArt cover={item.cover} name={item.name} width={slot.width} height={slot.height} />}
-            </View>
+                : <CoverArt cover={item.cover} name={item.name} width={slot.width} height={slot.height} />;
+              return onOpen
+                ? <Pressable accessibilityRole="button" accessibilityLabel={`${label} ${paper ? '속지' : '표지'} 펼치기`} onPress={() => onOpen(item)} style={[local.art, slot]}>{art}</Pressable>
+                : <View accessible accessibilityRole="image" accessibilityLabel={paper ? `${label} 속지` : `${label} 표지`} style={[local.art, slot]}>{art}</View>;
+            })()}
             <View style={local.meta}>
               <View style={local.names}>
-                <Text numberOfLines={1} style={local.name}>{item.name}</Text>
+                {editing?.id === item.id
+                  ? <TextInput autoFocus selectTextOnFocus maxLength={40} value={editing.draft} accessibilityLabel={paper ? '나의 속지 이름' : '나의 표지 이름'}
+                    onChangeText={draft => setEditing({ id: item.id, draft })} onSubmitEditing={() => finish(item)} onBlur={() => finish(item)}
+                    returnKeyType="done" style={[local.name, local.nameInput]} />
+                  : <Pressable accessibilityRole="button" accessibilityLabel={paper ? `나의 속지 ${item.name} 이름 고치기` : `나의 표지 ${item.name} 이름 고치기`}
+                    onPress={() => setEditing({ id: item.id, draft: item.name })} style={local.nameRow}>
+                    <Text numberOfLines={1} style={[local.name, local.nameText]}>{item.name}</Text>
+                    <AppIcon name="edit" size={12} color={colors.textMuted} />
+                  </Pressable>}
                 {paper ? <Text style={local.sub}>{`${item.pages.length}장`}</Text> : null}
               </View>
               <Pressable accessibilityRole="button" accessibilityLabel={paper ? `나의 속지 ${item.name} 지우기` : `나의 표지 ${item.name} 지우기`}
@@ -50,6 +70,9 @@ const local = StyleSheet.create({
   meta: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
   names: { flex: 1, minWidth: 0, paddingLeft: 2 },
   name: { fontSize: 14, fontWeight: '700', color: colors.text },
+  nameRow: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  nameText: { flexShrink: 1 },
+  nameInput: { minHeight: 32, paddingVertical: 0, paddingHorizontal: 6, marginLeft: -6, borderRadius: 8, borderWidth: 1, borderColor: colors.primary },
   sub: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   remove: { width: 48, height: 48, marginRight: -12, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
 });

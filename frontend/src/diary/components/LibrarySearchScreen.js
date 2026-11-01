@@ -13,7 +13,7 @@ const HISTORY_KEY = 'dio:diary:search-history:v1';
 const cleanHistory = values => Array.isArray(values)
   ? [...new Set(values.filter(value => typeof value === 'string').map(value => value.trim()).filter(Boolean))].slice(0, 10) : [];
 
-export default function LibrarySearchScreen({ compact, query, onQueryChange, onBack, diaries, metadata = {}, onOpen, onFavorite, onEdit, onDelete, optionsMenu = null, selectionBar = null, selecting = false, selected = [], onToggleSelect, onEnterEdit, requestNotice = null, hasMore = false, suppressEmpty = false, historyKey = HISTORY_KEY }) {
+export default function LibrarySearchScreen({ compact, query, onQueryChange, onBack, diaries, metadata = {}, onOpen, onFavorite, onEdit, onDelete, onShare, optionsMenu = null, selectionBar = null, selecting = false, selected = [], onToggleSelect, onEnterEdit, requestNotice = null, hasMore = false, suppressEmpty = false, historyKey = HISTORY_KEY }) {
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -80,7 +80,7 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
     </View> : <View style={s.librarySearchResults}>
       {!suppressEmpty && <Text accessibilityLiveRegion="polite" style={s.chipText}>{`‘${query.trim()}’ 검색 결과 ${diaries.length}개${hasMore ? ' 불러옴 · 더 있음' : ''}`}</Text>}
       {!diaries.length && suppressEmpty ? null : !diaries.length ? <EmptyState compact={compact} search title="검색 결과가 없어요" /> : <View onLayout={grid?.onLayout}><View style={[s.grid, compact && s.gridCompact, grid?.style]}>
-        {diaries.map(diary => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} cell={grid?.cell} layout="grid" onOpen={item => { remember(query); onOpen(item); }} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={onToggleSelect} onEnterEdit={onEnterEdit} />)}
+        {diaries.map(diary => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} cell={grid?.cell} layout="grid" onOpen={item => { remember(query); onOpen(item); }} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare} selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={onToggleSelect} onEnterEdit={onEnterEdit} />)}
       </View></View>}
     </View>}
   </ScrollView>;

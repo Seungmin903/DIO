@@ -142,7 +142,7 @@ function Leaf({ page, width, height, endpaper, style }) {
 }
 
 /** 펼침 자리의 다이어리: 표지 판(종이 밖으로 보이는 가장자리) · 양면 · 책등 · 머리띠 · 제본선 골 · 캡션 */
-function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null, shadow, onOpen, onFavorite, onEdit, onDelete }) {
+function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null, shadow, onOpen, onFavorite, onEdit, onDelete, onShare }) {
   const loaded = useSpread(diary);
   const cover = useMemo(() => normalizeCover(diary), [diary]);
   const [menu, setMenu] = useState(null);
@@ -166,9 +166,11 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
   const railWidth = peek == null ? width : leaf.width;
   const captionLeft = peek == null ? 0 : peek - left - leaf.width / 2;
   const act = fn => () => { setMenu(null); fn?.(); };
-  const actions = diary.canManage === false ? [] : [
-    { id: 'edit', label: `${diary.title} 수정`, text: '수정', icon: 'edit', disabled: !onEdit || diary.canEdit === false, onPress: act(() => onEdit?.(diary)) },
-    diary.canDelete !== false && { id: 'trash', label: `${diary.title} 휴지통으로 이동`, text: '휴지통으로 이동', icon: 'trash', disabled: !onDelete, onPress: act(() => onDelete?.(diary)) },
+  const manage = diary.canManage !== false;
+  const actions = [
+    manage && { id: 'edit', label: `${diary.title} 수정`, text: '수정', icon: 'edit', disabled: !onEdit || diary.canEdit === false, onPress: act(() => onEdit?.(diary)) },
+    onShare && { id: 'share', label: `${diary.title} 공유`, text: '공유', icon: 'share', onPress: act(() => onShare(diary)) },
+    manage && diary.canDelete !== false && { id: 'trash', label: `${diary.title} 휴지통으로 이동`, text: '휴지통으로 이동', icon: 'trash', disabled: !onDelete, onPress: act(() => onDelete?.(diary)) },
   ].filter(Boolean);
 
   return (
@@ -247,7 +249,7 @@ const ClosedBook = memo(function ClosedBook({ diary, size, top, left, side, shad
   );
 });
 
-function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEdit, onDelete, compact = false }) {
+function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEdit, onDelete, onShare, compact = false }) {
   // 지난번에 잰 크기로 바로 그린다(다른 보기에서 넘어올 때 크기를 재는 한 프레임 동안 비어 있지 않게). 다르면 onLayout 이 고친다.
   const [area, setArea] = useState(() => lastArea);
   // 한 면만(가장 최근 쪽, 옆 책 없이): 폰과 세로로 세운 태블릿. 펼친 양면이 너무 작아진다
@@ -314,7 +316,7 @@ function OpenBookShelf({ diaries, index, onIndexChange, onOpen, onFavorite, onEd
     const near = new Set([settled - 1, settled, settled + 1, index]);
     const opened = [...near].sort((a, b) => a - b).filter(at => diaries[at] && Math.abs(at - index) <= 1).map(at => (
       <OpenBook key={diaries[at].id} shown={at === index} diary={diaries[at]} size={sizes[at]} left={layoutAt(at, sizes, layout.width, single).openLeft}
-        top={layout.base - sizes[at].height} compact={compact} peek={upright && !compact ? Math.round(layout.width / 2) : null} shadow={shadow} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} />
+        top={layout.base - sizes[at].height} compact={compact} peek={upright && !compact ? Math.round(layout.width / 2) : null} shadow={shadow} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare} />
     ));
     // 세로 태블릿: 옆 다이어리는 화면 끝에 책등 쪽만 SPINE 만큼 걸쳐(펼친 책 가장자리 위에 얹혀) 옆으로 넘길 수 있음을 보여 준다
     // 마주 보는 쪽이 걸쳐 보이는 쪽에는 두지 않는다(홀수 쪽이면 왼쪽 면이, 짝수 쪽이면 오른쪽 면이 걸친다)

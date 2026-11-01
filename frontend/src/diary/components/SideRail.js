@@ -52,7 +52,13 @@ function SideRail({ page, filter, navigate, bottomInset = 0, topInset = 0, compa
   const countDescription = summary ? (summary.value === null ? '' : `, ${summary.label} ${summary.value}개`) : (invitationCount ? `, 새 초대 ${invitationCount}개` : '');
   const needsCheck = notificationCount?.status === 'error' ? ', 알림 수 확인 필요' : '';
 
-  const item = (id, label, icon, nextFilter) => {
+  // 고른 메뉴: 라벤더 면 + primaryText 아이콘, 나머지 아이콘은 primary(#818AC3, 바 바탕 위 3.1:1) — 원 페이저 04
+  // 접힘은 아이콘 뒤 36×36 타일, 펼치면 같은 면이 줄 오른쪽 끝까지 늘어나 알약이 된다(왼쪽은 아이콘 앞 8, 코덱스 2026-11-01). 메뉴 펼침 값(progress)에 묶어 함께 늘어난다
+  const itemPad = compact ? 11 : 12.5; // railItem · railItemPhone 의 안쪽 좌우(아이콘 칸 22의 왼쪽 끝)
+  const itemWidth = widths.expanded - 1 - paddings.expanded * 2; // 펼친 메뉴의 항목 폭(오른쪽 선 1 제외)
+  const markLeft = between(itemPad - 7, itemPad - 8);
+  const markWidth = between(36, itemWidth - (itemPad - 8));
+  const item = (id, label, icon, nextFilter, style = null) => {
     const selected = id === 'library'
       ? page === 'library' && filterScope(filter) === nextFilter
       : page === id;
@@ -63,10 +69,11 @@ function SideRail({ page, filter, navigate, bottomInset = 0, topInset = 0, compa
         accessibilityLabel={label}
         accessibilityState={{ selected }}
         onPress={() => navigate(id, nextFilter)}
-        style={({ pressed }) => [s.railItem, compact && s.railItemPhone, selected && s.railItemSelected, pressed && s.pressed]}
+        style={({ pressed }) => [s.railItem, compact && s.railItemPhone, selected && s.railItemSelected, style, pressed && s.pressed]}
       >
+        {selected && <Animated.View pointerEvents="none" style={[s.railIconTile, compact && s.railIconTilePhone, { left: markLeft, width: markWidth }]} />}
         <View style={s.railIconSlot}>
-          <AppIcon name={icon} size={22} color={selected ? C.ink : C.muted} fill={selected && icon === 'star' ? C.ink : 'none'} />
+          <AppIcon name={icon} size={20} color={selected ? C.blueText : C.blue} fill={selected && icon === 'star' ? C.blueText : 'none'} />
         </View>
         <AnimatedText numberOfLines={1} style={[s.railLabel, selected && s.railLabelSelected, { opacity: labelOpacity }]}>{label}</AnimatedText>
       </Pressable>
@@ -146,8 +153,10 @@ function SideRail({ page, filter, navigate, bottomInset = 0, topInset = 0, compa
       <Animated.View style={[s.railGroup, compact && s.railGroupPhone]}>
         {LIBRARY_SCOPES.map(scope => item('library', scope.label, scope.icon, scope.id))}
         {item('studio', '꾸미기 공방', 'workshop')}
-        {item('trash', '휴지통', 'bin')}
       </Animated.View>
+      {/* 휴지통은 자주 쓰지 않아 위 묶음에서 떼어 메뉴 아래쪽(내 공간 위)에 따로 둔다 */}
+      <View style={s.railSpacer} />
+      {item('trash', '휴지통', 'bin', s.railTrash)}
       {/* 내 공간: 메뉴 맨 아래, 위에 구분선 하나. 접으면 프로필 그림, 펼치면 닉네임이 그 옆에 나온다. 고른 상태 바탕은 깔지 않고 글자 굵기로만 보인다 */}
       {/* 구분선은 메뉴 좌우 끝에서 끝까지: 메뉴 안쪽 여백(접힘 15 · 펼침 20)만큼 밖으로 늘린다 */}
       <Animated.View style={[s.railProfileLine, compact && s.railProfileLinePhone, { marginHorizontal: between(-paddings.collapsed, -paddings.expanded) }]} />

@@ -10,6 +10,7 @@ const EDITOR_ICONS = {
   scissors: 'scissors',
   folder: 'folder',
   people: 'people',
+  share: 'userPlus', // 편집 화면 상단 바의 공유 버튼과 같은 모양
   bell: 'bell',
   add: 'plus',
   edit: 'edit',
@@ -34,6 +35,16 @@ const EDITOR_ICONS = {
   moon: 'moon',
   'arrow-up': 'up',
   'arrow-down': 'down',
+  // 제작 화면(사진 오리기, 시트 분리, 내 폰트)이 쓰는 편집기 아이콘
+  image: 'image',
+  redo: 'redo',
+  pen: 'pen',
+  eraser: 'eraser',
+  reset: 'reset',
+  hand: 'hand',
+  fit: 'fit',
+  minus: 'minus',
+  upload: 'upload',
 };
 
 const common = (color, strokeWidth) => ({

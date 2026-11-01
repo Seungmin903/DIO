@@ -31,11 +31,12 @@ function starOutlineFor(diary) {
 }
 
 // onOpen·onCenter·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다. onCenter 는 스와이프 옆 카드를 눌렀을 때.
-// 표지 왼쪽 위의 별(배경 없음)을 누르면 즐겨찾기를 켜고 끈다. 제목 줄 오른쪽 끝 `⋯` 버튼은 동작 말풍선(수정 · 휴지통으로 이동)을 띄운다.
+// 표지 왼쪽 위의 별(배경 없음)을 누르면 즐겨찾기를 켜고 끈다. 제목 줄 오른쪽 끝 `⋯` 버튼은 동작 말풍선(수정 · 공유 · 휴지통으로 이동, 구글 드라이브 메뉴 순서)을 띄운다.
+// 공유는 참여만 한 공유 다이어리(수정 · 삭제 권한 없음)에도 있다(구글 드라이브처럼 접근할 수 있는 사람은 누구나 공유 창을 연다).
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
 // cell: 태블릿 한눈에 보기의 칸 크기(px). 주면 카드 폭을 이 값으로 고정한다(폰은 퍼센트 폭). 제목 · ⋯ 는 어느 쪽이든 표지 양끝에 맞춘다
 // infoStyle: 스와이프 옆 카드에서 이름 · 페이지 수를 흐리게 하는 애니메이션 값
-function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, cell = null, onOpen, onCenter, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit }) {
+function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, cell = null, onOpen, onCenter, onFavorite, onEdit, onDelete, onShare, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit }) {
   // 동작 말풍선: null 이면 닫힘, 열리면 ⋯ 버튼의 창 안 자리(anchor)를 들고 있다(재지 못하면 anchor 는 null)
   const [menu, setMenu] = useState(null);
   const moreRef = useRef(null);
@@ -56,6 +57,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
   const canManage = diary.canManage !== false;
   const actions = [
     canManage && { id: 'edit', label: `${diary.title} 수정`, text: '수정', icon: 'edit', disabled: !onEdit || diary.canEdit === false, onPress: act(() => onEdit?.(diary)) },
+    onShare && { id: 'share', label: `${diary.title} 공유`, text: '공유', icon: 'share', onPress: act(() => onShare(diary)) },
     canManage && diary.canDelete !== false && { id: 'trash', label: `${diary.title} 휴지통으로 이동`, text: '휴지통으로 이동', icon: 'trash', disabled: !onDelete, onPress: act(() => onDelete?.(diary)) },
   ].filter(Boolean);
   const card = (

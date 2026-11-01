@@ -66,6 +66,7 @@ function LibraryScreen({
   onFavorite,
   onEdit,
   onDelete,
+  onShare, // 다이어리 ⋯ 말풍선의 `공유`. 없으면 그 줄을 두지 않는다
   onCreate,
   railWidthRef = null, // 태블릿: 메뉴가 다 열리거나 닫혔을 때의 폭 (ref라 바뀌어도 다시 그리지 않는다)
   selection = null, // 관리 모드에서 고른 다이어리 id 목록. null이면 관리 모드가 아니다.
@@ -269,7 +270,7 @@ function LibraryScreen({
       }
       setSearchOpen(false); setQuery(''); setOptionsOpen(false);
     }}
-    diaries={shown} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
+    diaries={shown} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare}
     metadata={metadata} optionsMenu={optionsMenu} selectionBar={selectionBar}
     selecting={selecting} selected={selected} onToggleSelect={toggleSelect} onEnterEdit={enterEdit}
     requestNotice={requestNotice} hasMore={hasMore} suppressEmpty={suppressEmpty} historyKey={historyKey}
@@ -357,7 +358,7 @@ function LibraryScreen({
       {!carouselItems.length && suppressEmpty ? null : !carouselItems.length ? (
         <EmptyState compact={compact} raised title={emptyTitle} />
       ) : displayView === 'open' ? (
-        <OpenBookShelf diaries={carouselItems} index={activeIndex} onIndexChange={onCarouselChange} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} compact={compact} />
+        <OpenBookShelf diaries={carouselItems} index={activeIndex} onIndexChange={onCarouselChange} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare} compact={compact} />
       ) : displayView === 'carousel' ? (
         <View style={[s.carouselShell, compact && s.carouselShellCompact, portrait && s.carouselShellPortrait]}>
           {/* 목록은 잰 폭으로 고정하고 줄 가운데에 둔다. 줄 폭이 바뀌어도 가운데 카드는 늘 줄 가운데에 머문다. */}
@@ -412,6 +413,7 @@ function LibraryScreen({
                     onFavorite={onFavorite}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    onShare={onShare}
                     selecting={selecting}
                     selected={selected.includes(item.id)}
                     onToggleSelect={toggleSelect}
@@ -432,7 +434,7 @@ function LibraryScreen({
       ) : (
         <View onLayout={grid?.onLayout}>
           <View style={[s.grid, compact && s.gridCompact, grid?.style]}>
-            {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} cell={grid?.cell} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete}
+            {shown.map((diary) => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} cell={grid?.cell} onOpen={onOpen} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare}
               selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={toggleSelect} onEnterEdit={enterEdit} />)}
           </View>
         </View>

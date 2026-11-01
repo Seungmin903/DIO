@@ -113,3 +113,22 @@ test('useDiaryGrid: 줄 간격은 화면이 정할 수 있고, 잰 폭이 짐작
   assert.equal(measured.cell, 210);
   assert.equal(measured.style.width, 3 * 210 + 2 * 32);
 });
+
+test('다이어리 ⋯ 말풍선은 수정 · 공유 · 휴지통 순서이고, 참여만 한 공유 다이어리도 ⋯ 로 공유를 연다', () => {
+  const menuOf = (item, props) => {
+    states = [];
+    const first = Card({ diary: item, layout: 'grid', ...props });
+    const more = nodes(first).find(node => node.props?.accessibilityLabel === `${item.title} 더보기`);
+    if (!more) return null;
+    more.props.onPress({ stopPropagation() {} });
+    return nodes(Card({ diary: item, layout: 'grid', ...props })).find(node => node.type === 'sheet').props.actions;
+  };
+  const shared = [];
+  const mine = menuOf(diary, { onShare: item => shared.push(item.id), onEdit() {}, onDelete() {} });
+  assert.deepEqual(mine.map(action => action.id), ['edit', 'share', 'trash']);
+  mine[1].onPress();
+  assert.deepEqual(shared, ['d1']);
+  const joined = { id: 'j1', title: '함께', canManage: false, sharedDiaryId: 's1' };
+  assert.deepEqual(menuOf(joined, { onShare() {} }).map(action => action.id), ['share']);
+  assert.equal(menuOf(joined, {}), null, '공유를 연결하지 않은 화면에서는 ⋯ 가 없다');
+});

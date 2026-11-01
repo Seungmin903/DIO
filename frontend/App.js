@@ -33,6 +33,7 @@ import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
 import { parseSort, queryDiaries } from './src/diary/utils/libraryQuery';
 import { savedLibraryView } from './src/diary/utils/libraryView';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
+import ProfileCropHost from './src/auth/ProfileCropHost';
 import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
@@ -635,6 +636,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       onFavorite={member ? undefined : favorite}
       onEdit={edit}
       onDelete={moveDiaryToTrash}
+      onShare={diary => { if (diary) setSharingRequest({ diary }); }}
       onCreate={create}
       railWidthRef={isPhone ? null : railWidthRef}
       selection={selection}
@@ -829,10 +831,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     );
   }
 
-  // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 태블릿 보관함은 흰 사이드 메뉴. 오른쪽: 보관함·편집기 바탕.
+  // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 편집기 밖은 좌측 바와 같은 바탕(C.canvas). 오른쪽: 보관함·편집기 바탕.
   const safeAreaColors = {
     top: page === 'editor' && !isLandscape ? C.white : desk ? DESK_COLOR : C.canvas,
-    left: page !== 'editor' ? C.white : desk ? DESK_COLOR : C.canvas,
+    left: page !== 'editor' ? C.canvas : desk ? DESK_COLOR : C.canvas,
     right: desk ? DESK_COLOR : C.canvas,
   };
 
