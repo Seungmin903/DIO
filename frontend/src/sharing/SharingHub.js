@@ -467,7 +467,7 @@ export default function SharingHub({
   const mine = diary?.members.find((member) => member.id === runtime.self.id);
   const isOwner = mine?.role === 'OWNER';
   const isFull = (diary?.members.length || 0) >= MAX_SHARING_MEMBERS;
-  const emailPreview = !runtime.server && typeof runtime.sendEmailInvite === 'function';
+  const emailAvailable = typeof runtime.sendEmailInvite === 'function' && (isOwner || (runtime.server && mine?.role === 'EDITOR'));
   const nicknameReady = !sharingNicknameError(nickname);
   const editingProfile = screen === 'profile';
   const profileDiary = editingProfile ? diary : invite?.diary;
@@ -563,6 +563,9 @@ export default function SharingHub({
                         <Icon name="chevronRight" size={20} color={colors.primaryText} />
                       </Pressable>
                       <DiarySummary diary={diary} />
+                      {!!diary.refreshWarning && <View style={s.notice}><Text style={s.muted}>{diary.refreshWarning}</Text>
+                        <Button label="공유 정보 새로고침" text="새로고침" secondary disabled={busy}
+                          onPress={() => run(() => runtime.getSharing(diary.id), setDiary)} /></View>}
                       <View style={s.row}>
                         <Text style={[s.label, s.grow]}>함께 편집하는 사람</Text>
                         <Text style={s.muted}>{diary.members.length}/{MAX_SHARING_MEMBERS}명</Text>
@@ -609,7 +612,7 @@ export default function SharingHub({
                           {capacityInfo && <Text style={s.text}>더 많은 인원이 함께하는 유료 이용은 준비 중이에요.</Text>}
                         </View>
                       )}
-                      {isOwner && <Button label="이메일로 초대" secondary disabled={busy}
+                      {emailAvailable && <Button label="이메일로 초대" secondary disabled={busy}
                         onPress={() => { setScreen('email'); setError(''); setToast(''); }} />}
                       {(isOwner || mine?.role === 'EDITOR') && (
                         <View style={s.section}>
@@ -750,7 +753,7 @@ export default function SharingHub({
                           </View>
                         </View>
                         <View style={s.memberActions}>
-                          {!runtime.server && typeof runtime.transferOwner === 'function' &&
+                          {typeof runtime.transferOwner === 'function' &&
                             <Button label={`${member.nickname} 소유권 양도`} text="소유권 양도" secondary disabled={busy}
                               style={s.memberActionButton}
                               onPress={() => setQuestion({ kind: 'transfer', member })} />}
@@ -762,21 +765,20 @@ export default function SharingHub({
                     ))}
                     <Button label="참여자 관리 완료" text="완료" disabled={busy} onPress={back} />
                   </>}
-                  {screen === 'email' && diary && isOwner && (
+                  {screen === 'email' && diary && emailAvailable && (
                     <View style={s.body}>
                       {!runtime.server && <Text style={s.muted}>미리보기예요. 실제 이메일은 발송되지 않아요.</Text>}
-                      {runtime.server && <Text style={s.muted}>이메일 초대 연결을 준비하고 있어요.</Text>}
                       <TextInput ref={emailField} accessibilityLabel="초대할 이메일"
                         placeholder="이메일 주소" placeholderTextColor={colors.textMuted}
                         keyboardType="email-address" autoCapitalize="none" autoCorrect={false}
-                        maxLength={254} value={inviteEmail} editable={!busy && emailPreview && !isFull}
+                        maxLength={254} value={inviteEmail} editable={!busy && emailAvailable && !isFull}
                         onFocus={() => focusInput(emailField.current)} onBlur={() => blurInput(emailField.current)}
                         onChangeText={value => { setInviteEmail(value); setError(''); }}
                         style={s.field} />
                       {!!inviteEmail && !!inviteEmailError(inviteEmail) &&
                         <Text accessibilityLiveRegion="polite" style={s.error}>{inviteEmailError(inviteEmail)}</Text>}
                       <Button label="이메일 초대 보내기" text={busy ? '처리 중…' : '초대 보내기'}
-                        disabled={busy || !emailPreview || isFull || !!inviteEmailError(inviteEmail)}
+                        disabled={busy || !emailAvailable || isFull || !!inviteEmailError(inviteEmail)}
                         onPress={() => {
                           dismissInput();
                           run(() => runtime.sendEmailInvite(diary.id, inviteEmail), result => {
@@ -785,8 +787,11 @@ export default function SharingHub({
                             setToast('가입된 이메일이라면 초대가 전달됩니다.');
                           });
                         }} />
-                      {emailPreview && <>
+                      {emailAvailable && <>
                         <Text style={s.label}>보낸 초대</Text>
+                        {runtime.server && <Button label="보낸 초대 새로고침" text="새로고침" secondary disabled={busy}
+                          onPress={() => run(() => runtime.getSharing(diary.id), setDiary)} />}
+                        {!!diary.refreshWarning && <Text style={s.muted}>{diary.refreshWarning}</Text>}
                         {!diary.emailInvites?.length && <Text style={s.muted}>보낸 초대가 없어요.</Text>}
                         {diary.emailInvites?.map(row => (
                           <View key={row.id} style={s.sentInvite}>
@@ -799,6 +804,8 @@ export default function SharingHub({
                           </View>
                         ))}
                       </>}
+                      {runtime.server && diary.emailNextPage != null && <Button label="보낸 초대 더 보기" text="더 보기" secondary disabled={busy}
+                        onPress={() => run(() => runtime.loadMoreEmailInvites(diary.id), setDiary)} />}
                       <Button label="공유 화면으로 돌아가기" text="완료" onPress={back} disabled={busy} />
                     </View>
                   )}

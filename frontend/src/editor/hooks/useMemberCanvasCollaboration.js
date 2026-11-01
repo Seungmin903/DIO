@@ -12,6 +12,7 @@ import { createCanvasSession } from '../../collaboration/canvasSession.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../services/canvasMediaFiles'
 import { connectCollaboration } from '../../collaboration/collaborationSocket.js'
+import { createCanvasFetch } from '../../collaboration/canvasFetch.js'
 import { serverPaperAppearance } from '../../diary/services/serverPaperFont.js'
 
 export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch}){
@@ -31,11 +32,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     runtime.current=r
     const active=()=>r.alive&&authService.getSessionKey()===sessionKey
     const headersFor=url=>authService.getCollaborationHeaders?.({url,userId:diary.memberAccountId,sessionKey})??{}
-    const fetchImpl=(url,options)=>{
-      const extra=headersFor(url),headers={...options.headers}
-      if(extra.Authorization){const bearer=headers[accessTokenHeader];headers['X-DIO-Access-Token']=accessTokenHeader==='Authorization'?bearer?.replace(/^Bearer /,''):bearer;headers.Authorization=extra.Authorization}
-      return memberFetch(url,{...options,headers})
-    }
+    const fetchImpl=createCanvasFetch({headersFor,accessTokenHeader,fetchImpl:memberFetch})
     const transport=createAuthenticatedMemberTransport({auth:authService,accountId:diary.memberAccountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl})
     const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch}),files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
     const api=createCanvasApi(transport,media)

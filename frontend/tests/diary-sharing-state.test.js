@@ -198,14 +198,14 @@ test('참여자 관리의 취소는 유지하고 양도 실패는 재시도, 성
   assert.ok(find(ui.render(), '다이어리 참여 해제'));
 });
 
-test('실서버 참여자 관리에는 새로 연결하지 않은 양도 기능을 노출하지 않는다', () => {
+test('실서버 참여자 관리도 연결된 양도 기능을 제공한다', () => {
   const diary = { id: 'd', title: '관리', members: [
     { id: 'self', nickname: '소연', role: 'OWNER' }, { id: 'friend', nickname: '모아', role: 'EDITOR' },
   ] };
   const ui = setup({ server: true, registerDiary: () => diary, getSharing: async () => diary,
     transferOwner: () => { throw new Error('호출하면 안 됨'); } }, undefined, { diary });
   find(ui.render(), '참여자 관리').props.onPress();
-  assert.equal(find(ui.render(), '모아 소유권 양도'), undefined);
+  assert.ok(find(ui.render(), '모아 소유권 양도'));
   assert.ok(find(ui.render(), '모아 참여 해제'));
 });
 
@@ -283,8 +283,7 @@ test('정원 초과와 서버 미연결에서는 목 이메일 요청을 실행�
   const diary = { id: 'server', members: [{ id: 'self', role: 'OWNER' }] };
   const server = setup({ server: true, registerDiary: () => diary, getSharing: async () => diary }, undefined, { diary });
   await tick();
-  find(server.render(), '이메일로 초대').props.onPress();
-  assert.equal(find(server.render(), '이메일 초대 보내기').props.disabled, true);
+  assert.equal(find(server.render(), '이메일로 초대'), undefined);
   server.unmount();
 });
 
@@ -711,4 +710,32 @@ test('닉네임 입력에서 취소하면 예약된 키보드 스크롤이 다�
     [],
   );
   ui.unmount();
+});
+
+test('실서버 편집자도 이메일을 보내고 보낸 목록을 새로고침하거나 더 볼 수 있다',async()=>{
+  let sent=0,more=0,refresh=0;
+  const diary={id:'server',members:[{id:'self',role:'EDITOR'}],emailInvites:[],emailNextPage:1};
+  const ui=setup({server:true,registerDiary:()=>diary,getSharing:async()=>{refresh++;return diary},
+    sendEmailInvite:async()=>{sent++;return diary},loadMoreEmailInvites:async()=>{more++;return {...diary,emailNextPage:null}}},undefined,{diary});
+  await tick();find(ui.render(),'이메일로 초대').props.onPress();
+  find(ui.render(),'초대할 이메일').props.onChangeText('friend@example.com');
+  assert.equal(find(ui.render(),'이메일 초대 보내기').props.disabled,false);
+  find(ui.render(),'이메일 초대 보내기').props.onPress();await tick();
+  assert.equal(sent,1);assert.equal(find(ui.render(),'초대할 이메일').props.value,'');
+  find(ui.render(),'보낸 초대 새로고침').props.onPress();await tick();assert.ok(refresh>=2);
+  find(ui.render(),'보낸 초대 더 보기').props.onPress();await tick();assert.equal(more,1);
+  assert.equal(find(ui.render(),'보낸 초대 더 보기'),undefined);ui.unmount();
+});
+
+test('정원이 찬 서버 다이어리는 초대 API가 있어도 이메일 입력과 전송을 비활성화한다',async()=>{
+  for(const role of ['OWNER','EDITOR']){
+    let sent=0;
+    const diary={id:'server-full',members:[{id:'self',role},...Array.from({length:validation.MAX_SHARING_MEMBERS-1},(_,i)=>({id:`friend-${i}`,role:'EDITOR'}))]};
+    const ui=setup({server:true,registerDiary:()=>diary,getSharing:async()=>diary,sendEmailInvite:async()=>{sent++;return diary}},undefined,{diary});
+    await tick();find(ui.render(),'이메일로 초대').props.onPress();
+    find(ui.render(),'초대할 이메일').props.onChangeText('friend@example.com');
+    assert.equal(find(ui.render(),'초대할 이메일').props.editable,false);
+    assert.equal(find(ui.render(),'이메일 초대 보내기').props.disabled,true);
+    assert.equal(sent,0);ui.unmount();
+  }
 });

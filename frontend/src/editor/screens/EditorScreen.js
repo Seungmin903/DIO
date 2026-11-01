@@ -54,6 +54,7 @@ import { readingEdgeMessage, turnLift, turnProgress, turnShouldComplete } from '
 import { PHONE_ZOOM_MAX, ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
 import { useMemberCanvasCollaboration } from '../hooks/useMemberCanvasCollaboration'
+import { useMemberPagePosition } from '../hooks/useMemberPagePosition'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
@@ -101,6 +102,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const qaHistoryExecutions = useRef(0)
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
+  useMemberPagePosition({ diary, pageId: page.id, loaded })
   const textSync = useMemberCanvasCollaboration({ diary, page, state, loaded, readOnly: permissionReadOnly, dispatch })
   const localUndo=state.past.length>0&&!state.collaborationPast?.at(-1)?.hasCanvas
   const localRedo=state.future.length>0&&!state.collaborationFuture?.[0]?.hasCanvas
