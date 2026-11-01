@@ -88,12 +88,15 @@ export const PATHS = {
 const DOT_ICONS = new Set(['grip', 'more'])
 
 // forText: 글자 크기(px). 주면 그 글자와 같은 높이로 보이게 size · 선 굵기 · 세로 위치를 계산한다(디자인 가이드 "글자 옆 아이콘")
+// 가로로 꽉 차 다른 도구보다 넓어 보이는 아이콘은 가운데(12)를 기준으로 가로만 줄인다
+const NARROW_X = { hand: 0.88 }
+
 export default function Icon({ name, size = 22, color = colors.text, strokeWidth = 1.8, fill = 'none', forText }) {
   const spec = forText ? textIconSpec(EDITOR_INK, name, forText) : null
   if (spec) { size = spec.size; strokeWidth = spec.strokeWidth }
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <G transform={spec && Math.abs(spec.dy) > 0.05 ? `translate(0 ${spec.dy})` : undefined}>
+      <G transform={[spec && Math.abs(spec.dy) > 0.05 && `translate(0 ${spec.dy})`, NARROW_X[name] && `translate(12 0) scale(${NARROW_X[name]} 1) translate(-12 0)`].filter(Boolean).join(' ') || undefined}>
         <Path
           d={PATHS[name]}
           stroke={color}

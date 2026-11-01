@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { PROMPTS } from '../src/handwriting/protocol.js'
+import { isEmptyDraft, listStatus, statusText } from '../src/handwriting/workflow.js'
 import { manuscriptLayout } from '../src/handwriting/manuscriptLayout.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
@@ -11,12 +12,14 @@ function harness(component = 'DrawingPad') {
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL(`../src/handwriting/${file}.js`, import.meta.url), 'utf8'), {
     configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
   })
-  const slots = [], pending = [], listeners = new Set()
+  const slots = [], pending = [], listeners = new Set(), guards = [], closed = []
   let cursor = 0
   const react = {
     useState(initial) { const i = cursor++; slots[i] ??= { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, value => { slots[i].value = typeof value === 'function' ? value(slots[i].value) : value }] },
     useRef(current) { return slots[cursor++] ??= { current } },
     useCallback: fn => fn,
+    useMemo(fn) { cursor++; return fn() },
+    memo: component => component,
     useSyncExternalStore: (_subscribe, get) => get(),
     useEffect(fn, deps) {
       const i = cursor++, previous = slots[i]
@@ -40,7 +43,11 @@ function harness(component = 'DrawingPad') {
     if (id === './DrawingPad') return { __esModule: true, default: 'DrawingPad' }
     if (id === './protocol.js') return { PROMPTS, SYLLABLE_COUNT: 11172, validateDraft() {} }
     if (id === './manuscriptLayout.js') return { manuscriptLayout }
-    if (id === './studioBus.js') return { setStudioCloseGuard: () => () => {} }
+    if (id === './library.js') return { refreshPersonalFonts: async () => [] }
+    if (id === './workflow.js') return { statusText, listStatus, isEmptyDraft, queuePosition: () => 1, completedCount: () => 0 }
+    if (id === './studioBus.js') return { setStudioCloseGuard: guard => { guards.push(guard); return () => {} }, closeFontStudio: async () => { closed.push(1) } }
+    if (id.endsWith('/controls/Slider')) return { __esModule: true, default: 'Slider' }
+    if (id.endsWith('/MakerKit')) return { MakerHeader: 'MakerHeader', MakerBar: 'MakerBar', MakerSegment: 'Segment', MakerSegmentItem: 'SegmentItem', MakerSteps: 'Steps', MakerNav: 'Nav' }
     return {}
   }
   new Function('require', 'module', 'exports', code + `\nmodule.exports.testComponent = ${component};`)(load, mod, mod.exports)
@@ -51,6 +58,8 @@ function harness(component = 'DrawingPad') {
       if (component !== 'StudioContent') pending.splice(0).forEach(fn => fn())
       return tree
     },
+    guards, closed,
+    flush() { pending.splice(0).forEach(fn => fn()) },
     background() { listeners.forEach(fn => fn('background')) },
     unmount() { slots.forEach(slot => slot.cleanup?.()) },
   }
@@ -105,7 +114,7 @@ test('입력 화면을 거친 필기 상태가 실제 상위 ScrollView를 즉�
     const snapshot = { loaded: true, error: '', support: { available: false }, entries: [{ id: 'draft', name: '테스트', status: 'draft', draft: { schema: 1, id: 'ink', samples: {} } }] }
     const controller = { subscribe() {}, getSnapshot: () => snapshot, saveDraft: async () => {} }
     const renderParent = () => parent.render({ controller })
-    await find(renderParent(), n => n.props?.accessibilityLabel === '테스트 작성 중').props.onPress()
+    await find(renderParent(), n => n.props?.accessibilityLabel === '테스트 0 / 36 작성 중').props.onPress()
     let tree = renderParent()
     const scroll = () => find(tree = renderParent(), n => n.type === 'ScrollView').props
     const nativeProps = []
@@ -155,10 +164,55 @@ test('원고지의 36칸은 한 칸만 입력을 소유하고 빠른 다음 칸 
   assert.deepEqual(activity, [true, false, true, false])
   assert.equal(saved.length, 2)
   assert.deepEqual(Object.keys(saved.at(-1).samples), PROMPTS.slice(0, 2))
-  const buttons = findAll(child.render(props), n => n.type?.name === 'Button' && n.props.label?.startsWith('펜 굵기'))
-  assert.deepEqual(buttons.map(n => n.props.children), ['얇게', '중간', '두껍게'])
-  assert.equal(buttons[1].props.primary, true)
+  // 펜 굵기는 편집창 펜과 같은 막대(6 ~ 12, 처음 9). 끌어서 생긴 소수는 정수로 맞춰 다음 획에 쓴다. 이름 입력은 이 단계에 없다(샘플 확인에서 정한다)
+  const slider = () => find(child.render(props), n => n.type === 'Slider').props
+  assert.deepEqual([slider().label, slider().min, slider().max, slider().value], ['펜 굵기', 6, 12, 9])
+  slider().onChange(11.4)
+  assert.equal(slider().value, 11)
+  assert.equal(findAll(child.render(props), n => n.type === 'DrawingPad')[0].props.width, 11)
+  // 획 되돌리기 ↔ 다시 실행: 지금 칸(두 번째 글자)의 마지막 획을 빼고 다시 넣는다. 새 획을 쓰면 다시 실행 기록은 비운다
+  const button = label => find(child.render(props), n => n.props?.label === label).props
+  assert.equal(button('획 다시 실행').disabled, true)
+  button('획 되돌리기').onPress()
+  assert.equal(saved.at(-1).samples[PROMPTS[1]], undefined)
+  assert.equal(button('획 다시 실행').disabled, false)
+  button('획 다시 실행').onPress()
+  assert.equal(saved.at(-1).samples[PROMPTS[1]].strokes.length, 1)
+  assert.equal(button('획 다시 실행').disabled, true)
+  button('획 되돌리기').onPress(); assert.equal(button('획 다시 실행').disabled, false)
+  const again = input(second.render(findAll(child.render(props), n => n.type === 'DrawingPad')[1].props))
+  again.onResponderGrant(event()); again.onResponderRelease()
+  assert.equal(button('획 다시 실행').disabled, true)
+  assert.equal(find(child.render(props), n => n.props?.accessibilityLabel === '새 폰트 이름'), null)
   first.unmount(); second.unmount(); child.unmount()
+})
+
+test('샘플 확인은 하단 바에서 열고, 폰트 이름은 샘플 확인 단계에서 정해 생성 확정 전에 저장한다', async () => {
+  const parent = harness('StudioContent'), calls = []
+  const snapshot = { loaded: true, error: '', support: { available: true }, entries: [{ id: 'draft', name: '나의 손글씨', status: 'draft', draft: { schema: 1, id: 'ink', samples: {} } }] }
+  const controller = { subscribe() {}, getSnapshot: () => snapshot, saveDraft: async () => {}, preview: async id => calls.push(['preview', id]),
+    rename: async (id, name) => calls.push(['rename', id, name]), confirm: async id => calls.push(['confirm', id]) }
+  const render = () => parent.render({ controller })
+  await find(render(), n => n.props?.accessibilityLabel === '나의 손글씨 0 / 36 작성 중').props.onPress()
+  assert.equal(find(render(), n => n.type === 'Steps').props.current, 'input')
+  const screen = find(render(), n => n.type?.name === 'InputScreen')
+  screen.props.onBar({ count: 36, status: '이 기기에 저장됨', disabled: false })
+  const bar = () => find(render(), n => n.type === 'MakerBar')
+  const sample = find(bar(), n => n.type?.name === 'Button')
+  assert.equal(sample.props.children, '샘플 확인'); assert.equal(sample.props.disabled, false)
+  await sample.props.onPress()
+  assert.equal(find(render(), n => n.type === 'Steps').props.current, 'preview')
+  assert.equal(find(render(), n => n.type?.name === 'Button' && n.props.children === '입력 수정'), null)
+  // 손글씨 입력으로는 하단 `이전` · 단계 표시의 지난 단계로 돌아간다(헤더 < 는 목록으로 나가기)
+  assert.equal(typeof find(bar(), n => n.type === 'Nav').props.onPrev, 'function')
+  assert.equal(typeof find(render(), n => n.type === 'Steps').props.onStep, 'function')
+  const name = () => find(render(), n => n.props?.accessibilityLabel === '새 폰트 이름').props
+  assert.equal(name().value, '나의 손글씨')
+  name().onChangeText(' ')
+  assert.equal(find(bar(), n => n.type?.name === 'Button').props.disabled, true)
+  name().onChangeText('일기 글씨')
+  await find(bar(), n => n.type?.name === 'Button' && n.props.children === '생성 확정').props.onPress()
+  assert.deepEqual(calls, [['preview', 'draft'], ['rename', 'draft', '일기 글씨'], ['confirm', 'draft']])
 })
 
 test('원고지 칸은 화면 안에 모두 들어오며 가로 공간이 부족하면 다음 행을 만든다', () => {
@@ -169,5 +223,64 @@ test('원고지 칸은 화면 안에 모두 들어오며 가로 공간이 부족
     assert.ok(layout.rows * layout.columns >= 36)
     assert.ok(layout.rows > 1)
     assert.ok(layout.cell <= 100)
+  }
+})
+
+test('공방에서 열면(create · open) 자체 목록을 건너뛰고 새 폰트 입력 · 고른 폰트 화면으로 바로 들어간다', async () => {
+  const tick = () => new Promise(resolve => setImmediate(resolve))
+  const entries = [{ id: 'draft', name: '테스트', status: 'draft', draft: { schema: 1, id: 'ink', samples: {} } }]
+  const snapshot = { loaded: true, error: '', support: { available: false }, entries }
+  const created = []
+  const controller = { subscribe() {}, getSnapshot: () => snapshot, saveDraft: async () => {}, create: async () => { created.push(1); entries.push({ id: 'fresh', name: '새 폰트', status: 'draft', draft: { schema: 1, id: 'ink2', samples: {} } }); return 'fresh' } }
+  const hasHome = tree => Boolean(find(tree, n => n.props?.children === '+ 새로 만들기' || n.props?.label === '+ 새로 만들기'))
+  const hasInput = tree => Boolean(find(tree, n => n.type?.name === 'InputScreen'))
+
+  const make = harness('StudioContent')
+  assert.equal(hasHome(make.render({ options: { create: true }, controller })), false)
+  make.flush(); await tick()
+  assert.deepEqual(created, [1])
+  assert.equal(hasInput(make.render({ options: { create: true }, controller })), true)
+
+  const reopen = harness('StudioContent')
+  reopen.render({ options: { open: 'draft' }, controller }); reopen.flush(); await tick()
+  assert.equal(created.length, 1, '있는 폰트를 열 때는 새 폰트를 만들지 않는다')
+  assert.equal(hasInput(reopen.render({ options: { open: 'draft' }, controller })), true)
+
+  const lost = harness('StudioContent')
+  lost.render({ options: { open: 'gone' }, controller }); lost.flush(); await tick()
+  assert.equal(hasHome(lost.render({ options: { open: 'gone' }, controller })), true, '없는 항목이면 자체 목록으로 돌아간다')
+})
+
+test('아무것도 쓰지 않고 입력 화면을 나가면 그 새 폰트는 저장하지 않고 지운다', async () => {
+  const tick = () => new Promise(resolve => setImmediate(resolve))
+  const written = { id: 'w', name: '쓴 폰트', status: 'draft', draft: { schema: 1, id: 'a', samples: { [PROMPTS[0]]: { strokes: [[1]] } } } }
+  const blank = { id: 'b', name: '빈 폰트', status: 'draft', draft: { schema: 1, id: 'b', samples: {} } }
+  const revision = { id: 'r', name: '고치는 폰트', status: 'draft', sourceId: 'x', draft: { schema: 1, id: 'c', samples: {} } }
+  for (const [entry, removed] of [[blank, ['b']], [written, []], [revision, []]]) {
+    const snapshot = { loaded: true, error: '', support: { available: false }, entries: [entry] }
+    const calls = []
+    const controller = { subscribe() {}, getSnapshot: () => snapshot, saveDraft: async () => {}, removeDraft: async id => { calls.push(id) } }
+    const parent = harness('StudioContent')
+    const render = () => parent.render({ controller })
+    await find(render(), n => n.props?.accessibilityLabel?.startsWith(entry.name)).props.onPress()
+    await find(render(), n => n.props?.accessibilityLabel === '폰트 화면 뒤로가기' || n.props?.onBack)?.props.onBack?.()
+    await tick()
+    assert.deepEqual(calls, removed, entry.name)
+  }
+})
+
+test('창을 닫을 때(닫기 가드)도 아무것도 쓰지 않은 새 폰트만 지운다', async () => {
+  const tick = () => new Promise(resolve => setTimeout(resolve, 5))
+  for (const [value, removed] of [
+    [{ id: 'b', name: '빈 폰트', status: 'draft', draft: { schema: 1, id: 'b', samples: {} } }, ['b']],
+    [{ id: 'r', name: '고치는 폰트', status: 'draft', sourceId: 'x', draft: { schema: 1, id: 'c', samples: {} } }, []],
+  ]) {
+    const calls = [], child = harness('InputScreen')
+    const props = { workflow: { saveDraft: async () => {}, removeDraft: async id => { calls.push(id) } }, value, narrow: true, busy: '', support: { available: false }, inputSave: { current: null }, onInputActiveChange() {} }
+    child.render(props)
+    assert.equal(await child.guards.at(-1)(), true)
+    await tick()
+    assert.deepEqual(calls, removed, value.name)
+    child.unmount()
   }
 })

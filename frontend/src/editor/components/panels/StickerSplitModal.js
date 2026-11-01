@@ -9,6 +9,7 @@ import StickerGroupThumbnail from './StickerGroupThumbnail'
 import useStickerSplitEditing from '../../hooks/useStickerSplitEditing'
 import { brushSelection, materializeGroups, excludeStickerGroup, splitBrushTargets } from '../../utils/stickerSplitGroups.js'
 import PenSafeTextInput from '../controls/PenSafeTextInput'
+import { MakerBar, MakerHeader } from '../../../shared/MakerKit'
 import { colors, radius, DISABLED_OPACITY } from '../../../shared/theme'
 import { stickerSplit } from '../../services/stickerSplit'
 import { FULL_CROP, splitError } from '../../utils/stickerSplit.js'
@@ -256,15 +257,17 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
         onCrop={rect => { setCrop(rect); setCropDefined(true); setDirty(parts.length > 0) }} />
       {!!toolLabel && <View pointerEvents="none" testID="sticker-active-tool" style={s.toolLabel}><Text style={s.body}>{toolLabel}</Text></View>}
       <View style={s.previewActions}>
-        <Action label="영역 조정" active={mode === 'crop'} disabled={working || !sourceReady || manualMerge}
+        <Action label="영역 조정" onGray active={mode === 'crop'} disabled={working || !sourceReady || manualMerge}
           onPress={() => setMode(current => current === 'crop' ? 'review' : 'crop')} />
-        <IconAction label="이미지 이동" icon="hand" active={mode === 'pan'} disabled={working || !sourceReady || manualMerge}
+        <IconAction label="이미지 이동" icon="hand" onGray active={mode === 'pan'} disabled={working || !sourceReady || manualMerge}
           onPress={() => setMode(current => current === 'pan' ? 'review' : 'pan')} />
-        <IconAction label="화면 맞춤" icon="fit" disabled={working || !sourceReady} onPress={() => setView({ zoom: 1, x: 0, y: 0 })} />
+        <IconAction label="화면 맞춤" icon="fit" onGray disabled={working || !sourceReady} onPress={() => setView({ zoom: 1, x: 0, y: 0 })} />
       </View>
     </View>
   </View>
+  const hasNotes = !!error || !!editing.error || working || editing.pending || (!!parts.length && !mustAnalyze && !manualMerge) || (dirty && !!parts.length)
   const footer = (!!source || !!error) && <View style={s.footer}>
+    {hasNotes && <View style={s.footerNotes}>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {!!editing.error && <View><Text accessibilityRole="alert" style={s.error}>{editing.error}</Text><Action label="묶음 계산 다시 시도" disabled={working || dirty} onPress={editing.retry} /></View>}
     {(working || editing.pending) && <View accessibilityLiveRegion="polite" style={s.row}>
@@ -275,19 +278,21 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
       ? <Text style={s.body}>{folder.name}</Text>
       : <PenSafeTextInput value={name} editable={!working} onChangeText={setName} maxLength={12} placeholder="폴더 이름" placeholderTextColor={colors.text} accessibilityLabel="스티커 폴더 이름" style={s.input} />)}
     {dirty && !!parts.length && <Text accessibilityLiveRegion="polite" style={s.body}>영역·배경 변경됨 · 다시 분리 필요</Text>}
-    {!!source && <View testID="sticker-save-row" style={s.footerRow}>
-      {!!parts.length && <Text accessibilityLiveRegion="polite" style={s.total}>총 {saveCount}개</Text>}
-      <View style={s.footerAction}><Action label={primaryLabel} displayLabel={!working && !manualMerge && !mustAnalyze ? '저장' : primaryLabel} primary disabled={primaryDisabled} onPress={primaryAction} /></View>
+    </View>}
+    {/* 하단 줄(MakerBar): 왼쪽 상태, 오른쪽 끝 주 버튼 하나 */}
+    {!!source && <View testID="sticker-save-row">
+      <MakerBar left={!!parts.length ? <Text accessibilityLiveRegion="polite" style={s.total}>총 {saveCount}개</Text> : null}>
+        <Action label={primaryLabel} displayLabel={!working && !manualMerge && !mustAnalyze ? '저장' : primaryLabel} primary disabled={primaryDisabled} onPress={primaryAction} />
+      </MakerBar>
     </View>}
   </View>
   return <EditorModal visible animationType="slide" onShow={openInitialPicker} onRequestClose={() => zoomed ? setZoomed(null) : close()}>
     <View style={[s.screen, { paddingTop: Math.max(8, insets.top), paddingBottom: Math.max(12, insets.bottom), paddingLeft: insets.left, paddingRight: insets.right }]}>
-      <View style={s.header}>
-        <Text accessibilityRole="header" style={s.title}>스티커 만들기</Text>
+      {/* 제작 화면 문법(디자인 가이드 5.8): 높이 64 상단 바, 왼쪽 `<` 가 이 흐름에서 나가기, 오른쪽엔 되돌리기 · 다시 실행만 */}
+      <MakerHeader title="스티커 만들기" onBack={close} backLabel="닫기" busy={saving || phase === 'picking'}>
         <IconAction label="실행 취소" icon="undo" disabled={locked || manualMerge || !editing.canUndo} onPress={editing.undo} />
         <IconAction label="다시 실행" icon="redo" disabled={locked || manualMerge || !editing.canRedo} onPress={editing.redo} />
-        <IconAction label="닫기" icon="close" disabled={saving || phase === 'picking'} onPress={close} />
-      </View>
+      </MakerHeader>
       <View style={[s.workspace, wide && s.workspaceWide]}>
         {wide && preview}
         <View style={[s.controlsPane, wide && !!source && s.controlsPaneWide]}
@@ -407,8 +412,6 @@ const s = StyleSheet.create({
   controlsPane: { flex: 1, minWidth: 0, minHeight: 0 },
   controlsPaneWide: { borderLeftWidth: 1, borderColor: colors.cardBorder },
   previewPane: { marginBottom: 16 }, previewPaneWide: { flex: 1, minWidth: 0, padding: 16, marginBottom: 0 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingBottom: 8 },
-  title: { flex: 1, minWidth: 0, color: colors.text, fontSize: 17, fontWeight: '800' },
   content: { padding: 16, gap: 10 }, row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   imageHeader: { alignItems: 'flex-end', marginBottom: 8 }, preview: { position: 'relative', overflow: 'hidden', borderRadius: radius.lg },
   previewActions: { position: 'absolute', right: 8, bottom: 8, flexDirection: 'row', gap: 4 },
@@ -426,8 +429,9 @@ const s = StyleSheet.create({
   check: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.primaryStrong, borderRadius: 12, backgroundColor: colors.surface },
   checked: { backgroundColor: colors.primaryStrong }, badgeText: { fontSize: 14, fontWeight: '800', color: colors.text }, checkedText: { color: colors.surface },
   disabled: { opacity: DISABLED_OPACITY },
-  footer: { flexShrink: 0, paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderTopWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
-  footerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, total: { color: colors.text, fontSize: 14, fontWeight: '700' }, footerAction: { flex: 1, minWidth: 0 },
+  footer: { flexShrink: 0, backgroundColor: colors.surface },
+  footerNotes: { paddingHorizontal: 16, paddingVertical: 12, gap: 8, borderTopWidth: 1, borderColor: colors.cardBorder },
+  total: { color: colors.text, fontSize: 14, fontWeight: '700' },
   input: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, color: colors.text, fontSize: 14, padding: 12, minHeight: 44 },
   error: { color: colors.dangerStrong, fontSize: 14, fontWeight: '600', lineHeight: 21 },
   zoomOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.scrim, justifyContent: 'center', padding: 20 },

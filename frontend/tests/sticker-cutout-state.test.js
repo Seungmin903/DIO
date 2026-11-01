@@ -9,6 +9,11 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
 })
 const nodes = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)]
 const find = (tree, name) => nodes(tree).find(n => n.props.label === name || n.props.accessibilityLabel === name || n.props.testID === name)
+// 헤더 왼쪽 < (나가기)는 공용 상단 바(MakerHeader)가 그린다: 바에 넘긴 동작을 눌린 버튼처럼 다룬다
+const header = tree => nodes(tree).find(n => n.props.backLabel)
+const closeButton = tree => ({ props: { onPress: header(tree).props.onBack } })
+// 단계 이동 줄(MakerNav)의 `이전`
+const prevButton = tree => nodes(tree).find(n => n.props.onPrev)
 const tick = () => new Promise(resolve => setImmediate(resolve))
 function fixture(photoPicker, preview) {
   let si = 0, ri = 0, ei = 0, closed = 0
@@ -40,6 +45,13 @@ async function load(ui) {
   nodes(tree).find(n => n.type === 'Image').props.onLoad()
   ui.render()
 }
+// 칠한 영역이 있으면 이미지 바꾸기는 확인 창을 먼저 연다
+async function changeImage(ui) {
+  find(ui.render(), '이미지 바꾸기').props.onPress()
+  const dialog = nodes(ui.render()).find(n => n.props.confirmLabel === '이미지 바꾸기')
+  if (dialog.props.open) dialog.props.onConfirm()
+  await tick()
+}
 function draw(ui) {
   const area = find(ui.render(), 'cutout-canvas')
   area.props.onResponderGrant({ nativeEvent: { locationX: 20, locationY: 20 } })
@@ -51,7 +63,7 @@ test('같은 URI 재선택도 이미지를 새로 로드하며 이전 로드 콜
   const ui = fixture(async () => ({ uri: 'same-photo', width: 100, height: 100 }))
   await load(ui); draw(ui)
   const oldImage = nodes(ui.render()).find(n => n.type === 'Image')
-  find(ui.render(), '다른 사진 선택').props.onPress(); await tick()
+  await changeImage(ui)
   const nextImage = nodes(ui.render()).find(n => n.type === 'Image')
   assert.notEqual(nextImage.key, oldImage.key)
   oldImage.props.onLoad()
@@ -67,7 +79,7 @@ test('좁은 세로 사진의 큰 붓은 사진 너비로 제한하고 손을 �
   let input
   const ui = fixture(async () => ({ uri: 'tall-photo', width: 100, height: 4000 }), async (_source, history) => { input = history })
   await load(ui)
-  const slider = nodes(ui.render()).find(n => n.props.label === '붓 크기')
+  const slider = nodes(ui.render()).find(n => n.props.label === '브러시 크기')
   slider.props.onCommit(80)
   const area = find(ui.render(), 'cutout-canvas')
   area.props.onResponderGrant({ nativeEvent: { locationX: 2, locationY: 20 } })
@@ -93,10 +105,10 @@ test('사진 재선택 취소는 기존 선택을 유지하고 새 사진으로 
   const ui = fixture(async () => ++calls === 2 ? null : ({ uri: `photo-${calls}`, width: 100, height: 100, dispose: () => disposed++ }))
   await load(ui); draw(ui)
   assert.equal(find(ui.render(), '다음 · 스티커 확인').props.disabled, false)
-  find(ui.render(), '다른 사진 선택').props.onPress(); await tick()
+  await changeImage(ui)
   assert.equal(find(ui.render(), '되돌리기').props.disabled, false)
   assert.equal(disposed, 0)
-  find(ui.render(), '다른 사진 선택').props.onPress(); await tick()
+  await changeImage(ui)
   assert.equal(find(ui.render(), '되돌리기').props.disabled, true)
   assert.equal(disposed, 1)
   ui.unmount(); assert.equal(disposed, 2)
@@ -108,27 +120,33 @@ test('선택 미리보기 실패 후 입력 유지·재시도와 닫기 취소, 
   find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
   assert.ok(nodes(ui.render()).some(n => n.props.children === '재시도 안내'))
   assert.equal(find(ui.render(), '되돌리기').props.disabled, false)
-  find(ui.render(), '스티커 만들기 닫기').props.onPress()
-  nodes(ui.render()).find(n => n.props.confirmLabel === '닫기').props.onCancel()
+  closeButton(ui.render()).props.onPress()
+  nodes(ui.render()).find(n => n.props.confirmLabel === '나가기').props.onCancel()
   assert.equal(ui.closed, 0)
   find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
   find(ui.render(), '저장 흐름 확인').props.onPress()
   const confirm = nodes(ui.render()).find(n => n.props.confirmLabel === '확인')
-  assert.match(confirm.props.message, /실제 스티커는 저장되지/)
+  assert.match(confirm.props.message, /저장되지 않아요/)
   confirm.props.onConfirm()
   assert.equal(find(ui.render(), '저장 흐름 확인').props.disabled, true)
-  find(ui.render(), '스티커 만들기 닫기').props.onPress()
+  closeButton(ui.render()).props.onPress()
   assert.equal(ui.closed, 1)
 })
 
-test('결과 확인에서 선택 수정·기기 뒤로가기로 돌아오면 같은 사진과 붓질을 유지한다', async () => {
+test('결과 확인에서 헤더 이전·기기 뒤로가기로 돌아오면 같은 사진과 붓질을 유지한다', async () => {
   const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }))
   await load(ui); draw(ui)
+  assert.equal(prevButton(ui.render()), undefined) // ① 에는 `이전`이 없고 헤더 < 는 나가기
+  assert.equal(header(ui.render()).props.backLabel, '스티커 만들기 나가기')
   find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
   assert.ok(find(ui.render(), '2단계 스티커 확인'))
   assert.ok(nodes(ui.render()).some(n => n.type === 'Pattern'))
-  find(ui.render(), '선택 수정').props.onPress()
-  assert.ok(find(ui.render(), '1단계 대상 선택'))
+  assert.equal(find(ui.render(), '선택 수정'), undefined) // 돌아가기는 헤더 뒤로 하나
+  assert.equal(find(ui.render(), '브러시 크기'), undefined) // ① 도구를 ② 에 다시 띄우지 않는다
+  assert.equal(find(ui.render(), '스티커 폴더 이름'), undefined) // 연 폴더에 넣을 때는 이름만 보인다
+  assert.equal(nodes(ui.render()).find(n => n.props.onStep).props.onStep !== undefined, true) // 단계 표시의 지난 단계로도 돌아간다
+  prevButton(ui.render()).props.onPrev()
+  assert.ok(find(ui.render(), '1단계 대상 고르기'))
   assert.equal(find(ui.render(), '되돌리기').props.disabled, false)
   find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
   nodes(ui.render()).find(n => n.props.onRequestClose).props.onRequestClose()

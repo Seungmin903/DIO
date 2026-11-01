@@ -8,15 +8,16 @@ import { colors } from './theme';
 
 /**
  * variant: 'filled' | 'tonal' | 'ghost' | 'danger' | 'icon'. label 은 접근성 이름이자 글자(icon 이면 글자 없이 이름만).
- * badge: 버튼 안 오른쪽의 작은 상태 글자(예: '준비 중'). block: 줄 전체 폭.
+ * badge: 버튼 안 오른쪽의 작은 상태 글자(예: '준비 중'). block: 줄 전체 폭. selected: 토글 · 도구가 골라진 상태(흰 면 + primary 테두리).
  */
-export default function DioButton({ variant = 'tonal', label, text = label, icon = null, badge = null, outline = false, block = false, disabled = false, onPress, onLongPress, hint, style }) {
+export default function DioButton({ variant = 'tonal', label, text = label, icon = null, badge = null, outline = false, block = false, disabled = false, selected = false, onPress, onLongPress, hint, style }) {
   const filled = variant === 'filled', iconOnly = variant === 'icon';
   const ink = filled ? colors.surface : variant === 'danger' ? colors.dangerStrong : colors.primaryText;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{ disabled }}
-      disabled={disabled} onPress={onPress} onLongPress={onLongPress}
-      style={[local.base, iconOnly ? local.icon : local.text, local[variant], outline && variant === 'ghost' && local.outline, block && local.block, disabled && local.disabled, style]}>
+    // 안드로이드는 accessibilityState · disabled 에 참 · 거짓이 아닌 값(예: 'merge')이 오면 멈춘다
+    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{ disabled: !!disabled, selected: !!selected }}
+      disabled={!!disabled} onPress={onPress} onLongPress={onLongPress}
+      style={[local.base, iconOnly ? local.icon : local.text, local[variant], outline && variant === 'ghost' && local.outline, block && local.block, selected && local.selected, disabled && local.disabled, style]}>
       {icon ? <AppIcon name={icon} size={iconOnly ? 22 : 18} forText={iconOnly ? undefined : 15} color={ink} /> : null}
       {!iconOnly && <Text numberOfLines={1} style={[local.label, { color: ink }]}>{text}</Text>}
       {badge ? <View style={local.badge}><Text style={local.badgeText}>{badge}</Text></View> : null}
@@ -33,6 +34,8 @@ const local = StyleSheet.create({
   tonal: { backgroundColor: colors.surfaceMuted, paddingHorizontal: 16 },
   ghost: { backgroundColor: 'transparent', paddingHorizontal: 14 },
   outline: { borderWidth: 1, borderColor: colors.primary },
+  // 고른 상태(토글 · 도구 선택): 흰 면 + primary 1px 테두리
+  selected: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary },
   danger: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.dangerStrong },
   // 쓸 수 없을 때는 같은 모양을 흐리게(DISABLED_OPACITY) 둔다
   disabled: { opacity: 0.4 },

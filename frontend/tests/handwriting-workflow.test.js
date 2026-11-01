@@ -186,3 +186,12 @@ test('복구된 완료 작업의 등록 실패는 재시도 가능하며 기존 
   assert.equal(existing.flow.getSnapshot().entries[0].fontId, 'already-registered')
   assert.deepEqual(existing.calls, [])
 })
+test('작성 중인 폰트만 지우고 저장소에서도 사라지며, 생성을 확정한 폰트는 지우지 않는다', async () => {
+  const h = setup(); await h.flow.init()
+  const kept = await h.prepare('확정 폰트'); await h.flow.confirm(kept)
+  const id = await h.flow.create()
+  await h.flow.removeDraft(id)
+  assert.equal(h.item(id), undefined); assert.equal(h.saved().some(e => e.id === id), false)
+  await assert.rejects(h.flow.removeDraft(kept), /작성 중인 폰트만/)
+  assert.ok(h.item(kept))
+})

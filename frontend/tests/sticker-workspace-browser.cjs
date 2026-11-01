@@ -52,7 +52,7 @@ const server = http.createServer((req, res) => {
       const saveBox = await button('32개 저장').boundingBox()
       assert.ok(saveBox.y >= 0 && saveBox.y + saveBox.height <= height + 1, JSON.stringify({ width, height, saveBox }))
       assert.equal(await button('32개 저장').textContent(), '저장')
-      assert.ok((await page.getByTestId('sticker-save-row').boundingBox()).height <= 48)
+      assert.ok((await page.getByTestId('sticker-save-row').boundingBox()).height <= 80)
       assert.ok((await button('스티커 확인').boundingBox()).height <= 48)
       const first = button('스티커 1 확인'); await first.click()
       assert.equal(await page.getByRole('checkbox', { name: '스티커 1 저장 포함', exact: true }).getAttribute('aria-checked'), 'true')

@@ -10,7 +10,7 @@ const server = http.createServer((req, res) => {
 })
 async function enterLocalSession(page) {
   const tab = page.getByRole('tab', { name: '내 공간', exact: true }).or(page.getByRole('button', { name: '내 공간', exact: true }))
-  const guest = page.getByRole('button', { name: '게스트로 시작하기', exact: true })
+  const guest = page.getByRole('button', { name: '개발자 모드로 시작', exact: true })
   await Promise.race([tab.waitFor(), guest.waitFor()])
   if (await guest.isVisible()) await guest.click()
   await tab.waitFor().catch(async error => { console.error('LOCAL_QA_BODY', await page.locator('body').innerText()); throw error })
@@ -55,7 +55,7 @@ async function stroke(page, points) {
     const page = await context.newPage(); page.on('pageerror', e => { errors.push(e.message); console.error('LOCAL_QA_ERROR', e.message) })
     await page.goto('http://127.0.0.1:54841/'); await openStudio(page)
     await page.getByRole('button', { name: '+ 새로 만들기', exact: true }).click()
-    await page.getByText('폰트 생성은 Android 개발 빌드에서 사용할 수 있어요.', { exact: true }).waitFor()
+    await page.getByRole('button', { name: '샘플 확인', exact: true }).waitFor()
     assert(await page.getByRole('button', { name: '샘플 확인', exact: true }).isDisabled())
     await stroke(page, [[.25, .3], [.6, .32], [.55, .65]])
     await page.waitForFunction(storedDraft, 1)
