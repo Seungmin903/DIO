@@ -37,3 +37,11 @@ export function startTextKeyboard({ platform, getInput, canFocus, isVisible, fin
   if (platform !== 'web') for (const delay of [80, 200, 400]) timers.push(schedule(() => attempt(true), delay))
   return stop
 }
+
+// 키보드 바로 위에 띄우는 '선택한 글자' 줄의 bottom(스테이지 기준). keyboardTop 은 keyboardDidShow 의 screenY(창 기준).
+// 안드로이드 15 edge-to-edge 처럼 키보드가 떠도 스테이지가 안 줄면 가려진 만큼 올린다. 키보드가 레이아웃을 줄이는 환경은
+// 스테이지 아래 끝이 이미 키보드 위라 값이 0 이하가 되어 기본 여백(8)만 남는다(두 번 올라가지 않는다).
+export function keyboardPanelBottom({ stageTop, stageHeight, keyboardTop, gap = 8 }) {
+  if (keyboardTop == null || !Number.isFinite(stageHeight)) return gap
+  return Math.max(gap, stageTop + stageHeight - keyboardTop + gap)
+}

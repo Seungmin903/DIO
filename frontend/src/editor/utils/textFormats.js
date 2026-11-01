@@ -11,6 +11,12 @@ export function safeTextSelection(text, selection) {
   return { start, end }
 }
 
+// 앱 입력칸의 선택 범위를 바꾼다. 새 구조 RN 은 setNativeProps 로 선택을 못 바꿔 setSelection 을 먼저 쓴다
+export function applyInputSelection(input, selection) {
+  if (input?.setSelection) input.setSelection(selection.start, selection.end)
+  else input?.setNativeProps?.({ selection })
+}
+
 export function normalizeTextLink(value) {
   const trimmed = value.trim()
   if (!trimmed) return ''

@@ -33,7 +33,8 @@ import GuideSettings from '../components/GuideSettings'
 import PageOverview from '../components/panels/PageOverview'
 import { preloadTextFonts } from '../services/textFonts'
 import { DEFAULT_GUIDES, hasGuides } from '../components/canvas/GridOverlay'
-import { TEXT_ACTION_BAR_WIDTH } from '../components/TextActionBar'
+import { TEXT_ACTION_BAR_HEIGHT, TEXT_ACTION_BAR_WIDTH } from '../components/TextActionBar'
+import { keyboardPanelBottom } from '../utils/textKeyboard'
 import { formatTextRange } from '../utils/textFormats'
 import { copyText } from '../services/textClipboard'
 import { objectClipboard, useObjectClipboard } from '../services/objectClipboard'
@@ -143,6 +144,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [toolAnchor, setToolAnchor] = useState(null)
   const [drawerWidth, setDrawerWidth] = useState(320)
   const [stageOrigin, setStageOrigin] = useState({ x: 0, y: 0 })
+  // 키보드 위쪽 끝(화면 y). 안드로이드 전체 화면(edge-to-edge)은 키보드가 떠도 작업 영역이 줄지 않아, '선택한 글자' 줄을 이 위에 직접 놓는다
+  const [keyboardTop, setKeyboardTop] = useState(null)
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardTop(event.endCoordinates?.screenY ?? null))
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardTop(null))
+    return () => { show.remove(); hide.remove() }
+  }, [])
   const [ribbonBottom, setRibbonBottom] = useState(OPTIONS_TOP) // 태블릿 툴바 아래 끝 (작업창 좌표)
   const [phonePanelWidths, setPhonePanelWidths] = useState({ left: 0, right: 0 }) // 폰에서 작업창 위에 띄운 패널 너비
   const toolPopoverStyle = (width = 320) => {
@@ -1172,12 +1180,24 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 onShapeChange={(shape) => setLasso(current => ({ ...current, shape }))} />
             </View>
           )}
-          {!readOnly && textEditing && textPalette && <View style={[styles.textPaletteWrap, {
-            left: Math.max(8, Math.min((textPalette.anchor?.x ?? stageOrigin.x) - stageOrigin.x, (stageSize?.width ?? 600) - TEXT_ACTION_BAR_WIDTH - 8)),
-            top: Math.max(84, Math.min((textPalette.anchor?.y ?? stageOrigin.y) - stageOrigin.y + (textPalette.anchor?.height ?? 0) + 6, (stageSize?.height ?? 500) - 164)),
-          }]} {...markInside}>
-            {textPalette.content}
-          </View>}
+          {/* 앱: 고른 글자의 '선택한 글자' 도구줄을 키보드 바로 위(작업 영역 아래 끝)에 둔다. 고른 글자 곁에는 시스템 글자 메뉴가 뜬다 */}
+          {!readOnly && textEditing && textPalette?.placement === 'panel' && (
+            <View style={[styles.textRangeWrap, keyboardTop != null && stageSize && { bottom: keyboardPanelBottom({ stageTop: stageOrigin.y, stageHeight: stageSize.height, keyboardTop }) }]} pointerEvents="box-none" {...markInside}>
+              {textPalette.content}
+            </View>
+          )}
+          {/* 웹 말풍선: 고른 줄 위에(위쪽 막대에 닿으면 아래에) 붙인다 */}
+          {!readOnly && textEditing && textPalette && textPalette.placement !== 'panel' && (() => {
+            const lineTop = (textPalette.anchor?.y ?? stageOrigin.y) - stageOrigin.y
+            const lineBottom = lineTop + (textPalette.anchor?.height ?? 0)
+            const above = lineTop - TEXT_ACTION_BAR_HEIGHT - 6 >= 84
+            return <View style={[styles.textPaletteWrap, {
+              left: Math.max(8, Math.min((textPalette.anchor?.x ?? stageOrigin.x) - stageOrigin.x, (stageSize?.width ?? 600) - TEXT_ACTION_BAR_WIDTH - 8)),
+              ...(above ? { bottom: (stageSize?.height ?? 500) - lineTop + 6 } : { top: Math.max(84, Math.min(lineBottom + 6, (stageSize?.height ?? 500) - 164)) }),
+            }]} {...markInside}>
+              {textPalette.content}
+            </View>
+          })()}
           {!readOnly && textLinkTarget && <TextLinkDialog initialValue={textLinkTarget.styleRanges?.find(r => r.href)?.href ?? ''} onCancel={() => setTextLinkTarget(null)} onSave={(href) => {
             dispatch({ type: 'updateObject', id: textLinkTarget.id, record: true, patch: { styleRanges: formatTextRange(textLinkTarget.text, textLinkTarget.styleRanges, { start: 0, end: textLinkTarget.text.length }, { href: href || null }) } })
             setTextLinkTarget(null)
@@ -1399,6 +1419,7 @@ const styles = StyleSheet.create({
   phonePanelRight: { right: 8, maxWidth: '86%' },
   stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 16 },
   textPaletteWrap: { position: 'absolute', maxWidth: '100%' },
+  textRangeWrap: { position: 'absolute', left: 8, right: 8, bottom: 8, alignItems: 'center' },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
   lassoSettingsWrap: { position: 'absolute', top: 76, left: 12, right: 12, alignItems: 'center' },
   penSettingsWrap: { position: 'absolute', top: 76, left: 16, right: 16, bottom: 64, alignItems: 'flex-start' },
