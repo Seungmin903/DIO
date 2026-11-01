@@ -49,6 +49,9 @@ function fixture(t, initial, { failedRead = false, failedDelete = false, failedW
     if (id.endsWith('/editorViewState')) return { forgetViewedPage: async () => true };
     if (id.endsWith('/mediaReferences')) return { collectMediaIds };
     if (id.endsWith('/mediaRepository')) return { remove: async () => {} };
+    if (id.endsWith('/pdfSource')) return { collectPdfSourceIds: () => [] };
+    if (id.endsWith('/pdfSourceStore')) return { removePdfSource: async () => {} };
+    if (id.endsWith('/pdfImportRegistry')) return { sweepPdfImports: async () => null };
     if (id.endsWith('/diaryLibrary')) return library;
     if (id.endsWith('/trashRetention')) return retention;
     throw Error(id);

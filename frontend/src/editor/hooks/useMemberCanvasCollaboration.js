@@ -14,6 +14,10 @@ import { canvasMediaFiles } from '../services/canvasMediaFiles'
 import { connectCollaboration } from '../../collaboration/collaborationSocket.js'
 import { createCanvasFetch } from '../../collaboration/canvasFetch.js'
 import { serverPaperAppearance } from '../../diary/services/serverPaperFont.js'
+import { setPdfSourceFetcher } from '../services/pdfSourceRemote.js'
+
+// PDF 쪽 바탕(원본 PDF 를 올리기 전)이 아직 서버에 없는 쪽인지
+const needsPdfSeed=page=>(page.objects??[]).some(o=>o.backdrop&&o.pdfSource&&!o.pdfSource.mediaFileId)
 
 export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch}){
   const enabled=diary?.source==='member-api'&&!readOnly
@@ -36,6 +40,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     const transport=createAuthenticatedMemberTransport({auth:authService,accountId:diary.memberAccountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl})
     const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch}),files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
     const api=createCanvasApi(transport,media)
+    const fetchDocument=(sourceId,mediaFileId)=>media.fetchDocument(sourceId,mediaFileId)
+    setPdfSourceFetcher(fetchDocument)
     r.pageEpoch=0;r.pageIds=null;r.removing=new Set()
     r.refreshPages=()=>{
       if(r.pagesJob)return r.pagesJob
@@ -174,13 +180,25 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     // Periodic reconciliation also covers an event lost after commit or a proxy without WebSocket support.
     const timer=setInterval(refresh,5000)
     const appState=AppState.addEventListener('change',next=>{if(next==='active')refresh();else dispatch({type:'commitCheckpoint'})})
-    return ()=>{r.alive=false;media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
+    return ()=>{r.alive=false;setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
   },[enabled,loaded,diary?.id,diary?.memberAccountId,sessionKey])
   useEffect(()=>{
     const r=runtime.current;if(!r||!enabled||!loaded)return
     setView(v=>({...v,status:'loading',history:null,pageId:page.id}))
     r.sync(page.id)
   },[enabled,loaded,page.id,sessionKey])
+  // 새로 만든 PDF 다이어리: 보고 있지 않은 쪽도 바탕 그림과 원본 PDF 를 서버에 올려 친구 화면에 빈 쪽이 보이지 않게 한다(한 쪽씩 차례로).
+  useEffect(()=>{
+    const r=runtime.current;if(!r||!enabled||!loaded)return
+    let stop=false
+    ;(async()=>{
+      for(const p of latest.current.state.doc.pages){
+        if(stop||!r.alive)return
+        if(needsPdfSeed(p))await r.sync(p.id).catch(()=>{})
+      }
+    })()
+    return ()=>{stop=true}
+  },[enabled,loaded,diary?.id,sessionKey])
   useEffect(()=>{
     const r=runtime.current;if(!r||!enabled)return
     for(const entry of state.collaborationEdits??[]){

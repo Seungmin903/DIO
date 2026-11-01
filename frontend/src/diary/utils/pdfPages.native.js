@@ -3,6 +3,9 @@ import { requireOptionalNativeModule } from 'expo-modules-core'
 import { importMedia, discardGeneratedMedia } from '../../editor/services/mediaStore'
 import { MediaError } from '../../editor/utils/mediaPolicy.js'
 import { PDF_PAGE_LIMIT, PDF_RENDER_EDGE, PdfImportError } from './pdfImport.js'
+import { createId } from '../../editor/utils/common.js'
+import { removePdfSource, savePdfSource } from './pdfSourceStore.native.js'
+import { registerPdfImport } from './pdfImportRegistry'
 
 // 쪽 그리기는 modules/dio-pdf-render (Android PdfRenderer · iOS PDFKit). 개발 빌드가 아니면(Expo Go) 연결되어 있지 않다.
 let native = null
@@ -35,23 +38,30 @@ export async function pickPdfPages({ onProgress } = {}) {
   const file = picked.assets[0]
   const baseName = (file.name ?? 'PDF').replace(/\.pdf$/i, '')
   const saved = []
+  // 확대하면 원본에서 보이는 영역을 다시 그리므로 원본 PDF 를 보관한다(PdfDetail). 실패하면 아래에서 함께 지운다.
+  const sourceId = createId()
   try {
     let count
     try { count = await native.pageCount(file.uri) } catch (error) { throw failure(error) }
     const total = Math.min(count, PDF_PAGE_LIMIT)
+    try { await savePdfSource(sourceId, file.uri) } catch (error) { throw new PdfImportError('RENDER', 'PDF 파일을 앱에 저장하지 못했어요. 저장 공간을 확인하고 다시 시도해 주세요.', error) }
     const pages = []
     for (let index = 0; index < total; index += 1) {
       onProgress?.(index, total)
       let rendered
       try { rendered = await renderWithRetry(file.uri, index) } catch (error) { throw failure(error) }
-      const [media] = await importMedia([{ uri: rendered.uri, fileName: `${baseName}-${index + 1}.png`, width: rendered.width, height: rendered.height }], { usage: 'photo' })
+      const [media] = await importMedia([{ uri: rendered.uri, fileName: `${baseName}-${index + 1}.png`, width: rendered.width, height: rendered.height, opaque: true }], { usage: 'photo' })
       saved.push(media)
-      pages.push({ src: media.src, mediaFileId: media.mediaFileId, aspect: rendered.width / rendered.height, name: `${baseName} ${index + 1}쪽` })
+      pages.push({ src: media.src, mediaFileId: media.mediaFileId, aspect: rendered.width / rendered.height, name: `${baseName} ${index + 1}쪽`,
+        pdfSource: { sourceId, pageIndex: index, edge: Math.max(rendered.width, rendered.height) } })
     }
     onProgress?.(total, total)
-    return { name: baseName, pages, totalPages: count }
+    // 어디에도 담기지 않고 남은 쪽 그림 · 원본을 나중에 찾을 수 있게 기록한다.
+    await registerPdfImport({ sourceId, mediaFileIds: saved.map(media => media.mediaFileId) })
+    return { name: baseName, pages, totalPages: count, sourceId }
   } catch (error) {
     await discardGeneratedMedia(saved)
+    await removePdfSource(sourceId)
     if (error instanceof PdfImportError || error instanceof MediaError) throw error
     throw failure(error)
   } finally { native.cleanup?.().catch?.(() => {}) }

@@ -3,6 +3,7 @@ import { diaryCreateInput } from './diaryCreateInput.js'
 import { serverDiaryCreateInput } from './serverPaperFont.js'
 import { localTemplateReference } from '../../editor/templates/serverCatalog.js'
 import { createDefaultDoc } from '../../editor/state/defaultDoc.js'
+import { pdfDocPage } from '../utils/pdfImport.js'
 import { normalizeMemberLibraryQuery } from './memberLibraryQuery.js'
 
 const clone = value => JSON.parse(JSON.stringify(value))
@@ -53,7 +54,10 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
     doc.memberAccountId = accountId
     doc.pages = input.initialPages.map((selected, index) => {
       const ref = localTemplateReference(selected.templateCode, selected.templateVersion)
-      return { id: result.pageIds[index], ...ref, ...(selected.templateConfig.paperAppearance ? { paperAppearance: selected.templateConfig.paperAppearance } : {}), objects: [] }
+      const base = { id: result.pageIds[index], ...ref, ...(selected.templateConfig.paperAppearance ? { paperAppearance: selected.templateConfig.paperAppearance } : {}), objects: [] }
+      const imported = input.importedPages?.[index]
+      // PDF 쪽: 서버가 만든 페이지 id 에 쪽 크기와 쪽 그림(잠근 바탕)을 얹는다. 그림과 원본 PDF 는 편집기에서 서버로 올라간다.
+      return imported ? { ...base, ...pdfDocPage(imported, input.pageSize, input.paperAppearance), id: base.id } : base
     })
     return { diary, doc }
   }
@@ -69,6 +73,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
         const result = await api.create(clone(pending.input), { requestId: pending.requestId })
         received = true; active()
         const { diary, doc } = createDocument(result, pending.input)
+        if (pending.input.importedPages?.length) { await api.setPageSizes(doc.pages.map(page => ({ pageId: page.id, canvasWidth: page.canvasWidth, canvasHeight: page.canvasHeight }))); active() }
         const saved = await read(keys.doc(result.id), null)
         active()
         if (saved && (saved.id !== result.id || saved.memberAccountId !== accountId || !saved.pages?.length)) throw failure('INVALID_MEMBER_DOCUMENT', '기존 회원 문서를 확인하지 못했어요. 덮어쓰지 않았어요.')

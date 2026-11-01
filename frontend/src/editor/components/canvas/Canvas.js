@@ -40,6 +40,7 @@ import DayTimePicker, { DAY_TIME_PICKER, DayPickBackdrop } from '../DayTimePicke
 import DayDatePicker, { DAY_DATE_PICKER } from '../DayDatePicker'
 import { paperPrintsText } from '../../templates/paperFont.js'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
+import { isBackdrop } from '../../utils/backdrop.js'
 import { shouldCacheCompletedStrokes } from '../../utils/completedStrokePlan.js'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
@@ -238,7 +239,7 @@ export default function Canvas({
     ? { ...page, objects: page.objects.flatMap((object) => pieces?.[object.id] ?? (hiddenSet.has(object.id) ? [] : [object])) }
     : page
   const visible = page.objects.filter((o) => !o.hidden)
-  const touchSelectable = visible.filter((o) => o.type !== 'stroke')
+  const touchSelectable = visible.filter((o) => o.type !== 'stroke' && !isBackdrop(o))
   const selected = visible.filter((o) => selectedIds.includes(o.id))
   const lassoEditing = activeTool === 'lasso' && selected.length > 0 && !lassoDrawing && !lassoCapture
   const canSelect = !readOnly && !textEditing && (activeTool === 'select' || lassoEditing)
@@ -416,7 +417,7 @@ export default function Canvas({
       <View style={[styles.hitLayer, (activeTool === 'lasso' || textTool) && { zIndex: 1 }]} pointerEvents={canTouch && !outlinePaths ? 'box-none' : 'none'}
         // 틀 글자를 고치다 캔버스를 누르면 입력을 끝낸다 (네이티브는 입력칸 밖을 눌러도 포커스가 남는다)
         onTouchStart={frameTextEdit ? () => { Keyboard.dismiss(); onEditFrameText(null) } : undefined}>
-        {visible.filter((object) => (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
+        {visible.filter((object) => !isBackdrop(object) && (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
           <CanvasObject
             key={object.id}
             object={object}

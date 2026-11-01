@@ -1,10 +1,13 @@
 import { discardGeneratedMedia, importMedia } from '../../editor/services/mediaStore'
+import { createId } from '../../editor/utils/common.js'
+import { removePdfSource, savePdfSource } from './pdfSourceStore.web.js'
+import { registerPdfImport } from './pdfImportRegistry'
 import { MediaError } from '../../editor/utils/mediaPolicy.js'
 import { PDF_PAGE_LIMIT, PDF_RENDER_EDGE, PdfImportError } from './pdfImport.js'
 
 // pdf.js 는 heic 디코더처럼 Metro 번들이 아닌 같은 출처의 별도 모듈(public/vendor/pdfjs)로 불러온다.
 let pending
-function loadPdfJs() {
+export function loadPdfJs() {
   if (pending) return pending
   pending = new Promise((resolve, reject) => {
     const configured = globalThis.DIO_PDFJS_URL ?? 'vendor/pdfjs/4.10.38/register.mjs'
@@ -59,7 +62,10 @@ export async function pickPdfPages({ onProgress } = {}) {
     throw new PdfImportError('INVALID', 'PDF 파일을 열지 못했어요. 파일이 손상되지 않았는지 확인해 주세요.', error)
   }
   const saved = []
+  // 확대하면 원본에서 보이는 영역을 다시 그리므로 원본 PDF 를 보관한다(PdfDetail). 실패하면 아래에서 함께 지운다.
+  const sourceId = createId()
   try {
+    await savePdfSource(sourceId, file)
     const total = Math.min(pdf.numPages, PDF_PAGE_LIMIT)
     const pages = []
     const baseName = file.name.replace(/\.pdf$/i, '')
@@ -75,15 +81,19 @@ export async function pickPdfPages({ onProgress } = {}) {
         context.fillStyle = '#FFFFFF'; context.fillRect(0, 0, canvas.width, canvas.height)
         await page.render({ canvasContext: context, viewport }).promise
         const blob = await toBlob(canvas)
-        const [media] = await importMedia([{ file: new File([blob], `${baseName}-${number}.png`, { type: 'image/png' }), fileName: `${baseName}-${number}.png`, fileSize: blob.size }], { usage: 'photo' })
+        const [media] = await importMedia([{ file: new File([blob], `${baseName}-${number}.png`, { type: 'image/png' }), fileName: `${baseName}-${number}.png`, fileSize: blob.size, opaque: true }], { usage: 'photo' })
         saved.push(media)
-        pages.push({ src: media.src, mediaFileId: media.mediaFileId, aspect: canvas.width / canvas.height, name: `${baseName} ${number}쪽` })
+        pages.push({ src: media.src, mediaFileId: media.mediaFileId, aspect: canvas.width / canvas.height, name: `${baseName} ${number}쪽`,
+          pdfSource: { sourceId, pageIndex: number - 1, edge: Math.max(canvas.width, canvas.height) } })
       } finally { page.cleanup() }
     }
     onProgress?.(total, total)
-    return { name: baseName, pages, totalPages: pdf.numPages }
+    // 어디에도 담기지 않고 남은 쪽 그림 · 원본을 나중에 찾을 수 있게 기록한다.
+    await registerPdfImport({ sourceId, mediaFileIds: saved.map(media => media.mediaFileId) })
+    return { name: baseName, pages, totalPages: pdf.numPages, sourceId }
   } catch (error) {
     await discardGeneratedMedia(saved)
+    await removePdfSource(sourceId)
     if (error instanceof PdfImportError || error instanceof MediaError) throw error
     throw new PdfImportError('RENDER', 'PDF 페이지를 그림으로 바꾸지 못했어요. 다시 시도해 주세요.', error)
   } finally { pdf.destroy?.() }
