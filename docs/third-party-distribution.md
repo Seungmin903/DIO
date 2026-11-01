@@ -9,7 +9,7 @@
 - 네이티브: AAR의 JNI 라이브러리와 최종 APK/AAB의 `.so`를 SHA256 또는 ELF GNU Build ID로 대조한다. `libc++_shared.so`는 실제 사용한 NDK 28.2.13676358과 대조한다. 앱에서 컴파일한 `libappmodules.so`, `libexpo-modules-core.so`, SVG·safe-area의 codegen 라이브러리는 React Native·Expo·해당 로컬 npm 모듈의 고지에 연결한다.
 - 코드에 내장된 부품: ONNX Runtime의 Eigen, OkHttp의 Public Suffix List, Hermes의 런타임 고지, Fresco의 JPEG/PNG/WebP/GIF, React Native의 C++ 부품과 Android NDK 런타임 고지를 추가한다. 원본의 광범위한 NOTICE는 ‘upstream component superset’으로 표시하며, 선택 기능이 전부 포함됐다는 뜻으로 쓰지 않는다.
 - 추가 JNI: `libavif_android.so`는 libavif `14d8e3c4`의 JNI 설정·빌드 스크립트와 바이너리 문자열을 대조해 dav1d·libyuv의 원저작권·특허 고지를 함께 제공한다. 스크립트의 참조 버전은 dav1d 1.4.3, libyuv 464c51a0이며 공식 AAR의 모든 컴파일 옵션을 재현했다고 주장하지 않는다. APNG4Android 3.0.5의 GIF JNI는 해당 태그의 CMake·C++와 Apache 고지를 확인한다. zstd-kmp 0.4.0이 정적으로 연결한 Zstandard는 원본 submodule 커밋 `1dbc2e09084e843f6c0dcc2d0791610015c50979`의 BSD 조건을 선택해 고지한다.
-- 폰트·콘텐츠: 기본 Google Fonts 패키지의 OFL 원문과 콘텐츠 고지는 `contentLicenses.json` 에서 읽는다. 외부 기본 스티커(Fluent · Noto · Twemoji)는 커밋 `06818fdf`(2026-11-02)에서 그림과 고지 파일을 함께 지워 지금은 비어 있다. 이모지는 기기 · 브라우저 기본 글꼴로 그리는 글자라 앱에 이모지 그림을 넣지 않는다. 이런 그림을 다시 넣으면 CC BY 4.0 고지 행과 `contentLicenses.json` 항목도 함께 되살린다. 개인 손글씨 원본·폰트는 이 수집 과정에서 읽지 않는다.
+- 폰트·콘텐츠: 기본 Google Fonts 패키지의 OFL 원문과 콘텐츠 고지는 `contentLicenses.json` 에서 읽는다. 외부 기본 스티커(Fluent · Noto · Twemoji)는 커밋 `06818fdf`에서 그림과 고지 파일을 함께 지웠고, 이 커밋은 develop 병합 `e36ecafc`(`feature/fe/editor-widget-tab`, 2026-11-02)로 이미 들어가 있다. 지금 `frontend/` 추적 파일에 Fluent · Noto · Twemoji 그림이 없어(`git ls-tree` 0건) 목록은 비어 있다. 이모지는 기기 · 브라우저 기본 글꼴로 그리는 글자라 앱에 이모지 그림을 넣지 않는다. 이런 그림을 다시 넣으면 CC BY 4.0 고지 행과 `contentLicenses.json` 항목도 함께 되살린다. 개인 손글씨 원본·폰트는 이 수집 과정에서 읽지 않는다.
 
 ## 조건과 반영 내용
 
