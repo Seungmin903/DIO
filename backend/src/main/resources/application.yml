@@ -19,7 +19,7 @@ server:
   port: 8080
 
 springdoc:
-  paths-to-match: /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/media/**, /api/v1/member/diaries/**, /api/v1/member/diaries, /api/v1/auth/**, /api/v1/notifications, /api/v1/notifications/**, /api/v1/invites/**, /api/v1/me, /api/v1/me/**, /api/v1/handwriting-fonts, /api/v1/push/installations, /api/v1/push/installations/**
+  paths-to-match: /api/v1/diaries/**, /api/v1/diaries, /api/v1/pages/**, /api/v1/media/**, /api/v1/sticker-cutouts, /api/v1/sticker-cutouts/**, /api/v1/member/diaries/**, /api/v1/member/diaries, /api/v1/auth/**, /api/v1/notifications, /api/v1/notifications/**, /api/v1/invites/**, /api/v1/me, /api/v1/me/**, /api/v1/handwriting-fonts, /api/v1/push/installations, /api/v1/push/installations/**
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
@@ -65,6 +65,15 @@ dio:
     service-terms-version: ${SIGNUP_SERVICE_TERMS_VERSION:v1}
     privacy-terms-version: ${SIGNUP_PRIVACY_TERMS_VERSION:v1}
     marketing-terms-version: ${SIGNUP_MARKETING_TERMS_VERSION:v1}
+  cutout:
+    # 사진 속 대상 오리기 AI 서버(ai/). 앱은 직접 부르지 않고 백엔드만 내부에서 호출한다.
+    ai-base-url: ${AI_SERVER_URL:http://localhost:8000}
+    ai-key: ${DIO_AI_API_KEY:}
+    connect-timeout: ${AI_SERVER_CONNECT_TIMEOUT:PT3S}
+    read-timeout: ${AI_SERVER_READ_TIMEOUT:PT30S}
+    session-ttl: PT30M
+    max-sessions-per-user: 3
+    max-concurrent-uploads: ${AI_CUTOUT_MAX_CONCURRENT_UPLOADS:2}
   media:
     storage: ${MEDIA_STORAGE:local}
     local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-data/media}
