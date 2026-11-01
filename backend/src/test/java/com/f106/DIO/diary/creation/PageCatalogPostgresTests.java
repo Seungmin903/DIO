@@ -120,11 +120,15 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select updated_at > timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,landscapeWithoutCode)).isTrue();
         assertThat(jdbc.queryForObject("select count(*) from page_template_v25_backups",Long.class)).isEqualTo(3);
         assertThat(jdbc.queryForObject("select previous_template_config->>'templateCode' from page_template_v25_backups where page_id=?",String.class,landscapeWithCode)).isEqualTo("2026-reusable-daily-landscape");
-        assertThat(jdbc.queryForObject("select previous_template_config ? 'templateCode' from page_template_v25_backups where page_id=?",Boolean.class,landscapeWithoutCode)).isFalse();
+        assertThat(jdbc.queryForObject("select jsonb_exists(previous_template_config, 'templateCode') from page_template_v25_backups where page_id=?",Boolean.class,landscapeWithoutCode)).isFalse();
     }
 
     @Test void V25RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() {
         flyway("24").migrate();
+        jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
+        UUID diary=UUID.randomUUID(), page=UUID.randomUUID();
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,1,'planner','#123456','PLAIN','PRIVATE')",diary);
+        insertPage(diary,page,"2026-reusable-daily-landscape","{}",1,1);
         jdbc.update("update page_templates set canvas_width=999 where code='2026-reusable-daily-landscape' and template_version='1.0.0'");
         assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class);
         assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='25' and success",Long.class)).isZero();
@@ -158,6 +162,13 @@ class PageCatalogPostgresTests {
         assertThat(template.get("blank")).isEqualTo("false");
     }
 
+    private JsonNode legacyTemplate() {
+        for (var template : contract.get("templates")) {
+            if ("dio-blank-portrait".equals(template.get("templateCode").asString())) return template;
+        }
+        throw new AssertionError("V9 catalog template is missing");
+    }
+
     @Test void upgradePreservesExistingIdsCustomDefaultsInactiveStateOldVersionsAndHistoricalPages() throws Exception {
         var row=contract.get("templates").get(0);
         insertExisting(row,row.get("canvasWidth").asInt(),row.get("templateVersion").asString());
@@ -167,7 +178,7 @@ class PageCatalogPostgresTests {
         jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,1,'historical','#123456','PLAIN','PRIVATE')",diary);
         jdbc.update("insert into pages(page_id,diary_id,template_id,template_config,sort_key,canvas_width,canvas_height) values(?,?,987,'{\"legacy\":true}'::jsonb,1,1280,800)",page,diary);
         flyway("latest").migrate();
-        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(289);
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(293);
         assertThat(jdbc.queryForObject("select template_id from page_templates where code=? and template_version=?",Long.class,row.get("templateCode").asString(),row.get("templateVersion").asString())).isEqualTo(987);
         assertThat(jdbc.queryForObject("select is_active from page_templates where template_id=987",Boolean.class)).isFalse();
         assertThat(jdbc.queryForObject("select name from page_templates where template_id=987",String.class)).isEqualTo("custom name");
@@ -178,12 +189,12 @@ class PageCatalogPostgresTests {
         try(var stream=getClass().getResourceAsStream("/db/migration/V9__seed_page_template_catalog.sql")) {
             jdbc.execute(new String(stream.readAllBytes(),StandardCharsets.UTF_8));
         }
-        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(289);
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(293);
         assertThat(jdbc.queryForObject("select count(*) from pages",Long.class)).isEqualTo(1);
     }
 
     @Test void conflictingExistingGeometryStopsUpgradeAndRollsBackAllEarlierSeedInserts() {
-        var templates=contract.get("templates"); var last=templates.get(templates.size()-1);
+        var last=legacyTemplate();
         insertExisting(last,42,last.get("templateVersion").asString());
         assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class);
         assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(1);
@@ -192,7 +203,7 @@ class PageCatalogPostgresTests {
     }
 
     @Test void duplicateExistingCodeVersionStopsUpgradeWithoutDeletingEitherRecord() {
-        var templates=contract.get("templates"); var last=templates.get(templates.size()-1);
+        var last=legacyTemplate();
         insertExisting(last,last.get("canvasWidth").asInt(),last.get("templateVersion").asString());
         jdbc.update("insert into page_templates(code,template_version,name,category,orientation,canvas_width,canvas_height) values(?,?,'duplicate','OLD',?,?,?)",
             last.get("templateCode").asString(),last.get("templateVersion").asString(),last.get("orientation").asString(),last.get("canvasWidth").asInt(),last.get("canvasHeight").asInt());
