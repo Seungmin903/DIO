@@ -31,14 +31,14 @@ def pair(mine, theirs, note=None):
 
 
 MINE = ('내 안', '병합 전 내 작업')
-THEIRS = ('팀원 안', 'develop · 지금 적용됨')
+THEIRS = ('팀원 안', 'develop · 비교 당시 적용')
 
 pages = []
 
 # ── 1. 요약 ──
 pages.append(page('머지 반영 · 디자인 비교', '2026-11-02 · develop d6b84143(!274 스티커 제작 화면 포함)까지 받음', '''
 <div class="lead">
-  <p><b>규칙</b> · 기능은 모두 팀원 것을 받았고, 디자인이 겹친 곳은 지금 작업 트리에 <b>팀원 안</b>을 두었다. 내 안은 <code>refs/dio-backup/before-pull-1102</code>에 그대로 있다. 아래에서 고르면 그쪽으로 맞춘다.</p>
+  <p><b>규칙</b> · 기능은 모두 팀원 것을 받았고, 디자인이 겹친 곳은 비교 당시 작업 트리에 <b>팀원 안</b>을 두었다. 내 안은 <code>refs/dio-backup/before-pull-1102</code>에 그대로 있다. 아래에서 고르면 그쪽으로 맞춘다.</p>
   <p class="muted">비교 화면은 같은 가짜 데이터(스티커 시트 6개 · 사용자 소연)로 웹에서 그린 것이다. 팀원 안은 develop 그대로, 내 안은 병합 직전 작업 상태. 실기기 화면은 아니다.</p>
 </div>
 <table class="sum">
@@ -53,7 +53,7 @@ pages.append(page('머지 반영 · 디자인 비교', '2026-11-02 · develop d6
 pages.append(page('기능으로 받은 것', '팀원 develop 그대로 (디자인 비교 대상 아님)', '''
 <div class="two">
 <div><h3>로그인 · 계정</h3><ul class="notes">
-<li><b>체험 계정 · 게스트 진입 제거</b>: 앱은 로그인 화면으로 시작한다. 내가 만든 “일반 사용자 / 개발자 모드 시작 화면 · 기능에서만 로그인(loginGate)”은 앱에서 이어지지 않는다(코드는 남아 있고 연결만 끊김).</li>
+<li><b>체험 계정 · 게스트 진입 제거</b>(비교 당시): 앱은 로그인 화면으로 시작했고, 내가 만든 “일반 사용자 / 개발자 모드 시작 화면 · 기능에서만 로그인(loginGate)”은 연결이 끊겨 있었다. <b>같은 날 이후 바뀜</b>: <code>feature/fe/start-mode-login-gate</code>가 develop에 병합되어 시작 화면(일반 사용자 = 게스트 · 개발자 모드)과 loginGate가 다시 이어졌다.</li>
 <li>마이페이지 서버 회원정보 조회 · 닉네임 · 프로필 사진 저장 · 회원 탈퇴</li>
 <li>비밀번호 재설정 4단계(이메일 → 인증번호 → 새 비밀번호 → 완료)</li>
 <li>알림 설정(서비스 알림 · 마케팅 수신, 이 기기 · 계정별 저장)</li>
@@ -127,9 +127,9 @@ pages.append(page('정할 것 · 이어서 할 것', '이 문서에서 고르면
 <tr><td>회원정보 수정 (고정 저장 바 / 카드 안 저장 줄)</td><td>☐ 내 안 ☐ 팀원 안 ☐ 섞기</td></tr></table></div>
 <div><h3>이어서 할 것</h3><ul class="notes">
 <li>내 안을 고른 영역은 백업 ref에서 해당 파일만 되살려 팀원 기능(API 연결 · 비밀번호 재설정 이동)을 그 위에 다시 얹는다.</li>
-<li>게스트 제거로 쓰이지 않게 된 코드(<code>loginGate</code> · <code>StartModeScreen</code> · <code>devAccess</code> · 관련 테스트 · 개발자 모드 문서)를 지울지 정한다. 개발자 모드가 없어져 서버 없이 화면만 보는 길이 막혔다.</li>
+<li><s>게스트 제거로 쓰이지 않게 된 코드를 지울지 정한다.</s> → 해결: start-mode-login-gate 병합으로 게스트 · 개발자 모드 시작이 다시 쓰인다(지우지 않는다).</li>
 <li>디자인 가이드의 마이페이지 · 스티커 제작 절은 이번에 팀원 문구가 들어왔다. 고른 안에 맞게 다시 쓴다.</li>
-<li>커밋은 아직 하지 않았다(작업 트리에만 반영).</li></ul></div>
+<li>비교 당시에는 커밋 전(작업 트리)이었고, 이후 <code>fix/fe/misc-ui-polish</code> MR로 커밋했다.</li></ul></div>
 </div>'''))
 
 CSS = '''
