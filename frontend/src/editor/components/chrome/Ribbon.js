@@ -21,7 +21,7 @@ const INPUT_TOOLS = [
 
 const DECOR_TOOLS = [
   { tab: 'sticker', icon: 'sticker', label: '스티커' },
-  { id: 'shape', icon: 'shape', label: '도형' },
+  { tab: 'widget', icon: 'widget', label: '위젯' },
   { tab: 'tape', icon: 'tape', label: '마스킹테이프' },
   { tab: 'photo', icon: 'image', label: '사진' },
 ]
@@ -67,33 +67,33 @@ function Tool({ icon, label, active, dim, onPress, onAnchor, color }) {
       aria-pressed={Boolean(active)}
       style={({ pressed }) => [styles.tool, active && styles.toolActive, pressed && styles.toolPressed, dim && styles.toolDim]}
     >
-      <Icon name={icon} size={21} />
+      <Icon name={icon} size={22} />
       {color && <View pointerEvents="none" accessible={false} style={[styles.colorDot, { backgroundColor: color }]} />}
     </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
-  colorDot: { position: 'absolute', right: 3, bottom: 3, width: 6, height: 6, borderRadius: 3, borderWidth: 1, borderColor: colors.surface, shadowColor: colors.text, shadowOpacity: 0.18, shadowRadius: 1, shadowOffset: { width: 0, height: 0 } },
+  colorDot: { position: 'absolute', right: 3, bottom: 3, width: 6, height: 6, borderRadius: 3, borderWidth: 1, borderColor: colors.surface, shadowColor: colors.text, shadowOpacity: 0.09, shadowRadius: 1, shadowOffset: { width: 0, height: 0 } },
   shell: {
     maxWidth: '100%',
     flexShrink: 1,
     padding: 6,
-    borderRadius: 15,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(110,146,198,0.2)',
+    borderColor: 'rgba(129,138,195,0.2)',
     backgroundColor: 'rgba(255,255,255,0.95)',
     shadowColor: colors.text,
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.08,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
     elevation: 5,
     overflow: 'hidden',
   },
   ribbon: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  tool: { width: 42, height: 42, borderRadius: 11, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  toolActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  toolPressed: { opacity: 0.65 },
+  tool: { width: 40, height: 40, borderRadius: 10, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  toolActive: { backgroundColor: colors.surface, borderColor: colors.primary }, // 선택: 흰 면 + 테두리 2px
+  toolPressed: {}, // 눌림 효과 없음(사용자 지시)
   toolDim: { opacity: 0.32 },
-  divider: { width: 1, height: 24, marginHorizontal: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
+  divider: { width: 1, height: 24, marginHorizontal: 3, backgroundColor: 'rgba(11,23,102,0.12)' },
 })

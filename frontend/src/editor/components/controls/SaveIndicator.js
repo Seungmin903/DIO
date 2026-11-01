@@ -29,7 +29,7 @@ export default function SaveIndicator({ status, onInfo }) {
       <Icon
         name={error ? 'alert' : status === 'saving' ? 'saving' : 'saved'}
         size={15}
-        strokeWidth={2}
+        forText={11}
         color={error ? colors.danger : colors.textMuted}
       />
       {text && <Text style={[styles.saveText, error && styles.saveTextError]}>{text}</Text>}
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     borderRadius: 11,
   },
-  saveError: { backgroundColor: 'rgba(229,72,77,0.1)' },
+  saveError: { backgroundColor: 'rgba(224,77,111,0.1)' },
   saveText: { fontSize: 11, fontWeight: '600', color: colors.textMuted },
   saveTextError: { color: colors.danger, fontWeight: '700' },
 })

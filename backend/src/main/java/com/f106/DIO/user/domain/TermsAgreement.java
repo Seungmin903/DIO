@@ -18,6 +18,9 @@ public class TermsAgreement {
         this.userId = userId; this.termsType = termsType; this.termsVersion = termsVersion;
         this.agreed = agreed; agreedAt = now;
     }
+    public void changeAgreement(boolean agreed,Instant now) {
+        if(this.agreed!=agreed){this.agreed=agreed;this.agreedAt=now;}
+    }
     public static class Key implements Serializable {
         public String termsType;
         public String termsVersion;

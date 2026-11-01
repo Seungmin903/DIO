@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../../shared/theme'
 import Icon from '../controls/Icon'
 import ChipScroller from '../controls/ChipScroller'
@@ -36,6 +36,9 @@ export default function TopBar({
   shareIcon = 'share',
 }) {
   const shareRef = useRef(null)
+  // 오른쪽 묶음은 창 폭에 따라 줄인다: 사진 2장 → 1장 → 사진만, 레이어 · 공유 글자 숨김. 내보내기는 끝까지 아이콘 + 글자. 640 아래에서는 탭 줄을 접는다
+  const { width: windowWidth } = useWindowDimensions()
+  const wide = windowWidth >= 1024, mid = windowWidth >= 834, semi = windowWidth >= 720
   const [activeTabBox, setActiveTabBox] = useState(null) // 지금 보는 탭 자리 (탭이 많아 넘칠 때 그 탭이 보이게 넘긴다)
   if (compact) {
     return (
@@ -71,16 +74,18 @@ export default function TopBar({
           <BrandLogo size={LOGO_SIZE} />
         </Pressable>
         <View style={{ flex: 1 }} />
-        <IconToggle icon="panel" label="페이지 목록" text="페이지" active={pagesOpen} onPress={onTogglePages} />
+        <IconToggle chip icon="panel" label="페이지 목록" text={mid ? '페이지' : undefined} active={pagesOpen} onPress={onTogglePages} />
       </View>
 
       {/*
         열린 다이어리 탭들. 이름은 탭 하나에 알맞은 길이에서 … 로 줄인다.
         탭이 많아 넘치면 양옆 ‹ › 로 넘긴다 (ChipScroller). 맨 끝 + 는 보관함에서 다른 다이어리를 연다.
       */}
-      <ChipScroller style={styles.tabStrip} contentContainerStyle={styles.tabStripContent} reveal={activeTabBox} arrowLabels={['앞 탭 보기', '다음 탭 보기']}>
+      {windowWidth >= 640 && <ChipScroller style={styles.tabStrip} contentContainerStyle={styles.tabStripContent} reveal={activeTabBox} arrowLabels={['앞 탭 보기', '다음 탭 보기']}>
         {(tabs?.length ? tabs : [{ id: activeTabId, title: doc.title, coverColor: doc.coverColor }]).map((tab) => {
           const active = tab.id === activeTabId
+          // 표지 색을 따라간다: 그라데이션은 위 → 아래 색 그대로, 그 밖은 단색
+          const paint = tab.paint ?? { color: (active ? doc.coverColor : tab.coverColor) ?? colors.primary }
           return (
             <View
               key={tab.id ?? 'current'}
@@ -88,7 +93,7 @@ export default function TopBar({
               onLayout={active ? (event) => { const { x, width } = event.nativeEvent.layout; setActiveTabBox((prev) => (prev?.x === x && prev?.width === width ? prev : { x, width })) } : undefined}
             >
               {/* 인덱스 스티커 모양: 표지 색의 둥근 머리 + 이름을 적는 흰 몸통 */}
-              <View style={[styles.spine, { backgroundColor: (active ? doc.coverColor : tab.coverColor) ?? colors.primary }, !active && styles.spineInactive]} />
+              <View style={[styles.spine, { backgroundColor: paint.color, ...(paint.stops && { backgroundImage: `linear-gradient(to bottom, ${paint.stops.join(', ')})` }) }, !active && styles.spineInactive]} />
               {active ? (
                 <TitleField title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} />
               ) : (
@@ -102,13 +107,13 @@ export default function TopBar({
             </View>
           )
         })}
-      </ChipScroller>
+      </ChipScroller>}
 
       <View style={styles.right}>
-        {onOpenSharing && <SharingEntry members={sharingMembers} count={invitationCount} onPress={onOpenSharing}/>}
-        {!readOnly && <IconToggle icon="layers" label="레이어" text="레이어" active={layersOpen} onPress={onToggleLayers} />}
+        {onOpenSharing && <SharingEntry variant="bar" members={sharingMembers} count={invitationCount} onPress={onOpenSharing} showLabel={semi} memberLimit={wide ? 2 : 1} hideCounter={!semi}/>}
+        {!readOnly && <IconToggle chip icon="layers" label="레이어" text={mid ? '레이어' : undefined} active={layersOpen} onPress={onToggleLayers} />}
         {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} style={styles.share} accessibilityLabel={shareLabel}>
-          <Icon name={shareIcon} size={18} color={colors.surface} />
+          <Icon name={shareIcon} size={20} forText={13} color={colors.surface} />
           <Text style={styles.shareText}>내보내기</Text>
         </Pressable>}
       </View>
@@ -160,7 +165,8 @@ function TitleField({ title, renamable, onCommit, compact }) {
   )
 }
 
-function IconToggle({ icon, label, text, active, onPress, compact }) {
+// chip: 상단 바 오른쪽 묶음의 테두리 칩(높이 44 · 흰 면 + cardBorder, 켜지면 primaryStrong 테두리). 글자가 없으면 44 정사각 아이콘 칩
+function IconToggle({ icon, label, text, active, onPress, compact, chip }) {
   return (
     <Pressable
       onPress={onPress}
@@ -168,10 +174,12 @@ function IconToggle({ icon, label, text, active, onPress, compact }) {
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       aria-pressed={Boolean(active)}
-      style={({ pressed }) => [styles.toggle, compact && styles.toggleCompact, active && styles.toggleActive, pressed && styles.togglePressed]}
+      style={({ pressed }) => chip
+        ? [styles.chipToggle, !text && styles.chipToggleIcon, active && styles.chipToggleActive]
+        : [styles.toggle, compact && styles.toggleCompact, active && styles.toggleActive, pressed && styles.togglePressed]}
     >
-      <Icon name={icon} size={19} />
-      {text && <Text style={styles.toggleText}>{text}</Text>}
+      <Icon name={icon} size={19} forText={text ? 13 : undefined} color={chip && active ? colors.primaryText : undefined} />
+      {text && <Text style={[styles.toggleText, chip && active && { color: colors.primaryText }]}>{text}</Text>}
     </Pressable>
   )
 }
@@ -197,7 +205,7 @@ const styles = StyleSheet.create({
   barCompact: { height: 60, gap: 4, paddingHorizontal: 8, backgroundColor: colors.surface },
   homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 2 },
   home: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 },
-  homePressed: { opacity: 0.6 },
+  homePressed: {}, // 눌림 효과 없음(사용자 지시)
   lead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16 },
   // 탭 줄: 왼쪽 버튼들과 오른쪽 버튼들 사이를 채우고, 넘치면 ‹ › 로 넘긴다
   tabStrip: { flex: 1, minWidth: 0, marginLeft: 6 },
@@ -217,15 +225,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(11,25,87,0.1)',
-    boxShadow: '0px 1px 2px rgba(11, 25, 87, 0.12)',
+    borderColor: 'rgba(11,23,102,0.1)',
+    boxShadow: '0px 1px 2px rgba(11, 23, 102, 0.06)',
     overflow: 'hidden',
   },
   docTitle: { flex: 1, minWidth: 0, marginLeft: 4, justifyContent: 'center' },
   docTitleText: { fontSize: 15, fontWeight: '700', letterSpacing: -0.3 },
   pageLabel: { marginTop: 2, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.6, color: colors.textMuted },
   titleInputCompact: { minWidth: 0, alignSelf: 'stretch' },
-  spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92 },
+  // 오른쪽 구분선: 흰 표지면 색 띠가 흰 탭과 이어져 보이지 않으므로 늘 한 줄 긋는다
+  spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92, borderRightWidth: 1, borderRightColor: colors.cardBorder },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
   tabTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: colors.text },
   titleInput: {
@@ -241,20 +250,23 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   tabClose: { marginLeft: 2, padding: 4, borderRadius: 8 },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 'auto', zIndex: 2 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 'auto', flexShrink: 0, zIndex: 2 },
   rightCompact: { gap: 2 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 10, borderRadius: 12 },
   toggleCompact: { width: 44, height: 44, justifyContent: 'center', paddingHorizontal: 0 },
   toggleActive: { backgroundColor: colors.primarySoft },
-  togglePressed: { opacity: 0.65 },
+  togglePressed: {}, // 눌림 효과 없음(사용자 지시)
+  chipToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
+  chipToggleIcon: { width: 44, paddingHorizontal: 0 },
+  chipToggleActive: { borderColor: colors.primaryStrong },
   toggleText: { fontSize: 13, fontWeight: '700', color: colors.text },
   // 내보내기: 크기·둥글기는 레이어 버튼과 같게 (색은 강조색 그대로)
   share: {
     flexDirection: 'row',
     gap: 6,
-    height: 40,
+    height: 44,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primaryStrong,

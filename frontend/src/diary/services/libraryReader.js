@@ -1,11 +1,12 @@
 import { createDiaryQuery } from './diaryQuery.js';
 import { DiaryApiError } from './diaryApi.js';
+import { filterFavorite, parseSort } from '../utils/libraryQuery.js';
 
 const sorts = { updated: 'updatedAtDesc', created: 'createdAtDesc', pages: 'pageCountDesc', title: 'titleAsc' };
 const requiresFirstPage = error => ['INVALID_CURSOR', 'INVALID_RESPONSE'].includes(error?.code);
-export function libraryRequest({ filter = 'personal', query = '', sort = 'updated' } = {}) {
-  return { status: 'active', q: query.trim(), sort: sorts[sort] || sorts.updated,
-    ...(filter === 'favorite' ? { favorite: true } : {}) };
+export function libraryRequest({ filter = 'all', query = '', sort = 'updated' } = {}) {
+  return { status: 'active', q: query.trim(), sort: sorts[parseSort(sort).key],
+    ...(filterFavorite(filter) ? { favorite: true } : {}) };
 }
 
 // 조회 조건은 UI가 소유하고, 이 저장소는 조건별 응답과 재시도를 관리한다. 로컬 저장소 접근 없음.

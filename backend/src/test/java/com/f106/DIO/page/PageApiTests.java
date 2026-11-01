@@ -286,10 +286,10 @@ class PageApiTests {
 
 		mvc.perform(post("/api/v1/pages/"+pageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"type\":\"PHOTO\",\"x\":0,\"y\":0,\"w\":1,\"h\":1,\"mediaFileId\":\""+UUID.randomUUID()+"\"}"))
-			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MEDIA_FILE_NOT_SUPPORTED"));
+			.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("MEDIA_FILE_NOT_FOUND"));
 		mvc.perform(patch("/api/v1/pages/"+pageId+"/elements/"+elementId).with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"version\":1,\"mediaFileId\":\""+UUID.randomUUID()+"\"}"))
-			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MEDIA_FILE_NOT_SUPPORTED"));
+			.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("MEDIA_FILE_NOT_FOUND"));
 		mvc.perform(post("/api/v1/pages/"+otherPageId+"/elements").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"type\":\"TEXT\",\"x\":0,\"y\":0,\"w\":1,\"h\":1,\"groupId\":\""+groupId+"\"}"))
 			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGE_REQUEST"));

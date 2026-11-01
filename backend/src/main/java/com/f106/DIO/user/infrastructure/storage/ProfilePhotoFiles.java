@@ -68,5 +68,12 @@ public class ProfilePhotoFiles {
         if (storage == null) throw ProfilePhotoStorage.unavailable();
         return storage.read(new ProfilePhotoStorage.Location(photo.getStorageProvider(), photo.getStorageKey(), photo.getStorageBucket()));
     }
+    /** 탈퇴 사진 정리는 DB 트랜잭션 밖에서 수행하며 실패 시 기존 메타데이터로 재시도한다. */
+    public void delete(ProfilePhoto photo) {
+        if (photo == null || photo.getImageBytes() != null) return;
+        var storage=stores.get(photo.getStorageProvider());
+        if(storage==null)throw ProfilePhotoStorage.unavailable();
+        storage.delete(new ProfilePhotoStorage.Location(photo.getStorageProvider(),photo.getStorageKey(),photo.getStorageBucket()));
+    }
     public String provider() { return active.provider(); }
 }

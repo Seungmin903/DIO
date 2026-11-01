@@ -16,6 +16,7 @@ const compile = (path) =>
     ],
   }).code;
 function setup(service = {}, photoPicker = async () => null, options = {}) {
+  const { getProfilePhotoSource, ...screenOptions } = options;
   const states = [],
     refs = [],
     deps = [],
@@ -84,7 +85,6 @@ function setup(service = {}, photoPicker = async () => null, options = {}) {
     react,
     'react-native': native,
     './validation': validation,
-    './previewAuth': { previewAuth: service },
     './profileStyles': { profileStyles: new Proxy({}, { get: (_, key) => key }) },
     '../shared/theme': { colors: {} },
   };
@@ -124,6 +124,7 @@ function setup(service = {}, photoPicker = async () => null, options = {}) {
       user,
       service,
       photoPicker,
+      getProfilePhotoSource,
       onClose() {
         closed++;
       },
@@ -134,7 +135,7 @@ function setup(service = {}, photoPicker = async () => null, options = {}) {
         ended++;
       },
       registerLeaveGuard,
-      ...options,
+      ...screenOptions,
     });
   };
   return {
@@ -317,11 +318,32 @@ test('사진 선택의 늦은 응답과 실패는 언마운트·기존 프로필
   assert.equal(find(failed, '변경사항 저장').props.disabled, true); failed.unmount();
 });
 
+test('저장된 서버 프로필 사진도 회원정보 수정 화면에서 인증 source로 렌더링한다', () => {
+  const source = { uri: 'https://server.example/api/v1/auth/profile-photos/abc', headers: { Authorization: 'Basic test' } };
+  const ui = setup({}, undefined, { getProfilePhotoSource: () => source });
+  const photo = nodes(ui.render()).find((node) => node.type === 'Image' && node.props.accessibilityLabel === '프로필 사진');
+  assert.deepEqual(photo.props.source, source);
+  ui.unmount();
+});
+
+test('실제 계정은 현재 사진을 변경하거나 기본 이미지로 되돌릴 수 있다', () => {
+  const ui = setup({}, undefined, { photoEditable: true });
+  assert.equal(find(ui, '프로필 사진 변경').props.disabled, false);
+  assert.equal(find(ui, '프로필 사진 삭제').props.disabled, false);
+  assert.equal(nodes(ui.render()).some((node) => node.props.children === '프로필 사진 변경은 준비 중이에요.'), false);
+  ui.unmount();
+});
+
 test('서버 계정은 기존 비밀번호 창만 열고 성공 후 세션을 종료한다',async()=>{
  let calls=0;const ui=setup({changePassword:async()=>{calls++}},undefined,{passwordOnly:true,user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
  assert.equal(find(ui,'닉네임'),undefined);assert.equal(find(ui,'회원 탈퇴'),undefined);
  find(ui,'현재 비밀번호').props.onChangeText('Password123!');find(ui,'새 비밀번호').props.onChangeText('Changed123!');find(ui,'새 비밀번호 확인').props.onChangeText('Changed123!');
  press(ui,'변경');await tick();assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
+});
+test('일반 회원정보 화면의 직접 비밀번호 변경도 인증 세션을 종료한다',async()=>{
+ const ui=setup({changePassword:async()=>{}},undefined,{user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
+ press(ui,'비밀번호 변경');find(ui,'현재 비밀번호').props.onChangeText('Password123!');find(ui,'새 비밀번호').props.onChangeText('Changed123!');find(ui,'새 비밀번호 확인').props.onChangeText('Changed123!');
+ press(ui,'변경');await tick();assert.equal(ui.ended(),1);ui.unmount();
 });
 test('서버 비밀번호 창 취소는 회원정보 수정 화면으로 넘어가지 않는다',()=>{
  const ui=setup({},undefined,{passwordOnly:true});press(ui,'취소');assert.equal(ui.closed(),1);ui.unmount();

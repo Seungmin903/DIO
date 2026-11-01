@@ -69,6 +69,7 @@ export default function FrameOptions({ photo, dispatch, onReplaceCell, onCropCel
             unit="%"
             label="모서리 둥글기"
             onStart={() => dispatch({ type: 'checkpoint' })}
+            onEnd={() => dispatch({ type: 'commitCheckpoint' })}
             onChange={(value) =>
               dispatch({ type: 'updateObject', id: photo.id, record: false, patch: { radius: Math.round(value * 100) / 100 } })
             }
@@ -84,6 +85,7 @@ export default function FrameOptions({ photo, dispatch, onReplaceCell, onCropCel
             label="틀 색상"
             value={frameColorOf(photo)}
             onStart={() => dispatch({ type: 'checkpoint' })}
+            onEnd={() => dispatch({ type: 'commitCheckpoint' })}
             onChange={(value) => dispatch({ type: 'updateObject', id: photo.id, record: false, patch: { frameColor: value } })}
           />
         </>
@@ -128,7 +130,7 @@ function CellOptions({ photo, dispatch, onReplaceCell, onCropCell }) {
           accessibilityLabel={filled ? `${index + 1}번 칸 사진 바꾸기` : `${index + 1}번 칸에 사진 넣기`}
           style={({ pressed }) => [styles.action, pressed && styles.pressed]}
         >
-          <Icon name={filled ? 'swap' : 'image'} size={16} />
+          <Icon name={filled ? 'swap' : 'image'} size={16} forText={13} />
           <Text style={styles.actionText}>{filled ? '바꾸기' : `${index + 1}번 칸에 넣기`}</Text>
         </Pressable>
         {filled && (
@@ -138,7 +140,7 @@ function CellOptions({ photo, dispatch, onReplaceCell, onCropCell }) {
             accessibilityLabel={`${index + 1}번 칸 자르기`}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <Icon name="crop" size={16} />
+            <Icon name="crop" size={16} forText={13} />
             <Text style={styles.actionText}>자르기</Text>
           </Pressable>
         )}
@@ -170,6 +172,7 @@ function FrameTextOptions({ photo, dispatch }) {
             <PenSafeTextInput
               value={text[field.key] ?? ''}
               onFocus={() => dispatch({ type: 'checkpoint' })}
+              onBlur={() => dispatch({ type: 'commitCheckpoint' })}
               onChangeText={(value) =>
                 dispatch({ type: 'updateObject', id: photo.id, record: false, patch: { frameText: { ...photo.frameText, [field.key]: value } } })
               }
@@ -248,5 +251,5 @@ const styles = StyleSheet.create({
   },
   actionText: { fontSize: 13, fontWeight: '600', color: colors.text },
   disabled: { opacity: DISABLED_OPACITY },
-  pressed: { opacity: 0.7 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

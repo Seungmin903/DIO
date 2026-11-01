@@ -22,13 +22,13 @@ const FULL_TOOLS = [
   ],
   [
     { tab: 'sticker', icon: 'sticker', label: '스티커' },
-    { tool: 'shape', icon: 'shape', label: '도형' },
+    { tab: 'widget', icon: 'widget', label: '위젯' },
     { tab: 'tape', icon: 'tape', label: '마스킹테이프' },
     { tab: 'photo', icon: 'image', label: '사진·GIF' },
   ],
 ]
 
-const GUIDE_TOOL = { action: 'guides', icon: 'grid', label: '격자 가이드' }
+const GUIDE_TOOL = { action: 'guides', icon: 'guides', label: '격자 가이드' }
 
 // 가로 배치에서 양옆에 세운 막대의 폭 (버튼 44 + 막대 안쪽 여백·테두리 10 + 바깥 여백 8)
 export const PHONE_TOOLBAR_RAIL = 62
@@ -129,9 +129,9 @@ function Tool({ icon, label, active, onPress, color }) {
 
 const card = {
   padding: 4,
-  borderRadius: 20,
+  borderRadius: 16,
   borderWidth: 1,
-  borderColor: 'rgba(110,146,198,0.2)',
+  borderColor: 'rgba(129,138,195,0.2)',
   backgroundColor: 'rgba(255,255,255,0.97)',
   ...shadow.card,
 }
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   bar: card,
   barViewport: { overflow: 'hidden' },
   barRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 },
-  rowDivider: { width: 1, height: 28, marginHorizontal: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
+  rowDivider: { width: 1, height: 28, marginHorizontal: 5, backgroundColor: 'rgba(11,23,102,0.12)' },
   // 가로 배치의 양옆 막대
   rail: { position: 'absolute', top: 8, width: PHONE_TOOLBAR_RAIL - 8 },
   railLeft: { left: 8, bottom: 8 },
@@ -151,10 +151,10 @@ const styles = StyleSheet.create({
   railColumn: { alignItems: 'center', gap: 2 },
   railSpread: { flexGrow: 1, justifyContent: 'space-between' },
   railGroup: { alignItems: 'center', gap: 2 },
-  railDivider: { width: 28, height: 1, marginVertical: 5, backgroundColor: 'rgba(11,25,87,0.12)' },
+  railDivider: { width: 28, height: 1, marginVertical: 5, backgroundColor: 'rgba(11,23,102,0.12)' },
   // iOS HIG 최소 터치 영역 44pt
-  tool: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  toolActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  toolPressed: { opacity: 0.65 },
+  tool: { width: 44, height: 44, borderRadius: 10, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  toolActive: { backgroundColor: colors.surface, borderColor: colors.primary }, // 선택: 흰 면 + 테두리 2px
+  toolPressed: {}, // 눌림 효과 없음(사용자 지시)
   colorLine: { position: 'absolute', bottom: 5, width: 16, height: 3, borderRadius: 2 },
 })

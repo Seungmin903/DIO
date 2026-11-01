@@ -133,11 +133,37 @@ test('모두 제외한 직접 구성은 빈 페이지 1장과 월별 추가 0장
   assert.equal(createDefaultDoc({ templateConfig: config }).pages.length, 1)
 })
 
+test('이미 만든 하루 계획 페이지는 같은 방향의 데일리 플래너로 바뀌고 올려 둔 요소는 그대로다', () => {
+  const object = { id: 'kept', type: 'text', x: 80, y: 90, w: 100, h: 30, text: '기록' }
+  const page = (id, backgroundAssetId) => ({ id, backgroundAssetId, templateVersion: '1.0.0', canvasWidth: 1024, canvasHeight: 768, objects: [object] })
+  const doc = { id: 'd', pages: [page('a', '2026-reusable-daily-landscape'), page('b', '2026-reusable-daily-portrait'), page('c', '2026-reusable-diary-landscape')] }
+  const before = JSON.stringify(doc)
+  const migrated = migrateUntouchedAnnualDoc(doc)
+  assert.deepEqual(migrated.pages.map(p => p.backgroundAssetId), ['day-planner-landscape', 'day-planner-portrait', '2026-reusable-diary-landscape'])
+  assert.equal(migrated.pages[2], doc.pages[2])
+  assert.deepEqual(migrated.pages[0].objects, [object])
+  for (const p of migrated.pages) assert.doesNotThrow(() => getTemplate(p.backgroundAssetId, p.templateVersion))
+  assert.equal(JSON.stringify(doc), before)
+  const plain = { id: 'p', pages: [page('x', '2026-reusable-diary-landscape')] }
+  assert.equal(migrateUntouchedAnnualDoc(plain), plain)
+})
+
+test('예전에 저장한 설정의 하루 계획 속지 ID 는 데일리 플래너로 읽는다', () => {
+  const base = defaultTemplateConfig('landscape')
+  const saved = { ...base, daily: true, dailyTemplates: base.dailyTemplates.filter(item => item.assetId !== 'day-planner-landscape').concat({ assetId: '2026-reusable-daily-landscape', enabled: true, count: 3 }) }
+  const config = normalizeTemplateConfig(saved)
+  const day = config.dailyTemplates.find(item => item.assetId === 'day-planner-landscape')
+  assert.deepEqual({ enabled: day.enabled, count: day.count }, { enabled: true, count: 3 })
+  assert.equal(config.dailyTemplates.some(item => item.assetId.includes('reusable-daily')), false)
+  const sections = normalizeTemplateConfig({ ...base, sections: [{ kind: 'pages', repeat: 1, items: [{ assetId: '2026-reusable-daily-portrait', count: 2 }] }] }, 'portrait')
+  assert.deepEqual(configuredPageIds(sections), ['day-planner-portrait', 'day-planner-portrait'])
+})
+
 test('내지 표시명 변경은 기존 ID·버전과 이전 문서 편집을 유지한다', () => {
   const menu = reusableTemplates()
-  assert.equal(menu.find(item => item.type === 'daily').name, '하루 계획')
+  assert.equal(getTemplate('2026-reusable-daily-landscape').name, '하루 계획')
   assert.equal(menu.find(item => item.type === 'scrap').name, '사진·스크랩')
-  const old = { id: 'old', title: '기존 다이어리', pages: [{ id: 'p', backgroundAssetId: '2026-reusable-daily-landscape', templateVersion: '1.0.0', objects: [{ id: 'old-text', type: 'text', x: 80, y: 90, w: 100, h: 30, text: '기록' }] }] }
+  const old = { id: 'old', title: '기존 다이어리', pages: [{ id: 'p', backgroundAssetId: '2026-reusable-diary-landscape', templateVersion: '1.0.0', objects: [{ id: 'old-text', type: 'text', x: 80, y: 90, w: 100, h: 30, text: '기록' }] }] }
   const before = JSON.stringify(old)
   const restored = migrateUntouchedAnnualDoc(JSON.parse(before))
   let state = createInitialState(restored)

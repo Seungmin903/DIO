@@ -9,7 +9,7 @@ public class SharingWebConfig implements WebMvcConfigurer {
         this.origins=java.util.Arrays.stream(origins.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new);
     }
     @Override public void addCorsMappings(CorsRegistry registry){
-        for(String path:new String[]{"/api/v1/diaries/*/profile","/api/v1/diaries/*/members/**",
+        for(String path:new String[]{"/api/v1/diaries/*/membership","/api/v1/diaries/*/members/**",
                 "/api/v1/diaries/*/transfer-owner","/api/v1/diaries/*/invites/**","/api/v1/invites/**","/api/v1/me/invites/**"})
             registry.addMapping(path).allowedOrigins(origins).allowedMethods("GET","POST","PATCH","DELETE","OPTIONS")
                 .allowedHeaders("Content-Type","Authorization","X-DIO-Access-Token").exposedHeaders("Retry-After").maxAge(600);
@@ -19,7 +19,7 @@ public class SharingWebConfig implements WebMvcConfigurer {
             @Override public boolean preHandle(jakarta.servlet.http.HttpServletRequest request,jakarta.servlet.http.HttpServletResponse response,Object handler){
                 response.setHeader("Cache-Control","no-store");response.setHeader("Referrer-Policy","no-referrer");return true;
             }
-        }).addPathPatterns("/api/v1/diaries/*/profile","/api/v1/diaries/*/members/**",
+        }).addPathPatterns("/api/v1/diaries/*/membership","/api/v1/diaries/*/members/**",
             "/api/v1/diaries/*/transfer-owner","/api/v1/diaries/*/invites/**","/api/v1/invites/**","/api/v1/me/invites/**");
     }
 }

@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIO 다이어리 홈 햇살 책상 — 2안 디벨롭 시안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root { --ink:#0B1957; --text:#1D1D1F; --muted:#6B7280; --line:#E1E6F0; --bg:#FFFFFF; --soft:#F3F5FA; --accent:#6E92C6; --accent-soft:#EAF0FA; --cream:#FEF0BF; --lilac:#DBDCF9; --danger:#E5484D; --danger-soft:#FDECEC; --ok:#1E9E6A; --ok-soft:#E7F6EF; --warn-soft:#FFF6DB; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--bg); color:var(--text); font:15px/1.65 "Pretendard","Nanum Gothic","Malgun Gothic","Noto Sans KR",sans-serif; word-break:keep-all; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+.wrap { display:grid; grid-template-columns:240px minmax(0,1fr); min-height:100vh; }
+nav { position:sticky; top:0; height:100vh; overflow:auto; padding:24px 16px; border-right:1px solid var(--line); background:var(--soft); }
+nav .brand { font-weight:800; font-size:13px; letter-spacing:.06em; color:var(--muted); margin-bottom:12px; }
+nav ol { list-style:none; margin:0; padding:0; } nav li { margin:0 0 4px; }
+nav a { display:block; padding:7px 10px; border-radius:8px; color:var(--text); font-size:13.5px; line-height:1.35; }
+nav a:hover, nav a.on { background:var(--accent-soft); color:var(--accent); text-decoration:none; }
+nav .hint { margin-top:20px; font-size:12px; color:var(--muted); line-height:1.5; }
+main { padding:32px 48px 96px; max-width:1280px; }
+.doc { padding-bottom:40px; margin-bottom:40px; border-bottom:2px solid var(--line); } .doc:last-child { border-bottom:0; }
+h1 { font-size:27px; margin:8px 0 16px; line-height:1.3; color:var(--ink); } h2 { font-size:20px; margin:40px 0 12px; padding-top:8px; border-top:1px solid var(--line); color:var(--ink); } h3 { font-size:16px; margin:28px 0 8px; color:var(--ink); } h4 { font-size:14px; margin:18px 0 6px; }
+blockquote { margin:0 0 20px; padding:12px 16px; background:var(--accent-soft); border-left:4px solid var(--accent); border-radius:0 8px 8px 0; font-size:13.5px; color:#374151; } blockquote p { margin:0; }
+table { border-collapse:collapse; width:100%; margin:12px 0 20px; font-size:13px; line-height:1.5; display:block; overflow-x:auto; }
+thead th { background:var(--soft); text-align:left; font-weight:700; }
+th, td { border:1px solid var(--line); padding:7px 9px; vertical-align:top; }
+tbody tr:nth-child(even) td { background:#FAFBFD; }
+td:first-child, th:first-child { white-space:nowrap; }
+table.wrapcol td:first-child, table.wrapcol th:first-child { white-space:normal; }
+img { max-width:100%; height:auto; border:1px solid var(--line); border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+code { font:12.5px/1.4 ui-monospace,Consolas,monospace; background:var(--soft); padding:1px 5px; border-radius:4px; }
+pre { background:var(--soft); padding:10px 14px; border-radius:8px; overflow:auto; font-size:12px; } pre code { background:none; padding:0; }
+li { margin:3px 0; } hr { border:0; border-top:1px solid var(--line); margin:28px 0; } strong { font-weight:800; }
+figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:1.45; color:#374151; }
+/* 스크린샷 · 이미지 묶음 */
+.shots { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:18px 20px; margin:14px 0 18px; }
+.shots img { width:100%; display:block; max-height:520px; object-fit:cover; object-position:top; }
+.shots.three { grid-template-columns:repeat(3, minmax(0,1fr)); } .shots.three img { max-height:400px; }
+.shots.profile img { max-height:none; object-fit:contain; }
+.shots.four { grid-template-columns:repeat(4, minmax(0,1fr)); } .shots.four img { max-height:none; object-fit:contain; }
+.wide img { width:100%; display:block; }
+.grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px 20px; margin:14px 0 18px; }
+.grid.two { grid-template-columns:repeat(2, minmax(0,1fr)); } .grid.four { grid-template-columns:repeat(4, minmax(0,1fr)); } .grid.five { grid-template-columns:repeat(5, minmax(0,1fr)); }
+.grid img { width:100%; display:block; background:#fff; }
+.grid figcaption { font-size:12.5px; }
+.note { font-size:12.5px; color:var(--muted); }
+.xtl { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin:14px 0 18px; }
+.xp { border:1px solid var(--line); border-radius:14px; padding:12px 14px; background:#fff; break-inside:avoid; font-size:13.5px; line-height:1.5; }
+.xh { display:flex; gap:8px; align-items:center; } .xh .av { width:34px; height:34px; border-radius:50%; object-fit:cover; flex:none; } .xh b { font-size:13.5px; } .xh span { color:var(--muted); font-size:11.5px; display:block; } .xh i { margin-left:auto; font-style:normal; font-size:11px; background:var(--accent-soft); color:var(--ink); border-radius:8px; padding:1px 7px; white-space:nowrap; }
+.xp p { margin:8px 0; } .xi { width:100%; border-radius:10px; border:1px solid var(--line); display:block; max-height:300px; object-fit:contain; background:var(--soft); }
+.xr { margin-top:6px; padding:5px 9px; border-radius:8px; font-size:12px; background:var(--soft); } .xr.a { background:var(--accent-soft); margin-left:14px; }
+.xn { margin-top:8px; font-size:11.5px; color:var(--muted); border-top:1px dashed var(--line); padding-top:6px; }
+.kpi { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin:12px 0 20px; }
+.kpi div { border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--soft); }
+.kpi b { display:block; font-size:22px; line-height:1.2; margin-bottom:4px; color:var(--ink); } .kpi span { font-size:12px; color:var(--muted); line-height:1.4; display:block; }
+/* 강조 상자 */
+.warn, .ok, .info, .stop { border-radius:10px; padding:12px 16px; margin:14px 0 18px; font-size:13.5px; line-height:1.6; }
+.warn { background:var(--warn-soft); border:1px solid #F0D98A; } .ok { background:var(--ok-soft); border:1px solid #B9E3D0; } .info { background:var(--accent-soft); border:1px solid #CBD9F0; } .stop { background:var(--danger-soft); border:1px solid #F5C2C4; }
+.warn p, .ok p, .info p, .stop p { margin:4px 0; } .warn ul, .ok ul, .info ul, .stop ul { margin:4px 0; padding-left:20px; }
+.tag { display:inline-block; padding:0 7px; border-radius:999px; font-size:11.5px; font-weight:800; line-height:1.6; white-space:nowrap; }
+.tag.hi { background:#FDECEC; color:#B3262B; } .tag.mid { background:#FFF1C9; color:#8A5A00; } .tag.lo { background:#E7F6EF; color:#157A52; } .tag.ref { background:#EAF0FA; color:#2F4E8E; }
+@media (max-width:900px) { .wrap { grid-template-columns:1fr; } nav { position:static; height:auto; border-right:0; border-bottom:1px solid var(--line); } main { padding:20px 16px 60px; } .grid, .shots, .shots.three, .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media print {
+  @page { size:A4 landscape; margin:11mm 12mm 13mm; }
+  body { font-size:11px; } .wrap { display:block; } nav { display:none; } main { padding:0; max-width:none; }
+  .doc { break-before:page; border:0; margin:0; padding:0; } .doc:first-child { break-before:auto; }
+  h1 { font-size:22px; } h2 { font-size:16px; break-after:avoid; margin-top:6mm; } h3 { font-size:13px; break-after:avoid; }
+  table { display:table; font-size:9.3px; } tr { break-inside:avoid; } thead { display:table-header-group; }
+  img { box-shadow:none; }
+  .sec2, .sec3 { break-inside:auto; } h2 + p, h3 + p { break-after:avoid; }
+  .grid { grid-template-columns:repeat(3, minmax(0,1fr)) !important; gap:4mm 5mm; margin:3mm 0 4mm; } .grid.two { grid-template-columns:repeat(2, minmax(0,1fr)) !important; } .grid.four { grid-template-columns:repeat(4, minmax(0,1fr)) !important; } .grid.five { grid-template-columns:repeat(5, minmax(0,1fr)) !important; }
+  .grid figure { break-inside:avoid; } .grid figcaption { font-size:9px; margin-top:1.5mm; }
+  .shots { grid-template-columns:repeat(2, minmax(0,1fr)) !important; gap:4mm 5mm; margin:3mm 0 4mm; } .shots.three { grid-template-columns:repeat(3, minmax(0,1fr)) !important; } .shots.four { grid-template-columns:repeat(4, minmax(0,1fr)) !important; }
+  .shots img { max-height:118mm; } .shots.three img { max-height:92mm; } .shots.profile img, .shots.four img { max-height:none; } .shots figcaption { font-size:9px; } .shots figure { break-inside:avoid; }
+  .wide { break-inside:avoid; } .wide img { width:auto; max-width:100%; max-height:126mm; margin:0 auto; display:block; } .wide figcaption { font-size:9px; text-align:center; }
+  .kpi { grid-template-columns:repeat(4, minmax(0,1fr)) !important; gap:3mm; } .kpi b { font-size:16px; } .kpi span { font-size:9px; }
+  .warn, .ok, .info, .stop { font-size:10px; break-inside:avoid; padding:2.5mm 4mm; }
+  a { color:var(--text); }
+  blockquote, thead th, tbody tr:nth-child(even) td, .kpi div, .warn, .ok, .info, .stop, .tag { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+<div class="brand">DIO · 홈 햇살 책상</div>
+<ol>
+<li><a href="#doc-idx">다이어리 홈 햇살 책상 — 2안 디벨롭 시안</a></li>
+<li><a href="#doc-01">01 네 가지 방향</a></li>
+<li><a href="#doc-02">02 B안 햇살 한 조각 — 깊게</a></li>
+<li><a href="#doc-03">03 캐릭터와 코덱스</a></li>
+<li><a href="#doc-04">04 A안 코덱스판 — 지금 앱 화면 위에</a></li>
+<li><a href="#doc-05">05 책상 꾸미기 조사와 A안 고도화</a></li>
+<li><a href="#doc-06">06 책상 시안 3차 — 태블릿 가로 스와이프 4안</a></li>
+</ol>
+<div class="hint">원본은 같은 폴더의 md 파일. 이 html · pdf는 빌드.py로 다시 만든다. 시안은 스크립트/렌더.py(목업/장면.html).</div>
+</nav>
+<main>
+<section class="doc" id="doc-idx" data-title="다이어리 홈 햇살 책상 — 2안 디벨롭 시안">
+<h1 id="다이어리-홈-햇살-책상-2안-디벨롭-시안">다이어리 홈 햇살 책상 — 2안 디벨롭 시안</h1>
+<blockquote>
+<p>작성일: 2026-10-29 · 담당: 황민희 · 기준: <a href="../디자인%20가이드.md">디자인 가이드</a>, <a href="../다이어리%20홈%20책상%20감성/색인.md">다이어리 홈 책상 감성</a> 2안, <a href="../캐릭터%20디자인/색인.md">캐릭터 디자인</a> 최종 시안, <code>feature/fe/layer</code><br>
+요청: "다이어리 홈 책상 감성 2안을 더 디벨롭. 같은 화면의 다른 버튼들과 너무 동떨어지지 않으면서 충분히 감성적으로. 감성적이면서도 심플 · 모던한 인상, 캐릭터 디자인 최종 시안 활용. 시안 몇 가지."<br>
+<strong>PDF 한 파일</strong>: <a href="다이어리%20홈%20햇살%20책상.pdf">다이어리 홈 햇살 책상.pdf</a> (A4 가로) · md가 원본이며 <code>python "docs/다이어리 홈 햇살 책상/빌드.py"</code>로 다시 만든다.<br>
+보는 법: 모든 시안은 <strong>태블릿 1280 × 800 · 폰 390 × 844</strong> 화면 그대로다. 레일 · 제목 · 칩 · 보기 전환 · 검색 · 화살표 · 정보 카드 · 개수는 지금 앱 토큰(<code>theme.js</code>) 그대로이고, 바뀌는 건 바닥 · 빛 · 소품 · 캐릭터뿐이다. 웹에서 그린 시안이라 실제 구현과 조금 다를 수 있다.<br>
+2차 요청(같은 날): "그림 코덱스로 바꾸자. 지금 UI/UX 기준으로 A안 디벨롭, 버튼 모양은 되돌리지 않기, 창문은 십자형." → <a href="#doc-04">04 A안 코덱스판</a><br>
+3차 요청(같은 날): "시안 다시 짜자 — 태블릿 가로 스와이프만, 오후 한 시각 햇살, 플랫 소품 · 마스코트, 소품은 투명 PNG, 코덱스가 그리게." → <a href="#doc-06">06 책상 시안 3차</a><br>
+상태: <strong>검토안</strong></p>
+</blockquote>
+<div class="sec2"><h2 id="2차-a안-코덱스판">2차 — A안 코덱스판</h2>
+<p><strong>지금 앱 화면은 그대로, 바닥만 코덱스가 그린 나무 책상으로.</strong> 십자 창틀 오후 햇빛이 가운데 다이어리 위까지 이어진다. 지금 화면에서 바꾼 것은 근거가 있는 두 가지 — 옆 다이어리를 투명도 대신 채도 · 밝기로(나무가 비치지 않게), 표지에 빛과 같은 방향의 그림자 — 뿐이다.</p>
+<div class="grid two">
+<figure><img src="이미지/A2%20지금.jpg"><figcaption>지금 앱</figcaption></figure>
+<figure><img src="이미지/A2%20기본.jpg"><figcaption>A안 코덱스판</figcaption></figure>
+</div>
+
+</div><div class="sec2"><h2 id="1차-한-줄-결론">1차 한 줄 결론</h2>
+<p><strong>추천은 B안 햇살 한 조각</strong> — 바닥은 앱 바탕색에 가까운 라벤더 그늘로 두고, 블라인드 사이로 들어온 햇빛 한 조각을 가운데 다이어리에만 떨어뜨린다. 빛이 곧 '지금 고른 다이어리' 표시이고, 빛을 끄면 그 자리에 편집기 바탕(<code>#F1F3F7</code>)만 남는다.</p>
+<ul>
+<li>앞선 2안의 약점 두 가지(편집기와 온도 차, 머스터드 · 크림 표지가 나무 바탕에 묻힘)를 <strong>바탕을 식히고 빛만 데우는</strong> 방식으로 함께 푼다.</li>
+<li>색은 모두 캐릭터 최종 시안에서 가져왔다: <strong>햇빛 = 모아 버터 <code>#FEF0BF</code>, 그림자 = 디오 목도리 <code>#DBDCF9</code></strong>. 새 색 토큰이 없다.</li>
+<li>소품은 8개 → 5개. 그중 셋(아크릴 스탠드 · 스티커 · 테이프)은 최종 캐릭터와 그 색이다.</li>
+</ul>
+<div class="grid two">
+<figure><img src="이미지/00%20지금%202안.jpg"><figcaption>지금 2안</figcaption></figure>
+<figure><img src="이미지/B안%20기본.jpg"><figcaption>B안 햇살 한 조각</figcaption></figure>
+</div>
+
+</div><div class="sec2"><h2 id="네-가지-방향-한눈에">네 가지 방향 한눈에</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>A 다듬은 나무 책상</th>
+<th>B 햇살 한 조각 ★</th>
+<th>C 창가</th>
+<th>D 햇살 카드</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>한 줄</td>
+<td>지금 2안을 덜어내고 정리</td>
+<td>앱 색 그늘 + 버터빛 한 조각</td>
+<td>옆에서 본 책상 · 벽에 창빛</td>
+<td>앱 바탕 위 카드 한 장에만 빛</td>
+</tr>
+<tr>
+<td>바닥</td>
+<td>연한 나무 <code>#F4EEE4</code></td>
+<td>라벤더 그늘 <code>#EDEDF4</code></td>
+<td>벽 <code>#EFEEF5</code> + 책상 <code>#EFE6D8</code></td>
+<td>앱 바탕 <code>#F1F3F7</code> + 카드 <code>#F4EFEA</code></td>
+</tr>
+<tr>
+<td>빛</td>
+<td>왼쪽 위 블라인드 띠</td>
+<td>가운데에만 블라인드 빛, <strong>표지 위까지</strong></td>
+<td>벽에 2 × 2 창빛</td>
+<td>카드 왼쪽 위에서 비스듬히</td>
+</tr>
+<tr>
+<td>캐릭터</td>
+<td>아크릴 스탠드(둘이)</td>
+<td>아크릴 스탠드 + 모아 스티커</td>
+<td><strong>서 있는 피규어</strong>(모아 · 디오)</td>
+<td>다이컷 스티커 두 장</td>
+</tr>
+<tr>
+<td>소품 수</td>
+<td>5</td>
+<td>5</td>
+<td>3</td>
+<td>2 + 테이프 2</td>
+</tr>
+<tr>
+<td>버튼과의 거리</td>
+<td>중간 (따뜻한 바탕 위 흰 버튼)</td>
+<td><strong>가장 가까움</strong> (바탕이 앱 색)</td>
+<td>가까움 (벽이 앱 색)</td>
+<td>가장 가까움 (밖은 앱 그대로)</td>
+</tr>
+<tr>
+<td>감성 세기</td>
+<td>강</td>
+<td>중강</td>
+<td>강 (캐릭터가 주인공)</td>
+<td>약</td>
+</tr>
+<tr>
+<td>만드는 품</td>
+<td>작음 (지금 2안 수정)</td>
+<td>중간 (빛 덮개 한 겹)</td>
+<td>큼 (표지를 세워서 그림)</td>
+<td>작음</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="문서">문서</h2>
+<table>
+<thead>
+<tr>
+<th>문서</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#doc-01">01 네 가지 방향</a></td>
+<td>지킨 것(버튼은 그대로) · A ~ D 태블릿과 폰 · 비교</td>
+</tr>
+<tr>
+<td><a href="#doc-02">02 B안 햇살 한 조각</a></td>
+<td>추천안 깊게 — 빛이 선택 표시, 색 근거, 넘기는 중 · 새 다이어리 · 공유 · 한눈에 · 시간대 · 빈 책상 · 폰 · 편집기 전환, React Native로 만들 때</td>
+</tr>
+<tr>
+<td><a href="#doc-03">03 캐릭터와 코덱스</a></td>
+<td>최종 캐릭터를 책상에 놓는 법, 코덱스(이미지 생성)로 다듬을 그림과 프롬프트, 정해야 할 것</td>
+</tr>
+<tr>
+<td><a href="#doc-05">05 책상 꾸미기 조사와 A안 고도화</a></td>
+<td><strong>3차.</strong> 1020 책상 꾸미기 조사(출처 · 한계), 레일 · 버튼 제안 U0 ~ U3, 코덱스 시안 8종 × 태블릿 · 폰 — png는 <a href="코덱스%20시안/">코덱스 시안/</a></td>
+</tr>
+<tr>
+<td><a href="사진%20한%20장%20책상%20고도화/">사진 한 장 책상 고도화/</a></td>
+<td><strong>5차.</strong> 소품 디테일을 다이어리 표지 수준으로 올린 3종(1안 사진 속 모아 · 디오, 2안 스티커 탑꾸, 3안 누운 인형) × 태블릿 · 폰 × 스와이프 · 한눈에 + 안별 소품 보드. 다시 그리기: <code>스크립트/코덱스 사진 한 장 고도화.py</code></td>
+</tr>
+<tr>
+<td><a href="사진%20한%20장%20책상%20시안/">사진 한 장 책상 시안/</a></td>
+<td><strong>4차.</strong> 05의 04 '사진 한 장 책상'을 2D 그래픽 + 모아 · 디오로 디벨롭한 코덱스 png 3종 × 태블릿 · 폰 × 스와이프 · 한눈에. 소품은 모두 책상에 누워 붙는다. 다시 그리기: <code>스크립트/코덱스 사진 한 장.py</code></td>
+</tr>
+<tr>
+<td><a href="#doc-06">06 책상 시안 3차</a></td>
+<td><strong>6차 · 최신.</strong> 태블릿 가로 스와이프 4안(원목 · 리넨 매트 · 화이트 종이결 · 가죽 패드), 오후 3시 햇살, 실제 앱 UI 층 위에 코덱스 상판 · 소품. 소품 투명 PNG는 <a href="책상%20시안%203차/소품/">책상 시안 3차/소품/</a></td>
+</tr>
+<tr>
+<td><a href="#doc-04">04 A안 코덱스판</a></td>
+<td><strong>2차.</strong> 지금 앱 화면 재현 위에 코덱스 바탕(십자 창틀) · 빛 지도, 바꾼 것 두 가지와 근거, 빛 덮개 비교, 맨 앞 · 한눈에 · 폰, 만들 때</td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec2"><h2 id="폴더">폴더</h2>
+<pre><code>다이어리 홈 햇살 책상/
+├── 다이어리 홈 햇살 책상.pdf · .html   ← 결과물 (빌드.py)
+├── 색인.md · 01~03 md                   ← 원본
+├── 빌드.py                               md → html → pdf (크롬 헤드리스)
+├── 이미지/                               시안 · 모음 그림 (스크립트/렌더.py), 00 = 지금 2안
+│   └── 코덱스/                           코덱스 바탕 원본 png · 프롬프트 · 빛 · 그늘 지도 (스크립트/빛지도.py)
+├── 목업/                                 장면.html#&lt;장면 이름&gt; 으로 여는 시안 원본
+│   ├── 장면.html · 장면.js                빛 · 바닥 · 캐릭터 · 장면 목록 (UI 층 · 표지 · 소품은 앞 검토안 목업을 불러 씀)
+│   ├── 지금 화면.js                        지금 앱 홈(레일 · 머리 · 띠 라벨 표지 · 정보 줄 · + 버튼) 재현 + A안 코덱스판
+│   ├── 햇살.css                           빛 덮개 · 그림자 방향 · 안별 바닥
+│   └── 소재/                             캐릭터 최종 시안 SVG(모아 · 디오 · 둘이) · 편집기 스티커
+└── 스크립트/                            렌더.py 장면 → jpg (크롬 헤드리스 2배) + 모음 그림 · 빛지도.py
+</code></pre>
+<p>다시 만들기: <code>python 스크립트/렌더.py</code> → <code>python 빌드.py</code> (이 폴더에서). 장면 하나만: <code>python 스크립트/렌더.py B안 기본</code>. 목업은 옆 폴더 <code>다이어리 홈 책상 감성/목업/</code>의 <code>소품.js</code> · <code>장면.js</code> · <code>공통.css</code>를 함께 읽으므로 두 폴더를 같이 둔다.</p></div>
+</section><section class="doc" id="doc-01" data-title="01 네 가지 방향">
+<h1 id="01-네-가지-방향">01 네 가지 방향</h1>
+<div class="sec2"><h2 id="먼저-지킨-것-버튼은-한-픽셀도-바꾸지-않는다">먼저 지킨 것 — 버튼은 한 픽셀도 바꾸지 않는다</h2>
+<p>"같은 화면의 다른 버튼들과 동떨어지지 않게"를 이렇게 풀었다.</p>
+<ul>
+<li><strong>UI 층은 그대로.</strong> 레일 · 제목 · 칩 · 보기 전환 · 검색 · 더보기 · 화살표 · 정보 카드 · 개수 알약은 <code>theme.js</code> 토큰 그대로다(흰 바탕, 테두리 <code>rgba(11,25,87,.16)</code>, 글자 <code>#0B1957</code>, 그림자 <code>shadow.card</code>). 손글씨 · 나무 · 종이 재질을 버튼에 쓰지 않는다.</li>
+<li><strong>버튼 대신 바탕을 버튼 쪽으로 끌어온다.</strong> 지금 2안은 바탕(따뜻한 베이지)과 버튼(차가운 흰색 · 남색)의 온도가 달라서 버튼이 떠 보였다. 이번 안들은 바탕을 앱 바탕색 근처로 식히고(B · C · D), 따뜻함은 <strong>빛</strong>으로만 넣었다.</li>
+<li><strong>그림자 색을 하나로.</strong> 앱 버튼 그림자는 남색(<code>#0B1957</code>)이다. 책상 소품 · 표지 그림자도 갈색이 아니라 같은 쪽의 남보라(<code>rgb(76,72,150)</code>)로 바꿨다. 버튼과 소품이 같은 빛 아래 있는 것처럼 보인다.</li>
+<li><strong>그림자 방향을 하나로.</strong> 빛은 왼쪽 위에서 들어오고 모든 그림자는 오른쪽 아래로 진다. 지금 2안은 표지 그림자가 아래로만 져서 빛줄기와 어긋났다.</li>
+<li><strong>심플 · 모던.</strong> 소품 8개 → 5개 이하, 질감(나무결 · 종이 결)은 A안에만, 빛은 블러를 줄여 또렷한 면으로 그렸다.</li>
+<li>앞선 검토안의 원칙(세 겹 구조 · 색 예산 · 움직임 예산 · 세계 층은 누르지 않음)은 그대로 따른다.</li>
+</ul>
+</div><div class="sec2"><h2 id="a안-다듬은-나무-책상-지금-2안-정리판">A안 다듬은 나무 책상 — 지금 2안 정리판</h2>
+<figure class="wide"><img src="이미지/A안%20기본.jpg"><figcaption>A안 · 기본</figcaption></figure>
+
+<ul>
+<li><strong>바뀐 것:</strong> 소품 8 → 5(폴라로이드 · 스티커 시트 · 포스트잇을 뺐다). 화분은 화면 밖으로 반쯤 걸쳐 가장자리로 밀었다. 모아 스탠드 자리에 <strong>최종 시안 '둘이' 아크릴 스탠드</strong>, 테이프 롤과 펜은 디오 목도리 라벤더로.</li>
+<li><strong>옆 다이어리:</strong> 회색으로 빼던 것을 채도만 45% 낮추는 것으로 바꿨다. 회색 표지가 나무 위에서 '먼지 쌓인' 느낌을 줘서다.</li>
+<li><strong>표지 그림자:</strong> 오른쪽 아래로 길게. 지금 2안의 '크림 · 머스터드 표지가 묻힌다'를 그림자로 막는다.</li>
+<li><strong>남은 한계:</strong> 바탕이 여전히 따뜻한 나무라 흰 버튼과 온도 차가 있다. 편집기로 넘어갈 때 '빛이 꺼지는' 전환이 꼭 필요하다(앞 검토안 06).</li>
+<li><strong>언제:</strong> 2안 느낌을 거의 그대로 살리고 싶을 때. 바꾸는 양이 가장 적다.</li>
+</ul>
+</div><div class="sec2"><h2 id="b안-햇살-한-조각-추천">B안 햇살 한 조각 — 추천</h2>
+<figure class="wide"><img src="이미지/B안%20기본.jpg"><figcaption>B안 · 기본</figcaption></figure>
+
+<ul>
+<li><strong>컨셉:</strong> 커튼을 친 오후의 방. 바닥은 <strong>앱 바탕에 가까운 라벤더 그늘</strong>(<code>#EDEDF4</code>), 블라인드 사이로 들어온 <strong>햇빛 한 조각</strong>(<code>#FFF5DD</code>)이 책상 가운데에만 떨어진다.</li>
+<li><strong>빛이 곧 선택 표시:</strong> 가운데 다이어리는 빛 안에 있고 옆 다이어리는 그늘에 있다. 넘기면 다이어리가 빛 속으로 미끄러져 들어온다. 지금의 '투명도 · 크기'나 1안의 '회색 → 색' 대신 <strong>빛 → 그늘</strong>이 같은 역할을 한다.</li>
+<li><strong>표지 위까지 빛:</strong> 블라인드 줄무늬가 표지 위에도 비스듬히 걸린다. 표지 색은 바꾸지 않고(부드럽게 섞기만) 결만 더한다. 이 한 겹이 '진짜 책상 위에 놓인 물건' 느낌을 가장 크게 만든다.</li>
+<li><strong>소품 5개:</strong> 둘이 아크릴 스탠드 · 라벤더 테이프 롤 · 버터색 포스트잇 + 모아 스티커 · 라벤더 펜. 화분은 화면 밖에 있고 <strong>잎 그림자만</strong> 빛 위에 비친다.</li>
+<li><strong>버튼과의 관계:</strong> 바탕이 앱 색이라 흰 칩 · 정보 카드가 지금 앱과 똑같이 읽힌다. 따뜻함은 가운데 빛에만 있어서 버튼과 부딪히지 않는다.</li>
+<li><strong>위험:</strong> 빛 줄무늬가 표지 위 이름표 글자를 조금 흔든다 → 이름표는 표지 그림이라 괜찮지만, 정보는 정보 카드(UI 층)가 맡는다. 빛 덮개를 끄면 6안(종이 한 장)과 같은 화면이 된다.</li>
+</ul>
+</div><div class="sec2"><h2 id="c안-창가-옆에서-본-책상">C안 창가 — 옆에서 본 책상</h2>
+<figure class="wide"><img src="이미지/C안%20기본.jpg"><figcaption>C안 · 기본</figcaption></figure>
+
+<ul>
+<li><strong>컨셉:</strong> 위에서 내려다보던 책상을 <strong>눈높이</strong>로 바꿨다. 위쪽은 벽, 아래쪽은 책상 윗면. 다이어리는 책상 위에 <strong>세워져</strong> 있고, 벽에는 창틀 모양 햇빛과 잎 그림자.</li>
+<li><strong>캐릭터가 주인공:</strong> 옆에서 보니 모아 · 디오가 스탠드 없이 <strong>그대로 서 있을 수 있다.</strong> 최종 시안 그림을 손대지 않고 바닥 그림자만 붙였다. 머그 · 선인장도 옆모습.</li>
+<li><strong>버튼과의 관계:</strong> 헤더가 놓인 벽이 앱 바탕과 거의 같은 색이라 제목 · 칩 줄이 지금 앱과 같다. 책상 윗면(베이지)은 정보 카드 아래에서만 보인다.</li>
+<li><strong>위험:</strong> 표지를 '세운 책'으로 그려야 해서 지금 <code>Cover.js</code>의 위에서 본 그림자 · 두께를 바꿔야 한다. 넘길 때 옆 다이어리 기울기도 없어져 움직임이 단조롭다. 캐릭터가 크면 표지보다 눈에 먼저 들어온다 → 표지 높이의 40% 안으로.</li>
+</ul>
+</div><div class="sec2"><h2 id="d안-햇살-카드-가장-조용한-안">D안 햇살 카드 — 가장 조용한 안</h2>
+<figure class="wide"><img src="이미지/D안%20기본.jpg"><figcaption>D안 · 기본</figcaption></figure>
+
+<ul>
+<li><strong>컨셉:</strong> 앱 바탕은 그대로, 칩 아래부터 둥근 카드(모서리 28) 한 장을 마스킹테이프로 붙였다. 빛과 잎 그림자는 <strong>카드 안에서만</strong> 보인다.</li>
+<li><strong>캐릭터:</strong> 카드 아래 두 모서리에 모아 · 디오 다이컷 스티커. 편집기 스티커와 같은 흰 테두리라 '이 앱에서 쓰는 스티커'로 읽힌다.</li>
+<li><strong>버튼과의 관계:</strong> 카드 밖은 지금 앱과 완전히 같다. 화살표 · 헤더가 카드 밖 앱 바탕 위에 있어 충돌이 없다.</li>
+<li><strong>언제:</strong> B안의 1단계, 또는 '책상 꾸미기'를 끈 상태. 감성은 가장 약하다.</li>
+</ul>
+</div><div class="sec2"><h2 id="폰">폰</h2>
+<figure class="wide"><img src="이미지/모음%20폰.jpg"><figcaption>폰 · A · B · C · D</figcaption></figure>
+
+<ul>
+<li>소품은 <strong>아래 가장자리에만</strong>(앞 검토안 원칙 9). 가운데 세로 띠는 다이어리 · 정보 카드 · 개수만.</li>
+<li>B안은 빛 조각을 화면 폭의 2/3로 좁혀 가운데 다이어리에만 떨어뜨린다. 옆 다이어리는 화면 밖 그늘에 걸친다.</li>
+<li>C안은 폰에서 캐릭터가 가장 크게 보인다. 아래 여백이 넓은 폰에서는 오히려 장점이다.</li>
+</ul>
+</div><div class="sec2"><h2 id="비교">비교</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>A 다듬은 나무</th>
+<th>B 햇살 한 조각</th>
+<th>C 창가</th>
+<th>D 햇살 카드</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>감성</td>
+<td>★★★</td>
+<td>★★☆</td>
+<td>★★★</td>
+<td>★☆☆</td>
+</tr>
+<tr>
+<td>심플 · 모던</td>
+<td>★★☆</td>
+<td>★★★</td>
+<td>★★☆</td>
+<td>★★★</td>
+</tr>
+<tr>
+<td>버튼과 어울림</td>
+<td>★★☆</td>
+<td>★★★</td>
+<td>★★★</td>
+<td>★★★</td>
+</tr>
+<tr>
+<td>캐릭터 존재감</td>
+<td>★★☆</td>
+<td>★★☆</td>
+<td>★★★</td>
+<td>★★☆</td>
+</tr>
+<tr>
+<td>편집기로 이어짐</td>
+<td>전환 필요</td>
+<td><strong>빛만 빼면 끝</strong></td>
+<td>전환 필요(눈높이 → 위)</td>
+<td>카드만 빼면 끝</td>
+</tr>
+<tr>
+<td>만드는 품</td>
+<td>작음</td>
+<td>중간</td>
+<td>큼</td>
+<td>작음</td>
+</tr>
+<tr>
+<td>추천</td>
+<td>2안 유지 시</td>
+<td><strong>기본안</strong></td>
+<td>캐릭터 강조 시 · 2차</td>
+<td>1단계 · 꺼짐 상태</td>
+</tr>
+</tbody>
+</table></div>
+</section><section class="doc" id="doc-02" data-title="02 B안 햇살 한 조각 — 깊게">
+<h1 id="02-b안-햇살-한-조각-깊게">02 B안 햇살 한 조각 — 깊게</h1>
+<div class="sec2"><h2 id="핵심-빛이-선택-표시가-된다">핵심 — 빛이 선택 표시가 된다</h2>
+<figure class="wide"><img src="이미지/모음%20지금과%20B안.jpg"><figcaption>지금 2안 · B안</figcaption></figure>
+
+<ul>
+<li>지금 2안은 '따뜻한 바탕 + 회색 옆 다이어리'다. 따뜻함이 화면 전체에 퍼져 있어 흰 버튼과 온도가 다르고, 회색 처리 때문에 옆 다이어리가 '꺼진' 것처럼 보인다.</li>
+<li>B안은 반대로 <strong>화면 전체를 식히고 따뜻함은 한 조각에만</strong> 둔다. 따뜻한 곳 = 지금 고른 다이어리. 옆 다이어리는 색을 지우지 않고 그늘에 있을 뿐이라 원래 색이 살아 있다.</li>
+<li>겹으로 보면 세계 층(그늘 바탕 + 빛 조각 + 잎 그림자) → 물건 층(다이어리 · 소품) → <strong>빛 덮개</strong>(표지 위 블라인드 줄 · 바깥 그늘) → UI 층(버튼, 덮개 위라 빛이 닿지 않음) 순이다.</li>
+</ul>
+</div><div class="sec2"><h2 id="색-근거">색 근거</h2>
+<figure class="wide"><img src="이미지/색%20근거.jpg"><figcaption>색 근거</figcaption></figure>
+
+<ul>
+<li><strong>그늘 <code>#EDEDF4</code> ≈ 앱 바탕 <code>#F1F3F7</code></strong> — 빛을 빼면 그대로 편집기 바탕이다. 앞선 2안의 가장 큰 위험(편집기와 온도 차)이 사라진다.</li>
+<li><strong>햇빛 <code>#FFF5DD</code> ← 모아 <code>#FEF0BF</code></strong> — 빛 조각은 모아 몸 색을 흰색 쪽으로 옮긴 색. 모아가 '오늘의 한 장' 캐릭터라는 세계관(캐릭터 디자인 06)과도 맞다.</li>
+<li><strong>그림자 남보라 ← 디오 목도리 <code>#DBDCF9</code></strong> — 블라인드 사이 그늘, 잎 그림자, 표지 · 소품 그림자 모두 이 색. 앱 버튼 그림자(남색)와 같은 쪽이라 버튼도 같은 빛 아래 있는 것처럼 보인다.</li>
+<li>그래서 새 색 토큰이 필요 없다. 코드에서는 <code>colors.surfaceSoft</code> 옆에 세계 층 전용 상수 3개(그늘 · 빛 · 그림자)만 둔다.</li>
+</ul>
+</div><div class="sec2"><h2 id="넘기는-중-새-다이어리-공유-탭">넘기는 중 · 새 다이어리 · 공유 탭</h2>
+<div class="grid two">
+<figure><img src="이미지/B안%20넘기는%20중.jpg"><figcaption>넘기는 중</figcaption></figure>
+<figure><img src="이미지/B안%20새%20다이어리.jpg"><figcaption>맨 끝 새 다이어리</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>넘기는 중</strong> — 빛은 움직이지 않고 다이어리만 움직인다(움직임 예산 1). 들어오는 다이어리에 블라인드 줄이 걸리기 시작하고 나가는 다이어리는 그늘로 빠진다.</li>
+<li><strong>새 다이어리</strong> — 비닐 포장된 빈 노트가 빛 안에 놓인다. 비닐의 반사가 빛 덮개와 겹쳐 가장 반짝이는 칸이 된다.</li>
+</ul>
+<figure class="wide"><img src="이미지/B안%20공유%20탭.jpg"><figcaption>공유 다이어리 탭</figcaption></figure>
+
+<ul>
+<li>탭이 바뀌어도 책상은 같다. 공유 탭만의 표시는 지금처럼 정보 카드의 사람 아이콘이 맡는다.</li>
+</ul>
+</div><div class="sec2"><h2 id="한눈에-보기">한눈에 보기</h2>
+<figure class="wide"><img src="이미지/B안%20한눈에.jpg"><figcaption>B안 · 한눈에</figcaption></figure>
+
+<ul>
+<li>한눈에 보기에서는 고른 다이어리가 없으므로 빛이 한 권에 몰리지 않는다. 블라인드 대신 <strong>2 × 2 창틀 빛</strong>이 진열 전체에 넓게 떨어지고, 바깥 그늘 덮개는 쓰지 않는다(특정 칸이 '선택됨'으로 읽히지 않게).</li>
+<li>이름 · 페이지 수는 지금처럼 표지 아래 글자. 바탕이 앱 색이라 흰 판을 깔지 않아도 읽힌다(앞 2안 진열 선반은 흰 판이 필요했다).</li>
+<li>소품은 왼쪽 테이프 · 포스트잇, 오른쪽 둘이 스탠드 셋. 진열 선반은 뺐다(바닥이 책상이라 선반과 공간이 섞였다).</li>
+</ul>
+</div><div class="sec2"><h2 id="시간대">시간대</h2>
+<figure class="wide"><img src="이미지/모음%20B안%20시간대.jpg"><figcaption>아침 · 오후 · 밤</figcaption></figure>
+
+<ul>
+<li><strong>아침</strong> — 빛이 반대쪽(오른쪽)에서, 색은 흰빛. 그늘은 더 옅게.</li>
+<li><strong>오후</strong> — 기본. 버터빛 블라인드.</li>
+<li><strong>밤</strong> — 블라인드 대신 <strong>스탠드 빛 동그라미</strong>, 바탕은 저녁 라벤더, 포스트잇 글이 '잘 자 · 내일 또!'로, 달 스티커 하나. 버튼은 <strong>낮과 똑같이 흰색</strong>이다(다크 모드가 아니다). 앞 2안 밤처럼 화면 전체를 어둡게 하지 않아 버튼과 멀어지지 않는다.</li>
+<li>구현은 그림 3장이 아니라 바탕 색 · 빛 색 · 빛 방향 값 3쌍. 시간 경계는 기기 시각 6 · 12 · 18시.</li>
+</ul>
+</div><div class="sec2"><h2 id="빈-책상">빈 책상</h2>
+<div class="grid two">
+<figure><img src="이미지/B안%20빈%20책상.jpg"><figcaption>태블릿</figcaption></figure>
+<figure><img src="이미지/모음%20B안%20폰%20더.jpg"><figcaption>폰 · 한눈에 · 빈 책상</figcaption></figure>
+</div>
+
+<ul>
+<li>빛 조각 안에 점선 자리 하나와 둘이 스탠드. 문구는 제목 '다이어리가 없어요'와 버튼 '새 다이어리'만(디자인 가이드 §8, 사용법 안내 문장 없음).</li>
+<li>비어 있어도 빛은 같은 자리에 떨어져 있어 '여기에 놓일 것'이 그림으로 보인다.</li>
+</ul>
+</div><div class="sec2"><h2 id="편집기로-이어지기">편집기로 이어지기</h2>
+<figure class="wide"><img src="이미지/모음%20B안%20전환.jpg"><figcaption>B안 · 다이어리 열기</figcaption></figure>
+
+<ul>
+<li>① 햇살 책상 → ② 누른 다이어리를 집어 들면 <strong>빛 덮개와 빛 조각이 먼저 사라진다</strong> → ③ 남은 그늘이 곧 앱 바탕이라 바탕색 전환이 거의 없다 → ④ 편집기.</li>
+<li>앞선 2안은 '따뜻한 베이지 → 회청색'으로 바탕이 크게 바뀌어 전환이 꼭 필요했지만, B안은 ②에서 빛만 빼면 된다. 동작 줄이기가 켜져 있으면 ②③을 건너뛰어도 어색하지 않다.</li>
+<li>편집기는 하나도 바꾸지 않는다.</li>
+</ul>
+</div><div class="sec2"><h2 id="react-native로-만들-때">React Native로 만들 때</h2>
+<ul>
+<li><strong>세계 층:</strong> 그늘 바탕 + 빛 조각 + 잎 그림자를 <strong>정적 그림 한 장</strong>(태블릿 · 폰 각각, 시간대별 3장 또는 SVG 하나에 색 값만 바꿈)으로. <code>react-native-svg</code>가 이미 있으면 목업의 <code>lightSVG</code>를 거의 그대로 옮길 수 있다.</li>
+<li><strong>빛 덮개:</strong> 다이어리 위 · 버튼 아래에 <code>pointerEvents="none"</code> 한 겹. 블렌딩(<code>mixBlendMode</code>)은 새 아키텍처 iOS · Android에서 쓸 수 있지만, 기기 차이가 걱정되면 <strong>반투명 흰 줄무늬 PNG(불투명도 25 ~ 35%)</strong> 를 그냥 얹어도 비슷하다. 웹(react-native-web)은 CSS 그대로.</li>
+<li><strong>그림자 방향:</strong> <code>shadow.card</code>와 같은 남색 계열에 <code>shadowOffset {width: 10, height: 16}</code> 정도. Android는 <code>elevation</code>만으로 방향을 못 주므로 표지 아래에 흐린 그림자 이미지를 깐다.</li>
+<li><strong>넘김:</strong> 빛은 고정, 다이어리 위치만 지금 Animated 값으로. 빛 덮개가 고정이라 추가 계산이 없다.</li>
+<li><strong>끄기:</strong> 설정 <code>책상 꾸미기</code> 끔 → 세계 층 · 빛 덮개를 지우면 앱 바탕 + 지금 표지가 된다.</li>
+</ul></div>
+</section><section class="doc" id="doc-03" data-title="03 캐릭터와 코덱스">
+<h1 id="03-캐릭터와-코덱스">03 캐릭터와 코덱스</h1>
+<div class="sec2"><h2 id="최종-캐릭터를-책상에-놓는-법">최종 캐릭터를 책상에 놓는 법</h2>
+<figure class="wide"><img src="이미지/캐릭터%20쓰임.jpg"><figcaption>캐릭터 쓰임</figcaption></figure>
+
+<ul>
+<li>원본은 <code>캐릭터 디자인/최종시안 svg 변경본.svg</code> 하나. 이 시안에서는 viewBox만 잘라 <code>목업/소재/모아 최종.svg</code> · <code>디오 최종.svg</code> · <code>둘이 최종.svg</code> 세 장으로 나눴다. 선 · 색은 손대지 않았다(모아 <code>#FEF0BF</code> · 책갈피 <code>#DBDCF9</code>, 디오 코트 <code>#F7F7FC</code> · 목도리 <code>#DBDCF9</code>, 먹선 <code>#010101</code>).</li>
+<li>원본 SVG에는 작은 디오(옛 크기) 도형이 큰 디오 뒤에 가려진 채 남아 있다. 앱 에셋으로 뽑을 때는 지운다.</li>
+<li><strong>아크릴 스탠드</strong> — 위에서 본 책상(A · B)에서 정면 그림이 서 있을 수 있는 방법. 2안에서 쓰던 모아 돔 스탠드 자리를 '둘이' 한 장으로 바꿨다.</li>
+<li><strong>다이컷 스티커</strong> — 흰 테두리 2.5px. 편집기 스티커와 같은 모양이라, 나중에 모아 감정 스티커 팩(캐릭터 디자인 A-6)을 넣으면 책상의 스티커가 그 예고편이 된다.</li>
+<li><strong>서 있는 피규어</strong> — 옆에서 본 책상(C)에서만. 바닥 그림자 + 오른쪽으로 긴 그림자.</li>
+<li><strong>쓰지 않는 곳</strong> — 버튼 · 칩 · 정보 카드 안(UI 층). 캐릭터는 세계 층에만 둔다.</li>
+<li>최종 시안은 서 있는 포즈 하나뿐이라 이번 시안도 그 포즈만 썼다. 시간대(밤에 잠든 모아)나 빈 책상(손 흔드는 디오) 포즈가 생기면 같은 자리에서 바꿔 끼운다.</li>
+</ul>
+</div><div class="sec2"><h2 id="코덱스로-다듬을-그림">코덱스로 다듬을 그림</h2>
+<p>시안의 빛 · 바닥은 SVG 도형이라 깔끔하지만 조금 평평하다. 세계 층은 원래 <strong>누르지 않는 정적 그림</strong>이라, 이 부분만 이미지 생성(코덱스)으로 그려 바꿔 끼우면 감성이 크게 오른다. 버튼 · 표지 · 캐릭터는 코드와 벡터 그대로 둔다.</p>
+<p>공통 조건(모든 프롬프트 끝에 붙인다):</p>
+<pre><code>No text, no letters, no logos, no people, no characters. Flat 2D illustration with soft light, not photorealistic.
+Keep the center area clear (diaries will be placed there by the app). Low saturation, max 35% saturation.
+Top-down view unless stated. Seamless clean edges, no vignette, no frame.
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>그림</th>
+<th>크기</th>
+<th>프롬프트 (영문, 위 공통 조건 덧붙임)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B안 바탕 · 오후</td>
+<td>2560 × 1600 · 1170 × 2532</td>
+<td>Top-down view of a plain matte desk surface in soft lavender-gray (#EDEDF4). Afternoon sunlight through venetian blinds falls as one tilted rectangle of warm cream (#FFF5DD) stripes in the middle of the image, slightly rotated -12 degrees, with crisp but soft edges. Faint shadows of a few long plant leaves in pale lavender (#BDBAE0) touch the upper-left corner of the light. Calm, quiet, modern.</td>
+</tr>
+<tr>
+<td>B안 바탕 · 아침 · 밤</td>
+<td>같음</td>
+<td>(아침) same desk, cool white morning light from the right, lighter shadows. (밤) same desk in dusk lavender (#DEDCEC), a soft warm circular glow from a desk lamp in the center, no blinds.</td>
+</tr>
+<tr>
+<td>B안 빛 덮개</td>
+<td>같음 · 투명 PNG</td>
+<td>Only the venetian-blind light stripes from the image above, white on fully transparent background, soft edges, 30% opacity. Nothing else.</td>
+</tr>
+<tr>
+<td>A안 나무 책상</td>
+<td>같음</td>
+<td>Top-down view of a pale light-oak desk (#F4EEE4) with very subtle wood grain, warm afternoon light through blinds from the upper-left, soft brown leaf shadows bottom-left.</td>
+</tr>
+<tr>
+<td>C안 창가</td>
+<td>같음 · 눈높이</td>
+<td>Eye-level view of a desk against a wall. Upper 58% is a smooth wall in pale lavender-white (#EFEEF5), lower part is the desk top in light beige (#EFE6D8). A 2x2 window-shaped patch of warm cream sunlight on the wall, left of center, with soft plant-leaf shadows.</td>
+</tr>
+<tr>
+<td>D안 카드 질감</td>
+<td>1152 × 632</td>
+<td>Very subtle warm paper texture (#F4EFEA) with diagonal blind light from the top-left corner and faint lavender leaf shadow in the top-right corner.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>결과는 <code>이미지/코덱스/</code>에 넣고 <code>목업/장면.js</code>의 <code>lightSVG(...)</code> 자리를 <code>&lt;img&gt;</code>로 바꿔 같은 장면으로 다시 찍어 비교한다.</li>
+<li><strong>넣기 전 점검:</strong> 가운데 다이어리 자리(태블릿 x 470 ~ 740, y 160 ~ 520)에 무늬가 없는지, 버튼 자리(위 140px)가 평평한지, 채도가 표지보다 낮은지. 코덱스가 소품 · 글자를 그려 넣으면 버린다(소품은 앱 재료에서만, 앞 검토안 원칙 3).</li>
+<li>캐릭터 · 소품은 코덱스로 그리지 않는다. 그림체가 최종 시안과 어긋나기 쉽고, 앱 에셋은 벡터로 관리하는 편이 크기 · 색 바꾸기가 쉽다.</li>
+</ul>
+</div><div class="sec2"><h2 id="정해야-할-것-팀-검토">정해야 할 것 (팀 검토)</h2>
+<ol>
+<li><strong>방향</strong>: B안 햇살 한 조각(추천) / A안 다듬은 나무 / C안 창가 / D안 햇살 카드.</li>
+<li><strong>빛 덮개를 표지 위까지 얹을지</strong>: 얹음(추천, 물건 느낌이 가장 큼) / 바닥에만(사용자 표지 색을 절대 건드리지 않음).</li>
+<li><strong>시간대</strong>: 오후 하나로 시작(추천) / 아침 · 오후 · 밤 3종.</li>
+<li><strong>캐릭터 자리</strong>: 오른쪽 아래 둘이 스탠드 하나(추천) / 모아 스티커 더하기 / 넣지 않음.</li>
+<li><strong>바탕 그림</strong>: SVG 도형 그대로 / 코덱스 그림으로 교체(위 표).</li>
+</ol>
+</div><div class="sec2"><h2 id="다음-할-일">다음 할 일</h2>
+<ol>
+<li>방향이 정해지면 그 안만 코덱스로 바탕 · 빛 덮개를 그려 비교 장면을 하나 더 만든다.</li>
+<li><code>책상 꾸미기</code> 스위치(설정)와 함께 세계 층 · 빛 덮개 컴포넌트를 <code>LibraryScreen</code> 스와이프 뒤에 둔다 — 앱 코드는 다이어리 홈 담당과 같이 정한다.</li>
+<li>최종 캐릭터 SVG를 앱 에셋 규격으로 정리(가려진 옛 도형 제거, 모아 · 디오 단품 분리).</li>
+</ol></div>
+</section><section class="doc" id="doc-04" data-title="04 A안 코덱스판 — 지금 앱 화면 위에">
+<h1 id="04-a안-코덱스판-지금-앱-화면-위에">04 A안 코덱스판 — 지금 앱 화면 위에</h1>
+<blockquote>
+<p>요청(2026-10-29): "그림 코덱스로 바꾸자. 지금 UI/UX를 기준으로 A안을 디벨롭. 버튼 같은 거 모양을 이전으로 되돌리지 않기(더 나은 근거가 확실하면 바꿔도 됨). 창문은 십자형."</p>
+</blockquote>
+<div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
+<p><strong>버튼 · 표지 · 정보 줄 · 움직임은 지금 앱 그대로 두고, 바닥만 코덱스가 그린 나무 책상으로 바꿨다.</strong> 십자 창틀로 들어온 오후 햇빛이 가운데 다이어리 위까지 이어진다. 지금 화면에서 바꾼 것은 근거가 분명한 두 가지(표지 그림자 · 옆 다이어리 처리)뿐이다.</p>
+<figure class="wide"><img src="이미지/모음%20A2%20지금과%20A안.jpg"><figcaption>지금 앱 · A안 코덱스판</figcaption></figure>
+
+</div><div class="sec2"><h2 id="기준으로-삼은-지금-화면">기준으로 삼은 지금 화면</h2>
+<p>지금 브랜치(<code>feature/fe/layer</code>)의 <code>LibraryScreen</code> · <code>DiaryCard</code> · <code>Cover</code> · <code>CoverArt</code> · <code>diary/styles.js</code> 값과 실제 화면 캡처를 그대로 옮겼다. 왼쪽 그림이 그 재현이다.</p>
+<ul>
+<li><strong>표지:</strong> 띠 라벨(<code>#F3F2ED</code>, 아래에서 19%) · 제목 아래 짧은 선 · <code>DIARY · 2026</code> · 오른쪽 15% 자리 세로 고무줄 · 왼쪽 등(4.9%) · 모서리 6 / 14. 가로 다이어리는 가로 표지.</li>
+<li><strong>정보:</strong> 카드 판 없이 표지 아래에 이름 · 페이지 수 · 휴지통(가운데만). 개수는 알약 없이 글자만 <code>2 / 3</code>.</li>
+<li><strong>버튼:</strong> 칩(<code>rgba(255,255,255,.58)</code>, 고른 칩은 흰 바탕 + 파란 테두리 1.5) · 보기 전환(<code>.72</code>) · 검색 · 더보기(흰 48 × 48, 모서리 14) · 화살표(흰 원 48) · 오른쪽 아래 <strong>+ 만들기 버튼</strong>(60 × 60, <code>#4F74AE</code>, 모서리 18) · 레일(고른 칸 · 알림 칸 바탕).</li>
+<li><strong>움직임:</strong> 가운데 1.06배 · 옆 0.84배 + 아래로 30, 위 기준(<code>transformOrigin: center top</code>). 기울기 없음.</li>
+<li>캡처 오른쪽 끝의 회색 톱니바퀴 원은 앱 코드(<code>LibraryScreen</code>)에 없어서 개발 도구 단추로 보고 시안에서 뺐다.</li>
+</ul>
+</div><div class="sec2"><h2 id="코덱스가-그린-그림">코덱스가 그린 그림</h2>
+<div class="grid two">
+<figure><img src="이미지/코덱스%20A안%20바탕%20태블릿.jpg"><figcaption>태블릿 바탕 1536 × 1024</figcaption></figure>
+<figure><img src="이미지/코덱스%20A안%20바탕%20태블릿%20소품%20없음.jpg"><figcaption>한눈에용 · 소품 지운 판</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>태블릿 바탕</strong> — 연한 오크 책상, 십자 창틀 빛 네 칸, 창밖 잎 그림자, 가장자리 소품 셋(화분 · 머그 · 라벤더 펜). 프롬프트에서 위 22%(제목 · 칩 · 버튼 줄), 가운데(표지 · 정보 · 개수), 오른쪽 끝(화살표), 오른쪽 아래(+ 버튼)를 비우라고 정했고 그대로 나왔다.</li>
+<li><strong>소품 지운 판</strong> — 위 그림을 넣어 "화분 · 머그 · 펜만 지우고 나머지는 그대로"로 고쳐 달라고 한 결과. 창빛 자리가 같아서 스와이프 ↔ 한눈에를 오가도 빛이 움직이지 않는다.</li>
+<li>머그 띠 · 펜은 디오 목도리 라벤더로 맞췄다. 캐릭터는 코덱스로 그리지 않고 최종 시안 벡터(둘이 아크릴 스탠드)를 얹었다.</li>
+<li>프롬프트 원문은 <code>이미지/코덱스/*프롬프트.txt</code>. 같은 문장으로 다시 그리면 다른 그림이 나오므로, 고른 그림 파일 자체를 원본으로 둔다.</li>
+</ul>
+<div class="grid two">
+<figure><img src="이미지/코덱스%20A안%20바탕%20폰.jpg"><figcaption>폰 바탕 1024 × 1536</figcaption></figure>
+<figure><img src="이미지/코덱스%20A안%20빛%20태블릿.jpg"><figcaption>빛 지도 (태블릿 바탕에서 뽑음)</figcaption></figure>
+</div>
+
+<ul>
+<li><strong>빛 지도</strong> — 표지 위에도 같은 창빛을 얹으려고 바탕 그림에서 창빛만 뽑았다(<code>스크립트/빛지도.py</code>: 나무 밝기와 창빛 밝기 사이를 0 ~ 1로 펴고, 소품 자리는 지움). 코덱스에 따로 그리게 하면 바탕과 자리가 어긋나서 직접 뽑았다.</li>
+</ul>
+</div><div class="sec2"><h2 id="지금-화면에서-바꾼-것-근거">지금 화면에서 바꾼 것 (근거)</h2>
+<div class="sec3"><h3 id="1-옆-다이어리-투명도-대신-채도-밝기">1. 옆 다이어리 — 투명도 대신 채도 · 밝기</h3>
+<figure class="wide"><img src="이미지/모음%20A2%20옆%20표지.jpg"><figcaption>옆 다이어리 처리 비교</figcaption></figure>
+
+<ul>
+<li>지금 앱은 옆 다이어리를 투명도 <code>.36</code>으로 흐린다. 단색 바탕에서는 '멀리 있음'으로 읽히지만, <strong>무늬 있는 책상 위에서는 나무결 · 창빛이 표지를 뚫고 비쳐</strong> 유리나 유령처럼 보인다(왼쪽). 다이어리가 '책상 위 물건'이라는 A안의 전제가 깨진다.</li>
+<li>그래서 책상이 켜졌을 때만 옆 표지를 <strong>불투명하게 두고 채도 50% · 밝기 97% · 대비 90%</strong> 로 낮췄다(오른쪽). 크기 · 위치 · 움직임 값(0.84배, 아래로 30)은 그대로라 넘기는 느낌은 같다.</li>
+<li>옆 이름 · 페이지 수 글자는 지금처럼 <code>.36</code>. 책상을 끄면 지금 방식(투명도) 그대로 돌아간다.</li>
+<li>구현: <code>carouselMotion</code>의 <code>opacity</code> 보간을 책상이 켜졌을 때 1로 두고, 같은 보간 값으로 표지 위에 흐린 덮개(또는 Android <code>ColorMatrix</code> 대신 반투명 회갈색 덮개 <code>rgba(120,96,80,.28)</code>)를 깐다. RN에는 CSS <code>filter</code>가 없어서 덮개 방식이 현실적이다.</li>
+</ul>
+</div><div class="sec3"><h3 id="2-표지-그림자-책상에서만-빛과-같은-방향">2. 표지 그림자 — 책상에서만, 빛과 같은 방향</h3>
+<ul>
+<li>지금 스와이프 표지에는 그림자가 없다. 단색 바탕에서는 깔끔하지만 책상 위에서는 <strong>붙여 넣은 그림처럼 떠 보인다.</strong> 바탕 그림의 머그 · 화분은 오른쪽 아래로 그림자를 드리운다.</li>
+<li>같은 방향(오른쪽 아래) · 같은 색(따뜻한 갈색 <code>rgb(96,70,58)</code>)으로 두 겹 그림자를 표지에만 더했다. 버튼 그림자는 그대로다.</li>
+</ul>
+</div><div class="sec3"><h3 id="그대로-둔-것">그대로 둔 것</h3>
+<ul>
+<li>칩 · 보기 전환 · 검색 · 더보기 · 화살표 · + 버튼 · 레일의 <strong>모양 · 색 · 반투명 값 전부.</strong> 칩의 <code>.58</code>, 보기 전환의 <code>.72</code> 반투명이 나무 위에서 자연스럽게 따뜻해져 따로 손볼 필요가 없었다.</li>
+<li>정보 줄 글자(이름 <code>#0B1957</code>, 페이지 수 <code>.68</code>)는 나무 위에서도 대비가 충분하다(시안 픽셀로 잰 값: 이름 11.5 : 1, 페이지 수 5.1 : 1 — 둘 다 4.5 : 1 이상).</li>
+</ul>
+</div></div><div class="sec2"><h2 id="표지-위까지-빛을-얹을지">표지 위까지 빛을 얹을지</h2>
+<figure class="wide"><img src="이미지/모음%20A2%20빛%20덮개.jpg"><figcaption>빛 덮개 비교</figcaption></figure>
+
+<ul>
+<li><strong>얹음(오른쪽, 추천)</strong> — 십자 창틀 그림자와 잎 그림자가 표지 위로 이어져 다이어리가 정말 그 빛 속에 놓인 것처럼 보인다. 표지 바깥 그늘은 아주 옅게(16%) 눌러 바탕과 밝기를 맞춘다.</li>
+<li><strong>바닥에만(왼쪽)</strong> — 사용자가 고른 표지 색을 전혀 건드리지 않는다. 대신 표지만 빛 밖에 떠 있는 느낌이 남는다.</li>
+<li>빛은 고정이고 다이어리만 움직이므로, 넘기는 동안 표지 위 창틀 그림자가 미끄러지듯 지나간다. 이게 A안의 대표 동작이 된다.</li>
+</ul>
+</div><div class="sec2"><h2 id="맨-앞-한눈에-폰">맨 앞 · 한눈에 · 폰</h2>
+<figure class="wide"><img src="이미지/A2%20맨%20앞.jpg"><figcaption>맨 앞 다이어리 (1 / 3)</figcaption></figure>
+
+<ul>
+<li>왼쪽이 비어도 책상이 자리를 채워서, 지금 화면처럼 왼쪽이 허전해 보이지 않는다.</li>
+</ul>
+<figure class="wide"><img src="이미지/모음%20A2%20한눈에.jpg"><figcaption>한눈에 보기</figcaption></figure>
+
+<ul>
+<li>한눈에서는 표지가 바닥 전체에 깔리므로 <strong>소품 지운 바탕</strong>을 쓴다(표지가 머그 위에 놓이는 어색함 방지). 빛은 같은 자리, 창빛이 여러 표지 위로 비스듬히 걸친다.</li>
+<li>표지 그림자 · 펜 · 별 버튼 · 휴지통 · 정보 줄은 지금 한눈에 그대로. 빈 칸 하나에 둘이 스탠드.</li>
+</ul>
+<figure class="wide"><img src="이미지/모음%20A2%20폰.jpg"><figcaption>폰</figcaption></figure>
+
+<ul>
+<li>폰 바탕은 창빛이 가운데, 소품은 아래 20% 안에만 있다. 화면 비율(390 × 844)이 그림(2 : 3)보다 길어서 양옆을 잘라 쓰고, 오른쪽으로 치우쳐 잘라 머그가 + 버튼과 덜 겹치게 했다.</li>
+<li>폰 머리(제목 · 칩 · 검색)는 캡처가 없어 <code>styles.js</code>의 compact 값으로 그린 근사치다.</li>
+</ul>
+</div><div class="sec2"><h2 id="만들-때">만들 때</h2>
+<ul>
+<li><strong>에셋:</strong> 바탕 3장(태블릿 · 태블릿 소품 없음 · 폰) + 빛 · 그늘 지도. 코덱스 원본은 1536 × 1024 · 1024 × 1536 PNG(장당 약 1.9MB)라 앱에는 WebP(약 200 ~ 300KB)로 줄여 넣는다. 태블릿 실제 해상도(2560 × 1600)에서는 1.7배 늘어나 살짝 흐리다 — 그림체가 부드러워 크게 티 나지 않지만, 최종본은 같은 그림을 2배로 키워(업스케일) 쓰는 것을 권한다.</li>
+<li><strong>바닥:</strong> <code>LibraryScreen</code> 루트(<code>libraryRoot</code>) 뒤에 <code>ImageBackground</code>(cover). 스와이프 · 한눈에에 따라 그림만 바꾼다. 누르지 않고 화면 읽기에서 숨긴다.</li>
+<li><strong>빛 덮개:</strong> 표지(<code>CoverArt</code>) 안에 빛 지도 <code>Image</code>를 한 장 더 얹고, 표지의 화면 위치만큼 거꾸로 옮긴다(스크롤 값 <code>scrollX</code>로 계산, 네이티브 드라이버 그대로). 블렌딩 대신 반투명 크림색 PNG로도 비슷하다. 1단계는 덮개 없이 바닥 · 그림자 · 옆 표지 처리만 먼저 넣어도 된다.</li>
+<li><strong>끄기:</strong> 설정 <code>책상 꾸미기</code>를 끄면 바닥 그림 · 그림자를 빼고 옆 표지는 지금 투명도로 돌아간다 — 왼쪽 '지금 앱' 화면과 같다.</li>
+</ul>
+</div><div class="sec2"><h2 id="정해야-할-것">정해야 할 것</h2>
+<ol>
+<li>이 코덱스 바탕으로 갈지, 다른 그림을 더 뽑을지(나무 톤 · 소품 종류 · 빛 크기).</li>
+<li>표지 위 빛 덮개: 얹음(추천) / 바닥에만.</li>
+<li>옆 다이어리: 채도 · 밝기(추천, 책상 켰을 때만) / 지금 투명도 유지.</li>
+<li>둘이 스탠드 자리: 오른쪽 아래(지금 시안) / 빼기.</li>
+</ol></div>
+</section><section class="doc" id="doc-05" data-title="05 책상 꾸미기 조사와 A안 고도화">
+<h1 id="05-책상-꾸미기-조사와-a안-고도화">05 책상 꾸미기 조사와 A안 고도화</h1>
+<blockquote>
+<p>요청(2026-10-29, 3차): "코덱스가 만든 사진만 폴더 하나에. 좌측 메뉴바 · 화면 안 버튼을 어떻게 해야 예쁠지 같이 생각. 책상 상판은 원래 UI/UX에 맞게 화이트 · 아이보리 톤. 1020 한국 여성이 선호하는 책상 꾸미기를 먼저 깊게 조사. 시안은 png로 5 ~ 10개, 모바일도 번호 맞춰서. A안만 최대한 깊게."<br>
+시안: <a href="코덱스%20시안/">코덱스 시안/</a> — 코덱스가 그린 png만 있다. <code>NN 이름 태블릿.png</code> · <code>NN 이름 폰.png</code>.</p>
+</blockquote>
+<div class="sec2"><h2 id="1-조사-1020-한국-여성의-책상-꾸미기">1. 조사 — 1020 한국 여성의 책상 꾸미기</h2>
+<div class="sec3"><h3 id="확인된-것-출처-있는-사실">확인된 것 (출처 있는 사실)</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>발견</th>
+<th>숫자 · 근거</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>'별다꾸' — 꾸밀 수 있는 건 다 꾸민다.</strong> 코로나 때 집꾸 · 데스크테리어에서 필꾸 · 폰꾸 · 백꾸 · 탑꾸 · 폴꾸 · 다꾸로 번졌고 Z세대가 이끈다. 재료는 스티커 · 마스킹테이프 · 보석 파츠 · 캐릭터 파츠</td>
+<td>'제니 유앤미 탑꾸' 쇼츠 886만 회. 원인: 팬덤, 레트로 디자인, 초개인화(커스텀 아이템 선호)</td>
+<td><a href="https://www.20slab.org/Archives/38763">대학내일20대연구소 트줍레터 Vol.13 (2024.09)</a> · <a href="https://www.imaeil.com/page/view/2024061615185667416">매일신문 (2024.06)</a></td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>책상은 '취향 진열대'.</strong> 좋아하는 캐릭터 한 가지(쿠로미 · 루피 등)로 매트 · 텀블러 · 마우스패드를 맞추거나, 한 가지 색(분홍 · 초록)으로 통일한다</td>
+<td>사례 기사. 전문가는 '개인화 · 자기표현'으로 해석</td>
+<td><a href="https://segye.com/newsView/20260615516164">세계일보 (2026.06)</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>텍스트힙 — 기록 · 독서 물건이 꾸미기 대상이 됐다.</strong> 젊은 여성 중심으로 북커버 · 책갈피로 책을 꾸민다</td>
+<td>지그재그 검색량 북커버 28배, 북마크 +1500%, 책갈피 +396%, 다이어리 +160%, 독서대 +628%. 20대 독서율만 75.3%로 상승</td>
+<td><a href="https://lady.khan.co.kr/culture/article/202410161757001">경향 레이디 (2024.10)</a> · <a href="https://www.gg.go.kr/myggd/vol188/vol188_2_8.php">경기도 G-Life</a></td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>사진은 아날로그로 모은다.</strong> 인생네컷 · 필름 · 영수증 사진 · 한정 프레임 수집</td>
+<td>셀프 사진관 이용 80%가 MZ (2022)</td>
+<td><a href="https://www.careet.net/684">캐릿</a> · <a href="https://letter.wepick.kr/post/4605">위픽레터</a></td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>인형 키링 · 캐릭터 굿즈는 아직 강하지만 IP는 빨리 바뀐다.</strong></td>
+<td>인형 키링 SNS 언급 +212%(썸트렌드). '라부부 유행 지남' 59.9%(2025.11). '말차'는 유행 중</td>
+<td><a href="https://www.careet.net/1769">캐릿 트렌드 스펙트럼 (2025.11)</a> · <a href="https://www.careet.net/1371">캐릿</a></td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>화이트 책상이 가장 큰 덩어리.</strong></td>
+<td>오늘의집 사진: 데스크테리어 16.4만, 화이트책상 8.8만, 책상꾸미기 7.2만 건</td>
+<td><a href="https://ohou.se/cards/feed?query=%ED%99%94%EC%9D%B4%ED%8A%B8%EC%B1%85%EC%83%81">오늘의집 화이트책상</a> · <a href="https://ohou.se/cards/feed?query=%EB%8D%B0%EC%8A%A4%ED%81%AC%ED%85%8C%EB%A6%AC%EC%96%B4">데스크테리어</a> · <a href="https://ohou.se/cards/feed?query=%EC%B1%85%EC%83%81%EA%BE%B8%EB%AF%B8%EA%B8%B0">책상꾸미기</a></td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>2026 데스크테리어 = 비운 상판 + 간접조명 + 작은 모듈.</strong> 파스텔 아이보리 · 그린 적층 서랍, 미니 화분</td>
+<td>오늘의집 2026 가이드</td>
+<td><a href="https://ohou.se/advices/12596">오늘의집 2026 트렌드 가이드</a></td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>색은 크림 바탕 + 포인트 하나.</strong> 버터 옐로우는 2026에도 '밝은 포인트', 벽 전체가 아니라 소품으로. 코티지코어 레이스를 린넨 · 우드와 겹친다</td>
+<td>인테리어 가이드 · 블로그</td>
+<td><a href="https://www.nordicnest.kr/inspiration-tips/trends-and-styles/interior-colour-trends/">Nordic Nest 2026 컬러</a> · <a href="https://vellunearchive.com/2026%EB%85%84-%ED%83%9C%ED%8C%85%EB%A0%88%EC%9D%B4%EC%8A%A4-%EC%9D%B8%ED%85%8C%EB%A6%AC%EC%96%B4%EC%99%80-%EC%96%B4%EC%9A%B8%EB%A6%AC%EB%8A%94-%EA%B3%B5%EA%B0%84-%EC%8A%A4%ED%83%80%EC%9D%BC%EB%A7%81/">VELLUNE</a> · <a href="https://www.vogue.co.kr/2026/01/10/2026%EB%85%84-%ED%95%B5%EC%8B%AC-%EC%9D%B8%ED%85%8C%EB%A6%AC%EC%96%B4-%EB%94%94%EC%9E%90%EC%9D%B8-%ED%8A%B8%EB%A0%8C%EB%93%9C-11/">보그 코리아 2026</a></td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>전 세계 Gen Z도 '나만의 것'.</strong> Pinterest 2026 트렌드의 67%를 Gen Z가 이끌고, 작가풍 책상(Poetcore) · 홀로그램 포인트가 올라온다</td>
+<td>Pinterest Predicts 2026</td>
+<td><a href="https://business.pinterest.com/pinterest-predicts/">Pinterest Predicts 2026</a></td>
+</tr>
+</tbody>
+</table>
+</div><div class="sec3"><h3 id="찾지-못한-것-한계">찾지 못한 것 (한계)</h3>
+<ul>
+<li>10 · 20대 <strong>여성만</strong> 따로 집계한 책상 꾸미기 설문 · 판매 순위는 공개 자료에서 찾지 못했다. 위 표는 Z세대 전체, 젊은 여성 중심 커머스(지그재그), 플랫폼 게시물 수, 기사 사례를 합친 것이다.</li>
+<li>오늘의집 숫자는 <strong>게시물 수</strong>지 검색량이 아니다. 무드등 · 튤립 · 레이스가 '1위'라는 근거는 없다 — 시안에서는 '자주 보이는 소품'으로만 썼다.</li>
+<li>정확한 수치가 필요하면 네이버 데이터랩(검색어 · 연령 · 성별)이나 오픈서베이 Z세대 리포트 원문을 따로 봐야 한다.</li>
+</ul>
+</div><div class="sec3"><h3 id="dio에-옮기는-법-해석">DIO에 옮기는 법 (해석)</h3>
+<ol>
+<li><strong>책상은 '내 취향 한 가지'로 통일된 곳이다(2 · 8).</strong> 소품을 많이 늘어놓지 않고, 크림 · 아이보리 바탕 + 포인트 색 하나 + 소품 2 ~ 3개. 그래서 시안마다 포인트 색이 하나다(버터 · 말차 · 레이스의 크림 등).</li>
+<li><strong>DIO가 이미 '꾸미기 앱'이라 책상 소품은 앱 기능의 예고편이 된다(1 · 3 · 4).</strong> 기록(북커버 · 펜 · 테이프) = 다이어리, 사진(네컷 · 폴라로이드 · 탑로더) = 오늘의 사진 한 장, 캐릭터 굿즈 = 모아 · 디오.</li>
+<li><strong>캐릭터는 남의 IP 대신 모아 · 디오로(5).</strong> 유행 IP는 반년이면 지나간다. 우리 캐릭터를 아크릴 스탠드 · 인형 키링 같은 '굿즈의 모양'으로 두면 굿즈 문화에 올라타면서 낡지 않는다.</li>
+<li><strong>화이트 · 아이보리 상판(6 · 7).</strong> 가장 큰 취향 덩어리이자 앱 바탕(<code>#F1F3F7</code>) · 흰 버튼과 가장 잘 맞는 색이다. 나무색은 결로만 아주 옅게.</li>
+<li><strong>빛은 십자 창틀 하나로 고정</strong>하고, 저녁만 무드등(간접조명 흐름, 7).</li>
+</ol>
+</div></div><div class="sec2"><h2 id="2-레일-버튼을-어떻게-예쁘게-같이-생각한-것">2. 레일 · 버튼을 어떻게 예쁘게 — 같이 생각한 것</h2>
+<p>지금 버튼은 흰 판 · 얇은 남색 테두리 · 모서리 12 ~ 18로 편집기와 같은 말을 한다. 이 '모양'은 지킨다. 책상이 생기면서 어긋나는 곳은 세 군데다.</p>
+<table>
+<thead>
+<tr>
+<th>문제</th>
+<th>무엇이 어색한가</th>
+<th>제안</th>
+<th>시안</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① 레일이 벽처럼 화면을 자른다</td>
+<td>흰 레일 + 오른쪽 선이 책상을 세로로 잘라, 책상이 '레일 옆 창'처럼 보인다</td>
+<td><strong>U1 떠 있는 레일</strong> — 레일을 모서리 22의 흰 판으로 띄우고 위 · 아래 · 왼쪽 12px 여백. 책상이 레일 뒤로 이어진다. 아이콘 · 순서 · 고른 칸 표시는 그대로</td>
+<td>02 · 05 ~ 08</td>
+</tr>
+<tr>
+<td>② 오른쪽 위 버튼이 4개로 흩어진다</td>
+<td>보기 전환(2칸) · 검색 · 더보기가 두 줄에 따로 떠서, 사진 같은 바탕 위에서 점이 많아 보인다</td>
+<td><strong>U2 한 막대</strong> — 스와이프 · 한눈에 · 구분선 · 검색 · 더보기를 흰 막대 하나(모서리 16)로 묶는다. 칩 줄은 왼쪽에 그대로</td>
+<td>03</td>
+</tr>
+<tr>
+<td>③ 흰 판이 바탕에서 떠 보인다</td>
+<td>칩 <code>.58</code> · 보기 전환 <code>.72</code> 반투명은 단색 바탕에서는 맞지만, 빛 · 결이 있는 바탕에서는 탁하게 비친다</td>
+<td><strong>U3 반투명 유리</strong> — 칩 · 버튼 · 레일을 흐림(blur 14) + 흰 윤곽 1px의 젖빛 유리로. 고른 칩은 지금처럼 흰 바탕 + 파란 테두리. iOS 26 계열 재질과도 맞다</td>
+<td>04</td>
+</tr>
+<tr>
+<td>폰</td>
+<td>아래 탭 막대 뒤 단색 띠가 책상을 가로로 자른다</td>
+<td><strong>U1 폰</strong> — 탭 막대는 그대로(흰 판 모서리 24), 뒤의 단색 띠만 없앤다</td>
+<td>02 · 05 ~ 08 폰</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>추천: U1(떠 있는 레일) + 책상을 켰을 때만 U3 재질.</strong> U1은 모양을 바꾸지 않고 '놓이는 방식'만 바꿔서, 편집기 · 다른 화면의 레일과도 어긋나지 않는다(편집기는 지금 레일 그대로여도 된다 — 홈만 바닥이 있으니까). U2는 버튼 수를 줄여 가장 단정하지만 검색 · 더보기 위치가 바뀌어 학습 비용이 있다.</li>
+<li><strong>바꾸지 않은 것:</strong> 칩 · 버튼의 모서리 · 크기 · 글자 · 아이콘, 고른 칩의 파란 테두리, + 버튼(파랑 <code>#4F74AE</code>, 60 × 60), 정보 줄, <code>2 / 3</code>.</li>
+</ul>
+</div><div class="sec2"><h2 id="3-시안-8종">3. 시안 8종</h2>
+<p>모두 같은 화이트 · 아이보리 상판, 같은 십자 창틀 햇빛(08만 저녁). 소품은 빈자리에만 2 ~ 3개, 포인트 색 하나.</p>
+<table>
+<thead>
+<tr>
+<th>번호</th>
+<th>이름</th>
+<th>꾸미기 콘셉트(조사 근거)</th>
+<th>버튼 처리</th>
+<th>포인트 색</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>01</td>
+<td>아이보리 햇살</td>
+<td>기준안 — 튤립 화병 · 머그만 (6 · 7 · 8)</td>
+<td>U0 지금 그대로</td>
+<td>버터</td>
+</tr>
+<tr>
+<td>02</td>
+<td>떠 있는 레일</td>
+<td>01과 같은 책상, 레일만 띄움 — 버튼 비교용</td>
+<td>U1</td>
+<td>버터</td>
+</tr>
+<tr>
+<td>03</td>
+<td>기록하는 책상</td>
+<td>북커버 씌운 책 · 책갈피 · 만년필 · 마스킹테이프 (3 텍스트힙)</td>
+<td>U2 한 막대</td>
+<td>오트밀</td>
+</tr>
+<tr>
+<td>04</td>
+<td>사진 한 장 책상</td>
+<td>네컷 사진 · 하늘 폴라로이드 · 탑로더 포카 (1 탑꾸 · 4 아날로그 사진)</td>
+<td>U3 유리</td>
+<td>하늘</td>
+</tr>
+<tr>
+<td>05</td>
+<td>모아와 디오</td>
+<td>최종 캐릭터 아크릴 스탠드 · 인형 키링 · 스티커 시트 (2 · 5 굿즈)</td>
+<td>U1</td>
+<td>버터 · 라벤더</td>
+</tr>
+<tr>
+<td>06</td>
+<td>리본 레이스</td>
+<td>레이스 도일리 · 새틴 리본 · 진주 집게, 아주 절제 (8 코티지)</td>
+<td>U1</td>
+<td>크림</td>
+</tr>
+<tr>
+<td>07</td>
+<td>말차 오후</td>
+<td>아이스 말차 라테 · 작은 화분 · 세이지 테이프 (5 말차 유행 중)</td>
+<td>U1</td>
+<td>세이지</td>
+</tr>
+<tr>
+<td>08</td>
+<td>저녁 무드등</td>
+<td>버섯 무드등의 간접조명, 버튼은 낮과 같은 흰색 (7 간접조명)</td>
+<td>U1</td>
+<td>호박빛</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>추천 조합:</strong> 바탕은 <strong>01 · 02의 아이보리 햇살</strong>을 기본, 버튼은 <strong>02(U1)</strong>. 콘셉트 03 ~ 07은 '책상 꾸미기 테마'로 고를 수 있게 하고(편집기 테이프 · 스티커 테마 팩과 같은 구조), 08은 기기 시간에 따라 저녁에 자동으로.</li>
+<li>시안은 코덱스가 <strong>지금 앱 화면 밑그림</strong>(<code>목업/지금 화면.js</code>의 <code>refSwipe</code>) 위에 책상을 그린 것이라 버튼 · 글자 위치는 지금 앱과 같다. 다만 그림 생성이라 글자 · 아이콘이 한두 군데 흐려질 수 있다 — 구현 기준은 밑그림 쪽이다.</li>
+<li>다시 그리기: <code>python 스크립트/렌더.py 밑그림</code> → <code>python "스크립트/코덱스 시안.py" &lt;작업 폴더&gt;</code> → 폴더마다 <code>codex exec -i ref.jpg</code> (프롬프트는 각 폴더 <code>prompt.txt</code>).</li>
+</ul></div>
+</section><section class="doc" id="doc-06" data-title="06 책상 시안 3차 — 태블릿 가로 스와이프 4안">
+<h1 id="06-책상-시안-3차-태블릿-가로-스와이프-4안">06 책상 시안 3차 — 태블릿 가로 스와이프 4안</h1>
+<blockquote>
+<p>요청(2026-10-29): "시안 다시 짜자. 태블릿 스와이프 가로형만, 시간은 하나로 고정해서 햇살 묘사. 더 책상 느낌 · 감성, 필요하면 배경에 질감. 위에서 내려다보는 구조 고정, 최대한 플랫한 소품. 입체 요소는 투시 신경. 마스코트 많이 녹이되 비율 · 디자인은 원본 그대로. 마스킹테이프 · 폴라로이드 · 바인더 클립 · 클립 · 스티커 · 아크릴 코롯토 · 키캡 키링 등 1020 데스크테리어 용품, 가운데 다이어리가 가장 눈에 띄게. 버튼 · 제목 · 우측 버튼 자리엔 소품 금지. 소품은 투명 PNG로 따로. 다이어리와 같은 묘사 수준. 코덱스가 그리게."<br>
+결과: <a href="책상%20시안%203차/">책상 시안 3차/</a> — <code>시안/</code> 4장(2560 × 1600), <code>소품/&lt;안&gt;/</code> 투명 PNG, <code>상판/</code> 빈 책상, <code>소품 보드/</code> 코덱스 원본과 프롬프트.</p>
+</blockquote>
+<div class="sec2"><h2 id="1-네-안">1. 네 안</h2>
+<div class="grid two">
+<figure><img src="책상%20시안%203차/시안/1안%20버터%20오후%20원목%20태블릿%20스와이프.png"><figcaption>1안 버터 오후 원목</figcaption></figure>
+<figure><img src="책상%20시안%203차/시안/2안%20아이보리%20리넨%20매트%20태블릿%20스와이프.png"><figcaption>2안 아이보리 리넨 매트</figcaption></figure>
+<figure><img src="책상%20시안%203차/시안/3안%20화이트%20종이결%20태블릿%20스와이프.png"><figcaption>3안 화이트 종이결</figcaption></figure>
+<figure><img src="책상%20시안%203차/시안/4안%20크림%20가죽%20데스크패드%20태블릿%20스와이프.png"><figcaption>4안 크림 가죽 데스크패드</figcaption></figure>
+</div>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th>1안 버터 오후 원목</th>
+<th>2안 아이보리 리넨 매트</th>
+<th>3안 화이트 종이결</th>
+<th>4안 크림 가죽 데스크패드</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>상판</td>
+<td>화이트워시 오크, 가는 나뭇결</td>
+<td>흰 책상 위 아이보리 리넨 매트(스티치 테두리)</td>
+<td>쿨 화이트 도장 + 면지 결</td>
+<td>아이보리 책상 위 크림 가죽 패드(스티치 테두리)</td>
+</tr>
+<tr>
+<td>포인트 색</td>
+<td>버터</td>
+<td>라벤더</td>
+<td>하늘색 · 세이지</td>
+<td>버터 + 라벤더</td>
+</tr>
+<tr>
+<td>소품</td>
+<td>폴라로이드(모아 · 디오 소풍) + 테이프 + 바인더 클립, 모아 스티커 / 테이프 롤, 디오 키캡 키링</td>
+<td>스티커 시트 + 하트 클립, 테이프 조각, 모아 스티커 / 디오 스티커 붙은 하늘 폴라로이드, 테이프 롤</td>
+<td>바인더 클립으로 집은 폴라로이드 두 장, 디오 스티커, 체크 테이프 / 모아 · 디오 키캡 키링, 디오 코롯토</td>
+<td>네컷 사진 + 테이프, 모아 코롯토, 바인더 클립, 하트 스티커 / 디오 코롯토, 하트 클립, 모아 얼굴 스티커</td>
+</tr>
+<tr>
+<td>인상</td>
+<td>가장 따뜻하고 '책상'다움</td>
+<td>포근 · 차분, 패브릭 질감</td>
+<td>앱 바탕과 가장 가까움, 깔끔</td>
+<td>가장 꾸민 느낌, 굿즈 많음</td>
+</tr>
+</tbody>
+</table>
+<div class="sec3"><h3 id="1안-원목-밝은-쿨톤">1안 원목 밝은 쿨톤</h3>
+<p>요청(같은 날): "원목 상판 하나만 좀 더 밝고 좀 더 쿨톤이게도." 1안의 빈 책상만 색을 옮겼다. 흰색 쪽으로 28% 밝게, 노란 기는 그늘에서 절반 · 창빛에서 1/4만 빼서 햇살 느낌을 남기고, R −2 · B +4로 차갑게 했다. 나뭇결 · 창빛 모양 · 소품 · 배치는 1안 그대로다. 다시 만들기: <code>python "스크립트/상판 밝은 쿨톤.py" &lt;원본 상판&gt; &lt;결과&gt;</code> 뒤 합치기(<code>1안 원목 밝은 쿨톤</code>).</p>
+<div class="grid two">
+<figure><img src="책상%20시안%203차/시안/1안%20버터%20오후%20원목%20태블릿%20스와이프.png"><figcaption>1안 버터 오후 원목</figcaption></figure>
+<figure><img src="책상%20시안%203차/시안/1안%20원목%20밝은%20쿨톤%20태블릿%20스와이프.png"><figcaption>1안 원목 밝은 쿨톤</figcaption></figure>
+</div>
+
+</div><div class="sec3"><h3 id="최종-원목-라벤더">최종 — 원목 라벤더</h3>
+<p>요청(같은 날): "이 배치로, 소품 화이트 밸런스 다시 맞추고, 원목에 라벤더 보랏빛을 조금 더. 클립은 실물 모양으로 다시." 상판은 1안 원목에 <code>상판 밝은 쿨톤.py ... 라벤더</code>(R −1 · G −3 · B +7)를 적용했다. 소품은 <code>책상 3차 합치기.py</code>의 <code>white_balance</code>로 폴라로이드 틀 · 스티커 테두리의 노란 기를 빼 상판과 맞췄고, 그림자는 회보라로 바꿨다. 클립 셋(종이 · 하트 · 바인더)은 실물 구조대로 SVG로 다시 그렸다(<code>스크립트/클립.html</code>, 투명 PNG는 <code>소품/공용/</code>): 종이 클립은 안쪽 작은 고리가 있는 젬 클립, 바인더 클립은 말린 경첩에 목이 잘록한 은색 손잡이 두 개.</p>
+<figure><img src="책상%20시안%203차/시안/최종%20원목%20라벤더%20태블릿%20스와이프.png"><figcaption>최종 원목 라벤더</figcaption></figure>
+
+</div></div><div class="sec2"><h2 id="2-지킨-것">2. 지킨 것</h2>
+<ul>
+<li><strong>시간:</strong> 모두 오후 3시 하나로 고정. 왼쪽 위 십자 창에서 크림빛이 비스듬히 들어와 가운데 다이어리 위로 지나가고, 왼쪽 위 칩 · 제목 쪽에는 잎 그림자만 닿는다. 모든 그림자는 오른쪽 아래로 진다.</li>
+<li><strong>시점:</strong> 위에서 곧장 내려다본 평면. 두께가 있는 소품(테이프 롤 · 키캡 · 코롯토 · 바인더 클립)은 윗면과 얇은 테두리만 보이게 그렸다. 놓는 자리가 바뀌어도 투시가 어긋나지 않는다. 두께는 그림자 길이로만 나타낸다(두꺼울수록 길고 흐리다).</li>
+<li><strong>UI는 실제 앱 그대로:</strong> 지금 앱(게스트 · 다이어리 8권)을 1280 × 800으로 찍고 바탕색만 투명하게 뺀 층을 맨 위에 얹었다. 글자 · 버튼 · 표지는 손대지 않았다. 바꾼 것은 둘뿐이다.</li>
+<li>옆 다이어리는 투명도 0.36 대신 불투명하게 두고 표지에 흐린 막(52%)을 덮었다. 투명하면 책상 결이 표지를 뚫고 비친다.</li>
+<li>표지에 빛과 같은 방향(오른쪽 아래)의 그림자를 넣었다.</li>
+<li><strong>소품 자리:</strong> 아래쪽 빈 책상 두 곳에만 둔다. 왼쪽 다이어리 이름 아래(레일 옆), 그리고 가운데 휴지통 오른쪽 ~ + 버튼 왼쪽이다. 제목 · 칩 · 보기 전환 · 검색 · 더보기 · 화살표 · 개수 · + 버튼 · 표지와 겹치는지 합치는 스크립트가 픽셀로 검사한다(4안 모두 겹침 0).</li>
+<li><strong>다이어리가 주인공:</strong> 소품 하나는 가운데 표지 높이의 약 1/3 이하, 안마다 5 ~ 8개다.</li>
+<li><strong>마스코트:</strong> 코덱스에 최종 시안 그림을 함께 넣고, 팔 · 손이 없다는 것과 모아 몸통 비율(폭이 높이의 약 0.9배)을 프롬프트에 못 박았다. 4안 소품 보드는 두 번 다시 그렸다. 첫 판은 팔이 생겼고, 둘째 판은 모아 코롯토가 길쭉했다.</li>
+</ul>
+</div><div class="sec2"><h2 id="3-소품-파일">3. 소품 파일</h2>
+<p><code>책상 시안 3차/소품/&lt;안&gt;/&lt;이름&gt;.png</code> — 투명 배경, 바르게 세운(회전 0) 원본 크기. 회전 · 크기 · 그림자는 화면에 놓을 때 정한다.</p>
+<table>
+<thead>
+<tr>
+<th>안</th>
+<th>파일</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1안</td>
+<td>폴라로이드 모아와 디오 소풍 · 마스킹테이프 롤 버터 깅엄 · 마스킹테이프 조각 버터 깅엄 · 스티커 모아 · 바인더 클립 버터 · 키캡 키링 디오</td>
+</tr>
+<tr>
+<td>2안</td>
+<td>스티커 시트 모아와 디오 · 마스킹테이프 롤 라벤더 도트 · 마스킹테이프 조각 라벤더 도트 · 스티커 모아 · 폴라로이드 하늘 디오 스티커 · 종이 클립 골드 · 하트 클립 골드</td>
+</tr>
+<tr>
+<td>3안</td>
+<td>폴라로이드 두 장 하늘색 바인더 클립 · 키캡 키링 모아와 디오 · 스티커 디오 · 아크릴 코롯토 디오 · 마스킹테이프 조각 세이지 체크</td>
+</tr>
+<tr>
+<td>4안</td>
+<td>네컷 사진 모아와 디오 · 아크릴 코롯토 모아 · 아크릴 코롯토 디오 · 바인더 클립 버터 · 마스킹테이프 조각 버터 깅엄 · 마스킹테이프 조각 라벤더 · 하트 클립 골드 · 스티커 하트 라벤더 · 스티커 모아 얼굴</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>2안 '종이 클립 골드', 4안 '마스킹테이프 조각 라벤더'는 시안에 쓰지 않은 여분이다.</li>
+<li>코덱스는 소품을 순수 마젠타 바탕 위에 그렸고, 스크립트가 마젠타를 지워 덩어리마다 잘랐다. 반투명 아크릴 테두리 · 금속 가장자리에 비친 분홍은 걷어 냈지만, 골드 클립에는 주황빛이 조금 남아 있다.</li>
+</ul>
+</div><div class="sec2"><h2 id="4-다시-만들기">4. 다시 만들기</h2>
+<p>이 폴더에서:</p>
+<ol>
+<li>앱 화면 층: 웹을 내보낸 뒤(<code>npx expo export --platform web --dev --output-dir .expo/desk-web</code>, frontend/) <code>스크립트/앱 화면 찍기.cjs</code>로 ref · 검은 바탕 · 흰 바탕을 찍고 <code>스크립트/앱 화면 층.py</code>로 투명 층(ui.png)을 만든다.</li>
+<li>코덱스 작업: <code>python "스크립트/코덱스 책상 3차.py" make &lt;작업 폴더&gt; &lt;표지 조각.png&gt;</code> → 폴더마다 codex exec 로 out.png (하나씩).</li>
+<li>소품 자르기: <code>python "스크립트/코덱스 책상 3차.py" split &lt;작업 폴더&gt; &lt;소품 폴더&gt;</code></li>
+<li>합치기: <code>python "스크립트/책상 3차 합치기.py" &lt;상판 폴더&gt; &lt;소품 폴더&gt; &lt;ui.png&gt; &lt;결과 폴더&gt;</code> — 배치는 스크립트의 <code>LAYOUT</code>(앱 좌표 1280 × 800)에 있다.</li>
+</ol>
+</div><div class="sec2"><h2 id="5-정해야-할-것">5. 정해야 할 것</h2>
+<ul>
+<li>네 안 중 방향 하나. 앱 바탕(<code>#F1F3F7</code>)과 가장 가까운 건 3안이고, 가장 '책상'다운 건 1안이다.</li>
+<li>사이드 메뉴: 지금은 흰 판 그대로다. 책상이 메뉴 뒤까지 이어지는 떠 있는 판으로 바꿀지는 따로 정한다.</li>
+<li>실제 앱에 넣을 때는 상판을 한 장 그림으로 깔고, 소품은 PNG로 놓는다. 화면 크기마다 소품 자리를 다시 잡아야 한다(폰 · 한눈에는 이번 범위가 아니다).</li>
+</ul></div>
+</section>
+</main>
+</div>
+<script>
+const links=[...document.querySelectorAll('nav a')],secs=[...document.querySelectorAll('.doc')];
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.toggle('on',l.getAttribute('href')==='#'+e.target.id));}})},{rootMargin:'-20% 0px -70% 0px'});
+secs.forEach(s=>io.observe(s));
+</script>
+</body>
+</html>

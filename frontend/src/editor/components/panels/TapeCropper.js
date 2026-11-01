@@ -21,8 +21,7 @@ const CONTEXT_PX = 70 // 테이프 틀 위아래로 보여 주는 사진 여유
 export default function TapeCropper({
   image,
   initialCrop,
-  initialSize = 'standard',
-  ratio: fixedRatio, // 다시 자를 때: 붙어 있는 테이프의 가로:세로 (규격 고르기 숨김)
+  ratio: fixedRatio, // 다시 자를 때: 붙어 있는 테이프의 가로:세로
   title = '테이프로 쓸 부분 고르기',
   confirmLabel = '테이프 만들기',
   onConfirm,
@@ -31,12 +30,11 @@ export default function TapeCropper({
   const window = useWindowDimensions()
   const uri = useMediaUri(image)
   const [crop, setCrop] = useState(initialCrop ?? { fx: 0.5, fy: 0.5, zoom: 1 })
-  const [sizeId, setSizeId] = useState(initialSize)
-  const size = TAPE_SIZES.find((s) => s.id === sizeId) ?? TAPE_SIZES[1]
+  // 새 테이프는 기본 폭 비율로 자른다. 붙인 뒤 위아래 손잡이로 폭을 바꾸면 그림도 같은 비율로 커진다.
+  const size = TAPE_SIZES[1]
   const ratio = fixedRatio ?? size.w / size.h
 
   const cardWidth = Math.min(720, window.width - 48)
-  const compactSizePicker = cardWidth < 480
   const frameWidth = cardWidth - 48 - 40
   const frameHeight = frameWidth / ratio
   const photo = { imageWidth: image.width, imageHeight: image.height, crop }
@@ -156,34 +154,13 @@ export default function TapeCropper({
               />
             </View>
           </View>
-          {!fixedRatio && (
-            <View style={[styles.row, compactSizePicker && styles.sizeRowCompact]}>
-              <Text style={styles.label}>규격</Text>
-              <View style={[styles.segment, compactSizePicker && styles.segmentCompact]}>
-                {TAPE_SIZES.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => setSizeId(item.id)}
-                    style={[styles.segmentItem, compactSizePicker && styles.segmentItemCompact, sizeId === item.id && styles.segmentActive]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: sizeId === item.id }}
-                  >
-                    <Text style={[styles.segmentText, compactSizePicker && styles.segmentTextCompact, sizeId === item.id && styles.segmentTextActive]}>
-                      {item.name}{!compactSizePicker && ` ${item.hint}`}
-                    </Text>
-                    {compactSizePicker && <Text style={styles.segmentHint}>{item.hint}</Text>}
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          )}
 
           <View style={styles.actions}>
             <Pressable onPress={onCancel} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
               <Text style={styles.buttonText}>취소</Text>
             </Pressable>
             <Pressable
-              onPress={() => onConfirm({ crop, size: sizeId })}
+              onPress={() => onConfirm({ crop, size: size.id })}
               style={({ pressed }) => [styles.button, styles.confirm, pressed && styles.pressed]}
             >
               <Text style={[styles.buttonText, styles.confirmText]}>{confirmLabel}</Text>
@@ -198,28 +175,18 @@ export default function TapeCropper({
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.overlay },
-  card: { padding: 24, borderRadius: 24, backgroundColor: colors.surface, ...shadow.float },
+  card: { padding: 24, borderRadius: 16, backgroundColor: colors.surface, ...shadow.float },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   title: { fontSize: 18, fontWeight: '700', color: colors.text },
   hint: { marginTop: 6, fontSize: 12.5, color: colors.textMuted },
-  stage: { marginTop: 16, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surfaceMuted, ...Platform.select({ web: { touchAction: 'none' }, default: {} }) },
+  stage: { marginTop: 16, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surfaceMuted, ...Platform.select({ web: { touchAction: 'none' }, default: {} }) },
   context: { position: 'absolute', opacity: 0.32 },
   frame: { position: 'absolute' },
   frameLine: { position: 'absolute', borderWidth: 2, borderStyle: 'dashed', borderColor: colors.primary, borderRadius: 3 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
   label: { width: 64, fontSize: 12.5, fontWeight: '700', color: colors.textMuted },
   slider: { flex: 1 },
-  segment: { flexDirection: 'row', padding: 3, borderRadius: 11, backgroundColor: colors.surfaceMuted },
-  segmentItem: { height: 36, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 8 },
-  segmentActive: { backgroundColor: colors.surface, ...shadow.card },
-  segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
-  segmentTextActive: { color: colors.text, fontWeight: '800' },
-  sizeRowCompact: { flexDirection: 'column', alignItems: 'stretch', gap: 8 },
-  segmentCompact: { width: '100%' },
-  segmentTextCompact: { textAlign: 'center' },
-  segmentHint: { fontSize: 10, color: colors.textMuted },
-  segmentItemCompact: { flex: 1, minWidth: 0, height: 'auto', minHeight: 48, paddingHorizontal: 4, paddingVertical: 6, alignItems: 'center' },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 20 },
   button: {
     height: 44,
@@ -229,7 +196,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   buttonText: { fontSize: 13.5, fontWeight: '700', color: colors.text },
   // 확정: 흰 바탕에 남색 글씨 (사진 자르기 창과 같게)
   confirm: { borderColor: colors.text },

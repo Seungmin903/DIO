@@ -9,6 +9,7 @@ import EffectOptions from './EffectOptions'
 import ShapeSettings from '../ShapeSettings'
 import TapeOptions from './TapeOptions'
 import FrameOptions from './FrameOptions'
+import DdayOptions from '../../widgets/DdayOptions'
 import { isStripFrame } from '../../utils/photoStrip'
 import { hasPhotoMedia } from '../../utils/objects'
 import { PaletteInteractionContext } from '../controls/ColorPicker'
@@ -36,6 +37,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
   const isPhoto = single?.type === 'photo' && !single.locked
   const isShape = single?.type === 'shape' && !single.locked
   const isTape = single?.type === 'tape' && !single.locked
+  const isWidget = single?.type === 'sticker' && Boolean(single.widget) && !single.locked
   const hasStyle = true // 불투명도는 모든 요소에 있어 꾸미기 탭이 늘 있다
   const current = hasStyle ? tab : 'layout'
   const title = objects.length > 1 ? `${objects.length}개 요소` : `${TYPE_TITLES[single?.type] ?? '요소'} 옵션`
@@ -100,12 +102,13 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.replaceButton, pressed && styles.pressed]}
               >
-                <Icon name="swap" size={16} />
+                <Icon name="swap" size={16} forText={12} />
                 <Text style={styles.chipText}>{hasPhotoMedia(single) ? '사진 바꾸기' : '사진 넣기'}</Text>
               </Pressable>
             )}
             {isPhoto && <FrameOptions photo={single} dispatch={dispatch} onReplaceCell={onReplaceCell} onCropCell={onCropCell} />}
 
+            {isWidget && <DdayOptions object={single} dispatch={dispatch} />}
             <Section title="불투명도">
               <Slider
                 value={objectOpacity(editable[0])}
@@ -123,7 +126,8 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
               />
             </Section>
 
-            <EffectOptions objects={editable} dispatch={dispatch} />
+            {/* 위젯은 코드로 그려 윤곽선·그림자를 따라 그릴 수 없다 */}
+            <EffectOptions objects={editable.filter((o) => !o.widget)} dispatch={dispatch} />
 
             {isTape && (
               <TapeOptions tape={single} dispatch={dispatch} />
@@ -195,7 +199,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     maxHeight: '100%',
     flexShrink: 1,
-    borderRadius: 24,
+    borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.97)',
     // 웹에서는 뒤 캔버스가 살짝 비치는 유리 질감 (네이티브는 불투명 흰 배경)
     ...Platform.select({ web: { backgroundColor: 'rgba(255,255,255,0.86)', backdropFilter: 'blur(18px)' }, default: {} }),
@@ -212,7 +216,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
   tab: { flex: 1, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 9 },
-  tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 25, 87, 0.14)' },
+  tabActive: { backgroundColor: colors.surface, boxShadow: '0px 1px 3px rgba(11, 23, 102, 0.07)' },
   tabText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
   tabTextActive: { color: colors.text, fontWeight: '800' },
   title: { fontSize: 15, fontWeight: '700', color: colors.text },
@@ -232,7 +236,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   replaceButton: {
     flexDirection: 'row',
     alignItems: 'center',

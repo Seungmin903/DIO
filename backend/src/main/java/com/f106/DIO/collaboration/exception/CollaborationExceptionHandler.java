@@ -8,6 +8,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 @RestControllerAdvice(assignableTypes=CanvasCollaborationController.class)
 public class CollaborationExceptionHandler extends ResponseEntityExceptionHandler {
+    @ExceptionHandler(com.f106.DIO.media.support.MediaFileNotFoundException.class)
+    public ProblemDetail missingMedia(com.f106.DIO.media.support.MediaFileNotFoundException error){var result=ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND,"이미지 파일 또는 접근 권한을 확인해 주세요.");result.setProperty("code","MEDIA_FILE_NOT_FOUND");return result;}
+
     @ExceptionHandler(CollaborationException.class) public ProblemDetail collaboration(CollaborationException error){return problem(error.status,error.code,error.getMessage());}
     @ExceptionHandler({CanvasElementVersionConflictException.class,ObjectOptimisticLockingFailureException.class}) public ProblemDetail conflict(Exception error){return problem(HttpStatus.CONFLICT,"CANVAS_VERSION_CONFLICT","다른 변경이 먼저 저장됐어요. 최신 내용을 확인해 주세요.");}
     @ExceptionHandler(CanvasElementNotFoundException.class) public ProblemDetail missingElement(CanvasElementNotFoundException error){return problem(HttpStatus.NOT_FOUND,"CANVAS_ELEMENT_NOT_FOUND","요소를 찾을 수 없어요.");}

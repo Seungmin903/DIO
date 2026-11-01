@@ -4,7 +4,7 @@ import {collaborationReducer} from '../src/collaboration/collaborationReducer.js
 import {editorReducer,createInitialState} from '../src/editor/state/editorReducer.js'
 const pageId='10000000-0000-4000-8000-000000000001',id='20000000-0000-4000-8000-000000000001',photoId='20000000-0000-4000-8000-000000000002'
 const text={id,type:'text',text:'A',x:1,y:2,w:40,h:20}
-const photo={id:photoId,type:'photo',x:3,y:4,w:30,h:20}
+const photo={id:photoId,type:'photo',x:3,y:4,w:30,h:20,src:'file:///legacy-private-photo'}
 const initial=()=>createInitialState({pages:[{id:pageId,objects:[text,photo]}]})
 const reduce=(state,action)=>collaborationReducer(editorReducer,state,{collaborationId:'30000000-0000-4000-8000-000000000001',...action})
 test('완료한 드래그 한 번만 전송하고 취소한 드래그는 보내지 않는다',()=>{
@@ -14,7 +14,7 @@ test('완료한 드래그 한 번만 전송하고 취소한 드래그는 보내�
  s=reduce(s,{type:'checkpoint',collaborationId:'40000000-0000-4000-8000-000000000001'});s=reduce(s,{type:'updateObject',id,patch:{x:80}});s=reduce(s,{type:'revertToCheckpoint'})
  assert.equal(s.collaborationEdits.length,1);assert.equal(s.doc.pages[0].objects[0].x,20)
 })
-test('사진은 기기에만 남고 로컬 실행 취소가 친구의 텍스트를 되돌리지 않는다',()=>{
+test('기존 기기 URI 사진은 기기에만 남고 로컬 실행 취소가 친구의 텍스트를 되돌리지 않는다',()=>{
  let s=reduce(initial(),{type:'updateObject',id:photoId,record:true,patch:{x:9}})
  assert.equal(s.collaborationEdits.length,0);assert.equal(s.collaborationPast.at(-1).hasCanvas,false)
  s=reduce(s,{type:'importCollaborationElements',pageId,expectedElements:[text],objects:[{...text,text:'friend'}]})
@@ -33,7 +33,7 @@ test('페이지 이동 시 이전 페이지의 작업을 큐에 남긴다',()=>{
  s=reduce(s,{type:'checkpoint'});s=reduce(s,{type:'updateObject',id,patch:{x:10}});s=reduce(s,{type:'selectPage',id:'second'})
  assert.equal(s.collaborationEdits[0].pageId,pageId);assert.equal(s.pageId,'second')
 })
-test('사진 드래그 중 친구 텍스트 반영을 내 작업으로 기록하지 않으며 취소해도 보존한다',()=>{
+test('기존 기기 URI 사진 드래그 중 친구 텍스트 반영을 내 작업으로 기록하지 않으며 취소해도 보존한다',()=>{
  let s=reduce(initial(),{type:'checkpoint'});s=reduce(s,{type:'updateObject',id:photoId,patch:{x:70}})
  s=reduce(s,{type:'importCollaborationElements',pageId,expectedElements:[text,{...photo,x:70}],objects:[{...text,text:'remote'},{...photo,x:70}]})
  const committed=reduce(s,{type:'commitCheckpoint'})
@@ -98,4 +98,16 @@ test('회원 초기화는 서버에 없는 페이지를 생성하지 않고 비�
  const before=initial(),after=reduce(before,{type:'resetDiary'})
  assert.equal(after.doc,before.doc);assert.equal(after.pageId,before.pageId);assert.equal(after.collaborationEdits.length,0)
  assert.notEqual(editorReducer(before,{type:'resetDiary'}).pageId,before.pageId)
+})
+
+test('에셋 ID 사진 드래그는 공유 작업으로 기록하고 원격 텍스트는 다시 전송하지 않는다',async()=>{
+ const {canvasDelta}=await import('../src/collaboration/canvasApi.js')
+ const media='90000000-0000-4000-8000-000000000001',shared={...photo,mediaFileId:media,src:`media:${media}`}
+ let s=createInitialState({pages:[{id:pageId,objects:[text,shared]}]})
+ s=reduce(s,{type:'checkpoint'});s=reduce(s,{type:'updateObject',id:photoId,patch:{x:70}})
+ s=reduce(s,{type:'importCollaborationElements',pageId,expectedElements:[text,{...shared,x:70}],objects:[{...text,text:'remote'},{...shared,x:70}]})
+ s=reduce(s,{type:'commitCheckpoint'})
+ assert.equal(s.collaborationEdits.length,1)
+ assert.deepEqual(canvasDelta(s.collaborationEdits[0].before,s.collaborationEdits[0].after).touched,[photoId])
+ assert.equal(s.doc.pages[0].objects[0].text,'remote')
 })

@@ -66,8 +66,8 @@ const server = http.createServer((req, res) => {
       await p.getByRole('textbox',{name:'다이어리 제목 검색'}).press('Enter');
       await button('검색 닫기').click();await tab('공유 다이어리').click();
       await p.waitForFunction(()=>document.querySelectorAll('[data-testid^="diary-page-count-"]').length===2);assert.ok(queries.some(q=>q.filter==='shared'));
-      await button('보관함 옵션').click();await button('편집').click();await button('전체 선택').click();
-      await button('선택한 1개 휴지통으로 이동').waitFor();assert.equal(await p.getByRole('checkbox',{name:'API 다이어리 25 선택',exact:true}).isDisabled(),true);await button('편집 완료').click();
+      { const c = await p.getByRole('button', { name: / 열기$/ }).first().boundingBox(); await p.mouse.move(c.x + c.width / 2, c.y + c.height / 2); await p.mouse.down(); await p.waitForTimeout(900); await p.mouse.up(); }await button('전체 선택').click();
+      await button('선택한 1개 휴지통으로 이동').waitFor();assert.equal(await p.getByRole('checkbox',{name:'API 다이어리 25 선택',exact:true}).isDisabled(),true);await button('선택 완료').click();
       // Return from a filtered editor to an all-list first page that excludes this diary.
       const {createDefaultDoc}=await import('../src/editor/state/defaultDoc.js');
       const opened=rows[23].diary,editorDoc={...createDefaultDoc({id:opened.diaryId,title:opened.diaryTitle}),memberAccountId:'101'};
@@ -78,7 +78,7 @@ const server = http.createServer((req, res) => {
       await tab('한눈에 보기').click();
       await tab('즐겨찾기').click();await p.waitForFunction(()=>document.querySelectorAll('[data-testid^="diary-page-count-"]').length===1);assert.ok(queries.some(q=>q.favorite));
       await tab('모든 다이어리').click();await button('보관함 옵션').click();await p.getByRole('radio',{name:'최근 수정순',exact:true}).click();await button('다음 다이어리 불러오기').waitFor();
-      await button('보관함 옵션').click();await button('편집').click();await button('불러온 항목 모두 선택').click();
+      { const c = await p.getByRole('button', { name: / 열기$/ }).first().boundingBox(); await p.mouse.move(c.x + c.width / 2, c.y + c.height / 2); await p.mouse.down(); await p.waitForTimeout(900); await p.mouse.up(); }await button('불러온 항목 모두 선택').click();
       await button('선택한 20개 휴지통으로 이동').click();await p.getByText('18개 이동 완료 · 2개 확인 필요',{exact:true}).waitFor();
       await button('실패한 항목만 다시 확인').click();await p.getByText('19개 이동 완료 · 1개 확인 필요',{exact:true}).waitFor();
       assert.equal(deletes.get(rows[1].diary.diaryId),2);assert.equal(deletes.get(rows[2].diary.diaryId),1);

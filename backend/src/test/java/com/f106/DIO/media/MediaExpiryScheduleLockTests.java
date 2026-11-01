@@ -81,4 +81,9 @@ class MediaExpiryScheduleLockTests {
 		verify(connection).rollback();
 		verify(connection).setAutoCommit(true);
 	}
+    @Test void h2NeverInvokesPostgresPhysicalDeletionQueries() throws Exception {
+        when(connection.getMetaData().getDatabaseProductName()).thenReturn("H2");
+        new MediaExpirySchedule(cleanup,jdbc).run();
+        verify(cleanup,never()).purgeExpired();
+    }
 }

@@ -39,6 +39,8 @@ export function createMediaImporter({ readAsset, decode, createDisplay, dispose,
           const metadata = {
             mediaFileId: createId(), originalName: asset.fileName || `image.${format.extension}`,
             ...format, fileSize: input.size, ...dimensions, createdAt: new Date().toISOString(),
+            // opaque: 투명한 곳이 없는 그림(PDF 쪽)이라, 공유할 때 크면 JPEG 로 낮춰 올릴 수 있다.
+            ...(asset.opaque ? { opaque: true } : {}),
             ...(display ? { display: display.metadata } : {}),
           }
           const uri = await save(input.source, metadata, display)

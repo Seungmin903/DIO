@@ -164,13 +164,13 @@ export function ElementRow({ title, summary, open, onToggleOpen, toggle, action 
   }, [open, scroll])
   return <View ref={node} collapsable={false} style={[styles.element, open && styles.elementOpen]}>
     <View style={styles.elementHead}>
-      {toggle ? <Toggle label={`${title} ${toggle.value ? '끄기' : '켜기'}`} value={toggle.value} onChange={toggle.onChange} /> : null}
       <Pressable accessibilityRole="button" accessibilityLabel={`${title} ${open ? '접기' : '펼치기'}`} accessibilityState={{ expanded: open }} onPress={onToggleOpen}
         style={({ pressed }) => [styles.elementHeadButton, pressed && styles.pressed]}>
         <Text style={styles.elementTitle}>{title}</Text>
         <Text numberOfLines={1} style={styles.elementSummary}>{summary}</Text>
         <View style={open && styles.chevronOpen}><Icon name="chevronRight" size={16} color={colors.textMuted} /></View>
       </Pressable>
+      {toggle ? <View style={styles.elementToggle}><Toggle label={`${title} ${toggle.value ? '끄기' : '켜기'}`} value={toggle.value} onChange={toggle.onChange} /></View> : null}
       {action}
     </View>
     {open && <View style={styles.elementBody}>{children}</View>}
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   rowLabel: { width: 64, paddingTop: 11, color: colors.textMuted, fontSize: 12.5, fontWeight: '700' },
   rowValue: { flex: 1, minWidth: 0, gap: 8 },
   dim: { opacity: 0.4 },
-  pressed: { opacity: 0.6 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   number: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   step: { width: 40, height: 40, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
   numberInput: { width: 56, height: 40, borderRadius: 9, borderWidth: 1, borderColor: colors.border, textAlign: 'center', color: colors.text, fontSize: 14, fontWeight: '800', backgroundColor: colors.surface, padding: 0 },
@@ -196,14 +196,15 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
   ringOn: { borderColor: colors.primary },
-  swatch: { overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(11,25,87,.14)', alignItems: 'center', justifyContent: 'center' },
+  swatch: { overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(11,23,102,.14)', alignItems: 'center', justifyContent: 'center' },
   custom: { borderStyle: 'dashed', borderColor: colors.textMuted, backgroundColor: colors.surface },
   checkWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   autoText: { fontSize: 10.5, fontWeight: '800' },
   picker: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
-  element: { borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
+  element: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
   elementOpen: { borderColor: colors.primary },
   elementHead: { flexDirection: 'row', alignItems: 'center', paddingLeft: 10 },
+  elementToggle: { paddingRight: 12 },
   elementHeadButton: { flex: 1, minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 4, paddingRight: 14 },
   elementTitle: { color: colors.text, fontSize: 13.5, fontWeight: '800' },
   elementSummary: { flex: 1, textAlign: 'right', color: colors.textMuted, fontSize: 12 },

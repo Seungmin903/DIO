@@ -11,7 +11,7 @@ import { createDiaryApi } from '../services/diaryApi';
 import { createMockDiaryTransport } from '../services/mockDiaryTransport';
 
 function Button({ label, onPress }) {
-  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.button, pressed && { opacity: 0.6 }]}><Text style={styles.text}>{label}</Text></Pressable>;
+  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.button]}><Text style={styles.text}>{label}</Text></Pressable>;
 }
 function RequestState({ request, retryLabel }) {
   if (request.status === 'loading') return <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={C.blue} /><Text style={styles.text}>불러오는 중이에요.</Text></View>;
@@ -29,7 +29,7 @@ export default function ConnectedDiaryLibrary() {
   const list = useDiaryQuery(api.list);
   const detail = useDiaryQuery(api.get);
   const [selected, setSelected] = useState(null);
-  const [filter, setFilter] = useState('personal');
+  const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState('updated');
   const [view, setView] = useState('grid');
   const [carousel, setCarousel] = useState(0);
@@ -56,7 +56,7 @@ export default function ConnectedDiaryLibrary() {
       <RequestState request={list} retryLabel="목록 다시 시도" />
     </View>
     {list.data && <LibraryScreen compact={width < 700} diaries={list.data.items} metadata={metadata} sort={sort} onSortChange={setSort} filter={filter} view={view} carousel={carousel} onFilterChange={setFilter} onViewChange={setView} onCarouselChange={setCarousel} onOpen={open} />}
-    <Modal visible={selected !== null} onRequestClose={close} animationType="fade">
+    <Modal visible={selected !== null} onRequestClose={close} animationType="none">
       <ScrollView contentContainerStyle={[styles.panel, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
         <Button label="상세 닫기" onPress={close} />
         <Text style={styles.title}>다이어리 상세</Text>

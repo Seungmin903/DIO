@@ -29,16 +29,16 @@ export default function LassoSelectionMenu({ objects, mode, zoom, origin = { x: 
 function Action({ icon, label, selected, onPress }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected }} aria-pressed={selected}
     onPress={onPress} style={({ pressed }) => [styles.action, selected && styles.active, pressed && styles.pressed]}>
-    <Icon name={icon} size={16} color={selected ? colors.primary : colors.text} />
+    <Icon name={icon} size={16} forText={14} color={selected ? colors.primary : colors.text} />
     <Text style={styles.text}>{label}</Text>
   </Pressable>
 }
 
 const styles = StyleSheet.create({
-  menu: { position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 2, padding: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 16, backgroundColor: colors.surface, ...shadow.float },
+  menu: { position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 2, padding: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, ...shadow.float },
   action: { minHeight: 44, flexShrink: 1, flexDirection: 'row', gap: 5, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 11, borderWidth: 1, borderColor: 'transparent' },
   divider: { width: 1, height: 22, marginHorizontal: 2, backgroundColor: colors.border },
   text: { color: colors.text, fontSize: 12.5, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   active: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

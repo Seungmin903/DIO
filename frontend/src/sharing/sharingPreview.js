@@ -35,12 +35,14 @@ const fail = (code, message) => {
 };
 
 // 224 화면 검증용 메모리 서비스. 기존 알림 목 서버를 재사용하며 실제 링크/초대/권한을 만들지 않는다.
-export function createSharingPreview({ user = {}, delay = 250, now = Date.now } = {}) {
+// seed: 예시 받은 초대(목업)를 넣어 둘지. 앱은 개발자 모드에서만 켠다(일반 게스트에게 가짜 알림을 보이지 않는다).
+export function createSharingPreview({ user = {}, delay = 250, now = Date.now, seed = true } = {}) {
   const self = { id: 'self', nickname: user.nickname || '방문자', photoUri: user.photoUri || null };
   const notifications = createMockNotificationTransport({
     account: 'sharing',
     delay,
     pageSize: 20,
+    seed,
   });
   const documents = createSessionDocuments();
   const diaries = new Map();
@@ -94,7 +96,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
     const diary = {
       id: invite.diary.diaryId,
       title,
-      color: ['#F0B0AA', '#C3AEDD', '#9DABD8', '#A9BFA6'][index],
+      color: ['#F0B0AA', '#C3AEDD', '#A9AFD7', '#A9BFA6'][index],
       pattern: 'linen',
     };
     diaries.set(diary.id, {
@@ -180,7 +182,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
             diary: copy(
               invites.get(row.inviteId)?.diary || {
                 title: row.title,
-                color: '#9DABD8',
+                color: '#A9AFD7',
                 pattern: 'linen',
               },
             ),
@@ -223,7 +225,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
         diaries.set(source.id, {
           id: source.id,
           localSource: true,
-          color: '#9DABD8',
+          color: '#A9AFD7',
           pattern: 'linen',
           ...metadata,
           allowExport: true,
@@ -429,7 +431,7 @@ export function createSharingPreview({ user = {}, delay = 250, now = Date.now } 
         assertActive();
         notifications.add('PENDING');
         const incoming = notifications.inspect().invitations.at(-1);
-        const diary = { id: incoming.diary.diaryId, title, color: '#9DABD8', pattern: 'linen',
+        const diary = { id: incoming.diary.diaryId, title, color: '#A9AFD7', pattern: 'linen',
           members: copy(members), link: null, allowExport: true };
         diaries.set(diary.id, diary);
         invites.set(incoming.inviteId, { ...incoming, diary: { ...diary, diaryId: diary.id }, inviter });

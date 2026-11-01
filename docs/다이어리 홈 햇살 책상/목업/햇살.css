@@ -1,0 +1,136 @@
+/* 다이어리 홈 햇살 책상 — 2안 디벨롭 시안
+   세 겹(.world · .objects · .ui)에 빛 한 겹(.fx)을 더한다. .fx는 다이어리 위 · 버튼 아래에 놓여 표지에만 빛이 닿는다.
+   색은 캐릭터 최종 시안에서: 모아 버터 #FEF0BF(빛) · 디오 라벤더 #DBDCF9(그늘) · 먹선 #010101 */
+:root {
+  --butter: #FEF0BF; --lav: #DBDCF9; --coat: #F7F7FC;
+  --shade: #EEEEF5;           /* 그늘 바탕: 앱 surfaceSoft #F1F3F7 을 라벤더 쪽으로 한 걸음 */
+  --sunlit: #FFF7E0;          /* 햇빛이 닿은 곳: 모아 버터를 흰색 쪽으로 */
+  --lavShadow: 76, 72, 150;   /* 그림자 색 (rgb) — 앱 그림자 #0B1957 과 같은 쪽의 남보라 */
+}
+/* .objects 가 쌓임 맥락을 만들지 않게 해야 빛 덮개가 표지 · 바닥과 섞인다. 덮개 자체에 블렌딩을 건다 */
+.sunlit .objects { z-index: auto; }
+.sunlit .ui { z-index: 30; }
+.fx { position: absolute; inset: 0; pointer-events: none; z-index: auto; }
+.fx > .fs { position: absolute; inset: 0; z-index: 20; mix-blend-mode: multiply; }
+.fx > .fl { position: absolute; inset: 0; z-index: 21; mix-blend-mode: soft-light; }
+.fx svg, .world > svg.light { position: absolute; left: 0; top: 0; }
+.premium-world { position:absolute; inset:0; background-size:cover; background-position:center; }
+.cast { position: absolute; pointer-events: none; }
+
+/* 그림자 한 방향: 빛은 왼쪽 위에서 → 그림자는 오른쪽 아래로 */
+.sunlit .diary.lift1 .sh { box-shadow: 0 2px 3px rgba(var(--lavShadow), .16), 16px 28px 36px -12px rgba(var(--lavShadow), .34), 5px 9px 14px -8px rgba(var(--lavShadow), .22); }
+.sunlit .diary.lift0 .sh { box-shadow: 0 1px 2px rgba(var(--lavShadow), .2), 9px 14px 18px -8px rgba(var(--lavShadow), .3); }
+.sunlit .prop.sd > svg, .sunlit .prop.sd > img, .sunlit .prop.sd > div { filter: drop-shadow(1px 2px 1.5px rgba(var(--lavShadow), .2)) drop-shadow(7px 11px 9px rgba(var(--lavShadow), .16)); }
+
+/* A안 다듬은 나무 책상: 그림자는 따뜻한 갈색 쪽 */
+.t-a .world { background:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .09' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .42 0 0 0 0 .28 0 0 0 .12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+  linear-gradient(180deg, #F4EEE4, #EEE5D7); }
+.t-a { --lavShadow: 96, 72, 60; }
+
+/* C안 창가: 옆에서 본 책상 — 그림자는 바닥에 눕는다 */
+.t-c .diary.lift1 .sh, .t-c .diary.lift0 .sh { box-shadow: 0 1px 2px rgba(var(--lavShadow), .22), 0 0 0 .5px rgba(var(--lavShadow), .08); }
+.t-c .diary .pages { bottom: 0; }
+.contact { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(var(--lavShadow), .34), rgba(var(--lavShadow), 0)); }
+
+/* D안 햇살 카드 */
+.t-d .world { background: var(--soft); }
+.t-d .card { position: absolute; border-radius: 28px; overflow: hidden; background: #FBF8F1; box-shadow: 0 1px 2px rgba(11,25,87,.06), 0 22px 44px -24px rgba(11,25,87,.24); }
+
+/* 밤: 바탕만 저녁 라벤더, 버튼은 낮과 같다 */
+.t-b.night .world > svg.light { filter: brightness(.86) saturate(.9); }
+
+/* 캐릭터 단품 */
+.chr { display: block; width: 100%; height: auto; }
+.chr.stk { filter: drop-shadow(0 0 0 #fff) drop-shadow(2.5px 0 0 #fff) drop-shadow(-2.5px 0 0 #fff) drop-shadow(0 2.5px 0 #fff) drop-shadow(0 -2.5px 0 #fff) drop-shadow(2px 4px 3px rgba(var(--lavShadow), .22)); }
+
+/* 시트 */
+.sw { display: flex; gap: 18px; }
+.sw .c { flex: 1; border-radius: 18px; overflow: hidden; background: #fff; border: 1px solid rgba(11,25,87,.08); }
+.sw .c .chipc { height: 120px; }
+.sw .c .tx { padding: 14px 16px 16px; font-size: 14px; font-weight: 800; }
+.sw .c .tx small { display: block; margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--muted); line-height: 1.5; }
+
+/* ---------- 지금 앱 화면 (LibraryScreen · DiaryCard · CoverArt 값) + A안 코덱스 바탕 ---------- */
+.now { background: #F1F3F7; }
+.now .stage { background: #F1F3F7; }
+.nowRail { position: relative; z-index: 6; width: 76px; height: 100%; flex: none; background: #fff; border-right: 1px solid rgba(11,25,87,.16); }
+.nowRail .nr { position: absolute; left: 14px; width: 48px; height: 46px; border-radius: 14px; display: grid; place-items: center; }
+.nowRail .nr.on { background: #E6EBF4; }
+.nowRail .nr.soft { background: #EEF1F7; }
+.nowRail .nr i { position: absolute; top: 9px; right: 11px; width: 7px; height: 7px; border-radius: 50%; background: #E5484D; }
+.nBg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.nTitle { position: absolute; left: 30px; top: 40px; font-size: 29px; font-weight: 800; letter-spacing: -.6px; line-height: 40px; color: #0B1957; }
+.nSwitch { position: absolute; right: 30px; top: 37px; height: 47px; padding: 3px; display: flex; align-items: center; border: 1px solid rgba(11,25,87,.16); border-radius: 15px; background: rgba(255,255,255,.72); }
+.nSwitch div { height: 39px; padding: 0 13px; display: flex; align-items: center; gap: 6px; border-radius: 11px; font-size: 12px; font-weight: 700; color: rgba(11,25,87,.68); }
+.nSwitch div.on { background: #fff; color: #0B1957; font-weight: 800; box-shadow: 0 2px 6px rgba(11,25,87,.08); }
+.nChips { position: absolute; left: 30px; top: 113px; display: flex; gap: 8px; }
+.nchip { height: 36px; padding: 0 15px; display: flex; align-items: center; border: 1px solid rgba(11,25,87,.16); border-radius: 999px; background: rgba(255,255,255,.58); font-size: 12px; font-weight: 700; color: rgba(11,25,87,.68); white-space: nowrap; }
+.nchip.on { background: #fff; border: 1.5px solid #6E92C6; color: #0B1957; font-weight: 800; }
+.nActs { position: absolute; right: 30px; top: 107px; display: flex; gap: 8px; }
+.nActs div { width: 48px; height: 48px; border-radius: 14px; background: #fff; border: 1px solid rgba(11,25,87,.16); display: grid; place-items: center; }
+.now .arrow { box-shadow: 0 2px 5px rgba(11,25,87,.08); }
+.nCount { position: absolute; left: 602px; transform: translateX(-50%); font-size: 13px; font-weight: 800; color: #0B1957; }
+.nFab { position: absolute; right: 30px; bottom: 30px; width: 60px; height: 60px; border-radius: 18px; background: #4F74AE; display: grid; place-items: center; box-shadow: 0 3px 6px rgba(11,25,87,.16); }
+.nFab.p { right: 20px; bottom: 54px; width: 56px; height: 56px; border-radius: 16px; }
+.nInfo { position: absolute; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 0 4px; }
+.nInfo b { display: flex; align-items: center; gap: 6px; font-weight: 700; letter-spacing: -.35px; color: #0B1957; white-space: nowrap; }
+.nInfo span { display: block; margin-top: 3px; line-height: 18px; color: rgba(11,25,87,.68); }
+.nInfo em { width: 44px; height: 44px; margin: -12px -10px 0 0; display: grid; place-items: center; }
+/* 표지 */
+.nc { position: relative; }
+.ncClip { position: absolute; inset: 0; overflow: hidden; }
+.ncSpine { position: absolute; left: 0; top: 0; bottom: 0; width: 4.9%; background: rgba(11,25,87,.16); }
+.ncRibbon { position: absolute; left: 0; right: 0; bottom: 19%; background: #F3F2ED; text-align: center; }
+.ncRibbon b { display: block; font-weight: 800; color: #3B3F4A; letter-spacing: -.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ncRibbon i { display: block; width: 26%; background: #3B3F4A; }
+.ncRibbon span { display: block; font-weight: 800; color: rgba(59,63,74,.55); white-space: nowrap; }
+.ncBand { position: absolute; right: 15%; border: .6px solid rgba(28,34,51,.25); box-shadow: 1.4px 0 0 rgba(0,0,0,.12); }
+.ncActs { position: absolute; top: 12px; right: 11px; display: flex; gap: 5px; z-index: 3; }
+.ncActs div { width: 36px; height: 36px; border-radius: 12px; border: 1px solid rgba(11,25,87,.16); background: #fff; display: grid; place-items: center; box-shadow: 0 1px 3px rgba(11,25,87,.12); }
+/* 책상 위 표지: 그림자만 더한다 (창빛 왼쪽 위 → 오른쪽 아래로, 바탕 그림의 머그 · 화분 그림자와 같은 방향 · 색) */
+.deskOn .nc.desk { box-shadow: 0 1px 2px rgba(96,70,58,.2), 10px 16px 22px -8px rgba(96,70,58,.32), 3px 5px 8px -4px rgba(96,70,58,.18); }
+.now .prop.sd > div { filter: drop-shadow(1px 2px 1.5px rgba(96,70,58,.22)) drop-shadow(8px 12px 9px rgba(96,70,58,.18)); }
+/* 폰 */
+.phone.now .nTitle { left: 18px; top: 58px; font-size: 30px; }
+.phone.now .nSwitch { right: 18px; top: 56px; }
+.phone.now .nSwitch div { width: 44px; padding: 0; justify-content: center; }
+.phone.now .nChips { left: 18px; top: 118px; gap: 6px; }
+.phone.now .nchip { height: 40px; padding: 0 13px; font-size: 13px; }
+.phone.now .nActs { right: 10px; top: 119px; gap: 0; }
+.phone.now .nActs div { width: 38px; height: 38px; border: 0; background: transparent; }
+
+/* 코덱스 밑그림: 아이보리 단색 + 버튼 처리 */
+.ref, .ref .stage { background: #F8F4EC; }
+.ref .world { background: #F8F4EC; }
+.ref.float .stage { overflow: visible; }
+.ref.float.tablet .world { left: -76px; }
+.ref.float .nowRail { background: transparent; border: 0; }
+.ref.float .nowRail::before { content: ''; position: absolute; left: 10px; top: 12px; bottom: 12px; width: 58px; border-radius: 22px; background: rgba(255,255,255,.9); box-shadow: 0 1px 2px rgba(96,70,58,.08), 0 10px 24px -10px rgba(96,70,58,.28); }
+.ref.float .nowRail .nr { left: 15px; }
+.ref.float .nowRail .nr.on { background: #EEF1F7; }
+.ref.float .nowRail .nr.soft { background: transparent; }
+.nBar { position: absolute; right: 30px; top: 37px; height: 50px; padding: 4px; display: flex; align-items: center; gap: 2px; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(96,70,58,.08), 0 8px 20px -10px rgba(96,70,58,.3); }
+.nBar div { height: 42px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border-radius: 12px; font-size: 12px; font-weight: 700; color: rgba(11,25,87,.68); }
+.nBar div.on { background: #EEF1F7; color: #0B1957; font-weight: 800; }
+.nBar div.ic { width: 42px; padding: 0; justify-content: center; }
+.nBar i { width: 1px; height: 24px; margin: 0 4px; background: rgba(11,25,87,.14); }
+.phone .nBar { right: 14px; top: 54px; }
+.phone .nBar div:not(.ic) { width: 40px; padding: 0; justify-content: center; }
+.ref.U2 .nActs, .ref.U2 .nSwitch { display: none; }
+.ref.U2 .nChips { top: 112px; }
+.ref.U3 .nchip, .ref.U3 .nSwitch, .ref.U3 .nActs div, .ref.U3 .arrow { background: rgba(255,255,255,.5); border-color: rgba(255,255,255,.85); backdrop-filter: blur(14px); box-shadow: 0 1px 2px rgba(96,70,58,.06), 0 6px 16px -8px rgba(96,70,58,.25); }
+.ref.U3 .nchip.on { background: #fff; border: 1.5px solid #6E92C6; }
+.ref.U3.float .nowRail::before { background: rgba(255,255,255,.55); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,.85); }
+
+.nTabsWrap { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 10px 42px; background: #F1F3F7; }
+.ref .nTabsWrap { background: #F8F4EC; }
+.ref.float .nTabsWrap { background: transparent; }
+.nTabs { height: 66px; padding: 5px; display: flex; border-radius: 24px; border: 1px solid rgba(11,25,87,.16); background: #fff; box-shadow: 0 4px 12px rgba(11,25,87,.08); }
+.nTabs > div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 19px; font-size: 10.5px; font-weight: 700; color: rgba(11,25,87,.5); position: relative; }
+.nTabs > div.on { background: #E6EBF4; color: #0B1957; font-weight: 800; }
+.nTabs > div.bell { flex: .8; }
+.nTabs > div.bell i { position: absolute; top: 14px; right: 18px; width: 7px; height: 7px; border-radius: 50%; background: #E5484D; }
+.ref.U3.float .nTabs { background: rgba(255,255,255,.55); backdrop-filter: blur(16px); border-color: rgba(255,255,255,.85); }
+.phone .nFab.p { bottom: 134px; }
+.phone.ref.U3 .nActs div { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }

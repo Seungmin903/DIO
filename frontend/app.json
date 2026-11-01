@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#FFFFFF",
+    "backgroundColor": "#F7F8FD",
     "experiments": {
       "reactCompiler": true
     },
@@ -56,13 +56,14 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#CED9EE"
+          "backgroundColor": "#F7F8FD"
         }
       ],
+      "./plugins/withSplashWindowBackground",
       "expo-asset",
       "expo-font",
-      ["expo-status-bar", { "hidden": true }]
-
+      ["expo-status-bar", { "hidden": true }],
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

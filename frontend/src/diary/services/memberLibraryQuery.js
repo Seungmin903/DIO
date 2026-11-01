@@ -1,6 +1,9 @@
-// The UI's historical "personal" tab means ALL diaries, not the API's personal filter.
-export function memberLibraryQuery({ query = '', searchOpen = false, sort = 'updated', filter = 'personal' } = {}) {
-  return { q: searchOpen ? query.trim() : '', sort, filter: filter === 'shared' ? 'shared' : 'all', favorite: filter === 'favorite' }
+import { filterFavorite, filterScope, parseSort } from '../utils/libraryQuery.js'
+
+// UI 필터의 범위(내 다이어리 'personal' · 공유된 다이어리 'shared', 범위 없음은 'all')가 API filter, ':favorite'(즐겨찾기)이 API favorite.
+export function memberLibraryQuery({ query = '', searchOpen = false, sort = 'updated', filter = 'all' } = {}) {
+  // 방향(예: title:desc)은 서버로 보내지 않고 화면에서 받은 목록을 뒤집어 처리한다.
+  return { q: searchOpen ? query.trim() : '', sort: parseSort(sort).key, filter: filterScope(filter), favorite: filterFavorite(filter) }
 }
 
 export function normalizeMemberLibraryQuery({ q = '', sort = 'updated', filter = 'all', favorite = false } = {}) {

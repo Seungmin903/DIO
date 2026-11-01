@@ -38,7 +38,7 @@ export function textPatch(text, width = 320, settings = {}) {
 
 export function createText({ id, x, y, text, width = 320, ...settings }) {
   const largest = Math.max(settings.fontSize ?? TEXT_FONT_SIZE, ...(settings.styleRanges ?? []).map((range) => range.fontSize ?? 0))
-  return { id, type: 'text', name: '텍스트', x, y, w: width, rotation: 0, color: '#0B1957', ...settings, ...textPatch(text, width, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) }) }
+  return { id, type: 'text', name: '텍스트', x, y, w: width, rotation: 0, color: '#0B1766', ...settings, ...textPatch(text, width, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) }) }
 }
 
 // family 가 있는 글꼴은 앱에 넣은 한국어 글꼴(Google Fonts, OFL 라이선스로 상업 이용 가능). services/textFonts.js 가 불러온다.
@@ -51,15 +51,17 @@ export const TEXT_AUTO_MIN_WIDTH = 60
 export const TEXT_AUTO_MAX_WIDTH = 480
 
 export const TEXT_FONTS = [
-  { id: 'sans', label: '기본 고딕', systemNames: { ios: 'Apple SD 산돌고딕 Neo', android: 'Noto Sans', web: '맑은 고딕' } },
-  { id: 'serif', label: '기본 명조', systemNames: { ios: 'AppleMyungjo', android: 'Noto Serif', web: '바탕' } },
   { id: 'nanum-gothic', label: '나눔고딕', family: 'NanumGothic', boldFamily: 'NanumGothicBold' },
   { id: 'nanum-myeongjo', label: '나눔명조', family: 'NanumMyeongjo', boldFamily: 'NanumMyeongjoBold' },
   { id: 'gowun-dodum', label: '고운돋움', family: 'GowunDodum' },
   { id: 'gowun-batang', label: '고운바탕', family: 'GowunBatang', boldFamily: 'GowunBatangBold' },
+  { id: 'maruburi', label: '마루부리', family: 'MaruBuri', boldFamily: 'MaruBuriBold' },
   { id: 'nanum-pen', label: '나눔손글씨 펜', family: 'NanumPenScript' },
   { id: 'poor-story', label: '푸어스토리', family: 'PoorStory' },
 ]
+// 예전 '기본 고딕 · 기본 명조'(기기마다 다른 글꼴)는 목록에서 뺐다. 저장된 글자는 앱 글꼴 나눔고딕 · 나눔명조로 읽는다.
+const FONT_ALIASES = { sans: 'nanum-gothic', serif: 'nanum-myeongjo' }
+export const resolveFontId = (id) => FONT_ALIASES[id] ?? id
 let personalFonts = [], allFonts = TEXT_FONTS, fontListRevision = 0
 export const getTextFonts = () => allFonts
 export const textFontListSnapshot = () => fontListRevision
@@ -92,27 +94,30 @@ export function markTextFontFailed(family) {
   fontListeners.forEach(listener => listener())
 }
 export function textFontSnapshot(id) {
-  const font = getTextFonts().find(f => f.id === id)
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
   return [font?.family, font?.boldFamily].filter(Boolean).map(f => `${f}:${loadedFamilies.has(f) ? 'loaded' : failedFamilies.has(f) ? 'error' : 'loading'}`).join('|')
 }
 /** 글꼴 id → 지금 쓸 수 있는 fontFamily. 앱 글꼴이 아니거나 아직 불러오기 전이면 null */
 export function loadedFontFamily(id, bold = false) {
-  const font = getTextFonts().find((font) => font.id === id)
+  const font = getTextFonts().find((font) => font.id === resolveFontId(id))
   const family = bold && font?.boldFamily && loadedFamilies.has(font.boldFamily) ? font.boldFamily : font?.family
   return family && loadedFamilies.has(family) ? family : null
 }
 
+// 기울임은 글꼴의 기울임 서체를 쓰지 않는다(앱 글꼴에는 없고, 기기가 흉내 내는 모양은 안드로이드 · iOS · 웹이 다르다).
+// 모든 글꼴에 같은 각도로 글자 상자를 기울인다. 화면 · 입력창 · 내보내기(화면을 그대로 찍는다)가 같은 변형을 쓴다.
+export const ITALIC_SKEW_DEG = 12
+export const italicTransform = () => [{ skewX: `-${ITALIC_SKEW_DEG}deg` }]
+
 export function textStyleSupport(id, platform = 'android') {
-  if (id?.startsWith('personal-')) return { bold: false, italic: false }
-  const font = getTextFonts().find(f => f.id === id)
-  if (font?.family) return { bold: Boolean(font.boldFamily), italic: false }
-  // iOS 기본 고딕의 한글 대체 서체 Apple SD Gothic Neo에는 italic face가 없다.
-  if (platform === 'ios' && id === 'sans') return { bold: true, italic: false }
-  return platform === 'ios' && id === 'serif' ? { bold: false, italic: false } : { bold: true, italic: true }
+  if (id?.startsWith('personal-')) return { bold: false, italic: true }
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
+  if (font?.family) return { bold: Boolean(font.boldFamily), italic: true }
+  return { bold: true, italic: true } // 목록에서 뺀 예전 글꼴(고정폭 등): 기기 글꼴로 그린다
 }
 
 export function textStyleReady(id, style) {
-  const font = getTextFonts().find(f => f.id === id)
+  const font = getTextFonts().find(f => f.id === resolveFontId(id))
   return !font?.family || (loadedFamilies.has(font.family) && (style !== 'bold' || !font.boldFamily || loadedFamilies.has(font.boldFamily)))
 }
 
@@ -121,9 +126,10 @@ export function textFontChangePatch(settings, id, platform) {
   return { font: id, bold: Boolean(settings.bold && support.bold), italic: Boolean(settings.italic && support.italic) }
 }
 // 펜·형광펜·마스킹테이프처럼 한 줄 7색 (같은 톤의 라벤더를 더했다)
-export const TEXT_COLORS = ['#1D1D1F', '#8D96A8', '#DD887A', '#E1B4CA', '#A3C5F0', '#96B49F', '#B4A3E0']
+// 글자 기본 색(코덱스 2026-10-31): 펜과 같은 계열, 흰 바탕 4.5:1 이상
+export const TEXT_COLORS = ['#18224D', '#9B3E4B', '#856D2A', '#4F7553', '#4C7896', '#75579A', '#666D7A']
 // letterSpacing: 자간(글자 크기 대비 비율, 0.1 = 10%), lineSpacing: 줄간격(글자 크기 대비 배수), strike: 취소선
-export const DEFAULT_TEXT_SETTINGS = { font: 'sans', fontSize: 18, color: '#1D1D1F', bold: false, italic: false, underline: false, strike: false, textAlign: 'left', letterSpacing: 0, lineSpacing: DEFAULT_LINE_SPACING }
+export const DEFAULT_TEXT_SETTINGS = { font: 'nanum-gothic', fontSize: 18, color: '#18224D', bold: false, italic: false, underline: false, strike: false, textAlign: 'left', letterSpacing: 0, lineSpacing: DEFAULT_LINE_SPACING }
 
 export function textSettings(object) {
   return { ...DEFAULT_TEXT_SETTINGS, ...Object.fromEntries(Object.keys(DEFAULT_TEXT_SETTINGS).filter((key) => object?.[key] != null).map((key) => [key, object[key]])), fontSize: object?.fontSize ?? (object?.type === 'text' ? TEXT_FONT_SIZE : 18) }
@@ -136,21 +142,38 @@ export function textStyle(object, scale = 1, platform = 'android') {
   const support = textStyleSupport(s.font, platform)
   const family = loadedFontFamily(s.font, s.bold && support.bold)
   // 등록한 단일 face를 직접 선택한다. 파일에 없는 weight/style을 다시 요청하지 않는다.
-  // 기존 iOS 기본 고딕 문서는 영문 기울임이 표시됐을 수 있어 렌더링을 보존한다.
-  const legacySystemItalic = platform === 'ios' && s.font === 'sans' && s.italic
-  return { fontFamily: families[s.font] ?? family ?? families.sans, fontSize: s.fontSize * scale, lineHeight: s.fontSize * s.lineSpacing * scale, letterSpacing: s.fontSize * s.letterSpacing * scale, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: !family && s.italic && (support.italic || legacySystemItalic) ? 'italic' : 'normal', textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
+  // 크기가 0이면 안드로이드가 예외를 던진다. 줄간격·자간도 같은 크기를 기준으로 맞춘다.
+  const size = Math.max(1, s.fontSize * scale)
+  // 앱 글꼴을 아직 불러오기 전이면 같은 계열의 기기 글꼴로 먼저 그린다
+  return { fontFamily: family ?? families[s.font] ?? families.sans, fontSize: size, lineHeight: size * s.lineSpacing, letterSpacing: size * s.letterSpacing, color: s.color, fontWeight: !family && s.bold && support.bold ? '700' : '400', fontStyle: 'normal', ...(s.italic && support.italic && { transform: italicTransform() }), textDecorationLine: decoration, textAlign: s.textAlign, includeFontPadding: false }
 }
 
 export function textFormatPatch(object, settings) {
   const baseWidth = object.baseWidth ?? object.w
   const largest = Math.max(settings.fontSize ?? TEXT_FONT_SIZE, ...(object.styleRanges ?? []).map((range) => range.fontSize ?? 0))
   const patch = textPatch(object.text, baseWidth, { ...settings, fontSize: largest, letterSpacing: largest * (settings.letterSpacing ?? 0) })
-  return { ...settings, text: patch.text, h: patch.h * object.w / baseWidth }
+  const h = patch.h * object.w / baseWidth
+  // 세로로 직접 늘린 상자(manualHeight)는 그 높이 아래로 줄이지 않는다(서식 · 폭을 바꿔도 사용자가 정한 높이를 지킨다)
+  return { ...settings, text: patch.text, h: object.manualHeight ? Math.max(h, object.h) : h }
 }
+
+// 글자 모양만 바꾸고 줄바꿈 · 높이에는 영향이 없는 서식. 기울임은 글자 상자를 기울이는 변형이라 줄 폭이 그대로다(ITALIC_SKEW_DEG).
+// 이 서식만 바꿀 때는 높이를 다시 짐작하지 않는다(짐작 → 실측 사이에 상자 아래가 줄었다 느는 것을 막는다).
+export const VISUAL_TEXT_KEYS = ['italic', 'underline', 'strike', 'color', 'textAlign']
 
 // 높이·위치를 제외하고 줄바꿈·글자 실측 크기를 바꾸는 값으로 측정 결과를 구분한다.
 export function textLayoutKey(object) {
   return JSON.stringify([object.text, object.w, object.baseWidth ?? object.w, textSettings(object), object.styleRanges ?? []])
+}
+
+// 글자만큼 넓어지는 상자의 입력창 폭. 상자 폭은 글자를 그린 뒤에 잰 값이라 한 번 늦게 따라온다.
+// 입력창을 상자 폭에 맞추면 그 사이 한 줄이 둘로 접혔다 펴져 깜박이므로, 입력창은 최대 폭까지 넓혀 두고
+// 상자 폭 밖은 잘라서 보이지 않게 한다. 가운데 · 오른쪽 맞춤은 상자 기준 자리에 오도록 입력창을 왼쪽으로 민다.
+export function autoWidthInputLayout(boxWidth, wrapWidth, textAlign = 'left') {
+  const width = Math.max(wrapWidth, boxWidth)
+  const spare = width - boxWidth
+  const shift = textAlign === 'right' ? spare : textAlign === 'center' ? spare / 2 : 0
+  return { width, marginLeft: shift ? -shift : 0 }
 }
 
 // 입력창 높이는 화면 배율을 따른다. 새 상자의 임시 드래그 높이는 내용 여백으로 저장하지 않는다.

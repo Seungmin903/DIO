@@ -1,0 +1,52 @@
+{
+ "polaroid-picnic": {
+  "w": 407,
+  "h": 448,
+  "base": 340
+ },
+ "tape-butter": {
+  "w": 234,
+  "h": 110,
+  "base": 200
+ },
+ "binder-clip": {
+  "w": 239,
+  "h": 262,
+  "base": 150
+ },
+ "polaroid-sky": {
+  "w": 464,
+  "h": 470,
+  "base": 380
+ },
+ "tape-lavender": {
+  "w": 267,
+  "h": 217,
+  "base": 240
+ },
+ "sticker-heart": {
+  "w": 136,
+  "h": 127,
+  "base": 90
+ },
+ "paper-clip": {
+  "w": 347,
+  "h": 279,
+  "base": 90
+ },
+ "bookmark": {
+  "w": 482,
+  "h": 687,
+  "base": 300
+ },
+ "star-clip": {
+  "w": 266,
+  "h": 252,
+  "base": 200
+ },
+ "binder-clip-2": {
+  "w": 271,
+  "h": 266,
+  "base": 150
+ }
+}

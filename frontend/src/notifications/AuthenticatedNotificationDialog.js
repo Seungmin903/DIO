@@ -5,7 +5,7 @@ import NotificationPanel, { NotificationButton } from './NotificationPanel';
 import { colors } from '../shared/theme';
 
 export default function AuthenticatedNotificationDialog({ model, onClose, sharingPending = false, onInvitationReady }) {
-  return <EditorModal visible animationType="fade" onRequestClose={onClose}>
+  return <EditorModal visible animationType="none" onRequestClose={onClose}>
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}><NotificationButton label="알림 닫기" onPress={onClose} /></View>
       {sharingPending && <Text style={styles.notice}>공유 기능은 서버 연결을 준비하고 있어요. 받은 알림은 아래에서 확인할 수 있어요.</Text>}

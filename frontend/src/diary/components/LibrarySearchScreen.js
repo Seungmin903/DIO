@@ -7,12 +7,13 @@ import AppIcon from '../../shared/AppIcon';
 import IconButton from './IconButton';
 import DiaryCard from './DiaryCard';
 import EmptyState from './EmptyState';
+import { useDiaryGrid } from '../utils/useDiaryGrid';
 
 const HISTORY_KEY = 'dio:diary:search-history:v1';
 const cleanHistory = values => Array.isArray(values)
   ? [...new Set(values.filter(value => typeof value === 'string').map(value => value.trim()).filter(Boolean))].slice(0, 10) : [];
 
-export default function LibrarySearchScreen({ compact, query, onQueryChange, onBack, diaries, metadata = {}, onOpen, onFavorite, onEdit, onDelete, optionsMenu = null, selectionBar = null, selecting = false, selected = [], onToggleSelect, requestNotice = null, hasMore = false, suppressEmpty = false, historyKey = HISTORY_KEY }) {
+export default function LibrarySearchScreen({ compact, query, onQueryChange, onBack, diaries, metadata = {}, onOpen, onFavorite, onEdit, onDelete, onShare, optionsMenu = null, selectionBar = null, selecting = false, selected = [], onToggleSelect, onEnterEdit, requestNotice = null, hasMore = false, suppressEmpty = false, historyKey = HISTORY_KEY }) {
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -44,10 +45,11 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
     const term = value.trim();
     if (term) updateHistory([term, ...history.filter(item => item !== term)]);
   };
+  const grid = useDiaryGrid(compact, undefined, { count: diaries.length, padTop: 16 }); // 16 은 s.grid 의 위 여백
   const searching = Boolean(query.trim());
-  return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact]}>
+  return <ScrollView {...grid?.scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={[s.libraryScreen, compact && s.libraryScreenCompact]}>
     <View style={s.librarySearchHeading}>
-      <IconButton label={selecting ? '편집 완료' : '검색 닫기'} iconName="chevron-left" onPress={onBack} />
+      <IconButton label={selecting ? '선택 닫기' : '검색 닫기'} iconName="chevron-left" onPress={onBack} />
       <Text style={[s.libraryTitle, compact && s.libraryTitleCompact, { flex: 1 }]}>다이어리 검색</Text>
       {optionsMenu}
     </View>
@@ -77,9 +79,9 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
       </View>)}
     </View> : <View style={s.librarySearchResults}>
       {!suppressEmpty && <Text accessibilityLiveRegion="polite" style={s.chipText}>{`‘${query.trim()}’ 검색 결과 ${diaries.length}개${hasMore ? ' 불러옴 · 더 있음' : ''}`}</Text>}
-      {!diaries.length && suppressEmpty ? null : !diaries.length ? <EmptyState compact={compact} search title="검색 결과가 없어요." /> : <View style={[s.grid, compact && s.gridCompact]}>
-        {diaries.map(diary => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} layout="grid" onOpen={item => { remember(query); onOpen(item); }} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={onToggleSelect} />)}
-      </View>}
+      {!diaries.length && suppressEmpty ? null : !diaries.length ? <EmptyState compact={compact} search title="검색 결과가 없어요" /> : <View onLayout={grid?.onLayout}><View style={[s.grid, compact && s.gridCompact, grid?.style]}>
+        {diaries.map(diary => <DiaryCard key={diary.id} diary={diary} pageCount={metadata[diary.id]?.pageCount} compact={compact} cell={grid?.cell} layout="grid" onOpen={item => { remember(query); onOpen(item); }} onFavorite={onFavorite} onEdit={onEdit} onDelete={onDelete} onShare={onShare} selecting={selecting} selected={selected.includes(diary.id)} onToggleSelect={onToggleSelect} onEnterEdit={onEnterEdit} />)}
+      </View></View>}
     </View>}
   </ScrollView>;
 }

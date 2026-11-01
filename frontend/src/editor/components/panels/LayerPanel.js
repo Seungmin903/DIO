@@ -7,15 +7,16 @@ import { useMediaUri } from '../../hooks/useMediaUri'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
-import { getObjectName, hasPhotoMedia, tapeSizeOf } from '../../utils/objects'
+import { getObjectName, hasPhotoMedia, tapeUnitH } from '../../utils/objects'
 import { buildLayerRows } from '../../utils/layerRows'
 import Icon from '../controls/Icon'
 import TapCatcher from '../controls/TapCatcher'
 import TapeView from '../canvas/TapeView'
 import ObjectContent from '../canvas/ObjectView'
 import { isStripFrame } from '../../utils/photoStrip'
+import { isBackdrop } from '../../utils/backdrop.js'
 
-const ROW_HEIGHT = 62
+const ROW_HEIGHT = 48 // 레이어 행 높이 48(코덱스 안)
 const ROW_GAP = 2
 const ROW_STEP = ROW_HEIGHT + ROW_GAP
 // 끌기 중 자동 스크롤: 목록 위·아래 끝에서 이만큼 안쪽부터, 끝에 가까울수록(바깥으로 나갈수록) 빨리 넘긴다 (페이지 목록과 같다)
@@ -33,7 +34,7 @@ const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
  * - 오른쪽 손잡이를 끌어 순서 변경. 그룹 사이에 놓으면 그 그룹에 들어가고, 밖으로 빼면 그룹에서 빠진다.
  */
 export default function LayerPanel({ objects, selectedIds, dispatch, onClose, onEmptyTap }) {
-  const layers = useMemo(() => [...objects].reverse(), [objects])
+  const layers = useMemo(() => objects.filter((o) => !isBackdrop(o)).reverse(), [objects])
   const [drag, setDrag] = useState(null) // { key, from, dy }
   const [collapsed, setCollapsed] = useState(() => new Set())
   const rows = useMemo(() => buildLayerRows(layers, collapsed), [layers, collapsed])
@@ -559,6 +560,8 @@ const LayerThumb = memo(function LayerThumb({ object }) {
     content = <Text style={{ color: object.color, fontSize: 22 }}>T</Text>
   } else if (object.type === 'stroke' || object.type === 'shape') {
     content = <ObjectContent object={object} zoom={Math.min(30 / object.w, 30 / object.h)} still />
+  } else if (object.type === 'sticker' && object.widget) {
+    content = <ObjectContent object={object} zoom={Math.min(30 / object.w, 30 / object.h)} still />
   } else if (object.type === 'sticker') {
     const source = stickerSource(object, true, uri)
     content = source ? (
@@ -588,7 +591,7 @@ const LayerThumb = memo(function LayerThumb({ object }) {
           edge={object.edge}
           width={tapeW}
           height={tapeH}
-          scale={tapeH / tapeSizeOf(object).h}
+          scale={tapeH / tapeUnitH(object)}
         />
       </View>
     )
@@ -614,8 +617,8 @@ const styles = StyleSheet.create({
     marginBottom: -16,
     marginRight: -16,
     borderLeftWidth: 1,
-    borderLeftColor: 'rgba(11,25,87,0.08)',
-    backgroundColor: '#E4ECF7',
+    borderLeftColor: 'rgba(11,23,102,0.08)',
+    backgroundColor: colors.surfaceSoft, // 열린 패널 바탕은 앱 바탕색(#F7F8FD)
   },
   close: { padding: 4 },
   header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10 },
@@ -627,7 +630,7 @@ const styles = StyleSheet.create({
     height: 36, // 여러 개 고르기 막대로 바뀌어도 높이가 같아 목록이 밀리지 않게
   },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  title: { fontSize: 19, fontWeight: '700', color: colors.text },
+  title: { fontSize: 20, fontWeight: '700', color: colors.text },
   nameInput: {
     height: 30,
     paddingHorizontal: 6,
@@ -672,14 +675,14 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 2,
-    backgroundColor: 'rgba(110,146,198,0.35)',
+    backgroundColor: 'rgba(129,138,195,0.35)',
   },
   chevron: { marginLeft: -6, marginRight: -4, padding: 2 },
-  rowSelected: { backgroundColor: 'rgba(110,146,198,0.24)' },
+  rowSelected: { backgroundColor: 'rgba(129,138,195,0.24)' },
   rowDragging: {
-    backgroundColor: '#F4F7FC',
+    backgroundColor: '#F5F6FC',
     shadowColor: colors.text,
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.09,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 5,

@@ -39,6 +39,11 @@ test('배경 자동 추정은 수동 좌표 없이 실행하고 수동 지정은
   assert.throws(() => validateSplitOptions({ crop: FULL_CROP, autoBackground: false, tolerance: 35 }))
   assert.throws(() => validateSplitOptions({ crop: FULL_CROP, autoBackground: true, tolerance: NaN }))
 })
+
+test('배경 허용 범위는 0부터 150까지 허용하고 범위 밖은 거부한다', () => {
+  for (const tolerance of [0, 5, 10, 150]) assert.doesNotThrow(() => validateSplitOptions({ crop: FULL_CROP, autoBackground: true, tolerance }))
+  for (const tolerance of [-1, 151]) assert.throws(() => validateSplitOptions({ crop: FULL_CROP, autoBackground: true, tolerance }))
+})
 test('드래그 중 이벤트 대상의 locationX가 바뀌어도 손가락 이동량을 따른다', () => {
   const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/panels/StickerSplitPreview.js', import.meta.url), 'utf8'), {
@@ -386,3 +391,34 @@ test('보관함 재진입에서도 저장 실패와 편집 내용이 유지되�
   assert.equal(restarted.api.saveError, null)
   restarted.unmount()
 })
+
+test('같은 폴더 이름으로 새로 저장해도 ID와 내용이 분리되며 빈 이름은 거부한다', async () => {
+  const storage = { value: { folders: [{ id: 'old', name: '여행', items: [{ emoji: '🌼' }] }] } };
+  const h = await decorHarness(storage);
+  const id = await h.api.saveGenerated(null, ' 여행 ', [{ emoji: '⭐' }]);
+  h.render(); await new Promise(resolve => setImmediate(resolve));
+  const folders = h.render().items.folders;
+  assert.notEqual(id, 'old');
+  assert.deepEqual(folders.map(f => f.name), ['여행', '여행']);
+  assert.equal(folders.find(f => f.id === 'old').items[0].emoji, '🌼');
+  assert.equal(folders.find(f => f.id === id).items[0].emoji, '⭐');
+  await assert.rejects(h.render().saveGenerated(null, '  ', [{ emoji: '⭐' }]), /이름/);
+  h.api.removeFolder(id); h.render();
+  assert.deepEqual(h.render().items.folders.map(f => f.id), ['old']);
+  h.unmount();
+});
+
+test('일반 폴더 생성·이름 변경도 중복을 허용하고 대상 ID의 내용만 변경한다', async () => {
+  const storage={value:{folders:[{id:'old',name:'여행',items:[{emoji:'🌼'}]}]}};
+  const h=await decorHarness(storage);
+  const id=h.api.addFolder('여행');h.render();
+  const another=h.render().addFolder('다른 이름');h.render();
+  h.render().renameFolder(another,'여행');h.render();
+  await new Promise(resolve=>setImmediate(resolve));
+  const folders=h.render().items.folders;
+  assert.deepEqual(folders.map(f=>f.name),['여행','여행','여행']);
+  assert.equal(new Set(folders.map(f=>f.id)).size,3);
+  assert.deepEqual(folders.find(f=>f.id==='old').items,[{emoji:'🌼'}]);
+  assert.notEqual(id,another);
+  h.unmount();
+});

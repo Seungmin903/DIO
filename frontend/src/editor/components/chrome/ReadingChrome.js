@@ -6,7 +6,9 @@ import Icon from '../controls/Icon'
 import { pageFromProgress } from '../../utils/readingGestures.js'
 import { createPageRepeat, isGesturePagePress } from '../../utils/pageRepeat.js'
 
-export const READING_PADDING = { top: 64, bottom: 76, side: 12 }
+// 메뉴(위 헤더 56 · 아래 바 52)가 보이면 그 사이에 맞추고, 숨기면 화면 전체에 딱 맞춘다.
+export const READING_PADDING = { top: 56, bottom: 52, side: 0 }
+export const READING_PADDING_FULL = { top: 0, bottom: 0, side: 0 }
 
 function Action({ icon, label, onPress, disabled = false, ...pressProps }) {
   return <Pressable {...pressProps} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled}
@@ -42,9 +44,10 @@ export function PageTurnAction({ direction, index, count, onSelect }) {
     onPress={event => repeat.current.press({ gesture: isGesturePagePress(event) })} />
 }
 
-export function ReadingModeControls({ reading, canEdit, onFit, onToggle, controlsRef, onLayout, bottomInset = 0 }) {
+// fitted: 이미 화면에 맞춰진 상태면 맞춤 버튼을 비활성화한다
+export function ReadingModeControls({ reading, canEdit, fitted = false, onFit, onToggle, controlsRef, onLayout, bottomInset = 0 }) {
   return <View ref={controlsRef} onLayout={onLayout} style={[styles.modeControls, { bottom: 12 + bottomInset }]}>
-    <Action icon="fit" label="화면에 맞춤" onPress={onFit} />
+    <Action icon="fit" label="화면에 맞춤" disabled={fitted} onPress={onFit} />
     {canEdit ? <Action icon={reading ? 'edit' : 'eye'} label={reading ? '편집 모드로 전환' : '읽기 모드로 전환'} onPress={onToggle} /> : <View style={styles.action} />}
   </View>
 }
@@ -59,7 +62,7 @@ export function ReadingHeader({ title, onHome }) {
   </View>
 }
 
-export function ReadingNavigation({ index, count, onSelect, canEdit, onFit, onToggle, controlsRef, onLayout }) {
+export function ReadingNavigation({ index, count, onSelect, canEdit, fitted = false, onFit, onToggle, controlsRef, onLayout }) {
   const [preview, setPreview] = useState(null)
   const width = useRef(1), origin = useRef(null), draft = useRef(null)
   useEffect(() => { draft.current = null; setPreview(null) }, [index, count])
@@ -99,7 +102,7 @@ export function ReadingNavigation({ index, count, onSelect, canEdit, onFit, onTo
       <PageTurnAction direction={1} index={index} count={count} onSelect={onSelect} />
     </View>
     <View style={styles.readingActions}>
-      <Action icon="fit" label="화면에 맞춤" onPress={onFit} />
+      <Action icon="fit" label="화면에 맞춤" disabled={fitted} onPress={onFit} />
       {canEdit && <Action icon="edit" label="편집 모드로 전환" onPress={onToggle} />}
     </View>
   </View>
@@ -109,13 +112,14 @@ const styles = StyleSheet.create({
   header: { position: 'absolute', top: 0, left: 0, right: 0, height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, backgroundColor: colors.surface, zIndex: 40 },
   home: { width: 72, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   title: { flex: 1, minWidth: 0, textAlign: 'center', fontSize: 13, fontWeight: '700', color: colors.text },
-  navigation: { position: 'absolute', bottom: 12, left: 0, right: 0, minHeight: 52, flexDirection: 'row', alignItems: 'center', paddingLeft: 8, paddingRight: 12, backgroundColor: colors.surface, borderRadius: 14, zIndex: 25 },
+  // 위 헤더처럼 화면 끝에 붙인다(떠 있지 않게). 아래 모서리는 화면 모서리에 맡기고 위쪽만 둥글게 둔다.
+  navigation: { position: 'absolute', bottom: 0, left: 0, right: 0, minHeight: 52, flexDirection: 'row', alignItems: 'center', paddingLeft: 8, paddingRight: 12, backgroundColor: colors.surface, borderTopLeftRadius: 14, borderTopRightRadius: 14, zIndex: 25 },
   pageNumber: { width: 58, fontSize: 11, fontWeight: '700', color: colors.text, textAlign: 'center', fontVariant: ['tabular-nums'] },
   pager: { flex: 1, minWidth: 0, maxWidth: 520, flexDirection: 'row', alignItems: 'center', marginHorizontal: 'auto' },
   readingActions: { flexDirection: 'row', marginLeft: 4, flexShrink: 0 },
-  modeControls: { position: 'absolute', right: 12, bottom: 12, height: 52, padding: 4, flexDirection: 'row', alignItems: 'center', borderRadius: 14, backgroundColor: colors.surface, zIndex: 30, ...shadow.card },
+  modeControls: { position: 'absolute', right: 12, bottom: 12, height: 52, padding: 4, flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: colors.surface, zIndex: 30, ...shadow.card },
   action: { width: 44, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  pressed: { opacity: 0.65 }, disabled: { opacity: DISABLED_OPACITY },
+  pressed: {}, disabled: { opacity: DISABLED_OPACITY }, // 눌림 효과 없음(사용자 지시)
   track: { flex: 1, minWidth: 8, height: 44, justifyContent: 'center', marginHorizontal: 8, touchAction: 'none' },
   trackLine: { height: 4, borderRadius: 2, backgroundColor: colors.primarySoft },
   fill: { position: 'absolute', height: 4, borderRadius: 2, backgroundColor: colors.primary },

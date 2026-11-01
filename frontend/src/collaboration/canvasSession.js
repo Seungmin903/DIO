@@ -78,7 +78,7 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
         journal.uiLocal=copy(seed.filter(sharedObject));journal.uiLocalAt=savedAt;await persist()
       }
       // Preserve previously prepared media operations without sending them through removed APIs.
-      const deferred=entry=>[...(entry.request?.changes?.creates??[]),...(entry.request?.changes?.updates??[])].some(row=>row.elementType==='PHOTO'||row.mediaFileId||row.propertiesJson?.mediaFileId||row.propertiesJson?.src)
+      const deferred=entry=>entry.mediaApiVersion!==1&&[...(entry.request?.changes?.creates??[]),...(entry.request?.changes?.updates??[])].some(row=>row.elementType==='PHOTO'||row.mediaFileId||row.propertiesJson?.mediaFileId||row.propertiesJson?.src)
       const held=journal.queue.filter(deferred)
       if(held.length){journal.deferredMedia=[...(journal.deferredMedia??[]),...held];journal.queue=journal.queue.filter(entry=>!deferred(entry));await persist()}
       canvasContent(journal.uiLocal);restored=true;return copy(journal.uiLocal)
@@ -115,10 +115,12 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
         }
         while(journal.queue.length){
           active();const entry=journal.queue[0]
-          if(!entry.request){entry.request=requestFor(entry);active();await persist()}
+          try{
+          if(!entry.request){const request=requestFor(entry);const prepared=request&&api.prepare?await api.prepare(request):request;active();entry.request=prepared;entry.mediaApiVersion=1;await persist()}
           if(entry.request){
-            try{const result=await api.apply(pageId,entry.request);active();setBase(result.items)}
-            catch(error){
+            const result=await api.apply(pageId,entry.request);active();setBase(result.items)
+          }
+          }catch(error){
               if(error.status===404&&error.code==='CANVAS_ELEMENT_NOT_FOUND'){
                 journal.rejectedRequests=[...(journal.rejectedRequests??[]),copy(entry.request)]
                 entry.id=createId();delete entry.request;await persist();throw error
@@ -136,7 +138,6 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
               // the rebased payload. Unknown/network outcomes keep the original ID.
               journal.rejectedRequests=[...(journal.rejectedRequests??[]),copy(entry.request)]
               entry.id=createId();delete entry.request;await persist();throw error
-            }
           }
           journal.queue.shift();journal.recent=[...journal.recent,entry.id].slice(-128);await persist()
         }

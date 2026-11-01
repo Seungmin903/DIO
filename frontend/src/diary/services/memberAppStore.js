@@ -1,7 +1,9 @@
 import { memberKeys } from './memberStorage.js'
 import { diaryCreateInput } from './diaryCreateInput.js'
+import { serverDiaryCreateInput } from './serverPaperFont.js'
 import { localTemplateReference } from '../../editor/templates/serverCatalog.js'
 import { createDefaultDoc } from '../../editor/state/defaultDoc.js'
+import { pdfDocPage } from '../utils/pdfImport.js'
 import { normalizeMemberLibraryQuery } from './memberLibraryQuery.js'
 
 const clone = value => JSON.parse(JSON.stringify(value))
@@ -47,12 +49,15 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
   }
   const createDocument = (result, input) => {
     const diary = entry({ ...result, title: result.title, templateConfig: input.templateConfig, pageSize: input.pageSize,
-      paperAppearance: input.paperAppearance, favorite: false, pageCount: result.pageIds.length })
+      paperAppearance: input.paperAppearance, favorite: false, pageCount: result.pageIds.length, ...(input.cover ? { cover: input.cover } : {}) })
     const doc = createDefaultDoc(diary)
     doc.memberAccountId = accountId
     doc.pages = input.initialPages.map((selected, index) => {
       const ref = localTemplateReference(selected.templateCode, selected.templateVersion)
-      return { id: result.pageIds[index], ...ref, ...(selected.templateConfig.paperAppearance ? { paperAppearance: selected.templateConfig.paperAppearance } : {}), objects: [] }
+      const base = { id: result.pageIds[index], ...ref, ...(selected.templateConfig.paperAppearance ? { paperAppearance: selected.templateConfig.paperAppearance } : {}), objects: [] }
+      const imported = input.importedPages?.[index]
+      // PDF 쪽: 서버가 만든 페이지 id 에 쪽 크기와 쪽 그림(잠근 바탕)을 얹는다. 그림과 원본 PDF 는 편집기에서 서버로 올라간다.
+      return imported ? { ...base, ...pdfDocPage(imported, input.pageSize, input.paperAppearance), id: base.id } : base
     })
     return { diary, doc }
   }
@@ -68,6 +73,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
         const result = await api.create(clone(pending.input), { requestId: pending.requestId })
         received = true; active()
         const { diary, doc } = createDocument(result, pending.input)
+        if (pending.input.importedPages?.length) { await api.setPageSizes(doc.pages.map(page => ({ pageId: page.id, canvasWidth: page.canvasWidth, canvasHeight: page.canvasHeight }))); active() }
         const saved = await read(keys.doc(result.id), null)
         active()
         if (saved && (saved.id !== result.id || saved.memberAccountId !== accountId || !saved.pages?.length)) throw failure('INVALID_MEMBER_DOCUMENT', '기존 회원 문서를 확인하지 못했어요. 덮어쓰지 않았어요.')
@@ -272,7 +278,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       starting = (async () => {
       active()
       if (!state.loaded || !writable) throw failure('NOT_READY', '목록 저장 자료를 먼저 확인해 주세요.')
-      const input = diaryCreateInput(form)
+      const input = serverDiaryCreateInput(diaryCreateInput(form))
       if (state.pending && JSON.stringify(state.pending.input) !== JSON.stringify(input)) throw failure('PENDING_CREATION', '이전 생성 요청을 먼저 확인해 주세요. 창을 닫고 이전 생성 확인을 눌러 주세요.')
       if (!state.pending) {
         const pending = { accountId, requestId: makeRequestId(), input: clone(input), uncertain: false }
@@ -324,7 +330,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       if (!previous?.canEdit) throw failure('FORBIDDEN', '소유자만 제목과 표지를 수정할 수 있어요.')
       try {
         const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', expectedVersion: previous.version })
-        active(); const updated = await publish(entry(result, previous))
+        active(); const updated = await publish(entry(form.cover ? { ...result, cover: form.cover } : result, previous))
         if (serverLibrary) await this.reload().catch(() => {})
         return updated
       } catch (error) {

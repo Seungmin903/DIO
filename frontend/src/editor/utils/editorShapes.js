@@ -1,5 +1,6 @@
 import { createId } from './common.js'
 import { textStyle, textSettings } from './text.js'
+import { MEMO_ARTS } from '../widgets/memoArt.js'
 
 export const SHAPE_CATEGORIES = [{ id: 'all', label: '전체' }, { id: 'basic', label: '기본' }, { id: 'polygons', label: '다각형' }, { id: 'stars', label: '별' }, { id: 'arrows', label: '화살표' }, { id: 'bubbles', label: '말풍선' }, { id: 'symbols', label: '기호' }]
 const polygon = points => `M${points.map(p => p.join(' ')).join(' L')} Z`
@@ -88,6 +89,8 @@ for(const [id,label,path,ratio] of [
  ['flower','꽃','M50 22C15 -15 -10 20 22 50C-10 80 15 115 50 78C85 115 110 80 78 50C110 20 85 -15 50 22Z'],
  ['puzzle','퍼즐','M0 0H30C20 30 80 30 70 0H100V30C70 20 70 80 100 70V100H70C80 70 20 70 30 100H0V70C30 80 30 20 0 30Z'],
 ]) add(id,label,'symbols',path,ratio)
+// 메모 위젯 종이(widgets/memoArt.js). 바깥 모양만 도형으로 등록해 선택 · 그림자 · 출력 검사가 그대로 쓴다. 고르기 목록에는 없다.
+for(const art of MEMO_ARTS) EDITOR_SHAPES.push({id:`memo-${art.id}`,label:art.name,category:'memo',path:art.outline,ratio:art.w/art.h,art:art.id})
 
 export const SHAPE_BORDER_STYLES = [
   {id:'solid',label:'실선'},
@@ -100,15 +103,19 @@ export const SHAPE_BORDER_STYLES = [
 ]
 export const shapeBorderDash = (id,width) => SHAPE_BORDER_STYLES.find(item=>item.id===id)?.dash?.map(unit=>unit*width)
 
-export const DEFAULT_SHAPE_STYLE = { shape: 'round', fill: '#F8EBA7', borderColor: '#9D9866', borderWidth: 0, borderStyle: 'solid', color: '#0B1957', font: 'sans', fontSize: 20, bold: false, align: 'center', verticalAlign: 'middle' }
+export const DEFAULT_SHAPE_STYLE = { shape: 'round', fill: '#F8EBA7', borderColor: '#9D9866', borderWidth: 0, borderStyle: 'solid', color: '#0B1766', font: 'nanum-gothic', fontSize: 20, bold: false, align: 'center', verticalAlign: 'middle' }
 export const shapeDefinition = id => EDITOR_SHAPES.find(item => item.id === id) ?? EDITOR_SHAPES[1]
 export function createShape(settings, center) {
   const value = { ...DEFAULT_SHAPE_STYLE, ...settings }, ratio = shapeDefinition(value.shape).ratio ?? 1
   const w = 220, h = 220 / ratio
   return { ...value, id: createId(), type: 'shape', text: '', x: center.x-w/2, y: center.y-h/2, w, h, rotation: 0 }
 }
+export const memoArtOf = id => id ? MEMO_ARTS.find(art => art.id === id) : null
+// 메모 종이는 그림이라 비율을 지켜 커지고 작아진다. 글자도 종이와 같은 배율로 그린다(글자 크기는 기본 가로 220 기준).
+const memoScale = object => { const art = memoArtOf(object.art); return art ? object.w / art.w : 1 }
 export function shapeTextStyle(object, zoom = 1, platform = 'web') {
-  return { ...textStyle({...DEFAULT_SHAPE_STYLE,...object,textAlign:object.textAlign ?? object.align ?? 'left'},zoom,platform),padding:14*zoom }
+  const scale = zoom * memoScale(object)
+  return { ...textStyle({...DEFAULT_SHAPE_STYLE,...object,textAlign:object.textAlign ?? object.align ?? 'left'},scale,platform),padding:14*scale }
 }
 
 export const shapeTextSettings = object => ({...textSettings({...object,textAlign:object.textAlign ?? object.align ?? 'left'}),verticalAlign:object.verticalAlign ?? 'middle'})
@@ -118,7 +125,13 @@ export const shapeTextFormatPatch = (object,patch) => {
 }
 
 // 도형 전체 사각 영역을 정렬 기준으로 사용한다. 긴 글은 크기를 바꾸지 않고 넘쳐 표시한다.
+// 메모 종이는 그림이 정한 글 칸(textArea)을 쓴다. 줄이 있으면 첫 줄 칸을 첫 밑줄 바로 위에 맞춘다.
 export function shapeTextBox(object,zoom=1) {
+ const art=memoArtOf(object.art)
+ if (art) {
+  const k=zoom*memoScale(object), area=art.textArea, top=art.rule ? art.rule.top-art.rule.step : area.y
+  return {left:area.x*k,top:top*k,width:area.w*k,height:Math.max(1,area.y+area.h-top)*k}
+ }
  const pad=Math.min(14+(object.borderWidth??0)/2,object.w/4,object.h/4)
  return {left:pad*zoom,top:pad*zoom,width:Math.max(1,object.w-2*pad)*zoom,height:Math.max(1,object.h-2*pad)*zoom}
 }

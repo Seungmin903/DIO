@@ -62,18 +62,18 @@ test('직선 보정의 정지 허용 범위는 확대 배율과 무관한 화면
 test('형광펜 설정은 획에 복사되고 기존 펜·형광펜 설정은 유지된다', () => {
   const settings = { ...DEFAULT_HIGHLIGHTER_SETTINGS }
   const first = createStroke([{ x: 20, y: 30 }, { x: 100, y: 80 }], { ...settings, id: 'first' })
-  settings.color = '#FFB3C7'
+  settings.color = '#F6C79B'
   settings.width = 40
   settings.lineCap = 'round'
   const next = createStroke([{ x: 20, y: 100 }], settings)
   assert.equal(first.penKind, 'highlighter')
-  assert.equal(first.color, '#FFE066')
+  assert.equal(first.color, '#F7DF8A')
   assert.equal(first.strokeWidth, 18)
   assert.equal(first.lineCap, 'square')
-  assert.equal(next.color, '#FFB3C7')
+  assert.equal(next.color, '#F6C79B')
   assert.equal(next.strokeWidth, 40)
   assert.equal(next.lineCap, 'round')
-  assert.deepEqual(DEFAULT_PEN_SETTINGS, { kind: 'fountain', color: '#1D1D1F', width: 2.5 })
+  assert.deepEqual(DEFAULT_PEN_SETTINGS, { kind: 'fountain', color: '#18224D', width: 2.5 })
 })
 
 test('스퀘어 끝의 대각선 모서리와 단일 점이 저장 경계 안에 있다', () => {

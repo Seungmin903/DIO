@@ -1,15 +1,19 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { Image, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
+import { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
+import { Image as CachedImage } from 'expo-image'
 import CoverPattern from './CoverPattern'
+import FillSvg from './FillSvg'
 import Icon from '../../editor/components/controls/Icon'
-import { useMediaUri } from '../../editor/hooks/useMediaUri'
+import { useMediaEntry, useMediaUri } from '../../editor/hooks/useMediaUri'
+import { mediaService } from '../../editor/services/mediaStore'
+import { mediaId } from '../../editor/utils/mediaReferences.js'
 import { usePan } from '../../editor/hooks/usePan'
 import { stickerSource } from '../../editor/stickerAssets'
 import { clamp, normalizeAngle, rotateVector } from '../../editor/utils/common'
 import { ROTATE_OFFSET } from '../../editor/utils/popoverPlacement'
 import { textStyle } from '../../editor/utils/text'
-import { STICKER_SIZE, bandAutoColor, coverTitle, createStickerCopy, gradientStops, mix } from '../utils/coverDesign'
+import { STICKER_SIZE, bandAutoColor, coverTitle, createStickerCopy, coverLineColor, gradientStops, mix } from '../utils/coverDesign'
 import { colors } from '../../shared/theme'
 
 // 글씨체마다 같은 크기에서 보이는 글자 높이가 달라 손글씨는 조금 키운다.
@@ -18,6 +22,12 @@ const FONT_SCALE = { 'nanum-pen': 1.35, 'poor-story': 1.1 }
 const BASE = 200
 
 let nextGradientId = 0
+
+/** 표지 본체(고무줄이 튀어나올 만큼 안쪽으로 줄인 둥근 판)의 크기에 따른 값. 포커스 프레임(Cover)이 같은 값으로 본체를 감싼다. */
+export function coverBody(width, height) {
+  const scale = Math.min(width, height ?? width) / BASE
+  return { scale, bandOut: Math.max(0.75, 1.25 * scale), left: 6 * scale, right: 14 * scale }
+}
 
 /**
  * 고무줄 밴드. 로디아 · 몰스킨 하드커버 노트의 고무줄처럼 광택 없이 평평한 띠다.
@@ -32,19 +42,70 @@ function ElasticBand({ vertical, color, scale, radius, style }) {
     <View style={[StyleSheet.absoluteFill, { backgroundColor: color, borderColor: edge, borderRadius: radius, borderWidth: line }]} />
   </View>
 }
-function GradientFill({ stops }) {
+/**
+ * 띠지: 질감 · 그림자 없는 단색 종이에 위아래 가장자리 조금 안쪽으로 가는 인쇄선(글자 색)을 긋는다(하드커버 노트 띠지 참고, 2026-11-01).
+ * 두께는 짧은 변 200 기준(scale).
+ */
+function RibbonPaper({ ink, scale }) {
+  const line = { height: Math.max(0.5, 0.55 * scale), backgroundColor: ink, opacity: 0.7 }
+  const inset = 3 * scale
+  return <>
+    <View pointerEvents="none" style={[styles.ribbonEdge, line, { top: inset }]} />
+    <View pointerEvents="none" style={[styles.ribbonEdge, line, { bottom: inset }]} />
+  </>
+}
+function GradientFill({ stops, initialWidth, initialHeight }) {
   const id = useRef(`dio-cover-gradient-${(nextGradientId += 1)}`).current
-  return <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
+  return <FillSvg initialWidth={initialWidth} initialHeight={initialHeight}>{(width, height) => <>
     <Defs><LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
       {stops.map((color, i) => <Stop key={i} offset={i / (stops.length - 1)} stopColor={color} />)}
     </LinearGradient></Defs>
-    <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
-  </Svg>
+    <Rect x="0" y="0" width={width} height={height} fill={`url(#${id})`} />
+  </>}</FillSvg>
 }
 
+/**
+ * 표지 겉면만(바탕색 · 그라데이션 · 무늬, 사진 표지는 사진). 제목 · 띠지 · 고무줄 · 스티커는 없다.
+ * 펼쳐서 보기에서 종이 밖으로 보이는 표지 판에 쓴다. scale 은 닫힌 표지와 같은 단위(짧은 변 200 = 1)라 무늬 크기가 같다.
+ */
+export function CoverSurface({ cover, width, height, scale }) {
+  const stops = cover.kind === 'photo' ? null : gradientStops(cover)
+  const base = cover.kind === 'photo' ? cover.photo?.tone ?? '#C9CED8' : stops ? stops[0] : cover.color
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: base }]}>
+    {cover.kind === 'photo' ? (cover.photo?.src ? <OwnPhoto photo={cover.photo} /> : null)
+      : <>{stops && <GradientFill stops={stops} initialWidth={width} initialHeight={height} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} line={coverLineColor(cover)} initialWidth={width} initialHeight={height} /></>}
+  </View>
+}
+
+const PHOTO_RETRIES = 3
+
+// 들어가자마자 사진이 안 뜨던 원인은 useMediaUri 가 React Compiler 에 기억된 옛 값을 돌려준 것이었다(useMediaUri 참고).
+// 그와 별개로 보관소 읽기 실패와 그림 풀기 실패는 잠깐 뒤(0.5 · 1 · 1.5초) 다시 시도한다.
 function OwnPhoto({ photo }) {
   const uri = useMediaUri(photo)
-  return uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null
+  const id = mediaId(photo)
+  const entry = useMediaEntry(id)
+  const [attempt, setAttempt] = useState(0)
+  const failed = entry?.status === 'error'
+  useEffect(() => {
+    if (!failed || attempt >= PHOTO_RETRIES) return undefined
+    if (__DEV__) console.warn('[cover photo] 읽기 실패, 다시 시도', id, entry.error?.code ?? entry.error?.message)
+    const timer = setTimeout(() => { setAttempt(value => value + 1); mediaService.resolveDisplay(id).catch(() => {}) }, 500 * (attempt + 1))
+    return () => clearTimeout(timer)
+  }, [failed, attempt, id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [drawAttempt, setDrawAttempt] = useState(0)
+  // 그리기 재시도 타이머는 표지가 사라지면(휴지통 · 넘김) 함께 멈춘다
+  const drawRetry = useRef(null)
+  useEffect(() => () => clearTimeout(drawRetry.current), [])
+  if (!uri) return null
+  // expo-image: PDF 쪽처럼 큰 사진도 표지 크기에 맞춰 줄여 풀고 메모리 · 디스크에 캐시해 다시 들어올 때 바로 뜬다
+  return <CachedImage key={drawAttempt} source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={0} recyclingKey={id ?? uri}
+    onError={event => {
+      if (drawAttempt >= PHOTO_RETRIES) return
+      if (__DEV__) console.warn('[cover photo] 그리기 실패, 다시 시도', id, event?.error)
+      clearTimeout(drawRetry.current)
+      drawRetry.current = setTimeout(() => setDrawAttempt(value => value + 1), 500 * (drawAttempt + 1))
+    }} />
 }
 
 function StickerImage({ item }) {
@@ -244,7 +305,7 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null }) {
   const titleOrigin = useRef({ x: 0, y: 0 })
   const drafts = useRef(null)
   if (!drafts.current) drafts.current = createDraftStore()
-  const scale = Math.min(width, height ?? width) / BASE
+  const { scale, bandOut, left: cornerLeft, right: cornerRight } = coverBody(width, height)
   if (!cover.enabled) return <View style={[styles.none, { borderRadius: 6 * scale }]}>
     <Text style={styles.noneTitle}>표지 없음</Text>
   </View>
@@ -264,21 +325,18 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null }) {
     : { left: '11%', right: cover.band.on && cover.band.dir === 'v' && cover.band.pos === 'near' ? '22%' : '11%', alignItems: align, ...(vertical === 't' ? { top: '11%' } : vertical === 'b' ? { bottom: '11%' } : { top: 0, bottom: 0, justifyContent: 'center' }) }
   const textAlign = centered ? 'center' : horizontal === 'l' ? 'left' : 'right'
   const hasSubtitle = cover.subtitle.on && cover.subtitle.text
+  // 띠지 글은 붙인 쪽 끝에서 띠 폭 8% 안쪽에서 시작한다(하드커버 노트 띠지 참고). 반대쪽과 가운데 정렬은 오른쪽 고무줄을 비키게 22% 를 둔다.
+  const bandRight = cover.band.on && cover.band.dir === 'v' && cover.band.pos === 'near'
+  const ribbonPad = { left: horizontal === 'l' ? '8%' : '22%', right: horizontal === 'r' && !bandRight ? '8%' : '22%' }
   // 띠지는 소제목이 없으면 위아래를 조금 더 띄워 제목 한 줄만으로도 띠 모양이 살게 한다
   const plate = cover.plate === 'paper' ? [styles.paperPlate, { borderRadius: 4 * scale, paddingHorizontal: 12 * scale, paddingVertical: 10 * scale }]
-    : ribbon ? [styles.ribbonPlate, { backgroundColor: cover.ribbon?.color ?? '#F3F2ED', alignItems: align, paddingHorizontal: '22%', paddingVertical: (hasSubtitle ? 15 : 19) * scale }] : null
-  // 띠지 안 제목과 소제목 사이의 짧은 가로선 (둘 다 있을 때만)
-  const rule = ribbon && !!title && !!hasSubtitle && <View style={[styles.rule, { height: Math.max(0.75, 0.9 * scale), marginVertical: 5 * scale, backgroundColor: cover.title.color }]} />
-  // 띠지 위아래 가장자리 안쪽의 가는 인쇄선 두 줄 (책 띠지의 테두리선). 제목 색을 옅게 쓴다.
-  const hairline = Math.max(0.5, 0.6 * scale)
-  const ribbonEdges = ribbon && <>
-    <View pointerEvents="none" style={[styles.ribbonEdge, { top: 4 * scale, height: hairline, backgroundColor: cover.title.color }]} />
-    <View pointerEvents="none" style={[styles.ribbonEdge, { bottom: 4 * scale, height: hairline, backgroundColor: cover.title.color }]} />
-  </>
+    : ribbon ? [{ backgroundColor: cover.ribbon?.color ?? '#F3F2ED', alignItems: align, paddingLeft: ribbonPad.left, paddingRight: ribbonPad.right, paddingVertical: (hasSubtitle ? 15 : 19) * scale }] : null
+  // 띠지 안 제목과 소제목 사이 실선 (둘 다 있을 때만, 글 폭 전체)
+  const rule = ribbon && !!title && !!hasSubtitle && <View style={[styles.fill, { height: Math.max(0.5, 0.5 * scale), marginVertical: 4.5 * scale, backgroundColor: cover.title.color, opacity: 0.35 }]} />
+  const ribbonEdges = ribbon && <RibbonPaper ink={cover.title.color} scale={scale} />
   const titleFont = textStyle({ font: cover.title.font, fontSize: cover.title.size * (FONT_SCALE[cover.title.font] ?? 1), color: cover.title.color, bold: true, lineSpacing: 1.15 }, scale, Platform.OS)
   const bandWidth = Math.max(4.5, 9 * scale)
   // 실제 고무줄처럼 표지 위아래(가로 띠는 좌우) 가장자리 밖으로 살짝 튀어나온다
-  const bandOut = Math.max(0.75, 1.25 * scale)
   // 표지 본체 크기. 고무줄을 켜고 끄거나 방향을 바꿔도 표지 크기가 달라지지 않게 늘 네 변을 bandOut 만큼 줄인다.
   const bodyWidth = width - bandOut * 2, bodyHeight = (height ?? width) - bandOut * 2
   // 'auto' 는 표지 색을 같은 계열로 조금 어둡게 한 고무줄 (사진 표지는 따를 바탕색이 없어 기본 남색)
@@ -287,15 +345,17 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null }) {
   const band = cover.band.on && (cover.band.dir === 'v'
     ? { top: 0, bottom: 0, width: bandWidth, ...(cover.band.pos === 'center' ? { left: '50%', marginLeft: -bandWidth / 2 } : { right: '15%' }) }
     : { left: 0, right: 0, height: bandWidth, ...(cover.band.pos === 'center' ? { top: '50%', marginTop: -bandWidth / 2 } : { bottom: '14%' }) })
+  // 종이 라벨은 왼쪽 · 오른쪽 정렬이어도 칸 전체 폭까지 쓴다. 칸이 오른쪽 고무줄 자리만큼 이미 줄어 있어(표지 폭 67%) 78% 를 또 걸면
+  // 세로 표지에서 '새 다이어리'(나눔고딕 굵게 4.98em)부터 두 줄이 됐다. 판 없는 글씨만 예전처럼 78% 로 줄 길이를 묶는다.
   const titleArea = (title || hasSubtitle) ? <View pointerEvents="box-none" style={[styles.titleBox, place]}
     onLayout={event => { titleOrigin.current = event.nativeEvent.layout }}>
     <TitleBox edit={edit} ribbon={ribbon} width={bodyWidth} height={bodyHeight} at={at} origin={titleOrigin}
       onSelect={() => select(null)} onMove={next => edit.onChange({ ...cover, title: { ...cover.title, at: next } })}
-      style={[plate, !ribbon && { maxWidth: at ? bodyWidth * 0.78 : centered ? '100%' : '78%' }]}>
+      style={[plate, !ribbon && { maxWidth: at ? bodyWidth * 0.78 : centered || cover.plate === 'paper' ? '100%' : '78%' }]}>
       {ribbonEdges}
       {title ? <Text numberOfLines={3} lineBreakStrategyIOS="hangul-word" style={[titleFont, styles.fill, styles.keepWords, { textAlign }]}>{title}</Text> : null}
       {rule}
-      {hasSubtitle ? <Text numberOfLines={1} style={[styles.subtitle, ribbon && styles.fill, { textAlign, color: cover.subtitle.color, fontSize: Math.max(5, cover.subtitle.size * scale), letterSpacing: cover.subtitle.size * scale * 0.12, marginTop: ribbon ? 0 : 4 * scale }]}>{cover.subtitle.text}</Text> : null}
+      {hasSubtitle ? <Text numberOfLines={1} style={[styles.subtitle, ribbon && styles.fill, { textAlign, color: cover.subtitle.color, fontSize: Math.max(5, cover.subtitle.size * scale), letterSpacing: cover.subtitle.size * scale * 0.086, marginTop: ribbon ? 0 : 4 * scale }]}>{cover.subtitle.text}</Text> : null}
     </TitleBox>
   </View> : null
   const select = id => { setSelected(id); edit?.onSelectSticker?.(id) }
@@ -306,21 +366,26 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null }) {
     edit.onChange({ ...cover, stickers: [...cover.stickers, copy] })
     select(copy.id)
   }
-  const corners = { borderTopLeftRadius: 6 * scale, borderBottomLeftRadius: 6 * scale, borderTopRightRadius: 14 * scale, borderBottomRightRadius: 14 * scale }
+  const lineColor = coverLineColor(cover)
+  const corners = { borderTopLeftRadius: cornerLeft, borderBottomLeftRadius: cornerLeft, borderTopRightRadius: cornerRight, borderBottomRightRadius: cornerRight }
   // 표지 본체는 고무줄이 튀어나올 만큼 안쪽으로 줄여 둥근 모서리로 자르고, 고무줄은 이 영역 끝까지 그린다.
   // 튀어나온 끝이 영역 안에 있어 목록 · 스와이프 · 편집 어디서 부모가 잘라도 똑같이 보인다.
   // 띠지는 고무줄 아래(고무줄이 띠지 위로 지나감), 종이 라벨 · 판 없음과 스티커는 고무줄 위에 놓인다.
   // 고무줄을 끄거나 방향을 바꿔도 본체는 같은 자리 · 크기다. (예전에는 고무줄을 켠 방향으로만 줄여 높이가 달라 보였다)
   const body = { ...corners, top: bandOut, bottom: bandOut, left: bandOut, right: bandOut }
-  const base = cover.kind === 'photo' ? '#C9CED8' : stops ? stops[0] : cover.color
+  // 사진 표지는 사진이 뜨기 전에 사진의 대표색(photo.tone)을 깔아 회색으로 비치지 않게 한다
+  const base = cover.kind === 'photo' ? cover.photo?.tone ?? '#C9CED8' : stops ? stops[0] : cover.color
+  const hasGradient = cover.kind !== 'photo' && Boolean(stops)
+  const bodyInset = { top: bandOut + 1, bottom: bandOut + 1, left: bandOut + 1, right: bandOut + 1 }
   // 웹에서 스티커 · 라벨을 끄는 동안 제목 글자가 선택되지 않게
   return <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, edit && Platform.OS === 'web' && styles.noSelect]}>
   {/* 그림자는 잘라 그리는 본체에서는 iOS 에서 잘리므로 같은 자리에 따로 깐다 */}
-  {shadow && <View pointerEvents="none" style={[styles.layer, body, { backgroundColor: base }, shadow]} />}
-  <View style={[styles.layer, styles.clip, body, { backgroundColor: base }]}>
+  {/* 그라데이션 표지: 첫 색(바탕색)을 깔면 둥근 모서리의 반투명 가장자리로 그 색이 선처럼 비친다(예: 노을의 분홍이 파란 아래쪽 바깥으로). 그림자 층은 1px 안쪽으로 줄여 가려 두고, 잘라 그리는 층은 바탕 없이 그라데이션만 그린다 */}
+  {shadow && <View pointerEvents="none" style={[styles.layer, body, { backgroundColor: base }, hasGradient && bodyInset, shadow]} />}
+  <View style={[styles.layer, styles.clip, body, { backgroundColor: hasGradient ? 'transparent' : base }]}>
     {cover.kind === 'photo' ? (cover.photo?.src ? <OwnPhoto photo={cover.photo} />
       : <View style={styles.noPhoto}><Icon name="image" size={Math.max(18, 30 * scale)} color="#FFFFFF" /></View>)
-      : <>{stops && <GradientFill stops={stops} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} /></>}
+      : <>{stops && <GradientFill stops={stops} initialWidth={bodyWidth} initialHeight={bodyHeight} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} line={lineColor} initialWidth={bodyWidth} initialHeight={bodyHeight} /></>}
     {edit && <Pressable accessibilityLabel="표지 스티커 선택 해제" onPress={() => select(null)} style={StyleSheet.absoluteFill} />}
     <View pointerEvents="none" style={[styles.spine, { width: '4.9%' }]} />
     {ribbon && titleArea}
@@ -346,20 +411,17 @@ const styles = StyleSheet.create({
   fill: { alignSelf: 'stretch' },
   // 한글 제목은 낱말 가운데에서 끊지 않는다 (iOS 는 lineBreakStrategyIOS, 웹은 word-break)
   keepWords: Platform.OS === 'web' ? { wordBreak: 'keep-all' } : {},
-  spine: { position: 'absolute', top: 0, bottom: 0, left: 0, backgroundColor: 'rgba(11,25,87,.16)' },
+  spine: { position: 'absolute', top: 0, bottom: 0, left: 0, backgroundColor: 'rgba(11,23,102,.16)' },
   band: { position: 'absolute' },
   bandShadow: { backgroundColor: 'rgba(0,0,0,.12)' },
   titleBox: { position: 'absolute' },
   paperPlate: { backgroundColor: 'rgba(245,244,239,.96)', shadowColor: colors.text, shadowOpacity: 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
-  // 종이 띠지. 색은 cover.ribbon.color (기본은 노란 기를 뺀 아이보리). 아래로 옅은 그림자를 둬 표지를 감싼 느낌을 낸다.
-  ribbonPlate: { shadowColor: '#000000', shadowOpacity: 0.14, shadowRadius: 3, shadowOffset: { width: 0, height: 1.5 }, elevation: 2 },
-  rule: { width: '28%', opacity: 0.6 },
   subtitle: { fontWeight: '800' },
   sticker: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   noPhoto: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   titleSelected: { borderWidth: 1.5, borderColor: colors.primaryStrong, borderStyle: 'dashed' },
   stickerImage: { width: '100%', height: '100%' },
-  ribbonEdge: { position: 'absolute', left: 0, right: 0, opacity: 0.32 },
+  ribbonEdge: { position: 'absolute', left: 0, right: 0 },
   noSelect: { userSelect: 'none' },
   // 편집기 선택 테두리(SelectionOverlay)와 같은 모양
   stickerHit: { position: 'absolute' },
@@ -370,9 +432,9 @@ const styles = StyleSheet.create({
   cornerHandle: { backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary },
   rotateHandle: { backgroundColor: colors.primaryStrong, borderWidth: 1, borderColor: colors.surface },
   stickerBar: { position: 'absolute', width: BAR.width, height: BAR.height, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 2, borderRadius: 12,
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(110,146,198,0.2)', shadowColor: colors.text, shadowOpacity: 0.16, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,138,195,0.2)', shadowColor: colors.text, shadowOpacity: 0.16, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
   barButton: { width: 42, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  barPressed: { backgroundColor: colors.primarySoft },
+  barPressed: {}, // 눌림 효과 없음(사용자 지시)
   none: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, backgroundColor: 'rgba(255,255,255,.7)' },
   noneTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
 })

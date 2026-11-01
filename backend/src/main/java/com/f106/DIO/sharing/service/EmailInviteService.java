@@ -5,7 +5,6 @@ import com.f106.DIO.diary.repository.DiaryMemberRepository;
 import com.f106.DIO.sharing.domain.*;
 import com.f106.DIO.sharing.dto.*;
 import com.f106.DIO.sharing.exception.SharingException;
-import com.f106.DIO.sharing.infrastructure.mail.*;
 import com.f106.DIO.sharing.repository.*;
 import com.f106.DIO.sharing.support.InviteTokens;
 import com.f106.DIO.user.repository.UserRepository;
@@ -22,43 +21,43 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmailInviteService {
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entities;
     private final SharingAccessService access;private final DiaryInviteRepository invites;private final DiaryMemberRepository members;
-    private final UserRepository users;private final InviteTokens tokens;private final InviteMailSender mail;
+    private final UserRepository users;private final InviteTokens tokens;
     private final org.springframework.transaction.support.TransactionTemplate write;
     private final ApplicationEventPublisher events;private final InviteViews views;private final DiaryInviteService links;
     private final com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts;
     public EmailInviteService(SharingAccessService access,DiaryInviteRepository invites,DiaryMemberRepository members,UserRepository users,
-            InviteTokens tokens,InviteMailSender mail,ApplicationEventPublisher events,InviteViews views,DiaryInviteService links,org.springframework.transaction.PlatformTransactionManager manager,com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts){
+            InviteTokens tokens,ApplicationEventPublisher events,InviteViews views,DiaryInviteService links,org.springframework.transaction.PlatformTransactionManager manager,com.f106.DIO.sharing.support.EmailInviteAttemptThrottle attempts){
         this.write=new org.springframework.transaction.support.TransactionTemplate(manager);
-        this.access=access;this.invites=invites;this.members=members;this.users=users;this.tokens=tokens;this.mail=mail;this.events=events;this.views=views;this.links=links;this.attempts=attempts;
+        this.access=access;this.invites=invites;this.members=members;this.users=users;this.tokens=tokens;this.events=events;this.views=views;this.links=links;this.attempts=attempts;
     }
     @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NEVER)
     public EmailInviteAcknowledgement send(UUID diaryId,long actor,EmailInviteRequest request){
-        // Publish only after execute returns: even queue rejection recovery cannot retain the caller's DB connection.
-        var outgoing=write.execute(status->prepare(diaryId,actor,request));
-        if(outgoing!=null)events.publishEvent(outgoing);
+        // Keep the existing notification listener in the invitation transaction.
+        write.executeWithoutResult(status->prepare(diaryId,actor,request));
         return EmailInviteAcknowledgement.accepted();
     }
-    private InviteMailDispatch.Requested prepare(UUID diaryId,long actor,EmailInviteRequest request){
-        var diary=access.lock(diaryId);access.member(diary,actor);tokens.emailConfigured();mail.configured();
+    private void prepare(UUID diaryId,long actor,EmailInviteRequest request){
+        var diary=access.lock(diaryId);access.member(diary,actor);tokens.configured();
         Instant now=Instant.now().truncatedTo(ChronoUnit.MICROS);
         attempts.reserve(diaryId,actor,request.email(),now);
         var recipient=users.findByEmail(request.email()).filter(u->u.isActive()).orElse(null);
-        if(recipient==null)return null;
-        if(members.findById(new DiaryMemberId(diaryId,recipient.getUserId())).filter(DiaryMember::active).isPresent())return null;
+        if(recipient==null)return;
+        if(members.findById(new DiaryMemberId(diaryId,recipient.getUserId())).filter(DiaryMember::active).isPresent())return;
         var pending=invites.pendingEmail(diaryId,recipient.getUserId()).orElse(null);
         if(pending!=null){
-            if(tokens.matches(pending,tokens.token(pending)))return null;
+            if(tokens.matches(pending,tokens.token(pending)))return;
             pending.cancel(Instant.now());
         }
         var recent=invites.recentEmails(diaryId,recipient.getUserId(),now.minusSeconds(SharingPolicy.INVITE_WINDOW_SECONDS));
         if(recent.size()>=SharingPolicy.MAX_INVITES){
             // Durable send quota remains authoritative after restarts/across instances.
             // Its outcome must not expose whether a matching account exists.
-            return null;
+            return;
         }
         var invite=invites.saveAndFlush(DiaryInvite.email(diaryId,actor,recipient.getUserId(),now));
         String token=tokens.token(invite);invite.initializeHash(tokens.hash(token));diary.updateSettings(null,null,null,"MEMBERS");
-        return new InviteMailDispatch.Requested(invite.getInviteId(),recipient.getEmail(),diary.getTitle(),tokens.url(token));
+        entities.flush();
+        events.publishEvent(new com.f106.DIO.notification.event.InvitationConfirmedEvent(UUID.randomUUID(),invite.getInviteId(),recipient.getUserId(),now));
     }
     @Transactional(readOnly=true)
     public DiaryInvitationsResponse sent(UUID diaryId,long actor,int page,int size){

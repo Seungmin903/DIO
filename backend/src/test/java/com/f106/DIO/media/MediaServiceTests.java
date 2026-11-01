@@ -17,6 +17,8 @@ import com.f106.DIO.media.domain.MediaStorageDeletionTask;
 import com.f106.DIO.media.dto.MediaFileResponse;
 import com.f106.DIO.media.service.MediaFileTransactionService;
 import com.f106.DIO.media.service.MediaService;
+import com.f106.DIO.media.service.GuardedMediaOperations;
+import com.f106.DIO.media.service.MediaUploadAdmission;
 import com.f106.DIO.media.service.MediaStorageDeletionQueueService;
 import com.f106.DIO.media.storage.MediaFiles;
 import com.f106.DIO.media.support.MediaRequestException;
@@ -25,7 +27,8 @@ class MediaServiceTests {
 	private final MediaFiles storage = mock(MediaFiles.class);
 	private final MediaFileTransactionService transactions = mock(MediaFileTransactionService.class);
 	private final MediaStorageDeletionQueueService deletionQueue = mock(MediaStorageDeletionQueueService.class);
-	private final MediaService service = new MediaService(storage, transactions, deletionQueue);
+	private final GuardedMediaOperations guarded = mock(GuardedMediaOperations.class);
+	private final MediaService service = new MediaService(storage, transactions, deletionQueue, guarded, new MediaUploadAdmission(3,8,250));
 
 	@Test
 	void gifIsStoredAsImageAndKeepsGifMimeType() {
@@ -51,6 +54,68 @@ class MediaServiceTests {
 		assertThat(response.mediaType()).isEqualTo("AUDIO");
 		assertThat(response.libraryCategory()).isEqualTo("AUDIO");
 		assertThat(response.mimeType()).isEqualTo("audio/wav");
+	}
+
+	@Test
+	void pdfSourceIsStoredAsADocumentWhenItsHeaderAppearsWithinTheFirstKilobyte() {
+		stubPersist();
+		byte[] source = new byte[512];
+		System.arraycopy("%PDF-1.7".getBytes(), 0, source, 500, 8);
+		var pdf = service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", source), null, 7L);
+
+		assertThat(pdf.mediaType()).isEqualTo("DOCUMENT");
+		assertThat(pdf.libraryCategory()).isEqualTo("DOCUMENT");
+		verify(storage).put(startsWith("media/document/"), any(), eq("application/pdf"));
+	}
+
+	@Test
+	void rejectsFilesWithoutAPdfHeaderInTheFirstKilobyte() {
+		byte[] source = new byte[1030];
+		System.arraycopy("%PDF-1.7".getBytes(), 0, source, 1022, 8);
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", source), null, 7L))
+			.isInstanceOf(MediaRequestException.class)
+			.isInstanceOfSatisfying(MediaRequestException.class, error -> assertThat(error.code()).isEqualTo("INVALID_MEDIA_FILE"));
+	}
+
+	@Test
+	void doesNotGrantThePdfSizeLimitToAnImageWithAnEmbeddedPdfMarker() {
+		byte[] forged = new byte[6 * 1024 * 1024];
+		forged[0] = (byte) 0xFF; forged[1] = (byte) 0xD8; forged[2] = (byte) 0xFF;
+		System.arraycopy("%PDF-1.7".getBytes(), 0, forged, 100, 8);
+
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "forged.pdf", "application/pdf", forged), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, error -> {
+				assertThat(error.status().value()).isEqualTo(413);
+				assertThat(error.getMessage()).contains("5MiB");
+			});
+	}
+
+	@Test
+	void documentsUseTheirOwnSizeLimit() {
+		stubPersist();
+		byte[] medium = new byte[6 * 1024 * 1024]; System.arraycopy("%PDF-1.7".getBytes(), 0, medium, 0, 8);
+		assertThat(service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", medium), null, 7L).mediaType()).isEqualTo("DOCUMENT");
+
+		byte[] large = new byte[25 * 1024 * 1024 + 1]; System.arraycopy("%PDF-1.7".getBytes(), 0, large, 0, 8);
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", large), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.getMessage()).contains("PDF 원본").contains("25MiB"); });
+
+		// 문서 이름을 붙인 큰 이미지는 판별 후 이미지 한도를 그대로 적용한다.
+		byte[] jpeg = new byte[6 * 1024 * 1024]; jpeg[0]=(byte)0xff; jpeg[1]=(byte)0xd8; jpeg[2]=(byte)0xff;
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "photo.pdf", "application/pdf", jpeg), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, e -> assertThat(e.getMessage()).contains("5MiB"));
+	}
+
+	@Test
+	void documentDownloadsFallBackToATypedFileName() {
+		java.util.UUID id = java.util.UUID.randomUUID();
+		when(transactions.storageReference(id, 7L)).thenReturn(new MediaFileTransactionService.StorageReference("application/pdf", null, "key"));
+		when(storage.read("key")).thenReturn("%PDF-1.7".getBytes());
+		assertThat(service.file(id, 7L).downloadName()).isEqualTo("document.pdf");
+
+		when(transactions.storageReference(id, 7L)).thenReturn(new MediaFileTransactionService.StorageReference("image/png", " ", "key"));
+		assertThat(service.file(id, 7L).downloadName()).isNull();
+
 	}
 
 	@Test
@@ -124,35 +189,108 @@ class MediaServiceTests {
 	}
 
 	@Test
-	void keepsTheUploadCleanupTaskWhenPersistenceAndImmediateStorageCleanupFail() {
+	void doesNotImmediatelyDeleteStorageWhenPersistenceFails() {
 		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
 			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));
+		stubPersist();
 		when(transactions.persist(any(MediaFile.class), any())).thenThrow(new IllegalStateException("database unavailable"));
-		doThrow(new IllegalStateException("S3 unavailable")).when(storage).delete(any());
 
 		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "failed.gif", "image/gif", "GIF89a".getBytes()), null, 7L))
 			.isInstanceOf(IllegalStateException.class);
 
-		verify(deletionQueue).recordFailure(any(MediaStorageDeletionTask.class), any());
+		verify(storage, org.mockito.Mockito.never()).delete(any());
 	}
 
 	@Test
-	void keepsTheUploadCleanupTaskWhenPutOutcomeIsUnknownAndCleanupFails() {
+	void doesNotImmediatelyDeleteStorageWhenPutOutcomeIsUnknown() {
 		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
 			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));
+		stubPersist();
 		doThrow(new IllegalStateException("S3 timeout")).when(storage).put(any(), any(), any());
-		doThrow(new IllegalStateException("S3 unavailable")).when(storage).delete(any());
 
 		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "timeout.gif", "image/gif", "GIF89a".getBytes()), null, 7L))
 			.isInstanceOf(IllegalStateException.class);
 
-		verify(storage).delete(any());
-		verify(deletionQueue).recordFailure(any(MediaStorageDeletionTask.class), any());
+		verify(storage, org.mockito.Mockito.never()).delete(any());
+	}
+
+	@Test
+	void fontUploadAcceptsTwentyTwoPointFiveMiBAndUsesFontCategory() {
+		for (boolean otf : new boolean[] {false, true}) {
+			byte[] bytes = new byte[22 * 1024 * 1024 + 512 * 1024];
+			byte[] sample=sampleFont(otf); System.arraycopy(sample,0,bytes,0,sample.length);
+			stubPersist();
+			var result=service.upload(new MockMultipartFile("file", "hand.font", "application/octet-stream", bytes), null, 7L);
+			assertThat(result.mediaType()).isEqualTo("FONT"); assertThat(result.libraryCategory()).isEqualTo("FONT");
+			assertThat(result.fileSize()).isEqualTo(bytes.length); assertThat(result.mimeType()).isEqualTo(otf ? "font/otf" : "font/ttf");
+		}
+	}
+	@Test
+	void fontAndOtherMediaRetainSeparateLimitsAndCategories() {
+		byte[] jpeg = new byte[5 * 1024 * 1024 + 1]; jpeg[0]=(byte)0xff; jpeg[1]=(byte)0xd8; jpeg[2]=(byte)0xff;
+		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.jpg","image/jpeg",jpeg),null,7L)).isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.code()).isEqualTo("MEDIA_FILE_TOO_LARGE"); assertThat(e.getMessage()).contains("5MiB"); });
+		byte[] ttf = new byte[25 * 1024 * 1024 + 1]; ttf[1]=1;
+		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.ttf","font/ttf",ttf),null,7L)).isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.code()).isEqualTo("MEDIA_FILE_TOO_LARGE"); assertThat(e.getMessage()).contains("25MiB"); });
+		byte[] small = sampleFont(false);
+		assertThatThrownBy(()->service.upload(new MockMultipartFile("file","x.ttf","font/ttf",small),"PHOTO",7L)).isInstanceOf(MediaRequestException.class);
+	}
+	@Test
+	void rejectsTruncatedOrMalformedFontDirectories() {
+		for (boolean otf : new boolean[] {false, true}) {
+			byte[] valid=sampleFont(otf);
+			byte[] truncated=java.util.Arrays.copyOf(valid, 20);
+			byte[] outOfBounds=valid.clone(); outOfBounds[20]=(byte)0xff;
+			byte[] duplicate=valid.clone(); System.arraycopy(duplicate,12,duplicate,28,4);
+			byte[] empty=valid.clone(); empty[24]=empty[25]=empty[26]=empty[27]=0;
+			for(byte[] bad : java.util.List.of(truncated,outOfBounds,duplicate,empty))
+				assertThatThrownBy(()->service.upload(new MockMultipartFile("file","bad.font","application/octet-stream",bad),null,7L)).isInstanceOf(MediaRequestException.class);
+		}
+	}
+	@Test
+	void acceptsBundledRealTrueTypeFile() throws java.io.IOException {
+		byte[] data=java.nio.file.Files.readAllBytes(java.nio.file.Path.of("../frontend/assets/fonts/gowundodum/GowunDodum-Regular.ttf"));stubPersist();
+		var result=service.upload(new MockMultipartFile("file","real.ttf","font/ttf",data),null,7L);
+		assertThat(result.mimeType()).isEqualTo("font/ttf"); assertThat(result.fileSize()).isEqualTo(data.length);
+	}
+	@Test
+	void checksTheExistingNonFontSizeLimitBeforeReadingTheWholeFile() {
+		byte[] bytes=new byte[5*1024*1024+1]; bytes[0]=(byte)0xff;bytes[1]=(byte)0xd8;bytes[2]=(byte)0xff;
+		var stream=new java.io.ByteArrayInputStream(bytes) { int total; @Override public synchronized int read(byte[] b,int off,int len) { int n=super.read(b,off,len); if(n>0) {total+=n; if(total>1024) throw new AssertionError("read beyond the PDF detection header");} return n; } };
+		var file=mock(org.springframework.web.multipart.MultipartFile.class);
+		try { when(file.isEmpty()).thenReturn(false);when(file.getSize()).thenReturn((long)bytes.length);when(file.getInputStream()).thenReturn(stream); }
+		catch(java.io.IOException e) { throw new AssertionError(e); }
+		assertThatThrownBy(()->service.upload(file,null,7L)).isInstanceOfSatisfying(MediaRequestException.class,e->assertThat(e.status().value()).isEqualTo(413));
+	}
+	private static byte[] sampleFont(boolean otf) {
+		String[] tags=otf ? new String[]{"head","maxp","cmap","name","hhea","hmtx","CFF "} : new String[]{"head","maxp","cmap","name","hhea","hmtx","glyf","loca"};
+		int end=12+tags.length*16;byte[] data=new byte[end+tags.length]; if(otf){data[0]='O';data[1]='T';data[2]='T';data[3]='O';}else data[1]=1;data[5]=(byte)tags.length;
+		for(int i=0;i<tags.length;i++){int pos=12+i*16;byte[] tag=tags[i].getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);System.arraycopy(tag,0,data,pos,4);java.nio.ByteBuffer.wrap(data).putInt(pos+8,end+i).putInt(pos+12,1);data[end+i]=1;}
+		return data;
+	}
+	@Test
+	void aiStickerIsStoredAsStickerWithAiResultSource() {
+		byte[] png = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 0};
+		stubPersist();
+
+		var response = service.storeAiSticker(png, 7L);
+
+		assertThat(response.sourceType()).isEqualTo("AI_RESULT");
+		assertThat(response.libraryCategory()).isEqualTo("STICKER");
+		assertThat(response.mimeType()).isEqualTo("image/png");
+		assertThat(response.originalFilename()).isNull();
+		verify(storage).put(startsWith("media/image/"), any(), eq("image/png"));
+	}
+
+	@Test
+	void aiStickerRejectsNonImageBytes() {
+		assertThatThrownBy(() -> service.storeAiSticker(new byte[] {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E'}, 7L))
+			.isInstanceOf(MediaRequestException.class);
 	}
 
 	private void stubPersist() {
 		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
 			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));
 		when(transactions.persist(any(MediaFile.class), any())).thenAnswer(invocation -> MediaFileResponse.from(invocation.getArgument(0)));
+		org.mockito.Mockito.doAnswer(call -> { MediaFile media=call.getArgument(0); storage.put(media.getStorageKey(),call.getArgument(2),call.getArgument(3)); return transactions.persist(media,call.getArgument(1)); }).when(guarded).upload(any(),any(),any(),any());
 	}
 }

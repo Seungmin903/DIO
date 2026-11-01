@@ -7,6 +7,7 @@ import { keepOutBox, placeHorizontal, placeVertical, POPOVER_EDGE } from '../../
 import Icon from '../controls/Icon'
 import LassoSelectionMenu from '../LassoSelectionMenu'
 import { EDITOR_COLORS } from '../../utils/penSettings'
+import { usePalette } from '../../hooks/usePalettes'
 import { normalizeTextLink } from '../../utils/textFormats'
 import { isStripFrame } from '../../utils/photoStrip'
 import { emptyPhotoSlots, hasPhotoMedia } from '../../utils/objects'
@@ -55,6 +56,7 @@ export default function ContextBar({
   textSettingsOpen = false, // 텍스트 서식 창이 열려 있음 ('서식' 버튼 표시)
   frame = null, // 작업창 위에 그릴 때 { x, y: 페이지 왼쪽 위의 작업창 좌표, area: 바를 둘 보이는 영역 { left, top, right, bottom } }. 없으면 페이지 안
 }) {
+  const penColors = usePalette?.('pen')?.colors ?? EDITOR_COLORS // 꾸미기 공방 '내 프리셋'의 펜 색
   const [barWidth, setBarWidth] = useState(0)
   const [chipWidth, setChipWidth] = useState(0)
   // 링크가 걸린 요소를 고르면 바에 '링크 열기' 를 바로 보여 준다
@@ -88,7 +90,7 @@ export default function ContextBar({
   const linkCard = href && single && !single.locked && (
     <View style={[styles.chip, { top: chipTop, left: chipLeft, opacity: chipWidth ? 1 : 0 }]} onLayout={(event) => setChipWidth(event.nativeEvent.layout.width)} onStartShouldSetResponder={() => true} {...insideHandlers}>
       <Pressable onPress={openLink} accessibilityRole="link" accessibilityLabel="링크 열기" style={({ pressed }) => [styles.chipLink, pressed && styles.pressed]}>
-        <Icon name="external" size={15} color={colors.primary} />
+        <Icon name="external" size={15} forText={12} color={colors.primary} />
         <Text style={styles.chipText} numberOfLines={1}>{href.replace(/^https?:\/\//, '')}</Text>
       </Pressable>
       <View style={styles.chipDivider} />
@@ -115,7 +117,7 @@ export default function ContextBar({
       cropable && { icon: 'crop', label: '자르기', onPress: () => onCrop(single.id) },
       fillable && { icon: 'image', label: '사진 채우기', onPress: () => onFillCells(single.id) },
       linkable && { icon: 'link', label: '링크', active: Boolean(single.href), onPress: () => onObjectLink?.(single) },
-      objects.length > 1 && { icon: 'folder', label: grouped ? '그룹 해제' : '그룹', onPress: () => {
+      objects.length > 1 && { icon: 'group', label: grouped ? '그룹 해제' : '그룹', onPress: () => {
         dispatch({ type: grouped ? 'ungroup' : 'group', ids })
         onToast(grouped ? '그룹을 풀었어요.' : '그룹으로 묶었어요. 레이어에서 폴더로 보여요.')
       } },
@@ -175,10 +177,11 @@ export default function ContextBar({
     {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} origin={origin} area={area} anchor={{ top, height: BAR_HEIGHT }} />}
   </>
 
-  if (editingStroke) return <>
+  // 남은 경우는 필기 편집뿐이다
+  return <>
     <View accessibilityLabel="필기 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, areaW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
-        {EDITOR_COLORS.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 요소 색상 ${color}`} accessibilityState={{ selected: single.color?.toUpperCase() === color.toUpperCase() }}
+        {penColors.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 요소 색상 ${color}`} accessibilityState={{ selected: single.color?.toUpperCase() === color.toUpperCase() }}
           onPress={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color } })}
           style={[styles.swatch, { backgroundColor: color }, single.color?.toUpperCase() === color.toUpperCase() && styles.swatchChosen]} />)}
         <View style={styles.divider} />
@@ -193,8 +196,6 @@ export default function ContextBar({
     </View>
     {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} origin={origin} area={area} anchor={{ top, height: BAR_HEIGHT }} />}
   </>
-
-  return null
 }
 
 // 바 버튼 너비 어림값: 좌우 여백 20 + 아이콘 17 + 간격 5 + 글자(12.5px 굵은 한글 ≈ 13px) + 버튼 사이 2
@@ -253,7 +254,7 @@ export function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
 function MenuAction({ icon, label, danger, disabled, onPress, style }) {
   const color = danger ? colors.danger : disabled ? colors.border : colors.text
   return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.menuItem, style, pressed && styles.pressed]}>
-    <Icon name={icon} size={18} color={color} /><Text style={[styles.menuText, { color }]}>{label}</Text>
+    <Icon name={icon} size={18} forText={12.5} color={color} /><Text style={[styles.menuText, { color }]}>{label}</Text>
   </Pressable>
 }
 
@@ -286,7 +287,7 @@ function OrderMenu({ placement, right, objects, allObjects, onPick }) {
             accessibilityState={{ disabled }}
             style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
           >
-            <Icon name={action.icon} size={18} color={disabled ? colors.border : colors.text} />
+            <Icon name={action.icon} size={18} forText={12.5} color={disabled ? colors.border : colors.text} />
             <Text style={[styles.menuText, disabled && styles.menuTextDisabled]}>{action.label}</Text>
           </Pressable>
         )
@@ -306,7 +307,7 @@ function BarButton({ icon, label, active, danger, disabled, onPress }) {
       accessibilityState={{ ...(active != null && { selected: active }), disabled: Boolean(disabled) }}
       style={({ pressed }) => [styles.button, active && styles.chipActive, pressed && styles.pressed, disabled && styles.buttonDisabled]}
     >
-      <Icon name={icon} size={17} color={color} />
+      <Icon name={icon} size={17} forText={14} color={color} />
       <Text style={[styles.buttonText, { color }]}>{label}</Text>
     </Pressable>
   )
@@ -363,15 +364,15 @@ const styles = StyleSheet.create({
   compactMenu: { position: 'absolute', width: 166, borderRadius: 14, backgroundColor: colors.surface, zIndex: 8, overflow: 'hidden', ...shadow.float },
   compactMenuContent: { paddingVertical: 5 },
   compactMenuItem: { paddingHorizontal: 15, borderRadius: 0 },
-  compactMenuThumb: { position: 'absolute', right: 3, width: 3, borderRadius: 2, backgroundColor: 'rgba(11,25,87,0.25)' },
+  compactMenuThumb: { position: 'absolute', right: 3, width: 3, borderRadius: 2, backgroundColor: 'rgba(11,23,102,0.25)' },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, paddingHorizontal: 10, borderRadius: 10 },
   menuText: { fontSize: 13, fontWeight: '700', color: colors.text },
-  menuTextDisabled: { color: 'rgba(11,25,87,0.3)' },
+  menuTextDisabled: { color: 'rgba(11,23,102,0.3)' },
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   buttonDisabled: { opacity: DISABLED_OPACITY },
   iconButton: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  pressed: { opacity: 0.65 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },
   chipActive: { backgroundColor: colors.primarySoft },
   // 텍스트·필기 바도 스티커·마테·사진 바(bar)와 같은 모양: 둥글기 16, 테두리 없음, 버튼 간격 2

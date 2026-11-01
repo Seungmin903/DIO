@@ -13,8 +13,9 @@ public class ExpiredLoginSessionCleanup {
     static final int BATCH_SIZE = 500;
     private final RefreshTokenRepository sessions;
     private final RefreshTokenHistoryRepository history;
-    public ExpiredLoginSessionCleanup(RefreshTokenRepository sessions, RefreshTokenHistoryRepository history) {
-        this.sessions = sessions; this.history = history;
+    private final com.f106.DIO.push.service.PushSessionRevocation push;
+    public ExpiredLoginSessionCleanup(RefreshTokenRepository sessions, RefreshTokenHistoryRepository history, com.f106.DIO.push.service.PushSessionRevocation push) {
+        this.sessions = sessions; this.history = history; this.push = push;
     }
     @Transactional
     public int purgeExpired() {
@@ -24,6 +25,7 @@ public class ExpiredLoginSessionCleanup {
             // 재발급과 동일하게 세션 행을 먼저 잠근다. 여러 인스턴스가 동시에 정리해도 재확인한다.
             var session = sessions.findForUpdate(id).orElse(null);
             if (session == null || session.getExpiresAt().isAfter(cutoff)) continue;
+            push.revokeLockedSession(session.getSessionId(), session.getUserId(), cutoff);
             history.deleteForSession(id);
             sessions.delete(session);
             count++;

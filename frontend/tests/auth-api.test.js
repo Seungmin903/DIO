@@ -354,3 +354,90 @@ test('현재 비밀번호 거절과 네트워크 실패는 로그인 세션을 �
   await assert.rejects(api.changePassword(user,{currentPassword:'Wrong123!',password:'ChangedDio123!',confirmation:'ChangedDio123!'}));assert.equal(api.getSessionKey(),key);
  }
 });
+
+test('회원 탈퇴는 DELETE me로 요청하고 성공한 세션만 지운다', async () => {
+ const calls=[]; const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url,init)=>{
+  calls.push({url,...init}); return response(url.endsWith('/login') ? tokens() : null, url.endsWith('/login') ? 200 : 204);
+ }});
+ const loggedIn=await api.login({email:user.email,password:'Password123!'});
+ await api.withdraw(loggedIn);
+ assert.equal(calls[1].url,'http://localhost:8080/api/v1/me'); assert.equal(calls[1].method,'DELETE');
+ assert.equal(calls[1].body,undefined); assert.equal(calls[1].headers.Authorization,'Bearer access');
+ assert.equal(api.getSessionKey(),null);
+});
+
+test('회원 탈퇴 실패 시 로그인 세션을 유지해 다시 시도할 수 있다', async () => {
+ const api=createAuthApi({baseUrl:'http://localhost:8080/api',fetchImpl:async(url)=>
+  response(url.endsWith('/login') ? tokens() : {code:'WITHDRAWAL_FAILED',detail:'탈퇴 처리에 실패했어요.'}, url.endsWith('/login') ? 200 : 500)});
+ const loggedIn=await api.login({email:user.email,password:'Password123!'}), key=api.getSessionKey();
+ await assert.rejects(api.withdraw(loggedIn),{code:'WITHDRAWAL_FAILED',status:500});
+ assert.equal(api.getSessionKey(),key);
+});
+
+test('회원정보 수정은 본인 토큰으로 PATCH me를 호출하고 갱신된 사용자 정보를 반환한다', async () => {
+  const calls = [];
+  const api = createAuthApi({ baseUrl: 'http://localhost:8080/api', fetchImpl: async (url, init) => {
+    calls.push({ url, ...init });
+    if (url.endsWith('/auth/login')) return response(tokens());
+    return response({ ...user, nickname: '바뀐이름' });
+  } });
+  const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
+  const updated = await api.updateProfile(loggedIn, { nickname: ' 바뀐이름 ', photoUri: loggedIn.photoUri });
+  assert.equal(calls[1].url, 'http://localhost:8080/api/v1/me');
+  assert.equal(calls[1].method, 'PATCH');
+  assert.equal(calls[1].headers.Authorization, 'Bearer access');
+  assert.deepEqual(JSON.parse(calls[1].body), { nickname: '바뀐이름' });
+  assert.equal(updated.nickname, '바뀐이름');
+  assert.equal((await api.getAccessToken({ userId: user.userId, sessionKey: api.getSessionKey() })), 'access');
+});
+
+test('회원정보 조회는 본인 토큰으로 GET me를 호출하고 서버 닉네임으로 세션을 갱신한다', async () => {
+  const calls = [];
+  const api = createAuthApi({ baseUrl: 'http://localhost:8080/api', fetchImpl: async (url, init) => {
+    calls.push({ url, ...init });
+    if (url.endsWith('/auth/login')) return response(tokens());
+    return response({ ...user, nickname: '다른기기이름' });
+  } });
+  const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
+  const profile = await api.getProfile(loggedIn);
+  assert.equal(calls[1].url, 'http://localhost:8080/api/v1/me');
+  assert.equal(calls[1].method, 'GET');
+  assert.equal(calls[1].body, undefined);
+  assert.equal(calls[1].headers.Authorization, 'Bearer access');
+  assert.equal(profile.nickname, '다른기기이름');
+  assert.equal(profile.mode, 'authenticated');
+  await assert.rejects(api.getProfile({ ...loggedIn, userId: 'other' }), { code: 'AUTHENTICATION_REQUIRED' });
+  assert.equal(calls.length, 2);
+});
+
+test('회원정보 조회는 숫자 userId 응답도 현재 로그인 계정으로 받아들인다', async () => {
+  const api = createAuthApi({ baseUrl: 'http://localhost:8080/api', fetchImpl: async (url) =>
+    response(url.endsWith('/auth/login') ? tokens() : { ...user, userId: 7, nickname: '숫자 식별자' }) });
+  const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
+  const profile = await api.getProfile(loggedIn);
+  assert.equal(profile.userId, 7);
+  assert.equal(profile.nickname, '숫자 식별자');
+});
+
+test('회원정보 조회는 다른 계정 응답을 받아들이지 않는다', async () => {
+  const api = createAuthApi({ baseUrl: 'http://localhost:8080/api', fetchImpl: async (url) =>
+    response(url.endsWith('/auth/login') ? tokens() : { ...user, userId: 'other' }) });
+  const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
+  await assert.rejects(api.getProfile(loggedIn), { code: 'INVALID_PROFILE_RESPONSE' });
+});
+
+test('회원정보 수정은 본인 계정에서 사진 multipart를 전송하고 다른 계정 요청은 막는다', async () => {
+  const { api, calls } = setup(() => response(tokens()), {
+    buildPhotoBody: async (profile, uri, partName) => ({ body: JSON.stringify({ profile, uri, partName }), dispose() {} }),
+  });
+  const loggedIn = await api.login({ email: user.email, password: 'Password123!' });
+  await assert.rejects(api.updateProfile({ ...loggedIn, userId: 'other' }, { nickname: '바뀐이름', photoUri: loggedIn.photoUri }), { code: 'AUTHENTICATION_REQUIRED' });
+  const updated = await api.updateProfile(loggedIn, { nickname: '바뀐이름', photoUri: 'file:///new-photo.png' });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].method, 'PATCH');
+  assert.equal(calls[1].headers['Content-Type'], undefined);
+  assert.deepEqual(JSON.parse(calls[1].body), {
+    profile: { nickname: '바뀐이름', removeProfilePhoto: false }, uri: 'file:///new-photo.png', partName: 'profile',
+  });
+  assert.equal(updated.nickname, '회원');
+});

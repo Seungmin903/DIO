@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-@RestControllerAdvice(assignableTypes={MemberDiaryController.class,MemberDiaryTrashController.class,MemberDiaryPurgeController.class})
+@RestControllerAdvice(assignableTypes={MemberDiaryController.class,MemberDiaryTrashController.class,MemberDiaryPurgeController.class,com.f106.DIO.font.FontController.class})
 public class MemberDiaryExceptionHandler extends ResponseEntityExceptionHandler {
     private ResponseEntity<MemberDiaryProblem> problem(HttpStatus status,String code,String detail) {
         var response=ResponseEntity.status(status).contentType(MediaType.APPLICATION_PROBLEM_JSON).header("Cache-Control","no-store");

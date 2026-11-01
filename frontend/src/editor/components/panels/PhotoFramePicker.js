@@ -7,12 +7,12 @@ import { stripCellBoxes, stripHeight } from '../../utils/photoStrip'
 import { frameColorOf } from '../canvas/ObjectView'
 import FrameBackdrop, { FrameShape, PREVIEW_EDGE, StripBackdrop } from '../canvas/PhotoFrame'
 
-export const PREVIEW = 46
+export const PREVIEW = 54 // 코덱스 24번: 틀 모양이 크게 보이게 (카드 88×92)
 export const PHOTO_FILL = '#B9CBE6' // 미리보기 안의 사진 자리
-const PREVIEW_SHADOW = 'rgba(11,25,87,0.14)'
+const PREVIEW_SHADOW = 'rgba(11,23,102,0.14)'
 
 /**
- * 사진 틀 칸 (오프라인 에셋 '④ 사진 틀'). 사진 보관함(누르면 빈 틀을 붙인다)과 옵션 패널(붙인 사진의 틀 바꾸기)이 같은 칸을 쓴다.
+ * 사진 틀 칸 (오프라인 에셋 '④ 사진 틀'). 위젯 칸의 사진 틀(누르면 빈 틀을 붙인다)이 쓴다.
  * 미리보기는 늘 그 틀의 기본 색으로 그린다 (고른 틀 색상은 반영하지 않는다).
  * 칸 바탕과 비슷한 흰 틀(폴라로이드 · 우표 · 공연 티켓)도 보이게 바깥 선을 진하게 하고 틀 모양 그대로 아래에 옅은 그림자를 깐다.
  * group: 이 묶음(PHOTO_FRAME_GROUPS)만. disabled: 고를 수 없는 틀 id 목록
@@ -104,23 +104,23 @@ function PreviewShadow({ frame, width, height }) {
 }
 
 const styles = StyleSheet.create({
-  // 한 줄 4칸이 패널 폭에 꽉 차게 (7종 → 두 줄)
-  grid: { flexDirection: 'row', flexWrap: 'wrap', margin: -3 },
-  slot: { width: '25%', padding: 3 },
+  // 코덱스 24번: 3열, 카드 88×92, 카드 사이 8 (칸 padding 4 × 2)
+  grid: { flexDirection: 'row', flexWrap: 'wrap', margin: -4 },
+  slot: { width: '33.333%', padding: 4 },
   cell: {
-    minHeight: 76,
+    height: 92,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
-    paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: '#F4F6FA',
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
   },
-  cellActive: { borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  cellActive: { borderWidth: 2, borderColor: colors.primaryStrong },
   preview: { height: PREVIEW, justifyContent: 'center' },
   disabled: { opacity: DISABLED_OPACITY },
-  pressed: { opacity: 0.7 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   shadow: { position: 'absolute', left: 0, top: 1.5 },
   name: { fontSize: 11, fontWeight: '600', color: colors.text },
 })

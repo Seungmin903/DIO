@@ -21,12 +21,13 @@ import com.f106.DIO.media.support.MediaRequestException;
 @Service
 public class MediaFileTransactionService {
 	private final MediaFileRepository mediaFiles;
+    private final CanvasMediaAccess canvasMedia;
 	private final DiaryMediaLibraryRepository sharedLibrary;
 	private final MediaStorageDeletionTaskRepository deletionTasks;
 
 	public MediaFileTransactionService(MediaFileRepository mediaFiles, DiaryMediaLibraryRepository sharedLibrary,
-			MediaStorageDeletionTaskRepository deletionTasks) {
-		this.mediaFiles = mediaFiles; this.sharedLibrary = sharedLibrary;
+			MediaStorageDeletionTaskRepository deletionTasks, CanvasMediaAccess canvasMedia) {
+		this.canvasMedia=canvasMedia; this.mediaFiles = mediaFiles; this.sharedLibrary = sharedLibrary;
 		this.deletionTasks = deletionTasks;
 	}
 
@@ -60,13 +61,14 @@ public class MediaFileTransactionService {
 	public StorageReference storageReference(UUID mediaFileId, Long userId) {
 		MediaFile mediaFile = mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, userId)
 			.orElseGet(() -> readableSharedMedia(mediaFileId, userId));
-		return new StorageReference(mediaFile.getMimeType(), mediaFile.getStorageKey());
+		return new StorageReference(mediaFile.getMimeType(), mediaFile.getOriginalFilename(), mediaFile.getStorageKey());
 	}
 
 	@Transactional
 	public void delete(UUID mediaFileId, Long userId) {
 		MediaFile mediaFile = mediaFiles.findOwnedForUpdate(mediaFileId, userId).orElseThrow(MediaFileNotFoundException::new);
 		Instant restorableSince = Instant.now().minus(DiaryRetention.PERIOD);
+		if (canvasMedia.retained(mediaFileId)) throw MediaRequestException.canvasReference();
 		if (mediaFiles.existsInSharedLibrary(mediaFileId, restorableSince)) throw MediaRequestException.sharedLibraryReference();
 		mediaFile.softDelete();
 		mediaFiles.flush();
@@ -77,8 +79,8 @@ public class MediaFileTransactionService {
 	}
 	private MediaFile readableSharedMedia(UUID mediaFileId, Long userId) {
 		MediaFile mediaFile = mediaFiles.findByMediaFileIdAndDeletedAtIsNull(mediaFileId).orElseThrow(MediaFileNotFoundException::new);
-		if (!sharedLibrary.isReadableByMember(mediaFileId, userId)) throw new MediaFileNotFoundException();
+		if (!sharedLibrary.isReadableByMember(mediaFileId, userId) && !canvasMedia.readable(mediaFileId,userId)) throw new MediaFileNotFoundException();
 		return mediaFile;
 	}
-	public record StorageReference(String mimeType, String storageKey) {}
+	public record StorageReference(String mimeType, String originalFilename, String storageKey) {}
 }

@@ -11,7 +11,11 @@ public class MediaExceptionHandler {
 	@ExceptionHandler(MediaFileNotFoundException.class) public ProblemDetail notFound(MediaFileNotFoundException exception) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage()); problem.setTitle("Media file not found"); problem.setProperty("code", "MEDIA_FILE_NOT_FOUND"); return problem;
 	}
-	@ExceptionHandler(MediaRequestException.class) public ProblemDetail invalid(MediaRequestException exception) { return problem(exception.status(), exception.code(), exception.getMessage()); }
+	@ExceptionHandler(MediaRequestException.class) public org.springframework.http.ResponseEntity<ProblemDetail> invalid(MediaRequestException exception) {
+		var response = org.springframework.http.ResponseEntity.status(exception.status());
+		if ("MEDIA_UPLOAD_BUSY".equals(exception.code())) response.header("Retry-After", "1");
+		return response.body(problem(exception.status(), exception.code(), exception.getMessage()));
+	}
 	@ExceptionHandler(MediaStorageException.class) public ProblemDetail storage(MediaStorageException exception) { return problem(exception.status(), exception.code(), exception.getMessage()); }
 	private static ProblemDetail problem(HttpStatus status, String code, String detail) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail); problem.setTitle(status.getReasonPhrase()); problem.setProperty("code", code); return problem;

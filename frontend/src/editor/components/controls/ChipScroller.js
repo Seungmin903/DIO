@@ -117,13 +117,13 @@ const styles = StyleSheet.create({
   arrow: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  arrowPressed: { backgroundColor: colors.primarySoft },
+  arrowPressed: {}, // 눌림 효과 없음(사용자 지시)
   arrowDisabled: { opacity: DISABLED_OPACITY },
 })

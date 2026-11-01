@@ -11,9 +11,9 @@ import {
   View,
 } from 'react-native';
 import AppIcon from '../shared/AppIcon';
+import Header from '../diary/components/Header';
 import Modal from '../editor/components/controls/EditorModal';
 import { colors } from '../shared/theme';
-import { previewAuth } from './previewAuth';
 import { pickProfilePhoto } from './profilePhoto';
 import { nicknameError, normalizeNickname, passwordError } from './validation';
 import { useProfileKeyboard } from './useProfileKeyboard';
@@ -30,8 +30,11 @@ export default function ProfileEditScreen({
   onClose,
   onUpdate,
   onEndSession,
+  onPasswordReset,
   registerLeaveGuard,
-  service = previewAuth,
+  getProfilePhotoSource,
+  photoEditable = true,
+  service,
   photoPicker = pickProfilePhoto,
 }) {
   const [saved, setSaved] = useState(user);
@@ -49,6 +52,11 @@ export default function ProfileEditScreen({
     pendingLeave = useRef(null);
   const form = useProfileKeyboard(),
     modalForm = useProfileKeyboard();
+  // 서버 사진은 개발 게이트웨이 인증 헤더가 필요할 수 있다. 홈과 수정 화면이
+  // 서로 다른 source를 쓰면, 이미 설정한 사진이 수정 화면에서만 빈 이미지가 된다.
+  const photoSource = photoUri
+    ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri })
+    : null;
   const name = normalizeNickname(nickname);
   const changed = nickname !== saved.nickname || photoUri !== (saved.photoUri || null);
   const ready = changed && !nicknameError(nickname);
@@ -58,6 +66,12 @@ export default function ProfileEditScreen({
     !passwordError(passwords.password) &&
     passwords.password === passwords.confirmation &&
     passwords.password !== passwords.currentPassword;
+  const canWithdraw = typeof service?.withdraw === 'function';
+  const requireService = (operation) => {
+    if (typeof service?.[operation] !== 'function')
+      throw new Error('회원정보 기능을 준비하지 못했어요. 다시 로그인해 주세요.');
+    return service[operation].bind(service);
+  };
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -149,7 +163,7 @@ export default function ProfileEditScreen({
   const save = () => {
     if (!ready) return;
     run(
-      () => service.updateProfile(saved, { nickname: name, photoUri }),
+      () => requireService('updateProfile')(saved, { nickname: name, photoUri }),
       (result) => {
         setSaved(result);
         setNickname(result.nickname);
@@ -197,19 +211,22 @@ export default function ProfileEditScreen({
   const changePassword = () => {
     if (!passwordReady) return;
     run(
-      () => service.changePassword(saved, passwords),
+      () => requireService('changePassword')(saved, passwords),
       () => {
         modalForm.dismiss();
         setPasswords(emptyPasswords());
         setDialog(null);
         setNotice('비밀번호를 변경했어요.');
       },
-      passwordOnly ? onEndSession : undefined,
+      // 서버는 비밀번호 변경 시 모든 세션을 폐기한다. 이 대화상자는
+      // passwordOnly 여부와 무관하게 인증 계정에서 열릴 수 있으므로,
+      // 만료된 토큰을 계속 쓰지 않도록 항상 앱의 로컬 세션도 끝낸다.
+      saved.mode === 'authenticated' ? onEndSession : undefined,
     );
   };
   const withdraw = () => {
-    if (withdrawText !== WITHDRAW_TEXT) return;
-    run(() => service.withdraw(saved), null, onEndSession);
+    if (withdrawText !== WITHDRAW_TEXT || !canWithdraw) return;
+    run(() => requireService('withdraw')(saved), null, onEndSession);
   };
   const modalTitle =
     dialog === 'withdraw'
@@ -234,27 +251,28 @@ export default function ProfileEditScreen({
         scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={s.heading}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="내 공간으로 돌아가기"
-            disabled={busy}
-            onPress={() => leave(onClose)}
-            style={s.back}
-          >
-            <AppIcon name="chevron-left" size={24} />
-          </Pressable>
-          <Text accessibilityRole="header" style={s.title}>
-            회원정보 수정
-          </Text>
-        </View>
+        <Header
+          title="회원정보 수정"
+          compact={compact}
+          left={(
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="마이페이지로 돌아가기"
+              disabled={busy}
+              onPress={() => leave(onClose)}
+              style={({ pressed }) => [s.headerBack, compact && s.headerBackCompact, busy && s.disabled, pressed && s.pressed]}
+            >
+              <AppIcon name="chevron-left" size={22} />
+            </Pressable>
+          )}
+        />
         <View style={[s.card, compact && s.phoneCard]}>
           <Text style={s.section}>프로필 정보</Text>
           <View style={s.avatarRow}>
             <View style={s.avatarWrap}>
-              {photoUri ? (
+              {photoSource ? (
                 <Image
-                  source={{ uri: photoUri }}
+                  source={photoSource}
                   accessibilityLabel="프로필 사진"
                   style={s.photo}
                 />
@@ -266,9 +284,10 @@ export default function ProfileEditScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="프로필 사진 변경"
-                disabled={busy}
+                accessibilityState={{ disabled: busy || !photoEditable }}
+                disabled={busy || !photoEditable}
                 onPress={pickPhoto}
-                style={s.photoHit}
+                style={[s.photoHit, !photoEditable && s.disabled]}
               >
                 <View style={s.photoBadge}>
                   <AppIcon name="edit" size={14} color={colors.surface} />
@@ -280,14 +299,14 @@ export default function ProfileEditScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="프로필 사진 삭제"
-                accessibilityState={{ disabled: busy || !photoUri }}
-                disabled={busy || !photoUri}
+                accessibilityState={{ disabled: busy || !photoUri || !photoEditable }}
+                disabled={busy || !photoUri || !photoEditable}
                 onPress={() => {
                   setPhotoUri(null);
                   setError('');
                   setNotice('');
                 }}
-                style={[s.link, !photoUri && s.disabled]}
+                style={[s.link, (!photoUri || !photoEditable) && s.disabled]}
               >
                 <Text style={s.linkText}>기본 이미지로 되돌리기</Text>
               </Pressable>
@@ -330,9 +349,9 @@ export default function ProfileEditScreen({
               <FormRow label="비밀번호" compact={compact}>
                 <View style={{ alignItems: 'flex-start' }}>
                   <Button
-                    label="비밀번호 변경"
+                    label={onPasswordReset ? '비밀번호 재설정' : '비밀번호 변경'}
                     secondary
-                    onPress={() => showDialog('password')}
+                    onPress={() => onPasswordReset ? leave(onPasswordReset) : showDialog('password')}
                     disabled={busy}
                   />
                 </View>
@@ -355,9 +374,10 @@ export default function ProfileEditScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="회원 탈퇴"
-                disabled={busy}
+                accessibilityHint={!canWithdraw ? '회원 탈퇴 기능은 준비 중이에요.' : undefined}
+                disabled={busy || !canWithdraw}
                 onPress={() => showDialog('withdraw')}
-                style={s.withdraw}
+                style={[s.withdraw, !canWithdraw && s.disabled]}
               >
                 <Text style={s.withdrawText}>회원 탈퇴</Text>
               </Pressable>
@@ -531,7 +551,7 @@ function FormRow({ label, compact, children }) {
 function ReadOnly({ label, value }) {
   return (
     <View accessibilityLabel={`${label}: ${value}`} style={s.readOnly}>
-      <Text selectable style={s.text}>
+      <Text selectable style={s.readOnlyText}>
         {value}
       </Text>
     </View>

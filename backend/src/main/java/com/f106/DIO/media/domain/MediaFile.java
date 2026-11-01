@@ -56,10 +56,14 @@ public class MediaFile {
 
 	public MediaFile(UUID mediaFileId, Long ownerUserId, MediaType mediaType, MediaLibraryCategory libraryCategory,
 			String storageKey, String originalFilename, String mimeType, long fileSize, String checksumSha256) {
+		this(mediaFileId, ownerUserId, mediaType, MediaSourceType.UPLOAD, libraryCategory, storageKey, originalFilename, mimeType, fileSize, checksumSha256);
+	}
+	public MediaFile(UUID mediaFileId, Long ownerUserId, MediaType mediaType, MediaSourceType sourceType, MediaLibraryCategory libraryCategory,
+			String storageKey, String originalFilename, String mimeType, long fileSize, String checksumSha256) {
 		this.mediaFileId = mediaFileId;
 		this.ownerUserId = ownerUserId;
 		this.mediaType = mediaType;
-		this.sourceType = MediaSourceType.UPLOAD;
+		this.sourceType = sourceType;
 		this.libraryCategory = libraryCategory;
 		this.storageKey = storageKey;
 		this.originalFilename = originalFilename;

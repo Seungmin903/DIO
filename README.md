@@ -35,6 +35,11 @@ pnpm install
 pnpm android             # Android 에뮬레이터 또는 연결된 Android 기기에서 실행
 # macOS에서는 pnpm ios 로 iOS 시뮬레이터에서 실행 가능
 # 브라우저로 빠르게 확인하려면 pnpm web → http://localhost:8081
+
+# 5) AI 서버 실행 (사진 속 대상 오리기를 쓸 때만, 새 터미널)
+cd ai
+uv sync
+uv run uvicorn app.main:app --port 8000   # → http://localhost:8000
 ```
 
 - 모바일 앱은 Expo 기반 React Native 앱입니다. 개발 서버만 열려면 `pnpm start`를 실행하고 Expo Go 또는 에뮬레이터에서 연결하세요.
@@ -49,6 +54,7 @@ pnpm android             # Android 에뮬레이터 또는 연결된 Android 기�
 S15P31F106/
 ├── backend/             # 백엔드 (Spring Boot 4.1, Java 17, Gradle)
 ├── frontend/            # 모바일 프론트엔드 (Expo + React Native)
+├── ai/                  # AI 서버 (FastAPI + SAM 2, 사진 속 대상 오리기)
 ├── docs/                # 요구사항/API/DB/팀 문서 (docs/색인.md가 색인)
 ├── docker-compose.yml   # 로컬 개발용 PostgreSQL
 ├── .env.example         # 로컬 환경변수 예시 (.env 는 커밋 금지)

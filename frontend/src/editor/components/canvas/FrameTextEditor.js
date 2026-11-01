@@ -88,7 +88,9 @@ export default function FrameTextEditor({ object, line: index, zoom, dispatch, o
         transform: [{ rotate: `${object.rotation ?? 0}deg` }],
       }}
     >
+      {/* 틀에 인쇄되는 글자라 앱 UI 글꼴(Pretendard)을 넣지 않는다 */}
       <TextInput
+        dioFont={false}
         ref={input}
         autoFocus
         selectTextOnFocus
@@ -130,8 +132,8 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     paddingHorizontal: 0,
     borderRadius: 2,
-    // 고치는 줄이 어디인지 보이게 (틀 색과 상관없이)
-    outlineStyle: 'none',
+    // 고치는 줄이 어디인지 보이게 (틀 색과 상관없이). 웹 기본 포커스 윤곽은 끈다
+    ...(Platform.OS === 'web' && { outlineStyle: 'none' }),
     borderWidth: 1,
     borderColor: colors.primary,
     ...(Platform.OS === 'android' && { includeFontPadding: false, textAlignVertical: 'center' }),

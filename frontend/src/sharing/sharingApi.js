@@ -1,8 +1,8 @@
-import { normalizeSharingNickname, sharingNicknameError, SharingError } from './sharingPreview.js';
+import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, inviteEmailError, SharingError } from './sharingPreview.js';
 
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
 export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody }) {
-  const { baseUrl, accessTokenHeader = 'Authorization' } = auth.getConnectionOptions();
+  const { baseUrl, accessTokenHeader = 'Authorization', getAuthHeaders } = auth.getConnectionOptions();
   const sessionKey = auth.getSessionKey();
   const self = { id: String(user.userId), nickname: user.nickname, photoUri: user.photoUri || null };
   const diaries = new Map(), invitations = new Map(), listeners = new Set();
@@ -12,8 +12,9 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     snapshot = { diaries: [...diaries.values()], joined: [...diaries.values()].filter(d => d.members.some(m => m.id === self.id && m.role === 'EDITOR')), library: [] };
     listeners.forEach(fn => fn());
   };
-  const headers = async () => {
+  const headers = async target => {
     const token = await auth.getAccessToken({ userId: user.userId, sessionKey });
+    if (getAuthHeaders) return getAuthHeaders(target, token);
     return { [accessTokenHeader]: accessTokenHeader === 'Authorization' ? `Bearer ${token}` : token };
   };
   async function request(path, { method = 'GET', body, multipart = false, signal } = {}) {
@@ -24,17 +25,20 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     signal?.addEventListener('abort', abort, { once: true });
     const timer = setTimeout(abort, 20000);
     try {
-      const authorization = await headers();
+      const authorization = await headers(`${baseUrl}${path}`);
       if (!active || generation !== revision) fail('DISPOSED', '화면을 다시 열어 주세요.');
       if (signal?.aborted) abort();
-      const response = await fetchImpl(`${baseUrl}${path}`, { method, signal: controller.signal,
+      const response = await fetchImpl(`${baseUrl}${path}`, { method, signal: controller.signal, redirect: 'error', credentials: 'omit',
         headers: { Accept: 'application/json', ...authorization, ...(!multipart && body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
         ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }) });
       const value = response.status === 204 ? null : await response.json().catch(() => null);
       if (!active || generation !== revision) fail('DISPOSED', '화면을 다시 열어 주세요.');
       if (!response.ok) {
         const error = new SharingError(value?.code || 'HTTP_ERROR', value?.detail || '공유 요청을 처리하지 못했어요. 다시 시도해 주세요.');
-        error.status = response.status; throw error;
+        error.status = response.status;
+        const retryAfter = Number(response.headers?.get?.('Retry-After'));
+        if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter;
+        throw error;
       }
       return value;
     } catch (error) {
@@ -43,16 +47,33 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       fail('NETWORK_ERROR', '서버에 연결하지 못했어요. 서버 주소와 네트워크를 확인해 주세요.');
     } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
   }
-  const path = id => `/diaries/${encodeURIComponent(id)}`;
+  const path = id => { ensureServerId(id); return `/diaries/${encodeURIComponent(id)}`; };
   const uri = value => value ? new URL(value, baseUrl).href : null;
-  async function privatePhoto(value, authorization) {
+  async function privatePhoto(value) {
     if (!value) return null;
     const url = new URL(value, baseUrl);
     if (url.origin !== new URL(baseUrl).origin || !url.pathname.startsWith(`${new URL(baseUrl).pathname}/diaries/`))
       fail('INVALID_RESPONSE', '프로필 사진 주소를 확인하지 못했어요.');
+    return readPhoto(url, () => headers(url.href));
+  }
+  async function accountPhoto(value) {
+    const photoUri = uri(value);
+    if (!photoUri) return null;
+    const source = auth.getProfilePhotoSource?.(photoUri) || { uri: photoUri };
+    // Public account photos need only gateway access, never the member token.
+    if (!source.headers) return photoUri;
+    let target;
+    try { target = new URL(source.uri); } catch { return null; }
+    if (target.origin !== new URL(baseUrl).origin || target.username || target.password) return null;
+    return readPhoto(target, () => source.headers);
+  }
+  async function readPhoto(url, getHeaders) {
+    const revision = generation;
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetchImpl(url.href, { headers: authorization, signal: controller.signal });
+      const authorization = await getHeaders();
+      if (!active || revision !== generation) return null;
+      const response = await fetchImpl(url.href, { headers: authorization, signal: controller.signal, redirect: 'error', credentials: 'omit' });
       if (!response.ok) return null; // 사진 실패로 멤버 관리 전체를 차단하지 않는다.
       if (!response.headers.get('content-type')?.startsWith('image/png')) return null;
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -93,20 +114,57 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     } while (cursor);
     fail('INVITE_NOT_FOUND', '받은 초대를 찾을 수 없어요.');
   }
+  const validMemberId = value => (typeof value !== 'number' || Number.isSafeInteger(value)) && /^[1-9][0-9]{0,18}$/.test(String(value)) && BigInt(value) <= 9223372036854775807n;
+  function sentPage(page) {
+    if (!page || !Array.isArray(page.items) || !Number.isSafeInteger(page.page) || page.page < 0 || typeof page.hasNext !== 'boolean')
+      fail('INVALID_RESPONSE', '보낸 초대 목록을 확인하지 못했어요.');
+    const items = page.items.map(row => {
+      if (!row || !validMemberId(row.inviteId) || (row.recipientEmail != null && typeof row.recipientEmail !== 'string') || typeof row.status !== 'string')
+        fail('INVALID_RESPONSE', '보낸 초대 목록을 확인하지 못했어요.');
+      // Do not copy recipient tokens or invite URLs into the sent-list view.
+      return { id: String(row.inviteId), email: row.recipientEmail || '탈퇴한 사용자', status: row.status, createdAt: row.createdAt };
+    });
+    return { items, nextPage: page.hasNext ? page.page + 1 : null };
+  }
+  async function loadMoreEmailInvites(id) {
+    ensureServerId(id);
+    const previous = diaries.get(id);
+    if (!previous || previous.emailNextPage == null) return previous;
+    const result = await request(`${path(id)}/invites?page=${previous.emailNextPage}&size=20`);
+    const next = sentPage(result?.emailInvites);
+    if (result.emailInvites.page !== previous.emailNextPage) fail('INVALID_RESPONSE', '보낸 초대 목록을 다시 확인해 주세요.');
+    if (diaries.get(id) !== previous) return diaries.get(id);
+    const rows = new Map(previous.emailInvites.map(row => [row.id, row]));
+    next.items.forEach(row => rows.set(row.id, row));
+    const diary = { ...previous, emailInvites: [...rows.values()], emailNextPage: next.nextPage };
+    diaries.set(id, diary); publish(); return diary;
+  }
+  async function refreshChanged(id) {
+    const revision = generation;
+    try { return await getSharing(id); }
+    catch (error) {
+      if (!active || generation !== revision || [401, 403, 404].includes(error.status) || error.code === 'DISPOSED') throw error;
+      const previous = diaries.get(id);
+      if (!previous) throw error;
+      const diary = { ...previous, refreshWarning: '요청은 반영됐지만 최신 목록을 불러오지 못했어요. 새로고침해 주세요.' };
+      diaries.set(id, diary); publish(); return diary;
+    }
+  }
   async function getSharing(id) {
     const revision = generation;
     ensureServerId(id);
-    const [members, links, detail, authorization] = await Promise.all([
-      request(`${path(id)}/members`), request(`${path(id)}/invites`), request(path(id)), headers(),
+    const [members, links, detail] = await Promise.all([
+      request(`${path(id)}/members`), request(`${path(id)}/invites?page=0&size=20`), request(path(id)),
     ]);
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
+    const sent = sentPage(links?.emailInvites);
     const mappedMembers = await Promise.all(members.members.map(async m => ({ id: String(m.userId), nickname: m.nickname, role: m.role,
-      photoUri: m.usingAccountPhoto ? uri(m.profilePhotoUrl) : await privatePhoto(m.profilePhotoUrl, authorization),
+      photoUri: m.usingAccountPhoto ? await accountPhoto(m.profilePhotoUrl) : await privatePhoto(m.profilePhotoUrl),
       presence: m.role === 'OWNER' ? '소유자' : '편집자' })));
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const diary = { id, title: detail.diary.diaryTitle, color: detail.diary.coverColor,
       link: links.available ? links.inviteUrl : null, favorite: detail.diary.myMembership?.isFavorite === true,
-      members: mappedMembers };
+      members: mappedMembers, linkExpiresAt: links.expiresAt || null, emailInvites: sent.items, emailNextPage: sent.nextPage };
     diaries.set(id, diary); publish(); return diary;
   }
   const checkNickname = async (_id, nickname) => {
@@ -121,9 +179,9 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     const upload = photoUri && photoUri !== self.photoUri && photoUri !== current?.photoUri;
     if (upload) {
       const prepared = await buildPhotoBody(body, photoUri, 'profile');
-      try { await request(`${path(id)}/profile`, { method: 'PATCH', body: prepared.body, multipart: true }); }
+      try { await request(`${path(id)}/membership`, { method: 'PATCH', body: prepared.body, multipart: true }); }
       finally { prepared.dispose(); }
-    } else await request(`${path(id)}/profile`, { method: 'PATCH', body });
+    } else await request(`${path(id)}/membership`, { method: 'PATCH', body });
     return getSharing(id);
   }
   return {
@@ -139,8 +197,33 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     activate() { active = true; }, dispose() { active = false; generation++; diaries.clear(); invitations.clear(); publish(); },
     setAccountProfile(value) { self.nickname = value.nickname; self.photoUri = value.photoUri || null; },
     registerDiary(source) { ensureServerId(source.sharedDiaryId || source.id); return diaries.get(source.sharedDiaryId || source.id) || { ...source, members: [] }; },
-    getSharing, checkProfileNickname: checkNickname, checkNickname, updateProfile,
+    getSharing, loadMoreEmailInvites, checkProfileNickname: checkNickname, checkNickname, updateProfile,
     hasMembership(id) { return diaries.get(invitations.get(id)?.diary.diaryId)?.members.some(m => m.id === self.id) === true; },
+    async sendEmailInvite(id, email) {
+      ensureServerId(id);
+      const error = inviteEmailError(email);
+      if (error) fail('INVALID_EMAIL', error);
+      await request(`${path(id)}/invites/email`, { method: 'POST', body: { email: normalizeInviteEmail(email) } });
+      return refreshChanged(id);
+    },
+    async cancelEmailInvite(id, inviteId) {
+      ensureServerId(id);
+      if (!validMemberId(inviteId)) fail('INVALID_INVITE', '취소할 초대를 확인해 주세요.');
+      await request(`${path(id)}/invites/${encodeURIComponent(inviteId)}`, { method: 'DELETE' });
+      return refreshChanged(id);
+    },
+    async transferOwner(id, memberId) {
+      ensureServerId(id);
+      if (!validMemberId(memberId) || String(memberId) === self.id) fail('INVALID_MEMBER', '양도할 참여자를 확인해 주세요.');
+      await request(`${path(id)}/transfer-owner`, { method: 'POST', body: { newOwnerUserId: String(memberId) } });
+      const previous = diaries.get(id);
+      if (previous) {
+        diaries.set(id, { ...previous, members: previous.members.map(member => ({ ...member,
+          role: member.id === String(memberId) ? 'OWNER' : 'EDITOR', presence: member.id === String(memberId) ? '소유자' : '편집자' })) });
+        publish();
+      }
+      return refreshChanged(id);
+    },
     async createLink(id) { await request(`${path(id)}/invites`, { method: 'POST' }); return getSharing(id); },
     async resolveLink(value) {
       let url;
@@ -160,7 +243,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       catch { fail('INVALID_LINK', '초대 링크를 확인해 주세요.'); }
       if (!token) fail('INVALID_LINK', '초대 링크를 확인해 주세요.');
       const row = await request(`/invites/${encodeURIComponent(token)}`);
-      const result = { ...row, inviteId: token, token, canOpen: row.status === 'PENDING', diary: { diaryId: row.diaryId, title: row.title } };
+      const result = { ...row, inviteId: token, token, canOpen: row.status === 'PENDING', memberCount: row.currentMembers, diary: { diaryId: row.diaryId, title: row.title } };
       invitations.set(token, result); return result;
     },
     async accept(id, nickname, { photoUri = self.photoUri } = {}) {
@@ -175,6 +258,6 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     async decline(id) { await request(`/me/invites/${encodeURIComponent(id)}/decline`, { method: 'POST' }); },
     async removeMember(id, memberId) { await request(`${path(id)}/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' }); return getSharing(id); },
     async leave(id) { await request(`${path(id)}/members/${self.id}`, { method: 'DELETE' }); diaries.delete(id); publish(); },
-    async toggleFavorite(id) { const diary = diaries.get(id); await request(`${path(id)}/profile`, { method: 'PATCH', body: { favorite: !diary?.favorite } }); return getSharing(id); },
+    async toggleFavorite(id) { const diary = diaries.get(id); await request(`${path(id)}/membership`, { method: 'PATCH', body: { favorite: !diary?.favorite } }); return getSharing(id); },
   };
 }
