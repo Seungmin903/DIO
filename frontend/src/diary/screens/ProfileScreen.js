@@ -88,7 +88,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
           accessibilityRole="button"
           accessibilityLabel="회원정보 수정"
           onPress={() => setRoute('edit')}
-          style={({ pressed }) => [local.profileCard, pressed && local.pressed]}
+          style={({ pressed }) => [local.profileHero, pressed && local.heroPressed]}
         >
           <View style={local.avatar}>
             {photoUri && failedPhoto !== photoIdentity ? (
@@ -105,10 +105,13 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
             )}
           </View>
           <View style={local.profileCopy}>
-            <Text accessibilityRole="header" style={local.nickname}>{previewUser?.nickname || '사용자'}</Text>
-            {!!previewUser?.email && <Text selectable style={local.email}>{previewUser.email}</Text>}
+            <Text accessibilityRole="header" numberOfLines={1} style={local.nickname}>{previewUser?.nickname || '사용자'}</Text>
+            {!!previewUser?.email && <Text selectable numberOfLines={1} style={local.email}>{previewUser.email}</Text>}
           </View>
-          <AppIcon name="chevron-right" size={20} color={C.muted} />
+          <View style={local.profileAction}>
+            <Text style={local.profileActionText}>회원정보 수정</Text>
+            <AppIcon name="chevron-right" size={18} color={colors.surface} />
+          </View>
         </Pressable>
         <Text style={local.groupTitle}>계정</Text>
         <ListSection>
@@ -149,18 +152,23 @@ function ListItem({ label, icon, onPress }) {
 
 const local = StyleSheet.create({
   content: { width: '100%', maxWidth: 760, alignSelf: 'center' },
-  profileCard: { minHeight: 104, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, backgroundColor: C.white, borderRadius: 20, borderWidth: 1, borderColor: C.line },
-  avatar: { width: 62, height: 62, borderRadius: 20, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: C.active },
-  photo: { width: 62, height: 62 },
-  profileCopy: { flex: 1, gap: 6 },
-  nickname: { color: C.ink, fontSize: 19, fontWeight: '800', letterSpacing: -0.35 },
-  email: { color: C.muted, fontSize: 13 },
-  groupTitle: { color: C.muted, fontSize: 12, fontWeight: '700', marginTop: 24, marginBottom: 8, paddingHorizontal: 4 },
-  list: { overflow: 'hidden', backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 16 },
+  // 보관함 develop 화면의 프로필 히어로 비율·색을 따른다. 계정 설정으로 가는
+  // 진입점은 이 카드 하나로 고정해, 홈과 수정 화면의 위계가 이어지게 한다.
+  profileHero: { minHeight: 116, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 24, backgroundColor: C.navy, borderRadius: 20 },
+  avatar: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: C.active },
+  photo: { width: 64, height: 64 },
+  profileCopy: { flex: 1, minWidth: 0, gap: 6 },
+  nickname: { color: colors.surface, fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  email: { color: colors.secondary, fontSize: 13, fontWeight: '600' },
+  profileAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 8 },
+  profileActionText: { color: colors.surface, fontSize: 13, fontWeight: '700' },
+  groupTitle: { color: C.muted, fontSize: 12, fontWeight: '700', marginTop: 20, marginBottom: 8, paddingHorizontal: 4 },
+  list: { overflow: 'hidden', backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18 },
   item: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },
-  itemIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: C.pale },
+  itemIcon: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
   itemLabel: { flex: 1, color: C.ink, fontSize: 15, fontWeight: '700' },
   logout: { minHeight: 52, marginTop: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.danger, borderRadius: 14, backgroundColor: colors.dangerSoft },
   logoutText: { color: C.danger, fontSize: 15, fontWeight: '700' },
   pressed: { opacity: 0.7 },
+  heroPressed: { opacity: 0.86 },
 });
