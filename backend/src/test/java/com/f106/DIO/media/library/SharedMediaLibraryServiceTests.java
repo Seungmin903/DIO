@@ -45,16 +45,13 @@ class SharedMediaLibraryServiceTests {
 	}
 
 	@Test
-	void addsTheRequestersEditableSourceToTheSharedLibrary() {
+	void rejectsPdfSourcesFromTheSharedStickerAndTapeLibrary() {
 		UUID diaryId = UUID.randomUUID(); UUID mediaFileId = UUID.randomUUID();
 		MediaFile media = new MediaFile(mediaFileId, 11L, MediaType.DOCUMENT, MediaLibraryCategory.DOCUMENT,
 			"media/document/2026/10/" + mediaFileId + ".svg", "logo.svg", "image/svg+xml", 10, "0".repeat(64));
 		when(mediaFiles.findOwnedForUpdate(mediaFileId, 11L)).thenReturn(Optional.of(media));
-		when(library.insertIfAbsent(diaryId, mediaFileId, 11L, "DOCUMENT")).thenReturn(1);
-		when(library.findByDiaryIdAndMediaFileId(diaryId, mediaFileId))
-			.thenReturn(Optional.of(new DiaryMediaLibrary(diaryId, mediaFileId, 11L, MediaLibraryCategory.DOCUMENT)));
-
-		assertThat(service.add(diaryId, mediaFileId, 11L).libraryCategory()).isEqualTo("DOCUMENT");
+		assertThatThrownBy(() -> service.add(diaryId, mediaFileId, 11L))
+			.isInstanceOf(SharedMediaLibraryException.class);
 	}
 
 	@Test
@@ -65,7 +62,7 @@ class SharedMediaLibraryServiceTests {
 
 		assertThatThrownBy(() -> service.add(UUID.randomUUID(), mediaFileId, 11L))
 			.isInstanceOf(SharedMediaLibraryException.class)
-			.hasMessageContaining("스티커·테이프·편집 원본");
+			.hasMessageContaining("스티커·테이프");
 	}
 
 	@Test

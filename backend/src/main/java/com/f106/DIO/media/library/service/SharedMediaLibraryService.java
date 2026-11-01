@@ -79,7 +79,7 @@ public class SharedMediaLibraryService {
 	}
 
 	private static void validateCategory(MediaLibraryCategory category) {
-		if (category != MediaLibraryCategory.STICKER && category != MediaLibraryCategory.TAPE && category != MediaLibraryCategory.DOCUMENT) {
+		if (category != MediaLibraryCategory.STICKER && category != MediaLibraryCategory.TAPE) {
 			throw SharedMediaLibraryException.unsupportedCategory();
 		}
 	}

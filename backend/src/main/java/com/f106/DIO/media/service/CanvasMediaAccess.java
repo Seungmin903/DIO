@@ -38,6 +38,7 @@ public class CanvasMediaAccess {
         if(properties!=null){
             add(ids,properties.get("mediaFileId"));
             var cells=properties.get("cells");if(cells!=null&&cells.isArray())for(var cell:cells)add(ids,cell.get("mediaFileId"));
+            var pdfSource=properties.get("pdfSource");if(pdfSource!=null&&pdfSource.isObject())add(ids,pdfSource.get("mediaFileId"));
         }
         return ids;
     }
@@ -54,7 +55,7 @@ public class CanvasMediaAccess {
     }
     public void requireAttach(UUID page,UUID primary,JsonNode properties,long actor){
         for(var media:references(primary,properties)){
-            var owners=jdbc.queryForList("select owner_user_id from media_files where media_file_id=? and deleted_at is null and status='READY' and media_type='IMAGE' for update",Long.class,media);
+            var owners=jdbc.queryForList("select owner_user_id from media_files where media_file_id=? and deleted_at is null and status='READY' and media_type in ('IMAGE','DOCUMENT') for update",Long.class,media);
             if(owners.isEmpty())throw new MediaFileNotFoundException();
             if(Objects.equals(owners.get(0),actor))continue;
             boolean library=Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from diary_media_library l join pages p on p.diary_id=l.diary_id where p.page_id=? and l.media_file_id=?)",Boolean.class,page,media));

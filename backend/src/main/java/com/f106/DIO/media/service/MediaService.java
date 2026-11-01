@@ -39,7 +39,7 @@ public class MediaService {
 	public MediaFileResponse upload(MultipartFile upload, String requestedCategory, Long userId) {
 		try (var permit = admission.acquire()) {
 		byte[] content = read(upload);
-		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content, upload.getOriginalFilename());
+		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
 		if (kind.mediaType() != MediaType.FONT && kind.mediaType() != MediaType.DOCUMENT && content.length > MAX_FILE_SIZE) throw MediaRequestException.tooLarge();
 		MediaLibraryCategory category = category(kind.mediaType(), requestedCategory);
 		UUID id = UUID.randomUUID();
@@ -87,16 +87,12 @@ public class MediaService {
 		return font ? MediaRequestException.fontTooLarge() : document ? MediaRequestException.documentTooLarge() : MediaRequestException.tooLarge();
 	}
 	private static boolean documentName(String name) {
-		if (name == null) return false;
-		String lower = name.toLowerCase(Locale.ROOT);
-		return lower.endsWith(".pdf") || lower.endsWith(".svg") || lower.endsWith(".ai");
+		return name != null && name.toLowerCase(Locale.ROOT).endsWith(".pdf");
 	}
 	private static String downloadName(MediaFileTransactionService.StorageReference reference) {
 		if (reference.originalFilename() != null && !reference.originalFilename().isBlank()) return reference.originalFilename();
 		return switch (reference.mimeType()) {
 			case "application/pdf" -> "document.pdf";
-			case "image/svg+xml" -> "document.svg";
-			case "application/illustrator" -> "document.ai";
 			default -> null;
 		};
 	}

@@ -3,6 +3,9 @@ import com.f106.DIO.media.service.CanvasMediaAccess;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 import java.util.UUID;
+import java.util.List;
+import java.sql.ResultSet;
+import org.springframework.jdbc.core.RowMapper;
 import static org.assertj.core.api.Assertions.*;
 class CanvasMediaReferenceTests {
     private final JsonMapper json=JsonMapper.builder().build();
@@ -28,5 +31,27 @@ class CanvasMediaReferenceTests {
         assertThatThrownBy(()->new CanvasMediaAccess(jdbc,dialect).requireAttach(UUID.randomUUID(),primary,properties,1))
             .isInstanceOf(IllegalArgumentException.class);
         org.mockito.Mockito.verifyNoInteractions(jdbc,dialect);
+    }
+    @Test void pdfSourceIsAuthorizedAndVisibleToAnotherDiaryMember() throws Exception {
+        var pdf=UUID.randomUUID();
+        var properties=json.readTree("{\"pdfSource\":{\"mediaFileId\":\""+pdf+"\",\"pageIndex\":0,\"edge\":3000}}");
+        var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        var dialect=org.mockito.Mockito.mock(com.f106.DIO.media.config.MediaSqlDialect.class);
+        var access=new CanvasMediaAccess(jdbc,dialect);
+        org.mockito.Mockito.when(jdbc.queryForList(org.mockito.ArgumentMatchers.contains("media_type in ('IMAGE','DOCUMENT')"), org.mockito.ArgumentMatchers.eq(Long.class), org.mockito.ArgumentMatchers.eq(pdf)))
+            .thenReturn(List.of(1L));
+
+        access.requireAttach(UUID.randomUUID(),null,properties,1L);
+
+        var result=org.mockito.Mockito.mock(ResultSet.class);
+        org.mockito.Mockito.when(result.getObject(1,UUID.class)).thenReturn(null);
+        org.mockito.Mockito.when(result.getString(2)).thenReturn(properties.toString());
+        org.mockito.Mockito.when(dialect.parameter(pdf)).thenReturn(pdf);
+        org.mockito.Mockito.when(dialect.matches("e.properties_json")).thenReturn("true");
+		org.mockito.Mockito.doAnswer(call -> List.of(call.<RowMapper<Boolean>>getArgument(1).mapRow(result, 0)))
+			.when(jdbc).query(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.<RowMapper<Boolean>>any(),
+				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+
+        assertThat(access.readable(pdf,2L)).isTrue();
     }
 }
