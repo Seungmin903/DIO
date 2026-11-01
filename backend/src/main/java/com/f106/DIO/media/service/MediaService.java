@@ -26,6 +26,7 @@ public class MediaService {
 	private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 	private static final int MAX_FILE_SIZE = 5 * 1024 * 1024;
 	private static final int MAX_FONT_SIZE = 25 * 1024 * 1024;
+	private static final int MAX_DOCUMENT_SIZE = 25 * 1024 * 1024;
 	private final MediaFiles files;
 	private final MediaFileTransactionService transactions;
 	private final MediaStorageDeletionQueueService deletionQueue;
@@ -38,8 +39,8 @@ public class MediaService {
 	public MediaFileResponse upload(MultipartFile upload, String requestedCategory, Long userId) {
 		try (var permit = admission.acquire()) {
 		byte[] content = read(upload);
-		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
-		if (kind.mediaType() != MediaType.FONT && content.length > MAX_FILE_SIZE) throw MediaRequestException.tooLarge();
+		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content, upload.getOriginalFilename());
+		if (kind.mediaType() != MediaType.FONT && kind.mediaType() != MediaType.DOCUMENT && content.length > MAX_FILE_SIZE) throw MediaRequestException.tooLarge();
 		MediaLibraryCategory category = category(kind.mediaType(), requestedCategory);
 		UUID id = UUID.randomUUID();
 		String key = MediaStorageKeys.create(kind.mediaType(), kind.extension(), id);
@@ -74,12 +75,21 @@ public class MediaService {
 			if (header.length == 0) throw MediaRequestException.invalidFile();
 			in.unread(header);
 			boolean font = MediaUploadInspector.isFontHeader(header);
-			int limit = font ? MAX_FONT_SIZE : MAX_FILE_SIZE;
-			if (upload.getSize() > limit) throw font ? MediaRequestException.fontTooLarge() : MediaRequestException.tooLarge();
+			boolean document = documentName(upload.getOriginalFilename());
+			int limit = font ? MAX_FONT_SIZE : document ? MAX_DOCUMENT_SIZE : MAX_FILE_SIZE;
+			if (upload.getSize() > limit) throw tooLarge(font, document);
 			byte[] content = in.readNBytes(limit + 1);
-			if (content.length > limit) throw font ? MediaRequestException.fontTooLarge() : MediaRequestException.tooLarge();
+			if (content.length > limit) throw tooLarge(font, document);
 			return content;
 		} catch (IOException error) { throw MediaRequestException.invalidFile(); }
+	}
+	private static MediaRequestException tooLarge(boolean font, boolean document) {
+		return font ? MediaRequestException.fontTooLarge() : document ? MediaRequestException.documentTooLarge() : MediaRequestException.tooLarge();
+	}
+	private static boolean documentName(String name) {
+		if (name == null) return false;
+		String lower = name.toLowerCase(Locale.ROOT);
+		return lower.endsWith(".pdf") || lower.endsWith(".svg") || lower.endsWith(".ai");
 	}
 	private static String downloadName(MediaFileTransactionService.StorageReference reference) {
 		if (reference.originalFilename() != null && !reference.originalFilename().isBlank()) return reference.originalFilename();
@@ -91,11 +101,12 @@ public class MediaService {
 		};
 	}
 	private static MediaLibraryCategory category(MediaType mediaType, String requestedCategory) {
-		if (requestedCategory == null || requestedCategory.isBlank()) return mediaType == MediaType.IMAGE ? MediaLibraryCategory.PHOTO : mediaType == MediaType.FONT ? MediaLibraryCategory.FONT : MediaLibraryCategory.AUDIO;
+		if (requestedCategory == null || requestedCategory.isBlank()) return mediaType == MediaType.IMAGE ? MediaLibraryCategory.PHOTO : mediaType == MediaType.FONT ? MediaLibraryCategory.FONT : mediaType == MediaType.DOCUMENT ? MediaLibraryCategory.DOCUMENT : MediaLibraryCategory.AUDIO;
 		try {
 			MediaLibraryCategory category = MediaLibraryCategory.valueOf(requestedCategory.strip().toUpperCase(Locale.ROOT));
-			if ((mediaType == MediaType.IMAGE && (category == MediaLibraryCategory.AUDIO || category == MediaLibraryCategory.FONT))
-				|| (mediaType == MediaType.AUDIO && category != MediaLibraryCategory.AUDIO) || (mediaType == MediaType.FONT && category != MediaLibraryCategory.FONT)) throw MediaRequestException.invalidCategory();
+			if ((mediaType == MediaType.IMAGE && (category == MediaLibraryCategory.AUDIO || category == MediaLibraryCategory.FONT || category == MediaLibraryCategory.DOCUMENT))
+				|| (mediaType == MediaType.AUDIO && category != MediaLibraryCategory.AUDIO) || (mediaType == MediaType.FONT && category != MediaLibraryCategory.FONT)
+				|| (mediaType == MediaType.DOCUMENT && category != MediaLibraryCategory.DOCUMENT)) throw MediaRequestException.invalidCategory();
 			return category;
 		} catch (IllegalArgumentException error) { throw MediaRequestException.invalidCategory(); }
 	}

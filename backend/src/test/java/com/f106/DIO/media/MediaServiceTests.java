@@ -57,6 +57,50 @@ class MediaServiceTests {
 	}
 
 	@Test
+	void editableSourceFilesAreStoredAsDocuments() {
+		stubPersist();
+		var pdf = service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", "%PDF-1.7".getBytes()), null, 7L);
+		var svg = service.upload(new MockMultipartFile("file", "logo.svg", "image/svg+xml", "<svg viewBox=\"0 0 1 1\"/>".getBytes()), null, 7L);
+		var ai = service.upload(new MockMultipartFile("file", "logo.ai", "application/pdf", "%PDF-1.7".getBytes()), null, 7L);
+
+		assertThat(pdf.mediaType()).isEqualTo("DOCUMENT");
+		assertThat(pdf.libraryCategory()).isEqualTo("DOCUMENT");
+		assertThat(svg.mimeType()).isEqualTo("image/svg+xml");
+		assertThat(ai.mimeType()).isEqualTo("application/illustrator");
+		verify(storage).put(startsWith("media/document/"), any(), eq("application/pdf"));
+	}
+
+	@Test
+	void documentsUseTheirOwnSizeLimit() {
+		stubPersist();
+		byte[] medium = new byte[6 * 1024 * 1024]; System.arraycopy("%PDF-1.7".getBytes(), 0, medium, 0, 8);
+		assertThat(service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", medium), null, 7L).mediaType()).isEqualTo("DOCUMENT");
+
+		byte[] large = new byte[25 * 1024 * 1024 + 1]; System.arraycopy("%PDF-1.7".getBytes(), 0, large, 0, 8);
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", large), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.getMessage()).contains("편집 원본").contains("25MiB"); });
+
+		// 문서 이름을 붙인 큰 이미지는 판별 후 이미지 한도를 그대로 적용한다.
+		byte[] jpeg = new byte[6 * 1024 * 1024]; jpeg[0]=(byte)0xff; jpeg[1]=(byte)0xd8; jpeg[2]=(byte)0xff;
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "photo.pdf", "application/pdf", jpeg), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, e -> assertThat(e.getMessage()).contains("5MiB"));
+	}
+
+	@Test
+	void documentDownloadsFallBackToATypedFileName() {
+		java.util.UUID id = java.util.UUID.randomUUID();
+		when(transactions.storageReference(id, 7L)).thenReturn(new MediaFileTransactionService.StorageReference("application/pdf", null, "key"));
+		when(storage.read("key")).thenReturn("%PDF-1.7".getBytes());
+		assertThat(service.file(id, 7L).downloadName()).isEqualTo("document.pdf");
+
+		when(transactions.storageReference(id, 7L)).thenReturn(new MediaFileTransactionService.StorageReference("image/png", " ", "key"));
+		assertThat(service.file(id, 7L).downloadName()).isNull();
+
+		when(transactions.storageReference(id, 7L)).thenReturn(new MediaFileTransactionService.StorageReference("image/svg+xml", "로고.svg", "key"));
+		assertThat(service.file(id, 7L).downloadName()).isEqualTo("로고.svg");
+	}
+
+	@Test
 	void rejectsAudioInAnImageCategory() {
 		byte[] wav = new byte[] {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E'};
 

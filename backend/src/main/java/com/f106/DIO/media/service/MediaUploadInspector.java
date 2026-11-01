@@ -9,7 +9,7 @@ import com.f106.DIO.media.support.MediaRequestException;
 final class MediaUploadInspector {
 	private MediaUploadInspector() {}
 
-	static FileKind inspect(byte[] content) {
+	static FileKind inspect(byte[] content, String originalFilename) {
 		if (isTtf(content)) { validateFontDirectory(content, false); return new FileKind(MediaType.FONT, "font/ttf", "ttf"); }
 		if (isOtf(content)) { validateFontDirectory(content, true); return new FileKind(MediaType.FONT, "font/otf", "otf"); }
 		if (starts(content, 0xFF, 0xD8, 0xFF)) return new FileKind(MediaType.IMAGE, "image/jpeg", "jpg");
@@ -22,6 +22,9 @@ final class MediaUploadInspector {
 			return new FileKind(MediaType.AUDIO, "audio/mpeg", "mp3");
 		}
 		if (isM4a(content)) return new FileKind(MediaType.AUDIO, "audio/mp4", "m4a");
+		if (isIllustrator(content, originalFilename)) return new FileKind(MediaType.DOCUMENT, "application/illustrator", "ai");
+		if (startsText(content, "%PDF-")) return new FileKind(MediaType.DOCUMENT, "application/pdf", "pdf");
+		if (isSvg(content)) return new FileKind(MediaType.DOCUMENT, "image/svg+xml", "svg");
 		throw MediaRequestException.invalidFile();
 	}
 
@@ -67,6 +70,16 @@ final class MediaUploadInspector {
 		int bitrate = (content[2] >> 4) & 0x0F;
 		int sampleRate = (content[2] >> 2) & 0x03;
 		return version != 0x01 && layer != 0 && bitrate != 0 && bitrate != 0x0F && sampleRate != 0x03;
+	}
+	private static boolean isSvg(byte[] content) {
+		int length = Math.min(content.length, 4096);
+		String text = new String(content, 0, length, java.nio.charset.StandardCharsets.UTF_8)
+			.replace("\uFEFF", "").stripLeading().toLowerCase(java.util.Locale.ROOT);
+		return text.startsWith("<svg") || (text.startsWith("<?xml") && text.contains("<svg"));
+	}
+	private static boolean isIllustrator(byte[] content, String originalFilename) {
+		return originalFilename != null && originalFilename.toLowerCase(java.util.Locale.ROOT).endsWith(".ai")
+			&& (startsText(content, "%!PS-Adobe-") || startsText(content, "%PDF-"));
 	}
 	private static boolean hasText(byte[] content, int offset, String text) {
 		byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.US_ASCII);

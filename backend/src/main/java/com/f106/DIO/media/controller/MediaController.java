@@ -24,7 +24,7 @@ public class MediaController {
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	@Operation(summary = "미디어 업로드", description = "이미지(JPEG, PNG, WebP, GIF), 오디오(MP3, M4A, WAV, OGG), 폰트(TTF, OTF), 편집 원본(PDF, SVG, AI)을 업로드합니다. 파일 형식은 서버가 판별합니다.")
 	public ResponseEntity<MediaFileResponse> upload(@RequestPart("file") MultipartFile file,
-			@Parameter(description = "이미지는 PHOTO·STICKER·TAPE, 오디오는 AUDIO, 폰트는 FONT. 생략 시 파일 유형의 기본값") @RequestParam(required = false) String libraryCategory,
+			@Parameter(description = "이미지는 PHOTO·STICKER·TAPE, 오디오는 AUDIO, 폰트는 FONT, 편집 원본은 DOCUMENT. 생략 시 파일 유형의 기본값") @RequestParam(required = false) String libraryCategory,
 			@AuthenticationPrincipal Jwt jwt) {
 		MediaFileResponse response = mediaService.upload(file, libraryCategory, userId(jwt));
 		return ResponseEntity.created(java.net.URI.create("/api/v1/media/" + response.mediaFileId())).body(response);
