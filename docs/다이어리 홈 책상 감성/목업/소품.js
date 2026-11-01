@@ -177,7 +177,7 @@ function idcard() {
       <div style="height:15%;background:#6E92C6;color:#fff;font:800 11px/1 Pretendard;letter-spacing:1.5px;display:flex;align-items:center;justify-content:center">DIO DIARY CLUB</div>
       <div style="position:absolute;left:50%;top:13%;transform:translateX(-50%);width:16%;height:6%;border-radius:0 0 8px 8px;background:#E6E9EF;border:1px solid rgba(0,0,0,.18)"></div>
       <div style="margin:12% auto 0;width:56%;aspect-ratio:.82;background:#EEF2F9;border:1px solid rgba(0,0,0,.12);display:grid;place-items:end center;overflow:hidden">${IMG('모아 행복').replace('<img', '<img style="width:86%;margin-bottom:-6%"')}</div>
-      <div style="text-align:center;font:800 15px Pretendard;color:#2E3240;margin-top:7%">디 오</div>
+      <div style="text-align:center;font:800 15px Pretendard;color:#2E3240;margin-top:7%">모 아</div>
       <div style="text-align:center;font:600 9px Pretendard;color:#8A8F9A;letter-spacing:1px;margin-top:3%">MEMBER · SINCE 2026</div>
       ${[0, 1].map((i) => `<div style="margin:${i ? 4 : 8}% 14% 0;border-top:1.5px solid rgba(46,50,64,.18)"></div>`).join('')}
     </div></div>`
