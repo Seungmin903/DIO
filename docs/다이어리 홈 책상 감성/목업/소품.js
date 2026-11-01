@@ -176,20 +176,20 @@ function idcard() {
     <div style="aspect-ratio:.66;background:#FCFCFA;border:1px solid rgba(0,0,0,.2);border-radius:10px;overflow:hidden;position:relative">
       <div style="height:15%;background:#6E92C6;color:#fff;font:800 11px/1 Pretendard;letter-spacing:1.5px;display:flex;align-items:center;justify-content:center">DIO DIARY CLUB</div>
       <div style="position:absolute;left:50%;top:13%;transform:translateX(-50%);width:16%;height:6%;border-radius:0 0 8px 8px;background:#E6E9EF;border:1px solid rgba(0,0,0,.18)"></div>
-      <div style="margin:12% auto 0;width:56%;aspect-ratio:.82;background:#EEF2F9;border:1px solid rgba(0,0,0,.12);display:grid;place-items:end center;overflow:hidden">${IMG('디오 행복').replace('<img', '<img style="width:86%;margin-bottom:-6%"')}</div>
+      <div style="margin:12% auto 0;width:56%;aspect-ratio:.82;background:#EEF2F9;border:1px solid rgba(0,0,0,.12);display:grid;place-items:end center;overflow:hidden">${IMG('모아 행복').replace('<img', '<img style="width:86%;margin-bottom:-6%"')}</div>
       <div style="text-align:center;font:800 15px Pretendard;color:#2E3240;margin-top:7%">디 오</div>
       <div style="text-align:center;font:600 9px Pretendard;color:#8A8F9A;letter-spacing:1px;margin-top:3%">MEMBER · SINCE 2026</div>
       ${[0, 1].map((i) => `<div style="margin:${i ? 4 : 8}% 14% 0;border-top:1.5px solid rgba(46,50,64,.18)"></div>`).join('')}
     </div></div>`
 }
-function stand(who = '디오 기본', plate = true) {
+function stand(who = '모아 기본', plate = true) {
   return `<div style="position:relative;padding:8% 8% 0">
     <div style="position:relative;border-radius:22px;${plate ? 'background:linear-gradient(135deg, rgba(255,255,255,.62), rgba(255,255,255,.14) 42%, rgba(255,255,255,.4));border:1.5px solid rgba(150,165,190,.75);box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);' : ''}padding:10% 8% 6%">
       ${IMG(who).replace('<img', '<img style="width:100%;display:block;filter:drop-shadow(0 0 0 #fff) drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff)"')}
       <div style="position:absolute;left:14%;top:6%;width:9%;height:40%;border-radius:999px;background:rgba(255,255,255,.5)"></div></div>
     <div style="margin:-3% -4% 0;height:22px;border-radius:50%;background:linear-gradient(180deg, rgba(255,255,255,.75), rgba(200,210,225,.55));border:1.5px solid rgba(150,165,190,.75)"></div></div>`
 }
-function keyring(who = '디오 행복') {
+function keyring(who = '모아 행복') {
   return `<div style="position:relative">
     <svg viewBox="0 0 80 110" style="width:46%;margin-left:27%;display:block;overflow:visible">
       <circle cx="40" cy="28" r="24" fill="none" stroke="#B8BDC6" stroke-width="7"/><circle cx="40" cy="28" r="24" fill="none" stroke="#6F7480" stroke-width="1.2"/>
@@ -266,4 +266,4 @@ function lemonade() {
     <circle cx="74" cy="48" r="20" fill="#FFF09A" stroke="#E5C440" stroke-width="3"/>${[0, 60, 120, 180, 240, 300].map((a) => `<path d="M74 48 L${74 + 16 * Math.cos(a * Math.PI / 180)} ${48 + 16 * Math.sin(a * Math.PI / 180)}" stroke="#E5C440" stroke-width="1.5"/>`).join('')}
     <rect x="30" y="20" width="8" height="70" rx="4" transform="rotate(-30 34 55)" fill="#F59AB2" stroke="${OL}" stroke-width="1.2"/>`)
 }
-const charSticker = (who = '디오 행복') => `<img class="stick" src="소재/${who}.png" style="width:100%">`
+const charSticker = (who = '모아 행복') => `<img class="stick" src="소재/${who}.png" style="width:100%">`

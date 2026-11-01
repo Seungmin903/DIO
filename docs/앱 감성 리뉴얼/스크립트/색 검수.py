@@ -61,10 +61,10 @@ def zone(r, g, b):
 # 코덱스 토큰(2026-10-31) 중 채택한 것
 TOKENS = [
     ("page-bg", "#F3F3F7", "앱 바탕(지금 값 그대로)"), ("card-bg", "#FFFFFF", "카드 · 입력"),
-    ("lavender-50", "#F0F1F9", "가장 연한 카드 틴트 · 보드"), ("lavender-100", "#DBDCF9", "보조 카드 · 라벤더 테이프 · 두리 목도리"),
+    ("lavender-50", "#F0F1F9", "가장 연한 카드 틴트 · 보드"), ("lavender-100", "#DBDCF9", "보조 카드 · 라벤더 테이프 · 디오 목도리"),
     ("lavender-200", "#ABB1D8", "아바타 원 · 규칙선 · 로고 원"), ("primary", "#818AC3", "핵심 토큰(불변)"),
     ("primaryStrong", "#606BB2", "채운 버튼 · FAB(불변)"), ("navy", "#0B1766", "글자 · 선택 칩(불변)"),
-    ("card-border", "#D9DCEF", "카드 · 필드 구분선(장식)"), ("accent-butter", "#FEF0BF", "작은 면 · 상태 칩 · 디오 몸"),
+    ("card-border", "#D9DCEF", "카드 · 필드 구분선(장식)"), ("accent-butter", "#FEF0BF", "작은 면 · 상태 칩 · 모아 몸"),
     ("butter-tape", "#FBE5A3", "마스킹테이프"), ("butter-strong", "#B98208", "점 · 짧은 선 · 만료 고리 · 알림 점"),
     ("danger-confirm", "#B52E52", "영구 삭제 확인 단계 한 곳(기능 예외)"),
     ("notify-pink", "#B63F7C", "알림 점 전용 쿨톤 핑크(사용자 지시 예외)"),

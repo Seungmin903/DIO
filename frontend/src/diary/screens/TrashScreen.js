@@ -203,7 +203,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
         </Pressable>
       </View>}
       {!rows.length ? (suppressEmpty ? null :
-        <EmptyState compact={compact} art="duri" raised title="휴지통이 비어 있어요" />
+        <EmptyState compact={compact} art="dio" raised title="휴지통이 비어 있어요" />
       ) : (
         <View onLayout={grid?.onLayout}><View style={[s.trashGrid, compact && s.trashGridCompact, selecting && (compact ? s.trashGridSelectingCompact : s.trashGridSelecting), grid?.style]}>
           {rows.map(({ diary, status, urgent, canRestore, canDelete }) => (

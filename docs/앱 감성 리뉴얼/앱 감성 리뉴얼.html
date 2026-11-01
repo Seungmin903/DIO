@@ -136,7 +136,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tr>
 <tr>
 <td><a href="#doc-01">01 현재 화면 진단</a></td>
-<td>화면 14장(+밤 홈) · 화면별 관찰 + 코덱스 진단 · 감성 수단별 현황 · 우리 자산(디오 · 두리는 앱에 없음)</td>
+<td>화면 14장(+밤 홈) · 화면별 관찰 + 코덱스 진단 · 감성 수단별 현황 · 우리 자산(모아 · 디오는 앱에 없음)</td>
 </tr>
 <tr>
 <td><a href="#doc-02">02 타깃 조사</a></td>
@@ -194,7 +194,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 │   ├── 기본.css · 안.css              토큰 · 안별 덮어쓰기
 │   ├── 소품.js · 화면.js · 안.js · 혼합.js    아이콘 · 표지 · 지금 화면 · A/B/C · 혼합안
 │   ├── 스토어.html                    스토어 구성 예시
-│   └── 소재/ · 에셋/                  디오 · 두리 최종 시안 SVG · 편집기 스티커 · 책상 소품 PNG
+│   └── 소재/ · 에셋/                  모아 · 디오 최종 시안 SVG · 편집기 스티커 · 책상 소품 PNG
 └── 스크립트/                         현재 화면 찍기.cjs · 렌더.py · 비교표.py · **색 검수.py**(시안 색이 규칙 안인지) · **색 면적.py**(렌더의 UI 계열 · 노랑 면적 %)
 </code></pre>
 <p>다시 만들기(이 폴더에서): <code>pnpm web</code>(frontend, 8081) → <code>NODE_PATH=&lt;frontend&gt;/node_modules node 스크립트/현재\ 화면\ 찍기.cjs &lt;결과 폴더&gt;</code> → <code>python 스크립트/렌더.py</code>(시안) → <code>python 스크립트/렌더.py 스토어</code> → <code>python 스크립트/비교표.py</code> → <code>python 빌드.py</code>.</p>
@@ -321,7 +321,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <tr>
 <td><strong>E 우리 자산</strong></td>
 <td style="text-align: center;">상</td>
-<td>로고 · 디오/두리 · 햇살 책상 중 차별 자산은?</td>
+<td>로고 · 모아/디오 · 햇살 책상 중 차별 자산은?</td>
 <td>"새 비주얼 세계관이 필요하다"</td>
 <td>저장소 · 현재 화면 캡처 · 클로드 → <a href="#doc-01">01 현재 화면 진단</a></td>
 </tr>
@@ -540,7 +540,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tr>
 <tr>
 <td><strong>조건부</strong></td>
-<td>디오 · 두리 노출량</td>
+<td>모아 · 디오 노출량</td>
 <td>유치함 반응이 없을 때만 확대</td>
 </tr>
 <tr>
@@ -593,7 +593,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 다시 찍기: <code>NODE_PATH=frontend/node_modules node "docs/앱 감성 리뉴얼/스크립트/현재 화면 찍기.cjs" "&lt;결과 폴더&gt;"</code> (<code>pnpm web</code> 실행 중)</p>
 </blockquote>
 <div class="sec2"><h2 id="한-줄-결론">한 줄 결론</h2>
-<p><strong>지금 UI는 '정돈된 생산성 앱'으로는 성공했고, 감성은 홈의 책상과 다이어리 표지에만 있다.</strong> 나머지 네 화면(공방 · 내 공간 · 휴지통 · 로그인)은 흰 카드 · 얇은 테두리 · 네이비 글자의 같은 틀이라 설정 앱처럼 읽힌다. 그리고 DIO의 가장 감성적인 자산인 <strong>디오 · 두리는 앱 화면 어디에도 나오지 않는다.</strong></p>
+<p><strong>지금 UI는 '정돈된 생산성 앱'으로는 성공했고, 감성은 홈의 책상과 다이어리 표지에만 있다.</strong> 나머지 네 화면(공방 · 내 공간 · 휴지통 · 로그인)은 흰 카드 · 얇은 테두리 · 네이비 글자의 같은 틀이라 설정 앱처럼 읽힌다. 그리고 DIO의 가장 감성적인 자산인 <strong>모아 · 디오는 앱 화면 어디에도 나오지 않는다.</strong></p>
 </div><div class="sec2"><h2 id="지금-화면">지금 화면</h2>
 <div class="grid two">
 <figure><img src="이미지/현재/로그인 태블릿.jpg"><figcaption>로그인 · 태블릿</figcaption></figure>
@@ -777,13 +777,13 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tr>
 <tr>
 <td><strong>캐릭터 노랑</strong></td>
-<td>디오 몸 <code>#FEF0BF</code></td>
+<td>모아 몸 <code>#FEF0BF</code></td>
 <td style="text-align: right;">47°</td>
 <td><strong>앱 UI에는 없다</strong>(캐릭터 최종 시안에만)</td>
 </tr>
 <tr>
 <td>캐릭터 라벤더</td>
-<td>두리 목도리 <code>#DBDCF9</code> · 몸 <code>#F7F7FC</code></td>
+<td>디오 목도리 <code>#DBDCF9</code> · 몸 <code>#F7F7FC</code></td>
 <td style="text-align: right;">238° · 240°</td>
 <td>앱 UI에는 없다</td>
 </tr>
@@ -819,7 +819,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tr>
 </tbody>
 </table>
-<p>캐릭터 최종 시안(<code>docs/캐릭터 디자인/최종시안 svg 변경본.svg</code> · <code>디오 최종.svg</code>)의 채움색은 <strong>버터 노랑 <code>#FEF0BF</code> · 라벤더 <code>#DBDCF9</code>/<code>#E0E3F7</code> · 흰색 · 먹선 <code>#010101</code></strong> 넷뿐이다. 캐릭터 자체가 이미 'UI 색상 계열 + 노랑' 두 계열이다. 캐릭터 시안 초기 문서(<code>04 캐릭터 시안.md</code>)는 디오 색으로 머스터드 <code>#EBC56F</code>를 추천했는데, 최종 시안 SVG의 실제 채움색은 더 옅은 <code>#FEF0BF</code>다(채움색 실측). 이 조사는 <strong>최종 SVG의 값</strong>을 캐릭터 노랑으로 삼는다. 표지 색상표(앱의 기본 표지 6색) 안에서 '머스터드 <code>#EBC56F</code>'는 코드에 없다.</p>
+<p>캐릭터 최종 시안(<code>docs/캐릭터 디자인/최종시안 svg 변경본.svg</code> · <code>모아 최종.svg</code>)의 채움색은 <strong>버터 노랑 <code>#FEF0BF</code> · 라벤더 <code>#DBDCF9</code>/<code>#E0E3F7</code> · 흰색 · 먹선 <code>#010101</code></strong> 넷뿐이다. 캐릭터 자체가 이미 'UI 색상 계열 + 노랑' 두 계열이다. 캐릭터 시안 초기 문서(<code>04 캐릭터 시안.md</code>)는 모아 색으로 머스터드 <code>#EBC56F</code>를 추천했는데, 최종 시안 SVG의 실제 채움색은 더 옅은 <code>#FEF0BF</code>다(채움색 실측). 이 조사는 <strong>최종 SVG의 값</strong>을 캐릭터 노랑으로 삼는다. 표지 색상표(앱의 기본 표지 6색) 안에서 '머스터드 <code>#EBC56F</code>'는 코드에 없다.</p>
 <table>
 <thead>
 <tr>
@@ -871,7 +871,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <ul>
 <li>단위는 화면 면적 %다(<code>스크립트/색 면적.py</code>). <strong>'그 밖'은 모두 표지 · 소셜 버튼 같은 사용자 콘텐츠와 외부 색이고, UI 층만 보면 지금 앱은 이미 UI 색상 계열이 99% 이상이다.</strong> 로그인 '노랑' 0.3%는 카카오 버튼이다. 즉 "메인은 UI 색"은 이미 지켜지고 있고, 새 제안은 이를 <strong>깨지 않는 것</strong>이 조건이다.</li>
 <li>표지 색상표는 가이드와 코드가 다르다. 가이드 §2.4는 8색(페리윙클 <code>#A9AFD7</code>(기본) · 머스터드 <code>#EBC56F</code> · 라벤더 <code>#C3AEDD</code> · 로즈 <code>#F0B0AA</code> · 세이지 · 카멜 · 차콜 · 크림)이고, 위 표는 <strong>코드(<code>diary/constants.js</code>의 <code>COLORS</code> 6색)</strong> 를 기준으로 했다. 시안의 표지 샘플 색은 가이드 8색과 앱 게스트 시드를 따랐다. 어느 쪽이 맞는지는 팀이 확인한다(<a href="#doc-12">12</a> §1).</li>
-<li>반대로 <strong>캐릭터 노랑이 UI에 0%</strong> 라는 점이 빈자리다. 캐릭터의 색이 앱의 색이 아니라서 디오 · 두리가 화면에 나와도 따로 논다. 새 제안은 노랑을 작은 면(테이프 · 칩 · 점 · 고리)에만 얹어 캐릭터와 UI를 이어 준다.</li>
+<li>반대로 <strong>캐릭터 노랑이 UI에 0%</strong> 라는 점이 빈자리다. 캐릭터의 색이 앱의 색이 아니라서 모아 · 디오가 화면에 나와도 따로 논다. 새 제안은 노랑을 작은 면(테이프 · 칩 · 점 · 고리)에만 얹어 캐릭터와 UI를 이어 준다.</li>
 <li>픽셀 측정은 JPEG 압축 · 그림자 때문에 색상각이 흔들려 설계 값(228~242°)보다 ±15° 넓게 본다. 아주 옅은 색(R·G·B 차이 10 이하)은 '옅은 색 · 무채'로 따로 센다. 라벤더 틴트 바탕이 여기 들어가므로 메인 색 점검은 'UI 계열 + 옅은 색 · 무채'의 합으로 본다.</li>
 </ul>
 </div><div class="sec2"><h2 id="우리-자산-영역-e">우리 자산 (영역 E)</h2>
@@ -905,7 +905,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <td>진행 중인 별도 작업(<a href="../다이어리%20홈%20햇살%20책상/색인.md">햇살 책상</a>). 이번 제안은 이를 <strong>다시 하지 않는다</strong></td>
 </tr>
 <tr>
-<td>디오 · 두리(최종 시안 벡터)</td>
+<td>모아 · 디오(최종 시안 벡터)</td>
 <td><strong>앱 코드 · 에셋에서 찾지 못함</strong> (<code>assets/brand</code>에는 <code>dio-logo.svg</code>뿐)</td>
 <td>가장 큰 미사용 자산. 다만 '유치함' 위험이 있어 노출량을 조건부로 둔다(<a href="#doc-06">06</a>)</td>
 </tr>
@@ -1118,7 +1118,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <li><strong>'소장 · 선물' 감각</strong> — 다이어리 한 장이 벽에 거는 물건처럼 보이는 내보내기 · 표지.</li>
 <li><strong>'다정함'은 숫자가 아니라 얼굴 · 이름 · 한마디로.</strong> 친구가 남긴 흔적의 자리를 만든다.</li>
 <li><strong>압박 장치를 넣지 않는다.</strong> 연속 기록 · 밀린 알림 · 인증 시각을 만들지 않는다.</li>
-<li><strong>캐릭터를 쓰되 서사와 함께.</strong> 디오 · 두리의 이야기(<a href="../캐릭터%20디자인/색인.md">캐릭터 디자인</a>)를 화면의 순간(첫 장면 · 빈 상태 · 완료)에 나눠 쓴다.</li>
+<li><strong>캐릭터를 쓰되 서사와 함께.</strong> 모아 · 디오의 이야기(<a href="../캐릭터%20디자인/색인.md">캐릭터 디자인</a>)를 화면의 순간(첫 장면 · 빈 상태 · 완료)에 나눠 쓴다.</li>
 <li><strong>기존 동선은 건드리지 않는다.</strong> 감성은 바탕 · 표면 · 장식 층에서, 버튼 자리 · 내비게이션은 그대로.</li>
 <li><strong>10대 / 20대를 가르는 근거는 약하다.</strong> 한 벌의 안으로 가되 캐릭터 노출량으로만 조절 가능하게 둔다.</li>
 </ol></div>
@@ -1217,7 +1217,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <li><strong>하루콩</strong> — 책 + 자물쇠 그림과 "○○의 일기장 #1234" 식별자. 안전감을 <strong>문장이 아니라 사물</strong>로 보여 준다.</li>
 <li><strong>Day One · Daylio</strong> — Face ID 아이콘 하나, PIN 번호판 하나. 잠금 화면은 오히려 가장 절제돼 있다.</li>
 <li><strong>다욜</strong>은 "로그인 없이 바로 시작"을 내세운다(스토어 설명). DIO에는 이미 게스트 시작이 있다.</li>
-<li><strong>→ DIO</strong> — 폼은 건드리지 않고, 카드 위 한 곳에 디오 한 컷 + 자물쇠 달린 책 같은 사물을 둔다. 소개 문구를 앱 안으로 가져오지 않는다(안내 멘트 금지).</li>
+<li><strong>→ DIO</strong> — 폼은 건드리지 않고, 카드 위 한 곳에 모아 한 컷 + 자물쇠 달린 책 같은 사물을 둔다. 소개 문구를 앱 안으로 가져오지 않는다(안내 멘트 금지).</li>
 </ul>
 </div><div class="sec2"><h2 id="다이어리-홈-방-모자이크-도구는-장면-바깥">다이어리 홈 — 방, 모자이크, 도구는 장면 바깥</h2>
 <div class="grid four">
@@ -1493,7 +1493,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tbody>
 </table>
 <ul>
-<li><strong>DIO에 주는 뜻(해석).</strong> ① 노랑을 <strong>큰 면이 아니라 포인트</strong>로 쓰는 것은 60-30-10의 포인트 몫(10%)보다 더 좁게(화면 UI 면의 2~5%) 잡은 것이라 안전한 쪽이다. ② 노랑이 유행색이어서 주기가 있다는 위험은, DIO의 노랑이 <strong>유행색이 아니라 캐릭터(디오)의 몸 색</strong>이라는 점에서 줄어든다. 캐릭터 색은 유행이 지나도 바꾸지 않는다. ③ 노랑 위에는 항상 네이비 글자를 얹는다(WGSN의 "어두운 글자와 짝" 권고와 일치, 흰 글자는 1.14:1이라 불가).</li>
+<li><strong>DIO에 주는 뜻(해석).</strong> ① 노랑을 <strong>큰 면이 아니라 포인트</strong>로 쓰는 것은 60-30-10의 포인트 몫(10%)보다 더 좁게(화면 UI 면의 2~5%) 잡은 것이라 안전한 쪽이다. ② 노랑이 유행색이어서 주기가 있다는 위험은, DIO의 노랑이 <strong>유행색이 아니라 캐릭터(모아)의 몸 색</strong>이라는 점에서 줄어든다. 캐릭터 색은 유행이 지나도 바꾸지 않는다. ③ 노랑 위에는 항상 네이비 글자를 얹는다(WGSN의 "어두운 글자와 짝" 권고와 일치, 흰 글자는 1.14:1이라 불가).</li>
 <li><strong>한계.</strong> 라벤더 + 버터 노랑을 쓰는 한국 앱 · 브랜드, 이 조합의 감성(차분함 · 따뜻함)을 직접 잰 연구는 <strong>찾지 못했다.</strong> 따라서 이 조합이 10~20대 여성에게 감성적으로 읽히는지는 가설이고 <a href="#doc-14">14</a>의 검증 항목에 넣었다.</li>
 </ul>
 </div></div><div class="sec2"><h2 id="4-제목-서체-한-곳-허용할-만한가">4. 제목 서체 한 곳 — 허용할 만한가</h2>
@@ -2057,7 +2057,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tr>
 <tr>
 <td><strong>조건부</strong></td>
-<td>디오 · 두리 노출량</td>
+<td>모아 · 디오 노출량</td>
 <td>'유치함' 반응이 없을 때만 확대. 지금 시안은 <strong>빈 상태에만</strong>, 로그인 폼 안에는 넣지 않는다</td>
 <td>조사 A §5(직접 근거 없음 → 가설)</td>
 </tr>
@@ -2185,7 +2185,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <td>UI 계열</td>
 <td style="text-align: right;">11.8</td>
 <td style="text-align: right;">1.3</td>
-<td>보조 카드 · 라벤더 테이프 · 두리 목도리</td>
+<td>보조 카드 · 라벤더 테이프 · 디오 목도리</td>
 </tr>
 <tr>
 <td><code>lavender-200</code></td>
@@ -2239,7 +2239,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <td>캐릭터 노랑</td>
 <td style="text-align: right;">13.9</td>
 <td style="text-align: right;">1.1</td>
-<td>작은 면 · 상태 칩 · 디오 몸</td>
+<td>작은 면 · 상태 칩 · 모아 몸</td>
 </tr>
 <tr>
 <td><code>butter-tape</code></td>
@@ -2442,7 +2442,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <td>캐릭터 노출</td>
 <td>빈 상태(둘이 + 테이프)</td>
 <td>빈 상태(둘이 + 폴라로이드 틀)</td>
-<td>빈 상태(두리 + 규칙선)</td>
+<td>빈 상태(디오 + 규칙선)</td>
 </tr>
 <tr>
 <td>감성 세기</td>
@@ -2644,7 +2644,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <tr>
 <td>빈 휴지통 · C</td>
 <td><code>[취향]</code> 중심 오브젝트가 너무 작아 화면이 비어 보임</td>
-<td>두리 높이 태블릿 54 · 폰 44 이상</td>
+<td>디오 높이 태블릿 54 · 폰 44 이상</td>
 </tr>
 <tr>
 <td>홈 폰 · A B C</td>
@@ -2735,7 +2735,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <tr>
 <td>빈 상태</td>
 <td>홈 B · 휴지통 A/C</td>
-<td>홈은 둘이 + 폴라로이드 틀, 휴지통은 두리 단독</td>
+<td>홈은 둘이 + 폴라로이드 틀, 휴지통은 디오 단독</td>
 </tr>
 </tbody>
 </table>
@@ -3089,7 +3089,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 
 <ul>
 <li><strong>선택 표지 프레임(혼합안)</strong> — 모든 표지에 흰 테두리를 상시 두면 선택 상태가 모호하다는 코덱스 지적에 따라, 비선택은 얇은 라벤더 프레임, 선택만 흰 프레임 + 그림자다.</li>
-<li><strong>빈 책상</strong> — 캐릭터가 색 규칙에 가장 자연스러운 그림이라 세 안 모두 캐릭터를 둔다. A는 <code>둘이</code>(디오 + 두리) + 버터 테이프 1개, B는 <code>둘이</code> + 폴라로이드 틀 + 라벤더 테이프(<strong>혼합안이 쓰는 구도</strong>), C는 두리 + 규칙선 한 줄. "다이어리가 없어요"는 가이드의 빈 화면 문구 그대로이고 정서 문구는 넣지 않았다. 디오 · 두리의 노출은 <strong>빈 상태에만</strong> 한정했다(<a href="#doc-06">06</a> 가드레일 '조건부').</li>
+<li><strong>빈 책상</strong> — 캐릭터가 색 규칙에 가장 자연스러운 그림이라 세 안 모두 캐릭터를 둔다. A는 <code>둘이</code>(모아 + 디오) + 버터 테이프 1개, B는 <code>둘이</code> + 폴라로이드 틀 + 라벤더 테이프(<strong>혼합안이 쓰는 구도</strong>), C는 디오 + 규칙선 한 줄. "다이어리가 없어요"는 가이드의 빈 화면 문구 그대로이고 정서 문구는 넣지 않았다. 모아 · 디오의 노출은 <strong>빈 상태에만</strong> 한정했다(<a href="#doc-06">06</a> 가드레일 '조건부').</li>
 </ul>
 </div><div class="sec2"><h2 id="근거와-연결">근거와 연결</h2>
 <ul>
@@ -3554,10 +3554,10 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <tr>
 <td>빈 휴지통</td>
 <td>없음(미캡처)</td>
-<td><strong>두리</strong> 84 + <code>#F0F1F9</code> 면 180 × 130, "휴지통이 비어 있어요"</td>
+<td><strong>디오</strong> 84 + <code>#F0F1F9</code> 면 180 × 130, "휴지통이 비어 있어요"</td>
 <td><strong>둘이</strong> 170 + 버터 테이프 52, 제목만</td>
-<td><strong>두리</strong> 84 + 규칙선 100, 제목만</td>
-<td>A의 두리 + 라벤더 50 면</td>
+<td><strong>디오</strong> 84 + 규칙선 100, 제목만</td>
+<td>A의 디오 + 라벤더 50 면</td>
 </tr>
 <tr>
 <td>장식</td>
@@ -3574,7 +3574,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </div><div class="sec2"><h2 id="근거와-연결">근거와 연결</h2>
 <ul>
 <li><strong>시간을 물성으로</strong> — Lapse는 현상 대기를 잠긴 사진 격자로, Tiimo는 사물 + 둘레 진행 호로 시간을 보여 준다. 지금 <code>n일 후 영구 삭제</code> 글자 하나를 <strong>문구를 늘리지 않고</strong> 고리 · 스탬프로 보강한다. 3일 이하는 적색 대신 <strong>버터 칩</strong>으로 구별한다(색 규칙).</li>
-<li><strong>빈 상태는 사물 한 점 + 제목</strong> — 하루콩의 포춘쿠키 쪽지처럼 사물 일러스트 한 점으로 기다림을 채우고 제목만 둔다. 이번 판은 사물 대신 <strong>두리 · 둘이</strong>를 둔다(캐릭터가 색 규칙에 가장 자연스럽고, 코덱스도 휴지통의 정적 분위기에 두리 단독이 맞는다고 봤다). 문구는 가이드의 빈 화면 형식("… 없어요")을 지킨다.</li>
+<li><strong>빈 상태는 사물 한 점 + 제목</strong> — 하루콩의 포춘쿠키 쪽지처럼 사물 일러스트 한 점으로 기다림을 채우고 제목만 둔다. 이번 판은 사물 대신 <strong>디오 · 둘이</strong>를 둔다(캐릭터가 색 규칙에 가장 자연스럽고, 코덱스도 휴지통의 정적 분위기에 디오 단독이 맞는다고 봤다). 문구는 가이드의 빈 화면 형식("… 없어요")을 지킨다.</li>
 <li><strong>영구 삭제를 귀엽게 포장하지 않는다</strong> — 조사 C 10번 발견(톤 ≠ 안내 멘트), 조사 B §3.5. 그래서 B의 코덱스 원안 "3일 후 삭제"는 <strong>"3일 후 영구 삭제"로 되돌렸다</strong>(클로드 보정: '영구'가 지워지면 되돌릴 수 없다는 뜻이 흐려진다).</li>
 <li><strong>복원은 모달이 아니라 토스트</strong> — Finch식 축하 모달은 과하다. 가이드의 완료 토스트로 충분하다(추정).</li>
 </ul>
@@ -4105,7 +4105,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <td>§9 공용 컴포넌트</td>
 <td>빈 상태(캐릭터 + 한 줄) 컴포넌트</td>
 <td>빈 화면 일관</td>
-<td>에셋 의존, 디오 · 두리 노출량 결정 필요</td>
+<td>에셋 의존, 모아 · 디오 노출량 결정 필요</td>
 <td>현행 텍스트만</td>
 <td>☐ ☐ ☐</td>
 </tr>
@@ -4341,7 +4341,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <tr>
 <td>1</td>
 <td>한 장의 사진 위에 / <strong>친구와 함께 붙여 가요</strong></td>
-<td>홈(혼합안) + <strong>디오 · 두리(<code>둘이</code>)</strong> · 폴라로이드 · 버터 테이프</td>
+<td>홈(혼합안) + <strong>모아 · 디오(<code>둘이</code>)</strong> · 폴라로이드 · 버터 테이프</td>
 <td>약속(첫 장은 문구 하나 + 세계관 캐릭터). 바탕 <code>#F3F3F7</code></td>
 </tr>
 <tr>
@@ -4372,16 +4372,16 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </table>
 <ul>
 <li>3장의 '친구' 화면은 <strong>공유 기능이 실제로 되는 단계의 화면</strong>으로 바꿔야 한다. 지금 렌더는 홈의 아바타 표현(B 시안)이고, 혼합안 홈에는 아바타가 없다.</li>
-<li><strong>캐릭터 노랑이 1장의 주인공이다.</strong> 색 규칙 덕에 스토어 카드의 노랑은 디오의 몸 · 테이프 · 작은 아이콘 면에만 있어, 카드 전체가 UI 색상 계열(라벤더 바탕)로 묶이고 캐릭터가 포인트로 떠오른다. 노랑 큰 면을 쓰는 아이보리 바탕 카드는 쓰지 않는다.</li>
+<li><strong>캐릭터 노랑이 1장의 주인공이다.</strong> 색 규칙 덕에 스토어 카드의 노랑은 모아의 몸 · 테이프 · 작은 아이콘 면에만 있어, 카드 전체가 UI 색상 계열(라벤더 바탕)로 묶이고 캐릭터가 포인트로 떠오른다. 노랑 큰 면을 쓰는 아이보리 바탕 카드는 쓰지 않는다.</li>
 <li>시안의 손글씨 서체는 쓰지 않았다(가이드는 UI 대상이라 스토어 이미지에 손글씨를 쓸지는 팀이 정한다 — 손글씨는 17곳 중 3곳만 쓰고 그 셋이 모두 폴라로이드 · 테이프 · 낙서 스티커를 같이 쓴다).</li>
 <li>4장의 "고르세요"처럼 권유형 어미를 쓰는 문구는 <strong>스토어 카피에 같은 '안내 멘트 금지'를 적용할지</strong> 팀이 정한 뒤 고친다.</li>
 </ul>
 </div><div class="sec2"><h2 id="5-말투와-채널">5. 말투와 채널</h2>
 <ul>
 <li><strong>말투</strong>: 해요체 + 짧은 문장 + 감각어(함께 · 가까운 · 붙이다). 느낌표는 소량, <strong>반말 · 유행어 · 이모지 없음</strong>(반말은 17곳 0건, 유행어는 젠더 해석 사고 이력). <strong>'여성용'이라 부르지 않는다</strong>(여성 이용자가 다수여도 하루콩 · MOODA · setlog는 성별을 한정하지 않는다). 해요체는 포화돼서 차별은 어미가 아니라 <strong>뉘앙스의 통일감</strong>에서 나온다 — 말투는 재능이 아니라 문서로.</li>
-<li><strong>화자</strong>: 이미 정한 대로 디오가 한 문장, 두리는 그림으로만, 공지 · 사과 · 응대는 [DIO팀] (근거: <a href="../트위터%20마케팅/05%20계정%20컨셉.md">트위터 마케팅 05</a>).</li>
+<li><strong>화자</strong>: 이미 정한 대로 모아가 한 문장, 디오는 그림으로만, 공지 · 사과 · 응대는 [DIO팀] (근거: 트위터 마케팅 05).</li>
 <li><strong>채널</strong>: 퍼짐의 엔진은 이용자 장면이었다(Locket · setlog). 그래서 <strong>'함께 꾸민 한 장'을 내보내는 결과물</strong>이 공유될 때 예쁘게 보이는 것이 가장 큰 마케팅이다. 소장 · 선물 감각(대왕네컷 · LP, <a href="#doc-02">02</a>)과 이어진다. 느린 과정 영상(다꾸 타임랩스 · ASMR)은 다꾸 채널에서 확인된 형식이고, 앱이 직접 쓴 POV · ASMR 사례는 확인하지 못했다.</li>
-<li><strong>하지 않는다</strong>: 성별 한정 쿠폰 · 유행어 차용 · 서사 없는 남의 IP 따라가기 · 감성 문구 옆의 강제 초대 · 효과 있는 것처럼 쓴 수치 · <strong>'버터 옐로 유행'을 마케팅 문구로 끌어오기</strong>(노랑은 유행이 아니라 디오의 몸 색이다 — <a href="#doc-04">04</a> §3.1).</li>
+<li><strong>하지 않는다</strong>: 성별 한정 쿠폰 · 유행어 차용 · 서사 없는 남의 IP 따라가기 · 감성 문구 옆의 강제 초대 · 효과 있는 것처럼 쓴 수치 · <strong>'버터 옐로 유행'을 마케팅 문구로 끌어오기</strong>(노랑은 유행이 아니라 모아의 몸 색이다 — <a href="#doc-04">04</a> §3.1).</li>
 </ul>
 </div><div class="sec2"><h2 id="6-한계">6. 한계</h2>
 <ul>
@@ -4406,7 +4406,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <li>혼합안은 <strong>BI · CI를 하나도 바꾸지 않는다.</strong> 로고 · 페리윙클 · 네이비 · 시스템 서체 · 선 아이콘 · 안내 멘트 금지 · 해요체가 그대로다. 버튼 · FAB 색 <code>#606BB2</code>도 그대로다(코덱스의 <code>#525FAD</code> 교체 제안은 채택하지 않았다, <a href="#doc-12">12</a> 보정 #12).</li>
 <li><strong>색 규칙 v2 검사 결과</strong> — 시안 색 190개 모두 UI 계열 · 캐릭터 노랑 · 무채색이고(이탈은 사용자 표지 샘플 1개), 표지 없는 화면에서 노랑은 1% 안쪽이다(<a href="#doc-06">06</a> §1.1).</li>
 <li>장식은 화면마다 국소 요소 3개 이하이고, 로그인 폼 안 · 휴지통 · 설정에는 장식이 없다(휴지통은 빈 상태에만). 홈 선택 표지의 프레임과 <code>⋯</code> 버튼이 B의 물성을 맡는다.</li>
-<li>디오 · 두리는 이번 판에서 <strong>빈 상태(빈 홈 · 빈 휴지통)에 처음 등장</strong>한다 — 캐릭터 자체가 버터 노랑 + 라벤더라 색 규칙에 가장 자연스러운 그림이기 때문이다. 로그인 폼 안에는 넣지 않았고(조사: 156장 중 0곳), 코덱스의 이전 판단은 "첫 다이어리 생성 완료 장면에 80~96px"도 있다. 노출량은 조건부로 두고 아래 검증 항목에 넣었다.</li>
+<li>모아 · 디오는 이번 판에서 <strong>빈 상태(빈 홈 · 빈 휴지통)에 처음 등장</strong>한다 — 캐릭터 자체가 버터 노랑 + 라벤더라 색 규칙에 가장 자연스러운 그림이기 때문이다. 로그인 폼 안에는 넣지 않았고(조사: 156장 중 0곳), 코덱스의 이전 판단은 "첫 다이어리 생성 완료 장면에 80~96px"도 있다. 노출량은 조건부로 두고 아래 검증 항목에 넣었다.</li>
 </ul>
 </div><div class="sec2"><h2 id="2-단계">2. 단계</h2>
 <table>
@@ -4480,7 +4480,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <td></td>
 <td>홈 · 휴지통 빈 상태 <strong>캐릭터 + 문구</strong></td>
 <td>홈 · 휴지통</td>
-<td>디오 · 두리 최종 SVG(앱 에셋 없음 → 추가), 빈 상태 컴포넌트(가이드 §9)</td>
+<td>모아 · 디오 최종 SVG(앱 에셋 없음 → 추가), 빈 상태 컴포넌트(가이드 §9)</td>
 <td>노출량 조건부</td>
 </tr>
 <tr>
@@ -4508,7 +4508,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <td></td>
 <td>캐릭터 한 컷(첫 다이어리 생성 완료)</td>
 <td>새 다이어리</td>
-<td>디오 · 두리 최종 시안 SVG</td>
+<td>모아 · 디오 최종 시안 SVG</td>
 <td>노출량 조건부</td>
 </tr>
 <tr>
@@ -4600,7 +4600,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 <td>10대 · 20대 각 5~7명 인터뷰 + 2방향 무드보드 선호</td>
 </tr>
 <tr>
-<td>디오 · 두리 적정 노출량</td>
+<td>모아 · 디오 적정 노출량</td>
 <td>"친근함 / 유치함 / 브랜드 기억" 3문항 A/B</td>
 </tr>
 <tr>
@@ -4763,7 +4763,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tr>
 <tr>
 <td>5</td>
-<td>디오 · 두리 노출</td>
+<td>모아 · 디오 노출</td>
 <td>현행(앱에 없음) / <strong>빈 상태 · 첫 다이어리 생성 완료 한정</strong> / 확대</td>
 <td><strong>한정</strong>, 검증 후 확대</td>
 <td>☐</td>
@@ -4867,7 +4867,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tr>
 <tr>
 <td>휴지통</td>
-<td>남은 기간 진행 고리 + 3일 이하 버터 칩(적색 글자 삭제), 카드 접근성 이름에 남은 기간 포함, 빈 휴지통에 <code>두리</code>(선 없음), 영구 삭제 <code>dangerStrong</code></td>
+<td>남은 기간 진행 고리 + 3일 이하 버터 칩(적색 글자 삭제), 카드 접근성 이름에 남은 기간 포함, 빈 휴지통에 <code>디오</code>(선 없음), 영구 삭제 <code>dangerStrong</code></td>
 <td><code>TrashScreen.js</code> · <code>ProgressRing.js</code> · <code>styles.js</code></td>
 </tr>
 <tr>
@@ -4882,7 +4882,7 @@ figure { margin:0; } figcaption { margin-top:6px; font-size:12.5px; line-height:
 </tr>
 <tr>
 <td>에셋</td>
-<td>캐릭터 투명 PNG 3종(<code>assets/characters/duri-dio.png</code> · <code>duri.png</code> · <code>dio.png</code>, 최종 시안 SVG에서 변환)</td>
+<td>캐릭터 투명 PNG 3종(<code>assets/characters/moa-dio.png</code> · <code>dio.png</code> · <code>moa.png</code>, 최종 시안 SVG에서 변환)</td>
 <td><code>frontend/assets/characters/</code></td>
 </tr>
 </tbody>
