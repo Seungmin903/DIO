@@ -29,7 +29,7 @@ function harness(path, dependencies = {}) {
     if (id === 'expo/virtual/env') return { env: {} }
     if (id.startsWith('@babel/runtime/')) return expo(id)
     if (id.includes('jsx-runtime')) return { jsx, jsxs: jsx }
-    if (id === 'react-native') return { View: 'View', Image: 'Image', Text: 'Text', Pressable: 'Pressable', StyleSheet: { create: v => v, absoluteFill: {} } }
+    if (id === 'react-native') return { View: 'View', Image: 'Image', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', useWindowDimensions: () => ({ width: 1280, height: 800 }), StyleSheet: { create: v => v, absoluteFill: {} } }
     if (id === 'react-native-svg') return { __esModule: true, default: 'Svg', Circle: 'Circle', Path: 'Path', Rect: 'Rect', Text: 'SvgText' }
     if (id.endsWith('/theme')) return { colors: {}, radius: {}, DISABLED_OPACITY: 0.4 }
     if (id.endsWith('/stickerSplit.js')) return split
@@ -274,7 +274,7 @@ function find(node, predicate) {
   return find(node.props?.children, predicate) || find(node.props?.ListHeaderComponent, predicate)
 }
 test('탭은 배경·포함 제외·묶기·확인 순서이며 선택한 탭을 다시 눌러도 유지한다', () => {
-  const values = [], h = harness('components/panels/StickerSplitTools.js', { '../controls/Icon': { __esModule: true, default: 'Icon' } })
+  const values = [], h = harness('components/panels/StickerSplitTools.js', { '../../../shared/DioButton': { __esModule: true, default: 'DioButton' } })
   const props = { section: 'background', onChange: value => values.push(value), hasResults: true, summaries: { results: '18개' }, children: 'panel' }
   let tree = h.render(props)
   const tabs = tree.props.children[0].props.children
@@ -296,13 +296,12 @@ test('탭은 배경·포함 제외·묶기·확인 순서이며 선택한 탭을
 })
 
 test('버튼 작업 모드 문자열이 Android disabled·selected 상태로 직접 전달되지 않는다', () => {
-  const h = harness('components/panels/StickerSplitTools.js', { '../controls/Icon': { __esModule: true, default: 'Icon' } })
+  const h = harness('components/panels/StickerSplitTools.js', { '../../../shared/DioButton': { __esModule: true, default: 'DioButton' } })
   for (const component of [h.exports.SplitAction, h.exports.SplitIconAction]) {
     for (const value of ['split', 'merge', true, false]) {
       const props = component({ label: '검증', disabled: value, active: value }).props
       assert.equal(props.disabled, Boolean(value))
-      assert.equal(props.accessibilityState.disabled, Boolean(value))
-      assert.equal(props.accessibilityState.selected, Boolean(value))
+      assert.equal(props.selected, Boolean(value))
     }
   }
 })
@@ -331,7 +330,7 @@ test('실제 모달은 미리보기 준비를 기다리고 저장 실패 후 같
   const h = harness('components/panels/StickerSplitModal.js', {
     'react-native': { View: 'View', Text: 'Text', Image: 'Image', Pressable: 'Pressable', FlatList: 'FlatList', ActivityIndicator: 'ActivityIndicator', useWindowDimensions: () => ({ width: 360, height: 800 }), Alert: { alert: (...values) => alerts.push(values) }, StyleSheet: { create: x => x } },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) },
-    '../controls/EditorModal': { __esModule: true, default: 'EditorModal' }, './StickerSplitPreview': { __esModule: true, default: 'Preview' },
+    '../controls/EditorModal': { __esModule: true, default: 'EditorModal' }, '../../../shared/MakerKit': { MakerHeader: 'MakerHeader', MakerBar: 'MakerBar' }, './StickerSplitPreview': { __esModule: true, default: 'Preview' },
     './StickerSplitSlider': { __esModule: true, default: 'Slider' }, '../controls/PenSafeTextInput': { __esModule: true, default: 'Input' },
     './StickerSplitTools': { __esModule: true, default: 'Tools', SplitAction: 'Action', SplitIconAction: 'IconAction' },
     './StickerGroupThumbnail': { __esModule: true, default: 'Thumbnail' },
@@ -464,7 +463,7 @@ test('모달은 첫 분석의 초기 묶기를 기다리고 취소·재분리·�
     const h = harness('components/panels/StickerSplitModal.js', {
       'react-native': { View: 'View', Text: 'Text', Image: 'Image', Pressable: 'Pressable', FlatList: 'FlatList', ActivityIndicator: 'ActivityIndicator', useWindowDimensions: () => ({ width: 360, height: 800 }), Alert: { alert: (_title, _text, buttons) => buttons[1].onPress() }, StyleSheet: { create: x => x } },
       'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) },
-      '../controls/EditorModal': { __esModule: true, default: 'EditorModal' }, './StickerSplitPreview': { __esModule: true, default: 'Preview' },
+      '../controls/EditorModal': { __esModule: true, default: 'EditorModal' }, '../../../shared/MakerKit': { MakerHeader: 'MakerHeader', MakerBar: 'MakerBar' }, './StickerSplitPreview': { __esModule: true, default: 'Preview' },
       './StickerSplitSlider': { __esModule: true, default: 'Slider' }, '../controls/PenSafeTextInput': { __esModule: true, default: 'Input' },
       './StickerSplitTools': { __esModule: true, default: 'Tools', SplitAction: 'Action', SplitIconAction: 'IconAction' },
       './StickerGroupThumbnail': { __esModule: true, default: 'Thumbnail' }, '../../hooks/useStickerSplitEditing': { __esModule: true, default: () => editing },
