@@ -267,6 +267,26 @@ class MediaServiceTests {
 		for(int i=0;i<tags.length;i++){int pos=12+i*16;byte[] tag=tags[i].getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);System.arraycopy(tag,0,data,pos,4);java.nio.ByteBuffer.wrap(data).putInt(pos+8,end+i).putInt(pos+12,1);data[end+i]=1;}
 		return data;
 	}
+	@Test
+	void aiStickerIsStoredAsStickerWithAiResultSource() {
+		byte[] png = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 0};
+		stubPersist();
+
+		var response = service.storeAiSticker(png, 7L);
+
+		assertThat(response.sourceType()).isEqualTo("AI_RESULT");
+		assertThat(response.libraryCategory()).isEqualTo("STICKER");
+		assertThat(response.mimeType()).isEqualTo("image/png");
+		assertThat(response.originalFilename()).isNull();
+		verify(storage).put(startsWith("media/image/"), any(), eq("image/png"));
+	}
+
+	@Test
+	void aiStickerRejectsNonImageBytes() {
+		assertThatThrownBy(() -> service.storeAiSticker(new byte[] {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E'}, 7L))
+			.isInstanceOf(MediaRequestException.class);
+	}
+
 	private void stubPersist() {
 		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
 			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));
