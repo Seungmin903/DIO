@@ -121,6 +121,8 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select count(*) from page_template_v25_backups",Long.class)).isEqualTo(3);
         assertThat(jdbc.queryForObject("select previous_template_config->>'templateCode' from page_template_v25_backups where page_id=?",String.class,landscapeWithCode)).isEqualTo("2026-reusable-daily-landscape");
         assertThat(jdbc.queryForObject("select jsonb_exists(previous_template_config, 'templateCode') from page_template_v25_backups where page_id=?",Boolean.class,landscapeWithoutCode)).isFalse();
+        assertThat(jdbc.queryForObject("select previous_version from page_template_v25_backups where page_id=?",Long.class,portraitWithCode)).isEqualTo(11L);
+        assertThat(jdbc.queryForObject("select previous_updated_at = timestamp '2000-01-01 00:00:00+00' from page_template_v25_backups where page_id=?",Boolean.class,portraitWithCode)).isTrue();
     }
 
     @Test void V25RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() {
@@ -162,7 +164,8 @@ class PageCatalogPostgresTests {
         assertThat(template.get("blank")).isEqualTo("false");
     }
 
-    private JsonNode legacyTemplate() {
+    /** V9 seed의 마지막 행이다. V25에서 덧붙인 계약 항목을 충돌 대상으로 쓰지 않는다. */
+    private JsonNode lastV9Template() {
         for (var template : contract.get("templates")) {
             if ("dio-blank-portrait".equals(template.get("templateCode").asString())) return template;
         }
@@ -194,7 +197,7 @@ class PageCatalogPostgresTests {
     }
 
     @Test void conflictingExistingGeometryStopsUpgradeAndRollsBackAllEarlierSeedInserts() {
-        var last=legacyTemplate();
+        var last=lastV9Template();
         insertExisting(last,42,last.get("templateVersion").asString());
         assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class);
         assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(1);
@@ -203,7 +206,7 @@ class PageCatalogPostgresTests {
     }
 
     @Test void duplicateExistingCodeVersionStopsUpgradeWithoutDeletingEitherRecord() {
-        var last=legacyTemplate();
+        var last=lastV9Template();
         insertExisting(last,last.get("canvasWidth").asInt(),last.get("templateVersion").asString());
         jdbc.update("insert into page_templates(code,template_version,name,category,orientation,canvas_width,canvas_height) values(?,?,'duplicate','OLD',?,?,?)",
             last.get("templateCode").asString(),last.get("templateVersion").asString(),last.get("orientation").asString(),last.get("canvasWidth").asInt(),last.get("canvasHeight").asInt());
