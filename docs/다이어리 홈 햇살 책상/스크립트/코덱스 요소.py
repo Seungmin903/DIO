@@ -16,19 +16,19 @@ from PIL import Image
 
 # 이름: (보드 번호, 보드에서 고를 요소 설명)
 ELEMENTS = {
-    '네컷 사진 디오와 두리': (1, 'the vertical four-cut photo-booth strip with DIO and DURI posing in four frames'),
-    '폴라로이드 눈 오는 두리': (1, 'the instant photo (polaroid) of DURI standing in falling snow at blue dusk'),
-    '탑로더 디오 포토카드': (1, 'the clear rigid toploader holding the DIO photocard, with its heart, star and bow epoxy stickers'),
+    '네컷 사진 모아와 디오': (1, 'the vertical four-cut photo-booth strip with MOA and DIO posing in four frames'),
+    '폴라로이드 눈 오는 디오': (1, 'the instant photo (polaroid) of DIO standing in falling snow at blue dusk'),
+    '탑로더 모아 포토카드': (1, 'the clear rigid toploader holding the MOA photocard, with its heart, star and bow epoxy stickers'),
     '마스킹테이프 버터 깅엄': (1, 'the short torn piece of butter-yellow gingham washi tape'),
-    '폴라로이드 하늘 디오 스티커': (2, 'the polaroid of a blue sky with clouds, with the DIO die-cut sticker on its lower-left corner'),
-    '폴라로이드 데이지 두리 스티커': (2, 'the polaroid of a daisy field, with the DURI die-cut sticker and the lavender gingham washi tape across the top'),
-    '스티커 시트 디오와 두리': (2, 'the kiss-cut sticker sheet of DIO and DURI emotion stickers, with two stickers peeled off leaving empty cut outlines'),
+    '폴라로이드 하늘 모아 스티커': (2, 'the polaroid of a blue sky with clouds, with the MOA die-cut sticker on its lower-left corner'),
+    '폴라로이드 데이지 디오 스티커': (2, 'the polaroid of a daisy field, with the DIO die-cut sticker and the lavender gingham washi tape across the top'),
+    '스티커 시트 모아와 디오': (2, 'the kiss-cut sticker sheet of MOA and DIO emotion stickers, with two stickers peeled off leaving empty cut outlines'),
     '마스킹테이프 라벤더 도트': (2, 'the short torn piece of lavender washi tape with small white dots'),
     '마스킹테이프 라벤더 데이지': (2, 'the short torn piece of lavender washi tape with small white daisies'),
+    '스티커 모아': (2, 'ONE single die-cut vinyl sticker of MOA smiling (white sticker border), taken from the sticker sheet'),
     '스티커 디오': (2, 'ONE single die-cut vinyl sticker of DIO smiling (white sticker border), taken from the sticker sheet'),
-    '스티커 두리': (2, 'ONE single die-cut vinyl sticker of DURI smiling (white sticker border), taken from the sticker sheet'),
-    '인형 디오 평면': (3, 'the flat-illustrated DIO doll (butter-yellow book doll with a lavender tab and two short legs)'),
-    '인형 두리 평면': (3, 'the flat-illustrated DURI doll (white round-headed doll with a lavender knitted scarf, two buttons and short legs)'),
+    '인형 모아 평면': (3, 'the flat-illustrated MOA doll (butter-yellow book doll with a lavender tab and two short legs)'),
+    '인형 디오 평면': (3, 'the flat-illustrated DIO doll (white round-headed doll with a lavender knitted scarf, two buttons and short legs)'),
     '폴라로이드 하늘': (3, 'the plain polaroid of a blue sky with soft clouds'),
     '마스킹테이프 라벤더 결': (3, 'the short torn piece of pale lavender washi tape with a fine fiber texture'),
 }

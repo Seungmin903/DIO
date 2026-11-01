@@ -9,8 +9,7 @@ import Cover from './Cover';
 import DiaryActionBubble from './DiaryActionBubble';
 import SelectionMark from './SelectionMark';
 import { isSharedDiary } from '../utils/libraryQuery';
-import { useDeskDark } from '../utils/deskInk';
-import { COVER_GRADIENTS, normalizeCover } from '../utils/coverDesign';
+import { COVER_GRADIENTS, normalizeCover, relativeLuminance } from '../utils/coverDesign';
 import { cardTapAction } from '../utils/libraryView';
 
 // 스와이프 카드는 한 장으로 합쳐 그린다(아래 renderToHardwareTextureAndroid). 합친 그림은 View 경계에서 잘리는데, 가로 다이어리 표지는 카드 폭을 가득 채워
@@ -22,26 +21,21 @@ export const CAROUSEL_EFFECT_PAD = { x: 48, top: 28, bottom: 36 };
 export const PAGE_COUNT_ROW = 21;
 
 // 즐겨찾기 별의 윤곽선: 표지 위에서는 흰색, 표지 바탕이 밝은 흰 노트이면 남색으로 쓴다(흰색 대비가 1.5:1 아래인 거의 흰 바탕일 때).
-const luminance = hex => {
-  const channel = shift => { const v = ((parseInt(hex.slice(1), 16) >> shift) & 255) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
-  return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
-};
 function starOutlineFor(diary) {
   const cover = normalizeCover(diary);
   if (!cover.enabled) return C.ink; // 표지를 뺀 다이어리는 첫 페이지(밝은 속지)가 보인다
   // 사진 표지는 사진의 대표 색(photo.tone)으로 정한다. 흰 PDF 표지처럼 밝은 사진에서 흰 윤곽이 묻히지 않게. 아직 대표 색이 없으면 흰색.
   if (cover.kind === 'photo' && !cover.photo?.tone) return '#FFFFFF';
   const top = cover.kind === 'photo' ? cover.photo.tone : cover.gradient === 'custom' ? cover.gradientColors[0] : Number.isInteger(cover.gradient) ? COVER_GRADIENTS[cover.gradient][1][0] : cover.color;
-  return 1.05 / (luminance(top) + 0.05) >= 1.5 ? '#FFFFFF' : C.ink;
+  return 1.05 / (relativeLuminance(top) + 0.05) >= 1.5 ? '#FFFFFF' : C.ink;
 }
 
 // onOpen·onCenter·onFavorite·onEdit·onDelete·onToggleSelect는 다이어리를 인자로 받는 공용 콜백이다. onCenter 는 스와이프 옆 카드를 눌렀을 때.
 // 표지 왼쪽 위의 별(배경 없음)을 누르면 즐겨찾기를 켜고 끈다. 제목 줄 오른쪽 끝 `⋯` 버튼은 동작 말풍선(수정 · 휴지통으로 이동)을 띄운다.
 // 관리 모드(selecting)에서는 누르면 열지 않고 선택만 바꾸며, 잘못 누르지 않게 카드 안 버튼은 숨긴다.
 // cell: 태블릿 한눈에 보기의 칸 크기(px). 주면 카드 폭을 이 값으로 고정한다(폰은 퍼센트 폭). 제목 · ⋯ 는 어느 쪽이든 표지 양끝에 맞춘다
-// sunShadow: 책상 위 표지라 그림자를 해 방향에 맞춘다
 // infoStyle: 스와이프 옆 카드에서 이름 · 페이지 수를 흐리게 하는 애니메이션 값
-function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, cell = null, onOpen, onCenter, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit, sunShadow = false }) {
+function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large = false, cell = null, onOpen, onCenter, onFavorite, onEdit, onDelete, carouselActive = false, animatedStyle, infoStyle, selecting = false, selected = false, onToggleSelect, onEnterEdit }) {
   // 동작 말풍선: null 이면 닫힘, 열리면 ⋯ 버튼의 창 안 자리(anchor)를 들고 있다(재지 못하면 anchor 는 null)
   const [menu, setMenu] = useState(null);
   const moreRef = useRef(null);
@@ -49,7 +43,6 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
   const [coverInset, setCoverInset] = useState(0);
   // 로컬 요약이 있으면 그것을 사용한다. null은 조회 실패, undefined는 아직 확인 전이다.
   // 책상이 어두운 시각에는 책상 위(제목 · 페이지 수) 글씨를 흰색으로 쓴다. 목록 보기는 흰 카드라 그대로 둔다.
-  const onDark = useDeskDark(sunShadow && layout !== 'list');
   const count = pageCount === undefined ? diary.pageCount : pageCount;
   const countLabel = count === undefined ? '페이지 수 확인 중'
     : Number.isSafeInteger(count) && count >= 0 ? `${count}페이지` : '페이지 수 확인 불가';
@@ -92,7 +85,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
     >
       <View style={s.cardCoverWrap}>
         {/* 더보기 버튼과 선택 표시(왼쪽 위 별 포함)는 칸이 아니라 실제 표지(가로 다이어리는 낮은 표지) 모서리에 얹는다 */}
-        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large} sunShadow={sunShadow}
+        <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large}
           frame={layout === 'carousel' ? (carouselActive ? 'active' : 'idle') : null} onInset={layout === 'list' ? null : setCoverInset}>
         {/* 스와이프의 표지 프레임(가운데 표지는 흰 3px + 그림자, 옆 표지는 얇은 라벤더 2px)은 표지 크기에서 모서리를 계산하는 Cover 가 그린다 */}
         {selecting && diary.canManage !== false && diary.canDelete !== false && <SelectionMark selected={selected} />}
@@ -105,7 +98,8 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
           onPress={(event) => { event.stopPropagation(); onFavorite?.(diary.id); }}
           style={[s.cardFavorite, !onFavorite && { opacity: DISABLED_OPACITY }]}
         >
-          <FavoriteStar filled={!!diary.favorite} outline={starOutlineFor(diary)} />
+          {/* 안 칠한 별의 흰 윤곽은 80%로 한 단계 낮춘다(원 페이저 06). 밝은 표지 위 남색 윤곽 · 칠한 별은 그대로 */}
+          <FavoriteStar filled={!!diary.favorite} outline={!diary.favorite && starOutlineFor(diary) === '#FFFFFF' ? 'rgba(255,255,255,0.8)' : starOutlineFor(diary)} />
         </Pressable>}
         </Cover>
       </View>
@@ -113,17 +107,17 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
         <View style={s.cardHeading}>
           <View style={s.cardTitleWrap}>
             <View style={s.cardTitleRow}>
-              <Text numberOfLines={1} style={[s.cardTitle, s.cardTitleInRow, onDark && s.onDeskDarkTitle]}>{diary.title}</Text>
-              {isSharedDiary(diary) && <View accessible accessibilityLabel="공유 다이어리" style={s.sharedDiaryIcon}><AppIcon name="people" size={16} color={onDark ? 'rgba(255,255,255,0.78)' : C.inkSoft} /></View>}
+              <Text numberOfLines={1} style={[s.cardTitle, s.cardTitleInRow]}>{diary.title}</Text>
+              {isSharedDiary(diary) && <View accessible accessibilityLabel="공유 다이어리" style={s.sharedDiaryIcon}><AppIcon name="people" size={16} color={C.inkSoft} /></View>}
             </View>
-            <Text testID={`diary-page-count-${diary.id}`} style={[s.cardPageCount, onDark && s.onDeskDarkSoft]}>{countLabel}</Text>
+            <Text testID={`diary-page-count-${diary.id}`} style={s.cardPageCount}>{countLabel}</Text>
           </View>
           {actions.length > 0 && <View style={s.cardMoreSlot}>
             {showTools && <Pressable
               accessibilityRole="button"
               accessibilityLabel={`${diary.title} 더보기`}
               accessibilityState={{ expanded: menu !== null }}
-              hitSlop={9}
+              hitSlop={8}
               ref={moreRef}
               onPress={(event) => {
                 event.stopPropagation();
@@ -133,7 +127,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
               }}
               style={s.cardMore}
             >
-              <AppIcon name="more" size={22} color={onDark ? C.white : C.ink} />
+              <AppIcon name="more" size={22} color={C.ink} />
             </Pressable>}
           </View>}
         </View>

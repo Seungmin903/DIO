@@ -18,11 +18,11 @@ HERE = Path(__file__).resolve().parent.parent
 CHAR = HERE.parent / '캐릭터 디자인' / '최종시안.png'
 
 MASCOTS = ('MASCOTS — copy them EXACTLY from the attached character sheet (char.png), never redesign them: '
-           'DIO is a butter-yellow (#FEF0BF) rectangular book with rounded corners, a thin page block on its right side, a small lavender (#DBDCF9) bookmark tab sticking out at the upper right, '
-           'two black dot eyes and a tiny smile in the middle, and two short stubby legs; DURI is a snowman-like friend with a big round white head, two black dot eyes and no mouth, '
+           'MOA is a butter-yellow (#FEF0BF) rectangular book with rounded corners, a thin page block on its right side, a small lavender (#DBDCF9) bookmark tab sticking out at the upper right, '
+           'two black dot eyes and a tiny smile in the middle, and two short stubby legs; DIO is a snowman-like friend with a big round white head, two black dot eyes and no mouth, '
            'a lavender (#DBDCF9) scarf whose end hangs down to the right, a pale lavender-white bell-shaped coat with two round outlined buttons, and two short lavender legs. '
-           'NEITHER DIO NOR DURI HAS ARMS OR HANDS — never add arms, hands, fingers or peace signs; they pose only by leaning, tilting, winking or standing close. '
-           'Both have clean black outlines of even weight and flat fills. Same proportions as the sheet: DIO\'s book body is almost square, about 0.9 times as wide as it is tall (never tall and slim), with legs about one fifth of the body height; DURI\'s head is about one third of his height. '
+           'NEITHER MOA NOR DIO HAS ARMS OR HANDS — never add arms, hands, fingers or peace signs; they pose only by leaning, tilting, winking or standing close. '
+           'Both have clean black outlines of even weight and flat fills. Same proportions as the sheet: MOA\'s book body is almost square, about 0.9 times as wide as it is tall (never tall and slim), with legs about one fifth of the body height; DIO\'s head is about one third of his height. '
            'Only tiny pose or expression changes are allowed (wink, closed happy eyes). When a mascot is printed on an object, it is a small faithful print of this artwork. ')
 
 VIEW = ('VIEW: a pure top-down (orthographic) view, looking straight down at a desk, like a flat-lay photo turned into illustration. Every object lies flat on the desk. '
@@ -58,49 +58,49 @@ VARIANTS = {
     '1안 버터 오후 원목': {
         'surface': ('SURFACE: a very pale white-washed oak desk top (#F6EFE2 to #F2EADB) with a fine, straight, soft wood grain running left to right and a few faint growth rings; '
                     'satin finish, warm ivory, calm and clean.'),
-        'props': ['(1) an instant photo (polaroid) whose picture shows DIO and DURI sitting side by side on a butter-yellow gingham picnic blanket under a pale sky',
+        'props': ['(1) an instant photo (polaroid) whose picture shows MOA and DIO sitting side by side on a butter-yellow gingham picnic blanket under a pale sky',
                   '(2) a flat roll of butter-yellow gingham washi tape seen from above (a ring with a kraft-paper core)',
                   '(3) a short softly torn strip of the same butter gingham washi tape',
                   '(4) a butter-yellow painted metal binder clip seen from above, silver wire handles folded flat',
-                  '(5) a keycap keyring: a white keycap whose top shows a small print of DURI\'s face, with a small silver split ring and a short ball chain lying in a gentle curve',
-                  '(6) a die-cut vinyl sticker of the full DIO character with a white border'],
+                  '(5) a keycap keyring: a white keycap whose top shows a small print of DIO\'s face, with a small silver split ring and a short ball chain lying in a gentle curve',
+                  '(6) a die-cut vinyl sticker of the full MOA character with a white border'],
     },
     '2안 아이보리 리넨 매트': {
         'surface': ('SURFACE: a warm white desk top (#F8F5EF) mostly covered by a large ivory linen desk mat (#F3EDE1) with a visible fine woven linen texture and a neat stitched edge; '
                     'the mat\'s left and bottom edges run just inside the frame so a little white desk shows around it.'),
-        'props': ['(1) an acrylic korotto (thick clear acrylic block figure) of DIO lying flat on its back, full-body DIO print, frosted milky edges with a soft highlight',
-                  '(2) a small kiss-cut sticker sheet of tiny DIO and DURI stickers (smiling, winking, sleepy) on a pale lavender backing, two stickers already peeled off leaving empty cut outlines',
+        'props': ['(1) an acrylic korotto (thick clear acrylic block figure) of MOA lying flat on its back, full-body MOA print, frosted milky edges with a soft highlight',
+                  '(2) a small kiss-cut sticker sheet of tiny MOA and DIO stickers (smiling, winking, sleepy) on a pale lavender backing, two stickers already peeled off leaving empty cut outlines',
                   '(3) a flat roll of lavender washi tape with tiny white dots seen from above (a ring with a kraft-paper core)',
                   '(4) a short softly torn strip of the same lavender dot washi tape',
                   '(5) two gold paper clips: one classic, one heart-shaped',
-                  '(6) an instant photo (polaroid) of a soft blue sky with small clouds, with a die-cut DURI sticker on its lower-right corner'],
+                  '(6) an instant photo (polaroid) of a soft blue sky with small clouds, with a die-cut DIO sticker on its lower-right corner'],
     },
     '3안 화이트 종이결': {
         'surface': ('SURFACE: a clean cool-white painted desk top (#F5F6F8 to #EFF1F5) with a fine, soft cotton-paper grain texture and very faint brush marks; '
                     'quiet and modern, cool white with just a hint of warmth inside the sunlight.'),
-        'props': ['(1) two keycap keyrings on one silver ring with a tiny star charm: a butter-yellow keycap with a small print of DIO\'s face and a white keycap with a small print of DURI\'s face',
+        'props': ['(1) two keycap keyrings on one silver ring with a tiny star charm: a butter-yellow keycap with a small print of MOA\'s face and a white keycap with a small print of DIO\'s face',
                   '(2) a sky-blue painted metal binder clip seen from above, silver handles folded flat, clipping the top edge of two slightly offset stacked instant photos: one of a snowy evergreen forest at blue dusk, one of soft clouds',
-                  '(3) a die-cut vinyl sticker of the full DURI character with a white border',
+                  '(3) a die-cut vinyl sticker of the full DIO character with a white border',
                   '(4) a short softly torn strip of sage-and-cream check washi tape',
-                  '(5) a small acrylic korotto of DURI lying flat on its back, frosted milky edges with a soft highlight'],
+                  '(5) a small acrylic korotto of DIO lying flat on its back, frosted milky edges with a soft highlight'],
     },
     '4안 크림 가죽 데스크패드': {
         'surface': ('SURFACE: a soft ivory desk top (#F7F2E8) mostly covered by a large cream vegan-leather desk pad (#EFE6D6) with a fine pebbled leather texture, slightly rounded corners and a tone-on-tone stitched border; '
                     'the pad\'s left and bottom edges run just inside the frame so a little ivory desk shows around it.'),
-        'props': ['(1) a vertical four-cut photo-booth strip: four frames of DIO and DURI together on pastel backgrounds (leaning cheek to cheek, both winking, DURI peeking from behind DIO, both with happy closed eyes), drawn flat in the mascot style, no arms',
-                  '(2) a pair of acrylic korotto lying flat side by side: DIO and DURI, full-body prints copied exactly from the character sheet (no arms), frosted milky edges with a soft highlight',
+        'props': ['(1) a vertical four-cut photo-booth strip: four frames of MOA and DIO together on pastel backgrounds (leaning cheek to cheek, both winking, DIO peeking from behind MOA, both with happy closed eyes), drawn flat in the mascot style, no arms',
+                  '(2) a pair of acrylic korotto lying flat side by side: MOA and DIO, full-body prints copied exactly from the character sheet (no arms), frosted milky edges with a soft highlight',
                   '(3) a small butter-yellow painted metal binder clip seen from above, silver handles folded flat',
                   '(4) two short softly torn strips of washi tape: butter gingham and lavender',
                   '(5) a gold heart-shaped paper clip',
-                  '(6) two tiny die-cut vinyl stickers: a lavender heart and a DIO face'],
+                  '(6) two tiny die-cut vinyl stickers: a lavender heart and a MOA face'],
     },
 }
 # 소품 보드에서 잘린 순서(위 줄 왼쪽부터)대로 붙이는 이름. 결과를 보고 적는다. 개수가 다르면 번호로 남긴다.
 NAMES = {
-    '1안 버터 오후 원목': ['폴라로이드 디오와 두리 소풍', '마스킹테이프 롤 버터 깅엄', '마스킹테이프 조각 버터 깅엄', '스티커 디오', '바인더 클립 버터', '키캡 키링 두리'],
-    '2안 아이보리 리넨 매트': ['스티커 시트 디오와 두리', '마스킹테이프 롤 라벤더 도트', '스티커 디오', '폴라로이드 하늘 두리 스티커', '종이 클립 골드', '하트 클립 골드', '마스킹테이프 조각 라벤더 도트'],
-    '4안 크림 가죽 데스크패드': ['네컷 사진 디오와 두리', '아크릴 코롯토 두리', '바인더 클립 버터', '아크릴 코롯토 디오', '스티커 하트 라벤더', '마스킹테이프 조각 버터 깅엄', '하트 클립 골드', '스티커 디오 얼굴', '마스킹테이프 조각 라벤더'],
-    '3안 화이트 종이결': ['폴라로이드 두 장 하늘색 바인더 클립', '키캡 키링 디오와 두리', '스티커 두리', '아크릴 코롯토 두리', '마스킹테이프 조각 세이지 체크'],
+    '1안 버터 오후 원목': ['폴라로이드 모아와 디오 소풍', '마스킹테이프 롤 버터 깅엄', '마스킹테이프 조각 버터 깅엄', '스티커 모아', '바인더 클립 버터', '키캡 키링 디오'],
+    '2안 아이보리 리넨 매트': ['스티커 시트 모아와 디오', '마스킹테이프 롤 라벤더 도트', '스티커 모아', '폴라로이드 하늘 디오 스티커', '종이 클립 골드', '하트 클립 골드', '마스킹테이프 조각 라벤더 도트'],
+    '4안 크림 가죽 데스크패드': ['네컷 사진 모아와 디오', '아크릴 코롯토 디오', '바인더 클립 버터', '아크릴 코롯토 모아', '스티커 하트 라벤더', '마스킹테이프 조각 버터 깅엄', '하트 클립 골드', '스티커 모아 얼굴', '마스킹테이프 조각 라벤더'],
+    '3안 화이트 종이결': ['폴라로이드 두 장 하늘색 바인더 클립', '키캡 키링 모아와 디오', '스티커 디오', '아크릴 코롯토 디오', '마스킹테이프 조각 세이지 체크'],
 }
 MAGENTA = np.array([255, 0, 255], dtype=np.float32)
 

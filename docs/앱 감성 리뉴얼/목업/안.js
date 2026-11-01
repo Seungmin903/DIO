@@ -82,7 +82,7 @@ function homeS(kind, skin, state) {
     let ty = 450
     if (skin === 'A') { objs = CHAR('둘이', cw, `left:${cx - cw / 2}px;top:320px`) + PROP('tape-butter', 64, -6, `left:${cx + cw / 2 - 58}px;top:312px;opacity:.9`); ty = 320 + chh + 30 }
     else if (skin === 'B') { objs = `<div class="pol-frame" style="left:${cx - cw / 2 - 14}px;top:304px;width:${cw + 28}px;height:${chh + 60}px;border-radius:6px;transform:rotate(-2deg)">${CHAR('둘이', cw, 'left:14px;top:14px')}</div>` + PROP('tape-lavender', 56, -4, `left:${cx - 28}px;top:292px;z-index:5`); ty = 304 + chh + 60 + 24 }
-    else { objs = CHAR('두리', 96, `left:${cx - 48}px;top:318px`) + `<div style="position:absolute;left:${cx - 60}px;top:${318 + Math.round(96 * 2540 / 2330) + 10}px;width:120px;height:1px;background:#ABB1D8"></div>`; ty = 450 }
+    else { objs = CHAR('디오', 96, `left:${cx - 48}px;top:318px`) + `<div style="position:absolute;left:${cx - 60}px;top:${318 + Math.round(96 * 2540 / 2330) + 10}px;width:120px;height:1px;background:#ABB1D8"></div>`; ty = 450 }
     objs += `<div class="empty-title" style="left:${cx - 100}px;width:200px;top:${ty}px">다이어리가 없어요</div>`
   } else if (tab) {
     if (skin === 'B') {
@@ -241,9 +241,9 @@ function trashS(kind, skin, empty) {
   let inner = `<div class="h-title" ${tab ? 'style="top:44px"' : ''}>휴지통</div><div class="pill" style="right:${tab ? 30 : 18}px;top:${tab ? 40 : 18}px;width:88px;height:${tab ? 48 : 44}px;${skin === 'C' ? 'border-radius:12px' : ''}">선택</div>`
   if (empty) {
     const cx = tab ? 601 : 195
-    if (skin === 'A') inner += `<div style="position:absolute;left:${cx - 90}px;top:276px;width:180px;height:130px;border-radius:24px;background:#F0F1F9"></div>` + CHAR('두리', 84, `left:${cx - 42}px;top:290px`)
+    if (skin === 'A') inner += `<div style="position:absolute;left:${cx - 90}px;top:276px;width:180px;height:130px;border-radius:24px;background:#F0F1F9"></div>` + CHAR('디오', 84, `left:${cx - 42}px;top:290px`)
     else if (skin === 'B') inner += CHAR('둘이', 170, `left:${cx - 85}px;top:300px`) + PROP('tape-butter', 52, -8, `left:${cx + 40}px;top:292px;opacity:.9`)
-    else inner += CHAR('두리', 84, `left:${cx - 42}px;top:300px`) + `<div style="position:absolute;left:${cx - 50}px;top:402px;width:100px;height:1px;background:#ABB1D8"></div>`
+    else inner += CHAR('디오', 84, `left:${cx - 42}px;top:300px`) + `<div style="position:absolute;left:${cx - 50}px;top:402px;width:100px;height:1px;background:#ABB1D8"></div>`
     inner += `<div class="empty-title" style="left:${cx - 110}px;width:220px;top:${tab ? 428 : 424}px">휴지통이 비어 있어요</div>`
   } else if (tab) {
     const w = skin === 'A' ? 172 : skin === 'B' ? 176 : 170

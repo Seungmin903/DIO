@@ -17,7 +17,7 @@ import { OptionRow, Segmented } from './FormControls';
 import PdfImport, { MyCoverList, MyPaperList, PdfPageThumb } from './PdfImport';
 import Workbench, { StagePill, fit } from './Workbench';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
-import { coverSummary, defaultCover, normalizeCover } from '../utils/coverDesign';
+import { coverSummary, newDiaryCover, normalizeCover } from '../utils/coverDesign';
 import { defaultSections, savedPaperSummary, sectionTitle, sectionsTemplateConfig } from '../utils/paperChoice';
 import { PdfImportError, coverWithPdfPage, pdfOrientation, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
@@ -57,7 +57,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [section, setSection] = useState(editing ? 'cover' : 'basic');
   const [title, setTitle] = useState(diary?.title ?? DIARY_DEFAULTS.title);
   const [orientation, setOrientation] = useState(normalizeOrientation(diary?.templateConfig?.orientation ?? diary?.pageSize ?? 'portrait'));
-  const [cover, setCover] = useState(() => editing ? normalizeCover(diary) : defaultCover());
+  const [cover, setCover] = useState(() => editing ? normalizeCover(diary) : newDiaryCover());
   const [openElement, setOpenElement] = useState('base');
   // 속지 묶음: 위에서부터 순서대로 쌓는다 (화면은 한 줄 목록 + 이어서 · 섞어서)
   const [paperSections, setPaperSections] = useState(defaultSections);
@@ -303,7 +303,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   </View>;
   else if (section === 'cover') panel = <View style={styles.coverPanel}>
     {!editing && <MyCoverList items={library.covers} name={title} selectedId={myCoverId} onPick={useMyCover} onRemove={removeMyCover} disabled={formLocked} />}
-    <CoverOptions cover={cover} onChange={changeCover} openElement={openElement} onOpenElement={setOpenElement} onNotice={setNotice} />
+    <CoverOptions cover={cover} name={title} onChange={changeCover} openElement={openElement} onOpenElement={setOpenElement} onNotice={setNotice} />
   </View>;
   else if (section === 'paper') panel = <View style={styles.coverPanel}>
     <MyPaperList items={library.papers} selectedId={myPaper?.id} onPick={useMyPaper} onRemove={removeMyPaper} disabled={formLocked} />
