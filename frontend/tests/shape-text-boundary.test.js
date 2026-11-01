@@ -22,7 +22,7 @@ function fixture() {
     useLayoutEffect:fn=>layouts.push(fn),
     useEffect:(fn,deps)=>{const i=effectCursor++;if(!effects[i]||deps.some((d,j)=>d!==effects[i].deps[j])){effects[i]?.cleanup?.();effects[i]={deps,cleanup:fn()}}},
   }
-  const mocks={react,'react/jsx-runtime':require('react/jsx-runtime'),'react-native':{View:'view',TextInput:'input',Text:'text',Platform:{OS:'android'},Keyboard:{addListener:(name,fn)=>{keyboard[name]=fn;return {remove:()=>removed++}},dismiss:()=>dismissed++}},'../../shared/theme':{colors:{}},'../hooks/useTextFont':{useTextFont(){}},'../utils/editorShapes':{shapeTextStyle:()=>({}),shapeTextBox},'../utils/text':{textPatch:()=>({h:60}),textSettings:()=>({lineSpacing:1.4})},'../utils/textRanges':textRanges,'../utils/textFormats':textFormats,'../services/textClipboard':{useTextClipboardAvailable:()=>false,copyText:async()=>{},readText:async()=>''},'./TextActionBar':{__esModule:true,default:'actions'},'../utils/shapeTextViewport':{shapeInputHeight,shapeRevealDelta},'./canvas/ShapeContent':{__esModule:true,default:'shape'}}
+  const mocks={react,'react/jsx-runtime':require('react/jsx-runtime'),'react-native':{View:'view',TextInput:'input',Text:'text',Platform:{OS:'android'},Keyboard:{addListener:(name,fn)=>{keyboard[name]=fn;return {remove:()=>removed++}},dismiss:()=>dismissed++}},'../../shared/theme':{colors:{}},'../hooks/useTextFont':{useTextFont(){}},'../utils/editorShapes':{shapeTextStyle:()=>({}),shapeTextBox},'../utils/text':{textPatch:()=>({h:60}),textSettings:()=>({lineSpacing:1.4})},'../utils/textRanges':textRanges,'../utils/textFormats':textFormats,'../services/textClipboard':{useTextClipboardAvailable:()=>false,copyText:async()=>{},readText:async()=>''},'./TextActionBar':{__esModule:true,default:'actions',TextRangePanel:'rangePanel'},'../utils/shapeTextViewport':{shapeInputHeight,shapeRevealDelta},'./canvas/ShapeContent':{__esModule:true,default:'shape'}}
   const module={exports:{}}
   new Function('require','module','exports','requestAnimationFrame','cancelAnimationFrame',code)(id=>mocks[id],module,module.exports,fn=>{frames.set(++nextFrame,fn);return nextFrame},id=>frames.delete(id))
   const boundary={current:null}, props={object:{id:'s',x:40,y:600,w:200,h:120,text:'내용'},zoom:1,boundary,onSave:text=>saves.push(text),onReveal:dy=>{position={...position,y:position.y-dy};render()}}
@@ -88,7 +88,7 @@ test('긴 도형 글은 툴바와 키보드 사이 높이로 제한하며 입력
 })
 
 
-test('도형 글자 선택 바에서 일부 색·크기를 바꾸고 저장 시 범위를 전달한다',()=>{
+test('앱은 글자를 고르면 선택한 글자 창에서 일부 색·크기를 바꾸고 저장 시 범위를 전달한다',()=>{
  const f=fixture(),palettes=[],saved=[]
  f.props.onPaletteChange=next=>palettes.push(next)
  f.props.paletteBounds={current:null}
@@ -97,7 +97,8 @@ test('도형 글자 선택 바에서 일부 색·크기를 바꾸고 저장 시 
  tree.props.children[1].props.onSelectionChange({nativeEvent:{selection:{start:0,end:1}}})
  f.render();f.tick();f.render()
  let bar=palettes.filter(Boolean).at(-1).content.props.children
- assert.equal(bar.props.hasSelection,true)
+ // 안드로이드: 복사 · 붙여넣기는 시스템 메뉴, 고른 글자 서식은 도구줄 아래 창
+ assert.equal(bar.type,'rangePanel');assert.equal(palettes.filter(Boolean).at(-1).placement,'panel')
  bar.props.onColor('#FF0000');f.render()
  bar=palettes.filter(Boolean).at(-1).content.props.children
  bar.props.onIncrease();tree=f.render()

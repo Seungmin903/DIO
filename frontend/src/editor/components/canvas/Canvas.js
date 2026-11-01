@@ -994,14 +994,16 @@ const styles = StyleSheet.create({
     top: 0,
     overflow: 'hidden',
   },
-  hitLayer: { ...StyleSheet.absoluteFillObject },
+  // 요소마다 같은 자리에 터치 상자를 두는 층. 층 자체는 높이 0 으로 둔다(상자들은 절대 위치라 그대로 눌린다).
+  // 캔버스 전체를 덮으면 안드로이드에서 box-none 이어도 아래 텍스트 상자 만들기 층(TextBoxInput)이 탭을 받지 못한다.
+  hitLayer: { position: 'absolute', top: 0, left: 0, right: 0 },
   emptyMenu: { position: 'absolute', zIndex: 6, flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,138,195,0.2)', boxShadow: '0px 6px 14px rgba(11, 23, 102, 0.16)' },
   menuButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   menuPressed: {}, // 눌림 효과 없음(사용자 지시)
   menuDisabled: { opacity: DISABLED_OPACITY },
   menuText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
-  selectionControls: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
-  selectionMenu: { ...StyleSheet.absoluteFillObject, zIndex: 4 },
+  selectionControls: { ...StyleSheet.absoluteFill, zIndex: 2 },
+  selectionMenu: { ...StyleSheet.absoluteFill, zIndex: 4 },
   penClip: {
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',

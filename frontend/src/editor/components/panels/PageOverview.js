@@ -126,7 +126,7 @@ const OverviewItem = memo(function OverviewItem({ page, number, active, managing
 })
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 50, elevation: 50, padding: 24, backgroundColor: colors.scrim },
+  backdrop: { ...StyleSheet.absoluteFill, zIndex: 50, elevation: 50, padding: 24, backgroundColor: colors.scrim },
   sheet: { flex: 1, borderRadius: PANEL_RADIUS, backgroundColor: '#EEF2FA', overflow: 'hidden', ...shadow.float },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: colors.surface },
   phoneBackdrop: { position: 'relative', top: undefined, bottom: undefined, left: undefined, right: undefined, flex: 1, padding: 12 },
@@ -148,8 +148,8 @@ const styles = StyleSheet.create({
   row: { gap: GAP },
   item: { width: THUMB_WIDTH, alignItems: 'center', gap: 8 },
   thumb: { width: THUMB_WIDTH, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(11,23,102,0.1)', backgroundColor: '#FFFFFF', ...shadow.card },
-  thumbPage: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', borderRadius: 10 },
-  activeRing: { ...StyleSheet.absoluteFillObject, margin: -1, borderRadius: 10, borderWidth: 3, borderColor: colors.primary },
+  thumbPage: { ...StyleSheet.absoluteFill, overflow: 'hidden', borderRadius: 10 },
+  activeRing: { ...StyleSheet.absoluteFill, margin: -1, borderRadius: 10, borderWidth: 3, borderColor: colors.primary },
   bookmark: { position: 'absolute', top: 8, left: 8, width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.85)' },
   number: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
   numberActive: { color: colors.text },

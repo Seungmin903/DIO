@@ -96,13 +96,14 @@ test('실제 RN TextInputState의 동일 focus 생략을 우회하고 native foc
 const editorCode = babel.transformSync(readFileSync(new URL('../src/editor/components/TextEditor.js', import.meta.url), 'utf8'), {
   configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 }).code
-function mountEditor(platform = 'android') {
+// selected: 글자를 고른 상태로 띄운다(앱은 글자를 골랐을 때만 '선택한 글자' 창이 뜬다). useState(false) 는 selected 하나뿐이다
+function mountEditor(platform = 'android', { selected = false } = {}) {
   const time = clock(), effects = [], listeners = new Map(), saves = [], cancelled = []
   let palette, unmounted = false
   const rn = nativeFocusState(), input = { currentProps: { editable: true }, measureInWindow() {} }
   input.focus = () => rn.state.focusTextInput(input)
   input.isFocused = () => rn.state.currentlyFocusedInput() === input
-  const hooks = { ...React, useRef: current => ({ current }), useState: value => [typeof value === 'function' ? value() : value, () => {}], useEffect: fn => { effects.push(fn) } }
+  const hooks = { ...React, useRef: current => ({ current }), useState: value => [typeof value === 'function' ? value() : value === false && selected ? true : value, () => {}], useEffect: fn => { effects.push(fn) } }
   const native = { Platform: { OS: platform }, View: 'view', Text: 'text', Pressable: 'button', TextInput: 'input', StyleSheet: { create: x => x },
     Keyboard: { isVisible: () => false, dismiss() {}, addListener: (name, cb) => { listeners.set(name, cb); return { remove: () => listeners.delete(name) } } },
     findNodeHandle: () => 42, UIManager: { dispatchViewManagerCommand: rn.command } }
@@ -117,7 +118,7 @@ function mountEditor(platform = 'android') {
     if (id === '../utils/textKeyboard') return { startTextKeyboard, requestTextKeyboard }
     if (id === '../hooks/useTextFont') return { useTextFont() {} }
     if (id === '../services/textClipboard') return { copyText: async () => {}, useTextClipboardAvailable: () => true }
-    if (id === './TextActionBar') return { __esModule: true, default: 'action-bar' }
+    if (id === './TextActionBar') return { __esModule: true, default: 'action-bar', TextRangePanel: 'range-panel' }
     if (id === './TextLinkDialog') return { __esModule: true, default: 'link-dialog' }
     return require(id)
   }, module, module.exports)
@@ -131,11 +132,11 @@ function mountEditor(platform = 'android') {
   Object.assign(globalThis, { requestAnimationFrame: time.requestFrame, cancelAnimationFrame: time.cancelFrame, setTimeout: time.schedule, clearTimeout: time.clear })
   const cleanups = effects.map(fn => fn()).filter(fn => typeof fn === 'function')
   return { time, input, field, saves, cancelled, listeners, calls: rn.count,
-    link: () => React.Children.toArray(palette.content.props.children).find(n => n.type === 'action-bar').props.onLink(),
+    link: () => React.Children.toArray(palette.content.props.children).find(n => n.type === 'action-bar' || n.type === 'range-panel').props.onLink(),
     unmount: () => { if (unmounted) return; unmounted = true; cleanups.forEach(fn => fn()); Object.assign(globalThis, globals) } }
 }
 for (const ending of ['show-hide', 'save', 'link', 'unmount']) test(`실제 TextEditor: ${ending} 이후에는 대기 중 focus가 편집을 다시 시작하지 않는다`, () => {
-  const f = mountEditor()
+  const f = mountEditor('android', { selected: ending === 'link' })
   try {
     f.time.frame(); assert.equal(f.calls(), 1)
     f.time.advance(80); assert.equal(f.calls(), 2)
