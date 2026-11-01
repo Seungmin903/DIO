@@ -70,12 +70,12 @@ public class MediaService {
 	}
 	private static byte[] read(MultipartFile upload) {
 		if (upload == null || upload.isEmpty()) throw MediaRequestException.invalidFile();
-		try (var in = new PushbackInputStream(upload.getInputStream(), 12)) {
-			byte[] header = in.readNBytes(12);
+		try (var in = new PushbackInputStream(upload.getInputStream(), 1024)) {
+			byte[] header = in.readNBytes(1024);
 			if (header.length == 0) throw MediaRequestException.invalidFile();
 			in.unread(header);
 			boolean font = MediaUploadInspector.isFontHeader(header);
-			boolean document = documentName(upload.getOriginalFilename());
+			boolean document = MediaUploadInspector.hasPdfHeader(header);
 			int limit = font ? MAX_FONT_SIZE : document ? MAX_DOCUMENT_SIZE : MAX_FILE_SIZE;
 			if (upload.getSize() > limit) throw tooLarge(font, document);
 			byte[] content = in.readNBytes(limit + 1);
@@ -85,9 +85,6 @@ public class MediaService {
 	}
 	private static MediaRequestException tooLarge(boolean font, boolean document) {
 		return font ? MediaRequestException.fontTooLarge() : document ? MediaRequestException.documentTooLarge() : MediaRequestException.tooLarge();
-	}
-	private static boolean documentName(String name) {
-		return name != null && name.toLowerCase(Locale.ROOT).endsWith(".pdf");
 	}
 	private static String downloadName(MediaFileTransactionService.StorageReference reference) {
 		if (reference.originalFilename() != null && !reference.originalFilename().isBlank()) return reference.originalFilename();

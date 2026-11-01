@@ -28,7 +28,7 @@ class CanvasMediaReferenceTests {
         cells.addObject().put("mediaFileId",UUID.randomUUID().toString());
         var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
         var dialect=org.mockito.Mockito.mock(com.f106.DIO.media.config.MediaSqlDialect.class);
-        assertThatThrownBy(()->new CanvasMediaAccess(jdbc,dialect).requireAttach(UUID.randomUUID(),primary,properties,1))
+        assertThatThrownBy(()->new CanvasMediaAccess(jdbc,dialect).requireAttach(UUID.randomUUID(),null,properties,1))
             .isInstanceOf(IllegalArgumentException.class);
         org.mockito.Mockito.verifyNoInteractions(jdbc,dialect);
     }
@@ -38,7 +38,7 @@ class CanvasMediaReferenceTests {
         var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
         var dialect=org.mockito.Mockito.mock(com.f106.DIO.media.config.MediaSqlDialect.class);
         var access=new CanvasMediaAccess(jdbc,dialect);
-        org.mockito.Mockito.when(jdbc.queryForList(org.mockito.ArgumentMatchers.contains("media_type in ('IMAGE','DOCUMENT')"), org.mockito.ArgumentMatchers.eq(Long.class), org.mockito.ArgumentMatchers.eq(pdf)))
+        org.mockito.Mockito.when(jdbc.queryForList(org.mockito.ArgumentMatchers.contains("media_type=?"), org.mockito.ArgumentMatchers.eq(Long.class), org.mockito.ArgumentMatchers.eq(pdf), org.mockito.ArgumentMatchers.eq("DOCUMENT")))
             .thenReturn(List.of(1L));
 
         access.requireAttach(UUID.randomUUID(),null,properties,1L);
@@ -53,5 +53,19 @@ class CanvasMediaReferenceTests {
 				org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
 
         assertThat(access.readable(pdf,2L)).isTrue();
+    }
+    @Test void imageSlotsRequireImageMediaAndCannotReuseAPdfSourceId(){
+        var imageSlot=UUID.randomUUID();
+        var pdf=UUID.randomUUID();
+        var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        var dialect=org.mockito.Mockito.mock(com.f106.DIO.media.config.MediaSqlDialect.class);
+        var access=new CanvasMediaAccess(jdbc,dialect);
+        var imageProperties=json.readTree("{\"mediaFileId\":\""+imageSlot+"\"}");
+
+        assertThatThrownBy(()->access.requireAttach(UUID.randomUUID(),null,imageProperties,1L)).isInstanceOf(com.f106.DIO.media.support.MediaFileNotFoundException.class);
+        org.mockito.Mockito.verify(jdbc).queryForList(org.mockito.ArgumentMatchers.contains("media_type=?"), org.mockito.ArgumentMatchers.eq(Long.class), org.mockito.ArgumentMatchers.eq(imageSlot), org.mockito.ArgumentMatchers.eq("IMAGE"));
+
+        var conflicting=json.readTree("{\"mediaFileId\":\""+pdf+"\",\"pdfSource\":{\"mediaFileId\":\""+pdf+"\"}}");
+        assertThatThrownBy(()->access.requireAttach(UUID.randomUUID(),null,conflicting,1L)).isInstanceOf(IllegalArgumentException.class);
     }
 }

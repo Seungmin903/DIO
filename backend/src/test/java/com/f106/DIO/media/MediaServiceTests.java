@@ -242,7 +242,7 @@ class MediaServiceTests {
 	@Test
 	void checksTheExistingNonFontSizeLimitBeforeReadingTheWholeFile() {
 		byte[] bytes=new byte[5*1024*1024+1]; bytes[0]=(byte)0xff;bytes[1]=(byte)0xd8;bytes[2]=(byte)0xff;
-		var stream=new java.io.ByteArrayInputStream(bytes) { int total; @Override public synchronized int read(byte[] b,int off,int len) { int n=super.read(b,off,len); if(n>0) {total+=n; if(total>12) throw new AssertionError("read beyond header");} return n; } };
+		var stream=new java.io.ByteArrayInputStream(bytes) { int total; @Override public synchronized int read(byte[] b,int off,int len) { int n=super.read(b,off,len); if(n>0) {total+=n; if(total>1024) throw new AssertionError("read beyond the PDF detection header");} return n; } };
 		var file=mock(org.springframework.web.multipart.MultipartFile.class);
 		try { when(file.isEmpty()).thenReturn(false);when(file.getSize()).thenReturn((long)bytes.length);when(file.getInputStream()).thenReturn(stream); }
 		catch(java.io.IOException e) { throw new AssertionError(e); }
