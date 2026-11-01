@@ -46,7 +46,9 @@ public class MyProfileService {
             return writeTransaction.execute(status -> {
                 var user = activeUser(userId);
                 Instant now = Instant.now();
-                user.updateNickname(request.nickname(), now);
+                if (!request.nickname().equals(user.getNickname())) {
+                    user.changeNickname(request.nickname(), now);
+                }
                 if (pending != null) {
                     pending.enlist();
                 }

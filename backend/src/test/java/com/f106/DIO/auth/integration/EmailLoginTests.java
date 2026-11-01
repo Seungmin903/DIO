@@ -183,6 +183,15 @@ class EmailLoginTests {
         mvc.perform(get("/api/v1/me").header("Authorization","Bearer "+login.accessToken()))
             .andExpect(jsonPath("$.nickname").value("새닉네임"));
     }
+    @Test void sameNicknameKeepsUpdatedAt()throws Exception{
+        register();var login=login();
+        Long userId=Long.valueOf(login.user().userId());
+        Object before=ReflectionTestUtils.getField(users.findById(userId).orElseThrow(),"updatedAt");
+        mvc.perform(patch("/api/v1/me").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\""+users.findById(userId).orElseThrow().getNickname()+"\"}"))
+            .andExpect(status().isOk());
+        assertThat(ReflectionTestUtils.getField(users.findById(userId).orElseThrow(),"updatedAt")).isEqualTo(before);
+    }
     @Test void myProfileAllowsWebPreflightForPatch()throws Exception{
         mvc.perform(options("/api/v1/me").header("Origin","http://localhost:8081").header("Access-Control-Request-Method","PATCH")
                 .header("Access-Control-Request-Headers","Authorization,Content-Type"))
