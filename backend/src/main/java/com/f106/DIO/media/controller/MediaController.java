@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,7 +22,7 @@ public class MediaController {
 	private final MediaService mediaService;
 	public MediaController(MediaService mediaService) { this.mediaService = mediaService; }
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	@Operation(summary = "미디어 업로드", description = "이미지(JPEG, PNG, WebP, GIF), 오디오(MP3, M4A, WAV, OGG) 또는 폰트(TTF, OTF)를 업로드합니다. 파일 형식은 서버가 판별합니다.")
+	@Operation(summary = "미디어 업로드", description = "이미지(JPEG, PNG, WebP, GIF), 오디오(MP3, M4A, WAV, OGG), 폰트(TTF, OTF), 편집 원본(PDF, SVG, AI)을 업로드합니다. 파일 형식은 서버가 판별합니다.")
 	public ResponseEntity<MediaFileResponse> upload(@RequestPart("file") MultipartFile file,
 			@Parameter(description = "이미지는 PHOTO·STICKER·TAPE, 오디오는 AUDIO, 폰트는 FONT. 생략 시 파일 유형의 기본값") @RequestParam(required = false) String libraryCategory,
 			@AuthenticationPrincipal Jwt jwt) {
@@ -41,9 +42,16 @@ public class MediaController {
 	@Operation(summary = "미디어 파일 조회", description = "소유자 또는 해당 이미지를 사용하는 활성 다이어리 참여자가 원본 파일 바이트를 조회합니다.")
 	public ResponseEntity<byte[]> file(@PathVariable UUID mediaFileId, @AuthenticationPrincipal Jwt jwt) {
 		MediaService.DownloadedMedia file = mediaService.file(mediaFileId, userId(jwt));
-		return ResponseEntity.ok().contentType(MediaType.parseMediaType(file.mimeType())).header(HttpHeaders.CACHE_CONTROL, "private, no-store").body(file.content());
+		var response = ResponseEntity.ok().contentType(MediaType.parseMediaType(file.mimeType()))
+			.header(HttpHeaders.CACHE_CONTROL, "private, no-store").header("X-Content-Type-Options", "nosniff");
+		if (isSourceDocument(file.mimeType()) && file.downloadName() != null) response.header(HttpHeaders.CONTENT_DISPOSITION,
+			ContentDisposition.attachment().filename(file.downloadName(), java.nio.charset.StandardCharsets.UTF_8).build().toString());
+		return response.body(file.content());
 	}
 	@DeleteMapping("/{mediaFileId}") @Operation(summary = "미디어 삭제", description = "로그인 사용자가 소유한 미디어를 소프트 삭제합니다.")
 	public ResponseEntity<Void> delete(@PathVariable UUID mediaFileId, @AuthenticationPrincipal Jwt jwt) { mediaService.delete(mediaFileId, userId(jwt)); return ResponseEntity.noContent().build(); }
 	private static Long userId(Jwt jwt) { return Long.valueOf(jwt.getSubject()); }
+	private static boolean isSourceDocument(String mimeType) {
+		return "application/pdf".equals(mimeType) || "image/svg+xml".equals(mimeType) || "application/illustrator".equals(mimeType);
+	}
 }

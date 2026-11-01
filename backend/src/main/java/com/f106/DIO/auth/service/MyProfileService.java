@@ -51,7 +51,7 @@ public class MyProfileService {
                 if (pending != null) {
                     pending.enlist();
                 }
-                String url = photoService.replace(userId, pending, request.removeProfilePhoto(), now);
+                String url = photoService.replace(userId, pending, Boolean.TRUE.equals(request.removeProfilePhoto()), now);
                 return response(user, url);
             });
         }
