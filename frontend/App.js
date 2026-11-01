@@ -68,18 +68,19 @@ export default function App() {
   // 앱 UI 글꼴(Pretendard)을 처음 그리기 전에 불러온다. 못 불러오면(fontError) 기본 글꼴로 그대로 연다
   const [fontsLoaded, fontError] = useFonts(PRETENDARD_FILES);
   const [previewSession, setPreviewSession] = useState(null);
-  // 게스트는 지난번에 고친 프로필(닉네임 · 한 줄 소개 · 사진)을 이어서 시작한다
-  const startSession = async session => setPreviewSession(session?.provider === 'guest' ? await guestProfile.start(session) : session);
+  const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
+  // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
+  // 이 기기의 메모리 세션만 지운다.
+  const clearSession = () => setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current);
   const endSession = async () => {
     try {
-      if (previewSession?.mode === 'authenticated') await authService.logout();
+      if (authenticatedSession) await authService.logout();
     } catch (error) { notify('로그아웃', `${error.message} 이 기기의 로그인 정보는 지웠어요.`); }
-    finally { setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current); }
+    finally { clearSession(); }
   };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
-  const SessionDiaryApp = previewSession?.mode === 'authenticated' ? MemberDiaryApp : LocalDiaryApp;
   if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider} />;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-sharing') {
     const SharingFixture = require('./tests/fixtures/diary-sharing.fixture').default;
@@ -92,10 +93,10 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <SessionDiaryApp key={`${previewSession.mode}:${previewSession.userId || 'preview'}`} previewUser={previewSession}
+        authenticatedSession ? <MemberDiaryApp key={`authenticated:${authenticatedSession.userId}`} previewUser={authenticatedSession}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
-          onEndPreview={endSession} /> : <AuthScreen onContinue={startSession} />
+          onEndPreview={endSession} onClearSession={clearSession} /> : <AuthScreen onContinue={setPreviewSession} />
       )}
       <HandwritingStudio />
 
@@ -121,7 +122,7 @@ function DiaryApp(props) {
 }
 const DESK_ON_PHONE = false;
 
-function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryState, sharing }) {
+function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, diaryState, sharing }) {
   const member = diaryState.source === 'member-api';
   const invitationLeaveGuard = useRef(null);
   const registerInvitationLeaveGuard = useCallback(guard => { invitationLeaveGuard.current = guard; return () => { if (invitationLeaveGuard.current === guard) invitationLeaveGuard.current = null; }; }, []);
@@ -759,7 +760,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   } else if (page === 'studio') {
     content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
-    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
+    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       guestService={previewUser?.provider === 'guest' ? guestProfile : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;

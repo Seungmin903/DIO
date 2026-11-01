@@ -61,7 +61,7 @@ public class MediaService {
 
 	public DownloadedMedia file(UUID mediaFileId, Long userId) {
 		MediaFileTransactionService.StorageReference reference = transactions.storageReference(mediaFileId, userId);
-		return new DownloadedMedia(reference.mimeType(), files.read(reference.storageKey()));
+		return new DownloadedMedia(reference.mimeType(), downloadName(reference), files.read(reference.storageKey()));
 	}
 
 	public void delete(UUID mediaFileId, Long userId) {
@@ -80,6 +80,15 @@ public class MediaService {
 			if (content.length > limit) throw font ? MediaRequestException.fontTooLarge() : MediaRequestException.tooLarge();
 			return content;
 		} catch (IOException error) { throw MediaRequestException.invalidFile(); }
+	}
+	private static String downloadName(MediaFileTransactionService.StorageReference reference) {
+		if (reference.originalFilename() != null && !reference.originalFilename().isBlank()) return reference.originalFilename();
+		return switch (reference.mimeType()) {
+			case "application/pdf" -> "document.pdf";
+			case "image/svg+xml" -> "document.svg";
+			case "application/illustrator" -> "document.ai";
+			default -> null;
+		};
 	}
 	private static MediaLibraryCategory category(MediaType mediaType, String requestedCategory) {
 		if (requestedCategory == null || requestedCategory.isBlank()) return mediaType == MediaType.IMAGE ? MediaLibraryCategory.PHOTO : mediaType == MediaType.FONT ? MediaLibraryCategory.FONT : MediaLibraryCategory.AUDIO;
@@ -100,5 +109,5 @@ public class MediaService {
 		try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)); }
 		catch (NoSuchAlgorithmException error) { throw new IllegalStateException("SHA-256 unavailable", error); }
 	}
-	public record DownloadedMedia(String mimeType, byte[] content) {}
+	public record DownloadedMedia(String mimeType, String downloadName, byte[] content) {}
 }

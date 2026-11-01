@@ -29,15 +29,14 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   assert.equal(mod.exports.authService.allowDevelopmentAccess, dev)
  }
 })
-test('기본 실행은 로그인, 게스트·체험은 로컬 보관함이고 실제 로그인만 회원 API로 진입한다',()=>{
+test('기본 실행은 로그인이고 실제 로그인 세션만 회원 보관함에 진입한다',()=>{
  assert.ok(has(root(true,undefined),'./src/auth/AuthScreen'))
  assert.ok(has(root(false,'mock'),'./src/auth/AuthScreen'))
  assert.ok(has(root(false,'mock-library'),'./src/auth/AuthScreen'))
- const tree=root(true,undefined,{nickname:'소연',mode:'guest'}),diary=nodes(tree).find(n=>n.type?.name==='LocalDiaryApp')
- assert.equal(diary.props.previewUser.nickname,'소연');assert.equal(typeof diary.props.onEndPreview,'function')
- assert.ok(has(root(false,undefined,{mode:'registered',userId:'1'}),'LocalDiaryApp'))
+ assert.ok(has(root(true,undefined,{nickname:'소연',mode:'guest'}),'./src/auth/AuthScreen'))
+ assert.ok(has(root(false,undefined,{mode:'registered',userId:'1'}),'./src/auth/AuthScreen'))
  const member=root(false,undefined,{mode:'authenticated',userId:'1'})
- assert.ok(has(member,'MemberDiaryApp'));assert.equal(has(member,'LocalDiaryApp'),false)
+ assert.ok(has(member,'MemberDiaryApp'))
  assert.equal(nodes(member).find(n=>n.type?.name==='MemberDiaryApp').key,'authenticated:1')
 })
 test('개발 전용 보관함 목 모드는 기존 경로를 유지한다',()=>{

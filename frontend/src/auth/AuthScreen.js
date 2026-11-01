@@ -32,6 +32,7 @@ import { authStyles as s } from './styles';
 import ProviderIcon from './ProviderIcon';
 import { pickProfilePhoto } from './profilePhoto';
 import EmailVerification from './EmailVerification';
+import PasswordResetScreen from './PasswordResetScreen';
 
 // 사진이 없을 때의 기본 프로필: 메뉴 아래 · 내 공간과 같은 그림
 import DefaultAvatar from '../shared/DefaultAvatar';
@@ -298,6 +299,19 @@ export default function AuthScreen({
       <Text style={s.buttonText}>{busy ? '처리 중…' : label}</Text>
     </Pressable>
   );
+  if (route === 'password-reset') {
+    return (
+      <SafeAreaView style={s.safe}>
+        <PasswordResetScreen
+          compact={isPhone}
+          email={values.email}
+          service={service}
+          onClose={() => navigate('welcome')}
+          onComplete={() => navigate('welcome')}
+        />
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView
@@ -487,11 +501,7 @@ export default function AuthScreen({
                     </Text>
                     {link(
                       '비밀번호 찾기',
-                      () =>
-                        setInfo({
-                          title: '비밀번호 찾기',
-                          body: '비밀번호 재설정은 계정 서비스 연결 후 이용할 수 있어요. 현재는 메일이 발송되지 않아요.',
-                        }),
+                      () => navigate('password-reset'),
                       s.accountLink,
                     )}
                     <Text
@@ -551,21 +561,6 @@ export default function AuthScreen({
                         </Pressable>
                       ))}
                     </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="게스트로 시작하기"
-                      accessibilityState={{ disabled: busy }}
-                      disabled={busy}
-                      onPress={() => {
-                        if (!running.current) {
-                          Keyboard.dismiss();
-                          onContinue({ mode: 'preview', provider: 'guest', nickname: '방문자' });
-                        }
-                      }}
-                      style={s.link}
-                    >
-                      <Text style={s.browseText}>게스트로 시작하기</Text>
-                    </Pressable>
                   </View>
                 )}
               </View>
