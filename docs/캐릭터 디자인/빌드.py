@@ -130,7 +130,7 @@ def build_html() -> None:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DIO 캐릭터 디자인 — 디오 · 두리 · 앱 아이콘</title>
+<title>DIO 캐릭터 디자인 — 모아 · 디오 · 앱 아이콘</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap">
 <style>{CSS}</style>
 </head>

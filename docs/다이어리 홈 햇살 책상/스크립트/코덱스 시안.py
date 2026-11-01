@@ -47,7 +47,7 @@ CONCEPTS = {
         'Objects (photos): a vertical four-cut photo-booth strip with soft pastel blurred photos (no recognizable faces) at the bottom-left, an instant photo of a pale blue sky, and a clear photocard toploader decorated with a few tiny stickers near the bottom between the counter and the + button. '
         'The filter chips, view switch, search, more and arrow buttons and the left menu panel look like frosted white glass: the desk light softly shows through them.',
         'Objects: a four-cut photo-booth strip with soft pastel blurred photos (no faces) and an instant sky photo at the bottom-left. The bottom tab bar, filter chips and view switch look like frosted white glass.'),
-    '05 디오와 두리': ('U1', WINDOW,
+    '05 모아와 디오': ('U1', WINDOW,
         f'Objects: a clear acrylic standee printed with {CHARS}, standing in the empty area at the bottom-right left of the + button; a small plush keyring of the yellow book character and a small die-cut sticker sheet near the bottom-left.',
         f'Objects: a clear acrylic standee printed with {CHARS}, at the bottom-left above the tab bar.'),
     '06 리본 레이스': ('U1', WINDOW,
@@ -72,7 +72,7 @@ def main(work: Path) -> None:
             d.mkdir(parents=True, exist_ok=True)
             shutil.copy(IMG / (f'밑그림 {ui}.jpg' if dev == '태블릿' else f'밑그림 폰 {ui}.jpg'), d / 'ref.jpg')
             imgs = ['ref.jpg']
-            if '디오' in name:
+            if '모아' in name:
                 shutil.copy(CHAR, d / 'char.png')
                 imgs.append('char.png')
             ref_note = ' using the SECOND attached image (char.png) only as the character reference' if len(imgs) > 1 else ''

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""'사진 한 장 책상' 디벨롭 3종 × (태블릿 · 폰) × (스와이프 · 한눈에) — 2D 그래픽, 디오 · 두리를 녹인다.
+"""'사진 한 장 책상' 디벨롭 3종 × (태블릿 · 폰) × (스와이프 · 한눈에) — 2D 그래픽, 모아 · 디오를 녹인다.
 
 밑그림: 이미지/밑그림 U3.jpg · 밑그림 한눈에 U3.jpg · 밑그림 폰 U3.jpg · 밑그림 폰 한눈에 U3.jpg (스크립트/렌더.py "U3")
 실행:   python "docs/다이어리 홈 햇살 책상/스크립트/코덱스 사진 한 장.py" <작업 폴더> [이름에 들어갈 글자]
@@ -43,21 +43,21 @@ STYLE = ('STYLE: flat 2D vector illustration in the same style as the SECOND att
 FLAT = ('VIEW: strictly top-down, looking straight down at the desk, exactly like the diary covers. EVERYTHING LIES FLAT ON THE DESK: '
         'no standing objects, no standees, no figures standing up, no side views, no perspective, no tilted 3D objects. Each object is a flat thing lying on the desk surface '
         '(photos, paper, stickers, tape, a flat toploader), with only a thin flat contact shadow. ')
-MASCOTS = ('The mascots are exactly the two characters in the SECOND attached image: DIO, a butter-yellow (#FEF0BF) book with a lavender bookmark tab, dot eyes, a small smile and two short legs; '
-           'and DURI, a white round-headed snowman-like friend with dot eyes, a lavender (#DBDCF9) scarf, a pale lavender-white coat with two round buttons and short legs. '
+MASCOTS = ('The mascots are exactly the two characters in the SECOND attached image: MOA, a butter-yellow (#FEF0BF) book with a lavender bookmark tab, dot eyes, a small smile and two short legs; '
+           'and DIO, a white round-headed snowman-like friend with dot eyes, a lavender (#DBDCF9) scarf, a pale lavender-white coat with two round buttons and short legs. '
            'Keep their proportions, black outlines and flat colors exactly; only small changes in pose or expression (smile, wink, heart eyes) are allowed. ')
 VARIANTS = {
-    '1안 사진 속 디오와 두리': ('Theme: today\'s photos on the desk, and the mascots appear INSIDE the photos. '
-        'Objects: a vertical four-cut photo-booth strip whose frames show DIO and DURI posing together on pastel booth backgrounds (peace sign, cheek to cheek, wink, surprised); '
-        'an instant photo (polaroid) of DURI in gently falling snow; a clear photocard toploader holding a DIO photocard decorated with tiny heart and star stickers. '
+    '1안 사진 속 모아와 디오': ('Theme: today\'s photos on the desk, and the mascots appear INSIDE the photos. '
+        'Objects: a vertical four-cut photo-booth strip whose frames show MOA and DIO posing together on pastel booth backgrounds (peace sign, cheek to cheek, wink, surprised); '
+        'an instant photo (polaroid) of DIO in gently falling snow; a clear photocard toploader holding a MOA photocard decorated with tiny heart and star stickers. '
         'Photos are drawn flat, not photographic.'),
-    '2안 사진을 꾸미는 디오와 두리': ('Theme: the mascots decorate today\'s photo together (like friends decorating one photo in our app), shown as flat PAPER CUT-OUTS of DIO and DURI lying on the desk. '
-        'Objects: a polaroid with a flat illustrated pale-blue sky; a paper cut-out of DURI lies right next to it, its little hand under a short strip of lavender washi tape that also holds down the polaroid corner; '
-        'a paper cut-out of DIO lies beside a four-cut photo strip of simple flat flower and sky pictures, with a small heart sticker just placed on the strip near DIO\'s hand. '
+    '2안 사진을 꾸미는 모아와 디오': ('Theme: the mascots decorate today\'s photo together (like friends decorating one photo in our app), shown as flat PAPER CUT-OUTS of MOA and DIO lying on the desk. '
+        'Objects: a polaroid with a flat illustrated pale-blue sky; a paper cut-out of DIO lies right next to it, its little hand under a short strip of lavender washi tape that also holds down the polaroid corner; '
+        'a paper cut-out of MOA lies beside a four-cut photo strip of simple flat flower and sky pictures, with a small heart sticker just placed on the strip near MOA\'s hand. '
         'The cut-outs are flat paper with a thin white paper edge, lying flat, seen from above, small (about one third of the center diary height).'),
-    '3안 디오와 두리 스티커 탑꾸': ('Theme: scrapbook / toploader decorating (탑꾸) with mascot stickers, no standing characters. '
-        'Objects: two polaroids with flat illustrated sky and flower pictures, decorated with die-cut STICKERS of DIO and DURI (white sticker border around each character); '
-        'a clear photocard toploader decorated with small DIO and DURI emotion stickers (smile, heart eyes, sleepy, wink) and two tiny heart stickers; a few short pieces of butter-yellow and lavender washi tape.'),
+    '3안 모아와 디오 스티커 탑꾸': ('Theme: scrapbook / toploader decorating (탑꾸) with mascot stickers, no standing characters. '
+        'Objects: two polaroids with flat illustrated sky and flower pictures, decorated with die-cut STICKERS of MOA and DIO (white sticker border around each character); '
+        'a clear photocard toploader decorated with small MOA and DIO emotion stickers (smile, heart eyes, sleepy, wink) and two tiny heart stickers; a few short pieces of butter-yellow and lavender washi tape.'),
 }
 SMALL = {'태블릿 한눈에': 'Use only two of the objects so the area does not get crowded. ', '폰 스와이프': 'Use only two small objects. ', '폰 한눈에': 'Use only ONE small object. '}
 

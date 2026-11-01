@@ -1,7 +1,7 @@
 // 2안 햇살 책상 디벨롭 — 장면.html#<장면 이름>. 스크립트/렌더.py 가 아래 const NEW 의 이름을 읽어 찍는다.
 // 앞선 목업(소품.js · 장면.js)의 UI 층 · 표지 · 소품을 그대로 쓰고, 여기서는 빛 · 바닥 · 캐릭터만 새로 그린다.
 
-// ---------- 캐릭터 최종 시안 (디오 · 두리 · 둘이) ----------
+// ---------- 캐릭터 최종 시안 (모아 · 디오 · 둘이) ----------
 const CH = (who, cls = '') => `<img class="chr ${cls}" src="소재/${who} 최종.svg" draggable="false">`
 const stk = (who) => CH(who, 'stk') // 다이컷 스티커: 흰 테두리, 먹선 그대로
 function acry(who = '둘이') { // 아크릴 스탠드
@@ -13,7 +13,7 @@ function acry(who = '둘이') { // 아크릴 스탠드
 }
 // 서 있는 캐릭터 + 바닥 그림자(옆에서 본 C안)
 function standing(who, x, feet, w, { lean = -46, len = .38 } = {}) {
-  const r = { 디오: 2200 / 1930, 두리: 2540 / 2330, 둘이: 2540 / 4310 }[who], h = w * r
+  const r = { 모아: 2200 / 1930, 디오: 2540 / 2330, 둘이: 2540 / 4310 }[who], h = w * r
   return `<div class="contact" style="left:${x - w * .05}px;top:${feet - 12}px;width:${w * 1.1}px;height:22px"></div>
     <div class="cast" style="left:${x}px;top:${feet - h}px;width:${w}px;height:${h}px;transform-origin:50% 100%;transform:skewX(${lean}deg) scaleY(${len});opacity:.13;filter:brightness(0) blur(2px)">${CH(who)}</div>
     <div class="cast" style="left:${x}px;top:${feet - h}px;width:${w}px">${CH(who)}</div>`
@@ -131,9 +131,9 @@ const B = {
     return svg + `<div class="props">${empty ? '' : B.props(phone, { time })}</div>`
   },
   props(phone, { night = false, time } = {}) {
-    if (phone) return P(acry('둘이'), 226, 650, 150, 0) + P(postit('#FFF4CC', ['오늘도', '한 장!'], 20), 26, 680, 96, -6) + P(stk('디오'), 92, 650, 44, 10, { sd: false })
+    if (phone) return P(acry('둘이'), 226, 650, 150, 0) + P(postit('#FFF4CC', ['오늘도', '한 장!'], 20), 26, 680, 96, -6) + P(stk('모아'), 92, 650, 44, 10, { sd: false })
     return P(acry('둘이'), 990, 446, 170, 0) + P(tapeRoll('lavender', 'dot'), 1078, 158, 92, 0) + P(postit('#FFF4CC', night ? ['잘 자', '내일 또!'] : ['오늘도', '한 장!'], 20), 170, 618, 104, -6)
-      + P(stk('디오'), 250, 590, 52, 12, { sd: false }) + P(pen('#8F92CC'), 812, 700, 290, -18) + (night ? P(IMG('달'), 1100, 300, 54, 0, { sd: false, cls: 'stick' }) : '')
+      + P(stk('모아'), 250, 590, 52, 12, { sd: false }) + P(pen('#8F92CC'), 812, 700, 290, -18) + (night ? P(IMG('달'), 1100, 300, 54, 0, { sd: false, cls: 'stick' }) : '')
   },
   fx(phone, { time = 'noon' } = {}) {
     const { W, H } = phone ? DEV.P : DEV.T
@@ -155,8 +155,8 @@ const C = {
     const svg = lightSVG({ W, H, base: '#EFEEF5', light: '#FFF4D6', polys: [...pn, ...spill], glowPoly: phone ? '40,60 320,60 320,420 40,420' : '100,20 720,20 720,440 100,440', glow: 'rgba(254,240,191,.35)', blur: 3, after: desk,
       leaf: { x: phone ? -50 : 30, y: phone ? 40 : -10, s: phone ? .6 : .9, r: 15, c: '#C2BFE3', o: .55 } })
     const props = phone
-      ? standing('디오', 44, 776, 92) + standing('두리', 140, 778, 108) + P(cactusSide(), 300, 690, 62, 0, { sd: false })
-      : standing('디오', 170, 712, 88) + standing('두리', 262, 714, 102) + P(cactusSide(), 1050, 382, 78, 0, { sd: false }) + `<div class="contact" style="left:1046px;top:486px;width:90px;height:18px"></div>`
+      ? standing('모아', 44, 776, 92) + standing('디오', 140, 778, 108) + P(cactusSide(), 300, 690, 62, 0, { sd: false })
+      : standing('모아', 170, 712, 88) + standing('디오', 262, 714, 102) + P(cactusSide(), 1050, 382, 78, 0, { sd: false }) + `<div class="contact" style="left:1046px;top:486px;width:90px;height:18px"></div>`
         + P(sideMug(), 108, 430, 66, 0, { sd: false }) + `<div class="contact" style="left:102px;top:494px;width:86px;height:16px"></div>` + P(pencil('#DBDCF9'), 850, 700, 250, -3)
     return svg + `<div class="props">${props}</div>`
   },
@@ -177,8 +177,8 @@ const D = {
     const svg = lightSVG({ W: cw, H: chh, base: '#F4EFEA', light: '#FFFBF1', polys: pl, glowPoly: phone ? '0,0 200,0 120,400 0,400' : '0,0 420,0 260,600 0,600', glow: 'rgba(254,240,191,.45)', blur: 4,
       leaf: { x: phone ? 200 : 820, y: phone ? -60 : -70, s: phone ? .55 : .85, r: 120, c: '#C9C6E6', o: .45 } })
     const tapes = phone
-      ? P(tapeStrip('lavender', 120, 'dot'), 4, 148, 84, -14, { sd: false }) + P(tapeStrip('butter', 120), 300, 148, 84, 12, { sd: false }) + P(stk('디오'), 24, 728, 62, -8, { sd: false }) + P(stk('두리'), 312, 714, 58, 7, { sd: false })
-      : P(tapeStrip('lavender', 140, 'dot'), 12, 134, 110, -14, { sd: false }) + P(tapeStrip('butter', 140), 1082, 134, 110, 12, { sd: false }) + P(stk('디오'), 76, 652, 82, -8, { sd: false }) + P(stk('두리'), 1062, 634, 82, 7, { sd: false })
+      ? P(tapeStrip('lavender', 120, 'dot'), 4, 148, 84, -14, { sd: false }) + P(tapeStrip('butter', 120), 300, 148, 84, 12, { sd: false }) + P(stk('모아'), 24, 728, 62, -8, { sd: false }) + P(stk('디오'), 312, 714, 58, 7, { sd: false })
+      : P(tapeStrip('lavender', 140, 'dot'), 12, 134, 110, -14, { sd: false }) + P(tapeStrip('butter', 140), 1082, 134, 110, 12, { sd: false }) + P(stk('모아'), 76, 652, 82, -8, { sd: false }) + P(stk('디오'), 1062, 634, 82, 7, { sd: false })
     return `<div class="card" style="left:${m.l}px;top:${m.t}px;right:${m.r}px;bottom:${m.b}px">${svg}</div><div class="props">${tapes}</div>`
   },
 }
@@ -264,13 +264,13 @@ function coolDeskScene(kind, label, day) {
 }
 
 // ---------- 재배치: 생성 배경 + 최종 마스코트 벡터 ----------
-// 질감은 래스터 배경에 맡기고, 디오·두리는 원본 SVG로 얹어 비율과 선을 고정한다.
+// 질감은 래스터 배경에 맡기고, 모아·디오는 원본 SVG로 얹어 비율과 선을 고정한다.
 function premiumProps(n) {
   const die = (who, x, y, w, r) => P(stk(who), x, y, w, r, { sd: false })
-  if (n === 1) return die('디오', 46, 518, 76, -8) + die('두리', 1028, 236, 68, 7)
-  if (n === 2) return die('디오', 82, 604, 70, -7) + die('두리', 1048, 238, 64, 7)
-  if (n === 3) return die('디오', 54, 578, 72, -7) + die('두리', 1010, 230, 66, 8)
-  return die('디오', 52, 212, 68, -6) + die('두리', 1034, 238, 64, 8)
+  if (n === 1) return die('모아', 46, 518, 76, -8) + die('디오', 1028, 236, 68, 7)
+  if (n === 2) return die('모아', 82, 604, 70, -7) + die('디오', 1048, 238, 64, 7)
+  if (n === 3) return die('모아', 54, 578, 72, -7) + die('디오', 1010, 230, 66, 8)
+  return die('모아', 52, 212, 68, -6) + die('디오', 1034, 238, 64, 8)
 }
 function premiumScene(n, name) {
   const file = ['01-폴라로이드', '02-키캡', '03-종이굿즈', '04-투명필통'][n - 1]
@@ -286,8 +286,8 @@ function colorSheet() {
   return `<div class="sheet" style="height:480px"><h2>색은 캐릭터와 앱에서 가져온다</h2><div class="sub">햇살 책상의 네 가지 색은 모두 이미 있는 색의 한 걸음 옆이다. 새 색 토큰을 만들지 않는다.</div>
     <div class="sw">
       ${pair('#EEEEF5', '그늘 #EDEDF4', '#F1F3F7', '앱 바탕 #F1F3F7', '그늘 = 앱 바탕', '빛이 빠지면 곧 편집기 바탕이 된다. 온도 차이가 없다.')}
-      ${pair('#FFF7DF', '햇빛 #FFF5DD', '#FEF0BF', '디오 #FEF0BF', '햇빛 = 디오', '디오 몸 색을 흰색 쪽으로. 빛이 닿은 곳이 가운데 다이어리.')}
-      ${pair('rgba(76,72,150,.34)', '그림자 남보라', '#DBDCF9', '두리 목도리 #DBDCF9', '그림자 = 두리', '그림자 색을 갈색이 아닌 남보라로. 앱 그림자(#0B1957)와 같은 쪽이라 버튼 그림자와 한 빛이 된다.')}
+      ${pair('#FFF7DF', '햇빛 #FFF5DD', '#FEF0BF', '모아 #FEF0BF', '햇빛 = 모아', '모아 몸 색을 흰색 쪽으로. 빛이 닿은 곳이 가운데 다이어리.')}
+      ${pair('rgba(76,72,150,.34)', '그림자 남보라', '#DBDCF9', '디오 목도리 #DBDCF9', '그림자 = 디오', '그림자 색을 갈색이 아닌 남보라로. 앱 그림자(#0B1957)와 같은 쪽이라 버튼 그림자와 한 빛이 된다.')}
       ${pair('#FFFFFF', '버튼 흰', '#0B1957', '<span style="color:#fff">글자 #0B1957</span>', '버튼 = 그대로', '칩 · 보기 전환 · 검색 · 정보 카드는 theme.js 그대로. 바탕이 앱 색에 가까워 따로 손볼 것이 없다.')}
     </div></div>`
 }
@@ -296,9 +296,9 @@ function charSheet() {
   return `<div class="sheet sunlit" style="height:560px"><h2>캐릭터 최종 시안을 책상에 놓는 네 가지 방법</h2><div class="sub">그림은 하나도 새로 그리지 않았다. 최종 시안 SVG를 잘라 세 가지 물건(스탠드 · 스티커 · 피규어)으로만 바꿔 쓴다.</div>
     <div class="sw">
       ${cell(`<div class="prop sd" style="left:50%;top:40px;width:200px;transform:translateX(-50%)">${acry('둘이')}</div>`, '아크릴 스탠드 · A · B안', '위에서 본 책상에 서 있을 수 있는 유일한 방법. 정면 그림 그대로.')}
-      ${cell(`<div class="prop" style="left:60px;top:60px;width:110px;transform:rotate(-8deg)">${stk('디오')}</div><div class="prop" style="left:200px;top:80px;width:110px;transform:rotate(7deg)">${stk('두리')}</div>`, '다이컷 스티커 · B · D안', '편집기 스티커와 같은 흰 테두리. 디오 감정 스티커 팩과 이어진다.', '#F4EFEA')}
-      ${cell(`<svg width="100%" height="300" style="position:absolute;inset:0"><rect y="200" width="100%" height="100" fill="#EFE6D8"/></svg>${standing('디오', 90, 250, 100)}${standing('두리', 200, 252, 118)}`, '서 있는 피규어 · C안', '옆에서 본 책상에서만. 바닥 그림자 + 긴 그림자 한 방향.', '#F3F2F8')}
-      ${cell(`<div style="position:absolute;left:50%;top:46px;width:160px;transform:translateX(-50%)">${CH('디오')}</div><div style="position:absolute;left:0;right:0;bottom:24px;text-align:center;font-size:16px;font-weight:800">다이어리가 없어요</div>`, '쓰지 않는 곳', '버튼 · 칩 · 정보 카드 안에는 넣지 않는다(UI 층). 빈 화면 그림은 기존 EmptyState 자리만.', '#fff')}
+      ${cell(`<div class="prop" style="left:60px;top:60px;width:110px;transform:rotate(-8deg)">${stk('모아')}</div><div class="prop" style="left:200px;top:80px;width:110px;transform:rotate(7deg)">${stk('디오')}</div>`, '다이컷 스티커 · B · D안', '편집기 스티커와 같은 흰 테두리. 모아 감정 스티커 팩과 이어진다.', '#F4EFEA')}
+      ${cell(`<svg width="100%" height="300" style="position:absolute;inset:0"><rect y="200" width="100%" height="100" fill="#EFE6D8"/></svg>${standing('모아', 90, 250, 100)}${standing('디오', 200, 252, 118)}`, '서 있는 피규어 · C안', '옆에서 본 책상에서만. 바닥 그림자 + 긴 그림자 한 방향.', '#F3F2F8')}
+      ${cell(`<div style="position:absolute;left:50%;top:46px;width:160px;transform:translateX(-50%)">${CH('모아')}</div><div style="position:absolute;left:0;right:0;bottom:24px;text-align:center;font-size:16px;font-weight:800">다이어리가 없어요</div>`, '쓰지 않는 곳', '버튼 · 칩 · 정보 카드 안에는 넣지 않는다(UI 층). 빈 화면 그림은 기존 EmptyState 자리만.', '#fff')}
     </div></div>`
 }
 

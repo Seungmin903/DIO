@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="640" viewBox="400 400 1120 640">
-  <title>디오와 두리 — 손그림 선 정리본</title>
+  <title>모아와 디오 — 손그림 선 정리본</title>
   <defs>
-    <clipPath id="dio-cover"><rect x="450" y="545" width="325" height="395" rx="28"/></clipPath>
+    <clipPath id="moa-cover"><rect x="450" y="545" width="325" height="395" rx="28"/></clipPath>
   </defs>
   <g fill="none" stroke="#242424" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
 
-    <!-- ───────── 디오 (다이어리 친구) ───────── -->
+    <!-- ───────── 모아 (다이어리 친구) ───────── -->
     <!-- 다리 -->
     <path d="M570,925 V978 H558 V994 H604 V925 Z" fill="#FCEEC1"/>
     <path d="M662,925 V978 H650 V994 H702 V925 Z" fill="#FCEEC1"/>
@@ -16,14 +16,14 @@
     <path d="M803,582 H842 Q845,582 845,585 V636 Q845,639 842,639 H803 Z" fill="#D5DBFD"/>
     <!-- 표지 -->
     <rect x="450" y="545" width="325" height="395" rx="28" fill="#FCEEC1"/>
-    <rect x="450" y="545" width="30" height="395" fill="#FCDE84" stroke="none" clip-path="url(#dio-cover)"/>
+    <rect x="450" y="545" width="30" height="395" fill="#FCDE84" stroke="none" clip-path="url(#moa-cover)"/>
     <rect x="450" y="545" width="325" height="395" rx="28"/>
     <!-- 얼굴 -->
     <ellipse cx="547" cy="716" rx="6" ry="7" fill="#242424" stroke-width="3"/>
     <ellipse cx="660" cy="718" rx="6" ry="7" fill="#242424" stroke-width="3"/>
     <path d="M587,741 Q603,761 621,741" stroke-width="6"/>
 
-    <!-- ───────── 두리 (목도리 친구) ───────── -->
+    <!-- ───────── 디오 (목도리 친구) ───────── -->
     <!-- 다리 -->
     <path d="M1036,925 V978 H1023 V994 H1076 V925 Z" fill="#D5DBFD"/>
     <path d="M1139,925 V978 H1127 V994 H1185 V925 Z" fill="#D5DBFD"/>

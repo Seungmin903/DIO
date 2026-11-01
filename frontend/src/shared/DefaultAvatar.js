@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { colors } from './theme';
 
-// 기본 프로필(사진이 없을 때): primaryStrong 동그라미에 디오의 흰 표정(눈 둘 · 웃는 입).
+// 기본 프로필(사진이 없을 때): primaryStrong 동그라미에 모아의 흰 표정(눈 둘 · 웃는 입).
 // 예전 avatar-default.png(512px 래스터)는 확대하면 눈 · 입 가장자리가 계단처럼 거칠어, 같은 위치 · 비율로 벡터로 다시 그렸다.
 // style 에 width · height 를 주면 그 크기의 원이 된다(둥글게 자르는 것은 이 컴포넌트가 한다).
 export default function DefaultAvatar({ style, accessibilityLabel, accessible = Boolean(accessibilityLabel) }) {
