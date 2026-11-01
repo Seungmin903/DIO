@@ -17,15 +17,6 @@ public class InviteTokens {
         this.secret=secret;this.baseUrl=baseUrl.endsWith("/")?baseUrl:baseUrl+"/";
     }
     public void configured() {key();}
-    public void emailConfigured() {
-        configured();
-        try {
-            var uri=java.net.URI.create(baseUrl);
-            if(("https".equals(uri.getScheme())||"http".equals(uri.getScheme()))&&uri.getHost()!=null)return;
-            if("dio".equals(uri.getScheme())&&!uri.getSchemeSpecificPart().isBlank())return;
-        }catch(IllegalArgumentException ignored){}
-        throw new SharingException(HttpStatus.SERVICE_UNAVAILABLE,"INVITE_URL_NOT_CONFIGURED","이메일 초대용 SHARING_INVITE_BASE_URL을 설정해 주세요.");
-    }
     private byte[] key() {
         try {byte[] key=Base64.getDecoder().decode(secret);if(key.length>=32)return key;}catch(IllegalArgumentException ignored){}
         throw new SharingException(HttpStatus.SERVICE_UNAVAILABLE,"INVITE_NOT_CONFIGURED","초대 링크 서버 설정을 확인해 주세요.");

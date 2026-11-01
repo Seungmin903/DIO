@@ -39,7 +39,6 @@ class InvitationLookupBootHttpTests {
  @Autowired UserRepository users;
  @Autowired EmailAuthProviderRepository accounts;
  @Autowired org.springframework.context.ApplicationContext context;
- @org.springframework.test.context.bean.override.mockito.MockitoBean com.f106.DIO.sharing.infrastructure.mail.InviteMailSender mail;
  @Autowired com.f106.DIO.sharing.service.EmailInviteService emails;
  @Autowired com.f106.DIO.notification.event.InvitationNotificationHandler handler;
  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
@@ -139,10 +138,10 @@ class InvitationLookupBootHttpTests {
    String token=tx.execute(st->{var value=repo.findById(invite).orElseThrow();String t=tokenService.token(value);value.initializeHash(tokenService.hash(t));return t;});
    var at=jdbc.queryForObject("select created_at from diary_invites where invite_id=?",java.sql.Timestamp.class,invite).toInstant();
    var event=new com.f106.DIO.notification.event.InvitationConfirmedEvent(UUID.randomUUID(),invite,recipient,at);
-   Runnable mutate=()->{switch(kind){case "cancel"->emails.cancel(diary,actor,invite);case "accept"->context.getBean(com.f106.DIO.sharing.service.DiaryInviteService.class).accept(token,recipient);default->context.getBean(com.f106.DIO.sharing.service.InviteMailDeliveryState.class).failed(invite);}};
+   Runnable mutate=()->{switch(kind){case "cancel"->emails.cancel(diary,actor,invite);case "accept"->context.getBean(com.f106.DIO.sharing.service.DiaryInviteService.class).accept(token,recipient);default->tx.executeWithoutResult(st->{jdbc.queryForObject("select diary_id from diaries where diary_id=? for update",UUID.class,diary);jdbc.update("update diary_invites set invite_type='EMAIL_FAILED',revoked_at=current_timestamp where invite_id=?",invite);});}};
    var pool=java.util.concurrent.Executors.newSingleThreadExecutor();
    var release=new java.util.concurrent.CountDownLatch(1);var locked=new java.util.concurrent.CountDownLatch(1);
-   // REQUIRES_NEW 발송 실패는 자신의 트랜잭션에서 먼저 커밋해야 한다.
+   // Reproduce legacy delivery failure without a production SMTP dispatcher.
    if(stateFirst&&kind.equals("failed"))mutate.run();
    var holder=pool.submit(()->tx.execute(st->{
     if(stateFirst) {if(!kind.equals("failed"))mutate.run();jdbc.queryForObject("select diary_id from diaries where diary_id=? for update",UUID.class,diary);}
