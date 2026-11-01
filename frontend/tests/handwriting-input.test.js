@@ -215,6 +215,22 @@ test('샘플 확인은 하단 바에서 열고, 폰트 이름은 샘플 확인 �
   assert.deepEqual(calls, [['preview', 'draft'], ['rename', 'draft', '일기 글씨'], ['confirm', 'draft']])
 })
 
+test('이름이 다른 폰트와 겹쳐 저장에 실패하면 생성 확정과 화면 이동을 하지 않고 샘플 확인에 오류를 보인다', async () => {
+  const parent = harness('StudioContent'), calls = []
+  const snapshot = { loaded: true, error: '', support: { available: true }, entries: [{ id: 'draft', name: '나의 손글씨', status: 'draft', draft: { schema: 1, id: 'ink', samples: {} } }] }
+  const controller = { subscribe() {}, getSnapshot: () => snapshot, saveDraft: async () => {}, preview: async id => calls.push(['preview', id]),
+    rename: async () => { calls.push(['rename']); throw new Error('같은 이름의 폰트가 있어요.') }, confirm: async id => calls.push(['confirm', id]) }
+  const render = () => parent.render({ controller })
+  await find(render(), n => n.props?.accessibilityLabel === '나의 손글씨 0 / 36 작성 중').props.onPress()
+  find(render(), n => n.type?.name === 'InputScreen').props.onBar({ count: 36, status: '이 기기에 저장됨', disabled: false })
+  await find(find(render(), n => n.type === 'MakerBar'), n => n.type?.name === 'Button').props.onPress()
+  find(render(), n => n.props?.accessibilityLabel === '새 폰트 이름').props.onChangeText('이미 있는 이름')
+  await find(find(render(), n => n.type === 'MakerBar'), n => n.type?.name === 'Button' && n.props.children === '생성 확정').props.onPress()
+  assert.deepEqual(calls, [['preview', 'draft'], ['rename']], '이름 저장이 실패하면 confirm 을 부르지 않는다')
+  assert.equal(find(render(), n => n.type === 'Steps').props.current, 'preview', '샘플 확인 단계에 남는다')
+  assert.equal(find(render(), n => n.props?.accessibilityRole === 'alert').props.children, '같은 이름의 폰트가 있어요.')
+})
+
 test('원고지 칸은 화면 안에 모두 들어오며 가로 공간이 부족하면 다음 행을 만든다', () => {
   for (const [width, height] of [[254,510], [324,520], [780,160], [958,520], [1036,520]]) {
     const layout = manuscriptLayout(width, height)

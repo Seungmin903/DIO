@@ -67,7 +67,7 @@ function DrawingPad({ character, sample, onChange, width: penWidth, disabled, on
 }
 
 // 획 하나를 끝낼 때 원고지 36칸이 모두 다시 그려지지 않게, 함수가 아닌 값(글자 · 획 · 굵기 · 막힘 · 크기)이 같으면 그대로 둔다.
-// 함수 속성은 입력 화면의 ref · 최신 값을 읽으므로 이전 것을 계속 써도 된다.
+// 함수 속성은 입력 화면의 ref · 최신 값을 읽으므로 이전 것을 계속 써도 된다(HandwritingStudio InputScreen 의 canStart · claimInput · setWriting · change 옆 주석 참고).
 const sameProps = (a, b) => Object.keys({ ...a, ...b }).every(key => typeof a[key] === 'function' || a[key] === b[key])
 export default memo(DrawingPad, sameProps)
 

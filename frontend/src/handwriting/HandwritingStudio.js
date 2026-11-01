@@ -219,6 +219,7 @@ function InputScreen({ workflow, value, narrow, busy, support, inputSave, onBar,
     if (next?.strokes.length) samples[character] = next; else delete samples[character]
     persist({ ...current, samples, updatedAt: new Date().toISOString() }, latest.current.name)
   }
+  // DrawingPad 는 함수 props 가 바뀌어도 다시 그리지 않는다(DrawingPad.js sameProps). 아래 입력 콜백은 늘 ref(latest · writingCharacter)나 안정된 setState · useCallback 만 읽어야 한다. 렌더마다 바뀌는 state 를 직접 읽으면 첫 렌더 값으로 동작한다.
   const canStart = c => writingCharacter.current == null || writingCharacter.current === c
   const claimInput = c => {
     if (!canStart(c)) return false

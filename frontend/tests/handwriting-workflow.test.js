@@ -121,6 +121,11 @@ test('입력 수정은 독립된 사본이며 이름 변경은 기존 폰트 참
   await h.flow.rename(a, '바뀐 이름'); assert.equal(h.item(a).fontId, fontId)
   await assert.rejects(h.flow.saveDraft(a, original, '덮어쓰기'), /수정할 수 없/)
 })
+test('다른 폰트와 같은 이름으로 바꾸면 거절하고 이름을 그대로 둔다', async () => {
+  const h = setup(); await h.flow.init(); const a = await h.prepare('첫 폰트'), b = await h.prepare('둘째 폰트')
+  await assert.rejects(h.flow.rename(b, '첫 폰트'), /같은 이름의 폰트가 있어요/)
+  assert.equal(h.item(b).name, '둘째 폰트'); assert.equal(h.item(a).name, '첫 폰트')
+})
 test('수정된 입력은 재미리보기 없이 확정할 수 없고 중복 확정은 단일 작업이다', async () => {
   const h = setup(); await h.flow.init(); const a = await h.prepare('A')
   const changed = draft(a); changed.updatedAt = 'changed'; await h.flow.saveDraft(a, changed, 'A')
