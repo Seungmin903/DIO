@@ -289,7 +289,7 @@ export default function StickerSplitModal({ folder, initialName = '', onSave, on
   return <EditorModal visible animationType="slide" onShow={openInitialPicker} onRequestClose={() => zoomed ? setZoomed(null) : close()}>
     <View style={[s.screen, { paddingTop: Math.max(8, insets.top), paddingBottom: Math.max(12, insets.bottom), paddingLeft: insets.left, paddingRight: insets.right }]}>
       {/* 제작 화면 문법(디자인 가이드 5.8): 높이 64 상단 바, 왼쪽 `<` 가 이 흐름에서 나가기, 오른쪽엔 되돌리기 · 다시 실행만 */}
-      <MakerHeader title="스티커 만들기" onBack={close} backLabel="닫기" busy={saving || phase === 'picking'}>
+      <MakerHeader title="스티커 시트 분리" onBack={close} backLabel="닫기" busy={saving || phase === 'picking'}>
         <IconAction label="실행 취소" icon="undo" disabled={locked || manualMerge || !editing.canUndo} onPress={editing.undo} />
         <IconAction label="다시 실행" icon="redo" disabled={locked || manualMerge || !editing.canRedo} onPress={editing.redo} />
       </MakerHeader>
