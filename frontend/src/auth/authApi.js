@@ -8,10 +8,21 @@ export function authBaseUrl(value) {
 }
 
 // Tokens stay in memory. Never save passwords or tokens in AsyncStorage.
-export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false }) {
+// Only the dev-server Basic header may persist, through the secure store and only when dev access is allowed.
+export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
+  const accessOrigin = new URL(base).origin;
+  const accessStore = allowDevelopmentAccess && new URL(base).protocol === 'https:' ? developmentAccessStore : null;
   let developmentAccess = null;
+  let restoringAccess = accessStore ? Promise.resolve().then(() => accessStore.load(accessOrigin))
+    .then(value => { if (!developmentAccess && value) developmentAccess = value; })
+    .catch(() => {}).finally(() => { restoringAccess = null; }) : null;
+  const forgetAccess = rejected => {
+    if (!rejected || developmentAccess !== rejected) return;
+    developmentAccess = null;
+    accessStore?.clear(accessOrigin).catch(() => {});
+  };
   let signupPending = false;
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   const acceptSession = result => {
@@ -55,6 +66,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
+      if (restoringAccess) await restoringAccess;
+      const sentAccess = developmentAccess;
       const response = await fetchImpl(`${base}/${memberPath ? path : `auth/${path}`}`, {
         method, signal: controller.signal,
         headers: { ...(!multipart && body !== undefined ? { 'Content-Type': 'application/json' } : {}),
@@ -65,6 +78,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (!response.ok) {
         const challenge = response.headers?.get?.('WWW-Authenticate');
         if (response.status === 401 && /^Basic(?:\s|$)/i.test(challenge ?? '')) {
+          // A saved or entered credential the server rejected is dropped so the app asks again.
+          forgetAccess(sentAccess);
           throw Object.assign(new Error('개발 서버 접근 인증이 필요해요. 서버 담당자에게 앱의 API 접근 방법을 확인해 주세요.'),
             { status: 401, code: 'DEVELOPMENT_ACCESS_REQUIRED' });
         }
@@ -121,7 +136,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         ? { uri: target.href, headers: getAuthHeaders(target.href) } : { uri };
     },
     getSessionKey() { return session ? `${session.user.userId}:${sessionSequence}` : null; },
-    // Optional collaboration bridge: dev Basic stays in memory and only reaches this API's origin.
+    // Optional collaboration bridge: dev Basic only reaches this API's origin.
     getCollaborationHeaders({ url, userId, sessionKey }) {
       if (!session || String(session.user.userId) !== String(userId) || api.getSessionKey() !== sessionKey) throw unauthorized();
       const target=new URL(url), origin=new URL(base);
@@ -398,6 +413,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   api.verificationService = {
     ...(allowDevelopmentAccess ? { setDevelopmentAccess(username, password) {
       developmentAccess = developmentAuthorization(base, username, password);
+      accessStore?.save(accessOrigin, developmentAccess).catch(() => {});
     } } : {}),
     async send(email) {
       await api.checkEmailAvailability(email);
