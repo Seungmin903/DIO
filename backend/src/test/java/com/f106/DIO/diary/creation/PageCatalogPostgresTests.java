@@ -22,7 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.*;
 
-/** V6→V9 실제 데이터 보존 및 프런트가 생성한 Selection 계약을 제품 페이지 모듈에 적용한다. */
+/** V6→최신 카탈로그 실제 데이터 보존 및 프런트가 생성한 Selection 계약을 제품 페이지 모듈에 적용한다. */
 @EnabledIfSystemProperty(named="dio.diary-creation-postgres",matches="true")
 class PageCatalogPostgresTests {
     String schema;
@@ -56,11 +56,11 @@ class PageCatalogPostgresTests {
             "{\"paperAppearance\":{\"backgroundColor\":\"#123456\"}}");
     }
 
-    @Test void freshUpgradeRegistersEveryReferenceAndCreatesAll288PagesWithTheProductModule() {
+    @Test void freshUpgradeRegistersEveryReferenceAndCreatesAll288InitialPagesWithTheProductModule() {
         flyway("latest").migrate();
         var templates=contract.get("templates");
         var stored=jdbc.queryForList("select code,template_version,orientation,canvas_width,canvas_height from page_templates");
-        assertThat(stored).hasSize(288);
+        assertThat(stored).hasSize(292);
         for(int i=0;i<templates.size();i++) {
             var row=templates.get(i);
             var actual=stored.stream().filter(s -> s.get("code").equals(row.get("templateCode").asString())
@@ -88,6 +88,63 @@ class PageCatalogPostgresTests {
             assertThat(jdbc.queryForObject("select count(*) from pages where jsonb_typeof(template_config)='object' and version=1 and grid_visible=false",Long.class)).isEqualTo(288);
             assertThat(jdbc.queryForObject("select count(*) from pages where (template_config->>'blank')::boolean=true",Long.class)).isEqualTo(2);
         }
+    }
+
+    @Test void V25RegistersPlannerTemplatesAndMigratesReusableDailyPages() {
+        flyway("24").migrate();
+        jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
+        UUID diary=UUID.randomUUID();
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,1,'planner','#123456','PLAIN','PRIVATE')",diary);
+
+        UUID landscapeWithCode=UUID.randomUUID(), portraitWithCode=UUID.randomUUID(), landscapeWithoutCode=UUID.randomUUID();
+        insertPage(diary,landscapeWithCode,"2026-reusable-daily-landscape","{\"templateCode\":\"2026-reusable-daily-landscape\",\"templateVersion\":\"1.0.0\",\"keep\":true}",7,1);
+        insertPage(diary,portraitWithCode,"2026-reusable-daily-portrait","{\"templateCode\":\"2026-reusable-daily-portrait\",\"keep\":true}",11,2);
+        insertPage(diary,landscapeWithoutCode,"2026-reusable-daily-landscape","{\"keep\":true}",3,3);
+        jdbc.update("update pages set updated_at=timestamp '2000-01-01 00:00:00+00' where diary_id=?",diary);
+
+        flyway("latest").migrate();
+
+        assertThat(jdbc.queryForObject("select count(*) from page_templates",Long.class)).isEqualTo(292);
+        assertThat(jdbc.queryForList("select code from page_templates where code in ('study-planner-landscape','study-planner-portrait','day-planner-landscape','day-planner-portrait') order by code",String.class))
+            .containsExactly("day-planner-landscape","day-planner-portrait","study-planner-landscape","study-planner-portrait");
+        assertPlannerTemplate("study-planner-landscape","STUDY","LANDSCAPE",1024,768,288);
+        assertPlannerTemplate("study-planner-portrait","STUDY","PORTRAIT",768,1024,289);
+        assertPlannerTemplate("day-planner-landscape","DAY","LANDSCAPE",1024,768,290);
+        assertPlannerTemplate("day-planner-portrait","DAY","PORTRAIT",768,1024,291);
+        assertThat(jdbc.queryForObject("select count(*) from page_templates where code in ('2026-reusable-daily-landscape','2026-reusable-daily-portrait')",Long.class)).isEqualTo(2);
+        assertPageMigration(landscapeWithCode,"day-planner-landscape",8,"day-planner-landscape","1.0.0");
+        assertPageMigration(portraitWithCode,"day-planner-portrait",12,"day-planner-portrait","1.0.0");
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,landscapeWithoutCode)).isEqualTo(4L);
+        assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,landscapeWithoutCode)).isEqualTo("day-planner-landscape");
+        assertThat(jdbc.queryForObject("select template_config::text from pages where page_id=?",String.class,landscapeWithoutCode)).isEqualTo("{\"keep\": true}");
+        assertThat(jdbc.queryForObject("select updated_at > timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,landscapeWithoutCode)).isTrue();
+    }
+
+    private void insertPage(UUID diary,UUID page,String templateCode,String config,long version,int sortKey) {
+        jdbc.update("insert into pages(page_id,diary_id,template_id,template_config,sort_key,canvas_width,canvas_height,version) "
+                + "select ?,?,template_id,cast(? as jsonb),?,canvas_width,canvas_height,? from page_templates where code=? and template_version='1.0.0'",
+            page,diary,config,sortKey,version,templateCode);
+    }
+
+    private void assertPageMigration(UUID page,String expectedCode,long expectedVersion,String configCode,String configVersion) {
+        assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,page)).isEqualTo(expectedCode);
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,page)).isEqualTo(expectedVersion);
+        assertThat(jdbc.queryForObject("select template_config->>'templateCode' from pages where page_id=?",String.class,page)).isEqualTo(configCode);
+        assertThat(jdbc.queryForObject("select template_config->>'templateVersion' from pages where page_id=?",String.class,page)).isEqualTo(configVersion);
+        assertThat(jdbc.queryForObject("select template_config->>'keep' from pages where page_id=?",String.class,page)).isEqualTo("true");
+        assertThat(jdbc.queryForObject("select updated_at > timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,page)).isTrue();
+    }
+
+    private void assertPlannerTemplate(String code,String category,String orientation,int width,int height,int displayOrder) {
+        var template=jdbc.queryForMap("select category,orientation,canvas_width,canvas_height,display_order,default_config->>'width' as config_width,default_config->>'height' as config_height,default_config->>'blank' as blank from page_templates where code=? and template_version='1.0.0'",code);
+        assertThat(template.get("category")).isEqualTo(category);
+        assertThat(template.get("orientation")).isEqualTo(orientation);
+        assertThat(((Number)template.get("canvas_width")).intValue()).isEqualTo(width);
+        assertThat(((Number)template.get("canvas_height")).intValue()).isEqualTo(height);
+        assertThat(template.get("display_order")).isEqualTo(displayOrder);
+        assertThat(template.get("config_width")).isEqualTo(String.valueOf(width));
+        assertThat(template.get("config_height")).isEqualTo(String.valueOf(height));
+        assertThat(template.get("blank")).isEqualTo("false");
     }
 
     @Test void upgradePreservesExistingIdsCustomDefaultsInactiveStateOldVersionsAndHistoricalPages() throws Exception {

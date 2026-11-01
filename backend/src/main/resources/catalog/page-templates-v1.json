@@ -5472,6 +5472,50 @@
         },
         "blank": true
       }
+    },
+    {
+      "templateCode": "study-planner-landscape",
+      "templateVersion": "1.0.0",
+      "backgroundAssetId": "study-planner-landscape",
+      "name": "스터디 플래너",
+      "category": "STUDY",
+      "orientation": "LANDSCAPE",
+      "canvasWidth": 1024,
+      "canvasHeight": 768,
+      "defaultConfig": {"width": 1024, "height": 768, "paperAppearance": {"backgroundColor": "#FFFFFF", "layoutColor": "#292929"}, "blank": false}
+    },
+    {
+      "templateCode": "study-planner-portrait",
+      "templateVersion": "1.0.0",
+      "backgroundAssetId": "study-planner-portrait",
+      "name": "스터디 플래너",
+      "category": "STUDY",
+      "orientation": "PORTRAIT",
+      "canvasWidth": 768,
+      "canvasHeight": 1024,
+      "defaultConfig": {"width": 768, "height": 1024, "paperAppearance": {"backgroundColor": "#FFFFFF", "layoutColor": "#292929"}, "blank": false}
+    },
+    {
+      "templateCode": "day-planner-landscape",
+      "templateVersion": "1.0.0",
+      "backgroundAssetId": "day-planner-landscape",
+      "name": "데일리 플래너",
+      "category": "DAY",
+      "orientation": "LANDSCAPE",
+      "canvasWidth": 1024,
+      "canvasHeight": 768,
+      "defaultConfig": {"width": 1024, "height": 768, "paperAppearance": {"backgroundColor": "#FFFFFF", "layoutColor": "#292929"}, "blank": false}
+    },
+    {
+      "templateCode": "day-planner-portrait",
+      "templateVersion": "1.0.0",
+      "backgroundAssetId": "day-planner-portrait",
+      "name": "데일리 플래너",
+      "category": "DAY",
+      "orientation": "PORTRAIT",
+      "canvasWidth": 768,
+      "canvasHeight": 1024,
+      "defaultConfig": {"width": 768, "height": 1024, "paperAppearance": {"backgroundColor": "#FFFFFF", "layoutColor": "#292929"}, "blank": false}
     }
   ],
   "initialPages": [
