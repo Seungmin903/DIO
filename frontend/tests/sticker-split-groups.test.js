@@ -1,9 +1,18 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { brushSelection, editHistory, linkSelection, materializeGroups, moveHistory, splitGroups, sortedStickerGroups, thumbnailPlacements, excludeStickerGroup } from '../src/editor/utils/stickerSplitGroups.js'
+import { brushSelection, splitBrushTargets, editHistory, linkSelection, materializeGroups, moveHistory, splitGroups, sortedStickerGroups, thumbnailPlacements, excludeStickerGroup } from '../src/editor/utils/stickerSplitGroups.js'
 import { saveSplitSelection } from '../src/editor/utils/stickerSplitSave.js'
 
 const parts = ['a', 'b', 'c'].map((id, i) => ({ id, uri: `file:///${id}.png`, x: i * 10, y: 2, width: 3, height: 4 }))
+
+test('분리 브러시는 직접 닿은 구성 객체만 반환하고 단일·제외 객체는 건너뛴다', () => {
+  const all = [...parts, { ...parts[0], id: 'd' }, { ...parts[0], id: 'e' }, { ...parts[0], id: 'excluded' }]
+  const grouped = splitGroups(all, ['a','b','c','d','e'], [['a','b'], ['d','e']])
+  assert.deepEqual(splitBrushTargets(grouped, ['a', 'a']), ['a'])
+  assert.deepEqual(splitBrushTargets(grouped, ['b', 'd', 'c', 'excluded']), ['b','d'])
+  assert.deepEqual(splitBrushTargets(grouped, ['c','excluded']), [])
+  assert.deepEqual(splitBrushTargets(grouped, []), [])
+})
 test('직접 분리한 조각은 거리 묶기에서 빠지며 명시적으로 다시 묶을 수 있다', () => {
   const all = [...parts, { ...parts[0], id: 'd' }, { ...parts[1], id: 'e' }]
   const ids = all.map(p => p.id), edges = [['a', 'b'], ['b', 'c'], ['d', 'e']]
