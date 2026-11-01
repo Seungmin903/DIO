@@ -72,6 +72,19 @@ test('필기에서만 캐시를 사용하고 일반 표시·선택 조작·내�
   assert.equal(component.compare({ page, zoom: 1, cacheStrokes: false }, { page, zoom: 1, cacheStrokes: true }), false)
 })
 
+test('네이티브 도구 전환은 필기 레이어를 유지하고 선택 이동 중에는 원본을 표시한다', () => {
+  const component = loadComponent('StaticPage', 'ios')
+  const draw = (tool, extra = {}) => component.render({ page, zoom: 1,
+    cacheStrokes: planner.shouldCacheCompletedStrokes('ios', false, tool), ...extra }).props.children[1].props.children
+  for (const tool of ['pen', 'highlighter', 'hand', 'select', 'text', 'lasso', 'eraser']) {
+    assert.equal(draw(tool).type, './CompletedStrokeLayer', tool)
+  }
+  assert.equal(draw('select', { fadeIds: ['s0'] })[0].type, './PageObject')
+  assert.equal(draw('lasso', { stillIds: ['s0'] })[0].type, './PageObject')
+  assert.equal(planner.shouldCacheCompletedStrokes('ios', true, 'pen'), false)
+  assert.equal(planner.shouldCacheCompletedStrokes('web', false, 'select'), false)
+})
+
 
 test('정식 웹 필기층은 기본 캐시, 썸네일·출력·변형은 원본이며 QA 끄기는 유지한다', () => {
   const web = loadComponent('StaticPage', 'web')

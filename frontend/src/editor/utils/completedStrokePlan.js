@@ -5,6 +5,11 @@ export const STROKES_PER_BATCH = 32
 export const STROKE_CACHE_PIXELS = 4 * 1024 * 1024
 const MAX_TEXTURE_EDGE = 4096
 
+// Keep native completed ink mounted across tool switches. Web keeps its existing cache policy.
+export function shouldCacheCompletedStrokes(platform, readOnly, tool) {
+  return !readOnly && (platform !== 'web' || tool === 'pen' || tool === 'highlighter' || tool === 'eraser')
+}
+
 // 문서와 별개인 표시 계획. 원본 요소·레이어 순서·좌표는 변경하지 않는다.
 export function createCompletedStrokePlanner({ batchSize = STROKES_PER_BATCH, minBatchSize = 4, alignPixels = false, preserveBatches = false } = {}) {
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > STROKES_PER_BATCH) throw Error('Invalid stroke batch size')
