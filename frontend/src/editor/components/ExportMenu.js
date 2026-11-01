@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface }, // 둥글기 12·테두리·그림자 없음은 공용 옵션 창(카드)을 따른다
   portraitRoot: { flex: 1 },
   portraitCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  center: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 16 },
   // 말풍선 꼬리: 카드 위쪽에서 내보내기 버튼 가운데를 가리킨다
   tail: { position: 'absolute', width: 16, height: 16, borderRadius: 3, backgroundColor: colors.surface, borderLeftWidth: 1, borderTopWidth: 1, borderColor: colors.cardBorder, transform: [{ rotate: '45deg' }] },
   notice: { gap: 6 },

@@ -22,8 +22,7 @@ import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import Ribbon from '../components/chrome/Ribbon'
 import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail } from '../components/chrome/PhoneToolbar'
 import PenSettings from '../components/PenSettings'
-import ShapeSettings from '../components/ShapeSettings'
-import { createShape, DEFAULT_SHAPE_STYLE, shapeTextSettings, shapeTextFormatPatch } from '../utils/editorShapes'
+import { shapeTextSettings, shapeTextFormatPatch } from '../utils/editorShapes'
 import EraserSettings from '../components/EraserSettings'
 import { normalizePaperAppearance } from '../templates/appearance.js'
 import { ERASER_RADIUS } from '../utils/eraser.js'
@@ -34,7 +33,8 @@ import GuideSettings from '../components/GuideSettings'
 import PageOverview from '../components/panels/PageOverview'
 import { preloadTextFonts } from '../services/textFonts'
 import { DEFAULT_GUIDES, hasGuides } from '../components/canvas/GridOverlay'
-import { TEXT_ACTION_BAR_WIDTH } from '../components/TextActionBar'
+import { TEXT_ACTION_BAR_HEIGHT, TEXT_ACTION_BAR_WIDTH } from '../components/TextActionBar'
+import { keyboardPanelBottom } from '../utils/textKeyboard'
 import { formatTextRange } from '../utils/textFormats'
 import { copyText } from '../services/textClipboard'
 import { objectClipboard, useObjectClipboard } from '../services/objectClipboard'
@@ -144,6 +144,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [toolAnchor, setToolAnchor] = useState(null)
   const [drawerWidth, setDrawerWidth] = useState(320)
   const [stageOrigin, setStageOrigin] = useState({ x: 0, y: 0 })
+  // 키보드 위쪽 끝(화면 y). 안드로이드 전체 화면(edge-to-edge)은 키보드가 떠도 작업 영역이 줄지 않아, '선택한 글자' 줄을 이 위에 직접 놓는다
+  const [keyboardTop, setKeyboardTop] = useState(null)
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardTop(event.endCoordinates?.screenY ?? null))
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardTop(null))
+    return () => { show.remove(); hide.remove() }
+  }, [])
   const [ribbonBottom, setRibbonBottom] = useState(OPTIONS_TOP) // 태블릿 툴바 아래 끝 (작업창 좌표)
   const [phonePanelWidths, setPhonePanelWidths] = useState({ left: 0, right: 0 }) // 폰에서 작업창 위에 띄운 패널 너비
   const toolPopoverStyle = (width = 320) => {
@@ -177,8 +184,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const textPaletteBounds = useRef(null)
   const [textPalette, setTextPalette] = useState(null)
   const [textDefaults, setTextDefaults] = useState(DEFAULT_TEXT_SETTINGS)
-  const [shapeSettingsOpen, setShapeSettingsOpen] = useState(false)
-  const [shapeSettings, setShapeSettings] = useState(DEFAULT_SHAPE_STYLE)
   const [textSettingsOpen, setTextSettingsOpen] = useState(false)
   const [textLinkTarget, setTextLinkTarget] = useState(null)
   const [objectLinkTarget, setObjectLinkTarget] = useState(null) // 링크를 거는 중인 스티커·테이프·사진
@@ -254,7 +259,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setLassoSettingsOpen(false)
     setDrawerTab(null)
     setTextEditing(null)
-    setShapeSettingsOpen(false)
     setTextSettingsOpen(false)
     setPenSettingsOpen(false)
     setMoreOpen(false)
@@ -486,7 +490,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }
 
   // 사진은 스티커·테이프처럼 틀 없이 바로 붙인다 (자르기는 두 번 누르거나 선택 바에서)
+  const pickingPhotos = useRef(false)
   const addPhotos = async () => {
+    // 고르는 창이 떠 있는 동안 다시 누르면 무시한다
+    if (pickingPhotos.current) return
+    pickingPhotos.current = true
     try {
       setImportFailure(null)
       const images = await pickImages()
@@ -502,6 +510,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       closeAfterInsert()
     } catch (error) {
       showToast(mediaFailureMessage(error), () => addPhotos())
+    } finally {
+      pickingPhotos.current = false
     }
   }
 
@@ -698,7 +708,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 툴바에서 연 창(보관함·펜/텍스트/올가미 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
   // 터치를 가로채지 않고(목록 스크롤과 다투지 않게) 누른 위치만 본다:
   // 창·툴바 안의 터치는 그 영역이 먼저 표시하고, 바깥(root)에서는 표시가 없을 때만 닫는다.
-  const bubbleOpen = Boolean(drawerTab || showMore || shapeSettingsOpen || penSettingsOpen || textSettingsOpen || guidesOpen || (activeTool === 'lasso' && lassoSettingsOpen))
+  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || guidesOpen || (activeTool === 'lasso' && lassoSettingsOpen))
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
@@ -707,7 +717,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setMoreOpen(false)
     setPenSettingsOpen(false)
     setLassoSettingsOpen(false)
-    setShapeSettingsOpen(false)
     setTextSettingsOpen(false)
     setGuidesOpen(false)
   }
@@ -765,9 +774,16 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
   // 리본(태블릿)과 폰 도구 막대가 함께 쓰는 도구·보관함·내보내기 동작
   const openDrawer = (tab) => {
+    // 사진은 보관함 없이 바로 앨범을 연다 (빈 사진 틀은 위젯 칸에 있다)
+    if (tab === 'photo') {
+      closeBubbles()
+      if (cropId) finishCrop(false)
+      setActiveTool('select')
+      addPhotos()
+      return
+    }
     setLassoSettingsOpen(false)
     setGuidesOpen(false)
-    setShapeSettingsOpen(false)
     setTextSettingsOpen(false)
     setPenSettingsOpen(false)
     if (cropId) finishCrop(false)
@@ -776,14 +792,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setDrawerTab(drawerTab === tab ? null : tab)
   }
   const selectTool = (tool) => {
-    if (tool === 'shape') {
-      const next = !shapeSettingsOpen
-      closeBubbles()
-      setShapeSettingsOpen(next)
-      setActiveTool('select')
-      return
-    }
-    setShapeSettingsOpen(false)
     setGuidesOpen(false)
     setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
     setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
@@ -891,7 +899,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       {...markInside}
       vertical={landscape}
       bottomInset={landscape ? Math.max(bottomInset, 76) : 0}
-      activeTool={shapeSettingsOpen ? 'shape' : activeTool}
+      activeTool={activeTool}
       drawerTab={drawerTab}
       guidesActive={guidesOpen || hasGuides(guides)}
       penColor={penSettings.color}
@@ -1157,7 +1165,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               onAnchor={setToolAnchor}
               penColor={penSettings.color}
               highlighterColor={highlighterSettings.color}
-              activeTool={shapeSettingsOpen ? 'shape' : activeTool}
+              activeTool={activeTool}
               drawerTab={drawerTab}
               onOpenDrawer={openDrawer}
               onSelectTool={selectTool}
@@ -1172,12 +1180,24 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 onShapeChange={(shape) => setLasso(current => ({ ...current, shape }))} />
             </View>
           )}
-          {!readOnly && textEditing && textPalette && <View style={[styles.textPaletteWrap, {
-            left: Math.max(8, Math.min((textPalette.anchor?.x ?? stageOrigin.x) - stageOrigin.x, (stageSize?.width ?? 600) - TEXT_ACTION_BAR_WIDTH - 8)),
-            top: Math.max(84, Math.min((textPalette.anchor?.y ?? stageOrigin.y) - stageOrigin.y + (textPalette.anchor?.height ?? 0) + 6, (stageSize?.height ?? 500) - 164)),
-          }]} {...markInside}>
-            {textPalette.content}
-          </View>}
+          {/* 앱: 고른 글자의 '선택한 글자' 도구줄을 키보드 바로 위(작업 영역 아래 끝)에 둔다. 고른 글자 곁에는 시스템 글자 메뉴가 뜬다 */}
+          {!readOnly && textEditing && textPalette?.placement === 'panel' && (
+            <View style={[styles.textRangeWrap, keyboardTop != null && stageSize && { bottom: keyboardPanelBottom({ stageTop: stageOrigin.y, stageHeight: stageSize.height, keyboardTop }) }]} pointerEvents="box-none" {...markInside}>
+              {textPalette.content}
+            </View>
+          )}
+          {/* 웹 말풍선: 고른 줄 위에(위쪽 막대에 닿으면 아래에) 붙인다 */}
+          {!readOnly && textEditing && textPalette && textPalette.placement !== 'panel' && (() => {
+            const lineTop = (textPalette.anchor?.y ?? stageOrigin.y) - stageOrigin.y
+            const lineBottom = lineTop + (textPalette.anchor?.height ?? 0)
+            const above = lineTop - TEXT_ACTION_BAR_HEIGHT - 6 >= 84
+            return <View style={[styles.textPaletteWrap, {
+              left: Math.max(8, Math.min((textPalette.anchor?.x ?? stageOrigin.x) - stageOrigin.x, (stageSize?.width ?? 600) - TEXT_ACTION_BAR_WIDTH - 8)),
+              ...(above ? { bottom: (stageSize?.height ?? 500) - lineTop + 6 } : { top: Math.max(84, Math.min(lineBottom + 6, (stageSize?.height ?? 500) - 164)) }),
+            }]} {...markInside}>
+              {textPalette.content}
+            </View>
+          })()}
           {!readOnly && textLinkTarget && <TextLinkDialog initialValue={textLinkTarget.styleRanges?.find(r => r.href)?.href ?? ''} onCancel={() => setTextLinkTarget(null)} onSave={(href) => {
             dispatch({ type: 'updateObject', id: textLinkTarget.id, record: true, patch: { styleRanges: formatTextRange(textLinkTarget.text, textLinkTarget.styleRanges, { start: 0, end: textLinkTarget.text.length }, { href: href || null }) } })
             setTextLinkTarget(null)
@@ -1209,15 +1229,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             </View>
           )}
 
-          {!readOnly && shapeSettingsOpen && !drawerTab && (
-            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <ShapeSettings settings={shapeSettings} onChange={patch => setShapeSettings(current => ({...current,...patch}))} onClose={() => setShapeSettingsOpen(false)} onAdd={() => {
-                dispatch({type:'addObjects',objects:[createShape(shapeSettings,randomCenter())]})
-                setShapeSettingsOpen(false)
-                setActiveTool('select')
-              }} />
-            </View>
-          )}
           {showMore && !drawerTab && stageSize && (
             // 옵션 패널은 고른 요소 옆(가리지 않는 쪽)에 띄운다
             <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)]} pointerEvents="box-none" {...markInside}>
@@ -1233,7 +1244,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 // 테이프를 넣으면 보관함을 닫는다 (옵션 창은 자동으로 열지 않는다)
                 onTapeInserted={closeAfterInsert}
                 onAdd={addDecor}
-                onAddPhotos={addPhotos}
                 onToast={showToast}
                 onClose={() => setDrawerTab(null)}
               />
@@ -1409,6 +1419,7 @@ const styles = StyleSheet.create({
   phonePanelRight: { right: 8, maxWidth: '86%' },
   stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 16 },
   textPaletteWrap: { position: 'absolute', maxWidth: '100%' },
+  textRangeWrap: { position: 'absolute', left: 8, right: 8, bottom: 8, alignItems: 'center' },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
   lassoSettingsWrap: { position: 'absolute', top: 76, left: 12, right: 12, alignItems: 'center' },
   penSettingsWrap: { position: 'absolute', top: 76, left: 16, right: 16, bottom: 64, alignItems: 'flex-start' },

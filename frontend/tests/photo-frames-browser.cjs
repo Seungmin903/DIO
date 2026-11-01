@@ -15,14 +15,13 @@ const server=http.createServer((req,res)=>{
   await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForFunction(()=>window.__photoFrameReview,null,{timeout:180000});
   await page.waitForTimeout(400);await page.screenshot({path:path.join(out,'overview.png')});
   const drawer=page.getByTestId('drawer'),options=page.getByTestId('options'),stage=page.getByTestId('stage');
-  // 불러오기가 사진 틀보다 위, 안내 문구 없음
-  const uploadY=(await drawer.getByRole('button',{name:'사진 · GIF 불러오기',exact:true}).boundingBox()).y;
-  const frameY=(await drawer.getByText('사진 틀',{exact:true}).boundingBox()).y;assert.ok(uploadY<frameY);
+  // 사진 틀은 위젯 칸의 '사진 틀' 칩에 있다 (사진 버튼은 보관함 없이 바로 앨범을 연다). 안내 문구 없음
+  await drawer.getByText('사진 틀',{exact:true}).click();await page.waitForTimeout(300);
   assert.equal(await drawer.getByText(/붙어요|들어가요|골라요/).count(),0);
   assert.equal(await drawer.getByText('최근 불러온 사진').count(),0);
   // 보관함: 없음 없이 9종 (티켓 4종). 옵션 패널에는 틀 고르기가 없다
   const names=['폴라로이드','필름','우표','공연 티켓','영화 티켓','경기 티켓','탑승권','인생네컷 (4칸)','필름 4컷 (4칸)'];
-  for(const group of ['사진 틀','티켓','네컷']) assert.equal(await drawer.getByText(group,{exact:true}).count(),1,group);
+  for(const group of ['기본','티켓','네컷']) assert.equal(await drawer.getByText(group,{exact:true}).count(),1,group);
   for(const name of names){
    assert.equal(await drawer.getByRole('button',{name:`사진 틀 ${name}`,exact:true}).count(),1,name);
   }

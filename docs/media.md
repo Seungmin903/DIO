@@ -10,11 +10,29 @@
 | 원본 파일 | `GET /api/v1/media/{mediaFileId}/file` | `200 OK` |
 | 삭제 | `DELETE /api/v1/media/{mediaFileId}` | `204 No Content` |
 
-서버는 파일 시그니처를 직접 검사하여 `mediaType`과 MIME을 저장한다. 지원 형식은 JPEG, PNG, WebP, GIF 및 MP3, M4A/M4B, WAV, OGG이며 최대 크기는 5MB다. GIF는 `IMAGE`로 저장되고 `mimeType=image/gif`로 구분한다. ISO BMFF 오디오는 `ftyp` major brand가 `M4A ` 또는 `M4B `인 파일만 받는다. `mp42`·`isom`은 영상과 안전하게 구별할 수 없어 거절한다. WebM도 오디오·비디오를 안전하게 구별하는 EBML 트랙 파서를 추가하기 전까지 업로드하지 않는다.
+서버는 파일 시그니처를 직접 검사하여 `mediaType`과 MIME을 저장한다. 지원 형식은 JPEG, PNG, WebP, GIF 및 MP3, M4A/M4B, WAV, OGG, TTF/OTF, PDF다. 이미지·오디오는 최대 5MiB, 폰트와 PDF 원본은 최대 25MiB다. PDF는 첫 1,024바이트 안의 `%PDF-` 헤더가 있어야 하며 `DOCUMENT`·`application/pdf`로 저장한다. PDF 암호화 여부나 페이지 내용은 서버에서 해석하지 않는다. GIF는 `IMAGE`로 저장되고 `mimeType=image/gif`로 구분한다. ISO BMFF 오디오는 `ftyp` major brand가 `M4A ` 또는 `M4B `인 파일만 받는다. `mp42`·`isom`은 영상과 안전하게 구별할 수 없어 거절한다. WebM도 오디오·비디오를 안전하게 구별하는 EBML 트랙 파서를 추가하기 전까지 업로드하지 않는다.
 
-5MB 파일이 서비스에 닿기 전에 막히지 않도록 Spring multipart는 파일당 5MB, 요청당 6MB이고, dev·prod Nginx `client_max_body_size`는 6m이다. 테스트용 `application.yml`이 본 설정을 가리므로 `MediaUploadLimitConfigTests`가 실제 설정 파일을 읽어 세 값을 함께 확인한다.
+25MiB PDF·폰트가 서비스에 닿기 전에 막히지 않도록 `backend/src/main/resources/application.yml`의 Spring multipart는 파일당 25MB, 요청당 26MB이고, 업로드 경로의 dev·prod Nginx `client_max_body_size`도 26m이다. `MediaUploadLimitConfigTests`가 이 값을 정확히 검증한다.
 
-`libraryCategory`는 이미지에서 `PHOTO`, `STICKER`, `TAPE`, 오디오에서 `AUDIO`만 허용한다. 생략하면 각각 `PHOTO`, `AUDIO`가 설정된다.
+`libraryCategory`는 이미지에서 `PHOTO`, `STICKER`, `TAPE`, 오디오에서 `AUDIO`, 폰트에서 `FONT`, PDF 원본에서 `DOCUMENT`만 허용한다. 생략하면 각각 `PHOTO`, `AUDIO`, `FONT`, `DOCUMENT`가 설정된다. `DOCUMENT`는 개인 미디어 목록과 다이어리 공유 보관함에 노출·추가되지 않는다. PDF 원본 파일은 캔버스에서 참조하는 구성원만 다운로드할 수 있다.
+
+업로드 형식이 맞지 않으면 `400 INVALID_MEDIA_FILE`, 파일 크기를 넘으면 `413 MEDIA_FILE_TOO_LARGE`를 반환한다. PDF의 25MiB 초과는 `PDF 원본은 25MiB 이하로 올려 주세요.`라는 상세 메시지를 반환한다.
+
+## 캔버스 PDF 원본 참조
+
+PDF를 페이지별 PNG로 표시하는 요소는 기존 `mediaFileId`에 PNG의 서버 UUID를 유지하고, `propertiesJson`에 원본 PDF의 서버 UUID를 함께 저장한다.
+
+```json
+{
+  "pdfSource": {
+    "mediaFileId": "<DOCUMENT uuid>",
+    "pageIndex": 0,
+    "edge": 3000
+  }
+}
+```
+
+`pdfSource`는 `propertiesJson`의 **최상위 객체 하나**여야 하며, `pdfSource.mediaFileId`는 반드시 `DOCUMENT`여야 한다. 기존 `mediaFileId` 및 `cells[].mediaFileId`를 포함한 나머지 참조는 반드시 `IMAGE`여야 한다. 같은 UUID를 이미지와 PDF 원본 슬롯에 동시에 둘 수 없다. 중첩 객체·배열의 `pdfSource`는 저장 전에 거절한다. 이 참조는 다이어리 OWNER·EDITOR의 원본 파일 읽기 권한 및 삭제 보존 대상에 포함된다.
 
 보관함 목록은 최신순 커서 페이지네이션을 사용한다. `limit`은 1~100이며 기본값은 30이다. 응답의 `nextCursor`가 있으면 다음 요청의 `cursor`에 그대로 넣는다.
 

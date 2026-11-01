@@ -60,16 +60,16 @@ class MediaControllerAuthenticationTests {
 	}
 
 	@Test
-	void sendsEditableSourceFilesAsAttachments() throws Exception {
+	void sendsPdfSourceFilesAsAttachments() throws Exception {
 		UUID mediaFileId = UUID.randomUUID();
 		org.mockito.Mockito.when(mediaService.file(mediaFileId, 2L))
-			.thenReturn(new MediaService.DownloadedMedia("image/svg+xml", "logo.svg", "<svg/>".getBytes()));
+			.thenReturn(new MediaService.DownloadedMedia("application/pdf", "layout.pdf", "%PDF-1.7".getBytes()));
 
 		mvc.perform(get("/api/v1/media/" + mediaFileId + "/file").with(jwt().jwt(token -> token.subject("2"))))
 			.andExpect(status().isOk())
 			.andExpect(header().string("X-Content-Type-Options", "nosniff"))
 			.andExpect(header().string("Content-Security-Policy", "sandbox; default-src 'none'"))
 			.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment")))
-			.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("logo.svg")));
+			.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("layout.pdf")));
 	}
 }

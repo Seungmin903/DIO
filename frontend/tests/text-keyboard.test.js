@@ -6,7 +6,7 @@ import React from 'react'
 import * as text from '../src/editor/utils/text.js'
 import * as ranges from '../src/editor/utils/textRanges.js'
 import * as formats from '../src/editor/utils/textFormats.js'
-import { requestTextKeyboard, startTextKeyboard } from '../src/editor/utils/textKeyboard.js'
+import { keyboardPanelBottom, requestTextKeyboard, startTextKeyboard } from '../src/editor/utils/textKeyboard.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const babel = expo('@babel/core')
@@ -96,13 +96,14 @@ test('실제 RN TextInputState의 동일 focus 생략을 우회하고 native foc
 const editorCode = babel.transformSync(readFileSync(new URL('../src/editor/components/TextEditor.js', import.meta.url), 'utf8'), {
   configFile: false, babelrc: false, plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
 }).code
-function mountEditor(platform = 'android') {
+// selected: 글자를 고른 상태로 띄운다(앱은 글자를 골랐을 때만 '선택한 글자' 창이 뜬다). useState(false) 는 selected 하나뿐이다
+function mountEditor(platform = 'android', { selected = false } = {}) {
   const time = clock(), effects = [], listeners = new Map(), saves = [], cancelled = []
   let palette, unmounted = false
   const rn = nativeFocusState(), input = { currentProps: { editable: true }, measureInWindow() {} }
   input.focus = () => rn.state.focusTextInput(input)
   input.isFocused = () => rn.state.currentlyFocusedInput() === input
-  const hooks = { ...React, useRef: current => ({ current }), useState: value => [typeof value === 'function' ? value() : value, () => {}], useEffect: fn => { effects.push(fn) } }
+  const hooks = { ...React, useRef: current => ({ current }), useState: value => [typeof value === 'function' ? value() : value === false && selected ? true : value, () => {}], useEffect: fn => { effects.push(fn) } }
   const native = { Platform: { OS: platform }, View: 'view', Text: 'text', Pressable: 'button', TextInput: 'input', StyleSheet: { create: x => x },
     Keyboard: { isVisible: () => false, dismiss() {}, addListener: (name, cb) => { listeners.set(name, cb); return { remove: () => listeners.delete(name) } } },
     findNodeHandle: () => 42, UIManager: { dispatchViewManagerCommand: rn.command } }
@@ -117,7 +118,7 @@ function mountEditor(platform = 'android') {
     if (id === '../utils/textKeyboard') return { startTextKeyboard, requestTextKeyboard }
     if (id === '../hooks/useTextFont') return { useTextFont() {} }
     if (id === '../services/textClipboard') return { copyText: async () => {}, useTextClipboardAvailable: () => true }
-    if (id === './TextActionBar') return { __esModule: true, default: 'action-bar' }
+    if (id === './TextActionBar') return { __esModule: true, default: 'action-bar', TextRangePanel: 'range-panel' }
     if (id === './TextLinkDialog') return { __esModule: true, default: 'link-dialog' }
     return require(id)
   }, module, module.exports)
@@ -131,11 +132,11 @@ function mountEditor(platform = 'android') {
   Object.assign(globalThis, { requestAnimationFrame: time.requestFrame, cancelAnimationFrame: time.cancelFrame, setTimeout: time.schedule, clearTimeout: time.clear })
   const cleanups = effects.map(fn => fn()).filter(fn => typeof fn === 'function')
   return { time, input, field, saves, cancelled, listeners, calls: rn.count,
-    link: () => React.Children.toArray(palette.content.props.children).find(n => n.type === 'action-bar').props.onLink(),
+    link: () => React.Children.toArray(palette.content.props.children).find(n => n.type === 'action-bar' || n.type === 'range-panel').props.onLink(),
     unmount: () => { if (unmounted) return; unmounted = true; cleanups.forEach(fn => fn()); Object.assign(globalThis, globals) } }
 }
 for (const ending of ['show-hide', 'save', 'link', 'unmount']) test(`실제 TextEditor: ${ending} 이후에는 대기 중 focus가 편집을 다시 시작하지 않는다`, () => {
-  const f = mountEditor()
+  const f = mountEditor('android', { selected: ending === 'link' })
   try {
     f.time.frame(); assert.equal(f.calls(), 1)
     f.time.advance(80); assert.equal(f.calls(), 2)
@@ -157,4 +158,14 @@ test('실제 web TextEditor: Escape 직후 frame과 blur가 취소를 뒤집지 
     assert.equal(f.saves.length, 0)
     assert.equal(f.calls(), 0)
   } finally { f.unmount() }
+})
+
+test('선택한 글자 줄은 가려진 만큼만 올리고, 키보드가 화면을 줄이는 환경에서는 두 번 올리지 않는다', () => {
+  // edge-to-edge: 스테이지(80~1280)가 그대로인데 키보드가 900부터 덮는다 → 380 + 8
+  assert.equal(keyboardPanelBottom({ stageTop: 80, stageHeight: 1200, keyboardTop: 900 }), 388)
+  // 키보드가 레이아웃을 줄임: 스테이지 아래 끝(80+820)이 이미 키보드 위 → 기본 여백만
+  assert.equal(keyboardPanelBottom({ stageTop: 80, stageHeight: 820, keyboardTop: 900 }), 8)
+  assert.equal(keyboardPanelBottom({ stageTop: 80, stageHeight: 700, keyboardTop: 900 }), 8)
+  // 키보드 정보가 없으면 기본 여백
+  assert.equal(keyboardPanelBottom({ stageTop: 80, stageHeight: 1200, keyboardTop: null }), 8)
 })

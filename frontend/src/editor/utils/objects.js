@@ -6,6 +6,7 @@ import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_FRAME_ASSETS, PHOTO_SHAPES, LEGA
 import { shapeDefinition } from './editorShapes'
 import { clamp, createId } from './common'
 import { createDdayWidget, ddayStyleOf } from '../widgets/dday'
+import { createMemo } from '../widgets/memo'
 import { fillCells, isStripFrame, photoCell, stripSizeForCell } from './photoStrip'
 
 const base = (type, center, w, h, extra) => ({
@@ -64,7 +65,8 @@ export function createTape(item, center) {
       opacity: TAPE_DEFAULT_OPACITY,
     })
   }
-  const size = TAPE_SIZES.find((s) => s.id === item.size) ?? TAPE_SIZES[1]
+  // 무늬 테이프는 늘 기본 폭으로 붙는다. 폭은 붙인 뒤 위아래 손잡이로 바꾼다.
+  const size = TAPE_SIZES[1]
   return base('tape', center, size.w, size.h, {
     pattern: item.pattern,
     palette: item.palette,
@@ -156,6 +158,7 @@ export function createEmptyFrame(frame, center) {
 export function createObjectFromDecor(item, center) {
   if (item.kind === 'frame') return createEmptyFrame(item.frame, center)
   if (item.kind === 'sticker') return createSticker(item, center)
+  if (item.kind === 'memo') return createMemo(item, center)
   if (item.kind === 'tape') return createTape(item, center)
   if (isStripFrame(item.frame)) return createPhotoStrip(item.frame, item.photos ?? [item], center)
   return createPhoto(item, center)
@@ -267,6 +270,13 @@ export function tapeSizeOf(tape) {
   const ratio = tape.w / tape.h
   return TAPE_SIZES.reduce((best, size) => (Math.abs(size.w / size.h - ratio) < Math.abs(best.w / best.h - ratio) ? size : best))
 }
+
+/**
+ * 무늬 한 단위의 기준 높이. 무늬는 h / 기준 높이 배율로 그린다.
+ * 위아래 손잡이로 폭을 바꾸면 기준 높이도 같은 비율로 바꿔(unitH) 무늬 크기는 그대로, 줄 수만 늘고 준다.
+ * 예전 테이프는 규격(size) 높이가 기준이다.
+ */
+export const tapeUnitH = (tape) => tape.unitH ?? tapeSizeOf(tape).h
 
 /** 중심을 유지하면서 크기를 바꾸는 패치 */
 export function resizeAroundCenter(object, w, h) {

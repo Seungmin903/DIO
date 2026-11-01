@@ -7,7 +7,7 @@ import { useMediaUri } from '../../hooks/useMediaUri'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
-import { getObjectName, hasPhotoMedia, tapeSizeOf } from '../../utils/objects'
+import { getObjectName, hasPhotoMedia, tapeUnitH } from '../../utils/objects'
 import { buildLayerRows } from '../../utils/layerRows'
 import Icon from '../controls/Icon'
 import TapCatcher from '../controls/TapCatcher'
@@ -590,7 +590,7 @@ const LayerThumb = memo(function LayerThumb({ object }) {
           edge={object.edge}
           width={tapeW}
           height={tapeH}
-          scale={tapeH / tapeSizeOf(object).h}
+          scale={tapeH / tapeUnitH(object)}
         />
       </View>
     )
