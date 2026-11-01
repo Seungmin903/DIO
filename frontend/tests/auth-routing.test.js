@@ -66,3 +66,10 @@ test('개발 전용 보관함 목 모드는 기존 경로를 유지한다',()=>{
  assert.ok(has(root(true,'mock'),'./src/diary/screens/ConnectedDiaryLibrary'))
  assert.ok(has(root(true,'mock-library'),'./src/diary/screens/MockLibraryApp'))
 })
+
+test('개발용 목업 화면은 개발자 모드를 고르기 전이어도 시작 화면으로 가리지 않는다',()=>{
+ assert.equal(has(root(true,'mock',null,null,null),'./src/dev/StartModeScreen'),false)
+ assert.equal(has(root(true,'mock',null,null,null),'./src/diary/screens/ConnectedDiaryLibrary'),true)
+ // 목업이 아니면 고르기 전에는 시작 화면이 뜬다
+ assert.equal(has(root(true,undefined,null,null,null),'./src/dev/StartModeScreen'),true)
+})

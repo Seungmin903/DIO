@@ -85,7 +85,9 @@ export default function App() {
   // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
   const [loginRequest, setLoginRequest] = useState(null);
   // 개발자 모드인지(src/dev/devAccess). null 이면 아직 고르지 않았다(시작 화면에서 고른다). DEV_ACCESS 가 꺼져 있으면 늘 일반 사용자다.
-  const [developer, setDeveloper] = useState(DEV_ACCESS ? null : false);
+  // 개발용 목업 화면(EXPO_PUBLIC_DIARY_SOURCE=mock*)은 세션 없이 그리므로 시작 화면을 띄우지 않는다
+  const mockSource = __DEV__ && /^mock/.test(process.env.EXPO_PUBLIC_DIARY_SOURCE || '');
+  const [developer, setDeveloper] = useState(DEV_ACCESS && !mockSource ? null : false);
   // 시작 화면에서 고른 뒤 보관함이 다 그려질 때까지 시작 화면을 그대로 덮어 둔다(로고 화면을 다시 띄우면 로고 자리가 바뀌며 깜박인다)
   const [starting, setStarting] = useState(false);
   // 게스트는 지난번에 고친 프로필(닉네임 · 한 줄 소개 · 사진)을 이어서 시작한다
@@ -149,7 +151,7 @@ export default function App() {
           onEndPreview={endSession} onClearSession={clearSession} onReady={sessionReady} /></LoginGateProvider> : null
       )}
       {/* 보관함의 앱 잠금 확인 덮개(zIndex 100)보다 위. 안드로이드는 감싸는 View 를 펼쳐 zIndex 가 같은 층에서 겨룬다 */}
-      {((developer === null && !previewSession) || starting) && <View style={[StyleSheet.absoluteFill, { zIndex: 200 }]}><StartModeScreen onChoose={chooseStartMode} /></View>}
+      {!mockSource && ((developer === null && !previewSession) || starting) && <View style={[StyleSheet.absoluteFill, { zIndex: 200 }]}><StartModeScreen onChoose={chooseStartMode} /></View>}
       {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
       <HandwritingStudio />
       {booting && <BootSplash />}
