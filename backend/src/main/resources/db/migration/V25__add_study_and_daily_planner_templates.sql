@@ -46,14 +46,16 @@ $planner_templates$;
 
 -- Do not change a page when either its source template or its own canvas differs from the replacement.
 DO $planner_compatibility$
+DECLARE
+    mismatch_count BIGINT;
+    mismatch_page_ids TEXT;
 BEGIN
-    IF EXISTS (
-        WITH replacements(old_code, new_code) AS (
-            VALUES
-                ('2026-reusable-daily-landscape', 'day-planner-landscape'),
-                ('2026-reusable-daily-portrait', 'day-planner-portrait')
-        )
-        SELECT 1
+    WITH replacements(old_code, new_code) AS (
+        VALUES
+            ('2026-reusable-daily-landscape', 'day-planner-landscape'),
+            ('2026-reusable-daily-portrait', 'day-planner-portrait')
+    ), mismatches AS (
+        SELECT page.page_id
         FROM pages page
         JOIN page_templates source ON source.template_id = page.template_id
         JOIN replacements replacement ON replacement.old_code = source.code
@@ -64,8 +66,16 @@ BEGIN
                OR source.orientation IS DISTINCT FROM target.orientation
                OR page.canvas_width IS DISTINCT FROM target.canvas_width
                OR page.canvas_height IS DISTINCT FROM target.canvas_height)
-    ) THEN
-        RAISE EXCEPTION 'Reusable daily page geometry does not match its day planner replacement';
+    )
+    SELECT
+        (SELECT count(*) FROM mismatches),
+        (SELECT string_agg(left(page_id::text, 8), ',' ORDER BY page_id)
+         FROM (SELECT page_id FROM mismatches ORDER BY page_id LIMIT 10) sample)
+    INTO mismatch_count, mismatch_page_ids;
+
+    IF mismatch_count > 0 THEN
+        RAISE EXCEPTION 'Reusable daily page geometry mismatch: count=%, page_ids=%', mismatch_count, mismatch_page_ids
+            USING HINT = 'Run docs/page-template-v25-rollback.sql preflight query before retrying V25.';
     END IF;
 END
 $planner_compatibility$;

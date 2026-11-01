@@ -1,4 +1,24 @@
--- Manual rollback for V25 page reassignment. Run only after previewing the first query.
+-- V25 deployment preflight: this must return no rows before applying V25.
+WITH replacements(old_code, new_code) AS (
+    VALUES
+        ('2026-reusable-daily-landscape', 'day-planner-landscape'),
+        ('2026-reusable-daily-portrait', 'day-planner-portrait')
+)
+SELECT page.page_id, source.code AS source_code, page.canvas_width, page.canvas_height,
+       target.code AS target_code, target.canvas_width AS target_width, target.canvas_height AS target_height
+FROM pages page
+JOIN page_templates source ON source.template_id = page.template_id
+JOIN replacements replacement ON replacement.old_code = source.code
+JOIN page_templates target ON target.code = replacement.new_code AND target.template_version = '1.0.0'
+WHERE source.template_version = '1.0.0'
+  AND (source.canvas_width IS DISTINCT FROM target.canvas_width
+       OR source.canvas_height IS DISTINCT FROM target.canvas_height
+       OR source.orientation IS DISTINCT FROM target.orientation
+       OR page.canvas_width IS DISTINCT FROM target.canvas_width
+       OR page.canvas_height IS DISTINCT FROM target.canvas_height)
+ORDER BY page.page_id;
+
+-- Manual rollback for V25 page reassignment. Run only after previewing the following query.
 -- Pages changed after V25 are deliberately excluded so this never overwrites newer user edits.
 
 SELECT page.page_id, page.version, backup.previous_version, page.updated_at, backup.previous_updated_at
@@ -27,3 +47,7 @@ WHERE backup.page_id = page.page_id
   );
 
 COMMIT;
+
+-- Retention: preserve page_template_v25_backups for 30 days after V25 deployment.
+-- After the rollback window ends and operators have confirmed no rollback is required, run manually:
+-- DROP TABLE page_template_v25_backups;

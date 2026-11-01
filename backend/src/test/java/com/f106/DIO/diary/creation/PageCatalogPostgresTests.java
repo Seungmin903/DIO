@@ -1,6 +1,8 @@
 package com.f106.DIO.diary.creation;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Properties;
@@ -90,7 +92,7 @@ class PageCatalogPostgresTests {
         }
     }
 
-    @Test void V25RegistersPlannerTemplatesAndMigratesReusableDailyPages() {
+    @Test void V25RegistersPlannerTemplatesAndMigratesReusableDailyPages() throws Exception {
         flyway("24").migrate();
         jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
         UUID diary=UUID.randomUUID();
@@ -123,6 +125,12 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select jsonb_exists(previous_template_config, 'templateCode') from page_template_v25_backups where page_id=?",Boolean.class,landscapeWithoutCode)).isFalse();
         assertThat(jdbc.queryForObject("select previous_version from page_template_v25_backups where page_id=?",Long.class,portraitWithCode)).isEqualTo(11L);
         assertThat(jdbc.queryForObject("select previous_updated_at = timestamp '2000-01-01 00:00:00+00' from page_template_v25_backups where page_id=?",Boolean.class,portraitWithCode)).isTrue();
+        jdbc.update("update pages set version=version+1 where page_id=?",landscapeWithoutCode);
+        assertThat(runV25RollbackScript()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,landscapeWithCode)).isEqualTo("2026-reusable-daily-landscape");
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,landscapeWithCode)).isEqualTo(7L);
+        assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,landscapeWithoutCode)).isEqualTo("day-planner-landscape");
+        assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,landscapeWithoutCode)).isEqualTo(5L);
     }
 
     @Test void V25RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() {
@@ -170,6 +178,15 @@ class PageCatalogPostgresTests {
             if ("dio-blank-portrait".equals(template.get("templateCode").asString())) return template;
         }
         throw new AssertionError("V9 catalog template is missing");
+    }
+
+    private int runV25RollbackScript() throws Exception {
+        String script=Files.readString(Path.of("..","docs","page-template-v25-rollback.sql"));
+        int start=script.indexOf("UPDATE pages page\nSET template_id");
+        int end=script.indexOf("\n\nCOMMIT;",start);
+        assertThat(start).isGreaterThanOrEqualTo(0);
+        assertThat(end).isGreaterThan(start);
+        return jdbc.update(script.substring(start,end));
     }
 
     @Test void upgradePreservesExistingIdsCustomDefaultsInactiveStateOldVersionsAndHistoricalPages() throws Exception {
