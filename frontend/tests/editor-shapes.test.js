@@ -132,7 +132,8 @@ test('도형 공용 서식은 크기·좌표를 유지하며 정렬·기울임·
  assert.equal(updated.align,'justify')
  const style=shapeTextStyle(updated,1,'android')
  assert.equal(style.textAlign,'justify')
- assert.equal(style.fontStyle,'italic')
+ assert.equal(updated.italic,true)
+ assert.equal(style.fontStyle,'normal') // 기본 글꼴 나눔고딕에는 기울임 서체가 없다
  assert.equal(style.textDecorationLine,'underline line-through')
  assert.deepEqual(updated.styleRanges,shape.styleRanges)
  assert.doesNotThrow(()=>createExportSnapshot({objects:[updated]}))

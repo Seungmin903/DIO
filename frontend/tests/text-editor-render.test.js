@@ -93,3 +93,25 @@ test('web: blur는 최종 문자열·범위를 한 번만 저장하며 취소 �
   assert.equal(cancelled.cancels.length, 1)
   assert.deepEqual(cancelled.saves, [])
 })
+
+test('글자만큼 넓어지는 상자: 입력창을 최대 폭으로 넓혀 폭이 늦게 따라와도 한 줄이 둘로 접히지 않는다', () => {
+  for (const platform of ['ios', 'android', 'web']) {
+    const auto = renderEditor(platform, { autoWidth: true, w: 240, baseWidth: 240, maxWidth: 400 }, 0.5)
+    assert.equal(auto.inputProps.style[1].width, 200)
+    assert.equal(auto.inputProps.style[1].marginLeft, 0)
+    const centered = renderEditor(platform, { autoWidth: true, w: 240, baseWidth: 240, maxWidth: 400, textAlign: 'center' }, 0.5)
+    assert.equal(centered.inputProps.style[1].width, 200)
+    assert.equal(centered.inputProps.style[1].marginLeft, -40)
+    const fixed = renderEditor(platform, { w: 240, baseWidth: 240 }, 0.5)
+    assert.equal(fixed.inputProps.style[1].width, undefined)
+    assert.equal(fixed.inputProps.style[1].marginLeft, undefined)
+  }
+})
+
+test('autoWidthInputLayout: 맞춤에 따라 입력창을 상자 기준 자리로 민다', () => {
+  assert.deepEqual(text.autoWidthInputLayout(100, 480, 'left'), { width: 480, marginLeft: 0 })
+  assert.deepEqual(text.autoWidthInputLayout(100, 480, 'center'), { width: 480, marginLeft: -190 })
+  assert.deepEqual(text.autoWidthInputLayout(100, 480, 'right'), { width: 480, marginLeft: -380 })
+  // 상자가 최대 폭보다 넓으면 줄이지 않는다
+  assert.deepEqual(text.autoWidthInputLayout(500, 480, 'center'), { width: 500, marginLeft: 0 })
+})

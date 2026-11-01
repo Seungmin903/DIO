@@ -35,6 +35,11 @@ const normalize = (scope, value) => {
   return kind === 'custom' && normalizeHex(bg) && normalizeHex(fg) ? `custom:${normalizeHex(bg)}:${normalizeHex(fg)}` : null
 }
 
+const sameAsDefault = (scope, list) => {
+  const base = DEFAULTS[scope].map((value) => normalize(scope, value))
+  return list.length === base.length && list.every((value, i) => value === base[i])
+}
+
 const stores = {}
 const storeOf = (scope) => (stores[scope] ??= { cache: null, listeners: new Set(), loading: null })
 const publish = (store, next) => {
@@ -47,7 +52,7 @@ function load(scope) {
     .then((raw) => {
       const stored = raw ? JSON.parse(raw) : null
       const list = Array.isArray(stored) ? [...new Set(stored.map((value) => normalize(scope, value)).filter(Boolean))].slice(0, MAX_PALETTE) : null
-      publish(store, list && list.length ? list : null)
+      publish(store, list && list.length && !sameAsDefault(scope, list) ? list : null) // 예전에 기본 색 그대로 저장된 목록도 바꾼 적 없는 것으로 읽는다
     })
     .catch(() => publish(store, null))
   return store.loading
@@ -55,7 +60,7 @@ function load(scope) {
 
 /**
  * scope(pen · highlighter · tape · text)의 색 프리셋.
- * colors: 지금 목록(바꾼 적 없으면 기본 색), edited: 바꾼 적 있는지, save(list): 통째로 저장, reset(): 기본 색으로 되돌리기
+ * colors: 지금 목록(바꾼 적 없으면 기본 색), defaults: 기본 색 목록, edited: 바꾼 적 있는지, save(list): 통째로 저장, reset(): 기본 색으로 되돌리기
  */
 export function usePalette(scope) {
   const store = storeOf(scope)
@@ -66,18 +71,22 @@ export function usePalette(scope) {
     if (store.cache === null && !store.loading) load(scope)
     return () => store.listeners.delete(setCustom)
   }, [scope, store])
+  const reset = () => {
+    publish(store, null)
+    AsyncStorage.removeItem(keyOf(scope)).catch(() => {})
+  }
   const save = (list) => {
     const next = [...new Set(list.map((value) => normalize(scope, value)).filter(Boolean))].slice(0, MAX_PALETTE)
+    // 기본 색과 같아지면 바꾼 적 없는 것으로 되돌린다('기본 색으로' 버튼이 남지 않게)
+    if (sameAsDefault(scope, next)) { reset(); return }
     publish(store, next.length ? next : null)
     AsyncStorage.setItem(keyOf(scope), JSON.stringify(next)).catch(() => {})
   }
   return {
     colors: custom ?? DEFAULTS[scope],
+    defaults: DEFAULTS[scope],
     edited: Boolean(custom),
     save,
-    reset: () => {
-      publish(store, null)
-      AsyncStorage.removeItem(keyOf(scope)).catch(() => {})
-    },
+    reset,
   }
 }

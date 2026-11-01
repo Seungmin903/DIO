@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs'
 import { colorTemplateXml, normalizePaperAppearance } from '../src/editor/templates/appearance.js'
 import { PAPER_FONTS, DEFAULT_PAPER_FONT, isPaperFontId, paperPrintsText, swapPaperFont } from '../src/editor/templates/paperFont.js'
 import MARU from '../src/editor/templates/paperFonts/maruburi.js'
+import nanumGothic from '../src/editor/templates/paperFonts/nanum-gothic.js'
+import nanumMyeongjo from '../src/editor/templates/paperFonts/nanum-myeongjo.js'
 import gowunBatang from '../src/editor/templates/paperFonts/gowun-batang.js'
 import gowunDodum from '../src/editor/templates/paperFonts/gowun-dodum.js'
 import nanumPen from '../src/editor/templates/paperFonts/nanum-pen.js'
@@ -12,7 +14,7 @@ import { datedSvg } from '../src/editor/templates/dated.js'
 import { plannerBaseSvg } from '../src/editor/templates/studyPlanner.js'
 import { dayPlannerBaseSvg } from '../src/editor/templates/dayPlanner.js'
 
-const TABLES = { 'gowun-batang': gowunBatang, 'gowun-dodum': gowunDodum, 'nanum-pen': nanumPen, 'poor-story': poorStory }
+const TABLES = { 'nanum-gothic': nanumGothic, 'nanum-myeongjo': nanumMyeongjo, 'gowun-batang': gowunBatang, 'gowun-dodum': gowunDodum, 'nanum-pen': nanumPen, 'poor-story': poorStory }
 const ALT = Object.keys(TABLES)
 const read = file => readFileSync(new URL(`../assets/templates/${file}`, import.meta.url), 'utf8')
 const SAMPLES = {

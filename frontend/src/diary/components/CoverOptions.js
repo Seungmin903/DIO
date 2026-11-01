@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
 import Icon from '../../editor/components/controls/Icon'
 import StickerThumbImage from '../../editor/components/controls/StickerThumbImage'
+import TextFontDropdown from '../../editor/components/controls/TextFontDropdown'
 import { stickerLibrary } from '../../editor/stickerLibrary'
 import { stickerKey, useCustomDecor } from '../../editor/hooks/useCustomDecor'
 import { useMediaUri } from '../../editor/hooks/useMediaUri'
@@ -12,10 +13,9 @@ import { createId } from '../../editor/utils/common'
 import { colors } from '../../shared/theme'
 import { AutoSwatch, ChipGroup, ColorRow, CustomSwatch, ElementRow, NumberField, OptionRow, PickerPanel, Segmented, Swatch, Toggle } from './FormControls'
 import CoverPattern from './CoverPattern'
-import { textStyle } from '../../editor/utils/text'
 import { loadPhotoTone } from '../utils/loadPhotoTone'
 import {
-  ANCHORS, BAND_COLORS, COVER_COLORS, COVER_FONTS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, isLegacyGradient, isPickableGradient, PLATE_SHAPES, RETIRED_PATTERNS, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
+  ANCHORS, BAND_COLORS, COVER_COLORS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, isLegacyGradient, isPickableGradient, PLATE_SHAPES, RETIRED_PATTERNS, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
   bandAutoColor, changeCoverKind, coverLineColor, coverTitle, coverElementSummary, paintStops,
 } from '../utils/coverDesign'
 
@@ -165,12 +165,6 @@ function StickerPicker({ cover, onChange, onNotice }) {
   </View>
 }
 
-// 글씨체 칩은 그 글씨체로 쓴다. 글꼴을 다 불러오면(표지 화면이 다시 그림) 실제 글꼴로 바뀐다.
-// 손글씨는 같은 크기에서 글자가 작아 표지(CoverArt)와 같이 키운다
-const FONT_SCALE = { 'nanum-pen': 1.35, 'poor-story': 1.1 }
-const fontChips = () => COVER_FONTS.map(([id, label]) => ({ id, label,
-  textStyle: (({ fontFamily, fontWeight, fontSize }) => ({ fontFamily, fontWeight, fontSize }))(textStyle({ font: id, fontSize: 12.5 * (FONT_SCALE[id] ?? 1), color: colors.text }, 1, Platform.OS)) }))
-
 function ElementOptions({ element, cover, name, onChange, onNotice, pickNow, onPickHandled }) {
   const set = patch => onChange({ ...cover, ...patch })
   if (element === 'base' && cover.kind === 'photo') return <PhotoOptions cover={cover} onChange={onChange} onNotice={onNotice} pickNow={pickNow} onPickHandled={onPickHandled} />
@@ -191,7 +185,7 @@ function ElementOptions({ element, cover, name, onChange, onNotice, pickNow, onP
       <TextInput accessibilityLabel="표지 제목" placeholder="표지 제목" placeholderTextColor={colors.textMuted} maxLength={24} value={coverTitle(cover, name)}
         onChangeText={text => set({ title: { ...cover.title, useName: text === coverTitle({ title: { useName: true } }, name), text } })} style={styles.input} />
     </OptionRow>
-    <OptionRow label="글씨체"><ChipGroup label="제목 글씨체" columns={3} items={fontChips()} value={cover.title.font} onChange={font => set({ title: { ...cover.title, font } })} /></OptionRow>
+    <OptionRow label="글씨체"><TextFontDropdown label="제목 글씨체" value={cover.title.font} onChange={font => set({ title: { ...cover.title, font } })} style={styles.fontField} /></OptionRow>
     <OptionRow label="크기"><NumberField label="제목 크기" unit="pt" min={TITLE_SIZE.min} max={TITLE_SIZE.max} value={cover.title.size} onChange={size => set({ title: { ...cover.title, size } })} /></OptionRow>
     <OptionRow label="색"><ColorRow label="제목 색" value={cover.title.color} swatches={INK_COLORS} onChange={color => set({ title: { ...cover.title, color } })} /></OptionRow>
     <View style={styles.subHead}>
@@ -279,6 +273,7 @@ const styles = StyleSheet.create({
   patternFill: { flex: 1, overflow: 'hidden', borderRadius: 9, borderWidth: 1, borderColor: 'rgba(11,23,102,.12)' },
   patternName: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   patternNameOn: { color: colors.text, fontWeight: '800' },
+  fontField: { height: 44, borderRadius: 12, borderColor: colors.border, backgroundColor: colors.surfaceSoft }, // 옆 글상자(제목 · 소제목)와 같은 높이 · 모양
   input: { height: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, color: colors.text, fontSize: 14, fontWeight: '700', backgroundColor: colors.surfaceSoft },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   addPhoto: { height: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, backgroundColor: colors.surfaceMuted },

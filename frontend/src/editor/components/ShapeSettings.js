@@ -60,7 +60,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
       </> : <>
       {palette('fill', '채우기')}
       <Text style={p.label}>테두리 두께</Text>
-      <Slider centerValue label="테두리 두께" value={value.borderWidth} min={0} max={16} step={1} onStart={onCheckpoint} onEnd={onCommit} onChange={borderWidth => onChange({ borderWidth }, false)} />
+      <Slider label="테두리 두께" value={value.borderWidth} min={0} max={16} step={1} onStart={onCheckpoint} onEnd={onCommit} onChange={borderWidth => onChange({ borderWidth }, false)} />
       {palette('borderColor', '테두리 색상', !value.borderWidth)}
       <Text style={p.label}>테두리 모양</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[p.segment,!value.borderWidth&&p.dim]}>

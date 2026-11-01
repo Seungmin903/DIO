@@ -46,15 +46,15 @@ test('개인 글꼴은 UUID를 유지하며 Regular만 사용하고 기본 글�
   registerPersonalTextFonts([{ id, family, label: '내 손글씨' }]); markTextFontLoaded(family)
   assert.equal(getTextFonts().length, baseIds.length + 1); assert(textFontListSnapshot() > before)
   assert(baseIds.every(baseId => getTextFonts().some(font => font.id === baseId)))
-  assert.deepEqual(textStyleSupport(id), { bold: false, italic: false })
+  assert.deepEqual(textStyleSupport(id), { bold: false, italic: true })
   const style = textStyle({ font: id, bold: true, italic: true })
-  assert.equal(style.fontFamily, family); assert.equal(style.fontWeight, '400'); assert.equal(style.fontStyle, 'normal')
+  assert.equal(style.fontFamily, family); assert.equal(style.fontWeight, '400'); assert.equal(style.fontStyle, 'normal'); assert.deepEqual(style.transform, [{ skewX: '-12deg' }])
   const object = { id: 'personal-text', type: 'text', font: id, text: '한이민글', x: 0, y: 0, w: 300, h: 100, baseWidth: 300, fontSize: 32 }
   assert.equal(createExportSnapshot({ objects: [object] }).objects[0].font, id)
   registerPersonalTextFonts([{ id, family, label: '이름 변경' }])
   assert.equal(getTextFonts().find(f => f.id === id).label, '이름 변경')
   registerPersonalTextFonts([])
-  assert.deepEqual(textStyleSupport(id), { bold: false, italic: false })
+  assert.deepEqual(textStyleSupport(id), { bold: false, italic: true })
 })
 test('로컬 이관용 base64는 잘리지 않고 왕복하며 잘못된 폰트를 거부한다', () => {
   for (const size of [1, 2, 3, 12287, 12288, 12289, 60000]) {
