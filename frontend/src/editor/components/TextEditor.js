@@ -6,7 +6,7 @@ import { colorTextRange, normalizeRanges, remapTextRanges, textSegments } from '
 import { TEXT_AUTO_MAX_WIDTH, TEXT_AUTO_MIN_WIDTH, TEXT_COLORS, textStyle, TEXT_FRAME_PAD } from '../utils/text'
 import { loadedFontFamily, textSettings, textInputHeight } from '../utils/text'
 
-import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle } from '../utils/textFormats'
+import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle, applyInputSelection } from '../utils/textFormats'
 import { copyText, readText, useTextClipboardAvailable } from '../services/textClipboard'
 import TextActionBar, { TextRangePanel } from './TextActionBar'
 import TextLinkDialog from './TextLinkDialog'
@@ -45,8 +45,7 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
     if (!kept || next.start !== next.end) return false
     keptSelection.current = null
     selection.current = kept
-    if (input.current?.setSelection) input.current.setSelection(kept.start, kept.end)
-    else input.current?.setNativeProps?.({ selection: kept })
+    applyInputSelection(input.current, kept)
     return true
   }
   const updateDraft = (value) => { ranges.current = remapTextRanges(draft.current, value, ranges.current); formats.current = remapTextFormats(draft.current, value, formats.current); draft.current = value; refresh() }
@@ -217,7 +216,7 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
       const { end } = safeTextSelection(draft.current, selection.current)
       selection.current = { start: end, end }
       setSelected(false)
-      input.current?.setNativeProps?.({ selection: selection.current })
+      applyInputSelection(input.current, selection.current)
     }
     onPaletteChange({ anchor, placement: systemMenu ? 'panel' : 'bubble', content: (<View ref={palette} onLayout={() => palette.current?.measureInWindow?.((x, y, width, height) => { paletteBounds.current = { x, y, width, height } })} style={styles.palette}>
       {systemMenu

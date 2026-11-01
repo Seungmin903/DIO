@@ -8,7 +8,7 @@ import { shapeInputHeight, shapeRevealDelta } from '../utils/shapeTextViewport'
 import ShapeContent from './canvas/ShapeContent'
 import TextActionBar, { TextRangePanel } from './TextActionBar'
 import { colorTextRange, normalizeRanges, remapTextRanges } from '../utils/textRanges'
-import { normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle } from '../utils/textFormats'
+import { normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle, applyInputSelection } from '../utils/textFormats'
 import { copyText, readText, useTextClipboardAvailable } from '../services/textClipboard'
 
 // 도형 크기는 글의 길이와 무관하게 유지한다. 빈 글을 저장해도 도형 자체는 지우지 않는다.
@@ -29,8 +29,7 @@ export default function ShapeTextEditor({ commitRef, object, zoom, onSave, bound
     const kept=keptSelection.current
     if (!kept||next.start!==next.end) return false
     keptSelection.current=null;selection.current=kept
-    if (input.current?.setSelection) input.current.setSelection(kept.start,kept.end)
-    else input.current?.setNativeProps?.({selection:kept})
+    applyInputSelection(input.current,kept)
     return true
   }
   const updateDraft = value => {
@@ -150,7 +149,7 @@ export default function ShapeTextEditor({ commitRef, object, zoom, onSave, bound
     const keepSelection=()=>{if(!systemMenu)return;keptSelection.current={...selection.current};setTimeout(()=>{keptSelection.current=null},400)}
     const resize=delta=>{if(composing.current)return;formats.current=resizeTextRange(draft.current,formats.current,selection.current,object.fontSize??20,delta);refresh();keepSelection()}
     const onColor=color=>{if(composing.current)return;ranges.current=colorTextRange(draft.current,ranges.current,selection.current,color);refresh();keepSelection()}
-    const collapse=()=>{const {end}=safeTextSelection(draft.current,selection.current);selection.current={start:end,end};setSelected(false);input.current?.setNativeProps?.({selection:selection.current})}
+    const collapse=()=>{const {end}=safeTextSelection(draft.current,selection.current);selection.current={start:end,end};setSelected(false);applyInputSelection(input.current,selection.current)}
     onPaletteChange({anchor,placement:systemMenu?'panel':'bubble',content:<View ref={palette} onLayout={()=>palette.current?.measureInWindow?.((x,y,width,height)=>{paletteBounds.current={x,y,width,height}})}>
       {systemMenu
         ? <TextRangePanel onColor={onColor} onIncrease={()=>resize(2)} onDecrease={()=>resize(-2)} onClose={collapse} />
