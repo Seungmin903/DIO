@@ -39,13 +39,17 @@ public class MediaController {
 		return mediaService.detail(mediaFileId, userId(jwt));
 	}
 	@GetMapping("/{mediaFileId}/file")
-	@Operation(summary = "미디어 파일 조회", description = "소유자 또는 해당 이미지를 사용하는 활성 다이어리 참여자가 원본 파일 바이트를 조회합니다.")
+	@Operation(summary = "미디어 파일 조회", description = "소유자 또는 공유 보관함·캔버스에서 해당 파일을 사용하는 활성 다이어리 참여자가 원본 파일 바이트를 조회합니다. 편집 원본은 항상 다운로드로 반환합니다.")
 	public ResponseEntity<byte[]> file(@PathVariable UUID mediaFileId, @AuthenticationPrincipal Jwt jwt) {
 		MediaService.DownloadedMedia file = mediaService.file(mediaFileId, userId(jwt));
 		var response = ResponseEntity.ok().contentType(MediaType.parseMediaType(file.mimeType()))
 			.header(HttpHeaders.CACHE_CONTROL, "private, no-store").header("X-Content-Type-Options", "nosniff");
-		if (isSourceDocument(file.mimeType()) && file.downloadName() != null) response.header(HttpHeaders.CONTENT_DISPOSITION,
-			ContentDisposition.attachment().filename(file.downloadName(), java.nio.charset.StandardCharsets.UTF_8).build().toString());
+		if (isSourceDocument(file.mimeType())) {
+			String name = file.downloadName() == null ? "document" : file.downloadName();
+			response.header(HttpHeaders.CONTENT_DISPOSITION,
+				ContentDisposition.attachment().filename(name, java.nio.charset.StandardCharsets.UTF_8).build().toString())
+				.header("Content-Security-Policy", "sandbox; default-src 'none'");
+		}
 		return response.body(file.content());
 	}
 	@DeleteMapping("/{mediaFileId}") @Operation(summary = "미디어 삭제", description = "로그인 사용자가 소유한 미디어를 소프트 삭제합니다.")

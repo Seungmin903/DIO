@@ -61,7 +61,7 @@ public class MediaFileTransactionService {
 	public StorageReference storageReference(UUID mediaFileId, Long userId) {
 		MediaFile mediaFile = mediaFiles.findByMediaFileIdAndOwnerUserIdAndDeletedAtIsNull(mediaFileId, userId)
 			.orElseGet(() -> readableSharedMedia(mediaFileId, userId));
-		return new StorageReference(mediaFile.getMimeType(), mediaFile.getStorageKey());
+		return new StorageReference(mediaFile.getMimeType(), mediaFile.getOriginalFilename(), mediaFile.getStorageKey());
 	}
 
 	@Transactional
@@ -82,5 +82,5 @@ public class MediaFileTransactionService {
 		if (!sharedLibrary.isReadableByMember(mediaFileId, userId) && !canvasMedia.readable(mediaFileId,userId)) throw new MediaFileNotFoundException();
 		return mediaFile;
 	}
-	public record StorageReference(String mimeType, String storageKey) {}
+	public record StorageReference(String mimeType, String originalFilename, String storageKey) {}
 }
