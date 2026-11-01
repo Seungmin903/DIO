@@ -20,13 +20,18 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   const mod = { exports: {} }
   const mocks = { 'react-native': { Platform: { OS: 'android' } }, './authApi': {
    authBaseUrl: value => `${value}/api/v1`, createAuthApi: options => options,
-  }, './photoUpload': { buildPhotoBody() {} }, 'expo/fetch': { fetch() {} } }
+  }, './photoUpload': { buildPhotoBody() {} }, 'expo/fetch': { fetch() {} },
+   './developmentAccessStore': { createDevelopmentAccessStore: () => { stores++; return 'store'; } } }
+  let stores = 0
   new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, dev,
    { env: { EXPO_PUBLIC_API_BASE_URL: 'https://server.example', EXPO_PUBLIC_AUTH_TOKEN_HEADER: 'X-DIO-Access-Token' } })
   assert.equal(mod.exports.authService.baseUrl, mod.exports.apiBaseUrl)
   assert.equal(mod.exports.authService.accessTokenHeader, mod.exports.accessTokenHeader)
   assert.equal(mod.exports.accessTokenHeader, 'X-DIO-Access-Token')
   assert.equal(mod.exports.authService.allowDevelopmentAccess, dev)
+  // 운영 빌드는 저장된 개발 서버 접속 정보를 만들지도 읽지도 않는다.
+  assert.equal(mod.exports.authService.developmentAccessStore, dev ? 'store' : null)
+  assert.equal(stores, dev ? 1 : 0)
  }
 })
 test('기본 실행은 로그인이고 실제 로그인 세션만 회원 보관함에 진입한다',()=>{
