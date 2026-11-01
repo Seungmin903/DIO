@@ -156,7 +156,7 @@ function SideRail({ page, filter, navigate, bottomInset = 0, topInset = 0, compa
       </Animated.View>
       {/* 휴지통은 자주 쓰지 않아 위 묶음에서 떼어 메뉴 아래쪽(내 공간 위)에 따로 둔다 */}
       <View style={s.railSpacer} />
-      {item('trash', '휴지통', 'bin', s.railTrash)}
+      {item('trash', '휴지통', 'bin', undefined, s.railTrash)}
       {/* 내 공간: 메뉴 맨 아래, 위에 구분선 하나. 접으면 프로필 그림, 펼치면 닉네임이 그 옆에 나온다. 고른 상태 바탕은 깔지 않고 글자 굵기로만 보인다 */}
       {/* 구분선은 메뉴 좌우 끝에서 끝까지: 메뉴 안쪽 여백(접힘 15 · 펼침 20)만큼 밖으로 늘린다 */}
       <Animated.View style={[s.railProfileLine, compact && s.railProfileLinePhone, { marginHorizontal: between(-paddings.collapsed, -paddings.expanded) }]} />

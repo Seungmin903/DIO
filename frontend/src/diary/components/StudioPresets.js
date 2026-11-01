@@ -58,8 +58,9 @@ function Group({ group, compact, width }) {
   const ref = (kind, index) => node => { cells.current[`${kind}${index}`] = node; };
   const mineEntry = editing?.kind === 'mine' ? mine.presets[editing.index] : null;
   let editor = null;
+  // 예전 버전에서 프리셋 색을 지운 목록은 기본 목록과 칸이 어긋나므로, 길이가 같을 때만 기본 색으로 되돌린다
   if (editing?.kind === 'preset') editor = <PresetColorEditor title={`${group.label} 색 바꾸기`} tape={tape} value={list[editing.index]} anchor={editing.anchor}
-    onClose={() => setEditing(null)} original={defaults[editing.index] ?? list[editing.index]}
+    onClose={() => setEditing(null)} original={list.length === defaults.length ? defaults[editing.index] : list[editing.index]}
     onDone={value => { save(list.map((entry, i) => (i === editing.index ? value : entry))); setEditing(null); }} />;
   else if (mineEntry) editor = <PresetColorEditor title={`내 ${group.label} 색 바꾸기`} tape={tape} value={toEditor(mineEntry, tape)} anchor={editing.anchor}
     onClose={() => setEditing(null)} onRemove={() => { mine.remove(mineEntry); setEditing(null); }}
@@ -132,7 +133,7 @@ const local = StyleSheet.create({
   line: { width: 282, maxWidth: '100%', height: 1, backgroundColor: colors.cardBorder },
   // 원 30 · 터치 칸 36 · 사이 6(코덱스 2026-11-01): 7개 = 288 이라 폰(약 300)에서도 한 줄. 내 색상 14개는 7개씩 두 줄로 감긴다
   // 칸(36)이 원(30)보다 3씩 넓어, 첫 원의 왼쪽 끝이 제목 왼쪽 끝과 맞도록 줄을 3 당긴다
-  row: { width: 288, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 8, marginLeft: -3 },
+  row: { width: 288, maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 8, marginLeft: -3 },
   mineTitle: { marginTop: 16, fontSize: 13, fontWeight: '800', color: colors.textMuted }, // 프리셋 줄 터치 칸 아래 24(묶음 gap 8 + 16)
   cell: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   // 고리 자리(36)는 늘 두고 바꾸는 중일 때만 색을 칠해, 고리가 생겨도 원이 움직이지 않는다

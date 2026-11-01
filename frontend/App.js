@@ -159,6 +159,8 @@ export default function App() {
       {!mockSource && ((developer === null && !previewSession) || starting) && <View style={[StyleSheet.absoluteFill, { zIndex: 200 }]}><StartModeScreen onChoose={chooseStartMode} /></View>}
       {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
       <HandwritingStudio />
+      {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
+      <ProfileCropHost />
       {booting && <BootSplash />}
     </SafeAreaProvider>
   );
@@ -705,7 +707,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       onFavorite={member ? undefined : favorite}
       onEdit={edit}
       onDelete={moveDiaryToTrash}
-      onShare={diary => { if (diary) setSharingRequest({ diary }); }}
+      onShare={shareDiary}
       onCreate={create}
       railWidthRef={isPhone ? null : railWidthRef}
       selection={selection}

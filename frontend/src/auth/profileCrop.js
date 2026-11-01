@@ -11,9 +11,10 @@ export const profileCropStore = {
   subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
   getSnapshot: () => request,
   attach() { hosts += 1; return () => { hosts -= 1; }; },
-  /** 자르기를 끝낸다. uri 가 null 이면 취소다. */
-  settle(uri) {
+  /** 자르기를 끝낸다. uri 가 null 이면 취소다. id 를 주면 그 요청일 때만 끝낸다(닫힌 뒤 늦게 끝난 자르기가 다음 요청을 끝내지 않게). */
+  settle(uri, id) {
     const current = request;
+    if (id != null && current?.id !== id) return;
     request = null;
     emit();
     current?.resolve(uri ?? null);

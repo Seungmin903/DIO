@@ -68,7 +68,7 @@ export async function pickPdfPages({ onProgress } = {}) {
   // 확대하면 원본에서 보이는 영역을 다시 그리므로 원본 PDF 를 보관한다(PdfDetail). 실패하면 아래에서 함께 지운다.
   const sourceId = createId()
   try {
-    await savePdfSource(sourceId, file)
+    try { await savePdfSource(sourceId, file) } catch (error) { throw new PdfImportError('RENDER', 'PDF 파일을 앱에 저장하지 못했어요. 저장 공간을 확인하고 다시 시도해 주세요.', error) }
     const total = Math.min(pdf.numPages, PDF_PAGE_LIMIT)
     const pages = []
     const baseName = file.name.replace(/\.pdf$/i, '')

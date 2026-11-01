@@ -44,7 +44,8 @@ export function useColorPresets(scope = 'pen') {
       AsyncStorage.getItem(key)
         .then((raw) => {
           const stored = raw ? JSON.parse(raw) : []
-          publish(store, Array.isArray(stored) ? [...new Set(stored.map(normalizeEntry).filter(Boolean))].slice(0, MAX_PRESETS) : [])
+          // 예전에 20개까지 저장한 색은 지우지 않고 그대로 둔다(화면에는 앞 14개만 보인다)
+          publish(store, Array.isArray(stored) ? [...new Set(stored.map(normalizeEntry).filter(Boolean))] : [])
         })
         .catch(() => publish(store, []))
         .finally(() => setLoaded(true))
@@ -56,7 +57,7 @@ export function useColorPresets(scope = 'pen') {
     AsyncStorage.setItem(key, JSON.stringify(next)).catch(() => {})
   }
   return {
-    presets,
+    presets: presets.slice(0, MAX_PRESETS),
     loaded,
     add: (color) => {
       const hex = color ? normalizeEntry(color) : null

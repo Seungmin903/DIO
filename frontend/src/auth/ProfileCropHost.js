@@ -22,7 +22,7 @@ export default function ProfileCropHost() {
   const request = useSyncExternalStore(profileCropStore.subscribe, profileCropStore.getSnapshot, profileCropStore.getSnapshot);
   return (
     <EditorModal visible={Boolean(request)} transparent animationType="none" onRequestClose={() => profileCropStore.settle(null)}>
-      {request ? <ProfileCropper key={request.id} asset={request.asset} onDone={uri => profileCropStore.settle(uri)} /> : null}
+      {request ? <ProfileCropper key={request.id} asset={request.asset} onDone={uri => profileCropStore.settle(uri, request.id)} /> : null}
     </EditorModal>
   );
 }

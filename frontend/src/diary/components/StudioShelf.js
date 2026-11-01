@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { colors } from '../../shared/theme';
@@ -18,8 +18,12 @@ const WIDE_SLOT = { width: 154, height: 116 };
  */
 export default function StudioShelf({ kind, items, onRemove, onRename, onOpen }) {
   const [editing, setEditing] = useState(null); // { id, draft }
+  // 한 줄 입력은 완료를 누르면 blur 도 따라와 두 번 불린다. 같은 편집은 한 번만 저장한다
+  const finished = useRef(null);
   const finish = item => {
-    const name = editing?.draft.trim();
+    if (!editing || finished.current === editing) return;
+    finished.current = editing;
+    const name = editing.draft.trim();
     setEditing(null);
     if (name && name !== item.name) onRename?.(item, name);
   };

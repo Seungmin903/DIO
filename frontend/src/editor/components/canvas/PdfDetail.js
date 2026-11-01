@@ -24,6 +24,8 @@ function PdfDetail({ object, zoom }) {
   const job = useRef(0)
   const unavailable = useRef(false)
   const alive = useRef(true)
+  // 서버에서 원본을 한 번 받은 뒤에도 없다고 나오면 다시 받지 않는다(같은 파일을 되풀이해 받지 않게)
+  const fetchedOnce = useRef(false)
   const [fetched, setFetched] = useState(0)
   // 서버에서 온 값이므로 파일 이름으로 쓰는 sourceId 는 모양을 확인한 값만 쓴다.
   const source = normalizePdfSource(object.pdfSource)
@@ -42,7 +44,8 @@ function PdfDetail({ object, zoom }) {
       if (layersRef.current.length) { drop(layersRef.current.map(layer => layer.uri)); setLayers([]) }
       return undefined
     }
-    if (plan.keep) return undefined
+    // 지금 조각을 그대로 쓰면, 앞서 시작한 그리기 결과는 버린다
+    if (plan.keep) { job.current += 1; return undefined }
     // 처음 그릴 때는 바로, 이미 얹은 조각을 바꿀 때는 움직임이 멈추고 잠깐 뒤에 그린다.
     const timer = setTimeout(() => {
       const id = job.current += 1
@@ -53,11 +56,17 @@ function PdfDetail({ object, zoom }) {
         })
         .catch(error => {
           if (id !== job.current) return
-          unavailable.current = true
+          // 메모리 부족 · 닫힌 문서 같은 일시 오류는 끄지 않고 다음 확대 · 이동 때 다시 그린다
+          if (error?.message === 'PDF_REGION_UNAVAILABLE') { unavailable.current = true; return }
           if (error?.message !== 'PDF_SOURCE_MISSING') return
+          unavailable.current = true
           const remote = { sourceId: source.sourceId, mediaFileId: remoteId }
-          if (!canFetchPdfSource(remote)) return
-          fetchPdfSource(remote).then(() => { if (alive.current) { unavailable.current = false; setFetched(count => count + 1) } }).catch(() => {})
+          if (!canFetchPdfSource(remote) || fetchedOnce.current) return
+          fetchedOnce.current = true
+          fetchPdfSource(remote)
+            .then(() => { if (alive.current) { unavailable.current = false; setFetched(count => count + 1) } })
+            // 받기에 실패하면(연결 끊김 등) 잠시 뒤 다음 확대 때 다시 받는다(fetchPdfSource 가 30초 간격을 지킨다)
+            .catch(() => { if (alive.current) { unavailable.current = false; fetchedOnce.current = false } })
         })
     }, layersRef.current.length ? DETAIL_SETTLE_MS : 0)
     return () => clearTimeout(timer)

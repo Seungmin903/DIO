@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, View } from 'react-native'
 import PenSafeTextInput from './PenSafeTextInput'
 import { colors } from '../../../shared/theme'
 import { clamp } from '../../utils/common'
@@ -34,7 +34,8 @@ export default function NumberStepper({ value, min, max, step, onChange, scale =
       </Pressable>
       <View style={styles.inputBox}>
         <PenSafeTextInput value={draft} onChangeText={setDraft} onFocus={() => setEditing(true)} onBlur={commit} onSubmitEditing={commit}
-          keyboardType="numeric" selectTextOnFocus maxLength={5} style={styles.input} accessibilityLabel={`${label} 숫자 입력`} />
+          // iOS 숫자 키패드에는 - 가 없어 음수(자간)를 받는 칸은 기호가 있는 키패드를 쓴다
+          keyboardType={Platform.OS === 'ios' && min < 0 ? 'numbers-and-punctuation' : 'numeric'} selectTextOnFocus maxLength={5} style={styles.input} accessibilityLabel={`${label} 숫자 입력`} />
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={plusLabel} onPress={() => nudge(step)} style={styles.stepButton}>
         <Icon name="plus" size={16} />
