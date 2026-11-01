@@ -84,4 +84,14 @@ class CanvasMediaReferenceTests {
             org.mockito.Mockito.verifyNoInteractions(jdbc);
         }
     }
+    @Test void nestedPdfSourceMediaIdsRemainAuthorizedAsImageReferences(){
+        var pdf=UUID.randomUUID();
+        var nestedImage=UUID.randomUUID();
+        var properties=json.readTree("{\"pdfSource\":{\"mediaFileId\":\""+pdf+"\",\"x\":{\"mediaFileId\":\""+nestedImage+"\"}}}");
+        var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        var access=new CanvasMediaAccess(jdbc,org.mockito.Mockito.mock(com.f106.DIO.media.config.MediaSqlDialect.class));
+        org.mockito.Mockito.when(jdbc.queryForList(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.eq(Long.class),org.mockito.ArgumentMatchers.eq(pdf),org.mockito.ArgumentMatchers.eq("DOCUMENT"))).thenReturn(java.util.List.of(1L));
+        org.mockito.Mockito.when(jdbc.queryForList(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.eq(Long.class),org.mockito.ArgumentMatchers.eq(nestedImage),org.mockito.ArgumentMatchers.eq("IMAGE"))).thenReturn(java.util.List.of(1L));
+        assertThatCode(()->access.requireAttach(UUID.randomUUID(),null,properties,1L)).doesNotThrowAnyException();
+    }
 }

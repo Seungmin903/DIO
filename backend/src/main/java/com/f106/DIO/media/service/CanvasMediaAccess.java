@@ -35,7 +35,6 @@ public class CanvasMediaAccess {
     }
     // Do not widen reads for old/hidden metadata: only references rendered by the app grant access.
     private static Set<UUID> visibleReferences(UUID primary,JsonNode properties){
-        validatePdfSourceLocation(properties);
         var ids=new TreeSet<UUID>();if(primary!=null)ids.add(primary);
         if(properties!=null){
             add(ids,properties.get("mediaFileId"));
@@ -71,7 +70,7 @@ public class CanvasMediaAccess {
         var references=new TreeMap<UUID,String>();
         if(primary!=null)putReference(references,primary,"IMAGE");
         if(properties!=null&&properties.isObject())properties.properties().forEach(field->{
-            if("pdfSource".equals(field.getKey()))putReference(references,field.getValue().get("mediaFileId"),"DOCUMENT");
+            if("pdfSource".equals(field.getKey()))collectPdfSourceReferences(references,field.getValue());
             else if("mediaFileId".equals(field.getKey()))putReference(references,field.getValue(),"IMAGE");
             else collectAttachmentReferences(references,field.getValue(),"IMAGE");
         });
@@ -85,6 +84,12 @@ public class CanvasMediaAccess {
             else collectAttachmentReferences(references,field.getValue(),type);
         });
         else if(node.isArray())node.forEach(value->collectAttachmentReferences(references,value,type));
+    }
+    /** The direct PDF source is a document; nested media IDs remain regular image references and must be authorized. */
+    private static void collectPdfSourceReferences(Map<UUID,String> references,JsonNode pdfSource){
+        if(pdfSource==null||pdfSource.isNull())return;
+        putReference(references,pdfSource.get("mediaFileId"),"DOCUMENT");
+        pdfSource.properties().forEach(field->{if(!"mediaFileId".equals(field.getKey()))collectAttachmentReferences(references,field.getValue(),"IMAGE");});
     }
     private static void putReference(Map<UUID,String> references,JsonNode value,String type){
         if(value==null||value.isNull())return;
