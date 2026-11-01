@@ -50,8 +50,12 @@ const TERMS = [
   { id: 'marketing', label: '[선택] 소식 및 이벤트 수신 동의' },
 ];
 
+/**
+ * onClose: 있으면 '나중에'를 보이고 누르면 닫는다(로그인이 필요한 기능에서 띄운 경우).
+ */
 export default function AuthScreen({
   onContinue,
+  onClose = null,
   service = authService,
   photoPicker = pickProfilePhoto,
   verificationService = service.verificationService,
@@ -561,6 +565,10 @@ export default function AuthScreen({
                         </Pressable>
                       ))}
                     </View>
+                    {onClose && <Pressable accessibilityRole="button" accessibilityLabel="나중에" accessibilityState={{ disabled: busy }} disabled={busy}
+                      onPress={() => { if (!running.current) { Keyboard.dismiss(); onClose(); } }} style={s.link}>
+                      <Text style={s.browseText}>나중에</Text>
+                    </Pressable>}
                   </View>
                 )}
               </View>

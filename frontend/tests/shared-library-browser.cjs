@@ -71,7 +71,7 @@ const server = http.createServer((req, res) => {
       });
       const button = (name) => page.getByRole('button', { name, exact: true });
       await page.goto(`http://127.0.0.1:${server.address().port}`);
-      await button('게스트로 시작하기').click();
+      await button('개발자 모드로 시작').click();
       await button('개인 검증 열기').waitFor();
       const privateDoc = await page.evaluate(() =>
         localStorage.getItem('dio:editor:doc:v4:own-qa'),
@@ -145,7 +145,7 @@ const server = http.createServer((req, res) => {
       assert.equal(stored.doc, privateDoc);
       assert.deepEqual(stored.temporary, []);
       await page.reload();
-      await button('게스트로 시작하기').click();
+      await button('개발자 모드로 시작').click();
       await button('개인 검증 열기').waitFor();
       assert.equal(await shared.count(), 0);
       assert.deepEqual(errors, []);

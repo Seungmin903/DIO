@@ -12,14 +12,21 @@ import PasswordResetScreen from '../../auth/PasswordResetScreen';
 import NotificationSettingsScreen from './NotificationSettingsScreen';
 import { authService } from '../../auth/authService';
 import { openFontStudio } from '../../handwriting/studioBus.js';
+import { useLoginGate } from '../../auth/loginGate';
 
-export default function ProfileScreen({ compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource }) {
+export default function ProfileScreen({ compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, guestService }) {
   const [route, setRoute] = useState('home');
   const [failedPhoto, setFailedPhoto] = useState(null);
   // 회원 설정은 서버 인증이 끝난 세션만 접근한다. 이전 체험 세션 값은 앱 진입
   // 단계에서 로그인으로 돌려보내며, 이 화면에서도 방어적으로 렌더링하지 않는다.
   const authenticated = previewUser?.mode === 'authenticated';
+  // 게스트(시작 화면에서 고른 일반 사용자 · 개발자 모드)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
+  // 개발자 모드는 로그인한 사용자처럼 로그아웃이 있고, 누르면 시작 화면으로 돌아가 모드를 다시 고른다.
+  const guest = !authenticated && previewUser?.provider === 'guest';
+  // 게스트 프로필은 기기 저장(guestService)이 있어야 고칠 수 있다. 없으면 수정 칸을 누를 수 없게 둔다.
+  const canEdit = authenticated || (guest && !!guestService);
   const userId = authenticated ? previewUser.userId : null;
+  const loginGate = useLoginGate();
   // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다.
   // 실패하면 로그인 응답 값을 그대로 보여 주고, 다시 들어올 때 재시도한다.
   useEffect(() => {
@@ -32,7 +39,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
     // previewUser는 갱신 결과로 바뀌므로 계정·화면 전환 때만 다시 불러온다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, route]);
-  if (!authenticated) return null;
+  if (!authenticated && !guest) return null;
   const photoUri = previewUser?.photoUri;
   const photoSource = photoUri
     ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri })
@@ -50,7 +57,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
     photoUri,
   ]);
 
-  if (route === 'edit' && authenticated) {
+  if (route === 'edit' && canEdit) {
     return (
       <ProfileEditScreen
         compact={compact}
@@ -64,7 +71,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         onPasswordReset={() => setRoute('password')}
         registerLeaveGuard={registerLeaveGuard}
         getProfilePhotoSource={getProfilePhotoSource}
-        service={authService}
+        service={guest ? guestService : authService}
         photoEditable
       />
     );
@@ -89,7 +96,9 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
       <View style={local.content}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="회원정보 수정"
+          accessibilityLabel={guest ? '프로필 수정' : '회원정보 수정'}
+          accessibilityState={{ disabled: !canEdit }}
+          disabled={!canEdit}
           onPress={() => setRoute('edit')}
           style={({ pressed }) => [local.profileHero, pressed && local.heroPressed]}
         >
@@ -111,25 +120,27 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
             <Text accessibilityRole="header" numberOfLines={1} style={local.nickname}>{previewUser?.nickname || '사용자'}</Text>
             {!!previewUser?.email && <Text selectable numberOfLines={1} style={local.email}>{previewUser.email}</Text>}
           </View>
-          <View style={local.profileAction}>
-            <Text style={local.profileActionText}>회원정보 수정</Text>
+          {canEdit && <View style={local.profileAction}>
+            <Text style={local.profileActionText}>{guest ? '프로필 수정' : '회원정보 수정'}</Text>
             <AppIcon name="chevron-right" size={18} color={colors.surface} />
-          </View>
+          </View>}
         </Pressable>
-        <Text style={local.groupTitle}>계정</Text>
-        <ListSection>
-          {previewUser?.provider === 'email' && (
-            <ListItem label="비밀번호 변경" icon="lock" onPress={() => setRoute('password')} />
-          )}
-          <ListItem label="알림 설정" icon="bell" onPress={() => setRoute('notifications')} />
-        </ListSection>
+        {authenticated && <>
+          <Text style={local.groupTitle}>계정</Text>
+          <ListSection>
+            {previewUser?.provider === 'email' && (
+              <ListItem label="비밀번호 변경" icon="lock" onPress={() => setRoute('password')} />
+            )}
+            <ListItem label="알림 설정" icon="bell" onPress={() => setRoute('notifications')} />
+          </ListSection>
+        </>}
         <Text style={local.groupTitle}>서비스</Text>
         <ListSection>
-          <ListItem label="나만의 폰트 만들기" icon="edit" onPress={() => openFontStudio()} />
+          <ListItem label="나만의 폰트 만들기" icon="edit" onPress={() => loginGate('내 폰트 만들기', () => openFontStudio())} />
         </ListSection>
         <Text style={local.groupTitle}>앱 정보</Text>
         <AppInformation standalone />
-        {onEndPreview && (
+        {onEndPreview && (!guest || previewUser?.developer) && (
           <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={onEndPreview} style={({ pressed }) => [local.logout, pressed && local.pressed]}>
             <Text style={local.logoutText}>로그아웃</Text>
           </Pressable>

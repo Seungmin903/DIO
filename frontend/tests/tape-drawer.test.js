@@ -26,6 +26,7 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
     '../../hooks/useCustomDecor': { RECENT_LIMIT: 8, stickerKey: item => item.id, useCustomDecor: () => ({ loaded: true, lastStickerCategory: saveStatus.items?.lastStickerCategory ?? null, items: { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [] }, ...saveStatus }) },
     '../../hooks/useTapePreferences': { useTapePreferences: () => [store.getSnapshot(), store.update, ready] },
     '../../services/stickerSplit': { stickerSplit: { available: false } },
+    '../../../auth/loginGate': { useLoginGate: () => (_feature, action) => action() }, // 로그인한 사용자: 그대로 통과
     '../../widgets/dday': { WIDGET_ITEMS: [{ widget: 'dday', style: 'label', name: '디데이 라벨' }] },
     '../../widgets/memo': { MEMO_ITEMS: [{ kind: 'memo', memo: 'plain', name: '무지 메모' }, { kind: 'memo', memo: 'lined', name: '줄 메모' }] },
     '../../hooks/usePan': { usePan: () => ({}) },
