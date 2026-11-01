@@ -24,4 +24,4 @@ export default memo(function PageObject({ object, zoom, opacity, still, areaPrev
   </View>
 })
 
-const styles = StyleSheet.create({ cropRing: { ...StyleSheet.absoluteFillObject, borderWidth: 3, borderColor: colors.primary, borderRadius: 6 } })
+const styles = StyleSheet.create({ cropRing: { ...StyleSheet.absoluteFill, borderWidth: 3, borderColor: colors.primary, borderRadius: 6 } })

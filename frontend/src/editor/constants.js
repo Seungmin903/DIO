@@ -183,7 +183,7 @@ export const POLAROID_INSETS = FRAME_INSETS.polaroid
 // 사진 틀 (사진 보관함에서 누르면 빈 틀이 붙고, 옵션 패널에서는 붙인 사진의 틀을 바꾼다). 오프라인 에셋 '④ 사진 틀'.
 // border 는 여백 있는 한 장 틀, strip 은 여러 칸 틀(utils/photoStrip). ratio 는 빈 틀의 안쪽 비율. group 은 보관함 묶음.
 export const PHOTO_FRAME_GROUPS = [
-  { id: 'basic', name: '사진 틀' },
+  { id: 'basic', name: '기본' },
   { id: 'ticket', name: '티켓' },
   { id: 'multi', name: '네컷' },
 ]

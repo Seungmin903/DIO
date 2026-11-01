@@ -2,7 +2,7 @@ import { createContext, memo, useContext, useRef } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
-import { isAnimatedMedia, stickerSource } from '../../stickerAssets'
+import { isAnimatedMedia, isRetiredSticker, stickerSource } from '../../stickerAssets'
 import MediaImage from './MediaImage'
 import StickerFrame from './StickerFrame'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
@@ -10,7 +10,7 @@ import { reportMediaDisplayError } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
-import { coverLayout, hasPhotoMedia, photoInnerBox, tapeSizeOf } from '../../utils/objects'
+import { coverLayout, hasPhotoMedia, photoInnerBox, tapeUnitH } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
@@ -51,6 +51,12 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
       <Text style={{ fontSize: Math.max(8, 12 * zoom), color: failed ? colors.text : colors.textMuted }}>{failed ? '이미지 확인 필요' : '이미지 불러오는 중…'}</Text>
     </View>
   )
+  // 없앤 기본 스티커: 자리만 점선으로 남겨 찾아 지울 수 있게 한다 (내보내기에서는 빠진다)
+  if (isRetiredSticker(object)) return (
+    <View style={{ width, height, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.textMuted, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: Math.max(8, 11 * zoom), color: colors.textMuted }}>없어진 스티커</Text>
+    </View>
+  )
   switch (object.type) {
     case 'text': {
       const scale = width / (object.baseWidth ?? object.w)
@@ -80,7 +86,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
             width={width}
             height={height}
             // 테이프를 키우면 무늬도 같은 배율로 커지게 (규격 기본 높이 대비)
-            scale={(zoom * object.h) / tapeSizeOf(object).h}
+            scale={(zoom * object.h) / tapeUnitH(object)}
             onAssetLoad={onAssetLoad}
           />
         </View>

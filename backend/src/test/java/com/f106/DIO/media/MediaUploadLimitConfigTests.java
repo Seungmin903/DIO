@@ -18,7 +18,8 @@ import org.springframework.util.unit.DataSize;
  * 미디어 폰트 업로드와 나머지 경로에 각각 적용되는 Nginx 제한을 확인한다.
  */
 class MediaUploadLimitConfigTests {
-	private static final DataSize FONT_LIMIT = DataSize.ofMegabytes(25);
+	private static final DataSize LARGE_UPLOAD_LIMIT = DataSize.ofMegabytes(25);
+	private static final DataSize LARGE_UPLOAD_REQUEST_LIMIT = DataSize.ofMegabytes(26);
 	private static final DataSize DEFAULT_REQUEST_LIMIT = DataSize.ofMegabytes(6);
 
 	@Test
@@ -29,8 +30,8 @@ class MediaUploadLimitConfigTests {
 		DataSize maxFile = requiredSize(properties, "spring.servlet.multipart.max-file-size");
 		DataSize maxRequest = requiredSize(properties, "spring.servlet.multipart.max-request-size");
 
-		assertThat(maxFile).isGreaterThanOrEqualTo(FONT_LIMIT);
-		assertThat(maxRequest).isGreaterThan(maxFile);
+		assertThat(maxFile).isEqualTo(LARGE_UPLOAD_LIMIT);
+		assertThat(maxRequest).isEqualTo(LARGE_UPLOAD_REQUEST_LIMIT);
 		for (String profile : new String[] {"dev", "prod"}) {
 			Path conf = Path.of("..", "infra", "nginx", profile, "default.conf");
 			String content = Files.readString(conf);

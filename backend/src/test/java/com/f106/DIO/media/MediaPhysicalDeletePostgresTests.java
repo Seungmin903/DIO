@@ -37,7 +37,7 @@ class MediaPhysicalDeletePostgresTests {
 	private final UUID recentlyDeleted = UUID.randomUUID(), active = UUID.randomUUID();
 	private final UUID canvas = UUID.randomUUID(), font = UUID.randomUUID(), library = UUID.randomUUID();
 	private final UUID aiSource = UUID.randomUUID(), aiResult = UUID.randomUUID(), derivedSource = UUID.randomUUID(), memberPhoto = UUID.randomUUID();
-	private final UUID stripCell=UUID.randomUUID(), historyOnly=UUID.randomUUID();
+	private final UUID stripCell=UUID.randomUUID(), historyOnly=UUID.randomUUID(), pdfSource=UUID.randomUUID();
 	private JdbcTemplate admin, jdbc;
 	private NamedParameterJdbcTemplate named;
 	private String schema;
@@ -61,6 +61,7 @@ class MediaPhysicalDeletePostgresTests {
 		Instant expired = now.minusSeconds(2 * 86_400);
 		for (UUID id : List.of(expiredFree, expiredFree2, canvas, font, library, aiSource, aiResult, derivedSource, memberPhoto, stripCell, historyOnly))
 			media(id, expired, null);
+		media(pdfSource, expired, null, "DOCUMENT", "application/pdf");
 		media(recentlyDeleted, now.minusSeconds(3_600), null);
 		media(active, null, derivedSource);
 		jdbc.update("insert into canvas_elements(element_id,page_id,element_type,sort_key,x,y,width,height,media_file_id) values(?,?,'PHOTO',1,0,0,100,100,?)",
@@ -71,6 +72,7 @@ class MediaPhysicalDeletePostgresTests {
 		jdbc.update("insert into ai_jobs(source_media_file_id,result_media_file_id,status) values(?,?,'PROCESSING')", aiSource, aiResult);
         jdbc.update("insert into canvas_elements(element_id,page_id,element_type,sort_key,x,y,width,height,properties_json) values(?,?,'PHOTO',2,0,0,10,10,cast(? as jsonb))",UUID.randomUUID(),page,"{\"cells\":[{\"mediaFileId\":\""+stripCell.toString().toUpperCase(java.util.Locale.ROOT)+"\"}]}");
         jdbc.update("insert into canvas_history_operations(page_id,actor_user_id,client_operation_id,operation_type,before_state_json,after_state_json) values(?,1,?,'UPDATE','{}',cast(? as jsonb))",page,UUID.randomUUID(),"{\"mediaFileId\":\""+historyOnly+"\"}");
+		jdbc.update("insert into canvas_elements(element_id,page_id,element_type,sort_key,x,y,width,height,properties_json) values(?,?,'PHOTO',3,0,0,10,10,cast(? as jsonb))",UUID.randomUUID(),page,"{\"pdfSource\":{\"mediaFileId\":\""+pdfSource+"\",\"pageIndex\":0,\"edge\":3000}}");
 
 	}
 
@@ -85,7 +87,7 @@ class MediaPhysicalDeletePostgresTests {
 			Map.of("cutoff", Timestamp.from(cutoff)), UUID.class);
 		assertThat(deletable).containsExactlyInAnyOrder(expiredFree, expiredFree2);
 
-		for (UUID referenced : List.of(canvas, font, library, aiSource, aiResult, derivedSource, stripCell, historyOnly, recentlyDeleted, active))
+		for (UUID referenced : List.of(canvas, font, library, aiSource, aiResult, derivedSource, stripCell, historyOnly, pdfSource, recentlyDeleted, active))
 			assertThat(delete(referenced)).as("%s must stay", referenced).isZero();
 		assertThat(delete(expiredFree)).isEqualTo(1);
 		assertThat(count(expiredFree)).isZero();
@@ -139,8 +141,11 @@ class MediaPhysicalDeletePostgresTests {
     }
 
 	private void media(UUID id, Instant deletedAt, UUID source) {
-		jdbc.update("insert into media_files(media_file_id,owner_user_id,media_type,storage_key,mime_type,file_size,status,source_media_file_id,deleted_at) values(?,1,'IMAGE',?,'image/png',1,'READY',?,?)",
-			id, "test/" + id, source, deletedAt == null ? null : Timestamp.from(deletedAt));
+		media(id, deletedAt, source, "IMAGE", "image/png");
+	}
+	private void media(UUID id, Instant deletedAt, UUID source, String mediaType, String mimeType) {
+		jdbc.update("insert into media_files(media_file_id,owner_user_id,media_type,storage_key,mime_type,file_size,status,source_media_file_id,deleted_at) values(?,1,?,?,?,1,'READY',?,?)",
+			id, mediaType, "test/" + id, mimeType, source, deletedAt == null ? null : Timestamp.from(deletedAt));
 	}
 
 	private int delete(UUID id) {

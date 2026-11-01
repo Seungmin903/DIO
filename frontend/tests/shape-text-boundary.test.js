@@ -15,21 +15,22 @@ function fixture() {
   let cursor=0, effectCursor=0, nextFrame=0, keyboard={}, removed=0, dismissed=0
   let position={x:40,y:600,width:200,height:120}, defer=false
   const pending=[]
-  const input={measureInWindow:fn=>{const p={...position}; const call=()=>fn(p.x,p.y,p.width,p.height); if(defer)pending.push(call);else call()}}
+  const selections=[]
+  const input={measureInWindow:fn=>{const p={...position}; const call=()=>fn(p.x,p.y,p.width,p.height); if(defer)pending.push(call);else call()},setSelection:(start,end)=>selections.push({start,end})}
   const react={
     useRef:initial=>{const i=cursor++;return refs[i]??={current:initial}},
     useState:initial=>{const i=cursor++;refs[i]??={value:typeof initial==='function'?initial():initial};return [refs[i].value,value=>{refs[i].value=typeof value==='function'?value(refs[i].value):value}]},
     useLayoutEffect:fn=>layouts.push(fn),
     useEffect:(fn,deps)=>{const i=effectCursor++;if(!effects[i]||deps.some((d,j)=>d!==effects[i].deps[j])){effects[i]?.cleanup?.();effects[i]={deps,cleanup:fn()}}},
   }
-  const mocks={react,'react/jsx-runtime':require('react/jsx-runtime'),'react-native':{View:'view',TextInput:'input',Text:'text',Platform:{OS:'android'},Keyboard:{addListener:(name,fn)=>{keyboard[name]=fn;return {remove:()=>removed++}},dismiss:()=>dismissed++}},'../../shared/theme':{colors:{}},'../hooks/useTextFont':{useTextFont(){}},'../utils/editorShapes':{shapeTextStyle:()=>({}),shapeTextBox},'../utils/text':{textPatch:()=>({h:60}),textSettings:()=>({lineSpacing:1.4})},'../utils/textRanges':textRanges,'../utils/textFormats':textFormats,'../services/textClipboard':{useTextClipboardAvailable:()=>false,copyText:async()=>{},readText:async()=>''},'./TextActionBar':{__esModule:true,default:'actions'},'../utils/shapeTextViewport':{shapeInputHeight,shapeRevealDelta},'./canvas/ShapeContent':{__esModule:true,default:'shape'}}
+  const mocks={react,'react/jsx-runtime':require('react/jsx-runtime'),'react-native':{View:'view',TextInput:'input',Text:'text',Platform:{OS:'android'},Keyboard:{addListener:(name,fn)=>{keyboard[name]=fn;return {remove:()=>removed++}},dismiss:()=>dismissed++}},'../../shared/theme':{colors:{}},'../hooks/useTextFont':{useTextFont(){}},'../utils/editorShapes':{shapeTextStyle:()=>({}),shapeTextBox},'../utils/text':{textPatch:()=>({h:60}),textSettings:()=>({lineSpacing:1.4})},'../utils/textRanges':textRanges,'../utils/textFormats':textFormats,'../services/textClipboard':{useTextClipboardAvailable:()=>false,copyText:async()=>{},readText:async()=>''},'./TextActionBar':{__esModule:true,default:'actions',TextRangePanel:'rangePanel'},'../utils/shapeTextViewport':{shapeInputHeight,shapeRevealDelta},'./canvas/ShapeContent':{__esModule:true,default:'shape'}}
   const module={exports:{}}
   new Function('require','module','exports','requestAnimationFrame','cancelAnimationFrame',code)(id=>mocks[id],module,module.exports,fn=>{frames.set(++nextFrame,fn);return nextFrame},id=>frames.delete(id))
   const boundary={current:null}, props={object:{id:'s',x:40,y:600,w:200,h:120,text:'내용'},zoom:1,boundary,onSave:text=>saves.push(text),onReveal:dy=>{position={...position,y:position.y-dy};render()}}
   function render(){cursor=0;effectCursor=0;const tree=module.exports.default(props);tree.props.children[1].props.ref.current=input;layouts.splice(0).forEach(fn=>fn());return tree}
   const tick=()=>{for(let i=0;i<10&&frames.size;i++){const batch=[...frames.values()];frames.clear();batch.forEach(fn=>fn())}}
   render();tick()
-  return {props,render,tick,saves,boundary,showKeyboard:()=>{keyboard.keyboardDidShow({endCoordinates:{screenY:500}});render()},touch:(x,y)=>boundary.current({nativeEvent:{pageX:x,pageY:y}}),move:p=>{position=p},defer:value=>{defer=value},flush:()=>pending.splice(0).forEach(fn=>fn()),unmount:()=>effects.forEach(e=>e.cleanup?.()),removed:()=>removed,dismissed:()=>dismissed,frames}
+  return {props,render,tick,saves,boundary,selections,showKeyboard:()=>{keyboard.keyboardDidShow({endCoordinates:{screenY:500}});render()},touch:(x,y)=>boundary.current({nativeEvent:{pageX:x,pageY:y}}),move:p=>{position=p},defer:value=>{defer=value},flush:()=>pending.splice(0).forEach(fn=>fn()),unmount:()=>effects.forEach(e=>e.cleanup?.()),removed:()=>removed,dismissed:()=>dismissed,frames}
 }
 
 test('키보드 회피 후 이동한 입력창 내부 터치는 유지하고 바깥 터치만 저장한다',()=>{
@@ -88,7 +89,7 @@ test('긴 도형 글은 툴바와 키보드 사이 높이로 제한하며 입력
 })
 
 
-test('도형 글자 선택 바에서 일부 색·크기를 바꾸고 저장 시 범위를 전달한다',()=>{
+test('앱은 글자를 고르면 선택한 글자 창에서 일부 색·크기를 바꾸고 저장 시 범위를 전달한다',()=>{
  const f=fixture(),palettes=[],saved=[]
  f.props.onPaletteChange=next=>palettes.push(next)
  f.props.paletteBounds={current:null}
@@ -97,7 +98,8 @@ test('도형 글자 선택 바에서 일부 색·크기를 바꾸고 저장 시 
  tree.props.children[1].props.onSelectionChange({nativeEvent:{selection:{start:0,end:1}}})
  f.render();f.tick();f.render()
  let bar=palettes.filter(Boolean).at(-1).content.props.children
- assert.equal(bar.props.hasSelection,true)
+ // 안드로이드: 복사 · 붙여넣기는 시스템 메뉴, 고른 글자 서식은 도구줄 아래 창
+ assert.equal(bar.type,'rangePanel');assert.equal(palettes.filter(Boolean).at(-1).placement,'panel')
  bar.props.onColor('#FF0000');f.render()
  bar=palettes.filter(Boolean).at(-1).content.props.children
  bar.props.onIncrease();tree=f.render()
@@ -119,5 +121,36 @@ test('도형 글 입력 종료 이벤트의 최종 조합 문자열을 저장한
  const tree=f.render()
  tree.props.children[1].props.onEndEditing({nativeEvent:{text:'최종 한글'}})
  assert.deepEqual(saved,['최종 한글'])
+ f.unmount()
+})
+
+test('applyInputSelection은 setSelection을 먼저 쓰고 없을 때만 setNativeProps로 바꾼다',()=>{
+ const calls=[]
+ textFormats.applyInputSelection({setSelection:(start,end)=>calls.push(['setSelection',start,end]),setNativeProps:props=>calls.push(['native',props])},{start:1,end:3})
+ textFormats.applyInputSelection({setNativeProps:props=>calls.push(['native',props])},{start:2,end:2})
+ textFormats.applyInputSelection(null,{start:0,end:0})
+ assert.deepEqual(calls,[['setSelection',1,3],['native',{selection:{start:2,end:2}}]])
+})
+
+test('앱: 서식 직후 선택이 풀리면 서식 전 범위로 되돌리고, 닫기는 setSelection으로 커서만 남긴다',()=>{
+ const f=fixture(),palettes=[]
+ f.props.onPaletteChange=next=>palettes.push(next)
+ f.props.paletteBounds={current:null}
+ let tree=f.render()
+ tree.props.children[1].props.onSelectionChange({nativeEvent:{selection:{start:0,end:2}}})
+ f.render();f.tick();f.render()
+ let panel=palettes.filter(Boolean).at(-1).content.props.children
+ panel.props.onColor('#FF0000')
+ tree=f.render()
+ // 안드로이드가 다시 그리며 선택을 푼 알림 → 서식 전 범위로 되돌린다
+ tree.props.children[1].props.onSelectionChange({nativeEvent:{selection:{start:2,end:2}}})
+ assert.deepEqual(f.selections.at(-1),{start:0,end:2})
+ f.render()
+ panel=palettes.filter(Boolean).at(-1).content.props.children
+ panel.props.onClose()
+ assert.deepEqual(f.selections.at(-1),{start:2,end:2})
+ f.render()
+ // 고른 글자가 없으면 창을 내린다
+ assert.equal(palettes.at(-1),null)
  f.unmount()
 })
