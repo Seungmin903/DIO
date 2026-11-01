@@ -39,6 +39,11 @@ test('배경 자동 추정은 수동 좌표 없이 실행하고 수동 지정은
   assert.throws(() => validateSplitOptions({ crop: FULL_CROP, autoBackground: false, tolerance: 35 }))
   assert.throws(() => validateSplitOptions({ crop: FULL_CROP, autoBackground: true, tolerance: NaN }))
 })
+
+test('배경 허용 범위는 0부터 150까지 허용하고 범위 밖은 거부한다', () => {
+  for (const tolerance of [0, 5, 10, 150]) assert.doesNotThrow(() => validateSplitOptions({ crop: FULL_CROP, autoBackground: true, tolerance }))
+  for (const tolerance of [-1, 151]) assert.throws(() => validateSplitOptions({ crop: FULL_CROP, autoBackground: true, tolerance }))
+})
 test('드래그 중 이벤트 대상의 locationX가 바뀌어도 손가락 이동량을 따른다', () => {
   const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/panels/StickerSplitPreview.js', import.meta.url), 'utf8'), {
