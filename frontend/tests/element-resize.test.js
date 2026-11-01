@@ -192,6 +192,37 @@ test('텍스트 높이 확장·취소와 실측 전 안전한 축소 한도를 �
   assert.equal(f.state().past.length, 0)
 })
 
+test('세로로 직접 늘린 텍스트 상자는 폭을 바꿔도 그 높이를 지키고, 세로를 안 건드린 상자는 내용 높이를 따른다', () => {
+  const start = text.createText({ id: 'text', x: 100, y: 80, width: 240, text: '가나다라마바사', fontSize: 20 })
+  const tall = fixture(start), down = tall.handle({ sx: 0, sy: 1 })
+  down.onStart(); down.onMove(0, 120); down.onEnd({ cancelled: false })
+  const stretched = tall.state().doc.pages[0].objects[0]
+  assert.equal(stretched.manualHeight, true)
+  close(stretched.h, start.h + 120)
+  for (const dx of [80, -60]) {
+    const f = fixture(stretched), side = f.handle({ sx: 1, sy: 0 })
+    side.onStart(); side.onMove(dx, 0); side.onEnd({ cancelled: false })
+    close(f.state().doc.pages[0].objects[0].h, stretched.h)
+  }
+  // 아주 좁혀 줄바꿈이 늘어 내용이 더 길어지면 그만큼은 늘어난다
+  const narrow = fixture(stretched), squeeze = narrow.handle({ sx: 1, sy: 0 })
+  squeeze.onStart(); squeeze.onMove(-215, 0); squeeze.onEnd({ cancelled: false })
+  assert.ok(narrow.state().doc.pages[0].objects[0].h >= stretched.h)
+  // 세로를 건드리지 않은 상자는 예전처럼 폭을 넓히면 내용 높이로 줄어든다
+  const wide = { ...start, w: 120, baseWidth: 120, h: text.textFormatPatch({ ...start, w: 120, baseWidth: 120 }, text.textSettings(start)).h }
+  const plain = fixture(wide), grow = plain.handle({ sx: 1, sy: 0 })
+  grow.onStart(); grow.onMove(200, 0); grow.onEnd({ cancelled: false })
+  assert.ok(plain.state().doc.pages[0].objects[0].h < wide.h)
+  assert.equal(plain.state().doc.pages[0].objects[0].manualHeight, undefined)
+})
+
+test('줄바꿈에 영향 없는 서식(기울임 · 밑줄 · 취소선 · 색 · 정렬)은 높이를 다시 짐작하지 않고, 직접 늘린 높이는 서식을 바꿔도 줄지 않는다', () => {
+  assert.deepEqual([...text.VISUAL_TEXT_KEYS].sort(), ['color', 'italic', 'strike', 'textAlign', 'underline'])
+  const start = { ...text.createText({ id: 'text', x: 100, y: 80, width: 240, text: '한 줄', fontSize: 20 }), h: 160, manualHeight: true }
+  close(text.textFormatPatch(start, { ...text.textSettings(start), bold: true }).h, 160)
+  close(text.textFormatPatch({ ...start, manualHeight: undefined }, text.textSettings(start)).h < 160 ? 1 : 0, 1)
+})
+
 function rotationInput(start, zoom = 1) {
   const f = fixture(start, zoom), input = f.handle(undefined, 'rotate')
   const radius = start.h / 2 + 34 / zoom

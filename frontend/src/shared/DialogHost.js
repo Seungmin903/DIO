@@ -12,6 +12,7 @@ export default function DialogHost() {
       title={request?.title}
       message={request?.message}
       confirmLabel={request?.kind === 'notify' ? '확인' : request?.confirmLabel}
+      cancelLabel={request?.cancelLabel}
       danger={request?.kind === 'confirm' && request.danger}
       showCancel={request?.kind !== 'notify'}
       onConfirm={() => dialogStore.settle(true)}

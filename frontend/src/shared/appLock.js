@@ -9,6 +9,13 @@ const keyOf = scope => `dio.appLock.v1:${scope}`
 /** 세션의 잠금 범위. 회원은 userId, 게스트는 accountId. */
 export const appLockScope = user => (user?.mode === 'authenticated' ? `user:${user.userId}` : `guest:${user?.accountId || 'guest'}`)
 
+// 다시 잠그기 전 유예: 1분 안에 돌아오면 잠그지 않는다(사진 선택기 · 공유 창은 안드로이드에서 앱을 백그라운드로 보낸다).
+// 앱을 완전히 껐다 켜면 유예 없이 잠근다.
+export const APP_LOCK_GRACE_MS = 60 * 1000
+
+/** 백그라운드에 간 시각(awayAt)부터 지금까지 유예를 넘겼는지. */
+export const appLockGraceOver = (awayAt, now = Date.now()) => awayAt != null && now - awayAt >= APP_LOCK_GRACE_MS
+
 const hashPin = (salt, pin) => digestStringAsync(CryptoDigestAlgorithm.SHA256, `${salt}:${pin}`)
 
 const read = async scope => {

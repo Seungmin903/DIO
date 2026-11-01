@@ -290,3 +290,12 @@ test('새 다이어리 표지는 무늬 없이 시작하고, 뺀 무늬 · 그�
   assert.equal(normalizeCover({ cover: { pattern: { type: 'leather' } } }).pattern.type, 'leather')
   assert.equal(normalizeCover({ cover: { gradient: 9 } }).gradient, 9)
 })
+
+test('표지 제목 글씨체는 편집기 텍스트 글꼴 목록과 같다: 앱 글꼴 · 내 폰트는 그대로, 모르는 글꼴과 뺀 글꼴은 나눔고딕', async () => {
+  const { TEXT_FONTS } = await import('../src/editor/utils/text.js')
+  const font = value => normalizeCover({ cover: { enabled: true, title: { font: value } } }).title.font
+  for (const { id } of TEXT_FONTS) assert.equal(font(id), id)
+  assert.equal(font('personal-0f8fad5b-d9cb-469f-a165-70867728950e'), 'personal-0f8fad5b-d9cb-469f-a165-70867728950e')
+  assert.equal(font('sans'), 'nanum-gothic')
+  for (const value of ['mono', 'comic', undefined]) assert.equal(font(value), 'nanum-gothic')
+})

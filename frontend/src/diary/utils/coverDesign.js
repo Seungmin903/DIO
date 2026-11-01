@@ -1,5 +1,6 @@
 import { COLORS, DIARY_DEFAULTS } from '../constants.js'
 import { createId, normalizeAngle } from '../../editor/utils/common.js'
+import { TEXT_FONTS, getTextFonts, resolveFontId } from '../../editor/utils/text.js'
 
 // 표지 요소를 하나씩 따로 고른다: 바탕(색 · 그라데이션 · 패턴 또는 사진) · 고무줄 · 제목 · 소제목 · 라벨 · 스티커.
 // 표지를 빼도(enabled = false) 설정은 남겨 두어 다시 켜면 그대로 돌아온다.
@@ -11,7 +12,8 @@ export const RETIRED_PATTERNS = new Set(['leather'])
 // 캐릭터 무늬: 반복 타일이 아니라 윤곽선 캐릭터 하나를 표지 오른쪽 아래 가장자리에 크게 걸쳐 표지 색 계열로 찍는다(형압처럼).
 export const CHARACTER_PATTERNS = new Set(['moa', 'dio'])
 // 편집기 텍스트 도구와 같은 글씨체 (editor/utils/text.js TEXT_FONTS 의 id)
-export const COVER_FONTS = [['sans', '기본 고딕'], ['serif', '기본 명조'], ['nanum-gothic', '나눔고딕'], ['nanum-myeongjo', '나눔명조'], ['nanum-pen', '나눔손글씨 펜'], ['poor-story', '푸어스토리']]
+// 표지 제목 글씨체는 편집기 텍스트 도구와 같은 목록(앱 글꼴 + 내 폰트)이다. 내 폰트는 목록을 불러오기 전에도 id 모양으로 받아 둔다
+const coverFont = id => (TEXT_FONTS.some(font => font.id === id) || /^personal-[a-f0-9-]{36}$/.test(id ?? '') ? id : 'nanum-gothic')
 export const INK_COLORS = [['흰색', '#FFFFFF'], ['먹색', '#3B3F4A'], ['네이비', '#0B1766'], ['파랑', '#606BB2'], ['빨강', '#C8423F'], ['초록', '#2F6B4F']]
 // 색 견본은 한 줄 6색 + 직접 고르기로 맞춘다
 export const SUBTITLE_COLORS = [['회색', '#9A9DA6'], ...INK_COLORS.slice(0, 5)]
@@ -105,8 +107,8 @@ export function defaultCover({ color = DIARY_DEFAULTS.color, pattern = DIARY_DEF
     // 도트 · 깅엄 · 스트라이프는 예전 표지처럼 밝은 무늬로 시작한다.
     enabled: true, kind: 'plain', color, gradient: null, gradientColors: CUSTOM_GRADIENT, pattern: { type: pattern || 'none', tone: ['dot', 'gingham', 'stripe'].includes(pattern) ? 'light' : 'dark' }, photo: null,
     band: { on: true, dir: 'v', pos: 'near', color: 'auto' }, plate: 'ribbon', plateStyle: 'ribbon', ribbon: { color: RIBBON_COLORS[0][1] },
-    title: { useName: true, text: '', font: 'sans', size: 17, color: PLAIN_TITLE, anchor: 'bc', at: null },
-    subtitle: { on: true, text: `DIARY · ${dateMode === 'undated' ? '만년형' : '2026'}`, size: 7, color: '#9A9DA6' }, // 조밀한 서점 라벨 비율(코덱스 2026-11-01)
+    title: { useName: true, text: '', font: 'nanum-gothic', size: 17, color: PLAIN_TITLE, anchor: 'bc', at: null },
+    subtitle: { on: true, text: `DIARY · ${dateMode === 'undated' ? '만년형' : new Date().getFullYear()}`, size: 7, color: '#9A9DA6' }, // 조밀한 서점 라벨 비율(코덱스 2026-11-01)
     stickers: [],
   }
 }
@@ -143,7 +145,7 @@ export function normalizeCover(diary) {
     ribbon: { color: RIBBON_COLORS.some(([, color]) => color === hex(saved.ribbon?.color)) ? hex(saved.ribbon.color) : base.ribbon.color },
     title: {
       useName: saved.title?.useName !== false, text: typeof saved.title?.text === 'string' ? saved.title.text.slice(0, 24) : '',
-      font: pick(saved.title?.font, COVER_FONTS, 'sans'), size: size(saved.title?.size, TITLE_SIZE, 17),
+      font: coverFont(resolveFontId(saved.title?.font)), size: size(saved.title?.size, TITLE_SIZE, 17),
       color: hex(saved.title?.color, PLAIN_TITLE), anchor: pick(saved.title?.anchor, ANCHORS, base.title.anchor),
       at: Number.isFinite(saved.title?.at?.x) && Number.isFinite(saved.title?.at?.y) ? { x: percent(saved.title.at.x, 0), y: percent(saved.title.at.y, 0) } : null,
     },
@@ -276,7 +278,7 @@ export function coverElementSummary(cover, element) {
   switch (element) {
     case 'base': return cover.kind === 'photo' ? (cover.photo?.src ? '내 사진' : '사진 없음') : `${cover.gradient === 'custom' ? '직접 고른 그라데이션' : cover.gradient != null ? COVER_GRADIENTS[cover.gradient][0] : colorName(COVER_COLORS, cover.color)} · ${label(COVER_PATTERNS, cover.pattern.type)}`
     case 'band': return cover.band.on ? (cover.band.dir === 'v' ? '세로' : '가로') : '꺼짐'
-    case 'text': return `${label(COVER_FONTS, cover.title.font)}${cover.subtitle.on && cover.subtitle.text ? ' · 소제목' : ''}`
+    case 'text': return `${getTextFonts().find(font => font.id === cover.title.font)?.label ?? '내 폰트'}${cover.subtitle.on && cover.subtitle.text ? ' · 소제목' : ''}`
     case 'plate': if (cover.plate === 'none') return '꺼짐'
       return `${cover.plate === 'ribbon' ? `띠지 · ${colorName(RIBBON_COLORS, cover.ribbon.color)}` : label(PLATES, cover.plate)} · ${anchorName(cover)}`
     case 'stickers': return cover.stickers.length ? `${cover.stickers.length}개` : '없음'

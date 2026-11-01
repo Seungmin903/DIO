@@ -94,13 +94,17 @@ function OwnPhoto({ photo }) {
     return () => clearTimeout(timer)
   }, [failed, attempt, id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [drawAttempt, setDrawAttempt] = useState(0)
+  // 그리기 재시도 타이머는 표지가 사라지면(휴지통 · 넘김) 함께 멈춘다
+  const drawRetry = useRef(null)
+  useEffect(() => () => clearTimeout(drawRetry.current), [])
   if (!uri) return null
   // expo-image: PDF 쪽처럼 큰 사진도 표지 크기에 맞춰 줄여 풀고 메모리 · 디스크에 캐시해 다시 들어올 때 바로 뜬다
   return <CachedImage key={drawAttempt} source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={0} recyclingKey={id ?? uri}
     onError={event => {
       if (drawAttempt >= PHOTO_RETRIES) return
       if (__DEV__) console.warn('[cover photo] 그리기 실패, 다시 시도', id, event?.error)
-      setTimeout(() => setDrawAttempt(value => value + 1), 500 * (drawAttempt + 1))
+      clearTimeout(drawRetry.current)
+      drawRetry.current = setTimeout(() => setDrawAttempt(value => value + 1), 500 * (drawAttempt + 1))
     }} />
 }
 

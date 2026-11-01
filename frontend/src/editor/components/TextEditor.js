@@ -4,7 +4,7 @@ import { startTextKeyboard } from '../utils/textKeyboard'
 import { colors } from '../../shared/theme'
 import { colorTextRange, normalizeRanges, remapTextRanges, textSegments } from '../utils/textRanges'
 import { TEXT_AUTO_MAX_WIDTH, TEXT_AUTO_MIN_WIDTH, TEXT_COLORS, textStyle, TEXT_FRAME_PAD } from '../utils/text'
-import { loadedFontFamily, textSettings, textInputHeight } from '../utils/text'
+import { autoWidthInputLayout, loadedFontFamily, textSettings, textInputHeight } from '../utils/text'
 
 import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle, applyInputSelection } from '../utils/textFormats'
 import { copyText, readText, useTextClipboardAvailable } from '../services/textClipboard'
@@ -135,7 +135,9 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
     } : box
     setAnchor((previous) => previous && Object.keys(next).every((key) => previous[key] === next[key]) ? previous : next)
   }
-  const measure = () => input.current?.measureInWindow?.((x, y, width, height) => { bounds.current = { x, y, width, height }; updateAnchor() })
+  // 글자만큼 넓어지는 상자는 입력창이 상자보다 넓어서, 보이는 상자(자르는 틀)를 잰다
+  const clip = useRef(null)
+  const measure = () => (clip.current ?? input.current)?.measureInWindow?.((x, y, width, height) => { bounds.current = { x, y, width, height }; updateAnchor() })
   useEffect(() => {
     boundary.current = (event) => {
       const b = bounds.current
@@ -171,11 +173,16 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
   const boxWidth = object.autoWidth && naturalWidth != null
     ? Math.min(autoMax, Math.max(TEXT_AUTO_MIN_WIDTH * zoom, naturalWidth + 2))
     : (object.w ?? 320) * zoom
+  // 글자만큼 넓어지는 상자: 입력창은 최대 폭에서만 줄을 바꾸게 넓혀 두고 상자 폭 밖은 자른다 (폭이 한 박자 늦게 따라와도 두 줄로 접히지 않는다)
+  const inputWidth = object.autoWidth ? autoWidthInputLayout(boxWidth, autoMax, textStyle(object, scale, Platform.OS).textAlign) : null
+  const wrapInput = (node) => object.autoWidth
+    ? <View ref={clip} collapsable={false} onLayout={measure} style={styles.inputClip}>{node}</View>
+    : node
   // 키보드가 글상자를 가리면 그만큼 화면을 올린다 (onReveal(dy): 화면 px)
   const keyboardTop = useRef(null)
   const reveal = () => {
     if (keyboardTop.current == null || !onReveal) return
-    input.current?.measureInWindow?.((x, y, width, h) => {
+    (clip.current ?? input.current)?.measureInWindow?.((x, y, width, h) => {
       const overlap = y + h + TEXT_FRAME_PAD + 80 - keyboardTop.current
       if (overlap > 0) onReveal(overlap)
     })
@@ -252,14 +259,14 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
       style={[styles.measureText, textStyle(object, scale, Platform.OS)]}>
       {richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}
     </Text>
-    <TextInput ref={input} autoFocus multiline {...(Platform.OS !== 'android' && { defaultValue: object.text ?? '' })} accessibilityLabel="캔버스 텍스트 내용"
+    {wrapInput(<TextInput ref={input} autoFocus multiline {...(Platform.OS !== 'android' && { defaultValue: object.text ?? '' })} accessibilityLabel="캔버스 텍스트 내용"
       placeholder="텍스트 입력" textAlignVertical="top" scrollEnabled={false} showSoftInputOnFocus
       submitBehavior="newline" returnKeyType="default"
       onLayout={measure} onFocus={measure}
       placeholderTextColor={colors.textMuted}
       selectionColor={colors.primary}
       cursorColor={colors.primary}
-      style={[styles.input, { height, ...textStyle(object, scale, Platform.OS) }]}
+      style={[styles.input, { height, ...inputWidth, ...textStyle(object, scale, Platform.OS) }]}
       onContentSizeChange={(event) => setHeight(textInputHeight(object, zoom, event.nativeEvent.contentSize.height))}
       onSelectionChange={(event) => { if (restoreSelection(event.nativeEvent.selection)) return; selection.current = event.nativeEvent.selection; setSelected(selection.current.start !== selection.current.end); measure() }}
       onChangeText={updateDraft}
@@ -285,8 +292,9 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
           if (event.key === 'Escape') cancel()
         },
       })} >
-      {Platform.OS === 'android' ? <Text>{richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text> : null}
-    </TextInput>
+      {/* 안드로이드 입력창은 글자 조각을 직접 넣으므로 밑줄 · 취소선도 조각마다 준다(입력창 스타일의 장식이 조각에 이어지지 않는다) */}
+      {Platform.OS === 'android' ? <Text>{richTextSegments(rendered.text, rendered.ranges, rendered.formats).map((segment, index) => <Text key={index} style={{ textDecorationLine: textStyle(object, scale, Platform.OS).textDecorationLine, ...segmentTextStyle(segment, scale, textSettings(object).lineSpacing) }}>{segment.text}</Text>)}</Text> : null}
+    </TextInput>)}
     {linkSelection && <TextLinkDialog initialValue={formats.current.find(r => r.href && r.start < linkSelection.end && r.end > linkSelection.start)?.href ?? ''}
       onCancel={() => { linkEditing.current = false; setLinkSelection(null); input.current?.focus() }}
       onSave={(href) => {
@@ -303,6 +311,7 @@ const styles = StyleSheet.create({
   // 글자 폭 재기: 아주 넓은 칸에 줄바꿈 없이 그려 가장 긴 줄 폭을 잰다 (보이지 않음)
   widthProbe: { position: 'absolute', left: 0, top: 0, width: 4000, opacity: 0 },
   widthProbeText: { alignSelf: 'flex-start', includeFontPadding: false },
+  inputClip: { width: '100%', overflow: 'hidden' },
   measureText: { position: 'absolute', top: 1, left: 1, right: 1, opacity: 0, padding: 0, includeFontPadding: false },
   // 입력 중에도 뒤의 속지·요소가 비치도록 채우지 않는다. 테두리는 editFrame 이 글자 바깥에 따로 그린다 (웹 기본 포커스 테두리도 끈다)
   input: { width: '100%', borderWidth: 0, padding: 0, margin: 0, includeFontPadding: false, backgroundColor: 'transparent', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },

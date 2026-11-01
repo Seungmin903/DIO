@@ -7,6 +7,7 @@ import * as text from '../src/editor/utils/text.js'
 import * as reducer from '../src/editor/state/editorReducer.js'
 import { pageSize } from '../src/editor/utils/pageGeometry.js'
 import * as planners from '../src/editor/templates/planners.js'
+import * as completedStrokePlan from '../src/editor/utils/completedStrokePlan.js'
 
 const require = createRequire(import.meta.url)
 const expo = createRequire(require.resolve('expo/package.json'))
@@ -33,9 +34,11 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     if (id.endsWith('/modifiers')) return { isMultiSelectKey: () => multi }
     if (id.endsWith('/pageGeometry.js')) return { pageSize }
     if (id.endsWith('/planners.js')) return planners
+    if (id.endsWith('/completedStrokePlan.js')) return completedStrokePlan
     if (id.endsWith('/theme')) return { colors: {} }
     if (id.endsWith('/constants')) return { PHOTO_SHAPES: [] }
     if (id.endsWith('/objects')) return {}
+    if (id.endsWith('/backdrop.js')) return { isBackdrop: (object) => object?.backdrop === true }
     if (id.endsWith('/GridOverlay')) return { __esModule: true, default: () => null, DEFAULT_GUIDES: { grid: 'none' }, hasGuides: () => false }
     if (id.startsWith('.')) return { __esModule: true, default: () => null }
     return require(id)

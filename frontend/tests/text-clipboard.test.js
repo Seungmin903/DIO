@@ -213,10 +213,14 @@ test('잘라내기는 복사하는 사이 선택이 바뀌어도 복사한 범�
   assert.deepEqual(copied, ['앞'])
   assert.equal(e.value().text, '뒤옆')
 
-  const f = editor(undefined, true, '앞뒤', [])
+  const fCopied = []
+  const f = editor(undefined, true, '앞뒤', fCopied)
   f.input.onSelectionChange({ nativeEvent: { selection: { start: 0, end: 1 } } })
   f.actions.onCut()
   f.input.onChangeText('앞뒤!')
   await new Promise((done) => setTimeout(done, 0))
-  assert.notEqual(f.value()?.text, '뒤!')
+  // 복사는 끝났지만 그사이 글이 바뀌어 지우지 않는다: 입력칸에 아무것도 쓰지 않고 잘라냄 알림도 없다
+  assert.deepEqual(fCopied, ['앞'])
+  assert.equal(f.value(), undefined)
+  assert.deepEqual(f.messages, [])
 })

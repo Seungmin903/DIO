@@ -5,7 +5,6 @@ import { configuredPageIds } from '../../editor/templates/creation.js';
 import { normalizeOrientation, templateCanvasSize } from '../../editor/templates/catalog.js';
 import { preloadTextFonts } from '../../editor/services/textFonts';
 import { subscribeTextFonts } from '../../editor/utils/text';
-import { discardGeneratedMedia } from '../../editor/services/mediaStore';
 import { mediaFailureMessage } from '../../editor/utils/mediaRecovery.js';
 import { MODAL_ORIENTATIONS } from '../../editor/components/controls/EditorModal';
 import { DIARY_DEFAULTS } from '../constants';
@@ -19,8 +18,9 @@ import Workbench, { StagePill, fit } from './Workbench';
 import ConfirmDialog from '../../editor/components/controls/ConfirmDialog';
 import { coverSummary, newDiaryCover, normalizeCover } from '../utils/coverDesign';
 import { defaultSections, savedPaperSummary, sectionTitle, sectionsTemplateConfig } from '../utils/paperChoice';
-import { PdfImportError, coverWithPdfPage, pdfOrientation, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
+import { PdfImportError, coverBackupOf, coverForLibrary, coverWithPdfPage, pdfOrientation, pdfPapersSummary, restoreCoverBase, splitPdfPages } from '../utils/pdfImport';
 import { pickPdfPages } from '../utils/pdfPages';
+import { discardPdfImport } from '../utils/pdfCleanup';
 import useMyLibrary from '../hooks/useMyLibrary';
 import { loadDefaultPaperStyle } from '../hooks/useDefaultPaperStyle';
 
@@ -46,7 +46,7 @@ function CoverFrame({ cover, name, width, height, edit }) {
  * sheet: 폰에서는 아래에서 올라오는 시트로 띄운다.
  */
 export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = false, sheet = false, bottomInset = 0,
-  visible = true, blankOnly = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey }) {
+  visible = true, blankOnly = false, locked = false, submitLabel, submitDisabled = false, footerNotice = null, messageResetKey, onLibrarySaveFailed }) {
   const editing = Boolean(diary);
   // 세로 화면은 폰이 아니어도 구역 카드를 위에, 옵션을 아래에 쌓는다
   const window = useWindowDimensions();
@@ -77,7 +77,10 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   const [pdf, setPdf] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(null);
+  // PDF 를 바꾸는 동안에는 표지 · 제목 · 보관함을 잠근다: 끝난 뒤 시작 시점의 표지로 덮어쓰지 않게
+  const editLocked = formLocked || pdfBusy;
   const [firstAsCover, setFirstAsCover] = useState(true);
+  const [coverAlsoPaper, setCoverAlsoPaper] = useState(false);
   const [addToMyCovers, setAddToMyCovers] = useState(false);
   const [addToMyPapers, setAddToMyPapers] = useState(false);
   const [skipPdfPapers, setSkipPdfPapers] = useState(false);
@@ -99,9 +102,9 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   if (!editing) {
     try { allIds = configuredPageIds(sectionsTemplateConfig(chosenSections, orientation)); } catch (failure) { configError = failure.message; }
   }
-  // PDF 속지: 나의 속지를 골랐으면 그 쪽들, 아니면 불러온 PDF 에서 표지로 쓴 첫 쪽을 뺀 나머지. 서버 다이어리는 속지를 못 고르므로 쓰지 않는다.
-  const pdfSplit = splitPdfPages(pdf?.pages, firstAsCover || blankOnly);
-  const pdfPapers = editing || blankOnly ? [] : myPaper ? myPaper.pages : pdf && !skipPdfPapers ? pdfSplit.papers : [];
+  // PDF 속지: 나의 속지를 골랐으면 그 쪽들, 아니면 불러온 PDF 에서 표지로 쓴 첫 쪽을 뺀 나머지. 서버 다이어리도 PDF 쪽은 속지로 쓴다(쪽마다 서버 페이지를 만들고 원본 PDF 를 올린다).
+  const pdfSplit = splitPdfPages(pdf?.pages, firstAsCover, coverAlsoPaper);
+  const pdfPapers = editing ? [] : myPaper ? myPaper.pages : pdf && !skipPdfPapers ? pdfSplit.papers : [];
   const usingPdf = pdfPapers.length > 0;
   const pdfSource = myPaper?.name ?? pdf?.name ?? '';
   const pageCount = usingPdf ? pdfPapers.length : allIds?.length ?? null;
@@ -144,13 +147,14 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   // 불러온 쪽은 이 화면이 저장 없이 닫히면 미디어 보관함에서 지운다 (나의 속지에서 가져온 쪽은 지우지 않는다)
   const submitted = useRef(false);
   const unsaved = useRef(null);
-  unsaved.current = pdf?.pages ?? null;
-  useEffect(() => () => { if (!submitted.current && unsaved.current) discardGeneratedMedia(unsaved.current).catch(() => {}); }, []);
+  unsaved.current = pdf ?? null;
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; if (!submitted.current && unsaved.current) discardPdfImport(unsaved.current).catch(() => {}); }, []);
 
   // 첫 쪽을 표지 바탕으로 쓰고 끈다. 끄면 쓰기 전의 바탕으로 되돌린다.
   const applyPdfCover = (on, page, base = cover) => {
     if (on && page) {
-      coverBackup.current ??= { kind: base.kind, enabled: base.enabled, photo: base.photo };
+      coverBackup.current ??= coverBackupOf(base);
       setCover(coverWithPdfPage(base, page)); setMyCoverId(null);
     } else if (coverBackup.current) {
       setCover(restoreCoverBase(base, coverBackup.current)); coverBackup.current = null;
@@ -158,7 +162,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   };
   const dropPdf = () => {
     applyPdfCover(false);
-    if (pdf) discardGeneratedMedia(pdf.pages).catch(() => {});
+    if (pdf) discardPdfImport(pdf).catch(() => {});
     setPdf(null); setSkipPdfPapers(false); setAddToMyPapers(false);
   };
   const pickPdf = async () => {
@@ -167,14 +171,17 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
     try {
       const result = await pickPdfPages({ onProgress: (done, total) => setPdfProgress({ done, total }) });
       if (!result?.pages.length) return;
+      // 바꾸는 동안 화면이 닫혔으면 아무 데도 쓰이지 않으니 바로 지운다
+      if (!mounted.current) { discardPdfImport(result).catch(() => {}); return; }
       const previous = pdf;
       // 새 PDF 의 첫 쪽으로 표지를 다시 만들 수 있게 이전 PDF 표지를 먼저 되돌린다
       const base = coverBackup.current ? restoreCoverBase(cover, coverBackup.current) : cover;
       coverBackup.current = null;
       setPdf(result); setMyPaper(null); setSkipPdfPapers(false); setOrientation(pdfOrientation(result.pages[0].aspect));
-      if (firstAsCover || blankOnly) applyPdfCover(true, result.pages[0], base); else setCover(base);
-      if (previous) discardGeneratedMedia(previous.pages).catch(() => {});
+      if (firstAsCover) applyPdfCover(true, result.pages[0], base); else setCover(base);
+      if (previous) discardPdfImport(previous).catch(() => {});
     } catch (failure) {
+      if (!mounted.current) return;
       setNotice(failure instanceof PdfImportError ? failure.message : mediaFailureMessage(failure));
     } finally { setPdfBusy(false); setPdfProgress(null); }
   };
@@ -204,9 +211,21 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         pageSize: orientation, templateConfig, paperAppearance, appearanceScope: editing ? scope : 'all', importedPages: usingPdf ? pdfPapers : undefined });
       if (failure) { submitted.current = false; setError(failure); }
       else if (!editing) {
-        // 만든 뒤에 보관함에 남긴다. 보관함 저장이 실패해도 다이어리는 이미 만들어졌다.
-        if (pdf && addToMyCovers) await library.addCover({ name: trimmed, orientation, cover });
-        if (usingPdf && addToMyPapers && !myPaper) await library.addPaper({ name: pdf.name, orientation, pages: pdfPapers });
+        // 만든 뒤에 보관함에 남긴다. 보관함 저장이 실패해도 다이어리는 이미 만들어졌으니, 창이 닫힌 뒤 알약으로 알리고 다시 시도하게 넘긴다.
+        const entries = {
+          ...(pdf && addToMyCovers && { cover: { name: pdf.name, orientation, cover: coverForLibrary(cover) } }),
+          ...(usingPdf && addToMyPapers && !myPaper && { paper: { name: pdf.name, orientation, pages: pdfPapers } }),
+        };
+        const saveToLibrary = async kinds => {
+          const left = [];
+          for (const kind of kinds) {
+            const ok = await (kind === 'cover' ? library.addCover(entries.cover) : library.addPaper(entries.paper)).catch(() => false);
+            if (!ok) left.push(kind);
+          }
+          return left;
+        };
+        const left = await saveToLibrary(Object.keys(entries));
+        if (left.length) onLibrarySaveFailed?.({ kinds: left, retry: saveToLibrary });
       }
     } catch {
       submitted.current = false;
@@ -238,7 +257,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       const size = fit(coverRatio, wide, maxHeight);
       preview = <>
         <CoverFrame cover={cover} name={title} width={size.width} height={size.height}
-          edit={formLocked ? null : { onChange: changeCover, onSelectSticker: id => { if (id && id !== 'title') setOpenElement('stickers'); } }} />
+          edit={editLocked ? null : { onChange: changeCover, onSelectSticker: id => { if (id && id !== 'title') setOpenElement('stickers'); } }} />
       </>;
     } else if (section === 'paper' && usingPdf) {
       const stripCount = Math.min(pdfPapers.length, stacked ? 6 : 8);
@@ -287,7 +306,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   let panel;
   if (section === 'basic') panel = <View>
     <OptionRow label="이름">
-      <TextInput accessibilityLabel="다이어리 이름" editable={!formLocked} value={title} onChangeText={changeTitle} placeholder="예: 2026 봄의 기록" placeholderTextColor={colors.textMuted}
+      <TextInput accessibilityLabel="다이어리 이름" editable={!editLocked} value={title} onChangeText={changeTitle} placeholder="예: 2026 봄의 기록" placeholderTextColor={colors.textMuted}
         maxLength={TITLE_LIMIT} selectTextOnFocus style={[styles.input, error && !title.trim() && styles.inputError]} />
       <Text style={styles.count}>{title.length}/{TITLE_LIMIT}</Text>
     </OptionRow>
@@ -295,21 +314,21 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       <Segmented disabled={editing} items={[{ id: 'portrait', label: '세로' }, { id: 'landscape', label: '가로' }]} selected={id => id === orientation} onPress={setOrientation} />
     </OptionRow>
     {!editing && <PdfImport pdf={pdf} busy={pdfBusy} progress={pdfProgress} disabled={formLocked} onPick={pickPdf} onClear={dropPdf}
-      firstAsCover={firstAsCover || blankOnly} onFirstAsCover={changeFirstAsCover} addToMyCovers={addToMyCovers} onAddToMyCovers={setAddToMyCovers}
-      addToMyPapers={addToMyPapers} onAddToMyPapers={setAddToMyPapers} papers={!blankOnly} />}
+      firstAsCover={firstAsCover} onFirstAsCover={changeFirstAsCover} addToMyCovers={addToMyCovers} onAddToMyCovers={setAddToMyCovers}
+      addToMyPapers={addToMyPapers} onAddToMyPapers={setAddToMyPapers} coverAlsoPaper={coverAlsoPaper} onCoverAlsoPaper={setCoverAlsoPaper} />}
     {editing && <View style={styles.infoCard}>
       <Text style={styles.infoTitle}>{savedPaperSummary(diary.templateConfig)}</Text>
     </View>}
   </View>;
   else if (section === 'cover') panel = <View style={styles.coverPanel}>
-    {!editing && <MyCoverList items={library.covers} name={title} selectedId={myCoverId} onPick={useMyCover} onRemove={removeMyCover} disabled={formLocked} />}
+    {!editing && <MyCoverList items={library.covers} name={title} selectedId={myCoverId} onPick={useMyCover} onRemove={removeMyCover} disabled={editLocked} />}
     <CoverOptions cover={cover} name={title} onChange={changeCover} openElement={openElement} onOpenElement={setOpenElement} onNotice={setNotice} />
   </View>;
   else if (section === 'paper') panel = <View style={styles.coverPanel}>
-    <MyPaperList items={library.papers} selectedId={myPaper?.id} onPick={useMyPaper} onRemove={removeMyPaper} disabled={formLocked} />
+    <MyPaperList items={library.papers} selectedId={myPaper?.id} onPick={useMyPaper} onRemove={removeMyPaper} disabled={editLocked} />
     {usingPdf ? <View style={styles.infoCard}>
       <Text style={styles.infoTitle}>{`${pdfSource} · ${pdfPapers.length}장`}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="PDF 속지 빼기" disabled={formLocked} onPress={() => { if (myPaper) setMyPaper(null); else setSkipPdfPapers(true); }}
+      <Pressable accessibilityRole="button" accessibilityLabel="PDF 속지 빼기" disabled={editLocked} onPress={() => { if (myPaper) setMyPaper(null); else setSkipPdfPapers(true); }}
         style={({ pressed }) => [styles.drop]}><Text style={styles.dropText}>속지에서 빼기</Text></Pressable>
     </View> : <PaperOptions sections={paperSections} onChange={next => { setPaperSections(next); setError(''); }} orientation={orientation} appearance={paperAppearance} />}
   </View>;
@@ -333,7 +352,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
         <Animated.View style={[styles.dialog, !stacked && { paddingBottom: bottomInset }, sheet && { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, SHEET_SLIDE] }) }] }]}>
           <Workbench title={editing ? '다이어리 수정' : '새 다이어리'} actionLabel={actionLabel} onCancel={cancel} cancelDisabled={saving} onSubmit={onSave} submitDisabled={disabled}
             sections={sections} section={section} onSection={id => { setSection(id); setNotice(''); }} sheet={stacked} roomy={!sheet} bottomInset={bottomInset}
-            onStageLayout={setStage} stage={preview} panel={panel} panelLocked={formLocked} foot={foot} />
+            onStageLayout={setStage} stage={preview} panel={panel} panelLocked={editLocked} foot={foot} />
         </Animated.View>
         <ConfirmDialog open={leaving} title="저장하지 않고 닫을까요?" message="바꾼 내용은 저장되지 않아요." confirmLabel="닫기"
           onConfirm={() => { setLeaving(false); onCancel(); }} onCancel={() => setLeaving(false)} />

@@ -16,7 +16,8 @@ export const styles = StyleSheet.create({
   workspace: { flex: 1, minWidth: 0, position: 'relative', backgroundColor: C.canvas },
   appFill: { flex: 1, alignSelf: 'stretch' },
 
-  rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.white, borderRightWidth: 1, borderRightColor: C.line },
+  // 좌측 바 바탕은 앱 바깥 셸과 같은 surfaceSoft(#F7F8FD): 햇살 책상(보관함) · 흰 면(공방 · 휴지통 · 내 공간) 어느 화면에서도 같은 색으로 두 공간을 잇는다(앱 디자인 점검 원 페이저 01)
+  rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.canvas, borderRightWidth: 1, borderRightColor: C.line },
   railSlot: { width: 78 },
   // 메뉴 오른쪽(접힌 폭 이후)부터 화면 끝까지 덮는 반투명 막. 불투명도는 메뉴 펼침 정도(0~1)를 따른다.
   railScrim: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 19, elevation: 19 }, // elevation 은 배경 있는 뷰에 주면 안드로이드가 가장자리에 그림자 띠를 그려, 배경 없는 래퍼에만 둔다
@@ -43,6 +44,7 @@ export const styles = StyleSheet.create({
   railToggleText: { color: C.ink, fontSize: 19, lineHeight: 22, fontWeight: '700' },
   // 새 다이어리: 편집 화면의 주 버튼(내보내기)과 같은 색
   libraryRoot: { flex: 1 },
+  workRoot: { backgroundColor: C.white }, // 작업 화면(휴지통)의 흰 면
   // 보관함 오른쪽 아래에 떠 있는 새 다이어리 버튼 (예전 사이드 메뉴 + 버튼과 같은 색 · 모서리)
   // + 아이콘만(글자 없음, 사용자 결정). 태블릿은 이 화면의 유일한 주 동작이라 56×56 · 오른쪽 · 아래 24 · 그림자 0 4 10 / 10%(코덱스 2026-11-01: 보조 버튼 36~40보다 분명히 크고 표지 폭 172와는 다투지 않는 크기)
   // 폰은 44×44 · 오른쪽 · 아래 16. 모서리는 둘 다 12. 좌측 바 아래 프로필 원과 다른 축(본문 오른쪽)에 둔다
@@ -55,13 +57,19 @@ export const styles = StyleSheet.create({
   railSectionSlot: { overflow: 'hidden' },
   railSection: { color: C.muted, fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 9, paddingHorizontal: 12 },
   // 접힌 사이드바의 항목 폭은 47(78 - 좌우 15 - 오른쪽 테두리 1)이라 아이콘(20)이 가운데에 오려면 왼쪽 여백이 13.5여야 한다 (12면 1.5px 왼쪽으로 쏠린다)
-  railItem: { minHeight: 48, paddingHorizontal: 12.5, flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: 12 },
-  railItemSelected: { backgroundColor: C.active },
+  // zIndex 0: 고른 면(railIconTile, zIndex -1)이 항목 안에서만 아이콘 · 글자 뒤로 깔리게 한다. 아이콘 ↔ 글자 12(코덱스 2026-11-01)
+  railItem: { minHeight: 48, paddingHorizontal: 12.5, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 12, zIndex: 0 },
+  railItemSelected: {},
   railIconSlot: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
+  // 고른 메뉴의 라벤더 면(모서리 10, 높이 36): 접힘은 아이콘 뒤 36×36 타일, 펼침은 줄 끝까지 알약. 왼쪽 · 폭은 SideRail 이 메뉴 펼침 값으로 정한다
+  railIconTile: { position: 'absolute', top: 6, height: 36, borderRadius: 10, backgroundColor: C.lavender100, zIndex: -1 },
+  railIconTilePhone: { top: 4 }, // 폰 항목 높이 44
   // 내 공간 칸: 구분선 아래가 접힌 메뉴 폭(78)과 같은 정사각형이고 프로필 그림이 그 한가운데에 온다.
-  // 구분선 아래 여백 15 + 칸 48 + 메뉴 아래 여백 24 - 9 = 78, 그림 가운데는 바닥에서 39(= 78 / 2)
-  railProfileLine: { marginTop: 'auto', marginBottom: 15, height: 1, backgroundColor: C.cardBorder }, // 내 공간 위 구분선(메뉴 맨 아래로 민다)
-  railProfile: { paddingHorizontal: 8.5, marginBottom: -9 }, // 내 공간: 메뉴 맨 아래(프로필 그림 30이 아이콘 20 자리와 가운데가 맞게 안쪽 여백을 줄인다)
+  // 구분선 아래 여백 16 + 칸 48 + 메뉴 아래 여백 24 - 10 = 78, 그림 가운데는 바닥에서 39(= 78 / 2)
+  railSpacer: { flex: 1 }, // 휴지통을 메뉴 아래쪽(내 공간 위)으로 미는 빈 칸
+  railTrash: { marginBottom: 24 }, // 휴지통 ↔ 아래 구분선 24 · 구분선 ↔ 내 공간 16(코덱스 2026-11-01: 선은 기능 메뉴와 개인 공간의 경계라 남기고, 휴지통 아래는 위 메뉴 간격 28에 가깝게 한 단계 더 띄운다)
+  railProfileLine: { marginBottom: 16, height: 1, backgroundColor: C.cardBorder }, // 내 공간 위 구분선(휴지통이 메뉴 아래로 밀어 둔 그 밑)
+  railProfile: { paddingHorizontal: 8.5, marginBottom: -10 }, // 내 공간: 메뉴 맨 아래(프로필 그림 30이 아이콘 20 자리와 가운데가 맞게 안쪽 여백을 줄인다)
   railAvatarSlot: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   railIcon: { width: 19, textAlign: 'center', color: C.muted, fontSize: 17, fontWeight: '700' },
   railIconSelected: { color: C.ink },
@@ -79,6 +87,9 @@ export const styles = StyleSheet.create({
   libraryFixedTop: { flexGrow: 0, flexShrink: 0, paddingBottom: 0, zIndex: 3, elevation: 3 },
   libraryGridScroll: { flexGrow: 1, paddingHorizontal: LIBRARY_SIDE_PADDING, paddingBottom: 34 },
   libraryGridScrollCompact: { paddingHorizontal: 14, paddingBottom: 20 },
+  // 새 다이어리 버튼이 떠 있을 때는 마지막 줄이 버튼 밑에 깔리지 않게 버튼 높이 + 위아래 여백만큼 비운다
+  libraryGridScrollFab: { paddingBottom: 24 + 56 + 16 },
+  libraryGridScrollFabCompact: { paddingBottom: 16 + 44 + 16 },
   libraryScreenCarouselCompact: { flexGrow: 1, paddingBottom: 8 },
   libraryHeader: { minHeight: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   // 제목이 짧으면 보기 전환과 한 줄, 길면 보기 전환이 다음 줄 오른쪽으로 내려간다.
@@ -171,8 +182,6 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   chipSelected: { backgroundColor: C.white, borderColor: C.blueStrong, borderWidth: 1.5 },
   chipText: { color: C.inkSoft, fontSize: 12, fontWeight: '700' },
   chipTextSelected: { color: C.ink, fontWeight: '800' },
-  chipCompact: { minHeight: 44, paddingHorizontal: 18, borderRadius: 12 },
-  chipTextCompact: { fontSize: 13.5 },
 
   // 빈 화면은 폰·태블릿 모두 테두리 상자 없이 아이콘과 문구만 둔다.
   empty: { flex: 1, minHeight: 380, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
@@ -438,7 +447,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   // 남은 기간 줄: 글자만(진행 고리는 뺐다, 사용자 결정). 3일 이하는 버터 칩 + 네이비 글자(13.9:1)로 적색 없이 긴급을 보인다
   trashDateRow: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', marginTop: 5, minHeight: 24, paddingHorizontal: 0, borderRadius: 12 },
   trashDateRowUrgent: { paddingHorizontal: 9, backgroundColor: C.butter },
-  trashDate: { color: C.muted, fontSize: 12, fontWeight: '600' },
+  trashDate: { color: C.blueText, fontSize: 12, fontWeight: '600' }, // 남은 날: primaryText(흰 면 위 5.3:1, 원 페이저 11)
   trashDateUrgent: { color: C.ink, fontWeight: '800' },
   // 카드를 누르면 뜨는 동작 시트 (ConfirmDialog 와 같은 틀: 폭 320, 안쪽 20, 모서리 24, scrim 바탕)
   trashSheetBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.scrim },
@@ -452,11 +461,8 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   trashSheetDangerText: { color: C.dangerStrong, fontSize: 14, fontWeight: '700' },
   trashSheetClose: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 4, borderRadius: 12 },
   trashSheetCloseText: { color: C.muted, fontSize: 14, fontWeight: '700' },
-  trashActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
   trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: C.line },
   trashRestoreText: { color: C.ink, fontSize: 12, fontWeight: '700' },
-  trashDelete: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: DANGER_BORDER },
-  trashDeleteText: { color: C.dangerStrong, fontSize: 12, fontWeight: '700' },
   // 이전 폰 휴지통 스와이프 목록 스타일. 저장된 화면과의 호환을 위해 당분간 유지한다.
   trashHint: { color: C.muted, fontSize: 13, lineHeight: 21, marginTop: -8, marginBottom: 14 },
   trashList: { gap: 11 },

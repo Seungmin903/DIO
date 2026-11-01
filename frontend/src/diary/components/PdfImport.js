@@ -12,6 +12,8 @@ function usePageUri(page) {
   const id = mediaId(page)
   const [uri, setUri] = useState(() => mediaUri(page))
   useEffect(() => {
+    // 다른 쪽으로 바뀌면 이전 쪽 그림을 남기지 않는다
+    setUri(mediaUri(page))
     if (!id) return undefined
     let live = true
     const release = mediaRegistry.retain(id)
@@ -41,7 +43,7 @@ function ToggleRow({ label, value, onChange, disabled }) {
  * 옵션은 PDF 를 불러온 뒤에만 보이고, 그때부터 켜고 끌 수 있다. papers = false 이면(서버 다이어리) 속지 옵션을 감춘다.
  */
 export default function PdfImport({ pdf, busy, progress, disabled, onPick, onClear, firstAsCover, onFirstAsCover,
-  addToMyCovers, onAddToMyCovers, addToMyPapers, onAddToMyPapers, papers = true }) {
+  addToMyCovers, onAddToMyCovers, addToMyPapers, onAddToMyPapers, coverAlsoPaper = false, onCoverAlsoPaper, papers = true }) {
   const ready = Boolean(pdf) && !busy
   const total = pdf?.pages.length ?? 0
   return <>
@@ -59,8 +61,9 @@ export default function PdfImport({ pdf, busy, progress, disabled, onPick, onCle
     </OptionRow>
     {pdf ? <>
       <ToggleRow label="첫 장을 표지로" value={firstAsCover} onChange={onFirstAsCover} disabled={!ready || !papers} />
+      {papers && firstAsCover ? <ToggleRow label="표지로 쓴 장도 속지에 넣기" value={coverAlsoPaper} onChange={onCoverAlsoPaper} disabled={!ready} /> : null}
       <ToggleRow label="표지를 나의 표지에 추가" value={addToMyCovers} onChange={onAddToMyCovers} disabled={!ready} />
-      {papers ? <ToggleRow label="속지를 나의 속지에 추가" value={addToMyPapers} onChange={onAddToMyPapers} disabled={!ready || (firstAsCover && total < 2)} /> : null}
+      {papers ? <ToggleRow label="속지를 나의 속지에 추가" value={addToMyPapers} onChange={onAddToMyPapers} disabled={!ready || (firstAsCover && !coverAlsoPaper && total < 2)} /> : null}
     </> : null}
   </>
 }

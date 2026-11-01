@@ -16,6 +16,9 @@ const HANDLE = 18
 const EDGE_THICKNESS = 20 // 변 전체가 보이지 않는 크기 조절 영역
 // 변 영역은 대부분 박스 바깥에 두고 안쪽으로는 이만큼만 들어온다. (가운데를 눌러 옮기는 영역을 넓게 남긴다)
 const EDGE_INSET = 4
+// 보이는 변 손잡이(텍스트)는 테두리 선 한가운데에 놓는다. 터치 영역 가운데는 박스 밖으로 (EDGE_THICKNESS / 2 - EDGE_INSET) 나가 있고,
+// 테두리 선은 박스 바로 바깥에 FRAME_WIDTH 굵기로 그리므로 그 차이만큼 안쪽으로 당긴다.
+const GRIP_SHIFT = EDGE_THICKNESS / 2 - EDGE_INSET - FRAME_WIDTH / 2
 const ROTATE_HANDLE = ROTATE_HANDLE_SIZE // 꼭짓점 손잡이와 같은 크기 (떠 있는 메뉴가 이 자리를 피한다)
 const MIN_SIZE = 20
 
@@ -226,7 +229,7 @@ function Handle({ kind, handle, object, zoom, dispatch, onRotation, onInteractin
 
   return <View {...panHandlers} accessibilityLabel={kind === 'rotate' ? '요소 회전 손잡이' : object.type === 'text' ? handle.sy ? `텍스트 높이 조절 ${handle.sy < 0 ? '위쪽' : '아래쪽'}` : `텍스트 너비 조절 ${handle.sx < 0 ? '왼쪽' : '오른쪽'}` : undefined} hitSlop={10} style={[styles.handle, style]}>
     {kind === 'rotate' && <View pointerEvents="none"><Icon name="rotate" size={11} strokeWidth={2.6} color={colors.surface} /></View>}
-    {kind === 'resize' && object.type === 'text' && <View pointerEvents="none" style={[styles.sideGrip, handle?.sy && { width: 24, height: 8 }]} />}
+    {kind === 'resize' && object.type === 'text' && <View pointerEvents="none" style={[styles.sideGrip, handle?.sy && { width: 24, height: 8 }, { transform: [handle.sx ? { translateX: -handle.sx * GRIP_SHIFT } : { translateY: -handle.sy * GRIP_SHIFT }] }]} />}
   </View>
 }
 
@@ -269,6 +272,8 @@ function resizePatch(g, handle, pointer) {
     const contentHeight = start.type === 'text' ? g.textMinHeight ?? Math.max(start.h, textFormatPatch(start, textSettings(start)).h) : 0
     h = Math.max(MIN_SIZE, contentHeight, sy * (q.y - anchor.y))
   }
+  // 텍스트 높이를 손잡이로 직접 바꾸면 그 높이를 상자에 남긴다(manualHeight). 이후 폭을 바꿔도 이 높이 아래로 줄이지 않는다.
+  const manualHeight = start.type === 'text' && !sx && sy && Math.abs(h - start.h) >= 1e-8
 
   let baseWidth
   const reflowText = start.type === 'text' && sx && !sy
@@ -277,6 +282,8 @@ function resizePatch(g, handle, pointer) {
     const scale = start.w / (start.baseWidth ?? start.w)
     baseWidth = w / scale
     h = textFormatPatch({ ...start, w, baseWidth }, textSettings(start)).h
+    // 세로로 직접 늘려 둔 상자는 그 높이를 지키고, 줄바꿈으로 글자가 더 길어질 때만 늘린다.
+    if (start.manualHeight) h = Math.max(h, start.h)
   }
   const localCenter = {
     x: sx ? anchor.x + (sx * w) / 2 : 0,
@@ -288,7 +295,7 @@ function resizePatch(g, handle, pointer) {
   const tapeWidth = start.type === 'tape' && sy && Math.abs(h - start.h) >= 1e-8
     ? { unitH: (tapeUnitH(start) * h) / start.h, ...(start.segmentW ? { segmentW: (start.segmentW * h) / start.h } : {}) }
     : {}
-  return { ...tapeWidth, w, h, x: center.x + offset.x - w / 2, y: center.y + offset.y - h / 2, ...(baseWidth != null ? { baseWidth } : {}), ...(reflowText && start.autoWidth ? { autoWidth: false } : {}) }
+  return { ...tapeWidth, w, h, x: center.x + offset.x - w / 2, y: center.y + offset.y - h / 2, ...(baseWidth != null ? { baseWidth } : {}), ...(reflowText && start.autoWidth ? { autoWidth: false } : {}), ...(manualHeight ? { manualHeight: true } : {}) }
 }
 
 const styles = StyleSheet.create({

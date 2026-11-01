@@ -25,6 +25,8 @@ import PenSettings from '../components/PenSettings'
 import { shapeTextSettings, shapeTextFormatPatch } from '../utils/editorShapes'
 import EraserSettings from '../components/EraserSettings'
 import { normalizePaperAppearance } from '../templates/appearance.js'
+import { newPageAppearance } from '../templates/newPageAppearance.js'
+import { loadDefaultPaperStyle } from '../../diary/hooks/useDefaultPaperStyle'
 import { ERASER_RADIUS } from '../utils/eraser.js'
 import LassoSettings from '../components/LassoSettings'
 import TextSettings from '../components/TextSettings'
@@ -38,7 +40,7 @@ import { keyboardPanelBottom } from '../utils/textKeyboard'
 import { formatTextRange } from '../utils/textFormats'
 import { copyText } from '../services/textClipboard'
 import { objectClipboard, useObjectClipboard } from '../services/objectClipboard'
-import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch } from '../utils/text'
+import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch, VISUAL_TEXT_KEYS } from '../utils/text'
 import { createText } from '../utils/text'
 import { DEFAULT_PEN_SETTINGS, DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
 import SaveIndicator from '../components/controls/SaveIndicator'
@@ -102,6 +104,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const qaHistoryExecutions = useRef(0)
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
   const page = getCurrentPage(state)
+  // 앨범을 고르는 동안 동기화로 바뀐 내용을 덮지 않게, await 뒤에는 이 최신 페이지를 읽는다
+  const pageNow = useRef(page)
+  pageNow.current = page
   useMemberPagePosition({ diary, pageId: page.id, loaded })
   const textSync = useMemberCanvasCollaboration({ diary, page, state, loaded, readOnly: permissionReadOnly, dispatch })
   const localUndo=state.past.length>0&&!state.collaborationPast?.at(-1)?.hasCanvas
@@ -165,7 +170,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // scale: 화면에 맞춤 대비 배율, x·y: 페이지 왼쪽 위 위치 (null 이면 가운데)
   const [view, setView] = useState({ scale: 1, x: null, y: null })
   const [drawerTab, setDrawerTab] = useState(null)
-  const [activeTool, setActiveTool] = useState(() => qaController?.initialTool === 'pen' ? 'pen' : 'hand')
+  // 편집 화면은 선택 도구로 시작한다(바로 요소를 눌러 고를 수 있게). 화면 이동은 손바닥 · 두 손가락으로 한다.
+  const [activeTool, setActiveTool] = useState(() => qaController?.initialTool === 'pen' ? 'pen' : 'select')
   // 손바닥 도구로 페이지를 길게 누른 자리 (캔버스가 빈 곳 메뉴를 띄운다)
   const [pageMenuRequest, setPageMenuRequest] = useState(null)
   useEffect(() => { setPageMenuRequest(null) }, [page.id, activeTool])
@@ -199,10 +205,10 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [eraserMode, setEraserMode] = useState('stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
-  // 편집기는 캔버스에 집중할 수 있도록 보조 패널을 모두 닫은 상태로 시작한다.
+  // 태블릿 편집기는 페이지 목록과 레이어를 둘 다 연 채로 시작한다. 폰은 두 패널이 작업창 위에 뜨고 한쪽만 열 수 있어 닫고 시작한다.
   const [compactMenu, setCompactMenu] = useState(null)
-  const [layersOpen, setLayersOpen] = useState(false)
-  const [pagesOpen, setPagesOpen] = useState(false)
+  const [layersOpen, setLayersOpen] = useState(!compact)
+  const [pagesOpen, setPagesOpen] = useState(!compact)
   const pagePanelMeasurement = useRef(null)
   useEffect(() => () => pagePanelMeasurement.current?.dispose(), [])
   const [layoutCompact, setLayoutCompact] = useState(compact)
@@ -328,7 +334,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     if (Object.entries(patch).every(([key, value]) => currentTextSettings[key] === value)) return
     const next = { ...currentTextSettings, ...patch }
     setTextDefaults(next)
-    if (selectedText) dispatch({ type: 'updateObject', id: selectedText.id, record: true, patch: selectedText.type === 'shape' ? shapeTextFormatPatch(selectedText,patch) : { ...textFormatPatch(selectedText, next), ...('color' in patch && { colorRanges: [] }) } })
+    const visualOnly = Object.keys(patch).every((key) => VISUAL_TEXT_KEYS.includes(key))
+    if (selectedText) dispatch({ type: 'updateObject', id: selectedText.id, record: true, patch: selectedText.type === 'shape' ? shapeTextFormatPatch(selectedText,patch) : { ...(visualOnly ? patch : textFormatPatch(selectedText, next)), ...('color' in patch && { colorRanges: [] }) } })
   }
   const showMore = moreOpen && selectedObjects.length > 0 && !cropId
 
@@ -553,14 +560,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       if (!empty.length) return
       const images = await pickImages()
       if (!images.length) return
-      const latest = page.objects.find((o) => o.id === id)
+      const latest = pageNow.current.objects.find((o) => o.id === id)
       if (!latest?.cells) return
       const cells = [...latest.cells]
-      empty.slice(0, images.length).forEach((index, i) => {
+      const stillEmpty = empty.filter((index) => !cells[index])
+      stillEmpty.slice(0, images.length).forEach((index, i) => {
         cells[index] = photoCell({ ...images[i], imageWidth: images[i].width, imageHeight: images[i].height })
       })
       dispatch({ type: 'updateObject', id, record: true, patch: { cells } })
-      showToast(images.length > empty.length ? `빈 칸 ${empty.length}개를 채웠어요. 나머지 ${images.length - empty.length}장은 넣지 않았어요.` : `사진 ${images.length}장을 넣었어요.`)
+      showToast(images.length > stillEmpty.length ? `빈 칸 ${stillEmpty.length}개를 채웠어요. 나머지 ${images.length - stillEmpty.length}장은 넣지 않았어요.` : `사진 ${images.length}장을 넣었어요.`)
     } catch (error) {
       showToast(mediaFailureMessage(error), () => fillCells(id))
     }
@@ -581,7 +589,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       setImportFailure(null)
       const [image] = await pickImages({ multiple: false })
       if (!image) return
-      const target = page.objects.find((o) => o.id === id)
+      const target = pageNow.current.objects.find((o) => o.id === id)
       if (!target?.cells) return
       const cell = photoCell({ ...image, imageWidth: image.width, imageHeight: image.height })
       dispatch({ type: 'updateObject', id, record: true, patch: { cells: target.cells.map((c, i) => (i === index ? cell : c)) } })
@@ -768,8 +776,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     // 폰은 레이어를 작업창 위에 띄우므로 작업창 크기가 그대로다.
     if (compact) return
     const delta = LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING
-    const pagesDelta = closePages ? PAGE_LIST_WIDTH + BODY_GAP : 0
-    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) + pagesDelta })
+    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) })
   }
 
   // 리본(태블릿)과 폰 도구 막대가 함께 쓰는 도구·보관함·내보내기 동작
@@ -838,8 +845,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     // (측정값을 기다리면 페이지가 왼쪽 끝을 따라 한 번 밀렸다가 다시 가운데로 와서 두 번 움직였다)
     // 폰은 페이지 목록을 작업창 위에 띄우므로 작업창 크기가 그대로다.
     const delta = compact ? 0 : PAGE_LIST_WIDTH + BODY_GAP
-    const layersDelta = !compact && closeLayers ? LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING : 0
-    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) + layersDelta })
+    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) })
   }
   const switchLayers = () => {
     setFocusMode(false)
@@ -1005,7 +1011,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         onClose={() => setTemplatePickerOpen(false)} onSelect={async backgroundAssetId => {
           try{
             if(textSync.enabled)await textSync.addPage(backgroundAssetId)
-            else dispatch({type:'addPage',backgroundAssetId})
+            else dispatch({type:'addPage',backgroundAssetId,paperAppearance:newPageAppearance(state.doc.paperAppearance,await loadDefaultPaperStyle())})
             setTemplatePickerOpen(false);fitToScreen()
           }catch(error){showToast(error.message||'페이지를 생성하지 못했어요. 다시 확인해 주세요.')}
         }} />}

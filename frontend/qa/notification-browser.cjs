@@ -50,17 +50,12 @@ const server = http.createServer((req, res) => {
       await button('목록 빈 목록').click(); await button('알림 새로고침').click();
       await p.getByText('받은 알림이 없어요.', { exact: true }).waitFor();
       await button('목록 정상').click(); await button('알림 새로고침').click(); await button('초대 확인 4').waitFor();
+      // 초대 확인은 열 수 있는 초대면 안쪽 카드 없이 곧장 공유 화면(수락)으로 넘긴다. 읽음 처리 실패는 알림 창에 남는다.
       await button('읽음·삭제 한 번 실패').click(); await button('초대 확인 4').click();
-      await button('알림 처리 다시 시도').waitFor(); await button('초대 화면으로 이동').waitFor();
+      await p.getByText(/공유 화면 전달 확인: A-invite-4/).waitFor();
+      await button('알림으로 돌아가기').click();
+      assert.equal(await button('초대 화면으로 이동').count(), 0);
       await button('알림 처리 다시 시도').click(); await button('알림 · 새 초대 1개').waitFor();
-      await button('초대 화면으로 이동').click(); await p.getByText(/공유 화면 전달 확인: A-invite-4/).waitFor();
-      await button('알림으로 돌아가기').click(); await button('초대 상세 닫기').click();
-      // 열린 상세의 과거 상태로 이동하지 않고, 버튼을 누를 때 최신 상태를 확인한다.
-      await button('초대 확인 4').click(); await button('초대 화면으로 이동').waitFor();
-      await button('초대 만료').click(); await button('초대 화면으로 이동').click();
-      await p.getByText('만료된 초대', { exact: true }).waitFor();
-      assert.equal(await p.getByText(/공유 화면 전달 확인:/).count(), 0);
-      await button('초대 상세 닫기').click();
       await button('초대 만료').click(); await button('초대 확인 4').click();
       await p.getByText('만료된 초대', { exact: true }).waitFor();
       assert.equal(await button('초대 화면으로 이동').count(), 0);

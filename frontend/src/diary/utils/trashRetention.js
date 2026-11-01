@@ -26,7 +26,7 @@ export function trashStatus(diary, now = Date.now()) {
 }
 
 /** 호출자는 목록 저장과 삭제를 같은 큐에서 실행한다. 삭제 표식은 문서보다 먼저 저장한다. */
-export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateDiaries, forgetDoc, forgetView, collectMediaIds, removeMedia }) {
+export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateDiaries, forgetDoc, forgetView, collectMediaIds, removeMedia, collectSourceIds = () => [], removeSource = async () => {} }) {
   const diary = getDiaries().find(item => item.id === id);
   if (!diary?.trashedAt) return false;
   const targetKey = `${keys.doc}:${id}`;
@@ -42,11 +42,17 @@ export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateD
     ));
     const references = referenceKeys.length ? await storage.multiGet(referenceKeys) : [];
     // 손상된 참조를 "미사용"으로 해석하지 않는다. 이 경우 미디어 파일은 보수적으로 보존한다.
-    let unshared = [];
+    let unshared = [], unsharedSources = [];
     try {
-      const targetMedia = collectMediaIds(targetRaw ? JSON.parse(targetRaw) : null);
-      const retained = new Set(references.flatMap(([, raw]) => collectMediaIds(raw ? JSON.parse(raw) : null)));
-      unshared = targetMedia.filter(mediaId => !retained.has(mediaId));
+      const target = targetRaw ? JSON.parse(targetRaw) : null;
+      const parsed = references.map(([, raw]) => (raw ? JSON.parse(raw) : null));
+      // 다른 다이어리의 표지(다이어리 목록에 들어 있다)가 같은 쪽 그림을 쓸 수 있다. 지우는 다이어리 자신의 표지는 제외한다.
+      parsed.push(getDiaries().filter(item => item.id !== id));
+      const retained = new Set(parsed.flatMap(value => collectMediaIds(value)));
+      unshared = collectMediaIds(target).filter(mediaId => !retained.has(mediaId));
+      // 불러온 PDF 원본도 같은 방식으로: 다른 문서 · 나의 속지가 쓰지 않을 때만 지운다.
+      const retainedSources = new Set(parsed.flatMap(value => collectSourceIds(value)));
+      unsharedSources = collectSourceIds(target).filter(sourceId => !retainedSources.has(sourceId));
     } catch {}
     // 열람 기록 삭제가 실패하면 문서를 보존하여 재시도에도 미디어 참조를 읽을 수 있게 한다.
     if (await forgetView(targetKey) === false) throw new Error('열람 기록 삭제 실패');
@@ -55,7 +61,7 @@ export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateD
     await storage.setItem(keys.diaries, JSON.stringify(getDiaries().filter(item => item.id !== id)));
     updateDiaries(current => current.filter(item => item.id !== id));
     // 정리 실패는 다른 원본이나 문서를 손상시키지 않도록 고아 파일로 남긴다.
-    await Promise.allSettled(unshared.map(removeMedia));
+    await Promise.allSettled([...unshared.map(removeMedia), ...unsharedSources.map(removeSource)]);
     return true;
   } catch {
     return false;

@@ -2,7 +2,7 @@ import { createId } from './common.js'
 import { textStyle, textSettings } from './text.js'
 import { MEMO_ARTS } from '../widgets/memoArt.js'
 
-export const SHAPE_CATEGORIES = [{ id: 'all', label: '전체' }, { id: 'basic', label: '기본' }, { id: 'polygons', label: '다각형' }, { id: 'stars', label: '별' }, { id: 'arrows', label: '화살표' }, { id: 'bubbles', label: '말풍선' }, { id: 'symbols', label: '기호' }, { id: 'memo', label: '메모' }]
+export const SHAPE_CATEGORIES = [{ id: 'all', label: '전체' }, { id: 'basic', label: '기본' }, { id: 'polygons', label: '다각형' }, { id: 'stars', label: '별' }, { id: 'arrows', label: '화살표' }, { id: 'bubbles', label: '말풍선' }, { id: 'symbols', label: '기호' }]
 const polygon = points => `M${points.map(p => p.join(' ')).join(' L')} Z`
 const regular = (n, offset = -Math.PI / 2) => polygon(Array.from({ length: n }, (_, i) => [50 + 48 * Math.cos(offset + i * 2 * Math.PI / n), 50 + 48 * Math.sin(offset + i * 2 * Math.PI / n)]))
 const star = polygon(Array.from({ length: 10 }, (_, i) => { const r = i % 2 ? 22 : 48, a = -Math.PI / 2 + i * Math.PI / 5; return [50 + r * Math.cos(a), 50 + r * Math.sin(a)] }))
@@ -103,7 +103,7 @@ export const SHAPE_BORDER_STYLES = [
 ]
 export const shapeBorderDash = (id,width) => SHAPE_BORDER_STYLES.find(item=>item.id===id)?.dash?.map(unit=>unit*width)
 
-export const DEFAULT_SHAPE_STYLE = { shape: 'round', fill: '#F8EBA7', borderColor: '#9D9866', borderWidth: 0, borderStyle: 'solid', color: '#0B1766', font: 'sans', fontSize: 20, bold: false, align: 'center', verticalAlign: 'middle' }
+export const DEFAULT_SHAPE_STYLE = { shape: 'round', fill: '#F8EBA7', borderColor: '#9D9866', borderWidth: 0, borderStyle: 'solid', color: '#0B1766', font: 'nanum-gothic', fontSize: 20, bold: false, align: 'center', verticalAlign: 'middle' }
 export const shapeDefinition = id => EDITOR_SHAPES.find(item => item.id === id) ?? EDITOR_SHAPES[1]
 export function createShape(settings, center) {
   const value = { ...DEFAULT_SHAPE_STYLE, ...settings }, ratio = shapeDefinition(value.shape).ratio ?? 1

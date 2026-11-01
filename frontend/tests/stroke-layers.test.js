@@ -29,6 +29,7 @@ function loadComponent(file, platform = 'ios', cacheOverride = null) {
     if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
     if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' }
     if (id === './ObjectView') return contexts
+    if (id === './viewportMotion') return { ViewportMotion: {} }
     if (['./PageObject', '../PageBackground', './CompletedStrokeLayer', './WebStrokeCache'].includes(id)) return { __esModule: true, default: id }
     return require(id)
   }

@@ -182,7 +182,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
         icon="trash"
         tone="danger"
         disabled={busy || !deletable.length}
-        onPress={() => { latest.current.onDeleteMany(deletable.map(row => row.diary)); finishSelecting(); }}
+        onPress={() => latest.current.onDeleteMany(deletable.map(row => row.diary), finishSelecting)}
       />}
       <SelectionButton label="선택 완료" text="완료" disabled={busy} onPress={finishSelecting} />
     </SelectionBar>
@@ -190,7 +190,8 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
 
   return (
     // 한눈에 보기처럼 제목 · 선택 도구는 위에 고정하고 카드 목록만 스크롤한다.
-    <View style={s.libraryRoot}>
+    // 바탕은 공방 · 내 공간과 같은 흰 면(작업 화면). 햇살 책상은 다이어리를 고르는 보관함에만 둔다(원 페이저 01)
+    <View style={[s.libraryRoot, s.workRoot]}>
     <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>
       {header}
       {selectionBar}

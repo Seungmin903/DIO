@@ -51,24 +51,25 @@ test('나눔 굵게는 등록된 Bold face를 직접 선택하고 해제 시 Reg
   }
 })
 
-test('원본 서체가 없는 스타일은 미지원이며 글꼴 전환 시 호환되지 않는 설정만 해제한다', () => {
+test('원본 서체가 없는 굵기는 미지원이며 글꼴 전환 시 호환되지 않는 설정만 해제한다(기울임은 모든 글꼴이 지원)', () => {
   for (const id of ['nanum-pen', 'poor-story', 'gowun-dodum']) {
-    assert.deepEqual(text.textStyleSupport(id, 'ios'), { bold: false, italic: false })
+    assert.deepEqual(text.textStyleSupport(id, 'ios'), { bold: false, italic: true })
     const patch = text.textFontChangePatch({ bold: true, italic: true }, id, 'ios')
-    assert.deepEqual(patch, { font: id, bold: false, italic: false })
+    assert.deepEqual(patch, { font: id, bold: false, italic: true })
     const style = text.textStyle({ font: id, bold: true, italic: true }, 1, 'ios')
     assert.equal(style.fontWeight, '400'); assert.equal(style.fontStyle, 'normal')
   }
-  assert.deepEqual(text.textStyleSupport('serif', 'ios'), { bold: false, italic: false })
-  assert.deepEqual(text.textFontChangePatch({ bold: true, italic: true }, 'nanum-gothic', 'ios'), { font: 'nanum-gothic', bold: true, italic: false })
-  assert.deepEqual(text.textStyleSupport('sans', 'ios'), { bold: true, italic: false })
-  assert.deepEqual(text.textFontChangePatch({ bold: true, italic: true }, 'sans', 'ios'), { font: 'sans', bold: true, italic: false })
-  for (const platform of ['android', 'web']) {
-    assert.deepEqual(text.textStyleSupport('sans', platform), { bold: true, italic: true })
-    assert.equal(text.textStyle({ font: 'sans', italic: true }, 1, platform).fontStyle, 'italic')
+  assert.deepEqual(text.textFontChangePatch({ bold: true, italic: true }, 'nanum-gothic', 'ios'), { font: 'nanum-gothic', bold: true, italic: true })
+})
+
+test('예전 기본 고딕 · 기본 명조는 나눔고딕 · 나눔명조로 읽는다', () => {
+  assert.equal(text.resolveFontId('sans'), 'nanum-gothic'); assert.equal(text.resolveFontId('serif'), 'nanum-myeongjo')
+  assert.equal(text.DEFAULT_TEXT_SETTINGS.font, 'nanum-gothic')
+  for (const platform of ['ios', 'android', 'web']) {
+    for (const id of ['sans', 'serif']) {
+      assert.deepEqual(text.textStyleSupport(id, platform), { bold: true, italic: true })
+    }
   }
-  const system = text.textStyle({ font: 'sans', bold: true, italic: true }, 1, 'ios')
-  assert.equal(system.fontFamily, 'System'); assert.equal(system.fontWeight, '700'); assert.equal(system.fontStyle, 'italic')
 })
 
 test('다른 글꼴 로드는 해당 글꼴 스냅샷을 바꾸지 않고 구독 해제 후 알림도 멈춘다', () => {
@@ -100,4 +101,15 @@ test('배율이 0이어도 글자 크기는 1 이상이고 줄간격·자간이 
   assert.equal(style.fontSize, 1)
   assert.equal(style.lineHeight, 1.5)
   assert.equal(style.letterSpacing, 0.1)
+})
+
+test('기울임은 글꼴 · 기기와 상관없이 같은 각도(12°)로 글자 상자를 기울이고 서체 기울임은 요청하지 않는다', () => {
+  const fonts = ['sans', 'serif', 'nanum-gothic', 'nanum-myeongjo', 'gowun-dodum', 'gowun-batang', 'maruburi', 'nanum-pen', 'poor-story', 'mono', 'personal-00000000-0000-0000-0000-000000000000']
+  for (const font of fonts) for (const platform of ['ios', 'android', 'web']) {
+    const on = text.textStyle({ font, italic: true }, 1, platform), off = text.textStyle({ font, italic: false }, 1, platform)
+    assert.deepEqual(on.transform, [{ skewX: '-12deg' }], `${font} ${platform}`)
+    assert.equal(on.fontStyle, 'normal'); assert.equal(off.transform, undefined)
+    assert.equal(on.fontFamily, off.fontFamily); assert.equal(on.fontSize, off.fontSize) // 글자 크기 · 줄 높이는 그대로
+  }
+  assert.equal(text.ITALIC_SKEW_DEG, 12)
 })

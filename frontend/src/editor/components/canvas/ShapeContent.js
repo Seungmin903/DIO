@@ -1,11 +1,11 @@
 import { Platform, Text, View } from 'react-native'
-import Svg, { Defs, Filter, FeGaussianBlur, G, Path } from 'react-native-svg'
+import Svg, { Defs, Filter, FeGaussianBlur, G, Path, SvgXml } from 'react-native-svg'
 import { useTextFont } from '../../hooks/useTextFont'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
 import { textSettings } from '../../utils/text'
 import { shadowOf, shadowOffset } from '../../utils/effects'
 import { useSvgId } from '../../utils/svgId'
-import { shapeDefinition, shapeTextStyle, shapeBorderDash, shapeTextBox } from '../../utils/editorShapes'
+import { memoArtOf, shapeDefinition, shapeTextStyle, shapeBorderDash, shapeTextBox } from '../../utils/editorShapes'
 
 export default function ShapeContent({ object, zoom = 1, hideText = false }) {
   useTextFont(object.font)
@@ -14,6 +14,7 @@ export default function ShapeContent({ object, zoom = 1, hideText = false }) {
   const inset = stroke / 2 + 0.5
   const box = shapeTextBox(object,zoom)
   const shadowId = useSvgId('shape-shadow')
+  const art = memoArtOf(object.art)
   const shadow = shadowOf(object), offset = shadowOffset(shadow)
   const castShadow = shadow.on && (object.fill !== 'none' || stroke > 0)
   const bleed = castShadow ? Math.ceil((Math.max(Math.abs(offset.x),Math.abs(offset.y))+shadow.spread+shadow.blur*2)*zoom)+2 : 0
@@ -29,10 +30,17 @@ export default function ShapeContent({ object, zoom = 1, hideText = false }) {
           </G>
         </Svg>
       </View>}
-      <Svg width={width} height={height} style={{position:'absolute'}}>
-        <Path d={shapeDefinition(object.shape).path} transform={transform} fill={object.fill === 'none' ? 'none' : object.fill ?? '#F8EBA7'} stroke={stroke ? object.borderColor ?? '#0B1766' : 'none'} strokeWidth={stroke} strokeDasharray={dash} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-      </Svg>
+      {/* 메모 종이: 코덱스가 그린 종이 그림을 종이 · 무늬 색만 바꿔 그대로 그린다 */}
+      {art ? <SvgXml xml={memoXml(art, object)} width={width} height={height} style={{position:'absolute'}} />
+        : <Svg width={width} height={height} style={{position:'absolute'}}>
+          <Path d={shapeDefinition(object.shape).path} transform={transform} fill={object.fill === 'none' ? 'none' : object.fill ?? '#F8EBA7'} stroke={stroke ? object.borderColor ?? '#0B1766' : 'none'} strokeWidth={stroke} strokeDasharray={dash} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </Svg>}
     </View>
     {!hideText && Boolean(object.text) && <View style={{position:'absolute',...box,overflow:'visible',justifyContent:object.verticalAlign==='top'?'flex-start':object.verticalAlign==='bottom'?'flex-end':'center'}}><Text style={[shapeTextStyle(object, zoom, Platform.OS), { padding:0,flexShrink:0 }]}>{richTextSegments(object.text,object.colorRanges,object.styleRanges).map((segment,index)=><Text key={index} style={segmentTextStyle(segment,zoom,textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text></View>}
   </View>
 }
+
+// 종이 그림의 색 자리({paper} · {line})를 메모의 채우기 · 테두리 색으로 바꾼다. 크기는 Svg 가 viewBox 로 맞춘다.
+const memoXml = (art, object) => art.svg
+  .replaceAll('{paper}', object.fill && object.fill !== 'none' ? object.fill : art.paper)
+  .replaceAll('{line}', object.borderColor ?? art.line)

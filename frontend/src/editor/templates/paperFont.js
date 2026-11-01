@@ -4,6 +4,8 @@
 // 글자 윤곽 표는 scripts/generate-paper-fonts.py 로 만든다(paperFonts/). 표에 없는 글자나 알아볼 수 없는 묶음은 건드리지 않는다(MaruBuri 그대로).
 import { getTemplate } from './catalog.js'
 import MARU from './paperFonts/maruburi.js'
+import nanumGothic from './paperFonts/nanum-gothic.js'
+import nanumMyeongjo from './paperFonts/nanum-myeongjo.js'
 import gowunBatang from './paperFonts/gowun-batang.js'
 import gowunDodum from './paperFonts/gowun-dodum.js'
 import nanumPen from './paperFonts/nanum-pen.js'
@@ -12,13 +14,15 @@ import poorStory from './paperFonts/poor-story.js'
 /** 속지 글꼴 목록. 첫 번째가 원본(기본)이다. */
 export const PAPER_FONTS = [
   { id: 'maruburi', label: '마루부리' },
+  { id: 'nanum-gothic', label: '나눔고딕' },
+  { id: 'nanum-myeongjo', label: '나눔명조' },
   { id: 'gowun-batang', label: '고운바탕' },
   { id: 'gowun-dodum', label: '고운돋움' },
   { id: 'nanum-pen', label: '나눔손글씨 펜' },
   { id: 'poor-story', label: '푸어스토리' },
 ]
 export const DEFAULT_PAPER_FONT = PAPER_FONTS[0].id
-const TABLES = { 'gowun-batang': gowunBatang, 'gowun-dodum': gowunDodum, 'nanum-pen': nanumPen, 'poor-story': poorStory }
+const TABLES = { 'nanum-gothic': nanumGothic, 'nanum-myeongjo': nanumMyeongjo, 'gowun-batang': gowunBatang, 'gowun-dodum': gowunDodum, 'nanum-pen': nanumPen, 'poor-story': poorStory }
 
 /** 글자가 인쇄되는 속지인가. 빈 종이와 노트(무지 · 줄 · 모눈 · 도트)에는 인쇄 글자가 없어 글꼴을 고를 일이 없다. */
 export function paperPrintsText(assetId) {

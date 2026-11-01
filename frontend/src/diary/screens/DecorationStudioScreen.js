@@ -6,6 +6,7 @@ import useDefaultPaperStyle from '../hooks/useDefaultPaperStyle';
 import StudioPresets from '../components/StudioPresets';
 import StudioSection from '../components/StudioSection';
 import StudioShelf from '../components/StudioShelf';
+import { PdfPageThumb } from '../components/PdfImport';
 import StudioTabs from '../components/StudioTabs';
 import StudioTool from '../components/StudioTool';
 import EmptyState from '../components/EmptyState';
@@ -28,14 +29,14 @@ import { useLoginGate } from '../../auth/loginGate';
 
 const STICKER_REMOVE_MESSAGE = '편집기 스티커 보관함에서도 사라져요. 다이어리에 이미 붙인 내용은 유지돼요.';
 
-// 공방은 폰트 · 스티커 · 표지 · 속지 · 프리셋 다섯 종류를 위쪽 인덱스 탭으로 하나씩 연다(카드를 쌓지 않는다).
+// 공방은 폰트 · 스티커 · 표지 · 속지 · 색상 다섯 종류를 위쪽 인덱스 탭으로 하나씩 연다(카드를 쌓지 않는다).
 // 만들기 도구는 그 종류의 도구함 한 줄에 버튼으로 둔다. 마지막으로 본 종류는 공방을 다시 열어도 그대로다(앱을 끄기 전까지).
 const TABS = [
   { id: 'fonts', label: '폰트' },
   { id: 'stickers', label: '스티커' },
   { id: 'covers', label: '표지' },
   { id: 'papers', label: '속지' },
-  { id: 'presets', label: '프리셋' },
+  { id: 'presets', label: '색상' },
 ];
 let lastTab = 'fonts';
 
@@ -49,11 +50,15 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const [tool, setTool] = useState(null), [folderId, setFolderId] = useState(null);
   const [question, setQuestion] = useState(null), [shelfError, setShelfError] = useState(null);
   const [tab, setTabState] = useState(lastTab);
-  const setTab = id => { lastTab = id; setTabState(id); setFolderId(null); };
+  const [paperId, setPaperId] = useState(null);
+  const setTab = id => { lastTab = id; setTabState(id); setFolderId(null); setPaperId(null); };
   const alive = useRef(false), request = useRef(0);
   const folderRef = useRef(null);
   folderRef.current = folderId;
+  const paperRef = useRef(null);
+  paperRef.current = paperId;
   useEffect(() => registerBackHandler?.(() => {
+    if (paperRef.current) { setPaperId(null); return true; }
     if (!folderRef.current) return false;
     setFolderId(null);
     return true;
@@ -83,13 +88,19 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
       setShelfError(null);
       const done = await (target.cover ? library.removeCover(target.cover.id) : library.removePaper(target.paper.id));
       if (!done && alive.current) setShelfError(target.cover ? 'cover' : 'paper');
+      else if (target.paper && alive.current) setPaperId(null);
     }
+  }
+  async function renameItem(kind, item, name) {
+    setShelfError(null);
+    const done = await (kind === 'cover' ? library.renameCover(item.id, name) : library.renamePaper(item.id, name));
+    if (!done && alive.current) setShelfError(`${kind}-rename`);
   }
   const count = list => list.length ? `${list.length}개` : null;
 
   // 폰트 관리는 '내 폰트 만들기'와 같은 손글씨 공방을 열어 따로 두지 않는다
   const fontSection = <StudioSection fill={fontState === 'ready' && !fonts.length} title="폰트" count={fontState === 'ready' ? count(fonts) : null}
-    right={<StudioTool icon="text" title="내 폰트 만들기" description="손글씨를 나만의 글꼴로" variant="filled" onPress={() => loginGate('내 폰트 만들기', () => openFontStudio())} />}>
+    right={<StudioTool icon="text" title="내 폰트 만들기" description="손글씨를 나만의 글꼴로" onPress={() => loginGate('내 폰트 만들기', () => openFontStudio())} />}>
     {fontState === 'loading' ? <Text style={s.empty}>폰트를 불러오고 있어요.</Text>
       : fontState === 'error' ? <View accessibilityRole="alert" style={s.alert}><Text style={s.empty}>폰트 목록을 불러오지 못했어요.</Text><DioButton variant="tonal" label="폰트 목록 다시 불러오기" onPress={refreshFonts} /></View>
       : !fonts.length ? <EmptyState compact={compact} art="dio" raised title="아직 만든 폰트가 없어요" />
@@ -104,13 +115,13 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   </StudioSection>;
 
   const stickerSection = <StudioSection fill={custom.loaded && (folder ? !folder.items.length : !custom.items.folders.length)} title={folder ? folder.name : '스티커'} count={custom.loaded ? (folder ? count(folder.items) : count(custom.items.folders)) : null}
-    right={folder ? <>
+    stacked={compact && !folder} right={folder ? <>
       <DioButton variant="ghost" icon="chevron-left" label="스티커 폴더 목록" text="폴더 목록" onPress={() => setFolderId(null)} />
       <DioButton variant="icon" icon="trash" label="스티커 폴더 삭제" onPress={() => setQuestion({ folder })} />
     </> : <>
-      <StudioTool icon="scissors" title="사진 속 대상 오리기" description="사진 속 원하는 대상만" variant="filled" onPress={() => loginGate('사진 속 대상 오리기', () => setTool('cutout'))} />
-      <StudioTool icon="grid" title="스티커 시트 분리" description="시트 속 그림을 개별 스티커로" variant="tonal" onPress={() => loginGate('스티커 시트 분리', () => setTool('split'))}
-        disabled={!custom.loaded || !stickerSplit.available} state={!stickerSplit.available ? '준비 중' : null} />
+      <StudioTool icon="scissors" title="사진 속 대상 오리기" description="사진 속 원하는 대상만" block={compact} onPress={() => loginGate('사진 속 대상 오리기', () => setTool('cutout'))} />
+      <StudioTool icon="grid" title="스티커 시트 분리" description="시트 속 그림을 개별 스티커로" block={compact} onPress={() => loginGate('스티커 시트 분리', () => setTool('split'))}
+        disabled={!custom.loaded || !stickerSplit.available} />
     </>}>
     {custom.saveError ? <DecorSaveNotice error={custom.saveError} pending={custom.savePending} onRetry={custom.retrySave} /> : null}
     {!custom.loaded ? <Text style={s.empty}>스티커를 불러오고 있어요.</Text>
@@ -141,22 +152,37 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   const coverSection = <StudioSection fill={library.ready && !library.covers.length} title="표지" count={library.ready ? count(library.covers) : null}>
     {!library.ready ? <Text style={s.empty}>표지를 불러오고 있어요.</Text>
       : !library.covers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 표지가 없어요" />
-      : <StudioShelf kind="cover" items={library.covers} onRemove={cover => setQuestion({ cover })} />}
+      : <StudioShelf kind="cover" items={library.covers} onRemove={cover => setQuestion({ cover })} onRename={(cover, name) => renameItem('cover', cover, name)} />}
     {shelfError === 'cover' && <Text accessibilityRole="alert" style={s.error}>표지를 지우지 못했어요. 다시 시도해 주세요.</Text>}
+    {shelfError === 'cover-rename' && <Text accessibilityRole="alert" style={s.error}>표지 이름을 바꾸지 못했어요. 다시 시도해 주세요.</Text>}
   </StudioSection>;
 
   // 기본 속지 설정과 저장한 속지 목록을 둘 다 읽은 뒤 한 번에 그린다(따로 그리면 늦게 온 쪽이 끼어들며 아래 것이 밀려 내려갔다)
   const papersReady = library.ready && paperStyle.ready;
-  const paperSection = <StudioSection fill={papersReady && !library.papers.length} title="속지" count={papersReady ? count(library.papers) : null}>
+  const openPaper = library.papers.find(item => item.id === paperId);
+  const wide = openPaper?.orientation === 'landscape';
+  // 속지 하나를 펼친 모습: 스티커 폴더처럼 안의 쪽을 전부 보여 준다(쪽 번호 아래)
+  const paperDetail = openPaper && <StudioSection title={openPaper.name} count={`${openPaper.pages.length}장`}
+    right={<>
+      <DioButton variant="ghost" icon="chevron-left" label="속지 목록" text="속지 목록" onPress={() => setPaperId(null)} />
+      <DioButton variant="icon" icon="trash" label="속지 삭제" onPress={() => setQuestion({ paper: openPaper })} />
+    </>}>
+    <View style={s.pages}>{openPaper.pages.map((page, index) => <View key={`${page.mediaFileId}-${index}`} style={s.page}>
+      <PdfPageThumb page={page} width={wide ? 154 : 116} ratio={wide ? 4 / 3 : 3 / 4} style={s.pageThumb} />
+      <Text style={s.pageNumber}>{index + 1}</Text>
+    </View>)}</View>
+  </StudioSection>;
+  const paperSection = paperDetail ||  <StudioSection fill={papersReady && !library.papers.length} title="속지" count={papersReady ? count(library.papers) : null}>
     {papersReady && <StudioPaperStyle style={paperStyle.style} save={paperStyle.save} />}
     {papersReady && <View style={s.divider} />}
     {!papersReady ? <Text style={s.empty}>속지를 불러오고 있어요.</Text>
       : !library.papers.length ? <EmptyState compact={compact} art="dio" raised title="아직 저장한 속지가 없어요" />
-      : <StudioShelf kind="paper" items={library.papers} onRemove={paper => setQuestion({ paper })} />}
+      : <StudioShelf kind="paper" items={library.papers} onOpen={paper => setPaperId(paper.id)} onRemove={paper => setQuestion({ paper })} onRename={(paper, name) => renameItem('paper', paper, name)} />}
     {shelfError === 'paper' && <Text accessibilityRole="alert" style={s.error}>속지를 지우지 못했어요. 다시 시도해 주세요.</Text>}
+    {shelfError === 'paper-rename' && <Text accessibilityRole="alert" style={s.error}>속지 이름을 바꾸지 못했어요. 다시 시도해 주세요.</Text>}
   </StudioSection>;
 
-  const presetSection = <StudioSection title="프리셋"><StudioPresets compact={compact} /></StudioSection>;
+  const presetSection = <StudioSection title="색상"><StudioPresets compact={compact} /></StudioSection>;
 
   const current = { fonts: fontSection, stickers: stickerSection, covers: coverSection, papers: paperSection, presets: presetSection }[tab] ?? fontSection;
 
@@ -206,6 +232,10 @@ const s = StyleSheet.create({
   folderThumb: { width: 56, height: 56 },
   addTile: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: 'transparent' },
   // 폴더 안 스티커: 88×88 칸
+  pages: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  page: { gap: 6, alignItems: 'center' },
+  pageThumb: { borderRadius: 8, borderWidth: 1, borderColor: colors.cardBorder },
+  pageNumber: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
   stickers: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   sticker: { width: 88, height: 88, padding: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
   stickerThumb: { width: '100%', height: '100%' },

@@ -14,6 +14,7 @@ import TapCatcher from '../controls/TapCatcher'
 import TapeView from '../canvas/TapeView'
 import ObjectContent from '../canvas/ObjectView'
 import { isStripFrame } from '../../utils/photoStrip'
+import { isBackdrop } from '../../utils/backdrop.js'
 
 const ROW_HEIGHT = 48 // 레이어 행 높이 48(코덱스 안)
 const ROW_GAP = 2
@@ -33,7 +34,7 @@ const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
  * - 오른쪽 손잡이를 끌어 순서 변경. 그룹 사이에 놓으면 그 그룹에 들어가고, 밖으로 빼면 그룹에서 빠진다.
  */
 export default function LayerPanel({ objects, selectedIds, dispatch, onClose, onEmptyTap }) {
-  const layers = useMemo(() => [...objects].reverse(), [objects])
+  const layers = useMemo(() => objects.filter((o) => !isBackdrop(o)).reverse(), [objects])
   const [drag, setDrag] = useState(null) // { key, from, dy }
   const [collapsed, setCollapsed] = useState(() => new Set())
   const rows = useMemo(() => buildLayerRows(layers, collapsed), [layers, collapsed])

@@ -43,7 +43,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
         {SHAPE_CATEGORIES.map(item => <Pressable key={item.id} accessibilityRole="tab" accessibilityLabel={item.label} accessibilityState={{selected:category===item.id}} onPress={()=>setCategory(item.id)} style={[p.segmentItem,styles.categoryTab,category===item.id&&p.segmentActive]}><Text numberOfLines={1} style={[p.segmentText,category===item.id&&p.segmentTextActive]}>{item.label}</Text></Pressable>)}
       </ScrollView>}
       {(() => {
-        const list = moreShapes ? EDITOR_SHAPES.filter(item => category === 'all' || item.category === category) : EDITOR_SHAPES.slice(0, COMMON_SHAPE_COUNT)
+        const list = moreShapes ? EDITOR_SHAPES.filter(item => !item.art && (category === 'all' || item.category === category)) : EDITOR_SHAPES.slice(0, COMMON_SHAPE_COUNT)
         const grid = list.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={item.label} accessibilityState={{ selected: value.shape === item.id }} onPress={() => onChange({ shape: item.id })} style={[styles.shape, value.shape === item.id && styles.selected]}>
           <Svg width={26*Math.min(1,item.ratio??1)} height={26/Math.max(1,item.ratio??1)} viewBox="-5 -5 110 110" preserveAspectRatio="none"><Path d={item.path} fill={value.fill === 'none' ? 'none' : value.fill} stroke={colors.textMuted} strokeWidth={4} /></Svg>
         </Pressable>)
@@ -60,7 +60,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
       </> : <>
       {palette('fill', '채우기')}
       <Text style={p.label}>테두리 두께</Text>
-      <Slider centerValue label="테두리 두께" value={value.borderWidth} min={0} max={16} step={1} onStart={onCheckpoint} onEnd={onCommit} onChange={borderWidth => onChange({ borderWidth }, false)} />
+      <Slider label="테두리 두께" value={value.borderWidth} min={0} max={16} step={1} onStart={onCheckpoint} onEnd={onCommit} onChange={borderWidth => onChange({ borderWidth }, false)} />
       {palette('borderColor', '테두리 색상', !value.borderWidth)}
       <Text style={p.label}>테두리 모양</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[p.segment,!value.borderWidth&&p.dim]}>
@@ -87,5 +87,5 @@ const styles = StyleSheet.create({
   category:{minHeight:44,paddingHorizontal:12,borderRadius:11,borderWidth:1.5,borderColor:'transparent',backgroundColor:colors.surfaceMuted,justifyContent:'center'},
   section:{gap:8}, shapes:{flexDirection:'row',flexWrap:'wrap',gap:0}, shape:{width:'25%',height:56,alignItems:'center',justifyContent:'center',borderRadius:10,borderWidth:1,borderColor:'transparent'},
   selected:{borderColor:colors.primaryStrong,borderWidth:2}, swatches:{flexDirection:'row',flexWrap:'wrap',gap:4}, swatch:{width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.cardBorder,alignItems:'center',justifyContent:'center'},
-  none:{color:colors.textMuted,fontSize:18},plus:{color:colors.text,fontSize:18},add:{minHeight:48,borderRadius:10,backgroundColor:colors.primaryStrong,alignItems:'center',justifyContent:'center'},secondary:{minHeight:44,borderRadius:12,backgroundColor:colors.surfaceMuted,alignItems:'center',justifyContent:'center'},buttonText:{color:colors.text,fontSize:13,fontWeight:'700'},hint:{color:colors.textMuted,fontSize:11,fontWeight:'600'},
+  none:{color:colors.textMuted,fontSize:18},plus:{color:colors.text,fontSize:18},add:{minHeight:48,borderRadius:10,backgroundColor:colors.primaryStrong,alignItems:'center',justifyContent:'center'},secondary:{minHeight:44,borderRadius:12,backgroundColor:colors.surfaceMuted,alignItems:'center',justifyContent:'center'},buttonText:{color:colors.text,fontSize:13,fontWeight:'700'},
 })
