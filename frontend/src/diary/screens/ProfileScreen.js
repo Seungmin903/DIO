@@ -57,7 +57,10 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         user={previewUser}
         onClose={() => setRoute('home')}
         onUpdate={onUpdatePreview}
-        onEndSession={onEndPreview}
+        // 비밀번호 변경·탈퇴 API는 이미 서버의 세션을 폐기한다. 여기서
+        // logout API를 한 번 더 호출하면 폐기된 토큰 오류를 사용자에게 보일 수 있어
+        // 이 기기의 메모리 세션만 정리한다.
+        onEndSession={onClearSession}
         onPasswordReset={() => setRoute('password')}
         registerLeaveGuard={registerLeaveGuard}
         getProfilePhotoSource={getProfilePhotoSource}

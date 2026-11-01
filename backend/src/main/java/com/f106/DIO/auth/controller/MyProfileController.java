@@ -1,6 +1,7 @@
 package com.f106.DIO.auth.controller;
 
 import com.f106.DIO.auth.dto.LoginUserResponse;
+import com.f106.DIO.auth.exception.LoginException;
 import com.f106.DIO.auth.service.MyProfileService;
 import com.f106.DIO.user.dto.ProfileUpdateRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,12 +56,17 @@ public class MyProfileController {
     @DeleteMapping
     @Operation(summary = "회원 탈퇴", description = "로그인한 계정을 탈퇴 처리하고 모든 로그인 세션을 폐기합니다. 요청 본문은 없습니다.")
     @ApiResponse(responseCode = "204", description = "회원 탈퇴 완료")
+    @ApiResponse(responseCode = "409", description = "다른 멤버가 있는 소유 다이어리의 소유권 양도 필요")
     public ResponseEntity<Void> withdraw(@AuthenticationPrincipal Jwt jwt) {
         profiles.withdraw(userId(jwt));
         return ResponseEntity.noContent().header("Cache-Control", "no-store").build();
     }
 
     private long userId(Jwt jwt) {
-        return Long.parseLong(jwt.getSubject());
+        try {
+            return Long.parseLong(jwt.getSubject());
+        } catch (NumberFormatException error) {
+            throw LoginException.token();
+        }
     }
 }

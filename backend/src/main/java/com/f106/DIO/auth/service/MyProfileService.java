@@ -1,15 +1,14 @@
 package com.f106.DIO.auth.service;
 
 import com.f106.DIO.auth.dto.LoginUserResponse;
+import com.f106.DIO.auth.exception.LoginException;
 import com.f106.DIO.user.domain.User;
 import com.f106.DIO.user.dto.ProfileUpdateRequest;
-import com.f106.DIO.user.exception.UserException;
 import com.f106.DIO.user.repository.ProfilePhotoRepository;
 import com.f106.DIO.user.repository.UserRepository;
 import com.f106.DIO.user.service.UserPhotoService;
 import com.f106.DIO.user.service.UserWithdrawalService;
 import java.time.Instant;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -63,7 +62,7 @@ public class MyProfileService {
 
     private User activeUser(long userId) {
         return users.findById(userId).filter(User::isActive).orElseThrow(() ->
-            new UserException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "회원 정보를 찾을 수 없어요."));
+            LoginException.token());
     }
 
     private LoginUserResponse response(User user, String photoUrl) {

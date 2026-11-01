@@ -3,6 +3,14 @@ node_modules/
 .npm/
 .pnpm-store/
 .expo/
+.env*
+!.env.example
+*.local
+*.jks
+*.keystore
+*.p12
+google-services.json
+GoogleService-Info.plist
 
 # Local builds, native build caches, and generated browser output.
 android/

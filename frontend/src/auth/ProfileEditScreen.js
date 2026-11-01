@@ -218,7 +218,10 @@ export default function ProfileEditScreen({
         setDialog(null);
         setNotice('비밀번호를 변경했어요.');
       },
-      passwordOnly ? onEndSession : undefined,
+      // 서버는 비밀번호 변경 시 모든 세션을 폐기한다. 이 대화상자는
+      // passwordOnly 여부와 무관하게 인증 계정에서 열릴 수 있으므로,
+      // 만료된 토큰을 계속 쓰지 않도록 항상 앱의 로컬 세션도 끝낸다.
+      saved.mode === 'authenticated' ? onEndSession : undefined,
     );
   };
   const withdraw = () => {

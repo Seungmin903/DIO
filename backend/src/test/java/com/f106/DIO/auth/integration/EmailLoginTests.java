@@ -27,7 +27,9 @@ import com.f106.DIO.user.repository.ProfilePhotoRepository;
 import com.f106.DIO.user.repository.TermsAgreementRepository;
 import com.f106.DIO.user.repository.UserRepository;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,6 +39,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpMethod;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -349,6 +353,43 @@ class EmailLoginTests {
         assertThatThrownBy(() -> service.refresh(next.refreshToken())).isInstanceOf(LoginException.class);
         mvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + next.accessToken()))
             .andExpect(status().isUnauthorized());
+    }
+    @Test void myProfilePhotoCanReplaceAndRemoveWithMultipartPatch()throws Exception{
+        register();var login=login();Long userId=Long.valueOf(login.user().userId());
+        mvc.perform(multipart(HttpMethod.PATCH,"/api/v1/me")
+                .file(profilePart("사진회원",false)).file(photoPart())
+                .header("Authorization","Bearer "+login.accessToken()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.nickname").value("사진회원"))
+            .andExpect(jsonPath("$.profilePhotoUrl").isString());
+        UUID first=photos.findByUserId(userId).orElseThrow().getPhotoId();
+        mvc.perform(multipart(HttpMethod.PATCH,"/api/v1/me")
+                .file(profilePart("사진회원",false)).file(photoPart())
+                .header("Authorization","Bearer "+login.accessToken()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.profilePhotoUrl").isString());
+        UUID replacement=photos.findByUserId(userId).orElseThrow().getPhotoId();
+        assertThat(replacement).isNotEqualTo(first);assertThat(photos.findById(first)).isEmpty();
+        mvc.perform(patch("/api/v1/me").header("Authorization","Bearer "+login.accessToken())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"사진회원\",\"removeProfilePhoto\":true}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.profilePhotoUrl").value(org.hamcrest.Matchers.nullValue()));
+        assertThat(photos.findByUserId(userId)).isEmpty();
+    }
+    @Test void myProfilePhotoRejectsBrokenImageAndMissingAuthentication()throws Exception{
+        register();var login=login();
+        mvc.perform(multipart(HttpMethod.PATCH,"/api/v1/me")
+                .file(profilePart("사진회원",false))
+                .file(new MockMultipartFile("photo","broken.png","image/png",new byte[]{1,2,3}))
+                .header("Authorization","Bearer "+login.accessToken()))
+            .andExpect(status().isBadRequest());
+        mvc.perform(multipart(HttpMethod.PATCH,"/api/v1/me").file(profilePart("사진회원",false)).file(photoPart()))
+            .andExpect(status().isUnauthorized());
+    }
+    private static MockMultipartFile profilePart(String nickname,boolean remove){
+        String body="{\"nickname\":\""+nickname+"\",\"removeProfilePhoto\":"+remove+"}";
+        return new MockMultipartFile("profile","profile.json",MediaType.APPLICATION_JSON_VALUE,body.getBytes(StandardCharsets.UTF_8));
+    }
+    private static MockMultipartFile photoPart(){
+        byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");
+        return new MockMultipartFile("photo","profile.png",MediaType.IMAGE_PNG_VALUE,png);
     }
     @Test void logoutInvalidatesOnlyCurrentDevice() throws Exception {
         register(); var first = login(); var second = login();

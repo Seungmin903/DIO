@@ -340,6 +340,11 @@ test('서버 계정은 기존 비밀번호 창만 열고 성공 후 세션을 �
  find(ui,'현재 비밀번호').props.onChangeText('Password123!');find(ui,'새 비밀번호').props.onChangeText('Changed123!');find(ui,'새 비밀번호 확인').props.onChangeText('Changed123!');
  press(ui,'변경');await tick();assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
 });
+test('일반 회원정보 화면의 직접 비밀번호 변경도 인증 세션을 종료한다',async()=>{
+ const ui=setup({changePassword:async()=>{}},undefined,{user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
+ press(ui,'비밀번호 변경');find(ui,'현재 비밀번호').props.onChangeText('Password123!');find(ui,'새 비밀번호').props.onChangeText('Changed123!');find(ui,'새 비밀번호 확인').props.onChangeText('Changed123!');
+ press(ui,'변경');await tick();assert.equal(ui.ended(),1);ui.unmount();
+});
 test('서버 비밀번호 창 취소는 회원정보 수정 화면으로 넘어가지 않는다',()=>{
  const ui=setup({},undefined,{passwordOnly:true});press(ui,'취소');assert.equal(ui.closed(),1);ui.unmount();
 });
