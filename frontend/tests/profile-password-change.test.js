@@ -6,7 +6,7 @@ const require=createRequire(import.meta.url),expo=createRequire(require.resolve(
 const code=expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8'),{
  configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]
 }).code;
-function setup(user,onUpdatePreview,onClearSession){
+function setup(user,onUpdatePreview,onClearSession,extra={}){
  const values=[];let cursor=0;const effects=[];const mod={exports:{}};const PasswordForm=()=>null;const service={changePassword(){}};
  const load=id=>{
   if(id==='react')return {useEffect:(effect,deps)=>effects.push({effect,deps}),useState:initial=>{const i=cursor++;if(!(i in values))values[i]=initial;return [values[i],v=>values[i]=v]}};
@@ -18,12 +18,13 @@ function setup(user,onUpdatePreview,onClearSession){
   if(id==='../../auth/ProfileEditScreen')return PasswordForm;
   if(id==='../../auth/PasswordResetScreen')return PasswordForm;
   if(id==='../../auth/authService')return {authService:service};
+  if(id==='../../auth/loginGate')return {useLoginGate:()=>(_feature,action)=>action()};
   if(id==='../../handwriting/studioBus.js')return {openFontStudio(){}};
   if(id==='react/jsx-runtime')return require(id);
   return ()=>null;
  };
  new Function('require','module','exports',code)(load,mod,mod.exports);
- return {service,PasswordForm,effects,render(){cursor=0;effects.length=0;return mod.exports.default({diaries:[],previewUser:user,onEndPreview(){},onClearSession,onUpdatePreview})}};
+ return {service,PasswordForm,effects,render(){cursor=0;effects.length=0;return mod.exports.default({diaries:[],previewUser:user,onEndPreview(){},onClearSession,onUpdatePreview,...extra})}};
 }
 function find(node,label){if(!node||typeof node!=='object')return null;if(node.props?.accessibilityLabel===label||node.props?.label===label)return node;for(const child of [node.props?.children].flat(Infinity)){const found=find(child,label);if(found)return found;}return null;}
 test('실제 이메일 계정의 내 공간은 인증번호 기반 비밀번호 재설정 화면에 인증 서비스를 전달한다',()=>{
@@ -61,3 +62,23 @@ test('내 공간에 들어오면 서버 회원정보로 화면 사용자 정보�
  ui.service.getProfile=async()=>{throw new Error('offline')};updates.length=0;
  const cleanup=ui.effects[0].effect();cleanup();await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(updates,[]);
 });
+
+test('내 공간 노출: 일반 게스트는 프로필 수정만, 개발자 모드 게스트와 회원은 로그아웃도 보인다',()=>{
+ const guestService={start(){}}
+ const plain=setup({mode:'preview',provider:'guest',nickname:'방문자'},undefined,undefined,{guestService})
+ let screen=plain.render()
+ assert.ok(find(screen,'프로필 수정'));assert.equal(find(screen,'로그아웃'),null);assert.equal(find(screen,'비밀번호 변경'),null)
+ find(screen,'프로필 수정').props.onPress()
+ const form=plain.render();assert.equal(form.type,plain.PasswordForm);assert.equal(form.props.service,guestService)
+ const dev=setup({mode:'preview',provider:'guest',developer:true},undefined,undefined,{guestService}).render()
+ assert.ok(find(dev,'로그아웃'));assert.equal(find(dev,'비밀번호 변경'),null)
+ const member=setup({mode:'authenticated',userId:'7',provider:'email',email:'m@example.com'}).render()
+ assert.ok(find(member,'로그아웃'));assert.ok(find(member,'회원정보 수정'))
+})
+test('게스트 저장소가 없으면 프로필 수정 칸을 누를 수 없고 눌러도 화면이 바뀌지 않는다',()=>{
+ const ui=setup({mode:'preview',provider:'guest'})
+ const row=find(ui.render(),'프로필 수정')
+ assert.equal(row.props.disabled,true)
+ row.props.onPress()
+ assert.notEqual(ui.render().type,ui.PasswordForm)
+})

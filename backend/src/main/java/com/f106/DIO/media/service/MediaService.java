@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import com.f106.DIO.media.domain.MediaFile;
 import com.f106.DIO.media.domain.MediaStorageDeletionTask;
 import com.f106.DIO.media.domain.MediaLibraryCategory;
+import com.f106.DIO.media.domain.MediaSourceType;
 import com.f106.DIO.media.domain.MediaType;
 import com.f106.DIO.media.dto.MediaFileListResponse;
 import com.f106.DIO.media.dto.MediaFileResponse;
@@ -41,15 +42,30 @@ public class MediaService {
 		byte[] content = read(upload);
 		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
 		if (kind.mediaType() != MediaType.FONT && kind.mediaType() != MediaType.DOCUMENT && content.length > MAX_FILE_SIZE) throw MediaRequestException.tooLarge();
-		MediaLibraryCategory category = category(kind.mediaType(), requestedCategory);
+		return store(content, kind, category(kind.mediaType(), requestedCategory), MediaSourceType.UPLOAD, filename(upload.getOriginalFilename()), userId);
+		}
+	}
+
+	/** 서버가 AI로 만든 스티커 PNG를 사용자 보관함(STICKER)에 저장한다. 클라이언트가 보낸 파일은 받지 않는다. */
+	public MediaFileResponse storeAiSticker(byte[] content, Long userId) {
+		try (var permit = admission.acquire()) {
+		if (content == null || content.length == 0) throw MediaRequestException.invalidFile();
+		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
+		if (kind.mediaType() != MediaType.IMAGE) throw MediaRequestException.invalidFile();
+		if (content.length > MAX_FILE_SIZE) throw MediaRequestException.tooLarge();
+		return store(content, kind, MediaLibraryCategory.STICKER, MediaSourceType.AI_RESULT, null, userId);
+		}
+	}
+
+	private MediaFileResponse store(byte[] content, MediaUploadInspector.FileKind kind, MediaLibraryCategory category,
+			MediaSourceType sourceType, String filename, Long userId) {
 		UUID id = UUID.randomUUID();
 		String key = MediaStorageKeys.create(kind.mediaType(), kind.extension(), id);
-		MediaFile mediaFile = new MediaFile(id, userId, kind.mediaType(), category, key, filename(upload.getOriginalFilename()),
+		MediaFile mediaFile = new MediaFile(id, userId, kind.mediaType(), sourceType, category, key, filename,
 			kind.mimeType(), content.length, checksum(content));
 		MediaStorageDeletionTask cleanupTask = deletionQueue.reserveUploadCleanup(id, key);
 		// A failure leaves the independently committed reservation for delayed recovery.
 		return guarded.upload(mediaFile, cleanupTask.getDeletionId(), content, kind.mimeType());
-		}
 	}
 
 	public MediaFileListResponse list(Long userId, int limit, String cursor) {

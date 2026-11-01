@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A안 탭 스티커</title>
+<style>
+  :root { --bg:#faf7f2; --fg:#2b2622; --muted:#8a8077; --line:#e5ddd2; --keep:#2f9e6b; --drop:#d64545; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:1100px; margin:0 auto; padding:24px 16px 48px; }
+  nav { font-size:13px; margin-bottom:8px; } nav a { color:var(--muted); }
+  h1 { font-size:20px; margin:0 0 4px; }
+  p.hint { color:var(--muted); margin:0 0 16px; font-size:14px; line-height:1.5; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; }
+  button, label.btn { border:1px solid var(--line); background:#fff; color:var(--fg); padding:8px 14px; border-radius:999px; font-size:14px; cursor:pointer; }
+  button.on.keep { background:var(--keep); border-color:var(--keep); color:#fff; }
+  button.on.drop { background:var(--drop); border-color:var(--drop); color:#fff; }
+  button:disabled { opacity:.4; cursor:default; }
+  .grid { display:grid; grid-template-columns:3fr 2fr; gap:16px; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; min-height:240px; }
+  .panel h2 { font-size:13px; color:var(--muted); font-weight:500; margin:0 0 8px; }
+  #stage { position:relative; display:inline-block; max-width:100%; }
+  #photo { display:block; max-width:100%; max-height:70vh; border-radius:8px; user-select:none; -webkit-user-drag:none; }
+  #paint { position:absolute; inset:0; width:100%; height:100%; border-radius:8px; cursor:crosshair; touch-action:manipulation; }
+  #result { min-height:200px; display:flex; align-items:center; justify-content:center; border-radius:8px;
+    background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 20px 20px; }
+  #sticker { max-width:100%; max-height:50vh; }
+  #status { font-size:13px; color:var(--muted); min-height:18px; margin-top:8px; }
+  .empty { color:var(--muted); font-size:14px; padding:40px 0; text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <nav><a href="/">← 버전 선택</a> · <a href="/brush">B안(붓)으로 가기</a></nav>
+  <h1>A안 · 탭해서 스티커 만들기</h1>
+  <p class="hint">
+    원하는 대상을 <b>탭</b>하세요. 원하지 않는 부분까지 잡히면 <b>제외</b> 모드로 그 부분을 탭하고,
+    덜 잡히면 <b>포함</b> 모드로 더 탭하세요. (PC: 우클릭 = 제외)
+  </p>
+  <div class="bar">
+    <label class="btn">사진 선택<input id="file" type="file" accept="image/*" hidden></label>
+    <button id="keep" class="keep on">포함</button>
+    <button id="drop" class="drop">제외</button>
+    <button id="undo" disabled>되돌리기</button>
+    <button id="reset" disabled>초기화</button>
+    <button id="save" disabled>PNG 저장</button>
+  </div>
+  <div class="grid">
+    <div class="panel"><h2>원본</h2>
+      <div id="stage"><div class="empty" id="placeholder">사진을 선택하세요</div>
+        <img id="photo" hidden alt=""><canvas id="paint" hidden></canvas></div>
+    </div>
+    <div class="panel"><h2>스티커</h2>
+      <div id="result"><img id="sticker" hidden alt="스티커 결과"></div>
+      <div id="status"></div>
+    </div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const photo = $('photo'), canvas = $('paint'), ctx = canvas.getContext('2d');
+
+let imageId = null, points = [], label = 1, preview = null, stickerUrl = null, seq = 0;
+
+function setLabel(l) { label = l; $('keep').classList.toggle('on', l === 1); $('drop').classList.toggle('on', l === 0); }
+$('keep').onclick = () => setLabel(1);
+$('drop').onclick = () => setLabel(0);
+$('undo').onclick = () => { points.pop(); refresh(); };
+$('reset').onclick = () => { points = []; refresh(); };
+$('save').onclick = () => { const a = document.createElement('a'); a.href = stickerUrl; a.download = 'sticker.png'; a.click(); };
+
+// ---------- 사진 업로드 ----------
+$('file').onchange = async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  imageId = null; points = []; preview = null; refresh();
+  photo.src = URL.createObjectURL(file);
+  photo.hidden = canvas.hidden = false; $('placeholder').hidden = true;
+  $('status').textContent = '사진 분석 중… (첫 실행은 모델 로딩 때문에 더 걸려요)';
+  const form = new FormData(); form.append('file', file);
+  const res = await fetch('/api/stickers/images', { method: 'POST', body: form });
+  if (!res.ok) { $('status').textContent = '업로드 실패: ' + (await res.text()); return; }
+  const data = await res.json(); imageId = data.imageId;
+  $('status').textContent = `분석 완료 (${data.embedMs}ms). 대상을 탭하세요.`;
+};
+photo.onload = resize;
+window.addEventListener('resize', resize);
+function resize() {
+  const r = photo.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+  draw();
+}
+
+// ---------- 탭 ----------
+function addPoint(e, l) {
+  if (!imageId) return;
+  const r = canvas.getBoundingClientRect();
+  points.push({ x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height, label: l });
+  refresh();
+}
+canvas.addEventListener('click', (e) => addPoint(e, label));
+canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); addPoint(e, 0); });
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1, W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  if (preview) ctx.drawImage(preview, 0, 0, W, H);
+  for (const p of points) {
+    ctx.beginPath(); ctx.arc(p.x * W, p.y * H, 7 * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = p.label ? '#2f9e6b' : '#d64545'; ctx.fill();
+    ctx.lineWidth = 2 * dpr; ctx.strokeStyle = '#fff'; ctx.stroke();
+  }
+}
+
+// ---------- 서버 요청 ----------
+async function refresh() {
+  $('undo').disabled = $('reset').disabled = points.length === 0;
+  if (!points.some((p) => p.label === 1)) {
+    preview = null; $('sticker').hidden = true; $('save').disabled = true; draw();
+    if (points.length) $('status').textContent = '포함할 곳을 먼저 탭해 주세요.';
+    return;
+  }
+  draw();
+  const my = ++seq, t0 = performance.now();
+  $('status').textContent = '자르는 중…';
+  const res = await fetch('/api/stickers/segment', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageId, points, includeSticker: true }),
+  });
+  if (my !== seq) return; // 더 최근 요청이 있으면 무시
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})); const detail = body.message || body.detail;
+    $('status').textContent = '실패: ' + (typeof detail === 'string' ? detail
+      : `요청 형식이 서버와 맞지 않아요. 서버를 재시작했는지 확인하세요. (${res.status})`);
+    console.error(detail);
+    return;
+  }
+  const data = await res.json();
+  stickerUrl = data.sticker;
+  $('sticker').src = stickerUrl; $('sticker').hidden = false; $('save').disabled = false;
+  const img = new Image();
+  img.onload = () => { if (my === seq) { preview = img; draw(); } };
+  img.src = data.preview;
+  $('status').textContent = `모델 ${data.segmentMs}ms · 전체 ${Math.round(performance.now() - t0)}ms`;
+}
+</script>
+</body>
+</html>
