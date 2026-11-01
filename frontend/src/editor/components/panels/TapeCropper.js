@@ -198,12 +198,12 @@ export default function TapeCropper({
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.overlay },
-  card: { padding: 24, borderRadius: 24, backgroundColor: colors.surface, ...shadow.float },
+  card: { padding: 24, borderRadius: 16, backgroundColor: colors.surface, ...shadow.float },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   title: { fontSize: 18, fontWeight: '700', color: colors.text },
   hint: { marginTop: 6, fontSize: 12.5, color: colors.textMuted },
-  stage: { marginTop: 16, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surfaceMuted, ...Platform.select({ web: { touchAction: 'none' }, default: {} }) },
+  stage: { marginTop: 16, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surfaceMuted, ...Platform.select({ web: { touchAction: 'none' }, default: {} }) },
   context: { position: 'absolute', opacity: 0.32 },
   frame: { position: 'absolute' },
   frameLine: { position: 'absolute', borderWidth: 2, borderStyle: 'dashed', borderColor: colors.primary, borderRadius: 3 },
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   buttonText: { fontSize: 13.5, fontWeight: '700', color: colors.text },
   // 확정: 흰 바탕에 남색 글씨 (사진 자르기 창과 같게)
   confirm: { borderColor: colors.text },

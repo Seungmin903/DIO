@@ -21,5 +21,7 @@ export function diaryCreateInput(form) {
   if (!initialPages.length) initialPages.push({ templateId: null, ...serverTemplateReference(null, TEMPLATE_VERSION, templateConfig.orientation),
     templateConfig: { ...templateCanvasSize(templateConfig.orientation), paperAppearance: { ...paperAppearance }, blank: true } });
   return { title, color: form.color, pattern: form.pattern ?? null, pageSize: templateConfig.orientation,
-    templateConfig, paperAppearance, initialPages };
+    templateConfig, paperAppearance, initialPages,
+    // 표지 꾸미기(사진 · 고무줄 · 라벨 · 스티커)는 서버가 아직 저장하지 않아 이 기기에만 둔다. 서버 요청에는 실리지 않는다.
+    ...(form.cover && typeof form.cover === 'object' ? { cover: form.cover } : {}) };
 }

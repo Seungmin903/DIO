@@ -31,11 +31,11 @@ class DiaryProfileTests extends SharingTestSupport {
     DiaryProfileResponse upload(UUID diary,Actor actor) throws Exception {return profiles.update(diary,actor.id(),new DiaryProfileUpdateRequest(),new MockMultipartFile("photo","photo.png","image/png",png()));}
     @Test void duplicateNicknamesAreAllowedAndNullRestoresAccountNickname() throws Exception {
         var owner=actor();var editor=actor();var id=diary(owner);links.accept(links.create(id,owner.id()).token(),editor.id());
-        for(var actor:new Actor[]{owner,editor})mvc.perform(patch("/api/v1/diaries/"+id+"/profile").header("Authorization","Bearer "+actor.token())
+        for(var actor:new Actor[]{owner,editor})mvc.perform(patch("/api/v1/diaries/"+id+"/membership").header("Authorization","Bearer "+actor.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"여행친구\"}"))
             .andExpect(status().isOk()).andExpect(jsonPath("nickname").value("여행친구"));
         assertThat(membership.list(id,owner.id()).members()).extracting(m->m.nickname()).containsOnly("여행친구");
-        mvc.perform(patch("/api/v1/diaries/"+id+"/profile").header("Authorization","Bearer "+editor.token())
+        mvc.perform(patch("/api/v1/diaries/"+id+"/membership").header("Authorization","Bearer "+editor.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":null}"))
             .andExpect(status().isOk()).andExpect(jsonPath("nickname").value(users.findById(editor.id()).orElseThrow().getNickname()));
     }
@@ -47,10 +47,10 @@ class DiaryProfileTests extends SharingTestSupport {
         assertThat(result.memberProfilePhotoId()).isNotNull();assertThat(result.usingAccountPhoto()).isFalse();
         assertThat(result.memberColor()).isEqualTo(cursor);assertThat(accountPhotos.findByUserId(owner.id()).orElseThrow().getPhotoId()).isEqualTo(account.getPhotoId());
         assertThat(membership.list(second,owner.id()).members().get(0).profilePhotoUrl()).isEqualTo(account.url());
-        mvc.perform(patch("/api/v1/diaries/"+first+"/profile").header("Authorization","Bearer "+owner.token())
+        mvc.perform(patch("/api/v1/diaries/"+first+"/membership").header("Authorization","Bearer "+owner.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}"))
             .andExpect(status().isOk()).andExpect(jsonPath("memberProfilePhotoId").value(result.memberProfilePhotoId().toString()));
-        mvc.perform(patch("/api/v1/diaries/"+first+"/profile").header("Authorization","Bearer "+owner.token())
+        mvc.perform(patch("/api/v1/diaries/"+first+"/membership").header("Authorization","Bearer "+owner.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"memberProfilePhotoId\":null}"))
             .andExpect(status().isOk()).andExpect(jsonPath("profilePhotoUrl").value(account.url())).andExpect(jsonPath("usingAccountPhoto").value(true));
         accountPhotos.deleteById(account.getPhotoId());var replacement=accountPhotos.saveAndFlush(new ProfilePhoto(owner.id(),png(),Instant.now()));
@@ -63,7 +63,7 @@ class DiaryProfileTests extends SharingTestSupport {
         doAnswer(call->{assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();return call.callRealMethod();}).when(photoStorage).upload(any(),any());
         doAnswer(call->{assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();return call.callRealMethod();}).when(photoStorage).read(any());
         var json=new MockMultipartFile("profile","","application/json","{\"nickname\":\"새프로필\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        mvc.perform(multipart("/api/v1/diaries/"+id+"/profile").file(json).file(new MockMultipartFile("photo","photo.png","image/png",png()))
+        mvc.perform(multipart("/api/v1/diaries/"+id+"/membership").file(json).file(new MockMultipartFile("photo","photo.png","image/png",png()))
             .with(request->{request.setMethod("PATCH");return request;}).header("Authorization","Bearer "+owner.token()))
             .andExpect(status().isOk()).andExpect(jsonPath("nickname").value("새프로필"));
         String url=membership.list(id,owner.id()).members().stream().filter(m->m.userId().equals(Long.toString(owner.id()))).findFirst().orElseThrow().profilePhotoUrl();
@@ -75,7 +75,7 @@ class DiaryProfileTests extends SharingTestSupport {
     }
     @Test void photosOwnedByAnotherUserCannotBeAssignedAndFailedUploadDoesNotChangeProfile() throws Exception {
         var owner=actor();var other=actor();var id=diary(owner);var otherId=diary(other);var photo=upload(otherId,other);
-        mvc.perform(patch("/api/v1/diaries/"+id+"/profile").header("Authorization","Bearer "+owner.token())
+        mvc.perform(patch("/api/v1/diaries/"+id+"/membership").header("Authorization","Bearer "+owner.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"memberProfilePhotoId\":\""+photo.memberProfilePhotoId()+"\"}"))
             .andExpect(status().isBadRequest());
         assertThatThrownBy(()->profiles.update(id,owner.id(),new DiaryProfileUpdateRequest(),new MockMultipartFile("photo","broken.png","image/png",new byte[]{1,2,3})))
@@ -105,15 +105,27 @@ class DiaryProfileTests extends SharingTestSupport {
     }
     @Test void invalidNicknamesAreRejectedAndLegacyMutationRoutesAreNotExposed() throws Exception {
         var owner=actor();var id=diary(owner);
-        mvc.perform(patch("/api/v1/diaries/"+id+"/profile").header("Authorization","Bearer "+owner.token())
+        mvc.perform(patch("/api/v1/diaries/"+id+"/membership").header("Authorization","Bearer "+owner.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\" \"}"))
             .andExpect(status().isBadRequest());
         mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
-            .andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}/profile'].patch.requestBody.content['application/json']").exists())
-            .andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}/profile'].patch.requestBody.content['multipart/form-data'].encoding.profile.contentType").value("application/json"));
-        mvc.perform(patch("/api/v1/diaries/"+id+"/membership").header("Authorization","Bearer "+owner.token())
+            .andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}/membership'].patch.requestBody.content['application/json']").exists())
+            .andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}/membership'].patch.requestBody.content['multipart/form-data'].encoding.profile.contentType").value("application/json"));
+        mvc.perform(patch("/api/v1/diaries/"+id+"/profile").header("Authorization","Bearer "+owner.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}" )).andExpect(status().isNotFound());
         mvc.perform(post("/api/v1/diaries/"+id+"/ownership-transfer-and-leave").header("Authorization","Bearer "+owner.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"newOwnerUserId\":1}" )).andExpect(status().isNotFound());
+    }
+    @Test void membershipRoutePreservesAuthenticationAuthorizationAndCors() throws Exception {
+        var owner=actor();var outsider=actor();var id=diary(owner);var route="/api/v1/diaries/"+id+"/membership";
+        mvc.perform(patch(route).contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}"))
+            .andExpect(status().isUnauthorized());
+        mvc.perform(patch(route).header("Authorization","Bearer "+outsider.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}"))
+            .andExpect(status().isForbidden());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options(route)
+            .header("Origin","http://localhost:8081").header("Access-Control-Request-Method","PATCH")
+            .header("Access-Control-Request-Headers","authorization,content-type"))
+            .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin","http://localhost:8081"));
     }
 }

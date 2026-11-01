@@ -1,13 +1,13 @@
 import { memo, useRef } from 'react';
-import { StyleSheet } from 'react-native';
-import Svg, { Circle, Defs, Line, Pattern, Rect } from 'react-native-svg';
+import { Circle, Defs, Line, Pattern, Rect } from 'react-native-svg';
+import FillSvg from './FillSvg';
 
 // SVG 무늬 정의는 문서 전체에서 id로 찾으므로 표지마다 겹치지 않는 id가 필요하다.
 let nextPatternId = 0;
 
 // 패턴 색: 어둡게(남색을 옅게) · 밝게(흰색을 옅게). 한 패턴 안의 진한 선·옅은 선은 같은 색의 농도로 나눈다.
 const TONES = {
-  dark: { strong: 'rgba(11,25,87,.12)', soft: 'rgba(11,25,87,.07)', dot: 'rgba(11,25,87,.16)' },
+  dark: { strong: 'rgba(11,23,102,.12)', soft: 'rgba(11,23,102,.07)', dot: 'rgba(11,23,102,.16)' },
   light: { strong: 'rgba(255,255,255,.38)', soft: 'rgba(255,255,255,.22)', dot: 'rgba(255,255,255,.55)' },
 };
 
@@ -67,8 +67,11 @@ function tile(pattern, tone) {
   }
 }
 
-/** 표지 위에 덮는 무늬. pattern이 없으면 아무것도 그리지 않는다(이전에 만든 다이어리). */
-function CoverPattern({ pattern, tone = 'dark' }) {
+/**
+ * 표지 위에 덮는 무늬. pattern이 없으면 아무것도 그리지 않는다(이전에 만든 다이어리).
+ * initialWidth · initialHeight: 무늬를 깔 영역의 크기(알면 첫 프레임부터 그린다). scale: 표지 크기 배율(짧은 변 200 기준). 타일을 표지와 같은 비율로 키우고 줄여 한눈에 · 스와이프에서 무늬 비율이 같다.
+ */
+function CoverPattern({ pattern, tone = 'dark', scale = 1, initialWidth, initialHeight }) {
   const idRef = useRef(null);
   const spec = tile(pattern, tone);
   if (!spec) return null;
@@ -76,14 +79,18 @@ function CoverPattern({ pattern, tone = 'dark' }) {
   const id = idRef.current;
 
   return (
-    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
-      <Defs>
-        <Pattern id={id} patternUnits="userSpaceOnUse" width={spec.size} height={spec.size}>
-          {spec.shapes}
-        </Pattern>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
-    </Svg>
+    <FillSvg initialWidth={initialWidth} initialHeight={initialHeight}>
+      {(width, height) => (
+        <>
+          <Defs>
+            <Pattern id={id} patternUnits="userSpaceOnUse" width={spec.size * scale} height={spec.size * scale} viewBox={`0 0 ${spec.size} ${spec.size}`}>
+              {spec.shapes}
+            </Pattern>
+          </Defs>
+          <Rect x="0" y="0" width={width} height={height} fill={`url(#${id})`} />
+        </>
+      )}
+    </FillSvg>
   );
 }
 

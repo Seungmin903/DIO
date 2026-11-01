@@ -509,7 +509,7 @@ function Chip({ label, icon, active, onPress }) {
       accessibilityState={active != null ? { selected: active } : undefined}
       style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}
     >
-      {icon && <Icon name={icon} size={15} />}
+      {icon && <Icon name={icon} size={15} forText={12} />}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   )
@@ -517,14 +517,14 @@ function Chip({ label, icon, active, onPress }) {
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.overlay },
-  card: { padding: 24, borderRadius: 24, backgroundColor: colors.surface, ...shadow.float },
+  card: { padding: 24, borderRadius: 16, backgroundColor: colors.surface, ...shadow.float },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   cardTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   hint: { marginTop: 6, fontSize: 12.5, color: colors.textMuted },
   stage: {
     marginTop: 16,
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: colors.surfaceMuted,
     // 웹: 두 손가락 확대가 브라우저 화면 확대로 새지 않게
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   chipActive: { borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   chipText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   chipTextActive: { fontWeight: '800' },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20 },

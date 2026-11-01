@@ -5,7 +5,7 @@ import {createRequire} from 'node:module'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
 const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
 function root(dev,mode,session=null){
- const mod={exports:{}},mocks={react:{useState:()=>[session,()=>{}],useEffect(){}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar'},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const mod={exports:{}},mocks={react:{useState:()=>[session,()=>{}],useEffect(){}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar'},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  new Function('require','module','exports','__DEV__','process',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,dev,{env:{EXPO_PUBLIC_DIARY_SOURCE:mode}})
  return mod.exports.default()
 }

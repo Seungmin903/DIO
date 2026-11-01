@@ -1,14 +1,17 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
-import { SvgXml } from 'react-native-svg'
+import { SvgAst, parse } from 'react-native-svg'
 import PageBackground from '../../editor/components/PageBackground'
 import Icon from '../../editor/components/controls/Icon'
 import { usePan } from '../../editor/hooks/usePan'
 import { TEMPLATE_VERSION, getTemplate, templateCanvasSize } from '../../editor/templates/catalog.js'
 import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, colorTemplateXml } from '../../editor/templates/appearance.js'
-import { loadTemplate } from '../../editor/templates/loadTemplate'
+import { loadTemplate, peekTemplate } from '../../editor/templates/loadTemplate'
 import { colors } from '../../shared/theme'
-import { ColorRow, NumberField, OptionRow, QuickValues, Segmented } from './FormControls'
+import { ChipGroup, ColorRow, NumberField, OptionRow, QuickValues, Segmented } from './FormControls'
+import { paperFontChips } from '../../editor/components/PaperFontChips'
+import PaperFontDropdown from './PaperFontDropdown'
+import { DEFAULT_PAPER_FONT } from '../../editor/templates/paperFont.js'
 import {
   COUNT_LIMIT, COUNT_STEPS, INSERT_LIMIT, MONTH_LIMIT, MONTH_STEPS, PAPER_EVERY, PAPER_GROUPS, PAPER_YEARS, REPEAT_LIMIT, ROW_LIMIT,
   appendPaper, changeRow, changeRowPaper, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, paperById, paperPreviewId, papersIn, periodLabel,
@@ -27,23 +30,46 @@ function noteThumbXml(xml, { background, pageWidth, previewWidth, ratio, crop },
   const [x, y] = NOTE_ORIGIN[background] ?? [0, 0]
   const view = crop ? NOTE_VIEW : pageWidth
   const unit = view / previewWidth // 화면 1px 의 속지 단위
-  const boosted = (crop ? xml.replace(/viewBox="[^"]*"/, `viewBox="${x} ${y} ${NOTE_VIEW} ${NOTE_VIEW / ratio}"`) : xml)
+  const viewH = NOTE_VIEW / ratio
+  // 확대해 보이는 칸은 보이지 않는 점을 미리 덜어 내 해석할 양을 줄인다 (도트 속지는 점이 수백 개)
+  const visible = crop ? xml.replace(/<circle\b[^>]*\/>/g, tag => {
+    const cx = Number(/\bcx="(-?[\d.]+)"/.exec(tag)?.[1]), cy = Number(/\bcy="(-?[\d.]+)"/.exec(tag)?.[1])
+    if (Number.isNaN(cx) || Number.isNaN(cy) || /\btransform=/.test(tag)) return tag // 좌표를 못 읽거나 옮겨 그린 원은 그대로 둔다
+    return cx >= x - 4 && cx <= x + NOTE_VIEW + 4 && cy >= y - 4 && cy <= y + viewH + 4 ? tag : ''
+  }) : xml
+  const boosted = (crop ? visible.replace(/viewBox="[^"]*"/, `viewBox="${x} ${y} ${NOTE_VIEW} ${viewH}"`) : visible)
     .replace(/stroke-width="1"/g, `stroke-width="${Math.max(1, unit).toFixed(3)}"`)
     .replace(/(<circle\b[^>]*\br=")([\d.]+)"/g, (_, head, r) => `${head}${Math.max(Number(r), unit).toFixed(3)}"`)
     .replace(/#(e8e9eb|d7d9dc|bfc1c4)\b/gi, color => DARKER[color.toLowerCase()])
   return colorTemplateXml(boosted, appearance)
 }
 
+// 만든 미리보기는 해석한 채로 모아 둬, 팝업을 다시 열 때 정규식 처리와 SVG 해석을 되풀이하지 않는다
+const thumbAsts = new Map()
+const THUMB_AST_LIMIT = 80 // 오래된 것부터 버려 계속 늘지 않게 한다
+
 function NoteThumb({ assetId, background, pageWidth, width, height, crop, appearance }) {
-  const [xml, setXml] = useState(null)
+  // 이미 불러온 속지는 기다리지 않고 첫 그림부터 보인다
+  // 어느 속지의 XML인지 함께 들고 있어, 속지가 바뀐 직후에 이전 속지의 XML 로 그리지 않는다
+  const [loaded, setLoaded] = useState(() => { const ready = peekTemplate({ backgroundAssetId: assetId }); return ready ? { assetId, xml: ready } : null })
   useEffect(() => {
     let active = true
-    loadTemplate({ backgroundAssetId: assetId, templateVersion: TEMPLATE_VERSION }).then(text => { if (active) setXml(text) }).catch(() => {})
+    const ready = peekTemplate({ backgroundAssetId: assetId })
+    if (ready) { setLoaded({ assetId, xml: ready }); return undefined }
+    loadTemplate({ backgroundAssetId: assetId, templateVersion: TEMPLATE_VERSION }).then(text => { if (active) setLoaded({ assetId, xml: text }) }).catch(() => {})
     return () => { active = false }
   }, [assetId])
-  const shown = useMemo(() => xml ? noteThumbXml(xml, { background, pageWidth, previewWidth: width, ratio: width / height, crop }, appearance) : null,
-    [xml, background, pageWidth, width, height, crop, appearance?.backgroundColor, appearance?.layoutColor]) // eslint-disable-line react-hooks/exhaustive-deps
-  return shown ? <SvgXml xml={shown} width={width} height={height} /> : null
+  const xml = loaded?.assetId === assetId ? loaded.xml : null
+  const ast = useMemo(() => {
+    if (!xml) return null
+    const key = `${assetId}|${background}|${pageWidth}|${width}x${height}|${crop}|${appearance?.backgroundColor}|${appearance?.layoutColor}`
+    if (!thumbAsts.has(key)) {
+      if (thumbAsts.size >= THUMB_AST_LIMIT) thumbAsts.delete(thumbAsts.keys().next().value)
+      thumbAsts.set(key, parse(noteThumbXml(xml, { background, pageWidth, previewWidth: width, ratio: width / height, crop }, appearance)))
+    }
+    return thumbAsts.get(key)
+  }, [xml, assetId, background, pageWidth, width, height, crop, appearance?.backgroundColor, appearance?.layoutColor]) // eslint-disable-line react-hooks/exhaustive-deps
+  return ast ? <SvgAst ast={ast} override={{ width, height }} /> : null
 }
 
 /** 속지 한 장 미리보기. 실제 속지 SVG 로 그리고, 노트의 줄 · 모눈 · 도트는 선이 또렷하게 보이도록 진하게 그린다. */
@@ -82,9 +108,10 @@ export function PaperTabs({ groups, value, onChange }) {
  * 분류 안의 속지: 미리보기 + 이름 타일 3열 (세로로 길어지지 않게 작게).
  * 폭을 재지 않고 칸은 1/3 폭, 미리보기는 고정 크기로 그린다 (잰 뒤 다시 그리면 아래 옵션이 밀린다).
  */
-export function PaperGrid({ papers, selected, onSelect, orientation, appearance, period = null }) {
+export function PaperGrid({ papers, selected, onSelect, orientation, appearance, period = null, minSlots = 0 }) {
   const { width: w, height: h } = templateCanvasSize(orientation)
   const thumb = w > h ? 72 : 54
+  const empty = Math.max(0, minSlots - papers.length) // 적은 분류도 줄 수가 같게 빈 칸으로 채운다
   return <View accessibilityRole="radiogroup" style={styles.grid}>
     {papers.map(paper => {
       const on = paper.id === selected
@@ -94,6 +121,9 @@ export function PaperGrid({ papers, selected, onSelect, orientation, appearance,
         <Text numberOfLines={1} style={[styles.tileName, on && styles.tileNameOn]}>{paper.name}</Text>
       </Pressable></View>
     })}
+    {Array.from({ length: empty }, (_, i) => <View key={`empty-${i}`} pointerEvents="none" style={styles.cell}>
+      <View style={styles.tile}><View style={{ width: thumb, height: thumb * h / w }} /><Text style={styles.tileName}> </Text></View>
+    </View>)}
   </View>
 }
 
@@ -299,11 +329,19 @@ export default function PaperOptions({ sections, onChange, orientation, appearan
   </View>
 }
 
-/** 속지 색: 종이 색 · 선과 글자 색. 수정에서는 바꿀 페이지(모든 페이지 / 새 페이지만)를 고른다. */
-export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false }) {
+/**
+ * 속지 스타일: 종이 색 · 선과 글자 색 · 글꼴. 수정에서는 바꿀 페이지(이 다이어리의 모든 페이지 / 새 페이지만)를 고르고 세 가지가 같은 범위를 따른다.
+ * 글꼴은 인쇄 글자가 있는 속지에만 있다(plainOnly 면 선 · 글씨 색과 함께 숨긴다).
+ */
+// fontDropdown: 글꼴을 칩 대신 드롭다운으로 고른다(꾸미기 공방 기본 속지 설정)
+export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false, fontDropdown = false }) {
   return <View style={styles.panel}>
     <OptionRow label="종이 색"><ColorRow label="종이 색" value={appearance.backgroundColor} swatches={PAPER_BACKGROUNDS} onChange={backgroundColor => onChange({ ...appearance, backgroundColor })} /></OptionRow>
     {!plainOnly && <OptionRow label="선 · 글자"><ColorRow label="선과 글씨 색" value={appearance.layoutColor} swatches={PAPER_LAYOUTS} onChange={layoutColor => onChange({ ...appearance, layoutColor })} /></OptionRow>}
+    {!plainOnly && <OptionRow label="글꼴">{fontDropdown
+      ? <PaperFontDropdown value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={font => onChange({ ...appearance, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
+      : <ChipGroup label="속지 글꼴" columns={3} items={paperFontChips()} value={appearance.font ?? DEFAULT_PAPER_FONT}
+      onChange={font => onChange({ ...appearance, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />}</OptionRow>}
     {onScope && <OptionRow label="바꿀 페이지"><Segmented items={[{ id: 'all', label: '모든 페이지' }, { id: 'new', label: '새 페이지만' }]} selected={id => id === scope} onPress={onScope} /></OptionRow>}
   </View>
 }
@@ -311,7 +349,7 @@ export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainO
 
 const styles = StyleSheet.create({
   panel: { gap: 8 },
-  pressed: { opacity: 0.7 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   dim: { opacity: 0.3 },
   preview: { overflow: 'hidden', borderRadius: 5, borderWidth: 1, borderColor: colors.border },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border },
@@ -326,7 +364,7 @@ const styles = StyleSheet.create({
   tileOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   tileName: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   tileNameOn: { color: colors.text, fontWeight: '800' },
-  context: { padding: 12, borderRadius: 16, backgroundColor: colors.surfaceSoft },
+  context: { padding: 12, borderRadius: 12, backgroundColor: colors.surfaceSoft },
   period: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 40, paddingHorizontal: 2, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   step: { width: 28, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
@@ -341,7 +379,7 @@ const styles = StyleSheet.create({
   rowName: { color: colors.text, fontSize: 13.5, fontWeight: '800' },
   rowAmount: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   grip: { width: 32, height: 40, alignItems: 'center', justifyContent: 'center' },
-  rowDragging: { zIndex: 2, shadowColor: colors.text, shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
+  rowDragging: { zIndex: 2, shadowColor: colors.text, shadowOpacity: 0.09, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
   dropLine: { position: 'absolute', left: 8, right: 8, height: 3, borderRadius: 2, backgroundColor: colors.primary },
   dropBefore: { top: -5 },
   dropAfter: { bottom: -5 },
@@ -351,14 +389,14 @@ const styles = StyleSheet.create({
   every: { flexGrow: 1, flexBasis: 160, minWidth: 0 },
   flip: { transform: [{ rotate: '180deg' }] },
   order: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  addSection: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary },
+  addSection: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary },
   addSectionOn: { borderStyle: 'solid', backgroundColor: colors.primarySoft },
   // 섞은 속지는 한 판에 묶어 보인다
   group: { gap: 6 },
   // 끄는 줄이 다른 판 위로 지나가도 위에 그려지게
   groupDragging: { zIndex: 2 },
   noSelect: { userSelect: 'none' },
-  groupMixed: { padding: 6, borderRadius: 16, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  groupMixed: { padding: 6, borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primarySoft },
   joint: { flexDirection: 'row', alignSelf: 'center', gap: 2, padding: 2, borderRadius: 999, backgroundColor: colors.surfaceMuted },
   jointItem: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 28, paddingHorizontal: 12, borderRadius: 999 },
   jointItemOn: { backgroundColor: colors.surface },

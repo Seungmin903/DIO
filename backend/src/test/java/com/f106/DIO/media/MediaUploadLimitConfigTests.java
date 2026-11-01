@@ -15,10 +15,11 @@ import org.springframework.util.unit.DataSize;
 
 /**
  * 테스트용 application.yml이 본 설정을 가리므로, 실제 배포 설정 파일을 직접 읽어 업로드 한도를 맞춘다.
- * 서비스가 허용하는 5MB 파일이 Spring multipart나 Nginx에서 먼저 거절되지 않아야 한다.
+ * 미디어 폰트 업로드와 나머지 경로에 각각 적용되는 Nginx 제한을 확인한다.
  */
 class MediaUploadLimitConfigTests {
-	private static final DataSize SERVICE_LIMIT = DataSize.ofMegabytes(5);
+	private static final DataSize FONT_LIMIT = DataSize.ofMegabytes(25);
+	private static final DataSize DEFAULT_REQUEST_LIMIT = DataSize.ofMegabytes(6);
 
 	@Test
 	void multipartAndNginxLimitsAllowTheServiceUploadLimit() throws Exception {
@@ -28,11 +29,16 @@ class MediaUploadLimitConfigTests {
 		DataSize maxFile = requiredSize(properties, "spring.servlet.multipart.max-file-size");
 		DataSize maxRequest = requiredSize(properties, "spring.servlet.multipart.max-request-size");
 
-		assertThat(maxFile).isGreaterThanOrEqualTo(SERVICE_LIMIT);
+		assertThat(maxFile).isGreaterThanOrEqualTo(FONT_LIMIT);
 		assertThat(maxRequest).isGreaterThan(maxFile);
 		for (String profile : new String[] {"dev", "prod"}) {
-			assertThat(nginxBodyLimit(Path.of("..", "infra", "nginx", profile, "default.conf")))
-				.as("%s nginx client_max_body_size", profile).isGreaterThanOrEqualTo(maxRequest);
+			Path conf = Path.of("..", "infra", "nginx", profile, "default.conf");
+			String content = Files.readString(conf);
+			Matcher location = Pattern.compile("location\\s*=\\s*/api/v1/media\\s*\\{([^{}]*)}", Pattern.DOTALL).matcher(content);
+			assertThat(location.find()).as("%s media location", profile).isTrue();
+			assertThat(nginxBodyLimit(location.group(1))).as("%s media request limit", profile).isGreaterThanOrEqualTo(maxRequest);
+			String withoutMediaLocation = location.replaceFirst("");
+			assertThat(nginxBodyLimit(withoutMediaLocation)).as("%s default request limit", profile).isEqualTo(DEFAULT_REQUEST_LIMIT);
 		}
 	}
 
@@ -42,9 +48,9 @@ class MediaUploadLimitConfigTests {
 		return DataSize.parse(value);
 	}
 
-	private static DataSize nginxBodyLimit(Path conf) throws Exception {
-		Matcher matcher = Pattern.compile("client_max_body_size\\s+(\\d+)([kKmM])\\s*;").matcher(Files.readString(conf));
-		assertThat(matcher.find()).as("%s에 client_max_body_size가 있어야 한다", conf).isTrue();
+	private static DataSize nginxBodyLimit(String content) {
+		Matcher matcher = Pattern.compile("client_max_body_size\\s+(\\d+)([kKmM])\\s*;").matcher(content);
+		assertThat(matcher.find()).as("client_max_body_size가 있어야 한다").isTrue();
 		long value = Long.parseLong(matcher.group(1));
 		return matcher.group(2).equalsIgnoreCase("m") ? DataSize.ofMegabytes(value) : DataSize.ofKilobytes(value);
 	}

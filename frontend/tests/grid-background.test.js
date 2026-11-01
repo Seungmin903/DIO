@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import * as React from 'react'
 import { colorTemplateAst, colorTemplateXml } from '../src/editor/templates/appearance.js'
-import * as studyPlanner from '../src/editor/templates/studyPlanner.js'
+import * as planners from '../src/editor/templates/planners.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const paper = (width, height) => ({ tag: 'svg', children: [
@@ -38,11 +38,13 @@ function fixture() {
     if (id === 'react') return { ...React, useMemo: fn => fn(), useEffect() {}, useState: initial => [typeof initial === 'function' ? initial() : initial, () => {}], useRef: current => ({ current }) }
     if (id === 'react-native') return { Pressable: 'pressable', Text: 'text', View: 'view', StyleSheet: { create: v => v, absoluteFill: {} } }
     if (id === 'react-native-svg') return { SvgAst: 'svg-ast', SvgXml: 'svg-xml', parse: () => null }
-    if (id.endsWith('/studyPlanner.js')) return studyPlanner
+    if (id.endsWith('/planners.js')) return planners
     if (id.endsWith('/catalog.js')) return { templateReference: page => page.backgroundAssetId ? { backgroundAssetId: page.backgroundAssetId } : null }
     if (id.endsWith('/loadTemplate')) return { peekTemplateAst: () => ast }
     if (id.endsWith('/appearance.js')) return { colorTemplateAst, normalizePaperAppearance: a => ({ backgroundColor: a?.backgroundColor ?? '#FFFFFF', layoutColor: '#292929' }) }
     if (id.endsWith('/pageGeometry.js')) return { pageSize: () => ({ width: 1024, height: 768 }) }
+    if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' } // 속지는 정해진 글꼴 구역 안에서 그린다
+    if (id.endsWith('/paperFont.js')) return { swapPaperFont: xml => xml } // 속지 글꼴 바꾸기는 paper-font.test.js 가 본다
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)

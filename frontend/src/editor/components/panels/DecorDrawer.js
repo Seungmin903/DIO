@@ -6,7 +6,8 @@ import { PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from
 import { stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
 import { useTapePreferences } from '../../hooks/useTapePreferences'
 import { stickerLibrary } from '../../stickerLibrary'
-import Svg, { Path, Polygon } from 'react-native-svg'
+import Svg, { Path } from 'react-native-svg'
+import FavoriteStar from '../../../shared/FavoriteStar'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { mediaFailureMessage } from '../../utils/mediaRecovery.js'
@@ -21,6 +22,7 @@ import TapeOptions from './TapeOptions'
 import TapeView from '../canvas/TapeView'
 import PhotoFramePicker from './PhotoFramePicker'
 import StickerSplitModal from './StickerSplitModal'
+import StickerCutoutModal from './StickerCutoutModal'
 import DecorSaveNotice from './DecorSaveNotice'
 import { stickerSplit } from '../../services/stickerSplit'
 
@@ -40,7 +42,7 @@ const TAPE_PREVIEW = { width: 236, height: 44 }
 
 // 보관함 크기: 왼쪽 아래 손잡이로 넓히고 늘린다. 닫았다 열어도 유지되도록 모듈에 기억해 둔다.
 const SIZE_LIMITS = { minWidth: 280, maxWidth: 640, minHeight: 260 }
-const TILE_MIN_PX = 68
+const TILE_MIN_PX = 72 // 스티커 칸 64 + 칸 간격 8 (코덱스 17번)
 let rememberedSize = { width: 320, height: null }
 // 넓이에 맞춘 스티커 칸 수 (Tile 이 읽는다)
 const ColumnsContext = createContext(4)
@@ -48,7 +50,7 @@ const ColumnsContext = createContext(4)
 /**
  * 스티커·테이프·사진 보관함. 항목을 누르면 페이지 가운데에 붙는다.
  * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다.
- * 사진: 불러오면 틀 없이 붙고, 사진 틀을 누르면 빈 틀이 붙는다(캔버스의 + 로 채운다).
+ * 사진: 불러오면 틀 없이 붙고, 사진 틀을 누르면 빈 틀이 붙는다(캔버스의 + 로 채운다). 붙인 뒤 틀은 옵션 창의 같은 목록에서 바꾼다.
  */
 export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, onToast, onClose, onPanelWidth }) {
   const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]
@@ -62,6 +64,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
   const [listDragging, setListDragging] = useState(false) // 목록 편집에서 끄는 중이면 목록 스크롤을 멈춘다
   const [folderDraft, setFolderDraft] = useState(null) // 새 폴더·이름 바꾸기 입력 { id?, name }
   const [splitTarget, setSplitTarget] = useState(null)
+  const [cutoutFolder, setCutoutFolder] = useState(null)
   // 새 테이프의 색·규격·무늬만 기기별로 기억한다. 기존 캔버스 요소는 수정하지 않는다.
   const [tapePreferences, updateTapePreferences, tapePreferencesReady] = useTapePreferences()
   const tapeSize = TAPE_SIZES.find(item => item.id === tapePreferences.size)
@@ -150,10 +153,9 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
     custom.setCategoryOrder(hiding ? [...visible, ...rest, id] : [...visible, id, ...rest])
     custom.toggleHidden(id)
   }
-  // 폴더 이름: 1글자 이상, 다른 폴더·분류와 겹치지 않아야 확정할 수 있다.
+  // 폴더는 ID로 구분한다. 이름 중복은 허용하며 공백만 있는 이름은 저장하지 않는다.
   const draftName = folderDraft?.name.trim() ?? ''
-  const nameTaken = orderable.some((c) => c.name === draftName && c.id !== `folder:${folderDraft?.id}`)
-  const canCommitFolder = draftName.length > 0 && !nameTaken
+  const canCommitFolder = draftName.length > 0
 
   async function addCustom(kind, folderId) {
     if (busy) return
@@ -192,7 +194,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
 
   return (
     <View
-      style={[styles.drawer, toolPanelStyles.card, { width: size.width }, size.height != null && { height: size.height }]}
+      style={[styles.drawer, toolPanelStyles.card, { width: size.width }, size.height != null && { height: size.height, maxHeight: '100%' }]}
       onLayout={(event) => {
         measured.current = event.nativeEvent.layout.height
         onPanelWidth?.(event.nativeEvent.layout.width)
@@ -328,6 +330,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
                   folder={folder}
                   busy={busy || !custom.loaded}
                   onSplit={() => setSplitTarget({ folder, name: '' })}
+                  onCutout={() => setCutoutFolder(folder)}
                   splitAvailable={stickerSplit.available}
                   splitReason={stickerSplit.reason}
                   tileProps={tileProps}
@@ -365,7 +368,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
                 <Section key={group.id} title={group.title} badge={group.badge}>
                   <View style={styles.grid}>
                     {group.items.map((sticker) => (
-                      <Tile key={sticker.asset} {...tileProps(sticker)}>
+                      <Tile key={stickerKey(sticker)} {...tileProps(sticker)}>
                         <StickerThumb item={sticker} />
                       </Tile>
                     ))}
@@ -465,11 +468,11 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
       )}
       {splitTarget && <StickerSplitModal folder={splitTarget.folder} initialName={splitTarget.name}
         onClose={() => setSplitTarget(null)} onSave={async (folderId, name, stickers) => {
-          if (orderable.some(item => item.name === name.trim() && item.id !== `folder:${folderId}`)) throw new Error('같은 이름의 폴더나 분류가 있어요.')
           const id = await custom.saveGenerated(folderId, name, stickers)
           setCategory(`folder:${id}`); setFolderDraft(null)
           onToast(`${stickers.length}개 스티커를 폴더에 저장했어요.`)
         }} />}
+      {cutoutFolder && <StickerCutoutModal folder={cutoutFolder} onClose={() => setCutoutFolder(null)} />}
       <View
         {...resizeHandlers}
         style={styles.resize}
@@ -478,7 +481,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
       >
         {/* iPadOS 창 손잡이처럼 보관함 모서리 곡선과 같은 중심의 호 */}
         <Svg width={GRIP} height={GRIP} pointerEvents="none">
-          <Path d={GRIP_ARC} stroke="rgba(11,25,87,0.32)" strokeWidth={4} strokeLinecap="round" fill="none" />
+          <Path d={GRIP_ARC} stroke="rgba(11,23,102,0.32)" strokeWidth={4} strokeLinecap="round" fill="none" />
         </Svg>
       </View>
     </View>
@@ -535,7 +538,7 @@ function Pill({ label, icon, dashed, active, onPress }) {
       accessibilityState={{ selected: active }}
       style={({ pressed }) => [styles.pill, icon && styles.pillWithIcon, dashed && styles.pillDashed, active && styles.pillActive, pressed && !active && styles.pressed]}
     >
-      {icon && <Icon name={icon} size={13} strokeWidth={2} color={active ? colors.text : colors.textMuted} />}
+      {icon && <Icon name={icon} size={13} forText={12} strokeWidth={2} color={active ? colors.text : colors.textMuted} />}
       <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
     </Pressable>
   )
@@ -549,6 +552,7 @@ function FolderView({
   folder,
   busy,
   onSplit,
+  onCutout,
   splitAvailable,
   splitReason,
   tileProps,
@@ -628,6 +632,11 @@ function FolderView({
           onPress={() => { setAdding(false); onSplit() }}>
           <Text style={styles.stickerAddText}>이미지 분리해서 추가</Text>
         </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="사진 속 대상 오리기" disabled={busy}
+          accessibilityState={{ disabled: busy }} style={styles.stickerAddOption}
+          onPress={() => { setAdding(false); onCutout() }}>
+          <Text style={styles.stickerAddText}>사진 속 대상 오리기</Text>
+        </Pressable>
         {!splitAvailable && !!splitReason && <Text style={styles.stickerAddText}>{splitReason}</Text>}
       </View>}
     </View>
@@ -650,7 +659,7 @@ function Tile({ onPress, onLongPress, onRemove, favorite, label, children }) {
       </Pressable>
       {favorite && (
         <View style={styles.favorite} pointerEvents="none">
-          <FavoriteStar />
+          <FavoriteStar filled outline={colors.surface} size={17} />
         </View>
       )}
       {onRemove && (
@@ -804,7 +813,7 @@ const BODY_X = 16
 // 목록 편집 한 줄 높이 + 줄 간격 (끌어서 옮길 때 몇 칸 움직였는지 계산)
 const EDIT_ROW = 46
 const EDIT_STEP = EDIT_ROW + 6
-const DRAWER_RADIUS = 24 // 다른 옵션 창과 같은 둥글기 (ToolPanel 의 PANEL_RADIUS)
+const DRAWER_RADIUS = 12 // 다른 옵션 창과 같은 둥글기 (ToolPanel 의 PANEL_RADIUS)
 // 크기 조절 손잡이: 왼쪽 아래 모서리 곡선(반경 24)과 중심이 같은 호를 안쪽으로 7px 들여 그린다.
 const GRIP = 44
 const GRIP_ARC = (() => {
@@ -816,36 +825,15 @@ const GRIP_ARC = (() => {
   const [x2, y2] = point(78)
   return `M${x1} ${y1} A${r} ${r} 0 0 0 ${x2} ${y2}`
 })()
-// 즐겨찾기 별: 글자 ★ 대신 그림으로 그려 꼭짓점을 살짝 둥글게 (같은 색 테두리 + 둥근 이음)
-const STAR_POINTS = Array.from({ length: 10 }, (_, i) => {
-  const angle = (Math.PI / 5) * i - Math.PI / 2
-  const radius = i % 2 ? 2.6 : 6
-  return `${(7 + radius * Math.cos(angle)).toFixed(2)},${(7.3 + radius * Math.sin(angle)).toFixed(2)}`
-}).join(' ')
-function FavoriteStar() {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 14 14">
-      <Polygon points={STAR_POINTS} fill="#F2B705" stroke="#F2B705" strokeWidth={1.6} strokeLinejoin="round" />
-    </Svg>
-  )
-}
-const TILE_GAP = 3
+const TILE_GAP = 4 // 칸 사이 8 (코덱스 17번: 셀 64, 간격 8, 안쪽 여백 16)
 
 const styles = StyleSheet.create({
   stickerAddMenu: { marginTop: 8, padding: 8, gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
   stickerAddOption: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
   stickerAddText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  // 앵커 패널: 흰 면 + 1px 테두리, 그림자 없음, 최대 높이 480 (공용 카드 toolPanelStyles.card 가 정한다)
   drawer: {
-    width: 300,
-    maxWidth: '100%',
-    maxHeight: '100%',
-    flexShrink: 1,
     borderRadius: DRAWER_RADIUS,
-    backgroundColor: 'rgba(255,255,255,0.97)',
-    // 웹에서는 뒤 캔버스가 살짝 비치는 유리 질감 (네이티브는 불투명 흰 배경)
-    ...Platform.select({ web: { backgroundColor: 'rgba(255,255,255,0.86)', backdropFilter: 'blur(18px)' }, default: {} }),
-    overflow: 'hidden',
-    ...shadow.float,
   },
   tabs: {
     flexDirection: 'row',
@@ -876,8 +864,10 @@ const styles = StyleSheet.create({
     gap: 6,
     height: 44,
     paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceMuted,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
   },
   searchInput: {
     flex: 1,
@@ -902,12 +892,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     justifyContent: 'center',
     borderRadius: 17,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
   },
-  // 선택: 흰 바탕 + 파란 테두리 (docs/design-guide.md 7장)
-  pillActive: { backgroundColor: colors.surface, borderColor: colors.primary },
+  // 선택: 흰 바탕 + primaryStrong 2px 테두리
+  pillActive: { backgroundColor: colors.surface, borderColor: colors.primaryStrong, borderWidth: 2 },
   pillWithIcon: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   pillDashed: { borderStyle: 'dashed', borderWidth: 1, borderColor: colors.border, backgroundColor: 'transparent' },
   folderInputRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -938,11 +928,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: 'rgba(110,146,198,0.6)',
-    backgroundColor: 'rgba(110,146,198,0.06)',
+    borderColor: 'rgba(129,138,195,0.6)',
+    backgroundColor: 'rgba(129,138,195,0.06)',
   },
   addTileBusy: { opacity: 0.5 },
   // 칸 테두리(TILE_GAP 안쪽)에서 위·왼쪽 모두 4 만큼 들어온 자리
@@ -1038,10 +1028,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: '#F5F7FB',
   },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   tileImage: { width: '74%', height: '74%' },
   remove: {
     position: 'absolute',
@@ -1077,7 +1067,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     paddingHorizontal: 8,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: '#F5F7FB',
   },
   tapeName: {
@@ -1088,19 +1078,20 @@ const styles = StyleSheet.create({
   },
   upload: {
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 4,
     marginTop: 4,
-    paddingVertical: 20,
+    height: 96, // 코덱스 24번: 불러오기 영역 288×96 (패널 안쪽 폭)
     paddingHorizontal: 12,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.secondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
   },
   uploadIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primarySoft,

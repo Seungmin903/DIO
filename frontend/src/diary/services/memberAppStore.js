@@ -1,5 +1,6 @@
 import { memberKeys } from './memberStorage.js'
 import { diaryCreateInput } from './diaryCreateInput.js'
+import { serverDiaryCreateInput } from './serverPaperFont.js'
 import { localTemplateReference } from '../../editor/templates/serverCatalog.js'
 import { createDefaultDoc } from '../../editor/state/defaultDoc.js'
 import { normalizeMemberLibraryQuery } from './memberLibraryQuery.js'
@@ -47,7 +48,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
   }
   const createDocument = (result, input) => {
     const diary = entry({ ...result, title: result.title, templateConfig: input.templateConfig, pageSize: input.pageSize,
-      paperAppearance: input.paperAppearance, favorite: false, pageCount: result.pageIds.length })
+      paperAppearance: input.paperAppearance, favorite: false, pageCount: result.pageIds.length, ...(input.cover ? { cover: input.cover } : {}) })
     const doc = createDefaultDoc(diary)
     doc.memberAccountId = accountId
     doc.pages = input.initialPages.map((selected, index) => {
@@ -272,7 +273,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       starting = (async () => {
       active()
       if (!state.loaded || !writable) throw failure('NOT_READY', '목록 저장 자료를 먼저 확인해 주세요.')
-      const input = diaryCreateInput(form)
+      const input = serverDiaryCreateInput(diaryCreateInput(form))
       if (state.pending && JSON.stringify(state.pending.input) !== JSON.stringify(input)) throw failure('PENDING_CREATION', '이전 생성 요청을 먼저 확인해 주세요. 창을 닫고 이전 생성 확인을 눌러 주세요.')
       if (!state.pending) {
         const pending = { accountId, requestId: makeRequestId(), input: clone(input), uncertain: false }
@@ -324,7 +325,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
       if (!previous?.canEdit) throw failure('FORBIDDEN', '소유자만 제목과 표지를 수정할 수 있어요.')
       try {
         const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', expectedVersion: previous.version })
-        active(); const updated = await publish(entry(result, previous))
+        active(); const updated = await publish(entry(form.cover ? { ...result, cover: form.cover } : result, previous))
         if (serverLibrary) await this.reload().catch(() => {})
         return updated
       } catch (error) {

@@ -62,6 +62,13 @@ class DioHandwritingModule : Module() {
         state.toString()
       }
     }
+    // Read only the job's immutable original strokes for detail/revision and migration.
+    AsyncFunction("isBusy") { running.get() }
+    AsyncFunction("getJobDraft") { id: String ->
+      synchronized(lock) {
+        JSONObject(File(jobFolder(id), "input.json").readText()).getJSONObject("draft").toString()
+      }
+    }
     AsyncFunction("latestJob") {
       val latest = File(root, "jobs").listFiles()?.filter { File(it, "state.json").isFile }?.maxByOrNull { File(it, "input.json").lastModified() }
       if (latest == null) null else synchronized(lock) { readState(latest).toString() }

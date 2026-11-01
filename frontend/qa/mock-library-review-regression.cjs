@@ -42,7 +42,7 @@ const server = http.createServer((req, res) => {
       await button('같은 입력 다시 저장').waitFor();
       await button('같은 입력 다시 저장 닫기').last().click();
       await button('목 응답 설정').click(); await button('이동·복원 정상').click();
-      await button('저장 후 이동 휴지통으로 이동').click(); await button('휴지통으로 옮기기').click();
+      await button('저장 후 이동 더보기').click();await button('저장 후 이동 휴지통으로 이동').click(); await button('휴지통으로 옮기기').click();
       await button('처리 결과 닫기').waitFor();
       await button('수정 요청 이어서 확인').click(); await button('같은 입력 다시 저장').click();
       await button('입력 유지하고 최신 내용 확인').click();

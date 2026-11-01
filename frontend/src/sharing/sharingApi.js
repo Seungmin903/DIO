@@ -121,9 +121,9 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     const upload = photoUri && photoUri !== self.photoUri && photoUri !== current?.photoUri;
     if (upload) {
       const prepared = await buildPhotoBody(body, photoUri, 'profile');
-      try { await request(`${path(id)}/profile`, { method: 'PATCH', body: prepared.body, multipart: true }); }
+      try { await request(`${path(id)}/membership`, { method: 'PATCH', body: prepared.body, multipart: true }); }
       finally { prepared.dispose(); }
-    } else await request(`${path(id)}/profile`, { method: 'PATCH', body });
+    } else await request(`${path(id)}/membership`, { method: 'PATCH', body });
     return getSharing(id);
   }
   return {
@@ -175,6 +175,6 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     async decline(id) { await request(`/me/invites/${encodeURIComponent(id)}/decline`, { method: 'POST' }); },
     async removeMember(id, memberId) { await request(`${path(id)}/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' }); return getSharing(id); },
     async leave(id) { await request(`${path(id)}/members/${self.id}`, { method: 'DELETE' }); diaries.delete(id); publish(); },
-    async toggleFavorite(id) { const diary = diaries.get(id); await request(`${path(id)}/profile`, { method: 'PATCH', body: { favorite: !diary?.favorite } }); return getSharing(id); },
+    async toggleFavorite(id) { const diary = diaries.get(id); await request(`${path(id)}/membership`, { method: 'PATCH', body: { favorite: !diary?.favorite } }); return getSharing(id); },
   };
 }

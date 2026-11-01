@@ -32,6 +32,7 @@ class LoginReservationServiceTests {
             mock(RefreshTokenHistoryRepository.class), jwt,
             new LoginProperties("", 900, 2592000), new LoginThrottle(),
             mock(org.springframework.transaction.PlatformTransactionManager.class),
+            mock(com.f106.DIO.push.service.PushSessionRevocation.class),
             new com.f106.DIO.auth.config.AuthPasswordConfig().authPasswordEncoder());
     }
     @Test void twentyParallelWrongPasswordsOnlyPerformFiveCredentialChecks() throws Exception {

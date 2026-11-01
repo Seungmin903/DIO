@@ -56,7 +56,7 @@ const server = http.createServer((req, res) => {
         await button(`${title} 초대 상세`).click();
         await page.getByText(message, { exact: true }).waitFor();
         assert.equal(await button('참여 프로필 설정').count(), 0);
-        await button('받은 초대 목록으로').click();
+        await button('이전 공유 화면').click();
       }
       await button('공유 창 닫기').click();
       await button('정원 초과 초대 재현').click();

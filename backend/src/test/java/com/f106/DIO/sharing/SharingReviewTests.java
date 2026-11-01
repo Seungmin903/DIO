@@ -28,7 +28,7 @@ class SharingReviewTests extends SharingTestSupport {
     }
     @Test void encodedProtectedPathsStillRequireAuthentication() throws Exception {
         UUID id=UUID.randomUUID();
-        mvc.perform(patch(java.net.URI.create("/api/v1/diaries/"+id+"/%70rofile")).contentType("application/json").content("{\"favorite\":true}"))
+        mvc.perform(patch(java.net.URI.create("/api/v1/diaries/"+id+"/%6dembership")).contentType("application/json").content("{\"favorite\":true}"))
             .andExpect(status().isUnauthorized());
         mvc.perform(get(java.net.URI.create("/api/v1/me/%69nvites"))).andExpect(status().isUnauthorized());
         mvc.perform(post(java.net.URI.create("/api/v1/invites/invalid/%61ccept"))).andExpect(status().isUnauthorized());

@@ -6,10 +6,10 @@ import { isAnimatedMedia, stickerSource } from '../../stickerAssets'
 import MediaImage from './MediaImage'
 import StickerFrame from './StickerFrame'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
-import { reportMediaDisplayError, mediaRegistry } from '../../services/mediaStore'
+import { reportMediaDisplayError } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
-import { useMediaUri } from '../../hooks/useMediaUri'
+import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout, hasPhotoMedia, photoInnerBox, tapeSizeOf } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
@@ -23,6 +23,7 @@ import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
 import { loadedFontFamily, textSettings, textStyle } from '../../utils/text'
 import { useTextFont } from '../../hooks/useTextFont'
 import { useStickerPlayback } from '../../hooks/useStickerPlayback'
+import DdayWidget from '../../widgets/DdayWidget'
 
 /**
  * 텍스트가 실제로 그려진 높이를 알려 받는 곳 (id, 논리 높이). 편집 화면 캔버스만 주고, 썸네일은 null 이다.
@@ -41,7 +42,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
   const height = object.h * zoom
   const uri = useMediaUri(object, { still })
   const onTextMeasure = useContext(TextMeasure)
-  const failed = mediaRegistry.get(mediaId(object))?.status === 'error'
+  const failed = useMediaEntry(mediaId(object))?.status === 'error'
   if (object.type === 'text' && object.font?.startsWith('personal-') && !loadedFontFamily(object.font)) return (
     <View style={{ width, height, justifyContent: 'center' }}><Text style={{ fontSize: Math.max(8, 12 * zoom), color: colors.textMuted }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져와 주세요.'}</Text></View>
   )
@@ -61,6 +62,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
     case 'stroke':
       return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} />
     case 'sticker':
+      if (object.widget) return <View style={{ transform: flipTransform(object) }}><DdayWidget widget={object.widget} width={width} height={height} /></View>
       return <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'tape':
       return (
@@ -105,7 +107,7 @@ export const objectOpacity = (object) => object.opacity ?? (object.type === 'tap
 export const photoSupportsShadow = (photo) =>
   ['polaroid', 'film', 'frame', 'stamp', 'fourcut', 'filmstrip'].includes(photo.frame) || isTicketFrame(photo.frame) || (photo.frame === 'shape' && ['rect', 'round', 'circle', 'heart', 'star'].includes(photo.shape))
 // 틀 색: 사용자가 고른 HEX. 예전 문서의 프리셋 id(white·cream…)도 읽는다.
-const LEGACY_FRAME_COLORS = { white: '#FFFFFF', cream: '#FBF3E1', sky: '#CED9EE', pink: '#F9DDE2', black: '#22262F' }
+const LEGACY_FRAME_COLORS = { white: '#FFFFFF', cream: '#FBF3E1', sky: '#D4D7ED', pink: '#F9DDE2', black: '#22262F' }
 // 처음 색: 액자는 짙은 나무색, 티켓은 종류별 색, 인생네컷은 검정, 나머지(폴라로이드·우표·공연 티켓)는 흰색
 const FRAME_DEFAULT_COLORS = { frame: '#6B5444', ticketCinema: '#FBE7A1', ticketMatch: '#DDEFE3', ticketBoarding: '#D6E6F5', fourcut: STRIP_DEFAULT_COLOR }
 export const frameColorOf = (photo) =>

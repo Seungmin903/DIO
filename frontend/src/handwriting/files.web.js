@@ -1,3 +1,38 @@
+let workflowDatabase
+function workflowDb() {
+  if (!workflowDatabase) workflowDatabase = new Promise((resolve, reject) => {
+    const request = indexedDB.open('dio-handwriting-workflow', 1)
+    request.onupgradeneeded = () => request.result.createObjectStore('records')
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => { workflowDatabase = null; reject(request.error) }
+  })
+  return workflowDatabase
+}
+async function workflowTransaction(mode, action) {
+  const database = await workflowDb()
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction('records', mode)
+    let result
+    const request = action(tx.objectStore('records'))
+    request.onsuccess = () => { result = request.result }
+    tx.oncomplete = () => resolve(result)
+    tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error)
+  })
+}
+export const workflowBlobs = {
+  withLock: task => navigator.locks ? navigator.locks.request('dio-handwriting-workflow', task) : task(),
+  async read(ref) {
+    const text = await workflowTransaction('readonly', store => store.get(ref))
+    if (typeof text !== 'string') throw new Error('저장된 폰트 입력을 찾지 못했어요. 기존 데이터는 보존되어 있어요.')
+    return text
+  },
+  write: (ref, text) => workflowTransaction('readwrite', store => store.add(text, ref)),
+  remove: ref => workflowTransaction('readwrite', store => store.delete(ref)),
+  async prune(keep) {
+    const keys = await workflowTransaction('readonly', store => store.getAllKeys())
+    for (const key of keys) if (!keep.has(key)) await workflowTransaction('readwrite', store => store.delete(key))
+  },
+}
 let database
 function db() {
   if (!database) database = new Promise((resolve, reject) => {
@@ -33,7 +68,17 @@ export async function writeLocalPackage(name, text) {
   const uri = URL.createObjectURL(new Blob([text], { type: 'application/json' })), a = document.createElement('a')
   a.href = uri; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(uri), 30000); return true
 }
-export async function saveFontBytes(id, bytes) { await stored(id, bytes); return URL.createObjectURL(new Blob([bytes], { type: 'font/ttf' })) }
+export async function saveFontBytes(id, bytes) {
+  if (await stored(id)) throw new Error('폰트 파일 ID가 충돌했어요.')
+  await stored(id, bytes); return URL.createObjectURL(new Blob([bytes], { type: 'font/ttf' }))
+}
+export async function removeFontBytes(id) {
+  const database = await db()
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction('fonts', 'readwrite'); tx.objectStore('fonts').delete(id)
+    tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error)
+  })
+}
 export async function restoreFontUri(font) {
   const bytes = await stored(font.fileId ?? font.id)
   if (!bytes) throw new Error('기기에 저장된 폰트를 찾지 못했어요.')

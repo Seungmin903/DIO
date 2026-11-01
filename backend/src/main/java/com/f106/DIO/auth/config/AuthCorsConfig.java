@@ -20,5 +20,10 @@ public class AuthCorsConfig implements WebMvcConfigurer {
             .allowedMethods("GET", "POST", "OPTIONS")
             .allowedHeaders("Content-Type", "Authorization", "X-DIO-Access-Token").exposedHeaders("Retry-After")
             .allowCredentials(false).maxAge(600);
+        for (String path : new String[] {"/api/v1/me", "/api/v1/me/password"})
+            registry.addMapping(path).allowedOrigins(origins)
+                .allowedMethods("GET", "PATCH", "OPTIONS")
+                .allowedHeaders("Content-Type", "Authorization", "X-DIO-Access-Token").exposedHeaders("Retry-After")
+                .allowCredentials(false).maxAge(600);
     }
 }

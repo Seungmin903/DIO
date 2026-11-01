@@ -7,7 +7,10 @@ import { Segmented, ToolPanelHeader, toolPanelStyles as p } from './ToolPanel'
 import ColorPicker, { PaletteInteractionContext } from './controls/ColorPicker'
 import Slider from './controls/Slider'
 
-const SWATCHES = ['#F8EBA7', '#F4CDD5', '#D4E6CF', '#CED9EE', '#DFD4EE', '#FFFFFF']
+// 코덱스 18번: 첫 화면은 자주 쓰는 도형 12개(4×3)만, '더 보기'에서 분류와 나머지 도형
+const COMMON_SHAPE_COUNT = 12
+// 도형 채우기 기본 색(코덱스 2026-10-31): 테이프 · 형광펜과 같은 뽀얀 톤 7색 + 흰색
+const SWATCHES = ['#F8E5A1', '#F6D3C6', '#F3CDD6', '#E2D5F0', '#D5DDF3', '#CFE8E8', '#DCE8CA', '#FFFFFF']
 export default function ShapeSettings({ settings, onChange, onCheckpoint, onCommit, onAdd, onClose, embedded = false, showShapePicker = true }) {
   const parentPaletteInteraction = useContext(PaletteInteractionContext)
   const Content = embedded ? View : ScrollView
@@ -19,7 +22,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
     if (embedded) parentPaletteInteraction?.(active)
   },[embedded,parentPaletteInteraction])
   const value = { ...DEFAULT_SHAPE_STYLE, ...settings }
-  const [category, setCategory] = useState('all'), [picker, setPicker] = useState(null)
+  const [category, setCategory] = useState('all'), [picker, setPicker] = useState(null), [moreShapes, setMoreShapes] = useState(false)
   const palette = (key, label, disabled = false) => <View style={[styles.section,disabled && p.dim]}>
     <Text style={p.label}>{label}</Text>
     <View style={styles.palette}>
@@ -34,14 +37,19 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
     <Content ref={scroll} {...(embedded ? {style:{gap:12}} : {scrollEnabled:!paletteDragging,keyboardShouldPersistTaps:"handled",contentContainerStyle:p.content,showsVerticalScrollIndicator:false})}>
       {showShapePicker && <>
       <Text style={p.label}>모양</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={p.segment}>
+      {moreShapes && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={p.segment}>
         {SHAPE_CATEGORIES.map(item => <Pressable key={item.id} accessibilityRole="tab" accessibilityLabel={item.label} accessibilityState={{selected:category===item.id}} onPress={()=>setCategory(item.id)} style={[p.segmentItem,styles.categoryTab,category===item.id&&p.segmentActive]}><Text numberOfLines={1} style={[p.segmentText,category===item.id&&p.segmentTextActive]}>{item.label}</Text></Pressable>)}
-      </ScrollView>
-      <ScrollView nestedScrollEnabled style={styles.shapeList} contentContainerStyle={styles.shapes}>
-        {EDITOR_SHAPES.filter(item => category === 'all' || item.category === category).map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={item.label} accessibilityState={{ selected: value.shape === item.id }} onPress={() => onChange({ shape: item.id })} style={[styles.shape, value.shape === item.id && styles.selected]}>
+      </ScrollView>}
+      {(() => {
+        const list = moreShapes ? EDITOR_SHAPES.filter(item => category === 'all' || item.category === category) : EDITOR_SHAPES.slice(0, COMMON_SHAPE_COUNT)
+        const grid = list.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={item.label} accessibilityState={{ selected: value.shape === item.id }} onPress={() => onChange({ shape: item.id })} style={[styles.shape, value.shape === item.id && styles.selected]}>
           <Svg width={26*Math.min(1,item.ratio??1)} height={26/Math.max(1,item.ratio??1)} viewBox="-5 -5 110 110" preserveAspectRatio="none"><Path d={item.path} fill={value.fill === 'none' ? 'none' : value.fill} stroke={colors.textMuted} strokeWidth={4} /></Svg>
-        </Pressable>)}
-      </ScrollView>
+        </Pressable>)
+        return moreShapes
+          ? <ScrollView nestedScrollEnabled style={styles.shapeList} contentContainerStyle={styles.shapes}>{grid}</ScrollView>
+          : <View style={styles.shapes}>{grid}</View>
+      })()}
+      <Pressable accessibilityRole="button" accessibilityLabel={moreShapes ? '도형 접기' : '도형 더 보기'} accessibilityState={{expanded:moreShapes}} onPress={()=>setMoreShapes(open=>!open)} style={styles.moreButton}><Text style={styles.moreText}>{moreShapes ? '접기' : '더 보기'}</Text></Pressable>
       </>}
       {palette('fill', '채우기')}
       <Text style={p.label}>테두리 두께</Text>
@@ -54,7 +62,6 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
           <Text style={[styles.borderPreviewLabel,value.borderStyle===item.id&&p.segmentTextActive]}>{item.label}</Text>
         </Pressable>)}
       </ScrollView>
-      <Text style={styles.hint}>글 입력은 선택 사항 · 도형을 두 번 눌러 입력해요.</Text>
     </Content>
     {onAdd && <View style={styles.footer}>
       <Pressable accessibilityRole="button" accessibilityLabel="도형 캔버스에 추가" onPress={onAdd} style={styles.add}><Text style={[styles.buttonText,styles.addText]}>캔버스에 추가</Text></Pressable>
@@ -65,11 +72,12 @@ const styles = StyleSheet.create({
   addText: { color: colors.surface },
   borderPreview:{flex:0,minWidth:76,minHeight:56,paddingHorizontal:8,paddingVertical:4},borderPreviewLabel:{color:colors.textMuted,fontSize:11,fontWeight:'600'},
   footer:{paddingHorizontal:16,paddingBottom:16,paddingTop:8},shapeList:{maxHeight:176,flexShrink:0},
+  moreButton:{minHeight:40,borderRadius:10,borderWidth:1,borderColor:colors.cardBorder,backgroundColor:colors.surface,alignItems:'center',justifyContent:'center'},moreText:{color:colors.text,fontSize:13,fontWeight:'700'},
   categoryTab:{flex:0,flexGrow:0,flexShrink:0,flexBasis:'auto',minWidth:64,minHeight:44,paddingHorizontal:12},
   noFill:{alignItems:'center',justifyContent:'center',backgroundColor:colors.surface},
-  palette:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},chosen:{borderWidth:3,borderColor:colors.primary},customColor:{width:30,height:30,borderRadius:15,borderWidth:1,borderStyle:'dashed',borderColor:colors.border,alignItems:'center',justifyContent:'center'},
+  palette:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},chosen:{borderWidth:3,borderColor:colors.primaryStrong},customColor:{width:28,height:28,borderRadius:14,borderWidth:1,borderStyle:'dashed',borderColor:colors.cardBorder,alignItems:'center',justifyContent:'center'},
   category:{minHeight:44,paddingHorizontal:12,borderRadius:11,borderWidth:1.5,borderColor:'transparent',backgroundColor:colors.surfaceMuted,justifyContent:'center'},
-  section:{gap:8}, shapes:{flexDirection:'row',flexWrap:'wrap',gap:0}, shape:{width:'16.666%',height:44,alignItems:'center',justifyContent:'center',borderRadius:10,borderWidth:1.5,borderColor:'transparent'},
-  selected:{borderColor:colors.primary,backgroundColor:colors.primarySoft}, swatches:{flexDirection:'row',flexWrap:'wrap',gap:4}, swatch:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
-  none:{color:colors.textMuted,fontSize:18},plus:{color:colors.text,fontSize:18},add:{minHeight:44,borderRadius:14,backgroundColor:colors.primaryStrong,alignItems:'center',justifyContent:'center'},secondary:{minHeight:44,borderRadius:14,backgroundColor:colors.surfaceMuted,alignItems:'center',justifyContent:'center'},buttonText:{color:colors.text,fontSize:13,fontWeight:'700'},hint:{color:colors.textMuted,fontSize:11,fontWeight:'600'},
+  section:{gap:8}, shapes:{flexDirection:'row',flexWrap:'wrap',gap:0}, shape:{width:'25%',height:56,alignItems:'center',justifyContent:'center',borderRadius:10,borderWidth:1,borderColor:'transparent'},
+  selected:{borderColor:colors.primaryStrong,borderWidth:2}, swatches:{flexDirection:'row',flexWrap:'wrap',gap:4}, swatch:{width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.cardBorder,alignItems:'center',justifyContent:'center'},
+  none:{color:colors.textMuted,fontSize:18},plus:{color:colors.text,fontSize:18},add:{minHeight:48,borderRadius:10,backgroundColor:colors.primaryStrong,alignItems:'center',justifyContent:'center'},secondary:{minHeight:44,borderRadius:12,backgroundColor:colors.surfaceMuted,alignItems:'center',justifyContent:'center'},buttonText:{color:colors.text,fontSize:13,fontWeight:'700'},hint:{color:colors.textMuted,fontSize:11,fontWeight:'600'},
 })

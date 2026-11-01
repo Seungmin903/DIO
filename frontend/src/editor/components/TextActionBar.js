@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../shared/theme'
 import { TEXT_COLORS } from '../utils/text'
+import { usePalette } from '../hooks/usePalettes'
 import Icon from './controls/Icon'
 
 export const TEXT_ACTION_BAR_WIDTH = 420
@@ -14,6 +15,7 @@ const keepFocus = { onMouseDown: (event) => event.preventDefault?.() }
  * '서식'을 누르면 아래에 고른 글자의 색·크기를 바꾸는 줄이 열린다.
  */
 export default function TextActionBar({ onColor, onIncrease, onDecrease, onCopy, onPaste, onDelete, onLink, hasSelection = true, canPaste = false, colorLabel = '선택 요소 색상', currentColor, linked = false }) {
+  const textColors = usePalette?.('text')?.colors ?? TEXT_COLORS // 꾸미기 공방 '내 프리셋'의 글자 색
   const [formatOpen, setFormatOpen] = useState(false)
   return (
     <View style={styles.wrap}>
@@ -29,7 +31,7 @@ export default function TextActionBar({ onColor, onIncrease, onDecrease, onCopy,
       </View>
       {hasSelection && formatOpen && (
         <View style={[styles.bar, styles.formatRow]}>
-          {TEXT_COLORS.map((color) => (
+          {textColors.map((color) => (
             <Pressable
               key={color}
               accessibilityRole="button"
@@ -59,7 +61,7 @@ function LabeledButton({ icon, label, active, onPress }) {
       onPress={onPress}
       style={({ pressed }) => [styles.button, active && styles.active, pressed && styles.pressed]}
     >
-      <Icon name={icon} size={17} color={colors.text} />
+      <Icon name={icon} size={17} forText={14} color={colors.text} />
       <Text style={styles.buttonText}>{label}</Text>
     </Pressable>
   )
@@ -82,14 +84,14 @@ function IconButton({ icon, label, danger, onPress }) {
 // 선택 바(ContextBar)와 같은 크기·모양
 const styles = StyleSheet.create({
   wrap: { alignItems: 'flex-start', gap: 6 },
-  bar: { height: 52, flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 5, borderRadius: 16, backgroundColor: colors.surface, ...shadow.float },
+  bar: { height: 52, flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 5, borderRadius: 12, backgroundColor: colors.surface, ...shadow.float },
   formatRow: { gap: 6, paddingHorizontal: 10 },
   button: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   buttonText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   iconButton: { width: 42, height: 42, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   active: { backgroundColor: colors.primarySoft },
-  pressed: { backgroundColor: colors.primarySoft },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },
-  swatch: { width: 25, height: 25, borderRadius: 13, borderWidth: 1, borderColor: colors.border },
+  swatch: { width: 25, height: 25, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
   chosen: { borderWidth: 3, borderColor: colors.primary },
 })

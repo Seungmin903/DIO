@@ -15,17 +15,19 @@ import CoverPattern from './CoverPattern'
 import { textStyle } from '../../editor/utils/text'
 import { loadPhotoTone } from '../utils/loadPhotoTone'
 import {
-  ANCHORS, BAND_COLORS, COVER_COLORS, COVER_FONTS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, PLATES, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
-  bandAutoColor, changeCoverKind, coverElementSummary,
+  ANCHORS, BAND_COLORS, COVER_COLORS, COVER_FONTS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, isLegacyGradient, PLATE_SHAPES, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
+  bandAutoColor, changeCoverKind, coverElementSummary, paintStops,
 } from '../utils/coverDesign'
 
 // 표지 종류(위 세 갈래)는 배경만 바꾸고, 아래 다섯 줄은 종류와 상관없이 같은 값을 쓴다.
-// 글씨(내용 · 글씨체 · 크기 · 색)는 '제목 · 소제목', 라벨 모양과 위치(9칸 · 끌어 옮기기)는 '라벨 · 위치'에서만 고친다.
-export const COVER_ELEMENTS = [['base', '배경'], ['band', '고무줄'], ['text', '제목 · 소제목'], ['plate', '라벨 · 위치'], ['stickers', '스티커']]
+// 글씨(내용 · 글씨체 · 크기 · 색)는 '제목 · 소제목', 라벨 모양과 위치(9칸 · 끌어 옮기기)는 '라벨'에서만 고친다.
+export const COVER_ELEMENTS = [['base', '배경'], ['band', '고무줄'], ['text', '제목 · 소제목'], ['plate', '라벨'], ['stickers', '스티커']]
 const KINDS = [{ id: 'none', label: '표지 없음' }, { id: 'plain', label: '색 · 무늬' }, { id: 'photo', label: '사진' }]
 const chips = list => list.map(([id, label]) => ({ id, label }))
 
-function GradientTile({ id, stops }) {
+// 견본도 표지와 같이 물감 섞기로 중간색을 채워 그린다
+function GradientTile({ id, stops: keys, legacy = false }) {
+  const stops = legacy ? keys : paintStops(keys) // 예전 프리셋은 표지와 같이 고른 색만 잇는다
   return <Svg width="100%" height="100%"><Defs><LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
     {stops.map((color, i) => <Stop key={i} offset={i / (stops.length - 1)} stopColor={color} />)}
   </LinearGradient></Defs><Rect width="100%" height="100%" fill={`url(#${id})`} /></Svg>
@@ -45,8 +47,9 @@ function BaseOptions({ cover, onChange }) {
       <ColorRow label="배경색" value={cover.color} active={cover.gradient == null} swatches={COVER_COLORS} onChange={color => set({ color, gradient: null })}
         picking={picking === 'solid'} onPicking={open => setPicking(open ? 'solid' : null)}
         after={<>
-          {COVER_GRADIENTS.map(([name, stops], index) => <Swatch key={name} label={`바탕 그라데이션 ${name}`} on={cover.gradient === index}
-            onPress={() => { set({ gradient: index }); setPicking(null) }}><GradientTile id={`cover-gradient-${index}`} stops={stops} /></Swatch>)}
+          {/* 예전 프리셋은 이 표지가 지금 쓰고 있을 때만(맨 앞에) 보인다. 새로 고를 수는 없다 */}
+          {COVER_GRADIENTS.map(([name, stops], index) => (!isLegacyGradient(index) || cover.gradient === index) && <Swatch key={index} label={`바탕 그라데이션 ${name}`} on={cover.gradient === index}
+            onPress={() => { set({ gradient: index }); setPicking(null) }}><GradientTile id={`cover-gradient-${index}`} stops={stops} legacy={isLegacyGradient(index)} /></Swatch>)}
           <CustomSwatch label="바탕 그라데이션 직접 고르기" on={cover.gradient === 'custom'} open={picking === 'gradient'}
             onPress={() => { if (cover.gradient !== 'custom') set({ gradient: 'custom' }); setPicking(picking === 'gradient' ? null : 'gradient') }}>
             <GradientTile id="cover-gradient-custom" stops={customStops} />
@@ -102,7 +105,7 @@ function PhotoOptions({ cover, onChange, onNotice, pickNow, onPickHandled }) {
     <OptionRow label="사진">
       <View style={styles.tiles}>
         <Pressable accessibilityRole="button" accessibilityLabel="내 사진 고르기" disabled={busy} onPress={choose} style={({ pressed }) => [styles.addPhoto, busy && styles.dim, pressed && styles.pressed]}>
-          <Icon name="image" size={16} /><Text style={styles.addPhotoText}>{busy ? '여는 중…' : cover.photo?.src ? '사진 바꾸기' : '사진 고르기'}</Text>
+          <Icon name="image" size={16} forText={12.5} /><Text style={styles.addPhotoText}>{busy ? '여는 중…' : cover.photo?.src ? '사진 바꾸기' : '사진 고르기'}</Text>
         </Pressable>
         {cover.photo?.src ? <View style={[styles.photoTile, styles.photoTileOn]}><OwnPhotoTile photo={cover.photo} /></View> : null}
       </View>
@@ -137,7 +140,7 @@ function StickerPicker({ cover, onChange, onNotice }) {
   const custom = useCustomDecor()
   const [query, setQuery] = useState('')
   const keyword = query.trim()
-  const { favorites, recents, favoriteKeys, chips, active, folder, groups, folderMatches } = stickerLibrary(custom.items, custom.lastStickerCategory, keyword)
+  const { favorites, recents, favoriteKeys, chips, active, folder, groups, folderMatches } = stickerLibrary(custom.items, custom.lastStickerCategory, keyword, { widgets: false })
   const list = keyword ? [...groups.flatMap(group => group.items), ...folderMatches]
     : active === 'favorites' ? favorites : active === 'recent' ? recents : folder ? folder.items : groups[0]?.items ?? []
   const add = item => {
@@ -197,11 +200,12 @@ function ElementOptions({ element, cover, onChange, onNotice, pickNow, onPickHan
       <OptionRow label="색"><ColorRow label="소제목 색" value={cover.subtitle.color} swatches={SUBTITLE_COLORS} onChange={color => set({ subtitle: { ...cover.subtitle, color } })} /></OptionRow>
     </>}
   </>
-  if (element === 'plate') return <>
-    <OptionRow label="모양"><Segmented items={chips(PLATES)} selected={id => id === cover.plate} onPress={plate => set({ plate })} /></OptionRow>
-    {cover.plate === 'ribbon' && <OptionRow label="띠지 색"><ColorRow label="띠지 색" value={cover.ribbon.color} swatches={RIBBON_COLORS} onChange={color => set({ ribbon: { ...cover.ribbon, color } })} /></OptionRow>}
+  // 꺼진 라벨도 고칠 수 있게 두되 흐리게 보인다. 모양을 고르면 라벨이 다시 켜진다.
+  if (element === 'plate') return <View style={cover.plate === 'none' && styles.off}>
+    <OptionRow label="모양"><Segmented items={chips(PLATE_SHAPES)} selected={id => id === cover.plateStyle} onPress={plate => set({ plate, plateStyle: plate })} /></OptionRow>
+    {cover.plateStyle === 'ribbon' && <OptionRow label="띠지 색"><ColorRow label="띠지 색" value={cover.ribbon.color} swatches={RIBBON_COLORS} onChange={color => set({ ribbon: { ...cover.ribbon, color } })} /></OptionRow>}
     <OptionRow label="위치"><AnchorGrid value={cover.title.at ? null : cover.title.anchor} onChange={anchor => set({ title: { ...cover.title, anchor, at: null } })} /></OptionRow>
-  </>
+  </View>
   if (element === 'stickers') return <StickerPicker cover={cover} onChange={onChange} onNotice={onNotice} />
   return null
 }
@@ -240,6 +244,7 @@ export default function CoverOptions({ cover, onChange, openElement, onOpenEleme
   }
   const toggles = {
     band: { value: cover.band.on, onChange: on => onChange({ ...cover, band: { ...cover.band, on } }) },
+    plate: { value: cover.plate !== 'none', onChange: on => onChange({ ...cover, plate: on ? cover.plateStyle : 'none' }) },
   }
   return <View style={styles.panel}>
     <Segmented items={KINDS} selected={id => id === (cover.enabled ? cover.kind : 'none')} onPress={changeKind} />
@@ -257,7 +262,7 @@ const styles = StyleSheet.create({
   panel: { gap: 12 },
   elements: { gap: 8 },
   dim: { opacity: 0.4 },
-  pressed: { opacity: 0.6 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
   subHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border },
   subTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
   off: { opacity: 0.45 },
@@ -267,7 +272,7 @@ const styles = StyleSheet.create({
   patternCell: { width: '25%', alignItems: 'center', gap: 4 },
   patternTile: { width: 48, height: 48, padding: 2, borderRadius: 12, borderWidth: 2, borderColor: 'transparent' },
   patternTileOn: { borderColor: colors.primary },
-  patternFill: { flex: 1, overflow: 'hidden', borderRadius: 9, borderWidth: 1, borderColor: 'rgba(11,25,87,.12)' },
+  patternFill: { flex: 1, overflow: 'hidden', borderRadius: 9, borderWidth: 1, borderColor: 'rgba(11,23,102,.12)' },
   patternName: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   patternNameOn: { color: colors.text, fontWeight: '800' },
   input: { height: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, color: colors.text, fontSize: 14, fontWeight: '700', backgroundColor: colors.surfaceSoft },

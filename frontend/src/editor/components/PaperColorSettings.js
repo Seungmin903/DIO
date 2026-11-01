@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import { PAPER_BACKGROUNDS, PAPER_LAYOUTS } from '../templates/appearance.js'
+import { DEFAULT_PAPER_FONT } from '../templates/paperFont.js'
+import { PaperFontPicker } from './PaperFontChips'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { START_HOURS } from '../templates/studyPlanner.js'
 import { HIGHLIGHTER_COLORS } from '../utils/penSettings'
@@ -13,9 +15,10 @@ const SNAP = [{ id: 'on', label: '켬' }, { id: 'off', label: '끔' }]
 /**
  * 속지 색 (빈 곳을 길게 눌러 연다). 다이어리를 만들 때 고르는 배경색·레이아웃 색과 같은 색들이다.
  * appearance: 지금 페이지의 { backgroundColor, layoutColor }. onChange(appearance, all): all 이면 모든 페이지(와 새로 추가할 페이지)에 쓴다.
- * planner: 스터디 플래너 페이지면 기록의 옵션({ restColor, startHour, snap })을 함께 보여 준다. onPlannerOptions(patch)
+ * showFont: 인쇄 글자가 있는 속지면 속지 글꼴(appearance.font, 없으면 원본 마루부리)을 함께 고른다. 이미 만든 페이지는 이 페이지 · 모든 페이지를 직접 고를 때만 바뀐다.
+ * planner: 스터디 · 데일리 플래너 페이지면 기록의 옵션을 함께 보여 준다. 스터디는 { restColor, startHour, snap }, 데일리(plannerKind 'day')는 { snap }. onPlannerOptions(patch)
  */
-export default function PaperColorSettings({ appearance, onChange, onClose, style, planner = null, onPlannerOptions }) {
+export default function PaperColorSettings({ appearance, onChange, onClose, style, planner = null, plannerKind = 'study', onPlannerOptions, showFont = false }) {
   const [scope, setScope] = useState('page')
   const pick = (patch) => onChange({ ...appearance, ...patch }, scope === 'all')
   return (
@@ -37,7 +40,13 @@ export default function PaperColorSettings({ appearance, onChange, onClose, styl
             </View>
           </View>
         ))}
-        {planner && <PlannerOptions options={planner.options} onChange={onPlannerOptions} />}
+        {showFont && (
+          <View style={styles.section}>
+            <Text style={toolPanelStyles.label}>글꼴</Text>
+            <PaperFontPicker value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={(font) => pick({ font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
+          </View>
+        )}
+        {planner && (plannerKind === 'day' ? <DayPlannerOptions options={planner.options} onChange={onPlannerOptions} /> : <PlannerOptions options={planner.options} onChange={onPlannerOptions} />)}
       </View>
     </View>
   )
@@ -75,12 +84,22 @@ function PlannerOptions({ options, onChange }) {
   )
 }
 
+/** 데일리 플래너 옵션. 이 페이지에만 쓴다. */
+function DayPlannerOptions({ options, onChange }) {
+  return (
+    <View style={styles.section}>
+      <Text style={toolPanelStyles.label}>펜 · 형광펜 칸 맞춤</Text>
+      <Segmented items={SNAP} selected={(id) => (id === 'on') === options.snap} onPress={(id) => onChange?.({ snap: id === 'on' })} />
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   section: { gap: 8 },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
-  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(11,25,87,0.15)' },
+  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(11,23,102,0.15)' },
   swatchOn: { borderWidth: 3, borderColor: colors.primary },
-  restSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(11,25,87,0.15)', alignItems: 'center', justifyContent: 'center' },
+  restSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(11,23,102,0.15)', alignItems: 'center', justifyContent: 'center' },
   none: { backgroundColor: colors.surface },
   noneText: { fontSize: 9, fontWeight: '700', color: colors.textMuted },
 })

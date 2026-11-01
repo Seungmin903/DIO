@@ -152,6 +152,7 @@ tasks.register('sharingPostgresTest', Test) {
     useJUnitPlatform()
     filter {
         includeTestsMatching 'com.f106.DIO.sharing.SharingPostgresTests'
+        includeTestsMatching 'com.f106.DIO.sharing.UserWithdrawalPostgresTests'
         includeTestsMatching 'com.f106.DIO.sharing.EmailInvitePostgresTests'
         includeTestsMatching 'com.f106.DIO.sharing.DiaryProfilePostgresTests'
         includeTestsMatching 'com.f106.DIO.sharing.SharingReviewPostgresTests'
@@ -241,5 +242,24 @@ tasks.register('collaborationPostgresTest', Test) {
     doFirst {
         if(!(environment['DIO_COLLABORATION_POSTGRES_URL']?.toString()==~/jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]+\/dio_collaboration_qa/) || !environment['DIO_COLLABORATION_POSTGRES_PASSWORD'])
             throw new GradleException('Explicit disposable dio_collaboration_qa URL/password required; no fallback.')
+    }
+}
+
+tasks.register('pushPostgresTest', Test) {
+    description = 'Runs push API and key rotation against an explicitly marked disposable loopback PostgreSQL database.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching 'com.f106.DIO.push.PushPostgresTests' }
+    environment 'DIO_PUSH_TEST', 'true'
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    doFirst {
+        def url = environment['DIO_PUSH_URL']?.toString()
+        def nonce = environment['DIO_PUSH_GUARD']?.toString()
+        if (environment['DIO_PUSH_TEST_DISPOSABLE'] != 'true' || !(url ==~ /jdbc:postgresql:\/\/127\.0\.0\.1:[0-9]{1,5}\/pushqa_[a-f0-9]{12}/) ||
+            !(nonce ==~ /[a-f0-9]{32}/) || !environment['DIO_PUSH_PASSWORD']?.toString()?.trim())
+            throw new GradleException('Explicit marked disposable loopback push database is required; no fallback.')
     }
 }

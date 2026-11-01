@@ -44,3 +44,57 @@ test('공유 필터는 내가 공유한 다이어리와 수락한 다이어리�
  assert.deepEqual(ids(queryDiaries(rows, { filter: 'favorite', sort: 'title' })), ['private', 'owner']);
  assert.deepEqual(queryDiaries([rows[0]], { filter: 'shared' }), []);
 });
+
+// 보관함 필터 = 범위(왼쪽 메뉴: 내 · 공유된 다이어리) + 즐겨찾기 칩. 예전 값 'all' · 'favorite' 도 그대로 읽는다.
+import { filterFavorite, filterScope, withFavorite } from '../src/diary/utils/libraryQuery.js';
+import { memberLibraryQuery, normalizeMemberLibraryQuery } from '../src/diary/services/memberLibraryQuery.js';
+import { libraryRequest } from '../src/diary/services/libraryReader.js';
+const scoped = [
+ { id: 'mine', title: '내 기록', createdAt: '2026-10-20' },
+ { id: 'mine-star', title: '내 별', createdAt: '2026-10-21', favorite: true },
+ { id: 'shared', title: '같이 쓰기', createdAt: '2026-10-22', sharedDiaryId: 's1' },
+ { id: 'shared-star', title: '같이 별', createdAt: '2026-10-23', isShared: true, favorite: true },
+];
+test('필터 값은 범위와 즐겨찾기로 나뉘고 예전 값(all · favorite)은 범위 없는 전체로 읽는다', () => {
+ const cases = [
+  ['personal', 'personal', false], ['personal:favorite', 'personal', true], ['shared', 'shared', false], ['shared:favorite', 'shared', true],
+  ['all', 'all', false], ['favorite', 'all', true], [undefined, 'all', false],
+ ];
+ for (const [filter, scope, favorite] of cases) {
+  assert.equal(filterScope(filter), scope, String(filter));
+  assert.equal(filterFavorite(filter), favorite, String(filter));
+ }
+});
+test('즐겨찾기 칩을 켜고 꺼도 범위는 그대로이고, 예전 값은 예전 값끼리 오간다', () => {
+ assert.equal(withFavorite('personal', true), 'personal:favorite');
+ assert.equal(withFavorite('personal:favorite', false), 'personal');
+ assert.equal(withFavorite('shared', true), 'shared:favorite');
+ assert.equal(withFavorite('shared:favorite', false), 'shared');
+ assert.equal(withFavorite('all', true), 'favorite');
+ assert.equal(withFavorite('favorite', false), 'all');
+});
+test('범위 · 즐겨찾기 조합마다 해당 다이어리만 남는다(예전 값 포함)', () => {
+ const pick = filter => ids(queryDiaries(scoped, { filter, sort: 'created' }));
+ assert.deepEqual(pick('personal'), ['mine-star', 'mine']);
+ assert.deepEqual(pick('personal:favorite'), ['mine-star']);
+ assert.deepEqual(pick('shared'), ['shared-star', 'shared']);
+ assert.deepEqual(pick('shared:favorite'), ['shared-star']);
+ assert.deepEqual(pick('all'), ['shared-star', 'shared', 'mine-star', 'mine']);
+ assert.deepEqual(pick('favorite'), ['shared-star', 'mine-star']);
+});
+test('회원 목록 조회는 범위를 filter, 즐겨찾기를 favorite 으로 나눠 보내고 서버 검증을 통과한다', () => {
+ const cases = [
+  ['personal', 'personal', false], ['personal:favorite', 'personal', true], ['shared:favorite', 'shared', true],
+  ['all', 'all', false], ['favorite', 'all', true],
+ ];
+ for (const [filter, scope, favorite] of cases) {
+  const query = memberLibraryQuery({ filter });
+  assert.equal(query.filter, scope, filter);
+  assert.equal(query.favorite, favorite, filter);
+  assert.deepEqual(normalizeMemberLibraryQuery(query), query);
+ }
+});
+test('보관함 목록 요청은 즐겨찾기 조합에서만 favorite 을 붙인다', () => {
+ for (const filter of ['personal:favorite', 'shared:favorite', 'favorite']) assert.equal(libraryRequest({ filter }).favorite, true, filter);
+ for (const filter of ['personal', 'shared', 'all']) assert.equal('favorite' in libraryRequest({ filter }), false, filter);
+});

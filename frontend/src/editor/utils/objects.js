@@ -5,6 +5,7 @@
 import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_FRAME_ASSETS, PHOTO_SHAPES, LEGACY_TAPE_NAMES, FRAME_INSETS, TAPE_DEFAULT_OPACITY, TAPE_SIZES, TAPES } from '../constants'
 import { shapeDefinition } from './editorShapes'
 import { clamp, createId } from './common'
+import { createDdayWidget, ddayStyleOf } from '../widgets/dday'
 import { fillCells, isStripFrame, photoCell, stripSizeForCell } from './photoStrip'
 
 const base = (type, center, w, h, extra) => ({
@@ -19,6 +20,10 @@ const base = (type, center, w, h, extra) => ({
 })
 
 export function createSticker(item, center) {
+  if (item.widget === 'dday') {
+    const style = ddayStyleOf(item.style)
+    return base('sticker', center, style.w, style.h, { widget: createDdayWidget(style.id), name: item.name })
+  }
   if (item.asset) {
     return base('sticker', center, 96, 96, {
       asset: item.asset,

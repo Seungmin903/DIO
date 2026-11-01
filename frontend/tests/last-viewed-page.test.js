@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js';
 import * as session from '../src/editor/services/sessionDocuments.js';
+import * as common from '../src/editor/utils/common.js';
+import * as collaboration from '../src/collaboration/collaborationReducer.js';
 import { memberDocumentKey } from '../src/diary/services/memberStorage.js';
 import { purgeTrashedDiary } from '../src/diary/utils/trashRetention.js';
 
@@ -148,6 +150,8 @@ function editorHook({ cached = true, viewed, store, diary = { id: 'a' } }) {
   };
   const mocks = {
     react,
+    '../../collaboration/collaborationReducer.js': collaboration,
+    '../utils/common.js': common,
     'react-native': { AppState: { addEventListener: () => ({ remove() {} }) } },
     '../state/defaultDoc': { createDefaultDoc: () => ({ ...doc, pages: [doc.pages[0]] }) },
     '../state/editorReducer': { createInitialState, editorReducer },

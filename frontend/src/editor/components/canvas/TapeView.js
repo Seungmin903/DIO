@@ -3,6 +3,7 @@ import { useMediaUri } from '../../hooks/useMediaUri'
 import { coverLayout } from '../../utils/objects'
 import { LEGACY_TAPE_PATTERNS, TAPE_DEFAULT, TAPE_PALETTES } from '../../constants'
 import { useSvgId } from '../../utils/svgId'
+import { LACE_HEIGHT, LACE_TILES } from './laceTapes'
 import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Line, Path, Pattern, Polygon, Rect } from 'react-native-svg'
 
 // 기본 테이프 크기(180×34)의 가로:세로. 이미지 테이프 자르기 틀도 이 비율을 쓴다.
@@ -26,8 +27,19 @@ export function tapeLook(pattern, palette) {
  * 무늬 타일. 바탕(bg)·무늬(fg) 두 색으로 그려서 무늬는 그대로 두고 색만 바꿀 수 있다.
  * 화면 배율과 상관없이 같은 밀도로 보이도록 scale 을 곱한다.
  */
-function PatternTile({ id, pattern, bg, fg, scale }) {
+function PatternTile({ id, pattern, bg, fg, scale, height }) {
   const s = (v) => v * scale
+  const lace = LACE_TILES[pattern]
+  if (lace) {
+    // 레이스: 구멍이 뚫린 레이스 모양 하나(evenodd)만 칠하고 바탕 사각형은 없다. 칠하지 않은 곳은 진짜 투명이라 밑이 비친다.
+    // 레이스는 한 가지 색(바탕색)이다. 타일은 테이프 높이에 맞춰 키운다.
+    const k = height / LACE_HEIGHT
+    return (
+      <Pattern id={id} patternUnits="userSpaceOnUse" width={lace.width * k} height={height} viewBox={`0 0 ${lace.width} ${LACE_HEIGHT}`}>
+        <Path d={lace.body} fill={bg} fillRule="evenodd" />
+      </Pattern>
+    )
+  }
   switch (pattern) {
     case 'stripe':
       // 사선 스트라이프
@@ -474,7 +486,7 @@ export default function TapeView({ pattern, palette, segmentRatio, src, mediaFil
     return (
       <Svg key={variant} width={width} height={height}>
         <Defs>
-          {centeredTile(PatternTile({ id: patternId, pattern: look.pattern, bg: look.bg, fg: look.fg, scale }), height)}
+          {centeredTile(PatternTile({ id: patternId, pattern: look.pattern, bg: look.bg, fg: look.fg, scale, height }), height)}
         </Defs>
         <Polygon points={points} fill={`url(#${patternId})`} />
       </Svg>

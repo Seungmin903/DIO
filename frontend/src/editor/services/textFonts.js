@@ -11,6 +11,8 @@ const FONT_FILES = {
   GowunDodum: require('../../../assets/fonts/gowundodum/GowunDodum-Regular.ttf'),
   GowunBatang: require('../../../assets/fonts/gowunbatang/GowunBatang-Regular.ttf'),
   GowunBatangBold: require('../../../assets/fonts/gowunbatang/GowunBatang-Bold.ttf'),
+  MaruBuri: require('../../../assets/fonts/maruburi/MaruBuri-Regular.ttf'),
+  MaruBuriBold: require('../../../assets/fonts/maruburi/MaruBuri-Bold.ttf'),
   NanumPenScript: require('@expo-google-fonts/nanum-pen-script/400Regular/NanumPenScript_400Regular.ttf'),
   PoorStory: require('@expo-google-fonts/poor-story/400Regular/PoorStory_400Regular.ttf'),
 }

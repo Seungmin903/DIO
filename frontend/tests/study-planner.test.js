@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  applyPlannerStroke, erasePlanner, normalizePlanner, plannerBaseSvg, plannerLayout, plannerOverlaySvg, plannerStrokeCells, plannerTextSlot, plannerTotals, setPlannerOptions,
+  applyPlannerStroke, erasePlanner, plannerEditTap, plannerTitleAt, normalizePlanner, plannerBaseSvg, plannerLayout, plannerOverlaySvg, plannerStrokeCells, plannerTextSlot, plannerTotals, setPlannerOptions,
   studyPlannerSvg, studyPlannerId, wholePercents,
 } from '../src/editor/templates/studyPlanner.js'
 import { getTemplate, reusableTemplates } from '../src/editor/templates/catalog.js'
@@ -161,14 +161,18 @@ test('텍스트 도구로 칸을 누르면 그 칸 · 줄에 맞춘 글상자 �
     const L = plannerLayout(o), T = L.todo
     // 할 일: 누른 줄 칸, 체크칸 · 색 칸 사이 폭, 줄 높이 = 칸 높이
     const todo = plannerTextSlot(o, { x: T.x + 120, y: todoY(4, o) + 6 })
-    assert.equal(todo.y, T.y + 30 + 4 * 28)
-    assert.equal(todo.fontSize * todo.lineSpacing, 28)
+    assert.equal(todo.y, T.y + 30 + 4 * 28 + 4) // 줄 높이 20 을 칸(28) 가운데에
+    assert.equal(todo.fontSize * todo.lineSpacing, 20)
+    assert.equal(todo.fontSize, 13)
+    // 속지 글꼴(마루부리)과 칸 이름에 맞춘 글자 크기(머리줄 · 메모 · 돌아보기 14)
+    for (const slot of [todo, plannerTextSlot(o, { x: 300, y: 125 }), plannerTextSlot(o, { x: L.date.x + 2, y: 66 }), plannerTextSlot(o, { x: L.review.x + 50, y: L.review.y + 62 })]) assert.equal(slot.font, 'maruburi')
+    assert.deepEqual([plannerTextSlot(o, { x: 300, y: 125 }).fontSize, plannerTextSlot(o, { x: L.review.x + 50, y: L.review.y + 62 }).fontSize], [14, 14])
     assert.ok(todo.x > T.x + 34 && todo.x + todo.width < T.x + T.w - 36)
     // 체크칸 · 색 칸은 글상자가 아니다
     assert.equal(plannerTextSlot(o, { x: T.x + 10, y: todoY(4, o) }), null)
     // 오늘 돌아보기: 누른 줄 위 칸, 여러 줄도 밑줄 간격 그대로
     const R = L.review, review = plannerTextSlot(o, { x: R.x + 50, y: R.y + 62 })
-    assert.equal(review.y, R.y + 30 + 28 + 3)
+    assert.equal(review.y, R.y + 30 + 28 + 6)
     assert.equal(review.width, R.w - 24)
     // 날짜 · D-day · 목표: 밑줄 폭
     assert.deepEqual([plannerTextSlot(o, { x: L.date.x + 2, y: 66 }).x, plannerTextSlot(o, { x: L.date.x + 2, y: 66 }).width], [L.date.line[0], L.date.line[1] - L.date.line[0]])
@@ -285,4 +289,34 @@ test('PNG · PDF 내보내기 속지에도 칠한 칸이 들어간다', async ()
   assert.match(prepared.backgroundXml, /fill="#FFE066"/)
   assert.match(prepared.backgroundXml, /aria-label="1"><path[^]*?aria-label="시간 "><path[^]*?aria-label="00"><path[^]*?aria-label="분">/)
   prepared.dispose()
+})
+
+test('선택 도구로 칸을 누르면 완료 · 할 일 · 오늘의 목표 · 요일 · 하트가 바로 입력된다', () => {
+  for (const o of ['landscape', 'portrait']) {
+    const L = plannerLayout(o), T = L.todo
+    const boxP = { x: T.x + 17, y: todoY(2, o) }, textP = { x: T.x + 120, y: todoY(2, o) }
+    const on = plannerEditTap(o, boxP, null, '#3366FF')
+    assert.equal(normalizePlanner(on.planner).checks[2], '#3366FF')
+    assert.equal(normalizePlanner(plannerEditTap(o, boxP, on.planner, '#3366FF').planner).checks[2], undefined)
+    assert.deepEqual(plannerEditTap(o, textP, null), { text: textP })
+    assert.deepEqual(plannerEditTap(o, { x: 300, y: 125 }, null), { text: { x: 300, y: 125 } })
+    assert.ok(plannerEditTap(o, { x: L.date.x + 2, y: 66 }, null).text)
+    assert.ok(plannerEditTap(o, { x: L.dday.line[1] - 2, y: 66 }, null).text)
+    assert.equal(plannerEditTap(o, { x: T.x + T.w - 10, y: todoY(2, o) }, null), null) // 색 칸
+    assert.equal(plannerEditTap(o, { x: (L.memo ?? L.review).x + 50, y: (L.memo ?? L.review).y + 80 }, null), null) // 메모 · 돌아보기는 넓은 빈 곳이라 글상자를 만들지 않는다
+    assert.equal(plannerEditTap(o, cell(3, 2, o), null), null) // 시간표는 형광펜으로 칠한다
+    const day = plannerEditTap(o, { x: L.week.x + 2 * 26, y: L.week.cy }, null, '#3366FF')
+    assert.equal(normalizePlanner(day.planner).day.i, 2)
+    assert.equal(normalizePlanner(plannerEditTap(o, { x: L.week.x + 2 * 26, y: L.week.cy }, day.planner).planner).day, null)
+    const M = L.mood, s = 20, gap = 8, x0 = M.x + M.w - 12 - 5 * s - 4 * gap, heart = i => ({ x: x0 + s / 2 + i * (s + gap), y: M.y + M.h / 2 })
+    const filled = plannerEditTap(o, heart(1), null, '#3366FF')
+    assert.deepEqual(normalizePlanner(filled.planner).mood.hearts.map(h => h && h.color), [null, '#3366FF', null, null, null])
+    assert.equal(normalizePlanner(plannerEditTap(o, heart(1), filled.planner).planner).mood, null)
+    // 이미 쓴 글은 눌러서 고친다
+    const box = { id: 't', type: 'text', text: '수학', x: textP.x - 40, y: textP.y - 10, w: 80, h: 20 }
+    assert.equal(plannerTitleAt(o, textP, [box]), box)
+    assert.equal(plannerTitleAt(o, { x: T.x + 17, y: todoY(2, o) }, [box]), null)
+    const goal = { id: 'g', type: 'text', text: '합격', x: 200, y: 110, w: 100, h: 20 }
+    assert.equal(plannerTitleAt(o, { x: 500, y: 125 }, [goal]), goal)
+  }
 })

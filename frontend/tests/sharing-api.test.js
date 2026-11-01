@@ -127,3 +127,17 @@ test('인증이 필요한 다이어리 사진은 인증 fetch 후 메모리 이�
   const diary = await f.runtime.getSharing(diaryId);
   assert.equal(diary.members[0].photoUri, 'data:image/png;base64,iVBORw==');
 });
+
+
+test('명세의 membership 경로로 별칭·사진과 즐겨찾기를 수정한다', async () => {
+  const f = fixture();
+  await f.runtime.getSharing(diaryId);
+  await f.runtime.updateProfile(diaryId, { nickname: '우리별칭', photoUri: null });
+  await f.runtime.updateProfile(diaryId, { nickname: '우리별칭', photoUri: 'file:///membership-test.png' });
+  await f.runtime.toggleFavorite(diaryId);
+  const writes = f.calls.filter(call => call.method === 'PATCH');
+  assert.equal(writes.length, 3);
+  assert.ok(writes.every(call => call.url === `https://api.dio.test/api/v1/diaries/${diaryId}/membership`));
+  assert.equal(writes[1].body, 'multipart');
+  assert.equal(JSON.parse(writes[2].body).favorite, true);
+});

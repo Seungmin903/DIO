@@ -238,3 +238,4 @@ Swagger에서 로그인한 뒤에는 **Authorize**에 로그인 응답의 Access
 ## 로그인 상태의 비밀번호 변경
 
 GET·PATCH `/api/v1/me`는 로그인한 회원의 `userId`, `email`, `nickname`, `profilePhotoUrl`을 조회·수정한다. JSON PATCH는 닉네임 수정 및 `removeProfilePhoto: true`의 기본 이미지 복원을 지원하고, 사진 변경은 `profile` JSON 파트와 `photo` 파일을 보내는 multipart PATCH를 쓴다. 기존 사진 파일은 새 사진 메타데이터가 저장된 뒤 삭제를 시도한다. DELETE `/api/v1/me`는 계정을 `WITHDRAWN`으로 전환하고 `deleted_at`을 기록한 뒤 모든 로그인 세션을 폐기하며 204를 반환한다. PATCH `/api/v1/me/password`는 현재 비밀번호 검증 후 모든 세션을 폐기한다. [요청·응답과 검증 범위](./password-change.md)를 참고한다.
+GET·PATCH `/api/v1/me`는 로그인한 회원의 `userId`, `email`, `nickname`, `profilePhotoUrl`을 조회·수정한다. JSON PATCH는 닉네임 수정 및 `removeProfilePhoto: true`의 기본 이미지 복원을 지원하고, 사진 변경은 `profile` JSON 파트와 `photo` 파일을 보내는 multipart PATCH를 쓴다. 기존 사진 파일은 새 사진 메타데이터가 저장된 뒤 삭제를 시도한다. DELETE `/api/v1/me`는 계정을 `WITHDRAWN`으로 전환하고 `deleted_at`을 기록한 뒤 모든 로그인 세션을 폐기하며 204를 반환한다. PATCH `/api/v1/me/password`는 현재 비밀번호 검증 후 모든 세션을 폐기한다. [요청·응답과 검증 범위](./password-change.md)를 참고한다.

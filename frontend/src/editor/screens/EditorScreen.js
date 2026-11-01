@@ -1,5 +1,6 @@
+import { canLeaveForInvitation } from '../../notifications/editorInvitationGuard';
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { BackHandler, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Animated, BackHandler, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
@@ -45,23 +46,25 @@ import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
 import TopBar from '../components/chrome/TopBar'
 import Viewport from '../components/canvas/Viewport'
-import { ReadingHeader, ReadingNavigation, ReadingModeControls, READING_PADDING } from '../components/chrome/ReadingChrome'
+import { ReadingHeader, ReadingNavigation, ReadingModeControls, READING_PADDING, READING_PADDING_FULL } from '../components/chrome/ReadingChrome'
 import { StageOverlayHost } from '../components/canvas/StageOverlay'
 import { ViewportMotion } from '../components/canvas/StaticPage'
+import ReadingPageTurn from '../components/canvas/ReadingPageTurn'
+import { readingEdgeMessage, turnLift, turnProgress, turnShouldComplete } from '../utils/pageTurn.js'
 import { PHONE_ZOOM_MAX, ZOOM_MAX, ZOOM_MIN } from '../constants'
 import { useEditor } from '../hooks/useEditor'
 import { useMemberCanvasCollaboration } from '../hooks/useMemberCanvasCollaboration'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
-import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, panView } from '../utils/viewport.js'
+import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox } from '../utils/objects'
 import { isTicketFrame } from '../components/canvas/PhotoFrame'
 import { isStripFrame, photoCell, stripCellBoxes } from '../utils/photoStrip'
 import { startPagePanelMeasurement } from '../utils/pagePanelPerformance.js'
 
-import PageAddPicker from '../components/PageAddPicker'
+import PageAddPicker, { prefetchPageAddPapers } from '../components/PageAddPicker'
 import { pageSize, pageTemplateOrientation } from '../utils/pageGeometry.js'
 
 // 텍스트 글꼴은 앱이 켜질 때(이 화면 모듈을 불러올 때) 미리 불러오기 시작한다. 편집기를 열 즈음에는 대부분 준비된다.
@@ -73,7 +76,7 @@ const exportEnabled = true
 // 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
 const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
 // 폰: 도구 막대가 작업창 밖(위·오른쪽)에 있어서 스테이지에는 되돌리기 바 여백만 남긴다.
-const PHONE_STAGE_PADDING = { top: 16, bottom: 68, side: 12 }
+const PHONE_STAGE_PADDING = { top: 24, bottom: 68, side: 12 } // 도구 막대 아래 여백 24(코덱스 안)
 
 // 상위 보관함에서 대상 다이어리와 읽기 전용 여부를 전달한다.
 // compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 상단 도구 막대),
@@ -85,7 +88,7 @@ function cellCropPhoto(strip, index) {
   return cell && box ? { ...cell, id: `${strip.id}:${index}`, cell: index, x: 0, y: 0, w: box.width, h: box.height, frame: 'shape', shape: 'rect' } : null
 }
 
-export default function EditorScreen({ sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly: permissionReadOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, fixedViewportZoom = null, qaController = null }) {
+export default function EditorScreen({ registerInvitationLeaveGuard, sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly: permissionReadOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, fixedViewportZoom = null, qaController = null }) {
   const [readingMode, setReadingMode] = useState(false)
   const [readerMenuVisible, setReaderMenuVisible] = useState(true)
   const readOnly = permissionReadOnly || readingMode
@@ -106,6 +109,12 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const deferredObjects = useDeferredValue(page.objects)
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   const templateOrientation = pageTemplateOrientation(state.doc, page)
+  // 페이지 추가 팝업의 속지(줄 · 모눈 · 도트 …)를 미리 불러 둬 열자마자 그려지게 한다
+  // (편집 화면이 자리 잡은 뒤에 불러 와 첫 화면을 막지 않는다)
+  useEffect(() => {
+    const timer = setTimeout(() => prefetchPageAddPapers(templateOrientation), 1500)
+    return () => clearTimeout(timer)
+  }, [templateOrientation])
   // 앞뒤 페이지 속지를 미리 해석해 두어 페이지를 넘길 때 빈 속지가 보이지 않게 한다.
   // 필기마다 pages 배열이 바뀌므로, 앞뒤 페이지의 속지가 바뀔 때만 다시 실행한다.
   const pageIndex = state.doc.pages.findIndex((item) => item.id === page.id)
@@ -155,6 +164,11 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const [lasso, setLasso] = useState({ shape: 'rectangle', mode: 'replace' })
   useEffect(() => { setLasso(current => ({ ...current, mode: 'replace' })) }, [page.id])
   const [textEditing, setTextEditing] = useState(null)
+  // 데일리 플래너 할 일을 펜 · 형광펜으로 눌러 쓴 경우, 글 입력을 마치면 그 도구로 돌아간다(그 밖에는 선택 도구)
+  const textReturnTool = useRef(null)
+  const returnableTool = (tool) => (tool === 'pen' || tool === 'highlighter' ? tool : null)
+  // 글 입력이 저장 · 취소 · 그 밖의 어떤 경로로 끝나도 돌아갈 도구를 비워, 다음 입력(도형 글 등)이 옛 도구로 돌아가지 않게 한다.
+  useEffect(() => { if (!textEditing) textReturnTool.current = null }, [textEditing])
   // 사진 틀(티켓 · 네컷)의 인쇄 글자를 캔버스에서 바로 고치는 중 { pageId, id, line }
   const [frameTextEdit, setFrameTextEdit] = useState(null)
   const textBoundary = useRef(null)
@@ -190,7 +204,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
     setLayersOpen(false)
     setPagesOpen(false)
   }
-  const stagePadding = readOnly ? READING_PADDING : compact ? PHONE_STAGE_PADDING : STAGE_PADDING
+  const stagePadding = readOnly ? (readerMenuVisible ? READING_PADDING : READING_PADDING_FULL) : compact ? PHONE_STAGE_PADDING : STAGE_PADDING
   const [focusMode, setFocusMode] = useState(false)
   const phoneLandscape = compact && landscape
   // 폰 집중 편집: 막대를 모두 숨기고 종료 버튼만 남긴다.
@@ -200,6 +214,12 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
   const [photoCropId, setPhotoCropId] = useState(null) // 자르기 창을 연 사진
+  useEffect(() => registerInvitationLeaveGuard?.(() => {
+    const allowed = canLeaveForInvitation({ loaded, saveStatus, editing: Boolean(textEditing || cropId || tapeCropId || photoCropId) });
+    if (!allowed) showToast('입력·자르기와 저장을 마친 뒤 다이어리를 열어 주세요.');
+    return allowed;
+  }), [registerInvitationLeaveGuard, loaded, saveStatus, textEditing, cropId, tapeCropId, photoCropId]);
+
   const [photoCropCell, setPhotoCropCell] = useState(null) // 여러 칸 틀이면 자르는 칸 번호
   // 복사한 요소: 다른 페이지·다른 다이어리 탭에도 붙여 넣는다 (services/objectClipboard)
   const copiedObjects = useObjectClipboard()
@@ -252,6 +272,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   const viewportLocked = Number.isFinite(fixedViewportZoom) && fixedViewportZoom > 0
   const zoom = viewportLocked ? fixedViewportZoom : fitZoom * view.scale
   const offset = viewportLocked || view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) : { x: view.x, y: view.y }
+  // 이미 화면에 맞춰져 있으면 우하단 "화면에 맞춤" 버튼을 비활성화한다 (고정 보기는 옮길 수 없으니 늘 맞춤)
+  const viewFitted = viewportLocked || isFitView(view, centeredOffset(stageSize, fitZoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding))
 
   // 페이지가 화면 밖으로 다 사라지지 않게 가장자리 80px 은 남긴다.
   const clampOffset = (next, z) => clampViewportOffset(next, z, stageSize, PAGE_WIDTH, PAGE_HEIGHT)
@@ -338,15 +360,67 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   if (cropId && !cropTarget) setCropId(null)
 
   const fitToScreen = () => setView({ scale: 1, x: null, y: null })
+  // 읽기: 앞장(지금 보이는 캔버스)은 건드리지 않고, 접힘선 너머로 드러나는 새 페이지와 접힌 뒷면만 위에 얹어 움직인다.
+  // 다 넘어간 뒤에야 페이지를 바꾼다. (앞장을 다시 그리거나 위치를 잡지 않으므로 떨리지 않는다)
+  const flip = useRef(new Animated.Value(0)).current
+  const [turn, setTurn] = useState(null) // { page: 드러나는 페이지, from: 넘어가는(보이는) 페이지, dir: 1 다음 · -1 이전, lift }
+  const turnRef = useRef(null)
+  turnRef.current = turn
+  const dragTurn = useRef(null) // 손가락을 따라 넘기는 중 { dir, target, settling }
+  // 읽기 모드를 끄거나 화면을 닫으면 진행 중인 넘김을 멈춘다. (멈추면 완료 콜백은 finished=false 로 끝나 페이지를 바꾸지 않는다)
+  useEffect(() => { if (!readOnly) { flip.stopAnimation(); setTurn(null); dragTurn.current = null } }, [readOnly, flip])
+  useEffect(() => () => flip.stopAnimation(), [flip])
+  const nativeDriver = Platform.OS !== 'web'
+  const startTurn = (from, target, dir, lift) => {
+    flip.stopAnimation()
+    flip.setValue(0)
+    setTurn({ page: target, from, dir, lift })
+  }
+  const finishTurn = (target) => { dispatch({ type: 'selectPage', id: target.id }); fitToScreen(); setTurn(null) }
   const selectReadingPage = (index) => {
+    if (!loaded || dragTurn.current) return
+    const running = turnRef.current
+    const base = running ? running.page : page // 넘기는 중이면 그 목적지가 기준
+    const baseIndex = state.doc.pages.findIndex((item) => item.id === base.id)
     const target = state.doc.pages[index]
-    if (!loaded || !target || target.id === page.id) return
-    dispatch({ type: 'selectPage', id: target.id })
-    fitToScreen()
+    const edge = readingEdgeMessage(index, state.doc.pages.length)
+    if (edge) { showToast(edge); return }
+    if (target.id === base.id) return
+    if (running) dispatch({ type: 'selectPage', id: base.id }) // 진행 중이던 넘김은 바로 끝낸다 (빠르게 연달아 넘길 때)
+    startTurn(base, target, index > baseIndex ? 1 : -1, 0)
+    Animated.timing(flip, { toValue: 1, duration: 620, easing: Easing.inOut(Easing.quad), useNativeDriver: nativeDriver }).start(({ finished }) => { if (finished) finishTurn(target) })
+  }
+  // 손가락 따라 넘기기: 손가락만큼 접고, 놓을 때 넘어간 정도가 충분하면 끝까지 넘기고 아니면 되돌린다.
+  const readingDrag = ({ type, dx = 0, duration = 0, y }) => {
+    const width = PAGE_WIDTH * zoom
+    const drag = dragTurn.current
+    if (type === 'start') {
+      if (!loaded || turnRef.current || drag) return false
+      const dir = dx < 0 ? 1 : -1
+      const target = state.doc.pages[pageIndex + dir]
+      if (!target) return false
+      dragTurn.current = { dir, target }
+      startTurn(page, target, dir, turnLift(y))
+      return true
+    }
+    if (!drag || drag.settling) return undefined
+    const progress = turnProgress({ dir: drag.dir, dx, width })
+    if (type === 'move') { flip.setValue(progress); return undefined }
+    const complete = turnShouldComplete({ progress, dir: drag.dir, dx, duration, cancelled: type !== 'end' })
+    drag.settling = true
+    Animated.timing(flip, { toValue: complete ? 1 : 0, duration: 120 + 380 * (complete ? 1 - progress : progress), easing: Easing.out(Easing.quad), useNativeDriver: nativeDriver }).start(({ finished }) => {
+      if (!finished) return
+      dragTurn.current = null
+      if (complete) finishTurn(drag.target)
+      else setTurn(null)
+    })
+    return undefined
   }
   const readingAction = (action) => {
-    if (action === 'menu') setReaderMenuVisible(visible => !visible)
-    else selectReadingPage(pageIndex + (action === 'next' ? 1 : -1))
+    if (action === 'menu') { setReaderMenuVisible(visible => !visible); return }
+    const base = turnRef.current ? turnRef.current.page : page
+    const baseIndex = state.doc.pages.findIndex((item) => item.id === base.id)
+    selectReadingPage(baseIndex + (action === 'next' ? 1 : -1))
   }
   const toggleReading = () => {
     if (permissionReadOnly) return
@@ -378,6 +452,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
     const object = createObjectFromDecor(item, randomCenter())
     dispatch({ type: 'addObjects', objects: [object] })
     closeAfterInsert()
+    // 위젯은 붙이자마자 옵션을 열어 기준 날짜부터 정하게 한다
+    if (object.widget) setMoreOpen(true)
   }
 
   const movePage = async (id,toIndex) => {
@@ -674,12 +750,15 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
   // 패널은 오른쪽 바깥 여백(16)을 덮으므로 작업창 폭은 패널 폭 + 간격 - 16 만큼 바뀐다.
   const toggleLayers = (open) => {
     if (open === showLayers) return
-    if (compact && open) setPagesOpen(false)
+    // 태블릿은 페이지 목록(왼쪽)과 레이어(오른쪽)를 각각 켜고 끌 수 있다. 폰은 둘 다 작업창 위에 띄우므로 한쪽을 열면 다른 쪽은 닫는다.
+    const closePages = compact && open && showPages
+    if (closePages) setPagesOpen(false)
     setLayersOpen(open)
     // 폰은 레이어를 작업창 위에 띄우므로 작업창 크기가 그대로다.
     if (compact) return
     const delta = LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING
-    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) })
+    const pagesDelta = closePages ? PAGE_LIST_WIDTH + BODY_GAP : 0
+    setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) + pagesDelta })
   }
 
   // 리본(태블릿)과 폰 도구 막대가 함께 쓰는 도구·보관함·내보내기 동작
@@ -741,13 +820,16 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
     const open = !showPages
     pagePanelMeasurement.current?.dispose()
     pagePanelMeasurement.current = startPagePanelMeasurement({ open, tool: activeTool, objects: page.objects.length, pages: state.doc.pages.length })
-    if (compact && open) setLayersOpen(false)
+    // 태블릿은 레이어 패널과 각각 켜고 끈다. 폰은 한쪽을 열면 다른 쪽은 닫는다.
+    const closeLayers = compact && open && showLayers
+    if (closeLayers) setLayersOpen(false)
     setPagesOpen(open)
     // 작업창 왼쪽 끝이 움직이므로 새 크기를 같은 화면에서 바로 써서 한 번에 맞춘다.
     // (측정값을 기다리면 페이지가 왼쪽 끝을 따라 한 번 밀렸다가 다시 가운데로 와서 두 번 움직였다)
     // 폰은 페이지 목록을 작업창 위에 띄우므로 작업창 크기가 그대로다.
     const delta = compact ? 0 : PAGE_LIST_WIDTH + BODY_GAP
-    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) })
+    const layersDelta = !compact && closeLayers ? LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING : 0
+    if (delta) setStageSize((prev) => prev && { ...prev, width: prev.width + (showPages ? delta : -delta) + layersDelta })
   }
   const switchLayers = () => {
     setFocusMode(false)
@@ -909,7 +991,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           onClose={() => setOverviewFilter(null)}
         />
       )}
-      {templatePickerOpen && !readOnly && <PageAddPicker compact={compact} orientation={templateOrientation} appearance={state.doc.paperAppearance} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 + bottomInset }}
+      {templatePickerOpen && !readOnly && <PageAddPicker compact={compact} orientation={templateOrientation} currentAssetId={page.backgroundAssetId} appearance={state.doc.paperAppearance} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 + bottomInset }}
         onClose={() => setTemplatePickerOpen(false)} onSelect={async backgroundAssetId => {
           try{
             if(textSync.enabled)await textSync.addPage(backgroundAssetId)
@@ -955,6 +1037,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
             reading={readOnly}
             readingLinkRef={readingLinkRef}
             onReadingAction={readingAction}
+            onReadingDrag={readingDrag}
             zoom={zoom}
             scale={viewportLocked ? 1 : view.scale}
             interactionLocked={viewportLocked}
@@ -970,6 +1053,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           >
             {/* 확대·이동 중이거나 화면 밖에 있는 GIF 는 첫 장면으로 멈춘다 (StaticPage) */}
             <ViewportMotion.Provider value={{ moving: viewMoving, visible: stageSize ? { x: -offset.x / zoom, y: -offset.y / zoom, width: stageSize.width / zoom, height: stageSize.height / zoom } : null }}>
+              <View style={{ width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }}>
               <Canvas
                 showBackground={loaded}
                 compact={compact}
@@ -999,7 +1083,7 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
                 textCommitRef={textCommitRef}
                 onReadingLinkStart={() => { readingLinkRef.current = true }}
                 textEditing={textEditing?.pageId === page.id ? textEditing : null}
-                onEditText={(object) => { setTextSettingsOpen(false); setTextEditing({ ...object, pageId: page.id, existing: true }) }}
+                onEditText={(object) => { setTextSettingsOpen(false); textReturnTool.current = returnableTool(activeTool); setTextEditing({ ...object, pageId: page.id, existing: true }) }}
                 onTextSettings={() => { setTextSettingsOpen(current => !current); setMoreOpen(false) }}
                 onCopy={(objects) => { objectClipboard.set(objects); showToast(`${objects.length}개를 복사했어요.`) }}
                 onPaste={paste}
@@ -1035,9 +1119,9 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
           } else if (text.trim()) dispatch({ type: 'addObjects', objects: [{ ...createText({ ...textEditing, ...(fitted.w && { width: fitted.w }), text, colorRanges, styleRanges }), ...fitted }] })
         }
         setTextEditing(null)
-        setActiveTool('select')
+        setActiveTool(textReturnTool.current ?? 'select')
       }}
-                onCreateText={(box) => { setTextSettingsOpen(false); setTextEditing({ ...textDefaults, ...box, id: createId(), pageId: page.id, text: '' }) }}
+                onCreateText={(box) => { setTextSettingsOpen(false); textReturnTool.current = returnableTool(activeTool); setTextEditing({ ...textDefaults, ...box, id: createId(), pageId: page.id, text: '' }) }}
                 readOnly={readOnly}
                 page={page}
                 zoom={zoom}
@@ -1059,6 +1143,8 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
                 contextBarInside={markInside}
                 contextBarFrame={contextBarFrame}
               />
+              {readOnly && turn && <ReadingPageTurn page={turn.page} from={turn.from} zoom={zoom} width={PAGE_WIDTH} height={PAGE_HEIGHT} dir={turn.dir} lift={turn.lift ?? 0} progress={flip} />}
+              </View>
             </ViewportMotion.Provider>
           </Viewport>
           </StageOverlayHost>
@@ -1167,17 +1253,9 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
             }}><Text style={{ fontSize: 11, color: ['conflict','error','local-error'].includes(textSync.status) ? colors.danger : colors.textMuted }}>{({ loading: '캔버스 확인 중', saving: '캔버스 전송 중', saved: '캔버스 서버 저장됨', conflict: '캔버스 충돌 · 기기 보존', error: '캔버스 연결 실패 · 재시도', 'local-error': '캔버스 연결 보류' })[textSync.status]}</Text></Pressable>}
           </View>}
 
-          {/* 맞춤 버튼은 화면에 맞춘 상태가 아닐 때만 보인다. 폰 가로도 −/+ 버튼 없이 손가락으로 확대하고 이 버튼으로 되돌린다.
-              (배율 숫자는 확대·축소하는 동안 Viewport 가 띄운다) */}
-          {!readOnly && !fitted && (
-            <View style={[styles.floating, styles.floatingRight, undoOnRight && styles.floatingStacked]} pointerEvents="box-none">
-              <RoundButton icon="fit" label="화면에 맞춤" onPress={fitToScreen} />
-            </View>
-          )}
-
           {readOnly && readerMenuVisible && <ReadingHeader title={state.doc.title} onHome={goHome} />}
           {readOnly && readerMenuVisible && <ReadingNavigation index={pageIndex} count={state.doc.pages.length} onSelect={selectReadingPage}
-            controlsRef={modeControlsRef} onLayout={measureModeControls} canEdit={!permissionReadOnly} onFit={fitToScreen} onToggle={toggleReading} />}
+            controlsRef={modeControlsRef} onLayout={measureModeControls} canEdit={!permissionReadOnly} fitted={viewFitted} onFit={fitToScreen} onToggle={toggleReading} />}
           {photoCrop && (
             <PhotoCropper
               key={photoCrop.id}
@@ -1240,11 +1318,11 @@ export default function EditorScreen({ sharingMembers = [], onOpenSharing, invit
       </View>
       {!readOnly && <ReadingModeControls
         controlsRef={modeControlsRef} onLayout={measureModeControls} bottomInset={!compact ? bottomInset : 0}
-        reading={readOnly} canEdit={!permissionReadOnly} onFit={fitToScreen} onToggle={toggleReading}
+        reading={readOnly} canEdit={!permissionReadOnly} fitted={viewFitted} onFit={fitToScreen} onToggle={toggleReading}
       />}
       {phoneFocus && (
         <Pressable onPress={() => setFocusMode(false)} accessibilityRole="button" accessibilityLabel="집중 편집 모드 종료" style={[styles.focusExit, !landscape && styles.focusExitPortrait]}>
-          <Icon name="focus" size={17} />
+          <Icon name="focus" size={17} forText={12.5} />
           <Text style={styles.focusExitText}>집중 모드 종료</Text>
         </Pressable>
       )}
@@ -1317,7 +1395,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
   // 폰 가로 편집: 양옆 막대만큼 작업창을 비켜 둔다. 읽기는 양쪽 막대를 숨긴다.
   rootBetweenRails: { paddingLeft: PHONE_TOOLBAR_RAIL, paddingRight: PHONE_TOOLBAR_RAIL },
-  focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
+  focusExit: { position: 'absolute', top: 10, left: 10, zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.95)', ...shadow.card },
   focusExitPortrait: { top: 72 },
   focusExitText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   body: { flex: 1, flexDirection: 'row', gap: BODY_GAP, padding: BODY_PADDING },
@@ -1327,7 +1405,7 @@ const styles = StyleSheet.create({
   phonePanel: { position: 'absolute', top: 8, bottom: 8, zIndex: 20, flexDirection: 'row', ...shadow.float },
   phonePanelLeft: { left: 8 },
   phonePanelRight: { right: 8, maxWidth: '86%' },
-  stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 18 },
+  stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 16 },
   textPaletteWrap: { position: 'absolute', maxWidth: '100%' },
   ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
   lassoSettingsWrap: { position: 'absolute', top: 76, left: 12, right: 12, alignItems: 'center' },
@@ -1342,7 +1420,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
     padding: 4,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.95)',
     ...shadow.card,
   },
@@ -1353,7 +1431,7 @@ const styles = StyleSheet.create({
   floatingDivider: { width: 1, height: 20, backgroundColor: colors.border },
   roundButton: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   roundActive: { backgroundColor: colors.primarySoft },
-  roundPressed: { opacity: 0.65 },
+  roundPressed: {}, // 눌림 효과 없음(사용자 지시)
   roundDisabled: { opacity: DISABLED_OPACITY },
   toast: {
     position: 'absolute',

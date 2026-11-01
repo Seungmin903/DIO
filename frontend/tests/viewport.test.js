@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { automaticPageTurn, centeredOffset, clampOffset, panView, shouldTurnToNextPage, shouldTurnToPreviousPage } from '../src/editor/utils/viewport.js'
+import { automaticPageTurn, centeredOffset, clampOffset, isFitView, panView, shouldTurnToNextPage, shouldTurnToPreviousPage } from '../src/editor/utils/viewport.js'
 
 const padding = { top: 84, bottom: 76, side: 28 }
 const page = { width: 1188, height: 840 }
@@ -89,4 +89,18 @@ test('새 텍스트 입력 중에는 이전·다음 페이지로 자동 전환�
   assert.equal(automaticPageTurn({ ...common, motion: { panY: -100 }, view: { zoom: 1, y: 80 - page.height } }), null)
   assert.equal(automaticPageTurn({ ...common, motion: { panY: 100 }, view: { zoom: 1, y: stage.height - 80 } }), null)
   assert.equal(editing.text, '새 초안')
+})
+
+test('화면에 맞춰진 보기(배율 1, 가운데)에서만 맞춤 상태로 본다', () => {
+  const stage = { width: 1000, height: 700 }
+  const centered = centeredOffset(stage, fit(stage), page.width, page.height, padding)
+  assert.equal(isFitView({ scale: 1, x: null, y: null }, centered), true)
+  assert.equal(isFitView({ scale: 1, x: centered.x, y: centered.y }, centered), true)
+  // 손으로 옮겨 둔 보기와 확대·축소한 보기는 맞춤이 아니다
+  assert.equal(isFitView({ scale: 1, x: centered.x + 12, y: centered.y }, centered), false)
+  assert.equal(isFitView({ scale: 1, x: centered.x, y: centered.y - 5 }, centered), false)
+  assert.equal(isFitView({ scale: 1.5, x: null, y: null }, centered), false)
+  assert.equal(isFitView({ scale: 0.5, x: null, y: null }, centered), false)
+  // 확대했다가 같은 배율로 돌아오며 생긴 미세한 오차는 맞춤으로 본다
+  assert.equal(isFitView({ scale: 1.0004, x: centered.x + 0.4, y: centered.y - 0.4 }, centered), true)
 })

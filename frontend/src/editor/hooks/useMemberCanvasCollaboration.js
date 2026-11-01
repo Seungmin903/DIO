@@ -9,7 +9,10 @@ import { createId } from '../utils/common.js'
 import { createCanvasApi, sameElements } from '../../collaboration/canvasApi.js'
 import { loadServerPageSnapshot, createServerPage, copyServerPage, deleteServerPage, reorderServerPages } from '../../collaboration/serverPages.js'
 import { createCanvasSession } from '../../collaboration/canvasSession.js'
+import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
+import { canvasMediaFiles } from '../services/canvasMediaFiles'
 import { connectCollaboration } from '../../collaboration/collaborationSocket.js'
+import { serverPaperAppearance } from '../../diary/services/serverPaperFont.js'
 
 export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,dispatch}){
   const enabled=diary?.source==='member-api'&&!readOnly
@@ -34,7 +37,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       return memberFetch(url,{...options,headers})
     }
     const transport=createAuthenticatedMemberTransport({auth:authService,accountId:diary.memberAccountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl})
-    const api=createCanvasApi(transport)
+    const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch}),files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
+    const api=createCanvasApi(transport,media)
     r.pageEpoch=0;r.pageIds=null;r.removing=new Set()
     r.refreshPages=()=>{
       if(r.pagesJob)return r.pagesJob
@@ -74,7 +78,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     r.addPage=backgroundAssetId=>mutatePages(async()=>{
       dispatch({type:'commitCheckpoint'})
       const page=await createServerPage({transport,diaryId:diary.id,backgroundAssetId,
-        orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:latest.current.state.doc.paperAppearance,
+        orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:serverPaperAppearance(latest.current.state.doc.paperAppearance),
         storage:AsyncStorage,key:`${memberDocumentKey(diary)}:page-create:v1`,createId,isActive:active})
       if(active()){r.pageIds?.add(page.id);dispatch({type:'importServerPages',pages:[page],selectId:page.id})}
       return page
@@ -173,7 +177,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     // Periodic reconciliation also covers an event lost after commit or a proxy without WebSocket support.
     const timer=setInterval(refresh,5000)
     const appState=AppState.addEventListener('change',next=>{if(next==='active')refresh();else dispatch({type:'commitCheckpoint'})})
-    return ()=>{r.alive=false;socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
+    return ()=>{r.alive=false;media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
   },[enabled,loaded,diary?.id,diary?.memberAccountId,sessionKey])
   useEffect(()=>{
     const r=runtime.current;if(!r||!enabled||!loaded)return

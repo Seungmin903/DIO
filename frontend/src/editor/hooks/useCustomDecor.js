@@ -150,7 +150,6 @@ export function useCustomDecor() {
     if (!cleanName) throw new Error('폴더 이름을 입력해 주세요.')
     const id = folderId ?? createId()
     if (folderId && !current.folders.some(f => f.id === folderId)) throw new Error('폴더가 없어졌어요. 새 폴더로 다시 저장해 주세요.')
-    if (!folderId && current.folders.some(f => f.name === cleanName)) throw new Error('같은 이름의 폴더가 있어요.')
     const adding = stickers.map(stickerRef)
     const next = { ...current, folders: folderId
       ? current.folders.map(f => f.id === id ? { ...f, items: [...adding, ...f.items] } : f)
@@ -221,6 +220,8 @@ export function useCustomDecor() {
 // 저장해 둘 스티커 정보만 골라 담는다 (최근 사용·폴더)
 const stickerRef = (sticker) => ({
   asset: sticker.asset,
+  widget: sticker.widget,
+  style: sticker.style,
   emoji: sticker.emoji,
   src: sticker.src,
   mediaFileId: sticker.mediaFileId,
@@ -230,4 +231,4 @@ const stickerRef = (sticker) => ({
 })
 
 // 기본 스티커는 asset, 내 스티커는 src, 예전 문서의 이모지는 emoji 로 구분한다.
-export const stickerKey = (sticker) => sticker.asset ?? mediaId(sticker) ?? sticker.src ?? sticker.emoji
+export const stickerKey = (sticker) => sticker.asset ?? (sticker.widget ? `widget:${sticker.widget}:${sticker.style}` : null) ?? mediaId(sticker) ?? sticker.src ?? sticker.emoji

@@ -10,7 +10,7 @@ import { normalizeTextLink } from '../utils/textFormats'
 export default function TextLinkDialog({ initialValue = '', onSave, onCancel, badge = null }) {
   const [value, setValue] = useState(initialValue), [error, setError] = useState('')
   const normalized = normalizeTextLink(value)
-  return <EditorModal visible transparent animationType="fade" supportedOrientations={['portrait', 'landscape']} onRequestClose={onCancel}>
+  return <EditorModal visible transparent animationType="none" supportedOrientations={['portrait', 'landscape']} onRequestClose={onCancel}>
     <SafeAreaProvider>
       <SafeAreaView style={styles.backdrop}>
         <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -42,7 +42,7 @@ export default function TextLinkDialog({ initialValue = '', onSave, onCancel, ba
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(11,25,87,0.2)' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(11,23,102,0.2)' },
   keyboardArea: { flex: 1 },
   scroll: { flex: 1 },
   content: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },

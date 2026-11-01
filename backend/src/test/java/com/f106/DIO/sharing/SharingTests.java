@@ -57,10 +57,10 @@ class SharingTests extends SharingTestSupport {
         var owner=actor();var editor=actor();var outsider=actor();var id=diary(owner);
         var link=links.create(id,owner.id());links.accept(link.token(),editor.id());
         mvc.perform(get("/api/v1/diaries/"+id+"/members").header("Authorization","Bearer "+outsider.token())).andExpect(status().isForbidden());
-        mvc.perform(patch("/api/v1/diaries/"+id+"/profile").header("Authorization","Bearer "+editor.token())
+        mvc.perform(patch("/api/v1/diaries/"+id+"/membership").header("Authorization","Bearer "+editor.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"favorite\":true}"))
             .andExpect(status().isOk()).andExpect(jsonPath("favorite").value(true));
-        mvc.perform(patch("/api/v1/diaries/"+id+"/profile").header("Authorization","Bearer "+editor.token())
+        mvc.perform(patch("/api/v1/diaries/"+id+"/membership").header("Authorization","Bearer "+editor.token())
             .contentType(MediaType.APPLICATION_JSON).content("{}" )).andExpect(status().isBadRequest());
         mvc.perform(delete("/api/v1/diaries/"+id+"/members/"+owner.id()).header("Authorization","Bearer "+editor.token())).andExpect(status().isForbidden());
         mvc.perform(delete("/api/v1/diaries/"+id+"/members/"+editor.id()).header("Authorization","Bearer "+owner.token())).andExpect(status().isNoContent());
@@ -103,7 +103,7 @@ class SharingTests extends SharingTestSupport {
     }
     @Test void swaggerListsEightSharingRoutesWithCorrectSecurityAndNoContentCodes() throws Exception {
         mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
-            .andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}/profile'].patch").exists())
+            .andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}/membership'].patch").exists())
             .andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}/members'].get.security[0].bearerAuth").exists())
             .andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}/members/{userId}'].delete.responses['204']").exists())
             .andExpect(jsonPath("$.paths['/api/v1/diaries/{diaryId}/transfer-owner'].post.responses['204']").exists())

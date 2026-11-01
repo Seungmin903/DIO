@@ -37,6 +37,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import static org.assertj.core.api.Assertions.*;
 
 /** 실제 로그인 서명·세션 검증기·제품 JDBC 페이지 모듈과 트랜잭션 서비스 통합. HTTP 경로 테스트는 아니다. */
+@org.springframework.test.context.jdbc.Sql("/push-session-h2.sql")
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:diary-auth-tests;MODE=PostgreSQL",
     "dio.auth.development-token-header=X-DIO-Access-Token"

@@ -22,9 +22,7 @@ export function trashStatus(diary, now = Date.now()) {
   if (diary.purgePending || (deadline !== null && now >= deadline)) return '보관 기한 만료 · 영구 삭제 대기';
   if (deadline === null) return '삭제 날짜 확인 필요 · 자동 삭제 보류';
   const days = Math.ceil((deadline - now) / (24 * 60 * 60 * 1000));
-  const date = new Date(deadline);
-  const formatted = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
-  return `${days}일 후 영구 삭제 · ${formatted}`;
+  return `${days}일 후 영구 삭제`;
 }
 
 /** 호출자는 목록 저장과 삭제를 같은 큐에서 실행한다. 삭제 표식은 문서보다 먼저 저장한다. */
@@ -40,7 +38,7 @@ export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateD
     const targetRaw = await storage.getItem(targetKey);
     const allKeys = await storage.getAllKeys();
     const referenceKeys = allKeys.filter(key => (
-      (key.startsWith(`${keys.doc}:`) && key !== targetKey) || key === keys.doc || key === keys.customDecor
+      (key.startsWith(`${keys.doc}:`) && key !== targetKey) || key === keys.doc || key === keys.customDecor || key === keys.myCovers || key === keys.myPapers
     ));
     const references = referenceKeys.length ? await storage.multiGet(referenceKeys) : [];
     // 손상된 참조를 "미사용"으로 해석하지 않는다. 이 경우 미디어 파일은 보수적으로 보존한다.

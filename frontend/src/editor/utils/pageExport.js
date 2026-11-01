@@ -1,7 +1,7 @@
 import { colorTemplateXml, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from './pageGeometry.js'
 import { templateReference } from '../templates/catalog.js'
-import { isStudyPlannerId, studyPlannerSvg } from '../templates/studyPlanner.js'
+import { plannerFor } from '../templates/planners.js'
 import { normalizeTextLink } from './textFormats.js'
 import { EDITOR_SHAPES, SHAPE_BORDER_STYLES } from './editorShapes.js'
 import { RETIRED_TEXT_FONTS, getTextFonts } from './text.js'
@@ -90,8 +90,8 @@ export async function prepareExportSnapshot(snapshot, resolveImage, resolveTempl
     if (snapshot.template) {
       try {
         if (!resolveTemplate) throw new Error('Missing template resolver')
-        const planner = isStudyPlannerId(snapshot.template.backgroundAssetId)
-        backgroundXml = planner ? studyPlannerSvg(snapshot.template.backgroundAssetId.endsWith('portrait') ? 'portrait' : 'landscape', snapshot.planner) : await resolveTemplate(snapshot.template)
+        const planner = plannerFor(snapshot.template.backgroundAssetId)
+        backgroundXml = planner ? planner.svg(snapshot.planner, snapshot.objects) : await resolveTemplate(snapshot.template)
         if (!backgroundXml) throw new Error('Empty template')
         backgroundXml = colorTemplateXml(backgroundXml, snapshot.paperAppearance)
       } catch (error) { throw new PageExportError('EXPORT_TEMPLATE_FAILED', '속지를 준비하지 못했어요. 다시 시도해 주세요.', error) }

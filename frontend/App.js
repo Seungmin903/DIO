@@ -1,34 +1,45 @@
+import { openCopyIfSafe } from './src/notifications/editorInvitationGuard';
 import MemberTrashNotice from './src/diary/components/MemberTrashNotice';
 import MemberLibraryNotice from './src/diary/components/MemberLibraryNotice';
 import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Platform, StatusBar, View, useWindowDimensions } from 'react-native';
+import { AppState, BackHandler, Platform, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
+import PinScreen from './src/diary/components/PinScreen';
+import { appLockScope, checkAppLock, clearAppLock, hasAppLock } from './src/shared/appLock';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
+import { guestProfile } from './src/auth/guestProfileDevice';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
 import AuthenticatedNotificationDialog from './src/notifications/AuthenticatedNotificationDialog';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
 import { C, DEFAULT_FILTER } from './src/diary/constants';
+import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
 import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
+import { withPdfPages } from './src/diary/utils/pdfImport';
+import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
-import BottomTabs from './src/diary/components/BottomTabs';
+import DeskBackdrop from './src/diary/components/DeskBackdrop';
+import { DESK_COLORS } from './src/diary/utils/deskLight';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
-import { queryDiaries } from './src/diary/utils/libraryQuery';
+import { parseSort, queryDiaries } from './src/diary/utils/libraryQuery';
+import { savedLibraryView } from './src/diary/utils/libraryView';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
+import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
+import DialogHost from './src/shared/DialogHost';
 import { normalizePaperAppearance } from './src/editor/templates/appearance.js';
 import { fitTabletFrame } from './src/shared/layout';
 import { useFormFactor } from './src/shared/useFormFactor';
@@ -36,10 +47,12 @@ import { CAN_LOCK_ORIENTATION, useOrientationLock } from './src/shared/useOrient
 import { useHiddenNavigationBar } from './src/shared/useHiddenNavigationBar';
 import { normalizeTemplateConfig } from './src/editor/templates/creation.js';
 import { createDefaultDoc } from './src/editor/state/defaultDoc.js';
-import { saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
+import { loadJSON, saveJSON, STORAGE_KEYS } from './src/editor/services/storage';
 import { randomUUID } from 'expo-crypto';
 import { createId, setUuidGenerator } from './src/editor/utils/common';
 import HandwritingStudio from './src/handwriting/HandwritingStudio';
+import { useFonts } from 'expo-font';
+import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
 
 // 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
 if (Platform.OS !== 'web') setUuidGenerator(randomUUID);
@@ -52,8 +65,12 @@ const EDITOR_PREPARE_LIMIT_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function App() {
+  // 앱 UI 글꼴(Pretendard)을 처음 그리기 전에 불러온다. 못 불러오면(fontError) 기본 글꼴로 그대로 연다
+  const [fontsLoaded, fontError] = useFonts(PRETENDARD_FILES);
   const [previewSession, setPreviewSession] = useState(null);
   const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
+  // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
+  // 이 기기의 메모리 세션만 지운다.
   const clearSession = () => setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current);
   const endSession = async () => {
     try {
@@ -64,6 +81,7 @@ export default function App() {
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
+  if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider} />;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-sharing') {
     const SharingFixture = require('./tests/fixtures/diary-sharing.fixture').default;
     return <SharingFixture />;
@@ -86,21 +104,34 @@ export default function App() {
   );
 }
 
+function LocalDiaryApp(props) {
+  const diaryState = useDiaries();
+  return <DiaryApp {...props} diaryState={diaryState} />;
+}
 function MemberDiaryApp(props) {
   const diaryState = useMemberDiaries(String(props.previewUser.userId));
   return <DiaryApp {...props} diaryState={diaryState} />;
 }
 function DiaryApp(props) {
-  const content = <DiaryAppContent {...props} />;
+  const sharing = useSharing(props.previewUser);
+  const createInvitations = useCallback(() => sharing.runtime.invitationGateway, [sharing.runtime]);
+  const content = <DiaryAppContent {...props} sharing={sharing} />;
   return props.previewUser.mode === 'authenticated'
-    ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId}>{content}</AuthenticatedNotificationProvider>
+    ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations}>{content}</AuthenticatedNotificationProvider>
     : content;
 }
-function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, diaryState }) {
+const DESK_ON_PHONE = false;
+
+function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, diaryState, sharing }) {
   const member = diaryState.source === 'member-api';
-  const profilePhotoSource = previewUser?.photoUri && previewUser.mode === 'authenticated'
-    ? authService.getProfilePhotoSource(previewUser.photoUri) : null;
+  const invitationLeaveGuard = useRef(null);
+  const registerInvitationLeaveGuard = useCallback(guard => { invitationLeaveGuard.current = guard; return () => { if (invitationLeaveGuard.current === guard) invitationLeaveGuard.current = null; }; }, []);
   const profileLeaveGuard = useRef(null);
+  const studioBackHandler = useRef(null);
+  const registerStudioBackHandler = useCallback(handler => {
+    studioBackHandler.current = handler;
+    return () => { if (studioBackHandler.current === handler) studioBackHandler.current = null; };
+  }, []);
   const profileBackHandler = useRef(null);
   const registerProfileLeaveGuard = useCallback((guard, onBack) => {
     profileLeaveGuard.current = guard;
@@ -112,8 +143,27 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       }
     };
   }, []);
-  const sharing = useSharing(previewUser);
   const authenticatedNotifications = useOptionalSharedNotifications();
+  // 앱 잠금(내 공간 → 보안): 이 계정에 잠금이 있으면 세션을 열 때와 백그라운드에서 돌아올 때 비밀번호 화면으로 덮는다(null = 읽는 중)
+  const lockScope = appLockScope(previewUser);
+  const [appLocked, setAppLocked] = useState(null);
+  useEffect(() => {
+    let alive = true, away = false;
+    hasAppLock(lockScope).then(value => { if (alive) setAppLocked(value); }).catch(() => { if (alive) setAppLocked(false); });
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'background') away = true;
+      else if (state === 'active' && away) {
+        away = false;
+        hasAppLock(lockScope).then(value => { if (alive && value) setAppLocked(true); }).catch(() => {});
+      }
+    });
+    return () => { alive = false; subscription.remove(); };
+  }, [lockScope]);
+  // 회원은 비밀번호를 잊으면 로그아웃으로 잠금을 푼다(다시 로그인해야 들어온다). 게스트는 되찾을 길이 없어 두지 않는다
+  const forgotAppLock = previewUser.mode === 'authenticated' ? () => confirmAction({
+    title: '비밀번호를 잊었나요?', message: '로그아웃하면 이 계정의 앱 잠금이 풀려요.', confirmLabel: '로그아웃',
+    onConfirm: async () => { await clearAppLock(lockScope).catch(() => {}); onEndPreview(); },
+  }) : undefined;
   const [sharingRequest, setSharingRequest] = useState(null);
   const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
   const openInvitations = useCallback(() => {
@@ -125,16 +175,29 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // 폰 배치는 유지하고 태블릿 바깥 프레임도 측정한 안전 영역 전체를 쓴다. 속지 좌표계는 그대로다.
   const { isPhone, isLandscape } = useFormFactor();
+  const tabletPortrait = !isPhone && !isLandscape;
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
-  const [railCollapsed, setRailCollapsed] = useState(true);
-  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
+  const [deskSize, setDeskSize] = useState(null); // 책상이 깔릴 영역(작업 영역)의 크기
+  const [railCollapsed, setRailCollapsed] = useState(true);  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
   // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
-  useEffect(() => { railWidthRef.current = railCollapsed ? RAIL_WIDTH.collapsed : RAIL_WIDTH.expanded; }, [railCollapsed]);
-  // FILTERS에 없는 all을 초기값으로 쓰면 새 다이어리 카드가 제외되어 빈 안내만 보인다.
+  // 메뉴는 메인 화면 위에 겹쳐 열리므로 메인 화면을 비켜 주는 폭은 늘 접힌 폭이다.
+  // 보관함 필터: 범위(내 다이어리 · 공유된 다이어리) + 즐겨찾기 여부 (libraryQuery.filterScope · filterFavorite)
   const [filter, setFilter] = useState(DEFAULT_FILTER);
   const [view, setView] = useState('carousel');
+  // 사용자가 마지막으로 고른 보기(펼쳐서 · 스와이프 · 한눈에)를 기기에 남겨 다음에 열 때 그 보기로 시작한다.
+  // 읽어 오는 사이에 사용자가 이미 보기를 바꿨으면 늦게 도착한 저장값으로 되돌리지 않는다.
+  const viewChosen = useRef(false);
+  useEffect(() => {
+    let alive = true;
+    loadJSON(STORAGE_KEYS.libraryView, null).then(saved => {
+      const restored = savedLibraryView(saved);
+      if (alive && restored && !viewChosen.current) setView(restored);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const changeView = useCallback((next) => { viewChosen.current = true; setView(next); saveJSON(STORAGE_KEYS.libraryView, next).catch(() => {}); }, []);
   const [carousel, setCarousel] = useState(0);
   const [librarySort, setLibrarySort] = useState('updated');
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
@@ -165,7 +228,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     return () => clearTimeout(timer);
   }, [member, loaded, diaryState.store, memberQuery]);
   const memberLibraryMatches = member && JSON.stringify(memberQuery) === JSON.stringify(diaryState.library.criteria);
-  const remoteQuery = useMemo(() => member ? { supportsShared: true, query: memberSearch, searchOpen: memberSearchOpen,
+  const remoteQuery = useMemo(() => member ? { query: memberSearch, searchOpen: memberSearchOpen,
     onQueryChange: value => { setSelection(current => current === null ? null : []); setMemberSearch(value); setCarousel(0); },
     onSearchOpenChange: value => { setSelection(null); setMemberSearchOpen(value); if (!value) setMemberSearch(''); setCarousel(0); } } : null, [member, memberSearch, memberSearchOpen]);
   const [trashing, setTrashing] = useState(false);
@@ -221,6 +284,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const openSharedDiary = useCallback((id) => {
     const diary = sharedLibraryRef.current.find(item => item.sharedDiaryId === id);
     if (!diary) return;
+    if (invitationLeaveGuard.current && !invitationLeaveGuard.current()) return;
     setSharingRequest(null);
     enterEditor(diary);
   }, [enterEditor]);
@@ -261,6 +325,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   useEffect(() => {
     if (Platform.OS !== 'android' || page === 'editor') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (studioBackHandler.current?.()) return true;
       if (profileBackHandler.current) {
         profileBackHandler.current();
         return true;
@@ -275,7 +340,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         setEditingDiaryId(null);
         return true;
       }
-      if (!isPhone && !railCollapsed) {
+      if (!railCollapsed) {
         setRailCollapsed(true);
         return true;
       }
@@ -313,7 +378,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     if (savingRef.current) return;
     if (!diary || diary.canManage === false) return;
     if(member) {
-      confirmAction({title:'휴지통으로 옮길까요?',message:`“${diary.title}”는 삭제한 시각부터 30일 동안 복원할 수 있어요.`,confirmLabel:'휴지통으로',onConfirm:async()=>{
+      confirmAction({title:'휴지통으로 옮길까요?',message:`“${diary.title}”는 삭제한 시각부터 30일 동안 복원할 수 있어요.`,confirmLabel:'휴지통으로',danger:false,onConfirm:async()=>{
         try {await moveToTrash(diary.id);setActive(current=>current?.id===diary.id?null:current);setTabIds(current=>current.filter(id=>id!==diary.id));setCreateOpen(false);setEditingDiaryId(null);}
         catch(error){notify('휴지통 변경을 확인하지 못했어요',error.message);}
       }});return;
@@ -323,6 +388,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       title: '휴지통으로 옮길까요?',
       message: `“${diary.title}”는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요. 앱이 꺼져 있으면 다음 실행 시 정리해요.`,
       confirmLabel: '휴지통으로',
+      danger: false, // 30일 안에 되돌릴 수 있어 위험색을 쓰지 않는다
       onConfirm: () => {
         moveToTrash(diary.id);
         setActive((current) => (current?.id === diary.id ? null : current));
@@ -341,6 +407,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       title: `${ids.length}개를 휴지통으로 옮길까요?`,
       message: member ? '선택한 다이어리를 각각 휴지통으로 옮겨요. 삭제 시각부터 30일 동안 복원할 수 있어요. 일부 항목을 처리하지 못하면 남은 결과를 따로 안내해요.' : '고른 다이어리는 휴지통에서 30일 동안 복원할 수 있으며 이후 영구 삭제돼요. 앱이 꺼져 있으면 다음 실행 시 정리해요.',
       confirmLabel: '휴지통으로',
+      danger: false,
       onConfirm: async () => {
         if (trashingRef.current) return;
         trashingRef.current = true;
@@ -416,7 +483,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       savingRef.current = true;
       setSaving(true);
       try {
-        const doc = createDefaultDoc(diary);
+        // PDF 로 만든 속지는 쪽마다 잠근 그림 한 장을 깐 페이지가 된다.
+        const doc = withPdfPages(createDefaultDoc(diary), form.importedPages, config.orientation, paperAppearance);
         if (!await saveJSON(STORAGE_KEYS.doc + ':' + diary.id, doc)) throw new Error('다이어리를 저장하지 못했어요. 다시 시도해 주세요.');
         if (!await addDiary(diary)) throw new Error('보관함을 저장하지 못했어요. 다시 시도해 주세요.');
         rememberEditorDoc(STORAGE_KEYS.doc + ':' + diary.id, doc);
@@ -427,7 +495,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         setSaving(false);
       }
     }
-    // 수정에서 속지 스타일을 바꾸면 새 페이지에 쓸 색을 바꾸고, '모든 페이지'면 이미 있는 페이지도 칠한다.
+    // 수정에서 속지 스타일(종이 색 · 선 색 · 글꼴)을 바꾸면 새 페이지에 쓸 값을 바꾸고, '모든 페이지'면 이 다이어리에 이미 있는 페이지도 바꾼다. 다른 다이어리는 건드리지 않는다.
     if (original && JSON.stringify(normalizePaperAppearance(original.paperAppearance)) !== JSON.stringify(paperAppearance)) {
       savingRef.current = true;
       setSaving(true);
@@ -476,7 +544,22 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     return [...diaries.filter(diary => !diary.trashedAt).map(diary => ({ ...diary, isShared: member ? Boolean(diary.isShared) : sharedOwnedIds.has(diary.id) })), ...(member ? [] : sharing.library)];
   }, [diaries, sharing.diaries, sharing.library, member, sharing.runtime]);
   const libraryMetadata = useLibraryMetadata(visibleDiaries, page, member);
-  const libraryDiaries = member ? (memberLibraryMatches ? diaryState.library.items : []) : visibleDiaries;
+  // 서버는 정렬 기준마다 정해진 방향으로만 내려준다(서버 방향 지원 전까지의 임시 처리).
+  // 사용자가 방향을 뒤집으면(예: title:desc) 목록을 뒤집어 보여주는데, 서버 목록은 페이지로 나뉘어 일부만 받은 채 뒤집으면 순서가 틀린다.
+  // 그래서 뒤집을 때는 남은 페이지를 모두 불러온 뒤에만 보여준다(불러오는 동안은 빈 목록 + 불러오는 중 표시).
+  const sortReversed = member && parseSort(librarySort).direction !== parseSort(parseSort(librarySort).key).direction;
+  const fullLoadPending = Boolean(sortReversed && memberLibraryMatches && diaryState.library.hasNext);
+  const libraryDiaries = useMemo(() => {
+    if (!member) return visibleDiaries;
+    const items = memberLibraryMatches ? diaryState.library.items : [];
+    if (!sortReversed) return items;
+    return fullLoadPending ? [] : [...items].reverse();
+  }, [member, memberLibraryMatches, diaryState.library?.items, sortReversed, fullLoadPending, visibleDiaries]);
+  const libraryReady = diaryState.library?.ready, libraryBusy = diaryState.library?.loading, libraryFailed = diaryState.library?.error, libraryCursor = diaryState.library?.nextCursor;
+  useEffect(() => {
+    // 한 페이지씩 이어서 불러온다. 오류가 나면 멈추고, 화면의 다시 시도 버튼이 재개한다.
+    if (page === 'library' && fullLoadPending && libraryReady && !libraryBusy && !libraryFailed) diaryState.store.loadMoreLibrary().catch(() => {});
+  }, [page, fullLoadPending, libraryReady, libraryBusy, libraryFailed, libraryCursor, diaryState.store]);
   useEffect(() => {
     if (page !== 'library' || !returnDiaryId.current) return;
     if (member && (!memberLibraryMatches || !diaryState.library.ready || diaryState.library.loading)) return;
@@ -490,8 +573,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const tabs = useMemo(() => tabIds
     .map((id) => visibleDiaries.find((diary) => diary.id === id))
     .filter(Boolean)
-    // 다이어리 목록의 표지 색 이름은 color (편집 문서에서는 coverColor)
-    .map((diary) => ({ id: diary.id, title: diary.title, coverColor: diary.color })), [tabIds, visibleDiaries]);
+    // 다이어리 목록의 표지 색 이름은 color (편집 문서에서는 coverColor). 그라데이션 · 사진 표지는 paint 가 표지에 보이는 색을 따라간다
+    .map((diary) => ({ id: diary.id, title: diary.title, coverColor: diary.color, paint: coverTabPaint(diary) })), [tabIds, visibleDiaries]);
 
   // 편집하던 다이어리를 모든 다이어리 목록에서 찾아 홈의 중심 카드로 복원한다.
   const returnToLibrary = useCallback(() => {
@@ -541,6 +624,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const libraryScreen = useMemo(() => (
     <LibraryScreen
       compact={isPhone}
+      portrait={tabletPortrait}
       diaries={libraryDiaries}
       metadata={libraryMetadata}
       sort={librarySort}
@@ -549,7 +633,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       view={view}
       carousel={carousel}
       onFilterChange={changeFilter}
-      onViewChange={setView}
+      onViewChange={changeView}
       onCarouselChange={changeCarousel}
       onOpen={open}
       onFavorite={member ? undefined : favorite}
@@ -584,9 +668,62 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           catch (error) { notify('이전 생성을 확인하지 못했어요', error.message); }
           finally { savingRef.current = false; setSaving(false); }
         }} /></> : null}
-      suppressEmpty={member && Boolean(!memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
+      suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
     />
-  ), [carousel, changeCarousel, changeFilter, changeLibrarySort, create, edit, favorite, filter, isPhone, libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
+  ), [carousel, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
+
+  // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
+  const trashScreen = useMemo(() => (
+    <TrashScreen
+      serverMode={member}
+      busy={member && Boolean(diaryState.lifecycle?.busy || diaryState.bulkTrash?.busy)}
+      suppressEmpty={member && Boolean(diaryState.trashLoading || diaryState.trashError)}
+      requestNotice={member?<MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/>:null}
+      compact={isPhone}
+      portrait={tabletPortrait}
+      diaries={trashedDiaries}
+      now={trashNow}
+      cleanupError={trashError}
+      onRetryCleanup={cleanupTrash}
+      onRestore={(id) => {
+        if(member){restoreFromTrash(id).catch(error=>notify('복원을 확인하지 못했어요',error.message));return;}
+        if (!restoreFromTrash(id)) notify('복원할 수 없어요', '보관 기한이 지났거나 영구 삭제 중인 다이어리예요.');
+      }}
+      // 선택 모드의 묶음 작업. 하나씩 차례로 처리하고(서버 작업은 동시에 하나만 가능) 못 한 것만 모아 알린다.
+      onRestoreMany={async (ids) => {
+        let failed = 0;
+        for (const id of ids) {
+          // 로컬은 false 가 실패, 서버(회원)는 거부(reject)가 실패다. 서버가 돌려주는 값은 성공 여부가 아니다.
+          try { const result = await restoreFromTrash(id); if (!member && !result) failed += 1; } catch { failed += 1; }
+        }
+        if (failed) notify('복원하지 못한 다이어리가 있어요', `${failed}개를 복원하지 못했어요. 보관 기한이 지났거나 영구 삭제 중일 수 있어요.`);
+      }}
+      onDeleteMany={(items) => {
+        confirmAction({
+          title: '영구 삭제할까요?',
+          message: member ? `선택한 ${items.length}개의 다이어리와 페이지는 복구할 수 없어요. 보관함의 공용 미디어 원본은 유지돼요.` : `선택한 ${items.length}개의 페이지와 로컬 기록은 복구할 수 없어요.`,
+          confirmLabel: '영구 삭제',
+          onConfirm: async () => {
+            let failed = 0;
+            for (const item of items) {
+              try { if (!await deletePermanently(item.id)) failed += 1; } catch { failed += 1; }
+            }
+            if (failed) notify('삭제하지 못한 다이어리가 있어요', `${failed}개를 삭제하지 못했어요. 저장소를 확인한 뒤 다시 시도해 주세요.`);
+          },
+        });
+      }}
+      onDeletePermanently={(diary) => {
+        confirmAction({
+          title: '영구 삭제할까요?',
+          message: member ? `“${diary.title}”의 다이어리와 페이지는 복구할 수 없어요. 보관함의 공용 미디어 원본은 유지돼요.` : `“${diary.title}”의 페이지와 로컬 기록은 복구할 수 없어요.`,
+          confirmLabel: '영구 삭제',
+          onConfirm: async () => {
+            try { if (!await deletePermanently(diary.id)) notify('삭제하지 못했어요', '저장소를 확인한 뒤 다시 시도해 주세요.'); } catch(error) { notify('영구 삭제를 확인하지 못했어요',error.message); }
+          },
+        });
+      }}
+    />
+  ), [member, diaryState.lifecycle, diaryState.bulkTrash, diaryState.trashLoading, diaryState.trashError, diaryState.store, isPhone, tabletPortrait, trashedDiaries, trashNow, trashError, cleanupTrash, restoreFromTrash, deletePermanently]);
 
   // 저장된 목록을 읽기 전에는 빈 보관함 안내가 깜빡이지 않게 비워 둔다.
   let content = loaded ? libraryScreen : null;
@@ -600,6 +737,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         bottomInset={insets.bottom}
         onToggleOrientation={isPhone && CAN_LOCK_ORIENTATION ? () => setEditorOrientation(isLandscape ? 'portrait' : 'landscape') : undefined}
         onHome={returnToLibrary}
+        registerInvitationLeaveGuard={registerInvitationLeaveGuard}
         onOpenSharing={() => setSharingRequest({ diary: active })}
         readOnly={member && active?.permissions?.canEditCanvas !== true}
         invitationCount={unreadInvites}
@@ -618,35 +756,13 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       />
     );
   } else if (page === 'trash') {
-    content = (
-      <TrashScreen
-        serverMode={member}
-        busy={member && Boolean(diaryState.lifecycle?.busy || diaryState.bulkTrash?.busy)}
-        suppressEmpty={member && Boolean(diaryState.trashLoading || diaryState.trashError)}
-        requestNotice={member?<MemberTrashNotice state={diaryState} onReload={()=>diaryState.store.loadTrash().catch(()=>{})} onRetry={()=>diaryState.store.retryLifecycle().catch(()=>{})}/>:null}
-        compact={isPhone}
-        diaries={trashedDiaries}
-        now={trashNow}
-        cleanupError={trashError}
-        onRetryCleanup={cleanupTrash}
-        onRestore={(id) => {
-          if(member){restoreFromTrash(id).catch(error=>notify('복원을 확인하지 못했어요',error.message));return;}
-          if (!restoreFromTrash(id)) notify('복원할 수 없어요', '보관 기한이 지났거나 영구 삭제 중인 다이어리예요.');
-        }}
-        onDeletePermanently={(diary) => {
-          confirmAction({
-            title: '영구 삭제할까요?',
-            message: member ? `“${diary.title}”의 다이어리와 페이지는 복구할 수 없어요. 보관함의 공용 미디어 원본은 유지돼요.` : `“${diary.title}”의 페이지와 로컬 기록은 복구할 수 없어요.`,
-            confirmLabel: '영구 삭제',
-            onConfirm: async () => {
-              try { if (!await deletePermanently(diary.id)) notify('삭제하지 못했어요', '저장소를 확인한 뒤 다시 시도해 주세요.'); } catch(error) { notify('영구 삭제를 확인하지 못했어요',error.message); }
-            },
-          });
-        }}
-      />
-    );
+    content = trashScreen;
+  } else if (page === 'studio') {
+    content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
     content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
+      accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
+      guestService={previewUser?.provider === 'guest' ? guestProfile : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
 
@@ -663,15 +779,49 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     />
   );
 
+  // 다이어리 홈은 '햇살 책상' 위에 놓인다. 사이드 메뉴는 흰 판 그대로, 책상은 작업 영역 뒤(폰은 아래 탭 뒤까지)에 깔린다.
+  // 햇살 책상은 태블릿(가로)만 쓴다. 폰(세로)은 가로형과 같은 빛 경험을 실기로 검증하지 못해 잠가 둔다(DESK_ON_PHONE).
+  const desk = page === 'library' && loaded && (!isPhone || DESK_ON_PHONE);
+  // 태블릿은 사이드 메뉴를 여닫는 동안 작업 영역 폭이 프레임마다 바뀐다. 책상은 접힌 폭(가장 넓은 폭) 밑으로는 줄지 않으므로
+  // 그보다 좁은 폭은 접힌 폭으로 보고 값을 바꾸지 않는다. 안 그러면 프레임마다 App · 책상(햇빛 · 마스크)이 다시 그려져 끊긴다.
+  const deskLayout = event => {
+    const { width: rawWidth, height } = event.nativeEvent.layout;
+    const width = isPhone ? rawWidth : Math.max(rawWidth, windowWidth - insets.left - insets.right - RAIL_WIDTH.collapsed);
+    setDeskSize(current => (current && current.width === width && current.height === height ? current : { width, height }));
+  }
+  // 태블릿 책상은 사이드바가 접힌(가장 넓은) 작업 영역 크기로 고정하고 오른쪽 끝에 붙인다. 사이드바를 여닫는 동안 작업 영역 폭이
+  // 프레임마다 바뀌어도 책상(원목 · 창빛)은 다시 그려지지도 움직이지도 않고, 넓어질 때 뒤 바탕(흰색)이 비치지도 않는다.
+  const tabletDeskSize = useMemo(() => deskSize && {
+    width: Math.max(deskSize.width, windowWidth - insets.left - insets.right - RAIL_WIDTH.collapsed),
+    // 높이도 화면 높이 아래로는 줄지 않게 한다. 처음 잰 작업 영역이 화면보다 낮으면(세로) 상판 아래가 이미지 없이 단색으로 비었다.
+    height: Math.max(deskSize.height, windowHeight - insets.top - insets.bottom),
+  }, [deskSize, windowWidth, windowHeight, insets.left, insets.right, insets.top, insets.bottom]);
   let shell;
   if (page === 'editor') {
     shell = content;
   } else if (isPhone) {
-    // 폰: 사이드 메뉴 대신 하단 탭. 새 다이어리 시트는 탭까지 덮도록 셸 위에 띄운다.
+    // 폰: 하단 탭 대신 좁은 좌측 바(접힘 60 · 펼침 236). 새 다이어리 시트는 바까지 덮도록 셸 위에 띄운다.
     shell = (
-      <View style={s.phoneShell}>
-        <View style={s.workspace}>{content}</View>
-        <BottomTabs notificationCount={authenticatedNotifications?.count} notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} onNotifications={openInvitations} invitationCount={unreadInvites} page={page} filter={filter} navigate={navigate} bottomInset={insets.bottom} profilePhotoSource={profilePhotoSource} />
+      <View style={s.shell}>
+        <SideRail
+          compact
+          onNotifications={openInvitations}
+          notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'}
+          notificationCount={authenticatedNotifications?.count}
+          invitationCount={unreadInvites}
+          page={page}
+          filter={filter}
+          navigate={navigate}
+          bottomInset={insets.bottom}
+          user={previewUser}
+          getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
+          collapsed={railCollapsed}
+          onToggle={() => setRailCollapsed((current) => !current)}
+        />
+        <View style={[s.workspace, desk && s.workspaceDesk, desk && s.deskAbove, { paddingBottom: insets.bottom }]} onLayout={deskLayout}>
+          {desk && <DeskBackdrop compact size={deskSize} />}
+          {content}
+        </View>
         {createModal}
       </View>
     );
@@ -687,13 +837,14 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           filter={filter}
           navigate={navigate}
           bottomInset={insets.bottom}
-          collapsed={railCollapsed}
-          onToggle={() => setRailCollapsed((current) => !current)}
-          profilePhotoSource={profilePhotoSource}
+          user={previewUser}
+          getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
+          collapsed={railCollapsed}          onToggle={() => setRailCollapsed((current) => !current)}
         />
-        <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
-          {content}
-          {createModal}
+        <View style={[s.workspace, { paddingBottom: insets.bottom }, desk && { overflow: 'hidden' }]} onLayout={deskLayout}>
+          {desk && <DeskBackdrop anchorRight size={tabletDeskSize} />}
+          {desk ? <View style={s.deskAbove}>{content}</View> : content}
+            {createModal}
         </View>
       </View>
     );
@@ -701,9 +852,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
 
   // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 태블릿 보관함은 흰 사이드 메뉴. 오른쪽: 보관함·편집기 바탕.
   const safeAreaColors = {
-    top: page === 'editor' && !isLandscape ? C.white : C.canvas,
-    left: !isPhone && page !== 'editor' ? C.white : C.canvas,
-    right: C.canvas,
+    top: page === 'editor' && !isLandscape ? C.white : desk ? DESK_COLORS.base : C.canvas,
+    left: page !== 'editor' ? C.white : desk ? DESK_COLORS.base : C.canvas,
+    right: desk ? DESK_COLORS.base : C.canvas,
   };
 
   const measureViewport = ({ nativeEvent: { layout } }) => {
@@ -716,8 +867,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   return (
     <>
       {authenticatedNotifications && sharingRequest?.mode === 'notifications'
-        ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} />
-        : <SharingHub onOpenCopy={diary => { setSharingRequest(null); enterEditor(diary); }} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} />}
+        ? <AuthenticatedNotificationDialog model={authenticatedNotifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} onInvitationReady={value => setSharingRequest({ mode: 'invitation', inviteId: value.inviteId })} />
+        : <SharingHub onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
         {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}
@@ -731,6 +882,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           {insets.right > 0 && <View style={{ width: insets.right, backgroundColor: safeAreaColors.right }} />}
         </View>
       </View>
+      {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.white }]} />}
+      {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
+        check={value => checkAppLock(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}
+      <DialogHost />
     </>
   );
 }

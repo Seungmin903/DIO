@@ -14,7 +14,7 @@ export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone, 
       accessibilityLabel={`선택한 ${selected.length}개 삭제`}
       style={({ pressed }) => [styles.delete, blocked && styles.disabled, pressed && styles.pressed]}
       onPress={() => { confirmed.current = false; setPending(selected) }}>
-      <Icon name="trash" size={14} color={colors.danger} />
+      <Icon name="trash" size={14} forText={11.5} color={colors.danger} />
       <Text style={styles.deleteText}>선택 삭제</Text>
     </Pressable>
     {selected.length >= pages.length && <Text style={styles.hint}>페이지는 최소 한 장 남겨 주세요.</Text>}
@@ -51,5 +51,5 @@ const styles = StyleSheet.create({
   resetText: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   hint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   disabled: { opacity: DISABLED_OPACITY },
-  pressed: { opacity: 0.65 },
+  pressed: {}, // 눌림 효과 없음(사용자 지시)
 })

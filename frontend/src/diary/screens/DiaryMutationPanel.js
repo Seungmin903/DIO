@@ -72,7 +72,7 @@ export default function DiaryMutationPanel({ api, mock, diaries, onChanged }) {
     <ScrollView horizontal contentContainerStyle={s.row}>
       {[['create', '목 생성'], ['update', '목 수정'], ['trash', '목 휴지통 이동'], ['restore', '목 복원'], ['permanentlyDelete', '목 영구 삭제']].map(([value, label]) => <Button key={value} label={label} onPress={() => open(value)} />)}
     </ScrollView>
-    <Modal visible={kind !== null} onRequestClose={close} animationType="fade">
+    <Modal visible={kind !== null} onRequestClose={close} animationType="none">
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[s.panel, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
         <Button label="저장 검증 닫기" onPress={close} disabled={saving} />
         <Text style={s.title}>목 { {create: '생성', update: '수정', trash: '휴지통 이동', restore: '복원', permanentlyDelete: '영구 삭제'}[kind] } 검증</Text>

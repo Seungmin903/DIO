@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PAPERS, appendPaper, changeRow, changeRowPaper, clampWhole, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, newRow, newSection, paperPreviewId, removePaper, savedPaperSummary, splitSection, sectionTitle, sectionsTemplateConfig } from '../src/diary/utils/paperChoice.js'
-import { bandAutoColor, changeCoverKind, coverElementSummary, createStickerCopy, defaultCover, normalizeCover } from '../src/diary/utils/coverDesign.js'
+import { bandAutoColor, changeCoverKind, coverElementSummary, coverTabPaint, createStickerCopy, defaultCover, normalizeCover } from '../src/diary/utils/coverDesign.js'
 import { photoTone } from '../src/diary/utils/photoTone.js'
 import { configuredPageIds, defaultTemplateConfig, normalizeTemplateConfig, templatePageCount } from '../src/editor/templates/creation.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
@@ -92,7 +92,7 @@ test('띠지 종이색은 목록 안의 색만 받고, 고무줄 맞춤 색은 �
   assert.equal(defaultCover().ribbon.color, '#F3F2ED')
   assert.equal(normalizeCover({ cover: { ribbon: { color: '#d9c4a3' } } }).ribbon.color, '#D9C4A3')
   assert.equal(normalizeCover({ cover: { ribbon: { color: '#123456' } } }).ribbon.color, '#F3F2ED')
-  const navy = { ...defaultCover(), ribbon: { color: '#0B1957' } }
+  const navy = { ...defaultCover(), ribbon: { color: '#0B1766' } }
   assert.equal(coverElementSummary(navy, 'plate'), '띠지 · 네이비 · 가운데 아래')
   assert.equal(coverElementSummary({ ...navy, title: { ...navy.title, at: { x: 0, y: 20 } } }, 'plate'), '띠지 · 네이비 · 옮긴 자리')
   const plain = defaultCover({ color: '#FFFFFF' })
@@ -228,4 +228,52 @@ test('표지 스티커는 회전 각도를 0~360 으로 저장하고, 복제는 
   const copy = createStickerCopy(cover.stickers[0])
   assert.notEqual(copy.id, 'a')
   assert.deepEqual([copy.x, copy.y, copy.size, copy.rotation], [100, 54, 14, 330])
+})
+
+test('상단바 탭 색 띠는 표지에 보이는 색을 따라간다: 그라데이션은 전체 색, 사진은 대표 색, 그 밖은 바탕색', () => {
+  assert.deepEqual(coverTabPaint({ color: '#F2A7A0' }), { color: '#F2A7A0', stops: null })
+  const sunset = coverTabPaint({ color: '#F2A7A0', cover: { gradient: 0 } })
+  assert.deepEqual(sunset.stops, ['#F6C9B8', '#F3D9C2', '#C7CCE9', '#9DA5D8'])
+  assert.equal(sunset.color, '#F6C9B8')
+  const custom = coverTabPaint({ color: '#F2A7A0', cover: { gradient: 'custom', gradientColors: ['#112233', '#445566'] } })
+  assert.deepEqual(custom.stops, ['#112233', '#445566'])
+  const photo = { src: 'file://a.jpg', mediaFileId: 'm1' }
+  assert.equal(coverTabPaint({ color: '#F2A7A0', cover: { kind: 'photo', photo: { ...photo, tone: '#508CDC' } } }).color, '#508CDC')
+  assert.deepEqual(coverTabPaint({ color: '#F2A7A0', cover: { kind: 'photo', photo } }), { color: '#F2A7A0', stops: null })
+  // 사진 표지로 바꾸면 그라데이션 설정이 남아 있어도 쓰지 않는다
+  assert.equal(coverTabPaint({ color: '#F2A7A0', cover: { kind: 'photo', gradient: 0, photo } }).stops, null)
+  assert.deepEqual(coverTabPaint({ color: '#F2A7A0', cover: { enabled: false, gradient: 0 } }), { color: '#F2A7A0', stops: null })
+})
+
+test('상단바 탭 그라데이션 색은 #RRGGBB 로 맞춘 값만 쓰고 색이 모자라면 기본 쌍으로 채운다', () => {
+  // 스타일 문자열에 이어 붙는 값이라 CSS 조각이 섞여 들어오면 기본 색으로 바꾼다
+  const injected = coverTabPaint({ color: '#F2A7A0', cover: { gradient: 'custom', gradientColors: ['red); background:url(x', '#445566'] } })
+  assert.deepEqual(injected.stops, ['#F3D9C2', '#445566'])
+  assert.ok(injected.stops.every(color => /^#[0-9A-F]{6}$/.test(color)))
+  // 색이 하나뿐이거나 없으면 기본 두 색
+  assert.deepEqual(coverTabPaint({ color: '#F2A7A0', cover: { gradient: 'custom', gradientColors: ['#112233'] } }).stops, ['#F3D9C2', '#9DB6DA'])
+  assert.deepEqual(coverTabPaint({ color: '#F2A7A0', cover: { gradient: 'custom' } }).stops, ['#F3D9C2', '#9DB6DA'])
+  // 사진 대표 색도 같은 형식만 받는다
+  assert.equal(coverTabPaint({ color: '#F2A7A0', cover: { kind: 'photo', photo: { src: 'file://a.jpg', tone: 'url(x)' } } }).color, '#F2A7A0')
+  // 프리셋 그라데이션은 모두 두 색 이상이다
+  for (let index = 0; index < 6; index++) assert.ok(coverTabPaint({ cover: { gradient: index } }).stops.length >= 2)
+})
+
+test('출시된 표지가 고른 예전 그라데이션(0~5번)은 번호 · 색 · 그리는 방식이 그대로이고, 새 프리셋은 그 뒤에서만 고른다', async () => {
+  const { COVER_GRADIENTS, GRADIENT_PICK_FROM, gradientStops } = await import('../src/diary/utils/coverDesign.js')
+  const legacy = [
+    ['노을', ['#F6C9B8', '#F3D9C2', '#C7CCE9', '#9DA5D8']],
+    ['숲', ['#DCEBD0', '#9CC29A', '#4E7D5B']],
+    ['모래', ['#FBEFD9', '#F0D3A8', '#C99E6E']],
+    ['밤하늘', ['#1F2A5A', '#3B4C8C', '#8A7DB8']],
+    ['벚꽃', ['#FDE3EA', '#F7B9CB']],
+    ['바다', ['#CFEAF6', '#8CCBE6', '#3E8DB8']],
+  ]
+  assert.deepEqual(COVER_GRADIENTS.slice(0, 6), legacy)
+  assert.equal(GRADIENT_PICK_FROM, 6)
+  for (let index = 0; index < 6; index++) {
+    assert.deepEqual(gradientStops(normalizeCover({ cover: { gradient: index } })), legacy[index][1])
+  }
+  // 새 프리셋은 물감 섞기로 중간색을 채운다
+  assert.ok(gradientStops(normalizeCover({ cover: { gradient: GRADIENT_PICK_FROM } })).length > COVER_GRADIENTS[GRADIENT_PICK_FROM][1].length)
 })
