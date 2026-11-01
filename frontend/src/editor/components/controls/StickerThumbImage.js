@@ -5,20 +5,22 @@ import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
 import { mediaService, reportMediaDisplayError } from '../../services/mediaStore'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { stickerSource } from '../../stickerAssets'
-import { STICKER_THUMBS } from '../../stickerThumbs'
 import { colors } from '../../../shared/theme'
 import DdayWidget from '../../widgets/DdayWidget'
 import { DDAY_STYLES, ddayStyleOf } from '../../widgets/dday'
+import { createMemo } from '../../widgets/memo'
+import { MEMO_ARTS } from '../../widgets/memoArt'
+import ShapeContent from '../canvas/ShapeContent'
 
 const RETRIES = 2
 
 /**
  * 스티커 보관함 칸 그림 (편집기 보관함 · 표지 스티커가 함께 쓴다).
- * - 기본 스티커는 칸용 128px 썸네일을 쓴다. 캔버스에 붙인 스티커는 원본을 그대로 쓴다.
  * - expo-image 로 칸 크기에 맞춰 줄여 풀고 메모리 · 디스크에 캐시해 다시 열 때 바로 보인다.
  * - 불러오지 못하면 잠깐 뒤 두 번까지 다시 시도하고, 그래도 안 되면 흐린 자리표시만 남긴다.
  */
 export default function StickerThumbImage({ item, style }) {
+  if (item.kind === 'memo') return <MemoThumb item={item} style={style} />
   if (item.widget) return <WidgetThumb item={item} style={style} />
   return <ImageThumb item={item} style={style} />
 }
@@ -39,6 +41,20 @@ function WidgetThumb({ item, style }) {
   )
 }
 
+// 메모 미리보기: 붙일 때와 같은 도형을 칸 크기로 줄여 그린다
+const THUMB_MEMOS = Object.fromEntries(MEMO_ARTS.map((art) => [art.id, createMemo({ memo: art.id }, { x: 0, y: 0 })]))
+
+function MemoThumb({ item, style }) {
+  const [box, setBox] = useState(null)
+  const memo = THUMB_MEMOS[item.memo] ?? THUMB_MEMOS[MEMO_ARTS[0].id]
+  const fit = box ? Math.min(box.width / memo.w, box.height / memo.h) * 0.92 : 0
+  return (
+    <View style={[style, styles.widgetBox]} onLayout={(event) => setBox(event.nativeEvent.layout)}>
+      {fit > 0 && <ShapeContent object={memo} zoom={fit} hideText />}
+    </View>
+  )
+}
+
 function ImageThumb({ item, style }) {
   const id = item.asset ? null : mediaId(item.poster ?? item)
   const uri = useMediaUri(item.asset ? null : item, { still: true })
@@ -50,7 +66,7 @@ function ImageThumb({ item, style }) {
     const timer = setTimeout(() => { setAttempt(value => value + 1); mediaService.resolveDisplay(id).catch(() => {}) }, 500 * (attempt + 1))
     return () => clearTimeout(timer)
   }, [failed, attempt, id])
-  const source = item.asset ? STICKER_THUMBS[item.asset] ?? stickerSource(item, true) : stickerSource(item, true, uri)
+  const source = stickerSource(item, true, uri)
   if (!source || failed && attempt >= RETRIES) {
     return item.emoji ? <Text style={styles.emoji}>{item.emoji}</Text> : <View style={[styles.placeholder, style]} />
   }

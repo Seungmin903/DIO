@@ -28,6 +28,8 @@ function fixture(object, zoom = 1, textMinHeight = null) {
     if (id.endsWith('/theme')) return { colors: {} }
     if (id.endsWith('/common')) return common
     if (id.endsWith('/popoverPlacement')) return placement
+    if (id.endsWith('/utils/objects')) return { tapeUnitH: (tape) => tape.unitH ?? 34 }
+    if (id.endsWith('/constants')) return { TAPE_SIZES: [{ id: 'slim', w: 200, h: 11 }, { id: 'standard', w: 180, h: 34 }, { id: 'wide', w: 200, h: 68 }] }
     if (id.endsWith('/text')) return text
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
     if (id === '../controls/Icon') return { __esModule: true, default: () => null }
@@ -93,15 +95,29 @@ test('크기 조절 취소는 원래 좌표와 크기를 복원하고 연속 드
   }
 })
 
-test('사진·스티커는 모서리만, 테이프는 길이만 조절하는 기존 규칙을 유지한다', () => {
+test('사진·스티커는 모서리만, 테이프는 길이와 폭을 끝 · 위아래 손잡이로 조절한다', () => {
   const api = fixture(object()).api
   for (const type of ['photo', 'sticker']) {
     const handles = api.handlesFor(object({ type }))
     assert.equal(handles.length, 4)
     assert.ok(handles.every((h) => h.sx && h.sy))
   }
-  assert.deepEqual(api.handlesFor(object({ type: 'tape' })).map((h) => [h.sx, h.sy]), [[-1, 0], [1, 0]])
+  assert.deepEqual(api.handlesFor(object({ type: 'tape' })).map((h) => [h.sx, h.sy]), [[-1, 0], [1, 0], [0, -1], [0, 1]])
   assert.equal(api.handlesFor(object({ type: 'stroke' })).length, 8)
+})
+
+test('테이프 폭을 바꾸면 무늬 기준 높이 · 이미지 조각 길이가 같은 비율로 바뀌고 범위를 지킨다', () => {
+  const tape = object({ type: 'tape', w: 180, h: 34, size: 'standard', segmentW: 180 })
+  const f = fixture(tape), input = f.handle({ sx: 0, sy: 1 })
+  input.onStart(); input.onMove(0, 34); input.onEnd({ cancelled: false })
+  const wide = f.state().doc.pages[0].objects[0]
+  close(wide.h, 68); close(wide.w, 180); close(wide.unitH, 68); close(wide.segmentW, 360); close(wide.y, tape.y)
+  const g = fixture(tape), thin = g.handle({ sx: 0, sy: -1 })
+  thin.onStart(); thin.onMove(0, 1000); thin.onEnd({ cancelled: false })
+  close(g.state().doc.pages[0].objects[0].h, 11)
+  const h = fixture(tape), tap = h.handle({ sx: 0, sy: 1 })
+  tap.onStart(); tap.onMove(0, 0); tap.onEnd({ cancelled: false })
+  assert.ok(!h.actions.some((action) => action.type === 'checkpoint'))
 })
 
 test('웹 양방향 커서는 회전된 변·모서리 방향에 맞는다', () => {

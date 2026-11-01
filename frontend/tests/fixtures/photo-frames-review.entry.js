@@ -63,7 +63,7 @@ function Fixture() {
   return (
     <View style={{ padding: 20, flexDirection: 'row', flexWrap: 'wrap', gap: 24, backgroundColor: '#CED9EE', minHeight: '100%' }}>
       <View testID="drawer" style={{ height: 860 }}>
-        <DecorDrawer tab="photo" onAdd={(item) => setAdded((list) => [...list, item])} onAddPhotos={async () => {}} onToast={() => {}} onClose={() => {}} />
+        <DecorDrawer tab="widget" onAdd={(item) => setAdded((list) => [...list, item])} onToast={() => {}} onClose={() => {}} />
       </View>
       <View testID="stage" style={{ width: 1180, height: 800, position: 'relative', backgroundColor: '#FFFFFF' }}>
         {objects.map((o) => (
