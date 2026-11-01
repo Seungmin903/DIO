@@ -1,8 +1,8 @@
-package com.f106.DIO.user.controller;
+package com.f106.DIO.auth.controller;
 
 import com.f106.DIO.auth.dto.LoginUserResponse;
+import com.f106.DIO.auth.service.MyProfileService;
 import com.f106.DIO.user.dto.ProfileUpdateRequest;
-import com.f106.DIO.user.service.UserProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -11,8 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,8 +24,11 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/me")
 @SecurityRequirement(name = "bearerAuth")
 public class MyProfileController {
-    private final UserProfileService profiles;
-    public MyProfileController(UserProfileService profiles) { this.profiles = profiles; }
+    private final MyProfileService profiles;
+
+    public MyProfileController(MyProfileService profiles) {
+        this.profiles = profiles;
+    }
 
     @GetMapping
     @Operation(summary = "내 회원정보 조회")
@@ -57,5 +60,7 @@ public class MyProfileController {
         return ResponseEntity.noContent().header("Cache-Control", "no-store").build();
     }
 
-    private long userId(Jwt jwt) { return Long.parseLong(jwt.getSubject()); }
+    private long userId(Jwt jwt) {
+        return Long.parseLong(jwt.getSubject());
+    }
 }
