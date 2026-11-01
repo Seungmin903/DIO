@@ -61,7 +61,7 @@ const server = http.createServer((req, res) => {
       await page.evaluate(() => window.__fontQA.fill())
       // Reopen the stored input to exercise the same persisted route as app reentry.
       await page.getByRole('button', { name: '폰트 화면 뒤로가기' }).click()
-      await page.getByRole('button', { name: '나의 손글씨 작성 중', exact: true }).click()
+      await page.getByRole('button', { name: /^나의 손글씨 \d+ \/ 36 작성 중$/ }).click()
       await page.getByRole('button', { name: '샘플 확인', exact: true }).click()
       await page.getByText('내 글씨로 만든 샘플이에요', { exact: true }).waitFor()
       await page.getByLabel('새 폰트 이름').fill('신승민 폰트')
@@ -80,7 +80,7 @@ const server = http.createServer((req, res) => {
       await page.getByRole('button', { name: '폰트 화면 뒤로가기' }).click()
       await page.getByRole('button', { name: '+ 새로 만들기', exact: true }).click()
       await page.evaluate(() => window.__fontQA.fill())
-      await page.getByRole('button', { name: '폰트 화면 뒤로가기' }).click(); await page.getByRole('button', { name: '나의 손글씨 작성 중', exact: true }).click()
+      await page.getByRole('button', { name: '폰트 화면 뒤로가기' }).click(); await page.getByRole('button', { name: /^나의 손글씨 \d+ \/ 36 작성 중$/ }).click()
       await page.getByRole('button', { name: '샘플 확인', exact: true }).click(); await page.getByLabel('새 폰트 이름').fill('대기 폰트')
       await page.getByRole('button', { name: '생성 확정', exact: true }).click()
       await page.getByText('대기 1번째', { exact: true }).waitFor()

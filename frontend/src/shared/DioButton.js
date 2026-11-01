@@ -12,7 +12,8 @@ import { colors } from './theme';
  */
 export default function DioButton({ variant = 'tonal', label, text = label, icon = null, badge = null, outline = false, block = false, disabled = false, selected = false, onPress, onLongPress, hint, style }) {
   const filled = variant === 'filled', iconOnly = variant === 'icon';
-  const ink = filled ? colors.surface : variant === 'danger' ? colors.dangerStrong : colors.primaryText;
+  // 고른 상태는 흰 면이라 채움 버튼이어도 글자는 primaryText(흰 글자가 흰 면에 묻히지 않게)
+  const ink = filled && !selected ? colors.surface : variant === 'danger' ? colors.dangerStrong : colors.primaryText;
   return (
     // 안드로이드는 accessibilityState · disabled 에 참 · 거짓이 아닌 값(예: 'merge')이 오면 멈춘다
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{ disabled: !!disabled, selected: !!selected }}
