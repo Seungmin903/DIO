@@ -97,6 +97,38 @@ class EmailInviteTests extends SharingTestSupport {
         assertThat(invites.pendingEmail(id,to.id())).isPresent();
         assertThat(notifications(id,to)).isEqualTo(1);
     }
+    @Test void notificationFailuresConsumeAttemptBudgetEvenAfterRollback() throws Exception {
+        var owner=actor();var to=actor();var other=actor();var id=diary(owner);
+        doThrow(new IllegalStateException("notification unavailable"))
+            .when(notificationRepository).createNotification(any(),any());
+        for(int i=0;i<3;i++) {
+            assertThatThrownBy(()->send(id,owner,to)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThat(invites.pendingEmail(id,to.id())).isEmpty();
+            assertThat(notifications(id,to)).isZero();
+        }
+        assertThat(jdbc.queryForObject("select count(*) from invitation_notification_receipts where recipient_user_id=?",Long.class,to.id())).isZero();
+        doCallRealMethod().when(notificationRepository).createNotification(any(),any());
+        // Recovering the listener does not refund failed requests; the fourth attempt remains limited.
+        mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+owner.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\""+address(to)+"\"}"))
+            .andExpect(status().isTooManyRequests()).andExpect(jsonPath("code").value("EMAIL_INVITE_RATE_LIMITED"))
+            .andExpect(header().exists("Retry-After"));
+        assertThat(invites.pendingEmail(id,to.id())).isEmpty();
+        send(id,owner,other);
+        assertThat(notifications(id,other)).isEqualTo(1);
+    }
+    @Test void notificationFailurePropagatesInsteadOfReturningAccepted() {
+        var owner=actor();var to=actor();var id=diary(owner);
+        doThrow(new IllegalStateException("notification unavailable"))
+            .when(notificationRepository).createNotification(any(),any());
+        // MockMvc propagates an unhandled server exception; the servlet container renders it as 5xx.
+        assertThatThrownBy(()->mvc.perform(post("/api/v1/diaries/"+id+"/invites/email")
+            .header("Authorization","Bearer "+owner.token()).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"email\":\""+address(to)+"\"}")))
+            .hasRootCauseInstanceOf(IllegalStateException.class);
+        assertThat(invites.pendingEmail(id,to.id())).isEmpty();
+        assertThat(notifications(id,to)).isZero();
+    }
     @Test void concurrentDuplicateSendsCreateOneInvitationAndOneNotification() throws Exception {
         var owner=actor();var to=actor();var id=diary(owner);var gate=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(5);
         try{
