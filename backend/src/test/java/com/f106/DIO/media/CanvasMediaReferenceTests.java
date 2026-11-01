@@ -28,7 +28,8 @@ class CanvasMediaReferenceTests {
         cells.addObject().put("mediaFileId",UUID.randomUUID().toString());
         var jdbc=org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
         var dialect=org.mockito.Mockito.mock(com.f106.DIO.media.config.MediaSqlDialect.class);
-        assertThatThrownBy(()->new CanvasMediaAccess(jdbc,dialect).requireAttach(UUID.randomUUID(),null,properties,1))
+        // primary(1) + cells의 서로 다른 64개 = 65개이므로, 첨부 경로도 DB 조회 전에 거절해야 한다.
+        assertThatThrownBy(()->new CanvasMediaAccess(jdbc,dialect).requireAttach(UUID.randomUUID(),primary,properties,1))
             .isInstanceOf(IllegalArgumentException.class);
         org.mockito.Mockito.verifyNoInteractions(jdbc,dialect);
     }
