@@ -78,7 +78,7 @@ async function stroke(page, points) {
     await (await fileChooser).setFiles(fontPath)
     await page.getByRole('button', { name: '폰트 화면 뒤로가기', exact: true }).click()
     await page.getByText(path.basename(fontPath).replace(/\.ttf$/, ''), { exact: true }).waitFor()
-    const fonts = await page.evaluate(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.endsWith('dio-personal-fonts-v1'))[1]))
+    let fonts = await page.evaluate(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.endsWith('dio-personal-fonts-v1'))[1]))
     assert.equal(fonts.length, 1)
     await page.waitForFunction(family => document.fonts.check(`16px ${family}`), fonts[0].family)
     assert(await page.evaluate(family => {
@@ -86,6 +86,31 @@ async function stroke(page, points) {
       const c = canvas.getContext('2d'); c.font = `96px ${family}`; c.fillText('한이민글', 0, 100)
       return c.getImageData(0, 0, 512, 128).data.filter((v, i) => i % 4 === 3 && v > 0).length > 100
     }, fonts[0].family), 'Loaded font draws real Hangul ink')
+    let activeFont = fonts[0], spacing = null
+    if (process.env.HANDWRITING_TEST_SPACING === '1') {
+      const original = fonts[0]
+      await page.getByRole('button', { name: `${original.label} 생성 완료`, exact: true }).click()
+      await page.getByRole('button', { name: '폰트 보조 메뉴', exact: true }).click()
+      await page.getByRole('button', { name: '글자 간격 보정', exact: true }).click()
+      await page.waitForFunction(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.endsWith('dio-personal-fonts-v1'))[1]).length === 2)
+      fonts = await page.evaluate(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.endsWith('dio-personal-fonts-v1'))[1]))
+      activeFont = fonts.find(font => font.sourceFontId === original.id)
+      assert(activeFont); assert.equal(activeFont.spacingVersion, 'ink-bounds-v1')
+      await page.waitForFunction(family => [...document.fonts].some(face => face.family.replace(/["']/g, '') === family && face.status === 'loaded'), activeFont.family)
+      spacing = await page.evaluate(({ before, after }) => {
+        const context = document.createElement('canvas').getContext('2d'), text = '이가횡핀한민글'
+        context.font = `48px ${before}`; const originalWidth = context.measureText(text).width
+        context.font = `48px ${after}`; return { originalWidth, correctedWidth: context.measureText(text).width }
+      }, { before: original.family, after: activeFont.family })
+      console.log('SPACING_WIDTHS', spacing)
+      assert(spacing.correctedWidth < spacing.originalWidth * .8)
+      assert.equal(fonts.find(font => font.id === original.id).uri, original.uri)
+      await page.getByRole('button', { name: '폰트 화면 뒤로가기', exact: true }).click()
+      await page.getByRole('button', { name: `${activeFont.label} 생성 완료`, exact: true }).click()
+      await page.getByRole('button', { name: '폰트 보조 메뉴', exact: true }).click()
+      assert(await page.getByRole('button', { name: '글자 간격 보정', exact: true }).isDisabled())
+      await page.getByRole('button', { name: '폰트 화면 뒤로가기', exact: true }).click()
+    }
     await page.reload(); await openStudio(page)
     await page.getByText(path.basename(fontPath).replace(/\.ttf$/, ''), { exact: true }).waitFor()
     await page.waitForFunction(family => document.fonts.check(`16px ${family}`), fonts[0].family)
@@ -100,20 +125,26 @@ async function stroke(page, points) {
     await page.getByRole('button', { name: '초안·폰트 가져오기', exact: true }).click()
     await (await badChooser).setFiles({ name: 'damaged.ttf', mimeType: 'font/ttf', buffer: corrupted })
     await page.getByText('폰트 파일 검증에 실패했어요. 원래 파일을 다시 가져와 주세요.', { exact: true }).waitFor()
-    assert.equal(await page.evaluate(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.endsWith('dio-personal-fonts-v1'))[1]).length), 1)
+    assert.equal(await page.evaluate(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.endsWith('dio-personal-fonts-v1'))[1]).length), fonts.length)
     await page.getByRole('button', { name: '폰트 화면 뒤로가기', exact: true }).click()
     await page.getByRole('button', { name: '폰트 화면 뒤로가기', exact: true }).click()
     const sentence = '한이민글 오늘의 기록'
-    await page.evaluate(({ font, sentence }) => {
+    await page.evaluate(({ font, sentence, spacingTest }) => {
       const id = 'handwriting-browser-qa'
       localStorage.setItem('dio:diary:list:v1', JSON.stringify([{ id, title: '내 폰트 적용 QA', color: '#CED9EE' }]))
-      localStorage.setItem(`dio:editor:doc:v4:${id}`, JSON.stringify({ id, title: '내 폰트 적용 QA', pages: [{ id: 'page', canvasWidth: 1280, canvasHeight: 800, objects: [{ id: 'handwriting-text', type: 'text', x: 100, y: 180, w: 1050, baseWidth: 1050, h: 110, text: sentence, font: font.id, fontSize: 64, color: '#111111', rotation: 0 }] }] }))
-    }, { font: fonts[0], sentence })
+      const width = spacingTest ? 240 : 1050
+      localStorage.setItem(`dio:editor:doc:v4:${id}`, JSON.stringify({ id, title: '내 폰트 적용 QA', pages: [{ id: 'page', canvasWidth: 1280, canvasHeight: 800, objects: [{ id: 'handwriting-text', type: 'text', x: 100, y: 180, w: width, baseWidth: width, h: 110, text: sentence, font: font.id, fontSize: 64, color: '#111111', rotation: 0 }] }] }))
+    }, { font: activeFont, sentence, spacingTest: Boolean(spacing) })
     await page.reload()
     await enterLocalSession(page)
     await page.getByText('내 폰트 적용 QA', { exact: true }).first().click()
     await page.locator('[aria-label$=" 캔버스"]').waitFor()
-    await page.waitForFunction(({ sentence, family }) => [...document.querySelectorAll('div')].some(el => el.textContent === sentence && getComputedStyle(el).fontFamily.includes(family)), { sentence, family: fonts[0].family })
+    await page.waitForFunction(({ sentence, family }) => [...document.querySelectorAll('div')].some(el => el.textContent === sentence && getComputedStyle(el).fontFamily.includes(family)), { sentence, family: activeFont.family })
+    const wrapping = spacing ? await page.evaluate(({ sentence, family }) => {
+      const node = [...document.querySelectorAll('div')].find(el => el.textContent === sentence && getComputedStyle(el).fontFamily.includes(family))
+      return { lines: Math.round(node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight)) }
+    }, { sentence, family: activeFont.family }) : null
+    if (wrapping) assert(wrapping.lines >= 2, 'Corrected font wraps in a narrow real editor text box')
     await page.screenshot({ path: path.join(output, 'diary-personal-font.png') })
     for (const format of ['PNG', 'PDF']) {
       await page.getByLabel('공유 및 내보내기', { exact: true }).click()
@@ -133,9 +164,9 @@ async function stroke(page, points) {
     await page.reload()
     await enterLocalSession(page)
     await page.getByText('내 폰트 적용 QA', { exact: true }).first().click()
-    await page.waitForFunction(({ sentence, family }) => [...document.querySelectorAll('div')].some(el => el.textContent === sentence && getComputedStyle(el).fontFamily.includes(family)), { sentence, family: fonts[0].family })
+    await page.waitForFunction(({ sentence, family }) => [...document.querySelectorAll('div')].some(el => el.textContent === sentence && getComputedStyle(el).fontFamily.includes(family)), { sentence, family: activeFont.family })
     assert.deepEqual(errors, [])
-    fs.writeFileSync(path.join(output, 'validation.json'), JSON.stringify({ platform: 'headless Edge / React Native Web', phone_hardware_tested: false, native_module_absent: true, input_saved_and_reloaded: true, undo_preserves_earlier_stroke: true, native_generation_disabled: true, real_ttf_import_and_reload: true, damaged_font_preserves_library: true, diary_font_and_reload: true, png_export: [decoded.width, decoded.height], pdf_pages: pdf.getPageCount(), font_source: path.basename(fontPath), page_errors: errors }, null, 2))
+    fs.writeFileSync(path.join(output, 'validation.json'), JSON.stringify({ platform: 'headless Edge / React Native Web', phone_hardware_tested: false, native_module_absent: true, input_saved_and_reloaded: true, undo_preserves_earlier_stroke: true, native_generation_disabled: true, real_ttf_import_and_reload: true, damaged_font_preserves_library: true, diary_font_and_reload: true, spacing, wrapping, png_export: [decoded.width, decoded.height], pdf_pages: pdf.getPageCount(), font_source: path.basename(fontPath), page_errors: errors }, null, 2))
     console.log('Handwriting UI: input, persistence, undo, unavailable generator, actual TTF import/reload, damaged import, diary render, PNG/PDF passed.')
   } catch (error) {
     fs.writeFileSync(path.join(output, 'error.txt'), error.stack || String(error)); throw error

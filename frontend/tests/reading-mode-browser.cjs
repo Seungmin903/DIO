@@ -23,6 +23,7 @@ async function main() {
       await page.waitForFunction(()=>window.__readerState?.loaded,null,{timeout:180000})
       const enter=page.getByRole('button',{name:'읽기 모드로 전환',exact:true})
       await enter.waitFor()
+      assert.deepEqual(errors,[])
       assert.equal(await page.getByRole('button',{name:'화면에 맞춤',exact:true}).count(),1)
       const editFit=page.getByRole('button',{name:'화면에 맞춤',exact:true})
       const fitBox=await editFit.boundingBox()

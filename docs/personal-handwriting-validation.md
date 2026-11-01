@@ -154,3 +154,33 @@ SDK58 검증 기록은 `merged-frontend-tests.log`, `browser-merged/validation.j
 ### 후속 JS/UI 통합 검사 — 2026-10-29
 
 최신 읽기 모드·회원 프로필·공유 관리와 개인 폰트를 함께 확인한 관련 자동 검사 55개가 통과했습니다. 웹 재빌드와 실제 TTF 가져오기·작성 복원·다이어리 적용·PNG/PDF 출력, 웹 고지 47개와 JS 패키지 41개의 출처 검사가 통과했습니다. 기록은 `ttf-production-20261029/`의 `mr-retry-tests.log`, `web-mr-retry.log`, `browser-mr-retry/validation.json`, `web-mr-retry-license-validation.json`입니다. 이 JS/UI 통합 뒤 Android 전체 빌드·휴대폰 측정은 반복하지 않았습니다.
+
+### 필기 중 화면 스크롤 간섭 수정 — 2026-10-30
+
+입력칸에서 유효한 단일 입력의 responder를 얻어 실제 획이 시작될 때 부모 ScrollView를 잠그고, 완료·취소·다중 터치·앱 비활성화·글자 변경·입력 비활성화·unmount 시 잠금을 해제합니다. iOS의 `canCancelContentTouches`는 필기 중에만 false이며 평소에는 true입니다. 단순 touchStart에는 잠그지 않고, 필기하지 않을 때에는 responder 양도와 네이티브 스크롤을 허용합니다. 손바닥 등 다른 터치가 남아 있어도 필기한 터치의 identifier가 종료되면 획을 완료합니다. 입력칸의 기존 웹 `touchAction: none`도 유지합니다.
+
+첫 수정의 상시 iOS 터치 취소 차단과 획 시작 전 잠금·다른 터치 잔류 상태의 해제 지연을 재검토했습니다. 수정 전 회귀 검사 4건이 실패함을 확인했고, 수정 후 입력·읽기·문서 관리 관련 자동 검사 76개가 통과했습니다. `pnpm test:handwriting`에 입력 회귀 검사를 포함합니다. `node tests/handwriting-input-browser.cjs`는 실행 중인 Metro(기본 8082, `EXPO_QA_HOST`·`EXPO_QA_PORT`로 변경 가능)를 사용해 390×844·1024×768의 실제 Studio UI를 검사합니다. Chromium 터치·pen 포인터로 필기 전 일반 문구에서 시작한 스와이프·필기 중 scrollTop 고정·완료 획 저장·취소 후 복원·입력칸 밖 스와이프·재실행 후 획 보존을 통과했습니다.
+
+근거는 `frontend/.expo/handwriting-idle-scroll-before.log`, `handwriting-idle-scroll-unit.log`, `handwriting-idle-scroll-browser.log`입니다. 네이티브 iPad/Apple Pencil·Android 실기기의 재검증 결과는 아니며 모델·가중치·기존 저장 자료는 변경하지 않았습니다.
+
+### 잉크 폭 기준 글자 간격 — 2026-10-30
+
+간격 버전 `ink-bounds-v1`은 한글의 advance를 `xMax-xMin+32`, LSB를16으로 지정합니다. 원본128px에서 좌우 각1px이며 공백1024·UPEM2048·기준선은 유지합니다. 기존 폰트는 새 ID·파일·내부 이름의 사본으로 보정하고, 이전 문서의 폰트 ID를 자동 교체하지 않습니다. 모델·전처리·특징 캐시는 바꾸지 않습니다. 신규 Android 제작 및 중단 후 이어하기는 버전별 TTF 파일명과 내부 이름으로 구형 완성 파일·캐시 충돌을 피합니다.
+
+- 익명 테스트 필체 A의 한글11,172자 전체에서 JavaScript 사본의 `glyf`·`loca`·문자 매핑이 원본과 바이트 단위로 같습니다. 4,424,040개 점·48,819개 윤곽선을 Java 생성 결과까지 대조했고 모든 좌표·on-curve 상태가 일치합니다. 두 경로의 advance·LSB가 모두 위 식과 같습니다. 혼합 체크포인트 재개 결과도 신규 제작 파일과 같고 완성 파일 덮어쓰기는 거절됩니다.
+- 보정 사본은9,292,796바이트, Java 제작은9,292,776바이트로, 구형9,270,544바이트보다 약22KB 큽니다. 가변 폭 메트릭과 이름 정보에 따른 차이이며 윤곽선 압축은 유지됩니다. 다른 필체의 파일 크기를 보장하는 수치는 아닙니다.
+- PC와 Android API36 x86_64의 실제 Typeface/Canvas에서128px·11,172자 전체를 위치 차이 보정 후 비교해 픽셀 차이0을 확인했습니다. Android 양쪽 TTF 모두 누락 글자·128px advance 오류가0입니다. 256px 표본도 위치 보정 후 픽셀이 같습니다.
+- 24·48px 표본은 소수점 위치·픽셀 그리드 맞춤에 따른 비트맵 차이를 별도로 기록했습니다. Android의 작은 크기 advance는 설계값에 비해 최대0.875px 반올림 차이가 관측됐습니다. 윤곽선 변형과 구분하며 모든 크기의 픽셀 일치를 주장하지 않습니다.
+- 관련 자동 검사108개와 Java 좌표 코덱 검사2개가 통과했습니다. 외부·손상·힌팅·잘못된 좌표 거부, 원본·기존 문서 보존, 중복 요청, 파일·목록 저장 실패, 사본 파일 유실 후 복구, 구형 이관 JSON·보정 메타데이터·TTF 가져오기를 포함합니다. iOS JSON 공유 창 전달·임시 파일 정리는 단위 검사입니다.
+- 실제 Android Expo Go58.0.5에서 독립 QA 프로젝트로 보정·새 ID·원본 연결·두 폰트 로드를 확인했습니다. ExpoGo 모듈과 실제 앱 패키지 `host.exp.exponent`를 확인했고 DIO 네이티브 생성기는 없었습니다. 같은48px·7글자 문자열 폭은336→약170.29입니다. 구형 `executionEnvironment` 상수는 bare로 보고돼 이 값만으로 실행 환경을 판정하지 않았습니다.
+- 전체 앱 웹에서는 가져온 원본의 보정 버튼·사본 등록·재실행 복원·손상 파일 거부·다이어리 적용·좁은 글상자 줄바꿈·PNG2560×1600·1쪽 PDF 출력이 통과했습니다. 같은 문장의 Canvas 폭은336→170.25입니다. 웹·iOS JavaScript export와 Android Java/Kotlin 모듈 컴파일도 통과했습니다.
+
+PC 재현 도구는 `frontend/scripts/verify-font-spacing.py`, 독립 Android 검사 도구는 `verify-font-spacing-android.ps1`·`FontSpacingAuditActivity.java`, Expo Go 검사는 `verify-font-spacing-expo-go.cjs`입니다. 공개 테스트용 TTF는 합성 사각형으로 만들며 개인 폰트를 저장소에 추가하지 않습니다. 기존 `verify-compact-handwriting-font.py`는 고정 폭을 보존한 과거 압축 비교용이며, 현재 제작기의 간격 변경 검증에는 새 도구를 사용합니다.
+
+로컬 근거는 `frontend/.expo/font-spacing/`의 `full-audit/validation.json`·`comparison.png`, `android-validation.json`, `expo-go-validation.json`, `browser-final/validation.json`, `regression.log`, `codec-2.log`, `android-module-final.log`, `ios-final.log`입니다. 실제 iPad의 생성·보정·공유 창, 갤럭시 전체 생성·발열, 신규 전체 DIO APK 설치는 이번에 검증하지 않았습니다. Android 결과는 전용 검증 앱·Expo Go·모듈 컴파일 결과로 구분합니다.
+# 2026-11-02 안전 최대 배율의 90% 전처리
+
+- 전처리 버전: `dio-ink-safe90-margin4-fp32-v2`. 36자 각각의 최대 안전 배율을 찾고 공통 비율 90%를 적용한다. 기존 모델·가중치와 완성 폰트는 유지한다.
+- 실제 저장 입력 3필체 × 36자 = 108자에 공통 JS 전처리 실행: 전부 통과, 최소 여백 7px, 최대 중심 오차 0.19945px, 최대 적용 배율 2.33899배. 원본 실험 자료는 읽기만 했다.
+- 관련 Node 테스트 25개 통과: 원본 보존, 중심·여백, 1.6배 초과 확대, 결정적 출력, 구 전처리 작업 거부, JS/Android/manifest/변환기 버전 일치와 기존 입력·폰트 간격 회귀 검사.
+- 이번 확인은 전처리 안전성 검사다. 새 정책으로 모델 재추론·생성 품질 평가, Android 새 빌드 실행 및 iPad 실기기 확인은 수행하지 않았다. Android 생성에는 변경한 네이티브 버전을 포함한 개발 빌드가 필요하다.

@@ -12,6 +12,8 @@ test('JS·Android·변환기·준비 스크립트는 같은 모델 버전과 ONN
   const factory = read('model-tools/dio_dmfont/factory.py')
   assert.equal(manifest.model_version, MODEL_VERSION)
   assert.equal(manifest.preprocess_version, PREPROCESS_VERSION)
+  assert(native.includes(`input.getString("preprocessVersion") == "${PREPROCESS_VERSION}"`))
+  assert(read('scripts/export-handwriting-model.py').includes(PREPROCESS_VERSION))
   for (const source of [native, prepare, factory]) assert(source.includes(MODEL_VERSION))
   for (const [file, constant] of [['encoder.fp32.onnx', 'ENCODER_HASH'], ['decoder.fp32.onnx', 'DECODER_HASH']]) {
     const expected = manifest.files[file].sha256
