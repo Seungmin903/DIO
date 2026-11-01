@@ -186,7 +186,7 @@ def even_tone(prop: Image.Image, clusters: int = 0, sigma: float = 12, hue_keep:
 
 
 def even_mascots(prop: Image.Image, max_share: float = 0.09) -> Image.Image:
-    """마스코트(디오 · 두리 · 수첩)의 색 면을 확실하게 한 색으로 칠한다. 진한 윤곽선으로 둘러싸인 면마다 대표색 하나로 채우고,
+    """마스코트(모아 · 디오 · 수첩)의 색 면을 확실하게 한 색으로 칠한다. 진한 윤곽선으로 둘러싸인 면마다 대표색 하나로 채우고,
     윤곽선 바로 옆(3px)만 윤곽선 ↔ 면색 사이의 번짐을 남겨 선이 계단지지 않게 한다. 윤곽선 안쪽의 밝은 테(할로) · 얼룩이 같이 사라진다.
     하얀 면(머리 · 몸 · 손 · 발)은 서로 한 색으로 맞춘다. 하늘 · 풀밭처럼 큰 면은 건드리지 않는다."""
     from scipy import ndimage
@@ -322,7 +322,7 @@ def props(folder: Path) -> None:
         if name in WIRE_CLIPS:
             im = thin_wire(im, WIRE_CLIPS[name])  # 클립끼리 철사 굵기를 맞춘다
         if name in TRIM_EDGE:
-            im = trim_edge(im, peel=(name == 'polaroid-picnic'))  # 어두운 띠 벗기기는 소풍 폴라로이드만 (하늘 폴라로이드는 가장자리에 걸친 두리 스티커 윤곽선이 있다)
+            im = trim_edge(im, peel=(name == 'polaroid-picnic'))  # 어두운 띠 벗기기는 소풍 폴라로이드만 (하늘 폴라로이드는 가장자리에 걸친 디오 스티커 윤곽선이 있다)
         base_width = im.width  # 돌리기 전 내용 폭 (앱이 보이는 폭에 맞춰 크기를 정하는 기준)
         im = rotate_smooth(im, ROTATE.get(name, 0))
         if name in EVEN_CLIP_BODY:

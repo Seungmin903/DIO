@@ -18,7 +18,7 @@ import SharingHub from './src/sharing/SharingHub';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
 import AuthenticatedNotificationDialog from './src/notifications/AuthenticatedNotificationDialog';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
-import { C, DEFAULT_FILTER } from './src/diary/constants';
+import { C, DEFAULT_FILTER, DESK_COLOR } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
@@ -26,8 +26,6 @@ import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import { withPdfPages } from './src/diary/utils/pdfImport';
 import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
-import DeskBackdrop from './src/diary/components/DeskBackdrop';
-import { DESK_COLORS } from './src/diary/utils/deskLight';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
@@ -120,7 +118,6 @@ function DiaryApp(props) {
     ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations}>{content}</AuthenticatedNotificationProvider>
     : content;
 }
-const DESK_ON_PHONE = false;
 
 function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, diaryState, sharing }) {
   const member = diaryState.source === 'member-api';
@@ -178,7 +175,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const tabletPortrait = !isPhone && !isLandscape;
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
-  const [deskSize, setDeskSize] = useState(null); // 책상이 깔릴 영역(작업 영역)의 크기
   const [railCollapsed, setRailCollapsed] = useState(true);  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
   // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
@@ -779,23 +775,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     />
   );
 
-  // 다이어리 홈은 '햇살 책상' 위에 놓인다. 사이드 메뉴는 흰 판 그대로, 책상은 작업 영역 뒤(폰은 아래 탭 뒤까지)에 깔린다.
-  // 햇살 책상은 태블릿(가로)만 쓴다. 폰(세로)은 가로형과 같은 빛 경험을 실기로 검증하지 못해 잠가 둔다(DESK_ON_PHONE).
-  const desk = page === 'library' && loaded && (!isPhone || DESK_ON_PHONE);
-  // 태블릿은 사이드 메뉴를 여닫는 동안 작업 영역 폭이 프레임마다 바뀐다. 책상은 접힌 폭(가장 넓은 폭) 밑으로는 줄지 않으므로
-  // 그보다 좁은 폭은 접힌 폭으로 보고 값을 바꾸지 않는다. 안 그러면 프레임마다 App · 책상(햇빛 · 마스크)이 다시 그려져 끊긴다.
-  const deskLayout = event => {
-    const { width: rawWidth, height } = event.nativeEvent.layout;
-    const width = isPhone ? rawWidth : Math.max(rawWidth, windowWidth - insets.left - insets.right - RAIL_WIDTH.collapsed);
-    setDeskSize(current => (current && current.width === width && current.height === height ? current : { width, height }));
-  }
-  // 태블릿 책상은 사이드바가 접힌(가장 넓은) 작업 영역 크기로 고정하고 오른쪽 끝에 붙인다. 사이드바를 여닫는 동안 작업 영역 폭이
-  // 프레임마다 바뀌어도 책상(원목 · 창빛)은 다시 그려지지도 움직이지도 않고, 넓어질 때 뒤 바탕(흰색)이 비치지도 않는다.
-  const tabletDeskSize = useMemo(() => deskSize && {
-    width: Math.max(deskSize.width, windowWidth - insets.left - insets.right - RAIL_WIDTH.collapsed),
-    // 높이도 화면 높이 아래로는 줄지 않게 한다. 처음 잰 작업 영역이 화면보다 낮으면(세로) 상판 아래가 이미지 없이 단색으로 비었다.
-    height: Math.max(deskSize.height, windowHeight - insets.top - insets.bottom),
-  }, [deskSize, windowWidth, windowHeight, insets.left, insets.right, insets.top, insets.bottom]);
+  // 다이어리 홈(태블릿)은 단색 책상 바탕 위에 놓인다. 폰은 셸 바탕 그대로다.
+  const desk = page === 'library' && loaded && !isPhone;
   let shell;
   if (page === 'editor') {
     shell = content;
@@ -818,8 +799,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           collapsed={railCollapsed}
           onToggle={() => setRailCollapsed((current) => !current)}
         />
-        <View style={[s.workspace, desk && s.workspaceDesk, desk && s.deskAbove, { paddingBottom: insets.bottom }]} onLayout={deskLayout}>
-          {desk && <DeskBackdrop compact size={deskSize} />}
+        <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
           {content}
         </View>
         {createModal}
@@ -841,9 +821,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
           collapsed={railCollapsed}          onToggle={() => setRailCollapsed((current) => !current)}
         />
-        <View style={[s.workspace, { paddingBottom: insets.bottom }, desk && { overflow: 'hidden' }]} onLayout={deskLayout}>
-          {desk && <DeskBackdrop anchorRight size={tabletDeskSize} />}
-          {desk ? <View style={s.deskAbove}>{content}</View> : content}
+        <View style={[s.workspace, { paddingBottom: insets.bottom }, desk && { backgroundColor: DESK_COLOR }]}>
+          {content}
             {createModal}
         </View>
       </View>
@@ -852,9 +831,9 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
 
   // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 태블릿 보관함은 흰 사이드 메뉴. 오른쪽: 보관함·편집기 바탕.
   const safeAreaColors = {
-    top: page === 'editor' && !isLandscape ? C.white : desk ? DESK_COLORS.base : C.canvas,
-    left: page !== 'editor' ? C.white : desk ? DESK_COLORS.base : C.canvas,
-    right: desk ? DESK_COLORS.base : C.canvas,
+    top: page === 'editor' && !isLandscape ? C.white : desk ? DESK_COLOR : C.canvas,
+    left: page !== 'editor' ? C.white : desk ? DESK_COLOR : C.canvas,
+    right: desk ? DESK_COLOR : C.canvas,
   };
 
   const measureViewport = ({ nativeEvent: { layout } }) => {

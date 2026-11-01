@@ -15,8 +15,8 @@ import CoverPattern from './CoverPattern'
 import { textStyle } from '../../editor/utils/text'
 import { loadPhotoTone } from '../utils/loadPhotoTone'
 import {
-  ANCHORS, BAND_COLORS, COVER_COLORS, COVER_FONTS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, isLegacyGradient, PLATE_SHAPES, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
-  bandAutoColor, changeCoverKind, coverElementSummary, paintStops,
+  ANCHORS, BAND_COLORS, COVER_COLORS, COVER_FONTS, COVER_GRADIENTS, COVER_PATTERNS, INK_COLORS, isLegacyGradient, isPickableGradient, PLATE_SHAPES, RETIRED_PATTERNS, RIBBON_COLORS, SUBTITLE_COLORS, SUBTITLE_SIZE, TITLE_SIZE,
+  bandAutoColor, changeCoverKind, coverLineColor, coverTitle, coverElementSummary, paintStops,
 } from '../utils/coverDesign'
 
 // 표지 종류(위 세 갈래)는 배경만 바꾸고, 아래 다섯 줄은 종류와 상관없이 같은 값을 쓴다.
@@ -47,8 +47,8 @@ function BaseOptions({ cover, onChange }) {
       <ColorRow label="배경색" value={cover.color} active={cover.gradient == null} swatches={COVER_COLORS} onChange={color => set({ color, gradient: null })}
         picking={picking === 'solid'} onPicking={open => setPicking(open ? 'solid' : null)}
         after={<>
-          {/* 예전 프리셋은 이 표지가 지금 쓰고 있을 때만(맨 앞에) 보인다. 새로 고를 수는 없다 */}
-          {COVER_GRADIENTS.map(([name, stops], index) => (!isLegacyGradient(index) || cover.gradient === index) && <Swatch key={index} label={`바탕 그라데이션 ${name}`} on={cover.gradient === index}
+          {/* 예전 프리셋 · 뺀 프리셋은 이 표지가 지금 쓰고 있을 때만 보인다. 새로 고를 수는 없다 */}
+          {COVER_GRADIENTS.map(([name, stops], index) => (isPickableGradient(index) || cover.gradient === index) && <Swatch key={index} label={`바탕 그라데이션 ${name}`} on={cover.gradient === index}
             onPress={() => { set({ gradient: index }); setPicking(null) }}><GradientTile id={`cover-gradient-${index}`} stops={stops} legacy={isLegacyGradient(index)} /></Swatch>)}
           <CustomSwatch label="바탕 그라데이션 직접 고르기" on={cover.gradient === 'custom'} open={picking === 'gradient'}
             onPress={() => { if (cover.gradient !== 'custom') set({ gradient: 'custom' }); setPicking(picking === 'gradient' ? null : 'gradient') }}>
@@ -66,15 +66,18 @@ function BaseOptions({ cover, onChange }) {
   </>
 }
 
+// 견본 안쪽 크기(타일 48 − 안쪽 여백 2 · 테두리 2 · 칸 테두리 1씩). 미리 넘겨 두면 화면을 잰 뒤가 아니라 첫 프레임부터 그려진다.
+const PATTERN_FILL = 38
+
 /** 무늬: 지금 바탕색 위에 무늬를 그린 타일 4열 */
 function PatternGrid({ cover, onChange }) {
   return <View accessibilityRole="radiogroup" accessibilityLabel="무늬" style={styles.patterns}>
-    {COVER_PATTERNS.map(([id, name]) => {
+    {COVER_PATTERNS.filter(([id]) => !RETIRED_PATTERNS.has(id) || cover.pattern.type === id).map(([id, name]) => {
       const on = cover.pattern.type === id
       return <Pressable key={id} accessibilityRole="radio" accessibilityLabel={`무늬 ${name}`} accessibilityState={{ selected: on, checked: on }} onPress={() => onChange(id)}
         style={({ pressed }) => [styles.patternCell, pressed && styles.pressed]}>
         <View style={[styles.patternTile, on && styles.patternTileOn]}>
-          <View style={[styles.patternFill, { backgroundColor: cover.color }]}><CoverPattern pattern={id} tone={cover.pattern.tone} /></View>
+          <View style={[styles.patternFill, { backgroundColor: cover.color }]}><CoverPattern pattern={id} tone={cover.pattern.tone} line={coverLineColor({ ...cover, pattern: { ...cover.pattern, type: id } })} initialWidth={PATTERN_FILL} initialHeight={PATTERN_FILL} /></View>
         </View>
         <Text numberOfLines={1} style={[styles.patternName, on && styles.patternNameOn]}>{name}</Text>
       </Pressable>
@@ -168,7 +171,7 @@ const FONT_SCALE = { 'nanum-pen': 1.35, 'poor-story': 1.1 }
 const fontChips = () => COVER_FONTS.map(([id, label]) => ({ id, label,
   textStyle: (({ fontFamily, fontWeight, fontSize }) => ({ fontFamily, fontWeight, fontSize }))(textStyle({ font: id, fontSize: 12.5 * (FONT_SCALE[id] ?? 1), color: colors.text }, 1, Platform.OS)) }))
 
-function ElementOptions({ element, cover, onChange, onNotice, pickNow, onPickHandled }) {
+function ElementOptions({ element, cover, name, onChange, onNotice, pickNow, onPickHandled }) {
   const set = patch => onChange({ ...cover, ...patch })
   if (element === 'base' && cover.kind === 'photo') return <PhotoOptions cover={cover} onChange={onChange} onNotice={onNotice} pickNow={pickNow} onPickHandled={onPickHandled} />
   if (element === 'base') return <BaseOptions cover={cover} onChange={onChange} />
@@ -182,10 +185,11 @@ function ElementOptions({ element, cover, onChange, onNotice, pickNow, onPickHan
         onChange={color => set({ band: { ...cover.band, color } })} />
     </OptionRow>
   </View>
+  // 제목 칸은 다이어리 이름으로 채워 두고, 고쳐 쓰면 그 글을 쓴다(이름과 같게 쓰면 다시 이름을 따른다)
   if (element === 'text') return <>
     <OptionRow label="제목">
-      <ChipGroup label="제목 내용" columns={2} items={[{ id: 'name', label: '다이어리 이름' }, { id: 'own', label: '직접 쓰기' }]} value={cover.title.useName ? 'name' : 'own'} onChange={id => set({ title: { ...cover.title, useName: id === 'name' } })} />
-      {!cover.title.useName && <TextInput accessibilityLabel="표지 제목" placeholder="표지 제목" placeholderTextColor={colors.textMuted} maxLength={24} value={cover.title.text} onChangeText={text => set({ title: { ...cover.title, text } })} style={styles.input} />}
+      <TextInput accessibilityLabel="표지 제목" placeholder="표지 제목" placeholderTextColor={colors.textMuted} maxLength={24} value={coverTitle(cover, name)}
+        onChangeText={text => set({ title: { ...cover.title, useName: text === coverTitle({ title: { useName: true } }, name), text } })} style={styles.input} />
     </OptionRow>
     <OptionRow label="글씨체"><ChipGroup label="제목 글씨체" columns={3} items={fontChips()} value={cover.title.font} onChange={font => set({ title: { ...cover.title, font } })} /></OptionRow>
     <OptionRow label="크기"><NumberField label="제목 크기" unit="pt" min={TITLE_SIZE.min} max={TITLE_SIZE.max} value={cover.title.size} onChange={size => set({ title: { ...cover.title, size } })} /></OptionRow>
@@ -235,7 +239,7 @@ export function usePhotoTone(cover, onChange) {
   }, [missing, uri, src])
 }
 
-export default function CoverOptions({ cover, onChange, openElement, onOpenElement, onNotice }) {
+export default function CoverOptions({ cover, name, onChange, openElement, onOpenElement, onNotice }) {
   // 사진 표지로 바꿨는데 사진이 없으면 사진 고르기를 한 번 연다 (처리하면 false 로 비운다)
   const [pickNow, setPickNow] = useState(false)
   const changeKind = kind => {
@@ -249,9 +253,9 @@ export default function CoverOptions({ cover, onChange, openElement, onOpenEleme
   return <View style={styles.panel}>
     <Segmented items={KINDS} selected={id => id === (cover.enabled ? cover.kind : 'none')} onPress={changeKind} />
     {cover.enabled && <View style={styles.elements}>
-        {COVER_ELEMENTS.map(([id, name]) => <ElementRow key={id} title={name} summary={coverElementSummary(cover, id)}
+        {COVER_ELEMENTS.map(([id, label]) => <ElementRow key={id} title={label} summary={coverElementSummary(cover, id)}
           open={openElement === id} onToggleOpen={() => onOpenElement(openElement === id ? null : id)} toggle={toggles[id]}>
-          <ElementOptions element={id} cover={cover} onChange={onChange} onNotice={onNotice} pickNow={pickNow} onPickHandled={() => setPickNow(false)} />
+          <ElementOptions element={id} cover={cover} name={name} onChange={onChange} onNotice={onNotice} pickNow={pickNow} onPickHandled={() => setPickNow(false)} />
         </ElementRow>)}
     </View>}
   </View>
