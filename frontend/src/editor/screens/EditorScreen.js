@@ -35,6 +35,7 @@ import PageOverview from '../components/panels/PageOverview'
 import { preloadTextFonts } from '../services/textFonts'
 import { DEFAULT_GUIDES, hasGuides } from '../components/canvas/GridOverlay'
 import { TEXT_ACTION_BAR_HEIGHT, TEXT_ACTION_BAR_WIDTH } from '../components/TextActionBar'
+import { keyboardPanelBottom } from '../utils/textKeyboard'
 import { formatTextRange } from '../utils/textFormats'
 import { copyText } from '../services/textClipboard'
 import { objectClipboard, useObjectClipboard } from '../services/objectClipboard'
@@ -1181,7 +1182,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           )}
           {/* 앱: 고른 글자의 '선택한 글자' 도구줄을 키보드 바로 위(작업 영역 아래 끝)에 둔다. 고른 글자 곁에는 시스템 글자 메뉴가 뜬다 */}
           {!readOnly && textEditing && textPalette?.placement === 'panel' && (
-            <View style={[styles.textRangeWrap, keyboardTop != null && stageSize && { bottom: Math.max(8, stageOrigin.y + stageSize.height - keyboardTop + 8) }]} pointerEvents="box-none" {...markInside}>
+            <View style={[styles.textRangeWrap, keyboardTop != null && stageSize && { bottom: keyboardPanelBottom({ stageTop: stageOrigin.y, stageHeight: stageSize.height, keyboardTop }) }]} pointerEvents="box-none" {...markInside}>
               {textPalette.content}
             </View>
           )}

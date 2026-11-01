@@ -202,3 +202,21 @@ test('시스템 글자 메뉴 대신 모두 선택 · 잘라내기를 제공한�
 test('앱: 클립보드 · 고르기는 시스템 메뉴에 맡기고 글자를 고르지 않으면 아무 창도 띄우지 않는다', () => {
   for (const platform of ['ios', 'android']) assert.equal(editor(undefined, true, '앞뒤', [], platform).actions, null)
 })
+
+test('잘라내기는 복사하는 사이 선택이 바뀌어도 복사한 범위만 지우고, 그사이 글이 바뀌면 지우지 않는다', async () => {
+  const copied = []
+  const e = editor(undefined, true, '앞뒤옆', copied)
+  e.input.onSelectionChange({ nativeEvent: { selection: { start: 0, end: 1 } } })
+  e.actions.onCut()
+  e.input.onSelectionChange({ nativeEvent: { selection: { start: 2, end: 3 } } })
+  await new Promise((done) => setTimeout(done, 0))
+  assert.deepEqual(copied, ['앞'])
+  assert.equal(e.value().text, '뒤옆')
+
+  const f = editor(undefined, true, '앞뒤', [])
+  f.input.onSelectionChange({ nativeEvent: { selection: { start: 0, end: 1 } } })
+  f.actions.onCut()
+  f.input.onChangeText('앞뒤!')
+  await new Promise((done) => setTimeout(done, 0))
+  assert.notEqual(f.value()?.text, '뒤!')
+})

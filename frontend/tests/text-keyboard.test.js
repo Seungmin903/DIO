@@ -6,7 +6,7 @@ import React from 'react'
 import * as text from '../src/editor/utils/text.js'
 import * as ranges from '../src/editor/utils/textRanges.js'
 import * as formats from '../src/editor/utils/textFormats.js'
-import { requestTextKeyboard, startTextKeyboard } from '../src/editor/utils/textKeyboard.js'
+import { keyboardPanelBottom, requestTextKeyboard, startTextKeyboard } from '../src/editor/utils/textKeyboard.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const babel = expo('@babel/core')
@@ -158,4 +158,14 @@ test('실제 web TextEditor: Escape 직후 frame과 blur가 취소를 뒤집지 
     assert.equal(f.saves.length, 0)
     assert.equal(f.calls(), 0)
   } finally { f.unmount() }
+})
+
+test('선택한 글자 줄은 가려진 만큼만 올리고, 키보드가 화면을 줄이는 환경에서는 두 번 올리지 않는다', () => {
+  // edge-to-edge: 스테이지(80~1280)가 그대로인데 키보드가 900부터 덮는다 → 380 + 8
+  assert.equal(keyboardPanelBottom({ stageTop: 80, stageHeight: 1200, keyboardTop: 900 }), 388)
+  // 키보드가 레이아웃을 줄임: 스테이지 아래 끝(80+820)이 이미 키보드 위 → 기본 여백만
+  assert.equal(keyboardPanelBottom({ stageTop: 80, stageHeight: 820, keyboardTop: 900 }), 8)
+  assert.equal(keyboardPanelBottom({ stageTop: 80, stageHeight: 700, keyboardTop: 900 }), 8)
+  // 키보드 정보가 없으면 기본 여백
+  assert.equal(keyboardPanelBottom({ stageTop: 80, stageHeight: 1200, keyboardTop: null }), 8)
 })

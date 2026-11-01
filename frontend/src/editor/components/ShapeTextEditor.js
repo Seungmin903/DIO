@@ -24,7 +24,7 @@ export default function ShapeTextEditor({ commitRef, object, zoom, onSave, bound
   const canPaste = useTextClipboardAvailable(), palette = useRef(null)
   const refresh = () => setRendered({text:draft.current,ranges:ranges.current,formats:formats.current})
   // 고른 글자에 서식을 입히면 앱이 선택을 풀어 버린다. 그 알림이 오면 서식 전 범위로 되돌린다(TextEditor 와 같다)
-  const keptSelection = useRef(null)
+  const keptSelection = useRef(null), keptTimer = useRef(null)
   const restoreSelection = next => {
     const kept=keptSelection.current
     if (!kept||next.start!==next.end) return false
@@ -51,8 +51,9 @@ export default function ShapeTextEditor({ commitRef, object, zoom, onSave, bound
   // 시스템 글자 메뉴 대신 쓰는 잘라내기 · 모두 선택
   const cut = () => {
     if (composing.current) return
-    const {start,end}=safeTextSelection(draft.current,selection.current)
-    copyText(draft.current.slice(start,end)).then(()=>{replaceSelection('');onToast?.('선택한 글자를 잘라냈어요.')}).catch(()=>onToast?.('잘라내지 못했어요.'))
+    // 복사한 범위만 지운다(TextEditor 와 같다)
+    const before=draft.current,range=safeTextSelection(before,selection.current)
+    copyText(before.slice(range.start,range.end)).then(()=>{if(draft.current!==before)return;selection.current=range;replaceSelection('');onToast?.('선택한 글자를 잘라냈어요.')}).catch(()=>onToast?.('잘라내지 못했어요.'))
   }
   const selectAll = () => {
     if (composing.current||!draft.current) return
@@ -146,7 +147,7 @@ export default function ShapeTextEditor({ commitRef, object, zoom, onSave, bound
     const systemMenu=Platform.OS!=='web'
     if ((systemMenu?!selected:(!selected&&!canPaste&&!draft.current))||!anchor) {paletteBounds.current=null;onPaletteChange(null);return undefined}
     // 서식 직후 선택이 풀리면 되돌린다(TextEditor 와 같다)
-    const keepSelection=()=>{if(!systemMenu)return;keptSelection.current={...selection.current};setTimeout(()=>{keptSelection.current=null},400)}
+    const keepSelection=()=>{if(!systemMenu)return;keptSelection.current={...selection.current};clearTimeout(keptTimer.current);keptTimer.current=setTimeout(()=>{keptSelection.current=null},400)}
     const resize=delta=>{if(composing.current)return;formats.current=resizeTextRange(draft.current,formats.current,selection.current,object.fontSize??20,delta);refresh();keepSelection()}
     const onColor=color=>{if(composing.current)return;ranges.current=colorTextRange(draft.current,ranges.current,selection.current,color);refresh();keepSelection()}
     const collapse=()=>{const {end}=safeTextSelection(draft.current,selection.current);selection.current={start:end,end};setSelected(false);applyInputSelection(input.current,selection.current)}

@@ -996,7 +996,8 @@ const styles = StyleSheet.create({
   },
   // 요소마다 같은 자리에 터치 상자를 두는 층. 층 자체는 높이 0 으로 둔다(상자들은 절대 위치라 그대로 눌린다).
   // 캔버스 전체를 덮으면 안드로이드에서 box-none 이어도 아래 텍스트 상자 만들기 층(TextBoxInput)이 탭을 받지 못한다.
-  // 층 밖으로 나간 상자도 눌리는 것은 overflow 가 visible 일 때뿐이라(안드로이드 터치 대상 검색) 명시해 둔다. hidden 으로 바꾸지 않는다.
+  // 층 밖으로 나간 상자도 눌리는 것은 overflow 가 visible 일 때뿐이라 명시해 둔다(안드로이드 터치 대상 검색 · iOS RCTView hitTest 는
+  // 자르지 않는 뷰면 영역 밖 자식도 찾고, 웹은 DOM 이 원래 그렇다). hidden 으로 바꾸지 않는다.
   hitLayer: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'visible' },
   emptyMenu: { position: 'absolute', zIndex: 6, flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,138,195,0.2)', boxShadow: '0px 6px 14px rgba(11, 23, 102, 0.16)' },
   menuButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },

@@ -34,11 +34,13 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
   const refresh = () => setRendered({ text: draft.current, ranges: ranges.current, formats: formats.current })
   // 고른 글자에 서식을 입히면 글자를 다시 그리면서 앱이 선택을 풀어 버린다. 이어서 다른 서식도 입힐 수 있게,
   // 서식 직후 선택이 풀렸다는 알림이 오면 그 범위로 되돌린다(새 구조 RN 은 setNativeProps 로 선택을 못 바꿔 setSelection 을 쓴다)
-  const keptSelection = useRef(null)
+  const keptSelection = useRef(null), keptTimer = useRef(null)
   const keepSelection = () => {
     if (Platform.OS === 'web') return
     keptSelection.current = { ...selection.current }
-    setTimeout(() => { keptSelection.current = null }, 400)
+    // 서식을 연달아 누르면 앞 타이머가 새 범위를 일찍 지우지 않게 새로 건다
+    clearTimeout(keptTimer.current)
+    keptTimer.current = setTimeout(() => { keptSelection.current = null }, 400)
   }
   const restoreSelection = (next) => {
     const kept = keptSelection.current
@@ -69,8 +71,14 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
   // 시스템 글자 메뉴 대신 쓰는 잘라내기 · 모두 선택
   const cutSelected = () => {
     if (composing.current) return
-    const { start, end } = safeTextSelection(draft.current, selection.current)
-    copyText(draft.current.slice(start, end)).then(() => { deleteSelected(); onToast?.('선택한 글자를 잘라냈어요.') }).catch(() => onToast?.('잘라내지 못했어요.'))
+    // 복사가 끝나는 사이 선택이 바뀌어도 복사한 범위만 지운다. 그사이 글이 바뀌었으면 지우지 않는다
+    const before = draft.current, range = safeTextSelection(before, selection.current)
+    copyText(before.slice(range.start, range.end)).then(() => {
+      if (draft.current !== before) return
+      selection.current = range
+      deleteSelected()
+      onToast?.('선택한 글자를 잘라냈어요.')
+    }).catch(() => onToast?.('잘라내지 못했어요.'))
   }
   const selectAll = () => {
     if (composing.current || !draft.current) return
