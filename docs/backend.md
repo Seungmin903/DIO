@@ -235,15 +235,8 @@ Swagger에서 로그인한 뒤에는 **Authorize**에 로그인 응답의 Access
 
 가입 전 이메일 확인: POST `/api/v1/auth/email-availability` (인증 불필요). 공개 프로필 사진 조회 API도 유지한다.
 
-## 로그인 상태의 비밀번호 변경
+## 로그인 상태의 회원정보·비밀번호 변경
 
-PATCH `/api/v1/me/password`는 구현됐으며 현재 비밀번호 검증 후 모든 세션을 폐기한다. 기존 내 공간의 변경 대화상자로 연결한다. [요청·응답과 검증 범위](./password-change.md)를 참고한다.
+GET·PATCH `/api/v1/me`는 로그인한 회원의 `userId`, `email`, `nickname`, `profilePhotoUrl`을 조회·수정한다. JSON PATCH는 닉네임 수정 및 `removeProfilePhoto: true`의 기본 이미지 복원을 지원하고, 사진 변경은 `profile` JSON 파트와 `photo` 파일을 보내는 multipart PATCH를 쓴다. 기존 사진 파일은 새 사진 메타데이터가 저장된 뒤 삭제를 시도한다. 토큰의 회원이 없거나 비활성 상태면 401 `INVALID_TOKEN`을 반환한다.
 
-## 회원 탈퇴
-
-DELETE `/api/v1/me`는 구현됐으며 기존 탈퇴 확인 창에 연결한다. 소유권 양도 확인, 개인 다이어리 정리, 공유 작업 보존과 계정 익명화·자격 증명 폐기를 처리한다. [세부 정책과 검증](./user-withdrawal.md)을 참고한다.
-
-## 내 회원정보
-
-GET `/api/v1/me`는 Bearer 토큰 회원의 userId·email·nickname·profilePhotoUrl을, PATCH `/api/v1/me`는 닉네임만 변경한 뒤 같은 형태를 반환한다. 닉네임은 형식만 검사하고 중복은 허용한다. [요청·응답과 검증 범위](./my-profile.md)를 참고한다. 프로필 사진 변경은 포함하지 않는다.
-
+DELETE `/api/v1/me`는 계정을 `WITHDRAWN`으로 전환하고 `deleted_at`을 기록한 뒤 모든 로그인 세션을 폐기하며 204를 반환한다. 다른 활성 멤버가 있는 소유 다이어리는 먼저 소유권을 양도해야 하며, 이 경우 409 `OWNER_TRANSFER_REQUIRED`를 반환한다. 혼자 소유한 개인 다이어리는 영구 삭제하고, 다른 소유자의 공유 다이어리에서는 멤버십만 정리해 기존 캔버스와 공유 미디어를 보존한다. 상세 계약은 [회원정보 API](./my-profile.md), [회원 탈퇴](./user-withdrawal.md), [비밀번호 변경](./password-change.md)을 참고한다.
