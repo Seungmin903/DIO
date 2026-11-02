@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { createGuestSharing, GUEST_REJECTED_ACTIONS, GUEST_SNAPSHOT } from '../src/sharing/guestSharing.js';
+import { createSharingGate } from '../src/sharing/sharingGate.js';
 
+const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'));
 const source = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 test('게스트 공유 스냅샷은 항상 같은 참조라 다시 그리기를 반복하지 않는다', () => {
@@ -49,10 +52,46 @@ test('공유 화면 · 앱이 부르는 런타임 동작은 게스트에도 모�
   assert.equal(runtime.canOpenDiary, false);
 });
 
-test('게스트는 공유 버튼 · 받은 초대로 공유 화면을 열지 못하고 로그인 안내를 먼저 본다', () => {
-  const app = source('../App.js');
-  // 공유 화면(SharingHub)을 여는 setSharingRequest 는 로그인 확인(loginGate) 안이나 로그인한 사용자 전용 푸시 효과 안에서만 부른다
-  assert.match(app, /const shareDiary = useCallback\(diary => \{ if \(diary\) loginGate\('다이어리 공유', \(\) => setSharingRequest\(\{ diary \}\)\); \}/);
-  assert.match(app, /const openInvitations = useCallback\(\(\) => \{[\s\S]{0,400}?loginGate\('받은 초대', go\);/);
-  assert.match(app, /if \(previewUser\.mode !== 'authenticated'\) return;[\s\S]{0,1200}?setSharingRequest\(\{ mode: 'invitation', inviteId \}\)/);
+// 실제 useLoginGate(로그인 확인)와 공유 입구를 함께 돌린다. 안내 창(confirmAction)은 기록만 한다.
+function entry({ authenticated, beforeOpen }) {
+  const { code } = expo('@babel/core').transformSync(source('../src/auth/loginGate.js'), { configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')] });
+  const dialogs = [], logins = [], opened = [];
+  const react = { createContext: value => value, createElement() {}, useMemo: f => f(), useCallback: f => f,
+    useContext: () => ({ authenticated, onLogin: request => logins.push(request) }) };
+  const mod = { exports: {} };
+  new Function('require', 'module', 'exports', code)(id => ({ react, '../shared/dialogs': { confirmAction: value => dialogs.push(value) } })[id], mod, mod.exports);
+  const sharing = createSharingGate({ authenticated, loginGate: mod.exports.useLoginGate(), open: request => opened.push(request), beforeOpen });
+  return { sharing, dialogs, logins, opened };
+}
+
+test('게스트는 공유 버튼 · 받은 초대 · 초대 푸시로 공유 화면을 열지 못하고 로그인 안내를 먼저 본다', () => {
+  const { sharing, dialogs, logins, opened } = entry({ authenticated: false });
+  const diary = { id: 'd-1' };
+  sharing.share(diary);
+  sharing.invitations();
+  sharing.pushInvitation('invite-1');
+  assert.deepEqual(opened, []);
+  assert.deepEqual(dialogs.map(value => value.title), ['로그인이 필요해요', '로그인이 필요해요']);
+  assert.match(dialogs[0].message, /^다이어리 공유는 /);
+  assert.match(dialogs[1].message, /^받은 초대는 /);
+  // 안내 창에서 로그인을 고르면 로그인 화면을 띄울 뿐 공유 화면은 열지 않는다
+  dialogs[0].onConfirm();
+  assert.equal(logins[0].feature, '다이어리 공유');
+  assert.deepEqual(opened, []);
+  sharing.share(null);
+  assert.equal(dialogs.length, 2);
+});
+
+test('로그인한 사용자는 공유 화면을 바로 열고, 받은 초대 · 초대 푸시는 지금 화면을 떠나도 되는지 먼저 묻는다', () => {
+  const asked = [];
+  const { sharing, dialogs, opened } = entry({ authenticated: true, beforeOpen: run => { asked.push(run); } });
+  const diary = { id: 'd-1' };
+  sharing.share(diary);
+  assert.deepEqual(opened, [{ diary }]);
+  sharing.invitations();
+  sharing.pushInvitation('invite-1');
+  assert.equal(opened.length, 1, '떠나기 확인 전에는 열지 않는다');
+  asked.forEach(run => run());
+  assert.deepEqual(opened, [{ diary }, { mode: 'notifications' }, { mode: 'invitation', inviteId: 'invite-1' }]);
+  assert.deepEqual(dialogs, []);
 });
