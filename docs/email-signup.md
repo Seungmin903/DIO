@@ -21,10 +21,10 @@
   "signupToken": "인증번호 확인 응답의 signupToken",
   "password": "DioMember123!",
   "nickname": "디오사용자",
+  "ageConfirmed": true,
   "agreements": [
-    {"termsType": "SERVICE", "termsVersion": "v1", "agreed": true},
-    {"termsType": "PRIVACY", "termsVersion": "v1", "agreed": true},
-    {"termsType": "MARKETING", "termsVersion": "v1", "agreed": false}
+    {"termsType": "SERVICE", "termsVersion": "v2", "agreed": true},
+    {"termsType": "PRIVACY", "termsVersion": "v2", "agreed": true}
   ]
 }
 ```
@@ -118,8 +118,8 @@ multipart의 전체 Content-Type은 boundary를 포함하도록 클라이언트�
 - 이메일은 trim 및 소문자 정규화, 최대 254자. 전체 회원 이메일을 중복 확인하며 가입 시 재검사하고 DB UNIQUE로 동시 중복도 막는다. 소셜 계정의 이메일만 같다고 자동 연결하지 않는다.
 - 비밀번호는 영문과 숫자를 모두 포함한 공백 없는 ASCII 8~32자. BCrypt 비용 12로 해시한다. 원문을 DB·응답·로그에 기록하지 않는다.
 - 닉네임은 trim/NFKC 정규화 후 한글·영문·숫자·밑줄 2~12자. `nickname_key`는 호환성을 위해 유지하지만 중복 제한에는 사용하지 않는다. 이 컬럼은 호환성 유지를 위한 파생 키다.
-- SERVICE/PRIVACY 동의는 필수, MARKETING은 선택이다. 중복 종류·현재 버전 불일치·필수 미동의는 거절한다. 전달된 선택 미동의도 저장한다.
-- 약관 버전 기본값 `v1`은 개발용이다. 배포 전 실제 게시된 약관 버전을 환경변수로 지정해야 한다. 버전별 약관 본문 제공 API는 이번 범위 밖이다.
+- SERVICE/PRIVACY 동의는 필수다. 기존 MARKETING 선택 항목은 서버 호환만 유지하며 새 가입 화면은 전송하지 않는다. 중복 종류·현재 버전 불일치·필수 미동의는 거절한다. 전달된 선택 미동의도 저장한다.
+- 새 가입의 SERVICE/PRIVACY 기본 버전은 `v2`다. MARKETING은 기존 `v1` 기록 호환용이며 새 가입 화면에서 받지 않는다. 문서 게시·프론트·서버 버전을 함께 배포한다. [가입 전 확인 및 게시 절차](signup-consent.md)를 따른다.
 
 ## 이메일 발송 설정
 

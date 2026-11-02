@@ -1,6 +1,7 @@
 import {StyleSheet} from 'react-native'
 import {colors as c,radius,shadow,DISABLED_OPACITY} from '../shared/theme'
 export const authStyles=StyleSheet.create({
+ ageRadio:{borderRadius:10},ageRadioDot:{width:8,height:8,borderRadius:4,backgroundColor:c.surface},
  verificationComplete:{alignItems:'center',gap:16,paddingVertical:24},verificationCheck:{width:64,height:64,borderRadius:32,backgroundColor:c.primarySoft,alignItems:'center',justifyContent:'center'},verificationCompleteText:{fontSize:16,fontWeight:'700',color:c.text,textAlign:'center',lineHeight:24},
  verificationPreview:{fontSize:12,lineHeight:18,color:c.textMuted,textAlign:'center'},verificationDetails:{gap:4,marginTop:-12},verificationActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',columnGap:12},verificationResend:{minHeight:44,paddingLeft:12,justifyContent:'center'},
  toastPosition:{position:'absolute',bottom:64,left:16,right:16,alignItems:'center'},toast:{backgroundColor:c.text,color:c.surface,fontSize:13,fontWeight:'700',paddingHorizontal:16,paddingVertical:10,borderRadius:999},safe:{flex:1,backgroundColor:c.surfaceSoft},keyboard:{flex:1},scrollViewport:{flex:1},scroll:{flexGrow:1,justifyContent:'center',alignItems:'center',padding:24},

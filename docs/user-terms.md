@@ -7,7 +7,7 @@
 Authorization: `Bearer {accessToken}`
 
 - `termsType`: `SERVICE`, `PRIVACY`, `MARKETING` (대문자)
-- `termsVersion`: 기존 `dio.signup.*-terms-version`에 지정된 종류별 현재 버전. 기본값 `v1`.
+- `termsVersion`: 기존 `dio.signup.*-terms-version`에 지정된 종류별 현재 버전. 기본값 SERVICE/PRIVACY `v2`, 기존 MARKETING `v1`.
 - 요청: `{"agreed": true}` 또는 `{"agreed": false}`. 누락·null은 400.
 - 성공 200: `{"termsType":"MARKETING","termsVersion":"v1","agreed":false,"agreedAt":"2026-10-30T00:00:00Z"}`
 - `agreedAt`: 해당 버전의 마지막 동의 상태 변경 시각(UTC). 동의 철회도 상태 변경으로 기록한다. 동일 상태 PUT 재시도는 시각을 유지한다.

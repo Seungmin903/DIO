@@ -80,7 +80,7 @@ class UserTermsUpdateTests {
         for(String path:new String[]{"SERVICE/v1","UNKNOWN/v1","MARKETING/unknown"})mvc.perform(put("/api/v1/me/terms/"+path)
             .header("Authorization","Bearer "+actor.token()).contentType("application/json").content("{\"agreed\":true}"))
             .andExpect(status().isBadRequest());
-        for(String type:new String[]{"SERVICE/v2","PRIVACY/v1"})mvc.perform(put("/api/v1/me/terms/"+type)
+        for(String type:new String[]{"SERVICE/v2","PRIVACY/v2"})mvc.perform(put("/api/v1/me/terms/"+type)
             .header("Authorization","Bearer "+actor.token()).contentType("application/json").content("{\"agreed\":false}"))
             .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("REQUIRED_TERMS_NOT_AGREED"));
         for(String body:new String[]{"{}","{\"agreed\":null}","{broken"})mvc.perform(put("/api/v1/me/terms/MARKETING/v1")

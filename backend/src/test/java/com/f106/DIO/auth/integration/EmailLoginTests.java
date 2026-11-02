@@ -95,8 +95,8 @@ class EmailLoginTests {
         verification.send(EMAIL);
         String token = verification.verify(new EmailVerificationRequest(EMAIL, code.get())).signupToken();
         signup.signup(new SignupRequest(EMAIL, token, "DioMember123!", "디오사용자",
-            List.of(new Agreement(TermsType.SERVICE, "v1", true),
-                new Agreement(TermsType.PRIVACY, "v1", true))));
+            List.of(new Agreement(TermsType.SERVICE, "v2", true),
+                new Agreement(TermsType.PRIVACY, "v2", true)), true));
     }
     LoginResponse login() { return service.login(new LoginRequest(EMAIL, "DioMember123!", "휴대폰"), "127.0.0.1"); }
     @Test void passwordChangeRequiresAuthenticationAndRejectsWrongCurrentPassword()throws Exception{

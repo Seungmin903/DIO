@@ -6,10 +6,12 @@ import DioButton from '../../shared/DioButton';
 import { notify } from '../../shared/dialogs';
 import { C } from '../constants';
 import { colors } from '../../shared/theme';
+import { signupDocuments } from '../../shared/legalDocuments';
 import ContentLicenses from './ContentLicenses';
 import { SettingSection } from './SettingRow';
 
-const PRIVACY_POLICY_URL = 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVThQYxck0l_bwzg33FxGShE6rpqd0/edit?usp=sharing';
+// Preserve the existing policy for current members until the new public document is configured.
+const PRIVACY_POLICY_URL = signupDocuments.policy || 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVThQYxck0l_bwzg33FxGShE6rpqd0/edit?usp=sharing';
 const SUPPORT_EMAIL = 'dioapp.official@gmail.com';
 
 export default function AppInformation({ compact = false }) {

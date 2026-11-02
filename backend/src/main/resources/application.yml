@@ -62,8 +62,8 @@ dio:
       migrate-legacy: ${SIGNUP_PHOTO_MIGRATE_LEGACY:false}
     verification-secret: ${SIGNUP_VERIFICATION_SECRET:}
     mail-from: ${SIGNUP_MAIL_FROM:}
-    service-terms-version: ${SIGNUP_SERVICE_TERMS_VERSION:v1}
-    privacy-terms-version: ${SIGNUP_PRIVACY_TERMS_VERSION:v1}
+    service-terms-version: ${SIGNUP_SERVICE_TERMS_VERSION:v2}
+    privacy-terms-version: ${SIGNUP_PRIVACY_TERMS_VERSION:v2}
     marketing-terms-version: ${SIGNUP_MARKETING_TERMS_VERSION:v1}
   media:
     storage: ${MEDIA_STORAGE:local}

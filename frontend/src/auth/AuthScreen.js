@@ -4,6 +4,7 @@ import {
   Image,
   BackHandler,
   Keyboard,
+  Linking,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -32,6 +33,7 @@ import { authStyles as s } from './styles';
 import ProviderIcon from './ProviderIcon';
 import { pickProfilePhoto } from './profilePhoto';
 import EmailVerification from './EmailVerification';
+import { createSignupDocuments, signupDocuments, signupDocumentsReady, signupEligibility } from './signupPolicy';
 
 // 사진이 없을 때의 기본 프로필: 메뉴 아래 · 내 공간과 같은 그림
 import DefaultAvatar from '../shared/DefaultAvatar';
@@ -46,11 +48,12 @@ const emptyTerms = () => ({ service: false, privacy: false, marketing: false });
 const TERMS = [
   { id: 'service', label: '[필수] 이용약관 동의' },
   { id: 'privacy', label: '[필수] 개인정보 수집·이용 동의' },
-  { id: 'marketing', label: '[선택] 소식 및 이벤트 수신 동의' },
 ];
 
 export default function AuthScreen({
   onContinue,
+  legalDocuments = signupDocuments,
+  openDocument = Linking.openURL,
   service = authService,
   photoPicker = pickProfilePhoto,
   verificationService = service.verificationService,
@@ -59,6 +62,8 @@ export default function AuthScreen({
   const { isPhone, formFactor } = useFormFactor();
   useOrientationLock(formFactor, false);
   const [route, setRoute] = useState('welcome');
+  const [ageConfirmed, setAgeConfirmed] = useState(null);
+  const [enrollmentProvider, setEnrollmentProvider] = useState('email');
   const [values, setValues] = useState(emptyValues);
   const [touched, setTouched] = useState({});
   const [busy, setBusy] = useState(false);
@@ -76,6 +81,7 @@ export default function AuthScreen({
     typeof verificationService?.setDevelopmentAccess === 'function';
   const job = useRef(0);
   const running = useRef(false);
+  const enrollmentBlocked = useRef(false);
   const alive = useRef(true);
   const passwordInput = useRef(null);
   const confirmationInput = useRef(null);
@@ -136,12 +142,14 @@ export default function AuthScreen({
       service.cancelPending?.();
     };
   }, []);
-  const navigate = (next) => {
-    if (next === 'signup' && !emailVerificationEnabled && !verificationService) {
+  const navigate = (next, provider = enrollmentProvider) => {
+    if (enrollmentBlocked.current && next !== 'welcome') next = 'underage';
+    if (provider === 'email' && (next === 'signup' || next === 'eligibility') && !emailVerificationEnabled && !verificationService) {
       Keyboard.dismiss();
       setInfo({ title: '회원가입 준비 중', body: '이메일 인증 기능을 준비하고 있어요. 연결이 완료되면 회원가입을 이용할 수 있어요.' });
       return;
     }
+    if (next === 'signup' && !signupEligibility({ ageConfirmed, terms }, legalDocuments)) next = 'eligibility';
     service.cancelPending?.({ keepEnrollment: next === 'profile' || next === 'verification' });
     Keyboard.dismiss();
     focusedInput.current = null;
@@ -159,16 +167,45 @@ export default function AuthScreen({
     setAccessId('');
     setAccessPassword('');
     setRoute(next);
-    if (next === 'welcome') {
+    if (next === 'welcome' || next === 'underage') {
+      enrollmentBlocked.current = next === 'underage';
       setPhotoUri(null);
       setValues(emptyValues());
       setNickname('');
       setProfile(null);
       setTerms(emptyTerms());
+      setAgeConfirmed(null);
+      setEnrollmentProvider('email');
     }
   };
+  const beginEnrollment = (provider = 'email') => {
+    setEnrollmentProvider(provider);
+    navigate('eligibility', provider);
+  };
+  const continueEnrollment = () => {
+    if (enrollmentBlocked.current || !signupEligibility({ ageConfirmed, terms }, legalDocuments)) return;
+    if (enrollmentProvider === 'email') { navigate('signup'); return; }
+    run(
+      () => service.social(enrollmentProvider),
+      (result) => {
+        setPhotoUri(null);
+        setValues(emptyValues());
+        setProfile(result);
+        navigate('profile');
+      },
+    );
+  };
+  const viewDocument = async (key, title) => {
+    const url = createSignupDocuments(legalDocuments)[key];
+    if (!url) {
+      setInfo({ title: '약관 준비 중', body: '가입에 필요한 문서를 준비하고 있어요. 게시가 완료되면 가입할 수 있어요.' });
+      return;
+    }
+    try { await openDocument(url); }
+    catch { if (alive.current) setInfo({ title, body: '문서를 열지 못했어요. 네트워크를 확인하고 다시 시도해 주세요.' }); }
+  };
   const back = () =>
-    navigate(route === 'verification' || (route === 'profile' && profile?.provider === 'email') ? 'signup' : 'welcome');
+    navigate(route === 'verification' || (route === 'profile' && profile?.provider === 'email') ? 'signup' : route === 'signup' ? 'eligibility' : 'welcome');
   useEffect(() => {
     const listener = BackHandler.addEventListener('hardwareBackPress', () => {
       if (info) {
@@ -229,9 +266,9 @@ export default function AuthScreen({
     setTouched({ email: true, password: true, confirmation: signup });
     if (!credentialsValid(values, signup)) return;
     if (signup) {
+      if (!signupEligibility({ ageConfirmed, terms }, legalDocuments)) { navigate('eligibility'); return; }
       setPhotoUri(null);
       setProfile({ provider: 'email', email: normalizeEmail(values.email) });
-      setTerms(emptyTerms());
       navigate('verification');
     }
     else if (!needsLoginAccess) submitLogin();
@@ -257,7 +294,7 @@ export default function AuthScreen({
     setNickname(value);
     setMessage('');
   };
-  const profileReady = canCompleteProfile({ nickname, terms });
+  const profileReady = canCompleteProfile({ nickname, terms }) && signupDocumentsReady(legalDocuments) && (profile?.provider !== 'email' || ageConfirmed);
   const complete = () => {
     if (profileReady)
       run(
@@ -319,7 +356,7 @@ export default function AuthScreen({
           showsVerticalScrollIndicator={false}
         >
           <View style={[s.card, isPhone && s.phoneCard]}>
-            {route !== 'welcome' && (
+            {route !== 'welcome' && route !== 'underage' && (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="이전 화면"
@@ -338,6 +375,8 @@ export default function AuthScreen({
                 <Text accessibilityRole="header" style={s.title}>
                   {route === 'welcome'
                     ? 'DIO에 오신 걸 환영해요'
+                    : route === 'underage' ? '지금은 가입할 수 없어요'
+                    : route === 'eligibility' ? (isPhone ? '가입 연령을\n확인해 주세요' : '가입 연령을 확인해 주세요')
                     : route === 'signup'
                       ? '나만의 기록을 시작해요'
                       : route === 'verification' ? '이메일을 인증해 주세요'
@@ -346,6 +385,7 @@ export default function AuthScreen({
                 <Text style={s.subtitle}>
                   {route === 'welcome'
                     ? '함께 기록하고, 추억을 나눠 보세요.'
+                    : route === 'underage' || route === 'eligibility' ? 'DIO는 만 14세 이상만 가입할 수 있어요.'
                     : route === 'signup'
                       ? '이메일로 DIO 계정을 만들어 주세요.'
                       : route === 'verification' ? '인증번호를 입력해 이메일을 확인해 주세요.'
@@ -353,7 +393,50 @@ export default function AuthScreen({
                 </Text>
               </View>
             </View>
-            {route === 'verification' ? (
+            {route === 'underage' ? (
+              <View style={s.form}>
+                <Text accessibilityLiveRegion="polite" style={s.muted}>만 14세가 된 후에 다시 가입해 주세요.</Text>
+                <Text style={s.muted}>‘14세 미만’ 답변은 서버에 보내거나 저장하지 않아요.</Text>
+                {primary('시작 화면으로', () => navigate('welcome'))}
+              </View>
+            ) : route === 'eligibility' ? (
+              <View style={s.form}>
+                <Text style={s.muted}>생년월일은 받지 않아요. 본인의 연령에 맞는 항목을 선택해 주세요.</Text>
+                <View accessibilityRole="radiogroup" accessibilityLabel="가입 가능 연령">
+                  <AgeChoice label="만 14세 이상입니다" checked={ageConfirmed === true} disabled={busy}
+                    onPress={() => setAgeConfirmed(true)} />
+                  <AgeChoice label="만 14세 미만입니다" checked={false} disabled={busy}
+                    onPress={() => { enrollmentBlocked.current = true; navigate('underage'); }} />
+                </View>
+                <View style={s.terms}>
+                  <TermRow
+                    label="전체 동의"
+                    checked={TERMS.every(term => terms[term.id])}
+                    disabled={busy}
+                    onPress={() => {
+                      const on = !TERMS.every(term => terms[term.id]);
+                      setTerms({ service: on, privacy: on, marketing: false });
+                    }}
+                  />
+                  {TERMS.map((term) => (
+                    <TermRow
+                      key={term.id}
+                      label={term.label}
+                      checked={terms[term.id]}
+                      disabled={busy}
+                      onPress={() =>
+                        setTerms((current) => ({ ...current, [term.id]: !current[term.id] }))
+                      }
+                      onView={() => viewDocument(term.id, term.label)}
+                    />
+                  ))}
+                </View>
+                {link('개인정보처리방침 보기', () => viewDocument('policy', '개인정보처리방침'))}
+                <Text style={s.muted}>개인정보처리방침은 운영 내용을 안내하는 문서이며, 위 개인정보 수집·이용 동의와 별개예요.</Text>
+                {!signupDocumentsReady(legalDocuments) && <Text accessibilityRole="alert" style={s.error}>가입에 필요한 약관 문서를 준비하고 있어요. 게시가 완료되면 가입할 수 있어요.</Text>}
+                {primary('동의하고 계속', continueEnrollment, !signupEligibility({ ageConfirmed, terms }, legalDocuments))}
+              </View>
+            ) : route === 'verification' ? (
               <EmailVerification key={profile?.email} email={profile?.email}
                 service={verificationService} Field={FormField} primary={primary}
                 focusInput={focusInput} blurInput={blurInput} onComplete={() => {
@@ -363,7 +446,7 @@ export default function AuthScreen({
                     return;
                   }
                   if (verificationService) {
-                    run(() => verificationService.prepareSignup(values), (result) => {
+                    run(() => verificationService.prepareSignup({ ...values, ageConfirmed }), (result) => {
                       if (result?.provider !== 'email' || typeof result.email !== 'string' ||
                           normalizeEmail(result.email) !== normalizeEmail(values.email)) {
                         throw new Error('가입 정보를 확인하지 못했어요. 다시 시도해 주세요.');
@@ -505,7 +588,7 @@ export default function AuthScreen({
                       '회원가입',
                       () => {
                         setValues(emptyValues());
-                        navigate('signup');
+                        beginEnrollment('email');
                       },
                       s.accountLink,
                     )}
@@ -526,18 +609,7 @@ export default function AuthScreen({
                           accessibilityLabel={`${provider.name}로 로그인`}
                           accessibilityState={{ disabled: busy }}
                           disabled={busy}
-                          onPress={() =>
-                            run(
-                              () => service.social(provider.id),
-                              (result) => {
-                                setPhotoUri(null);
-                                setValues(emptyValues());
-                                setProfile(result);
-                                setTerms(emptyTerms());
-                                navigate('profile');
-                              },
-                            )
-                          }
+                          onPress={() => beginEnrollment(provider.id)}
                           style={({ pressed }) => [
                             s.social,
                             busy && s.disabled,
@@ -638,11 +710,11 @@ export default function AuthScreen({
                 <View style={s.terms}>
                   <TermRow
                     label="전체 동의"
-                    checked={Object.values(terms).every(Boolean)}
+                    checked={TERMS.every(term => terms[term.id])}
                     disabled={busy}
                     onPress={() => {
-                      const on = !Object.values(terms).every(Boolean);
-                      setTerms({ service: on, privacy: on, marketing: on });
+                      const on = !TERMS.every(term => terms[term.id]);
+                      setTerms({ service: on, privacy: on, marketing: false });
                     }}
                   />
                   {TERMS.map((term) => (
@@ -654,19 +726,14 @@ export default function AuthScreen({
                       onPress={() =>
                         setTerms((current) => ({ ...current, [term.id]: !current[term.id] }))
                       }
-                      onView={() =>
-                        setInfo({
-                          title: term.label,
-                          body: '약관 본문은 아직 연결되지 않았어요. 정식 약관을 확인할 수 있도록 준비 중이에요.',
-                        })
-                      }
+                      onView={() => viewDocument(term.id, term.label)}
                     />
                   ))}
                 </View>
                 {primary('가입 완료', complete, !profileReady)}
               </View>
             )}
-            {(route === 'profile' || route === 'verification') && message ? (
+            {(route === 'profile' || route === 'verification' || route === 'eligibility') && message ? (
               <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={s.error}>
                 {message}
               </Text>
@@ -779,6 +846,20 @@ function FormField({
     </View>
   );
 }
+function AgeChoice({ label, checked, onPress, disabled }) {
+  return (
+    <Pressable accessibilityRole="radio" accessibilityLabel={label}
+      accessibilityState={{ checked, disabled }}
+      {...(Platform.OS === 'web' ? { 'aria-checked': checked, 'aria-disabled': !!disabled } : {})}
+      disabled={disabled} onPress={onPress} style={s.termButton}>
+      <View style={[s.checkbox, s.ageRadio, checked && s.checked]}>
+        {checked && <View style={s.ageRadioDot} />}
+      </View>
+      <Text style={s.termText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function TermRow({ label, checked, onPress, onView, disabled }) {
   return (
     <View style={s.termRow}>
@@ -786,6 +867,7 @@ function TermRow({ label, checked, onPress, onView, disabled }) {
         accessibilityRole="checkbox"
         accessibilityLabel={label}
         accessibilityState={{ checked, disabled }}
+        {...(Platform.OS === 'web' ? { 'aria-checked': checked, 'aria-disabled': !!disabled } : {})}
         disabled={disabled}
         onPress={onPress}
         style={s.termButton}
