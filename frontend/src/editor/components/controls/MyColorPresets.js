@@ -12,6 +12,9 @@ const PRESET_KEYS = {
   highlighter: 'dio-editor-color-presets-v1:highlighter',
   text: 'dio-editor-color-presets-v1:text',
   tape: 'dio-editor-color-presets-v1:tape',
+  // 꾸미기 공방 기본 속지 설정의 종이 색 · 선과 글씨 색
+  paper: 'dio-editor-color-presets-v1:paper',
+  paperLine: 'dio-editor-color-presets-v1:paper-line',
 }
 // 도구마다 최대 14개(꾸미기 공방 프리셋에서 7개씩 두 줄, 2026-11-01)
 export const MAX_PRESETS = 14
