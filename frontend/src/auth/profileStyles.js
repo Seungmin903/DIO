@@ -81,7 +81,9 @@ export const profileStyles = StyleSheet.create({
   barInner: { width: '100%', maxWidth: 640, alignSelf: 'center', flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
   phoneBarInner: { justifyContent: 'flex-start' },
   barButton: { minHeight: 52 },
-  phoneCancel: { width: 96 }, // 폰: 취소 96 + 저장은 남은 폭 전체
+  // 폰: 취소 96 + 저장은 남은 폭 전체. 폭 320 안팎에서는 저장 글자가 꺾이지 않게 저장은 글자 폭 아래로 줄지 않고 취소가 줄어든다(최소 64)
+  phoneCancel: { width: 96, minWidth: 64, flexShrink: 1 },
+  phoneSave: { flexGrow: 1, flexShrink: 0 },
   // 회원 탈퇴: 계정 정보 아래 조용한 글자 행
   withdraw: { minHeight: 48, marginTop: 16, justifyContent: 'center', alignItems: 'flex-start' },
   withdrawText: { fontSize: 13, fontWeight: '600', color: c.dangerStrong },
