@@ -62,7 +62,13 @@
       ],
       "expo-asset",
       "expo-font",
-      ["expo-status-bar", { "hidden": true }],
+      [
+        "expo-status-bar",
+        {
+          "hidden": true
+        }
+      ],
+      "expo-secure-store",
       "expo-notifications"
     ],
     "extra": {
