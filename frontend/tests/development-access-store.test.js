@@ -24,12 +24,16 @@ test('개발 접속 저장소는 앱 실행 중 서버 주소별로 Basic 헤더
   assert.equal(await store.load('https://k15f106.p.ssafy.io'), null);
 });
 
-test('새 저장소는 이전 실행의 개발 접속 정보를 복원하지 않는다', async () => {
-  const previous = load()();
-  await previous.save('https://k15f106.p.ssafy.io', 'Basic dGVzdGVyOnNlY3JldA==');
-  assert.equal(await load()().load('https://k15f106.p.ssafy.io'), null);
+test('같은 앱 실행 중 새 저장소 인스턴스도 개발 접속 정보를 공유한다', async () => {
+  const factory = load();
+  const first = factory(), second = factory();
+  await first.save('https://instance.example', 'Basic dGVzdGVyOnNlY3JldA==');
+  assert.equal(await second.load('https://instance.example'), 'Basic dGVzdGVyOnNlY3JldA==');
+  await second.clear('https://instance.example');
 });
 
 test('웹에는 기존과 같이 개발 접속 저장소를 만들지 않는다', () => {
-  assert.equal(load()('web'), null);
+  const factory = load();
+  assert.equal(factory({ platform: 'web' }), null);
+  assert.equal(factory({}, 'web'), null);
 });
