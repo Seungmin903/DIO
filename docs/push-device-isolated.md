@@ -106,4 +106,4 @@ java -Dloader.main=com.f106.DIO.push.service.PushKeyOperator -cp dio.jar org.spr
 
 배포 호스트와 공유하는 `ec2-deploy`에서 MR이 수정한 푸시 테스트 스크립트를 실행하지 않도록 푸시 PostgreSQL 작업은 보호 브랜치의 push 파이프라인으로 제한한다. MR에서의 PostgreSQL 검증은 별도 격리 환경에서 수행한다. 다른 기존 작업의 러너 권한은 별도 운영 검토가 필요하다.
 
-자격증명 유실 시 기존 설치의 소유권은 복구되지 않는다. 같은 토큰이 비활성 설치에 남아 있으면 새 등록은 409 `PUSH_INSTALLATION_CONFLICT`가 발생할 수 있다. 토큰 회수·재등록 정책은 아직 확정되지 않았다.
+후속 종단 구현의 같은 계정 응답 복구·재설치 토큰 이전과 다른 계정 충돌 제한은 [푸시 초대 연결](./push-notification-flow.md)을 따른다. 위 내용은 기기 연결 기반 당시의 검증 이력이다.

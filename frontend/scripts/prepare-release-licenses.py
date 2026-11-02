@@ -25,8 +25,20 @@ if os.name == 'nt' and not str(ROOT).startswith('\\\\?\\'):
 CACHE = ROOT / 'third-party/cache'
 GRADLE = Path.home() / '.gradle/caches/modules-2/files-2.1'
 LEGAL_NAME = re.compile(r'^(?:licen[sc]e|copying|notice|third.?party.?notices|copyright|patents)(?:[._-].*)?$', re.I)
+GOOGLE_SDK_ARTIFACTS = {
+    'com.android.installreferrer:installreferrer:2.2': False,
+    'com.google.android.gms:play-services-base:18.1.0': True,
+    'com.google.android.gms:play-services-basement:18.3.0': True,
+    'com.google.android.gms:play-services-cloud-messaging:17.2.0': True,
+    'com.google.android.gms:play-services-tasks:18.1.0': True,
+}
 
 def digest(data): return hashlib.sha256(data).hexdigest()
+def artifact_path(path):
+    value=str(path)
+    if os.name=='nt' and not value.startswith('\\\\?\\'):
+        value='\\\\?\\'+str(Path(value).resolve())
+    return Path(value)
 def read(path): return Path(path).read_text(encoding='utf-8-sig', errors='replace')
 def dump(path, data):
     path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
@@ -57,6 +69,29 @@ def archive_texts(data, depth=0):
                 elif depth == 0 and entry.filename == 'classes.jar':
                     texts += [(entry.filename+'!/'+name,text) for name,text in archive_texts(archive.read(entry),1)]
     except zipfile.BadZipFile: pass
+    return texts
+
+def google_sdk_notices(coordinate, artifact, pom):
+    """Preserve POM SDK terms and bundled OSS notices without treating them as one license."""
+    if coordinate not in GOOGLE_SDK_ARTIFACTS or not pom:
+        raise ValueError('Unreviewed Android SDK artifact: '+coordinate)
+    xml=ET.parse(pom).getroot()
+    licenses=xml.findall('./{*}licenses/{*}license')
+    if len(licenses)!=1 or licenses[0].findtext('{*}name')!='Android Software Development Kit License' or licenses[0].findtext('{*}url')!='https://developer.android.com/studio/terms.html':
+        raise ValueError('Unexpected Android SDK POM terms: '+coordinate)
+    texts=[('SDK terms reference in original Maven POM', 'Android Software Development Kit License\nhttps://developer.android.com/studio/terms.html\nThe SDK contract and bundled third-party open-source notices are separate.')]
+    with zipfile.ZipFile(artifact) as archive:
+        names=set(archive.namelist()); present={'third_party_licenses.json','third_party_licenses.txt'} & names
+        if bool(present)!=GOOGLE_SDK_ARTIFACTS[coordinate] or (present and len(present)!=2):
+            raise ValueError('Unexpected bundled Google notices: '+coordinate)
+        if present:
+            raw=archive.read('third_party_licenses.txt'); index=json.loads(archive.read('third_party_licenses.json'))
+            if not isinstance(index,dict) or not index: raise ValueError('Empty Google notice index: '+coordinate)
+            for name,span in index.items():
+                start,length=span.get('start'),span.get('length')
+                if not isinstance(name,str) or not isinstance(start,int) or not isinstance(length,int) or start<0 or length<=0 or start+length>len(raw) or not raw[start:start+length].strip():
+                    raise ValueError('Invalid Google notice index: '+coordinate)
+            texts.append(('Original AAR third_party_licenses.txt (upstream component superset)',raw.decode('utf-8',errors='strict')))
     return texts
 
 def dedup_texts(texts):
@@ -206,18 +241,24 @@ def native_entries(inventory):
     with ThreadPoolExecutor(max_workers=8) as pool:
         fetched=dict(zip((item['coordinate'] for item in requested),pool.map(maven_inputs,requested)))
     for coordinate,artifact in sorted(artifacts.items()):
-        text_items=archive_texts(Path(artifact['file']).read_bytes())
+        text_items=archive_texts(artifact_path(artifact['file']).read_bytes())
         if artifact['group'].startswith('expo.modules') or artifact['group']=='host.exp.exponent':
             stem=artifact['name'].replace('expo.modules.','')
             npm='expo-'+{'filesystem':'file-system','imageloader':'image-loader','imagemanipulator':'image-manipulator','imagepicker':'image-picker',
                 'documentpicker':'document-picker','keepawake':'keep-awake','medialibrary':'media-library','screenorientation':'screen-orientation',
-                'statusbar':'status-bar','navigationbar':'navigation-bar','splashscreen':'splash-screen','systemui':'system-ui'}.get(stem,stem)
+                'statusbar':'status-bar','navigationbar':'navigation-bar','splashscreen':'splash-screen','systemui':'system-ui','securestore':'secure-store'}.get(stem,stem)
             if stem=='webview': npm='@expo/dom-webview'
             folder=npm_source(npm,artifact['version'])
             if not folder: raise ValueError('Unknown Expo native source: '+coordinate+' / '+npm)
             package=json.loads(read(folder/'package.json'))
             if package['version'] != artifact['version']: raise ValueError('Expo binary/source version mismatch: '+coordinate)
             text_items += root_texts(folder); expression='MIT'; source=clean_url(package.get('repository'))
+        elif coordinate in GOOGLE_SDK_ARTIFACTS:
+            pom,source_jar=fetched[coordinate]
+            text_items += google_sdk_notices(coordinate,artifact_path(artifact['file']),pom)
+            expression='Android-SDK-License / bundled third-party notices'
+            source='https://developer.android.com/studio/terms.html'
+            pom_evidence.append({'coordinate':coordinate,'pomSha256':digest(pom.read_bytes()),'sourcesSha256':digest(source_jar.read_bytes()) if source_jar else None})
         else:
             pom,source_jar=fetched[coordinate]
             xml=ET.parse(pom).getroot() if pom else None
@@ -244,7 +285,7 @@ def native_entries(inventory):
         value=entry('maven:'+coordinate,coordinate,artifact['version'],expression,source,text_items,'Android release runtime')
         values[value['id']]=value
     for artifact in inventory['artifacts']:
-        file=Path(artifact['file'])
+        file=artifact_path(artifact['file'])
         try:
             with zipfile.ZipFile(file) as archive:
                 for info in archive.infolist():

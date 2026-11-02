@@ -21,6 +21,7 @@ import SharingHub from './src/sharing/SharingHub';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
 import AuthenticatedNotificationDialog from './src/notifications/AuthenticatedNotificationDialog';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
+import { startPushRuntime } from './src/notifications/pushRuntime';
 import { C, DEFAULT_FILTER, DESK_COLOR } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
@@ -227,6 +228,26 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     onConfirm: async () => { await clearAppLock(lockScope).catch(() => {}); onEndPreview(); },
   }) : undefined;
   const [sharingRequest, setSharingRequest] = useState(null);
+  const pushWarningShown = useRef(false);
+  useEffect(() => {
+    if (previewUser.mode !== 'authenticated') return;
+    let disposed = false, stop = () => {};
+    const onPushError = error => {
+      if (__DEV__) console.warn('푸시 연결 오류', /^PUSH_[A-Z_]+$/.test(error?.message || '') ? error.message : 'UNKNOWN');
+      if (!pushWarningShown.current && ((error?.status === 409 && error?.message !== 'PUSH_BINDING_CONFLICT') || error?.message === 'PUSH_RECOVERY_REQUIRES_ORIGINAL_ACCOUNT')) {
+        pushWarningShown.current = true;
+        notify('알림 연결 확인', '이전에 사용한 계정으로 로그인해 기기 알림을 확인해 주세요.');
+      }
+    };
+    startPushRuntime({ auth: authService, userId: previewUser.userId, invitations: sharing.runtime.invitationGateway,
+      onInvitation: ({ inviteId }) => {
+        if (disposed) return;
+        const open = () => setSharingRequest({ mode: 'invitation', inviteId });
+        if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open();
+      },
+      onError: onPushError }).then(cleanup => { if (disposed) cleanup(); else stop = cleanup; }).catch(error => { if (!disposed) onPushError(error); });
+    return () => { disposed = true; stop(); };
+  }, [previewUser.mode, previewUser.userId, sharing.runtime]);
   // 공유는 로그인한 사용자(개발자 모드 포함)만 쓴다. 게스트는 편집 화면에 함께하는 사람을 띄우지 않고, 공유를 누르면 로그인 안내부터 본다.
   const signedIn = previewUser.mode === 'authenticated' || !!previewUser.developer;
   const loginGate = useLoginGate();
