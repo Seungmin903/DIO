@@ -1,15 +1,17 @@
 --- a/frontend/App.js
 +++ b/frontend/App.js
-@@ -14,6 +14,8 @@
+@@ -13,8 +13,9 @@
+ import AuthScreen from './src/auth/AuthScreen';
  import { authService } from './src/auth/authService';
  import { guestProfile } from './src/auth/guestProfileDevice';
+-import { clearMockLibrary } from './src/diary/services/legacyMockCleanup';
  import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
 +import { DEV_ACCESS, clearMockLibrary } from './src/dev/devAccess';
 +import StartModeScreen from './src/dev/StartModeScreen';
  import { useSharing } from './src/sharing/useSharing';
  import SharingHub from './src/sharing/SharingHub';
  import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
-@@ -83,27 +85,43 @@
+@@ -84,28 +85,43 @@
    const finishBoot = useCallback(() => { setBooting(false); hideSplash(); }, []);
    // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
    const [loginRequest, setLoginRequest] = useState(null);
@@ -24,10 +26,10 @@
    const startSession = async session => setPreviewSession(session?.provider === 'guest' ? await guestProfile.start(session) : session);
    // 로그인 화면 없이 게스트(방문자)로 시작한다. 로그인은 로그인이 필요한 기능을 누를 때만 묻는다(loginGate).
 -  const startGuest = async () => {
--    const session = { mode: 'preview', provider: 'guest', nickname: '방문자' };
 +  // 개발자 모드 게스트는 로그인한 사용자처럼 다 열리고 받은 초대 목업이 들어 있다. 일반 사용자는 목업이 없다.
 +  const startGuest = async dev => {
-+    await clearMockLibrary().catch(() => {});
+     await clearMockLibrary().catch(() => {});
+-    const session = { mode: 'preview', provider: 'guest', nickname: '방문자' };
 +    const session = { mode: 'preview', provider: 'guest', nickname: '방문자', ...(dev ? { developer: true } : {}) };
      // 지난 프로필을 못 읽어도 빈 화면에 갇히지 않게 기본 게스트로 시작한다
      try { await startSession(session); } catch { setPreviewSession(session); }
@@ -60,7 +62,7 @@
    };
    const endSession = async () => {
      try {
-@@ -133,11 +151,13 @@
+@@ -135,11 +151,13 @@
      <SafeAreaProvider style={s.provider}>
        <StatusBar hidden />
        {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
@@ -76,7 +78,7 @@
        {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
        <HandwritingStudio />
        {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
-@@ -228,8 +248,8 @@
+@@ -230,8 +248,8 @@
        onError: onPushError }).then(cleanup => { if (disposed) cleanup(); else stop = cleanup; }).catch(error => { if (!disposed) onPushError(error); });
      return () => { disposed = true; stop(); };
    }, [previewUser.mode, previewUser.userId, sharing.runtime]);

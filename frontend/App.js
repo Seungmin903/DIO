@@ -13,6 +13,7 @@ import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEdit
 import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { guestProfile } from './src/auth/guestProfileDevice';
+import { clearMockLibrary } from './src/diary/services/legacyMockCleanup';
 import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
@@ -89,6 +90,7 @@ export default function App() {
   const startSession = async session => setPreviewSession(session?.provider === 'guest' ? await guestProfile.start(session) : session);
   // 로그인 화면 없이 게스트(방문자)로 시작한다. 로그인은 로그인이 필요한 기능을 누를 때만 묻는다(loginGate).
   const startGuest = async () => {
+    await clearMockLibrary().catch(() => {});
     const session = { mode: 'preview', provider: 'guest', nickname: '방문자' };
     // 지난 프로필을 못 읽어도 빈 화면에 갇히지 않게 기본 게스트로 시작한다
     try { await startSession(session); } catch { setPreviewSession(session); }
