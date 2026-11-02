@@ -11,6 +11,7 @@ import { DDAY_STYLES, ddayStyleOf } from '../../widgets/dday'
 import { createMemo } from '../../widgets/memo'
 import { MEMO_ARTS } from '../../widgets/memoArt'
 import ShapeContent from '../canvas/ShapeContent'
+import { snapStepScale } from '../../../shared/pixelSnap'
 
 const RETRIES = 2
 
@@ -44,13 +45,28 @@ function WidgetThumb({ item, style }) {
 // 메모 미리보기: 붙일 때와 같은 도형을 칸 크기로 줄여 그린다
 const THUMB_MEMOS = Object.fromEntries(MEMO_ARTS.map((art) => [art.id, createMemo({ memo: art.id }, { x: 0, y: 0 })]))
 
+// 메모지 줄 · 모눈 · 점의 반복 간격(그림 좌표). 줄여 그릴 때 이 간격을 기기 픽셀 정수로 맞춰 줄마다 진하기가 달라지지 않게 한다
+const memoStep = (art) => {
+  const at = (name) => [...new Set([...art.svg.matchAll(new RegExp(` ${name}="([0-9.]+)"`, 'g'))].map((m) => Number(m[1])))].sort((a, b) => a - b)
+  const gaps = ['y1', 'x1', 'cx', 'cy'].flatMap((name) => at(name).slice(1).map((value, i) => Math.round((value - at(name)[i]) * 100) / 100))
+  const count = {}
+  for (const gap of gaps) if (gap > 2) count[gap] = (count[gap] ?? 0) + 1
+  const [step] = Object.entries(count).sort((a, b) => b[1] - a[1])[0] ?? []
+  return step ? Number(step) : null
+}
+const MEMO_STEPS = Object.fromEntries(MEMO_ARTS.map((art) => [art.id, memoStep(art)]))
+
 function MemoThumb({ item, style }) {
   const [box, setBox] = useState(null)
   const memo = THUMB_MEMOS[item.memo] ?? THUMB_MEMOS[MEMO_ARTS[0].id]
-  const fit = box ? Math.min(box.width / memo.w, box.height / memo.h) * 0.92 : 0
+  const step = MEMO_STEPS[memo.art]
+  const raw = box ? Math.min(box.width / memo.w, box.height / memo.h) * 0.92 : 0
+  // 미리보기 그래픽 규칙: 줄 간격을 기기 픽셀에 맞춘다. 맞춘 배율이 칸을 넘으면 줄인다
+  const snapped = raw > 0 && step ? snapStepScale(raw, step) : raw
+  const fit = snapped > raw / 0.92 ? snapStepScale(raw * 0.9, step) : snapped
   return (
     <View style={[style, styles.widgetBox]} onLayout={(event) => setBox(event.nativeEvent.layout)}>
-      {fit > 0 && <ShapeContent object={memo} zoom={fit} hideText />}
+      {fit > 0 && <ShapeContent object={memo} zoom={fit} hideText crisp />}
     </View>
   )
 }

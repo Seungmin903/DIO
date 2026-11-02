@@ -13,6 +13,10 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
 const library = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/stickerLibrary.js', import.meta.url), 'utf8'), {
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
 }).code
+// 테이프 분류(기본 폴더 무늬 · 레이스 + 내 폴더)도 실제 모듈을 같은 가짜 의존성으로 쓴다
+const tapeLibrarySource = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/tapeLibrary.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+}).code
 const load = (source, deps) => { const module = { exports: {} }; new Function('require', 'module', 'exports', source)(id => deps[id], module, module.exports); return module.exports }
 const sizes = [{ id: 'slim', w: 200, h: 11 }, { id: 'standard', w: 180, h: 34 }, { id: 'wide', w: 200, h: 68 }]
 const make = save => createTapePreferences({ load: async () => ({ size: 'wide', palette: 'sky', pattern: 'dot' }), save: save || (async () => true), sizes: sizes.map(s => s.id), palettes: ['sky', 'pink'], patterns: ['dot', 'solid'], defaultSize: 'standard' })
@@ -22,8 +26,11 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
     react: { createContext: () => ({ Provider: 'provider' }), useContext: () => 4, useRef: value => ({ current: value }), useState: value => [typeof value === 'function' ? value() : value, () => {}], ...hooks },
     'react-native': { View: 'view', Text: 'text', Platform: { OS: 'web', select: values => values.web }, StyleSheet: { create: value => value } },
     '../../../shared/theme': { colors: {}, radius: {}, shadow: {} },
-    '../../constants': { TAPE_SIZES: sizes, TAPE_DEFAULT: { size: 'standard', palette: 'pink' }, TAPE_PATTERN_NAMES: { dot: '도트', solid: '무지' }, PHOTO_FRAME_ASSETS: [{ id: 'polaroid', name: '폴라로이드', kind: 'border' }], PHOTO_FRAME_GROUPS: [{ id: 'basic', name: '기본' }, { id: 'ticket', name: '티켓' }] },
-    '../../hooks/useCustomDecor': { RECENT_LIMIT: 8, stickerKey: item => item.id, useCustomDecor: () => ({ loaded: true, lastStickerCategory: saveStatus.items?.lastStickerCategory ?? null, items: { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [] }, ...saveStatus }) },
+    '../../constants': { TAPE_SIZES: sizes, TAPE_DEFAULT: { size: 'standard', palette: 'pink' }, TAPE_PALETTES: [{ id: 'sky', name: '하늘' }, { id: 'pink', name: '딸기' }], TAPE_PATTERN_NAMES: { dot: '도트', solid: '무지', 'lace-flower': '아이렛' }, PHOTO_FRAME_ASSETS: [{ id: 'polaroid', name: '폴라로이드', kind: 'border', group: 'basic' }, { id: 'ticket-movie', name: '영화 티켓', kind: 'border', group: 'ticket' }], PHOTO_FRAME_GROUPS: [{ id: 'basic', name: '기본' }, { id: 'ticket', name: '티켓' }] },
+    '../../hooks/useCustomDecor': { RECENT_LIMIT: 12, stickerKey: item => item.id, widgetKey: item => item.frame ?? item.memo ?? item.style, tapeKey: item => item.src ?? `pattern:${item.pattern}`,
+      useCustomDecor: () => ({ loaded: true, lastStickerCategory: saveStatus.items?.lastStickerCategory ?? null, items: { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], tapeFolders: [] },
+        markRecentTape() {}, setTapeCategory() {}, toggleTapeFavorite() {}, markRecentWidget() {}, toggleWidgetFavorite() {}, ...saveStatus }) },
+    '../../hooks/usePalettes': { tapeColors: id => (id.startsWith('custom:') ? { bg: id.split(':')[1], fg: id.split(':')[2] } : { bg: '#EEE', fg: '#999' }), usePalette: () => ({ colors: ['sky', 'pink'] }) },
     '../../hooks/useTapePreferences': { useTapePreferences: () => [store.getSnapshot(), store.update, ready] },
     '../../services/stickerSplit': { stickerSplit: { available: false } },
     '../../../auth/loginGate': { useLoginGate: () => (_feature, action) => action() }, // 로그인한 사용자: 그대로 통과
@@ -32,20 +39,24 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
     '../../hooks/usePan': { usePan: () => ({}) },
     '../ToolPanel': { toolPanelStyles: {}, ToolPanelHeader: 'header' },
     '../../utils/common': { clamp: value => value },
+    './PhotoFramePicker': { FramePreview: 'FramePreview', frameLabel: frame => `사진 틀 ${frame.name}` },
   }
   mocks['../../stickerLibrary'] = load(library, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'] })
+  mocks['../../tapeLibrary'] = load(tapeLibrarySource, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'], './constants': mocks['../../constants'] })
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), module, module.exports)
   return module.exports.default({ tab: 'tape', ...callbacks })
 }
-const options = tree => nodes(tree).find(node => node.type === './TapeOptions')
+// 테이프 칸(이름은 화면 읽기 이름) · 색 줄의 내 색상
+const tapeTile = (tree, name) => nodes(tree).find(node => node.type?.name === 'Tile' && node.props.label === name)
+const myColors = tree => nodes(tree).find(node => node.type === '../controls/MyColorPresets')
 test('스티커 칩 복원·선택 저장과 삭제·숨김 칩은 비어 있지 않은 첫 칩으로 대체', () => {
   const picked = [], items = { folders: [{ id: 'mine', name: '내 폴더', items: [] }, { id: 'trip', name: '여행', items: [] }], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], lastStickerCategory: 'folder:mine' }
   const render = () => drawer(make(), { tab: 'sticker' }, true, { items, setStickerCategory: id => picked.push(id) })
   const pills = () => nodes(render()).filter(node => node.type?.name === 'Pill')
   assert.equal(pills().find(node => node.props.active).props.label, '내 폴더')
   // 외부 출처 기본 분류는 없다: 즐겨찾기 · 내 폴더 · 새 폴더만
-  assert.deepEqual(pills().map(node => node.props.label), ['즐겨찾기', '내 폴더', '여행', '새 폴더'])
+  assert.deepEqual(pills().map(node => node.props.label), ['즐겨찾기', '최근', '내 폴더', '여행', '새 폴더'])
   pills().find(node => node.props.label === '여행').props.onPress()
   assert.deepEqual(picked, ['folder:trip'])
   // 즐겨찾기 · 최근이 비어 있으면 첫 폴더로
@@ -55,10 +66,10 @@ test('스티커 칩 복원·선택 저장과 삭제·숨김 칩은 비어 있지
   assert.equal(pills().find(node => node.props.active).props.label, '즐겨찾기')
 })
 
-test('위젯 칸은 메모 · 디데이 · 사진 틀 칩으로 나누고 칸을 누르면 그 위젯을 붙인다', () => {
+test('위젯 칸은 메모지 · 디데이 · 사진 틀 칩으로 나누고 칸을 누르면 그 위젯을 붙인다', () => {
   const added = []
   const tree = drawer(make(), { tab: 'widget', onAdd: item => added.push(item) })
-  assert.deepEqual(nodes(tree).filter(node => node.type?.name === 'Pill').map(node => node.props.label), ['메모', '디데이', '사진 틀'])
+  assert.deepEqual(nodes(tree).filter(node => node.type?.name === 'Pill').map(node => node.props.label), ['즐겨찾기', '최근', '메모지', '디데이', '사진 틀'])
   const tiles = nodes(tree).filter(node => node.type?.name === 'Tile')
   assert.deepEqual(tiles.map(node => node.props.label), ['무지 메모', '줄 메모'])
   tiles[1].props.onPress()
@@ -73,11 +84,12 @@ test('사진 틀 칩은 기본 · 티켓 묶음으로 빈 틀을 붙이고, 보�
   nodes(render()).find(node => node.type?.name === 'Pill' && node.props.label === '사진 틀').props.onPress()
   const tree = render()
   assert.deepEqual(nodes(tree).filter(node => node.type?.name === 'Section').map(node => node.props.title), ['기본', '티켓'])
-  const picker = nodes(tree).find(node => node.type === './PhotoFramePicker')
-  assert.equal(picker.props.group, 'basic')
-  picker.props.onSelect({ id: 'polaroid' })
+  // 메모 · 디데이와 같은 칸(Tile)으로 묶음마다 그 묶음의 틀만 보인다
+  const tiles = nodes(tree).filter(node => node.type?.name === 'Tile')
+  assert.equal(tiles.length, 2)
+  tiles[0].props.onPress()
   assert.deepEqual(added, [{ kind: 'frame', frame: 'polaroid' }])
-  assert.equal(nodes(drawer(make(), { tab: 'photo' })).some(node => node.type === './PhotoFramePicker'), false)
+  assert.equal(nodes(drawer(make(), { tab: 'photo' })).some(node => node.props?.frame), false)
 })
 
 test('보관함은 훅의 저장 실패·진행 상태와 최신 내용 재시도를 안내에 전달한다', () => {
@@ -89,36 +101,56 @@ test('보관함은 훅의 저장 실패·진행 상태와 최신 내용 재시�
   assert.equal(notice.props.onRetry, retrySave)
 })
 
-test('복원·재마운트는 삽입하지 않고 무늬 선택 시 복원한 색으로 한 장씩 추가한다', async () => {
+test('복원·재마운트는 삽입하지 않고 무늬 칸을 누를 때마다 고른 색으로 한 장씩 추가한다', async () => {
   const store = make(), added = [], calls = { onAdd: item => added.push(item) }
   await store.ensureLoaded()
-  assert.equal(options(drawer(store, calls)).props.tape.palette, 'sky')
+  drawer(store, calls)
   assert.equal(added.length, 0)
-  options(drawer(store, calls)).props.onUpdate({ palette: 'custom:#AABBCC:#112233' })
+  // 처음 칩은 기본 폴더 '무늬'이고 레이스는 따로 있다
+  assert.deepEqual(nodes(drawer(store, calls)).filter(node => node.type?.name === 'Pill').map(node => node.props.label), ['즐겨찾기', '최근', '무늬', '레이스', '새 폴더'])
+  myColors(drawer(store, calls)).props.onPick('#AABBCC/#112233')
   assert.equal(added.length, 0)
-  options(drawer(store, calls)).props.onUpdate({ pattern: 'dot' })
-  options(drawer(store, calls)).props.onUpdate({ pattern: 'dot' })
+  tapeTile(drawer(store, calls), '도트').props.onPress()
+  tapeTile(drawer(store, calls), '도트').props.onPress()
   assert.equal(added.length, 2)
   assert.deepEqual(added[0], { kind: 'tape', palette: 'custom:#AABBCC:#112233', pattern: 'dot', edge: 'straight', name: '도트' })
 })
 
-test('복원 전 도구 입력을 막고 기본색으로 삽입한 경우 실제 색을 기억한다', async () => {
-  const store = make()
-  assert.equal(options(drawer(store, {}, false)), undefined)
+test('복원 전에는 색 줄을 숨기고 무늬를 붙이지 않으며, 기본색으로 삽입한 경우 실제 색을 기억한다', async () => {
+  const store = make(), added = []
+  const before = drawer(store, { onAdd: item => added.push(item) }, false)
+  assert.equal(myColors(before), undefined)
+  tapeTile(before, '무지').props.onPress()
+  assert.equal(added.length, 0)
   await store.ensureLoaded()
   await store.update({ palette: null })
-  options(drawer(store, { onAdd() {} })).props.onUpdate({ pattern: 'solid' })
+  tapeTile(drawer(store, { onAdd() {} }), '무지').props.onPress()
   assert.equal(store.getSnapshot().palette, 'pink')
 })
 
 test('설정 저장 실패를 안내해도 새 테이프 삽입·메모리 설정은 유지한다', async () => {
   const store = make(async () => false), notices = [], added = []
   await store.ensureLoaded()
-  options(drawer(store, { onAdd: item => added.push(item), onToast: text => notices.push(text) })).props.onUpdate({ pattern: 'solid' })
+  tapeTile(drawer(store, { onAdd: item => added.push(item), onToast: text => notices.push(text) }), '무지').props.onPress()
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(added.length, 1)
   assert.equal(store.getSnapshot().pattern, 'solid')
   assert.match(notices[0], /설정을 저장하지 못했어요/)
+})
+
+test('레이스 칩은 레이스 무늬만, 내 폴더는 사진 테이프만 보이고 색 줄은 내 폴더에서 숨긴다', async () => {
+  const store = make()
+  await store.ensureLoaded()
+  const lace = drawer(store, {}, true, { items: { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], tapeFolders: [], lastTapeCategory: 'base:lace' } })
+  assert.deepEqual(nodes(lace).filter(node => node.type?.name === 'Tile').map(node => node.props.label), ['아이렛'])
+  assert.ok(myColors(lace))
+  const mine = drawer(store, {}, true, { items: { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [],
+    tapeFolders: [{ id: 'trip', name: '여행', items: [{ id: 't1', src: 'blob:t1', name: '기차표' }] }], lastTapeCategory: 'folder:trip' } })
+  // 내 폴더는 스티커 폴더와 같은 FolderView(편집 · 추가 · 폴더 삭제)로 그린다
+  const view = nodes(mine).find(node => node.type?.name === 'FolderView')
+  assert.deepEqual(view.props.folder.items.map(item => item.name), ['기차표'])
+  assert.equal(view.props.noun, '테이프')
+  assert.equal(myColors(mine), undefined)
 })
 
 test('드로어에서 기존 폴더·내장 분류와 같은 이름으로 생성·이름 변경해도 ID로 구분한다', () => {
@@ -140,16 +172,40 @@ test('드로어에서 기존 폴더·내장 분류와 같은 이름으로 생성
   const pills=nodes(render()).filter(n=>n.type?.name==='Pill' && n.props.label==='Twemoji');
   assert.equal(pills.length,2);
   assert.equal(new Set(pills.map(n=>n.key)).size,2);
-  const folder=nodes(render()).find(n=>n.props.folder?.id==='new' && n.props.onRename);
-  assert.ok(folder);
-  folder.props.onRename();
-  let renamed=nodes(render()).find(n=>n.props.folder?.id==='new' && n.props.onRename);
-  renamed.props.onRenameChange('  ');
-  assert.equal(nodes(render()).find(n=>n.props.folder?.id==='new' && n.props.onRename).props.canCommitRename,false);
-  renamed.props.onRenameChange('여행');
-  renamed=nodes(render()).find(n=>n.props.folder?.id==='new' && n.props.onRename);
-  assert.equal(renamed.props.canCommitRename,true);
-  renamed.props.onRenameCommit();
+  // 이름은 폴더 '편집' 중 제목 자리에서 고친다. 빈 이름으로 끝내면 바꾸지 않는다
+  const folderView=()=>nodes(render()).find(n=>n.props.folder?.id==='new' && n.props.onEdit);
+  assert.ok(folderView());
+  folderView().props.onEdit();
+  assert.equal(folderView().props.editing,true);
+  folderView().props.onRenameChange('  ');
+  folderView().props.onRenameCommit();
+  assert.deepEqual(calls,[['add','Twemoji']]);
+  folderView().props.onRenameChange('여행');
+  folderView().props.onRenameCommit();
   assert.deepEqual(calls.at(-1),['rename','new','여행']);
   assert.equal(items.folders.find(f=>f.id==='old').name,'Twemoji');
 });
+
+test('테이프 즐겨찾기는 무늬와 그때 고른 색을 함께 담고, 칸 아래에 이름을 보인다', async () => {
+  const store = make(), faved = []
+  await store.ensureLoaded()
+  const tree = drawer(store, { onToast() {} }, true, { toggleTapeFavorite: item => faved.push(item) })
+  const dot = tapeTile(tree, '도트')
+  assert.equal(dot.props.caption, '도트')
+  dot.props.onLongPress()
+  assert.deepEqual(faved, [{ pattern: 'dot', name: '도트', palette: 'sky' }])
+})
+
+test('위젯 · 스티커 · 테이프 칸마다 왼쪽 위 별로 즐겨찾기를 넣고 빼고, 위젯은 누르면 최근에 남는다', async () => {
+  const store = make(), faved = [], recent = [], added = []
+  await store.ensureLoaded()
+  const tree = drawer(store, { tab: 'widget', onAdd: item => added.push(item), onToast() {} }, true, { toggleWidgetFavorite: item => faved.push(item), markRecentWidget: item => recent.push(item) })
+  const memo = nodes(tree).find(node => node.type?.name === 'Tile' && node.props.label === '줄 메모')
+  memo.props.onFavorite()
+  memo.props.onPress()
+  assert.deepEqual(faved.map(item => item.memo), ['lined'])
+  assert.deepEqual(recent.map(item => item.memo), ['lined'])
+  assert.deepEqual(added.map(item => item.memo), ['lined'])
+  // 테이프 칸도 같은 별 버튼을 가진다
+  assert.equal(typeof tapeTile(drawer(store, { onToast() {} }), '도트').props.onFavorite, 'function')
+})

@@ -90,7 +90,7 @@ export default function ContextBar({
   const linkCard = href && single && !single.locked && (
     <View style={[styles.chip, { top: chipTop, left: chipLeft, opacity: chipWidth ? 1 : 0 }]} onLayout={(event) => setChipWidth(event.nativeEvent.layout.width)} onStartShouldSetResponder={() => true} {...insideHandlers}>
       <Pressable onPress={openLink} accessibilityRole="link" accessibilityLabel="링크 열기" style={({ pressed }) => [styles.chipLink, pressed && styles.pressed]}>
-        <Icon name="external" size={15} forText={12} color={colors.primary} />
+        <Icon name="external" size={15} forText={12.5} color={colors.primary} />
         <Text style={styles.chipText} numberOfLines={1}>{href.replace(/^https?:\/\//, '')}</Text>
       </Pressable>
       <View style={styles.chipDivider} />
@@ -254,7 +254,7 @@ export function CompactMenu({ position, maxHeight, insideHandlers, actions }) {
 function MenuAction({ icon, label, danger, disabled, onPress, style }) {
   const color = danger ? colors.danger : disabled ? colors.border : colors.text
   return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.menuItem, style, pressed && styles.pressed]}>
-    <Icon name={icon} size={18} forText={12.5} color={color} /><Text style={[styles.menuText, { color }]}>{label}</Text>
+    <Icon name={icon} size={18} forText={13} color={color} /><Text style={[styles.menuText, { color }]}>{label}</Text>
   </Pressable>
 }
 
@@ -287,7 +287,7 @@ function OrderMenu({ placement, right, objects, allObjects, onPick }) {
             accessibilityState={{ disabled }}
             style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
           >
-            <Icon name={action.icon} size={18} forText={12.5} color={disabled ? colors.border : colors.text} />
+            <Icon name={action.icon} size={18} forText={13} color={disabled ? colors.border : colors.text} />
             <Text style={[styles.menuText, disabled && styles.menuTextDisabled]}>{action.label}</Text>
           </Pressable>
         )
@@ -307,7 +307,7 @@ function BarButton({ icon, label, active, danger, disabled, onPress }) {
       accessibilityState={{ ...(active != null && { selected: active }), disabled: Boolean(disabled) }}
       style={({ pressed }) => [styles.button, active && styles.chipActive, pressed && styles.pressed, disabled && styles.buttonDisabled]}
     >
-      <Icon name={icon} size={17} forText={14} color={color} />
+      <Icon name={icon} size={17} forText={12.5} color={color} />
       <Text style={[styles.buttonText, { color }]}>{label}</Text>
     </Pressable>
   )

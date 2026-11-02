@@ -11,7 +11,8 @@ const compile = (path) => expo('@babel/core').transformSync(readFileSync(new URL
 }).code
 
 // 손바닥 거르기 훅을 React 없이 돌린다. os 로 플랫폼(iOS 는 force, Android 는 pointerType)을 고른다.
-function load(os = 'android') {
+// input 은 그리기 입력 설정(shared/drawingInput: auto · pen · any)
+function load(os = 'android', input = 'auto') {
   const stylusModule = { exports: {} }
   new Function('require', 'module', 'exports', compile('../src/editor/utils/stylus.js'))(
     (id) => (id === 'react-native' ? { Platform: { OS: os } } : require(id)), stylusModule, stylusModule.exports)
@@ -19,13 +20,14 @@ function load(os = 'android') {
   new Function('require', 'module', 'exports', compile('../src/editor/hooks/usePalmRejection.js'))((id) => {
     if (id === 'react') return { createContext: (value) => ({ value }), useRef: (current) => ({ current }), useLayoutEffect: (fn) => fn() }
     if (id.endsWith('/stylus')) return stylusModule.exports
+    if (id.endsWith('/drawingInput')) return { getDrawingInput: () => input }
     return require(id)
   }, hookModule, hookModule.exports)
   return { stylus: stylusModule.exports, usePalmRejectingPan: hookModule.exports.usePalmRejectingPan }
 }
 
-function setup(os) {
-  const { stylus, usePalmRejectingPan } = load(os)
+function setup(os, input) {
+  const { stylus, usePalmRejectingPan } = load(os, input)
   const log = []
   const responder = usePalmRejectingPan({
     onStart: (event) => log.push(['start', event.touches.length, event.locationX]),
@@ -165,6 +167,52 @@ test('펜을 구분할 수 없을 때(Expo Go): 거의 동시에 닿은 두 손�
   late.down(1, 200)
   late.move(0, 60)
   assert.deepEqual(late.log.map((e) => e[0]), ['start', 'move', 'move'])
+})
+
+test('그리기 입력 펜만: 펜을 아직 못 봤어도 손가락으로는 그리지 않고, 펜은 그린다', () => {
+  const t = setup('android', 'pen')
+  t.pointer(0, 'touch')
+  t.down(0, 10)
+  t.move(0, 40)
+  t.up(0)
+  assert.deepEqual(t.log, [])
+  t.pointer(1, 'pen')
+  t.down(1, 50)
+  t.move(1, 70)
+  t.up(1)
+  assert.deepEqual(t.log, [['start', 1, 50], ['move', 20, 1], ['end', false]])
+})
+
+test('그리기 입력 펜만: 포인터 이벤트보다 먼저 온 첫 터치는 종류를 알 때까지 그리지 않는다', () => {
+  const t = setup('android', 'pen')
+  t.down(3, 40)
+  assert.deepEqual(t.log, [])
+  t.pointer(3, 'touch')
+  t.move(3, 80)
+  assert.deepEqual(t.log, [])
+})
+
+test('그리기 입력 펜 · 손가락: 펜을 본 뒤에도 손가락으로 그린다', () => {
+  const t = setup('android', 'any')
+  t.stylus.notePointerDown({ nativeEvent: { pointerId: 9, pointerType: 'pen' } })
+  t.pointer(0, 'touch')
+  t.down(0, 10)
+  t.move(0, 40)
+  t.up(0)
+  assert.deepEqual(t.log, [['start', 1, 10], ['move', 30, 1], ['end', false]])
+})
+
+test('그리기 입력 펜 · 손가락: 막 닿은 펜 획을 뒤에 닿은 손바닥이 빼앗지 않는다', () => {
+  const t = setup('android', 'any')
+  t.pointer(1, 'pen')
+  t.down(1, 50) // 아직 움직이지 않았다
+  t.pointer(2, 'touch')
+  assert.equal(t.askRelease(2, 200), false)
+  t.down(2, 200)
+  t.move(2, 260)
+  t.move(1, 70)
+  t.up(1)
+  assert.deepEqual(t.log, [['start', 1, 50], ['move', 20, 1], ['end', false]])
 })
 
 test('iOS: Apple Pencil(force > 0)이 보이면 손가락으로는 그리지 않는다', () => {

@@ -55,7 +55,7 @@ const server = http.createServer((req, res) => {
       await page.getByLabel('폴더 이름 확인', { exact: true }).click();
       await page.getByLabel('오려만들기에 스티커 추가', { exact: true }).click();
       await button('이미지 그대로 추가').waitFor();
-      await button('이미지 분리해서 추가').waitFor();
+      await button('스티커 시트 분리').waitFor();
       await button('사진 속 대상 오리기').click();
       await page.getByText('화면 미리보기 · AI 분리와 실제 저장은 아직 연결되지 않았어요.', { exact: true }).waitFor();
       assert.equal(await button('사진 선택').count(), 1);

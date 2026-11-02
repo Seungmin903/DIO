@@ -38,6 +38,9 @@ const EDITOR_ICONS = {
   'arrow-down': 'down',
   // 제작 화면(사진 오리기, 시트 분리, 내 폰트)이 쓰는 편집기 아이콘
   image: 'image',
+  sticker: 'sticker', // 편집기 툴바의 스티커 도구와 같은 모양(공방 '스티커 추가')
+  tape: 'tape', // 편집기 툴바의 마스킹테이프 도구와 같은 모양(공방 '테이프 추가')
+  paper: 'paper', // 새 다이어리 '속지' 칸과 같은 모양(공방 '속지 추가')
   redo: 'redo',
   pen: 'pen',
   eraser: 'eraser',

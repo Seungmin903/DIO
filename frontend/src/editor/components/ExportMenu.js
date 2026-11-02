@@ -27,11 +27,10 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
   const Root = mobilePortrait ? View : Fragment
   const [modalHeight, setModalHeight] = useState(null)
   const centered = mobilePortrait || !anchor
-  // 말풍선: 내보내기 버튼 바로 아래, 오른쪽 끝을 버튼에 맞추고 꼬리가 버튼 가운데를 가리킨다
+  // 내보내기 버튼 바로 아래, 오른쪽 끝을 버튼에 맞춘다. 다른 옵션 창 · 말풍선처럼 꼬리는 두지 않는다
   const panelWidth = Math.min(BUBBLE_WIDTH, viewport.width - 32)
   const panelTop = Math.min(anchor ? anchor.y + anchor.height + 12 : 80, Math.max(16, viewport.height - 200))
   const panelLeft = Math.max(16, Math.min(anchor ? anchor.x + anchor.width - panelWidth : (viewport.width - panelWidth) / 2, viewport.width - panelWidth - 16))
-  const tailLeft = anchor ? Math.min(panelWidth - 28, Math.max(16, anchor.x + anchor.width / 2 - panelLeft - 8)) : null
   // 기준 버튼이 없으면(폰) 말풍선 대신 화면 가운데 창으로 띄운다.
   const placement = !centered
     ? { position: 'absolute', width: panelWidth, left: panelLeft, top: panelTop, maxHeight: viewport.height - panelTop - 16 }
@@ -85,8 +84,6 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
     <Root {...(mobilePortrait ? { style: styles.portraitRoot, onLayout: (event) => setModalHeight(event.nativeEvent.layout.height) } : {})}>
     {/* 화면을 어둡게 덮지 않는다 (덮으면 뒤의 요소가 반투명해 보였다). 바깥을 누르면 닫는다 */}
     <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="내보내기 닫기" />
-    {/* 꼬리는 카드 바깥에 그린다 (카드 안에 두면 둥근 모서리 자르기에 가려졌다) */}
-    {!centered && tailLeft != null && <View pointerEvents="none" style={[styles.tail, { left: panelLeft + tailLeft, top: panelTop - 7 }]} />}
     <View style={mobilePortrait ? styles.portraitCenter : anchor ? StyleSheet.absoluteFill : styles.center} pointerEvents="box-none">
     <View style={[toolPanelStyles.card, styles.card, placement]} accessibilityViewIsModal>
       <ToolPanelHeader icon="share" title="내보내기" closeLabel="내보내기 창 닫기" onClose={onClose} />
@@ -124,8 +121,6 @@ const styles = StyleSheet.create({
   portraitRoot: { flex: 1 },
   portraitCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   center: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  // 말풍선 꼬리: 카드 위쪽에서 내보내기 버튼 가운데를 가리킨다
-  tail: { position: 'absolute', width: 16, height: 16, borderRadius: 3, backgroundColor: colors.surface, borderLeftWidth: 1, borderTopWidth: 1, borderColor: colors.cardBorder, transform: [{ rotate: '45deg' }] },
   notice: { gap: 6 },
   hint: { color: colors.textMuted, fontSize: 12.5, lineHeight: 19 },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

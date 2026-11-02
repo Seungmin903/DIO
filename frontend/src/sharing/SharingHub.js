@@ -425,7 +425,7 @@ export default function SharingHub({
       style={[s.moreLink, (busy || mutationLocked) && s.disabled]}
     >
       <Text style={s.moreLinkText}>더보기</Text>
-      <Icon name="chevronRight" size={16} color={colors.primaryText} />
+      <Icon name="chevronRight" size={16} forText={14} color={colors.primaryText} />
     </Pressable>
   );
   // 카드 아래(폰) · 오른쪽(태블릿) 버튼 줄: 삭제 · 수락 · 더보기. 끝난 초대는 수락 없이 삭제(알림 삭제) · 더보기
@@ -838,7 +838,7 @@ export default function SharingHub({
                           hitSlop={4}
                           style={[s.toolbarButton, readAllDisabled && s.disabled]}
                         >
-                          <Icon name="check" size={18} color={colors.primaryText} />
+                          <Icon name="check" size={18} forText={14} color={colors.primaryText} />
                           <Text style={s.notificationActionText}>모두 읽음</Text>
                         </Pressable>}
                       </View>
@@ -1042,7 +1042,7 @@ export default function SharingHub({
                             setPhotoMenu(editingProfile ? 'profile' : 'nickname');
                           }}
                         >
-                          <MemberAvatar member={{ photoUri: draftPhoto, nickname }} />
+                          <MemberAvatar member={{ ...mine, photoUri: draftPhoto, nickname }} />
                           <View style={s.profileEdit}>
                             <Icon name="edit" size={10} />
                           </View>

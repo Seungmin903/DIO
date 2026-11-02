@@ -299,3 +299,10 @@ test('표지 제목 글씨체는 편집기 텍스트 글꼴 목록과 같다: �
   assert.equal(font('sans'), 'nanum-gothic')
   for (const value of ['mono', 'comic', undefined]) assert.equal(font(value), 'nanum-gothic')
 })
+
+test('표지 사진을 자른 자리(crop)는 저장 뒤 다시 읽어도 남고, 잘못된 값은 버린다', () => {
+  const photo = { src: 'file:///cover.jpg', mediaFileId: null, aspect: 1.5 }
+  const read = crop => normalizeCover({ cover: { kind: 'photo', photo: { ...photo, crop } } }).photo
+  assert.deepEqual(read({ fx: 0.2, fy: 1, zoom: 1.75 }).crop, { fx: 0.2, fy: 1, zoom: 1.75 })
+  for (const bad of [undefined, null, { fx: 1.2, fy: 0, zoom: 1 }, { fx: 0, fy: 0, zoom: 0.5 }, { fx: 0, fy: '0', zoom: 1 }]) assert.equal('crop' in read(bad), false)
+})

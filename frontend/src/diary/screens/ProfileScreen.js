@@ -7,6 +7,7 @@ import AppInformation from '../components/AppInformation';
 import { SettingCard, SettingSection } from '../components/SettingRow';
 import NotificationSetting from '../components/NotificationSetting';
 import AppLockSetting from '../components/AppLockSetting';
+import EditSetting from '../components/EditSetting';
 import PinScreen from '../components/PinScreen';
 import EditorModal from '../../editor/components/controls/EditorModal';
 import { appLockScope, checkAppLock, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
@@ -20,7 +21,7 @@ import AppIcon from '../../shared/AppIcon';
 import DefaultAvatar from '../../shared/DefaultAvatar';
 import { useLoginEntry } from '../../auth/loginGate';
 
-// 마이페이지는 프로필·계정, 설정은 알림·보안·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
+// 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
 export default function ProfileScreen({ section = 'profile', compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
@@ -102,7 +103,7 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
   const serverNotifications = authenticatedUser ? (
     <Pressable accessibilityRole="button" accessibilityLabel="알림 설정" onPress={() => setRoute('notifications')} style={local.linkRow}>
       <Text style={local.linkLabel}>알림 설정</Text>
-      <AppIcon name="chevron-right" size={18} color={colors.textMuted} />
+      <AppIcon name="chevron-right" size={18} forText={15} color={colors.textMuted} />
     </Pressable>
   ) : null;
 
@@ -143,6 +144,7 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
           <SettingCard compact={compact}>
             <NotificationSetting compact={compact}>{serverNotifications}</NotificationSetting>
             <AppLockSetting compact={compact} locked={locked} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />
+            <EditSetting compact={compact} />
             <AppInformation />
           </SettingCard>
         </> : logout && <SettingCard compact={compact}>

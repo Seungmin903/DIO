@@ -1,11 +1,13 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import ColorPicker from '../../editor/components/controls/ColorPicker'
+import { useColorWindow } from './PresetColorEditor'
 import Icon from '../../editor/components/controls/Icon'
 import { Segmented } from '../../editor/components/ToolPanel'
 import { colors } from '../../shared/theme'
 import { clampWhole } from '../utils/paperChoice'
 import { PanelScroll } from './Workbench'
+import useFillGrid from '../../shared/useFillGrid'
 
 // 새 다이어리 · 다이어리 수정 화면이 함께 쓰는 입력 부품.
 // 숫자는 − [값] + 단위, 색은 견본 줄 + # HEX + 색 고르기, 켜고 끄는 요소는 줄 머리의 스위치.
@@ -81,7 +83,9 @@ const CELL = 36
 
 /** 견본 격자 */
 export function SwatchGrid({ label, children }) {
-  return <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.grid}>
+  // 칸(36)은 그대로 두고 사이만 넓혀 7번째 칸 오른쪽 끝을 줄 끝에 맞춘다(useFillGrid spreadGap)
+  const grid = useFillGrid({ cell: CELL, gap: 4, minColumns: GRID_COLUMNS, maxColumns: GRID_COLUMNS })
+  return <View accessibilityRole="radiogroup" accessibilityLabel={label} style={[styles.grid, { columnGap: grid.spreadGap }]} onLayout={grid.onLayout}>
     <CellSize.Provider value={CELL}>{children}</CellSize.Provider>
   </View>
 }
@@ -99,16 +103,16 @@ export function Swatch({ on, onPress, label, color, children }) {
   </Pressable>
 }
 
-/** 맨 끝 사용자 지정 칸: 고르기 전에는 점선 + , 고른 뒤에는 그 색(또는 children)으로 채운다. 누르면 색 고르기를 펼치고 접는다. */
-export function CustomSwatch({ on, open, onPress, label, color, children }) {
+/** 맨 끝 사용자 지정 칸: 고르기 전에는 점선 + , 고른 뒤에는 그 색(또는 children)으로 채운다. 누르면 그 옆에 색 창을 띄운다. cellRef: 창 자리 기준 */
+export function CustomSwatch({ on, open, onPress, label, color, children, cellRef }) {
   const size = useContext(CellSize)
   const inner = size - 10
   const filled = on && (color || children)
-  return <Pressable accessibilityRole="button" accessibilityLabel={`${label} ${open ? '닫기' : '열기'}`} accessibilityState={{ selected: on, expanded: open }} onPress={onPress} hitSlop={2}
+  return <Pressable ref={cellRef} collapsable={false} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: on, expanded: open }} onPress={onPress} hitSlop={2}
     style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }, (on || open) && styles.ringOn]}>
     <View style={[styles.swatch, { width: inner, height: inner, borderRadius: inner / 2 }, filled ? color && { backgroundColor: color } : styles.custom]}>
       {filled ? children : <Icon name="plus" size={14} color={colors.textMuted} strokeWidth={2.4} />}
-      {filled && <View style={styles.checkWrap}><Icon name={open ? 'chevronDown' : 'check'} size={14} color={!color || dark(color) ? '#FFFFFF' : colors.text} strokeWidth={2.6} /></View>}
+      {filled && <View style={styles.checkWrap}><Icon name="check" size={14} color={!color || dark(color) ? '#FFFFFF' : colors.text} strokeWidth={2.6} /></View>}
     </View>
   </Pressable>
 }
@@ -121,20 +125,27 @@ export function PickerPanel({ value, onChange, label }) {
 /**
  * 견본 + 사용자 지정 한 줄. lead 는 맨 앞 칸(예: 고무줄 '맞춤'), after 는 같은 격자의 다음 줄(예: 바탕 그라데이션).
  * active = false 면 어느 견본도 고른 것으로 보이지 않는다(다른 줄에서 골랐을 때).
+ * custom = false 면 맨 끝 사용자 지정 칸을 두지 않는다(아래에 '내 색상' 줄을 따로 둘 때).
  */
-export function ColorRow({ value, onChange, swatches, label, active = true, lead = null, after = null, picking: controlled, onPicking }) {
+export function ColorRow({ value, onChange, swatches, label, active = true, custom = true, lead = null, after = null, picking: controlled, onPicking }) {
   const [own, setOwn] = useState(false)
   const picking = controlled ?? own
   const setPicking = onPicking ?? setOwn
+  // 직접 고르기: 아래에 피커 판을 펼치지 않고 색 창을 띄운다(앱 안 색 창 통일, 2026-11-02)
+  const customRef = useRef(null), colorWindow = useColorWindow()
+  const openCustom = () => {
+    setPicking(true)
+    colorWindow.open(customRef, { title: label, value, original: value, onChange, onDone: color => { onChange(color); setPicking(false) }, onClose: () => setPicking(false) })
+  }
   const listed = swatches.some(([, color]) => color.toUpperCase() === value.toUpperCase())
   return <View style={styles.colorBox}>
     <SwatchGrid label={label}>
       {lead}
       {swatches.map(([name, color]) => <Swatch key={color} label={`${label} ${name}`} color={color} on={active && color.toUpperCase() === value.toUpperCase()} onPress={() => { onChange(color); setPicking(false) }} />)}
-      <CustomSwatch label={`${label} 직접 고르기`} on={active && !listed} open={picking} color={active && !listed ? value : null} onPress={() => setPicking(!picking)} />
+      {custom && <CustomSwatch cellRef={customRef} label={`${label} 직접 고르기`} on={active && !listed} open={picking} color={active && !listed ? value : null} onPress={openCustom} />}
       {after}
     </SwatchGrid>
-    {picking && <PickerPanel value={value} label={label} onChange={onChange} />}
+    {colorWindow.element}
   </View>
 }
 
@@ -168,7 +179,7 @@ export function ElementRow({ title, summary, open, onToggleOpen, toggle, action 
         style={({ pressed }) => [styles.elementHeadButton, pressed && styles.pressed]}>
         <Text style={styles.elementTitle}>{title}</Text>
         <Text numberOfLines={1} style={styles.elementSummary}>{summary}</Text>
-        <View style={open && styles.chevronOpen}><Icon name="chevronRight" size={16} color={colors.textMuted} /></View>
+        <View style={open && styles.chevronOpen}><Icon name="chevronRight" size={16} forText={13.5} color={colors.textMuted} /></View>
       </Pressable>
       {toggle ? <View style={styles.elementToggle}><Toggle label={`${title} ${toggle.value ? '끄기' : '켜기'}`} value={toggle.value} onChange={toggle.onChange} /></View> : null}
       {action}
@@ -193,7 +204,7 @@ const styles = StyleSheet.create({
   chipText: { color: colors.textMuted, fontSize: 12.5, fontWeight: '700' },
   chipTextOn: { color: colors.text, fontWeight: '800' },
   colorBox: { gap: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 4 },
   ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
   ringOn: { borderColor: colors.primary },
   swatch: { overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(11,23,102,.14)', alignItems: 'center', justifyContent: 'center' },

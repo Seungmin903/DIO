@@ -115,6 +115,8 @@ def additions(platform, native_inventory, ndk):
         records.append(component(name,'bundled font files','OFL-1.1','https://hangeul.naver.com/font' if folder=='maruburi' else 'https://github.com/orioncactus/pretendard' if folder=='pretendard' else 'https://github.com/google/fonts/tree/main/ofl/'+folder,[('Bundled original OFL.txt',audit.read(ROOT/'assets/fonts'/folder/'OFL.txt'))]))
     # 앱 아이콘 선(editor/components/controls/Icon.js · shared/AppIcon.js)은 Lucide 의 것이다. ISC 고지와 일부 Feather(MIT) 고지를 함께 싣는다.
     records.append(component('Lucide icons',(ROOT/'third-party/lucide-VERSION.txt').read_text(encoding='utf-8').strip(),'ISC / MIT (Feather-derived icons)','https://github.com/lucide-icons/lucide',[('Bundled original LICENSE',audit.read(ROOT/'third-party/lucide-LICENSE.txt'))]))
+    # 스포이드 아이콘(editor/components/controls/EyedropperIcon.js)은 Phosphor Icons 의 Eyedropper(regular) 그림을 그대로 쓴다.
+    records.append(component('Phosphor Icons',(ROOT/'third-party/phosphor-VERSION.txt').read_text(encoding='utf-8').strip(),'MIT','https://github.com/phosphor-icons/core',[('Bundled original LICENSE',audit.read(ROOT/'third-party/phosphor-LICENSE.txt'))]))
     if platform=='web':
         archive=heic_sources();sources.append(archive)
         for name,version,file in [('libheif','1.23.6','libheif-source.tar.gz'),('libde265','1.0.16','libde265-source.tar.gz')]:

@@ -1,12 +1,24 @@
 import { checkDimensions, checkSize, detectMediaType, MediaError, storageError } from './mediaPolicy.js'
 
+/**
+ * 사진 이름(레이어 이름): 파일 이름에서 확장자를 뺀 것. 사람이 붙인 이름이 아니면 null 이다 —
+ * 파일 이름이 없어 대신 채운 'image', 안드로이드 사진 보관함의 숫자 id(1000012345), 캐시 파일의 무작위 이름(UUID · 긴 16진수).
+ * null 이면 캔버스에 넣을 때 '사진 1', '사진 2'… 로 번호를 붙인다(editorReducer addObjects).
+ */
+export function mediaDisplayName(originalName) {
+  const base = String(originalName ?? '').replace(/\.[^.]+$/, '').trim()
+  if (!base || /^image$/i.test(base) || /^\d+$/.test(base)) return null
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(base) || /^[0-9a-f_-]{16,}$/i.test(base)) return null
+  return base
+}
+
 /** 썸네일은 선택 사항이다. 저장 완료된 원본은 썸네일 실패와 관계없이 화면에 전달한다. */
 export async function attachMediaPreviews(items, loadPoster) {
   const results = []
   for (const media of items) {
     let poster = null
     try { poster = await loadPoster(media) } catch { /* 원본 src로 표시한다. */ }
-    results.push({ ...media, poster, name: media.originalName.replace(/\.[^.]+$/, '') })
+    results.push({ ...media, poster, name: mediaDisplayName(media.originalName) })
   }
   return results
 }

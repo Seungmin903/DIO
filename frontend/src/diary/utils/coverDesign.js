@@ -122,12 +122,21 @@ export function newDiaryCover(options) {
   return { ...base, pattern: { type: 'none', tone: 'dark' }, plate: 'paper', plateStyle: 'paper', title: { ...base.title, anchor: 'tl' } }
 }
 
+// 표지 사진을 자른 자리(PhotoCropper 의 crop: fx · fy 0~1, zoom 1 이상). 잘못된 값이면 없는 것으로 보고 가운데 꽉 채움으로 그린다
+function savedCoverCrop(crop) {
+  if (!crop || typeof crop !== 'object') return null
+  const { fx, fy, zoom } = crop
+  if (![fx, fy, zoom].every(Number.isFinite) || fx < 0 || fx > 1 || fy < 0 || fy > 1 || zoom < 1) return null
+  return { fx, fy, zoom }
+}
+
 /** 저장된 다이어리 → 그릴 수 있는 표지. 값이 빠지거나 잘못되면 기본값으로 채운다. */
 export function normalizeCover(diary) {
   const base = defaultCover({ color: hex(diary?.color, DIARY_DEFAULTS.color), pattern: diary?.pattern ?? null, dateMode: diary?.templateConfig?.dateMode })
   const saved = diary?.cover
   if (!saved || typeof saved !== 'object') return base
-  const photo = saved.photo && typeof saved.photo.src === 'string' ? { src: saved.photo.src, mediaFileId: saved.photo.mediaFileId, aspect: saved.photo.aspect, ...(/^#[0-9A-F]{6}$/i.test(saved.photo.tone ?? '') ? { tone: saved.photo.tone.toUpperCase() } : {}) } : null
+  const crop = savedCoverCrop(saved.photo?.crop)
+  const photo = saved.photo && typeof saved.photo.src === 'string' ? { src: saved.photo.src, mediaFileId: saved.photo.mediaFileId, aspect: saved.photo.aspect, ...(crop ? { crop } : {}), ...(/^#[0-9A-F]{6}$/i.test(saved.photo.tone ?? '') ? { tone: saved.photo.tone.toUpperCase() } : {}) } : null
   // 예전 '예시 사진'(내 사진 없는 사진 표지)은 같은 그라데이션 바탕의 색 표지로 읽는다.
   const oldSample = saved.kind === 'photo' && !photo && Number.isInteger(saved.photo?.sample) ? saved.photo.sample : null
   const gradient = Number.isInteger(saved.gradient) ? saved.gradient : oldSample
@@ -230,9 +239,10 @@ function averageColor(stops) {
 
 // 무늬가 표지를 실제로 덮는 양: 무늬 타일(CoverPattern)의 면적 × 투명도를 겹침까지 계산한 값. 무늬 색은 어두운 무늬 #0B1766 · 밝은 무늬 흰색.
 // CoverPattern 의 타일 · 투명도를 바꾸면 이 표도 다시 잰다.
+// 린넨(타일 8) · 스트라이프(주기 18)는 2026-11-02 무늬 개편 값으로 다시 계산했다(줄 면적 × 농도 / 타일 면적, 겹침 무시 — 예전 값과 같은 방식)
 const PATTERN_COVERAGE = {
-  dark: { linen: 0.042, leather: 0.011, dot: 0.012, gingham: 0.069, stripe: 0.051, check: 0.020 },
-  light: { linen: 0.129, leather: 0.036, dot: 0.043, gingham: 0.208, stripe: 0.162, check: 0.062 },
+  dark: { linen: 0.037, leather: 0.011, dot: 0.012, gingham: 0.069, stripe: 0.040, check: 0.020 },
+  light: { linen: 0.117, leather: 0.036, dot: 0.043, gingham: 0.208, stripe: 0.127, check: 0.062 },
 }
 
 /**

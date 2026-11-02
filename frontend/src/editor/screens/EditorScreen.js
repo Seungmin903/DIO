@@ -28,6 +28,8 @@ import EraserSettings from '../components/EraserSettings'
 import { normalizePaperAppearance } from '../templates/appearance.js'
 import { newPageAppearance } from '../templates/newPageAppearance.js'
 import { loadDefaultPaperStyle } from '../../diary/hooks/useDefaultPaperStyle'
+import useMyLibrary from '../../diary/hooks/useMyLibrary'
+import { pdfDocPage } from '../../diary/utils/pdfImport.js'
 import { ERASER_RADIUS } from '../utils/eraser.js'
 import LassoSettings from '../components/LassoSettings'
 import TextSettings from '../components/TextSettings'
@@ -63,7 +65,8 @@ import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
-import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox } from '../utils/objects'
+import { discardGeneratedMedia } from '../services/mediaStore'
+import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox, tapePieceRatio } from '../utils/objects'
 import { isTicketFrame } from '../components/canvas/PhotoFrame'
 import { isStripFrame, photoCell, stripCellBoxes } from '../utils/photoStrip'
 import { startPagePanelMeasurement } from '../utils/pagePanelPerformance.js'
@@ -86,6 +89,9 @@ const PHONE_STAGE_PADDING = { top: 24, bottom: 68, side: 12 } // 도구 막대 �
 // compact: 폰 배치(패널은 기본으로 닫고 작업창 위에 띄움). 세로는 간편 편집(상단 바 + 상단 도구 막대),
 // 가로는 정밀 편집(왼쪽 화면 막대 + 오른쪽 전체 도구 막대 + 확대·축소). onToggleOrientation이 있으면 세로·가로를 버튼으로 바꾼다.
 /** 여러 칸 틀의 칸 하나를 자르기 창에 넘길 사진 모양 (칸 크기의 사각 사진). 빈 칸이면 null */
+// 비율이 정해진 사진: 여러 칸 틀의 칸 · 티켓 틀(글자 자리가 정해져 있다)
+const fixedAspectOf = (photo) => (photo.cell != null ? photo.w / photo.h : isTicketFrame(photo.frame) ? photoInnerBox(photo).width / photoInnerBox(photo).height : undefined)
+
 function cellCropPhoto(strip, index) {
   const cell = strip.cells?.[index]
   const box = stripCellBoxes(strip)[index]
@@ -117,6 +123,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const deferredObjects = useDeferredValue(page.objects)
   const { width: PAGE_WIDTH, height: PAGE_HEIGHT } = pageSize(page)
   const templateOrientation = pageTemplateOrientation(state.doc, page)
+  const myLibrary = useMyLibrary()
   // 페이지 추가 팝업의 속지(줄 · 모눈 · 도트 …)를 미리 불러 둬 열자마자 그려지게 한다
   // (편집 화면이 자리 잡은 뒤에 불러 와 첫 화면을 막지 않는다)
   useEffect(() => {
@@ -209,6 +216,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 태블릿 편집기는 페이지 목록과 레이어를 둘 다 연 채로 시작한다. 폰은 두 패널이 작업창 위에 뜨고 한쪽만 열 수 있어 닫고 시작한다.
   const [compactMenu, setCompactMenu] = useState(null)
   const [layersOpen, setLayersOpen] = useState(!compact)
+  // 태블릿 레이어 창 폭: 상단바 오른쪽 묶음(공유 · 레이어 · 내보내기) 폭과 같게 해 왼쪽 끝을 공유 버튼에 맞춘다
+  const [layerWidth, setLayerWidth] = useState(LAYER_PANEL_WIDTH)
   const [pagesOpen, setPagesOpen] = useState(!compact)
   const [settingsPageId, setSettingsPageId] = useState(null)
   useEffect(() => { setSettingsPageId(null) }, [diary?.id, readOnly])
@@ -230,6 +239,10 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [importFailure, setImportFailure] = useState(null)
   const [toast, setToast] = useState(null)
   const [tapeCropId, setTapeCropId] = useState(null) // 다시 자르는 중인 이미지 테이프
+  // 사진 넣기 흐름(사진 고르기 → 자르기 · 확대 · 비율 → 붙은 모습)을 모든 사진 자리에서 같게: 붙이기 전에 자르기 창을 띄우고 '적용'한 값으로 넣는다.
+  // { photo, fixedAspect, title, resolve } — 취소하면 그 사진은 넣지 않는다(resolve(null))
+  const [cropAsk, setCropAsk] = useState(null)
+  const askCrop = (photo, title) => new Promise((resolve) => setCropAsk({ photo, fixedAspect: fixedAspectOf(photo), title, resolve }))
   const [photoCropId, setPhotoCropId] = useState(null) // 자르기 창을 연 사진
   useEffect(() => registerInvitationLeaveGuard?.(() => {
     const allowed = canLeaveForInvitation({ loaded, saveStatus, editing: Boolean(textEditing || cropId || tapeCropId || photoCropId) });
@@ -500,6 +513,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     }catch(error){showToast(error.message||'페이지 복제 결과를 확인하지 못했어요. 목록을 확인해 주세요.')}
   }
 
+  // 고른 뒤 자르기를 취소했거나 칸이 모자라 넣지 않은 사진: 방금 가져온 새 미디어라 지운다(어디서도 쓰지 않는다)
+  const discardUnused = (images, used = []) => {
+    const unused = images.filter((image) => !used.includes(image))
+    if (unused.length) discardGeneratedMedia(unused).catch(() => {})
+  }
+
   // 사진은 스티커·테이프처럼 틀 없이 바로 붙인다 (자르기는 두 번 누르거나 선택 바에서)
   const pickingPhotos = useRef(false)
   const addPhotos = async () => {
@@ -511,12 +530,18 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       const images = await pickImages()
       if (!images.length) return
       const center = randomCenter()
-      const objects = images.map((image, index) =>
-        createObjectFromDecor(
+      const objects = []
+      const used = []
+      for (const [index, image] of images.entries()) {
+        const object = createObjectFromDecor(
           { kind: 'photo', frame: 'none', src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, imageWidth: image.width, imageHeight: image.height },
-          { x: center.x + index * 24, y: center.y + index * 24 },
-        ),
-      )
+          { x: center.x + objects.length * 24, y: center.y + objects.length * 24 },
+        )
+        const patch = await askCrop(object, images.length > 1 ? `사진 자르기 ${index + 1}/${images.length}` : undefined)
+        if (patch) { objects.push({ ...object, ...patch }); used.push(image) }
+      }
+      discardUnused(images, used)
+      if (!objects.length) return
       dispatch({ type: 'addObjects', objects })
       closeAfterInsert()
     } catch (error) {
@@ -532,21 +557,22 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       setImportFailure(null)
       const [image] = await pickImages({ multiple: false })
       if (!image) return
-      const filling = !hasPhotoMedia(page.objects.find((o) => o.id === id))
-      dispatch({
-        type: 'updateObject',
-        id,
-        record: true,
-        patch: {
-          src: image.src,
-          mediaFileId: image.mediaFileId,
-          poster: image.poster,
-          name: image.name,
-          imageWidth: image.width,
-          imageHeight: image.height,
-          crop: { fx: 0.5, fy: 0.5, zoom: 1 },
-        },
-      })
+      const target = pageNow.current.objects.find((o) => o.id === id)
+      if (!target) { discardUnused([image]); return }
+      const filling = !hasPhotoMedia(target)
+      const media = {
+        src: image.src,
+        mediaFileId: image.mediaFileId,
+        poster: image.poster,
+        // 새 사진에 파일 이름이 있을 때만 바꾼다(없으면 '사진 3' · 틀 이름 같은 지금 이름을 둔다)
+        ...(image.name ? { name: image.name } : {}),
+        imageWidth: image.width,
+        imageHeight: image.height,
+        crop: { fx: 0.5, fy: 0.5, zoom: 1 },
+      }
+      const cropped = await askCrop({ ...target, ...media })
+      if (!cropped) { discardUnused([image]); return }
+      dispatch({ type: 'updateObject', id, record: true, patch: { ...media, ...cropped } })
       showToast(filling ? '사진을 넣었어요.' : '사진을 바꿨어요.')
     } catch (error) {
       showToast(mediaFailureMessage(error), () => replacePhoto(id))
@@ -565,14 +591,23 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       const images = await pickImages()
       if (!images.length) return
       const latest = pageNow.current.objects.find((o) => o.id === id)
-      if (!latest?.cells) return
+      if (!latest?.cells) { discardUnused(images); return }
       const cells = [...latest.cells]
       const stillEmpty = empty.filter((index) => !cells[index])
-      stillEmpty.slice(0, images.length).forEach((index, i) => {
-        cells[index] = photoCell({ ...images[i], imageWidth: images[i].width, imageHeight: images[i].height })
-      })
+      let placed = 0
+      const used = []
+      for (const [i, index] of stillEmpty.slice(0, images.length).entries()) {
+        const cell = photoCell({ ...images[i], imageWidth: images[i].width, imageHeight: images[i].height })
+        const cropped = await askCrop(cellCropPhoto({ ...latest, cells: cells.map((c, k) => (k === index ? cell : c)) }, index), `${index + 1}번 칸 자르기`)
+        if (!cropped) continue
+        cells[index] = { ...cell, crop: cropped.crop }
+        used.push(images[i])
+        placed += 1
+      }
+      discardUnused(images, used)
+      if (!placed) return
       dispatch({ type: 'updateObject', id, record: true, patch: { cells } })
-      showToast(images.length > stillEmpty.length ? `빈 칸 ${stillEmpty.length}개를 채웠어요. 나머지 ${images.length - stillEmpty.length}장은 넣지 않았어요.` : `사진 ${images.length}장을 넣었어요.`)
+      showToast(images.length > stillEmpty.length ? `빈 칸 ${placed}개를 채웠어요. 나머지 ${images.length - stillEmpty.length}장은 넣지 않았어요.` : `사진 ${placed}장을 넣었어요.`)
     } catch (error) {
       showToast(mediaFailureMessage(error), () => fillCells(id))
     }
@@ -594,9 +629,14 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       const [image] = await pickImages({ multiple: false })
       if (!image) return
       const target = pageNow.current.objects.find((o) => o.id === id)
-      if (!target?.cells) return
-      const cell = photoCell({ ...image, imageWidth: image.width, imageHeight: image.height })
-      dispatch({ type: 'updateObject', id, record: true, patch: { cells: target.cells.map((c, i) => (i === index ? cell : c)) } })
+      if (!target?.cells) { discardUnused([image]); return }
+      const fresh = photoCell({ ...image, imageWidth: image.width, imageHeight: image.height })
+      const cropped = await askCrop(cellCropPhoto({ ...target, cells: target.cells.map((c, i) => (i === index ? fresh : c)) }, index), `${index + 1}번 칸 자르기`)
+      if (!cropped) { discardUnused([image]); return }
+      const cell = { ...fresh, crop: cropped.crop }
+      const latest = pageNow.current.objects.find((o) => o.id === id)
+      if (!latest?.cells) { discardUnused([image]); return }
+      dispatch({ type: 'updateObject', id, record: true, patch: { cells: latest.cells.map((c, i) => (i === index ? cell : c)) } })
       showToast(target.cells[index] ? `${index + 1}번 칸 사진을 바꿨어요.` : `${index + 1}번 칸에 사진을 넣었어요.`)
     } catch (error) {
       showToast(mediaFailureMessage(error), () => replaceCell(id, index))
@@ -779,7 +819,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setLayersOpen(open)
     // 폰은 레이어를 작업창 위에 띄우므로 작업창 크기가 그대로다.
     if (compact) return
-    const delta = LAYER_PANEL_WIDTH + BODY_GAP - BODY_PADDING
+    const delta = layerWidth + BODY_GAP - BODY_PADDING
     setStageSize((prev) => prev && { ...prev, width: prev.width + (open ? -delta : delta) })
   }
 
@@ -968,6 +1008,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         layersOpen={showLayers}
         pagesOpen={showPages}
         pagesWidth={PAGE_LIST_WIDTH}
+        onRightWidth={(width) => { if (Math.abs(width - layerWidth) >= 0.5) setLayerWidth(width) }}
         focusMode={focusMode}
         onHome={goHome}
         onOpenSharing={onOpenSharing ? openDiarySharing : undefined}
@@ -1012,6 +1053,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         />
       )}
       {templatePickerOpen && !readOnly && <PageAddPicker compact={compact} orientation={templateOrientation} currentAssetId={page.backgroundAssetId} appearance={state.doc.paperAppearance} anchor={{ left: 16 + PAGE_LIST_WIDTH + 12, bottom: 16 + bottomInset }}
+        myPapers={myLibrary.papers}
+        onSelectMine={async (item, chosen) => {
+          try{
+            const pages=chosen.map(paper=>pdfDocPage(paper,state.doc.orientation??templateOrientation,state.doc.paperAppearance))
+            if(textSync.enabled)await textSync.addPdfPages(pages)
+            else dispatch({type:'addPage',pages})
+            setTemplatePickerOpen(false);fitToScreen()
+          }catch(error){showToast(error.message||'페이지를 생성하지 못했어요. 다시 확인해 주세요.')}
+        }}
         onClose={() => setTemplatePickerOpen(false)} onSelect={async backgroundAssetId => {
           try{
             if(textSync.enabled)await textSync.addPage(backgroundAssetId)
@@ -1031,6 +1081,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             canUndoDelete={!textSync.enabled}
             qaMeasurement={pagePanelMeasurement.current}
             readOnly={readOnly}
+            edge={!compact && !readOnly} // 읽기 화면은 바깥 여백이 없다(readingBody)
             pages={deferredPages}
             currentId={page.id}
             cropId={cropTarget?.id ?? null}
@@ -1271,13 +1322,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             <View style={styles.floatingDivider} />
             <RoundButton icon="redo" label="다시 실행" disabled={readOnly || (textSync.enabled ? textSync.busy || (!localRedo&&!textSync.canRedo) : !state.future.length)} onPress={redo} />
             <View style={styles.floatingDivider} />
-            <SaveIndicator status={saveStatus} onInfo={showToast} />
-            {textSync.status && <Pressable accessibilityRole="button" accessibilityLabel="캔버스 서버 연결 상태" onPress={() => {
-              showToast(({ conflict: '서버와 기기의 내용이 달라 자동 덮어쓰기를 멈췄어요. 기기 내용은 유지돼요.', error: textSync.errorMessage || '서버 연결에 실패했어요. 기기 내용을 유지하고 다시 시도해요.', 'local-error': '기기 연결 기록을 읽거나 저장하지 못해 서버 전송을 멈췄어요.' })[textSync.status] ?? '텍스트·필기·기본 스티커와 테이프를 서버에 연결해요. 사진 파일 공유는 보류 중이에요.')
-              if (textSync.status === 'error') textSync.retry()
-            }}><Text style={{ fontSize: 11, color: ['conflict','error','local-error'].includes(textSync.status) ? colors.danger : colors.textMuted }}>{({ loading: '캔버스 확인 중', saving: '캔버스 전송 중', saved: '캔버스 서버 저장됨', conflict: '캔버스 충돌 · 기기 보존', error: '캔버스 연결 실패 · 재시도', 'local-error': '캔버스 연결 보류' })[textSync.status]}</Text></Pressable>}
+            {/* 기기 저장과 서버 전송을 한 칸에서 보인다(저장 중 · 저장됨 · 저장 안 됨). 서버 연결 실패면 눌러서 다시 시도 */}
+            <SaveIndicator status={saveStatus} server={textSync.status ? { status: textSync.status, errorMessage: textSync.errorMessage, retry: textSync.retry } : null} onInfo={showToast} />
           </View>}
 
+          {/* 맞춤 · 모드 전환은 작업창 안 오른쪽 아래(레이어 창이 열리면 그 왼쪽). 되돌리기 막대와 같은 떠 있는 막대 모양 */}
+          {!readOnly && <ReadingModeControls
+            controlsRef={modeControlsRef} onLayout={measureModeControls}
+            reading={readOnly} canEdit={!permissionReadOnly} fitted={viewFitted} onFit={fitToScreen} onToggle={toggleReading}
+          />}
           {readOnly && readerMenuVisible && <ReadingHeader title={state.doc.title} onHome={goHome} />}
           {readOnly && readerMenuVisible && <ReadingNavigation index={pageIndex} count={state.doc.pages.length} onSelect={selectReadingPage}
             controlsRef={modeControlsRef} onLayout={measureModeControls} canEdit={!permissionReadOnly} fitted={viewFitted} onFit={fitToScreen} onToggle={toggleReading} />}
@@ -1286,10 +1339,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               key={photoCrop.id}
               photo={photoCrop}
               // 칸 · 티켓은 글자 자리가 정해져 있어 비율을 바꾸지 않는다
-              fixedAspect={photoCrop.cell != null ? photoCrop.w / photoCrop.h : isTicketFrame(photoCrop.frame) ? photoInnerBox(photoCrop).width / photoInnerBox(photoCrop).height : undefined}
+              fixedAspect={fixedAspectOf(photoCrop)}
               title={photoCrop.cell != null ? `${photoCrop.cell + 1}번 칸 자르기` : undefined}
               onCancel={() => setPhotoCropId(null)}
-              onApply={(patch) => {
+              // aspect · rect 는 표지 · 프로필 · 테이프용 부가 정보라 사진 객체에 넣지 않는다
+              onApply={({ aspect, rect, ...patch }) => {
                 const cells = photoCrop.cell != null && photoCropTarget.cells.map((c, i) => (i === photoCrop.cell ? { ...c, crop: patch.crop } : c))
                 dispatch({ type: 'updateObject', id: photoCropTarget.id, record: true, patch: cells ? { cells } : patch })
                 setPhotoCropId(null)
@@ -1297,11 +1351,21 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               }}
             />
           )}
+          {cropAsk && (
+            <PhotoCropper
+              key={`ask-${cropAsk.photo.id}-${cropAsk.title ?? ''}`}
+              photo={cropAsk.photo}
+              fixedAspect={cropAsk.fixedAspect}
+              title={cropAsk.title}
+              onCancel={() => { cropAsk.resolve(null); setCropAsk(null) }}
+              onApply={({ aspect, rect, ...patch }) => { cropAsk.resolve(patch); setCropAsk(null) }}
+            />
+          )}
           {tapeCrop && (
             <TapeCropper
               image={{ src: tapeCrop.src, mediaFileId: tapeCrop.mediaFileId, width: tapeCrop.imageWidth, height: tapeCrop.imageHeight }}
               initialCrop={tapeCrop.crop}
-              ratio={(tapeCrop.segmentW ?? tapeCrop.w) / tapeCrop.h}
+              ratio={tapePieceRatio(tapeCrop) ?? tapeCrop.w / tapeCrop.h}
               title="테이프 다시 자르기"
               confirmLabel="적용"
               onCancel={() => setTapeCropId(null)}
@@ -1337,14 +1401,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               dispatch={dispatch}
               onClose={() => toggleLayers(false)}
               onEmptyTap={clearSelection}
+              width={compact ? LAYER_PANEL_WIDTH : layerWidth}
               />
           </PhonePanelSlot>
         )}
       </View>
-      {!readOnly && <ReadingModeControls
-        controlsRef={modeControlsRef} onLayout={measureModeControls} bottomInset={!compact ? bottomInset : 0}
-        reading={readOnly} canEdit={!permissionReadOnly} fitted={viewFitted} onFit={fitToScreen} onToggle={toggleReading}
-      />}
       {phoneFocus && (
         <Pressable onPress={() => setFocusMode(false)} accessibilityRole="button" accessibilityLabel="집중 편집 모드 종료" style={[styles.focusExit, !landscape && styles.focusExitPortrait]}>
           <Icon name="focus" size={17} forText={12.5} />

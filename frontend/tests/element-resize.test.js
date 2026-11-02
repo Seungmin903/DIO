@@ -106,7 +106,7 @@ test('사진·스티커는 모서리만, 테이프는 길이와 폭을 끝 · �
   assert.equal(api.handlesFor(object({ type: 'stroke' })).length, 8)
 })
 
-test('테이프 폭을 바꾸면 무늬 기준 높이 · 이미지 조각 길이가 같은 비율로 바뀌고 범위를 지킨다', () => {
+test('테이프 폭을 바꾸면 무늬 기준 높이 · 사진 조각 길이가 같은 비율로 바뀌어(조각 비율 고정) 범위를 지킨다', () => {
   const tape = object({ type: 'tape', w: 180, h: 34, size: 'standard', segmentW: 180 })
   const f = fixture(tape), input = f.handle({ sx: 0, sy: 1 })
   input.onStart(); input.onMove(0, 34); input.onEnd({ cancelled: false })

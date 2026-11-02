@@ -5,12 +5,14 @@ import PageBackground from '../../editor/components/PageBackground'
 import Icon from '../../editor/components/controls/Icon'
 import { usePan } from '../../editor/hooks/usePan'
 import { TEMPLATE_VERSION, getTemplate, templateCanvasSize } from '../../editor/templates/catalog.js'
-import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, colorTemplateXml } from '../../editor/templates/appearance.js'
+import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, colorTemplateXml, withPaperBackground } from '../../editor/templates/appearance.js'
 import { loadTemplate, peekTemplate } from '../../editor/templates/loadTemplate'
 import { colors } from '../../shared/theme'
 import { ChipGroup, ColorRow, NumberField, OptionRow, QuickValues, Segmented } from './FormControls'
 import { paperFontChips } from '../../editor/components/PaperFontChips'
 import PaperFontDropdown from './PaperFontDropdown'
+import MyColorRow from './MyColorRow'
+import PaperSketch, { paperSketchKey } from './PaperSketch'
 import { DEFAULT_PAPER_FONT } from '../../editor/templates/paperFont.js'
 import {
   COUNT_LIMIT, COUNT_STEPS, INSERT_LIMIT, MONTH_LIMIT, MONTH_STEPS, PAPER_EVERY, PAPER_GROUPS, PAPER_YEARS, REPEAT_LIMIT, ROW_LIMIT,
@@ -19,12 +21,13 @@ import {
 } from '../utils/paperChoice'
 
 // 노트(줄 · 모눈 · 도트) 미리보기: 실제 선은 1 굵기 · 연한 색 · 28 간격이라 그대로 줄이면 흐려지거나 0.1px 아래로 사라진다.
-// 그래서 선은 화면 1px · 점은 지름 2px 로, 색은 팔레트 한 단계 진하게 그린다. 폭 NOTE_THUMB_MAX 아래 칸은 실제 속지의 왼쪽 위 일부(폭 NOTE_VIEW)를 확대해 보인다.
+// 그래서 선은 화면 1px · 점은 지름 2px 로, 색은 #bfc1c4 로 그린다. 폭 NOTE_THUMB_MAX 아래 칸은 실제 속지의 왼쪽 위 일부(폭 NOTE_VIEW)를 확대해 보인다.
 // (모눈 · 도트는 여백 없이 페이지 끝까지 무늬가 있어 왼쪽 위 끝부터, 줄은 여백 안쪽부터 보인다)
 const NOTE_THUMB_MAX = 160
 const NOTE_VIEW = 260
 const NOTE_ORIGIN = { ruled: [24, 48], grid: [0, 0], dots: [0, 0] }
-const DARKER = { '#e8e9eb': '#bfc1c4', '#d7d9dc': '#aeb3b8', '#bfc1c4': '#aeb3b8' }
+// 코덱스 검수(2026-11-02): 플래너 · 일기 대표 그림보다 무겁지 않게 모두 #bfc1c4 로(예전 #aeb3b8)
+const DARKER = { '#e8e9eb': '#bfc1c4', '#d7d9dc': '#bfc1c4', '#bfc1c4': '#bfc1c4' }
 
 function noteThumbXml(xml, { background, pageWidth, previewWidth, ratio, crop }, appearance) {
   const [x, y] = NOTE_ORIGIN[background] ?? [0, 0]
@@ -72,14 +75,19 @@ function NoteThumb({ assetId, background, pageWidth, width, height, crop, appear
   return ast ? <SvgAst ast={ast} override={{ width, height }} /> : null
 }
 
-/** 속지 한 장 미리보기. 실제 속지 SVG 로 그리고, 노트의 줄 · 모눈 · 도트는 선이 또렷하게 보이도록 진하게 그린다. */
-export function TemplatePreview({ assetId, width: previewWidth, appearance, style }) {
+/**
+ * 속지 한 장 미리보기. 실제 속지 SVG 로 그리고, 노트의 줄 · 모눈 · 도트는 선이 또렷하게 보이도록 진하게 그린다.
+ * sketch: 속지 고르기 칸(작은 칸)이면 플래너 · 일기는 실제 속지를 줄이지 않고 대표 그림(PaperSketch)으로 그린다. 페이지 목록 · 큰 미리보기는 쓰지 않는다.
+ */
+export function TemplatePreview({ assetId, width: previewWidth, appearance, style, sketch = false }) {
   const asset = getTemplate(assetId)
   const { width, height } = templateCanvasSize(asset.orientation)
   const previewHeight = previewWidth * height / width
   const lined = asset.type === 'note' && asset.background !== 'plain'
+  const sketchKey = sketch && !lined && previewWidth < NOTE_THUMB_MAX ? paperSketchKey(assetId) : null
   return <View pointerEvents="none" style={[styles.preview, { width: previewWidth, height: previewHeight, backgroundColor: appearance?.backgroundColor ?? '#FFFFFF' }, style]}>
-    {lined ? <NoteThumb assetId={assetId} background={asset.background} pageWidth={width} width={previewWidth} height={previewHeight} crop={previewWidth < NOTE_THUMB_MAX} appearance={appearance} />
+    {sketchKey ? <PaperSketch sketchKey={sketchKey} orientation={asset.orientation} width={previewWidth} height={previewHeight} appearance={appearance} />
+      : lined ? <NoteThumb assetId={assetId} background={asset.background} pageWidth={width} width={previewWidth} height={previewHeight} crop={previewWidth < NOTE_THUMB_MAX} appearance={appearance} />
       : <PageBackground page={{ id: `preview-${assetId}`, backgroundAssetId: assetId, templateVersion: TEMPLATE_VERSION, canvasWidth: width, canvasHeight: height, paperAppearance: appearance }} zoom={previewWidth / width} compact />}
   </View>
 }
@@ -117,7 +125,7 @@ export function PaperGrid({ papers, selected, onSelect, orientation, appearance,
       const on = paper.id === selected
       return <View key={paper.id} style={styles.cell}><Pressable accessibilityRole="radio" accessibilityLabel={paper.name} accessibilityState={{ selected: on, checked: on }}
         onPress={() => onSelect(paper.id)} style={({ pressed }) => [styles.tile, on && styles.tileOn, pressed && styles.pressed]}>
-        <TemplatePreview assetId={paperPreviewId(paper.id, orientation, period)} width={thumb} appearance={appearance} />
+        <TemplatePreview assetId={paperPreviewId(paper.id, orientation, period)} width={thumb} appearance={appearance} sketch />
         <Text numberOfLines={1} style={[styles.tileName, on && styles.tileNameOn]}>{paper.name}</Text>
       </Pressable></View>
     })}
@@ -140,9 +148,9 @@ const ALL_GROUPS = PAPER_GROUPS.map(group => ({ ...group, papers: papersIn(group
 
 function Stepper({ label, text, onPrev, onNext, prevDisabled, nextDisabled }) {
   return <View style={styles.stepper}>
-    <Pressable accessibilityRole="button" accessibilityLabel={`이전 ${label}`} disabled={prevDisabled} onPress={onPrev} hitSlop={6} style={[styles.step, prevDisabled && styles.dim]}><Icon name="chevronLeft" size={16} /></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel={`이전 ${label}`} disabled={prevDisabled} onPress={onPrev} hitSlop={6} style={[styles.step, prevDisabled && styles.dim]}><Icon name="chevronLeft" size={16} forText={13.5} /></Pressable>
     <Text style={styles.stepText}>{text}</Text>
-    <Pressable accessibilityRole="button" accessibilityLabel={`다음 ${label}`} disabled={nextDisabled} onPress={onNext} hitSlop={6} style={[styles.step, nextDisabled && styles.dim]}><Icon name="chevronRight" size={16} /></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel={`다음 ${label}`} disabled={nextDisabled} onPress={onNext} hitSlop={6} style={[styles.step, nextDisabled && styles.dim]}><Icon name="chevronRight" size={16} forText={13.5} /></Pressable>
   </View>
 }
 
@@ -167,7 +175,7 @@ function PeriodOptions({ section, onChange }) {
     <Pressable accessibilityRole="button" accessibilityLabel={`기간 ${periodLabel(section)}`} accessibilityState={{ expanded: open }} onPress={() => setOpen(!open)} style={({ pressed }) => [styles.periodHead, pressed && styles.pressed]}>
       <Text style={styles.periodLabel}>기간</Text>
       <Text numberOfLines={1} style={styles.periodValue}>{periodLabel(section)}</Text>
-      <View style={open && styles.flip}><Icon name="chevronDown" size={15} color={colors.textMuted} /></View>
+      <View style={open && styles.flip}><Icon name="chevronDown" size={15} forText={13.5} color={colors.textMuted} /></View>
     </Pressable>
     {open && <>
       <OptionRow label="날짜"><Segmented items={[{ id: 'dated', label: '날짜 있음' }, { id: 'undated', label: '날짜 없이' }]} selected={id => (id === 'dated') === section.dated} onPress={id => onChange({ ...section, dated: id === 'dated' })} /></OptionRow>
@@ -187,7 +195,7 @@ function Joint({ mixed, onChange, label, disabled = false }) {
       const on = value === mixed
       return <Pressable key={text} accessibilityRole="radio" accessibilityLabel={`${label} ${text}`} accessibilityState={{ selected: on, checked: on, disabled: disabled && !on }}
         disabled={on || disabled} hitSlop={4} onPress={() => onChange(value)} style={({ pressed }) => [styles.jointItem, on && styles.jointItemOn, disabled && !on && styles.dim, pressed && styles.pressed]}>
-        <Icon name={value ? 'swap' : 'down'} size={13} color={on ? colors.primaryStrong : colors.textMuted} />
+        <Icon name={value ? 'swap' : 'down'} size={13} forText={12} color={on ? colors.primaryStrong : colors.textMuted} />
         <Text style={[styles.jointText, on && styles.jointTextOn]}>{text}</Text>
       </Pressable>
     })}
@@ -213,12 +221,12 @@ function PaperRow({ section, row, number, orientation, appearance, open, onToggl
     <View style={styles.rowHead}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${number}번째 속지 ${paper.name} 바꾸기`} accessibilityState={{ expanded: open }}
         onPress={onToggle} style={({ pressed }) => [styles.rowPick, pressed && styles.pressed]}>
-        <TemplatePreview assetId={paperPreviewId(row.paper, orientation, period ? section : null)} width={w > h ? 40 : 30} appearance={appearance} />
+        <TemplatePreview assetId={paperPreviewId(row.paper, orientation, period ? section : null)} width={w > h ? 40 : 30} appearance={appearance} sketch />
         <View style={styles.rowText}>
           <Text numberOfLines={1} style={styles.rowName}>{paper.name}</Text>
           {fixed && <Text style={styles.rowAmount}>{rowAmount(section, row)}</Text>}
         </View>
-        <View style={open && styles.flip}><Icon name="chevronDown" size={15} color={colors.textMuted} /></View>
+        <View style={open && styles.flip}><Icon name="chevronDown" size={15} forText={13.5} color={colors.textMuted} /></View>
       </Pressable>
       {onUp && <Pressable accessibilityRole="button" accessibilityLabel={`${number}번째 속지 위로`} hitSlop={4} onPress={onUp} style={({ pressed }) => [styles.rowTool, pressed && styles.pressed]}>
         <Icon name="up" size={15} color={colors.textMuted} />
@@ -323,7 +331,7 @@ export default function PaperOptions({ sections, onChange, orientation, appearan
     })}
     {sections.length < 12 && <Pressable accessibilityRole="button" accessibilityLabel="속지 추가" accessibilityState={{ expanded: picking === 'new' }}
       onPress={() => setPicking(picking === 'new' ? null : 'new')} style={({ pressed }) => [styles.addSection, picking === 'new' && styles.addSectionOn, pressed && styles.pressed]}>
-      <Icon name={picking === 'new' ? 'close' : 'plus'} size={16} color={colors.primaryStrong} /><Text style={styles.addSectionText}>속지 추가</Text>
+      <Icon name={picking === 'new' ? 'close' : 'plus'} size={16} forText={13.5} color={colors.primaryStrong} /><Text style={styles.addSectionText}>속지 추가</Text>
     </Pressable>}
     {picking === 'new' && picker(null, id => onChange(appendPaper(sections, id)), null)}
   </View>
@@ -334,10 +342,19 @@ export default function PaperOptions({ sections, onChange, orientation, appearan
  * 글꼴은 인쇄 글자가 있는 속지에만 있다(plainOnly 면 선 · 글씨 색과 함께 숨긴다).
  */
 // fontDropdown: 글꼴을 칩 대신 드롭다운으로 고른다(꾸미기 공방 기본 속지 설정)
-export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false, fontDropdown = false }) {
+// myColors: 견본 줄 끝 '직접 고르기' 대신 아래에 '내 색상' 줄(저장 · + 로 추가)을 둔다(꾸미기 공방 기본 속지 설정)
+export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false, fontDropdown = false, myColors = false }) {
+  const setBackground = backgroundColor => onChange(withPaperBackground(appearance, backgroundColor))
+  const setLayout = layoutColor => onChange({ ...appearance, layoutColor })
   return <View style={styles.panel}>
-    <OptionRow label="종이 색"><ColorRow label="종이 색" value={appearance.backgroundColor} swatches={PAPER_BACKGROUNDS} onChange={backgroundColor => onChange({ ...appearance, backgroundColor })} /></OptionRow>
-    {!plainOnly && <OptionRow label="선 · 글자"><ColorRow label="선과 글씨 색" value={appearance.layoutColor} swatches={PAPER_LAYOUTS} onChange={layoutColor => onChange({ ...appearance, layoutColor })} /></OptionRow>}
+    <OptionRow label="종이 색">
+      <ColorRow label="종이 색" value={appearance.backgroundColor} swatches={PAPER_BACKGROUNDS} custom={!myColors} onChange={setBackground} />
+      {myColors && <MyColorRow scope="paper" label="종이" value={appearance.backgroundColor} onChange={setBackground} />}
+    </OptionRow>
+    {!plainOnly && <OptionRow label="선 · 글자">
+      <ColorRow label="선과 글씨 색" value={appearance.layoutColor} swatches={PAPER_LAYOUTS} custom={!myColors} onChange={setLayout} />
+      {myColors && <MyColorRow scope="paperLine" label="선과 글씨" value={appearance.layoutColor} onChange={setLayout} />}
+    </OptionRow>}
     {!plainOnly && <OptionRow label="글꼴">{fontDropdown
       ? <PaperFontDropdown value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={font => onChange({ ...appearance, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
       : <ChipGroup label="속지 글꼴" columns={3} items={paperFontChips()} value={appearance.font ?? DEFAULT_PAPER_FONT}

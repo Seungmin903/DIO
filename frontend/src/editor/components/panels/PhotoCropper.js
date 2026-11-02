@@ -3,16 +3,14 @@ import EditorModal from '../controls/EditorModal'
 import { useRef, useState } from 'react'
 import { Image, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
-import { CROP_RATIOS, CROP_ZOOM_MAX, CROP_ZOOM_MIN, PHOTO_SHAPES, POLAROID_RATIOS } from '../../constants'
+import { CROP_RATIOS, CROP_ZOOM_MAX, PHOTO_SHAPES, POLAROID_RATIOS } from '../../constants'
 import { useMediaUri } from '../../hooks/useMediaUri'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
-import { coverLayout, framedHeight, isBorderFrame, ratioValueOf, resizeAroundCenter } from '../../utils/objects'
-import { photoCornerRadius } from '../canvas/ObjectView'
+import { framedHeight, isBorderFrame, photoInnerBox, ratioValueOf, resizeAroundCenter } from '../../utils/objects'
 import Icon from '../controls/Icon'
 import Slider from '../controls/Slider'
 
-const CONTEXT_PX = 36 // 자르는 틀 둘레로 흐리게 보여 주는 사진 여유
 const ORIGINAL = { fx: 0.5, fy: 0.5, zoom: 1 }
 const FREE = { id: 'free', name: '자유' }
 const FREE_PAD = 18 // 자유 자르기: 사진 둘레 여유 (손잡이가 잘리지 않게)
@@ -30,25 +28,41 @@ const BAR_SHORT = 8
  *   확대하면 틀은 화면에서 그대로 두고 사진이 커진다. (다른 비율의 확대와 같은 느낌)
  * '적용'을 눌러야 사진에 반영된다 (취소하면 그대로).
  * fixedAspect: 칸 비율이 정해진 곳(여러 칸 틀의 칸)은 비율 고르기 없이 보이는 영역·확대만 정한다 (적용하면 { crop } 만).
+ *
+ * 앱의 사진 넣기 · 자르기 창은 모두 이 창 하나를 쓴다(2026-11-02 통일). 손짓은 어디서나 같다:
+ * 한 손가락 = 틀 옮기기, 두 손가락 = 확대 · 축소(+ 함께 끌어 이동), 핸들 = 틀 크기(비율이 고정이면 꼭짓점만, 끌어도 비율 유지).
+ * 기능마다 다른 점은 옵션으로만 준다: fixedAspect(비율 고정) · aspectRange([최소, 최대] 가로:세로, 자유 비율의 범위) ·
+ * round(동그라미 틀, 프로필) · extra(추가 조절, 테이프 두께) · confirmLabel. 적용하면 { crop, aspect, rect(사진 안 0~1 영역) } 를 함께 넘긴다.
  */
-export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, title = '사진 자르기' }) {
+export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, aspectRange, round = false, extra = null, confirmLabel = '적용', title = '사진 자르기' }) {
   const window = useWindowDimensions()
   const uri = useMediaUri(photo)
   const bordered = isBorderFrame(photo.frame)
   const square = photo.frame === 'shape' && PHOTO_SHAPES.find((s) => s.id === photo.shape)?.square
-  const ratios = fixedAspect ? [] : bordered ? POLAROID_RATIOS : square ? [] : [...CROP_RATIOS, FREE]
-  const [crop, setCrop] = useState(photo.crop ?? ORIGINAL)
+  const ratios = fixedAspect || aspectRange || round ? [] : bordered ? POLAROID_RATIOS : square ? [] : [...CROP_RATIOS, FREE]
   // 고른 비율 (null: 지금 크기 그대로 = 캔버스에서 자유로 잘랐던 비율)
-  const [ratio, setRatio] = useState(ratios.some((r) => r.id === photo.ratio) ? photo.ratio : null)
+  const [ratio, setRatio] = useState(aspectRange ? FREE.id : ratios.some((r) => r.id === photo.ratio) ? photo.ratio : null)
   const free = ratio === FREE.id
   const imageAspect = photo.imageWidth / photo.imageHeight
   // 자유 자르기 틀: 사진 안의 비율 좌표 { u0, v0, u1, v1 } (0~1). 지금 보이는 영역에서 시작한다.
-  const [rect, setRect] = useState(() => visibleRect(photo.crop ?? ORIGINAL, photo.w / photo.h, imageAspect))
+  // 보이는 영역은 캔버스가 사진을 그리는 안쪽 상자 비율로 잰다(폴라로이드 · 필름처럼 여백 있는 틀은 바깥 w/h 와 다르다)
+  const inner = photoInnerBox(photo)
+  const [rect, setRect] = useState(() => visibleRect(photo.crop ?? ORIGINAL, fixedAspect ?? (square || round ? 1 : inner.width / inner.height), imageAspect))
 
+  // 잠근 비율(가로:세로, 사진 픽셀 기준). 자유면 null — 틀 모양은 핸들로 정한다(aspectRange 가 있으면 그 범위 안에서)
+  const lockAspectOf = (id) => (fixedAspect ?? (square || round ? 1 : id === FREE.id ? null
+    : id ? ratioValueOf(id, photo) ?? imageAspect : bordered ? imageAspect : photo.w / photo.h))
+  const lockAspect = lockAspectOf(ratio)
+  // 비율 칩을 바꾸면 틀을 그 비율로 다시 맞춘다(가운데 기준, 사진 안에서 가장 크게)
+  const pickRatio = (id) => {
+    setRatio(id)
+    const lock = lockAspectOf(id)
+    if (lock) setRect((prev) => fitAspect(prev, lock / imageAspect))
+  }
   // 자르는 틀의 가로:세로
   const aspect = fixedAspect
     ? fixedAspect
-    : square
+    : square || round
     ? 1
     : free
       ? ((rect.u1 - rect.u0) * photo.imageWidth) / ((rect.v1 - rect.v0) * photo.imageHeight)
@@ -61,14 +75,6 @@ export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, ti
   const cardWidth = Math.min(720, window.width - 48)
   const stageWidth = cardWidth - 48
   const stageHeight = Math.min(440, Math.max(220, window.height * 0.5))
-  const fitW = stageWidth - CONTEXT_PX * 2
-  const fitH = stageHeight - CONTEXT_PX * 2
-  const frameWidth = Math.min(fitW, fitH * aspect)
-  const frameHeight = frameWidth / aspect
-  const frameLeft = (stageWidth - frameWidth) / 2
-  const frameTop = (stageHeight - frameHeight) / 2
-  const source = { imageWidth: photo.imageWidth, imageHeight: photo.imageHeight, crop }
-  const layout = coverLayout(source, frameWidth, frameHeight)
   // 자유 자르기: 사진 전체를 무대 안에 맞춰 보여 준다
   const fullW = Math.min(stageWidth - FREE_PAD * 2, (stageHeight - FREE_PAD * 2) * imageAspect)
   const fullH = fullW / imageAspect
@@ -114,81 +120,34 @@ export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, ti
       freeGesture.current = null
     },
   }
-  const frameRadius = square
-    ? photo.shape === 'circle'
-      ? frameWidth / 2
-      : 0
-    : photo.frame === 'shape'
-      ? Math.min(frameWidth, frameHeight) * photoCornerRadius(photo)
-      : 0
-
-  // 손가락 수가 바뀔 때마다 그 순간의 crop·손가락 위치를 기준으로 다시 잡는다.
-  const cropRef = useRef(crop)
-  cropRef.current = crop
-  const gesture = useRef(null)
   const touchesOf = (event) => {
     const list = event.nativeEvent.touches?.length ? event.nativeEvent.touches : [event.nativeEvent]
     const c = list.reduce((acc, t) => ({ x: acc.x + t.pageX / list.length, y: acc.y + t.pageY / list.length }), { x: 0, y: 0 })
     const dist = list.length > 1 ? Math.hypot(list[0].pageX - list[1].pageX, list[0].pageY - list[1].pageY) : 0
     return { count: list.length, c, dist }
   }
-  const rebase = (event) => {
-    gesture.current = { crop: cropRef.current, ...touchesOf(event) }
-  }
-  const stageHandlers = {
-    onStartShouldSetResponder: () => true,
-    onMoveShouldSetResponder: () => true,
-    onResponderTerminationRequest: () => false,
-    onResponderGrant: rebase,
-    onResponderStart: rebase,
-    onResponderEnd: (event) => {
-      if (event.nativeEvent.touches?.length) rebase(event)
-    },
-    onResponderMove: (event) => {
-      const g = gesture.current
-      if (!g) return
-      const now = touchesOf(event)
-      if (now.count !== g.count) {
-        rebase(event)
-        return
-      }
-      const zoom = now.count > 1 && g.dist > 0 ? clamp(g.crop.zoom * (now.dist / g.dist), CROP_ZOOM_MIN, CROP_ZOOM_MAX) : g.crop.zoom
-      const next = coverLayout({ ...source, crop: { ...g.crop, zoom } }, frameWidth, frameHeight)
-      const overflowX = next.width - frameWidth
-      const overflowY = next.height - frameHeight
-      const dx = now.c.x - g.c.x
-      const dy = now.c.y - g.c.y
-      setCrop({
-        zoom: Math.round(zoom * 100) / 100,
-        fx: overflowX > 0 ? clamp(g.crop.fx - dx / overflowX, 0, 1) : g.crop.fx,
-        fy: overflowY > 0 ? clamp(g.crop.fy - dy / overflowY, 0, 1) : g.crop.fy,
-      })
-    },
-    onResponderRelease: () => {
-      gesture.current = null
-    },
-    onResponderTerminate: () => {
-      gesture.current = null
-    },
-  }
-
   // 적용: 보이는 영역 + (비율을 바꿨으면) 사진 크기를 그 비율로
   function apply() {
+    // 틀 = 보이는 영역이 되도록 crop 을 거꾸로 구한다 (coverLayout 과 같은 계산)
+    const rw = rect.u1 - rect.u0
+    const rh = rect.v1 - rect.v0
+    const crop = {
+      zoom: Math.round((1 / Math.max(rw, rh)) * 1000) / 1000,
+      fx: rw < 0.999 ? clamp(rect.u0 / (1 - rw), 0, 1) : 0.5,
+      fy: rh < 0.999 ? clamp(rect.v0 / (1 - rh), 0, 1) : 0.5,
+    }
+    const extras = { aspect, rect }
     if (free) {
-      // 틀 = 보이는 영역이 되도록 crop 을 거꾸로 구한다 (coverLayout 과 같은 계산)
-      const rw = rect.u1 - rect.u0
-      const rh = rect.v1 - rect.v0
-      const freeCrop = {
-        zoom: Math.round((1 / Math.max(rw, rh)) * 1000) / 1000,
-        fx: rw < 0.999 ? clamp(rect.u0 / (1 - rw), 0, 1) : 0.5,
-        fy: rh < 0.999 ? clamp(rect.v0 / (1 - rh), 0, 1) : 0.5,
-      }
       const long = Math.max(photo.w, photo.h)
       const w = aspect >= 1 ? long : long * aspect
-      onApply({ crop: freeCrop, ratio: FREE.id, ...resizeAroundCenter(photo, w, w / aspect) })
+      onApply({ crop, ratio: FREE.id, ...resizeAroundCenter(photo, w, w / aspect), ...extras })
       return
     }
-    const patch = { crop }
+    if (fixedAspect || round) {
+      onApply({ crop, ...extras })
+      return
+    }
+    const patch = { crop, ...extras }
     if (ratio && ratio !== photo.ratio) {
       patch.ratio = ratio
       if (bordered) {
@@ -219,100 +178,46 @@ export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, ti
           </View>
 
 
-          {free ? (
-            <View style={[styles.stage, { height: stageHeight }]} {...freeStageHandlers}>
-              <FreeCrop uri={uri} full={view} rect={rect} onChange={setRect} />
-            </View>
-          ) : (
-          <View style={[styles.stage, { height: stageHeight }]} {...stageHandlers}>
-            {/* 틀 밖까지 이어지는 사진 (흐리게) */}
-            <Image
-              source={uri ? { uri } : null}
-              style={[
-                styles.context,
-                { left: frameLeft + layout.left, top: frameTop + layout.top, width: layout.width, height: layout.height },
-              ]}
-              resizeMode="stretch"
-              pointerEvents="none"
-            />
-            <View
-              style={[
-                styles.frame,
-                { left: frameLeft, top: frameTop, width: frameWidth, height: frameHeight, borderRadius: frameRadius },
-              ]}
-              pointerEvents="none"
-            >
-              <Image source={uri ? { uri } : null} style={[styles.inner, layout]} resizeMode="stretch" />
-            </View>
-            <View
-              style={[
-                styles.frameLine,
-                {
-                  left: frameLeft - 2,
-                  top: frameTop - 2,
-                  width: frameWidth + 4,
-                  height: frameHeight + 4,
-                  borderRadius: frameRadius ? frameRadius + 2 : 3,
-                },
-              ]}
-              pointerEvents="none"
-            />
+          {/* 모든 모드가 같은 틀: 한 손가락 = 틀 옮기기, 두 손가락 = 확대, 핸들 = 틀 크기(비율 잠금이면 꼭짓점만) */}
+          <View style={[styles.stage, { height: stageHeight }]} {...freeStageHandlers}>
+            <FreeCrop uri={uri} full={view} rect={rect} onChange={setRect}
+              lock={lockAspect ? lockAspect / imageAspect : null}
+              range={aspectRange ? [aspectRange[0] / imageAspect, aspectRange[1] / imageAspect] : null}
+              round={round || (square && photo.shape === 'circle')} />
           </View>
-          )}
 
           {ratios.length > 0 && (
             <Section title="비율">
               <View style={styles.chips}>
                 {ratios.map((item) => (
-                  <Chip key={item.id} label={item.name} active={ratio === item.id} onPress={() => setRatio(item.id)} />
+                  <Chip key={item.id} label={item.name} active={ratio === item.id} onPress={() => pickRatio(item.id)} />
                 ))}
               </View>
             </Section>
           )}
 
-          {free && (
-            <Section title="확대">
-              <Slider
-                value={freeZoom(rect)}
-                min={1}
-                max={1 / FREE_MIN}
-                step={0.1}
-                minusLabel="사진 축소"
-                plusLabel="사진 확대"
-                scale={100}
-                unit="%"
-                label="확대"
-                onChange={zoomFree}
-              />
-            </Section>
-          )}
-          {!free && (
+          {extra}
           <Section title="확대">
             <Slider
-              value={crop.zoom}
-              min={CROP_ZOOM_MIN}
-              max={CROP_ZOOM_MAX}
+              value={freeZoom(rect)}
+              min={1}
+              max={1 / FREE_MIN}
               step={0.1}
               minusLabel="사진 축소"
               plusLabel="사진 확대"
               scale={100}
               unit="%"
               label="확대"
-              onChange={(zoom) => setCrop((prev) => ({ ...prev, zoom: Math.round(zoom * 100) / 100 }))}
+              onChange={zoomFree}
             />
           </Section>
-          )}
 
           <View style={styles.footer}>
             <Chip
               label="초기화"
               icon="reset"
               onPress={() => {
-                if (!free) {
-                  setCrop(ORIGINAL)
-                  return
-                }
-                setRect({ u0: 0, v0: 0, u1: 1, v1: 1 })
+                setRect(lockAspect ? fitAspect({ u0: 0, v0: 0, u1: 1, v1: 1 }, lockAspect / imageAspect) : { u0: 0, v0: 0, u1: 1, v1: 1 })
                 setFreeView(null)
               }}
             />
@@ -323,7 +228,7 @@ export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, ti
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.chip, styles.confirm, pressed && styles.pressed]}
               >
-                <Text style={[styles.chipText, styles.confirmText]}>적용</Text>
+                <Text style={[styles.chipText, styles.confirmText]}>{confirmLabel}</Text>
               </Pressable>
             </View>
           </View>
@@ -344,6 +249,18 @@ function visibleRect(crop, boxAspect, imageAspect) {
 }
 
 /** 자유 자르기 확대: 틀이 사진 안에서 가장 클 때(긴 쪽이 사진에 꽉 참)가 100% */
+/** 틀(rect)을 비율 ratio(사진 안 좌표의 가로:세로)로 맞춘다. 가운데는 지키고 지금 틀 안에서 가장 크게, 사진 밖으로는 못 나간다 */
+function fitAspect(rect, ratio) {
+  const rw = rect.u1 - rect.u0
+  const rh = rect.v1 - rect.v0
+  let w = rw / rh > ratio ? rh * ratio : rw
+  let h = w / ratio
+  if (w > 1) { w = 1; h = w / ratio }
+  if (h > 1) { h = 1; w = h * ratio }
+  const cx = clamp((rect.u0 + rect.u1) / 2, w / 2, 1 - w / 2)
+  const cy = clamp((rect.v0 + rect.v1) / 2, h / 2, 1 - h / 2)
+  return { u0: cx - w / 2, v0: cy - h / 2, u1: cx + w / 2, v1: cy + h / 2 }
+}
 function freeZoom(rect) {
   return 1 / Math.max(rect.u1 - rect.u0, rect.v1 - rect.v0)
 }
@@ -403,7 +320,8 @@ const FREE_HANDLES = [
 ]
 
 /** 사진 전체 위에 자르는 틀. 틀 안을 끌면 옮기고, 손잡이를 끌면 크기를 바꾼다. 모두 사진 안에서만. */
-function FreeCrop({ uri, full, rect, onChange }) {
+// lock: 잠근 비율(사진 안 좌표의 가로:세로), range: 자유 비율의 [최소, 최대](같은 좌표), round: 동그라미 틀
+function FreeCrop({ uri, full, rect, onChange, lock = null, range = null, round = false }) {
   const x0 = full.left + rect.u0 * full.width
   const y0 = full.top + rect.v0 * full.height
   const w = (rect.u1 - rect.u0) * full.width
@@ -412,17 +330,19 @@ function FreeCrop({ uri, full, rect, onChange }) {
   return (
     <>
       <Image source={uri ? { uri } : null} style={[styles.context, full]} resizeMode="stretch" pointerEvents="none" />
-      <View style={[styles.frame, { left: x0, top: y0, width: w, height: h }]} pointerEvents="none">
+      <View style={[styles.frame, { left: x0, top: y0, width: w, height: h }, round && { borderRadius: Math.min(w, h) / 2 }]} pointerEvents="none">
         <Image source={uri ? { uri } : null} style={[styles.inner, inner]} resizeMode="stretch" />
       </View>
       <MoveArea rect={rect} full={full} onChange={onChange} style={{ left: x0, top: y0, width: w, height: h }} />
-      <View style={[styles.freeLine, { left: x0, top: y0, width: w, height: h }]} pointerEvents="none" />
-      {FREE_HANDLES.map((handle) => (
+      <View style={[styles.freeLine, { left: x0, top: y0, width: w, height: h }, round && { borderRadius: Math.min(w, h) / 2 }]} pointerEvents="none" />
+      {FREE_HANDLES.filter((handle) => !lock || (handle.sx && handle.sy)).map((handle) => (
         <FreeHandle
           key={handle.key}
           handle={handle}
           rect={rect}
           full={full}
+          lock={lock}
+          range={range}
           onChange={onChange}
           // 손잡이는 틀 선 위에 가운데 정렬 (틀 자체는 사진 밖으로 못 나가게 막는다)
           center={{ x: x0 + ((handle.sx + 1) / 2) * w, y: y0 + ((handle.sy + 1) / 2) * h }}
@@ -450,7 +370,7 @@ function MoveArea({ rect, full, onChange, style }) {
   return <View {...handlers} style={[styles.moveArea, style]} accessibilityLabel="자르는 틀 옮기기" />
 }
 
-function FreeHandle({ handle, rect, full, onChange, center }) {
+function FreeHandle({ handle, rect, full, lock, range, onChange, center }) {
   const start = useRef(rect)
   const handlers = usePan({
     onStart: () => {
@@ -460,11 +380,41 @@ function FreeHandle({ handle, rect, full, onChange, center }) {
       const r = { ...start.current }
       const du = dx / full.width
       const dv = dy / full.height
+      if (lock) {
+        // 비율 잠금: 맞은편 꼭짓점을 고정하고, 가로 · 세로 움직임의 평균으로 크기를 정한다(사진 밖으로는 못 나간다)
+        const ax = handle.sx > 0 ? r.u0 : r.u1
+        const ay = handle.sy > 0 ? r.v0 : r.v1
+        const wx = ((handle.sx > 0 ? r.u1 : r.u0) + du - ax) * handle.sx
+        const wy = ((handle.sy > 0 ? r.v1 : r.v0) + dv - ay) * handle.sy * lock
+        const maxW = Math.min(handle.sx > 0 ? 1 - ax : ax, (handle.sy > 0 ? 1 - ay : ay) * lock)
+        const width = clamp((wx + wy) / 2, Math.min(maxW, FREE_MIN * Math.max(1, lock)), maxW)
+        const height = width / lock
+        const u0 = handle.sx > 0 ? ax : ax - width
+        const v0 = handle.sy > 0 ? ay : ay - height
+        onChange({ u0, v0, u1: u0 + width, v1: v0 + height })
+        return
+      }
       // 움직이는 변만 옮기고, 사진 밖(0~1)과 최소 크기를 넘지 않게 막는다.
       if (handle.sx < 0) r.u0 = clamp(r.u0 + du, 0, r.u1 - FREE_MIN)
       if (handle.sx > 0) r.u1 = clamp(r.u1 + du, r.u0 + FREE_MIN, 1)
       if (handle.sy < 0) r.v0 = clamp(r.v0 + dv, 0, r.v1 - FREE_MIN)
       if (handle.sy > 0) r.v1 = clamp(r.v1 + dv, r.v0 + FREE_MIN, 1)
+      if (range) {
+        // 비율 범위(테이프 조각 1~12배): 넘으면 지금 움직인 쪽 변을 범위 끝까지만
+        const ratio = (r.u1 - r.u0) / (r.v1 - r.v0)
+        const bound = ratio > range[1] ? range[1] : ratio < range[0] ? range[0] : null
+        if (bound) {
+          if (handle.sx) {
+            const width = Math.min(1, (r.v1 - r.v0) * bound)
+            if (handle.sx > 0) r.u1 = Math.min(1, r.u0 + width)
+            else r.u0 = Math.max(0, r.u1 - width)
+          } else {
+            const height = Math.min(1, (r.u1 - r.u0) / bound)
+            if (handle.sy > 0) r.v1 = Math.min(1, r.v0 + height)
+            else r.v0 = Math.max(0, r.v1 - height)
+          }
+        }
+      }
       onChange(r)
     },
   })
@@ -509,7 +459,7 @@ function Chip({ label, icon, active, onPress }) {
       accessibilityState={active != null ? { selected: active } : undefined}
       style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}
     >
-      {icon && <Icon name={icon} size={15} forText={12} />}
+      {icon && <Icon name={icon} size={15} forText={12.5} />}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   )

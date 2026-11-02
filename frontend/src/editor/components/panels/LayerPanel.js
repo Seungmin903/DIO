@@ -7,7 +7,7 @@ import { useMediaUri } from '../../hooks/useMediaUri'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { isMultiSelectKey } from '../../utils/modifiers'
-import { getObjectName, hasPhotoMedia, tapeUnitH } from '../../utils/objects'
+import { getObjectName, hasPhotoMedia, tapePieceRatio, tapeUnitH } from '../../utils/objects'
 import { buildLayerRows } from '../../utils/layerRows'
 import Icon from '../controls/Icon'
 import TapCatcher from '../controls/TapCatcher'
@@ -33,7 +33,7 @@ const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
  * - 선택된 항목(그룹)의 이름을 한 번 더 누르면 이름 바꾸기
  * - 오른쪽 손잡이를 끌어 순서 변경. 그룹 사이에 놓으면 그 그룹에 들어가고, 밖으로 빼면 그룹에서 빠진다.
  */
-export default function LayerPanel({ objects, selectedIds, dispatch, onClose, onEmptyTap }) {
+export default function LayerPanel({ objects, selectedIds, dispatch, onClose, onEmptyTap, width = LAYER_PANEL_WIDTH }) {
   const layers = useMemo(() => objects.filter((o) => !isBackdrop(o)).reverse(), [objects])
   const [drag, setDrag] = useState(null) // { key, from, dy }
   const [collapsed, setCollapsed] = useState(() => new Set())
@@ -174,6 +174,8 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
       if (g) drop(index, clamp(index + Math.round(effectiveDy(g) / ROW_STEP), 0, rows.length - 1))
     },
     rangeStart: (index, event) => startRange(index, event),
+    // 화면 읽기 프로그램의 '위로 · 아래로' 동작: 끌기와 같은 자리 옮기기
+    move: (index, delta) => drop(index, clamp(index + delta, 0, rows.length - 1)),
     // 선택 모드에서 탭: 그 행을 고른 목록에 넣거나 뺀다
     toggle: (index) => {
       const ids = idsOfRow(rows[index])
@@ -227,7 +229,7 @@ export default function LayerPanel({ objects, selectedIds, dispatch, onClose, on
   }
 
   return (
-    <View style={styles.panel}>
+    <View style={[styles.panel, { width }]}>
       <View style={styles.header}>
         {/* 여러 개 고르기 중에는 제목 줄이 'N개 선택 · 해제' 로 바뀐다. 줄을 새로 끼우면 목록이 밀려 누르려던 행이 바뀌어서 같은 자리를 쓴다 */}
         <View style={styles.titleRow}>
@@ -372,7 +374,7 @@ function NameField({ name, renamable, onCommit }) {
         onSubmitEditing={commit}
         onBlur={commit}
         style={styles.nameInput}
-        accessibilityLabel="이름"
+        accessibilityLabel="레이어 이름"
       />
     )
   }
@@ -389,7 +391,7 @@ function NameField({ name, renamable, onCommit }) {
         <Text style={styles.rowName} numberOfLines={1}>
           {name}
         </Text>
-        {renamable && <Icon name="edit" size={13} strokeWidth={2} color={colors.textMuted} />}
+        {renamable && <Icon name="edit" size={13} forText={13} color={colors.textMuted} />}
       </View>
     </Pressable>
   )
@@ -448,8 +450,10 @@ function GroupRow({ row, selected, renamable, collapsed, onToggleCollapsed, disp
         delayLongPress={350}
         style={[styles.row, selected && styles.rowSelected, drag.dragging && styles.rowDragging, hidden && styles.rowHidden]}
         accessibilityRole="button"
+        accessibilityLabel={`${row.name}, 그룹 레이어 ${row.members.length}개`}
         accessibilityState={{ selected, expanded: !collapsed }}
       >
+        {selected && <View style={styles.selectedBar} pointerEvents="none" />}
         <Pressable
           onPress={onToggleCollapsed}
           hitSlop={8}
@@ -466,7 +470,7 @@ function GroupRow({ row, selected, renamable, collapsed, onToggleCollapsed, disp
           </Text>
         </View>
         <ToggleButtons show={selected} hidden={hidden} locked={locked} onToggle={(key, value) => patchAll({ [key]: value })} />
-        <View {...gripHandlers} style={styles.grip} accessibilityLabel="끌어서 순서 바꾸기">
+        <View {...gripHandlers} style={styles.grip} {...gripA11y(drag.onMove)}>
           <Icon name="grip" size={18} color={colors.primary} />
         </View>
       </Pressable>
@@ -483,6 +487,7 @@ function rowHandlers(actions, key, index) {
     onRangeStart: (event) => actions.rangeStart(index, event),
     onToggle: () => actions.toggle(index),
     onPressOut: actions.pressOut,
+    onMove: (delta) => actions.move(index, delta),
   }
 }
 
@@ -513,8 +518,10 @@ function LayerRow({ object, nested, selected, renamable, dispatch, multi, onTogg
           object.hidden && styles.rowHidden,
         ]}
         accessibilityRole="button"
+        accessibilityLabel={`${object.name ?? OBJECT_TYPE_LABELS[object.type]}, ${OBJECT_TYPE_LABELS[object.type]} 레이어`}
         accessibilityState={{ selected }}
       >
+        {selected && <View style={styles.selectedBar} pointerEvents="none" />}
         {nested && <View style={styles.nestLine} />}
         <LayerThumb object={object} />
         <View style={styles.rowText}>
@@ -545,12 +552,22 @@ function LayerRow({ object, nested, selected, renamable, dispatch, multi, onTogg
             })
           }
         />
-        <View {...gripHandlers} style={styles.grip} accessibilityLabel="끌어서 순서 바꾸기">
+        <View {...gripHandlers} style={styles.grip} {...gripA11y(drag.onMove)}>
           <Icon name="grip" size={18} color={colors.primary} />
         </View>
       </Pressable>
     </RowShell>
   )
+}
+
+// 끌기 손잡이: 화면 읽기 프로그램에서는 위로 · 아래로 동작으로 순서를 바꾼다
+function gripA11y(onMove) {
+  return {
+    accessible: true,
+    accessibilityLabel: '순서 바꾸기',
+    accessibilityActions: [{ name: 'moveUp', label: '위로' }, { name: 'moveDown', label: '아래로' }],
+    onAccessibilityAction: ({ nativeEvent }) => onMove?.(nativeEvent.actionName === 'moveUp' ? -1 : 1),
+  }
 }
 
 const LayerThumb = memo(function LayerThumb({ object }) {
@@ -582,7 +599,8 @@ const LayerThumb = memo(function LayerThumb({ object }) {
         <TapeView
           pattern={object.pattern}
           palette={object.palette}
-          segmentRatio={object.segmentW ? object.segmentW / object.h : undefined}
+          segmentShare={object.segmentW ? object.segmentW / object.w : undefined}
+          pieceRatio={tapePieceRatio(object)}
           src={object.src}
           mediaFileId={object.mediaFileId}
           crop={object.crop}
@@ -592,6 +610,7 @@ const LayerThumb = memo(function LayerThumb({ object }) {
           width={tapeW}
           height={tapeH}
           scale={tapeH / tapeUnitH(object)}
+          crisp
         />
       </View>
     )
@@ -599,7 +618,7 @@ const LayerThumb = memo(function LayerThumb({ object }) {
   return <View style={styles.thumb}>{content}</View>
 })
 
-// 레이어 패널 폭. 열고 닫을 때 작업창 크기를 한 번에 맞추는 데도 쓴다 (EditorScreen)
+// 레이어 패널 기본 폭. 태블릿은 상단바 오른쪽 묶음 폭을 받아 왼쪽 끝을 공유 버튼에 맞춘다(EditorScreen layerWidth)
 export const LAYER_PANEL_WIDTH = 280
 
 const styles = StyleSheet.create({
@@ -617,11 +636,11 @@ const styles = StyleSheet.create({
     marginBottom: -16,
     marginRight: -16,
     borderLeftWidth: 1,
-    borderLeftColor: 'rgba(11,23,102,0.08)',
+    borderLeftColor: colors.border, // 페이지 패널 구분선과 같은 값(코덱스 2026-11-02: 8% 는 큰 화면에서 너무 흐렸다)
     backgroundColor: colors.surfaceSoft, // 열린 패널 바탕은 앱 바탕색(#F7F8FD)
   },
-  close: { padding: 4 },
-  header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10 },
+  close: { width: 44, height: 44, marginRight: -10, alignItems: 'center', justifyContent: 'center' }, // 터치 44, 아이콘 자리는 그대로
+  header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10 }, // 제목 위치를 왼쪽 페이지 패널 탭 높이에 맞춘다
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -678,7 +697,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(129,138,195,0.35)',
   },
   chevron: { marginLeft: -6, marginRight: -4, padding: 2 },
-  rowSelected: { backgroundColor: 'rgba(129,138,195,0.24)' },
+  rowSelected: { backgroundColor: 'rgba(129,138,195,0.18)' },
+  // 고른 행: 연한 면 + 왼쪽 3 막대(윤곽 링 대신, 코덱스 2026-11-02). 내용 자리는 밀지 않게 겹쳐 그린다
+  selectedBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: colors.primaryStrong },
   rowDragging: {
     backgroundColor: '#F5F6FC',
     shadowColor: colors.text,
@@ -712,8 +733,8 @@ const styles = StyleSheet.create({
   thumbPhoto: { width: 40, height: 40 },
   rowText: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  rowName: { flexShrink: 1, fontSize: 12.5, fontWeight: '700', color: colors.text },
-  rowType: { marginTop: 2, fontSize: 10.5, color: colors.textMuted },
+  rowName: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: colors.text },
+  rowType: { marginTop: 3, fontSize: 12, color: colors.textMuted },
   toggle: { padding: 7 },
-  grip: { paddingHorizontal: 8, paddingVertical: 14 },
+  grip: { width: 44, minHeight: 44, marginRight: -8, alignItems: 'center', justifyContent: 'center' }, // 터치 44
 })

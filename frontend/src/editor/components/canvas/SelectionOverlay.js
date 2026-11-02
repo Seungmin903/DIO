@@ -291,7 +291,7 @@ function resizePatch(g, handle, pointer) {
     y: reflowText ? (h - start.h) / 2 : sy ? anchor.y + (sy * h) / 2 : 0,
   }
   const offset = rotateVector(localCenter.x, localCenter.y, start.rotation)
-  // 테이프 폭을 바꾸면 무늬 기준 높이와 이미지 한 조각 길이도 같은 비율로 바꿔 무늬 · 그림 크기를 지킨다.
+  // 테이프 폭을 바꾸면 무늬 기준 높이와 사진 한 조각 길이도 같은 비율로 바꿔, 등록한 조각이 가로세로 비율 그대로 커진다(좌우로 늘리면 조각이 반복된다)
   const tapeWidth = start.type === 'tape' && sy && Math.abs(h - start.h) >= 1e-8
     ? { unitH: (tapeUnitH(start) * h) / start.h, ...(start.segmentW ? { segmentW: (start.segmentW * h) / start.h } : {}) }
     : {}
