@@ -19,12 +19,27 @@ public class InvitationNotificationHandler {
 	private final InvitationNotificationRepository repository;
 	private final ObjectProvider<InvitationNotificationSource> sources;
 	private final Clock clock;
+	@org.springframework.beans.factory.annotation.Value("${dio.push.outbox.enabled:false}")
+	private boolean pushOutboxEnabled;
+	@org.springframework.beans.factory.annotation.Value("${dio.push.outbox.ttl-seconds:0}")
+	private long pushOutboxTtlSeconds;
+	@org.springframework.beans.factory.annotation.Value("${dio.push.environment:}")
+	private String pushEnvironment;
+	@org.springframework.beans.factory.annotation.Value("${dio.push.app-id:dio}")
+	private String pushAppId;
 
 	public InvitationNotificationHandler(InvitationNotificationRepository repository, ObjectProvider<InvitationNotificationSource> sources,
 		ObjectProvider<Clock> clocks) {
 		this.repository = repository;
 		this.sources = sources;
 		this.clock = clocks.getIfAvailable(Clock::systemUTC);
+	}
+
+	@jakarta.annotation.PostConstruct
+	void validatePushOutboxConfiguration() {
+		if (pushOutboxEnabled && (pushOutboxTtlSeconds <= 0 || pushEnvironment == null || !pushEnvironment.matches("[A-Za-z0-9_.-]{1,32}") || pushAppId == null || !pushAppId.matches("[A-Za-z0-9_.-]{1,160}"))) {
+			throw new IllegalStateException("푸시 대기열 범위와 TTL을 확인해 주세요.");
+		}
 	}
 
 	/**
@@ -59,6 +74,9 @@ public class InvitationNotificationHandler {
 		}
 		Outcome outcome = outcome(snapshot, now);
 		String notificationId = outcome == Outcome.CREATED ? repository.createNotification(event, snapshot) : null;
+		if (notificationId != null && pushOutboxEnabled) {
+			repository.createPushOutbox(event, notificationId, now, pushOutboxTtlSeconds, pushEnvironment, pushAppId);
+		}
 		repository.finish(event, outcome, notificationId);
 		return new Result(false, outcome, notificationId);
 	}

@@ -4,12 +4,32 @@
   "weightsRightsExcluded": true,
   "sourceMaps": [
     {
-      "file": "AppEntry-e52efa4b2e40a1a848b87b0c82b69242.hbc.map",
-      "sha256": "ad696596a2f3293cf5671c44e56b7e94633b2374048c82a29ab2ca39ae6cc827",
-      "sources": 1165
+      "file": "AppEntry-298cd48d6154a9a26ff271f84f5928fa.hbc.map",
+      "sha256": "2dc493899eb1531b4cf233d443ca198ad6517b371e051773aa0ebc2934a9f498",
+      "sources": 1285
     }
   ],
   "nativeBinaries": [
+    {
+      "artifact": "androidx.datastore:datastore-core-android:1.1.7",
+      "path": "jni/arm64-v8a/libdatastore_shared_counter.so",
+      "sha256": "d3e48717c9aa147e0ab21063ba0e8e0211cabf8bf40b222640829519edbf58e1"
+    },
+    {
+      "artifact": "androidx.datastore:datastore-core-android:1.1.7",
+      "path": "jni/armeabi-v7a/libdatastore_shared_counter.so",
+      "sha256": "716c5d8d2cac8ca0edf65da8f139c7886b726ac79d542a14edeb94994ba6d3dc"
+    },
+    {
+      "artifact": "androidx.datastore:datastore-core-android:1.1.7",
+      "path": "jni/x86/libdatastore_shared_counter.so",
+      "sha256": "cd4a1649e2c8350703146f94a6ee2bf4c3c8c9f172159f805b61a4a2abdf0659"
+    },
+    {
+      "artifact": "androidx.datastore:datastore-core-android:1.1.7",
+      "path": "jni/x86_64/libdatastore_shared_counter.so",
+      "sha256": "fb6c9208988c49ae94943bc3236fa763ba584722e044fa4ea9a12d2941027105"
+    },
     {
       "artifact": "com.facebook.fbjni:fbjni:0.7.0",
       "path": "jni/arm64-v8a/libc++_shared.so",
@@ -394,12 +414,12 @@
     },
     {
       "coordinate": "androidx.appcompat:appcompat-resources:1.7.1",
-      "pomSha256": null,
+      "pomSha256": "2faf922e8c3d706f29d862b3fbb3aa1347705c21c6eae18586d2bb1f7366ea01",
       "sourcesSha256": null
     },
     {
       "coordinate": "androidx.appcompat:appcompat:1.7.1",
-      "pomSha256": null,
+      "pomSha256": "1f79910cc20de198acf3867b1e93f9ed59ddb643585b2e9c28ee55518af1bc00",
       "sourcesSha256": null
     },
     {
@@ -418,8 +438,13 @@
       "sourcesSha256": null
     },
     {
-      "coordinate": "androidx.cardview:cardview:1.0.0",
+      "coordinate": "androidx.biometric:biometric:1.1.0",
       "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.cardview:cardview:1.0.0",
+      "pomSha256": "e64ef4e08b58358fe27b599e6fe80a1b153db014c644beee630ab271061c3e6c",
       "sourcesSha256": null
     },
     {
@@ -444,12 +469,12 @@
     },
     {
       "coordinate": "androidx.coordinatorlayout:coordinatorlayout:1.1.0",
-      "pomSha256": null,
+      "pomSha256": "a67c52c9ddfaff2ffb2fd4b97cd94fa382e837ea8a5874d029e0a04fa63e5caf",
       "sourcesSha256": null
     },
     {
       "coordinate": "androidx.core:core-ktx:1.17.0",
-      "pomSha256": null,
+      "pomSha256": "0233d8d0a2ce8ff383502c8c64a42fc1673016402c923795465b6444eacd9939",
       "sourcesSha256": null
     },
     {
@@ -464,7 +489,7 @@
     },
     {
       "coordinate": "androidx.core:core:1.17.0",
-      "pomSha256": null,
+      "pomSha256": "8b63b18ff4e3474ef1e9428ed022d7994e9e69adfcdaee7e59c7e52dc3cf75b0",
       "sourcesSha256": null
     },
     {
@@ -483,28 +508,63 @@
       "sourcesSha256": null
     },
     {
+      "coordinate": "androidx.datastore:datastore-android:1.1.7",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.datastore:datastore-core-android:1.1.7",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.datastore:datastore-core-okio-jvm:1.1.7",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.datastore:datastore-preferences-android:1.1.7",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.datastore:datastore-preferences-core-android:1.1.7",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.datastore:datastore-preferences-external-protobuf:1.1.7",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.datastore:datastore-preferences-proto:1.1.7",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
       "coordinate": "androidx.documentfile:documentfile:1.1.0",
       "pomSha256": "f3d68f5cc51f74d5415eefa617b5e6539aa89a941525762940a812e78415e4a8",
       "sourcesSha256": null
     },
     {
       "coordinate": "androidx.drawerlayout:drawerlayout:1.1.1",
-      "pomSha256": null,
+      "pomSha256": "c12fa903ba53005962a72405f37896608718f41673fc4a62312e4536132f6f45",
       "sourcesSha256": null
     },
     {
       "coordinate": "androidx.dynamicanimation:dynamicanimation:1.1.0",
-      "pomSha256": null,
+      "pomSha256": "caecb7b379585d8e4070ebafae3974a137c6689de8077f9165935b3605784a93",
       "sourcesSha256": null
     },
     {
       "coordinate": "androidx.emoji2:emoji2-views-helper:1.3.0",
-      "pomSha256": null,
+      "pomSha256": "2673b0f5859d4361a4e9a30457852a6745d0c3c85b5e0412070483f3963ef526",
       "sourcesSha256": null
     },
     {
       "coordinate": "androidx.emoji2:emoji2:1.3.0",
-      "pomSha256": null,
+      "pomSha256": "14ebbea8234f013211965fdd08b42ee907ce0075af321018c8c2865c2e5db0eb",
       "sourcesSha256": null
     },
     {
@@ -519,7 +579,7 @@
     },
     {
       "coordinate": "androidx.graphics:graphics-shapes-android:1.0.1",
-      "pomSha256": null,
+      "pomSha256": "81de7bcc8549084d104d5af33b120f93e10d45424a15a454cfa1f24304aa4d11",
       "sourcesSha256": null
     },
     {
@@ -528,52 +588,82 @@
       "sourcesSha256": null
     },
     {
-      "coordinate": "androidx.lifecycle:lifecycle-common:2.6.2",
+      "coordinate": "androidx.legacy:legacy-support-core-utils:1.0.0",
       "pomSha256": null,
       "sourcesSha256": null
     },
     {
-      "coordinate": "androidx.lifecycle:lifecycle-livedata-core:2.6.2",
-      "pomSha256": "1faf8ebf53f28b2f0ae2c2095371ae67d0ca16ac328fce7f163609a43214b5a4",
-      "sourcesSha256": null
-    },
-    {
-      "coordinate": "androidx.lifecycle:lifecycle-livedata:2.6.2",
-      "pomSha256": "d7c9e019cf68779387481877878f6c499d1786b85f2c0480e9264dd5097c51c0",
-      "sourcesSha256": null
-    },
-    {
-      "coordinate": "androidx.lifecycle:lifecycle-process:2.6.2",
-      "pomSha256": "1f14396ec764b44d37c143adacee01e5b68cb5f35a21bcd9cdebd7c83ea7d2e9",
-      "sourcesSha256": null
-    },
-    {
-      "coordinate": "androidx.lifecycle:lifecycle-runtime-ktx:2.6.2",
-      "pomSha256": "69c6ca9ff9fc9c6940bd55ef91c5b7b57deabab686d2c64a5af85152f29904cd",
-      "sourcesSha256": null
-    },
-    {
-      "coordinate": "androidx.lifecycle:lifecycle-runtime:2.6.2",
+      "coordinate": "androidx.lifecycle:lifecycle-common-java8:2.9.3",
       "pomSha256": null,
       "sourcesSha256": null
     },
     {
-      "coordinate": "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2",
-      "pomSha256": "1d336fbf91471fc497afdf9d875989261d08b564d021eaf275944865f526dcef",
+      "coordinate": "androidx.lifecycle:lifecycle-common-jvm:2.9.3",
+      "pomSha256": null,
       "sourcesSha256": null
     },
     {
-      "coordinate": "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.2",
-      "pomSha256": "7fc854440644cf52c35894d58d946b208e42769e8517d71a5efcba17865432de",
+      "coordinate": "androidx.lifecycle:lifecycle-livedata-core-ktx:2.9.3",
+      "pomSha256": null,
       "sourcesSha256": null
     },
     {
-      "coordinate": "androidx.lifecycle:lifecycle-viewmodel:2.6.2",
-      "pomSha256": "a9fb0b39a8360beef7bdc8f3953d4d78f3d85304fc80adac3c8eaf530d758050",
+      "coordinate": "androidx.lifecycle:lifecycle-livedata-core:2.9.3",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-livedata:2.9.3",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-process:2.9.3",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-runtime-android:2.9.3",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-runtime-ktx-android:2.9.3",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-viewmodel-android:2.9.3",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.3",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.9.3",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-viewmodel:2.9.3",
+      "pomSha256": null,
       "sourcesSha256": null
     },
     {
       "coordinate": "androidx.loader:loader:1.0.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.localbroadcastmanager:localbroadcastmanager:1.0.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.print:print:1.0.0",
       "pomSha256": null,
       "sourcesSha256": null
     },
@@ -584,21 +674,21 @@
     },
     {
       "coordinate": "androidx.recyclerview:recyclerview:1.2.1",
-      "pomSha256": null,
+      "pomSha256": "db162fcfc032cb737ba07faf2d1936c9ee362b74e0c38f31ccd2c6a2ccd79090",
       "sourcesSha256": null
     },
     {
       "coordinate": "androidx.resourceinspection:resourceinspection-annotation:1.0.1",
+      "pomSha256": "b8eb4938ed95d7fcdaa2712ebca363e46a0f9228b8be7f23154def56846815dc",
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "androidx.savedstate:savedstate-android:1.3.1",
       "pomSha256": null,
       "sourcesSha256": null
     },
     {
-      "coordinate": "androidx.savedstate:savedstate-ktx:1.2.1",
-      "pomSha256": null,
-      "sourcesSha256": null
-    },
-    {
-      "coordinate": "androidx.savedstate:savedstate:1.2.1",
+      "coordinate": "androidx.savedstate:savedstate-ktx:1.3.1",
       "pomSha256": null,
       "sourcesSha256": null
     },
@@ -624,7 +714,7 @@
     },
     {
       "coordinate": "androidx.transition:transition:1.5.0",
-      "pomSha256": null,
+      "pomSha256": "db6c7497f0f094ff2eecfb329e1700658f0d6c56fb088482f7e9b774de9ad53f",
       "sourcesSha256": null
     },
     {
@@ -644,7 +734,7 @@
     },
     {
       "coordinate": "androidx.viewpager2:viewpager2:1.0.0",
-      "pomSha256": null,
+      "pomSha256": "4063bca7fe94fe65c98f4168f97ae10e02da0248598ad3ac21c432c7f608a17a",
       "sourcesSha256": null
     },
     {
@@ -660,6 +750,11 @@
     {
       "coordinate": "androidx.window:window:1.5.1",
       "pomSha256": "0a28fe17feed5c0175fbfbd6722ce78c575a1eeac09d858f08e49353f34707e0",
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.android.installreferrer:installreferrer:2.2",
+      "pomSha256": "901ee79908dbf6ca5518120039e8394c64866b55c2aeffa965f0376a39a73813",
       "sourcesSha256": null
     },
     {
@@ -923,6 +1018,46 @@
       "sourcesSha256": "545051cfa45f7088b17ad0b057cf1f45f0e68ea47d4f4fb3f2d9c6aa9a36f5c9"
     },
     {
+      "coordinate": "com.google.android.datatransport:transport-api:3.1.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.android.datatransport:transport-backend-cct:3.1.9",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.android.datatransport:transport-runtime:3.1.9",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.android.gms:play-services-base:18.1.0",
+      "pomSha256": "30df78ba3ead133c2b36784b425a9eeee7f02531907e8aaee4e8922354f732a7",
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.android.gms:play-services-basement:18.3.0",
+      "pomSha256": "9cef5dc9a6950ff09a85ff522b476f855eb7ef2373aa4c17339cb114ac5397e2",
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.android.gms:play-services-cloud-messaging:17.2.0",
+      "pomSha256": "65f5833e621368dfb0eb203dcafcf070c5cece5a60ca18842ce7081d440e0419",
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.android.gms:play-services-stats:17.0.2",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.android.gms:play-services-tasks:18.1.0",
+      "pomSha256": "cf29ed846108d7a8f2c17d8ef5b63399735757c5a09bb663d7e784e02ad84bcd",
+      "sourcesSha256": null
+    },
+    {
       "coordinate": "com.google.android.material:material:1.13.0",
       "pomSha256": "9c1f3c4600295cc5d7f6d6886aea16d497f13f9af4675442ad271e7c2febf772",
       "sourcesSha256": null
@@ -938,9 +1073,69 @@
       "sourcesSha256": "da4d787939dc8de214724a20d88614b70ef8c3a4931d9c694300b5d9098ed9bc"
     },
     {
-      "coordinate": "com.google.errorprone:error_prone_annotations:2.15.0",
-      "pomSha256": "7bae617e32681ebbb289c203c905f646c2a0397598af786d961a54aaa3d2b1e6",
-      "sourcesSha256": "c1b58a188fb4eca9ccefbaff21209eb07df87751384e694b908a3df0288bef97"
+      "coordinate": "com.google.errorprone:error_prone_annotations:2.26.0",
+      "pomSha256": "c35a2780423fc7e535922a1a6f7e754728e6f9adaa26ada4c37f7d9d356b9e43",
+      "sourcesSha256": "e715b58aff46eda2f099efee941d99e32214bfcf229ab1a0b39adcf344679848"
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-annotations:17.0.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-common:22.0.1",
+      "pomSha256": "e09a84c53ab95d6c729a0d21486cf39bdbcf080a54cabb19c8a3fca9833a27b0",
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-components:19.0.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-datatransport:18.2.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-encoders-json:18.0.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-encoders-proto:16.0.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-encoders:17.0.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-iid-interop:17.1.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-installations-interop:17.1.1",
+      "pomSha256": "9e11fa12d1e36351fab18527d18f8a771cb3b5e6e793f20ccfaca157260ecaa8",
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-installations:18.0.0",
+      "pomSha256": "13c64c03cc3c6c435b3d8521e3c85fcbcfeff22f3b7f0178a9ca626981ecda66",
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-measurement-connector:19.0.0",
+      "pomSha256": null,
+      "sourcesSha256": null
+    },
+    {
+      "coordinate": "com.google.firebase:firebase-messaging:25.0.1",
+      "pomSha256": "013c6c2da219b69991a34554244aeb0ac89e97c7132d32595cbcbd205ded3d78",
+      "sourcesSha256": null
     },
     {
       "coordinate": "com.google.guava:failureaccess:1.0.1",
@@ -1043,6 +1238,11 @@
       "sourcesSha256": "254049b0ec947b81bc0d5c8664e45a84793f9833306aac61d72a9116383c260b"
     },
     {
+      "coordinate": "me.leolin:ShortcutBadger:1.1.22",
+      "pomSha256": "1cfb0a209ad4de5d95bbefdb48cc3da7af1c70fa9eda8b8a06ae0616946cd28a",
+      "sourcesSha256": "d5e3b4265dea05455d17627e57ee67e413cf1fba9f71163b4f54bac3b33e0e87"
+    },
+    {
       "coordinate": "org.aomedia.avif.android:avif:1.1.1.14d8e3c4",
       "pomSha256": "2f098a4c17f4540f50e302e8203fac3f69f5b4d63adc86841244a0a7e9f62ccc",
       "sourcesSha256": "2d74fcd90cea63efcc295510c38bb7fdc065cbe7129d1695018a0e7bb61dff2b"
@@ -1063,8 +1263,8 @@
       "sourcesSha256": "ee078a91bf7136ee1961abd612b54d1cd9877352b960a7e1e7e3e4c17ceafcf1"
     },
     {
-      "coordinate": "org.jetbrains.kotlin:kotlin-android-extensions-runtime:2.0.0",
-      "pomSha256": "aaedf6b9f9057ed474e0c2768936798f29275251be88cf06e8e081f6603093b4",
+      "coordinate": "org.jetbrains.kotlin:kotlin-android-extensions-runtime:2.2.10",
+      "pomSha256": "5f0f3123eb2f355227e35f4d049cc589a41a72033cad08094d19821f0bd6f3b9",
       "sourcesSha256": "418ea1adaaaf4537d180cc25e0b1c0d02a54fa3a38f88bd7625eb2307aa447dd"
     },
     {
@@ -1073,9 +1273,9 @@
       "sourcesSha256": "c7909aee473aa1cc1b3838ad022ef45ca51c369debaad0d7485eac5a586fd600"
     },
     {
-      "coordinate": "org.jetbrains.kotlin:kotlin-parcelize-runtime:2.0.0",
-      "pomSha256": "54d7c62af931be9993df74a08facd1de3f161b60f0c20a58281fd1133ee26bea",
-      "sourcesSha256": "b7cf21217b9bbfbea21dd944c163454a8592344bef5b0b92ba2fa46aa1e97660"
+      "coordinate": "org.jetbrains.kotlin:kotlin-parcelize-runtime:2.2.10",
+      "pomSha256": "82526a6e6a23e55130866165156b887b78c65c91356411701b9373d58213db31",
+      "sourcesSha256": "e36e2dc99f143bfc20e2d3896c2c1b974674aacd2874aeec4ee1b89f0d43145f"
     },
     {
       "coordinate": "org.jetbrains.kotlin:kotlin-reflect:2.2.10",
@@ -1108,6 +1308,16 @@
       "sourcesSha256": "cd86e9635cc7ac1b7d9854ed589e3041fb11cc67d2273e7d312278ba5628e2c8"
     },
     {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2",
+      "pomSha256": "8d38059aff23e1b2ac216dedaccb1ba15dc7d14c80615244de091cc61332096a",
+      "sourcesSha256": "84f8056cc15081ff4894456dd6ca9c69fafb3edd40826b13b186b7ed86c08be9"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3",
+      "pomSha256": "734f5f749208dd0bef3d98caa594cf9222afdf0fee5b6843347a8fe64e240427",
+      "sourcesSha256": "d084ce9bf130919d4b899db09896531440d1e330919187c7932d7fe0fa5257b8"
+    },
+    {
       "coordinate": "org.jetbrains:annotations:23.0.0",
       "pomSha256": "c9490f655132328df2cfbcfdf743f53fc3916d6c1d10437175a6ca6e3a67771c",
       "sourcesSha256": "ff2309b42f7584520497bb48bc609aca04c9886cf48708f14be83f00423ec144"
@@ -1132,9 +1342,9 @@
       "notice": ""
     },
     {
-      "id": "embedded:Android NDK runtime notices@28.2.13676358",
+      "id": "embedded:Android NDK runtime notices@27.1.12297006",
       "name": "Android NDK runtime notices",
-      "version": "28.2.13676358",
+      "version": "27.1.12297006",
       "license": "NDK component license notices",
       "creator": "See original copyright notices below",
       "sourceUrl": "https://android.googlesource.com/platform/ndk/",
@@ -1347,8 +1557,8 @@
       "version": "1.7.1",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.appcompat/appcompat-resources/1.7.1",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.appcompat/appcompat-resources/1.7.1",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1359,8 +1569,8 @@
       "version": "1.7.1",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.appcompat/appcompat/1.7.1",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.appcompat/appcompat/1.7.1",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1402,13 +1612,25 @@
       "notice": ""
     },
     {
+      "id": "maven:androidx.biometric:biometric:1.1.0",
+      "name": "androidx.biometric:biometric:1.1.0",
+      "version": "1.1.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.biometric/biometric/1.1.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.biometric/biometric/1.1.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
       "id": "maven:androidx.cardview:cardview:1.0.0",
       "name": "androidx.cardview:cardview:1.0.0",
       "version": "1.0.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.cardview/cardview/1.0.0",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.cardview/cardview/1.0.0",
+      "sourceUrl": "http://source.android.com",
+      "licenseUrl": "http://source.android.com",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1467,8 +1689,8 @@
       "version": "1.1.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.coordinatorlayout/coordinatorlayout/1.1.0",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.coordinatorlayout/coordinatorlayout/1.1.0",
+      "sourceUrl": "http://source.android.com",
+      "licenseUrl": "http://source.android.com",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1479,8 +1701,8 @@
       "version": "1.17.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.core/core-ktx/1.17.0",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.core/core-ktx/1.17.0",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1515,8 +1737,8 @@
       "version": "1.17.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.core/core/1.17.0",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.core/core/1.17.0",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1558,6 +1780,90 @@
       "notice": ""
     },
     {
+      "id": "maven:androidx.datastore:datastore-android:1.1.7",
+      "name": "androidx.datastore:datastore-android:1.1.7",
+      "version": "1.1.7",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-android/1.1.7",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-android/1.1.7",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.datastore:datastore-core-android:1.1.7",
+      "name": "androidx.datastore:datastore-core-android:1.1.7",
+      "version": "1.1.7",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-core-android/1.1.7",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-core-android/1.1.7",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.datastore:datastore-core-okio-jvm:1.1.7",
+      "name": "androidx.datastore:datastore-core-okio-jvm:1.1.7",
+      "version": "1.1.7",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-core-okio-jvm/1.1.7",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-core-okio-jvm/1.1.7",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.datastore:datastore-preferences-android:1.1.7",
+      "name": "androidx.datastore:datastore-preferences-android:1.1.7",
+      "version": "1.1.7",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-preferences-android/1.1.7",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-preferences-android/1.1.7",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.datastore:datastore-preferences-core-android:1.1.7",
+      "name": "androidx.datastore:datastore-preferences-core-android:1.1.7",
+      "version": "1.1.7",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-preferences-core-android/1.1.7",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-preferences-core-android/1.1.7",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.datastore:datastore-preferences-external-protobuf:1.1.7",
+      "name": "androidx.datastore:datastore-preferences-external-protobuf:1.1.7",
+      "version": "1.1.7",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-preferences-external-protobuf/1.1.7",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-preferences-external-protobuf/1.1.7",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.datastore:datastore-preferences-proto:1.1.7",
+      "name": "androidx.datastore:datastore-preferences-proto:1.1.7",
+      "version": "1.1.7",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-preferences-proto/1.1.7",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.datastore/datastore-preferences-proto/1.1.7",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
       "id": "maven:androidx.documentfile:documentfile:1.1.0",
       "name": "androidx.documentfile:documentfile:1.1.0",
       "version": "1.1.0",
@@ -1575,8 +1881,8 @@
       "version": "1.1.1",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.drawerlayout/drawerlayout/1.1.1",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.drawerlayout/drawerlayout/1.1.1",
+      "sourceUrl": "http://source.android.com",
+      "licenseUrl": "http://source.android.com",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1587,8 +1893,8 @@
       "version": "1.1.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.dynamicanimation/dynamicanimation/1.1.0",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.dynamicanimation/dynamicanimation/1.1.0",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1599,8 +1905,8 @@
       "version": "1.3.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.emoji2/emoji2-views-helper/1.3.0",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.emoji2/emoji2-views-helper/1.3.0",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1611,8 +1917,8 @@
       "version": "1.3.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.emoji2/emoji2/1.3.0",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.emoji2/emoji2/1.3.0",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1647,8 +1953,8 @@
       "version": "1.0.1",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.graphics/graphics-shapes-android/1.0.1",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.graphics/graphics-shapes-android/1.0.1",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1666,109 +1972,157 @@
       "notice": ""
     },
     {
-      "id": "maven:androidx.lifecycle:lifecycle-common:2.6.2",
-      "name": "androidx.lifecycle:lifecycle-common:2.6.2",
-      "version": "2.6.2",
+      "id": "maven:androidx.legacy:legacy-support-core-utils:1.0.0",
+      "name": "androidx.legacy:legacy-support-core-utils:1.0.0",
+      "version": "1.0.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-common/2.6.2",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-common/2.6.2",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.legacy/legacy-support-core-utils/1.0.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.legacy/legacy-support-core-utils/1.0.0",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
     },
     {
-      "id": "maven:androidx.lifecycle:lifecycle-livedata-core:2.6.2",
-      "name": "androidx.lifecycle:lifecycle-livedata-core:2.6.2",
-      "version": "2.6.2",
+      "id": "maven:androidx.lifecycle:lifecycle-common-java8:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-common-java8:2.9.3",
+      "version": "2.9.3",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
-      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-common-java8/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-common-java8/2.9.3",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
     },
     {
-      "id": "maven:androidx.lifecycle:lifecycle-livedata:2.6.2",
-      "name": "androidx.lifecycle:lifecycle-livedata:2.6.2",
-      "version": "2.6.2",
+      "id": "maven:androidx.lifecycle:lifecycle-common-jvm:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-common-jvm:2.9.3",
+      "version": "2.9.3",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
-      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-common-jvm/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-common-jvm/2.9.3",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
     },
     {
-      "id": "maven:androidx.lifecycle:lifecycle-process:2.6.2",
-      "name": "androidx.lifecycle:lifecycle-process:2.6.2",
-      "version": "2.6.2",
+      "id": "maven:androidx.lifecycle:lifecycle-livedata-core-ktx:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-livedata-core-ktx:2.9.3",
+      "version": "2.9.3",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
-      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-livedata-core-ktx/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-livedata-core-ktx/2.9.3",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
     },
     {
-      "id": "maven:androidx.lifecycle:lifecycle-runtime-ktx:2.6.2",
-      "name": "androidx.lifecycle:lifecycle-runtime-ktx:2.6.2",
-      "version": "2.6.2",
+      "id": "maven:androidx.lifecycle:lifecycle-livedata-core:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-livedata-core:2.9.3",
+      "version": "2.9.3",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
-      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-livedata-core/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-livedata-core/2.9.3",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
     },
     {
-      "id": "maven:androidx.lifecycle:lifecycle-runtime:2.6.2",
-      "name": "androidx.lifecycle:lifecycle-runtime:2.6.2",
-      "version": "2.6.2",
+      "id": "maven:androidx.lifecycle:lifecycle-livedata:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-livedata:2.9.3",
+      "version": "2.9.3",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-runtime/2.6.2",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-runtime/2.6.2",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-livedata/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-livedata/2.9.3",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
     },
     {
-      "id": "maven:androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2",
-      "name": "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2",
-      "version": "2.6.2",
+      "id": "maven:androidx.lifecycle:lifecycle-process:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-process:2.9.3",
+      "version": "2.9.3",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
-      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-process/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-process/2.9.3",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
     },
     {
-      "id": "maven:androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.2",
-      "name": "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.2",
-      "version": "2.6.2",
+      "id": "maven:androidx.lifecycle:lifecycle-runtime-android:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-runtime-android:2.9.3",
+      "version": "2.9.3",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
-      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-runtime-android/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-runtime-android/2.9.3",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
     },
     {
-      "id": "maven:androidx.lifecycle:lifecycle-viewmodel:2.6.2",
-      "name": "androidx.lifecycle:lifecycle-viewmodel:2.6.2",
-      "version": "2.6.2",
+      "id": "maven:androidx.lifecycle:lifecycle-runtime-ktx-android:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-runtime-ktx-android:2.9.3",
+      "version": "2.9.3",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
-      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-runtime-ktx-android/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-runtime-ktx-android/2.9.3",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.lifecycle:lifecycle-viewmodel-android:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-viewmodel-android:2.9.3",
+      "version": "2.9.3",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-viewmodel-android/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-viewmodel-android/2.9.3",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.3",
+      "version": "2.9.3",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-viewmodel-ktx/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-viewmodel-ktx/2.9.3",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.9.3",
+      "version": "2.9.3",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-viewmodel-savedstate-android/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-viewmodel-savedstate-android/2.9.3",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.lifecycle:lifecycle-viewmodel:2.9.3",
+      "name": "androidx.lifecycle:lifecycle-viewmodel:2.9.3",
+      "version": "2.9.3",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-viewmodel/2.9.3",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.lifecycle/lifecycle-viewmodel/2.9.3",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1781,6 +2135,30 @@
       "creator": "See original copyright notices below",
       "sourceUrl": "https://central.sonatype.com/artifact/androidx.loader/loader/1.0.0",
       "licenseUrl": "https://central.sonatype.com/artifact/androidx.loader/loader/1.0.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.localbroadcastmanager:localbroadcastmanager:1.0.0",
+      "name": "androidx.localbroadcastmanager:localbroadcastmanager:1.0.0",
+      "version": "1.0.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.localbroadcastmanager/localbroadcastmanager/1.0.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.localbroadcastmanager/localbroadcastmanager/1.0.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:androidx.print:print:1.0.0",
+      "name": "androidx.print:print:1.0.0",
+      "version": "1.0.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.print/print/1.0.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.print/print/1.0.0",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1803,8 +2181,8 @@
       "version": "1.2.1",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.recyclerview/recyclerview/1.2.1",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.recyclerview/recyclerview/1.2.1",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1815,32 +2193,32 @@
       "version": "1.0.1",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.resourceinspection/resourceinspection-annotation/1.0.1",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.resourceinspection/resourceinspection-annotation/1.0.1",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
     },
     {
-      "id": "maven:androidx.savedstate:savedstate-ktx:1.2.1",
-      "name": "androidx.savedstate:savedstate-ktx:1.2.1",
-      "version": "1.2.1",
+      "id": "maven:androidx.savedstate:savedstate-android:1.3.1",
+      "name": "androidx.savedstate:savedstate-android:1.3.1",
+      "version": "1.3.1",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.savedstate/savedstate-ktx/1.2.1",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.savedstate/savedstate-ktx/1.2.1",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.savedstate/savedstate-android/1.3.1",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.savedstate/savedstate-android/1.3.1",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
     },
     {
-      "id": "maven:androidx.savedstate:savedstate:1.2.1",
-      "name": "androidx.savedstate:savedstate:1.2.1",
-      "version": "1.2.1",
+      "id": "maven:androidx.savedstate:savedstate-ktx:1.3.1",
+      "name": "androidx.savedstate:savedstate-ktx:1.3.1",
+      "version": "1.3.1",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.savedstate/savedstate/1.2.1",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.savedstate/savedstate/1.2.1",
+      "sourceUrl": "https://central.sonatype.com/artifact/androidx.savedstate/savedstate-ktx/1.3.1",
+      "licenseUrl": "https://central.sonatype.com/artifact/androidx.savedstate/savedstate-ktx/1.3.1",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1899,8 +2277,8 @@
       "version": "1.5.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.transition/transition/1.5.0",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.transition/transition/1.5.0",
+      "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1947,8 +2325,8 @@
       "version": "1.0.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/androidx.viewpager2/viewpager2/1.0.0",
-      "licenseUrl": "https://central.sonatype.com/artifact/androidx.viewpager2/viewpager2/1.0.0",
+      "sourceUrl": "http://source.android.com",
+      "licenseUrl": "http://source.android.com",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -1985,6 +2363,18 @@
       "creator": "See original copyright notices below",
       "sourceUrl": "https://cs.android.com/androidx/platform/frameworks/support",
       "licenseUrl": "https://cs.android.com/androidx/platform/frameworks/support",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.android.installreferrer:installreferrer:2.2",
+      "name": "com.android.installreferrer:installreferrer:2.2",
+      "version": "2.2",
+      "license": "Android-SDK-License / bundled third-party notices",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://developer.android.com/studio/terms.html",
+      "licenseUrl": "https://developer.android.com/studio/terms.html",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -2614,6 +3004,102 @@
       "notice": ""
     },
     {
+      "id": "maven:com.google.android.datatransport:transport-api:3.1.0",
+      "name": "com.google.android.datatransport:transport-api:3.1.0",
+      "version": "3.1.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.android.datatransport/transport-api/3.1.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.android.datatransport/transport-api/3.1.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.android.datatransport:transport-backend-cct:3.1.9",
+      "name": "com.google.android.datatransport:transport-backend-cct:3.1.9",
+      "version": "3.1.9",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.android.datatransport/transport-backend-cct/3.1.9",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.android.datatransport/transport-backend-cct/3.1.9",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.android.datatransport:transport-runtime:3.1.9",
+      "name": "com.google.android.datatransport:transport-runtime:3.1.9",
+      "version": "3.1.9",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.android.datatransport/transport-runtime/3.1.9",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.android.datatransport/transport-runtime/3.1.9",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.android.gms:play-services-base:18.1.0",
+      "name": "com.google.android.gms:play-services-base:18.1.0",
+      "version": "18.1.0",
+      "license": "Android-SDK-License / bundled third-party notices",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://developer.android.com/studio/terms.html",
+      "licenseUrl": "https://developer.android.com/studio/terms.html",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.android.gms:play-services-basement:18.3.0",
+      "name": "com.google.android.gms:play-services-basement:18.3.0",
+      "version": "18.3.0",
+      "license": "Android-SDK-License / bundled third-party notices",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://developer.android.com/studio/terms.html",
+      "licenseUrl": "https://developer.android.com/studio/terms.html",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.android.gms:play-services-cloud-messaging:17.2.0",
+      "name": "com.google.android.gms:play-services-cloud-messaging:17.2.0",
+      "version": "17.2.0",
+      "license": "Android-SDK-License / bundled third-party notices",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://developer.android.com/studio/terms.html",
+      "licenseUrl": "https://developer.android.com/studio/terms.html",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.android.gms:play-services-stats:17.0.2",
+      "name": "com.google.android.gms:play-services-stats:17.0.2",
+      "version": "17.0.2",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.android.gms/play-services-stats/17.0.2",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.android.gms/play-services-stats/17.0.2",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.android.gms:play-services-tasks:18.1.0",
+      "name": "com.google.android.gms:play-services-tasks:18.1.0",
+      "version": "18.1.0",
+      "license": "Android-SDK-License / bundled third-party notices",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://developer.android.com/studio/terms.html",
+      "licenseUrl": "https://developer.android.com/studio/terms.html",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
       "id": "maven:com.google.android.material:material:1.13.0",
       "name": "com.google.android.material:material:1.13.0",
       "version": "1.13.0",
@@ -2650,13 +3136,157 @@
       "notice": ""
     },
     {
-      "id": "maven:com.google.errorprone:error_prone_annotations:2.15.0",
-      "name": "com.google.errorprone:error_prone_annotations:2.15.0",
-      "version": "2.15.0",
+      "id": "maven:com.google.errorprone:error_prone_annotations:2.26.0",
+      "name": "com.google.errorprone:error_prone_annotations:2.26.0",
+      "version": "2.26.0",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
-      "sourceUrl": "https://central.sonatype.com/artifact/com.google.errorprone/error_prone_annotations/2.15.0",
-      "licenseUrl": "https://central.sonatype.com/artifact/com.google.errorprone/error_prone_annotations/2.15.0",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.errorprone/error_prone_annotations/2.26.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.errorprone/error_prone_annotations/2.26.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-annotations:17.0.0",
+      "name": "com.google.firebase:firebase-annotations:17.0.0",
+      "version": "17.0.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-annotations/17.0.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-annotations/17.0.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-common:22.0.1",
+      "name": "com.google.firebase:firebase-common:22.0.1",
+      "version": "22.0.1",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/firebase/firebase-android-sdk",
+      "licenseUrl": "https://github.com/firebase/firebase-android-sdk",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-components:19.0.0",
+      "name": "com.google.firebase:firebase-components:19.0.0",
+      "version": "19.0.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-components/19.0.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-components/19.0.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-datatransport:18.2.0",
+      "name": "com.google.firebase:firebase-datatransport:18.2.0",
+      "version": "18.2.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-datatransport/18.2.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-datatransport/18.2.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-encoders-json:18.0.0",
+      "name": "com.google.firebase:firebase-encoders-json:18.0.0",
+      "version": "18.0.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-encoders-json/18.0.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-encoders-json/18.0.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-encoders-proto:16.0.0",
+      "name": "com.google.firebase:firebase-encoders-proto:16.0.0",
+      "version": "16.0.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-encoders-proto/16.0.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-encoders-proto/16.0.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-encoders:17.0.0",
+      "name": "com.google.firebase:firebase-encoders:17.0.0",
+      "version": "17.0.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-encoders/17.0.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-encoders/17.0.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-iid-interop:17.1.0",
+      "name": "com.google.firebase:firebase-iid-interop:17.1.0",
+      "version": "17.1.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-iid-interop/17.1.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-iid-interop/17.1.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-installations-interop:17.1.1",
+      "name": "com.google.firebase:firebase-installations-interop:17.1.1",
+      "version": "17.1.1",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/firebase/firebase-android-sdk",
+      "licenseUrl": "https://github.com/firebase/firebase-android-sdk",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-installations:18.0.0",
+      "name": "com.google.firebase:firebase-installations:18.0.0",
+      "version": "18.0.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/firebase/firebase-android-sdk",
+      "licenseUrl": "https://github.com/firebase/firebase-android-sdk",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-measurement-connector:19.0.0",
+      "name": "com.google.firebase:firebase-measurement-connector:19.0.0",
+      "version": "19.0.0",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-measurement-connector/19.0.0",
+      "licenseUrl": "https://central.sonatype.com/artifact/com.google.firebase/firebase-measurement-connector/19.0.0",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:com.google.firebase:firebase-messaging:25.0.1",
+      "name": "com.google.firebase:firebase-messaging:25.0.1",
+      "version": "25.0.1",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/firebase/firebase-android-sdk",
+      "licenseUrl": "https://github.com/firebase/firebase-android-sdk",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -2854,6 +3484,18 @@
       "notice": ""
     },
     {
+      "id": "maven:host.exp.exponent:expo.modules.application:58.1.2",
+      "name": "host.exp.exponent:expo.modules.application:58.1.2",
+      "version": "58.1.2",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
       "id": "maven:host.exp.exponent:expo.modules.clipboard:58.0.4",
       "name": "host.exp.exponent:expo.modules.clipboard:58.0.4",
       "version": "58.0.4",
@@ -2986,9 +3628,33 @@
       "notice": ""
     },
     {
+      "id": "maven:host.exp.exponent:expo.modules.notifications:58.1.7",
+      "name": "host.exp.exponent:expo.modules.notifications:58.1.7",
+      "version": "58.1.7",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
       "id": "maven:host.exp.exponent:expo.modules.screenorientation:58.0.3",
       "name": "host.exp.exponent:expo.modules.screenorientation:58.0.3",
       "version": "58.0.3",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:host.exp.exponent:expo.modules.securestore:58.0.2",
+      "name": "host.exp.exponent:expo.modules.securestore:58.0.2",
+      "version": "58.0.2",
       "license": "MIT",
       "creator": "See original copyright notices below",
       "sourceUrl": "https://github.com/expo/expo",
@@ -3118,6 +3784,18 @@
       "notice": ""
     },
     {
+      "id": "maven:me.leolin:ShortcutBadger:1.1.22",
+      "name": "me.leolin:ShortcutBadger:1.1.22",
+      "version": "1.1.22",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/leolin310148/ShortcutBadger",
+      "licenseUrl": "https://github.com/leolin310148/ShortcutBadger",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
       "id": "maven:org.aomedia.avif.android:avif:1.1.1.14d8e3c4",
       "name": "org.aomedia.avif.android:avif:1.1.1.14d8e3c4",
       "version": "1.1.1.14d8e3c4",
@@ -3166,9 +3844,9 @@
       "notice": ""
     },
     {
-      "id": "maven:org.jetbrains.kotlin:kotlin-android-extensions-runtime:2.0.0",
-      "name": "org.jetbrains.kotlin:kotlin-android-extensions-runtime:2.0.0",
-      "version": "2.0.0",
+      "id": "maven:org.jetbrains.kotlin:kotlin-android-extensions-runtime:2.2.10",
+      "name": "org.jetbrains.kotlin:kotlin-android-extensions-runtime:2.2.10",
+      "version": "2.2.10",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
       "sourceUrl": "https://github.com/JetBrains/kotlin",
@@ -3190,9 +3868,9 @@
       "notice": ""
     },
     {
-      "id": "maven:org.jetbrains.kotlin:kotlin-parcelize-runtime:2.0.0",
-      "name": "org.jetbrains.kotlin:kotlin-parcelize-runtime:2.0.0",
-      "version": "2.0.0",
+      "id": "maven:org.jetbrains.kotlin:kotlin-parcelize-runtime:2.2.10",
+      "name": "org.jetbrains.kotlin:kotlin-parcelize-runtime:2.2.10",
+      "version": "2.2.10",
       "license": "Apache-2.0",
       "creator": "See original copyright notices below",
       "sourceUrl": "https://github.com/JetBrains/kotlin",
@@ -3269,6 +3947,30 @@
       "creator": "See original copyright notices below",
       "sourceUrl": "https://github.com/Kotlin/kotlinx.coroutines",
       "licenseUrl": "https://github.com/Kotlin/kotlinx.coroutines",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2",
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2",
+      "version": "1.10.2",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/Kotlin/kotlinx.coroutines",
+      "licenseUrl": "https://github.com/Kotlin/kotlinx.coroutines",
+      "usage": "Android release runtime",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": ""
+    },
+    {
+      "id": "maven:org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3",
+      "name": "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3",
+      "version": "1.7.3",
+      "license": "Apache-2.0",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/Kotlin/kotlinx.serialization",
+      "licenseUrl": "https://github.com/Kotlin/kotlinx.serialization",
       "usage": "Android release runtime",
       "changes": "Original notices retained; no license terms translated.",
       "notice": ""
@@ -3463,6 +4165,21 @@
       }
     },
     {
+      "id": "npm:abort-controller@3.0.0",
+      "name": "abort-controller",
+      "version": "3.0.0",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/mysticatea/abort-controller",
+      "licenseUrl": "https://github.com/mysticatea/abort-controller",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "3d64dcdcf9d0a1d045eb6bcaa5013d486f15527a3668e64b1155839a797da164"
+      }
+    },
+    {
       "id": "npm:ansi-styles@5.2.0",
       "name": "ansi-styles",
       "version": "5.2.0",
@@ -3490,6 +4207,36 @@
       "notice": "",
       "evidence": {
         "packageJsonSha256": "9758f3ab8c45e07bb9a368e32f9a8b3729623bbf47cbbb205b32d674ab2a91f0"
+      }
+    },
+    {
+      "id": "npm:event-target-shim@5.0.1",
+      "name": "event-target-shim",
+      "version": "5.0.1",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/mysticatea/event-target-shim",
+      "licenseUrl": "https://github.com/mysticatea/event-target-shim",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "980bdd7706c72d04a4df2e3ee2c8ffccf3bc72bd8e7cd13ca38be00cafc6e8db"
+      }
+    },
+    {
+      "id": "npm:expo-application@58.1.2",
+      "name": "expo-application",
+      "version": "58.1.2",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "baad9b9de65c79515d77cde866f3595ec1cef74b8c6a62a73b1e1ff09730ca86"
       }
     },
     {
@@ -3523,9 +4270,9 @@
       }
     },
     {
-      "id": "npm:expo-constants@58.0.13",
+      "id": "npm:expo-constants@58.0.14",
       "name": "expo-constants",
-      "version": "58.0.13",
+      "version": "58.0.14",
       "license": "MIT",
       "creator": "See original copyright notices below",
       "sourceUrl": "https://github.com/expo/expo",
@@ -3534,7 +4281,7 @@
       "changes": "Original notices retained; no license terms translated.",
       "notice": "",
       "evidence": {
-        "packageJsonSha256": "b1a13b0a908b2403d09bfe59921a19727002f2e265dd053384943f84e3ae8649"
+        "packageJsonSha256": "4d4153022d187d47a8e9bb33eb349ea5eca7c6a8758c4bd29f3e937ec94cf59a"
       }
     },
     {
@@ -3778,6 +4525,21 @@
       }
     },
     {
+      "id": "npm:expo-notifications@58.1.7",
+      "name": "expo-notifications",
+      "version": "58.1.7",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "7bfe28338fa915934718c618b1b42f8650bf3b6d69403f3afb4fecface72d6e5"
+      }
+    },
+    {
       "id": "npm:expo-screen-orientation@58.0.3",
       "name": "expo-screen-orientation",
       "version": "58.0.3",
@@ -3790,6 +4552,21 @@
       "notice": "",
       "evidence": {
         "packageJsonSha256": "e79bccf9862d3e75980a4145d8b86edbcd03cd4aa999341c6d6088a0c2fb0f91"
+      }
+    },
+    {
+      "id": "npm:expo-secure-store@58.0.2",
+      "name": "expo-secure-store",
+      "version": "58.0.2",
+      "license": "MIT",
+      "creator": "See original copyright notices below",
+      "sourceUrl": "https://github.com/expo/expo",
+      "licenseUrl": "https://github.com/expo/expo",
+      "usage": "JavaScript / native module",
+      "changes": "Original notices retained; no license terms translated.",
+      "notice": "",
+      "evidence": {
+        "packageJsonSha256": "810fd562270182b7497ef1045a7a09a038861f7733e2967e165aa686bbad34e6"
       }
     },
     {
