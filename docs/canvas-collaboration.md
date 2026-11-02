@@ -280,3 +280,8 @@ V22은 기존 canvas_elements와 canvas_history_operations에 표현식 GIN 인�
 - 인덱스 사전 생성은 조건부 `FlywayMigrationStrategy`가 아니라 `BEFORE_MIGRATE` 콜백으로 등록한다. 다른 전략에서도 설정된 Flyway의 `migrate()`를 호출하면 먼저 실행되며 기존 V22 SQL·체크섬은 유지한다.
 
 - 최신 develop의 V21 초대 알림 마이그레이션과 번호가 겹쳐 인덱스 SQL은 내용 변경 없이 V22로 이동했다. 이 기능 브랜치의 이전 V21을 직접 적용한 개인 테스트 DB는 버전 이력이 최신 develop과 달라 자동 업그레이드 대상으로 보지 않는다. 백업 후 전용 테스트 DB를 새로 만들거나 담당자와 이력을 확인해야 하며 자동 repair/이력 삭제는 하지 않는다. develop의 V21은 수정하지 않는다.
+
+
+### WebSocket handshake 403 운영 점검
+
+Android native의 REST 성공과 WebSocket Origin 허용은 별도다. 개발 서버 외부 Origin은 `https://k15f106.p.ssafy.io:8443`이며, 배포 `AUTH_ALLOWED_ORIGINS`에 정확한 외부 포트를 포함한다. Nginx `/ws/`는 `Host $http_host`와 고정 `X-Forwarded-Port`(dev 8443/prod 443)로 외부 포트를 보존하며, Tomcat은 신뢰 프록시에서만 포트 헤더를 읽는다. HTTP 101 이전의 401/403과 연결 후 회원 인증 실패 1008을 구분한다. 비공개 env 갱신·컨테이너 재생성과 101→AUTH→READY 확인 절차는 [인증 배포 문서](../infra/auth-deployment.md)의 Android Expo Go WebSocket Origin 점검을 따른다.
