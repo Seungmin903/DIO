@@ -8,7 +8,7 @@ import { getTemplate } from '../src/editor/templates/catalog.js'
 import { SERVER_TEMPLATE_CATALOG, serverTemplateReference, localTemplateReference, toServerInitialPageSelections, plannerTemplatesEnabled } from '../src/editor/templates/serverCatalog.js'
 import { catalogContract, seedMigration, catalogResource, migrationResource, V9_CONTRACT_SHA256, normalizeV9ContractSource } from '../scripts/generate-page-template-catalog.mjs'
 
-const plannerMigrationResource = new URL('../../backend/src/main/resources/db/migration/V25__add_study_and_daily_planner_templates.sql', import.meta.url)
+const plannerMigrationResource = new URL('../../backend/src/main/resources/db/migration/V27__add_study_and_daily_planner_templates.sql', import.meta.url)
 
 test('전체 속지·플래너·빈 속지가 독립된 서버 코드로 매핑된다', () => {
   const plannerAssets = ['landscape', 'portrait'].flatMap(orientation => [
@@ -29,7 +29,7 @@ test('전체 속지·플래너·빈 속지가 독립된 서버 코드로 매핑�
   }
 })
 
-test('V25 전용 빌드는 플래너 선택을 명시적으로 끌 수 있다', () => {
+test('V27 전용 빌드는 플래너 선택을 명시적으로 끌 수 있다', () => {
   assert.equal(plannerTemplatesEnabled('0'), false)
   assert.equal(plannerTemplatesEnabled('1'), true)
   assert.equal(plannerTemplatesEnabled(undefined), true)
@@ -109,13 +109,13 @@ test('V9 스냅샷과 Flyway 등록 SQL은 런타임 플래너 추가와 독립�
   assert.ok(SERVER_TEMPLATE_CATALOG.every(t => t.templateCode.length <= 100 && t.templateVersion.length <= 30))
 })
 
-test('V25 플래너 시드는 프런트 플래너 카탈로그와 같은 코드·규격·기본 설정을 쓴다', async () => {
+test('V27 플래너 시드는 프런트 플래너 카탈로그와 같은 코드·규격·기본 설정을 쓴다', async () => {
   const sql = await readFile(plannerMigrationResource, 'utf8')
   const planners = SERVER_TEMPLATE_CATALOG.filter(row => /^(study|day)-planner-(landscape|portrait)$/.test(row.templateCode))
   assert.equal(planners.length, 4)
   planners.forEach((row, index) => {
     const seed = `('${row.templateCode}', '${row.templateVersion}', '${row.name}', '${row.category}', '${row.orientation}', ${row.canvasWidth}, ${row.canvasHeight}, '${JSON.stringify(row.defaultConfig)}'::jsonb, ${index + 1})`
-    assert.ok(sql.includes(seed), `missing V25 seed: ${row.templateCode}`)
+    assert.ok(sql.includes(seed), `missing V27 seed: ${row.templateCode}`)
   })
 })
 

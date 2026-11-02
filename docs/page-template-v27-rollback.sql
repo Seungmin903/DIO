@@ -1,6 +1,6 @@
 -- Deployment order: release the frontend containing studyPlanner.js, dayPlanner.js and serverCatalog.js first.
 -- These planner IDs render as runtime SVGs; no separate backend SVG asset is required.
--- V25 deployment preflight: this must return no rows before applying V25.
+-- V27 deployment preflight: this must return no rows before applying V27.
 WITH replacements(old_code, expected_orientation, expected_width, expected_height) AS (
     VALUES
         ('2026-reusable-daily-landscape', 'LANDSCAPE', 1024, 768),
@@ -19,12 +19,12 @@ WHERE source.template_version = '1.0.0'
        OR page.canvas_height IS DISTINCT FROM replacement.expected_height)
 ORDER BY page.page_id;
 
--- Manual rollback for V25 page reassignment. Run only after previewing the following query.
--- Pages changed after V25 are deliberately excluded so this never overwrites newer user edits.
+-- Manual rollback for V27 page reassignment. Run only after previewing the following query.
+-- Pages changed after V27 are deliberately excluded so this never overwrites newer user edits.
 
 SELECT page.page_id, page.version, backup.previous_version, page.updated_at, backup.previous_updated_at
 FROM pages page
-JOIN page_template_v25_backups backup ON backup.page_id = page.page_id
+JOIN page_template_v27_backups backup ON backup.page_id = page.page_id
 WHERE page.version = backup.previous_version + 1
   AND page.template_id IN (
       SELECT template_id FROM page_templates
@@ -39,7 +39,7 @@ SET template_id = backup.previous_template_id,
     template_config = backup.previous_template_config,
     version = backup.previous_version,
     updated_at = backup.previous_updated_at
-FROM page_template_v25_backups backup
+FROM page_template_v27_backups backup
 WHERE backup.page_id = page.page_id
   AND page.version = backup.previous_version + 1
   AND page.template_id IN (
@@ -49,6 +49,6 @@ WHERE backup.page_id = page.page_id
 
 COMMIT;
 
--- Retention: preserve page_template_v25_backups for 30 days after V25 deployment.
+-- Retention: preserve page_template_v27_backups for 30 days after V27 deployment.
 -- After the rollback window ends and operators have confirmed no rollback is required, run manually:
--- DROP TABLE page_template_v25_backups;
+-- DROP TABLE page_template_v27_backups;
