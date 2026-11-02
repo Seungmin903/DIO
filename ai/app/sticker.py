@@ -46,8 +46,46 @@ def make_preview(mask: np.ndarray, max_side: int | None = None) -> Image.Image:
     return Image.fromarray(out, "RGBA")
 
 
-def make_sticker(image: Image.Image, mask: np.ndarray) -> Image.Image | None:
-    """clean_mask 를 거친 마스크(uint8 0/1)로 스티커를 만든다."""
+def _crop_and_shrink(image: Image.Image, mask: np.ndarray, max_side: int | None):
+    """대상 둘레만 잘라내고, 결과 스티커가 max_side 안에 들어가도록 미리 줄인다.
+
+    테두리·그림자 두께가 대상 크기에 비례하므로 효과를 넣기 전에 줄여야 모양이 같다.
+    원본 전체(최대 4천만 화소)를 다루지 않아 메모리도 적게 쓴다.
+    """
+    ys, xs = np.nonzero(mask)
+    margin = 8  # 경계 안티앨리어싱이 바깥 몇 px 색을 참고한다
+    h, w = mask.shape
+    top, bottom = max(0, ys.min() - margin), min(h, ys.max() + margin + 1)
+    left, right = max(0, xs.min() - margin), min(w, xs.max() + margin + 1)
+    image = image.crop((left, top, right, bottom))
+    mask = mask[top:bottom, left:right]
+
+    # 테두리+여백이 대상 크기의 약 15%를 더하므로 여유를 두고 줄인다.
+    target = max_side / 1.2 if max_side else None
+    size = max(right - left, bottom - top)
+    if target and size > target:
+        scale = target / size
+        new_size = (max(1, round(mask.shape[1] * scale)), max(1, round(mask.shape[0] * scale)))
+        image = image.resize(new_size, Image.LANCZOS)
+        mask = (cv2.resize(mask.astype(np.float32), new_size, interpolation=cv2.INTER_AREA) >= 0.5).astype(np.uint8)
+    return image, mask
+
+
+def _fit(sticker: Image.Image, max_side: int | None) -> Image.Image:
+    """그래도 넘치면 마지막으로 맞춘다. 투명 경계가 어두워지지 않게 premultiplied(RGBa)로 줄인다."""
+    if not max_side or max(sticker.size) <= max_side:
+        return sticker
+    scale = max_side / max(sticker.size)
+    size = (max(1, round(sticker.width * scale)), max(1, round(sticker.height * scale)))
+    return sticker.convert("RGBa").resize(size, Image.LANCZOS).convert("RGBA")
+
+
+def make_sticker(image: Image.Image, mask: np.ndarray, max_side: int | None = None) -> Image.Image | None:
+    """clean_mask 를 거친 마스크(uint8 0/1)로 스티커를 만든다. max_side 를 주면 긴 변을 그 이하로 맞춘다."""
+    if mask.sum() == 0:
+        return None
+
+    image, mask = _crop_and_shrink(image, mask, max_side)
     if mask.sum() == 0:
         return None
 
@@ -84,7 +122,7 @@ def make_sticker(image: Image.Image, mask: np.ndarray) -> Image.Image | None:
     ys, xs = np.nonzero(out[..., 3] > 0.01)
     out = out[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
     out[..., 3] *= 255
-    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
+    return _fit(Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA"), max_side)
 
 
 def _over(dst: np.ndarray, src: np.ndarray) -> np.ndarray:
