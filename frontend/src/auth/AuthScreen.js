@@ -77,6 +77,7 @@ export default function AuthScreen({
   const [photoUri, setPhotoUri] = useState(null);
   const [signupComplete, setSignupComplete] = useState(false);
   const [needsLoginAccess, setNeedsLoginAccess] = useState(false);
+  const socialAccessRetry = useRef(null);
   const [accessId, setAccessId] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
   const canSetDevelopmentAccess = typeof __DEV__ !== 'undefined' && __DEV__ &&
@@ -145,6 +146,7 @@ export default function AuthScreen({
     };
   }, []);
   const navigate = (next, provider = enrollmentProvider) => {
+    socialAccessRetry.current = null;
     if (enrollmentBlocked.current && next !== 'welcome') next = 'underage';
     if (provider === 'email' && (next === 'signup' || next === 'eligibility') && !emailVerificationEnabled && !verificationService) {
       Keyboard.dismiss();
@@ -184,18 +186,23 @@ export default function AuthScreen({
     setEnrollmentProvider(provider);
     navigate('eligibility', provider);
   };
+  const submitSocial = (provider, eligibility) => run(
+    () => service.social(provider, eligibility),
+    result => {
+      socialAccessRetry.current=null;
+      if(result?.mode==='authenticated'){Keyboard.dismiss();onContinue(result);return;}
+      setPhotoUri(null);setValues(emptyValues());setProfile(result);navigate('profile');
+    },
+    error => {
+      if(canSetDevelopmentAccess && error?.code==='DEVELOPMENT_ACCESS_REQUIRED'){
+        socialAccessRetry.current={provider,eligibility};setNeedsLoginAccess(true);setRoute('welcome');
+      }
+    },
+  );
   const continueEnrollment = () => {
     if (enrollmentBlocked.current || !signupEligibility({ ageConfirmed, terms }, legalDocuments)) return;
     if (enrollmentProvider === 'email') { navigate('signup'); return; }
-    run(
-      () => service.social(enrollmentProvider),
-      (result) => {
-        setPhotoUri(null);
-        setValues(emptyValues());
-        setProfile(result);
-        navigate('profile');
-      },
-    );
+    submitSocial(enrollmentProvider,{ageConfirmed,terms});
   };
   const viewDocument = async (key, title) => {
     const url = createSignupDocuments(legalDocuments)[key];
@@ -508,11 +515,12 @@ export default function AuthScreen({
                       verificationService.setDevelopmentAccess(accessId, accessPassword);
                       setAccessPassword('');
                       setNeedsLoginAccess(false);
-                      submitLogin();
+                      const retry=socialAccessRetry.current;socialAccessRetry.current=null;
+                      if(retry)submitSocial(retry.provider,retry.eligibility);else submitLogin();
                     } catch (error) {
                       setMessage(error?.message || '개발 서버 접속 정보를 확인해 주세요.');
                     }
-                  }, !accessId.trim() || !accessPassword || !credentialsValid(values, false))}
+                  }, !accessId.trim() || !accessPassword || (!socialAccessRetry.current && !credentialsValid(values, false)))}
                 </> : null}
                 <View style={s.submitArea}>
                   {message ? (

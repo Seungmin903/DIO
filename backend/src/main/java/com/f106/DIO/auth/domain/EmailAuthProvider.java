@@ -22,4 +22,9 @@ public class EmailAuthProvider {
         this.userId = userId; provider = "EMAIL"; providerUserId = email;
         this.passwordHash = passwordHash; createdAt = now;
     }
+    public static EmailAuthProvider social(Long userId, SocialProvider provider, String subject, Instant now) {
+        var account=new EmailAuthProvider();account.userId=userId;account.provider=provider.name();
+        account.providerUserId=subject;account.createdAt=now;account.passwordHash=null;
+        return account;
+    }
 }

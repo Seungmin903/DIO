@@ -131,7 +131,7 @@ test('취소된 로그인 응답은 세션을 만들지 않는다', async () => 
 });
 test('소셜 로그인은 서버 구현 없이 체험 계정을 생성하지 않는다', async () => {
   const { api, calls } = setup(() => { throw new Error('unexpected'); });
-  await assert.rejects(api.social('google'), /아직 연결/); assert.equal(calls.length, 0);
+  await assert.rejects(api.social('google', {ageConfirmed:true}), /연결되지/); assert.equal(calls.length, 0);
 });
 
 test('개발 프록시에서는 Basic 헤더와 충돌하지 않는 별도 토큰 헤더를 사용한다', async () => {

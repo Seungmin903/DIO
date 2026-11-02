@@ -45,6 +45,8 @@ dio:
     cleanup:
       enabled: ${PUSH_REGISTRATION_CLEANUP_ENABLED:true}
   auth:
+    google:
+      client-ids: ${AUTH_GOOGLE_CLIENT_IDS:}
     jwt-secret: ${AUTH_JWT_SECRET:}
     access-token-seconds: ${AUTH_ACCESS_TOKEN_SECONDS:900}
     refresh-token-seconds: ${AUTH_REFRESH_TOKEN_SECONDS:2592000}

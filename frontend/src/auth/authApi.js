@@ -10,7 +10,7 @@ export function authBaseUrl(value) {
 
 // Tokens and the optional development-server Basic header stay in memory.
 // Never save passwords or tokens in AsyncStorage.
-export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null }) {
+export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   const accessOrigin = new URL(base).origin;
@@ -30,6 +30,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     accessStore?.clear(accessOrigin).catch(() => {});
   };
   let signupPending = false;
+  let socialDraft = null;
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   const acceptSession = result => {
     const text = value => typeof value === 'string' && value.trim().length > 0;
@@ -45,14 +46,14 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       throw Object.assign(new Error('로그인 응답을 확인하지 못했어요. 다시 로그인해 주세요.'), { status: 502, code: 'INVALID_AUTH_RESPONSE' });
     }
     const lifetime = result.expiresIn * 1000;
-    session = result;
+    session = { ...result, provider: result.provider || session?.provider || 'email' };
     accessRefreshAt = now() + lifetime - Math.min(30000, lifetime / 2);
   };
   const unauthorized = () => Object.assign(new Error('다시 로그인해 주세요.'), { status: 401, code: 'AUTHENTICATION_REQUIRED' });
   let passwordReset = null, resetRevision = 0, resetVerifying = null, verificationRevision = 0;
 
   const userView = (user) => ({
-    mode: 'authenticated', provider: 'email', userId: user.userId,
+    mode: 'authenticated', provider: session?.provider || 'email', userId: user.userId,
     email: user.email, nickname: user.nickname,
     photoUri: user.profilePhotoUrl ? new URL(user.profilePhotoUrl, base).href : null,
   });
@@ -166,7 +167,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       revision++;
       resetRevision++; passwordReset = null; resetVerifying = null;
 
-      if (!keepEnrollment) { verificationRevision++; draft = null; verification = null; }
+      if (!keepEnrollment) { verificationRevision++; draft = null; verification = null; socialDraft = null; }
     },
     async login({ email, password }) {
       const attempt = ++revision;
@@ -177,7 +178,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         throw Object.assign(new Error('로그인 응답의 계정을 확인하지 못했어요. 다시 로그인해 주세요.'),
           { status: 502, code: 'INVALID_AUTH_RESPONSE' });
       }
-      acceptSession(result);
+      acceptSession({ ...result, provider: 'email' });
       sessionSequence++;
       return userView(result.user);
     },
@@ -269,7 +270,25 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       session = null; api.cancelPending();
     },
 
-    async completeProfile({ email, nickname, photoUri, terms }) {
+    async completeProfile({ provider, email, nickname, photoUri, terms }) {
+      if (provider === 'google') {
+        if(signupPending)throw new Error('회원가입을 처리하고 있어요. 잠시만 기다려 주세요.');
+        const current=socialDraft, attempt=revision;
+        if(!current || current.email!==normalizeEmail(email))throw new Error('구글 인증을 다시 진행해 주세요.');
+        if(nicknameError(nickname))throw new Error(nicknameError(nickname));
+        if(!current.ageConfirmed || terms?.service!==true || terms?.privacy!==true)throw new Error('연령 확인과 필수 약관 동의가 필요해요.');
+        const body={idToken:current.idToken,enrollment:{nickname:normalizeNickname(nickname),ageConfirmed:true,agreements:signupAgreements(terms)}};
+        let upload;signupPending=true;
+        try{
+          if(photoUri)upload=await buildPhotoBody(body,photoUri,'oauth');
+          if(revision!==attempt||socialDraft!==current)throw new Error('가입 요청이 취소되었어요.');
+          const result=await request('oauth/google',upload?.body ?? body,undefined,!!upload);
+          if(revision!==attempt||socialDraft!==current)throw new Error('가입 요청이 취소되었어요.');
+          acceptSession({...result,provider:'google'});sessionSequence++;socialDraft=null;
+          return userView(result.user);
+        }catch(error){if(socialDraft===current&&error?.code==='INVALID_SOCIAL_CREDENTIAL')socialDraft=null;throw error;}
+        finally {try{await upload?.dispose?.();}catch{}signupPending=false;}
+      }
       if (signupPending) throw new Error('회원가입을 처리하고 있어요. 잠시만 기다려 주세요.');
       if (!draft || draft.email !== normalizeEmail(email) || !verification ||
           verification.email !== draft.email || verification.expiresAt <= now()) {
@@ -381,7 +400,26 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         if (withdrawn && session === current) { session = null; api.cancelPending(); }
       }
     },
-    async social() { throw new Error('소셜 로그인 API는 아직 연결되지 않았어요.'); },
+    async social(provider, {ageConfirmed} = {}) {
+      if(provider!=='google')throw new Error('아직 준비 중인 로그인 방식이에요.');
+      if(ageConfirmed!==true)throw new Error('만 14세 이상인지 확인해 주세요.');
+      if(typeof googleSignIn!=='function')throw new Error('구글 로그인 기능이 연결되지 않았어요.');
+      const attempt=++revision;socialDraft=null;
+      const credential=await googleSignIn();
+      if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
+      if(!credential?.idToken||!credential?.email)throw new Error('구글 인증 정보를 받지 못했어요.');
+      try{
+        const result=await request('oauth/google',{idToken:credential.idToken});
+        if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
+        acceptSession({...result,provider:'google'});sessionSequence++;
+        return userView(result.user);
+      }catch(error){
+        if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
+        if(error?.code!=='SOCIAL_SIGNUP_REQUIRED')throw error;
+        socialDraft={idToken:credential.idToken,email:normalizeEmail(credential.email),ageConfirmed:true};
+        return {provider:'google',email:socialDraft.email,mode:'social-signup'};
+      }
+    },
     async refresh() {
       if (refreshing) return refreshing;
       if (!session) throw new Error('다시 로그인해 주세요.');

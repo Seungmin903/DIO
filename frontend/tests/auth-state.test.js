@@ -510,3 +510,18 @@ test('인증 화면의 접근성 역할은 설치된 React Native 네이티브 �
  }
  for(const path of ['../src/auth/AuthScreen.js','../src/auth/ProfileEditScreen.js','../src/diary/screens/ProfileScreen.js'])visit(babel.parseSync(readFileSync(new URL(path,import.meta.url),'utf8'),{configFile:false,babelrc:false,parserOpts:{plugins:['jsx']}}))
 })
+
+test('구글 기존 회원은 프로필 입력 없이 바로 로그인한다',async()=>{
+ const ui=setup({social:async()=>({mode:'authenticated',provider:'google',userId:'7',email:'user@gmail.com'})});
+ try {find(ui.render(),'구글로 로그인').props.onPress();find(ui.render(),'만 14세 이상입니다').props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress();find(ui.render(),'동의하고 계속').props.onPress();await new Promise(r=>setImmediate(r));assert.equal(ui.sessions[0].provider,'google');assert.equal(find(ui.render(),'닉네임'),undefined);}finally{ui.unmount();}
+});
+
+test('구글 로그인도 기존 개발 서버 인증 화면에서 재시도한다',async()=>{
+ let count=0,configured=false;const service={verificationService:{setDevelopmentAccess(){configured=true;}},social:async()=>{if(++count===1)throw Object.assign(new Error('개발 서버 접근 인증'),{code:'DEVELOPMENT_ACCESS_REQUIRED'});return {mode:'authenticated',provider:'google',userId:'7',email:'user@gmail.com'};}};
+ const ui=setup(service,undefined,{developmentMode:true,emailVerificationEnabled:true});
+ try{
+ find(ui.render(),'구글로 로그인').props.onPress();find(ui.render(),'만 14세 이상입니다').props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress();find(ui.render(),'동의하고 계속').props.onPress();await new Promise(r=>setImmediate(r));
+ find(ui.render(),'개발 서버 ID').props.onChange('tester');find(ui.render(),'개발 서버 비밀번호').props.onChange('secret');
+ assert.equal(find(ui.render(),'접속 인증 후 로그인').props.disabled,false);find(ui.render(),'접속 인증 후 로그인').props.onPress();await new Promise(r=>setImmediate(r));assert.equal(configured,true);assert.equal(ui.sessions[0].provider,'google');
+ }finally{ui.unmount();}
+});

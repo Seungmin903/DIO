@@ -24,7 +24,7 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   const mod = { exports: {} }
   const mocks = { 'react-native': { Platform: { OS: 'android' } }, './authApi': {
    authBaseUrl: value => `${value}/api/v1`, createAuthApi: options => options,
-  }, './photoUpload': { buildPhotoBody() {} }, 'expo/fetch': { fetch() {} },
+  }, './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, 'expo/fetch': { fetch() {} },
    './developmentAccessStore': { createDevelopmentAccessStore: options => { stores++; storeOptions = options; return 'store'; } },
    './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' } }
   let stores = 0, storeOptions = null
