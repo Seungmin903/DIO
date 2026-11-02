@@ -2,6 +2,12 @@ services:
   nginx-prod:
     image: ${NGINX_PROD_IMAGE:?NGINX_PROD_IMAGE is required}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+        compress: "true"
     ports:
       - "80:80"
       - "443:443"
