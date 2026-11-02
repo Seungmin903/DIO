@@ -739,3 +739,23 @@ test('정원이 찬 서버 다이어리는 초대 API가 있어도 이메일 입
     assert.equal(sent,0);ui.unmount();
   }
 });
+
+
+test('서버 이메일 초대 화면은 기존 입력란을 활성화하고 입력한 주소로 연결 함수를 호출한다', async () => {
+  const diary = { id: 'server-diary', members: [{ id: 'self', role: 'OWNER' }] };
+  const calls = [];
+  const ui = setup({ server: true, registerDiary: () => diary,
+    getSharing: async () => diary,
+    sendEmailInvite: async (id, email) => { calls.push({ id, email }); return diary; },
+  }, undefined, { diary });
+  await tick();
+  find(ui.render(), '이메일로 초대').props.onPress();
+  assert.equal(find(ui.render(), '초대할 이메일').props.editable, true);
+  find(ui.render(), '초대할 이메일').props.onChangeText('friend@example.com');
+  assert.equal(find(ui.render(), '이메일 초대 보내기').props.disabled, false);
+  find(ui.render(), '이메일 초대 보내기').props.onPress();
+  await tick();
+  assert.deepEqual(calls, [{ id: 'server-diary', email: 'friend@example.com' }]);
+  assert.equal(find(ui.render(), '초대할 이메일').props.value, '');
+  ui.unmount();
+});

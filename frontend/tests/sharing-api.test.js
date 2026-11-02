@@ -301,3 +301,20 @@ test('사진 소스 제공자가 인증 헤더를 붙여도 외부 출처·잘�
     assert.ok(f.calls.every(call=>call.url.startsWith('https://api.dio.test/api/v1/')));
   }
 });
+
+
+test('상대 초대 주소는 현재 HTTPS 서버의 절대 주소로 표시하고 복사할 수 있다', async () => {
+  const f = fixture({ fetch: url => url.endsWith('/invites?page=0&size=20')
+    ? reply({ available: true, inviteUrl: '/invite/signed-token', emailInvites: { items: [], page: 0, hasNext: false } }) : null });
+  const diary = await f.runtime.getSharing(diaryId);
+  assert.equal(diary.link, 'https://api.dio.test/invite/signed-token');
+  assert.equal(f.runtime.getSnapshot().diaries[0].link, diary.link);
+  await f.runtime.resolveLink(diary.link);
+  assert.equal(f.calls.at(-1).url, 'https://api.dio.test/api/v1/invites/signed-token');
+});
+
+test('서버가 지정한 HTTPS 초대 화면 주소는 그대로 유지한다', async () => {
+  const f = fixture({ fetch: url => url.endsWith('/invites?page=0&size=20')
+    ? reply({ available: true, inviteUrl: 'https://invite.dio.test/invite/signed-token', emailInvites: { items: [], page: 0, hasNext: false } }) : null });
+  assert.equal((await f.runtime.getSharing(diaryId)).link, 'https://invite.dio.test/invite/signed-token');
+});

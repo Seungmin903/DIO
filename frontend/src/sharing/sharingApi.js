@@ -163,7 +163,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       presence: m.role === 'OWNER' ? '소유자' : '편집자' })));
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const diary = { id, title: detail.diary.diaryTitle, color: detail.diary.coverColor,
-      link: links.available ? links.inviteUrl : null, favorite: detail.diary.myMembership?.isFavorite === true,
+      link: links.available ? uri(links.inviteUrl) : null, favorite: detail.diary.myMembership?.isFavorite === true,
       members: mappedMembers, linkExpiresAt: links.expiresAt || null, emailInvites: sent.items, emailNextPage: sent.nextPage };
     diaries.set(id, diary); publish(); return diary;
   }
