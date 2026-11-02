@@ -21,7 +21,7 @@ export const profileStyles = StyleSheet.create({
   trayCompact: { minHeight: 152, gap: 14, padding: 16 },
   avatarActions: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 4 },
   photo: { width: 112, height: 112, borderRadius: 56 },
-  photoCompact: { width: 80, height: 80, borderRadius: 40 },
+  photoCompact: { width: 96, height: 96, borderRadius: 48 }, // 폰 사진 판(높이 152)의 아바타 96(디자인 가이드)
   row: { paddingTop: 32 }, // 사진 판 → 닉네임 32, 규칙 줄 → 한 줄 소개 약 36(규칙 줄 높이 포함, 코덱스 2026-11-02)
   label: { color: c.text, fontSize: 15, fontWeight: '800', marginBottom: 8 },
   value: { width: '100%' },

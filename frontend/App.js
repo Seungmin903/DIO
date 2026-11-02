@@ -95,8 +95,9 @@ export default function App() {
   // 로그인 화면 없이 게스트(방문자)로 시작한다. 로그인은 로그인이 필요한 기능을 누를 때만 묻는다(loginGate).
   const startGuest = async () => {
     const session = { mode: 'preview', provider: 'guest', nickname: '방문자' };
-    // 예전 개발자 모드가 넣던 예시 다이어리가 개발 기기에 남아 있으면 지운다(사용자 다이어리는 건드리지 않는다)
-    await clearMockLibrary().catch(() => {});
+    // 예전 개발자 모드(개발 빌드 전용)가 넣던 예시 다이어리가 개발 기기에 남아 있으면 지운다(사용자 다이어리는 건드리지 않는다).
+    // 운영 빌드에는 생길 수 없어 저장소를 건드리지 않는다. 보관함이 정리 전 목록을 읽어 다시 저장하지 않게 끝날 때까지 기다린다
+    if (__DEV__) await clearMockLibrary().catch(() => {});
     // 지난 프로필을 못 읽어도 빈 화면에 갇히지 않게 기본 게스트로 시작한다
     try { await startSession(session); } catch { setPreviewSession(session); }
   };

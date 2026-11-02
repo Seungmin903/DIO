@@ -77,13 +77,19 @@ test('부팅 중 첫 화면에 BootSplash 를 그리고, 그린 뒤에야 네이
  assert.ok(probe.hidden>=1,'첫 화면이 그려진 뒤(마운트 효과) 네이티브 시작 화면을 내린다')
 })
 
-test('목업 판정은 따로 그리는 세 화면(mock · mock-library · mock-sharing)만: 다른 mock* 값은 게스트로 시작하고, 게스트 시작마다 예전 예시 다이어리를 정리한다',async()=>{
- for(const [mode,starts] of [['mock',false],['mock-library',false],['mock-sharing',false],['mock-other',true],[undefined,true]]){
+test('목업 판정은 따로 그리는 세 화면(mock · mock-library · mock-sharing)만: 다른 mock* 값은 게스트로 시작하고, 개발 빌드의 게스트 시작마다 예전 예시 다이어리를 정리한다',async()=>{
+ for(const [dev,mode,cleans] of [[true,'mock',false],[true,'mock-library',false],[true,'mock-sharing',false],[true,'mock-other',true],[true,undefined,true],[false,undefined,false]]){
   const probe={effects:[],hidden:0,cleaned:0}
-  root(true,mode,null,null,probe)
+  root(dev,mode,null,null,probe)
   const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0
   try{for(const effect of probe.effects){try{effect()}catch{}}}finally{globalThis.setTimeout=timer}
   await new Promise(resolve=>setImmediate(resolve))
-  assert.equal(probe.cleaned>0,starts,String(mode))
+  assert.equal(probe.cleaned>0,cleans,`${dev?'개발':'운영'} ${mode}`)
  }
+})
+test('내 공간의 로그인 · 회원가입처럼 기능 없이 연 로그인 요청({})도 지금 화면 위에 로그인 화면을 띄우고 닫을 수 있다',()=>{
+ const guest={mode:'preview',provider:'guest',nickname:'방문자'}
+ const tree=root(false,undefined,guest,{}),auth=nodes(tree).find(n=>n.type==='./src/auth/AuthScreen')
+ assert.ok(auth);assert.ok(has(tree,'LocalDiaryApp'))
+ assert.equal(typeof auth.props.onClose,'function');assert.equal(typeof auth.props.onContinue,'function')
 })
