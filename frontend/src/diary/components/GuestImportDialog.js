@@ -34,7 +34,7 @@ export default function GuestImportDialog({ model }) {
             </View>
           </>}
           {phase === 'done' && <>
-            <Text style={styles.title}>{failed.length ? `${failed.length}권을 가져오지 못했어요` : `${imported.length}권을 가져왔어요.`}</Text>
+            <Text style={styles.title}>{failed.some(row => row.lookup) ? '가져오기 정보를 확인하지 못했어요' : failed.length ? `${failed.length}권을 가져오지 못했어요` : `${imported.length}권을 가져왔어요.`}</Text>
             {failed.length > 0 && imported.length > 0 && <Text style={styles.message}>{`${imported.length}권은 가져왔어요.`}</Text>}
             {failed.length > 0 && <Text style={[styles.message, styles.error]}>{failed[0].error?.message || '연결을 확인한 뒤 다시 시도해 주세요.'}</Text>}
             {skipped.length > 0 && <View style={styles.skipped}>

@@ -18,6 +18,7 @@ import { createId } from '../../editor/utils/common.js'
  */
 export function useGuestDiaryImport(accountId, { enabled = true, onImported } = {}) {
   const [state, setState] = useState({ phase: null, candidates: [], progress: null, imported: [], failed: [] })
+  const [lookupAttempt, setLookupAttempt] = useState(0)
   const sessionKey = authService.getSessionKey()
   const context = useMemo(() => ({ active: true, checked: false }), [accountId, sessionKey])
   const running = useRef(false)
@@ -60,9 +61,15 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
       const unfinished = diaries.filter(diary => pending.includes(diary.id))
       if (declined && !unfinished.length) return
       setState(current => current.phase ? current : { ...current, phase: 'ask', candidates: declined ? unfinished : diaries })
-    })().catch(() => {})
+    })().catch(error => {
+      if (cancelled || !active()) return
+      context.checked = true
+      const notice = Object.assign(new Error('이 기기의 가져오기 기록을 읽지 못했어요. 다시 시도해 주세요. 원본은 그대로 남아 있어요.'),
+        { code: error?.code ?? 'GUEST_IMPORT_LOOKUP_FAILED' })
+      setState(current => ({ ...current, phase: 'done', candidates: [], progress: null, failed: [{ lookup: true, error: notice }] }))
+    })
     return () => { cancelled = true }
-  }, [accountId, enabled, importer])
+  }, [accountId, enabled, importer, lookupAttempt])
 
   const run = useCallback(async targets => {
     if (!enabled || running.current || !active() || !targets.length) return
@@ -85,7 +92,16 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
     ...state,
     phase: enabled && active() ? state.phase : null,
     start: () => run(state.candidates),
-    retry: () => run(state.failed.map(row => row.diary).filter(Boolean)),
+    retry: () => {
+      if (state.failed.some(row => row.lookup)) {
+        if (!enabled || !active()) return
+        context.checked = false
+        setState(current => ({ ...current, phase: null, progress: null, candidates: [], failed: [] }))
+        setLookupAttempt(attempt => attempt + 1)
+        return
+      }
+      return run(state.failed.map(row => row.diary).filter(Boolean))
+    },
     later: () => setState(current => ({ ...current, phase: null })),
     decline: () => { setState(current => ({ ...current, phase: null })); declineGuestImport(AsyncStorage, accountId).catch(() => {}) },
     close: () => setState(current => ({ ...current, phase: null })),
