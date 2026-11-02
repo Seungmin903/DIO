@@ -8,13 +8,14 @@ import { startPenMeasurement } from '../utils/penPerformance.js'
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
 const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
 const cancelFrame = (id) => { if (id && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id) }
+export const eraserPreviewInterval = (platform, compact) => platform === 'ios' && !compact ? 64 : 32
 
 /**
  * mode: 'stroke'(획 지우기) | 'area'(영역 지우기). 영역 지우기는 onPreview(ids, 남은 조각) 로 지우는 중 모습을 넘긴다
  * 스터디 플래너 페이지: planner(지금 기록) · onPlannerErase(기록, 구간 점들) → 지운 결과(바뀐 것이 없으면 null).
  * 지나가는 구간마다 바로 지워 onPlannerPreview(기록)로 보여 주고, 손을 떼면 획 지우기와 한 번의 되돌리기로 묶어 확정한다.
  */
-export default function EraserInput({ objects, zoom, dispatch, onPreview, diameter = ERASER_RADIUS * 2, mode = 'stroke', target = 'all', planner, onPlannerErase, onPlannerPreview }) {
+export default function EraserInput({ objects, zoom, dispatch, onPreview, compact = false, diameter = ERASER_RADIUS * 2, mode = 'stroke', target = 'all', planner, onPlannerErase, onPlannerPreview }) {
   const gesture = useRef(null)
   const frame = useRef(null)
   const pending = useRef(null)
@@ -32,7 +33,7 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, diamet
       const active = gesture.current
       const now = performance.now()
       // 모든 입력을 판정하되 iPad에서는 무거운 조각 표시만 간격을 둔다.
-      const previewInterval = Platform?.OS === 'ios' ? 64 : 32
+      const previewInterval = eraserPreviewInterval(Platform?.OS, compact)
       if (mode === 'area' && active && now - (active.previewAt ?? -Infinity) < previewInterval) return
       if (active) active.previewAt = now
       const measurement = active?.measurement

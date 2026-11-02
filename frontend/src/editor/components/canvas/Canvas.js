@@ -13,6 +13,7 @@ import { isStripFrame, stripCellAt } from '../../utils/photoStrip'
 import { pageSize } from '../../utils/pageGeometry.js'
 import { placeHorizontal, placeVertical } from '../../utils/popoverPlacement'
 import { fitTextHeightPatch, textLayoutKey } from '../../utils/text'
+import { eraserPreviewPage } from '../../utils/eraser.js'
 import { createLassoOutline, resolveLassoOutline } from '../../utils/lassoOutline.js'
 import PageBackground from '../PageBackground'
 import ContextBar from './ContextBar'
@@ -443,7 +444,7 @@ export default function Canvas({
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
-        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
+        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} compact={compact} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
       </View>}
       {planner?.kind === 'day' && dayPick?.page === page.id && <View style={styles.penClip}><DayPickBackdrop onClose={closeDayPick} /></View>}
       </PalmRejectionArea>
@@ -801,8 +802,7 @@ const EraserPreviewDrawing = forwardRef(function EraserPreviewDrawing({ page, ac
     return Platform.OS === 'web' && pieces ? new Set(Object.values(pieces).flat()) : null
   }, [pieces])
   const uncachedObjects = useMemo(() => Platform.OS !== 'web' && pieces ? new Set(Object.values(pieces).flat()) : null, [pieces])
-  const hidden = new Set(ids)
-  const drawingPage = ids.length ? { ...page, objects: page.objects.flatMap(object => pieces?.[object.id] ?? (hidden.has(object.id) ? [] : [object])) } : page
+  const drawingPage = eraserPreviewPage(page, ids, pieces)
   return <ProgressiveCanvasDrawing {...props} page={drawingPage} deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} uncachedObjects={uncachedObjects} />
 })
 
