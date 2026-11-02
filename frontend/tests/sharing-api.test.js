@@ -8,7 +8,7 @@ function fixture(overrides = {}) {
   const calls = [], uploaded = [];
   let available = true;
   const auth = {
-    getConnectionOptions: () => ({ baseUrl: 'https://api.dio.test/api/v1', accessTokenHeader: 'X-DIO-Access-Token' }),
+    getConnectionOptions: () => ({ baseUrl: 'https://api.dio.test/api/v1', accessTokenHeader: 'X-DIO-Access-Token', ...(overrides.getAuthHeaders ? { getAuthHeaders: overrides.getAuthHeaders } : {}) }),
     getSessionKey: () => 'session-1',
     async getAccessToken(context) { assert.deepEqual(context, { userId: 10, sessionKey: 'session-1' }); if (!available) throw Object.assign(new Error('로그인 필요'), { status: 401 }); return 'test-token'; },
   };
@@ -140,4 +140,58 @@ test('명세의 membership 경로로 별칭·사진과 즐겨찾기를 수정한
   assert.ok(writes.every(call => call.url === `https://api.dio.test/api/v1/diaries/${diaryId}/membership`));
   assert.equal(writes[1].body, 'multipart');
   assert.equal(JSON.parse(writes[2].body).favorite, true);
+});
+
+
+test('공유 목록·링크 확인·멤버 조회는 공통 인증 함수로 개발 접속 인증과 사용자 토큰을 함께 전송한다', async () => {
+  const checked = [];
+  const f = fixture({ getAuthHeaders(url, token) {
+    assert.ok(url.startsWith('https://api.dio.test/api/v1/'));
+    checked.push(url);
+    return { Authorization: 'Basic test-gateway', 'X-DIO-Access-Token': token };
+  } });
+  await f.runtime.notificationApi.list();
+  await f.runtime.resolveLink('https://dio.test/invite/token');
+  await f.runtime.getSharing(diaryId);
+  assert.ok(checked.length >= 5);
+  assert.ok(f.calls.every(call => call.headers.Authorization === 'Basic test-gateway'));
+  assert.ok(f.calls.every(call => call.headers['X-DIO-Access-Token'] === 'test-token'));
+});
+
+
+test('서버 이메일 초대는 기존 입력값을 정규화해 전송하고 목록·취소를 기존 API로 연결한다', async () => {
+  let sent = false, cancelled = false;
+  const f = fixture({ fetch(url, init) {
+    if (url.endsWith('/invites/email')) { sent = true; return reply({ message: '가입된 이메일이라면 초대가 전달됩니다.' }, 202); }
+    if (init.method === 'DELETE' && url.endsWith('/invites/456')) { cancelled = true; return reply(null, 204); }
+    if (url.endsWith('/invites')) return reply({ available: false, emailInvites: { items: sent ? [
+      { inviteId: '456', recipientEmail: 'friend@example.com', status: cancelled ? 'CANCELLED' : 'PENDING' },
+    ] : [] } });
+  } });
+  await assert.rejects(f.runtime.sendEmailInvite(diaryId, 'invalid'), { code: 'INVALID_EMAIL' });
+  assert.equal(f.calls.length, 0);
+  const diary = await f.runtime.sendEmailInvite(diaryId, ' Friend@Example.com ');
+  const call = f.calls.find(row => row.url.endsWith('/invites/email'));
+  assert.equal(call.method, 'POST');
+  assert.deepEqual(JSON.parse(call.body), { email: 'friend@example.com' });
+  assert.deepEqual(diary.emailInvites.map(row => [row.id, row.email, row.status]), [['456', 'friend@example.com', 'PENDING']]);
+  const updated = await f.runtime.cancelEmailInvite(diaryId, '456');
+  assert.equal(updated.emailInvites[0].status, 'CANCELLED');
+});
+
+
+test('상대 초대 주소는 현재 HTTPS 서버의 절대 주소로 표시하고 복사할 수 있다', async () => {
+  const f = fixture({ fetch: url => url.endsWith('/invites')
+    ? reply({ available: true, inviteUrl: '/invite/signed-token' }) : null });
+  const diary = await f.runtime.getSharing(diaryId);
+  assert.equal(diary.link, 'https://api.dio.test/invite/signed-token');
+  assert.equal(f.runtime.getSnapshot().diaries[0].link, diary.link);
+  await f.runtime.resolveLink(diary.link);
+  assert.equal(f.calls.at(-1).url, 'https://api.dio.test/api/v1/invites/signed-token');
+});
+
+test('서버가 지정한 HTTPS 초대 화면 주소는 그대로 유지한다', async () => {
+  const f = fixture({ fetch: url => url.endsWith('/invites')
+    ? reply({ available: true, inviteUrl: 'https://invite.dio.test/invite/signed-token' }) : null });
+  assert.equal((await f.runtime.getSharing(diaryId)).link, 'https://invite.dio.test/invite/signed-token');
 });

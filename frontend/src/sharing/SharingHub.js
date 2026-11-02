@@ -467,7 +467,7 @@ export default function SharingHub({
   const mine = diary?.members.find((member) => member.id === runtime.self.id);
   const isOwner = mine?.role === 'OWNER';
   const isFull = (diary?.members.length || 0) >= MAX_SHARING_MEMBERS;
-  const emailPreview = !runtime.server && typeof runtime.sendEmailInvite === 'function';
+  const emailAvailable = typeof runtime.sendEmailInvite === 'function';
   const nicknameReady = !sharingNicknameError(nickname);
   const editingProfile = screen === 'profile';
   const profileDiary = editingProfile ? diary : invite?.diary;
@@ -765,18 +765,18 @@ export default function SharingHub({
                   {screen === 'email' && diary && isOwner && (
                     <View style={s.body}>
                       {!runtime.server && <Text style={s.muted}>미리보기예요. 실제 이메일은 발송되지 않아요.</Text>}
-                      {runtime.server && <Text style={s.muted}>이메일 초대 연결을 준비하고 있어요.</Text>}
+                      {runtime.server && <Text style={s.muted}>가입된 이메일로 앱 내 초대를 보내요.</Text>}
                       <TextInput ref={emailField} accessibilityLabel="초대할 이메일"
                         placeholder="이메일 주소" placeholderTextColor={colors.textMuted}
                         keyboardType="email-address" autoCapitalize="none" autoCorrect={false}
-                        maxLength={254} value={inviteEmail} editable={!busy && emailPreview && !isFull}
+                        maxLength={254} value={inviteEmail} editable={!busy && emailAvailable && !isFull}
                         onFocus={() => focusInput(emailField.current)} onBlur={() => blurInput(emailField.current)}
                         onChangeText={value => { setInviteEmail(value); setError(''); }}
                         style={s.field} />
                       {!!inviteEmail && !!inviteEmailError(inviteEmail) &&
                         <Text accessibilityLiveRegion="polite" style={s.error}>{inviteEmailError(inviteEmail)}</Text>}
                       <Button label="이메일 초대 보내기" text={busy ? '처리 중…' : '초대 보내기'}
-                        disabled={busy || !emailPreview || isFull || !!inviteEmailError(inviteEmail)}
+                        disabled={busy || !emailAvailable || isFull || !!inviteEmailError(inviteEmail)}
                         onPress={() => {
                           dismissInput();
                           run(() => runtime.sendEmailInvite(diary.id, inviteEmail), result => {
@@ -785,7 +785,7 @@ export default function SharingHub({
                             setToast('가입된 이메일이라면 초대가 전달됩니다.');
                           });
                         }} />
-                      {emailPreview && <>
+                      {emailAvailable && <>
                         <Text style={s.label}>보낸 초대</Text>
                         {!diary.emailInvites?.length && <Text style={s.muted}>보낸 초대가 없어요.</Text>}
                         {diary.emailInvites?.map(row => (
