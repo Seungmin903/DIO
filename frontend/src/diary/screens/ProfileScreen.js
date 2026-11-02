@@ -10,7 +10,7 @@ import AppLockSetting from '../components/AppLockSetting';
 import PinScreen from '../components/PinScreen';
 import EditorModal from '../../editor/components/controls/EditorModal';
 import { appLockScope, checkAppLock, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
-import { colors } from '../../shared/theme';
+import { colors, DISABLED_OPACITY } from '../../shared/theme';
 import { notify } from '../../shared/dialogs';
 import DioButton from '../../shared/DioButton';
 import ProfileEditScreen from '../../auth/ProfileEditScreen';
@@ -190,7 +190,7 @@ const local = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   nameShrink: { flexShrink: 1 },
   nameEdit: { width: 44, height: 44, marginVertical: -9, marginLeft: -9, alignItems: 'center', justifyContent: 'center', borderRadius: 10 }, // 아이콘 18 이 이름 끝에서 4 떨어지게(터치 44 의 안쪽 13 - 4)
-  disabled: { opacity: 0.4 },
+  disabled: { opacity: DISABLED_OPACITY },
   login: { minHeight: 40, minWidth: 160, marginLeft: 8 }, // 정체성 묶음과 최소 24(줄 간격 16 + 8)
   loginCompact: { minHeight: 40, marginTop: -4 }, // 판 안 간격 16 에서 4 당겨 첫 줄과 12
   linkRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
