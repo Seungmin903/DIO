@@ -71,8 +71,10 @@ export function createServerNotificationApi(transport) {
     async count(options = {}) {
       const body = await transport({ ...options, path: '/notifications/unread-count' });
       if (!Number.isSafeInteger(body?.unreadCount) || body.unreadCount < 0) throw invalid();
-      // 유효 초대 수로 변환하지 않는다. 250의 빨간 점 정책과 별도다.
-      return { unreadCount: body.unreadCount };
+      // 이전 서버는 필드가 없다. 전체 미읽음 수를 유효 초대 수로 대체하지 않는다.
+      if (body.actionableUnreadCount == null) return { unreadCount: body.unreadCount };
+      if (!Number.isSafeInteger(body.actionableUnreadCount) || body.actionableUnreadCount < 0) throw invalid();
+      return { unreadCount: body.unreadCount, actionableUnreadCount: body.actionableUnreadCount };
     },
     read(notificationId, options = {}) {
       return transport({ ...options, method: 'PATCH', path: `/notifications/${encodeURIComponent(notificationId)}` });
