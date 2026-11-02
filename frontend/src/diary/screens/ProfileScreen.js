@@ -20,8 +20,8 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   // 회원 설정은 서버 인증이 끝난 세션만 접근한다. 이전 체험 세션 값은 앱 진입
   // 단계에서 로그인으로 돌려보내며, 이 화면에서도 방어적으로 렌더링하지 않는다.
   const authenticated = previewUser?.mode === 'authenticated';
-  // 게스트(로그인 전 방문자)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
-  // 로그아웃은 로그인한 사용자만 있다.
+  // 게스트(시작 화면에서 고른 일반 사용자 · 개발자 모드)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
+  // 개발자 모드는 로그인한 사용자처럼 로그아웃이 있고, 누르면 시작 화면으로 돌아가 모드를 다시 고른다.
   const guest = !authenticated && previewUser?.provider === 'guest';
   // 게스트 프로필은 기기 저장(guestService)이 있어야 고칠 수 있다. 없으면 수정 칸을 누를 수 없게 둔다.
   const canEdit = authenticated || (guest && !!guestService);
@@ -140,7 +140,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         </ListSection>
         <Text style={local.groupTitle}>앱 정보</Text>
         <AppInformation standalone />
-        {onEndPreview && !guest && (
+        {onEndPreview && (!guest || previewUser?.developer) && (
           <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={onEndPreview} style={({ pressed }) => [local.logout, pressed && local.pressed]}>
             <Text style={local.logoutText}>로그아웃</Text>
           </Pressable>
