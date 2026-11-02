@@ -72,7 +72,7 @@ public class ExpiredMediaCleanup {
 					failed += result.failed();
 				} catch (RuntimeException error) {
 					failed++;
-					log.warn("Expired media cleanup failed: mediaFileId={}, key={}", mediaFile.getMediaFileId(), mediaFile.getStorageKey(), error);
+					log.warn("Expired media cleanup failed: mediaFileId={}", mediaFile.getMediaFileId(), error);
 				}
 			}
 			if (candidates.size() < remaining) break;
@@ -101,8 +101,8 @@ public class ExpiredMediaCleanup {
 			} catch (RuntimeException queueError) {
 				log.error("Media storage deletion retry could not be recorded: deletionId={}", task.getDeletionId(), queueError);
 			}
-			log.warn("Media storage deletion failed and will be retried: deletionId={}, mediaFileId={}, key={}",
-				task.getDeletionId(), task.getMediaFileId(), task.getStorageKey(), error);
+			log.warn("Media storage deletion failed and will be retried: deletionId={}, mediaFileId={}",
+				task.getDeletionId(), task.getMediaFileId(), error);
 			return new Result(0, 1);
 		}
 	}

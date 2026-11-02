@@ -47,7 +47,7 @@ public class ProfilePhotoFiles {
                 @Override public void afterCompletion(int status) {
                     if (status == STATUS_ROLLED_BACK) cleanup();
                     else if (status != STATUS_COMMITTED) LoggerFactory.getLogger(ProfilePhotoFiles.class).warn(
-                        "Profile photo commit outcome unknown; object retained: provider={}, key={}", location.provider(), location.key());
+                        "Profile photo commit outcome unknown; object retained: provider={}", location.provider());
                 }
             });
             enlisted = true;
@@ -57,7 +57,7 @@ public class ProfilePhotoFiles {
             cleaned = true;
             try { active.delete(location); }
             catch (RuntimeException error) { LoggerFactory.getLogger(ProfilePhotoFiles.class).warn(
-                "Unreferenced profile photo cleanup failed: provider={}, key={}", location.provider(), location.key()); }
+                "Unreferenced profile photo cleanup failed: provider={}", location.provider(), error); }
         }
         @Override public void close() { if (!enlisted) cleanup(); }
     }
