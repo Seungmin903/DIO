@@ -34,7 +34,6 @@ const server = http.createServer((req, res) => {
       });
       const button = name => page.getByRole('button', { name, exact: true });
       await page.goto(`http://127.0.0.1:${server.address().port}`);
-      await button('개발자 모드로 시작').click();
       await button('배치 검증 열기').waitFor();
       const phone = Math.min(width, height) < 600;
       if (!phone) {

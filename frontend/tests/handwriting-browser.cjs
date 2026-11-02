@@ -10,9 +10,6 @@ const server = http.createServer((req, res) => {
 })
 async function enterLocalSession(page) {
   const tab = page.getByRole('tab', { name: '내 공간', exact: true }).or(page.getByRole('button', { name: '내 공간', exact: true }))
-  const guest = page.getByRole('button', { name: '개발자 모드로 시작', exact: true })
-  await Promise.race([tab.waitFor(), guest.waitFor()])
-  if (await guest.isVisible()) await guest.click()
   await tab.waitFor().catch(async error => { console.error('LOCAL_QA_BODY', await page.locator('body').innerText()); throw error })
 }
 async function openStudio(page) {
