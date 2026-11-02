@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
 import { catalog } from '../src/editor/templates/data.js'
 import { UNDATED_TEMPLATES } from '../src/editor/templates/undated.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
@@ -32,6 +33,44 @@ test('V25 전용 빌드는 플래너 선택을 명시적으로 끌 수 있다', 
   assert.equal(plannerTemplatesEnabled('0'), false)
   assert.equal(plannerTemplatesEnabled('1'), true)
   assert.equal(plannerTemplatesEnabled(undefined), true)
+})
+
+// 플래그는 import 시점에 고정되므로 값을 0으로 둔 자식 프로세스에서 모듈을 새로 읽어 확인한다.
+test('플래그 0 빌드는 플래너 선택·생성을 막고 예전 하루 계획 메뉴와 기존 플래너 해석은 유지한다', () => {
+  const source = `
+    import assert from 'node:assert/strict'
+    import { reusableTemplates, getTemplate } from ${JSON.stringify(new URL('../src/editor/templates/catalog.js', import.meta.url).href)}
+    import { SERVER_TEMPLATE_CATALOG, PLANNER_TEMPLATE_SELECTION_ENABLED, serverTemplateSelectable, serverTemplateReference, toServerInitialPageSelections, localTemplateReference } from ${JSON.stringify(new URL('../src/editor/templates/serverCatalog.js', import.meta.url).href)}
+    import { createServerPage } from ${JSON.stringify(new URL('../src/collaboration/serverPages.js', import.meta.url).href)}
+    assert.equal(PLANNER_TEMPLATE_SELECTION_ENABLED, false)
+    const planners = SERVER_TEMPLATE_CATALOG.filter(row => /^(study|day)-planner-/.test(row.templateCode))
+    assert.equal(planners.length, 4)
+    for (const row of planners) {
+      const orientation = row.orientation.toLowerCase()
+      assert.equal(serverTemplateSelectable(row), false)
+      assert.throws(() => serverTemplateReference(row.backgroundAssetId, row.templateVersion, orientation))
+      assert.throws(() => toServerInitialPageSelections([{ templateCode: row.templateCode, templateVersion: row.templateVersion,
+        templateId: row.backgroundAssetId, templateConfig: { ...row.defaultConfig } }]))
+      assert.equal(localTemplateReference(row.templateCode, row.templateVersion).backgroundAssetId, row.backgroundAssetId)
+      assert.equal(getTemplate(row.backgroundAssetId, row.templateVersion).orientation, orientation)
+      let calls = 0
+      await assert.rejects(createServerPage({ transport: async () => { calls++ }, diaryId: '00000000-0000-4000-8000-000000000000',
+        backgroundAssetId: row.backgroundAssetId, orientation, storage: { getItem: async () => null }, key: 'k', createId: () => 'x' }),
+        { code: 'INVALID_SERVER_PAGES' })
+      assert.equal(calls, 0)
+    }
+    for (const orientation of ['landscape', 'portrait']) {
+      const menu = reusableTemplates(orientation)
+      assert.deepEqual(menu.filter(item => ['study', 'day'].includes(item.type)), [])
+      assert.equal(menu[0].type, 'daily')
+      assert.equal(menu[0].assetId, '2026-reusable-daily-' + orientation)
+      assert.equal(serverTemplateReference(menu[0].assetId, getTemplate(menu[0].assetId).templateVersion, orientation).templateCode, menu[0].assetId)
+    }
+  `
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', source], {
+    env: { ...process.env, EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED: '0' }, encoding: 'utf8',
+  })
+  assert.equal(result.status, 0, result.stderr)
 })
 
 test('빈 페이지는 null 에셋 참조와 방향·규격을 보존하고 명시적인 서버 코드로 매핑된다', () => {
