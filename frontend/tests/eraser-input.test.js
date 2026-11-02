@@ -30,8 +30,15 @@ function input(zoom = 1, diameter, props = {}) {
     zoom, diameter, objects: [createStroke([{ x: 100, y: 50 }, { x: 100, y: 150 }], { id: 'stroke', width: 2 })],
     dispatch: (action) => actions.push(action), onPreview: (ids) => previews.push(ids), ...props,
   }))
-  return { handlers, actions, previews }
+  return { handlers, actions, previews, interval: module.exports.eraserPreviewInterval }
 }
+test('영역 지우기 미리보기 간격은 iOS 태블릿과 폰을 구분한다', () => {
+  const { interval } = input()
+  assert.equal(interval('ios', false), 64)
+  assert.equal(interval('ios', true), 32)
+  assert.equal(interval('android', false), 32)
+  assert.equal(interval('web', true), 32)
+})
 test('실제 지우개 입력 핸들러는 화면 배율을 환산하고 확정 전에는 삭제하지 않는다', () => {
   for (const zoom of [0.5, 1, 2.5]) {
     const { handlers, actions, previews } = input(zoom)

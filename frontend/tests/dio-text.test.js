@@ -27,3 +27,18 @@ test('글꼴을 정하지 않은 글자에만 굵기별 Pretendard 파일을 넣
   assert.equal(dioFontStyle({fontFamily:'maruburi',fontWeight:'700'}),null);
   assert.equal(dioFontStyle([{fontSize:20},{fontFamily:'sans-serif'}]),null);
 });
+
+test('DioText는 측정용 ref와 onLayout을 실제 네이티브 Text에 전달한다', () => {
+  const loaded = { exports: {} };
+  const react = { forwardRef: render => render, useContext: () => 'raw' };
+  new Function('require','module','exports',code)(id => id === 'react' ? react
+    : id === 'react-native' ? { StyleSheet: { flatten }, Text: 'NativeText', TextInput: 'NativeTextInput' }
+    : id === '../fontScope' ? { FontScope: { Provider: 'FontScope' } } : require(id), loaded, loaded.exports);
+  const ref = { current: { measure() {} } }, onLayout = () => {};
+  const element = loaded.exports.Text({ style: { fontSize: 28 }, onLayout, children: 'test' }, ref);
+  const nativeText = element.props.children;
+  assert.equal(nativeText.type, 'NativeText');
+  assert.equal(nativeText.props.ref, ref);
+  assert.equal(nativeText.props.onLayout, onLayout);
+  assert.equal(typeof nativeText.props.ref.current.measure, 'function');
+});

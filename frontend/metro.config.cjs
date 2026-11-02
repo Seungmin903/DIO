@@ -10,7 +10,7 @@ const SRC = path.resolve(__dirname, 'src') + path.sep;
 const APP = path.resolve(__dirname, 'App.js');
 const SHARED = path.resolve(__dirname, 'src/shared/dioText');
 const SHIM = path.join(SHARED, 'dioReactNative.js');
-// 네이티브: import { Text } from 'react-native' 그대로 → 전체를 넘기고 Text · TextInput 만 바꾼 묶음
+// 네이티브: 앱에서 쓰는 이름을 명시적으로 내보내고 Text · TextInput 을 바꾼 묶음
 // 웹: babel 이 'react-native-web/dist/exports/Text' 처럼 하나씩 바로 불러오게 바꾸므로 그 두 경로만 바꾼다
 const WEB = {
   'react-native-web/dist/exports/Text': path.join(SHARED, 'dioWebText.js'),

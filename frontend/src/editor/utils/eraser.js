@@ -283,3 +283,9 @@ function createAreaEraserSession(objects, radius) {
     },
   }
 }
+// 미리보기는 원본 문서를 바꾸지 않고 기존 레이어 순서에 남은 획 조각을 끼운다.
+export function eraserPreviewPage(page, ids, pieces) {
+  if (!ids.length) return page
+  const hidden = new Set(ids)
+  return { ...page, objects: page.objects.flatMap(object => pieces?.[object.id] ?? (hidden.has(object.id) ? [] : [object])) }
+}
