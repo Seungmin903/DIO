@@ -84,6 +84,7 @@ export const EDITOR_INK = {
 }
 export const APP_INK = {
   'book-open': [18, 12.0],
+  camera: [16, 12.0],
   'book-user': [20, 12.0],
   library: [16, 12.0],
   workshop: [20, 12.0],

@@ -17,12 +17,14 @@ import PasswordResetScreen from '../../auth/PasswordResetScreen';
 import NotificationSettingsScreen from './NotificationSettingsScreen';
 import AppIcon from '../../shared/AppIcon';
 import DefaultAvatar from '../../shared/DefaultAvatar';
+import { useLoginEntry } from '../../auth/loginGate';
 
 // 내 공간(한 단): 정체성 띠(아바타 + 이름 + 버튼) → 알림 → 보안 → 환경 설정(태블릿만) → 계정(로그아웃, 회원) → 앱 정보(맨 아래).
 // 정체성 트레이 1장 + 설정 카드 2장(알림 · 보안 · 환경 / 계정 · 앱 정보)으로 덩어리를 나눈다. 행마다 카드로 만들지 않는다(코덱스 3차). 장식 · 통계 · 안내 문구는 두지 않는다.
 export default function ProfileScreen({ diaries, compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, guestService }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
+  const openLogin = useLoginEntry();
   const editing = route === 'edit';
   const setEditing = on => setRoute(on ? 'edit' : 'home');
   const [failedPhoto, setFailedPhoto] = useState(null);
@@ -82,13 +84,20 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
   if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen compact={compact} email={previewUser?.email || ''} service={accountService} onClose={() => setRoute('home')} onComplete={onClearSession} />;
   if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} onClose={() => setRoute('home')} />;
 
-  // 게스트(개발용)도 로그인한 사용자처럼 프로필을 고친다. 고친 값은 기기에 남는다. 로그인 · 회원가입 버튼은 두지 않는다.
+  // 게스트도 로그인한 사용자처럼 프로필을 고친다. 고친 값은 기기에 남는다.
   // 프로필 수정은 조용한 92×32 테두리 버튼(secondary 테두리 · primaryText 글자), 폰도 이름 줄 오른쪽에 둔다(원 페이저 12)
   // 게스트 프로필은 기기 저장(guestService)이 있어야 고칠 수 있다. 없으면 버튼을 누를 수 없게 둔다.
-  const guestEdit = guest ? <DioButton variant="ghost" outline label="프로필 수정" icon="edit" disabled={!guestService} onPress={() => { if (guestService) setEditing(true); }} style={local.editButton} /> : null;
-  const profileAction = guest ? (
-    guestEdit
-  ) : !guest && (previewUser?.accountId || (previewUser?.mode === 'authenticated' && accountService)) ? (
+  // 게스트: 판 오른쪽 끝은 계정 상태의 대표 행동(`로그인 · 회원가입`)이 차지하고, 프로필 수정은 이름 바로 옆 연필(아이콘 20 · 터치 44)로 둔다(코덱스 2026-11-02).
+  // 회원은 같은 오른쪽 자리에 `프로필 수정` 윤곽 버튼 — '오른쪽 끝 = 이 계정의 대표 행동' 문법이 같다.
+  const guestEdit = guest ? (
+    <Pressable accessibilityRole="button" accessibilityLabel="프로필 수정" accessibilityState={{ disabled: !guestService }} disabled={!guestService}
+      onPress={() => { if (guestService) setEditing(true); }} style={[local.nameEdit, !guestService && local.disabled]}>
+      <AppIcon name="edit" size={18} color={colors.primaryText} />
+    </Pressable>
+  ) : null;
+  // 로그인 화면은 지금 화면 위에 덮어 뜨고, 회원가입은 로그인 화면에서 이어 간다
+  const loginButton = guest ? <DioButton variant="filled" label="로그인 · 회원가입" onPress={openLogin} block={compact} style={compact ? local.loginCompact : local.login} /> : null;
+  const profileAction = guest ? null : !guest && (previewUser?.accountId || (previewUser?.mode === 'authenticated' && accountService)) ? (
     <DioButton variant="ghost" outline label="회원정보 수정" text="프로필 수정" icon="edit" onPress={() => setEditing(true)} style={local.editButton} />
   ) : null;
 
@@ -123,11 +132,17 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
             </View>
           </View>
           <View style={local.identityText}>
-            <Text numberOfLines={1} style={[local.name, compact && local.nameCompact]}>{previewUser?.nickname || '나'}</Text>
+            <View style={local.nameRow}>
+              <Text numberOfLines={1} style={[local.name, compact && local.nameCompact, local.nameShrink]}>{previewUser?.nickname || '나'}</Text>
+              {guestEdit}
+            </View>
             <Text numberOfLines={1} style={local.space}>{previewUser?.bio || (previewUser?.nickname ? `${previewUser.nickname}님의 기록 공간` : '나의 기록 공간')}</Text>
           </View>
           {profileAction}
+          {!compact && loginButton}
         </View>
+        {/* 폰: 이름 줄 아래 판 안에 전폭 한 줄 */}
+        {compact && loginButton}
       </View>
       {/* 한 단: 알림 → 보안 → 환경 설정(태블릿만, 책상은 태블릿 홈에만 있다) → 로그아웃(회원) → 앱 정보(맨 아래) */}
       <View style={local.cards}>
@@ -170,6 +185,13 @@ const local = StyleSheet.create({
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   actionsCompact: { flexDirection: 'column', alignItems: 'stretch' },
   accountBody: { paddingVertical: 12 },
+  // 게스트: 이름 옆 연필(투명 · 아이콘 18, 터치 44×44 — 줄 높이는 이름 그대로 두려고 위아래를 겹친다) · 로그인 · 회원가입 채움 40
+  nameRow: { flexDirection: 'row', alignItems: 'center' },
+  nameShrink: { flexShrink: 1 },
+  nameEdit: { width: 44, height: 44, marginVertical: -9, marginLeft: -9, alignItems: 'center', justifyContent: 'center', borderRadius: 10 }, // 아이콘 18 이 이름 끝에서 4 떨어지게(터치 44 의 안쪽 13 - 4)
+  disabled: { opacity: 0.4 },
+  login: { minHeight: 40, minWidth: 160, marginLeft: 8 }, // 정체성 묶음과 최소 24(줄 간격 16 + 8)
+  loginCompact: { minHeight: 40, marginTop: -4 }, // 판 안 간격 16 에서 4 당겨 첫 줄과 12
   linkRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   linkLabel: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
   cards: { marginTop: 8 },

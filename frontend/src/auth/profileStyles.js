@@ -15,9 +15,10 @@ export const profileStyles = StyleSheet.create({
   sectionTitle: { color: c.text, fontSize: 18, fontWeight: '800', marginBottom: 12 },
   sectionGap: { marginTop: 40 },
   // 사진 트레이: 공방 도구함과 같은 옅은 면 + cardBorder 1px + 모서리 16
-  tray: { flexDirection: 'row', alignItems: 'center', gap: 20, padding: 20, borderRadius: 16, borderWidth: 1, borderColor: c.cardBorder, backgroundColor: c.surfaceMuted },
+  // 높이 176(폰 152) · 아바타와 `사진 변경` 사이 16, 묶음은 세로 가운데(오른쪽 여백은 의도된 빈칸, 코덱스 2026-11-02)
+  tray: { minHeight: 176, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, borderRadius: 16, borderWidth: 1, borderColor: c.cardBorder, backgroundColor: c.surfaceMuted },
   // 폰 사진 트레이: 좁은 폭에서 `사진 변경`이 두 줄로 꺾이지 않게 안쪽 여백 · 간격을 줄인다
-  trayCompact: { gap: 14, padding: 16 },
+  trayCompact: { minHeight: 152, gap: 14, padding: 16 },
   avatarActions: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 4 },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 20, paddingVertical: 24 },
   avatarActions: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 4 },
@@ -53,7 +54,7 @@ export const profileStyles = StyleSheet.create({
   photoTitle: { color: c.text, fontSize: 14, fontWeight: '700' },
   link: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', alignItems: 'flex-start' },
   linkText: { color: c.textMuted, fontSize: 13, fontWeight: '600' },
-  row: { paddingTop: 24 },
+  row: { paddingTop: 32 }, // 사진 판 → 닉네임 32, 규칙 줄 → 한 줄 소개 약 36(규칙 줄 높이 포함, 코덱스 2026-11-02)
   label: { color: c.text, fontSize: 15, fontWeight: '800', marginBottom: 8 },
   value: { width: '100%' },
   nicknameRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -89,7 +90,7 @@ export const profileStyles = StyleSheet.create({
   },
   text: { color: c.text, fontSize: 14 },
   muted: { color: c.textMuted, fontSize: 13, lineHeight: 20 },
-  hint: { minHeight: 22, marginTop: 6, fontSize: 13, fontWeight: '600', lineHeight: 18, color: c.primaryStrong },
+  hint: { minHeight: 22, marginTop: 8, fontSize: 13, fontWeight: '600', lineHeight: 18, color: c.primaryStrong },
   counter: { textAlign: 'right' },
   socialHint: { marginTop: 10 },
   formError: { marginTop: 24 },
@@ -133,11 +134,12 @@ export const profileStyles = StyleSheet.create({
   },
   checkText: { color: c.text, fontSize: 13, fontWeight: '700' },
   // 하단 고정 바: 위 선 하나, 안쪽은 폼 폭(640)과 같다
-  bar: { paddingHorizontal: 32, paddingVertical: 12, borderTopWidth: 1, borderTopColor: c.cardBorder, backgroundColor: c.surface },
-  phoneBar: { paddingHorizontal: 20 },
+  bar: { paddingHorizontal: 32, paddingVertical: 16, borderTopWidth: 1, borderTopColor: c.cardBorder, backgroundColor: c.surface }, // 높이 84(버튼 52 + 위아래 16), 폰 76
+  phoneBar: { paddingHorizontal: 20, paddingVertical: 12 },
   barInner: { width: '100%', maxWidth: 640, alignSelf: 'center', flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
   phoneBarInner: { justifyContent: 'flex-start' },
   barButton: { minHeight: 52 },
+  phoneCancel: { width: 96 }, // 폰: 취소 96 + 저장은 남은 폭 전체
   // 회원 탈퇴: 계정 정보 아래 조용한 글자 행
   withdraw: { minHeight: 48, marginTop: 16, justifyContent: 'center', alignItems: 'flex-start' },
   withdrawText: { fontSize: 13, fontWeight: '600', color: c.dangerStrong },
