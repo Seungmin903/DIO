@@ -35,7 +35,7 @@ const fail = (code, message) => {
 };
 
 // 224 화면 검증용 메모리 서비스. 기존 알림 목 서버를 재사용하며 실제 링크/초대/권한을 만들지 않는다.
-// seed: 예시 받은 초대(목업)를 넣어 둘지. 앱은 개발자 모드에서만 켠다(일반 게스트에게 가짜 알림을 보이지 않는다).
+// seed: 예시 받은 초대(목업)를 넣어 둘지. 앱은 켜지 않는다(게스트에게 가짜 알림을 보이지 않는다).
 export function createSharingPreview({ user = {}, delay = 250, now = Date.now, seed = true } = {}) {
   const self = { id: 'self', nickname: user.nickname || '방문자', photoUri: user.photoUri || null };
   const notifications = createMockNotificationTransport({

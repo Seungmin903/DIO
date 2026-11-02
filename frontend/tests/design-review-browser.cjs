@@ -66,7 +66,6 @@ const server = http.createServer((req, res) => {
         assert.ok(contrast>=4.5, `CTA contrast ${contrast}`);
       }
       await page.screenshot({path:path.join(out,`start-${width}.png`)});
-      await button('개발자 모드로 시작').click();
       await button('배치 검증 열기').waitFor();
       const phone = Math.min(width, height) < 600;
       if (!phone) {
