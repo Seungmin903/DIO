@@ -40,6 +40,7 @@ import ProfileScreen from './src/diary/screens/ProfileScreen';
 import ProfileCropHost from './src/auth/ProfileCropHost';
 import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
+import { GuestImportHost } from './src/diary/components/GuestImportDialog';
 import { styles as s } from './src/diary/styles';
 import { confirmAction, notify } from './src/shared/dialogs';
 import DialogHost from './src/shared/DialogHost';
@@ -121,7 +122,7 @@ export default function App() {
     finally { clearSession(); }
   };
   // 로그인하면 게스트 보관함(LocalDiaryApp)이 회원 보관함(MemberDiaryApp)으로 통째로 바뀐다. 누른 기능(loginRequest.action)은
-  // 사라진 게스트 화면의 것이라 실행하지 않고, 게스트가 기기에 만든 다이어리는 회원 보관함으로 옮기지 않는다(기기에는 남는다).
+  // 사라진 게스트 화면의 것이라 실행하지 않는다. 게스트가 기기에 만든 다이어리는 회원 보관함에서 가져올지 묻고 복사한다(GuestImportHost, 기기에는 남는다).
   const continueFromLogin = session => { setLoginRequest(null); startSession(session).catch(() => setPreviewSession(session)); };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
@@ -979,6 +980,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.white }]} />}
       {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
         check={value => checkAppLock(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}
+      {member && signedIn && <GuestImportHost accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} />}
       <DialogHost />
     </>
   );
