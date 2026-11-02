@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import com.f106.DIO.global.logging.RedactedThrowable;
 import com.f106.DIO.media.domain.MediaFile;
 import com.f106.DIO.media.domain.MediaStorageDeletionTask;
 import com.f106.DIO.media.repository.MediaFileRepository;
@@ -72,9 +73,8 @@ public class ExpiredMediaCleanup {
 					failed += result.failed();
 				} catch (RuntimeException error) {
 					failed++;
-					// 예외 객체는 넘기지 않는다. 삭제 대기열 등록 중 DB 제약 위반 메시지에 storage_key 값이 들어갈 수 있고,
-					// 저장소 예외는 원인 없이 감싼 MediaStorageException이라 스택 트레이스로 얻는 정보도 없다.
-					log.warn("Expired media cleanup failed: mediaFileId={}, errorType={}", mediaFile.getMediaFileId(), error.getClass().getSimpleName());
+					// 예외 메시지에는 DB 제약 위반 값(storage_key 등)이 들어갈 수 있어, 이 클래스의 실패 로그는 메시지를 뺀 스택 트레이스만 남긴다.
+					log.warn("Expired media cleanup failed: mediaFileId={}, errorType={}", mediaFile.getMediaFileId(), error.getClass().getSimpleName(), RedactedThrowable.of(error));
 				}
 			}
 			if (candidates.size() < remaining) break;
@@ -101,10 +101,10 @@ public class ExpiredMediaCleanup {
 			try {
 				deletionQueue.recordFailure(task, error);
 			} catch (RuntimeException queueError) {
-				log.error("Media storage deletion retry could not be recorded: deletionId={}, errorType={}", task.getDeletionId(), queueError.getClass().getSimpleName());
+				log.error("Media storage deletion retry could not be recorded: deletionId={}, errorType={}", task.getDeletionId(), queueError.getClass().getSimpleName(), RedactedThrowable.of(queueError));
 			}
 			log.warn("Media storage deletion failed and will be retried: deletionId={}, mediaFileId={}, errorType={}",
-				task.getDeletionId(), task.getMediaFileId(), error.getClass().getSimpleName());
+				task.getDeletionId(), task.getMediaFileId(), error.getClass().getSimpleName(), RedactedThrowable.of(error));
 			return new Result(0, 1);
 		}
 	}
