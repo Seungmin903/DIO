@@ -46,7 +46,7 @@ function TimeDropdown({ value, onChange }) {
 /**
  * 내 공간 알림 설정: 초대 · 친구 소식 · 매일 기록 알림(켜면 시각 줄이 생긴다). 기기에 저장된다(shared/notificationSettings).
  */
-export default function NotificationSetting({ compact = false }) {
+export default function NotificationSetting({ compact = false, children }) {
   const settings = useNotificationSettings();
   return (
     <SettingSection title="알림" on={settings.enabled} onToggle={enabled => setNotificationSettings({ enabled })} compact={compact}>
@@ -59,6 +59,7 @@ export default function NotificationSetting({ compact = false }) {
           <TimeDropdown value={settings.reminderTime} onChange={reminderTime => setNotificationSettings({ reminderTime })} />
         </SettingRow>
       )}
+      {children}
     </SettingSection>
   );
 }

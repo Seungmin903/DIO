@@ -21,7 +21,7 @@ const server=http.createServer((req,res)=>{
     const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();page.on('pageerror',e=>{errors.push(e.message);console.error('LOCAL_QA_ERROR',e.message)})
     page.setDefaultTimeout(30000);context.setDefaultTimeout(30000)
     await page.goto(base,{waitUntil:'domcontentloaded',timeout:60000});console.log('browser: app loaded')
-    await page.getByRole('tab',{name:'내 공간',exact:true}).click()
+    await page.getByRole('tab',{name:'설정',exact:true}).or(page.getByRole('button',{name:'설정',exact:true})).click()
     await page.getByText('오픈소스 및 콘텐츠 라이선스',{exact:true}).click()
     console.log('browser: license modal open')
     await page.getByLabel('라이선스 검색',{exact:true}).fill('heic-to')

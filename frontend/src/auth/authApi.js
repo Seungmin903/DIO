@@ -137,9 +137,18 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       const target = new URL(uri, base), server = new URL(base);
       // Public photos need only the development gateway credential, never a member token.
       const profilePath = `${server.pathname}/auth/profile-photos/`;
-      return developmentAccess && !target.username && !target.password && target.origin === server.origin && target.pathname.startsWith(profilePath) &&
-        /^[0-9a-f-]+$/i.test(target.pathname.slice(profilePath.length)) && !target.search && !target.hash
-        ? { uri: target.href, headers: getAuthHeaders(target.href) } : { uri };
+      const validProfilePath = target.pathname.startsWith(profilePath) &&
+        /^[0-9a-f-]+$/i.test(target.pathname.slice(profilePath.length)) && !target.search && !target.hash;
+      // 서버가 :8443으로 접속한 요청에 포트 없는 절대 URL을 돌려주는 경우가 있다.
+      // 같은 HTTPS 호스트의 검증된 프로필 경로만 현재 API origin으로 정규화해 Basic이
+      // 정확히 같은 개발 게이트웨이로 향하도록 한다. 다른 호스트·경로에는 절대 보내지 않는다.
+      // userinfo가 붙은 URL은 정규화하지도, Basic을 붙여 돌려주지도 않는다.
+      const noUserinfo = !target.username && !target.password;
+      const canonicalTarget = noUserinfo && target.protocol === server.protocol &&
+        target.hostname === server.hostname && validProfilePath
+        ? new URL(target.pathname, base) : target;
+      return developmentAccess && noUserinfo && canonicalTarget.origin === server.origin && validProfilePath
+        ? { uri: canonicalTarget.href, headers: getAuthHeaders(canonicalTarget.href) } : { uri };
     },
     getSessionKey() { return session ? `${session.user.userId}:${sessionSequence}` : null; },
     // Optional collaboration bridge: dev Basic only reaches this API's origin.

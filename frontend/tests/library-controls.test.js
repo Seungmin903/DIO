@@ -14,7 +14,7 @@ function setup(file, storage = {}, native = {}) {
  const hooks={memo: fn=>fn,useState:initial=>{const i=cursor++;if(!(i in state))state[i]=typeof initial==='function'?initial():initial;return [state[i],v=>{state[i]=typeof v==='function'?v(state[i]):v}]},useRef:initial=>{const i=refCursor++;return refs[i]??=( {current:initial} )},useMemo:fn=>fn(),useCallback:fn=>fn,useEffect:(fn,deps)=>{const i=effectCursor++;if(!effects[i]||deps.some((v,j)=>v!==effects[i][j])){cleanups[i]?.();effects[i]=deps;cleanups[i]=fn();}}};
  class Value { constructor(v){this.v=v} interpolate(){return 1} setValue(v){this.v=v} }
  const styles=new Proxy({},{get:(_,name)=>name});
- const mocks={'../components/OpenBookShelf':{__esModule:true,default:'OpenBookShelf',preloadOpenBooks:()=>{}},'../utils/useDiaryGrid':{useDiaryGrid:()=>null},'../utils/railMotion':{markRailMoving:()=>{},useRailMoving:()=>false},'../../editor/services/storage':storage,react:hooks,'react-native':{Platform:{OS:'web'},...native,View:'view',Text:'text',Pressable:'press',TextInput:'input',ScrollView:'scroll',FlatList:'list',Animated:{timing:()=>({start(){},stop(){}}),Value,View:'view',Text:'text',createAnimatedComponent:()=> 'list',event:()=>()=>{}},Easing:{cubic:()=>{},out:x=>x}},'../constants':{C:{},FILTERS:[{id:'personal',label:'모든 다이어리'},{id:'favorite',label:'즐겨찾기'}],LIBRARY_SCOPES:[{id:'personal',label:'내 다이어리',tabLabel:'내 다이어리',icon:'book',empty:'내 다이어리가 없어요'},{id:'shared',label:'공유된 다이어리',tabLabel:'공유된 다이어리',icon:'people',empty:'공유된 다이어리가 없어요'}],CAROUSEL_STEP:250,CAROUSEL_ITEM_WIDTH:220,CAROUSEL_GAP:30},'../styles':{styles},'../utils/diarySelection':selectionUtils,'../utils/libraryQuery':query,'../hooks/useLibraryMetadata':{useLibraryMetadata:()=>({a:{pageCount:2},b:{pageCount:5}})}};
+ const mocks={'../components/OpenBookShelf':{__esModule:true,default:'OpenBookShelf',preloadOpenBooks:()=>{}},'../utils/useDiaryGrid':{useDiaryGrid:()=>null},'../utils/railMotion':{markRailMoving:()=>{},useRailMoving:()=>false},'../../editor/services/storage':storage,'../../auth/loginGate':{useLoginEntry:()=>()=>{}},react:hooks,'react-native':{Platform:{OS:'web'},...native,View:'view',Text:'text',Pressable:'press',TextInput:'input',ScrollView:'scroll',FlatList:'list',Animated:{timing:()=>({start(){},stop(){}}),Value,View:'view',Text:'text',createAnimatedComponent:()=> 'list',event:()=>()=>{}},Easing:{cubic:()=>{},out:x=>x}},'../constants':{C:{},FILTERS:[{id:'personal',label:'모든 다이어리'},{id:'favorite',label:'즐겨찾기'}],LIBRARY_SCOPES:[{id:'personal',label:'내 다이어리',tabLabel:'내 다이어리',icon:'book',empty:'내 다이어리가 없어요'},{id:'shared',label:'공유된 다이어리',tabLabel:'공유된 다이어리',icon:'people',empty:'공유된 다이어리가 없어요'}],CAROUSEL_STEP:250,CAROUSEL_ITEM_WIDTH:220,CAROUSEL_GAP:30},'../styles':{styles},'../utils/diarySelection':selectionUtils,'../utils/libraryQuery':query,'../hooks/useLibraryMetadata':{useLibraryMetadata:()=>({a:{pageCount:2},b:{pageCount:5}})}};
  const module={exports:{}};
  new Function('require','module','exports',compile(file))(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),module,module.exports);
  const render=props=>{cursor=0;refCursor=0;effectCursor=0;return module.exports.default(props)};
@@ -161,8 +161,22 @@ test('접힌·펼친 사이드바 모두 생성 버튼 없이 기존 탐색을 �
  const tree=render({collapsed,page:'library',filter:'all',onNotifications:()=>{}});
  const labels=nodes(tree).map(n=>n.props.accessibilityLabel);
  assert.ok(!labels.includes('새 다이어리'));assert.ok(!labels.includes('즐겨찾기'));assert.ok(labels.indexOf('받은 초대')>=0&&labels.indexOf('받은 초대')<labels.indexOf('내 다이어리'));
- for(const label of ['내 다이어리','공유된 다이어리','내 공간','휴지통'])assert.ok(labels.includes(label));
+ for(const label of ['내 다이어리','공유된 다이어리','휴지통','설정','마이페이지'])assert.ok(labels.includes(label));
  }
+});
+test('방문자 사이드바의 아래 항목은 로그인 화면을 바로 여는 로그인 하기다',()=>{
+ const render=setup('../src/diary/components/SideRail.js');
+ const tree=render({collapsed:false,page:'library',filter:'all',user:{mode:'preview',provider:'guest'}});
+ const login=nodes(tree).find(n=>n.props.accessibilityLabel==='로그인 하기');
+ assert.ok(login);assert.equal(nodes(tree).some(n=>n.props.accessibilityLabel==='마이페이지'),false);
+});
+
+test('사이드바 설정 항목은 설정 페이지로 이동한다',()=>{
+ const render=setup('../src/diary/components/SideRail.js');
+ let destination=null;
+ const tree=render({collapsed:false,page:'library',filter:'all',navigate:page=>{destination=page}});
+ findControl(tree,'설정').props.onPress();
+ assert.equal(destination,'settings');
 });
 
 
