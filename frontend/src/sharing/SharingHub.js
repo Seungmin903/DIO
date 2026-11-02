@@ -22,7 +22,7 @@ import MemberAvatar from './MemberAvatar';
 import { invitationStatusLabel } from '../notifications/NotificationPanel';
 import { colors } from '../shared/theme';
 import { useFormFactor } from '../shared/useFormFactor';
-import { normalizeSharingNickname, sharingNicknameError, inviteEmailError, MAX_SHARING_MEMBERS, COPY_TITLE_LIMIT, copyTitleError, defaultCopyTitle } from './sharingPreview';
+import { normalizeSharingNickname, sharingNicknameError, inviteEmailError, MAX_SHARING_MEMBERS, COPY_TITLE_LIMIT, copyTitleError, defaultCopyTitle } from './sharingContracts';
 import { sharingStyles as s } from './styles';
 
 // 미리보기 초대는 full 을 채우고, 서버 초대는 참여 인원(memberCount)만 준다

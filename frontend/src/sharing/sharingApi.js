@@ -1,4 +1,4 @@
-import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, inviteEmailError, SharingError } from './sharingPreview.js';
+import { normalizeSharingNickname, sharingNicknameError, normalizeInviteEmail, inviteEmailError, SharingError } from './sharingContracts.js';
 
 // 로그인 세션에 묶인 공유 API. 로컬 다이어리를 서버 다이어리로 가장하지 않는다.
 export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, buildPhotoBody }) {
