@@ -5,11 +5,13 @@ import AppIcon from '../../shared/AppIcon';
 import DioButton from '../../shared/DioButton';
 import { notify } from '../../shared/dialogs';
 import { C } from '../constants';
+import { signupDocuments } from '../../shared/legalDocuments';
 import { colors } from '../../shared/theme';
 import ContentLicenses from './ContentLicenses';
 import { SettingSection } from './SettingRow';
 
-const PRIVACY_POLICY_URL = 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVThQYxck0l_bwzg33FxGShE6rpqd0/edit?usp=sharing';
+// Preserve the existing policy for current members until the new public document is configured.
+const PRIVACY_POLICY_URL = signupDocuments.policy || 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVThQYxck0l_bwzg33FxGShE6rpqd0/edit?usp=sharing';
 const SUPPORT_EMAIL = 'dioapp.official@gmail.com';
 const APP_VERSION = '1.0.0'; // app.json 의 version 과 같다
 

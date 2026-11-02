@@ -42,6 +42,8 @@ public class EmailSignupService {
     public SignupResponse signup(SignupRequest request) { return signup(request, null); }
     @Transactional(propagation = Propagation.NEVER)
     public SignupResponse signup(SignupRequest request, MultipartFile photo) {
+        if (!Boolean.TRUE.equals(request.ageConfirmed()))
+            throw SignupException.invalid("AGE_CONFIRMATION_REQUIRED", "DIO는 만 14세 이상만 가입할 수 있어요. 연령을 확인해 주세요.");
         terms.validate(request.agreements());
         readTransaction.executeWithoutResult(status -> {
             users.assertAvailable(request.email());

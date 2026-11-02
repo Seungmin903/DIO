@@ -22,7 +22,7 @@ public class UserTermsController {
     private final UserTermsUpdateService service;
     public UserTermsController(UserTermsUpdateService service){this.service=service;}
     @PutMapping("/{termsType}/{termsVersion}")
-    @Operation(summary="약관 동의 변경",description="로그인한 본인의 현재 버전 동의를 저장합니다. SERVICE·PRIVACY는 true만, MARKETING은 동의·철회 모두 가능합니다. 같은 상태 재요청은 기존 시각을 유지합니다. agreedAt은 마지막 동의 상태 변경 시각이며 버전별 이전 행은 보존합니다.")
+    @Operation(summary="약관 동의 변경",description="로그인한 본인의 현재 버전 동의를 저장합니다. SERVICE·PRIVACY는 true만, MARKETING_PRIVACY·AD_EMAIL·AD_PUSH·AD_NIGHT_PUSH는 각각 선택 동의·철회 가능합니다. 기존 MARKETING 기록은 새 항목으로 자동 전환하지 않습니다. 같은 상태 재요청은 기존 시각을 유지합니다. agreedAt은 마지막 동의 상태 변경 시각이며 버전별 이전 행은 보존합니다.")
     @ApiResponse(responseCode="200",description="저장된 동의 상태")
     @ApiResponse(responseCode="400",description="약관 종류·버전·동의 값 오류 또는 필수 동의 철회")
     @ApiResponse(responseCode="401",description="로그인 필요·만료·폐기·비활성 회원")

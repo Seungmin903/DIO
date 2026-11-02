@@ -77,7 +77,7 @@ test('취소 후 새로 시작한 가입 인증 상태도 늦은 완료 응답�
   await api.verifyPasswordReset('a@example.com','123456');
   const completing=api.completePasswordReset({email:'a@example.com',newPassword:'NewPassword123!'});
   api.cancelPending();
-  const profile=await api.signup({email:'c@example.com',password:'Password123!'});
+  const profile=await api.signup({ ageConfirmed: true,email:'c@example.com',password:'Password123!'});
   await api.verifyEmail('c@example.com','123456');
   finish();await assert.rejects(completing,/상태가 변경/);
   const result=await api.completeProfile({...profile,nickname:'회원C',terms:{service:true,privacy:true}});

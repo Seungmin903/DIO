@@ -104,16 +104,43 @@ class EmailSignupTests {
     }
     SignupRequest request(String email, String token, String nickname) {
         return new SignupRequest(email, token, "DioMember123!", nickname,
-            List.of(new Agreement(TermsType.SERVICE, "v1", true),
-                    new Agreement(TermsType.PRIVACY, "v1", true),
-                    new Agreement(TermsType.MARKETING, "v1", false)));
+            List.of(new Agreement(TermsType.SERVICE, "v2", true),
+                    new Agreement(TermsType.PRIVACY, "v2", true),
+                    new Agreement(TermsType.MARKETING, "v1", false)), true);
     }
     String signupJson(String email, String token) {
         return """
             {"email":"%s","signupToken":"%s","password":"DioMember123!","nickname":"디오사용자",
-            "agreements":[{"termsType":"SERVICE","termsVersion":"v1","agreed":true},
-            {"termsType":"PRIVACY","termsVersion":"v1","agreed":true}]}
+            "ageConfirmed":true,"agreements":[{"termsType":"SERVICE","termsVersion":"v2","agreed":true},
+            {"termsType":"PRIVACY","termsVersion":"v2","agreed":true}]}
             """.formatted(email, token);
+    }
+    @Test void ageConfirmationIsRequiredForJsonMultipartAndDirectServiceWithoutConsumingToken() throws Exception {
+        String token = verifyEmail(EMAIL);
+        String valid = signupJson(EMAIL, token);
+        for (String body : java.util.List.of(
+                valid.replace("\"ageConfirmed\":true,", ""),
+                valid.replace("\"ageConfirmed\":true", "\"ageConfirmed\":false"),
+                valid.replace("\"ageConfirmed\":true", "\"ageConfirmed\":null"))) {
+            mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+            mvc.perform(multipart("/api/v1/auth/signup").file(new MockMultipartFile(
+                    "signup", "signup.json", "application/json", body.getBytes(java.nio.charset.StandardCharsets.UTF_8))))
+                .andExpect(status().isBadRequest());
+        }
+        var current = request(EMAIL, token, "디오사용자");
+        for (Boolean confirmed : new Boolean[] { false, null }) {
+            assertThatThrownBy(() -> signup.signup(new SignupRequest(current.email(), current.signupToken(),
+                current.password(), current.nickname(), current.agreements(), confirmed)))
+                .isInstanceOf(SignupException.class).hasMessageContaining("14세");
+        }
+        assertThat(users.count()).isZero();
+        assertThat(agreements.count()).isZero();
+        assertThat(photos.count()).isZero();
+        assertThat(verifications.findById(EMAIL).orElseThrow().getConsumedAt()).isNull();
+        mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content(valid))
+            .andExpect(status().isCreated());
+        assertThat(agreements.findAll()).allSatisfy(agreement -> assertThat(agreement.getTermsVersion()).isEqualTo("v2"));
     }
     @Test void completeSignupPersistsHashedCredentialsTermsAndConsumesToken() throws Exception {
         String token = verifyEmail(EMAIL);
@@ -220,7 +247,7 @@ class EmailSignupTests {
             .content("{\"email\":\"member@localhost\",\"code\":\"123456\"}")).andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content("""
             {"email":"member@localhost","signupToken":"%s","password":"DioMember123!","nickname":"디오사용자",
-             "agreements":[{"termsType":"SERVICE","termsVersion":"v1","agreed":true},{"termsType":"PRIVACY","termsVersion":"v1","agreed":true}]}
+             "ageConfirmed":true,"agreements":[{"termsType":"SERVICE","termsVersion":"v2","agreed":true},{"termsType":"PRIVACY","termsVersion":"v2","agreed":true}]}
             """.formatted("a".repeat(43)))).andExpect(status().isBadRequest());
         verify(verifications, never()).findForUpdate(anyString());
         assertThat(users.count()).isZero();
@@ -289,7 +316,7 @@ class EmailSignupTests {
     @Test void requiredTermsAndVersionAreCheckedBeforeTokenConsumption() throws Exception {
         String token = verifyEmail(EMAIL);
         for (String body : List.of(signupJson(EMAIL, token).replace("\"agreed\":true", "\"agreed\":false"),
-                                  signupJson(EMAIL, token).replace("\"v1\"", "\"v0\""),
+                                  signupJson(EMAIL, token).replace("\"v2\"", "\"v0\""),
                                   signupJson(EMAIL, token).replace("\"PRIVACY\"", "\"SERVICE\""))) {
             mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
         }

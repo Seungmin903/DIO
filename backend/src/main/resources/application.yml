@@ -62,8 +62,8 @@ dio:
       migrate-legacy: ${SIGNUP_PHOTO_MIGRATE_LEGACY:false}
     verification-secret: ${SIGNUP_VERIFICATION_SECRET:}
     mail-from: ${SIGNUP_MAIL_FROM:}
-    service-terms-version: ${SIGNUP_SERVICE_TERMS_VERSION:v1}
-    privacy-terms-version: ${SIGNUP_PRIVACY_TERMS_VERSION:v1}
+    service-terms-version: ${SIGNUP_SERVICE_TERMS_VERSION:v2}
+    privacy-terms-version: ${SIGNUP_PRIVACY_TERMS_VERSION:v2}
     marketing-terms-version: ${SIGNUP_MARKETING_TERMS_VERSION:v1}
   cutout:
     # 사진 속 대상 오리기 AI 서버(ai/). 앱은 직접 부르지 않고 백엔드만 내부에서 호출한다.

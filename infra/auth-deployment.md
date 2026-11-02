@@ -14,7 +14,7 @@
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | 배포 대상 DB 연결 정보 |
 | `BACKEND_IMAGE` | CI가 빌드할 커밋의 이미지 이름으로 주입 |
 
-`AUTH_ALLOWED_ORIGINS`에는 실제 프론트 Origin을 설정한다. SMTP 기본 포트는 587이며 인증과 STARTTLS를 기본 사용한다. 다른 메일 서버라면 설정도 조정한다. 약관 버전은 `SIGNUP_SERVICE_TERMS_VERSION`, `SIGNUP_PRIVACY_TERMS_VERSION`, `SIGNUP_MARKETING_TERMS_VERSION`을 프론트와 맞춘다(기본 v1).
+`AUTH_ALLOWED_ORIGINS`에는 실제 프론트 Origin을 설정한다. SMTP 기본 포트는 587이며 인증과 STARTTLS를 기본 사용한다. 다른 메일 서버라면 설정도 조정한다. 약관 버전은 `SIGNUP_SERVICE_TERMS_VERSION`, `SIGNUP_PRIVACY_TERMS_VERSION`, `SIGNUP_MARKETING_TERMS_VERSION`을 프론트와 맞춘다(SERVICE/PRIVACY 기본 v2, 선택 마케팅 기본 v1).
 
 ## 사진 저장소
 
@@ -59,3 +59,10 @@ bash infra/scripts/check-member-list-icu.sh <실제-DB-컨테이너-이름>
 격리 CI의 `backend-postgres-diary-test`는 버려지는 PostgreSQL 컨테이너의 준비 완료 뒤 같은 검사를 실행하도록 연결했다. 이는 실제 dev/prod 검사와 다르다. 스크립트 회귀는 `bash infra/scripts/test-member-list-icu.sh`로 지원·기본 환경·미지원·컨테이너/질의/연산 오류 8개를 확인한다.
 
 ICU가 없더라도 앱 전체 기동은 이 기능 때문에 실패하지 않는다. 인증·회원 생성/상세/수정과 검색 없는 created/updated/pages 목록은 유지하고 검색/title 정렬만 503 DIARY_LIST_UNAVAILABLE로 제한한다. 지원 복구 후 앱 요청을 재시도할 수 있으며 ICU 라이브러리 설치·DB 재시작 등 운영 조치는 별도다. ASCII 검색으로 조용히 대체하거나 live DB의 collation/locale을 자동 수정하지 않는다.
+
+
+## 가입 동의 버전 배포 확인
+
+새 프론트는 ageConfirmed=true와 SERVICE/PRIVACY v2, 선택 항목 v1을 전송한다. dev/prod Compose와 env.example은 이 값과 일치한다. 실제 서버 환경변수에 v1이 남아 있으면 기본값보다 우선하므로 담당자는 배포 전 비밀값 없이 약관 버전 세 개만 확인한다. 구형 앱은 연령 확인 누락으로 400을 받으므로 신규 가입 화면과 서버를 함께 배포하고, 기존 배포 앱이 있으면 업데이트 안내/가입 진입 관리 계획을 정한다. 연령 확인을 서버에서 임의로 true로 대체하지 않는다. 기존 회원 로그인에는 이 가입 조건이 적용되지 않는다.
+
+로컬 저장소의 설정 확인은 실제 배포 서버 환경변수 확인을 의미하지 않는다.
