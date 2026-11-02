@@ -146,7 +146,7 @@ def segment(req: SegmentRequest, segmenter=Depends(get_segmenter)):
     body = {"preview": _data_url(make_preview(mask, config.PREVIEW_MAX_SIDE)),
             "segmentMs": round(elapsed * 1000), "promptPoints": count}
     if req.includeSticker:
-        body["sticker"] = _data_url(make_sticker(item.image, mask))
+        body["sticker"] = _data_url(make_sticker(item.image, mask, config.STICKER_MAX_SIDE))
     return body
 
 
@@ -156,5 +156,5 @@ def render(req: StickerRequest, segmenter=Depends(get_segmenter)):
     """확정한 선택으로 흰 테두리 스티커 PNG 를 만든다. 결과 확인·저장 때 한 번 호출."""
     item, mask, elapsed, _ = _mask(req, segmenter)
     buf = io.BytesIO()
-    make_sticker(item.image, mask).save(buf, "PNG", optimize=True)
+    make_sticker(item.image, mask, config.STICKER_MAX_SIDE).save(buf, "PNG", optimize=True)
     return Response(buf.getvalue(), media_type="image/png", headers={"X-Segment-Ms": str(round(elapsed * 1000))})
