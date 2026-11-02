@@ -37,8 +37,8 @@ public class NotificationController {
 	}
 
 	@GetMapping("/unread-count")
-	@Operation(summary = "본인 전체 미읽음 알림 수", description = "유효 초대만 세는 UI 빨간 점과 별개. 미인증 요청은 401.")
-	public UnreadCount unreadCount(@Parameter(hidden = true) Principal principal) { return new UnreadCount(service.unreadCount(userId(principal))); }
+	@Operation(summary = "본인 미읽음 알림 및 유효 초대 수", description = "전체 미읽음과 처리 가능한 미읽음 초대를 구분합니다. 미인증 요청은 401.")
+	public UnreadCount unreadCount(@Parameter(hidden = true) Principal principal) { long id = userId(principal); return new UnreadCount(service.unreadCount(id), service.actionableUnreadCount(id)); }
 
 	@PatchMapping("/{notificationId}")
 	@Operation(summary = "본인 알림 읽음 처리", description = "반복 호출 시 최초 읽은 시각 유지. 타인·없는·삭제된 알림은 동일한 404. 초대 수락·거절과 별개.")
@@ -61,5 +61,5 @@ public class NotificationController {
 	}
 
 	@io.swagger.v3.oas.annotations.media.Schema(requiredProperties = {"unreadCount"})
-	public record UnreadCount(long unreadCount) {}
+	public record UnreadCount(long unreadCount, Long actionableUnreadCount) {}
 }
