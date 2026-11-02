@@ -42,7 +42,8 @@
     "licenses:check:android": "node scripts/verify-prepared-licenses.cjs android",
     "licenses:check:web": "node scripts/verify-prepared-licenses.cjs web",
     "web:licensed": "node scripts/export-licensed-web.cjs",
-    "qa:font-flow": "node tests/font-flow-browser.cjs"
+    "qa:font-flow": "node tests/font-flow-browser.cjs",
+    "test:guest-import": "node --test tests/guest-diary-import.test.js tests/guest-diary-import-hook.test.js tests/canvas-media-upload-native.test.js"
   },
   "dependencies": {
     "@expo-google-fonts/nanum-gothic": "^0.4.0",

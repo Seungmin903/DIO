@@ -9,7 +9,7 @@ const require=createRequire(import.meta.url),expo=createRequire(require.resolve(
 function adapter(platform,stored){
  const writes=[],temps=[],parts=[],seeds=[],jpegCalls=[]
  const repository={get:async()=>stored,decode:async()=>({width:20,height:10}),createDisplay:async()=>null,verifyDisplay:async()=>{},save:async(source,metadata)=>{writes.push({source,metadata});return 'cached-image'},dispose:async()=>{}}
- class File{constructor(_path,name){this.uri=`cache/${name}`;temps.push(this)}create(){}write(bytes){this.bytes=bytes}delete(){this.deleted=true}}
+ class File{constructor(_path,name){this.uri=name===undefined?_path:`cache/${name}`;if(name!==undefined)temps.push(this)}create(){}write(bytes){this.bytes=bytes}delete(){this.deleted=true}}
  class Form{append(...args){parts.push(args)}}
  const code=expo('@babel/core').transformSync(readFileSync(new URL(`../src/editor/services/canvasMediaFiles.${platform}.js`,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
  const module={exports:{}}
@@ -46,7 +46,7 @@ for(const platform of ['web','native']){
   assert.equal(a.jpegCalls.length,1);assert.deepEqual(a.jpegCalls[0].options,{width:3000,height:2121,maxBytes:plan.SHARE_MAX_BYTES})
   assert.equal(a.jpegCalls[0].source,platform==='web'?original:'original')
   if(platform==='web'){assert.equal(a.parts[0][2],'image.jpg');assert.deepEqual(a.parts[0][1],{jpeg:true})}
-  else assert.deepEqual(a.parts[0][1],{uri:'jpeg-uri',type:'image/jpeg',name:'image.jpg'})
+  else {assert.equal(a.parts[0][1].uri,'jpeg-uri');assert.equal(a.parts[0][2],'image.jpg')}
   assert.equal(a.parts[1][1],'STICKER');assert.equal(a.writes.length,0)
  })
  test(`${platform}: 5MB 이하이거나 투명할 수 있는 그림은 JPEG 로 바꾸지 않는다`,async()=>{

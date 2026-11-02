@@ -1,13 +1,14 @@
 // 게스트(로그인 전)가 이 기기에 만든 다이어리를 로그인한 회원의 서버 보관함으로 복사한다.
 // 지금 서버 API만 쓴다: 다이어리 생성(initialPages) → 페이지 크기 · 속지 글꼴 · 이름 · 격자(PATCH /pages) → 사진 업로드 후 id 교체 → 요소 전송(canvas-operations) → 즐겨찾기.
 // 게스트 원본은 지우지 않고 '가져옴'만 기록한다(guestImportLedger). 단계마다 기기에 기록해 앱이 꺼져도 같은 키로 이어서 보내므로 서버에 두 번 생기지 않는다.
-// 서버가 받지 못해 빠지는 것(표지 꾸밈 · 날짜 글자 · 5MB 넘는 GIF 등)은 skipped 로 모아 화면에 알린다. 정리: docs/게스트 다이어리 가져오기.md
+// 서버가 받지 못해 빠지는 것(표지 꾸밈 · 날짜 글자 · 5MB 넘는 GIF 등)은 skipped 로 모아 화면에 알린다. 정리: docs/다이어리 저장/게스트 다이어리 가져오기.md
 import { createDefaultDoc } from '../../editor/state/defaultDoc.js'
 import { STORAGE_KEYS } from '../../editor/utils/storageContract.js'
 import { TEMPLATE_VERSION, templateCanvasSize } from '../../editor/templates/catalog.js'
 import { datedBaseId, datedTemplate } from '../../editor/templates/dated.js'
 import { serverTemplateReference } from '../../editor/templates/serverCatalog.js'
 import { sharedObject, encodeElement } from '../../collaboration/canvasElements.js'
+import { mediaIds } from '../../collaboration/canvasMedia.js'
 import { pageSettingsBody } from '../../collaboration/pageSettings.js'
 import { decodeServerPage } from '../../collaboration/serverPages.js'
 import { normalizeDiaries } from '../utils/diaryLibrary.js'
@@ -76,7 +77,7 @@ export function splitStroke(object, createId, limit = ELEMENT_PROPERTIES_LIMIT) 
   const parts = Math.ceil(size / limit) + 1
   const step = Math.ceil(object.points.length / parts)
   const result = []
-  for (let start = 0; start < object.points.length - 1; start += step) {
+  for (let start = 0; start < object.points.length; start += step) {
     result.push({ ...object, id: result.length ? createId() : object.id, points: object.points.slice(Math.max(0, start - 1), start + step) })
   }
   return result.flatMap(part => part.points.length < object.points.length ? splitStroke(part, createId, limit) : [part])
@@ -122,7 +123,9 @@ const coverDecorated = cover => cover && typeof cover === 'object' && Object.key
  * doc 이 없으면(한 번도 열지 않은 다이어리) 기기에서 처음 열 때와 같은 기본 문서로 본다.
  */
 export function planGuestDiary(diary, doc, { createId }) {
-  const source = doc?.pages?.length ? doc : createDefaultDoc(diary)
+  if (doc != null && (!Array.isArray(doc.pages) || !doc.pages.length))
+    throw failure('INVALID_LOCAL_DOCUMENT', '기기의 다이어리 문서를 확인하지 못했어요. 원본은 그대로 남아 있어요.')
+  const source = doc ?? createDefaultDoc(diary)
   const fallback = diary.pageSize ?? source.orientation ?? 'landscape'
   const skipped = [{ kind: 'createdAt' }]
   if (coverDecorated(diary.cover)) skipped.push({ kind: 'cover' })
@@ -216,14 +219,17 @@ export function withUploadRetry(request, { wait = ms => new Promise(resolve => s
  * - mediaFor(diaryId): 서버 다이어리별 createCanvasMedia(업로드 결과를 편집기와 같은 키에 기록)
  * - loadGuestDoc(diary): 게스트 편집 문서(없으면 null)
  */
-export function createGuestDiaryImporter({ accountId, storage, api, transport, canvas, mediaFor, loadGuestDoc, createId, now = () => new Date().toISOString() }) {
+export function createGuestDiaryImporter({ accountId, storage, api, transport, canvas, mediaFor, loadGuestDoc, createId, now = () => new Date().toISOString(), isActive = () => true }) {
   const journalKey = guestImportJournalKey(accountId)
-  let journal = null, writes = Promise.resolve()
+  let journal = null, writes = Promise.resolve(), running = null
+  const assertActive = () => {
+    if (!isActive()) throw Object.assign(failure('STALE_ACCOUNT', '로그인 상태가 변경됐어요. 다시 로그인한 뒤 이어서 가져와 주세요.'), { status: 401 })
+  }
   const load = async () => {
     if (journal) return journal
     const raw = await storage.getItem(journalKey)
     try { journal = raw ? JSON.parse(raw) : { format: 1, diaries: {} } } catch { throw failure('INVALID_LOCAL_CACHE', '가져오기 진행 기록을 읽지 못했어요.') }
-    if (journal?.format !== 1 || typeof journal.diaries !== 'object') throw failure('INVALID_LOCAL_CACHE', '가져오기 진행 기록을 확인하지 못했어요.')
+    if (journal?.format !== 1 || !journal.diaries || typeof journal.diaries !== 'object' || Array.isArray(journal.diaries)) throw failure('INVALID_LOCAL_CACHE', '가져오기 진행 기록을 확인하지 못했어요.')
     return journal
   }
   const persist = () => { const raw = JSON.stringify(journal); writes = writes.catch(() => {}).then(() => storage.setItem(journalKey, raw)); return writes }
@@ -232,6 +238,7 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
     // 요소마다 따로 올린다: 한 장이 실패해도(너무 큰 GIF · 지운 사진) 나머지는 옮긴다.
     const prepared = []
     for (const row of rows) {
+      assertActive()
       try {
         const body = await media.prepare({ clientOperationId: 'prepare', changes: { creates: [row] }, expectedVersions: {} })
         prepared.push(body.changes.creates[0])
@@ -254,14 +261,22 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
       const pageSize = pages[0].canvasWidth >= pages[0].canvasHeight ? 'landscape' : 'portrait'
       const doc = { ...createDefaultDoc({ id: entry.diaryId, title: diary.title, color: diary.color, pattern: diary.pattern ?? null, pageSize }), memberAccountId: accountId, pages }
       await storage.setItem(key, JSON.stringify(doc))
-    } catch { /* 열 때 서버에서 다시 읽는다 */ }
+    } catch (error) {
+      if (error?.status === 401 || ['STALE_ACCOUNT', 'UNAUTHENTICATED'].includes(error?.code)) throw error
+      /* 캐시 실패는 열 때 서버에서 다시 읽는다. 로그인 실패는 삼키지 않는다. */
+    }
   }
 
   async function importOne(diary, onProgress) {
+    assertActive()
     await load()
+    const recorded = importedTo(await readGuestImportLedger(storage), diary.id, accountId)
+    assertActive()
+    if (recorded) return recorded
     let entry = journal.diaries[diary.id]
     if (!entry) {
       const doc = await loadGuestDoc(diary)
+      assertActive()
       const plan = planGuestDiary(diary, doc, { createId })
       entry = journal.diaries[diary.id] = { requestId: createId(), plan, diaryId: null, pageIds: null, settingsDone: [], batchesDone: [], favoriteDone: false, skipped: [...plan.skipped], startedAt: now() }
       await persist()
@@ -269,8 +284,9 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
     const { plan } = entry
     // 묶음을 나눠 보내면 단계 수가 늘어나므로 그때그때 센다.
     const total = () => 1 + plan.pages.length + plan.pages.reduce((sum, page) => sum + page.batches.length, 0)
+    let deferredMediaError = null
     let done = 0
-    const step = () => onProgress?.({ guestDiaryId: diary.id, done: ++done, total: total() })
+    const step = () => { assertActive(); onProgress?.({ guestDiaryId: diary.id, done: ++done, total: total() }) }
     if (!entry.diaryId) {
       // 같은 생성 키로 다시 보내면 서버는 처음 만든 다이어리를 돌려준다(24시간 보관).
       const result = await api.create(copy(plan.create), { requestId: entry.requestId })
@@ -291,13 +307,31 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
         entry.settingsDone.push(index); await persist()
       }
       step()
+      // 저장된 요청은 유지하고, 아직 준비하지 않은 묶음만 이미지와 일반 요소로 분리한다.
+      let separated = false
+      page.batches = page.batches.flatMap(batch => {
+        if (batch.request || entry.batchesDone.includes(batch.clientOperationId)) return [batch]
+        const hasMedia = row => mediaIds(row).length > 0 || !!row.propertiesJson?.pdfSource
+        const plain = batch.creates.filter(row => !hasMedia(row)), images = batch.creates.filter(hasMedia)
+        if (!plain.length || !images.length) return [batch]
+        separated = true
+        return [{ clientOperationId: batch.clientOperationId, creates: plain }, { clientOperationId: createId(), creates: images }]
+      })
+      if (separated) await persist()
       for (let position = 0; position < page.batches.length; position++) {
+        assertActive()
         const batch = page.batches[position]
         if (!entry.batchesDone.includes(batch.clientOperationId)) {
           // 업로드로 바꾼 요청은 기록해 두었다가 그대로 다시 보낸다(같은 clientOperationId · 같은 내용 → 서버가 처음 결과를 돌려준다).
           if (!batch.request) {
             const media = mediaFor(entry.diaryId)
-            const creates = await prepareRows(media, batch.creates, entry)
+            let creates
+            try { creates = await prepareRows(media, batch.creates, entry) }
+            catch (error) {
+              if (error.status === 401 || ['STALE_ACCOUNT', 'UNAUTHENTICATED'].includes(error.code)) throw error
+              deferredMediaError ??= error
+              continue // 사진은 재시도 대상으로 남기고 다음 페이지의 펜·글씨도 보낸다.
+            }
             batch.request = { clientOperationId: batch.clientOperationId, changes: { creates }, expectedVersions: {} }
             await persist()
           }
@@ -320,11 +354,13 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
         step()
       }
     }
+    assertActive()
+    if (deferredMediaError) throw deferredMediaError
     if (plan.favorite && !entry.favoriteDone) {
-      try { await transport({ method: 'PATCH', path: `/diaries/${entry.diaryId}/membership`, body: { favorite: true } }); entry.favoriteDone = true; await persist() }
-      catch (error) { if (error.status >= 500 || !error.status) throw error }
+      await transport({ method: 'PATCH', path: `/diaries/${entry.diaryId}/membership`, body: { favorite: true } }); entry.favoriteDone = true; await persist()
     }
     await cacheMemberDocument(diary, entry)
+    assertActive()
     const record = { diaryId: entry.diaryId, importedAt: now(), skipped: skippedSummary(entry.skipped) }
     await updateLedger(storage, ledger => ({ ...ledger, imports: { ...ledger.imports, [diary.id]: { ...(ledger.imports[diary.id] ?? {}), [accountId]: record } } }))
     delete journal.diaries[diary.id]; await persist()
@@ -339,19 +375,24 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
      * 결과: { imported: [{guestDiaryId, diaryId, skipped}], failed: [{guestDiaryId, error}] }
      */
     async run(diaries, { onProgress } = {}) {
-      const imported = [], failed = []
-      for (const diary of diaries) {
-        try { imported.push({ guestDiaryId: diary.id, ...await importOne(diary, onProgress) }) }
-        catch (error) {
-          failed.push({ guestDiaryId: diary.id, error })
-          // 계정이 바뀌었거나 로그인이 끝났으면 나머지도 보내지 않는다.
-          if (error.status === 401 || error.code === 'UNAUTHENTICATED' || error.code === 'STALE_ACCOUNT') {
-            for (const rest of diaries.slice(diaries.indexOf(diary) + 1)) failed.push({ guestDiaryId: rest.id, error })
-            break
+      if (running) return running
+      const operation = (async () => {
+        const imported = [], failed = []
+        for (const diary of diaries) {
+          try { imported.push({ guestDiaryId: diary.id, ...await importOne(diary, onProgress) }) }
+          catch (error) {
+            failed.push({ guestDiaryId: diary.id, error })
+            // 계정이 바뀌었거나 로그인이 끝났으면 나머지도 보내지 않는다.
+            if (error.status === 401 || error.code === 'UNAUTHENTICATED' || error.code === 'STALE_ACCOUNT') {
+              for (const rest of diaries.slice(diaries.indexOf(diary) + 1)) failed.push({ guestDiaryId: rest.id, error })
+              break
+            }
           }
         }
-      }
-      return { imported, failed }
+        return { imported, failed }
+      })()
+      running = operation
+      try { return await operation } finally { if (running === operation) running = null }
     },
   }
 }

@@ -96,11 +96,11 @@ function fakeServer({ serverId = ids() } = {}) {
   return { transport, files, mediaRequest, diaries, pages, ops, media, calls, failNext: fn => { failOnce = fn } }
 }
 
-function importer(server, storage, { createId = ids() } = {}) {
+function importer(server, storage, { createId = ids(), isActive = () => true } = {}) {
   const api = createMemberDiaryApi(server.transport)
   const canvas = createCanvasApi(server.transport)
   const mediaFor = diaryId => createCanvasMedia({ request: server.mediaRequest, files: server.files, storage, key: `dio:member:v1:${accountId}:doc:${diaryId}:media-uploads:v1:test` })
-  return createGuestDiaryImporter({ accountId, storage, api, transport: server.transport, canvas, mediaFor, createId,
+  return createGuestDiaryImporter({ accountId, storage, api, transport: server.transport, canvas, mediaFor, createId, isActive,
     loadGuestDoc: async diary => JSON.parse(await storage.getItem(`${STORAGE_KEYS.doc}:${diary.id}`) ?? 'null'), now: () => '2026-11-02T01:00:00.000Z' })
 }
 const guestStorage = () => memoryStorage({ [STORAGE_KEYS.diaries]: JSON.stringify([guestDiary, { id: 'diary-2', title: '버린 것', trashedAt: '2026-10-01T00:00:00Z' }]), [`${STORAGE_KEYS.doc}:diary-1`]: JSON.stringify(guestDoc()) })
@@ -234,4 +234,74 @@ test('업로드가 몰려 503 이면 기다렸다 다시 보낸다', async () =>
   const request = withUploadRetry(async () => { if (++calls < 3) throw Object.assign(new Error('busy'), { status: 503, code: 'MEDIA_UPLOAD_BUSY' }); return { ok: true } }, { wait: async () => {} })
   assert.deepEqual(await request('/media', {}), { ok: true })
   assert.equal(calls, 3)
+})
+
+
+test('펜 획을 나눌 때 마지막 점 하나가 남는 길이도 끝점까지 보존한다', () => {
+ for(let length=4;length<=40;length++){
+  const stroke={...longStroke,points:longStroke.points.slice(0,length)};
+  const limit=Math.ceil(new TextEncoder().encode(JSON.stringify(stroke)).length/3);
+  const parts=splitStroke(stroke,ids(),limit);
+  assert.deepEqual(parts.at(-1).points.at(-1),stroke.points.at(-1),`length=${length}`);
+  for(let i=1;i<parts.length;i++)assert.deepEqual(parts[i].points[0],parts[i-1].points.at(-1));
+ }
+});
+test('동일 실행기의 가져오기를 연속 눌러도 다이어리를 한 번만 만든다', async () => {
+ const server=fakeServer(),storage=guestStorage(),runner=importer(server,storage);
+ const [a,b]=await Promise.all([runner.run([guestDiary]),runner.run([guestDiary])]);
+ assert.equal(a.failed.length,0);assert.equal(b.failed.length,0);assert.equal(server.diaries.size,1);
+});
+test('완료 기록 뒤 진행 기록 저장이 실패해도 재시도 시 복제하지 않는다',async()=>{
+ const server=fakeServer(),storage=guestStorage();const save=storage.setItem;let failed=false;
+ storage.setItem=async(key,value)=>{
+  if(!failed&&key===guestImportJournalKey(accountId)&&storage.disk.has('dio:diary:guest-imports:v1')&&Object.keys(JSON.parse(value).diaries).length===0){failed=true;throw Error('disk full');}
+  return save(key,value);
+ };
+ const first=await importer(server,storage).run([guestDiary]);assert.equal(first.failed.length,1);
+ const retry=await importer(server,storage).run([guestDiary]);assert.equal(retry.failed.length,0);assert.equal(server.diaries.size,1);
+});
+test('손상된 게스트 문서를 빈 문서로 대체해 서버에 올리지 않는다',async()=>{
+ assert.throws(()=>planGuestDiary(guestDiary,{pages:[]},{createId:ids()}),/문서를 확인/);
+ const server=fakeServer(),storage=guestStorage();await storage.setItem(`${STORAGE_KEYS.doc}:diary-1`,'{broken');
+ const result=await importer(server,storage).run([guestDiary]);assert.equal(result.failed.length,1);assert.equal(server.diaries.size,0);
+ assert.equal(await storage.getItem(`${STORAGE_KEYS.doc}:diary-1`),'{broken');
+});
+test('즐겨찾기에서 401을 받으면 완료 처리하거나 다음 다이어리를 보내지 않는다',async()=>{
+ const server=fakeServer(),storage=guestStorage(),request=server.transport;
+ server.transport=async r=>{if(r.path.endsWith('/membership'))throw Object.assign(Error('expired'),{status:401});return request(r);};
+ const result=await importer(server,storage).run([guestDiary,{...guestDiary,id:'other'}]);assert.equal(result.imported.length,0);assert.equal(result.failed.length,2);assert.equal(server.diaries.size,1);
+ assert.equal((await readGuestImportLedger(storage)).imports['diary-1'],undefined);
+});
+test('계정이 바뀌면 생성 결과는 진행 기록에 남기고 추가 전송을 중단한다',async()=>{
+ const server=fakeServer(),storage=guestStorage(),request=server.transport;let active=true;
+ server.transport=async r=>{const response=await request(r);if(r.path==='/member/diaries')active=false;return response;};
+ const result=await importer(server,storage,{isActive:()=>active}).run([guestDiary]);assert.equal(result.failed[0].error.code,'STALE_ACCOUNT');
+ assert.equal(server.calls.length,1);assert.equal((await readGuestImportLedger(storage)).imports['diary-1'],undefined);
+ server.transport=request;const retry=await importer(server,storage).run([guestDiary]);assert.equal(retry.failed.length,0);assert.equal(server.diaries.size,1);
+});
+
+
+test('이미지 네트워크 실패에도 글씨와 다음 페이지 펜을 저장하고 재시도는 같은 다이어리를 완성한다', async () => {
+  const storage = guestStorage(), server = fakeServer()
+  const original = await storage.getItem(`${STORAGE_KEYS.doc}:diary-1`)
+  const sendMedia = server.mediaRequest
+  server.mediaRequest = async () => { throw Object.assign(Error('network'), { status: 0, code: 'NETWORK_ERROR' }) }
+  const first = await importer(server, storage).run([guestDiary])
+  assert.equal(first.failed.length, 1)
+  assert.equal(first.imported.length, 0)
+  assert.equal(server.diaries.size, 1)
+  const saved = [...server.pages.values()].flatMap(page => page.elements)
+  assert.ok(saved.some(row => row.elementType === 'TEXT'))
+  assert.ok(saved.some(row => row.elementType === 'STROKE'))
+  assert.ok(!(await readGuestImportLedger(storage)).imports?.[guestDiary.id]?.[accountId])
+  assert.equal(await storage.getItem(`${STORAGE_KEYS.doc}:diary-1`), original)
+  server.mediaRequest = sendMedia
+  const second = await importer(server, storage, { createId: (() => { let n = 10000; return () => `00000000-0000-4000-8000-${hex(++n)}` })() }).run([guestDiary])
+  assert.equal(second.failed.length, 0)
+  assert.equal(second.imported.length, 1)
+  assert.equal(server.diaries.size, 1)
+  const complete = [...server.pages.values()].flatMap(page => page.elements)
+  assert.equal(complete.filter(row => row.elementType === 'TEXT').length, 1)
+  assert.equal(complete.filter(row => row.elementType === 'STROKE').length, saved.filter(row => row.elementType === 'STROKE').length)
+  assert.ok(complete.some(row => row.elementType === 'PHOTO'))
 })

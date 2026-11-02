@@ -19,12 +19,16 @@ import { createId } from '../../editor/utils/common.js'
 export function useGuestDiaryImport(accountId, { enabled = true, onImported } = {}) {
   const [state, setState] = useState({ phase: null, candidates: [], progress: null, imported: [], failed: [] })
   const sessionKey = authService.getSessionKey()
-  const alive = useRef(true)
+  const context = useMemo(() => ({ active: true, checked: false }), [accountId, sessionKey])
+  const running = useRef(false)
+  const onImportedRef = useRef(onImported)
+  onImportedRef.current = onImported
+  const active = () => context.active && authService.getSessionKey() === sessionKey
   const importer = useMemo(() => {
-    const active = () => alive.current && authService.getSessionKey() === sessionKey
+    const active = () => context.active && authService.getSessionKey() === sessionKey
     const transport = createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl, accessTokenHeader, fetchImpl: memberFetch })
     const request = withUploadRetry(createMediaRequest({ auth: authService, accountId, sessionKey, baseUrl: apiBaseUrl, fetchImpl: memberFetch }))
-    return createGuestDiaryImporter({ accountId, storage: AsyncStorage, createId, transport,
+    return createGuestDiaryImporter({ accountId, storage: AsyncStorage, createId, transport, isActive: active,
       api: createMemberDiaryApi(transport),
       // 미디어를 넘기지 않아 응답의 사진을 다시 내려받지 않는다(원본은 이 기기에 있다).
       canvas: createCanvasApi(transport),
@@ -33,40 +37,53 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
         key: `${memberKeys(accountId).doc(diaryId)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}` }),
       loadGuestDoc: async diary => {
         const raw = await AsyncStorage.getItem(`${STORAGE_KEYS.doc}:${diary.id}`)
-        try { return raw ? JSON.parse(raw) : null } catch { return null }
+        try { return raw ? JSON.parse(raw) : null } catch { throw Object.assign(new Error('기기의 다이어리 문서를 읽지 못했어요. 원본은 그대로 남아 있어요.'), { code: 'INVALID_LOCAL_DOCUMENT' }) }
       },
     })
-  }, [accountId, sessionKey])
+  }, [accountId, sessionKey, context])
 
   useEffect(() => {
-    alive.current = true
-    if (!enabled) return () => { alive.current = false }
+    context.active = true
+    return () => { context.active = false }
+  }, [context])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!enabled || context.checked) return
+
     ;(async () => {
       const [{ diaries, declined }, pending] = await Promise.all([listGuestImportCandidates(AsyncStorage, accountId), importer.pendingIds()])
-      if (!alive.current || !diaries.length) return
+      if (cancelled || !active()) return
+      context.checked = true
+      if (!diaries.length) return
       // 가져오지 않기로 한 계정도 끝나지 않은 가져오기가 있으면 다시 묻는다.
       const unfinished = diaries.filter(diary => pending.includes(diary.id))
       if (declined && !unfinished.length) return
       setState(current => current.phase ? current : { ...current, phase: 'ask', candidates: declined ? unfinished : diaries })
     })().catch(() => {})
-    return () => { alive.current = false }
+    return () => { cancelled = true }
   }, [accountId, enabled, importer])
 
   const run = useCallback(async targets => {
-    setState(current => ({ ...current, phase: 'running', progress: { index: 0, count: targets.length, done: 0, total: 1, title: targets[0]?.title ?? '' }, failed: [] }))
-    const result = await importer.run(targets, { onProgress: ({ guestDiaryId, done, total }) => {
-      if (!alive.current) return
-      const index = targets.findIndex(diary => diary.id === guestDiaryId)
-      setState(current => ({ ...current, progress: { index, count: targets.length, done, total, title: targets[index]?.title ?? '' } }))
-    } })
-    if (!alive.current) return
-    setState(current => ({ ...current, phase: 'done', progress: null, imported: [...current.imported, ...result.imported],
-      failed: result.failed.map(row => ({ ...row, diary: targets.find(diary => diary.id === row.guestDiaryId) })) }))
-    if (result.imported.length) onImported?.()
-  }, [importer, onImported])
+    if (!enabled || running.current || !active() || !targets.length) return
+    running.current = true
+    try {
+      setState(current => ({ ...current, phase: 'running', progress: { index: 0, count: targets.length, done: 0, total: 1, title: targets[0]?.title ?? '' }, failed: [] }))
+      const result = await importer.run(targets, { onProgress: ({ guestDiaryId, done, total }) => {
+        if (!active()) return
+        const index = targets.findIndex(diary => diary.id === guestDiaryId)
+        setState(current => ({ ...current, progress: { index, count: targets.length, done, total, title: targets[index]?.title ?? '' } }))
+      } })
+      if (!active()) return
+      setState(current => ({ ...current, phase: 'done', progress: null, imported: [...current.imported, ...result.imported],
+        failed: result.failed.map(row => ({ ...row, diary: targets.find(diary => diary.id === row.guestDiaryId) })) }))
+      if (result.imported.length) onImportedRef.current?.()
+    } finally { running.current = false }
+  }, [importer, enabled, context, sessionKey])
 
   return {
     ...state,
+    phase: enabled && active() ? state.phase : null,
     start: () => run(state.candidates),
     retry: () => run(state.failed.map(row => row.diary).filter(Boolean)),
     later: () => setState(current => ({ ...current, phase: null })),

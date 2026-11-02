@@ -980,7 +980,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.white }]} />}
       {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
         check={value => checkAppLock(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}
-      {member && signedIn && <GuestImportHost accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} />}
+      {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} />}
       <DialogHost />
     </>
   );
