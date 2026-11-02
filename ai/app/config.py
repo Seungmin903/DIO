@@ -17,5 +17,8 @@ MAX_PIXELS = _int("DIO_AI_MAX_PIXELS", 40_000_000)
 # 붓질 응답의 미리보기 PNG 긴 변 최대 픽셀. 앱이 원본 위에 늘려서 겹친다.
 PREVIEW_MAX_SIDE = _int("SAM2_PREVIEW_MAX_SIDE", 768)
 
+# 저장용 스티커 PNG 긴 변 최대 픽셀. 백엔드 미디어 저장 한도(5MB) 안에 들어가게 한다.
+STICKER_MAX_SIDE = _int("SAM2_STICKER_MAX_SIDE", 1024)
+
 # 서버 시작 때 모델을 미리 올려 첫 요청이 느리지 않게 한다. 테스트에서는 0.
 PRELOAD = os.getenv("SAM2_PRELOAD", "1") != "0"

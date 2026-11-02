@@ -94,6 +94,23 @@ class InvitationLookupBootHttpTests {
   assertThat(request("GET","/api/v1/notifications",session.accessToken(),null).statusCode()).isEqualTo(401);
  }
 
+ @Test void emailInviteHttpShowsActionableCountAndCancelClearsIt() throws Exception {
+  long recipient=user("dot-recipient@example.com","dot-recipient"), actor=user("dot-actor@example.com","dot-actor");
+  UUID diary=UUID.randomUUID();
+  jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'dot qa')",diary,actor);
+  var a=login("dot-actor@example.com"); var r=login("dot-recipient@example.com");
+  var sent=request("POST","/api/v1/diaries/"+diary+"/invites/email",a.accessToken(),"{\"email\":\"dot-recipient@example.com\"}");
+  assertThat(sent.statusCode()).isEqualTo(202);
+  long invite=jdbc.queryForObject("select invite_id from diary_invites where diary_id=?",Long.class,diary);
+  var first=json.readTree(request("GET","/api/v1/notifications/unread-count",r.accessToken(),null).body());
+  assertThat(first.path("unreadCount").asLong()).isEqualTo(1);
+  assertThat(first.path("actionableUnreadCount").asLong()).isEqualTo(1);
+  assertThat(request("DELETE","/api/v1/diaries/"+diary+"/invites/"+invite,a.accessToken(),null).statusCode()).isEqualTo(204);
+  var cancelled=json.readTree(request("GET","/api/v1/notifications/unread-count",r.accessToken(),null).body());
+  assertThat(cancelled.path("unreadCount").asLong()).isEqualTo(1);
+  assertThat(cancelled.path("actionableUnreadCount").asLong()).isZero();
+ }
+
  @Test void producerCreatesAtomicallyAndReplayDoesNotDuplicate() throws Exception {
   long recipient=user("event-r@example.com","event-r"), actor=user("event-a@example.com","event-a");
   UUID diary=UUID.randomUUID();

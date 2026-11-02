@@ -87,7 +87,7 @@ export default function SharingEntry({
               ]}
               accessibilityLabel={`${member.nickname} 참여 중`}
             >
-              <MemberAvatar member={member} size={compact ? 14 : 18} />
+              <MemberAvatar member={member} />
             </View>
           ))}
           {members.length > visibleCount && !(bar && hideCounter) && (bar ? (
@@ -143,7 +143,6 @@ export default function SharingEntry({
                     >
                       <MemberAvatar
                         member={member}
-                        size={24}
                         muted={member.presence === '자리 비움'}
                       />
                     </View>

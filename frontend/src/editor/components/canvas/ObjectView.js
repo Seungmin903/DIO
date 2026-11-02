@@ -1,4 +1,4 @@
-import { createContext, memo, useContext, useRef, useState } from 'react'
+import { createContext, memo, useContext, useLayoutEffect, useRef, useState } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
@@ -11,7 +11,7 @@ import { reportMediaDisplayError } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
-import { coverLayout, hasPhotoMedia, photoInnerBox, tapeUnitH } from '../../utils/objects'
+import { coverLayout, hasPhotoMedia, photoInnerBox, tapePieceRatio, tapeUnitH } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
@@ -21,7 +21,7 @@ import PhotoPathShadow from './PhotoPathShadow'
 import StrokeContent from '../StrokeContent'
 import ShapeContent from './ShapeContent'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
-import { loadedFontFamily, textSettings, textStyle } from '../../utils/text'
+import { loadedFontFamily, textLayoutKey, textSettings, textStyle } from '../../utils/text'
 import { useTextFont } from '../../hooks/useTextFont'
 import { useStickerPlayback } from '../../hooks/useStickerPlayback'
 import DdayWidget from '../../widgets/DdayWidget'
@@ -31,6 +31,7 @@ import DdayWidget from '../../widgets/DdayWidget'
  * 글꼴·줄바꿈을 반영한 실제 내용 높이를 측정해 상자 축소의 하한으로 사용한다.
  */
 export const TextMeasure = createContext(null)
+export const TextMeasureReady = createContext(false)
 
 /**
  * 오브젝트 하나의 생김새. 위치·회전·불투명도는 바깥에서 잡고, 여기서는 zoom 배율로 내용만 그린다.
@@ -43,6 +44,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
   const height = object.h * zoom
   const uri = useMediaUri(object, { still })
   const onTextMeasure = useContext(TextMeasure)
+  const textMeasureReady = useContext(TextMeasureReady)
   const failed = useMediaEntry(mediaId(object))?.status === 'error'
   if (object.type === 'text' && object.font?.startsWith('personal-') && !loadedFontFamily(object.font)) return (
     <View style={{ width, height, justifyContent: 'center' }}><Text style={{ fontSize: Math.max(8, 12 * zoom), color: colors.textMuted }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져와 주세요.'}</Text></View>
@@ -61,7 +63,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
   switch (object.type) {
     case 'text': {
       // 상자의 빈 공간과 별개로 실제 내용 높이를 측정한다 (TextMeasure).
-      return <TextContent object={object} width={width} height={height} zoom={zoom} onTextMeasure={onTextMeasure} />
+      return <TextContent object={object} width={width} height={height} zoom={zoom} onTextMeasure={onTextMeasure} textMeasureReady={textMeasureReady} />
     }
     case 'shape':
       return <ShapeContent object={object} zoom={zoom} />
@@ -80,7 +82,8 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
           <TapeView
             pattern={object.pattern}
             palette={object.palette}
-            segmentRatio={object.segmentW ? object.segmentW / object.h : undefined}
+            segmentShare={object.segmentW ? object.segmentW / object.w : undefined}
+            pieceRatio={tapePieceRatio(object)}
             src={object.src}
             mediaFileId={object.mediaFileId}
             crop={object.crop}
@@ -110,14 +113,37 @@ export default memo(ObjectContent)
 // 줄마다 위치를 재서(onTextLayout) 선을 직접 긋는다. 웹 · iOS 는 글자 장식을 그대로 쓴다.
 const DRAWN_DECORATION = Platform.OS === 'android'
 
-function TextContent({ object, width, height, zoom, onTextMeasure }) {
+function TextContent({ object, width, height, zoom, onTextMeasure, textMeasureReady }) {
   const scale = width / (object.baseWidth ?? object.w)
   const settings = textSettings(object)
   const base = textStyle(object, scale, Platform.OS)
   const drawn = DRAWN_DECORATION && (settings.underline || settings.strike)
   const [lines, setLines] = useState(null)
+  const textRef = useRef(null)
+  const lastMeasurement = useRef(null)
+  const measureCallback = useRef(onTextMeasure)
+  measureCallback.current = onTextMeasure
+  const measurementEnabled = Boolean(onTextMeasure)
+  const layoutKey = textLayoutKey(object)
+  const reportHeight = measuredHeight => {
+    if (!measureCallback.current || !Number.isFinite(measuredHeight) || measuredHeight <= 0 || !Number.isFinite(zoom) || zoom <= 0) return
+    const h = measuredHeight / zoom
+    if (lastMeasurement.current?.id === object.id && lastMeasurement.current.key === layoutKey && lastMeasurement.current.boxHeight === object.h && Math.abs(lastMeasurement.current.h - h) < 0.01) return
+    lastMeasurement.current = { id: object.id, key: layoutKey, boxHeight: object.h, h }
+    measureCallback.current(object.id, h)
+  }
+  // 크기 조절 중 측정이 중단됐다가 재개되면 크기가 같아도 직접 잰다.
+  useLayoutEffect(() => {
+    if (!measurementEnabled || Platform.OS === 'web') return undefined
+    let cancelled = false
+    textRef.current?.measure?.((_x, _y, _width, measuredHeight) => {
+      if (!cancelled) reportHeight(measuredHeight)
+    })
+    return () => { cancelled = true }
+  }, [measurementEnabled, layoutKey, object.id, object.h, zoom, textMeasureReady])
   const style = { width, minHeight: onTextMeasure ? undefined : height, ...base, ...(drawn && { textDecorationLine: 'none' }) }
-  const text = <Text onLayout={onTextMeasure ? (event) => onTextMeasure(object.id, event.nativeEvent.layout.height / zoom) : undefined}
+  // 측정이 다시 켜질 때 크기가 같아도 새로운 native Text의 첫 onLayout을 받는다.
+  const text = <Text ref={textRef} key={textMeasureReady ? 'ready' : 'loading'} onLayout={onTextMeasure ? (event) => reportHeight(event.nativeEvent.layout.height) : undefined}
     onTextLayout={drawn ? (event) => setLines(event.nativeEvent.lines) : undefined} style={style}>
     {richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={{ textDecorationLine: style.textDecorationLine, ...segmentTextStyle(segment, scale, settings.lineSpacing) }}>{segment.text}</Text>)}
   </Text>

@@ -118,6 +118,7 @@ uv run pytest
 | `SAM2_CACHE_SIZE` | `32` | 메모리에 보관할 사진 임베딩 수 |
 | `SAM2_CACHE_TTL_SEC` | `1800` | 마지막 사용 후 이 시간(초)이 지나면 임베딩 삭제 |
 | `SAM2_PREVIEW_MAX_SIDE` | `768` | 붓질 미리보기 PNG 긴 변 최대 픽셀 |
+| `SAM2_STICKER_MAX_SIDE` | `1024` | 저장용 스티커 PNG 긴 변 최대 픽셀 (미디어 5MB 한도 대비) |
 | `SAM2_PRELOAD` | `1` | 서버 시작 때 모델을 미리 올림. `0`이면 첫 요청 때 올림 |
 | `DIO_AI_API_KEY` | (없음) | Spring 과 맞출 내부 키. 비우면 키 검사 안 함(로컬 개발 전용) |
 | `DIO_AI_MAX_UPLOAD_BYTES` | `20971520` | 업로드 최대 바이트 (20MB) |

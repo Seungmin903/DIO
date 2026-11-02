@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.test.context.jdbc.Sql("/push-session-h2.sql")
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"spring.datasource.url=jdbc:h2:mem:collaboration-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "dio.auth.jwt-secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","dio.signup.photos.storage=local",
-    "dio.signup.photos.local-directory=build/collaboration-photos","dio.media.local-directory=build/collaboration-media","spring.datasource.hikari.maximum-pool-size=12","server.forward-headers-strategy=native","server.tomcat.remoteip.remote-ip-header=X-Forwarded-For","server.tomcat.remoteip.internal-proxies=127\\.0\\.0\\.1|::1"})
+    "dio.signup.photos.local-directory=build/collaboration-photos","dio.media.local-directory=build/collaboration-media","spring.datasource.hikari.maximum-pool-size=12","server.forward-headers-strategy=native","server.tomcat.remoteip.remote-ip-header=X-Forwarded-For","server.tomcat.remoteip.protocol-header=X-Forwarded-Proto","server.tomcat.remoteip.port-header=X-Forwarded-Port","server.tomcat.remoteip.internal-proxies=127\\.0\\.0\\.1|::1"})
 @AutoConfigureMockMvc @ActiveProfiles("test")
 class CanvasCollaborationTests {
     @org.springframework.boot.test.web.server.LocalServerPort int port;
@@ -198,6 +198,24 @@ class CanvasCollaborationTests {
         jdbc.update("update diary_members set left_at=current_timestamp where diary_id=? and user_id=?",diary,outsider.id());
         mvc.perform(get("/api/v1/pages/"+page+"/history/me").header("Authorization","Bearer "+outsider.token())).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/pages/"+page+"/history/me")).andExpect(status().isUnauthorized());
+    }
+    String proxyHandshake(String host,String origin,String forwardedPort)throws Exception{
+        try(var socket=new java.net.Socket("127.0.0.1",port)){
+            socket.setSoTimeout(5000);
+            byte[] nonce=new byte[16];new java.security.SecureRandom().nextBytes(nonce);
+            String handshakeNonce=Base64.getEncoder().encodeToString(nonce);
+            String request="GET /ws/diaries/"+UUID.randomUUID()+" HTTP/1.1\r\nHost: "+host+
+                "\r\nOrigin: "+origin+"\r\nX-Forwarded-Proto: https"+(forwardedPort==null?"":"\r\nX-Forwarded-Port: "+forwardedPort)+"\r\nConnection: Upgrade\r\nUpgrade: websocket"+
+                "\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: "+handshakeNonce+"\r\n\r\n";
+            socket.getOutputStream().write(request.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            return new java.io.BufferedReader(new java.io.InputStreamReader(socket.getInputStream(),java.nio.charset.StandardCharsets.US_ASCII)).readLine();
+        }
+    }
+    @Test void proxyMustPreserveExternalPortForNativeSameOriginHandshake()throws Exception{
+        // 이 Origin은 허용 목록에 없다. 신뢰 프록시의 scheme과 Host 포트가 같을 때만 same-origin이다.
+        assertThat(proxyHandshake("native-proxy.example:8443","https://native-proxy.example:8443","8443")).contains(" 101 ");
+        assertThat(proxyHandshake("native-proxy.example","https://native-proxy.example:8443",null)).contains(" 403 ");
+        assertThat(proxyHandshake("native-proxy.example:8443","https://untrusted.example:8443","8443")).contains(" 403 ");
     }
     static class SocketProbe implements java.net.http.WebSocket.Listener,AutoCloseable {
         final java.util.concurrent.BlockingQueue<String> frames=new java.util.concurrent.LinkedBlockingQueue<>();

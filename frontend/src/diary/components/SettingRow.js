@@ -57,8 +57,17 @@ export const ON_OFF = [{ id: 'on', label: '켬' }, { id: 'off', label: '끔' }];
  * disabled: 값은 그대로 보이되 누를 수 없다(알림을 끈 동안의 세부 설정처럼).
  * options: [{ id, label }], value: 고른 id, onChange(id). 눌림 효과는 없다(B안: 상태는 면 · 테두리 · 손잡이 자리로만 보인다).
  */
-export default function SettingRow({ label, options, value, onChange, disabled = false, children }) {
+export default function SettingRow({ label, options, value, onChange, disabled = false, onPress, accessibilityLabel, accessibilityState, children }) {
   const toggle = options === ON_OFF;
+  // onPress: 행 전체가 하나의 버튼(값 고르기 행 SettingDropdown). 눌림 효과는 없다
+  if (onPress) {
+    return (
+      <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={accessibilityState} onPress={onPress} style={local.row}>
+        <Text style={local.label}>{label}</Text>
+        {children}
+      </Pressable>
+    );
+  }
   // 이름은 왼쪽, 조작(스위치 · 칩 · 드롭다운 · 버튼)은 오른쪽 끝: 프로필 버튼 · 앱 정보 화살표와 같은 오른쪽 선에 맞춘다(라벨 열 240 고정은 실기기에서 오른쪽 선이 들쭉날쭉했다)
   return (
     <View style={local.row}>

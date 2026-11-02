@@ -21,6 +21,8 @@ const EDGE_INSET = 4
 const GRIP_SHIFT = EDGE_THICKNESS / 2 - EDGE_INSET - FRAME_WIDTH / 2
 const ROTATE_HANDLE = ROTATE_HANDLE_SIZE // 꼭짓점 손잡이와 같은 크기 (떠 있는 메뉴가 이 자리를 피한다)
 const MIN_SIZE = 20
+// 글꼴별 글자 폭 차이를 위한 여유. 정확한 글리프 실측은 아니므로 실기기 확인이 필요하다.
+const TEXT_GLYPH_WIDTH_MARGIN = 1.2
 
 const CORNERS = [
   { key: 'nw', sx: -1, sy: -1 },
@@ -264,7 +266,13 @@ function resizePatch(g, handle, pointer) {
     w = start.w * scale
     h = start.h * scale
   } else if (sx) {
-    w = Math.max(MIN_SIZE, sx * (q.x - anchor.x))
+    // 한 글자도 들어가지 않는 폭에서는 iOS가 글자를 가로로 잘라 표시한다.
+    // 부분 서식의 큰 글자와 현재 텍스트 확대 배율도 함께 반영한다.
+    const settings = start.type === 'text' ? textSettings(start) : null
+    const largestFont = settings ? Math.max(settings.fontSize, ...(start.styleRanges ?? []).map(range => range.fontSize ?? 0)) : 0
+    // 이미 잘린 기존 상자도 다시 조절하면 최소 폭으로 복구한다.
+    const textMinWidth = largestFont * (start.w / (start.baseWidth ?? start.w)) * TEXT_GLYPH_WIDTH_MARGIN
+    w = Math.max(MIN_SIZE, textMinWidth, sx * (q.x - anchor.x))
   } else if (start.type === 'tape') {
     h = Math.min(TAPE_MAX_H, Math.max(TAPE_MIN_H, sy * (q.y - anchor.y)))
   } else {
@@ -291,7 +299,7 @@ function resizePatch(g, handle, pointer) {
     y: reflowText ? (h - start.h) / 2 : sy ? anchor.y + (sy * h) / 2 : 0,
   }
   const offset = rotateVector(localCenter.x, localCenter.y, start.rotation)
-  // 테이프 폭을 바꾸면 무늬 기준 높이와 이미지 한 조각 길이도 같은 비율로 바꿔 무늬 · 그림 크기를 지킨다.
+  // 테이프 폭을 바꾸면 무늬 기준 높이와 사진 한 조각 길이도 같은 비율로 바꿔, 등록한 조각이 가로세로 비율 그대로 커진다(좌우로 늘리면 조각이 반복된다)
   const tapeWidth = start.type === 'tape' && sy && Math.abs(h - start.h) >= 1e-8
     ? { unitH: (tapeUnitH(start) * h) / start.h, ...(start.segmentW ? { segmentW: (start.segmentW * h) / start.h } : {}) }
     : {}

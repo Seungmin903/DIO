@@ -110,7 +110,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
           <View style={s.cardTitleWrap}>
             <View style={s.cardTitleRow}>
               <Text numberOfLines={1} style={[s.cardTitle, s.cardTitleInRow]}>{diary.title}</Text>
-              {isSharedDiary(diary) && <View accessible accessibilityLabel="공유 다이어리" style={s.sharedDiaryIcon}><AppIcon name="people" size={16} color={C.inkSoft} /></View>}
+              {isSharedDiary(diary) && <View accessible accessibilityLabel="공유 다이어리" style={s.sharedDiaryIcon}><AppIcon name="people" size={16} forText={14} color={C.inkSoft} /></View>}
             </View>
             <Text testID={`diary-page-count-${diary.id}`} style={s.cardPageCount}>{countLabel}</Text>
           </View>

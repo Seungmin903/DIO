@@ -156,3 +156,42 @@ def test_internal_key_required_when_configured(client, monkeypatch):
 def test_health_is_open_even_with_key(client, monkeypatch):
     monkeypatch.setattr(config, "API_KEY", "secret")
     assert client.get("/api/health").json()["status"] == "ok"
+
+
+def _noisy_photo(w, h):
+    """압축이 잘 안 되는 사진(잡음). PNG 용량이 가장 크게 나오는 경우다."""
+    rng = np.random.default_rng(0)
+    return Image.fromarray(rng.integers(0, 256, (h, w, 3), dtype=np.uint8), "RGB")
+
+
+def _png_size(image):
+    buf = io.BytesIO()
+    image.save(buf, "PNG", optimize=True)
+    return len(buf.getvalue())
+
+
+def test_big_photo_sticker_fits_max_side_and_media_limit():
+    from app.sticker import make_sticker
+    w, h = 4000, 3000
+    yy, xx = np.mgrid[0:h, 0:w]
+    mask = (((xx - w / 2) / (w * 0.48)) ** 2 + ((yy - h / 2) / (h * 0.48)) ** 2 < 1).astype(np.uint8)
+    sticker = make_sticker(_noisy_photo(w, h), mask, 1024)
+    assert max(sticker.size) <= 1024
+    assert max(sticker.size) >= 900  # 너무 작게 줄이지 않는다
+    assert _png_size(sticker) < 5 * 1024 * 1024  # 백엔드 미디어 저장 한도
+
+
+def test_small_selection_is_not_enlarged():
+    from app.sticker import make_sticker
+    mask = np.zeros((300, 400), np.uint8)
+    mask[100:200, 150:250] = 1
+    sticker = make_sticker(_noisy_photo(400, 300), mask, 1024)
+    assert max(sticker.size) < 200  # 대상(100px)+테두리만큼, 원본보다 키우지 않는다
+
+
+def test_render_limits_sticker_size(client, monkeypatch):
+    monkeypatch.setattr(config, "STICKER_MAX_SIDE", 256)
+    image_id = upload(client, png_bytes((2000, 1500))).json()["imageId"]
+    res = client.post("/api/stickers/render", json={"imageId": image_id, "points": [{"x": 0.5, "y": 0.5}]})
+    assert res.status_code == 200
+    assert max(Image.open(io.BytesIO(res.content)).size) <= 256

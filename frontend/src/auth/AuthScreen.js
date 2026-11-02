@@ -378,7 +378,7 @@ export default function AuthScreen({
                 onPress={back}
                 style={s.back}
               >
-                <AppIcon name="chevron-left" size={20} />
+                <AppIcon name="chevron-left" size={20} forText={12.5} />
                 <Text style={s.linkText}>
                   {(route === 'verification' || (route === 'profile' && profile?.provider === 'email')) ? '이전 화면' : '시작 화면'}
                 </Text>

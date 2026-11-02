@@ -1,11 +1,21 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createEraserSession, ERASER_RADIUS } from '../src/editor/utils/eraser.js'
+import { createEraserSession, eraserPreviewPage, ERASER_RADIUS } from '../src/editor/utils/eraser.js'
 import { createStroke } from '../src/editor/utils/strokes.js'
 import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js'
 
 const line = (id, y = 100, settings = {}) => createStroke([{ x: 40, y }, { x: 240, y }], { id, width: 4, ...settings })
 const hit = (object, point, radius = ERASER_RADIUS) => createEraserSession([object], radius).move(point)
+
+test('미리보기는 편집 중 텍스트를 숨기고 획 조각을 제자리에 넣으며 원본을 보존한다', () => {
+  const a = { id: 'a' }, text = { id: 'text' }, stroke = { id: 'stroke' }, b = { id: 'b' }
+  const pieces = [{ id: 'piece-1' }, { id: 'piece-2' }]
+  const page = { id: 'page', objects: [a, text, stroke, b] }
+  assert.deepEqual(eraserPreviewPage(page, ['text', 'stroke'], { stroke: pieces }).objects, [a, ...pieces, b])
+  assert.deepEqual(page.objects, [a, text, stroke, b])
+  assert.equal(eraserPreviewPage(page, [], null), page)
+  assert.deepEqual(eraserPreviewPage(page, ['stroke'], null).objects, [a, text, b])
+})
 
 test('샘플 점 사이에 닿아도 획 전체를 지우고 큰 경계 상자 안의 빈 곳은 지우지 않는다', () => {
   const stroke = line('line'), original = structuredClone(stroke)

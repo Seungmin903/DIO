@@ -22,10 +22,10 @@ export default function MyColorRow({ scope, label, value, onChange }) {
   const apply = color => onChange(color.toUpperCase())
   const mineEntry = editing?.kind === 'mine' ? mine.presets[editing.index] : null
   let editor = null
-  if (mineEntry) editor = <PresetColorEditor title={`내 ${label} 색 바꾸기`} value={mineEntry} anchor={editing.anchor}
+  if (mineEntry) editor = <PresetColorEditor title={`${label} 색`} value={mineEntry} anchor={editing.anchor}
     onClose={() => setEditing(null)} onRemove={() => { mine.remove(mineEntry); setEditing(null) }}
     onDone={color => { mine.replace(mineEntry, color); apply(color); setEditing(null) }} />
-  else if (editing?.kind === 'add') editor = <PresetColorEditor title={`내 ${label} 색 추가`} original={null} anchor={editing.anchor}
+  else if (editing?.kind === 'add') editor = <PresetColorEditor title={`${label} 색`} original={null} anchor={editing.anchor}
     value={mine.presets[mine.presets.length - 1] ?? value}
     onClose={() => setEditing(null)} onDone={color => { mine.add(color); apply(color); setEditing(null) }} />
   return <>

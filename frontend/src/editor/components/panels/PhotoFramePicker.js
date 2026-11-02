@@ -24,11 +24,14 @@ export default function PhotoFramePicker({ value, onSelect, group, disabled = []
       value={value}
       disabled={disabled}
       onSelect={onSelect}
-      label={(frame) => `사진 틀 ${frameAssetName(frame.id)}${frame.cells ? ` (${frame.cells}칸)` : ''}`}
+      label={frameLabel}
       renderPreview={(frame) => <FramePreview frame={frame} />}
     />
   )
 }
+
+/** 화면 읽기 이름: 사진 틀 폴라로이드 · 사진 틀 네컷 (4칸) */
+export const frameLabel = (frame) => `사진 틀 ${frameAssetName(frame.id)}${frame.cells ? ` (${frame.cells}칸)` : ''}`
 
 /** 미리보기 + 이름 칸을 한 줄 4칸으로 (사진 틀 · 사진 모양이 같은 모양을 쓴다) */
 export function TileGrid({ items, value, disabled = [], onSelect, label, renderPreview }) {
@@ -59,16 +62,17 @@ export function TileGrid({ items, value, disabled = [], onSelect, label, renderP
   )
 }
 
-function FramePreview({ frame }) {
+/** 틀 미리보기. size: 미리보기 칸 크기(기본 PREVIEW). 보관함 위젯 칸은 스티커 칸에 맞춰 더 작게 쓴다 */
+export function FramePreview({ frame, size = PREVIEW }) {
   const color = frameColorOf({ frame: frame.id })
   if (frame.kind === 'strip') {
     // 세로 틀은 높이를, 가로 틀은 너비를 미리보기 칸에 맞춘다
     const tall = stripHeight(frame.id, 1) > 1
-    const w = tall ? (PREVIEW * 0.98) / stripHeight(frame.id, 1) : PREVIEW + 10
+    const w = tall ? (size * 0.98) / stripHeight(frame.id, 1) : size + 10
     const h = stripHeight(frame.id, w)
     const cells = stripCellBoxes({ frame: frame.id, w, h })
     return (
-      <View style={{ width: w, height: h, marginVertical: (PREVIEW - h) / 2 }}>
+      <View style={{ width: w, height: h, marginVertical: (size - h) / 2 }}>
         <PreviewShadow frame={frame.id === 'filmstrip' ? frame.id : 'strip'} width={w} height={h} />
         <StripBackdrop frame={frame.id} width={w} height={h} cells={cells} color={color} edge={PREVIEW_EDGE} />
         <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
@@ -78,12 +82,12 @@ function FramePreview({ frame }) {
     )
   }
   const insets = frameInsets(frame.id)
-  const w = frame.id.startsWith('ticket') ? PREVIEW + 10 : PREVIEW - 6
+  const w = frame.id.startsWith('ticket') ? size + 10 : size - 6
   const inner = { left: w * insets.left, top: w * insets.top, width: w * (1 - insets.left - insets.right) }
   inner.height = inner.width / (ratioValueOf(frame.ratio, {}) ?? 1) // 빈 틀과 같은 안쪽 비율
   const h = inner.top + inner.height + w * insets.bottom
   return (
-    <View style={{ width: w, height: h, marginVertical: (PREVIEW - h) / 2 }}>
+    <View style={{ width: w, height: h, marginVertical: (size - h) / 2 }}>
       <PreviewShadow frame={frame.id} width={w} height={h} />
       <FrameBackdrop frame={frame.id} width={w} height={h} inner={inner} color={color} edge={PREVIEW_EDGE} />
       <Svg width={w} height={h} style={StyleSheet.absoluteFill}>

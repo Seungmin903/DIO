@@ -32,7 +32,7 @@ test('Spring 목록 DTO: 문자열 BIGINT·초대 true/false·null·마지막/�
   assert.deepEqual((await apiFor('empty').list()).items, []);
 });
 test('Spring 카운트·읽음200 DTO·삭제204와 반복204를 FE가 소비한다', async () => {
-  assert.deepEqual(await apiFor('count').count(), { unreadCount: 3 });
+  assert.deepEqual(await apiFor('count').count(), { unreadCount: 3, actionableUnreadCount: 0 });
   const read = await apiFor('read').read('90001');
   assert.equal(read.notificationId, '90001'); assert.equal(typeof read.readAt, 'string'); assert.equal(read.notificationType, 'DIARY_INVITE');
   assert.equal(await apiFor('delete').remove('90001'), null); assert.equal(await apiFor('deleteAgain').remove('90001'), null);

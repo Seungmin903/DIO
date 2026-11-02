@@ -44,8 +44,14 @@ public class NotificationService {
 		return new NotificationListResponse(items, hasNext ? NotificationCursor.encode(userId, page.get(page.size() - 1)) : null, hasNext);
 	}
 
-	/** 전체 미읽음 개수이며, 유효 초대만 세는 UI 빨간 점 계약과는 별개다. */
 	public long unreadCount(long userId) { return repository.unreadCount(userId); }
+
+	/** 취소·수락된 초대나 이미 참여한 다이어리는 미읽음이어도 새 초대로 세지 않는다. */
+	public Long actionableUnreadCount(long userId) {
+		InvitationLookup lookup = invitations.getIfAvailable();
+		if (lookup == null) return null;
+		return lookup.countActionableUnread(userId);
+	}
 
 	@Transactional
 	public NotificationData markRead(long userId, long id) {

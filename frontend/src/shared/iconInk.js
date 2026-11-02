@@ -91,6 +91,9 @@ export const APP_INK = {
 }
 
 const MIN_OBJECT_INK = 14
+// 보이는 크기 보정: 글자 모양 아이콘(T)은 옆 글자와 바로 비교되고 윗변이 폭을 꽉 채워 같은 높이여도 커 보인다(공방 '폰트 추가', 2026-11-02 사용자 지적).
+// 그림 높이를 '글자 + 1px' 대신 글자 높이에 맞춘다(웹 2배 캡처에서 T 30px · 글자 27px → 26px).
+const OPTICAL_SCALE = { text: 0.87 }
 // 글자와 크기를 맞추지 않는 기호(방향 · 닫기 · 체크 · 더하기 · 빼기 · 점 · 줄 · 화살표). 글자보다 작게 곁들이는 것이 자연스럽다.
 const SYMBOLS = new Set(['chevronLeft', 'chevronRight', 'chevronDown', 'close', 'check', 'plus', 'minus', 'more', 'grip', 'up', 'down', 'forward', 'backward', 'arrow-up', 'arrow-down', 'menu'])
 
@@ -99,12 +102,25 @@ const SYMBOLS = new Set(['chevronLeft', 'chevronRight', 'chevronDown', 'close', 
  * 글자 그림 높이 = fontSize × 0.92(Pretendard 한글), 아이콘은 선 굵기까지 포함해 글자보다 1px 크게 보이게 한다.
  * 반환: { size, strokeWidth(24칸 기준), dy(24칸 기준 세로 보정) } — 표에 없거나 기호 아이콘이면 null(원래 size 를 쓴다)
  */
+// 기호(꺾쇠 · 닫기 · 체크 · 더하기 · 화살표 · 줄)는 글자보다 작게 곁들인다: 보이는 그림 높이 = 글자 크기 × 0.64(코덱스 2026-11-02).
+// 그림이 작은 기호(꺾쇠 12 · 체크 11)는 칸을 키워 보정하므로 기호끼리도 같은 높이로 보인다. 선 두께는 물건 아이콘과 같다.
+const SYMBOL_RATIO = 0.64
+// 눕힌 기호는 높이 대신 긴 쪽으로 잰다(⌄ 는 키 6 · 폭 12 — 높이로 재면 칸이 35까지 커졌다). 세운 꺾쇠(›, 키 12)와 같은 크기로 보이게 한다.
+const SYMBOL_EXTENT = { chevronDown: 12 }
+
 export function textIconSpec(table, name, fontSize) {
   const row = table[name]
-  if (!row || row[0] < MIN_OBJECT_INK || SYMBOLS.has(name)) return null
+  if (!row) return null
   const [h, cy] = row
-  const textInk = Math.round(fontSize * 0.92)
   const stroke = fontSize < 12 ? 1.25 : fontSize < 16 ? 1.5 : 1.75
-  const size = Math.max(12, Math.round(((textInk + 1 - stroke) * 24) / h))
+  if (SYMBOLS.has(name)) {
+    const extent = SYMBOL_EXTENT[name] ?? h
+    if (extent <= 0) return null // 점 · 빼기처럼 높이가 없는 기호는 원래 size
+    const size = Math.max(8, Math.round((fontSize * SYMBOL_RATIO * 24) / extent))
+    return { size, strokeWidth: (stroke * 24) / size, dy: 12 - cy }
+  }
+  if (h < MIN_OBJECT_INK) return null
+  const textInk = Math.round(fontSize * 0.92)
+  const size = Math.max(12, Math.round(((textInk + 1 - stroke) * 24 * (OPTICAL_SCALE[name] ?? 1)) / h))
   return { size, strokeWidth: (stroke * 24) / size, dy: 12 - cy }
 }

@@ -1,8 +1,9 @@
 import { Image } from 'react-native';
-import Icon from '../editor/components/controls/Icon';
-import { colors } from '../shared/theme';
+import DefaultAvatar from '../shared/DefaultAvatar';
+import { DISABLED_OPACITY } from '../shared/theme';
 
-export default function MemberAvatar({ member, size = 20, muted = false }) {
+// 사진이 없으면 모아 얼굴 기본 프로필(사람 실루엣은 쓰지 않는다). 색은 서버 참여자 색(member.color)을 보정해 쓴다.
+export default function MemberAvatar({ member, muted = false }) {
   return member?.photoUri ? (
     <Image
       source={{ uri: member.photoUri }}
@@ -10,6 +11,6 @@ export default function MemberAvatar({ member, size = 20, muted = false }) {
       accessibilityLabel={`${member.nickname || '다이어리'} 프로필 사진`}
     />
   ) : (
-    <Icon name="person" size={size} color={muted ? colors.textMuted : colors.text} />
+    <DefaultAvatar user={member} style={[{ width: '100%', height: '100%' }, muted && { opacity: DISABLED_OPACITY }]} />
   );
 }

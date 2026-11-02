@@ -6,7 +6,7 @@ import Icon from './controls/Icon'
 // 스티커·마테·사진 옵션 창(MorePanel)과 같은 느낌: 둥근 유리 카드, 굵은 제목, 작은 회색 구역 제목, 회색 바탕의 세그먼트 버튼.
 export function ToolPanelHeader({ icon, title, onClose, closeLabel, disabled = false, children }) {
   return <View style={toolPanelStyles.heading}>
-    <View style={toolPanelStyles.titleRow}><Icon name={icon} size={18} /><Text style={toolPanelStyles.title}>{title}</Text></View>
+    <View style={toolPanelStyles.titleRow}><Icon name={icon} size={18} forText={15} /><Text style={toolPanelStyles.title}>{title}</Text></View>
     {children}
     <Pressable accessibilityRole="button" accessibilityLabel={closeLabel ?? `${title} 닫기`} disabled={disabled} onPress={onClose} style={[toolPanelStyles.close, disabled && { opacity: DISABLED_OPACITY }]}><Icon name="close" size={18} /></Pressable>
   </View>
@@ -51,7 +51,7 @@ export const toolPanelStyles = StyleSheet.create({
   card: {
     width: 320, // 코덱스 17·18·22·23·24번: 앵커 패널 폭 320
     maxWidth: '100%',
-    maxHeight: 480, // 최대 480, 바깥 칸이 더 작으면 flexShrink 로 줄어든다(내부 스크롤)
+    maxHeight: 590, // 가로 태블릿에서 쓸 수 있는 높이까지(코덱스 2026-11-02, 480 에서 늘림). 바깥 칸이 더 작으면(폰) flexShrink 로 줄어들고 그때만 안에서 스크롤
     flexShrink: 1,
     borderRadius: PANEL_RADIUS,
     backgroundColor: colors.surface, // 흰 면 + 1px 테두리, 그림자 없음
@@ -63,7 +63,7 @@ export const toolPanelStyles = StyleSheet.create({
   titleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { color: colors.text, fontSize: 15, fontWeight: '700' },
   close: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
-  content: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 2, gap: 12 },
+  content: { paddingHorizontal: 16, paddingBottom: 12, paddingTop: 2, gap: 10 }, // 큰 구역 사이 10(코덱스 2026-11-02, 12 에서 줄여 스크롤 없이 들어가게)
   // 구역 제목 (MorePanel 의 sectionTitle 과 같다)
   label: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   // B안 테두리 칩: 칸마다 흰 면 + cardBorder 테두리, 고른 칸은 primaryStrong 테두리(그림자 · 회색 판 없음). 칸 사이 6

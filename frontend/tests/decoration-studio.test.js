@@ -9,6 +9,11 @@ const transform = file => expo('@babel/core').transformSync(readFileSync(new URL
 const nodes = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children, node.props?.right].flat(Infinity).flatMap(nodes)] // right: 구역 제목줄 오른쪽 동작
 const find = (tree, label) => nodes(tree).find(n => n.props?.accessibilityLabel === label || n.props?.label === label || (n.type === '../components/StudioTool' && n.props.title === label))
 const tick = () => new Promise(resolve => setImmediate(resolve))
+// 스티커 만들기: '스티커 추가'를 눌러 뜬 동작 말풍선(DiaryActionBubble)의 항목을 이름으로 찾는다
+const stickerAction = (ui, text) => {
+  find(ui.render(), '스티커 추가').props.onPress()
+  return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble').props.actions.find(action => action.text === text)
+}
 function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [] } = {}) {
   const states = [], refs = [], deps = [], cleanups = [], saves = [], removals = []
   let si, ri, ei, studio = null, fontLoads = 0, backHandler = null
@@ -34,6 +39,7 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     if (id === 'react/jsx-runtime') return require(id)
     if (id === 'react-native') return { StyleSheet: {create:v=>v}, View:'View', Text:'Text', Pressable:'Pressable', ScrollView:'ScrollView' }
     if (id.endsWith('/theme')) return {colors:{},radius:{},DISABLED_OPACITY:.4}
+    if (id.endsWith('/useFillGrid')) return { __esModule: true, default: ({ cell, gap }) => ({ onLayout() {}, columns: 1, cellWidth: cell, spreadGap: gap }) } // 격자 폭 재기(훅 순서를 바꾸지 않게 상태 없이)
     if (id.endsWith('/styles')) return {styles:{}}
     if (id.endsWith('/studioBus')) return { subscribeStudio(){}, studioSnapshot:()=>studio, openFontStudio:(options)=>{opened.push(options);studio={}} }
     if (id.endsWith('/manager')) return { fontWorkflow: workflow }
@@ -57,7 +63,7 @@ test('폰트 제작 재사용·닫기 후 목록 새로고침과 파일 오류 �
   const ui = fixture(); ui.render(); await tick()
   assert.equal(find(ui.render(),'폰트 관리'),undefined)
   assert.ok(nodes(ui.render()).some(n=>n.props.children==='폰트를 불러오지 못했어요.'))
-  find(ui.render(),'새로 만들기').props.onPress()
+  find(ui.render(),'폰트 추가').props.onPress()
   assert.ok(ui.studio)
   ui.render(); ui.closeFont(); ui.render(); await tick()
   assert.equal(ui.fontLoads,2)
@@ -69,8 +75,8 @@ test('폰트 제작 재사용·닫기 후 목록 새로고침과 파일 오류 �
 })
 test('미지원 시트 분리는 차단하고 사진 오리기 목업 진입·닫기는 폴더를 만들지 않는다', async () => {
   const ui = fixture(); ui.render(); await tick(); ui.tab('stickers')
-  assert.equal(find(ui.render(),'스티커 시트 분리').props.disabled,true)
-  find(ui.render(),'사진 속 대상 오리기').props.onPress()
+  assert.equal(stickerAction(ui,'스티커 시트 분리').disabled,true)
+  stickerAction(ui,'사진 속 대상 오리기').onPress()
   const modal = nodes(ui.render()).find(n=>n.type?.includes?.('StickerCutoutModal'))
   assert.ok(modal)
   modal.props.onClose()
@@ -80,7 +86,7 @@ test('미지원 시트 분리는 차단하고 사진 오리기 목업 진입·�
 })
 test('시트 분리 저장은 기존 보관함 함수를 사용하고 삭제는 확인 전까지 반영하지 않는다', async () => {
   const ui=fixture({supported:true}); ui.render(); await tick(); ui.tab('stickers')
-  find(ui.render(),'스티커 시트 분리').props.onPress()
+  stickerAction(ui,'스티커 시트 분리').onPress()
   const modal=nodes(ui.render()).find(n=>n.type?.includes?.('StickerSplitModal'))
   await modal.props.onSave(undefined,' 기본 분류 ',[{emoji:'🌼'}])
   await modal.props.onSave(undefined,' 공용 폴더 ',[{emoji:'⭐'}])
@@ -97,18 +103,18 @@ test('시트 분리 저장은 기존 보관함 함수를 사용하고 삭제는 
   ui.unmount()
 })
 
-test('폰트 목록은 실제 글꼴 미리보기이며 공방 진입은 새로 만들기 하나다', async () => {
+test('폰트 목록은 실제 글꼴 미리보기이며 공방 진입은 폰트 추가 하나다', async () => {
   const ui=fixture({family:'MyFont'}); ui.render(); await tick();
   const tree=ui.render();
   const preview=find(tree,'테스트 글꼴 미리보기');
   assert.equal(preview.props.style[1].fontFamily,'MyFont');
   assert.equal(find(tree,'테스트 글꼴 폰트 관리'),undefined);
-  find(tree,'새로 만들기').props.onPress(); assert.ok(ui.studio);
+  find(tree,'폰트 추가').props.onPress(); assert.ok(ui.studio);
   ui.unmount();
 });
-test('새로 만들기는 공방의 자체 목록을 거치지 않고 바로 새 폰트 입력으로 연다', async () => {
+test('폰트 추가는 공방의 자체 목록을 거치지 않고 바로 새 폰트 입력으로 연다', async () => {
   const ui=fixture(); ui.render(); await tick();
-  find(ui.render(),'새로 만들기').props.onPress();
+  find(ui.render(),'폰트 추가').props.onPress();
   assert.deepEqual(ui.opened,[{create:true}]);
   ui.unmount();
 });
@@ -148,12 +154,12 @@ test('폴더 안의 뒤로가기는 목록을 먼저 복원하고 이후 상위 
 });
 const sections = tree => nodes(tree).filter(n => n.type === '../components/StudioSection')
 const confirmOf = tree => nodes(tree).find(n => n.props?.confirmLabel === '삭제')
-test('공방은 내 폰트 · 스티커 · 표지 · 속지 · 색상 다섯 종류를 분절 메뉴로 하나씩 열고 폴라로이드 보드는 없다', async () => {
+test('공방은 내 폰트 · 스티커 · 테이프 · 표지 · 속지 · 도구 여섯 종류를 분절 메뉴로 하나씩 열고 폴라로이드 보드는 없다', async () => {
   const ui = fixture(); ui.render(); await tick()
   const tabs = nodes(ui.render()).find(n => n.type === '../components/StudioTabs')
-  assert.deepEqual(tabs.props.tabs.map(t => t.label), ['폰트', '스티커', '표지', '속지', '도구'])
+  assert.deepEqual(tabs.props.tabs.map(t => t.label), ['폰트', '스티커', '테이프', '표지', '속지', '도구'])
   const titles = []
-  for (const id of ['fonts', 'stickers', 'covers', 'papers', 'presets']) {
+  for (const id of ['fonts', 'stickers', 'tapes', 'covers', 'papers', 'presets']) {
     ui.tab(id)
     const tree = ui.render()
     assert.equal(sections(tree).length, 1) // 한 번에 한 종류만
@@ -163,7 +169,7 @@ test('공방은 내 폰트 · 스티커 · 표지 · 속지 · 색상 다섯 종
     // 기본 속지 설정(새 다이어리의 처음 값)은 내 속지 구역 안에 있다
     if (id === 'papers') assert.ok(nodes(sections(tree)[0]).some(n => n.type === '../components/StudioPaperStyle'))
   }
-  assert.deepEqual(titles, ['폰트', '스티커', '표지', '속지', '도구'])
+  assert.deepEqual(titles, ['폰트', '스티커', '테이프', '표지', '속지', '도구'])
   ui.unmount()
 })
 test('나의 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 실패하면 알린다', async () => {

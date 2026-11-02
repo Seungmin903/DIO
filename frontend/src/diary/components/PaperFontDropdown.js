@@ -29,7 +29,7 @@ export default function PaperFontDropdown({ value, onChange }) {
         onPress={show} style={local.field}>
         <Text numberOfLines={1} style={[local.value, current.textStyle, { fontSize: (current.textStyle?.fontSize ?? 12.5) * 1.2 }]}>{current.label}</Text>
         {/* 드롭다운 표시: 아래로 꺾인 화살촉(⌄). 열리면 위로 뒤집는다 */}
-        <View style={{ transform: [{ rotate: open ? '-90deg' : '90deg' }] }}><AppIcon name="chevron-right" size={18} color={colors.primaryText} /></View>
+        <View style={{ transform: [{ rotate: open ? '-90deg' : '90deg' }] }}><AppIcon name="chevron-right" size={18} forText={15} color={colors.primaryText} /></View>
       </Pressable>
       <PopoverMenu open={open} anchor={anchor} width={WIDTH} height={fonts.length * ROW + 12} label="속지 글꼴 목록" style={local.menu} onClose={() => setOpen(false)}>
         {fonts.map(font => {
@@ -38,7 +38,7 @@ export default function PaperFontDropdown({ value, onChange }) {
             <Pressable key={font.id} accessibilityRole="radio" accessibilityLabel={font.a11y} accessibilityState={{ checked: on }}
               onPress={() => { onChange(font.id); setOpen(false); }} style={[local.row, on && local.rowOn]}>
               <Text numberOfLines={1} style={[local.rowText, font.textStyle, { fontSize: (font.textStyle?.fontSize ?? 12.5) * 1.2 }]}>{font.label}</Text>
-              {on ? <AppIcon name="check" size={16} color={colors.primaryStrong} /> : null}
+              {on ? <AppIcon name="check" size={16} forText={15} color={colors.primaryStrong} /> : null}
             </Pressable>
           );
         })}

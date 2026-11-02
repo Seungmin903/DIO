@@ -9,7 +9,6 @@ function setup(initial = null) {
     load: async () => disk.value,
     save: async (value) => ((disk.value = value), true),
     keepPhoto: async (uri) => (disk.kept.push(uri), `kept:${uri}`),
-    newSeed: () => 'seed01',
   });
   return { disk, service };
 }
@@ -22,30 +21,11 @@ test('게스트도 닉네임 · 한 줄 소개 · 사진을 고치고 기기에 
 });
 
 test('게스트로 다시 시작하면 지난번에 고친 프로필이 이어진다', async () => {
-  const { service } = setup({ nickname: '하루', bio: '소개', photoUri: 'file:///a.jpg', avatarSeed: 'seed01' });
-  assert.deepEqual(await service.start(guest), { ...guest, nickname: '하루', bio: '소개', photoUri: 'file:///a.jpg', avatarSeed: 'seed01' });
-  assert.deepEqual(await setup({ avatarSeed: 'seed01' }).service.start(guest), { ...guest, avatarSeed: 'seed01' });
-  assert.deepEqual(await setup({ nickname: '!', bio: 7, avatarSeed: 'seed01' }).service.start(guest), { ...guest, avatarSeed: 'seed01' });
-});
-
-test('게스트는 처음 시작할 때 기본 프로필 색 값을 한 번 뽑아 남기고, 프로필을 고쳐도 유지한다', async () => {
-  const seeds = ['first1', 'second'];
-  const disk = { value: { nickname: '하루' } };
-  const service = createGuestProfile({
-    load: async () => disk.value,
-    save: async (value) => ((disk.value = value), true),
-    newSeed: () => seeds.shift(),
-  });
-  const started = await service.start(guest);
-  assert.equal(started.avatarSeed, 'first1');
-  assert.deepEqual(disk.value, { nickname: '하루', avatarSeed: 'first1' });
-  assert.equal((await service.start(guest)).avatarSeed, 'first1');
-  const updated = await service.updateProfile(started, { nickname: '이틀' });
-  assert.equal(updated.avatarSeed, 'first1');
-  assert.equal(disk.value.avatarSeed, 'first1');
-  // 손상된 값은 버리고 새로 뽑는다
-  disk.value = { avatarSeed: '!' };
-  assert.equal((await service.start(guest)).avatarSeed, 'second');
+  const { service } = setup({ nickname: '하루', bio: '소개', photoUri: 'file:///a.jpg' });
+  assert.deepEqual(await service.start(guest), { ...guest, nickname: '하루', bio: '소개', photoUri: 'file:///a.jpg' });
+  assert.deepEqual(await setup({ nickname: '!', bio: 7 }).service.start(guest), guest);
+  // 예전에 남긴 기본 프로필 색 값은 버린다(게스트는 늘 예전 기본 파랑)
+  assert.deepEqual(await setup({ avatarSeed: 'seed01' }).service.start(guest), guest);
 });
 
 test('소개와 사진을 비우면 키째 빠지고, 바꾸지 않은 사진은 다시 옮기지 않는다', async () => {

@@ -25,6 +25,27 @@ export function containCutout(image, area) {
   const width = image.width * scale, height = image.height * scale
   return { x: (area.width - width) / 2, y: (area.height - height) / 2, width, height }
 }
+// 두 손가락 확대. 1 = 판에 맞춤(더 작게는 안 줄인다), 시트 분리 미리보기와 같은 최대 6배.
+export const CUTOUT_ZOOM_MAX = 6
+export const CUTOUT_FIT_VIEW = Object.freeze({ zoom: 1, x: 0, y: 0 })
+/**
+ * 이동 한계(사진 보기 앱 · 포토샵 기본값과 같은 규칙): 사진이 판보다 크면 사진 가장자리가 판 안쪽으로 들어오지 않고,
+ * 판보다 작은 쪽은 가운데에 둔다. 그래서 확대한 채로 끌어도 빈 판만 보이는 일이 없다.
+ */
+export function clampCutoutView(fit, area, view) {
+  if (!fit) return CUTOUT_FIT_VIEW
+  const zoom = Math.max(1, Math.min(CUTOUT_ZOOM_MAX, view.zoom))
+  const room = (size, frame) => Math.max(0, (size * zoom - frame) / 2)
+  const limit = (value, max) => Math.max(-max, Math.min(max, value))
+  return { zoom, x: limit(view.x, room(fit.width, area.width)), y: limit(view.y, room(fit.height, area.height)) }
+}
+/** 판에 맞춘 사진 칸(fit)을 view 만큼 확대 · 이동한 칸. 판 좌표 */
+export function zoomCutout(fit, area, view) {
+  if (!fit) return null
+  const { zoom, x, y } = clampCutoutView(fit, area, view)
+  const width = fit.width * zoom, height = fit.height * zoom
+  return { x: (area.width - width) / 2 + x, y: (area.height - height) / 2 + y, width, height }
+}
 export function cutoutPoint(x, y, rect) {
   if (!rect || !Number.isFinite(x) || !Number.isFinite(y)) return null
   if (x < 0 || y < 0 || x > rect.width || y > rect.height) return null

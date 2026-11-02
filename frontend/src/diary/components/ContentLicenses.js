@@ -41,7 +41,7 @@ function LicenseCard({ entry }) {
     </Pressable>)}
     <Pressable accessibilityRole="button" accessibilityLabel={`${entry.name} 라이선스 전문 ${expanded ? '접기' : '보기'}`} accessibilityState={{ expanded }} onPress={() => setExpanded(!expanded)} style={styles.disclosure}>
       <Text style={styles.linkText}>라이선스 전문 {expanded ? '접기' : '보기'}</Text>
-      <View style={{ transform: [{ rotate: expanded ? '-90deg' : '90deg' }] }}><AppIcon name="chevron-right" size={18} color={C.ink} /></View>
+      <View style={{ transform: [{ rotate: expanded ? '-90deg' : '90deg' }] }}><AppIcon name="chevron-right" size={18} forText={14} color={C.ink} /></View>
     </Pressable>
     {expanded && <><Text selectable style={styles.legal}>{entry.text.slice(0, legalLimit)}</Text>
       {legalLimit < entry.text.length && <Pressable accessibilityRole="button" onPress={() => setLegalLimit(value => value + 24000)} style={styles.link}><Text style={styles.linkText}>전문 더 보기</Text></Pressable>}

@@ -34,6 +34,7 @@ export default function TopBar({
   exportEnabled = true,
   shareLabel = '공유',
   shareIcon = 'share',
+  onRightWidth,
 }) {
   const shareRef = useRef(null)
   // 오른쪽 묶음은 창 폭에 따라 줄인다: 사진 2장 → 1장 → 사진만, 레이어 · 공유 글자 숨김. 내보내기는 끝까지 아이콘 + 글자. 640 아래에서는 탭 줄을 접는다
@@ -109,7 +110,8 @@ export default function TopBar({
         })}
       </ChipScroller>}
 
-      <View style={styles.right}>
+      {/* 오른쪽 묶음의 왼쪽 끝(공유 버튼)부터 화면 오른쪽 끝까지의 폭을 알린다: 레이어 창이 이 폭으로 열려 왼쪽 끝이 공유 버튼과 맞는다(페이지 버튼 · 페이지 목록과 같은 짝) */}
+      <View style={styles.right} onLayout={onRightWidth ? (event) => onRightWidth(windowWidth - event.nativeEvent.layout.x) : undefined}>
         {onOpenSharing && <SharingEntry variant="bar" members={sharingMembers} count={invitationCount} onPress={onOpenSharing} showLabel={semi} memberLimit={wide ? 2 : 1} hideCounter={!semi}/>}
         {!readOnly && <IconToggle chip icon="layers" label="레이어" text={mid ? '레이어' : undefined} active={layersOpen} onPress={onToggleLayers} />}
         {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} style={styles.share} accessibilityLabel={shareLabel}>
@@ -160,7 +162,7 @@ function TitleField({ title, renamable, onCommit, compact }) {
       <Text style={[styles.tabTitle, compact && styles.docTitleText]} numberOfLines={1}>
         {title}
       </Text>
-      {renamable && <Icon name="edit" size={13} strokeWidth={2} color={colors.textMuted} />}
+      {renamable && <Icon name="edit" size={13} forText={compact ? 15 : 13} color={colors.textMuted} />}
     </Pressable>
   )
 }
