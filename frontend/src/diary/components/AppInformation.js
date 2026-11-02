@@ -13,7 +13,7 @@ const PRIVACY_POLICY_URL = 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVT
 const SUPPORT_EMAIL = 'dioapp.official@gmail.com';
 const APP_VERSION = '1.0.0'; // app.json 의 version 과 같다
 
-export default function AppInformation({ compact = false }) {
+export default function AppInformation() {
   const [copyMessage, setCopyMessage] = useState('');
   const [licensesOpen, setLicensesOpen] = useState(false);
 
@@ -35,14 +35,14 @@ export default function AppInformation({ compact = false }) {
   };
 
   return (
-    <SettingSection title="앱 정보" compact={compact}>
+    <SettingSection title="앱 정보">
       {/* 앱 버전: 이동하는 행이 아니라 화살표 없이 오른쪽 값만 둔다(지원 문의 때 가장 먼저 확인하는 정보라 첫 행) */}
       <View style={styles.version}>
         <Text style={styles.label}>앱 버전</Text>
         <Text style={styles.versionValue}>{APP_VERSION}</Text>
       </View>
       <Pressable accessibilityRole="link" accessibilityLabel="개인정보 처리방침, 브라우저로 열기" onPress={openPrivacyPolicy}
-        style={({ pressed }) => [styles.policy, pressed && styles.pressed]}>
+        style={styles.policy}>
         <View style={styles.copy}>
           <Text style={styles.label}>개인정보 처리방침</Text>
         </View>
@@ -56,7 +56,7 @@ export default function AppInformation({ compact = false }) {
         <DioButton variant="tonal" label="문의 이메일 주소 복사" text="복사" onPress={copyEmail} />
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="오픈소스 및 콘텐츠 라이선스" onPress={() => setLicensesOpen(true)}
-        style={({ pressed }) => [styles.licenses, pressed && styles.pressed]}>
+        style={styles.licenses}>
         <Text style={[styles.label, { flex: 1 }]}>오픈소스 및 콘텐츠 라이선스</Text>
         <AppIcon name="chevron-right" size={18} color={C.muted} />
       </Pressable>
@@ -78,5 +78,4 @@ const styles = StyleSheet.create({
   hint: { color: C.muted, fontSize: 13 },
   email: { color: colors.primaryText, fontSize: 15, lineHeight: 21, fontWeight: '700' },
   status: { marginTop: 10, color: C.inkSoft, fontSize: 13, lineHeight: 20 },
-  pressed: {}, // 눌림 효과 없음(사용자 지시)
 });

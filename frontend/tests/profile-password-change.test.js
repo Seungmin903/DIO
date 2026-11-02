@@ -18,8 +18,7 @@ function setup(user,onUpdatePreview,onClearSession,extra={}){
   if(id==='../../auth/ProfileEditScreen')return PasswordForm;
   if(id==='../../auth/PasswordResetScreen')return PasswordForm;
   if(id==='../../auth/authService')return {authService:service};
-  if(id==='../../handwriting/studioBus.js')return {openFontStudio(){}};
-  if(id==='../../shared/appLock')return {appLockScope:()=>'scope',hasAppLock:async()=>false,checkAppLock:async()=>true,clearAppLock:async()=>{},setAppLock:async()=>{}};
+   if(id==='../../shared/appLock')return {appLockScope:()=>'scope',hasAppLock:async()=>false,checkAppLock:async()=>true,clearAppLock:async()=>{},setAppLock:async()=>{}};
   if(id==='react/jsx-runtime')return require(id);
   return ()=>null;
  };
@@ -49,7 +48,8 @@ test('실제 이메일 계정의 회원정보 수정은 체험 서비스가 아�
  let cleared=0;
  const ui=setup({mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'},undefined,()=>{cleared+=1});
  find(ui.render(),'회원정보 수정').props.onPress();
- const form=ui.render();form.props.onEndSession();assert.equal(cleared,1); // 탈퇴 · 비밀번호 변경도 서버 로그아웃 없이 이 기기 세션만 정리assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.service,ui.service);assert.equal(form.props.onEndSession,ui.render().props.onEndSession);
+ const form=ui.render();form.props.onEndSession();assert.equal(cleared,1); // 탈퇴 · 비밀번호 변경도 서버 로그아웃 없이 이 기기 세션만 정리
+ assert.equal(form.type,ui.PasswordForm);assert.equal(form.props.service,ui.service);assert.equal(form.props.onEndSession,ui.render().props.onEndSession);
 });
 test('게스트·기존 체험 세션에는 계정 설정을 숨기고 소셜 계정에는 비밀번호 변경을 숨긴다',()=>{
  for(const user of [{provider:'guest'},{mode:'preview',provider:'email',userId:'legacy'}]){
