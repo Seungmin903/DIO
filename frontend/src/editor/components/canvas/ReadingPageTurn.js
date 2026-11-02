@@ -102,6 +102,9 @@ function NativePageTurn({ page, from, zoom, width, height, dir, lift = 0, progre
   // 상자·앞면·뒷면·그림자가 같은 프레임에 한꺼번에 갱신된다. (JS 에서 따로 갱신하면 앞면이 몇 px 밀려 떨렸다)
   const box = { position: 'absolute', left: 0, top: 0, width: D, height: 2 * D, overflow: 'hidden' }
   const boxMove = { transform: [{ translateX: boxLeft }, { translateY: boxTop }, { rotate: alpha }] }
+  const flapSheet = { position: 'absolute', left: 0, top: 0, width: w, height: h, backgroundColor: paper, transform: [{ translateX: flapLeft }, { translateY: flapTop }, { scaleX: -1 }, { rotate: unAlpha }] }
+  // 그늘 띠는 상자 밖으로 3px 넘겨 그리므로 정지점을 원래 띠 폭(flapBand) 기준으로 줄이고 넘친 구간은 끝 값으로 채운다
+  const band = flapBand / (flapBand + 3)
   return (
     <View pointerEvents="none" style={[styles.fill, styles.clip, { transform: [{ scaleX: sx }] }]}>
       {/* 접힘선 바깥에 드러나는 새 페이지. 앞장(지금 보이는 캔버스)은 건드리지 않고 이 덮개만 움직인다 */}
@@ -118,11 +121,13 @@ function NativePageTurn({ page, from, zoom, width, height, dir, lift = 0, progre
 
       {/* 접혀 넘어온 조각: 접힘선을 기준으로 뒤집힌 종이 뒷면 */}
       <Animated.View style={[box, boxMove]}>
-        {/* 가장자리 그림자: 접힘선 쪽은 상자 경계에서 잘려 앞면 쪽(바깥 가장자리)에만 남는다 */}
-        <Animated.View style={{ position: 'absolute', left: 0, top: 0, width: w, height: h, backgroundColor: paper, boxShadow: `0 0 ${flapEdgeBlur(w, h).toFixed(1)}px rgba(0,0,0,${FLAP_EDGE_ALPHA})`, transform: [{ translateX: flapLeft }, { translateY: flapTop }, { scaleX: -1 }, { rotate: unAlpha }] }} />
+        {/* 가장자리 그림자: 접힘선 쪽은 상자 경계에서 잘려 앞면 쪽(바깥 가장자리)에만 남는다.
+            boxShadow 는 네이티브 드라이버로 바꿀 수 없어 그림자만 따로 그리고, 웹처럼 다 넘길 무렵 opacity 로 옅어지게 한다 (종이는 위에서 덮는다) */}
+        <Animated.View style={{ ...flapSheet, boxShadow: `0 0 ${flapEdgeBlur(w, h).toFixed(1)}px rgba(0,0,0,${FLAP_EDGE_ALPHA})`, opacity: castFade }} />
+        <Animated.View style={flapSheet} />
         {/* 접힘선(오른쪽 끝)으로 갈수록 말려 어두워진다. 띠를 상자 밖으로 조금 넘겨 둔다:
             픽셀 맞춤으로 띠 끝이 상자 끝보다 1px 모자라면 접힘선에 그늘 없는 흰 종이가 선으로 드러난다 (넘친 부분은 상자가 자른다) */}
-        <Shade stops={[[0, 0], [0.35, 0.015], [0.68, 0.08], [1, 0.24]]} style={{ left: D - flapBand, width: flapBand + 3, right: undefined, bottom: undefined, height: 2 * D }} />
+        <Shade stops={[[0, 0], [0.35 * band, 0.015], [0.68 * band, 0.08], [band, 0.24], [1, 0.24]]} style={{ left: D - flapBand, width: flapBand + 3, right: undefined, bottom: undefined, height: 2 * D }} />
       </Animated.View>
     </View>
   )
