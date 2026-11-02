@@ -328,12 +328,29 @@ test('저장된 서버 프로필 사진도 회원정보 수정 화면에서 인�
 
 test('실제 계정은 현재 사진을 변경하거나 기본 이미지로 되돌릴 수 있다', () => {
   // 사진 변경은 메뉴(사진 선택 · 기본 이미지로 되돌리기)로 연다
-  const ui = setup({}, undefined, { photoEditable: true });
+  const ui = setup({});
   press(ui, '프로필 사진 변경');
   assert.ok(find(ui, '프로필 사진 선택'));
-  assert.ok(find(ui, '프로필 사진 삭제'));
-  assert.equal(nodes(ui.render()).some((node) => node.props.children === '프로필 사진 변경은 준비 중이에요.'), false);
+  press(ui, '프로필 사진 삭제');
+  assert.equal(nodes(ui.render()).some((n) => n.type === 'Image' && n.props.source?.uri === 'file:///old.jpg'), false);
+  assert.equal(find(ui, '변경사항 저장').props.disabled, false);
   ui.unmount();
+});
+
+test('한 줄 소개는 게스트만 고치고 길이를 넘으면 저장할 수 없다', async () => {
+  const guest = { provider: 'guest', nickname: '방문자', bio: '안녕' };
+  const ui = setup({ updateProfile: async (user, draft) => ({ ...user, ...draft }) }, undefined, { user: guest });
+  assert.equal(find(ui, '한 줄 소개').props.value, '안녕');
+  find(ui, '한 줄 소개').props.onChangeText('가'.repeat(validation.BIO_MAX + 1));
+  assert.equal(find(ui, '변경사항 저장').props.disabled, true);
+  find(ui, '한 줄 소개').props.onChangeText('반가워요');
+  press(ui, '변경사항 저장');
+  await tick();
+  assert.equal(ui.updates[0].bio, '반가워요');
+  ui.unmount();
+  const member = setup({}, undefined, { user: { mode: 'authenticated', userId: '7', provider: 'email', nickname: '회원' } });
+  assert.equal(find(member, '한 줄 소개'), undefined);
+  member.unmount();
 });
 
 test('서버 계정은 기존 비밀번호 창만 열고 성공 후 세션을 종료한다',async()=>{

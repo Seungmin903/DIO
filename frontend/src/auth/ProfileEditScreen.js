@@ -63,6 +63,7 @@ export default function ProfileEditScreen({
     return service[operation].bind(service);
   };
   const guest = saved.provider === 'guest';
+  const canWithdraw = typeof service?.withdraw === 'function';
   // 서버 계정은 프로필 저장 API에 한 줄 소개가 아직 없어 입력을 받지 않는다(체험 · 게스트만).
   const bioEditable = saved.mode !== 'authenticated';
   const changed =
@@ -238,7 +239,7 @@ export default function ProfileEditScreen({
     );
   };
   const withdraw = () => {
-    if (withdrawText !== WITHDRAW_TEXT) return;
+    if (withdrawText !== WITHDRAW_TEXT || !canWithdraw) return;
     run(() => requireService('withdraw')(saved), null, onEndSession);
   };
   // 사진 변경 메뉴: 열려 있으면 트리거의 화면 위치(말풍선 자리)를 들고 있다
@@ -388,9 +389,11 @@ export default function ProfileEditScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="회원 탈퇴"
-                disabled={busy}
+                accessibilityHint={!canWithdraw ? '회원 탈퇴 기능은 준비 중이에요.' : undefined}
+                accessibilityState={{ disabled: busy || !canWithdraw }}
+                disabled={busy || !canWithdraw}
                 onPress={() => showDialog('withdraw')}
-                style={s.withdraw}
+                style={[s.withdraw, !canWithdraw && s.disabled]}
               >
                 <Text style={s.withdrawText}>회원 탈퇴</Text>
               </Pressable>
@@ -481,11 +484,7 @@ export default function ProfileEditScreen({
                       form={modalForm}
                       maxLength={30}
                     />
-                    <Text style={s.hint}>
-                      {withdrawText === WITHDRAW_TEXT
-                        ? '확인 문구가 일치해요.'
-                        : '문구가 일치하면 탈퇴하기 버튼이 활성화돼요.'}
-                    </Text>
+                    {withdrawText === WITHDRAW_TEXT && <Text style={s.hint}>확인 문구가 일치해요.</Text>}
                   </>
                 )}
                 {discardDialog && (
@@ -495,6 +494,7 @@ export default function ProfileEditScreen({
                 )}
                 {dialog === 'password' && (
                   <>
+                    <Text style={s.muted}>변경하면 모든 기기에서 로그아웃돼요. 새 비밀번호로 다시 로그인해 주세요.</Text>
                     {['currentPassword', 'password', 'confirmation'].map((key, index) => (
                       <View key={key}>
                         <Text style={s.text}>
@@ -526,18 +526,9 @@ export default function ProfileEditScreen({
               {discardActions}
               {!discardDialog && (
               <View style={s.dialogActions}>
+                <Button label="취소" secondary disabled={busy} onPress={closeDialog} style={s.grow} />
                 <Button
-                  label={discardDialog ? '저장하지 않고 나가기' : '취소'}
-                  secondary={!discardDialog}
-                  dangerGhost={discardDialog}
-                  disabled={busy}
-                  onPress={discardDialog ? discard : closeDialog}
-                  style={s.grow}
-                />
-                <Button
-                  label={
-                    discardDialog ? '계속 수정하기' : dialog === 'withdraw' ? '탈퇴하기' : '변경'
-                  }
+                  label={dialog === 'withdraw' ? '탈퇴하기' : '변경'}
                   danger={dialog === 'withdraw'}
                   disabled={
                     busy ||
@@ -548,13 +539,7 @@ export default function ProfileEditScreen({
                         : false)
                   }
                   busy={busy}
-                  onPress={
-                    discardDialog
-                      ? continueEditing
-                      : dialog === 'withdraw'
-                        ? withdraw
-                        : changePassword
-                  }
+                  onPress={dialog === 'withdraw' ? withdraw : changePassword}
                   style={s.grow}
                 />
               </View>
@@ -641,7 +626,7 @@ function InfoRow({ label, value }) {
     </View>
   );
 }
-function Button({ label, text, icon, onPress, disabled, secondary, tonal, ghost, dangerGhost, dangerText, danger, busy, style }) {
+function Button({ label, onPress, disabled, secondary, dangerText, danger, busy, style }) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -652,9 +637,6 @@ function Button({ label, text, icon, onPress, disabled, secondary, tonal, ghost,
       style={[
         s.button,
         secondary && s.secondary,
-        tonal && s.tonal,
-        ghost && s.ghost,
-        dangerGhost && s.dangerGhost,
         dangerText && s.dangerTextButton,
         danger && s.danger,
         disabled && s.disabled,
@@ -662,17 +644,14 @@ function Button({ label, text, icon, onPress, disabled, secondary, tonal, ghost,
       ]}
     >
       {busy && <ActivityIndicator color={colors.surface} />}
-      {!!icon && <AppIcon name={icon} size={18} forText={14} color={colors.primaryText} />}
       <Text
         style={[
           s.buttonText,
           secondary && s.secondaryText,
-          (tonal || ghost) && s.tonalText,
-          (dangerGhost || dangerText) && s.dangerGhostText,
-          ghost && s.ghostText,
+          dangerText && s.dangerGhostText,
         ]}
       >
-        {text || label}
+        {label}
       </Text>
     </Pressable>
   );

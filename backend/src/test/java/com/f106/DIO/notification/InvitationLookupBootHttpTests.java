@@ -30,6 +30,10 @@ class InvitationLookupBootHttpTests {
   r.add("spring.datasource.password",()->System.getenv("DIO_LOOKUP_PG_PASSWORD"));
   r.add("spring.jpa.hibernate.ddl-auto",()->"none");
   r.add("spring.flyway.enabled",()->true);
+  r.add("dio.push.outbox.enabled",()->true);
+  r.add("dio.push.environment",()->"development");
+  r.add("dio.push.encryption-key",()->Base64.getEncoder().encodeToString(new byte[32]));
+  r.add("dio.push.outbox.ttl-seconds",()->3600);
   r.add("SHARING_INVITE_SECRET",()->Base64.getEncoder().encodeToString(new byte[32]));
   r.add("SHARING_INVITE_BASE_URL",()->"https://example.test/invite/");
   r.add("dio.auth.jwt-secret",()->Base64.getEncoder().encodeToString(new byte[32]));
@@ -41,9 +45,14 @@ class InvitationLookupBootHttpTests {
  @Autowired org.springframework.context.ApplicationContext context;
  @Autowired com.f106.DIO.sharing.service.EmailInviteService emails;
  @Autowired com.f106.DIO.notification.event.InvitationNotificationHandler handler;
+ @Autowired com.f106.DIO.push.service.PushInstallationService installations;
  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
  final HttpClient client=HttpClient.newHttpClient();
  final tools.jackson.databind.json.JsonMapper json=tools.jackson.databind.json.JsonMapper.builder().build();
+ @Test void outboxAndInstallationShareConfiguredScope() {
+  assertThat(org.springframework.test.util.ReflectionTestUtils.getField(handler,"pushEnvironment")).isEqualTo(org.springframework.test.util.ReflectionTestUtils.getField(installations,"environment")).isEqualTo("development");
+  assertThat(org.springframework.test.util.ReflectionTestUtils.getField(handler,"pushAppId")).isEqualTo(org.springframework.test.util.ReflectionTestUtils.getField(installations,"appId")).isEqualTo("dio");
+ }
     long user(String email, String name) {
         var user = users.saveAndFlush(new User(email, name, Instant.now()));
         accounts.saveAndFlush(new EmailAuthProvider(user.getUserId(), email,
@@ -94,6 +103,7 @@ class InvitationLookupBootHttpTests {
   var at=jdbc.queryForObject("select created_at from diary_invites where invite_id=?",java.sql.Timestamp.class,invite).toInstant();
   assertThat(jdbc.queryForObject("select count(*) from notifications where user_id=?",Long.class,recipient)).isEqualTo(1);
   assertThat(jdbc.queryForObject("select count(*) from invitation_notification_receipts where invite_id=?",Long.class,invite)).isEqualTo(1);
+  assertThat(jdbc.queryForObject("select count(*) from push_outbox where recipient_user_id=? and notification_id is not null",Long.class,recipient)).isEqualTo(1);
   var tx=new org.springframework.transaction.support.TransactionTemplate(transactions);
   var event=new com.f106.DIO.notification.event.InvitationConfirmedEvent(UUID.randomUUID(),invite,recipient,at);
   assertThat(tx.execute(status->handler.handle(event)).duplicate()).isTrue();
@@ -110,7 +120,15 @@ class InvitationLookupBootHttpTests {
    for(int i=0;i<4;i++)jobs.add(pool.submit(()->tx.execute(status->handler.handle(new com.f106.DIO.notification.event.InvitationConfirmedEvent(UUID.randomUUID(),concurrentInvite,concurrent,created)))));
    for(var job:jobs)job.get(20,java.util.concurrent.TimeUnit.SECONDS);
    assertThat(jdbc.queryForObject("select count(*) from notifications where user_id=?",Long.class,concurrent)).isEqualTo(1);
+   assertThat(jdbc.queryForObject("select count(*) from push_outbox where recipient_user_id=?",Long.class,concurrent)).isEqualTo(1);
   } finally {pool.shutdownNow();}
+  long rollbackUser=user("event-rollback@example.com","event-rollback");
+  long rollbackInvite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor,rollbackUser,new byte[32],java.sql.Timestamp.valueOf("9999-12-31 23:59:59"));
+  var rollbackAt=jdbc.queryForObject("select created_at from diary_invites where invite_id=?",java.sql.Timestamp.class,rollbackInvite).toInstant();
+  tx.execute(status->{handler.handle(new com.f106.DIO.notification.event.InvitationConfirmedEvent(UUID.randomUUID(),rollbackInvite,rollbackUser,rollbackAt));status.setRollbackOnly();return null;});
+  assertThat(jdbc.queryForObject("select count(*) from notifications where user_id=?",Long.class,rollbackUser)).isZero();
+  assertThat(jdbc.queryForObject("select count(*) from push_outbox where recipient_user_id=?",Long.class,rollbackUser)).isZero();
+  assertThat(jdbc.queryForObject("select count(*) from invitation_notification_receipts where recipient_user_id=?",Long.class,rollbackUser)).isZero();
   // 실제 생산자에서 알림 INSERT를 실패시켜 초대·이력까지 롤백되는지 확인한다.
   long failed=user("event-f@example.com","event-f");
   jdbc.execute("alter table notifications add constraint lookup_fail_recipient check(user_id<>"+failed+")");
@@ -119,8 +137,35 @@ class InvitationLookupBootHttpTests {
    assertThat(jdbc.queryForObject("select count(*) from diary_invites where invitee_user_id=?",Long.class,failed)).isZero();
    assertThat(jdbc.queryForObject("select count(*) from invitation_notification_receipts where recipient_user_id=?",Long.class,failed)).isZero();
   } finally {jdbc.execute("alter table notifications drop constraint lookup_fail_recipient");}
+  jdbc.execute("alter table push_outbox add constraint lookup_fail_outbox check(recipient_user_id<>"+failed+")");
+  try {
+   assertThatThrownBy(()->emails.send(diary,actor,new com.f106.DIO.sharing.dto.EmailInviteRequest("event-f@example.com"))).isInstanceOf(RuntimeException.class);
+   assertThat(jdbc.queryForObject("select count(*) from diary_invites where invitee_user_id=?",Long.class,failed)).isZero();
+   assertThat(jdbc.queryForObject("select count(*) from notifications where user_id=?",Long.class,failed)).isZero();
+   assertThat(jdbc.queryForObject("select count(*) from invitation_notification_receipts where recipient_user_id=?",Long.class,failed)).isZero();
+   assertThat(jdbc.queryForObject("select count(*) from push_outbox where recipient_user_id=?",Long.class,failed)).isZero();
+  } finally {jdbc.execute("alter table push_outbox drop constraint lookup_fail_outbox");}
   emails.send(diary,actor,new com.f106.DIO.sharing.dto.EmailInviteRequest("event-f@example.com"));
   assertThat(jdbc.queryForObject("select count(*) from notifications where user_id=?",Long.class,failed)).isEqualTo(1);
+  assertThat(jdbc.queryForObject("select count(*) from push_outbox where recipient_user_id=?",Long.class,failed)).isEqualTo(1);
+ }
+
+ @Test void producerToWorkerUsesFakeGateway() throws Exception {
+  long recipient=user("worker-r@example.com","worker-r"), actor=user("worker-a@example.com","worker-a");
+  var session=login("worker-r@example.com");var jwt=context.getBean(LoginJwt.class).decode(session.accessToken());
+  var devices=context.getBean(com.f106.DIO.push.service.PushInstallationService.class);UUID installation=UUID.randomUUID();
+  var registration=devices.register(jwt,installation,UUID.randomUUID(),new com.f106.DIO.push.service.PushInstallationService.Input("EXPO","ANDROID","ExpoPushToken[boot]","GRANTED",true));
+  assertThat(request("GET","/api/v1/push/installations/"+installation+"/binding",session.accessToken(),null,"X-DIO-Installation-Secret",registration.installationSecret()).statusCode()).isEqualTo(200);
+  assertThat(request("GET","/api/v1/push/installations/"+installation+"/binding",session.accessToken(),null,"X-DIO-Installation-Secret","wrong").statusCode()).isEqualTo(404);
+  UUID diary=UUID.randomUUID();jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'e2e push')",diary,actor);
+  emails.send(diary,actor,new com.f106.DIO.sharing.dto.EmailInviteRequest("worker-r@example.com"));
+  long invite=jdbc.queryForObject("select invite_id from diary_invites where diary_id=?",Long.class,diary);
+  var gateway=org.mockito.Mockito.mock(com.f106.DIO.push.service.ExpoPushGateway.class);
+  org.mockito.Mockito.when(gateway.sendInvitation(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.eq(Long.toString(invite))))
+   .thenReturn(new com.f106.DIO.push.service.ExpoPushGateway.Result(true,"fake-ticket",null));
+  new com.f106.DIO.push.service.PushDeliveryWorker(jdbc,transactions,devices,gateway,true).poll();
+  assertThat(jdbc.queryForObject("select count(*) from push_outbox o join push_deliveries d on d.outbox_id=o.outbox_id where o.recipient_user_id=? and d.status='SENT'",Long.class,recipient)).isEqualTo(1);
+  org.mockito.Mockito.verify(gateway).sendInvitation(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.eq(Long.toString(invite)));
  }
 
  @Test void cancellationRace() throws Exception { race("cancel"); }

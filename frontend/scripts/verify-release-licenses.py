@@ -58,7 +58,7 @@ def check_web(folder,catalog):
 def native_reference(inventory,ndk,js_root=None):
     reference={}
     for artifact in inventory['artifacts']:
-        with zipfile.ZipFile(artifact['file']) as archive:
+        with zipfile.ZipFile(audit.artifact_path(artifact['file'])) as archive:
             for name in archive.namelist():
                 if not name.startswith('jni/') or not name.endswith('.so'): continue
                 key='/'.join(name.split('/')[1:]);data=archive.read(name)

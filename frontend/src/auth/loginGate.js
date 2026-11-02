@@ -7,7 +7,7 @@ import { confirmAction } from '../shared/dialogs';
 const LoginGateContext = createContext({ authenticated: true, onLogin: null });
 
 /**
- * authenticated: 회원가입 후 로그인한 사용자인지. 개발자 모드(src/dev/devAccess)로 시작했으면 앱이 참으로 넘긴다.
+ * authenticated: 회원가입 후 로그인한 사용자인지.
  * onLogin({ feature, action }): 안내 창의 `로그인 · 회원가입`을 눌렀을 때. 앱은 로그인 화면을 지금 화면 위에 띄운다.
  */
 export function LoginGateProvider({ authenticated, onLogin, children }) {

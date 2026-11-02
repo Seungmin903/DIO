@@ -2,8 +2,8 @@ import { StyleSheet, View } from 'react-native';
 import appConfig from '../../app.json';
 import BrandLogo from './BrandLogo';
 
-// 네이티브 시작 화면(expo-splash-screen)과 똑같이 그린 JS 시작 화면. 보관함이 준비될 때까지 맨 위에 덮어 둔다.
-// 개발 빌드는 개발 런처가 먼저 그려지면서 네이티브 시작 화면이 JS 실행 전에 내려가므로, 이 화면이 있어야 빈 화면이 안 보인다.
+// JS 시작 화면. 로고는 여기서만 한 번 보인다(안드로이드 네이티브 시작 화면은 바탕색만, iOS 는 같은 자리 · 크기의 로고).
+// 보관함이 준비될 때까지 맨 위에 덮어 둔다.
 // 로고는 PNG 대신 벡터(BrandLogo)로 그린다. 개발 빌드에서 PNG 는 Metro 에서 받아 오느라 늦게 뜬다.
 // app.json 에서 플러그인 설정을 못 찾아도 앱이 뜨도록 지금 값과 같은 기본값을 둔다
 const SPLASH_FALLBACK = { backgroundColor: '#F7F8FD', imageWidth: 160 };

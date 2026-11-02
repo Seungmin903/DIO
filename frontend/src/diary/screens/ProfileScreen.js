@@ -11,6 +11,7 @@ import PinScreen from '../components/PinScreen';
 import EditorModal from '../../editor/components/controls/EditorModal';
 import { appLockScope, checkAppLock, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
 import { colors } from '../../shared/theme';
+import { notify } from '../../shared/dialogs';
 import DioButton from '../../shared/DioButton';
 import ProfileEditScreen from '../../auth/ProfileEditScreen';
 import PasswordResetScreen from '../../auth/PasswordResetScreen';
@@ -21,7 +22,7 @@ import { useLoginEntry } from '../../auth/loginGate';
 
 // 내 공간(한 단): 정체성 띠(아바타 + 이름 + 버튼) → 알림 → 보안 → 환경 설정(태블릿만) → 계정(로그아웃, 회원) → 앱 정보(맨 아래).
 // 정체성 트레이 1장 + 설정 카드 2장(알림 · 보안 · 환경 / 계정 · 앱 정보)으로 덩어리를 나눈다. 행마다 카드로 만들지 않는다(코덱스 3차). 장식 · 통계 · 안내 문구는 두지 않는다.
-export default function ProfileScreen({ diaries, compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, guestService }) {
+export default function ProfileScreen({ compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, guestService }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
   const openLogin = useLoginEntry();
@@ -35,7 +36,7 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
   // 인증 값은 메모리 비교에만 사용하고 캐시 키·로그에는 넣지 않는다.
   const photoIdentity = JSON.stringify([previewUser?.userId || previewUser?.accountId || 'guest', photoUri, photoSource?.headers || null]);
   const photoCacheKey = JSON.stringify(['profile', previewUser?.userId || previewUser?.accountId || 'guest', photoUri]);
-  // 게스트(시작 화면에서 고른 일반 사용자 · 개발자 모드)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
+  // 게스트(로그인 전 방문자)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
   const authenticatedUser = previewUser?.mode === 'authenticated';
   const guest = !authenticatedUser && previewUser?.provider === 'guest';
   // 앱 잠금: locked 는 이 계정에 잠금이 있는지(null = 읽는 중). pin 은 열려 있는 비밀번호 화면
@@ -45,7 +46,8 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
   const [pin, setPin] = useState(null);
   useEffect(() => {
     let alive = true;
-    hasAppLock(lockScope).then(value => { if (alive) setLocked(value); }).catch(() => { if (alive) setLocked(false); });
+    // 읽기 실패는 '꺼짐'으로 두지 않는다(켜기로 기존 비밀번호를 확인 없이 덮어쓸 수 있다). null 이면 스위치가 눌리지 않고, 다시 들어오면 다시 읽는다
+    hasAppLock(lockScope).then(value => { if (alive) setLocked(value); }).catch(() => { if (alive) setLocked(null); });
     return () => { alive = false; };
   }, [lockScope]);
   // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다. 실패하면 로그인 응답 값을 그대로 보여 주고 다시 들어올 때 재시도한다.
@@ -66,9 +68,12 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
   if (pin) {
     const done = async value => {
       if (pin.mode === 'verify' && pin.next === 'change') { setPin({ mode: 'setup' }); return; }
-      if (pin.mode === 'verify') await clearAppLock(lockScope).catch(() => {});
-      else await setAppLock(lockScope, value).catch(() => {});
-      setLocked(await hasAppLock(lockScope).catch(() => false));
+      // 저장이 실패하면 잠금 상태를 다시 읽어 실제 값으로 되돌리고 실패를 알린다(켜졌다고 오해하지 않게)
+      try {
+        if (pin.mode === 'verify') await clearAppLock(lockScope);
+        else await setAppLock(lockScope, value);
+      } catch { notify('앱 잠금', '앱 잠금을 바꾸지 못했어요. 다시 시도해 주세요.'); }
+      setLocked(await hasAppLock(lockScope).catch(() => null));
       setPin(null);
     };
     pinScreen = (
@@ -80,14 +85,12 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
   }
   const editService = previewUser?.mode === 'authenticated' && accountService ? accountService : guest && guestService ? guestService : null;
   // 비밀번호 변경 · 탈퇴는 서버가 모든 세션을 폐기하므로 로그아웃 요청을 또 보내지 않고 이 기기의 세션만 정리한다(onClearSession)
-  if (editing) return <ProfileEditScreen {...(editService ? { service: editService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onClearSession} onPasswordReset={authenticatedUser ? () => setRoute('password') : undefined} getProfilePhotoSource={getProfilePhotoSource} registerLeaveGuard={registerLeaveGuard} />
+  if (editing) return <ProfileEditScreen {...(editService ? { service: editService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onClearSession} onPasswordReset={authenticatedUser && accountService ? () => setRoute('password') : undefined} getProfilePhotoSource={getProfilePhotoSource} registerLeaveGuard={registerLeaveGuard} />
   if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen compact={compact} email={previewUser?.email || ''} service={accountService} onClose={() => setRoute('home')} onComplete={onClearSession} />;
   if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} onClose={() => setRoute('home')} />;
 
-  // 게스트도 로그인한 사용자처럼 프로필을 고친다. 고친 값은 기기에 남는다.
-  // 프로필 수정은 조용한 92×32 테두리 버튼(secondary 테두리 · primaryText 글자), 폰도 이름 줄 오른쪽에 둔다(원 페이저 12)
-  // 게스트 프로필은 기기 저장(guestService)이 있어야 고칠 수 있다. 없으면 버튼을 누를 수 없게 둔다.
-  // 게스트: 판 오른쪽 끝은 계정 상태의 대표 행동(`로그인 · 회원가입`)이 차지하고, 프로필 수정은 이름 바로 옆 연필(아이콘 20 · 터치 44)로 둔다(코덱스 2026-11-02).
+  // 게스트도 로그인한 사용자처럼 프로필을 고친다. 고친 값은 기기에 남는다. 기기 저장(guestService)이 없으면 연필을 누를 수 없다.
+  // 게스트: 판 오른쪽 끝은 계정 상태의 대표 행동(`로그인 · 회원가입`)이 차지하고, 프로필 수정은 이름 바로 옆 연필(아이콘 18 · 터치 44)로 둔다(코덱스 2026-11-02).
   // 회원은 같은 오른쪽 자리에 `프로필 수정` 윤곽 버튼 — '오른쪽 끝 = 이 계정의 대표 행동' 문법이 같다.
   const guestEdit = guest ? (
     <Pressable accessibilityRole="button" accessibilityLabel="프로필 수정" accessibilityState={{ disabled: !guestService }} disabled={!guestService}
@@ -97,12 +100,12 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
   ) : null;
   // 로그인 화면은 지금 화면 위에 덮어 뜨고, 회원가입은 로그인 화면에서 이어 간다
   const loginButton = guest ? <DioButton variant="filled" label="로그인 · 회원가입" onPress={openLogin} block={compact} style={compact ? local.loginCompact : local.login} /> : null;
-  const profileAction = guest ? null : !guest && (previewUser?.accountId || (previewUser?.mode === 'authenticated' && accountService)) ? (
+  const profileAction = guest ? null : previewUser?.accountId || (authenticatedUser && accountService) ? (
     <DioButton variant="ghost" outline label="회원정보 수정" text="프로필 수정" icon="edit" onPress={() => setEditing(true)} style={local.editButton} />
   ) : null;
 
-  // 개발자 모드는 로그인한 사용자처럼 로그아웃이 있고, 누르면 시작 화면으로 돌아가 모드를 다시 고른다.
-  const logout = onEndPreview && (!guest || previewUser?.developer) ? <DioButton variant="ghost" outline label="로그아웃" onPress={onEndPreview} block /> : null;
+  // 로그아웃은 로그인한 사용자만 있다.
+  const logout = onEndPreview && !guest ? <DioButton variant="ghost" outline label="로그아웃" onPress={onEndPreview} block /> : null;
   // 회원만: 서버 알림 설정(초대 · 댓글 등 받을 알림)으로 가는 줄. 앱 정보 행과 같은 높이 · 구분선 · 오른쪽 화살표
   const serverNotifications = authenticatedUser ? (
     <Pressable accessibilityRole="button" accessibilityLabel="알림 설정" onPress={() => setRoute('notifications')} style={local.linkRow}>
@@ -155,7 +158,7 @@ export default function ProfileScreen({ diaries, compact = false, previewUser, o
             {serverNotifications}
             {logout && <View style={local.accountBody}>{logout}</View>}
           </SettingSection>}
-          <AppInformation compact={compact} />
+          <AppInformation />
         </SettingCard>
       </View>
       </View>
@@ -182,8 +185,6 @@ const local = StyleSheet.create({
   name: { color: colors.text, fontSize: 20, lineHeight: 26, fontWeight: '800', letterSpacing: -0.4 },
   nameCompact: { fontSize: 20, lineHeight: 26 },
   space: { color: colors.primaryStrong, fontSize: 14, fontWeight: '600' },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  actionsCompact: { flexDirection: 'column', alignItems: 'stretch' },
   accountBody: { paddingVertical: 12 },
   // 게스트: 이름 옆 연필(투명 · 아이콘 18, 터치 44×44 — 줄 높이는 이름 그대로 두려고 위아래를 겹친다) · 로그인 · 회원가입 채움 40
   nameRow: { flexDirection: 'row', alignItems: 'center' },

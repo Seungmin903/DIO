@@ -16,7 +16,7 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+new 
   const context=await browser.newContext({viewport});
   await context.addInitScript(({keys,diary,doc})=>{if(!localStorage.getItem('qa:shadow:seeded')){localStorage.setItem(keys.diaries,JSON.stringify([diary]));localStorage.setItem(keys.doc+':'+diary.id,JSON.stringify(doc));localStorage.setItem('qa:shadow:seeded','1')}},{keys:STORAGE_KEYS,diary,doc});
   const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));await page.goto(`http://127.0.0.1:${server.address().port}`);
-  const enter=async()=>{await page.getByRole('button',{name:'개발자 모드로 시작',exact:true}).click();await page.getByRole('button',{name:'사진 그림자 확인 열기',exact:true}).click();await page.getByRole('button',{name:'다이어리 홈',exact:true}).waitFor()};
+  const enter=async()=>{await page.getByRole('button',{name:'사진 그림자 확인 열기',exact:true}).click();await page.getByRole('button',{name:'다이어리 홈',exact:true}).waitFor()};
   await enter();await page.waitForFunction(()=>document.querySelectorAll('filter[id*="photo-shadow"]').length>=6);
   const ids=await page.locator('filter[id*="photo-shadow"]').evaluateAll(nodes=>nodes.map(n=>n.id));assert.equal(new Set(ids).size,ids.length);
   assert.ok(await page.locator('mask[id*="photo-shadow"]').count()>=3);

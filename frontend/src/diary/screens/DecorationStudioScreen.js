@@ -86,7 +86,10 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   async function confirmRemoval() {
     const target = question;
     setQuestion(null);
-    if (target?.draft) fontWorkflow.removeDraft(target.draft.id).catch(() => {});
+    if (target?.draft) {
+      setShelfError(null);
+      fontWorkflow.removeDraft(target.draft.id).catch(() => { if (alive.current) setShelfError('font'); });
+    }
     else if (target?.item) custom.removeFromFolder(target.folder.id, target.item);
     else if (target?.folder) { custom.removeFolder(target.folder.id); setFolderId(null); }
     else if (target?.cover || target?.paper) {
@@ -116,7 +119,9 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
   };
   const fontSection = <StudioSection fill={fontReady && !fontTotal} title="폰트" count={fontReady ? count({ length: fontTotal }) : null} stacked={compact}
     right={<StudioTool icon="text" title="새로 만들기" description="손글씨를 나만의 글꼴로" block={compact} onPress={() => loginGate('내 폰트 만들기', () => openFontStudio({ create: true }))} />}>
-    {fontState === 'error' ? <View accessibilityRole="alert" style={s.alert}><Text style={s.empty}>폰트 목록을 불러오지 못했어요.</Text><DioButton variant="tonal" label="폰트 목록 다시 불러오기" onPress={refreshFonts} /></View>
+    {shelfError === 'font' && <Text accessibilityRole="alert" style={s.error}>폰트를 지우지 못했어요. 다시 시도해 주세요.</Text>}
+    {/* 손글씨 공방 상태를 못 읽으면(loaded 가 오지 않음) 불러오는 중에 갇히지 않게 오류와 다시 불러오기를 보인다 */}
+    {fontState === 'error' || (!made.loaded && made.error) ? <View accessibilityRole="alert" style={s.alert}><Text style={s.empty}>폰트 목록을 불러오지 못했어요.</Text><DioButton variant="tonal" label="폰트 목록 다시 불러오기" onPress={() => { if (!made.loaded) fontWorkflow.init().catch(() => {}); refreshFonts(); }} /></View>
       : !fontReady ? <Text style={s.empty}>폰트를 불러오고 있어요.</Text>
       : !fontTotal ? <EmptyState compact={compact} art="dio" raised title="아직 만든 폰트가 없어요" />
       : <View style={s.fontList}>

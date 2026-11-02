@@ -21,8 +21,6 @@ const server=http.createServer((req,res)=>{
     const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();page.on('pageerror',e=>{errors.push(e.message);console.error('LOCAL_QA_ERROR',e.message)})
     page.setDefaultTimeout(30000);context.setDefaultTimeout(30000)
     await page.goto(base,{waitUntil:'domcontentloaded',timeout:60000});console.log('browser: app loaded')
-    const profile=page.getByRole('tab',{name:'내 공간',exact:true}),guest=page.getByRole('button',{name:'개발자 모드로 시작',exact:true})
-    await Promise.race([profile.waitFor(),guest.waitFor()]);if(await guest.isVisible())await guest.click()
     await page.getByRole('tab',{name:'내 공간',exact:true}).click()
     await page.getByText('오픈소스 및 콘텐츠 라이선스',{exact:true}).click()
     console.log('browser: license modal open')
