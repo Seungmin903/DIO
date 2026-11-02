@@ -37,6 +37,14 @@ class NotificationActionableH2Tests {
   assertThat(service.actionableUnreadCount(1)).isEqualTo(1);
   verify(named,times(1)).query(anyString(),anyMap(),any(org.springframework.jdbc.core.RowCallbackHandler.class));
   assertThat(service.actionableUnreadCount(2)).isZero();
+  assertThat(lookup.findForRecipient(1, java.util.List.of(50L)).get(50L).canOpen()).isTrue();
+  jdbc.update("update diary_invites set revoked_at=current_timestamp where invite_id=10");
+  assertThat(service.actionableUnreadCount(1)).isZero();
+  assertThat(lookup.findForRecipient(1, java.util.List.of(50L)).get(50L).canOpen()).isFalse();
+  jdbc.update("update diary_invites set revoked_at=null, use_count=1 where invite_id=10");
+  assertThat(service.actionableUnreadCount(1)).isZero();
+  assertThat(lookup.findForRecipient(1, java.util.List.of(50L)).get(50L).canOpen()).isFalse();
+  jdbc.update("update diary_invites set use_count=0 where invite_id=10");
   jdbc.update("update diary_invites set invite_type='EMAIL_CANCELLED' where invite_id=10");
   assertThat(service.actionableUnreadCount(1)).isZero();
   jdbc.update("update diary_invites set invite_type='EMAIL_ACCEPTED' where invite_id=10");
