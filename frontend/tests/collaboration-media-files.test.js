@@ -9,7 +9,7 @@ const require=createRequire(import.meta.url),expo=createRequire(require.resolve(
 function adapter(platform,stored){
  const writes=[],temps=[],parts=[],seeds=[],jpegCalls=[]
  const repository={get:async()=>stored,decode:async()=>({width:20,height:10}),createDisplay:async()=>null,verifyDisplay:async()=>{},save:async(source,metadata)=>{writes.push({source,metadata});return 'cached-image'},dispose:async()=>{}}
- class File{constructor(_path,name){this.uri=`cache/${name}`;temps.push(this)}create(){}write(bytes){this.bytes=bytes}delete(){this.deleted=true}}
+ class File{constructor(_path,name){this.uri=name===undefined?_path:`cache/${name}`;if(name!==undefined)temps.push(this)}create(){}write(bytes){this.bytes=bytes}delete(){this.deleted=true}}
  class Form{append(...args){parts.push(args)}}
  const code=expo('@babel/core').transformSync(readFileSync(new URL(`../src/editor/services/canvasMediaFiles.${platform}.js`,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
  const module={exports:{}}
