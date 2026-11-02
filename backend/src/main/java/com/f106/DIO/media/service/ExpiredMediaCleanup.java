@@ -101,7 +101,7 @@ public class ExpiredMediaCleanup {
 			try {
 				deletionQueue.recordFailure(task, error);
 			} catch (RuntimeException queueError) {
-				log.error("Media storage deletion retry could not be recorded: deletionId={}", task.getDeletionId(), queueError);
+				log.error("Media storage deletion retry could not be recorded: deletionId={}, errorType={}", task.getDeletionId(), queueError.getClass().getSimpleName());
 			}
 			log.warn("Media storage deletion failed and will be retried: deletionId={}, mediaFileId={}, errorType={}",
 				task.getDeletionId(), task.getMediaFileId(), error.getClass().getSimpleName());
