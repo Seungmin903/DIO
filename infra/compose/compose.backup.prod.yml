@@ -1,0 +1,31 @@
+services:
+  db-backup:
+    image: ${DB_BACKUP_IMAGE:?DB_BACKUP_IMAGE is required}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+        compress: "true"
+    environment:
+      PGHOST: db
+      PGDATABASE: "${POSTGRES_DB:?POSTGRES_DB is required}"
+      PGUSER: "${POSTGRES_USER:?POSTGRES_USER is required}"
+      PGPASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      # 삭제한 자료가 백업에서 사라지기까지의 최대 기간이다. 바꾸면 개인정보 처리방침도 함께 고친다.
+      BACKUP_RETENTION_DAYS: "${DB_BACKUP_RETENTION_DAYS:-7}"
+      BACKUP_HOUR_UTC: "${DB_BACKUP_HOUR_UTC:-18}"
+    volumes:
+      - db-backups:/backups
+    networks:
+      - production-db
+
+networks:
+  production-db:
+    external: true
+    name: app_default
+
+volumes:
+  db-backups:
+    name: dio-prod-db-backups

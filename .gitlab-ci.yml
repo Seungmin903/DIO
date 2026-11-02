@@ -91,6 +91,25 @@ deploy-prod-proxy:
     - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml up -d --force-recreate
     - 'curl --fail --retry 12 --retry-all-errors --retry-delay 2 --resolve k15f106.p.ssafy.io:443:127.0.0.1 https://k15f106.p.ssafy.io/actuator/health'
 
+deploy-prod-db-backup:
+  stage: edge
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
+      changes:
+        - infra/backup/**/*
+        - infra/compose/compose.backup.prod.yml
+  resource_group: production-backup
+  script:
+    - docker build --tag "dio-db-backup:${CI_COMMIT_SHORT_SHA}" ./infra/backup
+    - export DB_BACKUP_IMAGE="dio-db-backup:${CI_COMMIT_SHORT_SHA}"
+    - docker compose --project-name dio-prod-db-backup --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.backup.prod.yml config --quiet
+    # 스케줄러를 띄우기 전에 한 번 백업해 접속 정보와 저장 볼륨이 맞는지 확인한다.
+    - docker compose --project-name dio-prod-db-backup --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.backup.prod.yml run --rm db-backup once
+    - docker compose --project-name dio-prod-db-backup --env-file /home/gitlab-runner/dio-env/prod.env -f infra/compose/compose.backup.prod.yml up -d --force-recreate
+
 backend-test:
   stage: quality
   tags:
