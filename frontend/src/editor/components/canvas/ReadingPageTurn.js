@@ -10,8 +10,12 @@ function Shade({ stops, style }) {
   return <Animated.View pointerEvents="none" style={[styles.fill, style, { backgroundImage: image }]} />
 }
 
-const SAMPLES = 240 // 접힘선 위치를 이만큼 찍어 두고 그 사이를 이어서 움직인다 (Animated 는 직선 보간만 한다)
+// 접힌 조각의 가장자리가 아래 앞면에 드리우는 그림자 번짐 폭. 이게 없으면 조각과 앞면이 같은 흰 종이라 경계가 안 보인다.
+// 그림자 세기 · 번짐 · 그라데이션 정지점은 코덱스 조정값(2026-11-02)
+const flapEdgeBlur = (W, H) => Math.max(7, Math.hypot(W, H) * 0.0135)
+const FLAP_EDGE_ALPHA = 0.24
 
+const SAMPLES = 240 // 접힘선 위치를 이만큼 찍어 두고 그 사이를 이어서 움직인다 (Animated 는 직선 보간만 한다)
 /**
  * 접힘선 기하. 오른쪽 가장자리의 한 점 C 를 잡아 왼쪽으로 끌어 T 로 옮기면(이전 페이지는 전체를 좌우로 뒤집어 쓴다)
  * 접힘선은 C 와 T 의 수직이등분선이고, 접힌 조각은 접힘선을 기준으로 뒤집힌 종이 뒷면이다.
@@ -109,14 +113,16 @@ function NativePageTurn({ page, from, zoom, width, height, dir, lift = 0, progre
 
       {/* 드러난 새 페이지 위에 접힌 종이가 드리우는 그림자 */}
       <Animated.View style={{ position: 'absolute', left: 0, top: 0, width: castBand, height: 2 * D, opacity: castFade, overflow: 'hidden', transform: [{ translateX: castLeft }, { translateY: castTop }, { rotate: alpha }] }}>
-        <Shade stops={[[0, 0.36], [0.4, 0.16], [1, 0]]} />
+        <Shade stops={[[0, 0.3], [0.28, 0.18], [0.62, 0.045], [1, 0]]} />
       </Animated.View>
 
       {/* 접혀 넘어온 조각: 접힘선을 기준으로 뒤집힌 종이 뒷면 */}
       <Animated.View style={[box, boxMove]}>
-        <Animated.View style={{ position: 'absolute', left: 0, top: 0, width: w, height: h, backgroundColor: paper, transform: [{ translateX: flapLeft }, { translateY: flapTop }, { scaleX: -1 }, { rotate: unAlpha }] }} />
-        {/* 접힘선(오른쪽 끝)으로 갈수록 말려 어두워진다 */}
-        <Shade stops={[[0, 0], [0.55, 0.04], [1, 0.3]]} style={{ left: D - flapBand, width: flapBand, right: undefined, bottom: undefined, height: 2 * D }} />
+        {/* 가장자리 그림자: 접힘선 쪽은 상자 경계에서 잘려 앞면 쪽(바깥 가장자리)에만 남는다 */}
+        <Animated.View style={{ position: 'absolute', left: 0, top: 0, width: w, height: h, backgroundColor: paper, boxShadow: `0 0 ${flapEdgeBlur(w, h).toFixed(1)}px rgba(0,0,0,${FLAP_EDGE_ALPHA})`, transform: [{ translateX: flapLeft }, { translateY: flapTop }, { scaleX: -1 }, { rotate: unAlpha }] }} />
+        {/* 접힘선(오른쪽 끝)으로 갈수록 말려 어두워진다. 띠를 상자 밖으로 조금 넘겨 둔다:
+            픽셀 맞춤으로 띠 끝이 상자 끝보다 1px 모자라면 접힘선에 그늘 없는 흰 종이가 선으로 드러난다 (넘친 부분은 상자가 자른다) */}
+        <Shade stops={[[0, 0], [0.35, 0.015], [0.68, 0.08], [1, 0.24]]} style={{ left: D - flapBand, width: flapBand + 3, right: undefined, bottom: undefined, height: 2 * D }} />
       </Animated.View>
     </View>
   )
@@ -161,6 +167,7 @@ function WebPageTurn({ page, from, zoom, width, height, dir, lift = 0, progress 
   let flapPoly = clipHalf(rect, -nx, -ny, -c).map(reflect) // 접힘선 너머 종이를 뒤집어 앞면 쪽에 놓는다
   for (const [a, b, d] of [[-1, 0, 0], [1, 0, w], [0, -1, 0], [0, 1, h]]) flapPoly = clipHalf(flapPoly, a, b, d)
   const castPoly = clipHalf(clipHalf(rect, -nx, -ny, -c), nx, ny, c + castBand) // 접힘선 바깥 띠
+  const frontPoly = clipHalf(rect, nx, ny, c) // 접힘선 안쪽: 아직 안 넘어간 앞면
   // 접힘선에서 법선 방향(sign)으로 거리 δ 인 점이 그라데이션 위 t0 + δ 에 오도록 CSS 그라데이션을 맞춘다
   const gradient = (sign, stops) => {
     const dx = nx * sign, dy = ny * sign
@@ -177,13 +184,21 @@ function WebPageTurn({ page, from, zoom, width, height, dir, lift = 0, progress 
   ), [page, zoom, revealPaper, w, h, dir])
   const fade = p < 0.85 ? 1 - 0.1 * (p / 0.85) : 0.9 * (1 - (p - 0.85) / 0.15)
   const flapBand = Math.hypot(w, h) * 0.1
+  const edgeBlur = flapEdgeBlur(w, h)
   const sx = dir > 0 ? 1 : -1
   const layer = (poly, extra) => <View pointerEvents="none" style={[styles.fill, { clipPath: polygonStyle(poly) }, extra]} />
   return (
     <View pointerEvents="none" style={[styles.fill, styles.clip, { transform: [{ scaleX: sx }] }]}>
       {revealPoly.length >= 3 && <View pointerEvents="none" style={[styles.fill, { clipPath: polygonStyle(revealPoly) }]}>{revealPage}</View>}
-      {castPoly.length >= 3 && layer(castPoly, { backgroundImage: gradient(1, [[-1, 0], [0, 0.36 * fade], [castBand * 0.4, 0.16 * fade], [castBand, 0]]) })}
-      {flapPoly.length >= 3 && layer(flapPoly, { backgroundColor: paper, backgroundImage: gradient(-1, [[0, 0.3], [flapBand * 0.45, 0.04], [flapBand, 0]]) })}
+      {castPoly.length >= 3 && layer(castPoly, { backgroundImage: gradient(1, [[-1, 0], [0, 0.3 * fade], [castBand * 0.28, 0.18 * fade], [castBand * 0.62, 0.045 * fade], [castBand, 0]]) })}
+      {/* 접혀 넘어온 조각이 아래 앞면에 드리우는 그림자는 앞면 쪽에만 보이게 자른다 (드러난 쪽은 위 그림자가 맡는다) */}
+      {flapPoly.length >= 3 && frontPoly.length >= 3 && (
+        <View pointerEvents="none" style={[styles.fill, { clipPath: polygonStyle(frontPoly) }]}>
+          <View pointerEvents="none" style={[styles.fill, { filter: `drop-shadow(0 0 ${edgeBlur.toFixed(1)}px rgba(0,0,0,${(FLAP_EDGE_ALPHA * fade).toFixed(3)}))` }]}>
+            {layer(flapPoly, { backgroundColor: paper, backgroundImage: gradient(-1, [[0, 0.24], [flapBand * 0.32, 0.08], [flapBand * 0.65, 0.015], [flapBand, 0]]) })}
+          </View>
+        </View>
+      )}
     </View>
   )
 }
