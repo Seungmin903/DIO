@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -56,5 +57,19 @@ class MediaControllerAuthenticationTests {
 		mvc.perform(get("/api/v1/media/" + mediaFileId).with(jwt().jwt(token -> token.subject("2"))))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("MEDIA_FILE_NOT_FOUND"));
+	}
+
+	@Test
+	void sendsPdfSourceFilesAsAttachments() throws Exception {
+		UUID mediaFileId = UUID.randomUUID();
+		org.mockito.Mockito.when(mediaService.file(mediaFileId, 2L))
+			.thenReturn(new MediaService.DownloadedMedia("application/pdf", "layout.pdf", "%PDF-1.7".getBytes()));
+
+		mvc.perform(get("/api/v1/media/" + mediaFileId + "/file").with(jwt().jwt(token -> token.subject("2"))))
+			.andExpect(status().isOk())
+			.andExpect(header().string("X-Content-Type-Options", "nosniff"))
+			.andExpect(header().string("Content-Security-Policy", "sandbox; default-src 'none'"))
+			.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment")))
+			.andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("layout.pdf")));
 	}
 }

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PAPERS, appendPaper, changeRow, changeRowPaper, clampWhole, isPeriodSection, mergeSections, mixOrder, moveDown, movePaper, moveUp, newRow, newSection, paperPreviewId, removePaper, savedPaperSummary, splitSection, sectionTitle, sectionsTemplateConfig } from '../src/diary/utils/paperChoice.js'
-import { bandAutoColor, changeCoverKind, coverElementSummary, coverTabPaint, createStickerCopy, defaultCover, normalizeCover } from '../src/diary/utils/coverDesign.js'
+import { bandAutoColor, changeCoverKind, coverElementSummary, coverTabPaint, createStickerCopy, defaultCover, newDiaryCover, normalizeCover } from '../src/diary/utils/coverDesign.js'
 import { photoTone } from '../src/diary/utils/photoTone.js'
 import { configuredPageIds, defaultTemplateConfig, normalizeTemplateConfig, templatePageCount } from '../src/editor/templates/creation.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
@@ -276,4 +276,26 @@ test('출시된 표지가 고른 예전 그라데이션(0~5번)은 번호 · 색
   }
   // 새 프리셋은 물감 섞기로 중간색을 채운다
   assert.ok(gradientStops(normalizeCover({ cover: { gradient: GRADIENT_PICK_FROM } })).length > COVER_GRADIENTS[GRADIENT_PICK_FROM][1].length)
+})
+
+test('새 다이어리 표지는 무늬 없이 시작하고, 뺀 무늬 · 그라데이션도 이미 고른 표지는 그대로 읽는다', () => {
+  const fresh = newDiaryCover()
+  assert.equal(fresh.pattern.type, 'none')
+  assert.deepEqual(fresh.stickers, [])
+  assert.equal(fresh.plate, 'paper')
+  assert.equal(normalizeCover({ cover: { pattern: { type: 'dio' } } }).pattern.type, 'dio')
+  assert.equal(normalizeCover({ color: '#474D57' }).pattern.type, 'none')
+  assert.equal(defaultCover().pattern.type, 'linen')
+  // 뺀 레더 · 블루그레이도 이미 고른 표지는 그대로 읽는다
+  assert.equal(normalizeCover({ cover: { pattern: { type: 'leather' } } }).pattern.type, 'leather')
+  assert.equal(normalizeCover({ cover: { gradient: 9 } }).gradient, 9)
+})
+
+test('표지 제목 글씨체는 편집기 텍스트 글꼴 목록과 같다: 앱 글꼴 · 내 폰트는 그대로, 모르는 글꼴과 뺀 글꼴은 나눔고딕', async () => {
+  const { TEXT_FONTS } = await import('../src/editor/utils/text.js')
+  const font = value => normalizeCover({ cover: { enabled: true, title: { font: value } } }).title.font
+  for (const { id } of TEXT_FONTS) assert.equal(font(id), id)
+  assert.equal(font('personal-0f8fad5b-d9cb-469f-a165-70867728950e'), 'personal-0f8fad5b-d9cb-469f-a165-70867728950e')
+  assert.equal(font('sans'), 'nanum-gothic')
+  for (const value of ['mono', 'comic', undefined]) assert.equal(font(value), 'nanum-gothic')
 })

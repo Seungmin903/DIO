@@ -82,3 +82,37 @@ test('공통 패널은 서버와 목 모두 읽음과 기본 동작을 제공한
     assert.equal(mockStore.getSnapshot().count.data.unreadCount, 0);
   } finally { mockStore.dispose(); serverStore.dispose(); }
 });
+
+test('초대 확인은 열 수 있는 초대면 안쪽 상세 카드 없이 곧장 수락 화면으로 넘기고, 끝난 초대는 카드에 남긴다', async () => {
+  const { createRequire } = await import('node:module');
+  const { readFileSync } = await import('node:fs');
+  const require = createRequire(import.meta.url);
+  const expoRequire = createRequire(require.resolve('expo/package.json'));
+  const { transformSync } = expoRequire('@babel/core');
+  const panelUrl = new URL('../src/notifications/NotificationPanel.js', import.meta.url);
+  const panelRequire = createRequire(panelUrl);
+  const { code } = transformSync(readFileSync(panelUrl, 'utf8'), { babelrc: false, configFile: false,
+    plugins: [[expoRequire.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expoRequire.resolve('@babel/plugin-transform-modules-commonjs')] });
+  const module = { exports: {} };
+  new Function('require', 'module', 'exports', code)(name => name === 'react-native' ? require('react-native-web')
+    : name.startsWith('.') ? panelRequire(name.endsWith('.js') ? name : `${name}.js`) : panelRequire(name), module, module.exports);
+  const Panel = module.exports.default;
+  const nodes = value => !value || typeof value !== 'object' ? [] : [value, ...[value.props?.children].flat(Infinity).flatMap(nodes)];
+  const mock = createMockNotificationTransport({ delay: 0, pageSize: 10 });
+  const store = createNotificationStore(createNotificationApi(mock.transport), createInvitationGateway(mock.transport));
+  await store.refresh();
+  const press = async (row, onInvitationReady) => {
+    const tree = Panel({ model: { ...store.getSnapshot(), store }, onInvitationReady });
+    await nodes(tree).find(n => n.props?.label === `초대 확인 ${row.id}`).props.onPress();
+  };
+  const rows = store.getSnapshot().items;
+  const pending = rows.find(row => row.status === 'PENDING'), expired = rows.find(row => row.status === 'EXPIRED');
+  const moved = [];
+  await press(pending, value => moved.push(value.inviteId));
+  assert.deepEqual(moved, [pending.inviteId]);
+  assert.equal(store.getSnapshot().invitation.status, 'idle'); // 안쪽 상세 카드는 닫혀 있다
+  await press(expired, value => moved.push(value.inviteId));
+  assert.deepEqual(moved, [pending.inviteId]);
+  assert.equal(store.getSnapshot().invitation.status, 'success');
+  store.dispose();
+});

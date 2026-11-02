@@ -80,6 +80,19 @@ export function createMemberDiaryApi(transport) {
         || !body.pageIds.every(uuid) || body.firstPageId !== body.pageIds[0]) throw invalid()
       return { ...result, firstPageId: body.firstPageId, pageIds: [...body.pageIds] }
     },
+    // PDF 쪽: 만들어 둔 빈 페이지의 크기를 쪽 비율에 맞춘다(초기 페이지는 속지 목록의 크기로만 만들 수 있다). 같은 값을 다시 보내도 같은 결과다.
+    async setPageSizes(sizes, options = {}) {
+      let next = 0
+      const worker = async () => {
+        while (next < sizes.length) {
+          const { pageId, canvasWidth, canvasHeight } = sizes[next++]
+          if (!uuid(pageId)) throw invalid()
+          const body = await transport({ ...options, method: 'PATCH', path: `/pages/${encodeURIComponent(pageId)}`, body: { canvasWidth, canvasHeight } })
+          if (body?.page?.pageId !== pageId) throw invalid()
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(3, sizes.length) }, worker))
+    },
     async get(id, options = {}) {
       const result = diary(await transport({ ...options, method: 'GET', path: `/member/diaries/${encodeURIComponent(id)}` }))
       if (result.id !== id) throw invalid()

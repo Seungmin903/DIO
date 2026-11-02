@@ -263,3 +263,18 @@ test('비밀번호 재설정 완료 후 이전 알림 세션을 차단하고 재
   await createAuthenticatedNotificationSession({ auth, userId: '1', fetchImpl }).api.count();
   assert.equal(fetched, 1);
 });
+test('회원 초대 알림은 받은 초대 목록에서 다이어리 제목 · 보낸 사람을 채우고, 채우기 실패는 목록을 막지 않는다',async()=>{
+  const f=fixture();await login(f.auth);
+  const items=[{notification:{notificationId:'n1',notificationType:'DIARY_INVITE',createdAt:'2026-11-01T00:00:00Z',readAt:null},invitation:{inviteId:'7',status:'PENDING',canOpen:true}},
+    {notification:{notificationId:'n2',notificationType:'NOTICE',createdAt:'2026-11-01T00:00:00Z',readAt:null},invitation:null}];
+  const fetchImpl=async()=>reply({items,hasNext:false});
+  const asked=[];
+  const session=createAuthenticatedNotificationSession({auth:f.auth,userId:'1',fetchImpl,
+    describeInvitations:async ids=>{asked.push(ids);return new Map([['7',{title:'우리 기록',actor:'하루'}]]);}});
+  const page=await session.api.list();
+  assert.deepEqual(asked,[['7']]);
+  assert.equal(page.items[0].title,'우리 기록');assert.equal(page.items[0].actor,'하루');assert.equal(page.items[0].inviteId,'7');
+  assert.equal(page.items[1].title,'다이어리 알림');
+  const failing=createAuthenticatedNotificationSession({auth:f.auth,userId:'1',fetchImpl,describeInvitations:async()=>{throw new Error('down');}});
+  assert.equal((await failing.api.list()).items[0].title,'다이어리 알림');
+});

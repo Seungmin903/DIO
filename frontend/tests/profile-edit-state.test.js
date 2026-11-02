@@ -16,6 +16,7 @@ const compile = (path) =>
     ],
   }).code;
 function setup(service = {}, photoPicker = async () => null, options = {}) {
+  const { getProfilePhotoSource, ...screenOptions } = options;
   const states = [],
     refs = [],
     deps = [],
@@ -84,7 +85,6 @@ function setup(service = {}, photoPicker = async () => null, options = {}) {
     react,
     'react-native': native,
     './validation': validation,
-    './previewAuth': { previewAuth: service },
     './profileStyles': { profileStyles: new Proxy({}, { get: (_, key) => key }) },
     '../shared/theme': { colors: {} },
   };
@@ -124,6 +124,7 @@ function setup(service = {}, photoPicker = async () => null, options = {}) {
       user,
       service,
       photoPicker,
+      getProfilePhotoSource,
       onClose() {
         closed++;
       },
@@ -134,7 +135,7 @@ function setup(service = {}, photoPicker = async () => null, options = {}) {
         ended++;
       },
       registerLeaveGuard,
-      ...options,
+      ...screenOptions,
     });
   };
   return {
@@ -206,10 +207,8 @@ test('사진 선택 취소 보존·사진만 변경 저장·새 기준값 이후
   find(ui, '닉네임').props.onChangeText('소연');
   assert.equal(find(ui, '닉네임 중복 확인'), undefined);
   press(ui, '프로필 사진 변경');
-  press(ui, '프로필 사진 선택');
   await tick();
   assert.equal(find(ui, '변경사항 저장').props.disabled, true);
-  press(ui, '프로필 사진 변경');
   press(ui, '프로필 사진 삭제');
   assert.equal(find(ui, '변경사항 저장').props.disabled, false);
   press(ui, '변경사항 저장');
@@ -311,56 +310,41 @@ test('탈퇴 요청 실패 후 문구·프로필을 유지하고 다시 시도�
 test('사진 선택의 늦은 응답과 실패는 언마운트·기존 프로필을 손상시키지 않는다', async () => {
   let resolve;
   const ui = setup({}, () => new Promise(r => { resolve = r; }));
-  press(ui, '프로필 사진 변경'); press(ui, '프로필 사진 선택'); ui.unmount(); resolve('file:///late.jpg'); await tick(); assert.deepEqual(ui.updates, []);
+  press(ui, '프로필 사진 변경'); ui.unmount(); resolve('file:///late.jpg'); await tick(); assert.deepEqual(ui.updates, []);
   const failed = setup({}, async () => { throw new Error('사진 선택 오류'); });
-  press(failed, '프로필 사진 변경'); press(failed, '프로필 사진 선택'); await tick();
+  press(failed, '프로필 사진 변경'); await tick();
   assert.ok(nodes(failed.render()).some(n => n.type === 'Image' && n.props.source.uri === 'file:///old.jpg'));
   assert.ok(nodes(failed.render()).some(n => n.props.children === '사진 선택 오류'));
   assert.equal(find(failed, '변경사항 저장').props.disabled, true); failed.unmount();
 });
 
+test('저장된 서버 프로필 사진도 회원정보 수정 화면에서 인증 source로 렌더링한다', () => {
+  const source = { uri: 'https://server.example/api/v1/auth/profile-photos/abc', headers: { Authorization: 'Basic test' } };
+  const ui = setup({}, undefined, { getProfilePhotoSource: () => source });
+  const photo = nodes(ui.render()).find((node) => node.type === 'Image' && node.props.accessibilityLabel === '프로필 사진');
+  assert.deepEqual(photo.props.source, source);
+  ui.unmount();
+});
 
+test('실제 계정은 현재 사진을 변경하거나 기본 이미지로 되돌릴 수 있다', () => {
+  const ui = setup({}, undefined, { photoEditable: true });
+  assert.equal(find(ui, '프로필 사진 변경').props.disabled, false);
+  assert.equal(find(ui, '프로필 사진 삭제').props.disabled, false);
+  assert.equal(nodes(ui.render()).some((node) => node.props.children === '프로필 사진 변경은 준비 중이에요.'), false);
+  ui.unmount();
+});
 
-
-
-test('원래 프로필 폼의 비밀번호 변경 버튼에서 API를 호출한다',async()=>{
- let calls=0;const ui=setup({changePassword:async()=>{calls++}},undefined,{user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
- assert.ok(find(ui,'닉네임'));press(ui,'비밀번호 변경');
+test('서버 계정은 기존 비밀번호 창만 열고 성공 후 세션을 종료한다',async()=>{
+ let calls=0;const ui=setup({changePassword:async()=>{calls++}},undefined,{passwordOnly:true,user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
+ assert.equal(find(ui,'닉네임'),undefined);assert.equal(find(ui,'회원 탈퇴'),undefined);
  find(ui,'현재 비밀번호').props.onChangeText('Password123!');find(ui,'새 비밀번호').props.onChangeText('Changed123!');find(ui,'새 비밀번호 확인').props.onChangeText('Changed123!');
  press(ui,'변경');await tick();assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
 });
-test('원래 프로필 폼의 탈퇴 확인 창은 오류 시 입력을 유지한다',async()=>{
- const ui=setup({withdraw:async()=>{throw new Error('소유권을 양도해 주세요.')}});
- press(ui,'회원 탈퇴');find(ui,'탈퇴 확인 문구').props.onChangeText('탈퇴합니다');press(ui,'탈퇴하기');await tick();
- assert.equal(ui.ended(),0);assert.equal(find(ui,'탈퇴 확인 문구').props.value,'탈퇴합니다');assert.ok(nodes(ui.render()).some(n=>n.props.children==='소유권을 양도해 주세요.'));ui.unmount();
+test('일반 회원정보 화면의 직접 비밀번호 변경도 인증 세션을 종료한다',async()=>{
+ const ui=setup({changePassword:async()=>{}},undefined,{user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
+ press(ui,'비밀번호 변경');find(ui,'현재 비밀번호').props.onChangeText('Password123!');find(ui,'새 비밀번호').props.onChangeText('Changed123!');find(ui,'새 비밀번호 확인').props.onChangeText('Changed123!');
+ press(ui,'변경');await tick();assert.equal(ui.ended(),1);ui.unmount();
 });
-
-test('서버 프로필 저장 미연결 시 기존 오류 영역에 안내하고 입력과 계정 상태를 보존한다',async()=>{
- const ui=setup({},undefined,{user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
- find(ui,'닉네임').props.onChangeText('수정닉네임');press(ui,'변경사항 저장');await tick();
- assert.equal(ui.updates.length,0);assert.equal(ui.ended(),0);assert.equal(find(ui,'닉네임').props.value,'수정닉네임');
- assert.ok(nodes(ui.render()).some(n=>n.props.children==='프로필 정보 수정 기능이 아직 연결되지 않았어요.'));ui.unmount();
-});
-test('서버 계정도 기존 탈퇴 대화상자에서 계정 API를 호출하고 세션을 종료한다',async()=>{
- let calls=0;const ui=setup({withdraw:async user=>{assert.equal(user.userId,'7');calls++}},undefined,{user:{mode:'authenticated',userId:'7',provider:'email',nickname:'회원'}});
- press(ui,'회원 탈퇴');find(ui,'탈퇴 확인 문구').props.onChangeText('탈퇴합니다');press(ui,'탈퇴하기');await tick();
- assert.equal(calls,1);assert.equal(ui.ended(),1);ui.unmount();
-});
-test('서버 계정은 한 줄 소개를 받지 않고, 체험 · 게스트는 소개를 함께 저장한다', async () => {
-  const sent = [];
-  const service = { updateProfile: async (user, draft) => (sent.push(draft), { ...user, ...draft }) };
-  const member = setup(service, async () => null, { user: { mode: 'authenticated', userId: '7', provider: 'email', nickname: '소연', email: 'a@b.com' } });
-  assert.equal(find(member, '한 줄 소개'), undefined);
-  find(member, '닉네임').props.onChangeText('수정이름');
-  press(member, '변경사항 저장');
-  await tick();
-  assert.equal('bio' in sent[0], false);
-  member.unmount();
-  const guest = setup(service, async () => null, { user: { mode: 'preview', provider: 'guest', nickname: '방문자' } });
-  assert.ok(find(guest, '한 줄 소개'));
-  find(guest, '한 줄 소개').props.onChangeText('  오늘도   한 장 ');
-  press(guest, '변경사항 저장');
-  await tick();
-  assert.equal(sent[1].bio, '오늘도 한 장');
-  guest.unmount();
+test('서버 비밀번호 창 취소는 회원정보 수정 화면으로 넘어가지 않는다',()=>{
+ const ui=setup({},undefined,{passwordOnly:true});press(ui,'취소');assert.equal(ui.closed(),1);ui.unmount();
 });

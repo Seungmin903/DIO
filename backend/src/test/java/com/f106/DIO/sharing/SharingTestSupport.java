@@ -62,5 +62,5 @@ abstract class SharingTestSupport {
     UUID diary(Actor owner){var diary=new Diary("공유 테스트","#CED9EE","PLAIN","PRIVATE",owner.id());diary.transferOwnership(owner.id());return diaries.saveAndFlush(diary).getDiaryId();}
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    com.f106.DIO.sharing.infrastructure.mail.InviteMailSender inviteMail;
+    org.springframework.mail.javamail.JavaMailSender smtp;
 }

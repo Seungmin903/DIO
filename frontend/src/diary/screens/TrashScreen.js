@@ -106,7 +106,8 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
   const latest = useRef({ onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, now, serverMode, busy });
   latest.current = { onRestore, onDeletePermanently, onRestoreMany, onDeleteMany, now, serverMode, busy };
 
-  const grid = useDiaryGrid(compact, TRASH_ROW_GAP); // 홈 한눈에 보기와 같은 칸 크기 · 한 줄 개수 (폰은 null)
+  // 홈 한눈에 보기와 같은 칸 크기 · 한 줄 개수 (폰은 null). 위 여백은 선택 중에만 생기는 16 이라 0 으로 둔다(회전 때 보던 줄이 그만큼 어긋날 뿐)
+  const grid = useDiaryGrid(compact, TRASH_ROW_GAP, { count: diaries.length });
   const [selected, setSelected] = useState(null); // null 이면 선택 모드가 아니다
   const [sheetId, setSheetId] = useState(null);
   const selecting = selected !== null;
@@ -181,7 +182,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
         icon="trash"
         tone="danger"
         disabled={busy || !deletable.length}
-        onPress={() => { latest.current.onDeleteMany(deletable.map(row => row.diary)); finishSelecting(); }}
+        onPress={() => latest.current.onDeleteMany(deletable.map(row => row.diary), finishSelecting)}
       />}
       <SelectionButton label="선택 완료" text="완료" disabled={busy} onPress={finishSelecting} />
     </SelectionBar>
@@ -189,12 +190,13 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
 
   return (
     // 한눈에 보기처럼 제목 · 선택 도구는 위에 고정하고 카드 목록만 스크롤한다.
-    <View style={s.libraryRoot}>
+    // 바탕은 공방 · 내 공간과 같은 흰 면(작업 화면). 햇살 책상은 다이어리를 고르는 보관함에만 둔다(원 페이저 01)
+    <View style={[s.libraryRoot, s.workRoot]}>
     <View style={[s.libraryScreen, compact && s.libraryScreenCompact, s.libraryFixedTop]}>
       {header}
       {selectionBar}
     </View>
-    <ScrollView contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact]} showsVerticalScrollIndicator={false}>
+    <ScrollView {...grid?.scroll} contentContainerStyle={[s.libraryGridScroll, compact && s.libraryGridScrollCompact]} showsVerticalScrollIndicator={false}>
       {requestNotice}
       {cleanupError && <View accessibilityRole="alert" style={s.trashNotice}>
         <Text style={s.trashPolicy}>{cleanupError}</Text>
@@ -203,7 +205,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
         </Pressable>
       </View>}
       {!rows.length ? (suppressEmpty ? null :
-        <EmptyState compact={compact} art="duri" raised title="휴지통이 비어 있어요" />
+        <EmptyState compact={compact} art="dio" raised title="휴지통이 비어 있어요" />
       ) : (
         <View onLayout={grid?.onLayout}><View style={[s.trashGrid, compact && s.trashGridCompact, selecting && (compact ? s.trashGridSelectingCompact : s.trashGridSelecting), grid?.style]}>
           {rows.map(({ diary, status, urgent, canRestore, canDelete }) => (

@@ -1,12 +1,14 @@
 import { normalizeCover } from './coverDesign.js'
 import { normalizeOrientation } from '../../editor/templates/catalog.js'
 import { createId } from '../../editor/utils/common.js'
+import { normalizePdfSource } from './pdfSource.js'
 
 // 나의 표지 · 나의 속지: 기기에 두고 새 다이어리를 만들 때 꺼내 쓰는 보관함.
 // 저장과 읽기는 호출하는 쪽이 한다(editor/services/storage 의 loadJSON · saveJSON). 여기는 값을 맞추고 목록을 고치는 계산만 둔다.
 export const MY_LIBRARY_LIMIT = 30
 
 const text = (value, fallback) => typeof value === 'string' && value.trim() ? value.trim().slice(0, 40) : fallback
+const pdfSourceOf = page => { const pdfSource = normalizePdfSource(page.pdfSource); return pdfSource ? { pdfSource } : {} }
 const hasMedia = page => page && typeof page.src === 'string' && typeof page.mediaFileId === 'string' && page.mediaFileId
 
 /** 저장된 값 → 쓸 수 있는 나의 표지 목록. 잘못된 항목은 버린다. */
@@ -32,7 +34,7 @@ export function normalizeMyPapers(raw) {
   return raw.flatMap(item => {
     if (!item || typeof item.id !== 'string' || seen.has(item.id)) return []
     const pages = (Array.isArray(item.pages) ? item.pages : []).filter(hasMedia)
-      .map(page => ({ src: page.src, mediaFileId: page.mediaFileId, aspect: Number.isFinite(page.aspect) && page.aspect > 0 ? page.aspect : 0.75, name: text(page.name, 'PDF') }))
+      .map(page => ({ src: page.src, mediaFileId: page.mediaFileId, aspect: Number.isFinite(page.aspect) && page.aspect > 0 ? page.aspect : 0.75, name: text(page.name, 'PDF'), ...pdfSourceOf(page) }))
     if (!pages.length) return []
     seen.add(item.id)
     return [{ id: item.id, name: text(item.name, '나의 속지'), createdAt: typeof item.createdAt === 'string' ? item.createdAt : null,
@@ -52,3 +54,6 @@ export function addMyPaper(list, { name, orientation, pages }, now = new Date())
 }
 
 export const removeEntry = (list, id) => list.filter(item => item.id !== id)
+
+/** 이름을 고친다. 비어 있으면 원래 이름을 둔다. */
+export const renameEntry = (list, id, name) => list.map(item => item.id === id ? { ...item, name: text(name, item.name) } : item)

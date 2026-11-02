@@ -50,13 +50,13 @@ public interface MediaFileRepository extends JpaRepository<MediaFile, UUID> {
 	Optional<MediaFile> findOwnedForUpdate(@Param("mediaFileId") UUID mediaFileId, @Param("ownerUserId") Long ownerUserId);
 	@Query("""
 		select mediaFile from MediaFile mediaFile
-		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null
+		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null and mediaFile.mediaType <> com.f106.DIO.media.domain.MediaType.DOCUMENT
 		order by mediaFile.createdAt desc, mediaFile.mediaFileId desc
 		""")
 	List<MediaFile> findFirstActivePage(@Param("ownerUserId") Long ownerUserId, Pageable pageable);
 	@Query("""
 		select mediaFile from MediaFile mediaFile
-		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null
+		where mediaFile.ownerUserId = :ownerUserId and mediaFile.deletedAt is null and mediaFile.mediaType <> com.f106.DIO.media.domain.MediaType.DOCUMENT
 		  and (mediaFile.createdAt < :createdAt
 		       or (mediaFile.createdAt = :createdAt and mediaFile.mediaFileId < :mediaFileId))
 		order by mediaFile.createdAt desc, mediaFile.mediaFileId desc

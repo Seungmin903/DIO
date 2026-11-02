@@ -42,7 +42,7 @@
 ```
 
 브랜치 이름은 종류·포지션·기능 이름 세 부분으로 쓴다. Jira 키와 작업자 이름은 넣지 않는다.
-포지션은 `fe`(frontend/), `be`(backend/)를 기본으로 하고, 그 외 작업은 `infra`(Docker·CI·배포 설정), `common`(루트 문서·여러 영역에 걸친 설정)을 쓴다. Jira 추적은 MR 제목과 본문에서 한다.
+포지션은 `fe`(frontend/), `be`(backend/), `ai`(ai/)를 기본으로 하고, 그 외 작업은 `infra`(Docker·CI·배포 설정), `common`(루트 문서·여러 영역에 걸친 설정)을 쓴다. Jira 추적은 MR 제목과 본문에서 한다.
 이미 진행 중인 `feature/S15P31F106-...` 등 이전 형식 브랜치는 해당 MR까지 사용해도 된다.
 
 | 브랜치 | 시작점 | 용도 / 대상 |
@@ -90,7 +90,7 @@ git merge origin/develop
 ```
 
 - type은 영어 소문자, 설명은 구체적인 한국어로 쓰고 끝에 마침표를 붙이지 않는다.
-- scope는 `media`, `editor`, `diary`, `storage`, `api`, `fe`, `be`, `infra` 등 변경을 설명하는 짧은 범위다. 전체 문서·설정은 생략할 수 있다.
+- scope는 `media`, `editor`, `diary`, `storage`, `api`, `fe`, `be`, `ai`, `infra` 등 변경을 설명하는 짧은 범위다. 전체 문서·설정은 생략할 수 있다.
 - 한 커밋에는 한 작업 목적을 담는다. `수정`, `변경`, `a`, `wip`만 쓰지 않는다.
 - 일반 작업 커밋에는 Jira 키를 반복해서 쓰지 않는다. 추적은 MR 제목·본문에서 하고, 최종 Squash 커밋에는 MR 제목을 통해 Jira 키가 남도록 한다.
 - 실제 정의된 요구사항 ID가 있을 때만 근거로 적는다. 임의 ID를 만들지 않는다.
@@ -207,6 +207,7 @@ AI 에이전트는 사용자의 명시적 요청 없이 커밋·푸시·MR 생�
 S15P31F106/
 ├── backend/        # Spring Boot / Java 17 / Gradle
 ├── frontend/       # Expo / React Native / react-native-web
+├── ai/             # FastAPI / SAM 2 / uv (사진 속 대상 오리기)
 ├── docs/           # docs/색인.md를 색인으로 사용
 ├── .gitlab/merge_request_templates/Default.md
 ├── AGENTS.md
@@ -214,5 +215,5 @@ S15P31F106/
 └── JIRA_RULES.md
 ```
 
-두 앱은 독립적으로 실행 가능해야 한다. 공통 문서는 루트 또는 `docs/`에 두고 문서 색인을 갱신한다.
+각 앱(backend/, frontend/, ai/)은 독립적으로 실행 가능해야 한다. 공통 문서는 루트 또는 `docs/`에 두고 문서 색인을 갱신한다.
 새로운 최상위 코드 폴더를 추가할 때는 이 구조 설명도 갱신한다.

@@ -1,16 +1,17 @@
-import { createContext, memo, useContext, useRef } from 'react'
+import { createContext, memo, useContext, useRef, useState } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
-import { isAnimatedMedia, stickerSource } from '../../stickerAssets'
+import { isAnimatedMedia, isRetiredSticker, stickerSource } from '../../stickerAssets'
 import MediaImage from './MediaImage'
+import PdfDetail from './PdfDetail'
 import StickerFrame from './StickerFrame'
 import { boxShadowStyle, insetShadowStyle, outlineOf, shadowOf, shadowOffset } from '../../utils/effects'
 import { reportMediaDisplayError } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
-import { coverLayout, hasPhotoMedia, photoInnerBox, tapeSizeOf } from '../../utils/objects'
+import { coverLayout, hasPhotoMedia, photoInnerBox, tapeUnitH } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
@@ -51,11 +52,16 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
       <Text style={{ fontSize: Math.max(8, 12 * zoom), color: failed ? colors.text : colors.textMuted }}>{failed ? '이미지 확인 필요' : '이미지 불러오는 중…'}</Text>
     </View>
   )
+  // 없앤 기본 스티커: 자리만 점선으로 남겨 찾아 지울 수 있게 한다 (내보내기에서는 빠진다)
+  if (isRetiredSticker(object)) return (
+    <View style={{ width, height, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.textMuted, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: Math.max(8, 11 * zoom), color: colors.textMuted }}>없어진 스티커</Text>
+    </View>
+  )
   switch (object.type) {
     case 'text': {
-      const scale = width / (object.baseWidth ?? object.w)
       // 상자의 빈 공간과 별개로 실제 내용 높이를 측정한다 (TextMeasure).
-      return <Text onLayout={onTextMeasure ? (event) => onTextMeasure(object.id, event.nativeEvent.layout.height / zoom) : undefined} style={{ width, minHeight: onTextMeasure ? undefined : height, ...textStyle(object, scale, Platform.OS) }}>{richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={segmentTextStyle(segment, scale, textSettings(object).lineSpacing)}>{segment.text}</Text>)}</Text>
+      return <TextContent object={object} width={width} height={height} zoom={zoom} onTextMeasure={onTextMeasure} />
     }
     case 'shape':
       return <ShapeContent object={object} zoom={zoom} />
@@ -63,6 +69,10 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
       return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} />
     case 'sticker':
       if (object.widget) return <View style={{ transform: flipTransform(object) }}><DdayWidget widget={object.widget} width={width} height={height} /></View>
+      if (object.pdfSource) return <View style={{ width, height }}>
+        <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
+        <PdfDetail object={object} zoom={zoom} />
+      </View>
       return <StickerContent object={object} width={width} height={height} zoom={zoom} still={still} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'tape':
       return (
@@ -80,7 +90,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
             width={width}
             height={height}
             // 테이프를 키우면 무늬도 같은 배율로 커지게 (규격 기본 높이 대비)
-            scale={(zoom * object.h) / tapeSizeOf(object).h}
+            scale={(zoom * object.h) / tapeUnitH(object)}
             onAssetLoad={onAssetLoad}
           />
         </View>
@@ -95,6 +105,38 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
 
 // 새 획·선택·저장 상태가 바뀌어도 같은 요소의 그림은 재사용한다.
 export default memo(ObjectContent)
+
+// 안드로이드는 글자 장식(textDecorationLine)이 다시 그릴 때 사라지거나(밑줄) 아예 그려지지 않아서(취소선, 태블릿 실기기 확인 2026-11-01)
+// 줄마다 위치를 재서(onTextLayout) 선을 직접 긋는다. 웹 · iOS 는 글자 장식을 그대로 쓴다.
+const DRAWN_DECORATION = Platform.OS === 'android'
+
+function TextContent({ object, width, height, zoom, onTextMeasure }) {
+  const scale = width / (object.baseWidth ?? object.w)
+  const settings = textSettings(object)
+  const base = textStyle(object, scale, Platform.OS)
+  const drawn = DRAWN_DECORATION && (settings.underline || settings.strike)
+  const [lines, setLines] = useState(null)
+  const style = { width, minHeight: onTextMeasure ? undefined : height, ...base, ...(drawn && { textDecorationLine: 'none' }) }
+  const text = <Text onLayout={onTextMeasure ? (event) => onTextMeasure(object.id, event.nativeEvent.layout.height / zoom) : undefined}
+    onTextLayout={drawn ? (event) => setLines(event.nativeEvent.lines) : undefined} style={style}>
+    {richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={{ textDecorationLine: style.textDecorationLine, ...segmentTextStyle(segment, scale, settings.lineSpacing) }}>{segment.text}</Text>)}
+  </Text>
+  if (!drawn) return text
+  const thickness = Math.max(1, base.fontSize * 0.06)
+  return <View style={{ width }}>
+    {text}
+    {/* 기울임(글자 상자를 기울이는 변형)과 같이 선도 기울인다 */}
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, base.transform && { transform: base.transform }]}>
+      {(lines ?? []).filter(line => line.width > 0).flatMap((line, index) => {
+        const baseline = line.y + line.ascender
+        const marks = []
+        if (settings.underline) marks.push(<View key={`u${index}`} style={{ position: 'absolute', left: line.x, width: line.width, top: baseline + thickness * 1.2, height: thickness, backgroundColor: settings.color }} />)
+        if (settings.strike) marks.push(<View key={`s${index}`} style={{ position: 'absolute', left: line.x, width: line.width, top: baseline - (line.xHeight || base.fontSize * 0.5) / 2 - thickness / 2, height: thickness, backgroundColor: settings.color }} />)
+        return marks
+      })}
+    </View>
+  </View>
+}
 
 /* ---------- 꾸미기 옵션 (값이 없으면 기본값) ---------- */
 

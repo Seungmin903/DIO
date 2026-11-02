@@ -6,9 +6,9 @@ import { shapeTextStyle, shapeTextBox } from '../utils/editorShapes'
 import { textPatch, textSettings } from '../utils/text'
 import { shapeInputHeight, shapeRevealDelta } from '../utils/shapeTextViewport'
 import ShapeContent from './canvas/ShapeContent'
-import TextActionBar from './TextActionBar'
+import TextActionBar, { TextRangePanel } from './TextActionBar'
 import { colorTextRange, normalizeRanges, remapTextRanges } from '../utils/textRanges'
-import { normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle } from '../utils/textFormats'
+import { normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle, applyInputSelection } from '../utils/textFormats'
 import { copyText, readText, useTextClipboardAvailable } from '../services/textClipboard'
 
 // 도형 크기는 글의 길이와 무관하게 유지한다. 빈 글을 저장해도 도형 자체는 지우지 않는다.
@@ -23,6 +23,15 @@ export default function ShapeTextEditor({ commitRef, object, zoom, onSave, bound
   const [selected,setSelected] = useState(false), [anchor,setAnchor] = useState(null)
   const canPaste = useTextClipboardAvailable(), palette = useRef(null)
   const refresh = () => setRendered({text:draft.current,ranges:ranges.current,formats:formats.current})
+  // 고른 글자에 서식을 입히면 앱이 선택을 풀어 버린다. 그 알림이 오면 서식 전 범위로 되돌린다(TextEditor 와 같다)
+  const keptSelection = useRef(null), keptTimer = useRef(null)
+  const restoreSelection = next => {
+    const kept=keptSelection.current
+    if (!kept||next.start!==next.end) return false
+    keptSelection.current=null;selection.current=kept
+    applyInputSelection(input.current,kept)
+    return true
+  }
   const updateDraft = value => {
     ranges.current=remapTextRanges(draft.current,value,ranges.current)
     formats.current=remapTextFormats(draft.current,value,formats.current)
@@ -37,6 +46,21 @@ export default function ShapeTextEditor({ commitRef, object, zoom, onSave, bound
     setSelected(false)
     if (Platform.OS==='web' && input.current) {input.current.value=next;input.current.setSelectionRange?.(selection.current.start,selection.current.end)}
     else input.current?.setNativeProps?.({text:next,selection:selection.current})
+    input.current?.focus()
+  }
+  // 시스템 글자 메뉴 대신 쓰는 잘라내기 · 모두 선택
+  const cut = () => {
+    if (composing.current) return
+    // 복사한 범위만 지운다(TextEditor 와 같다)
+    const before=draft.current,range=safeTextSelection(before,selection.current)
+    copyText(before.slice(range.start,range.end)).then(()=>{if(draft.current!==before)return;selection.current=range;replaceSelection('');onToast?.('선택한 글자를 잘라냈어요.')}).catch(()=>onToast?.('잘라내지 못했어요.'))
+  }
+  const selectAll = () => {
+    if (composing.current||!draft.current) return
+    selection.current={start:0,end:draft.current.length}
+    setSelected(true)
+    if (Platform.OS==='web' && input.current) input.current.setSelectionRange?.(0,draft.current.length)
+    else input.current?.setNativeProps?.({selection:selection.current})
     input.current?.focus()
   }
   const paste = async () => {
@@ -119,14 +143,21 @@ export default function ShapeTextEditor({ commitRef, object, zoom, onSave, bound
   }, [boundary])
   useEffect(()=>{
     if (!onPaletteChange || !paletteBounds) return undefined
-    if ((!selected&&!canPaste)||!anchor) {paletteBounds.current=null;onPaletteChange(null);return undefined}
-    const resize=delta=>{if(composing.current)return;formats.current=resizeTextRange(draft.current,formats.current,selection.current,object.fontSize??20,delta);refresh()}
-    onPaletteChange({anchor,content:<View ref={palette} onLayout={()=>palette.current?.measureInWindow?.((x,y,width,height)=>{paletteBounds.current={x,y,width,height}})}>
-      <TextActionBar hasSelection={selected} canPaste={canPaste} onPaste={paste} colorLabel="선택 문자열 색상"
-        onColor={color=>{if(composing.current)return;ranges.current=colorTextRange(draft.current,ranges.current,selection.current,color);refresh()}}
-        onIncrease={()=>resize(2)} onDecrease={()=>resize(-2)}
-        onDelete={()=>{if(!composing.current)replaceSelection('')}}
-        onCopy={()=>{const {start,end}=safeTextSelection(draft.current,selection.current);copyText(draft.current.slice(start,end)).then(()=>onToast?.('선택한 글자를 복사했어요.')).catch(()=>onToast?.('복사하지 못했어요.'))}} />
+    // 앱은 시스템 글자 메뉴 + 고른 글자일 때만 '선택한 글자' 창(TextEditor 와 같다), 웹은 말풍선
+    const systemMenu=Platform.OS!=='web'
+    if ((systemMenu?!selected:(!selected&&!canPaste&&!draft.current))||!anchor) {paletteBounds.current=null;onPaletteChange(null);return undefined}
+    // 서식 직후 선택이 풀리면 되돌린다(TextEditor 와 같다)
+    const keepSelection=()=>{if(!systemMenu)return;keptSelection.current={...selection.current};clearTimeout(keptTimer.current);keptTimer.current=setTimeout(()=>{keptSelection.current=null},400)}
+    const resize=delta=>{if(composing.current)return;formats.current=resizeTextRange(draft.current,formats.current,selection.current,object.fontSize??20,delta);refresh();keepSelection()}
+    const onColor=color=>{if(composing.current)return;ranges.current=colorTextRange(draft.current,ranges.current,selection.current,color);refresh();keepSelection()}
+    const collapse=()=>{const {end}=safeTextSelection(draft.current,selection.current);selection.current={start:end,end};setSelected(false);applyInputSelection(input.current,selection.current)}
+    onPaletteChange({anchor,placement:systemMenu?'panel':'bubble',content:<View ref={palette} onLayout={()=>palette.current?.measureInWindow?.((x,y,width,height)=>{paletteBounds.current={x,y,width,height}})}>
+      {systemMenu
+        ? <TextRangePanel onColor={onColor} onIncrease={()=>resize(2)} onDecrease={()=>resize(-2)} onClose={collapse} />
+        : <TextActionBar hasSelection={selected} hasText={Boolean(draft.current)} canPaste={canPaste} onPaste={paste} onCut={cut} onSelectAll={selectAll} colorLabel="선택 문자열 색상"
+            onColor={onColor} onIncrease={()=>resize(2)} onDecrease={()=>resize(-2)}
+            onDelete={()=>{if(!composing.current)replaceSelection('')}}
+            onCopy={()=>{const {start,end}=safeTextSelection(draft.current,selection.current);copyText(draft.current.slice(start,end)).then(()=>onToast?.('선택한 글자를 복사했어요.')).catch(()=>onToast?.('복사하지 못했어요.'))}} />}
     </View>})
     return undefined
   },[selected,canPaste,anchor,rendered,onPaletteChange,paletteBounds])
@@ -134,7 +165,7 @@ export default function ShapeTextEditor({ commitRef, object, zoom, onSave, bound
   return <View onLayout={scheduleMeasure} style={{ position:'absolute',left:object.x*zoom,top:object.y*zoom,width:object.w*zoom,height:object.h*zoom,transform:[{rotate:`${object.rotation ?? 0}deg`}] }}>
     <ShapeContent object={object} zoom={zoom} hideText />
     <TextInput ref={input} autoFocus multiline scrollEnabled {...(Platform.OS!=='android'&&{defaultValue:object.text??''})} accessibilityLabel="도형 내부 글" placeholder="글 입력" placeholderTextColor={colors.textMuted} onChangeText={updateDraft}
-      onSelectionChange={event=>{selection.current=event.nativeEvent.selection;setSelected(selection.current.start!==selection.current.end);scheduleMeasure()}}
+      onSelectionChange={event=>{if(restoreSelection(event.nativeEvent.selection))return;selection.current=event.nativeEvent.selection;setSelected(selection.current.start!==selection.current.end);scheduleMeasure()}}
       {...(Platform.OS==='web'&&{onCompositionStart:()=>{composing.current=true},onCompositionEnd:event=>{composing.current=false;updateDraft(event.target.value)}})}
       onContentSizeChange={event => { const height=event.nativeEvent.contentSize.height; if (Number.isFinite(height)&&height>0) setContentHeight(previous=>Math.abs(previous-height)>1?height:previous) }} onEndEditing={event=>{updateDraft(event.nativeEvent.text);composing.current=false;save()}}
       {...(Platform.OS==='web'&&{onBlur:event=>{if(typeof event.target?.value==='string')updateDraft(event.target.value);composing.current=false;save()}})} textAlignVertical="top" style={[shapeTextStyle(object,zoom,Platform.OS),{position:'absolute',padding:0,top:textBox.top+(object.verticalAlign==='top'?0:object.verticalAlign==='bottom'?textBox.height-inputHeight:(textBox.height-inputHeight)/2),left:textBox.left,width:textBox.width,height:inputHeight,borderWidth:1,borderColor:colors.primary,backgroundColor:'transparent',...(Platform.OS === 'web' && {outlineStyle:'none'})}]}>

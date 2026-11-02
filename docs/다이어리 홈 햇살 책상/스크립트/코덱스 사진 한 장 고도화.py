@@ -26,28 +26,28 @@ QUALITY = ('RENDERING QUALITY: refined, high-detail 2D illustration with the sam
 FLAT = base.FLAT
 MASCOTS = base.MASCOTS
 BOARDS = {
-    '1안 사진 속 디오와 두리': ('Objects, arranged with generous space between them: '
-        '(1) a vertical four-cut photo-booth strip on glossy photo paper: four frames showing DIO and DURI posing together in a photo booth with pastel backdrops and tiny booth props (peace sign, cheek to cheek, wink, surprised), each frame a carefully drawn little scene; '
-        '(2) an instant photo (polaroid) showing DURI standing in gently falling snow at blue dusk, with soft snowy ground; '
-        '(3) a clear rigid toploader holding a DIO photocard (soft pastel lavender background with a subtle holographic sheen), decorated on the plastic with three small glossy epoxy stickers (a heart, a star, a tiny bow); '
+    '1안 사진 속 모아와 디오': ('Objects, arranged with generous space between them: '
+        '(1) a vertical four-cut photo-booth strip on glossy photo paper: four frames showing MOA and DIO posing together in a photo booth with pastel backdrops and tiny booth props (peace sign, cheek to cheek, wink, surprised), each frame a carefully drawn little scene; '
+        '(2) an instant photo (polaroid) showing DIO standing in gently falling snow at blue dusk, with soft snowy ground; '
+        '(3) a clear rigid toploader holding a MOA photocard (soft pastel lavender background with a subtle holographic sheen), decorated on the plastic with three small glossy epoxy stickers (a heart, a star, a tiny bow); '
         '(4) a short torn piece of butter-yellow washi tape.'),
-    '2안 디오와 두리 스티커 탑꾸': ('Objects, arranged with generous space between them: '
-        '(1) a polaroid of a pale blue sky with soft clouds, decorated with a vinyl die-cut sticker of DIO in one corner; '
-        '(2) a polaroid of a small field of white daisies, decorated with a vinyl die-cut sticker of DURI and a strip of lavender washi tape across the top; '
-        '(3) a clear rigid toploader decorated with small glossy epoxy stickers of DIO and DURI emotions (smile, heart eyes, sleepy, wink) and two tiny hearts; '
-        '(4) a half-used kiss-cut sticker sheet of DIO and DURI emotion stickers, with two stickers already peeled off leaving their empty cut outlines; '
+    '2안 모아와 디오 스티커 탑꾸': ('Objects, arranged with generous space between them: '
+        '(1) a polaroid of a pale blue sky with soft clouds, decorated with a vinyl die-cut sticker of MOA in one corner; '
+        '(2) a polaroid of a small field of white daisies, decorated with a vinyl die-cut sticker of DIO and a strip of lavender washi tape across the top; '
+        '(3) a clear rigid toploader decorated with small glossy epoxy stickers of MOA and DIO emotions (smile, heart eyes, sleepy, wink) and two tiny hearts; '
+        '(4) a half-used kiss-cut sticker sheet of MOA and DIO emotion stickers, with two stickers already peeled off leaving their empty cut outlines; '
         '(5) a few short torn pieces of butter-yellow and lavender washi tape with fine patterns.'),
-    '3안 누운 디오와 두리 인형': ('Objects, arranged with generous space between them: '
-        '(1) a soft plush doll of DIO lying flat on its back on the desk (seen from directly above): butter-yellow minky fabric with a fine soft pile texture and gentle stitched seams, embroidered black dot eyes and smile, a lavender felt bookmark tab, short stubby plush legs; '
-        '(2) a soft plush doll of DURI lying on its side, curled a little: white fuzzy round head with embroidered dot eyes, a hand-knitted lavender scarf with visible knit stitches, pale lavender-white plush coat with two button details; '
+    '3안 누운 모아와 디오 인형': ('Objects, arranged with generous space between them: '
+        '(1) a soft plush doll of MOA lying flat on its back on the desk (seen from directly above): butter-yellow minky fabric with a fine soft pile texture and gentle stitched seams, embroidered black dot eyes and smile, a lavender felt bookmark tab, short stubby plush legs; '
+        '(2) a soft plush doll of DIO lying on its side, curled a little: white fuzzy round head with embroidered dot eyes, a hand-knitted lavender scarf with visible knit stitches, pale lavender-white plush coat with two button details; '
         '(3) an instant photo (polaroid) of a pale blue sky with soft clouds, as the photo of the day, lying near the dolls; '
         '(4) a short torn piece of lavender washi tape. '
         'The plush dolls keep the exact shapes, proportions and colors of the mascots, translated into soft fabric; they are drawn as refined 2D illustration with soft shading, NOT a 3D render.'),
 }
 PICK = {  # 화면별로 쓸 소품 (보드 번호)
-    '1안 사진 속 디오와 두리': {'태블릿 스와이프': '(1) at the bottom-left, and (2) and (3) at the bottom between the counter and the + button', '태블릿 한눈에': '(1) and (3)', '폰 스와이프': '(2) and (3)', '폰 한눈에': '(3) only'},
-    '3안 누운 디오와 두리 인형': {'태블릿 스와이프': '(1) with (4) at the bottom-left, and (2) with (3) at the bottom between the counter and the + button', '태블릿 한눈에': '(1) and (2) lying side by side, with (3)', '폰 스와이프': '(1) and (2) lying side by side', '폰 한눈에': '(2) only'},
-    '2안 디오와 두리 스티커 탑꾸': {'태블릿 스와이프': '(1) and (2) at the bottom-left, and (3) with a piece of (5) at the bottom between the counter and the + button', '태블릿 한눈에': '(2) and (3)', '폰 스와이프': '(1) and (3)', '폰 한눈에': '(3) only'},
+    '1안 사진 속 모아와 디오': {'태블릿 스와이프': '(1) at the bottom-left, and (2) and (3) at the bottom between the counter and the + button', '태블릿 한눈에': '(1) and (3)', '폰 스와이프': '(2) and (3)', '폰 한눈에': '(3) only'},
+    '3안 누운 모아와 디오 인형': {'태블릿 스와이프': '(1) with (4) at the bottom-left, and (2) with (3) at the bottom between the counter and the + button', '태블릿 한눈에': '(1) and (2) lying side by side, with (3)', '폰 스와이프': '(1) and (2) lying side by side', '폰 한눈에': '(2) only'},
+    '2안 모아와 디오 스티커 탑꾸': {'태블릿 스와이프': '(1) and (2) at the bottom-left, and (3) with a piece of (5) at the bottom between the counter and the + button', '태블릿 한눈에': '(2) and (3)', '폰 스와이프': '(1) and (3)', '폰 한눈에': '(3) only'},
 }
 
 
@@ -94,11 +94,11 @@ def screens(work: Path) -> None:
 
 
 
-# ---------- 2차 (2026-10-29): 2안 탑로더 → 1안 눈 오는 두리 폴라로이드, 3안 인형 → 평면 일러스트, 쿨톤 상판 ----------
+# ---------- 2차 (2026-10-29): 2안 탑로더 → 1안 눈 오는 디오 폴라로이드, 3안 인형 → 평면 일러스트, 쿨톤 상판 ----------
 # 보드는 앞 보드를 코덱스로 고쳐 만든다(2안: 탑로더 지우고 1안 폴라로이드 넣기, 3안: 인형만 평면으로). 화면은 screens2, 쿨톤은 cool.
 BOARDS_V2 = {
-    '2안 스티커 탑꾸 폴라로이드': 'objects: (1) the sky polaroid with the DIO sticker, (2) the daisy polaroid with the DURI sticker and lavender tape, (3) the polaroid of DURI in falling snow, (4) the sticker sheet, (5) the washi tape pieces',
-    '3안 누운 인형 평면': 'objects: (1) the flat-illustrated DIO doll, (2) the flat-illustrated DURI doll, (3) the sky polaroid, (4) the lavender washi tape',
+    '2안 스티커 탑꾸 폴라로이드': 'objects: (1) the sky polaroid with the MOA sticker, (2) the daisy polaroid with the DIO sticker and lavender tape, (3) the polaroid of DIO in falling snow, (4) the sticker sheet, (5) the washi tape pieces',
+    '3안 누운 인형 평면': 'objects: (1) the flat-illustrated MOA doll, (2) the flat-illustrated DIO doll, (3) the sky polaroid, (4) the lavender washi tape',
 }
 PICK_V2 = {
     '2안 스티커 탑꾸 폴라로이드': {'태블릿 스와이프': '(1) and (2) at the bottom-left, and (3) with a piece of (5) at the bottom between the counter and the + button', '태블릿 한눈에': '(2) and (3)', '폰 스와이프': '(1) and (3)', '폰 한눈에': '(3) only'},

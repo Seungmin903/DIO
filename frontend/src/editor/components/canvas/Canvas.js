@@ -40,6 +40,8 @@ import DayTimePicker, { DAY_TIME_PICKER, DayPickBackdrop } from '../DayTimePicke
 import DayDatePicker, { DAY_DATE_PICKER } from '../DayDatePicker'
 import { paperPrintsText } from '../../templates/paperFont.js'
 import { LinkBadges, ObjectLinkOverlay } from './ObjectLinks'
+import { isBackdrop } from '../../utils/backdrop.js'
+import { shouldCacheCompletedStrokes } from '../../utils/completedStrokePlan.js'
 
 // 렌더링 환경에 requestAnimationFrame이 없으면(Node 테스트 등) 기다리지 않고 바로 실행한다.
 const requestFrame = (callback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(callback) : (callback(), 0))
@@ -237,7 +239,7 @@ export default function Canvas({
     ? { ...page, objects: page.objects.flatMap((object) => pieces?.[object.id] ?? (hiddenSet.has(object.id) ? [] : [object])) }
     : page
   const visible = page.objects.filter((o) => !o.hidden)
-  const touchSelectable = visible.filter((o) => o.type !== 'stroke')
+  const touchSelectable = visible.filter((o) => o.type !== 'stroke' && !isBackdrop(o))
   const selected = visible.filter((o) => selectedIds.includes(o.id))
   const lassoEditing = activeTool === 'lasso' && selected.length > 0 && !lassoDrawing && !lassoCapture
   const canSelect = !readOnly && !textEditing && (activeTool === 'select' || lassoEditing)
@@ -391,7 +393,7 @@ export default function Canvas({
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <StaticPage deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting ? null : fitTextHeight} cacheStrokes={!readOnly && (activeTool === 'pen' || activeTool === 'highlighter' || (Platform.OS === 'web' && activeTool === 'eraser'))} />
+        <StaticPage deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />
       </View>
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
       {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
@@ -415,7 +417,7 @@ export default function Canvas({
       <View style={[styles.hitLayer, (activeTool === 'lasso' || textTool) && { zIndex: 1 }]} pointerEvents={canTouch && !outlinePaths ? 'box-none' : 'none'}
         // 틀 글자를 고치다 캔버스를 누르면 입력을 끝낸다 (네이티브는 입력칸 밖을 눌러도 포커스가 남는다)
         onTouchStart={frameTextEdit ? () => { Keyboard.dismiss(); onEditFrameText(null) } : undefined}>
-        {visible.filter((object) => (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
+        {visible.filter((object) => !isBackdrop(object) && (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
           <CanvasObject
             key={object.id}
             object={object}
@@ -584,7 +586,6 @@ export default function Canvas({
         <SelectionBarLayer>
         <View pointerEvents="box-none" style={contextBarFrame ? StyleSheet.absoluteFill : styles.selectionMenu}>
         <ContextBar
-          compact={compact}
           compactMenu={compactMenu}
           onCompactMenu={onCompactMenu}
           onTextLink={onTextLink}
@@ -993,14 +994,18 @@ const styles = StyleSheet.create({
     top: 0,
     overflow: 'hidden',
   },
-  hitLayer: { ...StyleSheet.absoluteFillObject },
+  // 요소마다 같은 자리에 터치 상자를 두는 층. 층 자체는 높이 0 으로 둔다(상자들은 절대 위치라 그대로 눌린다).
+  // 캔버스 전체를 덮으면 안드로이드에서 box-none 이어도 아래 텍스트 상자 만들기 층(TextBoxInput)이 탭을 받지 못한다.
+  // 층 밖으로 나간 상자도 눌리는 것은 overflow 가 visible 일 때뿐이라 명시해 둔다(안드로이드 터치 대상 검색 · iOS RCTView hitTest 는
+  // 자르지 않는 뷰면 영역 밖 자식도 찾고, 웹은 DOM 이 원래 그렇다). hidden 으로 바꾸지 않는다.
+  hitLayer: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'visible' },
   emptyMenu: { position: 'absolute', zIndex: 6, flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(129,138,195,0.2)', boxShadow: '0px 6px 14px rgba(11, 23, 102, 0.16)' },
   menuButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 42, paddingHorizontal: 10, borderRadius: 11 },
   menuPressed: {}, // 눌림 효과 없음(사용자 지시)
   menuDisabled: { opacity: DISABLED_OPACITY },
   menuText: { fontSize: 12.5, fontWeight: '700', color: colors.text },
-  selectionControls: { ...StyleSheet.absoluteFillObject, zIndex: 2 },
-  selectionMenu: { ...StyleSheet.absoluteFillObject, zIndex: 4 },
+  selectionControls: { ...StyleSheet.absoluteFill, zIndex: 2 },
+  selectionMenu: { ...StyleSheet.absoluteFill, zIndex: 4 },
   penClip: {
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',

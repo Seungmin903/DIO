@@ -14,7 +14,9 @@ test('70종 이상 고유 도형을 실제 경로와 6개 분류로 제공한다
   assert.equal(new Set(EDITOR_SHAPES.map(s=>s.id)).size, EDITOR_SHAPES.length)
   assert.equal(new Set(EDITOR_SHAPES.map(s=>s.label)).size, EDITOR_SHAPES.length)
   for (const item of EDITOR_SHAPES) {
-    assert.ok(SHAPE_CATEGORIES.some(c=>c.id===item.category))
+    // 메모 위젯 종이(art)는 고르기 목록 밖이라 분류 탭이 없다
+    if (item.art) assert.equal(item.category, 'memo')
+    else assert.ok(SHAPE_CATEGORIES.some(c=>c.id===item.category))
     assert.match(item.path,/^M/)
     assert.ok(!/NaN|undefined|Infinity/.test(item.path))
     const object=createShape({shape:item.id},{x:500,y:300})
@@ -63,19 +65,19 @@ test('공용 도형 렌더러는 채우기·선 스타일·글자와 줌을 반�
   const module={exports:{}}, mocks={
     'react/jsx-runtime':require('react/jsx-runtime'),
     'react-native':{View:'view',Text:'text',Platform:{OS:'web'}},
-    'react-native-svg':{__esModule:true,default:'svg',Path:'path',Defs:'defs',Filter:'filter',FeGaussianBlur:'blur',G:'group'},
+    'react-native-svg':{__esModule:true,default:'svg',Path:'path',Defs:'defs',Filter:'filter',FeGaussianBlur:'blur',G:'group',SvgXml:'svgxml'},
     '../../hooks/useTextFont':{useTextFont(){}},
     '../../utils/textFormats':textFormats,
     '../../utils/text':text,
     '../../utils/effects':effects,
     '../../utils/svgId':{useSvgId:()=> 'shadow-test'},
-    '../../utils/editorShapes':{shapeDefinition:id=>EDITOR_SHAPES.find(s=>s.id===id),shapeTextStyle,shapeBorderDash,shapeTextBox},
+    '../../utils/editorShapes':{shapeDefinition:id=>EDITOR_SHAPES.find(s=>s.id===id),shapeTextStyle,shapeBorderDash,shapeTextBox,memoArtOf:()=>null},
   }
   new Function('require','module','exports',code)(id=>mocks[id],module,module.exports)
   const object={...createShape({fill:'none',borderWidth:3,borderStyle:'dotted',bold:true},{x:100,y:100}),text:'도형'}
   const node=module.exports.default({object,zoom:2}),children=node.props.children
   const graphic=children[0],mainSvg=graphic.props.children[1]
-  const path=mainSvg.props.children
+  const path=[mainSvg.props.children].flat()[0]
   assert.equal(path.props.fill,'none')
   assert.equal(path.props.strokeWidth,6)
   assert.deepEqual(path.props.strokeDasharray,[6,12])
@@ -87,7 +89,7 @@ test('공용 도형 렌더러는 채우기·선 스타일·글자와 줌을 반�
   assert.equal(shadowGraphic.props.style.height,object.h*2)
   assert.equal(shadowGraphic.props.children[1].props.width,mainSvg.props.width)
   assert.equal(shadowGraphic.props.children[1].props.height,mainSvg.props.height)
-  assert.equal(shadowGraphic.props.children[1].props.children.props.transform,path.props.transform)
+  assert.equal([shadowGraphic.props.children[1].props.children].flat()[0].props.transform,path.props.transform)
   assert.equal(shadowGraphic.props.children[1].props.viewBox,undefined)
   assert.ok(shadowSvg.props.width>object.w*2)
   assert.ok(shadowSvg.props.viewBox.startsWith('0 0 '))
@@ -132,7 +134,8 @@ test('도형 공용 서식은 크기·좌표를 유지하며 정렬·기울임·
  assert.equal(updated.align,'justify')
  const style=shapeTextStyle(updated,1,'android')
  assert.equal(style.textAlign,'justify')
- assert.equal(style.fontStyle,'italic')
+ assert.equal(updated.italic,true)
+ assert.equal(style.fontStyle,'normal') // 기본 글꼴 나눔고딕에는 기울임 서체가 없다
  assert.equal(style.textDecorationLine,'underline line-through')
  assert.deepEqual(updated.styleRanges,shape.styleRanges)
  assert.doesNotThrow(()=>createExportSnapshot({objects:[updated]}))

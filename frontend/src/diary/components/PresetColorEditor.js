@@ -11,14 +11,17 @@ const WIDTH = 340;
 /**
  * 내 프리셋 색 하나를 바꾸는 말풍선. 누른 견본 옆(아래, 자리가 없으면 위)에 뜨고, 바깥을 누르거나 뒤로 가기 · 회전이면 바꾸지 않고 닫힌다.
  * tape 이면 바탕색 · 무늬색을 골라 바꾼다(결과는 'custom:#바탕:#무늬'). 나머지는 '#RRGGBB' 하나.
- * anchor: 견본의 창 안 자리, value: 처음 값, onDone(value), onRemove(): 지우기(없으면 버튼을 두지 않는다), onClose()
+ * anchor: 견본의 창 안 자리, value: 처음 값, original: 원래(기본) 색 — '원래대로'가 이 색으로 되돌린다, onDone(value), onClose()
+ * onRemove: 있으면 '원래대로' 자리에 '지우기'를 둔다(내 색상). original 이 null 이면(새 색 추가) 왼쪽 버튼이 없다.
  */
-export default function PresetColorEditor({ title, tape = false, anchor = null, value, onDone, onRemove, onClose }) {
+export default function PresetColorEditor({ title, tape = false, anchor = null, value, original = value, onDone, onClose, onRemove = null }) {
   const start = tape ? tapeColors(value) : { bg: value, fg: null };
   const [bg, setBg] = useState(start.bg), [fg, setFg] = useState(start.fg);
   const [slot, setSlot] = useState('bg');
   const current = slot === 'fg' ? fg : bg;
   const pick = hex => (slot === 'fg' ? setFg(hex) : setBg(hex));
+  const base = original == null ? start : tape ? tapeColors(original) : { bg: original, fg: null };
+  const changed = bg !== base.bg || (tape && fg !== base.fg);
   // 말풍선 왼쪽 끝을 누른 견본 왼쪽에 맞춘다(PopoverMenu 는 기준의 오른쪽 끝에 맞추므로 기준 폭을 말풍선 폭으로 준다). 높이는 실제 크기에 맞춰 아래 자리를 먼저 쓴다
   return (
     <PopoverMenu open anchor={anchor ? { ...anchor, width: WIDTH } : null} width={WIDTH} height={tape ? 400 : 340} label={title} style={local.bubble} onClose={onClose}>
@@ -37,7 +40,9 @@ export default function PresetColorEditor({ title, tape = false, anchor = null, 
       </View>}
       <ColorPicker value={current} label={title} onChange={pick} />
       <View style={local.actions}>
-        {onRemove ? <DioButton variant="danger" label="이 색 지우기" text="지우기" onPress={onRemove} /> : <View />}
+        {onRemove ? <DioButton variant="ghost" outline label="이 색 지우기" text="지우기" onPress={onRemove} />
+          : original != null ? <DioButton variant="ghost" outline label="이 색 원래대로" text="원래대로" disabled={!changed} onPress={() => { setBg(base.bg); setFg(base.fg); }} />
+          : <View />}
         <DioButton variant="filled" label="완료" onPress={() => onDone(tape ? `custom:${bg}:${fg}` : bg)} />
       </View>
     </PopoverMenu>

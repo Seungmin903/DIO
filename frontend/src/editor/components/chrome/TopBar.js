@@ -233,7 +233,8 @@ const styles = StyleSheet.create({
   docTitleText: { fontSize: 15, fontWeight: '700', letterSpacing: -0.3 },
   pageLabel: { marginTop: 2, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.6, color: colors.textMuted },
   titleInputCompact: { minWidth: 0, alignSelf: 'stretch' },
-  spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92 },
+  // 오른쪽 구분선: 흰 표지면 색 띠가 흰 탭과 이어져 보이지 않으므로 늘 한 줄 긋는다
+  spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 20, opacity: 0.92, borderRightWidth: 1, borderRightColor: colors.cardBorder },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
   tabTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: colors.text },
   titleInput: {

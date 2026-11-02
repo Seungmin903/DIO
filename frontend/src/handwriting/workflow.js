@@ -1,4 +1,4 @@
-import { validateDraft, jobMatchesModel, SYLLABLE_COUNT } from './protocol.js'
+import { validateDraft, jobMatchesModel, SYLLABLE_COUNT, PROMPTS } from './protocol.js'
 
 const copy = value => JSON.parse(JSON.stringify(value))
 const waitingEntries = entries => entries.filter(e => e.status === 'queued').sort((a, b) => (a.queueOrder ?? a.createdAt ?? 0) - (b.queueOrder ?? b.createdAt ?? 0))
@@ -167,6 +167,12 @@ export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = 
       snapshots.delete(id)
       return update(id, { draft: copy(draft), name: labelOf(name), preview: null })
     }).catch(report),
+    // 작성 중(아직 생성을 확정하지 않은) 폰트만 지운다. 생성 중 · 완료된 폰트는 생성 취소 · 폰트 관리 쪽에서 다룬다
+    removeDraft: id => transact(async () => {
+      if (entry(id).status !== 'draft') throw new Error('작성 중인 폰트만 지울 수 있어요.')
+      snapshots.delete(id)
+      await persist(state.entries.filter(e => e.id !== id))
+    }).catch(report),
     rename: (id, name) => transact(async () => {
       const value = entry(id), label = labelOf(name)
       if (state.entries.some(e => e.id !== id && e.name === label)) throw new Error('같은 이름의 폰트가 있어요.')
@@ -234,9 +240,22 @@ export function createFontWorkflow({ repository, engine, uuid, onFontsChanged = 
   }
 }
 
+// 폰트 항목 상태 이름(제작 화면 목록 · 공방 폰트 목록 공용)
+export const statusText = { draft: '작성 중', queued: '생성 대기', processing: '생성 중', paused: '일시 정지', registering: '폰트 저장 중', ready: '생성 완료', failed: '생성 실패', cancelled: '생성 취소' }
 export function queuePosition(entries, id) {
   const waiting = waitingEntries(entries)
   const index = waiting.findIndex(e => e.id === id)
   return index < 0 ? null : index + 1
 }
 export const completedCount = entry => Math.max(0, Math.min(SYLLABLE_COUNT, entry.job?.completed || 0))
+// 쓴 손글씨 글자 수(36자 중)
+export const draftCount = entry => PROMPTS.filter(c => entry.draft?.samples?.[c]?.strokes?.length).length
+// 아무것도 쓰지 않은 새 폰트(고쳐 쓰는 폰트가 아닌 작성 중 항목). 이런 항목은 나갈 때 저장하지 않고 지운다
+export const isEmptyDraft = entry => entry.status === 'draft' && !entry.sourceId && draftCount(entry) === 0
+// 목록 한 줄의 상태 문구: 작성 중은 '12 / 36 작성 중', 생성 중은 '생성 중 · 1,200 / 11,172', 대기는 순번
+export function listStatus(entries, entry) {
+  if (entry.status === 'queued') return `대기 ${queuePosition(entries, entry.id)}번째`
+  if (entry.status === 'draft') return `${draftCount(entry)} / ${PROMPTS.length} ${statusText.draft}`
+  if (entry.status === 'processing') return `${statusText.processing} · ${completedCount(entry).toLocaleString()} / ${SYLLABLE_COUNT.toLocaleString()}`
+  return statusText[entry.status] || '상태 확인 중'
+}

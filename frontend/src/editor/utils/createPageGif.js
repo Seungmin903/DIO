@@ -1,7 +1,6 @@
-import { Asset } from 'expo-asset'
 import { mediaService } from '../services/mediaStore'
 import { mediaId } from './mediaReferences.js'
-import { STICKER_ASSETS, isAnimatedMedia } from '../stickerAssets'
+import { isAnimatedMedia } from '../stickerAssets'
 import { readLegacyExportImage } from './exportImage'
 import { preparePageExport } from './preparePageExport'
 import { PageExportError } from './pageExport.js'
@@ -16,13 +15,7 @@ export const pageHasAnimation = (page) => page.objects.some((o) => !o.hidden && 
 async function readGifBytes(object) {
   const id = mediaId(object)
   if (id) return readBytes((await mediaService.get(id)).blob)
-  let uri = object.src
-  if (object.asset) {
-    const asset = Asset.fromModule(STICKER_ASSETS[object.asset])
-    await asset.downloadAsync()
-    uri = asset.localUri ?? asset.uri
-  }
-  const input = await readLegacyExportImage(uri)
+  const input = await readLegacyExportImage(object.src)
   try { return await readBytes(input.blob) } finally { input.dispose?.() }
 }
 

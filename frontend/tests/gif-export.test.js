@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { GifReader } from 'omggif'
 import { createGifAssembler, decodeGifFrames, gifFrameDelays, planGifTimeline } from '../src/editor/utils/gifExport.js'
 
-const love = new Uint8Array(readFileSync(new URL('../assets/stickers/noto/n-love.gif', import.meta.url)))
+const love = new Uint8Array(readFileSync(new URL('./fixtures/gifs/n-love.gif', import.meta.url)))
 
 test('여러 GIF 의 장면을 한 시간축에 맞추고, 같은 장면이 이어지면 합친다', () => {
   const plan = planGifTimeline([[100, 100, 100, 100], [200, 200]])

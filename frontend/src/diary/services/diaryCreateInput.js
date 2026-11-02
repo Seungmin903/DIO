@@ -17,11 +17,18 @@ export function diaryCreateInput(form) {
     return { templateId: template.id, ...serverTemplateReference(template.id, template.templateVersion, template.orientation),
       templateConfig: { ...dimensions, paperAppearance: { ...paperAppearance } } };
   });
+  // PDF 쪽은 서버에 쪽마다 빈 페이지를 만든 뒤(쪽 크기는 만든 다음 맞춘다) 그 위에 쪽 그림을 깐다. 서버 속지 목록에는 PDF 가 없다.
+  const importedPages = Array.isArray(form.importedPages) && form.importedPages.length ? form.importedPages : null;
+  if (importedPages) {
+    const blank = { templateId: null, ...serverTemplateReference(null, TEMPLATE_VERSION, templateConfig.orientation),
+      templateConfig: { ...templateCanvasSize(templateConfig.orientation), paperAppearance: { ...paperAppearance, backgroundColor: '#FFFFFF' }, blank: true } };
+    initialPages.splice(0, initialPages.length, ...importedPages.map(() => ({ ...blank, templateConfig: { ...blank.templateConfig } })));
+  }
   // 기존 로컬 생성과 같이 모든 내지가 꺼져 있으면 빈 페이지 1장을 유지한다.
   if (!initialPages.length) initialPages.push({ templateId: null, ...serverTemplateReference(null, TEMPLATE_VERSION, templateConfig.orientation),
     templateConfig: { ...templateCanvasSize(templateConfig.orientation), paperAppearance: { ...paperAppearance }, blank: true } });
   return { title, color: form.color, pattern: form.pattern ?? null, pageSize: templateConfig.orientation,
-    templateConfig, paperAppearance, initialPages,
+    templateConfig, paperAppearance, initialPages, ...(importedPages ? { importedPages } : {}),
     // 표지 꾸미기(사진 · 고무줄 · 라벨 · 스티커)는 서버가 아직 저장하지 않아 이 기기에만 둔다. 서버 요청에는 실리지 않는다.
     ...(form.cover && typeof form.cover === 'object' ? { cover: form.cover } : {}) };
 }

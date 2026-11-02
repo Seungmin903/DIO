@@ -8,41 +8,34 @@ import java.util.concurrent.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.*;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+@org.springframework.test.context.TestPropertySource(properties={"SHARING_INVITE_BASE_URL=/invite/", "dio.signup.mail-from="})
 class EmailInviteTests extends SharingTestSupport {
     @Autowired EmailInviteService emails;
-    @Autowired @Qualifier("sharingInviteMailExecutor") ThreadPoolTaskExecutor mailExecutor;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    com.f106.DIO.notification.event.InvitationNotificationRepository notificationRepository;
     String address(Actor actor){return users.findById(actor.id()).orElseThrow().getEmail();}
     DiaryInvite pending(UUID diary,Actor to){return invites.pendingEmail(diary,to.id()).orElseThrow();}
     void send(UUID diary,Actor from,Actor to){emails.send(diary,from.id(),new EmailInviteRequest(address(to)));}
-    void drain() throws Exception {
-        // A newly assigned worker may not yet appear in activeCount or the queue.
-        // Wait for an ordered executor barrier before inspecting the idle counters.
-        mailExecutor.getThreadPoolExecutor().submit(()->{}).get(30,TimeUnit.SECONDS);
-        long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(30);
-        while(mailExecutor.getActiveCount()>0||!mailExecutor.getThreadPoolExecutor().getQueue().isEmpty()){
-            if(System.nanoTime()>end)throw new AssertionError("Mail queue did not drain");Thread.sleep(20);
-        }
-    }
-    @AfterEach void awaitMail() throws Exception {drain();}
+    long notifications(UUID diary,Actor recipient){return jdbc.queryForObject("select count(*) from notifications where diary_id=? and user_id=? and notification_type='DIARY_INVITE'",Long.class,diary,recipient.id());}
+    @AfterEach void noInvitationSmtp(){verifyNoInteractions(smtp);}
     @Test void sendsOnlyToActiveRegisteredUsersAndSuppressesDuplicateWithoutExpiry() throws Exception {
         var owner=actor();var to=actor();var id=diary(owner);
         mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+owner.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\" "+address(to).toUpperCase(Locale.ROOT)+" \"}"))
             .andExpect(status().isAccepted());
-        send(id,owner,to);drain();
-        verify(inviteMail,times(1)).send(eq(address(to)),anyString(),startsWith("https://dio.test/invite/"));
+        send(id,owner,to);
+        assertThat(notifications(id,to)).isEqualTo(1);
         assertThat(invites.recentEmails(id,to.id(),java.time.Instant.now().minusSeconds(300))).hasSize(1);
         assertThat(pending(id,to).getExpiresAt()).isEqualTo(DiaryInvite.NO_EXPIRY);
         assertThat(emails.received(to.id(),0,20).items().get(0).expiresAt()).isNull();
         emails.send(id,owner.id(),new EmailInviteRequest("missing@example.com"));
         jdbc.update("update users set status='WITHDRAWN' where user_id=?",to.id());
-        send(id,owner,to);drain();verify(inviteMail,times(1)).send(anyString(),anyString(),anyString());
+        send(id,owner,to);assertThat(notifications(id,to)).isEqualTo(1);
         mvc.perform(get("/api/v1/diaries/"+id+"/invites").header("Authorization","Bearer "+owner.token()))
             .andExpect(status().isOk()).andExpect(jsonPath("emailInvites.totalElements").value(1));
     }
@@ -84,27 +77,67 @@ class EmailInviteTests extends SharingTestSupport {
         membership.remove(id,owner.id(),to.id());
         assertThatThrownBy(()->links.accept(oldEmail,to.id())).isInstanceOf(SharingException.class);
     }
-    @Test void mailFailureAllowsNewInvitationAndDoesNotHoldDatabaseTransactionDuringSmtp() throws Exception {
-        var owner=actor();var to=actor();var id=diary(owner);
-        doAnswer(call->{
-            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            throw new IllegalStateException("simulated SMTP outage");
-        }).when(inviteMail).send(eq(address(to)),anyString(),anyString());
-        send(id,owner,to);drain();
-        assertThat(emails.sent(id,owner.id(),0,20).emailInvites().items().get(0).status()).isEqualTo("DELIVERY_FAILED");
-        assertThat(emails.received(to.id(),0,20).items()).isEmpty();
-        doNothing().when(inviteMail).send(anyString(),anyString(),anyString());
-        send(id,owner,to);drain();assertThat(pending(id,to)).isNotNull();
+    @Test void invitationAndNotificationWorkWithoutSmtpOrAbsoluteBaseUrl() {
+        var owner=actor();var to=actor();var id=diary(owner);send(id,owner,to);
+        assertThat(notifications(id,to)).isEqualTo(1);
+        assertThat(emails.received(to.id(),0,20).items().get(0).status()).isEqualTo("PENDING");
+        assertThat(links.accept(tokenSigner.token(pending(id,to)),to.id()).alreadyMember()).isFalse();
+        verifyNoInteractions(smtp);
     }
-    @Test void concurrentDuplicateSendsCreateOneInvitationAndOneMail() throws Exception {
+    @Test void notificationFailureRollsBackInvitationAndAllowsRetry() {
+        var owner=actor();var to=actor();var id=diary(owner);
+        doThrow(new IllegalStateException("notification unavailable"))
+            .when(notificationRepository).createNotification(any(),any());
+        assertThatThrownBy(()->send(id,owner,to)).isInstanceOf(org.springframework.dao.DataAccessException.class)
+            .hasRootCauseInstanceOf(IllegalStateException.class);
+        assertThat(invites.pendingEmail(id,to.id())).isEmpty();
+        assertThat(notifications(id,to)).isZero();
+        doCallRealMethod().when(notificationRepository).createNotification(any(),any());
+        send(id,owner,to);
+        assertThat(invites.pendingEmail(id,to.id())).isPresent();
+        assertThat(notifications(id,to)).isEqualTo(1);
+    }
+    @Test void notificationFailuresConsumeAttemptBudgetEvenAfterRollback() throws Exception {
+        var owner=actor();var to=actor();var other=actor();var id=diary(owner);
+        doThrow(new IllegalStateException("notification unavailable"))
+            .when(notificationRepository).createNotification(any(),any());
+        for(int i=0;i<3;i++) {
+            assertThatThrownBy(()->send(id,owner,to)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThat(invites.pendingEmail(id,to.id())).isEmpty();
+            assertThat(notifications(id,to)).isZero();
+        }
+        assertThat(jdbc.queryForObject("select count(*) from invitation_notification_receipts where recipient_user_id=?",Long.class,to.id())).isZero();
+        doCallRealMethod().when(notificationRepository).createNotification(any(),any());
+        // Recovering the listener does not refund failed requests; the fourth attempt remains limited.
+        mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+owner.token())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\""+address(to)+"\"}"))
+            .andExpect(status().isTooManyRequests()).andExpect(jsonPath("code").value("EMAIL_INVITE_RATE_LIMITED"))
+            .andExpect(header().exists("Retry-After"));
+        assertThat(invites.pendingEmail(id,to.id())).isEmpty();
+        send(id,owner,other);
+        assertThat(notifications(id,other)).isEqualTo(1);
+    }
+    @Test void notificationFailurePropagatesInsteadOfReturningAccepted() {
+        var owner=actor();var to=actor();var id=diary(owner);
+        doThrow(new IllegalStateException("notification unavailable"))
+            .when(notificationRepository).createNotification(any(),any());
+        // MockMvc propagates an unhandled server exception; the servlet container renders it as 5xx.
+        assertThatThrownBy(()->mvc.perform(post("/api/v1/diaries/"+id+"/invites/email")
+            .header("Authorization","Bearer "+owner.token()).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"email\":\""+address(to)+"\"}")))
+            .hasRootCauseInstanceOf(IllegalStateException.class);
+        assertThat(invites.pendingEmail(id,to.id())).isEmpty();
+        assertThat(notifications(id,to)).isZero();
+    }
+    @Test void concurrentDuplicateSendsCreateOneInvitationAndOneNotification() throws Exception {
         var owner=actor();var to=actor();var id=diary(owner);var gate=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(5);
         try{
             var results=new ArrayList<Future<Boolean>>();
             for(int i=0;i<5;i++)results.add(pool.submit(()->{gate.await();try{send(id,owner,to);return true;}catch(SharingException error){assertThat(error.code).isEqualTo("EMAIL_INVITE_RATE_LIMITED");return false;}}));
-            gate.countDown();int accepted=0;for(var result:results)if(result.get(30,TimeUnit.SECONDS))accepted++;drain();
+            gate.countDown();int accepted=0;for(var result:results)if(result.get(30,TimeUnit.SECONDS))accepted++;
             assertThat(accepted).isEqualTo(3);
             assertThat(invites.recentEmails(id,to.id(),java.time.Instant.now().minusSeconds(300))).hasSize(1);
-            verify(inviteMail,times(1)).send(eq(address(to)),anyString(),anyString());
+            assertThat(notifications(id,to)).isEqualTo(1);
         }finally{gate.countDown();pool.shutdownNow();}
     }
     @Test void responseLimitIsTheSameForRegisteredInactiveExistingMemberAndMissingEmails() throws Exception {
@@ -130,11 +163,11 @@ class EmailInviteTests extends SharingTestSupport {
             .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\""+address(recipient)+"\"}"))
             .andExpect(status().isAccepted());
         assertThat(invites.recentEmails(id,recipient.id(),java.time.Instant.now().minusSeconds(300))).hasSize(3);
-        verify(inviteMail,never()).send(eq(address(recipient)),anyString(),anyString());
+        assertThat(notifications(id,recipient)).isZero();
     }
     @Test void trashedDiaryInvitationsAreExcludedFromReceivedPagesAndReturnAfterRestore() throws Exception {
         var owner=actor();var recipient=actor();var hidden=diary(owner);var visible=diary(owner);
-        send(hidden,owner,recipient);send(visible,owner,recipient);drain();
+        send(hidden,owner,recipient);send(visible,owner,recipient);
         assertThat(emails.received(recipient.id(),0,1).totalElements()).isEqualTo(2);
         var diary=diaries.findById(hidden).orElseThrow();diary.softDelete();diaries.saveAndFlush(diary);
         var page=emails.received(recipient.id(),0,1);

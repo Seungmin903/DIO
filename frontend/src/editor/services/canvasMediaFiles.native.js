@@ -3,18 +3,32 @@ import * as repository from '../utils/mediaRepository.native.js'
 import {registerRemoteMediaRetry} from './mediaRetry.js'
 import {mediaRegistry} from './mediaStore'
 import {detectMediaType,checkDimensions} from '../utils/mediaPolicy.js'
+import {needsShareJpeg,SHARE_MAX_BYTES} from '../utils/shareImagePlan.js'
+import {toShareJpeg} from '../utils/shareImage'
+import {pdfSourceUri,savePdfSourceBytes} from '../../diary/utils/pdfSourceStore.native.js'
+import {PDF_SHARE_MAX_BYTES} from '../../diary/utils/pdfSource.js'
 export const canvasMediaFiles={
  registerRetry:registerRemoteMediaRetry,
  fail(id,error){mediaRegistry.fail(id,error)},
  async upload(id,category){
+  if(category==='DOCUMENT'){
+   const uri=pdfSourceUri(id)
+   if(!uri)throw Object.assign(Error('PDF 원본이 이 기기에 없어요.'),{code:'PDF_SOURCE_MISSING'})
+   if(new File(uri).size>PDF_SHARE_MAX_BYTES)throw Object.assign(Error('PDF 원본은 25MB 이하만 올릴 수 있어요.'),{status:413,code:'MEDIA_FILE_TOO_LARGE'})
+   const body=new FormData();body.append('file',{uri,type:'application/pdf',name:'document.pdf'});body.append('libraryCategory','DOCUMENT');return body
+  }
   const stored=await repository.get(id)
   const converted=stored.displayBlob&&(stored.media.extension==='heic'||stored.media.fileSize>5*1024*1024)
-  const media=converted?{...stored.media,...stored.media.display}:stored.media
-  const blob=converted?stored.displayBlob:stored.blob
+  let media=converted?{...stored.media,...stored.media.display}:stored.media
+  let blob=converted?stored.displayBlob:stored.blob
+  // PDF 쪽처럼 5MB 를 넘는 불투명 PNG 는 올리는 순간에만 JPEG 로 낮춘다(기기 원본은 그대로)
+  if(needsShareJpeg(media)){const jpeg=await toShareJpeg(blob.uri,{width:media.width,height:media.height,maxBytes:SHARE_MAX_BYTES});media={...media,extension:'jpg',mimeType:'image/jpeg',fileSize:jpeg.size};blob={uri:jpeg.uri}}
   if(media.fileSize>5*1024*1024)throw Object.assign(Error('공유 이미지는 기존 에셋 API 기준으로 5MB 이하만 사용할 수 있어요.'),{status:413,code:'MEDIA_FILE_TOO_LARGE'})
   if(!['jpg','jpeg','png','webp','gif'].includes(media.extension))throw Object.assign(Error('공유 이미지는 JPEG·PNG·WebP·GIF로 선택해 주세요.'),{status:415,code:'UNSUPPORTED_MEDIA_TYPE'})
   const body=new FormData();body.append('file',{uri:blob.uri,type:media.mimeType,name:`image.${media.extension}`});body.append('libraryCategory',category);return body
  },
+ async hasDocument(id){return pdfSourceUri(id)!==null},
+ async saveDocument(id,bytes){await savePdfSourceBytes(id,bytes)},
  async cached(id){
   try{
    const {media,blob,displayBlob}=await repository.get(id),source=displayBlob??blob

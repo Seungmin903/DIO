@@ -177,7 +177,8 @@ export default function ContextBar({
     {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} origin={origin} area={area} anchor={{ top, height: BAR_HEIGHT }} />}
   </>
 
-  if (editingStroke) return <>
+  // 남은 경우는 필기 편집뿐이다
+  return <>
     <View accessibilityLabel="필기 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, areaW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
         {penColors.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 요소 색상 ${color}`} accessibilityState={{ selected: single.color?.toUpperCase() === color.toUpperCase() }}
@@ -195,8 +196,6 @@ export default function ContextBar({
     </View>
     {lassoActions && <LassoSelectionMenu objects={objects} mode={lassoActions.mode} onModeChange={lassoActions.onModeChange} zoom={zoom} origin={origin} area={area} anchor={{ top, height: BAR_HEIGHT }} />}
   </>
-
-  return null
 }
 
 // 바 버튼 너비 어림값: 좌우 여백 20 + 아이콘 17 + 간격 5 + 글자(12.5px 굵은 한글 ≈ 13px) + 버튼 사이 2

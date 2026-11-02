@@ -26,14 +26,14 @@ export const dialogStore = {
 const show = request => { queue = [...queue, request]; emit(); };
 
 /** 확인·취소 창. 확인을 누르면 onConfirm을 실행한다. danger 가 거짓이면 되돌릴 수 있는 동작이라 위험색 대신 주 버튼 색을 쓴다. */
-export function confirmAction({ title, message, confirmLabel, onConfirm, danger = true }) {
-  if (hosts > 0) { show({ kind: 'confirm', title, message, confirmLabel, onConfirm, danger }); return; }
+export function confirmAction({ title, message, confirmLabel, cancelLabel = '취소', onConfirm, danger = true }) {
+  if (hosts > 0) { show({ kind: 'confirm', title, message, confirmLabel, cancelLabel, onConfirm, danger }); return; }
   if (Platform.OS === 'web') {
     if (globalThis.confirm?.(`${title}\n\n${message}`)) onConfirm();
     return;
   }
   Alert.alert(title, message, [
-    { text: '취소', style: 'cancel' },
+    { text: cancelLabel, style: 'cancel' },
     { text: confirmLabel, style: danger ? 'destructive' : 'default', onPress: onConfirm },
   ]);
 }

@@ -1,56 +1,19 @@
-import { STICKER_GROUPS } from './stickerAssets'
-import { WIDGET_ITEMS } from './widgets/dday'
 import { RECENT_LIMIT, stickerKey } from './hooks/useCustomDecor'
-
-// 기본 스티커는 출처별로 묶는다. 저장된 asset ID와 표시 순서는 유지한다.
-// Noto의 기존 motion ID는 분류 숨김·순서 설정 호환을 위해 유지한다.
-export const BASE_GROUPS = [
-  {
-    id: 'fluent-emoji',
-    title: 'Fluent Emoji',
-    name: 'Fluent Emoji',
-    items: STICKER_GROUPS.filter((g) => !g.id.startsWith('motion') && g.id !== 'twemoji').flatMap((g) => g.items),
-  },
-  {
-    id: 'motion',
-    title: 'Noto Animated Emoji',
-    name: 'Noto Animated Emoji',
-    badge: 'GIF',
-    items: STICKER_GROUPS.filter((g) => g.id.startsWith('motion')).flatMap((g) => g.items),
-  },
-  {
-    id: 'twemoji',
-    title: 'Twemoji',
-    name: 'Twemoji',
-    items: STICKER_GROUPS.find((g) => g.id === 'twemoji').items,
-  },
-  // 값이 바뀌는 스티커(디데이 등). 이미지가 아니라 코드로 그린다.
-  {
-    id: 'widget',
-    title: '위젯',
-    name: '위젯',
-    items: WIDGET_ITEMS,
-  },
-]
 
 /**
  * 스티커 보관함의 분류와 목록. 편집기 보관함과 표지 스티커가 같은 즐겨찾기 · 최근 · 내 폴더 · 분류 순서를 쓴다.
  * items: useCustomDecor().items, category: 마지막으로 고른 칩, keyword: 검색어(앞뒤 공백 없이)
- * widgets: 위젯(디데이 등)을 보여 줄지. 이미지가 아닌 위젯을 그리지 못하는 표지 스티커는 false.
+ * 외부 출처 기본 스티커는 없앴고 위젯(디데이)은 위젯 칸으로 옮겼다. 예전 즐겨찾기 · 최근 · 폴더에 남은 둘은 보여 주지 않는다.
  */
-export function stickerLibrary(items, category, keyword, { widgets = true } = {}) {
-  const bases = widgets ? BASE_GROUPS : BASE_GROUPS.filter((g) => g.id !== 'widget')
-  const plain = (list) => (widgets ? list : list.filter((item) => !item.widget))
+export function stickerLibrary(items, category, keyword) {
+  const plain = (list) => list.filter((item) => !item.widget && !item.asset)
   const matches = (sticker) => !keyword || sticker.name?.includes(keyword) || sticker.emoji === keyword
-  const folders = items.folders
+  const folders = items.folders.map((f) => ({ ...f, items: plain(f.items) }))
   const favorites = plain(items.favorites)
   // 예전에 12개까지 저장된 기록도 8개만 보여 준다
   const recents = plain(items.recentStickers).slice(0, RECENT_LIMIT)
   const favoriteKeys = new Set(favorites.map(stickerKey))
-  const orderable = [
-    ...bases.map((g) => ({ id: g.id, name: g.name, base: true })),
-    ...folders.map((f) => ({ id: `folder:${f.id}`, name: f.name })),
-  ]
+  const orderable = folders.map((f) => ({ id: `folder:${f.id}`, name: f.name }))
   const order = items.categoryOrder
   const rank = (item, index) => {
     const at = order.indexOf(item.id)
@@ -67,15 +30,9 @@ export function stickerLibrary(items, category, keyword, { widgets = true } = {}
   const fallback = favorites.length ? 'favorites' : recents.length ? 'recent' : chips.find((c) => c.id !== 'favorites')?.id ?? 'favorites'
   const active = chips.some((c) => c.id === category) ? category : fallback
   const folder = !keyword && active?.startsWith('folder:') ? folders.find((f) => `folder:${f.id}` === active) : null
-  // 검색: 출처별 기본 분류 전체 + 폴더. 스티커 이름과 출처 이름으로 찾는다.
-  const groups = keyword
-    ? bases.map((group) => ({
-        ...group,
-        items: group.title.includes(keyword) ? group.items : group.items.filter(matches),
-      })).filter((g) => g.items.length)
-    : bases.filter((g) => g.id === active)
+  // 검색: 폴더 안 스티커를 이름으로 찾는다
   const folderMatches = keyword
     ? folders.flatMap((f) => f.items.filter(matches).map((item) => ({ ...item, folderId: f.id })))
     : []
-  return { folders, favorites, recents, favoriteKeys, orderable, sorted, hidden, chips, active, folder, groups, folderMatches }
+  return { folders, favorites, recents, favoriteKeys, orderable, sorted, hidden, chips, active, folder, folderMatches }
 }

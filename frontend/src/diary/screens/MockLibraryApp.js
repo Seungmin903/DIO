@@ -52,7 +52,7 @@ const EMPTY_ROWS = [];
 function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { isPhone, isLandscape } = useFormFactor();
+  const { isPhone } = useFormFactor();
   const [viewport, setViewport] = useState({ width, height });
   const frame = isPhone ? null : fitTabletFrame(viewport.width, viewport.height);
   const mock = useMemo(() => createMockDiaryTransport(account === 'A' ? {} : { initialRows: [{

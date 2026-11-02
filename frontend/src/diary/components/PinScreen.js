@@ -103,7 +103,7 @@ export default function PinScreen({ mode, user, getProfilePhotoSource, check, on
 }
 
 const local = StyleSheet.create({
-  root: { ...StyleSheet.absoluteFillObject, zIndex: 100, backgroundColor: colors.surface },
+  root: { ...StyleSheet.absoluteFill, zIndex: 100, backgroundColor: colors.surface },
   top: { minHeight: 64, paddingHorizontal: 12, paddingTop: 12, flexDirection: 'row' },
   scroll: { flex: 1 },
   center: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 72 },

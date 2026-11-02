@@ -64,6 +64,34 @@ class DioPdfRenderModule : Module() {
       } } catch (error: OutOfMemoryError) { throw IllegalStateException("OUT_OF_MEMORY") }
     }
 
+    // 쪽의 한 영역(쪽 전체 대비 0~1 비율)만 outWidth × outHeight 픽셀로 그려 JPEG 로 저장한다. 확대했을 때 보이는 곳만 원본에서 선명하게 다시 그리는 데 쓴다.
+    AsyncFunction("renderRegion") { uri: String, index: Int, left: Double, top: Double, width: Double, height: Double, outWidth: Int, outHeight: Int ->
+      require(outWidth in 16..4096 && outHeight in 16..4096) { "INVALID_SIZE" }
+      require(left >= 0.0 && top >= 0.0 && width > 0.0 && height > 0.0 && left + width <= 1.0001 && top + height <= 1.0001) { "INVALID_REGION" }
+      try { withRenderer(uri) { renderer ->
+        check(index in 0 until renderer.pageCount) { "INVALID_PAGE" }
+        val page = renderer.openPage(index)
+        try {
+          val bitmap = Bitmap.createBitmap(outWidth, outHeight, Bitmap.Config.ARGB_8888)
+          try {
+            Canvas(bitmap).drawColor(Color.WHITE)
+            // 영역 너비(pt)가 비트맵 너비에 오도록 확대한 뒤 영역의 왼쪽 위가 비트맵 원점에 오도록 옮긴다.
+            val scaleX = outWidth / (width * page.width).toFloat()
+            val scaleY = outHeight / (height * page.height).toFloat()
+            val matrix = Matrix().apply {
+              setScale(scaleX, scaleY)
+              postTranslate((-left * page.width * scaleX).toFloat(), (-top * page.height * scaleY).toFloat())
+            }
+            page.render(bitmap, null, matrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+            val dir = File(requireNotNull(appContext.reactContext).cacheDir, "dio-pdf-render").also { it.mkdirs() }
+            val out = File(dir, "${UUID.randomUUID()}.jpg")
+            FileOutputStream(out).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+            mapOf("uri" to Uri.fromFile(out).toString(), "width" to outWidth, "height" to outHeight)
+          } finally { bitmap.recycle() }
+        } finally { page.close() }
+      } } catch (error: OutOfMemoryError) { throw IllegalStateException("OUT_OF_MEMORY") }
+    }
+
     AsyncFunction("cleanup") {
       File(requireNotNull(appContext.reactContext).cacheDir, "dio-pdf-render").deleteRecursively()
       Unit

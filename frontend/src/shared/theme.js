@@ -13,12 +13,13 @@ export const colors = {
   surfaceMuted: '#F0F1F9', // 회색 판: 선택 안 된 칩·세그먼트, ± 버튼, 보조 버튼 바탕
   panel: 'rgba(255,255,255,0.72)',
   danger: '#E04D6F',
+  dangerSoft: 'rgba(224,77,111,0.08)',
   dangerStrong: '#B52E52', // 흰 바탕 위 작은 오류 글자 · 흰 글자를 올리는 영구 삭제 버튼(흰색 대비 6.0:1). danger(3.85:1)는 아이콘 · 테두리에만 쓴다
   // 색 규칙(docs/앱 감성 리뉴얼/06 §1.1): 메인은 UI 색상 계열(페리윙클~네이비), 보조는 캐릭터 노랑 하나. 그 밖의 색상 계열은 UI 층에서 쓰지 않는다.
-  lavender100: '#DBDCF9', // 두리 목도리 색 · 라벤더 테이프 · 보조 카드 면
+  lavender100: '#DBDCF9', // 디오 목도리 색 · 라벤더 테이프 · 보조 카드 면
   cardBorder: '#D9DCEF', // 카드 · 프레임 경계(장식, 의미 전달에는 쓰지 않는다)
   primaryText: '#525FAD', // 회색 바탕(surfaceSoft) 위 파란 글자(primaryStrong 4.47:1 → 5.27:1)
-  butter: '#FEF0BF', // 디오 몸 색. 작은 면 · 상태 칩. 큰 면(바탕 · 카드 · 배너) 금지, 위 글자는 항상 text
+  butter: '#FEF0BF', // 모아 몸 색. 작은 면 · 상태 칩. 큰 면(바탕 · 카드 · 배너) 금지, 위 글자는 항상 text
   butterTape: '#FBE5A3', // 마스킹테이프
   butterStrong: '#B98208', // 노랑 점 · 고리(흰색 위 3.35:1)
   notifyPink: '#B63F7C', // 알림 점(읽지 않음) 전용 쿨톤 핑크. 사용자 지시로 색 규칙의 유일한 예외다(흰색 위 5.26:1 · 앱 바탕 위 4.75:1). 위험색(dangerStrong)과 섞어 쓰지 않는다

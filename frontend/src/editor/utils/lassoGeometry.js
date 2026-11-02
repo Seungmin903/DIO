@@ -1,4 +1,5 @@
 import { centerOf, rotateVector } from './common.js'
+import { isBackdrop } from './backdrop.js'
 
 const EPSILON = 1e-7
 const cross = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
@@ -92,7 +93,7 @@ function polygonsIntersect(a, b) {
 }
 
 export function lassoHitIds(objects, polygon) {
-  const visible = objects.filter(object => !object.hidden)
+  const visible = objects.filter(object => !object.hidden && !isBackdrop(object))
   const hits = visible.filter(object => polygonsIntersect(polygon, objectLassoCorners(object)))
   const ids = new Set(hits.map(object => object.id))
   const groups = new Set(hits.filter(object => object.groupId).map(object => object.groupId))
