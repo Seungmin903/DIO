@@ -37,9 +37,16 @@ test('프로필 사진은 같은 서버의 사진 경로에만 개발 접속 인
   const source = api.getProfilePhotoSource(uri);
   assert.equal(source.headers.Authorization, `Basic ${Buffer.from('tester:secret').toString('base64')}`);
   assert.equal(source.headers['X-DIO-Access-Token'], undefined);
+  const portApi = createAuthApi({ baseUrl: 'https://server.example:8443', allowDevelopmentAccess: true,
+    fetchImpl: async () => response(tokens()) });
+  portApi.verificationService.setDevelopmentAccess('tester', 'secret');
+  const portSource = portApi.getProfilePhotoSource(uri);
+  assert.equal(portSource.uri, 'https://server.example:8443/api/v1/auth/profile-photos/12345678-1234-1234-1234-123456789abc');
+  assert.equal(portSource.headers.Authorization, `Basic ${Buffer.from('tester:secret').toString('base64')}`);
   assert.equal(JSON.stringify(view).includes('Basic '), false);
   for (const other of [uri.replace('server.example', 'other.example'), uri.replace('https:', 'http:'),
-    uri.replace('/auth/profile-photos/', '/other/'), `${uri}?redirect=1`, 'file:///local.png']) {
+    uri.replace('/auth/profile-photos/', '/other/'), `${uri}?redirect=1`, 'file:///local.png',
+    uri.replace('https://', 'https://user:pw@'), uri.replace('https://', 'https://user@')]) {
     assert.deepEqual(api.getProfilePhotoSource(other), { uri: other });
   }
   const production = createAuthApi({ baseUrl: 'https://server.example' });
