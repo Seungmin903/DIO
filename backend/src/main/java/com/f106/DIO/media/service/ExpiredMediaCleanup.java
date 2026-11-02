@@ -72,6 +72,8 @@ public class ExpiredMediaCleanup {
 					failed += result.failed();
 				} catch (RuntimeException error) {
 					failed++;
+					// 예외 객체는 넘기지 않는다. 삭제 대기열 등록 중 DB 제약 위반 메시지에 storage_key 값이 들어갈 수 있고,
+					// 저장소 예외는 원인 없이 감싼 MediaStorageException이라 스택 트레이스로 얻는 정보도 없다.
 					log.warn("Expired media cleanup failed: mediaFileId={}, errorType={}", mediaFile.getMediaFileId(), error.getClass().getSimpleName());
 				}
 			}
