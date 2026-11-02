@@ -4,185 +4,174 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { styles as s } from '../styles';
 import Header from '../components/Header';
 import AppInformation from '../components/AppInformation';
-import { colors, radius } from '../../shared/theme';
-import AppIcon from '../../shared/AppIcon';
-import { C } from '../constants';
+import { SettingCard, SettingSection } from '../components/SettingRow';
+import NotificationSetting from '../components/NotificationSetting';
+import AppLockSetting from '../components/AppLockSetting';
+import PinScreen from '../components/PinScreen';
+import EditorModal from '../../editor/components/controls/EditorModal';
+import { appLockScope, checkAppLock, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
+import { colors } from '../../shared/theme';
+import DioButton from '../../shared/DioButton';
 import ProfileEditScreen from '../../auth/ProfileEditScreen';
 import PasswordResetScreen from '../../auth/PasswordResetScreen';
 import NotificationSettingsScreen from './NotificationSettingsScreen';
-import { authService } from '../../auth/authService';
-import { openFontStudio } from '../../handwriting/studioBus.js';
-import { useLoginGate } from '../../auth/loginGate';
+import AppIcon from '../../shared/AppIcon';
+import DefaultAvatar from '../../shared/DefaultAvatar';
 
-export default function ProfileScreen({ compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, guestService }) {
+// 내 공간(한 단): 정체성 띠(아바타 + 이름 + 버튼) → 알림 → 보안 → 환경 설정(태블릿만) → 계정(로그아웃, 회원) → 앱 정보(맨 아래).
+// 정체성 트레이 1장 + 설정 카드 2장(알림 · 보안 · 환경 / 계정 · 앱 정보)으로 덩어리를 나눈다. 행마다 카드로 만들지 않는다(코덱스 3차). 장식 · 통계 · 안내 문구는 두지 않는다.
+export default function ProfileScreen({ diaries, compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, guestService }) {
+  // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
+  const editing = route === 'edit';
+  const setEditing = on => setRoute(on ? 'edit' : 'home');
   const [failedPhoto, setFailedPhoto] = useState(null);
-  // 회원 설정은 서버 인증이 끝난 세션만 접근한다. 이전 체험 세션 값은 앱 진입
-  // 단계에서 로그인으로 돌려보내며, 이 화면에서도 방어적으로 렌더링하지 않는다.
-  const authenticated = previewUser?.mode === 'authenticated';
-  // 게스트(시작 화면에서 고른 일반 사용자 · 개발자 모드)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
-  // 개발자 모드는 로그인한 사용자처럼 로그아웃이 있고, 누르면 시작 화면으로 돌아가 모드를 다시 고른다.
-  const guest = !authenticated && previewUser?.provider === 'guest';
-  // 게스트 프로필은 기기 저장(guestService)이 있어야 고칠 수 있다. 없으면 수정 칸을 누를 수 없게 둔다.
-  const canEdit = authenticated || (guest && !!guestService);
-  const userId = authenticated ? previewUser.userId : null;
-  const loginGate = useLoginGate();
-  // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다.
-  // 실패하면 로그인 응답 값을 그대로 보여 주고, 다시 들어올 때 재시도한다.
-  useEffect(() => {
-    if (!userId || route !== 'home' || typeof authService.getProfile !== 'function') return undefined;
-    let active = true;
-    authService.getProfile(previewUser)
-      .then((profile) => { if (active) onUpdatePreview?.(profile); })
-      .catch(() => {});
-    return () => { active = false; };
-    // previewUser는 갱신 결과로 바뀌므로 계정·화면 전환 때만 다시 불러온다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, route]);
-  if (!authenticated && !guest) return null;
   const photoUri = previewUser?.photoUri;
   const photoSource = photoUri
-    ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri })
-    : null;
+    ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri }) : null;
   // 실패 상태는 계정·사진·접근 인증에 묶는다. 인증 변경 후 같은 사진도 다시 시도한다.
   // 인증 값은 메모리 비교에만 사용하고 캐시 키·로그에는 넣지 않는다.
-  const photoIdentity = JSON.stringify([
-    previewUser?.userId || previewUser?.accountId || 'guest',
-    photoUri,
-    photoSource?.headers || null,
-  ]);
-  const photoCacheKey = JSON.stringify([
-    'profile',
-    previewUser?.userId || previewUser?.accountId || 'guest',
-    photoUri,
-  ]);
+  const photoIdentity = JSON.stringify([previewUser?.userId || previewUser?.accountId || 'guest', photoUri, photoSource?.headers || null]);
+  const photoCacheKey = JSON.stringify(['profile', previewUser?.userId || previewUser?.accountId || 'guest', photoUri]);
+  // 게스트(시작 화면에서 고른 일반 사용자 · 개발자 모드)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
+  const authenticatedUser = previewUser?.mode === 'authenticated';
+  const guest = !authenticatedUser && previewUser?.provider === 'guest';
+  // 앱 잠금: locked 는 이 계정에 잠금이 있는지(null = 읽는 중). pin 은 열려 있는 비밀번호 화면
+  // ({ mode: 'setup' } 새로 켜기 · 바꾸기 2단계 | { mode: 'verify', next: 'off' | 'change' })
+  const lockScope = appLockScope(previewUser);
+  const [locked, setLocked] = useState(null);
+  const [pin, setPin] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    hasAppLock(lockScope).then(value => { if (alive) setLocked(value); }).catch(() => { if (alive) setLocked(false); });
+    return () => { alive = false; };
+  }, [lockScope]);
+  // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다. 실패하면 로그인 응답 값을 그대로 보여 주고 다시 들어올 때 재시도한다.
+  const userId = authenticatedUser ? previewUser.userId : null;
+  useEffect(() => {
+    if (!userId || route !== 'home' || typeof accountService?.getProfile !== 'function') return undefined;
+    let active = true;
+    accountService.getProfile(previewUser)
+      .then(profile => { if (active) onUpdatePreview?.(profile); })
+      .catch(() => {});
+    return () => { active = false; };
+    // previewUser 는 갱신 결과로 바뀌므로 계정 · 화면 전환 때만 다시 불러온다.
+  }, [userId, route]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 회원 설정은 서버 인증이 끝난 세션이나 게스트만 연다(이전 체험 세션 값은 그리지 않는다)
+  if (!authenticatedUser && !guest) return null;
+  // 비밀번호 화면은 앱 전체(왼쪽 메뉴 · 아래 탭까지)를 덮는 전체 화면이다. 내 공간 본문 안에 두면 잘리고 메뉴가 남는다.
+  let pinScreen = null;
+  if (pin) {
+    const done = async value => {
+      if (pin.mode === 'verify' && pin.next === 'change') { setPin({ mode: 'setup' }); return; }
+      if (pin.mode === 'verify') await clearAppLock(lockScope).catch(() => {});
+      else await setAppLock(lockScope, value).catch(() => {});
+      setLocked(await hasAppLock(lockScope).catch(() => false));
+      setPin(null);
+    };
+    pinScreen = (
+      <EditorModal visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPin(null)}>
+        <PinScreen key={`${pin.mode}:${pin.next || ''}`} mode={pin.mode} user={previewUser} getProfilePhotoSource={getProfilePhotoSource}
+          check={value => checkAppLock(lockScope, value)} onDone={done} onCancel={() => setPin(null)} />
+      </EditorModal>
+    );
+  }
+  const editService = previewUser?.mode === 'authenticated' && accountService ? accountService : guest && guestService ? guestService : null;
+  // 비밀번호 변경 · 탈퇴는 서버가 모든 세션을 폐기하므로 로그아웃 요청을 또 보내지 않고 이 기기의 세션만 정리한다(onClearSession)
+  if (editing) return <ProfileEditScreen {...(editService ? { service: editService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onClearSession} onPasswordReset={authenticatedUser ? () => setRoute('password') : undefined} getProfilePhotoSource={getProfilePhotoSource} registerLeaveGuard={registerLeaveGuard} />
+  if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen compact={compact} email={previewUser?.email || ''} service={accountService} onClose={() => setRoute('home')} onComplete={onClearSession} />;
+  if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} onClose={() => setRoute('home')} />;
 
-  if (route === 'edit' && canEdit) {
-    return (
-      <ProfileEditScreen
-        compact={compact}
-        user={previewUser}
-        onClose={() => setRoute('home')}
-        onUpdate={onUpdatePreview}
-        // 비밀번호 변경·탈퇴 API는 이미 서버의 세션을 폐기한다. 여기서
-        // logout API를 한 번 더 호출하면 폐기된 토큰 오류를 사용자에게 보일 수 있어
-        // 이 기기의 메모리 세션만 정리한다.
-        onEndSession={onClearSession}
-        onPasswordReset={() => setRoute('password')}
-        registerLeaveGuard={registerLeaveGuard}
-        getProfilePhotoSource={getProfilePhotoSource}
-        service={guest ? guestService : authService}
-        photoEditable
-      />
-    );
-  }
-  if (route === 'password' && authenticated) {
-    return (
-      <PasswordResetScreen
-        compact={compact}
-        email={previewUser?.email || ''}
-        service={authService}
-        onClose={() => setRoute('home')}
-        onComplete={onClearSession}
-      />
-    );
-  }
-  if (route === 'notifications') {
-    return <NotificationSettingsScreen compact={compact} userId={userId} onClose={() => setRoute('home')} />;
-  }
+  // 게스트(개발용)도 로그인한 사용자처럼 프로필을 고친다. 고친 값은 기기에 남는다. 로그인 · 회원가입 버튼은 두지 않는다.
+  // 프로필 수정은 조용한 92×32 테두리 버튼(secondary 테두리 · primaryText 글자), 폰도 이름 줄 오른쪽에 둔다(원 페이저 12)
+  // 게스트 프로필은 기기 저장(guestService)이 있어야 고칠 수 있다. 없으면 버튼을 누를 수 없게 둔다.
+  const guestEdit = guest ? <DioButton variant="ghost" outline label="프로필 수정" icon="edit" disabled={!guestService} onPress={() => { if (guestService) setEditing(true); }} style={local.editButton} /> : null;
+  const profileAction = guest ? (
+    guestEdit
+  ) : !guest && (previewUser?.accountId || (previewUser?.mode === 'authenticated' && accountService)) ? (
+    <DioButton variant="ghost" outline label="회원정보 수정" text="프로필 수정" icon="edit" onPress={() => setEditing(true)} style={local.editButton} />
+  ) : null;
+
+  // 개발자 모드는 로그인한 사용자처럼 로그아웃이 있고, 누르면 시작 화면으로 돌아가 모드를 다시 고른다.
+  const logout = onEndPreview && (!guest || previewUser?.developer) ? <DioButton variant="ghost" outline label="로그아웃" onPress={onEndPreview} block /> : null;
+  // 회원만: 서버 알림 설정(초대 · 댓글 등 받을 알림)으로 가는 줄. 앱 정보 행과 같은 높이 · 구분선 · 오른쪽 화살표
+  const serverNotifications = authenticatedUser ? (
+    <Pressable accessibilityRole="button" accessibilityLabel="알림 설정" onPress={() => setRoute('notifications')} style={local.linkRow}>
+      <Text style={local.linkLabel}>알림 설정</Text>
+      <AppIcon name="chevron-right" size={18} color={colors.textMuted} />
+    </Pressable>
+  ) : null;
+
   return (
-    <ScrollView contentContainerStyle={[s.screen, compact && s.screenCompact]} showsVerticalScrollIndicator={false}>
-      <Header title="마이페이지" compact={compact} />
-      <View style={local.content}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={guest ? '프로필 수정' : '회원정보 수정'}
-          accessibilityState={{ disabled: !canEdit }}
-          disabled={!canEdit}
-          onPress={() => setRoute('edit')}
-          style={({ pressed }) => [local.profileHero, pressed && local.heroPressed]}
-        >
-          <View style={local.avatar}>
-            {photoUri && failedPhoto !== photoIdentity ? (
-              <Image
-                source={{ ...photoSource, cacheKey: photoCacheKey }}
-                contentFit="cover"
-                cachePolicy="memory"
-                accessibilityLabel="프로필 사진"
-                onError={() => setFailedPhoto(photoIdentity)}
-                style={local.photo}
-              />
-            ) : (
-              <AppIcon name="person" size={27} color={C.blueStrong} />
-            )}
+    <>
+    <ScrollView style={local.root} contentContainerStyle={[s.screen, compact && s.screenCompact, local.content]} showsVerticalScrollIndicator={false}>
+      {/* 설정 본문은 다른 화면처럼 좌우 여백까지 꽉 채운다(760 제한은 실기기에서 오른쪽만 비어 좌우가 맞지 않았다). 조작은 모두 오른쪽 끝선 */}
+      <View style={local.column}>
+      <Header title="내 공간" icon="person" compact={compact} />
+      <View style={[local.identity, compact && local.identityCompact]}>
+        <View style={local.identityRow}>
+          <View style={[local.avatarWrap, compact && local.avatarCompact]}>
+            <View style={[local.avatar, compact && local.avatarCompact]}>
+              {photoUri && failedPhoto !== photoIdentity
+                ? <Image source={{ ...photoSource, cacheKey: photoCacheKey }}
+                    contentFit="cover" cachePolicy="memory"
+                    onError={() => {
+                      setFailedPhoto(photoIdentity);
+                    }} accessibilityLabel="프로필 사진" style={[local.photo, compact && local.avatarCompact]} />
+                // 사진이 없을 때의 기본 프로필: 계정 색 동그라미에 모아의 표정(메뉴 아래 프로필과 같은 그림)
+                : <DefaultAvatar user={previewUser} accessibilityLabel="기본 프로필 사진" style={[local.photo, compact && local.avatarCompact]} />}
+            </View>
           </View>
-          <View style={local.profileCopy}>
-            <Text accessibilityRole="header" numberOfLines={1} style={local.nickname}>{previewUser?.nickname || '사용자'}</Text>
-            {!!previewUser?.email && <Text selectable numberOfLines={1} style={local.email}>{previewUser.email}</Text>}
+          <View style={local.identityText}>
+            <Text numberOfLines={1} style={[local.name, compact && local.nameCompact]}>{previewUser?.nickname || '나'}</Text>
+            <Text numberOfLines={1} style={local.space}>{previewUser?.bio || (previewUser?.nickname ? `${previewUser.nickname}님의 기록 공간` : '나의 기록 공간')}</Text>
           </View>
-          {canEdit && <View style={local.profileAction}>
-            <Text style={local.profileActionText}>{guest ? '프로필 수정' : '회원정보 수정'}</Text>
-            <AppIcon name="chevron-right" size={18} color={colors.surface} />
-          </View>}
-        </Pressable>
-        {authenticated && <>
-          <Text style={local.groupTitle}>계정</Text>
-          <ListSection>
-            {previewUser?.provider === 'email' && (
-              <ListItem label="비밀번호 변경" icon="lock" onPress={() => setRoute('password')} />
-            )}
-            <ListItem label="알림 설정" icon="bell" onPress={() => setRoute('notifications')} />
-          </ListSection>
-        </>}
-        <Text style={local.groupTitle}>서비스</Text>
-        <ListSection>
-          <ListItem label="나만의 폰트 만들기" icon="edit" onPress={() => loginGate('내 폰트 만들기', () => openFontStudio())} />
-        </ListSection>
-        <Text style={local.groupTitle}>앱 정보</Text>
-        <AppInformation standalone />
-        {onEndPreview && (!guest || previewUser?.developer) && (
-          <Pressable accessibilityRole="button" accessibilityLabel="로그아웃" onPress={onEndPreview} style={({ pressed }) => [local.logout, pressed && local.pressed]}>
-            <Text style={local.logoutText}>로그아웃</Text>
-          </Pressable>
-        )}
+          {profileAction}
+        </View>
+      </View>
+      {/* 한 단: 알림 → 보안 → 환경 설정(태블릿만, 책상은 태블릿 홈에만 있다) → 로그아웃(회원) → 앱 정보(맨 아래) */}
+      <View style={local.cards}>
+        <SettingCard compact={compact}>
+          <NotificationSetting compact={compact} />
+          <AppLockSetting compact={compact} locked={locked} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />
+        </SettingCard>
+        <SettingCard compact={compact}>
+          {(logout || serverNotifications) && <SettingSection title="계정">
+            {serverNotifications}
+            {logout && <View style={local.accountBody}>{logout}</View>}
+          </SettingSection>}
+          <AppInformation compact={compact} />
+        </SettingCard>
+      </View>
       </View>
     </ScrollView>
-  );
-}
-
-function ListSection({ children }) {
-  return <View style={local.list}>{children}</View>;
-}
-
-function ListItem({ label, icon, onPress }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [local.item, pressed && local.pressed]}>
-      <View style={local.itemIcon}><AppIcon name={icon} size={20} color={colors.primaryStrong} /></View>
-      <Text style={local.itemLabel}>{label}</Text>
-      <AppIcon name="chevron-right" size={20} color={colors.textMuted} />
-    </Pressable>
+    {pinScreen}
+    </>
   );
 }
 
 const local = StyleSheet.create({
-  content: { width: '100%', maxWidth: 760, alignSelf: 'center' },
-  // 보관함 develop 화면의 프로필 히어로 비율·색을 따른다. 계정 설정으로 가는
-  // 진입점은 이 카드 하나로 고정해, 홈과 수정 화면의 위계가 이어지게 한다.
-  profileHero: { minHeight: 116, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 24, backgroundColor: C.navy, borderRadius: 20 },
-  avatar: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: C.active },
-  photo: { width: 64, height: 64 },
-  profileCopy: { flex: 1, minWidth: 0, gap: 6 },
-  nickname: { color: colors.surface, fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
-  email: { color: colors.secondary, fontSize: 13, fontWeight: '600' },
-  profileAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 8 },
-  profileActionText: { color: colors.surface, fontSize: 13, fontWeight: '700' },
-  groupTitle: { color: C.muted, fontSize: 12, fontWeight: '700', marginTop: 20, marginBottom: 8, paddingHorizontal: 4 },
-  list: { overflow: 'hidden', backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 18 },
-  item: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.line },
-  itemIcon: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
-  itemLabel: { flex: 1, color: C.ink, fontSize: 15, fontWeight: '700' },
-  logout: { minHeight: 52, marginTop: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.danger, borderRadius: 14, backgroundColor: colors.dangerSoft },
-  logoutText: { color: C.danger, fontSize: 15, fontWeight: '700' },
-  pressed: { opacity: 0.7 },
-  heroPressed: { opacity: 0.86 },
+  // 카드 대신 화면 전체를 흰 면 한 장으로 둔다(공방과 같다)
+  root: { flex: 1, backgroundColor: colors.surface },
+  content: { paddingBottom: 36 },
+  // 정체성 판(원 페이저 12): 옅은 면(surfaceMuted) + 모서리 16 한 장, 테두리 없음. 화면에서 면이 있는 판은 이것 하나다
+  identity: { minHeight: 112, justifyContent: 'center', gap: 16, padding: 20, borderRadius: 16, backgroundColor: colors.surfaceMuted },
+  identityCompact: { padding: 16 },
+  editButton: { minHeight: 32, minWidth: 92, paddingHorizontal: 12, borderColor: colors.secondary, backgroundColor: colors.surface },
+  identityRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  identityText: { flex: 1, minWidth: 0, gap: 2 },
+  avatarWrap: { width: 72, height: 72 },
+  avatar: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 36, backgroundColor: colors.primaryStrong }, // 동그라미(메뉴 아래 프로필 그림과 같은 모양)
+  photo: { width: 72, height: 72, borderRadius: 36 },
+  avatarCompact: { width: 48, height: 48, borderRadius: 24 }, // 폰: 이름 · 수정 버튼과 한 줄에 서도록 48(원 페이저 12)
+  name: { color: colors.text, fontSize: 20, lineHeight: 26, fontWeight: '800', letterSpacing: -0.4 },
+  nameCompact: { fontSize: 20, lineHeight: 26 },
+  space: { color: colors.primaryStrong, fontSize: 14, fontWeight: '600' },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  actionsCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  accountBody: { paddingVertical: 12 },
+  linkRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+  linkLabel: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
+  cards: { marginTop: 8 },
+  column: { width: '100%', maxWidth: 1040, alignSelf: 'center' },
 });

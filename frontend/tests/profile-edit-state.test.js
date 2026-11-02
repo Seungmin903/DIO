@@ -310,9 +310,9 @@ test('탈퇴 요청 실패 후 문구·프로필을 유지하고 다시 시도�
 test('사진 선택의 늦은 응답과 실패는 언마운트·기존 프로필을 손상시키지 않는다', async () => {
   let resolve;
   const ui = setup({}, () => new Promise(r => { resolve = r; }));
-  press(ui, '프로필 사진 변경'); ui.unmount(); resolve('file:///late.jpg'); await tick(); assert.deepEqual(ui.updates, []);
+  press(ui, '프로필 사진 변경'); press(ui, '프로필 사진 선택'); ui.unmount(); resolve('file:///late.jpg'); await tick(); assert.deepEqual(ui.updates, []);
   const failed = setup({}, async () => { throw new Error('사진 선택 오류'); });
-  press(failed, '프로필 사진 변경'); await tick();
+  press(failed, '프로필 사진 변경'); press(failed, '프로필 사진 선택'); await tick();
   assert.ok(nodes(failed.render()).some(n => n.type === 'Image' && n.props.source.uri === 'file:///old.jpg'));
   assert.ok(nodes(failed.render()).some(n => n.props.children === '사진 선택 오류'));
   assert.equal(find(failed, '변경사항 저장').props.disabled, true); failed.unmount();
@@ -327,9 +327,11 @@ test('저장된 서버 프로필 사진도 회원정보 수정 화면에서 인�
 });
 
 test('실제 계정은 현재 사진을 변경하거나 기본 이미지로 되돌릴 수 있다', () => {
+  // 사진 변경은 메뉴(사진 선택 · 기본 이미지로 되돌리기)로 연다
   const ui = setup({}, undefined, { photoEditable: true });
-  assert.equal(find(ui, '프로필 사진 변경').props.disabled, false);
-  assert.equal(find(ui, '프로필 사진 삭제').props.disabled, false);
+  press(ui, '프로필 사진 변경');
+  assert.ok(find(ui, '프로필 사진 선택'));
+  assert.ok(find(ui, '프로필 사진 삭제'));
   assert.equal(nodes(ui.render()).some((node) => node.props.children === '프로필 사진 변경은 준비 중이에요.'), false);
   ui.unmount();
 });

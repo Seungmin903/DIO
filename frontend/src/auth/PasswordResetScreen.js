@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,8 +9,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import AppIcon from '../shared/AppIcon';
-import Header from '../diary/components/Header';
+import DioButton from '../shared/DioButton';
+import { MakerBar, MakerHeader } from '../shared/MakerKit';
 import { colors, radius } from '../shared/theme';
 import { authService } from './authService';
 import { emailError, normalizeEmail, passwordError } from './validation';
@@ -131,48 +130,37 @@ export default function PasswordResetScreen({
     onClose?.();
   };
 
+  // 내 공간 · 회원정보 수정과 같은 문법: 상단 바(높이 64, `<` 가 이 흐름에서 나가기) + 카드 없는 열린 폼 + 하단 고정 줄(주 버튼 하나)
+  const primary = {
+    email: <DioButton variant="filled" label="인증번호 보내기" disabled={busy || !!addressError} onPress={() => requestCode()} />,
+    code: <DioButton variant="filled" label="인증번호 확인" disabled={busy || code.length !== 6 || !expiresIn} onPress={verifyCode} />,
+    password: <DioButton variant="filled" label="비밀번호 재설정" disabled={busy || !canSetPassword} onPress={resetPassword} />,
+    success: <DioButton variant="filled" label="로그인으로 돌아가기" onPress={onComplete} />,
+  }[step];
   return (
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
     >
+      <MakerHeader title={heading} onBack={step !== 'success' ? leave : null} backLabel="마이페이지로 돌아가기" busy={busy} compact={compact} />
       <ScrollView
         contentContainerStyle={[styles.scroll, compact && styles.phoneScroll]}
         keyboardShouldPersistTaps="handled"
       >
-        <Header
-          title={heading}
-          compact={compact}
-          left={step !== 'success' ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="마이페이지로 돌아가기"
-              onPress={leave}
-              style={({ pressed }) => [styles.headerBack, compact && styles.headerBackCompact, pressed && styles.pressed]}
-            >
-              <AppIcon name="chevron-left" size={22} color={colors.text} />
-            </Pressable>
-          ) : null}
-        />
-        <View style={[styles.card, compact && styles.phoneCard]}>
+        <View style={styles.form}>
           {step === 'email' && (
-            <>
-              <Text style={styles.copy}>가입할 때 사용한 이메일을 입력해 주세요.</Text>
-              <Field
-                label="이메일"
-                value={address}
-                onChangeText={(value) => { setAddress(value); setError(''); }}
-                keyboardType="email-address"
-                autoComplete="email"
-                placeholder="name@example.com"
-              />
-              <Hint text="입력한 이메일로 인증번호를 보내드려요." />
-              <Button label="인증번호 보내기" busy={busy} disabled={!!addressError} onPress={() => requestCode()} />
-            </>
+            <Field
+              label="이메일"
+              value={address}
+              onChangeText={(value) => { setAddress(value); setError(''); }}
+              keyboardType="email-address"
+              autoComplete="email"
+              placeholder="name@example.com"
+            />
           )}
           {step === 'code' && (
             <>
-              <Text style={styles.copy}><Text style={styles.strong}>{normalizedAddress}</Text>로 보낸 인증번호를 입력해 주세요.</Text>
+              <Text style={styles.copy}><Text style={styles.strong}>{normalizedAddress}</Text>로 보낸 인증번호</Text>
               <Field
                 label="인증번호"
                 value={code}
@@ -186,27 +174,22 @@ export default function PasswordResetScreen({
                 <Text accessibilityLiveRegion="polite" style={[styles.timer, !expiresIn && styles.dangerText]}>
                   {expiresIn ? `남은 시간 ${timeLabel(expiresIn)}` : '인증번호가 만료됐어요'}
                 </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="인증번호 재전송"
+                <DioButton
+                  variant="ghost"
+                  label="인증번호 재전송"
+                  text={resendIn ? `재전송 ${resendIn}초` : '인증번호 재전송'}
                   disabled={busy || resendIn > 0}
                   onPress={() => requestCode(true)}
-                  style={({ pressed }) => [styles.textButton, (busy || resendIn > 0) && styles.disabled, pressed && styles.pressed]}
-                >
-                  <Text style={styles.textButtonLabel}>{resendIn ? `재전송 ${resendIn}초` : '인증번호 재전송'}</Text>
-                </Pressable>
+                />
               </View>
-              <Button label="인증번호 확인" busy={busy} disabled={code.length !== 6 || !expiresIn} onPress={verifyCode} />
             </>
           )}
           {step === 'password' && (
             <>
-              <Text style={styles.copy}>앞으로 사용할 새 비밀번호를 입력해 주세요.</Text>
               <PasswordField label="새 비밀번호" value={password} onChangeText={(value) => { setPassword(value); setError(''); }} />
-              <Hint text="영문·숫자를 포함해 8~32자로 입력해 주세요." />
+              <Hint text="영문·숫자를 포함해 8~32자" />
               <PasswordField label="새 비밀번호 확인" value={confirmation} onChangeText={(value) => { setConfirmation(value); setError(''); }} />
               {!!confirmationIssue && <Text accessibilityRole="alert" style={styles.inlineError}>{confirmationIssue}</Text>}
-              <Button label="비밀번호 재설정" busy={busy} disabled={!canSetPassword} onPress={resetPassword} />
             </>
           )}
           {step === 'success' && (
@@ -214,13 +197,13 @@ export default function PasswordResetScreen({
               <View style={styles.successIcon}><Text style={styles.successMark}>✓</Text></View>
               <Text style={styles.successTitle}>새 비밀번호를 설정했어요.</Text>
               <Text style={styles.copy}>새 비밀번호로 다시 로그인해 주세요.</Text>
-              <Button label="로그인으로 돌아가기" onPress={onComplete} />
             </>
           )}
           {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
           {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
         </View>
       </ScrollView>
+      <MakerBar>{primary}</MakerBar>
     </KeyboardAvoidingView>
   );
 }
@@ -242,51 +225,25 @@ function Hint({ text }) {
   return <Text style={styles.hint}>{text}</Text>;
 }
 
-function Button({ label, onPress, disabled, busy }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled, busy: !!busy }}
-      disabled={disabled || busy}
-      onPress={onPress}
-      style={({ pressed }) => [styles.button, (disabled || busy) && styles.disabled, pressed && styles.pressed]}
-    >
-      {busy && <ActivityIndicator color={colors.surface} />}
-      <Text style={styles.buttonText}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surfaceSoft },
-  scroll: { flexGrow: 1, paddingHorizontal: 30, paddingTop: 38, paddingBottom: 44 },
-  phoneScroll: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 48 },
-  headerBack: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  headerBackCompact: { width: 38, height: 38, borderRadius: 10, borderWidth: 0, backgroundColor: 'transparent' },
-  // 회원정보 수정·알림 설정과 같은 설정 화면 폭·여백을 쓴다. 인증 단계만 달라지고
-  // 마이페이지에서 들어온 화면의 제목과 콘텐츠 기준선은 바뀌지 않는다.
-  card: { width: '100%', alignSelf: 'center', maxWidth: 760, padding: 28, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  phoneCard: { padding: 20, borderRadius: radius.lg },
-  copy: { color: colors.textMuted, fontSize: 14, lineHeight: 21, marginBottom: 20 },
+  root: { flex: 1, backgroundColor: colors.surface },
+  scroll: { flexGrow: 1, paddingHorizontal: 32, paddingTop: 24, paddingBottom: 32 },
+  phoneScroll: { paddingHorizontal: 16, paddingTop: 16 },
+  // 본문 최대 폭 760, 가운데. 카드 · 테두리 없이 열린 폼
+  form: { width: '100%', alignSelf: 'center', maxWidth: 760 },
+  copy: { color: colors.textMuted, fontSize: 14, lineHeight: 21, marginBottom: 4 },
   strong: { color: colors.text, fontWeight: '700' },
-  fieldWrap: { marginTop: 16 },
+  fieldWrap: { marginTop: 12 },
   fieldLabel: { color: colors.text, fontSize: 14, fontWeight: '700', marginBottom: 8 },
-  field: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, color: colors.text, fontSize: 14, paddingHorizontal: 14, backgroundColor: colors.surface },
+  field: { minHeight: 48, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.md, color: colors.text, fontSize: 16, fontWeight: '600', paddingHorizontal: 14, backgroundColor: colors.surface },
   hint: { color: colors.textMuted, fontSize: 13, lineHeight: 20, marginTop: 8 },
-  button: { minHeight: 48, marginTop: 24, borderRadius: radius.md, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.primaryStrong },
-  buttonText: { color: colors.surface, fontSize: 14, fontWeight: '700' },
   timerRow: { minHeight: 48, marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   timer: { color: colors.primaryStrong, fontSize: 13, fontWeight: '700' },
-  textButton: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 6 },
-  textButtonLabel: { color: colors.primaryStrong, fontSize: 13, fontWeight: '700' },
-  error: { color: colors.danger, fontSize: 14, lineHeight: 21, marginTop: 16 },
-  inlineError: { color: colors.danger, fontSize: 13, lineHeight: 20, marginTop: 8 },
+  error: { color: colors.dangerStrong, fontSize: 14, lineHeight: 21, marginTop: 16 },
+  inlineError: { color: colors.dangerStrong, fontSize: 13, lineHeight: 20, marginTop: 8 },
   notice: { color: colors.primaryStrong, fontSize: 14, lineHeight: 21, marginTop: 16 },
   successIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryStrong, marginBottom: 20 },
   successMark: { color: colors.surface, fontSize: 30, fontWeight: '800' },
   successTitle: { color: colors.text, fontSize: 20, fontWeight: '800', marginBottom: 10 },
-  dangerText: { color: colors.danger },
-  disabled: { opacity: 0.42 },
-  pressed: { opacity: 0.7 },
+  dangerText: { color: colors.dangerStrong },
 });

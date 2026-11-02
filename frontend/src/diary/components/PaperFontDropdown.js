@@ -5,7 +5,8 @@ import { bubble, colors } from '../../shared/theme';
 import { paperFontChips } from '../../editor/components/PaperFontChips';
 import PopoverMenu from './PopoverMenu';
 
-const WIDTH = 240, ROW = 48;
+// 칸 폭은 도구 탭 묶음의 옅은 선(282)과 같고, 목록 말풍선도 칸과 같은 폭으로 뜬다(코덱스 2026-11-02)
+const WIDTH = 282, ROW = 48;
 
 /**
  * 속지 글꼴 드롭다운(꾸미기 공방 기본 속지 설정): 지금 글꼴 이름(그 글꼴로 씀) + ⌄ 를 누르면 아래에 목록 말풍선이 뜨고, 고르면 닫힌다.
@@ -47,7 +48,7 @@ export default function PaperFontDropdown({ value, onChange }) {
 }
 
 const local = StyleSheet.create({
-  field: { minHeight: 48, minWidth: 200, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.surface },
+  field: { minHeight: 48, width: WIDTH, maxWidth: '100%', alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingLeft: 16, paddingRight: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.surface },
   value: { color: colors.text },
   menu: { ...bubble, padding: 6 },
   row: { minHeight: ROW, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 12, borderRadius: 12 },
