@@ -7,7 +7,7 @@
 Authorization: `Bearer {accessToken}`
 
 - `termsType`: `SERVICE`, `PRIVACY`, `MARKETING` (대문자)
-- `termsVersion`: 기존 `dio.signup.*-terms-version`에 지정된 종류별 현재 버전. 기본값 SERVICE/PRIVACY `v2`, 기존 MARKETING `v1`.
+- `termsVersion`: 기존 `dio.signup.*-terms-version`에 지정된 종류별 현재 버전. 기본값 SERVICE/PRIVACY `v2`, MARKETING_PRIVACY·AD_EMAIL·AD_PUSH·AD_NIGHT_PUSH와 기존 MARKETING `v1`.
 - 요청: `{"agreed": true}` 또는 `{"agreed": false}`. 누락·null은 400.
 - 성공 200: `{"termsType":"MARKETING","termsVersion":"v1","agreed":false,"agreedAt":"2026-10-30T00:00:00Z"}`
 - `agreedAt`: 해당 버전의 마지막 동의 상태 변경 시각(UTC). 동의 철회도 상태 변경으로 기록한다. 동일 상태 PUT 재시도는 시각을 유지한다.
@@ -57,3 +57,12 @@ Authorization: `Bearer {accessToken}`
 기존 MARKETING 저장 행과 클라이언트 요청은 호환용으로 유지하며 신규 채널 동의로 복사하거나 간주하지 않는다. 새 항목 버전은 기존 SIGNUP_MARKETING_TERMS_VERSION(기본 v1) 설정을 공유하므로 프론트 v1과 일치시켜야 한다. 각 행은 버전·변경 시각을 기존 방식으로 기록한다.
 
 이 변경은 동의 기록만 연결하며 광고 발송 기능을 추가하지 않는다. 추후 발송 시 개인정보 마케팅 동의와 해당 채널 동의의 교집합을 확인하고, 야간 푸시는 AD_NIGHT_PUSH도 확인해야 한다. 기존 일반 초대 알림 발송 정책은 변경하지 않는다.
+
+
+## PostgreSQL 항목 저장 검증 (2026-11-02)
+
+`UserTermsPostgresTests`는 실제 마이그레이션을 적용한 별도 PostgreSQL에서 7개 종류 저장과 신규 선택 4종 철회를 검증한다. VARCHAR(20) 컬럼과 실제 저장을 확인했으며 추가 마이그레이션은 필요하지 않다. 각 테스트 행은 롤백한다. 일반 로컬 DB로의 폴백은 없다.
+
+실행하려면 별도 빈 DB `dio_terms_qa_<식별자>`를 만들고 `DIO_TERMS_POSTGRES_TEST=true`, `DIO_TERMS_POSTGRES_URL=jdbc:postgresql://127.0.0.1:<포트>/dio_terms_qa_<식별자>`, `DIO_TERMS_POSTGRES_USER`, `DIO_TERMS_POSTGRES_PASSWORD`를 환경변수로 지정한다. backend에서 `./gradlew.bat test --tests '*UserTermsPostgresTests' --tests '*UserTermsUpdateTests'`로 실행한다. 인증정보는 저장소에 기록하지 않는다. 해당 테스트는 명시적으로 활성화하지 않으면 제외되며 기존 CI 태스크의 환경변수 요구사항은 바꾸지 않았다.
+
+검증 결과: PostgreSQL 1개 및 기존 약관 변경 8개 통과, 제외 0개. 운영 배포 서버의 실제 환경변수는 로컬에서 검증하지 않았다.
