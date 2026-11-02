@@ -9,10 +9,12 @@ export const migrationResource = new URL('../../backend/src/main/resources/db/mi
 
 // V9 is a released, immutable migration. Its checked-in JSON is the snapshot used to validate V9 SQL;
 // runtime templates added later must be registered by their own migrations.
+export const normalizeV9ContractSource = source => source.replaceAll('\r\n', '\n')
 const V9_CONTRACT_SOURCE = readFileSync(catalogResource, 'utf8')
 export const V9_CONTRACT_SHA256 = 'a69cf406902291ed6a511ad41ac5891a4895b101f1ba490b4f6e6ed6b3fb7ad0'
-if (createHash('sha256').update(V9_CONTRACT_SOURCE).digest('hex') !== V9_CONTRACT_SHA256) {
-  throw new Error('Released V9 catalog snapshot changed; add a new migration instead.')
+const v9ActualHash = createHash('sha256').update(normalizeV9ContractSource(V9_CONTRACT_SOURCE)).digest('hex')
+if (v9ActualHash !== V9_CONTRACT_SHA256) {
+  throw new Error(`Released V9 catalog snapshot changed (expected ${V9_CONTRACT_SHA256}, got ${v9ActualHash}); add a new migration instead.`)
 }
 const V9_CONTRACT = Object.freeze(JSON.parse(V9_CONTRACT_SOURCE))
 const V9_TEMPLATE_CATALOG = V9_CONTRACT.templates

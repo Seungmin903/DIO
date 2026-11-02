@@ -5,7 +5,7 @@ import { catalog } from '../src/editor/templates/data.js'
 import { UNDATED_TEMPLATES } from '../src/editor/templates/undated.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
 import { SERVER_TEMPLATE_CATALOG, serverTemplateReference, localTemplateReference, toServerInitialPageSelections } from '../src/editor/templates/serverCatalog.js'
-import { catalogContract, seedMigration, catalogResource, migrationResource, V9_CONTRACT_SHA256 } from '../scripts/generate-page-template-catalog.mjs'
+import { catalogContract, seedMigration, catalogResource, migrationResource, V9_CONTRACT_SHA256, normalizeV9ContractSource } from '../scripts/generate-page-template-catalog.mjs'
 
 const plannerMigrationResource = new URL('../../backend/src/main/resources/db/migration/V25__add_study_and_daily_planner_templates.sql', import.meta.url)
 
@@ -60,6 +60,7 @@ test('V9 스냅샷과 Flyway 등록 SQL은 런타임 플래너 추가와 독립�
   assert.equal(catalogContract().templates.length, 288)
   assert.equal(catalogContract().templates.some(t => /^(study|day)-planner-/.test(t.templateCode)), false)
   assert.equal(V9_CONTRACT_SHA256, 'a69cf406902291ed6a511ad41ac5891a4895b101f1ba490b4f6e6ed6b3fb7ad0')
+  assert.equal(normalizeV9ContractSource('{\r\n  "v": 1\r\n}'), '{\n  "v": 1\n}')
   assert.ok(SERVER_TEMPLATE_CATALOG.every(t => t.templateCode.length <= 100 && t.templateVersion.length <= 30))
 })
 
