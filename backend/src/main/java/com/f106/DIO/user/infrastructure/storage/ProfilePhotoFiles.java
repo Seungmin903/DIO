@@ -57,7 +57,7 @@ public class ProfilePhotoFiles {
             cleaned = true;
             try { active.delete(location); }
             catch (RuntimeException error) { LoggerFactory.getLogger(ProfilePhotoFiles.class).warn(
-                "Unreferenced profile photo cleanup failed: provider={}", location.provider(), error); }
+                "Unreferenced profile photo cleanup failed: provider={}, errorType={}", location.provider(), error.getClass().getSimpleName()); }
         }
         @Override public void close() { if (!enlisted) cleanup(); }
     }
