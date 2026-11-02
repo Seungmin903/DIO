@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createMemberDiaryApi } from '../src/diary/services/memberDiaryApi.js'
 import { createCanvasApi } from '../src/collaboration/canvasApi.js'
 import { createCanvasMedia } from '../src/collaboration/canvasMedia.js'
+import { createGuestImportJournalStore } from '../src/diary/services/guestImportJournal.js'
 import { STORAGE_KEYS } from '../src/editor/utils/storageContract.js'
 import {
   planGuestDiary, splitStroke, batchElements, createGuestDiaryImporter, listGuestImportCandidates, declineGuestImport,
@@ -10,6 +11,7 @@ import {
 } from '../src/diary/services/guestDiaryImport.js'
 
 const accountId = '7'
+const readJournal = storage => createGuestImportJournalStore({ storage, key: guestImportJournalKey(accountId) }).load()
 const hex = n => n.toString(16).padStart(12, '0')
 const ids = () => { let n = 0; return () => `00000000-0000-4000-8000-${hex(++n)}` }
 const photoId = 'aaaaaaaa-0000-4000-8000-000000000001', gifId = 'aaaaaaaa-0000-4000-8000-000000000002', goneId = 'aaaaaaaa-0000-4000-8000-000000000003'
@@ -172,7 +174,7 @@ test('가져오기: 생성 → 페이지 설정 → 업로드 후 id 교체 → 
   assert.equal((await readGuestImportLedger(storage)).imports['diary-1'][accountId].diaryId, diaryId)
   assert.deepEqual((await listGuestImportCandidates(storage, accountId)).diaries, [])
   assert.deepEqual((await listGuestImportCandidates(storage, '8')).diaries.map(d => d.id), ['diary-1'])
-  assert.equal(JSON.parse(storage.disk.get(guestImportJournalKey(accountId))).diaries['diary-1'], undefined)
+  assert.equal((await readJournal(storage)).diaries['diary-1'], undefined)
 })
 
 test('중간에 끊겨도 다시 보내면 같은 생성 키 · 같은 요청으로 이어서 보내 서버에 두 번 생기지 않는다', async () => {
@@ -254,7 +256,7 @@ test('동일 실행기의 가져오기를 연속 눌러도 다이어리를 한 �
 test('완료 기록 뒤 진행 기록 저장이 실패해도 재시도 시 복제하지 않는다',async()=>{
  const server=fakeServer(),storage=guestStorage();const save=storage.setItem;let failed=false;
  storage.setItem=async(key,value)=>{
-  if(!failed&&key===guestImportJournalKey(accountId)&&storage.disk.has('dio:diary:guest-imports:v1')&&Object.keys(JSON.parse(value).diaries).length===0){failed=true;throw Error('disk full');}
+  if(!failed&&key===guestImportJournalKey(accountId)&&storage.disk.has('dio:diary:guest-imports:v1')&&JSON.parse(value).diaryCount===0){failed=true;throw Error('disk full');}
   return save(key,value);
  };
  const first=await importer(server,storage).run([guestDiary]);assert.equal(first.failed.length,1);
@@ -329,7 +331,7 @@ test('영구 오류 사진 뒤 네트워크 오류가 반복돼도 누락 사진
   const engine = importer(server, storage)
   for (let attempt = 0; attempt < 2; attempt++) {
     assert.equal((await engine.run([guestDiary])).failed.length, 1)
-    const entry = JSON.parse(await storage.getItem(guestImportJournalKey(accountId))).diaries[guestDiary.id]
+    const entry = (await readJournal(storage)).diaries[guestDiary.id]
     assert.equal(entry.skipped.filter(row => row.kind === 'media').length, 0)
   }
   const result = await importer(server, storage).run([guestDiary])
@@ -370,9 +372,9 @@ for (const [status, code] of [[0, 'NETWORK_ERROR'], [401, 'INVALID_TOKEN'], [403
     server.transport = async () => { throw Object.assign(Error(code), { status, code }) }
     const engine = importer(server, storage)
     await engine.run([guestDiary])
-    const first = JSON.parse(await storage.getItem(guestImportJournalKey(accountId))).diaries[guestDiary.id]
+    const first = (await readJournal(storage)).diaries[guestDiary.id]
     await engine.run([guestDiary])
-    const second = JSON.parse(await storage.getItem(guestImportJournalKey(accountId))).diaries[guestDiary.id]
+    const second = (await readJournal(storage)).diaries[guestDiary.id]
     assert.deepEqual(second, first)
     assert.deepEqual(await engine.pendingIds(), [guestDiary.id])
   })
@@ -394,4 +396,61 @@ test('서버 생성 성공 후 응답이 유실돼도 같은 생성 키로 기�
   assert.equal((await importer(server, storage).run([guestDiary])).imported.length, 1)
   assert.equal(keys[0], keys[1])
   assert.equal(server.diaries.size, 1)
+})
+
+
+for (const status of [403, 404, 409]) {
+  test(`이미지 서버 ${status}는 영구 누락·완료로 기록하지 않고 같은 다이어리에 재시도한다`, async () => {
+    const server = fakeServer(), data = guestStorage(), send = server.mediaRequest
+    server.mediaRequest = async () => { throw Object.assign(Error('retry'), { status, code: status === 404 ? 'MEDIA_NOT_FOUND' : 'MEDIA_ACCESS_FAILED' }) }
+    const first = await importer(server, data).run([guestDiary])
+    assert.equal(first.failed.length, 1)
+    assert.equal(first.imported.length, 0)
+    assert.equal((await readGuestImportLedger(data)).imports[guestDiary.id], undefined)
+    assert.deepEqual(await importer(server, data).pendingIds(), [guestDiary.id])
+    const saved = (await readJournal(data)).diaries[guestDiary.id]
+    assert.equal(saved.skipped.filter(row => row.kind === 'media').length, 0)
+    server.mediaRequest = send
+    const second = await importer(server, data).run([guestDiary])
+    assert.equal(second.failed.length, 0)
+    assert.equal(second.imported.length, 1)
+    assert.equal(server.diaries.size, 1)
+    assert.equal(second.imported[0].skipped.find(row => row.kind === 'media').count, 2)
+  })
+}
+
+
+test('생성 계획 저장이 계속 실패하면 같은 실행기의 재시도도 서버 생성 요청을 보내지 않는다', async () => {
+  const server = fakeServer(), data = guestStorage(), set = data.setItem
+  let blocked = true
+  data.setItem = async (key, value) => {
+    if (blocked && key === guestImportJournalKey(accountId)) throw Error('disk full')
+    return set(key, value)
+  }
+  const engine = importer(server, data)
+  for (let attempt = 0; attempt < 2; attempt++) assert.equal((await engine.run([guestDiary])).failed.length, 1)
+  assert.equal(server.diaries.size, 0)
+  assert.equal(server.calls.length, 0)
+  blocked = false
+  assert.equal((await engine.run([guestDiary])).imported.length, 1)
+  assert.equal(server.diaries.size, 1)
+})
+
+test('준비한 이미지 요청 저장에 실패하면 재시도에서도 본문 확정 전 요소를 전송하지 않는다', async () => {
+  const server = fakeServer(), data = guestStorage(), set = data.setItem, doc = guestDoc()
+  doc.pages = [{ ...doc.pages[0], objects: [doc.pages[0].objects[1]] }]
+  await data.setItem(`${STORAGE_KEYS.doc}:diary-1`, JSON.stringify(doc))
+  let blocked = true
+  data.setItem = async (key, value) => {
+    if (blocked && key === guestImportJournalKey(accountId) && server.media.size > 0 && server.ops.size === 0) throw Error('disk full')
+    return set(key, value)
+  }
+  const engine = importer(server, data)
+  for (let attempt = 0; attempt < 2; attempt++) assert.equal((await engine.run([guestDiary])).failed.length, 1)
+  assert.equal(server.ops.size, 0)
+  assert.equal(server.media.size, 1)
+  blocked = false
+  assert.equal((await engine.run([guestDiary])).imported.length, 1)
+  assert.equal(server.ops.size, 1)
+  assert.equal(server.media.size, 1)
 })

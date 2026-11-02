@@ -15,6 +15,7 @@ import { normalizeDiaries } from '../utils/diaryLibrary.js'
 import { FALLBACK_COVER_COLOR } from '../constants.js'
 import { memberKeys } from './memberStorage.js'
 import { serverPaperAppearance } from './serverPaperFont.js'
+import { createGuestImportJournalStore } from './guestImportJournal.js'
 
 const copy = value => JSON.parse(JSON.stringify(value))
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
@@ -193,9 +194,9 @@ export async function listGuestImportCandidates(storage, accountId) {
 
 const permanentMediaError = error => {
   const status = error?.status ?? 0
-  return status >= 400 && status < 500 && ![401, 408, 429].includes(status)
-    // MEDIA_NOT_FOUND: 기기 사진 저장소에 원본이 없을 때(지운 사진)
-    || ['MEDIA_DECODE_FAILED', 'MEDIA_CORRUPT', 'MEDIA_NOT_FOUND', 'UNSUPPORTED_MEDIA_TYPE', 'INVALID_MEDIA', 'IMAGE_TOO_LARGE', 'MEDIA_FILE_TOO_LARGE', 'PDF_SOURCE_MISSING'].includes(error?.code)
+  return [400, 413, 415, 422].includes(status)
+    // status 없는 기기 파일 오류만 확정 누락 처리한다. 서버의 403/404/409는 재시도 대상으로 둔다.
+    || status === 0 && ['MEDIA_DECODE_FAILED', 'MEDIA_CORRUPT', 'MEDIA_NOT_FOUND', 'UNSUPPORTED_MEDIA_TYPE', 'INVALID_MEDIA', 'IMAGE_TOO_LARGE', 'MEDIA_FILE_TOO_LARGE', 'PDF_SOURCE_MISSING'].includes(error?.code)
 }
 
 /** 서버가 바쁠 때(동시 업로드 3개 한도, 503 MEDIA_UPLOAD_BUSY) 잠시 기다렸다 다시 보낸다. */
@@ -221,18 +222,18 @@ export function withUploadRetry(request, { wait = ms => new Promise(resolve => s
  */
 export function createGuestDiaryImporter({ accountId, storage, api, transport, canvas, mediaFor, loadGuestDoc, createId, now = () => new Date().toISOString(), isActive = () => true }) {
   const journalKey = guestImportJournalKey(accountId)
-  let journal = null, writes = Promise.resolve(), running = null
+  const journalStore = createGuestImportJournalStore({ storage, key: journalKey })
+  let journal = null, running = null
   const assertActive = () => {
     if (!isActive()) throw Object.assign(failure('STALE_ACCOUNT', '로그인 상태가 변경됐어요. 다시 로그인한 뒤 이어서 가져와 주세요.'), { status: 401 })
   }
   const load = async () => {
     if (journal) return journal
-    const raw = await storage.getItem(journalKey)
-    try { journal = raw ? JSON.parse(raw) : { format: 1, diaries: {} } } catch { throw failure('INVALID_LOCAL_CACHE', '가져오기 진행 기록을 읽지 못했어요.') }
+    journal = await journalStore.load()
     if (journal?.format !== 1 || !journal.diaries || typeof journal.diaries !== 'object' || Array.isArray(journal.diaries)) throw failure('INVALID_LOCAL_CACHE', '가져오기 진행 기록을 확인하지 못했어요.')
     return journal
   }
-  const persist = () => { const raw = JSON.stringify(journal); writes = writes.catch(() => {}).then(() => storage.setItem(journalKey, raw)); return writes }
+  const persist = () => journalStore.save(journal)
 
   async function prepareRows(media, rows) {
     // 요소마다 따로 올린다: 한 장이 실패해도(너무 큰 GIF · 지운 사진) 나머지는 옮긴다.
@@ -272,14 +273,16 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
     await load()
     const recorded = importedTo(await readGuestImportLedger(storage), diary.id, accountId)
     assertActive()
-    if (recorded) return recorded
+    if (recorded) {
+      if (journal.diaries[diary.id]) { delete journal.diaries[diary.id]; await persist() }
+      return recorded
+    }
     let entry = journal.diaries[diary.id]
     if (!entry) {
       const doc = await loadGuestDoc(diary)
       assertActive()
       const plan = planGuestDiary(diary, doc, { createId })
       entry = journal.diaries[diary.id] = { requestId: createId(), plan, diaryId: null, pageIds: null, settingsDone: [], batchesDone: [], favoriteDone: false, skipped: [...plan.skipped], startedAt: now() }
-      await persist()
     }
     const { plan } = entry
     // 묶음을 나눠 보내면 단계 수가 늘어나므로 그때그때 센다.
@@ -289,6 +292,7 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
     const step = () => { assertActive(); onProgress?.({ guestDiaryId: diary.id, done: ++done, total: total() }) }
     if (!entry.diaryId) {
       // 같은 생성 키로 다시 보내면 서버는 처음 만든 다이어리를 돌려준다(24시간 보관).
+      await persist() // 이전 저장 실패 뒤 같은 실행기로 재시도해도 요청 전에는 반드시 기록을 확정한다.
       let result
       try { result = await api.create(copy(plan.create), { requestId: entry.requestId }) }
       catch (error) {
@@ -344,8 +348,9 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
             // 준비 중 네트워크 오류가 나면 누락 집계를 버린다. 요청과 함께 한 번만 기록한다.
             entry.skipped.push(...prepared.skipped)
             batch.request = { clientOperationId: batch.clientOperationId, changes: { creates: prepared.creates }, expectedVersions: {} }
-            await persist()
+            delete batch.creates
           }
+          await persist() // 준비 결과 저장에 실패했던 재시도도 전송 전에 같은 본문을 확정한다.
           try { if (batch.request.changes.creates.length) await canvas.apply(pageId, batch.request) }
           catch (error) {
             if (![400, 413, 422].includes(error.status)) throw error
@@ -354,13 +359,15 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
               // 묶음이 거절되면 요소 하나씩 새 요청으로 나눠 보내, 거절된 요소만 빠지게 한다.
               page.batches.splice(position, 1, ...creates.map(row => {
                 const clientOperationId = createId()
-                return { clientOperationId, creates: [row], request: { clientOperationId, changes: { creates: [row] }, expectedVersions: {} } }
+                return { clientOperationId, request: { clientOperationId, changes: { creates: [row] }, expectedVersions: {} } }
               }))
               await persist(); position--; continue
             }
             entry.skipped.push({ kind: 'element', type: creates[0]?.elementType?.toLowerCase() ?? null, code: error.code ?? null })
           }
-          entry.batchesDone.push(batch.clientOperationId); await persist()
+          entry.batchesDone.push(batch.clientOperationId)
+          delete batch.creates; delete batch.request
+          await persist()
         }
         step()
       }
@@ -380,7 +387,7 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
 
   return {
     /** 진행 중이던(앱이 꺼져 끝나지 않은) 가져오기가 있는 게스트 다이어리 id */
-    async pendingIds() { await load(); return Object.keys(journal.diaries) },
+    async pendingIds() { return journal ? Object.keys(journal.diaries) : journalStore.pendingIds() },
     /**
      * 다이어리를 하나씩 가져온다. 실패한 다이어리는 기록을 남기고 다음 것으로 넘어간다. 다시 부르면 실패한 것만 이어서 보낸다.
      * 결과: { imported: [{guestDiaryId, diaryId, skipped}], failed: [{guestDiaryId, error}] }
