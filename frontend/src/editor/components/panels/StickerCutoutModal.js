@@ -11,8 +11,8 @@ import { MakerBar, MakerEmpty, MakerHeader, MakerNav, MakerSegment, MakerSegment
 import { colors, radius } from '../../../shared/theme'
 import { useSvgId } from '../../utils/svgId'
 import { pickCutoutPhoto } from '../../services/stickerCutout'
-import { CUTOUT_MAX_POINTS, CUTOUT_MAX_STROKES, containCutout, cutoutHistory, cutoutPath,
-  cutoutPoint, emptyCutout, hasCutoutSelection, previewCutoutSelection } from '../../utils/stickerCutout'
+import { CUTOUT_FIT_VIEW as FIT_VIEW, CUTOUT_MAX_POINTS, CUTOUT_MAX_STROKES, CUTOUT_ZOOM_MAX, clampCutoutView, containCutout, cutoutHistory, cutoutPath,
+  cutoutPoint, emptyCutout, hasCutoutSelection, previewCutoutSelection, zoomCutout } from '../../utils/stickerCutout'
 
 export default function StickerCutoutModal({ folder, onClose, photoPicker = pickCutoutPhoto, preview = previewCutoutSelection }) {
   const { width, height } = useWindowDimensions()
@@ -22,7 +22,7 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
   const [mode, setMode] = useState('add'), [brushSize, setBrushSize] = useState(24)
   const [brushDraft, setBrushDraft] = useState(null), [sliding, setSliding] = useState(false)
   const shownBrushSize = brushDraft ?? brushSize
-  const [draft, setDraft] = useState(null), gesture = useRef(null)
+  const [draft, setDraft] = useState(null), gesture = useRef(null), origin = useRef({ x: 0, y: 0 })
   const [area, setArea] = useState({ width: 0, height: 0 })
   const [phase, setPhase] = useState('select'), [busy, setBusy] = useState(false), locked = useRef(false)
   const [error, setError] = useState(''), [question, setQuestion] = useState(null), [saved, setSaved] = useState(false)
@@ -32,11 +32,13 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
   const alive = useRef(true), revision = useRef(0)
   const maskId = useSvgId('cutout-selection')
   const checkerId = useSvgId('cutout-checker')
-  const rect = containCutout(source, area)
+  // 두 손가락 확대: zoom 1(판에 맞춤) ~ CUTOUT_ZOOM_MAX, x · y 는 사진 가운데가 판 가운데에서 벗어난 거리(px)
+  const [view, setView] = useState(FIT_VIEW)
+  const rect = zoomCutout(containCutout(source, area), area, view)
   const canPreview = ready && hasCutoutSelection(history)
   useEffect(() => { alive.current = true; return () => { alive.current = false; revision.current++; sourceRef.current?.dispose?.() } }, [])
-  // 회전/크기 변경 중 끝나지 않은 획은 버린다. 확정된 정규화 좌표는 유지한다.
-  useEffect(() => { gesture.current = null; setDraft(null) }, [width, height, area.width, area.height])
+  // 회전/크기 변경 중 끝나지 않은 획은 버린다. 확정된 정규화 좌표는 유지한다. 판 크기가 바뀌거나 사진을 바꾸면 맞춤 보기로 돌아간다
+  useEffect(() => { gesture.current = null; setDraft(null); setView(FIT_VIEW) }, [width, height, area.width, area.height, source])
   const close = () => {
     if (locked.current) return
     if (history.strokes.length && !saved) setQuestion('close')
@@ -80,18 +82,46 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
   }
   const endStroke = cancelled => {
     const stroke = gesture.current; gesture.current = null; setDraft(null)
-    if (!cancelled && stroke) setHistory(value => cutoutHistory(value, { type: 'stroke', stroke }))
+    if (!cancelled && stroke?.points) setHistory(value => cutoutHistory(value, { type: 'stroke', stroke }))
+  }
+  // 두 손가락: 칠하던 획은 버리고 확대 · 이동만 한다. 두 손가락 가운데 아래의 사진 지점이 손가락을 따라간다.
+  // 판 기준 좌표는 page 좌표에서 판의 page 원점(origin)을 빼서 얻는다. (사진 칸은 확대로 위치가 바뀌므로 판 원점을 쓴다)
+  const pinchStart = event => {
+    const [a, b] = event.nativeEvent.touches || []
+    if (!a || !b) return
+    gesture.current = { pinch: true, view, distance: Math.max(1, Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY)),
+      midX: (a.pageX + b.pageX) / 2 - origin.current.x, midY: (a.pageY + b.pageY) / 2 - origin.current.y }
+    setDraft(null)
+  }
+  const pinchMove = event => {
+    const g = gesture.current, [a, b] = event.nativeEvent.touches || []
+    if (!a || !b) return
+    const zoom = Math.max(1, Math.min(CUTOUT_ZOOM_MAX, g.view.zoom * Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY) / g.distance))
+    const ratio = zoom / g.view.zoom
+    const midX = (a.pageX + b.pageX) / 2 - origin.current.x, midY = (a.pageY + b.pageY) / 2 - origin.current.y
+    setView(clampCutoutView(containCutout(source, area), area, { zoom,
+      x: midX - area.width / 2 - (g.midX - area.width / 2 - g.view.x) * ratio, y: midY - area.height / 2 - (g.midY - area.height / 2 - g.view.y) * ratio }))
   }
   const startStroke = event => {
-    if (!ready || busy || phase !== 'select' || history.strokes.length >= CUTOUT_MAX_STROKES || !rect || (event.nativeEvent.touches?.length || 0) > 1) return
-    const point = cutoutPoint(event.nativeEvent.locationX, event.nativeEvent.locationY, rect)
+    if (!ready || busy || !rect) return
+    const { pageX = 0, pageY = 0, locationX, locationY } = event.nativeEvent
+    origin.current = { x: pageX - locationX - rect.x, y: pageY - locationY - rect.y }
+    if ((event.nativeEvent.touches?.length || 0) > 1) { pinchStart(event); return }
+    if (phase !== 'select' || history.strokes.length >= CUTOUT_MAX_STROKES) return
+    const point = cutoutPoint(locationX, locationY, rect)
     if (!point) return
+    // 붓 크기는 화면 px 그대로: 확대하면 사진 위에서는 가늘어져 가장자리를 섬세하게 칠할 수 있다
     gesture.current = { mode, width: Math.min(1, brushSize / rect.width), points: [point] }
     setDraft({ ...gesture.current })
   }
   const moveStroke = event => {
-    if (!gesture.current) return
-    if ((event.nativeEvent.touches?.length || 0) > 1) { endStroke(true); return }
+    if ((event.nativeEvent.touches?.length || 0) > 1) {
+      if (gesture.current?.pinch) pinchMove(event)
+      else pinchStart(event)
+      return
+    }
+    // 확대하다 한 손가락만 남으면 손을 다 뗄 때까지 칠하지 않는다
+    if (!gesture.current?.points) return
     const point = cutoutPoint(event.nativeEvent.locationX, event.nativeEvent.locationY, rect)
     if (!point || gesture.current.points.length >= CUTOUT_MAX_POINTS) return
     gesture.current.points.push(point)
@@ -104,9 +134,10 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
   const stageHeight = Math.max(240, Math.min(width < 600 ? 360 : 480, height * .5))
   const picture = source && rect && <View accessibilityLabel="스티커 대상 칠하기 영역" testID="cutout-canvas"
     style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height, touchAction: 'none' }}
-    onStartShouldSetResponder={() => ready && !busy && phase === 'select'}
-    onMoveShouldSetResponder={() => ready && !busy && phase === 'select'}
-    onResponderGrant={startStroke} onResponderMove={moveStroke}
+    onStartShouldSetResponder={() => ready && !busy}
+    onMoveShouldSetResponder={() => ready && !busy}
+    onResponderGrant={startStroke} onResponderStart={event => { if ((event.nativeEvent.touches?.length || 0) > 1 && !gesture.current?.pinch) pinchStart(event) }}
+    onResponderMove={moveStroke}
     onResponderRelease={() => endStroke(false)} onResponderTerminate={() => endStroke(true)}
     onResponderTerminationRequest={() => false}>
     {phase === 'select' ? <>

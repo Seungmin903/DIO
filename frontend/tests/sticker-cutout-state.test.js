@@ -154,3 +154,24 @@ test('결과 확인에서 헤더 이전·기기 뒤로가기로 돌아오면 같
   assert.equal(ui.closed, 0)
   ui.unmount()
 })
+
+test('두 손가락은 칠하지 않고 확대 · 이동만 하며, 확대한 뒤 칠한 점도 사진 좌표로 맞는다', async () => {
+  let input
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), async (_source, history) => { input = history })
+  await load(ui) // 판 300×200 → 사진 칸 200×200 이 가운데(x 50)
+  const touch = (x, y) => ({ pageX: x, pageY: y })
+  let area = find(ui.render(), 'cutout-canvas')
+  area.props.onResponderGrant({ nativeEvent: { pageX: 150, pageY: 100, locationX: 100, locationY: 100, touches: [touch(150, 100)] } })
+  area.props.onResponderStart({ nativeEvent: { touches: [touch(150, 100), touch(170, 100)] } })
+  area.props.onResponderMove({ nativeEvent: { touches: [touch(140, 100), touch(180, 100)] } }) // 거리 20 → 40: 2배
+  area.props.onResponderRelease()
+  assert.equal(find(ui.render(), '되돌리기').props.disabled, true)
+  area = find(ui.render(), 'cutout-canvas')
+  assert.equal(area.props.style.width, 400)
+  // 확대된 칸의 가운데를 칠하면 사진 가운데
+  area.props.onResponderGrant({ nativeEvent: { locationX: 200, locationY: 200 } })
+  area.props.onResponderRelease()
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  assert.deepEqual(input.strokes[0].points[0], { x: .5, y: .5 })
+  ui.unmount()
+})
