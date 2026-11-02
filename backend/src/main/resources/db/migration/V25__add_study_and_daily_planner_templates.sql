@@ -12,14 +12,16 @@ DO $planner_templates$
 DECLARE
     seed RECORD;
     matches INTEGER;
+    base_order INTEGER;
 BEGIN
+    SELECT COALESCE(MAX(display_order), 0) INTO base_order FROM page_templates;
     FOR seed IN
         SELECT * FROM (VALUES
-            ('study-planner-landscape', '1.0.0', '스터디 플래너', 'STUDY', 'LANDSCAPE', 1024, 768, '{"width":1024,"height":768,"paperAppearance":{"backgroundColor":"#FFFFFF","layoutColor":"#292929"},"blank":false}'::jsonb, 288),
-            ('study-planner-portrait', '1.0.0', '스터디 플래너', 'STUDY', 'PORTRAIT', 768, 1024, '{"width":768,"height":1024,"paperAppearance":{"backgroundColor":"#FFFFFF","layoutColor":"#292929"},"blank":false}'::jsonb, 289),
-            ('day-planner-landscape', '1.0.0', '데일리 플래너', 'DAY', 'LANDSCAPE', 1024, 768, '{"width":1024,"height":768,"paperAppearance":{"backgroundColor":"#FFFFFF","layoutColor":"#292929"},"blank":false}'::jsonb, 290),
-            ('day-planner-portrait', '1.0.0', '데일리 플래너', 'DAY', 'PORTRAIT', 768, 1024, '{"width":768,"height":1024,"paperAppearance":{"backgroundColor":"#FFFFFF","layoutColor":"#292929"},"blank":false}'::jsonb, 291)
-        ) AS data(code, template_version, name, category, orientation, width, height, config, display_order)
+            ('study-planner-landscape', '1.0.0', '스터디 플래너', 'STUDY', 'LANDSCAPE', 1024, 768, '{"width":1024,"height":768,"paperAppearance":{"backgroundColor":"#FFFFFF","layoutColor":"#292929"},"blank":false}'::jsonb, 1),
+            ('study-planner-portrait', '1.0.0', '스터디 플래너', 'STUDY', 'PORTRAIT', 768, 1024, '{"width":768,"height":1024,"paperAppearance":{"backgroundColor":"#FFFFFF","layoutColor":"#292929"},"blank":false}'::jsonb, 2),
+            ('day-planner-landscape', '1.0.0', '데일리 플래너', 'DAY', 'LANDSCAPE', 1024, 768, '{"width":1024,"height":768,"paperAppearance":{"backgroundColor":"#FFFFFF","layoutColor":"#292929"},"blank":false}'::jsonb, 3),
+            ('day-planner-portrait', '1.0.0', '데일리 플래너', 'DAY', 'PORTRAIT', 768, 1024, '{"width":768,"height":1024,"paperAppearance":{"backgroundColor":"#FFFFFF","layoutColor":"#292929"},"blank":false}'::jsonb, 4)
+        ) AS data(code, template_version, name, category, orientation, width, height, config, display_order_offset)
     LOOP
         SELECT count(*) INTO matches
         FROM page_templates
@@ -38,7 +40,7 @@ BEGIN
         END IF;
 
         INSERT INTO page_templates(code, template_version, name, category, orientation, canvas_width, canvas_height, default_config, display_order)
-        SELECT seed.code, seed.template_version, seed.name, seed.category, seed.orientation, seed.width, seed.height, seed.config, seed.display_order
+        SELECT seed.code, seed.template_version, seed.name, seed.category, seed.orientation, seed.width, seed.height, seed.config, base_order + seed.display_order_offset
         WHERE matches = 0;
     END LOOP;
 END

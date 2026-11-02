@@ -1,3 +1,5 @@
+-- Deployment order: release the frontend containing studyPlanner.js, dayPlanner.js and serverCatalog.js first.
+-- These planner IDs render as runtime SVGs; no separate backend SVG asset is required.
 -- V25 deployment preflight: this must return no rows before applying V25.
 WITH replacements(old_code, new_code) AS (
     VALUES

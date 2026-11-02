@@ -1,5 +1,7 @@
 import { catalog } from './data.js'
 import { UNDATED_TEMPLATES } from './undated.js'
+import { STUDY_PLANNER_TEMPLATES } from './studyPlanner.js'
+import { DAY_PLANNER_TEMPLATES } from './dayPlanner.js'
 
 // 서버 PK는 노출·추정하지 않는다. 기존 에셋 ID와 버전이 안정적인 서버 코드/버전이다.
 const paper = Object.freeze({ backgroundColor: '#FFFFFF', layoutColor: '#292929' })
@@ -16,6 +18,8 @@ const entry = (asset, blank = false) => {
 export const SERVER_TEMPLATE_CATALOG = Object.freeze([
   ...catalog.assets.map(asset => entry(asset)),
   ...UNDATED_TEMPLATES.map(asset => entry(asset)),
+  ...STUDY_PLANNER_TEMPLATES.map(asset => entry(asset)),
+  ...DAY_PLANNER_TEMPLATES.map(asset => entry(asset)),
   ...['landscape', 'portrait'].map(orientation => entry({ id: `dio-blank-${orientation}`,
     templateVersion: catalog.templateVersion, name: `빈 속지 · ${orientation === 'portrait' ? '세로' : '가로'}`, orientation }, true)),
 ])

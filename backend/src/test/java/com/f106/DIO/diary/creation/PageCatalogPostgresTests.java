@@ -204,6 +204,7 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select name from page_templates where template_id=987",String.class)).isEqualTo("custom name");
         assertThat(jdbc.queryForObject("select default_config->'paperAppearance'->>'backgroundColor' from page_templates where template_id=987",String.class)).isEqualTo("#123456");
         assertThat(jdbc.queryForObject("select display_order from page_templates where template_id=987",Integer.class)).isEqualTo(999);
+        assertThat(jdbc.queryForObject("select display_order from page_templates where code='study-planner-landscape'",Integer.class)).isEqualTo(1000);
         assertThat(jdbc.queryForObject("select canvas_width from pages where page_id=?",Integer.class,page)).isEqualTo(1280);
         assertThat(jdbc.queryForObject("select template_config->>'legacy' from pages where page_id=?",String.class,page)).isEqualTo("true");
         try(var stream=getClass().getResourceAsStream("/db/migration/V9__seed_page_template_catalog.sql")) {

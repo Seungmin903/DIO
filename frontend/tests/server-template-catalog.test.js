@@ -7,10 +7,14 @@ import { getTemplate } from '../src/editor/templates/catalog.js'
 import { SERVER_TEMPLATE_CATALOG, serverTemplateReference, localTemplateReference, toServerInitialPageSelections } from '../src/editor/templates/serverCatalog.js'
 import { catalogContract, seedMigration, catalogResource, migrationResource } from '../scripts/generate-page-template-catalog.mjs'
 
-test('전체 속지 276개·만년형 10개·방향별 빈 속지 2개가 독립된 서버 코드로 매핑된다', () => {
-  assert.equal(SERVER_TEMPLATE_CATALOG.length, 288)
-  assert.equal(new Set(SERVER_TEMPLATE_CATALOG.map(t => `${t.templateCode}\0${t.templateVersion}`)).size, 288)
-  for (const asset of [...catalog.assets, ...UNDATED_TEMPLATES]) {
+test('전체 속지·플래너·빈 속지가 독립된 서버 코드로 매핑된다', () => {
+  const plannerAssets = ['landscape', 'portrait'].flatMap(orientation => [
+    { id: `study-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'study' },
+    { id: `day-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'day' },
+  ])
+  assert.equal(SERVER_TEMPLATE_CATALOG.length, 292)
+  assert.equal(new Set(SERVER_TEMPLATE_CATALOG.map(t => `${t.templateCode}\0${t.templateVersion}`)).size, 292)
+  for (const asset of [...catalog.assets, ...UNDATED_TEMPLATES, ...plannerAssets]) {
     const before = structuredClone(asset)
     const ref = serverTemplateReference(asset.id, asset.templateVersion, asset.orientation)
     assert.equal(ref.templateCode, asset.id)

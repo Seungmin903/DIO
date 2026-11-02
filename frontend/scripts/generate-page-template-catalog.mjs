@@ -2,14 +2,17 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { SERVER_TEMPLATE_CATALOG, toServerInitialPageSelections } from '../src/editor/templates/serverCatalog.js'
 
+// V9 is a released, immutable seed migration. Later planner templates are registered by V25.
+const V9_TEMPLATE_CATALOG = SERVER_TEMPLATE_CATALOG.filter(row => !/^(study|day)-planner-(landscape|portrait)$/.test(row.templateCode))
+
 export function catalogContract() {
-  return { schemaVersion: 1, templates: SERVER_TEMPLATE_CATALOG,
-    initialPages: toServerInitialPageSelections(SERVER_TEMPLATE_CATALOG.map(row => ({ templateId: row.backgroundAssetId,
+  return { schemaVersion: 1, templates: V9_TEMPLATE_CATALOG,
+    initialPages: toServerInitialPageSelections(V9_TEMPLATE_CATALOG.map(row => ({ templateId: row.backgroundAssetId,
       templateCode: row.templateCode, templateVersion: row.templateVersion, templateConfig: row.defaultConfig }))) }
 }
 const sql = value => `'${String(value).replaceAll("'", "''")}'`
 export function seedMigration() {
-  const values = SERVER_TEMPLATE_CATALOG.map((row, index) => `        (${[
+  const values = V9_TEMPLATE_CATALOG.map((row, index) => `        (${[
     sql(row.templateCode), sql(row.templateVersion), sql(row.name), sql(row.category), sql(row.orientation),
     row.canvasWidth, row.canvasHeight, sql(JSON.stringify(row.defaultConfig)) + '::jsonb', index,
   ].join(', ')})`).join(',\n')
