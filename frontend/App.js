@@ -14,8 +14,6 @@ import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { guestProfile } from './src/auth/guestProfileDevice';
 import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
-import { DEV_ACCESS, clearMockLibrary } from './src/dev/devAccess';
-import StartModeScreen from './src/dev/StartModeScreen';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
@@ -70,7 +68,8 @@ const PREFETCH_DELAY_MS = 400;
 const EDITOR_PREPARE_LIMIT_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // 시작 화면(로고)은 보관함이 다 그려질 때까지 둔다. 첫 렌더에 바로 내려가면 글꼴 · 게스트 · 보관함을 읽는 동안 빈 화면이 보인다.
-// 네이티브 시작 화면을 붙잡고, 같은 모양의 BootSplash 도 덮어 둔다(개발 빌드는 네이티브 쪽이 JS 실행 전에 내려간다).
+// 로고는 JS 시작 화면(BootSplash, 벡터)이 그린다. 네이티브 시작 화면은 BootSplash 가 처음 그려지면 바로 내린다
+// (안드로이드는 네이티브 시작 화면에 로고 없이 바탕색만 둔다: plugins/withSplashWindowBackground.js).
 // 무엇이 실패해도 로고에 갇히지 않도록 SPLASH_LIMIT_MS 뒤에는 내린다.
 const SPLASH_LIMIT_MS = 8000;
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -85,43 +84,27 @@ export default function App() {
   const finishBoot = useCallback(() => { setBooting(false); hideSplash(); }, []);
   // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
   const [loginRequest, setLoginRequest] = useState(null);
-  // 개발자 모드인지(src/dev/devAccess). null 이면 아직 고르지 않았다(시작 화면에서 고른다). DEV_ACCESS 가 꺼져 있으면 늘 일반 사용자다.
-  // 개발용 목업 화면(EXPO_PUBLIC_DIARY_SOURCE=mock*)은 세션 없이 그리므로 시작 화면을 띄우지 않는다
+  // 개발용 목업 화면(EXPO_PUBLIC_DIARY_SOURCE=mock*)은 세션 없이 그리므로 게스트로 시작하지 않는다
   const mockSource = __DEV__ && /^mock/.test(process.env.EXPO_PUBLIC_DIARY_SOURCE || '');
-  const [developer, setDeveloper] = useState(DEV_ACCESS && !mockSource ? null : false);
-  // 시작 화면에서 고른 뒤 보관함이 다 그려질 때까지 시작 화면을 그대로 덮어 둔다(로고 화면을 다시 띄우면 로고 자리가 바뀌며 깜박인다)
-  const [starting, setStarting] = useState(false);
   // 게스트는 지난번에 고친 프로필(닉네임 · 한 줄 소개 · 사진)을 이어서 시작한다
   const startSession = async session => setPreviewSession(session?.provider === 'guest' ? await guestProfile.start(session) : session);
   // 로그인 화면 없이 게스트(방문자)로 시작한다. 로그인은 로그인이 필요한 기능을 누를 때만 묻는다(loginGate).
-  // 개발자 모드 게스트는 로그인한 사용자처럼 다 열리고 받은 초대 목업이 들어 있다. 일반 사용자는 목업이 없다.
-  const startGuest = async dev => {
-    await clearMockLibrary().catch(() => {});
-    const session = { mode: 'preview', provider: 'guest', nickname: '방문자', ...(dev ? { developer: true } : {}) };
+  const startGuest = async () => {
+    const session = { mode: 'preview', provider: 'guest', nickname: '방문자' };
     // 지난 프로필을 못 읽어도 빈 화면에 갇히지 않게 기본 게스트로 시작한다
     try { await startSession(session); } catch { setPreviewSession(session); }
   };
-  useEffect(() => { if (developer !== null) startGuest(developer); }, [developer]);
-  const chooseStartMode = dev => {
-    if (starting) return;
-    setStarting(true);
-    setDeveloper(dev);
-    setTimeout(() => setStarting(false), SPLASH_LIMIT_MS);
-  };
-  const sessionReady = useCallback(() => { finishBoot(); setStarting(false); }, [finishBoot]);
-  // 시작 화면을 고르는 동안은 로고를 내린다
-  useEffect(() => { if ((fontsLoaded || fontError) && developer === null) finishBoot(); }, [fontsLoaded, fontError, developer, finishBoot]);
+  useEffect(() => { if (!mockSource) startGuest(); }, []);
   // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
-  // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아가고,
-  // 개발자 모드에서 나가면 시작 화면에서 다시 고른다.
+  // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아간다.
   // 늦게 온 콜백(비밀번호 재설정 완료 등)이 그사이 바뀐 세션을 지우지 않게, 지금 세션이 지우려던 세션일 때만 끝낸다
   const sessionRef = useRef(previewSession);
   sessionRef.current = previewSession;
   const clearSession = () => {
     const target = previewSession, current = sessionRef.current;
     if (!(current === target || (current?.accountId && current.accountId === target?.accountId))) return;
-    // 개발자 모드는 세션을 비워 시작 화면으로, 일반 사용자는 세션을 비우지 않고 게스트 세션으로 바로 바꾼다(그사이 빈 화면이 없다)
-    if (target?.developer) { setPreviewSession(null); setDeveloper(null); } else startGuest(false);
+    // 세션을 비우지 않고 게스트 세션으로 바로 바꾼다(그사이 빈 화면이 없다)
+    startGuest();
   };
   const endSession = async () => {
     try {
@@ -136,6 +119,8 @@ export default function App() {
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
   useEffect(() => { const timer = setTimeout(finishBoot, SPLASH_LIMIT_MS); return () => clearTimeout(timer); }, [finishBoot]);
+  // 첫 화면(BootSplash)이 그려졌으니 네이티브 시작 화면을 내린다. 로고는 BootSplash 에서 한 번만 보인다
+  useEffect(() => { hideSplash(); }, []);
   // 개발용 목업 화면(EXPO_PUBLIC_DIARY_SOURCE=mock*)은 보관함 로딩을 거치지 않으니 글꼴만 준비되면 내린다
   useEffect(() => { if ((fontsLoaded || fontError) && __DEV__ && /^mock/.test(process.env.EXPO_PUBLIC_DIARY_SOURCE || '')) finishBoot(); }, [fontsLoaded, fontError, finishBoot]);
   const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
@@ -151,13 +136,11 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession || !!previewSession.developer} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}` : 'preview'} previewUser={previewSession}
+        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}` : 'preview'} previewUser={previewSession}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
-          onEndPreview={endSession} onClearSession={clearSession} onReady={sessionReady} /></LoginGateProvider> : null
+          onEndPreview={endSession} onClearSession={clearSession} onReady={finishBoot} /></LoginGateProvider> : null
       )}
-      {/* 보관함의 앱 잠금 확인 덮개(zIndex 100)보다 위. 안드로이드는 감싸는 View 를 펼쳐 zIndex 가 같은 층에서 겨룬다 */}
-      {!mockSource && ((developer === null && !previewSession) || starting) && <View style={[StyleSheet.absoluteFill, { zIndex: 200 }]}><StartModeScreen onChoose={chooseStartMode} /></View>}
       {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
@@ -248,8 +231,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       onError: onPushError }).then(cleanup => { if (disposed) cleanup(); else stop = cleanup; }).catch(error => { if (!disposed) onPushError(error); });
     return () => { disposed = true; stop(); };
   }, [previewUser.mode, previewUser.userId, sharing.runtime]);
-  // 공유는 로그인한 사용자(개발자 모드 포함)만 쓴다. 게스트는 편집 화면에 함께하는 사람을 띄우지 않고, 공유를 누르면 로그인 안내부터 본다.
-  const signedIn = previewUser.mode === 'authenticated' || !!previewUser.developer;
+  // 공유는 로그인한 사용자만 쓴다. 게스트는 편집 화면에 함께하는 사람을 띄우지 않고, 공유를 누르면 로그인 안내부터 본다.
+  const signedIn = previewUser.mode === 'authenticated';
   const loginGate = useLoginGate();
   const shareDiary = useCallback(diary => { if (diary) loginGate('다이어리 공유', () => setSharingRequest({ diary })); }, [loginGate]);
   const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
