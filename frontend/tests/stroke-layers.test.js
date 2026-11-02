@@ -20,7 +20,7 @@ function loadComponent(file, platform = 'ios', cacheOverride = null) {
   const load = id => {
     if (id === 'react') return {
       memo: (component, compare) => Object.assign(component, { compare }),
-      useRef: value => refs[cursor++] ??= { current: value },
+      useRef: value => refs[cursor++] ??= { current: value }, useLayoutEffect: () => {},
       createContext: () => ({}), useContext: context => context === cacheContext ? cacheOverride : ({ moving: false, visible: null }),
     }
     if (id === 'react-native') return { Platform: { OS: platform }, PixelRatio: { get: () => 2 }, View: 'view', StyleSheet: { create: value => value } }
@@ -60,17 +60,37 @@ test('완성 획 층은 네이티브 캐시와 별도 원점을 사용하며 터
   assert.equal(fallback.props.children.props.children.length, objects.length)
 })
 
-test('필기에서만 캐시를 사용하고 일반 표시·선택 조작·내보내기는 원본 표시를 유지한다', () => {
+test('네이티브 페이지를 단계별로 표시해도 이미 완성된 획 묶음을 재사용한다', () => {
+  const component = loadComponent('CompletedStrokeLayer')
+  const more = Array.from({ length: 4 }, (_, i) => createStroke([{ x: 15, y: 25 }, { x: 210, y: 60 }], { id: `n${i}`, kind: 'pen' }))
+  const options = { width: 1024, height: 768, zoom: 1, renderObject: () => null }
+  const first = component.render({ ...options, objects })
+  const later = component.render({ ...options, objects: [...objects, ...more] })
+  assert.equal(later[0].props.batch, first[0].props.batch)
+  assert.deepEqual(later.flatMap(layer => layer.props.batch.objects), [...objects, ...more])
+})
+
+test('네이티브 선택 정지 표시는 획 캐시를 유지하고 자르기·이동·일반 표시는 원본을 사용한다', () => {
   const component = loadComponent('StaticPage')
   const drawing = options => component.render({ page, zoom: 1, ...options }).props.children[1].props.children
   assert.equal(drawing({ cacheStrokes: true }).type, './CompletedStrokeLayer')
   for (const options of [{}, { cacheStrokes: false }, { cacheStrokes: true, cropId: 'photo' },
-    { cacheStrokes: true, fadeIds: ['s0'] }, { cacheStrokes: true, stillIds: ['s0'] }]) {
+    { cacheStrokes: true, fadeIds: ['s0'] }]) {
     const direct = drawing(options)
     assert.equal(direct.length, 4)
     assert.equal(direct[0].type, './PageObject')
     assert.equal(direct[0].props.object, objects[0])
   }
+  const gif = { id: 'gif', type: 'sticker', x: 0, y: 0, w: 10, h: 10 }
+  const mixedPage = { ...page, objects: [...objects, gif] }
+  const selection = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, stillIds: ['gif'] }).props.children[1].props.children
+  assert.equal(selection.type, './CompletedStrokeLayer')
+  assert.equal(selection.props.renderObject(gif).props.still, true)
+  const movingPhoto = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['gif'] }).props.children[1].props.children
+  assert.equal(movingPhoto.type, './CompletedStrokeLayer')
+  assert.equal(movingPhoto.props.renderObject(gif).props.opacity, 0.5)
+  const movingStroke = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['s0'] }).props.children[1].props.children
+  assert.equal(movingStroke[0].props.opacity, 0.5)
   assert.equal(component.compare({ page, zoom: 1, cacheStrokes: false }, { page, zoom: 1, cacheStrokes: true }), false)
 })
 
@@ -82,7 +102,7 @@ test('네이티브 도구 전환은 필기 레이어를 유지하고 선택 이�
     assert.equal(draw(tool).type, './CompletedStrokeLayer', tool)
   }
   assert.equal(draw('select', { fadeIds: ['s0'] })[0].type, './PageObject')
-  assert.equal(draw('lasso', { stillIds: ['s0'] })[0].type, './PageObject')
+  assert.equal(draw('lasso', { stillIds: ['s0'] }).type, './CompletedStrokeLayer')
   assert.equal(planner.shouldCacheCompletedStrokes('ios', true, 'pen'), false)
   assert.equal(planner.shouldCacheCompletedStrokes('web', false, 'select'), false)
 })

@@ -1,6 +1,6 @@
 import PageBulkDelete from '../controls/PageBulkDelete'
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { FlatList, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { bubble, colors, radius } from '../../../shared/theme'
 import { pageSize } from '../../utils/pageGeometry.js'
 import { usePan } from '../../hooks/usePan'
@@ -32,14 +32,15 @@ export const PAGE_LIST_WIDTH = 176
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onSettings, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null }) {
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onSettings, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null, thumbnailWork = null }) {
+  const openingMeasurement = useRef(qaMeasurement).current
   useLayoutEffect(() => {
-    qaMeasurement?.emit('panel-layout')
-    if (!qaMeasurement) return
+    openingMeasurement?.emit('panel-layout')
+    if (!openingMeasurement) return
     let second
-    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => qaMeasurement.emit('panel-frame-opportunity')) })
-    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second) }
-  }, [qaMeasurement])
+    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => openingMeasurement.emit('panel-frame-opportunity')) })
+    return () => { cancelAnimationFrame(first); if (second != null) cancelAnimationFrame(second) }
+  }, [openingMeasurement])
   const [drag, setDrag] = useState(null) // { id, from, dy, group } — 끌어서 옮기는 중
   // 고른 페이지들. 평소에는 지금 페이지 하나이고, 길게 눌러 여러 개를 고른다.
   const [picked, setPicked] = useState([currentId])
@@ -62,6 +63,14 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   const [panelHeight, setPanelHeight] = useState(0)
   // 썸네일 속지(80KB 안팎 SVG)는 편집 화면 속지가 먼저 그려지도록 잠시 뒤에 그린다.
   // InteractionManager는 편집기의 열린 제스처 핸들 때문에 끝내 실행되지 않을 수 있어 타이머를 쓴다.
+  // 네이티브에서는 무거운 페이지 요소를 그리기 전에 패널 틀을 먼저 표시한다.
+  const [thumbContentReady, setThumbContentReady] = useState(Platform.OS === 'web')
+  useEffect(() => {
+    if (Platform.OS === 'web') return undefined
+    let second
+    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => setThumbContentReady(true)) })
+    return () => { cancelAnimationFrame(first); if (second != null) cancelAnimationFrame(second) }
+  }, [])
   const [thumbBackgrounds, setThumbBackgrounds] = useState(false)
   useEffect(() => {
     const timer = setTimeout(() => setThumbBackgrounds(true), THUMB_BACKGROUND_DELAY_MS)
@@ -176,7 +185,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   const menuTop = Math.max(8, Math.min(rawMenuTop, Math.max(8, panelHeight - menuHeight - 8)))
 
   return (
-    <View ref={panelRef} collapsable={false} style={styles.panel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
+    <View ref={panelRef} collapsable={false} style={styles.panel} onLayout={(event) => { openingMeasurement?.emit('panel-native-layout'); setPanelHeight(event.nativeEvent.layout.height) }}>
       <View style={styles.header}>
         {/* 여러 개 고르기 중에는 탭 줄이 'N개 선택 · 해제' 로 바뀐다 (같은 높이라 목록이 밀리지 않는다) */}
         {pickMode ? (
@@ -247,6 +256,8 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
             dropLine={drag && !dragging && target === index ? (target < drag.from ? 'before' : 'after') : null}
             cropId={active ? cropId : null}
             showBackground={thumbBackgrounds}
+            showContent={thumbContentReady}
+            thumbnailWork={thumbnailWork}
             readOnly={readOnly}
             menuOpen={!readOnly && menuId === page.id}
             canOpenMenu={!readOnly && !drag && !pickMode}
@@ -340,7 +351,7 @@ function dropIndex(pages, layouts, drag) {
   return clamp(index, 0, pages.length - 1)
 }
 
-const PageItem = memo(function PageItem({ page, index, number, canDrag = true, active, picked = false, carried = false, dragCount = 0, pickMode = false, showBackground, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
+const PageItem = memo(function PageItem({ page, index, number, canDrag = true, active, picked = false, carried = false, dragCount = 0, pickMode = false, showBackground, showContent, thumbnailWork, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
   const { width, height } = pageSize(page)
   // 썸네일 그림은 테두리(1px) 안쪽 크기에 정확히 맞춘다. 넘치면 Android 에서 아래쪽 테두리를 덮었다.
   const thumbZoom = (THUMB_WIDTH - THUMB_BORDER * 2) / width
@@ -390,7 +401,7 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
       >
         {/* 지금 편집 중인 페이지는 움직이는 GIF·자르기 표시까지 편집 화면과 똑같이, 나머지는 첫 장면으로 */}
         <View style={styles.thumbPage} pointerEvents="none">
-          <PageThumbnail page={page} zoom={thumbZoom} still cropId={cropId} showBackground={showBackground} />
+          {showContent && <PageThumbnail page={page} zoom={thumbZoom} still cropId={cropId} showBackground={showBackground} workQueue={thumbnailWork} />}
         </View>
         {/* 선택 테두리는 썸네일 위에 겹쳐 그린다 (썸네일에 아래쪽 선이 가려지던 문제) */}
         {(pickMode ? picked : active) && <View style={styles.activeRing} pointerEvents="none" />}

@@ -1,5 +1,5 @@
 import { memo, useRef } from 'react'
-import { PixelRatio, View } from 'react-native'
+import { PixelRatio, Platform, View } from 'react-native'
 import { createCompletedStrokePlanner } from '../../utils/completedStrokePlan.js'
 import { objectOpacity, TextMeasure } from './ObjectView'
 import PageObject from './PageObject'
@@ -20,7 +20,8 @@ const Batch = memo(function Batch({ batch, zoom, rasterize }) {
 // 원래 레이어 순서대로 연속한 획만 묶는다. 사진·글자·GIF는 캐시에 포함하지 않는다.
 export default function CompletedStrokeLayer({ objects, width, height, zoom, renderObject }) {
   const planner = useRef(null)
-  if (!planner.current) planner.current = createCompletedStrokePlanner()
+  // 네이티브에서 페이지를 나눠 표시할 때 완성된 앞 묶음을 다시 만들지 않는다.
+  if (!planner.current) planner.current = createCompletedStrokePlanner({ preserveBatches: Platform.OS !== 'web' })
   return planner.current(objects, { width, height, zoom, pixelRatio: PixelRatio.get() }).map(layer => layer.batch
     ? <Batch key={`ink-${layer.batch.objects[0].id}`} batch={layer.batch} zoom={zoom} rasterize={layer.rasterize} />
     : renderObject(layer.object))

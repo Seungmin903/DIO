@@ -22,6 +22,7 @@ import SlotAddButtons from './SlotAddButtons'
 import FrameTextEditor, { frameTextAt } from './FrameTextEditor'
 import LassoOutline from './LassoOutline'
 import StaticPage from './StaticPage'
+import { useProgressiveNativePage } from '../../hooks/useProgressiveNativePage.js'
 import SelectionOverlay from './SelectionOverlay'
 import PenInput from '../PenInput'
 import EraserInput from '../EraserInput'
@@ -67,6 +68,7 @@ const MIN_TARGET_PX = 44
  * - 자르기 중인 사진은 드래그하면 보이는 영역이 움직인다.
  */
 export default function Canvas({
+  qaPageMeasurement = null,
   textCommitRef,
   onReadingLinkStart,
   showBackground = true,
@@ -128,6 +130,19 @@ export default function Canvas({
   readOnly = false,
 }) {
   const drawingSurface = useRef(null)
+  const progressiveNative = Platform.OS === 'ios' && !compact
+  const pageGeneration = useRef({ id: page.id, value: 0 })
+  if (pageGeneration.current.id !== page.id) pageGeneration.current = { id: page.id, value: pageGeneration.current.value + 1 }
+  const generation = pageGeneration.current.value
+  const [readyPage, setReadyPage] = useState(() => ({ id: page.id, generation: 0 }))
+  const pageReady = !progressiveNative || (readyPage.id === page.id && readyPage.generation === generation)
+  const lastPageMeasurement = useRef(null)
+  if (qaPageMeasurement && qaPageMeasurement !== lastPageMeasurement.current) {
+    lastPageMeasurement.current = qaPageMeasurement
+    qaPageMeasurement.emit('canvas-render-start')
+  }
+  useLayoutEffect(() => { qaPageMeasurement?.emit('canvas-layout') }, [page.id, qaPageMeasurement])
+  useLayoutEffect(() => { if (pageReady) qaPageMeasurement?.emit('page-render-ready') }, [page.id, pageReady, qaPageMeasurement])
   const suppressBrowserSelection = Platform.OS === 'web' && !readOnly && !textEditing
     && ['pen', 'highlighter', 'eraser'].includes(activeTool)
   useEffect(() => {
@@ -384,6 +399,8 @@ export default function Canvas({
   return (
     <View
       ref={drawingSurface}
+      pointerEvents={pageReady ? 'auto' : 'none'}
+      accessibilityState={{ busy: !pageReady }}
       accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', eraser: '지우개', text: '텍스트', lasso: '올가미' }[activeTool]} 캔버스`}
       style={[styles.page, suppressBrowserSelection && styles.drawingSurface, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
@@ -395,11 +412,12 @@ export default function Canvas({
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <StaticPage deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />
+        <ProgressiveCanvasDrawing page={drawingPage} enabled={progressiveNative} generation={generation} onReady={setReadyPage} qaPageMeasurement={qaPageMeasurement} deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting || !pageReady ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />
       </View>
+      {!pageReady && <View pointerEvents="none" accessibilityRole="progressbar" accessibilityLabel="페이지 불러오는 중" style={styles.pageLoading}><Text style={styles.pageLoadingText}>페이지 불러오는 중</Text></View>}
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
       {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
-      {!readOnly && linkBadges && <LinkBadges objects={page.objects} zoom={zoom} selectedIds={selectedIds} onSelect={(id) => dispatch({ type: 'select', ids: [id] })} />}
+      {pageReady && !readOnly && linkBadges && <LinkBadges objects={page.objects} zoom={zoom} selectedIds={selectedIds} onSelect={(id) => dispatch({ type: 'select', ids: [id] })} />}
       {!readOnly && activeTool === 'lasso' && !textEditing && (
         <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
           selectedIds={selectedIds} shape={lassoShape} mode={lassoMode} zoom={zoom}
@@ -419,7 +437,7 @@ export default function Canvas({
       <View style={[styles.hitLayer, (activeTool === 'lasso' || textTool) && { zIndex: 1 }]} pointerEvents={canTouch && !outlinePaths ? 'box-none' : 'none'}
         // 틀 글자를 고치다 캔버스를 누르면 입력을 끝낸다 (네이티브는 입력칸 밖을 눌러도 포커스가 남는다)
         onTouchStart={frameTextEdit ? () => { Keyboard.dismiss(); onEditFrameText(null) } : undefined}>
-        {visible.filter((object) => !isBackdrop(object) && (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
+        {pageReady && visible.filter((object) => !isBackdrop(object) && (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
           <CanvasObject
             key={object.id}
             object={object}
@@ -792,6 +810,16 @@ function isDoubleTap(id) {
   return double
 }
 
+// 페이지 내용이 조금씩 준비될 때 Canvas 전체 대신 표시 층만 갱신한다.
+function ProgressiveCanvasDrawing({ page, enabled, generation, onReady, ...props }) {
+  const progress = useProgressiveNativePage(page, enabled)
+  const displayed = useMemo(() => progress.ready ? page : { ...page, objects: page.objects.slice(0, progress.count) }, [page, progress.ready, progress.count])
+  useLayoutEffect(() => {
+    if (enabled && progress.ready) onReady({ id: page.id, generation })
+  }, [page.id, generation, enabled, progress.ready, onReady])
+  return <StaticPage {...props} page={displayed} />
+}
+
 function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onDragging, onEditText, onEditMedia, onEditFrameText, directEdit = false }) {
   const gesture = useRef(null)
   const moveFrame = useRef(null)
@@ -975,6 +1003,8 @@ function panCrop(photo, startCrop, dx, dy, zoom, dispatch) {
 }
 
 const styles = StyleSheet.create({
+  pageLoading: { position: 'absolute', top: 12, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.94)' },
+  pageLoadingText: { fontSize: 12, color: '#4B5563' },
   drawingSurface: Platform.select({ web: {
     userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', WebkitTapHighlightColor: 'transparent',
   }, default: {} }),
