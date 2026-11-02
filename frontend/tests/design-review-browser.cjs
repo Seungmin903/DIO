@@ -54,19 +54,9 @@ const server = http.createServer((req, res) => {
         assert.deepEqual(violations, [], '읽는 UI 글자에 대비가 낮은 primary를 사용하지 않는다');
       };
       await page.goto(`http://127.0.0.1:${server.address().port}`);
-      if (!process.env.DESIGN_BASELINE) {
-        // 첫 화면은 시작 모드 화면이다. 채운 버튼(일반 사용자로 시작)의 글자 대비를 본다
-        const login = button('일반 사용자로 시작');
-        const contrast = await login.evaluate(node => {
-          const rgb = value => value.match(/[\d.]+/g).slice(0,3).map(Number);
-          const luminance = value => rgb(value).map(v => { v/=255; return v<=.04045?v/12.92:((v+.055)/1.055)**2.4; }).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);
-          const bg=luminance(getComputedStyle(node).backgroundColor), fg=luminance(getComputedStyle(node.lastElementChild).color);
-          return (Math.max(bg,fg)+.05)/(Math.min(bg,fg)+.05);
-        });
-        assert.ok(contrast>=4.5, `CTA contrast ${contrast}`);
-      }
-      await page.screenshot({path:path.join(out,`start-${width}.png`)});
+      // 첫 화면은 고르는 화면 없이 바로 보관함이다(개발자 모드 시작 화면은 뺐다)
       await button('배치 검증 열기').waitFor();
+      await page.screenshot({path:path.join(out,`start-${width}.png`)});
       const phone = Math.min(width, height) < 600;
       if (!phone) {
         const rail = page.getByLabel('메뉴 펼치기', { exact: true }).locator('..').locator('..');
