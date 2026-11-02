@@ -5,6 +5,8 @@ import {createRequire} from 'node:module'
 import * as mediaModule from '../src/collaboration/canvasMedia.js'
 import * as apiModule from '../src/collaboration/canvasApi.js'
 import * as pagesModule from '../src/collaboration/serverPages.js'
+import * as canvasFetchModule from '../src/collaboration/canvasFetch.js'
+import * as pdfSourceRemoteModule from '../src/editor/services/pdfSourceRemote.js'
 import * as sessionModule from '../src/collaboration/canvasSession.js'
 import * as serverPaperFontModule from '../src/diary/services/serverPaperFont.js'
 import * as memberStorage from '../src/diary/services/memberStorage.js'
@@ -17,7 +19,8 @@ function fixture(failure=null){
  let cursor=0,dirty=true,output,closed=false,key='session',sequence=0,rows=[],serverPages=[],serverOrder=[],deleted=new Set(),onChange,onReady,onPagesChanged
  let state=createInitialState({id:diaryId,pages:[{id:pageId,objects:[]}]}),version=0
  const slots=[],effects=[],cleanups=[],disk=new Map(),requests=[]
- const orderedPages=()=>{const pages=[{pageId,diaryId},...serverPages].filter(p=>!deleted.has(p.pageId));const order=[...serverOrder,...pages.map(p=>p.pageId).filter(id=>!serverOrder.includes(id))];return pages.sort((a,b)=>order.indexOf(a.pageId)-order.indexOf(b.pageId))}
+ const basePage={pageId,diaryId,title:'기존 페이지',canvasWidth:1188,canvasHeight:840,templateId:null,templateConfig:{blank:true},gridVisible:false,gridColor:'#DCE5F1'}
+ const orderedPages=()=>{const pages=[basePage,...serverPages].filter(p=>!deleted.has(p.pageId));const order=[...serverOrder,...pages.map(p=>p.pageId).filter(id=>!serverOrder.includes(id))];return pages.sort((a,b)=>order.indexOf(a.pageId)-order.indexOf(b.pageId))}
  const transport=async r=>{requests.push(structuredClone(r));if(failure)throw failure;if(r.path===`/diaries/${diaryId}/pages`){
     if(r.method==='POST'){
       const p={pageId:'70000000-0000-4000-8000-000000000001',diaryId,...r.body};serverPages.push(p);return {page:p}
@@ -31,10 +34,11 @@ function fixture(failure=null){
     serverPages.push(p);return {page:p}
    }
    if(r.path.endsWith('/history/me'))return {items:[],nextUndo:null,nextRedo:null}
+   if(r.method==='PATCH'&&r.path===`/pages/${pageId}`){Object.assign(basePage,r.body);return {page:{...basePage}}}
    if(!r.method){
     const id=r.path.split('/')[2],p=serverPages.find(p=>p.pageId===id)
     if(deleted.has(id)||(!p&&id!==pageId))throw Object.assign(Error('missing'),{status:404,code:'PAGE_NOT_FOUND'})
-    return {page:p??{pageId,diaryId},elements:structuredClone(p?.elements??(id===pageId?rows:[]))}
+    return {page:p??basePage,elements:structuredClone(p?.elements??(id===pageId?rows:[]))}
    }
    for(const e of r.body.changes.creates??[])rows.push({...e,pageId,version:++version})
    for(const e of r.body.changes.updates??[])rows=rows.map(old=>old.elementId===e.elementId?{...old,...e,version:++version}:old)
@@ -48,6 +52,8 @@ function fixture(failure=null){
   if(name.endsWith('/memberTransport.js'))return {createAuthenticatedMemberTransport:()=>transport}
   if(name.endsWith('/memberStorage.js'))return memberStorage
   if(name.endsWith('/serverPages.js'))return pagesModule
+  if(name.endsWith('/canvasFetch.js'))return canvasFetchModule
+  if(name.endsWith('/pdfSourceRemote.js'))return pdfSourceRemoteModule
   if(name.endsWith('/canvasMedia.js'))return mediaModule
   if(name.endsWith('/canvasMediaFiles'))return {canvasMediaFiles:{cached:async()=>true}}
   if(name.endsWith('/canvasApi.js'))return apiModule
@@ -60,12 +66,42 @@ function fixture(failure=null){
  const module={exports:{}};new Function('require','module','exports',code)(load,module,module.exports)
  const dispatch=action=>{state=collaborationReducer(editorReducer,state,{collaborationId:`50000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`,...action});dirty=true}
  const render=()=>{cursor=0;dirty=false;output=module.exports.useMemberCanvasCollaboration({diary:{id:diaryId,source:'member-api',memberAccountId:'1'},page:state.doc.pages.find(p=>p.id===state.pageId)??state.doc.pages[0],state,loaded:true,readOnly:false,dispatch});effects.splice(0).forEach(f=>f())}
- return {state:()=>state,edit:dispatch,addPage:value=>output.addPage(value),copyPage:id=>output.copyPage(id),removePages:ids=>output.removePages(ids),movePage:(id,toIndex)=>output.movePage(id,toIndex),movePages:(ids,anchorId,place)=>output.movePages(ids,anchorId,place),remoteOrder:ids=>{serverOrder=ids;onPagesChanged()},remoteDelete:id=>{deleted.add(id);onPagesChanged()},status:()=>output.status,errorMessage:()=>output.errorMessage,requests,
+ return {state:()=>state,edit:dispatch,updatePage:(id,body)=>output.updatePage(id,body),loadPageSettings:id=>output.loadPageSettings(id),remoteSettings:body=>{Object.assign(basePage,body);onPagesChanged()},addPage:value=>output.addPage(value),copyPage:id=>output.copyPage(id),removePages:ids=>output.removePages(ids),movePage:(id,toIndex)=>output.movePage(id,toIndex),movePages:(ids,anchorId,place)=>output.movePages(ids,anchorId,place),remoteOrder:ids=>{serverOrder=ids;onPagesChanged()},remoteDelete:id=>{deleted.add(id);onPagesChanged()},status:()=>output.status,errorMessage:()=>output.errorMessage,requests,
    async settle(){for(let i=0;i<30;i++){if(dirty&&!closed)render();await new Promise(r=>setTimeout(r,5))}},
    remoteAdd(object){rows.push({...apiModule.canvasContent([object])[0],pageId,version:++version});onChange({pageId,clientOperationId:'other'})},
    remote(text){rows[0]={...rows[0],version:++version,propertiesJson:{text}};onChange({pageId,clientOperationId:'other'})},
    close(){closed=true;cleanups.forEach(fn=>fn?.())}}
 }
+test('현재 편집기 hook은 알 수 없는 기존 속지의 설정도 불러오고 저장한다',async()=>{
+ const app=fixture()
+ try{
+  await app.settle()
+  app.remoteSettings({templateCode:'new-template',templateVersion:'999',templateId:77});await app.settle()
+  const before=app.state().doc.pages[0]
+  const loaded=await app.loadPageSettings(pageId);assert.equal(loaded.title,'기존 페이지')
+  await app.updatePage(pageId,{title:'새 속지에서도 저장',gridVisible:true});await app.settle()
+  const after=app.state().doc.pages[0]
+  assert.equal(after.title,'새 속지에서도 저장');assert.equal(after.gridVisible,true)
+  assert.equal(after.objects,before.objects);assert.equal(after.backgroundAssetId,before.backgroundAssetId)
+ }finally{app.close()}
+})
+
+test('현재 편집기 hook에서 설정을 저장하고 원격 설정을 재조회해도 요소를 보존한다',async()=>{
+ const app=fixture()
+ try{
+  await app.settle()
+  const loaded=await app.loadPageSettings(pageId);assert.equal(loaded.title,'기존 페이지')
+  const before=app.state().doc.pages[0].objects
+  await app.updatePage(pageId,{title:'저장한 제목',gridVisible:true});await app.settle()
+  assert.equal(app.state().doc.pages[0].title,'저장한 제목')
+  assert.equal(app.state().doc.pages[0].gridVisible,true)
+  assert.deepEqual(app.state().doc.pages[0].objects,before)
+  assert.ok(app.requests.some(r=>r.method==='PATCH'&&r.path===`/pages/${pageId}`&&r.body.title==='저장한 제목'))
+  app.remoteSettings({title:'다른 참여자 제목',gridVisible:false});await app.settle()
+  assert.equal(app.state().doc.pages[0].title,'다른 참여자 제목')
+  assert.equal(app.state().doc.pages[0].gridVisible,false)
+ }finally{app.close()}
+})
 test('현재 편집기 hook은 완료한 텍스트 행동마다 서버 작업을 전송하고 원격 변경을 가져온다',async()=>{
  const app=fixture()
  try{
