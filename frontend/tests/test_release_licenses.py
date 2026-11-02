@@ -15,6 +15,25 @@ spec=importlib.util.spec_from_file_location('prepare',ROOT/'scripts/prepare-rele
 prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
 
 class ReleaseLicenses(unittest.TestCase):
+    def test_google_sdk_terms_and_bundled_notices_are_kept_separate(self):
+        coordinate='com.google.android.gms:play-services-cloud-messaging:17.2.0'
+        with tempfile.TemporaryDirectory() as temp:
+            pom=Path(temp,'artifact.pom');aar=Path(temp,'artifact.aar')
+            pom.write_text('<project><licenses><license><name>Android Software Development Kit License</name><url>https://developer.android.com/studio/terms.html</url></license></licenses></project>',encoding='utf-8')
+            with zipfile.ZipFile(aar,'w') as archive:
+                archive.writestr('third_party_licenses.json',json.dumps({'part':{'start':0,'length':6}}))
+                archive.writestr('third_party_licenses.txt','notice')
+            texts=prepare.google_sdk_notices(coordinate,aar,pom)
+            self.assertEqual(texts[1][1],'notice')
+            self.assertIn('separate',texts[0][1])
+            with self.assertRaisesRegex(ValueError,'Unreviewed'):
+                prepare.google_sdk_notices('com.google.android.gms:play-services-cloud-messaging:99',aar,pom)
+            with zipfile.ZipFile(aar,'w') as archive:
+                archive.writestr('third_party_licenses.json',json.dumps({'part':{'start':0,'length':99}}))
+                archive.writestr('third_party_licenses.txt','notice')
+            with self.assertRaisesRegex(ValueError,'Invalid Google notice index'):
+                prepare.google_sdk_notices(coordinate,aar,pom)
+
     def test_indexed_source_map_sections_are_all_audited(self):
         data={'sections':[{'map':{'sources':['node_modules/first/a.js']}},{'map':{'sections':[{'map':{'sourceRoot':'src','sources':['node_modules/second/b.js']}}]}}]}
         self.assertEqual(list(prepare.source_paths(data)),['node_modules/first/a.js','src/node_modules/second/b.js'])

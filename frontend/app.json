@@ -62,7 +62,8 @@
       "./plugins/withSplashWindowBackground",
       "expo-asset",
       "expo-font",
-      ["expo-status-bar", { "hidden": true }]
+      ["expo-status-bar", { "hidden": true }],
+      "expo-notifications"
     ],
     "extra": {
       "eas": {
