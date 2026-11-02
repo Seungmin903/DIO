@@ -18,9 +18,11 @@ test('iPad에서 닫는 동안 이전 목록을 유지하고 접근을 막으며
   const before = { id: 'before' }, updated = { id: 'updated' }
   const opened = render({ enabled: true, hidden: false, children: before })
   assert.equal(opened.props.children, before)
+  assert.deepEqual(opened.props.style, { alignSelf: 'stretch', flexShrink: 0 })
   const closing = render({ enabled: true, hidden: true, children: updated })
   assert.equal(closing.props.children, before)
   assert.equal(closing.props.pointerEvents, 'none')
+  assert.deepEqual(closing.props.style, { alignSelf: 'stretch', flexShrink: 0, opacity: 0 })
   assert.equal(closing.props.accessibilityElementsHidden, true)
   const reopened = render({ enabled: true, hidden: false, children: updated })
   assert.equal(reopened.props.children, updated)

@@ -6,7 +6,8 @@ export default function PagePanelVisibility({ enabled, hidden, children }) {
   const lastVisible = useRef(children)
   if (!hidden) lastVisible.current = children
   if (!enabled) return children
-  return <View style={hidden ? { opacity: 0 } : undefined} pointerEvents={hidden ? 'none' : 'auto'}
+  // 부모가 가로 배치이므로 세로만 채운다. flex: 1은 작업창의 가로 공간까지 차지한다.
+  return <View style={{ alignSelf: 'stretch', flexShrink: 0, ...(hidden && { opacity: 0 }) }} pointerEvents={hidden ? 'none' : 'auto'}
     accessibilityElementsHidden={hidden} importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}>
     {hidden ? lastVisible.current : children}
   </View>
