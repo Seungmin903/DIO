@@ -7,8 +7,8 @@ export function authBaseUrl(value) {
   return base.endsWith('/api') ? `${base}/v1` : `${base}/api/v1`;
 }
 
-// Tokens stay in memory. Never save passwords or tokens in AsyncStorage.
-// Only the dev-server Basic header may persist, through the secure store and only when dev access is allowed.
+// Tokens and the optional development-server Basic header stay in memory.
+// Never save passwords or tokens in AsyncStorage.
 export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
