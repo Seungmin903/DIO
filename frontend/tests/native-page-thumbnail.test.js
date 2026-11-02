@@ -67,3 +67,22 @@ test('네이티브 썸네일은 요소 순서를 유지해 나눠 그리고 변�
   assert.deepEqual(seen, ['a', 'b'])
   assert.equal(timers.size, 0)
 })
+
+test('취소된 썸네일 작업은 시간 슬롯을 차지하지 않고 정리 후 큐를 재사용한다', async () => {
+  const { createThumbnailWorkQueue } = await import('../src/editor/utils/thumbnailWorkQueue.js')
+  let nextId = 0
+  const timers = new Map(), seen = []
+  const queue = createThumbnailWorkQueue({ schedule: fn => { const id = ++nextId; timers.set(id, fn); return id }, cancel: id => timers.delete(id) })
+  const cancelFirst = queue.enqueue(() => seen.push('cancelled'))
+  queue.enqueue(() => seen.push('next'))
+  cancelFirst()
+  assert.equal(timers.size, 1)
+  let [id, fn] = timers.entries().next().value; timers.delete(id); fn()
+  assert.deepEqual(seen, ['next'])
+  queue.enqueue(() => seen.push('cleared'))
+  queue.clear()
+  assert.equal(timers.size, 0)
+  queue.enqueue(() => seen.push('reused'))
+  ;[id, fn] = timers.entries().next().value; timers.delete(id); fn()
+  assert.deepEqual(seen, ['next', 'reused'])
+})

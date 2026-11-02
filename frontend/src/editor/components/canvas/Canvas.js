@@ -23,6 +23,7 @@ import FrameTextEditor, { frameTextAt } from './FrameTextEditor'
 import LassoOutline from './LassoOutline'
 import StaticPage from './StaticPage'
 import { useProgressiveNativePage } from '../../hooks/useProgressiveNativePage.js'
+import { usePageReadiness } from '../../hooks/usePageReadiness.js'
 import SelectionOverlay from './SelectionOverlay'
 import PenInput from '../PenInput'
 import EraserInput from '../EraserInput'
@@ -131,11 +132,7 @@ export default function Canvas({
 }) {
   const drawingSurface = useRef(null)
   const progressiveNative = Platform.OS === 'ios' && !compact
-  const pageGeneration = useRef({ id: page.id, value: 0 })
-  if (pageGeneration.current.id !== page.id) pageGeneration.current = { id: page.id, value: pageGeneration.current.value + 1 }
-  const generation = pageGeneration.current.value
-  const [readyPage, setReadyPage] = useState(() => ({ id: page.id, generation: 0 }))
-  const pageReady = !progressiveNative || (readyPage.id === page.id && readyPage.generation === generation)
+  const { generation, pageReady, setReadyPage } = usePageReadiness(page.id, progressiveNative)
   useLayoutEffect(() => { qaPageMeasurement?.emit('canvas-layout') }, [page.id, qaPageMeasurement])
   useLayoutEffect(() => { if (pageReady) qaPageMeasurement?.emit('page-render-ready') }, [page.id, pageReady, qaPageMeasurement])
   const suppressBrowserSelection = Platform.OS === 'web' && !readOnly && !textEditing

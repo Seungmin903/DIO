@@ -218,7 +218,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   useEffect(() => { if (settingsPageId && !state.doc.pages.some(p => p.id === settingsPageId)) setSettingsPageId(null) }, [settingsPageId, state.doc.pages])
   const thumbnailWork = useRef(null)
   if (!thumbnailWork.current) thumbnailWork.current = createThumbnailWorkQueue()
-  useEffect(() => () => thumbnailWork.current?.stop(), [])
+  useEffect(() => () => thumbnailWork.current?.clear(), [])
   const [pagesClosing, setPagesClosing] = useState(false)
   const pageCloseScheduler = useRef(null)
   if (!pageCloseScheduler.current) pageCloseScheduler.current = createPageCloseScheduler()

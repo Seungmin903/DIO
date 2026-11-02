@@ -2,6 +2,7 @@
 export function createThumbnailWorkQueue({ schedule = setTimeout, cancel = clearTimeout, delay = 20 } = {}) {
   let pending = [], timer = null, stopped = false
   const pump = () => {
+    while (pending.length && pending[0].cancelled) pending.shift()
     if (stopped || timer !== null || !pending.length) return
     timer = schedule(() => {
       timer = null
@@ -16,8 +17,12 @@ export function createThumbnailWorkQueue({ schedule = setTimeout, cancel = clear
       const task = { run, cancelled: false }
       pending.push(task)
       pump()
-      return () => { task.cancelled = true }
+      return () => {
+        task.cancelled = true
+        if (pending[0] === task && timer !== null) { cancel(timer); timer = null; pump() }
+      }
     },
+    clear() { if (timer !== null) cancel(timer); timer = null; pending = [] },
     stop() { stopped = true; if (timer !== null) cancel(timer); timer = null; pending = [] },
   }
 }
