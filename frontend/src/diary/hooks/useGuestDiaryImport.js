@@ -11,6 +11,7 @@ import { createCanvasMedia, createMediaRequest } from '../../collaboration/canva
 import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
 import { STORAGE_KEYS } from '../../editor/utils/storageContract.js'
 import { createId } from '../../editor/utils/common.js'
+import { notify } from '../../shared/dialogs'
 
 /**
  * 로그인 직후 이 기기의 게스트 다이어리를 회원 보관함으로 가져올지 묻고 가져온다.
@@ -103,7 +104,15 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
       return run(state.failed.map(row => row.diary).filter(Boolean))
     },
     later: () => setState(current => ({ ...current, phase: null })),
-    decline: () => { setState(current => ({ ...current, phase: null })); declineGuestImport(AsyncStorage, accountId).catch(() => {}) },
+    decline: async () => {
+      if (!enabled || !active() || running.current || context.declining) return
+      context.declining = true
+      setState(current => ({ ...current, phase: null }))
+      try { await declineGuestImport(AsyncStorage, accountId) }
+      catch {
+        if (active()) notify('선택을 저장하지 못했어요', '다음 로그인 때 가져오기 안내가 다시 표시될 수 있어요. 기기의 다이어리 원본은 그대로 남아 있어요.')
+      } finally { context.declining = false }
+    },
     close: () => setState(current => ({ ...current, phase: null })),
   }
 }
