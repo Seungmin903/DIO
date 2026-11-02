@@ -67,6 +67,7 @@ if [ "$suite" = diary ] || [ "$suite" = all ]; then
     -e DB_URL=jdbc:postgresql://127.0.0.1:5432/dio_member_ci \
     -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$test_password" \
     -v "$CI_PROJECT_DIR/backend:/workspace/backend" \
+    -v "$CI_PROJECT_DIR/docs:/workspace/docs:ro" \
     -w /workspace/backend eclipse-temurin:17-jdk sh ./gradlew postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon
 
   docker exec "$pg_name" psql -U postgres -d auth_ci -v ON_ERROR_STOP=1 -c 'CREATE DATABASE dio_member_contract_qa' >/dev/null
