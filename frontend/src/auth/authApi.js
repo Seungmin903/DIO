@@ -1,5 +1,5 @@
 import { normalizeEmail, normalizeNickname, nicknameError, passwordError } from './validation.js';
-import { signupTermsVersions } from './signupPolicy.js';
+import { signupAgreements } from './signupPolicy.js';
 import { developmentAuthorization } from './developmentAccess.js';
 
 export function authBaseUrl(value) {
@@ -277,9 +277,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       const isCurrent = () => attempt === revision && draft === currentDraft && verification === currentVerification;
       const body = {
         ...currentDraft, signupToken: currentVerification.token, nickname: normalizeNickname(nickname),
-        agreements: ['service', 'privacy'].map((key) => ({
-          termsType: key.toUpperCase(), termsVersion: signupTermsVersions[key.toUpperCase()], agreed: terms?.[key] === true,
-        })),
+        agreements: signupAgreements(terms),
       };
       signupPending = true;
       let upload;

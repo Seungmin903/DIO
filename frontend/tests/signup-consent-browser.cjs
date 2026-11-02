@@ -12,7 +12,7 @@ const server = http.createServer((req, res) => {
     res.end('<html><body style="margin:0"><div id="root" style="display:flex;height:100vh"></div><script src="/tests/fixtures/auth-screens.entry.bundle?platform=web&dev=false&minify=false&hot=false&lazy=false"></script></body></html>');
     return;
   }
-  const proxy = http.get(`http://127.0.0.1:${metro}${req.url}`, upstream => { res.writeHead(upstream.statusCode, upstream.headers); upstream.pipe(res); });
+  const proxy = http.get(`http://localhost:${metro}${req.url}`, upstream => { res.writeHead(upstream.statusCode, upstream.headers); upstream.pipe(res); });
   proxy.on('error', () => { res.writeHead(502); res.end('Metro unavailable'); });
 });
 (async () => {
@@ -33,7 +33,8 @@ const server = http.createServer((req, res) => {
       assert.equal(await age.getAttribute('aria-checked'), 'false');
       assert.equal(await underage.getAttribute('aria-checked'), 'false');
       assert.equal(await page.getByRole('textbox', { name: '이메일', exact: true }).count(), 0);
-      await page.getByRole('checkbox', { name: '전체 동의', exact: true }).click();
+      assert.equal(await page.getByText(/생년월일은 받지 않아요/).count(), 0);
+      await page.getByRole('checkbox', { name: '필수 항목 전체 동의', exact: true }).click();
       assert.equal(await next.isDisabled(), true);
       await age.click();
       assert.equal(await age.getAttribute('aria-checked'), 'true');
@@ -41,6 +42,14 @@ const server = http.createServer((req, res) => {
       const bounds = await next.boundingBox();
       assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width);
       assert.equal(await page.getByRole('button', { name: '개인정보처리방침 보기', exact: true }).count(), 1);
+      assert.equal(await page.getByRole('checkbox').count(), 7);
+      await page.getByRole('checkbox', {name:'[선택] 광고성 이메일 수신 동의',exact:true}).click();
+      for (const label of ['마케팅 목적 개인정보 수집·이용 동의', '광고성 이메일 수신 동의', '광고성 앱 푸시 수신 동의', '야간 광고성 앱 푸시 수신 동의']) {
+        await page.getByRole('button', { name: `${label} 내용 보기`, exact: true }).click();
+      }
+      assert.equal(await page.evaluate(() => window.__openedLegalDocuments.length), 4);
+      assert.equal(await next.isDisabled(), false);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
       await page.screenshot({ path: path.join(out, `eligibility-${width}.png`), fullPage: true });
       await next.click();
       await page.getByRole('textbox', { name: '이메일', exact: true }).waitFor();
@@ -48,6 +57,7 @@ const server = http.createServer((req, res) => {
       await page.getByRole('button', { name: '이전 화면', exact: true }).click();
       await underage.click();
       await page.getByRole('heading', { name: '지금은 가입할 수 없어요', exact: true }).waitFor();
+      assert.equal(await page.getByText(/서버에 보내거나 저장하지 않아요/).count(), 0);
       assert.equal(await page.getByRole('radio').count(), 0);
       assert.equal(await page.getByRole('textbox').count(), 0);
       assert.equal(await page.getByRole('button', { name: '구글로 로그인', exact: true }).count(), 0);

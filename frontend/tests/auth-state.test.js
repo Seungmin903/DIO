@@ -2,33 +2,36 @@ import {readFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
 import * as validation from '../src/auth/validation.js'
 import * as signupPolicy from '../src/auth/signupPolicy.js'
+import {marketingDocuments} from '../src/shared/legalDocuments.js'
 import { createAuthApi } from '../src/auth/authApi.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
 const code=babel.transformSync(readFileSync(new URL('../src/auth/AuthScreen.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
+const termsCode=babel.transformSync(readFileSync(new URL('../src/auth/SignupTerms.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
 function setup(service,photoPicker,options={emailVerificationEnabled:true}){
  const states=[],refs=[],deps=[],cleanups=[],keyboard={};let si=0,ri=0,ei=0,back
  const react={useState:initial=>{const i=si++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return[states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v}]},useRef:initial=>refs[ri++]??={current:initial},useEffect:(fn,next)=>{const i=ei++;if(!deps[i]||next.some((v,j)=>v!==deps[i][j])){cleanups[i]?.();deps[i]=next;cleanups[i]=fn()}}}
  const native={Linking:{openURL:async()=>{}},Keyboard:{dismiss(){},addListener:(name,fn)=>{keyboard[name]=fn;return{remove(){delete keyboard[name]}}}},Platform:{OS:'android'},BackHandler:{addEventListener:(_,fn)=>{back=fn;return{remove(){}}}}};for(const name of ['ActivityIndicator','KeyboardAvoidingView','Pressable','ScrollView','Text','TextInput','View'])native[name]=name
  const mocks={react,'react-native':native,'react-native-safe-area-context':{SafeAreaView:'safe'},'../shared/useFormFactor':{useFormFactor:()=>({isPhone:false,formFactor:'tablet'})},'../shared/useOrientationLock':{useOrientationLock(){}},'./signupPolicy':signupPolicy,'./validation':validation,'./styles':{authStyles:new Proxy({},{get:(_,key)=>key})},'../shared/theme':{colors:{}}}
+ const termsMod={exports:{}};new Function('require','module','exports',termsCode)(id=>id==='../shared/legalDocuments'?{marketingDocuments}:mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),termsMod,termsMod.exports);mocks['./SignupTerms']={__esModule:true,default:termsMod.exports.default}
  const mod={exports:{}};new Function('require','module','exports','__DEV__',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,options.developmentMode ?? false)
  const sessions=[],render=()=>{si=ri=ei=0;return mod.exports.default({service,onContinue:session=>sessions.push(session),photoPicker,legalDocuments:{service:'https://dio.test/legal/v2/service',privacy:'https://dio.test/legal/v2/consent',policy:'https://dio.test/legal/v2/privacy'},...options})}
  return{render,sessions,keyboard,back:()=>back(),unmount:()=>cleanups.forEach(fn=>fn?.())}
 }
-const nodes=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
+const nodes=n=>!n||typeof n!=='object'?[]:typeof n.type==='function'&&n.type.name==='SignupTerms'?nodes(n.type(n.props)):[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
 const find=(tree,label)=>nodes(tree).find(n=>n.props.accessibilityLabel===label||n.props.label===label)
 function enterSignup(ui) {
  find(ui.render(),'회원가입').props.onPress();
  const age=find(ui.render(),'만 14세 이상입니다');
  if (!age) return;
- age.props.onPress();find(ui.render(),'전체 동의').props.onPress();
+ age.props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress();
  find(ui.render(),'동의하고 계속').props.onPress();
 }
 function enterSocial(ui) {
  find(ui.render(),'카카오로 로그인').props.onPress();
  find(ui.render(),'만 14세 이상입니다').props.onPress();
- find(ui.render(),'전체 동의').props.onPress();
+ find(ui.render(),'필수 항목 전체 동의').props.onPress();
  find(ui.render(),'동의하고 계속').props.onPress();
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve))
@@ -39,7 +42,7 @@ test('가입 전 연령·필수 동의를 받으며 전체 동의가 연령까�
   find(ui.render(),'회원가입').props.onPress();
   assert.equal(find(ui.render(),'이메일'),undefined);
   assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
-  find(ui.render(),'전체 동의').props.onPress();
+  find(ui.render(),'필수 항목 전체 동의').props.onPress();
   assert.equal(find(ui.render(),'동의하고 계속').props.disabled,true);
   find(ui.render(),'동의하고 계속').props.onPress();
   assert.equal(find(ui.render(),'이메일'),undefined);
@@ -54,16 +57,15 @@ test('가입 전 연령·필수 동의를 받으며 전체 동의가 연령까�
  } finally { ui.unmount(); }
 });
 
-test('문서 URL 누락 시 이메일 수집 전에 막고 기존 로그인 화면은 유지한다', () => {
+test('문서 URL 미게시여도 필수 동의 후 가입 화면으로 진행한다', () => {
  const ui=setup({},undefined,{emailVerificationEnabled:true,legalDocuments:{}});
  try {
   assert.ok(find(ui.render(),'로그인'));
   find(ui.render(),'회원가입').props.onPress();
   find(ui.render(),'만 14세 이상입니다').props.onPress();
-  find(ui.render(),'전체 동의').props.onPress();
+  find(ui.render(),'필수 항목 전체 동의').props.onPress();
   find(ui.render(),'동의하고 계속').props.onPress();
-  assert.equal(find(ui.render(),'이메일'),undefined);
-  assert.equal(find(ui.render(),'동의하고 계속').props.disabled,true);
+  assert.ok(find(ui.render(),'이메일'));
  } finally { ui.unmount(); }
 });
 
@@ -79,7 +81,7 @@ test('14세 미만 응답은 가입을 중단하고 오래된 계속 버튼으�
    assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
    assert.equal(find(ui.render(),'만 14세 미만입니다').props.checked,false);
    find(ui.render(),'만 14세 이상입니다').props.onPress();
-   find(ui.render(),'전체 동의').props.onPress();
+   find(ui.render(),'필수 항목 전체 동의').props.onPress();
    const previousContinue=find(ui.render(),'동의하고 계속');
    find(ui.render(),'만 14세 미만입니다').props.onPress();
    previousContinue.props.onPress();
@@ -107,7 +109,7 @@ test('구글도 먼저 연령·약관을 확인하고 미연결 서비스 오류
   find(ui.render(),'동의하고 계속').props.onPress();
   assert.deepEqual(providers,[]);
   find(ui.render(),'만 14세 이상입니다').props.onPress();
-  find(ui.render(),'전체 동의').props.onPress();
+  find(ui.render(),'필수 항목 전체 동의').props.onPress();
   find(ui.render(),'동의하고 계속').props.onPress();await tick();
   assert.deepEqual(providers,['google']);
   assert.ok(find(ui.render(),'만 14세 이상입니다'));
@@ -120,9 +122,9 @@ test('동의서와 방침 보기는 정확한 HTTPS 문서를 열며 동의 상�
  const ui=setup({},undefined,{emailVerificationEnabled:true,openDocument:async url=>{opened.push(url);if(opened.length===3)throw new Error('offline')}});
  try {
   find(ui.render(),'회원가입').props.onPress();
-  const rows=nodes(ui.render()).filter(node=>node.props.onView);
-  await rows.find(row=>row.props.label==='[필수] 이용약관 동의').props.onView();
-  await rows.find(row=>row.props.label==='[필수] 개인정보 수집·이용 동의').props.onView();
+  const rows=nodes(ui.render()).filter(node=>node.type?.name==='ViewButton');
+  await rows.find(row=>row.props.label==='[필수] 이용약관 동의').props.onPress();
+  await rows.find(row=>row.props.label==='[필수] 개인정보 수집·이용 동의').props.onPress();
   await find(ui.render(),'개인정보처리방침 보기').props.onPress();
   assert.deepEqual(opened,['https://dio.test/legal/v2/service','https://dio.test/legal/v2/consent','https://dio.test/legal/v2/privacy']);
   assert.equal(find(ui.render(),'[필수] 이용약관 동의').props.checked,false);
@@ -258,7 +260,7 @@ test('닉네임 중복 확인 없이 형식과 동의로 가입 가능하다',as
 test('중복 제출을 막고 Android 뒤로가기 후 늦은 진입 응답을 무시한다',async()=>{
  let resolveSocial,calls=0;const ui=setup({social:()=>{calls++;return new Promise(r=>resolveSocial=r)}})
  const button=find(ui.render(),'카카오로 로그인');button.props.onPress();button.props.onPress();assert.equal(calls,0)
- find(ui.render(),'만 14세 이상입니다').props.onPress();find(ui.render(),'전체 동의').props.onPress()
+ find(ui.render(),'만 14세 이상입니다').props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress()
  const submit=find(ui.render(),'동의하고 계속');submit.props.onPress();submit.props.onPress();assert.equal(calls,1)
  ui.render();assert.equal(ui.back(),true);ui.render();enterSignup(ui);ui.render();assert.equal(ui.back(),true);ui.render();assert.equal(ui.back(),true);ui.render();resolveSocial({provider:'kakao'});await tick();assert.ok(find(ui.render(),'로그인'));assert.equal(ui.back(),false);assert.deepEqual(ui.sessions,[]);ui.unmount()
 })
@@ -332,8 +334,8 @@ test('이메일 가입 완료 후 자동 로그인하지 않고 이메일만 채
  enterSignup(ui)
  find(ui.render(),'이메일').props.onChange('new@example.com');find(ui.render(),'비밀번호').props.onChange('Password123');find(ui.render(),'비밀번호 확인').props.onChange('Password123')
  find(ui.render(),'다음').props.onPress();await tick();nodes(ui.render()).find(n=>n.type==='./EmailVerification').props.onComplete();await tick();find(ui.render(),'닉네임').props.onChange('소연')
- find(ui.render(),'전체 동의').props.onPress();
- await tick();find(ui.render(),'전체 동의').props.onPress()
+ find(ui.render(),'필수 항목 전체 동의').props.onPress();
+ await tick();find(ui.render(),'필수 항목 전체 동의').props.onPress()
  find(ui.render(),'가입 완료').props.onPress();await tick()
  const tree=ui.render();assert.ok(find(tree,'로그인'));assert.equal(find(tree,'이메일').props.value,'new@example.com');assert.equal(find(tree,'비밀번호').props.value,'');assert.deepEqual(ui.sessions,[]);const notice=nodes(tree).find(n=>n.props.children==='가입이 완료됐어요.');assert.equal(notice.props.accessibilityRole,'text');t.mock.timers.tick(2500);assert.ok(!nodes(ui.render()).some(n=>n.props.children==='가입이 완료됐어요.'));ui.unmount()
 })
@@ -470,7 +472,7 @@ test('실제 가입 어댑터로 닉네임·동의·가입 충돌·재시도 후
     await verification.props.service.verify('new@example.com', '482901');
     verification.props.onComplete(); await tick();
     find(ui.render(), '닉네임').props.onChange('소연');
-    find(ui.render(), '전체 동의').props.onPress();
+    find(ui.render(), '필수 항목 전체 동의').props.onPress();
     assert.equal(find(ui.render(), '가입 완료').props.disabled, true);
     await tick();
     assert.equal(find(ui.render(), '가입 완료').props.disabled, true);

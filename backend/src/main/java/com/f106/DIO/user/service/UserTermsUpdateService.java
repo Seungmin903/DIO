@@ -25,10 +25,10 @@ public class UserTermsUpdateService {
         String current=switch(type){
             case SERVICE -> versions.serviceTermsVersion();
             case PRIVACY -> versions.privacyTermsVersion();
-            case MARKETING -> versions.marketingTermsVersion();
+            case MARKETING, MARKETING_PRIVACY, AD_EMAIL, AD_PUSH, AD_NIGHT_PUSH -> versions.marketingTermsVersion();
         };
         if(!current.equals(version))throw UserException.invalid("INVALID_TERMS","약관 종류와 현재 버전을 확인해 주세요.");
-        if(type!=TermsType.MARKETING&&!agreed)
+        if(type.required()&&!agreed)
             throw UserException.invalid("REQUIRED_TERMS_NOT_AGREED","필수 약관 동의 철회는 회원 탈퇴 절차를 이용해 주세요.");
         // Serialize with signup/withdrawal and concurrent first agreement creation for this account.
         var user=users.findForUpdate(actor).filter(u->u.isActive()).orElseThrow(()->

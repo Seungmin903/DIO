@@ -33,8 +33,9 @@ import { authStyles as s } from './styles';
 import ProviderIcon from './ProviderIcon';
 import { pickProfilePhoto } from './profilePhoto';
 import EmailVerification from './EmailVerification';
-import { createSignupDocuments, signupDocuments, signupDocumentsReady, signupEligibility } from './signupPolicy';
+import { createSignupDocuments, signupDocuments, signupEligibility } from './signupPolicy';
 import PasswordResetScreen from './PasswordResetScreen';
+import SignupTerms from './SignupTerms';
 
 // 사진이 없을 때의 기본 프로필: 메뉴 아래 · 내 공간과 같은 그림
 import DefaultAvatar from '../shared/DefaultAvatar';
@@ -45,11 +46,7 @@ const PROVIDERS = [
   { id: 'apple', name: '애플', color: '#191919' },
 ];
 const emptyValues = () => ({ email: '', password: '', confirmation: '' });
-const emptyTerms = () => ({ service: false, privacy: false, marketing: false });
-const TERMS = [
-  { id: 'service', label: '[필수] 이용약관 동의' },
-  { id: 'privacy', label: '[필수] 개인정보 수집·이용 동의' },
-];
+const emptyTerms = () => ({ service: false, privacy: false, marketing: false, marketingPrivacy: false, adEmail: false, adPush: false, adNightPush: false });
 
 /**
  * onClose: 있으면 '나중에'를 보이고 누르면 닫는다(로그인이 필요한 기능에서 띄운 경우).
@@ -203,7 +200,7 @@ export default function AuthScreen({
   const viewDocument = async (key, title) => {
     const url = createSignupDocuments(legalDocuments)[key];
     if (!url) {
-      setInfo({ title: '약관 준비 중', body: '가입에 필요한 문서를 준비하고 있어요. 게시가 완료되면 가입할 수 있어요.' });
+      setInfo({ title: '문서 준비 중', body: '아직 공개되지 않은 문서예요. 잠시 후 다시 확인해 주세요.' });
       return;
     }
     try { await openDocument(url); }
@@ -299,7 +296,7 @@ export default function AuthScreen({
     setNickname(value);
     setMessage('');
   };
-  const profileReady = canCompleteProfile({ nickname, terms }) && signupDocumentsReady(legalDocuments) && (profile?.provider !== 'email' || ageConfirmed);
+  const profileReady = canCompleteProfile({ nickname, terms }) && (profile?.provider !== 'email' || ageConfirmed);
   const complete = () => {
     if (profileReady)
       run(
@@ -394,7 +391,7 @@ export default function AuthScreen({
                   {route === 'welcome'
                     ? 'DIO에 오신 걸 환영해요'
                     : route === 'underage' ? '지금은 가입할 수 없어요'
-                    : route === 'eligibility' ? (isPhone ? '가입 연령을\n확인해 주세요' : '가입 연령을 확인해 주세요')
+                    : route === 'eligibility' ? (isPhone ? '가입 전\n확인해 주세요' : '가입 전 확인해 주세요')
                     : route === 'signup'
                       ? '나만의 기록을 시작해요'
                       : route === 'verification' ? '이메일을 인증해 주세요'
@@ -413,45 +410,18 @@ export default function AuthScreen({
             </View>
             {route === 'underage' ? (
               <View style={s.form}>
-                <Text accessibilityLiveRegion="polite" style={s.muted}>만 14세가 된 후에 다시 가입해 주세요.</Text>
-                <Text style={s.muted}>‘14세 미만’ 답변은 서버에 보내거나 저장하지 않아요.</Text>
                 {primary('시작 화면으로', () => navigate('welcome'))}
               </View>
             ) : route === 'eligibility' ? (
               <View style={s.form}>
-                <Text style={s.muted}>생년월일은 받지 않아요. 본인의 연령에 맞는 항목을 선택해 주세요.</Text>
                 <View accessibilityRole="radiogroup" accessibilityLabel="가입 가능 연령">
                   <AgeChoice label="만 14세 이상입니다" checked={ageConfirmed === true} disabled={busy}
                     onPress={() => setAgeConfirmed(true)} />
                   <AgeChoice label="만 14세 미만입니다" checked={false} disabled={busy}
                     onPress={() => { enrollmentBlocked.current = true; navigate('underage'); }} />
                 </View>
-                <View style={s.terms}>
-                  <TermRow
-                    label="전체 동의"
-                    checked={TERMS.every(term => terms[term.id])}
-                    disabled={busy}
-                    onPress={() => {
-                      const on = !TERMS.every(term => terms[term.id]);
-                      setTerms({ service: on, privacy: on, marketing: false });
-                    }}
-                  />
-                  {TERMS.map((term) => (
-                    <TermRow
-                      key={term.id}
-                      label={term.label}
-                      checked={terms[term.id]}
-                      disabled={busy}
-                      onPress={() =>
-                        setTerms((current) => ({ ...current, [term.id]: !current[term.id] }))
-                      }
-                      onView={() => viewDocument(term.id, term.label)}
-                    />
-                  ))}
-                </View>
-                {link('개인정보처리방침 보기', () => viewDocument('policy', '개인정보처리방침'))}
-                <Text style={s.muted}>개인정보처리방침은 운영 내용을 안내하는 문서이며, 위 개인정보 수집·이용 동의와 별개예요.</Text>
-                {!signupDocumentsReady(legalDocuments) && <Text accessibilityRole="alert" style={s.error}>가입에 필요한 약관 문서를 준비하고 있어요. 게시가 완료되면 가입할 수 있어요.</Text>}
+                <View style={s.consentDivider} />
+                <SignupTerms terms={terms} onChange={setTerms} onView={viewDocument} disabled={busy} />
                 {primary('동의하고 계속', continueEnrollment, !signupEligibility({ ageConfirmed, terms }, legalDocuments))}
               </View>
             ) : route === 'verification' ? (
@@ -710,29 +680,8 @@ export default function AuthScreen({
                     <Text style={s.error}>{nicknameError(nickname)}</Text>
                   ) : null}
                 </View>
-                <View style={s.terms}>
-                  <TermRow
-                    label="전체 동의"
-                    checked={TERMS.every(term => terms[term.id])}
-                    disabled={busy}
-                    onPress={() => {
-                      const on = !TERMS.every(term => terms[term.id]);
-                      setTerms({ service: on, privacy: on, marketing: false });
-                    }}
-                  />
-                  {TERMS.map((term) => (
-                    <TermRow
-                      key={term.id}
-                      label={term.label}
-                      checked={terms[term.id]}
-                      disabled={busy}
-                      onPress={() =>
-                        setTerms((current) => ({ ...current, [term.id]: !current[term.id] }))
-                      }
-                      onView={() => viewDocument(term.id, term.label)}
-                    />
-                  ))}
-                </View>
+                <View style={s.consentDivider} />
+                <SignupTerms terms={terms} onChange={setTerms} onView={viewDocument} disabled={busy} />
                 {primary('가입 완료', complete, !profileReady)}
               </View>
             )}
@@ -860,38 +809,5 @@ function AgeChoice({ label, checked, onPress, disabled }) {
       </View>
       <Text style={s.termText}>{label}</Text>
     </Pressable>
-  );
-}
-
-function TermRow({ label, checked, onPress, onView, disabled }) {
-  return (
-    <View style={s.termRow}>
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityLabel={label}
-        accessibilityState={{ checked, disabled }}
-        {...(Platform.OS === 'web' ? { 'aria-checked': checked, 'aria-disabled': !!disabled } : {})}
-        disabled={disabled}
-        onPress={onPress}
-        style={s.termButton}
-      >
-        <View style={[s.checkbox, checked && s.checked]}>
-          {checked && <Icon name="check" size={14} color={colors.surface} />}
-        </View>
-        <Text style={s.termText}>{label}</Text>
-      </Pressable>
-      {onView && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${label} 내용 보기`}
-          accessibilityState={{ disabled }}
-          disabled={disabled}
-          onPress={onView}
-          style={s.termView}
-        >
-          <Text style={s.muted}>보기</Text>
-        </Pressable>
-      )}
-    </View>
   );
 }

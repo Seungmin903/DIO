@@ -83,10 +83,10 @@ test('검증 토큰·필수 약관 v2 상태를 보내고 회원가입 후 자�
     ? { signupToken: 'verified', expiresIn: 600 } : call.path === 'signup' ? { ...user, nickname: '닉네임' } : { available: true }));
   const profile = await api.signup({ ageConfirmed: true, email: user.email, password: 'Password123!' });
   await api.verifyEmail(user.email, '123456');
-  const result = await api.completeProfile({ ...profile, nickname: '닉네임', terms: { service: true, privacy: true, marketing: false } });
+  const result = await api.completeProfile({ ...profile, nickname: '닉네임', terms: { service: true, privacy: true, marketing: false, adEmail: true, adPush: false } });
   const body = JSON.parse(calls.at(-1).body);
   assert.equal(body.signupToken, 'verified'); assert.equal(body.profileColor, undefined);
-  assert.deepEqual(body.agreements.map(term => [term.termsType, term.agreed]), [['SERVICE', true], ['PRIVACY', true]]);
+  assert.deepEqual(body.agreements.map(term => [term.termsType, term.agreed]), [['SERVICE', true], ['PRIVACY', true], ['AD_EMAIL', true], ['AD_PUSH', false]]);
   assert.equal(result.mode, 'registered');
   const count = calls.length; await api.logout(); assert.equal(calls.length, count);
 });

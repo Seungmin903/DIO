@@ -20,7 +20,7 @@ public class SignupController {
     private final EmailSignupService signup;
     public SignupController(EmailSignupService signup) { this.signup = signup; }
     @PostMapping(value = "/signup", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "일반 회원가입", description = "같은 이메일의 signupToken 필요. 영문·숫자 포함 ASCII 비밀번호 8~32자, 닉네임 한글·영문·숫자·밑줄 2~12자. SERVICE/PRIVACY 필수, MARKETING 선택. 기본 약관 버전 v1은 운영 전 실제 버전으로 설정해야 합니다.")
+    @Operation(summary = "일반 회원가입", description = "같은 이메일의 signupToken 필요. 영문·숫자 포함 ASCII 비밀번호 8~32자, 닉네임 한글·영문·숫자·밑줄 2~12자. SERVICE/PRIVACY 필수, MARKETING_PRIVACY·AD_EMAIL·AD_PUSH·AD_NIGHT_PUSH 선택(각 v1). 기존 MARKETING도 호환됩니다. 기본 약관 버전 v1은 운영 전 실제 버전으로 설정해야 합니다.")
     @ApiResponse(responseCode = "201", description = "가입 완료. 로그인은 별도로 진행합니다.")
     @ApiResponse(responseCode = "400", description = "입력·인증 토큰·약관 오류")
     @ApiResponse(responseCode = "409", description = "이메일 중복 또는 동시 요청 충돌")
