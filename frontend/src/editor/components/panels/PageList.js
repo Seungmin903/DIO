@@ -32,7 +32,7 @@ export const PAGE_LIST_WIDTH = 176
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onSettings, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null, thumbnailWork = null }) {
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onSettings, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null, thumbnailWork = null, fillHeight = false }) {
   const openingMeasurement = qaMeasurement
   useLayoutEffect(() => {
     openingMeasurement?.emit('panel-layout')
@@ -185,7 +185,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   const menuTop = Math.max(8, Math.min(rawMenuTop, Math.max(8, panelHeight - menuHeight - 8)))
 
   return (
-    <View ref={panelRef} collapsable={false} style={styles.panel} onLayout={(event) => { openingMeasurement?.emit('panel-native-layout'); setPanelHeight(event.nativeEvent.layout.height) }}>
+    <View ref={panelRef} collapsable={false} style={[styles.panel, fillHeight && { flex: 1 }]} onLayout={(event) => { openingMeasurement?.emit('panel-native-layout'); setPanelHeight(event.nativeEvent.layout.height) }}>
       <View style={styles.header}>
         {/* 여러 개 고르기 중에는 탭 줄이 'N개 선택 · 해제' 로 바뀐다 (같은 높이라 목록이 밀리지 않는다) */}
         {pickMode ? (

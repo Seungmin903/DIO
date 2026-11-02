@@ -1,4 +1,4 @@
-import { memo, useContext, useLayoutEffect, useRef } from 'react'
+import { memo, useContext, useLayoutEffect } from 'react'
 import { Platform, StyleSheet, View } from 'react-native'
 import { pageSize } from '../../utils/pageGeometry.js'
 import PageBackground from '../PageBackground'
@@ -33,11 +33,6 @@ export { ViewportMotion }
  */
 const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true, fadeIds = null, stillIds = null, onTextMeasure = null, cacheStrokes = false, areaPreviewObjects = null, areaErasing = false, deferredAreaObjects = null }) {
   const { width, height } = pageSize(page)
-  const lastPageMeasurement = useRef(null)
-  if (qaPageMeasurement && qaPageMeasurement !== lastPageMeasurement.current) {
-    lastPageMeasurement.current = qaPageMeasurement
-    qaPageMeasurement.emit('drawing-render-start')
-  }
   useLayoutEffect(() => { qaPageMeasurement?.emit('drawing-layout') }, [page.id, qaPageMeasurement])
   const motion = useContext(ViewportMotion)
   const cacheOverride = useContext(WebStrokeCacheEnabled)

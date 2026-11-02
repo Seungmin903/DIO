@@ -136,11 +136,6 @@ export default function Canvas({
   const generation = pageGeneration.current.value
   const [readyPage, setReadyPage] = useState(() => ({ id: page.id, generation: 0 }))
   const pageReady = !progressiveNative || (readyPage.id === page.id && readyPage.generation === generation)
-  const lastPageMeasurement = useRef(null)
-  if (qaPageMeasurement && qaPageMeasurement !== lastPageMeasurement.current) {
-    lastPageMeasurement.current = qaPageMeasurement
-    qaPageMeasurement.emit('canvas-render-start')
-  }
   useLayoutEffect(() => { qaPageMeasurement?.emit('canvas-layout') }, [page.id, qaPageMeasurement])
   useLayoutEffect(() => { if (pageReady) qaPageMeasurement?.emit('page-render-ready') }, [page.id, pageReady, qaPageMeasurement])
   const suppressBrowserSelection = Platform.OS === 'web' && !readOnly && !textEditing
@@ -1003,8 +998,8 @@ function panCrop(photo, startCrop, dx, dy, zoom, dispatch) {
 }
 
 const styles = StyleSheet.create({
-  pageLoading: { position: 'absolute', top: 12, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.lg, backgroundColor: colors.surface },
-  pageLoadingText: { fontSize: 12, color: colors.textMuted },
+  pageLoading: { position: 'absolute', top: 12, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.lg, backgroundColor: colors.surface },
+  pageLoadingText: { fontSize: 12.5, fontWeight: '600', lineHeight: 19, color: colors.textMuted },
   drawingSurface: Platform.select({ web: {
     userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', WebkitTapHighlightColor: 'transparent',
   }, default: {} }),

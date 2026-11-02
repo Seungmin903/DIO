@@ -1068,6 +1068,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           <PhonePanelSlot compact={compact} side={styles.phonePanelLeft} onWidth={(left) => setPhonePanelWidths((prev) => ({ ...prev, left }))}>
           <PagePanelVisibility enabled={Platform.OS === 'ios' && !compact} hidden={pagesClosing}>
           <PageList
+            fillHeight={Platform.OS === 'ios' && !compact}
             canUndoDelete={!textSync.enabled}
             qaMeasurement={pagePanelMeasurement.current}
             thumbnailWork={Platform.OS === 'web' ? null : thumbnailWork.current}
