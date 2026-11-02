@@ -122,3 +122,25 @@ test('한 장짜리 문서도 초기화할 수 있고 직렬화 후 빈 페이�
  assert.equal(restored.doc.pages.length,1);assert.deepEqual(restored.doc.pages[0].objects,[]);
  assert.equal(restored.pageId,next.pageId);
 });
+
+test('나의 속지처럼 미리 만든 페이지는 그대로 지금 페이지 뒤에 넣고 첫 장으로 이동한다', () => {
+  const pages = [
+    { id: 'pdf-1', canvasWidth: 1200, canvasHeight: 1600, objects: [{ id: 'bg-1', type: 'sticker', locked: true, backdrop: true, mediaFileId: 'm-1' }] },
+    { id: 'pdf-2', canvasWidth: 1200, canvasHeight: 1600, objects: [{ id: 'bg-2', type: 'sticker', locked: true, backdrop: true, mediaFileId: 'm-2' }] },
+  ]
+  const next = editorReducer(createInitialState(doc), { type: 'addPage', pages })
+  assert.deepEqual(next.doc.pages.map((page) => page.id), ['page-a', 'pdf-1', 'pdf-2'])
+  assert.equal(next.doc.pages[1].canvasHeight, 1600)
+  assert.equal(next.doc.pages[2].objects[0].mediaFileId, 'm-2')
+  assert.equal(next.pageId, 'pdf-1')
+})
+
+test('파일 이름이 없는 사진은 그 페이지에서 사진 1, 사진 2… 로 이름 짓고 파일 이름이 있으면 그대로 둔다', async () => {
+  const { mediaDisplayName } = await import('../src/editor/utils/mediaImport.js')
+  assert.equal(mediaDisplayName('바다 여행.jpg'), '바다 여행')
+  assert.equal(mediaDisplayName('IMG_20261102_101500.jpg'), 'IMG_20261102_101500')
+  for (const raw of ['image.png', '1000012345.jpg', '2b5e8c1a-3f4d-4e6a-9b7c-1d2e3f4a5b6c.jpeg', 'a3f9c0d2e1b4567890abcdef.jpg', '']) assert.equal(mediaDisplayName(raw), null, raw)
+  let state = createInitialState({ id: 'd', pages: [{ id: 'p', objects: [{ id: 'old', type: 'photo', name: '사진 2' }, { id: 'named', type: 'photo', name: '바다' }] }] })
+  state = editorReducer(state, { type: 'addObjects', objects: [{ id: 'a', type: 'photo', name: null }, { id: 'b', type: 'photo' }, { id: 'c', type: 'photo', name: '산책' }, { id: 's', type: 'sticker' }] })
+  assert.deepEqual(state.doc.pages[0].objects.map((o) => o.name ?? null), ['사진 2', '바다', '사진 3', '사진 4', '산책', null])
+})

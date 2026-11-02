@@ -158,7 +158,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     ]);
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');
     const sent = sentPage(links?.emailInvites);
-    const mappedMembers = await Promise.all(members.members.map(async m => ({ id: String(m.userId), nickname: m.nickname, role: m.role,
+    const mappedMembers = await Promise.all(members.members.map(async m => ({ id: String(m.userId), nickname: m.nickname, role: m.role, color: m.memberColor || null,
       photoUri: m.usingAccountPhoto ? await accountPhoto(m.profilePhotoUrl) : await privatePhoto(m.profilePhotoUrl),
       presence: m.role === 'OWNER' ? '소유자' : '편집자' })));
     if (!active || revision !== generation) fail('DISPOSED', '화면을 다시 열어 주세요.');

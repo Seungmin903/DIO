@@ -37,6 +37,14 @@ const withHistory = (state) => ({
   pendingCheckpoint: null,
 })
 
+const PHOTO_NUMBER = /^사진 (\d+)$/
+/** 이름 없는 사진에 그 페이지의 다음 번호(지금 있는 '사진 n' 중 가장 큰 n + 1)를 붙인다. 이름 있는 것 · 사진 아닌 것은 그대로 */
+export function namePhotos(existing, added) {
+  let last = 0
+  for (const o of existing) { const m = typeof o.name === 'string' && o.name.match(PHOTO_NUMBER); if (m) last = Math.max(last, Number(m[1])) }
+  return added.map((o) => (o.type === 'photo' && !o.name ? { ...o, name: `사진 ${++last}` } : o))
+}
+
 function updateObjects(state, updater) {
   const pageId = getCurrentPage(state).id
   return {
@@ -297,7 +305,8 @@ export function editorReducer(state, action) {
       return { ...state, pageId: action.id, selectedIds: [] }
 
     case 'addObjects': {
-      const next = updateObjects(withHistory(state), (list) => [...list, ...action.objects])
+      // 파일 이름이 없는(뜻 없는) 사진은 그 페이지 안에서 '사진 1', '사진 2'… 로 이름 짓는다(이름을 저장하므로 다른 사진을 지워도 바뀌지 않는다)
+      const next = updateObjects(withHistory(state), (list) => [...list, ...namePhotos(list, action.objects)])
       return { ...next, selectedIds: action.objects.map((o) => o.id) }
     }
 
@@ -403,7 +412,8 @@ export function editorReducer(state, action) {
       // assetIds: 여러 속지를 섞어 넣을 때 순서대로. 없으면 backgroundAssetId 를 count 장
       const count = Math.max(1, Math.min(50, Math.floor(action.count ?? 1)))
       const ids = Array.isArray(action.assetIds) && action.assetIds.length ? action.assetIds.slice(0, 200) : Array.from({ length: count }, () => action.backgroundAssetId ?? null)
-      const added = ids.map((id) => {
+      // pages: 미리 만든 페이지(나의 속지 PDF 쪽처럼 바탕 그림 · 크기가 정해진 것)는 그대로 넣는다
+      const added = Array.isArray(action.pages) && action.pages.length ? action.pages.slice(0, 200) : ids.map((id) => {
         const created = id ? createTemplatePage(id, appearance) : createBlankPage(state.doc.orientation)
         return appearance ? { ...created, paperAppearance: appearance } : created
       })

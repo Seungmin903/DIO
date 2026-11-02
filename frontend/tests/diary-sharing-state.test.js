@@ -565,7 +565,7 @@ test('초대 사진 선택 취소는 유지하고 기본 프로필 복구·최�
   ui.unmount();
 });
 
-test('사진이 없는 참여자는 이름 첫 글자 대신 기본 사람 아이콘을 표시한다', () => {
+test('사진이 없는 참여자는 사람 실루엣 대신 서버 참여자 색의 모아 얼굴 기본 프로필을 표시한다', () => {
   const avatarCode = babel.transformSync(
     readFileSync(new URL('../src/sharing/MemberAvatar.js', import.meta.url), 'utf8'),
     {
@@ -585,13 +585,15 @@ test('사진이 없는 참여자는 이름 첫 글자 대신 기본 사람 아�
         : id === 'react/jsx-runtime'
           ? require(id)
           : id === '../shared/theme'
-            ? { colors: {} }
-            : { __esModule: true, default: 'Icon' },
+            ? { DISABLED_OPACITY: 0.4 }
+            : { __esModule: true, default: 'DefaultAvatar' },
     mod,
     mod.exports,
   );
-  const fallback = mod.exports.default({ member: { nickname: '소연' } });
-  assert.equal(fallback.props.name, 'person');
+  const member = { id: '7', nickname: '소연', color: '#CFA18C' };
+  const fallback = mod.exports.default({ member });
+  assert.equal(fallback.type, 'DefaultAvatar');
+  assert.equal(fallback.props.user, member);
   const photo = mod.exports.default({ member: { nickname: '소연', photoUri: 'file:///one.png' } });
   assert.equal(photo.type, 'Image');
   assert.equal(photo.props.source.uri, 'file:///one.png');

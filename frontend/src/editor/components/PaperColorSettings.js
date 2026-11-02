@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../shared/theme'
-import { PAPER_BACKGROUNDS, PAPER_LAYOUTS } from '../templates/appearance.js'
+import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, withPaperBackground } from '../templates/appearance.js'
 import { DEFAULT_PAPER_FONT } from '../templates/paperFont.js'
 import { PaperFontPicker } from './PaperFontChips'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
@@ -20,7 +20,8 @@ const SNAP = [{ id: 'on', label: '켬' }, { id: 'off', label: '끔' }]
  */
 export default function PaperColorSettings({ appearance, onChange, onClose, style, planner = null, plannerKind = 'study', onPlannerOptions, showFont = false }) {
   const [scope, setScope] = useState('page')
-  const pick = (patch) => onChange({ ...appearance, ...patch }, scope === 'all')
+  // 종이 색을 바꾸면 선과 글씨가 읽히게 맞춘다(어두운 종이 → 흰 선)
+  const pick = (patch) => onChange('backgroundColor' in patch ? withPaperBackground({ ...appearance, ...patch }, patch.backgroundColor) : { ...appearance, ...patch }, scope === 'all')
   return (
     <View style={[toolPanelStyles.card, style]} accessibilityLabel="속지 색 설정" onStartShouldSetResponder={() => true}>
       <ToolPanelHeader icon="roller" title={planner ? '속지 옵션' : '속지 색'} closeLabel={planner ? '속지 옵션 닫기' : '속지 색 설정 닫기'} onClose={onClose} />

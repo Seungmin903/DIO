@@ -18,14 +18,14 @@ const load = (file, mocks) => {
 }
 const memo = load('../src/editor/widgets/memo.js', { '../utils/editorShapes': shapes, './memoArt': { MEMO_ARTS } })
 
-test('기본 메모지 11종은 윤곽선 없는 단색 종이 + 무늬 하나 그림이고, 캐릭터 말고는 색 자리 두 개 밖의 색 · 글자가 없다', () => {
-  assert.deepEqual(MEMO_ARTS.map((art) => art.name), ['무지 메모', '줄 메모', '모눈 메모', '도트 메모', '체크 메모', '인덱스 카드', '영수증', '뜯은 노트', 'MEMO 메모', '모아 메모', '디오 메모'])
+test('기본 메모지 12종은 윤곽선 없는 단색 종이 + 무늬 하나 그림이고, 캐릭터 · 창 점 말고는 색 자리 두 개 밖의 색 · 글자가 없다', () => {
+  assert.deepEqual(MEMO_ARTS.map((art) => art.name), ['무지 메모', '줄 메모', '모눈 메모', '도트 메모', '체크 메모', '인덱스 카드', '영수증', '뜯은 노트', 'MEMO 메모', '모아 메모', '디오 메모', '창 메모'])
   for (const art of MEMO_ARTS) {
     assert.match(art.svg, /^<svg [^>]*viewBox="0 0 220 \d+"/)
     assert.ok(art.svg.includes('{paper}') && art.svg.endsWith('</svg>'), art.id)
-    // 캐릭터 그림만 정해진 색을 쓴다
-    const pattern = art.svg.replace(/<g class="character">.*?<\/g>/, '')
-    assert.equal(pattern !== art.svg, Boolean(art.character), art.id)
+    // 캐릭터 그림 · 창 메모 삼색 점만 정해진 색을 쓴다
+    const pattern = art.svg.replace(/<g class="character">.*?<\/g>/, '').replace(/<g class="dots"[^>]*>.*?<\/g>/, '')
+    assert.equal(pattern !== art.svg, Boolean(art.character || art.dots), art.id)
     assert.doesNotMatch(pattern, /#[0-9a-f]{3,6}\b|<text|<image|<filter|<mask|Gradient/i, art.id)
     // 종이 바탕은 불투명하고 바깥 윤곽선이 없다(흰 인덱스 카드만 흰 속지에 묻혀 윤곽선을 남긴다)
     const sheet = art.svg.match(/<(path|rect)[^>]*fill="\{paper\}"[^>]*>/)[0]

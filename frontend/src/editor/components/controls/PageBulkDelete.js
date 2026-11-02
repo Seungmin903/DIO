@@ -14,7 +14,7 @@ export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone, 
       accessibilityLabel={`선택한 ${selected.length}개 삭제`}
       style={({ pressed }) => [styles.delete, blocked && styles.disabled, pressed && styles.pressed]}
       onPress={() => { confirmed.current = false; setPending(selected) }}>
-      <Icon name="trash" size={14} forText={11.5} color={colors.danger} />
+      <Icon name="trash" size={16} forText={11.5} color={colors.danger} />
       <Text style={styles.deleteText}>선택 삭제</Text>
     </Pressable>
     {selected.length >= pages.length && <Text style={styles.hint}>페이지는 최소 한 장 남겨 주세요.</Text>}
@@ -44,11 +44,12 @@ export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone, 
 }
 
 const styles = StyleSheet.create({
-  actions: { gap: 6, paddingTop: 6, paddingBottom: 6 },
-  delete: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
-  deleteText: { color: colors.danger, fontSize: 11.5, fontWeight: '700' },
+  // 코덱스 안(2026-11-02): 선택 바 아래 8 간격으로 세로로 쌓는다. 삭제는 위험색 윤곽, 초기화는 회색 판
+  actions: { gap: 8 },
+  delete: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 8, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.sm, backgroundColor: colors.surface },
+  deleteText: { color: colors.dangerStrong, fontSize: 11.5, fontWeight: '700' },
   reset: { minHeight: 38, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted },
-  resetText: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
+  resetText: { color: colors.text, fontSize: 11.5, fontWeight: '700' },
   hint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   disabled: { opacity: DISABLED_OPACITY },
   pressed: {}, // 눌림 효과 없음(사용자 지시)

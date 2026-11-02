@@ -20,6 +20,7 @@ test('폰트 제작기 실제 EditorModal은 전체 화면·슬라이드·방향
     if(id.endsWith('/EditorModal'))return {__esModule:true,default:Modal};
     if(id.endsWith('/studioBus.js'))return bus;
     if(id.endsWith('/theme'))return {colors:{},radius:{md:12,lg:20}};
+    if(id.endsWith('/useFillGrid'))return {__esModule:true,default:({ cell, gap }) => ({ onLayout() {}, columns: 1, cellWidth: cell, spreadGap: gap })};
     return {};
   });
   let confirmed=0;

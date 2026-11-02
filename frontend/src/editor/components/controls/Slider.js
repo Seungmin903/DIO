@@ -27,6 +27,7 @@ export default function Slider({
   unit = '',
   label = '값',
   wrap = false, // 각도처럼 범위를 넘으면 한 바퀴 돌려 맞춘다 (375 → 15)
+  name = null, // 막대 왼쪽에 붙는 짧은 제목(굵기 · 불투명도). 주면 제목 줄 없이 한 줄(44)로 촘촘하게 그린다(코덱스 2026-11-02, 옵션 창 스크롤 없애기)
 }) {
   const [trackWidth, setTrackWidth] = useState(1)
   const startRef = useRef(0)
@@ -80,8 +81,9 @@ export default function Slider({
   }
 
   return (
-    <View style={styles.row}>
-      <Pressable onPress={() => nudge(-step)} style={styles.stepButton} accessibilityLabel={minusLabel}>
+    <View style={[styles.row, name && styles.rowInline]}>
+      {name ? <Text style={styles.name} numberOfLines={1}>{name}</Text> : null}
+      <Pressable onPress={() => nudge(-step)} style={[styles.stepButton, name && styles.stepCompact]} accessibilityLabel={minusLabel}>
         <Icon name="minus" size={16} />
       </Pressable>
       <View style={styles.track} onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)} {...panHandlers}>
@@ -89,10 +91,10 @@ export default function Slider({
         <View style={[styles.trackFill, { width: THUMB / 2 + ratio * travel }]} pointerEvents="none" />
         <View style={[styles.thumb, { left: ratio * travel }]} pointerEvents="none" />
       </View>
-      <Pressable onPress={() => nudge(step)} style={styles.stepButton} accessibilityLabel={plusLabel}>
+      <Pressable onPress={() => nudge(step)} style={[styles.stepButton, name && styles.stepCompact]} accessibilityLabel={plusLabel}>
         <Icon name="plus" size={16} />
       </Pressable>
-      <View style={styles.inputBox}>
+      <View style={[styles.inputBox, name && styles.inputCompact]}>
         <PenSafeTextInput
           value={draft}
           onChangeText={setDraft}
@@ -113,6 +115,10 @@ export default function Slider({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rowInline: { gap: 4, minHeight: 44 },
+  name: { width: 52, fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  stepCompact: { width: 36, height: 36 },
+  inputCompact: { width: 44, height: 36, marginLeft: 4 },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',

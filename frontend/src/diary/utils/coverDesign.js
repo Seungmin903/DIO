@@ -230,9 +230,10 @@ function averageColor(stops) {
 
 // 무늬가 표지를 실제로 덮는 양: 무늬 타일(CoverPattern)의 면적 × 투명도를 겹침까지 계산한 값. 무늬 색은 어두운 무늬 #0B1766 · 밝은 무늬 흰색.
 // CoverPattern 의 타일 · 투명도를 바꾸면 이 표도 다시 잰다.
+// 린넨(타일 8) · 스트라이프(주기 18)는 2026-11-02 무늬 개편 값으로 다시 계산했다(줄 면적 × 농도 / 타일 면적, 겹침 무시 — 예전 값과 같은 방식)
 const PATTERN_COVERAGE = {
-  dark: { linen: 0.042, leather: 0.011, dot: 0.012, gingham: 0.069, stripe: 0.051, check: 0.020 },
-  light: { linen: 0.129, leather: 0.036, dot: 0.043, gingham: 0.208, stripe: 0.162, check: 0.062 },
+  dark: { linen: 0.037, leather: 0.011, dot: 0.012, gingham: 0.069, stripe: 0.040, check: 0.020 },
+  light: { linen: 0.117, leather: 0.036, dot: 0.043, gingham: 0.208, stripe: 0.127, check: 0.062 },
 }
 
 /**

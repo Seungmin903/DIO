@@ -46,7 +46,7 @@ export default function AppInformation() {
         <View style={styles.copy}>
           <Text style={styles.label}>개인정보 처리방침</Text>
         </View>
-        <AppIcon name="chevron-right" size={18} color={C.muted} />
+        <AppIcon name="chevron-right" size={18} forText={15} color={C.muted} />
       </Pressable>
       <View style={styles.contact}>
         <View style={styles.copy}>
@@ -58,7 +58,7 @@ export default function AppInformation() {
       <Pressable accessibilityRole="button" accessibilityLabel="오픈소스 및 콘텐츠 라이선스" onPress={() => setLicensesOpen(true)}
         style={styles.licenses}>
         <Text style={[styles.label, { flex: 1 }]}>오픈소스 및 콘텐츠 라이선스</Text>
-        <AppIcon name="chevron-right" size={18} color={C.muted} />
+        <AppIcon name="chevron-right" size={18} forText={15} color={C.muted} />
       </Pressable>
       <ContentLicenses visible={licensesOpen} onClose={() => setLicensesOpen(false)} />
       {!!copyMessage && <Text accessibilityLiveRegion="polite" role="status" style={styles.status}>{copyMessage}</Text>}

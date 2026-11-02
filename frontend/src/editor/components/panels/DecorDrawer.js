@@ -2,10 +2,13 @@ import { ToolPanelHeader, toolPanelStyles } from '../ToolPanel'
 import { createContext, useContext, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, radius, shadow, DISABLED_OPACITY } from '../../../shared/theme'
-import { PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
-import { stickerKey, useCustomDecor } from '../../hooks/useCustomDecor'
+import { PHOTO_FRAME_ASSETS, PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PALETTES, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
+import { RECENT_LIMIT, stickerKey, tapeKey, useCustomDecor, widgetKey } from '../../hooks/useCustomDecor'
 import { useTapePreferences } from '../../hooks/useTapePreferences'
 import { stickerLibrary } from '../../stickerLibrary'
+import { tapeLibrary } from '../../tapeLibrary'
+import { tapeColors, usePalette } from '../../hooks/usePalettes'
+import MyColorPresets from '../controls/MyColorPresets'
 import Svg, { Path } from 'react-native-svg'
 import FavoriteStar from '../../../shared/FavoriteStar'
 import { usePan } from '../../hooks/usePan'
@@ -18,16 +21,18 @@ import Icon from '../controls/Icon'
 import StickerThumbImage from '../controls/StickerThumbImage'
 import PenSafeTextInput from '../controls/PenSafeTextInput'
 import TapeCropper from './TapeCropper'
-import TapeOptions from './TapeOptions'
-import TapeView from '../canvas/TapeView'
-import PhotoFramePicker from './PhotoFramePicker'
+import TapeView, { tapePreviewBox } from '../canvas/TapeView'
+import { FramePreview, frameLabel } from './PhotoFramePicker'
 import { WIDGET_ITEMS } from '../../widgets/dday'
 import { MEMO_ITEMS } from '../../widgets/memo'
 import StickerSplitModal from './StickerSplitModal'
 import StickerCutoutModal from './StickerCutoutModal'
 import DecorSaveNotice from './DecorSaveNotice'
+import DiaryActionBubble from '../../../diary/components/DiaryActionBubble'
 import { stickerSplit } from '../../services/stickerSplit'
 import { useLoginGate } from '../../../auth/loginGate'
+import SelectionBar from '../../../diary/components/SelectionBar'
+import SelectionButton from '../../../diary/components/SelectionButton'
 
 export const DRAWER_TABS = [
   { id: 'sticker', name: '스티커', icon: 'sticker' },
@@ -35,22 +40,33 @@ export const DRAWER_TABS = [
   { id: 'tape', name: '마스킹테이프', icon: 'tape' },
 ]
 
-// 보관함 미리보기 테이프 크기 (실제 테이프 기본 크기 180×34 와 같은 비율)
-// 규격 비율대로 그린 미리보기 높이
-const tapePreviewHeight = (sizeId) => {
-  const size = TAPE_SIZES.find((s) => s.id === sizeId) ?? TAPE_SIZES[1]
-  return (TAPE_PREVIEW.width * size.h) / size.w
+// 테이프 칸(코덱스 2026-11-02): 스티커처럼 이름 없는 정사각 칸, 최소 56 · 칸 사이 8, 창 폭에 따라 4~9열.
+// 미리보기는 칸 가운데 가로 띠(최대 44×24). 기본 무늬는 표준 규격 비율보다 조금 두껍게(14) 그려 무늬가 보이게 한다
+const TAPE_TILE_MIN = 64 // 스티커 칸과 같은 정사각 64(사용자 2026-11-02): 띠 44×14 는 위 16 · 이름 12/600 은 아래 8
+const TAPE_THUMB_W = 44
+const TAPE_STANDARD = TAPE_SIZES[1]
+const sizeRatio = (sizeId) => {
+  const size = TAPE_SIZES.find((s) => s.id === sizeId) ?? TAPE_STANDARD
+  return size.w / size.h
 }
-const TAPE_PREVIEW = { width: 236, height: 44 }
+const PATTERN_THUMB_H = 14
+/** 바탕색보다 진한 무늬 색 (한 색만 고른 내 색상의 무늬색) */
+function deeper(hex) {
+  const n = parseInt(hex.slice(1), 16)
+  const channel = (shift) => Math.round(((n >> shift) & 255) * 0.7)
+  return `#${[16, 8, 0].map((shift) => channel(shift).toString(16).padStart(2, '0')).join('')}`.toUpperCase()
+}
 
-// 위젯 칸의 칩: 기능 하나에 칩 하나, 모양 차이는 칩 안의 칸으로 고른다
+// 위젯 칸의 칩: 즐겨찾기 · 최근(스티커 · 테이프와 같다) + 기능 하나에 칩 하나, 모양 차이는 칩 안의 칸으로 고른다
 const WIDGET_CHIPS = [
-  { id: 'memo', name: '메모', items: MEMO_ITEMS },
+  { id: 'favorites', name: '즐겨찾기' },
+  { id: 'recent', name: '최근' },
+  { id: 'memo', name: '메모지', items: MEMO_ITEMS },
   { id: 'dday', name: '디데이', items: WIDGET_ITEMS.map((item) => ({ kind: 'sticker', ...item })) },
   // 사진을 담는 빈 틀(폴라로이드 · 티켓 · 네컷). 누르면 빈 틀이 붙고 캔버스의 + 로 사진을 채운다.
   { id: 'frame', name: '사진 틀', groups: PHOTO_FRAME_GROUPS },
 ]
-let rememberedWidgetChip = WIDGET_CHIPS[0].id
+let rememberedWidgetChip = 'memo'
 
 // 보관함 크기: 왼쪽 아래 손잡이로 넓히고 늘린다. 닫았다 열어도 유지되도록 모듈에 기억해 둔다.
 const SIZE_LIMITS = { minWidth: 280, maxWidth: 640, minHeight: 260 }
@@ -76,10 +92,36 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
   const [editingList, setEditingList] = useState(false) // 분류 목록 편집 (순서·숨기기)
   const [listDragging, setListDragging] = useState(false) // 목록 편집에서 끄는 중이면 목록 스크롤을 멈춘다
   const [folderDraft, setFolderDraft] = useState(null) // 새 폴더·이름 바꾸기 입력 { id?, name }
+  // 폴더 편집: 칸을 눌러 여러 개 고른 뒤 한 번에 지운다. 이름은 편집 중 제목 자리에서 고친다. { folderId, keys }
+  const [folderEdit, setFolderEdit] = useState(null)
   const [splitTarget, setSplitTarget] = useState(null)
   const [cutoutFolder, setCutoutFolder] = useState(null)
   const [widgetChip, setWidgetChip] = useState(rememberedWidgetChip)
-  const widgetGroup = WIDGET_CHIPS.find((chip) => chip.id === widgetChip) ?? WIDGET_CHIPS[0]
+  const widgetGroup = WIDGET_CHIPS.find((chip) => chip.id === widgetChip) ?? WIDGET_CHIPS[2]
+  // 위젯 즐겨찾기 · 최근: 누르면 붙이고 최근에 남긴다, 별(또는 길게 누르기)로 즐겨찾기
+  const widgetFavorites = custom.items.widgetFavorites ?? []
+  const widgetRecents = (custom.items.recentWidgets ?? []).slice(0, RECENT_LIMIT)
+  const widgetFavoriteKeys = new Set(widgetFavorites.map(widgetKey))
+  const toggleWidget = (item) => {
+    const has = widgetFavoriteKeys.has(widgetKey(item))
+    custom.toggleWidgetFavorite(item)
+    onToast(has ? '즐겨찾기에서 뺐어요.' : '즐겨찾기에 넣었어요.')
+  }
+  const widgetTileProps = (item) => ({
+    label: item.kind === 'frame' ? frameLabel(PHOTO_FRAME_ASSETS.find((frame) => frame.id === item.frame) ?? { id: item.frame }) : item.name,
+    onPress: () => {
+      custom.markRecentWidget(item)
+      onAdd(item.kind === 'frame' ? { kind: 'frame', frame: item.frame } : item)
+    },
+    onLongPress: () => toggleWidget(item),
+    onFavorite: () => toggleWidget(item),
+    favorite: widgetFavoriteKeys.has(widgetKey(item)),
+  })
+  const widgetThumb = (item) => {
+    if (item.kind !== 'frame') return <StickerThumb item={item} />
+    const frame = PHOTO_FRAME_ASSETS.find((asset) => asset.id === item.frame)
+    return frame ? <FramePreview frame={frame} size={FRAME_TILE_PREVIEW} /> : null
+  }
   // 새 테이프의 색·무늬만 기기별로 기억한다. 기존 캔버스 요소는 수정하지 않는다.
   // 테이프는 늘 기본 폭으로 붙고, 붙인 뒤 위아래 손잡이로 폭을 바꾼다.
   const [tapePreferences, updateTapePreferences, tapePreferencesReady] = useTapePreferences()
@@ -113,7 +155,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
     onTapeInserted?.()
   }
   const [size, setSize] = useState(rememberedSize)
-  const [pendingTape, setPendingTape] = useState(null) // 자르기 화면에서 고르는 중인 테이프 사진
+  const [pendingTape, setPendingTape] = useState(null) // 자르기 화면에서 고르는 중인 테이프 사진 { image, folderId }
   const measured = useRef(0)
   const resizeStart = useRef(null)
   const columns = clamp(Math.floor((size.width - BODY_X * 2) / TILE_MIN_PX), 4, 9)
@@ -133,13 +175,75 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
     },
   })
 
+  // ── 테이프 칸: 스티커 칸과 같은 칩(즐겨찾기 · 최근 · 무늬 · 레이스 · 내 폴더) · 목록 편집 · 폴더 편집. 칩 아래 고정 색 줄로 기본 무늬의 색을 고른다
+  const keyword = query.trim()
+  const tapePaletteId = tapePreferences.palette ?? TAPE_DEFAULT.palette
+  const tapeLib = tapeLibrary(custom.items, custom.items.lastTapeCategory, keyword, tapePaletteId)
+  const tapeUserFolder = tapeLib.folder?.folderId ? tapeLib.folder : null
+  const tapeColumns = clamp(Math.floor((size.width - BODY_X * 2) / (TAPE_TILE_MIN + TILE_GAP * 2)), 4, 9)
+  const tapePalette = usePalette?.('tape')?.colors ?? TAPE_PALETTES.filter((color) => !color.hidden).map((color) => color.id)
+  const tapeLook = tapeColors(tapePaletteId)
+  const laceColors = tapeLib.active === 'base:lace'
+  // 내 색상: 두 색(바탕/무늬)은 그대로, 한 색만 고르면 그보다 진한 무늬색을 짝지어 준다
+  const pickTapeCustom = (hex) => updateTape({ palette: hex.includes('/') ? `custom:${hex.replace('/', ':')}` : `custom:${hex}:${deeper(hex)}` })
+  function insertTape(item) {
+    // 기본 무늬는 저장한 색을 읽은 뒤에만 붙인다(읽기 전 기본색으로 붙어 기억한 색을 덮지 않게)
+    if (!item.src && !item.mediaFileId && !tapePreferencesReady) return
+    custom.markRecentTape(item)
+    // 사진 테이프는 사진 그대로 붙인다(색을 입히지 않는다, 코덱스 2026-11-02)
+    if (item.src || item.mediaFileId) onAdd({ kind: 'tape', ...item })
+    // 즐겨찾기 · 최근의 무늬는 담을 때의 색으로 붙인다
+    else updateTape({ pattern: item.pattern, palette: item.palette ?? tapePaletteId })
+  }
+  const toggleTapeFavorite = (item) => {
+    const has = tapeLib.favoriteKeys.has(tapeKey(item))
+    custom.toggleTapeFavorite(item)
+    onToast(has ? '즐겨찾기에서 뺐어요.' : '즐겨찾기에 넣었어요.')
+  }
+  const tapeTileProps = (item) => ({
+    onPress: () => insertTape(item),
+    onLongPress: () => toggleTapeFavorite(item),
+    onFavorite: () => toggleTapeFavorite(item),
+    favorite: tapeLib.favoriteKeys.has(tapeKey(item)),
+    label: item.name,
+    caption: item.name,
+  })
+  const tapeThumb = (item) => <TapeThumb item={item} palette={item.palette ?? tapePaletteId} />
+  const tapeEditorItems = [...tapeLib.sorted.filter((c) => !tapeLib.hidden.has(c.id)), ...tapeLib.sorted.filter((c) => tapeLib.hidden.has(c.id))]
+  function moveTapeCategory(from, to) {
+    const ids = tapeEditorItems.map((c) => c.id)
+    const [moved] = ids.splice(from, 1)
+    ids.splice(to, 0, moved)
+    custom.setTapeCategoryOrder(ids)
+  }
+  function toggleTapeCategoryHidden(id) {
+    const hiding = !tapeLib.hidden.has(id)
+    const visible = tapeEditorItems.filter((c) => !tapeLib.hidden.has(c.id) && c.id !== id).map((c) => c.id)
+    const rest = tapeEditorItems.filter((c) => tapeLib.hidden.has(c.id) && c.id !== id).map((c) => c.id)
+    custom.setTapeCategoryOrder(hiding ? [...visible, ...rest, id] : [...visible, id, ...rest])
+    custom.toggleTapeHidden(id)
+  }
+
   const addSticker = (item) => {
     custom.markRecent(item)
     onAdd({ kind: 'sticker', ...item })
   }
-  const keyword = query.trim()
   // 분류 칩: 즐겨찾기·최근(있을 때) + 기본 분류와 내 폴더(사용자가 정한 순서, 숨긴 기본 분류는 빼고)
   const { favorites, recents, favoriteKeys, orderable, sorted, hidden, chips, active, folder, folderMatches } = stickerLibrary(custom.items, category, keyword)
+  // 다른 분류로 옮기거나 검색하면 편집은 저절로 끝난 것으로 본다
+  // 테이프 폴더 편집(여러 개 골라 지우기)
+  const editingTape = tab === 'tape' && !keyword && tapeUserFolder && folderEdit?.folderId === tapeUserFolder.folderId ? folderEdit : null
+  const tapeEditKeys = editingTape ? editingTape.keys.filter((key) => tapeUserFolder.items.some((item) => tapeKey(item) === key)) : []
+  const editingFolder = tab === 'sticker' && !keyword && folder && folderEdit?.folderId === folder.id ? folderEdit : null
+  const editKeys = editingFolder ? editingFolder.keys.filter((key) => folder.items.some((item) => stickerKey(item) === key)) : []
+  function toggleEditKey(item, keyOf = stickerKey) {
+    const key = keyOf(item)
+    setFolderEdit((prev) => ({ ...prev, keys: prev.keys.includes(key) ? prev.keys.filter((k) => k !== key) : [...prev.keys, key] }))
+  }
+  function finishFolderEdit() {
+    commitFolder()
+    setFolderEdit(null)
+  }
   // 길게 누르면 즐겨찾기에 넣고 뺀다
   const toggleFavorite = (item) => {
     const has = favoriteKeys.has(stickerKey(item))
@@ -149,6 +253,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
   const tileProps = (item) => ({
     onPress: () => addSticker(item),
     onLongPress: () => toggleFavorite(item),
+    onFavorite: () => toggleFavorite(item),
     favorite: favoriteKeys.has(stickerKey(item)),
     label: item.name,
   })
@@ -179,7 +284,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
       // 테이프는 한 장씩 골라 테이프 틀에 들어갈 부분을 먼저 정한 뒤 추가한다.
       if (kind === 'tapes') {
         const [image] = await pickImages({ multiple: false, usage: 'tape' })
-        if (image) setPendingTape(image)
+        if (image) setPendingTape({ image, folderId })
         return
       }
       const images = await pickImages({ usage: 'sticker' })
@@ -199,13 +304,57 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
     }
   }
 
+  // 이름 바꾸기를 빈 이름으로 끝내면 원래 이름으로 돌아간다
   function commitFolder() {
     const name = folderDraft?.name.trim()
-    if (!name || !canCommitFolder) return
-    if (folderDraft.id) custom.renameFolder(folderDraft.id, name)
+    if (!name || !canCommitFolder) {
+      if (folderDraft?.id) setFolderDraft(null)
+      return
+    }
+    if (folderDraft.kind === 'tape') {
+      if (folderDraft.id) custom.renameTapeFolder(folderDraft.id, name)
+      else custom.setTapeCategory(`folder:${custom.addTapeFolder(name)}`)
+    }
+    else if (folderDraft.id) custom.renameFolder(folderDraft.id, name)
     else setCategory(`folder:${custom.addFolder(name)}`)
     setFolderDraft(null)
   }
+
+  // 지금 편집 중인 폴더(스티커 또는 테이프): 아래 편집 도구줄이 쓴다
+  const edit = editingFolder
+    ? { folder, folderId: folder.id, keys: editKeys, keyOf: stickerKey, noun: '스티커', remove: (item) => custom.removeFromFolder(folder.id, item) }
+    : editingTape
+      ? { folder: tapeUserFolder, folderId: tapeUserFolder.folderId, keys: tapeEditKeys, keyOf: tapeKey, noun: '테이프', remove: (item) => custom.removeTape(tapeUserFolder.folderId, item.id) }
+      : null
+
+  // 새 폴더 이름 입력 줄(스티커 · 테이프 칩 줄 아래)
+  const newFolderInput = folderDraft && !folderDraft.id ? (
+            <View style={styles.folderInputRow}>
+              <TextInput
+                value={folderDraft.name}
+                onChangeText={(name) => setFolderDraft({ ...folderDraft, name })}
+                autoFocus
+                maxLength={12}
+                placeholder="폴더 이름"
+                placeholderTextColor={colors.textMuted}
+                onSubmitEditing={() => canCommitFolder && commitFolder()}
+                style={styles.folderInput}
+                accessibilityLabel="폴더 이름"
+              />
+              <Pressable onPress={() => setFolderDraft(null)} style={styles.folderInputButton} accessibilityLabel="폴더 이름 입력 취소">
+                <Text style={styles.folderCancelText}>취소</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => commitFolder()}
+                disabled={!canCommitFolder}
+                accessibilityState={{ disabled: !canCommitFolder }}
+                style={[styles.folderInputButton, styles.folderOk, !canCommitFolder && styles.folderOkDisabled]}
+                accessibilityLabel="폴더 이름 확인"
+              >
+                <Text style={styles.folderOkText}>만들기</Text>
+              </Pressable>
+            </View>
+  ) : null
 
   return (
     <View
@@ -217,8 +366,8 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
     >
       {/* 툴바에서 고른 보관함만 보여 준다 (서랍 안에서 스티커·테이프·사진을 오가지 않는다) */}
       <ToolPanelHeader icon={current.icon} title={current.name} onClose={onClose} closeLabel="보관함 닫기">
-        {/* 스티커: 분류·폴더 목록 편집은 제목 줄 오른쪽(닫기 왼쪽)에 */}
-        {tab === 'sticker' && (
+        {/* 스티커 · 테이프: 분류·폴더 목록 편집은 제목 줄 오른쪽(닫기 왼쪽)에 */}
+        {(tab === 'sticker' || tab === 'tape') && (
           <Pressable
             onPress={() => setEditingList(!editingList)}
             hitSlop={6}
@@ -227,7 +376,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
             accessibilityState={{ selected: editingList }}
             style={({ pressed }) => [styles.headerButton, editingList && styles.headerButtonActive, pressed && styles.pressed]}
           >
-            <Icon name={editingList ? 'check' : 'grip'} size={14} color={editingList ? colors.text : colors.textMuted} />
+            <Icon name={editingList ? 'check' : 'grip'} size={14} forText={12} color={editingList ? colors.text : colors.textMuted} />
             <Text style={[styles.headerButtonText, editingList && styles.headerButtonTextActive]}>{editingList ? '편집 완료' : '목록 편집'}</Text>
           </Pressable>
         )}
@@ -266,35 +415,75 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                   }}
                 />
               ))}
-              <Pill icon="plus" label="새 폴더" dashed onPress={() => setFolderDraft({ name: '' })} />
+              <Pill icon="plus" label="새 폴더" dashed onPress={() => setFolderDraft({ name: '', kind: 'sticker' })} />
             </ChipScroller>
           )}
-          {folderDraft && !folderDraft.id && (
-            <View style={styles.folderInputRow}>
-              <TextInput
-                value={folderDraft.name}
-                onChangeText={(name) => setFolderDraft({ ...folderDraft, name })}
-                autoFocus
-                maxLength={12}
-                placeholder="폴더 이름"
-                placeholderTextColor={colors.textMuted}
-                onSubmitEditing={() => canCommitFolder && commitFolder()}
-                style={styles.folderInput}
-                accessibilityLabel="폴더 이름"
+          {newFolderInput}
+        </View>
+      )}
+      {tab === 'tape' && (
+        <View style={styles.fixed}>
+          <View style={styles.search}>
+            <Icon name="search" size={16} color={colors.textMuted} />
+            <PenSafeTextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="테이프 검색"
+              placeholderTextColor={colors.textMuted}
+              style={styles.searchInput}
+              accessibilityLabel="테이프 검색"
+            />
+            {query ? (
+              <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel="검색어 지우기">
+                <Icon name="close" size={14} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+          {!keyword && (
+            <ChipScroller style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
+              {tapeLib.chips.map((item) => (
+                <Pill
+                  key={item.id}
+                  label={item.name}
+                  active={!editingList && tapeLib.active === item.id}
+                  onPress={() => {
+                    setEditingList(false)
+                    custom.setTapeCategory(item.id)
+                  }}
+                />
+              ))}
+              <Pill icon="plus" label="새 폴더" dashed onPress={() => setFolderDraft({ name: '', kind: 'tape' })} />
+            </ChipScroller>
+          )}
+          {newFolderInput}
+          {/* 색 줄: 기본 색 → 구분선 → 내 색상 → +. 레이스는 한 색(바탕색)만 보인다. 사진 테이프만 있는 내 폴더에서는 숨긴다 */}
+          {/* 색 줄은 기본 폴더(무늬 · 레이스)에서만: 즐겨찾기 · 최근 · 내 폴더 · 검색 결과는 담긴 색 그대로 붙는다 */}
+          {!editingList && !keyword && tapeLib.folder && !tapeUserFolder && tapePreferencesReady && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.colorScroll} contentContainerStyle={styles.colorRow} keyboardShouldPersistTaps="handled">
+              {tapePalette.map((entry) => {
+                const color = tapeColors(entry)
+                const name = TAPE_PALETTES.find((item) => item.id === entry)?.name ?? entry.split(':').slice(1).join('/')
+                const on = tapePaletteId === entry
+                return (
+                  <Pressable key={entry} onPress={() => updateTape({ palette: entry })} accessibilityRole="button" accessibilityLabel={`테이프 색 ${name}`}
+                    accessibilityState={{ selected: on }} style={styles.colorCell}>
+                    <View style={[styles.colorSwatch, { backgroundColor: color.bg }, on && styles.colorSwatchOn]}>
+                      {!laceColors && <View style={[styles.colorDot, { backgroundColor: color.fg }]} />}
+                    </View>
+                  </Pressable>
+                )
+              })}
+              <View style={styles.colorDivider} />
+              <MyColorPresets
+                scope="tape"
+                inline
+                size={28}
+                value={tapePaletteId.startsWith('custom:') ? tapeLook.bg : null}
+                entry={tapePaletteId.startsWith('custom:') ? `${tapeLook.bg}/${tapeLook.fg}` : null}
+                label="테이프 색"
+                onPick={pickTapeCustom}
               />
-              <Pressable onPress={() => setFolderDraft(null)} style={styles.folderInputButton} accessibilityLabel="폴더 이름 입력 취소">
-                <Text style={styles.folderCancelText}>취소</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => commitFolder()}
-                disabled={!canCommitFolder}
-                accessibilityState={{ disabled: !canCommitFolder }}
-                style={[styles.folderInputButton, styles.folderOk, !canCommitFolder && styles.folderOkDisabled]}
-                accessibilityLabel="폴더 이름 확인"
-              >
-                <Text style={styles.folderOkText}>만들기</Text>
-              </Pressable>
-            </View>
+            </ScrollView>
           )}
         </View>
       )}
@@ -366,14 +555,14 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                   splitAvailable={stickerSplit.available}
                   splitReason={stickerSplit.reason}
                   tileProps={tileProps}
-                  onRemove={(item) => ask('이 스티커를 지울까요?', `'${folder.name}' 폴더에서 지워져요.`, () => custom.removeFromFolder(folder.id, item))}
+                  editing={Boolean(editingFolder)}
+                  editKeys={editKeys}
+                  onEdit={() => setFolderEdit({ folderId: folder.id, keys: [] })}
+                  onToggleEdit={toggleEditKey}
                   onAdd={() => addCustom('stickers', folder.id)}
                   renaming={folderDraft?.id === folder.id ? folderDraft.name : null}
-                  canCommitRename={canCommitFolder}
-                  onRename={() => setFolderDraft({ id: folder.id, name: folder.name })}
                   onRenameChange={(name) => setFolderDraft({ id: folder.id, name })}
                   onRenameCommit={commitFolder}
-                  onRenameCancel={() => setFolderDraft(null)}
                   onDelete={() =>
                     ask(`'${folder.name}' 폴더를 지울까요?`, '폴더 안의 스티커도 함께 지워져요.', () => {
                       custom.removeFolder(folder.id)
@@ -399,61 +588,136 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
             </>
           )}
 
+          {/* 사진 틀도 메모 · 디데이와 같은 칸(창 폭에 맞춘 열 · 정사각 · 이름은 화면 읽기에만)으로 묶음마다 보인다 */}
+          {tab === 'widget' && (widgetGroup.id === 'favorites' || widgetGroup.id === 'recent') && custom.loaded && (
+            <Section title={widgetGroup.id === 'favorites' ? '즐겨찾기' : '최근 사용'}>
+              <View style={styles.grid}>
+                {(widgetGroup.id === 'favorites' ? widgetFavorites : widgetRecents).map((item) => (
+                  <Tile key={widgetKey(item)} {...widgetTileProps(item)}>{widgetThumb(item)}</Tile>
+                ))}
+              </View>
+            </Section>
+          )}
           {tab === 'widget' && widgetGroup.groups?.map((group) => (
             <Section key={group.id} title={group.name}>
-              <PhotoFramePicker group={group.id} onSelect={(frame) => onAdd({ kind: 'frame', frame: frame.id })} />
+              <View style={styles.grid}>
+                {PHOTO_FRAME_ASSETS.filter((frame) => frame.group === group.id).map((frame) => {
+                  const item = { kind: 'frame', frame: frame.id, name: frame.name }
+                  return <Tile key={frame.id} {...widgetTileProps(item)}>{widgetThumb(item)}</Tile>
+                })}
+              </View>
             </Section>
           ))}
           {tab === 'widget' && widgetGroup.items && (
             <View style={styles.grid}>
               {widgetGroup.items.map((item) => (
-                <Tile key={item.memo ?? item.style} label={item.name} onPress={() => onAdd(item)}>
-                  <StickerThumb item={item} />
-                </Tile>
+                <Tile key={item.memo ?? item.style} {...widgetTileProps(item)}>{widgetThumb(item)}</Tile>
               ))}
             </View>
           )}
 
           {tab === 'tape' && (
-            <>
-              <CustomSection
-                title="내 테이프"
-
-                onAdd={() => addCustom('tapes')}
-                busy={busy}
-              >
-                {custom.items.tapes.length > 0 && (
-                  <View style={styles.tapeList}>
-                    {custom.items.tapes.map((item) => (
-                      <TapeRow
-                        key={item.id}
-                        name={item.name}
-                        onPress={() => onAdd({ kind: 'tape', ...item })}
-                        onRemove={() => ask('이 테이프를 지울까요?', '내 테이프에서 지워져요.', () => custom.remove('tapes', item.id))}
-                      >
-                        <TapeView
-                          src={item.src}
-                          mediaFileId={item.mediaFileId}
-                          crop={item.crop}
-                          imageWidth={item.imageWidth}
-                          imageHeight={item.imageHeight}
-                          edge="straight"
-                          width={TAPE_PREVIEW.width}
-                          height={tapePreviewHeight(item.size)}
-                        />
-                      </TapeRow>
-                    ))}
+            <ColumnsContext.Provider value={tapeColumns}>
+              {editingList && !keyword && (
+                <ListEditor
+                  items={tapeEditorItems}
+                  hidden={tapeLib.hidden}
+                  onMove={moveTapeCategory}
+                  onDragging={setListDragging}
+                  onToggleHidden={toggleTapeCategoryHidden}
+                  onDelete={(item) => {
+                    const id = item.id.slice('folder:'.length)
+                    ask(`'${item.name}' 폴더를 지울까요?`, '폴더 안의 테이프도 함께 지워져요.', () => custom.removeTapeFolder(id))
+                  }}
+                />
+              )}
+              {!editingList && !keyword && tapeLib.active === 'favorites' && custom.loaded && (
+                <Section title="즐겨찾기">
+                  <View style={styles.grid}>
+                    {tapeLib.favorites.map((item) => <Tile key={tapeKey(item)} {...tapeTileProps(item)}>{tapeThumb(item)}</Tile>)}
                   </View>
-                )}
-              </CustomSection>
-              {/* 테이프 넣기: 규격 · 색상 · 무늬 (무늬를 고르면 붙는다) */}
-              {tapePreferencesReady ? <TapeOptions tape={tapeDraft} onUpdate={updateTape} draft />
-                : <Text accessibilityLiveRegion="polite" style={styles.empty}>테이프 설정 불러오는 중…</Text>}
-            </>
+                </Section>
+              )}
+              {!editingList && !keyword && tapeLib.active === 'recent' && (
+                <Section title="최근 사용">
+                  <View style={styles.grid}>
+                    {tapeLib.recents.map((item) => <Tile key={tapeKey(item)} {...tapeTileProps(item)}>{tapeThumb(item)}</Tile>)}
+                  </View>
+                </Section>
+              )}
+              {/* 기본 폴더(무늬 · 레이스)는 고치지 않고 붙이기만 한다 */}
+              {!editingList && tapeLib.folder && !tapeUserFolder && (
+                <Section title={tapeLib.folder.name}>
+                  <View style={styles.grid}>
+                    {tapeLib.folder.items.map((item) => <Tile key={tapeKey(item)} {...tapeTileProps(item)}>{tapeThumb(item)}</Tile>)}
+                  </View>
+                </Section>
+              )}
+              {!editingList && tapeUserFolder && (
+                <FolderView
+                  key={tapeUserFolder.id}
+                  folder={tapeUserFolder}
+                  busy={busy || !custom.loaded}
+                  keyOf={tapeKey}
+                  renderItem={tapeThumb}
+                  tileProps={tapeTileProps}
+                  noun="테이프"
+                  editing={Boolean(editingTape)}
+                  editKeys={tapeEditKeys}
+                  onEdit={() => setFolderEdit({ folderId: tapeUserFolder.folderId, keys: [] })}
+                  onToggleEdit={(item) => toggleEditKey(item, tapeKey)}
+                  onAddDirect={() => addCustom('tapes', tapeUserFolder.folderId)}
+                  renaming={folderDraft?.id === tapeUserFolder.folderId ? folderDraft.name : null}
+                  onRenameChange={(name) => setFolderDraft({ id: tapeUserFolder.folderId, name, kind: 'tape' })}
+                  onRenameCommit={commitFolder}
+                  onDelete={() =>
+                    ask(`'${tapeUserFolder.name}' 폴더를 지울까요?`, '폴더 안의 테이프도 함께 지워져요.', () => {
+                      custom.removeTapeFolder(tapeUserFolder.folderId)
+                      custom.setTapeCategory(null)
+                    })
+                  }
+                />
+              )}
+              {keyword && tapeLib.matches.length > 0 && (
+                <Section title="검색 결과">
+                  <View style={styles.grid}>
+                    {tapeLib.matches.map((item) => <Tile key={`${item.folderId ?? 'base'}-${tapeKey(item)}`} {...tapeTileProps(item)}>{tapeThumb(item)}</Tile>)}
+                  </View>
+                </Section>
+              )}
+              {keyword && !tapeLib.matches.length && <Text style={styles.empty}>'{keyword}'에 맞는 테이프가 없어요.</Text>}
+            </ColumnsContext.Provider>
           )}
 
         </ScrollView>
       </ColumnsContext.Provider>
+      {/* 폴더 편집 도구줄: 보관함 · 휴지통 선택 모드와 같은 부품(전체 선택 · 지우기 · 완료는 맨 오른쪽) */}
+      {edit && (
+        <View style={styles.editBar}>
+          <SelectionBar count={edit.keys.length} style={styles.editBarInner}>
+            <SelectionButton
+              label={edit.keys.length > 0 && edit.keys.length === edit.folder.items.length ? '전체 해제' : '전체 선택'}
+              disabled={!edit.folder.items.length}
+              onPress={() => setFolderEdit({ folderId: edit.folderId, keys: edit.keys.length === edit.folder.items.length ? [] : edit.folder.items.map(edit.keyOf) })}
+            />
+            <SelectionButton
+              label={`선택한 ${edit.noun} ${edit.keys.length}개 지우기`}
+              text="지우기"
+              icon="trash"
+              tone="danger"
+              disabled={!edit.keys.length}
+              onPress={() => {
+                const doomed = edit.folder.items.filter((item) => edit.keys.includes(edit.keyOf(item)))
+                ask(`${edit.noun} ${doomed.length}개를 지울까요?`, `'${edit.folder.name}' 폴더에서 지워져요.`, () => {
+                  doomed.forEach(edit.remove)
+                  setFolderEdit({ folderId: edit.folderId, keys: [] })
+                })
+              }}
+            />
+            <SelectionButton label="편집 완료" text="완료" onPress={finishFolderEdit} />
+          </SelectionBar>
+        </View>
+      )}
       <ConfirmDialog
         open={Boolean(confirm)}
         title={confirm?.title}
@@ -466,13 +730,12 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
       />
       {pendingTape && (
         <TapeCropper
-          image={pendingTape}
+          image={pendingTape.image}
           onCancel={() => setPendingTape(null)}
-          onConfirm={({ crop, size }) => {
-            const { src, mediaFileId, poster, name, width, height } = pendingTape
-            custom.add('tapes', { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop, size })
+          onConfirm={({ crop, size, ratio }) => {
+            const { src, mediaFileId, poster, name, width, height } = pendingTape.image
+            custom.setTapeCategory(`folder:${custom.addTape(pendingTape.folderId, { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop, size, pieceRatio: ratio })}`)
             setPendingTape(null)
-            onToast('내 테이프에 추가했어요. 붙인 뒤에도 자르기로 다시 고를 수 있어요.')
           }}
         />
       )}
@@ -517,27 +780,6 @@ function Section({ title, badge, children }) {
   )
 }
 
-function CustomSection({ title, onAdd, busy, children }) {
-  return (
-    <View style={styles.custom}>
-      {/* 비어 있을 때 '추가' 버튼 위아래 회색 여백이 같도록 머리줄 아래 여백은 내용이 있을 때만 */}
-      <View style={[styles.sectionHead, styles.customHead]}>
-        <View style={styles.titleGroup}>
-          <Text style={styles.sectionTitle}>{title}</Text>
-        </View>
-        <Pressable onPress={onAdd} disabled={busy} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
-          <Icon name="plus" size={13} />
-          <Text style={styles.addText}>{busy ? '불러오는 중' : '추가'}</Text>
-        </Pressable>
-      </View>
-      {children && (
-        <View style={styles.customBody}>
-          {children}
-        </View>
-      )}
-    </View>
-  )
-}
 
 function Pill({ label, icon, dashed, active, onPress }) {
   return (
@@ -556,104 +798,95 @@ function Pill({ label, icon, dashed, active, onPress }) {
 
 /**
  * 내 폴더 한 개: 스티커 목록 + 맨 끝 '추가' 칸(스티커 한 칸 크기).
- * 머리줄: 이름(연필을 누르면 그 자리에서 고친다) · 맨 오른쪽 빨간 휴지통.
+ * 머리줄: 이름 · 오른쪽에 '편집'과 빨간 휴지통(폴더 지우기).
+ * 편집 중: 이름이 그 자리 입력칸이 되고, 칸을 누르면 붙이지 않고 고른다. 휴지통 · 추가 칸은 숨긴다(고른 스티커 지우기와 헷갈리지 않게).
  */
 function FolderView({
   folder,
   busy,
+  keyOf = stickerKey,
+  renderItem = (item) => <StickerThumb item={item} />,
+  noun = '스티커',
+  onAddDirect, // 있으면 + 가 말풍선 없이 바로 추가한다(테이프: 사진 고르기 → 자르기)
   onSplit,
   onCutout,
   splitAvailable,
   splitReason,
   tileProps,
+  editing,
+  editKeys,
+  onEdit,
+  onToggleEdit,
   renaming,
-  canCommitRename,
-  onRemove,
   onAdd,
-  onRename,
   onRenameChange,
   onRenameCommit,
-  onRenameCancel,
   onDelete,
 }) {
-  const [adding, setAdding] = useState(false)
-  const editing = renaming != null
+  const [adding, setAdding] = useState(null) // { anchor }: + 의 창 안 자리(말풍선을 그 아래에 띄운다)
   return (
     <View style={styles.section}>
       <View style={styles.sectionHead}>
         {editing ? (
-          <>
-            {/* 제목과 같은 자리·글씨 크기로 입력 */}
-            <TextInput
-              value={renaming}
-              onChangeText={onRenameChange}
-              autoFocus
-              selectTextOnFocus
-              maxLength={12}
-              onSubmitEditing={() => canCommitRename && onRenameCommit()}
-              style={styles.renameInput}
-              accessibilityLabel="폴더 이름"
-            />
-            <Pressable onPress={onRenameCancel} hitSlop={8} style={styles.folderAction} accessibilityLabel="이름 바꾸기 취소">
-              <Icon name="close" size={15} strokeWidth={2} color={colors.textMuted} />
-            </Pressable>
-            <Pressable
-              onPress={onRenameCommit}
-              disabled={!canCommitRename}
-              hitSlop={8}
-              style={[styles.folderAction, !canCommitRename && styles.folderOkDisabled]}
-              accessibilityLabel="이름 바꾸기 확인"
-            >
-              <Icon name="check" size={16} strokeWidth={2.2} color={colors.primary} />
-            </Pressable>
-          </>
+          // 제목과 같은 자리·글씨 크기로 입력. 들어오자마자 키보드를 올리지 않고, 이름을 눌렀을 때만 고친다
+          <TextInput
+            value={renaming ?? folder.name}
+            onChangeText={onRenameChange}
+            selectTextOnFocus
+            maxLength={12}
+            onSubmitEditing={onRenameCommit}
+            onBlur={onRenameCommit}
+            style={styles.renameInput}
+            accessibilityLabel="폴더 이름"
+          />
         ) : (
           <>
             <Text style={styles.sectionTitle} numberOfLines={1}>
               {folder.name}
             </Text>
-            <Pressable onPress={onRename} hitSlop={8} style={styles.folderAction} accessibilityLabel="폴더 이름 바꾸기">
-              <Icon name="edit" size={14} strokeWidth={2} color={colors.textMuted} />
-            </Pressable>
             <View style={styles.headSpacer} />
+            <Pressable onPress={onEdit} hitSlop={8} style={styles.folderEdit} accessibilityRole="button" accessibilityLabel={`${folder.name} 폴더 편집`}>
+              <Text style={styles.folderEditText}>편집</Text>
+            </Pressable>
             <Pressable onPress={onDelete} hitSlop={8} style={styles.folderAction} accessibilityLabel="폴더 지우기">
-              <Icon name="trash" size={15} strokeWidth={2} color={colors.danger} />
+              <Icon name="trash" size={16} strokeWidth={2} color={colors.danger} />
             </Pressable>
           </>
         )}
       </View>
       <View style={styles.grid}>
         {folder.items.map((item) => (
-          <Tile key={stickerKey(item)} {...tileProps(item)} onRemove={() => onRemove(item)}>
-            <StickerThumb item={item} />
+          <Tile
+            key={keyOf(item)}
+            {...tileProps(item)}
+            {...(editing && {
+              onPress: () => onToggleEdit(item),
+              // 고르는 중에도 길게 누르기를 넘겨야 손을 뗄 때 눌림으로 한 번 더 토글되지 않는다
+              onLongPress: () => {},
+              selected: editKeys.includes(keyOf(item)),
+            })}
+            selecting={editing}
+          >
+            {renderItem(item)}
           </Tile>
         ))}
-        <AddTile busy={busy} label={`${folder.name}에 스티커 추가`} onPress={() => setAdding(value => !value)} />
+        {!editing && <AddTile busy={busy} label={`${folder.name}에 ${noun} 추가`} onPress={(anchor) => (onAddDirect ? onAddDirect() : setAdding({ anchor }))} />}
       </View>
-      {adding && <View style={styles.stickerAddMenu}>
-        <Pressable accessibilityRole="button" accessibilityLabel="이미지 그대로 추가" disabled={busy}
-          accessibilityState={{ disabled: busy }} style={styles.stickerAddOption}
-          onPress={() => { setAdding(false); onAdd() }}>
-          <Text style={styles.stickerAddText}>이미지 그대로 추가</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="이미지 분리해서 추가" disabled={busy || !splitAvailable}
-          accessibilityState={{ disabled: busy || !splitAvailable }}
-          style={[styles.stickerAddOption, (busy || !splitAvailable) && { opacity: DISABLED_OPACITY }]}
-          onPress={() => { setAdding(false); onSplit() }}>
-          <Text style={styles.stickerAddText}>이미지 분리해서 추가</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="사진 속 대상 오리기" disabled={busy}
-          accessibilityState={{ disabled: busy }} style={styles.stickerAddOption}
-          onPress={() => { setAdding(false); onCutout() }}>
-          <Text style={styles.stickerAddText}>사진 속 대상 오리기</Text>
-        </Pressable>
-        {!splitAvailable && !!splitReason && <Text style={styles.stickerAddText}>{splitReason}</Text>}
-      </View>}
+      {/* + 를 누르면 다이어리 카드 ⋯ · 꾸미기 공방 '스티커 추가'와 같은 동작 말풍선(이름 · 아이콘 · 순서 같음) */}
+      {adding && !editing && <DiaryActionBubble anchor={adding.anchor} title={`${folder.name}에 스티커 추가`} onClose={() => setAdding(null)} actions={[
+        { id: 'image', label: '이미지 그대로 추가', text: '이미지 그대로 추가', icon: 'image', disabled: busy, onPress: () => { setAdding(null); onAdd() } },
+        { id: 'split', label: splitAvailable ? '스티커 시트 분리' : `스티커 시트 분리, ${splitReason || '이 기기에서는 쓸 수 없어요'}`, text: '스티커 시트 분리', icon: 'grid',
+          disabled: busy || !splitAvailable, onPress: () => { setAdding(null); onSplit() } },
+        { id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors', disabled: busy, onPress: () => { setAdding(null); onCutout() } },
+      ]} />}
     </View>
   )
 }
 // 타일은 너비를 % 로 나눠 줄 양 끝이 목록 좌우 여백에 딱 맞게 한다. (고정 너비면 오른쪽에 남는 칸이 생긴다)
-function Tile({ onPress, onLongPress, onRemove, favorite, label, children }) {
+// 즐겨찾기 별은 즐겨찾기인 칸에만 둔다(빈 별은 작은 칸에서 소음이라 두지 않는다, 코덱스 2026-11-02). 넣고 빼기는 길게 누르기.
+// selecting: 폴더 편집 중. 오른쪽 위 체크 원과 고른 칸의 버터 바탕으로 고른 것을 보인다(윤곽은 두르지 않는다).
+// caption: 칸 아래쪽에 보이는 이름(테이프). 같은 정사각 칸에 위는 그림, 아래는 이름
+function Tile({ onPress, onLongPress, onFavorite, favorite, selecting, selected, label, caption, children }) {
   const columns = useContext(ColumnsContext)
   return (
     <View style={[styles.tileCell, { width: `${100 / columns}%` }]}>
@@ -662,20 +895,24 @@ function Tile({ onPress, onLongPress, onRemove, favorite, label, children }) {
         onLongPress={onLongPress}
         delayLongPress={400}
         accessibilityLabel={label}
-        accessibilityHint={onLongPress ? '길게 누르면 즐겨찾기' : undefined}
-        style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
+        accessibilityHint={onLongPress && !selecting ? '길게 누르면 즐겨찾기' : undefined}
+        accessibilityState={selecting ? { selected: Boolean(selected) } : undefined}
+        style={({ pressed }) => [styles.tile, caption != null && styles.tileCaption, selected && styles.tileSelected, pressed && styles.pressed]}
       >
         {children}
+        {caption != null && <Text numberOfLines={1} style={styles.caption}>{caption}</Text>}
       </Pressable>
-      {favorite && (
-        <View style={styles.favorite} pointerEvents="none">
-          <FavoriteStar filled outline={colors.surface} size={17} />
-        </View>
-      )}
-      {onRemove && (
-        <Pressable onPress={onRemove} style={styles.remove} hitSlop={6} accessibilityLabel="보관함에서 삭제">
-          <Icon name="close" size={11} strokeWidth={2.6} color={colors.surface} />
+      {/* 즐겨찾기 별: 다이어리 카드처럼 칸마다 왼쪽 위에 두고 누르면 넣고 뺀다(길게 누르기도 같다) */}
+      {onFavorite && !selecting && (
+        <Pressable onPress={onFavorite} hitSlop={8} style={styles.favorite} accessibilityRole="button"
+          accessibilityLabel={`${label} ${favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}`} accessibilityState={{ selected: Boolean(favorite) }}>
+          <FavoriteStar filled={Boolean(favorite)} outline={TILE_STAR_OUTLINE} size={16} />
         </Pressable>
+      )}
+      {selecting && (
+        <View style={[styles.check, selected && styles.checkOn]} pointerEvents="none">
+          {selected && <Icon name="check" size={12} strokeWidth={2.8} color={colors.surface} />}
+        </View>
       )}
     </View>
   )
@@ -684,10 +921,15 @@ function Tile({ onPress, onLongPress, onRemove, favorite, label, children }) {
 /** 스티커 한 칸 크기의 '추가' 칸 (점선 네모에 +) */
 function AddTile({ busy, label, onPress }) {
   const columns = useContext(ColumnsContext)
+  const ref = useRef(null)
   return (
-    <View style={[styles.tileCell, { width: `${100 / columns}%` }]}>
+    <View ref={ref} collapsable={false} style={[styles.tileCell, { width: `${100 / columns}%` }]}>
       <Pressable
-        onPress={onPress}
+        onPress={() => {
+          const node = ref.current
+          if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => onPress({ x, y, width, height }))
+          else onPress(null)
+        }}
         disabled={busy}
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -799,24 +1041,15 @@ function EditRow({ item, hidden, dragging, offset, onToggleHidden, onDelete, onD
 }
 
 /** 내 테이프 한 줄. 이름은 화면에 쓰지 않고 읽어 주기에만 쓴다 */
-function TapeRow({ name, onPress, onRemove, children }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.tapeRow, pressed && styles.pressed]}
-      accessibilityLabel={`${name} 붙이기`}
-    >
-      {/* ✕ 는 테이프 그림의 오른쪽 위 모서리에 걸쳐 위·오른쪽으로 같은 만큼 나오게 */}
-      <View style={styles.tapePreview}>
-        {children}
-        {onRemove && (
-          <Pressable onPress={onRemove} style={[styles.remove, styles.removeTape]} hitSlop={6} accessibilityLabel="보관함에서 삭제">
-            <Icon name="close" size={11} strokeWidth={2.6} color={colors.surface} />
-          </Pressable>
-        )}
-      </View>
-    </Pressable>
-  )
+/** 테이프 칸 그림: 기본 무늬는 고른 색으로, 사진 테이프는 사진 그대로 */
+function TapeThumb({ item, palette }) {
+  if (item.src || item.mediaFileId) {
+    // 등록할 때 정한 조각 비율대로(조각이 칸보다 짧으면 반복)
+    const box = tapePreviewBox(item, TAPE_THUMB_W, 10, 24, sizeRatio(item.size))
+    return <TapeView src={item.src} mediaFileId={item.mediaFileId} crop={item.crop} imageWidth={item.imageWidth} imageHeight={item.imageHeight}
+      edge="straight" width={box.width} height={box.height} segmentShare={box.segmentShare} pieceRatio={box.pieceRatio} crisp />
+  }
+  return <TapeView pattern={item.pattern} palette={palette} edge="straight" width={TAPE_THUMB_W} height={PATTERN_THUMB_H} scale={PATTERN_THUMB_H / TAPE_STANDARD.h} crisp />
 }
 
 const BODY_X = 16
@@ -835,12 +1068,13 @@ const GRIP_ARC = (() => {
   const [x2, y2] = point(78)
   return `M${x1} ${y1} A${r} ${r} 0 0 0 ${x2} ${y2}`
 })()
+// 위젯 칸의 사진 틀 미리보기: 스티커 그림(칸의 74%, 4열 기본 폭에서 약 47)과 비슷한 크기
+const FRAME_TILE_PREVIEW = 46
+// 칸 위 즐겨찾기 별의 윤곽색(칠한 별 · 안 칠한 별 같다): 칸 면(#F5F7FB)에서 흰색은 묻혀 secondary(코덱스 2026-11-02)
+const TILE_STAR_OUTLINE = colors.secondary
 const TILE_GAP = 4 // 칸 사이 8 (코덱스 17번: 셀 64, 간격 8, 안쪽 여백 16)
 
 const styles = StyleSheet.create({
-  stickerAddMenu: { marginTop: 8, padding: 8, gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
-  stickerAddOption: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
-  stickerAddText: { fontSize: 14, fontWeight: '600', color: colors.text },
   // 앵커 패널: 흰 면 + 1px 테두리, 그림자 없음, 최대 높이 480 (공용 카드 toolPanelStyles.card 가 정한다)
   drawer: {
     borderRadius: DRAWER_RADIUS,
@@ -889,6 +1123,14 @@ const styles = StyleSheet.create({
   // 칩 줄은 본문 폭 안에 둔다 (양끝 여백 없이 본문 가장자리에 맞춤)
   chipScroll: { flexGrow: 0 },
   chipRow: { gap: 6 },
+  // 테이프 색 줄(코덱스 2026-11-02): 터치 44 · 원 28, 기본 색 → 구분선 → 내 색상 → +
+  colorScroll: { flexGrow: 0, marginHorizontal: -BODY_X },
+  colorRow: { alignItems: 'center', paddingHorizontal: BODY_X - 8, gap: 0 },
+  colorCell: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  colorSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.cardBorder },
+  colorSwatchOn: { borderWidth: 3, borderColor: colors.primaryStrong },
+  colorDot: { position: 'absolute', right: 2, bottom: 2, width: 8, height: 8, borderRadius: 4 },
+  colorDivider: { width: 1, height: 24, marginHorizontal: 8, backgroundColor: colors.cardBorder },
   resize: {
     position: 'absolute',
     left: 0,
@@ -933,6 +1175,12 @@ const styles = StyleSheet.create({
   folderCancelText: { fontSize: 12.5, fontWeight: '700', color: colors.textMuted },
   folderOkText: { fontSize: 12.5, fontWeight: '700', color: colors.surface },
   folderAction: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  // 폴더 편집: 아이콘 없이 글자만(코덱스 2026-11-02), 휴지통 터치 영역과 8 띄운다
+  folderEdit: { minWidth: 40, height: 28, marginRight: 2, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  folderEditText: { fontSize: 13, fontWeight: '700', color: colors.primaryText },
+  // 보관함 바닥 도구줄: 카드 안에 상자를 또 두지 않고, 목록과는 보관함 폭 전체의 가는 선 하나로 나눈다
+  editBar: { paddingHorizontal: BODY_X, paddingBottom: 4, borderTopWidth: 1, borderTopColor: colors.cardBorder },
+  editBarInner: { marginTop: 0, paddingHorizontal: 0, borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent' },
   // 스티커 추가 칸: 예전 추가 영역의 점선·색을 스티커 한 칸에
   addTile: {
     flex: 1,
@@ -1043,6 +1291,24 @@ const styles = StyleSheet.create({
   },
   pressed: {}, // 눌림 효과 없음(사용자 지시)
   tileImage: { width: '74%', height: '74%' },
+  // 이름 있는 칸(테이프): 스티커 칸과 같은 정사각(사용자 2026-11-02). 띠는 위 22(왼쪽 위 즐겨찾기 별 아래), 이름 12/600/16 은 아래 8 에 붙인다
+  tileCaption: { justifyContent: 'space-between', paddingTop: 22, paddingBottom: 8, paddingHorizontal: 4 }, // 띠는 왼쪽 위 즐겨찾기 별(16) 아래에서 시작
+  caption: { maxWidth: '100%', fontSize: 12, lineHeight: 16, fontWeight: '600', color: colors.text },
+  tileSelected: { backgroundColor: colors.butter },
+  // 편집 중 체크 원: 칸 테두리(TILE_GAP 안쪽)에서 위·오른쪽 4 (즐겨찾기 별과 마주 보는 자리)
+  check: {
+    position: 'absolute',
+    top: TILE_GAP + 4,
+    right: TILE_GAP + 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkOn: { borderColor: colors.primaryStrong, backgroundColor: colors.primaryStrong },
   remove: {
     position: 'absolute',
     top: 0,

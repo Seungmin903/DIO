@@ -7,6 +7,7 @@ import AppInformation from '../components/AppInformation';
 import { SettingCard, SettingSection } from '../components/SettingRow';
 import NotificationSetting from '../components/NotificationSetting';
 import AppLockSetting from '../components/AppLockSetting';
+import EditSetting from '../components/EditSetting';
 import PinScreen from '../components/PinScreen';
 import EditorModal from '../../editor/components/controls/EditorModal';
 import { appLockScope, checkAppLock, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
@@ -20,7 +21,7 @@ import AppIcon from '../../shared/AppIcon';
 import DefaultAvatar from '../../shared/DefaultAvatar';
 import { useLoginEntry } from '../../auth/loginGate';
 
-// 내 공간(한 단): 정체성 띠(아바타 + 이름 + 버튼) → 알림 → 보안 → 환경 설정(태블릿만) → 계정(로그아웃, 회원) → 앱 정보(맨 아래).
+// 내 공간(한 단): 정체성 띠(아바타 + 이름 + 버튼) → 알림 → 보안 → 편집(그리기 입력) → 계정(로그아웃, 회원) → 앱 정보(맨 아래).
 // 정체성 트레이 1장 + 설정 카드 2장(알림 · 보안 · 환경 / 계정 · 앱 정보)으로 덩어리를 나눈다. 행마다 카드로 만들지 않는다(코덱스 3차). 장식 · 통계 · 안내 문구는 두지 않는다.
 export default function ProfileScreen({ compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, guestService }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
@@ -110,7 +111,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   const serverNotifications = authenticatedUser ? (
     <Pressable accessibilityRole="button" accessibilityLabel="알림 설정" onPress={() => setRoute('notifications')} style={local.linkRow}>
       <Text style={local.linkLabel}>알림 설정</Text>
-      <AppIcon name="chevron-right" size={18} color={colors.textMuted} />
+      <AppIcon name="chevron-right" size={18} forText={15} color={colors.textMuted} />
     </Pressable>
   ) : null;
 
@@ -147,11 +148,12 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         {/* 폰: 이름 줄 아래 판 안에 전폭 한 줄 */}
         {compact && loginButton}
       </View>
-      {/* 한 단: 알림 → 보안 → 환경 설정(태블릿만, 책상은 태블릿 홈에만 있다) → 로그아웃(회원) → 앱 정보(맨 아래) */}
+      {/* 한 단: 알림 → 보안 → 편집 → 로그아웃(회원) → 앱 정보(맨 아래) */}
       <View style={local.cards}>
         <SettingCard compact={compact}>
           <NotificationSetting compact={compact} />
           <AppLockSetting compact={compact} locked={locked} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />
+          <EditSetting compact={compact} />
         </SettingCard>
         <SettingCard compact={compact}>
           {(logout || serverNotifications) && <SettingSection title="계정">

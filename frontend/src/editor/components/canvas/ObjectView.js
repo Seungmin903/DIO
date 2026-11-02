@@ -11,7 +11,7 @@ import { reportMediaDisplayError } from '../../services/mediaStore'
 import { colors } from '../../../shared/theme'
 import { mediaId } from '../../utils/mediaReferences.js'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
-import { coverLayout, hasPhotoMedia, photoInnerBox, tapeUnitH } from '../../utils/objects'
+import { coverLayout, hasPhotoMedia, photoInnerBox, tapePieceRatio, tapeUnitH } from '../../utils/objects'
 import { shapePath } from '../../utils/shapes'
 import { useSvgId } from '../../utils/svgId'
 import TapeView from './TapeView'
@@ -80,7 +80,8 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
           <TapeView
             pattern={object.pattern}
             palette={object.palette}
-            segmentRatio={object.segmentW ? object.segmentW / object.h : undefined}
+            segmentShare={object.segmentW ? object.segmentW / object.w : undefined}
+            pieceRatio={tapePieceRatio(object)}
             src={object.src}
             mediaFileId={object.mediaFileId}
             crop={object.crop}

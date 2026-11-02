@@ -59,7 +59,7 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
   return <View style={toolPanelStyles.card}>
     <ToolPanelHeader icon="text" title="텍스트" closeLabel="텍스트 설정 닫기" onClose={onClose} />
     <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" contentContainerStyle={toolPanelStyles.content}>
-      <Text style={toolPanelStyles.label}>글꼴</Text>
+      {/* 글꼴 · 크기 한 줄(드롭다운이 글꼴 이름을 보여 주므로 제목 줄은 두지 않는다 — 옵션 창 스크롤 없애기, 코덱스 2026-11-02) */}
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
           <TextFontDropdown value={settings.font} onChange={(id) => onChange(textFontChangePatch(settings, id, Platform.OS))} />
@@ -68,21 +68,20 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
       </View>
 
 
-      <Text style={toolPanelStyles.label}>스타일</Text>
-      <Segmented steadyLabel items={styleItems} selected={(id) => Boolean(settings[id] && (support[id] !== false))} onPress={(id) => { if (!styleItems.find(item => item.id === id)?.disabled) onChange({ [id]: !settings[id] }) }} />
+      <View style={styles.inlineRow}><Text style={styles.inlineLabel}>스타일</Text><View style={styles.fill}><Segmented steadyLabel items={styleItems} selected={(id) => Boolean(settings[id] && (support[id] !== false))} onPress={(id) => { if (!styleItems.find(item => item.id === id)?.disabled) onChange({ [id]: !settings[id] }) }} /></View></View>
       {!support.bold && <Text style={styles.styleNotice}>이 글꼴은 굵게를 지원하지 않아요.</Text>}
       {fontStatus.includes(':error') ? <Text style={styles.styleNotice}>글꼴 일부를 불러오지 못했어요. 사용할 수 없는 서식은 꺼져 있어요.</Text> : fontStatus.includes(':loading') ? <Text style={styles.styleNotice}>글꼴을 준비하고 있어요.</Text> : null}
 
-      <Text style={toolPanelStyles.label}>정렬</Text>
+      <View style={styles.inlineRow}><Text style={styles.inlineLabel}>정렬</Text><View style={styles.fill}>
       <Segmented
         items={ALIGNS.map(([id, label]) => ({ id, a11y: label, icon: <Svg width={20} height={20} viewBox="0 0 24 24"><Path d={ALIGN_PATHS[id]} stroke={settings.textAlign === id ? colors.text : colors.textMuted} strokeWidth={1.8} strokeLinecap="round" /></Svg> }))}
         selected={(id) => settings.textAlign === id}
         onPress={(id) => onChange({ textAlign: id })}
       />
+      </View></View>
 
       {verticalAlignment && <>
-        <Text style={toolPanelStyles.label}>세로 정렬</Text>
-        <Segmented items={VERTICAL_ALIGNS.map(([id,label])=>({id,a11y:label,icon:<Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 3h16M4 21h16" stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeOpacity={0.35} strokeLinecap="round" /><Path d={VERTICAL_ALIGN_PATHS[id]} stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeLinecap="round" /></Svg>}))} selected={id=>settings.verticalAlign===id} onPress={id=>onChange({verticalAlign:id})} />
+        <View style={styles.inlineRow}><Text style={styles.inlineLabel}>세로 정렬</Text><View style={styles.fill}><Segmented items={VERTICAL_ALIGNS.map(([id,label])=>({id,a11y:label,icon:<Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 3h16M4 21h16" stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeOpacity={0.35} strokeLinecap="round" /><Path d={VERTICAL_ALIGN_PATHS[id]} stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeLinecap="round" /></Svg>}))} selected={id=>settings.verticalAlign===id} onPress={id=>onChange({verticalAlign:id})} /></View></View>
       </>}
 
       <Text style={toolPanelStyles.label}>글자 색상</Text>
@@ -114,6 +113,10 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   // 자간 · 줄간격 2단: 칸마다 이름 아래에 − 숫자 +
   spacingRow: { flexDirection: 'row', gap: 12 },
+  // 제목을 왼쪽에 붙인 한 줄(스타일 · 정렬 · 세로 정렬): 펜 옵션의 막대 제목 칸과 같은 폭 52
+  inlineRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  inlineLabel: { width: 52, color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  fill: { flex: 1 },
   spacingColumn: { flex: 1, minWidth: 0, gap: 6 },
   // 글자 크기 칸: 자간·줄간격 막대의 숫자 칸과 같은 모양 (숫자 칸은 모두 가운데 정렬)
   size: { width: 52, height: 40, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface, color: colors.text, fontSize: 13, fontWeight: '700', textAlign: 'center', ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },

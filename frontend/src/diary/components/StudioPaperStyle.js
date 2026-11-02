@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
-import { PAPER_BACKGROUNDS, PAPER_LAYOUTS } from '../../editor/templates/appearance.js'
+import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, withPaperBackground } from '../../editor/templates/appearance.js'
 import { DEFAULT_PAPER_FONT } from '../../editor/templates/paperFont.js'
 import { colors } from '../../shared/theme'
 import MyColorRow from './MyColorRow'
@@ -21,7 +21,7 @@ export default function StudioPaperStyle({ style, save, compact = false }) {
       <Text accessibilityRole="header" style={local.title}>기본 속지 설정</Text>
       <GroupGrid compact={compact}>{width => [
         <ColorGroup key="paper" width={width} compact={compact} icon="paintBucket" title="종이 색" scope="paper" label="종이" swatches={PAPER_BACKGROUNDS}
-          value={style.backgroundColor} onChange={backgroundColor => change({ ...style, backgroundColor })} />,
+          value={style.backgroundColor} onChange={backgroundColor => change(withPaperBackground(style, backgroundColor))} />,
         <ColorGroup key="line" width={width} compact={compact} icon="penLine" title="선 · 글자" scope="paperLine" label="선과 글씨" swatches={PAPER_LAYOUTS}
           value={style.layoutColor} onChange={layoutColor => change({ ...style, layoutColor })} />,
         <View key="font" style={groupStyle(width, compact)}>

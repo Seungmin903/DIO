@@ -115,7 +115,8 @@ test('편집기 모달은 공통 방향 정책을 사용하며 새 직접 사용
       },
     })
   }
-  for (const name of ['ExportMenu.js', 'ExportScreen.js', 'TextLinkDialog.js', 'controls/ConfirmDialog.js', 'panels/PhotoCropper.js', 'panels/TapeCropper.js', 'panels/PageOverview.js']) assert.ok(consumers.includes(`components/${name}`), name)
+  // TapeCropper 는 공용 사진 창(PhotoCropper)을 그대로 써서 모달을 직접 두지 않는다
+  for (const name of ['ExportMenu.js', 'ExportScreen.js', 'TextLinkDialog.js', 'controls/ConfirmDialog.js', 'panels/PhotoCropper.js', 'panels/PageOverview.js']) assert.ok(consumers.includes(`components/${name}`), name)
   const Modal = components('../src/editor/components/controls/EditorModal.js').default
   let closed = 0
   const modal = Modal({ visible: true, children: 'content', onRequestClose: () => closed++ })

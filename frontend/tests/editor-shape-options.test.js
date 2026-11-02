@@ -6,6 +6,8 @@ import * as shapes from '../src/editor/utils/editorShapes.js'
 import * as effects from '../src/editor/utils/effects.js'
 import * as common from '../src/editor/utils/common.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'))
+// 색 창(useColorWindow)은 연 내용만 기록한다
+const windows=[]
 function fixture(file,props) {
  let cursor=0
  const states=[],events=[]
@@ -26,6 +28,7 @@ function fixture(file,props) {
   if(id.endsWith('/ObjectView'))return {objectOpacity:o=>o.opacity??1,photoSupportsShadow:()=>true}
   if(id.endsWith('/ToolPanel'))return {ToolPanelHeader:'header',toolPanelStyles:{}}
   if(id.endsWith('/ColorPicker'))return {__esModule:true,default:'picker',PaletteInteractionContext:{Provider:'provider'}}
+  if(id.endsWith('/PresetColorEditor'))return {useColorWindow:()=>({open:(ref,options)=>windows.push(options),element:null,isOpen:false})}
   return {__esModule:true,default:id.split('/').at(-1)}
  },module,module.exports)
  const render=()=>{cursor=0;return module.exports.default({dispatch:a=>events.push(a),...props})}
@@ -81,14 +84,16 @@ test('도형 그림자 효과를 변경하고 중복 윤곽선은 제공하지 �
  assert.deepEqual(f.events.at(-1).patches[object.id],{shadow:true,shadowSpread:5})
 })
 
-test('도형 테두리 슬라이더와 색상 입력은 편집 완료 콜백을 전달한다',()=>{
+test('도형 테두리 슬라이더와 색상 입력(색 창)은 편집 시작 · 완료 콜백을 전달한다',()=>{
  let starts=0,ends=0
  const f=fixture('ShapeSettings.js',{settings:shapes.createShape({}, {x:200,y:200}),onChange:()=>{},onCheckpoint:()=>starts++,onCommit:()=>ends++})
  const slider=nodes(f.render()).find(n=>n.type==='Slider'&&n.props.label==='테두리 두께')
  slider.props.onStart();slider.props.onChange(5);slider.props.onEnd();assert.equal(starts,1);assert.equal(ends,1)
  const end=()=>ends++,field=fixture('controls/ColorField.js',{value:'#FFFFFF',onStart:()=>starts++,onEnd:end,onChange:()=>{},label:'테두리'})
  nodes(field.render()).find(n=>n.type==='button').props.onPress()
- assert.equal(nodes(field.render()).find(n=>n.type==='picker').props.onEnd,end)
+ assert.equal(starts,2)
+ windows.at(-1).onClose();assert.equal(ends,2)
+ windows.at(-1).onDone('#123456');assert.equal(ends,3)
 })
 
 test('서버 페이지 삭제 안내는 기기 되돌리기로 복구할 수 있다고 약속하지 않는다',()=>{

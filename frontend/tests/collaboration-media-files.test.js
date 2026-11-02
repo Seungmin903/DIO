@@ -46,7 +46,7 @@ for(const platform of ['web','native']){
   assert.equal(a.jpegCalls.length,1);assert.deepEqual(a.jpegCalls[0].options,{width:3000,height:2121,maxBytes:plan.SHARE_MAX_BYTES})
   assert.equal(a.jpegCalls[0].source,platform==='web'?original:'original')
   if(platform==='web'){assert.equal(a.parts[0][2],'image.jpg');assert.deepEqual(a.parts[0][1],{jpeg:true})}
-  else assert.deepEqual(a.parts[0][1],{uri:'jpeg-uri',type:'image/jpeg',name:'image.jpg'})
+  else{const {bytes,...part}=a.parts[0][1];assert.deepEqual(part,{uri:'jpeg-uri',type:'image/jpeg',name:'image.jpg'});assert.equal(typeof bytes,'function')}
   assert.equal(a.parts[1][1],'STICKER');assert.equal(a.writes.length,0)
  })
  test(`${platform}: 5MB 이하이거나 투명할 수 있는 그림은 JPEG 로 바꾸지 않는다`,async()=>{
@@ -56,6 +56,13 @@ for(const platform of ['web','native']){
   await assert.rejects(sticker.files.upload('id','STICKER'),error=>error.status===413);assert.equal(sticker.jpegCalls.length,0)
  })
 }
+
+test('native: 업로드 파일 칸은 expo/fetch 가 읽을 수 있게 bytes() 로 파일 내용을 내준다(uri 만 있으면 보내기 전에 실패)',async()=>{
+ const a=adapter('native',{media:{fileSize:100,extension:'png',mimeType:'image/png',width:20,height:10},blob:{uri:'file:///sticker.png'}})
+ await a.files.upload('id','STICKER')
+ const part=a.parts[0][1];assert.equal(part.uri,'file:///sticker.png');assert.equal(part.name,'image.png');assert.equal(part.type,'image/png')
+ assert.equal(typeof part.bytes,'function')
+})
 
 test('JPEG 로 낮출 때는 품질을 먼저 낮추고, 그래도 크면 크기를 줄이며, 투명할 수 있는 그림은 대상이 아니다',()=>{
  const attempts=shareJpegAttempts()

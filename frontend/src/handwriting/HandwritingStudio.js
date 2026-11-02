@@ -5,6 +5,7 @@ import EditorModal from '../editor/components/controls/EditorModal'
 import Icon from '../editor/components/controls/Icon'
 import ConfirmDialog from '../editor/components/controls/ConfirmDialog'
 import AppIcon from '../shared/AppIcon'
+import useFillGrid from '../shared/useFillGrid'
 import DioButton from '../shared/DioButton'
 import { MakerBar, MakerHeader, MakerNav, MakerSteps } from '../shared/MakerKit'
 import Slider from '../editor/components/controls/Slider'
@@ -26,7 +27,7 @@ export function Button({ children, onPress, disabled, primary, label, chip = fal
   const text = typeof children === 'string' ? children : undefined
   if (chip) return <Pressable accessibilityRole="button" accessibilityLabel={label ?? text} accessibilityState={{ disabled: Boolean(disabled), selected: Boolean(primary) }}
     disabled={disabled} onPress={onPress} style={[s.chip, primary && s.chipOn, disabled && s.dim]}>
-    {primary ? <AppIcon name="check" size={16} color={colors.primaryText} strokeWidth={2.4} /> : null}
+    {primary ? <AppIcon name="check" size={16} forText={14} color={colors.primaryText} /> : null}
     <Text style={[s.chipText, primary && s.chipTextOn]}>{children}</Text>
   </Pressable>
   return <DioButton variant={variant ?? (primary ? 'filled' : 'tonal')} label={label ?? text} text={text} icon={icon} disabled={Boolean(disabled)} onPress={onPress} />
@@ -278,7 +279,9 @@ function Sample({ entry, font }) {
   return entry.preview ? <View style={s.sentence}>{[...SAMPLE_TEXT].map((c, i) => c === ' ' ? <View key={i} style={{ width: 12 }} /> : entry.preview[c] ? <Image key={i} accessibilityLabel={c} source={{ uri: entry.preview[c] }} style={s.glyph} /> : null)}</View> : <Text style={s.muted}>{font?.missing ? '폰트 파일을 불러올 수 없어요.' : entry.status === 'ready' ? '샘플을 불러오고 있어요.' : '샘플은 생성 후 확인할 수 있어요.'}</Text>
 }
 function InputSamples({ draft }) {
-  return <View style={s.grid}>{PROMPTS.map(c => <View key={c} style={s.thumbnail} accessibilityLabel={`${c} 원본 손글씨`}><Svg width={48} height={48} viewBox="0 0 1024 1024">{(draft.samples[c]?.strokes || []).map((stroke, i) => stroke.points.length === 1 ? <Circle key={i} cx={stroke.points[0].x} cy={stroke.points[0].y} r={stroke.width / 2} fill={colors.text} /> : <Path key={i} d={stroke.points.map((p, j) => `${j ? 'L' : 'M'}${p.x},${p.y}`).join(' ')} fill="none" stroke={colors.text} strokeWidth={stroke.width} strokeLinecap="round" strokeLinejoin="round" />)}</Svg><Text style={s.muted}>{c}</Text></View>)}</View>
+  // 칸을 늘려 좌우 끝을 맞춘다(useFillGrid)
+  const grid = useFillGrid({ cell: 52, gap: 6 })
+  return <View style={s.grid} onLayout={grid.onLayout}>{PROMPTS.map(c => <View key={c} style={[s.thumbnail, { width: grid.cellWidth }]} accessibilityLabel={`${c} 원본 손글씨`}><Svg width={48} height={48} viewBox="0 0 1024 1024">{(draft.samples[c]?.strokes || []).map((stroke, i) => stroke.points.length === 1 ? <Circle key={i} cx={stroke.points[0].x} cy={stroke.points[0].y} r={stroke.width / 2} fill={colors.text} /> : <Path key={i} d={stroke.points.map((p, j) => `${j ? 'L' : 'M'}${p.x},${p.y}`).join(' ')} fill="none" stroke={colors.text} strokeWidth={stroke.width} strokeLinecap="round" strokeLinejoin="round" />)}</Svg><Text style={s.muted}>{c}</Text></View>)}</View>
 }
 
 const s = StyleSheet.create({

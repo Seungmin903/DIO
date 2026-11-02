@@ -5,9 +5,11 @@ import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
 import { textSettings } from '../../utils/text'
 import { shadowOf, shadowOffset } from '../../utils/effects'
 import { useSvgId } from '../../utils/svgId'
+import { hairline } from '../../../shared/pixelSnap'
 import { memoArtOf, shapeDefinition, shapeTextStyle, shapeBorderDash, shapeTextBox } from '../../utils/editorShapes'
 
-export default function ShapeContent({ object, zoom = 1, hideText = false }) {
+// crisp: 보관함 칸 같은 미리보기 전용. 줄여 그린 메모지 줄이 기기 픽셀 한 칸보다 가늘어지지 않게 한다(shared/pixelSnap)
+export default function ShapeContent({ object, zoom = 1, hideText = false, crisp = false }) {
   useTextFont(object.font)
   const width = object.w * zoom, height = object.h * zoom
   const stroke = Math.max(0, object.borderWidth ?? 0) * zoom
@@ -31,7 +33,7 @@ export default function ShapeContent({ object, zoom = 1, hideText = false }) {
         </Svg>
       </View>}
       {/* 메모 종이: 코덱스가 그린 종이 그림을 종이 · 무늬 색만 바꿔 그대로 그린다 */}
-      {art ? <SvgXml xml={memoXml(art, object)} width={width} height={height} style={{position:'absolute'}} />
+      {art ? <SvgXml xml={memoXml(art, object, crisp ? hairline(width / art.w) : 0)} width={width} height={height} style={{position:'absolute'}} />
         : <Svg width={width} height={height} style={{position:'absolute'}}>
           <Path d={shapeDefinition(object.shape).path} transform={transform} fill={object.fill === 'none' ? 'none' : object.fill ?? '#F8EBA7'} stroke={stroke ? object.borderColor ?? '#0B1766' : 'none'} strokeWidth={stroke} strokeDasharray={dash} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         </Svg>}
@@ -41,6 +43,10 @@ export default function ShapeContent({ object, zoom = 1, hideText = false }) {
 }
 
 // 종이 그림의 색 자리({paper} · {line})를 메모의 채우기 · 테두리 색으로 바꾼다. 크기는 Svg 가 viewBox 로 맞춘다.
-const memoXml = (art, object) => art.svg
-  .replaceAll('{paper}', object.fill && object.fill !== 'none' ? object.fill : art.paper)
-  .replaceAll('{line}', object.borderColor ?? art.line)
+// minStroke: 미리보기에서 선 굵기의 하한(그림 좌표). 0 이면 그대로
+const memoXml = (art, object, minStroke = 0) => {
+  const xml = art.svg
+    .replaceAll('{paper}', object.fill && object.fill !== 'none' ? object.fill : art.paper)
+    .replaceAll('{line}', object.borderColor ?? art.line)
+  return minStroke > 0 ? xml.replace(/stroke-width="([\d.]+)"/g, (_, width) => `stroke-width="${Math.max(Number(width), minStroke)}"`) : xml
+}

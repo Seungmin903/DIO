@@ -154,3 +154,48 @@ test('결과 확인에서 헤더 이전·기기 뒤로가기로 돌아오면 같
   assert.equal(ui.closed, 0)
   ui.unmount()
 })
+
+test('두 손가락은 칠하지 않고 확대 · 이동만 하며, 확대한 뒤 칠한 점도 사진 좌표로 맞는다', async () => {
+  let input
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), async (_source, history) => { input = history })
+  await load(ui) // 판 300×200 → 사진 칸 200×200 이 가운데(x 50)
+  const touch = (x, y) => ({ pageX: x, pageY: y })
+  let area = find(ui.render(), 'cutout-canvas')
+  area.props.onResponderGrant({ nativeEvent: { pageX: 150, pageY: 100, locationX: 100, locationY: 100, touches: [touch(150, 100)] } })
+  area.props.onResponderStart({ nativeEvent: { touches: [touch(150, 100), touch(170, 100)] } })
+  area.props.onResponderMove({ nativeEvent: { touches: [touch(140, 100), touch(180, 100)] } }) // 거리 20 → 40: 2배
+  area.props.onResponderRelease()
+  assert.equal(find(ui.render(), '되돌리기').props.disabled, true)
+  area = find(ui.render(), 'cutout-canvas')
+  assert.equal(area.props.style.width, 400)
+  // 확대된 칸의 가운데를 칠하면 사진 가운데
+  area.props.onResponderGrant({ nativeEvent: { locationX: 200, locationY: 200 } })
+  area.props.onResponderRelease()
+  find(ui.render(), '다음 · 스티커 확인').props.onPress(); await tick()
+  assert.deepEqual(input.strokes[0].points[0], { x: .5, y: .5 })
+  ui.unmount()
+})
+
+test('확대 중 한 손가락을 떼었다 다른 자리에 다시 대도 배율 · 위치가 튀지 않는다', async () => {
+  const ui = fixture(async () => ({ uri: 'photo', width: 100, height: 100 }), async () => {})
+  await load(ui)
+  const touch = (x, y, identifier) => ({ pageX: x, pageY: y, identifier })
+  const area = () => find(ui.render(), 'cutout-canvas')
+  area().props.onResponderGrant({ nativeEvent: { pageX: 150, pageY: 100, locationX: 100, locationY: 100, touches: [touch(150, 100, 0)] } })
+  area().props.onResponderStart({ nativeEvent: { touches: [touch(150, 100, 0), touch(170, 100, 1)] } })
+  area().props.onResponderMove({ nativeEvent: { touches: [touch(140, 100, 0), touch(180, 100, 1)] } }) // 거리 20 → 40: 2배
+  assert.equal(area().props.style.width, 400)
+  const before = { ...area().props.style }
+  // 한 손가락을 떼고(같은 id 로) 멀리 다시 댄다: 다시 댄 순간이 새 기준이라 그대로여야 한다
+  area().props.onResponderEnd({ nativeEvent: { touches: [touch(140, 100, 0)] } })
+  area().props.onResponderMove({ nativeEvent: { touches: [touch(140, 100, 0)] } })
+  area().props.onResponderStart({ nativeEvent: { touches: [touch(140, 100, 0), touch(260, 100, 1)] } })
+  area().props.onResponderMove({ nativeEvent: { touches: [touch(140, 100, 0), touch(260, 100, 1)] } })
+  assert.deepEqual(area().props.style, before)
+  // 세 번째 손가락이 닿아 앞 두 손가락이 바뀌어도 그 순간은 그대로
+  area().props.onResponderMove({ nativeEvent: { touches: [touch(140, 100, 0), touch(20, 100, 2), touch(260, 100, 1)] } })
+  assert.deepEqual(area().props.style, before)
+  area().props.onResponderRelease()
+  assert.equal(find(ui.render(), '되돌리기').props.disabled, true)
+  ui.unmount()
+})

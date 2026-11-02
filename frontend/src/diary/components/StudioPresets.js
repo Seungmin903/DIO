@@ -62,13 +62,13 @@ function Group({ group, compact, width }) {
   const mineEntry = editing?.kind === 'mine' ? mine.presets[editing.index] : null;
   let editor = null;
   // 예전 버전에서 프리셋 색을 지운 목록은 기본 목록과 칸이 어긋나므로, 길이가 같을 때만 기본 색으로 되돌린다
-  if (editing?.kind === 'preset') editor = <PresetColorEditor title={`${group.label} 색 바꾸기`} tape={tape} value={list[editing.index]} anchor={editing.anchor}
+  if (editing?.kind === 'preset') editor = <PresetColorEditor title={`${group.label} 색`} tape={tape} value={list[editing.index]} anchor={editing.anchor}
     onClose={() => setEditing(null)} original={list.length === defaults.length ? defaults[editing.index] : list[editing.index]}
     onDone={value => { save(list.map((entry, i) => (i === editing.index ? value : entry))); setEditing(null); }} />;
-  else if (mineEntry) editor = <PresetColorEditor title={`내 ${group.label} 색 바꾸기`} tape={tape} value={toEditor(mineEntry, tape)} anchor={editing.anchor}
+  else if (mineEntry) editor = <PresetColorEditor title={`${group.label} 색`} tape={tape} value={toEditor(mineEntry, tape)} anchor={editing.anchor}
     onClose={() => setEditing(null)} onRemove={() => { mine.remove(mineEntry); setEditing(null); }}
     onDone={value => { mine.replace(mineEntry, fromEditor(value, tape)); setEditing(null); }} />;
-  else if (editing?.kind === 'add') editor = <PresetColorEditor title={`내 ${group.label} 색 추가`} tape={tape} original={null} anchor={editing.anchor}
+  else if (editing?.kind === 'add') editor = <PresetColorEditor title={`${group.label} 색`} tape={tape} original={null} anchor={editing.anchor}
     value={toEditor(mine.presets[mine.presets.length - 1] ?? (tape ? '#F6D6DA/#E58FA0' : '#2E3A59'), tape)}
     onClose={() => setEditing(null)} onDone={value => { mine.add(fromEditor(value, tape)); setEditing(null); }} />;
   return (
@@ -99,8 +99,14 @@ export function MineRow({ mine, label, editing, cellRef, onOpen, titleStyle, sel
     <View style={local.row}>
       {mine.presets.map((entry, index) => {
         const [bg, fg = null] = entry.split('/');
-        return <Swatch key={entry} label={`내 ${label} 색 ${entry} 바꾸기`} bg={bg} fg={fg} active={(editing?.kind === 'mine' && editing.index === index) || entry === selected}
-          cellRef={cellRef('mine', index)} onPress={onOpen('mine', index)} />;
+        // 오른쪽 위 X 로 바로 지운다(편집기 옵션의 내 색상과 같은 모양 · 자리)
+        return <View key={entry} style={local.mineWrap}>
+          <Swatch label={`내 ${label} 색 ${entry} 바꾸기`} bg={bg} fg={fg} active={(editing?.kind === 'mine' && editing.index === index) || entry === selected}
+            cellRef={cellRef('mine', index)} onPress={onOpen('mine', index)} />
+          <Pressable accessibilityRole="button" accessibilityLabel={`내 ${label} 색 ${entry} 지우기`} hitSlop={6} onPress={() => mine.remove(entry)} style={local.mineRemove}>
+            <Icon name="close" size={9} strokeWidth={2.6} color={colors.textMuted} />
+          </Pressable>
+        </View>;
       })}
       {mine.loaded && mine.presets.length < MAX_PRESETS && <Pressable accessibilityRole="button" accessibilityLabel={`내 ${label} 색 추가`} ref={cellRef('add', 0)} collapsable={false}
         onPress={onOpen('add', 0)} style={local.cell}>
@@ -133,11 +139,14 @@ export function GroupGrid({ compact = false, children }) {
 }
 
 /** 묶음 머리: 아이콘 22(28 칸) + 이름 17/800 (+ 오른쪽 동작), 그 아래 옅은 선 */
-export function GroupHead({ icon, title, right = null, line = true }) {
+// icon: 없으면 제목만(공방 '내 속지'). section: 한 단계 위 제목(18/800, 속지 탭의 '기본 속지 설정'과 같은 급). wide: 줄 전체 폭(오른쪽 동작을 줄 끝에 붙인다). count: 제목 옆 개수(공방 구역 제목의 개수와 같은 14/700 흐린 글자)
+export function GroupHead({ icon, title, right = null, line = true, wide = false, count = null, section = false }) {
   return <>
-    <View style={local.head}>
-      <View style={local.preview}><Icon name={icon} size={22} color={colors.text} /></View>
-      <Text style={local.groupTitle}>{title}</Text>
+    <View style={[local.head, wide && local.headWide]}>
+      {icon ? <View style={local.preview}><Icon name={icon} size={22} color={colors.text} /></View> : null}
+      <Text accessibilityRole={section ? 'header' : undefined} style={[local.groupTitle, section && local.sectionTitle, count && local.groupTitleFit]}>{title}</Text>
+      {count ? <Text style={local.groupCount}>{count}</Text> : null}
+      {count ? <View style={local.grow} /> : null}
       {right}
     </View>
     {line && <View style={local.line} />}
@@ -156,9 +165,15 @@ const local = StyleSheet.create({
   gridCompact: { flexDirection: 'column', rowGap: 24 },
   card: { gap: 8 },
   cardCompact: { width: 'auto' },
-  head: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // 제목 줄은 아래 구분선(282)과 같은 폭: 오른쪽 '기본 색으로' 버튼 끝이 선 끝에 맞는다(칸이 넓어도 선 밖으로 나가지 않게)
+  head: { width: 282, maxWidth: '100%', minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 10 },
   preview: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   groupTitle: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.text },
+  headWide: { width: '100%' },
+  sectionTitle: { fontSize: 18 }, // StudioPaperStyle 의 '기본 속지 설정' 제목과 같은 크기
+  groupTitleFit: { flex: 0, flexShrink: 1 },
+  groupCount: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
+  grow: { flex: 1 },
   reset: { minHeight: 32, paddingHorizontal: 10 },
   // 이름과 색 사이의 옅은 선(사용자 지시로 다시 넣음). 길이는 색 7개의 첫 원 왼쪽 끝부터 마지막 원 오른쪽 끝까지:
   // 칸 7×36 + 사이 6×6 − 칸 안 여백 3×2 = 282. 좁은 화면에서는 칸 폭을 넘지 않는다
@@ -168,6 +183,9 @@ const local = StyleSheet.create({
   row: { width: 288, maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 8, marginLeft: -3 },
   mineTitle: { marginTop: 16, fontSize: 13, fontWeight: '800', color: colors.textMuted }, // 프리셋 줄 터치 칸 아래 24(묶음 gap 8 + 16)
   cell: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  mineWrap: { position: 'relative' },
+  // 지우기 X: 편집기 MyColorPresets 의 remove 와 같은 16 원 · 흰 면 · 테두리. 칸(36)이 원(30)보다 3 넓어 원 오른쪽 위에 맞게 -2
+  mineRemove: { position: 'absolute', right: -2, top: -2, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   // 고리 자리(36)는 늘 두고 바꾸는 중일 때만 색을 칠해, 고리가 생겨도 원이 움직이지 않는다
   ring: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   ringActive: { borderColor: colors.primaryText },

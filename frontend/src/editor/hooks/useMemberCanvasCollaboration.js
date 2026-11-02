@@ -86,6 +86,23 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
       if(active()){r.pageIds?.add(page.id);dispatch({type:'importServerPages',pages:[page],selectId:page.id})}
       return page
     })
+    // 나의 속지(PDF 쪽): 빈 페이지를 만들어 쪽 크기로 맞춘 뒤 바탕 그림을 얹는다(새 PDF 다이어리와 같은 길). 그림과 원본 PDF 는 동기화가 올린다.
+    r.addPdfPages=docPages=>mutatePages(async()=>{
+      dispatch({type:'commitCheckpoint'})
+      const added=[]
+      for(const docPage of docPages){
+        const page=await createServerPage({transport,diaryId:diary.id,backgroundAssetId:null,
+          orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:serverPaperAppearance(docPage.paperAppearance),
+          storage:AsyncStorage,key:`${memberDocumentKey(diary)}:page-create:v1`,createId,isActive:active})
+        await transport({method:'PATCH',path:`/pages/${encodeURIComponent(page.id)}`,body:{canvasWidth:docPage.canvasWidth,canvasHeight:docPage.canvasHeight}})
+        if(!active())return added
+        const seeded={...page,canvasWidth:docPage.canvasWidth,canvasHeight:docPage.canvasHeight,paperAppearance:docPage.paperAppearance,objects:docPage.objects}
+        r.pageIds?.add(page.id);added.push(seeded)
+        dispatch({type:'importServerPages',pages:[seeded],selectId:added[0].id})
+      }
+      for(const page of added.slice(1))r.sync(page.id).catch(()=>{})
+      return added
+    })
     r.copyPage=pageId=>mutatePages(async()=>{
       await flushPage(pageId)
       const page=await copyServerPage(transport,diary.id,pageId)
@@ -222,7 +239,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     }catch(error){if(r.alive)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error)}));throw error}
     finally{r.busy=false;if(r.alive)setView(v=>({...v,busy:false}))}
   }
-  return {enabled,movePage:(id,toIndex)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePage(id,toIndex)},movePages:(ids,anchorId,place)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePages(ids,anchorId,place)},copyPage:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.copyPage(id)},removePages:ids=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.removePages(ids)},addPage:backgroundAssetId=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPage(backgroundAssetId)},status:enabled?view.status:null,errorMessage:view.errorMessage,busy:view.busy,
+  return {enabled,movePage:(id,toIndex)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePage(id,toIndex)},movePages:(ids,anchorId,place)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePages(ids,anchorId,place)},copyPage:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.copyPage(id)},removePages:ids=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.removePages(ids)},addPage:backgroundAssetId=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPage(backgroundAssetId)},addPdfPages:pages=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPdfPages(pages)},status:enabled?view.status:null,errorMessage:view.errorMessage,busy:view.busy,
     canUndo:view.pageId===page.id&&!!view.history?.nextUndo,canRedo:view.pageId===page.id&&!!view.history?.nextRedo,
     undo:()=>control('undo'),redo:()=>control('redo'),retry:()=>runtime.current?.sync(page.id)}
 }
