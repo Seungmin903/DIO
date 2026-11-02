@@ -34,7 +34,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   // 인증 값은 메모리 비교에만 사용하고 캐시 키·로그에는 넣지 않는다.
   const photoIdentity = JSON.stringify([previewUser?.userId || previewUser?.accountId || 'guest', photoUri, photoSource?.headers || null]);
   const photoCacheKey = JSON.stringify(['profile', previewUser?.userId || previewUser?.accountId || 'guest', photoUri]);
-  // 게스트(시작 화면에서 고른 일반 사용자 · 개발자 모드)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
+  // 게스트(로그인 전 방문자)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
   const authenticatedUser = previewUser?.mode === 'authenticated';
   const guest = !authenticatedUser && previewUser?.provider === 'guest';
   // 앱 잠금: locked 는 이 계정에 잠금이 있는지(null = 읽는 중). pin 은 열려 있는 비밀번호 화면
@@ -87,7 +87,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen compact={compact} email={previewUser?.email || ''} service={accountService} onClose={() => setRoute('home')} onComplete={onClearSession} />;
   if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} onClose={() => setRoute('home')} />;
 
-  // 게스트(개발용)도 로그인한 사용자처럼 프로필을 고친다. 고친 값은 기기에 남는다. 로그인 · 회원가입 버튼은 두지 않는다.
+  // 게스트도 로그인한 사용자처럼 프로필을 고친다. 고친 값은 기기에 남는다. 로그인 · 회원가입 버튼은 두지 않는다.
   // 프로필 수정은 조용한 92×32 테두리 버튼(secondary 테두리 · primaryText 글자), 폰도 이름 줄 오른쪽에 둔다(원 페이저 12)
   // 게스트 프로필은 기기 저장(guestService)이 있어야 고칠 수 있다. 없으면 버튼을 누를 수 없게 둔다.
   const profileAction = guest ? (
@@ -96,8 +96,8 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
     <DioButton variant="ghost" outline label="회원정보 수정" text="프로필 수정" icon="edit" onPress={() => setEditing(true)} style={local.editButton} />
   ) : null;
 
-  // 개발자 모드는 로그인한 사용자처럼 로그아웃이 있고, 누르면 시작 화면으로 돌아가 모드를 다시 고른다.
-  const logout = onEndPreview && (!guest || previewUser?.developer) ? <DioButton variant="ghost" outline label="로그아웃" onPress={onEndPreview} block /> : null;
+  // 로그아웃은 로그인한 사용자만 있다.
+  const logout = onEndPreview && !guest ? <DioButton variant="ghost" outline label="로그아웃" onPress={onEndPreview} block /> : null;
   // 회원만: 서버 알림 설정(초대 · 댓글 등 받을 알림)으로 가는 줄. 앱 정보 행과 같은 높이 · 구분선 · 오른쪽 화살표
   const serverNotifications = authenticatedUser ? (
     <Pressable accessibilityRole="button" accessibilityLabel="알림 설정" onPress={() => setRoute('notifications')} style={local.linkRow}>
