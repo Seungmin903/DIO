@@ -5,11 +5,11 @@ import {createRequire} from 'node:module'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
 const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
 // useState 순서: previewSession · booting · loginRequest
-// probe 를 주면 useEffect 를 모아 두고 네이티브 시작 화면을 내린 횟수(hidden)를 센다
+// probe 를 주면 useEffect 를 모아 두고 네이티브 시작 화면을 내린 횟수(hidden) · 예전 예시 다이어리 정리 횟수(cleaned)를 센다
 function root(dev,mode,session=null,loginRequest=null,probe=null){
  let calls=0
  const states=[session,true,loginRequest]
- const mod={exports:{}},mocks={react:{useState:()=>[states[calls++],()=>{}],useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>session}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',StyleSheet:{absoluteFill:{}}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const mod={exports:{}},mocks={react:{useState:()=>[states[calls++],()=>{}],useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>session}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',StyleSheet:{absoluteFill:{}}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  new Function('require','module','exports','__DEV__','process',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,dev,{env:{EXPO_PUBLIC_DIARY_SOURCE:mode}})
  return mod.exports.default()
 }
@@ -75,4 +75,21 @@ test('부팅 중 첫 화면에 BootSplash 를 그리고, 그린 뒤에야 네이
  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0
  try{for(const effect of probe.effects){try{effect()}catch{}}}finally{globalThis.setTimeout=timer}
  assert.ok(probe.hidden>=1,'첫 화면이 그려진 뒤(마운트 효과) 네이티브 시작 화면을 내린다')
+})
+
+test('목업 판정은 따로 그리는 세 화면(mock · mock-library · mock-sharing)만: 다른 mock* 값은 게스트로 시작하고, 개발 빌드의 게스트 시작마다 예전 예시 다이어리를 정리한다',async()=>{
+ for(const [dev,mode,cleans] of [[true,'mock',false],[true,'mock-library',false],[true,'mock-sharing',false],[true,'mock-other',true],[true,undefined,true],[false,undefined,false]]){
+  const probe={effects:[],hidden:0,cleaned:0}
+  root(dev,mode,null,null,probe)
+  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0
+  try{for(const effect of probe.effects){try{effect()}catch{}}}finally{globalThis.setTimeout=timer}
+  await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(probe.cleaned>0,cleans,`${dev?'개발':'운영'} ${mode}`)
+ }
+})
+test('내 공간의 로그인 · 회원가입처럼 기능 없이 연 로그인 요청({})도 지금 화면 위에 로그인 화면을 띄우고 닫을 수 있다',()=>{
+ const guest={mode:'preview',provider:'guest',nickname:'방문자'}
+ const tree=root(false,undefined,guest,{}),auth=nodes(tree).find(n=>n.type==='./src/auth/AuthScreen')
+ assert.ok(auth);assert.ok(has(tree,'LocalDiaryApp'))
+ assert.equal(typeof auth.props.onClose,'function');assert.equal(typeof auth.props.onContinue,'function')
 })

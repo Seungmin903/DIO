@@ -6,6 +6,7 @@ const require=createRequire(import.meta.url),expo=createRequire(require.resolve(
 const code=expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8'),{
  configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]
 }).code;
+let logins=[];
 function setup(user,onUpdatePreview,onClearSession,extra={}){
  const values=[];let cursor=0;const effects=[];const mod={exports:{}};const PasswordForm=()=>null;const service={changePassword(){}};
  const load=id=>{
@@ -18,7 +19,8 @@ function setup(user,onUpdatePreview,onClearSession,extra={}){
   if(id==='../../auth/ProfileEditScreen')return PasswordForm;
   if(id==='../../auth/PasswordResetScreen')return PasswordForm;
   if(id==='../../auth/authService')return {authService:service};
-   if(id==='../../shared/appLock')return {appLockScope:()=>'scope',hasAppLock:async()=>false,checkAppLock:async()=>true,clearAppLock:async()=>{},setAppLock:async()=>{}};
+  if(id==='../../auth/loginGate')return {useLoginEntry:()=>()=>logins.push('login')};
+  if(id==='../../shared/appLock')return {appLockScope:()=>'scope',hasAppLock:async()=>false,checkAppLock:async()=>true,clearAppLock:async()=>{},setAppLock:async()=>{}};
   if(id==='react/jsx-runtime')return require(id);
   return ()=>null;
  };
@@ -83,4 +85,13 @@ test('게스트 저장소가 없으면 프로필 수정 칸을 누를 수 없고
  assert.equal(row.props.disabled,true)
  row.props.onPress()
  assert.notEqual(ui.render().type,ui.PasswordForm)
+})
+test('게스트 내 공간: 판 안의 로그인 · 회원가입 버튼 하나가 로그인 화면을 열고, 프로필 수정은 이름 옆 연필로 남는다. 회원에게는 없다',()=>{
+ logins=[]
+ const guest=setup({mode:'preview',provider:'guest',nickname:'방문자'},undefined,undefined,{guestService:{start(){}}}).render()
+ find(guest,'로그인 · 회원가입').props.onPress()
+ assert.deepEqual(logins,['login'])
+ assert.equal(find(guest,'프로필 수정').props.accessibilityRole,'button')
+ const member=setup({mode:'authenticated',userId:'7',provider:'email',email:'m@example.com'}).render()
+ assert.equal(find(member,'로그인 · 회원가입'),null)
 })

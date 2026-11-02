@@ -324,8 +324,8 @@ export default function ProfileEditScreen({
                 onPress={openPhotoMenu}
                 style={s.photoLink}
               >
-                <AppIcon name="edit" size={16} forText={14} color={colors.primaryText} />
-                <Text style={s.photoLinkText}>사진 변경</Text>
+                <AppIcon name="camera" size={16} forText={14} color={colors.primaryText} />
+                <Text numberOfLines={1} style={s.photoLinkText}>사진 변경</Text>
               </Pressable>
             </View>
           </View>
@@ -414,14 +414,14 @@ export default function ProfileEditScreen({
             secondary
             disabled={busy}
             onPress={() => leave(onClose)}
-            style={s.barButton}
+            style={[s.barButton, compact && s.phoneCancel]}
           />
           <Button
             label="변경사항 저장"
             disabled={busy || !ready}
             busy={busy}
             onPress={save}
-            style={[s.barButton, compact && s.grow]}
+            style={[s.barButton, compact && s.phoneSave]}
           />
         </View>
       </View>}
