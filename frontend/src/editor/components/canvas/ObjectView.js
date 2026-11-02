@@ -121,14 +121,16 @@ function TextContent({ object, width, height, zoom, onTextMeasure, textMeasureRe
   const [lines, setLines] = useState(null)
   const textRef = useRef(null)
   const lastMeasurement = useRef(null)
+  const measureCallback = useRef(onTextMeasure)
+  measureCallback.current = onTextMeasure
   const measurementEnabled = Boolean(onTextMeasure)
   const layoutKey = textLayoutKey(object)
   const reportHeight = measuredHeight => {
-    if (!onTextMeasure || !Number.isFinite(measuredHeight) || measuredHeight <= 0 || !Number.isFinite(zoom) || zoom <= 0) return
+    if (!measureCallback.current || !Number.isFinite(measuredHeight) || measuredHeight <= 0 || !Number.isFinite(zoom) || zoom <= 0) return
     const h = measuredHeight / zoom
-    if (lastMeasurement.current?.id === object.id && lastMeasurement.current.key === layoutKey && Math.abs(lastMeasurement.current.h - h) < 0.01) return
-    lastMeasurement.current = { id: object.id, key: layoutKey, h }
-    onTextMeasure(object.id, h)
+    if (lastMeasurement.current?.id === object.id && lastMeasurement.current.key === layoutKey && lastMeasurement.current.boxHeight === object.h && Math.abs(lastMeasurement.current.h - h) < 0.01) return
+    lastMeasurement.current = { id: object.id, key: layoutKey, boxHeight: object.h, h }
+    measureCallback.current(object.id, h)
   }
   // 크기 조절 중 측정이 중단됐다가 재개되면 크기가 같아도 직접 잰다.
   useLayoutEffect(() => {
@@ -138,7 +140,7 @@ function TextContent({ object, width, height, zoom, onTextMeasure, textMeasureRe
       if (!cancelled) reportHeight(measuredHeight)
     })
     return () => { cancelled = true }
-  }, [measurementEnabled, layoutKey, object.id, zoom, textMeasureReady])
+  }, [measurementEnabled, layoutKey, object.id, object.h, zoom, textMeasureReady])
   const style = { width, minHeight: onTextMeasure ? undefined : height, ...base, ...(drawn && { textDecorationLine: 'none' }) }
   // 측정이 다시 켜질 때 크기가 같아도 새로운 native Text의 첫 onLayout을 받는다.
   const text = <Text ref={textRef} key={textMeasureReady ? 'ready' : 'loading'} onLayout={onTextMeasure ? (event) => reportHeight(event.nativeEvent.layout.height) : undefined}

@@ -160,6 +160,16 @@ test('텍스트 너비는 확대 배율과 부분 서식의 큰 글자보다 작
   }
 })
 
+test('이전 문서의 너무 좁은 텍스트 상자는 크기 조절 시 글자 폭을 복구한다', () => {
+  const start = text.createText({ id: 'legacy', x: 100, y: 80, width: 20, text: '한글', fontSize: 50 })
+  const f = fixture(start), input = f.handle({ sx: 1, sy: 0 })
+  input.onStart(); input.onMove(1, 0); input.onEnd({ cancelled: false })
+  const end = f.state().doc.pages[0].objects[0]
+  close(end.w, 60)
+  close(end.x, start.x)
+  assert.equal(end.text, start.text)
+})
+
 test('텍스트는 네 변만 조절하고 옆면 취소는 원래 폭과 높이를 복원한다', () => {
   const start = text.createText({ id: 'text', x: 100, y: 80, width: 240, text: '가나다라마바사', fontSize: 20 })
   assert.deepEqual(fixture(start).api.handlesFor(start).map(({ sx, sy }) => [sx, sy]), [[0, -1], [0, 1], [-1, 0], [1, 0]])

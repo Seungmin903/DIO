@@ -68,3 +68,29 @@ test('좁아진 상자의 내용이 기존 높이보다 길어도 전체 측정 
   element.props.onLayout({ nativeEvent: { layout: { height: 120 } } })
   assert.deepEqual(measured, [{ id: 'narrow', h: 60 }])
 })
+
+test('비동기 측정은 최신 콜백을 쓰고 상자 높이가 바뀌면 같은 실측값도 다시 전달한다', () => {
+  const module = { exports: {} }, refs = [], effects = [], received = []
+  let ri = 0, ei = 0, pending = [], delayed
+  const useRef = value => refs[ri++] ??= { current: value }
+  const effect = (fn, deps) => {
+    const i = ei++, old = effects[i]
+    if (!old || deps.some((v, n) => v !== old.deps[n])) pending.push(() => { old?.cleanup?.(); effects[i] = { deps, cleanup: fn() } })
+  }
+  makeText(require, module, 'Text', 'View', { OS: 'ios' }, false, value => [value, () => {}], useRef, effect,
+    object => String(object.w), () => ({ lineSpacing: 1 }), () => ({ fontSize: 12 }), text => [{ text }], () => ({}))
+  const render = (boxHeight, callback) => {
+    ri = 0; ei = 0
+    const element = module.exports({ object: { id: 't', w: 80, h: boxHeight, text: 'test' }, width: 80, height: boxHeight, zoom: 1, onTextMeasure: callback, textMeasureReady: true })
+    element.props.ref.current = { measure: fn => { delayed = fn } }
+    pending.splice(0).forEach(fn => fn())
+  }
+  render(100, () => received.push('old'))
+  const first = delayed
+  render(100, (id, h) => received.push([id, h]))
+  first(0, 0, 80, 60)
+  assert.deepEqual(received, [['t', 60]])
+  render(40, (id, h) => received.push([id, h]))
+  delayed(0, 0, 80, 60)
+  assert.deepEqual(received, [['t', 60], ['t', 60]])
+})
