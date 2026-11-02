@@ -29,9 +29,9 @@ test('전체 속지·플래너·빈 속지가 독립된 서버 코드로 매핑�
 })
 
 test('V25 전용 빌드는 플래너 선택을 명시적으로 끌 수 있다', () => {
-  assert.equal(plannerTemplatesEnabled({ EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED: '0' }), false)
-  assert.equal(plannerTemplatesEnabled({ EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED: '1' }), true)
-  assert.equal(plannerTemplatesEnabled({}), true)
+  assert.equal(plannerTemplatesEnabled('0'), false)
+  assert.equal(plannerTemplatesEnabled('1'), true)
+  assert.equal(plannerTemplatesEnabled(undefined), true)
 })
 
 test('빈 페이지는 null 에셋 참조와 방향·규격을 보존하고 명시적인 서버 코드로 매핑된다', () => {
