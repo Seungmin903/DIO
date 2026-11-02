@@ -32,7 +32,7 @@ export const PAGE_LIST_WIDTH = 176
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null }) {
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onSettings, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null }) {
   useLayoutEffect(() => {
     qaMeasurement?.emit('panel-layout')
     if (!qaMeasurement) return
@@ -145,9 +145,10 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
     if (to !== info.from) onMove(info.id, to)
   }
   const target = drag ? dropIndex(pages, layouts.current, drag) : null
+  const draggedPage = drag ? pages.find(page => page.id === drag.id) : null
   const menuPage = menuId ? pages.find((page) => page.id === menuId) : null
   const menuIndex = menuPage ? pages.findIndex((page) => page.id === menuPage.id) : -1
-  const menuActionCount = 1 + Number(pages.length > 1)
+  const menuActionCount = 1 + Number(pages.length > 1) + Number(Boolean(onSettings))
   const menuHeight = 42 + menuActionCount * 48
   // 작업 메뉴는 패널 밖(캔버스)을 눌러도 닫혀야 해서 창 전체를 덮는 투명 모달로 띄운다(안드로이드 · iOS는 부모 밖 영역의 터치를 받지 못한다).
   // 그래서 패널의 창 안 자리를 재어 두고, 화면 크기(회전)가 바뀌면 자리가 어긋나므로 닫는다.
@@ -202,9 +203,9 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         </View>
         )}
       </View>
-      {!readOnly && <View style={{ paddingHorizontal: 8 }}>
+      {!readOnly && <View style={pickMode ? styles.bulkControls : styles.editControls}>
         {pickMode ? <PageBulkDelete pages={pages} ids={picked} onDelete={onRemovePages} onReset={onReset} canUndoDelete={canUndoDelete} onDone={endPickMode} />
-          : <View style={styles.editRow}><Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="edit" size={14} forText={11.5} /><Text style={styles.editText}>편집</Text></Pressable></View>}
+          : <View style={styles.editRow}><Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={styles.editButton} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="edit" size={14} forText={11.5} /><Text style={styles.editText}>편집</Text></Pressable></View>}
       </View>}
       <FlatList
         ref={listRef}
@@ -266,12 +267,21 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         }}
         ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
       />
+      {draggedPage && <View pointerEvents="none" accessible={false} style={[styles.dragViewport, { top: listTop, height: listHeight.current }]}>
+        <PageDragPreview page={draggedPage} number={numberOf(draggedPage)} showBackground={thumbBackgrounds}
+          count={drag.group ? picked.length : 1}
+          top={LIST_PADDING + itemTop(pages, layouts.current, drag.id) - scrollY + drag.dy} />
+      </View>}
       {menuPage && origin && (
         <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={() => setMenuId(null)}>
           {/* 메뉴 바깥(캔버스 · 다른 패널 포함)을 누르면 닫는다 */}
           <Pressable accessibilityLabel="페이지 작업 메뉴 닫기" style={StyleSheet.absoluteFill} onPress={() => setMenuId(null)} />
           <View style={[styles.actionMenu, { top: origin.y + menuTop, left: origin.x + THUMB_WIDTH + 22 }]}>
             <Text style={styles.actionMenuTitle}>{pages.findIndex((page) => page.id === menuId) + 1}페이지</Text>
+            {onSettings && <Pressable accessibilityRole="button" accessibilityLabel="페이지 설정" style={styles.action}
+              onPress={() => { onSettings(menuId); setMenuId(null) }}>
+              <Icon name="edit" size={18} forText={11} color={colors.primary} /><Text style={styles.actionText}>페이지 설정</Text>
+            </Pressable>}
             <Pressable onPress={() => { onDuplicate(menuId); setMenuId(null) }} style={styles.action} accessibilityLabel="페이지 복제">
               <Icon name="copy" size={18} forText={11} color={colors.primary} /><Text style={styles.actionText}>페이지 복제</Text>
             </Pressable>
@@ -365,7 +375,7 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
 
   return (
     <View
-      style={[styles.item, dragging && { zIndex: 2, transform: [{ translateY: dy }, { scale: 1.04 }] }, carried && styles.carried]}
+      style={[styles.item, dragging && styles.dragSource, carried && styles.carried]}
       onLayout={(event) => onLayout(event.nativeEvent.layout)}
     >
       {dropLine && <View style={[styles.dropLine, dropLine === 'before' ? styles.dropBefore : styles.dropAfter]} />}
@@ -433,15 +443,32 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
   && previous.canToggleIndex === next.canToggleIndex
 ))
 
+function PageDragPreview({ page, number, top, showBackground, count }) {
+  const { width, height } = pageSize(page)
+  const zoom = (THUMB_WIDTH - THUMB_BORDER * 2) / width
+  return <View style={[styles.item, styles.dragPreview, { top }]} testID="page-drag-preview">
+    <View style={[styles.thumb, styles.thumbDragging, { height: height * zoom + THUMB_BORDER * 2 }]}>
+      <View style={styles.thumbPage}><PageThumbnail page={page} zoom={zoom} still showBackground={showBackground} /></View>
+      <View style={styles.activeRing} />
+    </View>
+    <Text style={[styles.number, styles.numberActive]}>{number}</Text>
+    {count > 1 && <View style={styles.countBadge}><Text style={styles.countText}>{count}</Text></View>}
+  </View>
+}
+
 const styles = StyleSheet.create({
+  bulkControls: { paddingHorizontal: (PAGE_LIST_WIDTH - THUMB_WIDTH) / 2 - 6 },
+  editControls: { paddingHorizontal: (PAGE_LIST_WIDTH - THUMB_WIDTH) / 2 - 6 },
   editRow: { minHeight: 44, marginVertical: 2, justifyContent: 'center' },
   editButton: { height: 32, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
   editText: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
-  editPressed: {}, // 눌림 효과 없음(사용자 지시)
-  panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: colors.surfaceSoft, overflow: 'visible', zIndex: 3 },
+  panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'visible', zIndex: 3 },
   list: { flexGrow: 1, alignItems: 'center', gap: 16, paddingVertical: 16 },
   emptyArea: { flexGrow: 1, alignSelf: 'stretch', minHeight: 24 },
   item: { position: 'relative', alignItems: 'center', gap: 6 },
+  dragSource: { opacity: 0 }, // Keep the original native gesture target and slot mounted.
+  dragViewport: { position: 'absolute', left: 0, right: 0, overflow: 'hidden', zIndex: 4 },
+  dragPreview: { position: 'absolute', left: (PAGE_LIST_WIDTH - THUMB_WIDTH) / 2, transform: [{ scale: 1.04 }] },
   thumb: {
     width: THUMB_WIDTH,
     borderRadius: 8,

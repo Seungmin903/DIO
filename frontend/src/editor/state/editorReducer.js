@@ -11,6 +11,7 @@ import { pageSize } from '../utils/pageGeometry.js'
 import { isBackdrop, keepBackdropBottom } from '../utils/backdrop.js'
 import { createBlankPage, createTemplatePage } from './defaultDoc.js'
 import { normalizePaperAppearance } from '../templates/appearance.js'
+import { applyPageSettings } from '../../collaboration/pageSettings.js'
 
 const HISTORY_LIMIT = 80
 const PASTE_OFFSET = 24
@@ -211,7 +212,13 @@ export function editorReducer(state, action) {
   const objects = getCurrentPage(state).objects
 
   switch (action.type) {
+    case 'applyServerPageSettings': return applyPageSettings(state, action.settings)
     case 'reconcileServerPages': {
+      const settings = (action.settings ?? []).filter(p => {
+        const current = state.doc.pages.find(page => page.id === p.id)
+        return current && Object.keys(p).some(key => JSON.stringify(current[key]) !== JSON.stringify(p[key]))
+      })
+      if (settings.length) state = applyPageSettings(state, settings)
       const ids=new Set(action.pageIds),existing=new Map(state.doc.pages.map(p=>[p.id,p]))
       for(const p of action.pages)if(!existing.has(p.id))existing.set(p.id,p)
       const removed=state.doc.pages.filter(p=>!ids.has(p.id))

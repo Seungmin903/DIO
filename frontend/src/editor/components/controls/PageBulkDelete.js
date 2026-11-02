@@ -10,7 +10,7 @@ export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone, 
   const selected = pages.filter(page => ids.includes(page.id)).map(page => page.id)
   const blocked = !selected.length || selected.length >= pages.length
   return <View style={styles.actions}>
-    <Pressable accessibilityRole="button" accessibilityState={{ disabled: blocked }} disabled={blocked} hitSlop={{ top: 3, bottom: 3 }}
+    <Pressable accessibilityRole="button" accessibilityState={{ disabled: blocked }} disabled={blocked} hitSlop={{ top: 6, bottom: 6 }}
       accessibilityLabel={`선택한 ${selected.length}개 삭제`}
       style={({ pressed }) => [styles.delete, blocked && styles.disabled, pressed && styles.pressed]}
       onPress={() => { confirmed.current = false; setPending(selected) }}>
@@ -18,7 +18,7 @@ export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone, 
       <Text style={styles.deleteText}>선택 삭제</Text>
     </Pressable>
     {selected.length >= pages.length && <Text style={styles.hint}>페이지는 최소 한 장 남겨 주세요.</Text>}
-    {onReset && <Pressable accessibilityRole="button" accessibilityLabel="다이어리 초기화" hitSlop={{ top: 3, bottom: 3 }}
+    {onReset && <Pressable accessibilityRole="button" accessibilityLabel="다이어리 초기화" hitSlop={{ top: 6, bottom: 6 }}
       style={({ pressed }) => [styles.reset, pressed && styles.pressed]}
       onPress={() => { confirmed.current = false; setPending('reset') }}>
       <Text style={styles.resetText}>다이어리 초기화</Text>
@@ -44,10 +44,10 @@ export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone, 
 }
 
 const styles = StyleSheet.create({
-  actions: { gap: 6, paddingTop: 6, paddingBottom: 6 },
-  delete: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
+  actions: { gap: 12, paddingTop: 6, paddingBottom: 6 },
+  delete: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
   deleteText: { color: colors.danger, fontSize: 11.5, fontWeight: '700' },
-  reset: { minHeight: 38, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted },
+  reset: { minHeight: 32, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted },
   resetText: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
   hint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   disabled: { opacity: DISABLED_OPACITY },
