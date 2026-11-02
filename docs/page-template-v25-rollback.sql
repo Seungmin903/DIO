@@ -1,23 +1,22 @@
 -- Deployment order: release the frontend containing studyPlanner.js, dayPlanner.js and serverCatalog.js first.
 -- These planner IDs render as runtime SVGs; no separate backend SVG asset is required.
 -- V25 deployment preflight: this must return no rows before applying V25.
-WITH replacements(old_code, new_code) AS (
+WITH replacements(old_code, expected_orientation, expected_width, expected_height) AS (
     VALUES
-        ('2026-reusable-daily-landscape', 'day-planner-landscape'),
-        ('2026-reusable-daily-portrait', 'day-planner-portrait')
+        ('2026-reusable-daily-landscape', 'LANDSCAPE', 1024, 768),
+        ('2026-reusable-daily-portrait', 'PORTRAIT', 768, 1024)
 )
 SELECT page.page_id, source.code AS source_code, page.canvas_width, page.canvas_height,
-       target.code AS target_code, target.canvas_width AS target_width, target.canvas_height AS target_height
+       replacement.expected_orientation, replacement.expected_width, replacement.expected_height
 FROM pages page
 JOIN page_templates source ON source.template_id = page.template_id
 JOIN replacements replacement ON replacement.old_code = source.code
-JOIN page_templates target ON target.code = replacement.new_code AND target.template_version = '1.0.0'
 WHERE source.template_version = '1.0.0'
-  AND (source.canvas_width IS DISTINCT FROM target.canvas_width
-       OR source.canvas_height IS DISTINCT FROM target.canvas_height
-       OR source.orientation IS DISTINCT FROM target.orientation
-       OR page.canvas_width IS DISTINCT FROM target.canvas_width
-       OR page.canvas_height IS DISTINCT FROM target.canvas_height)
+  AND (source.canvas_width IS DISTINCT FROM replacement.expected_width
+       OR source.canvas_height IS DISTINCT FROM replacement.expected_height
+       OR source.orientation IS DISTINCT FROM replacement.expected_orientation
+       OR page.canvas_width IS DISTINCT FROM replacement.expected_width
+       OR page.canvas_height IS DISTINCT FROM replacement.expected_height)
 ORDER BY page.page_id;
 
 -- Manual rollback for V25 page reassignment. Run only after previewing the following query.

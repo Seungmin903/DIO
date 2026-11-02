@@ -1,9 +1,15 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { SERVER_TEMPLATE_CATALOG, toServerInitialPageSelections } from '../src/editor/templates/serverCatalog.js'
+import { toServerInitialPageSelections } from '../src/editor/templates/serverCatalog.js'
 
-// V9 is a released, immutable seed migration. Later planner templates are registered by V25.
-const V9_TEMPLATE_CATALOG = SERVER_TEMPLATE_CATALOG.filter(row => !/^(study|day)-planner-(landscape|portrait)$/.test(row.templateCode))
+export const catalogResource = new URL('../../backend/src/main/resources/catalog/page-templates-v1.json', import.meta.url)
+export const migrationResource = new URL('../../backend/src/main/resources/db/migration/V9__seed_page_template_catalog.sql', import.meta.url)
+
+// V9 is a released, immutable migration. Its checked-in JSON is the snapshot used to validate V9 SQL;
+// runtime templates added later must be registered by their own migrations.
+const V9_CONTRACT = Object.freeze(JSON.parse(readFileSync(catalogResource, 'utf8')))
+const V9_TEMPLATE_CATALOG = V9_CONTRACT.templates
 
 export function catalogContract() {
   return { schemaVersion: 1, templates: V9_TEMPLATE_CATALOG,
@@ -46,9 +52,6 @@ END
 $dio_catalog$;
 `
 }
-export const catalogResource = new URL('../../backend/src/main/resources/catalog/page-templates-v1.json', import.meta.url)
-export const migrationResource = new URL('../../backend/src/main/resources/db/migration/V9__seed_page_template_catalog.sql', import.meta.url)
-
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const artifacts = [[catalogResource, JSON.stringify(catalogContract(), null, 2) + '\n'], [migrationResource, seedMigration()]]
   for (const [path, source] of artifacts) {
@@ -56,5 +59,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (await readFile(path, 'utf8') !== source) throw new Error(`Catalog artifact differs: ${fileURLToPath(path)}`)
     } else { await mkdir(new URL('.', path), { recursive: true }); await writeFile(path, source) }
   }
-  console.log(`${SERVER_TEMPLATE_CATALOG.length} page templates: ${process.argv.includes('--check') ? 'checked' : 'generated'}`)
+  console.log(`${V9_TEMPLATE_CATALOG.length} V9 page templates: ${process.argv.includes('--check') ? 'checked' : 'generated'}`)
 }

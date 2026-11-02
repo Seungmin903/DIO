@@ -52,9 +52,11 @@ test('중복 선택 순서와 설정은 유지하며 매핑되지 않은 ID·버
   assert.throws(() => toServerInitialPageSelections([{ ...page, templateConfig: { width: 1024, height: 768, blank: true } }]))
 })
 
-test('버전 고정 서버 리소스·Flyway 등록 SQL이 프런트 카탈로그와 정확하게 일치한다', async () => {
+test('V9 스냅샷과 Flyway 등록 SQL은 런타임 플래너 추가와 독립적으로 고정된다', async () => {
   assert.deepEqual(JSON.parse(await readFile(catalogResource, 'utf8')), catalogContract())
   assert.equal(await readFile(migrationResource, 'utf8'), seedMigration())
+  assert.equal(catalogContract().templates.length, 288)
+  assert.equal(catalogContract().templates.some(t => /^(study|day)-planner-/.test(t.templateCode)), false)
   assert.ok(SERVER_TEMPLATE_CATALOG.every(t => t.templateCode.length <= 100 && t.templateVersion.length <= 30))
 })
 

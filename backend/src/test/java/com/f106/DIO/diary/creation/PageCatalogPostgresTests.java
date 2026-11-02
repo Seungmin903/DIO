@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -103,6 +105,7 @@ class PageCatalogPostgresTests {
         insertPage(diary,portraitWithCode,"2026-reusable-daily-portrait","{\"templateCode\":\"2026-reusable-daily-portrait\",\"keep\":true}",11,2);
         insertPage(diary,landscapeWithoutCode,"2026-reusable-daily-landscape","{\"keep\":true}",3,3);
         jdbc.update("update pages set updated_at=timestamp '2000-01-01 00:00:00+00' where diary_id=?",diary);
+        assertThat(runV25Preflight()).isEmpty();
 
         flyway("latest").migrate();
 
@@ -133,13 +136,18 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,landscapeWithoutCode)).isEqualTo(5L);
     }
 
-    @Test void V25RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() {
+    @Test void V25RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() throws Exception {
         flyway("24").migrate();
         jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
         UUID diary=UUID.randomUUID(), page=UUID.randomUUID();
         jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,1,'planner','#123456','PLAIN','PRIVATE')",diary);
         insertPage(diary,page,"2026-reusable-daily-landscape","{}",1,1);
         jdbc.update("update page_templates set canvas_width=999 where code='2026-reusable-daily-landscape' and template_version='1.0.0'");
+        assertThat(runV25Preflight()).singleElement().satisfies(row -> {
+            assertThat(row.get("source_code")).isEqualTo("2026-reusable-daily-landscape");
+            assertThat(row.get("expected_width")).isEqualTo(1024);
+            assertThat(row.get("expected_height")).isEqualTo(768);
+        });
         assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class);
         assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='25' and success",Long.class)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from page_templates where code='day-planner-landscape'",Long.class)).isZero();
@@ -174,10 +182,9 @@ class PageCatalogPostgresTests {
 
     /** V9 seed의 마지막 행이다. V25에서 덧붙인 계약 항목을 충돌 대상으로 쓰지 않는다. */
     private JsonNode lastV9Template() {
-        for (var template : contract.get("templates")) {
-            if ("dio-blank-portrait".equals(template.get("templateCode").asString())) return template;
-        }
-        throw new AssertionError("V9 catalog template is missing");
+        var templates=contract.get("templates");
+        assertThat(templates.size()).isEqualTo(288);
+        return templates.get(templates.size()-1);
     }
 
     private int runV25RollbackScript() throws Exception {
@@ -187,6 +194,13 @@ class PageCatalogPostgresTests {
         assertThat(start).isGreaterThanOrEqualTo(0);
         assertThat(end).isGreaterThan(start);
         return jdbc.update(script.substring(start,end));
+    }
+
+    private List<Map<String,Object>> runV25Preflight() throws Exception {
+        String script=Files.readString(Path.of("..","docs","page-template-v25-rollback.sql"));
+        int end=script.indexOf("-- Manual rollback for V25 page reassignment.");
+        assertThat(end).isGreaterThan(0);
+        return jdbc.queryForList(script.substring(0,end));
     }
 
     @Test void upgradePreservesExistingIdsCustomDefaultsInactiveStateOldVersionsAndHistoricalPages() throws Exception {
