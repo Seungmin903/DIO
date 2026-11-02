@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { createAuthApi, authBaseUrl } from './authApi';
 import { buildPhotoBody } from './photoUpload';
 import { createDevelopmentAccessStore } from './developmentAccessStore';
+import { legacyAccessKeychain } from './legacyAccessKeychain';
 import { fetch as authFetch } from 'expo/fetch';
 
 const host = Platform.OS === 'android' ? '10.0.2.2' : (globalThis.location?.hostname || 'localhost');
@@ -13,6 +14,6 @@ export const authService = createAuthApi({
   fetchImpl: authFetch,
   allowDevelopmentAccess: __DEV__,
   // Release builds never read or write the saved dev-server credential.
-  developmentAccessStore: __DEV__ ? createDevelopmentAccessStore({ platform: Platform.OS }) : null,
+  developmentAccessStore: __DEV__ ? createDevelopmentAccessStore({ platform: Platform.OS, legacyKeychain: legacyAccessKeychain }) : null,
   accessTokenHeader,
 });
