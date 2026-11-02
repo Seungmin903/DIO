@@ -10,6 +10,17 @@ const size = { width: 1024, height: 768, zoom: 1, pixelRatio: 2 }
 const stroke = (id, y = 100) => createStroke([{ x: 10, y }, { x: 300, y }], { id, kind: 'fountain', width: 4 })
 const flatten = layers => layers.flatMap(layer => layer.batch?.objects ?? [layer.object])
 
+test('네이티브 보존 묶음은 앞쪽 획의 수정·삭제 시 오래된 획을 표시하지 않는다', () => {
+  const plan = createCompletedStrokePlanner({ batchSize: 8, preserveBatches: true })
+  const objects = Array.from({ length: 16 }, (_, i) => stroke(`native-${i}`, 100 + i))
+  const initial = plan(objects, size)
+  const changed = [stroke('changed'), ...objects.slice(1)]
+  const updated = plan(changed, size)
+  assert.deepEqual(flatten(updated), changed)
+  assert.notEqual(updated[0].batch, initial[0].batch)
+  assert.deepEqual(flatten(plan(objects.slice(1), size)), objects.slice(1))
+})
+
 test('웹 캐시의 마지막 완성 묶음은 새 획·앞 묶음 삭제·Undo에도 유지한다', () => {
   const plan = createCompletedStrokePlanner({ batchSize: 8, alignPixels: true, preserveBatches: true })
   const objects = Array.from({ length: 100 }, (_, i) => stroke(`sealed-${i}`, 100 + i))

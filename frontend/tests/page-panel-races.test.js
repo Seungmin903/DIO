@@ -27,6 +27,8 @@ test('연속 추가는 표시된 앞부분을 유지하고 변경·삭제된 부
   assert.equal(reusableThumbnailPrefix([a,b,c], [a,b,c,d], 3), 3)
   assert.equal(reusableThumbnailPrefix([a,b,c], [a,b,c,d], 2), 2)
   assert.equal(reusableThumbnailPrefix([a,b,c], [a,{},c], 3), 1)
+  assert.equal(reusableThumbnailPrefix([{ id: 'a' }, { id: 'b' }], [{ id: 'a', x: 1 }, { id: 'b' }], 2), 2)
+  assert.equal(reusableThumbnailPrefix([{ id: 'a' }, { id: 'b' }], [{ id: 'b' }, { id: 'a' }], 2), 0)
   assert.equal(reusableThumbnailPrefix([a,b,c], [a], 3), 1)
   assert.equal(reusableThumbnailPrefix([a,b,c], [], 3), 0)
 })

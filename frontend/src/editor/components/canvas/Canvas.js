@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Icon from '../controls/Icon'
-import { colors, DISABLED_OPACITY } from '../../../shared/theme'
+import { colors, radius, DISABLED_OPACITY } from '../../../shared/theme'
 import { PHOTO_SHAPES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
 import { installDrawingSelectionGuard } from '../../utils/drawingSelectionGuard.js'
@@ -1003,8 +1003,8 @@ function panCrop(photo, startCrop, dx, dy, zoom, dispatch) {
 }
 
 const styles = StyleSheet.create({
-  pageLoading: { position: 'absolute', top: 12, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.94)' },
-  pageLoadingText: { fontSize: 12, color: '#4B5563' },
+  pageLoading: { position: 'absolute', top: 12, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.lg, backgroundColor: colors.surface },
+  pageLoadingText: { fontSize: 12, color: colors.textMuted },
   drawingSurface: Platform.select({ web: {
     userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', WebkitTapHighlightColor: 'transparent',
   }, default: {} }),

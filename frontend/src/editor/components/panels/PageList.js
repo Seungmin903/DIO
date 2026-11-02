@@ -33,7 +33,7 @@ export const PAGE_LIST_WIDTH = 176
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
 export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onSettings, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null, thumbnailWork = null }) {
-  const openingMeasurement = useRef(qaMeasurement).current
+  const openingMeasurement = qaMeasurement
   useLayoutEffect(() => {
     openingMeasurement?.emit('panel-layout')
     if (!openingMeasurement) return

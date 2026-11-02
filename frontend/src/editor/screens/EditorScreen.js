@@ -877,7 +877,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       pageCloseScheduler.current.start(() => {
         setPagesOpen(false)
         setPagesClosing(false)
-        setStageSize((prev) => prev && { ...prev, width: prev.width + PAGE_LIST_WIDTH + BODY_GAP })
       })
       return
     }
