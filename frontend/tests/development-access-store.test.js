@@ -9,7 +9,7 @@ const source = babel.transformSync(readFileSync(new URL('../src/auth/development
 }).code;
 const load = () => {
   const mod = { exports: {} };
-  new Function('require', 'module', 'exports', source)(id => { throw new Error(`unexpected dependency: ${id}`); }, mod, mod.exports);
+  new Function('require', 'module', 'exports', source)(id => ({ 'react-native': { Platform: { OS: 'android' } } })[id], mod, mod.exports);
   return mod.exports.createDevelopmentAccessStore;
 };
 
@@ -28,4 +28,8 @@ test('새 저장소는 이전 실행의 개발 접속 정보를 복원하지 않
   const previous = load()();
   await previous.save('https://k15f106.p.ssafy.io', 'Basic dGVzdGVyOnNlY3JldA==');
   assert.equal(await load()().load('https://k15f106.p.ssafy.io'), null);
+});
+
+test('웹에는 기존과 같이 개발 접속 저장소를 만들지 않는다', () => {
+  assert.equal(load()('web'), null);
 });
