@@ -7,12 +7,7 @@ const valid = value => typeof value === 'string' && /^Basic [A-Za-z0-9+/]+={0,2}
 // 다시 불러도 같은 앱 실행 동안에는 개발 접속 정보를 유지한다.
 const values = new Map();
 
-export function createDevelopmentAccessStore(options = {}, legacyPlatform) {
-  // 새 호출은 createDevelopmentAccessStore({ platform })를 사용한다. 이전의
-  // (기존 저장소, platform) 호출도 두 번째 인자를 읽어 웹 동작이 바뀌지 않는다.
-  const platform = typeof options === 'string'
-    ? options
-    : options?.platform ?? legacyPlatform ?? Platform.OS;
+export function createDevelopmentAccessStore({ platform = Platform.OS } = {}) {
   // 웹은 기존처럼 저장소를 만들지 않는다. 개발 접속 입력 UI의 노출 조건도
   // native와 같게 유지하면서, 웹 번들에는 네이티브 모듈을 추가하지 않는다.
   if (platform === 'web') return null;
@@ -23,5 +18,6 @@ export function createDevelopmentAccessStore(options = {}, legacyPlatform) {
     },
     async save(origin, value) { values.set(origin, value); },
     async clear(origin) { values.delete(origin); },
+    async clearAll() { values.clear(); },
   };
 }

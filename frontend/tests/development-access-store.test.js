@@ -35,5 +35,4 @@ test('같은 앱 실행 중 새 저장소 인스턴스도 개발 접속 정보�
 test('웹에는 기존과 같이 개발 접속 저장소를 만들지 않는다', () => {
   const factory = load();
   assert.equal(factory({ platform: 'web' }), null);
-  assert.equal(factory({}, 'web'), null);
 });

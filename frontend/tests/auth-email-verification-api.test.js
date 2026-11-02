@@ -147,7 +147,8 @@ const memoryStore = (initial = {}) => {
   return { values, log,
     load: async origin => { log.push(['load', origin]); return values[origin] ?? null; },
     save: async (origin, value) => { log.push(['save', origin]); values[origin] = value; },
-    clear: async origin => { log.push(['clear', origin]); delete values[origin]; } };
+    clear: async origin => { log.push(['clear', origin]); delete values[origin]; },
+    clearAll: async () => { log.push(['clearAll']); Object.keys(values).forEach(key => delete values[key]); } };
 };
 const basicChallenge = () => ({ status: 401, ok: false, json: async () => { throw new SyntaxError('HTML'); },
   headers: { get: name => name === 'WWW-Authenticate' ? 'Basic realm="DIO Development"' : null } });
@@ -180,6 +181,19 @@ test('서버가 저장된 개발 접속 정보를 거절하면 지우고 다시 
   await assert.rejects(api.checkEmailAvailability(email), { code: 'DEVELOPMENT_ACCESS_REQUIRED' });
   assert.equal(store.values['https://server.example'], undefined);
   assert.deepEqual(store.log.at(-1), ['clear', 'https://server.example']);
+});
+
+test('로그아웃하면 개발 서버 접근 정보를 모두 지운다', async () => {
+  const store = memoryStore();
+  const api = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true, developmentAccessStore: store,
+    fetchImpl: async url => url.endsWith('/login')
+      ? response({ accessToken: 'access', refreshToken: 'refresh', expiresIn: 900, user: { userId: '1', email, nickname: '회원' } })
+      : response(null, 204) });
+  api.verificationService.setDevelopmentAccess('tester', 'secret');
+  await api.login({ email, password: 'Password123!' });
+  await api.logout();
+  assert.deepEqual(store.values, {});
+  assert.deepEqual(store.log.at(-1), ['clearAll']);
 });
 
 test('운영 설정이나 HTTP 주소는 개발 접속 저장소를 읽거나 쓰지 않는다', async () => {

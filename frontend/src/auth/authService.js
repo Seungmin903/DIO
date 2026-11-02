@@ -13,6 +13,6 @@ export const authService = createAuthApi({
   fetchImpl: authFetch,
   allowDevelopmentAccess: __DEV__,
   // Release builds never read or write the saved dev-server credential.
-  developmentAccessStore: __DEV__ ? createDevelopmentAccessStore() : null,
+  developmentAccessStore: __DEV__ ? createDevelopmentAccessStore({ platform: Platform.OS }) : null,
   accessTokenHeader,
 });
