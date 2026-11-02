@@ -2,6 +2,12 @@ services:
   nginx-dev:
     image: ${NGINX_DEV_IMAGE:?NGINX_DEV_IMAGE is required}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+        compress: "true"
     ports:
       - "8443:443"
     volumes:

@@ -30,16 +30,18 @@ public class ProfilePhotoFiles {
     }
     /** 회원가입의 외부 I/O는 DB 트랜잭션 진입 전에 완료한다. */
     public PendingPhoto upload(UUID photoId, byte[] png) {
-        var pending = new PendingPhoto(active.location(photoId));
+        var pending = new PendingPhoto(photoId, active.location(photoId));
         try { active.put(pending.getLocation(), png); return pending; }
         catch (RuntimeException error) { pending.close(); throw error; }
     }
     public final class PendingPhoto implements AutoCloseable {
+        // 로그에는 저장소 키 대신 사진 ID를 남긴다. 남겨진 객체는 이 ID로 DB·저장소를 대조해 정리한다.
+        private final UUID photoId;
         private final ProfilePhotoStorage.Location location;
         public ProfilePhotoStorage.Location getLocation() { return location; }
         private boolean enlisted;
         private boolean cleaned;
-        PendingPhoto(ProfilePhotoStorage.Location location) { this.location = location; }
+        PendingPhoto(UUID photoId, ProfilePhotoStorage.Location location) { this.photoId = photoId; this.location = location; }
         public void enlist() {
             if (!TransactionSynchronizationManager.isActualTransactionActive() || enlisted)
                 throw new IllegalStateException("Photo must be enlisted once in an active transaction");
@@ -47,7 +49,7 @@ public class ProfilePhotoFiles {
                 @Override public void afterCompletion(int status) {
                     if (status == STATUS_ROLLED_BACK) cleanup();
                     else if (status != STATUS_COMMITTED) LoggerFactory.getLogger(ProfilePhotoFiles.class).warn(
-                        "Profile photo commit outcome unknown; object retained: provider={}, key={}", location.provider(), location.key());
+                        "Profile photo commit outcome unknown; object retained: photoId={}, provider={}", photoId, location.provider());
                 }
             });
             enlisted = true;
@@ -57,7 +59,7 @@ public class ProfilePhotoFiles {
             cleaned = true;
             try { active.delete(location); }
             catch (RuntimeException error) { LoggerFactory.getLogger(ProfilePhotoFiles.class).warn(
-                "Unreferenced profile photo cleanup failed: provider={}, key={}", location.provider(), location.key()); }
+                "Unreferenced profile photo cleanup failed: photoId={}, provider={}, errorType={}", photoId, location.provider(), error.getClass().getSimpleName()); }
         }
         @Override public void close() { if (!enlisted) cleanup(); }
     }
