@@ -17,6 +17,9 @@ function compile(path, imports, extra = {}) {
 
 test('Android 캔버스 사진·PDF 업로드를 Expo multipart 인코더가 파일 바이트로 직렬화한다', async () => {
   class Form { constructor() { this._parts = [] } }
+  // Expo SDK 58의 실제 multipart 인코더와 파일 bytes() 계약을 검증하는 통합 경계다.
+  // 아래 winter 경로는 Expo 내부 API다. SDK 업그레이드 시 경로·직렬화 계약을 확인해
+  // 이 어댑터를 갱신하고 테스트를 다시 실행한다. 경로가 바뀌었다고 검증을 건너뛰지 않는다.
   const expoPath = relative => new URL(relative, new URL('../node_modules/expo/package.json', import.meta.url))
   compile(expoPath('./src/winter/FormData.ts'), {}).installFormDataPatch(Form)
   const image = new Uint8Array([137, 80, 78, 71]), pdf = new TextEncoder().encode('%PDF-1.7')
