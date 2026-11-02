@@ -454,3 +454,37 @@ test('준비한 이미지 요청 저장에 실패하면 재시도에서도 본�
   assert.equal(server.ops.size, 1)
   assert.equal(server.media.size, 1)
 })
+
+
+test('생성 키 만료는 연결 재시도 대신 회원 보관함 확인을 안내하고 키와 원본을 유지한다', async () => {
+  const data = guestStorage(), server = fakeServer(), keys = [], original = data.disk.get(`${STORAGE_KEYS.doc}:diary-1`)
+  server.transport = async request => {
+    keys.push(request.requestId)
+    throw Object.assign(Error('expired'), { status: 409, code: 'IDEMPOTENCY_KEY_EXPIRED' })
+  }
+  const engine = importer(server, data)
+  const first = await engine.run([guestDiary]), notice = first.failed[0].error
+  assert.equal(notice.code, 'IDEMPOTENCY_KEY_EXPIRED'); assert.equal(notice.status, 409)
+  assert.match(notice.message, /보관 기간/); assert.match(notice.message, /회원 보관함/); assert.match(notice.message, /원본/)
+  assert.doesNotMatch(notice.message, /연결|다시 시도/)
+  const checkpoint = await readJournal(data)
+  await engine.run([guestDiary])
+  assert.deepEqual(await readJournal(data), checkpoint)
+  assert.equal(keys[0], keys[1]); assert.deepEqual(await engine.pendingIds(), [guestDiary.id])
+  assert.equal(data.disk.get(`${STORAGE_KEYS.doc}:diary-1`), original); assert.equal(server.diaries.size, 0)
+})
+
+test('손상되거나 배열이 아닌 게스트 목록은 빈 목록으로 숨기지 않고 기록을 보존한 채 오류를 낸다', async () => {
+  for (const raw of ['{broken', '', 'null', '{}', '"invalid"', '1']) {
+    const data = guestStorage()
+    await data.setItem(STORAGE_KEYS.diaries, raw)
+    const before = new Map(data.disk)
+    await assert.rejects(listGuestImportCandidates(data, accountId), error => error.code === 'INVALID_LOCAL_CACHE' && /목록을 읽지 못했어요/.test(error.message))
+    assert.deepEqual(data.disk, before)
+  }
+})
+
+test('게스트 목록 키가 없거나 정상 빈 배열이면 오류 없이 후보 없음으로 처리한다', async () => {
+  for (const data of [memoryStorage(), memoryStorage({ [STORAGE_KEYS.diaries]: '[]' })])
+    assert.deepEqual(await listGuestImportCandidates(data, accountId), { diaries: [], declined: false })
+})

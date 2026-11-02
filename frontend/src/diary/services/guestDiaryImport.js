@@ -184,8 +184,12 @@ export const importedTo = (ledger, guestDiaryId, accountId) => ledger.imports[gu
 /** 이 계정으로 아직 가져오지 않은 게스트 다이어리(휴지통 제외). */
 export async function listGuestImportCandidates(storage, accountId) {
   const raw = await storage.getItem(STORAGE_KEYS.diaries)
-  let diaries = []
-  try { diaries = normalizeDiaries(raw ? JSON.parse(raw) : []) } catch { diaries = [] }
+  let diaries
+  try {
+    const value = raw == null ? [] : JSON.parse(raw)
+    if (!Array.isArray(value)) throw new Error('Invalid diary list')
+    diaries = normalizeDiaries(value)
+  } catch { throw failure('INVALID_LOCAL_CACHE', '기기의 다이어리 목록을 읽지 못했어요. 원본은 그대로 남아 있어요.') }
   const ledger = await readGuestImportLedger(storage)
   return { diaries: diaries.filter(diary => !diary.trashedAt && !importedTo(ledger, diary.id, accountId)), declined: Boolean(ledger.declined[accountId]) }
 }
@@ -296,6 +300,9 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
       let result
       try { result = await api.create(copy(plan.create), { requestId: entry.requestId }) }
       catch (error) {
+        if (error.status === 409 && error.code === 'IDEMPOTENCY_KEY_EXPIRED') {
+          throw Object.assign(failure(error.code, '생성 요청의 보관 기간이 지났어요. 회원 보관함에서 이미 만들어진 다이어리가 있는지 확인해 주세요. 원본은 기기에 그대로 남아 있어요.'), { status: 409 })
+        }
         // 생성 전 입력 거절만 정리한다. 응답 유실·인증·서버 오류·멱등 충돌은 같은 키를 보존한다.
         if ([400, 413, 415, 422].includes(error.status) && !String(error.code ?? '').includes('IDEMPOTENCY')) {
           delete journal.diaries[diary.id]
