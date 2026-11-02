@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import com.f106.DIO.diary.dto.DiaryCreateRequest;
 import jakarta.validation.Validation;
@@ -187,20 +188,24 @@ class PageCatalogPostgresTests {
         return templates.get(templates.size()-1);
     }
 
+    /** 문서의 BEGIN; … COMMIT; 사이 문장을 그대로 실행한다. 공백·줄바꿈(CRLF) 차이는 무시한다. */
     private int runV25RollbackScript() throws Exception {
-        String script=Files.readString(v25RollbackDocument());
-        int start=script.indexOf("UPDATE pages page\nSET template_id");
-        int end=script.indexOf("\n\nCOMMIT;",start);
-        assertThat(start).isGreaterThanOrEqualTo(0);
-        assertThat(end).isGreaterThan(start);
-        return jdbc.update(script.substring(start,end));
+        var transaction=Pattern.compile("(?ms)^\\s*BEGIN;\\s*$(.*?)^\\s*COMMIT;\\s*$").matcher(v25RollbackScript());
+        assertThat(transaction.find()).as("rollback transaction block").isTrue();
+        String body=transaction.group(1).strip();
+        assertThat(body).startsWith("UPDATE pages page").doesNotContain("BEGIN;","COMMIT;");
+        return jdbc.update(body);
     }
 
     private List<Map<String,Object>> runV25Preflight() throws Exception {
-        String script=Files.readString(v25RollbackDocument());
+        String script=v25RollbackScript();
         int end=script.indexOf("-- Manual rollback for V25 page reassignment.");
         assertThat(end).isGreaterThan(0);
         return jdbc.queryForList(script.substring(0,end));
+    }
+
+    private String v25RollbackScript() throws Exception {
+        return Files.readString(v25RollbackDocument()).replace("\r\n","\n");
     }
 
     /** CI mounts docs at /workspace/docs while local Gradle runs from backend/. */
