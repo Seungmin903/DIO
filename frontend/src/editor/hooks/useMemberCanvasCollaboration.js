@@ -6,13 +6,15 @@ import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authServi
 import { createAuthenticatedMemberTransport } from '../../diary/services/memberTransport.js'
 import { memberDocumentKey } from '../../diary/services/memberStorage.js'
 import { createId } from '../utils/common.js'
-import { createCanvasApi, sameElements } from '../../collaboration/canvasApi.js'
+import { sameElements } from '../../collaboration/canvasApi.js'
+import { isUuid } from '../../collaboration/canvasElements.js'
+import { createCanvasWriteApi } from '../../collaboration/canvasWriteApi.js'
 import { loadServerPageSnapshot, createServerPage, copyServerPage, deleteServerPage, reorderServerPages, updateServerPage, loadPageSettings } from '../../collaboration/serverPages.js'
 import { createCanvasSession } from '../../collaboration/canvasSession.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../services/canvasMediaFiles'
 import { connectCollaboration } from '../../collaboration/collaborationSocket.js'
-import { createCanvasFetch } from '../../collaboration/canvasFetch.js'
+import { createCanvasHttpFetch } from '../../collaboration/canvasFetch.js'
 import { serverPaperAppearance } from '../../diary/services/serverPaperFont.js'
 import { setPdfSourceFetcher } from '../services/pdfSourceRemote.js'
 
@@ -32,14 +34,21 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
   }
   useEffect(()=>{
     if(!enabled||!loaded)return
+    if(!isUuid(diary.id)){
+      setView(v=>({...v,status:'error',pageId:page.id,errorMessage:'서버 다이어리 ID를 확인하지 못했어요. 홈에서 다이어리를 다시 열어 주세요. 기기 작업은 유지돼요.'}))
+      return
+    }
     const r={alive:true,engines:new Map(),loaded:new Map(),tail:Promise.resolve(),claimed:new Set(),pending:new Map(),again:new Set(),busy:false}
     runtime.current=r
     const active=()=>r.alive&&authService.getSessionKey()===sessionKey
     const headersFor=url=>authService.getCollaborationHeaders?.({url,userId:diary.memberAccountId,sessionKey})??{}
-    const fetchImpl=createCanvasFetch({headersFor,accessTokenHeader,fetchImpl:memberFetch})
+    // The common HTTP transport already adds member JWT + development access
+    // for every API path. The legacy collaboration bridge permits only page/WS
+    // routes and must not inspect the new /members lookup.
+    const fetchImpl=createCanvasHttpFetch({auth:authService,headersFor,accessTokenHeader,fetchImpl:memberFetch})
     const transport=createAuthenticatedMemberTransport({auth:authService,accountId:diary.memberAccountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl})
     const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch}),files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
-    const api=createCanvasApi(transport,media)
+    const api=createCanvasWriteApi(transport,media,diary.id)
     const fetchDocument=(sourceId,mediaFileId)=>media.fetchDocument(sourceId,mediaFileId)
     setPdfSourceFetcher(fetchDocument)
     r.pageEpoch=0;r.pageIds=null;r.removing=new Set()
