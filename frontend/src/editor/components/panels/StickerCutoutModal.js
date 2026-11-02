@@ -86,16 +86,18 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
   }
   // 두 손가락: 칠하던 획은 버리고 확대 · 이동만 한다. 두 손가락 가운데 아래의 사진 지점이 손가락을 따라간다.
   // 판 기준 좌표는 page 좌표에서 판의 page 원점(origin)을 빼서 얻는다. (사진 칸은 확대로 위치가 바뀌므로 판 원점을 쓴다)
+  // 기준(거리 · 가운데 · 보기)은 손가락이 붙거나 떨어질 때마다 지금 보기로 다시 잡는다. 안 그러면 다시 댄 손가락을 옛 기준과 비교해 확대가 튄다
   const pinchStart = event => {
     const [a, b] = event.nativeEvent.touches || []
     if (!a || !b) return
-    gesture.current = { pinch: true, view, distance: Math.max(1, Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY)),
+    gesture.current = { pinch: true, view, ids: [a.identifier, b.identifier], distance: Math.max(1, Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY)),
       midX: (a.pageX + b.pageX) / 2 - origin.current.x, midY: (a.pageY + b.pageY) / 2 - origin.current.y }
     setDraft(null)
   }
   const pinchMove = event => {
     const g = gesture.current, [a, b] = event.nativeEvent.touches || []
     if (!a || !b) return
+    if (a.identifier !== g.ids[0] || b.identifier !== g.ids[1]) { pinchStart(event); return }
     const zoom = Math.max(1, Math.min(CUTOUT_ZOOM_MAX, g.view.zoom * Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY) / g.distance))
     const ratio = zoom / g.view.zoom
     const midX = (a.pageX + b.pageX) / 2 - origin.current.x, midY = (a.pageY + b.pageY) / 2 - origin.current.y
@@ -136,7 +138,7 @@ export default function StickerCutoutModal({ folder, onClose, photoPicker = pick
     style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height, touchAction: 'none' }}
     onStartShouldSetResponder={() => ready && !busy}
     onMoveShouldSetResponder={() => ready && !busy}
-    onResponderGrant={startStroke} onResponderStart={event => { if ((event.nativeEvent.touches?.length || 0) > 1 && !gesture.current?.pinch) pinchStart(event) }}
+    onResponderGrant={startStroke} onResponderStart={pinchStart} onResponderEnd={pinchStart}
     onResponderMove={moveStroke}
     onResponderRelease={() => endStroke(false)} onResponderTerminate={() => endStroke(true)}
     onResponderTerminationRequest={() => false}>
