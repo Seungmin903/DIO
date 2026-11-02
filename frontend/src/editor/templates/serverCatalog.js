@@ -7,7 +7,7 @@ import { DAY_PLANNER_TEMPLATES } from './dayPlanner.js'
 const paper = Object.freeze({ backgroundColor: '#FFFFFF', layoutColor: '#292929' })
 const plannerCode = code => /^(study|day)-planner-(landscape|portrait)$/.test(code)
 
-// 첫 번째 프런트 배포는 새 속지를 읽고 그릴 수만 있어야 한다. V25가 적용되기
+// 첫 번째 프런트 배포는 새 속지를 읽고 그릴 수만 있어야 한다. V27이 적용되기
 // 전에는 이 값을 0으로 빌드해 선택/생성 요청만 막고, 이미 저장된 플래너 페이지의
 // localTemplateReference 해석은 계속 허용한다. 릴리스 빌드 값은 eas.json 프로필에 고정한다.
 // Expo는 process.env.EXPO_PUBLIC_* 를 이름 그대로 쓴 접근만 빌드 때 치환하므로 process.env 를 통째로 넘기지 않는다.

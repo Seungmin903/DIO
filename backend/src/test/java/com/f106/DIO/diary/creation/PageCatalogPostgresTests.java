@@ -95,8 +95,8 @@ class PageCatalogPostgresTests {
         }
     }
 
-    @Test void V25RegistersPlannerTemplatesAndMigratesReusableDailyPages() throws Exception {
-        flyway("24").migrate();
+    @Test void V27RegistersPlannerTemplatesAndMigratesReusableDailyPages() throws Exception {
+        flyway("26").migrate();
         jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
         UUID diary=UUID.randomUUID();
         jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,1,'planner','#123456','PLAIN','PRIVATE')",diary);
@@ -106,7 +106,7 @@ class PageCatalogPostgresTests {
         insertPage(diary,portraitWithCode,"2026-reusable-daily-portrait","{\"templateCode\":\"2026-reusable-daily-portrait\",\"keep\":true}",11,2);
         insertPage(diary,landscapeWithoutCode,"2026-reusable-daily-landscape","{\"keep\":true}",3,3);
         jdbc.update("update pages set updated_at=timestamp '2000-01-01 00:00:00+00' where diary_id=?",diary);
-        assertThat(runV25Preflight()).isEmpty();
+        assertThat(runV27Preflight()).isEmpty();
 
         flyway("latest").migrate();
 
@@ -124,33 +124,33 @@ class PageCatalogPostgresTests {
         assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,landscapeWithoutCode)).isEqualTo("day-planner-landscape");
         assertThat(jdbc.queryForObject("select template_config::text from pages where page_id=?",String.class,landscapeWithoutCode)).isEqualTo("{\"keep\": true}");
         assertThat(jdbc.queryForObject("select updated_at > timestamp '2000-01-01 00:00:00+00' from pages where page_id=?",Boolean.class,landscapeWithoutCode)).isTrue();
-        assertThat(jdbc.queryForObject("select count(*) from page_template_v25_backups",Long.class)).isEqualTo(3);
-        assertThat(jdbc.queryForObject("select previous_template_config->>'templateCode' from page_template_v25_backups where page_id=?",String.class,landscapeWithCode)).isEqualTo("2026-reusable-daily-landscape");
-        assertThat(jdbc.queryForObject("select jsonb_exists(previous_template_config, 'templateCode') from page_template_v25_backups where page_id=?",Boolean.class,landscapeWithoutCode)).isFalse();
-        assertThat(jdbc.queryForObject("select previous_version from page_template_v25_backups where page_id=?",Long.class,portraitWithCode)).isEqualTo(11L);
-        assertThat(jdbc.queryForObject("select previous_updated_at = timestamp '2000-01-01 00:00:00+00' from page_template_v25_backups where page_id=?",Boolean.class,portraitWithCode)).isTrue();
+        assertThat(jdbc.queryForObject("select count(*) from page_template_v27_backups",Long.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("select previous_template_config->>'templateCode' from page_template_v27_backups where page_id=?",String.class,landscapeWithCode)).isEqualTo("2026-reusable-daily-landscape");
+        assertThat(jdbc.queryForObject("select jsonb_exists(previous_template_config, 'templateCode') from page_template_v27_backups where page_id=?",Boolean.class,landscapeWithoutCode)).isFalse();
+        assertThat(jdbc.queryForObject("select previous_version from page_template_v27_backups where page_id=?",Long.class,portraitWithCode)).isEqualTo(11L);
+        assertThat(jdbc.queryForObject("select previous_updated_at = timestamp '2000-01-01 00:00:00+00' from page_template_v27_backups where page_id=?",Boolean.class,portraitWithCode)).isTrue();
         jdbc.update("update pages set version=version+1 where page_id=?",landscapeWithoutCode);
-        assertThat(runV25RollbackScript()).isEqualTo(2);
+        assertThat(runV27RollbackScript()).isEqualTo(2);
         assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,landscapeWithCode)).isEqualTo("2026-reusable-daily-landscape");
         assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,landscapeWithCode)).isEqualTo(7L);
         assertThat(jdbc.queryForObject("select t.code from pages p join page_templates t on t.template_id=p.template_id where p.page_id=?",String.class,landscapeWithoutCode)).isEqualTo("day-planner-landscape");
         assertThat(jdbc.queryForObject("select version from pages where page_id=?",Long.class,landscapeWithoutCode)).isEqualTo(5L);
     }
 
-    @Test void V25RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() throws Exception {
-        flyway("24").migrate();
+    @Test void V27RejectsPageTemplateGeometryThatDoesNotMatchTheReplacement() throws Exception {
+        flyway("26").migrate();
         jdbc.update("insert into users(user_id,nickname,nickname_key) values(1,'owner','owner')");
         UUID diary=UUID.randomUUID(), page=UUID.randomUUID();
         jdbc.update("insert into diaries(diary_id,owner_user_id,title,cover_color,cover_style,visibility) values(?,1,'planner','#123456','PLAIN','PRIVATE')",diary);
         insertPage(diary,page,"2026-reusable-daily-landscape","{}",1,1);
         jdbc.update("update page_templates set canvas_width=999 where code='2026-reusable-daily-landscape' and template_version='1.0.0'");
-        assertThat(runV25Preflight()).singleElement().satisfies(row -> {
+        assertThat(runV27Preflight()).singleElement().satisfies(row -> {
             assertThat(row.get("source_code")).isEqualTo("2026-reusable-daily-landscape");
             assertThat(row.get("expected_width")).isEqualTo(1024);
             assertThat(row.get("expected_height")).isEqualTo(768);
         });
         assertThatThrownBy(() -> flyway("latest").migrate()).isInstanceOf(org.flywaydb.core.api.FlywayException.class);
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='25' and success",Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version='27' and success",Long.class)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from page_templates where code='day-planner-landscape'",Long.class)).isZero();
     }
 
@@ -181,7 +181,7 @@ class PageCatalogPostgresTests {
         assertThat(template.get("blank")).isEqualTo("false");
     }
 
-    /** V9 seed의 마지막 행이다. V25에서 덧붙인 계약 항목을 충돌 대상으로 쓰지 않는다. */
+    /** V9 seed의 마지막 행이다. V27에서 덧붙인 계약 항목을 충돌 대상으로 쓰지 않는다. */
     private JsonNode lastV9Template() {
         var templates=contract.get("templates");
         assertThat(templates.size()).isEqualTo(288);
@@ -189,32 +189,32 @@ class PageCatalogPostgresTests {
     }
 
     /** 문서의 BEGIN; … COMMIT; 사이 문장을 그대로 실행한다. 공백·줄바꿈(CRLF) 차이는 무시한다. */
-    private int runV25RollbackScript() throws Exception {
-        var transaction=Pattern.compile("(?ms)^\\s*BEGIN;\\s*$(.*?)^\\s*COMMIT;\\s*$").matcher(v25RollbackScript());
+    private int runV27RollbackScript() throws Exception {
+        var transaction=Pattern.compile("(?ms)^\\s*BEGIN;\\s*$(.*?)^\\s*COMMIT;\\s*$").matcher(v27RollbackScript());
         assertThat(transaction.find()).as("rollback transaction block").isTrue();
         String body=transaction.group(1).strip();
         assertThat(body).startsWith("UPDATE pages page").doesNotContain("BEGIN;","COMMIT;");
         return jdbc.update(body);
     }
 
-    private List<Map<String,Object>> runV25Preflight() throws Exception {
-        String script=v25RollbackScript();
-        int end=script.indexOf("-- Manual rollback for V25 page reassignment.");
+    private List<Map<String,Object>> runV27Preflight() throws Exception {
+        String script=v27RollbackScript();
+        int end=script.indexOf("-- Manual rollback for V27 page reassignment.");
         assertThat(end).isGreaterThan(0);
         return jdbc.queryForList(script.substring(0,end));
     }
 
-    private String v25RollbackScript() throws Exception {
-        return Files.readString(v25RollbackDocument()).replace("\r\n","\n");
+    private String v27RollbackScript() throws Exception {
+        return Files.readString(v27RollbackDocument()).replace("\r\n","\n");
     }
 
     /** CI mounts docs at /workspace/docs while local Gradle runs from backend/. */
-    private Path v25RollbackDocument() {
+    private Path v27RollbackDocument() {
         return List.of(
-                Path.of("docs","page-template-v25-rollback.sql"),
-                Path.of("..","docs","page-template-v25-rollback.sql"))
+                Path.of("docs","page-template-v27-rollback.sql"),
+                Path.of("..","docs","page-template-v27-rollback.sql"))
             .stream().filter(Files::isRegularFile).findFirst()
-            .orElseThrow(() -> new AssertionError("V25 rollback document is missing"));
+            .orElseThrow(() -> new AssertionError("V27 rollback document is missing"));
     }
 
     @Test void upgradePreservesExistingIdsCustomDefaultsInactiveStateOldVersionsAndHistoricalPages() throws Exception {

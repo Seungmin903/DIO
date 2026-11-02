@@ -1,5 +1,5 @@
 -- Keep the former reusable daily templates for rollback and historical page records.
-CREATE TABLE page_template_v25_backups (
+CREATE TABLE page_template_v27_backups (
     page_id UUID PRIMARY KEY,
     previous_template_id BIGINT,
     previous_template_config JSONB,
@@ -76,7 +76,7 @@ BEGIN
 
     IF mismatch_count > 0 THEN
         RAISE EXCEPTION 'Reusable daily page geometry mismatch: count=%, page_ids=%', mismatch_count, mismatch_page_ids
-            USING HINT = 'Run docs/page-template-v25-rollback.sql preflight query before retrying V25.';
+            USING HINT = 'Run docs/page-template-v27-rollback.sql preflight query before retrying V27.';
     END IF;
 END
 $planner_compatibility$;
@@ -91,7 +91,7 @@ WITH replacements(old_code, new_code) AS (
     JOIN page_templates target
       ON target.code = replacement.new_code AND target.template_version = '1.0.0'
 )
-INSERT INTO page_template_v25_backups(page_id, previous_template_id, previous_template_config, previous_version, previous_updated_at)
+INSERT INTO page_template_v27_backups(page_id, previous_template_id, previous_template_config, previous_version, previous_updated_at)
 SELECT page.page_id, page.template_id, page.template_config, page.version, page.updated_at
 FROM pages page
 JOIN page_templates source ON source.template_id = page.template_id
