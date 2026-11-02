@@ -44,7 +44,8 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   const [pin, setPin] = useState(null);
   useEffect(() => {
     let alive = true;
-    hasAppLock(lockScope).then(value => { if (alive) setLocked(value); }).catch(() => { if (alive) setLocked(false); });
+    // 읽기 실패는 '꺼짐'으로 두지 않는다(켜기로 기존 비밀번호를 확인 없이 덮어쓸 수 있다). null 이면 스위치가 눌리지 않고, 다시 들어오면 다시 읽는다
+    hasAppLock(lockScope).then(value => { if (alive) setLocked(value); }).catch(() => { if (alive) setLocked(null); });
     return () => { alive = false; };
   }, [lockScope]);
   // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다. 실패하면 로그인 응답 값을 그대로 보여 주고 다시 들어올 때 재시도한다.
@@ -70,7 +71,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         if (pin.mode === 'verify') await clearAppLock(lockScope);
         else await setAppLock(lockScope, value);
       } catch { notify('앱 잠금', '앱 잠금을 바꾸지 못했어요. 다시 시도해 주세요.'); }
-      setLocked(await hasAppLock(lockScope).catch(() => false));
+      setLocked(await hasAppLock(lockScope).catch(() => null));
       setPin(null);
     };
     pinScreen = (
