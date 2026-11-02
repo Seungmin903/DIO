@@ -1,7 +1,7 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Icon from '../controls/Icon'
-import { colors, DISABLED_OPACITY } from '../../../shared/theme'
+import { colors, radius, DISABLED_OPACITY } from '../../../shared/theme'
 import { PHOTO_SHAPES } from '../../constants'
 import { usePan } from '../../hooks/usePan'
 import { installDrawingSelectionGuard } from '../../utils/drawingSelectionGuard.js'
@@ -13,6 +13,7 @@ import { isStripFrame, stripCellAt } from '../../utils/photoStrip'
 import { pageSize } from '../../utils/pageGeometry.js'
 import { placeHorizontal, placeVertical } from '../../utils/popoverPlacement'
 import { fitTextHeightPatch, textLayoutKey } from '../../utils/text'
+import { eraserPreviewPage } from '../../utils/eraser.js'
 import { createLassoOutline, resolveLassoOutline } from '../../utils/lassoOutline.js'
 import PageBackground from '../PageBackground'
 import ContextBar from './ContextBar'
@@ -22,6 +23,8 @@ import SlotAddButtons from './SlotAddButtons'
 import FrameTextEditor, { frameTextAt } from './FrameTextEditor'
 import LassoOutline from './LassoOutline'
 import StaticPage from './StaticPage'
+import { useProgressiveNativePage } from '../../hooks/useProgressiveNativePage.js'
+import { usePageReadiness } from '../../hooks/usePageReadiness.js'
 import SelectionOverlay from './SelectionOverlay'
 import PenInput from '../PenInput'
 import EraserInput from '../EraserInput'
@@ -67,6 +70,7 @@ const MIN_TARGET_PX = 44
  * - 자르기 중인 사진은 드래그하면 보이는 영역이 움직인다.
  */
 export default function Canvas({
+  qaPageMeasurement = null,
   textCommitRef,
   onReadingLinkStart,
   showBackground = true,
@@ -128,6 +132,10 @@ export default function Canvas({
   readOnly = false,
 }) {
   const drawingSurface = useRef(null)
+  const progressiveNative = Platform.OS === 'ios' && !compact
+  const { generation, pageReady, setReadyPage } = usePageReadiness(page.id, progressiveNative)
+  useLayoutEffect(() => { qaPageMeasurement?.emit('canvas-layout') }, [page.id, qaPageMeasurement])
+  useLayoutEffect(() => { if (pageReady) qaPageMeasurement?.emit('page-render-ready') }, [page.id, pageReady, qaPageMeasurement])
   const suppressBrowserSelection = Platform.OS === 'web' && !readOnly && !textEditing
     && ['pen', 'highlighter', 'eraser'].includes(activeTool)
   useEffect(() => {
@@ -219,26 +227,8 @@ export default function Canvas({
     const patch = fitTextHeightPatch(object, h)
     if (patch) dispatch({ type: 'updateObject', id, patch })
   }
-  const [erasingIds, setErasingIds] = useState([])
-  const [erasingPieces, setErasingPieces] = useState(null) // 영역 지우기 중: 원래 획 id → 남은 조각
-  const erasePreviewTicket = useRef(null)
-  useLayoutEffect(() => {
-    const ticket = erasePreviewTicket.current
-    if (ticket && !ticket.committed) { ticket.committed = true; ticket.measurement.record(ticket.metric ?? 'eraserPreviewToLayoutMs', ticket.measurement.clock() - ticket.started) }
-  })
-  const previewErase = (ids, pieces = null, ticket = null) => { erasePreviewTicket.current = ticket; setErasingIds(ids); setErasingPieces(pieces) }
-  // 그림 층에서 빼는 요소: 지우개로 지우는 중인 획, 편집 중인 텍스트(입력창이 투명이라 원래 글자가 겹쳐 보이지 않게)
-  const hiddenIds = [...(activeTool === 'eraser' ? erasingIds : []), ...(textEditing?.id ? [textEditing.id] : [])]
-  const pieces = activeTool === 'eraser' ? erasingPieces : null
-  const fastEraseObjects = useRef(new WeakSet())
-  const areaPreviewObjects = useMemo(() => {
-    if (Platform.OS === 'web' && pieces) for (const object of Object.values(pieces).flat()) fastEraseObjects.current.add(object)
-    return Platform.OS === 'web' && pieces ? new Set(Object.values(pieces).flat()) : null
-  }, [pieces])
-  const hiddenSet = new Set(hiddenIds)
-  const drawingPage = hiddenIds.length
-    ? { ...page, objects: page.objects.flatMap((object) => pieces?.[object.id] ?? (hiddenSet.has(object.id) ? [] : [object])) }
-    : page
+  const eraseDrawing = useRef(null)
+  const previewErase = (ids, pieces = null, ticket = null) => eraseDrawing.current?.preview(ids, pieces, ticket)
   const visible = page.objects.filter((o) => !o.hidden)
   const touchSelectable = visible.filter((o) => o.type !== 'stroke' && !isBackdrop(o))
   const selected = visible.filter((o) => selectedIds.includes(o.id))
@@ -384,6 +374,8 @@ export default function Canvas({
   return (
     <View
       ref={drawingSurface}
+      pointerEvents={pageReady ? 'auto' : 'none'}
+      accessibilityState={{ busy: !pageReady }}
       accessibilityLabel={readOnly ? '다이어리 읽기 캔버스' : `${{ hand: '손바닥', select: '선택', pen: '펜', highlighter: '형광펜', eraser: '지우개', text: '텍스트', lasso: '올가미' }[activeTool]} 캔버스`}
       style={[styles.page, suppressBrowserSelection && styles.drawingSurface, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
@@ -395,11 +387,12 @@ export default function Canvas({
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <StaticPage deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} page={drawingPage} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />
+        <EraserPreviewDrawing ref={eraseDrawing} page={page} activeTool={activeTool} textEditingId={textEditing?.id} enabled={progressiveNative} generation={generation} onReady={setReadyPage} qaPageMeasurement={qaPageMeasurement} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} textMeasureReady={pageReady} onTextMeasure={readOnly || interacting || !pageReady ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />
       </View>
+      {!pageReady && <View pointerEvents="none" accessibilityRole="progressbar" accessibilityLabel="페이지 불러오는 중" style={styles.pageLoading}><Text style={styles.pageLoadingText}>페이지 불러오는 중</Text></View>}
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
       {readOnly && <ObjectLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
-      {!readOnly && linkBadges && <LinkBadges objects={page.objects} zoom={zoom} selectedIds={selectedIds} onSelect={(id) => dispatch({ type: 'select', ids: [id] })} />}
+      {pageReady && !readOnly && linkBadges && <LinkBadges objects={page.objects} zoom={zoom} selectedIds={selectedIds} onSelect={(id) => dispatch({ type: 'select', ids: [id] })} />}
       {!readOnly && activeTool === 'lasso' && !textEditing && (
         <LassoInput key={[page.id, zoom, lassoShape, lassoMode].join('-')} objects={page.objects}
           selectedIds={selectedIds} shape={lassoShape} mode={lassoMode} zoom={zoom}
@@ -419,7 +412,7 @@ export default function Canvas({
       <View style={[styles.hitLayer, (activeTool === 'lasso' || textTool) && { zIndex: 1 }]} pointerEvents={canTouch && !outlinePaths ? 'box-none' : 'none'}
         // 틀 글자를 고치다 캔버스를 누르면 입력을 끝낸다 (네이티브는 입력칸 밖을 눌러도 포커스가 남는다)
         onTouchStart={frameTextEdit ? () => { Keyboard.dismiss(); onEditFrameText(null) } : undefined}>
-        {visible.filter((object) => !isBackdrop(object) && (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
+        {pageReady && visible.filter((object) => !isBackdrop(object) && (textTool ? object.type === 'text' : object.type !== 'stroke' || selectedIds.includes(object.id))).map((object) => (
           <CanvasObject
             key={object.id}
             object={object}
@@ -451,7 +444,7 @@ export default function Canvas({
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>
-        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
+        <EraserInput key={`${page.id}-${zoom}-${eraserSize}-${eraserMode}-${eraserTarget}`} compact={compact} objects={page.objects} diameter={eraserSize} mode={eraserMode} target={eraserTarget} zoom={zoom} dispatch={dispatch} onPreview={previewErase} planner={page.planner} onPlannerErase={plannerErase} onPlannerPreview={setPlannerDraft} />
       </View>}
       {planner?.kind === 'day' && dayPick?.page === page.id && <View style={styles.penClip}><DayPickBackdrop onClose={closeDayPick} /></View>}
       </PalmRejectionArea>
@@ -792,6 +785,37 @@ function isDoubleTap(id) {
   return double
 }
 
+// 지우기 미리보기는 터치·도구·선택 층을 다시 렌더하지 않고 그림 층에서만 갱신한다.
+const EraserPreviewDrawing = forwardRef(function EraserPreviewDrawing({ page, activeTool, textEditingId, ...props }, ref) {
+  const [preview, setPreview] = useState({ ids: [], pieces: null })
+  const ticket = useRef(null)
+  const fastEraseObjects = useRef(new WeakSet())
+  useImperativeHandle(ref, () => ({ preview(ids, pieces, measurement) { ticket.current = measurement; setPreview({ ids, pieces }) } }), [])
+  useLayoutEffect(() => {
+    const current = ticket.current
+    if (current && !current.committed) { current.committed = true; current.measurement.record(current.metric ?? 'eraserPreviewToLayoutMs', current.measurement.clock() - current.started) }
+  })
+  const ids = [...(activeTool === 'eraser' ? preview.ids : []), ...(textEditingId ? [textEditingId] : [])]
+  const pieces = activeTool === 'eraser' ? preview.pieces : null
+  const areaPreviewObjects = useMemo(() => {
+    if (Platform.OS === 'web' && pieces) for (const object of Object.values(pieces).flat()) fastEraseObjects.current.add(object)
+    return Platform.OS === 'web' && pieces ? new Set(Object.values(pieces).flat()) : null
+  }, [pieces])
+  const uncachedObjects = useMemo(() => Platform.OS !== 'web' && pieces ? new Set(Object.values(pieces).flat()) : null, [pieces])
+  const drawingPage = eraserPreviewPage(page, ids, pieces)
+  return <ProgressiveCanvasDrawing {...props} page={drawingPage} deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} uncachedObjects={uncachedObjects} />
+})
+
+// 페이지 내용이 조금씩 준비될 때 Canvas 전체 대신 표시 층만 갱신한다.
+function ProgressiveCanvasDrawing({ page, enabled, generation, onReady, ...props }) {
+  const progress = useProgressiveNativePage(page, enabled)
+  const displayed = useMemo(() => progress.ready ? page : { ...page, objects: page.objects.slice(0, progress.count) }, [page, progress.ready, progress.count])
+  useLayoutEffect(() => {
+    if (enabled && progress.ready) onReady({ id: page.id, generation })
+  }, [page.id, generation, enabled, progress.ready, onReady])
+  return <StaticPage {...props} page={displayed} />
+}
+
 function CanvasObject({ object, objects, pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, zoom, selectedIds, cropping, isCropTarget, dispatch, onGuides, onInteracting, onDragging, onEditText, onEditMedia, onEditFrameText, directEdit = false }) {
   const gesture = useRef(null)
   const moveFrame = useRef(null)
@@ -975,6 +999,8 @@ function panCrop(photo, startCrop, dx, dy, zoom, dispatch) {
 }
 
 const styles = StyleSheet.create({
+  pageLoading: { position: 'absolute', top: 12, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.lg, backgroundColor: colors.surface },
+  pageLoadingText: { fontSize: 12.5, fontWeight: '600', lineHeight: 19, color: colors.textMuted },
   drawingSurface: Platform.select({ web: {
     userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', WebkitTapHighlightColor: 'transparent',
   }, default: {} }),

@@ -21,6 +21,8 @@ const EDGE_INSET = 4
 const GRIP_SHIFT = EDGE_THICKNESS / 2 - EDGE_INSET - FRAME_WIDTH / 2
 const ROTATE_HANDLE = ROTATE_HANDLE_SIZE // 꼭짓점 손잡이와 같은 크기 (떠 있는 메뉴가 이 자리를 피한다)
 const MIN_SIZE = 20
+// 글꼴별 글자 폭 차이를 위한 여유. 정확한 글리프 실측은 아니므로 실기기 확인이 필요하다.
+const TEXT_GLYPH_WIDTH_MARGIN = 1.2
 
 const CORNERS = [
   { key: 'nw', sx: -1, sy: -1 },
@@ -264,7 +266,13 @@ function resizePatch(g, handle, pointer) {
     w = start.w * scale
     h = start.h * scale
   } else if (sx) {
-    w = Math.max(MIN_SIZE, sx * (q.x - anchor.x))
+    // 한 글자도 들어가지 않는 폭에서는 iOS가 글자를 가로로 잘라 표시한다.
+    // 부분 서식의 큰 글자와 현재 텍스트 확대 배율도 함께 반영한다.
+    const settings = start.type === 'text' ? textSettings(start) : null
+    const largestFont = settings ? Math.max(settings.fontSize, ...(start.styleRanges ?? []).map(range => range.fontSize ?? 0)) : 0
+    // 이미 잘린 기존 상자도 다시 조절하면 최소 폭으로 복구한다.
+    const textMinWidth = largestFont * (start.w / (start.baseWidth ?? start.w)) * TEXT_GLYPH_WIDTH_MARGIN
+    w = Math.max(MIN_SIZE, textMinWidth, sx * (q.x - anchor.x))
   } else if (start.type === 'tape') {
     h = Math.min(TAPE_MAX_H, Math.max(TAPE_MIN_H, sy * (q.y - anchor.y)))
   } else {

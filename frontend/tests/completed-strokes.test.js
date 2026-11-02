@@ -10,6 +10,30 @@ const size = { width: 1024, height: 768, zoom: 1, pixelRatio: 2 }
 const stroke = (id, y = 100) => createStroke([{ x: 10, y }, { x: 300, y }], { id, kind: 'fountain', width: 4 })
 const flatten = layers => layers.flatMap(layer => layer.batch?.objects ?? [layer.object])
 
+test('영역 지우기 조각은 캐시하지 않으면서 나머지 획의 순서와 묶음을 보존한다', () => {
+  const plan = createCompletedStrokePlanner({ batchSize: 4, preserveBatches: true })
+  const original = Array.from({ length: 12 }, (_, i) => stroke(`area-${i}`, 100 + i))
+  const before = plan(original, size)
+  const fragment = stroke('fragment', 105)
+  const changed = [...original.slice(0, 5), fragment, ...original.slice(6)]
+  const layers = plan(changed, { ...size, uncachedObjects: new Set([fragment]) })
+  assert.deepEqual(flatten(layers), changed)
+  assert.equal(layers.find(layer => layer.object === fragment)?.object, fragment)
+  assert.equal(layers[0].batch, before[0].batch)
+  assert.equal(layers.at(-1).batch, before.at(-1).batch)
+})
+
+test('네이티브 보존 묶음은 앞쪽 획의 수정·삭제 시 오래된 획을 표시하지 않는다', () => {
+  const plan = createCompletedStrokePlanner({ batchSize: 8, preserveBatches: true })
+  const objects = Array.from({ length: 16 }, (_, i) => stroke(`native-${i}`, 100 + i))
+  const initial = plan(objects, size)
+  const changed = [stroke('changed'), ...objects.slice(1)]
+  const updated = plan(changed, size)
+  assert.deepEqual(flatten(updated), changed)
+  assert.notEqual(updated[0].batch, initial[0].batch)
+  assert.deepEqual(flatten(plan(objects.slice(1), size)), objects.slice(1))
+})
+
 test('웹 캐시의 마지막 완성 묶음은 새 획·앞 묶음 삭제·Undo에도 유지한다', () => {
   const plan = createCompletedStrokePlanner({ batchSize: 8, alignPixels: true, preserveBatches: true })
   const objects = Array.from({ length: 100 }, (_, i) => stroke(`sealed-${i}`, 100 + i))

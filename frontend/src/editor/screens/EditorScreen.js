@@ -1,5 +1,5 @@
 import { canLeaveForInvitation } from '../../notifications/editorInvitationGuard';
-import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Animated, BackHandler, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
@@ -20,6 +20,9 @@ import LayerPanel, { LAYER_PANEL_WIDTH } from '../components/panels/LayerPanel'
 import MorePanel from '../components/panels/MorePanel'
 import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import PageSettingsDialog from '../components/panels/PageSettingsDialog'
+import PagePanelVisibility from '../components/panels/PagePanelVisibility'
+import { createThumbnailWorkQueue } from '../utils/thumbnailWorkQueue.js'
+import { createPageCloseScheduler } from '../utils/pageCloseScheduler.js'
 import Ribbon from '../components/chrome/Ribbon'
 import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail } from '../components/chrome/PhoneToolbar'
 import PenSettings from '../components/PenSettings'
@@ -222,8 +225,20 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [settingsPageId, setSettingsPageId] = useState(null)
   useEffect(() => { setSettingsPageId(null) }, [diary?.id, readOnly])
   useEffect(() => { if (settingsPageId && !state.doc.pages.some(p => p.id === settingsPageId)) setSettingsPageId(null) }, [settingsPageId, state.doc.pages])
+  const thumbnailWork = useRef(null)
+  if (!thumbnailWork.current) thumbnailWork.current = createThumbnailWorkQueue()
+  useEffect(() => () => thumbnailWork.current?.clear(), [])
+  const [pagesClosing, setPagesClosing] = useState(false)
+  const pageCloseScheduler = useRef(null)
+  if (!pageCloseScheduler.current) pageCloseScheduler.current = createPageCloseScheduler()
+  const cancelPageClose = () => pageCloseScheduler.current.cancel()
+  useEffect(() => () => cancelPageClose(), [])
   const pagePanelMeasurement = useRef(null)
-  useEffect(() => () => pagePanelMeasurement.current?.dispose(), [])
+  const toolChangeMeasurement = useRef(null)
+  const pageSelectMeasurement = useRef(null)
+  useEffect(() => () => { pagePanelMeasurement.current?.dispose(); toolChangeMeasurement.current?.dispose(); pageSelectMeasurement.current?.dispose() }, [])
+  useLayoutEffect(() => { toolChangeMeasurement.current?.emit('tool-layout', { tool: activeTool }) }, [activeTool])
+  useLayoutEffect(() => { pageSelectMeasurement.current?.emit('page-layout', { objects: page.objects.length }) }, [page.id])
   const [layoutCompact, setLayoutCompact] = useState(compact)
   if (layoutCompact !== compact) {
     setLayoutCompact(compact)
@@ -232,6 +247,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }
   const stagePadding = readOnly ? (readerMenuVisible ? READING_PADDING : READING_PADDING_FULL) : compact ? PHONE_STAGE_PADDING : STAGE_PADDING
   const [focusMode, setFocusMode] = useState(false)
+  // 닫는 두 프레임 사이에 화면 모드가 바뀌면 이전 폭을 더하는 예약을 폐기한다.
+  useLayoutEffect(() => {
+    if (!pageCloseScheduler.current.pending()) return
+    cancelPageClose()
+    setPagesClosing(false)
+    setPagesOpen(false)
+  }, [compact, landscape, readOnly, focusMode, diary?.id])
   const phoneLandscape = compact && landscape
   // 폰 집중 편집: 막대를 모두 숨기고 종료 버튼만 남긴다.
   const phoneFocus = !readOnly && compact && focusMode
@@ -303,6 +325,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const offset = viewportLocked || view.x == null ? centeredOffset(stageSize, zoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding) : { x: view.x, y: view.y }
   // 이미 화면에 맞춰져 있으면 우하단 "화면에 맞춤" 버튼을 비활성화한다 (고정 보기는 옮길 수 없으니 늘 맞춤)
   const viewFitted = viewportLocked || isFitView(view, centeredOffset(stageSize, fitZoom, PAGE_WIDTH, PAGE_HEIGHT, stagePadding))
+  const viewportMotion = useMemo(() => ({ moving: viewMoving, visible: stageSize ? { x: -offset.x / zoom, y: -offset.y / zoom, width: stageSize.width / zoom, height: stageSize.height / zoom } : null }),
+    [viewMoving, stageSize?.width, stageSize?.height, offset.x, offset.y, zoom])
 
   // 페이지가 화면 밖으로 다 사라지지 않게 가장자리 80px 은 남긴다.
   const clampOffset = (next, z) => clampViewportOffset(next, z, stageSize, PAGE_WIDTH, PAGE_HEIGHT)
@@ -843,6 +867,10 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setDrawerTab(drawerTab === tab ? null : tab)
   }
   const selectTool = (tool) => {
+    if (tool !== activeTool && tool !== 'shape') {
+      toolChangeMeasurement.current?.dispose()
+      toolChangeMeasurement.current = startPagePanelMeasurement({ kind: 'tool-change', from: activeTool, to: tool, objects: page.objects.length, pages: state.doc.pages.length })
+    }
     setGuidesOpen(false)
     setLassoSettingsOpen(tool === 'lasso' ? tool !== activeTool || !lassoSettingsOpen : false)
     setTextSettingsOpen(tool === 'text' ? !textSettingsOpen : false)
@@ -878,9 +906,20 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }
   const togglePages = () => {
     setFocusMode(false)
-    const open = !showPages
+    const open = pagesClosing || !showPages
+    if (open) thumbnailWork.current = createThumbnailWorkQueue()
+    else thumbnailWork.current?.stop()
     pagePanelMeasurement.current?.dispose()
     pagePanelMeasurement.current = startPagePanelMeasurement({ open, tool: activeTool, objects: page.objects.length, pages: state.doc.pages.length })
+    if (pagesClosing) { cancelPageClose(); setPagesClosing(false); return }
+    if (Platform.OS === 'ios' && !compact && !open) {
+      setPagesClosing(true)
+      pageCloseScheduler.current.start(() => {
+        setPagesOpen(false)
+        setPagesClosing(false)
+      })
+      return
+    }
     // 태블릿은 레이어 패널과 각각 켜고 끈다. 폰은 한쪽을 열면 다른 쪽은 닫는다.
     const closeLayers = compact && open && showLayers
     if (closeLayers) setLayersOpen(false)
@@ -1077,9 +1116,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         <TapCatcher onTap={clearSelection} style={StyleSheet.absoluteFill} />
         {showPages && loaded && (
           <PhonePanelSlot compact={compact} side={styles.phonePanelLeft} onWidth={(left) => setPhonePanelWidths((prev) => ({ ...prev, left }))}>
+          <PagePanelVisibility enabled={Platform.OS === 'ios' && !compact} hidden={pagesClosing}>
           <PageList
+            fillHeight={Platform.OS === 'ios' && !compact}
             canUndoDelete={!textSync.enabled}
             qaMeasurement={pagePanelMeasurement.current}
+            thumbnailWork={Platform.OS === 'web' ? null : thumbnailWork.current}
             readOnly={readOnly}
             edge={!compact && !readOnly} // 읽기 화면은 바깥 여백이 없다(readingBody)
             pages={deferredPages}
@@ -1090,6 +1132,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             onEmptyTap={clearSelection}
             onSelect={(id) => {
               if (cropId) finishCrop(false)
+              if (id !== page.id) {
+                pageSelectMeasurement.current?.dispose()
+                const target = state.doc.pages.find(item => item.id === id)
+                pageSelectMeasurement.current = startPagePanelMeasurement({ kind: 'page-select', objects: target?.objects.length ?? 0, pages: state.doc.pages.length })
+              }
               dispatch({ type: 'selectPage', id })
             }}
             onAdd={() => { if (cropId) finishCrop(false); setTemplatePickerOpen(true) }}
@@ -1100,6 +1147,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             onRemovePages={removePages}
             onRemove={id=>removePages([id])}
           />
+          </PagePanelVisibility>
           </PhonePanelSlot>
         )}
 
@@ -1126,9 +1174,10 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             onLayout={(event) => { setStageSize(event.nativeEvent.layout); stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y })) }}
           >
             {/* 확대·이동 중이거나 화면 밖에 있는 GIF 는 첫 장면으로 멈춘다 (StaticPage) */}
-            <ViewportMotion.Provider value={{ moving: viewMoving, visible: stageSize ? { x: -offset.x / zoom, y: -offset.y / zoom, width: stageSize.width / zoom, height: stageSize.height / zoom } : null }}>
+            <ViewportMotion.Provider value={viewportMotion}>
               <View style={{ width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }}>
               <Canvas
+                qaPageMeasurement={pageSelectMeasurement.current}
                 showBackground={loaded}
                 compact={compact}
                 compactMenu={compactMenu}
