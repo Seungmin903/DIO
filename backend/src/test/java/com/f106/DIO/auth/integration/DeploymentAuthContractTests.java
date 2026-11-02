@@ -68,7 +68,7 @@ class DeploymentAuthContractTests {
             "CREATE DATABASE dio_reset_qa", "authPostgresTest --no-daemon", "CREATE DATABASE dio_sharing_qa",
             "sharingPostgresTest collaborationPostgresTest --no-daemon", "CREATE DATABASE dio_member_ci",
             "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "CREATE DATABASE dio_member_contract_qa",
-            "postgresMemberDiaryHttpTest --no-daemon", "CREATE DATABASE dio_trash_qa",
+            "postgresMemberDiaryHttpTest --no-daemon", "-v \"$CI_PROJECT_DIR/docs:/workspace/docs:ro\"", "CREATE DATABASE dio_trash_qa",
             "postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon", "-e DIO_AUTH_SCHEMA_TEST=true",
             "-e DIO_LIST_QUERY_PG=true", "-e POSTGRES_USER=postgres");
 

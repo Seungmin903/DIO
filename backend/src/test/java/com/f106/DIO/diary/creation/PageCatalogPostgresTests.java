@@ -188,7 +188,7 @@ class PageCatalogPostgresTests {
     }
 
     private int runV25RollbackScript() throws Exception {
-        String script=Files.readString(Path.of("..","docs","page-template-v25-rollback.sql"));
+        String script=Files.readString(v25RollbackDocument());
         int start=script.indexOf("UPDATE pages page\nSET template_id");
         int end=script.indexOf("\n\nCOMMIT;",start);
         assertThat(start).isGreaterThanOrEqualTo(0);
@@ -197,10 +197,19 @@ class PageCatalogPostgresTests {
     }
 
     private List<Map<String,Object>> runV25Preflight() throws Exception {
-        String script=Files.readString(Path.of("..","docs","page-template-v25-rollback.sql"));
+        String script=Files.readString(v25RollbackDocument());
         int end=script.indexOf("-- Manual rollback for V25 page reassignment.");
         assertThat(end).isGreaterThan(0);
         return jdbc.queryForList(script.substring(0,end));
+    }
+
+    /** CI mounts docs at /workspace/docs while local Gradle runs from backend/. */
+    private Path v25RollbackDocument() {
+        return List.of(
+                Path.of("docs","page-template-v25-rollback.sql"),
+                Path.of("..","docs","page-template-v25-rollback.sql"))
+            .stream().filter(Files::isRegularFile).findFirst()
+            .orElseThrow(() -> new AssertionError("V25 rollback document is missing"));
     }
 
     @Test void upgradePreservesExistingIdsCustomDefaultsInactiveStateOldVersionsAndHistoricalPages() throws Exception {
