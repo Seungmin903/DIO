@@ -21,6 +21,7 @@ export const PATHS = {
   textLarger: 'M14 11l4-4 4 4 M18 16V7 M2 16l4.039-9.69a.5.5 0 0 1 .923 0L11 16 M3.304 13h6.392', // a-arrow-up
   textSmaller: 'M14 12l4 4 4-4 M18 16V7 M2 16l4.039-9.69a.5.5 0 0 1 .923 0L11 16 M3.304 13h6.392', // a-arrow-down
   sticker: 'M21 9a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z M15 3v5a1 1 0 0 0 1 1h5 M8 13h.01 M16 13h.01 M10 16s.8 1 2 1c1.3 0 2-1 2-1', // sticker
+  widget: 'M10 22V7a1 1 0 0 0-1-1H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5a1 1 0 0 0-1-1H2 M15 2h6a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1z', // blocks
   tape: 'M2 11.5a7.5 7.5 0 1 0 15 0a7.5 7.5 0 1 0 -15 0z M12.3 11.5a2.8 2.8 0 1 0 -5.6 0a2.8 2.8 0 1 0 5.6 0z M16.37 14.5H21.5L19.1 16.75L21.5 19H9.5', // 직접 그린 선(코덱스 설계): 완전한 큰 동그라미 롤 + 그 뒤 바닥 접선에서 나오는 꼬리, 끝은 제비꼬리
   image: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2z M7 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0z M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21', // image
   grid: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2z M3 9h18 M3 15h18 M9 3v18 M15 3v18', // grid-3x3
@@ -87,12 +88,15 @@ export const PATHS = {
 const DOT_ICONS = new Set(['grip', 'more'])
 
 // forText: 글자 크기(px). 주면 그 글자와 같은 높이로 보이게 size · 선 굵기 · 세로 위치를 계산한다(디자인 가이드 "글자 옆 아이콘")
+// 가로로 꽉 차 다른 도구보다 넓어 보이는 아이콘은 가운데(12)를 기준으로 가로만 줄인다
+const NARROW_X = { hand: 0.88 }
+
 export default function Icon({ name, size = 22, color = colors.text, strokeWidth = 1.8, fill = 'none', forText }) {
   const spec = forText ? textIconSpec(EDITOR_INK, name, forText) : null
   if (spec) { size = spec.size; strokeWidth = spec.strokeWidth }
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <G transform={spec && Math.abs(spec.dy) > 0.05 ? `translate(0 ${spec.dy})` : undefined}>
+      <G transform={[spec && Math.abs(spec.dy) > 0.05 && `translate(0 ${spec.dy})`, NARROW_X[name] && `translate(12 0) scale(${NARROW_X[name]} 1) translate(-12 0)`].filter(Boolean).join(' ') || undefined}>
         <Path
           d={PATHS[name]}
           stroke={color}

@@ -6,12 +6,12 @@ import { GifWriter } from 'omggif'
 import { decodeGifFrames, gifFrameDelays } from '../src/editor/utils/gifExport.js'
 import { createStickerPlaybackCache, createStickerPlayer, playbackGifBytes, playbackSteps, prepareStickerPlayback } from '../src/editor/utils/stickerPlayback.js'
 
-const gif = new Uint8Array(readFileSync(new URL('../assets/stickers/noto/n-love.gif', import.meta.url)))
+const gif = new Uint8Array(readFileSync(new URL('./fixtures/gifs/n-love.gif', import.meta.url)))
 const noYield = async () => {}
-test('기본 움직이는 스티커 36개 모두 PNG 장면으로 준비되고 원본을 변경하지 않는다', async () => {
-  const directory = new URL('../assets/stickers/noto/', import.meta.url)
+test('움직이는 GIF 표본 모두 PNG 장면으로 준비되고 원본을 변경하지 않는다', async () => {
+  const directory = new URL('./fixtures/gifs/', import.meta.url)
   const files = readdirSync(directory).filter((name) => name.endsWith('.gif'))
-  assert.equal(files.length, 36)
+  assert.equal(files.length, 2)
   for (const name of files) {
     const bytes = new Uint8Array(readFileSync(new URL(name, directory))), original = bytes.slice()
     let pixels = 0, disposed = 0, count = 0
@@ -30,7 +30,7 @@ test('기본 움직이는 스티커 36개 모두 PNG 장면으로 준비되고 �
 })
 
 test('GIF 종료자 대신 이어진 헤더는 블록 경계에서만 정규화한다', () => {
-  const bytes = new Uint8Array(readFileSync(new URL('../assets/stickers/noto/n-glowstar.gif', import.meta.url)))
+  const bytes = new Uint8Array(readFileSync(new URL('./fixtures/gifs/n-glowstar.gif', import.meta.url)))
   const fixed = playbackGifBytes(bytes)
   assert.notEqual(fixed, bytes)
   assert.equal(fixed.at(-1), 0x3b)

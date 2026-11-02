@@ -32,7 +32,7 @@
 성공 응답은 `userId`, `email`, `nickname`, `profilePhotoUrl`, `createdAt`이다. 비밀번호·해시·가입 토큰·인증번호는 포함하지 않는다. 회원가입 요청·응답과 Swagger에서 `profileColor`를 제거했다. 사진이 없으면 `profilePhotoUrl`은 null이다. 기존 `users.profile_color`는 호환을 위해 보존하며 신규 회원에는 내부 기본값만 저장한다.
 
 
-현재 화면의 프로필 사진 선택을 지원하는 백엔드 저장/조회와 API의 색상 제거를 구현했다. 프론트는 아직 previewAuth이므로 파일 업로드 연결, 이메일 인증 화면, 실제 API 연동, 비밀번호 ASCII 허용 범위 통일은 후속 작업이다.
+현재 화면의 프로필 사진 선택을 지원하는 백엔드 저장/조회와 API의 색상 제거를 구현했다. 프론트는 `authService`로 파일 업로드·이메일 인증·실제 API를 연결하며, 체험용 임시 인증 모듈은 사용하지 않는다. 비밀번호 ASCII 허용 범위 통일은 후속 작업이다.
 
 최신 ERD에 맞춰 회원가입 요청·응답과 Swagger에서 생년월일(`birthDate`)을 제거했다. Method와 Endpoint는 유지한다. 내 정보 조회·수정 API는 아직 구현되지 않았으며 구현 시 생년월일을 포함하지 않는다.
 
@@ -96,7 +96,7 @@ MEDIA_S3_REGION=ap-northeast-2
 - Spring multipart 전체 제한은 파일 5MB/요청 6MB다. 413은 요청/파일 크기 초과, 잘못된 이미지 400 `INVALID_PROFILE_PHOTO`다. 가입 전 검증에 실패하면 회원·사진·약관이 저장되지 않고 유효한 가입 토큰은 재사용 가능하다.
 - 회원·인증 계정·약관·사진 메타데이터·가입 토큰 소비는 동일 DB 트랜잭션이다. 파일/S3 저장은 별도이므로 DB 실패 시 새로 쓴 객체만 보상 삭제한다. 삭제 실패는 로그에 남기고 원래 가입 실패를 유지한다. 프로세스 강제 종료/네트워크 장애까지 DB와 원자적으로 묶을 수는 없으므로 배포 시 고아 객체 점검을 운영해야 한다.
 - 신규 사진 파일은 `ProfilePhotoStorage` 구현체(로컬 파일 또는 S3)에 저장하며 DB에는 회원 연결, 저장소 종류, 객체 키, S3 버킷만 저장한다. V4의 기존 `BYTEA` 사진은 손실 없이 조회하고 명시적인 이전 작업으로 파일로 옮길 수 있다. 기존 media/diary 테이블은 변경하지 않는다.
-- V5는 사진 테이블에 저장소 참조를 추가하고 기존 image_bytes를 nullable로 바꾼다. V1~V4 체크섬·기존 users 컬럼은 유지한다. 사진 메타데이터의 `user_id` UNIQUE/FK는 유지하며 회원 물리 삭제 시 메타데이터 CASCADE한다. 외부 파일은 DB CASCADE로 지워지지 않으므로 향후 탈퇴/사진 수정 API에 파일 삭제를 함께 구현해야 한다. 비활성·탈퇴 회원 사진은 API가 반환하지 않는다.
+- V5는 사진 테이블에 저장소 참조를 추가하고 기존 image_bytes를 nullable로 바꾼다. V1~V4 체크섬·기존 users 컬럼은 유지한다. 사진 메타데이터의 `user_id` UNIQUE/FK는 유지하며 회원 물리 삭제 시 메타데이터 CASCADE한다. `PATCH /api/v1/me`의 사진 교체·기본 이미지 복원은 기존 외부 파일 삭제를 커밋 뒤 시도하며, 실패는 로그에 남겨 운영 정리 대상으로 둔다. 회원 탈퇴 시 외부 파일 정리는 별도 구현 범위다. 비활성·탈퇴 회원 사진은 API가 반환하지 않는다.
 
 Swagger에서 `/signup`의 request Content-Type을 `multipart/form-data`로 선택하고 `signup`에 가입 JSON, `photo`에 파일을 선택한다. `signupToken`은 이메일 인증 확인 API에서 받은 실제 값을 넣는다. 사진 없는 가입은 `application/json`을 선택한다.
 

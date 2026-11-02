@@ -9,7 +9,7 @@ export const BRAND_LOGO_RATIO = 746 / 836;
 export default function BrandLogo({ size = 28, color = INK, accent = THEME }) {
   return (
     <Svg width={size * BRAND_LOGO_RATIO} height={size} viewBox="6 -16 746 836" fill="none" accessibilityLabel="DIO 로고">
-      <Path d="M431 106C408 96 383 94 350 94H72V754H350C534 754 686 622 686 424C686 357 664 297 624 251" stroke={color} strokeWidth={132} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M428 94H72V754H350C534 754 686 622 686 424A336 330 0 0 0 634 248" stroke={color} strokeWidth={132} strokeLinecap="round" strokeLinejoin="round" />
       <Rect x={218} y={356} width={277} height={44} rx={22} fill={color} />
       <Rect x={218} y={452} width={195} height={44} rx={22} fill={color} />
       <Circle cx={607} cy={74} r={90} fill={accent} />

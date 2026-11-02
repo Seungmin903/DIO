@@ -1,4 +1,4 @@
-import { createContext, memo, useContext } from 'react'
+import { memo, useContext } from 'react'
 import { Platform, StyleSheet, View } from 'react-native'
 import { pageSize } from '../../utils/pageGeometry.js'
 import PageBackground from '../PageBackground'
@@ -7,6 +7,7 @@ import PageObject from './PageObject'
 import CompletedStrokeLayer from './CompletedStrokeLayer'
 import WebStrokeCache from './WebStrokeCache'
 import { WebStrokeCacheEnabled } from './WebStrokeCacheContext'
+import { ViewportMotion } from './viewportMotion'
 
 const DRAG_OPACITY = 0.5
 
@@ -16,7 +17,7 @@ const DRAG_OPACITY = 0.5
  * - visible: 지금 화면에 보이는 페이지 범위 (논리 좌표). 범위 밖 GIF 는 멈춘다.
  * 페이지 목록 썸네일 등에서는 기본값이라 아무것도 바뀌지 않는다.
  */
-export const ViewportMotion = createContext({ moving: false, visible: null })
+export { ViewportMotion }
 
 /**
  * 페이지 그림. 편집 화면(Canvas 의 그림 층)과 페이지 썸네일이 이 컴포넌트 하나를 같이 써서

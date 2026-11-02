@@ -83,7 +83,7 @@ function pageContent(s = 1) {
     <div class="hand" style="position:absolute;left:${230 * s}px;top:${128 * s}px;right:${26 * s}px;font-size:${24 * s}px;line-height:${32 * s}px;color:#33476B">오늘은 다 같이<br>매점 앞에서<br>사진 찍었다!<br>내일은 지후 차례 →</div>
     <img class="stick" src="소재/하트.png" style="position:absolute;left:${250 * s}px;top:${300 * s}px;width:${46 * s}px;transform:rotate(12deg)">
     <img class="stick" src="소재/반짝이.png" style="position:absolute;left:${300 * s}px;top:${290 * s}px;width:${38 * s}px">
-    <div class="hand" style="position:absolute;left:${40 * s}px;top:${360 * s}px;right:${30 * s}px;font-size:${23 * s}px;line-height:${32 * s}px;color:#3B3F4A">민지: 사진 내가 붙였어 ㅎㅎ<br>두리: 목도리 했더니 덥더라</div></div>`
+    <div class="hand" style="position:absolute;left:${40 * s}px;top:${360 * s}px;right:${30 * s}px;font-size:${23 * s}px;line-height:${32 * s}px;color:#3B3F4A">민지: 사진 내가 붙였어 ㅎㅎ<br>디오: 목도리 했더니 덥더라</div></div>`
 }
 function editorHTML(d) {
   const tools = ['hand', 'cursor', 'lasso', '|', 'pen', 'marker', 'eraser', 'text', '|', 'sticker', 'tape', 'image', '|', 'grid']
@@ -108,7 +108,7 @@ WORLD.pencil = (o = {}) => {
       ? P(pen(), 210, 790, 230, -14) + P(tapeRoll('sky'), 18, 776, 92, 0) + P(clip(), 330, 150, 18, 20)
       : P(idcard(), -24, 640, 120, -14) + P(polaroid('sea', '7월의 바다'), 252, 666, 118, 8) + P(tapeRoll('sky'), 128, 700, 96, 0) + P(pen(), 120, 802, 260, -12) + P(clip(), 340, 160, 18, 24) + P(keyring(), 24, 150, 54, -18)
   } else if (view === 'grid') {
-    p = P(stand('디오 기본'), 40, 170, 132, 0) + P(tapeRoll('sky'), 50, 448, 110, 0) + P(postit('#FFF1A8', ['오늘도', '한 장!']), 52, 592, 104, 0)
+    p = P(stand('모아 기본'), 40, 170, 132, 0) + P(tapeRoll('sky'), 50, 448, 110, 0) + P(postit('#FFF1A8', ['오늘도', '한 장!']), 52, 592, 104, 0)
       + P(pen(), 912, 330, 330, 90) + P(pencil(), 960, 330, 300, 90) + P(eraser(), 1100, 230, 76, 90) + P(clip(), 1122, 470, 20, 0) + P(clip(), 1150, 470, 20, 0)
       + P(calendarPad('28', 'OCT', '수요일'), 1060, 580, 112, 0)
   } else if (empty) {
@@ -116,9 +116,9 @@ WORLD.pencil = (o = {}) => {
   } else {
     p = P(polaroid('sea', '7월의 바다'), 36, 152, 138, -7) + P(clip(), 236, 150, 20, 28)
       + P(idcard(), 24, 452, 150, -14) + P(postcard(shared ? 'To. 우리 반' : 'To. 2학년 3반'), 150, 610, 220, 9)
-      + P(keyring('디오 행복'), 238, 486, 78, 20) + P(tapeRoll('sky'), 430, 650, 116, 0) + P(pencil(), 556, 722, 250, -5)
+      + P(keyring('모아 행복'), 238, 486, 78, 20) + P(tapeRoll('sky'), 430, 650, 116, 0) + P(pencil(), 556, 722, 250, -5)
       + P(pen(), 836, 680, 320, -24) + P(postit('#FFF1A8', shared ? ['민지 · 어제', '사진 붙였어!'] : ['오늘도', '한 장!'], shared ? 18 : 22), 780, 600, 112, 4)
-      + P(stand(shared ? '둘이 함께' : '두리 기본'), 1032, 486, shared ? 170 : 130, 0) + P(calendarPad(), 1056, 158, 106, 6)
+      + P(stand(shared ? '둘이 함께' : '디오 기본'), 1032, 486, shared ? 170 : 130, 0) + P(calendarPad(), 1056, 158, 106, 6)
       + (shared ? P(postit('#FAD3DC', ['지후 · 오늘', '내일은', '내 차례'], 18), 1074, 318, 96, 7) : '')
   }
   const accent = season ? SEASON[season](phone) : ''
@@ -135,7 +135,7 @@ WORLD.sun = (o = {}) => {
   const { phone, view, time } = o
   let p = ''
   if (phone) p = P(plantTop(), 240, 640, 170, 0) + P(mug(), -20, 690, 130, 0) + P(pen('#6E92C6'), 110, 800, 240, -10) + P(tapeRoll('butter', 'dot'), 300, 156, 80, 0)
-  else p = P(plantTop(), -40, 520, 230, 0) + P(mug(), 210, 650, 130, 0) + P(stand('디오 행복'), 1040, 470, 128, 0)
+  else p = P(plantTop(), -40, 520, 230, 0) + P(mug(), 210, 650, 130, 0) + P(stand('모아 행복'), 1040, 470, 128, 0)
     + P(tapeRoll('butter', 'dot'), 1080, 160, 104, 0) + P(pen('#6E92C6'), 790, 690, 320, -20) + P(polaroid('forest', '산책'), 32, 150, 132, -6) + P(postit('#FFF1C2', ['물 주기', '잊지 말기'], 18), 470, 650, 104, -5)
     + P(stickerSheet(['하트', '해', '잎', '카메라']), 920, 120, 96, 12)
   const leaf = `<div class="leafsh" style="left:${phone ? -60 : -80}px;top:${phone ? 420 : 380}px;width:${phone ? 300 : 520}px">${leafShadow()}</div>`
@@ -152,14 +152,14 @@ WORLD.mat = (o = {}) => {
     + P(stickerSheet(), 1060, 166, 112, 0) + P(ruler(300), 1112, 560, 300, 90, { style: 'transform-origin:0 0' }) + P(knife(), 1060, 520, 220, 90, { style: 'transform-origin:0 0' })
   else p = P(tapeRoll('pink'), 48, 176, 118, 0) + P(tapeRoll('mint', 'dot'), 150, 260, 86, 0) + P(scissors(), 40, 560, 190, -18)
     + P(stickerSheet(), 1050, 172, 112, 8) + P(ruler(360), 760, 690, 360, -4) + P(knife(), 300, 694, 240, 4) + P(tapeRoll('butter'), 1060, 560, 104, 0)
-    + P(tapeStrip('lavender', 160, 'dot'), 236, 170, 130, -12, { sd: false }) + P(charSticker('디오 행복'), 1090, 420, 70, 10)
+    + P(tapeStrip('lavender', 160, 'dot'), 236, 170, 130, -12, { sd: false }) + P(charSticker('모아 행복'), 1090, 420, 70, 10)
   return `<div class="mat" style="left:${m.l}px;top:${m.t}px;right:${m.r}px;bottom:${m.b}px">${ruler_}<div class="diag"></div></div><div class="props">${p}</div>`
 }
 WORLD.night = (o = {}) => {
   const { phone, view } = o
   let p = view === 'grid'
-    ? P(lampTop(), -40, 120, 300, 0) + P(mug(), 1060, 600, 120, 0) + P(stand('디오 기본'), 1060, 170, 120, 0) + P(pen(), 60, 690, 300, -8)
-    : P(lampTop(), -50, 90, 380, 0, { cls: 'lit' }) + P(mug(), 230, 640, 124, 0) + P(stand('디오 기본'), 1050, 480, 124, 0) + P(pen(), 820, 690, 310, -22)
+    ? P(lampTop(), -40, 120, 300, 0) + P(mug(), 1060, 600, 120, 0) + P(stand('모아 기본'), 1060, 170, 120, 0) + P(pen(), 60, 690, 300, -8)
+    : P(lampTop(), -50, 90, 380, 0, { cls: 'lit' }) + P(mug(), 230, 640, 124, 0) + P(stand('모아 기본'), 1050, 480, 124, 0) + P(pen(), 820, 690, 310, -22)
       + P(postit('#FFF1A8', ['잘 자', '내일 또!'], 20), 790, 590, 104, 5, { cls: 'lit' }) + P(polaroid('night', '밤 산책'), 1040, 150, 128, 6) + P(tapeRoll('lavender', 'dot'), 470, 660, 104, 0)
   return `<div class="props">${p}</div>`
 }
@@ -172,16 +172,16 @@ WORLD.persp = (o = {}) => {
     + place(cover(byId('trip'), 230, { lift: 0 }), 460, 70, 230, 'transform:rotate(8deg);opacity:.9') + place(cover(byId('fan'), 230, { lift: 0 }), 1530, 80, 230, 'transform:rotate(-4deg)')
   // 앞쪽은 일부러 흐린 소품 하나만 둔다(심도)
   return `<div class="plane"><div class="props">${props}</div><div style="position:absolute;inset:0;filter:saturate(.45) contrast(.95)">${sideBooks}</div></div><div class="dof"></div><div class="fog"></div>
-    ${P(stand('디오 기본'), 990, 300, 110, 0)}${P(stand('두리 기본'), 140, 290, 104, 0)}${P(pencil(), 760, 700, 420, -8, { style: 'filter:blur(5px) saturate(.4);opacity:.85' })}`
+    ${P(stand('모아 기본'), 990, 300, 110, 0)}${P(stand('디오 기본'), 140, 290, 104, 0)}${P(pencil(), 760, 700, 420, -8, { style: 'filter:blur(5px) saturate(.4);opacity:.85' })}`
 }
 WORLD.min = (o = {}) => {
   const { phone, view } = o
   const m = phone ? { l: 14, t: 166, r: 14, b: 20 } : { l: 30, t: 148, r: 30, b: 24 }
-  const p = phone ? P(tapeStrip('butter', 120), 26, 152, 84, -14, { sd: false }) + P(tapeStrip('sky', 120), 290, 152, 84, 12, { sd: false }) + P(pencil(), 120, 790, 220, -8) + P(charSticker('디오 행복'), 300, 740, 54, 8)
-    : P(tapeStrip('butter', 140), 20, 134, 110, -14, { sd: false }) + P(tapeStrip('sky', 140), 1070, 134, 110, 12, { sd: false }) + P(pencil(), 820, 716, 260, -8) + P(charSticker('디오 행복'), 78, 668, 70, -8)
+  const p = phone ? P(tapeStrip('butter', 120), 26, 152, 84, -14, { sd: false }) + P(tapeStrip('sky', 120), 290, 152, 84, 12, { sd: false }) + P(pencil(), 120, 790, 220, -8) + P(charSticker('모아 행복'), 300, 740, 54, 8)
+    : P(tapeStrip('butter', 140), 20, 134, 110, -14, { sd: false }) + P(tapeStrip('sky', 140), 1070, 134, 110, 12, { sd: false }) + P(pencil(), 820, 716, 260, -8) + P(charSticker('모아 행복'), 78, 668, 70, -8)
   return `<div class="paper" style="left:${m.l}px;top:${m.t}px;right:${m.r}px;bottom:${m.b}px"></div><div class="props">${p}</div>`
 }
-WORLD.bad = () => `<div class="props">${P(stand('디오 기본'), 40, 170, 150, 0) + P(stand('두리 기본'), 1030, 160, 150, 0) + P(tapeRoll('pink'), 380, 640, 130, 0) + P(tapeRoll('butter', 'dot'), 520, 690, 110, 0)
+WORLD.bad = () => `<div class="props">${P(stand('모아 기본'), 40, 170, 150, 0) + P(stand('디오 기본'), 1030, 160, 150, 0) + P(tapeRoll('pink'), 380, 640, 130, 0) + P(tapeRoll('butter', 'dot'), 520, 690, 110, 0)
   + P(stickerSheet(['하트', '별', '풍선', '무지개', '해', '리본']), 980, 500, 130, 10) + P(postit('#FF8FB1', ['오늘도', '화이팅!!']), 820, 600, 120, 8) + P(postit('#8FD3FF', ['다꾸', '최고']), 120, 560, 120, -10)
   + P(polaroid('blossom', '봄봄'), 200, 420, 120, -12) + P(scissors('#4FC3F7'), 690, 650, 170, -14)}${[[300, 150], [880, 140], [700, 130]].map(([x, y]) => P(IMG('반짝이'), x, y, 50, 0)).join('')}</div>`
 
@@ -222,7 +222,7 @@ const gridP = (theme, o = {}) => {
 function shelfWorld() {
   const shelf = (y) => `<div style="position:absolute;left:150px;right:150px;top:${y}px;height:16px;background:linear-gradient(180deg,#E9DCC6,#D8C6A8);border-radius:3px;box-shadow:0 10px 16px -6px rgba(90,70,40,.35)"></div><div style="position:absolute;left:150px;right:150px;top:${y + 16}px;height:6px;background:#C9B492;border-radius:0 0 3px 3px"></div>`
   return `<div style="position:absolute;inset:0;background:linear-gradient(180deg,#F6F1EA,#EFE7DB)"></div><div class="blinds"></div><div class="glow"></div>${shelf(380)}${shelf(672)}
-    <div class="props">${P(cactusSide(), 166, 286, 66, 0, { sd: false })}${P(stand('디오 행복'), 1024, 248, 96, 0, { sd: false })}${P(tapeRoll('butter', 'dot'), 172, 610, 66, 0, { sd: false })}${P(stand('두리 기본'), 1028, 540, 90, 0, { sd: false })}</div>`
+    <div class="props">${P(cactusSide(), 166, 286, 66, 0, { sd: false })}${P(stand('모아 행복'), 1024, 248, 96, 0, { sd: false })}${P(tapeRoll('butter', 'dot'), 172, 610, 66, 0, { sd: false })}${P(stand('디오 기본'), 1028, 540, 90, 0, { sd: false })}</div>`
 }
 // 층 구조 도해
 function layerSheet() {
@@ -243,8 +243,8 @@ function layerSheet() {
 // 소품 도감
 function propSheet() {
   const items = [
-    ['회원증', '좀비고의 학생증 자리', idcard(), 100, -8], ['엽서', '공유 다이어리 · 초대', postcard(), 200, 6], ['폴라로이드', '사진 넣기 예고', polaroid('sea', '7월의 바다'), 130, -6], ['아크릴 스탠드 · 디오', '캐릭터 = 굿즈', stand('디오 기본'), 110, 0], ['아크릴 스탠드 · 두리', '공유 탭 · 친구', stand('두리 기본'), 110, 0],
-    ['아크릴 키링', '작은 캐릭터 노출', keyring('디오 행복'), 70, 14], ['마스킹테이프 롤', '편집기 테이프 팔레트', tapeRoll('sky'), 120, 0], ['테이프 조각', '종이 고정 · 이름표', tapeStrip('pink', 160, 'dot'), 170, -6], ['포스트잇', '짧은 한 줄 (손글씨)', postit(), 110, 4], ['펜', '마지막으로 쓴 다이어리 위', pen(), 250, -18],
+    ['회원증', '좀비고의 학생증 자리', idcard(), 100, -8], ['엽서', '공유 다이어리 · 초대', postcard(), 200, 6], ['폴라로이드', '사진 넣기 예고', polaroid('sea', '7월의 바다'), 130, -6], ['아크릴 스탠드 · 모아', '캐릭터 = 굿즈', stand('모아 기본'), 110, 0], ['아크릴 스탠드 · 디오', '공유 탭 · 친구', stand('디오 기본'), 110, 0],
+    ['아크릴 키링', '작은 캐릭터 노출', keyring('모아 행복'), 70, 14], ['마스킹테이프 롤', '편집기 테이프 팔레트', tapeRoll('sky'), 120, 0], ['테이프 조각', '종이 고정 · 이름표', tapeStrip('pink', 160, 'dot'), 170, -6], ['포스트잇', '짧은 한 줄 (손글씨)', postit(), 110, 4], ['펜', '마지막으로 쓴 다이어리 위', pen(), 250, -18],
     ['연필', '최소안의 유일한 소품', pencil(), 240, -10], ['지우개', '브랜드 DIO 각인', eraser(), 120, -8], ['클립', '정리 · 놀링', clip(), 22, 30], ['머그컵', '햇살 · 밤 책상', mug(), 120, 0], ['탁상 달력', '오늘 날짜 = 실제 정보', calendarPad(), 100, 4],
     ['도장', '오늘의 한 장 완성', stamp(), 110, -10], ['가위', '작업 매트', scissors(), 170, -14], ['스티커 시트', '편집기 스티커 그대로', stickerSheet(), 96, 6], ['화분', '햇살 책상', plantTop(), 130, 0], ['스탠드 조명', '밤 책상', lampTop(), 170, 0],
   ]
@@ -278,7 +278,7 @@ const SCENES = {
   '1안 폰 한눈에': () => gridP('pencil'),
   '1안 공유 탭': () => swipeT('pencil', { active: 6, filter: 'shared', shared: true, shareNames: '민지 · 지후 외 2명' }),
   '1안 빈 책상': () => tabletScene({ theme: 'pencil', world: WORLD.pencil({ empty: true }),
-    objects: `<div style="position:absolute;left:477px;top:180px;width:250px;height:332px;border:2.5px dashed rgba(11,25,87,.28);border-radius:6px 14px 14px 6px;background:rgba(255,255,255,.35)"></div>${P(stand('디오 행복'), 740, 330, 120, 0)}`,
+    objects: `<div style="position:absolute;left:477px;top:180px;width:250px;height:332px;border:2.5px dashed rgba(11,25,87,.28);border-radius:6px 14px 14px 6px;background:rgba(255,255,255,.35)"></div>${P(stand('모아 행복'), 740, 330, 120, 0)}`,
     ui: headerUI({}) + `<div style="position:absolute;left:477px;top:250px;width:250px;text-align:center"><div style="font-size:17px;font-weight:800">다이어리가 없어요</div><div style="font-size:13px;line-height:20px;color:rgba(11,25,87,.68);margin-top:6px">새 다이어리를 만들어<br>기록을 시작해 보세요.</div>
       <div style="margin:18px auto 0;width:190px;height:48px;border-radius:14px;background:#4F74AE;color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">${icon('plus', 18, '#fff', { sw: 2.2 })}새 다이어리</div></div>` }),
   '계절 봄': () => swipeT('pencil', { season: 'spring' }),

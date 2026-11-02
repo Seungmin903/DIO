@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(11,23,102,0.1)',
     backgroundColor: '#FFFFFF',
   },
-  thumbPage: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', borderRadius: 7, backgroundColor: '#FFFFFF' },
+  thumbPage: { ...StyleSheet.absoluteFill, overflow: 'hidden', borderRadius: 7, backgroundColor: '#FFFFFF' },
   thumbActive: { borderColor: 'transparent' },
   carried: { opacity: 0.4 },
   pickBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 32, padding: 2, borderRadius: 9, backgroundColor: 'rgba(11,23,102,0.06)' },

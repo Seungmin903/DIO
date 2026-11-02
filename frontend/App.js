@@ -5,7 +5,7 @@ import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Platform, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
 import PinScreen from './src/diary/components/PinScreen';
-import { appLockScope, checkAppLock, clearAppLock, hasAppLock } from './src/shared/appLock';
+import { appLockGraceOver, appLockScope, checkAppLock, clearAppLock, hasAppLock } from './src/shared/appLock';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
@@ -13,12 +13,15 @@ import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEdit
 import AuthScreen from './src/auth/AuthScreen';
 import { authService } from './src/auth/authService';
 import { guestProfile } from './src/auth/guestProfileDevice';
+import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
+import { DEV_ACCESS, clearMockLibrary } from './src/dev/devAccess';
+import StartModeScreen from './src/dev/StartModeScreen';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
 import AuthenticatedNotificationDialog from './src/notifications/AuthenticatedNotificationDialog';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
-import { C, DEFAULT_FILTER } from './src/diary/constants';
+import { C, DEFAULT_FILTER, DESK_COLOR } from './src/diary/constants';
 import { useDiaries } from './src/diary/hooks/useDiaries';
 import { useMemberDiaries } from './src/diary/hooks/useMemberDiaries';
 import MemberRequestNotice from './src/diary/components/MemberRequestNotice';
@@ -26,8 +29,6 @@ import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import { withPdfPages } from './src/diary/utils/pdfImport';
 import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
-import DeskBackdrop from './src/diary/components/DeskBackdrop';
-import { DESK_COLORS } from './src/diary/utils/deskLight';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
@@ -35,6 +36,7 @@ import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
 import { parseSort, queryDiaries } from './src/diary/utils/libraryQuery';
 import { savedLibraryView } from './src/diary/utils/libraryView';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
+import ProfileCropHost from './src/auth/ProfileCropHost';
 import DecorationStudioScreen from './src/diary/screens/DecorationStudioScreen';
 import TrashScreen from './src/diary/screens/TrashScreen';
 import { styles as s } from './src/diary/styles';
@@ -52,7 +54,10 @@ import { randomUUID } from 'expo-crypto';
 import { createId, setUuidGenerator } from './src/editor/utils/common';
 import HandwritingStudio from './src/handwriting/HandwritingStudio';
 import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import BootSplash from './src/shared/BootSplash';
 import { PRETENDARD_FILES } from './src/shared/pretendardFiles';
+import ActionToast, { ACTION_TOAST_MS } from './src/shared/ActionToast';
 
 // 네이티브에는 전역 crypto가 없어 다이어리·페이지·요소 UUID를 expo-crypto로 만든다.
 if (Platform.OS !== 'web') setUuidGenerator(randomUUID);
@@ -63,24 +68,77 @@ const PREFETCH_DELAY_MS = 400;
 // 편집기 진입 전 준비를 기다리는 최대 시간. 보통은 이보다 훨씬 빨리 끝난다.
 const EDITOR_PREPARE_LIMIT_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// 시작 화면(로고)은 보관함이 다 그려질 때까지 둔다. 첫 렌더에 바로 내려가면 글꼴 · 게스트 · 보관함을 읽는 동안 빈 화면이 보인다.
+// 네이티브 시작 화면을 붙잡고, 같은 모양의 BootSplash 도 덮어 둔다(개발 빌드는 네이티브 쪽이 JS 실행 전에 내려간다).
+// 무엇이 실패해도 로고에 갇히지 않도록 SPLASH_LIMIT_MS 뒤에는 내린다.
+const SPLASH_LIMIT_MS = 8000;
+SplashScreen.preventAutoHideAsync().catch(() => {});
+const hideSplash = () => { SplashScreen.hideAsync().catch(() => {}); };
 
 export default function App() {
   // 앱 UI 글꼴(Pretendard)을 처음 그리기 전에 불러온다. 못 불러오면(fontError) 기본 글꼴로 그대로 연다
   const [fontsLoaded, fontError] = useFonts(PRETENDARD_FILES);
   const [previewSession, setPreviewSession] = useState(null);
+  const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
+  const [booting, setBooting] = useState(true);
+  const finishBoot = useCallback(() => { setBooting(false); hideSplash(); }, []);
+  // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
+  const [loginRequest, setLoginRequest] = useState(null);
+  // 개발자 모드인지(src/dev/devAccess). null 이면 아직 고르지 않았다(시작 화면에서 고른다). DEV_ACCESS 가 꺼져 있으면 늘 일반 사용자다.
+  // 개발용 목업 화면(EXPO_PUBLIC_DIARY_SOURCE=mock*)은 세션 없이 그리므로 시작 화면을 띄우지 않는다
+  const mockSource = __DEV__ && /^mock/.test(process.env.EXPO_PUBLIC_DIARY_SOURCE || '');
+  const [developer, setDeveloper] = useState(DEV_ACCESS && !mockSource ? null : false);
+  // 시작 화면에서 고른 뒤 보관함이 다 그려질 때까지 시작 화면을 그대로 덮어 둔다(로고 화면을 다시 띄우면 로고 자리가 바뀌며 깜박인다)
+  const [starting, setStarting] = useState(false);
   // 게스트는 지난번에 고친 프로필(닉네임 · 한 줄 소개 · 사진)을 이어서 시작한다
   const startSession = async session => setPreviewSession(session?.provider === 'guest' ? await guestProfile.start(session) : session);
+  // 로그인 화면 없이 게스트(방문자)로 시작한다. 로그인은 로그인이 필요한 기능을 누를 때만 묻는다(loginGate).
+  // 개발자 모드 게스트는 로그인한 사용자처럼 다 열리고 받은 초대 목업이 들어 있다. 일반 사용자는 목업이 없다.
+  const startGuest = async dev => {
+    await clearMockLibrary().catch(() => {});
+    const session = { mode: 'preview', provider: 'guest', nickname: '방문자', ...(dev ? { developer: true } : {}) };
+    // 지난 프로필을 못 읽어도 빈 화면에 갇히지 않게 기본 게스트로 시작한다
+    try { await startSession(session); } catch { setPreviewSession(session); }
+  };
+  useEffect(() => { if (developer !== null) startGuest(developer); }, [developer]);
+  const chooseStartMode = dev => {
+    if (starting) return;
+    setStarting(true);
+    setDeveloper(dev);
+    setTimeout(() => setStarting(false), SPLASH_LIMIT_MS);
+  };
+  const sessionReady = useCallback(() => { finishBoot(); setStarting(false); }, [finishBoot]);
+  // 시작 화면을 고르는 동안은 로고를 내린다
+  useEffect(() => { if ((fontsLoaded || fontError) && developer === null) finishBoot(); }, [fontsLoaded, fontError, developer, finishBoot]);
+  // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
+  // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아가고,
+  // 개발자 모드에서 나가면 시작 화면에서 다시 고른다.
+  // 늦게 온 콜백(비밀번호 재설정 완료 등)이 그사이 바뀐 세션을 지우지 않게, 지금 세션이 지우려던 세션일 때만 끝낸다
+  const sessionRef = useRef(previewSession);
+  sessionRef.current = previewSession;
+  const clearSession = () => {
+    const target = previewSession, current = sessionRef.current;
+    if (!(current === target || (current?.accountId && current.accountId === target?.accountId))) return;
+    // 개발자 모드는 세션을 비워 시작 화면으로, 일반 사용자는 세션을 비우지 않고 게스트 세션으로 바로 바꾼다(그사이 빈 화면이 없다)
+    if (target?.developer) { setPreviewSession(null); setDeveloper(null); } else startGuest(false);
+  };
   const endSession = async () => {
     try {
-      if (previewSession?.mode === 'authenticated') await authService.logout();
+      if (authenticatedSession) await authService.logout();
     } catch (error) { notify('로그아웃', `${error.message} 이 기기의 로그인 정보는 지웠어요.`); }
-    finally { setPreviewSession(current => current === previewSession || (current?.accountId && current.accountId === previewSession?.accountId) ? null : current); }
+    finally { clearSession(); }
   };
+  // 로그인하면 게스트 보관함(LocalDiaryApp)이 회원 보관함(MemberDiaryApp)으로 통째로 바뀐다. 누른 기능(loginRequest.action)은
+  // 사라진 게스트 화면의 것이라 실행하지 않고, 게스트가 기기에 만든 다이어리는 회원 보관함으로 옮기지 않는다(기기에는 남는다).
+  const continueFromLogin = session => { setLoginRequest(null); startSession(session).catch(() => setPreviewSession(session)); };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
-  const SessionDiaryApp = previewSession?.mode === 'authenticated' ? MemberDiaryApp : LocalDiaryApp;
-  if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider} />;
+  useEffect(() => { const timer = setTimeout(finishBoot, SPLASH_LIMIT_MS); return () => clearTimeout(timer); }, [finishBoot]);
+  // 개발용 목업 화면(EXPO_PUBLIC_DIARY_SOURCE=mock*)은 보관함 로딩을 거치지 않으니 글꼴만 준비되면 내린다
+  useEffect(() => { if ((fontsLoaded || fontError) && __DEV__ && /^mock/.test(process.env.EXPO_PUBLIC_DIARY_SOURCE || '')) finishBoot(); }, [fontsLoaded, fontError, finishBoot]);
+  const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
+  if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider}><BootSplash /></SafeAreaProvider>;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-sharing') {
     const SharingFixture = require('./tests/fixtures/diary-sharing.fixture').default;
     return <SharingFixture />;
@@ -92,13 +150,18 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <SessionDiaryApp key={`${previewSession.mode}:${previewSession.userId || 'preview'}`} previewUser={previewSession}
+        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession || !!previewSession.developer} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}` : 'preview'} previewUser={previewSession}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
-          onEndPreview={endSession} /> : <AuthScreen onContinue={startSession} />
+          onEndPreview={endSession} onClearSession={clearSession} onReady={sessionReady} /></LoginGateProvider> : null
       )}
+      {/* 보관함의 앱 잠금 확인 덮개(zIndex 100)보다 위. 안드로이드는 감싸는 View 를 펼쳐 zIndex 가 같은 층에서 겨룬다 */}
+      {!mockSource && ((developer === null && !previewSession) || starting) && <View style={[StyleSheet.absoluteFill, { zIndex: 200 }]}><StartModeScreen onChoose={chooseStartMode} /></View>}
+      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
       <HandwritingStudio />
-
+      {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
+      <ProfileCropHost />
+      {booting && <BootSplash />}
     </SafeAreaProvider>
   );
 }
@@ -119,9 +182,8 @@ function DiaryApp(props) {
     ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations}>{content}</AuthenticatedNotificationProvider>
     : content;
 }
-const DESK_ON_PHONE = false;
 
-function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryState, sharing }) {
+function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, onReady, diaryState, sharing }) {
   const member = diaryState.source === 'member-api';
   const invitationLeaveGuard = useRef(null);
   const registerInvitationLeaveGuard = useCallback(guard => { invitationLeaveGuard.current = guard; return () => { if (invitationLeaveGuard.current === guard) invitationLeaveGuard.current = null; }; }, []);
@@ -143,17 +205,18 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     };
   }, []);
   const authenticatedNotifications = useOptionalSharedNotifications();
-  // 앱 잠금(내 공간 → 보안): 이 계정에 잠금이 있으면 세션을 열 때와 백그라운드에서 돌아올 때 비밀번호 화면으로 덮는다(null = 읽는 중)
+  // 앱 잠금(내 공간 → 보안): 이 계정에 잠금이 있으면 세션을 열 때와 백그라운드에서 1분 넘게 있다 돌아올 때 비밀번호 화면으로 덮는다(null = 읽는 중)
   const lockScope = appLockScope(previewUser);
   const [appLocked, setAppLocked] = useState(null);
   useEffect(() => {
-    let alive = true, away = false;
+    let alive = true, awayAt = null;
     hasAppLock(lockScope).then(value => { if (alive) setAppLocked(value); }).catch(() => { if (alive) setAppLocked(false); });
     const subscription = AppState.addEventListener('change', state => {
-      if (state === 'background') away = true;
-      else if (state === 'active' && away) {
-        away = false;
-        hasAppLock(lockScope).then(value => { if (alive && value) setAppLocked(true); }).catch(() => {});
+      if (state === 'background') awayAt ??= Date.now();
+      else if (state === 'active' && awayAt != null) {
+        const over = appLockGraceOver(awayAt);
+        awayAt = null;
+        if (over) hasAppLock(lockScope).then(value => { if (alive && value) setAppLocked(true); }).catch(() => {});
       }
     });
     return () => { alive = false; subscription.remove(); };
@@ -164,11 +227,17 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
     onConfirm: async () => { await clearAppLock(lockScope).catch(() => {}); onEndPreview(); },
   }) : undefined;
   const [sharingRequest, setSharingRequest] = useState(null);
+  // 공유는 로그인한 사용자(개발자 모드 포함)만 쓴다. 게스트는 편집 화면에 함께하는 사람을 띄우지 않고, 공유를 누르면 로그인 안내부터 본다.
+  const signedIn = previewUser.mode === 'authenticated' || !!previewUser.developer;
+  const loginGate = useLoginGate();
+  const shareDiary = useCallback(diary => { if (diary) loginGate('다이어리 공유', () => setSharingRequest({ diary })); }, [loginGate]);
   const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
   const openInvitations = useCallback(() => {
     const open = () => setSharingRequest({ mode: previewUser.mode === 'authenticated' ? 'notifications' : 'invitations' });
-    if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open();
-  }, [previewUser.mode]);
+    const go = () => { if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open(); };
+    // 게스트는 초대를 받을 계정이 없다: 공유 버튼처럼 로그인 안내부터 띄운다
+    loginGate('받은 초대', go);
+  }, [previewUser.mode, loginGate]);
   const insets = useSafeAreaInsets();
   // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -177,7 +246,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const tabletPortrait = !isPhone && !isLandscape;
   const [viewport, setViewport] = useState({ width: windowWidth, height: windowHeight });
   const [page, setPage] = useState('library');
-  const [deskSize, setDeskSize] = useState(null); // 책상이 깔릴 영역(작업 영역)의 크기
   const [railCollapsed, setRailCollapsed] = useState(true);  // 메뉴가 다 열리거나 닫혔을 때의 폭. 캐러셀은 '줄 폭 + 이 값'(메뉴와 상관없이 같은 값)으로 목록 폭을 정해,
   // 메뉴에 밀려 함께 움직이는 동안과 멈춘 뒤에도 목록 폭이 바뀌지 않게 한다. 다시 그리지 않도록 ref로 넘긴다.
   const railWidthRef = useRef(RAIL_WIDTH.collapsed);
@@ -233,10 +301,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const [trashing, setTrashing] = useState(false);
   const trashingRef = useRef(false);
   const [active, setActive] = useState(null);
-  useEffect(() => { if (active?.id && !member && !sharing.runtime.server) sharing.runtime.registerDiary(active); }, [active, sharing.runtime, member]);
+  useEffect(() => { if (signedIn && active?.id && !member && !sharing.runtime.server) sharing.runtime.registerDiary(active); }, [signedIn, active, sharing.runtime, member]);
   const sharedLibraryRef = useRef(sharing.library);
   sharedLibraryRef.current = sharing.library;
-  const sharingMembers = sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members || [];
+  const sharingMembers = (signedIn && sharing.diaries.find(value => value.id === (active?.sharedDiaryId || active?.id))?.members) || [];
   // 상단 바에 열어 둔 다이어리 탭 (id 순서대로). 다이어리를 열면 탭이 생기고, 탭을 눌러 오가며, 닫으면 옆 탭으로 간다.
   const [tabIds, setTabIds] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -608,6 +676,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   const prefetchKey = prefetchTargets.map((diary) => diary.id).join(',');
   const prefetchRef = useRef(prefetchTargets);
   prefetchRef.current = prefetchTargets;
+  useEffect(() => { if (loaded) onReady?.(); }, [loaded, onReady]);
   useEffect(() => {
     if (!loaded || page !== 'library') return undefined;
     let cancelled = false;
@@ -638,6 +707,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       onFavorite={member ? undefined : favorite}
       onEdit={edit}
       onDelete={moveDiaryToTrash}
+      onShare={shareDiary}
       onCreate={create}
       railWidthRef={isPhone ? null : railWidthRef}
       selection={selection}
@@ -697,12 +767,14 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         }
         if (failed) notify('복원하지 못한 다이어리가 있어요', `${failed}개를 복원하지 못했어요. 보관 기한이 지났거나 영구 삭제 중일 수 있어요.`);
       }}
-      onDeleteMany={(items) => {
+      // 확인창에서 취소하면 고른 것을 그대로 두고, 지우기로 하면 선택을 끝낸다
+      onDeleteMany={(items, onConfirmed) => {
         confirmAction({
           title: '영구 삭제할까요?',
           message: member ? `선택한 ${items.length}개의 다이어리와 페이지는 복구할 수 없어요. 보관함의 공용 미디어 원본은 유지돼요.` : `선택한 ${items.length}개의 페이지와 로컬 기록은 복구할 수 없어요.`,
           confirmLabel: '영구 삭제',
           onConfirm: async () => {
+            onConfirmed?.();
             let failed = 0;
             for (const item of items) {
               try { if (!await deletePermanently(item.id)) failed += 1; } catch { failed += 1; }
@@ -737,7 +809,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
         onToggleOrientation={isPhone && CAN_LOCK_ORIENTATION ? () => setEditorOrientation(isLandscape ? 'portrait' : 'landscape') : undefined}
         onHome={returnToLibrary}
         registerInvitationLeaveGuard={registerInvitationLeaveGuard}
-        onOpenSharing={() => setSharingRequest({ diary: active })}
+        onOpenSharing={() => shareDiary(active)}
         readOnly={member && active?.permissions?.canEditCanvas !== true}
         invitationCount={unreadInvites}
         sharingMembers={sharingMembers}
@@ -759,11 +831,38 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
   } else if (page === 'studio') {
     content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
-    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
+    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       guestService={previewUser?.provider === 'guest' ? guestProfile : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
+
+  // 새 다이어리를 만든 뒤 나의 표지 · 속지 저장만 실패하면, 작업대가 닫힌 뒤(편집기로 들어간 뒤) 알약으로 알리고 다시 시도하게 한다.
+  // 다시 시도해 성공하면 완료 알약을 2초 띄운다.
+  const [libraryNotice, setLibraryNotice] = useState(null);
+  const libraryTarget = kinds => kinds.length > 1 ? '표지와 속지를 나의 표지 · 속지에' : kinds[0] === 'cover' ? '표지를 나의 표지에' : '속지를 나의 속지에';
+  const showLibraryFailure = ({ kinds, retry }) => setLibraryNotice({ key: createId(), kinds, retry, busy: false });
+  const retryLibrarySave = async () => {
+    const notice = libraryNotice;
+    if (!notice?.retry || notice.busy) return;
+    setLibraryNotice({ ...notice, busy: true });
+    // retry(kinds) 는 그중 또 실패한 것만 돌려준다
+    const left = await notice.retry(notice.kinds).catch(() => notice.kinds);
+    setLibraryNotice(left.length
+      ? { key: createId(), kinds: left, retry: notice.retry, busy: false }
+      : { key: createId(), done: libraryTarget(notice.kinds) });
+  };
+  useEffect(() => {
+    if (!libraryNotice || libraryNotice.busy) return undefined;
+    const timer = setTimeout(() => setLibraryNotice(null), libraryNotice.done ? 2000 : ACTION_TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [libraryNotice]);
+  const libraryToast = libraryNotice && (
+    <ActionToast key={libraryNotice.key} compact={isPhone}
+      bottom={(page === 'editor' ? 112 : isPhone ? 76 : 96) + insets.bottom}
+      message={libraryNotice.done ? `${libraryNotice.done} 추가했어요.` : `${libraryTarget(libraryNotice.kinds)} 추가하지 못했어요.`}
+      actionLabel={libraryNotice.done ? undefined : '다시 시도'} busy={libraryNotice.busy} onAction={retryLibrarySave} />
+  );
 
   const createModal = createOpen && (
     <DiaryCreateModal
@@ -774,27 +873,13 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
       diary={editingDiaryId ? diaries.find(item => item.id === editingDiaryId) : null}
       saving={saving}
       onSubmit={save}
+      onLibrarySaveFailed={showLibraryFailure}
       onCancel={() => { if (savingRef.current) return; setCreateOpen(false); setEditingDiaryId(null); }}
     />
   );
 
-  // 다이어리 홈은 '햇살 책상' 위에 놓인다. 사이드 메뉴는 흰 판 그대로, 책상은 작업 영역 뒤(폰은 아래 탭 뒤까지)에 깔린다.
-  // 햇살 책상은 태블릿(가로)만 쓴다. 폰(세로)은 가로형과 같은 빛 경험을 실기로 검증하지 못해 잠가 둔다(DESK_ON_PHONE).
-  const desk = page === 'library' && loaded && (!isPhone || DESK_ON_PHONE);
-  // 태블릿은 사이드 메뉴를 여닫는 동안 작업 영역 폭이 프레임마다 바뀐다. 책상은 접힌 폭(가장 넓은 폭) 밑으로는 줄지 않으므로
-  // 그보다 좁은 폭은 접힌 폭으로 보고 값을 바꾸지 않는다. 안 그러면 프레임마다 App · 책상(햇빛 · 마스크)이 다시 그려져 끊긴다.
-  const deskLayout = event => {
-    const { width: rawWidth, height } = event.nativeEvent.layout;
-    const width = isPhone ? rawWidth : Math.max(rawWidth, windowWidth - insets.left - insets.right - RAIL_WIDTH.collapsed);
-    setDeskSize(current => (current && current.width === width && current.height === height ? current : { width, height }));
-  }
-  // 태블릿 책상은 사이드바가 접힌(가장 넓은) 작업 영역 크기로 고정하고 오른쪽 끝에 붙인다. 사이드바를 여닫는 동안 작업 영역 폭이
-  // 프레임마다 바뀌어도 책상(원목 · 창빛)은 다시 그려지지도 움직이지도 않고, 넓어질 때 뒤 바탕(흰색)이 비치지도 않는다.
-  const tabletDeskSize = useMemo(() => deskSize && {
-    width: Math.max(deskSize.width, windowWidth - insets.left - insets.right - RAIL_WIDTH.collapsed),
-    // 높이도 화면 높이 아래로는 줄지 않게 한다. 처음 잰 작업 영역이 화면보다 낮으면(세로) 상판 아래가 이미지 없이 단색으로 비었다.
-    height: Math.max(deskSize.height, windowHeight - insets.top - insets.bottom),
-  }, [deskSize, windowWidth, windowHeight, insets.left, insets.right, insets.top, insets.bottom]);
+  // 다이어리 홈(태블릿)은 단색 책상 바탕 위에 놓인다. 폰은 셸 바탕 그대로다.
+  const desk = page === 'library' && loaded && !isPhone;
   let shell;
   if (page === 'editor') {
     shell = content;
@@ -817,8 +902,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           collapsed={railCollapsed}
           onToggle={() => setRailCollapsed((current) => !current)}
         />
-        <View style={[s.workspace, desk && s.workspaceDesk, desk && s.deskAbove, { paddingBottom: insets.bottom }]} onLayout={deskLayout}>
-          {desk && <DeskBackdrop compact size={deskSize} />}
+        <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
           {content}
         </View>
         {createModal}
@@ -840,20 +924,19 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
           collapsed={railCollapsed}          onToggle={() => setRailCollapsed((current) => !current)}
         />
-        <View style={[s.workspace, { paddingBottom: insets.bottom }, desk && { overflow: 'hidden' }]} onLayout={deskLayout}>
-          {desk && <DeskBackdrop anchorRight size={tabletDeskSize} />}
-          {desk ? <View style={s.deskAbove}>{content}</View> : content}
+        <View style={[s.workspace, { paddingBottom: insets.bottom }, desk && { backgroundColor: DESK_COLOR }]}>
+          {content}
             {createModal}
         </View>
       </View>
     );
   }
 
-  // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 태블릿 보관함은 흰 사이드 메뉴. 오른쪽: 보관함·편집기 바탕.
+  // 위: 폰 편집기 세로는 흰 상단 바, 그 밖은 보관함 바탕. 왼쪽: 편집기 밖은 좌측 바와 같은 바탕(C.canvas). 오른쪽: 보관함·편집기 바탕.
   const safeAreaColors = {
-    top: page === 'editor' && !isLandscape ? C.white : desk ? DESK_COLORS.base : C.canvas,
-    left: page !== 'editor' ? C.white : desk ? DESK_COLORS.base : C.canvas,
-    right: desk ? DESK_COLORS.base : C.canvas,
+    top: page === 'editor' && !isLandscape ? C.white : desk ? DESK_COLOR : C.canvas,
+    left: page !== 'editor' ? C.canvas : desk ? DESK_COLOR : C.canvas,
+    right: desk ? DESK_COLOR : C.canvas,
   };
 
   const measureViewport = ({ nativeEvent: { layout } }) => {
@@ -881,6 +964,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onUpdatePreview, diaryStat
           {insets.right > 0 && <View style={{ width: insets.right, backgroundColor: safeAreaColors.right }} />}
         </View>
       </View>
+      {libraryToast}
       {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.white }]} />}
       {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
         check={value => checkAppLock(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}

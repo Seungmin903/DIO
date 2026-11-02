@@ -45,7 +45,6 @@ public class DiaryInvite {
     public void acceptedEmail() {if(pendingEmail()){inviteType="EMAIL_ACCEPTED";useCount=1;}}
     public void cancel(Instant now) {revokedAt=now;if(email())inviteType="EMAIL_CANCELLED";}
     public void decline(Instant now) {revokedAt=now;inviteType="EMAIL_DECLINED";}
-    public void deliveryFailed(Instant now) {if(pendingEmail()){revokedAt=now;inviteType="EMAIL_FAILED";}}
     public void initializeHash(byte[] hash) {tokenHash=hash.clone();}
     public void used() {useCount++;}
 }

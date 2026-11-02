@@ -21,6 +21,12 @@ export function splitGroups(parts, selected, edges = [], links = [], separated =
 export function brushSelection(selected, hits, add) {
   const next = new Set(selected); for (const id of hits) { if (add) next.add(id); else next.delete(id) }; return [...next]
 }
+// Only directly touched members leave a group; untouched members stay together.
+export function splitBrushTargets(groups, hits) {
+  const touched = new Set(hits)
+  return [...new Set(groups.filter(group => group.members.length > 1 && group.members.some(part => touched.has(part.id)))
+    .flatMap(group => group.members.filter(part => touched.has(part.id)).map(part => part.id)))]
+}
 export function sortedStickerGroups(groups) {
   return groups.map((group, index) => ({ group, index }))
     .sort((a, b) => b.group.width * b.group.height - a.group.width * a.group.height || a.index - b.index)

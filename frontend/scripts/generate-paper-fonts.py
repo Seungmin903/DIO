@@ -31,6 +31,8 @@ OUT = TEMPLATES / 'paperFonts'
 FONTS = {
     'maruburi': {'label': '마루부리', 'R': 'assets/fonts/maruburi/MaruBuri-Regular.ttf', 'B': 'assets/fonts/maruburi/MaruBuri-Bold.ttf'},
     'gowun-batang': {'label': '고운바탕', 'R': 'assets/fonts/gowunbatang/GowunBatang-Regular.ttf', 'B': 'assets/fonts/gowunbatang/GowunBatang-Bold.ttf'},
+    'nanum-gothic': {'label': '나눔고딕', 'R': 'node_modules/@expo-google-fonts/nanum-gothic/400Regular/NanumGothic_400Regular.ttf', 'B': 'node_modules/@expo-google-fonts/nanum-gothic/700Bold/NanumGothic_700Bold.ttf'},
+    'nanum-myeongjo': {'label': '나눔명조', 'R': 'node_modules/@expo-google-fonts/nanum-myeongjo/400Regular/NanumMyeongjo_400Regular.ttf', 'B': 'node_modules/@expo-google-fonts/nanum-myeongjo/700Bold/NanumMyeongjo_700Bold.ttf'},
     'gowun-dodum': {'label': '고운돋움', 'R': 'assets/fonts/gowundodum/GowunDodum-Regular.ttf'},
     'nanum-pen': {'label': '나눔손글씨 펜', 'R': 'node_modules/@expo-google-fonts/nanum-pen-script/400Regular/NanumPenScript_400Regular.ttf'},
     'poor-story': {'label': '푸어스토리', 'R': 'node_modules/@expo-google-fonts/poor-story/400Regular/PoorStory_400Regular.ttf'},

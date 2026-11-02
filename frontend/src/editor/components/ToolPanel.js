@@ -18,7 +18,8 @@ export function ToolPanelHeader({ icon, title, onClose, closeLabel, disabled = f
  * 한 칸만 고르는 경우(정렬)와 여러 칸을 켜고 끄는 경우(굵게·기울임) 모두 같은 모양으로 쓴다.
  * separate: 글자 칸을 여러 개 켜고 끄는 줄(보조선)은 켜진 칸끼리 붙어 보여 간격이 달라 보이므로, 칸마다 바탕을 두고 같은 간격으로 띄운다.
  */
-export function Segmented({ items, selected, onPress, disabled = false, separate = false }) {
+// steadyLabel: 켜고 꺼도 칸 안 글자는 그대로 두고 켜짐은 테두리로만 보인다(글자 서식 B · I · U · S 처럼 글자 자체가 표시인 칸)
+export function Segmented({ items, selected, onPress, disabled = false, separate = false, steadyLabel = false }) {
   return (
     <View style={[separate ? toolPanelStyles.chips : toolPanelStyles.segment, disabled && toolPanelStyles.dim]}>
       {items.map((item) => {
@@ -34,7 +35,7 @@ export function Segmented({ items, selected, onPress, disabled = false, separate
             onPress={() => onPress(item.id)}
             style={[toolPanelStyles.segmentItem, separate && toolPanelStyles.chip, on && (separate ? toolPanelStyles.chipActive : toolPanelStyles.segmentActive), item.disabled && toolPanelStyles.dim]}
           >
-            {item.icon ? item.icon : <Text style={[toolPanelStyles.segmentText, on && toolPanelStyles.segmentTextActive, item.textStyle]}>{item.label}</Text>}
+            {item.icon ? item.icon : <Text style={[toolPanelStyles.segmentText, on && !steadyLabel && toolPanelStyles.segmentTextActive, item.textStyle]}>{item.label}</Text>}
           </Pressable>
         )
       })}

@@ -141,3 +141,60 @@ test('Basic 접근 인증과 로그인 토큰은 서로 다른 헤더로 보내�
     fetchImpl: async (_, init) => { assert.equal(init.headers.Authorization, undefined); return response({ available: true }); } });
   await fresh.checkEmailAvailability(email);
 });
+
+const memoryStore = (initial = {}) => {
+  const values = { ...initial }, log = [];
+  return { values, log,
+    load: async origin => { log.push(['load', origin]); return values[origin] ?? null; },
+    save: async (origin, value) => { log.push(['save', origin]); values[origin] = value; },
+    clear: async origin => { log.push(['clear', origin]); delete values[origin]; } };
+};
+const basicChallenge = () => ({ status: 401, ok: false, json: async () => { throw new SyntaxError('HTML'); },
+  headers: { get: name => name === 'WWW-Authenticate' ? 'Basic realm="DIO Development"' : null } });
+
+test('입력한 개발 서버 접속 정보는 서버 주소별로 저장하고 새 인스턴스가 다시 묻지 않고 사용한다', async () => {
+  const store = memoryStore();
+  const first = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true, developmentAccessStore: store,
+    fetchImpl: async () => response({ available: true }) });
+  first.verificationService.setDevelopmentAccess('tester', 'secret');
+  await first.checkEmailAvailability(email);
+  const expected = `Basic ${Buffer.from('tester:secret').toString('base64')}`;
+  assert.equal(store.values['https://server.example'], expected);
+
+  const headers = [];
+  const restarted = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true, developmentAccessStore: store,
+    fetchImpl: async (_, init) => { headers.push(init.headers); return response({ available: true }); } });
+  await restarted.checkEmailAvailability(email);
+  assert.equal(headers[0].Authorization, expected);
+
+  const other = createAuthApi({ baseUrl: 'https://other.example', allowDevelopmentAccess: true, developmentAccessStore: store,
+    fetchImpl: async (_, init) => { assert.equal(init.headers.Authorization, undefined); return response({ available: true }); } });
+  await other.checkEmailAvailability(email);
+});
+
+test('서버가 저장된 개발 접속 정보를 거절하면 지우고 다시 입력을 요구한다', async () => {
+  const saved = `Basic ${Buffer.from('tester:old').toString('base64')}`;
+  const store = memoryStore({ 'https://server.example': saved });
+  const api = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true, developmentAccessStore: store,
+    fetchImpl: async () => basicChallenge() });
+  await assert.rejects(api.checkEmailAvailability(email), { code: 'DEVELOPMENT_ACCESS_REQUIRED' });
+  assert.equal(store.values['https://server.example'], undefined);
+  assert.deepEqual(store.log.at(-1), ['clear', 'https://server.example']);
+});
+
+test('운영 설정이나 HTTP 주소는 개발 접속 저장소를 읽거나 쓰지 않는다', async () => {
+  for (const options of [{ baseUrl: 'https://server.example' }, { baseUrl: 'http://localhost:8080/api', allowDevelopmentAccess: true }]) {
+    const store = memoryStore({ 'https://server.example': 'Basic dGVzdGVyOnNlY3JldA==', 'http://localhost:8080': 'Basic dGVzdGVyOnNlY3JldA==' });
+    const api = createAuthApi({ ...options, developmentAccessStore: store,
+      fetchImpl: async (_, init) => { assert.equal(init.headers.Authorization, undefined); return response({ available: true }); } });
+    await api.checkEmailAvailability(email);
+    assert.deepEqual(store.log, []);
+  }
+});
+
+test('저장소를 읽지 못해도 요청은 접속 정보 없이 진행한다', async () => {
+  const api = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true,
+    developmentAccessStore: { load: async () => { throw new Error('keystore'); }, save: async () => {}, clear: async () => {} },
+    fetchImpl: async (_, init) => { assert.equal(init.headers.Authorization, undefined); return response({ available: true }); } });
+  await api.checkEmailAvailability(email);
+});

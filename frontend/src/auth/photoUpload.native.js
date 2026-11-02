@@ -8,7 +8,7 @@ export async function buildPhotoBody(signup, uri, partName = 'signup') {
     if (photo) { const file = new File(photo.uri); if (file.exists) file.delete(); }
   };
   try {
-    // Picker already crops to a square; keep uploads small and use a supported format.
+    // ProfileCropHost already crops to a square; keep uploads small and use a supported format.
     context.resize({ width: 512 });
     rendered = await context.renderAsync();
     photo = await rendered.saveAsync({ format: SaveFormat.PNG, compress: 1 });

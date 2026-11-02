@@ -27,7 +27,9 @@ import com.f106.DIO.user.repository.ProfilePhotoRepository;
 import com.f106.DIO.user.repository.TermsAgreementRepository;
 import com.f106.DIO.user.repository.UserRepository;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,6 +39,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpMethod;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -82,9 +86,16 @@ class EmailLoginTests {
     @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
     @MockitoBean SignupMailSender mail;
     @MockitoBean LoginThrottle throttle;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     AtomicReference<String> code;
 
     @BeforeEach void setup() {
+        // 탈퇴 정리가 참조하는 SQL 전용 테이블을 H2 테스트에서도 같은 이름으로 제공한다.
+        jdbc.execute("alter table media_files add column if not exists source_media_file_id uuid");
+        jdbc.execute("create table if not exists ai_jobs(source_media_file_id uuid,result_media_file_id uuid)");
+        jdbc.execute("create table if not exists notifications(notification_id bigint,user_id bigint,diary_id uuid,page_id uuid)");
+        jdbc.execute("create table if not exists diary_handwriting_fonts(diary_id uuid,font_media_file_id uuid)");
+        jdbc.execute("create table if not exists diary_media_library(diary_id uuid,media_file_id uuid)");
         reset(history);
         history.deleteAll(); tokens.deleteAll(); photos.deleteAll(); agreements.deleteAll();
         accounts.deleteAll(); users.deleteAll(); verifications.deleteAll(); reset(mail, throttle);
@@ -118,6 +129,21 @@ class EmailLoginTests {
         assertThatThrownBy(this::login).isInstanceOf(LoginException.class);
         assertThat(service.login(new LoginRequest(EMAIL,"ChangedDio123!","phone"),"127.0.0.1")).isNotNull();
         mvc.perform(patch("/api/v1/me/password").header("Authorization","Bearer "+first.accessToken()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isUnauthorized());
+    }
+    @Test void withdrawalMarksAccountWithdrawnAndRevokesAllSessions() throws Exception {
+        register(); var first = login(); var second = login();
+        mvc.perform(delete("/api/v1/me").header("Authorization", "Bearer " + first.accessToken()))
+            .andExpect(status().isNoContent()).andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(content().string(""));
+        User account = users.findAll().get(0);
+        assertThat(account.isActive()).isFalse();
+        assertThat(ReflectionTestUtils.getField(account, "status")).isEqualTo("WITHDRAWN");
+        assertThat(ReflectionTestUtils.getField(account, "deletedAt")).isNotNull();
+        assertThat(service.active(jwt.decode(first.accessToken()))).isFalse();
+        assertThat(service.active(jwt.decode(second.accessToken()))).isFalse();
+        assertThatThrownBy(this::login).isInstanceOf(LoginException.class);
+        mvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + first.accessToken()))
             .andExpect(status().isUnauthorized());
     }
     @Test void passwordChangeRejectsSameOrMalformedPasswordWithoutRevokingSession()throws Exception{
@@ -156,6 +182,15 @@ class EmailLoginTests {
         assertThat(users.findById(otherId).orElseThrow().getNickname()).isEqualTo("새닉네임");
         mvc.perform(get("/api/v1/me").header("Authorization","Bearer "+login.accessToken()))
             .andExpect(jsonPath("$.nickname").value("새닉네임"));
+    }
+    @Test void sameNicknameKeepsUpdatedAt()throws Exception{
+        register();var login=login();
+        Long userId=Long.valueOf(login.user().userId());
+        Object before=ReflectionTestUtils.getField(users.findById(userId).orElseThrow(),"updatedAt");
+        mvc.perform(patch("/api/v1/me").header("Authorization","Bearer "+login.accessToken()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\""+users.findById(userId).orElseThrow().getNickname()+"\"}"))
+            .andExpect(status().isOk());
+        assertThat(ReflectionTestUtils.getField(users.findById(userId).orElseThrow(),"updatedAt")).isEqualTo(before);
     }
     @Test void myProfileAllowsWebPreflightForPatch()throws Exception{
         mvc.perform(options("/api/v1/me").header("Origin","http://localhost:8081").header("Access-Control-Request-Method","PATCH")
@@ -334,6 +369,43 @@ class EmailLoginTests {
         assertThatThrownBy(() -> service.refresh(next.refreshToken())).isInstanceOf(LoginException.class);
         mvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + next.accessToken()))
             .andExpect(status().isUnauthorized());
+    }
+    @Test void myProfilePhotoCanReplaceAndRemoveWithMultipartPatch()throws Exception{
+        register();var login=login();Long userId=Long.valueOf(login.user().userId());
+        mvc.perform(multipart(HttpMethod.PATCH,"/api/v1/me")
+                .file(profilePart("사진회원",false)).file(photoPart())
+                .header("Authorization","Bearer "+login.accessToken()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.nickname").value("사진회원"))
+            .andExpect(jsonPath("$.profilePhotoUrl").isString());
+        UUID first=photos.findByUserId(userId).orElseThrow().getPhotoId();
+        mvc.perform(multipart(HttpMethod.PATCH,"/api/v1/me")
+                .file(profilePart("사진회원",false)).file(photoPart())
+                .header("Authorization","Bearer "+login.accessToken()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.profilePhotoUrl").isString());
+        UUID replacement=photos.findByUserId(userId).orElseThrow().getPhotoId();
+        assertThat(replacement).isNotEqualTo(first);assertThat(photos.findById(first)).isEmpty();
+        mvc.perform(patch("/api/v1/me").header("Authorization","Bearer "+login.accessToken())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"사진회원\",\"removeProfilePhoto\":true}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.profilePhotoUrl").value(org.hamcrest.Matchers.nullValue()));
+        assertThat(photos.findByUserId(userId)).isEmpty();
+    }
+    @Test void myProfilePhotoRejectsBrokenImageAndMissingAuthentication()throws Exception{
+        register();var login=login();
+        mvc.perform(multipart(HttpMethod.PATCH,"/api/v1/me")
+                .file(profilePart("사진회원",false))
+                .file(new MockMultipartFile("photo","broken.png","image/png",new byte[]{1,2,3}))
+                .header("Authorization","Bearer "+login.accessToken()))
+            .andExpect(status().isBadRequest());
+        mvc.perform(multipart(HttpMethod.PATCH,"/api/v1/me").file(profilePart("사진회원",false)).file(photoPart()))
+            .andExpect(status().isUnauthorized());
+    }
+    private static MockMultipartFile profilePart(String nickname,boolean remove){
+        String body="{\"nickname\":\""+nickname+"\",\"removeProfilePhoto\":"+remove+"}";
+        return new MockMultipartFile("profile","profile.json",MediaType.APPLICATION_JSON_VALUE,body.getBytes(StandardCharsets.UTF_8));
+    }
+    private static MockMultipartFile photoPart(){
+        byte[] png=Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1cAAAAASUVORK5CYII=");
+        return new MockMultipartFile("photo","profile.png",MediaType.IMAGE_PNG_VALUE,png);
     }
     @Test void logoutInvalidatesOnlyCurrentDevice() throws Exception {
         register(); var first = login(); var second = login();

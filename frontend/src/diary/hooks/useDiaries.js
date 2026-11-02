@@ -6,6 +6,9 @@ import { forgetEditorDoc } from '../../editor/services/editorDocs';
 import { forgetViewedPage } from '../../editor/services/editorViewState';
 import { collectMediaIds } from '../../editor/utils/mediaReferences';
 import * as mediaRepository from '../../editor/utils/mediaRepository';
+import { collectPdfSourceIds } from '../utils/pdfSource';
+import { removePdfSource } from '../utils/pdfSourceStore';
+import { sweepPdfImports } from '../utils/pdfImportRegistry';
 import { normalizeDiaries, recoverOrphanDiaries, sortByCreated } from '../utils/diaryLibrary';
 import { isTrashExpired, markTrashed, purgeTrashedDiary } from '../utils/trashRetention';
 
@@ -113,6 +116,7 @@ export function useDiaries() {
         id, storage: AsyncStorage, keys: STORAGE_KEYS,
         getDiaries: () => currentDiaries.current, updateDiaries: setDiaries,
         forgetDoc: forgetEditorDoc, forgetView: forgetViewedPage, collectMediaIds, removeMedia: mediaRepository.remove,
+        collectSourceIds: collectPdfSourceIds, removeSource: removePdfSource,
       }));
     } finally { deleting.current.delete(id); }
   }, [enqueue, setDiaries, writable]);
@@ -138,6 +142,13 @@ export function useDiaries() {
     const subscription = AppState.addEventListener('change', state => { if (state === 'active') cleanupTrash(); });
     return () => { clearInterval(timer); subscription.remove(); };
   }, [loaded, writable, cleanupTrash]);
+
+  // 앱을 켠 뒤 한 번, 휴지통 정리가 끝날 즈음에 어디에도 안 쓰는 불러온 PDF 의 쪽 그림 · 원본(고아 파일)을 지운다. 하루 안에 불러온 것은 건드리지 않는다.
+  useEffect(() => {
+    if (!loaded || !writable) return undefined;
+    const timer = setTimeout(() => { sweepPdfImports().catch(() => {}); }, 10000);
+    return () => clearTimeout(timer);
+  }, [loaded, writable]);
 
   return {
     diaries,

@@ -55,7 +55,8 @@ const server = http.createServer((req, res) => {
       };
       await page.goto(`http://127.0.0.1:${server.address().port}`);
       if (!process.env.DESIGN_BASELINE) {
-        const login = button('로그인');
+        // 첫 화면은 시작 모드 화면이다. 채운 버튼(일반 사용자로 시작)의 글자 대비를 본다
+        const login = button('일반 사용자로 시작');
         const contrast = await login.evaluate(node => {
           const rgb = value => value.match(/[\d.]+/g).slice(0,3).map(Number);
           const luminance = value => rgb(value).map(v => { v/=255; return v<=.04045?v/12.92:((v+.055)/1.055)**2.4; }).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);
@@ -64,8 +65,8 @@ const server = http.createServer((req, res) => {
         });
         assert.ok(contrast>=4.5, `CTA contrast ${contrast}`);
       }
-      await page.screenshot({path:path.join(out,`login-${width}.png`)});
-      await button('게스트로 시작하기').click();
+      await page.screenshot({path:path.join(out,`start-${width}.png`)});
+      await button('개발자 모드로 시작').click();
       await button('배치 검증 열기').waitFor();
       const phone = Math.min(width, height) < 600;
       if (!phone) {

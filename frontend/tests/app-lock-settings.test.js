@@ -50,3 +50,11 @@ test('알림을 끄면 세부 설정도 모두 꺼지고, 다시 켜면 끄기 �
   settings.setNotificationSettings({enabled:true});
   assert.deepEqual(read(),{enabled:true,invite:false,activity:true,reminder:true,reminderTime:'09:00'});
 });
+
+test('백그라운드에서 1분 안에 돌아오면 다시 잠그지 않는다(사진 선택기 · 공유 창)', ()=>{
+  const lock=load('../src/shared/appLock.js',{'@react-native-async-storage/async-storage':{__esModule:true,default:memoryStorage()},'expo-crypto':crypto});
+  assert.equal(lock.APP_LOCK_GRACE_MS,60000);
+  assert.equal(lock.appLockGraceOver(null,1000),false);
+  assert.equal(lock.appLockGraceOver(0,59999),false);
+  assert.equal(lock.appLockGraceOver(0,60000),true);
+});

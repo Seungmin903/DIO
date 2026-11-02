@@ -1,4 +1,3 @@
-import { useFormFactor } from '../../../shared/useFormFactor'
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import PenSafeTextInput from './PenSafeTextInput'
@@ -26,11 +25,9 @@ export default function Slider({
   plusLabel = '늘리기',
   scale = 1,
   unit = '',
-  centerValue = false,
   label = '값',
   wrap = false, // 각도처럼 범위를 넘으면 한 바퀴 돌려 맞춘다 (375 → 15)
 }) {
-  const { isPhone } = useFormFactor()
   const [trackWidth, setTrackWidth] = useState(1)
   const startRef = useRef(0)
   // 손잡이가 막대 양 끝(−·+ 버튼) 밖으로 나가지 않도록 손잡이 반지름만큼 안쪽에서 움직인다.
@@ -105,7 +102,7 @@ export default function Slider({
           keyboardType="numeric"
           selectTextOnFocus
           maxLength={5}
-          style={[styles.input, (centerValue || (isPhone && unit !== '%')) && styles.inputCentered]}
+          style={styles.input}
           accessibilityLabel={`${label} 숫자 입력`}
         />
         {unit ? <Text style={styles.unit}>{unit}</Text> : null}
@@ -131,13 +128,12 @@ const styles = StyleSheet.create({
     flex: 1,
     width: 0,
     padding: 0,
-    textAlign: 'right',
+    textAlign: 'center',
     fontSize: 13,
     fontWeight: '700',
     color: colors.text,
     includeFontPadding: false,
   },
-  inputCentered: { textAlign: 'center' },
   unit: { marginLeft: 1, fontSize: 11, fontWeight: '700', color: colors.textMuted },
   stepButton: {
     width: 40,

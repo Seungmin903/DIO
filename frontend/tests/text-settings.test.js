@@ -27,7 +27,7 @@ test('전체 서식 변경은 문자열·위치·너비를 보존하며 리사�
   assert.equal(style.fontFamily, 'monospace')
   assert.equal(style.textDecorationLine, 'underline')
   assert.equal(style.fontWeight, '700')
-  assert.equal(style.fontStyle, 'italic')
+  assert.equal(style.fontStyle, 'normal'); assert.deepEqual(style.transform, [{ skewX: '-12deg' }])
   assert.equal(style.textAlign, 'center')
   assert.ok(patch.h > original.h)
 })

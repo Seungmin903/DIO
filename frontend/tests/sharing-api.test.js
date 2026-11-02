@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSharingApi } from '../src/sharing/sharingApi.js';
+import { createAuthApi } from '../src/auth/authApi.js';
 
 const diaryId = '11111111-1111-4111-8111-111111111111';
 const reply = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
@@ -8,16 +9,18 @@ function fixture(overrides = {}) {
   const calls = [], uploaded = [];
   let available = true;
   const auth = {
-    getConnectionOptions: () => ({ baseUrl: 'https://api.dio.test/api/v1', accessTokenHeader: 'X-DIO-Access-Token' }),
+    getConnectionOptions: overrides.connection || (() => ({ baseUrl: 'https://api.dio.test/api/v1', accessTokenHeader: 'X-DIO-Access-Token' })),
     getSessionKey: () => 'session-1',
+    getProfilePhotoSource: overrides.photoSource,
     async getAccessToken(context) { assert.deepEqual(context, { userId: 10, sessionKey: 'session-1' }); if (!available) throw Object.assign(new Error('로그인 필요'), { status: 401 }); return 'test-token'; },
   };
   const fetchImpl = async (url, init) => {
     calls.push({ url, ...init });
-    assert.equal(init.headers['X-DIO-Access-Token'], 'test-token');
+    if (url.includes('/auth/profile-photos/')) assert.equal(init.headers['X-DIO-Access-Token'], undefined);
+    else assert.equal(init.headers['X-DIO-Access-Token'], 'test-token');
     if (overrides.fetch) { const response = await overrides.fetch(url, init); if (response) return response; }
     if (url.endsWith('/members')) return reply({ members: [{ userId: '10', nickname: '기본이름', role: 'EDITOR', usingAccountPhoto: true, profilePhotoUrl: null }], currentMembers: 2, maxMembers: 4 });
-    if (url.endsWith('/invites')) return reply({ available: true, inviteUrl: 'https://dio.test/invite/token' });
+    if (url.endsWith(`/diaries/${diaryId}/invites?page=0&size=20`)) return reply({ available: true, inviteUrl: 'https://dio.test/invite/token', emailInvites: { items: [], page: 0, hasNext: false } });
     if (url.endsWith(`/diaries/${diaryId}`)) return reply({ diary: { diaryTitle: '우리 기록', coverColor: '#FFFFFF' } });
     if (url.endsWith('/accept')) return reply({ diaryId });
     if (url.includes('/me/invites?')) return reply({ items: [{ inviteId: '123', token: 'private-token', diaryId, diaryTitle: '우리 기록', inviterNickname: '친구', status: 'PENDING', createdAt: '2026-10-28T00:00:00Z' }], hasNext: false });
@@ -140,4 +143,161 @@ test('명세의 membership 경로로 별칭·사진과 즐겨찾기를 수정한
   assert.ok(writes.every(call => call.url === `https://api.dio.test/api/v1/diaries/${diaryId}/membership`));
   assert.equal(writes[1].body, 'multipart');
   assert.equal(JSON.parse(writes[2].body).favorite, true);
+});
+
+const sentRow = (id, status = 'PENDING') => ({ inviteId: id, recipientEmail: 'friend@example.com', status, token: 'private-token', inviteUrl: 'private-url' });
+const sentResult = (items, page = 0, hasNext = false) => ({ available: false, emailInvites: { items, page, hasNext } });
+test('이메일은 정규화하고 202 후 서버 목록만 표시하며 비공개 토큰을 복사하지 않는다', async () => {
+  const f=fixture({fetch:url=>url.endsWith(`/diaries/${diaryId}/invites?page=0&size=20`)?reply(sentResult([sentRow('1')])):null});
+  const diary=await f.runtime.sendEmailInvite(diaryId,'  FRIEND@Example.COM  ');
+  assert.deepEqual(JSON.parse(f.calls.find(c=>c.method==='POST').body),{email:'friend@example.com'});
+  assert.deepEqual(diary.emailInvites,[{id:'1',email:'friend@example.com',status:'PENDING',createdAt:undefined}]);
+  await assert.rejects(f.runtime.sendEmailInvite(diaryId,'bad'),{code:'INVALID_EMAIL'});
+  await assert.rejects(f.runtime.sendEmailInvite('local','a@example.com'),{code:'LOCAL_DIARY'});
+});
+test('보낸 목록은 ID별로 합치고 페이지 실패 후 재시도하며 취소는 DELETE로 요청한다',async()=>{
+  let failed=true;
+  const f=fixture({fetch:(url,init)=>{
+    if(url.endsWith(`/diaries/${diaryId}/invites?page=0&size=20`))return reply(sentResult([sentRow('1')],0,true));
+    if(url.includes('/invites?page=1'))return failed?reply({code:'TEMPORARY'},503):reply(sentResult([sentRow('1','CANCELLED'),sentRow('2')],1));
+  }});
+  await f.runtime.getSharing(diaryId);
+  await assert.rejects(f.runtime.loadMoreEmailInvites(diaryId),{status:503});
+  assert.equal(f.runtime.getSnapshot().diaries[0].emailNextPage,1);
+  failed=false;const d=await f.runtime.loadMoreEmailInvites(diaryId);
+  assert.deepEqual(d.emailInvites.map(r=>r.id),['1','2']);assert.equal(d.emailInvites[0].status,'CANCELLED');
+  await f.runtime.cancelEmailInvite(diaryId,'1');
+  assert.ok(f.calls.some(c=>c.method==='DELETE'&&c.url.endsWith('/invites/1')));
+  await assert.rejects(f.runtime.cancelEmailInvite(diaryId,'wrong'),{code:'INVALID_INVITE'});
+});
+test('늦은 다음 페이지 응답은 새로고침된 취소 상태를 덮지 않는다',async()=>{
+  let release,started;const waiting=new Promise(resolve=>{started=resolve});let cancelled=false;
+  const f=fixture({fetch:async url=>{
+    if(url.endsWith(`/diaries/${diaryId}/invites?page=0&size=20`))return reply(sentResult([sentRow('1',cancelled?'CANCELLED':'PENDING')],0,true));
+    if(url.includes('/invites?page=1')){started();await new Promise(resolve=>{release=resolve});return reply(sentResult([sentRow('1')],1));}
+  }});
+  await f.runtime.getSharing(diaryId);const more=f.runtime.loadMoreEmailInvites(diaryId);await waiting;
+  cancelled=true;await f.runtime.getSharing(diaryId);release();await more;
+  assert.equal(f.runtime.getSnapshot().diaries[0].emailInvites[0].status,'CANCELLED');
+});
+test('변경 완료 후 재조회 실패는 안내로 구분하고 실패한 양도는 기존 역할을 유지한다',async()=>{
+  let readFails=false,transferFails=true;
+  const f=fixture({fetch:(url,init)=>{
+    if(url.endsWith('/transfer-owner'))return reply({code:'FORBIDDEN'},transferFails?403:204);
+    if(init.method==='POST'&&url.endsWith('/invites/email')){readFails=true;return reply({},202)}
+    if(readFails&&url.endsWith(`/diaries/${diaryId}/invites?page=0&size=20`))return reply({},503);
+  }});
+  await f.runtime.getSharing(diaryId);
+  await assert.rejects(f.runtime.transferOwner(diaryId,'20'),{status:403});
+  assert.equal(f.runtime.getSnapshot().diaries[0].members[0].role,'EDITOR');
+  const d=await f.runtime.sendEmailInvite(diaryId,'a@example.com');assert.ok(d.refreshWarning);
+  assert.equal(f.calls.filter(c=>c.url.endsWith('/invites/email')).length,1);
+  transferFails=false;await f.runtime.transferOwner(diaryId,'20');
+  assert.deepEqual(JSON.parse(f.calls.find(c=>c.url.endsWith('/transfer-owner')).body),{newOwnerUserId:'20'});
+  assert.equal(f.calls.filter(c=>c.method==='DELETE').length,0);
+  await assert.rejects(f.runtime.transferOwner(diaryId,'10'),{code:'INVALID_MEMBER'});
+});
+test('Basic 인증과 회원 토큰은 기존 인증 서비스에서 분리하고 리다이렉트는 막는다',async()=>{
+  const f=fixture({connection:()=>({baseUrl:'https://api.dio.test/api/v1',getAuthHeaders:(url,token)=>({Authorization:'Basic test-only','X-DIO-Access-Token':token})})});
+  await f.runtime.getSharing(diaryId);
+  for(const call of f.calls){assert.equal(call.headers.Authorization,'Basic test-only');assert.equal(call.headers['X-DIO-Access-Token'],'test-token');assert.equal(call.redirect,'error');assert.equal(call.credentials,'omit');}
+});
+test('탈퇴한 이메일을 대체 표시하고 잘못된 목록 응답은 기존 상태를 보존한다',async()=>{
+  let broken=false;
+  const f=fixture({fetch:url=>url.endsWith(`/diaries/${diaryId}/invites?page=0&size=20`)?reply(broken?{available:false}:sentResult([{...sentRow('1'),recipientEmail:null}])):null});
+  assert.equal((await f.runtime.getSharing(diaryId)).emailInvites[0].email,'탈퇴한 사용자');
+  broken=true;await assert.rejects(f.runtime.getSharing(diaryId),{code:'INVALID_RESPONSE'});
+  assert.equal(f.runtime.getSnapshot().diaries[0].emailInvites.length,1);
+});
+
+test('소유권 양도 성공 후 서버의 새 소유자와 기존 소유자의 편집 권한을 반영한다',async()=>{
+  let transferred=false;
+  const f=fixture({fetch:(url,init)=>{
+    if(url.endsWith('/transfer-owner')){transferred=true;return reply(null,204)}
+    if(url.endsWith('/members'))return reply({members:[{userId:'10',nickname:'나',role:transferred?'EDITOR':'OWNER',usingAccountPhoto:true},{userId:'20',nickname:'친구',role:transferred?'OWNER':'EDITOR',usingAccountPhoto:true}]});
+  }});
+  await f.runtime.getSharing(diaryId);assert.equal(f.runtime.getSnapshot().diaries[0].members[0].role,'OWNER');
+  const d=await f.runtime.transferOwner(diaryId,'20');
+  assert.deepEqual(d.members.map(m=>m.role),['EDITOR','OWNER']);
+  assert.equal(f.calls.filter(c=>c.method==='DELETE').length,0);
+});
+
+test('서버 기본 크기와 무관하게 보낸 초대 첫 페이지와 다음 페이지를 20개씩 요청한다', async () => {
+  const rows = Array.from({ length: 45 }, (_, i) => sentRow(String(i + 1)));
+  const pages = [];
+  const f = fixture({ fetch: (url, init) => {
+    const target = new URL(url);
+    if (init.method !== 'GET' || target.pathname !== `/api/v1/diaries/${diaryId}/invites`) return null;
+    const page = Number(target.searchParams.get('page') || 0);
+    const size = Number(target.searchParams.get('size') || 3); // Deliberately differs from the client size.
+    pages.push({ page, size });
+    return reply(sentResult(rows.slice(page * size, (page + 1) * size), page, (page + 1) * size < rows.length));
+  } });
+  await f.runtime.getSharing(diaryId);
+  await f.runtime.loadMoreEmailInvites(diaryId);
+  const diary = await f.runtime.loadMoreEmailInvites(diaryId);
+  assert.deepEqual(pages, [{ page: 0, size: 20 }, { page: 1, size: 20 }, { page: 2, size: 20 }]);
+  assert.deepEqual(diary.emailInvites.map(row => row.id), rows.map(row => row.inviteId));
+  assert.equal(diary.emailNextPage, null);
+});
+
+test('참여자 사진마다 해당 URL로 인증 헤더를 만들고 다른 출처 사진에는 요청하지 않는다', async () => {
+  const targets = [];
+  const photos = ['10', '20'].map(id => `https://api.dio.test/api/v1/diaries/${diaryId}/members/${id}/profile-photo?v=${id}`);
+  let external = false;
+  const f = fixture({
+    connection: () => ({ baseUrl: 'https://api.dio.test/api/v1', getAuthHeaders: (url, token) => {
+      targets.push(url);
+      return { 'X-DIO-Access-Token': token, ...(photos.includes(url) ? { Authorization: `Basic photo-${photos.indexOf(url)}` } : {}) };
+    } }),
+    fetch: (url, init) => {
+      if (url.endsWith('/members')) return reply({ members: ['10', '20'].map((userId, i) => ({ userId, nickname: '회원', role: i ? 'EDITOR' : 'OWNER', usingAccountPhoto: false,
+        profilePhotoUrl: external ? 'https://external.example/photo.png' : photos[i] })) });
+      if (photos.includes(url)) {
+        assert.equal(init.headers.Authorization, `Basic photo-${photos.indexOf(url)}`);
+        return { ok: true, headers: new Headers({ 'content-type': 'image/png' }), arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer };
+      }
+    },
+  });
+  const diary = await f.runtime.getSharing(diaryId);
+  assert.ok(diary.members.every(member => member.photoUri === 'data:image/png;base64,iVBORw=='));
+  assert.ok(photos.every(url => targets.includes(url)));
+  assert.ok(!targets.includes('https://api.dio.test/api/v1/diaries/'));
+  external = true;
+  await assert.rejects(f.runtime.getSharing(diaryId), { code: 'INVALID_RESPONSE' });
+  assert.ok(!targets.some(url => url.startsWith('https://external.example')));
+  assert.ok(!f.calls.some(call => call.url.startsWith('https://external.example')));
+});
+
+test('회원가입 계정 사진은 개발 게이트웨이 인증만 사용해 공유 참여자 이미지로 표시한다',async()=>{
+  const photoUri='https://api.dio.test/api/v1/auth/profile-photos/12345678-1234-1234-1234-123456789abc';
+  const photoAuth=createAuthApi({baseUrl:'https://api.dio.test/api/v1',allowDevelopmentAccess:true});
+  photoAuth.verificationService.setDevelopmentAccess('tester','test-only');
+  const f=fixture({photoSource:photoAuth.getProfilePhotoSource,fetch:(url,init)=>{
+    if(url.endsWith('/members'))return reply({members:[{userId:'10',nickname:'계정사진',role:'OWNER',usingAccountPhoto:true,profilePhotoUrl:photoUri}]});
+    if(url===photoUri){
+      assert.match(init.headers.Authorization,/^Basic /);
+      assert.equal(init.headers['X-DIO-Access-Token'],undefined);
+      assert.equal(init.redirect,'error');
+      return {ok:true,headers:new Headers({'content-type':'image/png'}),arrayBuffer:async()=>new Uint8Array([137,80,78,71]).buffer};
+    }
+  }});
+  assert.equal((await f.runtime.getSharing(diaryId)).members[0].photoUri,'data:image/png;base64,iVBORw==');
+});
+
+test('공개 계정 사진은 회원 인증 fetch 없이 URL을 유지한다',async()=>{
+  const photoUri='https://cdn.example.test/account.png';
+  const f=fixture({photoSource:uri=>({uri}),fetch:url=>url.endsWith('/members')?reply({members:[{userId:'10',nickname:'계정사진',role:'OWNER',usingAccountPhoto:true,profilePhotoUrl:photoUri}]}):null});
+  assert.equal((await f.runtime.getSharing(diaryId)).members[0].photoUri,photoUri);
+  assert.ok(!f.calls.some(call=>call.url===photoUri));
+});
+
+test('사진 소스 제공자가 인증 헤더를 붙여도 외부 출처·잘못된 계정 사진 주소에는 요청하지 않는다',async()=>{
+  const accountUri='https://api.dio.test/api/v1/auth/profile-photos/12345678-1234-1234-1234-123456789abc';
+  for(const target of ['https://external.example/photo.png','http://api.dio.test/photo.png','https://api.dio.test:8443/photo.png','https://user:password@api.dio.test/photo.png','not-a-url']){
+    const f=fixture({photoSource:()=>({uri:target,headers:{Authorization:'Basic test-only'}}),fetch:url=>url.endsWith('/members')?reply({members:[{userId:'10',nickname:'회원',role:'OWNER',usingAccountPhoto:true,profilePhotoUrl:accountUri}]}):null});
+    assert.equal((await f.runtime.getSharing(diaryId)).members[0].photoUri,null);
+    assert.equal(f.calls.length,3);
+    assert.ok(f.calls.every(call=>call.url.startsWith('https://api.dio.test/api/v1/')));
+  }
 });

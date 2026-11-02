@@ -40,7 +40,8 @@ function positiveCount(value, label) {
 }
 
 // 예전에 저장한 설정의 하루 계획 속지 ID 는 같은 방향의 데일리 플래너로 읽는다 (메뉴에서 빠진 속지)
-const replacedAssetId = id => id.replace(/^2026-reusable-daily-(landscape|portrait)$/, 'day-planner-$1')
+// 없어진 하루 계획 속지는 같은 방향의 데일리 플래너로 바꾼다 (저장된 문서 · 설정이 함께 쓴다)
+export const replacedAssetId = id => id.replace(/^2026-reusable-daily-(landscape|portrait)$/, 'day-planner-$1')
 
 function normalizeChoices(templates, choices, label, active = true) {
   return templates.map(item => {

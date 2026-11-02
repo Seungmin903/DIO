@@ -7,13 +7,11 @@ import { normalizeCover } from '../utils/coverDesign';
 import { configuredPageIds } from '../../editor/templates/creation.js';
 import { normalizeOrientation, templateCanvasSize } from '../../editor/templates/catalog.js';
 import { C } from '../constants';
-import { coverShadowAt } from '../utils/deskShadow';
-import { deskLightAt } from '../utils/deskLight';
-import { useDeskHour, useDeskMode } from '../utils/deskTimeStore';
 import { useRailMoving } from '../utils/railMotion';
+import { GRID_CELL_MAX } from '../utils/gridLayout';
 
 // fill 표지는 이 크기(긴 변)로 한 번만 그리고, 칸 폭에 맞춰 크기 변환(scale)으로 늘리고 줄인다 (패턴 · 글자를 다시 그리지 않는다)
-const ART_LONG_SIDE = 219
+const ART_LONG_SIDE = GRID_CELL_MAX
 
 // 표지는 세로 3:4, 가로 4:3
 const COVER_RATIO = { portrait: 3 / 4, landscape: 4 / 3 };
@@ -26,13 +24,12 @@ function firstPageId(diary) {
  * 목록 · 휴지통 · 공유 화면의 다이어리 표지.
  * 칸 크기는 화면마다 정해져 있고, 그 안에 다이어리 방향대로 그린다 (선반 배치):
  * 세로 · 가로 모두 긴 변을 칸의 짧은 변에 맞춰 같은 크기로 보이고, 칸 아래에 맞춘다. 표지가 없으면 첫 속지를 그 방향대로 보인다.
- * sunShadow: 책상 위 표지의 그림자를 햇빛(달빛) 방향 · 길이에 맞춘다(아침엔 오른쪽, 정오엔 아래, 저녁엔 왼쪽으로 지고 해가 낮을수록 길다).
- * fill: 칸을 고정 높이(219) 대신 부모 폭에 맞춘다(최대 219). 좁은 카드 밖으로 칸이 넘치지 않는다. centered: 표지를 칸 위아래 가운데에 둔다.
+ * fill: 칸을 고정 높이(219) 대신 부모 폭에 맞춘다(최대 격자 칸 GRID_CELL_MAX). 좁은 카드 밖으로 칸이 넘치지 않는다. centered: 표지를 칸 위아래 가운데에 둔다.
  * children(펜 · 별 버튼 등)은 칸이 아니라 실제 표지 위에 얹는다.
  * frame: 'active' | 'idle' 이면 표지를 감싸는 포커스 프레임(스와이프)을 그린다. 모서리 둥글기는 표지 본체와 같은 계산이라 표지 크기가 달라도 맞는다.
  * onInset(px): 표지가 칸 가운데에 놓여 칸 왼쪽에서 떨어진 만큼(세로 표지는 칸보다 좁다). 이름 · 페이지 수를 표지 왼쪽 끝에 맞출 때 쓴다.
  */
-function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel = false, grid = false, compact = false, large = false, fill = false, centered = false, sunShadow = false, frame: frameTone = null, onInset = null, children }) {
+function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel = false, grid = false, compact = false, large = false, fill = false, centered = false, frame: frameTone = null, onInset = null, children }) {
   const frame = StyleSheet.flatten([s.cover, small && s.coverSmall, carousel && s.coverCarousel, compact && carousel && s.coverCarouselCompact, large && carousel && s.coverCarouselLarge, grid && s.coverGrid, compact && grid && s.coverGridCompact, preview && s.bookPreview, fill && styles.fill]);
   // 칸 크기: 고정 칸은 스타일 값으로 첫 프레임부터 맞게 그리고, 반응형 칸(격자 · 목록)은 실제 크기를 재서 다시 맞춘다.
   const styleWidth = thumbnailWidth ?? (preview ? s.bookPreview.width : small ? s.coverSmall.width
@@ -69,13 +66,9 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
     top: open.bandOut - ring, left: open.bandOut - ring, right: open.bandOut - ring, bottom: open.bandOut - ring,
     borderTopLeftRadius: open.left + ring, borderBottomLeftRadius: open.left + ring, borderTopRightRadius: open.right + ring, borderBottomRightRadius: open.right + ring,
   }] : null;
-  // 창빛은 표지 위에 얹지 않는다(사용자 · 코덱스 결정 2026-10-31): 표지는 사용자가 만든 그대로 어느 화면에서나 같은 색이고,
-  // 시간대는 책상 바닥 빛과 표지 그림자(방향 · 길이 · 진하기)로만 전한다. 조명 없음 모드에서는 시간대 그림자도 끈다.
-  const lightOff = useDeskMode() === 'off'
-  const hour = useDeskHour(sunShadow && !lightOff)
   // shadow 는 같은 값이면 같은 객체를 넘긴다. 매번 새 객체를 만들면 memo 인 CoverArt 가 값이 같아도 다시 그려져 패턴(SVG)까지 새로 그려진다.
   const { boxShadow, shadowOpacity, shadowColor, shadowRadius, elevation } = frame, shadowOffset = frame.shadowOffset
-  const shadow = useMemo(() => sunShadow && hour != null && (frame.boxShadow || frame.shadowOpacity) ? { boxShadow: coverShadowAt(hour, Boolean(frame.boxShadow), deskLightAt(hour).lamp) } : frame.boxShadow ? { boxShadow: frame.boxShadow } : frame.shadowOpacity ? { shadowColor: frame.shadowColor, shadowOpacity: frame.shadowOpacity, shadowRadius: frame.shadowRadius, shadowOffset: frame.shadowOffset, elevation: frame.elevation } : null, [sunShadow, hour, boxShadow, shadowOpacity, shadowColor, shadowRadius, elevation, shadowOffset?.width, shadowOffset?.height]);
+  const shadow = useMemo(() => boxShadow ? { boxShadow } : shadowOpacity ? { shadowColor, shadowOpacity, shadowRadius, shadowOffset, elevation } : null, [boxShadow, shadowOpacity, shadowColor, shadowRadius, elevation, shadowOffset?.width, shadowOffset?.height]);
   const sx = Math.min(boxWidth, boxHeight) / s.bookPreview.width;
   // 칸이 정사각형인 격자 표지(fill + grid)는 표지 칸을 퍼센트 + 가로세로 비율로 레이아웃에 맡기고, 그림 배율만 칸이 바뀔 때마다 ref 로 직접 바꾼다.
   // 사이드 메뉴가 움직이는 동안에도 상태 · 다시 그리기 없이 칸과 함께 매 프레임 같이 커지고 작아진다.
@@ -115,9 +108,9 @@ export default memo(Cover);
 
 const styles = StyleSheet.create({
   // 칸은 자리만 잡는다. 바탕 · 그림자는 표지(또는 첫 속지)가 그린다.
-  // fill: 고정 높이 대신 부모 폭에 맞춘 정사각형 칸 (카드가 219보다 좁아도 표지가 옆 카드를 덮지 않게)
+  // fill: 고정 높이 대신 부모 폭에 맞춘 정사각형 칸 (카드가 좁아도 표지가 옆 카드를 덮지 않게, 넓으면 격자 칸 최대까지 함께 커진다)
   frameBase: { position: 'absolute' },
-  fill: { width: '100%', maxWidth: 219, height: 'auto' },
+  fill: { width: '100%', maxWidth: GRID_CELL_MAX, height: 'auto' },
   unmeasured: { opacity: 0 },
   fillCenter: { justifyContent: 'center' },
   cell: { padding: 0, overflow: 'visible', justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'transparent', borderRadius: 0, shadowOpacity: 0, elevation: 0, boxShadow: 'none' },

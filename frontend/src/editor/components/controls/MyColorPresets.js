@@ -13,7 +13,8 @@ const PRESET_KEYS = {
   text: 'dio-editor-color-presets-v1:text',
   tape: 'dio-editor-color-presets-v1:tape',
 }
-const MAX_PRESETS = 20
+// 도구마다 최대 14개(꾸미기 공방 프리셋에서 7개씩 두 줄, 2026-11-01)
+export const MAX_PRESETS = 14
 
 // 저장 값은 '#RRGGBB' 하나, 또는 마스킹테이프처럼 두 색 '#바탕/#무늬' 한 쌍
 const normalizeEntry = (value) => {
@@ -30,7 +31,7 @@ const publish = (store, next) => {
   store.listeners.forEach((listener) => listener(next))
 }
 
-/** scope(pen·highlighter·text·tape)에 저장한 색 목록과 저장·삭제 함수 */
+/** scope(pen·highlighter·text·tape)에 저장한 색 목록과 저장 · 바꾸기 · 삭제 함수 */
 export function useColorPresets(scope = 'pen') {
   const store = storeOf(scope)
   const key = PRESET_KEYS[scope] ?? PRESET_KEYS.pen
@@ -43,7 +44,8 @@ export function useColorPresets(scope = 'pen') {
       AsyncStorage.getItem(key)
         .then((raw) => {
           const stored = raw ? JSON.parse(raw) : []
-          publish(store, Array.isArray(stored) ? [...new Set(stored.map(normalizeEntry).filter(Boolean))].slice(0, MAX_PRESETS) : [])
+          // 예전에 20개까지 저장한 색은 지우지 않고 그대로 둔다(화면에는 앞 14개만 보인다)
+          publish(store, Array.isArray(stored) ? [...new Set(stored.map(normalizeEntry).filter(Boolean))] : [])
         })
         .catch(() => publish(store, []))
         .finally(() => setLoaded(true))
@@ -55,7 +57,7 @@ export function useColorPresets(scope = 'pen') {
     AsyncStorage.setItem(key, JSON.stringify(next)).catch(() => {})
   }
   return {
-    presets,
+    presets: presets.slice(0, MAX_PRESETS),
     loaded,
     add: (color) => {
       const hex = color ? normalizeEntry(color) : null
@@ -65,6 +67,13 @@ export function useColorPresets(scope = 'pen') {
       return true
     },
     remove: (color) => save((store.cache ?? []).filter((c) => c !== color)),
+    // 저장한 색 하나를 다른 색으로 바꾼다(자리는 그대로). 바꾼 색이 이미 있으면 겹치지 않게 하나만 남긴다
+    replace: (color, next) => {
+      const hex = normalizeEntry(next)
+      if (!hex) return false
+      save([...new Set((store.cache ?? []).map((c) => (c === color ? hex : c)))])
+      return true
+    },
   }
 }
 

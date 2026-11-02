@@ -8,6 +8,7 @@
 
 import { clamp, createId, rotatedBounds, unionBounds } from '../utils/common.js'
 import { pageSize } from '../utils/pageGeometry.js'
+import { isBackdrop, keepBackdropBottom } from '../utils/backdrop.js'
 import { createBlankPage, createTemplatePage } from './defaultDoc.js'
 import { normalizePaperAppearance } from '../templates/appearance.js'
 
@@ -42,7 +43,7 @@ function updateObjects(state, updater) {
     ...state,
     doc: {
       ...state.doc,
-      pages: state.doc.pages.map((page) => (page.id === pageId ? { ...page, objects: updater(page.objects) } : page)),
+      pages: state.doc.pages.map((page) => (page.id === pageId ? { ...page, objects: keepBackdropBottom(updater(page.objects)) } : page)),
     },
   }
 }
@@ -270,7 +271,7 @@ export function editorReducer(state, action) {
     case 'selectAll':
       return {
         ...state,
-        selectedIds: objects.filter((o) => !o.hidden).map((o) => o.id),
+        selectedIds: objects.filter((o) => !o.hidden && !isBackdrop(o)).map((o) => o.id),
       }
 
     // 그룹을 펼치지 않고 그대로 선택 (그룹 안 요소 하나만 고칠 때)

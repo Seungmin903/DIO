@@ -10,7 +10,7 @@ export function useSharing(user) {
   const sessionKey = user?.mode === 'authenticated' ? authService.getSessionKey() : null;
   const runtime = useMemo(() => user?.mode === 'authenticated'
     ? createSharingApi({ user, auth: authService, fetchImpl: sharingFetch, buildPhotoBody })
-    : createSharingPreview({ user }), [user?.accountId, user?.userId, user?.mode, sessionKey]);
+    : createSharingPreview({ user, seed: !!user?.developer }), [user?.accountId, user?.userId, user?.mode, user?.developer, sessionKey]);
   useEffect(() => { runtime.setAccountProfile(user); }, [runtime, user]);
   const notifications = useNotifications(runtime.notificationApi, runtime.invitationGateway);
   const state = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot);

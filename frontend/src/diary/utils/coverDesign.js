@@ -1,13 +1,19 @@
 import { COLORS, DIARY_DEFAULTS } from '../constants.js'
 import { createId, normalizeAngle } from '../../editor/utils/common.js'
+import { TEXT_FONTS, getTextFonts, resolveFontId } from '../../editor/utils/text.js'
 
 // 표지 요소를 하나씩 따로 고른다: 바탕(색 · 그라데이션 · 패턴 또는 사진) · 고무줄 · 제목 · 소제목 · 라벨 · 스티커.
 // 표지를 빼도(enabled = false) 설정은 남겨 두어 다시 켜면 그대로 돌아온다.
 // 예전 다이어리는 color · pattern 만 있으므로 그 값으로 표지를 만든다.
 export const COVER_COLORS = COLORS.map(({ label, value }) => [label, value])
-export const COVER_PATTERNS = [['none', '없음'], ['linen', '린넨'], ['leather', '레더'], ['dot', '도트'], ['gingham', '깅엄'], ['stripe', '스트라이프'], ['check', '체크']]
+export const COVER_PATTERNS = [['none', '없음'], ['linen', '린넨'], ['leather', '레더'], ['dot', '도트'], ['gingham', '깅엄'], ['stripe', '스트라이프'], ['check', '체크'], ['moa', '모아'], ['dio', '디오']]
+// 고르는 칸에서 뺀 무늬. 이미 고른 표지는 그대로 그리고, 그 표지를 고칠 때만 칸에 보인다.
+export const RETIRED_PATTERNS = new Set(['leather'])
+// 캐릭터 무늬: 반복 타일이 아니라 윤곽선 캐릭터 하나를 표지 오른쪽 아래 가장자리에 크게 걸쳐 표지 색 계열로 찍는다(형압처럼).
+export const CHARACTER_PATTERNS = new Set(['moa', 'dio'])
 // 편집기 텍스트 도구와 같은 글씨체 (editor/utils/text.js TEXT_FONTS 의 id)
-export const COVER_FONTS = [['sans', '기본 고딕'], ['serif', '기본 명조'], ['nanum-gothic', '나눔고딕'], ['nanum-myeongjo', '나눔명조'], ['nanum-pen', '나눔손글씨 펜'], ['poor-story', '푸어스토리']]
+// 표지 제목 글씨체는 편집기 텍스트 도구와 같은 목록(앱 글꼴 + 내 폰트)이다. 내 폰트는 목록을 불러오기 전에도 id 모양으로 받아 둔다
+const coverFont = id => (TEXT_FONTS.some(font => font.id === id) || /^personal-[a-f0-9-]{36}$/.test(id ?? '') ? id : 'nanum-gothic')
 export const INK_COLORS = [['흰색', '#FFFFFF'], ['먹색', '#3B3F4A'], ['네이비', '#0B1766'], ['파랑', '#606BB2'], ['빨강', '#C8423F'], ['초록', '#2F6B4F']]
 // 색 견본은 한 줄 6색 + 직접 고르기로 맞춘다
 export const SUBTITLE_COLORS = [['회색', '#9A9DA6'], ...INK_COLORS.slice(0, 5)]
@@ -34,6 +40,10 @@ const LEGACY_GRADIENTS = [
 export const GRADIENT_PICK_FROM = LEGACY_GRADIENTS.length
 /** 예전 프리셋인지: 저장 당시처럼 고른 색만 잇고(물감 섞기 없이) 고르는 칸에는 내지 않는다 */
 export const isLegacyGradient = gradient => Number.isInteger(gradient) && gradient < GRADIENT_PICK_FROM
+// 고르는 칸에서 뺀 새 프리셋(번호는 그대로 둔다): 블루그레이(9번). 이미 고른 표지는 그대로 그린다.
+const RETIRED_GRADIENTS = new Set([9])
+/** 고르는 칸에 내는 그라데이션인지 */
+export const isPickableGradient = gradient => !isLegacyGradient(gradient) && !RETIRED_GRADIENTS.has(gradient)
 // 고르는 프리셋: 하드커버 다이어리 표지 컨셉 — 천(클로스) · 종이 싸개 · 레더처럼 실제 문구점 표지에 있을 법한 차분한 색(코덱스 자문 2026-10-31).
 // 띠지 · 진한 글씨 · 고무줄이 올라가도 읽히는 밝기. 1~4번은 한 색의 농담(위 밝음 → 아래 진함), 5~7번은 서로 다른 두 색이 물감처럼 섞인다.
 // 첫 번째(로즈핑크)가 가장 먼저 보이는 기본 후보.
@@ -43,9 +53,9 @@ export const COVER_GRADIENTS = [
   ['세이지', ['#D4DFC9', '#AEC39D', '#78966F']], // 염색 클로스 같은 녹색
   ['라일락', ['#DDD1E6', '#BCA7CE', '#89719F']],
   ['블루그레이', ['#CEDAE0', '#A5BBC5', '#718F9C']], // 종이 싸개 · 패브릭의 푸른 회색
-  ['피치코랄', ['#F5D2BD', '#ECAFA0', '#D37D78']], // 살구 → 코랄
-  ['민트블루', ['#C9E0D5', '#A8CFC5', '#7EAFB5']], // 민트 → 청록
-  ['버터브릭', ['#F0D8A3', '#D6B16E', '#B8785C']], // 버터 노랑 → 벽돌(빈티지 문구점)
+  ['스트로베리 클라우드', ['#F3A8BB', '#B9C0EE']], // 딸기 → 하늘(색은 코덱스 2026-11-01)
+  ['피치 셔벗', ['#F49D7D', '#F0ABC4']], // 피치 → 핑크
+  ['민트 스카이', ['#70CFBB', '#B0BCEB']], // 민트 → 라벤더
 ]
 // 직접 고르는 그라데이션의 처음 두 색 (위 → 아래)
 export const CUSTOM_GRADIENT = ['#F3D9C2', '#9DB6DA']
@@ -97,10 +107,19 @@ export function defaultCover({ color = DIARY_DEFAULTS.color, pattern = DIARY_DEF
     // 도트 · 깅엄 · 스트라이프는 예전 표지처럼 밝은 무늬로 시작한다.
     enabled: true, kind: 'plain', color, gradient: null, gradientColors: CUSTOM_GRADIENT, pattern: { type: pattern || 'none', tone: ['dot', 'gingham', 'stripe'].includes(pattern) ? 'light' : 'dark' }, photo: null,
     band: { on: true, dir: 'v', pos: 'near', color: 'auto' }, plate: 'ribbon', plateStyle: 'ribbon', ribbon: { color: RIBBON_COLORS[0][1] },
-    title: { useName: true, text: '', font: 'sans', size: 17, color: PLAIN_TITLE, anchor: 'bc', at: null },
-    subtitle: { on: true, text: `DIARY · ${dateMode === 'undated' ? '만년형' : '2026'}`, size: 8, color: '#9A9DA6' },
+    title: { useName: true, text: '', font: 'nanum-gothic', size: 17, color: PLAIN_TITLE, anchor: 'bc', at: null },
+    subtitle: { on: true, text: `DIARY · ${dateMode === 'undated' ? '만년형' : new Date().getFullYear()}`, size: 7, color: '#9A9DA6' }, // 조밀한 서점 라벨 비율(코덱스 2026-11-01)
     stickers: [],
   }
+}
+
+/**
+ * 새 다이어리의 처음 표지: 무늬 없음, 종이 라벨은 왼쪽 가운데.
+ * 예전 다이어리를 읽을 때 쓰는 defaultCover(표지 값이 없던 다이어리는 예전처럼 린넨 · 띠지)와 나눠 둔다.
+ */
+export function newDiaryCover(options) {
+  const base = defaultCover(options)
+  return { ...base, pattern: { type: 'none', tone: 'dark' }, plate: 'paper', plateStyle: 'paper', title: { ...base.title, anchor: 'tl' } }
 }
 
 /** 저장된 다이어리 → 그릴 수 있는 표지. 값이 빠지거나 잘못되면 기본값으로 채운다. */
@@ -126,7 +145,7 @@ export function normalizeCover(diary) {
     ribbon: { color: RIBBON_COLORS.some(([, color]) => color === hex(saved.ribbon?.color)) ? hex(saved.ribbon.color) : base.ribbon.color },
     title: {
       useName: saved.title?.useName !== false, text: typeof saved.title?.text === 'string' ? saved.title.text.slice(0, 24) : '',
-      font: pick(saved.title?.font, COVER_FONTS, 'sans'), size: size(saved.title?.size, TITLE_SIZE, 17),
+      font: coverFont(resolveFontId(saved.title?.font)), size: size(saved.title?.size, TITLE_SIZE, 17),
       color: hex(saved.title?.color, PLAIN_TITLE), anchor: pick(saved.title?.anchor, ANCHORS, base.title.anchor),
       at: Number.isFinite(saved.title?.at?.x) && Number.isFinite(saved.title?.at?.y) ? { x: percent(saved.title.at.x, 0), y: percent(saved.title.at.y, 0) } : null,
     },
@@ -168,6 +187,12 @@ export function changeCoverKind(cover, kind) {
 }
 
 // 두 색을 t(0~1) 비율로 섞는다. 고무줄 색 · 가장자리 선을 만든다.
+/** '#RRGGBB' 의 상대 휘도(WCAG, 0~1) */
+export const relativeLuminance = hex => {
+  const channel = shift => { const v = ((parseInt(hex.slice(1), 16) >> shift) & 255) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
+};
+
 export function mix(from, to, t) {
   const channel = (hex, i) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
   return '#' + [0, 1, 2].map(i => Math.round(channel(from, i) + (channel(to, i) - channel(from, i)) * t).toString(16).padStart(2, '0')).join('').toUpperCase()
@@ -223,6 +248,18 @@ export function coverTone(cover) {
   return coverage ? mix(base, light ? '#FFFFFF' : '#0B1766', coverage) : base
 }
 
+/**
+ * 캐릭터 무늬의 윤곽선 색: 표지 대표색과 같은 색조로 명도만 옮겨 표지에 녹아든 형압처럼 보이게 한다.
+ * 무늬 톤이 '어둡게'면 진하게, '밝게'면 옅게(아주 어두운 표지는 어둡게여도 밝게). 대표색이 없는 사진 표지는 흰색.
+ */
+export function coverLineColor(cover) {
+  const tone = coverTone(cover)
+  if (!tone) return '#FFFFFF'
+  const [h, s, l] = toHsl(tone)
+  const lighter = cover.pattern?.tone === 'light' || l < 0.3
+  return fromHsl(h, Math.min(1, s + 0.05), lighter ? Math.min(1, l + 0.16) : Math.max(0, l - 0.16))
+}
+
 /** 고무줄 색 'auto': 표지 대표색(coverTone)보다 살짝 진하게. 대표색이 없는 사진 표지는 기본 남색. */
 export function bandAutoColor(cover) {
   const tone = coverTone(cover)
@@ -241,7 +278,7 @@ export function coverElementSummary(cover, element) {
   switch (element) {
     case 'base': return cover.kind === 'photo' ? (cover.photo?.src ? '내 사진' : '사진 없음') : `${cover.gradient === 'custom' ? '직접 고른 그라데이션' : cover.gradient != null ? COVER_GRADIENTS[cover.gradient][0] : colorName(COVER_COLORS, cover.color)} · ${label(COVER_PATTERNS, cover.pattern.type)}`
     case 'band': return cover.band.on ? (cover.band.dir === 'v' ? '세로' : '가로') : '꺼짐'
-    case 'text': return `${label(COVER_FONTS, cover.title.font)}${cover.subtitle.on && cover.subtitle.text ? ' · 소제목' : ''}`
+    case 'text': return `${getTextFonts().find(font => font.id === cover.title.font)?.label ?? '내 폰트'}${cover.subtitle.on && cover.subtitle.text ? ' · 소제목' : ''}`
     case 'plate': if (cover.plate === 'none') return '꺼짐'
       return `${cover.plate === 'ribbon' ? `띠지 · ${colorName(RIBBON_COLORS, cover.ribbon.color)}` : label(PLATES, cover.plate)} · ${anchorName(cover)}`
     case 'stickers': return cover.stickers.length ? `${cover.stickers.length}개` : '없음'

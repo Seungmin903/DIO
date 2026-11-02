@@ -38,6 +38,7 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
     if (id.endsWith('/text')) return {loadedFontFamily:()=>family}
     if (id.endsWith('/stickerLibrary')) return {BASE_GROUPS:[{name:'기본 분류'}]}
     if (id.endsWith('/useCustomDecor')) return {useCustomDecor:()=>custom}
+    if (id.endsWith('/loginGate')) return { useLoginGate: () => (_feature, action) => action() } // 로그인한 사용자: 그대로 통과(게스트 안내는 login-gate.test.js)
     if (id.endsWith('/stickerSplit')) return {stickerSplit:{available:supported,reason:'개발 빌드에서 사용할 수 있어요.'}}
     return { __esModule: true, default: id }
   }
@@ -112,10 +113,10 @@ test('폴더 안의 뒤로가기는 목록을 먼저 복원하고 이후 상위 
 });
 const sections = tree => nodes(tree).filter(n => n.type === '../components/StudioSection')
 const confirmOf = tree => nodes(tree).find(n => n.props?.confirmLabel === '삭제')
-test('공방은 내 폰트 · 스티커 · 표지 · 속지 · 프리셋 다섯 종류를 분절 메뉴로 하나씩 열고 폴라로이드 보드는 없다', async () => {
+test('공방은 내 폰트 · 스티커 · 표지 · 속지 · 색상 다섯 종류를 분절 메뉴로 하나씩 열고 폴라로이드 보드는 없다', async () => {
   const ui = fixture(); ui.render(); await tick()
   const tabs = nodes(ui.render()).find(n => n.type === '../components/StudioTabs')
-  assert.deepEqual(tabs.props.tabs.map(t => t.label), ['폰트', '스티커', '표지', '속지', '프리셋'])
+  assert.deepEqual(tabs.props.tabs.map(t => t.label), ['폰트', '스티커', '표지', '속지', '색상'])
   const titles = []
   for (const id of ['fonts', 'stickers', 'covers', 'papers', 'presets']) {
     ui.tab(id)
@@ -127,7 +128,7 @@ test('공방은 내 폰트 · 스티커 · 표지 · 속지 · 프리셋 다섯 
     // 기본 속지 설정(새 다이어리의 처음 값)은 내 속지 구역 안에 있다
     if (id === 'papers') assert.ok(nodes(sections(tree)[0]).some(n => n.type === '../components/StudioPaperStyle'))
   }
-  assert.deepEqual(titles, ['폰트', '스티커', '표지', '속지', '프리셋'])
+  assert.deepEqual(titles, ['폰트', '스티커', '표지', '속지', '색상'])
   ui.unmount()
 })
 test('나의 표지 · 속지는 확인을 거친 뒤에만 지우고 저장에 실패하면 알린다', async () => {

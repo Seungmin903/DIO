@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""DIO 캐릭터 SVG 라이브러리 — 디오(다이어리 친구) · 두리(목도리 친구) · 스티커 · 공통 도형
+"""DIO 캐릭터 SVG 라이브러리 — 모아(다이어리 친구) · 디오(목도리 친구) · 스티커 · 공통 도형
 
-좌표계: 각 캐릭터는 가로 100 단위의 상자 안에 그린다(디오 100×122, 두리 100×150).
+좌표계: 각 캐릭터는 가로 100 단위의 상자 안에 그린다(모아 100×122, 디오 100×150).
 호출부가 translate/scale 로 자리와 크기를 정하고, 선 굵기는 '절대값(px)'을 받아 scale 로 나눠 어느 크기에서도 같은 굵기가 되게 한다.
 그림체 규칙(03·04 문서): 먹선 #242424 · 둥근 끝 · 단색 면 · 점 눈 · 스티커는 흰 테두리(먹선 없음).
 """
@@ -217,13 +217,13 @@ def sticker(kind, x=0, y=0, k=1.0):
     return g(body, x, y, k)
 
 
-# ──────────────────────────────── 디오 (다이어리 친구) ────────────────────────────────
+# ──────────────────────────────── 모아 (다이어리 친구) ────────────────────────────────
 # 상자 100×122. 표지 (10,10)-(84,100). 다리 끝 y≈116.
 
-DIO_ZONES = {"tl": (27, 27), "tr": (68, 26), "bl": (27, 82), "br": (67, 83), "ml": (22, 56), "mr": (72, 56), "c": (47, 70)}
+MOA_ZONES = {"tl": (27, 27), "tr": (68, 26), "bl": (27, 82), "br": (67, 83), "ml": (22, 56), "mr": (72, 56), "c": (47, 70)}
 
 
-def dio_face(mood, lw, cx=47, ey=46):
+def moa_face(mood, lw, cx=47, ey=46):
     """눈 · 입 · 눈썹 · 볼. 표정은 작게 — 감정은 스티커가 말한다."""
     L, R = cx - 11, cx + 11
     s = ""
@@ -272,7 +272,7 @@ def dio_face(mood, lw, cx=47, ey=46):
     return s
 
 
-DIO_STICKERS = {
+MOA_STICKERS = {
     "default": [], "wave": [], "walk": [], "pen": [], "sleep": [],
     "celebrate": [("rainbow", "tl", 1.0), ("star", "tr", 0.95), ("sparkle_pink", "mr", 0.6), ("popper", "br", 1.0), ("confetti", "bl", 0.9), ("sparkle", "ml", 0.55)],
     "happy": [("heart", "tl", 1.05), ("flower", "tr", 1.0), ("sparkle", "bl", 1.0), ("moon", "br", 0.95), ("wave", "c", 0.9)],
@@ -286,8 +286,8 @@ DIO_STICKERS = {
 }
 
 
-def dio(x, y, h, mood="default", color=SOURCE_YELLOW, page=PAPER, lw_abs=4.0, stickers=None, view="front", pose=None, ink=INK, face=True, extra_body=""):
-    """디오 한 마리. h = 상자 높이(122 단위 기준) 의 실제 px. stickers = [(kind, zone|(x,y), k)] 또는 None(=mood 기본)."""
+def moa(x, y, h, mood="default", color=SOURCE_YELLOW, page=PAPER, lw_abs=4.0, stickers=None, view="front", pose=None, ink=INK, face=True, extra_body=""):
+    """모아 한 마리. h = 상자 높이(122 단위 기준) 의 실제 px. stickers = [(kind, zone|(x,y), k)] 또는 None(=mood 기본)."""
     k = h / 122.0
     lw = lw_abs / k
     sa = stroke_attrs(lw, ink)
@@ -347,11 +347,11 @@ def dio(x, y, h, mood="default", color=SOURCE_YELLOW, page=PAPER, lw_abs=4.0, st
         s += f'<path d="M64,86 L76,86" stroke="{ink}" stroke-width="{lw:.2f}" opacity=".5"/>'
     # 얼굴
     if face and view in ("front", "three"):
-        s += dio_face(mood, lw, cx=47 if view == "front" else 50, ey=46)
+        s += moa_face(mood, lw, cx=47 if view == "front" else 50, ey=46)
     # 스티커
     if view in ("front", "three"):
-        for kind, zone, kk in (stickers if stickers is not None else DIO_STICKERS.get(mood, [])):
-            zx, zy = DIO_ZONES[zone] if isinstance(zone, str) else zone
+        for kind, zone, kk in (stickers if stickers is not None else MOA_STICKERS.get(mood, [])):
+            zx, zy = MOA_ZONES[zone] if isinstance(zone, str) else zone
             s += sticker(kind, zx, zy, kk * 0.72)
     # 팔 (몸 앞)
     if view == "front":
@@ -371,7 +371,7 @@ def dio(x, y, h, mood="default", color=SOURCE_YELLOW, page=PAPER, lw_abs=4.0, st
     return g(s, x, y, k)
 
 
-# ──────────────────────────────── 두리 (목도리 친구) ────────────────────────────────
+# ──────────────────────────────── 디오 (목도리 친구) ────────────────────────────────
 # 상자 100×150. 머리 (20,10)-(80,66). 목도리 y 58~76. 코트 76~132. 발 끝 ≈146.
 
 HEAD_PATH = "M14,56 C14,24 30,12 50,12 C70,12 86,24 86,56 C86,62 82,66 76,66 L24,66 C18,66 14,62 14,56 Z"
@@ -390,7 +390,7 @@ def stripes(clip_id, color, lw, x0=0, y0=40, x1=100, y1=130, gap=8.5, angle=-55)
 _uid = [0]
 
 
-def duri_face(mood, lw, cx=50, ey=44, lift=0):
+def dio_face(mood, lw, cx=50, ey=44, lift=0):
     """눈만으로 말한다. 입은 목도리 속."""
     L, R = cx - 9.5, cx + 9.5
     sa = stroke_attrs(lw)
@@ -409,7 +409,7 @@ def duri_face(mood, lw, cx=50, ey=44, lift=0):
     elif mood == "sad":
         s += f'<path d="M{L - 5},{ey - 4} L{L + 3},{ey - 7} M{R + 5},{ey - 4} L{R - 3},{ey - 7}" fill="none" {sa}/>'
         s += f'<ellipse cx="{L}" cy="{ey + 1}" rx="2.4" ry="3.2" fill="{INK}"/><ellipse cx="{R}" cy="{ey + 1}" rx="2.4" ry="3.2" fill="{INK}"/>'
-    elif mood == "look":  # 곁눈질 (디오 쪽을 본다)
+    elif mood == "look":  # 곁눈질 (모아 쪽을 본다)
         s += f'<ellipse cx="{L + 2}" cy="{ey}" rx="2.6" ry="3.6" fill="{INK}"/><ellipse cx="{R + 2}" cy="{ey}" rx="2.6" ry="3.6" fill="{INK}"/>'
     elif mood == "wink":
         s += f'<ellipse cx="{L}" cy="{ey}" rx="2.6" ry="3.6" fill="{INK}"/><path d="M{R - 4.5},{ey + 1} Q{R},{ey - 5} {R + 4.5},{ey + 1}" fill="none" {sa}/>'
@@ -418,8 +418,8 @@ def duri_face(mood, lw, cx=50, ey=44, lift=0):
     return s
 
 
-def duri(x, y, h, mood="default", head=WHITE, coat=PRIMARY, scarf=ACCENT, stripe=SOFT, lw_abs=4.0, view="front", pose=None, ink=INK, scarf_up=False, tail="down", extra_body=""):
-    """두리 한 마리. h = 상자 높이(150) 의 실제 px. tail: down · fly(바람) · back · none."""
+def dio(x, y, h, mood="default", head=WHITE, coat=PRIMARY, scarf=ACCENT, stripe=SOFT, lw_abs=4.0, view="front", pose=None, ink=INK, scarf_up=False, tail="down", extra_body=""):
+    """디오 한 마리. h = 상자 높이(150) 의 실제 px. tail: down · fly(바람) · back · none."""
     k = h / 150.0
     lw = lw_abs / k
     sa = stroke_attrs(lw, ink)
@@ -461,7 +461,7 @@ def duri(x, y, h, mood="default", head=WHITE, coat=PRIMARY, scarf=ACCENT, stripe
     else:
         s += f'<path d="{HEAD_PATH}" fill="{head}" {sa}/>'
         if not scarf_up:
-            s += duri_face(mood, lw, cx=50 if view == "front" else 54)
+            s += dio_face(mood, lw, cx=50 if view == "front" else 54)
     # 목도리 꼬리 (띠 아래에서 나온다)
     if tail == "down" and view != "back":
         tp = "M24,72 C12,84 4,98 10,112 C13,119 24,117 26,109 C28,98 32,86 40,76 Z"
@@ -487,7 +487,7 @@ def duri(x, y, h, mood="default", head=WHITE, coat=PRIMARY, scarf=ACCENT, stripe
     s += f'<path d="{band}" fill="{scarf}"/>' + stripes(cid + "b", stripe, 2.6, 0, by - 10, 100, by + bh + 10) + f'<path d="{band}" fill="none" {sa}/>'
     if scarf_up and view == "front":
         # 눈만 빼꼼
-        s += duri_face(mood, lw, cx=50, ey=42)
+        s += dio_face(mood, lw, cx=50, ey=42)
     # 앞 팔
     s += extra_body
     return g(s, x, y, k)

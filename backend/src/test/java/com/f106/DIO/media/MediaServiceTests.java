@@ -57,6 +57,68 @@ class MediaServiceTests {
 	}
 
 	@Test
+	void pdfSourceIsStoredAsADocumentWhenItsHeaderAppearsWithinTheFirstKilobyte() {
+		stubPersist();
+		byte[] source = new byte[512];
+		System.arraycopy("%PDF-1.7".getBytes(), 0, source, 500, 8);
+		var pdf = service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", source), null, 7L);
+
+		assertThat(pdf.mediaType()).isEqualTo("DOCUMENT");
+		assertThat(pdf.libraryCategory()).isEqualTo("DOCUMENT");
+		verify(storage).put(startsWith("media/document/"), any(), eq("application/pdf"));
+	}
+
+	@Test
+	void rejectsFilesWithoutAPdfHeaderInTheFirstKilobyte() {
+		byte[] source = new byte[1030];
+		System.arraycopy("%PDF-1.7".getBytes(), 0, source, 1022, 8);
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", source), null, 7L))
+			.isInstanceOf(MediaRequestException.class)
+			.isInstanceOfSatisfying(MediaRequestException.class, error -> assertThat(error.code()).isEqualTo("INVALID_MEDIA_FILE"));
+	}
+
+	@Test
+	void doesNotGrantThePdfSizeLimitToAnImageWithAnEmbeddedPdfMarker() {
+		byte[] forged = new byte[6 * 1024 * 1024];
+		forged[0] = (byte) 0xFF; forged[1] = (byte) 0xD8; forged[2] = (byte) 0xFF;
+		System.arraycopy("%PDF-1.7".getBytes(), 0, forged, 100, 8);
+
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "forged.pdf", "application/pdf", forged), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, error -> {
+				assertThat(error.status().value()).isEqualTo(413);
+				assertThat(error.getMessage()).contains("5MiB");
+			});
+	}
+
+	@Test
+	void documentsUseTheirOwnSizeLimit() {
+		stubPersist();
+		byte[] medium = new byte[6 * 1024 * 1024]; System.arraycopy("%PDF-1.7".getBytes(), 0, medium, 0, 8);
+		assertThat(service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", medium), null, 7L).mediaType()).isEqualTo("DOCUMENT");
+
+		byte[] large = new byte[25 * 1024 * 1024 + 1]; System.arraycopy("%PDF-1.7".getBytes(), 0, large, 0, 8);
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "layout.pdf", "application/pdf", large), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, e -> { assertThat(e.status().value()).isEqualTo(413); assertThat(e.getMessage()).contains("PDF 원본").contains("25MiB"); });
+
+		// 문서 이름을 붙인 큰 이미지는 판별 후 이미지 한도를 그대로 적용한다.
+		byte[] jpeg = new byte[6 * 1024 * 1024]; jpeg[0]=(byte)0xff; jpeg[1]=(byte)0xd8; jpeg[2]=(byte)0xff;
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "photo.pdf", "application/pdf", jpeg), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, e -> assertThat(e.getMessage()).contains("5MiB"));
+	}
+
+	@Test
+	void documentDownloadsFallBackToATypedFileName() {
+		java.util.UUID id = java.util.UUID.randomUUID();
+		when(transactions.storageReference(id, 7L)).thenReturn(new MediaFileTransactionService.StorageReference("application/pdf", null, "key"));
+		when(storage.read("key")).thenReturn("%PDF-1.7".getBytes());
+		assertThat(service.file(id, 7L).downloadName()).isEqualTo("document.pdf");
+
+		when(transactions.storageReference(id, 7L)).thenReturn(new MediaFileTransactionService.StorageReference("image/png", " ", "key"));
+		assertThat(service.file(id, 7L).downloadName()).isNull();
+
+	}
+
+	@Test
 	void rejectsAudioInAnImageCategory() {
 		byte[] wav = new byte[] {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E'};
 
@@ -193,7 +255,7 @@ class MediaServiceTests {
 	@Test
 	void checksTheExistingNonFontSizeLimitBeforeReadingTheWholeFile() {
 		byte[] bytes=new byte[5*1024*1024+1]; bytes[0]=(byte)0xff;bytes[1]=(byte)0xd8;bytes[2]=(byte)0xff;
-		var stream=new java.io.ByteArrayInputStream(bytes) { int total; @Override public synchronized int read(byte[] b,int off,int len) { int n=super.read(b,off,len); if(n>0) {total+=n; if(total>12) throw new AssertionError("read beyond header");} return n; } };
+		var stream=new java.io.ByteArrayInputStream(bytes) { int total; @Override public synchronized int read(byte[] b,int off,int len) { int n=super.read(b,off,len); if(n>0) {total+=n; if(total>1024) throw new AssertionError("read beyond the PDF detection header");} return n; } };
 		var file=mock(org.springframework.web.multipart.MultipartFile.class);
 		try { when(file.isEmpty()).thenReturn(false);when(file.getSize()).thenReturn((long)bytes.length);when(file.getInputStream()).thenReturn(stream); }
 		catch(java.io.IOException e) { throw new AssertionError(e); }
@@ -205,6 +267,26 @@ class MediaServiceTests {
 		for(int i=0;i<tags.length;i++){int pos=12+i*16;byte[] tag=tags[i].getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);System.arraycopy(tag,0,data,pos,4);java.nio.ByteBuffer.wrap(data).putInt(pos+8,end+i).putInt(pos+12,1);data[end+i]=1;}
 		return data;
 	}
+	@Test
+	void aiStickerIsStoredAsStickerWithAiResultSource() {
+		byte[] png = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 0};
+		stubPersist();
+
+		var response = service.storeAiSticker(png, 7L);
+
+		assertThat(response.sourceType()).isEqualTo("AI_RESULT");
+		assertThat(response.libraryCategory()).isEqualTo("STICKER");
+		assertThat(response.mimeType()).isEqualTo("image/png");
+		assertThat(response.originalFilename()).isNull();
+		verify(storage).put(startsWith("media/image/"), any(), eq("image/png"));
+	}
+
+	@Test
+	void aiStickerRejectsNonImageBytes() {
+		assertThatThrownBy(() -> service.storeAiSticker(new byte[] {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E'}, 7L))
+			.isInstanceOf(MediaRequestException.class);
+	}
+
 	private void stubPersist() {
 		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
 			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));

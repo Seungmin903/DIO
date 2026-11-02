@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { stickerSplit } from '../services/stickerSplit'
-import { editHistory, moveHistory, splitGroups, linkSelection, sortedStickerGroups } from '../utils/stickerSplitGroups.js'
+import { editHistory, moveHistory, splitGroups, linkSelection, sortedStickerGroups, splitBrushTargets } from '../utils/stickerSplitGroups.js'
 import { splitError } from '../utils/stickerSplit.js'
 
 const empty = () => ({ selected: [], distance: 0, links: [], separated: [] })
@@ -62,9 +62,16 @@ export default function useStickerSplitEditing(parts, source, crop, jobIds) {
     },
     splitSelected(ids) {
       const value = current.current.present, active = new Set(value.selected)
-      const members = new Set(ids.filter(id => active.has(id)))
-      if (members.size < 2) return
-      update({ links: value.links.map(link => link.filter(id => !members.has(id))).filter(link => link.length > 1),
+      const members = new Set(splitBrushTargets(committed.current.groups, ids).filter(id => active.has(id)))
+      if (!members.size) return
+      let links = value.links.map(link => link.filter(id => !members.has(id))).filter(link => link.length > 1)
+      // Keep the rest together even when the touched member was the distance bridge.
+      for (const group of committed.current.groups) {
+        if (!group.members.some(part => members.has(part.id))) continue
+        const remaining = group.members.filter(part => !members.has(part.id)).map(part => part.id)
+        if (remaining.length > 1) links = linkSelection(links, remaining)
+      }
+      update({ links,
         separated: [...new Set([...value.separated, ...members])] })
     },
     undo() { setDraft(null); setHistory(value => moveHistory(value)) }, redo() { setDraft(null); setHistory(value => moveHistory(value, true)) },

@@ -75,6 +75,6 @@ function cover(d, w, { lift = 0, gray = false, rot = 0, actions = false, check =
 }
 
 // ---------- 캐릭터 · 스티커 (최종 시안 벡터 · 편집기 스티커 그대로) ----------
-const CHAR = (name = '디오', w = 80, style = '') => `<img class="char" src="소재/${name} 최종.svg" style="width:${w}px;${style}" draggable="false">`
+const CHAR = (name = '모아', w = 80, style = '') => `<img class="char" src="소재/${name} 최종.svg" style="width:${w}px;${style}" draggable="false">`
 const STK = (name, w = 40, rot = 0, style = '') => `<img class="stk" src="소재/${name}.png" style="width:${w}px;transform:rotate(${rot}deg);${style}" draggable="false">`
 const PROP = (name, w, rot = 0, style = '') => `<img class="prop" src="에셋/${name}.png" style="width:${w}px;transform:rotate(${rot}deg);${style}" draggable="false">`

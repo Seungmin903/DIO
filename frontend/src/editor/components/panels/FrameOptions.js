@@ -69,6 +69,7 @@ export default function FrameOptions({ photo, dispatch, onReplaceCell, onCropCel
             unit="%"
             label="모서리 둥글기"
             onStart={() => dispatch({ type: 'checkpoint' })}
+            onEnd={() => dispatch({ type: 'commitCheckpoint' })}
             onChange={(value) =>
               dispatch({ type: 'updateObject', id: photo.id, record: false, patch: { radius: Math.round(value * 100) / 100 } })
             }
@@ -84,6 +85,7 @@ export default function FrameOptions({ photo, dispatch, onReplaceCell, onCropCel
             label="틀 색상"
             value={frameColorOf(photo)}
             onStart={() => dispatch({ type: 'checkpoint' })}
+            onEnd={() => dispatch({ type: 'commitCheckpoint' })}
             onChange={(value) => dispatch({ type: 'updateObject', id: photo.id, record: false, patch: { frameColor: value } })}
           />
         </>
@@ -170,6 +172,7 @@ function FrameTextOptions({ photo, dispatch }) {
             <PenSafeTextInput
               value={text[field.key] ?? ''}
               onFocus={() => dispatch({ type: 'checkpoint' })}
+              onBlur={() => dispatch({ type: 'commitCheckpoint' })}
               onChangeText={(value) =>
                 dispatch({ type: 'updateObject', id: photo.id, record: false, patch: { frameText: { ...photo.frameText, [field.key]: value } } })
               }

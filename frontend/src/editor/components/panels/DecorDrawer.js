@@ -21,15 +21,18 @@ import TapeCropper from './TapeCropper'
 import TapeOptions from './TapeOptions'
 import TapeView from '../canvas/TapeView'
 import PhotoFramePicker from './PhotoFramePicker'
+import { WIDGET_ITEMS } from '../../widgets/dday'
+import { MEMO_ITEMS } from '../../widgets/memo'
 import StickerSplitModal from './StickerSplitModal'
 import StickerCutoutModal from './StickerCutoutModal'
 import DecorSaveNotice from './DecorSaveNotice'
 import { stickerSplit } from '../../services/stickerSplit'
+import { useLoginGate } from '../../../auth/loginGate'
 
 export const DRAWER_TABS = [
   { id: 'sticker', name: '스티커', icon: 'sticker' },
+  { id: 'widget', name: '위젯', icon: 'widget' },
   { id: 'tape', name: '마스킹테이프', icon: 'tape' },
-  { id: 'photo', name: '사진', icon: 'image' },
 ]
 
 // 보관함 미리보기 테이프 크기 (실제 테이프 기본 크기 180×34 와 같은 비율)
@@ -40,6 +43,15 @@ const tapePreviewHeight = (sizeId) => {
 }
 const TAPE_PREVIEW = { width: 236, height: 44 }
 
+// 위젯 칸의 칩: 기능 하나에 칩 하나, 모양 차이는 칩 안의 칸으로 고른다
+const WIDGET_CHIPS = [
+  { id: 'memo', name: '메모', items: MEMO_ITEMS },
+  { id: 'dday', name: '디데이', items: WIDGET_ITEMS.map((item) => ({ kind: 'sticker', ...item })) },
+  // 사진을 담는 빈 틀(폴라로이드 · 티켓 · 네컷). 누르면 빈 틀이 붙고 캔버스의 + 로 사진을 채운다.
+  { id: 'frame', name: '사진 틀', groups: PHOTO_FRAME_GROUPS },
+]
+let rememberedWidgetChip = WIDGET_CHIPS[0].id
+
 // 보관함 크기: 왼쪽 아래 손잡이로 넓히고 늘린다. 닫았다 열어도 유지되도록 모듈에 기억해 둔다.
 const SIZE_LIMITS = { minWidth: 280, maxWidth: 640, minHeight: 260 }
 const TILE_MIN_PX = 72 // 스티커 칸 64 + 칸 간격 8 (코덱스 17번)
@@ -48,13 +60,14 @@ let rememberedSize = { width: 320, height: null }
 const ColumnsContext = createContext(4)
 
 /**
- * 스티커·테이프·사진 보관함. 항목을 누르면 페이지 가운데에 붙는다.
+ * 스티커·위젯·테이프 보관함. 항목을 누르면 페이지 가운데에 붙는다. (사진 버튼은 보관함 없이 바로 앨범을 연다)
  * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다.
  * 사진: 불러오면 틀 없이 붙고, 사진 틀을 누르면 빈 틀이 붙는다(캔버스의 + 로 채운다). 붙인 뒤 틀은 옵션 창의 같은 목록에서 바꾼다.
  */
-export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, onToast, onClose, onPanelWidth }) {
+export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClose, onPanelWidth }) {
   const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]
   const custom = useCustomDecor()
+  const loginGate = useLoginGate()
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')
   // 보관함을 닫거나 앱을 다시 열어도 마지막 스티커 칩을 복원한다.
@@ -65,19 +78,22 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
   const [folderDraft, setFolderDraft] = useState(null) // 새 폴더·이름 바꾸기 입력 { id?, name }
   const [splitTarget, setSplitTarget] = useState(null)
   const [cutoutFolder, setCutoutFolder] = useState(null)
-  // 새 테이프의 색·규격·무늬만 기기별로 기억한다. 기존 캔버스 요소는 수정하지 않는다.
+  const [widgetChip, setWidgetChip] = useState(rememberedWidgetChip)
+  const widgetGroup = WIDGET_CHIPS.find((chip) => chip.id === widgetChip) ?? WIDGET_CHIPS[0]
+  // 새 테이프의 색·무늬만 기기별로 기억한다. 기존 캔버스 요소는 수정하지 않는다.
+  // 테이프는 늘 기본 폭으로 붙고, 붙인 뒤 위아래 손잡이로 폭을 바꾼다.
   const [tapePreferences, updateTapePreferences, tapePreferencesReady] = useTapePreferences()
-  const tapeSize = TAPE_SIZES.find(item => item.id === tapePreferences.size)
+  const tapeSize = TAPE_SIZES[1]
   const tapeDraft = { ...tapePreferences, x: 0, y: 0, w: tapeSize.w, h: tapeSize.h, edge: 'straight' }
   // 직접 넣은 것(내 테이프·폴더 스티커·폴더)을 지우기 전에 한 번 묻는다. { title, message, action }
   const [confirm, setConfirm] = useState(null)
   const ask = (title, message, action) => setConfirm({ title, message, action })
 
-  // 테이프 넣기: 보관함에는 넣을 때 정하는 것(규격·색상·무늬)만 둔다. 규격·색을 골라 두고 무늬를 고르면 붙인다.
+  // 테이프 넣기: 보관함에는 넣을 때 정하는 것(색상·무늬)만 둔다. 색을 골라 두고 무늬를 고르면 붙인다.
   // 붙이면 보관함이 닫힌다(onTapeInserted). 붙인 뒤에 바꾸는 옵션(불투명도·끝선 등)은 선택 바의 옵션 창에서 고친다.
   function updateTape(patch) {
     const next = { ...tapeDraft, ...patch }
-    const settings = Object.fromEntries(['size', 'palette', 'pattern'].filter(key => Object.hasOwn(patch, key)).map(key => [key, patch[key]]))
+    const settings = Object.fromEntries(['palette', 'pattern'].filter(key => Object.hasOwn(patch, key)).map(key => [key, patch[key]]))
     // 색을 고르지 않고 무늬로 삽입하면 실제 사용한 기본색도 기억한다.
     if (patch.pattern && !next.palette) settings.palette = TAPE_DEFAULT.palette
     updateTapePreferences(settings).then(saved => {
@@ -88,7 +104,6 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
     }
     onAdd({
       kind: 'tape',
-      size: next.size,
       pattern: next.pattern,
       palette: next.palette ?? TAPE_DEFAULT.palette,
       edge: next.edge,
@@ -124,7 +139,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
   }
   const keyword = query.trim()
   // 분류 칩: 즐겨찾기·최근(있을 때) + 기본 분류와 내 폴더(사용자가 정한 순서, 숨긴 기본 분류는 빼고)
-  const { favorites, recents, favoriteKeys, orderable, sorted, hidden, chips, active, folder, groups, folderMatches } = stickerLibrary(custom.items, category, keyword)
+  const { favorites, recents, favoriteKeys, orderable, sorted, hidden, chips, active, folder, folderMatches } = stickerLibrary(custom.items, category, keyword)
   // 길게 누르면 즐겨찾기에 넣고 뺀다
   const toggleFavorite = (item) => {
     const has = favoriteKeys.has(stickerKey(item))
@@ -227,7 +242,7 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
             <PenSafeTextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="스티커 검색 (예: 하트, 고양이)"
+              placeholder="스티커 검색"
               placeholderTextColor={colors.textMuted}
               style={styles.searchInput}
               accessibilityLabel="스티커 검색"
@@ -283,6 +298,23 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
           )}
         </View>
       )}
+      {tab === 'widget' && (
+        <View style={styles.fixed}>
+          <ChipScroller style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
+            {WIDGET_CHIPS.map((chip) => (
+              <Pill
+                key={chip.id}
+                label={chip.name}
+                active={widgetGroup.id === chip.id}
+                onPress={() => {
+                  rememberedWidgetChip = chip.id
+                  setWidgetChip(chip.id)
+                }}
+              />
+            ))}
+          </ChipScroller>
+        </View>
+      )}
 
       <ColumnsContext.Provider value={columns}>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.body} scrollEnabled={!listDragging}>
@@ -329,8 +361,8 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
                   key={folder.id}
                   folder={folder}
                   busy={busy || !custom.loaded}
-                  onSplit={() => setSplitTarget({ folder, name: '' })}
-                  onCutout={() => setCutoutFolder(folder)}
+                  onSplit={() => loginGate('스티커 시트 분리', () => setSplitTarget({ folder, name: '' }))}
+                  onCutout={() => loginGate('사진 속 대상 오리기', () => setCutoutFolder(folder))}
                   splitAvailable={stickerSplit.available}
                   splitReason={stickerSplit.reason}
                   tileProps={tileProps}
@@ -361,21 +393,25 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
                   </View>
                 </Section>
               )}
-              {keyword && !groups.length && !folderMatches.length && (
+              {keyword && !folderMatches.length && (
                 <Text style={styles.empty}>'{keyword}'에 맞는 스티커가 없어요.</Text>
               )}
-              {!editingList && groups.map((group) => (
-                <Section key={group.id} title={group.title} badge={group.badge}>
-                  <View style={styles.grid}>
-                    {group.items.map((sticker) => (
-                      <Tile key={stickerKey(sticker)} {...tileProps(sticker)}>
-                        <StickerThumb item={sticker} />
-                      </Tile>
-                    ))}
-                  </View>
-                </Section>
-              ))}
             </>
+          )}
+
+          {tab === 'widget' && widgetGroup.groups?.map((group) => (
+            <Section key={group.id} title={group.name}>
+              <PhotoFramePicker group={group.id} onSelect={(frame) => onAdd({ kind: 'frame', frame: frame.id })} />
+            </Section>
+          ))}
+          {tab === 'widget' && widgetGroup.items && (
+            <View style={styles.grid}>
+              {widgetGroup.items.map((item) => (
+                <Tile key={item.memo ?? item.style} label={item.name} onPress={() => onAdd(item)}>
+                  <StickerThumb item={item} />
+                </Tile>
+              ))}
+            </View>
           )}
 
           {tab === 'tape' && (
@@ -416,32 +452,6 @@ export default function DecorDrawer({ tab, onAdd, onAddPhotos, onTapeInserted, o
             </>
           )}
 
-          {tab === 'photo' && (
-            <>
-              <Pressable
-                onPress={async () => {
-                  if (busy) return
-                  setBusy(true)
-                  try { await onAddPhotos() } finally { setBusy(false) }
-                }}
-                disabled={busy}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: busy, busy }}
-                style={({ pressed }) => [styles.upload, pressed && styles.pressed]}
-              >
-                <View style={styles.uploadIcon}>
-                  <Icon name="image" size={24} color={colors.primary} />
-                </View>
-                <Text style={styles.uploadTitle}>{busy ? '원본을 저장하고 있어요…' : '사진 · GIF 불러오기'}</Text>
-              </Pressable>
-              {/* 누르면 빈 틀이 붙는다 (오프라인 에셋 '④ 사진 틀'). 사진 틀 · 티켓 · 네컷으로 묶는다 */}
-              {PHOTO_FRAME_GROUPS.map((group) => (
-                <Section key={group.id} title={group.name}>
-                  <PhotoFramePicker group={group.id} onSelect={(frame) => onAdd({ kind: 'frame', frame: frame.id })} />
-                </Section>
-              ))}
-            </>
-          )}
         </ScrollView>
       </ColumnsContext.Provider>
       <ConfirmDialog
@@ -1076,25 +1086,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textMuted,
   },
-  upload: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: 4,
-    height: 96, // 코덱스 24번: 불러오기 영역 288×96 (패널 안쪽 폭)
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    backgroundColor: colors.surface,
-  },
-  uploadIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-  },
-  uploadTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
 })

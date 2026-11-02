@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../../shared/theme'
-import { TAPE_EDGES, TAPE_PALETTES, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
-import { resizeAroundCenter, tapeSizeOf } from '../../utils/objects'
+import { TAPE_EDGES, TAPE_PALETTES, TAPE_PATTERN_NAMES } from '../../constants'
+import { tapeSizeOf } from '../../utils/objects'
 import TapeView, { tapeLook } from '../canvas/TapeView'
 import MyColorPresets from '../controls/MyColorPresets'
 import { tapeColors, usePalette } from '../../hooks/usePalettes'
@@ -43,15 +43,9 @@ export default function TapeOptions({ tape, dispatch, onUpdate, draft = false })
     if (colorSlot === 'bg') update({ palette: `custom:${hex}:${isCustom ? look.fg : deeper(hex)}` })
     else update({ palette: `custom:${look.bg}:${hex}` })
   }
-  const currentSize = tapeSizeOf(tape).id
-  // 무늬 미리보기 높이: 고른 규격의 실제 폭:길이 비율대로 (슬림은 가늘게, 와이드는 두껍게)
+  // 무늬 미리보기 높이: 기본 폭의 실제 폭:길이 비율대로
   const sizeInfo = tapeSizeOf(tape)
   const previewH = Math.max(5, Math.round((PREVIEW_W * sizeInfo.h) / sizeInfo.w))
-
-  function changeSize(size) {
-    // 길이는 그대로 두고 폭(높이)만 그 규격으로
-    update({ size: size.id, ...resizeAroundCenter(tape, tape.w, size.h) })
-  }
 
   return (
     <>
@@ -76,25 +70,6 @@ export default function TapeOptions({ tape, dispatch, onUpdate, draft = false })
           })}
         </View>
       </Section>
-      )}
-
-      {draft && !isImage && (
-        <Section title="테이프 규격">
-          <View style={styles.segment}>
-            {TAPE_SIZES.map((size) => (
-              <Pressable
-                key={size.id}
-                onPress={() => changeSize(size)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: currentSize === size.id }}
-                style={[styles.segmentItem, currentSize === size.id && styles.segmentActive]}
-              >
-                <Text style={[styles.segmentText, currentSize === size.id && styles.segmentTextActive]}>{size.name}</Text>
-                <Text style={styles.segmentHint}>{size.hint}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </Section>
       )}
 
       {draft && !isImage && (
@@ -205,7 +180,6 @@ const styles = StyleSheet.create({
   segmentActive: { borderColor: colors.primaryStrong, borderWidth: 2 },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
   segmentTextActive: { color: colors.text, fontWeight: '800' },
-  segmentHint: { fontSize: 10, color: colors.textMuted },
   // 한 줄 3칸·5칸이 좌우 여백 없이 꽉 차게 나눈다
   // 코덱스 22번: 무늬는 2열, 카드 128×72 (미리보기 96 폭)
   patterns: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8 },

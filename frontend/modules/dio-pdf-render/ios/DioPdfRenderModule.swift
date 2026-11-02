@@ -48,6 +48,37 @@ public class DioPdfRenderModule: Module {
       return ["uri": file.absoluteString, "width": Int(size.width), "height": Int(size.height)]
     }
 
+    // 쪽의 한 영역(쪽 전체 대비 0~1 비율)만 outWidth × outHeight 픽셀로 그려 JPEG 로 저장한다. 확대했을 때 보이는 곳만 원본에서 선명하게 다시 그리는 데 쓴다.
+    AsyncFunction("renderRegion") { (uri: String, index: Int, left: Double, top: Double, width: Double, height: Double, outWidth: Int, outHeight: Int) -> [String: Any] in
+      guard outWidth >= 16, outWidth <= 4096, outHeight >= 16, outHeight <= 4096 else { throw self.fail("INVALID_SIZE") }
+      guard left >= 0, top >= 0, width > 0, height > 0, left + width <= 1.0001, top + height <= 1.0001 else { throw self.fail("INVALID_REGION") }
+      let document = try self.document(uri)
+      guard index >= 0, index < document.pageCount, let page = document.page(at: index), let pdfPage = page.pageRef else { throw self.fail("INVALID_PAGE") }
+      // 쪽 전체를 이 크기로 그렸을 때의 가상 크기. 영역은 여기서 잘라 낸다.
+      let fullWidth = CGFloat(outWidth) / CGFloat(width)
+      let fullHeight = CGFloat(outHeight) / CGFloat(height)
+      let size = CGSize(width: outWidth, height: outHeight)
+      let format = UIGraphicsImageRendererFormat()
+      format.scale = 1
+      format.opaque = true
+      let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+        UIColor.white.setFill()
+        context.fill(CGRect(origin: .zero, size: size))
+        let cg = context.cgContext
+        cg.translateBy(x: 0, y: size.height)
+        cg.scaleBy(x: 1, y: -1)
+        // 뒤집힌(위쪽이 +y) 좌표에서 영역의 왼쪽 아래가 원점에 오도록 옮긴다.
+        cg.translateBy(x: -CGFloat(left) * fullWidth, y: -(1 - CGFloat(top) - CGFloat(height)) * fullHeight)
+        cg.concatenate(pdfPage.getDrawingTransform(.cropBox, rect: CGRect(x: 0, y: 0, width: fullWidth, height: fullHeight), rotate: 0, preserveAspectRatio: true))
+        cg.drawPDFPage(pdfPage)
+      }
+      guard let data = image.jpegData(compressionQuality: 0.95) else { throw self.fail("INTERNAL_ERROR") }
+      try FileManager.default.createDirectory(at: self.cacheDirectory, withIntermediateDirectories: true)
+      let file = self.cacheDirectory.appendingPathComponent("\(UUID().uuidString).jpg")
+      try data.write(to: file)
+      return ["uri": file.absoluteString, "width": outWidth, "height": outHeight]
+    }
+
     AsyncFunction("cleanup") { () -> Void in try? FileManager.default.removeItem(at: self.cacheDirectory) }
   }
 }

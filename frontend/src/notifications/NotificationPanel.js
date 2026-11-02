@@ -46,6 +46,17 @@ export default function NotificationPanel({ model, onInvitationReady }) {
   const locked = mutation.status === 'saving' || mutation.canRetry || accessBlocked;
   const mutationNotice = notificationErrorNotice(mutation.error);
   const detail = invitation.data;
+  // 초대 확인: 지금 상태를 확인하고 열 수 있으면 곧장 수락 화면(공유 창 초대 화면)으로 간다. 안쪽 카드는 열 수 없거나 확인에 실패했을 때만 남는다
+  const inspect = async row => {
+    const work = store.open(row);
+    if (!work) return;
+    try { await work; } catch { return; }
+    if (onInvitationReady) await store.proceedToInvitation(value => {
+      if (value.inviteId !== row.inviteId) return;
+      store.closeInvitation();
+      onInvitationReady(value);
+    });
+  };
   return <ScrollView testID="notification-panel" style={s.scroller} contentContainerStyle={s.content} accessibilityState={{ busy: list.status === 'loading' }} aria-busy={list.status === 'loading'}>
     <Text accessibilityRole="header" style={s.title}>받은 알림</Text>
     <View style={s.row}>
@@ -66,7 +77,7 @@ export default function NotificationPanel({ model, onInvitationReady }) {
       <Text style={s.title}>{presentation.title}</Text>
       <Text style={s.text}>{presentation.message} · {row.readAt ? '읽음' : '안 읽음'}{presentation.invitation ? ` · ${invitationStatusLabel(row.status)}` : ''}</Text>
       <View style={s.row}>
-        {presentation.canInspectInvitation ? <NotificationButton label={`초대 확인 ${row.id}`} disabled={locked} onPress={() => store.open(row)} />
+        {presentation.canInspectInvitation ? <NotificationButton label={`초대 확인 ${row.id}`} disabled={locked} onPress={() => inspect(row)} />
           : !row.readAt && <NotificationButton label={`알림 읽음 ${row.id}`} disabled={locked} onPress={() => store.open(row)} />}
         <NotificationButton label={`알림 삭제 ${row.id}`} disabled={locked} onPress={() => store.remove(row.id)} />
       </View>

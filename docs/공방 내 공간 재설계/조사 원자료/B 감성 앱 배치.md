@@ -89,7 +89,7 @@
 | 6 | **미리보기 + 견본 칩으로 시작하는 설정** (미리보기 카드 + 색 견본 + 옵션 둘) | Structured https://screensdesign.com/apps/structured-daily-planner/ , Duolingo 아바타 꾸미기 | 속지 기본 글꼴 · 색, 책상 조명: 글자 설명 대신 속지/책상 작은 미리보기 + 칩 | 확인 |
 | 7 | **허브 한 페이지 + 내용은 위계로**: 위에 큰 개인화 요소, 아래 작은 목록 (Journey, Games 프로필) | Headspace https://goodux.appcues.com/blog/headspaces-redesign-is-a-beautiful-expansion-of-the-core-product , Apple Games https://www.macrumors.com/guide/ios-26-games-app | 내 공간: 프로필은 오른쪽 위 아바타에서 열려도 되고, 지금 탭이면 상단을 큰 정체성 영역으로 | 확인(약) |
 | 8 | **눌리는 입체 버튼 = 아래 테두리 4px 짙은 색 + 눌리면 내려앉기**, 반경 16 | Duolingo(2차 역공학) https://blakecrosley.com/guides/design/duolingo | 로그인 · 만들기 같은 주 버튼 한두 개만. 나머지는 틴트 알약. 단 DIO UI 색 규칙(UI HUE 계열)에 맞춘 색 선택은 코덱스 | 2차 |
-| 9 | **그래픽은 한 화면에 하나, 아이콘 24–40px, 의미 없는 장식 금지**; 문구는 해요체 · 긍정형 · "취소" 대신 "닫기" | Toss https://developers-apps-in-toss.toss.im/landing-page/landing-page-en/design/consumer-ux-guide | 두 화면 공통 가드레일: 구역마다 아이콘 타일을 다는 대신 화면당 일러스트 한 점(내 공간 = 디오 캐릭터 한 컷, 공방 = 도구 상자 한 점) | 확인 |
+| 9 | **그래픽은 한 화면에 하나, 아이콘 24–40px, 의미 없는 장식 금지**; 문구는 해요체 · 긍정형 · "취소" 대신 "닫기" | Toss https://developers-apps-in-toss.toss.im/landing-page/landing-page-en/design/consumer-ux-guide | 두 화면 공통 가드레일: 구역마다 아이콘 타일을 다는 대신 화면당 일러스트 한 점(내 공간 = 모아 캐릭터 한 컷, 공방 = 도구 상자 한 점) | 확인 |
 | 10 | **위험 · 내보내기는 목록 맨 아래 빨강 한 줄, 개인정보는 자물쇠 사물 + 약속 3칸** | Structured(Reset App, 자물쇠 + 카드 3장) https://screensdesign.com/apps/structured-daily-planner/ , Finch '내 데이터' https://screensdesign.com/apps/finch-self-care-pet/ | 내 공간: 개인정보 처리방침 · 연락처 · 라이선스를 맨 아래 조용한 목록으로 | 확인 |
 
 보조 패턴(채택 보류): 테마가 앱 전체를 물들임(Bear) — DIO는 색 규칙이 엄격해 보류; 공간별 색 구분(Arc); 통계 시각물(Apple Journal 달력 점, How We Feel 도형)은 기존 문서의 '모아 보기'와 겹침; 큰 글자 + 평면 색면(Wrapped)은 앱 안이 아니라 공유용 이미지에만.
