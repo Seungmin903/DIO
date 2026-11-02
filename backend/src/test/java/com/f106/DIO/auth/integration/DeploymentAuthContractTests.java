@@ -68,7 +68,7 @@ class DeploymentAuthContractTests {
             "CREATE DATABASE dio_reset_qa", "authPostgresTest --no-daemon", "CREATE DATABASE dio_sharing_qa",
             "sharingPostgresTest collaborationPostgresTest --no-daemon", "CREATE DATABASE dio_member_ci",
             "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon", "CREATE DATABASE dio_member_contract_qa",
-            "postgresMemberDiaryHttpTest --no-daemon", "-v \"$CI_PROJECT_DIR/docs:/workspace/docs:ro\"", "CREATE DATABASE dio_trash_qa",
+            "postgresMemberDiaryHttpTest --no-daemon", "CREATE DATABASE dio_trash_qa",
             "postgresDiaryTrashTest postgresDiaryPurgeTest --no-daemon", "-e DIO_AUTH_SCHEMA_TEST=true",
             "-e DIO_LIST_QUERY_PG=true", "-e POSTGRES_USER=postgres");
 
@@ -76,6 +76,11 @@ class DeploymentAuthContractTests {
         String sharingSuite = block(script, "if [ \"$suite\" = sharing ]", "if [ \"$suite\" = diary ]");
         String diarySuite = block(script, "if [ \"$suite\" = diary ]", "if [ \"$suite\" = lifecycle ]");
         String lifecycleSuite = script.substring(script.indexOf("if [ \"$suite\" = lifecycle ]"));
+        assertThat(diarySuite).containsSubsequence(
+            "CREATE DATABASE dio_member_ci",
+            "-v \"$CI_PROJECT_DIR/backend:/workspace/backend\"",
+            "-v \"$CI_PROJECT_DIR/docs:/workspace/docs:ro\"",
+            "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon");
         assertThat(occurrences(authSuite, "docker run --rm")).isEqualTo(1);
         assertThat(authSuite).doesNotContain("-e DB_URL=");
         assertThat(occurrences(sharingSuite, "docker run --rm")).isEqualTo(1);
