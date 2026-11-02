@@ -66,3 +66,23 @@ ICU가 없더라도 앱 전체 기동은 이 기능 때문에 실패하지 않�
 새 프론트는 ageConfirmed=true와 SERVICE/PRIVACY v2, 선택 항목 v1을 전송한다. dev/prod Compose와 env.example은 이 값과 일치한다. 실제 서버 환경변수에 v1이 남아 있으면 기본값보다 우선하므로 담당자는 배포 전 비밀값 없이 약관 버전 세 개만 확인한다. 구형 앱은 연령 확인 누락으로 400을 받으므로 신규 가입 화면과 서버를 함께 배포하고, 기존 배포 앱이 있으면 업데이트 안내/가입 진입 관리 계획을 정한다. 연령 확인을 서버에서 임의로 true로 대체하지 않는다. 기존 회원 로그인에는 이 가입 조건이 적용되지 않는다.
 
 로컬 저장소의 설정 확인은 실제 배포 서버 환경변수 확인을 의미하지 않는다.
+
+
+## Android Expo Go WebSocket Origin 점검 (2026-11-03)
+
+REST가 성공해도 WebSocket handshake는 별도로 Origin을 검사한다. 회원 JWT는 101 연결 성공 후 첫 AUTH 프레임에서 검증되므로 HTTP 403과 연결 후 1008 종료를 구분한다.
+
+- dev 외부 주소는 `https://k15f106.p.ssafy.io:8443`, prod는 `https://k15f106.p.ssafy.io`다. `AUTH_ALLOWED_ORIGINS`에는 경로·마지막 슬래시 없이 scheme/host/외부 포트까지 정확히 넣는다. `ws://`, `wss://` 주소를 넣는 설정이 아니다.
+- Compose 기본값과 배포 env 양식에 각각 실제 주소를 포함했다. 기존 비공개 env가 localhost만 명시했다면 기본값이 적용되지 않으므로 그 파일도 수정해야 한다. 다른 프론트 허용 주소는 유지하고 쉼표로 추가한다. 와일드카드로 전체 허용하지 않는다.
+- dev는 외부 8443을 Nginx 내부 443으로 매핑한다. `/ws/`의 `Host $host`는 외부 포트를 잃으므로 `Host $http_host`로 전달한다. 신뢰 프록시의 `X-Forwarded-Proto`, `X-Forwarded-Port` 설정과 함께 사용한다. WebSocket 경로는 외부 바인딩과 같은 dev 8443/prod 443을 고정 전달하며 Tomcat `remoteip.port-header`가 이를 읽는다. 이 헤더는 신뢰 프록시에만 적용된다. 다른 API 경로에서도 같은 고정 포트로 덮어써 클라이언트가 보낸 X-Forwarded-Port를 신뢰하지 않는다. 외부에서 받은 X-Forwarded-For는 기존대로 덮어쓴다.
+- dev Basic 인증과 WebSocket AUTH 회원 검증은 그대로 유지한다.
+
+배포 담당자 확인 순서:
+
+1. 실제 backend 컨테이너에서 `printenv AUTH_ALLOWED_ORIGINS`만 확인한다. 환경 전체나 Compose 렌더링 전체는 비밀값 때문에 출력하지 않는다.
+2. 비공개 env에 dev Origin을 추가하고 기존 배포 절차로 backend를 재생성한다. 이미지만 재시작하면 변경된 Compose 환경이 적용되지 않을 수 있다.
+3. 변경된 Nginx 설정을 배포하고 `nginx -t`를 확인한다. 현재 실행 중인 Nginx 설정에 `/ws/` Host가 `$http_host`인지 확인한다.
+4. 앱의 같은 요청을 다시 연결해 HTTP 101 뒤 AUTH/READY가 오는지 확인한다. REST만 성공하는 것으로 검증을 끝내지 않는다.
+5. 계속 403이면 Nginx access log의 status/upstream_status와 백엔드의 Origin 거절 로그를 같은 시각으로 비교한다. Nginx라는 Server 헤더만으로 403 발생 계층을 확정하지 않는다. Basic 인증이 빠진 요청의 401은 Origin 거절과 별개다.
+
+로컬 검증에서 동일 backend에 localhost Origin은 101, PC LAN Origin은 403이 재현됐다. 추가 통합 테스트는 프록시가 외부 Host 포트를 보존하면 미등록 Origin도 same-origin으로 101이 되고, 포트를 잃거나 다른 Origin이면 403이 됨을 검증한다. 이는 실제 배포 컨테이너 설정 확인을 대신하지 않는다.

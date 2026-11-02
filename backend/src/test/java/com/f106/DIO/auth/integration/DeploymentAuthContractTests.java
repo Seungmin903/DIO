@@ -7,6 +7,24 @@ import org.springframework.core.io.FileSystemResource;
 import static org.assertj.core.api.Assertions.*;
 
 class DeploymentAuthContractTests {
+    @Test void deploymentOriginsAndWebSocketProxyPreserveExternalPort() throws Exception {
+        var loader = new YamlPropertySourceLoader();
+        for (String environment : new String[]{"dev", "prod"}) {
+            String origin = "https://k15f106.p.ssafy.io" + (environment.equals("dev") ? ":8443" : "");
+            var compose = loader.load(environment, new FileSystemResource(Path.of("../infra/compose/compose." + environment + ".yml"))).get(0);
+            assertThat(compose.getProperty("services.backend.environment.AUTH_ALLOWED_ORIGINS").toString()).contains(origin);
+            assertThat(Files.readString(Path.of("../infra/compose/" + environment + ".env.example"))).contains("AUTH_ALLOWED_ORIGINS=" + origin);
+            var profile = loader.load(environment, new FileSystemResource(Path.of("src/main/resources/application-" + environment + ".yml"))).get(0);
+            assertThat(profile.getProperty("server.tomcat.remoteip.port-header")).isEqualTo("X-Forwarded-Port");
+            String nginx = Files.readString(Path.of("../infra/nginx/" + environment + "/default.conf"));
+            // Tomcat이 신뢰하는 포트 헤더는 모든 프록시 경로에서 덮어써 외부 입력을 통과시키지 않는다.
+            assertThat(nginx.lines().filter(line -> line.contains("proxy_set_header X-Forwarded-Port ")).count())
+                .isEqualTo(nginx.lines().filter(line -> line.contains("proxy_set_header X-Forwarded-Proto ")).count());
+            String websocket = nginx.substring(nginx.indexOf("location /ws/ {"));
+            websocket = websocket.substring(0, websocket.indexOf("\n    }"));
+            assertThat(websocket).contains("proxy_set_header X-Forwarded-Port " + (environment.equals("dev") ? "8443" : "443") + ";", "proxy_set_header Host $http_host;", "proxy_set_header Upgrade $http_upgrade;", "proxy_set_header Connection \"upgrade\";");
+        }
+    }
     @Test void mailHealthIsDisabledAndPostgresValidationRunsAsRequiredCiJob() throws Exception {
         var loader = new YamlPropertySourceLoader();
         var application = loader.load("application", new FileSystemResource(Path.of("src/main/resources/application.yml"))).get(0);
