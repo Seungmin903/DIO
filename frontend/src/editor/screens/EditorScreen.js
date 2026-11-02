@@ -19,6 +19,7 @@ import Icon from '../components/controls/Icon'
 import LayerPanel, { LAYER_PANEL_WIDTH } from '../components/panels/LayerPanel'
 import MorePanel from '../components/panels/MorePanel'
 import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
+import PageSettingsDialog from '../components/panels/PageSettingsDialog'
 import Ribbon from '../components/chrome/Ribbon'
 import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail } from '../components/chrome/PhoneToolbar'
 import PenSettings from '../components/PenSettings'
@@ -217,6 +218,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 태블릿 레이어 창 폭: 상단바 오른쪽 묶음(공유 · 레이어 · 내보내기) 폭과 같게 해 왼쪽 끝을 공유 버튼에 맞춘다
   const [layerWidth, setLayerWidth] = useState(LAYER_PANEL_WIDTH)
   const [pagesOpen, setPagesOpen] = useState(!compact)
+  const [settingsPageId, setSettingsPageId] = useState(null)
+  useEffect(() => { setSettingsPageId(null) }, [diary?.id, readOnly])
+  useEffect(() => { if (settingsPageId && !state.doc.pages.some(p => p.id === settingsPageId)) setSettingsPageId(null) }, [settingsPageId, state.doc.pages])
   const pagePanelMeasurement = useRef(null)
   useEffect(() => () => pagePanelMeasurement.current?.dispose(), [])
   const [layoutCompact, setLayoutCompact] = useState(compact)
@@ -1054,6 +1058,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           }catch(error){showToast(error.message||'페이지를 생성하지 못했어요. 다시 확인해 주세요.')}
         }} />}
       <MediaNotice references={state.doc} importFailure={importFailure} onDismissImport={() => setImportFailure(null)} />
+      {settingsPageId && !readOnly && textSync.enabled && <PageSettingsDialog key={settingsPageId} pageId={settingsPageId}
+        onLoad={textSync.loadPageSettings} onSave={async (id, body) => { await textSync.updatePage(id, body); fitToScreen() }} onClose={() => setSettingsPageId(null)} />}
       <View style={[styles.body, compact && styles.bodyCompact, readOnly && styles.readingBody]}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
         <TapCatcher onTap={clearSelection} style={StyleSheet.absoluteFill} />
@@ -1076,6 +1082,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             }}
             onAdd={() => { if (cropId) finishCrop(false); setTemplatePickerOpen(true) }}
             onDuplicate={copyPage}
+            onSettings={textSync.enabled && !readOnly ? setSettingsPageId : undefined}
             onToggleIndex={(id) => dispatch({ type: 'togglePageIndex', id })}
             onReset={readOnly || textSync.enabled ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
             onRemovePages={removePages}

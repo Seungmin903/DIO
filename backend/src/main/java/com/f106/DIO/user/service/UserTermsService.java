@@ -26,7 +26,7 @@ public class UserTermsService {
             String expected = switch (agreement.termsType()) {
                 case SERVICE -> properties.serviceTermsVersion();
                 case PRIVACY -> properties.privacyTermsVersion();
-                case MARKETING -> properties.marketingTermsVersion();
+                case MARKETING, MARKETING_PRIVACY, AD_EMAIL, AD_PUSH, AD_NIGHT_PUSH -> properties.marketingTermsVersion();
             };
             if (agreed.put(agreement.termsType(), agreement.agreed()) != null || !expected.equals(agreement.termsVersion())) {
                 throw UserException.invalid("INVALID_TERMS", "약관 종류와 현재 버전을 확인해 주세요.");

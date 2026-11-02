@@ -8,7 +8,7 @@ const TIMES = REMINDER_TIMES.map(time => ({ id: time, label: reminderTimeLabel(t
 /**
  * 내 공간 알림 설정: 초대 · 친구 소식 · 매일 기록 알림(켜면 시각 줄이 생긴다). 기기에 저장된다(shared/notificationSettings).
  */
-export default function NotificationSetting({ compact = false }) {
+export default function NotificationSetting({ compact = false, children }) {
   const settings = useNotificationSettings();
   return (
     <SettingSection title="알림" on={settings.enabled} onToggle={enabled => setNotificationSettings({ enabled })} compact={compact}>
@@ -19,6 +19,7 @@ export default function NotificationSetting({ compact = false }) {
       {settings.reminder && (
         <SettingDropdown label="기록 알림 시각" options={TIMES} value={settings.reminderTime} onChange={reminderTime => setNotificationSettings({ reminderTime })} />
       )}
+      {children}
     </SettingSection>
   );
 }

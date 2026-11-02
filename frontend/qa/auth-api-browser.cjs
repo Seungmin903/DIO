@@ -36,7 +36,7 @@ const server = http.createServer((req, res) => {
     await email().fill('browser-auth@example.com'); await password().fill('wrong12345'); await button('로그인').click();
     await page.getByText('이메일 또는 비밀번호를 확인해 주세요.').waitFor();
     await password().fill('DioMember123!'); await button('로그인').click();
-    await page.getByRole('tab', { name: '내 공간', exact: true }).click();
+    await page.getByRole('button', { name: '마이페이지', exact: true }).click();
     await page.getByText('브라우저회원님의 기록 공간').waitFor();
     await button('로그아웃').click(); await button('회원가입').waitFor();
     assert.ok(requests.some(item => item.path.endsWith('/login') && item.status === 200));

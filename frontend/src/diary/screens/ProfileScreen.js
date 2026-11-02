@@ -11,7 +11,7 @@ import EditSetting from '../components/EditSetting';
 import PinScreen from '../components/PinScreen';
 import EditorModal from '../../editor/components/controls/EditorModal';
 import { appLockScope, checkAppLock, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
-import { colors, DISABLED_OPACITY } from '../../shared/theme';
+import { colors } from '../../shared/theme';
 import { notify } from '../../shared/dialogs';
 import DioButton from '../../shared/DioButton';
 import ProfileEditScreen from '../../auth/ProfileEditScreen';
@@ -21,11 +21,11 @@ import AppIcon from '../../shared/AppIcon';
 import DefaultAvatar from '../../shared/DefaultAvatar';
 import { useLoginEntry } from '../../auth/loginGate';
 
-// 내 공간(한 단): 정체성 띠(아바타 + 이름 + 버튼) → 알림 → 보안 → 편집(그리기 입력) → 계정(로그아웃, 회원) → 앱 정보(맨 아래).
-// 정체성 트레이 1장 + 설정 카드 2장(알림 · 보안 · 환경 / 계정 · 앱 정보)으로 덩어리를 나눈다. 행마다 카드로 만들지 않는다(코덱스 3차). 장식 · 통계 · 안내 문구는 두지 않는다.
-export default function ProfileScreen({ compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, guestService }) {
+// 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
+export default function ProfileScreen({ section = 'profile', compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
+  const settingsPage = section === 'settings';
   const openLogin = useLoginEntry();
   const editing = route === 'edit';
   const setEditing = on => setRoute(on ? 'edit' : 'home');
@@ -37,7 +37,7 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   // 인증 값은 메모리 비교에만 사용하고 캐시 키·로그에는 넣지 않는다.
   const photoIdentity = JSON.stringify([previewUser?.userId || previewUser?.accountId || 'guest', photoUri, photoSource?.headers || null]);
   const photoCacheKey = JSON.stringify(['profile', previewUser?.userId || previewUser?.accountId || 'guest', photoUri]);
-  // 게스트(로그인 전 방문자)도 내 공간을 쓴다. 프로필은 기기에 남는다(guestService).
+  // 게스트(로그인 전 방문자)는 설정만 연다. 마이페이지는 사이드바에서 로그인으로 대신한다.
   const authenticatedUser = previewUser?.mode === 'authenticated';
   const guest = !authenticatedUser && previewUser?.provider === 'guest';
   // 앱 잠금: locked 는 이 계정에 잠금이 있는지(null = 읽는 중). pin 은 열려 있는 비밀번호 화면
@@ -54,14 +54,14 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
   // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다. 실패하면 로그인 응답 값을 그대로 보여 주고 다시 들어올 때 재시도한다.
   const userId = authenticatedUser ? previewUser.userId : null;
   useEffect(() => {
-    if (!userId || route !== 'home' || typeof accountService?.getProfile !== 'function') return undefined;
+    if (settingsPage || !userId || route !== 'home' || typeof accountService?.getProfile !== 'function') return undefined;
     let active = true;
     accountService.getProfile(previewUser)
       .then(profile => { if (active) onUpdatePreview?.(profile); })
       .catch(() => {});
     return () => { active = false; };
     // previewUser 는 갱신 결과로 바뀌므로 계정 · 화면 전환 때만 다시 불러온다.
-  }, [userId, route]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, route, settingsPage]); // eslint-disable-line react-hooks/exhaustive-deps
   // 회원 설정은 서버 인증이 끝난 세션이나 게스트만 연다(이전 체험 세션 값은 그리지 않는다)
   if (!authenticatedUser && !guest) return null;
   // 비밀번호 화면은 앱 전체(왼쪽 메뉴 · 아래 탭까지)를 덮는 전체 화면이다. 내 공간 본문 안에 두면 잘리고 메뉴가 남는다.
@@ -84,21 +84,13 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
       </EditorModal>
     );
   }
-  const editService = previewUser?.mode === 'authenticated' && accountService ? accountService : guest && guestService ? guestService : null;
+  const editService = authenticatedUser && accountService ? accountService : null;
   // 비밀번호 변경 · 탈퇴는 서버가 모든 세션을 폐기하므로 로그아웃 요청을 또 보내지 않고 이 기기의 세션만 정리한다(onClearSession)
   if (editing) return <ProfileEditScreen {...(editService ? { service: editService } : {})} compact={compact} user={previewUser} onClose={() => setEditing(false)} onUpdate={onUpdatePreview} onEndSession={onClearSession} onPasswordReset={authenticatedUser && accountService ? () => setRoute('password') : undefined} getProfilePhotoSource={getProfilePhotoSource} registerLeaveGuard={registerLeaveGuard} />
   if (route === 'password' && authenticatedUser && accountService) return <PasswordResetScreen compact={compact} email={previewUser?.email || ''} service={accountService} onClose={() => setRoute('home')} onComplete={onClearSession} />;
   if (route === 'notifications' && authenticatedUser) return <NotificationSettingsScreen compact={compact} userId={userId} onClose={() => setRoute('home')} />;
 
-  // 게스트도 로그인한 사용자처럼 프로필을 고친다. 고친 값은 기기에 남는다. 기기 저장(guestService)이 없으면 연필을 누를 수 없다.
-  // 게스트: 판 오른쪽 끝은 계정 상태의 대표 행동(`로그인 · 회원가입`)이 차지하고, 프로필 수정은 이름 바로 옆 연필(아이콘 18 · 터치 44)로 둔다(코덱스 2026-11-02).
-  // 회원은 같은 오른쪽 자리에 `프로필 수정` 윤곽 버튼 — '오른쪽 끝 = 이 계정의 대표 행동' 문법이 같다.
-  const guestEdit = guest ? (
-    <Pressable accessibilityRole="button" accessibilityLabel="프로필 수정" accessibilityState={{ disabled: !guestService }} disabled={!guestService}
-      onPress={() => { if (guestService) setEditing(true); }} style={[local.nameEdit, !guestService && local.disabled]}>
-      <AppIcon name="edit" size={18} color={colors.primaryText} />
-    </Pressable>
-  ) : null;
+  // 판 오른쪽 끝은 계정 상태의 대표 행동: 게스트는 `로그인 · 회원가입`, 회원은 `프로필 수정` 윤곽 버튼.
   // 로그인 화면은 지금 화면 위에 덮어 뜨고, 회원가입은 로그인 화면에서 이어 간다
   const loginButton = guest ? <DioButton variant="filled" label="로그인 · 회원가입" onPress={openLogin} block={compact} style={compact ? local.loginCompact : local.login} /> : null;
   const profileAction = guest ? null : previewUser?.accountId || (authenticatedUser && accountService) ? (
@@ -120,8 +112,8 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
     <ScrollView style={local.root} contentContainerStyle={[s.screen, compact && s.screenCompact, local.content]} showsVerticalScrollIndicator={false}>
       {/* 설정 본문은 다른 화면처럼 좌우 여백까지 꽉 채운다(760 제한은 실기기에서 오른쪽만 비어 좌우가 맞지 않았다). 조작은 모두 오른쪽 끝선 */}
       <View style={local.column}>
-      <Header title="내 공간" icon="person" compact={compact} />
-      <View style={[local.identity, compact && local.identityCompact]}>
+      <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact} />
+      {!settingsPage && <View style={[local.identity, compact && local.identityCompact]}>
         <View style={local.identityRow}>
           <View style={[local.avatarWrap, compact && local.avatarCompact]}>
             <View style={[local.avatar, compact && local.avatarCompact]}>
@@ -138,7 +130,6 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
           <View style={local.identityText}>
             <View style={local.nameRow}>
               <Text numberOfLines={1} style={[local.name, compact && local.nameCompact, local.nameShrink]}>{previewUser?.nickname || '나'}</Text>
-              {guestEdit}
             </View>
             <Text numberOfLines={1} style={local.space}>{previewUser?.bio || (previewUser?.nickname ? `${previewUser.nickname}님의 기록 공간` : '나의 기록 공간')}</Text>
           </View>
@@ -147,21 +138,18 @@ export default function ProfileScreen({ compact = false, previewUser, onEndPrevi
         </View>
         {/* 폰: 이름 줄 아래 판 안에 전폭 한 줄 */}
         {compact && loginButton}
-      </View>
-      {/* 한 단: 알림 → 보안 → 편집 → 로그아웃(회원) → 앱 정보(맨 아래) */}
+      </View>}
       <View style={local.cards}>
-        <SettingCard compact={compact}>
-          <NotificationSetting compact={compact} />
-          <AppLockSetting compact={compact} locked={locked} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />
-          <EditSetting compact={compact} />
-        </SettingCard>
-        <SettingCard compact={compact}>
-          {(logout || serverNotifications) && <SettingSection title="계정">
-            {serverNotifications}
-            {logout && <View style={local.accountBody}>{logout}</View>}
-          </SettingSection>}
-          <AppInformation />
-        </SettingCard>
+        {settingsPage ? <>
+          <SettingCard compact={compact}>
+            <NotificationSetting compact={compact}>{serverNotifications}</NotificationSetting>
+            <AppLockSetting compact={compact} locked={locked} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />
+            <EditSetting compact={compact} />
+            <AppInformation />
+          </SettingCard>
+        </> : logout && <SettingCard compact={compact}>
+          <SettingSection title="계정"><View style={local.accountBody}>{logout}</View></SettingSection>
+        </SettingCard>}
       </View>
       </View>
     </ScrollView>
@@ -188,11 +176,9 @@ const local = StyleSheet.create({
   nameCompact: { fontSize: 20, lineHeight: 26 },
   space: { color: colors.primaryStrong, fontSize: 14, fontWeight: '600' },
   accountBody: { paddingVertical: 12 },
-  // 게스트: 이름 옆 연필(투명 · 아이콘 18, 터치 44×44 — 줄 높이는 이름 그대로 두려고 위아래를 겹친다) · 로그인 · 회원가입 채움 40
+  // 게스트: 로그인 · 회원가입 채움 40
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   nameShrink: { flexShrink: 1 },
-  nameEdit: { width: 44, height: 44, marginVertical: -9, marginLeft: -9, alignItems: 'center', justifyContent: 'center', borderRadius: 10 }, // 아이콘 18 이 이름 끝에서 4 떨어지게(터치 44 의 안쪽 13 - 4)
-  disabled: { opacity: DISABLED_OPACITY },
   login: { minHeight: 40, minWidth: 160, marginLeft: 8 }, // 정체성 묶음과 최소 24(줄 간격 16 + 8)
   loginCompact: { minHeight: 40, marginTop: -4 }, // 판 안 간격 16 에서 4 당겨 첫 줄과 12
   linkRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: colors.border },

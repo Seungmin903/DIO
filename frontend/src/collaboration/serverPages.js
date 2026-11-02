@@ -1,5 +1,6 @@
-import {localTemplateReference,SERVER_TEMPLATE_CATALOG} from '../editor/templates/serverCatalog.js'
+import {localTemplateReference,SERVER_TEMPLATE_CATALOG,serverTemplateSelectable} from '../editor/templates/serverCatalog.js'
 import {decodeElement,sharedElement} from './canvasElements.js'
+import {pageSettingsBody} from './pageSettings.js'
 const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 const invalid=()=>Object.assign(new Error('서버의 페이지와 속지 정보를 확인하지 못했어요. 기존 기기 문서는 유지돼요.'),{code:'INVALID_SERVER_PAGES'})
 export function decodeServerPage(detail,diaryId){
@@ -13,7 +14,33 @@ export function decodeServerPage(detail,diaryId){
  const elements=detail.elements.filter(sharedElement)
  if(elements.some(e=>e.pageId!==p.pageId)||new Set(elements.map(e=>e.elementId)).size!==elements.length)throw invalid()
  return {...reference,id:p.pageId,title:p.title,canvasWidth:p.canvasWidth,canvasHeight:p.canvasHeight,
+  serverTemplateId:p.templateId??null,serverTemplateConfig:p.templateConfig??{},
+  gridVisible:p.gridVisible===true,gridColor:p.gridColor??'#DCE5F1',
   ...(p.templateConfig?.paperAppearance?{paperAppearance:p.templateConfig.paperAppearance}:{}),objects:elements.map(decodeElement)}
+}
+// Settings metadata must not depend on decoding a template or canvas elements.
+// An unsupported template on an existing page leaves its local appearance intact.
+function pageListSettings(p){
+ const settings={id:p.pageId}
+ if(p.title===null||typeof p.title==='string')settings.title=p.title
+ if([p.canvasWidth,p.canvasHeight].every(n=>Number.isFinite(n)&&n>0)){
+  settings.canvasWidth=p.canvasWidth;settings.canvasHeight=p.canvasHeight
+ }
+ if(typeof p.gridVisible==='boolean')settings.gridVisible=p.gridVisible
+ if(typeof p.gridColor==='string'&&/^#[0-9a-f]{6}$/i.test(p.gridColor))settings.gridColor=p.gridColor
+ if(settings.canvasWidth===undefined)return settings
+ const code=p.templateCode??p.templateConfig?.templateCode,version=p.templateVersion??p.templateConfig?.templateVersion
+ let reference
+ if(code&&version){try{reference=localTemplateReference(code,version)}catch{return settings}}
+ else if(p.templateId==null||p.templateConfig?.blank===true)reference={backgroundAssetId:null}
+ else return settings
+ return {...settings,...reference,serverTemplateId:p.templateId??null,serverTemplateConfig:p.templateConfig??{},
+  ...(p.templateConfig?.paperAppearance?{paperAppearance:p.templateConfig.paperAppearance}:{})}
+}
+function readPageSettings(response,diaryId,pageId){
+ const p=response?.page
+ if(!p||p.pageId!==pageId||p.diaryId!==diaryId||![p.canvasWidth,p.canvasHeight].every(n=>Number.isFinite(n)&&n>0))throw invalid()
+ return pageListSettings(p)
 }
 // Existing pages are not re-imported: unsent strokes and local media remain intact.
 export async function loadServerPageSnapshot(transport,diaryId,{knownIds=[]}={}){
@@ -26,7 +53,23 @@ export async function loadServerPageSnapshot(transport,diaryId,{knownIds=[]}={})
   if(detail?.page?.pageId!==row.pageId)throw invalid()
   pages[index]=decodeServerPage(detail,diaryId)
  }}
- await Promise.all(Array.from({length:Math.min(3,pages.length)},worker));return {pageIds:result.items.map(p=>p.pageId),pages}
+ await Promise.all(Array.from({length:Math.min(3,pages.length)},worker))
+ const settings=result.items.map(pageListSettings)
+ return {pageIds:result.items.map(p=>p.pageId),pages,settings}
+}
+export async function updateServerPage(transport,diaryId,pageId,input){
+ if(!uuid(diaryId)||!uuid(pageId))throw invalid()
+ const body=pageSettingsBody(input)
+ // The current backend replaces templateConfig and does not accept an expected
+ // version. A client GET/merge/PATCH cannot protect concurrent appearance edits.
+ if('templateConfig' in body||'templateId' in body)throw Object.assign(Error('기존 페이지의 속지 변경은 아직 지원하지 않아요.'),{code:'UNSUPPORTED_PAGE_TEMPLATE'})
+ const result=await transport({method:'PATCH',path:`/pages/${pageId}`,body})
+ return readPageSettings(result,diaryId,pageId)
+}
+export async function loadPageSettings(transport,diaryId,pageId){
+ if(!uuid(diaryId)||!uuid(pageId))throw invalid()
+ const detail=await transport({path:`/pages/${pageId}`})
+ return readPageSettings(detail,diaryId,pageId)
 }
 export async function loadServerPages(transport,diaryId,options){
  const result=await loadServerPageSnapshot(transport,diaryId,options)
@@ -50,7 +93,7 @@ export async function createServerPage({transport,diaryId,backgroundAssetId=null
  const check=()=>{if(!isActive())throw Object.assign(Error('계정이 바뀌어 페이지 생성을 중단했어요.'),{code:'STALE_ACCOUNT'})}
  check();if(!uuid(diaryId))throw invalid()
  const template=SERVER_TEMPLATE_CATALOG.find(t=>t.backgroundAssetId===backgroundAssetId&&(backgroundAssetId!==null||t.orientation===orientation.toUpperCase()))
- if(!template)throw invalid()
+ if(!serverTemplateSelectable(template))throw invalid()
  let pending=JSON.parse(await storage.getItem(key)??'null');check()
  if(pending){
   const list=await transport({path:`/diaries/${diaryId}/pages`});check()

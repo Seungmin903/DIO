@@ -5,16 +5,18 @@
   },
   "build": {
     "development": {
-      "env": { "DIO_IOS_POINTER_EVENTS": "1" },
+      "env": { "DIO_IOS_POINTER_EVENTS": "1", "EXPO_PUBLIC_PUSH_ENABLED": "true" },
       "developmentClient": true,
       "distribution": "internal",
       "autoIncrement": true
     },
     "preview": {
+      "env": { "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0", "EXPO_PUBLIC_PUSH_ENABLED": "true" },
       "distribution": "internal",
       "autoIncrement": true
     },
     "production": {
+      "env": { "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0", "EXPO_PUBLIC_PUSH_ENABLED": "true" },
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"

@@ -87,8 +87,8 @@ class PasswordResetTests {
         signupVerification.send(email);
         String token=signupVerification.verify(new EmailVerificationRequest(email,signupCode.get())).signupToken();
         signup.signup(new SignupRequest(email,token,OLD,nickname,List.of(
-            new Agreement(TermsType.SERVICE,"v1",true),
-            new Agreement(TermsType.PRIVACY,"v1",true))));
+            new Agreement(TermsType.SERVICE,"v2",true),
+            new Agreement(TermsType.PRIVACY,"v2",true)), true));
     }
     String sendAndVerify() throws Exception {
         mvc.perform(post("/api/v1/auth/password-reset-requests").contentType(MediaType.APPLICATION_JSON)
@@ -189,7 +189,7 @@ class PasswordResetTests {
         String signupToken=signupVerification.verify(new EmailVerificationRequest("new@example.com",signupCode.get())).signupToken();
         assertThatThrownBy(()->service.complete(new PasswordResetRequest(EMAIL,signupToken,NEW))).isInstanceOf(PasswordResetException.class);
         assertThatThrownBy(()->signup.signup(new SignupRequest("new@example.com",token,OLD,"신규회원",List.of(
-            new Agreement(TermsType.SERVICE,"v1",true),new Agreement(TermsType.PRIVACY,"v1",true)))))
+            new Agreement(TermsType.SERVICE,"v2",true),new Agreement(TermsType.PRIVACY,"v2",true)), true)))
             .isInstanceOf(SignupException.class);
         transaction.executeWithoutResult(s->{org.springframework.test.util.ReflectionTestUtils.setField(resets.findForUpdate(EMAIL).orElseThrow(),"tokenExpiresAt",Instant.now().minusSeconds(1));});
         assertThatThrownBy(()->service.complete(new PasswordResetRequest(EMAIL,token,NEW))).isInstanceOf(PasswordResetException.class);

@@ -25,8 +25,9 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   const mocks = { 'react-native': { Platform: { OS: 'android' } }, './authApi': {
    authBaseUrl: value => `${value}/api/v1`, createAuthApi: options => options,
   }, './photoUpload': { buildPhotoBody() {} }, 'expo/fetch': { fetch() {} },
-   './developmentAccessStore': { createDevelopmentAccessStore: () => { stores++; return 'store'; } } }
-  let stores = 0
+   './developmentAccessStore': { createDevelopmentAccessStore: options => { stores++; storeOptions = options; return 'store'; } },
+   './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' } }
+  let stores = 0, storeOptions = null
   new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, dev,
    { env: { EXPO_PUBLIC_API_BASE_URL: 'https://server.example', EXPO_PUBLIC_AUTH_TOKEN_HEADER: 'X-DIO-Access-Token' } })
   assert.equal(mod.exports.authService.baseUrl, mod.exports.apiBaseUrl)
@@ -36,6 +37,8 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   // 운영 빌드는 저장된 개발 서버 접속 정보를 만들지도 읽지도 않는다.
   assert.equal(mod.exports.authService.developmentAccessStore, dev ? 'store' : null)
   assert.equal(stores, dev ? 1 : 0)
+  // 개발 빌드는 예전 빌드가 남긴 Keychain 접속 정보를 지울 수 있게 보안 저장소를 넘긴다
+  assert.deepEqual(storeOptions, dev ? { platform: 'android', legacyKeychain: 'keychain' } : null)
  }
 })
 test('처음 실행은 고르는 화면 없이 게스트로 시작하고, 로그인 화면은 로그인이 필요한 기능에서만 뜬다',()=>{

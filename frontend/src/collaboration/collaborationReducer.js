@@ -26,6 +26,7 @@ export function collaborationReducer(reduce,state,action) {
   if(action.type==='resetDiary')return current
   if(action.type==='importServerPages'){finish();return reduce(current,action)}
   if(action.type==='reconcileServerPages')return reduce(current,action)
+  if(action.type==='applyServerPageSettings')return reduce(current,action)
   if(action.type==='collaborationAck')return {...current,collaborationEdits:current.collaborationEdits.filter(e=>!action.ids.includes(e.id))}
   if(action.type==='commitCheckpoint'){finish();return current}
   if(action.type==='importCollaborationElements'||action.type==='collaborationHistoryApplied'){

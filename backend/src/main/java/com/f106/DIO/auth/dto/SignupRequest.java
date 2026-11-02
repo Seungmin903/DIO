@@ -15,9 +15,14 @@ import jakarta.validation.constraints.*;
       "signupToken": "인증번호 확인 API에서 받은 signupToken으로 교체",
       "password": "DioMember123!",
       "nickname": "디오사용자",
+      "ageConfirmed": true,
       "agreements": [
-        {"termsType": "SERVICE", "termsVersion": "v1", "agreed": true},
-        {"termsType": "PRIVACY", "termsVersion": "v1", "agreed": true}
+        {"termsType": "SERVICE", "termsVersion": "v2", "agreed": true},
+        {"termsType": "PRIVACY", "termsVersion": "v2", "agreed": true},
+        {"termsType": "MARKETING_PRIVACY", "termsVersion": "v1", "agreed": false},
+        {"termsType": "AD_EMAIL", "termsVersion": "v1", "agreed": false},
+        {"termsType": "AD_PUSH", "termsVersion": "v1", "agreed": false},
+        {"termsType": "AD_NIGHT_PUSH", "termsVersion": "v1", "agreed": false}
       ]
     }
     """)
@@ -28,7 +33,8 @@ public record SignupRequest(
     @Pattern(regexp = "(?=.*[A-Za-z])(?=.*[0-9])[!-~]{8,32}")
     @Schema(example = "DioMember123!", accessMode = Schema.AccessMode.WRITE_ONLY) String password,
     @NotBlank @Pattern(regexp = "[가-힣A-Za-z0-9_]{2,12}") @Schema(example = "디오사용자") String nickname,
-    @NotNull @Size(min = 2, max = 3) List<@NotNull @Valid Agreement> agreements
+    @NotNull @Size(min = 2, max = 7) List<@NotNull @Valid Agreement> agreements,
+    @NotNull @AssertTrue @Schema(description = "만 14세 이상이라는 본인 확인. 생년월일은 수집하지 않으며 실제 연령 인증을 뜻하지 않습니다.", example = "true") Boolean ageConfirmed
 ) {
     public SignupRequest {
         email = UserInput.normalizeEmail(email);

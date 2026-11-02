@@ -1,6 +1,7 @@
 // File bytes and device URIs stay out of canvas JSON; only existing media IDs are shared.
 const copy=value=>JSON.parse(JSON.stringify(value))
-const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+export const isUuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+const uuid=isUuid
 export const sharedTypes=new Set(['text','sticker','stroke','shape','tape','photo'])
 const image=value=>!value?.src||uuid(value.mediaFileId)&&value.src===`media:${value.mediaFileId}`
 export const sharedObject=object=>sharedTypes.has(object?.type)&&!object.collaborationMediaId&&image(object)&&(!object.mediaFileId||uuid(object.mediaFileId))&&(!object.cells||Array.isArray(object.cells)&&object.cells.every(cell=>!cell||typeof cell==='object'&&!Array.isArray(cell)&&image(cell)&&(!cell.mediaFileId||uuid(cell.mediaFileId))))

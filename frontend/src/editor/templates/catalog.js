@@ -3,6 +3,7 @@ import { UNDATED_TEMPLATES } from './undated.js'
 import { STUDY_PLANNER_MENU_ITEM, STUDY_PLANNER_TEMPLATES } from './studyPlanner.js'
 import { DAY_PLANNER_MENU_ITEM, DAY_PLANNER_TEMPLATES } from './dayPlanner.js'
 import { datedTemplate } from './dated.js'
+import { PLANNER_TEMPLATE_SELECTION_ENABLED } from './serverCatalog.js'
 
 export const TEMPLATE_VERSION = catalog.templateVersion
 export const ANNUAL_PAGE_IDS = annualBook.pages
@@ -20,7 +21,10 @@ function displayName(item) {
   return item.name
 }
 // 예전 하루 계획(reusableMenu 첫 항목)은 메뉴에서 빼고 데일리 플래너(구글 일간식)로 대체한다. 옛 속지 파일은 이미 만든 다이어리를 위해 아래 assets 에 남긴다.
-const menuItems = [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ...reusableMenu.slice(1)]
+// V27 전(플래너 선택 꺼짐)에는 DB에 플래너가 없으므로 예전 하루 계획을 그대로 고르게 둔다. 이렇게 만든 페이지는 V27이 데일리 플래너로 옮긴다.
+const menuItems = PLANNER_TEMPLATE_SELECTION_ENABLED
+  ? [STUDY_PLANNER_MENU_ITEM, DAY_PLANNER_MENU_ITEM, ...reusableMenu.slice(1)]
+  : reusableMenu
 export const reusableTemplates = (orientation = 'landscape') => menuItems.map(item => ({ ...item, name: displayName(item), assetId: item.assets.find(asset => asset.orientation === normalizeOrientation(orientation)).assetId }))
 export const REUSABLE_TEMPLATES = reusableTemplates()
 const assets = new Map(catalog.assets.map(asset => [asset.id, { ...asset, name: displayName(asset) }]))

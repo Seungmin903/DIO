@@ -4,7 +4,11 @@ import {readFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
 import * as mediaModule from '../src/collaboration/canvasMedia.js'
 import * as apiModule from '../src/collaboration/canvasApi.js'
+import * as elementsModule from '../src/collaboration/canvasElements.js'
+import * as writeApiModule from '../src/collaboration/canvasWriteApi.js'
 import * as pagesModule from '../src/collaboration/serverPages.js'
+import * as canvasFetchModule from '../src/collaboration/canvasFetch.js'
+import * as pdfSourceRemoteModule from '../src/editor/services/pdfSourceRemote.js'
 import * as sessionModule from '../src/collaboration/canvasSession.js'
 import * as serverPaperFontModule from '../src/diary/services/serverPaperFont.js'
 import * as memberStorage from '../src/diary/services/memberStorage.js'
@@ -13,32 +17,54 @@ import {collaborationReducer} from '../src/collaboration/collaborationReducer.js
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'))
 const {code}=expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/hooks/useMemberCanvasCollaboration.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[expo.resolve('@babel/plugin-transform-modules-commonjs')]})
 const pageId='10000000-0000-4000-8000-000000000001',diaryId='20000000-0000-4000-8000-000000000001',id='30000000-0000-4000-8000-000000000001'
-function fixture(failure=null){
+function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
  let cursor=0,dirty=true,output,closed=false,key='session',sequence=0,rows=[],serverPages=[],serverOrder=[],deleted=new Set(),onChange,onReady,onPagesChanged
  let state=createInitialState({id:diaryId,pages:[{id:pageId,objects:[]}]}),version=0
  const slots=[],effects=[],cleanups=[],disk=new Map(),requests=[]
- const orderedPages=()=>{const pages=[{pageId,diaryId},...serverPages].filter(p=>!deleted.has(p.pageId));const order=[...serverOrder,...pages.map(p=>p.pageId).filter(id=>!serverOrder.includes(id))];return pages.sort((a,b)=>order.indexOf(a.pageId)-order.indexOf(b.pageId))}
- const transport=async r=>{requests.push(structuredClone(r));if(failure)throw failure;if(r.path===`/diaries/${diaryId}/pages`){
+ const basePage={pageId,diaryId,title:'기존 페이지',canvasWidth:1188,canvasHeight:840,templateId:null,templateConfig:{blank:true},gridVisible:false,gridColor:'#DCE5F1'}
+ const orderedPages=()=>{const pages=[basePage,...serverPages].filter(p=>!deleted.has(p.pageId));const order=[...serverOrder,...pages.map(p=>p.pageId).filter(id=>!serverOrder.includes(id))];return pages.sort((a,b)=>order.indexOf(a.pageId)-order.indexOf(b.pageId))}
+ const transport=async r=>{requests.push(structuredClone(r));if(failure)throw failure;
+   if(r.path===`/diaries/${diaryId}/members`)return {members:[{userId:'1',role:'OWNER'},...(shared?[{userId:'2',role:'EDITOR'}]:[])]}
+   if(r.path.endsWith('/canvas-operations')){
+    for(const e of r.body.changes.creates??[])rows.push({...e,pageId,version:++version})
+    for(const e of r.body.changes.updates??[])rows=rows.map(old=>old.elementId===e.elementId?{...old,...e,version:++version}:old)
+    rows=rows.filter(row=>!(r.body.changes.deleteElementIds??[]).includes(row.elementId))
+    return {operationId:String(version),revision:0,items:structuredClone(rows)}
+   }
+   if(r.path===`/diaries/${diaryId}/pages`){
     if(r.method==='POST'){
       const p={pageId:'70000000-0000-4000-8000-000000000001',diaryId,...r.body};serverPages.push(p);return {page:p}
     }
     return {items:orderedPages()}
    }
    if(r.method==='PATCH'&&r.path.endsWith('/pages/order')){serverOrder=r.body.pageIds;return {items:orderedPages()}}
+   if(r.path.includes('/elements')) {
+    const parts=r.path.split('/'),elementId=parts[4]
+    if(!r.method)return {items:structuredClone(parts[2]===pageId?rows:serverPages.find(p=>p.pageId===parts[2])?.elements??[])}
+    if(r.method==='DELETE'){rows=rows.filter(row=>row.elementId!==elementId);return null}
+    if(r.path.endsWith('/batch')){
+      for(const e of r.body.creates??[])rows.push({...e,pageId,version:++version})
+      for(const e of r.body.updates??[])rows=rows.map(old=>old.elementId===e.elementId?{...old,...e,version:++version}:old)
+      rows=rows.filter(row=>!(r.body.deleteElementIds??[]).includes(row.elementId))
+      return {items:structuredClone(rows)}
+    }
+    const old=rows.find(row=>row.elementId===elementId),element={...old,...r.body,elementId:elementId??r.body.elementId,pageId,version:++version}
+    rows=rows.filter(row=>row.elementId!==element.elementId);rows.push(element)
+    return {element:structuredClone(element)}
+   }
    if(r.method==='DELETE'){deleted.add(r.path.split('/')[2]);return null}
    if(r.method==='POST'&&r.path.endsWith('/copies')){
     const source=r.path.split('/')[2],p={pageId:'80000000-0000-4000-8000-000000000001',diaryId,canvasWidth:1024,canvasHeight:768,templateConfig:{blank:true},elements:[]}
     serverPages.push(p);return {page:p}
    }
    if(r.path.endsWith('/history/me'))return {items:[],nextUndo:null,nextRedo:null}
+   if(r.method==='PATCH'&&r.path===`/pages/${pageId}`){Object.assign(basePage,r.body);return {page:{...basePage}}}
    if(!r.method){
     const id=r.path.split('/')[2],p=serverPages.find(p=>p.pageId===id)
     if(deleted.has(id)||(!p&&id!==pageId))throw Object.assign(Error('missing'),{status:404,code:'PAGE_NOT_FOUND'})
-    return {page:p??{pageId,diaryId},elements:structuredClone(p?.elements??(id===pageId?rows:[]))}
+    return {page:p??basePage,elements:structuredClone(p?.elements??(id===pageId?rows:[]))}
    }
-   for(const e of r.body.changes.creates??[])rows.push({...e,pageId,version:++version})
-   for(const e of r.body.changes.updates??[])rows=rows.map(old=>old.elementId===e.elementId?{...old,...e,version:++version}:old)
-   return {operationId:String(version),revision:0,items:structuredClone(rows)}}
+   throw Error(`예상하지 않은 요청: ${r.method} ${r.path}`)}
  const load=name=>{
   if(name==='react')return {useRef:v=>{const i=cursor++;return slots[i]??=({current:v})},useState:v=>{const i=cursor++;if(!(i in slots))slots[i]=v;return [slots[i],next=>{slots[i]=typeof next==='function'?next(slots[i]):next;dirty=true}]},useEffect:(fn,deps)=>{const i=cursor++;if(!slots[i]||deps.some((v,n)=>!Object.is(v,slots[i][n]))){slots[i]=deps;effects.push(()=>{cleanups[i]?.();cleanups[i]=fn()})}}}
   if(name==='react-native')return {AppState:{addEventListener:()=>({remove(){}})}}
@@ -48,9 +74,13 @@ function fixture(failure=null){
   if(name.endsWith('/memberTransport.js'))return {createAuthenticatedMemberTransport:()=>transport}
   if(name.endsWith('/memberStorage.js'))return memberStorage
   if(name.endsWith('/serverPages.js'))return pagesModule
+  if(name.endsWith('/canvasFetch.js'))return canvasFetchModule
+  if(name.endsWith('/pdfSourceRemote.js'))return pdfSourceRemoteModule
   if(name.endsWith('/canvasMedia.js'))return mediaModule
   if(name.endsWith('/canvasMediaFiles'))return {canvasMediaFiles:{cached:async()=>true}}
   if(name.endsWith('/canvasApi.js'))return apiModule
+  if(name.endsWith('/canvasElements.js'))return elementsModule
+  if(name.endsWith('/canvasWriteApi.js'))return writeApiModule
   if(name.endsWith('/canvasSession.js'))return sessionModule
   if(name.endsWith('/serverPaperFont.js'))return serverPaperFontModule
   if(name.endsWith('/collaborationSocket.js'))return {connectCollaboration:options=>{onChange=options.onChange;onReady=options.onReady;onPagesChanged=options.onPagesChanged;return {close(){}}}}
@@ -59,23 +89,81 @@ function fixture(failure=null){
  }
  const module={exports:{}};new Function('require','module','exports',code)(load,module,module.exports)
  const dispatch=action=>{state=collaborationReducer(editorReducer,state,{collaborationId:`50000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`,...action});dirty=true}
- const render=()=>{cursor=0;dirty=false;output=module.exports.useMemberCanvasCollaboration({diary:{id:diaryId,source:'member-api',memberAccountId:'1'},page:state.doc.pages.find(p=>p.id===state.pageId)??state.doc.pages[0],state,loaded:true,readOnly:false,dispatch});effects.splice(0).forEach(f=>f())}
- return {state:()=>state,edit:dispatch,addPage:value=>output.addPage(value),copyPage:id=>output.copyPage(id),removePages:ids=>output.removePages(ids),movePage:(id,toIndex)=>output.movePage(id,toIndex),movePages:(ids,anchorId,place)=>output.movePages(ids,anchorId,place),remoteOrder:ids=>{serverOrder=ids;onPagesChanged()},remoteDelete:id=>{deleted.add(id);onPagesChanged()},status:()=>output.status,errorMessage:()=>output.errorMessage,requests,
+ const render=()=>{cursor=0;dirty=false;output=module.exports.useMemberCanvasCollaboration({diary:{id:sourceDiaryId,source:'member-api',memberAccountId:'1'},page:state.doc.pages.find(p=>p.id===state.pageId)??state.doc.pages[0],state,loaded:true,readOnly:false,dispatch});effects.splice(0).forEach(f=>f())}
+ return {state:()=>state,edit:dispatch,updatePage:(id,body)=>output.updatePage(id,body),loadPageSettings:id=>output.loadPageSettings(id),remoteSettings:body=>{Object.assign(basePage,body);onPagesChanged()},addPage:value=>output.addPage(value),copyPage:id=>output.copyPage(id),removePages:ids=>output.removePages(ids),movePage:(id,toIndex)=>output.movePage(id,toIndex),movePages:(ids,anchorId,place)=>output.movePages(ids,anchorId,place),remoteOrder:ids=>{serverOrder=ids;onPagesChanged()},remoteDelete:id=>{deleted.add(id);onPagesChanged()},status:()=>output.status,errorMessage:()=>output.errorMessage,requests,
    async settle(){for(let i=0;i<30;i++){if(dirty&&!closed)render();await new Promise(r=>setTimeout(r,5))}},
    remoteAdd(object){rows.push({...apiModule.canvasContent([object])[0],pageId,version:++version});onChange({pageId,clientOperationId:'other'})},
    remote(text){rows[0]={...rows[0],version:++version,propertiesJson:{text}};onChange({pageId,clientOperationId:'other'})},
+   setShared(value){shared=value;onReady()},
    close(){closed=true;cleanups.forEach(fn=>fn?.())}}
 }
+test('서버 UUID가 아닌 다이어리는 초기화 예외 대신 오류 상태로 표시하고 전송하지 않는다',async()=>{
+ const app=fixture(null,false,'local-diary')
+ try{await app.settle();assert.equal(app.status(),'error');assert.match(app.errorMessage(),/서버 다이어리 ID/);assert.equal(app.requests.length,0)}finally{app.close()}
+})
+
+test('현재 편집기 hook은 알 수 없는 기존 속지의 설정도 불러오고 저장한다',async()=>{
+ const app=fixture()
+ try{
+  await app.settle()
+  app.remoteSettings({templateCode:'new-template',templateVersion:'999',templateId:77});await app.settle()
+  const before=app.state().doc.pages[0]
+  const loaded=await app.loadPageSettings(pageId);assert.equal(loaded.title,'기존 페이지')
+  await app.updatePage(pageId,{title:'새 속지에서도 저장',gridVisible:true});await app.settle()
+  const after=app.state().doc.pages[0]
+  assert.equal(after.title,'새 속지에서도 저장');assert.equal(after.gridVisible,true)
+  assert.equal(after.objects,before.objects);assert.equal(after.backgroundAssetId,before.backgroundAssetId)
+ }finally{app.close()}
+})
+
+test('현재 편집기 hook에서 설정을 저장하고 원격 설정을 재조회해도 요소를 보존한다',async()=>{
+ const app=fixture()
+ try{
+  await app.settle()
+  const loaded=await app.loadPageSettings(pageId);assert.equal(loaded.title,'기존 페이지')
+  const before=app.state().doc.pages[0].objects
+  await app.updatePage(pageId,{title:'저장한 제목',gridVisible:true});await app.settle()
+  assert.equal(app.state().doc.pages[0].title,'저장한 제목')
+  assert.equal(app.state().doc.pages[0].gridVisible,true)
+  assert.deepEqual(app.state().doc.pages[0].objects,before)
+  assert.ok(app.requests.some(r=>r.method==='PATCH'&&r.path===`/pages/${pageId}`&&r.body.title==='저장한 제목'))
+  app.remoteSettings({title:'다른 참여자 제목',gridVisible:false});await app.settle()
+  assert.equal(app.state().doc.pages[0].title,'다른 참여자 제목')
+  assert.equal(app.state().doc.pages[0].gridVisible,false)
+ }finally{app.close()}
+})
 test('현재 편집기 hook은 완료한 텍스트 행동마다 서버 작업을 전송하고 원격 변경을 가져온다',async()=>{
  const app=fixture()
  try{
   await app.settle();assert.equal(app.status(),'saved')
   app.edit({type:'addObjects',objects:[{id,type:'text',text:'A',x:1,y:2,w:40,h:20}]});await app.settle()
   app.edit({type:'updateObject',id,record:true,patch:{text:'B'}});await app.settle()
-  const writes=app.requests.filter(r=>r.method==='POST');assert.equal(writes.length,2)
-  assert.ok(writes.every(r=>r.path.endsWith('/canvas-operations')));assert.notEqual(writes[0].body.clientOperationId,writes[1].body.clientOperationId)
+  const writes=app.requests.filter(r=>r.method==='POST'||r.method==='PATCH');assert.equal(writes.length,2)
+  assert.equal(writes[0].path,`/pages/${pageId}/elements`);assert.equal(writes[1].path,`/pages/${pageId}/elements/${id}`)
+  assert.equal(app.requests.some(r=>r.path.endsWith('/canvas-operations')),false)
   app.remote('friend');await app.settle();assert.equal(app.state().doc.pages[0].objects[0].text,'friend')
-  assert.equal(app.requests.filter(r=>r.method==='POST').length,2)
+  assert.equal(app.requests.filter(r=>r.method==='POST'||r.method==='PATCH').length,2)
+ }finally{app.close()}
+})
+
+test('공유 다이어리는 기존 작업 반영으로만 저장하고 개인 전환 후 요소 API를 사용한다',async()=>{
+ const app=fixture(null,true)
+ try{
+  await app.settle()
+  app.edit({type:'addObjects',objects:[{id,type:'text',text:'공유',x:1,y:2,w:40,h:20}]});await app.settle()
+  app.edit({type:'updateObject',id,record:true,patch:{text:'함께 수정'}});await app.settle()
+  const sharedWrites=app.requests.filter(r=>r.method==='POST'||r.method==='PATCH')
+  assert.equal(sharedWrites.length,2);assert.ok(sharedWrites.every(r=>r.path.endsWith('/canvas-operations')))
+  assert.ok(sharedWrites.every(r=>!('canvasWriteMode' in r.body)))
+  assert.ok(sharedWrites.every(r=>typeof r.body.clientOperationId==='string' && r.body.clientOperationId.length>0))
+  assert.notEqual(sharedWrites[0].body.clientOperationId,sharedWrites[1].body.clientOperationId)
+  app.setShared(false);await app.settle()
+  app.edit({type:'updateObject',id,record:true,patch:{text:'개인 수정'}});await app.settle()
+  assert.equal(app.requests.filter(r=>r.method==='PATCH').at(-1).path,`/pages/${pageId}/elements/${id}`)
+  app.setShared(true);await app.settle()
+  app.edit({type:'updateObject',id,record:true,patch:{text:'다시 공유'}});await app.settle()
+  assert.equal(app.requests.filter(r=>r.method==='POST').at(-1).path,`/pages/${pageId}/canvas-operations`)
+  assert.equal(app.state().doc.pages[0].objects[0].text,'다시 공유')
  }finally{app.close()}
 })
 
@@ -127,9 +215,9 @@ test('내 스티커를 드래그하는 중에도 상대 새 요소를 받고 드
   assert.equal(app.state().doc.pages[0].objects.some(o=>o.id===remote.id),true)
   assert.equal(app.state().doc.pages[0].objects.find(o=>o.id===id).x,90)
   app.edit({type:'commitCheckpoint'});await app.settle()
-  const writes=app.requests.filter(r=>r.method==='POST')
-  assert.equal(writes.at(-1).body.changes.updates[0].x,90)
-  assert.equal(writes.some(r=>r.body.changes.creates?.some(o=>o.elementId===remote.id)),false)
+  const writes=app.requests.filter(r=>r.method==='POST'||r.method==='PATCH')
+  assert.equal(writes.at(-1).body.x,90)
+  assert.equal(writes.some(r=>r.method==='POST'&&r.body.elementId===remote.id),false)
  }finally{app.close()}
 })
 

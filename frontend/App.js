@@ -16,6 +16,7 @@ import { guestProfile } from './src/auth/guestProfileDevice';
 import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
+import { createSharingGate } from './src/sharing/sharingGate';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
 import AuthenticatedNotificationDialog from './src/notifications/AuthenticatedNotificationDialog';
 import { isSessionDocumentKey } from './src/editor/services/sessionDocuments.js';
@@ -218,6 +219,8 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     onConfirm: async () => { await clearAppLock(lockScope).catch(() => {}); onEndPreview(); },
   }) : undefined;
   const [sharingRequest, setSharingRequest] = useState(null);
+  // 초대 푸시도 공유 입구(sharingGate)를 거친다. 효과가 다시 걸리지 않게 최신 입구를 ref로 읽는다
+  const sharingGateRef = useRef(null);
   const pushWarningShown = useRef(false);
   useEffect(() => {
     if (previewUser.mode !== 'authenticated') return;
@@ -230,25 +233,19 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       }
     };
     startPushRuntime({ auth: authService, userId: previewUser.userId, invitations: sharing.runtime.invitationGateway,
-      onInvitation: ({ inviteId }) => {
-        if (disposed) return;
-        const open = () => setSharingRequest({ mode: 'invitation', inviteId });
-        if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open();
-      },
+      onInvitation: ({ inviteId }) => { if (!disposed) sharingGateRef.current.pushInvitation(inviteId); },
       onError: onPushError }).then(cleanup => { if (disposed) cleanup(); else stop = cleanup; }).catch(error => { if (!disposed) onPushError(error); });
     return () => { disposed = true; stop(); };
   }, [previewUser.mode, previewUser.userId, sharing.runtime]);
   // 공유는 로그인한 사용자만 쓴다. 게스트는 편집 화면에 함께하는 사람을 띄우지 않고, 공유를 누르면 로그인 안내부터 본다.
   const signedIn = previewUser.mode === 'authenticated';
   const loginGate = useLoginGate();
-  const shareDiary = useCallback(diary => { if (diary) loginGate('다이어리 공유', () => setSharingRequest({ diary })); }, [loginGate]);
+  const sharingGate = useMemo(() => createSharingGate({ authenticated: signedIn, loginGate, open: setSharingRequest,
+    beforeOpen: run => { if (profileLeaveGuard.current) profileLeaveGuard.current(run); else run(); } }), [signedIn, loginGate]);
+  sharingGateRef.current = sharingGate;
+  const shareDiary = sharingGate.share;
   const unreadInvites = (authenticatedNotifications ?? sharing.notifications).count.data?.actionableUnreadCount || 0;
-  const openInvitations = useCallback(() => {
-    const open = () => setSharingRequest({ mode: previewUser.mode === 'authenticated' ? 'notifications' : 'invitations' });
-    const go = () => { if (profileLeaveGuard.current) profileLeaveGuard.current(open); else open(); };
-    // 게스트는 초대를 받을 계정이 없다: 공유 버튼처럼 로그인 안내부터 띄운다
-    loginGate('받은 초대', go);
-  }, [previewUser.mode, loginGate]);
+  const openInvitations = sharingGate.invitations;
   const insets = useSafeAreaInsets();
   // 폰·태블릿 모두 현재 안전 영역을 직접 채운다. 데이터·상태는 두 배치가 함께 쓴다.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -842,9 +839,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   } else if (page === 'studio') {
     content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
-    content = <ProfileScreen compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
+    content = <ProfileScreen key="profile" compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
-      guestService={previewUser?.provider === 'guest' ? guestProfile : undefined}
+      getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
+  } else if (page === 'settings') {
+    content = <ProfileScreen key="settings" section="settings" compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
+      accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
 

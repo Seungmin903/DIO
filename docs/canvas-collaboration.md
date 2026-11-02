@@ -4,6 +4,8 @@ Jira: S15P31F106-350~355. 커서는 이번 범위에서 제외한다.
 
 ## 구조와 적용 범위
 
+2026-11-02 캔버스 요소 프론트 연결에서는 개인 다이어리 저장은 요소 API, 공유 다이어리 저장은 기존 `/canvas-operations`로 분리한다. 서버 활성 멤버가 2명 이상인지 확인하며 준비된 재시도 작업의 경로는 유지한다. 현재 호출 경로와 재시도 한계는 [캔버스 요소 프론트 연결](./canvas-element-frontend-integration.md)을 따른다. 같은 변경을 두 경로로 이중 호출하지 않는다. 작업 이력·Undo/Redo·실시간 수신은 유지한다.
+
 백엔드는 `collaboration/controller`, `service`, `domain`, `repository`, `dto`, `exception`, `config`, `infrastructure`로 나눈다. 기존 `canvas_elements`, `canvas_history_operations`, `pages`, `diaries`, `diary_members`를 사용한다. 새 테이블·컬럼·마이그레이션은 추가하지 않는다.
 
 기존 요소 생성·수정·삭제·복구·일괄 변경 API도 같은 이력 기록 경로를 거친다. 기존 요청·응답 경로를 유지한다. 요소 생성 DTO에는 선택적 숫자 `sortKey`가 추가됐다(정수부 10자리·소수부 10자리). 명시적 null은 400이며, 생략하면 서버가 최대 순서 + 1에 배치한다. batch creates에도 같은 규칙을 적용한다. 새로운 공동 편집 API는 명시적 요소 UUID와 재시도 식별자를 추가로 요구한다.

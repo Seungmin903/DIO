@@ -21,6 +21,9 @@ function setup(user,onUpdatePreview,onClearSession,extra={}){
   if(id==='../../auth/authService')return {authService:service};
   if(id==='../../auth/loginGate')return {useLoginEntry:()=>()=>logins.push('login')};
   if(id==='../../shared/appLock')return {appLockScope:()=>'scope',hasAppLock:async()=>false,checkAppLock:async()=>true,clearAppLock:async()=>{},setAppLock:async()=>{}};
+  if(id==='../components/NotificationSetting')return 'NotificationSetting';
+  if(id==='../components/AppLockSetting')return 'AppLockSetting';
+  if(id==='../components/AppInformation')return 'AppInformation';
   if(id==='react/jsx-runtime')return require(id);
   return ()=>null;
  };
@@ -28,6 +31,7 @@ function setup(user,onUpdatePreview,onClearSession,extra={}){
  return {service,PasswordForm,effects,render(){cursor=0;effects.length=0;return mod.exports.default({diaries:[],previewUser:user,accountService:service,onEndPreview(){},onClearSession,onUpdatePreview,...extra})}};
 }
 function find(node,label){if(!node||typeof node!=='object')return null;if(node.props?.accessibilityLabel===label||node.props?.label===label)return node;for(const child of [node.props?.children].flat(Infinity)){const found=find(child,label);if(found)return found;}return null;}
+function nodes(node){return !node||typeof node!=='object'?[]:[node,...[node.props?.children].flat(Infinity).flatMap(nodes)];}
 test('실제 이메일 계정은 회원정보 수정의 비밀번호 변경에서 인증번호 기반 재설정 화면으로 가고 인증 서비스를 전달한다',()=>{
  const ui=setup({mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'});
  assert.ok(find(ui.render(),'회원정보 수정'));assert.equal(find(ui.render(),'비밀번호 변경'),null); // 내 공간 홈에는 따로 두지 않는다
@@ -63,35 +67,40 @@ test('내 공간에 들어오면 서버 회원정보로 화면 사용자 정보�
  const user={mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'};const updates=[];
  const ui=setup(user,profile=>updates.push(profile));const fresh={...user,nickname:'새닉네임'};let asked=null;
  ui.service.getProfile=async requested=>{asked=requested;return fresh};
- ui.render();const refresh=ui.effects.find(entry=>entry.deps?.[1]==='home');assert.deepEqual(refresh.deps,['7','home']);
+ ui.render();const refresh=ui.effects.find(entry=>entry.deps?.[1]==='home');assert.deepEqual(refresh.deps,['7','home',false]);
  refresh.effect();await new Promise(resolve=>setImmediate(resolve));
  assert.equal(asked,user);assert.deepEqual(updates,[fresh]);
  ui.service.getProfile=async()=>{throw new Error('offline')};updates.length=0;
  const cleanup=refresh.effect();cleanup();await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(updates,[]);
 });
-test('내 공간 노출: 게스트는 프로필 수정만, 회원은 로그아웃도 보인다',()=>{
- const guestService={start(){}}
- const plain=setup({mode:'preview',provider:'guest',nickname:'방문자'},undefined,undefined,{guestService})
- let screen=plain.render()
- assert.ok(find(screen,'프로필 수정'));assert.equal(find(screen,'로그아웃'),null);assert.equal(find(screen,'비밀번호 변경'),null)
- find(screen,'프로필 수정').props.onPress()
- const form=plain.render();assert.equal(form.type,plain.PasswordForm);assert.equal(form.props.service,guestService)
+test('설정에는 알림·보안·앱 정보를, 마이페이지에는 계정 정보만 표시한다',()=>{
+ const user={mode:'authenticated',userId:'7',provider:'email',email:'member@example.com',nickname:'회원'};
+ const settings=setup(user,undefined,undefined,{section:'settings'}).render();
+ const settingTypes=nodes(settings).map(node=>node.type);
+ assert.ok(settingTypes.includes('NotificationSetting'));
+ assert.ok(settingTypes.includes('AppLockSetting'));
+ assert.ok(settingTypes.includes('AppInformation'));
+ assert.equal(find(settings,'회원정보 수정'),null);
+ assert.equal(find(settings,'로그아웃'),null);
+ const profile=setup(user).render();
+ const profileTypes=nodes(profile).map(node=>node.type);
+ assert.ok(!profileTypes.includes('NotificationSetting'));
+ assert.ok(!profileTypes.includes('AppLockSetting'));
+ assert.ok(!profileTypes.includes('AppInformation'));
+ assert.ok(find(profile,'회원정보 수정'));
+ assert.ok(find(profile,'로그아웃'));
+});
+test('내 공간 노출: 게스트는 프로필 수정 · 로그아웃이 없고, 회원은 둘 다 보인다',()=>{
+ const guest=setup({mode:'preview',provider:'guest',nickname:'방문자'}).render()
+ assert.equal(find(guest,'프로필 수정'),null);assert.equal(find(guest,'회원정보 수정'),null);assert.equal(find(guest,'로그아웃'),null);assert.equal(find(guest,'비밀번호 변경'),null)
  const member=setup({mode:'authenticated',userId:'7',provider:'email',email:'m@example.com'}).render()
  assert.ok(find(member,'로그아웃'));assert.ok(find(member,'회원정보 수정'))
 })
-test('게스트 저장소가 없으면 프로필 수정 칸을 누를 수 없고 눌러도 화면이 바뀌지 않는다',()=>{
- const ui=setup({mode:'preview',provider:'guest'})
- const row=find(ui.render(),'프로필 수정')
- assert.equal(row.props.disabled,true)
- row.props.onPress()
- assert.notEqual(ui.render().type,ui.PasswordForm)
-})
-test('게스트 내 공간: 판 안의 로그인 · 회원가입 버튼 하나가 로그인 화면을 열고, 프로필 수정은 이름 옆 연필로 남는다. 회원에게는 없다',()=>{
+test('게스트 내 공간: 판 안의 로그인 · 회원가입 버튼 하나가 로그인 화면을 연다. 회원에게는 없다',()=>{
  logins=[]
- const guest=setup({mode:'preview',provider:'guest',nickname:'방문자'},undefined,undefined,{guestService:{start(){}}}).render()
+ const guest=setup({mode:'preview',provider:'guest',nickname:'방문자'}).render()
  find(guest,'로그인 · 회원가입').props.onPress()
  assert.deepEqual(logins,['login'])
- assert.equal(find(guest,'프로필 수정').props.accessibilityRole,'button')
  const member=setup({mode:'authenticated',userId:'7',provider:'email',email:'m@example.com'}).render()
  assert.equal(find(member,'로그인 · 회원가입'),null)
 })

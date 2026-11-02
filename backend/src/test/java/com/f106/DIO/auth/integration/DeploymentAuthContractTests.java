@@ -76,6 +76,11 @@ class DeploymentAuthContractTests {
         String sharingSuite = block(script, "if [ \"$suite\" = sharing ]", "if [ \"$suite\" = diary ]");
         String diarySuite = block(script, "if [ \"$suite\" = diary ]", "if [ \"$suite\" = lifecycle ]");
         String lifecycleSuite = script.substring(script.indexOf("if [ \"$suite\" = lifecycle ]"));
+        assertThat(diarySuite).containsSubsequence(
+            "CREATE DATABASE dio_member_ci",
+            "-v \"$CI_PROJECT_DIR/backend:/workspace/backend\"",
+            "-v \"$CI_PROJECT_DIR/docs:/workspace/docs:ro\"",
+            "postgresMemberDiaryCreationTest postgresDiaryDetailTest --no-daemon");
         assertThat(occurrences(authSuite, "docker run --rm")).isEqualTo(1);
         assertThat(authSuite).doesNotContain("-e DB_URL=");
         assertThat(occurrences(sharingSuite, "docker run --rm")).isEqualTo(1);

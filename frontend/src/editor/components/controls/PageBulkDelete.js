@@ -10,7 +10,7 @@ export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone, 
   const selected = pages.filter(page => ids.includes(page.id)).map(page => page.id)
   const blocked = !selected.length || selected.length >= pages.length
   return <View style={styles.actions}>
-    <Pressable accessibilityRole="button" accessibilityState={{ disabled: blocked }} disabled={blocked} hitSlop={{ top: 3, bottom: 3 }}
+    <Pressable accessibilityRole="button" accessibilityState={{ disabled: blocked }} disabled={blocked} hitSlop={{ top: 6, bottom: 6 }}
       accessibilityLabel={`선택한 ${selected.length}개 삭제`}
       style={({ pressed }) => [styles.delete, blocked && styles.disabled, pressed && styles.pressed]}
       onPress={() => { confirmed.current = false; setPending(selected) }}>
@@ -18,7 +18,7 @@ export default function PageBulkDelete({ pages, ids, onDelete, onReset, onDone, 
       <Text style={styles.deleteText}>선택 삭제</Text>
     </Pressable>
     {selected.length >= pages.length && <Text style={styles.hint}>페이지는 최소 한 장 남겨 주세요.</Text>}
-    {onReset && <Pressable accessibilityRole="button" accessibilityLabel="다이어리 초기화" hitSlop={{ top: 3, bottom: 3 }}
+    {onReset && <Pressable accessibilityRole="button" accessibilityLabel="다이어리 초기화" hitSlop={{ top: 6, bottom: 6 }}
       style={({ pressed }) => [styles.reset, pressed && styles.pressed]}
       onPress={() => { confirmed.current = false; setPending('reset') }}>
       <Text style={styles.resetText}>다이어리 초기화</Text>

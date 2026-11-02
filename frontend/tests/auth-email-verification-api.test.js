@@ -30,7 +30,7 @@ test('발송 전 이메일 확인, 서버 대기 시간 변환, 인증 후 같�
   assert.deepEqual(calls.map(call => call.path), ['email-availability', 'email-verifications']);
   assert.deepEqual(calls[1].body, { email });
   await gateway.verify(email, '482901');
-  const profile = await gateway.prepareSignup({ email, password: 'Password123!' });
+  const profile = await gateway.prepareSignup({ ageConfirmed: true, email, password: 'Password123!' });
   await api.completeProfile({ ...profile, nickname: '회원', terms: { service: true, privacy: true } });
   assert.equal(calls.at(-1).body.signupToken, 'server-token');
 });
@@ -58,21 +58,21 @@ test('화면 이탈 후 늦은 인증 결과는 가입 토큰을 복원하지 �
   const pending = gateway.verify(email, '482901');
   api.cancelPending(); release(success('email-verifications/verify'));
   await assert.rejects(pending, /취소/);
-  await assert.rejects(gateway.prepareSignup({ email, password: 'Password123!' }), /다시 인증/);
+  await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email, password: 'Password123!' }), /다시 인증/);
 });
 
 test('잘못된 인증 응답·다른 이메일·만료된 토큰으로 가입을 준비하지 않는다', async () => {
   for (const data of [null, {}, { signupToken: '', expiresIn: 600 }, { signupToken: 'x', expiresIn: -1 }]) {
     const { gateway } = setup(() => response(data));
     await assert.rejects(gateway.verify(email, '482901'), /결과/);
-    await assert.rejects(gateway.prepareSignup({ email }), /다시 인증/);
+    await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email }), /다시 인증/);
   }
   let time = 0;
   const { gateway } = setup(success, { now: () => time });
   await gateway.verify(email, '482901');
-  await assert.rejects(gateway.prepareSignup({ email: 'other@example.com' }), /다시 인증/);
+  await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email: 'other@example.com' }), /다시 인증/);
   time = 600000;
-  await assert.rejects(gateway.prepareSignup({ email }), /다시 인증/);
+  await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email }), /다시 인증/);
 });
 
 test('잘못된 발송 응답은 성공으로 취급하지 않는다', async () => {
@@ -147,7 +147,8 @@ const memoryStore = (initial = {}) => {
   return { values, log,
     load: async origin => { log.push(['load', origin]); return values[origin] ?? null; },
     save: async (origin, value) => { log.push(['save', origin]); values[origin] = value; },
-    clear: async origin => { log.push(['clear', origin]); delete values[origin]; } };
+    clear: async origin => { log.push(['clear', origin]); delete values[origin]; },
+    clearAll: async () => { log.push(['clearAll']); Object.keys(values).forEach(key => delete values[key]); } };
 };
 const basicChallenge = () => ({ status: 401, ok: false, json: async () => { throw new SyntaxError('HTML'); },
   headers: { get: name => name === 'WWW-Authenticate' ? 'Basic realm="DIO Development"' : null } });
@@ -180,6 +181,19 @@ test('서버가 저장된 개발 접속 정보를 거절하면 지우고 다시 
   await assert.rejects(api.checkEmailAvailability(email), { code: 'DEVELOPMENT_ACCESS_REQUIRED' });
   assert.equal(store.values['https://server.example'], undefined);
   assert.deepEqual(store.log.at(-1), ['clear', 'https://server.example']);
+});
+
+test('로그아웃하면 개발 서버 접근 정보를 모두 지운다', async () => {
+  const store = memoryStore();
+  const api = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true, developmentAccessStore: store,
+    fetchImpl: async url => url.endsWith('/login')
+      ? response({ accessToken: 'access', refreshToken: 'refresh', expiresIn: 900, user: { userId: '1', email, nickname: '회원' } })
+      : response(null, 204) });
+  api.verificationService.setDevelopmentAccess('tester', 'secret');
+  await api.login({ email, password: 'Password123!' });
+  await api.logout();
+  assert.deepEqual(store.values, {});
+  assert.deepEqual(store.log.at(-1), ['clearAll']);
 });
 
 test('운영 설정이나 HTTP 주소는 개발 접속 저장소를 읽거나 쓰지 않는다', async () => {

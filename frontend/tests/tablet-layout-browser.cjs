@@ -43,9 +43,9 @@ const server = http.createServer((req, res) => {
         assert.ok(Math.abs(box.height - height) < 1, `rail height at ${width}`);
         await button('메뉴 펼치기').click();
         await button('메뉴 접기').waitFor();
-        await button('내 공간').click();
+        await button('설정').click();
         await button('휴지통').click();
-        await button('모든 다이어리').click();
+        await button('내 다이어리').click();
         await button('메뉴 접기').click();
       } else {
         assert.equal(await button('메뉴 펼치기').count(), 0);

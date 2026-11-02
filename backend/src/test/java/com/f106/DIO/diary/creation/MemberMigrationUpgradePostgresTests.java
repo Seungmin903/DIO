@@ -63,7 +63,14 @@ class MemberMigrationUpgradePostgresTests {
             assertThat(jdbc.queryForObject("select version from diaries where diary_id=?",Long.class,diary)).isEqualTo(2L);
             current.validate();
             assertThat(current.migrate().migrationsExecuted).isZero();
-            for(var table:tables) assertThat(fingerprint(jdbc,table,originalColumns.get(table))).as(table).isEqualTo(snapshots.get(table));
+            for(var table:tables) {
+                var after=fingerprint(jdbc,table,originalColumns.get(table));
+                if("page_templates".equals(table)) {
+                    // V27 deliberately appends four planners; all legacy template rows must remain byte-for-byte intact.
+                    assertThat(after).as(table+" legacy rows").containsAll(snapshots.get(table));
+                    assertThat(after).as(table+" appended planners").hasSize(snapshots.get(table).size()+4);
+                } else assertThat(after).as(table).isEqualTo(snapshots.get(table));
+            }
             assertThat(jdbc.queryForList("select version from flyway_schema_history where success order by version::integer",String.class)).containsExactlyElementsOf(expectedVersions);
             assertThat(jdbc.queryForObject("select count(*) from diary_purge_receipts",Long.class)).isZero();
             assertThat(jdbc.queryForObject("select count(*) from pg_indexes where schemaname=? and indexname='pages_active_diary_idx'",Long.class,schema)).isEqualTo(1);

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as validation from '../src/sharing/sharingPreview.js';
+import * as validation from '../src/sharing/sharingContracts.js';
 const require = createRequire(import.meta.url),
   expo = createRequire(require.resolve('expo/package.json')),
   babel = expo('@babel/core');
@@ -78,7 +78,7 @@ function setup(runtime = {}, photoPicker, initialRequest = { mode: 'invitations'
     'react-native-safe-area-context': { SafeAreaView: 'safe' },
     '../shared/useFormFactor': { useFormFactor: () => ({ isPhone: false }) },
     '../shared/theme': { colors: {} },
-    './sharingPreview': validation,
+    './sharingContracts': validation,
     './styles': { sharingStyles: new Proxy({}, { get: (_, k) => k }) },
     '../notifications/NotificationPanel': { invitationStatusLabel: (v) => v },
   };

@@ -47,6 +47,32 @@ class UserTermsUpdateTests {
         var key=new TermsAgreement.Key();key.userId=user;key.termsType=type;key.termsVersion=version;
         return terms.findById(key).orElseThrow();
     }
+    @Test void optionalChoicesAreIndependentAndLegacyIsNotExpanded() throws Exception {
+        var actor=actor();
+        for(var type:new TermsType[]{TermsType.MARKETING_PRIVACY,TermsType.AD_EMAIL,TermsType.AD_PUSH,TermsType.AD_NIGHT_PUSH}) {
+            mvc.perform(put("/api/v1/me/terms/"+type+"/v1").header("Authorization","Bearer "+actor.token())
+                .contentType("application/json").content("{\"agreed\":true}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("termsType").value(type.name()));
+        }
+        updates.update(actor.id(),TermsType.AD_EMAIL,"v1",false);
+        assertThat(entry(actor.id(),"AD_EMAIL","v1").isAgreed()).isFalse();
+        assertThat(entry(actor.id(),"AD_PUSH","v1").isAgreed()).isTrue();
+        var legacy=actor();updates.update(legacy.id(),TermsType.MARKETING,"v1",true);
+        assertThat(terms.findAll().stream().filter(t->t.getUserId().equals(legacy.id())).count()).isEqualTo(1);
+    }
+    @Test void signupValidatesOptionalChoicesIndependently() {
+        var service=new com.f106.DIO.user.service.UserTermsService(terms,new com.f106.DIO.user.config.TermsProperties("v2","v2","v1"));
+        var list=new java.util.ArrayList<com.f106.DIO.user.dto.Agreement>();
+        list.add(new com.f106.DIO.user.dto.Agreement(TermsType.SERVICE,"v2",true));
+        list.add(new com.f106.DIO.user.dto.Agreement(TermsType.PRIVACY,"v2",true));
+        for(var type:new TermsType[]{TermsType.MARKETING_PRIVACY,TermsType.AD_EMAIL,TermsType.AD_PUSH,TermsType.AD_NIGHT_PUSH})
+            list.add(new com.f106.DIO.user.dto.Agreement(type,"v1",false));
+        service.validate(list);
+        list.add(new com.f106.DIO.user.dto.Agreement(TermsType.AD_EMAIL,"v1",true));
+        assertThatThrownBy(()->service.validate(list)).isInstanceOf(com.f106.DIO.user.exception.UserException.class);
+        list.remove(list.size()-1);list.set(2,new com.f106.DIO.user.dto.Agreement(TermsType.MARKETING_PRIVACY,"invalid",true));
+        assertThatThrownBy(()->service.validate(list)).isInstanceOf(com.f106.DIO.user.exception.UserException.class);
+    }
     @Test void anonymousAndInvalidTokensCannotWrite()throws Exception{
         for(String token:new String[]{"","Bearer invalid"})mvc.perform(put("/api/v1/me/terms/MARKETING/v1")
             .header("Authorization",token).contentType("application/json").content("{\"agreed\":true}"))
@@ -80,7 +106,7 @@ class UserTermsUpdateTests {
         for(String path:new String[]{"SERVICE/v1","UNKNOWN/v1","MARKETING/unknown"})mvc.perform(put("/api/v1/me/terms/"+path)
             .header("Authorization","Bearer "+actor.token()).contentType("application/json").content("{\"agreed\":true}"))
             .andExpect(status().isBadRequest());
-        for(String type:new String[]{"SERVICE/v2","PRIVACY/v1"})mvc.perform(put("/api/v1/me/terms/"+type)
+        for(String type:new String[]{"SERVICE/v2","PRIVACY/v2"})mvc.perform(put("/api/v1/me/terms/"+type)
             .header("Authorization","Bearer "+actor.token()).contentType("application/json").content("{\"agreed\":false}"))
             .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("REQUIRED_TERMS_NOT_AGREED"));
         for(String body:new String[]{"{}","{\"agreed\":null}","{broken"})mvc.perform(put("/api/v1/me/terms/MARKETING/v1")

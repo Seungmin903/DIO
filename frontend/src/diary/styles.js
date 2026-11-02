@@ -28,6 +28,8 @@ export const styles = StyleSheet.create({
   // 로고 · 종 · 삼선을 같은 높이(48) 안에서 세로 가운데 맞춤 (로고 칸이 더 높아 로고만 아래로 처지던 것을 맞춤)
   brandRow: { height: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   brand: { flex: 1, minWidth: 0, height: 48, paddingBottom: 6, flexDirection: 'row', alignItems: 'center', gap: 10 }, // 위쪽 점 때문에 D 본체가 아래로 쏠려 보여 로고를 3 올림
+  railHome: { flex: 0, width: 48, paddingBottom: 0, justifyContent: 'center' }, // 홈도 종·메뉴와 같은 48px 슬롯 중앙을 쓴다.
+  railHomeIcon: {}, // 홈 아이콘 박스 중심을 종·메뉴의 48px 버튼 중심선에 그대로 맞춘다.
   brandSlot: { flex: 1, minWidth: 0, height: 48, justifyContent: 'center', overflow: 'hidden' },
   railToggle: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   railTogglePressed: {}, // 눌림 효과 없음(사용자 지시)
@@ -66,10 +68,10 @@ export const styles = StyleSheet.create({
   railIconTilePhone: { top: 4 }, // 폰 항목 높이 44
   // 내 공간 칸: 구분선 아래가 접힌 메뉴 폭(78)과 같은 정사각형이고 프로필 그림이 그 한가운데에 온다.
   // 구분선 아래 여백 16 + 칸 48 + 메뉴 아래 여백 24 - 10 = 78, 그림 가운데는 바닥에서 39(= 78 / 2)
-  railSpacer: { flex: 1 }, // 휴지통을 메뉴 아래쪽(내 공간 위)으로 미는 빈 칸
-  railTrash: { marginBottom: 24 }, // 휴지통 ↔ 아래 구분선 24 · 구분선 ↔ 내 공간 16(코덱스 2026-11-01: 선은 기능 메뉴와 개인 공간의 경계라 남기고, 휴지통 아래는 위 메뉴 간격 28에 가깝게 한 단계 더 띄운다)
-  railProfileLine: { marginBottom: 16, height: 1, backgroundColor: C.cardBorder }, // 내 공간 위 구분선(휴지통이 메뉴 아래로 밀어 둔 그 밑)
-  railProfile: { paddingHorizontal: 8.5, marginBottom: -10 }, // 내 공간: 메뉴 맨 아래(프로필 그림 30이 아이콘 20 자리와 가운데가 맞게 안쪽 여백을 줄인다)
+  railSpacer: { flex: 1 }, // 휴지통·설정을 메뉴 아래쪽(마이페이지 위)으로 미는 빈 칸
+  railTrash: {}, // 휴지통 다음 설정은 위 탐색 항목과 같은 48dp 피치로 바로 잇는다.
+  railProfileLine: { marginBottom: 16, height: 1, backgroundColor: C.cardBorder }, // 마이페이지 위 구분선
+  railProfile: { paddingHorizontal: 8.5, marginBottom: -10 }, // 마이페이지: 메뉴 맨 아래(프로필 그림 30이 아이콘 20 자리와 가운데가 맞게 안쪽 여백을 줄인다)
   railAvatarSlot: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   railIcon: { width: 19, textAlign: 'center', color: C.muted, fontSize: 17, fontWeight: '700' },
   railIconSelected: { color: C.ink },

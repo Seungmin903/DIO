@@ -65,9 +65,9 @@ const server = http.createServer((req, res) => {
         if (!process.env.DESIGN_BASELINE) assert.ok(Math.abs(box.height - height) < 1, `rail height at ${width}`);
         await button('메뉴 펼치기').click();
         await button('메뉴 접기').waitFor();
-        await button('내 공간').click();
+        await button('설정').click();
         await button('휴지통').click();
-        await button('모든 다이어리').click();
+        await button('내 다이어리').click();
         await button('메뉴 접기').click();
         await page.waitForTimeout(350); // 메뉴 너비 전환이 끝난 뒤 화면 기록
       } else {
