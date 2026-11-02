@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { catalog } from '../src/editor/templates/data.js'
 import { UNDATED_TEMPLATES } from '../src/editor/templates/undated.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
-import { SERVER_TEMPLATE_CATALOG, serverTemplateReference, localTemplateReference, toServerInitialPageSelections } from '../src/editor/templates/serverCatalog.js'
+import { SERVER_TEMPLATE_CATALOG, serverTemplateReference, localTemplateReference, toServerInitialPageSelections, plannerTemplatesEnabled } from '../src/editor/templates/serverCatalog.js'
 import { catalogContract, seedMigration, catalogResource, migrationResource, V9_CONTRACT_SHA256, normalizeV9ContractSource } from '../scripts/generate-page-template-catalog.mjs'
 
 const plannerMigrationResource = new URL('../../backend/src/main/resources/db/migration/V25__add_study_and_daily_planner_templates.sql', import.meta.url)
@@ -26,6 +26,12 @@ test('전체 속지·플래너·빈 속지가 독립된 서버 코드로 매핑�
     assert.deepEqual({ width: local.canvasWidth, height: local.canvasHeight }, catalog.coordinateSystems[asset.orientation])
     assert.deepEqual(asset, before)
   }
+})
+
+test('V25 전용 빌드는 플래너 선택을 명시적으로 끌 수 있다', () => {
+  assert.equal(plannerTemplatesEnabled({ EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED: '0' }), false)
+  assert.equal(plannerTemplatesEnabled({ EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED: '1' }), true)
+  assert.equal(plannerTemplatesEnabled({}), true)
 })
 
 test('빈 페이지는 null 에셋 참조와 방향·규격을 보존하고 명시적인 서버 코드로 매핑된다', () => {

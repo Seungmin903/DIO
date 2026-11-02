@@ -1,4 +1,4 @@
-import {localTemplateReference,SERVER_TEMPLATE_CATALOG} from '../editor/templates/serverCatalog.js'
+import {localTemplateReference,SERVER_TEMPLATE_CATALOG,serverTemplateSelectable} from '../editor/templates/serverCatalog.js'
 import {decodeElement,sharedElement} from './canvasElements.js'
 const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 const invalid=()=>Object.assign(new Error('서버의 페이지와 속지 정보를 확인하지 못했어요. 기존 기기 문서는 유지돼요.'),{code:'INVALID_SERVER_PAGES'})
@@ -50,7 +50,7 @@ export async function createServerPage({transport,diaryId,backgroundAssetId=null
  const check=()=>{if(!isActive())throw Object.assign(Error('계정이 바뀌어 페이지 생성을 중단했어요.'),{code:'STALE_ACCOUNT'})}
  check();if(!uuid(diaryId))throw invalid()
  const template=SERVER_TEMPLATE_CATALOG.find(t=>t.backgroundAssetId===backgroundAssetId&&(backgroundAssetId!==null||t.orientation===orientation.toUpperCase()))
- if(!template)throw invalid()
+ if(!serverTemplateSelectable(template))throw invalid()
  let pending=JSON.parse(await storage.getItem(key)??'null');check()
  if(pending){
   const list=await transport({path:`/diaries/${diaryId}/pages`});check()
