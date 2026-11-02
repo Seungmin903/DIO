@@ -288,7 +288,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
       preview = <>
         <TemplatePreview assetId={ids[0]} width={size.width} appearance={paperAppearance} style={styles.paperShadow} />
         {stripCount > 1 && <View style={styles.strip}>
-          {ids.slice(0, stripCount).map((id, index) => <TemplatePreview key={`${id}-${index}`} assetId={id} width={stripWidth} appearance={paperAppearance} />)}
+          {ids.slice(0, stripCount).map((id, index) => <TemplatePreview key={`${id}-${index}`} assetId={id} width={stripWidth} appearance={paperAppearance} sketch />)}
           {ids.length > stripCount && <Text style={styles.stripMore}>…</Text>}
         </View>}
         <StagePill>전체 {pageCount}페이지</StagePill>
@@ -322,7 +322,7 @@ export default function DiaryCreateModal({ diary, onSubmit, onCancel, saving = f
   </View>;
   else if (section === 'cover') panel = <View style={styles.coverPanel}>
     {!editing && <MyCoverList items={library.covers} name={title} selectedId={myCoverId} onPick={useMyCover} onRemove={removeMyCover} disabled={editLocked} />}
-    <CoverOptions cover={cover} name={title} onChange={changeCover} openElement={openElement} onOpenElement={setOpenElement} onNotice={setNotice} />
+    <CoverOptions cover={cover} name={title} ratio={coverRatio} onChange={changeCover} openElement={openElement} onOpenElement={setOpenElement} onNotice={setNotice} />
   </View>;
   else if (section === 'paper') panel = <View style={styles.coverPanel}>
     <MyPaperList items={library.papers} selectedId={myPaper?.id} onPick={useMyPaper} onRemove={removeMyPaper} disabled={editLocked} />

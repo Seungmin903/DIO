@@ -47,14 +47,20 @@ export function createSticker(item, center) {
   })
 }
 
+/** 사진 테이프 한 조각의 가로:세로. 두께를 바꾸면 조각도 같은 비율로 커져 segmentW / h 가 늘 이 비율이다(예전 테이프도 같다) */
+export const tapePieceRatio = (tape) => tape.pieceRatio ?? (tape.segmentW ? tape.segmentW / tape.h : undefined)
+
 export function createTape(item, center) {
-  // 이미지 테이프도 기본 테이프와 같은 네모 틀에 꽉 채워(cover) 넣어 테이프 비율을 유지한다.
+  // 사진 테이프: 등록할 때 정한 두께(규격)와 조각 가로:세로(pieceRatio) 그대로, 조각 하나 크기로 붙는다(기본 길이로 늘리지 않는다).
   if (item.mediaFileId || item.src) {
     const imageSize = TAPE_SIZES.find((s) => s.id === item.size) ?? TAPE_SIZES[1]
-    return base('tape', center, imageSize.w, imageSize.h, {
+    const pieceRatio = item.pieceRatio ?? imageSize.w / imageSize.h
+    const segmentW = imageSize.h * pieceRatio
+    return base('tape', center, segmentW, imageSize.h, {
       size: imageSize.id,
       // 잘라서 등록한 이미지 한 조각의 길이. 테이프가 이보다 길어지면 조각을 옆으로 반복한다.
-      segmentW: imageSize.w,
+      segmentW,
+      pieceRatio,
       src: item.src,
       mediaFileId: item.mediaFileId,
       name: item.name,

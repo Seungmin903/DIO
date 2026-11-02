@@ -377,7 +377,7 @@ export default function ProfileEditScreen({
                     style={s.infoRow}
                   >
                     <Text style={s.infoLabel}>비밀번호 변경</Text>
-                    <AppIcon name="chevron-right" size={20} color={colors.textMuted} />
+                    <AppIcon name="chevron-right" size={20} forText={16} color={colors.textMuted} />
                   </Pressable>
                 )}
               </SettingCard>

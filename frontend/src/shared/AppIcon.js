@@ -12,6 +12,7 @@ const EDITOR_ICONS = {
   people: 'people',
   share: 'userPlus', // 편집 화면 상단 바의 공유 버튼과 같은 모양
   bell: 'bell',
+  settings: 'settings',
   add: 'plus',
   edit: 'edit',
   search: 'search',
@@ -37,6 +38,9 @@ const EDITOR_ICONS = {
   'arrow-down': 'down',
   // 제작 화면(사진 오리기, 시트 분리, 내 폰트)이 쓰는 편집기 아이콘
   image: 'image',
+  sticker: 'sticker', // 편집기 툴바의 스티커 도구와 같은 모양(공방 '스티커 추가')
+  tape: 'tape', // 편집기 툴바의 마스킹테이프 도구와 같은 모양(공방 '테이프 추가')
+  paper: 'paper', // 새 다이어리 '속지' 칸과 같은 모양(공방 '속지 추가')
   redo: 'redo',
   pen: 'pen',
   eraser: 'eraser',
@@ -80,6 +84,10 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
     case 'workshop':
       // 팔레트. Lucide `palette` (ISC, https://github.com/lucide-icons/lucide) 의 선을 그대로 쓰고, 물감 점은 윤곽선 색으로 꽉 채운 원(선 굵기와 무관한 크기)으로 그린다.
       graphic = <><Path {...line} d="M12 22a1 1 0 0 1 0-20a10 9 0 0 1 10 9a5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" /><Circle fill={color} cx="13.5" cy="6.5" r="1.3" /><Circle fill={color} cx="17.5" cy="10.5" r="1.3" /><Circle fill={color} cx="6.5" cy="12.5" r="1.3" /><Circle fill={color} cx="8.5" cy="7.5" r="1.3" /></>;
+      break;
+    case 'home':
+      // Lucide house: 지붕과 문이 24px 상자 안에 균형 있게 들어와 상단 종·메뉴와 시각 중심이 맞는다.
+      graphic = <Path {...line} d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8 M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />;
       break;
     case 'camera':
       // 사진 바꾸기(프로필 수정의 `사진 변경`). 연필(프로필 전체 수정)과 뜻이 겹치지 않게 Lucide `camera` (ISC) 의 선을 그대로 쓴다.

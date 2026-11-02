@@ -9,13 +9,14 @@ const server = http.createServer((req, res) => {
   fs.createReadStream(file).pipe(res)
 })
 async function enterLocalSession(page) {
-  const tab = page.getByRole('tab', { name: '내 공간', exact: true }).or(page.getByRole('button', { name: '내 공간', exact: true }))
+  // 방문자(게스트)도 항상 보이는 사이드바 '설정'으로 보관함 진입을 확인한다(마이페이지는 회원만 보인다)
+  const tab = page.getByRole('button', { name: '설정', exact: true })
   await tab.waitFor().catch(async error => { console.error('LOCAL_QA_BODY', await page.locator('body').innerText()); throw error })
 }
 async function openStudio(page) {
   await enterLocalSession(page)
-  await page.getByRole('tab', { name: '내 공간', exact: true }).or(page.getByRole('button', { name: '내 공간', exact: true })).click()
-  await page.getByRole('button', { name: /나만의 폰트 만들기/ }).click()
+  await page.getByRole('tab', { name: '꾸미기 공방', exact: true }).or(page.getByRole('button', { name: '꾸미기 공방', exact: true })).click()
+  await page.getByRole('button', { name: '새로 만들기', exact: true }).click()
   await page.getByRole('button', { name: '+ 새로 만들기', exact: true }).waitFor()
 }
 // Read the committed v3 snapshot through the real browser IndexedDB adapter.

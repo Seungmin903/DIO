@@ -1,14 +1,12 @@
 let sequence = 0
 export function startPagePanelMeasurement(details) {
   const reporter = typeof window !== 'undefined' ? window.__DIO_PEN_QA_REPORT__ : null
-  const nativeDev = typeof __DEV__ !== 'undefined' && __DEV__ && typeof navigator !== 'undefined' && navigator.product === 'ReactNative'
-  if (!reporter && !nativeDev) return null
+  if (!reporter) return null
   const start = performance.now(), metadata = { ...(typeof window !== 'undefined' ? window.__DIO_PERF_CASE__ : null), traceId: `page-panel-${Date.now().toString(36)}-${++sequence}`, ...details }
   let events = 0
   const emit = (stage, values = {}) => {
     const entry = { type: 'page-panel', ...metadata, recordId: `${metadata.traceId}-${++events}`, stage, elapsedMs: Math.round(performance.now() - start), ...values }
-    if (reporter) reporter(entry)
-    else console.info('[DIO-PAGE-PERF]', JSON.stringify(entry))
+    reporter(entry)
   }
   emit('intent')
   const duration = details.kind === 'page-select' ? 3000 : 700

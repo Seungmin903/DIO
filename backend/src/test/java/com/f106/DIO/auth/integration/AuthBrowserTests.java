@@ -54,8 +54,8 @@ class AuthBrowserTests {
         verification.send(email);
         String token = verification.verify(new EmailVerificationRequest(email, code.get())).signupToken();
         signup.signup(new SignupRequest(email, token, "DioMember123!", "브라우저회원",
-            List.of(new Agreement(TermsType.SERVICE, "v1", true),
-                new Agreement(TermsType.PRIVACY, "v1", true))));
+            List.of(new Agreement(TermsType.SERVICE, "v2", true),
+                new Agreement(TermsType.PRIVACY, "v2", true)), true));
         Path script = Path.of("../frontend/qa/auth-api-browser.cjs").toAbsolutePath().normalize();
         Process browser = new ProcessBuilder("node", script.toString(), "http://127.0.0.1:" + port)
             .inheritIO().start();

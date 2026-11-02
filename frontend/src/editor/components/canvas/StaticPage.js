@@ -2,7 +2,7 @@ import { memo, useContext, useLayoutEffect } from 'react'
 import { Platform, StyleSheet, View } from 'react-native'
 import { pageSize } from '../../utils/pageGeometry.js'
 import PageBackground from '../PageBackground'
-import { objectOpacity, TextMeasure } from './ObjectView'
+import { objectOpacity, TextMeasure, TextMeasureReady } from './ObjectView'
 import PageObject from './PageObject'
 import CompletedStrokeLayer from './CompletedStrokeLayer'
 import WebStrokeCache from './WebStrokeCache'
@@ -31,7 +31,7 @@ export { ViewportMotion }
  * 편집 화면에서는 확대·이동하는 동안과 화면 밖에 있는 GIF 도 멈춘다 (ViewportMotion).
  * 편집 화면의 GIF 는 움직여야 하므로, 손대지 않고 보이는 것만 재생한다.
  */
-const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true, fadeIds = null, stillIds = null, onTextMeasure = null, cacheStrokes = false, areaPreviewObjects = null, areaErasing = false, deferredAreaObjects = null }) {
+const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zoom, still = false, cropId = null, background = '#FFFFFF', showBackground = true, fadeIds = null, stillIds = null, onTextMeasure = null, textMeasureReady = false, cacheStrokes = false, areaPreviewObjects = null, areaErasing = false, deferredAreaObjects = null, uncachedObjects = null }) {
   const { width, height } = pageSize(page)
   useLayoutEffect(() => { qaPageMeasurement?.emit('drawing-layout') }, [page.id, qaPageMeasurement])
   const motion = useContext(ViewportMotion)
@@ -51,11 +51,13 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
     >
       {showBackground && <PageBackground page={page} zoom={zoom} compact />}
       <TextMeasure.Provider value={onTextMeasure}>
+      <TextMeasureReady.Provider value={textMeasureReady}>
       {webCache && !cropId && !fadeIds?.length && !stillIds?.length
         ? <WebStrokeCache objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} areaPreviewObjects={areaPreviewObjects} deferredAreaObjects={deferredAreaObjects} areaErasing={areaErasing} />
         : cacheStrokes && !cropId && (Platform.OS === 'web' ? !fadeIds?.length && !stillIds?.length : !movingStroke)
-        ? <CompletedStrokeLayer objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} />
+        ? <CompletedStrokeLayer objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} uncachedObjects={uncachedObjects} />
         : page.objects.filter(object => !object.hidden).map(renderObject)}
+      </TextMeasureReady.Provider>
       </TextMeasure.Provider>
     </View>
   )
@@ -64,6 +66,7 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   && previous.deferredAreaObjects === next.deferredAreaObjects
   && previous.areaErasing === next.areaErasing
   && previous.areaPreviewObjects === next.areaPreviewObjects
+  && previous.uncachedObjects === next.uncachedObjects
   && previous.page === next.page
   && previous.zoom === next.zoom
   && previous.still === next.still
@@ -73,6 +76,7 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   && previous.fadeIds === next.fadeIds
   && previous.stillIds === next.stillIds
   && previous.cacheStrokes === next.cacheStrokes
+  && previous.textMeasureReady === next.textMeasureReady
   // 높이를 받는 함수는 페이지가 바뀔 때 함께 바뀌므로 있고 없음만 비교한다
   && Boolean(previous.onTextMeasure) === Boolean(next.onTextMeasure)
 ))

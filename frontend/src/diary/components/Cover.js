@@ -90,7 +90,7 @@ function Cover({ thumbnailWidth, diary, small = false, preview = false, carousel
       style={[frame, styles.cell, centered && styles.fillCenter, fill && !measured && styles.unmeasured, thumbnailWidth && { width: thumbnailWidth, height: styleHeight, minHeight: 0 }]}>
       <View onLayout={liveFill ? onBoxLayout : undefined} style={[liveFill ? { width: ratio < 1 ? `${ratio * 100}%` : '100%', aspectRatio: ratio } : { width: boxWidth, height: boxHeight }]}>
         {cover.enabled && fill ? <View ref={art} pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: artWidth, height: artHeight, transform: [{ scale: boxWidth / artWidth }], transformOrigin: 'top left' }}>
-          <CoverArt cover={cover} name={diary.title} width={artWidth} height={artHeight} shadow={shadow} />
+          <CoverArt cover={cover} name={diary.title} width={artWidth} height={artHeight} shadow={shadow} pixelScale={boxWidth / artWidth} />
         </View>
           : cover.enabled ? <CoverArt cover={cover} name={diary.title} width={boxWidth} height={boxHeight} shadow={shadow} />
           : <View style={[styles.page, { borderRadius: 4 * sx }, shadow]}>

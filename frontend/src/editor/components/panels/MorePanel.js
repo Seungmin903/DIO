@@ -40,7 +40,9 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
   const isWidget = single?.type === 'sticker' && Boolean(single.widget) && !single.locked
   const hasStyle = true // 불투명도는 모든 요소에 있어 꾸미기 탭이 늘 있다
   const current = hasStyle ? tab : 'layout'
-  const title = objects.length > 1 ? `${objects.length}개 요소` : `${TYPE_TITLES[single?.type] ?? '요소'} 옵션`
+  // 메모(종이 그림이 있는 도형) · 디데이 같은 스티커형 위젯은 보관함의 위젯 칸에서 붙이므로 '위젯'으로 부른다
+  const typeTitle = single?.art || single?.widget ? '위젯' : TYPE_TITLES[single?.type]
+  const title = objects.length > 1 ? `${objects.length}개 요소` : `${typeTitle ?? '요소'} 옵션`
   const updateEach = (makePatch, record = true) =>
     dispatch({ type: 'updateMany', record, patches: Object.fromEntries(editable.map((o) => [o.id, makePatch(o)])) })
   // 각도: 하나면 제자리(가운데 기준)에서, 여러 개(그룹)면 묶음 가운데를 기준으로 함께 돌린다.
@@ -102,7 +104,7 @@ export default function MorePanel({ objects, dispatch, onReplacePhoto, onReplace
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.replaceButton, pressed && styles.pressed]}
               >
-                <Icon name="swap" size={16} forText={12} />
+                <Icon name="swap" size={16} forText={12.5} />
                 <Text style={styles.chipText}>{hasPhotoMedia(single) ? '사진 바꾸기' : '사진 넣기'}</Text>
               </Pressable>
             )}

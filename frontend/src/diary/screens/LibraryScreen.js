@@ -237,7 +237,7 @@ function LibraryScreen({
     <PopoverMenu open={optionsOpen} anchor={optionsAnchor} width={230} height={170} label="보관함 옵션 목록" style={s.librarySortMenu} onClose={() => setOptionsOpen(false)}>
       <View accessibilityRole="radiogroup" accessibilityLabel="정렬 기준">
         {SORT_OPTIONS.map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ checked: sortKey === item.id }} accessibilityLabel={`${item.label}, ${sortKey === item.id ? (direction === 'asc' ? '오름차순' : '내림차순') + ', 누르면 방향 바꾸기' : '선택'}`} onPress={() => { onSortChange(nextSort(sort, item.id)); resetPosition(); }} style={({ pressed }) => [s.chip, s.librarySortOption, sortKey === item.id && s.chipSelected, pressed && s.pressed]}>
-          <View style={s.sortOptionRow}><View style={s.sortOptionCheck}>{sortKey === item.id && <AppIcon name={direction === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} color={C.ink} strokeWidth={2.4} />}</View><Text style={s.chipText}>{item.label}</Text></View>
+          <View style={s.sortOptionRow}><View style={s.sortOptionCheck}>{sortKey === item.id && <AppIcon name={direction === 'asc' ? 'arrow-up' : 'arrow-down'} size={14} forText={12} color={C.ink} />}</View><Text style={s.chipText}>{item.label}</Text></View>
         </Pressable>)}
       </View>
     </PopoverMenu>
@@ -334,7 +334,7 @@ function LibraryScreen({
                 >
                   {/* 즐겨찾기 칩의 별은 다이어리 카드의 즐겨찾기 별과 같은 그림이되, 골라도 금색으로 채우지 않는다(고른 표시는 칩 테두리). 칩 · 보기 버튼 아이콘은 글자 높이(위아래 끝)에 맞춘 크기 */}
                   {item.id === 'favorite' ? <FavoriteStar filled={false} outline={C.inkSoft} size={compact ? 13 : 14} />
-                    : <AppIcon name={item.icon} size={compact ? 15 : 16} forText={12} color={C.inkSoft} />}
+                    : <AppIcon name={item.icon} size={compact ? 15 : 16} forText={compact ? 12.5 : 12} color={C.inkSoft} />}
                   <Text style={[s.libraryViewText, compact && s.filterTextCompact, on && s.filterTextSelected]}>{item.label}</Text>
                 </Pressable>
                 );

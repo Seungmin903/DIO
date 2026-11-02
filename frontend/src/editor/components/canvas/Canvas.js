@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Icon from '../controls/Icon'
 import { colors, radius, DISABLED_OPACITY } from '../../../shared/theme'
@@ -226,26 +226,8 @@ export default function Canvas({
     const patch = fitTextHeightPatch(object, h)
     if (patch) dispatch({ type: 'updateObject', id, patch })
   }
-  const [erasingIds, setErasingIds] = useState([])
-  const [erasingPieces, setErasingPieces] = useState(null) // 영역 지우기 중: 원래 획 id → 남은 조각
-  const erasePreviewTicket = useRef(null)
-  useLayoutEffect(() => {
-    const ticket = erasePreviewTicket.current
-    if (ticket && !ticket.committed) { ticket.committed = true; ticket.measurement.record(ticket.metric ?? 'eraserPreviewToLayoutMs', ticket.measurement.clock() - ticket.started) }
-  })
-  const previewErase = (ids, pieces = null, ticket = null) => { erasePreviewTicket.current = ticket; setErasingIds(ids); setErasingPieces(pieces) }
-  // 그림 층에서 빼는 요소: 지우개로 지우는 중인 획, 편집 중인 텍스트(입력창이 투명이라 원래 글자가 겹쳐 보이지 않게)
-  const hiddenIds = [...(activeTool === 'eraser' ? erasingIds : []), ...(textEditing?.id ? [textEditing.id] : [])]
-  const pieces = activeTool === 'eraser' ? erasingPieces : null
-  const fastEraseObjects = useRef(new WeakSet())
-  const areaPreviewObjects = useMemo(() => {
-    if (Platform.OS === 'web' && pieces) for (const object of Object.values(pieces).flat()) fastEraseObjects.current.add(object)
-    return Platform.OS === 'web' && pieces ? new Set(Object.values(pieces).flat()) : null
-  }, [pieces])
-  const hiddenSet = new Set(hiddenIds)
-  const drawingPage = hiddenIds.length
-    ? { ...page, objects: page.objects.flatMap((object) => pieces?.[object.id] ?? (hiddenSet.has(object.id) ? [] : [object])) }
-    : page
+  const eraseDrawing = useRef(null)
+  const previewErase = (ids, pieces = null, ticket = null) => eraseDrawing.current?.preview(ids, pieces, ticket)
   const visible = page.objects.filter((o) => !o.hidden)
   const touchSelectable = visible.filter((o) => o.type !== 'stroke' && !isBackdrop(o))
   const selected = visible.filter((o) => selectedIds.includes(o.id))
@@ -404,7 +386,7 @@ export default function Canvas({
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <ProgressiveCanvasDrawing page={drawingPage} enabled={progressiveNative} generation={generation} onReady={setReadyPage} qaPageMeasurement={qaPageMeasurement} deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} onTextMeasure={readOnly || interacting || !pageReady ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />
+        <EraserPreviewDrawing ref={eraseDrawing} page={page} activeTool={activeTool} textEditingId={textEditing?.id} enabled={progressiveNative} generation={generation} onReady={setReadyPage} qaPageMeasurement={qaPageMeasurement} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} textMeasureReady={pageReady} onTextMeasure={readOnly || interacting || !pageReady ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />
       </View>
       {!pageReady && <View pointerEvents="none" accessibilityRole="progressbar" accessibilityLabel="페이지 불러오는 중" style={styles.pageLoading}><Text style={styles.pageLoadingText}>페이지 불러오는 중</Text></View>}
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
@@ -801,6 +783,28 @@ function isDoubleTap(id) {
   lastTextTap.time = now
   return double
 }
+
+// 지우기 미리보기는 터치·도구·선택 층을 다시 렌더하지 않고 그림 층에서만 갱신한다.
+const EraserPreviewDrawing = forwardRef(function EraserPreviewDrawing({ page, activeTool, textEditingId, ...props }, ref) {
+  const [preview, setPreview] = useState({ ids: [], pieces: null })
+  const ticket = useRef(null)
+  const fastEraseObjects = useRef(new WeakSet())
+  useImperativeHandle(ref, () => ({ preview(ids, pieces, measurement) { ticket.current = measurement; setPreview({ ids, pieces }) } }), [])
+  useLayoutEffect(() => {
+    const current = ticket.current
+    if (current && !current.committed) { current.committed = true; current.measurement.record(current.metric ?? 'eraserPreviewToLayoutMs', current.measurement.clock() - current.started) }
+  })
+  const ids = [...(activeTool === 'eraser' ? preview.ids : []), ...(textEditingId ? [textEditingId] : [])]
+  const pieces = activeTool === 'eraser' ? preview.pieces : null
+  const areaPreviewObjects = useMemo(() => {
+    if (Platform.OS === 'web' && pieces) for (const object of Object.values(pieces).flat()) fastEraseObjects.current.add(object)
+    return Platform.OS === 'web' && pieces ? new Set(Object.values(pieces).flat()) : null
+  }, [pieces])
+  const uncachedObjects = useMemo(() => Platform.OS !== 'web' && pieces ? new Set(Object.values(pieces).flat()) : null, [pieces])
+  const hidden = new Set(ids)
+  const drawingPage = ids.length ? { ...page, objects: page.objects.flatMap(object => pieces?.[object.id] ?? (hidden.has(object.id) ? [] : [object])) } : page
+  return <ProgressiveCanvasDrawing {...props} page={drawingPage} deferredAreaObjects={fastEraseObjects.current} areaErasing={Boolean(pieces)} areaPreviewObjects={areaPreviewObjects} uncachedObjects={uncachedObjects} />
+})
 
 // 페이지 내용이 조금씩 준비될 때 Canvas 전체 대신 표시 층만 갱신한다.
 function ProgressiveCanvasDrawing({ page, enabled, generation, onReady, ...props }) {

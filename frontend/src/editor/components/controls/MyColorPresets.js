@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Pressable, StyleSheet, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { colors, DISABLED_OPACITY } from '../../../shared/theme'
+import { colors } from '../../../shared/theme'
 import { normalizeHex } from '../../utils/penSettings'
-import ColorPicker from './ColorPicker'
+import PresetColorEditor from '../../../diary/components/PresetColorEditor'
 import Icon from './Icon'
 
 // 내 색상은 쓰는 곳(scope)마다 따로 저장한다. 펜은 예전부터 쓰던 저장소를 그대로 이어 쓴다.
@@ -82,23 +82,30 @@ export function useColorPresets(scope = 'pen') {
 
 /**
  * '내 색상' 줄: 저장한 색을 누르면 그 색으로 바꾸고, ×로 지운다.
- * 맨 끝 + 를 누르면 색 피커가 열려 새 색을 고르고(바로 적용), '내 색상에 저장' 으로 목록에 넣는다.
- * value: 지금 색, onPick(color), scope: 저장 목록 구분 (pen·highlighter·text·tape)
- * pickerTop: 피커가 열렸을 때 피커 위에 둘 것 (예: 마스킹테이프의 바탕색·무늬색 고르기). onPickerOpenChange(open)
+ * 맨 끝 + 를 누르면 옵션 탭을 늘이지 않고 색 고르기 창(말풍선)을 따로 띄운다. 고르는 동안 바로 적용하고, 창을 닫으면 마지막 색을 목록에 넣는다(완료 버튼 없음).
+ * value: 지금 색, onPick(color), scope: 저장 목록 구분 (pen·highlighter·text·tape). onPickerOpenChange(open)
  * entry: 저장·선택 표시에 쓰는 값 (기본은 value). 두 색 '#바탕/#무늬' 이면 기본 테이프 색처럼 원 안에 작은 원으로 보인다.
- *   저장한 두 색을 누르면 onPick('#바탕/#무늬'), 피커에서 고르면 onPick('#색')
+ *   저장한 두 색을 누르면 onPick('#바탕/#무늬'). 테이프(scope tape)는 창에서 바탕색 · 무늬색을 함께 골라 onPick('#바탕/#무늬')
  */
-export default function MyColorPresets({ value, entry = value, onPick, label = '색상', scope = 'pen', pickerTop = null, onPickerOpenChange }) {
+// inline: 다른 가로 줄 안에 한 줄로 이어 붙인다(테이프 보관함 색 줄, 줄바꿈 없음). size: 원 지름(기본 30)
+export default function MyColorPresets({ value, entry = value, onPick, label = '색상', scope = 'pen', onPickerOpenChange, inline = false, size = 30 }) {
   const { presets, loaded, add, remove } = useColorPresets(scope)
-  const [pickerOpen, setOpen] = useState(false)
-  const setPickerOpen = (open) => { setOpen(open); onPickerOpenChange?.(open) }
+  const addRef = useRef(null)
+  const [anchor, setAnchor] = useState(null) // 열린 창의 기준(+ 칸 자리). null 이면 닫힘
+  const tape = scope === 'tape'
   const current = entry ? normalizeEntry(entry) : null // 아직 내 색을 고르지 않았으면 null (예: 기본 색 테이프)
-  const pickerColor = value ? normalizeHex(value) : null
-  const saved = Boolean(current && presets.includes(current))
   const full = presets.length >= MAX_PRESETS
+  const open = () => addRef.current?.measureInWindow?.((x, y, width, height) => {
+    setAnchor({ x, y, width, height })
+    onPickerOpenChange?.(true)
+  })
+  const close = () => { setAnchor(null); onPickerOpenChange?.(false) }
+  // 창 값 'custom:#바탕:#무늬'(테이프) · '#색' → 저장 값 '#바탕/#무늬' · '#색'
+  const toEntry = (picked) => (tape ? picked.replace(/^custom:/, '').replace(':', '/') : picked)
+  const start = tape ? `custom:${(current ?? '#F6D6DA/#E58FA0').replace('/', ':')}` : (value ? normalizeHex(value) : null) ?? '#000000'
   return (
-    <View style={styles.box}>
-      <View style={styles.row}>
+    <View style={[styles.box, inline && styles.boxInline]}>
+      <View style={[styles.row, inline && styles.rowInline]}>
         {presets.map((color) => (
           <View key={color} style={styles.wrap}>
             <Pressable
@@ -106,7 +113,7 @@ export default function MyColorPresets({ value, entry = value, onPick, label = '
               accessibilityLabel={`저장한 ${label} ${color}`}
               accessibilityState={{ selected: current === color }}
               onPress={() => onPick(color)}
-              style={[styles.swatch, { backgroundColor: color.split('/')[0] }, current === color && styles.chosen]}
+              style={[styles.swatch, { width: size, height: size, borderRadius: size / 2, backgroundColor: color.split('/')[0] }, current === color && styles.chosen]}
             >
               {color.includes('/') && <View style={[styles.inner, { backgroundColor: color.split('/')[1] }]} />}
             </Pressable>
@@ -115,30 +122,26 @@ export default function MyColorPresets({ value, entry = value, onPick, label = '
             </Pressable>
           </View>
         ))}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`새 ${label} 고르기`}
-          accessibilityState={{ expanded: pickerOpen }}
-          disabled={!loaded}
-          onPress={() => setPickerOpen(!pickerOpen)}
-          style={[styles.swatch, styles.add, pickerOpen && styles.addOpen]}
-        >
-          <Icon name={pickerOpen ? 'close' : 'plus'} size={14} color={colors.textMuted} />
-        </Pressable>
-      </View>
-      {pickerOpen && (
-        <>
-          {pickerTop}
-          <ColorPicker value={pickerColor ?? '#000000'} label={label} onChange={onPick} />
+        {!full && (
           <Pressable
+            ref={addRef}
+            collapsable={false}
             accessibilityRole="button"
-            disabled={saved || full || !current}
-            onPress={() => { if (add(entry)) setPickerOpen(false) }}
-            style={[styles.saveButton, (saved || full) && styles.dim]}
+            accessibilityLabel={`새 ${label} 고르기`}
+            accessibilityState={{ expanded: Boolean(anchor) }}
+            disabled={!loaded}
+            onPress={open}
+            style={[styles.swatch, { width: size, height: size, borderRadius: size / 2 }, styles.add, anchor && styles.addOpen]}
           >
-            <Text style={styles.saveText}>{saved ? '이미 저장한 색이에요' : full ? `최대 ${MAX_PRESETS}개까지 저장해요` : '내 색상에 저장'}</Text>
+            <Icon name="plus" size={14} color={colors.textMuted} />
           </Pressable>
-        </>
+        )}
+      </View>
+      {anchor && (
+        <PresetColorEditor title={label.replace(/색상$/, '색')} tape={tape} original={null} anchor={anchor} value={start}
+          onChange={(picked) => onPick(toEntry(picked))}
+          onDone={(picked) => { add(toEntry(picked)); close() }}
+          onClose={close} />
       )}
     </View>
   )
@@ -146,7 +149,9 @@ export default function MyColorPresets({ value, entry = value, onPick, label = '
 
 const styles = StyleSheet.create({
   box: { gap: 10 },
+  boxInline: { gap: 0 },
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
+  rowInline: { flexWrap: 'nowrap', gap: 16, paddingHorizontal: 8 }, // 터치 44 줄의 원 28 과 같은 간격(44 - 28)
   wrap: { position: 'relative' },
   swatch: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border },
   chosen: { borderWidth: 3, borderColor: colors.primary },
@@ -155,7 +160,4 @@ const styles = StyleSheet.create({
   remove: { position: 'absolute', right: -5, top: -5, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   add: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', backgroundColor: colors.surface },
   addOpen: { backgroundColor: colors.surfaceMuted },
-  saveButton: { height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: colors.primaryStrong },
-  saveText: { fontSize: 13, fontWeight: '700', color: colors.surface },
-  dim: { opacity: DISABLED_OPACITY },
 })

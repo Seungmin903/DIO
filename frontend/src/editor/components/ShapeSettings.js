@@ -4,8 +4,13 @@ import Svg, { Path } from 'react-native-svg'
 import { colors } from '../../shared/theme'
 import { DEFAULT_SHAPE_STYLE, EDITOR_SHAPES, SHAPE_CATEGORIES, SHAPE_BORDER_STYLES, shapeBorderDash } from '../utils/editorShapes'
 import { Segmented, ToolPanelHeader, toolPanelStyles as p } from './ToolPanel'
-import ColorPicker, { PaletteInteractionContext } from './controls/ColorPicker'
+import { PaletteInteractionContext } from './controls/ColorPicker'
+import { useColorWindow } from '../../diary/components/PresetColorEditor'
 import Slider from './controls/Slider'
+import { MEMO_ARTS } from '../widgets/memoArt'
+
+// 종이 그림에 무늬 자리({line})가 있는 메모만 무늬 색을 고른다
+const memoHasPattern = (id) => MEMO_ARTS.find((art) => art.id === id)?.svg.includes('{line}') ?? true
 
 // 코덱스 18번: 첫 화면은 자주 쓰는 도형 12개(4×3)만, '더 보기'에서 분류와 나머지 도형
 const COMMON_SHAPE_COUNT = 12
@@ -24,15 +29,22 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
     if (embedded) parentPaletteInteraction?.(active)
   },[embedded,parentPaletteInteraction])
   const value = { ...DEFAULT_SHAPE_STYLE, ...settings }
-  const [category, setCategory] = useState('all'), [picker, setPicker] = useState(null), [moreShapes, setMoreShapes] = useState(false)
+  const [category, setCategory] = useState('all'), [moreShapes, setMoreShapes] = useState(false)
+  // 색 직접 고르기: 옵션 창 안에 펼치지 않고 색 창을 따로 띄운다(앱 안 색 창 통일, 2026-11-02). 여는 동안의 변경은 되돌리기 한 번으로 묶는다
+  const colorWindow = useColorWindow(), customRefs = useRef({})
+  const openCustom = (key, label) => {
+    const start = value[key] === 'none' ? '#FFFFFF' : value[key]
+    onCheckpoint?.()
+    colorWindow.open({ current: customRefs.current[key] }, { title: label, value: start, original: start,
+      onChange: color => onChange({ [key]: color }, false), onDone: color => { onChange({ [key]: color }, false); onCommit?.() }, onClose: () => onCommit?.() })
+  }
   const palette = (key, label, disabled = false) => <View style={[styles.section,disabled && p.dim]}>
     <Text style={p.label}>{label}</Text>
     <View style={styles.palette}>
       {key === 'fill' && !value.art && <Pressable accessibilityRole="button" accessibilityLabel="채우기 없음" accessibilityState={{selected:value.fill==='none'}} onPress={()=>onChange({fill:'none'})} style={[styles.swatch,styles.noFill,value.fill==='none'&&styles.chosen]}><Svg width={22} height={22} viewBox="0 0 24 24"><Path d="M5 19L19 5" stroke={colors.textMuted} strokeWidth={1.5} /></Svg></Pressable>}
       {(key === 'borderColor' && value.art ? MEMO_LINE_SWATCHES : SWATCHES).map(color => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`${label} ${color}`} disabled={disabled} accessibilityState={{ selected: value[key] === color, disabled }} onPress={() => onChange({ [key]: color })} style={[styles.swatch, { backgroundColor: color }, value[key] === color && styles.chosen]} />)}
-      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 직접 선택`} disabled={disabled} accessibilityState={{ expanded: !disabled && picker === key, disabled }} onPress={() => setPicker(picker === key ? null : key)} style={styles.customColor}><Text style={styles.plus}>+</Text></Pressable>
+      <Pressable ref={node => { customRefs.current[key] = node }} collapsable={false} accessibilityRole="button" accessibilityLabel={`${label} 직접 선택`} disabled={disabled} accessibilityState={{ disabled }} onPress={() => openCustom(key, label)} style={styles.customColor}><Text style={styles.plus}>+</Text></Pressable>
     </View>
-    {!disabled && picker === key && <ColorPicker onInteractionChange={onPaletteInteraction} label={label} value={value[key] === 'none' ? '#FFFFFF' : value[key]} onStart={onCheckpoint} onEnd={onCommit} onChange={color => onChange({ [key]: color }, false)} />}
   </View>
   return <View style={embedded ? {marginTop:14} : p.card}>
     {!embedded && <ToolPanelHeader icon="shape" title="도형" onClose={onClose} />}
@@ -53,10 +65,10 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
       })()}
       <Pressable accessibilityRole="button" accessibilityLabel={moreShapes ? '도형 접기' : '도형 더 보기'} accessibilityState={{expanded:moreShapes}} onPress={()=>setMoreShapes(open=>!open)} style={styles.moreButton}><Text style={styles.moreText}>{moreShapes ? '접기' : '더 보기'}</Text></Pressable>
       </>}
-      {/* 메모 종이: 종이 한 색 + 무늬 한 색만 바꾼다 (테두리 두께 · 모양은 종이 그림이 정한다) */}
+      {/* 메모 종이: 종이 한 색 + 무늬 한 색만 바꾼다 (테두리 두께 · 모양은 종이 그림이 정한다). 무지 메모처럼 무늬가 없으면 무늬 색은 뺀다 */}
       {value.art ? <>
         {palette('fill', '종이 색')}
-        {palette('borderColor', '무늬 색')}
+        {memoHasPattern(value.art) && palette('borderColor', '무늬 색')}
       </> : <>
       {palette('fill', '채우기')}
       <Text style={p.label}>테두리 두께</Text>
@@ -71,6 +83,7 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
       </ScrollView>
       </>}
     </Content>
+    {colorWindow.element}
     {onAdd && <View style={styles.footer}>
       <Pressable accessibilityRole="button" accessibilityLabel="도형 캔버스에 추가" onPress={onAdd} style={styles.add}><Text style={[styles.buttonText,styles.addText]}>캔버스에 추가</Text></Pressable>
     </View>}

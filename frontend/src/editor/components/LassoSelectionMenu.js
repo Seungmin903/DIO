@@ -29,7 +29,7 @@ export default function LassoSelectionMenu({ objects, mode, zoom, origin = { x: 
 function Action({ icon, label, selected, onPress }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected }} aria-pressed={selected}
     onPress={onPress} style={({ pressed }) => [styles.action, selected && styles.active, pressed && styles.pressed]}>
-    <Icon name={icon} size={16} forText={14} color={selected ? colors.primary : colors.text} />
+    <Icon name={icon} size={16} forText={12.5} color={selected ? colors.primary : colors.text} />
     <Text style={styles.text}>{label}</Text>
   </Pressable>
 }

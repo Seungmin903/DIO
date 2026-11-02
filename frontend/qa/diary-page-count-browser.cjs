@@ -78,12 +78,12 @@ const server = http.createServer((req, res) => {
       if (!mock) {
         await button(`${diary.title} 열기`).click(); await button('다이어리 홈').waitFor();
         await button('페이지 목록').click();
-        await page.getByLabel('페이지 작업 메뉴', { exact: true }).first().click();
+        await page.getByLabel(/^[0-9]+페이지 작업 메뉴$/).first().click();
         await page.getByLabel('페이지 복제', { exact: true }).click();
         await button('다이어리 홈').click(); await expectCount(4);
         await button(`${diary.title} 열기`).click(); await button('다이어리 홈').waitFor();
         await button('페이지 목록').click();
-        await page.getByLabel('페이지 작업 메뉴', { exact: true }).first().click();
+        await page.getByLabel(/^[0-9]+페이지 작업 메뉴$/).first().click();
         await page.getByLabel('페이지 삭제', { exact: true }).click();
         await button('다이어리 홈').click(); await expectCount(3);
         await page.reload(); await expectCount(3);

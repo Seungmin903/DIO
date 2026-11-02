@@ -15,6 +15,7 @@ import { ROTATE_OFFSET } from '../../editor/utils/popoverPlacement'
 import { textStyle } from '../../editor/utils/text'
 import { STICKER_SIZE, bandAutoColor, coverTitle, createStickerCopy, coverLineColor, gradientStops, mix } from '../utils/coverDesign'
 import { colors } from '../../shared/theme'
+import { coverLayout } from '../../editor/utils/objects'
 
 // 글씨체마다 같은 크기에서 보이는 글자 높이가 달라 손글씨는 조금 키운다.
 const FONT_SCALE = { 'nanum-pen': 1.35, 'poor-story': 1.1 }
@@ -81,7 +82,19 @@ const PHOTO_RETRIES = 3
 
 // 들어가자마자 사진이 안 뜨던 원인은 useMediaUri 가 React Compiler 에 기억된 옛 값을 돌려준 것이었다(useMediaUri 참고).
 // 그와 별개로 보관소 읽기 실패와 그림 풀기 실패는 잠깐 뒤(0.5 · 1 · 1.5초) 다시 시도한다.
+// 자른 자리(crop)가 있으면 표지 크기를 재서 그 자리대로 놓는다(없으면 가운데 기준으로 꽉 채움)
 function OwnPhoto({ photo }) {
+  const [box, setBox] = useState(null)
+  if (photo.crop && photo.aspect) {
+    const layout = box && coverLayout({ imageWidth: photo.aspect, imageHeight: 1, crop: photo.crop }, box.width, box.height)
+    return <View style={[StyleSheet.absoluteFill, styles.photoClip]} onLayout={event => { const { width, height } = event.nativeEvent.layout; setBox(prev => (prev?.width === width && prev?.height === height ? prev : { width, height })); }}>
+      {layout && <View style={{ position: 'absolute', left: layout.left, top: layout.top, width: layout.width, height: layout.height }}><PhotoImage photo={photo} /></View>}
+    </View>
+  }
+  return <PhotoImage photo={photo} />
+}
+
+function PhotoImage({ photo }) {
   const uri = useMediaUri(photo)
   const id = mediaId(photo)
   const entry = useMediaEntry(id)
@@ -300,7 +313,7 @@ function TitleBox({ edit, ribbon, width, height, at, origin, onSelect, onMove, s
  * 표지 그림. width · height 를 알면 그 크기로, height 가 없으면 부모를 채우고 width 로만 글자 크기를 맞춘다.
  * edit 를 넘기면 표지 위 제목 라벨과 스티커를 끌어 옮길 수 있다.
  */
-function CoverArt({ cover, name, width, height, edit = null, shadow = null }) {
+function CoverArt({ cover, name, width, height, edit = null, shadow = null, pixelScale = 1 }) {
   const [selected, setSelected] = useState(null)
   const titleOrigin = useRef({ x: 0, y: 0 })
   const drafts = useRef(null)
@@ -385,7 +398,7 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null }) {
   <View style={[styles.layer, styles.clip, body, { backgroundColor: hasGradient ? 'transparent' : base }]}>
     {cover.kind === 'photo' ? (cover.photo?.src ? <OwnPhoto photo={cover.photo} />
       : <View style={styles.noPhoto}><Icon name="image" size={Math.max(18, 30 * scale)} color="#FFFFFF" /></View>)
-      : <>{stops && <GradientFill stops={stops} initialWidth={bodyWidth} initialHeight={bodyHeight} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} line={lineColor} initialWidth={bodyWidth} initialHeight={bodyHeight} /></>}
+      : <>{stops && <GradientFill stops={stops} initialWidth={bodyWidth} initialHeight={bodyHeight} />}<CoverPattern pattern={cover.pattern.type} tone={cover.pattern.tone} scale={scale} line={lineColor} pixelScale={pixelScale} initialWidth={bodyWidth} initialHeight={bodyHeight} /></>}
     {edit && <Pressable accessibilityLabel="표지 스티커 선택 해제" onPress={() => select(null)} style={StyleSheet.absoluteFill} />}
     <View pointerEvents="none" style={[styles.spine, { width: '4.9%' }]} />
     {ribbon && titleArea}
@@ -406,6 +419,7 @@ function CoverArt({ cover, name, width, height, edit = null, shadow = null }) {
 export default memo(CoverArt)
 
 const styles = StyleSheet.create({
+  photoClip: { overflow: 'hidden' },
   layer: { position: 'absolute' },
   clip: { overflow: 'hidden' },
   fill: { alignSelf: 'stretch' },

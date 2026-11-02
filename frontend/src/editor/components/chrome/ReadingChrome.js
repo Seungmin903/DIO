@@ -10,10 +10,10 @@ import { createPageRepeat, isGesturePagePress } from '../../utils/pageRepeat.js'
 export const READING_PADDING = { top: 56, bottom: 52, side: 0 }
 export const READING_PADDING_FULL = { top: 0, bottom: 0, side: 0 }
 
-function Action({ icon, label, onPress, disabled = false, ...pressProps }) {
+function Action({ icon, label, onPress, disabled = false, small = false, ...pressProps }) {
   return <Pressable {...pressProps} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled}
-    onPress={onPress} style={({ pressed }) => [styles.action, pressed && styles.pressed, disabled && styles.disabled]}>
-    <Icon name={icon} size={20} />
+    onPress={onPress} style={({ pressed }) => [styles.action, small && styles.actionSmall, pressed && styles.pressed, disabled && styles.disabled]}>
+    <Icon name={icon} size={small ? 19 : 20} />
   </Pressable>
 }
 
@@ -45,10 +45,14 @@ export function PageTurnAction({ direction, index, count, onSelect }) {
 }
 
 // fitted: 이미 화면에 맞춰진 상태면 맞춤 버튼을 비활성화한다
-export function ReadingModeControls({ reading, canEdit, fitted = false, onFit, onToggle, controlsRef, onLayout, bottomInset = 0 }) {
-  return <View ref={controlsRef} onLayout={onLayout} style={[styles.modeControls, { bottom: 12 + bottomInset }]}>
-    <Action icon="fit" label="화면에 맞춤" disabled={fitted} onPress={onFit} />
-    {canEdit ? <Action icon={reading ? 'edit' : 'eye'} label={reading ? '편집 모드로 전환' : '읽기 모드로 전환'} onPress={onToggle} /> : <View style={styles.action} />}
+// 편집 화면 작업창 안에 띄운다. 왼쪽 아래 되돌리기 · 자동 저장 막대와 같은 모양(버튼 36 · 아이콘 19 · 가는 구분선)
+export function ReadingModeControls({ reading, canEdit, fitted = false, onFit, onToggle, controlsRef, onLayout }) {
+  return <View ref={controlsRef} onLayout={onLayout} style={styles.modeControls}>
+    <Action small icon="fit" label="화면에 맞춤" disabled={fitted} onPress={onFit} />
+    {canEdit && <>
+      <View style={styles.modeDivider} />
+      <Action small icon={reading ? 'edit' : 'eye'} label={reading ? '편집 모드로 전환' : '읽기 모드로 전환'} onPress={onToggle} />
+    </>}
   </View>
 }
 
@@ -117,8 +121,10 @@ const styles = StyleSheet.create({
   pageNumber: { width: 58, fontSize: 11, fontWeight: '700', color: colors.text, textAlign: 'center', fontVariant: ['tabular-nums'] },
   pager: { flex: 1, minWidth: 0, maxWidth: 520, flexDirection: 'row', alignItems: 'center', marginHorizontal: 'auto' },
   readingActions: { flexDirection: 'row', marginLeft: 4, flexShrink: 0 },
-  modeControls: { position: 'absolute', right: 12, bottom: 12, height: 52, padding: 4, flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: colors.surface, zIndex: 30, ...shadow.card },
+  modeControls: { position: 'absolute', right: 12, bottom: 12, gap: 2, padding: 4, flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.95)', zIndex: 30, ...shadow.card },
+  modeDivider: { width: 1, height: 20, backgroundColor: colors.border },
   action: { width: 44, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  actionSmall: { width: 36, height: 36 },
   pressed: {}, disabled: { opacity: DISABLED_OPACITY }, // 눌림 효과 없음(사용자 지시)
   track: { flex: 1, minWidth: 8, height: 44, justifyContent: 'center', marginHorizontal: 8, touchAction: 'none' },
   trackLine: { height: 4, borderRadius: 2, backgroundColor: colors.primarySoft },

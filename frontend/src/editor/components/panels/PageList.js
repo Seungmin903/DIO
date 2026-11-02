@@ -24,15 +24,16 @@ export const PAGE_LIST_WIDTH = 176
 
 /**
  * 페이지 목록. 같은 원본으로 표시하되 웹의 무거운 썸네일은 축소 캐시를 재사용한다.
- * - 탭: 그 페이지로 이동 (고른 페이지도 그 하나만)
- * - 고른 페이지(지금 페이지 포함)를 길게 눌러 끌기: 순서 바꾸기. 여러 개 골라 두었으면 함께 옮긴다 (놓을 자리에 선이 보인다)
- * - 고르지 않은 페이지를 길게 누르기: 여러 개 고르기 모드에 들어가 그 페이지를 넣는다. 이어서 위아래로 끌면 그 사이를 모두 고른다
- *   모드 중에는 탭으로 넣고 빼고, 위쪽이 'N개 선택 · 해제' 로 바뀐다. 함께 끄는 페이지에는 개수가 붙는다 (레이어 패널과 같다)
+ * - 탭: 그 페이지로 이동
+ * - 어느 페이지든 길게 눌러 끌기: 순서 바꾸기 (놓을 자리에 선이 보인다). 길게 눌렀다 움직이지 않고 떼면 그 페이지 작업 메뉴
+ *   (굿노트처럼 같은 손짓은 고른 페이지든 아니든 같은 일을 한다)
+ * - 여러 개 고르기는 '편집' 으로만 들어간다. 모드 중에는 탭으로 넣고 빼고, 길게 눌러 끌면 고른 페이지를 함께 옮긴다
+ *   함께 끄는 페이지에는 개수가 붙는다 (레이어 패널과 같다)
  * - 끄는 손가락이 목록 위·아래 끝 근처나 바깥으로 나가면 목록이 그쪽으로 넘어간다
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onSettings, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, qaMeasurement = null, thumbnailWork = null, fillHeight = false }) {
+export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onSettings, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, edge = false, qaMeasurement = null, thumbnailWork = null, fillHeight = false }) {
   const openingMeasurement = qaMeasurement
   useLayoutEffect(() => {
     openingMeasurement?.emit('panel-layout')
@@ -41,10 +42,11 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
     const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => openingMeasurement.emit('panel-frame-opportunity')) })
     return () => { cancelAnimationFrame(first); if (second != null) cancelAnimationFrame(second) }
   }, [openingMeasurement])
+  // 태블릿(edge)은 화면 끝까지 붙은 패널 안에서 좌우 여백을 24로 같게 두고 그만큼 썸네일 · 버튼 줄을 넓힌다(144)
+  const thumbWidth = edge ? THUMB_WIDTH + EDGE_INSET : THUMB_WIDTH
   const [drag, setDrag] = useState(null) // { id, from, dy, group } — 끌어서 옮기는 중
   // 고른 페이지들. 평소에는 지금 페이지 하나이고, 길게 눌러 여러 개를 고른다.
   const [picked, setPicked] = useState([currentId])
-  const [ranging, setRanging] = useState(false) // 길게 눌러 범위 고르는 중 (목록이 손가락을 스크롤로 가져가지 않게)
   const [pickMode, setPickMode] = useState(false) // 여러 개 고르기 모드: 탭으로 넣고 뺀다
   const endPickMode = () => { setPickMode(false); setPicked([currentId]) }
   // 모드 중 탭: 넣거나 뺀다. 다 빼면 모드를 끝낸다
@@ -54,6 +56,8 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   }
   const pickedRef = useRef(picked)
   pickedRef.current = picked
+  const pickModeRef = useRef(pickMode)
+  pickModeRef.current = pickMode
   useEffect(() => { if (!pickedRef.current.includes(currentId)) setPicked([currentId]) }, [currentId])
   const [menuId, setMenuId] = useState(null)
   const [filter, setFilter] = useState('all') // 'all' | 'bookmarked'
@@ -90,22 +94,18 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
     autoScroll.current = null
   }
   useEffect(() => stopAutoScroll, [])
-  // 범위 고르기: 길게 누른 페이지(from)부터 손가락이 있는 페이지까지를 처음 고른 것(base)에 더한다
-  const pickRange = (info) => {
-    const to = dropIndex(pages, layouts.current, { id: info.id, from: info.from, dy: effectiveDy(info) })
-    const ids = pages.slice(Math.min(info.from, to), Math.max(info.from, to) + 1).map((page) => page.id)
-    setPicked([...new Set([...info.base, ...ids])])
-  }
   const startDrag = (id, from) => {
     const height = layouts.current[id]?.height ?? 0
     // 손가락 위치(목록 화면 기준)는 끄는 썸네일 가운데에서 시작한다고 본다
     const pointerStart = LIST_PADDING + itemTop(pages, layouts.current, id) - scrollOffset.current + height / 2
-    const current = pickedRef.current
-    const mode = current.includes(id) ? 'move' : 'range'
-    const base = mode === 'range' ? [...current, id] : current
-    dragInfo.current = { id, from, finger: 0, scrollStart: scrollOffset.current, pointerStart, mode, base }
-    if (mode === 'range') { setPicked(base); setRanging(true); setPickMode(true) }
-    else setDrag({ id, from, dy: 0, group: current.length > 1 })
+    // 편집 중이면 고른 페이지를 함께 옮긴다(고르지 않은 페이지를 끌면 그 페이지도 넣는다). 평소에는 끄는 페이지 하나만
+    let group = [id]
+    if (pickModeRef.current) {
+      group = pickedRef.current.includes(id) ? pickedRef.current : [...pickedRef.current, id]
+      setPicked(group)
+    }
+    dragInfo.current = { id, from, finger: 0, scrollStart: scrollOffset.current, pointerStart, group }
+    setDrag({ id, from, dy: 0, group: group.length > 1 })
     stopAutoScroll()
     autoScroll.current = setInterval(() => {
       const info = dragInfo.current
@@ -120,27 +120,29 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
       if (next === scrollOffset.current) return
       scrollOffset.current = next
       listRef.current?.scrollToOffset({ offset: next, animated: false })
-      if (info.mode === 'range') pickRange(info)
-      else setDrag({ id: info.id, from: info.from, dy: effectiveDy(info), group: pickedRef.current.length > 1 })
+      setDrag({ id: info.id, from: info.from, dy: effectiveDy(info), group: info.group.length > 1 })
     }, 16)
   }
   const moveDrag = (fingerDy) => {
     const info = dragInfo.current
     if (!info) return
     info.finger = fingerDy
-    if (info.mode === 'range') pickRange(info)
-    else setDrag({ id: info.id, from: info.from, dy: effectiveDy(info), group: pickedRef.current.length > 1 })
+    setDrag({ id: info.id, from: info.from, dy: effectiveDy(info), group: info.group.length > 1 })
   }
-  const endDrag = (fingerDy, cancelled) => {
+  // moved: 길게 누른 뒤 손가락을 움직였는지. 움직이지 않고 떼면 옮기지 않고 그 페이지 작업 메뉴를 연다(편집 중에는 열지 않는다)
+  const endDrag = (fingerDy, cancelled, moved) => {
     const info = dragInfo.current
     dragInfo.current = null
     stopAutoScroll()
     setDrag(null)
-    setRanging(false)
-    if (!info || cancelled || info.mode === 'range') return
+    if (!info || cancelled) return
+    if (!moved) {
+      if (!pickModeRef.current && !readOnly) openMenu(info.id)
+      return
+    }
     info.finger = fingerDy
     const to = dropIndex(pages, layouts.current, { id: info.id, from: info.from, dy: effectiveDy(info) })
-    const group = pickedRef.current
+    const group = info.group
     if (group.length > 1) {
       // 고른 페이지를 모두 놓은 자리로 함께 옮긴다. 놓은 자리가 함께 옮기는 페이지면 같은 방향으로 처음 만나는 다른 페이지에 붙인다
       const place = to < info.from ? 'before' : 'after'
@@ -175,7 +177,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
     if (windowSize.current !== `${window.width}x${window.height}`) setMenuId(null)
     windowSize.current = `${window.width}x${window.height}`
   }, [window.width, window.height])
-  const openMenu = (id) => setMenuId((current) => (current === id ? null : id))
+  function openMenu(id) { setMenuId((current) => (current === id ? null : id)) }
   // 목록이 패널 안에서 시작하는 y(탭 줄 + 편집 줄 아래). 메뉴를 누른 페이지 높이에 맞추는 기준
   const [listTop, setListTop] = useState(0)
   // 메뉴는 그 페이지 높이에 맞춘다. 항목 위치는 앞 항목들 높이를 더해 구한다 (FlatList 항목의 onLayout y 는 늘 0)
@@ -185,13 +187,13 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   const menuTop = Math.max(8, Math.min(rawMenuTop, Math.max(8, panelHeight - menuHeight - 8)))
 
   return (
-    <View ref={panelRef} collapsable={false} style={[styles.panel, fillHeight && { flex: 1 }]} onLayout={(event) => { openingMeasurement?.emit('panel-native-layout'); setPanelHeight(event.nativeEvent.layout.height) }}>
+    <View ref={panelRef} collapsable={false} style={[styles.panel, edge && styles.panelEdge, fillHeight && { flex: 1 }]} onLayout={(event) => { openingMeasurement?.emit('panel-native-layout'); setPanelHeight(event.nativeEvent.layout.height) }}>
       <View style={styles.header}>
         {/* 여러 개 고르기 중에는 탭 줄이 'N개 선택 · 해제' 로 바뀐다 (같은 높이라 목록이 밀리지 않는다) */}
         {pickMode ? (
           <View style={styles.pickBar}>
             <Text style={styles.pickText}>{picked.length}개 선택</Text>
-            <Pressable onPress={endPickMode} hitSlop={8} accessibilityRole="button" accessibilityLabel="여러 페이지 선택 해제" style={styles.pickDone}>
+            <Pressable onPress={endPickMode} hitSlop={{ top: 6, bottom: 6, left: 10, right: 12 }} accessibilityRole="button" accessibilityLabel="여러 페이지 선택 해제" style={styles.pickDone}>
               <Text style={styles.pickDoneText}>완료</Text>
             </Pressable>
           </View>
@@ -202,6 +204,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
               key={id}
               onPress={() => { setMenuId(null); endPickMode(); setFilter(id) }}
               accessibilityRole="button"
+              hitSlop={{ top: 8, bottom: 8 }}
               accessibilityLabel={`${label} 페이지 보기`}
               accessibilityState={{ selected: filter === id }}
               style={[styles.tab, filter === id && styles.tabActive]}
@@ -212,16 +215,16 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         </View>
         )}
       </View>
-      {!readOnly && <View style={pickMode ? styles.bulkControls : styles.editControls}>
+      {!readOnly && <View style={styles.actions}>
         {pickMode ? <PageBulkDelete pages={pages} ids={picked} onDelete={onRemovePages} onReset={onReset} canUndoDelete={canUndoDelete} onDone={endPickMode} />
-          : <View style={styles.editRow}><Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={styles.editButton} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="edit" size={14} forText={11.5} /><Text style={styles.editText}>편집</Text></Pressable></View>}
+          : <Pressable accessibilityRole="button" accessibilityLabel="페이지 편집" hitSlop={{ top: 6, bottom: 6 }} style={({ pressed }) => [styles.editButton, pressed && styles.editPressed]} onPress={() => { setMenuId(null); setPicked([]); setPickMode(true) }}><Icon name="edit" size={16} forText={12} /><Text style={styles.editText}>편집</Text></Pressable>}
       </View>}
       <FlatList
         ref={listRef}
         data={shown}
         keyExtractor={(page) => page.id}
         contentContainerStyle={styles.list}
-        scrollEnabled={!drag && !ranging}
+        scrollEnabled={!drag}
         onScroll={(event) => {
           scrollOffset.current = event.nativeEvent.contentOffset.y
           setScrollY(event.nativeEvent.contentOffset.y)
@@ -255,6 +258,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
             dy={dragging ? drag.dy : 0}
             dropLine={drag && !dragging && target === index ? (target < drag.from ? 'before' : 'after') : null}
             cropId={active ? cropId : null}
+            thumbWidth={thumbWidth}
             showBackground={thumbBackgrounds}
             showContent={thumbContentReady}
             thumbnailWork={thumbnailWork}
@@ -279,7 +283,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
       />
       {draggedPage && <View pointerEvents="none" accessible={false} style={[styles.dragViewport, { top: listTop, height: listHeight.current }]}>
-        <PageDragPreview page={draggedPage} number={numberOf(draggedPage)} showBackground={thumbBackgrounds}
+        <PageDragPreview page={draggedPage} number={numberOf(draggedPage)} showBackground={thumbBackgrounds} thumbWidth={thumbWidth}
           count={drag.group ? picked.length : 1}
           top={LIST_PADDING + itemTop(pages, layouts.current, drag.id) - scrollY + drag.dy} />
       </View>}
@@ -287,26 +291,26 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={() => setMenuId(null)}>
           {/* 메뉴 바깥(캔버스 · 다른 패널 포함)을 누르면 닫는다 */}
           <Pressable accessibilityLabel="페이지 작업 메뉴 닫기" style={StyleSheet.absoluteFill} onPress={() => setMenuId(null)} />
-          <View style={[styles.actionMenu, { top: origin.y + menuTop, left: origin.x + THUMB_WIDTH + 22 }]}>
+          <View style={[styles.actionMenu, { top: origin.y + menuTop, left: origin.x + RAIL_INSET + thumbWidth - 2 }]}>
             <Text style={styles.actionMenuTitle}>{pages.findIndex((page) => page.id === menuId) + 1}페이지</Text>
             {onSettings && <Pressable accessibilityRole="button" accessibilityLabel="페이지 설정" style={styles.action}
               onPress={() => { onSettings(menuId); setMenuId(null) }}>
-              <Icon name="edit" size={18} forText={11} color={colors.primary} /><Text style={styles.actionText}>페이지 설정</Text>
+              <Icon name="edit" size={18} forText={14} color={colors.primary} /><Text style={styles.actionText}>페이지 설정</Text>
             </Pressable>}
-            <Pressable onPress={() => { onDuplicate(menuId); setMenuId(null) }} style={styles.action} accessibilityLabel="페이지 복제">
-              <Icon name="copy" size={18} forText={11} color={colors.primary} /><Text style={styles.actionText}>페이지 복제</Text>
+            <Pressable onPress={() => { onDuplicate(menuId); setMenuId(null) }} style={styles.action} accessibilityRole="button" accessibilityLabel="페이지 복제">
+              <Icon name="copy" size={18} forText={14} color={colors.primary} /><Text style={styles.actionText}>페이지 복제</Text>
             </Pressable>
             {pages.length > 1 && (
-              <Pressable onPress={() => { onRemove(menuId); setMenuId(null) }} style={styles.action} accessibilityLabel="페이지 삭제">
-                <Icon name="trash" size={18} forText={11.5} color={colors.danger} /><Text style={styles.deleteText}>페이지 삭제</Text>
+              <Pressable onPress={() => { onRemove(menuId); setMenuId(null) }} style={styles.action} accessibilityRole="button" accessibilityLabel="페이지 삭제">
+                <Icon name="trash" size={18} forText={14} color={colors.danger} /><Text style={styles.deleteText}>페이지 삭제</Text>
               </Pressable>
             )}
           </View>
         </EditorModal>
       )}
-      {!readOnly && (
-        <Pressable onPress={onAdd} style={({ pressed }) => [styles.add, pressed && styles.addPressed]} accessibilityLabel="페이지 추가">
-          <Icon name="plus" size={20} />
+      {!readOnly && !pickMode && (
+        <Pressable onPress={onAdd} style={({ pressed }) => [styles.add, pressed && styles.addPressed]} accessibilityRole="button" accessibilityLabel="페이지 추가">
+          <Icon name="plus" size={20} color={colors.primaryText} />
         </Pressable>
       )}
     </View>
@@ -314,6 +318,8 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
 }
 
 const ITEM_GAP = 16 // styles.list 의 gap
+const EDGE_INSET = 16 // 편집 화면 바깥 여백(EditorScreen BODY_PADDING)
+const RAIL_INSET = (PAGE_LIST_WIDTH - THUMB_WIDTH) / 2 // 24: 위아래 버튼 줄을 썸네일 좌우 끝에 맞춘다
 const LIST_PADDING = 16 // styles.list 의 paddingVertical
 
 /** 목록 안에서 id 항목의 위쪽 위치 (앞 항목들 높이 + 간격의 합) */
@@ -351,14 +357,14 @@ function dropIndex(pages, layouts, drag) {
   return clamp(index, 0, pages.length - 1)
 }
 
-const PageItem = memo(function PageItem({ page, index, number, canDrag = true, active, picked = false, carried = false, dragCount = 0, pickMode = false, showBackground, showContent, thumbnailWork, dragging, dy, dropLine, cropId, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
+const PageItem = memo(function PageItem({ page, index, number, canDrag = true, active, picked = false, carried = false, dragCount = 0, pickMode = false, showBackground, showContent, thumbnailWork, dragging, dy, dropLine, cropId, thumbWidth = THUMB_WIDTH, readOnly, menuOpen, canOpenMenu, canToggleIndex, onLayout, onSelect, onMenu, onToggleIndex, onDragStart, onDragMove, onDragEnd }) {
   const { width, height } = pageSize(page)
   // 썸네일 그림은 테두리(1px) 안쪽 크기에 정확히 맞춘다. 넘치면 Android 에서 아래쪽 테두리를 덮었다.
-  const thumbZoom = (THUMB_WIDTH - THUMB_BORDER * 2) / width
+  const thumbZoom = (thumbWidth - THUMB_BORDER * 2) / width
   const press = useRef(null)
   const handlers = usePan({
     onStart: () => {
-      const state = { holding: false, moved: false, dy: 0, timer: null }
+      const state = { holding: false, moved: false, dragged: false, dy: 0, timer: null }
       if (!readOnly && canDrag)
         state.timer = setTimeout(() => {
           if (state.moved) return
@@ -372,14 +378,17 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
       if (!state) return
       state.dy = moveDy
       if (!state.holding && Math.hypot(dx, moveDy) > TAP_SLOP) state.moved = true
-      if (state.holding) onDragMove(moveDy)
+      if (state.holding) {
+        if (Math.abs(moveDy) > TAP_SLOP) state.dragged = true
+        onDragMove(moveDy)
+      }
     },
     onEnd: ({ cancelled }) => {
       const state = press.current
       press.current = null
       if (!state) return
       clearTimeout(state.timer)
-      if (state.holding) onDragEnd(state.dy, cancelled)
+      if (state.holding) onDragEnd(state.dy, cancelled, state.dragged)
       else if (!state.moved && !cancelled) onSelect()
     },
   })
@@ -394,41 +403,42 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
       <View
         {...handlers}
         accessibilityRole={pickMode ? "checkbox" : "button"}
-        accessibilityState={pickMode ? { checked: picked } : undefined}
+        accessibilityState={pickMode ? { checked: picked } : { selected: active }}
         accessibilityLabel={`${number}페이지`}
         accessibilityHint={readOnly ? undefined : '길게 눌러 끌면 순서를 바꿔요'}
-        style={[styles.thumb, { height: height * thumbZoom + THUMB_BORDER * 2 }, active && styles.thumbActive, dragging && styles.thumbDragging]}
+        style={[styles.thumb, { width: thumbWidth, height: height * thumbZoom + THUMB_BORDER * 2 }, active && styles.thumbActive, dragging && styles.thumbDragging]}
       >
         {/* 지금 편집 중인 페이지는 움직이는 GIF·자르기 표시까지 편집 화면과 똑같이, 나머지는 첫 장면으로 */}
         <View style={styles.thumbPage} pointerEvents="none">
           {showContent && <PageThumbnail page={page} zoom={thumbZoom} still cropId={cropId} showBackground={showBackground} workQueue={thumbnailWork} />}
         </View>
         {/* 선택 테두리는 썸네일 위에 겹쳐 그린다 (썸네일에 아래쪽 선이 가려지던 문제) */}
-        {(pickMode ? picked : active) && <View style={styles.activeRing} pointerEvents="none" />}
-        {picked && <View style={styles.pickedCheck} pointerEvents="none"><Icon name="check" size={12} color={colors.surface} strokeWidth={3} /></View>}
+        {/* 지금 페이지는 2px 테두리, 편집에서 고른 페이지는 1px 테두리 + 오른쪽 위 체크 칸 (둘 다면 2px 가 앞선다) */}
+        {active ? <View style={styles.activeRing} pointerEvents="none" /> : picked && <View style={styles.pickedRing} pointerEvents="none" />}
+        {pickMode && <View style={[styles.pickBox, picked && styles.pickBoxOn]} pointerEvents="none">{picked && <Icon name="check" size={14} color={colors.surface} strokeWidth={3} />}</View>}
       </View>
       {canToggleIndex && (
         <Pressable
           onPress={onToggleIndex}
           hitSlop={11}
-          accessibilityRole="button"
-          accessibilityLabel={page.indexed ? '인덱스 해제' : '인덱스 추가'}
-          accessibilityState={{ selected: Boolean(page.indexed) }}
+          accessibilityRole="checkbox"
+          accessibilityLabel={`${number}페이지 북마크`}
+          accessibilityState={{ checked: Boolean(page.indexed) }}
           style={styles.indexBadge}
         >
           <Icon
             name="bookmark"
             size={17}
-            color={page.indexed ? colors.primary : colors.textMuted}
-            fill={page.indexed ? colors.primary : 'none'}
+            color={colors.primaryText}
+            fill={page.indexed ? colors.primaryText : 'none'}
             strokeWidth={2.2}
           />
         </Pressable>
       )}
       <Text style={[styles.number, active && styles.numberActive]}>{number}</Text>
       {canOpenMenu && (
-        <Pressable onPress={onMenu} style={[styles.more, menuOpen && styles.moreActive]} hitSlop={8} accessibilityLabel="페이지 작업 메뉴" accessibilityState={{ expanded: menuOpen }}>
-          <Icon name="more" size={18} color={menuOpen ? colors.primary : colors.textMuted} />
+        <Pressable onPress={onMenu} style={[styles.more, menuOpen && styles.moreActive]} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${number}페이지 작업 메뉴`} accessibilityState={{ expanded: menuOpen }}>
+          <Icon name="more" size={20} color={colors.primaryText} />
         </Pressable>
       )}
     </View>
@@ -444,6 +454,8 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
   && previous.dragCount === next.dragCount
   && previous.carried === next.carried
   && previous.showBackground === next.showBackground
+  && previous.showContent === next.showContent
+  && previous.thumbnailWork === next.thumbnailWork
   && previous.dragging === next.dragging
   && previous.dy === next.dy
   && previous.dropLine === next.dropLine
@@ -452,13 +464,15 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
   && previous.menuOpen === next.menuOpen
   && previous.canOpenMenu === next.canOpenMenu
   && previous.canToggleIndex === next.canToggleIndex
+  && previous.thumbWidth === next.thumbWidth
 ))
 
-function PageDragPreview({ page, number, top, showBackground, count }) {
+// 끄는 사본은 목록 썸네일과 같은 폭(태블릿 edge 는 넓다)으로 그린다. 왼쪽은 폰 · 태블릿 모두 패널 안쪽 24
+function PageDragPreview({ page, number, top, showBackground, count, thumbWidth = THUMB_WIDTH }) {
   const { width, height } = pageSize(page)
-  const zoom = (THUMB_WIDTH - THUMB_BORDER * 2) / width
+  const zoom = (thumbWidth - THUMB_BORDER * 2) / width
   return <View style={[styles.item, styles.dragPreview, { top }]} testID="page-drag-preview">
-    <View style={[styles.thumb, styles.thumbDragging, { height: height * zoom + THUMB_BORDER * 2 }]}>
+    <View style={[styles.thumb, styles.thumbDragging, { width: thumbWidth, height: height * zoom + THUMB_BORDER * 2 }]}>
       <View style={styles.thumbPage}><PageThumbnail page={page} zoom={zoom} still showBackground={showBackground} /></View>
       <View style={styles.activeRing} />
     </View>
@@ -468,12 +482,22 @@ function PageDragPreview({ page, number, top, showBackground, count }) {
 }
 
 const styles = StyleSheet.create({
-  bulkControls: { paddingHorizontal: (PAGE_LIST_WIDTH - THUMB_WIDTH) / 2 - 6 },
-  editControls: { paddingHorizontal: (PAGE_LIST_WIDTH - THUMB_WIDTH) / 2 - 6 },
-  editRow: { minHeight: 44, marginVertical: 2, justifyContent: 'center' },
+  // 코덱스 안(2026-11-02): 탭 · 편집 · 썸네일 · 추가의 좌우 끝을 모두 썸네일 폭(128, 양쪽 24)에 맞춘다
+  actions: { paddingHorizontal: RAIL_INSET, paddingTop: 8, paddingBottom: 8 },
   editButton: { height: 32, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
-  editText: { color: colors.textMuted, fontSize: 11.5, fontWeight: '700' },
+  editText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  editPressed: {}, // 눌림 효과 없음(사용자 지시)
   panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'visible', zIndex: 3 },
+  // 태블릿: 레이어 패널처럼 화면 왼쪽 · 위아래 끝까지 붙이고 안쪽 끝에 구분선. 바깥 여백(16)만큼 넓혀 덮어 오른쪽 끝은 그대로이고, 안쪽은 좌우 24 로 같게 둔다
+  panelEdge: {
+    width: PAGE_LIST_WIDTH + EDGE_INSET,
+    marginTop: -EDGE_INSET,
+    marginBottom: -EDGE_INSET,
+    marginLeft: -EDGE_INSET,
+    borderRadius: 0,
+    borderRightWidth: 1,
+    borderRightColor: colors.border, // 레이어 패널 구분선과 같은 값
+  },
   list: { flexGrow: 1, alignItems: 'center', gap: 16, paddingVertical: 16 },
   emptyArea: { flexGrow: 1, alignSelf: 'stretch', minHeight: 24 },
   item: { position: 'relative', alignItems: 'center', gap: 6 },
@@ -485,27 +509,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'visible',
     borderWidth: THUMB_BORDER,
-    borderColor: 'rgba(11,23,102,0.1)',
+    borderColor: colors.cardBorder,
     backgroundColor: '#FFFFFF',
   },
   thumbPage: { ...StyleSheet.absoluteFill, overflow: 'hidden', borderRadius: 7, backgroundColor: '#FFFFFF' },
   thumbActive: { borderColor: 'transparent' },
   carried: { opacity: 0.4 },
-  pickBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 32, padding: 2, borderRadius: 9, backgroundColor: 'rgba(11,23,102,0.06)' },
-  pickText: { flex: 1, textAlign: 'center', fontSize: 11.5, fontWeight: '700', color: colors.textMuted },
-  pickDone: { height: 28, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 7, backgroundColor: colors.surface },
-  pickDoneText: { fontSize: 11.5, fontWeight: '700', color: colors.textMuted },
+  pickBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 40, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  pickText: { flex: 1, fontSize: 12, fontWeight: '700', color: colors.text },
+  pickDone: { height: 28, justifyContent: 'center' },
+  pickDoneText: { fontSize: 12, fontWeight: '700', color: colors.primaryText },
   countBadge: { position: 'absolute', top: -8, right: 4, zIndex: 3, minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryStrong },
   countText: { fontSize: 12, fontWeight: '700', color: colors.surface },
-  pickedCheck: { position: 'absolute', right: 6, bottom: 6, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryStrong },
-  activeRing: { position: 'absolute', top: -THUMB_BORDER, left: -THUMB_BORDER, right: -THUMB_BORDER, bottom: -THUMB_BORDER, borderRadius: 8, borderWidth: 2, borderColor: colors.primary },
-  // 탭 줄은 아래 썸네일보다 양쪽으로 조금(6) 더 넓게
-  header: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: (PAGE_LIST_WIDTH - THUMB_WIDTH) / 2 - 6, paddingTop: 10 },
-  tabs: { flex: 1, flexDirection: 'row', padding: 2, borderRadius: 9, backgroundColor: 'rgba(11,23,102,0.06)' },
-  tab: { flex: 1, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
+  pickBox: { position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.surface },
+  pickBoxOn: { borderColor: colors.primaryStrong, backgroundColor: colors.primaryStrong },
+  activeRing: { position: 'absolute', top: -THUMB_BORDER, left: -THUMB_BORDER, right: -THUMB_BORDER, bottom: -THUMB_BORDER, borderRadius: 8, borderWidth: 2, borderColor: colors.primaryStrong },
+  pickedRing: { position: 'absolute', top: -THUMB_BORDER, left: -THUMB_BORDER, right: -THUMB_BORDER, bottom: -THUMB_BORDER, borderRadius: 8, borderWidth: 1, borderColor: colors.primary },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: RAIL_INSET, paddingTop: 16 },
+  tabs: { flex: 1, flexDirection: 'row', padding: 2, borderRadius: 10, backgroundColor: colors.surfaceMuted },
+  tab: { flex: 1, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   tabActive: { backgroundColor: colors.surface },
-  tabText: { fontSize: 11.5, fontWeight: '700', color: colors.textMuted },
-  tabTextActive: { color: colors.text },
+  tabText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  tabTextActive: { color: colors.primaryText },
   thumbDragging: {
     shadowColor: colors.text,
     shadowOpacity: 0.12,
@@ -516,8 +541,8 @@ const styles = StyleSheet.create({
   dropLine: { position: 'absolute', left: -6, right: -6, height: 3, borderRadius: 2, backgroundColor: colors.primary },
   dropBefore: { top: -9.5 },
   dropAfter: { bottom: -9.5 },
-  number: { fontSize: 11, fontWeight: '700', color: colors.textMuted },
-  numberActive: { color: colors.text },
+  number: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  numberActive: { color: colors.primaryText },
   more: {
     position: 'absolute',
     top: 2,
@@ -538,13 +563,15 @@ const styles = StyleSheet.create({
   deleteText: { fontSize: 14, fontWeight: '700', color: colors.danger },
   add: {
     height: 46,
-    margin: 10,
+    marginHorizontal: RAIL_INSET,
+    marginTop: 8,
+    marginBottom: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(129,138,195,0.34)',
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
   },
   addPressed: {}, // 눌림 효과 없음(사용자 지시)
 })

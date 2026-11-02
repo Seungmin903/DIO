@@ -15,20 +15,20 @@ export function createCompletedStrokePlanner({ batchSize = STROKES_PER_BATCH, mi
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > STROKES_PER_BATCH) throw Error('Invalid stroke batch size')
   if (!Number.isInteger(minBatchSize) || minBatchSize < 1 || minBatchSize > STROKES_PER_BATCH) throw Error('Invalid minimum stroke batch size')
   const remembered = new WeakMap()
-  return (objects, { width, height, zoom, pixelRatio, pixelBudget = STROKE_CACHE_PIXELS }) => {
+  return (objects, { width, height, zoom, pixelRatio, pixelBudget = STROKE_CACHE_PIXELS, uncachedObjects = null }) => {
     const layers = []
     let remaining = Number.isFinite(pixelBudget) && pixelBudget >= 0 ? Math.min(STROKE_CACHE_PIXELS, pixelBudget) : STROKE_CACHE_PIXELS
     for (let i = 0; i < objects.length;) {
       const object = objects[i]
       if (object.hidden) { i++; continue }
-      if (object.type !== 'stroke') { layers.push({ object }); i++; continue }
+      if (object.type !== 'stroke' || uncachedObjects?.has(object)) { layers.push({ object }); i++; continue }
       const strokes = []
       // 이미 캐시 가능한 크기가 된 묶음은 봉인한다. 새 획 때문에 마지막 캐시를 버리지 않는다.
       const previous = remembered.get(object)
       const reusablePrefix = preserveBatches && previous?.objects.length >= 4
         && previous.objects.every((stroke, offset) => objects[i + offset] === stroke)
       const limit = preserveBatches && previous?.objects.length >= 4 ? previous.objects.length : batchSize
-      while (i < objects.length && objects[i].type === 'stroke' && strokes.length < limit) {
+      while (i < objects.length && objects[i].type === 'stroke' && !uncachedObjects?.has(objects[i]) && strokes.length < limit) {
         // 삭제 후에도 다음의 변경 없는 묶음 경계를 유지한다.
         if (preserveBatches && !reusablePrefix && strokes.length && remembered.get(objects[i])?.objects.length >= 4) break
         if (!objects[i].hidden) strokes.push(objects[i])

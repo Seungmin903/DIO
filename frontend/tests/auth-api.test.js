@@ -37,9 +37,16 @@ test('프로필 사진은 같은 서버의 사진 경로에만 개발 접속 인
   const source = api.getProfilePhotoSource(uri);
   assert.equal(source.headers.Authorization, `Basic ${Buffer.from('tester:secret').toString('base64')}`);
   assert.equal(source.headers['X-DIO-Access-Token'], undefined);
+  const portApi = createAuthApi({ baseUrl: 'https://server.example:8443', allowDevelopmentAccess: true,
+    fetchImpl: async () => response(tokens()) });
+  portApi.verificationService.setDevelopmentAccess('tester', 'secret');
+  const portSource = portApi.getProfilePhotoSource(uri);
+  assert.equal(portSource.uri, 'https://server.example:8443/api/v1/auth/profile-photos/12345678-1234-1234-1234-123456789abc');
+  assert.equal(portSource.headers.Authorization, `Basic ${Buffer.from('tester:secret').toString('base64')}`);
   assert.equal(JSON.stringify(view).includes('Basic '), false);
   for (const other of [uri.replace('server.example', 'other.example'), uri.replace('https:', 'http:'),
-    uri.replace('/auth/profile-photos/', '/other/'), `${uri}?redirect=1`, 'file:///local.png']) {
+    uri.replace('/auth/profile-photos/', '/other/'), `${uri}?redirect=1`, 'file:///local.png',
+    uri.replace('https://', 'https://user:pw@'), uri.replace('https://', 'https://user@')]) {
     assert.deepEqual(api.getProfilePhotoSource(other), { uri: other });
   }
   const production = createAuthApi({ baseUrl: 'https://server.example' });
@@ -73,20 +80,20 @@ test('통신 실패와 자격 증명 오류를 구분하고 실패 후 다시 �
 });
 test('이메일 확인은 유지하고 닉네임 확인 API 없이 이메일 인증을 요구한다', async () => {
   const { api, calls } = setup(() => response({ available: true }));
-  const profile = await api.signup({ email: user.email, password: 'Password123!' });
+  const profile = await api.signup({ ageConfirmed: true, email: user.email, password: 'Password123!' });
   assert.equal(api.checkNickname, undefined);
   await assert.rejects(api.completeProfile({ ...profile, nickname: '닉네임', terms: {} }), /이메일 인증/);
   assert.deepEqual(calls.map(call => call.path), ['email-availability']);
 });
-test('검증 토큰·3가지 실제 약관 상태를 보내고 회원가입 후 자동 로그인하지 않는다', async () => {
+test('검증 토큰·필수 약관 v2 상태를 보내고 회원가입 후 자동 로그인하지 않는다', async () => {
   const { api, calls } = setup(call => response(call.path === 'email-verifications/verify'
     ? { signupToken: 'verified', expiresIn: 600 } : call.path === 'signup' ? { ...user, nickname: '닉네임' } : { available: true }));
-  const profile = await api.signup({ email: user.email, password: 'Password123!' });
+  const profile = await api.signup({ ageConfirmed: true, email: user.email, password: 'Password123!' });
   await api.verifyEmail(user.email, '123456');
-  const result = await api.completeProfile({ ...profile, nickname: '닉네임', terms: { service: true, privacy: true, marketing: false } });
+  const result = await api.completeProfile({ ...profile, nickname: '닉네임', terms: { service: true, privacy: true, marketing: false, adEmail: true, adPush: false } });
   const body = JSON.parse(calls.at(-1).body);
   assert.equal(body.signupToken, 'verified'); assert.equal(body.profileColor, undefined);
-  assert.deepEqual(body.agreements.map(term => [term.termsType, term.agreed]), [['SERVICE', true], ['PRIVACY', true], ['MARKETING', false]]);
+  assert.deepEqual(body.agreements.map(term => [term.termsType, term.agreed]), [['SERVICE', true], ['PRIVACY', true], ['AD_EMAIL', true], ['AD_PUSH', false]]);
   assert.equal(result.mode, 'registered');
   const count = calls.length; await api.logout(); assert.equal(calls.length, count);
 });
@@ -96,7 +103,7 @@ test('사진 multipart는 Content-Type을 강제하지 않고 실패해도 임�
   const { api, calls } = setup(call => call.path === 'signup' ? response({ detail: '오류' }, 400)
     : response(call.path === 'email-verifications/verify' ? { signupToken: 'verified', expiresIn: 600 } : { available: true }),
   { buildPhotoBody: async () => ({ body: form, dispose: () => disposed++ }) });
-  const profile = await api.signup({ email: user.email, password: 'Password123!' });
+  const profile = await api.signup({ ageConfirmed: true, email: user.email, password: 'Password123!' });
   await api.verifyEmail(user.email, '123456');
   await assert.rejects(api.completeProfile({ ...profile, nickname: '닉네임', photoUri: 'local-photo', terms: { service: true, privacy: true } }));
   assert.equal(calls.at(-1).body, form); assert.equal(calls.at(-1).headers['Content-Type'], undefined);
@@ -106,7 +113,7 @@ test('만료되거나 다른 이메일의 인증으로 가입할 수 없다', as
   let time = 0;
   const { api, calls } = setup(call => response(call.path === 'email-verifications/verify'
     ? { signupToken: 'verified', expiresIn: 600 } : { available: true }), { now: () => time });
-  const profile = await api.signup({ email: user.email, password: 'Password123!' });
+  const profile = await api.signup({ ageConfirmed: true, email: user.email, password: 'Password123!' });
   await api.verifyEmail(user.email, '123456'); time = 600001;
   await assert.rejects(api.completeProfile({ ...profile, nickname: '닉네임' }), /이메일 인증/);
   time = 0; await api.verifyEmail('other@example.com', '123456');
@@ -143,19 +150,27 @@ test('개발 프록시에서는 Basic 헤더와 충돌하지 않는 별도 토�
 });
 
 const signupValues = { email: user.email, nickname: '회원', terms: { service: true, privacy: true, marketing: false } };
+
+test('연령 확인 누락·거부는 가입 초안을 만들거나 서버 요청을 전송하지 않는다', async () => {
+ const { api, calls } = setup(() => response({ available: true }));
+ for (const ageConfirmed of [undefined, null, false, 'true']) {
+  await assert.rejects(api.signup({ email: user.email, password: 'Password123!', ageConfirmed }), /14세/);
+ }
+ assert.equal(calls.length, 0);
+});
 const signupResponse = call => response(call.path === 'email-verifications/verify'
   ? { signupToken: 'server-signup-token', expiresIn: 600 }
   : call.path === 'signup' ? { ...user, profilePhotoUrl: null } : { available: true });
 async function prepareSignup(api, email = user.email) {
   await api.verifyEmail(email, '482901');
-  return api.verificationService.prepareSignup({ email, password: 'Password123!' });
+  return api.verificationService.prepareSignup({ ageConfirmed: true, email, password: 'Password123!' });
 }
 
 test('가입 초안의 이메일 가용성 응답이 boolean이 아니면 통과시키지 않는다', async () => {
   for (const value of [null, {}, { available: 'true' }, { available: 1 }]) {
     const { api } = setup(() => response(value));
     assert.equal(api.checkNickname, undefined);
-    await assert.rejects(api.signup({ email: user.email, password: 'Password123!' }), /이메일 확인 정보/);
+    await assert.rejects(api.signup({ ageConfirmed: true, email: user.email, password: 'Password123!' }), /이메일 확인 정보/);
   }
 });
 
@@ -174,9 +189,8 @@ test('필수 약관·닉네임 검증 실패 시 가입 요청 없이 같은 인
   assert.equal(body.password, 'Password123!');
   assert.equal(body.nickname, '회원');
   assert.deepEqual(body.agreements, [
-    { termsType: 'SERVICE', termsVersion: 'v1', agreed: true },
-    { termsType: 'PRIVACY', termsVersion: 'v1', agreed: true },
-    { termsType: 'MARKETING', termsVersion: 'v1', agreed: false },
+    { termsType: 'SERVICE', termsVersion: 'v2', agreed: true },
+    { termsType: 'PRIVACY', termsVersion: 'v2', agreed: true },
   ]);
   await assert.rejects(api.completeProfile(signupValues), /이메일 인증/);
   assert.equal(api.getSessionKey(), null);

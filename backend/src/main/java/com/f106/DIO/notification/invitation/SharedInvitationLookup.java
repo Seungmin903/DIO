@@ -43,6 +43,28 @@ public class SharedInvitationLookup implements InvitationLookup {
         references.forEach((notification, invite) -> { if (targets.containsKey(invite) && Objects.equals(diaries.get(notification), targets.get(invite).diaryId())) result.put(notification, targets.get(invite)); });
         return Map.copyOf(result);
     }
+    @Override
+    public long countActionableUnread(long userId) {
+        // Use the same JSON validation as findForRecipient; compare only after candidate rows
+        // are filtered by owner, diary, active user, pending invite and membership.
+        final long[] count = {0};
+        jdbc.query("""
+            select n.payload_json, i.invite_id
+            from notifications n
+            join diaries d on d.diary_id=n.diary_id and d.deleted_at is null
+            join users u on u.user_id=n.user_id and u.status='ACTIVE' and u.deleted_at is null
+            join diary_invites i on i.diary_id=n.diary_id and i.invitee_user_id=n.user_id
+            where n.user_id=:user and n.notification_type='DIARY_INVITE'
+              and n.deleted_at is null and n.read_at is null
+              and i.invite_type='EMAIL' and i.revoked_at is null and i.use_count=0
+              and not exists(select 1 from diary_members m where m.diary_id=i.diary_id and m.user_id=:user and m.left_at is null)
+            """, Map.of("user", userId), rs -> {
+                Long invite = reference(rs.getString("payload_json"));
+                if (invite != null && invite.longValue() == rs.getLong("invite_id")) count[0]++;
+            });
+        return count[0];
+    }
+
     private Long reference(String payload) {
         try {
             var value = json.readTree(payload).get("inviteId");

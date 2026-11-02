@@ -10,7 +10,6 @@ export function stickerLibrary(items, category, keyword) {
   const matches = (sticker) => !keyword || sticker.name?.includes(keyword) || sticker.emoji === keyword
   const folders = items.folders.map((f) => ({ ...f, items: plain(f.items) }))
   const favorites = plain(items.favorites)
-  // 예전에 12개까지 저장된 기록도 8개만 보여 준다
   const recents = plain(items.recentStickers).slice(0, RECENT_LIMIT)
   const favoriteKeys = new Set(favorites.map(stickerKey))
   const orderable = folders.map((f) => ({ id: `folder:${f.id}`, name: f.name }))
@@ -24,10 +23,10 @@ export function stickerLibrary(items, category, keyword) {
   // 기록이 없거나 마지막 칩이 삭제·숨김 상태이면 즐겨찾기 → 최근 → 첫 분류 중 비어 있지 않은 칩으로 돌아간다.
   const chips = [
     { id: 'favorites', name: '즐겨찾기' },
-    ...(recents.length ? [{ id: 'recent', name: '최근' }] : []),
+    { id: 'recent', name: '최근' },
     ...sorted.filter((c) => !hidden.has(c.id)),
   ]
-  const fallback = favorites.length ? 'favorites' : recents.length ? 'recent' : chips.find((c) => c.id !== 'favorites')?.id ?? 'favorites'
+  const fallback = favorites.length ? 'favorites' : recents.length ? 'recent' : chips.find((c) => c.id !== 'favorites' && c.id !== 'recent')?.id ?? 'favorites'
   const active = chips.some((c) => c.id === category) ? category : fallback
   const folder = !keyword && active?.startsWith('folder:') ? folders.find((f) => `folder:${f.id}` === active) : null
   // 검색: 폴더 안 스티커를 이름으로 찾는다

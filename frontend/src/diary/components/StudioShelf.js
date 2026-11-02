@@ -52,7 +52,7 @@ export default function StudioShelf({ kind, items, onRemove, onRename, onOpen })
                   : <Pressable accessibilityRole="button" accessibilityLabel={paper ? `나의 속지 ${item.name} 이름 고치기` : `나의 표지 ${item.name} 이름 고치기`}
                     onPress={() => setEditing({ id: item.id, draft: item.name })} style={local.nameRow}>
                     <Text numberOfLines={1} style={[local.name, local.nameText]}>{item.name}</Text>
-                    <AppIcon name="edit" size={12} color={colors.textMuted} />
+                    <AppIcon name="edit" size={12} forText={14} color={colors.textMuted} />
                   </Pressable>}
                 {paper ? <Text style={local.sub}>{`${item.pages.length}장`}</Text> : null}
               </View>

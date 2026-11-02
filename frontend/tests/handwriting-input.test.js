@@ -40,6 +40,7 @@ function harness(component = 'DrawingPad') {
     if (id === 'react-native-safe-area-context') return { SafeAreaView: 'SafeAreaView', useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }
     if (id === 'react-native-svg') return { default: 'Svg', Circle: 'Circle', Path: 'Path' }
     if (id.endsWith('/theme')) return { colors: {}, radius: {}, DISABLED_OPACITY: 0.4 }
+    if (id.endsWith('/useFillGrid')) return { __esModule: true, default: ({ cell, gap }) => ({ onLayout() {}, columns: 1, cellWidth: cell, spreadGap: gap }) }
     if (id === './DrawingPad') return { __esModule: true, default: 'DrawingPad' }
     if (id === './protocol.js') return { PROMPTS, SYLLABLE_COUNT: 11172, validateDraft() {} }
     if (id === './manuscriptLayout.js') return { manuscriptLayout }

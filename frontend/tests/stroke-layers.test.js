@@ -8,7 +8,7 @@ import * as planner from '../src/editor/utils/completedStrokePlan.js'
 import * as geometry from '../src/editor/utils/pageGeometry.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
-const contexts = { TextMeasure: { Provider: 'measure' }, objectOpacity: object => object.opacity ?? 1 }
+const contexts = { TextMeasure: { Provider: 'measure' }, TextMeasureReady: { Provider: 'measure-ready' }, objectOpacity: object => object.opacity ?? 1 }
 function loadComponent(file, platform = 'ios', cacheOverride = null) {
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL(`../src/editor/components/canvas/${file}.js`, import.meta.url), 'utf8'), {
     configFile: false, babelrc: false,
@@ -72,7 +72,7 @@ test('네이티브 페이지를 단계별로 표시해도 이미 완성된 획 �
 
 test('네이티브 선택 정지 표시는 획 캐시를 유지하고 자르기·이동·일반 표시는 원본을 사용한다', () => {
   const component = loadComponent('StaticPage')
-  const drawing = options => component.render({ page, zoom: 1, ...options }).props.children[1].props.children
+  const drawing = options => component.render({ page, zoom: 1, ...options }).props.children[1].props.children.props.children
   assert.equal(drawing({ cacheStrokes: true }).type, './CompletedStrokeLayer')
   for (const options of [{}, { cacheStrokes: false }, { cacheStrokes: true, cropId: 'photo' },
     { cacheStrokes: true, fadeIds: ['s0'] }]) {
@@ -83,13 +83,13 @@ test('네이티브 선택 정지 표시는 획 캐시를 유지하고 자르기�
   }
   const gif = { id: 'gif', type: 'sticker', x: 0, y: 0, w: 10, h: 10 }
   const mixedPage = { ...page, objects: [...objects, gif] }
-  const selection = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, stillIds: ['gif'] }).props.children[1].props.children
+  const selection = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, stillIds: ['gif'] }).props.children[1].props.children.props.children
   assert.equal(selection.type, './CompletedStrokeLayer')
   assert.equal(selection.props.renderObject(gif).props.still, true)
-  const movingPhoto = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['gif'] }).props.children[1].props.children
+  const movingPhoto = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['gif'] }).props.children[1].props.children.props.children
   assert.equal(movingPhoto.type, './CompletedStrokeLayer')
   assert.equal(movingPhoto.props.renderObject(gif).props.opacity, 0.5)
-  const movingStroke = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['s0'] }).props.children[1].props.children
+  const movingStroke = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['s0'] }).props.children[1].props.children.props.children
   assert.equal(movingStroke[0].props.opacity, 0.5)
   assert.equal(component.compare({ page, zoom: 1, cacheStrokes: false }, { page, zoom: 1, cacheStrokes: true }), false)
 })
@@ -97,7 +97,7 @@ test('네이티브 선택 정지 표시는 획 캐시를 유지하고 자르기�
 test('네이티브 도구 전환은 필기 레이어를 유지하고 선택 이동 중에는 원본을 표시한다', () => {
   const component = loadComponent('StaticPage', 'ios')
   const draw = (tool, extra = {}) => component.render({ page, zoom: 1,
-    cacheStrokes: planner.shouldCacheCompletedStrokes('ios', false, tool), ...extra }).props.children[1].props.children
+    cacheStrokes: planner.shouldCacheCompletedStrokes('ios', false, tool), ...extra }).props.children[1].props.children.props.children
   for (const tool of ['pen', 'highlighter', 'hand', 'select', 'text', 'lasso', 'eraser']) {
     assert.equal(draw(tool).type, './CompletedStrokeLayer', tool)
   }
@@ -117,7 +117,7 @@ test('네이티브 영역 지우기 미리보기는 캐시된 원본 대신 남�
     const render = (items, areaErasing = false) => {
       const layer = staticPage.render({ page: { ...page, objects: items }, zoom: 1,
         cacheStrokes: planner.shouldCacheCompletedStrokes(platform, false, 'eraser'),
-        areaErasing, areaPreviewObjects: null, deferredAreaObjects: new WeakSet() }).props.children[1].props.children
+        areaErasing, areaPreviewObjects: null, deferredAreaObjects: new WeakSet() }).props.children[1].props.children.props.children
       assert.equal(layer.type, './CompletedStrokeLayer')
       return strokeLayer.render({ ...layer.props, width: 1024, height: 768 }).flatMap(item => item.props.batch.objects)
     }
@@ -138,15 +138,15 @@ test('네이티브 영역 지우기 미리보기는 캐시된 원본 대신 남�
 
 test('정식 웹 필기층은 기본 캐시, 썸네일·출력·변형은 원본이며 QA 끄기는 유지한다', () => {
   const web = loadComponent('StaticPage', 'web')
-  const draw = options => web.render({ page, zoom: 1, ...options }).props.children[1].props.children
+  const draw = options => web.render({ page, zoom: 1, ...options }).props.children[1].props.children.props.children
   assert.equal(draw({ cacheStrokes: true }).type, './WebStrokeCache')
   for (const options of [{}, { cacheStrokes: true, cropId: 'photo' }, { cacheStrokes: true, fadeIds: ['s0'] }, { cacheStrokes: true, stillIds: ['s0'] }]) {
     const direct = draw(options)
     assert.equal(direct.length, objects.length)
     assert.equal(direct[0].props.object, objects[0])
   }
-  const off = loadComponent('StaticPage', 'web', false).render({ page, zoom: 1, cacheStrokes: true }).props.children[1].props.children
+  const off = loadComponent('StaticPage', 'web', false).render({ page, zoom: 1, cacheStrokes: true }).props.children[1].props.children.props.children
   assert.equal(off.type, './CompletedStrokeLayer')
-  const native = loadComponent('StaticPage', 'ios', true).render({ page, zoom: 1, cacheStrokes: true }).props.children[1].props.children
+  const native = loadComponent('StaticPage', 'ios', true).render({ page, zoom: 1, cacheStrokes: true }).props.children[1].props.children.props.children
   assert.equal(native.type, './CompletedStrokeLayer')
 })

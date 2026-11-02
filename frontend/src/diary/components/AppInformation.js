@@ -5,11 +5,13 @@ import AppIcon from '../../shared/AppIcon';
 import DioButton from '../../shared/DioButton';
 import { notify } from '../../shared/dialogs';
 import { C } from '../constants';
+import { signupDocuments } from '../../shared/legalDocuments';
 import { colors } from '../../shared/theme';
 import ContentLicenses from './ContentLicenses';
 import { SettingSection } from './SettingRow';
 
-const PRIVACY_POLICY_URL = 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVThQYxck0l_bwzg33FxGShE6rpqd0/edit?usp=sharing';
+// Preserve the existing policy for current members until the new public document is configured.
+const PRIVACY_POLICY_URL = signupDocuments.policy || 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVThQYxck0l_bwzg33FxGShE6rpqd0/edit?usp=sharing';
 const SUPPORT_EMAIL = 'dioapp.official@gmail.com';
 const APP_VERSION = '1.0.0'; // app.json 의 version 과 같다
 
@@ -46,7 +48,7 @@ export default function AppInformation() {
         <View style={styles.copy}>
           <Text style={styles.label}>개인정보 처리방침</Text>
         </View>
-        <AppIcon name="chevron-right" size={18} color={C.muted} />
+        <AppIcon name="chevron-right" size={18} forText={15} color={C.muted} />
       </Pressable>
       <View style={styles.contact}>
         <View style={styles.copy}>
@@ -58,7 +60,7 @@ export default function AppInformation() {
       <Pressable accessibilityRole="button" accessibilityLabel="오픈소스 및 콘텐츠 라이선스" onPress={() => setLicensesOpen(true)}
         style={styles.licenses}>
         <Text style={[styles.label, { flex: 1 }]}>오픈소스 및 콘텐츠 라이선스</Text>
-        <AppIcon name="chevron-right" size={18} color={C.muted} />
+        <AppIcon name="chevron-right" size={18} forText={15} color={C.muted} />
       </Pressable>
       <ContentLicenses visible={licensesOpen} onClose={() => setLicensesOpen(false)} />
       {!!copyMessage && <Text accessibilityLiveRegion="polite" role="status" style={styles.status}>{copyMessage}</Text>}

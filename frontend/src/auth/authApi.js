@@ -1,4 +1,5 @@
 import { normalizeEmail, normalizeNickname, nicknameError, passwordError } from './validation.js';
+import { signupAgreements } from './signupPolicy.js';
 import { developmentAuthorization } from './developmentAccess.js';
 
 export function authBaseUrl(value) {
@@ -136,9 +137,18 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       const target = new URL(uri, base), server = new URL(base);
       // Public photos need only the development gateway credential, never a member token.
       const profilePath = `${server.pathname}/auth/profile-photos/`;
-      return developmentAccess && !target.username && !target.password && target.origin === server.origin && target.pathname.startsWith(profilePath) &&
-        /^[0-9a-f-]+$/i.test(target.pathname.slice(profilePath.length)) && !target.search && !target.hash
-        ? { uri: target.href, headers: getAuthHeaders(target.href) } : { uri };
+      const validProfilePath = target.pathname.startsWith(profilePath) &&
+        /^[0-9a-f-]+$/i.test(target.pathname.slice(profilePath.length)) && !target.search && !target.hash;
+      // 서버가 :8443으로 접속한 요청에 포트 없는 절대 URL을 돌려주는 경우가 있다.
+      // 같은 HTTPS 호스트의 검증된 프로필 경로만 현재 API origin으로 정규화해 Basic이
+      // 정확히 같은 개발 게이트웨이로 향하도록 한다. 다른 호스트·경로에는 절대 보내지 않는다.
+      // userinfo가 붙은 URL은 정규화하지도, Basic을 붙여 돌려주지도 않는다.
+      const noUserinfo = !target.username && !target.password;
+      const canonicalTarget = noUserinfo && target.protocol === server.protocol &&
+        target.hostname === server.hostname && validProfilePath
+        ? new URL(target.pathname, base) : target;
+      return developmentAccess && noUserinfo && canonicalTarget.origin === server.origin && validProfilePath
+        ? { uri: canonicalTarget.href, headers: getAuthHeaders(canonicalTarget.href) } : { uri };
     },
     getSessionKey() { return session ? `${session.user.userId}:${sessionSequence}` : null; },
     // Optional collaboration bridge: dev Basic only reaches this API's origin.
@@ -180,14 +190,15 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       sessionSequence++;
       return userView(result.user);
     },
-    async signup({ email, password }) {
+    async signup({ email, password, ageConfirmed }) {
+      if (ageConfirmed !== true) throw new Error('만 14세 이상인지 확인해 주세요.');
       const attempt = ++revision;
       const normalized = normalizeEmail(email);
       const result = await request('email-availability', { email: normalized });
       if (attempt !== revision) throw new Error('가입 요청이 취소되었어요.');
       if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
       if (!result.available) throw new Error('이미 사용 중인 이메일이에요.');
-      draft = { email: normalized, password };
+      draft = { email: normalized, password, ageConfirmed };
       if (verification?.email !== normalized) verification = null;
       return { provider: 'email', email: normalized };
     },
@@ -273,15 +284,14 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
           verification.email !== draft.email || verification.expiresAt <= now()) {
         throw new Error('이메일 인증이 필요해요. 이전 화면으로 돌아가 다시 인증해 주세요.');
       }
+      if (draft.ageConfirmed !== true) throw new Error('만 14세 이상인지 확인해 주세요.');
       if (nicknameError(nickname)) throw new Error(nicknameError(nickname));
       if (terms?.service !== true || terms?.privacy !== true) throw new Error('필수 약관에 동의해 주세요.');
       const currentDraft = draft, currentVerification = verification, attempt = revision;
       const isCurrent = () => attempt === revision && draft === currentDraft && verification === currentVerification;
       const body = {
         ...currentDraft, signupToken: currentVerification.token, nickname: normalizeNickname(nickname),
-        agreements: ['service', 'privacy', 'marketing'].map((key) => ({
-          termsType: key.toUpperCase(), termsVersion: 'v1', agreed: terms?.[key] === true,
-        })),
+        agreements: signupAgreements(terms),
       };
       signupPending = true;
       let upload;

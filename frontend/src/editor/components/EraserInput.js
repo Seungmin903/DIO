@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { Platform, StyleSheet, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import { usePan } from '../hooks/usePan'
 import { createEraserSession, ERASER_RADIUS, normalizeEraserSize } from '../utils/eraser.js'
@@ -31,8 +31,9 @@ export default function EraserInput({ objects, zoom, dispatch, onPreview, diamet
       setCursor(next.point)
       const active = gesture.current
       const now = performance.now()
-      // Retain every collision sample; only the expensive fragment display is 30fps.
-      if (mode === 'area' && active && now - (active.previewAt ?? -Infinity) < 32) return
+      // 모든 입력을 판정하되 iPad에서는 무거운 조각 표시만 간격을 둔다.
+      const previewInterval = Platform?.OS === 'ios' ? 64 : 32
+      if (mode === 'area' && active && now - (active.previewAt ?? -Infinity) < previewInterval) return
       if (active) active.previewAt = now
       const measurement = active?.measurement
       const fragmentsStarted = measurement?.clock()
