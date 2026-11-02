@@ -74,8 +74,6 @@ test('내 공간 노출: 게스트는 프로필 수정만, 회원은 로그아�
  assert.ok(find(screen,'프로필 수정'));assert.equal(find(screen,'로그아웃'),null);assert.equal(find(screen,'비밀번호 변경'),null)
  find(screen,'프로필 수정').props.onPress()
  const form=plain.render();assert.equal(form.type,plain.PasswordForm);assert.equal(form.props.service,guestService)
- const dev=setup({mode:'preview',provider:'guest',developer:true},undefined,undefined,{guestService}).render()
- assert.equal(find(dev,'로그아웃'),null);assert.equal(find(dev,'비밀번호 변경'),null)
  const member=setup({mode:'authenticated',userId:'7',provider:'email',email:'m@example.com'}).render()
  assert.ok(find(member,'로그아웃'));assert.ok(find(member,'회원정보 수정'))
 })

@@ -54,7 +54,7 @@ const server = http.createServer((req, res) => {
         assert.deepEqual(violations, [], '읽는 UI 글자에 대비가 낮은 primary를 사용하지 않는다');
       };
       await page.goto(`http://127.0.0.1:${server.address().port}`);
-      // 첫 화면은 고르는 화면 없이 바로 보관함이다(개발자 모드 시작 화면은 뺐다)
+      // 첫 화면은 고르는 화면 없이 바로 보관함이다
       await button('배치 검증 열기').waitFor();
       await page.screenshot({path:path.join(out,`start-${width}.png`)});
       const phone = Math.min(width, height) < 600;
