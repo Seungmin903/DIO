@@ -90,7 +90,12 @@ export default function App() {
     // 지난 프로필을 못 읽어도 빈 화면에 갇히지 않게 기본 게스트로 시작한다
     try { await startSession(session); } catch { setPreviewSession(session); }
   };
-  useEffect(() => { removeLegacySampleDiaries().catch(() => {}); startGuest(); }, []);
+  // 예전 예시 다이어리를 지운 뒤에 보관함(게스트)을 연다. 정리가 실패해도 시작은 막지 않고, 다음 실행 때 다시 시도한다.
+  useEffect(() => {
+    removeLegacySampleDiaries()
+      .catch(error => { if (__DEV__) console.warn('예시 다이어리 정리 실패', error); })
+      .finally(startGuest);
+  }, []);
   const sessionReady = useCallback(() => { finishBoot(); }, [finishBoot]);
   // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
   // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아간다.
