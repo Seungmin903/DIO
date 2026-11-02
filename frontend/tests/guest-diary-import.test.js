@@ -305,3 +305,93 @@ test('이미지 네트워크 실패에도 글씨와 다음 페이지 펜을 저�
   assert.equal(complete.filter(row => row.elementType === 'STROKE').length, saved.filter(row => row.elementType === 'STROKE').length)
   assert.ok(complete.some(row => row.elementType === 'PHOTO'))
 })
+
+
+test('빈 제목은 서버 전송용 기본 제목으로 대체하고 게스트 원본 제목은 유지한다', () => {
+  for (const title of ['', '   ', null, undefined]) {
+    const diary = { ...guestDiary, title }
+    assert.equal(planGuestDiary(diary, guestDoc(), { createId: ids() }).create.title, '제목 없음')
+    assert.equal(diary.title, title)
+  }
+})
+
+test('영구 오류 사진 뒤 네트워크 오류가 반복돼도 누락 사진은 완료 시 한 번만 집계한다', async () => {
+  const storage = guestStorage(), server = fakeServer(), doc = guestDoc()
+  const objects = doc.pages[0].objects
+  doc.pages[0].objects = [objects[2], objects[1], objects[3], objects[0]]
+  await storage.setItem(`${STORAGE_KEYS.doc}:diary-1`, JSON.stringify(doc))
+  const upload = server.mediaRequest
+  let failures = 2
+  server.mediaRequest = async (...args) => {
+    if (failures-- > 0) throw Object.assign(Error('network'), { status: 0, code: 'NETWORK_ERROR' })
+    return upload(...args)
+  }
+  const engine = importer(server, storage)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    assert.equal((await engine.run([guestDiary])).failed.length, 1)
+    const entry = JSON.parse(await storage.getItem(guestImportJournalKey(accountId))).diaries[guestDiary.id]
+    assert.equal(entry.skipped.filter(row => row.kind === 'media').length, 0)
+  }
+  const result = await importer(server, storage).run([guestDiary])
+  assert.equal(result.failed.length, 0)
+  assert.equal(result.imported[0].skipped.find(row => row.kind === 'media').count, 2)
+  assert.equal(server.diaries.size, 1)
+})
+
+for (const status of [400, 413, 415, 422]) {
+  test(`생성 입력 ${status} 거절은 진행 기록을 정리하고 다음 수동 시도에서 새 계획을 만든다`, async () => {
+    const storage = guestStorage(), server = fakeServer(), send = server.transport, keys = []
+    const original = await storage.getItem(`${STORAGE_KEYS.doc}:diary-1`)
+    let rejected = true
+    server.transport = async request => {
+      if (request.path === '/member/diaries') {
+        keys.push(request.requestId)
+        if (rejected) throw Object.assign(Error('invalid'), { status, code: 'INVALID_DIARY_CREATION' })
+      }
+      return send(request)
+    }
+    const engine = importer(server, storage)
+    assert.equal((await engine.run([guestDiary])).failed[0].error.status, status)
+    assert.deepEqual(await engine.pendingIds(), [])
+    assert.deepEqual(await importer(server, storage).pendingIds(), [])
+    assert.equal(server.diaries.size, 0)
+    await declineGuestImport(storage, accountId)
+    assert.equal((await listGuestImportCandidates(storage, accountId)).declined, true)
+    rejected = false
+    assert.equal((await engine.run([guestDiary])).imported.length, 1)
+    assert.notEqual(keys[0], keys[1])
+    assert.equal(await storage.getItem(`${STORAGE_KEYS.doc}:diary-1`), original)
+  })
+}
+
+for (const [status, code] of [[0, 'NETWORK_ERROR'], [401, 'INVALID_TOKEN'], [403, 'FORBIDDEN'], [404, 'NOT_FOUND'], [408, 'TIMEOUT'], [409, 'IDEMPOTENCY_KEY_EXPIRED'], [429, 'RATE_LIMITED'], [500, 'SERVER_ERROR'], [503, 'UNAVAILABLE'], [400, 'INVALID_IDEMPOTENCY_KEY']]) {
+  test(`생성 ${status}/${code}는 기존 계획과 요청 키를 유지한다`, async () => {
+    const storage = guestStorage(), server = fakeServer()
+    server.transport = async () => { throw Object.assign(Error(code), { status, code }) }
+    const engine = importer(server, storage)
+    await engine.run([guestDiary])
+    const first = JSON.parse(await storage.getItem(guestImportJournalKey(accountId))).diaries[guestDiary.id]
+    await engine.run([guestDiary])
+    const second = JSON.parse(await storage.getItem(guestImportJournalKey(accountId))).diaries[guestDiary.id]
+    assert.deepEqual(second, first)
+    assert.deepEqual(await engine.pendingIds(), [guestDiary.id])
+  })
+}
+
+test('서버 생성 성공 후 응답이 유실돼도 같은 생성 키로 기존 다이어리를 이어받는다', async () => {
+  const storage = guestStorage(), server = fakeServer(), send = server.transport, keys = []
+  let lost = true
+  server.transport = async request => {
+    const result = await send(request)
+    if (request.path === '/member/diaries') {
+      keys.push(request.requestId)
+      if (lost) { lost = false; throw Object.assign(Error('response lost'), { status: 0, code: 'NETWORK_ERROR' }) }
+    }
+    return result
+  }
+  assert.equal((await importer(server, storage).run([guestDiary])).failed.length, 1)
+  assert.equal(server.diaries.size, 1)
+  assert.equal((await importer(server, storage).run([guestDiary])).imported.length, 1)
+  assert.equal(keys[0], keys[1])
+  assert.equal(server.diaries.size, 1)
+})

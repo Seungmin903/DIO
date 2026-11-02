@@ -153,7 +153,7 @@ export function planGuestDiary(diary, doc, { createId }) {
   })
   return {
     guestDiaryId: diary.id,
-    create: { title: diary.title.trim().slice(0, 100), color: /^#[0-9a-f]{6}$/i.test(diary.color ?? '') ? diary.color : FALLBACK_COVER_COLOR, pattern: diary.pattern ?? null, initialPages: planned.map(page => page.initialPage) },
+    create: { title: (typeof diary.title === 'string' ? diary.title.trim() : '').slice(0, 100) || '제목 없음', color: /^#[0-9a-f]{6}$/i.test(diary.color ?? '') ? diary.color : FALLBACK_COVER_COLOR, pattern: diary.pattern ?? null, initialPages: planned.map(page => page.initialPage) },
     favorite: diary.favorite === true,
     pages: planned.map(({ initialPage, ...page }) => page),
     skipped: [...skipped, ...planned.flatMap(page => page.skipped)],
@@ -234,9 +234,9 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
   }
   const persist = () => { const raw = JSON.stringify(journal); writes = writes.catch(() => {}).then(() => storage.setItem(journalKey, raw)); return writes }
 
-  async function prepareRows(media, rows, entry) {
+  async function prepareRows(media, rows) {
     // 요소마다 따로 올린다: 한 장이 실패해도(너무 큰 GIF · 지운 사진) 나머지는 옮긴다.
-    const prepared = []
+    const prepared = [], skipped = []
     for (const row of rows) {
       assertActive()
       try {
@@ -244,10 +244,10 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
         prepared.push(body.changes.creates[0])
       } catch (error) {
         if (!permanentMediaError(error)) throw error
-        entry.skipped.push({ kind: 'media', type: row.elementType.toLowerCase(), code: error.code ?? null })
+        skipped.push({ kind: 'media', type: row.elementType.toLowerCase(), code: error.code ?? null })
       }
     }
-    return prepared
+    return { creates: prepared, skipped }
   }
 
   // 새로 만든 회원 다이어리처럼 이 기기의 회원 문서를 서버 페이지로 채워 둔다(열 때 페이지 목록을 다시 받지 않는다).
@@ -289,7 +289,16 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
     const step = () => { assertActive(); onProgress?.({ guestDiaryId: diary.id, done: ++done, total: total() }) }
     if (!entry.diaryId) {
       // 같은 생성 키로 다시 보내면 서버는 처음 만든 다이어리를 돌려준다(24시간 보관).
-      const result = await api.create(copy(plan.create), { requestId: entry.requestId })
+      let result
+      try { result = await api.create(copy(plan.create), { requestId: entry.requestId }) }
+      catch (error) {
+        // 생성 전 입력 거절만 정리한다. 응답 유실·인증·서버 오류·멱등 충돌은 같은 키를 보존한다.
+        if ([400, 413, 415, 422].includes(error.status) && !String(error.code ?? '').includes('IDEMPOTENCY')) {
+          delete journal.diaries[diary.id]
+          await persist()
+        }
+        throw error
+      }
       entry.diaryId = result.id; entry.pageIds = result.pageIds; await persist()
     }
     step()
@@ -325,14 +334,16 @@ export function createGuestDiaryImporter({ accountId, storage, api, transport, c
           // 업로드로 바꾼 요청은 기록해 두었다가 그대로 다시 보낸다(같은 clientOperationId · 같은 내용 → 서버가 처음 결과를 돌려준다).
           if (!batch.request) {
             const media = mediaFor(entry.diaryId)
-            let creates
-            try { creates = await prepareRows(media, batch.creates, entry) }
+            let prepared
+            try { prepared = await prepareRows(media, batch.creates) }
             catch (error) {
               if (error.status === 401 || ['STALE_ACCOUNT', 'UNAUTHENTICATED'].includes(error.code)) throw error
               deferredMediaError ??= error
               continue // 사진은 재시도 대상으로 남기고 다음 페이지의 펜·글씨도 보낸다.
             }
-            batch.request = { clientOperationId: batch.clientOperationId, changes: { creates }, expectedVersions: {} }
+            // 준비 중 네트워크 오류가 나면 누락 집계를 버린다. 요청과 함께 한 번만 기록한다.
+            entry.skipped.push(...prepared.skipped)
+            batch.request = { clientOperationId: batch.clientOperationId, changes: { creates: prepared.creates }, expectedVersions: {} }
             await persist()
           }
           try { if (batch.request.changes.creates.length) await canvas.apply(pageId, batch.request) }
