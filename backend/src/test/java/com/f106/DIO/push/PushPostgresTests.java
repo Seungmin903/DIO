@@ -8,6 +8,7 @@ import com.f106.DIO.push.service.PushInstallationService;
 import com.f106.DIO.user.domain.User;
 import com.f106.DIO.user.repository.UserRepository;
 import java.time.Instant;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
@@ -436,6 +437,343 @@ class PushPostgresTests {
             assertThat(jdbc.queryForObject("select count(*) from "+schema+".push_deliveries where outbox_id=?",Long.class,outbox)).isZero();
             assertThat(jdbc.queryForObject("select count(*) from "+schema+".push_outbox where outbox_id=?",Long.class,outbox)).isEqualTo(1);
         } finally {jdbc.execute("drop schema "+schema+" cascade");}
+    }
+
+    private record RetentionFixture(Person recipient,PushInstallationService service,com.f106.DIO.push.service.PushQueueRetention retention,UUID installation,UUID outbox,long invite,String secret) {}
+    private RetentionFixture retentionFixture(String status) {
+        var recipient=person();UUID installation=UUID.randomUUID(),outbox=UUID.randomUUID();long invite=Math.abs(UUID.randomUUID().getLeastSignificantBits()>>>1)+1;
+        String scope="ret-"+UUID.randomUUID().toString().replace("-","").substring(0,16);
+        var service=new PushInstallationService(jdbc,sessionLock,Base64.getEncoder().encodeToString(new byte[32]),scope,"dio");
+        var registered=new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(st->service.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[ret"+installation+"]")));
+        jdbc.update("insert into invitation_notification_receipts(event_id,recipient_user_id,invite_id,event_occurred_at,outcome,processed_at) values(?,?,?,now(),'CREATED',now())",UUID.randomUUID(),recipient.id(),invite);
+        jdbc.update("insert into push_outbox(outbox_id,event_key,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,'DIARY_INVITE',?,?,now()-interval '10 days',now()-interval '9 days',?,'dio')",outbox,"ret:"+outbox,recipient.id(),Long.toString(invite),status,scope);
+        return new RetentionFixture(recipient,service,new com.f106.DIO.push.service.PushQueueRetention(jdbc,service),installation,outbox,invite,registered.installationSecret());
+    }
+    private com.f106.DIO.push.service.PushQueueRetention.Result retain(RetentionFixture f,Instant now) {
+        return new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(st->f.retention().runBatch(now,100));
+    }
+    private void delivery(RetentionFixture f,String status,String result) {
+        jdbc.update("insert into push_deliveries(outbox_id,installation_id,binding_version,token_version,status,result_code) values(?,?,1,1,?,?)",f.outbox(),f.installation(),status,result);
+    }
+    @Test void retentionCancelsExpiredThenWaitsThirtyDaysAndPreservesDedupReceipt() {
+        var f=retentionFixture("PENDING");delivery(f,"PENDING",null);
+        var result=retain(f,Instant.now());assertThat(result.cancelled()).isEqualTo(2);assertThat(result.deleted()).isZero();
+        assertThat(jdbc.queryForObject("select status from push_deliveries where outbox_id=?",String.class,f.outbox())).isEqualTo("CANCELLED");
+        Instant last=jdbc.queryForObject("select greatest(o.terminal_at,d.terminal_at) from push_outbox o join push_deliveries d on d.outbox_id=o.outbox_id where o.outbox_id=?",Timestamp.class,f.outbox()).toInstant();
+        Instant boundary=last.plusSeconds(30*86400L);
+        assertThat(retain(f,boundary.minusNanos(1000)).deleted()).isZero();
+        assertThat(retain(f,boundary).deleted()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from push_deliveries where outbox_id=?",Long.class,f.outbox())).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from invitation_notification_receipts where invite_id=? and recipient_user_id=?",Long.class,f.invite(),f.recipient().id())).isEqualTo(1);
+    }
+    @Test void retentionKeepsReceiptPendingAndUnscopedOrUnverifiedRows() {
+        var f=retentionFixture("COMPLETE");delivery(f,"SENT","RECEIPT_PENDING");
+        jdbc.update("update push_outbox set terminal_at=now()-interval '31 days' where outbox_id=?",f.outbox());
+        assertThat(retain(f,Instant.now()).deleted()).isZero();
+        jdbc.update("update push_deliveries set result_code='RECEIPT_OK' where outbox_id=?",f.outbox());
+        assertThat(retain(f,Instant.now()).deleted()).isZero();
+        jdbc.update("update push_deliveries set terminal_at=now()-interval '31 days' where outbox_id=?",f.outbox());
+        jdbc.update("update push_outbox set expires_at=now()+interval '1 hour' where outbox_id=?",f.outbox());
+        assertThat(retain(f,Instant.now()).deleted()).isZero();
+        jdbc.update("update push_outbox set expires_at=now()-interval '9 days' where outbox_id=?",f.outbox());
+        jdbc.update("update push_outbox set environment=null,app_id=null where outbox_id=?",f.outbox());
+        assertThat(retain(f,Instant.now()).deleted()).isZero();
+        jdbc.update("update push_outbox set environment=?,app_id='dio' where outbox_id=?",org.springframework.test.util.ReflectionTestUtils.getField(f.service(),"environment"),f.outbox());
+        jdbc.update("delete from invitation_notification_receipts where invite_id=?",f.invite());
+        assertThat(retain(f,Instant.now()).deleted()).isZero();
+    }
+    @Test void retentionSafelySkipsInvalidInvitationReferences() {
+        var f=retentionFixture("COMPLETE");
+        jdbc.update("update push_outbox set terminal_at=now()-interval '31 days' where outbox_id=?",f.outbox());
+        for(String reference:java.util.List.of("not-a-number", "9223372036854775808", "123456789012345678901", "0"+f.invite())) {
+            jdbc.update("update push_outbox set reference_id=? where outbox_id=?",reference,f.outbox());
+            assertThat(retain(f,Instant.now()).deleted()).isZero();
+        }
+        jdbc.update("update push_outbox set reference_id=? where outbox_id=?",Long.toString(f.invite()),f.outbox());
+        assertThat(retain(f,Instant.now()).deleted()).isEqualTo(1);
+    }
+    @Test void retentionTerminalTimeTracksActualTransitionsWithoutResettingOnReplay() {
+        assertThat(jdbc.queryForObject("select to_regclass('idx_push_outbox_scoped_expiry') is not null",Boolean.class)).isTrue();
+        var f=retentionFixture("COMPLETE");delivery(f,"PENDING",null);
+        assertThat(jdbc.queryForObject("select terminal_at from push_deliveries where outbox_id=?",Timestamp.class,f.outbox())).isNull();
+        jdbc.update("update push_deliveries set status='SENT',result_code='RECEIPT_PENDING' where outbox_id=?",f.outbox());
+        assertThat(jdbc.queryForObject("select terminal_at from push_deliveries where outbox_id=?",Timestamp.class,f.outbox())).isNull();
+        jdbc.update("update push_deliveries set result_code='RECEIPT_OK' where outbox_id=?",f.outbox());
+        Timestamp finished=jdbc.queryForObject("select terminal_at from push_deliveries where outbox_id=?",Timestamp.class,f.outbox());assertThat(finished).isNotNull();
+        jdbc.update("update push_deliveries set result_code='RECEIPT_OK' where outbox_id=?",f.outbox());
+        assertThat(jdbc.queryForObject("select terminal_at from push_deliveries where outbox_id=?",Timestamp.class,f.outbox())).isEqualTo(finished);
+        jdbc.update("update push_deliveries set status='PENDING',result_code=null where outbox_id=?",f.outbox());
+        assertThat(jdbc.queryForObject("select terminal_at from push_deliveries where outbox_id=?",Timestamp.class,f.outbox())).isNull();
+        jdbc.update("update push_deliveries set status='SENT',result_code=null where outbox_id=?",f.outbox());
+        assertThat(jdbc.queryForObject("select terminal_at from push_deliveries where outbox_id=?",Timestamp.class,f.outbox())).isNull();
+    }
+    @Test void retentionMigrationBackfillsLegacyTerminalRowsConservatively() {
+        String schema="retupgrade_"+UUID.randomUUID().toString().replace("-","");
+        jdbc.execute("create schema "+schema);
+        try {
+            new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(st->jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>)connection->{
+                try(var stmt=connection.createStatement()) {
+                    stmt.execute("set local search_path to "+schema);
+                    stmt.execute("create table push_outbox(outbox_id uuid primary key,environment text,app_id text,status text,expires_at timestamptz); create table push_deliveries(outbox_id uuid,installation_id uuid,binding_version bigint,status text,result_code text)");
+                    stmt.execute("insert into push_outbox values ('00000000-0000-0000-0000-000000000001','development','dio','COMPLETE',now()-interval '20 days'),('00000000-0000-0000-0000-000000000002','development','dio','PENDING',now()-interval '20 days'); insert into push_deliveries values ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000003',1,'SENT','RECEIPT_OK'),('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000004',1,'SENT','RECEIPT_PENDING')");
+                    String sql=new String(new org.springframework.core.io.ClassPathResource("db/migration/V26__push_queue_retention.sql").getInputStream().readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
+                    stmt.execute(sql);
+                    try(var rows=stmt.executeQuery("select count(*) filter(where terminal_at>=now()-interval '1 minute'),count(*) filter(where terminal_at is null) from push_outbox")){rows.next();assertThat(rows.getInt(1)).isEqualTo(1);assertThat(rows.getInt(2)).isEqualTo(1);}
+                    try(var rows=stmt.executeQuery("select count(*) filter(where terminal_at>=now()-interval '1 minute'),count(*) filter(where terminal_at is null) from push_deliveries")){rows.next();assertThat(rows.getInt(1)).isEqualTo(1);assertThat(rows.getInt(2)).isEqualTo(1);}
+                } catch(java.io.IOException e){throw new RuntimeException(e);}return null;
+            }));
+        } finally {jdbc.execute("drop schema "+schema+" cascade");}
+    }
+    @Test void retentionSkipsLockedDeliveryAndRechecksAfterConcurrentAccountSwitch() throws Exception {
+        var f=retentionFixture("COMPLETE");delivery(f,"CANCELLED","STALE");
+        jdbc.update("update push_outbox set terminal_at=now()-interval '31 days' where outbox_id=?",f.outbox());
+        jdbc.update("update push_deliveries set terminal_at=now()-interval '31 days' where outbox_id=?",f.outbox());
+        var entered=new CountDownLatch(1);var release=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
+        try {
+            var hold=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(st->{jdbc.queryForObject("select outbox_id from push_deliveries where outbox_id=? for update",UUID.class,f.outbox());entered.countDown();try{if(!release.await(10,TimeUnit.SECONDS))throw new AssertionError();}catch(InterruptedException e){Thread.currentThread().interrupt();throw new RuntimeException(e);}}));
+            assertThat(entered.await(5,TimeUnit.SECONDS)).isTrue();var result=retain(f,Instant.now());assertThat(result.locked()).isEqualTo(1);assertThat(result.deleted()).isZero();
+            release.countDown();hold.get(10,TimeUnit.SECONDS);
+            var other=person();var switched=new CountDownLatch(1);var commit=new CountDownLatch(1);
+            try {
+                var transfer=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(st->{f.service().mutate(other.jwt(),f.installation(),UUID.randomUUID(),f.secret(),1,"BIND",null);switched.countDown();try{if(!commit.await(10,TimeUnit.SECONDS))throw new AssertionError();}catch(InterruptedException e){Thread.currentThread().interrupt();throw new RuntimeException(e);}}));
+                assertThat(switched.await(10,TimeUnit.SECONDS)).isTrue();
+                var cleanup=pool.submit(()->retain(f,Instant.now()));assertThat(cleanup.get(5,TimeUnit.SECONDS).deleted()).isEqualTo(1);
+                commit.countDown();transfer.get(10,TimeUnit.SECONDS);
+            } finally {commit.countDown();}
+            assertThat(jdbc.queryForObject("select user_id from push_installations where installation_id=?",Long.class,f.installation())).isEqualTo(other.id());
+        } finally {release.countDown();pool.shutdownNow();}
+    }
+
+    @Test void retentionDoesNotDeleteOrCancelDeliveryWhileActualWorkerSends() throws Exception {
+        var f=retentionFixture("PENDING");var actor=person();UUID diary=UUID.randomUUID();
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'retention race')",diary,actor.id());
+        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),f.recipient().id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+        Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,f.recipient().id(),diary);
+        jdbc.update("update invitation_notification_receipts set invite_id=? where invite_id=?",invite,f.invite());
+        jdbc.update("update push_outbox set reference_id=?,notification_id=?,expires_at=now()+interval '5 seconds' where outbox_id=?",invite.toString(),notification,f.outbox());
+        var entered=new CountDownLatch(1);var release=new CountDownLatch(1);var pool=Executors.newSingleThreadExecutor();
+        var gateway=org.mockito.Mockito.mock(com.f106.DIO.push.service.ExpoPushGateway.class);
+        org.mockito.Mockito.when(gateway.sendInvitation(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString())).thenAnswer(call->{entered.countDown();if(!release.await(10,TimeUnit.SECONDS))throw new AssertionError();return new com.f106.DIO.push.service.ExpoPushGateway.Result(true,"ret-ticket",null);});
+        try {
+            var future=pool.submit(()->new com.f106.DIO.push.service.PushDeliveryWorker(jdbc,transactionManager,f.service(),gateway,true).poll());
+            assertThat(entered.await(10,TimeUnit.SECONDS)).isTrue();Thread.sleep(5200);
+            assertThat(retain(f,Instant.now()).deleted()).isZero();
+            release.countDown();future.get(10,TimeUnit.SECONDS);
+            assertThat(jdbc.queryForObject("select result_code from push_deliveries where outbox_id=?",String.class,f.outbox())).isEqualTo("RECEIPT_PENDING");
+            assertThat(retain(f,Instant.now().plusSeconds(31*86400L)).deleted()).isZero();
+        } finally {release.countDown();pool.shutdownNow();}
+    }
+
+    @Test void retentionKeepsReceiptWhileActualWorkerIsCheckingIt() throws Exception {
+        var f=retentionFixture("COMPLETE");delivery(f,"SENT","RECEIPT_PENDING");
+        jdbc.update("update push_outbox set terminal_at=now()-interval '31 days' where outbox_id=?",f.outbox());
+        jdbc.update("update push_deliveries set provider_ticket_id='ret-ticket',accepted_at=now(),next_attempt_at=now()-interval '1 second' where outbox_id=?",f.outbox());
+        var entered=new CountDownLatch(1);var release=new CountDownLatch(1);var pool=Executors.newSingleThreadExecutor();
+        var gateway=org.mockito.Mockito.mock(com.f106.DIO.push.service.ExpoPushGateway.class);
+        org.mockito.Mockito.when(gateway.receipt("ret-ticket")).thenAnswer(call->{entered.countDown();if(!release.await(10,TimeUnit.SECONDS))throw new AssertionError();return new com.f106.DIO.push.service.ExpoPushGateway.Receipt(true,true,null);});
+        try {
+            var future=pool.submit(()->new com.f106.DIO.push.service.PushDeliveryWorker(jdbc,transactionManager,f.service(),gateway,true).poll());
+            assertThat(entered.await(10,TimeUnit.SECONDS)).isTrue();assertThat(retain(f,Instant.now()).deleted()).isZero();
+            release.countDown();future.get(10,TimeUnit.SECONDS);
+            assertThat(jdbc.queryForObject("select result_code from push_deliveries where outbox_id=?",String.class,f.outbox())).isEqualTo("RECEIPT_OK");
+            assertThat(retain(f,Instant.now()).deleted()).isZero();
+            assertThat(retain(f,Instant.now().plusSeconds(31*86400L)).deleted()).isEqualTo(1);
+        } finally {release.countDown();pool.shutdownNow();}
+    }
+
+    @Test void disabledWorkerAndOtherEnvironmentNeverConsumeOutbox() {
+        var recipient=person();UUID prod=UUID.randomUUID(),dev=UUID.randomUUID();
+        Long notification=jdbc.queryForObject("insert into notifications(user_id,notification_type) values(?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id());
+        for(var pair:java.util.Map.of(prod,"production",dev,"development").entrySet())jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,'1','PENDING',now(),?,?, 'dio')",pair.getKey(),"scope:"+pair.getKey(),notification,recipient.id(),"DIARY_INVITE",Timestamp.from(Instant.now().plusSeconds(3600)),pair.getValue());
+        var fake=org.mockito.Mockito.mock(com.f106.DIO.push.service.ExpoPushGateway.class);
+        new com.f106.DIO.push.service.PushDeliveryWorker(jdbc,transactionManager,push,fake,false).poll();
+        assertThat(jdbc.queryForObject("select status from push_outbox where outbox_id=?",String.class,dev)).isEqualTo("PENDING");
+        new com.f106.DIO.push.service.PushDeliveryWorker(jdbc,transactionManager,push,fake,true).poll();
+        assertThat(jdbc.queryForObject("select status from push_outbox where outbox_id=?",String.class,prod)).isEqualTo("PENDING");
+        org.mockito.Mockito.verifyNoInteractions(fake);
+    }
+
+    @Test void workerCancelsInviteForExistingMemberOrDeletedDiary() throws Exception {
+        for(boolean joined:new boolean[]{true,false}){
+            var recipient=person();var actor=person();UUID installation=UUID.randomUUID(),diary=UUID.randomUUID(),outbox=UUID.randomUUID();
+            push.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[stale"+installation+"]"));
+            jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'stale QA')",diary,actor.id());
+            Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+            Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id(),diary);
+            jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,?,'PENDING',now(),?,'development','dio')",outbox,"stale:"+outbox,notification,recipient.id(),"DIARY_INVITE",invite.toString(),Timestamp.from(Instant.now().plusSeconds(3600)));
+            if(joined)jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,?,'EDITOR','#CED9EE')",diary,recipient.id());
+            else jdbc.update("update diaries set deleted_at=now() where diary_id=?",diary);
+            var gateway=org.mockito.Mockito.mock(com.f106.DIO.push.service.ExpoPushGateway.class);
+            new com.f106.DIO.push.service.PushDeliveryWorker(jdbc,transactionManager,push,gateway,true).poll();
+            assertThat(jdbc.queryForObject("select status from push_deliveries where outbox_id=?",String.class,outbox)).isEqualTo("CANCELLED");
+            org.mockito.Mockito.verify(gateway,org.mockito.Mockito.never()).sendInvitation(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.eq(invite.toString()));
+        }
+    }
+
+    @Test void workerRechecksSessionExpiryAfterNotificationLockWait() throws Exception {
+        var recipient=person();var actor=person();UUID installation=UUID.randomUUID(),diary=UUID.randomUUID(),outbox=UUID.randomUUID();
+        push.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[expiry"+installation+"]"));
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'expiry QA')",diary,actor.id());
+        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+        Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id(),diary);
+        jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,?,'PENDING',now(),?,'development','dio')",outbox,"expiry:"+outbox,notification,recipient.id(),"DIARY_INVITE",invite.toString(),Timestamp.from(Instant.now().plusSeconds(3600)));
+        jdbc.update("update refresh_tokens set expires_at=? where session_id=?",Timestamp.from(Instant.now().plusSeconds(2)),recipient.sid());
+        var gateway=org.mockito.Mockito.mock(com.f106.DIO.push.service.ExpoPushGateway.class);
+        var worker=new com.f106.DIO.push.service.PushDeliveryWorker(jdbc,transactionManager,push,gateway,true);
+        var pool=Executors.newFixedThreadPool(2);var locked=new CountDownLatch(1);var release=new CountDownLatch(1);
+        try {
+            var holder=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status->{
+                jdbc.queryForObject("select notification_id from notifications where notification_id=? for update",Long.class,notification);locked.countDown();
+                try{if(!release.await(10,TimeUnit.SECONDS))throw new AssertionError("release timeout");}catch(InterruptedException e){throw new RuntimeException(e);}return null;
+            }));
+            assertThat(locked.await(5,TimeUnit.SECONDS)).isTrue();var running=pool.submit(worker::poll);
+            assertThatThrownBy(()->running.get(200,TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            Thread.sleep(2300);release.countDown();holder.get(10,TimeUnit.SECONDS);running.get(20,TimeUnit.SECONDS);
+            assertThat(jdbc.queryForObject("select status from push_deliveries where outbox_id=?",String.class,outbox)).isEqualTo("CANCELLED");
+            org.mockito.Mockito.verify(gateway,org.mockito.Mockito.never()).sendInvitation(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.eq(invite.toString()));
+        } finally {release.countDown();pool.shutdownNow();}
+    }
+
+    @Test void workerRetriesTransientFailureAndSendsOnlyOnce() throws Exception {
+        var recipient=person();var actor=person();UUID installation=UUID.randomUUID(),diary=UUID.randomUUID(),outbox=UUID.randomUUID();
+        var registered=push.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[worker"+installation+"]"));
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'worker QA')",diary,actor.id());
+        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+        Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id(),diary);
+        jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,?,'PENDING',now(),?,'development','dio')",outbox,"qa:"+outbox,notification,recipient.id(),"DIARY_INVITE",invite.toString(),Timestamp.from(Instant.now().plusSeconds(3600)));
+        var gateway=org.mockito.Mockito.mock(com.f106.DIO.push.service.ExpoPushGateway.class);
+        org.mockito.Mockito.when(gateway.sendInvitation(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.eq(invite.toString())))
+            .thenReturn(new com.f106.DIO.push.service.ExpoPushGateway.Result(false,null,"HTTP_503"),new com.f106.DIO.push.service.ExpoPushGateway.Result(true,"fake-ticket",null));
+        var worker=new com.f106.DIO.push.service.PushDeliveryWorker(jdbc,transactionManager,push,gateway,true);
+        worker.poll();assertThat(jdbc.queryForObject("select status from push_deliveries where outbox_id=?",String.class,outbox)).isEqualTo("PENDING");
+        worker.poll();org.mockito.Mockito.verify(gateway,org.mockito.Mockito.times(1)).sendInvitation(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.eq(invite.toString()));
+        jdbc.update("update push_deliveries set next_attempt_at=now()-interval '1 second' where outbox_id=?",outbox);
+        var pool=Executors.newFixedThreadPool(2);try {var first=pool.submit(worker::poll);var second=pool.submit(worker::poll);first.get(20,TimeUnit.SECONDS);second.get(20,TimeUnit.SECONDS);}finally{pool.shutdownNow();}
+        assertThat(jdbc.queryForObject("select status from push_deliveries where outbox_id=?",String.class,outbox)).isEqualTo("SENT");
+        assertThat(jdbc.queryForObject("select attempt_count from push_deliveries where outbox_id=?",Integer.class,outbox)).isEqualTo(2);
+        // 발송 TTL이 지났어도 Expo 접수 후 receipt 확인은 별도 기간에 계속된다.
+        jdbc.update("update push_outbox set created_at=now()-interval '1 hour',expires_at=now()-interval '1 second' where outbox_id=?",outbox);
+        org.mockito.Mockito.when(gateway.receipt("fake-ticket")).thenReturn(new com.f106.DIO.push.service.ExpoPushGateway.Receipt(true,true,null));
+        jdbc.update("update push_deliveries set next_attempt_at=now()-interval '1 second' where outbox_id=?",outbox);
+        worker.poll();assertThat(jdbc.queryForObject("select result_code from push_deliveries where outbox_id=?",String.class,outbox)).isEqualTo("RECEIPT_OK");
+        // 늦게 도착한 이전 토큰의 실패 receipt는 갱신된 토큰을 비활성화하지 않는다.
+        push.mutate(recipient.jwt(),installation,UUID.randomUUID(),registered.installationSecret(),1,"UPDATE",input("ExpoPushToken[new"+installation+"]"));
+        jdbc.update("update push_deliveries set result_code='RECEIPT_PENDING',provider_ticket_id='bad-ticket',next_attempt_at=now()-interval '1 second' where outbox_id=?",outbox);
+        org.mockito.Mockito.when(gateway.receipt("bad-ticket")).thenReturn(new com.f106.DIO.push.service.ExpoPushGateway.Receipt(true,false,"DeviceNotRegistered"));
+        worker.poll();assertThat(jdbc.queryForObject("select enabled from push_installations where installation_id=?",Boolean.class,installation)).isTrue();
+        assertThat(jdbc.queryForObject("select result_code from push_deliveries where outbox_id=?",String.class,outbox)).isEqualTo("DeviceNotRegistered");
+        org.mockito.Mockito.verify(gateway,org.mockito.Mockito.times(2)).sendInvitation(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.eq(invite.toString()));
+    }
+
+    @Test void fanOutFailureSkipsOnlyFailedOutboxAndContinuesDelivery() throws Exception {
+        var recipient=person();var actor=person();UUID installation=UUID.randomUUID(), first=UUID.randomUUID(),second=UUID.randomUUID(),diary=UUID.randomUUID();
+        String scope="fan-"+UUID.randomUUID().toString().replace("-","").substring(0,16);
+        var isolatedPush=new PushInstallationService(jdbc,sessionLock,Base64.getEncoder().encodeToString(new byte[32]),scope,"dio");
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(st->isolatedPush.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[fan"+installation+"]")));
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'fan QA')",diary,actor.id());
+        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+        Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id(),diary);
+        for(UUID outbox:List.of(first,second))jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,?,'PENDING',?,?,?,'dio')",outbox,"qa:"+outbox,notification,recipient.id(),"DIARY_INVITE",invite.toString(),Timestamp.from(Instant.now().minusSeconds(outbox.equals(first)?20:10)),Timestamp.from(Instant.now().plusSeconds(3600)),scope);
+        var failOnce=new java.util.concurrent.atomic.AtomicBoolean(true);
+        JdbcTemplate faulty=new JdbcTemplate(jdbc.getDataSource()) {
+            @Override public int update(String sql,Object... args) {
+                if(sql.startsWith("insert into push_deliveries") && first.equals(args[0]) && failOnce.getAndSet(false))throw new org.springframework.dao.DataAccessResourceFailureException("simulated");
+                return super.update(sql,args);
+            }
+        };
+        var gateway=org.mockito.Mockito.mock(com.f106.DIO.push.service.ExpoPushGateway.class);
+        org.mockito.Mockito.when(gateway.sendInvitation(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString())).thenReturn(new com.f106.DIO.push.service.ExpoPushGateway.Result(true,"ticket",null));
+        var worker=new com.f106.DIO.push.service.PushDeliveryWorker(faulty,transactionManager,isolatedPush,gateway,true);
+        worker.poll();
+        assertThat(jdbc.queryForObject("select status from push_outbox where outbox_id=?",String.class,first)).isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("select status from push_deliveries where outbox_id=?",String.class,second)).isEqualTo("SENT");
+        worker.poll();
+        assertThat(jdbc.queryForObject("select status from push_deliveries where outbox_id=?",String.class,first)).isEqualTo("SENT");
+    }
+
+    @Test void deliveryProcessingExceptionDefersOneItemAndContinuesToNext() throws Exception {
+        var recipient=person(); var actor=person(); UUID installation=UUID.randomUUID(), first=UUID.randomUUID(), second=UUID.randomUUID(), diary=UUID.randomUUID(), untouched=UUID.randomUUID();
+        jdbc.update("insert into push_outbox(outbox_id,event_key,recipient_user_id,event_type,status,created_at,expires_at,environment,app_id) values(?,?,?,'TEST','PENDING',now(),now()+interval '1 hour','development','dio')",untouched,"qa:"+untouched,recipient.id());
+        String scope="qa-"+UUID.randomUUID().toString().replace("-","").substring(0,16);
+        var isolatedPush=new PushInstallationService(jdbc,sessionLock,Base64.getEncoder().encodeToString(new byte[32]),scope,"dio");
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(st->isolatedPush.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[poison"+installation+"]")));
+        jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'queue QA')",diary,actor.id());
+        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+        Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id(),diary);
+        for(UUID outbox:List.of(first,second)) {
+            jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,?,'COMPLETE',now(),?,?,'dio')",outbox,"qa:"+outbox,notification,recipient.id(),"DIARY_INVITE",invite.toString(),Timestamp.from(Instant.now().plusSeconds(3600)),scope);
+            jdbc.update("insert into push_deliveries(outbox_id,installation_id,binding_version,token_version,status,next_attempt_at) values(?,?,1,1,'PENDING',?)",outbox,installation,Timestamp.from(Instant.now().minusSeconds(outbox.equals(first)?20:10)));
+        }
+        var failOnce=new java.util.concurrent.atomic.AtomicBoolean(true);
+        JdbcTemplate faulty=new JdbcTemplate(jdbc.getDataSource()) {
+            @Override public <T> List<T> query(String sql,org.springframework.jdbc.core.RowMapper<T> mapper,Object... args) {
+                if(sql.startsWith("select user_id,session_id from push_installations") && args.length==1 && installation.equals(args[0]) && failOnce.getAndSet(false)) throw new org.springframework.dao.DataAccessResourceFailureException("simulated");
+                return super.query(sql,mapper,args);
+            }
+        };
+        var gateway=org.mockito.Mockito.mock(com.f106.DIO.push.service.ExpoPushGateway.class);
+        org.mockito.Mockito.when(gateway.sendInvitation(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString())).thenReturn(new com.f106.DIO.push.service.ExpoPushGateway.Result(true,"ticket",null));
+        new com.f106.DIO.push.service.PushDeliveryWorker(faulty,transactionManager,isolatedPush,gateway,true).poll();
+        assertThat(jdbc.queryForObject("select result_code from push_deliveries where outbox_id=?",String.class,first)).isEqualTo("PROCESSING_ERROR");
+        assertThat(jdbc.queryForObject("select attempt_count from push_deliveries where outbox_id=?",Integer.class,first)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select status from push_deliveries where outbox_id=?",String.class,second)).isEqualTo("SENT");
+        assertThat(jdbc.queryForObject("select status from push_outbox where outbox_id=?",String.class,untouched)).isEqualTo("PENDING");
+        jdbc.update("delete from push_outbox where outbox_id=?",untouched);
+    }
+
+    @Test void lostRegistrationResponseRecoversOnlyForSameUserAndDisabledInstallation() {
+        var original=person();UUID id=UUID.randomUUID(), request=UUID.randomUUID();var settings=input("ExpoPushToken[recover"+id+"]");
+        var registered=push.register(original.jwt(),id,request,settings);
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(st->revoker.revokeAll(original.id(),Instant.now()));
+        Instant now=Instant.now();var refresh=sessions.saveAndFlush(new RefreshToken(original.id(),UUID.randomUUID().toString().replace("-","")+"a".repeat(32),"new",now,now.plusSeconds(3600)));
+        var replacement=tokens.decode(tokens.issue(original.id(),refresh.getSessionId(),now,now.plusSeconds(300)));
+        var restored=push.register(replacement,id,request,settings);
+        assertThat(restored.installationSecret()).isEqualTo(registered.installationSecret());
+        var other=person();assertThatThrownBy(()->push.register(other.jwt(),id,request,settings)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(()->push.register(replacement,id,UUID.randomUUID(),settings)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(()->push.inspectBinding(other.jwt(),id,"wrong-secret")).isInstanceOf(RuntimeException.class);
+        var current=push.inspectBinding(other.jwt(),id,restored.installationSecret());
+        push.mutate(other.jwt(),id,UUID.randomUUID(),restored.installationSecret(),Long.parseLong(current.bindingVersion()),"BIND",null);
+        assertThatThrownBy(()->push.register(replacement,id,request,settings)).isInstanceOf(RuntimeException.class);
+    }
+    @Test void lostResponseRecoversForSameUserEvenIfOldSessionIsStillActive() {
+        var original=person();UUID id=UUID.randomUUID(),request=UUID.randomUUID();var settings=input("ExpoPushToken[activeRecover"+id+"]");
+        var registered=push.register(original.jwt(),id,request,settings);
+        Instant now=Instant.now();var refresh=sessions.saveAndFlush(new RefreshToken(original.id(),UUID.randomUUID().toString().replace("-","")+"d".repeat(32),"new",now,now.plusSeconds(3600)));
+        var replacement=tokens.decode(tokens.issue(original.id(),refresh.getSessionId(),now,now.plusSeconds(300)));
+        var recovered=push.register(replacement,id,request,settings);
+        assertThat(recovered.installationSecret()).isEqualTo(registered.installationSecret());
+        assertThat(jdbc.queryForObject("select enabled from push_installations where installation_id=?",Boolean.class,id)).isTrue();
+        assertThatThrownBy(()->push.register(person().jwt(),id,request,settings)).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test void lostResponseRecoversWhenOldSessionExpiredBeforeCleanup() {
+        var original=person();UUID id=UUID.randomUUID(),request=UUID.randomUUID();var settings=input("ExpoPushToken[expired"+id+"]");
+        var registered=push.register(original.jwt(),id,request,settings);
+        jdbc.update("update refresh_tokens set expires_at=? where session_id=?",Timestamp.from(Instant.now().minusSeconds(1)),original.sid());
+        Instant now=Instant.now();var refresh=sessions.saveAndFlush(new RefreshToken(original.id(),UUID.randomUUID().toString().replace("-","")+"c".repeat(32),"new",now,now.plusSeconds(3600)));
+        var replacement=tokens.decode(tokens.issue(original.id(),refresh.getSessionId(),now,now.plusSeconds(300)));
+        var recovered=push.register(replacement,id,request,settings);
+        assertThat(recovered.installationSecret()).isEqualTo(registered.installationSecret());
+        assertThat(jdbc.queryForObject("select enabled from push_installations where installation_id=?",Boolean.class,id)).isTrue();
+    }
+
+    @Test void reinstallReclaimsOnlySameUsersToken() {
+        var active=person();UUID previous=UUID.randomUUID(),next=UUID.randomUUID();String activeToken="ExpoPushToken[activeReinstall"+previous+"]";
+        push.register(active.jwt(),previous,UUID.randomUUID(),input(activeToken));
+        var otherActive=person();assertThatThrownBy(()->push.register(otherActive.jwt(),next,UUID.randomUUID(),input(activeToken))).isInstanceOf(RuntimeException.class);
+        push.register(active.jwt(),next,UUID.randomUUID(),input(activeToken));
+        assertThat(jdbc.queryForObject("select enabled from push_installations where installation_id=?",Boolean.class,previous)).isFalse();
+        assertThat(jdbc.queryForObject("select token_hash is null from push_installations where installation_id=?",Boolean.class,previous)).isTrue();
+        var original=person();UUID old=UUID.randomUUID(),fresh=UUID.randomUUID();String token="ExpoPushToken[reinstall"+old+"]";
+        push.register(original.jwt(),old,UUID.randomUUID(),input(token));
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(st->revoker.revokeAll(original.id(),Instant.now()));
+        var other=person();assertThatThrownBy(()->push.register(other.jwt(),fresh,UUID.randomUUID(),input(token))).isInstanceOf(RuntimeException.class);
+        Instant now=Instant.now();var refresh=sessions.saveAndFlush(new RefreshToken(original.id(),UUID.randomUUID().toString().replace("-","")+"b".repeat(32),"new",now,now.plusSeconds(3600)));
+        var replacement=tokens.decode(tokens.issue(original.id(),refresh.getSessionId(),now,now.plusSeconds(300)));
+        push.register(replacement,fresh,UUID.randomUUID(),input(token));
+        assertThat(jdbc.queryForObject("select token_hash is null from push_installations where installation_id=?",Boolean.class,old)).isTrue();
+        assertThat(jdbc.queryForObject("select enabled from push_installations where installation_id=?",Boolean.class,fresh)).isTrue();
     }
 
     @Test void actualWithdrawalDisablesPushAndDeletesSession() {

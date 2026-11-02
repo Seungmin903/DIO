@@ -7,7 +7,7 @@ import { createAuthenticatedMemberTransport } from '../../diary/services/memberT
 import { memberDocumentKey } from '../../diary/services/memberStorage.js'
 import { createId } from '../utils/common.js'
 import { createCanvasApi, sameElements } from '../../collaboration/canvasApi.js'
-import { loadServerPageSnapshot, createServerPage, copyServerPage, deleteServerPage, reorderServerPages } from '../../collaboration/serverPages.js'
+import { loadServerPageSnapshot, createServerPage, copyServerPage, deleteServerPage, reorderServerPages, updateServerPage, loadPageSettings } from '../../collaboration/serverPages.js'
 import { createCanvasSession } from '../../collaboration/canvasSession.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../services/canvasMediaFiles'
@@ -78,6 +78,14 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         if(active())await refreshPagesQuietly()
       }
     }
+    r.loadPageSettings=async pageId=>{const settings=await loadPageSettings(transport,diary.id,pageId);if(!active())throw Error('다시 로그인해 주세요.');return settings}
+    r.updatePage=(pageId,body)=>mutatePages(async()=>{
+      if(!active())throw Error('다시 로그인해 주세요.')
+      const settings=await updateServerPage(transport,diary.id,pageId,body)
+      if(!active())throw Error('계정이 바뀌어 페이지 설정을 반영하지 않았어요.')
+      dispatch({type:'applyServerPageSettings',settings:[settings]})
+      return settings
+    })
     r.addPage=backgroundAssetId=>mutatePages(async()=>{
       dispatch({type:'commitCheckpoint'})
       const page=await createServerPage({transport,diaryId:diary.id,backgroundAssetId,
@@ -222,7 +230,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     }catch(error){if(r.alive)setView(v=>({...v,status:error.status===409?'conflict':'error',errorMessage:failureMessage(error)}));throw error}
     finally{r.busy=false;if(r.alive)setView(v=>({...v,busy:false}))}
   }
-  return {enabled,movePage:(id,toIndex)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePage(id,toIndex)},movePages:(ids,anchorId,place)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePages(ids,anchorId,place)},copyPage:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.copyPage(id)},removePages:ids=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.removePages(ids)},addPage:backgroundAssetId=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPage(backgroundAssetId)},status:enabled?view.status:null,errorMessage:view.errorMessage,busy:view.busy,
+  return {enabled,loadPageSettings:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.loadPageSettings(id)},updatePage:(id,body)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.updatePage(id,body)},movePage:(id,toIndex)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePage(id,toIndex)},movePages:(ids,anchorId,place)=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.movePages(ids,anchorId,place)},copyPage:id=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.copyPage(id)},removePages:ids=>{if(!runtime.current)throw Error('서버 연결을 확인해 주세요.');return runtime.current.removePages(ids)},addPage:backgroundAssetId=>{if(!runtime.current)throw Error('서버 연결을 확인한 뒤 다시 시도해 주세요.');return runtime.current.addPage(backgroundAssetId)},status:enabled?view.status:null,errorMessage:view.errorMessage,busy:view.busy,
     canUndo:view.pageId===page.id&&!!view.history?.nextUndo,canRedo:view.pageId===page.id&&!!view.history?.nextRedo,
     undo:()=>control('undo'),redo:()=>control('redo'),retry:()=>runtime.current?.sync(page.id)}
 }

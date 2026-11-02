@@ -81,6 +81,10 @@ export default function AppIcon({ name, size = 24, color = colors.text, strokeWi
       // 팔레트. Lucide `palette` (ISC, https://github.com/lucide-icons/lucide) 의 선을 그대로 쓰고, 물감 점은 윤곽선 색으로 꽉 채운 원(선 굵기와 무관한 크기)으로 그린다.
       graphic = <><Path {...line} d="M12 22a1 1 0 0 1 0-20a10 9 0 0 1 10 9a5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" /><Circle fill={color} cx="13.5" cy="6.5" r="1.3" /><Circle fill={color} cx="17.5" cy="10.5" r="1.3" /><Circle fill={color} cx="6.5" cy="12.5" r="1.3" /><Circle fill={color} cx="8.5" cy="7.5" r="1.3" /></>;
       break;
+    case 'camera':
+      // 사진 바꾸기(프로필 수정의 `사진 변경`). 연필(프로필 전체 수정)과 뜻이 겹치지 않게 Lucide `camera` (ISC) 의 선을 그대로 쓴다.
+      graphic = <><Path {...line} d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><Circle {...line} cx="12" cy="13" r="3" /></>;
+      break;
     default:
       graphic = <Circle {...line} cx="12" cy="12" r="7" />;
   }

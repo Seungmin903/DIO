@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as validation from '../src/sharing/sharingPreview.js';
+import * as validation from '../src/sharing/sharingContracts.js';
 const require = createRequire(import.meta.url),
   expo = createRequire(require.resolve('expo/package.json')),
   babel = expo('@babel/core');
@@ -78,7 +78,7 @@ function setup(runtime = {}, photoPicker, initialRequest = { mode: 'invitations'
     'react-native-safe-area-context': { SafeAreaView: 'safe' },
     '../shared/useFormFactor': { useFormFactor: () => ({ isPhone: false }) },
     '../shared/theme': { colors: {} },
-    './sharingPreview': validation,
+    './sharingContracts': validation,
     './styles': { sharingStyles: new Proxy({}, { get: (_, k) => k }) },
     '../notifications/NotificationPanel': { invitationStatusLabel: (v) => v },
   };
@@ -738,4 +738,24 @@ test('정원이 찬 서버 다이어리는 초대 API가 있어도 이메일 입
     assert.equal(find(ui.render(),'이메일 초대 보내기').props.disabled,true);
     assert.equal(sent,0);ui.unmount();
   }
+});
+
+
+test('서버 이메일 초대 화면은 기존 입력란을 활성화하고 입력한 주소로 연결 함수를 호출한다', async () => {
+  const diary = { id: 'server-diary', members: [{ id: 'self', role: 'OWNER' }] };
+  const calls = [];
+  const ui = setup({ server: true, registerDiary: () => diary,
+    getSharing: async () => diary,
+    sendEmailInvite: async (id, email) => { calls.push({ id, email }); return diary; },
+  }, undefined, { diary });
+  await tick();
+  find(ui.render(), '이메일로 초대').props.onPress();
+  assert.equal(find(ui.render(), '초대할 이메일').props.editable, true);
+  find(ui.render(), '초대할 이메일').props.onChangeText('friend@example.com');
+  assert.equal(find(ui.render(), '이메일 초대 보내기').props.disabled, false);
+  find(ui.render(), '이메일 초대 보내기').props.onPress();
+  await tick();
+  assert.deepEqual(calls, [{ id: 'server-diary', email: 'friend@example.com' }]);
+  assert.equal(find(ui.render(), '초대할 이메일').props.value, '');
+  ui.unmount();
 });

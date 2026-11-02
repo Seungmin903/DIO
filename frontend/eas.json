@@ -11,10 +11,12 @@
       "autoIncrement": true
     },
     "preview": {
+      "env": { "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0" },
       "distribution": "internal",
       "autoIncrement": true
     },
     "production": {
+      "env": { "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0" },
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"

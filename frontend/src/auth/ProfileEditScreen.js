@@ -11,35 +11,37 @@ import {
   View,
 } from 'react-native';
 import AppIcon from '../shared/AppIcon';
-import Header from '../diary/components/Header';
+import { SettingCard } from '../diary/components/SettingRow';
 import Modal from '../editor/components/controls/EditorModal';
 import { colors } from '../shared/theme';
 import { pickProfilePhoto } from './profilePhoto';
-import { nicknameError, normalizeNickname, passwordError } from './validation';
+import { bioError, BIO_MAX, nicknameError, normalizeBio, normalizeNickname, passwordError } from './validation';
 import { useProfileKeyboard } from './useProfileKeyboard';
 import { profileStyles as s } from './profileStyles';
 
+// 사진이 없을 때의 기본 프로필: 메뉴 아래 · 내 공간과 같은 그림(primaryStrong 동그라미에 모아의 흰 표정)
+import DefaultAvatar from '../shared/DefaultAvatar';
 const PROVIDER_NAMES = { email: '이메일', kakao: '카카오', google: '구글', apple: '애플' };
 const emptyPasswords = () => ({ currentPassword: '', password: '', confirmation: '' });
 const WITHDRAW_TEXT = '탈퇴합니다';
 
 export default function ProfileEditScreen({
   user,
-  passwordOnly = false,
   compact = false,
+  passwordOnly = false, // 비밀번호 창만 연다(회원정보 폼 없이). 닫으면 onClose
   onClose,
   onUpdate,
   onEndSession,
-  onPasswordReset,
   registerLeaveGuard,
+  onPasswordReset,
   getProfilePhotoSource,
-  photoEditable = true,
   service,
   photoPicker = pickProfilePhoto,
 }) {
   const [saved, setSaved] = useState(user);
   const [nickname, setNickname] = useState(user.nickname);
   const [photoUri, setPhotoUri] = useState(user.photoUri || null);
+  const [bio, setBio] = useState(user.bio || '');
   const [dialog, setDialog] = useState(passwordOnly ? 'password' : null);
   const [withdrawText, setWithdrawText] = useState('');
   const [passwords, setPasswords] = useState(emptyPasswords);
@@ -52,26 +54,29 @@ export default function ProfileEditScreen({
     pendingLeave = useRef(null);
   const form = useProfileKeyboard(),
     modalForm = useProfileKeyboard();
-  // 서버 사진은 개발 게이트웨이 인증 헤더가 필요할 수 있다. 홈과 수정 화면이
-  // 서로 다른 source를 쓰면, 이미 설정한 사진이 수정 화면에서만 빈 이미지가 된다.
-  const photoSource = photoUri
-    ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri })
-    : null;
   const name = normalizeNickname(nickname);
-  const changed = nickname !== saved.nickname || photoUri !== (saved.photoUri || null);
-  const ready = changed && !nicknameError(nickname);
+  // 서버 사진은 개발 게이트웨이 인증 헤더가 필요할 수 있다. 홈과 수정 화면이 같은 source 를 써야 홈에서 보이던 사진이 여기서 비지 않는다.
+  const photoSource = photoUri ? (getProfilePhotoSource ? getProfilePhotoSource(photoUri) : { uri: photoUri }) : null;
+  const requireService = (operation) => {
+    if (typeof service?.[operation] !== 'function')
+      throw new Error('회원정보 기능을 준비하지 못했어요. 다시 로그인해 주세요.');
+    return service[operation].bind(service);
+  };
+  const guest = saved.provider === 'guest';
+  const canWithdraw = typeof service?.withdraw === 'function';
+  // 서버 계정은 프로필 저장 API에 한 줄 소개가 아직 없어 입력을 받지 않는다(체험 · 게스트만).
+  const bioEditable = saved.mode !== 'authenticated';
+  const changed =
+    nickname !== saved.nickname ||
+    photoUri !== (saved.photoUri || null) ||
+    (bioEditable && normalizeBio(bio) !== (saved.bio || ''));
+  const ready = changed && !nicknameError(nickname) && !(bioEditable && bioError(bio));
   const passwordDirty = Object.values(passwords).some(Boolean);
   const passwordReady =
     passwords.currentPassword &&
     !passwordError(passwords.password) &&
     passwords.password === passwords.confirmation &&
     passwords.password !== passwords.currentPassword;
-  const canWithdraw = typeof service?.withdraw === 'function';
-  const requireService = (operation) => {
-    if (typeof service?.[operation] !== 'function')
-      throw new Error('회원정보 기능을 준비하지 못했어요. 다시 로그인해 주세요.');
-    return service[operation].bind(service);
-  };
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -163,13 +168,18 @@ export default function ProfileEditScreen({
   const save = () => {
     if (!ready) return;
     run(
-      () => requireService('updateProfile')(saved, { nickname: name, photoUri }),
+      () => requireService('updateProfile')(saved, {
+        nickname: name,
+        photoUri,
+        ...(bioEditable && { bio: normalizeBio(bio) }),
+      }),
       (result) => {
         setSaved(result);
         setNickname(result.nickname);
         setPhotoUri(result.photoUri || null);
+        setBio(result.bio || '');
         form.dismiss();
-        setNotice('회원정보를 저장했어요.');
+        setNotice(guest ? '프로필을 저장했어요.' : '회원정보를 저장했어요.');
       },
       onUpdate,
     );
@@ -177,6 +187,12 @@ export default function ProfileEditScreen({
   const changeNickname = (value) => {
     request.current++;
     setNickname(value);
+    setError('');
+    setNotice('');
+  };
+  const changeBio = (value) => {
+    request.current++;
+    setBio(value);
     setError('');
     setNotice('');
   };
@@ -195,6 +211,7 @@ export default function ProfileEditScreen({
     if (dialog === 'discard') {
       setNickname(saved.nickname);
       setPhotoUri(saved.photoUri || null);
+      setBio(saved.bio || '');
     }
     action?.();
   };
@@ -218,23 +235,40 @@ export default function ProfileEditScreen({
         setDialog(null);
         setNotice('비밀번호를 변경했어요.');
       },
-      // 서버는 비밀번호 변경 시 모든 세션을 폐기한다. 이 대화상자는
-      // passwordOnly 여부와 무관하게 인증 계정에서 열릴 수 있으므로,
-      // 만료된 토큰을 계속 쓰지 않도록 항상 앱의 로컬 세션도 끝낸다.
-      saved.mode === 'authenticated' ? onEndSession : undefined,
+      user?.mode === 'authenticated' ? onEndSession : undefined,
     );
   };
   const withdraw = () => {
     if (withdrawText !== WITHDRAW_TEXT || !canWithdraw) return;
     run(() => requireService('withdraw')(saved), null, onEndSession);
   };
+  // 사진 변경 메뉴: 열려 있으면 트리거의 화면 위치(말풍선 자리)를 들고 있다
+  const [photoMenu, setPhotoMenu] = useState(null);
+  const photoTrigger = useRef(null);
+  const openPhotoMenu = () => {
+    form.dismiss();
+    if (compact || !photoTrigger.current?.measureInWindow) return setPhotoMenu({});
+    photoTrigger.current.measureInWindow((x, y, w, h) => setPhotoMenu({ x, y, w, h }));
+  };
   const modalTitle =
     dialog === 'withdraw'
       ? '정말 탈퇴하시겠어요?'
       : dialog === 'password'
         ? '비밀번호 변경'
-        : '변경사항을 저장하지 않았어요';
+        : '변경사항을 버릴까요?';
   const discardDialog = dialog === 'discard' || dialog === 'discard-password';
+  // 저장 안 한 변경 확인: 안전한 `계속 수정하기`를 채움으로, 버리는 쪽은 글자만 위험색(폰: 위아래로 쌓고 계속 수정이 위, 태블릿: 오른쪽 정렬 나가기 → 계속 수정)
+  const discardActions = discardDialog ? (
+    <View style={compact ? s.discardActionsSheet : s.discardActions}>
+      {compact ? null : (
+        <Button label="저장하지 않고 나가기" dangerText disabled={busy} onPress={discard} />
+      )}
+      <Button label="계속 수정하기" disabled={busy} onPress={continueEditing} />
+      {compact ? (
+        <Button label="저장하지 않고 나가기" dangerText disabled={busy} onPress={discard} />
+      ) : null}
+    </View>
+  ) : null;
 
   return (
     <KeyboardAvoidingView
@@ -245,166 +279,156 @@ export default function ProfileEditScreen({
     >
       {!passwordOnly && <ScrollView
         ref={form.scroll}
+        style={s.flex}
         contentContainerStyle={[s.scroll, compact && s.phoneScroll]}
         onLayout={form.reveal}
         onScroll={form.onScroll}
         scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
       >
-        <Header
-          title="회원정보 수정"
-          compact={compact}
-          left={(
+        <View style={s.rail}>
+          <View style={s.heading}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="마이페이지로 돌아가기"
+              accessibilityLabel="내 공간으로 돌아가기"
               disabled={busy}
               onPress={() => leave(onClose)}
-              style={({ pressed }) => [s.headerBack, compact && s.headerBackCompact, busy && s.disabled, pressed && s.pressed]}
+              style={s.back}
             >
-              <AppIcon name="chevron-left" size={22} />
+              <AppIcon name="chevron-left" size={24} />
             </Pressable>
-          )}
-        />
-        <View style={[s.card, compact && s.phoneCard]}>
-          <Text style={s.section}>프로필 정보</Text>
-          <View style={s.avatarRow}>
-            <View style={s.avatarWrap}>
-              {photoSource ? (
-                <Image
-                  source={photoSource}
-                  accessibilityLabel="프로필 사진"
-                  style={s.photo}
-                />
-              ) : (
-                <View accessibilityLabel="기본 프로필" style={s.avatar}>
-                  <AppIcon name="person" size={32} color={colors.textMuted} />
-                </View>
-              )}
+            <Text accessibilityRole="header" style={[s.title, compact && s.titleCompact]}>
+              {guest ? '프로필 수정' : '회원정보 수정'}
+            </Text>
+          </View>
+          <Text accessibilityRole="header" style={s.sectionTitle}>
+            프로필 정보
+          </Text>
+          <View style={[s.tray, compact && s.trayCompact]}>
+            {photoUri ? (
+              <Image
+                source={photoSource}
+                accessibilityLabel="프로필 사진"
+                style={[s.photo, compact && s.photoCompact]}
+              />
+            ) : (
+              <DefaultAvatar user={saved} accessibilityLabel="기본 프로필" style={[s.photo, compact && s.photoCompact]} />
+            )}
+            <View style={s.avatarActions}>
               <Pressable
+                ref={photoTrigger}
                 accessibilityRole="button"
                 accessibilityLabel="프로필 사진 변경"
-                accessibilityState={{ disabled: busy || !photoEditable }}
-                disabled={busy || !photoEditable}
-                onPress={pickPhoto}
-                style={[s.photoHit, !photoEditable && s.disabled]}
+                accessibilityState={{ expanded: !!photoMenu }}
+                disabled={busy}
+                onPress={openPhotoMenu}
+                style={s.photoLink}
               >
-                <View style={s.photoBadge}>
-                  <AppIcon name="edit" size={14} color={colors.surface} />
-                </View>
-              </Pressable>
-            </View>
-            <View style={s.grow}>
-              <Text style={s.photoTitle}>프로필 사진</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="프로필 사진 삭제"
-                accessibilityState={{ disabled: busy || !photoUri || !photoEditable }}
-                disabled={busy || !photoUri || !photoEditable}
-                onPress={() => {
-                  setPhotoUri(null);
-                  setError('');
-                  setNotice('');
-                }}
-                style={[s.link, (!photoUri || !photoEditable) && s.disabled]}
-              >
-                <Text style={s.linkText}>기본 이미지로 되돌리기</Text>
+                <AppIcon name="camera" size={16} forText={14} color={colors.primaryText} />
+                <Text numberOfLines={1} style={s.photoLinkText}>사진 변경</Text>
               </Pressable>
             </View>
           </View>
-          <View style={s.form}>
-            <FormRow label="닉네임" compact={compact}>
-              <View style={s.nicknameRow}>
-                <View style={s.grow}>
-                  <Field
-                    label="닉네임"
-                    value={nickname}
-                    onChangeText={changeNickname}
-                    disabled={busy}
-                    form={form}
-                    maxLength={12}
-                  />
-                </View>
-              </View>
-              <Text accessibilityLiveRegion="polite" style={s.hint}>
-                {(nicknameError(nickname) && nickname
-                    ? nicknameError(nickname)
-                    : '한글·영문·숫자·밑줄 2~12자')}
+          <FormRow label="닉네임">
+            <Field
+              label="닉네임"
+              value={nickname}
+              onChangeText={changeNickname}
+              disabled={busy}
+              form={form}
+              maxLength={12}
+            />
+            <Text accessibilityLiveRegion="polite" style={s.hint}>
+              {nicknameError(nickname) && nickname
+                ? nicknameError(nickname)
+                : '한글·영문·숫자·밑줄 2~12자'}
+            </Text>
+          </FormRow>
+          {bioEditable && (
+            <FormRow label="한 줄 소개">
+              <Field
+                label="한 줄 소개"
+                value={bio}
+                onChangeText={changeBio}
+                disabled={busy}
+                form={form}
+                maxLength={BIO_MAX}
+              />
+              <Text accessibilityLiveRegion="polite" style={[s.hint, s.counter]}>
+                {[...normalizeBio(bio)].length}/{BIO_MAX}
               </Text>
             </FormRow>
-            {saved.email && (
-              <FormRow label="이메일" compact={compact}>
-                <ReadOnly label="이메일" value={saved.email} />
-              </FormRow>
-            )}
-            <FormRow label="로그인 방식" compact={compact}>
-              <ReadOnly label="로그인 방식" value={PROVIDER_NAMES[saved.provider] || '소셜'} />
+          )}
+          {!guest && (
+            <>
+              <Text accessibilityRole="header" style={[s.sectionTitle, s.sectionGap]}>
+                계정 정보
+              </Text>
+              <SettingCard compact={compact}>
+                {saved.email && <InfoRow label="이메일" value={saved.email} />}
+                <InfoRow label="로그인 방식" value={PROVIDER_NAMES[saved.provider] || '소셜'} />
+                {saved.provider === 'email' && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="비밀번호 변경"
+                    accessibilityState={{ disabled: !!busy }}
+                    disabled={busy}
+                    onPress={() => (onPasswordReset ? leave(onPasswordReset) : showDialog('password'))}
+                    style={s.infoRow}
+                  >
+                    <Text style={s.infoLabel}>비밀번호 변경</Text>
+                    <AppIcon name="chevron-right" size={20} color={colors.textMuted} />
+                  </Pressable>
+                )}
+              </SettingCard>
               {saved.provider !== 'email' && (
-                <Text style={s.hint}>
+                <Text style={[s.hint, s.socialHint]}>
                   {PROVIDER_NAMES[saved.provider] || '소셜'} 계정으로 로그인하고 있어요.
                 </Text>
               )}
-            </FormRow>
-            {saved.provider === 'email' && (
-              <FormRow label="비밀번호" compact={compact}>
-                <View style={{ alignItems: 'flex-start' }}>
-                  <Button
-                    label={onPasswordReset ? '비밀번호 재설정' : '비밀번호 변경'}
-                    secondary
-                    onPress={() => onPasswordReset ? leave(onPasswordReset) : showDialog('password')}
-                    disabled={busy}
-                  />
-                </View>
-              </FormRow>
-            )}
-          </View>
-          {!!error && !dialog && (
-            <Text accessibilityRole="alert" style={s.error}>
-              {error}
-            </Text>
-          )}
-          {!!notice && (
-            <Text accessibilityLiveRegion="polite" style={s.notice}>
-              {notice}
-            </Text>
-          )}
-          <View style={s.footer}>
-            <View style={s.footerDivider} />
-            <View style={[s.footerRow, compact && s.phoneFooter]}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="회원 탈퇴"
                 accessibilityHint={!canWithdraw ? '회원 탈퇴 기능은 준비 중이에요.' : undefined}
+                accessibilityState={{ disabled: busy || !canWithdraw }}
                 disabled={busy || !canWithdraw}
                 onPress={() => showDialog('withdraw')}
                 style={[s.withdraw, !canWithdraw && s.disabled]}
               >
                 <Text style={s.withdrawText}>회원 탈퇴</Text>
               </Pressable>
-              <View style={[s.actions, compact && s.phoneActions]}>
-                <Button
-                  label="취소"
-                  secondary
-                  disabled={busy}
-                  onPress={() => leave(onClose)}
-                  style={compact && s.grow}
-                />
-                <Button
-                  label="변경사항 저장"
-                  disabled={busy || !ready}
-                  busy={busy}
-                  onPress={save}
-                  style={compact && s.grow}
-                />
-              </View>
-            </View>
-          </View>
+            </>
+          )}
+          {!!error && !dialog && (
+            <Text accessibilityRole="alert" style={[s.error, s.formError]}>
+              {error}
+            </Text>
+          )}
         </View>
       </ScrollView>}
+      {/* 하단 고정 바: 저장 행동이 항상 보인다 */}
+      {!passwordOnly && <View style={[s.bar, compact && s.phoneBar]}>
+        <View style={[s.barInner, compact && s.phoneBarInner]}>
+          <Button
+            label="취소"
+            secondary
+            disabled={busy}
+            onPress={() => leave(onClose)}
+            style={[s.barButton, compact && s.phoneCancel]}
+          />
+          <Button
+            label="변경사항 저장"
+            disabled={busy || !ready}
+            busy={busy}
+            onPress={save}
+            style={[s.barButton, compact && s.phoneSave]}
+          />
+        </View>
+      </View>}
       <Modal
         visible={!!dialog}
         transparent
-        animationType="fade"
+        animationType="none"
         onRequestClose={() => backRef.current()}
       >
         <KeyboardAvoidingView
@@ -416,26 +440,29 @@ export default function ProfileEditScreen({
           <ScrollView
             ref={modalForm.scroll}
             style={{ width: '100%' }}
-            contentContainerStyle={s.modalScroll}
+            contentContainerStyle={[s.modalScroll, discardDialog && compact && s.sheetScroll]}
             keyboardShouldPersistTaps="handled"
             onLayout={modalForm.reveal}
             onScroll={modalForm.onScroll}
             scrollEventThrottle={16}
           >
-            <View style={s.dialog} accessibilityViewIsModal>
+            <View style={[s.dialog, discardDialog && s.discardDialog, discardDialog && compact && s.sheetDialog]} accessibilityViewIsModal>
+              {discardDialog && compact && <View style={s.sheetGrab} />}
               <View style={s.dialogHeading}>
                 <Text accessibilityRole="header" style={s.dialogTitle}>
                   {modalTitle}
                 </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="확인 창 닫기"
-                  disabled={busy}
-                  onPress={discardDialog ? continueEditing : closeDialog}
-                  style={s.close}
-                >
-                  <AppIcon name="close" size={18} />
-                </Pressable>
+                {!discardDialog && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="확인 창 닫기"
+                    disabled={busy}
+                    onPress={closeDialog}
+                    style={s.close}
+                  >
+                    <AppIcon name="close" size={18} />
+                  </Pressable>
+                )}
               </View>
               <View style={s.dialogBody}>
                 {dialog === 'withdraw' && (
@@ -457,21 +484,17 @@ export default function ProfileEditScreen({
                       form={modalForm}
                       maxLength={30}
                     />
-                    <Text style={s.hint}>
-                      {withdrawText === WITHDRAW_TEXT
-                        ? '확인 문구가 일치해요.'
-                        : '문구가 일치하면 탈퇴하기 버튼이 활성화돼요.'}
-                    </Text>
+                    {withdrawText === WITHDRAW_TEXT && <Text style={s.hint}>확인 문구가 일치해요.</Text>}
                   </>
                 )}
                 {discardDialog && (
                   <Text style={s.muted}>
-                    지금 나가면 수정한 내용이 저장되지 않아요.{'\n'}계속 수정하시겠어요?
+                    지금 나가면 수정한 내용이 저장되지 않아요.
                   </Text>
                 )}
                 {dialog === 'password' && (
                   <>
-                    {passwordOnly && <Text style={s.muted}>변경하면 모든 기기에서 로그아웃돼요. 새 비밀번호로 다시 로그인해 주세요.</Text>}
+                    <Text style={s.muted}>변경하면 모든 기기에서 로그아웃돼요. 새 비밀번호로 다시 로그인해 주세요.</Text>
                     {['currentPassword', 'password', 'confirmation'].map((key, index) => (
                       <View key={key}>
                         <Text style={s.text}>
@@ -500,19 +523,12 @@ export default function ProfileEditScreen({
                   </Text>
                 )}
               </View>
-              <View style={s.dialogDivider} />
-              <View style={s.actions}>
+              {discardActions}
+              {!discardDialog && (
+              <View style={s.dialogActions}>
+                <Button label="취소" secondary disabled={busy} onPress={closeDialog} style={s.grow} />
                 <Button
-                  label={discardDialog ? '저장하지 않고 나가기' : '취소'}
-                  secondary
-                  disabled={busy}
-                  onPress={discardDialog ? discard : closeDialog}
-                  style={s.grow}
-                />
-                <Button
-                  label={
-                    discardDialog ? '계속 수정하기' : dialog === 'withdraw' ? '탈퇴하기' : '변경'
-                  }
+                  label={dialog === 'withdraw' ? '탈퇴하기' : '변경'}
                   danger={dialog === 'withdraw'}
                   disabled={
                     busy ||
@@ -523,41 +539,94 @@ export default function ProfileEditScreen({
                         : false)
                   }
                   busy={busy}
-                  onPress={
-                    discardDialog
-                      ? continueEditing
-                      : dialog === 'withdraw'
-                        ? withdraw
-                        : changePassword
-                  }
+                  onPress={dialog === 'withdraw' ? withdraw : changePassword}
                   style={s.grow}
                 />
               </View>
+              )}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
+      {/* 사진 변경 메뉴: 태블릿은 `사진 변경` 아래 말풍선, 폰은 아래 시트. 사진 선택 · 기본 이미지로 되돌리기(사진이 있을 때만) · 취소. 뜰 때 효과(페이드 등)는 넣지 않는다 */}
+      <Modal visible={!!photoMenu} transparent animationType="none" onRequestClose={() => setPhotoMenu(null)}>
+        <Pressable accessible={false} style={compact ? s.photoBackdrop : s.photoBackdropPopover} onPress={() => setPhotoMenu(null)}>
+          <Pressable
+            accessible={false}
+            onPress={(event) => event.stopPropagation()}
+            style={compact ? s.photoSheet : [s.photoPopover, { left: photoMenu?.x ?? 0, top: (photoMenu?.y ?? 0) + (photoMenu?.h ?? 0) + 8 }]}
+          >
+            {compact && <View style={s.sheetGrab} />}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="프로필 사진 선택"
+              onPress={() => {
+                setPhotoMenu(null);
+                pickPhoto();
+              }}
+              style={[s.photoRow, compact && s.photoRowSheet]}
+            >
+              <Text style={[s.photoRowText, compact && s.photoRowTextSheet]}>사진 선택</Text>
+            </Pressable>
+            {!!photoUri && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="프로필 사진 삭제"
+                onPress={() => {
+                  setPhotoMenu(null);
+                  setPhotoUri(null);
+                  setError('');
+                  setNotice('');
+                }}
+                style={[s.photoRow, compact && s.photoRowSheet]}
+              >
+                <Text style={[s.photoRowText, compact && s.photoRowTextSheet, s.photoRowDanger]}>기본 이미지로 되돌리기</Text>
+              </Pressable>
+            )}
+            <View style={s.photoDivider} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="프로필 사진 변경 취소"
+              onPress={() => setPhotoMenu(null)}
+              style={[s.photoRow, compact && s.photoRowSheet]}
+            >
+              <Text style={[s.photoRowText, compact && s.photoRowTextSheet, s.photoRowCancel]}>취소</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* 저장 · 변경 결과는 화면 아래에 남색 알약으로 잠깐 뜬다(다른 화면의 알림 알약과 같다) */}
+      {!!notice && (
+        <View pointerEvents="none" style={s.toastPosition}>
+          <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={s.toast}>
+            {notice}
+          </Text>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
-function FormRow({ label, compact, children }) {
+// 라벨은 입력칸 위에 쌓는다(태블릿 · 폰 같음). 입력은 읽기 좋은 폭(560)까지만.
+function FormRow({ label, children }) {
   return (
-    <View style={[s.row, compact && s.phoneRow]}>
-      <Text style={[s.label, compact && s.phoneLabel]}>{label}</Text>
-      <View style={[s.value, compact && s.phoneValue]}>{children}</View>
+    <View style={s.row}>
+      <Text style={s.label}>{label}</Text>
+      <View style={s.value}>{children}</View>
     </View>
   );
 }
-function ReadOnly({ label, value }) {
+// 읽기 전용 정보 행(카드 안): 왼쪽 라벨, 오른쪽 값, 아래 선. 높이 56.
+function InfoRow({ label, value }) {
   return (
-    <View accessibilityLabel={`${label}: ${value}`} style={s.readOnly}>
-      <Text selectable style={s.readOnlyText}>
+    <View accessibilityLabel={`${label}: ${value}`} style={s.infoRow}>
+      <Text style={s.infoLabel}>{label}</Text>
+      <Text selectable numberOfLines={1} style={s.infoValue}>
         {value}
       </Text>
     </View>
   );
 }
-function Button({ label, onPress, disabled, secondary, danger, busy, style }) {
+function Button({ label, onPress, disabled, secondary, dangerText, danger, busy, style }) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -565,17 +634,25 @@ function Button({ label, onPress, disabled, secondary, danger, busy, style }) {
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         s.button,
         secondary && s.secondary,
+        dangerText && s.dangerTextButton,
         danger && s.danger,
         disabled && s.disabled,
-        pressed && s.pressed,
         style,
       ]}
     >
       {busy && <ActivityIndicator color={colors.surface} />}
-      <Text style={[s.buttonText, secondary && s.secondaryText]}>{label}</Text>
+      <Text
+        style={[
+          s.buttonText,
+          secondary && s.secondaryText,
+          dangerText && s.dangerGhostText,
+        ]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }

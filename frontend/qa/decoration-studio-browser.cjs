@@ -31,8 +31,7 @@ const server = http.createServer((req,res) => {
       const button=name=>page.getByRole('button',{name,exact:true});
       const navigate=name=>page.getByLabel(name,{exact:true});
       async function enter() {
-        await button('개발자 모드로 시작').click({timeout:120000});
-        await navigate('꾸미기 공방').click();
+        await navigate('꾸미기 공방').click({timeout:120000});
         await button('내 폰트 만들기').waitFor();
       }
       await page.goto(`http://127.0.0.1:${server.address().port}`);

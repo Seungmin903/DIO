@@ -21,7 +21,8 @@ const GROUPS = [
 ];
 const tapeName = entry => TAPE_PALETTES.find(item => item.id === entry)?.name ?? entry.split(':').slice(1).join('/');
 
-const nearWhite = hex => /^#[0-9a-f]{6}$/i.test(hex) && [1, 3, 5].every(i => parseInt(hex.slice(i, i + 2), 16) >= 0xEE);
+// 바탕과 잘 안 갈리는 옅은 색(세 채널 모두 E0 이상: 흰색 · 종이 색 견본)만 옅은 테두리를 둔다(코덱스 2026-11-02)
+const nearWhite = hex => /^#[0-9a-f]{6}$/i.test(hex) && [1, 3, 5].every(i => parseInt(hex.slice(i, i + 2), 16) >= 0xE0);
 
 function Dot({ bg, fg, active }) {
   return <View style={[local.ring, active && local.ringActive]}>
@@ -36,8 +37,10 @@ const TOOL_ICON = { pen: 'pen', highlighter: 'highlighter', tape: 'tape', text: 
 const toEditor = (entry, tape) => { if (!tape) return entry; const [bg, fg = bg] = entry.split('/'); return `custom:${bg}:${fg}`; };
 const fromEditor = (value, tape) => (tape ? value.split(':').slice(1).join('/') : value);
 
-function Swatch({ label, bg, fg, active, onPress, cellRef }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} ref={cellRef} collapsable={false} onPress={onPress} style={local.cell}>
+// 견본 한 칸(원 30 · 터치 칸 36). active 면 2px primaryText 고리. role 은 고르는 줄(기본 속지 설정)이면 'radio'
+export function Swatch({ label, bg, fg, active, onPress, cellRef, role = 'button' }) {
+  return <Pressable accessibilityRole={role} accessibilityLabel={label} accessibilityState={role === 'radio' ? { checked: active, selected: active } : undefined}
+    ref={cellRef} collapsable={false} onPress={onPress} style={local.cell}>
     <Dot bg={bg} fg={fg} active={active} />
   </Pressable>;
 }
@@ -70,12 +73,8 @@ function Group({ group, compact, width }) {
     onClose={() => setEditing(null)} onDone={value => { mine.add(fromEditor(value, tape)); setEditing(null); }} />;
   return (
     <View style={[local.card, { width }, compact && local.cardCompact]}>
-      <View style={local.head}>
-        <View style={local.preview}><Icon name={TOOL_ICON[group.scope]} size={22} color={colors.text} /></View>
-        <Text style={local.groupTitle}>{group.label}</Text>
-        {edited ? <DioButton variant="ghost" outline label={`${group.label} 기본 색으로`} text="기본 색으로" onPress={reset} style={local.reset} /> : null}
-      </View>
-      <View style={local.line} />
+      <GroupHead icon={TOOL_ICON[group.scope]} title={group.label}
+        right={edited ? <DioButton variant="ghost" outline label={`${group.label} 기본 색으로`} text="기본 색으로" onPress={reset} style={local.reset} /> : null} />
       <View style={local.row}>
         {list.map((entry, index) => {
           const { bg, fg } = tape ? tapeColors(entry) : { bg: entry, fg: null };
@@ -83,21 +82,32 @@ function Group({ group, compact, width }) {
             cellRef={ref('preset', index)} onPress={open('preset', index)} />;
         })}
       </View>
-      <Text style={local.mineTitle}>내 색상</Text>
-      <View style={local.row}>
-        {mine.presets.map((entry, index) => {
-          const [bg, fg = null] = entry.split('/');
-          return <Swatch key={entry} label={`내 ${group.label} 색 ${entry} 바꾸기`} bg={bg} fg={fg} active={editing?.kind === 'mine' && editing.index === index}
-            cellRef={ref('mine', index)} onPress={open('mine', index)} />;
-        })}
-        {mine.loaded && mine.presets.length < MAX_PRESETS && <Pressable accessibilityRole="button" accessibilityLabel={`내 ${group.label} 색 추가`} ref={ref('add', 0)} collapsable={false}
-          onPress={open('add', 0)} style={local.cell}>
-          <View style={[local.ring, editing?.kind === 'add' && local.ringActive]}><View style={[local.dot, local.add]}><Icon name="plus" size={14} color={colors.textMuted} strokeWidth={2.4} /></View></View>
-        </Pressable>}
-      </View>
+      <MineRow mine={mine} label={group.label} editing={editing} cellRef={ref} onOpen={open} />
       {editor}
     </View>
   );
+}
+
+/**
+ * '내 색상' 제목 + 저장한 색 견본 줄 + 맨 끝 + (도구 탭 · 기본 속지 설정이 같이 쓴다).
+ * mine: useColorPresets 결과, editing: { kind: 'mine' | 'add', index } — 바꾸는 중인 견본만 고리를 두른다,
+ * cellRef(kind, index) · onOpen(kind, index): 견본 자리를 재고 말풍선을 여는 함수를 돌려준다. titleStyle: 제목 위 여백을 자리에 맞출 때
+ */
+export function MineRow({ mine, label, editing, cellRef, onOpen, titleStyle, selected = null }) {
+  return <>
+    <Text style={[local.mineTitle, titleStyle]}>내 색상</Text>
+    <View style={local.row}>
+      {mine.presets.map((entry, index) => {
+        const [bg, fg = null] = entry.split('/');
+        return <Swatch key={entry} label={`내 ${label} 색 ${entry} 바꾸기`} bg={bg} fg={fg} active={(editing?.kind === 'mine' && editing.index === index) || entry === selected}
+          cellRef={cellRef('mine', index)} onPress={onOpen('mine', index)} />;
+      })}
+      {mine.loaded && mine.presets.length < MAX_PRESETS && <Pressable accessibilityRole="button" accessibilityLabel={`내 ${label} 색 추가`} ref={cellRef('add', 0)} collapsable={false}
+        onPress={onOpen('add', 0)} style={local.cell}>
+        <View style={[local.ring, editing?.kind === 'add' && local.ringActive]}><View style={[local.dot, local.add]}><Icon name="plus" size={14} color={colors.textMuted} strokeWidth={2.4} /></View></View>
+      </Pressable>}
+    </View>
+  </>;
 }
 
 /**
@@ -108,14 +118,36 @@ function Group({ group, compact, width }) {
 const ROW_WIDTH = 288;
 const COLUMNS = [[3, '31%', '3.5%'], [2, '48%', '4%']];
 export default function StudioPresets({ compact = false }) {
+  return <GroupGrid compact={compact}>{width => GROUPS.map(group => <Group key={group.scope} group={group} compact={compact} width={width} />)}</GroupGrid>;
+}
+
+/** 묶음 격자(도구 탭 · 기본 속지 설정): children(width) 로 묶음을 그린다. 열 수는 위 COLUMNS */
+export function GroupGrid({ compact = false, children }) {
   const [gridWidth, setGridWidth] = useState(0);
   const [, width, gap] = (gridWidth && COLUMNS.find(([count, share]) => gridWidth * parseFloat(share) / 100 >= ROW_WIDTH)) || [1, '100%', 0];
   return (
     <View onLayout={event => setGridWidth(Math.round(event.nativeEvent.layout.width))} style={[local.grid, { columnGap: gap }, compact && local.gridCompact]}>
-      {GROUPS.map(group => <Group key={group.scope} group={group} compact={compact} width={width} />)}
+      {children(width)}
     </View>
   );
 }
+
+/** 묶음 머리: 아이콘 22(28 칸) + 이름 17/800 (+ 오른쪽 동작), 그 아래 옅은 선 */
+export function GroupHead({ icon, title, right = null, line = true }) {
+  return <>
+    <View style={local.head}>
+      <View style={local.preview}><Icon name={icon} size={22} color={colors.text} /></View>
+      <Text style={local.groupTitle}>{title}</Text>
+      {right}
+    </View>
+    {line && <View style={local.line} />}
+  </>;
+}
+
+/** 묶음 한 칸의 폭 · 사이 여백(도구 탭과 같은 값) */
+export const groupStyle = (width, compact) => [local.card, { width }, compact && local.cardCompact];
+/** 견본 줄(폭 288, 7개씩 감김) */
+export const swatchRowStyle = () => local.row;
 
 const local = StyleSheet.create({
   // 태블릿 가로 3열(사용자 지시): 열 31% × 3 + 사이 3.5% × 2 = 100%. 세로는 48% × 2 + 4%(열 폭이 색 한 줄 288 보다 좁아지면 열을 줄인다, COLUMNS).

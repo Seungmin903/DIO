@@ -1,16 +1,23 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
 import { catalog } from '../src/editor/templates/data.js'
 import { UNDATED_TEMPLATES } from '../src/editor/templates/undated.js'
 import { getTemplate } from '../src/editor/templates/catalog.js'
-import { SERVER_TEMPLATE_CATALOG, serverTemplateReference, localTemplateReference, toServerInitialPageSelections } from '../src/editor/templates/serverCatalog.js'
-import { catalogContract, seedMigration, catalogResource, migrationResource } from '../scripts/generate-page-template-catalog.mjs'
+import { SERVER_TEMPLATE_CATALOG, serverTemplateReference, localTemplateReference, toServerInitialPageSelections, plannerTemplatesEnabled } from '../src/editor/templates/serverCatalog.js'
+import { catalogContract, seedMigration, catalogResource, migrationResource, V9_CONTRACT_SHA256, normalizeV9ContractSource } from '../scripts/generate-page-template-catalog.mjs'
 
-test('전체 속지 276개·만년형 10개·방향별 빈 속지 2개가 독립된 서버 코드로 매핑된다', () => {
-  assert.equal(SERVER_TEMPLATE_CATALOG.length, 288)
-  assert.equal(new Set(SERVER_TEMPLATE_CATALOG.map(t => `${t.templateCode}\0${t.templateVersion}`)).size, 288)
-  for (const asset of [...catalog.assets, ...UNDATED_TEMPLATES]) {
+const plannerMigrationResource = new URL('../../backend/src/main/resources/db/migration/V27__add_study_and_daily_planner_templates.sql', import.meta.url)
+
+test('전체 속지·플래너·빈 속지가 독립된 서버 코드로 매핑된다', () => {
+  const plannerAssets = ['landscape', 'portrait'].flatMap(orientation => [
+    { id: `study-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'study' },
+    { id: `day-planner-${orientation}`, templateVersion: '1.0.0', orientation, type: 'day' },
+  ])
+  assert.equal(SERVER_TEMPLATE_CATALOG.length, 292)
+  assert.equal(new Set(SERVER_TEMPLATE_CATALOG.map(t => `${t.templateCode}\0${t.templateVersion}`)).size, 292)
+  for (const asset of [...catalog.assets, ...UNDATED_TEMPLATES, ...plannerAssets]) {
     const before = structuredClone(asset)
     const ref = serverTemplateReference(asset.id, asset.templateVersion, asset.orientation)
     assert.equal(ref.templateCode, asset.id)
@@ -20,6 +27,50 @@ test('전체 속지 276개·만년형 10개·방향별 빈 속지 2개가 독립
     assert.deepEqual({ width: local.canvasWidth, height: local.canvasHeight }, catalog.coordinateSystems[asset.orientation])
     assert.deepEqual(asset, before)
   }
+})
+
+test('V27 전용 빌드는 플래너 선택을 명시적으로 끌 수 있다', () => {
+  assert.equal(plannerTemplatesEnabled('0'), false)
+  assert.equal(plannerTemplatesEnabled('1'), true)
+  assert.equal(plannerTemplatesEnabled(undefined), true)
+})
+
+// 플래그는 import 시점에 고정되므로 값을 0으로 둔 자식 프로세스에서 모듈을 새로 읽어 확인한다.
+test('플래그 0 빌드는 플래너 선택·생성을 막고 예전 하루 계획 메뉴와 기존 플래너 해석은 유지한다', () => {
+  const source = `
+    import assert from 'node:assert/strict'
+    import { reusableTemplates, getTemplate } from ${JSON.stringify(new URL('../src/editor/templates/catalog.js', import.meta.url).href)}
+    import { SERVER_TEMPLATE_CATALOG, PLANNER_TEMPLATE_SELECTION_ENABLED, serverTemplateSelectable, serverTemplateReference, toServerInitialPageSelections, localTemplateReference } from ${JSON.stringify(new URL('../src/editor/templates/serverCatalog.js', import.meta.url).href)}
+    import { createServerPage } from ${JSON.stringify(new URL('../src/collaboration/serverPages.js', import.meta.url).href)}
+    assert.equal(PLANNER_TEMPLATE_SELECTION_ENABLED, false)
+    const planners = SERVER_TEMPLATE_CATALOG.filter(row => /^(study|day)-planner-/.test(row.templateCode))
+    assert.equal(planners.length, 4)
+    for (const row of planners) {
+      const orientation = row.orientation.toLowerCase()
+      assert.equal(serverTemplateSelectable(row), false)
+      assert.throws(() => serverTemplateReference(row.backgroundAssetId, row.templateVersion, orientation))
+      assert.throws(() => toServerInitialPageSelections([{ templateCode: row.templateCode, templateVersion: row.templateVersion,
+        templateId: row.backgroundAssetId, templateConfig: { ...row.defaultConfig } }]))
+      assert.equal(localTemplateReference(row.templateCode, row.templateVersion).backgroundAssetId, row.backgroundAssetId)
+      assert.equal(getTemplate(row.backgroundAssetId, row.templateVersion).orientation, orientation)
+      let calls = 0
+      await assert.rejects(createServerPage({ transport: async () => { calls++ }, diaryId: '00000000-0000-4000-8000-000000000000',
+        backgroundAssetId: row.backgroundAssetId, orientation, storage: { getItem: async () => null }, key: 'k', createId: () => 'x' }),
+        { code: 'INVALID_SERVER_PAGES' })
+      assert.equal(calls, 0)
+    }
+    for (const orientation of ['landscape', 'portrait']) {
+      const menu = reusableTemplates(orientation)
+      assert.deepEqual(menu.filter(item => ['study', 'day'].includes(item.type)), [])
+      assert.equal(menu[0].type, 'daily')
+      assert.equal(menu[0].assetId, '2026-reusable-daily-' + orientation)
+      assert.equal(serverTemplateReference(menu[0].assetId, getTemplate(menu[0].assetId).templateVersion, orientation).templateCode, menu[0].assetId)
+    }
+  `
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', source], {
+    env: { ...process.env, EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED: '0' }, encoding: 'utf8',
+  })
+  assert.equal(result.status, 0, result.stderr)
 })
 
 test('빈 페이지는 null 에셋 참조와 방향·규격을 보존하고 명시적인 서버 코드로 매핑된다', () => {
@@ -48,10 +99,24 @@ test('중복 선택 순서와 설정은 유지하며 매핑되지 않은 ID·버
   assert.throws(() => toServerInitialPageSelections([{ ...page, templateConfig: { width: 1024, height: 768, blank: true } }]))
 })
 
-test('버전 고정 서버 리소스·Flyway 등록 SQL이 프런트 카탈로그와 정확하게 일치한다', async () => {
+test('V9 스냅샷과 Flyway 등록 SQL은 런타임 플래너 추가와 독립적으로 고정된다', async () => {
   assert.deepEqual(JSON.parse(await readFile(catalogResource, 'utf8')), catalogContract())
   assert.equal(await readFile(migrationResource, 'utf8'), seedMigration())
+  assert.equal(catalogContract().templates.length, 288)
+  assert.equal(catalogContract().templates.some(t => /^(study|day)-planner-/.test(t.templateCode)), false)
+  assert.equal(V9_CONTRACT_SHA256, 'a69cf406902291ed6a511ad41ac5891a4895b101f1ba490b4f6e6ed6b3fb7ad0')
+  assert.equal(normalizeV9ContractSource('{\r\n  "v": 1\r\n}'), '{\n  "v": 1\n}')
   assert.ok(SERVER_TEMPLATE_CATALOG.every(t => t.templateCode.length <= 100 && t.templateVersion.length <= 30))
+})
+
+test('V27 플래너 시드는 프런트 플래너 카탈로그와 같은 코드·규격·기본 설정을 쓴다', async () => {
+  const sql = await readFile(plannerMigrationResource, 'utf8')
+  const planners = SERVER_TEMPLATE_CATALOG.filter(row => /^(study|day)-planner-(landscape|portrait)$/.test(row.templateCode))
+  assert.equal(planners.length, 4)
+  planners.forEach((row, index) => {
+    const seed = `('${row.templateCode}', '${row.templateVersion}', '${row.name}', '${row.category}', '${row.orientation}', ${row.canvasWidth}, ${row.canvasHeight}, '${JSON.stringify(row.defaultConfig)}'::jsonb, ${index + 1})`
+    assert.ok(sql.includes(seed), `missing V27 seed: ${row.templateCode}`)
+  })
 })
 
 test('DB 숫자 PK나 다른 속지 ID를 프런트 속지 ID 대신 보내지 않는다', () => {

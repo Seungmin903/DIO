@@ -2,7 +2,7 @@
   "schema": 1,
   "platform": "web",
   "contentSha256": "172283787de31fdc2ae81e8a727e405a17d57e9c0445a5ffb8130dbf8ac94c47",
-  "dependencyLockSha256": "ccacd7ccd227807239cfee46fa6c32ce368616d411e4cacbb8cac9a8196829d2",
+  "dependencyLockSha256": "9c6749836f0e21a3dc56d5116688d05fd3f3e786088ec152a84b78309dadea04",
   "components": [
     {
       "id": "embedded:Emscripten runtime@upstream generated runtime; reference notices 3.1.72",

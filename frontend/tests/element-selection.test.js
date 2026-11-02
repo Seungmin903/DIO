@@ -8,6 +8,7 @@ import * as reducer from '../src/editor/state/editorReducer.js'
 import { pageSize } from '../src/editor/utils/pageGeometry.js'
 import * as planners from '../src/editor/templates/planners.js'
 import * as completedStrokePlan from '../src/editor/utils/completedStrokePlan.js'
+import * as pageGrid from '../src/editor/utils/pageGrid.js'
 
 const require = createRequire(import.meta.url)
 const expo = createRequire(require.resolve('expo/package.json'))
@@ -35,6 +36,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     if (id.endsWith('/pageGeometry.js')) return { pageSize }
     if (id.endsWith('/planners.js')) return planners
     if (id.endsWith('/completedStrokePlan.js')) return completedStrokePlan
+    if (id.endsWith('/pageGrid.js')) return pageGrid
     if (id.endsWith('/theme')) return { colors: {} }
     if (id.endsWith('/constants')) return { PHOTO_SHAPES: [] }
     if (id.endsWith('/objects')) return {}

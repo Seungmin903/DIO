@@ -2,10 +2,12 @@ const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:
 const root=path.resolve(__dirname,'..'),options=Object.fromEntries(process.argv.slice(2).reduce((pairs,value,index,args)=>index%2?pairs:[...pairs,[value,args[index+1]]],[]))
 const audit=path.resolve(root,options['--audit-dir']||'qa/licensed-web-audit'),output=path.resolve(root,options['--output-dir']||'dist-licensed')
 for(const directory of [audit,output])if(fs.existsSync(directory)&&fs.readdirSync(directory).length)throw new Error('Use a new, empty output directory: '+directory)
-function run(file,args){const result=spawnSync(process.execPath,[file,...args],{cwd:root,stdio:'inherit',windowsHide:true});if(result.status!==0)throw new Error('License export step failed')}
+function run(file,args,env=process.env){const result=spawnSync(process.execPath,[file,...args],{cwd:root,stdio:'inherit',windowsHide:true,env});if(result.status!==0)throw new Error('License export step failed')}
 run(path.join(__dirname,'verify-prepared-licenses.cjs'),['web'])
 const cli=path.join(path.dirname(require.resolve('expo/package.json')),'bin/cli')
-run(cli,['export','--platform','web','--source-maps','--output-dir',audit])
+// 웹 배포본도 앱 production 빌드와 같은 EXPO_PUBLIC_* 값(예: 플래너 선택 플래그)으로 만든다.
+const productionEnv=JSON.parse(fs.readFileSync(path.join(root,'eas.json'),'utf8')).build.production.env??{}
+run(cli,['export','--platform','web','--source-maps','--output-dir',audit],{...process.env,...productionEnv})
 fs.mkdirSync(output,{recursive:true})
 fs.cpSync(audit,output,{recursive:true,filter:source=>!source.endsWith('.map')})
 const files=[]

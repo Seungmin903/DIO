@@ -1,15 +1,32 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { SERVER_TEMPLATE_CATALOG, toServerInitialPageSelections } from '../src/editor/templates/serverCatalog.js'
+import { toServerInitialPageSelections } from '../src/editor/templates/serverCatalog.js'
+
+export const catalogResource = new URL('../../backend/src/main/resources/catalog/page-templates-v1.json', import.meta.url)
+export const migrationResource = new URL('../../backend/src/main/resources/db/migration/V9__seed_page_template_catalog.sql', import.meta.url)
+
+// V9 is a released, immutable migration. Its checked-in JSON is the snapshot used to validate V9 SQL;
+// runtime templates added later must be registered by their own migrations.
+export const normalizeV9ContractSource = source => source.replaceAll('\r\n', '\n')
+const V9_CONTRACT_SOURCE = readFileSync(catalogResource, 'utf8')
+export const V9_CONTRACT_SHA256 = 'a69cf406902291ed6a511ad41ac5891a4895b101f1ba490b4f6e6ed6b3fb7ad0'
+const v9ActualHash = createHash('sha256').update(normalizeV9ContractSource(V9_CONTRACT_SOURCE)).digest('hex')
+if (v9ActualHash !== V9_CONTRACT_SHA256) {
+  throw new Error(`Released V9 catalog snapshot changed (expected ${V9_CONTRACT_SHA256}, got ${v9ActualHash}); add a new migration instead.`)
+}
+const V9_CONTRACT = Object.freeze(JSON.parse(V9_CONTRACT_SOURCE))
+const V9_TEMPLATE_CATALOG = V9_CONTRACT.templates
 
 export function catalogContract() {
-  return { schemaVersion: 1, templates: SERVER_TEMPLATE_CATALOG,
-    initialPages: toServerInitialPageSelections(SERVER_TEMPLATE_CATALOG.map(row => ({ templateId: row.backgroundAssetId,
+  return { schemaVersion: 1, templates: V9_TEMPLATE_CATALOG,
+    initialPages: toServerInitialPageSelections(V9_TEMPLATE_CATALOG.map(row => ({ templateId: row.backgroundAssetId,
       templateCode: row.templateCode, templateVersion: row.templateVersion, templateConfig: row.defaultConfig }))) }
 }
 const sql = value => `'${String(value).replaceAll("'", "''")}'`
 export function seedMigration() {
-  const values = SERVER_TEMPLATE_CATALOG.map((row, index) => `        (${[
+  const values = V9_TEMPLATE_CATALOG.map((row, index) => `        (${[
     sql(row.templateCode), sql(row.templateVersion), sql(row.name), sql(row.category), sql(row.orientation),
     row.canvasWidth, row.canvasHeight, sql(JSON.stringify(row.defaultConfig)) + '::jsonb', index,
   ].join(', ')})`).join(',\n')
@@ -43,9 +60,6 @@ END
 $dio_catalog$;
 `
 }
-export const catalogResource = new URL('../../backend/src/main/resources/catalog/page-templates-v1.json', import.meta.url)
-export const migrationResource = new URL('../../backend/src/main/resources/db/migration/V9__seed_page_template_catalog.sql', import.meta.url)
-
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const artifacts = [[catalogResource, JSON.stringify(catalogContract(), null, 2) + '\n'], [migrationResource, seedMigration()]]
   for (const [path, source] of artifacts) {
@@ -53,5 +67,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (await readFile(path, 'utf8') !== source) throw new Error(`Catalog artifact differs: ${fileURLToPath(path)}`)
     } else { await mkdir(new URL('.', path), { recursive: true }); await writeFile(path, source) }
   }
-  console.log(`${SERVER_TEMPLATE_CATALOG.length} page templates: ${process.argv.includes('--check') ? 'checked' : 'generated'}`)
+  console.log(`${V9_TEMPLATE_CATALOG.length} V9 page templates: ${process.argv.includes('--check') ? 'checked' : 'generated'}`)
 }

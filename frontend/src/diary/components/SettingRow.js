@@ -16,9 +16,8 @@ export function SettingTitle({ children, on, onToggle }) {
 }
 
 /**
- * 설정 카드(코덱스 3차, 2026-10-31): 흰 면 + cardBorder 1px + 모서리 16 한 장. 안에 구역(SettingSection)이 여러 개 들어간다.
- * 카드는 화면당 2장 이내로 쓰고, 행마다 카드로 만들지 않는다. 그림자 없음.
- * 안쪽 위 · 아래 1px 를 겹쳐 첫 구역의 윗선과 마지막 행의 아랫선이 카드 테두리와 겹치지 않게 한다.
+ * 설정 묶음(앱 디자인 점검 원 페이저 12, 2026-11-01): 흰 카드 대신 화면 바탕 위에 구역(SettingSection)을 바로 쌓는다. 면 · 테두리 · 그림자 없음.
+ * 구역은 제목(14/700)과 위 여백으로 나누고, 선은 행 아래 구분선(cardBorder)만 쓴다.
  */
 export function SettingCard({ compact = false, children }) {
   return (
@@ -29,7 +28,7 @@ export function SettingCard({ compact = false, children }) {
 }
 
 /**
- * 카드 안의 구역: 위에 1px 구분선(첫 구역은 카드가 가린다), 제목(18/800)과 본문 행들.
+ * 묶음 안의 구역: 제목(14/700)과 본문 행들. 구역 사이는 여백 24(위 8 + 제목 위 16).
  * on · onToggle 은 SettingTitle 과 같다(제목 줄의 마스터 스위치). compact 는 받기만 한다(폰 · 태블릿이 같은 모양).
  */
 export function SettingSection({ title, on, onToggle, children }) {
@@ -85,21 +84,21 @@ export default function SettingRow({ label, options, value, onChange, disabled =
 }
 
 const local = StyleSheet.create({
-  card: { overflow: 'hidden', paddingHorizontal: 20, borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
-  cardCompact: { paddingHorizontal: 16 },
-  cardInner: { marginVertical: -1 },
-  section: { paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.cardBorder },
-  sectionBody: { marginBottom: -1 },
-  title: { fontSize: 18, fontWeight: '800', color: colors.text, marginTop: 12, marginBottom: 4 },
-  titleRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  card: {},
+  cardCompact: {},
+  cardInner: {},
+  section: { paddingTop: 8 },
+  sectionBody: {},
+  title: { fontSize: 14, fontWeight: '700', color: colors.text, marginTop: 16, marginBottom: 4 },
+  titleRow: { minHeight: 48, marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 14 },
   titleFlex: { flex: 1, marginTop: 0, marginBottom: 0 },
-  // 앱 정보 목록의 행과 같게: 행(60) 바로 아래에 구분선. 이름과 오른쪽 조작은 높이 가운데에 맞춘다
-  row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.cardBorder }, // 위아래 12: 스위치(32) 줄과 같은 여백을 칩(44) · 버튼(48) 줄에도 둔다
+  // 행 48 바로 아래에 구분선(원 페이저 12). 이름과 오른쪽 조작은 높이 가운데에 맞춘다
+  row: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.cardBorder }, // 위아래 12: 스위치(32) 줄과 같은 여백을 칩(44) · 버튼(48) 줄에도 둔다
   label: { flex: 1, minWidth: 80, fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.text, textAlignVertical: 'center' },
-  // 스위치 52×32(터치는 hitSlop 으로 48 이상): 끔은 옅은 판 + 왼쪽 손잡이, 켬은 primaryStrong + 오른쪽 손잡이
+  // 스위치 52×32(터치는 hitSlop 으로 48 이상): 끔은 옅은 판 + 왼쪽 손잡이, 켬은 primary(#818AC3, 흰 면 위 3.3:1) + 오른쪽 손잡이(원 페이저 12)
   switch: { width: 52, height: 32, borderRadius: 16, padding: 4, justifyContent: 'center', backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.cardBorder }, // 끔: #F0F1F9 면 + #D9DCEF 테두리(코덱스 6 · 7번)
   disabled: { opacity: DISABLED_OPACITY },
-  switchOn: { backgroundColor: colors.primaryStrong, borderColor: colors.primaryStrong },
+  switchOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   knob: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.secondary },
   knobOn: { backgroundColor: colors.surface },
   knobMove: { alignSelf: 'flex-end' },

@@ -55,6 +55,14 @@ public class InvitationNotificationRepository {
 		return key.getKey().toString();
 	}
 
+	/** 알림과 같은 트랜잭션에서 저장한다. 발송 및 기기별 전달은 별도 작업이다. */
+	public void createPushOutbox(InvitationConfirmedEvent event, String notificationId, Instant now, long ttlSeconds, String environment, String appId) {
+		int inserted = jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values (?,?,?,?,?,?,'PENDING',?,?,?,?)",
+			java.util.UUID.randomUUID(), "invitation:" + event.inviteId() + ":" + event.recipientUserId(), Long.parseLong(notificationId), event.recipientUserId(),
+			"DIARY_INVITE", Long.toString(event.inviteId()), Timestamp.from(now), Timestamp.from(now.plusSeconds(ttlSeconds)), environment, appId);
+		if (inserted != 1) throw new IllegalStateException("푸시 대기열 저장에 실패했습니다.");
+	}
+
 	public void finish(InvitationConfirmedEvent event, InvitationNotificationHandler.Outcome outcome, String notificationId) {
 		int updated = jdbc.update("update invitation_notification_receipts set outcome = ?, notification_id = ? where event_id = ? and recipient_user_id = ?",
 			outcome.name(), notificationId == null ? null : Long.parseLong(notificationId), event.eventId(), event.recipientUserId());

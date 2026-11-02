@@ -36,8 +36,10 @@ function screen(service) {
   const mocks = {
     react,
     'react-native': native,
-    '../shared/theme': { colors: { surfaceSoft: '#f1f3f7', text: '#000', textMuted: '#555', border: '#ccc', surface: '#fff', primaryStrong: '#456', danger: '#e44' }, radius: { xl: 22, lg: 16, md: 12 } },
+    '../shared/theme': { colors: { surfaceSoft: '#f1f3f7', text: '#000', textMuted: '#555', border: '#ccc', surface: '#fff', primaryStrong: '#456', primary: '#789', danger: '#e44', dangerStrong: '#b25' }, radius: { xl: 22, lg: 16, md: 12 } },
     './validation': validation,
+    '../shared/MakerKit': { MakerHeader: 'MakerHeader', MakerBar: 'MakerBar' },
+    '../shared/DioButton': { __esModule: true, default: 'DioButton' },
   };
   const mod = { exports: {} };
   new Function('require', 'module', 'exports', code)(

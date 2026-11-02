@@ -213,7 +213,7 @@ test('내 공간은 인증된 사진 소스를 사용하고 사진 로드 실패
  const states=[];let index=0
  const react={useEffect(){},useState:initial=>{const i=index++;if(!(i in states))states[i]=initial;return[states[i],value=>states[i]=value]}}
  const native={StyleSheet:{create:value=>value}};for(const name of ['Image','Pressable','ScrollView','Text','View'])native[name]=name
- const mocks={react,'react-native':native,'expo-image':{Image:'Image'},'../styles':{styles:{}},'../constants':{C:{white:'#fff',line:'#ddd',active:'#eef',blueStrong:'#467',pale:'#eef',ink:'#112',muted:'#667',canvas:'#f3f4f7'}},'../../shared/theme':{colors:{},radius:{}},'../../auth/loginGate':{useLoginGate:()=>(_feature,action)=>action()}},mod={exports:{}}
+ const mocks={react,'react-native':native,'expo-image':{Image:'Image'},'../styles':{styles:{}},'../constants':{C:{white:'#fff',line:'#ddd',active:'#eef',blueStrong:'#467',pale:'#eef',ink:'#112',muted:'#667',canvas:'#f3f4f7'}},'../../shared/theme':{colors:{},radius:{}},'../../auth/loginGate':{useLoginGate:()=>(_feature,action)=>action(),useLoginEntry:()=>()=>{}},'../../shared/appLock':{appLockScope:()=>'scope',hasAppLock:async()=>false,checkAppLock:async()=>true,clearAppLock:async()=>{},setAppLock:async()=>{}}},mod={exports:{}}
  new Function('require','module','exports',source)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports)
  const photo={uri:'https://server.example/photo',headers:{Authorization:'test-header'}}
  const render=(uri=photo.uri,userId='one')=>{index=0;return mod.exports.default({diaries:[],previewUser:{mode:'authenticated',photoUri:uri,nickname:'회원',userId},getProfilePhotoSource:uri=>({...photo,uri})})}
@@ -223,7 +223,7 @@ test('내 공간은 인증된 사진 소스를 사용하고 사진 로드 실패
  assert.equal(image.props.contentFit,'cover')
  image.props.onError()
  assert.equal(nodes(render()).some(node=>node.type==='Image'),false)
- assert.ok(nodes(render()).some(node=>node.type==='../../shared/AppIcon'&&node.props.name==='person'))
+ assert.ok(nodes(render()).some(node=>node.type==='../../shared/DefaultAvatar')) // 사진이 없으면 모아 얼굴 기본 프로필
  assert.ok(nodes(render('https://server.example/new-photo')).some(node=>node.type==='Image'))
  photo.headers={Authorization:'changed-header'}
  const retried=nodes(render()).find(node=>node.type==='Image')

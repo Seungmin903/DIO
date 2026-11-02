@@ -32,6 +32,7 @@ import TextBoxInput from '../TextBoxInput'
 import TextLinkOverlay from '../TextLinkOverlay'
 import PalmRejectionArea from './PalmRejectionArea'
 import GridOverlay, { DEFAULT_GUIDES, hasGuides } from './GridOverlay'
+import { pageGridGuides } from '../../utils/pageGrid.js'
 import PaperColorSettings from '../PaperColorSettings'
 import { plannerFor } from '../../templates/planners.js'
 import { setDayDate, setDayRow, suggestStart } from '../../templates/dayPlanner.js'
@@ -371,8 +372,9 @@ export default function Canvas({
     },
   })
 
-  const guideUnderlay = !readOnly && hasGuides(gridGuides) ? <>
-    <GridOverlay guides={gridGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
+  const pageGuides = pageGridGuides(page, gridGuides)
+  const guideUnderlay = !readOnly && hasGuides(pageGuides) ? <>
+    <GridOverlay guides={pageGuides} layer="grid" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
     <GridOverlay guides={gridGuides} layer="guides" width={PAGE_WIDTH} height={PAGE_HEIGHT} zoom={zoom} />
   </> : null
   // 선택 바는 작업창 좌표(contextBarFrame)가 있을 때만 작업창 위 층으로 보낸다.

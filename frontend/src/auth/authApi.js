@@ -8,8 +8,8 @@ export function authBaseUrl(value) {
   return base.endsWith('/api') ? `${base}/v1` : `${base}/api/v1`;
 }
 
-// Tokens stay in memory. Never save passwords or tokens in AsyncStorage.
-// Only the dev-server Basic header may persist, through the secure store and only when dev access is allowed.
+// Tokens and the optional development-server Basic header stay in memory.
+// Never save passwords or tokens in AsyncStorage.
 export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
@@ -19,6 +19,11 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   let restoringAccess = accessStore ? Promise.resolve().then(() => accessStore.load(accessOrigin))
     .then(value => { if (!developmentAccess && value) developmentAccess = value; })
     .catch(() => {}).finally(() => { restoringAccess = null; }) : null;
+  const clearDevelopmentAccess = () => {
+    developmentAccess = null;
+    if (typeof accessStore?.clearAll === 'function') accessStore.clearAll().catch(() => {});
+    else accessStore?.clear(accessOrigin).catch(() => {});
+  };
   const forgetAccess = rejected => {
     if (!rejected || developmentAccess !== rejected) return;
     developmentAccess = null;
@@ -399,7 +404,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       // Wait for an ongoing rotation before revoking its current session.
       if (refreshing) await refreshing.catch(() => {});
       let current = session;
-      if (!current) { api.cancelPending(); return; }
+      if (!current) { clearDevelopmentAccess(); api.cancelPending(); return; }
       try {
         try { await request('logout', undefined, current.accessToken); }
         catch (error) {
@@ -408,7 +413,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
           current = session;
           await request('logout', undefined, current.accessToken);
         }
-      } finally { session = null; api.cancelPending(); }
+      } finally { session = null; clearDevelopmentAccess(); api.cancelPending(); }
     },
   };
   api.verificationService = {

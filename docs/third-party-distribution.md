@@ -1,12 +1,20 @@
 # Android·웹 배포물의 코드 라이선스와 소스 제공
 
+## 푸시 통합 후 감사 (2026-10-31)
+
+푸시 의존성과 최신 develop의 PDF 모듈을 포함한 `releaseRuntimeClasspath` 및 푸시 활성 Android·웹 소스맵을 기준으로 고지와 대응 소스를 다시 생성했다. Android 고지 284개와 웹 고지 47개를 준비했고, 실제 웹 배포물과 로컬 감사용 Android APK/AAB에서 각각 포함된 JS 41개·54개 패키지 및 Android 네이티브 라이브러리 각 46개를 대조했다. 앱에 들어간 고지·대응 소스와 UI 목록 지문도 검증했다.
+
+`installreferrer:2.2`와 Google Play services의 `base:18.1.0`, `basement:18.3.0`, `cloud-messaging:17.2.0`, `tasks:18.1.0`은 POM에서 Android SDK 계약을 가리킨다. 감사 목록은 해당 계약의 이름과 원본 URL을 명시하며 이를 MIT·Apache 오픈소스 라이선스로 바꾸지 않는다. Play services 4개 AAR에 포함된 `third_party_licenses.txt` 전문은 SDK 계약과 구분해 원문대로 보존한다. JSON 색인 범위를 확인하고 다른 버전·변경된 POM·고지 파일 구조는 재검토 전 거부한다. installreferrer AAR에서는 같은 이름의 제3자 고지 파일이 없어 없다고 기록한다. SDK 계약의 적용 및 기타 상용 배포 권리에 관한 최종 판단을 이 기술 감사가 대신하지는 않는다.
+
+검증 대상 APK/AAB는 로컬 템플릿의 테스트 키로 서명한 감사용 릴리스이며 스토어 게시용이 아니다. 푸시 자격증명·실기기 수신과 모델 가중치·학습 데이터·상표·코덱 특허는 이 검증 범위에 포함되지 않는다.
+
 검토 대상은 `feature/fe/personal-handwriting-font`의 Android **release** 런타임과 웹 정적 배포물이다. 모델 가중치·학습 데이터의 권리는 제외한다. 이 문서는 특정 파일의 코드·고지·소스 제공을 대조한 기술 검증 기록이며, 앱의 모든 상용 배포 권리를 보증하는 문서는 아니다. 최초 검토 당시에는 원격 배포·커밋·푸시를 수행하지 않았으며, 이후 사용자가 요청한 develop 반영의 통합 사항은 아래에 구분한다.
 
 ## 실제 포함 대상을 정하는 방법
 
 - JavaScript: 최종 Metro 소스맵에서 실제 포함 패키지와 버전을 찾는다. 설치된 532개 패키지를 모두 배포 코드로 취급하지 않는다. 현재 웹은 JS 41개 패키지에 별도 HEIC 모듈을 제공하며, Android는 JS 49개 패키지를 포함한다.
 - Android: `releaseRuntimeClasspath`의 Maven 아티팩트 158개와 로컬 프로젝트 17개를 수집한다. POM·동일 버전 소스 JAR·AAR/JAR 내부 고지와 로컬 npm 원본을 대조한다. 같은 좌표의 여러 아티팩트는 고지 항목에서 합친다.
-- 네이티브: AAR의 JNI 라이브러리와 최종 APK/AAB의 `.so`를 SHA256 또는 ELF GNU Build ID로 대조한다. `libc++_shared.so`는 실제 사용한 NDK 28.2.13676358과 대조한다. 앱에서 컴파일한 `libappmodules.so`, `libexpo-modules-core.so`, SVG·safe-area의 codegen 라이브러리는 React Native·Expo·해당 로컬 npm 모듈의 고지에 연결한다.
+- 네이티브: AAR의 JNI 라이브러리와 최종 APK/AAB의 `.so`를 SHA256 또는 ELF GNU Build ID로 대조한다. 2026-10-28 감사에서는 `libc++_shared.so`를 당시 NDK 28.2.13676358과 대조했다. 이후 푸시 통합 감사 빌드의 실제 Gradle NDK는 27.1.12297006이며, 해당 빌드의 libc++는 fbjni 아티팩트와 일치했다. 최종 배포 빌드마다 실제 NDK와 네이티브 라이브러리를 다시 대조한다. 앱에서 컴파일한 `libappmodules.so`, `libexpo-modules-core.so`, SVG·safe-area의 codegen 라이브러리는 React Native·Expo·해당 로컬 npm 모듈의 고지에 연결한다.
 - 코드에 내장된 부품: ONNX Runtime의 Eigen, OkHttp의 Public Suffix List, Hermes의 런타임 고지, Fresco의 JPEG/PNG/WebP/GIF, React Native의 C++ 부품과 Android NDK 런타임 고지를 추가한다. 원본의 광범위한 NOTICE는 ‘upstream component superset’으로 표시하며, 선택 기능이 전부 포함됐다는 뜻으로 쓰지 않는다.
 - 추가 JNI: `libavif_android.so`는 libavif `14d8e3c4`의 JNI 설정·빌드 스크립트와 바이너리 문자열을 대조해 dav1d·libyuv의 원저작권·특허 고지를 함께 제공한다. 스크립트의 참조 버전은 dav1d 1.4.3, libyuv 464c51a0이며 공식 AAR의 모든 컴파일 옵션을 재현했다고 주장하지 않는다. APNG4Android 3.0.5의 GIF JNI는 해당 태그의 CMake·C++와 Apache 고지를 확인한다. zstd-kmp 0.4.0이 정적으로 연결한 Zstandard는 원본 submodule 커밋 `1dbc2e09084e843f6c0dcc2d0791610015c50979`의 BSD 조건을 선택해 고지한다.
 - 폰트·콘텐츠: 기본 Google Fonts 패키지의 OFL 원문과 콘텐츠 고지는 `contentLicenses.json` 에서 읽는다. 외부 기본 스티커(Fluent · Noto · Twemoji)는 커밋 `06818fdf`에서 그림과 고지 파일을 함께 지웠고, 이 커밋은 develop 병합 `e36ecafc`(`feature/fe/editor-widget-tab`, 2026-11-02)로 이미 들어가 있다. 지금 `frontend/` 추적 파일에 Fluent · Noto · Twemoji 그림이 없어(`git ls-tree` 0건) 목록은 비어 있다. 이모지는 기기 · 브라우저 기본 글꼴로 그리는 글자라 앱에 이모지 그림을 넣지 않는다. 이런 그림을 다시 넣으면 CC BY 4.0 고지 행과 `contentLicenses.json` 항목도 함께 되살린다. 개인 손글씨 원본·폰트는 이 수집 과정에서 읽지 않는다.
