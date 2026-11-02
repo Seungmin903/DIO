@@ -202,9 +202,11 @@ class CanvasCollaborationTests {
     String proxyHandshake(String host,String origin,String forwardedPort)throws Exception{
         try(var socket=new java.net.Socket("127.0.0.1",port)){
             socket.setSoTimeout(5000);
+            byte[] nonce=new byte[16];new java.security.SecureRandom().nextBytes(nonce);
+            String handshakeNonce=Base64.getEncoder().encodeToString(nonce);
             String request="GET /ws/diaries/"+UUID.randomUUID()+" HTTP/1.1\r\nHost: "+host+
                 "\r\nOrigin: "+origin+"\r\nX-Forwarded-Proto: https"+(forwardedPort==null?"":"\r\nX-Forwarded-Port: "+forwardedPort)+"\r\nConnection: Upgrade\r\nUpgrade: websocket"+
-                "\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n";
+                "\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: "+handshakeNonce+"\r\n\r\n";
             socket.getOutputStream().write(request.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
             return new java.io.BufferedReader(new java.io.InputStreamReader(socket.getInputStream(),java.nio.charset.StandardCharsets.US_ASCII)).readLine();
         }

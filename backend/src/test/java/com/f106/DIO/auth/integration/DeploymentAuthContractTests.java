@@ -12,8 +12,12 @@ class DeploymentAuthContractTests {
         for (String environment : new String[]{"dev", "prod"}) {
             String origin = "https://k15f106.p.ssafy.io" + (environment.equals("dev") ? ":8443" : "");
             var compose = loader.load(environment, new FileSystemResource(Path.of("../infra/compose/compose." + environment + ".yml"))).get(0);
-            assertThat(compose.getProperty("services.backend.environment.AUTH_ALLOWED_ORIGINS").toString()).contains(origin);
-            assertThat(Files.readString(Path.of("../infra/compose/" + environment + ".env.example"))).contains("AUTH_ALLOWED_ORIGINS=" + origin);
+            String allowed = environment.equals("dev") ? origin + ",http://localhost:8081,http://127.0.0.1:8081" : origin;
+            assertThat(compose.getProperty("services.backend.environment.AUTH_ALLOWED_ORIGINS").toString())
+                .isEqualTo("${AUTH_ALLOWED_ORIGINS:-" + allowed + "}");
+            assertThat(Files.readAllLines(Path.of("../infra/compose/" + environment + ".env.example")).stream()
+                .filter(line -> line.startsWith("AUTH_ALLOWED_ORIGINS=")).toList())
+                .containsExactly("AUTH_ALLOWED_ORIGINS=" + allowed);
             var profile = loader.load(environment, new FileSystemResource(Path.of("src/main/resources/application-" + environment + ".yml"))).get(0);
             assertThat(profile.getProperty("server.tomcat.remoteip.port-header")).isEqualTo("X-Forwarded-Port");
             String nginx = Files.readString(Path.of("../infra/nginx/" + environment + "/default.conf"));

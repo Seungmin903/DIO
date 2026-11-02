@@ -73,7 +73,7 @@ ICU가 없더라도 앱 전체 기동은 이 기능 때문에 실패하지 않�
 REST가 성공해도 WebSocket handshake는 별도로 Origin을 검사한다. 회원 JWT는 101 연결 성공 후 첫 AUTH 프레임에서 검증되므로 HTTP 403과 연결 후 1008 종료를 구분한다.
 
 - dev 외부 주소는 `https://k15f106.p.ssafy.io:8443`, prod는 `https://k15f106.p.ssafy.io`다. `AUTH_ALLOWED_ORIGINS`에는 경로·마지막 슬래시 없이 scheme/host/외부 포트까지 정확히 넣는다. `ws://`, `wss://` 주소를 넣는 설정이 아니다.
-- Compose 기본값과 배포 env 양식에 각각 실제 주소를 포함했다. 기존 비공개 env가 localhost만 명시했다면 기본값이 적용되지 않으므로 그 파일도 수정해야 한다. 다른 프론트 허용 주소는 유지하고 쉼표로 추가한다. 와일드카드로 전체 허용하지 않는다.
+- Compose 기본값과 배포 env 양식에 각각 실제 주소를 포함했다. prod 기본 허용 목록은 운영 HTTPS Origin 하나만 사용하고 localhost는 dev에만 둔다. 기존 비공개 env가 localhost만 명시했다면 기본값이 적용되지 않으므로 그 파일도 수정해야 한다. 다른 프론트 허용 주소는 유지하고 쉼표로 추가한다. 와일드카드로 전체 허용하지 않는다.
 - dev는 외부 8443을 Nginx 내부 443으로 매핑한다. `/ws/`의 `Host $host`는 외부 포트를 잃으므로 `Host $http_host`로 전달한다. 신뢰 프록시의 `X-Forwarded-Proto`, `X-Forwarded-Port` 설정과 함께 사용한다. WebSocket 경로는 외부 바인딩과 같은 dev 8443/prod 443을 고정 전달하며 Tomcat `remoteip.port-header`가 이를 읽는다. 이 헤더는 신뢰 프록시에만 적용된다. 다른 API 경로에서도 같은 고정 포트로 덮어써 클라이언트가 보낸 X-Forwarded-Port를 신뢰하지 않는다. 외부에서 받은 X-Forwarded-For는 기존대로 덮어쓴다.
 - dev Basic 인증과 WebSocket AUTH 회원 검증은 그대로 유지한다.
 
