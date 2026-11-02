@@ -117,7 +117,8 @@ function TextContent({ object, width, height, zoom, onTextMeasure }) {
   const drawn = DRAWN_DECORATION && (settings.underline || settings.strike)
   const [lines, setLines] = useState(null)
   const style = { width, minHeight: onTextMeasure ? undefined : height, ...base, ...(drawn && { textDecorationLine: 'none' }) }
-  const text = <Text onLayout={onTextMeasure ? (event) => onTextMeasure(object.id, event.nativeEvent.layout.height / zoom) : undefined}
+  // 측정이 다시 켜질 때 크기가 같아도 새로운 native Text의 첫 onLayout을 받는다.
+  const text = <Text key={onTextMeasure ? 'measured' : 'unmeasured'} onLayout={onTextMeasure ? (event) => onTextMeasure(object.id, event.nativeEvent.layout.height / zoom) : undefined}
     onTextLayout={drawn ? (event) => setLines(event.nativeEvent.lines) : undefined} style={style}>
     {richTextSegments(object.text, object.colorRanges, object.styleRanges).map((segment, index) => <Text key={index} style={{ textDecorationLine: style.textDecorationLine, ...segmentTextStyle(segment, scale, settings.lineSpacing) }}>{segment.text}</Text>)}
   </Text>
