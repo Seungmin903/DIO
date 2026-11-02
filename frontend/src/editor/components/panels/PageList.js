@@ -272,7 +272,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         ListFooterComponent={onEmptyTap ? <TapCatcher onTap={onEmptyTap} style={styles.emptyArea} /> : null}
       />
       {draggedPage && <View pointerEvents="none" accessible={false} style={[styles.dragViewport, { top: listTop, height: listHeight.current }]}>
-        <PageDragPreview page={draggedPage} number={numberOf(draggedPage)} showBackground={thumbBackgrounds}
+        <PageDragPreview page={draggedPage} number={numberOf(draggedPage)} showBackground={thumbBackgrounds} thumbWidth={thumbWidth}
           count={drag.group ? picked.length : 1}
           top={LIST_PADDING + itemTop(pages, layouts.current, drag.id) - scrollY + drag.dy} />
       </View>}
@@ -454,11 +454,12 @@ const PageItem = memo(function PageItem({ page, index, number, canDrag = true, a
   && previous.thumbWidth === next.thumbWidth
 ))
 
-function PageDragPreview({ page, number, top, showBackground, count }) {
+// 끄는 사본은 목록 썸네일과 같은 폭(태블릿 edge 는 넓다)으로 그린다. 왼쪽은 폰 · 태블릿 모두 패널 안쪽 24
+function PageDragPreview({ page, number, top, showBackground, count, thumbWidth = THUMB_WIDTH }) {
   const { width, height } = pageSize(page)
-  const zoom = (THUMB_WIDTH - THUMB_BORDER * 2) / width
+  const zoom = (thumbWidth - THUMB_BORDER * 2) / width
   return <View style={[styles.item, styles.dragPreview, { top }]} testID="page-drag-preview">
-    <View style={[styles.thumb, styles.thumbDragging, { height: height * zoom + THUMB_BORDER * 2 }]}>
+    <View style={[styles.thumb, styles.thumbDragging, { width: thumbWidth, height: height * zoom + THUMB_BORDER * 2 }]}>
       <View style={styles.thumbPage}><PageThumbnail page={page} zoom={zoom} still showBackground={showBackground} /></View>
       <View style={styles.activeRing} />
     </View>

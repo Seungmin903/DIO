@@ -15,6 +15,7 @@ import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
 import { mediaFailureMessage } from '../../utils/mediaRecovery.js'
 import { pickImages } from '../../services/image'
+import { discardGeneratedMedia } from '../../services/mediaStore'
 import ChipScroller, { justDragged } from '../controls/ChipScroller'
 import ConfirmDialog from '../controls/ConfirmDialog'
 import Icon from '../controls/Icon'
@@ -731,7 +732,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
       {pendingTape && (
         <TapeCropper
           image={pendingTape.image}
-          onCancel={() => setPendingTape(null)}
+          onCancel={() => { discardGeneratedMedia([pendingTape.image]).catch(() => {}); setPendingTape(null) }}
           onConfirm={({ crop, size, ratio }) => {
             const { src, mediaFileId, poster, name, width, height } = pendingTape.image
             custom.setTapeCategory(`folder:${custom.addTape(pendingTape.folderId, { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop, size, pieceRatio: ratio })}`)

@@ -360,7 +360,8 @@ const tapeRef = (tape) => (tape.src || tape.mediaFileId
 /** 테이프 하나를 가리키는 키: 기본 무늬는 'pattern:무늬:색', 사진 테이프는 미디어 id(없으면 src) */
 export const tapeKey = (tape) => (tape.src || tape.mediaFileId ? mediaId(tape) ?? tape.src : `pattern:${tape.pattern}:${tape.palette ?? ''}`)
 
-const isFileName = (name) => !name || /\.[a-z0-9]{2,5}$/i.test(name)
+// 이미지 확장자로만 판별한다(사용자가 지은 'v1.20' 같은 이름을 열 때마다 '테이프 n' 으로 덮지 않게)
+const isFileName = (name) => !name || /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)$/i.test(name)
 /** 폴더 안 다음 자동 이름: '테이프 n'(이미 있는 가장 큰 n 다음) */
 // 파일 이름인 테이프에 오래된 것(목록 끝)부터 '테이프 n' 을 차례로 붙인다(새 테이프는 앞에 쌓인다)
 function nameFileTapes(items) {

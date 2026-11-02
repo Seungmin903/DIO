@@ -107,17 +107,25 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     r.addPdfPages=docPages=>mutatePages(async()=>{
       dispatch({type:'commitCheckpoint'})
       const added=[]
-      for(const docPage of docPages){
-        const page=await createServerPage({transport,diaryId:diary.id,backgroundAssetId:null,
-          orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:serverPaperAppearance(docPage.paperAppearance),
-          storage:AsyncStorage,key:`${memberDocumentKey(diary)}:page-create:v1`,createId,isActive:active})
-        await transport({method:'PATCH',path:`/pages/${encodeURIComponent(page.id)}`,body:{canvasWidth:docPage.canvasWidth,canvasHeight:docPage.canvasHeight}})
-        if(!active())return added
-        const seeded={...page,canvasWidth:docPage.canvasWidth,canvasHeight:docPage.canvasHeight,paperAppearance:docPage.paperAppearance,objects:docPage.objects}
-        r.pageIds?.add(page.id);added.push(seeded)
-        dispatch({type:'importServerPages',pages:[seeded],selectId:added[0].id})
+      try{
+        for(const docPage of docPages){
+          const page=await createServerPage({transport,diaryId:diary.id,backgroundAssetId:null,
+            orientation:latest.current.state.doc.orientation??'landscape',paperAppearance:serverPaperAppearance(docPage.paperAppearance),
+            storage:AsyncStorage,key:`${memberDocumentKey(diary)}:page-create:v1`,createId,isActive:active})
+          // 쪽 크기를 못 맞추면 방금 만든 빈 페이지를 지운다(남기면 기본 크기 빈 쪽이 목록에 생기고, 다시 시도하면 한 장 더 생긴다)
+          try{await transport({method:'PATCH',path:`/pages/${encodeURIComponent(page.id)}`,body:{canvasWidth:docPage.canvasWidth,canvasHeight:docPage.canvasHeight}})}
+          catch(error){await deleteServerPage(transport,page.id).catch(()=>{});throw error}
+          if(!active())return added
+          const seeded={...page,canvasWidth:docPage.canvasWidth,canvasHeight:docPage.canvasHeight,paperAppearance:docPage.paperAppearance,objects:docPage.objects}
+          r.pageIds?.add(page.id);added.push(seeded)
+          // 동기화가 화면 반영 전 doc 을 읽으면 바탕 그림 없는 seed 로 엔진이 만들어져 올라가지 않는다. 그래서 seed 를 직접 넘겨 둔다
+          r.engineFor(page.id,seeded.objects)
+          dispatch({type:'importServerPages',pages:[seeded],selectId:added[0].id})
+        }
+      }finally{
+        // 중간에 실패해도 이미 넣은 쪽의 바탕 그림은 올린다(첫 쪽은 고른 페이지라 page.id 효과가 올린다)
+        for(const page of added.slice(1))r.sync(page.id).catch(()=>{})
       }
-      for(const page of added.slice(1))r.sync(page.id).catch(()=>{})
       return added
     })
     r.copyPage=pageId=>mutatePages(async()=>{

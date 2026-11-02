@@ -417,7 +417,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
     ]} />}
     {coverCrop && <PhotoCropper photo={coverCropPhoto(coverCrop.photo, coverCrop.ratio)} fixedAspect={coverCrop.ratio} title="표지 사진 자르기"
       onCancel={() => { coverCrop.resolve(null); setCoverCrop(null); }} onApply={({ crop }) => { coverCrop.resolve(crop); setCoverCrop(null); }} />}
-    {pendingTape && <TapeCropper image={pendingTape.image} onCancel={() => setPendingTape(null)} onConfirm={({ crop, size, ratio }) => {
+    {pendingTape && <TapeCropper image={pendingTape.image} onCancel={() => { discardGeneratedMedia([pendingTape.image]).catch(() => {}); setPendingTape(null); }} onConfirm={({ crop, size, ratio }) => {
       const { src, mediaFileId, poster, name, width, height } = pendingTape.image;
       // 사진으로 만든 테이프는 고른 폴더(없으면 첫 폴더 · '내 테이프')에 담고 그 폴더를 연다
       setTapeFolderId(custom.addTape(pendingTape.folderId, { src, mediaFileId, poster, name, imageWidth: width, imageHeight: height, crop, size, pieceRatio: ratio }));

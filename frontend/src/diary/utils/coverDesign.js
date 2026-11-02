@@ -122,12 +122,21 @@ export function newDiaryCover(options) {
   return { ...base, pattern: { type: 'none', tone: 'dark' }, plate: 'paper', plateStyle: 'paper', title: { ...base.title, anchor: 'tl' } }
 }
 
+// 표지 사진을 자른 자리(PhotoCropper 의 crop: fx · fy 0~1, zoom 1 이상). 잘못된 값이면 없는 것으로 보고 가운데 꽉 채움으로 그린다
+function savedCoverCrop(crop) {
+  if (!crop || typeof crop !== 'object') return null
+  const { fx, fy, zoom } = crop
+  if (![fx, fy, zoom].every(Number.isFinite) || fx < 0 || fx > 1 || fy < 0 || fy > 1 || zoom < 1) return null
+  return { fx, fy, zoom }
+}
+
 /** 저장된 다이어리 → 그릴 수 있는 표지. 값이 빠지거나 잘못되면 기본값으로 채운다. */
 export function normalizeCover(diary) {
   const base = defaultCover({ color: hex(diary?.color, DIARY_DEFAULTS.color), pattern: diary?.pattern ?? null, dateMode: diary?.templateConfig?.dateMode })
   const saved = diary?.cover
   if (!saved || typeof saved !== 'object') return base
-  const photo = saved.photo && typeof saved.photo.src === 'string' ? { src: saved.photo.src, mediaFileId: saved.photo.mediaFileId, aspect: saved.photo.aspect, ...(/^#[0-9A-F]{6}$/i.test(saved.photo.tone ?? '') ? { tone: saved.photo.tone.toUpperCase() } : {}) } : null
+  const crop = savedCoverCrop(saved.photo?.crop)
+  const photo = saved.photo && typeof saved.photo.src === 'string' ? { src: saved.photo.src, mediaFileId: saved.photo.mediaFileId, aspect: saved.photo.aspect, ...(crop ? { crop } : {}), ...(/^#[0-9A-F]{6}$/i.test(saved.photo.tone ?? '') ? { tone: saved.photo.tone.toUpperCase() } : {}) } : null
   // 예전 '예시 사진'(내 사진 없는 사진 표지)은 같은 그라데이션 바탕의 색 표지로 읽는다.
   const oldSample = saved.kind === 'photo' && !photo && Number.isInteger(saved.photo?.sample) ? saved.photo.sample : null
   const gradient = Number.isInteger(saved.gradient) ? saved.gradient : oldSample

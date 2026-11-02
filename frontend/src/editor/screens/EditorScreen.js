@@ -65,6 +65,7 @@ import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
+import { discardGeneratedMedia } from '../services/mediaStore'
 import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox, tapePieceRatio } from '../utils/objects'
 import { isTicketFrame } from '../components/canvas/PhotoFrame'
 import { isStripFrame, photoCell, stripCellBoxes } from '../utils/photoStrip'
@@ -512,6 +513,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     }catch(error){showToast(error.message||'페이지 복제 결과를 확인하지 못했어요. 목록을 확인해 주세요.')}
   }
 
+  // 고른 뒤 자르기를 취소했거나 칸이 모자라 넣지 않은 사진: 방금 가져온 새 미디어라 지운다(어디서도 쓰지 않는다)
+  const discardUnused = (images, used = []) => {
+    const unused = images.filter((image) => !used.includes(image))
+    if (unused.length) discardGeneratedMedia(unused).catch(() => {})
+  }
+
   // 사진은 스티커·테이프처럼 틀 없이 바로 붙인다 (자르기는 두 번 누르거나 선택 바에서)
   const pickingPhotos = useRef(false)
   const addPhotos = async () => {
@@ -524,14 +531,16 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       if (!images.length) return
       const center = randomCenter()
       const objects = []
+      const used = []
       for (const [index, image] of images.entries()) {
         const object = createObjectFromDecor(
           { kind: 'photo', frame: 'none', src: image.src, mediaFileId: image.mediaFileId, poster: image.poster, name: image.name, imageWidth: image.width, imageHeight: image.height },
           { x: center.x + objects.length * 24, y: center.y + objects.length * 24 },
         )
         const patch = await askCrop(object, images.length > 1 ? `사진 자르기 ${index + 1}/${images.length}` : undefined)
-        if (patch) objects.push({ ...object, ...patch })
+        if (patch) { objects.push({ ...object, ...patch }); used.push(image) }
       }
+      discardUnused(images, used)
       if (!objects.length) return
       dispatch({ type: 'addObjects', objects })
       closeAfterInsert()
@@ -549,7 +558,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       const [image] = await pickImages({ multiple: false })
       if (!image) return
       const target = pageNow.current.objects.find((o) => o.id === id)
-      if (!target) return
+      if (!target) { discardUnused([image]); return }
       const filling = !hasPhotoMedia(target)
       const media = {
         src: image.src,
@@ -562,7 +571,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         crop: { fx: 0.5, fy: 0.5, zoom: 1 },
       }
       const cropped = await askCrop({ ...target, ...media })
-      if (!cropped) return
+      if (!cropped) { discardUnused([image]); return }
       dispatch({ type: 'updateObject', id, record: true, patch: { ...media, ...cropped } })
       showToast(filling ? '사진을 넣었어요.' : '사진을 바꿨어요.')
     } catch (error) {
@@ -582,17 +591,20 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       const images = await pickImages()
       if (!images.length) return
       const latest = pageNow.current.objects.find((o) => o.id === id)
-      if (!latest?.cells) return
+      if (!latest?.cells) { discardUnused(images); return }
       const cells = [...latest.cells]
       const stillEmpty = empty.filter((index) => !cells[index])
       let placed = 0
+      const used = []
       for (const [i, index] of stillEmpty.slice(0, images.length).entries()) {
         const cell = photoCell({ ...images[i], imageWidth: images[i].width, imageHeight: images[i].height })
         const cropped = await askCrop(cellCropPhoto({ ...latest, cells: cells.map((c, k) => (k === index ? cell : c)) }, index), `${index + 1}번 칸 자르기`)
         if (!cropped) continue
         cells[index] = { ...cell, crop: cropped.crop }
+        used.push(images[i])
         placed += 1
       }
+      discardUnused(images, used)
       if (!placed) return
       dispatch({ type: 'updateObject', id, record: true, patch: { cells } })
       showToast(images.length > stillEmpty.length ? `빈 칸 ${placed}개를 채웠어요. 나머지 ${images.length - stillEmpty.length}장은 넣지 않았어요.` : `사진 ${placed}장을 넣었어요.`)
@@ -617,13 +629,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       const [image] = await pickImages({ multiple: false })
       if (!image) return
       const target = pageNow.current.objects.find((o) => o.id === id)
-      if (!target?.cells) return
+      if (!target?.cells) { discardUnused([image]); return }
       const fresh = photoCell({ ...image, imageWidth: image.width, imageHeight: image.height })
       const cropped = await askCrop(cellCropPhoto({ ...target, cells: target.cells.map((c, i) => (i === index ? fresh : c)) }, index), `${index + 1}번 칸 자르기`)
-      if (!cropped) return
+      if (!cropped) { discardUnused([image]); return }
       const cell = { ...fresh, crop: cropped.crop }
       const latest = pageNow.current.objects.find((o) => o.id === id)
-      if (!latest?.cells) return
+      if (!latest?.cells) { discardUnused([image]); return }
       dispatch({ type: 'updateObject', id, record: true, patch: { cells: latest.cells.map((c, i) => (i === index ? cell : c)) } })
       showToast(target.cells[index] ? `${index + 1}번 칸 사진을 바꿨어요.` : `${index + 1}번 칸에 사진을 넣었어요.`)
     } catch (error) {
@@ -1330,7 +1342,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               fixedAspect={fixedAspectOf(photoCrop)}
               title={photoCrop.cell != null ? `${photoCrop.cell + 1}번 칸 자르기` : undefined}
               onCancel={() => setPhotoCropId(null)}
-              onApply={(patch) => {
+              // aspect · rect 는 표지 · 프로필 · 테이프용 부가 정보라 사진 객체에 넣지 않는다
+              onApply={({ aspect, rect, ...patch }) => {
                 const cells = photoCrop.cell != null && photoCropTarget.cells.map((c, i) => (i === photoCrop.cell ? { ...c, crop: patch.crop } : c))
                 dispatch({ type: 'updateObject', id: photoCropTarget.id, record: true, patch: cells ? { cells } : patch })
                 setPhotoCropId(null)
@@ -1345,7 +1358,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               fixedAspect={cropAsk.fixedAspect}
               title={cropAsk.title}
               onCancel={() => { cropAsk.resolve(null); setCropAsk(null) }}
-              onApply={(patch) => { cropAsk.resolve(patch); setCropAsk(null) }}
+              onApply={({ aspect, rect, ...patch }) => { cropAsk.resolve(patch); setCropAsk(null) }}
             />
           )}
           {tapeCrop && (

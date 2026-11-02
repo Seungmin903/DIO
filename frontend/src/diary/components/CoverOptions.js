@@ -8,6 +8,7 @@ import { stickerLibrary } from '../../editor/stickerLibrary'
 import { stickerKey, useCustomDecor } from '../../editor/hooks/useCustomDecor'
 import { useMediaUri } from '../../editor/hooks/useMediaUri'
 import { pickImages } from '../../editor/services/image'
+import { discardGeneratedMedia } from '../../editor/services/mediaStore'
 import { mediaFailureMessage } from '../../editor/utils/mediaRecovery.js'
 import { createId } from '../../editor/utils/common'
 import { colors } from '../../shared/theme'
@@ -111,7 +112,7 @@ function PhotoOptions({ cover, ratio, onChange, onNotice, pickNow, onPickHandled
     setBusy(true)
     try {
       const [item] = await pickImages({ multiple: false, usage: 'photo' })
-      if (item) setCropping({ src: item.src, mediaFileId: item.mediaFileId, aspect: item.aspect, width: item.width, height: item.height })
+      if (item) setCropping({ src: item.src, mediaFileId: item.mediaFileId, aspect: item.aspect, width: item.width, height: item.height, fresh: true })
     } catch (error) { onNotice?.(mediaFailureMessage(error)) } finally { setBusy(false) }
   }
   latest.current = { cover, onChange }
@@ -126,8 +127,10 @@ function PhotoOptions({ cover, ratio, onChange, onNotice, pickNow, onPickHandled
         {cover.photo?.src ? <Pressable accessibilityRole="button" accessibilityLabel="표지 사진 자르기" onPress={() => setCropping(cover.photo)} style={[styles.photoTile, styles.photoTileOn]}><OwnPhotoTile photo={cover.photo} /></Pressable> : null}
       </View>
     </OptionRow>
-    {cropping && <PhotoCropper photo={coverCropPhoto(cropping, ratio)} fixedAspect={ratio} title="표지 사진 자르기" onCancel={() => setCropping(null)}
-      onApply={({ crop }) => { const { width, height, ...photo } = cropping; latest.current.onChange({ ...latest.current.cover, photo: { ...photo, crop } }); setCropping(null) }} />}
+    {cropping && <PhotoCropper photo={coverCropPhoto(cropping, ratio)} fixedAspect={ratio} title="표지 사진 자르기"
+      // 새로 고른 사진을 자르다 취소하면 방금 가져온 미디어를 지운다(지금 표지 사진을 다시 자를 때는 그대로 둔다)
+      onCancel={() => { if (cropping.fresh) discardGeneratedMedia([cropping]).catch(() => {}); setCropping(null) }}
+      onApply={({ crop }) => { const { width, height, fresh, ...photo } = cropping; latest.current.onChange({ ...latest.current.cover, photo: { ...photo, crop } }); setCropping(null) }} />}
   </>
 }
 

@@ -7,7 +7,7 @@ import { CROP_RATIOS, CROP_ZOOM_MAX, PHOTO_SHAPES, POLAROID_RATIOS } from '../..
 import { useMediaUri } from '../../hooks/useMediaUri'
 import { usePan } from '../../hooks/usePan'
 import { clamp } from '../../utils/common'
-import { framedHeight, isBorderFrame, ratioValueOf, resizeAroundCenter } from '../../utils/objects'
+import { framedHeight, isBorderFrame, photoInnerBox, ratioValueOf, resizeAroundCenter } from '../../utils/objects'
 import Icon from '../controls/Icon'
 import Slider from '../controls/Slider'
 
@@ -45,7 +45,9 @@ export default function PhotoCropper({ photo, onApply, onCancel, fixedAspect, as
   const free = ratio === FREE.id
   const imageAspect = photo.imageWidth / photo.imageHeight
   // 자유 자르기 틀: 사진 안의 비율 좌표 { u0, v0, u1, v1 } (0~1). 지금 보이는 영역에서 시작한다.
-  const [rect, setRect] = useState(() => visibleRect(photo.crop ?? ORIGINAL, fixedAspect ?? (square || round ? 1 : photo.w / photo.h), imageAspect))
+  // 보이는 영역은 캔버스가 사진을 그리는 안쪽 상자 비율로 잰다(폴라로이드 · 필름처럼 여백 있는 틀은 바깥 w/h 와 다르다)
+  const inner = photoInnerBox(photo)
+  const [rect, setRect] = useState(() => visibleRect(photo.crop ?? ORIGINAL, fixedAspect ?? (square || round ? 1 : inner.width / inner.height), imageAspect))
 
   // 잠근 비율(가로:세로, 사진 픽셀 기준). 자유면 null — 틀 모양은 핸들로 정한다(aspectRange 가 있으면 그 범위 안에서)
   const lockAspectOf = (id) => (fixedAspect ?? (square || round ? 1 : id === FREE.id ? null
