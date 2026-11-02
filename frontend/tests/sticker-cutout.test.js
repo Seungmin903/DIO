@@ -104,3 +104,18 @@ test('JPG·PNG·WebP 메타데이터만 허용하고 미상·지원 외·충돌 
     { mimeType: 'application/octet-stream', fileName: 'unknown' },
   ]) await assert.rejects(pickerFixture({ assets: [asset] }).pick(), /JPG·PNG·WebP/)
 })
+
+test('두 손가락 확대는 맞춤~6배이고 사진 가장자리가 판 안으로 들어오도록 끌리지 않는다', async () => {
+  const { CUTOUT_ZOOM_MAX, clampCutoutView, zoomCutout } = await import('../src/editor/utils/stickerCutout.js')
+  const area = { width: 300, height: 200 }, fit = containCutout({ width: 100, height: 100 }, area) // 200×200 이 가운데
+  assert.deepEqual(clampCutoutView(fit, area, { zoom: .5, x: 40, y: 40 }), { zoom: 1, x: 0, y: 0 })
+  assert.equal(clampCutoutView(fit, area, { zoom: 99, x: 0, y: 0 }).zoom, CUTOUT_ZOOM_MAX)
+  // 2배 = 400×400: 가로 여유 (400-300)/2, 세로 여유 (400-200)/2
+  assert.deepEqual(clampCutoutView(fit, area, { zoom: 2, x: 500, y: -500 }), { zoom: 2, x: 50, y: -100 })
+  const rect = zoomCutout(fit, area, { zoom: 2, x: 500, y: -500 })
+  assert.deepEqual(rect, { x: 0, y: -200, width: 400, height: 400 })
+  // 확대한 칸 기준으로 칠한 점은 같은 사진 지점으로 정규화된다
+  assert.deepEqual(cutoutPoint(200, 300, rect), { x: .5, y: .75 })
+  // 1.2배 = 240×240: 가로는 판(300)보다 작아 가운데 고정, 세로만 움직인다
+  assert.deepEqual(clampCutoutView(fit, area, { zoom: 1.2, x: 30, y: 30 }), { zoom: 1.2, x: 0, y: 20 })
+})
