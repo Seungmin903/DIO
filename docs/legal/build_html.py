@@ -1,4 +1,4 @@
-"""Render the three checked-in legal Markdown sources without external dependencies.
+"""Render the checked-in legal Markdown sources without external dependencies.
 
 Run: python docs/legal/build_html.py
 This small renderer supports only the headings, lists, tables and inline syntax used here.
