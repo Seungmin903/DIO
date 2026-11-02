@@ -69,7 +69,8 @@ const PREFETCH_DELAY_MS = 400;
 const EDITOR_PREPARE_LIMIT_MS = 500;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // 시작 화면(로고)은 보관함이 다 그려질 때까지 둔다. 첫 렌더에 바로 내려가면 글꼴 · 게스트 · 보관함을 읽는 동안 빈 화면이 보인다.
-// 네이티브 시작 화면을 붙잡고, 같은 모양의 BootSplash 도 덮어 둔다(개발 빌드는 네이티브 쪽이 JS 실행 전에 내려간다).
+// 로고는 JS 시작 화면(BootSplash, 벡터)이 그린다. 네이티브 시작 화면은 BootSplash 가 처음 그려지면 바로 내린다
+// (안드로이드는 네이티브 시작 화면에 로고 없이 바탕색만 둔다: plugins/withSplashWindowBackground.js).
 // 무엇이 실패해도 로고에 갇히지 않도록 SPLASH_LIMIT_MS 뒤에는 내린다.
 const SPLASH_LIMIT_MS = 8000;
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -120,6 +121,8 @@ export default function App() {
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
   useHiddenNavigationBar();
   useEffect(() => { const timer = setTimeout(finishBoot, SPLASH_LIMIT_MS); return () => clearTimeout(timer); }, [finishBoot]);
+  // 첫 화면(BootSplash)이 그려졌으니 네이티브 시작 화면을 내린다. 로고는 BootSplash 에서 한 번만 보인다
+  useEffect(() => { hideSplash(); }, []);
   // 개발용 목업 화면(EXPO_PUBLIC_DIARY_SOURCE=mock*)은 보관함 로딩을 거치지 않으니 글꼴만 준비되면 내린다
   useEffect(() => { if ((fontsLoaded || fontError) && __DEV__ && /^mock/.test(process.env.EXPO_PUBLIC_DIARY_SOURCE || '')) finishBoot(); }, [fontsLoaded, fontError, finishBoot]);
   const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;

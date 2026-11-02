@@ -50,6 +50,7 @@
           "hidden": true
         }
       ],
+      "./plugins/withSplashWindowBackground",
       [
         "expo-splash-screen",
         {
@@ -59,7 +60,6 @@
           "backgroundColor": "#F7F8FD"
         }
       ],
-      "./plugins/withSplashWindowBackground",
       "expo-asset",
       "expo-font",
       [
