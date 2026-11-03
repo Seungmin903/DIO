@@ -34,6 +34,7 @@ function fixture(object, options = {}) {
       new Function('require', 'module', 'exports', compiled.code)(load, m, m.exports)
       return m.exports
     }
+    if (id.endsWith('/FadeScroll')) return { __esModule: true, default: 'scroll' }
     if (id.endsWith('/theme')) return { colors: {}, shadow: {} }
     if (id.endsWith('/constants')) return { PAGE_WIDTH: 1280, PAGE_HEIGHT: 800 }
     if (id.startsWith('.')) return { __esModule: true, default: () => null }

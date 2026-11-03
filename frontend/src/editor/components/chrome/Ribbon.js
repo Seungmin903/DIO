@@ -1,7 +1,8 @@
 import { useRef } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import Icon from '../controls/Icon'
+import FadeScroll from '../controls/FadeScroll'
 
 // 태블릿 도구 줄: 상단 바 아래에 화면 폭을 꽉 채운 한 영역이다(폰 세로 도구 막대와 같은 모양). 페이지 목록·레이어를 여닫아도 위치가 그대로다.
 // 도구 상태는 EditorScreen이 소유하고 캔버스와 공유한다.
@@ -30,7 +31,7 @@ const DECOR_TOOLS = [
 export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTool, onPlaceholder, onAnchor, penColor, highlighterColor, guidesActive, onOpenGuides, ...touch }) {
   return (
     <View style={styles.bar} {...touch}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll} contentContainerStyle={styles.ribbon} accessibilityLabel="편집 도구" keyboardShouldPersistTaps="handled">
+      <FadeScroll horizontal style={styles.scroll} contentContainerStyle={styles.ribbon} accessibilityLabel="편집 도구" keyboardShouldPersistTaps="handled">
         {NAV_TOOLS.map((tool) => (
           <Tool onAnchor={onAnchor} key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
             active={!drawerTab && activeTool === tool.id}
@@ -49,7 +50,7 @@ export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTo
         <View style={styles.divider} />
         {/* 하이퍼링크는 요소를 누르면 뜨는 옵션 바에서 건다 */}
         <Tool onAnchor={onAnchor} icon="guides" label="격자 가이드" active={guidesActive} onPress={onOpenGuides} />
-      </ScrollView>
+      </FadeScroll>
     </View>
   )
 }

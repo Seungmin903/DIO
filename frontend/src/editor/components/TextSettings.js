@@ -1,6 +1,7 @@
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
+import FadeScroll from './controls/FadeScroll'
 import { useEffect, useState } from 'react'
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import Svg, { Path } from 'react-native-svg'
 import { usePalette } from '../hooks/usePalettes'
@@ -43,7 +44,7 @@ const VERTICAL_ALIGNS = [['top','위 정렬'],['middle','세로 가운데 정렬
 
 
 /** 텍스트 서식. 스티커·마테·사진 옵션과 같은 모양(구역 제목·세그먼트 버튼·막대·색 줄)으로 만든다 */
-export default function TextSettings({ settings, onChange, onClose, verticalAlignment = false }) {
+export default function TextSettings({ settings, onChange, onClose, verticalAlignment = false, sheet = false, dragHandlers }) {
   const textColors = usePalette?.('text')?.colors ?? TEXT_COLORS // 꾸미기 공방 '내 프리셋'의 글자 색
 
   const fontStatus = useTextFont(settings.font)
@@ -56,9 +57,9 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
     if (Number.isFinite(value) && value >= 8 && value <= 96) onChange({ fontSize: value })
     else setSize(String(settings.fontSize))
   }
-  return <View style={toolPanelStyles.card}>
-    <ToolPanelHeader icon="text" title="텍스트" closeLabel="텍스트 설정 닫기" onClose={onClose} />
-    <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" contentContainerStyle={toolPanelStyles.content}>
+  return <View style={sheet ? [toolPanelStyles.card, toolPanelStyles.sheetCard] : toolPanelStyles.card}>
+    <ToolPanelHeader icon="text" title="텍스트" closeLabel="텍스트 설정 닫기" onClose={onClose} dragHandlers={dragHandlers} />
+    <FadeScroll style={toolPanelStyles.scrollFrame} nestedScrollEnabled keyboardShouldPersistTaps="handled" contentContainerStyle={toolPanelStyles.content}>
       {/* 글꼴 · 크기 한 줄(드롭다운이 글꼴 이름을 보여 주므로 제목 줄은 두지 않는다 — 옵션 창 스크롤 없애기, 코덱스 2026-11-02) */}
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
@@ -102,7 +103,7 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
           <NumberStepper value={settings.lineSpacing} min={1} max={2.5} step={0.05} scale={100} label="줄간격" minusLabel="줄간격 좁게" plusLabel="줄간격 넓게" onChange={(value) => onChange({ lineSpacing: Math.round(value * 100) / 100 })} />
         </View>
       </View>
-    </ScrollView>
+    </FadeScroll>
   </View>
 }
 

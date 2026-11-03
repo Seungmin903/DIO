@@ -1,4 +1,4 @@
-import { normalizeEmail, normalizeNickname, nicknameError, passwordError } from './validation.js';
+import { normalizeEmail, emailError, accountEmailError, normalizeNickname, nicknameError, passwordError } from './validation.js';
 import { signupAgreements } from './signupPolicy.js';
 import { developmentAuthorization } from './developmentAccess.js';
 
@@ -28,6 +28,13 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     if (!rejected || developmentAccess !== rejected) return;
     developmentAccess = null;
     accessStore?.clear(accessOrigin).catch(() => {});
+  };
+  const signupDraftRequired = () => Object.assign(new Error('가입 정보를 다시 확인해 주세요. 이메일·비밀번호 입력 화면에서 이어갈 수 있어요.'), { code: 'SIGNUP_DRAFT_REQUIRED' });
+  const invalidSignupToken = () => Object.assign(new Error('가입 인증이 만료되었거나 유효하지 않아요. 입력한 내용은 유지돼요. 이메일 인증을 다시 진행해 주세요.'), { code: 'INVALID_SIGNUP_TOKEN' });
+  const requireEmail = (value, existingAccount = false) => {
+    const error = (existingAccount ? accountEmailError : emailError)(value);
+    if (error) throw Object.assign(new Error(error), { code: 'INVALID_EMAIL', status: 400 });
+    return normalizeEmail(value);
   };
   let signupPending = false;
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
@@ -178,8 +185,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (!keepEnrollment) { verificationRevision++; draft = null; verification = null; }
     },
     async login({ email, password }) {
+      const normalized = requireEmail(email, true);
       const attempt = ++revision;
-      const normalized = normalizeEmail(email);
       const result = await request('login', { email: normalized, password });
       if (attempt !== revision) throw new Error('로그인 요청이 취소되었어요.');
       if (typeof result?.user?.email !== 'string' || normalizeEmail(result.user.email) !== normalized) {
@@ -192,8 +199,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     async signup({ email, password, ageConfirmed }) {
       if (ageConfirmed !== true) throw new Error('만 14세 이상인지 확인해 주세요.');
+      const normalized = requireEmail(email);
       const attempt = ++revision;
-      const normalized = normalizeEmail(email);
       const result = await request('email-availability', { email: normalized });
       if (attempt !== revision) throw new Error('가입 요청이 취소되었어요.');
       if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
@@ -204,15 +211,16 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     async checkEmailAvailability(email) {
       const attempt = revision;
-      const result = await request('email-availability', { email: normalizeEmail(email) });
+      const result = await request('email-availability', { email: requireEmail(email) });
       if (attempt !== revision) throw new Error('이메일 확인 요청이 취소되었어요.');
       if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
       if (!result.available) throw new Error('이미 사용 중인 이메일이에요.');
     },
     async sendVerification(email) {
+      const normalized = requireEmail(email);
       const attempt = ++verificationRevision;
       verification = null;
-      const result = await request('email-verifications', { email: normalizeEmail(email) });
+      const result = await request('email-verifications', { email: normalized });
       if (attempt !== verificationRevision) throw new Error('인증번호 발송 요청이 취소되었어요.');
       if (!Number.isSafeInteger(result?.expiresIn) || result.expiresIn <= 0 ||
         !Number.isSafeInteger(result?.resendAfter) || result.resendAfter < 0) {
@@ -221,8 +229,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       return { expiresIn: result.expiresIn, retryAfter: result.resendAfter };
     },
     async verifyEmail(email, code) {
+      const normalized = requireEmail(email);
       const attempt = ++verificationRevision;
-      const normalized = normalizeEmail(email);
       verification = null;
       const result = await request('email-verifications/verify', { email: normalized, code });
       if (attempt !== verificationRevision) throw new Error('인증번호 확인 요청이 취소되었어요.');
@@ -236,15 +244,16 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     // 재설정 토큰은 메모리에만 보관한다. 비밀번호 재설정 화면에서만 이어서 사용한다.
     async requestPasswordReset(email) {
-      if (passwordReset?.email === normalizeEmail(email) && passwordReset.expiresAt > now())
+      const normalized = requireEmail(email, true);
+      if (passwordReset?.email === normalized && passwordReset.expiresAt > now())
         throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
-      if (resetVerifying?.email === normalizeEmail(email))
+      if (resetVerifying?.email === normalized)
         throw new Error('인증번호를 확인하고 있어요. 잠시만 기다려 주세요.');
       resetRevision++; passwordReset = null; resetVerifying = null;
-      return request('password-reset-requests', { email: normalizeEmail(email) });
+      return request('password-reset-requests', { email: normalized });
     },
     async verifyPasswordReset(email, code) {
-      const normalized = normalizeEmail(email);
+      const normalized = requireEmail(email, true);
       if (passwordReset?.email === normalized && passwordReset.expiresAt > now())
         throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
       if (resetVerifying?.email === normalized)
@@ -280,9 +289,9 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
 
     async completeProfile({ email, nickname, photoUri, terms }) {
       if (signupPending) throw new Error('회원가입을 처리하고 있어요. 잠시만 기다려 주세요.');
-      if (!draft || draft.email !== normalizeEmail(email) || !verification ||
-          verification.email !== draft.email || verification.expiresAt <= now()) {
-        throw new Error('이메일 인증이 필요해요. 이전 화면으로 돌아가 다시 인증해 주세요.');
+      if (!draft || draft.email !== normalizeEmail(email)) throw signupDraftRequired();
+      if (!verification || verification.email !== draft.email || verification.expiresAt <= now()) {
+        throw invalidSignupToken();
       }
       if (draft.ageConfirmed !== true) throw new Error('만 14세 이상인지 확인해 주세요.');
       if (nicknameError(nickname)) throw new Error(nicknameError(nickname));
@@ -298,7 +307,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       try {
         if (photoUri) upload = await buildPhotoBody(body, photoUri);
         if (!isCurrent()) throw new Error('가입 요청이 취소되었어요.');
-        if (currentVerification.expiresAt <= now()) throw new Error('이메일 인증이 만료됐어요. 이전 화면에서 다시 인증해 주세요.');
+        if (currentVerification.expiresAt <= now()) throw invalidSignupToken();
         const user = await request('signup', upload?.body ?? body, undefined, !!upload);
         if (!isCurrent()) throw new Error('가입 요청 이후 화면이 변경되었어요. 가입 여부는 로그인 화면에서 확인해 주세요.');
         if (typeof user?.userId !== 'string' || !user.userId.trim() ||
@@ -311,7 +320,10 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         draft = null; verification = null;
         return result;
       } catch (error) {
-        if (isCurrent() && error?.code === 'INVALID_SIGNUP_TOKEN') verification = null;
+        if (isCurrent() && error?.code === 'INVALID_SIGNUP_TOKEN') {
+          verification = null;
+          throw invalidSignupToken();
+        }
         throw error;
       } finally {
         // Temporary photo cleanup must not turn a successful signup into a retry.
@@ -437,7 +449,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     verify: (email, code) => api.verifyEmail(email, code),
     prepareSignup: values => {
       if (!verification || verification.email !== normalizeEmail(values.email) || verification.expiresAt <= now()) {
-        return Promise.reject(new Error('이메일 인증이 만료됐어요. 이전 화면에서 다시 인증해 주세요.'));
+        return Promise.reject(invalidSignupToken());
       }
       return api.signup(values);
     },

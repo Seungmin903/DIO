@@ -8,7 +8,7 @@ import SharingEntry from '../../../sharing/SharingEntry'
 
 
 // compact: 폰 세로 배치. 이름·쪽수를 두 줄로 보이고 내보내기는 상단 맨 오른쪽에 둔다.
-// onToggleOrientation이 있으면 가로 정밀 편집으로 바꾸는 버튼을 둔다.
+// 폰 세로는 방향 전환 버튼 없이 기기를 돌리는 대로 따른다. 그 자리에 공유 버튼을 둔다. 페이지 목록 · 레이어 버튼은 도구 줄 아래 좌우 끝(PhoneCornerButtons)에 있다.
 export default function TopBar({
   sharingMembers = [],
   onOpenSharing,
@@ -48,14 +48,12 @@ export default function TopBar({
           <Icon name="chevronLeft" size={20} />
           <BrandLogo size={24} />
         </Pressable>
-        <IconToggle compact icon="panel" label="페이지 목록" active={pagesOpen} onPress={onTogglePages} />
         <View style={styles.docTitle}>
           <TitleField compact title={doc.title} renamable={!readOnly && Boolean(onRename)} onCommit={onRename} />
           {pageLabel ? <Text style={styles.pageLabel} numberOfLines={1}>{pageLabel}</Text> : null}
         </View>
         <View style={[styles.right, styles.rightCompact]}>
-          {onToggleOrientation && <IconToggle compact icon="rotate" label="가로 정밀 편집으로 전환" onPress={onToggleOrientation} />}
-          {!readOnly && <IconToggle compact icon="layers" label="레이어" active={layersOpen} onPress={onToggleLayers} />}
+          {onOpenSharing && <SharingEntry variant="bar" members={sharingMembers} count={invitationCount} onPress={onOpenSharing} showLabel={false} memberLimit={1} hideCounter plain />}
           {exportEnabled && <Pressable ref={shareRef} onPress={() => { shareRef.current?.measureInWindow?.((x, y, width, height) => onShareAnchor?.({ x, y, width, height })); onShare() }} style={({ pressed }) => [styles.toggle, styles.toggleCompact, pressed && styles.togglePressed]} accessibilityRole="button" accessibilityLabel={shareLabel}>
             <Icon name={shareIcon} size={20} />
           </Pressable>}
@@ -204,7 +202,7 @@ const styles = StyleSheet.create({
     // 그림자는 뺀다: Android 는 반투명 바탕에 elevation 그림자를 주면 편집 영역 위에 회색 줄로 보였다
   },
   // 모바일은 상태 표시줄의 Safe Area와 같은 단색을 사용해 경계가 생기지 않게 한다.
-  barCompact: { height: 60, gap: 4, paddingHorizontal: 8, backgroundColor: colors.surface },
+  barCompact: { height: 60, gap: 4, paddingLeft: 14, paddingRight: 8, backgroundColor: colors.surface }, // 왼쪽은 본문 여백 14에 맞춰 ‹ 가 화면 가장자리에 붙지 않게 한다(코덱스 2026-11-03)
   homeCompact: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 2 },
   home: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 },
   homePressed: {}, // 눌림 효과 없음(사용자 지시)

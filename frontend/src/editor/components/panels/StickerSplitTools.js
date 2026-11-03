@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import DioButton from '../../../shared/DioButton'
+import FadeScroll from '../controls/FadeScroll'
 import { colors, radius, DISABLED_OPACITY } from '../../../shared/theme'
 
 // 제작 화면 문법(디자인 가이드 5.8): 버튼은 DioButton(높이 48), 주 동작은 채움 · 나머지는 토널, 고른 도구는 selected
@@ -29,7 +30,7 @@ export default function StickerSplitTools({ section, onChange, disabled, hasResu
   }
   useEffect(revealTab, [section])
   return <View style={s.tools}>
-    <ScrollView ref={strip} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabs}
+    <FadeScroll scrollRef={strip} horizontal fadeRgb="240,241,249" contentContainerStyle={s.tabs}
       onContentSizeChange={revealTab} accessibilityRole="tablist" accessibilityLabel="스티커 제작 도구">
     {tabs.map(([id, label]) => {
       const unavailable = !!disabled || (!hasResults && id !== 'background')
@@ -39,7 +40,7 @@ export default function StickerSplitTools({ section, onChange, disabled, hasResu
           onPress={() => { if (section !== id) onChange(id) }} style={[s.tab, phone && s.tabPhone, section === id && s.tabSelected, unavailable && s.disabled]}>
           <Text numberOfLines={1} style={[s.sectionTitle, phone && s.sectionTitlePhone, section === id && s.selectedTitle]}>{label}</Text>
         </Pressable>
-    })}</ScrollView>
+    })}</FadeScroll>
     {!!section && <View style={s.panel}>
       {!!summaries[section] && <View testID="sticker-tool-status" style={s.status}>
         <Text style={s.statusTitle}>{{ background: '배경 방식', selection: '제외된 객체', grouping: '묶기 거리', results: '총 개수' }[section]}</Text>

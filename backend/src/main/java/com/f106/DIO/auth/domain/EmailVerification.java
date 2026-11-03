@@ -23,7 +23,7 @@ public class EmailVerification implements org.springframework.data.domain.Persis
     @Override public boolean isNew() { return newRecord; }
     @PostLoad @PostPersist void markExisting() { newRecord = false; }
     public void issue(String hash, Instant now) {
-        codeHash = hash; sentAt = now; expiresAt = now.plusSeconds(600);
+        codeHash = hash; sentAt = now; expiresAt = now.plusSeconds(SignupVerificationPolicy.CODE_TTL_SECONDS);
         failedAttempts = 0; tokenHash = null; tokenExpiresAt = null; consumedAt = null;
     }
 

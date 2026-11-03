@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   box: { gap: 10 },
   boxInline: { gap: 0 },
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
-  rowInline: { flexWrap: 'nowrap', gap: 16, paddingHorizontal: 8 }, // 터치 44 줄의 원 28 과 같은 간격(44 - 28)
+  rowInline: { flexWrap: 'wrap', columnGap: 12, rowGap: 8, paddingVertical: 8 }, // 내 색이 많으면 줄바꿈(스크롤 없음)
   wrap: { position: 'relative' },
   swatch: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border },
   chosen: { borderWidth: 3, borderColor: colors.primary },

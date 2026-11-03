@@ -1,5 +1,7 @@
 package com.f106.DIO.auth.controller;
 
+import static com.f106.DIO.auth.domain.SignupVerificationPolicy.*;
+
 import com.f106.DIO.auth.dto.EmailVerificationRequest;
 import com.f106.DIO.auth.dto.EmailVerificationResponse;
 import com.f106.DIO.auth.dto.EmailVerificationSentResponse;
@@ -36,7 +38,7 @@ public class EmailVerificationController {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(verification.send(request.email()));
     }
     @PostMapping("/email-verifications/verify")
-    @Operation(summary = "회원가입 인증번호 확인", description = "오답 최대 5회. 성공 시 600초 유효한 일회용 signupToken을 발급합니다. 번호 재사용은 불가합니다.")
+    @Operation(summary = "회원가입 인증번호 확인", description = "오답 최대 5회. 성공 시 인증 완료 시점부터 " + SIGNUP_TOKEN_TTL_SECONDS + "초(1시간) 유효한 일회용 signupToken을 발급합니다. 번호 재사용은 불가합니다.")
     @ApiResponse(responseCode = "200", description = "인증 성공 및 가입 토큰 발급")
     @ApiResponse(responseCode = "400", description = "잘못되거나 만료된 인증번호")
     @ApiResponse(responseCode = "429", description = "오답 횟수 초과")

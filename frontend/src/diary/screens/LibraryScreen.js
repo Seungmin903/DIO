@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import PopoverMenu from '../components/PopoverMenu';
+import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/FadeScroll';
 import { CAROUSEL_GAP, CAROUSEL_ITEM_WIDTH, CAROUSEL_STEP, FILTERS, LIBRARY_SCOPES, C } from '../constants';
 import AppIcon from '../../shared/AppIcon';
 import FavoriteStar from '../../shared/FavoriteStar';
@@ -243,14 +244,14 @@ function LibraryScreen({
     </PopoverMenu>
   </>;
   const allLabel = hasMore ? (allSelected ? '불러온 항목 모두 해제' : '불러온 항목 모두 선택') : (allSelected ? '전체 해제' : '전체 선택');
-  const selectionBar = selecting && <SelectionBar count={selected.length}>
-    <SelectionButton
+  const selectionBar = selecting && <SelectionBar count={selected.length} compact={compact} done={<SelectionButton compact={compact} ghost label="선택 완료" text="완료" disabled={trashing} onPress={() => onSelectionChange?.(null)} />}>
+    <SelectionButton compact={compact}
       label={allLabel}
       hint={`${hasMore ? '현재 불러온' : '현재 검색·필터 결과'} ${manageable.length}개에 적용해요`}
       disabled={trashing || !manageable.length}
       onPress={toggleAll}
     />
-    <SelectionButton
+    <SelectionButton compact={compact}
       label={`선택한 ${selected.length}개 휴지통으로 이동`}
       text={trashing ? '옮기는 중…' : '휴지통으로'}
       icon="trash"
@@ -258,7 +259,6 @@ function LibraryScreen({
       disabled={!selected.length || trashing}
       onPress={() => onTrashSelected?.(selected)}
     />
-    <SelectionButton label="선택 완료" text="완료" disabled={trashing} onPress={() => onSelectionChange?.(null)} />
   </SelectionBar>;
 
   if (searchOpen) return <LibrarySearchScreen
@@ -343,7 +343,7 @@ function LibraryScreen({
           );
           // 폰: 필터 칩은 가로로 밀리고, 검색 · 더보기는 같은 줄 오른쪽에 붙는다(한 줄 44)
           return compact
-            ? <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.libraryFilterScroll} contentContainerStyle={s.libraryFilterScrollContent}>{filterChips}</ScrollView>
+            ? <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} style={s.libraryFilterScroll} contentContainerStyle={s.libraryFilterScrollContent}>{filterChips}</FadeScroll>
             : filterChips;
         })()}
         {!selecting && <View style={[s.libraryActions, compact && s.libraryActionsCompact]}>
