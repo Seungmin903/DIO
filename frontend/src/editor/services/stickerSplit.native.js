@@ -6,17 +6,17 @@ import { File, Paths } from 'expo-file-system'
 import { selectImages } from '../utils/mediaPicker'
 import { splitAvailable, SPLIT_API_VERSION, MAX_SPLIT_PIXELS, validateSplitOptions } from '../utils/stickerSplit.js'
 
-// __DEV__ alone is insufficient: Expo Go and old development builds have no module.
+// Build mode does not determine support. Expo Go and old apps may lack the module.
 let native = null
-if (__DEV__ && process.env.EXPO_PUBLIC_DISABLE_STICKER_SPLIT !== '1') {
+if (process.env.EXPO_PUBLIC_DISABLE_STICKER_SPLIT !== '1') {
   try { native = requireOptionalNativeModule('DioStickerSplit') } catch { /* Keep Expo Go bootable. */ }
 }
-const baseAvailable = splitAvailable({ development: __DEV__, platform: Platform.OS, module: native, disabled: process.env.EXPO_PUBLIC_DISABLE_STICKER_SPLIT === '1' })
+const baseAvailable = splitAvailable({ platform: Platform.OS, module: native, disabled: process.env.EXPO_PUBLIC_DISABLE_STICKER_SPLIT === '1' })
 const completeRegions = baseAvailable && Platform.OS === 'android' && native?.completeRegionVersion === 1 &&
   ['inspectInput', 'prepareImage'].every(key => typeof native[key] === 'function')
 const available = baseAvailable && (Platform.OS !== 'android' || completeRegions)
 const jobs = new Map()
-function requireSupport() { if (!available) throw new Error('자동 분리 모듈이 포함된 개발 빌드를 설치해 주세요.') }
+function requireSupport() { if (!available) throw new Error('자동 분리 모듈이 포함된 최신 DIO 앱을 설치해 주세요.') }
 function start(work) {
   requireSupport()
   const id = randomUUID()
@@ -30,10 +30,10 @@ export const stickerSplit = {
   selectionEditing: available && Platform.OS === 'android' && native?.selectionEditingVersion === 1 &&
     ['groupEdges', 'brushHits'].every(key => typeof native[key] === 'function'),
   reason: baseAvailable && Platform.OS === 'android' && !completeRegions
-    ? '영역 안에 완전히 들어온 그림만 분리하려면 새 Android 개발 APK를 업데이트 설치해 주세요. Reload만으로는 업데이트되지 않아요.'
+    ? '영역 안에 완전히 들어온 그림만 분리하려면 새 Android APK를 업데이트 설치해 주세요. Reload만으로는 업데이트되지 않아요.'
     : native && native.apiVersion !== SPLIT_API_VERSION
-    ? `설치된 스티커 모듈은 버전 ${native.apiVersion}이에요. 새 개발 APK(모듈 ${SPLIT_API_VERSION})를 업데이트 설치해 주세요. Reload만으로는 업데이트되지 않아요.`
-    : '스티커 자동 분리는 처리 모듈이 포함된 DIO 개발 빌드에서 사용할 수 있어요.',
+    ? `설치된 스티커 모듈은 버전 ${native.apiVersion}이에요. 새 APK(모듈 ${SPLIT_API_VERSION})를 업데이트 설치해 주세요. Reload만으로는 업데이트되지 않아요.`
+    : '스티커 자동 분리는 처리 모듈이 포함된 DIO 앱에서 사용할 수 있어요.',
   async pick() {
     requireSupport()
     const result = await selectImages({ multiple: false })
