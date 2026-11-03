@@ -21,6 +21,7 @@ import { completedCount, isEmptyDraft, listStatus, queuePosition, statusText } f
 import { correctRegisteredFont, exportDraft, exportFont, importLocalFile, loadFontLibrary } from './storage.js'
 import { refreshPersonalFonts } from './library.js'
 import { FONT_SPACING_VERSION } from './fontSpacing.js'
+import { AI_FONT_INPUT_NOTICE, AI_FONT_LABEL, AI_FONT_EXPORT_NOTICE, isAiHandwritingFont } from './aiDisclosure.js'
 import { closeFontStudio, setStudioCloseGuard, studioSnapshot, subscribeStudio } from './studioBus.js'
 
 // 제작 화면 문법: 버튼은 DioButton(높이 48). primary 는 채움, 나머지는 토널. chip 은 고르기 칩(높이 36, 고르면 옅은 면 + 체크).
@@ -139,18 +140,19 @@ export function StudioContent({ options = {}, controller = defaultWorkflow }) {
         {value?.draft && <Button disabled={Boolean(busy)} onPress={() => run('초안을 저장하고 있어요.', async () => { await inputSave.current?.(); await exportDraft(workflow.getSnapshot().entries.find(e => e.id === value.id).draft) })}>36자 초안 파일 저장</Button>}
         {font && <Button disabled={Boolean(busy) || font.missing} onPress={() => run('폰트를 저장하고 있어요.', () => exportFont(font))}>폰트 파일 저장</Button>}
         {font && <Button disabled={Boolean(busy) || font.missing || font.spacingVersion === FONT_SPACING_VERSION || font.spacingSupported === false} onPress={() => run('글자 간격을 보정하고 있어요.', async () => { await correctRegisteredFont(font); await refreshPersonalFonts(); await workflow.refresh(); setFonts(await loadFontLibrary()) })}>글자 간격 보정</Button>}
-      </View></View>}
+      </View>{isAiHandwritingFont(font) && <Text style={s.muted}>{AI_FONT_EXPORT_NOTICE}</Text>}</View>}
       {!state.loaded ? <View style={s.card}><Text style={s.muted}>내 폰트를 불러오고 있어요.</Text><Button onPress={() => run('다시 불러오고 있어요.', () => workflow.init())}>다시 불러오기</Button></View> : route.screen === 'home' ? <View style={[s.home, narrow && s.vertical]}>
         <View style={[s.intro, narrow && s.auto]}><View style={s.eyebrowChip}><Text style={s.eyebrow}>나만의 손글씨</Text></View><Text accessibilityRole="header" style={s.hero}>나만의 폰트 만들기</Text><Text style={s.description}>36자의 손글씨가 한글 11,172자로 이어져요.</Text></View>
         <View style={[s.card, s.library, narrow && s.auto]}><Text accessibilityRole="header" style={s.heading}>내 폰트</Text>{state.entries.length ? state.entries.map(item => <View key={item.id} style={s.libraryRow}><Pressable accessibilityRole="button" accessibilityLabel={`${item.name} ${listStatus(state.entries, item)}`} onPress={() => open(item)} style={s.libraryOpen}>
-          <View style={s.grow}><Text style={s.fontName} numberOfLines={2}>{item.name}</Text><Text style={s.muted}>{listStatus(state.entries, item)}</Text></View><Icon name="chevronRight" size={22} color={colors.textMuted} />
+          <View style={s.grow}><Text style={s.fontName} numberOfLines={2}>{item.name}</Text><Text style={s.muted}>{listStatus(state.entries, item)}</Text>{item.status === 'ready' && (item.jobId || isAiHandwritingFont(fonts.find(f => f.id === item.fontId))) ? <Text style={s.muted}>{AI_FONT_LABEL}</Text> : null}</View><Icon name="chevronRight" size={22} color={colors.textMuted} />
         </Pressable>{/* 작성 중(생성 확정 전)인 폰트만 지울 수 있다 */}{item.status === 'draft' && <DioButton variant="icon" icon="trash" label={`${item.name} 삭제`} disabled={Boolean(busy)} onPress={() => setRemoving(item)} />}</View>) : <Text style={s.empty}>완성할 폰트가 여기에 모여요.</Text>}<Button primary icon="add" label="+ 새로 만들기" onPress={() => start()} disabled={Boolean(busy)}>새로 만들기</Button></View>
       </View> : route.screen === 'launch' ? null : !value ? <Text style={s.error}>폰트 항목을 찾지 못했어요.</Text> : route.screen === 'input' ? <InputScreen key={value.id} workflow={workflow} onInputActiveChange={onInputActiveChange} value={value} narrow={narrow} busy={busy} support={state.support} inputSave={inputSave} onBar={setInputBar} /> : route.screen === 'preview' ? <View style={s.card}>
-        <Text accessibilityRole="header" style={s.title}>내 글씨로 만든 샘플이에요</Text><Sample entry={value} />
+        <Text accessibilityRole="header" style={s.title}>내 글씨로 만든 샘플이에요</Text><Text style={s.muted}>{AI_FONT_LABEL}</Text><Sample entry={value} />
         <Text style={s.toolLabel}>폰트 이름</Text>
         <TextInput accessibilityLabel="새 폰트 이름" placeholder="폰트 이름" placeholderTextColor={colors.textMuted} value={fontName} onChangeText={setFontName} maxLength={30} style={s.name} editable={!busy} />
       </View> : <View style={s.card}>
         <FontName key={`${value.id}:${value.name}`} entry={value} busy={busy} rename={name => run('이름을 저장하고 있어요.', () => workflow.rename(value.id, name))} />
+        {value.status === 'ready' && (value.jobId || isAiHandwritingFont(font)) ? <Text style={s.muted}>{AI_FONT_LABEL}</Text> : null}
         <Text style={s.heading}>샘플 문장</Text><Sample entry={value} font={font} />
         {value.status !== 'ready' && <View style={s.notice}><Text accessibilityLiveRegion="polite" style={s.heading}>{value.status === 'queued' ? `대기 ${queuePosition(state.entries, value.id)}번째` : statusText[value.status]}</Text><Text style={s.muted}>{stages[value.job?.stage] || '진행 상태를 저장해요.'}</Text><Text style={s.progressText}>{completedCount(value).toLocaleString()} / 11,172</Text><View style={s.track}><View style={[s.fill, { width: `${completedCount(value) / SYLLABLE_COUNT * 100}%` }]} /></View></View>}
         {value.error && <Text style={s.error}>{value.error}</Text>}
@@ -163,7 +165,7 @@ export function StudioContent({ options = {}, controller = defaultWorkflow }) {
       </View>}
     </ScrollView>
     {/* 단계 주 버튼은 다른 제작 화면처럼 화면 아래 고정 바에 둔다 */}
-    {state.loaded && value && route.screen === 'input' && inputBar ? <MakerBar stacked={narrow} left={
+    {state.loaded && value && route.screen === 'input' && inputBar ? <MakerBar stacked={narrow} note={<Text testID="handwriting-ai-input-notice" style={s.muted}>{AI_FONT_INPUT_NOTICE}</Text>} left={
       <Text accessibilityLiveRegion="polite" style={s.muted}>{state.support.available ? `${inputBar.count} / 36 · ${inputBar.status}` : state.support.reason || UNSUPPORTED}</Text>}><MakerNav><Button primary disabled={Boolean(busy) || inputBar.disabled || !state.support.available} onPress={showSample}>샘플 확인</Button></MakerNav></MakerBar> : null}
     <ConfirmDialog open={Boolean(removing)} title="이 폰트를 지울까요?" message="작성 중인 손글씨가 모두 사라져요." confirmLabel="삭제" danger
       onCancel={() => setRemoving(null)} onConfirm={() => { const item = removing; setRemoving(null); run('폰트를 지우고 있어요.', () => workflow.removeDraft(item.id)) }} />
@@ -193,7 +195,7 @@ function InputScreen({ workflow, value, narrow, busy, support, inputSave, onBar,
   const insets = useSafeAreaInsets()
   const [sheetWidth, setSheetWidth] = useState(Math.min(1036, windowWidth - insets.left - insets.right - 64))
   // 원고지 높이: 창 높이에서 상단 바 · 여백 · 펜 굵기 줄 · 하단 바를 뺀 만큼(넓은 화면은 펜 굵기 한 줄 + 하단 바 72, 바 위에 여백이 남게)
-  const layout = manuscriptLayout(sheetWidth, Math.max(80, Math.min(520, windowHeight - insets.top - insets.bottom - (narrow ? 230 : 340))), PROMPTS.length)
+  const layout = manuscriptLayout(sheetWidth, Math.max(80, Math.min(520, windowHeight - insets.top - insets.bottom - (narrow ? 274 : 384))), PROMPTS.length)
   const persist = (next, nextName) => {
     latest.current = { draft: next, name: nextName }; setDraft(next)
     autosave.current.update({draft:next,name:nextName})
