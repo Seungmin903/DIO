@@ -9,6 +9,8 @@ import { useMediaEntry, useMediaUri } from '../../editor/hooks/useMediaUri'
 import { mediaService } from '../../editor/services/mediaStore'
 import { mediaId } from '../../editor/utils/mediaReferences.js'
 import { usePan } from '../../editor/hooks/usePan'
+import { builtinStickerOf } from '../../editor/builtinStickers'
+import BuiltinStickerArt from '../../editor/components/canvas/BuiltinStickerArt'
 import { stickerSource } from '../../editor/stickerAssets'
 import { clamp, normalizeAngle, rotateVector } from '../../editor/utils/common'
 import { ROTATE_OFFSET } from '../../editor/utils/popoverPlacement'
@@ -122,8 +124,10 @@ function PhotoImage({ photo }) {
 }
 
 function StickerImage({ item }) {
-  const uri = useMediaUri(item.asset ? null : item, { still: true })
+  const uri = useMediaUri(item.asset || item.builtin ? null : item, { still: true })
   const source = stickerSource(item, true, uri)
+  const builtin = builtinStickerOf(item.builtin)
+  if (builtin) return <BuiltinStickerArt sticker={builtin} canvas width="100%" height="100%" />
   return source ? <Image source={source} style={styles.stickerImage} resizeMode="contain" /> : null
 }
 

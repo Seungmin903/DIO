@@ -5,6 +5,7 @@
 import { CROP_RATIOS, OBJECT_TYPE_LABELS, PHOTO_FRAME_ASSETS, PHOTO_SHAPES, LEGACY_TAPE_NAMES, FRAME_INSETS, TAPE_DEFAULT_OPACITY, TAPE_SIZES, TAPES } from '../constants'
 import { shapeDefinition } from './editorShapes'
 import { clamp, createId } from './common'
+import { BUILTIN_CELL, builtinStickerOf } from '../builtinStickers'
 import { createDdayWidget, ddayStyleOf } from '../widgets/dday'
 import { createMemo } from '../widgets/memo'
 import { fillCells, isStripFrame, photoCell, stripSizeForCell } from './photoStrip'
@@ -24,6 +25,11 @@ export function createSticker(item, center) {
   if (item.widget === 'dday') {
     const style = ddayStyleOf(item.style)
     return base('sticker', center, style.w, style.h, { widget: createDdayWidget(style.id), name: item.name })
+  }
+  // 기본 도트 스티커: 칸 수에 같은 칸 크기를 곱해 그림 비율 · 그림끼리의 크기 비율을 그대로 둔다
+  const builtin = builtinStickerOf(item.builtin)
+  if (builtin) {
+    return base('sticker', center, builtin.w * BUILTIN_CELL, builtin.h * BUILTIN_CELL, { builtin: builtin.builtin, name: item.name ?? builtin.name })
   }
   if (item.asset) {
     return base('sticker', center, 96, 96, {

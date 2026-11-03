@@ -232,7 +232,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
     onAdd({ kind: 'sticker', ...item })
   }
   // 분류 칩: 즐겨찾기·최근(있을 때) + 기본 분류와 내 폴더(사용자가 정한 순서, 숨긴 기본 분류는 빼고)
-  const { favorites, recents, favoriteKeys, orderable, sorted, hidden, chips, active, folder, folderMatches } = stickerLibrary(custom.items, category, keyword)
+  const { favorites, recents, favoriteKeys, orderable, sorted, hidden, chips, active, folder, pack, packMatches, folderMatches } = stickerLibrary(custom.items, category, keyword)
   // 다른 분류로 옮기거나 검색하면 편집은 저절로 끝난 것으로 본다
   // 테이프 폴더 편집(여러 개 골라 지우기)
   const editingTape = tab === 'tape' && !keyword && tapeUserFolder && folderEdit?.folderId === tapeUserFolder.folderId ? folderEdit : null
@@ -551,6 +551,18 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                   </View>
                 </Section>
               )}
+              {/* 기본 분류(디오&모아)는 고치지 않고 붙이기만 한다 */}
+              {!editingList && pack && (
+                <Section title={pack.name}>
+                  <View style={styles.grid}>
+                    {pack.items.map((item) => (
+                      <Tile key={stickerKey(item)} {...tileProps(item)}>
+                        <StickerThumb item={item} />
+                      </Tile>
+                    ))}
+                  </View>
+                </Section>
+              )}
               {!editingList && folder && (
                 <FolderView
                   key={folder.id}
@@ -577,6 +589,17 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                   }
                 />
               )}
+              {packMatches.length > 0 && (
+                <Section title="디오&모아">
+                  <View style={styles.grid}>
+                    {packMatches.map((item) => (
+                      <Tile key={stickerKey(item)} {...tileProps(item)}>
+                        <StickerThumb item={item} />
+                      </Tile>
+                    ))}
+                  </View>
+                </Section>
+              )}
               {folderMatches.length > 0 && (
                 <Section title="내 폴더">
                   <View style={styles.grid}>
@@ -588,7 +611,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                   </View>
                 </Section>
               )}
-              {keyword && !folderMatches.length && (
+              {keyword && !packMatches.length && !folderMatches.length && (
                 <Text style={styles.empty}>'{keyword}'에 맞는 스티커가 없어요.</Text>
               )}
             </>

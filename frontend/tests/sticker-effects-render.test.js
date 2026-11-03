@@ -18,6 +18,7 @@ function render({ platform = 'ios', still = false, outline = true, shadow = true
     'react-native': { Platform: { OS: platform }, StyleSheet: { create: (s) => s }, Text: 'Text', View: 'View' },
     '../../utils/effects': effects,
     '../../stickerAssets': { isAnimatedMedia: () => true, stickerSource: (_object, isStill) => ({ uri: isStill ? 'poster' : 'original.gif' }) },
+    '../../builtinStickers': { builtinStickerOf: () => null },
     '../../hooks/useMediaUri': { useMediaUri: () => undefined },
     '../../hooks/useStickerPlayback': { useStickerPlayback: (source) => { request = source; return { source: frame, error } } },
     './StickerFrame': { __esModule: true, default: 'StickerFrame' },
