@@ -30,12 +30,8 @@ public class DiaryInvite {
         return invite;
     }
     public boolean email() {return inviteType.startsWith("EMAIL");}
-    /** V28 이전 이메일 초대는 토큰 서명이 바뀌지 않도록 9999년 만료값을 그대로 두고, 생성 후 7일을 상한으로 본다. */
-    public Instant effectiveExpiresAt() {
-        if(!email())return expiresAt;
-        Instant limit=createdAt.plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);
-        return expiresAt.isBefore(limit)?expiresAt:limit;
-    }
+    /** 이메일 초대의 만료 시각은 {@link EmailInviteExpiry} 규칙을 따른다. */
+    public Instant effectiveExpiresAt() {return email()?EmailInviteExpiry.expiresAt(createdAt,expiresAt):expiresAt;}
     private boolean unansweredEmail() {return "EMAIL".equals(inviteType)&&revokedAt==null&&useCount==0;}
     /** 만료는 공유 링크와 아직 응답하지 않은 이메일 초대에만 적용한다. 수락·거절·취소된 이메일 초대는 상태로 판정한다. */
     public boolean expired(Instant now) {

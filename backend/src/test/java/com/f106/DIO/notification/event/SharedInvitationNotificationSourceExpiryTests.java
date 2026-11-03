@@ -36,19 +36,19 @@ class SharedInvitationNotificationSourceExpiryTests {
         // DB가 나노초를 반올림하지 않도록 마이크로초로 맞춰 넣는다.
         Instant created=Instant.now().minus(Duration.ofDays(6)).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         invite(created,LEGACY_EXPIRY);
-        var snapshot=source.findForNotification(10,7).orElseThrow();
+        var snapshot=source.findForNotification(10,7,Instant.now()).orElseThrow();
         assertThat(snapshot.eligibility()).isEqualTo(Eligibility.NOTIFIABLE);
         assertThat(snapshot.expiresAt()).isEqualTo(created.plus(Duration.ofDays(7)));
     }
     @Test void pendingEmailPastSevenDaysIsExpired() {
         invite(Instant.now().minus(Duration.ofDays(8)),LEGACY_EXPIRY);
-        assertThat(source.findForNotification(10,7).orElseThrow().eligibility()).isEqualTo(Eligibility.EXPIRED);
+        assertThat(source.findForNotification(10,7,Instant.now()).orElseThrow().eligibility()).isEqualTo(Eligibility.EXPIRED);
         invite(Instant.now().minusSeconds(60),Instant.now().minusSeconds(1));
-        assertThat(source.findForNotification(10,7).orElseThrow().eligibility()).isEqualTo(Eligibility.EXPIRED);
+        assertThat(source.findForNotification(10,7,Instant.now()).orElseThrow().eligibility()).isEqualTo(Eligibility.EXPIRED);
     }
     @Test void revokedEmailStaysRevokedRegardlessOfExpiry() {
         invite(Instant.now().minus(Duration.ofDays(8)),LEGACY_EXPIRY);
         jdbc.update("update diary_invites set revoked_at=current_timestamp");
-        assertThat(source.findForNotification(10,7).orElseThrow().eligibility()).isEqualTo(Eligibility.REVOKED);
+        assertThat(source.findForNotification(10,7,Instant.now()).orElseThrow().eligibility()).isEqualTo(Eligibility.REVOKED);
     }
 }

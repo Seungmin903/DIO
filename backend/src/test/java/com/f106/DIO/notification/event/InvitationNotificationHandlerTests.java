@@ -26,7 +26,7 @@ class InvitationNotificationHandlerTests {
         handler = new InvitationNotificationHandler(repository, sources, clocks);
     }
     void snapshot(Kind kind, Eligibility eligibility, Instant expires) {
-        when(source.findForNotification(1, 2)).thenReturn(Optional.of(new Snapshot(1,2,3,UUID.randomUUID(),kind,eligibility,expires)));
+        when(source.findForNotification(eq(1L), eq(2L), any())).thenReturn(Optional.of(new Snapshot(1,2,3,UUID.randomUUID(),kind,eligibility,expires)));
     }
     @Test void pastEmailExpiryIsIgnoredAndReplayDoesNotCreateAgain() {
         snapshot(Kind.DIRECT,Eligibility.NOTIFIABLE,now.minusSeconds(1));
@@ -52,6 +52,8 @@ class InvitationNotificationHandlerTests {
         snapshot(Kind.DIRECT,Eligibility.EXPIRED,now.minusSeconds(1));
         assertThat(handler.handle(event).outcome()).isEqualTo(Outcome.SKIPPED_EXPIRED);
         verify(repository,never()).createNotification(any(),any());
+        // 원본은 핸들러와 같은 시각으로 이메일 만료를 판정한다.
+        verify(source).findForNotification(1,2,now);
     }
     @Test void expiredLinkStillUsesExpiryBoundary() {
         snapshot(Kind.LINK,Eligibility.NOTIFIABLE,now);

@@ -26,7 +26,9 @@ public class PushRegistrationCleanup {
         Instant cutoff=now.minus(30,ChronoUnit.DAYS);
         // Retain only the bounded retry window; these rows contain registration and delivery metadata.
         // 1분 주기로 돌므로 위 UPDATE처럼 한 번에 500건씩만 잠그고, 다른 작업이 잡은 행은 건너뛴다.
-        // push_installations 삭제는 push_deliveries의 해당 설치 전송 이력도 ON DELETE CASCADE로 함께 지운다.
+        // push_installations를 참조하는 외래키는 push_deliveries(ON DELETE CASCADE) 하나라 설치 삭제가 외래키로 실패하지 않는다.
+        // 두 요청 테이블은 installation_id를 외래키 없이 들고 있어, 설치보다 최근의 요청 행이 남아도 각자 기준으로 지워진다.
+        // 설치 삭제는 해당 설치의 전송 이력도 함께 지운다. PushPostgresTests가 이 외래키 구성을 고정한다.
         jdbc.update("""
             delete from push_registration_requests where (session_id,installation_id,request_id) in (
               select session_id,installation_id,request_id from push_registration_requests

@@ -62,10 +62,11 @@ public class InvitationNotificationHandler {
 
 		var source = sources.getIfAvailable();
 		if (source == null) throw new InvitationEventException("공유 초대 조회 연결이 아직 준비되지 않았습니다.", true);
-		Snapshot snapshot = source.findForNotification(event.inviteId(), event.recipientUserId())
+		// 원본의 이메일 만료 판정과 아래 링크 만료 판정이 같은 시각을 쓴다.
+		Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+		Snapshot snapshot = source.findForNotification(event.inviteId(), event.recipientUserId(), now)
 			.orElseThrow(() -> new InvitationEventException("현재 초대 상태를 확인하지 못했습니다.", true));
 		validateSnapshot(event, snapshot);
-		Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
 		if (!repository.claim(event, now)) {
 			// 동시 전달의 승자가 커밋한 이력을 읽는다. 읽기 커밋 격리를 전제로 하며 DB 일시 오류는 호출자가 재시도한다.
 			return repository.byEvent(event).map(receipt -> replay(event, receipt, true))

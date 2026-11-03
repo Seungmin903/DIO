@@ -9,12 +9,12 @@ public interface DiaryInviteRepository extends JpaRepository<DiaryInvite,Long> {
     Optional<DiaryInvite> findFirstByDiaryIdAndInviteTypeAndRevokedAtIsNullOrderByInviteIdDesc(UUID diaryId,String type);
     long countByDiaryIdAndInviteTypeAndCreatedAtAfter(UUID diaryId,String type,Instant since);
     Optional<DiaryInvite> findFirstByDiaryIdAndInviteTypeAndCreatedAtAfterOrderByCreatedAtAsc(UUID diaryId,String type,Instant since);
-    /** 만료 판정은 엔티티와 같은 JVM 시각을 쓴다. createdAt 조건은 9999년 만료값이 남은 V28 이전 초대의 7일 상한이다. */
+    /** 만료 조건은 EmailInviteExpiry.UNEXPIRED_SQL과 같다(JPQL이라 속성 이름으로 적는다). 엔티티와 같은 JVM 시각을 쓴다. */
     @Query("select i from DiaryInvite i where i.diaryId=:diary and i.inviteeUserId=:recipient and i.inviteType='EMAIL' and i.revokedAt is null and i.useCount=0 and i.expiresAt>:now and i.createdAt>:createdAfter")
     Optional<DiaryInvite> pendingEmail(UUID diary,Long recipient,Instant now,Instant createdAfter);
     default Optional<DiaryInvite> pendingEmail(UUID diary,Long recipient) {
         Instant now=Instant.now();
-        return pendingEmail(diary,recipient,now,now.minusSeconds(com.f106.DIO.sharing.domain.SharingPolicy.EMAIL_INVITE_TTL_SECONDS));
+        return pendingEmail(diary,recipient,now,com.f106.DIO.sharing.domain.EmailInviteExpiry.createdAfter(now));
     }
     @Query("select i from DiaryInvite i where i.diaryId=:diary and i.inviteeUserId=:recipient and i.inviteType like 'EMAIL%' and i.createdAt>:since order by i.createdAt,i.inviteId")
     java.util.List<DiaryInvite> recentEmails(UUID diary,Long recipient,Instant since);

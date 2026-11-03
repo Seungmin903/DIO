@@ -2,7 +2,7 @@ package com.f106.DIO.notification.event;
 
 import java.time.Instant;
 import java.util.*;
-import com.f106.DIO.sharing.domain.SharingPolicy;
+import com.f106.DIO.sharing.domain.EmailInviteExpiry;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.*;
@@ -15,7 +15,7 @@ public class SharedInvitationNotificationSource implements InvitationNotificatio
     private final JdbcTemplate jdbc;
     private final SharingAccessService access;
     public SharedInvitationNotificationSource(JdbcTemplate jdbc,SharingAccessService access){this.jdbc=jdbc;this.access=access;}
-    public Optional<Snapshot> findForNotification(long inviteId,long recipient) {
+    public Optional<Snapshot> findForNotification(long inviteId,long recipient,Instant now) {
         var diaries=jdbc.query("select diary_id from diary_invites where invite_id=? and invitee_user_id=?",(rs,n)->rs.getObject(1,UUID.class),inviteId,recipient);
         if(diaries.isEmpty())return Optional.empty();
         access.lock(diaries.get(0));
@@ -33,10 +33,8 @@ public class SharedInvitationNotificationSource implements InvitationNotificatio
                 if(type.equals("EMAIL_CANCELLED")||(type.equals("EMAIL") && rs.getTimestamp("revoked_at")!=null))eligible=Eligibility.REVOKED;
                 var expiresAt=rs.getTimestamp("expires_at").toInstant();
                 if(email) {
-                    // V28 이전 초대는 9999년 만료값이 남아 있으므로 생성 후 7일을 상한으로 본다.
-                    var limit=rs.getTimestamp("created_at").toInstant().plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);
-                    if(limit.isBefore(expiresAt))expiresAt=limit;
-                    if(eligible==Eligibility.NOTIFIABLE && !expiresAt.isAfter(Instant.now()))eligible=Eligibility.EXPIRED;
+                    expiresAt=EmailInviteExpiry.expiresAt(rs.getTimestamp("created_at").toInstant(),expiresAt);
+                    if(eligible==Eligibility.NOTIFIABLE && !expiresAt.isAfter(now))eligible=Eligibility.EXPIRED;
                 }
                 return new Snapshot(inviteId,recipient,rs.getLong("inviter_user_id"),rs.getObject("diary_id",UUID.class),email?Kind.DIRECT:Kind.LINK,eligible,expiresAt);
             },recipient,inviteId,recipient).stream().findFirst();
