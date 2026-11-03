@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native'
+import { AppState, Dimensions, Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native'
 import { colors, shadow } from '../../../shared/theme'
 import { captureScreenSampler } from '../../utils/eyedropper'
 import EditorModal from './EditorModal'
@@ -19,7 +19,7 @@ const LENS = { size: 104, ring: 8, zoom: 3, above: 96, below: 84, edge: 12, aim:
  */
 export default function EyedropperOverlay({ original, onPick, onCancel }) {
   const window = useWindowDimensions()
-  const sampler = useRef(null)
+  const sampler = useRef(null), latestTouch = useRef(null)
   const [shot, setShot] = useState(null) // 찍어 둔 화면 주소(돋보기)
   const [touch, setTouch] = useState(null) // { x, y, color }
   useEffect(() => {
@@ -30,12 +30,16 @@ export default function EyedropperOverlay({ original, onPick, onCancel }) {
       if (!result) { onCancel(); return }
       sampler.current = result
       setShot(result.uri)
-    })
-    return () => { alive = false; sampler.current?.release(); sampler.current = null }
+    }).catch(() => { if (alive) onCancel() })
+    const state = AppState.addEventListener('change', value => { if (value !== 'active') onCancel() })
+    const size = Dimensions.addEventListener('change', onCancel)
+    return () => { state.remove(); size.remove(); alive = false; sampler.current?.release(); sampler.current = null }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const read = ({ nativeEvent: { pageX, pageY } }) => {
     const color = sampler.current?.colorAt(pageX, pageY)
-    if (color) setTouch({ x: pageX, y: pageY, color })
+    latestTouch.current = color ? {x:pageX,y:pageY,color} : null
+    setTouch(latestTouch.current)
+    return color
   }
   const shown = touch?.color ?? original
   const half = LENS.size / 2
@@ -48,26 +52,27 @@ export default function EyedropperOverlay({ original, onPick, onCancel }) {
   return (
     <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={onCancel}>
       <View
+        testID={shot ? "screen-eyedropper-ready" : "screen-eyedropper-preparing"}
         style={StyleSheet.absoluteFill}
         onStartShouldSetResponder={() => Boolean(shot)}
         onMoveShouldSetResponder={() => Boolean(shot)}
         onResponderGrant={read}
         onResponderMove={read}
-        onResponderRelease={() => { if (touch) onPick(touch.color) }}
-        onResponderTerminate={() => setTouch(null)}
+        onResponderRelease={event => { const color = read(event); if (color) onPick(color); else onCancel() }}
+        onResponderTerminate={onCancel}
         accessible
         accessibilityLabel="스포이드"
         accessibilityActions={[{ name: 'escape' }]}
         onAccessibilityEscape={onCancel}
       />
-      <View style={styles.pill} accessibilityLiveRegion="polite">
+      {shot && <View style={styles.pill} accessibilityLiveRegion="polite">
         <EyedropperIcon size={20} color={colors.text} />
         <View style={[styles.pillColor, { backgroundColor: shown }]} />
         <View style={styles.pillDivider} />
         <Pressable onPress={onCancel} hitSlop={8} accessibilityRole="button" accessibilityLabel="스포이드 취소" style={styles.pillClose}>
           <Icon name="close" size={18} color={colors.textMuted} />
         </Pressable>
-      </View>
+      </View>}
       {touch && shot && (
         <View pointerEvents="none" style={[styles.lens, lens]}>
           {/* 테두리: 위 반쪽 새 색 · 아래 반쪽 원래 색 */}
