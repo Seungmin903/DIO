@@ -29,14 +29,13 @@ services:
       AUTH_SESSION_CLEANUP_ENABLED: "${AUTH_SESSION_CLEANUP_ENABLED:-true}"
       AUTH_SESSION_CLEANUP_DELAY_MS: "${AUTH_SESSION_CLEANUP_DELAY_MS:-60000}"
       AUTH_SESSION_CLEANUP_INITIAL_DELAY_MS: "${AUTH_SESSION_CLEANUP_INITIAL_DELAY_MS:-300000}"
-      AUTH_ALLOWED_ORIGINS: "${AUTH_ALLOWED_ORIGINS:-https://k15f106.p.ssafy.io:8443,http://localhost:8081,http://127.0.0.1:8081}"
+      AUTH_ALLOWED_ORIGINS: "${AUTH_ALLOWED_ORIGINS:?AUTH_ALLOWED_ORIGINS is required}"
       # 인증 배포 계약: ../auth-deployment.md (Nginx가 X-Forwarded-For를 덮어쓴다.)
       AUTH_TRUSTED_PROXY_REGEX: "${AUTH_TRUSTED_PROXY_REGEX:?AUTH_TRUSTED_PROXY_REGEX is required; see infra/auth-deployment.md}"
       SIGNUP_PHOTO_MIGRATE_LEGACY: "${SIGNUP_PHOTO_MIGRATE_LEGACY:-false}"
-      SIGNUP_PHOTO_LOCAL_DIRECTORY: /app/.local-data/profile-photos
       # 미디어와 프로필 사진은 같은 MEDIA_* 저장소 설정을 쓴다(키 접두사 profile-photos/, media/로 구분).
-      # 배포 서버에서는 항상 S3에 두며, 버킷이 없으면 배포 단계에서 실패한다.
-      MEDIA_STORAGE: "${MEDIA_STORAGE:-s3}"
+      # release는 컨테이너 재생성에도 보존되는 S3만 사용한다.
+      MEDIA_STORAGE: s3
       MEDIA_S3_BUCKET: "${MEDIA_S3_BUCKET:?MEDIA_S3_BUCKET is required}"
       MEDIA_S3_REGION: "${MEDIA_S3_REGION:-ap-northeast-2}"
 
@@ -55,8 +54,6 @@ services:
       SIGNUP_SERVICE_TERMS_VERSION: "${SIGNUP_SERVICE_TERMS_VERSION:-v2}"
       SIGNUP_PRIVACY_TERMS_VERSION: "${SIGNUP_PRIVACY_TERMS_VERSION:-v2}"
       SIGNUP_MARKETING_TERMS_VERSION: "${SIGNUP_MARKETING_TERMS_VERSION:-v1}"
-    volumes:
-      - signup-profile-photos:/app/.local-data/profile-photos
     networks:
       development-db:
       proxy:
@@ -70,6 +67,3 @@ networks:
   proxy:
     external: true
     name: dio-proxy
-
-volumes:
-  signup-profile-photos:

@@ -1,6 +1,8 @@
 # 인증 기능 배포 환경 계약
 
-개발 배포는 `compose/compose.dev.yml`, 운영 배포는 `compose/compose.prod.yml`을 사용한다. CI는 각각 `/home/gitlab-runner/dio-env/dev.env`, `/home/gitlab-runner/dio-env/prod.env`를 읽는다. 이 비공개 파일은 Git에 넣지 않는다. 저장소만으로 실제 서버 값·SMTP 연결·S3 권한이 준비되었다고 판단할 수 없다.
+개발 배포는 `compose/compose.dev.yml`, release 배포는 `compose/compose.release.yml`, 운영 배포는 `compose/compose.prod.yml`을 사용한다. CI는 각각 `/home/gitlab-runner/dio-env/dev.env`, `/home/gitlab-runner/dio-env/release.env`, `/home/gitlab-runner/dio-env/prod.env`를 읽는다. 이 비공개 파일은 Git에 넣지 않는다. 저장소만으로 실제 서버 값·SMTP 연결·S3 권한이 준비되었다고 판단할 수 없다.
+
+release는 develop PostgreSQL 컨테이너의 네트워크를 공유하지만, `release.env`의 `POSTGRES_DB`를 반드시 `dio_release`로 고정해 별도 DB와 Flyway 이력을 사용한다. CI는 이 값이 아니면 컨테이너를 교체하지 않는다. release는 S3 저장소만 사용하며, `AUTH_ALLOWED_ORIGINS`도 release 환경 파일에서 명시해야 한다. 새 이미지의 health check가 실패하면 CI는 최근 200줄의 backend 로그를 남기고, 기존 release 컨테이너 이미지가 있으면 그 이미지로 복구한다.
 
 ## 필수 환경변수
 
