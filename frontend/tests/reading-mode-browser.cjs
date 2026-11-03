@@ -60,13 +60,16 @@ async function main() {
       await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-2')
       await page.getByRole('button',{name:'이전 페이지',exact:true}).click()
       await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-1')
-      // Canvas areas are viewport-relative, and the menu must not change its geometry.
+      // Hiding the menu enters the existing full-screen fit; restoring it must restore the original geometry.
       const canvas=page.getByLabel('다이어리 읽기 캔버스',{exact:true}), canvasBefore=await canvas.boundingBox()
       await page.mouse.click(width/2,height/2)
       await page.getByRole('button',{name:'편집 모드로 전환',exact:true}).waitFor({state:'hidden'})
-      assert.deepEqual(await canvas.boundingBox(),canvasBefore)
+      const fullScreenCanvas=await canvas.boundingBox()
+      assert.ok(fullScreenCanvas.width>=canvasBefore.width && fullScreenCanvas.height>=canvasBefore.height)
+      assert.ok(fullScreenCanvas.x>=0 && fullScreenCanvas.y>=0 && fullScreenCanvas.x+fullScreenCanvas.width<=width+1 && fullScreenCanvas.y+fullScreenCanvas.height<=height+1)
       await page.mouse.click(width/2,height/2)
       await page.getByRole('button',{name:'편집 모드로 전환',exact:true}).waitFor()
+      assert.deepEqual(await canvas.boundingBox(),canvasBefore)
       await page.mouse.click(width-8,height/2)
       await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-2')
       // Mouse drag uses the same RN responder route as a one-finger swipe on web.
@@ -82,7 +85,10 @@ async function main() {
       await page.mouse.move(arrow.x+arrow.width/2,arrow.y+arrow.height/2);await page.mouse.down()
       await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-0')
       await page.mouse.up()
-      for(let i=0;i<3;i++) await page.getByRole('button',{name:'다음 페이지',exact:true}).click()
+      for(let i=1;i<=3;i++) {
+        await page.getByRole('button',{name:'다음 페이지',exact:true}).click()
+        await page.waitForFunction(id=>window.__readerState.pageId===id,`reader-page-${i}`)
+      }
       const docState=await page.evaluate(()=>({doc:window.__readerState.docJSON,past:window.__readerState.past}))
       assert.deepEqual(docState,initial)
       await page.screenshot({path:path.join(output,`reader-${width}x${height}.png`)})
@@ -97,8 +103,10 @@ async function main() {
       assert.equal(await page.getByRole('button',{name:'편집 모드로 전환',exact:true}).count(),0)
       assert.equal(await page.getByRole('button',{name:'읽기 모드로 전환',exact:true}).count(),0)
       if(width===1280) {
-        for(let i=0;i<3;i++) await page.getByRole('button',{name:'이전 페이지',exact:true}).click()
-        await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-0')
+        for(let i=2;i>=0;i--) {
+          await page.getByRole('button',{name:'이전 페이지',exact:true}).click()
+          await page.waitForFunction(id=>window.__readerState.pageId===id,`reader-page-${i}`)
+        }
         await page.getByRole('button',{name:'다음 페이지',exact:true}).press('Space')
         await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-1')
         await page.getByRole('button',{name:'이전 페이지',exact:true}).press('Enter')
@@ -117,6 +125,7 @@ async function main() {
         await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-1')
         assert.equal(await page.evaluate(()=>window.__openedReaderLink),null)
         await page.getByRole('button',{name:'이전 페이지',exact:true}).click()
+        await page.waitForFunction(()=>window.__readerState.pageId==='reader-page-0')
         const cdp=await context.newCDPSession(page)
         const touch=(type,points)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points})
         await touch('touchStart',[{x:500,y:350,id:1},{x:600,y:350,id:2}])

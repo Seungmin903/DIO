@@ -51,6 +51,7 @@ import { objectClipboard, useObjectClipboard } from '../services/objectClipboard
 import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch, VISUAL_TEXT_KEYS } from '../utils/text'
 import { createText } from '../utils/text'
 import { DEFAULT_PEN_SETTINGS, DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
+import { useReadingPreviews } from '../hooks/useReadingPreviews'
 import SaveIndicator from '../components/controls/SaveIndicator'
 import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
@@ -1023,6 +1024,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }, [colorPicker, readOnly, page.id, activeTool, colorScreen.width, colorScreen.height])
 
 
+  const previewScreen = useWindowDimensions()
+  const readingPreviews = useReadingPreviews({ enabled: readOnly && loaded, page, previous: previousPage, next: nextPage, target: turn?.page, zoom, moving: viewMoving || Boolean(turn) })
+
   const phoneToolbar = !readOnly && compact ? (
     <PhoneToolbar
       onOpenSharing={!phoneLandscape && onOpenSharing ? openDiarySharing : undefined}
@@ -1058,6 +1062,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       }}
       onResponderTerminationRequest={() => false}
     >
+      {readingPreviews.surface && <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: Math.max(PAGE_WIDTH, previewScreen.width), height: Math.max(PAGE_HEIGHT, previewScreen.height) }}>
+        {readingPreviews.surface}<View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surfaceSoft }]} />
+      </View>}
 
       {/* 내보낼 페이지는 편집 화면 맨 아래(가려진 곳)에 그려 찍는다 */}
       <ExportRunner job={exportJob} onProgress={setExportProgress} onFinish={finishExport} />
@@ -1221,6 +1228,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             <ViewportMotion.Provider value={viewportMotion}>
               <View style={{ width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }}>
               <Canvas
+                readingImage={readingPreviews.current}
                 qaPageMeasurement={pageSelectMeasurement.current}
                 colorCaptureRef={colorCaptureRef}
                 colorPicking={Boolean(eyedropper)}
@@ -1312,7 +1320,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 contextBarInside={markInside}
                 contextBarFrame={contextBarFrame}
               />
-              {readOnly && turn && <ReadingPageTurn page={turn.page} from={turn.from} zoom={zoom} width={PAGE_WIDTH} height={PAGE_HEIGHT} dir={turn.dir} lift={turn.lift ?? 0} progress={flip} />}
+              {readOnly && turn && <ReadingPageTurn image={readingPreviews.target} page={turn.page} from={turn.from} zoom={zoom} width={PAGE_WIDTH} height={PAGE_HEIGHT} dir={turn.dir} lift={turn.lift ?? 0} progress={flip} />}
               </View>
             </ViewportMotion.Provider>
           </Viewport>

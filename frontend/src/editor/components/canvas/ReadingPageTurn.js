@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useState } from 'react'
 import { Animated, Platform, StyleSheet, View } from 'react-native'
-import StaticPage from './StaticPage'
+import ReadingPageContent from './ReadingPageContent'
 import { normalizePaperAppearance } from '../../templates/appearance'
 
 // 가로 그라데이션 띠. stops: [[위치 0~1, 투명도]] (검정 기준)
@@ -74,7 +74,7 @@ function fold(W, H, lift) {
  * dir: 1 다음 페이지(오른쪽에서 왼쪽으로 넘김), -1 이전 페이지(좌우 반대). lift: utils/pageTurn 의 turnLift 참고.
  * progress: Animated.Value 0(안 넘어감) → 1(다 넘어감)
  */
-function NativePageTurn({ page, from, zoom, width, height, dir, lift = 0, progress }) {
+function NativePageTurn({ page, image, from, zoom, width, height, dir, lift = 0, progress }) {
   const w = width * zoom, h = height * zoom
   const paper = normalizePaperAppearance((from ?? page).paperAppearance).backgroundColor // 뒷면은 넘어가는(앞장) 속지 색과 같게
   const revealPaper = normalizePaperAppearance(page.paperAppearance).backgroundColor
@@ -110,7 +110,7 @@ function NativePageTurn({ page, from, zoom, width, height, dir, lift = 0, progre
       {/* 접힘선 바깥에 드러나는 새 페이지. 앞장(지금 보이는 캔버스)은 건드리지 않고 이 덮개만 움직인다 */}
       <Animated.View style={[box, { transform: [{ translateX: revealBoxLeft }, { translateY: revealBoxTop }, { rotate: alpha }] }]}>
         <Animated.View style={{ position: 'absolute', left: 0, top: 0, width: w, height: h, transform: [{ translateX: revealLeft }, { translateY: revealTop }, { rotate: unAlpha }, { scaleX: sx }] }}>
-          <StaticPage page={page} zoom={zoom} background={revealPaper} still />
+          <ReadingPageContent image={image} page={page} zoom={zoom} background={revealPaper} still />
         </Animated.View>
       </Animated.View>
 
@@ -153,7 +153,7 @@ const clipHalf = (poly, a, b, c) => { // a*x + b*y <= c 인 쪽만 남긴다 (Su
 }
 const polygonStyle = (poly) => poly.length >= 3 ? `polygon(${poly.map((q) => `${q.x.toFixed(2)}px ${q.y.toFixed(2)}px`).join(',')})` : 'polygon(0 0,0 0,0 0)'
 
-function WebPageTurn({ page, from, zoom, width, height, dir, lift = 0, progress }) {
+function WebPageTurn({ page, image, from, zoom, width, height, dir, lift = 0, progress }) {
   const w = width * zoom, h = height * zoom
   const paper = normalizePaperAppearance((from ?? page).paperAppearance).backgroundColor
   const revealPaper = normalizePaperAppearance(page.paperAppearance).backgroundColor
@@ -184,9 +184,9 @@ function WebPageTurn({ page, from, zoom, width, height, dir, lift = 0, progress 
   // 프레임마다 바뀌는 건 다각형 자르기뿐이므로 무거운 속지는 그대로 둔다 (StaticPage 도 memo)
   const revealPage = useMemo(() => (
     <View style={{ width: w, height: h, transform: [{ scaleX: dir > 0 ? 1 : -1 }] }}>
-      <StaticPage page={page} zoom={zoom} background={revealPaper} still />
+      <ReadingPageContent image={image} page={page} zoom={zoom} background={revealPaper} still />
     </View>
-  ), [page, zoom, revealPaper, w, h, dir])
+  ), [image, page, zoom, revealPaper, w, h, dir])
   const fade = p < 0.85 ? 1 - 0.1 * (p / 0.85) : 0.9 * (1 - (p - 0.85) / 0.15)
   const flapBand = Math.hypot(w, h) * 0.1
   const edgeBlur = flapEdgeBlur(w, h)
