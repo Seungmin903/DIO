@@ -47,9 +47,9 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), module, module.exports)
   return module.exports.default({ tab: 'tape', ...callbacks })
 }
-// 테이프 칸(이름은 화면 읽기 이름) · 색 줄의 내 색상
+// 테이프 칸(이름은 화면 읽기 이름) · 공용 고정 팔레트
 const tapeTile = (tree, name) => nodes(tree).find(node => node.type?.name === 'Tile' && node.props.label === name)
-const myColors = tree => nodes(tree).find(node => node.type === '../controls/MyColorPresets')
+const editablePalette = tree => nodes(tree).find(node => node.type === '../controls/EditablePalette')
 test('스티커 칩 복원·선택 저장과 삭제·숨김 칩은 비어 있지 않은 첫 칩으로 대체', () => {
   const picked = [], items = { folders: [{ id: 'mine', name: '내 폴더', items: [] }, { id: 'trip', name: '여행', items: [] }], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], lastStickerCategory: 'folder:mine' }
   const render = () => drawer(make(), { tab: 'sticker' }, true, { items, setStickerCategory: id => picked.push(id) })
@@ -108,7 +108,7 @@ test('복원·재마운트는 삽입하지 않고 무늬 칸을 누를 때마다
   assert.equal(added.length, 0)
   // 처음 칩은 기본 폴더 '무늬'이고 레이스는 따로 있다
   assert.deepEqual(nodes(drawer(store, calls)).filter(node => node.type?.name === 'Pill').map(node => node.props.label), ['즐겨찾기', '최근', '무늬', '레이스', '새 폴더'])
-  myColors(drawer(store, calls)).props.onPick('#AABBCC/#112233')
+  editablePalette(drawer(store, calls)).props.onPick('custom:#AABBCC:#112233')
   assert.equal(added.length, 0)
   tapeTile(drawer(store, calls), '도트').props.onPress()
   tapeTile(drawer(store, calls), '도트').props.onPress()
@@ -119,7 +119,7 @@ test('복원·재마운트는 삽입하지 않고 무늬 칸을 누를 때마다
 test('복원 전에는 색 줄을 숨기고 무늬를 붙이지 않으며, 기본색으로 삽입한 경우 실제 색을 기억한다', async () => {
   const store = make(), added = []
   const before = drawer(store, { onAdd: item => added.push(item) }, false)
-  assert.equal(myColors(before), undefined)
+  assert.equal(editablePalette(before), undefined)
   tapeTile(before, '무지').props.onPress()
   assert.equal(added.length, 0)
   await store.ensureLoaded()
@@ -143,14 +143,14 @@ test('레이스 칩은 레이스 무늬만, 내 폴더는 사진 테이프만 �
   await store.ensureLoaded()
   const lace = drawer(store, {}, true, { items: { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [], tapeFolders: [], lastTapeCategory: 'base:lace' } })
   assert.deepEqual(nodes(lace).filter(node => node.type?.name === 'Tile').map(node => node.props.label), ['아이렛'])
-  assert.ok(myColors(lace))
+  assert.ok(editablePalette(lace))
   const mine = drawer(store, {}, true, { items: { folders: [], favorites: [], recentStickers: [], categoryOrder: [], hiddenCategories: [], tapes: [],
     tapeFolders: [{ id: 'trip', name: '여행', items: [{ id: 't1', src: 'blob:t1', name: '기차표' }] }], lastTapeCategory: 'folder:trip' } })
   // 내 폴더는 스티커 폴더와 같은 FolderView(편집 · 추가 · 폴더 삭제)로 그린다
   const view = nodes(mine).find(node => node.type?.name === 'FolderView')
   assert.deepEqual(view.props.folder.items.map(item => item.name), ['기차표'])
   assert.equal(view.props.noun, '테이프')
-  assert.equal(myColors(mine), undefined)
+  assert.equal(editablePalette(mine), undefined)
 })
 
 test('드로어에서 기존 폴더·내장 분류와 같은 이름으로 생성·이름 변경해도 ID로 구분한다', () => {

@@ -29,6 +29,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
   const [view,setView]=useState({status:null,history:null,busy:false,pageId:null})
   const sessionKey=authService.getSessionKey()
   const failureMessage=error=>{
+    if(error.code==='CANVAS_BATCH_LIMIT')return error.message
     const reason=error.status===401?'로그인이 만료됐어요. 다시 로그인해 주세요.':error.status===403?'이 페이지를 편집할 권한을 확인하지 못했어요.':error.status===404?'현재 페이지를 서버에서 찾지 못했어요.':error.status>=500?'서버에서 캔버스 요청을 처리하지 못했어요.':error.code==='NETWORK_ERROR'?'캔버스 요청이 서버에 도달하지 못했어요.':'기기 편집 기록이나 서버의 캔버스 응답을 확인하지 못했어요.'
     const code=typeof error.code==='string'&&/^[A-Z0-9_]{1,80}$/.test(error.code)?error.code:'CANVAS_SYNC_ERROR'
     return `${reason} (${error.status||0} / ${code}) 기기 작업은 유지돼요.`

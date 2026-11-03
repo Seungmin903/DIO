@@ -10,7 +10,7 @@
     128
   ],
   "input_normalization": "gray/127.5 - 1",
-  "preprocess_version": "dio-ink-fit96-margin4-fp32-v1",
+  "preprocess_version": "dio-ink-safe90-margin4-fp32-v2",
   "versions": {
     "torch": "2.7.1+cu128",
     "onnx": "1.23.2",

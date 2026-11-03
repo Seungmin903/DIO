@@ -1,3 +1,4 @@
+import { AI_FONT_EXPORT_NOTICE, AI_FONT_LABEL } from './aiDisclosure.js'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { randomUUID } from 'expo-crypto'
 import { validateDraft } from './protocol.js'
@@ -140,6 +141,7 @@ export async function exportDraft(draft) { validateDraft(draft); return writeLoc
 export async function exportFont(font) {
   const bytes = await readFontBytes(font.uri), info = fontSpacingInfo(bytes)
   return writeLocalPackage(`DIO-${font.id}.json`, JSON.stringify({ kind: 'dio-font', schema: 1, label: font.label,
+    ...(info.spacingSupported && { aiGeneration: { generated: true, label: AI_FONT_LABEL, notice: AI_FONT_EXPORT_NOTICE } }),
     ...(info.spacingVersion && { spacingVersion: info.spacingVersion, ...(font.sourceFontId && { sourceFontId: font.sourceFontId }) }), ttf: toBase64(bytes) }))
 }
 export async function loadLastJob() { return read(JOB_KEY, null) }

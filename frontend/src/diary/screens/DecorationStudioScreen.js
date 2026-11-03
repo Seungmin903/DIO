@@ -21,6 +21,7 @@ import { openFontStudio, studioSnapshot, subscribeStudio } from '../../handwriti
 import { refreshPersonalFonts } from '../../handwriting/library';
 import { fontWorkflow } from '../../handwriting/manager';
 import { listStatus } from '../../handwriting/workflow';
+import { AI_FONT_LABEL, isAiHandwritingFont } from '../../handwriting/aiDisclosure';
 import { loadedFontFamily } from '../../editor/utils/text';
 import { useCustomDecor } from '../../editor/hooks/useCustomDecor';
 import { stickerSplit } from '../../editor/services/stickerSplit';
@@ -190,6 +191,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
           return <View key={entry.id} style={[s.fontRow, s.fontRowLine, compact && s.fontRowCompact]}>
             <Pressable accessibilityRole="button" accessibilityLabel={`${entry.name} ${status}`} onPress={() => loginGate('내 폰트 만들기', () => openFontStudio({ open: entry.id }))} style={s.fontOpen}>
               <Text style={s.itemTitle}>{entry.name}</Text>
+              {entry.status === 'ready' && (entry.jobId || isAiHandwritingFont(fonts.find(font => font.id === entry.fontId))) ? <Text style={s.description}>{AI_FONT_LABEL}</Text> : null}
               {entry.status === 'ready' ? fontPreview(fonts.find(font => font.id === entry.fontId)) : <Text style={s.description}>{status}</Text>}
             </Pressable>
             {entry.status === 'draft' ? <DioButton variant="icon" icon="trash" label={`${entry.name} 삭제`} onPress={() => setQuestion({ draft: entry })} /> : <AppIcon name="chevron-right" size={20} color={colors.textMuted} />}
@@ -197,6 +199,7 @@ export default function DecorationStudioScreen({ compact = false, registerBackHa
         })}
         {loose.map(font => <View key={font.id} style={[s.fontRow, compact && s.fontRowCompact]}>
           <Text style={s.itemTitle}>{font.label}</Text>
+          {isAiHandwritingFont(font) && <Text style={s.description}>{AI_FONT_LABEL}</Text>}
           {fontPreview(font)}
         </View>)}
       </View>}

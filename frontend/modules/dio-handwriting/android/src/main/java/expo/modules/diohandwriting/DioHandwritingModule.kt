@@ -137,7 +137,7 @@ class DioHandwritingModule : Module() {
   private fun notify(state: JSONObject) { sendEvent("onProgress", mapOf("job" to state.toString())) }
   private fun validateInput(input: JSONObject) {
     require(input.getString("modelVersion") == modelVersion) { "생성기가 업데이트되어 이 작업은 이어 만들 수 없어요. 저장된 손글씨로 새 작업을 시작해 주세요." }
-    require(input.getString("preprocessVersion") == "dio-ink-fit96-margin4-fp32-v1") { "입력 전처리 버전이 달라요." }
+    require(input.getString("preprocessVersion") == "dio-ink-safe90-margin4-fp32-v2") { "입력 전처리 버전이 달라요." }
     require(Regex("[a-f0-9]{64}").matches(input.getString("inputHash")))
     val inputs = input.getJSONArray("inputs")
     val prompts = "값같곬곶깎넋늪닫닭닻됩뗌략몃밟볘뺐뽈솩쐐앉않얘얾엌옳읊죡쮜춰츄퀭틔핀핥훟"

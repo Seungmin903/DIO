@@ -30,7 +30,10 @@ GOOGLE_SDK_ARTIFACTS = {
     'com.google.android.gms:play-services-base:18.1.0': True,
     'com.google.android.gms:play-services-basement:18.3.0': True,
     'com.google.android.gms:play-services-cloud-messaging:17.2.0': True,
+    'com.google.android.gms:play-services-stats:17.0.2': True,
     'com.google.android.gms:play-services-tasks:18.1.0': True,
+    'com.google.firebase:firebase-iid-interop:17.1.0': True,
+    'com.google.firebase:firebase-measurement-connector:19.0.0': True,
 }
 
 def digest(data): return hashlib.sha256(data).hexdigest()
@@ -200,7 +203,9 @@ def maven_inputs(artifact):
     cached=GRADLE/group/name/version
     pom_files=list(cached.glob('*/*.pom'))
     sources=list(cached.glob('*/*-sources.jar'))
-    base='https://dl.google.com/dl/android/maven/' if group.startswith('androidx.') else 'https://repo.maven.apache.org/maven2/'
+    google_repository = group.startswith(('androidx.', 'com.google.android.gms', 'com.google.firebase',
+                                          'com.google.android.datatransport', 'com.android.installreferrer'))
+    base='https://dl.google.com/dl/android/maven2/' if google_repository else 'https://repo.maven.apache.org/maven2/'
     dest=CACHE/'maven'/group/name/version
     pom=pom_files[0] if pom_files else remote_file(base+prefix+'.pom',dest/(name+'.pom'),True)
     source=sources[0] if sources else remote_file(base+prefix+'-sources.jar',dest/(name+'-sources.jar'),True)

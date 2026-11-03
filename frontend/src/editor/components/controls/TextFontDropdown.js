@@ -3,9 +3,10 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import Svg, { Path } from 'react-native-svg'
 import { bubble, colors } from '../../../shared/theme'
 import { fontLabel, getTextFonts, resolveFontId, subscribeTextFonts, textFontListSnapshot, textStyle } from '../../utils/text'
+import { AI_FONT_LABEL } from '../../../handwriting/aiDisclosure.js'
 import PopoverMenu from '../../../diary/components/PopoverMenu'
 
-const ROW = 44, GROUP = 30, MAX_HEIGHT = 320
+const ROW = 44, AI_ROW = 64, GROUP = 30, MAX_HEIGHT = 320
 
 // 글꼴 이름을 그 글꼴로 보여 준다 (아직 불러오지 못한 앱 글꼴은 기본 글꼴)
 const previewFont = (id) => ({ fontFamily: textStyle({ font: id }, 1, Platform.OS).fontFamily })
@@ -30,7 +31,7 @@ export default function TextFontDropdown({ value, onChange, label = '글꼴', st
     if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => { setAnchor({ x, y, width, height }); setOpen(true) })
     else setOpen(true)
   }
-  const height = Math.min(MAX_HEIGHT, groups.reduce((sum, group) => sum + GROUP + group.fonts.length * ROW, 0)) + 2
+  const height = Math.min(MAX_HEIGHT, groups.reduce((sum, group) => sum + GROUP + group.fonts.reduce((height, font) => height + (font.aiGenerated ? AI_ROW : ROW), 0), 0)) + 2
   return <View style={local.wrap}>
     <View ref={field} collapsable={false}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${label} 선택`} accessibilityState={{ expanded: open }} onPress={() => (open ? setOpen(false) : show())} style={[local.field, style]}>
@@ -43,9 +44,10 @@ export default function TextFontDropdown({ value, onChange, label = '글꼴', st
       <ScrollView style={{ maxHeight: MAX_HEIGHT }} keyboardShouldPersistTaps="handled">
         {groups.map(group => <View key={group.label}>
           <Text accessibilityRole="header" style={local.group}>{group.label}</Text>
-          {group.fonts.map(font => <Pressable key={font.id} accessibilityRole="button" accessibilityLabel={fontLabel(font, Platform.OS)} accessibilityState={{ selected: current.id === font.id }}
-            onPress={() => { setOpen(false); onChange(font.id) }} style={[local.option, current.id === font.id && local.optionSelected]}>
+          {group.fonts.map(font => <Pressable key={font.id} accessibilityRole="button" accessibilityLabel={`${fontLabel(font, Platform.OS)}${font.aiGenerated ? ` · ${AI_FONT_LABEL}` : ''}`} accessibilityState={{ selected: current.id === font.id }}
+            onPress={() => { setOpen(false); onChange(font.id) }} style={[local.option, font.aiGenerated && { height: AI_ROW }, current.id === font.id && local.optionSelected]}>
             <Text style={[local.optionText, previewFont(font.id)]} numberOfLines={1}>{fontLabel(font, Platform.OS)}</Text>
+            {font.aiGenerated && <Text style={local.aiLabel}>{AI_FONT_LABEL}</Text>}
           </Pressable>)}
         </View>)}
       </ScrollView>
@@ -61,5 +63,6 @@ const local = StyleSheet.create({
   group: { height: GROUP, paddingHorizontal: 12, paddingTop: 10, color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   option: { height: ROW, justifyContent: 'center', paddingHorizontal: 12 },
   optionSelected: { backgroundColor: colors.surfaceMuted },
+  aiLabel: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
   optionText: { color: colors.text, fontSize: 16 },
 })

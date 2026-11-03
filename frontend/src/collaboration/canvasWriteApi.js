@@ -1,6 +1,7 @@
 import { createCanvasApi } from './canvasApi.js'
 import { createCanvasElementApi } from './canvasElementApi.js'
 import { isUuid } from './canvasElements.js'
+import { assertCanvasBatchLimits } from './canvasBatchLimits.js'
 
 // Match MemberDiaryListQuery.shared: active memberships, not online presence.
 export function createCanvasWriteApi(transport, media, diaryId) {
@@ -26,6 +27,7 @@ export function createCanvasWriteApi(transport, media, diaryId) {
       return (mode === 'personal' ? personal : shared).load(pageId, expectedDiaryId)
     },
     async prepare(request) {
+      assertCanvasBatchLimits(request.changes, request.expectedVersions)
       const mode = await select()
       const prepared = shared.prepare ? await shared.prepare(request) : request
       return { ...prepared, canvasWriteMode: mode }

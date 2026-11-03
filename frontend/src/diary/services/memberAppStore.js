@@ -15,6 +15,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
   let revision = 0, listing = null, trashListing=null, lifecycleRequest=null, lifecycleRunning=null
   let librarySequence = 0, libraryRequest = null, libraryCursors = new Set(), libraryRetryMore = false, bulkRequest = null, bulkRunning = null
   const metadataVersions = new Map(), detailRequests = new Map()
+  const favoriteRequests = new Map(), favoriteVersions = new Map()
   const version = id => metadataVersions.get(id) ?? 0
   const invalidateDetails = ids => { for (const id of ids) metadataVersions.set(id, version(id) + 1) }
   let queue = Promise.resolve()
@@ -126,6 +127,32 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
   }
   const store = {
     source: 'member-api', keys,
+    toggleFavorite(id) {
+      try { active() } catch (error) { return Promise.reject(error) }
+      if (favoriteRequests.has(id)) return favoriteRequests.get(id)
+      const previous = state.diaries.find(row => row.id === id)
+      if (!writable || !previous) return Promise.reject(failure('NOT_READY', '다이어리 목록을 먼저 확인해 주세요.'))
+      const favorite = !previous.favorite
+      const request = (async () => {
+        const result = await api.setFavorite(id, favorite); active()
+        if (result.id !== id || String(result.userId) !== String(accountId) || result.favorite !== favorite)
+          throw failure('INVALID_RESPONSE', '즐겨찾기 응답의 계정을 확인하지 못했어요.')
+        revision++; invalidateDetails([id]); favoriteVersions.set(id, (favoriteVersions.get(id) ?? 0) + 1)
+        await enqueue(async () => {
+          active()
+          const diaries = state.diaries.map(row => row.id === id ? { ...row, favorite } : row)
+          const items = state.library.items.map(row => row.id === id ? { ...row, favorite } : row)
+            .filter(row => !state.library.criteria.favorite || row.favorite)
+          // The server write already succeeded. Cache/refresh failures must not undo it.
+          emit({ diaries, library: { ...state.library, items } })
+          try { await write(keys.index, diaries); active() } catch (error) { active(); emit({ error }) }
+        })
+        if (serverLibrary) await store.reload().catch(() => {})
+        return state.diaries.find(row => row.id === id)
+      })().catch(error => { active(); throw error }).finally(() => { favoriteRequests.delete(id) })
+      favoriteRequests.set(id, request)
+      return request
+    },
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn) }, getSnapshot: () => state,
     async load() {
       if (writable) return this.reload()
@@ -326,11 +353,15 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
     },
     async update(id, form) {
       active()
+      const favoriteVersion = favoriteVersions.get(id)
       const previous = state.diaries.find(d => d.id === id)
       if (!previous?.canEdit) throw failure('FORBIDDEN', '소유자만 제목과 표지를 수정할 수 있어요.')
       try {
         const result = await api.update(id, { title: form.title, color: form.color, coverStyle: form.pattern ? form.pattern.toUpperCase() : 'PLAIN', expectedVersion: previous.version })
-        active(); const updated = await publish(entry(form.cover ? { ...result, cover: form.cover } : result, previous))
+        active()
+        const metadata = favoriteVersion !== favoriteVersions.get(id)
+          ? { ...result, favorite: state.diaries.find(row => row.id === id)?.favorite } : result
+        const updated = await publish(entry(form.cover ? { ...metadata, cover: form.cover } : metadata, previous))
         if (serverLibrary) await this.reload().catch(() => {})
         return updated
       } catch (error) {

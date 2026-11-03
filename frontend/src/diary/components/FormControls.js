@@ -125,7 +125,7 @@ export function PickerPanel({ value, onChange, label }) {
 /**
  * 견본 + 사용자 지정 한 줄. lead 는 맨 앞 칸(예: 고무줄 '맞춤'), after 는 같은 격자의 다음 줄(예: 바탕 그라데이션).
  * active = false 면 어느 견본도 고른 것으로 보이지 않는다(다른 줄에서 골랐을 때).
- * custom = false 면 맨 끝 사용자 지정 칸을 두지 않는다(아래에 '내 색상' 줄을 따로 둘 때).
+ * custom = false 면 맨 끝 사용자 지정 칸을 두지 않는다(기본 견본만 표시할 때).
  */
 export function ColorRow({ value, onChange, swatches, label, active = true, custom = true, lead = null, after = null, picking: controlled, onPicking }) {
   const [own, setOwn] = useState(false)

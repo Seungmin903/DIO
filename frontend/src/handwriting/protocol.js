@@ -1,5 +1,5 @@
 export const PROMPTS = [...'값같곬곶깎넋늪닫닭닻됩뗌략몃밟볘뺐뽈솩쐐앉않얘얾엌옳읊죡쮜춰츄퀭틔핀핥훟']
-export const PREPROCESS_VERSION = 'dio-ink-fit96-margin4-fp32-v1'
+export const PREPROCESS_VERSION = 'dio-ink-safe90-margin4-fp32-v2'
 export const MODEL_VERSION = 'dmfont-fp32-e5b28ca6-inference-v2'
 export const SYLLABLE_COUNT = 11172
 export const SAMPLE_TEXT = '안녕하세요 좋은 하루 되세요 나만의 손글씨'
@@ -69,18 +69,55 @@ export function inkGeometry(pixels) {
 
 export function prepareSample(sample) {
   const original = rasterize(sample), geometry = inkGeometry(original), [cx, cy] = geometry.center, [x0, y0, x1, y1] = geometry.bounds
-  const safe = Math.min((cx - 4) / (cx - x0), (124 - cx) / (x1 - cx), (cy - 4) / (cy - y0), (124 - cy) / (y1 - cy))
-  if (safe < .8) throw new Error('글씨가 가장자리에 너무 가까워요. 입력칸 안쪽에 다시 써 주세요.')
-  let scale = Math.min(safe, Math.max(.8, Math.min(1.6, 96 / Math.max(x1 - x0, y1 - y0))))
-  let pixels, actual, correction = [0, 0]
-  for (let i = 0; i < 12; i++) {
-    pixels = rasterize(sample, { scale, pivot: geometry.center, correction }); actual = inkGeometry(pixels)
-    if (actual.margin < 4) { scale *= .99; correction = [0, 0]; continue }
-    if (Math.hypot(cx - actual.center[0], cy - actual.center[1]) <= .2) break
-    correction = [correction[0] + cx - actual.center[0], correction[1] + cy - actual.center[1]]
+  const evaluate = scale => {
+    let correction = [0, 0], best = null
+    for (let i = 0; i < 12; i++) {
+      const pixels = rasterize(sample, { scale, pivot: geometry.center, correction })
+      let actual
+      try { actual = inkGeometry(pixels) } catch { return null }
+      const centerError = Math.hypot(cx - actual.center[0], cy - actual.center[1])
+      if (!best || centerError < best.centerError) best = { pixels, actual, correction, centerError }
+      if (centerError <= .2) return { pixels, actual, correction, centerError }
+      if (actual.margin < 4) return null
+      correction = [correction[0] + cx - actual.center[0], correction[1] + cy - actual.center[1]]
+    }
+    // Thin strokes can oscillate across raster cells. Search around the best
+    // correction rather than accepting a drifting centroid or weakening tolerance.
+    for (let y = -4; y <= 4; y++) for (let x = -4; x <= 4; x++) {
+      const correction = [best.correction[0] + x * .05, best.correction[1] + y * .05]
+      const pixels = rasterize(sample, { scale, pivot: geometry.center, correction })
+      const actual = inkGeometry(pixels), centerError = Math.hypot(cx - actual.center[0], cy - actual.center[1])
+      if (actual.margin >= 4 && centerError <= .2) return { pixels, actual, correction, centerError }
+    }
+    return null
   }
-  if (actual.margin < 4 || scale < .8) throw new Error('잘리지 않는 입력 크기를 정하지 못했어요. 다시 써 주세요.')
-  return { original, pixels, metadata: { version: PREPROCESS_VERSION, scale, pivot: geometry.center, correction, bounds: actual.bounds, margin: actual.margin, centerError: Math.hypot(cx - actual.center[0], cy - actual.center[1]) } }
+  const safeResult = result => result && result.actual.margin >= 4
+  // Raster-check the maximum safe scale; every reference uses the same 90% policy.
+  // Bounds give a starting bracket, not a target size or an absolute scale cap.
+  let low = Math.min(1, (cx - 4) / (cx - x0), (124 - cx) / (x1 - cx), (cy - 4) / (cy - y0), (124 - cy) / (y1 - cy))
+  if (!(low > 0)) throw new Error('글씨가 가장자리에 너무 가까워요. 입력칸 안쪽에 다시 써 주세요.')
+  let found = false
+  for (let i = 0; i < 20; i++) {
+    if (safeResult(evaluate(low))) { found = true; break }
+    low *= .8
+  }
+  if (!found) throw new Error('잘리지 않는 입력 크기를 정하지 못했어요. 다시 써 주세요.')
+  let high = low * 2
+  for (let i = 0; safeResult(evaluate(high)); i++) {
+    if (i >= 20) throw new Error('입력 크기를 확인하지 못했어요. 다시 써 주세요.')
+    low = high; high *= 2
+  }
+  for (let i = 0; i < 14; i++) {
+    const mid = (low + high) / 2
+    if (safeResult(evaluate(mid))) low = mid
+    else high = mid
+  }
+  const maximumSafeScale = low
+  let scale = maximumSafeScale * .9, result = evaluate(scale)
+  // Quantization can affect the last pixel of margin even at a smaller scale.
+  for (let i = 0; i < 12 && !safeResult(result); i++) { scale *= .99; result = evaluate(scale) }
+  if (!safeResult(result)) throw new Error('잘리지 않는 입력 크기를 정하지 못했어요. 다시 써 주세요.')
+  return { original, pixels: result.pixels, metadata: { version: PREPROCESS_VERSION, scale, maximumSafeScale, safetyFraction: .9, pivot: geometry.center, correction: result.correction, bounds: result.actual.bounds, margin: result.actual.margin, centerError: result.centerError } }
 }
 
 export function validateDraft(draft, complete = false) {
