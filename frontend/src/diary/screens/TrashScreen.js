@@ -40,7 +40,7 @@ const TrashCard = memo(function TrashCard({ diary, compact, cell, status, urgent
     >
       <View style={[s.trashCover, compact && s.trashCoverCompact]}>
         <Cover diary={diary} grid fill compact={compact} onInset={setCoverInset}>
-          {selecting && <SelectionMark selected={selected} />}
+          {selecting && <SelectionMark selected={selected} compact={compact} />}
         </Cover>
       </View>
       {/* 제목 자리는 홈 한눈에 보기(cardInfoGrid)와 같다: 표지 왼쪽 끝에 맞추고 안쪽 여백 4 · 위 10 */}
@@ -158,13 +158,13 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
   );
 
   const selectionBar = selecting && (
-    <SelectionBar count={selectedRows.length}>
-      <SelectionButton
+    <SelectionBar count={selectedRows.length} compact={compact} done={<SelectionButton compact={compact} ghost label="선택 완료" text="완료" disabled={busy} onPress={finishSelecting} />}>
+      <SelectionButton compact={compact}
         label={allSelected ? '전체 해제' : '전체 선택'}
         disabled={busy || !selectableCount}
         onPress={() => setSelected(allSelected ? [] : selectableIds(rows))}
       />
-      {canBulkRestore && <SelectionButton
+      {canBulkRestore && <SelectionButton compact={compact}
         label={`선택한 ${restorable.length}개 복원`}
         text="복원"
         icon="undo"
@@ -176,7 +176,7 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
           finishSelecting();
         }}
       />}
-      {canBulkDelete && <SelectionButton
+      {canBulkDelete && <SelectionButton compact={compact}
         label={`선택한 ${deletable.length}개 영구 삭제`}
         text="영구 삭제"
         icon="trash"
@@ -184,7 +184,6 @@ export default function TrashScreen({ diaries, onRestore, onDeletePermanently, o
         disabled={busy || !deletable.length}
         onPress={() => latest.current.onDeleteMany(deletable.map(row => row.diary), finishSelecting)}
       />}
-      <SelectionButton label="선택 완료" text="완료" disabled={busy} onPress={finishSelecting} />
     </SelectionBar>
   );
 

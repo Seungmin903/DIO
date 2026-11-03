@@ -93,7 +93,10 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
   // 판 오른쪽 끝은 계정 상태의 대표 행동: 게스트는 `로그인 · 회원가입`, 회원은 `프로필 수정` 윤곽 버튼.
   // 로그인 화면은 지금 화면 위에 덮어 뜨고, 회원가입은 로그인 화면에서 이어 간다
   const loginButton = guest ? <DioButton variant="filled" label="로그인 · 회원가입" onPress={openLogin} block={compact} style={compact ? local.loginCompact : local.login} /> : null;
-  const profileAction = guest ? null : previewUser?.accountId || (authenticatedUser && accountService) ? (
+  // 폰: 프로필 줄 전체가 편집 진입(오른쪽 ›) — 버튼을 빼서 닉네임 · 이메일이 줄임 없이 보인다(코덱스 2026-11-03 시안 A)
+  const canEditProfile = !guest && Boolean(previewUser?.accountId || (authenticatedUser && accountService));
+  const rowEdit = compact && canEditProfile;
+  const profileAction = rowEdit ? null : guest ? null : previewUser?.accountId || (authenticatedUser && accountService) ? (
     <DioButton variant="ghost" outline label="회원정보 수정" text="프로필 수정" icon="edit" onPress={() => setEditing(true)} style={local.editButton} />
   ) : null;
 
@@ -113,29 +116,30 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
       {/* 설정 본문은 다른 화면처럼 좌우 여백까지 꽉 채운다(760 제한은 실기기에서 오른쪽만 비어 좌우가 맞지 않았다). 조작은 모두 오른쪽 끝선 */}
       <View style={local.column}>
       <Header title={settingsPage ? '설정' : '마이페이지'} icon={settingsPage ? 'settings' : 'person'} compact={compact} />
-      {!settingsPage && <View style={[local.identity, compact && local.identityCompact]}>
-        <View style={local.identityRow}>
-          <View style={[local.avatarWrap, compact && local.avatarCompact]}>
-            <View style={[local.avatar, compact && local.avatarCompact]}>
+      {!settingsPage && <View style={[local.identity, compact && local.identityCompact, rowEdit && local.identityRowEdit]}>
+        <Pressable accessibilityRole={rowEdit ? 'button' : undefined} accessibilityLabel={rowEdit ? '회원정보 수정' : undefined} disabled={!rowEdit} onPress={() => setEditing(true)} style={[local.identityRow, rowEdit && { gap: 14 }]}>
+          <View style={[local.avatarWrap, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
+            <View style={[local.avatar, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]}>
               {photoUri && failedPhoto !== photoIdentity
                 ? <Image source={{ ...photoSource, cacheKey: photoCacheKey }}
                     contentFit="cover" cachePolicy="memory"
                     onError={() => {
                       setFailedPhoto(photoIdentity);
-                    }} accessibilityLabel="프로필 사진" style={[local.photo, compact && local.avatarCompact]} />
+                    }} accessibilityLabel="프로필 사진" style={[local.photo, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]} />
                 // 사진이 없을 때의 기본 프로필: 계정 색 동그라미에 모아의 표정(메뉴 아래 프로필과 같은 그림)
-                : <DefaultAvatar user={previewUser} accessibilityLabel="기본 프로필 사진" style={[local.photo, compact && local.avatarCompact]} />}
+                : <DefaultAvatar user={previewUser} accessibilityLabel="기본 프로필 사진" style={[local.photo, compact && (rowEdit ? local.avatarRowEdit : local.avatarCompact)]} />}
             </View>
           </View>
           <View style={local.identityText}>
             <View style={local.nameRow}>
-              <Text numberOfLines={1} style={[local.name, compact && local.nameCompact, local.nameShrink]}>{previewUser?.nickname || '나'}</Text>
+              <Text numberOfLines={1} style={[local.name, compact && local.nameCompact, rowEdit && local.nameRowEdit, local.nameShrink]}>{previewUser?.nickname || '나'}</Text>
             </View>
-            <Text numberOfLines={1} style={local.space}>{previewUser?.bio || (previewUser?.nickname ? `${previewUser.nickname}님의 기록 공간` : '나의 기록 공간')}</Text>
+            <Text numberOfLines={1} style={[local.space, rowEdit && local.spaceRowEdit]}>{previewUser?.bio || (previewUser?.nickname ? `${previewUser.nickname}님의 기록 공간` : '나의 기록 공간')}</Text>
           </View>
           {profileAction}
+          {rowEdit && <AppIcon name="chevron-right" size={24} forText={15} color={colors.primary} />}
           {!compact && loginButton}
-        </View>
+        </Pressable>
         {/* 폰: 이름 줄 아래 판 안에 전폭 한 줄 */}
         {compact && loginButton}
       </View>}
@@ -171,7 +175,11 @@ const local = StyleSheet.create({
   avatarWrap: { width: 72, height: 72 },
   avatar: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 36, backgroundColor: colors.primaryStrong }, // 동그라미(메뉴 아래 프로필 그림과 같은 모양)
   photo: { width: 72, height: 72, borderRadius: 36 },
-  avatarCompact: { width: 48, height: 48, borderRadius: 24 }, // 폰: 이름 · 수정 버튼과 한 줄에 서도록 48(원 페이저 12)
+  avatarCompact: { width: 48, height: 48, borderRadius: 24 }, // 폰 게스트: 48(원 페이저 12)
+  identityRowEdit: { minHeight: 128, gap: 0, columnGap: 0, paddingVertical: 18, paddingHorizontal: 16 }, // 폰 회원: 프로필 줄 전체가 편집 진입(코덱스 시안 A)
+  nameRowEdit: { lineHeight: 28 },
+  spaceRowEdit: { fontSize: 13, lineHeight: 20, fontWeight: '500' },
+  avatarRowEdit: { width: 64, height: 64, borderRadius: 32 },
   name: { color: colors.text, fontSize: 20, lineHeight: 26, fontWeight: '800', letterSpacing: -0.4 },
   nameCompact: { fontSize: 20, lineHeight: 26 },
   space: { color: colors.primaryStrong, fontSize: 14, fontWeight: '600' },

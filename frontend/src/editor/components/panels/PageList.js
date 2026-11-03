@@ -33,7 +33,7 @@ export const PAGE_LIST_WIDTH = 176
  * - 위쪽 탭: 전체 / 북마크(책갈피를 단 페이지). 넓게 보기 버튼은 모든 페이지를 크게 펼친다 (GoodNotes 의 페이지 보기처럼)
  * - 페이지 메뉴: 복제, 삭제 (순서는 썸네일을 길게 눌러 끌어서 바꾼다)
  */
-export default function PageList({ pages, currentId, cropId, onSelect, onAdd, onDuplicate, onSettings, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, edge = false, qaMeasurement = null, thumbnailWork = null, fillHeight = false }) {
+export default function PageList({ phone = false, pages, currentId, cropId, onSelect, onAdd, onDuplicate, onSettings, onToggleIndex, onRemove, onRemovePages, onReset, canUndoDelete = true, onMove, onMovePages, onEmptyTap, readOnly = false, edge = false, qaMeasurement = null, thumbnailWork = null, fillHeight = false }) {
   const openingMeasurement = qaMeasurement
   useLayoutEffect(() => {
     openingMeasurement?.emit('panel-layout')
@@ -94,6 +94,20 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
     autoScroll.current = null
   }
   useEffect(() => stopAutoScroll, [])
+  // 목록을 열면(= 이 목록이 새로 그려지면) 지금 보는 페이지의 썸네일이 바로 보이게 그 자리로 간다. 항목 높이가 제각각이라 못 가면 평균 높이로 먼저 가서 다시 시도한다
+  const revealedCurrent = useRef(false)
+  const revealCurrent = () => {
+    const index = shown.findIndex((page) => page.id === currentId)
+    if (index < 0) return
+    listRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0.3 })
+  }
+  useEffect(() => {
+    if (revealedCurrent.current) return
+    revealedCurrent.current = true
+    const id = setTimeout(revealCurrent, 0)
+    return () => clearTimeout(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const startDrag = (id, from) => {
     const height = layouts.current[id]?.height ?? 0
     // 손가락 위치(목록 화면 기준)는 끄는 썸네일 가운데에서 시작한다고 본다
@@ -187,8 +201,8 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
   const menuTop = Math.max(8, Math.min(rawMenuTop, Math.max(8, panelHeight - menuHeight - 8)))
 
   return (
-    <View ref={panelRef} collapsable={false} style={[styles.panel, edge && styles.panelEdge, fillHeight && { flex: 1 }]} onLayout={(event) => { openingMeasurement?.emit('panel-native-layout'); setPanelHeight(event.nativeEvent.layout.height) }}>
-      <View style={styles.header}>
+    <View ref={panelRef} collapsable={false} style={[styles.panel, edge && styles.panelEdge, phone && styles.panelPhone, fillHeight && { flex: 1 }]} onLayout={(event) => { openingMeasurement?.emit('panel-native-layout'); setPanelHeight(event.nativeEvent.layout.height) }}>
+      <View style={[styles.header, phone && styles.headerPhone]}>
         {/* 여러 개 고르기 중에는 탭 줄이 'N개 선택 · 해제' 로 바뀐다 (같은 높이라 목록이 밀리지 않는다) */}
         {pickMode ? (
           <View style={styles.pickBar}>
@@ -225,6 +239,10 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         keyExtractor={(page) => page.id}
         contentContainerStyle={styles.list}
         scrollEnabled={!drag}
+        onScrollToIndexFailed={({ index, averageItemLength }) => {
+          listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false })
+          setTimeout(revealCurrent, 60)
+        }}
         onScroll={(event) => {
           scrollOffset.current = event.nativeEvent.contentOffset.y
           setScrollY(event.nativeEvent.contentOffset.y)
@@ -309,7 +327,7 @@ export default function PageList({ pages, currentId, cropId, onSelect, onAdd, on
         </EditorModal>
       )}
       {!readOnly && !pickMode && (
-        <Pressable onPress={onAdd} style={({ pressed }) => [styles.add, pressed && styles.addPressed]} accessibilityRole="button" accessibilityLabel="페이지 추가">
+        <Pressable onPress={onAdd} style={({ pressed }) => [styles.add, phone && styles.addPhone, pressed && styles.addPressed]} accessibilityRole="button" accessibilityLabel="페이지 추가">
           <Icon name="plus" size={20} color={colors.primaryText} />
         </Pressable>
       )}
@@ -488,6 +506,9 @@ const styles = StyleSheet.create({
   editText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   editPressed: {}, // 눌림 효과 없음(사용자 지시)
   panel: { width: PAGE_LIST_WIDTH, flexShrink: 0, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.58)', overflow: 'visible', zIndex: 3 },
+  // 폰 세로: 레이어 패널과 같은 바탕(앱 바탕색) · 같은 구분선
+  // 슬롯이 왼쪽 8 에서 시작하므로 음수 여백을 8 로 줄여 패널 왼쪽을 화면 끝(0)에 맞춘다 → 목록 좌우 여백이 24 · 24 로 같아진다
+  panelPhone: { backgroundColor: colors.surfaceSoft, marginLeft: -(EDGE_INSET - 8) },
   // 태블릿: 레이어 패널처럼 화면 왼쪽 · 위아래 끝까지 붙이고 안쪽 끝에 구분선. 바깥 여백(16)만큼 넓혀 덮어 오른쪽 끝은 그대로이고, 안쪽은 좌우 24 로 같게 둔다
   panelEdge: {
     width: PAGE_LIST_WIDTH + EDGE_INSET,
@@ -574,4 +595,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   addPressed: {}, // 눌림 효과 없음(사용자 지시)
+  // 폰 세로: 위(탭 줄) · 아래(+) 여백도 좌우 24 와 같게 맞춘다(실측 후 위 24 · 아래 24)
+  headerPhone: { paddingTop: 23 },
+  addPhone: { marginBottom: 31 },
 })

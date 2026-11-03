@@ -46,8 +46,8 @@ export function PageTurnAction({ direction, index, count, onSelect }) {
 
 // fitted: 이미 화면에 맞춰진 상태면 맞춤 버튼을 비활성화한다
 // 편집 화면 작업창 안에 띄운다. 왼쪽 아래 되돌리기 · 자동 저장 막대와 같은 모양(버튼 36 · 아이콘 19 · 가는 구분선)
-export function ReadingModeControls({ reading, canEdit, fitted = false, onFit, onToggle, controlsRef, onLayout }) {
-  return <View ref={controlsRef} onLayout={onLayout} style={styles.modeControls}>
+export function ReadingModeControls({ reading, canEdit, fitted = false, onFit, onToggle, controlsRef, onLayout, style }) {
+  return <View ref={controlsRef} onLayout={onLayout} style={[styles.modeControls, style]}>
     <Action small icon="fit" label="화면에 맞춤" disabled={fitted} onPress={onFit} />
     {canEdit && <>
       <View style={styles.modeDivider} />

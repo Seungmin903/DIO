@@ -46,8 +46,6 @@ function SideRail({ page, filter, navigate, bottomInset = 0, topInset = 0, compa
   const labelOpacity = progress.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0, 0, 1] });
   // 삼선 메뉴의 점은 메뉴가 열리기 시작하면 바로 꺼지고, 알림 아이콘의 점은 글자와 함께 나타난다.
   const dotOpacity = progress.interpolate({ inputRange: [0, 0.3, 1], outputRange: [1, 0, 0] });
-  // 폰: 접힌 폭에도 알림 종이 삼선 아래에 보인다. 펼치면 위 줄(로고 · 종 · 삼선)로 옮겨 가므로 이 종은 접힌 동안만 둔다.
-  const collapsedBellOpacity = progress.interpolate({ inputRange: [0, 0.3, 1], outputRange: [1, 0, 0] });
 
   const summary = notificationCount ? notificationCountLabel(notificationCount.data) : null;
   const showDot = summary ? summary.showDot : invitationCount > 0;
@@ -141,24 +139,9 @@ function SideRail({ page, filter, navigate, bottomInset = 0, topInset = 0, compa
         >
           <AppIcon name="menu" size={compact ? 22 : 24} color={C.ink} />
           {/* 메뉴가 접혀 알림 버튼이 보이지 않을 때만 삼선 메뉴에 점을 둔다. 펼치면 점이 알림 아이콘으로 옮겨 간다. */}
-          {showDot && !compact && <Animated.View testID="menu-notification-dot" pointerEvents="none" style={[s.railDot, s.railMenuDot, { opacity: dotOpacity }]} />}
+          {showDot && <Animated.View testID="menu-notification-dot" pointerEvents="none" style={[s.railDot, s.railMenuDot, { opacity: dotOpacity }]} />}
         </Pressable>
       </Animated.View>
-      {compact && onNotifications && (
-        <Animated.View pointerEvents={collapsed ? 'auto' : 'none'} style={{ height: between(44, 0), marginBottom: between(4, 0), opacity: collapsedBellOpacity, overflow: 'hidden' }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${notificationLabel}${countDescription}${needsCheck}`}
-            accessibilityElementsHidden={!collapsed}
-            importantForAccessibility={collapsed ? 'auto' : 'no-hide-descendants'}
-            onPress={onNotifications}
-            style={[s.railToggle, s.railTogglePhone]}
-          >
-            <AppIcon name="bell" size={22} color={C.ink} />
-            {showDot && <View testID="collapsed-notification-dot" pointerEvents="none" style={[s.railDot, s.railBellDotPhone]} />}
-          </Pressable>
-        </Animated.View>
-      )}
       <Animated.View style={[s.railGroup, compact && s.railGroupPhone]}>
         {LIBRARY_SCOPES.map(scope => item('library', scope.label, scope.icon, scope.id))}
         {item('studio', '꾸미기 공방', 'workshop')}

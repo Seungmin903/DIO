@@ -29,6 +29,7 @@ function harness(path, dependencies = {}) {
     if (id === 'expo/virtual/env') return { env: {} }
     if (id.startsWith('@babel/runtime/')) return expo(id)
     if (id.includes('jsx-runtime')) return { jsx, jsxs: jsx }
+    if (id.endsWith('/FadeScroll')) return { __esModule: true, default: 'ScrollView' } // 그라데이션 래퍼는 ScrollView 로 대신 읽는다
     if (id === 'react-native') return { View: 'View', Image: 'Image', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', useWindowDimensions: () => ({ width: 1280, height: 800 }), StyleSheet: { create: v => v, absoluteFill: {} } }
     if (id === 'react-native-svg') return { __esModule: true, default: 'Svg', Circle: 'Circle', Path: 'Path', Rect: 'Rect', Text: 'SvgText' }
     if (id.endsWith('/theme')) return { colors: {}, radius: {}, DISABLED_OPACITY: 0.4 }

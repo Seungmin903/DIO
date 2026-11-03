@@ -90,7 +90,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
         <Cover diary={diary} small={layout === 'list'} carousel={layout === 'carousel'} grid={layout === 'grid'} fill={layout === 'grid'} compact={compact} large={large} centered={large}
           frame={layout === 'carousel' ? (carouselActive ? 'active' : 'idle') : null} onInset={layout === 'list' ? null : setCoverInset}>
         {/* 스와이프의 표지 프레임(가운데 표지는 흰 3px + 그림자, 옆 표지는 얇은 라벤더 2px)은 표지 크기에서 모서리를 계산하는 Cover 가 그린다 */}
-        {selecting && diary.canManage !== false && diary.canDelete !== false && <SelectionMark selected={selected} />}
+        {selecting && diary.canManage !== false && diary.canDelete !== false && <SelectionMark selected={selected} compact={compact} />}
         {showTools && <Pressable
           accessibilityRole="button"
           accessibilityLabel={diary.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
@@ -98,7 +98,7 @@ function DiaryCard({ diary, pageCount, layout = 'grid', compact = false, large =
           accessibilityState={{ disabled: !onFavorite }}
           hitSlop={12}
           onPress={(event) => { event.stopPropagation(); onFavorite?.(diary.id); }}
-          style={[s.cardFavorite, !onFavorite && { opacity: DISABLED_OPACITY }]}
+          style={[s.cardFavorite, compact && s.cardFavoriteCompact, !onFavorite && { opacity: DISABLED_OPACITY }]}
         >
           {/* 안 칠한 별의 흰 윤곽은 80%로 한 단계 낮춘다(원 페이저 06). 밝은 표지 위 남색 윤곽 · 칠한 별은 그대로 */}
           <FavoriteStar filled={!!diary.favorite} outline={!diary.favorite && starOutlineFor(diary) === '#FFFFFF' ? 'rgba(255,255,255,0.8)' : starOutlineFor(diary)} />

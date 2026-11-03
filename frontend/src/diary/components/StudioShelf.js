@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import AppIcon from '../../shared/AppIcon';
 import { colors } from '../../shared/theme';
+import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/FadeScroll';
 import CoverArt from './CoverArt';
 import { PdfPageThumb } from './PdfImport';
 
@@ -28,7 +29,7 @@ export default function StudioShelf({ kind, items, onRemove, onRename, onOpen })
     if (name && name !== item.name) onRename?.(item, name);
   };
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={local.row}>
+    <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} contentContainerStyle={local.row}>
       {items.map(item => {
         const paper = kind === 'paper';
         const slot = item.orientation === 'landscape' ? WIDE_SLOT : SLOT;
@@ -64,7 +65,7 @@ export default function StudioShelf({ kind, items, onRemove, onRename, onOpen })
           </View>
         );
       })}
-    </ScrollView>
+    </FadeScroll>
   );
 }
 

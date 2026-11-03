@@ -366,7 +366,6 @@ export default function ProfileEditScreen({
               </Text>
               <SettingCard compact={compact}>
                 {saved.email && <InfoRow label="이메일" value={saved.email} />}
-                <InfoRow label="로그인 방식" value={PROVIDER_NAMES[saved.provider] || '소셜'} />
                 {saved.provider === 'email' && (
                   <Pressable
                     accessibilityRole="button"

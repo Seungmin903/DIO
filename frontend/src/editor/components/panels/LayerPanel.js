@@ -620,6 +620,8 @@ const LayerThumb = memo(function LayerThumb({ object }) {
 
 // 레이어 패널 기본 폭. 태블릿은 상단바 오른쪽 묶음 폭을 받아 왼쪽 끝을 공유 버튼에 맞춘다(EditorScreen layerWidth)
 export const LAYER_PANEL_WIDTH = 280
+// 폰 세로: 패널이 오른쪽 약 70%를 덮으면 왼쪽 되돌리기 · 저장됨 막대(약 126dp)가 잘린다. 폭을 줄여(보이는 폭 216 = 200 + 바깥 여백 16) 막대가 옆에 들어오게 한다(사용자 결정 2026-11-03).
+export const LAYER_PANEL_COMPACT_WIDTH = 200
 
 const styles = StyleSheet.create({
   rowCarried: { opacity: 0.4 },
