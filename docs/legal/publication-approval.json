@@ -1,0 +1,12 @@
+{
+  "approvedBy": null,
+  "approvedAt": null,
+  "checks": {
+    "retentionDeployment": false,
+    "overseasTransfer": false,
+    "deletionOperations": false,
+    "versionHistory": true,
+    "publicAccess": false
+  },
+  "sourceHashes": {}
+}

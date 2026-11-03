@@ -21,6 +21,8 @@ const AUTO_SCROLL_MAX_SPEED = 14 // 한 번(16ms)에 넘기는 최대 px
 
 // 왼쪽 페이지 목록 폭. 열고 닫을 때 작업창 크기를 한 번에 맞추는 데도 쓴다 (EditorScreen)
 export const PAGE_LIST_WIDTH = 176
+// 목록이 뜨기 전 자리 잡기용: 목록 패널과 같은 바깥 크기
+export const pageListFrame = edge => [styles.panel, edge && styles.panelEdge]
 
 /**
  * 페이지 목록. 같은 원본으로 표시하되 웹의 무거운 썸네일은 축소 캐시를 재사용한다.

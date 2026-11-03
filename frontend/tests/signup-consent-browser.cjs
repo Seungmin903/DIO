@@ -34,6 +34,19 @@ const server = http.createServer((req, res) => {
       assert.equal(await underage.getAttribute('aria-checked'), 'false');
       assert.equal(await page.getByRole('textbox', { name: '이메일', exact: true }).count(), 0);
       assert.equal(await page.getByText(/생년월일은 받지 않아요/).count(), 0);
+      await page.getByRole('button', {name:'[필수] 이용약관 동의 내용 보기',exact:true}).click();
+      await page.getByRole('heading',{name:'DIO 서비스 이용약관',exact:true}).waitFor();
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
+      await page.screenshot({path:path.join(out,`legal-document-${width}.png`)});
+      await page.getByRole('button',{name:'동의하고 돌아가기',exact:true}).click();
+      assert.equal(await page.getByRole('checkbox',{name:'[필수] 이용약관 동의',exact:true}).getAttribute('aria-checked'),'true');
+      assert.equal(await page.getByRole('checkbox',{name:'[필수] 개인정보 수집·이용 동의',exact:true}).getAttribute('aria-checked'),'false');
+      await page.getByRole('button',{name:'[필수] 개인정보 수집·이용 동의 내용 보기',exact:true}).click();
+      await page.getByRole('button',{name:'문서 닫기',exact:true}).click();
+      assert.equal(await page.getByRole('checkbox',{name:'[필수] 개인정보 수집·이용 동의',exact:true}).getAttribute('aria-checked'),'false');
+      await page.getByRole('button',{name:'개인정보처리방침 보기',exact:true}).click();
+      assert.equal(await page.getByRole('button',{name:'동의하고 돌아가기',exact:true}).count(),0);
+      await page.getByRole('button',{name:'닫기',exact:true}).click();
       await page.getByRole('checkbox', { name: '필수 항목 전체 동의', exact: true }).click();
       assert.equal(await next.isDisabled(), true);
       await age.click();
@@ -46,8 +59,10 @@ const server = http.createServer((req, res) => {
       await page.getByRole('checkbox', {name:'[선택] 광고성 이메일 수신 동의',exact:true}).click();
       for (const label of ['마케팅 목적 개인정보 수집·이용 동의', '광고성 이메일 수신 동의', '광고성 앱 푸시 수신 동의', '야간 광고성 앱 푸시 수신 동의']) {
         await page.getByRole('button', { name: `${label} 내용 보기`, exact: true }).click();
+        await page.getByRole('button', { name: '동의하고 돌아가기', exact: true }).waitFor();
+        await page.getByRole('button', { name: '문서 닫기', exact: true }).click();
       }
-      assert.equal(await page.evaluate(() => window.__openedLegalDocuments.length), 4);
+
       assert.equal(await next.isDisabled(), false);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
       await page.screenshot({ path: path.join(out, `eligibility-${width}.png`), fullPage: true });
@@ -69,6 +84,6 @@ const server = http.createServer((req, res) => {
       await page.getByRole('heading', { name: '지금은 가입할 수 없어요', exact: true }).waitFor();
     }
     assert.deepEqual(errors, []);
-    console.log('PASS: 3 viewports, explicit age radios, underage stop for email/social, no email before confirmation, no DOB, no browser errors');
+    console.log('PASS: 3 viewports, explicit age radios, underage stop for email/social, no email before confirmation, no DOB, native legal reader, targeted consent, close-only policy, no browser errors');
   } finally { await browser?.close(); await new Promise(resolve => server.close(resolve)); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

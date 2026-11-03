@@ -2,86 +2,85 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import * as settings from '../src/editor/utils/penSettings.js'
-import { colorPickerPlacement } from '../src/editor/utils/colorPickerPlacement.js'
-
-const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
-function load(file, nativeView = {}) {
-  let refs = 0
-  const code = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/' + file, import.meta.url), 'utf8'), {
-    configFile: false, babelrc: false,
-    plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
-  }).code
-  const mocks = {
-    react: { useRef: value => ({ current: refs++ === 0 ? nativeView : value }), useEffect() {}, useState: initial => [typeof initial === 'function' ? initial() : initial, () => {}] },
-    // RN 0.88 exposes absoluteFill only; the removed alias must not be mocked in.
-    'react-native': { Platform: { OS: 'ios' }, useWindowDimensions: () => ({ width: 390, height: 844 }), View: 'view', Pressable: 'pressable', Text: 'text', ScrollView: 'scroll', StyleSheet: { create: value => value, absoluteFill: { position:'absolute',left:0,right:0,top:0,bottom:0 } } },
-    'react-native-safe-area-context': { useSafeAreaInsets: () => ({}) },
-  }
-  const module = { exports: {} }
-  new Function('require', 'module', 'exports', code)(id => {
-    if (mocks[id]) return mocks[id]
-    if (id === 'react/jsx-runtime') return require(id)
-    if (id.endsWith('/penSettings')) return settings
-    if (id.endsWith('/useRecentPenColors')) return { useRecentPenColors: () => [] }
-    if (id.endsWith('/usePalettes')) return { usePalette: () => ({ colors: settings.EDITOR_COLORS }) }
-    if (id.endsWith('/colorPickerPlacement.js')) return { colorPickerPlacement }
-    if (id.endsWith('/ToolPanel')) return { toolPanelStyles: {}, Segmented: 'segmented', ToolPanelHeader: 'header' }
-    if (id.endsWith('/MyColorPresets')) return { __esModule: true, default: 'presets', MAX_PRESETS: 14, useColorPresets: () => ({ presets: [], loaded: false, add() {} }) }
-    if (id.endsWith('/theme')) return { colors: {}, shadow: { float: {} } }
-    if (id === '@react-native-async-storage/async-storage') return { __esModule: true, default: { getItem: () => new Promise(() => {}) } }
-    return { __esModule: true, default: id }
-  }, module, module.exports)
-  return module.exports.default
+const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'))
+function load(file, overrides={}){
+ const {code}=expo('@babel/core').transformSync(readFileSync(new URL('../src/'+file,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]})
+ const module={exports:{}}
+ const mocks={react:{useRef:value=>({current:value}),useState:value=>[typeof value==='function'?value():value,()=>{}],useEffect(){}},'react-native':{Platform:{OS:'ios'},View:'view',ScrollView:'scroll',Pressable:'button',Text:'text',useWindowDimensions:()=>({width:390,height:844}),StyleSheet:{create:v=>v}},...overrides}
+ new Function('require','module','exports',code)(id=>{
+  if(mocks[id])return mocks[id]
+  if(id==='react/jsx-runtime')return require(id)
+  if(id.endsWith('/theme'))return {colors:{},bubble:{}}
+  if(id.endsWith('/usePalettes'))return {tapeColors:()=>({bg:'#111111',fg:'#222222'})}
+  if(id.endsWith('/eyedropper'))return {eyedropperMode:'screenTap'}
+  return {__esModule:true,default:id}
+ },module,module.exports)
+ return module.exports.default
 }
-const nodes = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)]
+const nodes=node=>node&&typeof node==='object'?[node,...[node.props?.children].flat(Infinity).flatMap(nodes)]:[]
 
-test('측정 메서드가 없거나 콜백이 오지 않아도 +는 즉시 창 열기를 요청한다', () => {
-  for (const view of [{}, { measureInWindow() {} }]) {
-    const open = [], Component = load('PenSettings.js', view)
-    const tree = Component({ settings: settings.DEFAULT_PEN_SETTINGS, onOpenColorPicker: anchor => open.push(anchor) })
-    tree.props.onLayout()
-    nodes(tree).find(node => node.type === 'presets').props.onRequestPicker()
-    assert.deepEqual(open, [null])
-  }
+test('기본 색 복원 실패 후 재시도 중과 성공 후에는 이전 오류를 지운다',async()=>{
+ const state=[];let cursor=0,fail=true,finish
+ const palette={edited:true,reset(){return fail?Promise.reject(Error('write failed')):new Promise(resolve=>{finish=()=>{palette.edited=false;resolve()}})}}
+ const Component=load('diary/components/StudioPresets.js',{
+  react:{useState:initial=>{const i=cursor++;if(!(i in state))state[i]=initial;return [state[i],value=>{state[i]=value}]}},
+  '../../editor/hooks/usePalettes':{usePalette:()=>palette},
+ })
+ const group=Component({}).props.children('100%')[0]
+ const render=()=>{cursor=0;return group.type(group.props)}
+ const reset=tree=>nodes(tree)[1].props.right.props.onPress()
+ const alert=tree=>nodes(tree).find(n=>n.props?.accessibilityRole==='alert')
+ let tree=render();assert.equal(alert(tree),undefined)
+ await reset(tree);tree=render();const failure=alert(tree);assert.ok(failure)
+ fail=false;const pending=reset(tree);tree=render();assert.equal(alert(tree),undefined)
+ finish();await pending;tree=render();assert.equal(alert(tree),undefined)
+ assert.equal(nodes(tree)[1].props.right,null)
+ assert.equal(failure.props.style.fontSize,12.5)
+})
+test('팔레트 편집은 네이티브 위치 측정이 없거나 늦어도 즉시 공용 창 열기를 요청한다',()=>{
+ const open=[];const Component=load('editor/components/controls/EditablePalette.js',{'../../hooks/usePalettes':{usePalette:()=>({colors:['#123456'],loaded:true,replace(){}})}})
+ const tree=Component({scope:'pen',label:'펜',initiallyEditing:true,onOpenEditor:value=>open.push(value)})
+ const button=nodes(tree).find(n=>n.props?.accessibilityLabel==='펜 팔레트 1번 색 편집');button.props.ref({measureInWindow(){}});button.props.onLayout();button.props.onPress()
+ assert.equal(open.length,1);assert.equal(open[0].anchor,null);assert.equal(open[0].title,'펜 색')
+})
+test('공용 창은 닫기·HEX 옆 아이콘을 제공하고 별도 저장·내 색상 버튼 없이 최신 색을 확정한다',async()=>{
+ const saved=[];const Component=load('diary/components/PresetColorEditor.js')
+ const tree=Component({title:'글자 색',value:'#123456',onDone:color=>saved.push(color),onClose(){}})
+ const children=nodes(tree)
+ assert.ok(children.find(n=>n.props?.accessibilityLabel==='글자 색 창 닫기'))
+ const picker=children.find(n=>n.type.endsWith?.('/ColorPicker'))
+ assert.ok(picker.props.trailing)
+ assert.equal(nodes(picker.props.trailing).some(n=>n.type==='text'),false)
+ picker.props.onChange('#654321');await tree.props.onClose();assert.deepEqual(saved,['#654321'])
 })
 
-test('위치 측정이 준비되면 설정 옆 배치에 사용할 앵커를 전달한다', () => {
-  const open = [], Component = load('PenSettings.js', { measureInWindow: callback => callback(20,100,320,400) })
-  const tree = Component({ settings: settings.DEFAULT_PEN_SETTINGS, onOpenColorPicker: anchor => open.push(anchor) })
-  tree.props.onLayout(); nodes(tree).find(node => node.type === 'presets').props.onRequestPicker()
-  assert.deepEqual(open, [{ x:20,y:100,width:320,height:400 }])
+
+test('직접 지정 원은 기존 7칸을 바꾸지 않고 현재 펜 색에만 적용한다',async()=>{
+ const open=[],picked=[],replaced=[]
+ const Component=load('editor/components/controls/EditablePalette.js',{'../../hooks/usePalettes':{usePalette:()=>({colors:Array(7).fill('#123456'),loaded:true,replace:(...args)=>replaced.push(args)})}})
+ const tree=Component({scope:'pen',label:'펜',value:'#654321',allowDirect:true,onPick:c=>picked.push(c),onOpenEditor:r=>open.push(r)})
+ const buttons=nodes(tree).filter(n=>n.type==='button')
+ assert.equal(buttons.filter(n=>n.props.accessibilityLabel.startsWith('펜 색상 ')).length,7)
+ buttons.find(n=>n.props.accessibilityLabel==='펜 색 직접 지정').props.onPress()
+ assert.equal(open[0].value,'#654321');await open[0].onDone('#ABCDEF')
+ assert.deepEqual(picked,['#ABCDEF']);assert.deepEqual(replaced,[])
 })
 
-test('네이티브 측정 전 첫 렌더부터 색 창과 스포이트 버튼이 존재한다', () => {
-  for (const view of [{}, { measureInWindow() {} }]) {
-    const Component = load('PenColorPicker.js', view)
-    const tree = Component({ anchor:null, scope:'pen', value:'#123456' })
-    assert.equal(tree.props.collapsable, false)
-    assert.deepEqual(tree.props.style[0], { position:'absolute',left:0,right:0,top:0,bottom:0,zIndex:90 })
-    tree.props.onLayout({ nativeEvent: { layout: { width:390,height:844 } } })
-    const card = nodes(tree).find(node => node.props?.testID === 'pen-color-picker')
-    assert.ok(card)
-    const position = card.props.style[1]
-    assert.ok(position.left >= 0 && position.left + position.width <= 390)
-    assert.ok(nodes(tree).find(node => node.props?.accessibilityLabel === '펜 스포이트'))
-  }
-})
-
-test('RN 0.88에서 스포이트와 터치 입력 층 모두 실제 화면 크기를 채운다', () => {
-  const Component = load('EyedropperOverlay.js', { measureInWindow() {} })
-  const tree = Component({ request: { width:100,height:100,zoom:1,origin:{x:0,y:0},viewport:{width:100,height:100},offset:{x:0,y:0},screen:{width:390,height:844} } })
-  const input = nodes(tree).find(node => node.props?.testID === 'eyedropper-input')
-  for (const style of [tree.props.style,input.props.style]) {
-    assert.equal(style.position,'absolute')
-    for(const edge of ['top','right','bottom','left']) assert.equal(style[edge],0)
-  }
-})
-
-test('프리셋 저장소 복원을 기다리는 동안에도 독립 색 창의 +를 누를 수 있다', () => {
-  const Component = load('controls/MyColorPresets.js'), called = []
-  const tree = Component({ value:'#123456', onRequestPicker: () => called.push(true) })
-  const button = nodes(tree).find(node => node.props?.accessibilityLabel === '새 색상 고르기')
-  assert.equal(button.props.disabled, false)
-  button.props.onPress(); assert.deepEqual(called, [true])
+test('팔레트 불러오기 실패 후 재시도가 성공하면 이전 오류와 재시도 안내를 없앤다',async()=>{
+ const state=[];let cursor=0,fail=true
+ const palette={colors:['#123456'],loaded:false,async retry(){if(fail)throw Error('read failed');this.loaded=true}}
+ const Component=load('editor/components/controls/EditablePalette.js',{
+  react:{useRef:value=>({current:value}),useState:initial=>{
+   const index=cursor++;if(!(index in state))state[index]=initial
+   return [state[index],next=>{state[index]=typeof next==='function'?next(state[index]):next}]
+  }},
+  '../../hooks/usePalettes':{usePalette:()=>palette},
+ })
+ const render=()=>{cursor=0;return Component({scope:'pen',label:'펜',value:'#123456'})}
+ const retry=tree=>nodes(tree).find(n=>n.props?.accessibilityLabel==='펜 팔레트 다시 불러오기')
+ const errorShown=tree=>nodes(tree).some(n=>n.type==='text'&&n.props.children==='팔레트를 불러오지 못했어요.')
+ let tree=render();assert.ok(retry(tree));assert.equal(errorShown(tree),false)
+ await retry(tree).props.onPress();tree=render();assert.equal(errorShown(tree),true)
+ fail=false;await retry(tree).props.onPress();tree=render()
+ assert.equal(palette.loaded,true);assert.equal(errorShown(tree),false);assert.equal(retry(tree),undefined)
 })

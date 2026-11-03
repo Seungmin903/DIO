@@ -1,0 +1,44 @@
+# 법적 문서 게시·앱 릴리스 확인
+
+이 문서는 내부 운영용이다. `final/`의 본문만 사용자에게 제공한다. `app-release-20261103/`, `v2/`, README, 검토 보고서, 질문지, 승인 파일, JSON 및 저장소 전체는 정적 호스팅에 올리지 않는다. noindex·배너는 접근 제한 수단이 아니다. 현재 CI·Nginx에는 이 문서 폴더를 정적 사이트로 배포하는 경로가 없다.
+
+## 공개·동의 버전 이력
+
+- 작성자 확인: 이전 SERVICE/PRIVACY v2 문서는 공개하거나 동의받은 이력이 없다(이번 리뷰 질의에 대한 답변). 따라서 이번 최초 공개 후보의 v2를 유지한다. 서버의 v2 설정이나 테스트 회원 행 자체를 공개 문서에 대한 유효한 동의 증빙으로 간주하지 않는다.
+- 서버·앱 기본값은 SERVICE/PRIVACY v2, 선택 항목 v1이다. 실제 배포 환경의 버전 설정도 앱과 맞춘다. 기존 동의 행을 임의로 고치거나 삭제하지 않는다.
+- 최초 공개 시 승인된 문서 해시·버전·실제 공개 시각·시행일을 운영 기록에 남기고 공개된 원문을 보존한다. 이후 내용 변경은 같은 버전을 덮어쓰지 않는다. 필요한 안내와 재동의 범위는 변경 내용에 따라 검토한다.
+- 시행일은 요청한 2026-11-04이다. 실제 최초 제공이 더 늦어져 적용일을 변경해야 하면 Markdown·앱 내장본·공개 문서와 함께 조정한다. 과거 시각으로 동의를 기록하지 않는다.
+
+## 게시 승인 조건
+
+1. `retentionDeployment`: 본문의 보유·파기 약속과 실행 중인 배포가 일치해야 한다. 원격 develop `be6a501f`에는 `EmailInviteExpiry`의 이메일 초대 7일 만료, `InvitationRetentionCleanup`과 `NotificationRetentionCleanup`의 정리 구현이 존재한다. 이는 실행 서버 적용의 증거가 아니다. 해당 배포 버전·V28/V29 적용·정리 실행·삭제 결과를 확인한다. 초대/삭제 알림 정리는 기본 활성(1시간 간격, 최초 15분 후)이지만 실제 값도 확인한다. 휴지통·미디어·푸시 정리와 외부 발송 활성 여부는 별도로 확인한다. 실패·정리 지연을 모니터링하고 수동 파기를 포함한 대응을 마련한다.
+2. `overseasTransfer`: Gmail은 실제 이용 중이다. 제공자 공식 방침만으로 DIO에 적용되는 모든 처리 국가·제공자 보유 기간·법적 근거가 확정되는 것은 아니다. 이전받는 자·연락처·국가·항목·목적·시점/방법·기간·거부 방법과 영향 및 적용 근거를 운영자가 확정해야 한다. 외부 링크나 일반 가입 동의로 국외 이전의 별도 요건을 충족했다고 보지 않는다. Expo는 발송 비활성과 기기 토큰 발급·전송 비활성을 구분한다. 전송을 시작하는 경우 APNs/FCM을 포함해 확인한다. 확인할 수 없는 범위를 추정해 미국 한 국가·즉시 삭제로 적지 않는다. 미해결 상태에서는 공개 준비 완료로 승인하지 않는다.
+3. `deletionOperations`: [삭제 요청 운영 절차](deletion-operations.md)에 따라 메일 수신·담당자 확인·본인 확인·삭제·결과 통지를 실제로 시험한다. 정리 배치가 꺼져 있거나 담당자 부재로 요청이 방치되면 승인하지 않는다.
+4. `versionHistory`: 위 공개 이력을 확인하고 최초 공개 해시를 등록한다. 이미 같은 버전의 다른 문서가 공개·동의된 사실이 확인되면 승인 취소 후 새 버전으로 조정한다.
+5. `publicAccess`: 승인 예정 공개본을 로그인·Basic Auth 없이 읽기 전용으로 열 수 있고, 운영자·앱명·본문·시행일이 앱과 일치하는지 확인한다. Google Docs는 공개 뷰어/웹 게시로 확인한다. 공개 링크 설정은 이 코드가 변경하지 않는다.
+
+## 생성·검증·전달
+
+```sh
+python docs/legal/build_app_release.py
+python docs/legal/build_final.py
+python -m unittest discover -s docs/legal/tests -v
+```
+
+`build_app_release.py`는 이전 검토 묶음만 재생성한다. 앱과 최종 게시 문서의 수정 원본은 `final/*.md`, 생성기는 `build_final.py`이다. 생성기는 ZIP을 만들지 않으며 바이너리 묶음을 커밋하지 않는다.
+
+`publication-approval.json`의 미확인 값은 false로 남긴다. 확인 증거는 개인정보·토큰 없이 별도 제한된 운영 기록에 보관한다. 완료 후 승인자·승인일, 5개 검사 결과와 `final/app-documents.json`의 8개 `sourceSha256`을 `sourceHashes`에 문서 id별로 등록한다. 모두 확인하기 전 true로 바꾸지 않는다.
+
+```sh
+python docs/legal/build_final.py --publish-dir .local-data/legal-public-approved
+```
+
+명령은 미승인·누락·원문 해시 변경 시 실패한다. 승인되면 새 폴더에 허용한 HTML 9개만 복사한다. 내부 문서·JSON·MD·ZIP은 포함하지 않는다. 서버에는 이 출력 폴더만 게시한다. 기존 사이트를 직접 덮어쓰지 않으며 별도 배포 승인이 필요하다.
+
+Google Docs 공개를 택해도 같은 승인 조건을 적용한다. 앱에서 본문을 읽게 하는 것 또한 이용자 제공이므로 스토어 URL 게시만 미뤄서는 해결되지 않는다. 앱 릴리스 역시 승인 조건을 충족한 뒤 진행한다. Google Docs를 고친 뒤 앱 JSON도 다시 생성하고 본문을 대조한다.
+
+## 공식 근거 확인
+
+- [개인정보 보호법 제28조의8](https://www.law.go.kr/LSW/lsLinkCommonInfo.do?chrClsCd=010202&lsJoLnkSeq=1034515803): 국외 이전 근거를 구분한다. 계약 이행에 필요한 처리위탁·보관의 고지 경로도 구체적인 법정 고지 사항을 생략하는 근거가 아니다.
+- [Google 개인정보처리방침](https://policies.google.com/privacy?hl=ko), [보유·삭제 안내](https://policies.google.com/technologies/retention?hl=ko): 다국가 처리와 데이터별 보유·삭제 절차를 안내한다. DIO 개인 Gmail의 국가 전체 목록이나 고정 SLA는 확인되지 않았다.
+- [Expo 방침](https://expo.dev/privacy), [푸시 FAQ](https://docs.expo.dev/push-notifications/faq/): 본문은 전달에 필요한 동안 메모리·큐에서 처리한다. 모든 토큰·로그가 즉시 삭제되거나 미국에서만 처리된다는 뜻은 아니다.

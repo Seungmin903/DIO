@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeHex, PEN_TYPES, penPressure, createPenPressureSampler, readPenForce } from '../src/editor/utils/penSettings.js'
+import { normalizeHex, PEN_TYPES, penPressure, createPenPressureSampler, readPenForce, sanitizeHighlighterSettings, sanitizePenSettings } from '../src/editor/utils/penSettings.js'
 import { createStroke, penContour, PENCIL_GRAIN, strokeOutline } from '../src/editor/utils/strokes.js'
 import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 import { createInitialState, getCurrentPage } from '../src/editor/state/editorReducer.js'
@@ -121,4 +121,26 @@ test('필압 미지원·잘못된 값·마우스를 구분하고 해제의 0으�
   assert.equal(actual.sample({}), before, '일시적인 센서값 누락은 마지막 실측값을 유지한다')
   assert.ok(actual.sample({ force: 0.05 }, 0, 16) < before)
   assert.deepEqual(actual.report(), { source: 'force', samples: 2, min: 0.05, max: 0.6 })
+})
+
+test('저장된 펜 설정 검사: 정상 값은 그대로, 범위 밖 · 손상 값은 기본값으로', () => {
+  assert.deepEqual(sanitizePenSettings({ kind: 'pencil', color: '#a33c4b', width: 5, opacity: 0.8 }), { kind: 'pencil', color: '#A33C4B', width: 5, opacity: 0.8 })
+  assert.deepEqual(sanitizePenSettings({ kind: 'fountain', color: 'x', width: 99 }), { kind: 'ball', color: '#18224D', width: 16, opacity: 1 })
+  assert.equal(sanitizePenSettings(null), undefined)
+  assert.equal(sanitizePenSettings({ kind: 'pencil' }).opacity, 0.8, '불투명도가 없으면 그 펜의 기본값')
+  assert.deepEqual(sanitizeHighlighterSettings({ color: '#F6C79B', width: 2, lineCap: 'round' }), { kind: 'highlighter', color: '#F6C79B', width: 8, lineCap: 'round' })
+})
+
+test('환경설정: 기울기를 끄면 눕혀도 굵기가 같다', () => {
+  const lying = { pointerType: 'pen', pressure: 0.3, tiltX: 45, tiltY: 45 }
+  assert.ok(createPenPressureSampler('ball').sample(lying) > createPenPressureSampler('ball', true, false).sample(lying))
+})
+
+test('환경설정: 필압을 끄면 손힘을 읽지 않는다', () => {
+  const pen = { pointerType: 'pen', pressure: 0.6 }
+  const on = createPenPressureSampler('pencil'), off = createPenPressureSampler('pencil', false)
+  on.sample(pen); off.sample(pen)
+  assert.equal(on.force(), 0.6)
+  assert.equal(off.force(), null)
+  assert.equal(off.sample(pen), penPressure('pencil'))
 })

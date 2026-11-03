@@ -6,6 +6,42 @@ import { penPressure } from '../src/editor/utils/penSettings.js'
 import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 import { createEraserSession } from '../src/editor/utils/eraser.js'
 import { createInitialState, editorReducer, getCurrentPage } from '../src/editor/state/editorReducer.js'
+import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
+import * as feltStroke from '../src/editor/utils/feltStroke.js'
+import * as materials from '../src/editor/utils/penMaterials.js'
+
+const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
+function feltContent(props) {
+  const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/FeltStrokeContent.js', import.meta.url), 'utf8'), {
+    configFile: false, babelrc: false,
+    plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
+  })
+  const module = { exports: {} }
+  new Function('require', 'module', 'exports', code)((id) => {
+    if (id === 'react') return { useMemo: fn => fn() }
+    if (id === 'react-native-svg') return { Path: 'Path' }
+    if (id.endsWith('/feltStroke')) return feltStroke
+    if (id.endsWith('/penMaterials')) return materials
+    if (id.endsWith('/completedStrokeGeometry')) return { completedStrokeGeometry: {} }
+    return require(id)
+  }, module, module.exports)
+  return module.exports.default(props)
+}
+
+test('펠트펜은 누적 농도가 처음 30%를 넘는 겹 하나만 꽉 찬 색으로 그린다', () => {
+  const points = [{ x: 10, y: 10 }, { x: 60, y: 30 }, { x: 120, y: 20 }]
+  const old = feltContent({ points, width: 12, color: '#123456', renderVersion: 2 })
+  assert.equal(old.type, 'Path')
+  assert.equal(old.props.fill, '#123456')
+  assert.equal(old.props.opacity, undefined)
+  assert.equal(old.props.d, feltStrokeLayers([{ points }], 12)[4])
+  const material = feltContent({ points, width: 12, color: '#123456', renderVersion: 3, materialSeed: 7 })
+  const layers = materials.feltMaterialLayers([{ points }], 12, 7)
+  let clear = 1
+  const expected = materials.FELT_MATERIAL_OPACITIES.findIndex(opacity => 1 - (clear *= 1 - opacity) >= 0.3)
+  assert.equal(material.props.d, layers[expected])
+})
 
 test('펠트펜은 탭과 짧은 획도 둥글고 유한한 경계 안에 표시하고 저장 후 같은 재질을 유지한다', () => {
   for (const width of [1, 8, 16]) for (const points of [

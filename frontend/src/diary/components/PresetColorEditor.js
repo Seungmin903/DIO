@@ -1,104 +1,82 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import ColorPicker from '../../editor/components/controls/ColorPicker';
-import EyedropperOverlay from '../../editor/components/controls/EyedropperOverlay';
-import EyedropperIcon from '../../editor/components/controls/EyedropperIcon';
-import { tapeColors } from '../../editor/hooks/usePalettes';
-import { eyedropperMode, openBrowserEyedropper } from '../../editor/utils/eyedropper';
-import { bubble, colors, DISABLED_OPACITY } from '../../shared/theme';
-import PopoverMenu from './PopoverMenu';
+import { useEffect, useRef, useState } from 'react'
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import ColorPicker from '../../editor/components/controls/ColorPicker'
+import EyedropperOverlay from '../../editor/components/controls/EyedropperOverlay'
+import EyedropperIcon from '../../editor/components/controls/EyedropperIcon'
+import Icon from '../../editor/components/controls/Icon'
+import { tapeColors } from '../../editor/hooks/usePalettes'
+import { eyedropperMode, openBrowserEyedropper } from '../../editor/utils/eyedropper'
+import { bubble, colors } from '../../shared/theme'
+import PopoverMenu from './PopoverMenu'
 
-const WIDTH = 340;
-
-/**
- * 색 하나를 고르는 창(말풍선). 누른 견본 옆(아래, 자리가 없으면 위)에 뜬다. 꾸미기 공방 프리셋 · 내 색상과 편집기 옵션의 내 색상 + 가 같이 쓴다.
- * 완료 버튼은 두지 않는다: 바깥을 누르거나 뒤로 가기로 닫으면 마지막에 고른 색으로 onDone 한다(사용자 결정 2026-11-02). 회전으로 닫히면 바꾸지 않는다.
- * tape 이면 바탕색 · 무늬색을 골라 바꾼다(결과는 'custom:#바탕:#무늬'). slots(예: ['위 색', '아래 색'])를 주면 value · 결과가 색 배열이다(그라데이션). 나머지는 '#RRGGBB' 하나.
- * anchor: 견본의 창 안 자리, value: 처음 값, original: 원래(기본) 색 — '원래대로'가 이 색으로 되돌린다, onDone(value), onClose()
- * onChange(value): 고르는 동안 바로 적용할 때(편집기 펜 · 글자 색). onRemove: 있으면 오른쪽에 '지우기'(내 색상).
- * original 이 null 이면(새 색 추가) '원래대로'가 없고, 닫을 때 늘 그 색을 넣는다.
- * 스포이드: 앱은 창을 잠깐 숨기고 화면에서 손가락을 대고 끈 자리의 색을, 웹은 브라우저 스포이드(지원할 때만)로 고른다.
- */
-export default function PresetColorEditor({ title, tape = false, slots = null, anchor = null, value, original = value, onDone, onClose, onChange, onRemove = null }) {
-  // 여러 색을 한 창에서 고르는 칸: 테이프(바탕 · 무늬) · 그라데이션(위 · 아래)
-  const names = tape ? ['바탕색', '무늬색'] : slots;
-  const toList = v => (tape ? (({ bg, fg }) => [bg, fg])(tapeColors(v)) : slots ? [...v] : [v]);
-  const fromList = list => (tape ? `custom:${list[0]}:${list[1]}` : slots ? list : list[0]);
-  const [colorsNow, setColors] = useState(() => toList(value));
-  const [slot, setSlot] = useState(0);
-  const [dropping, setDropping] = useState(false);
-  const current = colorsNow[slot];
+// All color entry points share this UI. Normal close commits; rotation dismisses.
+export default function PresetColorEditor({ title, tape = false, slots = null, anchor = null, value, original = value, onDone, onClose, onChange, onEyedropper }) {
+  const window = useWindowDimensions()
+  const [keyboardTop,setKeyboardTop] = useState(null)
+  useEffect(() => {
+    const show = Keyboard?.addListener('keyboardDidShow', event => setKeyboardTop(event.endCoordinates?.screenY ?? null))
+    const hide = Keyboard?.addListener('keyboardDidHide', () => setKeyboardTop(null))
+    return () => { show?.remove(); hide?.remove() }
+  }, [])
+  const names = tape ? ['바탕색', '무늬색'] : slots
+  const toList = v => tape ? (({ bg, fg }) => [bg, fg])(tapeColors(v)) : slots ? [...v] : [v]
+  const fromList = list => tape ? `custom:${list[0]}:${list[1]}` : slots ? list : list[0]
+  const [list, setList] = useState(() => toList(value)), latest = useRef(list)
+  const [slot, setSlot] = useState(0), [dropping, setDropping] = useState(false)
+  const [saving, setSaving] = useState(false), closing = useRef(false), [error, setError] = useState(null)
   const pick = hex => {
-    const next = colorsNow.map((color, i) => (i === slot ? hex : color));
-    setColors(next);
-    onChange?.(fromList(next));
-  };
-  const base = original == null ? toList(value) : toList(original);
-  const changed = colorsNow.some((color, i) => color !== base[i]);
-  // 닫을 때 저장: 새 색(original null)은 늘 넣고, 고친 색은 바뀌었을 때만
-  const close = () => { if (original == null || changed) onDone(fromList(colorsNow)); else onClose(); };
+    const next = latest.current.map((color, i) => i === slot ? hex : color)
+    latest.current = next; setList(next); onChange?.(fromList(next))
+  }
+  const close = async () => {
+    if (closing.current) return
+    const base = toList(original ?? value)
+    if (original != null && latest.current.every((color,i) => color === base[i])) { onClose(); return }
+    closing.current = true; setSaving(true); setError(null)
+    try { await onDone(fromList(latest.current)) }
+    catch { setError('색상을 저장하지 못했어요. 다시 시도해 주세요.') }
+    finally { closing.current = false; setSaving(false) }
+  }
   const dropper = async () => {
-    if (eyedropperMode === 'browser') { const hex = await openBrowserEyedropper(); if (hex) pick(hex); return; }
-    setDropping(true);
-  };
-  // 스포이드: 창을 숨기고 덮개에서 손가락을 대고 끄는 동안 루페로 보여 주고, 떼면 그 색
-  if (dropping) return <EyedropperOverlay original={current} onCancel={() => setDropping(false)} onPick={hex => { setDropping(false); pick(hex); }} />;
-  // 말풍선 왼쪽 끝을 누른 견본 왼쪽에 맞춘다(PopoverMenu 는 기준의 오른쪽 끝에 맞추므로 기준 폭을 말풍선 폭으로 준다). 높이는 실제 크기에 맞춰 아래 자리를 먼저 쓴다
-  return (
-    <PopoverMenu open anchor={anchor ? { ...anchor, width: WIDTH } : null} width={WIDTH} height={names ? 400 : 340} label={title} style={local.bubble} onClose={close} onDismiss={onClose}>
-      <View style={local.head}>
-        <View style={[local.preview, { backgroundColor: colorsNow[0] }]}>{colorsNow[1] ? <View style={[local.previewInner, { backgroundColor: colorsNow[1] }]} /> : null}</View>
-        <Text accessibilityRole="header" style={local.title} numberOfLines={1}>{title}</Text>
-        {/* 머리 오른쪽: '원래대로'(새 색 추가에는 없음) · '지우기'(내 색상 고칠 때만). 스포이드 버튼과 같은 규격(사용자 2026-11-02: 아래 큰 버튼은 어색) */}
-        {original != null && <Pressable accessibilityRole="button" accessibilityLabel="이 색 원래대로" accessibilityState={{ disabled: !changed }} disabled={!changed}
-          onPress={() => { setColors(base); onChange?.(fromList(base)); }} style={[local.smallButton, !changed && local.smallOff]}>
-          <Text style={local.smallText}>원래대로</Text>
-        </Pressable>}
-        {onRemove && <Pressable accessibilityRole="button" accessibilityLabel="이 색 지우기" onPress={onRemove} style={local.smallButton}>
-          <Text style={local.smallText}>지우기</Text>
-        </Pressable>}
-      </View>
-      {names && <View style={local.slots} accessibilityRole="radiogroup">
-        {names.map((name, i) => (
-          <Pressable key={name} accessibilityRole="radio" accessibilityLabel={`${name} 바꾸기`} accessibilityState={{ checked: slot === i }}
-            onPress={() => setSlot(i)} style={[local.slot, slot === i && local.slotOn]}>
-            <View style={[local.slotDot, { backgroundColor: colorsNow[i] }]} />
-            <Text style={[local.slotText, slot === i && local.slotTextOn]}>{name}</Text>
-          </Pressable>
-        ))}
-      </View>}
-      {/* 스포이드: HEX 줄 끝의 회색 바탕 버튼(아이콘 + 글자). 머리 구석의 아이콘만으로는 누르는 기능인지 알기 어려웠다(사용자 2026-11-02) */}
-      <ColorPicker value={current} label={names ? `${title} ${names[slot]}` : title} onChange={pick}
-        trailing={eyedropperMode && <Pressable accessibilityRole="button" accessibilityLabel="스포이드로 화면에서 색 가져오기" hitSlop={{ top: 3, bottom: 3 }} onPress={dropper} style={local.dropper}>
-          <EyedropperIcon size={18} color={colors.primaryText} />
-          <Text style={local.dropperText}>스포이드</Text>
-        </Pressable>} />
-    </PopoverMenu>
-  );
+    // Wait for the keyboard to leave before taking the full-screen snapshot.
+    if (Keyboard.isVisible?.()) await new Promise(resolve => {
+      let timer
+      const finish = () => { clearTimeout(timer); subscription.remove(); resolve() }
+      const subscription = Keyboard.addListener('keyboardDidHide', finish)
+      timer = setTimeout(finish, 800)
+      Keyboard.dismiss()
+    })
+    else Keyboard.dismiss()
+    if (onEyedropper) {
+      setDropping(true)
+      try { const color = await onEyedropper(); if (color) pick(color) }
+      finally { setDropping(false) }
+    } else if (eyedropperMode === 'browser') {
+      const color = await openBrowserEyedropper(); if (color) pick(color)
+    } else setDropping(true)
+  }
+  if (dropping) return onEyedropper ? null : <EyedropperOverlay original={list[slot]} onCancel={() => setDropping(false)} onPick={hex => { setDropping(false); pick(hex) }} />
+  const width = Math.min(340, window.width - 24)
+  const height = Math.min(names ? 460 : 410, Math.min(window.height, keyboardTop ?? window.height) - 24)
+  return <PopoverMenu open keyboardAware availableHeight={keyboardTop} anchor={anchor ? { ...anchor, width } : null} width={width} height={height} label={title} style={s.bubble} onClose={close} onDismiss={onClose}>
+    <View style={s.head}>
+      <Text accessibilityRole="header" style={s.title} numberOfLines={1}>{title}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${title} 창 닫기`} disabled={saving} onPress={close} style={s.close}><Icon name="close" size={18} color={colors.primaryText} /></Pressable>
+    </View>
+    <ScrollView pointerEvents={saving ? 'none' : 'auto'} keyboardShouldPersistTaps="handled" style={{maxHeight:height-50}} contentContainerStyle={s.body}>
+      {names && <View style={s.slots} accessibilityRole="radiogroup">{names.map((name,i) => <Pressable key={name} accessibilityRole="radio" accessibilityLabel={`${name} 바꾸기`} accessibilityState={{checked:slot===i}} onPress={() => setSlot(i)} style={[s.slot,slot===i&&s.slotOn]}>
+        <View style={[s.slotDot,{backgroundColor:list[i]}]} /><Text style={s.slotText}>{name}</Text>
+      </Pressable>)}</View>}
+      <ColorPicker value={list[slot]} label={names ? `${title} ${names[slot]}` : title} onChange={pick}
+        trailing={(onEyedropper || eyedropperMode) && <Pressable accessibilityRole="button" accessibilityLabel="스포이드로 화면에서 색 가져오기" disabled={saving} hitSlop={3} onPress={dropper} style={s.dropper}><EyedropperIcon size={18} color={colors.primaryText} /></Pressable>} />
+      {saving && <Text style={s.notice}>저장 중이에요.</Text>}
+      {error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
+    </ScrollView>
+  </PopoverMenu>
 }
-
-const local = StyleSheet.create({
-  bubble: { ...bubble, gap: 14, padding: 20 },
-  // 머리 한 줄: [지금 색 32] 10 [제목] (코덱스 2026-11-02, 색 창 통일)
-  head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  preview: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
-  previewInner: { position: 'absolute', right: 4, bottom: 4, width: 10, height: 10, borderRadius: 5 },
-  title: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.text },
-  // HEX 입력칸과 같은 높이 38
-  // 스포이드는 회색 바탕 버튼(막대 ± 와 같은 면)으로 따로 둔다(사용자 2026-11-02)
-  dropper: { height: 38, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 9, backgroundColor: colors.surfaceMuted },
-  dropperText: { fontSize: 12.5, fontWeight: '700', color: colors.primaryText },
-  // 머리 오른쪽 작은 버튼(원래대로 · 지우기): 스포이드와 같은 높이 · 둥글기 · 글자, 면은 예전 '원래대로'(DioButton ghost outline)처럼 투명 + primary 1px 테두리(사용자 2026-11-02)
-  smallButton: { height: 38, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 9, borderWidth: 1, borderColor: colors.primary },
-  smallOff: { opacity: DISABLED_OPACITY },
-  smallText: { fontSize: 12.5, fontWeight: '700', color: colors.primaryText },
-  slots: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: colors.surfaceMuted },
-  slot: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12 },
-  slotOn: { backgroundColor: colors.surface },
-  slotDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: colors.border },
-  slotText: { fontSize: 14, fontWeight: '700', color: colors.primaryText },
-  slotTextOn: { color: colors.text },
-});
+const s = StyleSheet.create({
+ bubble:{...bubble,padding:0,overflow:'hidden'},head:{minHeight:50,flexDirection:'row',alignItems:'center',paddingLeft:20,paddingRight:4,borderBottomWidth:1,borderBottomColor:colors.border},title:{flex:1,fontSize:17,fontWeight:'700',color:colors.text},close:{width:44,height:44,alignItems:'center',justifyContent:'center'},body:{padding:20,gap:14},dropper:{width:38,height:38,alignItems:'center',justifyContent:'center',borderRadius:9,backgroundColor:colors.surfaceMuted},slots:{flexDirection:'row',gap:4,padding:4,borderRadius:12,backgroundColor:colors.surfaceMuted},slot:{flex:1,minHeight:44,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,borderRadius:9},slotOn:{backgroundColor:colors.surface},slotDot:{width:16,height:16,borderRadius:8,borderWidth:1,borderColor:colors.border},slotText:{fontSize:13,fontWeight:'700',color:colors.primaryText},notice:{fontSize:12,color:colors.textMuted},error:{fontSize:12,color:colors.dangerStrong}
+})
 
 /** 색 창 제목: '{대상} 색' 하나로(코덱스 2026-11-02). '테두리 색상' → '테두리 색', '채우기' → '채우기 색' */
 export function colorTitle(label) {
@@ -111,10 +89,18 @@ export function colorTitle(label) {
  * props 는 PresetColorEditor 와 같다(title 은 colorTitle 로 맞춘다). 닫히면 onDone/onClose 뒤에 스스로 닫힌다.
  */
 export function useColorWindow() {
-  const [state, setState] = useState(null);
-  const open = (ref, props) => ref?.current?.measureInWindow?.((x, y, width, height) => setState({ ...props, anchor: { x, y, width, height } }));
+  const [state, setState] = useState(null), serial = useRef(0)
+  const open = (ref, props) => {
+    const id = ++serial.current
+    setState({ ...props, anchor:null, id })
+    ref?.current?.measureInWindow?.((x,y,width,height) => {
+      if ([x,y,width,height].every(Number.isFinite) && width > 0 && height > 0)
+        setState(current => current?.id === id ? {...current,anchor:{x,y,width,height}} : current)
+    })
+  }
+  const dismiss = () => setState(current => current?.id === state.id ? null : current)
   const element = state && <PresetColorEditor {...state} title={colorTitle(state.title)}
-    onDone={value => { state.onDone?.(value); setState(null); }}
-    onClose={() => { state.onClose?.(); setState(null); }} />;
-  return { open, element, isOpen: Boolean(state) };
+    onDone={async value => { await state.onDone?.(value); dismiss() }}
+    onClose={() => { state.onClose?.(); dismiss() }} />
+  return { open, element, isOpen:Boolean(state) }
 }

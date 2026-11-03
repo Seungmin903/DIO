@@ -1,3 +1,4 @@
+import { isAiHandwritingFont } from '../../handwriting/aiDisclosure.js'
 export const TEXT_FONT_SIZE = 28
 export const TEXT_LINE_HEIGHT = 38
 // 줄간격 기본값 (글자 크기 대비). 예전 텍스트의 38/28 과 같다.
@@ -66,7 +67,7 @@ let personalFonts = [], allFonts = TEXT_FONTS, fontListRevision = 0
 export const getTextFonts = () => allFonts
 export const textFontListSnapshot = () => fontListRevision
 export function registerPersonalTextFonts(fonts) {
-  personalFonts = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family)).map(f => ({ id: f.id, label: f.label, family: f.family, personal: true }))
+  personalFonts = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family)).map(f => ({ id: f.id, label: f.label, family: f.family, personal: true, aiGenerated: isAiHandwritingFont(f) }))
   allFonts = [...TEXT_FONTS, ...personalFonts]
   fontListRevision++
   fontListeners.forEach(listener => listener())
@@ -130,6 +131,20 @@ export function textFontChangePatch(settings, id, platform) {
 export const TEXT_COLORS = ['#18224D', '#9B3E4B', '#856D2A', '#4F7553', '#4C7896', '#75579A', '#666D7A']
 // letterSpacing: 자간(글자 크기 대비 비율, 0.1 = 10%), lineSpacing: 줄간격(글자 크기 대비 배수), strike: 취소선
 export const DEFAULT_TEXT_SETTINGS = { font: 'nanum-gothic', fontSize: 18, color: '#18224D', bold: false, italic: false, underline: false, strike: false, textAlign: 'left', letterSpacing: 0, lineSpacing: DEFAULT_LINE_SPACING }
+
+// 저장된 글자 기본값 검사: 항목마다 기본값과 같은 종류(문자열 · 숫자 · 참거짓)일 때만 받는다
+export function sanitizeTextDefaults(saved) {
+  if (!saved || typeof saved !== 'object') return undefined
+  const kept = {}
+  for (const [key, fallback] of Object.entries(DEFAULT_TEXT_SETTINGS)) {
+    const value = saved[key]
+    if (typeof value !== typeof fallback) continue
+    if (typeof value === 'number' && !(Number.isFinite(value) && Math.abs(value) <= 1000)) continue
+    if (typeof value === 'string' && value.length > 64) continue
+    kept[key] = value
+  }
+  return { ...DEFAULT_TEXT_SETTINGS, ...kept }
+}
 
 export function textSettings(object) {
   return { ...DEFAULT_TEXT_SETTINGS, ...Object.fromEntries(Object.keys(DEFAULT_TEXT_SETTINGS).filter((key) => object?.[key] != null).map((key) => [key, object[key]])), fontSize: object?.fontSize ?? (object?.type === 'text' ? TEXT_FONT_SIZE : 18) }

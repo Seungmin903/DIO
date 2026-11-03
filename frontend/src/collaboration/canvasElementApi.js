@@ -1,5 +1,6 @@
 import { decodeElement, sharedElement, isUuid as uuid } from './canvasElements.js'
 import { createCanvasApi, stable } from './canvasApi.js'
+import { assertCanvasBatchLimits } from './canvasBatchLimits.js'
 
 const invalid = () => { throw Object.assign(Error('캔버스 요소 응답을 확인하지 못했어요.'), { code: 'INVALID_CANVAS_ELEMENTS' }) }
 const conflict = () => { throw Object.assign(Error('서버 요소가 달라졌어요. 최신 내용을 확인한 뒤 다시 시도해 주세요.'), { status: 409, code: 'CANVAS_ELEMENT_VERSION_CONFLICT' }) }
@@ -57,6 +58,7 @@ export function createCanvasElementApi(transport, media) {
     remove: (pageId, elementId) => single('DELETE', pageId, elementId),
     restore: (pageId, elementId) => single('POST', pageId, elementId, null, '/restore'),
     async batch(pageId, body) {
+      assertCanvasBatchLimits(body)
       const response = await transport({ method: 'POST', path: `${root(pageId)}/batch`, body })
       if (!Array.isArray(response?.items)) invalid()
       const rows = response.items.map(row => check(row, pageId))
@@ -64,6 +66,7 @@ export function createCanvasElementApi(transport, media) {
       return supported(rows)
     },
     async apply(pageId, request) {
+      assertCanvasBatchLimits(request.changes, request.expectedVersions)
       const rows = await list(pageId), byId = new Map(rows.map(row => [row.elementId, row]))
       const creates = [], updates = [], deleteElementIds = [], restoreElementIds = []
       for (const value of request.changes.creates ?? []) {

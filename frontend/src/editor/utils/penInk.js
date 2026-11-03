@@ -12,7 +12,11 @@ export function inkOpacity(kind, distance, { length = Infinity, continuing = fal
 
 const BRUSH_LEVELS = Array.from({ length: 41 }, (_, i) => 0.56 + i * 0.01)
 const fullInkLevels = kind => kind === 'fountain' ? [1] : BRUSH_LEVELS
+// 만년필 · 붓펜은 잉크 농도 변화 없이 불투명도 100으로 그린다(사용자 결정 2026-11-02). 이미 그린 획도 같다.
+// 단계를 하나(1)로 두면 모든 조각이 한 Path 에 모여 겹침 · 이음에서도 같은 색이다. 예전 단계 표는 되돌릴 때를 위해 남겨 둔다.
+const SOLID_INK = true
 export function inkLevels(kind, renderVersion = 2, preview = false) {
+  if (SOLID_INK) return [1]
   const full = fullInkLevels(kind, renderVersion)
   if (!preview || kind === 'fountain') return full
   return Array.from({ length: 8 }, (_, i) => full[Math.round(i * (full.length - 1) / 7)])

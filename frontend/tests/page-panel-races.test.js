@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createPageCloseScheduler } from '../src/editor/utils/pageCloseScheduler.js'
-import { reusableThumbnailPrefix } from '../src/editor/utils/thumbnailProgress.js'
+import { hasUnseenThumbnailObjects, revealThumbnailObjects, visibleThumbnailObjects } from '../src/editor/utils/thumbnailProgress.js'
 
 test('닫기 두 프레임 사이 화면 전환 또는 재열기 시 이전 폭 복원은 실행되지 않는다', () => {
   let serial = 0, completed = 0
@@ -22,13 +22,15 @@ test('닫기 두 프레임 사이 화면 전환 또는 재열기 시 이전 폭 
   assert.equal(scheduler.pending(), false)
 })
 
-test('연속 추가는 표시된 앞부분을 유지하고 변경·삭제된 부분부터만 다시 표시한다', () => {
-  const a = {}, b = {}, c = {}, d = {}
-  assert.equal(reusableThumbnailPrefix([a,b,c], [a,b,c,d], 3), 3)
-  assert.equal(reusableThumbnailPrefix([a,b,c], [a,b,c,d], 2), 2)
-  assert.equal(reusableThumbnailPrefix([a,b,c], [a,{},c], 3), 1)
-  assert.equal(reusableThumbnailPrefix([{ id: 'a' }, { id: 'b' }], [{ id: 'a', x: 1 }, { id: 'b' }], 2), 2)
-  assert.equal(reusableThumbnailPrefix([{ id: 'a' }, { id: 'b' }], [{ id: 'b' }, { id: 'a' }], 2), 0)
-  assert.equal(reusableThumbnailPrefix([a,b,c], [a], 3), 1)
-  assert.equal(reusableThumbnailPrefix([a,b,c], [], 3), 0)
+test('썸네일은 이미 보인 요소를 바뀌거나 중간이 지워져도 유지하고 새 요소만 나눠 보탠다', () => {
+  const [a, b, c, d, e] = ['a', 'b', 'c', 'd', 'e'].map(id => ({ id }))
+  const shown = new Set(['a', 'b', 'c'])
+  assert.deepEqual(visibleThumbnailObjects([a, b, c, d], shown).map(o => o.id), ['a', 'b', 'c'], '새 요소는 아직 안 보인다')
+  assert.deepEqual(visibleThumbnailObjects([a, c, d], shown).map(o => o.id), ['a', 'c'], '중간 요소가 지워져도 나머지는 그대로')
+  assert.deepEqual(visibleThumbnailObjects([a, { id: 'b', x: 1 }, c], shown).map(o => o.id), ['a', 'b', 'c'], '내용이 바뀐 요소도 그대로 보인다')
+  assert.deepEqual([...revealThumbnailObjects([a, b, c, d, e], shown, 1)], ['a', 'b', 'c', 'd'], '새 요소는 앞에서부터 count 개')
+  assert.deepEqual([...revealThumbnailObjects([a, c, d, e], shown, 3)], ['a', 'c', 'd', 'e'], '사라진 id 는 버린다')
+  assert.equal(hasUnseenThumbnailObjects([a, b, c], shown), false)
+  assert.equal(hasUnseenThumbnailObjects([a, b, d], shown), true)
+  assert.deepEqual(visibleThumbnailObjects([d, e], shown), [], '전부 바뀌면 처음부터 나눠 그린다')
 })

@@ -12,6 +12,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.f106.DIO",
+      "usesAppleSignIn": true,
       "supportsTablet": true,
       "requireFullScreen": true,
       "config": {
@@ -69,7 +70,14 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.180873138469-94fobh49akflvnq8lof6o8da5hj06dh8"
+        }
+      ]
     ],
     "extra": {
       "eas": {

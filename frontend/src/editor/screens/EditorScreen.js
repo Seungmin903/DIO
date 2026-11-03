@@ -20,7 +20,7 @@ import DecorDrawer from '../components/panels/DecorDrawer'
 import Icon from '../components/controls/Icon'
 import LayerPanel, { LAYER_PANEL_COMPACT_WIDTH, LAYER_PANEL_WIDTH } from '../components/panels/LayerPanel'
 import MorePanel from '../components/panels/MorePanel'
-import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
+import PageList, { PAGE_LIST_WIDTH, pageListFrame } from '../components/panels/PageList'
 import PageSettingsDialog from '../components/panels/PageSettingsDialog'
 import PagePanelVisibility from '../components/panels/PagePanelVisibility'
 import { createThumbnailWorkQueue } from '../utils/thumbnailWorkQueue.js'
@@ -30,8 +30,7 @@ import PhoneSheet from '../components/chrome/PhoneSheet'
 import PhoneSidePanel from '../components/chrome/PhoneSidePanel'
 import PhoneCornerButtons from '../components/chrome/PhoneCornerButtons'
 import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail } from '../components/chrome/PhoneToolbar'
-import EyedropperOverlay from '../components/EyedropperOverlay'
-import PenColorPicker from '../components/PenColorPicker'
+import PresetColorEditor from '../../diary/components/PresetColorEditor'
 import PenSettings from '../components/PenSettings'
 import { shapeTextSettings, shapeTextFormatPatch } from '../utils/editorShapes'
 import EraserSettings from '../components/EraserSettings'
@@ -59,6 +58,7 @@ import { DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
 import { usePenSettings } from '../hooks/usePenSettings'
 import { recordPenColorUse } from '../hooks/useRecentPenColors'
 import { useReadingPreviews } from '../hooks/useReadingPreviews'
+import { useToolPreference } from '../utils/toolPreferences'
 import SaveIndicator from '../components/controls/SaveIndicator'
 import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
@@ -124,6 +124,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
   const qaHistoryExecutions = useRef(0)
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
+  // 내용을 불러온 뒤 상단바 · 패널 폭이 한 번 더 바뀐다. 측정이 잠잠해지면 페이지를 처음 그린다(그 뒤로는 그대로 둔다)
+  const [pageReady, setPageReady] = useState(false)
   const page = getCurrentPage(state)
   // 앨범을 고르는 동안 동기화로 바뀐 내용을 덮지 않게, await 뒤에는 이 최신 페이지를 읽는다
   const pageNow = useRef(page)
@@ -196,7 +198,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [pageMenuRequest, setPageMenuRequest] = useState(null)
   useEffect(() => { setPageMenuRequest(null) }, [page.id, activeTool])
   const [lassoSettingsOpen, setLassoSettingsOpen] = useState(false)
-  const [lasso, setLasso] = useState({ shape: 'rectangle', mode: 'replace' })
+  // 올가미 모양은 기기에 기억하고(다른 도구를 갔다 와도 그대로), 더하기 · 빼기 모드만 올가미를 쓸 때마다 처음으로 돌아간다
+  const [lassoShape, setLassoShape] = useToolPreference('lassoShape', 'rectangle')
+  const [lassoMode, setLassoMode] = useState('replace')
+  const lasso = useMemo(() => ({ shape: lassoShape, mode: lassoMode }), [lassoShape, lassoMode])
+  const setLasso = useCallback(update => {
+    const next = typeof update === 'function' ? update(lasso) : update
+    setLassoMode(next.mode)
+    if (next.shape !== lassoShape) setLassoShape(next.shape)
+  }, [lasso, lassoShape, setLassoShape])
   useEffect(() => { setLasso(current => ({ ...current, mode: 'replace' })) }, [page.id])
   const [textEditing, setTextEditing] = useState(null)
   // 데일리 플래너 할 일을 펜 · 형광펜으로 눌러 쓴 경우, 글 입력을 마치면 그 도구로 돌아간다(그 밖에는 선택 도구)
@@ -209,25 +219,22 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const textBoundary = useRef(null)
   const textPaletteBounds = useRef(null)
   const [textPalette, setTextPalette] = useState(null)
-  const [textDefaults, setTextDefaults] = useState(DEFAULT_TEXT_SETTINGS)
+  const [textDefaults, setTextDefaults] = useToolPreference('textDefaults', DEFAULT_TEXT_SETTINGS)
   const [textSettingsOpen, setTextSettingsOpen] = useState(false)
   const [textLinkTarget, setTextLinkTarget] = useState(null)
   const [objectLinkTarget, setObjectLinkTarget] = useState(null) // 링크를 거는 중인 스티커·테이프·사진
   const [linkBadges, setLinkBadges] = useState(true) // 링크가 걸린 요소에 배지를 보일지 (링크 창 오른쪽 위 스위치)
-  const [guides, setGuides] = useState(DEFAULT_GUIDES) // 격자·보조선 (화면에만 보인다)
+  const [guides, setGuides] = useToolPreference('guides', DEFAULT_GUIDES) // 격자·보조선 (화면에만 보인다, 기기에 기억)
   const [guidesOpen, setGuidesOpen] = useState(false)
   const [overviewFilter, setOverviewFilter] = useState(null) // 페이지 넓게 보기: 'all' | 'bookmarked' (null 이면 닫힘)
   const [penSettings, setPenSettings] = usePenSettings()
-  const [eyedropper, setEyedropper] = useState(null)
   const [colorPicker, setColorPicker] = useState(null)
-  const [pendingEyedropper, setPendingEyedropper] = useState(false)
-  const colorCaptureRef = useRef(null)
   const colorScreen = useWindowDimensions()
-  const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
-  const [straightAssist, setStraightAssist] = useState(true)
-  const [eraserSize, setEraserSize] = useState(ERASER_RADIUS * 2)
-  const [eraserTarget, setEraserTarget] = useState('all')
-  const [eraserMode, setEraserMode] = useState('stroke') // 획 지우기 | 영역 지우기
+  const [highlighterSettings, setHighlighterSettings] = useToolPreference('highlighter', DEFAULT_HIGHLIGHTER_SETTINGS)
+  const [straightAssist, setStraightAssist] = useToolPreference('straightAssist', true)
+  const [eraserSize, setEraserSize] = useToolPreference('eraserSize', ERASER_RADIUS * 2)
+  const [eraserTarget, setEraserTarget] = useToolPreference('eraserTarget', 'all')
+  const [eraserMode, setEraserMode] = useToolPreference('eraserMode', 'stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   // 태블릿 편집기는 페이지 목록과 레이어를 둘 다 연 채로 시작한다. 폰은 두 패널이 작업창 위에 뜨고 한쪽만 열 수 있어 닫고 시작한다.
@@ -398,6 +405,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     if (retry) setImportFailure({ message, retry })
     else setToast({ message, key: createId() })
   }, [setToast])
+
+  useEffect(() => {
+    const notice = state.collaborationLimitError
+    if (!notice) return
+    if (textSync.enabled && notice.pageId === page.id) showToast(notice.message)
+    dispatch({type:'canvasLimitNoticeShown',id:notice.id})
+  }, [textSync.enabled, state.collaborationLimitError, page.id, showToast, dispatch])
 
   const startExport = (job) => {
     setExportOpen(false)
@@ -828,7 +842,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }
   const closeOnOutside = {
     [pressEvent]: () => {
-      if (bubbleOpen && !touchInside.current) closeBubbles()
+      if (bubbleOpen && !colorPicker && !touchInside.current) closeBubbles()
       touchInside.current = false
     },
   }
@@ -838,6 +852,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     pagePanelMeasurement.current?.emit('editor-layout', { open: showPages, zoom, stageWidth: stageSize?.width ?? null })
   }, [showPages, zoom, stageSize?.width])
   const showLayers = !readOnly && layersOpen && !focusMode
+  useEffect(() => {
+    if (pageReady || !stageSize || !loaded) return undefined
+    const timer = setTimeout(() => setPageReady(true), 120)
+    return () => clearTimeout(timer)
+  }, [pageReady, stageSize, loaded, layerWidth])
   // 폰: 페이지 목록(가로에서는 레이어도)은 왼쪽, 세로 레이어는 오른쪽에서 열린다.
   // 폰 세로는 페이지 창을 열면 되돌리기 · 저장됨 막대를 오른쪽으로 옮기지 않고 창 뒤로 가린다(사용자 결정 2026-11-03)
   const undoOnRight = compact && ((showPages && landscape) || (landscape && showLayers))
@@ -918,7 +937,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     if (!keepSelection) dispatch({ type: 'select', ids: [] })
     if (tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')) {
       setTextEditing(null)
-      if (activeTool !== 'lasso') setLasso({ shape: 'rectangle', mode: 'replace' })
+      if (activeTool !== 'lasso') setLasso(current => ({ ...current, mode: 'replace' }))
     }
     setActiveTool(tool)
   }
@@ -990,7 +1009,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (eyedropper || colorPicker) return false // The topmost inline picker handles back first.
+      if (colorPicker) return false // The topmost inline picker handles back first.
       if (readOnly) { goHome(); return true }
       if (photoCropId) { setPhotoCropId(null); return true }
       if (tapeCropId) { setTapeCropId(null); return true }
@@ -1014,37 +1033,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       return true
     })
     return () => subscription.remove()
-  }, [readOnly, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, eyedropper, colorPicker])
-
-  const startEyedropper = () => {
-    if (keyboardTop != null) { Keyboard.dismiss(); setPendingEyedropper(true); return }
-    if (readOnly || !loaded || !stageSize || !colorCaptureRef.current || textEditing || cropId || photoCropId || tapeCropId || exportJob) {
-      showToast('입력이나 자르기를 마친 뒤 다시 시도해 주세요.'); return
-    }
-    Keyboard.dismiss(); setPenSettingsOpen(false)
-    setEyedropper({ page, tool: activeTool, width: PAGE_WIDTH, height: PAGE_HEIGHT, zoom, offset: { ...offset }, origin: { ...stageOrigin }, viewport: { width: stageSize.width, height: stageSize.height }, screen: { width: colorScreen.width, height: colorScreen.height } })
-  }
-  const eyedropperCurrent = eyedropper && page === eyedropper.page && !readOnly && activeTool === eyedropper.tool && zoom === eyedropper.zoom && offset.x === eyedropper.offset.x && offset.y === eyedropper.offset.y && stageSize?.width === eyedropper.viewport.width && stageSize?.height === eyedropper.viewport.height && colorScreen.width === eyedropper.screen.width && colorScreen.height === eyedropper.screen.height
-  const finishEyedropper = color => {
-    if (color && eyedropperCurrent) {
-      if (eyedropper.tool === 'highlighter') setHighlighterSettings(current => ({ ...current, color }))
-      else setPenSettings({ ...penSettings, color })
-    }
-    setEyedropper(null); setPenSettingsOpen(true)
-  }
-  useEffect(() => {
-    if (eyedropper && !eyedropperCurrent) {
-      setEyedropper(null); setPenSettingsOpen(!readOnly)
-    }
-  }, [eyedropper, eyedropperCurrent, readOnly])
-
-  useEffect(() => {
-    if (!pendingEyedropper) return
-    if (!colorPicker) { setPendingEyedropper(false); return }
-    if (keyboardTop != null) return
-    const frame = requestAnimationFrame(() => { setPendingEyedropper(false); startEyedropper() })
-    return () => cancelAnimationFrame(frame)
-  }, [pendingEyedropper, keyboardTop, colorPicker, stageSize, stageOrigin, colorScreen.width, colorScreen.height])
+  }, [readOnly, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker])
 
   useEffect(() => {
     if (colorPicker && (readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) setColorPicker(null)
@@ -1205,6 +1194,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       <View style={[styles.body, compact && styles.bodyCompact, readOnly && styles.readingBody]}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
         <TapCatcher onTap={clearSelection} style={StyleSheet.absoluteFill} />
+        {/* 목록이 불러온 뒤에 나타나면 작업창 폭이 그때 바뀌어 페이지를 또 그린다 → 자리를 먼저 잡아 첫 측정이 최종 크기가 되게 한다 */}
+        {showPages && !loaded && !compact && <View style={pageListFrame(true)} />}
         {showPages && loaded && (
           renderSlot({ side: 'left', sideStyle: styles.phonePanelLeft, onWidth: (left) => setPhonePanelWidths((prev) => ({ ...prev, left })), onClose: togglePages },
           <PagePanelVisibility enabled={Platform.OS === 'ios' && !compact} hidden={pagesClosing}>
@@ -1267,12 +1258,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             {/* 확대·이동 중이거나 화면 밖에 있는 GIF 는 첫 장면으로 멈춘다 (StaticPage) */}
             <ViewportMotion.Provider value={viewportMotion}>
               <View style={{ width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }}>
-              <Canvas
+              {/* 크기가 정해진 뒤 한 번에 그린다(임시 배율 .6 → 측정 크기 → 상단바 · 패널 폭 반영 순서로 세 번 그렸다) */}
+              {pageReady && <Canvas
                 onStrokeCommitted={recordPenColorUse}
                 readingImage={readingPreviews.current}
                 qaPageMeasurement={pageSelectMeasurement.current}
-                colorCaptureRef={colorCaptureRef}
-                colorPicking={Boolean(eyedropper)}
                 showBackground={loaded}
                 compact={compact}
                 compactMenu={compactMenu}
@@ -1360,7 +1350,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 onToast={showToast}
                 contextBarInside={markInside}
                 contextBarFrame={contextBarFrame}
-              />
+              />}
               {readOnly && turn && <ReadingPageTurn image={readingPreviews.target} page={turn.page} from={turn.from} zoom={zoom} width={PAGE_WIDTH} height={PAGE_HEIGHT} dir={turn.dir} lift={turn.lift ?? 0} progress={flip} />}
               </View>
             </ViewportMotion.Provider>
@@ -1411,7 +1401,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
               : renderPanel((sheet) => <TextSettings verticalAlignment={false} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setTextSettingsOpen(false) }))
           )}
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
-            renderPanel((sheet) => <PenSettings onOpenColorPicker={anchor => setColorPicker({ anchor, tool: activeTool, pageId: page.id, screen: { width: colorScreen.width, height: colorScreen.height } })} pickerVisible={Boolean(colorPicker)} key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => { setColorPicker(null); setPenSettingsOpen(false) }} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => { setColorPicker(null); setPenSettingsOpen(false) } })
+            renderPanel((sheet) => <PenSettings onOpenColorPicker={request => setColorPicker({ ...request, tool: activeTool, pageId: page.id, screen: { width: colorScreen.width, height: colorScreen.height } })} key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => { setColorPicker(null); setPenSettingsOpen(false) }} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => { setColorPicker(null); setPenSettingsOpen(false) } })
           )}
           {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
             renderPanel((sheet) => <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} target={eraserTarget} onTargetChange={setEraserTarget} onClose={() => setPenSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setPenSettingsOpen(false) })
@@ -1544,10 +1534,10 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         </Pressable>
       )}
       {landscape && phoneToolbar}
-      {colorPicker && <PenColorPicker keyboardTop={keyboardTop} interactionHandlers={markInside} anchor={colorPicker.anchor} scope={colorPicker.tool === 'highlighter' ? 'highlighter' : 'pen'} value={colorPicker.tool === 'highlighter' ? highlighterSettings.color : penSettings.color}
-        onPick={color => colorPicker.tool === 'highlighter' ? setHighlighterSettings(current => ({ ...current, color })) : setPenSettings({ ...penSettings, color })}
-        onClose={() => setColorPicker(null)} onEyedropper={startEyedropper} sampling={Boolean(eyedropper)} />}
-      {eyedropper && <EyedropperOverlay request={eyedropper} captureRef={colorCaptureRef} onCancel={() => finishEyedropper(null)} onPick={finishEyedropper} />}
+      {colorPicker && <PresetColorEditor {...colorPicker}
+        onDone={async color => { await colorPicker.onDone(color); setColorPicker(null) }}
+        onClose={() => setColorPicker(null)} />}
+
     </View>
   )
 }

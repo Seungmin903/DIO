@@ -2,9 +2,7 @@ package com.f106.DIO.auth.service;
 
 import com.f106.DIO.auth.dto.LoginRequest;
 import com.f106.DIO.auth.dto.LoginResponse;
-import com.f106.DIO.auth.dto.LoginUserResponse;
 
-import com.f106.DIO.auth.config.LoginProperties;
 import com.f106.DIO.auth.domain.RefreshToken;
 import com.f106.DIO.auth.domain.RefreshTokenHistory;
 import com.f106.DIO.auth.exception.LoginException;
@@ -14,12 +12,9 @@ import com.f106.DIO.auth.repository.RefreshTokenRepository;
 import com.f106.DIO.auth.security.LoginJwt;
 import com.f106.DIO.auth.support.LoginSecrets;
 import com.f106.DIO.auth.support.LoginThrottle;
-import com.f106.DIO.user.domain.ProfilePhoto;
 import com.f106.DIO.user.domain.User;
-import com.f106.DIO.user.repository.ProfilePhotoRepository;
 import com.f106.DIO.user.repository.UserRepository;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,27 +30,26 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class EmailLoginService {
     private final UserRepository users;
     private final EmailAuthProviderRepository accounts;
-    private final ProfilePhotoRepository photos;
+    private final LoginSessionService sessions;
     private final RefreshTokenRepository tokens;
     private final RefreshTokenHistoryRepository history;
     private final LoginJwt jwt;
-    private final LoginProperties properties;
     private final LoginThrottle throttle;
     private final TransactionTemplate readTransaction;
     private final TransactionTemplate writeTransaction;
     private final PasswordEncoder passwords;
     private final String dummyHash;
     private final com.f106.DIO.push.service.PushSessionRevocation pushRevocation;
-    public EmailLoginService(UserRepository users, EmailAuthProviderRepository accounts, ProfilePhotoRepository photos,
-            RefreshTokenRepository tokens, RefreshTokenHistoryRepository history, LoginJwt jwt, LoginProperties properties,
+    public EmailLoginService(UserRepository users, EmailAuthProviderRepository accounts, LoginSessionService sessions,
+            RefreshTokenRepository tokens, RefreshTokenHistoryRepository history, LoginJwt jwt,
             LoginThrottle throttle, PlatformTransactionManager transactionManager,
             com.f106.DIO.push.service.PushSessionRevocation pushRevocation,
             @Qualifier("authPasswordEncoder") PasswordEncoder passwords) {
         this.pushRevocation = pushRevocation;
         this.passwords = passwords;
         this.dummyHash = passwords.encode("dummy-password-never-authenticates");
-        this.users = users; this.accounts = accounts; this.photos = photos; this.tokens = tokens;
-        this.history = history; this.jwt = jwt; this.properties = properties; this.throttle = throttle;
+        this.users = users; this.accounts = accounts; this.sessions = sessions; this.tokens = tokens;
+        this.history = history; this.jwt = jwt; this.throttle = throttle;
         readTransaction = new TransactionTemplate(transactionManager);
         readTransaction.setReadOnly(true);
         writeTransaction = new TransactionTemplate(transactionManager);
@@ -81,13 +75,7 @@ public class EmailLoginService {
                 User user = users.findById(current.getUserId()).filter(User::isActive)
                     .orElseThrow(LoginException::credentials);
                 Instant now = Instant.now();
-                String refresh = LoginSecrets.refresh();
-                var token = new RefreshToken(user.getUserId(), LoginSecrets.hash(refresh), request.deviceName(), now,
-                    now.plusSeconds(properties.refreshSeconds()));
-                LoginResponse result = response(user, token, refresh, now);
-                tokens.saveAndFlush(token);
-                user.recordLogin(now);
-                return result;
+                return sessions.create(user, request.deviceName(), now);
             });
             throttle.success(reservation);
             return response;
@@ -115,20 +103,11 @@ public class EmailLoginService {
         if (user == null || !user.isActive()) { pushRevocation.revokeLockedSession(token.getSessionId(), token.getUserId(), now); token.revoke(now); throw LoginException.token(); }
         String nextRefresh = LoginSecrets.refresh();
         // 설정/서명 실패 전에 기존 토큰을 소비하지 않는다.
-        LoginResponse response = response(user, token, nextRefresh, now);
+        LoginResponse response = sessions.response(user, token, nextRefresh, now);
         history.saveAndFlush(new RefreshTokenHistory(token, now));
         token.rotate(LoginSecrets.hash(nextRefresh));
         tokens.saveAndFlush(token);
         return response;
-    }
-    private LoginResponse response(User user, RefreshToken session, String refresh, Instant now) {
-        Instant expiry = now.plusSeconds(properties.accessSeconds());
-        if (session.getExpiresAt().isBefore(expiry)) expiry = session.getExpiresAt();
-        String access = jwt.issue(user.getUserId(), session.getSessionId(), now, expiry);
-        String photo = photos.findByUserId(user.getUserId()).map(ProfilePhoto::url).orElse(null);
-        return new LoginResponse("Bearer", access, Duration.between(now, expiry).getSeconds(), refresh,
-            Duration.between(now, session.getExpiresAt()).getSeconds(),
-            new LoginUserResponse(user.getUserId().toString(), user.getEmail(), user.getNickname(), photo));
     }
     @Transactional(readOnly = true)
     public boolean active(Jwt access) {

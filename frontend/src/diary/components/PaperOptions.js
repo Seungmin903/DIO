@@ -5,12 +5,12 @@ import PageBackground from '../../editor/components/PageBackground'
 import Icon from '../../editor/components/controls/Icon'
 import { usePan } from '../../editor/hooks/usePan'
 import { TEMPLATE_VERSION, getTemplate, templateCanvasSize } from '../../editor/templates/catalog.js'
-import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, colorTemplateXml, withPaperBackground } from '../../editor/templates/appearance.js'
+import { colorTemplateXml, withPaperBackground } from '../../editor/templates/appearance.js'
 import { loadTemplate, peekTemplate } from '../../editor/templates/loadTemplate'
 import { colors } from '../../shared/theme'
-import { ColorRow, NumberField, OptionRow, QuickValues, Segmented } from './FormControls'
+import { NumberField, OptionRow, QuickValues, Segmented } from './FormControls'
 import PaperFontDropdown from './PaperFontDropdown'
-import MyColorRow from './MyColorRow'
+import EditablePalette from '../../editor/components/controls/EditablePalette'
 import PaperSketch, { paperSketchKey } from './PaperSketch'
 import { DEFAULT_PAPER_FONT } from '../../editor/templates/paperFont.js'
 import {
@@ -340,18 +340,15 @@ export default function PaperOptions({ sections, onChange, orientation, appearan
  * 속지 스타일: 종이 색 · 선과 글자 색 · 글꼴. 수정에서는 바꿀 페이지(이 다이어리의 모든 페이지 / 새 페이지만)를 고르고 세 가지가 같은 범위를 따른다.
  * 글꼴은 인쇄 글자가 있는 속지에만 있다(plainOnly 면 선 · 글씨 색과 함께 숨긴다).
  */
-// myColors: 견본 줄 끝 '직접 고르기' 대신 아래에 '내 색상' 줄(저장 · + 로 추가)을 둔다(꾸미기 공방 기본 속지 설정)
-export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false, myColors = false }) {
+export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false }) {
   const setBackground = backgroundColor => onChange(withPaperBackground(appearance, backgroundColor))
   const setLayout = layoutColor => onChange({ ...appearance, layoutColor })
   return <View style={styles.panel}>
     <OptionRow label="종이 색">
-      <ColorRow label="종이 색" value={appearance.backgroundColor} swatches={PAPER_BACKGROUNDS} custom={!myColors} onChange={setBackground} />
-      {myColors && <MyColorRow scope="paper" label="종이" value={appearance.backgroundColor} onChange={setBackground} />}
+      <EditablePalette scope="paper" label="종이" value={appearance.backgroundColor} onPick={setBackground} />
     </OptionRow>
     {!plainOnly && <OptionRow label="선 · 글자">
-      <ColorRow label="선과 글씨 색" value={appearance.layoutColor} swatches={PAPER_LAYOUTS} custom={!myColors} onChange={setLayout} />
-      {myColors && <MyColorRow scope="paperLine" label="선과 글씨" value={appearance.layoutColor} onChange={setLayout} />}
+      <EditablePalette scope="paperLine" label="선과 글씨" value={appearance.layoutColor} onPick={setLayout} />
     </OptionRow>}
     {!plainOnly && <OptionRow label="글꼴">
       <PaperFontDropdown value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={font => onChange({ ...appearance, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />

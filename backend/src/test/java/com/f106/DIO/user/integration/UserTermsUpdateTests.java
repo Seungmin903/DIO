@@ -37,6 +37,7 @@ class UserTermsUpdateTests {
     @Autowired EmailAuthProviderRepository accounts;
     @Autowired EmailLoginService login;
     @Autowired UserTermsUpdateService updates;
+    @Autowired com.f106.DIO.user.service.UserTermsQueryService queries;
     record Actor(long id,String token){}
     Actor actor(){
         var user=users.saveAndFlush(new User(UUID.randomUUID()+"@example.com","약관테스트",Instant.now()));
@@ -46,6 +47,98 @@ class UserTermsUpdateTests {
     TermsAgreement entry(long user,String type,String version){
         var key=new TermsAgreement.Key();key.userId=user;key.termsType=type;key.termsVersion=version;
         return terms.findById(key).orElseThrow();
+    }
+    @Test void queryReturnsFourMissingChoicesWithoutWritingOrReadingAnotherUser()throws Exception{
+        var actor=actor();var other=actor();
+        updates.update(other.id(),TermsType.AD_EMAIL,"v1",true);
+        var count=terms.count();
+        mvc.perform(get("/api/v1/me/terms").param("userId",Long.toString(other.id()))
+            .header("Authorization","Bearer "+actor.token()))
+            .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"))
+            .andExpect(jsonPath("agreements.length()").value(4))
+            .andExpect(jsonPath("agreements[0].termsType").value("MARKETING_PRIVACY"))
+            .andExpect(jsonPath("agreements[1].termsType").value("AD_EMAIL"))
+            .andExpect(jsonPath("agreements[2].termsType").value("AD_PUSH"))
+            .andExpect(jsonPath("agreements[3].termsType").value("AD_NIGHT_PUSH"))
+            .andExpect(jsonPath("agreements[*].agreed",org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(false))))
+            .andExpect(jsonPath("agreements[*].termsVersion",org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("v1"))))
+            .andExpect(jsonPath("agreements[*].recordStatus",org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("NOT_RECORDED"))))
+            .andExpect(jsonPath("agreements[0].agreedAt").value(org.hamcrest.Matchers.nullValue()));
+        assertThat(terms.count()).isEqualTo(count);
+        assertThat(entry(other.id(),"AD_EMAIL","v1").isAgreed()).isTrue();
+    }
+    @Test void queryReturnsCurrentAgreementsAndWithdrawalsIndependently()throws Exception{
+        var actor=actor();var changed=Instant.parse("2026-01-01T00:00:00Z");
+        var types=new TermsType[]{TermsType.MARKETING_PRIVACY,TermsType.AD_EMAIL,TermsType.AD_PUSH,TermsType.AD_NIGHT_PUSH};
+        for(int i=0;i<types.length;i++)terms.saveAndFlush(new TermsAgreement(actor.id(),types[i].name(),"v1",i%2==0,changed));
+        mvc.perform(get("/api/v1/me/terms").header("Authorization","Bearer "+actor.token()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("agreements[0].agreed").value(true))
+            .andExpect(jsonPath("agreements[1].agreed").value(false))
+            .andExpect(jsonPath("agreements[2].agreed").value(true))
+            .andExpect(jsonPath("agreements[3].agreed").value(false))
+            .andExpect(jsonPath("agreements[*].agreedAt",org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(changed.toString()))))
+            .andExpect(jsonPath("agreements[*].recordStatus",org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("CURRENT_VERSION"))));
+        assertThat(entry(actor.id(),"AD_EMAIL","v1").getAgreedAt()).isEqualTo(changed);
+    }
+    @Test void queryDoesNotTreatOldOrLegacyRecordsAsCurrentConsent()throws Exception{
+        var actor=actor();var old=Instant.EPOCH;
+        terms.saveAndFlush(new TermsAgreement(actor.id(),"AD_EMAIL","v0",true,old));
+        terms.saveAndFlush(new TermsAgreement(actor.id(),"AD_PUSH","v0",false,old));
+        terms.saveAndFlush(new TermsAgreement(actor.id(),"MARKETING","v1",true,old));
+        terms.saveAndFlush(new TermsAgreement(actor.id(),"SERVICE","v2",true,old));
+        mvc.perform(get("/api/v1/me/terms").header("Authorization","Bearer "+actor.token()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("agreements[0].recordStatus").value("NOT_RECORDED"))
+            .andExpect(jsonPath("agreements[1].recordStatus").value("PREVIOUS_VERSION_ONLY"))
+            .andExpect(jsonPath("agreements[1].termsVersion").value("v1"))
+            .andExpect(jsonPath("agreements[1].agreed").value(false))
+            .andExpect(jsonPath("agreements[1].agreedAt").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("agreements[2].recordStatus").value("PREVIOUS_VERSION_ONLY"));
+        assertThat(entry(actor.id(),"AD_EMAIL","v0").isAgreed()).isTrue();
+        assertThat(terms.findAll().stream().filter(t->t.getUserId().equals(actor.id()))).hasSize(4);
+    }
+    @Test void configuredVersionWinsOverTimestampsAndVersionLabelOrdering(){
+        var actor=actor();
+        terms.saveAndFlush(new TermsAgreement(actor.id(),"AD_EMAIL","v10",true,Instant.EPOCH));
+        terms.saveAndFlush(new TermsAgreement(actor.id(),"AD_EMAIL","v9",true,Instant.now()));
+        terms.saveAndFlush(new TermsAgreement(actor.id(),"AD_PUSH","v9",true,Instant.now()));
+        var configured=new com.f106.DIO.user.service.UserTermsQueryService(users,terms,
+            new com.f106.DIO.user.config.TermsProperties("v2","v2","v10"));
+        var choices=configured.current(actor.id()).agreements();
+        assertThat(choices.get(1).termsVersion()).isEqualTo("v10");
+        assertThat(choices.get(1).agreedAt()).isEqualTo(Instant.EPOCH);
+        assertThat(choices.get(1).recordStatus()).isEqualTo(TermsRecordStatus.CURRENT_VERSION);
+        assertThat(choices.get(2).agreed()).isFalse();
+        assertThat(choices.get(2).agreedAt()).isNull();
+        assertThat(choices.get(2).recordStatus()).isEqualTo(TermsRecordStatus.PREVIOUS_VERSION_ONLY);
+    }
+    @Test void putChangesAreImmediatelyVisibleInGetAndRepeatedGetDoesNotChangeTimestamp()throws Exception{
+        var actor=actor();
+        updates.update(actor.id(),TermsType.AD_EMAIL,"v1",true);
+        mvc.perform(get("/api/v1/me/terms").header("Authorization","Bearer "+actor.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("agreements[1].agreed").value(true));
+        mvc.perform(put("/api/v1/me/terms/AD_EMAIL/v1").header("Authorization","Bearer "+actor.token())
+            .contentType("application/json").content("{\"agreed\":false}")).andExpect(status().isOk());
+        var changed=entry(actor.id(),"AD_EMAIL","v1").getAgreedAt();
+        for(int i=0;i<2;i++)mvc.perform(get("/api/v1/me/terms").header("Authorization","Bearer "+actor.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("agreements[1].agreed").value(false))
+            .andExpect(jsonPath("agreements[1].recordStatus").value("CURRENT_VERSION"));
+        assertThat(entry(actor.id(),"AD_EMAIL","v1").getAgreedAt()).isEqualTo(changed);
+    }
+    @Test void anonymousRevokedAndInactiveAccountsCannotReadTerms()throws Exception{
+        for(String token:new String[]{"","Bearer invalid"})mvc.perform(get("/api/v1/me/terms").header("Authorization",token))
+            .andExpect(status().isUnauthorized()).andExpect(header().string("Cache-Control","no-store"));
+        var actor=actor();
+        mvc.perform(post("/api/v1/auth/logout").header("Authorization","Bearer "+actor.token())).andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/me/terms").header("Authorization","Bearer "+actor.token()))
+            .andExpect(status().isUnauthorized());
+        var inactive=actor();var user=users.findById(inactive.id()).orElseThrow();
+        user.withdraw(Instant.now());users.saveAndFlush(user);
+        mvc.perform(get("/api/v1/me/terms").header("Authorization","Bearer "+inactive.token()))
+            .andExpect(status().isUnauthorized());
+        assertThatThrownBy(()->queries.current(inactive.id())).isInstanceOf(com.f106.DIO.user.exception.UserException.class);
+        assertThatThrownBy(()->queries.current(Long.MAX_VALUE)).isInstanceOf(com.f106.DIO.user.exception.UserException.class);
     }
     @Test void optionalChoicesAreIndependentAndLegacyIsNotExpanded() throws Exception {
         var actor=actor();

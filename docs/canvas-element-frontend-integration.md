@@ -92,3 +92,7 @@ Android Expo Go에서 사용자가 개인·공유 편집과 재진입 유지를 
 
 - CanvasElementService.batchTracked는 변경 후 listWithoutPageCheck(pageId)를 반환한다. 따라서 batch의 items는 변경된 행만이 아니라 페이지 전체 활성 요소 목록이다. 프론트는 이를 전체 스냅샷으로 적용한다. 변경분만 반환하는 가짜 응답은 현재 서버 계약과 다르므로 호환 대상으로 가정하지 않는다. 변경하지 않은 요소 보존과 삭제·추가 반영을 테스트한다.
 - CanvasElementController.delete/restore와 CanvasElementBatchRequest에는 삭제·복구 버전 조건이 없다. batchTracked도 삭제·복구에는 버전을 검사하지 않는다. 따라서 batch로 우회해도 조회와 삭제 사이의 같은 계정 다른 기기 수정 경쟁을 해결하지 못한다. 개인 요소 API·공유 canvas-operations 분리는 유지하며, 삭제·복구의 원자적 버전 조건은 백엔드 계약 보완이 필요하다. 현재 사전 대조는 요청 전에 이미 알려진 충돌만 차단하며 서버 실행 시점의 경쟁까지 보장하지 않는다.
+
+## 대량 요청 경계 보완 (2026-11-03)
+- 종류별 100개·expectedVersions 200개 제한을 공용 검사로 적용한다. 회원 편집기 새 행동의 초과 변경은 적용 전 차단하고, 과거 초과 큐는 기기 원본과 함께 보존해 전송 보류한다. 정상 작업을 임의 분할하지 않는다.
+- 상세 계약·검증·과거 큐 복구 한계는 [캔버스 대량 편집 요청 제한](./canvas-batch-limit.md)을 참고한다.

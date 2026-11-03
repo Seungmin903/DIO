@@ -3,15 +3,17 @@ import assert from 'node:assert/strict'
 import { createRecentPenColors, normalizeRecentPenColors, recentPenColorKey } from '../src/editor/utils/recentPenColors.js'
 
 const disk = () => { const data = new Map(), writes = []; return { data, writes, getItem: async key => data.get(key), setItem: async (key, value) => { data.set(key, value); writes.push(value) } } }
-test('실제로 기록한 최근 7개만 유지하며 연속 중복은 쓰지 않고 재사용 색은 맨 앞으로 옮긴다', async () => {
+test('실제로 기록한 최근 8개만 유지하며 연속 중복은 쓰지 않고 재사용 색은 맨 앞으로 옮긴다', async () => {
   const storage = disk(), store = createRecentPenColors(storage)
   await store.load(); assert.deepEqual(store.getSnapshot(), [])
   for (let i = 1; i <= 8; i++) await store.record('#' + String(i).repeat(6))
-  assert.deepEqual(store.getSnapshot(), ['#888888','#777777','#666666','#555555','#444444','#333333','#222222'])
+  assert.deepEqual(store.getSnapshot(), ['#888888','#777777','#666666','#555555','#444444','#333333','#222222','#111111'])
+  assert.equal(normalizeRecentPenColors(['#999999',...store.getSnapshot()]).length,8)
+  assert.equal(normalizeRecentPenColors(['#999999',...store.getSnapshot()]).at(-1),'#222222')
   const count = storage.writes.length
   assert.equal(await store.record('#888888'), false); assert.equal(storage.writes.length, count)
   await store.record('#444444')
-  assert.deepEqual(store.getSnapshot(), ['#444444','#888888','#777777','#666666','#555555','#333333','#222222'])
+  assert.deepEqual(store.getSnapshot(), ['#444444','#888888','#777777','#666666','#555555','#333333','#222222','#111111'])
   const restarted = createRecentPenColors(storage); await restarted.load()
   assert.deepEqual(restarted.getSnapshot(), store.getSnapshot())
 })
@@ -57,7 +59,7 @@ test('일시적인 읽기 실패 후 기록해도 저장된 최근 색을 다시
   unavailable = false
   await store.record('#888888')
   assert.equal(reads, 3)
-  assert.deepEqual(store.getSnapshot(), ['#888888', ...saved.slice(0, 6)])
+  assert.deepEqual(store.getSnapshot(), ['#888888', ...saved.slice(0, 7)])
   assert.deepEqual(JSON.parse(storage.data.get(key)), store.getSnapshot())
 })
 

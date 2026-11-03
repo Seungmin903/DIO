@@ -11,7 +11,7 @@ const code = babel.transformSync(readFileSync(new URL('../src/diary/components/A
 }).code;
 const nodes = node => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)];
 
-test('기존 앱 정보 행은 새 방침 URL을 공유하고 미설정 시 기존 열람 경로를 보존한다', async () => {
+test('앱 정보는 배포 방침 URL을 사용하고 미설정 시 구글 문서 최종본을 연다', async () => {
   for (const policy of ['https://dio.test/legal/v2/privacy-policy.html', undefined]) {
     const opened = [], mod = { exports: {} };
     const mocks = {
@@ -25,6 +25,6 @@ test('기존 앱 정보 행은 새 방침 URL을 공유하고 미설정 시 기�
     await nodes(tree).find(node => node.props.accessibilityLabel === '개인정보 처리방침, 브라우저로 열기').props.onPress();
     assert.equal(opened.length, 1);
     if (policy) assert.equal(opened[0], policy);
-    else assert.ok(opened[0].startsWith('https://docs.google.com/document/'));
+    else assert.equal(opened[0], 'https://docs.google.com/document/d/1_eH0yCPmTWtclIvkExkjYwyxCmf5FhPtAN02LIax7uI/edit?usp=drivesdk');
   }
 });

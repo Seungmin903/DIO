@@ -10,8 +10,8 @@ import { colors } from '../../shared/theme';
 import ContentLicenses from './ContentLicenses';
 import { SettingSection } from './SettingRow';
 
-// Preserve the existing policy for current members until the new public document is configured.
-const PRIVACY_POLICY_URL = signupDocuments.policy || 'https://docs.google.com/document/d/1JxZvkpKiEl7GXpVThQYxck0l_bwzg33FxGShE6rpqd0/edit?usp=sharing';
+// Use the same final policy as the bundled signup reader unless deployment supplies its public URL.
+const PRIVACY_POLICY_URL = signupDocuments.policy || 'https://docs.google.com/document/d/1_eH0yCPmTWtclIvkExkjYwyxCmf5FhPtAN02LIax7uI/edit?usp=drivesdk';
 const SUPPORT_EMAIL = 'dioapp.official@gmail.com';
 const APP_VERSION = '1.0.0'; // app.json 의 version 과 같다
 

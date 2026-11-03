@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { PROMPTS } from '../src/handwriting/protocol.js'
 import { isEmptyDraft, listStatus, statusText } from '../src/handwriting/workflow.js'
+import {createDraftAutosave} from '../src/handwriting/draftAutosave.js'
+import * as inkPreview from '../src/handwriting/inkPreview.js'
 import { manuscriptLayout } from '../src/handwriting/manuscriptLayout.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
@@ -41,6 +43,8 @@ function harness(component = 'DrawingPad') {
     if (id === 'react-native-svg') return { default: 'Svg', Circle: 'Circle', Path: 'Path' }
     if (id.endsWith('/theme')) return { colors: {}, radius: {}, DISABLED_OPACITY: 0.4 }
     if (id.endsWith('/useFillGrid')) return { __esModule: true, default: ({ cell, gap }) => ({ onLayout() {}, columns: 1, cellWidth: cell, spreadGap: gap }) }
+    if (id === './draftAutosave.js') return {createDraftAutosave}
+    if (id === './inkPreview.js') return inkPreview
     if (id === './DrawingPad') return { __esModule: true, default: 'DrawingPad' }
     if (id === './protocol.js') return { PROMPTS, SYLLABLE_COUNT: 11172, validateDraft() {} }
     if (id === './manuscriptLayout.js') return { manuscriptLayout }
@@ -138,7 +142,7 @@ test('입력 화면을 거친 필기 상태가 실제 상위 ScrollView를 즉�
     drawing.unmount(); child.unmount()
   }
 })
-test('원고지의 36칸은 한 칸만 입력을 소유하고 빠른 다음 칸 입력도 이전 글씨를 보존한다', () => {
+test('원고지의 36칸은 한 칸만 입력을 소유하고 빠른 다음 칸 입력도 이전 글씨를 보존한다', async () => {
   const child = harness('InputScreen'), first = harness(), second = harness(), activity = [], saved = []
   const props = { workflow: { saveDraft: async (_id, draft) => saved.push(draft) }, value: { id: 'font', name: '테스트', draft: { schema: 1, id: 'draft', samples: {} } }, narrow: true, busy: '', support: { available: false }, inputSave: { current: null }, onInputActiveChange: value => activity.push(value) }
   let tree = child.render(props)
@@ -158,29 +162,31 @@ test('원고지의 36칸은 한 칸만 입력을 소유하고 빠른 다음 칸 
   b.onResponderGrant(event()); assert.deepEqual(activity, [true])
   tree = child.render(props)
   const lockedPads = findAll(tree, n => n.type === 'DrawingPad')
-  assert.equal(lockedPads[0].props.disabled, false); assert.equal(lockedPads[1].props.disabled, true)
+  assert.equal(lockedPads[0].props.disabled, false); assert.equal(lockedPads[1].props.disabled, false); assert.equal(lockedPads[1].props.canStartInput(), false)
   a.onResponderRelease()
   assert.equal(b.onStartShouldSetResponder(), true)
   b.onResponderGrant(event()); b.onResponderRelease()
   assert.deepEqual(activity, [true, false, true, false])
-  assert.equal(saved.length, 2)
+  assert.equal(saved.length, 0)
+  await props.inputSave.current()
+  assert.equal(saved.length, 1)
   assert.deepEqual(Object.keys(saved.at(-1).samples), PROMPTS.slice(0, 2))
-  // 펜 굵기는 편집창 펜과 같은 막대(6 ~ 12, 처음 9). 끌어서 생긴 소수는 정수로 맞춰 다음 획에 쓴다. 이름 입력은 이 단계에 없다(샘플 확인에서 정한다)
+  // 펜 굵기는 편집창 펜과 같은 막대(6 ~ 24, 처음 9). 끌어서 생긴 소수는 정수로 맞춰 다음 획에 쓴다. 이름 입력은 이 단계에 없다(샘플 확인에서 정한다)
   const slider = () => find(child.render(props), n => n.type === 'Slider').props
-  assert.deepEqual([slider().label, slider().min, slider().max, slider().value], ['펜 굵기', 6, 12, 9])
+  assert.deepEqual([slider().label, slider().min, slider().max, slider().value], ['펜 굵기', 6, 24, 9])
   slider().onChange(11.4)
   assert.equal(slider().value, 11)
   assert.equal(findAll(child.render(props), n => n.type === 'DrawingPad')[0].props.width, 11)
   // 획 되돌리기 ↔ 다시 실행: 지금 칸(두 번째 글자)의 마지막 획을 빼고 다시 넣는다. 새 획을 쓰면 다시 실행 기록은 비운다
   const button = label => find(child.render(props), n => n.props?.label === label).props
   assert.equal(button('획 다시 실행').disabled, true)
-  button('획 되돌리기').onPress()
+  button('획 되돌리기').onPress(); await props.inputSave.current()
   assert.equal(saved.at(-1).samples[PROMPTS[1]], undefined)
   assert.equal(button('획 다시 실행').disabled, false)
-  button('획 다시 실행').onPress()
+  button('획 다시 실행').onPress(); await props.inputSave.current()
   assert.equal(saved.at(-1).samples[PROMPTS[1]].strokes.length, 1)
   assert.equal(button('획 다시 실행').disabled, true)
-  button('획 되돌리기').onPress(); assert.equal(button('획 다시 실행').disabled, false)
+  button('획 되돌리기').onPress(); await props.inputSave.current(); assert.equal(button('획 다시 실행').disabled, false)
   const again = input(second.render(findAll(child.render(props), n => n.type === 'DrawingPad')[1].props))
   again.onResponderGrant(event()); again.onResponderRelease()
   assert.equal(button('획 다시 실행').disabled, true)

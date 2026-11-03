@@ -35,7 +35,7 @@ class DioHandwritingModule : Module() {
     AsyncFunction("capabilities") {
       val assets = requireNotNull(appContext.reactContext).assets
       val bundled = try { assets.open("dio_handwriting/encoder.fp32.onnx").close(); assets.open("dio_handwriting/decoder.fp32.onnx").close(); true } catch (_: Exception) { false }
-      mapOf("available" to bundled, "platform" to "android", "precision" to "fp32", "total" to 11172, "modelVersion" to modelVersion,
+      mapOf("available" to bundled, "platform" to "android", "precision" to "fp32", "total" to 11172, "modelVersion" to modelVersion, "spacingVersion" to OutlineFont.SPACING_VERSION,
         "reason" to if (bundled) "" else "개발 빌드에 모델 파일을 준비해 주세요.")
     }
     AsyncFunction("createJob") { snapshot: String ->
@@ -47,7 +47,7 @@ class DioHandwritingModule : Module() {
         val folder = jobFolder(id).apply { mkdirs() }
         atomic(File(folder, "input.json"), input.toString())
         val state = JSONObject().put("id", id).put("state", "paused").put("stage", "queued").put("completed", 0).put("total", 11172)
-          .put("inputHash", input.getString("inputHash")).put("modelVersion", modelVersion).put("preprocessVersion", input.getString("preprocessVersion"))
+          .put("inputHash", input.getString("inputHash")).put("modelVersion", modelVersion).put("preprocessVersion", input.getString("preprocessVersion")).put("spacingVersion", OutlineFont.SPACING_VERSION)
         saveState(folder, state)
         launch(id)
         readState(folder).toString()
@@ -137,7 +137,7 @@ class DioHandwritingModule : Module() {
   private fun notify(state: JSONObject) { sendEvent("onProgress", mapOf("job" to state.toString())) }
   private fun validateInput(input: JSONObject) {
     require(input.getString("modelVersion") == modelVersion) { "생성기가 업데이트되어 이 작업은 이어 만들 수 없어요. 저장된 손글씨로 새 작업을 시작해 주세요." }
-    require(input.getString("preprocessVersion") == "dio-ink-fit96-margin4-fp32-v1") { "입력 전처리 버전이 달라요." }
+    require(input.getString("preprocessVersion") == "dio-ink-safe90-margin4-fp32-v2") { "입력 전처리 버전이 달라요." }
     require(Regex("[a-f0-9]{64}").matches(input.getString("inputHash")))
     val inputs = input.getJSONArray("inputs")
     val prompts = "값같곬곶깎넋늪닫닭닻됩뗌략몃밟볘뺐뽈솩쐐앉않얘얾엌옳읊죡쮜춰츄퀭틔핀핥훟"
@@ -188,12 +188,15 @@ class DioHandwritingModule : Module() {
           state.put("state", if (cancelled.get()) "cancelled" else "paused").put("stage", "paused")
         } else {
           state.put("stage", "building"); saveState(folder, state); notify(state)
-          val font = File(folder, "font.ttf")
-          if (!font.exists()) OutlineFont.build(font, (0 until 11172).map { 0xac00 + it }, (0 until 11172).map { File(folder, "$it.gly") }, "DIOHW-${id.replace("-", "")}", "나의 손글씨")
+          // Raw glyph checkpoints are compatible. Never replace a legacy TTF,
+          // including one finalized just before an interrupted state write.
+          val font = File(folder, "font-${OutlineFont.SPACING_VERSION}.ttf")
+          val family = "DIOHW-${id.replace("-", "")}-${OutlineFont.SPACING_VERSION}"
+          if (!font.exists()) OutlineFont.build(font, (0 until 11172).map { 0xac00 + it }, (0 until 11172).map { File(folder, "$it.gly") }, family, "나의 손글씨")
           // Android's real font parser must accept the completed file.
           Typeface.createFromFile(font)
           if (cancelled.get()) state.put("state", "cancelled")
-          else state.put("state", "ready").put("stage", "ready").put("fontUri", Uri.fromFile(font).toString()).put("family", "DIOHW-${id.replace("-", "")}")
+          else state.put("state", "ready").put("stage", "ready").put("fontUri", Uri.fromFile(font).toString()).put("family", family).put("spacingVersion", OutlineFont.SPACING_VERSION)
         }
       } catch (error: Exception) {
         state.put("state", if (stop.get() && !cancelled.get()) "paused" else if (cancelled.get()) "cancelled" else "failed")

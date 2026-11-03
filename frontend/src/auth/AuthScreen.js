@@ -4,7 +4,6 @@ import {
   Image,
   BackHandler,
   Keyboard,
-  Linking,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -31,20 +30,26 @@ import {
 } from './validation';
 import { authStyles as s } from './styles';
 import ProviderIcon from './ProviderIcon';
+import { isAppleLoginSupported } from './appleLogin';
 import { pickProfilePhoto } from './profilePhoto';
 import EmailVerification from './EmailVerification';
-import { createSignupDocuments, signupDocuments, signupEligibility } from './signupPolicy';
+import { signupDocuments, signupEligibility } from './signupPolicy';
+import { getSignupDocument, isConsentDocument } from '../shared/legalContent';
+import LegalDocumentScreen from './LegalDocumentScreen';
 import PasswordResetScreen from './PasswordResetScreen';
 import SignupTerms from './SignupTerms';
 
 // 사진이 없을 때의 기본 프로필: 메뉴 아래 · 내 공간과 같은 그림
 import DefaultAvatar from '../shared/DefaultAvatar';
 
-const PROVIDERS = [
-  { id: 'kakao', name: '카카오', color: '#FEE500' },
-  { id: 'google', name: '구글', color: '#FFFFFF' },
-  { id: 'apple', name: '애플', color: '#191919' },
+// 실제로 동작하는 로그인만 보인다. 카카오는 구현 전이라 숨긴다(심사에서 동작 안 하는 버튼은 반려 사유).
+// 애플은 iOS 앱에서만 지원한다. 구글을 넣으면 iOS는 애플 로그인도 함께 있어야 한다(App Store 심사 지침 4.8).
+const ALL_PROVIDERS = [
+  { id: 'kakao', name: '카카오', color: '#FEE500', enabled: false },
+  { id: 'google', name: '구글', color: '#FFFFFF', enabled: true },
+  { id: 'apple', name: '애플', color: '#191919', enabled: isAppleLoginSupported() },
 ];
+const PROVIDERS = ALL_PROVIDERS.filter((provider) => provider.enabled);
 const emptyValues = () => ({ email: '', password: '', confirmation: '' });
 const emptyTerms = () => ({ service: false, privacy: false, marketing: false, marketingPrivacy: false, adEmail: false, adPush: false, adNightPush: false });
 
@@ -54,7 +59,6 @@ const emptyTerms = () => ({ service: false, privacy: false, marketing: false, ma
 export default function AuthScreen({
   onContinue,
   legalDocuments = signupDocuments,
-  openDocument = Linking.openURL,
   onClose = null,
   service = authService,
   photoPicker = pickProfilePhoto,
@@ -74,10 +78,13 @@ export default function AuthScreen({
   const [profile, setProfile] = useState(null);
   const [nickname, setNickname] = useState('');
   const [terms, setTerms] = useState(emptyTerms);
+  const [activeDocument, setActiveDocument] = useState(null);
+  const documentRef = useRef(null);
   const [photoUri, setPhotoUri] = useState(null);
   const [verificationAttempt, setVerificationAttempt] = useState(0);
   const [signupComplete, setSignupComplete] = useState(false);
   const [needsLoginAccess, setNeedsLoginAccess] = useState(false);
+  const socialAccessRetry = useRef(null);
   const [accessId, setAccessId] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
   const canSetDevelopmentAccess = typeof __DEV__ !== 'undefined' && __DEV__ &&
@@ -146,11 +153,15 @@ export default function AuthScreen({
     alive.current = true;
     return () => {
       alive.current = false;
+      documentRef.current = null;
       job.current++;
       service.cancelPending?.();
     };
   }, []);
   const navigate = (next, provider = enrollmentProvider) => {
+    socialAccessRetry.current = null;
+    documentRef.current = null;
+    setActiveDocument(null);
     if (enrollmentBlocked.current && next !== 'welcome') next = 'underage';
     if (provider === 'email' && (next === 'signup' || next === 'eligibility') && !emailVerificationEnabled && !verificationService) {
       Keyboard.dismiss();
@@ -190,32 +201,50 @@ export default function AuthScreen({
     setEnrollmentProvider(provider);
     navigate('eligibility', provider);
   };
+  const submitSocial = (provider, eligibility) => run(
+    () => service.social(provider, eligibility),
+    result => {
+      socialAccessRetry.current=null;
+      if(result?.mode==='authenticated'){Keyboard.dismiss();onContinue(result);return;}
+      setPhotoUri(null);setValues(emptyValues());setProfile(result);navigate('profile');
+    },
+    error => {
+      if(canSetDevelopmentAccess && error?.code==='DEVELOPMENT_ACCESS_REQUIRED'){
+        socialAccessRetry.current={provider,eligibility};setNeedsLoginAccess(true);setRoute('welcome');
+      }
+    },
+  );
   const continueEnrollment = () => {
     if (enrollmentBlocked.current || !signupEligibility({ ageConfirmed, terms }, legalDocuments)) return;
     if (enrollmentProvider === 'email') { navigate('signup'); return; }
-    run(
-      () => service.social(enrollmentProvider),
-      (result) => {
-        setPhotoUri(null);
-        setValues(emptyValues());
-        setProfile(result);
-        navigate('profile');
-      },
-    );
+    submitSocial(enrollmentProvider,{ageConfirmed,terms});
   };
-  const viewDocument = async (key, title) => {
-    const url = createSignupDocuments(legalDocuments)[key];
-    if (!url) {
-      setInfo({ title: '문서 준비 중', body: '아직 공개되지 않은 문서예요. 잠시 후 다시 확인해 주세요.' });
-      return;
-    }
-    try { await openDocument(url); }
-    catch { if (alive.current) setInfo({ title, body: '문서를 열지 못했어요. 네트워크를 확인하고 다시 시도해 주세요.' }); }
+  const closeDocument = () => {
+    documentRef.current = null;
+    setActiveDocument(null);
+  };
+  const viewDocument = (key) => {
+    if (busy || running.current || route !== 'eligibility') return;
+    const source = getSignupDocument(key);
+    if (!source) return;
+    const document = { ...source };
+    documentRef.current = document;
+    setActiveDocument(document);
+  };
+  const agreeDocument = (document) => {
+    if (!alive.current || documentRef.current !== document || route !== 'eligibility' || busy ||
+        !isConsentDocument(document)) return;
+    setTerms(current => ({ ...current, [document.id]: true }));
+    closeDocument();
   };
   const back = () =>
     navigate(route === 'verification' || (route === 'profile' && profile?.provider === 'email') ? 'signup' : route === 'signup' ? 'eligibility' : 'welcome');
   useEffect(() => {
     const listener = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (documentRef.current) {
+        closeDocument();
+        return true;
+      }
       if (info) {
         setInfo(null);
         return true;
@@ -231,7 +260,7 @@ export default function AuthScreen({
       return false;
     });
     return () => listener.remove();
-  }, [route, profile, info, needsLoginAccess]);
+  }, [route, profile, info, needsLoginAccess, activeDocument]);
   const run = async (action, onSuccess, onFailure) => {
     if (running.current) return;
     running.current = true;
@@ -528,11 +557,12 @@ export default function AuthScreen({
                       verificationService.setDevelopmentAccess(accessId, accessPassword);
                       setAccessPassword('');
                       setNeedsLoginAccess(false);
-                      submitLogin();
+                      const retry=socialAccessRetry.current;socialAccessRetry.current=null;
+                      if(retry)submitSocial(retry.provider,retry.eligibility);else submitLogin();
                     } catch (error) {
                       setMessage(error?.message || '개발 서버 접속 정보를 확인해 주세요.');
                     }
-                  }, !accessId.trim() || !accessPassword || !credentialsValid(values, false))}
+                  }, !accessId.trim() || !accessPassword || (!socialAccessRetry.current && !credentialsValid(values, false)))}
                 </> : null}
                 <View style={s.submitArea}>
                   {message ? (
@@ -718,6 +748,9 @@ export default function AuthScreen({
           </Text>
         </View>
       )}
+      {activeDocument && <LegalDocumentScreen key={activeDocument.id} document={activeDocument}
+        onClose={closeDocument}
+        onAgree={isConsentDocument(activeDocument) ? () => agreeDocument(activeDocument) : undefined} />}
       <EditorModal
         visible={!!info}
         transparent

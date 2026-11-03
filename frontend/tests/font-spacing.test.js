@@ -1,3 +1,4 @@
+import * as aiDisclosure from '../src/handwriting/aiDisclosure.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -65,7 +66,7 @@ function storage() {
   const deps = {
     '@react-native-async-storage/async-storage': asyncStorage,
     'expo-crypto': { randomUUID: () => `11111111-2222-4333-8444-${String(++seq).padStart(12, '0')}` },
-    './protocol.js': protocol, './fontFormat.js': format,
+    './aiDisclosure.js': aiDisclosure, './protocol.js': protocol, './fontFormat.js': format,
     './workflowPersistence.js': { createWorkflowPersistence },
     './fontSpacing.js': { correctFontSpacing, fontSpacingInfo, FONT_SPACING_VERSION },
     './files': {
@@ -173,6 +174,8 @@ test('구형 JSON·TTF 가져오기와 보정 메타데이터 이관을 지원�
   const next = await s.correctRegisteredFont(old)
   await s.exportFont(next)
   const data = JSON.parse(s.state.exported)
+  assert.deepEqual(data.aiGeneration, { generated: true, label: aiDisclosure.AI_FONT_LABEL, notice: aiDisclosure.AI_FONT_EXPORT_NOTICE })
+  assert.deepEqual(format.fromBase64(data.ttf), s.files.get(next.uri), 'AI notice must not change font bytes')
   assert.equal(data.sourceFontId, old.id); assert.equal(data.spacingVersion, FONT_SPACING_VERSION)
   const target = storage(); target.state.picked = { name: 'copy.json', bytes: new TextEncoder().encode(s.state.exported) }
   const restored = (await target.importLocalFile()).font
