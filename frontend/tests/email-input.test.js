@@ -11,7 +11,7 @@ for(const [index,row] of cases.entries())test(`공통 이메일 계약 ${index}:
  assert.equal(!emailError(row.input),row.valid);
  assert.equal(!accountEmailError(row.input),row.accountValid);
  assert.equal(!credentialsErrors({email:row.input,password:"Password123!"}).email,row.accountValid);
- assert.equal(!inviteEmailError(row.input),row.valid);
+ assert.equal(!inviteEmailError(row.input),row.accountValid);
 });
 test('잘못된 이메일은 인증 API 어댑터에서도 서버 요청 전에 거절한다',async()=>{
  let requests=0;
@@ -56,3 +56,24 @@ for(const address of ['legacy@[127.0.0.1]','legacy@old_domain.example','"legacy.
  assert.deepEqual(calls.map(c=>c.path),['login','password-reset-requests','password-reset-verifications','password-resets']);
  assert.ok(calls.every(c=>c.body.email===address));
 });
+
+for (const active of ['login', 'signup']) for (const invalid of ['login', 'signup'])
+ test(`잘못된 ${invalid} 입력은 진행 중인 ${active} 요청을 취소하지 않는다`, async () => {
+  let finish; let requests = 0;
+  const api = createAuthApi({baseUrl:'https://server.example',fetchImpl:()=>{
+   requests++; return new Promise(resolve=>{finish=()=>resolve({ok:true,status:200,json:async()=>active==='login'
+    ? {accessToken:'access',refreshToken:'refresh',expiresIn:900,user:{userId:'1',email:'member@example.com',nickname:'회원',profilePhotoUrl:null}}
+    : {available:true}});});
+  }});
+  const pending=api[active]({email:'member@example.com',password:'Password123!',ageConfirmed:true});
+  await assert.rejects(api[invalid]({email:'member',password:'Password123!',ageConfirmed:true}),{code:'INVALID_EMAIL'});
+  finish(); await pending; assert.equal(requests,1);
+ });
+for (const email of ['member','user@','@example.com','a@@example.com'])
+ test(`기존 계정 조회도 최소 주소 구조를 검사한다: ${email}`,async()=>{
+  let requests=0;
+  const api=createAuthApi({baseUrl:'https://server.example',fetchImpl:async()=>{requests++;throw new Error('must not request')}});
+  for(const work of [()=>api.login({email,password:'Password123!'}),()=>api.requestPasswordReset(email),()=>api.verifyPasswordReset(email,'123456')])
+   await assert.rejects(work,{code:'INVALID_EMAIL'});
+  assert.ok(inviteEmailError(email));assert.equal(requests,0);
+ });

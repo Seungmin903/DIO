@@ -8,7 +8,7 @@ export function emailError(value) {
 }
 
 // Account lookup preserves legacy addresses. Password/code/token verification still applies.
-const ACCOUNT_EMAIL_PATTERN = new RegExp("^[^\\p{Cc}\\p{Cf}\\u0009-\\u000D\\u0020\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]+$", 'u');
+const ACCOUNT_EMAIL_PATTERN = new RegExp("^[^@\\p{Cc}\\p{Cf}\\u0009-\\u000D\\u0020\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]+@[^@\\p{Cc}\\p{Cf}\\u0009-\\u000D\\u0020\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]+$", 'u');
 export function accountEmailError(value) {
   const email = normalizeEmail(value);
   return email && email.length <= 254 && ACCOUNT_EMAIL_PATTERN.test(email) ? '' : '이메일 주소를 확인해 주세요.';

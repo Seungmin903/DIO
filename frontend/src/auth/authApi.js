@@ -185,8 +185,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (!keepEnrollment) { verificationRevision++; draft = null; verification = null; }
     },
     async login({ email, password }) {
-      const attempt = ++revision;
       const normalized = requireEmail(email, true);
+      const attempt = ++revision;
       const result = await request('login', { email: normalized, password });
       if (attempt !== revision) throw new Error('로그인 요청이 취소되었어요.');
       if (typeof result?.user?.email !== 'string' || normalizeEmail(result.user.email) !== normalized) {
@@ -199,8 +199,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     async signup({ email, password, ageConfirmed }) {
       if (ageConfirmed !== true) throw new Error('만 14세 이상인지 확인해 주세요.');
-      const attempt = ++revision;
       const normalized = requireEmail(email);
+      const attempt = ++revision;
       const result = await request('email-availability', { email: normalized });
       if (attempt !== revision) throw new Error('가입 요청이 취소되었어요.');
       if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');

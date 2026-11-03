@@ -318,3 +318,11 @@ test('서버가 지정한 HTTPS 초대 화면 주소는 그대로 유지한다',
     ? reply({ available: true, inviteUrl: 'https://invite.dio.test/invite/signed-token', emailInvites: { items: [], page: 0, hasNext: false } }) : null });
   assert.equal((await f.runtime.getSharing(diaryId)).link, 'https://invite.dio.test/invite/signed-token');
 });
+
+for (const email of ['legacy@[127.0.0.1]', 'legacy@old_domain.example', '"legacy.user"@example.com'])
+ test(`기존 계정 주소도 기존 이메일 초대 API로 보낸다: ${email}`,async()=>{
+  const f=fixture();
+  await f.runtime.sendEmailInvite(diaryId,` ${email.toUpperCase()} `);
+  const sent=f.calls.find(c=>c.method==='POST' && c.url.endsWith('/invites/email'));
+  assert.equal(JSON.parse(sent.body).email,email);
+ });

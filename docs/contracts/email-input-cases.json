@@ -81,7 +81,7 @@
     "input": "member",
     "normalized": "member",
     "valid": false,
-    "accountValid": true
+    "accountValid": false
   },
   {
     "input": "member@localhost",
@@ -93,19 +93,19 @@
     "input": "@example.com",
     "normalized": "@example.com",
     "valid": false,
-    "accountValid": true
+    "accountValid": false
   },
   {
     "input": "user@",
     "normalized": "user@",
     "valid": false,
-    "accountValid": true
+    "accountValid": false
   },
   {
     "input": "user@@example.com",
     "normalized": "user@@example.com",
     "valid": false,
-    "accountValid": true
+    "accountValid": false
   },
   {
     "input": "user @example.com",

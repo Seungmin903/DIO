@@ -133,3 +133,13 @@ test('기존 형식 계정은 비밀번호 재설정 이메일 입력 화면에�
  assert.deepEqual(requested,['legacy@old_domain.example']);
  assert.ok(byLabel(ui.render(),'인증번호'));
 });
+
+for (const email of ['member', 'user@', '@example.com', 'a@@example.com'])
+ test(`재설정 화면은 잘못된 주소의 발송을 막는다: ${email}`,async()=>{
+  let requests=0;
+  const ui=screen({requestPasswordReset:async()=>{requests++;return{expiresIn:600,resendAfter:0}}});
+  byLabel(ui.render(),'이메일').props.onChangeText(email);
+  assert.equal(byLabel(ui.render(),'인증번호 보내기').props.disabled,true);
+  byLabel(ui.render(),'인증번호 보내기').props.onPress();await tick();
+  assert.equal(requests,0);
+ });

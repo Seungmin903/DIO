@@ -36,7 +36,7 @@ class EmailInputContractTests {
                     assertThat(validator.validateProperty(request, "email").isEmpty())
                         .as("%s email=%s", request.getClass().getSimpleName(), example.input())
                         .isEqualTo(request instanceof LoginRequest || request instanceof PasswordResetEmailRequest
-                            || request instanceof PasswordResetVerificationRequest || request instanceof PasswordResetRequest
+                            || request instanceof PasswordResetVerificationRequest || request instanceof PasswordResetRequest || request instanceof EmailInviteRequest
                             ? example.accountValid() : example.valid());
                 }
             }
