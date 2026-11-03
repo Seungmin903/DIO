@@ -15,7 +15,7 @@ function setup(service,photoPicker,options={emailVerificationEnabled:true}){
  const states=[],refs=[],deps=[],cleanups=[],keyboard={};let si=0,ri=0,ei=0,back
  const react={useState:initial=>{const i=si++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return[states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v}]},useRef:initial=>refs[ri++]??={current:initial},useEffect:(fn,next)=>{const i=ei++;if(!deps[i]||next.some((v,j)=>v!==deps[i][j])){cleanups[i]?.();deps[i]=next;cleanups[i]=fn()}}}
  const native={Linking:{openURL:async()=>{}},Keyboard:{dismiss(){},addListener:(name,fn)=>{keyboard[name]=fn;return{remove(){delete keyboard[name]}}}},Platform:{OS:'android'},BackHandler:{addEventListener:(_,fn)=>{back=fn;return{remove(){}}}}};for(const name of ['ActivityIndicator','KeyboardAvoidingView','Pressable','ScrollView','Text','TextInput','View'])native[name]=name
- const mocks={react,'../shared/legalContent':legalContent,'./LegalDocumentScreen':{__esModule:true,default:'LegalDocumentScreen'},'react-native':native,'react-native-safe-area-context':{SafeAreaView:'safe'},'../shared/useFormFactor':{useFormFactor:()=>({isPhone:false,formFactor:'tablet'})},'../shared/useOrientationLock':{useOrientationLock(){}},'./signupPolicy':signupPolicy,'./validation':validation,'./styles':{authStyles:new Proxy({},{get:(_,key)=>key})},'../shared/theme':{colors:{}}}
+ const mocks={react,'../shared/legalContent':legalContent,'./LegalDocumentScreen':{__esModule:true,default:'LegalDocumentScreen'},'react-native':native,'react-native-safe-area-context':{SafeAreaView:'safe'},'../shared/useFormFactor':{useFormFactor:()=>({isPhone:false,formFactor:'tablet'})},'../shared/useOrientationLock':{useOrientationLock(){}},'./signupPolicy':signupPolicy,'./appleLogin':{isAppleLoginSupported:()=>false},'./validation':validation,'./styles':{authStyles:new Proxy({},{get:(_,key)=>key})},'../shared/theme':{colors:{}}}
  const termsMod={exports:{}};new Function('require','module','exports',termsCode)(id=>id==='../shared/legalDocuments'?{marketingDocuments}:mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),termsMod,termsMod.exports);mocks['./SignupTerms']={__esModule:true,default:termsMod.exports.default}
  const mod={exports:{}};new Function('require','module','exports','__DEV__',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,options.developmentMode ?? false)
  const sessions=[],render=()=>{si=ri=ei=0;return mod.exports.default({service,onContinue:session=>sessions.push(session),photoPicker,legalDocuments:{service:'https://dio.test/legal/v2/service',privacy:'https://dio.test/legal/v2/consent',policy:'https://dio.test/legal/v2/privacy'},...options})}
@@ -31,7 +31,7 @@ function enterSignup(ui) {
  find(ui.render(),'동의하고 계속').props.onPress();
 }
 function enterSocial(ui) {
- find(ui.render(),'카카오로 로그인').props.onPress();
+ find(ui.render(),'구글로 로그인').props.onPress();
  find(ui.render(),'만 14세 이상입니다').props.onPress();
  find(ui.render(),'필수 항목 전체 동의').props.onPress();
  find(ui.render(),'동의하고 계속').props.onPress();
@@ -304,7 +304,7 @@ test('닉네임 중복 확인 없이 형식과 동의로 가입 가능하다',as
 
 test('중복 제출을 막고 Android 뒤로가기 후 늦은 진입 응답을 무시한다',async()=>{
  let resolveSocial,calls=0;const ui=setup({social:()=>{calls++;return new Promise(r=>resolveSocial=r)}})
- const button=find(ui.render(),'카카오로 로그인');button.props.onPress();button.props.onPress();assert.equal(calls,0)
+ const button=find(ui.render(),'구글로 로그인');button.props.onPress();button.props.onPress();assert.equal(calls,0)
  find(ui.render(),'만 14세 이상입니다').props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress()
  const submit=find(ui.render(),'동의하고 계속');submit.props.onPress();submit.props.onPress();assert.equal(calls,1)
  ui.render();assert.equal(ui.back(),true);ui.render();enterSignup(ui);ui.render();assert.equal(ui.back(),true);ui.render();assert.equal(ui.back(),true);ui.render();resolveSocial({provider:'kakao'});await tick();assert.ok(find(ui.render(),'로그인'));assert.equal(ui.back(),false);assert.deepEqual(ui.sessions,[]);ui.unmount()
@@ -548,6 +548,21 @@ test('인증 화면의 접근성 역할은 설치된 React Native 네이티브 �
  }
  for(const path of ['../src/auth/AuthScreen.js','../src/auth/ProfileEditScreen.js','../src/diary/screens/ProfileScreen.js'])visit(babel.parseSync(readFileSync(new URL(path,import.meta.url),'utf8'),{configFile:false,babelrc:false,parserOpts:{plugins:['jsx']}}))
 })
+
+test('구글 기존 회원은 프로필 입력 없이 바로 로그인한다',async()=>{
+ const ui=setup({social:async()=>({mode:'authenticated',provider:'google',userId:'7',email:'user@gmail.com'})});
+ try {find(ui.render(),'구글로 로그인').props.onPress();find(ui.render(),'만 14세 이상입니다').props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress();find(ui.render(),'동의하고 계속').props.onPress();await new Promise(r=>setImmediate(r));assert.equal(ui.sessions[0].provider,'google');assert.equal(find(ui.render(),'닉네임'),undefined);}finally{ui.unmount();}
+});
+
+test('구글 로그인도 기존 개발 서버 인증 화면에서 재시도한다',async()=>{
+ let count=0,configured=false;const service={verificationService:{setDevelopmentAccess(){configured=true;}},social:async()=>{if(++count===1)throw Object.assign(new Error('개발 서버 접근 인증'),{code:'DEVELOPMENT_ACCESS_REQUIRED'});return {mode:'authenticated',provider:'google',userId:'7',email:'user@gmail.com'};}};
+ const ui=setup(service,undefined,{developmentMode:true,emailVerificationEnabled:true});
+ try{
+ find(ui.render(),'구글로 로그인').props.onPress();find(ui.render(),'만 14세 이상입니다').props.onPress();find(ui.render(),'필수 항목 전체 동의').props.onPress();find(ui.render(),'동의하고 계속').props.onPress();await new Promise(r=>setImmediate(r));
+ find(ui.render(),'개발 서버 ID').props.onChange('tester');find(ui.render(),'개발 서버 비밀번호').props.onChange('secret');
+ assert.equal(find(ui.render(),'접속 인증 후 로그인').props.disabled,false);find(ui.render(),'접속 인증 후 로그인').props.onPress();await new Promise(r=>setImmediate(r));assert.equal(configured,true);assert.equal(ui.sessions[0].provider,'google');
+ }finally{ui.unmount();}
+});
 
 for (const failure of ['local-expiry', 'server-rejection']) test(`가입 인증 복구는 닉네임·사진·앞쪽 약관 선택을 유지한다: ${failure}`, async () => {
  let time=0, verified=0, rejected=false;
