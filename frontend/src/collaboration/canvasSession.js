@@ -1,5 +1,6 @@
 import {decodeElement,sharedObject} from './canvasElements.js'
 import { canvasContent, canvasDelta, stable, sameElements } from './canvasApi.js'
+import { assertCanvasBatchLimits } from './canvasBatchLimits.js'
 const copy=v=>JSON.parse(JSON.stringify(v))
 const permanentRejection=error=>[400,403,404,405,410,413,415,422].includes(error.status)
 export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,createId,isActive=()=>true}){
@@ -116,11 +117,16 @@ export function createCanvasSession({api,storage,key,legacyKey,pageId,diaryId,cr
         while(journal.queue.length){
           active();const entry=journal.queue[0]
           try{
-          if(!entry.request){const request=requestFor(entry);const prepared=request&&api.prepare?await api.prepare(request):request;active();entry.request=prepared;entry.mediaApiVersion=1;await persist()}
+          if(!entry.request){const request=requestFor(entry);if(request)assertCanvasBatchLimits(request.changes,request.expectedVersions);const prepared=request&&api.prepare?await api.prepare(request):request;active();entry.request=prepared;entry.mediaApiVersion=1;await persist()}
           if(entry.request){
+            assertCanvasBatchLimits(entry.request.changes,entry.request.expectedVersions)
             const result=await api.apply(pageId,entry.request);active();setBase(result.items)
           }
           }catch(error){
+              if(error.code==='CANVAS_BATCH_LIMIT') {
+                await persist()
+                throw Object.assign(Error('이전 대량 편집이 100개 제한을 넘어 저장 대기열이 막혔어요. 이 작업과 이후 편집은 서버에 저장되지 않고 기기에만 보관 중이에요. 재시도만으로 해결되지 않으며 별도 복구가 필요해요.'), {code:'CANVAS_BATCH_LIMIT'})
+              }
               if(error.status===404&&error.code==='CANVAS_ELEMENT_NOT_FOUND'){
                 journal.rejectedRequests=[...(journal.rejectedRequests??[]),copy(entry.request)]
                 entry.id=createId();delete entry.request;await persist();throw error

@@ -1,4 +1,5 @@
 import {encodeElement,decodeElement,sharedObject,sharedElement} from './canvasElements.js'
+import {assertCanvasBatchLimits} from './canvasBatchLimits.js'
 export {sharedObject} from './canvasElements.js'
 const uuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 const fail=()=>{throw new Error('공동 편집 응답을 확인하지 못했어요.')}
@@ -17,7 +18,7 @@ export function createCanvasApi(transport,media){
   return {
     prepare: media ? body=>media.prepare(body) : undefined,
     async load(pageId,diaryId){const body=await transport({path:path(pageId)});if(body?.page?.pageId!==pageId||body.page.diaryId!==diaryId)fail();const result=rows(body.elements);hydrate(result);return result},
-    async apply(pageId,body){const result=await response(await transport({method:'POST',path:`${path(pageId)}/canvas-operations`,body}));return result},
+    async apply(pageId,body){assertCanvasBatchLimits(body.changes,body.expectedVersions);const result=await response(await transport({method:'POST',path:`${path(pageId)}/canvas-operations`,body}));return result},
     async control(pageId,direction,body){if(!['undo','redo'].includes(direction))fail();const result=await response(await transport({method:'POST',path:`${path(pageId)}/${direction}`,body}));return result},
     async history(pageId){const body=await transport({path:`${path(pageId)}/history/me`});if(!Array.isArray(body?.items))fail();
       for(const value of [body.nextUndo,body.nextRedo])if(value!=null&&(typeof value.operationId!=='string'||!/^\d+$/.test(value.operationId)||!Number.isSafeInteger(value.revision)))fail();return body},

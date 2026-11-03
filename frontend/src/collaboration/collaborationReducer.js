@@ -1,4 +1,5 @@
-import {sameElements,sharedObject,reconcileCanvasObjects} from './canvasApi.js'
+import {sameElements,sharedObject,reconcileCanvasObjects,canvasDelta} from './canvasApi.js'
+import {assertCanvasBatchLimits,assertCanvasBatchCounts} from './canvasBatchLimits.js'
 // Member canvas history is sent as completed actions. Local-only documents keep their existing reducer.
 const elements = (doc, pageId) => (doc.pages.find(p => p.id === pageId)?.objects ?? []).filter(sharedObject)
 const same = (a,b) => sameElements(a,b)
@@ -9,7 +10,76 @@ export function mergeElements(objects, incoming) {
   return [...merged,...incoming.slice(index)]
 }
 const preserveElements = (target, source) => ({...target,pages:target.pages.map(p=>source.pages.some(s=>s.id===p.id)?{...p,objects:mergeElements(p.objects,elements(source,p.id))}:p)})
+const objectIndexes = new WeakMap()
+const indexObjects = objects => {
+  if (!objectIndexes.has(objects)) objectIndexes.set(objects,new Map(objects.map(object=>[object.id,object])))
+  return objectIndexes.get(objects)
+}
+// Coordinate-only drag events cannot create, remove, or reorder elements.
+// Compare just the accumulated target IDs; serialize the full action at commit.
+const geometryChanges = (state,action) => {
+  const gesture=state.collaborationGesture
+  if (!Array.isArray(gesture?.limitGeometryIds) || action.record) return null
+  const patches=action.type==='updateMany'?action.patches:action.type==='updateObject'?{[action.id]:action.patch}:null
+  if (!patches || Object.values(patches).some(patch=>!patch || Object.entries(patch).some(([key,value])=>!['x','y'].includes(key)||!Number.isFinite(value)))) return null
+  const objects=state.doc.pages.find(page=>page.id===gesture.pageId)?.objects
+  if (!objects) return null
+  const before=indexObjects(gesture.before),current=indexObjects(objects)
+  const ids=[...new Set([...gesture.limitGeometryIds,...Object.keys(patches)])]
+  const round=value=>Math.round(value*1000)/1000
+  let updates=0
+  for(const id of ids){
+    const old=before.get(id),object=current.get(id)
+    if (!object || !sharedObject(object)) continue
+    if (!old || ![old.x,old.y,object.x,object.y].every(Number.isFinite)) return null
+    const patch=patches[id]??{}
+    if(round(patch.x??object.x)!==round(old.x)||round(patch.y??object.y)!==round(old.y))updates++
+  }
+  return {ids,updates}
+}
 export function collaborationReducer(reduce,state,action) {
+  if (action.type === 'canvasLimitNoticeShown') return state.collaborationLimitError?.id === action.id
+    ? {...state,collaborationLimitError:null} : state
+  const geometry=geometryChanges(state,action)
+  const reject=error=>{
+    const gesture=state.collaborationGesture
+    if(gesture?.limitNotified)return state
+    return {...state,...(gesture?{collaborationGesture:{...gesture,limitNotified:true}}:{}),
+      collaborationLimitError:{id:gesture?.id??action.collaborationId,pageId:gesture?.pageId??state.pageId,message:error.message}}
+  }
+  if(geometry)try{assertCanvasBatchCounts({updates:geometry.updates})}catch(error){return reject(error)}
+  let next = reduceCollaboration(reduce,state,action)
+  if(next.collaborationGesture){
+    if(action.type==='checkpoint')next={...next,collaborationGesture:{...next.collaborationGesture,limitGeometryIds:[]}}
+    else if(geometry)next={...next,collaborationGesture:{...next.collaborationGesture,limitGeometryIds:geometry.ids}}
+    else if(next.doc!==state.doc)next={...next,collaborationGesture:{...next.collaborationGesture,limitGeometryIds:null}}
+  }
+  const previousIds = new Set((state.collaborationEdits ?? []).map(entry => entry.id))
+  const added = (next.collaborationEdits ?? []).filter(entry => !previousIds.has(entry.id))
+  const candidates = [...added]
+  if (!geometry && next.collaborationGesture && next.doc !== state.doc
+    && !['importCollaborationElements','collaborationHistoryApplied','importServerPages','reconcileServerPages'].includes(action.type)) {
+    const gesture = next.collaborationGesture
+    candidates.push({before:gesture.before,after:elements(next.doc,gesture.pageId)})
+  }
+  try {
+    for (const entry of candidates) {
+      const delta = canvasDelta(entry.before,entry.after)
+      const changes = {creates:[],updates:[],deleteElementIds:[]}
+      for (const id of delta.touched) {
+        if (!delta.old.has(id)) changes.creates.push(id)
+        else if (!delta.next.has(id)) changes.deleteElementIds.push(id)
+        else changes.updates.push(id)
+      }
+      assertCanvasBatchLimits(changes)
+    }
+  } catch (error) {
+    if (error.code !== 'CANVAS_BATCH_LIMIT') throw error
+    return reject(error)
+  }
+  return next
+}
+function reduceCollaboration(reduce,state,action) {
   const meta=state.collaborationPast ?? state.past.map(()=>({pageId:state.pageId,hasCanvas:false}))
   const future=state.collaborationFuture ?? state.future.map(()=>({pageId:state.pageId,hasCanvas:false}))
   let current={...state,collaborationPast:meta,collaborationFuture:future,collaborationEdits:state.collaborationEdits??[]}

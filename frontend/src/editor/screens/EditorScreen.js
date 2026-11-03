@@ -395,6 +395,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     else setToast({ message, key: createId() })
   }, [setToast])
 
+  useEffect(() => {
+    const notice = state.collaborationLimitError
+    if (!notice) return
+    if (textSync.enabled && notice.pageId === page.id) showToast(notice.message)
+    dispatch({type:'canvasLimitNoticeShown',id:notice.id})
+  }, [textSync.enabled, state.collaborationLimitError, page.id, showToast, dispatch])
+
   const startExport = (job) => {
     setExportOpen(false)
     if (exportJob) { showToast('이미 내보내고 있어요. 끝난 뒤 다시 시도해 주세요.'); return }
