@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.f106.DIO.notification.event.InvitationNotificationRepository.Receipt;
 import com.f106.DIO.notification.event.InvitationNotificationSource.Snapshot;
+import com.f106.DIO.sharing.domain.SharingPolicy;
 
 	/** 공유 모듈이 발행한 초대 확정 이벤트를 알림 처리로 연결한다. */
 @Service
@@ -64,10 +65,8 @@ public class InvitationNotificationHandler {
 		if (source == null) throw new InvitationEventException("공유 초대 조회 연결이 아직 준비되지 않았습니다.", true);
 		// 원본의 이메일 만료 판정과 아래 링크 만료 판정이 같은 시각을 쓴다.
 		Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
-		// 원본 조회가 비면 초대가 없거나(보존 기한 뒤 삭제 포함) 수신자가 다르다. 다시 시도해도 생기지 않으므로 재시도하지 않는다.
-		// 지금 발행자(EmailInviteService)는 초대를 만든 트랜잭션 안에서 동기로 발행하므로 이 경로는 지연·재전달에만 해당한다.
 		Snapshot snapshot = source.findForNotification(event.inviteId(), event.recipientUserId(), now)
-			.orElseThrow(() -> new InvitationEventException("초대가 없거나 이미 정리됐습니다.", false));
+			.orElseThrow(() -> missingInvitation(event, now));
 		validateSnapshot(event, snapshot);
 		if (!repository.claim(event, now)) {
 			// 동시 전달의 승자가 커밋한 이력을 읽는다. 읽기 커밋 격리를 전제로 하며 DB 일시 오류는 호출자가 재시도한다.
@@ -82,6 +81,17 @@ public class InvitationNotificationHandler {
 		}
 		repository.finish(event, outcome, notificationId);
 		return new Result(false, outcome, notificationId);
+	}
+
+	/**
+	 * 원본 조회가 빈 이벤트. 이메일 초대 행은 빨라야 생성 7일 뒤에 정리되므로(retention_until 최소값),
+	 * 이벤트 발생 후 7일이 안 됐으면 삭제가 아니라 아직 커밋 전이거나 일시적으로 보이지 않는 경우로 보고 재시도한다.
+	 * 7일이 지났으면 보존 기한 뒤 삭제됐을 수 있어 다시 시도해도 생기지 않으므로 재시도하지 않는다.
+	 */
+	static InvitationEventException missingInvitation(InvitationConfirmedEvent event, Instant now) {
+		boolean mayBePurged = !event.occurredAt().plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS).isAfter(now);
+		return mayBePurged ? new InvitationEventException("초대가 보존 기한 뒤 정리됐습니다.", false)
+			: new InvitationEventException("현재 초대 상태를 확인하지 못했습니다.", true);
 	}
 
 	private Result replay(InvitationConfirmedEvent event, Receipt receipt, boolean sameEvent) {
