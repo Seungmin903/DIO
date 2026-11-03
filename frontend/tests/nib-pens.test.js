@@ -45,18 +45,27 @@ test('붓펜은 눌러 시작한 굵은 머리와 길게 빠지는 가는 끝을
   const width = 4, total = 200
   assert.ok(Math.abs(brushScale(0, total, width) - 1.45) < 1e-9, '머리 1.45D')
   assert.ok(Math.abs(brushScale(100, total, width) - 1.25) < 1e-9, '몸통 1.25D')
-  assert.ok(brushScale(total, total, width) <= 0.5 + 1e-9, '끝 0.5D')
+  assert.ok(Math.abs(brushScale(total, total, width) * width - 0.5) < 1e-9, '끝은 지름 0.5 까지 뾰족하게(둥근 머리 없음)')
   assert.ok(brushScale(total - 10, total, width) < 1.25, '삐침은 끝에서 길게 빠진다')
   assert.equal(brushScale(total, total, width, { end: false }), 1.25, '그리는 중 앞 구간은 끝 삐침이 없다')
   // 삐침 옆선은 볼록하다: 굵을 때 )( 처럼 오목하게 줄지 않도록 중간 굵기가 직선보다 굵다
-  const tail = Math.min(Math.max(3.2 * width, 8), 26, 0.42 * total), endScale = Math.max(0.5 * width, 1) / width
+  const tail = Math.min(Math.max(4.5 * width, 8), 0.42 * total), endScale = 0.5 / width
   assert.ok(brushScale(total - tail / 2, total, width) > (1.25 + endScale) / 2)
   // 머리 · 몸통은 획 길이와 무관하다(획이 길어져도 이미 그린 앞부분이 바뀌지 않는다). 짧은 획은 끝만 0.85D
   assert.equal(brushScale(0, 8, width), brushScale(0, 400, width))
   assert.equal(brushScale(3, 30, width), brushScale(3, 400, width))
   assert.ok(brushScale(8, 8, width) >= 0.85 - 1e-9)
-  // 아주 가는 펜도 굵기 1 아래로 내려가지 않는다
-  assert.ok(brushScale(50, 50, 1) >= 1 - 1e-9)
+  // 아주 가는 펜도 몸통은 굵기 1 아래로 내려가지 않고, 끝만 뾰족해진다
+  assert.ok(brushScale(25, 50, 1, { speed: 0.5 }) >= 1 - 1e-9)
+  assert.ok(Math.abs(brushScale(50, 50, 1) - 0.5) < 1e-9)
+  // 끝 구간은 촘촘히 나눠 굵기가 매끄럽게 줄고, 앞쪽 표본 수는 그대로다
+  const curve = line(0, 0, 200, 0, 10).map(p => ({ ...p, inkDistance: p.x }))
+  const tapered = withTaper(curve, 10)
+  const tailStart = 200 - Math.max(4.5 * 10, 8)
+  assert.equal(tapered.filter(p => p.inkDistance <= tailStart - 20).length, curve.filter(p => p.inkDistance <= tailStart - 20).length)
+  const inTail = tapered.filter(p => p.inkDistance > tailStart)
+  assert.ok(inTail.every((p, i) => !i || p.inkDistance - inTail[i - 1].inkDistance <= 0.75 + 1e-9))
+  assert.ok(inTail.every((p, i) => !i || p.pressure <= inTail[i - 1].pressure + 1e-9))
   for (const points of [[{ x: 10, y: 10 }], line(10, 10, 14, 10, 2), line(0, 0, 300, 120)]) {
     const path = nibContour(createStroke(points, { kind: 'taperBrush', width }))
     assert.doesNotMatch(path, /NaN|Infinity/)
@@ -95,6 +104,17 @@ test('펜을 뗄 때 짧고 급하게 말린 끝은 꺾인 점에서 자르고 �
   assert.equal(trimEndHook(small, 1).length, small.length)
   // 곧게 끝난 획은 그대로
   assert.equal(trimEndHook(timed(body), 1).length, body.length)
+})
+
+test('굵은 붓펜의 긴 끝 삐침이 여러 미리보기 구간에 걸쳐도 끝까지 가늘어진다', () => {
+  // 천천히 써서 점이 촘촘하면 끝 삐침(4.5D = 72)이 마지막 두 구간보다 길다
+  const points = withDistances(line(0, 0, 200, 0, 1000).map(p => ({ x: p.x, y: 0 })))
+  const parts = createStrokePreview().snapshot(points)
+  assert.ok(parts.at(-3).points.at(-1).inkDistance > 200 - 72, '셋째 구간까지 삐침이 걸린다')
+  const numbers = nibPreviewPaths(parts, 16, 'taperBrush').join('').match(/-?\d+(\.\d+)?/g).map(Number)
+  const near = []
+  for (let i = 0; i + 1 < numbers.length; i += 2) if (Math.abs(numbers[i] - 164) < 0.5) near.push(Math.abs(numbers[i + 1]))
+  assert.ok(near.length && Math.max(...near) < 8, '삐침 중간 굵기는 몸통(반지름 10)보다 가늘다')
 })
 
 test('그리는 중 미리보기와 저장 획의 붓펜 외곽선이 같다', () => {

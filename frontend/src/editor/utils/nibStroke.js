@@ -8,12 +8,15 @@ export const isNibKind = kind => NIB_KINDS.includes(kind)
 // 평촉: 긴 변 = 굵기 D, 짧은 변 = max(0.75, 0.34D)(사용자: 굵기 대비 살짝 더, 0.38 → 0.34), 긴 변이 화면 +x 축에서 시계 방향 25°(y 아래로), 모서리 반경 0.08D
 const NIB_ANGLE = 25 * Math.PI / 180, NIB_RATIO = 0.34, NIB_MIN_SHORT = 0.75, NIB_CORNER = 0.08
 // 붓펜(코덱스 3판 · 검수 반영): 시작은 붓을 눌러 생긴 둥근 머리(기필) 1.45D, 끝은 길게 빠지는 삐침(수필). 몸통은 굵기의 1.25배.
-// 머리 길이 H = min(max(1.2D, 3), 8)·3차 ease-out, 삐침 길이 T = min(max(3.2D, 8), 26, 0.42S).
+// 머리 길이 H = min(max(1.2D, 3), 8)·3차 ease-out, 삐침 길이 T = min(max(4.5D, 8), 0.42S)(상한 26 이면 굵은 획 끝이 짧은 화살촉이 됐다, 2026-11-03 태블릿 확인).
 // 삐침은 몸통 굵기를 이어 가다 끝에서 모이는 1 - u² (ease-out 이면 시작에서 확 줄어 굵을 때 옆선이 )( 처럼 오목했다, 사용자 지적).
-// 짧은 획(S < max(2.5D, 6))은 끝 굵기만 max(0.85D, 1.1). 굵기는 max(0.5D, 1) ~ 1.45D 사이.
+// 삐침 끝은 지름 0.5 까지 뾰족하게 모은다(코덱스 2026-11-03: 끝 굵기 0.5D 에서 멈추면 둥근 머리가 성냥처럼 튀어나왔다, 사용자 지적. 실제 붓펜 · Clip Studio · perfect-freehand 도 끝에 머리를 남기지 않는다).
+// 짧은 획(S < max(2.5D, 6))은 가시처럼 되지 않게 끝 굵기를 max(0.85D, 1.1) 로 둔다. 몸통 굵기는 max(0.5D, 1) ~ 1.45D 사이.
 // 이미 그린 앞부분이 획이 길어지면서 바뀌지 않도록 머리 · 몸통은 획 길이 S 와 무관하다(사용자: 다시 계산해 바뀌지 않게).
-const HEAD = 1.45, BODY = 1.25, HEAD_LENGTH = [1.2, 3, 8], TAIL_LENGTH = [3.2, 8, 26, 0.42]
-const SHORT = [2.5, 6], SHORT_END = [0.85, 1.1], END = [0.5, 1]
+const HEAD = 1.45, BODY = 1.25, HEAD_LENGTH = [1.2, 3, 8], TAIL_LENGTH = [4.5, 8, Infinity, 0.42]
+const SHORT = [2.5, 6], SHORT_END = [0.85, 1.1], FLOOR = [0.5, 1], TIP = 0.5
+// 끝 구간은 굵기가 빠르게 변하므로 곡선 표본(6)보다 촘촘히 나눈다(그대로면 옆선이 각져 보인다)
+const TAIL_STEP = 0.75
 export const BRUSH_MAX_SCALE = HEAD
 const DOT = 0.75, BRUSH_DOT = 1.15, MIN_DOT = 0.85
 
@@ -136,23 +139,35 @@ const span = ([ratio, floor, cap, share], width, total) => Math.min(Math.max(rat
 export function brushShape(width, total) {
   const short = total < Math.max(SHORT[0] * width, SHORT[1])
   return { head: span(HEAD_LENGTH, width, total), tail: span(TAIL_LENGTH, width, total),
-    end: short ? Math.max(SHORT_END[0] * width, SHORT_END[1]) / width : Math.max(END[0] * width, END[1]) / width,
-    floor: Math.max(END[0] * width, END[1]) / width }
+    end: (short ? Math.max(SHORT_END[0] * width, SHORT_END[1]) : TIP) / width,
+    floor: Math.max(FLOOR[0] * width, FLOOR[1]) / width }
 }
 // 진행 거리 d 에서의 굵기 배율(굵기 D 대비). speed 는 입력 때 정한 속도 배율(점의 pressure). end 가 false 면 끝 삐침은 아직 없다.
 export function brushScale(distance, total, width, { speed = 1, end = true } = {}) {
   const shape = brushShape(width, total)
   let scale = distance < shape.head ? HEAD + (BODY - HEAD) * easeOut(distance / shape.head) : BODY
-  const from = total - shape.tail
-  if (end && distance > from) scale = Math.min(scale, BODY + (shape.end - BODY) * easeIn(Math.min(1, (distance - from) / shape.tail)))
-  return Math.max(Math.min(shape.floor, 1), Math.min(HEAD, scale * speed))
+  const from = total - shape.tail, inTail = end && distance > from
+  if (inTail) scale = Math.min(scale, BODY + (shape.end - BODY) * easeIn(Math.min(1, (distance - from) / shape.tail)))
+  return Math.max(inTail ? Math.min(shape.end, shape.floor) : Math.min(shape.floor, 1), Math.min(HEAD, scale * speed))
 }
 
 // 곡선 표본의 진행 거리(inkDistance)로 붓 굵기 배율을 pressure 에 넣는다(입력 때의 속도 배율과 곱한다).
 export function withTaper(points, width, { total, end = true } = {}) {
   points = withDistances(points)
   const length = total ?? points.at(-1).inkDistance
-  return points.map(p => ({ ...p, pressure: brushScale(p.inkDistance, length, width, { speed: p.pressure ?? 1, end }) }))
+  const from = end ? length - brushShape(width, length).tail : Infinity, sampled = []
+  points.forEach((p, i) => {
+    const a = points[i - 1]
+    if (a && p.inkDistance > from) {
+      const steps = Math.ceil(Math.hypot(p.x - a.x, p.y - a.y) / TAIL_STEP)
+      for (let k = 1; k < steps; k++) {
+        const t = k / steps
+        sampled.push({ ...p, x: a.x + (p.x - a.x) * t, y: a.y + (p.y - a.y) * t, pressure: (a.pressure ?? 1) + ((p.pressure ?? 1) - (a.pressure ?? 1)) * t, inkDistance: a.inkDistance + (p.inkDistance - a.inkDistance) * t })
+      }
+    }
+    sampled.push(p)
+  })
+  return sampled.map(p => ({ ...p, pressure: brushScale(p.inkDistance, length, width, { speed: p.pressure ?? 1, end }) }))
 }
 
 function taperPath(points, width, { capStart = true, capEnd = true } = {}) {
@@ -185,7 +200,7 @@ export function ballPreviewPaths(parts, width) {
   })
 }
 
-// 그리는 중 미리보기: 끝난 구간은 같은 객체를 재사용한다. 붓펜 끝 삐침(최대 26)은 마지막 두 구간에만 걸리므로 그 둘만 다시 계산한다.
+// 그리는 중 미리보기: 끝난 구간은 같은 객체를 재사용한다. 붓펜 끝 삐침이 걸린 구간만 다시 계산한다.
 const partCache = new WeakMap()
 export function nibPreviewPaths(parts, width, kind) {
   if (kind === 'calligraphy') return parts.map(part => {
@@ -196,9 +211,9 @@ export function nibPreviewPaths(parts, width, kind) {
     return path
   })
   if (parts.length === 1 && parts[0].points.length === 1) return [taperPath(parts[0].points, width)]
-  const total = parts.at(-1)?.points.at(-1)?.inkDistance ?? 0
+  const total = parts.at(-1)?.points.at(-1)?.inkDistance ?? 0, from = total - brushShape(width, total).tail
   return parts.map((part, i) => {
-    const live = i >= parts.length - 2
+    const live = i >= parts.length - 2 || part.points.at(-1).inkDistance > from
     const key = `t:${width}`, cached = partCache.get(part)
     if (!live && cached?.key === key) return cached.path
     const path = taperPath(withTaper(curveOfPart(part), width, { total, end: live }), width, { capStart: !part.key, capEnd: !part.continuing })
