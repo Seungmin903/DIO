@@ -4,19 +4,17 @@ import { fountainInkOpacity } from './penMaterials.js'
 
 const smooth = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t) }
 export function inkOpacity(kind, distance, { length = Infinity, continuing = false } = {}) {
+  if (kind === 'fountain') return 1
   if (kind === 'brush') return 0.96 - 0.4 * smooth((distance - 120) / 360)
   const pooling = Math.max(1 - smooth(distance / 18), continuing ? 0 : 1 - smooth((length - distance) / 18))
   return Math.min(0.98, 0.84 + 0.035 * Math.sin(distance / 23) + 0.12 * pooling)
 }
 
 const BRUSH_LEVELS = Array.from({ length: 41 }, (_, i) => 0.56 + i * 0.01)
-const FOUNTAIN_LEVELS = Array.from({ length: 19 }, (_, i) => 0.8 + i * 0.01)
-const FOUNTAIN_MATERIAL_LEVELS = Array.from({ length: 28 }, (_, i) => 0.72 + i * 0.01)
-const fullInkLevels = (kind, renderVersion = 2) => kind === 'fountain'
-  ? renderVersion === 3 ? FOUNTAIN_MATERIAL_LEVELS : FOUNTAIN_LEVELS : BRUSH_LEVELS
+const fullInkLevels = kind => kind === 'fountain' ? [1] : BRUSH_LEVELS
 export function inkLevels(kind, renderVersion = 2, preview = false) {
   const full = fullInkLevels(kind, renderVersion)
-  if (!preview) return full
+  if (!preview || kind === 'fountain') return full
   return Array.from({ length: 8 }, (_, i) => full[Math.round(i * (full.length - 1) / 7)])
 }
 const cache = new WeakMap()

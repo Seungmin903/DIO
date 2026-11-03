@@ -71,6 +71,7 @@ const MIN_TARGET_PX = 44
  * - 자르기 중인 사진은 드래그하면 보이는 영역이 움직인다.
  */
 export default function Canvas({
+  onStrokeCommitted,
   readingImage = null,
   qaPageMeasurement = null,
   colorCaptureRef,
@@ -446,7 +447,7 @@ export default function Canvas({
       {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
           {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
-          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} objectCount={page.objects.length} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onPlannerStroke={plannerStroke} />
+          <PenInput onStrokeCommitted={onStrokeCommitted} key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} objectCount={page.objects.length} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onPlannerStroke={plannerStroke} />
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>

@@ -115,12 +115,10 @@ test('신규 재질의 시드·필압·농도는 저장 복원 및 영역 지우
   assert.deepEqual(getCurrentPage(state).objects, [object])
 })
 
-test('만년필 새 농도는 실제 필압과 속도에 반응하고 주기적인 줄무늬를 만들지 않는다', () => {
-  const opacity = (force, speed) => fountainInkOpacity({ force, speed }, 100, { length: 300 })
-  assert.ok(opacity(0.8, 0.4) > opacity(0.1, 0.4))
-  assert.ok(opacity(0.4, 0.1) > opacity(0.4, 2))
-  assert.ok(fountainInkOpacity({}, 0, { length: 300 }) > opacity(0.45, 0.5))
-  assert.ok(opacity(0, 20) >= 0.72)
+test('만년필 농도는 필압·속도·시작과 끝에 관계없이 불투명하다', () => {
+  for (const force of [0, 0.1, 0.8, 1, undefined]) for (const speed of [0.1, 2, 20]) {
+    for (const distance of [0, 100, 300]) assert.equal(fountainInkOpacity({ force, speed }, distance, { length: 300 }), 1)
+  }
 })
 
 test('펠트펜 미리보기 분할은 재질 레이어 수와 전역 질감 시드를 유지한다', () => {

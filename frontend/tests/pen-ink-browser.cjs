@@ -41,6 +41,9 @@ const assert = require('node:assert/strict');
     for (const result of results) {
       assert.equal(result.missingCap, 0, `${result.kind}: 끝점 패임`);
       assert.ok(result.changed < 15, `${result.kind}: 미리보기/저장 농도 차이 ${result.changed}px`);
+      if (result.kind === 'fountain') {
+        for (const key of ['startAlpha', 'middleAlpha', 'endAlpha', 'shortEndAlpha']) assert.equal(result[key], 255, key);
+      }
       if (result.kind === 'brush') {
         assert.ok(result.startAlpha > result.middleAlpha && result.middleAlpha > result.endAlpha);
         assert.ok(result.endAlpha >= 135 && result.shortEndAlpha > 235);
