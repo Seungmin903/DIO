@@ -71,6 +71,7 @@ import { useMemberPagePosition } from '../hooks/useMemberPagePosition'
 import { prefetchPageTemplate } from '../services/editorDocs'
 import { getCurrentPage } from '../state/editorReducer'
 import { clamp, createId, unionBounds } from '../utils/common'
+import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover } from '../utils/toolPanelPlacement'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
 import { discardGeneratedMedia } from '../services/mediaStore'
@@ -177,9 +178,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     // 폰: 세로 리본 바로 아래, 가로 리본의 상단 옆에 설정 창을 붙인다.
     // 작업 영역 안에서만 펼쳐지게 해 하단 되돌리기 바도 가리지 않는다.
     if (compact) return { left: 8, right: 8, top: 8, bottom: 60, alignItems: landscape ? 'flex-end' : 'center', justifyContent: 'flex-start' }
-    const stageWidth = stageSize?.width ?? 600
-    const left = Math.max(8, Math.min((toolAnchor?.x ?? stageOrigin.x + stageWidth / 2) - stageOrigin.x + (toolAnchor?.width ?? 0) / 2 - width / 2, stageWidth - width - 8))
-    return { left, right: 8, top: 8, bottom: 64, alignItems: 'flex-start' } // 도구 줄이 작업창 바로 위에 있어 작업창 위 끝에 붙이면 도구 아래에 뜬다
+    return tabletToolPopover({ width, anchor: toolAnchor, stageOrigin, stageWidth: stageSize?.width })
   }
 
   // scale: 화면에 맞춤 대비 배율, x·y: 페이지 왼쪽 위 위치 (null 이면 가운데)
@@ -1530,39 +1529,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 /** 화면에 맞춤 위치: 리본바·하단 컨트롤 여백을 뺀 영역의 가운데 */
 const BODY_GAP = 16 // 페이지 목록·작업창·레이어 사이 간격
 const BODY_PADDING = 16 // styles.body 의 padding
-const OPTIONS_WIDTH = 300
-const OPTIONS_GAP = 16
-const OPTIONS_TOP = 8 // 태블릿: 작업창 위 끝부터
-const OPTIONS_TOP_PHONE = 76
-const OPTIONS_MARGIN = 12
-const OPTIONS_BOTTOM = 64 // 아래쪽 되돌리기 바 위까지
-const CONTEXT_BAR_HALF = 180 // 요소 아래·위에 뜨는 편집 바 폭의 절반 (바도 가리지 않게)
-
-/**
- * 옵션 패널 자리: 고른 요소의 화면 상자 오른쪽에 자리가 있으면 오른쪽, 없으면 왼쪽,
- * 둘 다 모자라면 더 넓은 쪽 가장자리에 붙인다. 위쪽은 요소 위 끝에 맞추되 화면 안으로.
- */
-function optionsPlacement(objects, zoom, offset, stage, optionsTop = OPTIONS_TOP) {
-  const b = unionBounds(objects)
-  const cx = offset.x + b.cx * zoom
-  // 요소와 그 아래·위의 편집 바를 함께 피한다
-  const rect = {
-    left: Math.min(offset.x + b.left * zoom, cx - CONTEXT_BAR_HALF),
-    right: Math.max(offset.x + b.right * zoom, cx + CONTEXT_BAR_HALF),
-    top: offset.y + b.top * zoom,
-  }
-  const roomRight = stage.width - OPTIONS_MARGIN - rect.right
-  const roomLeft = rect.left - OPTIONS_MARGIN
-  const need = OPTIONS_WIDTH + OPTIONS_GAP
-  let left
-  if (roomRight >= need) left = rect.right + OPTIONS_GAP
-  else if (roomLeft >= need) left = rect.left - need
-  else left = roomRight >= roomLeft ? stage.width - OPTIONS_MARGIN - OPTIONS_WIDTH : OPTIONS_MARGIN
-  left = clamp(left, OPTIONS_MARGIN, Math.max(OPTIONS_MARGIN, stage.width - OPTIONS_MARGIN - OPTIONS_WIDTH))
-  const minHeight = Math.min(420, stage.height - optionsTop - OPTIONS_BOTTOM)
-  const top = clamp(rect.top, optionsTop, Math.max(optionsTop, stage.height - OPTIONS_BOTTOM - minHeight))
-  return { left, top, height: stage.height - OPTIONS_BOTTOM - top }
-}
 
 // 폰에서만 패널을 작업창 위에 띄우는 틀로 감싼다. 태블릿은 감싸지 않아 기존 배치·겹침 순서를 그대로 쓴다.
 function PhonePanelSlot({ compact, side, onWidth, children }) {
