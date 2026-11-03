@@ -1,10 +1,12 @@
 package com.f106.DIO.sharing.service;
 
 import java.time.Instant;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -22,8 +24,9 @@ public class InvitationRetentionCleanup {
     private static final Logger log=LoggerFactory.getLogger(InvitationRetentionCleanup.class);
     private final DiaryInviteRepository invites;
     private final TransactionTemplate tx;
-    public InvitationRetentionCleanup(DiaryInviteRepository invites,PlatformTransactionManager transactions){
-        this.invites=invites;this.tx=new TransactionTemplate(transactions);
+    private final NamedParameterJdbcTemplate jdbc;
+    public InvitationRetentionCleanup(DiaryInviteRepository invites,PlatformTransactionManager transactions,NamedParameterJdbcTemplate jdbc){
+        this.invites=invites;this.tx=new TransactionTemplate(transactions);this.jdbc=jdbc;
     }
     @Scheduled(fixedDelayString="${dio.sharing.invitation-retention.delay-ms:3600000}",initialDelayString="${dio.sharing.invitation-retention.initial-delay-ms:900000}")
     public void clean(){clean(Instant.now());}
@@ -32,7 +35,11 @@ public class InvitationRetentionCleanup {
         for(int batch=0;batch<MAX_BATCHES;batch++){
             Integer deleted=tx.execute(status->{
                 var ids=invites.expiredEmailIds(now,PageRequest.of(0,BATCH_SIZE));
-                return ids.isEmpty()?0:invites.deleteExpiredEmails(ids,now);
+                if(ids.isEmpty())return 0;
+                // diary_invites를 외래키로 참조하는 테이블은 없다. 알림 처리 이력만 초대 ID를 들고 있어 같이 지운다.
+                // 사라진 초대를 가리키는 DIARY_INVITE 알림은 수신자의 알림으로 남고, 목록에서 invitation=null(열 수 없음)로 보인다.
+                jdbc.update("delete from invitation_notification_receipts where invite_id in (:ids)",Map.of("ids",ids));
+                return invites.deleteExpiredEmails(ids,now);
             });
             total+=deleted;
             if(deleted<BATCH_SIZE)break;

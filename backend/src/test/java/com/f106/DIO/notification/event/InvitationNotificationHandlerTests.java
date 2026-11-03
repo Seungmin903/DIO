@@ -48,6 +48,11 @@ class InvitationNotificationHandlerTests {
         snapshot(Kind.DIRECT,Eligibility.INELIGIBLE,now.minusSeconds(1));
         assertThat(handler.handle(event).outcome()).isEqualTo(Outcome.SKIPPED_INELIGIBLE);
     }
+    @Test void emailJudgedExpiredBySourceIsSkipped() {
+        snapshot(Kind.DIRECT,Eligibility.EXPIRED,now.minusSeconds(1));
+        assertThat(handler.handle(event).outcome()).isEqualTo(Outcome.SKIPPED_EXPIRED);
+        verify(repository,never()).createNotification(any(),any());
+    }
     @Test void expiredLinkStillUsesExpiryBoundary() {
         snapshot(Kind.LINK,Eligibility.NOTIFIABLE,now);
         assertThat(handler.handle(event).outcome()).isEqualTo(Outcome.SKIPPED_EXPIRED);

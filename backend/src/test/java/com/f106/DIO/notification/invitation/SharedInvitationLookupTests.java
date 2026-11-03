@@ -39,6 +39,18 @@ class SharedInvitationLookupTests {
         db.update("update diary_invites set revoked_at=current_timestamp");
         assertThat(lookup.findForRecipient(7,List.of(1L)).get(1L).status()).isEqualTo("CANCELLED");
     }
+    @Test void pendingEmailInviteCannotBeOpenedAfterSevenDays() {
+        var now=java.time.Instant.now();
+        // V28 이전처럼 만료값이 9999년인 초대: 생성 후 6일은 열 수 있고 8일이면 열 수 없다. 상태는 PENDING을 유지한다.
+        db.update("update diary_invites set created_at=?",java.sql.Timestamp.from(now.minus(java.time.Duration.ofDays(6))));
+        assertThat(lookup.findForRecipient(7,List.of(1L)).get(1L).canOpen()).isTrue();
+        db.update("update diary_invites set created_at=?",java.sql.Timestamp.from(now.minus(java.time.Duration.ofDays(8))));
+        var expired=lookup.findForRecipient(7,List.of(1L)).get(1L);
+        assertThat(expired.status()).isEqualTo("PENDING"); assertThat(expired.canOpen()).isFalse();
+        // 새 초대는 expires_at 자체가 7일 뒤라 그 시각이 지나면 열 수 없다.
+        db.update("update diary_invites set created_at=?,expires_at=?",java.sql.Timestamp.from(now.minusSeconds(60)),java.sql.Timestamp.from(now.minusSeconds(1)));
+        assertThat(lookup.findForRecipient(7,List.of(1L)).get(1L).canOpen()).isFalse();
+    }
     @Test void isolatesRecipientAndRejectsMalformedReferences() {
         assertThat(lookup.findForRecipient(8,List.of(1L))).isEmpty();
         for(String payload : List.of("broken","{}","{\"inviteId\":10}","{\"inviteId\":\"9223372036854775808\"}")) {

@@ -10,8 +10,9 @@ public class UserWithdrawalDataRepository {
     public void erasePrivate(long actor,Instant now){
         jdbc.update("delete from user_terms_agreements where user_id=?",actor);
         jdbc.update("delete from notifications where user_id=?",actor);
+        // 탈퇴자가 공유한 손글씨 폰트는 개인 정보라 공유 연결을 지운다. 그 폰트로 쓴 글자는 남고 앱이 기본 고딕으로 그린다.
         jdbc.update("delete from diary_handwriting_fonts where granted_by_user_id=?",actor);
-        // 공유 작업·미디어의 참조는 유지한다. 참조 없는 개인 파일만 기존 보존·정리 경로로 보낸다.
+        // 그 밖의 공유 작업·미디어 참조는 유지한다. 참조가 없어진 개인 파일(위 폰트 포함)만 기존 보존·정리 경로로 보낸다.
         jdbc.update("update media_files set deleted_at=? where owner_user_id=? and deleted_at is null "
             + unreferenced,java.sql.Timestamp.from(now),actor);
     }

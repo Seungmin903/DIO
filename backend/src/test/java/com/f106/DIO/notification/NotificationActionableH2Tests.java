@@ -60,5 +60,13 @@ class NotificationActionableH2Tests {
   jdbc.update("update notifications set payload_json=? where notification_id=50","{\"inviteId\":\"10\"}");
   jdbc.update("update notifications set read_at=current_timestamp where notification_id=50");
   assertThat(service.actionableUnreadCount(1)).isZero();
+  // 만료된 대기 초대는 처리할 알림 수에서 뺀다(9999년 만료값이 남은 초대는 생성 후 7일 기준).
+  jdbc.update("update notifications set read_at=null where notification_id=50");
+  jdbc.update("update diary_invites set created_at=? where invite_id=10",java.sql.Timestamp.from(java.time.Instant.now().minus(java.time.Duration.ofDays(6))));
+  assertThat(service.actionableUnreadCount(1)).isEqualTo(1);
+  jdbc.update("update diary_invites set created_at=? where invite_id=10",java.sql.Timestamp.from(java.time.Instant.now().minus(java.time.Duration.ofDays(8))));
+  assertThat(service.actionableUnreadCount(1)).isZero();
+  jdbc.update("update diary_invites set created_at=current_timestamp,expires_at=? where invite_id=10",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(1)));
+  assertThat(service.actionableUnreadCount(1)).isZero();
  }
 }

@@ -36,8 +36,13 @@ public class DiaryInvite {
         Instant limit=createdAt.plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);
         return expiresAt.isBefore(limit)?expiresAt:limit;
     }
-    public boolean expired(Instant now) {return !effectiveExpiresAt().isAfter(now);}
-    public boolean pendingEmail() {return "EMAIL".equals(inviteType)&&revokedAt==null&&useCount==0&&!expired(Instant.now());}
+    private boolean unansweredEmail() {return "EMAIL".equals(inviteType)&&revokedAt==null&&useCount==0;}
+    /** 만료는 공유 링크와 아직 응답하지 않은 이메일 초대에만 적용한다. 수락·거절·취소된 이메일 초대는 상태로 판정한다. */
+    public boolean expired(Instant now) {
+        if(email()&&!unansweredEmail())return false;
+        return !effectiveExpiresAt().isAfter(now);
+    }
+    public boolean pendingEmail() {return unansweredEmail()&&!expired(Instant.now());}
     /** 대기 중 이메일 초대와 공유 링크만 만료 시각을 공개한다. 완료된 이메일 초대는 null이다. */
     public Instant publicExpiresAt() {return email()&&!"EMAIL".equals(inviteType)?null:effectiveExpiresAt();}
     public String status() {

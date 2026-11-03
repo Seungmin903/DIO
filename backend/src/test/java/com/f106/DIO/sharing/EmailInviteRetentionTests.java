@@ -35,6 +35,18 @@ class EmailInviteRetentionTests extends SharingTestSupport {
             .andExpect(status().isOk()).andExpect(jsonPath("status").value("PENDING")).andExpect(jsonPath("expiresAt").isNotEmpty());
         mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+to.token())).andExpect(status().isOk());
     }
+    @Test void acceptedEmailInviteStillReportsMembershipAfterSevenDays() throws Exception {
+        var owner=actor();var to=actor();var id=diary(owner);
+        String token=legacyInvite(id,owner,to,Instant.now().minus(1,ChronoUnit.DAYS));
+        mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+to.token())).andExpect(status().isOk());
+        // 수락한 뒤 8일이 지나도 만료가 아니라 이미 참여한 멤버로 응답한다.
+        long inviteId=Long.parseLong(token.split("[.]")[0]);
+        jdbc.update("update diary_invites set created_at=? where invite_id=?",Timestamp.from(Instant.now().minus(8,ChronoUnit.DAYS)),inviteId);
+        var invite=invites.findById(inviteId).orElseThrow();String aged=tokenSigner.token(invite);invite.initializeHash(tokenSigner.hash(aged));invites.saveAndFlush(invite);
+        assertThat(invite.expired(Instant.now())).isFalse();
+        mvc.perform(post("/api/v1/invites/"+aged+"/accept").header("Authorization","Bearer "+to.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("alreadyMember").value(true));
+    }
     @Test void cleanupDeletesOnlyEmailInvitesPastRetentionInBatches() {
         var owner=actor();var to=actor();var id=diary(owner);Instant now=Instant.now().truncatedTo(ChronoUnit.MICROS);
         var expired=new ArrayList<Long>();
@@ -47,11 +59,15 @@ class EmailInviteRetentionTests extends SharingTestSupport {
         jdbc.update("update diary_invites set retention_until=? where invite_id=?",Timestamp.from(now),boundary);
         jdbc.update("update diary_invites set retention_until=? where invite_id=?",Timestamp.from(now.plusSeconds(1)),retained);
         // 501건은 500건 배치 두 번에 걸쳐 지워지고, 보존 기한이 정확히 지금인 행도 대상이다.
+        String receipt="insert into invitation_notification_receipts(event_id,recipient_user_id,invite_id,event_occurred_at,outcome,processed_at) values(?,?,?,current_timestamp,'CREATED',current_timestamp)";
+        jdbc.update(receipt,UUID.randomUUID(),to.id(),expired.get(0));
+        jdbc.update(receipt,UUID.randomUUID(),to.id(),retained);
         // 같은 H2 DB를 쓰는 다른 테스트의 만료 행이 함께 지워질 수 있어 하한만 확인한다.
         assertThat(cleanup.clean(now)).isGreaterThanOrEqualTo(502);
         assertThat(invites.findAllById(expired)).isEmpty();
         assertThat(invites.findById(boundary)).isEmpty();
         assertThat(invites.findById(retained)).isPresent();
         assertThat(invites.findById(link)).as("LINK 초대는 이메일 보존 정리 대상이 아니다").isPresent();
+        assertThat(jdbc.queryForList("select invite_id from invitation_notification_receipts where invite_id in (?,?)",Long.class,expired.get(0),retained)).containsExactly(retained);
     }
 }
