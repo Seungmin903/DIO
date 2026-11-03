@@ -26,6 +26,19 @@ class EmailInviteRetentionTests extends SharingTestSupport {
         mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+to.token()))
             .andExpect(status().isGone()).andExpect(jsonPath("code").value("INVITE_EXPIRED"));
         assertThat(jdbc.queryForObject("select count(*) from diary_members where diary_id=? and user_id=?",Long.class,id,to.id())).isZero();
+        // 보존 기한(V28 백필: 생성 + 7일)이 지나 정리되면 410이 아니라 404이고, 보낸 목록에서도 사라진다.
+        purge(token);
+        mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+to.token()))
+            .andExpect(status().isNotFound()).andExpect(jsonPath("code").value("INVITE_NOT_FOUND"));
+        mvc.perform(get("/api/v1/diaries/"+id+"/invites").header("Authorization","Bearer "+owner.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("emailInvites.totalElements").value(0));
+    }
+    /** 이 초대의 보존 기한을 지난 것으로 바꾸고 정리 작업을 돌린다. */
+    void purge(String token){
+        long inviteId=Long.parseLong(token.split("[.]")[0]);
+        jdbc.update("update diary_invites set retention_until=? where invite_id=?",Timestamp.from(Instant.now().minusSeconds(1)),inviteId);
+        cleanup.clean(Instant.now());
+        assertThat(invites.findById(inviteId)).isEmpty();
     }
     @Test void legacyEmailInviteWithinSevenDaysKeepsItsTokenAndCanBeAccepted() throws Exception {
         var owner=actor();var to=actor();var id=diary(owner);
@@ -35,7 +48,7 @@ class EmailInviteRetentionTests extends SharingTestSupport {
             .andExpect(status().isOk()).andExpect(jsonPath("status").value("PENDING")).andExpect(jsonPath("expiresAt").isNotEmpty());
         mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+to.token())).andExpect(status().isOk());
     }
-    @Test void acceptedEmailInviteStillReportsMembershipAfterSevenDays() throws Exception {
+    @Test void acceptedEmailInviteReportsMembershipUntilRetentionCleanup() throws Exception {
         var owner=actor();var to=actor();var id=diary(owner);
         String token=legacyInvite(id,owner,to,Instant.now().minus(1,ChronoUnit.DAYS));
         mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+to.token())).andExpect(status().isOk());
@@ -46,6 +59,13 @@ class EmailInviteRetentionTests extends SharingTestSupport {
         assertThat(invite.expired(Instant.now())).isFalse();
         mvc.perform(post("/api/v1/invites/"+aged+"/accept").header("Authorization","Bearer "+to.token()))
             .andExpect(status().isOk()).andExpect(jsonPath("alreadyMember").value(true));
+        // 수락 후 7일 보존이 끝나 정리되면 멤버여도 404다. 참여 자체는 그대로 남는다.
+        purge(aged);
+        mvc.perform(post("/api/v1/invites/"+aged+"/accept").header("Authorization","Bearer "+to.token()))
+            .andExpect(status().isNotFound()).andExpect(jsonPath("code").value("INVITE_NOT_FOUND"));
+        mvc.perform(get("/api/v1/me/invites").header("Authorization","Bearer "+to.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("totalElements").value(0));
+        assertThat(jdbc.queryForObject("select count(*) from diary_members where diary_id=? and user_id=? and left_at is null",Long.class,id,to.id())).isEqualTo(1);
     }
     @Test void cleanupDeletesOnlyEmailInvitesPastRetentionInBatches() {
         var owner=actor();var to=actor();var id=diary(owner);Instant now=Instant.now().truncatedTo(ChronoUnit.MICROS);
