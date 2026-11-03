@@ -91,9 +91,9 @@ public class InvitationNotificationHandler {
 
 	private Outcome outcome(Snapshot snapshot, Instant now) {
 		if (snapshot.eligibility() == InvitationNotificationSource.Eligibility.REVOKED) return Outcome.SKIPPED_REVOKED;
-		// 이메일 초대는 상태와 7일 보존 기간을 따른다. expires_at은 수락 전 유효성 검증에만 쓴다.
-		if (snapshot.kind() != InvitationNotificationSource.Kind.DIRECT
-			&& (snapshot.eligibility() == InvitationNotificationSource.Eligibility.EXPIRED || !now.isBefore(snapshot.expiresAt()))) return Outcome.SKIPPED_EXPIRED;
+		// 이메일 초대의 7일 만료는 원본 조회가 EXPIRED로 판정한다. 링크는 이벤트 처리 시각과 만료 시각을 비교한다.
+		if (snapshot.eligibility() == InvitationNotificationSource.Eligibility.EXPIRED
+			|| (snapshot.kind() != InvitationNotificationSource.Kind.DIRECT && !now.isBefore(snapshot.expiresAt()))) return Outcome.SKIPPED_EXPIRED;
 		if (snapshot.kind() != InvitationNotificationSource.Kind.DIRECT
 			|| snapshot.eligibility() != InvitationNotificationSource.Eligibility.NOTIFIABLE) return Outcome.SKIPPED_INELIGIBLE;
 		return Outcome.CREATED;

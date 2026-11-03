@@ -1,0 +1,57 @@
+package com.f106.DIO.sharing;
+import com.f106.DIO.sharing.domain.DiaryInvite;
+import com.f106.DIO.sharing.service.InvitationRetentionCleanup;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import static org.assertj.core.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+class EmailInviteRetentionTests extends SharingTestSupport {
+    @Autowired InvitationRetentionCleanup cleanup;
+    /** V28 이전처럼 9999년 만료값을 가진 대기 이메일 초대를 만든다. 토큰은 바뀐 생성 시각으로 다시 서명한다. */
+    String legacyInvite(UUID diary,Actor from,Actor to,Instant createdAt){
+        long id=invites.saveAndFlush(DiaryInvite.email(diary,from.id(),to.id(),Instant.now().truncatedTo(ChronoUnit.MICROS))).getInviteId();
+        jdbc.update("update diary_invites set created_at=?,expires_at=? where invite_id=?",Timestamp.from(createdAt),Timestamp.from(Instant.parse("9999-12-31T23:59:59Z")),id);
+        var invite=invites.findById(id).orElseThrow();String token=tokenSigner.token(invite);invite.initializeHash(tokenSigner.hash(token));invites.saveAndFlush(invite);
+        return token;
+    }
+    @Test void legacyEmailInviteExpiresSevenDaysAfterCreationDespiteFarFutureExpiry() throws Exception {
+        var owner=actor();var to=actor();var id=diary(owner);
+        String token=legacyInvite(id,owner,to,Instant.now().minus(8,ChronoUnit.DAYS));
+        assertThat(invites.pendingEmail(id,to.id())).isEmpty();
+        mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+to.token()))
+            .andExpect(status().isGone()).andExpect(jsonPath("code").value("INVITE_EXPIRED"));
+        assertThat(jdbc.queryForObject("select count(*) from diary_members where diary_id=? and user_id=?",Long.class,id,to.id())).isZero();
+    }
+    @Test void legacyEmailInviteWithinSevenDaysKeepsItsTokenAndCanBeAccepted() throws Exception {
+        var owner=actor();var to=actor();var id=diary(owner);
+        String token=legacyInvite(id,owner,to,Instant.now().minus(6,ChronoUnit.DAYS));
+        assertThat(invites.pendingEmail(id,to.id())).isPresent();
+        mvc.perform(get("/api/v1/invites/"+token).header("Authorization","Bearer "+to.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("status").value("PENDING")).andExpect(jsonPath("expiresAt").isNotEmpty());
+        mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+to.token())).andExpect(status().isOk());
+    }
+    @Test void cleanupDeletesOnlyEmailInvitesPastRetentionInBatches() {
+        var owner=actor();var to=actor();var id=diary(owner);Instant now=Instant.now().truncatedTo(ChronoUnit.MICROS);
+        var expired=new ArrayList<Long>();
+        for(int n=0;n<501;n++)
+            expired.add(invites.save(DiaryInvite.email(id,owner.id(),to.id(),now)).getInviteId());
+        long boundary=invites.save(DiaryInvite.email(id,owner.id(),to.id(),now)).getInviteId();
+        long retained=invites.save(DiaryInvite.email(id,owner.id(),to.id(),now)).getInviteId();
+        long link=invites.saveAndFlush(new DiaryInvite(id,owner.id(),now)).getInviteId();
+        jdbc.update("update diary_invites set retention_until=? where diary_id=?",Timestamp.from(now.minusSeconds(1)),id);
+        jdbc.update("update diary_invites set retention_until=? where invite_id=?",Timestamp.from(now),boundary);
+        jdbc.update("update diary_invites set retention_until=? where invite_id=?",Timestamp.from(now.plusSeconds(1)),retained);
+        // 501건은 500건 배치 두 번에 걸쳐 지워지고, 보존 기한이 정확히 지금인 행도 대상이다.
+        // 같은 H2 DB를 쓰는 다른 테스트의 만료 행이 함께 지워질 수 있어 하한만 확인한다.
+        assertThat(cleanup.clean(now)).isGreaterThanOrEqualTo(502);
+        assertThat(invites.findAllById(expired)).isEmpty();
+        assertThat(invites.findById(boundary)).isEmpty();
+        assertThat(invites.findById(retained)).isPresent();
+        assertThat(invites.findById(link)).as("LINK 초대는 이메일 보존 정리 대상이 아니다").isPresent();
+    }
+}

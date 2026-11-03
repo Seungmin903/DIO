@@ -66,7 +66,14 @@ Jira S15P31F106-324~333의 기존 공유 구현에 이메일 초대를 확장했
 | EMAIL_CANCELLED | CANCELLED |
 | EMAIL_FAILED (과거 저장 데이터만 조회 지원) | DELIVERY_FAILED |
 
-EMAIL 계열은 기존 invitee_user_id를 수신자로 사용한다. accepted는 use_count=1, 취소/거절/실패는 revoked_at도 기록한다. 필수 expires_at은 `9999-12-31T23:59:59Z`를 저장하고 이메일 초대의 유효성 판정에는 사용하지 않는다. 이메일 관련 모든 API의 expiresAt은 null(만료 없음)이다. PostgreSQL과 H2에서 같은 저장 규칙을 검증한다.
+EMAIL 계열은 기존 invitee_user_id를 수신자로 사용한다. accepted는 use_count=1, 취소/거절/실패는 revoked_at도 기록한다.
+
+이메일 초대는 보낸 뒤 7일이 지나면 만료된다. 새 초대는 expires_at에 생성 시각 + 7일을 저장한다. V28 이전에 만든 초대는 expires_at이 `9999-12-31T23:59:59Z`로 남아 있다. 이 값은 초대 토큰 서명에 들어가므로 바꾸지 않고, 생성 시각 + 7일과 expires_at 중 이른 시각을 실제 만료 시각으로 본다. 만료 판정은 서버(JVM) 시각 기준이다.
+
+- 만료된 이메일 초대를 조회·수락하면 410 `INVITE_EXPIRED`를 반환하고, 상태는 `EXPIRED`다.
+- 대기 중(`PENDING`·`EXPIRED`) 이메일 초대와 공유 링크는 응답의 expiresAt에 실제 만료 시각을 담는다. 수락·거절·취소·전송 실패한 이메일 초대의 expiresAt은 null이다.
+- 알림 목록에서는 만료된 초대의 상태를 `PENDING`으로 유지하되 canOpen=false로 내려 열 수 없게 하고, 처리할 알림 수에서도 뺀다.
+- 이메일 초대 행은 retention_until(대기 중이면 만료 시각, 처리 후에는 처리 시각 + 7일)이 지나면 정리 작업이 영구 삭제한다. 정리 작업은 1시간마다 500건씩 최대 20번 나눠 지운다.
 
 토큰 원문은 DB에 저장하지 않는다. 기존 ID·다이어리·생성/만료 시각을 HMAC 서명하고 SHA-256 해시를 저장한다. 비밀키 교체 후 기존 이메일 대기 초대에 다시 발송하면 이전 초대를 취소하고 새 키로 발급한다.
 

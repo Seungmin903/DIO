@@ -135,6 +135,26 @@ class PushPostgresTests {
         assertThat(jdbc.queryForObject("select encrypted_response is null from push_registration_requests where installation_id=?",Boolean.class,id)).isTrue();
         assertThatThrownBy(()->push.register(a.jwt(),id,request,in)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
+    @Test void retentionCleanupDeletesOnlyRowsOlderThanThirtyDays() {
+        Instant now=Instant.now();var a=person();
+        UUID old=UUID.randomUUID(),recent=UUID.randomUUID(),active=UUID.randomUUID();
+        for(UUID id:List.of(old,recent,active))push.register(a.jwt(),id,UUID.randomUUID(),input("ExpoPushToken["+id+"]"));
+        // 30일 경계: 31일 전 비활성 설치·등록 요청은 지우고, 29일 전 것과 활성 설치는 남긴다.
+        jdbc.update("update push_installations set enabled=false,disabled_at=? where installation_id=?",Timestamp.from(now.minus(31,java.time.temporal.ChronoUnit.DAYS)),old);
+        jdbc.update("update push_installations set enabled=false,disabled_at=? where installation_id=?",Timestamp.from(now.minus(29,java.time.temporal.ChronoUnit.DAYS)),recent);
+        jdbc.update("update push_registration_requests set encrypted_response=null,response_key_id=null,response_cipher_format=null,expires_at=? where installation_id=?",Timestamp.from(now.minus(31,java.time.temporal.ChronoUnit.DAYS)),old);
+        jdbc.update("update push_registration_requests set encrypted_response=null,response_key_id=null,response_cipher_format=null,expires_at=? where installation_id=?",Timestamp.from(now.minus(29,java.time.temporal.ChronoUnit.DAYS)),recent);
+        for(var row:List.of(List.of(old,31),List.of(recent,29)))
+            jdbc.update("insert into push_mutation_requests(session_id,installation_id,request_id,request_hash,operation,binding_version,token_version,result_provider,result_platform,result_permission,result_enabled,created_at) values(?,?,?,?,'UPDATE',1,1,'EXPO','ANDROID','GRANTED',false,?)",
+                a.sid(),row.get(0),UUID.randomUUID(),new byte[32],Timestamp.from(now.minus((Integer)row.get(1),java.time.temporal.ChronoUnit.DAYS)));
+        registrationCleanup.clearExpired(now);
+        assertThat(jdbc.queryForObject("select count(*) from push_installations where installation_id=?",Long.class,old)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from push_installations where installation_id in (?,?)",Long.class,recent,active)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from push_registration_requests where installation_id=?",Long.class,old)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from push_registration_requests where installation_id in (?,?)",Long.class,recent,active)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from push_mutation_requests where installation_id=?",Long.class,old)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from push_mutation_requests where installation_id=?",Long.class,recent)).isEqualTo(1);
+    }
     @Test void duplicateTokenCannotTransferOwnershipWithoutInstallationSecret() {
         var a=person();var b=person();UUID first=UUID.randomUUID(),second=UUID.randomUUID();var in=input("ExpoPushToken["+first+"]");
         var registered=push.register(a.jwt(),first,UUID.randomUUID(),in);

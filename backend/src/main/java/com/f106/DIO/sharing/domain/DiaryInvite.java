@@ -30,15 +30,23 @@ public class DiaryInvite {
         return invite;
     }
     public boolean email() {return inviteType.startsWith("EMAIL");}
-    public boolean pendingEmail() {return "EMAIL".equals(inviteType)&&revokedAt==null&&useCount==0&&expiresAt.isAfter(Instant.now());}
-    public Instant publicExpiresAt() {return email()?null:expiresAt;}
+    /** V28 이전 이메일 초대는 토큰 서명이 바뀌지 않도록 9999년 만료값을 그대로 두고, 생성 후 7일을 상한으로 본다. */
+    public Instant effectiveExpiresAt() {
+        if(!email())return expiresAt;
+        Instant limit=createdAt.plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);
+        return expiresAt.isBefore(limit)?expiresAt:limit;
+    }
+    public boolean expired(Instant now) {return !effectiveExpiresAt().isAfter(now);}
+    public boolean pendingEmail() {return "EMAIL".equals(inviteType)&&revokedAt==null&&useCount==0&&!expired(Instant.now());}
+    /** 대기 중 이메일 초대와 공유 링크만 만료 시각을 공개한다. 완료된 이메일 초대는 null이다. */
+    public Instant publicExpiresAt() {return email()&&!"EMAIL".equals(inviteType)?null:effectiveExpiresAt();}
     public String status() {
         return switch(inviteType) {
             case "EMAIL_ACCEPTED" -> "ACCEPTED";
             case "EMAIL_DECLINED" -> "DECLINED";
             case "EMAIL_CANCELLED" -> "CANCELLED";
             case "EMAIL_FAILED" -> "DELIVERY_FAILED";
-            default -> revokedAt!=null?"CANCELLED":(!expiresAt.isAfter(Instant.now())?"EXPIRED":"PENDING");
+            default -> revokedAt!=null?"CANCELLED":(expired(Instant.now())?"EXPIRED":"PENDING");
         };
     }
     public void acceptedEmail(Instant now) {if(pendingEmail()){inviteType="EMAIL_ACCEPTED";useCount=1;retentionUntil=now.plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);}}

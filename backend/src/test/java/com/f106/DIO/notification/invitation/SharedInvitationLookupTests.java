@@ -18,10 +18,10 @@ class SharedInvitationLookupTests {
         db.execute("create table users(user_id bigint,status varchar,deleted_at timestamp)");
         db.execute("create table diaries(diary_id uuid,deleted_at timestamp)");
         db.execute("create table diary_members(diary_id uuid,user_id bigint,left_at timestamp)");
-        db.execute("create table diary_invites(invite_id bigint,diary_id uuid,invitee_user_id bigint,invite_type varchar,revoked_at timestamp,use_count int,expires_at timestamp)");
+        db.execute("create table diary_invites(invite_id bigint,diary_id uuid,invitee_user_id bigint,invite_type varchar,revoked_at timestamp,use_count int,expires_at timestamp,created_at timestamp default current_timestamp)");
         db.update("insert into users values(7,'ACTIVE',null)");
         db.update("insert into diaries values(?,null)", diary);
-        db.update("insert into diary_invites values(10,?,7,'EMAIL',null,0,?)", diary, java.sql.Timestamp.valueOf("9999-12-31 23:59:59"));
+        db.update("insert into diary_invites(invite_id,diary_id,invitee_user_id,invite_type,revoked_at,use_count,expires_at) values(10,?,7,'EMAIL',null,0,?)", diary, java.sql.Timestamp.valueOf("9999-12-31 23:59:59"));
         db.update("insert into notifications values(1,7,?,'DIARY_INVITE','{\"inviteId\":\"10\"}',null)",diary);
         lookup = new SharedInvitationLookup(new NamedParameterJdbcTemplate(db), new ObjectMapper());
     }

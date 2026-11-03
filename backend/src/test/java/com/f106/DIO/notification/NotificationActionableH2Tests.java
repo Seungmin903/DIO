@@ -21,12 +21,12 @@ class NotificationActionableH2Tests {
   jdbc.execute("create table users(user_id bigint primary key,status varchar(20),deleted_at timestamp with time zone)");
   jdbc.execute("create table diaries(diary_id uuid primary key,deleted_at timestamp with time zone)");
   jdbc.execute("create table diary_members(diary_id uuid,user_id bigint,left_at timestamp with time zone)");
-  jdbc.execute("create table diary_invites(invite_id bigint primary key,diary_id uuid,invitee_user_id bigint,invite_type varchar(30),revoked_at timestamp with time zone,use_count integer)");
+  jdbc.execute("create table diary_invites(invite_id bigint primary key,diary_id uuid,invitee_user_id bigint,invite_type varchar(30),revoked_at timestamp with time zone,use_count integer,expires_at timestamp with time zone default timestamp with time zone '9999-12-31 23:59:59+00',created_at timestamp with time zone default current_timestamp)");
   jdbc.execute("create table notifications(notification_id bigint primary key,user_id bigint,diary_id uuid,notification_type varchar(50),payload_json varchar(1000),read_at timestamp with time zone,deleted_at timestamp with time zone)");
   UUID diary=UUID.randomUUID();
   jdbc.update("insert into users values(1,'ACTIVE',null),(2,'ACTIVE',null)");
   jdbc.update("insert into diaries values(?,null)",diary);
-  jdbc.update("insert into diary_invites values(10,?,1,'EMAIL',null,0)",diary);
+  jdbc.update("insert into diary_invites(invite_id,diary_id,invitee_user_id,invite_type,revoked_at,use_count) values(10,?,1,'EMAIL',null,0)",diary);
   jdbc.update("insert into notifications values(50,1,?,'DIARY_INVITE',?,null,null)",diary,"{\"inviteId\":\"10\"}");
   jdbc.update("insert into notifications values(51,1,?,'NOTICE','{}',null,null)",diary);
   var named=spy(new NamedParameterJdbcTemplate(ds));

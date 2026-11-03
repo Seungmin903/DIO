@@ -25,9 +25,26 @@ public class PushRegistrationCleanup {
             """, Timestamp.from(now));
         Instant cutoff=now.minus(30,ChronoUnit.DAYS);
         // Retain only the bounded retry window; these rows contain registration and delivery metadata.
-        jdbc.update("delete from push_registration_requests where expires_at<=?",Timestamp.from(cutoff));
-        jdbc.update("delete from push_mutation_requests where created_at<=?",Timestamp.from(cutoff));
-        jdbc.update("delete from push_installations where enabled=false and disabled_at is not null and disabled_at<=?",Timestamp.from(cutoff));
+        // 1분 주기로 돌므로 위 UPDATE처럼 한 번에 500건씩만 잠그고, 다른 작업이 잡은 행은 건너뛴다.
+        // push_installations 삭제는 push_deliveries의 해당 설치 전송 이력도 ON DELETE CASCADE로 함께 지운다.
+        jdbc.update("""
+            delete from push_registration_requests where (session_id,installation_id,request_id) in (
+              select session_id,installation_id,request_id from push_registration_requests
+              where expires_at<=? order by expires_at limit 500 for update skip locked
+            )
+            """, Timestamp.from(cutoff));
+        jdbc.update("""
+            delete from push_mutation_requests where (session_id,installation_id,request_id) in (
+              select session_id,installation_id,request_id from push_mutation_requests
+              where created_at<=? order by created_at limit 500 for update skip locked
+            )
+            """, Timestamp.from(cutoff));
+        jdbc.update("""
+            delete from push_installations where installation_id in (
+              select installation_id from push_installations
+              where enabled=false and disabled_at is not null and disabled_at<=? order by disabled_at limit 500 for update skip locked
+            )
+            """, Timestamp.from(cutoff));
         return cleared;
     }
 }

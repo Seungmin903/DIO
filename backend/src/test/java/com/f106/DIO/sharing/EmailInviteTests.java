@@ -45,7 +45,7 @@ class EmailInviteTests extends SharingTestSupport {
         mvc.perform(get("/api/v1/invites/"+token)).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/invites/"+token).header("Authorization","Bearer "+other.token())).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/invites/"+token).header("Authorization","Bearer "+to.token()))
-            .andExpect(status().isOk()).andExpect(jsonPath("inviteType").value("EMAIL")).andExpect(jsonPath("expiresAt").isEmpty());
+            .andExpect(status().isOk()).andExpect(jsonPath("inviteType").value("EMAIL")).andExpect(jsonPath("expiresAt").isNotEmpty());
         mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+other.token())).andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+to.token())).andExpect(status().isOk());
         assertThat(links.accept(token,to.id()).alreadyMember()).isTrue();

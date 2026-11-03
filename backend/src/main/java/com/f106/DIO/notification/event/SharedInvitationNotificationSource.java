@@ -1,6 +1,8 @@
 package com.f106.DIO.notification.event;
 
+import java.time.Instant;
 import java.util.*;
+import com.f106.DIO.sharing.domain.SharingPolicy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.*;
@@ -29,7 +31,14 @@ public class SharedInvitationNotificationSource implements InvitationNotificatio
                 if(type.equals("EMAIL") && rs.getTimestamp("revoked_at")==null && rs.getInt("use_count")==0
                     && rs.getString("user_status").equals("ACTIVE") && rs.getTimestamp("user_deleted")==null && !rs.getBoolean("joined")) eligible=Eligibility.NOTIFIABLE;
                 if(type.equals("EMAIL_CANCELLED")||(type.equals("EMAIL") && rs.getTimestamp("revoked_at")!=null))eligible=Eligibility.REVOKED;
-                return new Snapshot(inviteId,recipient,rs.getLong("inviter_user_id"),rs.getObject("diary_id",UUID.class),email?Kind.DIRECT:Kind.LINK,eligible,rs.getTimestamp("expires_at").toInstant());
+                var expiresAt=rs.getTimestamp("expires_at").toInstant();
+                if(email) {
+                    // V28 이전 초대는 9999년 만료값이 남아 있으므로 생성 후 7일을 상한으로 본다.
+                    var limit=rs.getTimestamp("created_at").toInstant().plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);
+                    if(limit.isBefore(expiresAt))expiresAt=limit;
+                    if(eligible==Eligibility.NOTIFIABLE && !expiresAt.isAfter(Instant.now()))eligible=Eligibility.EXPIRED;
+                }
+                return new Snapshot(inviteId,recipient,rs.getLong("inviter_user_id"),rs.getObject("diary_id",UUID.class),email?Kind.DIRECT:Kind.LINK,eligible,expiresAt);
             },recipient,inviteId,recipient).stream().findFirst();
     }
 }

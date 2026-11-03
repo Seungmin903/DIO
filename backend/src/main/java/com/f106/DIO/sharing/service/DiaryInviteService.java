@@ -93,7 +93,7 @@ public class DiaryInviteService {
             if(!actor.equals(invite.getInviteeUserId()))throw SharingException.forbidden();
         }
         if(invite.getRevokedAt()!=null)throw new SharingException(HttpStatus.GONE,"INVITE_REVOKED","새 초대 링크를 요청해 주세요.");
-        if(!invite.getExpiresAt().isAfter(Instant.now()))throw new SharingException(HttpStatus.GONE,"INVITE_EXPIRED","초대가 만료됐어요.");
+        if(invite.expired(Instant.now()))throw new SharingException(HttpStatus.GONE,"INVITE_EXPIRED","초대가 만료됐어요.");
         return invite;
     }
     private InviteLinkResponse link(DiaryInvite invite,String token) {return new InviteLinkResponse(true,token,tokens.url(token),invite.getExpiresAt());}
