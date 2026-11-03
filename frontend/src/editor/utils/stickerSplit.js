@@ -13,8 +13,8 @@ export function previewLoadMatches(source, decoded) {
   return difference <= rounding + 0.01 * decoded.height * source.previewWidth
 }
 
-export function splitAvailable({ development, platform, module, disabled = false }) {
-  return development && !disabled && ['android', 'ios'].includes(platform) && module?.apiVersion === SPLIT_API_VERSION &&
+export function splitAvailable({ platform, module, disabled = false }) {
+  return !disabled && ['android', 'ios'].includes(platform) && module?.apiVersion === SPLIT_API_VERSION &&
     ['analyze', 'merge', 'cancel', 'cleanup'].every(key => typeof module[key] === 'function')
 }
 export function imagePoint(x, y, frame, image, view = { zoom: 1, x: 0, y: 0 }, clamp = false) {

@@ -9,12 +9,12 @@ import { stickerSplit as web } from '../src/editor/services/stickerSplit.js'
 import * as cropUtils from '../src/editor/utils/stickerSplitCrop.js'
 
 const module = { apiVersion: 3, analyze() {}, merge() {}, cancel() {}, async cleanup() {} }
-test('Expo Go·웹·release·구형 모듈·비활성화 환경은 자동 분리만 비활성화한다', () => {
-  for (const patch of [{ module: null }, { module: { ...module, apiVersion: 2 } }, { module: { ...module, apiVersion: 1 } }, { module: { apiVersion: 0 } }, { platform: 'web' }, { development: false }, { disabled: true }]) {
-    assert.equal(splitAvailable({ development: true, platform: 'ios', module, ...patch }), false)
+test('Expo Go·웹·구형 모듈·비활성화 환경은 자동 분리만 비활성화한다', () => {
+  for (const patch of [{ module: null }, { module: { ...module, apiVersion: 2 } }, { module: { ...module, apiVersion: 1 } }, { module: { apiVersion: 0 } }, { platform: 'web' }, { disabled: true }]) {
+    assert.equal(splitAvailable({ platform: 'ios', module, ...patch }), false)
   }
-  assert.equal(splitAvailable({ development: true, platform: 'ios', module }), true)
-  assert.equal(splitAvailable({ development: true, platform: 'android', module }), true)
+  assert.equal(splitAvailable({ platform: 'ios', module }), true)
+  assert.equal(splitAvailable({ platform: 'android', module }), true)
   assert.equal(web.available, false)
 })
 test('작업 이미지 contain 여백 터치는 무시하고 내부 좌표를 방향별로 환산한다', () => {
@@ -422,3 +422,43 @@ test('일반 폴더 생성·이름 변경도 중복을 허용하고 대상 ID의
   assert.notEqual(id,another);
   h.unmount();
 });
+
+test('실제 facade는 release에서도 지원 모듈을 찾고 버전·필수 capability·비활성화를 검사한다', async () => {
+  const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
+  const source = readFileSync(new URL('../src/editor/services/stickerSplit.native.js', import.meta.url), 'utf8')
+  const { code } = expo('@babel/core').transformSync(source, { configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')] })
+  const supported = { ...module, completeRegionVersion: 1, inspectInput() {}, prepareImage() {}, selectionEditingVersion: 1, groupEdges() {}, brushHits() {} }
+  function load(native, { development = false, disabled = false, platform = 'android', throws = false } = {}) {
+    const m = { exports: {} }, calls = []
+    new Function('require', 'module', 'exports', '__DEV__', 'process', code)(id => {
+      if (id === 'react-native') return { Platform: { OS: platform } }
+      if (id === 'expo') return { requireOptionalNativeModule: name => { calls.push(name); if (throws) throw Error('missing'); return native } }
+      if (id.endsWith('stickerSplit.js')) return { splitAvailable, SPLIT_API_VERSION, MAX_SPLIT_PIXELS, validateSplitOptions }
+      if (id.endsWith('mediaPicker')) return { selectImages: async () => ({ canceled: true }) }
+      return {}
+    }, m, m.exports, development, { env: { EXPO_PUBLIC_DISABLE_STICKER_SPLIT: disabled ? '1' : undefined } })
+    return { api: m.exports.stickerSplit, calls }
+  }
+  for (const development of [false, true]) {
+    const { api, calls } = load(supported, { development })
+    assert.equal(api.available, true)
+    assert.equal(api.completeRegions, true)
+    assert.equal(api.selectionEditing, true)
+    assert.deepEqual(calls, ['DioStickerSplit'])
+    assert.equal(await api.pick(), null, 'release도 실제 기능 진입 후 취소 처리가 가능하다')
+  }
+  for (const native of [null, { ...supported, apiVersion: 2 }, { ...supported, analyze: undefined }, { ...supported, completeRegionVersion: 0 }, { ...supported, prepareImage: undefined }]) {
+    const { api } = load(native)
+    assert.equal(api.available, false)
+    await assert.rejects(api.pick())
+  }
+  const disabled = load(supported, { disabled: true })
+  assert.equal(disabled.api.available, false)
+  assert.deepEqual(disabled.calls, [], '명시적 비활성화는 모듈을 초기화하지 않는다')
+  assert.equal(load(supported, { throws: true }).api.available, false)
+  const limited = load({ ...supported, groupEdges: undefined }).api
+  assert.equal(limited.available, true)
+  assert.equal(limited.selectionEditing, false)
+  assert.equal(load(module, { platform: 'ios' }).api.available, true)
+  assert.equal(load(supported, { platform: 'web' }).api.available, false)
+})
