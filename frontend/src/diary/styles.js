@@ -22,7 +22,7 @@ export const styles = StyleSheet.create({
   tabBar: { height: 64, flexDirection: 'row', paddingHorizontal: 4, overflow: 'visible', borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
   tabItem: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 2 },
   tabIconPill: { width: '84%', minWidth: 40, maxWidth: 48, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
-  tabIconPillSelected: { backgroundColor: C.active },
+  tabIconPillSelected: { backgroundColor: colors.primarySoft },
   tabLabel: { color: C.muted, fontSize: 11, lineHeight: 14, fontWeight: '600' },
   tabLabelSelected: { color: C.ink, fontWeight: '800' },
 

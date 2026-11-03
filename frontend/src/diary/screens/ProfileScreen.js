@@ -20,6 +20,7 @@ import NotificationSettingsScreen from './NotificationSettingsScreen';
 import AppIcon from '../../shared/AppIcon';
 import DefaultAvatar from '../../shared/DefaultAvatar';
 import { useLoginEntry } from '../../auth/loginGate';
+import { shouldShowProfileSettingsButton } from '../components/profileNavigationModel';
 
 // 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
 export default function ProfileScreen({ section = 'profile', compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenSettings }) {
@@ -109,7 +110,7 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
       <AppIcon name="chevron-right" size={18} forText={15} color={colors.textMuted} />
     </Pressable>
   ) : null;
-  const settingsButton = compact && !settingsPage && onOpenSettings ? <Pressable accessibilityRole="button" accessibilityLabel="설정" onPress={onOpenSettings} style={local.settingsButton}>
+  const settingsButton = shouldShowProfileSettingsButton({ compact, settingsPage, onOpenSettings }) ? <Pressable accessibilityRole="button" accessibilityLabel="설정" onPress={onOpenSettings} style={local.settingsButton}>
     <AppIcon name="settings" size={20} color={colors.primary} />
   </Pressable> : null;
 
