@@ -21,8 +21,10 @@ class UserWithdrawalPostgresTests extends UserWithdrawalTests {
         jdbc.update("insert into media_files(media_file_id,owner_user_id,storage_key,mime_type,file_size,source_media_file_id) values(?,?,'withdrawal-derived','image/png',10,?)",java.util.UUID.randomUUID(),friend.id(),ids.get(6));
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/me").header("Authorization","Bearer "+actor.token()))
             .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNoContent());
-        for(var id:ids.subList(0,7))org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select deleted_at is null from media_files where media_file_id=?",Boolean.class,id)).isTrue();
-        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select deleted_at is not null from media_files where media_file_id=?",Boolean.class,ids.get(7))).isTrue();
+        // 탈퇴 회원이 공유한 개인 폰트는 참조를 지우므로, 그 폰트 파일은 참조 없는 파일과 함께 정리 대상이 된다.
+        for(int n:java.util.List.of(0,2,3,4,5,6))org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select deleted_at is null from media_files where media_file_id=?",Boolean.class,ids.get(n))).isTrue();
+        for(int n:java.util.List.of(1,7))org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select deleted_at is not null from media_files where media_file_id=?",Boolean.class,ids.get(n))).isTrue();
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from diary_handwriting_fonts where granted_by_user_id=?",Long.class,actor.id())).isZero();
         var references=jdbc.queryForList("select r.relname||'.'||a.attname from pg_constraint c join pg_class r on r.oid=c.conrelid join pg_attribute a on a.attrelid=c.conrelid and a.attnum=any(c.conkey) where c.contype='f' and c.confrelid='media_files'::regclass",String.class);
         org.assertj.core.api.Assertions.assertThat(references).containsExactlyInAnyOrder("canvas_elements.media_file_id","diary_handwriting_fonts.font_media_file_id","diary_media_library.media_file_id","diary_members.member_profile_photo_id","ai_jobs.source_media_file_id","ai_jobs.result_media_file_id","media_files.source_media_file_id");
         org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from pg_constraint where conrelid='users'::regclass and conname='users_nickname_key_unique'",Long.class)).isZero();

@@ -23,7 +23,7 @@ class EmailInviteTests extends SharingTestSupport {
     void send(UUID diary,Actor from,Actor to){emails.send(diary,from.id(),new EmailInviteRequest(address(to)));}
     long notifications(UUID diary,Actor recipient){return jdbc.queryForObject("select count(*) from notifications where diary_id=? and user_id=? and notification_type='DIARY_INVITE'",Long.class,diary,recipient.id());}
     @AfterEach void noInvitationSmtp(){verifyNoInteractions(smtp);}
-    @Test void sendsOnlyToActiveRegisteredUsersAndSuppressesDuplicateWithoutExpiry() throws Exception {
+    @Test void sendsOnlyToActiveRegisteredUsersAndSuppressesDuplicateUntilSevenDayExpiry() throws Exception {
         var owner=actor();var to=actor();var id=diary(owner);
         mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+owner.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\" "+address(to).toUpperCase(Locale.ROOT)+" \"}"))
@@ -31,13 +31,29 @@ class EmailInviteTests extends SharingTestSupport {
         send(id,owner,to);
         assertThat(notifications(id,to)).isEqualTo(1);
         assertThat(invites.recentEmails(id,to.id(),java.time.Instant.now().minusSeconds(300))).hasSize(1);
-        assertThat(pending(id,to).getExpiresAt()).isEqualTo(DiaryInvite.NO_EXPIRY);
-        assertThat(emails.received(to.id(),0,20).items().get(0).expiresAt()).isNull();
+        assertThat(pending(id,to).getExpiresAt()).isAfter(java.time.Instant.now().plusSeconds(6*24*60*60));
+        assertThat(pending(id,to).getExpiresAt()).isBefore(java.time.Instant.now().plusSeconds(8*24*60*60));
         emails.send(id,owner.id(),new EmailInviteRequest("missing@example.com"));
         jdbc.update("update users set status='WITHDRAWN' where user_id=?",to.id());
         send(id,owner,to);assertThat(notifications(id,to)).isEqualTo(1);
         mvc.perform(get("/api/v1/diaries/"+id+"/invites").header("Authorization","Bearer "+owner.token()))
             .andExpect(status().isOk()).andExpect(jsonPath("emailInvites.totalElements").value(1));
+    }
+    @Test void listsExposeExpiryOnlyWhilePending() throws Exception {
+        var owner=actor();var to=actor();var other=actor();var id=diary(owner);send(id,owner,to);send(id,owner,other);
+        mvc.perform(get("/api/v1/me/invites").header("Authorization","Bearer "+to.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("items[0].status").value("PENDING")).andExpect(jsonPath("items[0].expiresAt").isNotEmpty());
+        mvc.perform(get("/api/v1/diaries/"+id+"/invites").header("Authorization","Bearer "+owner.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("emailInvites.items[*].expiresAt",org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.notNullValue())));
+        // 수락·취소한 초대는 만료 시각을 내리지 않는다.
+        links.accept(tokenSigner.token(pending(id,to)),to.id());
+        var cancelled=pending(id,other);cancelled.cancel(java.time.Instant.now());invites.saveAndFlush(cancelled);
+        mvc.perform(get("/api/v1/me/invites").header("Authorization","Bearer "+to.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("items[0].status").value("ACCEPTED")).andExpect(jsonPath("items[0].expiresAt").isEmpty());
+        mvc.perform(get("/api/v1/diaries/"+id+"/invites").header("Authorization","Bearer "+owner.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("emailInvites.totalElements").value(2))
+            .andExpect(jsonPath("emailInvites.items[*].status",org.hamcrest.Matchers.containsInAnyOrder("ACCEPTED","CANCELLED")))
+            .andExpect(jsonPath("emailInvites.items[*].expiresAt",org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.nullValue())));
     }
     @Test void onlyRecipientCanViewAcceptAndConsumedEmailCannotBeReusedAfterLeaving() throws Exception {
         var owner=actor();var to=actor();var other=actor();var id=diary(owner);send(id,owner,to);
@@ -45,7 +61,7 @@ class EmailInviteTests extends SharingTestSupport {
         mvc.perform(get("/api/v1/invites/"+token)).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/invites/"+token).header("Authorization","Bearer "+other.token())).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/invites/"+token).header("Authorization","Bearer "+to.token()))
-            .andExpect(status().isOk()).andExpect(jsonPath("inviteType").value("EMAIL")).andExpect(jsonPath("expiresAt").isEmpty());
+            .andExpect(status().isOk()).andExpect(jsonPath("inviteType").value("EMAIL")).andExpect(jsonPath("expiresAt").isNotEmpty());
         mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+other.token())).andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/invites/"+token+"/accept").header("Authorization","Bearer "+to.token())).andExpect(status().isOk());
         assertThat(links.accept(token,to.id()).alreadyMember()).isTrue();

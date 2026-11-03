@@ -68,11 +68,28 @@ class NotificationPostgresSchemaTests {
                     .isEqualTo(at.plusSeconds(3));
                 assertThat(repository.unreadCount(101)).isEqualTo(1);
                 assertThat(repository.list(101, null, 20)).hasSize(2);
+                if (!initialOnly) verifyRetentionPurge(jdbc, repository, at.plusSeconds(3));
             }
         } finally {
             // schema는 위에서 고정 접두사 + UUID로만 생성한다. 다른 스키마/DB는 건드리지 않는다.
             try (var connection = DriverManager.getConnection(url, "postgres", password);
                  var statement = connection.createStatement()) { statement.execute("drop schema if exists " + schema + " cascade"); }
         }
+    }
+
+    /** 보존 기한이 지난 알림의 물리 삭제가 참조 행 때문에 막히지 않는지 실제 외래키로 확인한다. */
+    private void verifyRetentionPurge(JdbcTemplate jdbc, NotificationRepository repository, Instant deletedAt) {
+        // notifications를 참조하는 외래키는 모두 CASCADE(c) 또는 SET NULL(n)이어야 한다.
+        assertThat(jdbc.queryForList("select r.relname::text||':'||c.confdeltype::text from pg_constraint c join pg_class r on r.oid=c.conrelid where c.contype='f' and c.confrelid='notifications'::regclass", String.class))
+            .containsExactlyInAnyOrder("notification_read_watermark_items:c", "invitation_notification_receipts:n", "push_outbox:n");
+        UUID outbox = UUID.randomUUID();
+        jdbc.update("insert into invitation_notification_receipts(event_id,recipient_user_id,invite_id,event_occurred_at,outcome,notification_id,processed_at) values (?,101,10,now(),'CREATED',1,now())", UUID.randomUUID());
+        jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values (?,?,1,101,'DIARY_INVITE','10','COMPLETE',now(),now()+interval '1 hour','development','dio')", outbox, "retention:" + outbox);
+        // 보존 기한 직전에는 남고, 기한이 되면 참조 행이 있어도 지워진다.
+        assertThat(repository.purgeDeletedBefore(deletedAt.minusNanos(1000), 500)).isZero();
+        assertThat(repository.purgeDeletedBefore(deletedAt, 500)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from notifications where notification_id=1", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select notification_id from invitation_notification_receipts where invite_id=10", Long.class)).isNull();
+        assertThat(jdbc.queryForObject("select notification_id from push_outbox where outbox_id=?", Long.class, outbox)).isNull();
     }
 }

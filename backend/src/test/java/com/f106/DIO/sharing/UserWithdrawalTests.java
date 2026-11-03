@@ -28,7 +28,7 @@ class UserWithdrawalTests extends SharingTestSupport {
         jdbc.execute("create table if not exists ai_jobs(source_media_file_id uuid,result_media_file_id uuid)");
         jdbc.execute("create table if not exists notifications(notification_id bigint,user_id bigint,diary_id uuid,page_id uuid)");
         jdbc.execute("create table if not exists element_strokes(element_id uuid)");
-        jdbc.execute("create table if not exists diary_handwriting_fonts(diary_id uuid,font_media_file_id uuid)");
+        jdbc.execute("create table if not exists diary_handwriting_fonts(diary_id uuid,font_media_file_id uuid,granted_by_user_id bigint)");
         jdbc.execute("create table if not exists diary_media_library(diary_id uuid,media_file_id uuid)");
     }
     @Test void failedPhotoDeletionKeepsMetadataForRetry()throws Exception{
@@ -92,7 +92,7 @@ class UserWithdrawalTests extends SharingTestSupport {
         var used=links.create(shared,editor.id());links.accept(used.token(),joined.id());
         var otherDiary=diary(owner);var otherLink=links.create(otherDiary,owner.id());
         var accepted= com.f106.DIO.sharing.domain.DiaryInvite.email(shared,editor.id(),joined.id(),Instant.now());
-        accepted.acceptedEmail();var acceptedId=invites.saveAndFlush(accepted).getInviteId();
+        accepted.acceptedEmail(Instant.now());var acceptedId=invites.saveAndFlush(accepted).getInviteId();
         mvc.perform(delete("/api/v1/me").header("Authorization","Bearer "+editor.token())).andExpect(status().isNoContent());
         var revoked=invites.findById(Long.parseLong(used.token().split("\\.")[0])).orElseThrow();
         assertThat(revoked.getUseCount()).isEqualTo(1);assertThat(revoked.getRevokedAt()).isNotNull();
@@ -105,6 +105,31 @@ class UserWithdrawalTests extends SharingTestSupport {
         assertThat(links.preview(otherLink.token()).diaryId()).isEqualTo(otherDiary);
         var history=invites.findById(acceptedId).orElseThrow();
         assertThat(history.getInviteType()).isEqualTo("EMAIL_ACCEPTED");assertThat(history.getRevokedAt()).isNull();
+    }
+    @Test void withdrawalCancelsPendingEmailInvitesWithSevenDayRetentionAndKeepsOthers()throws Exception{
+        var owner=actor();var editor=actor();var stranger=actor();var shared=diary(owner);
+        links.accept(links.create(shared,owner.id()).token(),editor.id());
+        Instant created=Instant.now().minus(java.time.Duration.ofDays(1)).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        long sent=invites.saveAndFlush(com.f106.DIO.sharing.domain.DiaryInvite.email(shared,editor.id(),stranger.id(),created)).getInviteId();
+        long received=invites.saveAndFlush(com.f106.DIO.sharing.domain.DiaryInvite.email(diary(stranger),stranger.id(),editor.id(),created)).getInviteId();
+        var acceptedInvite=com.f106.DIO.sharing.domain.DiaryInvite.email(diary(stranger),stranger.id(),editor.id(),created);acceptedInvite.acceptedEmail(created);
+        long accepted=invites.saveAndFlush(acceptedInvite).getInviteId();
+        long link=invites.saveAndFlush(new com.f106.DIO.sharing.domain.DiaryInvite(shared,editor.id(),created)).getInviteId();
+        var before=new java.util.HashMap<Long,Instant>();
+        for(long id:new long[]{accepted,link})before.put(id,invites.findById(id).orElseThrow().getRetentionUntil());
+        Instant start=Instant.now();
+        mvc.perform(delete("/api/v1/me").header("Authorization","Bearer "+editor.token())).andExpect(status().isNoContent());
+        Instant end=Instant.now();
+        // 탈퇴로 취소한 대기 이메일 초대(보낸 것·받은 것)는 처리 시각 + 7일 뒤 정리된다.
+        for(long id:new long[]{sent,received}){
+            var invite=invites.findById(id).orElseThrow();
+            assertThat(invite.getInviteType()).isEqualTo("EMAIL_CANCELLED");
+            assertThat(invite.getRetentionUntil()).isBetween(start.minusSeconds(1).plus(java.time.Duration.ofDays(7)),end.plusSeconds(1).plus(java.time.Duration.ofDays(7)));
+        }
+        // 이미 수락한 초대와 LINK는 보존 기한을 바꾸지 않는다(LINK는 폐기만 한다).
+        assertThat(invites.findById(accepted).orElseThrow().getRetentionUntil()).isEqualTo(before.get(accepted));
+        var revokedLink=invites.findById(link).orElseThrow();
+        assertThat(revokedLink.getRevokedAt()).isNotNull();assertThat(revokedLink.getRetentionUntil()).isEqualTo(before.get(link));
     }
     @Test void otherOwnersDiaryAndItsCanvasRemainAfterEditorWithdraws()throws Exception{
         var owner=actor();var editor=actor();var shared=diary(owner);links.accept(links.create(shared,owner.id()).token(),editor.id());

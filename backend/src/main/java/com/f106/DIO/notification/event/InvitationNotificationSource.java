@@ -11,7 +11,8 @@ import java.util.UUID;
  */
 public interface InvitationNotificationSource {
 
-	Optional<Snapshot> findForNotification(long inviteId, long recipientUserId);
+	/** now는 이메일 초대의 만료(EXPIRED) 판정 기준 시각이다. 호출하는 핸들러의 시각을 그대로 넘긴다. */
+	Optional<Snapshot> findForNotification(long inviteId, long recipientUserId, Instant now);
 
 	/** 빈 응답/통신 오류는 아직 처리 가능 여부를 확인하지 못한 상태이며 재시도 대상으로 취급한다. */
 	record Snapshot(long inviteId, long recipientUserId, long inviterUserId, UUID diaryId,

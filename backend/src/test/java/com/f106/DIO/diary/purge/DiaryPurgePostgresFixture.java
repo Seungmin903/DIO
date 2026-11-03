@@ -51,7 +51,10 @@ abstract class DiaryPurgePostgresFixture {
         jdbc.update("update pages set template_config=cast(? as jsonb) where page_id=?","{\"unknownMediaReference\":\""+privateMedia+"\"}",archivePage);
         member(target,1,"OWNER",page);member(target,2,"EDITOR",deletedPage);member(other,2,"OWNER",page);member(archived,1,"OWNER",archivePage);
         for(UUID d:List.of(target,other,archived)) {
-            jdbc.update("insert into diary_invites(diary_id,inviter_user_id,invite_type,token_hash,expires_at) values(?,1,'LINK',?,?)",d,new byte[32],Timestamp.from(now.plusSeconds(86400)));
+            var inviteExpiry=Timestamp.from(now.plusSeconds(86400));
+            // 마이그레이션 검증은 V28 이전 스키마에서 픽스처를 넣으므로 retention_until 열이 아직 없다.
+            if(migratesItself()) jdbc.update("insert into diary_invites(diary_id,inviter_user_id,invite_type,token_hash,expires_at) values(?,1,'LINK',?,?)",d,new byte[32],inviteExpiry);
+            else jdbc.update("insert into diary_invites(diary_id,inviter_user_id,invite_type,token_hash,expires_at,retention_until) values(?,1,'LINK',?,?,?)",d,new byte[32],inviteExpiry,inviteExpiry);
             jdbc.update("insert into diary_media_library(diary_id,media_file_id,added_by_user_id,library_category) values(?,?,1,'STICKER')",d,shared);
             jdbc.update("insert into diary_handwriting_fonts(diary_id,font_media_file_id,granted_by_user_id) values(?,?,1)",d,font);
         }
