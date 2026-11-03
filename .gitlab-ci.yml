@@ -91,6 +91,30 @@ deploy-prod-proxy:
     - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml up -d --force-recreate
     - 'curl --fail --retry 12 --retry-all-errors --retry-delay 2 --resolve k15f106.p.ssafy.io:443:127.0.0.1 https://k15f106.p.ssafy.io/actuator/health'
 
+legal-document-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "develop"'
+      changes:
+        - docs/legal/**/*
+        - frontend/src/shared/legalContent.json
+        - frontend/src/auth/signupPolicy.js
+        - backend/src/main/resources/application.yml
+        - infra/compose/*.env.example
+        - .gitlab-ci.yml
+  script:
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -e PYTHONDONTWRITEBYTECODE=1
+      -v "$CI_PROJECT_DIR:/workspace:ro"
+      -w /workspace
+      python:3.12-alpine
+      python -m unittest discover -s docs/legal/tests -v
+
 # Pure Node contract tests: no dependency installation, native modules, or deployment secrets.
 frontend-email-contract-test:
   stage: quality

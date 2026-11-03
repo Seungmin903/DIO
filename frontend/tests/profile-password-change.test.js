@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
+import * as profileNavigation from '../src/diary/components/profileNavigationModel.js';
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json'));
 const code=expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8'),{
  configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]
@@ -24,6 +25,7 @@ function setup(user,onUpdatePreview,onClearSession,extra={}){
   if(id==='../components/NotificationSetting')return 'NotificationSetting';
   if(id==='../components/AppLockSetting')return 'AppLockSetting';
   if(id==='../components/AppInformation')return 'AppInformation';
+  if(id==='../components/profileNavigationModel')return profileNavigation;
   if(id==='react/jsx-runtime')return require(id);
   return ()=>null;
  };
