@@ -52,10 +52,10 @@ const server = http.createServer((req, res) => {
       }
       await page.screenshot({ path: path.join(out, `library-${width}.png`) });
       await button('배치 검증 열기').click();
-      const canvas = page.locator('[aria-label$=" 캔버스"]');
+      const canvas = page.getByLabel('선택 캔버스', { exact: true });
       await canvas.waitFor();
       await page.waitForFunction(() => {
-        const box = document.querySelector('[aria-label$=" 캔버스"]')?.getBoundingClientRect();
+        const box = document.querySelector('[aria-label="선택 캔버스"]')?.getBoundingClientRect();
         return box && box.width > 10 && box.height > 10;
       });
       const box = await canvas.boundingBox();
