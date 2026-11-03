@@ -21,8 +21,21 @@ function setup(file, storage = {}, native = {}) {
  render.unmount=()=>cleanups.forEach(fn=>fn?.());
  return render;
 }
-const nodes=node=>!node||typeof node!=='object'?[]:[node,...[node.props?.children].flat(Infinity).flatMap(nodes)];
+// SelectionBar renders its completion control through the done slot.
+const nodes=node=>!node||typeof node!=='object'?[]:[node,...[node.props?.children,node.props?.done].flat(Infinity).flatMap(nodes)];
 const findControl=(tree,label)=>nodes(tree).find(n=>(n.props.accessibilityLabel??n.props.label)===label);
+
+test('회원 개인·공유 카드에 즐겨찾기 콜백을 전달하고 즐겨찾기 필터를 갱신한다',()=>{
+ const calls=[],render=setup('../src/diary/screens/LibraryScreen.js');
+ const props={compact:false,diaries:[{id:'a',title:'개인',favorite:false},{id:'b',title:'공유',favorite:true,isShared:true}],filter:'all',sort:'title',view:'grid',carousel:0,onFavorite:id=>calls.push(id)};
+ const cards=nodes(render(props)).filter(n=>n.type==='../components/DiaryCard');
+ for(const card of cards)card.props.onFavorite(card.props.diary.id);
+ assert.deepEqual(calls,['a','b']);
+ props.filter='favorite';
+ assert.deepEqual(nodes(render(props)).filter(n=>n.type==='../components/DiaryCard').map(n=>n.props.diary.id),['b']);
+ props.diaries=props.diaries.map(row=>({...row,favorite:false}));
+ assert.equal(nodes(render(props)).filter(n=>n.type==='../components/DiaryCard').length,0);
+});
 
 test('스와이프·격자·검색 결과에 다이어리 ID별 페이지 수를 전달한다',()=>{
  const props={compact:false,diaries:[{id:'a',title:'여행'}],metadata:{a:{pageCount:3}},filter:'personal',sort:'title',view:'grid',carousel:0,onCarouselChange:()=>{}};

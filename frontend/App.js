@@ -376,12 +376,17 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   }, [sharing.library, active?.id]);
 
   const favorite = useCallback((id) => {
-    if (member) { notify('즐겨찾기', '회원 즐겨찾기 변경 연결을 준비하고 있어요.'); return; }
+    if (member) {
+      diaryState.store.toggleFavorite(id).catch(error => {
+        if (error.code !== 'STALE_ACCOUNT') notify('즐겨찾기를 저장하지 못했어요', error.message);
+      });
+      return;
+    }
     const shared = sharedLibraryRef.current.find(item => item.id === id);
     if (shared) { sharing.runtime.toggleFavorite(shared.sharedDiaryId || shared.id); return; }
     setDiaries((current) => current.map((diary) => (diary.id === id ? { ...diary, favorite: !diary.favorite } : diary)));
     setActive((current) => (current?.id === id ? { ...current, favorite: !current.favorite } : current));
-  }, [member, setDiaries, sharing.runtime]);
+  }, [member, diaryState.store, setDiaries, sharing.runtime]);
 
   const navigate = useCallback((next, nextFilter) => {
     if (member && next === 'trash') diaryState.store.loadTrash().catch(()=>{});
@@ -714,7 +719,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       onViewChange={changeView}
       onCarouselChange={changeCarousel}
       onOpen={open}
-      onFavorite={member ? undefined : favorite}
+      onFavorite={favorite}
       onEdit={edit}
       onDelete={moveDiaryToTrash}
       onShare={shareDiary}
