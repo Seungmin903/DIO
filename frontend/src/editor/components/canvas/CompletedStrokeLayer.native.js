@@ -1,9 +1,10 @@
 import { memo, useEffect, useMemo, useReducer, useRef, useSyncExternalStore } from 'react'
 import { PixelRatio } from 'react-native'
-import { Canvas, Group, Image, Picture, Skia } from '@shopify/react-native-skia'
+import { BlendMode, Canvas, ClipOp, Group, Image, Picture, Skia } from '@shopify/react-native-skia'
 import { Text } from 'react-native'
-import { PENCIL_PROFILE, previewPicture, strokesPicture } from '../../skia/strokeSkia.js'
+import { nowMs, PENCIL_PROFILE, previewPicture, recordProfile, strokesPicture } from '../../skia/strokeSkia.js'
 import { liveStroke } from '../../skia/liveStroke.js'
+import { reachOf, reachTouches, removedBetween, sameObjects } from '../../skia/bakeDelta.js'
 
 const DRAG_OPACITY = 0.5
 
@@ -39,6 +40,10 @@ function bakeSurface(width, height) {
 }
 function bake(previous, objects, width, height, scale) {
   if (previous && previous.objects.length === objects.length) return previous
+  const t0 = PENCIL_PROFILE.on ? nowMs() : 0
+  try { return bakeInto(previous, objects, width, height, scale) } finally { if (t0) recordProfile('FULL', nowMs() - t0) }
+}
+function bakeInto(previous, objects, width, height, scale) {
   const pixelWidth = Math.ceil(width * scale), pixelHeight = Math.ceil(height * scale)
   const target = bakeSurface(pixelWidth, pixelHeight)
   if (!target) return null
@@ -59,9 +64,68 @@ function bake(previous, objects, width, height, scale) {
   target.content = next
   return next
 }
+// 지우개: 목록에서 획이 빠졌을 때 구운 그림을 처음부터 다시 만들지 않고, 빠진 획이 있던 자리만 비운 뒤 그 자리에 걸친 남은 획만 다시 그린다
+// (획이 많을수록 지울 때마다 앞 획을 전부 다시 굽던 비용이 사라진다 — 2026-11-03 획 324개에서 지울 때마다 굽기 평균 20~33ms)
+// 지우는 동안에는 이미지를 새로 만들지 않고 지운 자리를 덧그리는 그림(patchPicture)만 화면 캔버스에 얹는다(오프스크린 표면의 GPU 이미지는 화면 캔버스가 못 그린다 — 2026-11-03 실기에서 빈 화면).
+// 지우기가 멈추면(settle) 이 함수로 한 번만 구워 이미지에 반영한다.
+const clearPaint = Skia.Paint()
+clearPaint.setBlendMode(BlendMode.Clear)
+function bakeWithout(previous, removed, objects, width, height, scale) {
+  const t0 = PENCIL_PROFILE.on ? nowMs() : 0
+  try { return cutOut(previous, removed, objects, width, height, scale) } finally { if (t0) recordProfile('CUT', nowMs() - t0) }
+}
+function cutOut(previous, removed, objects, width, height, scale) {
+  const pixelWidth = Math.ceil(width * scale), pixelHeight = Math.ceil(height * scale)
+  const target = bakeSurface(pixelWidth, pixelHeight)
+  if (!target) return null
+  const canvas = target.surface.getCanvas()
+  if (target.content !== previous) {
+    canvas.clear(Float32Array.of(0, 0, 0, 0))
+    canvas.drawImage(previous.image, 0, 0)
+  }
+  const reaches = objects.map(reachOf)
+  for (const object of removed) {
+    const area = reachOf(object)
+    const x0 = Math.max(0, Math.floor((area.x - area.r) * scale)), y0 = Math.max(0, Math.floor((area.y - area.r) * scale))
+    const x1 = Math.min(pixelWidth, Math.ceil((area.x + area.r) * scale)), y1 = Math.min(pixelHeight, Math.ceil((area.y + area.r) * scale))
+    if (x1 <= x0 || y1 <= y0) continue
+    canvas.save()
+    const box = Skia.XYWHRect(x0, y0, x1 - x0, y1 - y0)
+    canvas.clipRect(box, ClipOp.Intersect, false)
+    // canvas.clear 는 클립을 무시하고 표면 전체를 지운다(2026-11-03 실기) → 지우기 블렌드로 그 자리만 비운다
+    canvas.drawRect(box, clearPaint)
+    const touching = objects.filter((_, i) => reachTouches(reaches[i], area))
+    if (touching.length) {
+      canvas.scale(scale, scale)
+      canvas.drawPicture(strokesPicture(touching, undefined, scale))
+    }
+    canvas.restore()
+  }
+  target.surface.flush()
+  const snapshot = target.surface.makeImageSnapshot(Skia.XYWHRect(0, 0, pixelWidth, pixelHeight)), image = snapshot.makeNonTextureImage()
+  snapshot.dispose?.()
+  const next = image && { objects, scale, image }
+  target.content = next
+  return next
+}
+// 지운 획이 있던 자리(페이지 좌표)를 비우고 그 자리에 걸친 남은 획만 다시 그리는 그림
+function patchPicture(removed, objects, scale) {
+  const recorder = Skia.PictureRecorder(), canvas = recorder.beginRecording()
+  const reaches = objects.map(reachOf)
+  for (const object of removed) {
+    const area = reachOf(object), box = Skia.XYWHRect(area.x - area.r, area.y - area.r, area.r * 2, area.r * 2)
+    canvas.save()
+    canvas.clipRect(box, ClipOp.Intersect, false)
+    canvas.drawRect(box, clearPaint)
+    const touching = objects.filter((_, i) => reachTouches(reaches[i], area))
+    if (touching.length) canvas.drawPicture(strokesPicture(touching, undefined, scale))
+    canvas.restore()
+  }
+  return recorder.finishRecordingAsPicture()
+}
 const keptLength = (a, b) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i }
 // 구운 그림은 화면 해상도 크기라 GC 를 기다리면 메모리가 쌓인다 → 화면이 새 그림으로 넘어간 뒤 풀어 준다
-const release = baked => { if (baked) setTimeout(() => baked.image.dispose?.(), 1000) }
+const release = (baked, delay = 1000) => { if (baked) setTimeout(() => baked.image.dispose?.(), delay) }
 const SETTLE_MS = 400
 
 const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
@@ -73,37 +137,71 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   // → 바뀐 자리 앞까지만 한 번 굽고 뒤는 그림으로 그리다가, 바뀜이 SETTLE_MS 동안 멈추면 전부 굽는다.
   const unsettled = useRef(false)
   const [settled, settle] = useReducer(n => n + 1, 0)
-  const keep = next => {
-    if (baked.current !== next) release(baked.current)
+  const keep = (next, delay) => {
+    if (baked.current !== next) release(baked.current, delay)
     return (baked.current = next)
   }
+  // 옮기는 중(fade): 안 움직이는 획은 한 장으로 구워 두고 움직이는 획만 매 프레임 그린다
+  const dragBase = useRef(null)
+  const settledSeen = useRef(0)
   const plan = useMemo(() => {
+    const isSettle = settled !== settledSeen.current
+    settledSeen.current = settled
+    const t0 = PENCIL_PROFILE.on ? nowMs() : 0
+    try { return planOf() } finally { if (t0) recordProfile('PLAN', nowMs() - t0) }
+    function planOf() {
+    if (fade && objects.length) {
+      const moving = objects.filter(object => fade.includes(object.id)), still = objects.filter(object => !fade.includes(object.id))
+      let base = dragBase.current
+      if (!base || base.scale !== scale || !sameObjects(base.objects, still)) {
+        release(base)
+        base = dragBase.current = still.length ? bake(null, still, width, height, scale) : null
+      }
+      return base ? { image: base, rest: moving } : { image: null, rest: objects }
+    }
+    if (dragBase.current) { release(dragBase.current); dragBase.current = null }
     if (fade || !objects.length) return { image: null, rest: objects }
     let previous = baked.current?.scale === scale ? baked.current : null
     const kept = previous ? keptLength(previous.objects, objects) : 0
     if (previous && kept < previous.objects.length) {
       unsettled.current = true
+      const removed = removedBetween(previous.objects, objects)
+      if (removed) {
+        // 지우는 동안: 구운 그림은 그대로 두고 지운 자리만 덧그린다. 멈추면(settle) 한 번만 구워 반영한다
+        if (!isSettle) return { image: previous, rest: [], cut: removed }
+        const cut = bakeWithout(previous, removed, objects, width, height, scale)
+        if (cut) return { image: keep(cut), rest: [] }
+      }
       previous = keep(kept ? bake(null, objects.slice(0, kept), width, height, scale) : null)
     }
     if (unsettled.current) return { image: previous, rest: objects.slice(previous?.objects.length ?? 0) }
     const next = keep(bake(previous, objects, width, height, scale))
     return { image: next, rest: next ? [] : objects }
+    }
   }, [objects, fade, width, height, scale, settled])
   useEffect(() => {
     if (!unsettled.current) return
     const timer = setTimeout(() => { unsettled.current = false; settle() }, SETTLE_MS)
     return () => clearTimeout(timer)
   }, [objects, settled])
-  useEffect(() => () => release(baked.current), [])
-  const strokes = useMemo(() => plan.rest.length ? strokesPicture(plan.rest, object => fade?.includes(object.id) ? DRAG_OPACITY : 1, scale) : null, [plan, fade, scale])
+  useEffect(() => () => { release(baked.current); release(dragBase.current) }, [])
+  const patch = useMemo(() => plan.cut ? patchPicture(plan.cut, objects, scale) : null, [plan, scale])
+  const strokes = useMemo(() => {
+    if (!plan.rest.length) return null
+    const t0 = PENCIL_PROFILE.on ? nowMs() : 0
+    const picture = strokesPicture(plan.rest, object => fade?.includes(object.id) ? DRAG_OPACITY : 1, scale)
+    if (t0) recordProfile('REST', nowMs() - t0)
+    return picture
+  }, [plan, fade, scale])
   const image = plan.image?.image, ratio = PixelRatio.get()
-  const label = PENCIL_PROFILE.on ? Object.entries(globalThis.__PENCIL_PROFILE__ ?? {}).map(([k, v]) => `${k} ${v.avg?.toFixed(1)}/${v.max?.toFixed(0)}`).join('  ') : null
+  const label = PENCIL_PROFILE.on ? Object.entries(globalThis.__PENCIL_PROFILE__ ?? {}).map(([k, v]) => `${k} ${v.avg?.toFixed(1)}/${v.max?.toFixed(0)} n${v.n}`).join('  ') : null
   return <>
     {label ? <Text pointerEvents="none" style={{ position: 'absolute', left: 8, top: 8, backgroundColor: '#ffffffd0', color: '#900', fontSize: 14 }}>{label}</Text> : null}
   <Canvas pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: width * zoom, height: height * zoom }}>
     {/* 구운 그림은 화면 픽셀 1:1 로(올림한 크기를 페이지 크기로 늘리면 살짝 흐려져 쓰는 중 획과 달라 보였다) */}
     {image ? <Image image={image} x={0} y={0} width={image.width() / ratio} height={image.height() / ratio} fit="fill" /> : null}
     <Group transform={[{ scale: zoom }]}>
+      {patch ? <Picture picture={patch} /> : null}
       {strokes ? <Picture picture={strokes} /> : null}
       {current ? <Picture picture={current} /> : null}
     </Group>
