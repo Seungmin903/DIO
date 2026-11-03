@@ -278,7 +278,10 @@ class EmailSignupTests {
         Instant after = Instant.now();
         assertThat(result.expiresIn()).isEqualTo(3600);
         var row = verifications.findById(EMAIL).orElseThrow();
-        assertThat(row.getTokenExpiresAt()).isBetween(before.plusSeconds(3600), after.plusSeconds(3600));
+        // Timestamp columns use microseconds; Instant.now() can contain finer precision.
+        assertThat(row.getTokenExpiresAt()).isBetween(
+            before.plusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.MICROS),
+            after.plusSeconds(3600).plusNanos(1000));
         assertThat(java.time.Duration.between(row.getSentAt(), row.getExpiresAt()).toSeconds()).isEqualTo(600);
         // The code may have expired while the user completes the profile. Its signup token remains valid.
         org.springframework.test.util.ReflectionTestUtils.setField(row, "expiresAt", Instant.now().minusSeconds(1800));
