@@ -4,10 +4,9 @@ import { useEffect, useState } from 'react'
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import Svg, { Path } from 'react-native-svg'
-import { usePalette } from '../hooks/usePalettes'
 import { TEXT_COLORS, textStyleSupport, textStyleReady, textFontChangePatch, italicTransform } from '../utils/text'
 import { useTextFont } from '../hooks/useTextFont'
-import MyColorPresets from './controls/MyColorPresets'
+import EditablePalette from './controls/EditablePalette'
 import NumberStepper from './controls/NumberStepper'
 import TextFontDropdown from './controls/TextFontDropdown'
 
@@ -45,7 +44,6 @@ const VERTICAL_ALIGNS = [['top','위 정렬'],['middle','세로 가운데 정렬
 
 /** 텍스트 서식. 스티커·마테·사진 옵션과 같은 모양(구역 제목·세그먼트 버튼·막대·색 줄)으로 만든다 */
 export default function TextSettings({ settings, onChange, onClose, verticalAlignment = false, sheet = false, dragHandlers }) {
-  const textColors = usePalette?.('text')?.colors ?? TEXT_COLORS // 꾸미기 공방 '내 프리셋'의 글자 색
 
   const fontStatus = useTextFont(settings.font)
   const support = textStyleSupport(settings.font, Platform.OS)
@@ -85,12 +83,7 @@ export default function TextSettings({ settings, onChange, onClose, verticalAlig
         <View style={styles.inlineRow}><Text style={styles.inlineLabel}>세로 정렬</Text><View style={styles.fill}><Segmented items={VERTICAL_ALIGNS.map(([id,label])=>({id,a11y:label,icon:<Svg width={20} height={20} viewBox="0 0 24 24"><Path d="M4 3h16M4 21h16" stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeOpacity={0.35} strokeLinecap="round" /><Path d={VERTICAL_ALIGN_PATHS[id]} stroke={settings.verticalAlign===id?colors.text:colors.textMuted} strokeWidth={1.8} strokeLinecap="round" /></Svg>}))} selected={id=>settings.verticalAlign===id} onPress={id=>onChange({verticalAlign:id})} /></View></View>
       </>}
 
-      <Text style={toolPanelStyles.label}>글자 색상</Text>
-      <View style={styles.colors}>
-        {textColors.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`글자 전체 색상 ${color}`} accessibilityState={{ selected: settings.color === color }} onPress={() => onChange({ color })} style={[styles.swatch, { backgroundColor: color }, settings.color === color && styles.chosen]} />)}
-      </View>
-      <Text style={toolPanelStyles.label}>내 색상</Text>
-      <MyColorPresets scope="text" value={settings.color} label="글자 색상" onPick={(color) => onChange({ color })} />
+      <EditablePalette scope="text" label="글자" value={settings.color} onPick={color => onChange({color})} />
 
       {/* 자간 · 줄간격: 접지 않고 숫자와 좌우 −·+ 로만 바꾼다 (글자 크기 대비 백분율 값, 단위 표시는 뺀다) */}
       <View style={styles.spacingRow}>

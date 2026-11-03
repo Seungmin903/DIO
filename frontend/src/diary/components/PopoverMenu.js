@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import EditorModal from '../../editor/components/controls/EditorModal';
 
 const EDGE = 12, GAP = 8;
@@ -10,18 +10,22 @@ const EDGE = 12, GAP = 8;
  * height: 메뉴 높이 어림(위로 뒤집을지 가르는 데만 쓴다). style: 메뉴 면 스타일(폭 · 배경 · 테두리).
  * onDismiss: 회전 · 창 크기 변경으로 닫힐 때만 따로 부를 함수(없으면 onClose). 바깥 누름 · 뒤로 가기는 onClose.
  */
-export default function PopoverMenu({ open, anchor = null, width = 230, height = 200, label, style, onClose, onDismiss = onClose, children }) {
+export default function PopoverMenu({ open, anchor = null, width = 230, height = 200, label, style, onClose, onDismiss = onClose, keyboardAware = false, availableHeight = null, children }) {
   const window = useWindowDimensions();
   const first = useRef(`${window.width}x${window.height}`);
   // 열려 있는 동안 화면 크기가 바뀌면(기기 회전 · 창 크기) 버튼 자리가 달라져 어긋나므로 닫는다
   useEffect(() => {
-    if (open && first.current !== `${window.width}x${window.height}`) onDismiss();
+    const [oldWidth] = first.current.split('x').map(Number)
+    const changed = first.current !== `${window.width}x${window.height}`
+    if (open && changed && (oldWidth !== window.width || !keyboardAware || Platform.OS === 'web')) onDismiss();
     first.current = `${window.width}x${window.height}`;
   }, [open, window.width, window.height]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!open) return null;
   const left = Math.max(EDGE, Math.min(anchor ? anchor.x + anchor.width - width : window.width - width - EDGE, window.width - width - EDGE));
   const below = anchor ? anchor.y + anchor.height + GAP : 96;
-  const top = anchor && below + height > window.height - EDGE ? Math.max(EDGE, anchor.y - GAP - height) : below;
+  const bottom = Math.min(window.height, availableHeight ?? window.height);
+  const preferredTop = anchor && below + height > bottom - EDGE ? Math.max(EDGE, anchor.y - GAP - height) : below;
+  const top = keyboardAware ? Math.max(EDGE, Math.min(preferredTop, bottom - height - EDGE)) : preferredTop;
   return (
     <EditorModal transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="닫기" />

@@ -2,13 +2,12 @@ import { ToolPanelHeader, toolPanelStyles } from '../ToolPanel'
 import { createContext, useContext, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, radius, shadow, DISABLED_OPACITY } from '../../../shared/theme'
-import { PHOTO_FRAME_ASSETS, PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PALETTES, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
+import { PHOTO_FRAME_ASSETS, PHOTO_FRAME_GROUPS, TAPE_DEFAULT, TAPE_PATTERN_NAMES, TAPE_SIZES } from '../../constants'
 import { RECENT_LIMIT, stickerKey, tapeKey, useCustomDecor, widgetKey } from '../../hooks/useCustomDecor'
 import { useTapePreferences } from '../../hooks/useTapePreferences'
 import { stickerLibrary } from '../../stickerLibrary'
 import { tapeLibrary } from '../../tapeLibrary'
-import { tapeColors, usePalette } from '../../hooks/usePalettes'
-import MyColorPresets from '../controls/MyColorPresets'
+import EditablePalette from '../controls/EditablePalette'
 import Svg, { Path } from 'react-native-svg'
 import FavoriteStar from '../../../shared/FavoriteStar'
 import { usePan } from '../../hooks/usePan'
@@ -51,12 +50,7 @@ const sizeRatio = (sizeId) => {
   return size.w / size.h
 }
 const PATTERN_THUMB_H = 14
-/** 바탕색보다 진한 무늬 색 (한 색만 고른 내 색상의 무늬색) */
-function deeper(hex) {
-  const n = parseInt(hex.slice(1), 16)
-  const channel = (shift) => Math.round(((n >> shift) & 255) * 0.7)
-  return `#${[16, 8, 0].map((shift) => channel(shift).toString(16).padStart(2, '0')).join('')}`.toUpperCase()
-}
+
 
 // 위젯 칸의 칩: 즐겨찾기 · 최근(스티커 · 테이프와 같다) + 기능 하나에 칩 하나, 모양 차이는 칩 안의 칸으로 고른다
 const WIDGET_CHIPS = [
@@ -184,11 +178,6 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
   const tapeLib = tapeLibrary(custom.items, custom.items.lastTapeCategory, keyword, tapePaletteId)
   const tapeUserFolder = tapeLib.folder?.folderId ? tapeLib.folder : null
   const tapeColumns = clamp(Math.floor((panelWidth - BODY_X * 2) / (TAPE_TILE_MIN + TILE_GAP * 2)), 4, 9)
-  const tapePalette = usePalette?.('tape')?.colors ?? TAPE_PALETTES.filter((color) => !color.hidden).map((color) => color.id)
-  const tapeLook = tapeColors(tapePaletteId)
-  const laceColors = tapeLib.active === 'base:lace'
-  // 내 색상: 두 색(바탕/무늬)은 그대로, 한 색만 고르면 그보다 진한 무늬색을 짝지어 준다
-  const pickTapeCustom = (hex) => updateTape({ palette: hex.includes('/') ? `custom:${hex.replace('/', ':')}` : `custom:${hex}:${deeper(hex)}` })
   function insertTape(item) {
     // 기본 무늬는 저장한 색을 읽은 뒤에만 붙인다(읽기 전 기본색으로 붙어 기억한 색을 덮지 않게)
     if (!item.src && !item.mediaFileId && !tapePreferencesReady) return
@@ -459,36 +448,11 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
             </ChipScroller>
           )}
           {newFolderInput}
-          {/* 색 줄: 기본 색 → 구분선 → 내 색상 → +. 레이스는 한 색(바탕색)만 보인다. 사진 테이프만 있는 내 폴더에서는 숨긴다 */}
+          {/* 색 줄: 기본 팔레트와 팔레트 편집. 레이스는 한 색(바탕색)만 보인다. 사진 테이프만 있는 내 폴더에서는 숨긴다 */}
           {/* 색 줄은 기본 폴더(무늬 · 레이스)에서만: 즐겨찾기 · 최근 · 내 폴더 · 검색 결과는 담긴 색 그대로 붙는다 */}
           {!editingList && !keyword && tapeLib.folder && !tapeUserFolder && tapePreferencesReady && (
-            <View style={styles.colorBlock}>
-              <Text style={styles.colorLabel}>기본 색</Text>
-              <View style={styles.colorRow}>
-              {tapePalette.map((entry) => {
-                const color = tapeColors(entry)
-                const name = TAPE_PALETTES.find((item) => item.id === entry)?.name ?? entry.split(':').slice(1).join('/')
-                const on = tapePaletteId === entry
-                return (
-                  <Pressable key={entry} onPress={() => updateTape({ palette: entry })} accessibilityRole="button" accessibilityLabel={`테이프 색 ${name}`}
-                    accessibilityState={{ selected: on }} style={styles.colorCell}>
-                    <View style={[styles.colorSwatch, { backgroundColor: color.bg }, on && styles.colorSwatchOn]}>
-                      {!laceColors && <View style={[styles.colorDot, { backgroundColor: color.fg }]} />}
-                    </View>
-                  </Pressable>
-                )
-              })}
-              </View>
-              <Text style={styles.colorLabel}>내 색상</Text>
-              <MyColorPresets
-                scope="tape"
-                inline
-                size={28}
-                value={tapePaletteId.startsWith('custom:') ? tapeLook.bg : null}
-                entry={tapePaletteId.startsWith('custom:') ? `${tapeLook.bg}/${tapeLook.fg}` : null}
-                label="테이프 색"
-                onPick={pickTapeCustom}
-              />
+            <View>
+              <EditablePalette scope="tape" label="테이프" value={tapePaletteId} onPick={entry => updateTape({palette:entry})} />
             </View>
           )}
         </View>
@@ -1152,12 +1116,8 @@ const styles = StyleSheet.create({
   // 칩 줄은 본문 폭 안에 둔다 (양끝 여백 없이 본문 가장자리에 맞춤)
   chipScroll: { flexGrow: 0 },
   chipRow: { gap: 6 },
-  // 테이프 색 줄(코덱스 2026-11-02): 터치 44 · 원 28, 기본 색 → 구분선 → 내 색상 → +
-  // 폰 안쪽 폭(≈285)에 기본 7색이 한 줄로 들어가게 칸 40, 라벨 아래 '기본 색' 줄 · '내 색상' 줄을 둔다(스크롤 없음)
-  colorBlock: { flexGrow: 0, gap: 2 },
-  colorLabel: { fontSize: 12, fontWeight: '700', color: colors.textMuted, marginTop: 4 },
-  colorRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginLeft: -6 }, // 칸(40) 안 원(28)의 안쪽 여백 6 만큼 당겨 라벨 왼쪽과 맞춘다
-  colorCell: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
+  // 테이프 색 줄(코덱스 2026-11-02): 터치 44 · 원 28, 고정 기본 팔레트와 편집 모드
+  colorCell: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   colorSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.cardBorder },
   colorSwatchOn: { borderWidth: 3, borderColor: colors.primaryStrong },
   colorDot: { position: 'absolute', right: 2, bottom: 2, width: 8, height: 8, borderRadius: 4 },
