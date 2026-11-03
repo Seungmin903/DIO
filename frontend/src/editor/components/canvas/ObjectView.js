@@ -70,7 +70,7 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
     case 'shape':
       return <ShapeContent object={object} zoom={zoom} />
     case 'stroke':
-      return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} />
+      return <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} onAssetLoad={onAssetLoad} onAssetError={onAssetError} />
     case 'sticker':
       if (object.widget) return <View style={{ transform: flipTransform(object) }}><DdayWidget widget={object.widget} width={width} height={height} /></View>
       if (object.pdfSource) return <View style={{ width, height }}>

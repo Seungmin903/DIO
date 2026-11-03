@@ -57,8 +57,9 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
       <TextMeasureReady.Provider value={textMeasureReady}>
       {webCache && cacheAllowed
         ? <WebStrokeCache objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} areaPreviewObjects={areaPreviewObjects} deferredAreaObjects={deferredAreaObjects} areaErasing={areaErasing} />
-        : cacheStrokes && cacheAllowed
-        ? <CompletedStrokeLayer objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} uncachedObjects={uncachedObjects} />
+        // 앱(Skia)은 끌어 옮기거나 크기를 바꾸는 중에도 같은 획 층에 그린다(SVG 로 바뀌면 연필 결이 달라진다)
+        : cacheStrokes && !cropId && (Platform.OS !== 'web' || !transformsInk)
+        ? <CompletedStrokeLayer objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} uncachedObjects={uncachedObjects} fadeIds={fadeIds} />
         : page.objects.filter(object => !object.hidden).map(renderObject)}
       </TextMeasureReady.Provider>
       </TextMeasure.Provider>

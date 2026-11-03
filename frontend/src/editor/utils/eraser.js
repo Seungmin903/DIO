@@ -1,5 +1,6 @@
 import { createId, rotateVector } from './common.js'
 import { createStroke, penContour, strokeOutline, samplePenCurve } from './strokes.js'
+import { isNibKind, nibContour, nibCurve, withDistances, withTaper } from './nibStroke.js'
 
 // 실행 목업의 기본 지름 24. 사용자 크기 설정은 페이지 좌표이며 화면에서는 zoom을 곱한다.
 export const ERASER_RADIUS = 12
@@ -64,6 +65,7 @@ function outlinePolygons(path) {
 }
 function strokePolygons(object) {
   const { points, penKind: kind, strokeWidth: width } = object
+  if (isNibKind(kind)) return outlinePolygons(nibContour(object))
   if (kind === 'felt' && [2, 3].includes(object.renderVersion)) return outlinePolygons(penContour(points, width, kind))
   if (points.length > 1 && (kind === 'brush' || kind === 'fountain')) {
     return outlinePolygons([2, 3].includes(object.renderVersion) ? penContour(points, width, kind) : strokeOutline(points, width, object.eraserCaps))
@@ -143,13 +145,19 @@ function fragmentStroke(source, points, id, caps) {
   const tail = legacy ? { eraserCaps: caps } : {}
   const ink = points[0]?.inkDistance != null ? { inkStartDistance: points[0].inkDistance } : {}
   points = source.renderVersion === 3 ? points : points.map(({ inkDistance, ...point }) => point)
+  if (!['brush', 'fountain', 'felt'].includes(source.penKind)) tail.sampled = true
+  // 붓펜 조각은 원래 획의 테이퍼 굵기를 점에 새긴다. 잘린 끝이 다시 뾰족해지지 않는다.
+  if (source.penKind === 'taperBrush') tail.taperBaked = true
   const plain = !source.rotation && !source.flipX && !source.flipY && source.w === source.baseWidth && source.h === source.baseHeight
-  if (!plain) return { ...source, ...ink, ...tail, id, points }
+  // 연필 결은 원래 획의 첫 점에 맞춰져 있다(PencilStrokeContent). 조각도 같은 자리에 맞춰 결이 움직이지 않게 한다.
+  const grain = source.penKind === 'pencil' ? source.grainOrigin ?? source.points[0] : null
+  if (!plain) return { ...source, ...ink, ...tail, id, points, ...(grain && { grainOrigin: grain }) }
   const stroke = createStroke(points.map((p) => ({ ...p, x: p.x + source.x, y: p.y + source.y })), {
     id, color: source.color, width: source.strokeWidth, kind: source.penKind, lineCap: source.lineCap,
     renderVersion: source.renderVersion, materialSeed: source.materialSeed,
   })
-  return { ...source, ...stroke, ...ink, ...tail, renderVersion: source.renderVersion, name: source.name }
+  return { ...source, ...stroke, ...ink, ...tail, renderVersion: source.renderVersion, name: source.name,
+    ...(grain && { grainOrigin: { ...grain, x: grain.x + source.x - stroke.x, y: grain.y + source.y - stroke.y } }) }
 }
 
 // 문서는 바꾸지 않고 후보만 누적하며, 확정 시 기존 단일 삭제 액션을 반환한다.
@@ -196,7 +204,13 @@ function createAreaEraserSession(objects, radius) {
           if (i) travelled += Math.hypot(p.x - object.points[i - 1].x, p.y - object.points[i - 1].y)
           return { ...p, inkDistance: p.inkDistance ?? travelled }
         }) : object.points
-      const curved = [2, 3].includes(object.renderVersion) && ['brush', 'fountain', 'felt'].includes(object.penKind) ? samplePenCurve(input, object.inkStartDistance ?? 0) : input
+      // 예전 잉크 펜(만년필 · 붓펜 · 펠트펜)은 자기 곡선을, 그 밖의 펜은 화면에 그린 것과 같은 이웃 점 가운데 2차 곡선을 촘촘히(1.5) 표본으로 잡는다.
+      // 남은 조각은 이 표본을 그대로 그린다(sampled): 직선으로 다시 잇거나 곡선을 또 펴면 지울 때마다 획이 미세하게 흔들렸다.
+      const inkPen = ['brush', 'fountain', 'felt'].includes(object.penKind)
+      const distanced = withDistances(object.points, object.inkStartDistance ?? 0)
+      let curved = inkPen ? ([2, 3].includes(object.renderVersion) ? samplePenCurve(input, object.inkStartDistance ?? 0) : input)
+        : object.sampled ? distanced : nibCurve(distanced, { step: 1.5 })
+      if (object.penKind === 'taperBrush' && !object.taperBaked && curved.length > 1) curved = withTaper(curved, object.strokeWidth)
       const points = curved.length > 1 ? densify(curved, Math.max(0.5, radius / 2 / scale)) : curved
       pieces.set(target.id, [{ points, page: points.map(project), scale, caps: object.eraserCaps ?? { start: false, end: false } }])
     }
@@ -213,7 +227,7 @@ function createAreaEraserSession(objects, radius) {
         let changed = false
         const next = current.flatMap((piece) => {
           const reach = point => radius + target.object.strokeWidth * piece.scale / 2
-            * (target.object.penKind === 'highlighter' ? 1 : ['brush', 'fountain', 'felt'].includes(target.object.penKind) ? point.pressure ?? 1 : target.object.penKind === 'pencil' ? 0.85 : 1)
+            * (target.object.penKind === 'highlighter' ? 1 : ['brush', 'fountain', 'felt', 'taperBrush', 'ball', 'calligraphy'].includes(target.object.penKind) ? point.pressure ?? 1 : target.object.penKind === 'pencil' ? 0.85 : 1)
           const erased = (point, page) => distanceToSegment(page, from, to) <= reach(point)
           const hit = piece.page.map((p, i) => erased(piece.points[i], p))
           if (!hit.some(Boolean)) return [piece]

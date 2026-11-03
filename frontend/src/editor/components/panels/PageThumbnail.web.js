@@ -10,21 +10,24 @@ import { createCompletedStrokePlanner } from '../../utils/completedStrokePlan.js
 import { createStrokeRasterQueue } from '../../utils/strokeRasterQueue.js'
 import { rasterizeStrokeBatch } from '../../utils/webStrokeRaster.js'
 import { rememberStrokeThumbnail, strokeThumbnails } from '../../utils/strokeThumbnailRaster.web.js'
+import { useSkiaRuntime } from '../../skia/skiaRuntime'
+import { isSkiaPencil } from '../../skia/pencilRaster.js'
 
 function report(details) {
   window.__DIO_PEN_QA_REPORT__?.({ type: 'page-thumbnail', ...window.__DIO_PERF_CASE__, ...details })
 }
 
-function thumbnailLayers(objects, width, height) {
+// skia: CanvasKit 로딩이 끝났으면 연필은 묶음에 넣지 않고 획마다 앱과 같은 Skia 그림(PencilSkiaStroke.web)으로 둔다
+function thumbnailLayers(objects, width, height, skia) {
   const visible = objects.filter(object => !object.hidden), layers = []
   const plan = createCompletedStrokePlanner({ batchSize: 2, minBatchSize: 1 })
   for (let index = 0; index < visible.length;) {
     const object = visible[index]
-    if (object.type !== 'stroke') { layers.push({ object }); index++; continue }
+    if (object.type !== 'stroke' || (skia && isSkiaPencil(object))) { layers.push({ object }); index++; continue }
     const cached = strokeThumbnails.get(visible, index, width, height)
     if (cached) { layers.push({ batch: cached.batch, cached }); index += cached.batch.objects.length; continue }
     const group = [object]; index++
-    while (index < visible.length && visible[index].type === 'stroke' && group.length < 2 && !strokeThumbnails.get(visible, index, width, height)) group.push(visible[index++])
+    while (index < visible.length && visible[index].type === 'stroke' && !(skia && isSkiaPencil(visible[index])) && group.length < 2 && !strokeThumbnails.get(visible, index, width, height)) group.push(visible[index++])
     const planned = plan(group, { width, height, zoom: 256 / width, pixelRatio: 1 })
     if (planned.some(layer => ![layer.batch.left, layer.batch.top, layer.batch.w, layer.batch.h].every(Number.isFinite))) layers.push(...group.map(object => ({ object })))
     else layers.push(...planned)
@@ -117,7 +120,8 @@ const ThumbnailBatch = memo(function ThumbnailBatch({ layer, zoom, queue, onMetr
 
 function CachedThumbnail({ page, zoom, showBackground }) {
   const { width, height } = pageSize(page)
-  const planned = useMemo(() => { const started = performance.now(); return { layers: thumbnailLayers(page.objects, width, height), planMs: performance.now() - started } }, [page.objects, width, height])
+  const { runtime: skia } = useSkiaRuntime(page.objects.some(isSkiaPencil))
+  const planned = useMemo(() => { const started = performance.now(); return { layers: thumbnailLayers(page.objects, width, height, skia), planMs: performance.now() - started } }, [page.objects, width, height, skia])
   const layers = planned.layers
   const batchMetrics = useMemo(() => ({}), [layers])
   const onMetrics = useMemo(() => value => {

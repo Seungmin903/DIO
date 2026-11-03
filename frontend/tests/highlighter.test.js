@@ -73,7 +73,7 @@ test('형광펜 설정은 획에 복사되고 기존 펜·형광펜 설정은 �
   assert.equal(next.color, '#F6C79B')
   assert.equal(next.strokeWidth, 40)
   assert.equal(next.lineCap, 'round')
-  assert.deepEqual(DEFAULT_PEN_SETTINGS, { kind: 'fountain', color: '#18224D', width: 2.5 })
+  assert.deepEqual(DEFAULT_PEN_SETTINGS, { kind: 'ball', color: '#18224D', width: 2.5 })
 })
 
 test('스퀘어 끝의 대각선 모서리와 단일 점이 저장 경계 안에 있다', () => {

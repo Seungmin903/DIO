@@ -70,12 +70,11 @@ test('네이티브 페이지를 단계별로 표시해도 이미 완성된 획 �
   assert.deepEqual(later.flatMap(layer => layer.props.batch.objects), [...objects, ...more])
 })
 
-test('네이티브 선택 정지 표시는 획 캐시를 유지하고 자르기·이동·일반 표시는 원본을 사용한다', () => {
+test('필기에서만 캐시를 사용하고 일반 표시·사진 자르기·내보내기는 원본 표시를 유지한다', () => {
   const component = loadComponent('StaticPage')
   const drawing = options => component.render({ page, zoom: 1, ...options }).props.children[1].props.children.props.children
   assert.equal(drawing({ cacheStrokes: true }).type, './CompletedStrokeLayer')
-  for (const options of [{}, { cacheStrokes: false }, { cacheStrokes: true, cropId: 'photo' },
-    { cacheStrokes: true, fadeIds: ['s0'] }]) {
+  for (const options of [{}, { cacheStrokes: false }, { cacheStrokes: true, cropId: 'photo' }]) {
     const direct = drawing(options)
     assert.equal(direct.length, 4)
     assert.equal(direct[0].type, './PageObject')
@@ -90,19 +89,23 @@ test('네이티브 선택 정지 표시는 획 캐시를 유지하고 자르기�
   assert.equal(movingPhoto.type, './CompletedStrokeLayer')
   assert.equal(movingPhoto.props.renderObject(gif).props.opacity, 0.5)
   const movingStroke = component.render({ page: mixedPage, zoom: 1, cacheStrokes: true, fadeIds: ['s0'] }).props.children[1].props.children.props.children
-  assert.equal(movingStroke[0].props.opacity, 0.5)
+  // 앱(Skia)은 획을 옮기는 중에도 같은 획 층에 그리고, 옮기는 획만 반투명으로 넘긴다
+  assert.equal(movingStroke.type, './CompletedStrokeLayer')
+  assert.deepEqual(movingStroke.props.fadeIds, ['s0'])
   assert.equal(component.compare({ page, zoom: 1, cacheStrokes: false }, { page, zoom: 1, cacheStrokes: true }), false)
 })
 
-test('네이티브 도구 전환은 필기 레이어를 유지하고 선택 이동 중에는 원본을 표시한다', () => {
+test('네이티브 도구 전환 · 선택 이동 중에도 필기 레이어(Skia)를 유지하고 옮기는 획만 반투명으로 넘긴다', () => {
   const component = loadComponent('StaticPage', 'ios')
   const draw = (tool, extra = {}) => component.render({ page, zoom: 1,
     cacheStrokes: planner.shouldCacheCompletedStrokes('ios', false, tool), ...extra }).props.children[1].props.children.props.children
   for (const tool of ['pen', 'highlighter', 'hand', 'select', 'text', 'lasso', 'eraser']) {
     assert.equal(draw(tool).type, './CompletedStrokeLayer', tool)
   }
-  assert.equal(draw('select', { fadeIds: ['s0'] })[0].type, './PageObject')
-  assert.equal(draw('lasso', { stillIds: ['s0'] })[0].type, './PageObject')
+  const moving = draw('select', { fadeIds: ['s0'] })
+  assert.equal(moving.type, './CompletedStrokeLayer')
+  assert.deepEqual(moving.props.fadeIds, ['s0'])
+  assert.equal(draw('lasso', { stillIds: ['s0'] }).type, './CompletedStrokeLayer')
   assert.equal(planner.shouldCacheCompletedStrokes('ios', true, 'pen'), true)
   assert.equal(planner.shouldCacheCompletedStrokes('web', false, 'select'), false)
 })
@@ -163,8 +166,14 @@ test('스티커 선택·드래그는 필기 캐시를 유지하고 실제 필기
     assert.equal(draw({}).type, expected)
     assert.equal(draw({ stillIds: ['sticker'] }).type, expected)
     assert.equal(draw({ fadeIds: ['sticker'], stillIds: ['sticker'] }).type, expected)
-    assert.equal(draw({ stillIds: ['s-0'] }).length, 1001)
-    assert.equal(draw({ fadeIds: ['s-0'] }).length, 1001)
+    // 실제 필기 변형: 웹은 원본(SVG)으로, 앱은 같은 Skia 획 층에 그린다
+    if (platform === 'web') {
+      assert.equal(draw({ stillIds: ['s-0'] }).length, 1001)
+      assert.equal(draw({ fadeIds: ['s-0'] }).length, 1001)
+    } else {
+      assert.equal(draw({ stillIds: ['s-0'] }).type, expected)
+      assert.equal(draw({ fadeIds: ['s-0'] }).type, expected)
+    }
     assert.equal(draw({}).type, expected)
   }
 })

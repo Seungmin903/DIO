@@ -7,6 +7,8 @@ import { capturePage } from '../utils/capturePage'
 import { exportObjectPosition } from '../utils/regionExport.js'
 import { PageExportError } from '../utils/pageExport.js'
 import { ensurePersonalFonts } from '../../handwriting/library.js'
+import { SkiaPencilScale } from '../skia/skiaPencilScale.js'
+import { isSkiaPencil } from '../skia/pencilRaster.js'
 
 /** PNG/PDF가 공유하는 전용 surface. 편집 UI와 저장 UI는 포함하지 않는다. */
 export default function PageImageSurface({ job }) {
@@ -24,7 +26,8 @@ export default function PageImageSurface({ job }) {
   const surface = useRef(null), started = useRef(false), failed = useRef(false)
   const scale = Platform.OS === 'web' || !area ? 1 : Math.min(1, area.width / snapshot.width, area.height / snapshot.height)
   // 여러 칸 사진 틀은 사진이 든 칸이 모두 그려지면 한 번 알린다.
-  const ready = snapshot.objects.filter((o) => o.src || o.cells?.some(Boolean)).every((o) => loaded.has(o.id))
+  // 연필 획은 앱 Skia 그림(PNG · 캔버스)이 올라와야 찍을 수 있다 — 못 그리면 SVG 로 두고 알려 온다(PencilSkiaStroke)
+  const ready = snapshot.objects.filter((o) => o.src || o.cells?.some(Boolean) || isSkiaPencil(o)).every((o) => loaded.has(o.id))
   useEffect(() => {
     if (!ready || !backgroundReady || !fontsReady || !laidOut || started.current || signal.aborted || failed.current) return
     started.current = true
@@ -55,9 +58,11 @@ export default function PageImageSurface({ job }) {
       {snapshot.template && <View style={{ position: 'absolute', ...exportObjectPosition({ x: 0, y: 0 }, snapshot, scale), width: (snapshot.pageWidth ?? snapshot.width) * scale, height: (snapshot.pageHeight ?? snapshot.height) * scale }}>
         <PageBackground page={{ id: snapshot.pageId, ...snapshot.template, canvasWidth: snapshot.pageWidth ?? snapshot.width, canvasHeight: snapshot.pageHeight ?? snapshot.height }} zoom={scale} preparedXml={snapshot.backgroundXml} onReady={() => setBackgroundReady(true)} onError={backgroundError} />
       </View>}
+      <SkiaPencilScale.Provider value={snapshot.pixelWidth / snapshot.width}>
       {snapshot.objects.map((object) => <View key={object.id} needsOffscreenAlphaCompositing={snapshot.isolateObjectOpacity ? objectOpacity(object) < 1 : undefined} style={{ position: 'absolute', ...exportObjectPosition(object, snapshot, scale), width: object.w * scale, height: object.h * scale, transform: [{ rotate: `${object.rotation ?? 0}deg` }], opacity: objectOpacity(object) }}>
         <ObjectContent object={object} zoom={scale} still onAssetLoad={() => setLoaded((previous) => new Set(previous).add(object.id))} onAssetError={assetError} />
       </View>)}
+      </SkiaPencilScale.Provider>
     </View>}
   </View>
 }
