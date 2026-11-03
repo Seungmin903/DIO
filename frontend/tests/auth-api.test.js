@@ -455,3 +455,12 @@ test('회원정보 수정은 본인 계정에서 사진 multipart를 전송하�
   });
   assert.equal(updated.nickname, '회원');
 });
+
+test('인증 응답의 1시간 기한을 사용하여 10분이 지나도 가입을 완료한다', async () => {
+ let time=0;
+ const {api,calls}=setup(call=>call.path==='email-verifications/verify'
+  ?response({signupToken:'hour-token',expiresIn:3600}):signupResponse(call),{now:()=>time});
+ await prepareSignup(api);time=45*60*1000;
+ assert.equal((await api.completeProfile(signupValues)).mode,'registered');
+ assert.equal(JSON.parse(calls.at(-1).body).signupToken,'hour-token');
+});

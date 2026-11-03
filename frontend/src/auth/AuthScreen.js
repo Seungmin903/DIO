@@ -75,6 +75,7 @@ export default function AuthScreen({
   const [nickname, setNickname] = useState('');
   const [terms, setTerms] = useState(emptyTerms);
   const [photoUri, setPhotoUri] = useState(null);
+  const [verificationAttempt, setVerificationAttempt] = useState(0);
   const [signupComplete, setSignupComplete] = useState(false);
   const [needsLoginAccess, setNeedsLoginAccess] = useState(false);
   const [accessId, setAccessId] = useState('');
@@ -312,6 +313,13 @@ export default function AuthScreen({
             onContinue(result);
           }
         },
+        (error) => {
+          if (profile?.provider === 'email' && error?.code === 'INVALID_SIGNUP_TOKEN') {
+            // 같은 가입 흐름에서 재인증한다. 닉네임·사진·약관은 부모 상태에 유지한다.
+            setVerificationAttempt(value => value + 1);
+            navigate('verification');
+          }
+        },
       );
   };
   const link = (label, onPress, style) => (
@@ -425,7 +433,7 @@ export default function AuthScreen({
                 {primary('동의하고 계속', continueEnrollment, !signupEligibility({ ageConfirmed, terms }, legalDocuments))}
               </View>
             ) : route === 'verification' ? (
-              <EmailVerification key={profile?.email} email={profile?.email}
+              <EmailVerification key={`${profile?.email}:${verificationAttempt}`} email={profile?.email}
                 service={verificationService} Field={FormField} primary={primary}
                 focusInput={focusInput} blurInput={blurInput} onComplete={() => {
                   Keyboard.dismiss();
@@ -441,6 +449,11 @@ export default function AuthScreen({
                       }
                       setProfile(result);
                       navigate('profile');
+                    }, (error) => {
+                      if (error?.code === 'INVALID_SIGNUP_TOKEN') {
+                        setVerificationAttempt(value => value + 1);
+                        navigate('verification');
+                      }
                     });
                   } else navigate('profile');
                 }} />
@@ -680,8 +693,6 @@ export default function AuthScreen({
                     <Text style={s.error}>{nicknameError(nickname)}</Text>
                   ) : null}
                 </View>
-                <View style={s.consentDivider} />
-                <SignupTerms terms={terms} onChange={setTerms} onView={viewDocument} disabled={busy} />
                 {primary('가입 완료', complete, !profileReady)}
               </View>
             )}

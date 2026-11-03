@@ -1,5 +1,7 @@
 package com.f106.DIO.auth.service;
 
+import static com.f106.DIO.auth.domain.SignupVerificationPolicy.*;
+
 import com.f106.DIO.auth.dto.EmailVerificationRequest;
 import com.f106.DIO.auth.dto.EmailVerificationResponse;
 import com.f106.DIO.auth.dto.EmailVerificationSentResponse;
@@ -50,7 +52,7 @@ public class EmailVerificationService {
             throw error;
         }
         mail.send(email, code);
-        return new EmailVerificationSentResponse(600, RESEND_SECONDS);
+        return new EmailVerificationSentResponse(CODE_TTL_SECONDS, RESEND_SECONDS);
     }
     // 오답 횟수는 오류 응답이어도 커밋해 재요청으로 제한이 초기화되지 않게 한다.
     @Transactional(noRollbackFor = SignupException.class)
@@ -65,8 +67,8 @@ public class EmailVerificationService {
             throw invalid();
         }
         String token = SignupSecrets.token();
-        verification.authorizeSignup(SignupSecrets.tokenHash(token), now.plusSeconds(600));
-        return new EmailVerificationResponse(token, 600);
+        verification.authorizeSignup(SignupSecrets.tokenHash(token), now.plusSeconds(SIGNUP_TOKEN_TTL_SECONDS));
+        return new EmailVerificationResponse(token, SIGNUP_TOKEN_TTL_SECONDS);
     }
     private SignupException invalid() { return SignupException.invalid("INVALID_VERIFICATION_CODE", "인증번호가 유효하지 않아요. 다시 확인하거나 새로 요청해 주세요."); }
     private SignupException rateLimited(long retryAfterSeconds) {

@@ -70,5 +70,5 @@ public class EmailSignupService {
         if (row.getConsumedAt() != null || row.getTokenExpiresAt() == null || !now.isBefore(row.getTokenExpiresAt())
             || !SignupSecrets.matches(row.getTokenHash(), SignupSecrets.tokenHash(request.signupToken()))) throw invalidToken();
     }
-    private SignupException invalidToken() { return SignupException.invalid("INVALID_SIGNUP_TOKEN", "이메일 인증을 다시 진행해 주세요."); }
+    private SignupException invalidToken() { return SignupException.invalid("INVALID_SIGNUP_TOKEN", "가입 인증이 만료되었거나 유효하지 않아요. 이메일을 다시 인증해 주세요."); }
 }

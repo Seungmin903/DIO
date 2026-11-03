@@ -29,6 +29,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     developmentAccess = null;
     accessStore?.clear(accessOrigin).catch(() => {});
   };
+  const invalidSignupToken = () => Object.assign(new Error('가입 인증이 만료되었거나 유효하지 않아요. 입력한 내용은 유지돼요. 이메일 인증을 다시 진행해 주세요.'), { code: 'INVALID_SIGNUP_TOKEN' });
   let signupPending = false;
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   const acceptSession = result => {
@@ -282,7 +283,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (signupPending) throw new Error('회원가입을 처리하고 있어요. 잠시만 기다려 주세요.');
       if (!draft || draft.email !== normalizeEmail(email) || !verification ||
           verification.email !== draft.email || verification.expiresAt <= now()) {
-        throw new Error('이메일 인증이 필요해요. 이전 화면으로 돌아가 다시 인증해 주세요.');
+        throw invalidSignupToken();
       }
       if (draft.ageConfirmed !== true) throw new Error('만 14세 이상인지 확인해 주세요.');
       if (nicknameError(nickname)) throw new Error(nicknameError(nickname));
@@ -298,7 +299,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       try {
         if (photoUri) upload = await buildPhotoBody(body, photoUri);
         if (!isCurrent()) throw new Error('가입 요청이 취소되었어요.');
-        if (currentVerification.expiresAt <= now()) throw new Error('이메일 인증이 만료됐어요. 이전 화면에서 다시 인증해 주세요.');
+        if (currentVerification.expiresAt <= now()) throw invalidSignupToken();
         const user = await request('signup', upload?.body ?? body, undefined, !!upload);
         if (!isCurrent()) throw new Error('가입 요청 이후 화면이 변경되었어요. 가입 여부는 로그인 화면에서 확인해 주세요.');
         if (typeof user?.userId !== 'string' || !user.userId.trim() ||
@@ -311,7 +312,10 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         draft = null; verification = null;
         return result;
       } catch (error) {
-        if (isCurrent() && error?.code === 'INVALID_SIGNUP_TOKEN') verification = null;
+        if (isCurrent() && error?.code === 'INVALID_SIGNUP_TOKEN') {
+          verification = null;
+          throw invalidSignupToken();
+        }
         throw error;
       } finally {
         // Temporary photo cleanup must not turn a successful signup into a retry.
@@ -437,7 +441,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     verify: (email, code) => api.verifyEmail(email, code),
     prepareSignup: values => {
       if (!verification || verification.email !== normalizeEmail(values.email) || verification.expiresAt <= now()) {
-        return Promise.reject(new Error('이메일 인증이 만료됐어요. 이전 화면에서 다시 인증해 주세요.'));
+        return Promise.reject(invalidSignupToken());
       }
       return api.signup(values);
     },
