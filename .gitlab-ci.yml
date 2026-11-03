@@ -447,3 +447,21 @@ backend-postgres-push-test:
     paths:
       - backend/build/reports/tests/pushPostgresTest/
     expire_in: 7 days
+
+deploy-release:
+  stage: deploy
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "release"'
+      when: manual
+  resource_group: release
+  environment:
+    name: release
+  script:
+    - export BACKEND_IMAGE="dio-backend:release-${CI_COMMIT_SHORT_SHA}"
+    - bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/release.env
+    - docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml config --quiet
+    - docker build --tag "$BACKEND_IMAGE" ./backend
+    - docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate
+    - curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8083/actuator/health
