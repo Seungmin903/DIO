@@ -5,7 +5,8 @@ Edit final/*.md, then rerun. The first run seeds sources from app-release-202611
 """
 import hashlib
 import json
-import zipfile
+import argparse
+import shutil
 from html import escape
 from pathlib import Path
 
@@ -71,13 +72,43 @@ def build():
     index += ''.join(f'<li><a href="{d["html"]}">{escape(d["title"])}</a></li>' for d in documents)
     index += '</ul>'
     (ROOT / 'index.html').write_text(render('DIO 약관·개인정보 안내', index, navigation=False), encoding='utf-8')
-    zip_path = BASE / 'DIO-legal-handoff-20261103.zip'
-    with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
-        for file in sorted(ROOT.iterdir()):
-            if file.is_file():
-                archive.write(file, 'DIO-legal/' + file.name)
-    print('Built 8 documents, index.html, app-documents.json and ' + zip_path.name)
+    print('Built 8 documents, index.html, app-documents.json and offline app content (no archive)')
+
+
+PUBLIC_FILES = tuple(f'{name}.html' for _, name, _, _ in DOCUMENTS) + ('account-deletion.html', 'index.html')
+RELEASE_CHECKS = ('retentionDeployment', 'overseasTransfer', 'deletionOperations', 'versionHistory', 'publicAccess')
+
+
+def export_public(destination, approval_file):
+    """Export only approved, hash-matched public pages; never copy internal notes or drafts."""
+    approval = json.loads(Path(approval_file).read_text(encoding='utf-8'))
+    if not approval.get('approvedBy') or not approval.get('approvedAt'):
+        raise ValueError('Publication needs an operator and approval date')
+    for check in RELEASE_CHECKS:
+        if approval.get('checks', {}).get(check) is not True:
+            raise ValueError(f'Publication blocked: {check}')
+    bundle = json.loads((ROOT / 'app-documents.json').read_text(encoding='utf-8'))
+    for doc in bundle['documents'] + bundle['supportDocuments']:
+        actual = hashlib.sha256((ROOT / doc['source']).read_text(encoding='utf-8').encode()).hexdigest()
+        if actual != doc['sourceSha256'] or approval.get('sourceHashes', {}).get(doc['id']) != actual:
+            raise ValueError(f'Publication blocked: source approval missing or stale ({doc["id"]})')
+    destination = Path(destination).resolve()
+    repository = BASE.parent.parent.resolve()
+    # A fresh directory under ignored local output only; never overwrite sources or a live site.
+    local_output = repository / '.local-data'
+    if not destination.is_relative_to(local_output) or destination.exists():
+        raise ValueError('Use a new directory under .local-data/ for reviewed public output')
+    destination.mkdir(parents=True)
+    for name in PUBLIC_FILES:
+        shutil.copyfile(ROOT / name, destination / name)
+    print(f'Exported {len(PUBLIC_FILES)} public pages to {destination}')
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--publish-dir', help='New .local-data/ directory, requires completed approval')
+    parser.add_argument('--approval', type=Path, default=BASE / 'publication-approval.json')
+    args = parser.parse_args()
     build()
+    if args.publish_dir:
+        export_public(args.publish_dir, args.approval)
