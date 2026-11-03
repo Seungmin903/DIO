@@ -8,6 +8,8 @@ import { objectOpacity, TextMeasure } from './ObjectView'
 import PageObject from './PageObject'
 import { WebStrokeCachePreparation } from './WebStrokeCacheContext'
 import { rememberStrokeThumbnail } from '../../utils/strokeThumbnailRaster.web.js'
+import { useSkiaRuntime } from '../../skia/skiaRuntime'
+import { isSkiaPencil } from '../../skia/pencilRaster.js'
 
 const Batch = memo(function Batch({ batch, zoom, rasterize, queue, areaPreviewObjects, deferredAreaObjects, areaErasing }) {
   const preparation = useContext(WebStrokeCachePreparation)
@@ -96,6 +98,11 @@ export default function WebStrokeCache({ objects, width, height, zoom, renderObj
   const preparation = useContext(WebStrokeCachePreparation), gate = useRef(null)
   gate.current = preparation
   const planner = useRef(null), queue = useRef(null)
+  // 연필은 앱과 같은 Skia 그림이라 SVG 묶음 굽기(rasterizeStrokeBatch)에 넣지 않고 획마다 캔버스로 둔다(PencilSkiaStroke.web).
+  // CanvasKit 가 아직 없을 때는 지금처럼 SVG 묶음에 들어갔다가, 로딩이 끝나면 따로 빠진다.
+  const hasPencil = objects.some(isSkiaPencil)
+  const { runtime: skia } = useSkiaRuntime(hasPencil)
+  const exclude = skia ? isSkiaPencil : null
   if (!planner.current) planner.current = createCompletedStrokePlanner({ batchSize: 4, minBatchSize: 1, alignPixels: true, preserveBatches: true })
   if (!queue.current) queue.current = createStrokeRasterQueue({ idleMs: 650, minGapMs: 16, canStart: () => !gate.current || gate.current.canStart() })
   useEffect(() => {
@@ -129,7 +136,7 @@ export default function WebStrokeCache({ objects, width, height, zoom, renderObj
       work.clear()
     }
   }, [])
-  const layers = planner.current(objects, { width, height, zoom, pixelRatio: PixelRatio.get(), pixelBudget: preparation?.pixelBudget })
+  const layers = planner.current(objects, { width, height, zoom, pixelRatio: PixelRatio.get(), pixelBudget: preparation?.pixelBudget, exclude })
   useEffect(() => {
     if (preparation?.faultMode !== 'budget') return
     window.__DIO_PEN_QA_REPORT__?.({ type: 'fallback-plan', ...window.__DIO_PERF_CASE__, pixelBudget: preparation.pixelBudget, skippedBatches: layers.filter(layer => layer.batch && !layer.rasterize).length })

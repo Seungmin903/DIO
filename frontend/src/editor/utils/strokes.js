@@ -1,3 +1,4 @@
+import { brushSeed } from './pencilSeed.js'
 // 페이지 논리 좌표를 요소 내부 좌표로 변환한다. w/h는 현재 크기,
 // baseWidth/baseHeight는 원래 좌표계이므로 공통 이동·회전·리사이즈를 재사용한다.
 export const DEFAULT_PEN = { color: '#0B1766', width: 3 }
@@ -12,7 +13,8 @@ const storedPoint = (point, x, y, renderVersion) => {
   return result
 }
 
-export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball', lineCap = 'round', renderVersion = 2, materialSeed } = {}) {
+// opacity: 펜 설정의 불투명도(0.1~1). 1 이 아니면 획의 불투명도(요소 옵션의 불투명도와 같은 값)로 저장한다.
+export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DEFAULT_PEN.width, kind = 'ball', lineCap = 'round', renderVersion = 2, materialSeed, opacity = 1 } = {}) {
   if (!points.length) return null
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const p of points) {
@@ -21,7 +23,8 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
     maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y)
   }
   // 스퀘어 끝은 대각선에서도 경계에 잘리지 않도록 여백을 확보한다.
-  const padding = width * points.reduce((max, p) => Math.max(max, p.pressure ?? 1), 1) * (kind === 'highlighter' && lineCap === 'square' ? Math.SQRT2 : 1)
+  // 붓펜 머리는 굵기의 1.45배까지 커진다(nibStroke BRUSH_MAX_SCALE)
+  const padding = width * points.reduce((max, p) => Math.max(max, p.pressure ?? 1), 1) * (kind === 'highlighter' && lineCap === 'square' ? Math.SQRT2 : kind === 'taperBrush' ? 1.45 : 1)
   const w = Math.max(20, maxX - minX + padding)
   const h = Math.max(20, maxY - minY + padding)
   const x = (minX + maxX - w) / 2, y = (minY + maxY - h) / 2
@@ -30,6 +33,9 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
     baseWidth: w, baseHeight: h, color, strokeWidth: width, penKind: kind, renderVersion,
     ...(renderVersion === 3 && { materialSeed: materialSeed ?? 0 }),
     ...(kind === 'highlighter' && { lineCap }),
+    ...(kind !== 'highlighter' && opacity < 1 && { opacity }),
+    // 연필: 요소 좌표에서 페이지 원점 자리 + 획 시드(첫 점 페이지 좌표의 해시). 종이 이빨이 페이지에 붙고, 옮겨도 무늬가 획과 함께 움직인다. 쓰는 중과 같은 값
+    ...(kind === 'pencil' && { grainOrigin: { x: -x, y: -y, seed: brushSeed(points[0]) } }),
     points: points.map((p) => storedPoint(p, x, y, renderVersion)),
   }
 }

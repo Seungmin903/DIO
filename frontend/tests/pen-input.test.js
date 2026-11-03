@@ -6,12 +6,16 @@ import * as strokes from '../src/editor/utils/strokes.js'
 import * as assist from '../src/editor/utils/strokeAssist.js'
 import * as settings from '../src/editor/utils/penSettings.js'
 import * as preview from '../src/editor/utils/strokePreview.js'
+import * as pencilBrush from '../src/editor/utils/pencilBrush.js'
 import * as measurement from '../src/editor/utils/penPerformance.js'
 import * as previewStore from '../src/editor/utils/penPreviewStore.js'
 import { acknowledgeStrokeDisplay } from '../src/editor/utils/strokeDisplayHandoff.js'
 import * as motion from '../src/editor/utils/penMotion.js'
+import * as hook from '../src/editor/utils/penHook.js'
 import * as pointer from '../src/editor/utils/penPointerInput.js'
 import * as materials from '../src/editor/utils/penMaterials.js'
+import * as stylusSensor from '../src/editor/utils/stylusSensor.js'
+import * as nib from '../src/editor/utils/nibStroke.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/components/PenInput.js', import.meta.url), 'utf8'), {
@@ -36,12 +40,16 @@ function fixture(kind, zoom = 1, straightAssist = true, web = false) {
     if (id.endsWith('/common')) return { createId: () => `stroke-${++strokeSequence}` }
     if (id.endsWith('/strokes')) return { ...strokes, createStroke: (...args) => { converted.push(args[0].length); return strokes.createStroke(...args) } }
     if (id.endsWith('/penSettings')) return settings
+    if (id.endsWith('/penDynamics')) return { getPenDynamics: () => ({ pressure: true, tilt: true }) }
     if (id.endsWith('/strokePreview.js')) return preview
+    if (id.endsWith('/pencilBrush.js')) return pencilBrush
     if (id.endsWith('/penPerformance.js')) return measurement
     if (id.endsWith('/penPreviewStore.js')) return previewStore
     if (id.endsWith('/penMotion.js')) return motion
+    if (id.endsWith('/penHook.js')) return hook
     if (id.endsWith('/penPointerInput.js')) return pointer
     if (id.endsWith('/penMaterials.js')) return materials
+    if (id.endsWith('/stylusSensor.js')) return stylusSensor
     if (id.endsWith('/stylus')) return { setPenPointerActive() {} }
     if (id.endsWith('/PenPreview')) return { __esModule: true, default: () => null }
     if (id.endsWith('/StrokePreview')) return { __esModule: true, default: () => null }
@@ -395,4 +403,107 @@ test('웹 플래너가 소비한 획은 일반 획으로 중복 저장하거나 
   assert.deepEqual(f.actions, [])
   f.handlers.onEnd({ cancelled: false })
   assert.equal(consumed, 1)
+})
+
+// 힘 · 기울기별로 곧은 획을 그어 실제 그리기 함수의 몸통 굵기를 잰다
+const pathHeight = path => {
+  const ys = [...path.matchAll(/-?[\d.]+ (-?[\d.]+)/g)].map(match => Number(match[1]))
+  return Math.max(...ys) - Math.min(...ys)
+}
+function bodyWidth(kind, force, lean) {
+  const f = fixture(kind, 1, false), h = f.handlers, event = (i) => ({ force, tiltX: lean, tiltY: 0, timeStamp: i * 16 })
+  h.onStart({ locationX: 20, locationY: 100, ...event(0) })
+  for (let i = 1; i <= 60; i++) h.onMove(i * 8, 0, event(i))
+  h.onEnd({ cancelled: false })
+  const stroke = f.actions[0].objects[0], all = stroke.points
+  const middle = all.slice(25, 45)
+  if (kind === 'pencil') {
+    const dabs = pencilBrush.pencilDabs(pencilBrush.brushSampledPoints(all, 0), stroke.strokeWidth), mid = dabs.filter(d => d.x > 150 && d.x < 330)
+    return mid.reduce((sum, dab) => sum + dab.r * 2, 0) / mid.length
+  }
+  const object = { ...stroke, points: middle }
+  return kind === 'ball' ? pathHeight(nib.ballSweepPath(middle, stroke.strokeWidth)) : pathHeight(nib.nibContour({ ...object, sampled: true, taperBaked: kind === 'taperBrush' }))
+}
+
+test('펜 4종 모두: 세게 누르면 굵어지고 눕히면 넓어진다(입력부터 그리기 함수까지)', () => {
+  for (const kind of ['ball', 'calligraphy', 'taperBrush', 'pencil']) {
+    const light = bodyWidth(kind, 0.08, 0), firm = bodyWidth(kind, 0.6, 0), tilted = bodyWidth(kind, 0.22, 60), upright = bodyWidth(kind, 0.22, 0)
+    assert.ok(firm > light * 1.1, `${kind} 필압 ${light} → ${firm}`)
+    assert.ok(tilted > upright * 1.05, `${kind} 기울기 ${upright} → ${tilted}`)
+  }
+})
+
+test('시작점에도 기울기가 저장된다', () => {
+  const f = fixture('pencil', 1, false), h = f.handlers
+  h.onStart({ locationX: 20, locationY: 30, force: 0.2, tiltX: 50, tiltY: 10, timeStamp: 0 })
+  h.onMove(40, 0, { force: 0.2, tiltX: 50, tiltY: 10, timeStamp: 16 })
+  h.onEnd({ cancelled: false })
+  assert.equal(f.actions[0].objects[0].points[0].tiltX, 50)
+})
+
+// 손을 뗀 뒤 저장된 획의 끝이 마지막 프레임과 같아야 끝이 다시 그려져 달라 보이지 않는다
+const lastShown = f => { const parts = f.store.getSnapshot().parts, points = parts.at(-1).points, first = parts[0].points[0], last = points.at(-1); return { x: last.x - first.x, y: last.y - first.y } }
+const lastSaved = f => { const points = f.actions[0].objects[0].points; return { x: points.at(-1).x - points[0].x, y: points.at(-1).y - points[0].y } }
+for (const kind of ['ball', 'calligraphy', 'taperBrush', 'pencil']) {
+  test(`${kind}: 쓰는 중 끝 갈고리는 보이지 않고, 뗀 뒤 끝이 마지막 프레임과 같다`, () => {
+    const f = fixture(kind, 1, false), h = f.handlers
+    h.onStart({ locationX: 20, locationY: 100, force: 0.2, timeStamp: 0 })
+    for (let i = 1; i <= 15; i++) h.onMove(i * 6, 0, { force: 0.2, timeStamp: i * 8 })
+    const body = lastShown(f)
+    // 짧게 위로 말린 끝
+    h.onMove(90.5, -1.5, { force: 0.2, timeStamp: 128 })
+    h.onMove(90.8, -3, { force: 0.2, timeStamp: 136 })
+    const hooked = lastShown(f)
+    assert.ok(Math.abs(hooked.y - body.y) < 0.5, `갈고리가 보임 ${hooked.y}`)
+    h.onEnd({ cancelled: false })
+    assert.deepEqual(lastSaved(f), hooked)
+  })
+
+  test(`${kind}: 빠르게 쓰다 떼도 끝점이 튀지 않는다(필터 지연 없이 펜 끝 좌표)`, () => {
+    const f = fixture(kind, 1, false), h = f.handlers
+    h.onStart({ locationX: 20, locationY: 100, force: 0.2, timeStamp: 0 })
+    for (let i = 1; i <= 30; i++) h.onMove(i * 7, Math.sin(i / 3) * 12, { force: 0.2, timeStamp: i * 4 })
+    const shown = lastShown(f)
+    h.onEnd({ cancelled: false })
+    assert.deepEqual(lastSaved(f), shown)
+    assert.equal(shown.x, 210)
+  })
+}
+
+test('꺾은 뒤 계속 쓰면 멈칫한 점이 빠지지 않고 그대로 보인다', () => {
+  const f = fixture('ball', 1, false), h = f.handlers
+  h.onStart({ locationX: 20, locationY: 100, timeStamp: 0 })
+  for (let i = 1; i <= 15; i++) h.onMove(i * 6, 0, { timeStamp: i * 8 })
+  h.onMove(90, -2, { timeStamp: 128 })
+  h.onMove(90, -4, { timeStamp: 136 })
+  for (let i = 1; i <= 5; i++) h.onMove(90, -4 - i * 6, { timeStamp: 136 + i * 8 })
+  assert.equal(lastShown(f).y, -34)
+  h.onEnd({ cancelled: false })
+  assert.equal(lastSaved(f).y, -34)
+})
+
+test('화면 배율이 달라도 같은 크기의 끝 갈고리가 쓰는 중부터 잘린다(점 간격이 넓어도)', () => {
+  for (const zoom of [0.43, 1, 2]) {
+    const f = fixture('ball', zoom, false), h = f.handlers
+    h.onStart({ locationX: 20, locationY: 100, force: 0.25, timeStamp: 0 })
+    for (let i = 1; i <= 40; i++) h.onMove(i * 10, 0, { force: 0.25, timeStamp: i * 8 })
+    h.onMove(400.6, -1.2, { force: 0.2, timeStamp: 328 })
+    h.onMove(401, -2.5, { force: 0.1, timeStamp: 330 })
+    assert.ok(Math.abs(lastShown(f).y) < 0.5 / zoom, `zoom ${zoom} 쓰는 중 ${lastShown(f).y}`)
+    h.onMove(401, -2.5, { force: 0, isRelease: true, timeStamp: 600 })
+    h.onEnd({ cancelled: false })
+    assert.ok(Math.abs(lastSaved(f).y) < 0.5 / zoom, `zoom ${zoom} 뗀 뒤 ${lastSaved(f).y}`)
+  }
+})
+
+test('붓펜: 저장된 획 외곽선의 몸통 굵기가 쓰는 중과 같다', () => {
+  const f = fixture('taperBrush', 1, false), h = f.handlers
+  h.onStart({ locationX: 20, locationY: 100, force: 0.22, timeStamp: 0 })
+  for (let i = 1; i <= 40; i++) h.onMove(i * 8, 0, { force: 0.22, timeStamp: i * 16 })
+  const live = nib.nibPreviewPaths(f.store.getSnapshot().parts, 4, 'taperBrush').join('')
+  h.onEnd({ cancelled: false })
+  const saved = nib.nibContour(f.actions[0].objects[0])
+  const body = (path, x0) => { const ys = [...path.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].filter(m => Math.abs(Number(m[1]) - x0) < 20).map(m => Number(m[2])); return Math.max(...ys) - Math.min(...ys) }
+  const stroke = f.actions[0].objects[0]
+  assert.ok(Math.abs(body(live, 180) - body(saved, 180 - stroke.x)) < 0.2, `${body(live, 180)} ${body(saved, 180 - stroke.x)}`)
 })

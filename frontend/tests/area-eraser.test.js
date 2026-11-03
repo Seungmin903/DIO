@@ -67,7 +67,8 @@ test('부분 거리 메타데이터를 가진 점 쌍도 영역 지우기로 NaN
       for (const p of piece.points) {
         if (p.inkDistance != null) assert.ok(Number.isFinite(p.inkDistance))
         const original = Math.abs(p.x + piece.x) < 1e-6 || Math.abs(p.x + piece.x - 300) < 1e-6
-        if (!original) for (const key of ['inkDistance', 'force', 'time', 'speed', 'tiltX', 'tiltY']) assert.equal(key in p, false, key)
+        // 잉크 펜이 아닌 획의 조각은 화면과 같은 곡선 표본(sampled)이라 표본마다 진행 거리를 갖는다(위에서 유한함만 확인). 입력 메타데이터는 원래 점에만 남는다.
+        if (!original) for (const key of ['force', 'time', 'speed', 'tiltX', 'tiltY']) assert.equal(key in p, false, key)
       }
     }
   }

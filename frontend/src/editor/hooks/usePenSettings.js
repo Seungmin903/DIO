@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { DEFAULT_PEN_SETTINGS } from '../utils/penSettings.js'
 import { createPenColorPreference } from '../utils/penColorPreference.js'
+import { useToolPreference } from '../utils/toolPreferences.js'
 
 const preference = createPenColorPreference(AsyncStorage)
 
 export function usePenSettings() {
   const color = useSyncExternalStore(preference.subscribe, preference.getSnapshot, preference.getSnapshot)
-  const [options, setOptions] = useState(DEFAULT_PEN_SETTINGS)
+  const [options, setOptions] = useToolPreference('pen', DEFAULT_PEN_SETTINGS)
   useEffect(() => { preference.load() }, [])
   const settings = useMemo(() => ({ ...options, color }), [options, color])
   const change = useCallback(next => {

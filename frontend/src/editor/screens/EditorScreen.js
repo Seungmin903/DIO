@@ -20,7 +20,7 @@ import DecorDrawer from '../components/panels/DecorDrawer'
 import Icon from '../components/controls/Icon'
 import LayerPanel, { LAYER_PANEL_COMPACT_WIDTH, LAYER_PANEL_WIDTH } from '../components/panels/LayerPanel'
 import MorePanel from '../components/panels/MorePanel'
-import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
+import PageList, { PAGE_LIST_WIDTH, pageListFrame } from '../components/panels/PageList'
 import PageSettingsDialog from '../components/panels/PageSettingsDialog'
 import PagePanelVisibility from '../components/panels/PagePanelVisibility'
 import { createThumbnailWorkQueue } from '../utils/thumbnailWorkQueue.js'
@@ -59,6 +59,7 @@ import { DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
 import { usePenSettings } from '../hooks/usePenSettings'
 import { recordPenColorUse } from '../hooks/useRecentPenColors'
 import { useReadingPreviews } from '../hooks/useReadingPreviews'
+import { useToolPreference } from '../utils/toolPreferences'
 import SaveIndicator from '../components/controls/SaveIndicator'
 import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
@@ -124,6 +125,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
   const qaHistoryExecutions = useRef(0)
   const { state, dispatch, saveStatus, loaded } = useEditor(diary)
+  // 내용을 불러온 뒤 상단바 · 패널 폭이 한 번 더 바뀐다. 측정이 잠잠해지면 페이지를 처음 그린다(그 뒤로는 그대로 둔다)
+  const [pageReady, setPageReady] = useState(false)
   const page = getCurrentPage(state)
   // 앨범을 고르는 동안 동기화로 바뀐 내용을 덮지 않게, await 뒤에는 이 최신 페이지를 읽는다
   const pageNow = useRef(page)
@@ -223,11 +226,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [pendingEyedropper, setPendingEyedropper] = useState(false)
   const colorCaptureRef = useRef(null)
   const colorScreen = useWindowDimensions()
-  const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
-  const [straightAssist, setStraightAssist] = useState(true)
-  const [eraserSize, setEraserSize] = useState(ERASER_RADIUS * 2)
-  const [eraserTarget, setEraserTarget] = useState('all')
-  const [eraserMode, setEraserMode] = useState('stroke') // 획 지우기 | 영역 지우기
+  const [highlighterSettings, setHighlighterSettings] = useToolPreference('highlighter', DEFAULT_HIGHLIGHTER_SETTINGS)
+  const [straightAssist, setStraightAssist] = useToolPreference('straightAssist', true)
+  const [eraserSize, setEraserSize] = useToolPreference('eraserSize', ERASER_RADIUS * 2)
+  const [eraserTarget, setEraserTarget] = useToolPreference('eraserTarget', 'all')
+  const [eraserMode, setEraserMode] = useToolPreference('eraserMode', 'stroke') // 획 지우기 | 영역 지우기
   const [penSettingsOpen, setPenSettingsOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   // 태블릿 편집기는 페이지 목록과 레이어를 둘 다 연 채로 시작한다. 폰은 두 패널이 작업창 위에 뜨고 한쪽만 열 수 있어 닫고 시작한다.
@@ -838,6 +841,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     pagePanelMeasurement.current?.emit('editor-layout', { open: showPages, zoom, stageWidth: stageSize?.width ?? null })
   }, [showPages, zoom, stageSize?.width])
   const showLayers = !readOnly && layersOpen && !focusMode
+  useEffect(() => {
+    if (pageReady || !stageSize || !loaded) return undefined
+    const timer = setTimeout(() => setPageReady(true), 120)
+    return () => clearTimeout(timer)
+  }, [pageReady, stageSize, loaded, layerWidth])
   // 폰: 페이지 목록(가로에서는 레이어도)은 왼쪽, 세로 레이어는 오른쪽에서 열린다.
   // 폰 세로는 페이지 창을 열면 되돌리기 · 저장됨 막대를 오른쪽으로 옮기지 않고 창 뒤로 가린다(사용자 결정 2026-11-03)
   const undoOnRight = compact && ((showPages && landscape) || (landscape && showLayers))
@@ -1205,6 +1213,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       <View style={[styles.body, compact && styles.bodyCompact, readOnly && styles.readingBody]}>
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
         <TapCatcher onTap={clearSelection} style={StyleSheet.absoluteFill} />
+        {/* 목록이 불러온 뒤에 나타나면 작업창 폭이 그때 바뀌어 페이지를 또 그린다 → 자리를 먼저 잡아 첫 측정이 최종 크기가 되게 한다 */}
+        {showPages && !loaded && !compact && <View style={pageListFrame(true)} />}
         {showPages && loaded && (
           renderSlot({ side: 'left', sideStyle: styles.phonePanelLeft, onWidth: (left) => setPhonePanelWidths((prev) => ({ ...prev, left })), onClose: togglePages },
           <PagePanelVisibility enabled={Platform.OS === 'ios' && !compact} hidden={pagesClosing}>
@@ -1267,7 +1277,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             {/* 확대·이동 중이거나 화면 밖에 있는 GIF 는 첫 장면으로 멈춘다 (StaticPage) */}
             <ViewportMotion.Provider value={viewportMotion}>
               <View style={{ width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }}>
-              <Canvas
+              {/* 크기가 정해진 뒤 한 번에 그린다(임시 배율 .6 → 측정 크기 → 상단바 · 패널 폭 반영 순서로 세 번 그렸다) */}
+              {pageReady && <Canvas
                 onStrokeCommitted={recordPenColorUse}
                 readingImage={readingPreviews.current}
                 qaPageMeasurement={pageSelectMeasurement.current}
@@ -1360,7 +1371,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 onToast={showToast}
                 contextBarInside={markInside}
                 contextBarFrame={contextBarFrame}
-              />
+              />}
               {readOnly && turn && <ReadingPageTurn image={readingPreviews.target} page={turn.page} from={turn.from} zoom={zoom} width={PAGE_WIDTH} height={PAGE_HEIGHT} dir={turn.dir} lift={turn.lift ?? 0} progress={flip} />}
               </View>
             </ViewportMotion.Provider>

@@ -47,15 +47,15 @@ test('영역 지우기로 남은 붓펜 꼬리가 새 획처럼 진해지지 않
 })
 
 
-test('영역 지우기 임시 농도만 8단계이며 다시 정밀 렌더하면 원래 경로와 데이터가 유지된다', () => {
+// 만년필 · 붓펜은 불투명도 100(농도 한 단계)으로 그린다(2026-11-02). 미리보기도 같은 한 단계다.
+test('만년필 · 붓펜은 미리보기와 정밀 렌더 모두 불투명도 100 한 겹이며 다시 렌더해도 경로와 데이터가 유지된다', () => {
   const parts = [{ points: Array.from({ length: 120 }, (_, i) => ({ x: i, y: Math.sin(i / 8) * 5, pressure: .9, force: .4 })) }]
   const original = JSON.stringify(parts)
   for (const kind of ['fountain', 'brush']) {
     const before = strokeInkLayers(parts, 8, kind, 3)
     const preview = strokeInkLayers(parts, 8, kind, 3, true)
-    assert.equal(preview.length, kind === 'fountain' ? 1 : 8)
-    const fullLevels = inkLevels(kind, 3), levels = inkLevels(kind, 3, true)
-    assert.equal(levels[0], fullLevels[0]); assert.equal(levels.at(-1), fullLevels.at(-1))
+    assert.equal(preview.length, 1)
+    assert.deepEqual(inkLevels(kind, 3), [1]); assert.deepEqual(inkLevels(kind, 3, true), [1])
     assert.deepEqual(strokeInkLayers(parts, 8, kind, 3), before)
   }
   assert.equal(JSON.stringify(parts), original)

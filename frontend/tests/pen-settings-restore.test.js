@@ -23,6 +23,7 @@ function fixture() {
     }
     if (id === '@react-native-async-storage/async-storage') return { __esModule: true, default: storage }
     if (id.endsWith('/penSettings.js')) return { DEFAULT_PEN_SETTINGS }
+    if (id.endsWith('/toolPreferences.js')) return { useToolPreference: () => [options, next => { options = next }] }
     if (id.endsWith('/penColorPreference.js')) return { createPenColorPreference: disk => {
       const preference = createPenColorPreference(disk), load = preference.load
       preference.load = () => loading = load()
