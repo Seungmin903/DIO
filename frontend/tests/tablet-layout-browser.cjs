@@ -48,15 +48,14 @@ const server = http.createServer((req, res) => {
         await button('내 다이어리').click();
         await button('메뉴 접기').click();
       } else {
-        assert.equal(await button('메뉴 펼치기').count(), 0);
-        assert.ok(await page.getByRole('tab').count() > 0);
+        assert.equal(await button('메뉴 펼치기').count(), 1); // 폰도 하단 탭 대신 좁은 좌측 바를 쓴다
       }
       await page.screenshot({ path: path.join(out, `library-${width}.png`) });
       await button('배치 검증 열기').click();
-      const canvas = page.getByLabel('손바닥 캔버스', { exact: true });
+      const canvas = page.getByLabel('선택 캔버스', { exact: true });
       await canvas.waitFor();
       await page.waitForFunction(() => {
-        const box = document.querySelector('[aria-label="손바닥 캔버스"]')?.getBoundingClientRect();
+        const box = document.querySelector('[aria-label="선택 캔버스"]')?.getBoundingClientRect();
         return box && box.width > 10 && box.height > 10;
       });
       const box = await canvas.boundingBox();
@@ -66,14 +65,18 @@ const server = http.createServer((req, res) => {
       assert.deepEqual([doc.pages[0].canvasWidth, doc.pages[0].canvasHeight], [1200,800]);
       await page.screenshot({ path: path.join(out, `editor-${width}.png`) });
       if (!phone) {
+        const toolBox = () => button('손바닥 (화면 이동)').boundingBox();
+        const toolStart = await toolBox();
         await button('페이지 목록').click();
         await page.waitForTimeout(300); // 패널 전환 애니메이션 종료 후 실제 속지 측정
+        assert.deepEqual(await toolBox(), toolStart, `tool moved with page list at ${width}`);
         let panelBox = await canvas.boundingBox();
         assert.ok(Math.abs(panelBox.width / panelBox.height - 1.5) < 0.002);
         await button('페이지 목록').click();
         await button('레이어').click();
         await page.waitForTimeout(300);
         panelBox = await canvas.boundingBox();
+        assert.deepEqual(await toolBox(), toolStart, `tool moved with layers at ${width}`);
         assert.ok(Math.abs(panelBox.width / panelBox.height - 1.5) < 0.002);
         await button('레이어').click();
       }
@@ -82,6 +85,6 @@ const server = http.createServer((req, res) => {
       await page.close();
     }
     fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2));
-    console.log('PASS: 7 viewport sizes, rail edge and height, library navigation, phone tabs, unstretched paper and stored page dimensions, no browser errors');
+    console.log('PASS: 7 viewport sizes, rail edge and height, library navigation, phone rail, unstretched paper and stored page dimensions, no browser errors');
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

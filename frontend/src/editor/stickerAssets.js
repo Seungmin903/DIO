@@ -1,5 +1,5 @@
-// 스티커 이미지 소스. 기본(외부 출처) 스티커는 없앴고, 사용자가 넣은 스티커만 그린다.
-// 예전 문서에 남은 기본 스티커(asset id)는 그리지도 내보내지도 않는다.
+// 스티커 이미지 소스. 외부 출처 기본 스티커는 없앴고, 사용자가 넣은 스티커만 이미지로 그린다.
+// 예전 문서에 남은 외부 출처 스티커(asset id)는 그리지도 내보내지도 않는다. 앱 기본 도트 스티커(builtin)는 SVG 로 따로 그린다(BuiltinStickerArt).
 
 import { mediaRegistry, mediaUri } from './services/mediaStore'
 import { mediaId } from './utils/mediaReferences.js'

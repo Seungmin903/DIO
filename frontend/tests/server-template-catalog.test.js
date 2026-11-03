@@ -42,6 +42,8 @@ test('플래그 0 빌드는 플래너 선택·생성을 막고 예전 하루 계
     import { reusableTemplates, getTemplate } from ${JSON.stringify(new URL('../src/editor/templates/catalog.js', import.meta.url).href)}
     import { SERVER_TEMPLATE_CATALOG, PLANNER_TEMPLATE_SELECTION_ENABLED, serverTemplateSelectable, serverTemplateReference, toServerInitialPageSelections, localTemplateReference } from ${JSON.stringify(new URL('../src/editor/templates/serverCatalog.js', import.meta.url).href)}
     import { createServerPage } from ${JSON.stringify(new URL('../src/collaboration/serverPages.js', import.meta.url).href)}
+    import { DAILY_ASSET_ID, defaultTemplateConfig, normalizeTemplateConfig, configuredPageIds, replacedAssetId } from ${JSON.stringify(new URL('../src/editor/templates/creation.js', import.meta.url).href)}
+    assert.equal(DAILY_ASSET_ID, '2026-reusable-daily-landscape')
     assert.equal(PLANNER_TEMPLATE_SELECTION_ENABLED, false)
     const planners = SERVER_TEMPLATE_CATALOG.filter(row => /^(study|day)-planner-/.test(row.templateCode))
     assert.equal(planners.length, 4)
@@ -64,6 +66,12 @@ test('플래그 0 빌드는 플래너 선택·생성을 막고 예전 하루 계
       assert.deepEqual(menu.filter(item => ['study', 'day'].includes(item.type)), [])
       assert.equal(menu[0].type, 'daily')
       assert.equal(menu[0].assetId, '2026-reusable-daily-' + orientation)
+      assert.equal(replacedAssetId(menu[0].assetId), menu[0].assetId)
+      const config = normalizeTemplateConfig({ ...defaultTemplateConfig(orientation), year: 2026, startMonth: 1, months: 1,
+        cover: false, dividers: false, monthly: false, weekly: false, daily: true })
+      assert.deepEqual(configuredPageIds(config), [menu[0].assetId])
+      const legacy = normalizeTemplateConfig({year:2026,startMonth:1,months:1,daily:true,dailyCount:2,orientation})
+      assert.deepEqual(configuredPageIds(legacy), [menu[0].assetId,menu[0].assetId])
       assert.equal(serverTemplateReference(menu[0].assetId, getTemplate(menu[0].assetId).templateVersion, orientation).templateCode, menu[0].assetId)
     }
   `

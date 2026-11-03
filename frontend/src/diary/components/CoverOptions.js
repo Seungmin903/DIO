@@ -163,12 +163,12 @@ function StickerPicker({ cover, onChange, onNotice }) {
   const grid = useFillGrid({ cell: 52, gap: 6, minColumns: 4 })
   const [query, setQuery] = useState('')
   const keyword = query.trim()
-  const { favorites, recents, favoriteKeys, chips, active, folder, folderMatches } = stickerLibrary(custom.items, custom.lastStickerCategory, keyword)
-  const list = keyword ? folderMatches
-    : active === 'favorites' ? favorites : active === 'recent' ? recents : folder ? folder.items : []
+  const { favorites, recents, favoriteKeys, chips, active, folder, pack, packMatches, folderMatches } = stickerLibrary(custom.items, custom.lastStickerCategory, keyword)
+  const list = keyword ? [...packMatches, ...folderMatches]
+    : active === 'favorites' ? favorites : active === 'recent' ? recents : folder ? folder.items : pack ? pack.items : []
   const add = item => {
     custom.markRecent(item)
-    onChange({ ...cover, stickers: [...cover.stickers, { id: createId(), src: item.src, mediaFileId: item.mediaFileId, name: item.name, x: 40 + Math.random() * 25, y: 45 + Math.random() * 25, size: 14, rotation: 0 }] })
+    onChange({ ...cover, stickers: [...cover.stickers, { id: createId(), builtin: item.builtin, src: item.src, mediaFileId: item.mediaFileId, name: item.name, x: 40 + Math.random() * 25, y: 45 + Math.random() * 25, size: 14, rotation: 0 }] })
   }
   const toggleFavorite = item => {
     const has = favoriteKeys.has(stickerKey(item))
