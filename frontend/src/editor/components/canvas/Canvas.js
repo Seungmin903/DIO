@@ -23,6 +23,7 @@ import SlotAddButtons from './SlotAddButtons'
 import FrameTextEditor, { frameTextAt } from './FrameTextEditor'
 import LassoOutline from './LassoOutline'
 import StaticPage from './StaticPage'
+import ReadingPageContent from './ReadingPageContent'
 import { useProgressiveNativePage } from '../../hooks/useProgressiveNativePage.js'
 import { usePageReadiness } from '../../hooks/usePageReadiness.js'
 import SelectionOverlay from './SelectionOverlay'
@@ -70,7 +71,11 @@ const MIN_TARGET_PX = 44
  * - 자르기 중인 사진은 드래그하면 보이는 영역이 움직인다.
  */
 export default function Canvas({
+  onStrokeCommitted,
+  readingImage = null,
   qaPageMeasurement = null,
+  colorCaptureRef,
+  colorPicking = false,
   textCommitRef,
   onReadingLinkStart,
   showBackground = true,
@@ -132,7 +137,7 @@ export default function Canvas({
   readOnly = false,
 }) {
   const drawingSurface = useRef(null)
-  const progressiveNative = Platform.OS === 'ios' && !compact
+  const progressiveNative = Platform.OS === 'ios' && !compact && !(readOnly && readingImage) && !colorPicking
   const { generation, pageReady, setReadyPage } = usePageReadiness(page.id, progressiveNative)
   useLayoutEffect(() => { qaPageMeasurement?.emit('canvas-layout') }, [page.id, qaPageMeasurement])
   useLayoutEffect(() => { if (pageReady) qaPageMeasurement?.emit('page-render-ready') }, [page.id, pageReady, qaPageMeasurement])
@@ -380,14 +385,16 @@ export default function Canvas({
       style={[styles.page, suppressBrowserSelection && styles.drawingSurface, { width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }, Platform.OS === 'web' && { cursor: readOnly ? 'default' : activeTool === 'hand' ? 'grab' : activeTool === 'text' ? 'text' : canSelect ? 'default' : 'crosshair' }]}
       {...(canSelect && activeTool === 'select' ? backgroundHandlers : {})}
     >
-      {showBackground ? <PageBackground page={backgroundPage} zoom={zoom} underlay={guideUnderlay} /> : guideUnderlay}
+      <View ref={colorCaptureRef} testID="color-capture-surface" collapsable={false} pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {showBackground && !readingImage ? <PageBackground page={backgroundPage} zoom={zoom} underlay={colorPicking ? null : guideUnderlay} /> : colorPicking ? null : guideUnderlay}
       {planner?.kind === 'day' && showBackground && <DayNowLine planner={planner} value={page.planner} zoom={zoom} />}
       {/*
         그림 층: 페이지 썸네일과 같은 StaticPage 로 그린다. (썸네일이 이 화면을 그대로 비춘다) 터치는 받지 않는다.
         iPad 에서 터치용 View 안에 그리면 요소가 하나도 보이지 않는 문제가 있어 그리기와 터치를 나눴다.
       */}
       <View style={styles.clip} pointerEvents="none">
-        <EraserPreviewDrawing ref={eraseDrawing} page={page} activeTool={activeTool} textEditingId={textEditing?.id} enabled={progressiveNative} generation={generation} onReady={setReadyPage} qaPageMeasurement={qaPageMeasurement} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} textMeasureReady={pageReady} onTextMeasure={readOnly || interacting || !pageReady ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />
+        {readOnly && readingImage ? <ReadingPageContent image={readingImage} page={page} zoom={zoom} background="transparent" /> : <EraserPreviewDrawing ref={eraseDrawing} page={page} activeTool={activeTool} textEditingId={textEditing?.id} enabled={progressiveNative} generation={generation} onReady={setReadyPage} qaPageMeasurement={qaPageMeasurement} zoom={zoom} cropId={cropId} background="transparent" showBackground={false} fadeIds={draggingIds} stillIds={interacting ? selectedIds : null} textMeasureReady={pageReady} onTextMeasure={readOnly || interacting || !pageReady ? null : fitTextHeight} cacheStrokes={shouldCacheCompletedStrokes(Platform.OS, readOnly, activeTool)} />}
+      </View>
       </View>
       {!pageReady && <View pointerEvents="none" accessibilityRole="progressbar" accessibilityLabel="페이지 불러오는 중" style={styles.pageLoading}><Text style={styles.pageLoadingText}>페이지 불러오는 중</Text></View>}
       {readOnly && <TextLinkOverlay objects={page.objects} zoom={zoom} onError={onToast} onInteractionStart={onReadingLinkStart} />}
@@ -440,7 +447,7 @@ export default function Canvas({
       {!readOnly && ['pen', 'highlighter'].includes(activeTool) && (
         <View style={styles.penClip}>
           {/* 확대·축소 중에 다시 만들지 않는다 (손가락 아래의 입력 영역이 바뀌면 웹에서 터치 끝이 전달되지 않는다) */}
-          <PenInput key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} objectCount={page.objects.length} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onPlannerStroke={plannerStroke} />
+          <PenInput onStrokeCommitted={onStrokeCommitted} key={`${page.id}-${activeTool}`} zoom={zoom} pageWidth={PAGE_WIDTH} pageHeight={PAGE_HEIGHT} dispatch={dispatch} objectCount={page.objects.length} straightAssist={straightAssist} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onPlannerStroke={plannerStroke} />
         </View>
       )}
       {!readOnly && activeTool === 'eraser' && <View style={styles.penClip}>

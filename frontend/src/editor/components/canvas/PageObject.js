@@ -1,7 +1,8 @@
 import { Fragment, memo, useLayoutEffect } from 'react'
 import { Platform, StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
-import ObjectContent from './ObjectView'
+import ObjectContent, { flipTransform } from './ObjectView'
+import StrokeContent from '../StrokeContent'
 import { acknowledgeStrokeDisplay } from '../../utils/strokeDisplayHandoff.js'
 import { KeepFont } from '../../../shared/fontScope'
 
@@ -19,7 +20,9 @@ export default memo(function PageObject({ object, zoom, opacity, still, areaPrev
     renderToHardwareTextureAndroid={opacity < 1}
     style={{ position: 'absolute', left: (object.x - originX) * zoom, top: (object.y - originY) * zoom,
       width: object.w * zoom, height: object.h * zoom, transform: [{ rotate: `${object.rotation}deg` }], opacity }}>
-    <Keep><ObjectContent areaPreview={areaPreview} object={object} zoom={zoom} still={still} /></Keep>
+    <Keep>{object.type === 'stroke'
+      ? <StrokeContent areaPreview={areaPreview} object={object} zoom={zoom} transform={flipTransform(object)} />
+      : <ObjectContent areaPreview={areaPreview} object={object} zoom={zoom} still={still} />}</Keep>
     {crop && <View style={[styles.cropRing, { margin: -Math.min(6, Math.max(1, 12 * zoom)) }]} />}
   </View>
 })

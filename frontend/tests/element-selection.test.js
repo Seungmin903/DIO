@@ -26,8 +26,9 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
   const dispatch = (action) => { actions.push(action); state = reducer.editorReducer(state, action) }
   const module = { exports: {} }
   const load = (id) => {
-    if (id === 'react') return { useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useEffect() {}, useLayoutEffect() {}, useMemo: fn => fn() }
+    if (id === 'react') return { forwardRef: fn => fn, useImperativeHandle() {}, useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useEffect() {}, useLayoutEffect() {}, useMemo: fn => fn() }
     if (id === 'react-native') return { View: 'view', Text: 'text', Pressable: 'pressable', Keyboard: { dismiss() {} }, Platform: { OS: 'android', select: (options) => options.default }, StyleSheet: { create: (value) => value } }
+    if (id.endsWith('/usePageReadiness.js')) return { usePageReadiness: () => ({ pageReady: true, generation: {}, setReadyPage() {} }) }
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
     if (id.endsWith('/editorReducer')) return reducer
     if (id.endsWith('/common')) return common
@@ -37,7 +38,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     if (id.endsWith('/planners.js')) return planners
     if (id.endsWith('/completedStrokePlan.js')) return completedStrokePlan
     if (id.endsWith('/pageGrid.js')) return pageGrid
-    if (id.endsWith('/theme')) return { colors: {} }
+    if (id.endsWith('/theme')) return { colors: {}, radius: {} }
     if (id.endsWith('/constants')) return { PHOTO_SHAPES: [] }
     if (id.endsWith('/objects')) return {}
     if (id.endsWith('/backdrop.js')) return { isBackdrop: (object) => object?.backdrop === true }

@@ -6,7 +6,7 @@
   "type": "module",
   "main": "expo/AppEntry",
   "scripts": {
-    "test:pen": "node --test tests/palm-rejection.test.js tests/viewport-input.test.js tests/eraser-input.test.js tests/safari-pressure-server.test.js tests/pen-performance-server.test.js tests/pen-materials.test.js tests/felt-pen.test.js tests/pen-ink.test.js tests/thick-pen.test.js tests/pen-settings.test.js tests/pen-input.test.js tests/stylus-touch-bridge.test.js tests/eraser.test.js tests/highlighter.test.js tests/stroke-preview.test.js tests/pen-preview-store.test.js",
+    "test:pen": "node --test tests/palm-rejection.test.js tests/viewport-input.test.js tests/eraser-input.test.js tests/safari-pressure-server.test.js tests/pen-performance-server.test.js tests/pen-materials.test.js tests/felt-pen.test.js tests/pen-ink.test.js tests/thick-pen.test.js tests/pen-settings.test.js tests/pen-color-preference.test.js tests/pen-settings-restore.test.js tests/recent-pen-colors.test.js tests/pen-input.test.js tests/stylus-touch-bridge.test.js tests/eraser.test.js tests/highlighter.test.js tests/stroke-preview.test.js tests/pen-preview-store.test.js",
     "test:auth": "node --test tests/signup-policy.test.js tests/app-information-legal.test.js tests/auth-api.test.js tests/auth-email-verification-api.test.js tests/development-access-store.test.js tests/email-verification.test.js tests/auth-password-reset.test.js tests/password-reset-screen.test.js tests/notification-preferences.test.js tests/auth-photo-native.test.js tests/auth.test.js tests/auth-state.test.js tests/auth-routing.test.js tests/profile-edit-state.test.js tests/profile-password-change.test.js tests/guest-sharing.test.js tests/splash-config.test.js",
     "test:member-diary": "node --test tests/member-diary-api.test.js tests/member-app-store.test.js tests/member-pdf-share.test.js tests/member-editor-docs.test.js tests/member-notification-auth.test.js",
     "qa:member-app": "node qa/member-app-browser.cjs",
@@ -42,8 +42,14 @@
     "licenses:check:android": "node scripts/verify-prepared-licenses.cjs android",
     "licenses:check:web": "node scripts/verify-prepared-licenses.cjs web",
     "web:licensed": "node scripts/export-licensed-web.cjs",
+    "test:render-lag": "node --test tests/completed-stroke-geometry.test.js tests/reading-preview-cache.test.js tests/reading-page-content.test.js tests/stroke-layers.test.js tests/element-selection.test.js tests/reading-mode.test.js tests/page-turn.test.js",
+    "qa:render-lag": "node tests/canvas-render-lag-browser.cjs",
+    "qa:sidebar-page-lag": "node tests/sidebar-page-lag-browser.cjs",
     "qa:font-flow": "node tests/font-flow-browser.cjs",
-    "test:guest-import": "node --test tests/guest-diary-import.test.js tests/guest-diary-import-hook.test.js tests/guest-import-journal.test.js tests/canvas-media-upload-native.test.js"
+    "test:guest-import": "node --test tests/guest-diary-import.test.js tests/guest-diary-import-hook.test.js tests/guest-import-journal.test.js tests/canvas-media-upload-native.test.js",
+    "test:eyedropper": "node --test tests/color-picker-opening.test.js tests/color-picker-placement.test.js tests/eyedropper.test.js tests/capture-pixels.test.js",
+    "qa:eyedropper": "node tests/eyedropper-browser.cjs",
+    "qa:pen-colors": "node tests/recent-pen-colors-browser.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/nanum-gothic": "^0.4.0",

@@ -57,6 +57,32 @@ function fixture(kind, zoom = 1, straightAssist = true, web = false) {
   return { get handlers() { return handlers }, get pointers() { return tree.props }, get store() { return tree.props.children.props.store }, actions, converted, render, unmount: () => cleanups.forEach(fn => fn()), hold: () => { const callback = timer; timer = null; callback?.() } }
 }
 
+test('색 선택·취소는 기록하지 않고 확정된 실제 획 색을 한 번만 전달한다', () => {
+  const f = fixture('fountain', 1, false), used = []
+  f.render({ onStrokeCommitted: object => used.push(object) })
+  assert.deepEqual(used, [])
+  f.handlers.onStart({ locationX: 20, locationY: 30 })
+  f.handlers.onMove(40, 0, {})
+  f.handlers.onEnd({ cancelled: true })
+  assert.deepEqual(used, [])
+  f.handlers.onStart({ locationX: 20, locationY: 30 })
+  f.handlers.onMove(40, 0, {})
+  f.handlers.onEnd({ cancelled: false })
+  f.handlers.onEnd({ cancelled: false })
+  assert.equal(used.length, 1)
+  assert.equal(used[0], f.actions[0].objects[0])
+  assert.equal(used[0].color, '#123456')
+})
+
+test('플래너 칸 기록으로 소비되어 남지 않은 획은 최근 색에 기록하지 않는다', () => {
+  const f = fixture('highlighter', 1, false), used = []
+  f.render({ onStrokeCommitted: object => used.push(object), onPlannerStroke: () => true })
+  f.handlers.onStart({ locationX: 20, locationY: 30 })
+  f.handlers.onMove(40, 0, {})
+  f.handlers.onEnd({ cancelled: false })
+  assert.deepEqual(used, []); assert.deepEqual(f.actions, [])
+})
+
 test('Pencil 포인터 실측 필압은 responder와 중복 저장하지 않고 새 획에만 재질 버전을 붙인다', () => {
   const f = fixture('fountain', 1, false)
   const event = (x, pressure, timeStamp) => ({ nativeEvent: { pointerId: 9, pointerType: 'pen', offsetX: x, offsetY: 30,

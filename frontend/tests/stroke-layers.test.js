@@ -102,8 +102,8 @@ test('네이티브 도구 전환은 필기 레이어를 유지하고 선택 이�
     assert.equal(draw(tool).type, './CompletedStrokeLayer', tool)
   }
   assert.equal(draw('select', { fadeIds: ['s0'] })[0].type, './PageObject')
-  assert.equal(draw('lasso', { stillIds: ['s0'] }).type, './CompletedStrokeLayer')
-  assert.equal(planner.shouldCacheCompletedStrokes('ios', true, 'pen'), false)
+  assert.equal(draw('lasso', { stillIds: ['s0'] })[0].type, './PageObject')
+  assert.equal(planner.shouldCacheCompletedStrokes('ios', true, 'pen'), true)
   assert.equal(planner.shouldCacheCompletedStrokes('web', false, 'select'), false)
 })
 
@@ -149,4 +149,22 @@ test('정식 웹 필기층은 기본 캐시, 썸네일·출력·변형은 원본
   assert.equal(off.type, './CompletedStrokeLayer')
   const native = loadComponent('StaticPage', 'ios', true).render({ page, zoom: 1, cacheStrokes: true }).props.children[1].props.children.props.children
   assert.equal(native.type, './CompletedStrokeLayer')
+})
+
+// A non-ink object must not remount hundreds of independent stroke components.
+test('스티커 선택·드래그는 필기 캐시를 유지하고 실제 필기 변형만 원본으로 돌아간다', () => {
+  for (const platform of ['ios', 'android', 'web']) {
+    const component = loadComponent('StaticPage', platform)
+    const many = Array.from({ length: 1000 }, (_, i) => ({ ...objects[0], id: `s-${i}` }))
+    const sticker = { id: 'sticker', type: 'sticker', x: 30, y: 40, w: 100, h: 100 }
+    const props = { page: { ...page, objects: [...many, sticker] }, zoom: 1, cacheStrokes: true }
+    const draw = extra => component.render({ ...props, ...extra }).props.children[1].props.children.props.children
+    const expected = platform === 'web' ? './WebStrokeCache' : './CompletedStrokeLayer'
+    assert.equal(draw({}).type, expected)
+    assert.equal(draw({ stillIds: ['sticker'] }).type, expected)
+    assert.equal(draw({ fadeIds: ['sticker'], stillIds: ['sticker'] }).type, expected)
+    assert.equal(draw({ stillIds: ['s-0'] }).length, 1001)
+    assert.equal(draw({ fadeIds: ['s-0'] }).length, 1001)
+    assert.equal(draw({}).type, expected)
+  }
 })

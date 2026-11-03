@@ -1,6 +1,6 @@
 import { canLeaveForInvitation } from '../../notifications/editorInvitationGuard';
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Animated, BackHandler, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Animated, BackHandler, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../shared/theme'
 import MediaNotice from '../components/MediaNotice'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
@@ -25,6 +25,8 @@ import { createThumbnailWorkQueue } from '../utils/thumbnailWorkQueue.js'
 import { createPageCloseScheduler } from '../utils/pageCloseScheduler.js'
 import Ribbon from '../components/chrome/Ribbon'
 import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail } from '../components/chrome/PhoneToolbar'
+import EyedropperOverlay from '../components/EyedropperOverlay'
+import PenColorPicker from '../components/PenColorPicker'
 import PenSettings from '../components/PenSettings'
 import { shapeTextSettings, shapeTextFormatPatch } from '../utils/editorShapes'
 import EraserSettings from '../components/EraserSettings'
@@ -48,7 +50,10 @@ import { copyText } from '../services/textClipboard'
 import { objectClipboard, useObjectClipboard } from '../services/objectClipboard'
 import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch, VISUAL_TEXT_KEYS } from '../utils/text'
 import { createText } from '../utils/text'
-import { DEFAULT_PEN_SETTINGS, DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
+import { DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
+import { usePenSettings } from '../hooks/usePenSettings'
+import { recordPenColorUse } from '../hooks/useRecentPenColors'
+import { useReadingPreviews } from '../hooks/useReadingPreviews'
 import SaveIndicator from '../components/controls/SaveIndicator'
 import TapeCropper from '../components/panels/TapeCropper'
 import TapCatcher from '../components/controls/TapCatcher'
@@ -208,7 +213,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [guides, setGuides] = useState(DEFAULT_GUIDES) // 격자·보조선 (화면에만 보인다)
   const [guidesOpen, setGuidesOpen] = useState(false)
   const [overviewFilter, setOverviewFilter] = useState(null) // 페이지 넓게 보기: 'all' | 'bookmarked' (null 이면 닫힘)
-  const [penSettings, setPenSettings] = useState(DEFAULT_PEN_SETTINGS)
+  const [penSettings, setPenSettings] = usePenSettings()
+  const [eyedropper, setEyedropper] = useState(null)
+  const [colorPicker, setColorPicker] = useState(null)
+  const [pendingEyedropper, setPendingEyedropper] = useState(false)
+  const colorCaptureRef = useRef(null)
+  const colorScreen = useWindowDimensions()
   const [highlighterSettings, setHighlighterSettings] = useState(DEFAULT_HIGHLIGHTER_SETTINGS)
   const [straightAssist, setStraightAssist] = useState(true)
   const [eraserSize, setEraserSize] = useState(ERASER_RADIUS * 2)
@@ -955,6 +965,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (eyedropper || colorPicker) return false // The topmost inline picker handles back first.
       if (readOnly) { goHome(); return true }
       if (photoCropId) { setPhotoCropId(null); return true }
       if (tapeCropId) { setTapeCropId(null); return true }
@@ -978,7 +989,45 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       return true
     })
     return () => subscription.remove()
-  }, [readOnly, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget])
+  }, [readOnly, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, eyedropper, colorPicker])
+
+  const startEyedropper = () => {
+    if (keyboardTop != null) { Keyboard.dismiss(); setPendingEyedropper(true); return }
+    if (readOnly || !loaded || !stageSize || !colorCaptureRef.current || textEditing || cropId || photoCropId || tapeCropId || exportJob) {
+      showToast('입력이나 자르기를 마친 뒤 다시 시도해 주세요.'); return
+    }
+    Keyboard.dismiss(); setPenSettingsOpen(false)
+    setEyedropper({ page, tool: activeTool, width: PAGE_WIDTH, height: PAGE_HEIGHT, zoom, offset: { ...offset }, origin: { ...stageOrigin }, viewport: { width: stageSize.width, height: stageSize.height }, screen: { width: colorScreen.width, height: colorScreen.height } })
+  }
+  const eyedropperCurrent = eyedropper && page === eyedropper.page && !readOnly && activeTool === eyedropper.tool && zoom === eyedropper.zoom && offset.x === eyedropper.offset.x && offset.y === eyedropper.offset.y && stageSize?.width === eyedropper.viewport.width && stageSize?.height === eyedropper.viewport.height && colorScreen.width === eyedropper.screen.width && colorScreen.height === eyedropper.screen.height
+  const finishEyedropper = color => {
+    if (color && eyedropperCurrent) {
+      if (eyedropper.tool === 'highlighter') setHighlighterSettings(current => ({ ...current, color }))
+      else setPenSettings({ ...penSettings, color })
+    }
+    setEyedropper(null); setPenSettingsOpen(true)
+  }
+  useEffect(() => {
+    if (eyedropper && !eyedropperCurrent) {
+      setEyedropper(null); setPenSettingsOpen(!readOnly)
+    }
+  }, [eyedropper, eyedropperCurrent, readOnly])
+
+  useEffect(() => {
+    if (!pendingEyedropper) return
+    if (!colorPicker) { setPendingEyedropper(false); return }
+    if (keyboardTop != null) return
+    const frame = requestAnimationFrame(() => { setPendingEyedropper(false); startEyedropper() })
+    return () => cancelAnimationFrame(frame)
+  }, [pendingEyedropper, keyboardTop, colorPicker, stageSize, stageOrigin, colorScreen.width, colorScreen.height])
+
+  useEffect(() => {
+    if (colorPicker && (readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) setColorPicker(null)
+  }, [colorPicker, readOnly, page.id, activeTool, colorScreen.width, colorScreen.height])
+
+
+  const previewScreen = useWindowDimensions()
+  const readingPreviews = useReadingPreviews({ enabled: readOnly && loaded, page, previous: previousPage, next: nextPage, target: turn?.page, zoom, moving: viewMoving || Boolean(turn) })
 
   const phoneToolbar = !readOnly && compact ? (
     <PhoneToolbar
@@ -1015,6 +1064,10 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       }}
       onResponderTerminationRequest={() => false}
     >
+      {readingPreviews.surface && <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width: Math.max(PAGE_WIDTH, previewScreen.width), height: Math.max(PAGE_HEIGHT, previewScreen.height) }}>
+        {readingPreviews.surface}<View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surfaceSoft }]} />
+      </View>}
+
       {/* 내보낼 페이지는 편집 화면 맨 아래(가려진 곳)에 그려 찍는다 */}
       <ExportRunner job={exportJob} onProgress={setExportProgress} onFinish={finishExport} />
       {!readOnly && phoneLandscape && !phoneFocus && (
@@ -1177,7 +1230,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             <ViewportMotion.Provider value={viewportMotion}>
               <View style={{ width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }}>
               <Canvas
+                onStrokeCommitted={recordPenColorUse}
+                readingImage={readingPreviews.current}
                 qaPageMeasurement={pageSelectMeasurement.current}
+                colorCaptureRef={colorCaptureRef}
+                colorPicking={Boolean(eyedropper)}
                 showBackground={loaded}
                 compact={compact}
                 compactMenu={compactMenu}
@@ -1266,7 +1323,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 contextBarInside={markInside}
                 contextBarFrame={contextBarFrame}
               />
-              {readOnly && turn && <ReadingPageTurn page={turn.page} from={turn.from} zoom={zoom} width={PAGE_WIDTH} height={PAGE_HEIGHT} dir={turn.dir} lift={turn.lift ?? 0} progress={flip} />}
+              {readOnly && turn && <ReadingPageTurn image={readingPreviews.target} page={turn.page} from={turn.from} zoom={zoom} width={PAGE_WIDTH} height={PAGE_HEIGHT} dir={turn.dir} lift={turn.lift ?? 0} progress={flip} />}
               </View>
             </ViewportMotion.Provider>
           </Viewport>
@@ -1333,7 +1390,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           )}
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
             <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <PenSettings key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => setPenSettingsOpen(false)} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} />
+              <PenSettings onOpenColorPicker={anchor => setColorPicker({ anchor, tool: activeTool, pageId: page.id, screen: { width: colorScreen.width, height: colorScreen.height } })} pickerVisible={Boolean(colorPicker)} key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => { setColorPicker(null); setPenSettingsOpen(false) }} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} />
             </View>
           )}
           {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
@@ -1462,6 +1519,10 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         </Pressable>
       )}
       {landscape && phoneToolbar}
+      {colorPicker && <PenColorPicker keyboardTop={keyboardTop} interactionHandlers={markInside} anchor={colorPicker.anchor} scope={colorPicker.tool === 'highlighter' ? 'highlighter' : 'pen'} value={colorPicker.tool === 'highlighter' ? highlighterSettings.color : penSettings.color}
+        onPick={color => colorPicker.tool === 'highlighter' ? setHighlighterSettings(current => ({ ...current, color })) : setPenSettings({ ...penSettings, color })}
+        onClose={() => setColorPicker(null)} onEyedropper={startEyedropper} sampling={Boolean(eyedropper)} />}
+      {eyedropper && <EyedropperOverlay request={eyedropper} captureRef={colorCaptureRef} onCancel={() => finishEyedropper(null)} onPick={finishEyedropper} />}
     </View>
   )
 }
