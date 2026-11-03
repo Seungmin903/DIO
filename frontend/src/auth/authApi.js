@@ -1,4 +1,4 @@
-import { normalizeEmail, emailError, normalizeNickname, nicknameError, passwordError } from './validation.js';
+import { normalizeEmail, emailError, accountEmailError, normalizeNickname, nicknameError, passwordError } from './validation.js';
 import { signupAgreements } from './signupPolicy.js';
 import { developmentAuthorization } from './developmentAccess.js';
 
@@ -31,8 +31,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   };
   const signupDraftRequired = () => Object.assign(new Error('가입 정보를 다시 확인해 주세요. 이메일·비밀번호 입력 화면에서 이어갈 수 있어요.'), { code: 'SIGNUP_DRAFT_REQUIRED' });
   const invalidSignupToken = () => Object.assign(new Error('가입 인증이 만료되었거나 유효하지 않아요. 입력한 내용은 유지돼요. 이메일 인증을 다시 진행해 주세요.'), { code: 'INVALID_SIGNUP_TOKEN' });
-  const requireEmail = value => {
-    const error = emailError(value);
+  const requireEmail = (value, existingAccount = false) => {
+    const error = (existingAccount ? accountEmailError : emailError)(value);
     if (error) throw Object.assign(new Error(error), { code: 'INVALID_EMAIL', status: 400 });
     return normalizeEmail(value);
   };
@@ -186,7 +186,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     async login({ email, password }) {
       const attempt = ++revision;
-      const normalized = requireEmail(email);
+      const normalized = requireEmail(email, true);
       const result = await request('login', { email: normalized, password });
       if (attempt !== revision) throw new Error('로그인 요청이 취소되었어요.');
       if (typeof result?.user?.email !== 'string' || normalizeEmail(result.user.email) !== normalized) {
@@ -244,7 +244,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     // 재설정 토큰은 메모리에만 보관한다. 비밀번호 재설정 화면에서만 이어서 사용한다.
     async requestPasswordReset(email) {
-      const normalized = requireEmail(email);
+      const normalized = requireEmail(email, true);
       if (passwordReset?.email === normalized && passwordReset.expiresAt > now())
         throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
       if (resetVerifying?.email === normalized)
@@ -253,7 +253,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       return request('password-reset-requests', { email: normalized });
     },
     async verifyPasswordReset(email, code) {
-      const normalized = requireEmail(email);
+      const normalized = requireEmail(email, true);
       if (passwordReset?.email === normalized && passwordReset.expiresAt > now())
         throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
       if (resetVerifying?.email === normalized)

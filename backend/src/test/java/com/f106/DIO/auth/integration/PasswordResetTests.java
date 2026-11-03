@@ -101,6 +101,28 @@ class PasswordResetTests {
             .content("{\"email\":\""+email+"\",\"password\":\""+password+"\"}"))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
     }
+    @Test void legacyAccountAddressesCanLoginAndCompleteAllPasswordResetEndpoints() throws Exception {
+        int delivery = 0;
+        for (String email : List.of("legacy@[127.0.0.1]", "legacy@old_domain.example")) {
+            // Seed a historical account through the service; new-signup HTTP validation remains strict.
+            register(email, "기존회원");
+            login(email, OLD);
+            mvc.perform(post("/api/v1/auth/email-availability").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\"}")).andExpect(status().isBadRequest());
+            mvc.perform(post("/api/v1/auth/password-reset-requests").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\" " + email.toUpperCase(java.util.Locale.ROOT) + " \"}"))
+                .andExpect(status().isAccepted());
+            String code = awaitResetCode(++delivery);
+            String verified = mvc.perform(post("/api/v1/auth/password-reset-verifications").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            String token = JsonPath.read(verified, "$.resetToken");
+            mvc.perform(post("/api/v1/auth/password-resets").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"resetToken\":\"" + token + "\",\"newPassword\":\"" + NEW + "\"}"))
+                .andExpect(status().isNoContent());
+            login(email, NEW);
+        }
+    }
     @Test void authenticatedPasswordChangeInvalidatesPreviouslyVerifiedResetToken()throws Exception{
         register(EMAIL,"비밀번호변경");String token=sendAndVerify();String session=login(EMAIL,OLD);
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/me/password")
@@ -295,7 +317,7 @@ class PasswordResetTests {
 
     @Test void dtoValidationAndSwaggerDescribeAllThreeEndpoints() throws Exception {
         mvc.perform(post("/api/v1/auth/password-reset-requests").contentType(MediaType.APPLICATION_JSON)
-            .content("{\"email\":\"invalid\"}")).andExpect(status().isBadRequest());
+            .content("{\"email\":\" \"}")).andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/auth/password-reset-verifications").contentType(MediaType.APPLICATION_JSON)
             .content("{\"email\":\"reset@example.com\",\"code\":\"123\"}")).andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/auth/password-resets").contentType(MediaType.APPLICATION_JSON)

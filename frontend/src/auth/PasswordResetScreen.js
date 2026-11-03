@@ -12,7 +12,7 @@ import DioButton from '../shared/DioButton';
 import { MakerBar, MakerHeader } from '../shared/MakerKit';
 import { colors, radius } from '../shared/theme';
 import { authService } from './authService';
-import { emailError, normalizeEmail, passwordError } from './validation';
+import { accountEmailError, normalizeEmail, passwordError } from './validation';
 
 const FALLBACK_EXPIRES_IN = 10 * 60;
 const FALLBACK_RESEND_AFTER = 60;
@@ -54,7 +54,7 @@ export default function PasswordResetScreen({
   const expiresIn = Math.max(0, Math.ceil((expiresAt - now) / 1000));
   const resendIn = Math.max(0, Math.ceil((resendAt - now) / 1000));
   const normalizedAddress = normalizeEmail(address);
-  const addressError = emailError(address);
+  const addressError = accountEmailError(address);
   const passwordIssue = passwordError(password);
   const confirmationIssue = confirmation && password !== confirmation ? '비밀번호가 일치하지 않아요.' : '';
   const canSetPassword = !passwordIssue && !confirmationIssue && !!confirmation;

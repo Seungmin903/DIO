@@ -13,7 +13,7 @@ import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.*;
 
 class EmailInputContractTests {
-    record Example(String input, String normalized, boolean valid) {}
+    record Example(String input, String normalized, boolean valid, boolean accountValid) {}
     @Test void everyEmailRequestMatchesTheFrontendFixtures() throws Exception {
         var examples = JsonMapper.builder().build().readValue(
             Files.readString(Path.of("../docs/contracts/email-input-cases.json")), Example[].class);
@@ -26,6 +26,7 @@ class EmailInputContractTests {
                     new LoginRequest(example.input(), "Password123!", null),
                     new EmailVerificationRequest(example.input(), "123456"),
                     new SignupRequest(example.input(), "a".repeat(43), "Password123!", "회원", List.of(), true),
+                    new PasswordResetEmailRequest(example.input()),
                     new PasswordResetVerificationRequest(example.input(), "123456"),
                     new PasswordResetRequest(example.input(), "a".repeat(43), "Password123!"),
                     new EmailInviteRequest(example.input()));
@@ -34,7 +35,9 @@ class EmailInputContractTests {
                         .as(request.getClass().getSimpleName()).isEqualTo(example.normalized());
                     assertThat(validator.validateProperty(request, "email").isEmpty())
                         .as("%s email=%s", request.getClass().getSimpleName(), example.input())
-                        .isEqualTo(example.valid());
+                        .isEqualTo(request instanceof LoginRequest || request instanceof PasswordResetEmailRequest
+                            || request instanceof PasswordResetVerificationRequest || request instanceof PasswordResetRequest
+                            ? example.accountValid() : example.valid());
                 }
             }
         }
@@ -46,7 +49,8 @@ class EmailInputContractTests {
                 for (var file : files.filter(p -> p.toString().endsWith("Request.java")).toList()) {
                     String source = Files.readString(file);
                     if (!source.contains("String email")) continue;
-                    assertThat(source).as(file.toString()).contains("UserInput.EMAIL_PATTERN", "UserInput.normalizeEmail(email)");
+                    assertThat(source).as(file.toString()).contains("UserInput.normalizeEmail(email)")
+                        .containsAnyOf("UserInput.EMAIL_PATTERN", "UserInput.ACCOUNT_EMAIL_PATTERN");
                 }
             }
         }

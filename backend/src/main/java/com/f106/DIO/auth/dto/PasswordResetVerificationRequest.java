@@ -7,7 +7,7 @@ import jakarta.validation.constraints.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record PasswordResetVerificationRequest(
-    @NotBlank @Size(max = 254) @Pattern(regexp = UserInput.EMAIL_PATTERN) @Schema(example = "member@example.com") String email,
+    @NotBlank @Size(max = 254) @Pattern(regexp = UserInput.ACCOUNT_EMAIL_PATTERN) @Schema(example = "member@example.com") String email,
     @NotBlank @Pattern(regexp = "[0-9]{6}") @Schema(example = "123456", accessMode = Schema.AccessMode.WRITE_ONLY) String code
 ) {
     public PasswordResetVerificationRequest { email = UserInput.normalizeEmail(email); }

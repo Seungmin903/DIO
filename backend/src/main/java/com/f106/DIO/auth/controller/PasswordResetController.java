@@ -8,7 +8,7 @@ import com.f106.DIO.auth.dto.PasswordResetVerificationRequest;
 import com.f106.DIO.auth.dto.PasswordResetVerificationResponse;
 import com.f106.DIO.auth.service.PasswordResetService;
 import com.f106.DIO.auth.support.PasswordResetThrottle;
-import com.f106.DIO.user.dto.EmailRequest;
+import com.f106.DIO.auth.dto.PasswordResetEmailRequest;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -28,7 +28,7 @@ public class PasswordResetController {
     @PostMapping("/password-reset-requests")
     @Operation(summary = "비밀번호 재설정 인증번호 발송", description = "등록 여부·소셜 전용·비활성 여부와 무관하게 같은 202 상태·본문을 반환하지만 DB 처리 시간은 다를 수 있습니다. 유효한 인증번호·resetToken은 재발송으로 교체하지 않습니다. 인증번호 " + CODE_TTL_SECONDS + "초, resendAfter는 최소 요청 간격 " + RESEND_COOLDOWN_SECONDS + "초입니다. 발송 실패가 기록되면 쿨다운 후 재발급합니다. IP당 발송 요청은 " + IP_WINDOW_SECONDS + "초에 " + MAX_SEND_REQUESTS + "회입니다.")
     @ApiResponse(responseCode = "202", description = "요청 접수. 실제 이메일 발송 성공 또는 계정 존재를 뜻하지 않음")
-    public ResponseEntity<PasswordResetSentResponse> send(@Valid @RequestBody EmailRequest request, HttpServletRequest http) {
+    public ResponseEntity<PasswordResetSentResponse> send(@Valid @RequestBody PasswordResetEmailRequest request, HttpServletRequest http) {
         throttle.check("send", request.email(), http.getRemoteAddr());
         return ResponseEntity.accepted().header("Cache-Control", "no-store").body(service.send(request.email()));
     }

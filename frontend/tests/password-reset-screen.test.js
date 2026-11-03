@@ -123,3 +123,13 @@ test('인증번호 확인 실패 후 입력을 유지해 같은 화면에서 재
   await tick();
   assert.ok(byLabel(ui.render(), '새 비밀번호'));
 });
+
+test('기존 형식 계정은 비밀번호 재설정 이메일 입력 화면에서도 진행할 수 있다',async()=>{
+ const requested=[];
+ const ui=screen({requestPasswordReset:async email=>{requested.push(email);return{expiresIn:600,resendAfter:0}}});
+ byLabel(ui.render(),'이메일').props.onChangeText(' Legacy@Old_Domain.Example ');
+ assert.equal(byLabel(ui.render(),'인증번호 보내기').props.disabled,false);
+ byLabel(ui.render(),'인증번호 보내기').props.onPress();await tick();
+ assert.deepEqual(requested,['legacy@old_domain.example']);
+ assert.ok(byLabel(ui.render(),'인증번호'));
+});

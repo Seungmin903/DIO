@@ -91,6 +91,36 @@ deploy-prod-proxy:
     - docker compose --project-name dio-proxy-prod -f infra/compose/compose.proxy.prod.yml up -d --force-recreate
     - 'curl --fail --retry 12 --retry-all-errors --retry-delay 2 --resolve k15f106.p.ssafy.io:443:127.0.0.1 https://k15f106.p.ssafy.io/actuator/health'
 
+# Pure Node contract tests: no dependency installation, native modules, or deployment secrets.
+frontend-email-contract-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "develop"'
+      changes:
+        - docs/contracts/**/*
+        - frontend/src/shared/emailInput.js
+        - frontend/src/auth/validation.js
+        - frontend/src/auth/authApi.js
+        - frontend/src/auth/signupPolicy.js
+        - frontend/src/auth/developmentAccess.js
+        - frontend/src/sharing/sharingContracts.js
+        - frontend/tests/email-input.test.js
+        - backend/src/main/java/com/f106/DIO/user/support/UserInput.java
+        - backend/src/main/java/com/f106/DIO/auth/dto/**/*
+        - .gitlab-ci.yml
+  script:
+    - >
+      docker run --rm
+      --user "$(id -u):$(id -g)"
+      -v "$CI_PROJECT_DIR/frontend:/workspace/frontend:ro"
+      -v "$CI_PROJECT_DIR/docs/contracts:/workspace/docs/contracts:ro"
+      -w /workspace/frontend
+      node:24-alpine
+      node --test tests/email-input.test.js
+
 backend-test:
   stage: quality
   tags:

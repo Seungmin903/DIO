@@ -2,181 +2,241 @@
   {
     "input": "member@example.com",
     "normalized": "member@example.com",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": "a+b@example.co.kr",
     "normalized": "a+b@example.co.kr",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": "first.last@example.com",
     "normalized": "first.last@example.com",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": "user_name@example-domain.com",
     "normalized": "user_name@example-domain.com",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": "사용자@예시.한국",
     "normalized": "사용자@예시.한국",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": "o'connor@example.com",
     "normalized": "o'connor@example.com",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com",
     "normalized": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": "  Member+Tag@EXAMPLE.COM  ",
     "normalized": "member+tag@example.com",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": " Member@EXAMPLE.COM﻿",
     "normalized": "member@example.com",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": "a@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
     "normalized": "a@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": null,
     "normalized": null,
-    "valid": false
+    "valid": false,
+    "accountValid": false
   },
   {
     "input": "",
     "normalized": "",
-    "valid": false
+    "valid": false,
+    "accountValid": false
   },
   {
     "input": "   ",
     "normalized": "",
-    "valid": false
+    "valid": false,
+    "accountValid": false
   },
   {
     "input": "member",
     "normalized": "member",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "member@localhost",
     "normalized": "member@localhost",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "@example.com",
     "normalized": "@example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user@",
     "normalized": "user@",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user@@example.com",
     "normalized": "user@@example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user @example.com",
     "normalized": "user @example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": false
   },
   {
     "input": "user@example .com",
     "normalized": "user@example .com",
-    "valid": false
+    "valid": false,
+    "accountValid": false
   },
   {
     "input": "user@example.com\nother@example.com",
     "normalized": "user@example.com\nother@example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": false
   },
   {
     "input": ".user@example.com",
     "normalized": ".user@example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user.@example.com",
     "normalized": "user.@example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user..name@example.com",
     "normalized": "user..name@example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user@-example.com",
     "normalized": "user@-example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user@example-.com",
     "normalized": "user@example-.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user@example..com",
     "normalized": "user@example..com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com",
     "normalized": "user@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com",
     "normalized": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user(comment)@example.com",
     "normalized": "user(comment)@example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "\"quoted user\"@example.com",
     "normalized": "\"quoted user\"@example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": false
   },
   {
     "input": "user@example.com/other",
     "normalized": "user@example.com/other",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user@exa_mple.com",
     "normalized": "user@exa_mple.com",
-    "valid": false
+    "valid": false,
+    "accountValid": true
   },
   {
     "input": "user​@example.com",
     "normalized": "user​@example.com",
-    "valid": false
+    "valid": false,
+    "accountValid": false
   },
   {
     "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "normalized": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-    "valid": true
+    "valid": true,
+    "accountValid": true
   },
   {
     "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "normalized": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-    "valid": false
+    "valid": false,
+    "accountValid": false
+  },
+  {
+    "input": "legacy@[127.0.0.1]",
+    "normalized": "legacy@[127.0.0.1]",
+    "valid": false,
+    "accountValid": true
+  },
+  {
+    "input": "legacy@old_domain.example",
+    "normalized": "legacy@old_domain.example",
+    "valid": false,
+    "accountValid": true
+  },
+  {
+    "input": "\"legacy.user\"@example.com",
+    "normalized": "\"legacy.user\"@example.com",
+    "valid": false,
+    "accountValid": true
+  },
+  {
+    "input": "bad\u0000@example.com",
+    "normalized": "bad\u0000@example.com",
+    "valid": false,
+    "accountValid": false
   }
 ]
