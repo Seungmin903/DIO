@@ -30,6 +30,7 @@ import { withPdfPages } from './src/diary/utils/pdfImport';
 import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
+import SharingEntry from './src/sharing/SharingEntry';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
@@ -900,14 +901,15 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     // 폰: 화면 전환은 하단 네비게이션 바가 맡는다. 좌측 오버레이 메뉴는 태블릿 이상에서만 쓴다.
     shell = (
       <View style={s.phoneShell}>
+        <View style={s.phoneNavigationHeader}>
+          <SharingEntry notifications notificationCount={authenticatedNotifications?.count}
+            notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} compact
+            count={unreadInvites} onPress={openInvitations} />
+        </View>
         <View style={s.workspace}>
           {content}
         </View>
         <BottomTabs
-          onNotifications={openInvitations}
-          notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'}
-          notificationCount={authenticatedNotifications?.count}
-          invitationCount={unreadInvites}
           page={page}
           filter={filter}
           navigate={navigate}

@@ -17,10 +17,11 @@ export const styles = StyleSheet.create({
   appFill: { flex: 1, alignSelf: 'stretch' },
   // 폰은 본문 아래에 하단 네비게이션 바를 고정 레이아웃으로 쌓는다.
   phoneShell: { flex: 1 },
+  phoneNavigationHeader: { height: 52, paddingHorizontal: 12, alignItems: 'flex-end', justifyContent: 'center', backgroundColor: C.canvas },
   tabBarWrap: { flexShrink: 0, paddingHorizontal: 12, paddingTop: 6, backgroundColor: C.canvas },
   tabBar: { height: 64, flexDirection: 'row', paddingHorizontal: 4, overflow: 'visible', borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
-  tabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  tabIconPill: { width: 48, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
+  tabItem: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  tabIconPill: { width: '84%', minWidth: 40, maxWidth: 48, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
   tabIconPillSelected: { backgroundColor: C.active },
   tabLabel: { color: C.muted, fontSize: 11, lineHeight: 14, fontWeight: '600' },
   tabLabelSelected: { color: C.ink, fontWeight: '800' },
