@@ -45,6 +45,11 @@ dio:
     cleanup:
       enabled: ${PUSH_REGISTRATION_CLEANUP_ENABLED:true}
   auth:
+    google:
+      client-ids: ${AUTH_GOOGLE_CLIENT_IDS:}
+    apple:
+      # 네이티브 iOS 로그인의 aud = 앱 번들 ID. 공개 식별자라 기본값을 둔다.
+      client-ids: ${AUTH_APPLE_CLIENT_IDS:com.f106.DIO}
     jwt-secret: ${AUTH_JWT_SECRET:}
     access-token-seconds: ${AUTH_ACCESS_TOKEN_SECONDS:900}
     refresh-token-seconds: ${AUTH_REFRESH_TOKEN_SECONDS:2592000}

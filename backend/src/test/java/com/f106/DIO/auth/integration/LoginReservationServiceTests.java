@@ -28,9 +28,9 @@ class LoginReservationServiceTests {
     private EmailLoginService service(EmailAuthProviderRepository accounts) {
         var jwt = mock(LoginJwt.class);
         return new EmailLoginService(mock(UserRepository.class), accounts,
-            mock(ProfilePhotoRepository.class), mock(RefreshTokenRepository.class),
+            mock(com.f106.DIO.auth.service.LoginSessionService.class), mock(RefreshTokenRepository.class),
             mock(RefreshTokenHistoryRepository.class), jwt,
-            new LoginProperties("", 900, 2592000), new LoginThrottle(),
+            new LoginThrottle(),
             mock(org.springframework.transaction.PlatformTransactionManager.class),
             mock(com.f106.DIO.push.service.PushSessionRevocation.class),
             new com.f106.DIO.auth.config.AuthPasswordConfig().authPasswordEncoder());
