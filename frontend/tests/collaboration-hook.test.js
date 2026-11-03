@@ -99,6 +99,23 @@ function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
    setShared(value){shared=value;onReady()},
    close(){closed=true;cleanups.forEach(fn=>fn?.())}}
 }
+for(const shared of [false,true])test(`${shared?'공유':'개인'} 편집기는 101개 행동을 전송하지 않고 제한을 안내한 뒤 소량 편집을 계속한다`,async()=>{
+ const app=fixture(null,shared)
+ try{
+  await app.settle()
+  const objects=Array.from({length:101},(_,i)=>({id:`60000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`,type:'text',text:'A',x:1,y:2,w:40,h:20}))
+  const before=app.state().doc
+  app.edit({type:'addObjects',objects});await app.settle()
+  assert.equal(app.state().doc,before);assert.match(app.state().collaborationLimitError.message,/100개/)
+  app.edit({type:'canvasLimitNoticeShown',id:app.state().collaborationLimitError.id});await app.settle()
+  assert.equal(app.state().collaborationLimitError,null)
+  assert.equal(app.requests.filter(r=>r.method==='POST'&&(r.path.includes('/elements')||r.path.endsWith('/canvas-operations'))).length,0)
+  app.edit({type:'addObjects',objects:objects.slice(0,1)});await app.settle()
+  assert.equal(app.state().doc.pages[0].objects.length,1)
+  assert.equal(app.requests.filter(r=>r.method==='POST'&&(r.path.includes('/elements')||r.path.endsWith('/canvas-operations'))).length,1)
+ }finally{app.close()}
+})
+
 test('서버 UUID가 아닌 다이어리는 초기화 예외 대신 오류 상태로 표시하고 전송하지 않는다',async()=>{
  const app=fixture(null,false,'local-diary')
  try{await app.settle();assert.equal(app.status(),'error');assert.match(app.errorMessage(),/서버 다이어리 ID/);assert.equal(app.requests.length,0)}finally{app.close()}
