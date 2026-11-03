@@ -35,6 +35,13 @@ const idempotencyMessages = {
 // 기존 목/비회원 API와 분리한 실제 회원 HTTP 경계.
 export function createMemberDiaryApi(transport) {
   return {
+    async setFavorite(id, favorite) {
+      if (!uuid(id) || typeof favorite !== 'boolean') throw invalid()
+      const result = await transport({ method: 'PATCH', path: `/diaries/${encodeURIComponent(id)}/membership`, body: { favorite } })
+      if (result?.diaryId !== id || typeof result.userId !== 'string' || !result.userId
+        || result.favorite !== favorite) throw invalid()
+      return { id, userId: result.userId, favorite: result.favorite }
+    },
     loadPages: id => loadServerPages(transport,id),
     async trashList({cursor,limit=100,q,signal}={}) {
       const body=await transport({path:'/member/diaries/trash',query:{cursor,limit,q},signal});
