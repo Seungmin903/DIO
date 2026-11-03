@@ -4,8 +4,10 @@ import { Image } from 'expo-image'
 import { useMediaEntry, useMediaUri } from '../../hooks/useMediaUri'
 import { mediaService, reportMediaDisplayError } from '../../services/mediaStore'
 import { mediaId } from '../../utils/mediaReferences.js'
+import { builtinStickerOf } from '../../builtinStickers'
 import { stickerSource } from '../../stickerAssets'
 import { colors } from '../../../shared/theme'
+import BuiltinStickerArt from '../canvas/BuiltinStickerArt'
 import DdayWidget from '../../widgets/DdayWidget'
 import { DDAY_STYLES, ddayStyleOf } from '../../widgets/dday'
 import { createMemo } from '../../widgets/memo'
@@ -23,6 +25,8 @@ const RETRIES = 2
 export default function StickerThumbImage({ item, style }) {
   if (item.kind === 'memo') return <MemoThumb item={item} style={style} />
   if (item.widget) return <WidgetThumb item={item} style={style} />
+  const builtin = builtinStickerOf(item.builtin)
+  if (builtin) return <View style={style}><BuiltinStickerArt sticker={builtin} canvas width="100%" height="100%" /></View>
   return <ImageThumb item={item} style={style} />
 }
 
