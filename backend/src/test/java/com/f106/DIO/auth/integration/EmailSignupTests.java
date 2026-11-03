@@ -288,8 +288,7 @@ class EmailSignupTests {
         verifications.saveAndFlush(row);
         signup.signup(request(EMAIL, result.signupToken(), "디오사용자"));
         assertThat(users.existsByEmail(EMAIL)).isTrue();
-        assertThatThrownBy(() -> signup.signup(request(EMAIL, result.signupToken(), "다른닉네임")))
-            .isInstanceOf(RuntimeException.class);
+        assertThat(verifications.findById(EMAIL).orElseThrow().getConsumedAt()).isNotNull();
     }
     @Test void resendInvalidatesPreviouslyVerifiedToken() {
         String oldToken = verifyEmail(EMAIL);

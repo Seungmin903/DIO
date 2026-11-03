@@ -192,7 +192,7 @@ test('필수 약관·닉네임 검증 실패 시 가입 요청 없이 같은 인
     { termsType: 'SERVICE', termsVersion: 'v2', agreed: true },
     { termsType: 'PRIVACY', termsVersion: 'v2', agreed: true },
   ]);
-  await assert.rejects(api.completeProfile(signupValues), /이메일 인증/);
+  await assert.rejects(api.completeProfile(signupValues), { code: 'SIGNUP_DRAFT_REQUIRED' });
   assert.equal(api.getSessionKey(), null);
 });
 
@@ -463,4 +463,14 @@ test('인증 응답의 1시간 기한을 사용하여 10분이 지나도 가입�
  await prepareSignup(api);time=45*60*1000;
  assert.equal((await api.completeProfile(signupValues)).mode,'registered');
  assert.equal(JSON.parse(calls.at(-1).body).signupToken,'hour-token');
+});
+
+test('가입 초안 유실·다른 이메일은 토큰 만료와 구분하고 서버로 보내지 않는다',async()=>{
+ const {api,calls}=setup(signupResponse);
+ await assert.rejects(api.completeProfile(signupValues),{code:'SIGNUP_DRAFT_REQUIRED'});
+ await prepareSignup(api);
+ await assert.rejects(api.completeProfile({...signupValues,email:'other@example.com'}),{code:'SIGNUP_DRAFT_REQUIRED'});
+ api.cancelPending();
+ await assert.rejects(api.completeProfile(signupValues),{code:'SIGNUP_DRAFT_REQUIRED'});
+ assert.equal(calls.some(call=>call.path==='signup'),false);
 });

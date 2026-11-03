@@ -107,6 +107,7 @@ backend-test:
       # 백엔드 산출물을 만드는 작업이므로 프런트엔드 전용 변경에서는 실행하지 않는다.
       changes: &backend_contract_changes
         - backend/**/*
+        - docs/contracts/**/*
         - .gitlab-ci.yml
         - infra/compose/compose.*.yml
         - infra/nginx/**/default.conf
@@ -119,6 +120,7 @@ backend-test:
       -e GRADLE_USER_HOME=/workspace/backend/.gradle
       -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/workspace/backend/build/notification-frontend-contract.json
       -v "$CI_PROJECT_DIR/backend:/workspace/backend"
+      -v "$CI_PROJECT_DIR/docs/contracts:/workspace/docs/contracts:ro"
       -v "$CI_PROJECT_DIR/infra:/workspace/infra:ro"
       -v "$CI_PROJECT_DIR/frontend/assets/fonts/gowundodum:/workspace/frontend/assets/fonts/gowundodum:ro"
       -v "$CI_PROJECT_DIR/.gitlab-ci.yml:/workspace/.gitlab-ci.yml:ro"

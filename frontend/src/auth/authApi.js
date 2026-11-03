@@ -29,6 +29,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     developmentAccess = null;
     accessStore?.clear(accessOrigin).catch(() => {});
   };
+  const signupDraftRequired = () => Object.assign(new Error('가입 정보를 다시 확인해 주세요. 이메일·비밀번호 입력 화면에서 이어갈 수 있어요.'), { code: 'SIGNUP_DRAFT_REQUIRED' });
   const invalidSignupToken = () => Object.assign(new Error('가입 인증이 만료되었거나 유효하지 않아요. 입력한 내용은 유지돼요. 이메일 인증을 다시 진행해 주세요.'), { code: 'INVALID_SIGNUP_TOKEN' });
   const requireEmail = value => {
     const error = emailError(value);
@@ -288,8 +289,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
 
     async completeProfile({ email, nickname, photoUri, terms }) {
       if (signupPending) throw new Error('회원가입을 처리하고 있어요. 잠시만 기다려 주세요.');
-      if (!draft || draft.email !== normalizeEmail(email) || !verification ||
-          verification.email !== draft.email || verification.expiresAt <= now()) {
+      if (!draft || draft.email !== normalizeEmail(email)) throw signupDraftRequired();
+      if (!verification || verification.email !== draft.email || verification.expiresAt <= now()) {
         throw invalidSignupToken();
       }
       if (draft.ageConfirmed !== true) throw new Error('만 14세 이상인지 확인해 주세요.');

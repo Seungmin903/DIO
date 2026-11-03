@@ -270,7 +270,7 @@ export default function AuthScreen({
     if (!credentialsValid(values, signup)) return;
     if (signup) {
       if (!signupEligibility({ ageConfirmed, terms }, legalDocuments)) { navigate('eligibility'); return; }
-      setPhotoUri(null);
+      if (profile?.email !== normalizeEmail(values.email)) setPhotoUri(null);
       setProfile({ provider: 'email', email: normalizeEmail(values.email) });
       navigate('verification');
     }
@@ -314,7 +314,9 @@ export default function AuthScreen({
           }
         },
         (error) => {
-          if (profile?.provider === 'email' && error?.code === 'INVALID_SIGNUP_TOKEN') {
+          if (profile?.provider === 'email' && error?.code === 'SIGNUP_DRAFT_REQUIRED') {
+            navigate('signup');
+          } else if (profile?.provider === 'email' && error?.code === 'INVALID_SIGNUP_TOKEN') {
             // 같은 가입 흐름에서 재인증한다. 닉네임·사진·약관은 부모 상태에 유지한다.
             setVerificationAttempt(value => value + 1);
             navigate('verification');
