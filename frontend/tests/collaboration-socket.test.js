@@ -2,6 +2,26 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {connectCollaboration,collaborationSocketUrl} from '../src/collaboration/collaborationSocket.js'
 const diaryId='10000000-0000-4000-8000-000000000001'
+
+test('오류와 종료의 불가 신호는 연결 시도당 한 번이며 재연결은 별도로 기록한다',()=>{
+ const sockets=[],jobs=[];let unavailable=0
+ class Socket{constructor(){this.readyState=1;sockets.push(this)}send(){}close(){}}
+ const client=connectCollaboration({baseUrl:'https://dio.test/api/v1',diaryId,getAccessToken:async()=>'token',onChange:()=>{},WebSocketImpl:Socket,
+  onUnavailable:()=>unavailable++,schedule:(fn,delay)=>{jobs.push({fn,delay});return jobs.length},cancel:()=>{}})
+ sockets[0].onerror();sockets[0].onerror();sockets[0].onclose({code:1006})
+ assert.equal(unavailable,1);assert.equal(jobs.length,1);assert.equal(jobs[0].delay,1000)
+ jobs[0].fn();sockets[0].onerror();assert.equal(unavailable,1)
+ sockets[1].onclose({code:1006});assert.equal(unavailable,2);assert.equal(jobs[1].delay,2000)
+ client.close();sockets[1].onerror();assert.equal(unavailable,2)
+})
+
+test('연결 실패 진단은 open·READY 전 종료 코드만 전달하고 사유와 토큰은 제외한다',()=>{
+ let socket;const events=[]
+ class Socket{constructor(){socket=this;this.readyState=1}send(){}close(){}}
+ const client=connectCollaboration({baseUrl:'https://dio.test/api/v1',diaryId,getAccessToken:async()=>'secret',onChange:()=>{},WebSocketImpl:Socket,onDiagnostic:e=>events.push(e),schedule:()=>1,cancel:()=>{}})
+ socket.onopen();socket.onclose({code:1006,reason:"Expected HTTP 101 response but was '403 Forbidden' private detail"})
+ assert.deepEqual(events,[{stage:'open'},{stage:'closed-before-ready',code:1006},{stage:'handshake-http',code:403}]);client.close()
+})
 test('고정 API 서버의 WebSocket 경로를 사용하고 URL에는 토큰을 넣지 않는다',()=>{
  assert.equal(collaborationSocketUrl('https://dio.test/api/v1',diaryId),`wss://dio.test/ws/diaries/${diaryId}`)
  for(const base of ['https://user:secret@dio.test/api/v1','https://dio.test/api?token=secret','javascript:alert(1)'])assert.throws(()=>collaborationSocketUrl(base,diaryId))

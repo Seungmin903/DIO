@@ -92,6 +92,22 @@ Origin은 기존 `AUTH_ALLOWED_ORIGINS`를 재사용한다. dev/prod Nginx에 `/
 
 ## 확인 방법
 
+### 공동편집 프론트 실기기 재검증 (2026-11-03)
+
+- 최신 develop의 WebSocket Origin·프록시 외부 포트 전달 수정 반영 후 Android Expo Go에서 `open → ws-ready`와 `ws-change` 수신을 확인했다. 이전 HTTP handshake 403 실패와 구분한다.
+- 제공된 실기기 로그에서 공유 작업 POST `/pages/{id}/canvas-operations` 성공 184ms, 변경 알림 후 동기화 468ms가 관찰됐다. 이 값은 해당 요청·동기화 구간이며 양 기기 사이 전체 표시 지연이나 성능 보장 수치가 아니다.
+- 사용자가 두 계정에서 상대 변경 반영 속도 개선, 자기 작업 실행 취소·다시 실행, 연결 복구 후 내용 동기화를 확인했다. 내 작업 이력 조회도 성공 로그로 확인했다.
+- 프론트 소켓·진단·편집기 연결 테스트 `node --test tests/collaboration-socket.test.js tests/collaboration-diagnostics.test.js tests/collaboration-hook.test.js`: 27개 통과.
+- 확인 후 로컬 진단 설정을 0으로 되돌렸다. 적용하려면 Expo 서버 재시작·기기 리로드가 필요하다. 진단 기능은 개발 환경에서 명시적으로 켤 때만 출력하며 기본은 꺼짐이다. 백엔드·인프라 코드는 이번 프론트 작업에서 수정하거나 테스트하지 않았다.
+
+### 두 기기 지연 진단 (2026-11-02)
+
+실기기에서 로컬 조작·상대 반영 지연이 보고되어 원인 측정용 진단을 추가했다. `frontend/.env`의 `EXPO_PUBLIC_COLLABORATION_DIAGNOSTICS=1`과 개발 실행에서만 활성화한다. 변경 후 Expo 서버를 재시작하고 두 기기를 리로드한다. `[collaboration-perf]`의 HTTP durationMs, sync waitMs/durationMs, ws-ready/ws-unavailable/ws-change/poll을 확인한다. ID·토큰·요청 본문·오류 내용은 기록하지 않는다. 기본은 꺼짐이고 서버 저장·재시도 정책은 변경하지 않는다.
+
+두 기기에서 같은 페이지를 열고 텍스트 하나를 추가한 뒤 저장 완료와 상대 반영까지의 시간을 관찰한다. ws-change 없이 poll 뒤에만 반영되면 WebSocket 연결·이벤트 전달을 확인하고, HTTP 시간이 길면 해당 요청의 서버/네트워크 시간을 조사한다. waitMs가 길면 앞선 페이지 동기화 대기를 확인한다. 이 진단은 렌더링 FPS를 측정하지 않으므로 펜 움직임 자체의 끊김은 별도로 확인해야 한다. 실기기 로그를 받기 전에는 원인을 확정하지 않는다. 확인 후 환경변수를 제거한다.
+
+### API 확인 절차
+
 1. Swagger에서 두 계정을 준비하고 각각 로그인한다. 계정 A로 서버 다이어리와 페이지를 생성해 실제 diaryId/pageId를 받는다.
 2. B를 초대해 EDITOR로 참여시킨다. A 토큰으로 작업을 생성하고 `history/me`에서 nextUndo를 확인한다.
 3. nextUndo의 operationId/revision과 새 명령 UUID로 undo한다. 같은 요청을 다시 보내 중복 취소하지 않는지 확인한다. nextRedo로 복원한다.
