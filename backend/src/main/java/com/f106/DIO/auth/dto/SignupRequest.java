@@ -27,7 +27,7 @@ import jakarta.validation.constraints.*;
     }
     """)
 public record SignupRequest(
-    @NotBlank @Email @Size(max = 254) @Pattern(regexp = UserInput.EMAIL_PATTERN) String email,
+    @NotBlank @Size(max = 254) @Pattern(regexp = UserInput.EMAIL_PATTERN) String email,
     @NotBlank @Pattern(regexp = "[A-Za-z0-9_-]{43}") String signupToken,
     @NotBlank @Size(min = 8, max = 32)
     @Pattern(regexp = "(?=.*[A-Za-z])(?=.*[0-9])[!-~]{8,32}")

@@ -212,6 +212,7 @@ class EmailSignupTests {
         mvc.perform(post("/api/v1/auth/email-verifications/verify").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"member@example.com\",\"code\":\"" + deliveredCode.get() + "\"}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.signupToken").isString())
+            .andExpect(jsonPath("$.expiresIn").value(3600))
             .andExpect(header().string("Cache-Control", "no-store"));
         EmailVerification row = verifications.findById(EMAIL).orElseThrow();
         assertThat(row.getCodeHash()).hasSize(64).isNotEqualTo(deliveredCode.get());
@@ -269,6 +270,25 @@ class EmailSignupTests {
     @Test void verifiedCodeCannotIssueAnotherToken() {
         verifyEmail(EMAIL);
         assertThatThrownBy(() -> verification.verify(new EmailVerificationRequest(EMAIL, deliveredCode.get()))).isInstanceOf(SignupException.class);
+    }
+    @Test void verifiedSignupHasOneHourIndependentOfTheTenMinuteCodeDeadline() {
+        verification.send(EMAIL);
+        Instant before = Instant.now();
+        var result = verification.verify(new EmailVerificationRequest(EMAIL, deliveredCode.get()));
+        Instant after = Instant.now();
+        assertThat(result.expiresIn()).isEqualTo(3600);
+        var row = verifications.findById(EMAIL).orElseThrow();
+        // Timestamp columns use microseconds; Instant.now() can contain finer precision.
+        assertThat(row.getTokenExpiresAt()).isBetween(
+            before.plusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.MICROS),
+            after.plusSeconds(3600).plusNanos(1000));
+        assertThat(java.time.Duration.between(row.getSentAt(), row.getExpiresAt()).toSeconds()).isEqualTo(600);
+        // The code may have expired while the user completes the profile. Its signup token remains valid.
+        org.springframework.test.util.ReflectionTestUtils.setField(row, "expiresAt", Instant.now().minusSeconds(1800));
+        verifications.saveAndFlush(row);
+        signup.signup(request(EMAIL, result.signupToken(), "디오사용자"));
+        assertThat(users.existsByEmail(EMAIL)).isTrue();
+        assertThat(verifications.findById(EMAIL).orElseThrow().getConsumedAt()).isNotNull();
     }
     @Test void resendInvalidatesPreviouslyVerifiedToken() {
         String oldToken = verifyEmail(EMAIL);

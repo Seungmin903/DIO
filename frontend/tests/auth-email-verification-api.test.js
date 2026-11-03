@@ -58,21 +58,21 @@ test('화면 이탈 후 늦은 인증 결과는 가입 토큰을 복원하지 �
   const pending = gateway.verify(email, '482901');
   api.cancelPending(); release(success('email-verifications/verify'));
   await assert.rejects(pending, /취소/);
-  await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email, password: 'Password123!' }), /다시 인증/);
+  await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email, password: 'Password123!' }), /다시.*인증|인증.*다시/);
 });
 
 test('잘못된 인증 응답·다른 이메일·만료된 토큰으로 가입을 준비하지 않는다', async () => {
   for (const data of [null, {}, { signupToken: '', expiresIn: 600 }, { signupToken: 'x', expiresIn: -1 }]) {
     const { gateway } = setup(() => response(data));
     await assert.rejects(gateway.verify(email, '482901'), /결과/);
-    await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email }), /다시 인증/);
+    await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email }), /다시.*인증|인증.*다시/);
   }
   let time = 0;
   const { gateway } = setup(success, { now: () => time });
   await gateway.verify(email, '482901');
-  await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email: 'other@example.com' }), /다시 인증/);
+  await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email: 'other@example.com' }), /다시.*인증|인증.*다시/);
   time = 600000;
-  await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email }), /다시 인증/);
+  await assert.rejects(gateway.prepareSignup({ ageConfirmed: true, email }), /다시.*인증|인증.*다시/);
 });
 
 test('잘못된 발송 응답은 성공으로 취급하지 않는다', async () => {

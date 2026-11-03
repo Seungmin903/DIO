@@ -12,7 +12,7 @@
 |---|---|---|---|
 | POST | `/api/v1/auth/email-availability` | `{"email":"member@example.com"}` | 200 `{"available":true}` |
 | POST | `/api/v1/auth/email-verifications` | `{"email":"member@example.com"}` | 200 `{"expiresIn":600,"resendAfter":60}` |
-| POST | `/api/v1/auth/email-verifications/verify` | `{"email":"member@example.com","code":"메일로 받은 6자리"}` | 200 `{"signupToken":"일회용 토큰","expiresIn":600}` |
+| POST | `/api/v1/auth/email-verifications/verify` | `{"email":"member@example.com","code":"메일로 받은 6자리"}` | 200 `{"signupToken":"일회용 토큰","expiresIn":3600}` |
 | POST | `/api/v1/auth/signup` | 아래 예시 | 201 회원 정보. ID는 문자열 |
 
 ```json
@@ -157,7 +157,7 @@ multipart의 전체 Content-Type은 boundary를 포함하도록 클라이언트�
 | `SIGNUP_MAIL_IP_RATE_LIMITED` (IP 15분 20회) | 현재 제한 창의 남은 초(변경 없음) | 헤더 값만큼 발송을 막는다 |
 
 `SignupException`은 Retry-After 값이 있을 때만 헤더를 붙인다. 요청·응답 본문, 상태 코드, DB는 바꾸지 않았다.
-- 가입 토큰은 이메일에 귀속되고 발급 후 10분, 가입 성공 시 소비한다. 회원·인증 계정·약관·토큰 소비는 같은 트랜잭션이다. 실패하면 함께 롤백한다.
+- 가입 토큰은 이메일에 귀속되고 인증 성공 시 발급 후 1시간, 가입 성공 시 소비한다. 회원·인증 계정·약관·토큰 소비는 같은 트랜잭션이다. 실패하면 함께 롤백한다.
 - 같은 이메일의 검증·가입은 DB 행 잠금으로 직렬화한다. 최초 인증 요청의 동시 생성은 PK 제약으로 충돌을 처리한다. 이메일/로그인 제공자 키의 UNIQUE 제약은 유지하고, 닉네임 UNIQUE는 V20에서 해제한다.
 - 오류는 `application/problem+json`을 사용한다. 입력 오류 400, 중복·동시 충돌 409, 횟수 제한 429, 인증 설정·SMTP 실패 503이다. 서비스 오류의 `code` 필드로 구분한다. validation 오류는 Spring 기본 ProblemDetail이다.
 - 이메일 중복 확인은 가입 여부를 공개하는 API다. 가입 인증 메일에는 아래 IP별 제한을 추가했다. 다중 서버 공통 제한·일일 총 발송량·악용 탐지 정책은 인프라와 별도로 협의한다.
@@ -212,3 +212,14 @@ GET profile-photos는 짧은 읽기 트랜잭션으로 사진의 저장소 위�
 새 이메일 인증 행은 Persistable 신규 상태로 INSERT하며, 이미 커밋된 인증 행을 merge로 덮어쓰지 않는다. 같은 신규 이메일의 요청이 경합하면 성공한 요청만 발송하고, 다른 요청의 신규 INSERT PK 충돌(SQLState 23505)은 429 VERIFICATION_RATE_LIMITED 및 Retry-After: 60으로 응답하면서 해당 트랜잭션을 롤백한다. 기존 행은 종전처럼 행 잠금과 60초 간격을 적용한다. NOT NULL·CHECK 등 다른 무결성 오류는 429로 숨기지 않는다. H2와 격리 PostgreSQL에서 동시 HTTP 요청 2개가 200/429로 나뉘고 실제 발송이 한 번이며 승자의 인증번호가 유효함을 확인한다.
 
 닉네임은 표시 이름으로 중복을 허용한다. 중복 확인 API·버튼·선행 확인 조건은 제거하며 trim/NFKC 정규화와 한글·영문·숫자·밑줄 2~12자 검증은 유지한다. 이메일 중복 검사는 유지한다. V20은 기존 nickname_key 컬럼과 회원 데이터를 보존하고 users_nickname_key_unique 제약만 해제한다. 기존 V2는 변경하지 않는다.
+
+
+## 가입 화면과 인증 만료 복구
+
+연령·약관 확인 → 이메일·비밀번호 입력 → 이메일 인증 → 닉네임·선택 사진 → 가입 완료 순서다. 마지막 프로필 화면에 약관 선택을 중복 표시하지 않지만 가입 요청에는 앞서 선택한 항목을 그대로 포함한다. 인증번호 입력은 10분이며 인증 성공 이후의 가입용 토큰은 별도로 1시간 유효하다. 재발송하면 이전 가입 토큰은 무효화되고, 가입 성공 시 소비된다.
+
+가입용 토큰이 로컬에서 만료되거나 서버가 INVALID_SIGNUP_TOKEN으로 거절하면 기존 인증 화면으로 돌아간다. 같은 가입 화면을 유지하는 동안 닉네임·선택 사진·약관 선택을 보존하고 재인증 후 이어간다. 시작 화면으로 돌아가거나 앱을 종료하면 이전과 같이 초기화되며, 비밀번호·가입 토큰을 기기 저장소에 저장하지 않는다. 기존에 발급한 10분 토큰을 소급 연장하지는 않는다.
+
+이메일 입력은 [공통 이메일 검증 계약](email-input-validation.md)을 따른다. 신규 가입에는 형식 검증을 적용하고 로그인·재설정·초대에는 기존 계정 호환 조회 기준을 적용하며, 용도별 기준을 프론트·백엔드에서 일치시킨다.
+
+가입 초안이 없거나 입력 이메일과 다르면 SIGNUP_DRAFT_REQUIRED로 구분하여 기존 이메일·비밀번호 화면에서 가입 정보를 다시 준비한다. 토큰만 만료된 경우의 재인증 경로와 구분하며 같은 이메일로 복구하는 동안 프로필 입력은 유지한다.

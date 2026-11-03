@@ -334,8 +334,7 @@ test('이메일 가입 완료 후 자동 로그인하지 않고 이메일만 채
  enterSignup(ui)
  find(ui.render(),'이메일').props.onChange('new@example.com');find(ui.render(),'비밀번호').props.onChange('Password123');find(ui.render(),'비밀번호 확인').props.onChange('Password123')
  find(ui.render(),'다음').props.onPress();await tick();nodes(ui.render()).find(n=>n.type==='./EmailVerification').props.onComplete();await tick();find(ui.render(),'닉네임').props.onChange('소연')
- find(ui.render(),'필수 항목 전체 동의').props.onPress();
- await tick();find(ui.render(),'필수 항목 전체 동의').props.onPress()
+ assert.equal(find(ui.render(),'필수 항목 전체 동의'),undefined)
  find(ui.render(),'가입 완료').props.onPress();await tick()
  const tree=ui.render();assert.ok(find(tree,'로그인'));assert.equal(find(tree,'이메일').props.value,'new@example.com');assert.equal(find(tree,'비밀번호').props.value,'');assert.deepEqual(ui.sessions,[]);const notice=nodes(tree).find(n=>n.props.children==='가입이 완료됐어요.');assert.equal(notice.props.accessibilityRole,'text');t.mock.timers.tick(2500);assert.ok(!nodes(ui.render()).some(n=>n.props.children==='가입이 완료됐어요.'));ui.unmount()
 })
@@ -472,13 +471,7 @@ test('실제 가입 어댑터로 닉네임·동의·가입 충돌·재시도 후
     await verification.props.service.verify('new@example.com', '482901');
     verification.props.onComplete(); await tick();
     find(ui.render(), '닉네임').props.onChange('소연');
-    find(ui.render(), '필수 항목 전체 동의').props.onPress();
-    assert.equal(find(ui.render(), '가입 완료').props.disabled, true);
-    await tick();
-    assert.equal(find(ui.render(), '가입 완료').props.disabled, true);
-    find(ui.render(), '[필수] 이용약관 동의').props.onPress();
-    assert.equal(find(ui.render(), '가입 완료').props.disabled, true);
-    find(ui.render(), '[필수] 개인정보 수집·이용 동의').props.onPress();
+    assert.equal(find(ui.render(), '[필수] 이용약관 동의'), undefined);
     assert.equal(find(ui.render(), '가입 완료').props.disabled, false);
     const complete = find(ui.render(), '가입 완료');
     complete.props.onPress(); complete.props.onPress(); await tick();
@@ -510,3 +503,122 @@ test('인증 화면의 접근성 역할은 설치된 React Native 네이티브 �
  }
  for(const path of ['../src/auth/AuthScreen.js','../src/auth/ProfileEditScreen.js','../src/diary/screens/ProfileScreen.js'])visit(babel.parseSync(readFileSync(new URL(path,import.meta.url),'utf8'),{configFile:false,babelrc:false,parserOpts:{plugins:['jsx']}}))
 })
+
+for (const failure of ['local-expiry', 'server-rejection']) test(`가입 인증 복구는 닉네임·사진·앞쪽 약관 선택을 유지한다: ${failure}`, async () => {
+ let time=0, verified=0, rejected=false;
+ const calls=[], uploads=[];
+ const service=createAuthApi({baseUrl:'https://server.example',now:()=>time,
+  buildPhotoBody:async(body,uri)=>{uploads.push(uri);return{body:JSON.stringify(body),dispose:async()=>{}}},
+  fetchImpl:async(url,init)=>{
+   const path=url.split('/auth/')[1],body=JSON.parse(init.body);calls.push({path,body});
+   let status=200,data={available:true};
+   if(path==='email-verifications')data={expiresIn:600,resendAfter:60};
+   if(path==='email-verifications/verify')data={signupToken:`token-${++verified}`,expiresIn:3600};
+   if(path==='signup'){
+    if(failure==='server-rejection'&&!rejected){rejected=true;status=400;data={code:'INVALID_SIGNUP_TOKEN',detail:'다시 인증해 주세요.'}}
+    else {status=201;data={userId:'7',email:body.email,nickname:body.nickname,profilePhotoUrl:null}}
+   }
+   return{status,ok:status<400,json:async()=>data};
+  }});
+ const ui=setup(service,async()=> 'file:///selected-profile.jpg');
+ try{
+  find(ui.render(),'회원가입').props.onPress();
+  find(ui.render(),'만 14세 이상입니다').props.onPress();
+  find(ui.render(),'필수 항목 전체 동의').props.onPress();
+  find(ui.render(),`[선택] ${marketingDocuments[0].label}`).props.onPress();
+  find(ui.render(),'동의하고 계속').props.onPress();
+  find(ui.render(),'이메일').props.onChange('new@example.com');
+  find(ui.render(),'비밀번호').props.onChange('Password123');
+  find(ui.render(),'비밀번호 확인').props.onChange('Password123');
+  find(ui.render(),'다음').props.onPress();
+  let step=nodes(ui.render()).find(n=>n.type==='./EmailVerification');
+  await step.props.service.verify('new@example.com','123456');step.props.onComplete();await tick();
+  assert.equal(find(ui.render(),'필수 항목 전체 동의'),undefined);
+  find(ui.render(),'닉네임').props.onChange('유지할이름');
+  find(ui.render(),'프로필 사진 선택').props.onPress();await tick();
+  if(failure==='local-expiry')time=3600000;
+  find(ui.render(),'가입 완료').props.onPress();await tick();
+  step=nodes(ui.render()).find(n=>n.type==='./EmailVerification');assert.ok(step);
+  assert.ok(nodes(ui.render()).some(n=>typeof n.props.children==='string'&&n.props.children.includes('입력한 내용은 유지')));
+  assert.equal(calls.filter(c=>c.path==='signup').length,failure==='local-expiry'?0:1);
+  await step.props.service.send('new@example.com');
+  await step.props.service.verify('new@example.com','654321');step.props.onComplete();await tick();
+  assert.equal(find(ui.render(),'닉네임').props.value,'유지할이름');
+  assert.equal(find(ui.render(),'선택한 프로필 사진').props.source.uri,'file:///selected-profile.jpg');
+  assert.equal(find(ui.render(),'가입 완료').props.disabled,false);
+  find(ui.render(),'가입 완료').props.onPress();await tick();
+  assert.ok(find(ui.render(),'로그인'));
+  const body=calls.filter(c=>c.path==='signup').at(-1).body;
+  assert.equal(body.signupToken,'token-2');assert.equal(body.nickname,'유지할이름');assert.equal(body.ageConfirmed,true);
+  assert.equal(body.agreements.find(t=>t.termsType==='SERVICE').agreed,true);
+  assert.equal(body.agreements.find(t=>t.termsType==='PRIVACY').agreed,true);
+  assert.equal(body.agreements.find(t=>t.termsType==='MARKETING_PRIVACY').agreed,true);
+  assert.equal(body.agreements.find(t=>t.termsType==='AD_EMAIL').agreed,false);
+  assert.ok(uploads.every(uri=>uri==='file:///selected-profile.jpg'));
+ }finally{ui.unmount()}
+});
+
+test('인증 완료 화면에서 가입 준비 전에 만료돼도 인증번호를 다시 받을 수 있다', async () => {
+ let time=0;
+ const service=createAuthApi({baseUrl:'https://server.example',now:()=>time,fetchImpl:async(url)=>({status:200,ok:true,json:async()=>url.endsWith('/verify')?{signupToken:'token',expiresIn:3600}:{available:true}})});
+ const ui=setup(service);
+ try{
+  enterSignup(ui);
+  find(ui.render(),'이메일').props.onChange('new@example.com');find(ui.render(),'비밀번호').props.onChange('Password123');find(ui.render(),'비밀번호 확인').props.onChange('Password123');
+  find(ui.render(),'다음').props.onPress();
+  const original=nodes(ui.render()).find(n=>n.type==='./EmailVerification');
+  await original.props.service.verify('new@example.com','123456');time=3600000;
+  original.props.onComplete();await tick();
+  const retry=nodes(ui.render()).find(n=>n.type==='./EmailVerification');
+  assert.ok(retry);assert.notEqual(retry.key,original.key);
+  assert.equal(find(ui.render(),'닉네임'),undefined);
+ }finally{ui.unmount()}
+});
+
+for(const choices of [{service:false,privacy:false},{service:true,privacy:false},{service:false,privacy:true},{service:true,privacy:true}])
+ test(`연령 확인 뒤 필수 약관 미동의는 다음 단계로 진행할 수 없다: ${JSON.stringify(choices)}`,()=>{
+ const ui=setup({});
+ try{
+  find(ui.render(),'회원가입').props.onPress();find(ui.render(),'만 14세 이상입니다').props.onPress();
+  if(choices.service)find(ui.render(),'[필수] 이용약관 동의').props.onPress();
+  if(choices.privacy)find(ui.render(),'[필수] 개인정보 수집·이용 동의').props.onPress();
+  const allowed=choices.service&&choices.privacy;
+  assert.equal(find(ui.render(),'동의하고 계속').props.disabled,!allowed);
+  find(ui.render(),'동의하고 계속').props.onPress();
+  assert.equal(!!find(ui.render(),'이메일'),allowed);
+ }finally{ui.unmount()}
+});
+
+test('가입 초안 유실 시 입력 화면에서 복구하고 닉네임·사진·동의를 이어간다',async()=>{
+ const bodies=[];
+ const service=createAuthApi({baseUrl:'https://server.example',
+  buildPhotoBody:async(body)=>({body:JSON.stringify(body),dispose:async()=>{}}),
+  fetchImpl:async(url,init)=>{const body=JSON.parse(init.body);const path=url.split('/auth/')[1];
+   if(path==='signup')bodies.push(body);
+   const data=path==='email-verifications/verify'?{signupToken:'new-token',expiresIn:3600}
+    :path==='signup'?{userId:'7',email:body.email,nickname:body.nickname,profilePhotoUrl:null}:{available:true};
+   return{status:200,ok:true,json:async()=>data};
+  }});
+ const ui=setup(service,async()=> 'file:///draft-photo.jpg');
+ try{
+  enterSignup(ui);
+  find(ui.render(),'이메일').props.onChange('new@example.com');find(ui.render(),'비밀번호').props.onChange('Password123');find(ui.render(),'비밀번호 확인').props.onChange('Password123');
+  find(ui.render(),'다음').props.onPress();
+  let step=nodes(ui.render()).find(n=>n.type==='./EmailVerification');
+  await step.props.service.verify('new@example.com','123456');step.props.onComplete();await tick();
+  find(ui.render(),'닉네임').props.onChange('이어갈이름');find(ui.render(),'프로필 사진 선택').props.onPress();await tick();
+  service.cancelPending();
+  find(ui.render(),'가입 완료').props.onPress();await tick();
+  assert.equal(nodes(ui.render()).some(n=>n.type==='./EmailVerification'),false);
+  assert.equal(find(ui.render(),'이메일').props.value,'new@example.com');
+  assert.equal(find(ui.render(),'비밀번호').props.value,'Password123');
+  find(ui.render(),'다음').props.onPress();
+  step=nodes(ui.render()).find(n=>n.type==='./EmailVerification');
+  await step.props.service.verify('new@example.com','654321');step.props.onComplete();await tick();
+  assert.equal(find(ui.render(),'닉네임').props.value,'이어갈이름');
+  assert.equal(find(ui.render(),'선택한 프로필 사진').props.source.uri,'file:///draft-photo.jpg');
+  find(ui.render(),'가입 완료').props.onPress();await tick();
+  assert.equal(bodies.length,1);assert.equal(bodies[0].agreements.find(t=>t.termsType==='PRIVACY').agreed,true);
+  assert.ok(find(ui.render(),'로그인'));
+ }finally{ui.unmount()}
+});
