@@ -59,6 +59,13 @@ class InvitationNotificationHandlerTests {
         snapshot(Kind.LINK,Eligibility.NOTIFIABLE,now);
         assertThat(handler.handle(event).outcome()).isEqualTo(Outcome.SKIPPED_EXPIRED);
     }
+    @Test void missingInviteIsRejectedWithoutRetryOrReceipt() {
+        // 보존 기한 뒤 삭제된 초대의 지연 이벤트: 원본도 처리 이력도 없다.
+        when(source.findForNotification(eq(1L), eq(2L), any())).thenReturn(Optional.empty());
+        assertThatThrownBy(()->handler.handle(event)).isInstanceOfSatisfying(InvitationEventException.class,e->assertThat(e.retryable()).isFalse());
+        verify(repository,never()).claim(any(),any());
+        verify(repository,never()).createNotification(any(),any());
+    }
     @Test void nanosecondEventIsRejectedBeforeDatabaseMutation() {
         assertThatThrownBy(()->handler.handle(new InvitationConfirmedEvent(event.eventId(),1,2,now.plusNanos(1)))).isInstanceOf(InvitationEventException.class);
         verifyNoInteractions(repository,source);

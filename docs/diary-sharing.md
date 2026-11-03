@@ -90,6 +90,11 @@ EMAIL 계열은 기존 invitee_user_id를 수신자로 사용한다. accepted는
 - 삭제된 초대 링크를 조회·수락하면 상태와 관계없이 404 `INVITE_NOT_FOUND`("사용할 수 없는 초대 링크예요.")를 반환한다. 이미 참여한 멤버도 같은 응답을 받는다. 다이어리 참여 자체는 diary_members에 남아 영향이 없다.
 - 보낸·받은 이메일 초대 목록에서도 해당 항목이 사라진다.
 - diary_invites를 외래키로 참조하는 테이블은 없다. 초대 ID를 들고 있는 알림 처리 이력(invitation_notification_receipts)은 같은 배치에서 지운다. 사라진 초대를 가리키는 DIARY_INVITE 알림은 수신자 알림으로 남고, 목록에서 invitation=null(앱 표시 `UNAVAILABLE`, 열 수 없음)로 내려간다.
+- 삭제된 초대의 InvitationConfirmedEvent가 늦게 처리되면 원본 조회가 비므로 재시도하지 않는 예외로 끝낸다. 지금은 초대를 만든 트랜잭션 안에서 동기로 발행하므로 실제로는 지연·재전달 경로를 추가할 때만 해당한다.
+
+### 배포 순서
+
+V28은 retention_until을 기본값 없는 NOT NULL로 추가한다. 현재 배포(`docker compose up -d --force-recreate`)는 기존 백엔드 컨테이너를 내린 뒤 새 컨테이너가 Flyway를 실행하므로, 이 열을 모르는 구버전이 마이그레이션 뒤에 INSERT하는 구간이 없다. 롤링·무중단 배포로 바꾸면 열 추가(기본값 포함)와 NOT NULL 승격을 두 번의 배포로 나눠야 한다.
 
 토큰 원문은 DB에 저장하지 않는다. 기존 ID·다이어리·생성/만료 시각을 HMAC 서명하고 SHA-256 해시를 저장한다. 비밀키 교체 후 기존 이메일 대기 초대에 다시 발송하면 이전 초대를 취소하고 새 키로 발급한다.
 

@@ -64,8 +64,10 @@ public class InvitationNotificationHandler {
 		if (source == null) throw new InvitationEventException("공유 초대 조회 연결이 아직 준비되지 않았습니다.", true);
 		// 원본의 이메일 만료 판정과 아래 링크 만료 판정이 같은 시각을 쓴다.
 		Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+		// 원본 조회가 비면 초대가 없거나(보존 기한 뒤 삭제 포함) 수신자가 다르다. 다시 시도해도 생기지 않으므로 재시도하지 않는다.
+		// 지금 발행자(EmailInviteService)는 초대를 만든 트랜잭션 안에서 동기로 발행하므로 이 경로는 지연·재전달에만 해당한다.
 		Snapshot snapshot = source.findForNotification(event.inviteId(), event.recipientUserId(), now)
-			.orElseThrow(() -> new InvitationEventException("현재 초대 상태를 확인하지 못했습니다.", true));
+			.orElseThrow(() -> new InvitationEventException("초대가 없거나 이미 정리됐습니다.", false));
 		validateSnapshot(event, snapshot);
 		if (!repository.claim(event, now)) {
 			// 동시 전달의 승자가 커밋한 이력을 읽는다. 읽기 커밋 격리를 전제로 하며 DB 일시 오류는 호출자가 재시도한다.

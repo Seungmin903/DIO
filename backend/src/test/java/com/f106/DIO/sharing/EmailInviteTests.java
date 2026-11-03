@@ -39,6 +39,22 @@ class EmailInviteTests extends SharingTestSupport {
         mvc.perform(get("/api/v1/diaries/"+id+"/invites").header("Authorization","Bearer "+owner.token()))
             .andExpect(status().isOk()).andExpect(jsonPath("emailInvites.totalElements").value(1));
     }
+    @Test void listsExposeExpiryOnlyWhilePending() throws Exception {
+        var owner=actor();var to=actor();var other=actor();var id=diary(owner);send(id,owner,to);send(id,owner,other);
+        mvc.perform(get("/api/v1/me/invites").header("Authorization","Bearer "+to.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("items[0].status").value("PENDING")).andExpect(jsonPath("items[0].expiresAt").isNotEmpty());
+        mvc.perform(get("/api/v1/diaries/"+id+"/invites").header("Authorization","Bearer "+owner.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("emailInvites.items[*].expiresAt",org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.notNullValue())));
+        // 수락·취소한 초대는 만료 시각을 내리지 않는다.
+        links.accept(tokenSigner.token(pending(id,to)),to.id());
+        var cancelled=pending(id,other);cancelled.cancel(java.time.Instant.now());invites.saveAndFlush(cancelled);
+        mvc.perform(get("/api/v1/me/invites").header("Authorization","Bearer "+to.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("items[0].status").value("ACCEPTED")).andExpect(jsonPath("items[0].expiresAt").isEmpty());
+        mvc.perform(get("/api/v1/diaries/"+id+"/invites").header("Authorization","Bearer "+owner.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("emailInvites.totalElements").value(2))
+            .andExpect(jsonPath("emailInvites.items[*].status",org.hamcrest.Matchers.containsInAnyOrder("ACCEPTED","CANCELLED")))
+            .andExpect(jsonPath("emailInvites.items[*].expiresAt",org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.nullValue())));
+    }
     @Test void onlyRecipientCanViewAcceptAndConsumedEmailCannotBeReusedAfterLeaving() throws Exception {
         var owner=actor();var to=actor();var other=actor();var id=diary(owner);send(id,owner,to);
         String token=tokenSigner.token(pending(id,to));
