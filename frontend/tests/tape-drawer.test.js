@@ -41,7 +41,7 @@ function drawer(store, callbacks = {}, ready = true, saveStatus = {}, hooks = {}
     '../../utils/common': { clamp: value => value },
     './PhotoFramePicker': { FramePreview: 'FramePreview', frameLabel: frame => `사진 틀 ${frame.name}` },
   }
-  mocks['../../stickerLibrary'] = load(library, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'] })
+  mocks['../../stickerLibrary'] = load(library, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'], './builtinStickers': { BUILTIN_PACK: { id: 'builtin:dio-moa', name: '디오&모아' }, BUILTIN_STICKERS: [] } })
   mocks['../../tapeLibrary'] = load(tapeLibrarySource, { './hooks/useCustomDecor': mocks['../../hooks/useCustomDecor'], './constants': mocks['../../constants'] })
   const module = { exports: {} }
   new Function('require', 'module', 'exports', code)(id => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: id }), module, module.exports)
@@ -55,13 +55,13 @@ test('스티커 칩 복원·선택 저장과 삭제·숨김 칩은 비어 있지
   const render = () => drawer(make(), { tab: 'sticker' }, true, { items, setStickerCategory: id => picked.push(id) })
   const pills = () => nodes(render()).filter(node => node.type?.name === 'Pill')
   assert.equal(pills().find(node => node.props.active).props.label, '내 폴더')
-  // 외부 출처 기본 분류는 없다: 즐겨찾기 · 내 폴더 · 새 폴더만
-  assert.deepEqual(pills().map(node => node.props.label), ['즐겨찾기', '최근', '내 폴더', '여행', '새 폴더'])
+  // 기본 분류는 디오&모아 하나: 즐겨찾기 · 최근 · 디오&모아 · 내 폴더 · 새 폴더
+  assert.deepEqual(pills().map(node => node.props.label), ['즐겨찾기', '최근', '디오&모아', '내 폴더', '여행', '새 폴더'])
   pills().find(node => node.props.label === '여행').props.onPress()
   assert.deepEqual(picked, ['folder:trip'])
-  // 즐겨찾기 · 최근이 비어 있으면 첫 폴더로
+  // 즐겨찾기 · 최근이 비어 있으면 첫 분류(디오&모아)로
   items.lastStickerCategory = 'folder:deleted'
-  assert.equal(pills().find(node => node.props.active).props.label, '내 폴더')
+  assert.equal(pills().find(node => node.props.active).props.label, '디오&모아')
   items.favorites = [{ id: 'a' }]
   assert.equal(pills().find(node => node.props.active).props.label, '즐겨찾기')
 })

@@ -162,8 +162,8 @@ export function normalizeCover(diary) {
       on: saved.subtitle?.on !== false, text: typeof saved.subtitle?.text === 'string' ? saved.subtitle.text.slice(0, 30) : base.subtitle.text,
       size: size(saved.subtitle?.size, SUBTITLE_SIZE, 8), color: hex(saved.subtitle?.color, base.subtitle.color),
     },
-    stickers: (Array.isArray(saved.stickers) ? saved.stickers : []).filter(item => item && typeof item.id === 'string' && (item.asset || item.src)).map(item => ({
-      id: item.id, asset: item.asset, src: item.src, mediaFileId: item.mediaFileId, name: item.name,
+    stickers: (Array.isArray(saved.stickers) ? saved.stickers : []).filter(item => item && typeof item.id === 'string' && (item.asset || item.builtin || item.src)).map(item => ({
+      id: item.id, asset: item.asset, builtin: item.builtin, src: item.src, mediaFileId: item.mediaFileId, name: item.name,
       x: percent(item.x, 50), y: percent(item.y, 50), size: size(item.size, STICKER_SIZE, 14),
       rotation: Number.isFinite(item.rotation) ? Math.round(normalizeAngle(item.rotation) * 10) / 10 : 0,
     })),

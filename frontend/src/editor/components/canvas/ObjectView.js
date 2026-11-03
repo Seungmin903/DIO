@@ -2,7 +2,9 @@ import { createContext, memo, useContext, useLayoutEffect, useRef, useState } fr
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg'
 import { TAPE_DEFAULT_OPACITY } from '../../constants'
+import { builtinStickerOf } from '../../builtinStickers'
 import { isAnimatedMedia, isRetiredSticker, stickerSource } from '../../stickerAssets'
+import BuiltinStickerArt from './BuiltinStickerArt'
 import MediaImage from './MediaImage'
 import PdfDetail from './PdfDetail'
 import StickerFrame from './StickerFrame'
@@ -234,9 +236,21 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
   const fallback = object.asset || object.poster ? stickerSource(object, true, posterUri) : null
   const source = synchronized ? playback.source ?? fallback : originalSource
   const animated = originalAnimated && !synchronized
+  const builtin = builtinStickerOf(object.builtin)
 
   const silhouette = synchronized
     ? (key, color, dx, dy, opacity = 1) => ({ key, color, dx, dy, opacity })
+    : builtin
+    ? (key, color, dx, dy, opacity = 1) => (
+        <BuiltinStickerArt
+          key={key}
+          sticker={builtin}
+          tint={color}
+          width={width}
+          height={height}
+          style={[styles.layer, { opacity, transform: [{ translateX: dx }, { translateY: dy }] }]}
+        />
+      )
     : source
     ? (key, color, dx, dy, opacity = 1) => (
         <MediaImage
@@ -294,7 +308,7 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
     : []
   const shadowLayers = !shadow.on
     ? null
-    : !source
+    : !source && !builtin
       ? silhouette('s', shadow.color, sx, sy, Math.min(1, shadow.opacity * 2), Math.max(1, grow + shadow.blur * zoom))
       : [...blurRing, ...body]
 
@@ -309,7 +323,10 @@ function StickerContent({ object, width, height, zoom, still, onAssetLoad, onAss
     <View style={[styles.center, box, { transform: flipTransform(object) }]}>
       {shadowLayers}
       {outlineLayers}
-      {source ? (
+      {builtin ? (
+        // View 로 감싼다: 웹의 <svg> 는 위치 지정 요소가 아니라서 그대로 두면 테두리 · 그림자 층 아래로 깔린다
+        <View style={box}><BuiltinStickerArt sticker={builtin} width={width} height={height} /></View>
+      ) : source ? (
         <MediaImage animated={animated} onLoad={onAssetLoad} onError={() => { if (!synchronized) reportMediaDisplayError(object); onAssetError?.() }} source={source} style={box} resizeMode="contain" />
       ) : (
         <Text style={[styles.emoji, emojiText(height)]}>{object.emoji}</Text>

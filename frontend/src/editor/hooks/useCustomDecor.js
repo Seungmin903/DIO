@@ -333,6 +333,7 @@ export function useCustomDecor() {
 // 저장해 둘 스티커 정보만 골라 담는다 (최근 사용·폴더)
 const stickerRef = (sticker) => ({
   asset: sticker.asset,
+  builtin: sticker.builtin,
   widget: sticker.widget,
   style: sticker.style,
   emoji: sticker.emoji,
@@ -373,5 +374,5 @@ function nameFileTapes(items) {
 }
 export const nextTapeName = (items) => `테이프 ${items.reduce((max, item) => Math.max(max, Number(/^테이프 (\d+)$/.exec(item.name ?? '')?.[1] ?? 0)), 0) + 1}`
 
-// 기본 스티커는 asset, 내 스티커는 src, 예전 문서의 이모지는 emoji 로 구분한다.
-export const stickerKey = (sticker) => sticker.asset ?? (sticker.widget ? `widget:${sticker.widget}:${sticker.style}` : null) ?? mediaId(sticker) ?? sticker.src ?? sticker.emoji
+// 앱 기본 도트 스티커는 builtin, 없앤 외부 출처 스티커는 asset, 내 스티커는 src, 예전 문서의 이모지는 emoji 로 구분한다.
+export const stickerKey = (sticker) => sticker.asset ?? (sticker.builtin ? `builtin:${sticker.builtin}` : null) ?? (sticker.widget ? `widget:${sticker.widget}:${sticker.style}` : null) ?? mediaId(sticker) ?? sticker.src ?? sticker.emoji

@@ -26,7 +26,7 @@ public class InviteViews {
             }
             return new EmailInviteResponse(i.getInviteId().toString(),i.getDiaryId(),book==null?null:book.getTitle(),
                 i.getInviterUserId().toString(),name(from),i.getInviteeUserId().toString(),name(to),
-                to!=null&&to.isActive()?to.getEmail():null,i.status(),i.getCreatedAt(),null,token,token==null?null:tokens.url(token));
+                to!=null&&to.isActive()?to.getEmail():null,i.status(),i.getCreatedAt(),i.publicExpiresAt(),token,token==null?null:tokens.url(token));
         }).toList();
         return new EmailInvitePageResponse(items,source.getNumber(),source.getSize(),source.hasNext(),source.getTotalElements());
     }

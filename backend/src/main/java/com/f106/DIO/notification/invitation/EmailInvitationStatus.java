@@ -1,6 +1,6 @@
 package com.f106.DIO.notification.invitation;
 
-/** 이메일은 무기한이다. LINK의 만료 시각을 이메일 판정에 적용하지 않는다. */
+/** 이메일 초대 상태 매핑. 7일 만료는 조회 쿼리에서 열 수 있는지(canOpen)로만 반영한다. */
 final class EmailInvitationStatus {
     private EmailInvitationStatus() {}
     static String map(String type, boolean revoked, int uses) {
