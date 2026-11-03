@@ -843,6 +843,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
     content = <ProfileScreen key="profile" compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
+      onOpenSettings={() => navigate('settings')}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   } else if (page === 'settings') {
@@ -902,11 +903,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     // 폰: 화면 전환은 하단 네비게이션 바가 맡는다. 좌측 오버레이 메뉴는 태블릿 이상에서만 쓴다.
     shell = (
       <View style={s.phoneShell}>
-        <View style={[s.phoneNavigationHeader, { backgroundColor: phoneSurface }]}>
+        {page === 'library' && <View style={[s.phoneNavigationHeader, { backgroundColor: phoneSurface }]}>
           <SharingEntry notifications notificationCount={authenticatedNotifications?.count}
             notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} compact
             count={unreadInvites} onPress={openInvitations} />
-        </View>
+        </View>}
         <View style={s.workspace}>
           {content}
         </View>
