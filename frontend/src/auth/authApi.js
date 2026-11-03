@@ -157,6 +157,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       return developmentAccess && noUserinfo && canonicalTarget.origin === server.origin && validProfilePath
         ? { uri: canonicalTarget.href, headers: getAuthHeaders(canonicalTarget.href) } : { uri };
     },
+    getCurrentUserId() { return session ? String(session.user.userId) : null; },
     getSessionKey() { return session ? `${session.user.userId}:${sessionSequence}` : null; },
     // Optional collaboration bridge: dev Basic only reaches this API's origin.
     getCollaborationHeaders({ url, userId, sessionKey }) {

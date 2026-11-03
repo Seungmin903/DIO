@@ -1,3 +1,5 @@
+import { usePhotoPanel, discardUnusedPhotoImports } from '../hooks/usePhotoPanel'
+import PhotoSourcePicker from '../components/panels/PhotoSourcePicker'
 import { canLeaveForInvitation } from '../../notifications/editorInvitationGuard';
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Animated, BackHandler, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
@@ -556,19 +558,19 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
   // 고른 뒤 자르기를 취소했거나 칸이 모자라 넣지 않은 사진: 방금 가져온 새 미디어라 지운다(어디서도 쓰지 않는다)
   const discardUnused = (images, used = []) => {
-    const unused = images.filter((image) => !used.includes(image))
-    if (unused.length) discardGeneratedMedia(unused).catch(() => {})
+    discardUnusedPhotoImports(images, used, discardGeneratedMedia).catch(() => {})
   }
 
   // 사진은 스티커·테이프처럼 틀 없이 바로 붙인다 (자르기는 두 번 누르거나 선택 바에서)
   const pickingPhotos = useRef(false)
-  const addPhotos = async () => {
+  const { visible: photoPanelVisible, toggle: togglePhotoPanel, close: closePhotoPanel } = usePhotoPanel(readOnly)
+  const addPhotos = async (selectedImages) => {
     // 고르는 창이 떠 있는 동안 다시 누르면 무시한다
     if (pickingPhotos.current) return
     pickingPhotos.current = true
     try {
       setImportFailure(null)
-      const images = await pickImages()
+      const images = selectedImages ?? await pickImages()
       if (!images.length) return
       const center = randomCenter()
       const objects = []
@@ -801,7 +803,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 툴바에서 연 창(보관함·펜/텍스트/올가미 설정)은 창이나 툴바가 아닌 곳을 누르면 닫는다.
   // 터치를 가로채지 않고(목록 스크롤과 다투지 않게) 누른 위치만 본다:
   // 창·툴바 안의 터치는 그 영역이 먼저 표시하고, 바깥(root)에서는 표시가 없을 때만 닫는다.
-  const bubbleOpen = Boolean(drawerTab || showMore || penSettingsOpen || textSettingsOpen || guidesOpen || (activeTool === 'lasso' && lassoSettingsOpen))
+  const bubbleOpen = Boolean(photoPanelVisible || drawerTab || showMore || penSettingsOpen || textSettingsOpen || guidesOpen || (activeTool === 'lasso' && lassoSettingsOpen))
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
@@ -816,6 +818,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     ? <PhoneSheet bleed={8} fixedHeight={fixedHeight} insideHandlers={markInside} onHeight={setSheetHeight} onClose={onClose}>{(sheet) => node(sheet)}</PhoneSheet>
     : <View style={wrapStyle} pointerEvents="box-none" {...markInside}>{node(null)}</View>
   const closeBubbles = () => {
+    closePhotoPanel()
     setDrawerTab(null)
     setMoreOpen(false)
     setPenSettingsOpen(false)
@@ -878,14 +881,16 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
   // 리본(태블릿)과 폰 도구 막대가 함께 쓰는 도구·보관함·내보내기 동작
   const openDrawer = (tab) => {
-    // 사진은 보관함 없이 바로 앨범을 연다 (빈 사진 틀은 위젯 칸에 있다)
+    // 사진도 다른 보관함처럼 툴바 아래에서 선택한다 (빈 사진 틀은 위젯 칸에 있다)
     if (tab === 'photo') {
+      if (readOnly) return
       closeBubbles()
       if (cropId) finishCrop(false)
       setActiveTool('select')
-      addPhotos()
+      togglePhotoPanel()
       return
     }
+    closePhotoPanel()
     setLassoSettingsOpen(false)
     setGuidesOpen(false)
     setTextSettingsOpen(false)
@@ -896,6 +901,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setDrawerTab(drawerTab === tab ? null : tab)
   }
   const selectTool = (tool) => {
+    closePhotoPanel()
     if (tool !== activeTool && tool !== 'shape') {
       toolChangeMeasurement.current?.dispose()
       toolChangeMeasurement.current = startPagePanelMeasurement({ kind: 'tool-change', from: activeTool, to: tool, objects: page.objects.length, pages: state.doc.pages.length })
@@ -1057,7 +1063,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       vertical={landscape}
       bottomInset={landscape ? Math.max(bottomInset, 76) : 0}
       activeTool={activeTool}
-      drawerTab={drawerTab}
+      drawerTab={photoPanelVisible ? 'photo' : drawerTab}
       guidesActive={guidesOpen || hasGuides(guides)}
       penColor={penSettings.color}
       highlighterColor={highlighterSettings.color}
@@ -1148,7 +1154,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           penColor={penSettings.color}
           highlighterColor={highlighterSettings.color}
           activeTool={activeTool}
-          drawerTab={drawerTab}
+          drawerTab={photoPanelVisible ? 'photo' : drawerTab}
           onOpenDrawer={openDrawer}
           onSelectTool={selectTool}
           onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
@@ -1416,6 +1422,13 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)]} pointerEvents="box-none" {...markInside}>
               <MorePanel objects={selectedObjects} dispatch={dispatch} onReplacePhoto={replacePhoto} onReplaceCell={replaceCell} onCropCell={startCrop} onClose={() => setMoreOpen(false)} />
             </View>
+          )}
+
+          {photoPanelVisible && (
+            renderPanel((sheet) => <PhotoSourcePicker diary={diary} sheet={sheet} onClose={closePhotoPanel}
+                onDevice={()=>{closePhotoPanel();addPhotos()}}
+                onSelect={image=>{closePhotoPanel();addPhotos([image])}} />,
+              [styles.drawerWrap, toolPopoverStyle(320)], { onClose: closePhotoPanel, fixedHeight: true })
           )}
 
           {drawerTab && (

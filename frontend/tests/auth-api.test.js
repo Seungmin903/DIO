@@ -20,10 +20,12 @@ test('API 주소 형식을 통일한다', () => {
 });
 test('로그인은 실제 서버 사용자·사진을 표시하고 view에는 토큰을 노출하지 않는다', async () => {
   const { api, calls } = setup(() => response(tokens()));
+  assert.equal(api.getCurrentUserId(), null);
   const result = await api.login({ email: ' MEMBER@example.com ', password: 'Password123!' });
   assert.equal(result.photoUri, 'http://localhost:8080/api/v1/auth/profile-photos/photo-id');
   assert.equal(result.nickname, '회원'); assert.equal(result.mode, 'authenticated');
   assert.equal(result.accessToken, undefined);
+  assert.equal(api.getCurrentUserId(), user.userId);
   assert.deepEqual(JSON.parse(calls[0].body), { email: user.email, password: 'Password123!' });
 });
 

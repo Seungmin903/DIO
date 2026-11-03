@@ -30,6 +30,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     if (id === 'react-native') return { View: 'view', Text: 'text', Pressable: 'pressable', Keyboard: { dismiss() {} }, Platform: { OS: 'android', select: (options) => options.default }, StyleSheet: { create: (value) => value } }
     if (id.endsWith('/usePageReadiness.js')) return { usePageReadiness: () => ({ pageReady: true, generation: {}, setReadyPage() {} }) }
     if (id.endsWith('/usePan')) return { usePan: (value) => { handlers = value; return {} } }
+    if (id.endsWith('/useProgressiveNativePage.js')) return { useProgressiveNativePage: () => true }
     if (id.endsWith('/editorReducer')) return reducer
     if (id.endsWith('/common')) return common
     if (id.endsWith('/text')) return text
@@ -38,7 +39,7 @@ function fixture(objects, selectedIds = [], zoom = 1, multi = false) {
     if (id.endsWith('/planners.js')) return planners
     if (id.endsWith('/completedStrokePlan.js')) return completedStrokePlan
     if (id.endsWith('/pageGrid.js')) return pageGrid
-    if (id.endsWith('/theme')) return { colors: {}, radius: {} }
+    if (id.endsWith('/theme')) return { colors: {}, radius: { lg: 12 }, shadow: {} }
     if (id.endsWith('/constants')) return { PHOTO_SHAPES: [] }
     if (id.endsWith('/objects')) return {}
     if (id.endsWith('/backdrop.js')) return { isBackdrop: (object) => object?.backdrop === true }
