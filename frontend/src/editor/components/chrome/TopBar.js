@@ -193,7 +193,7 @@ const CHEVRON_SIZE = 20, CHEVRON_INSET = Math.round(CHEVRON_SIZE * 8 / 24)
 const HOME_SHIFT = 4
 const styles = StyleSheet.create({
   bar: {
-    height: 64,
+    height: 52, // 태블릿: 아래 도구 줄(50)과 함께 쓰는 높이를 줄여 작업창을 넓힌다
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,

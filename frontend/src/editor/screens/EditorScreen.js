@@ -88,8 +88,8 @@ preloadTextFonts()
 const TOAST_MS = 2000
 // 태블릿·폰의 내보내기 진입. 정책 결정으로 다시 켰다 (false 로 바꾸면 모든 진입을 숨긴다).
 const exportEnabled = true
-// 캔버스 위아래로 리본바·하단 컨트롤이 겹치지 않게 비워 두는 여백
-const STAGE_PADDING = { top: 84, bottom: 76, side: 28 }
+// 태블릿: 페이지를 작업창에 최대한 크게 띄운다(사용자 결정). 되돌리기 · 맞춤 막대는 페이지 위에 겹칠 수 있다
+const STAGE_PADDING = { top: 8, bottom: 8, side: 8 }
 // 폰: 도구 막대가 작업창 밖(위·오른쪽)에 있어서 스테이지에는 되돌리기 바 여백만 남긴다.
 const PHONE_STAGE_PADDING = { top: 24, bottom: 68, side: 12 } // 도구 막대 아래 여백 24(코덱스 안)
 
@@ -172,7 +172,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardTop(null))
     return () => { show.remove(); hide.remove() }
   }, [])
-  const [ribbonBottom, setRibbonBottom] = useState(OPTIONS_TOP) // 태블릿 툴바 아래 끝 (작업창 좌표)
   const [phonePanelWidths, setPhonePanelWidths] = useState({ left: 0, right: 0 }) // 폰에서 작업창 위에 띄운 패널 너비
   const toolPopoverStyle = (width = 320) => {
     // 폰: 세로 리본 바로 아래, 가로 리본의 상단 옆에 설정 창을 붙인다.
@@ -180,7 +179,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     if (compact) return { left: 8, right: 8, top: 8, bottom: 60, alignItems: landscape ? 'flex-end' : 'center', justifyContent: 'flex-start' }
     const stageWidth = stageSize?.width ?? 600
     const left = Math.max(8, Math.min((toolAnchor?.x ?? stageOrigin.x + stageWidth / 2) - stageOrigin.x + (toolAnchor?.width ?? 0) / 2 - width / 2, stageWidth - width - 8))
-    return { left, right: 8, top: Math.max(76, (toolAnchor?.y ?? stageOrigin.y + 24) - stageOrigin.y + (toolAnchor?.height ?? 44) + 8), bottom: 64, alignItems: 'flex-start' }
+    return { left, right: 8, top: 8, bottom: 64, alignItems: 'flex-start' } // 도구 줄이 작업창 바로 위에 있어 작업창 위 끝에 붙이면 도구 아래에 뜬다
   }
 
   // scale: 화면에 맞춤 대비 배율, x·y: 페이지 왼쪽 위 위치 (null 이면 가운데)
@@ -825,7 +824,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const compactMenuLive = compactMenu && compactMenu.pageId === page.id && compactMenu.key === selectedObjects.map((o) => o.id).join(',')
     && compactMenu.zoom === zoom && compactMenu.ox === offset.x && compactMenu.oy === offset.y
   useEffect(() => { if (compactMenu && !compactMenuLive) setCompactMenu(null) }, [compactMenu, compactMenuLive])
-  // 선택 바를 둘 보이는 작업 영역 (작업창 좌표). 태블릿은 툴바 아래, 폰은 작업창 위에 띄운 페이지 목록·레이어를 뺀 나머지.
+  // 선택 바를 둘 보이는 작업 영역 (작업창 좌표). 폰은 작업창 위에 띄운 페이지 목록·레이어를 뺀 나머지.
   // 태블릿의 페이지 목록·레이어는 작업창 옆에 놓여 작업창이 이미 그만큼 좁다. 패널을 닫으면 영역도 바로 넓어진다.
   const phonePanelLeft = compact && ((showPages && loaded) || (phoneLandscape && showLayers && !readOnly))
   const phonePanelRight = compact && !phoneLandscape && showLayers && !readOnly
@@ -834,7 +833,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     y: offset.y,
     area: {
       left: phonePanelLeft ? phonePanelWidths.left : 0,
-      top: !readOnly && !compact ? ribbonBottom : 0,
+      top: 0,
       right: stageSize.width - (phonePanelRight ? phonePanelWidths.right : 0),
       bottom: stageSize.height,
     },
@@ -1124,6 +1123,21 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         onShare={openExport}
       />}
       {!landscape && phoneToolbar}
+      {!readOnly && !compact && (
+        <Ribbon
+          {...markInside}
+          onAnchor={setToolAnchor}
+          penColor={penSettings.color}
+          highlighterColor={highlighterSettings.color}
+          activeTool={activeTool}
+          drawerTab={drawerTab}
+          onOpenDrawer={openDrawer}
+          onSelectTool={selectTool}
+          onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
+          guidesActive={guidesOpen || hasGuides(guides)}
+          onOpenGuides={toggleGuides}
+        />
+      )}
 
       {/* 폰은 내보내기 버튼 위치(세로 상단 바·가로 왼쪽 막대)와 상관없이 화면 가운데에 띄운다 */}
       {exportOpen && <ExportMenu mobilePortrait={compact && !landscape} anchor={compact ? null : exportAnchor} doc={state.doc} currentId={page.id} onClose={() => setExportOpen(false)} onRegion={onRegionExport ?? (() => { setExportOpen(false); setRegionOpen(true) })} onPng={(id) => startPageExport('png', id)} onGif={(id) => startPageExport('gif', id)} onPdf={(snapshots) => startExport({ kind: 'pdf', snapshots })} />}
@@ -1204,7 +1218,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           </PhonePanelSlot>
         )}
 
-        <View ref={stageRef} collapsable={false} style={styles.stage}
+        <View ref={stageRef} collapsable={false} style={[styles.stage, !compact && !readOnly && styles.stageEdge]}
           onLayout={() => stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y }))}>
           {/* 선택 바는 페이지 밖(보이는 작업 영역 안)까지 나가므로 페이지가 아니라 작업창 위 층에 그린다. 확대·이동하는 동안은 숨긴다. */}
           <StageOverlayHost hidden={viewMoving}>
@@ -1257,7 +1271,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 eraserTarget={eraserTarget}
                 textBoundary={textBoundary}
                 onRevealText={(dy) => commitView(resolvePan({ scale: view.scale, zoom, x: offset.x, y: offset.y }, 0, -dy))}
-                textEditingTop={stageOrigin.y + (compact ? 8 : 80)}
+                textEditingTop={stageOrigin.y + 8}
                 onTextPaletteChange={setTextPalette}
                 textPaletteBounds={textPaletteBounds}
                 textCommitRef={textCommitRef}
@@ -1329,21 +1343,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           </Viewport>
           </StageOverlayHost>
 
-          {!readOnly && !compact && <View style={styles.ribbonWrap} pointerEvents="box-none" {...markInside}
-            onLayout={(event) => { const { y, height } = event.nativeEvent.layout; setRibbonBottom(y + height) }}>
-            <Ribbon
-              onAnchor={setToolAnchor}
-              penColor={penSettings.color}
-              highlighterColor={highlighterSettings.color}
-              activeTool={activeTool}
-              drawerTab={drawerTab}
-              onOpenDrawer={openDrawer}
-              onSelectTool={selectTool}
-              onPlaceholder={(label) => showToast(`${label}은(는) 다른 담당 기능이라 아직 연결하지 않았어요.`)}
-              guidesActive={guidesOpen || hasGuides(guides)}
-              onOpenGuides={toggleGuides}
-            />
-          </View>}
           {!readOnly && activeTool === 'lasso' && lassoSettingsOpen && !drawerTab && (
             <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
               <LassoSettings shape={lasso.shape} onClose={() => setLassoSettingsOpen(false)}
@@ -1360,10 +1359,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           {!readOnly && textEditing && textPalette && textPalette.placement !== 'panel' && (() => {
             const lineTop = (textPalette.anchor?.y ?? stageOrigin.y) - stageOrigin.y
             const lineBottom = lineTop + (textPalette.anchor?.height ?? 0)
-            const above = lineTop - TEXT_ACTION_BAR_HEIGHT - 6 >= 84
+            const paletteTop = compact ? 84 : 8
+            const above = lineTop - TEXT_ACTION_BAR_HEIGHT - 6 >= paletteTop
             return <View style={[styles.textPaletteWrap, {
               left: Math.max(8, Math.min((textPalette.anchor?.x ?? stageOrigin.x) - stageOrigin.x, (stageSize?.width ?? 600) - TEXT_ACTION_BAR_WIDTH - 8)),
-              ...(above ? { bottom: (stageSize?.height ?? 500) - lineTop + 6 } : { top: Math.max(84, Math.min(lineBottom + 6, (stageSize?.height ?? 500) - 164)) }),
+              ...(above ? { bottom: (stageSize?.height ?? 500) - lineTop + 6 } : { top: Math.max(paletteTop, Math.min(lineBottom + 6, (stageSize?.height ?? 500) - 164)) }),
             }]} {...markInside}>
               {textPalette.content}
             </View>
@@ -1384,7 +1384,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           )}
           {/* 텍스트 서식: 고른 텍스트를 고칠 때는 다른 옵션 창처럼 요소 옆에, 텍스트 도구의 기본값을 정할 때는 툴바 아래에 */}
           {!readOnly && textSettingsOpen && !textEditing && !drawerTab && (
-            <View style={selectedText ? [styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)] : [styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
+            <View style={selectedText ? [styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)] : [styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
               <TextSettings verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
             </View>
           )}
@@ -1401,7 +1401,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
 
           {showMore && !drawerTab && stageSize && (
             // 옵션 패널은 고른 요소 옆(가리지 않는 쪽)에 띄운다
-            <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)]} pointerEvents="box-none" {...markInside}>
+            <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize, compact ? OPTIONS_TOP_PHONE : OPTIONS_TOP)]} pointerEvents="box-none" {...markInside}>
               <MorePanel objects={selectedObjects} dispatch={dispatch} onReplacePhoto={replacePhoto} onReplaceCell={replaceCell} onCropCell={startCrop} onClose={() => setMoreOpen(false)} />
             </View>
           )}
@@ -1532,7 +1532,8 @@ const BODY_GAP = 16 // 페이지 목록·작업창·레이어 사이 간격
 const BODY_PADDING = 16 // styles.body 의 padding
 const OPTIONS_WIDTH = 300
 const OPTIONS_GAP = 16
-const OPTIONS_TOP = 76 // 툴바 아래부터
+const OPTIONS_TOP = 8 // 태블릿: 작업창 위 끝부터
+const OPTIONS_TOP_PHONE = 76
 const OPTIONS_MARGIN = 12
 const OPTIONS_BOTTOM = 64 // 아래쪽 되돌리기 바 위까지
 const CONTEXT_BAR_HALF = 180 // 요소 아래·위에 뜨는 편집 바 폭의 절반 (바도 가리지 않게)
@@ -1541,7 +1542,7 @@ const CONTEXT_BAR_HALF = 180 // 요소 아래·위에 뜨는 편집 바 폭의 �
  * 옵션 패널 자리: 고른 요소의 화면 상자 오른쪽에 자리가 있으면 오른쪽, 없으면 왼쪽,
  * 둘 다 모자라면 더 넓은 쪽 가장자리에 붙인다. 위쪽은 요소 위 끝에 맞추되 화면 안으로.
  */
-function optionsPlacement(objects, zoom, offset, stage) {
+function optionsPlacement(objects, zoom, offset, stage, optionsTop = OPTIONS_TOP) {
   const b = unionBounds(objects)
   const cx = offset.x + b.cx * zoom
   // 요소와 그 아래·위의 편집 바를 함께 피한다
@@ -1558,8 +1559,8 @@ function optionsPlacement(objects, zoom, offset, stage) {
   else if (roomLeft >= need) left = rect.left - need
   else left = roomRight >= roomLeft ? stage.width - OPTIONS_MARGIN - OPTIONS_WIDTH : OPTIONS_MARGIN
   left = clamp(left, OPTIONS_MARGIN, Math.max(OPTIONS_MARGIN, stage.width - OPTIONS_MARGIN - OPTIONS_WIDTH))
-  const minHeight = Math.min(420, stage.height - OPTIONS_TOP - OPTIONS_BOTTOM)
-  const top = clamp(rect.top, OPTIONS_TOP, Math.max(OPTIONS_TOP, stage.height - OPTIONS_BOTTOM - minHeight))
+  const minHeight = Math.min(420, stage.height - optionsTop - OPTIONS_BOTTOM)
+  const top = clamp(rect.top, optionsTop, Math.max(optionsTop, stage.height - OPTIONS_BOTTOM - minHeight))
   return { left, top, height: stage.height - OPTIONS_BOTTOM - top }
 }
 
@@ -1602,9 +1603,10 @@ const styles = StyleSheet.create({
   phonePanelLeft: { left: 8 },
   phonePanelRight: { right: 8, maxWidth: '86%' },
   stage: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 16 },
+  // 태블릿: 바깥 여백과 패널 사이 틈을 덮어 도구 줄 · 패널 · 화면 끝까지 채운다(틈과 바깥 여백이 같은 16이라 패널 여닫을 때 폭 계산은 그대로다)
+  stageEdge: { margin: -BODY_PADDING, borderRadius: 0 },
   textPaletteWrap: { position: 'absolute', maxWidth: '100%' },
   textRangeWrap: { position: 'absolute', left: 8, right: 8, bottom: 8, alignItems: 'center' },
-  ribbonWrap: { position: 'absolute', top: 12, left: 0, right: 0, alignItems: 'center' },
   lassoSettingsWrap: { position: 'absolute', top: 76, left: 12, right: 12, alignItems: 'center' },
   penSettingsWrap: { position: 'absolute', top: 76, left: 16, right: 16, bottom: 64, alignItems: 'flex-start' },
   // 보관함은 스테이지 안에서만 펼쳐지고, 내용이 길면 안에서 스크롤한다. (하단 확대 컨트롤은 가리지 않음)
