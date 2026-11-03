@@ -1,0 +1,10 @@
+title = "DIO Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Firebase Android public client configuration"
+paths = [
+  '''(^|/)frontend/google-services\.json$'''
+]
