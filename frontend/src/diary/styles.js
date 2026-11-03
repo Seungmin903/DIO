@@ -21,7 +21,7 @@ export const styles = StyleSheet.create({
   railSlot: { width: 78 },
   // 메뉴 오른쪽(접힌 폭 이후)부터 화면 끝까지 덮는 반투명 막. 불투명도는 메뉴 펼침 정도(0~1)를 따른다.
   railScrim: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 19, elevation: 19 }, // elevation 은 배경 있는 뷰에 주면 안드로이드가 가장자리에 그림자 띠를 그려, 배경 없는 래퍼에만 둔다
-  railScrimTint: { flex: 1, backgroundColor: 'rgba(0,0,0,0.32)' },
+  railScrimTint: { flex: 1, backgroundColor: colors.scrim },
   railScrimPress: { flex: 1 },
   railOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, zIndex: 20, elevation: 20 }, // 배경 없는 래퍼(그림자 띠 방지). 흰 배경은 안쪽 rail
   railInner: { flex: 1, width: '100%' },
@@ -38,7 +38,6 @@ export const styles = StyleSheet.create({
   // 폰 좌측 바(SideRail compact): 항목 44 · 알림 종 44, 선택 = 44 둥근 사각, 안쪽 여백은 접힘 8 · 펼침 12
   brandRowPhone: { height: 44, marginBottom: 8 },
   railTogglePhone: { width: 44, height: 44 },
-  railBellDotPhone: { top: 5, right: 5, width: 10, height: 10, borderRadius: 5 },
   railItemPhone: { minHeight: 44, paddingHorizontal: 11, gap: 12, marginBottom: 4 },
   railGroupPhone: { marginTop: 4 },
   railProfileLinePhone: { marginBottom: 8 },
@@ -141,6 +140,15 @@ export const styles = StyleSheet.create({
   // 선택 모드 도구줄(보관함 · 휴지통 공용, SelectionBar): 선택 개수 + 동작 버튼. 좁은 폰에서는 버튼이 다음 줄로 내려간다.
   // 규격은 같은 화면의 칩과 맞춘다: 버튼 · 칩은 높이 40 · 모서리 10 · cardBorder 1px · 글자 12/700 (터치 44는 hitSlop), 판은 모서리 16(코덱스 2026-10-31)
   selectBar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 14, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
+  // 폰 꽉 찬 띠(안쪽 14 + 화면 가장자리까지 -14): 옅은 남보라 면 · 위아래 1px 선 · 모서리 없음
+  selectBarBand: { marginHorizontal: -14, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', gap: 8, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 0, borderWidth: 0, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surfaceMuted },
+  selectBandHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  selectBandActions: { flexDirection: 'row', gap: 8 },
+  selectButtonGhost: { minHeight: 32, paddingHorizontal: 8, marginRight: -8, borderWidth: 0, backgroundColor: 'transparent' },
+  selectButtonFill: { flex: 1, paddingHorizontal: 8 },
+  selectCountBand: { fontSize: 16, fontWeight: '600' },
+  selectButtonBand: { minHeight: 44, paddingHorizontal: 14 },
+  selectButtonTextBand: { fontSize: 14, fontWeight: '700' },
   selectCount: { color: C.ink, fontSize: 13, fontWeight: '700' },
   selectActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginLeft: 'auto' },
   selectButton: { minHeight: 40, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
@@ -240,11 +248,13 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   // 관리 모드: 고른 카드는 파란 테두리, 표지 위 오른쪽에 체크 원을 띄운다. 테두리 두께는 그대로 둬 카드가 밀리지 않게 한다.
   cardSelected: { borderColor: C.blueStrong },
   cardCheck: { position: 'absolute', top: 12, right: 12, zIndex: 3, width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 2, borderColor: C.white, backgroundColor: 'rgba(11,23,102,.28)' },
+  cardCheckCompact: { top: 6, right: 6, width: 24, height: 24, borderRadius: 12 }, // 폰: 즐겨찾기 별(24칸 · 모서리 6)과 같은 크기 · 자리
   cardCheckOn: { backgroundColor: C.blueStrong },
   sortOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   sortOptionCheck: { width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }, // 화살표가 없는 항목도 자리를 비워 둬 글자가 맞는다
   cardCheckMark: { color: C.white, fontSize: 16, fontWeight: '800', lineHeight: 18 },
   cardFavorite: { position: 'absolute', top: 12, left: 12, zIndex: 3, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }, // 배경 없는 별: 오른쪽 ⋯ 버튼과 같은 여백으로 왼쪽 위 모서리에 붙인다
+  cardFavoriteCompact: { top: 6, left: 'auto', right: 6 }, // 폰: 표지 오른쪽 위 모서리(제목표와 겹치지 않게, 2026-11-03 사용자 결정)
   // 정보 줄 오른쪽 위 더보기 버튼(동작 말풍선을 연다). 배경 없는 28×28 + hitSlop 8 = 터치 44(원 페이저 06). 자리(slot)는 버튼이 숨는 스와이프 옆 카드에도 남겨 제목 줄 높이가 같게 한다
   cardMoreSlot: { width: 28, height: 28, flexShrink: 0, marginTop: -4, marginRight: -3 },
   cardMore: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },

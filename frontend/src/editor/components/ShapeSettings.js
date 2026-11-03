@@ -1,5 +1,5 @@
 import { useCallback, useContext, useRef, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import { colors } from '../../shared/theme'
 import { DEFAULT_SHAPE_STYLE, EDITOR_SHAPES, SHAPE_CATEGORIES, SHAPE_BORDER_STYLES, shapeBorderDash } from '../utils/editorShapes'
@@ -7,6 +7,7 @@ import { Segmented, ToolPanelHeader, toolPanelStyles as p } from './ToolPanel'
 import { PaletteInteractionContext } from './controls/ColorPicker'
 import { useColorWindow } from '../../diary/components/PresetColorEditor'
 import Slider from './controls/Slider'
+import FadeScroll from './controls/FadeScroll'
 import { MEMO_ARTS } from '../widgets/memoArt'
 
 // 종이 그림에 무늬 자리({line})가 있는 메모만 무늬 색을 고른다
@@ -20,7 +21,7 @@ const SWATCHES = ['#F8E5A1', '#F6D3C6', '#F3CDD6', '#E2D5F0', '#D5DDF3', '#CFE8E
 const MEMO_LINE_SWATCHES = ['#C96B7B', '#D8A93E', '#65A889', '#5F9BBC', '#818AC3', '#8A6650', '#666D7A', '#0B1766']
 export default function ShapeSettings({ settings, onChange, onCheckpoint, onCommit, onAdd, onClose, embedded = false, showShapePicker = true }) {
   const parentPaletteInteraction = useContext(PaletteInteractionContext)
-  const Content = embedded ? View : ScrollView
+  const Content = embedded ? View : FadeScroll
   const scroll = useRef(null)
   const [paletteDragging,setPaletteDragging] = useState(false)
   const onPaletteInteraction = useCallback(active => {
@@ -48,19 +49,19 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
   </View>
   return <View style={embedded ? {marginTop:14} : p.card}>
     {!embedded && <ToolPanelHeader icon="shape" title="도형" onClose={onClose} />}
-    <Content ref={scroll} {...(embedded ? {style:{gap:12}} : {scrollEnabled:!paletteDragging,keyboardShouldPersistTaps:"handled",contentContainerStyle:p.content,showsVerticalScrollIndicator:false})}>
+    <Content {...(embedded ? {ref:scroll,style:{gap:12}} : {scrollRef:scroll,style:p.scrollFrame,scrollEnabled:!paletteDragging,keyboardShouldPersistTaps:"handled",contentContainerStyle:p.content,showsVerticalScrollIndicator:false})}>
       {showShapePicker && <>
       <Text style={p.label}>모양</Text>
-      {moreShapes && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={p.segment}>
+      {moreShapes && <FadeScroll horizontal contentContainerStyle={p.segment}>
         {SHAPE_CATEGORIES.map(item => <Pressable key={item.id} accessibilityRole="tab" accessibilityLabel={item.label} accessibilityState={{selected:category===item.id}} onPress={()=>setCategory(item.id)} style={[p.segmentItem,styles.categoryTab,category===item.id&&p.segmentActive]}><Text numberOfLines={1} style={[p.segmentText,category===item.id&&p.segmentTextActive]}>{item.label}</Text></Pressable>)}
-      </ScrollView>}
+      </FadeScroll>}
       {(() => {
         const list = moreShapes ? EDITOR_SHAPES.filter(item => !item.art && (category === 'all' || item.category === category)) : EDITOR_SHAPES.slice(0, COMMON_SHAPE_COUNT)
         const grid = list.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={item.label} accessibilityState={{ selected: value.shape === item.id }} onPress={() => onChange({ shape: item.id })} style={[styles.shape, value.shape === item.id && styles.selected]}>
           <Svg width={26*Math.min(1,item.ratio??1)} height={26/Math.max(1,item.ratio??1)} viewBox="-5 -5 110 110" preserveAspectRatio="none"><Path d={item.path} fill={value.fill === 'none' ? 'none' : value.fill} stroke={colors.textMuted} strokeWidth={4} /></Svg>
         </Pressable>)
         return moreShapes
-          ? <ScrollView nestedScrollEnabled style={styles.shapeList} contentContainerStyle={styles.shapes}>{grid}</ScrollView>
+          ? <FadeScroll nestedScrollEnabled style={styles.shapeList} contentContainerStyle={styles.shapes}>{grid}</FadeScroll>
           : <View style={styles.shapes}>{grid}</View>
       })()}
       <Pressable accessibilityRole="button" accessibilityLabel={moreShapes ? '도형 접기' : '도형 더 보기'} accessibilityState={{expanded:moreShapes}} onPress={()=>setMoreShapes(open=>!open)} style={styles.moreButton}><Text style={styles.moreText}>{moreShapes ? '접기' : '더 보기'}</Text></Pressable>
@@ -75,12 +76,12 @@ export default function ShapeSettings({ settings, onChange, onCheckpoint, onComm
       <Slider label="테두리 두께" value={value.borderWidth} min={0} max={16} step={1} onStart={onCheckpoint} onEnd={onCommit} onChange={borderWidth => onChange({ borderWidth }, false)} />
       {palette('borderColor', '테두리 색상', !value.borderWidth)}
       <Text style={p.label}>테두리 모양</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[p.segment,!value.borderWidth&&p.dim]}>
+      <FadeScroll horizontal contentContainerStyle={[p.segment,!value.borderWidth&&p.dim]}>
         {SHAPE_BORDER_STYLES.map(item=><Pressable key={item.id} accessibilityRole="radio" accessibilityLabel={`테두리 ${item.label}`} accessibilityState={{checked:value.borderStyle===item.id,disabled:!value.borderWidth}} disabled={!value.borderWidth} onPress={()=>onChange({borderStyle:item.id})} style={[p.segmentItem,styles.borderPreview,value.borderStyle===item.id&&p.segmentActive]}>
           <Svg width={52} height={22}><Path d="M2 11H50" stroke={value.borderStyle===item.id?colors.text:colors.textMuted} strokeWidth={2} strokeDasharray={shapeBorderDash(item.id,2)} /></Svg>
           <Text style={[styles.borderPreviewLabel,value.borderStyle===item.id&&p.segmentTextActive]}>{item.label}</Text>
         </Pressable>)}
-      </ScrollView>
+      </FadeScroll>
       </>}
     </Content>
     {colorWindow.element}

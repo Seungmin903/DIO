@@ -8,8 +8,7 @@ import { TEMPLATE_VERSION, getTemplate, templateCanvasSize } from '../../editor/
 import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, colorTemplateXml, withPaperBackground } from '../../editor/templates/appearance.js'
 import { loadTemplate, peekTemplate } from '../../editor/templates/loadTemplate'
 import { colors } from '../../shared/theme'
-import { ChipGroup, ColorRow, NumberField, OptionRow, QuickValues, Segmented } from './FormControls'
-import { paperFontChips } from '../../editor/components/PaperFontChips'
+import { ColorRow, NumberField, OptionRow, QuickValues, Segmented } from './FormControls'
 import PaperFontDropdown from './PaperFontDropdown'
 import MyColorRow from './MyColorRow'
 import PaperSketch, { paperSketchKey } from './PaperSketch'
@@ -341,9 +340,8 @@ export default function PaperOptions({ sections, onChange, orientation, appearan
  * 속지 스타일: 종이 색 · 선과 글자 색 · 글꼴. 수정에서는 바꿀 페이지(이 다이어리의 모든 페이지 / 새 페이지만)를 고르고 세 가지가 같은 범위를 따른다.
  * 글꼴은 인쇄 글자가 있는 속지에만 있다(plainOnly 면 선 · 글씨 색과 함께 숨긴다).
  */
-// fontDropdown: 글꼴을 칩 대신 드롭다운으로 고른다(꾸미기 공방 기본 속지 설정)
 // myColors: 견본 줄 끝 '직접 고르기' 대신 아래에 '내 색상' 줄(저장 · + 로 추가)을 둔다(꾸미기 공방 기본 속지 설정)
-export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false, fontDropdown = false, myColors = false }) {
+export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainOnly = false, myColors = false }) {
   const setBackground = backgroundColor => onChange(withPaperBackground(appearance, backgroundColor))
   const setLayout = layoutColor => onChange({ ...appearance, layoutColor })
   return <View style={styles.panel}>
@@ -355,10 +353,9 @@ export function PaperStyleOptions({ appearance, onChange, scope, onScope, plainO
       <ColorRow label="선과 글씨 색" value={appearance.layoutColor} swatches={PAPER_LAYOUTS} custom={!myColors} onChange={setLayout} />
       {myColors && <MyColorRow scope="paperLine" label="선과 글씨" value={appearance.layoutColor} onChange={setLayout} />}
     </OptionRow>}
-    {!plainOnly && <OptionRow label="글꼴">{fontDropdown
-      ? <PaperFontDropdown value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={font => onChange({ ...appearance, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
-      : <ChipGroup label="속지 글꼴" columns={3} items={paperFontChips()} value={appearance.font ?? DEFAULT_PAPER_FONT}
-      onChange={font => onChange({ ...appearance, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />}</OptionRow>}
+    {!plainOnly && <OptionRow label="글꼴">
+      <PaperFontDropdown value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={font => onChange({ ...appearance, font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
+    </OptionRow>}
     {onScope && <OptionRow label="바꿀 페이지"><Segmented items={[{ id: 'all', label: '모든 페이지' }, { id: 'new', label: '새 페이지만' }]} selected={id => id === scope} onPress={onScope} /></OptionRow>}
   </View>
 }

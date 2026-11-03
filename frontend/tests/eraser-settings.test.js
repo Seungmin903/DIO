@@ -10,6 +10,7 @@ const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/
 })
 const module = { exports: {} }
 new Function('require', 'module', 'exports', code)(id => {
+  if (id === './controls/FadeScroll') return { __esModule: true, default: 'ScrollView' } // 그라데이션 래퍼는 ScrollView 로 대신 읽는다
   if (id === 'react-native') return { View: 'View', Text: 'Text', ScrollView: 'ScrollView' }
   if (id === './ToolPanel') return { Segmented: 'Segmented', ToolPanelHeader: 'Header', toolPanelStyles: {} }
   if (id === '../utils/eraser.js') return eraser

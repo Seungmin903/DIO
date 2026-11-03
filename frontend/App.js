@@ -29,6 +29,7 @@ import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import { withPdfPages } from './src/diary/utils/pdfImport';
 import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
+import PhoneTopBand from './src/diary/components/PhoneTopBand';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
@@ -965,7 +966,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         : <SharingHub onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
-        {isPhone && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />}
+        {isPhone && insets.top > 0 && (page === 'editor'
+          ? <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />
+          // 전면 카메라 자리: 좌측 바(바탕 + 오른쪽 선)와 본문 바탕이 맨 위까지 이어지게 칠한다. 글자 · 아이콘 위치는 그대로(사용자 결정 2026-11-03)
+          : <PhoneTopBand height={insets.top} collapsed={railCollapsed} bodyColor={page === 'library' ? safeAreaColors.top : C.white} />)}
         <View style={s.safeRow}>
           {insets.left > 0 && <View style={{ width: insets.left, backgroundColor: safeAreaColors.left }} />}
           <View style={s.viewport} onLayout={measureViewport}>

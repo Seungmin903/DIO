@@ -1,0 +1,60 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>폰 실기기 점검 — 고친 화면 비포/애프터</title><style>
+@page { size: A4 landscape; margin: 10mm; }
+body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #0B1766; margin: 0; }
+.cover { height: 185mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+.cover h1 { font-size: 30pt; margin: 0 0 6mm; } .cover p { font-size: 13pt; margin: 2mm 0; color: #5360A6; }
+.page { page-break-after: always; height: 188mm; display: flex; flex-direction: column; }
+h2 { font-size: 16pt; margin: 0 0 3mm; } h3 { font-size: 10pt; margin: 2mm 0 1mm; color: #5360A6; }
+.text { font-size: 9.5pt; line-height: 1.45; } .text ul { margin: 0; padding-left: 5mm; }
+.row { display: flex; gap: 8mm; justify-content: center; align-items: flex-start; margin-top: 3mm; flex: 1; min-height: 0; }
+.row.small { flex: 0 0 auto; margin-top: 2mm; }
+figure { margin: 0; text-align: center; height: 100%; display: flex; flex-direction: column; align-items: center; min-height: 0; }
+figure img { max-height: 135mm; max-width: 100%; border: 1px solid #D5D9EE; border-radius: 3mm; object-fit: contain; min-height: 0; }
+.row.small figure img { max-height: 55mm; }
+figcaption { font-size: 9pt; color: #5360A6; margin-top: 1.5mm; }
+</style></head><body>
+<section class="cover"><h1>폰 실기기 점검<br>고친 화면 비포 · 애프터</h1>
+<p>2026-11-03 · 갤럭시 S20 (SM-N981N, 411×914dp) · 개발 빌드 handwritingdev</p>
+<p>고친 화면 10곳. 점검 과정과 남은 이상은 01 점검표.md 에 있다.</p></section>
+<section class="page"><h2>새 다이어리 · 기본 탭 (폰)</h2>
+<div class="text"><h3>증상</h3><ul><li>미리보기 판이 높이 0으로 접혀 표지·속지가 보이지 않고, 탭 아래 점 두 개만 남는다.</li><li>창 아래쪽 2/3가 빈 채로 남는다.</li></ul><h3>원인 · 수정</h3><ul><li>기본 스타일 flex: 1 이 flexBasis · height 보다 앞서 판 높이가 0 (실측 355×0).</li><li>stageSheet 에 flex: 0 을 더해 height 240 이 먹히게 했다. (Workbench.js 한 줄)</li></ul></div>
+<div class="row"><figure class=""><img src="이미지/before-1-4-new-sheet.jpg"><figcaption>비포</figcaption></figure><figure class=""><img src="이미지/after-1-4-fix1.jpg"><figcaption>애프터</figcaption></figure></div>
+</section>
+<section class="page"><h2>새 다이어리 · 속지 탭 (폰)</h2>
+<div class="text"><h3>증상</h3><ul><li>속지 미리보기가 작은 알약으로 접히고, 속지 묶음이 있으면 썸네일 줄이 탭 위로 넘쳐 겹친다.</li></ul><h3>원인 · 수정</h3><ul><li>같은 원인(판 높이 0). 판 높이가 240으로 서면서 큰 장 · 썸네일 줄 · 쪽수 알약이 판 안에 들어간다.</li></ul></div>
+<div class="row"><figure class=""><img src="이미지/before-1-4b-paper-tab.jpg"><figcaption>비포</figcaption></figure><figure class=""><img src="이미지/after-1-4i4-mixed.jpg"><figcaption>애프터</figcaption></figure></div>
+</section>
+<section class="page"><h2>속지 글꼴 고르기 — 칩에서 드롭다운으로</h2>
+<div class="text"><h3>증상</h3><ul><li>공방 기본 속지 설정만 드롭다운이고, 새 다이어리 · 다이어리 수정 · 편집기 속지 설정 창은 칩 여섯 개가 줄지어 있었다.</li></ul><h3>원인 · 수정</h3><ul><li>PaperStyleOptions 의 fontDropdown 옵션이 기본 꺼짐이었다. 세 곳 모두 PaperFontDropdown 으로 통일하고 안 쓰는 칩 코드는 지웠다.</li><li>편집기 쪽은 글꼴 칸이 있는 속지에서만 나와 폰에서는 새 다이어리만 확인했다.</li></ul></div>
+<div class="row"><figure class=""><img src="이미지/after-1-4k2-paper-color.jpg"><figcaption>비포</figcaption></figure><figure class=""><img src="이미지/after-1-4k3-font-dropdown.jpg"><figcaption>애프터</figcaption></figure><figure class=""><img src="이미지/after-1-4k4-font-dropdown-open.jpg"><figcaption>목록 열림</figcaption></figure></div>
+</section>
+<section class="page"><h2>사진 자르기 창 (폰)</h2>
+<div class="text"><h3>증상</h3><ul><li>비율 칩이 두 줄이라 카드가 화면보다 커져 아래가 잘린다. 둥근 모서리 없이 끊기고 버튼 줄이 바닥에 붙는다.</li></ul><h3>원인 · 수정</h3><ul><li>미리보기 판 높이를 창 높이 절반으로만 잡아 폰에서 카드가 넘쳤다. 폰(폭 600 미만)은 창 높이 − 470 까지로 줄였다(태블릿은 − 420).</li><li>PhotoCropper.js 두 줄.</li></ul></div>
+<div class="row"><figure class=""><img src="이미지/before-2-11-photo-crop.jpg"><figcaption>비포</figcaption></figure><figure class=""><img src="이미지/after-2-11-photo-crop.jpg"><figcaption>애프터</figcaption></figure></div>
+</section>
+<section class="page"><h2>내보내기 · 페이지 지정 + 키보드 (폰)</h2>
+<div class="text"><h3>증상</h3><ul><li>페이지 지정 칸을 누르면 키보드가 올라와 형식 · 만들기 버튼이 키보드 뒤로 가려지고 창은 움직이지 않는다.</li></ul><h3>원인 · 수정</h3><ul><li>Android 모달은 창 크기가 줄지 않는다. 키보드 높이(Keyboard 이벤트)만큼 가운데 창의 아래 여백과 최대 높이를 줄여 창이 위로 비켜 서게 했다.</li><li>ExportMenu.js, 테스트가 보는 컨테이너 스타일 모양은 그대로 둔다.</li></ul></div>
+<div class="row"><figure class=""><img src="이미지/before-2-13-export-keyboard.jpg"><figcaption>비포</figcaption></figure><figure class=""><img src="이미지/after-2-13-export-keyboard.jpg"><figcaption>애프터</figcaption></figure></div>
+</section>
+<section class="page"><h2>편집기 상단 바 · ‹ 여백 (폰)</h2>
+<div class="text"><h3>증상</h3><ul><li>왼쪽 ‹ 가 화면 가장자리에 약 7dp로 붙어 있어 터치하기도 보기에도 답답하다.</li></ul><h3>원인 · 수정</h3><ul><li>폰 상단 바 좌우 여백이 8로 같았다. 왼쪽만 본문 여백 14에 맞췄다(코덱스 제안 14dp). TopBar.js 한 줄.</li></ul></div>
+<div class="row"><figure class=""><img src="이미지/after-2-12-paper-color-popup-crop.jpg"><figcaption>비포</figcaption></figure><figure class=""><img src="이미지/after-2-1-topbar-after-crop.jpg"><figcaption>애프터</figcaption></figure></div>
+</section>
+<section class="page"><h2>즐겨찾기 별 위치 (폰 · 사용자 결정: 표지 오른쪽 위)</h2>
+<div class="text"><h3>증상</h3><ul><li>별이 표지 왼쪽 위에서 제목표와 겹쳐 제목표 첫 글자를 가렸다.</li></ul><h3>원인 · 수정</h3><ul><li>별을 표지 오른쪽 위 12dp로 옮겼다(크기 21 그대로). 고무줄 띠와는 일부 겹친다(시안 1 그대로). 스타일 left → right 한 줄.</li><li>코덱스가 권한 28dp 확대 · 표지 밖 이동은 설계 결정에 어긋나 적용하지 않았다.</li></ul></div>
+<div class="row"><figure class=""><img src="이미지/before-1-6-grid-crop.jpg"><figcaption>비포</figcaption></figure><figure class=""><img src="이미지/after-1-6-star-right-crop.jpg"><figcaption>애프터</figcaption></figure></div>
+</section>
+<section class="page"><h2>레이어 패널 · 도구 막대 (폰 세로 · 사용자 결정)</h2>
+<div class="text"><h3>증상</h3><ul><li>레이어 패널이 오른쪽 약 70%를 덮어 왼쪽 아래 되돌리기 · 다시 실행 · 저장됨 막대가 잘렸다.</li><li>도구 막대는 둥근 카드로 떠 있어 상단 바와 따로 놀았다.</li></ul><h3>원인 · 수정</h3><ul><li>패널 보이는 폭을 약 290 → 216dp로 줄여 막대가 옆에 온전히 들어오게 했다(폰 세로만).</li><li>도구 막대를 상단 바처럼 화면 폭을 꽉 채운 한 영역으로 바꾸고, 상단 바와의 경계선은 한 줄만 둔다. LayerPanel · PhoneToolbar.</li></ul></div>
+<div class="row"><figure class=""><img src="이미지/after-2-4-layers.jpg"><figcaption>비포</figcaption></figure><figure class=""><img src="이미지/after-2-4-layers-new.jpg"><figcaption>애프터</figcaption></figure></div>
+</section>
+<section class="page"><h2>상태바 띠 · 전면 카메라 자리 (폰 · 사용자 결정)</h2>
+<div class="text"><h3>증상</h3><ul><li>맨 위 전면 카메라 자리 약 36dp 띠가 라벤더, 그 아래 본문이 흰색이라 띠가 보였다.</li></ul><h3>원인 · 수정</h3><ul><li>글자 · 아이콘 위치는 그대로 두고, 사이드바(바탕 + 오른쪽 선)와 본문 바탕을 맨 위까지 이어서 칠했다(App.js 상단 안전 영역). 편집기 상단은 기존대로.</li></ul></div>
+<div class="row"><figure class=""><img src="이미지/after-5-3-trash-crop.jpg"><figcaption>비포</figcaption></figure><figure class=""><img src="이미지/after-5-3-trash-new-crop.jpg"><figcaption>애프터</figcaption></figure></div>
+</section>
+<section class="page"><h2>가로 편집 · 오른쪽 도구 막대 (폰)</h2>
+<div class="text"><h3>증상</h3><ul><li>막대가 지우개에서 끝나 보이지만 아래에 텍스트 · 스티커 · 위젯 · 테이프 · 사진 · 격자가 스크롤 안에 있어, 처음에는 더 있다는 단서가 전혀 없다.</li></ul><h3>원인 · 수정</h3><ul><li>스크롤 막대(persistentScrollbar)는 효과가 없어 되돌리고, 더 스크롤할 수 있는 쪽 끝에 옅은 흰 그라데이션을 얹었다(사용자 제안).</li><li>라이브러리 없이 8개의 얇은 흰 띠를 겹쳐 만들고 터치는 통과시킨다. 위 · 아래 끝은 스크롤 위치에 따라 따로 나타나고 사라진다. PhoneToolbar.js.</li></ul></div>
+<div class="row"><figure class=""><img src="이미지/after-3-1-landscape2.jpg"><figcaption>비포</figcaption></figure><figure class=""><img src="이미지/after-3-2-fade-strips.jpg"><figcaption>애프터</figcaption></figure></div>
+<div class="row small"><figure class=""><img src="이미지/after-3-1-landscape2-crop.jpg"><figcaption>비포 확대</figcaption></figure><figure class=""><img src="이미지/after-3-2-fade-strips-crop.jpg"><figcaption>애프터 확대</figcaption></figure><figure class=""><img src="이미지/after-3-2-fade-bottom-crop.jpg"><figcaption>맨 아래로 스크롤</figcaption></figure></div>
+</section>
+</body></html>

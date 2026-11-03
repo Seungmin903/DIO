@@ -1,7 +1,8 @@
 import { useRef } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { colors } from '../../../shared/theme'
 import Icon from '../controls/Icon'
+import FadeScroll from '../controls/FadeScroll'
 
 // 도구 상태는 EditorScreen이 소유하고 캔버스와 공유한다.
 // 화면 이동·고르기 도구
@@ -29,7 +30,7 @@ const DECOR_TOOLS = [
 export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTool, onPlaceholder, onAnchor, penColor, highlighterColor, guidesActive, onOpenGuides }) {
   return (
     <View style={styles.shell}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ribbon} accessibilityLabel="편집 도구" keyboardShouldPersistTaps="handled">
+      <FadeScroll horizontal contentContainerStyle={styles.ribbon} accessibilityLabel="편집 도구" keyboardShouldPersistTaps="handled">
         {NAV_TOOLS.map((tool) => (
           <Tool onAnchor={onAnchor} key={tool.id} icon={tool.icon} label={tool.label} dim={tool.pending}
             active={!drawerTab && activeTool === tool.id}
@@ -48,7 +49,7 @@ export default function Ribbon({ activeTool, drawerTab, onOpenDrawer, onSelectTo
         <View style={styles.divider} />
         {/* 하이퍼링크는 요소를 누르면 뜨는 옵션 바에서 건다 */}
         <Tool onAnchor={onAnchor} icon="guides" label="격자 가이드" active={guidesActive} onPress={onOpenGuides} />
-      </ScrollView>
+      </FadeScroll>
     </View>
   )
 }

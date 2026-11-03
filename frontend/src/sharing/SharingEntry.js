@@ -18,6 +18,7 @@ export default function SharingEntry({
   showLabel = true,
   memberLimit = 2,
   hideCounter = false,
+  plain = false, // 'bar' 아이콘만: 테두리 · 바탕 없이 옆의 다른 상단 바 아이콘과 같은 모양
   notifications = false,
   notificationLabel = '받은 초대',
   notificationCount,
@@ -108,7 +109,7 @@ export default function SharingEntry({
           closePeople();
           onPress?.();
         }}
-        style={bar ? [s.barEntry, !showLabel && s.barEntryIcon] : notifications && summary && compact ? [s.entry, { flexDirection: 'column', gap: 0 }] : s.entry}
+        style={bar ? [s.barEntry, !showLabel && s.barEntryIcon, plain && s.barEntryPlain] : notifications && summary && compact ? [s.entry, { flexDirection: 'column', gap: 0 }] : s.entry}
       >
         <Icon name={notifications ? 'bell' : 'userPlus'} size={20} forText={bar && showLabel ? 13 : undefined} />
         {!compact && (!bar || showLabel) && <Text style={bar ? s.barText : s.bold}>{notifications ? '알림' : '공유'}</Text>}

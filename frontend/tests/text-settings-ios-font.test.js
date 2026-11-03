@@ -28,6 +28,7 @@ function render(platform, settings, onStepper = () => {}) {
   const module = { exports: {} }
   const localRequire = id => {
     if (id === 'react-native') return native
+    if (id === './controls/FadeScroll') return { __esModule: true, default: container }
     if (id === 'react-native-svg') return { __esModule: true, default: container, Path: () => null }
     if (id === '../../shared/useFormFactor') return { useFormFactor: () => ({ isPhone: false }) }
     if (id === '../../shared/theme') return { colors: {} }

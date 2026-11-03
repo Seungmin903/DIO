@@ -208,7 +208,7 @@ const server = http.createServer((req, res) => {
       await button('가입 완료').click();
       await goProfile();
       assert.equal(await button('비밀번호 변경').count(), 0);
-      await page.getByLabel('로그인 방식: 구글', { exact: true }).waitFor();
+      await page.getByText('구글 계정으로 로그인하고 있어요.').waitFor();
       assert.equal(await input('이메일').count(), 0);
       await input('닉네임').fill('소셜수정');
       await button('변경사항 저장').click();

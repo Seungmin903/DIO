@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/FadeScroll';
 import { colors } from '../../shared/theme';
 
 // 견출지 스택형 인덱스(1020 감성 점검 시안 C, 사용자 선택): 위 모서리만 둥근 직사각 탭을 겹치지 않고 6 간격으로 세운다.
@@ -31,7 +32,7 @@ export default function StudioTabs({ tabs, value, onChange, compact = false }) {
         });
         return compact
           ? <View accessibilityRole="tablist" style={[local.row, local.rowCompact]}>{items}</View>
-          : <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="tablist" contentContainerStyle={local.row}>{items}</ScrollView>;
+          : <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} accessibilityRole="tablist" contentContainerStyle={local.row}>{items}</FadeScroll>;
       })()}
     </View>
   );

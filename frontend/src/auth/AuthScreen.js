@@ -92,6 +92,9 @@ export default function AuthScreen({
   const focusedInput = useRef(null);
   const scrollOffset = useRef(0);
   const keyboardTop = useRef(Infinity);
+  // 안드로이드 전체 화면(edge-to-edge)은 키보드가 떠도 창이 줄지 않고, 폼이 화면에 다 들어가면 스크롤할 여유도 없어 아래 칸(비밀번호 확인)이 키보드에 가렸다.
+  // 키보드 높이만큼 아래를 비워 스크롤할 수 있게 한다.
+  const [keyboardPad, setKeyboardPad] = useState(0);
   const focusTimer = useRef(null);
   const revealInput = () => {
     clearTimeout(focusTimer.current);
@@ -124,10 +127,12 @@ export default function AuthScreen({
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', (event) => {
       keyboardTop.current = event.endCoordinates.screenY;
+      if (Platform.OS === 'android') setKeyboardPad(event.endCoordinates.height || 0); // iOS 는 KeyboardAvoidingView 가 이미 줄인다
       revealInput();
     });
     const hide = Keyboard.addListener('keyboardDidHide', () => {
       keyboardTop.current = Infinity;
+      setKeyboardPad(0);
     });
     return () => {
       show.remove();
@@ -349,7 +354,7 @@ export default function AuthScreen({
   );
   if (route === 'password-reset') {
     return (
-      <SafeAreaView style={s.safe}>
+      <SafeAreaView style={[s.safe, isPhone && { backgroundColor: colors.surface }]}>
         <PasswordResetScreen
           compact={isPhone}
           email={values.email}
@@ -361,7 +366,7 @@ export default function AuthScreen({
     );
   }
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={[s.safe, isPhone && { backgroundColor: colors.surface }]}>
       <KeyboardAvoidingView
         style={s.keyboard}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -375,7 +380,7 @@ export default function AuthScreen({
             scrollOffset.current = event.nativeEvent.contentOffset.y;
           }}
           scrollEventThrottle={16}
-          contentContainerStyle={[s.scroll, isPhone && { padding: 16 }]}
+          contentContainerStyle={[s.scroll, isPhone && s.phoneScroll, keyboardPad > 0 && { paddingBottom: keyboardPad }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
@@ -394,9 +399,9 @@ export default function AuthScreen({
                 </Text>
               </Pressable>
             )}
-            <View style={[s.header, route === 'welcome' && s.welcomeHeader]}>
+            <View style={[s.header, route === 'welcome' && s.welcomeHeader, isPhone && s.phoneHeader]}>
               <BrandLogo size={52} />
-              <View style={s.headingCopy}>
+              <View style={[s.headingCopy, isPhone && s.phoneCopy]}>
                 <Text accessibilityRole="header" style={s.title}>
                   {route === 'welcome'
                     ? 'DIO에 오신 걸 환영해요'
@@ -600,7 +605,7 @@ export default function AuthScreen({
                       <Text style={s.muted}>간편 로그인</Text>
                       <View style={s.line} />
                     </View>
-                    <View style={s.socialRow}>
+                    <View style={[s.socialRow, isPhone && s.phoneSocialRow]}>
                       {PROVIDERS.map((provider) => (
                         <Pressable
                           key={provider.id}
@@ -758,10 +763,11 @@ function FormField({
   const [visible, setVisible] = useState(false);
   const [focused, setFocused] = useState(false);
   const ownInput = useRef(null);
+  const { isPhone: phoneForm } = useFormFactor(); // 입력칸 높이는 폰 풀스크린에서만 키운다(코덱스 2026-11-03)
   return (
     <View>
       {!hideLabel && <Text style={s.label}>{label}</Text>}
-      <View style={[s.field, focused && s.focus, error && s.invalid]}>
+      <View style={[s.field, phoneForm && s.phoneField, focused && s.focus, error && s.invalid]}>
         <TextInput
           {...props}
           ref={(node) => {
@@ -789,7 +795,7 @@ function FormField({
           autoComplete={props.autoComplete ?? 'off'}
           textContentType={props.textContentType ?? 'none'}
           placeholderTextColor={colors.textMuted}
-          style={[s.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+          style={[s.input, phoneForm && s.phoneInput, Platform.OS === 'web' && { outlineStyle: 'none' }]}
         />
         {password && (
           <Pressable

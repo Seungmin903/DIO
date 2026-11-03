@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors } from '../../shared/theme'
 import { PAPER_BACKGROUNDS, PAPER_LAYOUTS, withPaperBackground } from '../templates/appearance.js'
 import { DEFAULT_PAPER_FONT } from '../templates/paperFont.js'
-import { PaperFontPicker } from './PaperFontChips'
+import PaperFontDropdown from '../../diary/components/PaperFontDropdown'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { START_HOURS } from '../templates/studyPlanner.js'
 import { HIGHLIGHTER_COLORS } from '../utils/penSettings'
@@ -44,7 +44,7 @@ export default function PaperColorSettings({ appearance, onChange, onClose, styl
         {showFont && (
           <View style={styles.section}>
             <Text style={toolPanelStyles.label}>글꼴</Text>
-            <PaperFontPicker value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={(font) => pick({ font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
+            <PaperFontDropdown value={appearance.font ?? DEFAULT_PAPER_FONT} onChange={(font) => pick({ font: font === DEFAULT_PAPER_FONT ? undefined : font })} />
           </View>
         )}
         {planner && (plannerKind === 'day' ? <DayPlannerOptions options={planner.options} onChange={onPlannerOptions} /> : <PlannerOptions options={planner.options} onChange={onPlannerOptions} />)}

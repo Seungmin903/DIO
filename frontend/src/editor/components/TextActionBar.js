@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow } from '../../shared/theme'
 import { TEXT_COLORS } from '../utils/text'
 import { usePalette } from '../hooks/usePalettes'
 import Icon from './controls/Icon'
+import FadeScroll from './controls/FadeScroll'
 
 export const TEXT_ACTION_BAR_WIDTH = 420
 export const TEXT_ACTION_BAR_HEIGHT = 52 // 말풍선 한 줄(styles.bar) 높이. 줄 위에 붙일 자리가 있는지 잴 때 쓴다
@@ -64,7 +65,7 @@ export function TextRangePanel({ onColor, onIncrease, onDecrease, onLink, onClos
   const textColors = usePalette?.('text')?.colors ?? TEXT_COLORS
   return (
     <View style={[styles.bar, styles.rangeBar]} accessibilityLabel="선택한 글자">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.rangeContent}>
+      <FadeScroll horizontal style={styles.rangeScroll} keyboardShouldPersistTaps="always" contentContainerStyle={styles.rangeContent}>
         {textColors.map((color) => (
           <Pressable
             key={color}
@@ -85,7 +86,7 @@ export function TextRangePanel({ onColor, onIncrease, onDecrease, onLink, onClos
         </>}
         <View style={styles.divider} />
         <IconButton icon="close" label="글자 선택 풀기" onPress={onClose} />
-      </ScrollView>
+      </FadeScroll>
     </View>
   )
 }
@@ -135,5 +136,6 @@ const styles = StyleSheet.create({
   chosen: { borderWidth: 3, borderColor: colors.primary },
   // 키보드 위 도구줄: 좁은 폰에서는 가로로 밀어 본다
   rangeBar: { maxWidth: '100%', paddingHorizontal: 0 },
+  rangeScroll: { flexShrink: 1 },
   rangeContent: { alignItems: 'center', gap: 6, paddingHorizontal: 10 },
 })
