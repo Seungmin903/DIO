@@ -95,3 +95,53 @@ test('공유 형식으로 왕복해도 기본 스티커가 유지되고, 원본 
   assert.equal(prepared.objects[0].builtin, 'moa_tongue')
   prepared.dispose()
 })
+
+test('표지에 붙인 기본 스티커는 저장한 표지를 다시 열어도 남는다', async () => {
+  const { normalizeCover } = await import('../src/diary/utils/coverDesign.js')
+  const cover = normalizeCover({ color: '#9DABD8', cover: { kind: 'color', stickers: [
+    { id: 'a', builtin: 'moa_basic', name: '모아 기본', x: 40, y: 50, size: 14, rotation: 0 },
+    { id: 'b', builtin: 'i_heart', name: '하트', x: 60, y: 55, size: 14, rotation: 0 },
+    { id: 'c', name: '원본도 기본도 없음', x: 10, y: 10, size: 14 },
+  ] } })
+  assert.deepEqual(cover.stickers.map((s) => [s.id, s.builtin]), [['a', 'moa_basic'], ['b', 'i_heart']])
+  assert.equal(cover.stickers[0].src, undefined)
+})
+
+// ObjectView 의 스티커 그리기: 기본 스티커도 테두리 · 그림자 실루엣 층(tint)이 만들어지고 본체는 색 그대로 그려진다
+function renderBuiltin(options) {
+  const { code } = babel.transformSync(readFileSync(new URL('../src/editor/components/canvas/ObjectView.js', import.meta.url), 'utf8'), {
+    configFile: false, babelrc: false,
+    plugins: [[expo.resolve('@babel/plugin-transform-react-jsx'), { runtime: 'automatic' }], expo.resolve('@babel/plugin-transform-modules-commonjs')],
+  })
+  const mocks = {
+    react: { memo: (value) => value, createContext: () => ({}), useContext: () => null },
+    'react-native': { Platform: { OS: 'web' }, StyleSheet: { create: (s) => s }, Text: 'Text', View: 'View' },
+    '../../utils/effects': require('../src/editor/utils/effects.js'),
+    '../../stickerAssets': { isAnimatedMedia: () => false, stickerSource: () => null },
+    '../../builtinStickers': builtinStickers,
+    '../../hooks/useMediaUri': { useMediaUri: () => undefined },
+    '../../hooks/useStickerPlayback': { useStickerPlayback: () => ({ source: null, error: null }) },
+    './BuiltinStickerArt': { __esModule: true, default: 'BuiltinStickerArt' },
+    '../../../shared/theme': { colors: {} },
+  }
+  const module = { exports: {} }
+  new Function('require', 'module', 'exports', `${code}\nmodule.exports.StickerContent = StickerContent;`)(
+    (id) => mocks[id] ?? (id === 'react/jsx-runtime' ? require(id) : { __esModule: true, default: () => null }), module, module.exports)
+  const tree = module.exports.StickerContent({ object: { id: 's', type: 'sticker', builtin: 'moa_basic', ...options }, width: 114, height: 126, zoom: 1, still: true })
+  const all = (node) => !node || typeof node !== 'object' ? [] : [node, ...[node.props?.children].flat(Infinity).flatMap(all)]
+  return all(tree).filter((n) => n.type === 'BuiltinStickerArt')
+}
+
+test('기본 스티커는 테두리 · 그림자 층을 만들고 본체는 색 그대로 맨 위에 그린다', () => {
+  const plain = renderBuiltin({})
+  assert.equal(plain.length, 1)
+  assert.equal(plain[0].props.tint, undefined)
+  const styled = renderBuiltin({ outline: true, outlineColor: '#ff0000', shadow: true, shadowColor: '#0000ff' })
+  const tints = styled.map((n) => n.props.tint)
+  assert.ok(tints.includes('#ff0000'), '테두리 층')
+  assert.ok(tints.includes('#0000ff'), '그림자 층')
+  assert.equal(styled.at(-1).props.tint, undefined, '본체가 가장 위')
+  assert.ok(styled.every((n) => n.props.sticker.builtin === 'moa_basic'))
+  const noOutline = renderBuiltin({ shadow: true, shadowColor: '#0000ff' }).map((n) => n.props.tint)
+  assert.ok(!noOutline.includes('#ff0000') && noOutline.includes('#0000ff'))
+})
