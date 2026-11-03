@@ -4,7 +4,7 @@ import { buildPhotoBody } from './photoUpload';
 import { createDevelopmentAccessStore } from './developmentAccessStore';
 import { legacyAccessKeychain } from './legacyAccessKeychain';
 import { fetch as authFetch } from 'expo/fetch';
-import { developmentAccessEnabled } from './developmentAccessConfig';
+import { developmentAccessEnabled, developmentAccessStoreEnabled } from './developmentAccessConfig';
 
 const host = Platform.OS === 'android' ? '10.0.2.2' : (globalThis.location?.hostname || 'localhost');
 export const apiBaseUrl = authBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL || `http://${host}:8080/api`);
@@ -17,7 +17,8 @@ export const authService = createAuthApi({
   buildPhotoBody,
   fetchImpl: authFetch,
   allowDevelopmentAccess: developmentAccessEnabled,
-  // The store is process-memory only; a release build never creates it.
-  developmentAccessStore: developmentAccessEnabled ? createDevelopmentAccessStore({ platform: Platform.OS, legacyKeychain: legacyAccessKeychain }) : null,
+  // Preview retains the Basic header only in this API instance. Only a local dev
+  // runtime creates the compatibility store, which itself is process-memory.
+  developmentAccessStore: developmentAccessStoreEnabled ? createDevelopmentAccessStore({ platform: Platform.OS, legacyKeychain: legacyAccessKeychain }) : null,
   accessTokenHeader,
 });
