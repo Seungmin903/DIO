@@ -63,12 +63,5 @@ export function feltMaterialLayers(parts, width, seed = 0) {
   return FELT_MATERIAL_OPACITIES.map((_, i) => paths.map(part => part[i]).join(''))
 }
 
-// Finite, nonperiodic ink deposition. Measured pressure is optional; width stays
-// governed by the established fountain response. The release force of zero is
-// never a reason to cut a hole or collapse the endpoint.
-export function fountainInkOpacity(point, distance, { length = Infinity, continuing = false } = {}) {
-  const force = Number.isFinite(point?.force) ? point.force : 0.45
-  const speed = Number.isFinite(point?.speed) ? point.speed : 0.5
-  const pool = Math.max(Math.exp(-distance / 8), continuing ? 0 : Math.exp(-Math.max(0, length - distance) / 8))
-  return Math.min(0.99, 0.73 + 0.13 * Math.sqrt(Math.max(0, Math.min(1, force))) + 0.07 / (1 + speed * 2) + 0.11 * pool)
-}
+// Fountain ink is fully opaque; pressure still controls the original geometry.
+export function fountainInkOpacity() { return 1 }

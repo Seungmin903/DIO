@@ -22,7 +22,7 @@ const cancelFrame = (id) => { if (id && typeof cancelAnimationFrame === 'functio
 
 // 입력 중에는 문서/이력을 변경하지 않고 손을 뗄 때 한 획으로 확정한다.
 // onPlannerStroke(points, settings): 스터디 플래너 속지가 획을 칸 기록으로 받았으면 true (획을 남기지 않는다)
-export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageHeight = PAGE_HEIGHT, settings = DEFAULT_PEN_SETTINGS, straightAssist = true, objectCount = 0, onPlannerStroke }) {
+export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageHeight = PAGE_HEIGHT, settings = DEFAULT_PEN_SETTINGS, straightAssist = true, objectCount = 0, onPlannerStroke, onStrokeCommitted }) {
   const gesture = useRef(null)
   const previewFrame = useRef(null)
   const pendingPreview = useRef(null)
@@ -213,6 +213,7 @@ export default function PenInput({ zoom, dispatch, pageWidth = PAGE_WIDTH, pageH
           })
         }
         dispatch({ type: 'addObjects', objects: [completed] })
+        onStrokeCommitted?.(completed)
         // 새 획은 올가미로 지정하기 전까지 직접 조작하지 않는다.
         dispatch({ type: 'selectExact', ids: [] })
         if (g.measurement) g.measurement.record('finalizeJsMs', g.measurement.clock() - started)

@@ -50,7 +50,9 @@ import { copyText } from '../services/textClipboard'
 import { objectClipboard, useObjectClipboard } from '../services/objectClipboard'
 import { DEFAULT_TEXT_SETTINGS, textSettings, textFormatPatch, VISUAL_TEXT_KEYS } from '../utils/text'
 import { createText } from '../utils/text'
-import { DEFAULT_PEN_SETTINGS, DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
+import { DEFAULT_HIGHLIGHTER_SETTINGS } from '../utils/penSettings'
+import { usePenSettings } from '../hooks/usePenSettings'
+import { recordPenColorUse } from '../hooks/useRecentPenColors'
 import { useReadingPreviews } from '../hooks/useReadingPreviews'
 import SaveIndicator from '../components/controls/SaveIndicator'
 import TapeCropper from '../components/panels/TapeCropper'
@@ -211,7 +213,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [guides, setGuides] = useState(DEFAULT_GUIDES) // 격자·보조선 (화면에만 보인다)
   const [guidesOpen, setGuidesOpen] = useState(false)
   const [overviewFilter, setOverviewFilter] = useState(null) // 페이지 넓게 보기: 'all' | 'bookmarked' (null 이면 닫힘)
-  const [penSettings, setPenSettings] = useState(DEFAULT_PEN_SETTINGS)
+  const [penSettings, setPenSettings] = usePenSettings()
   const [eyedropper, setEyedropper] = useState(null)
   const [colorPicker, setColorPicker] = useState(null)
   const [pendingEyedropper, setPendingEyedropper] = useState(false)
@@ -1228,6 +1230,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             <ViewportMotion.Provider value={viewportMotion}>
               <View style={{ width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }}>
               <Canvas
+                onStrokeCommitted={recordPenColorUse}
                 readingImage={readingPreviews.current}
                 qaPageMeasurement={pageSelectMeasurement.current}
                 colorCaptureRef={colorCaptureRef}

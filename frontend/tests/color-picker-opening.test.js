@@ -23,6 +23,7 @@ function load(file, nativeView = {}) {
     if (mocks[id]) return mocks[id]
     if (id === 'react/jsx-runtime') return require(id)
     if (id.endsWith('/penSettings')) return settings
+    if (id.endsWith('/useRecentPenColors')) return { useRecentPenColors: () => [] }
     if (id.endsWith('/usePalettes')) return { usePalette: () => ({ colors: settings.EDITOR_COLORS }) }
     if (id.endsWith('/colorPickerPlacement.js')) return { colorPickerPlacement }
     if (id.endsWith('/ToolPanel')) return { toolPanelStyles: {}, Segmented: 'segmented', ToolPanelHeader: 'header' }

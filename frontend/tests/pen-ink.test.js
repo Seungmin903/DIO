@@ -14,10 +14,14 @@ test('짧은 붓펜 획은 진하고 긴 획 뒤쪽만 옅어지며 최소 농�
   assert.ok(inkOpacity('brush', 0) > 0.95)
 })
 
-test('만년필은 몸통을 연속 채우고 시작·끝에 잉크 농도가 높다', () => {
-  assert.ok(inkOpacity('fountain', 0, { length: 200 }) > inkOpacity('fountain', 100, { length: 200 }))
-  assert.ok(inkOpacity('fountain', 200, { length: 200 }) > inkOpacity('fountain', 100, { length: 200 }))
-  for (let d = 0; d <= 200; d++) assert.ok(inkOpacity('fountain', d, { length: 200 }) >= 0.8)
+test('만년필은 저장 버전과 임시 미리보기에서도 전체 획을 불투명하게 채운다', () => {
+  for (const version of [2, 3]) for (const preview of [false, true]) {
+    assert.deepEqual(inkLevels('fountain', version, preview), [1])
+    for (let d = 0; d <= 200; d++) assert.equal(inkOpacity('fountain', d, { length: 200 }), 1)
+    const points = [{ x: 0, y: 0, pressure: 0.9 }, { x: 100, y: 20, pressure: 1.1 }]
+    const layers = strokeInkLayers([{ points }], 8, 'fountain', version, preview)
+    assert.equal(layers.length, 1); assert.ok(layers[0].length)
+  }
 })
 
 test('완성 구간의 재질 경로는 캐시되고 저장·출력 직렬화 후에도 같다', () => {
@@ -49,7 +53,7 @@ test('영역 지우기 임시 농도만 8단계이며 다시 정밀 렌더하면
   for (const kind of ['fountain', 'brush']) {
     const before = strokeInkLayers(parts, 8, kind, 3)
     const preview = strokeInkLayers(parts, 8, kind, 3, true)
-    assert.equal(preview.length, 8)
+    assert.equal(preview.length, kind === 'fountain' ? 1 : 8)
     const fullLevels = inkLevels(kind, 3), levels = inkLevels(kind, 3, true)
     assert.equal(levels[0], fullLevels[0]); assert.equal(levels.at(-1), fullLevels.at(-1))
     assert.deepEqual(strokeInkLayers(parts, 8, kind, 3), before)

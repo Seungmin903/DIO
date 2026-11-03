@@ -6,6 +6,7 @@ import MyColorPresets from './controls/MyColorPresets'
 import Slider from './controls/Slider'
 import { EDITOR_COLORS, HIGHLIGHTER_COLORS, PEN_TYPES, penPressure } from '../utils/penSettings'
 import { usePalette } from '../hooks/usePalettes'
+import { useRecentPenColors } from '../hooks/useRecentPenColors'
 import { createStroke } from '../utils/strokes'
 import ObjectContent from './canvas/ObjectView'
 
@@ -29,6 +30,7 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
   const anchor = useRef(null)
   const highlighter = settings.kind === 'highlighter'
   const label = highlighter ? '형광펜' : '펜'
+  const recentColors = useRecentPenColors(highlighter ? 'highlighter' : 'pen')
   // 색 줄은 꾸미기 공방 '내 프리셋'에서 바꾼 목록을 따른다(바꾼 적 없으면 기본 색)
   const palette = usePalette?.(highlighter ? 'highlighter' : 'pen')?.colors ?? (highlighter ? HIGHLIGHTER_COLORS : EDITOR_COLORS)
   const chooseColor = (color) => onChange({ ...settings, color })
@@ -65,6 +67,14 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
       <Text style={toolPanelStyles.label}>내 색상</Text>
       <MyColorPresets scope={highlighter ? 'highlighter' : 'pen'} value={settings.color} label={`${label} 색상`} onPick={chooseColor}
         pickerVisible={pickerVisible} onRequestPicker={onOpenColorPicker ? () => onOpenColorPicker(anchor.current) : undefined} />
+      <Text style={toolPanelStyles.label}>마지막으로 사용했던 색</Text>
+      <View accessibilityLabel={`${label} 최근 사용 색상`} style={[styles.palette, styles.recentPalette]}>
+        {recentColors.map(color => <Pressable key={color} accessibilityRole="button"
+          accessibilityLabel={`최근 사용한 ${label} 색상 ${color}`} accessibilityState={{ selected: settings.color === color }}
+          hitSlop={6} onPress={() => chooseColor(color)}
+          style={[styles.swatch, { backgroundColor: color }, settings.color === color && styles.chosen]} />)}
+        {!recentColors.length && <Text style={styles.recentEmpty}>필기에 사용한 색이 여기에 저장돼요.</Text>}
+      </View>
       <View style={styles.assist}>
         <Text style={styles.assistText}>끝점을 길게 눌러 직선 만들기</Text>
         <Switch accessibilityLabel="끝점에서 길게 눌러 직선 만들기" value={straightAssist} onValueChange={onStraightAssistChange} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.surface} activeThumbColor={colors.surface} />
@@ -74,6 +84,8 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
 }
 
 const styles = StyleSheet.create({
+  recentPalette: { justifyContent: 'flex-start', gap: 6 },
+  recentEmpty: { color: colors.textMuted, fontSize: 12 },
   preview: { backgroundColor: '#FAFAF7', borderRadius: 12 },
   types: { flexDirection: 'row', gap: 4, padding: 3, borderRadius: 11, backgroundColor: colors.surfaceMuted },
   type: { flex: 1, borderRadius: 8, paddingVertical: 6 },
