@@ -109,7 +109,7 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
       <AppIcon name="chevron-right" size={18} forText={15} color={colors.textMuted} />
     </Pressable>
   ) : null;
-  const settingsButton = !settingsPage && onOpenSettings ? <Pressable accessibilityRole="button" accessibilityLabel="설정" onPress={onOpenSettings} style={local.settingsButton}>
+  const settingsButton = compact && !settingsPage && onOpenSettings ? <Pressable accessibilityRole="button" accessibilityLabel="설정" onPress={onOpenSettings} style={local.settingsButton}>
     <AppIcon name="settings" size={20} color={colors.primary} />
   </Pressable> : null;
 
