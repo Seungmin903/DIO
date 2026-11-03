@@ -453,7 +453,7 @@ deploy-release:
   tags:
     - ec2-deploy
   rules:
-    - if: '$CI_COMMIT_BRANCH == "release"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
       when: manual
   resource_group: release
   environment:
