@@ -1,3 +1,4 @@
+import { isAiHandwritingFont } from '../../handwriting/aiDisclosure.js'
 export const TEXT_FONT_SIZE = 28
 export const TEXT_LINE_HEIGHT = 38
 // 줄간격 기본값 (글자 크기 대비). 예전 텍스트의 38/28 과 같다.
@@ -66,7 +67,7 @@ let personalFonts = [], allFonts = TEXT_FONTS, fontListRevision = 0
 export const getTextFonts = () => allFonts
 export const textFontListSnapshot = () => fontListRevision
 export function registerPersonalTextFonts(fonts) {
-  personalFonts = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family)).map(f => ({ id: f.id, label: f.label, family: f.family, personal: true }))
+  personalFonts = fonts.filter(f => /^personal-[a-f0-9-]{36}$/.test(f.id) && /^DIOHW_[a-f0-9]{32}$/.test(f.family)).map(f => ({ id: f.id, label: f.label, family: f.family, personal: true, aiGenerated: isAiHandwritingFont(f) }))
   allFonts = [...TEXT_FONTS, ...personalFonts]
   fontListRevision++
   fontListeners.forEach(listener => listener())

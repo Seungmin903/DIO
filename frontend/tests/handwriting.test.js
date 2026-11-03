@@ -65,7 +65,9 @@ test('개인 글꼴은 UUID를 유지하며 Regular만 사용하고 기본 글�
   assert.equal(style.fontFamily, family); assert.equal(style.fontWeight, '400'); assert.equal(style.fontStyle, 'normal'); assert.deepEqual(style.transform, [{ skewX: '-12deg' }])
   const object = { id: 'personal-text', type: 'text', font: id, text: '한이민글', x: 0, y: 0, w: 300, h: 100, baseWidth: 300, fontSize: 32 }
   assert.equal(createExportSnapshot({ objects: [object] }).objects[0].font, id)
-  registerPersonalTextFonts([{ id, family, label: '이름 변경' }])
+  assert.equal(getTextFonts().find(f => f.id === id).aiGenerated, false, 'imported external font must not be labeled AI')
+  registerPersonalTextFonts([{ id, family, label: '이름 변경', spacingSupported: true }])
+  assert.equal(getTextFonts().find(f => f.id === id).aiGenerated, true)
   assert.equal(getTextFonts().find(f => f.id === id).label, '이름 변경')
   registerPersonalTextFonts([])
   assert.deepEqual(textStyleSupport(id), { bold: false, italic: true })
