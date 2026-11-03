@@ -60,6 +60,13 @@ public class NotificationRepository {
 			Long.class, userId, id) > 0;
 	}
 
+	/** Deletes only rows that have been hidden from the recipient for the configured retention period. */
+	public int purgeDeletedBefore(Instant cutoff, int limit) {
+		if (limit < 1 || limit > 500) throw new IllegalArgumentException("invalid notification retention batch");
+		return jdbc.update("delete from notifications where notification_id in (select notification_id from notifications where deleted_at is not null and deleted_at<=? order by deleted_at,notification_id limit ?)",
+			Timestamp.from(cutoff), limit);
+	}
+
 	private NotificationData map(ResultSet rs, int row) throws SQLException {
 		Timestamp readAt = rs.getTimestamp("read_at");
 		return new NotificationData(rs.getString("notification_id"), rs.getString("notification_type"),

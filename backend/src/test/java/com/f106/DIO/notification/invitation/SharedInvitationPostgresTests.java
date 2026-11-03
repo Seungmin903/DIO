@@ -34,7 +34,7 @@ class SharedInvitationPostgresTests {
                 jdbc.update("insert into users(user_id,nickname,nickname_key) values(101,'recipient','recipient'),(102,'actor','actor')");
                 UUID diary=UUID.randomUUID();
                 jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,102,'lookup QA')",diary);
-                jdbc.update("insert into diary_invites(invite_id,diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(10,?,102,101,'EMAIL',?,?)",diary,new byte[32],Timestamp.valueOf("9999-12-31 23:59:59"));
+                jdbc.update("insert into diary_invites(invite_id,diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(10,?,102,101,'EMAIL',?,?,now()+interval '7 days')",diary,new byte[32],Timestamp.valueOf("9999-12-31 23:59:59"));
                 for(int id=1;id<=100;id++) jdbc.update("insert into notifications(notification_id,user_id,diary_id,notification_type,payload_json) values(?,101,?,'DIARY_INVITE',cast(? as jsonb))",id,diary,"{\"inviteId\":\"10\"}");
                 try(var context=new AnnotationConfigApplicationContext()) {
                     context.registerBean(JdbcTemplate.class,()->jdbc);
