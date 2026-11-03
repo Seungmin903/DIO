@@ -30,6 +30,7 @@ import {
 } from './validation';
 import { authStyles as s } from './styles';
 import ProviderIcon from './ProviderIcon';
+import { isAppleLoginSupported } from './appleLogin';
 import { pickProfilePhoto } from './profilePhoto';
 import EmailVerification from './EmailVerification';
 import { signupDocuments, signupEligibility } from './signupPolicy';
@@ -41,11 +42,14 @@ import SignupTerms from './SignupTerms';
 // 사진이 없을 때의 기본 프로필: 메뉴 아래 · 내 공간과 같은 그림
 import DefaultAvatar from '../shared/DefaultAvatar';
 
-const PROVIDERS = [
-  { id: 'kakao', name: '카카오', color: '#FEE500' },
-  { id: 'google', name: '구글', color: '#FFFFFF' },
-  { id: 'apple', name: '애플', color: '#191919' },
+// 실제로 동작하는 로그인만 보인다. 카카오는 구현 전이라 숨긴다(심사에서 동작 안 하는 버튼은 반려 사유).
+// 애플은 iOS 앱에서만 지원한다. 구글을 넣으면 iOS는 애플 로그인도 함께 있어야 한다(App Store 심사 지침 4.8).
+const ALL_PROVIDERS = [
+  { id: 'kakao', name: '카카오', color: '#FEE500', enabled: false },
+  { id: 'google', name: '구글', color: '#FFFFFF', enabled: true },
+  { id: 'apple', name: '애플', color: '#191919', enabled: isAppleLoginSupported() },
 ];
+const PROVIDERS = ALL_PROVIDERS.filter((provider) => provider.enabled);
 const emptyValues = () => ({ email: '', password: '', confirmation: '' });
 const emptyTerms = () => ({ service: false, privacy: false, marketing: false, marketingPrivacy: false, adEmail: false, adPush: false, adNightPush: false });
 
@@ -80,6 +84,7 @@ export default function AuthScreen({
   const [verificationAttempt, setVerificationAttempt] = useState(0);
   const [signupComplete, setSignupComplete] = useState(false);
   const [needsLoginAccess, setNeedsLoginAccess] = useState(false);
+  const socialAccessRetry = useRef(null);
   const [accessId, setAccessId] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
   const canSetDevelopmentAccess = typeof __DEV__ !== 'undefined' && __DEV__ &&
@@ -154,6 +159,7 @@ export default function AuthScreen({
     };
   }, []);
   const navigate = (next, provider = enrollmentProvider) => {
+    socialAccessRetry.current = null;
     documentRef.current = null;
     setActiveDocument(null);
     if (enrollmentBlocked.current && next !== 'welcome') next = 'underage';
@@ -195,18 +201,23 @@ export default function AuthScreen({
     setEnrollmentProvider(provider);
     navigate('eligibility', provider);
   };
+  const submitSocial = (provider, eligibility) => run(
+    () => service.social(provider, eligibility),
+    result => {
+      socialAccessRetry.current=null;
+      if(result?.mode==='authenticated'){Keyboard.dismiss();onContinue(result);return;}
+      setPhotoUri(null);setValues(emptyValues());setProfile(result);navigate('profile');
+    },
+    error => {
+      if(canSetDevelopmentAccess && error?.code==='DEVELOPMENT_ACCESS_REQUIRED'){
+        socialAccessRetry.current={provider,eligibility};setNeedsLoginAccess(true);setRoute('welcome');
+      }
+    },
+  );
   const continueEnrollment = () => {
     if (enrollmentBlocked.current || !signupEligibility({ ageConfirmed, terms }, legalDocuments)) return;
     if (enrollmentProvider === 'email') { navigate('signup'); return; }
-    run(
-      () => service.social(enrollmentProvider),
-      (result) => {
-        setPhotoUri(null);
-        setValues(emptyValues());
-        setProfile(result);
-        navigate('profile');
-      },
-    );
+    submitSocial(enrollmentProvider,{ageConfirmed,terms});
   };
   const closeDocument = () => {
     documentRef.current = null;
@@ -546,11 +557,12 @@ export default function AuthScreen({
                       verificationService.setDevelopmentAccess(accessId, accessPassword);
                       setAccessPassword('');
                       setNeedsLoginAccess(false);
-                      submitLogin();
+                      const retry=socialAccessRetry.current;socialAccessRetry.current=null;
+                      if(retry)submitSocial(retry.provider,retry.eligibility);else submitLogin();
                     } catch (error) {
                       setMessage(error?.message || '개발 서버 접속 정보를 확인해 주세요.');
                     }
-                  }, !accessId.trim() || !accessPassword || !credentialsValid(values, false))}
+                  }, !accessId.trim() || !accessPassword || (!socialAccessRetry.current && !credentialsValid(values, false)))}
                 </> : null}
                 <View style={s.submitArea}>
                   {message ? (
