@@ -50,6 +50,10 @@ dependencies {
 // 테스트는 compose·infra 파일과 DB 환경변수처럼 선언되지 않은 입력에 의존하므로 빌드 캐시 결과로 건너뛰지 않는다.
 tasks.withType(Test).configureEach {
 	outputs.cacheIf { false }
+	// 테스트 JVM 기본 힙(512MB)으로는 설정이 다른 Spring 테스트 컨텍스트가 최대 32개까지 캐시되며 OutOfMemoryError로 멈춘다.
+	// 캐시 개수를 줄여 메모리 사용을 일정하게 묶고, 힙 상한을 둔다(로컬·CI 공통, 서버 실행과는 무관).
+	maxHeapSize = '2g'
+	systemProperty 'spring.test.context.cache.maxSize', '16'
 }
 
 tasks.named('test') {
