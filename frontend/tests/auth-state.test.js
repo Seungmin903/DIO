@@ -2,6 +2,8 @@ import {readFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
 import * as validation from '../src/auth/validation.js'
 import * as signupPolicy from '../src/auth/signupPolicy.js'
+import * as legalContent from '../src/shared/legalContent.js'
+import * as profileNavigation from '../src/diary/components/profileNavigationModel.js'
 import {marketingDocuments} from '../src/shared/legalDocuments.js'
 import { createAuthApi } from '../src/auth/authApi.js'
 import test from 'node:test'
@@ -13,7 +15,7 @@ function setup(service,photoPicker,options={emailVerificationEnabled:true}){
  const states=[],refs=[],deps=[],cleanups=[],keyboard={};let si=0,ri=0,ei=0,back
  const react={useState:initial=>{const i=si++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return[states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v}]},useRef:initial=>refs[ri++]??={current:initial},useEffect:(fn,next)=>{const i=ei++;if(!deps[i]||next.some((v,j)=>v!==deps[i][j])){cleanups[i]?.();deps[i]=next;cleanups[i]=fn()}}}
  const native={Linking:{openURL:async()=>{}},Keyboard:{dismiss(){},addListener:(name,fn)=>{keyboard[name]=fn;return{remove(){delete keyboard[name]}}}},Platform:{OS:'android'},BackHandler:{addEventListener:(_,fn)=>{back=fn;return{remove(){}}}}};for(const name of ['ActivityIndicator','KeyboardAvoidingView','Pressable','ScrollView','Text','TextInput','View'])native[name]=name
- const mocks={react,'react-native':native,'react-native-safe-area-context':{SafeAreaView:'safe'},'../shared/useFormFactor':{useFormFactor:()=>({isPhone:false,formFactor:'tablet'})},'../shared/useOrientationLock':{useOrientationLock(){}},'./signupPolicy':signupPolicy,'./validation':validation,'./styles':{authStyles:new Proxy({},{get:(_,key)=>key})},'../shared/theme':{colors:{}}}
+ const mocks={react,'../shared/legalContent':legalContent,'./LegalDocumentScreen':{__esModule:true,default:'LegalDocumentScreen'},'react-native':native,'react-native-safe-area-context':{SafeAreaView:'safe'},'../shared/useFormFactor':{useFormFactor:()=>({isPhone:false,formFactor:'tablet'})},'../shared/useOrientationLock':{useOrientationLock(){}},'./signupPolicy':signupPolicy,'./validation':validation,'./styles':{authStyles:new Proxy({},{get:(_,key)=>key})},'../shared/theme':{colors:{}}}
  const termsMod={exports:{}};new Function('require','module','exports',termsCode)(id=>id==='../shared/legalDocuments'?{marketingDocuments}:mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),termsMod,termsMod.exports);mocks['./SignupTerms']={__esModule:true,default:termsMod.exports.default}
  const mod={exports:{}};new Function('require','module','exports','__DEV__',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,options.developmentMode ?? false)
  const sessions=[],render=()=>{si=ri=ei=0;return mod.exports.default({service,onContinue:session=>sessions.push(session),photoPicker,legalDocuments:{service:'https://dio.test/legal/v2/service',privacy:'https://dio.test/legal/v2/consent',policy:'https://dio.test/legal/v2/privacy'},...options})}
@@ -117,19 +119,62 @@ test('구글도 먼저 연령·약관을 확인하고 미연결 서비스 오류
  } finally { ui.unmount(); }
 });
 
-test('동의서와 방침 보기는 정확한 HTTPS 문서를 열며 동의 상태를 바꾸지 않는다', async () => {
- const opened=[];
- const ui=setup({},undefined,{emailVerificationEnabled:true,openDocument:async url=>{opened.push(url);if(opened.length===3)throw new Error('offline')}});
+const reader = ui => nodes(ui.render()).find(node => node.type === 'LegalDocumentScreen');
+const consentRows = [
+ ['service','[필수] 이용약관 동의'], ['privacy','[필수] 개인정보 수집·이용 동의'],
+ ...marketingDocuments.map(item => [item.id,`[선택] ${item.label}`]),
+];
+function openConsent(ui,key) {
+ const item=consentRows.find(([id])=>id===key);
+ const rows=nodes(ui.render()).filter(node=>node.type?.name==='ViewButton');
+ rows.find(row=>row.props.label===(item[1].startsWith('[선택] ')?item[1].slice(5):item[1])).props.onPress();
+ return reader(ui);
+}
+for(const [key,label] of consentRows) test(`앱 내 문서에서 동의하면 해당 항목만 체크한다: ${key}`,()=>{
+ const ui=setup({},undefined,{emailVerificationEnabled:true,legalDocuments:{}});
  try {
   find(ui.render(),'회원가입').props.onPress();
-  const rows=nodes(ui.render()).filter(node=>node.type?.name==='ViewButton');
-  await rows.find(row=>row.props.label==='[필수] 이용약관 동의').props.onPress();
-  await rows.find(row=>row.props.label==='[필수] 개인정보 수집·이용 동의').props.onPress();
-  await find(ui.render(),'개인정보처리방침 보기').props.onPress();
-  assert.deepEqual(opened,['https://dio.test/legal/v2/service','https://dio.test/legal/v2/consent','https://dio.test/legal/v2/privacy']);
-  assert.equal(find(ui.render(),'[필수] 이용약관 동의').props.checked,false);
-  assert.ok(nodes(ui.render()).some(node=>String(node.props.children).includes('문서를 열지 못했어요')));
- } finally { ui.unmount(); }
+  const doc=openConsent(ui,key);
+  assert.equal(doc.props.document.id,key);
+  assert.equal(doc.props.document.effectiveDate,'2026-11-04');
+  assert.equal(find(ui.render(),label).props.checked,false);
+  doc.props.onAgree();
+  assert.equal(reader(ui),undefined);
+  for(const [id,text] of consentRows) assert.equal(find(ui.render(),text).props.checked,id===key);
+  assert.equal(find(ui.render(),'만 14세 이상입니다').props.checked,false);
+ }finally{ui.unmount()}
+});
+test('문서 닫기와 Android 뒤로가기는 동의를 변경하거나 가입 화면을 이탈하지 않는다',()=>{
+ const ui=setup({});
+ try {
+  find(ui.render(),'회원가입').props.onPress();
+  find(ui.render(),'[필수] 이용약관 동의').props.onPress();
+  openConsent(ui,'privacy').props.onClose();
+  openConsent(ui,'adEmail');assert.equal(ui.back(),true);
+  assert.equal(reader(ui),undefined);
+  assert.ok(find(ui.render(),'만 14세 이상입니다'));
+  for(const [id,label] of consentRows)assert.equal(find(ui.render(),label).props.checked,id==='service');
+ }finally{ui.unmount()}
+});
+test('개인정보처리방침에는 동의 콜백이 없고 닫기만 한다',()=>{
+ const ui=setup({});
+ try {
+  find(ui.render(),'회원가입').props.onPress();
+  find(ui.render(),'개인정보처리방침 보기').props.onPress();
+  const doc=reader(ui);assert.equal(doc.props.document.id,'policy');assert.equal(doc.props.onAgree,undefined);
+  doc.props.onClose();assert.equal(reader(ui),undefined);
+  for(const [,label] of consentRows)assert.equal(find(ui.render(),label).props.checked,false);
+ }finally{ui.unmount()}
+});
+test('이미 닫힌 문서의 오래된 동의 콜백은 다른 문서를 체크하지 않는다',()=>{
+ const ui=setup({});
+ try {
+  find(ui.render(),'회원가입').props.onPress();
+  const old=openConsent(ui,'privacy');old.props.onClose();
+  openConsent(ui,'service');old.props.onAgree();
+  assert.equal(reader(ui).props.document.id,'service');
+  for(const [,label] of consentRows)assert.equal(find(ui.render(),label).props.checked,false);
+ }finally{ui.unmount()}
 });
 
 test('로그인은 개발 접근 인증 후 같은 입력으로 재시도하고 연타를 막는다', async () => {
@@ -213,8 +258,8 @@ test('내 공간은 인증된 사진 소스를 사용하고 사진 로드 실패
  const states=[];let index=0
  const react={useEffect(){},useState:initial=>{const i=index++;if(!(i in states))states[i]=initial;return[states[i],value=>states[i]=value]}}
  const native={StyleSheet:{create:value=>value}};for(const name of ['Image','Pressable','ScrollView','Text','View'])native[name]=name
- const mocks={react,'react-native':native,'expo-image':{Image:'Image'},'../styles':{styles:{}},'../constants':{C:{white:'#fff',line:'#ddd',active:'#eef',blueStrong:'#467',pale:'#eef',ink:'#112',muted:'#667',canvas:'#f3f4f7'}},'../../shared/theme':{colors:{},radius:{}},'../../auth/loginGate':{useLoginGate:()=>(_feature,action)=>action(),useLoginEntry:()=>()=>{}},'../../shared/appLock':{appLockScope:()=>'scope',hasAppLock:async()=>false,checkAppLock:async()=>true,clearAppLock:async()=>{},setAppLock:async()=>{}}},mod={exports:{}}
- new Function('require','module','exports',source)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports)
+ const mocks={react,'../shared/legalContent':legalContent,'./LegalDocumentScreen':{__esModule:true,default:'LegalDocumentScreen'},'react-native':native,'expo-image':{Image:'Image'},'../styles':{styles:{}},'../constants':{C:{white:'#fff',line:'#ddd',active:'#eef',blueStrong:'#467',pale:'#eef',ink:'#112',muted:'#667',canvas:'#f3f4f7'}},'../../shared/theme':{colors:{},radius:{}},'../../auth/loginGate':{useLoginGate:()=>(_feature,action)=>action(),useLoginEntry:()=>()=>{}},'../../shared/appLock':{appLockScope:()=>'scope',hasAppLock:async()=>false,checkAppLock:async()=>true,clearAppLock:async()=>{},setAppLock:async()=>{}}},mod={exports:{}}
+ new Function('require','module','exports',source)(id=>id==='../components/profileNavigationModel'?profileNavigation:mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports)
  const photo={uri:'https://server.example/photo',headers:{Authorization:'test-header'}}
  const render=(uri=photo.uri,userId='one')=>{index=0;return mod.exports.default({diaries:[],previewUser:{mode:'authenticated',photoUri:uri,nickname:'회원',userId},getProfilePhotoSource:uri=>({...photo,uri})})}
  const image=nodes(render()).find(node=>node.type==='Image')

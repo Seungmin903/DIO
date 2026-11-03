@@ -1,68 +1,85 @@
-# 약관 동의 변경
+# 약관 동의 조회·변경
 
-기존 명세의 `PUT /api/v1/me/terms/{termsType}/{termsVersion}`을 구현한다. 인증·세션 검증은 기존 로그인 보안 체인을 사용한다. 다른 회원 ID를 입력받지 않으며 로그인한 활성 회원 본인의 행만 변경한다.
+로그인한 활성 회원 본인의 동의 기록을 기존 `user_terms_agreements`에서 조회·변경한다. 다른 회원 ID는 받지 않는다. 인증·만료·폐기 세션 검증은 기존 로그인 보안 체인을 사용한다. 새 테이블·컬럼·마이그레이션은 없다.
 
-## 요청·응답
+## 마케팅 선택 동의 조회
 
-Authorization: `Bearer {accessToken}`
+`GET /api/v1/me/terms`
 
-- `termsType`: `SERVICE`, `PRIVACY`, `MARKETING` (대문자)
-- `termsVersion`: 기존 `dio.signup.*-terms-version`에 지정된 종류별 현재 버전. 기본값 SERVICE/PRIVACY `v2`, MARKETING_PRIVACY·AD_EMAIL·AD_PUSH·AD_NIGHT_PUSH와 기존 MARKETING `v1`.
-- 요청: `{"agreed": true}` 또는 `{"agreed": false}`. 누락·null은 400.
-- 성공 200: `{"termsType":"MARKETING","termsVersion":"v1","agreed":false,"agreedAt":"2026-10-30T00:00:00Z"}`
-- `agreedAt`: 해당 버전의 마지막 동의 상태 변경 시각(UTC). 동의 철회도 상태 변경으로 기록한다. 동일 상태 PUT 재시도는 시각을 유지한다.
-- 모든 성공·도메인 오류는 `Cache-Control: no-store`.
+Authorization: `Bearer {accessToken}`. 요청 본문·쿼리 매개변수는 필요 없다.
+
+성공 200, `Cache-Control: no-store`:
+
+```json
+{
+  "agreements": [
+    {"termsType":"MARKETING_PRIVACY","termsVersion":"v1","agreed":true,"agreedAt":"2026-11-03T00:00:00Z","recordStatus":"CURRENT_VERSION"},
+    {"termsType":"AD_EMAIL","termsVersion":"v1","agreed":false,"agreedAt":"2026-11-03T00:00:00Z","recordStatus":"CURRENT_VERSION"},
+    {"termsType":"AD_PUSH","termsVersion":"v1","agreed":false,"agreedAt":null,"recordStatus":"NOT_RECORDED"},
+    {"termsType":"AD_NIGHT_PUSH","termsVersion":"v1","agreed":false,"agreedAt":null,"recordStatus":"PREVIOUS_VERSION_ONLY"}
+  ]
+}
+```
+
+항상 위 순서의 4개 항목을 반환한다. 필수 SERVICE/PRIVACY와 호환용 MARKETING은 이번 조회 대상이 아니다.
+
+| 필드 | 의미 |
+| --- | --- |
+| termsType | MARKETING_PRIVACY, AD_EMAIL, AD_PUSH, AD_NIGHT_PUSH |
+| termsVersion | 변경 PUT과 동일한 **현재 설정 버전**. 과거 동의 버전이 아님 |
+| agreed | 현재 버전에 실제로 동의했는지. 기록이 없으면 false |
+| agreedAt | 현재 버전 기록의 마지막 상태 변경 시각(UTC). 철회 시각도 포함. 현재 기록이 없으면 null |
+| recordStatus | CURRENT_VERSION / NOT_RECORDED / PREVIOUS_VERSION_ONLY |
+
+| 저장 상태 | agreed | agreedAt | recordStatus |
+| --- | --- | --- | --- |
+| 현재 버전의 동의 기록 있음 | true | 기록된 시각 | CURRENT_VERSION |
+| 현재 버전의 철회·미동의 기록 있음 | false | 기록된 시각 | CURRENT_VERSION |
+| 해당 항목 기록 없음 | false | null | NOT_RECORDED |
+| 현재 버전은 없고 다른 버전 기록만 있음 | false | null | PREVIOUS_VERSION_ONLY |
+
+`CURRENT_VERSION`은 기록이 있다는 뜻이며 동의 상태는 반드시 `agreed`로 판단한다. `PREVIOUS_VERSION_ONLY`는 현재 설정과 불일치하는 버전만 있다는 뜻이다. v9/v10 문자열 정렬이나 최근 변경 시각으로 현재 버전을 추정하지 않는다. 과거 버전의 시각을 현재 버전의 동의 시각으로 내보내지 않는다.
+
+구버전만 있으면 설정 체크는 꺼진 상태로 표시하고 사용자가 원하면 현재 버전에 새로 동의하게 한다. 선택 항목이므로 재동의를 하지 않았다는 이유로 기본 서비스 이용을 막지 않는다. 기존 MARKETING=true 기록을 네 항목으로 복사하거나 자동 동의로 간주하지 않는다. GET은 최초 동의 행을 생성하지 않고 기록·시각을 변경하지 않으며 쓰기 잠금을 잡지 않는다.
+
+## 동의 변경
+
+`PUT /api/v1/me/terms/{termsType}/{termsVersion}`
+
+- `termsType`: SERVICE, PRIVACY, MARKETING_PRIVACY, AD_EMAIL, AD_PUSH, AD_NIGHT_PUSH. 기존 MARKETING도 호환용으로 유지한다.
+- `termsVersion`: `dio.signup.*-terms-version`의 현재 설정값. SERVICE/PRIVACY 기본 v2, 선택 4종 및 기존 MARKETING 기본 v1.
+- 요청: `{"agreed":true}` 또는 `{"agreed":false}`. 누락·null은 400.
+- 성공 200: `{"termsType":"AD_EMAIL","termsVersion":"v1","agreed":false,"agreedAt":"2026-11-03T00:00:00Z"}`.
+- 같은 상태 재요청은 기존 agreedAt을 유지한다. 상태가 바뀌면 시각을 갱신한다.
+- 필수 약관 false는 400으로 거절하고 탈퇴 절차를 안내한다. 선택 항목은 각각 동의·철회 가능하다.
+- 현재 버전 행만 저장·변경하며 이전 버전 행은 보존한다. 같은 버전의 모든 변경 이벤트를 누적하는 감사 로그는 아니다.
+- 사용자 행 잠금으로 동일 회원의 첫 동의 생성·탈퇴와 직렬화한다. 다른 회원의 행을 변경하지 않는다.
+
+모든 성공·회원 도메인 오류 및 인증 오류에는 `Cache-Control: no-store`를 적용한다.
 
 | 오류 | 응답 |
 | --- | --- |
-| 인증 없음·만료·세션 폐기·비활성 회원 | 401 |
-| 알 수 없는 종류·입력 본문 오류 | 400 |
-| 현재 버전과 다른 버전 | 400 `INVALID_TERMS` |
-| SERVICE·PRIVACY를 false로 요청 | 400 `REQUIRED_TERMS_NOT_AGREED` |
+| 인증 없음·만료·세션 폐기·비활성 회원 | 401 INVALID_TOKEN |
+| PUT 종류·입력 본문 오류 | 400 |
+| PUT 현재 버전 불일치 | 400 INVALID_TERMS |
+| SERVICE·PRIVACY false 요청 | 400 REQUIRED_TERMS_NOT_AGREED |
 
-## 저장·정책
+## 버전·저장 구조
 
-- 기존 `user_terms_agreements`의 `(user_id, terms_type, terms_version)` 행을 사용한다. 테이블·컬럼·마이그레이션을 추가하지 않는다.
-- 선택 약관 MARKETING은 true/false 모두 가능하다. 필수 약관 SERVICE·PRIVACY 철회는 현재 서비스 정책상 탈퇴 절차로 안내한다. 기존 회원가입 동의 검증은 그대로 유지한다.
-- 새 현재 버전에 동의하면 새 버전 행만 저장하고 이전 버전 행은 보존한다. 같은 버전의 모든 변경 이벤트를 누적하는 감사 로그는 아니다.
-- 사용자 행 잠금으로 동일 회원의 첫 동의 동시 생성·탈퇴와 직렬화한다. 다른 회원의 행은 변경하지 않는다.
-- 별도 재동의 화면·이메일/푸시/야간 마케팅 채널 구분·광고 발송 기능은 이번 범위에 포함하지 않는다. 기존 MARKETING 한 종류의 동의만 다룬다.
+조회 서비스 `UserTermsQueryService`와 변경 서비스 `UserTermsUpdateService`를 분리하고 기존 `UserTermsController`에서 연결한다. 요청·응답 DTO는 `user/dto`, 상태 enum과 엔티티는 `user/domain`, 조회 메서드는 `user/repository`에 둔다.
 
-## 프론트 연결 범위
+기존 `(user_id, terms_type, terms_version)` 키를 사용한다. 현재 네 선택 항목은 가입·PUT과 동일하게 `SIGNUP_MARKETING_TERMS_VERSION` 설정(기본 v1)을 공유한다. 이번 작업은 종류별 버전 설정을 새로 추가하지 않는다. 버전을 올리면 기존 기록은 보존되고 GET은 현재 버전 기록이 없는 항목을 미동의로 반환한다.
 
-현재 가입 후 약관 변경 화면은 없고 회원가입용 약관 체크 UI만 있다. 따라서 프론트 UI·가입 요청은 수정하지 않는다. 가입 중에는 기존 signup의 agreements로 저장하며, 가입 후 동의 변경 PUT을 가입 흐름에 억지로 호출하지 않는다. 변경 화면이 추가되면 이 API에 연결할 수 있다.
+기존 VARCHAR(20)은 가장 긴 MARKETING_PRIVACY(17자)를 저장할 수 있다. 기존 `UserTermsPostgresTests`는 전용 PostgreSQL을 명시적으로 지정했을 때 7종 저장·철회를 검증한다. 일반 로컬 DB로 폴백하지 않는다. 이번 조회는 JPA 파생 조회만 사용하며 스키마·DB 전용 SQL 변경은 없다.
 
-## Swagger 확인
+## 프론트 연결 안내
 
-1. 기존 로그인 API를 실행하고 받은 accessToken으로 Authorize한다.
-2. `PUT /api/v1/me/terms/MARKETING/v1`에 `{"agreed":true}`를 보낸다.
-3. 같은 요청을 반복해 agreedAt이 유지되는지 확인한다.
-4. `{"agreed":false}`로 철회 후 저장된 상태·시각을 확인한다.
-5. 필수 약관 false, 잘못된 버전·종류, 본문 누락, 인증 없이 요청했을 때 거절되는지 확인한다.
+설정 화면 진입 시 GET의 agreements로 네 체크 상태를 표시한다. 사용자가 변경하면 응답의 termsType/termsVersion으로 기존 PUT을 호출하고, 성공 응답으로 해당 항목을 갱신하거나 GET으로 다시 조회한다. 서버 저장 성공 전에 확정 상태로 표시하지 않는다. 이번 작업은 백엔드 조회 API와 문서·테스트이며 프론트 화면/UI는 수정하지 않는다.
 
+광고 발송 권한 검사나 발송 기능은 별도다. 추후 발송 시 MARKETING_PRIVACY와 해당 채널 동의의 교집합을 확인하고 야간 푸시는 AD_NIGHT_PUSH도 확인해야 한다. 기존 일반 초대 알림 정책은 변경하지 않는다.
 
-## 2026-11-02 선택 마케팅 동의 항목 분리 (이 절이 이전 열람 전용 설명보다 우선)
+## 검증
 
-기존 `POST /api/v1/auth/signup`의 agreements와 `PUT /api/v1/me/terms/{termsType}/{termsVersion}`을 그대로 사용한다. 새 API·테이블·컬럼·마이그레이션은 없다. 기존 VARCHAR(20) 약관 종류에 다음 항목을 저장한다.
+backend에서 `./gradlew.bat test --tests '*UserTermsUpdateTests'`를 실행한다. HTTP 수준에서 현재 동의·철회, 기록 없음·구버전만 있음, 다른 회원 격리, 현재 설정 버전 우선, 기존 MARKETING 자동 전환 방지, 조회의 무변경, PUT 이후 재조회, 익명·폐기 세션·탈퇴 계정 거부를 검증한다. 기존 PUT 회귀 테스트도 함께 실행한다.
 
-| 종류 | 의미 | 버전 |
-|---|---|---|
-| MARKETING_PRIVACY | 마케팅 목적 개인정보 수집·이용 | v1 |
-| AD_EMAIL | 광고성 이메일 수신 | v1 |
-| AD_PUSH | 광고성 앱 푸시 수신 | v1 |
-| AD_NIGHT_PUSH | 야간 광고성 앱 푸시 수신 | v1 |
-
-네 항목은 각각 선택·철회할 수 있고 미동의나 생략으로 가입을 막지 않는다. UI는 기본 미선택이며 필수 전체 동의는 선택 항목을 변경하지 않는다. 개인정보처리방침은 열람만 제공한다. 각 행의 보기는 기존 HTTPS 문서 URL 설정을 사용한다.
-
-기존 MARKETING 저장 행과 클라이언트 요청은 호환용으로 유지하며 신규 채널 동의로 복사하거나 간주하지 않는다. 새 항목 버전은 기존 SIGNUP_MARKETING_TERMS_VERSION(기본 v1) 설정을 공유하므로 프론트 v1과 일치시켜야 한다. 각 행은 버전·변경 시각을 기존 방식으로 기록한다.
-
-이 변경은 동의 기록만 연결하며 광고 발송 기능을 추가하지 않는다. 추후 발송 시 개인정보 마케팅 동의와 해당 채널 동의의 교집합을 확인하고, 야간 푸시는 AD_NIGHT_PUSH도 확인해야 한다. 기존 일반 초대 알림 발송 정책은 변경하지 않는다.
-
-
-## PostgreSQL 항목 저장 검증 (2026-11-02)
-
-`UserTermsPostgresTests`는 실제 마이그레이션을 적용한 별도 PostgreSQL에서 7개 종류 저장과 신규 선택 4종 철회를 검증한다. VARCHAR(20) 컬럼과 실제 저장을 확인했으며 추가 마이그레이션은 필요하지 않다. 각 테스트 행은 롤백한다. 일반 로컬 DB로의 폴백은 없다.
-
-실행하려면 별도 빈 DB `dio_terms_qa_<식별자>`를 만들고 `DIO_TERMS_POSTGRES_TEST=true`, `DIO_TERMS_POSTGRES_URL=jdbc:postgresql://127.0.0.1:<포트>/dio_terms_qa_<식별자>`, `DIO_TERMS_POSTGRES_USER`, `DIO_TERMS_POSTGRES_PASSWORD`를 환경변수로 지정한다. backend에서 `./gradlew.bat test --tests '*UserTermsPostgresTests' --tests '*UserTermsUpdateTests'`로 실행한다. 인증정보는 저장소에 기록하지 않는다. 해당 테스트는 명시적으로 활성화하지 않으면 제외되며 기존 CI 태스크의 환경변수 요구사항은 바꾸지 않았다.
-
-검증 결과: PostgreSQL 1개 및 기존 약관 변경 8개 통과, 제외 0개. 운영 배포 서버의 실제 환경변수는 로컬에서 검증하지 않았다.
+Swagger에서는 로그인 후 Authorize하고 GET으로 초기 상태를 확인한다. PUT AD_EMAIL/v1로 true, 다시 false로 변경한 뒤 GET에서 상태와 agreedAt을 확인한다. 실제 설정 버전이 다르면 GET 응답의 termsVersion을 사용한다.

@@ -6,6 +6,8 @@ import java.util.*;
 
 /** Linear TrueType outlines from the unaltered model raster. No component assembly. */
 public final class OutlineFont {
+  public static final String SPACING_VERSION = "ink-bounds-v1";
+  public static final int SIDE_BEARING = 16;
   private static byte[] readBytes(File file) throws IOException {
     if (file.length() > 64 * 1024 * 1024) throw new IOException("Glyph file too large");
     byte[] data = new byte[(int)file.length()];
@@ -172,27 +174,48 @@ public final class OutlineFont {
     List<byte[]> glyphs = new ArrayList<>(); glyphs.add(new byte[0]); glyphs.add(new byte[0]);
     int maxPoints = 0, maxContours = 0;
     for (File f : glyphFiles) {
-      byte[] g = readBytes(f); if (g.length < 12) throw new IOException("Missing glyph outline: " + f.getName());
+      byte[] g = readBytes(f);
+      // Empty/degenerate references retain their character mapping as a blank.
+      if (g.length < 10 || (short)(((g[6] & 255) << 8) | (g[7] & 255)) <= (short)(((g[2] & 255) << 8) | (g[3] & 255))) { glyphs.add(new byte[0]); continue; }
       int contours = ((g[0] & 255) << 8) | (g[1] & 255);
-      if (contours == 0 || contours > 32767 || g.length < 12 + contours * 2) throw new IOException("Invalid glyph contours");
+      if (contours == 0) { glyphs.add(new byte[0]); continue; }
+      if (contours > 32767 || g.length < 12 + contours * 2) throw new IOException("Invalid glyph contours");
       int last = 10 + (contours - 1) * 2, points = (((g[last] & 255) << 8) | (g[last + 1] & 255)) + 1;
       maxPoints = Math.max(maxPoints, points); maxContours = Math.max(maxContours, contours); glyphs.add(compactGlyph(g));
     }
     final int maximumPoints = maxPoints, maximumContours = maxContours;
+    int[] advances = new int[count], bearings = new int[count];
+    advances[0] = 2048; advances[1] = 1024; // Preserve .notdef and space.
+    int maxAdvance = 2048, maxExtent = 0;
+    long totalAdvance = 3072;
+    for (int i = 2; i < count; i++) {
+      byte[] g = glyphs.get(i);
+      if (g.length < 10) { advances[i] = 1024; totalAdvance += 1024; continue; }
+      int xmin = (short)(((g[2] & 255) << 8) | (g[3] & 255));
+      int xmax = (short)(((g[6] & 255) << 8) | (g[7] & 255));
+      // Clamp metrics only; preserve the original outline coordinates.
+      xmin = Math.max(0, Math.min(2048, xmin)); xmax = Math.max(0, Math.min(2048, xmax));
+      if (xmax <= xmin) { advances[i] = 1024; totalAdvance += 1024; continue; }
+      advances[i] = xmax - xmin + SIDE_BEARING * 2; bearings[i] = SIDE_BEARING;
+      maxAdvance = Math.max(maxAdvance, advances[i]); maxExtent = Math.max(maxExtent, xmax - xmin + SIDE_BEARING);
+      totalAdvance += advances[i];
+    }
+    final int maximumAdvance = maxAdvance, maximumExtent = maxExtent, averageAdvance = (int)Math.round((double)totalAdvance / count);
     int[] offsets = new int[count + 1];
     // Long loca offsets address exact bytes; only the complete table needs 4-byte padding.
     byte[] glyf = bytes(out -> { int offset = 0; for (int i = 0; i < count; i++) { offsets[i] = offset; byte[] g = glyphs.get(i); out.write(g); offset += g.length; } offsets[count] = offset; });
     SortedMap<String, byte[]> tables = new TreeMap<>(); tables.put("glyf", glyf);
     tables.put("loca", bytes(out -> { for (int offset : offsets) out.writeInt(offset); }));
-    tables.put("head", bytes(out -> { out.writeInt(0x10000); out.writeInt(0x10000); out.writeInt(0); out.writeInt(0x5f0f3cf5); out.writeShort(11); out.writeShort(2048); out.writeLong(0); out.writeLong(0); out.writeShort(0); out.writeShort(-328); out.writeShort(2048); out.writeShort(1720); out.writeShort(0); out.writeShort(8); out.writeShort(2); out.writeShort(1); out.writeShort(0); }));
-    tables.put("hhea", bytes(out -> { out.writeInt(0x10000); out.writeShort(1720); out.writeShort(-328); out.writeShort(0); out.writeShort(2048); out.writeShort(0); out.writeShort(0); out.writeShort(2048); out.writeShort(1); out.writeShort(0); out.writeShort(0); pad(out, 8); out.writeShort(0); out.writeShort(3); }));
+    // Bit 1 must be clear: hmtx LSB is now 16, not each unchanged glyph's xMin.
+    tables.put("head", bytes(out -> { out.writeInt(0x10000); out.writeInt(0x10000); out.writeInt(0); out.writeInt(0x5f0f3cf5); out.writeShort(9); out.writeShort(2048); out.writeLong(0); out.writeLong(0); out.writeShort(0); out.writeShort(-328); out.writeShort(2048); out.writeShort(1720); out.writeShort(0); out.writeShort(8); out.writeShort(2); out.writeShort(1); out.writeShort(0); }));
+    tables.put("hhea", bytes(out -> { out.writeInt(0x10000); out.writeShort(1720); out.writeShort(-328); out.writeShort(0); out.writeShort(maximumAdvance); out.writeShort(SIDE_BEARING); out.writeShort(SIDE_BEARING); out.writeShort(maximumExtent); out.writeShort(1); out.writeShort(0); out.writeShort(0); pad(out, 8); out.writeShort(0); out.writeShort(count); }));
     // Use the measured maxima. Oversized sentinel values can make Skia accept
     // a face yet silently render every glyph as empty.
     tables.put("maxp", bytes(out -> { out.writeInt(0x10000); out.writeShort(count); out.writeShort(maximumPoints); out.writeShort(maximumContours); out.writeShort(0); out.writeShort(0); out.writeShort(2); pad(out, 16); }));
-    tables.put("hmtx", bytes(out -> { for (int i = 0; i < count; i++) { byte[] g = glyphs.get(i); if (i < 3) out.writeShort(i == 1 ? 1024 : 2048); out.writeShort(g.length >= 10 ? (short)(((g[2] & 255) << 8) | (g[3] & 255)) : 0); } }));
+    tables.put("hmtx", bytes(out -> { for (int i = 0; i < count; i++) { out.writeShort(advances[i]); out.writeShort(bearings[i]); } }));
     tables.put("post", bytes(out -> { out.writeInt(0x30000); out.writeInt(0); out.writeShort(-100); out.writeShort(50); pad(out, 20); }));
     tables.put("name", name(family, display));
-    tables.put("OS/2", bytes(out -> { out.writeShort(0); out.writeShort(2048); out.writeShort(400); out.writeShort(5); out.writeShort(0); for (int i = 0; i < 11; i++) out.writeShort(0); pad(out, 10); out.writeInt(0); out.writeInt(1 << 24); out.writeInt(0); out.writeInt(0); out.writeBytes("DIO "); out.writeShort(64); out.writeShort(32); out.writeShort(codepoints.get(codepoints.size() - 1)); out.writeShort(1720); out.writeShort(-328); out.writeShort(0); out.writeShort(1720); out.writeShort(328); }));
+    tables.put("OS/2", bytes(out -> { out.writeShort(0); out.writeShort(averageAdvance); out.writeShort(400); out.writeShort(5); out.writeShort(0); for (int i = 0; i < 11; i++) out.writeShort(0); pad(out, 10); out.writeInt(0); out.writeInt(1 << 24); out.writeInt(0); out.writeInt(0); out.writeBytes("DIO "); out.writeShort(64); out.writeShort(32); out.writeShort(codepoints.get(codepoints.size() - 1)); out.writeShort(1720); out.writeShort(-328); out.writeShort(0); out.writeShort(1720); out.writeShort(328); }));
     // Format 4 groups adjacent codepoints whose GIDs also increase by one.
     List<int[]> segments = new ArrayList<>(); segments.add(new int[]{32, 32, 1 - 32});
     for (int i = 0; i < codepoints.size();) {

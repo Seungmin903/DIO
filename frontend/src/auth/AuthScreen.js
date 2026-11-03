@@ -4,7 +4,6 @@ import {
   Image,
   BackHandler,
   Keyboard,
-  Linking,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -33,7 +32,9 @@ import { authStyles as s } from './styles';
 import ProviderIcon from './ProviderIcon';
 import { pickProfilePhoto } from './profilePhoto';
 import EmailVerification from './EmailVerification';
-import { createSignupDocuments, signupDocuments, signupEligibility } from './signupPolicy';
+import { signupDocuments, signupEligibility } from './signupPolicy';
+import { getSignupDocument, isConsentDocument } from '../shared/legalContent';
+import LegalDocumentScreen from './LegalDocumentScreen';
 import PasswordResetScreen from './PasswordResetScreen';
 import SignupTerms from './SignupTerms';
 
@@ -54,7 +55,6 @@ const emptyTerms = () => ({ service: false, privacy: false, marketing: false, ma
 export default function AuthScreen({
   onContinue,
   legalDocuments = signupDocuments,
-  openDocument = Linking.openURL,
   onClose = null,
   service = authService,
   photoPicker = pickProfilePhoto,
@@ -74,6 +74,8 @@ export default function AuthScreen({
   const [profile, setProfile] = useState(null);
   const [nickname, setNickname] = useState('');
   const [terms, setTerms] = useState(emptyTerms);
+  const [activeDocument, setActiveDocument] = useState(null);
+  const documentRef = useRef(null);
   const [photoUri, setPhotoUri] = useState(null);
   const [verificationAttempt, setVerificationAttempt] = useState(0);
   const [signupComplete, setSignupComplete] = useState(false);
@@ -146,11 +148,14 @@ export default function AuthScreen({
     alive.current = true;
     return () => {
       alive.current = false;
+      documentRef.current = null;
       job.current++;
       service.cancelPending?.();
     };
   }, []);
   const navigate = (next, provider = enrollmentProvider) => {
+    documentRef.current = null;
+    setActiveDocument(null);
     if (enrollmentBlocked.current && next !== 'welcome') next = 'underage';
     if (provider === 'email' && (next === 'signup' || next === 'eligibility') && !emailVerificationEnabled && !verificationService) {
       Keyboard.dismiss();
@@ -203,19 +208,32 @@ export default function AuthScreen({
       },
     );
   };
-  const viewDocument = async (key, title) => {
-    const url = createSignupDocuments(legalDocuments)[key];
-    if (!url) {
-      setInfo({ title: '문서 준비 중', body: '아직 공개되지 않은 문서예요. 잠시 후 다시 확인해 주세요.' });
-      return;
-    }
-    try { await openDocument(url); }
-    catch { if (alive.current) setInfo({ title, body: '문서를 열지 못했어요. 네트워크를 확인하고 다시 시도해 주세요.' }); }
+  const closeDocument = () => {
+    documentRef.current = null;
+    setActiveDocument(null);
+  };
+  const viewDocument = (key) => {
+    if (busy || running.current || route !== 'eligibility') return;
+    const source = getSignupDocument(key);
+    if (!source) return;
+    const document = { ...source };
+    documentRef.current = document;
+    setActiveDocument(document);
+  };
+  const agreeDocument = (document) => {
+    if (!alive.current || documentRef.current !== document || route !== 'eligibility' || busy ||
+        !isConsentDocument(document)) return;
+    setTerms(current => ({ ...current, [document.id]: true }));
+    closeDocument();
   };
   const back = () =>
     navigate(route === 'verification' || (route === 'profile' && profile?.provider === 'email') ? 'signup' : route === 'signup' ? 'eligibility' : 'welcome');
   useEffect(() => {
     const listener = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (documentRef.current) {
+        closeDocument();
+        return true;
+      }
       if (info) {
         setInfo(null);
         return true;
@@ -231,7 +249,7 @@ export default function AuthScreen({
       return false;
     });
     return () => listener.remove();
-  }, [route, profile, info, needsLoginAccess]);
+  }, [route, profile, info, needsLoginAccess, activeDocument]);
   const run = async (action, onSuccess, onFailure) => {
     if (running.current) return;
     running.current = true;
@@ -718,6 +736,9 @@ export default function AuthScreen({
           </Text>
         </View>
       )}
+      {activeDocument && <LegalDocumentScreen key={activeDocument.id} document={activeDocument}
+        onClose={closeDocument}
+        onAgree={isConsentDocument(activeDocument) ? () => agreeDocument(activeDocument) : undefined} />}
       <EditorModal
         visible={!!info}
         transparent
