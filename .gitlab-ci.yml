@@ -465,19 +465,26 @@ deploy-release:
   script:
     - bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/release.env
     - bash infra/scripts/assert-release-env.sh /home/gitlab-runner/dio-env/release.env
+    - bash infra/scripts/assert-release-db.sh /home/gitlab-runner/dio-env/release.env
     - docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml config --quiet
     - |
+      health_check() {
+        curl --fail --retry 30 --retry-all-errors --retry-delay 2 --connect-timeout 3 --max-time 90 http://127.0.0.1:8083/actuator/health
+      }
       previous_image="$(docker inspect --format '{{.Config.Image}}' dio-release-backend-backend-1 2>/dev/null || true)"
       export BACKEND_IMAGE="dio-backend:release-${CI_COMMIT_SHORT_SHA}"
       docker build --tag "$BACKEND_IMAGE" ./backend
       docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate
-      if ! curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8083/actuator/health; then
+      if ! health_check; then
         docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend || true
         if [ -n "$previous_image" ]; then
           echo "Release health check failed; restoring $previous_image." >&2
           export BACKEND_IMAGE="$previous_image"
           docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate
-          curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8083/actuator/health || true
+          if ! health_check; then
+            echo "Rollback health check failed; release remains unavailable." >&2
+            docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend || true
+          fi
         fi
         exit 1
       fi

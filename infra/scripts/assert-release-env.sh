@@ -3,9 +3,14 @@
 set -euo pipefail
 
 env_file="${1:?usage: $0 <env-file>}"
-release_db="$(sed -n 's/^POSTGRES_DB=//p' "$env_file" | head -n 1 | tr -d '\r')"
+database_definition_count="$(grep -Ec '^[[:space:]]*POSTGRES_DB[[:space:]]*=' "$env_file" || true)"
 
-if [ "$release_db" != "dio_release" ]; then
-  echo "Release deployment requires POSTGRES_DB=dio_release; found a different or missing value." >&2
+if [ "$database_definition_count" -ne 1 ]; then
+  echo "Release deployment requires exactly one POSTGRES_DB definition." >&2
+  exit 1
+fi
+
+if ! grep -Eq "^[[:space:]]*POSTGRES_DB[[:space:]]*=[[:space:]]*(dio_release|'dio_release'|\"dio_release\")[[:space:]]*$" "$env_file"; then
+  echo "Release deployment requires POSTGRES_DB=dio_release." >&2
   exit 1
 fi
