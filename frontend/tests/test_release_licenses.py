@@ -15,6 +15,21 @@ spec=importlib.util.spec_from_file_location('prepare',ROOT/'scripts/prepare-rele
 prepare=importlib.util.module_from_spec(spec);spec.loader.exec_module(prepare)
 
 class ReleaseLicenses(unittest.TestCase):
+    def test_google_sdk_metadata_uses_official_maven2_and_guava_stays_on_central(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temp:
+            urls=[]
+            def fetch(url, target, optional=False):
+                urls.append(url)
+                return target
+            with patch.object(prepare, 'GRADLE', Path(temp)/'gradle'), patch.object(prepare, 'CACHE', Path(temp)/'cache'), patch.object(prepare, 'remote_file', fetch):
+                for coordinate in ['com.google.android.gms:play-services-stats:17.0.2', 'com.google.firebase:firebase-iid-interop:17.1.0', 'com.android.installreferrer:installreferrer:2.2', 'com.google.guava:guava:33.3.1-android']:
+                    group,name,version=coordinate.split(':')
+                    prepare.maven_inputs(dict(group=group,name=name,version=version))
+            self.assertEqual(len(urls),8)
+            self.assertTrue(all(url.startswith('https://dl.google.com/dl/android/maven2/') for url in urls[:6]))
+            self.assertTrue(all(url.startswith('https://repo.maven.apache.org/maven2/') for url in urls[6:]))
+
     def test_google_sdk_terms_and_bundled_notices_are_kept_separate(self):
         coordinate='com.google.android.gms:play-services-cloud-messaging:17.2.0'
         with tempfile.TemporaryDirectory() as temp:
