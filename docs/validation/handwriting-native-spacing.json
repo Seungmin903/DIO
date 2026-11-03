@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "syllables": 11172,
+  "glyphDataByteIdentical": true,
+  "points": 44688,
+  "contours": 11172,
+  "nativeAndJsMetricsEqual": true,
+  "mixedCheckpointsByteEqual": true,
+  "completedOverwriteRejected": true,
+  "sourceUnchanged": true,
+  "sourceBytes": 447372,
+  "correctedBytes": 469980,
+  "nativeBytes": 373136,
+  "raster": [
+    {
+      "size": 24,
+      "compared": 21,
+      "changedAfterPositionCompensation": 7
+    },
+    {
+      "size": 48,
+      "compared": 21,
+      "changedAfterPositionCompensation": 0
+    },
+    {
+      "size": 128,
+      "compared": 11172,
+      "changedAfterPositionCompensation": 0
+    },
+    {
+      "size": 256,
+      "compared": 21,
+      "changedAfterPositionCompensation": 0
+    }
+  ],
+  "physicalDeviceTested": false
+}
