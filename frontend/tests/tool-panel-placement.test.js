@@ -1,9 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover } from '../src/editor/utils/toolPanelPlacement.js'
 
 const STAGE = { width: 900, height: 700 }
 const at = (y) => [{ x: 40, y, w: 100, h: 40, rotation: 0 }]
+const source = readFileSync(new URL('../src/editor/screens/EditorScreen.js', import.meta.url), 'utf8')
 
 test('옵션 창 위쪽 기준: 태블릿은 작업창 위 끝, 폰은 기존 76을 유지한다', () => {
   assert.equal(optionsPlacement(at(0), 1, { x: 0, y: 0 }, STAGE).top, OPTIONS_TOP)
@@ -44,4 +46,10 @@ test('패널을 닫아 작업창이 넓어져도 도구 설정 창은 같은 화
   const open = tabletToolPopover({ anchor, stageOrigin: { x: 192, y: 102 }, stageWidth: 812 })
   const closed = tabletToolPopover({ anchor, stageOrigin: { x: 0, y: 102 }, stageWidth: 1280 })
   assert.equal(open.left + 192, closed.left)
+})
+
+test('태블릿 도구 줄은 작업창 밖에 두어 패널 폭의 영향을 받지 않는다', () => {
+  const ribbon = source.indexOf('<Ribbon')
+  assert.ok(ribbon > 0 && ribbon < source.indexOf('<View ref={stageRef}'), '도구 줄이 작업창보다 먼저 그려져야 한다')
+  assert.ok(ribbon < source.indexOf('styles.body, compact'), '도구 줄이 패널이 든 본문 밖에 있어야 한다')
 })
