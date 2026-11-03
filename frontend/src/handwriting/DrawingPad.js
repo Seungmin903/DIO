@@ -1,14 +1,21 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, StyleSheet, Text, View } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
+import {createInkPreview,appendInkPreview,inkPreview} from './inkPreview.js'
 import { colors, radius } from '../shared/theme'
 
 const frame = globalThis.requestAnimationFrame?.bind(globalThis) ?? (fn => setTimeout(fn, 16))
 const cancelFrame = globalThis.cancelAnimationFrame?.bind(globalThis) ?? clearTimeout
-const strokePath = points => points.map((p, j) => `${j ? 'L' : 'M'}${p.x},${p.y}`).join(' ')
+const PreviewPart = memo(function PreviewPart({d,width}) { return <Path d={d} fill="none" stroke="#111" strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" /> })
+const strokePath = points => points.map((p, j) => `${j ? 'L' : 'M'}${Math.round(p.x*100)/100},${Math.round(p.y*100)/100}`).join(' ')
+const StoredStroke = memo(function StoredStroke({stroke}) {
+  return stroke.points.length === 1
+    ? <Circle cx={stroke.points[0].x} cy={stroke.points[0].y} r={stroke.width/2} fill="#111" />
+    : <Path d={strokePath(stroke.points)} fill="none" stroke="#111" strokeWidth={stroke.width} strokeLinecap="round" strokeLinejoin="round" />
+})
 
 // 펜 반영 속도: 이미 쓴 획(아래 층)은 그 칸의 획이 바뀔 때만 다시 그리고, 지금 쓰는 획(위 층)만 움직임마다 그린다.
-// 지금 쓰는 획의 경로 글자는 점을 이어 붙이기만 하고, 화면 반영은 한 프레임에 한 번으로 묶는다.
+// 현재 획은 48선분씩 고정해 최근 구간만 갱신한다. 완료된 획은 객체가 바뀔 때만 경로를 만든다.
 function DrawingPad({ character, sample, onChange, width: penWidth, disabled, onInputActiveChange, canStartInput, onInputStart, seamless = false, guideSize = 50, guideRatio, size = 300 }) {
   const [side, setSide] = useState(size), [preview, setPreview] = useState(null)
   const guideFontSize = guideRatio == null ? guideSize : side * guideRatio
@@ -20,7 +27,7 @@ function DrawingPad({ character, sample, onChange, width: penWidth, disabled, on
   }
   const show = () => {
     if (pending.current != null) return
-    pending.current = frame(() => { pending.current = null; const g = gesture.current; setPreview(g ? { width: g.width, d: g.d, point: g.points.length === 1 ? g.points[0] : null } : null) })
+    pending.current = frame(() => { pending.current = null; const g = gesture.current; setPreview(g ? { width: g.width, ...inkPreview(g.ink), point: g.points.length === 1 ? g.points[0] : null } : null) })
   }
   const stopFrame = () => { if (pending.current != null) { cancelFrame(pending.current); pending.current = null } }
   useEffect(() => {
@@ -36,31 +43,32 @@ function DrawingPad({ character, sample, onChange, width: penWidth, disabled, on
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null
     return { x: Math.max(0, Math.min(1024, x)), y: Math.max(0, Math.min(1024, y)), pressure: event.pointerType === 'pen' && Number.isFinite(event.pressure) ? event.pressure : null, time: Date.now() - (gesture.current?.started ?? Date.now()) }
   }
-  const end = cancelled => {
-    const g = gesture.current; gesture.current = null; stopFrame(); setPreview(null); setActive(false)
+  const end = (cancelled,event) => {
+    const g = gesture.current
+    const last = !cancelled && g && event ? point(event) : null
+    if(last && g.points.length < 5000 && Math.hypot(last.x-g.points.at(-1).x,last.y-g.points.at(-1).y) > .01) g.points.push(last)
+    gesture.current = null; stopFrame(); setPreview(null); setActive(false)
     if (!cancelled && g?.points.length) onChange({ coordinateSize: 1024, strokes: [...(sample?.strokes ?? []), { width: g.width, points: g.points }] })
   }
   // 화면 반 픽셀보다 가까운 점은 버린다(1024 좌표로 0.7 이상, 칸이 작을수록 간격이 넓어진다)
   const minGap = Math.max(.7, 512 / Math.max(1, side))
-  const committed = useMemo(() => (sample?.strokes ?? []).map((stroke, i) => stroke.points.length === 1
-    ? <Circle key={i} cx={stroke.points[0].x} cy={stroke.points[0].y} r={stroke.width / 2} fill="#111" />
-    : <Path key={i} d={strokePath(stroke.points)} fill="none" stroke="#111" strokeWidth={stroke.width} strokeLinecap="round" strokeLinejoin="round" />), [sample])
+  const committed = useMemo(() => (sample?.strokes ?? []).map((stroke,i)=><StoredStroke key={i} stroke={stroke} />), [sample])
   return <View style={[s.pad, seamless && s.seamless]} onLayout={e => { const next = e.nativeEvent.layout.width; if (gesture.current && Math.abs(next - side) > .5) end(true); setSide(next) }}>
     <View pointerEvents="none" style={s.guideWrap}><Text allowFontScaling={false} style={[s.guide, { fontSize: guideFontSize, lineHeight: guideFontSize }]}>{character}</Text></View>
     <View accessibilityLabel={`${character} 손글씨 입력칸`} style={{ width: '100%', aspectRatio: 1, touchAction: 'none' }}
       onTouchStart={e => { if (gesture.current && e.nativeEvent.touches?.length > 1) end(true) }}
       onTouchEnd={e => {
         const event = e.nativeEvent, id = gesture.current?.identifier
-        if (!event.touches?.length || (id != null && event.changedTouches?.some(touch => touch.identifier === id))) end(false)
+        if (!event.touches?.length || (id != null && event.changedTouches?.some(touch => touch.identifier === id))) end(false,e)
       }} onTouchCancel={() => end(true)}
       onStartShouldSetResponder={() => !disabled && (canStartInput?.() ?? true)} onMoveShouldSetResponder={() => !disabled && (canStartInput?.() ?? true)}
-      onResponderGrant={e => { if (disabled || e.nativeEvent.touches?.length > 1) return end(true); const p = point(e); if (!p || onInputStart?.() === false) return end(true); setActive(true); gesture.current = { width: penWidth, points: [p], d: `M${p.x},${p.y}`, started: Date.now(), identifier: e.nativeEvent.identifier ?? e.nativeEvent.changedTouches?.[0]?.identifier }; show() }}
-      onResponderMove={e => { const g = gesture.current; if (!g) return; if (e.nativeEvent.touches?.length > 1) return end(true); const p = point(e); if (p && Math.hypot(p.x - g.points.at(-1).x, p.y - g.points.at(-1).y) >= minGap && g.points.length < 5000) { g.points.push(p); g.d += ` L${p.x},${p.y}`; show() } }}
-      onResponderRelease={() => end(false)} onResponderTerminate={() => end(true)} onResponderTerminationRequest={() => !gesture.current} onShouldBlockNativeResponder={() => Boolean(gesture.current)}>
+      onResponderGrant={e => { if (disabled || e.nativeEvent.touches?.length > 1) return end(true); const p = point(e); if (!p || onInputStart?.() === false) return end(true); setActive(true); gesture.current = { width: penWidth, points: [p], ink: createInkPreview(p), started: Date.now(), identifier: e.nativeEvent.identifier ?? e.nativeEvent.changedTouches?.[0]?.identifier }; show() }}
+      onResponderMove={e => { const g = gesture.current; if (!g) return; if (e.nativeEvent.touches?.length > 1) return end(true); const p = point(e); if (p && Math.hypot(p.x - g.points.at(-1).x, p.y - g.points.at(-1).y) >= minGap && g.points.length < 5000) { g.points.push(p); appendInkPreview(g.ink,p); show() } }}
+      onResponderRelease={e => end(false,e)} onResponderTerminate={() => end(true)} onResponderTerminationRequest={() => !gesture.current} onShouldBlockNativeResponder={() => Boolean(gesture.current)}>
       <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox="0 0 1024 1024">{committed}</Svg>
       {preview && <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox="0 0 1024 1024">
         {preview.point ? <Circle cx={preview.point.x} cy={preview.point.y} r={preview.width / 2} fill="#111" />
-          : <Path d={preview.d} fill="none" stroke="#111" strokeWidth={preview.width} strokeLinecap="round" strokeLinejoin="round" />}
+          : <>{preview.parts.map((d,i)=><PreviewPart key={i} d={d} width={preview.width} />)}<PreviewPart d={preview.tail} width={preview.width} /></>}
       </Svg>}
     </View>
   </View>
