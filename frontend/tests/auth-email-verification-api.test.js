@@ -112,7 +112,15 @@ test('개발 Nginx의 Basic 인증 401을 이메일 인증 오류와 구분하�
 });
 
 test('개발 접근 정보는 명시적으로 허용한 HTTPS 서비스에만 설정하며 인코딩 패딩을 유지한다', () => {
-  assert.equal(createAuthApi({ baseUrl: 'https://server.example' }).verificationService.setDevelopmentAccess, undefined);
+  const production = createAuthApi({ baseUrl: 'https://server.example' }).verificationService;
+  const preview = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true }).verificationService;
+  const insecure = createAuthApi({ baseUrl: 'http://server.example', allowDevelopmentAccess: true }).verificationService;
+  assert.equal(production.canSetDevelopmentAccess, false);
+  assert.equal(production.setDevelopmentAccess, undefined);
+  assert.equal(preview.canSetDevelopmentAccess, true);
+  assert.equal(typeof preview.setDevelopmentAccess, 'function');
+  assert.equal(insecure.canSetDevelopmentAccess, false);
+  assert.equal(insecure.setDevelopmentAccess, undefined);
   for (const password of ['x', 'xx', 'xxx', 'xxxx']) {
     assert.equal(developmentAuthorization('https://server.example', 'tester', password),
       `Basic ${Buffer.from(`tester:${password}`).toString('base64')}`);

@@ -14,7 +14,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   const accessOrigin = new URL(base).origin;
-  const accessStore = allowDevelopmentAccess && new URL(base).protocol === 'https:' ? developmentAccessStore : null;
+  const canSetDevelopmentAccess = allowDevelopmentAccess && new URL(base).protocol === 'https:';
+  const accessStore = canSetDevelopmentAccess ? developmentAccessStore : null;
   let developmentAccess = null;
   let restoringAccess = accessStore ? Promise.resolve().then(() => accessStore.load(accessOrigin))
     .then(value => { if (!developmentAccess && value) developmentAccess = value; })
@@ -426,7 +427,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
   };
   api.verificationService = {
-    ...(allowDevelopmentAccess ? { setDevelopmentAccess(username, password) {
+    canSetDevelopmentAccess,
+    ...(canSetDevelopmentAccess ? { setDevelopmentAccess(username, password) {
       developmentAccess = developmentAuthorization(base, username, password);
       accessStore?.save(accessOrigin, developmentAccess).catch(() => {});
     } } : {}),

@@ -132,7 +132,7 @@ test('동의서와 방침 보기는 정확한 HTTPS 문서를 열며 동의 상�
  } finally { ui.unmount(); }
 });
 
-test('로그인은 개발 접근 인증 후 같은 입력으로 재시도하고 연타를 막는다', async () => {
+test('preview처럼 __DEV__가 꺼져도 서비스가 허용한 개발 접근 인증 후 같은 입력으로 재시도하고 연타를 막는다', async () => {
   const requests = [];
   let release;
   const service = createAuthApi({ baseUrl: 'https://server.example', allowDevelopmentAccess: true,
@@ -144,7 +144,7 @@ test('로그인은 개발 접근 인증 후 같은 입력으로 재시도하고 
         user: { userId: '7', email: 'member@example.com', nickname: '회원', profilePhotoUrl: null },
       }), { status: 200 })); });
     } });
-  const ui = setup(service, undefined, { developmentMode: true });
+  const ui = setup(service, undefined, { developmentMode: false });
   try {
     find(ui.render(), '이메일').props.onChange('member@example.com');
     find(ui.render(), '비밀번호').props.onChange('Password123!');
