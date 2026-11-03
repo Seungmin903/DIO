@@ -1,7 +1,9 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { normalizeEraserSize } from './eraser.js'
-import { sanitizeHighlighterSettings, sanitizePenSettings } from './penSettings.js'
+import { GRID_SPACINGS } from './pageGrid.js'
+import { sanitizeTextDefaults } from './text.js'
+import { sanitizeHighlighterSettings, sanitizePenKinds, sanitizePenSettings } from './penSettings.js'
 
 // 펜 · 형광펜 · 지우개 설정(고른 종류, 굵기, 색, 불투명도 등). 기기에 저장되어 다이어리를 다시 열거나 앱을 껐다 켜도 그대로다.
 const KEY = 'dio.editor.tools.v1'
@@ -10,7 +12,15 @@ const SAVE_DELAY_MS = 200
 // 저장값이 손상됐거나 예전 형식이면 그 항목만 버린다
 const SANITIZE = {
   pen: sanitizePenSettings,
+  penKinds: sanitizePenKinds,
   highlighter: sanitizeHighlighterSettings,
+  textDefaults: sanitizeTextDefaults,
+  lassoShape: value => ['rectangle', 'freeform'].includes(value) ? value : undefined,
+  guides: value => value && typeof value === 'object' ? {
+    grid: value.grid === 'lines' ? 'lines' : 'none',
+    spacing: GRID_SPACINGS.some(item => item.id === value.spacing) ? value.spacing : 'normal',
+    center: value.center === true, thirds: value.thirds === true, margin: value.margin === true,
+  } : undefined,
   straightAssist: value => typeof value === 'boolean' ? value : undefined,
   eraserSize: value => Number.isFinite(value) ? normalizeEraserSize(value) : undefined,
   eraserMode: value => ['stroke', 'area'].includes(value) ? value : undefined,
@@ -54,9 +64,10 @@ export function useToolPreference(key, fallback) {
   const value = useSyncExternalStore(subscribe, read, read)
   const set = useCallback(next => {
     touched = true
-    preferences = { ...preferences, [key]: next }
+    // setState 처럼 이전 값을 받는 함수도 쓸 수 있다
+    preferences = { ...preferences, [key]: typeof next === 'function' ? next(preferences[key] ?? fallback) : next }
     listeners.forEach(listener => listener())
     save()
-  }, [key])
+  }, [key, fallback])
   return [value, set]
 }

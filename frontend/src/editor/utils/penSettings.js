@@ -13,6 +13,10 @@ export const DEFAULT_PEN_SETTINGS = { kind: 'ball', color: '#18224D', width: 2.5
 // 참고 필기 앱(Notability · 애플 노트) 연필은 순검정이 없고 겹칠수록 진해진다). 없는 종류는 1.
 export const PEN_DEFAULT_OPACITY = { pencil: 0.8 }
 export const penDefaultOpacity = kind => PEN_DEFAULT_OPACITY[kind] ?? 1
+// 펜 종류마다 마지막으로 쓴 굵기 · 불투명도를 기억한다(사용자 2026-11-03: 다른 펜을 오가도 설정이 그대로여야 한다).
+// 처음 쓰는 종류는 지금 굵기를 이어 받고 불투명도만 그 종류의 기본값이다.
+export const rememberPen = (memory, settings) => ({ ...memory, [settings.kind]: { width: settings.width, opacity: settings.opacity ?? penDefaultOpacity(settings.kind) } })
+export const applyPenKind = (memory, settings, kind) => ({ ...settings, kind, width: memory?.[kind]?.width ?? settings.width, opacity: memory?.[kind]?.opacity ?? penDefaultOpacity(kind) })
 // 형광펜: 0.42 로 겹쳐 칠해도 · 속지 종이 색으로 깔아도 뽀얀 톤
 export const HIGHLIGHTER_COLORS = ['#F7DF8A', '#F6C79B', '#F2B4AE', '#D8C5EF', '#C6D0F0', '#BDE4D1', '#E5DDD2']
 export const DEFAULT_HIGHLIGHTER_SETTINGS = { kind: 'highlighter', color: '#F7DF8A', width: 18, lineCap: 'square' }
@@ -30,21 +34,34 @@ export function sanitizePenSettings(saved) {
   const kind = PEN_TYPES.some(type => type.id === saved.kind) ? saved.kind : DEFAULT_PEN_SETTINGS.kind
   return { kind, color: validColor(saved.color, DEFAULT_PEN_SETTINGS.color), width: inRange(saved.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(saved.opacity, 0.1, 1, penDefaultOpacity(kind)) }
 }
+export function sanitizePenKinds(saved) {
+  if (!saved || typeof saved !== 'object') return undefined
+  const result = {}
+  for (const type of PEN_TYPES) {
+    const item = saved[type.id]
+    if (item && typeof item === 'object') result[type.id] = { width: inRange(item.width, 1, 16, DEFAULT_PEN_SETTINGS.width), opacity: inRange(item.opacity, 0.1, 1, penDefaultOpacity(type.id)) }
+  }
+  return result
+}
 export function sanitizeHighlighterSettings(saved) {
   if (!saved || typeof saved !== 'object') return undefined
   return { kind: 'highlighter', color: validColor(saved.color, DEFAULT_HIGHLIGHTER_SETTINGS.color), width: inRange(saved.width, 8, 40, DEFAULT_HIGHLIGHTER_SETTINGS.width), lineCap: saved.lineCap === 'round' ? 'round' : 'square' }
 }
 // 볼펜 · 캘리펜 · 붓펜(사용자 2026-11-03: 필압 · 기울기 적용): 힘 → 굵기 곡선 [바닥, 기울기, 하한, 상한]. 볼펜은 은은하게, 붓펜은 크게. 평소 힘 0.22 에서 1 안팎
-const SENSED_WIDTH = { ball: [0.78, 0.42, 0.82, 1.25], calligraphy: [0.72, 0.55, 0.75, 1.35], taperBrush: [0.5, 0.75, 0.55, 1.3] }
-// 눕혀 쓸 때 넓어지는 정도(45~55° 이상에서 최대). 연필은 점의 기울기 값으로 도장에서 따로 계산한다
+// 사용자 2026-11-03: 볼펜 · 캘리펜 · 붓펜 필압 체감이 약하다(힘 0.04 → 0.65 에서 굵기가 볼펜 .9 → 1.25 배, 붓펜은 렌더 상한에 걸려 ±16%)
+// → 코덱스 곡선: 배율 = clamp(lo, hi, base + slope · (힘 / 0.22)^지수). 힘 0.22(평소) 에서 슬라이더 굵기가 거의 그대로(1.03 · 1.05 · .84×몸통 1.25 = 1.05)
+// [base, slope, 지수, lo, hi]. 붓펜 몸통은 렌더에서 1.25 배가 더해져 힘 0.65 에서 약 2.2D(상한 BRUSH_BODY_CAP 2.4)
+const SENSED_WIDTH = { ball: [0.65, 0.38, 0.75, 0.72, 1.52], calligraphy: [0.52, 0.53, 0.85, 0.6, 1.72], taperBrush: [0.27, 0.57, 0.9, 0.38, 1.8] }
+// 눕혀 쓸 때 넓어지는 정도. 연필은 점의 기울기 값으로 도장에서 따로 계산한다
+// (코덱스는 힘 곡선이 넓어졌다며 T 를 .05 · .10 · .06 으로 낮추자고 했으나, 기울기 체감을 올리는 게 목표라 기존 값을 유지했다 — 내 판단)
 const TILT_WIDTH = { ball: 0.12, calligraphy: 0.25, taperBrush: 0.35 }
-// 기울기(도) → 0~1: 평소 쓰는 30~40° 는 0, 55° 에서 1(연필 tilt 와 같은 구간)
-export const tiltAmount = event => Number.isFinite(event?.tiltX) && Number.isFinite(event?.tiltY) ? Math.max(0, Math.min(1, (Math.min(90, Math.hypot(event.tiltX, event.tiltY)) - 40) / 15)) : 0
+// 기울기(도) → 0~1: 25° 이하 0, 55° 이상 1(코덱스. 예전엔 40°→55° 라 평소 30° 근처에서 반응이 없었다)
+export const tiltAmount = event => Number.isFinite(event?.tiltX) && Number.isFinite(event?.tiltY) ? Math.max(0, Math.min(1, (Math.min(90, Math.hypot(event.tiltX, event.tiltY)) - 25) / 30)) : 0
 // pressure는 센서 원값이 아니라 저장·렌더링용 굵기 배율이다.
 export function penPressure(kind, speed = 0, force = null, tilt = 0) {
   const sensed = Number.isFinite(force) && force >= 0 && force <= 1
   const curve = SENSED_WIDTH[kind]
-  if (curve && sensed) return Math.max(curve[2], Math.min(curve[3], curve[0] + curve[1] * Math.sqrt(force / 0.5))) * (1 + TILT_WIDTH[kind] * tilt)
+  if (curve && sensed) return Math.max(curve[3], Math.min(curve[4], curve[0] + curve[1] * (force / 0.22) ** curve[2])) * (1 + TILT_WIDTH[kind] * tilt)
   if (kind === 'fountain') return sensed ? 0.85 + 0.25 * Math.sqrt(force) : 0.94 + 0.12 / (1 + Math.max(0, speed))
   if (kind === 'brush') return sensed ? 0.18 + 1.22 * Math.sqrt(force) : 0.85 + 0.3 / (1 + Math.max(0, speed) * 0.7)
   if (kind === 'felt' && sensed) return 0.88 + 0.12 * Math.sqrt(force)
@@ -68,8 +85,8 @@ export function readPenForce(event) {
   return Number.isFinite(value) && value >= 0 && value <= 1 ? value : null
 }
 
-// 붓펜 속도 배율은 시간상수 45ms 로 평활화한다(코덱스 3판). 다른 펜은 16ms.
-const PRESSURE_SMOOTHING = { taperBrush: 45, ball: 30, calligraphy: 30 }
+// 힘 · 속도 배율 평활화 시간상수(코덱스 2026-11-03: 붓펜 30 · 볼펜 20 · 캘리펜 25ms, 반응이 느려 보이지 않게 줄임). 연필은 16ms.
+const PRESSURE_SMOOTHING = { taperBrush: 30, ball: 20, calligraphy: 25 }
 // useForce · useTilt: 환경설정 필압 · 기울기(shared/penDynamics). 끄면 읽지 않는다
 export function createPenPressureSampler(kind, useForce = true, useTilt = true) {
   const smoothing = PRESSURE_SMOOTHING[kind] ?? 16

@@ -199,7 +199,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const [pageMenuRequest, setPageMenuRequest] = useState(null)
   useEffect(() => { setPageMenuRequest(null) }, [page.id, activeTool])
   const [lassoSettingsOpen, setLassoSettingsOpen] = useState(false)
-  const [lasso, setLasso] = useState({ shape: 'rectangle', mode: 'replace' })
+  // 올가미 모양은 기기에 기억하고(다른 도구를 갔다 와도 그대로), 더하기 · 빼기 모드만 올가미를 쓸 때마다 처음으로 돌아간다
+  const [lassoShape, setLassoShape] = useToolPreference('lassoShape', 'rectangle')
+  const [lassoMode, setLassoMode] = useState('replace')
+  const lasso = useMemo(() => ({ shape: lassoShape, mode: lassoMode }), [lassoShape, lassoMode])
+  const setLasso = useCallback(update => {
+    const next = typeof update === 'function' ? update(lasso) : update
+    setLassoMode(next.mode)
+    if (next.shape !== lassoShape) setLassoShape(next.shape)
+  }, [lasso, lassoShape, setLassoShape])
   useEffect(() => { setLasso(current => ({ ...current, mode: 'replace' })) }, [page.id])
   const [textEditing, setTextEditing] = useState(null)
   // 데일리 플래너 할 일을 펜 · 형광펜으로 눌러 쓴 경우, 글 입력을 마치면 그 도구로 돌아간다(그 밖에는 선택 도구)
@@ -212,12 +220,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const textBoundary = useRef(null)
   const textPaletteBounds = useRef(null)
   const [textPalette, setTextPalette] = useState(null)
-  const [textDefaults, setTextDefaults] = useState(DEFAULT_TEXT_SETTINGS)
+  const [textDefaults, setTextDefaults] = useToolPreference('textDefaults', DEFAULT_TEXT_SETTINGS)
   const [textSettingsOpen, setTextSettingsOpen] = useState(false)
   const [textLinkTarget, setTextLinkTarget] = useState(null)
   const [objectLinkTarget, setObjectLinkTarget] = useState(null) // 링크를 거는 중인 스티커·테이프·사진
   const [linkBadges, setLinkBadges] = useState(true) // 링크가 걸린 요소에 배지를 보일지 (링크 창 오른쪽 위 스위치)
-  const [guides, setGuides] = useState(DEFAULT_GUIDES) // 격자·보조선 (화면에만 보인다)
+  const [guides, setGuides] = useToolPreference('guides', DEFAULT_GUIDES) // 격자·보조선 (화면에만 보인다, 기기에 기억)
   const [guidesOpen, setGuidesOpen] = useState(false)
   const [overviewFilter, setOverviewFilter] = useState(null) // 페이지 넓게 보기: 'all' | 'bookmarked' (null 이면 닫힘)
   const [penSettings, setPenSettings] = usePenSettings()
@@ -926,7 +934,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     if (!keepSelection) dispatch({ type: 'select', ids: [] })
     if (tool === 'lasso' || (activeTool === 'lasso' && tool === 'select')) {
       setTextEditing(null)
-      if (activeTool !== 'lasso') setLasso({ shape: 'rectangle', mode: 'replace' })
+      if (activeTool !== 'lasso') setLasso(current => ({ ...current, mode: 'replace' }))
     }
     setActiveTool(tool)
   }

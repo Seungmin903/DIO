@@ -8,16 +8,18 @@ export const isNibKind = kind => NIB_KINDS.includes(kind)
 // 평촉: 긴 변 = 굵기 D, 짧은 변 = max(0.75, 0.34D)(사용자: 굵기 대비 살짝 더, 0.38 → 0.34), 긴 변이 화면 +x 축에서 시계 방향 25°(y 아래로), 모서리 반경 0.08D
 const NIB_ANGLE = 25 * Math.PI / 180, NIB_RATIO = 0.34, NIB_MIN_SHORT = 0.75, NIB_CORNER = 0.08
 // 붓펜(코덱스 3판 · 검수 반영): 시작은 붓을 눌러 생긴 둥근 머리(기필) 1.45D, 끝은 길게 빠지는 삐침(수필). 몸통은 굵기의 1.25배.
-// 머리 길이 H = min(max(1.2D, 3), 8)·3차 ease-out, 삐침 길이 T = min(max(4.5D, 8), 0.42S)(상한 26 이면 굵은 획 끝이 짧은 화살촉이 됐다, 2026-11-03 태블릿 확인).
+// 머리 길이 H = min(max(1.2D, 3), 8)·3차 ease-out, 삐침 길이 T = min(max(7D, 8), 0.42S)(상한 26 이면 굵은 획 끝이 짧은 화살촉이 됐다, 2026-11-03 태블릿 확인 · 사용자 '좀 더 완만하게' → 4.5D 에서 7D, 코덱스).
 // 삐침은 몸통 굵기를 이어 가다 끝에서 모이는 1 - u² (ease-out 이면 시작에서 확 줄어 굵을 때 옆선이 )( 처럼 오목했다, 사용자 지적).
 // 삐침 끝은 지름 0.5 까지 뾰족하게 모은다(코덱스 2026-11-03: 끝 굵기 0.5D 에서 멈추면 둥근 머리가 성냥처럼 튀어나왔다, 사용자 지적. 실제 붓펜 · Clip Studio · perfect-freehand 도 끝에 머리를 남기지 않는다).
 // 짧은 획(S < max(2.5D, 6))은 가시처럼 되지 않게 끝 굵기를 max(0.85D, 1.1) 로 둔다. 몸통 굵기는 max(0.5D, 1) ~ 1.45D 사이.
 // 이미 그린 앞부분이 획이 길어지면서 바뀌지 않도록 머리 · 몸통은 획 길이 S 와 무관하다(사용자: 다시 계산해 바뀌지 않게).
-const HEAD = 1.45, BODY = 1.25, HEAD_LENGTH = [1.2, 3, 8], TAIL_LENGTH = [4.5, 8, Infinity, 0.42]
+const HEAD = 1.45, BODY = 1.25, HEAD_LENGTH = [1.2, 3, 8], TAIL_LENGTH = [7, 8, Infinity, 0.42]
 const SHORT = [2.5, 6], SHORT_END = [0.85, 1.1], FLOOR = [0.5, 1], TIP = 0.5
 // 끝 구간은 굵기가 빠르게 변하므로 곡선 표본(6)보다 촘촘히 나눈다(그대로면 옆선이 각져 보인다)
 const TAIL_STEP = 0.75
-export const BRUSH_MAX_SCALE = HEAD
+// 붓펜 몸통 굵기 배율 상한(굵기 D 대비). 예전엔 시작 머리(1.45)와 같아서 힘 배율이 1.16 을 넘으면 더 굵어지지 않았다(필압 체감이 없던 원인).
+export const BRUSH_BODY_CAP = 2.4
+export const BRUSH_MAX_SCALE = BRUSH_BODY_CAP
 const DOT = 0.75, BRUSH_DOT = 1.15, MIN_DOT = 0.85
 
 // 볼펜(strokePath)과 같은 곡선: 입력 점을 조절점으로 두고 이웃 점의 가운데를 잇는 2차 곡선. 처음 · 끝 점은 그대로 지난다.
@@ -148,7 +150,7 @@ export function brushScale(distance, total, width, { speed = 1, end = true } = {
   let scale = distance < shape.head ? HEAD + (BODY - HEAD) * easeOut(distance / shape.head) : BODY
   const from = total - shape.tail, inTail = end && distance > from
   if (inTail) scale = Math.min(scale, BODY + (shape.end - BODY) * easeIn(Math.min(1, (distance - from) / shape.tail)))
-  return Math.max(inTail ? Math.min(shape.end, shape.floor) : Math.min(shape.floor, 1), Math.min(HEAD, scale * speed))
+  return Math.max(inTail ? Math.min(shape.end, shape.floor) : Math.min(shape.floor, 1), Math.min(BRUSH_BODY_CAP, scale * speed))
 }
 
 // 곡선 표본의 진행 거리(inkDistance)로 붓 굵기 배율을 pressure 에 넣는다(입력 때의 속도 배율과 곱한다).
@@ -200,7 +202,8 @@ export function ballPreviewPaths(parts, width) {
   })
 }
 
-// 그리는 중 미리보기: 끝난 구간은 같은 객체를 재사용한다. 붓펜 끝 삐침이 걸린 구간만 다시 계산한다.
+// 그리는 중 미리보기: 끝난 구간은 같은 객체를 재사용한다. 붓펜은 쓰는 중에 끝 삐침을 넣지 않는다(펜 끝까지 굵게 보여야 끝을 따라온다 —
+// 사용자 2026-11-03 결정 C: Toon Boom · ArtRage · Clip Studio 도 끝 삐침은 획을 마친 뒤 적용한다). 삐침은 뗄 때 저장 획(nibContour)에서 생긴다.
 const partCache = new WeakMap()
 export function nibPreviewPaths(parts, width, kind) {
   if (kind === 'calligraphy') return parts.map(part => {
@@ -211,12 +214,12 @@ export function nibPreviewPaths(parts, width, kind) {
     return path
   })
   if (parts.length === 1 && parts[0].points.length === 1) return [taperPath(parts[0].points, width)]
-  const total = parts.at(-1)?.points.at(-1)?.inkDistance ?? 0, from = total - brushShape(width, total).tail
+  const total = parts.at(-1)?.points.at(-1)?.inkDistance ?? 0
   return parts.map((part, i) => {
-    const live = i >= parts.length - 2 || part.points.at(-1).inkDistance > from
+    const live = i >= parts.length - 2
     const key = `t:${width}`, cached = partCache.get(part)
     if (!live && cached?.key === key) return cached.path
-    const path = taperPath(withTaper(curveOfPart(part), width, { total, end: live }), width, { capStart: !part.key, capEnd: !part.continuing })
+    const path = taperPath(withTaper(curveOfPart(part), width, { total, end: false }), width, { capStart: !part.key, capEnd: !part.continuing })
     if (!live) partCache.set(part, { key, path })
     return path
   })

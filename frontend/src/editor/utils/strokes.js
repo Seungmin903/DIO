@@ -23,7 +23,7 @@ export function createStroke(points, { id, color = DEFAULT_PEN.color, width = DE
     maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y)
   }
   // 스퀘어 끝은 대각선에서도 경계에 잘리지 않도록 여백을 확보한다.
-  // 붓펜 머리는 굵기의 1.45배까지 커진다(nibStroke BRUSH_MAX_SCALE)
+  // 붓펜 머리는 굵기의 1.45배까지 커진다(nibStroke BRUSH_MAX_SCALE). 힘 배율은 아래 pressure 최대값에 이미 들어 있다
   const padding = width * points.reduce((max, p) => Math.max(max, p.pressure ?? 1), 1) * (kind === 'highlighter' && lineCap === 'square' ? Math.SQRT2 : kind === 'taperBrush' ? 1.45 : 1)
   const w = Math.max(20, maxX - minX + padding)
   const h = Math.max(20, maxY - minY + padding)
