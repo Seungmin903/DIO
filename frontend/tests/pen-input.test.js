@@ -340,6 +340,17 @@ test('RAF 전에 끝나는 연속 획도 즉시 시작점이 보이고 이전 �
   } finally { globalThis.requestAnimationFrame = request; globalThis.cancelAnimationFrame = cancel }
 })
 
+test('앱은 대기 획 없이 펜을 떼는 호출 안에서 미리보기를 지우고 새 획을 넣는다', () => {
+  const f = fixture('ball', 1, false)
+  f.handlers.onStart({ locationX: 10, locationY: 20 })
+  assert.ok(f.store.getSnapshot())
+  f.handlers.onMove(20, 0, {})
+  f.handlers.onEnd({ cancelled: false })
+  assert.equal(f.store.getSnapshot(), null)
+  assert.equal(f.store.getPendingSnapshot().length, 0)
+  assert.equal(f.actions.filter(action => action.type === 'addObjects').length, 1)
+})
+
 test('웹 연속 획은 문서 표시가 늦어도 이전 획을 보존하고 다음 획을 지우지 않는다', () => {
   const f = fixture('fountain', 1, false, true)
   f.handlers.onStart({ locationX: 10, locationY: 20 })
