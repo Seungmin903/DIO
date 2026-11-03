@@ -21,7 +21,7 @@ import PhotoPathShadow from './PhotoPathShadow'
 import StrokeContent from '../StrokeContent'
 import ShapeContent from './ShapeContent'
 import { richTextSegments, segmentTextStyle } from '../../utils/textFormats'
-import { loadedFontFamily, textLayoutKey, textSettings, textStyle } from '../../utils/text'
+import { personalFontLoading, textLayoutKey, textSettings, textStyle } from '../../utils/text'
 import { useTextFont } from '../../hooks/useTextFont'
 import { useStickerPlayback } from '../../hooks/useStickerPlayback'
 import DdayWidget from '../../widgets/DdayWidget'
@@ -46,8 +46,9 @@ function ObjectContent({ object, zoom, areaPreview = false, still = false, onAss
   const onTextMeasure = useContext(TextMeasure)
   const textMeasureReady = useContext(TextMeasureReady)
   const failed = useMediaEntry(mediaId(object))?.status === 'error'
-  if (object.type === 'text' && object.font?.startsWith('personal-') && !loadedFontFamily(object.font)) return (
-    <View style={{ width, height, justifyContent: 'center' }}><Text style={{ fontSize: Math.max(8, 12 * zoom), color: colors.textMuted }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져와 주세요.'}</Text></View>
+  // fontStatus를 구독해 불러오기가 끝나면 다시 그린다. 쓸 수 없는 내 폰트는 textStyle이 기본 고딕으로 바꾼다.
+  if (object.type === 'text' && fontStatus && personalFontLoading(object.font)) return (
+    <View style={{ width, height, justifyContent: 'center' }}><Text style={{ fontSize: Math.max(8, 12 * zoom), color: colors.textMuted }}>내 폰트를 준비하고 있어요…</Text></View>
   )
   if (mediaId(object) && !uri) return (
     <View style={{ width, height, backgroundColor: failed ? colors.surfaceSoft : colors.surface, borderWidth: failed ? 1 : 0, borderStyle: 'dashed', borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>

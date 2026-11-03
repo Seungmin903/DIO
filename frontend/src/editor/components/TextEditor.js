@@ -4,7 +4,7 @@ import { startTextKeyboard } from '../utils/textKeyboard'
 import { colors } from '../../shared/theme'
 import { colorTextRange, normalizeRanges, remapTextRanges, textSegments } from '../utils/textRanges'
 import { TEXT_AUTO_MAX_WIDTH, TEXT_AUTO_MIN_WIDTH, TEXT_COLORS, textStyle, TEXT_FRAME_PAD } from '../utils/text'
-import { autoWidthInputLayout, loadedFontFamily, textSettings, textInputHeight } from '../utils/text'
+import { autoWidthInputLayout, personalFontLoading, textSettings, textInputHeight } from '../utils/text'
 
 import { formatTextRange, normalizeTextFormats, remapTextFormats, resizeTextRange, richTextSegments, safeTextSelection, segmentTextStyle, applyInputSelection } from '../utils/textFormats'
 import { copyText, readText, useTextClipboardAvailable } from '../services/textClipboard'
@@ -15,7 +15,8 @@ import { useTextFont } from '../hooks/useTextFont'
 // Android는 TextInput의 styled children으로 선택 범위 색상을 즉시 표시한다.
 export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, boundary, onPaletteChange, paletteBounds, onToast, onReveal }) {
   const fontStatus = useTextFont(object.font)
-  const fontPending = object.font?.startsWith('personal-') && !loadedFontFamily(object.font)
+  // 불러오는 중에만 기다린다. 이 기기에 없는 내 폰트는 기본 고딕으로 보이며 편집할 수 있고, 글꼴 값은 바꾸지 않는다.
+  const fontPending = Boolean(fontStatus) && personalFontLoading(object.font)
   const input = useRef(null), draft = useRef(object.text ?? ''), composing = useRef(false), saving = useRef(false)
   const cancelled = useRef(false)
   const keyboardStartup = useRef(null)
@@ -245,7 +246,7 @@ export default function TextEditor({ commitRef, object, zoom, onSave, onCancel, 
   useEffect(() => () => { paletteBounds.current = null; onPaletteChange(null) }, [onPaletteChange, paletteBounds])
   const top = object.y * zoom
   if (fontPending) return <View style={{ position: 'absolute', left: object.x * zoom, top, padding: 12, backgroundColor: colors.surface }}>
-    <Text style={{ color: colors.text }}>{fontStatus.includes(':loading') ? '내 폰트를 준비하고 있어요…' : '내 폰트 파일을 가져온 뒤 편집해 주세요.'}</Text>
+    <Text style={{ color: colors.text }}>내 폰트를 준비하고 있어요…</Text>
     <Pressable accessibilityRole="button" onPress={onCancel} style={{ paddingVertical: 12 }}><Text style={{ color: colors.primary }}>닫기</Text></Pressable>
   </View>
   return <View style={{ position: 'absolute', left: object.x * zoom, top, width: boxWidth, transform: [{ rotate: `${object.rotation ?? 0}deg` }] }}>

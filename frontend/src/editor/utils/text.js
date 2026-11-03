@@ -95,7 +95,10 @@ export function markTextFontFailed(family) {
 }
 export function textFontSnapshot(id) {
   const font = getTextFonts().find(f => f.id === resolveFontId(id))
-  return [font?.family, font?.boldFamily].filter(Boolean).map(f => `${f}:${loadedFamilies.has(f) ? 'loaded' : failedFamilies.has(f) ? 'error' : 'loading'}`).join('|')
+  const families = [font?.family, font?.boldFamily].filter(Boolean)
+  // 쓸 수 없는 내 폰트는 기본 고딕으로 그리므로, 기본 고딕을 다 불러오면 다시 그리도록 그 상태도 넣는다.
+  if (isPersonalFont(id) && !(font && loadedFamilies.has(font.family))) families.push(fallbackTextFamily())
+  return families.map(f => `${f}:${loadedFamilies.has(f) ? 'loaded' : failedFamilies.has(f) ? 'error' : 'loading'}`).join('|')
 }
 /** 글꼴 id → 지금 쓸 수 있는 fontFamily. 앱 글꼴이 아니거나 아직 불러오기 전이면 null */
 export function loadedFontFamily(id, bold = false) {
@@ -108,6 +111,14 @@ export function loadedFontFamily(id, bold = false) {
 // 모든 글꼴에 같은 각도로 글자 상자를 기울인다. 화면 · 입력창 · 내보내기(화면을 그대로 찍는다)가 같은 변형을 쓴다.
 export const ITALIC_SKEW_DEG = 12
 export const italicTransform = () => [{ skewX: `-${ITALIC_SKEW_DEG}deg` }]
+
+export const isPersonalFont = (id) => Boolean(id?.startsWith('personal-'))
+const fallbackTextFamily = () => TEXT_FONTS.find(f => f.id === DEFAULT_TEXT_SETTINGS.font).family
+/** 내 폰트 파일을 아직 불러오는 중이면 true. 불러오지 못했거나 이 기기에 없으면 false(기본 고딕으로 그린다) */
+export function personalFontLoading(id) {
+  const font = isPersonalFont(id) && getTextFonts().find(f => f.id === id)
+  return Boolean(font) && !loadedFamilies.has(font.family) && !failedFamilies.has(font.family)
+}
 
 export function textStyleSupport(id, platform = 'android') {
   if (id?.startsWith('personal-')) return { bold: false, italic: true }
@@ -140,7 +151,9 @@ export function textStyle(object, scale = 1, platform = 'android') {
   const families = platform === 'ios' ? { sans: 'System', serif: 'AppleMyungjo', mono: 'Courier' } : { sans: 'sans-serif', serif: 'serif', mono: 'monospace' }
   const decoration = [s.underline && 'underline', s.strike && 'line-through'].filter(Boolean).join(' ') || 'none'
   const support = textStyleSupport(s.font, platform)
-  const family = loadedFontFamily(s.font, s.bold && support.bold)
+  // 내 폰트를 이 기기에서 쓸 수 없으면(다른 멤버 기기, 파일을 지운 기기, 탈퇴한 회원의 글) 기본 고딕으로 그린다.
+  // 저장된 font 값은 그대로 두므로 폰트가 있는 기기에서는 원래 글꼴로 보인다. 굵게는 내 폰트와 같이 쓰지 않는다.
+  const family = loadedFontFamily(s.font, s.bold && support.bold) ?? (isPersonalFont(s.font) ? loadedFontFamily(DEFAULT_TEXT_SETTINGS.font) : null)
   // 등록한 단일 face를 직접 선택한다. 파일에 없는 weight/style을 다시 요청하지 않는다.
   // 크기가 0이면 안드로이드가 예외를 던진다. 줄간격·자간도 같은 크기를 기준으로 맞춘다.
   const size = Math.max(1, s.fontSize * scale)

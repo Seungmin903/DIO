@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PROMPTS, MODEL_VERSION, PREPROCESS_VERSION, componentAddresses, prepareSample, rasterize, validateDraft, jobMatchesModel } from '../src/handwriting/protocol.js'
 import { fromBase64, toBase64, inspectTrueType } from '../src/handwriting/fontFormat.js'
-import { getTextFonts, registerPersonalTextFonts, textStyle, textStyleSupport, markTextFontLoaded, textFontListSnapshot } from '../src/editor/utils/text.js'
+import { getTextFonts, registerPersonalTextFonts, textStyle, textStyleSupport, markTextFontLoaded, markTextFontFailed, personalFontLoading, textFontListSnapshot } from '../src/editor/utils/text.js'
 import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 
 const sample = (points, width = 9) => ({ coordinateSize: 1024, strokes: [{ width, points: points.map(([x, y]) => ({ x, y, pressure: null, time: 0 })) }] })
@@ -55,6 +55,22 @@ test('개인 글꼴은 UUID를 유지하며 Regular만 사용하고 기본 글�
   assert.equal(getTextFonts().find(f => f.id === id).label, '이름 변경')
   registerPersonalTextFonts([])
   assert.deepEqual(textStyleSupport(id), { bold: false, italic: true })
+})
+test('이 기기에서 쓸 수 없는 내 폰트는 기본 고딕으로 그리고 불러오는 중에만 기다린다', () => {
+  const id = 'personal-99999999-2222-4333-8444-555555555555', family = 'DIOHW_99999999222243338444555555555555'
+  markTextFontLoaded('NanumGothic')
+  // 다른 멤버 기기처럼 목록에 없는 내 폰트: 기다리지 않고 기본 고딕, 굵게는 쓰지 않는다
+  assert.equal(personalFontLoading(id), false)
+  const missing = textStyle({ font: id, bold: true })
+  assert.deepEqual([missing.fontFamily, missing.fontWeight], ['NanumGothic', '400'])
+  registerPersonalTextFonts([{ id, family, label: '내 손글씨' }])
+  assert.equal(personalFontLoading(id), true)
+  markTextFontFailed(family)
+  assert.equal(personalFontLoading(id), false)
+  assert.equal(textStyle({ font: id }).fontFamily, 'NanumGothic')
+  markTextFontLoaded(family)
+  assert.equal(textStyle({ font: id }).fontFamily, family)
+  registerPersonalTextFonts([])
 })
 test('로컬 이관용 base64는 잘리지 않고 왕복하며 잘못된 폰트를 거부한다', () => {
   for (const size of [1, 2, 3, 12287, 12288, 12289, 60000]) {
