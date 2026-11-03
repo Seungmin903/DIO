@@ -35,7 +35,7 @@ def main():
                   original_commit='488a8e823920d94ea3f544bad9fe8e34929d8c04',
                   original_checkpoint_sha256=CHECKPOINT_SHA256, precision='float32',
                   batch=1, image_resolution=[128, 128], input_normalization='gray/127.5 - 1',
-                  preprocess_version='dio-ink-fit96-margin4-fp32-v1',
+                  preprocess_version='dio-ink-safe90-margin4-fp32-v2',
                   versions=dict(torch=torch.__version__, onnx=onnx.__version__, desktop_onnxruntime=ort.__version__, android_onnxruntime='1.23.2'),
                   state_dict_tensors=len(generator.state_dict()), checkpoint_values_exact=True,
                   files={}, input_contract={}, source_files={}, weights_rights_review='Excluded by task scope')

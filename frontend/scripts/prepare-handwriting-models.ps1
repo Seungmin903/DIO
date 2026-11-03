@@ -20,6 +20,11 @@ $taskNotice = Join-Path $PSScriptRoot '../model-tools/NOTICE'
 if (-not (Test-Path -LiteralPath $taskNotice)) { throw 'Missing current inference source NOTICE.' }
 New-Item -ItemType Directory -Path $taskDestination -Force | Out-Null
 foreach ($taskName in @($taskFiles.Keys) + @('manifest.json','LICENSE')) { Copy-Item -LiteralPath (Join-Path $taskSource $taskName) -Destination (Join-Path $taskDestination $taskName) }
+# Model weights stay pinned, but preprocessing follows this checkout.
+$taskInstalledManifestPath = Join-Path $taskDestination 'manifest.json'
+$taskInstalledManifest = Get-Content -LiteralPath $taskInstalledManifestPath -Raw | ConvertFrom-Json
+$taskInstalledManifest.preprocess_version = 'dio-ink-safe90-margin4-fp32-v2'
+$taskInstalledManifest | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $taskInstalledManifestPath -Encoding utf8
 # Models are pinned above; use their current source attribution even for older verified bundles.
 Copy-Item -LiteralPath $taskNotice -Destination (Join-Path $taskDestination 'NOTICE')
 Write-Output 'Verified FP32 models prepared. No handwriting data or private feature cache copied.'
