@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { Pressable, ScrollView, StyleSheet, Text, View, Switch } from 'react-native'
 import { colors } from '../../shared/theme'
@@ -23,13 +24,18 @@ export function PenSample({ settings, small = false }) {
  * 펜·형광펜 설정. 스티커·마테·사진 옵션과 같은 모양: 구역 제목, 세그먼트 버튼, 막대(−·+·숫자), 색 한 줄, 내 색상.
  * 내 색상은 펜·형광펜이 각자 따로 저장한다 (controls/MyColorPresets).
  */
-export default function PenSettings({ settings, onChange, onClose, straightAssist = true, onStraightAssistChange }) {
+export default function PenSettings({ settings, onChange, onClose, straightAssist = true, onStraightAssistChange, onOpenColorPicker, pickerVisible = false }) {
+  const root = useRef(null)
+  const anchor = useRef(null)
   const highlighter = settings.kind === 'highlighter'
   const label = highlighter ? '형광펜' : '펜'
   // 색 줄은 꾸미기 공방 '내 프리셋'에서 바꾼 목록을 따른다(바꾼 적 없으면 기본 색)
   const palette = usePalette?.(highlighter ? 'highlighter' : 'pen')?.colors ?? (highlighter ? HIGHLIGHTER_COLORS : EDITOR_COLORS)
   const chooseColor = (color) => onChange({ ...settings, color })
-  return <View style={toolPanelStyles.card}>
+  return <View ref={root} collapsable={false} style={toolPanelStyles.card}
+    onLayout={() => root.current?.measureInWindow?.((x, y, width, height) => {
+      if ([x, y, width, height].every(Number.isFinite) && width > 0 && height > 0) anchor.current = { x, y, width, height }
+    })}>
     <ToolPanelHeader icon={highlighter ? 'highlighter' : 'pen'} title={label} closeLabel={`${label} 설정 닫기`} onClose={onClose} />
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={toolPanelStyles.content}>
       <View accessibilityLabel={`${label} 미리보기`} style={styles.preview}><PenSample settings={settings} /></View>
@@ -57,7 +63,8 @@ export default function PenSettings({ settings, onChange, onClose, straightAssis
           onPress={() => chooseColor(color)} style={[styles.swatch, { backgroundColor: color }, settings.color === color && styles.chosen]} />
       ))}</View>
       <Text style={toolPanelStyles.label}>내 색상</Text>
-      <MyColorPresets scope={highlighter ? 'highlighter' : 'pen'} value={settings.color} label={`${label} 색상`} onPick={chooseColor} />
+      <MyColorPresets scope={highlighter ? 'highlighter' : 'pen'} value={settings.color} label={`${label} 색상`} onPick={chooseColor}
+        pickerVisible={pickerVisible} onRequestPicker={onOpenColorPicker ? () => onOpenColorPicker(anchor.current) : undefined} />
       <View style={styles.assist}>
         <Text style={styles.assistText}>끝점을 길게 눌러 직선 만들기</Text>
         <Switch accessibilityLabel="끝점에서 길게 눌러 직선 만들기" value={straightAssist} onValueChange={onStraightAssistChange} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.surface} activeThumbColor={colors.surface} />

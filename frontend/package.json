@@ -43,7 +43,9 @@
     "licenses:check:web": "node scripts/verify-prepared-licenses.cjs web",
     "web:licensed": "node scripts/export-licensed-web.cjs",
     "qa:font-flow": "node tests/font-flow-browser.cjs",
-    "test:guest-import": "node --test tests/guest-diary-import.test.js tests/guest-diary-import-hook.test.js tests/guest-import-journal.test.js tests/canvas-media-upload-native.test.js"
+    "test:guest-import": "node --test tests/guest-diary-import.test.js tests/guest-diary-import-hook.test.js tests/guest-import-journal.test.js tests/canvas-media-upload-native.test.js",
+    "test:eyedropper": "node --test tests/color-picker-opening.test.js tests/color-picker-placement.test.js tests/eyedropper.test.js tests/capture-pixels.test.js",
+    "qa:eyedropper": "node tests/eyedropper-browser.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/nanum-gothic": "^0.4.0",
