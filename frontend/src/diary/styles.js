@@ -15,6 +15,15 @@ export const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: 'row' },
   workspace: { flex: 1, minWidth: 0, position: 'relative', backgroundColor: C.canvas },
   appFill: { flex: 1, alignSelf: 'stretch' },
+  // 폰은 본문 아래에 하단 네비게이션 바를 고정 레이아웃으로 쌓는다.
+  phoneShell: { flex: 1 },
+  tabBarWrap: { flexShrink: 0, paddingHorizontal: 12, paddingTop: 6, backgroundColor: C.canvas },
+  tabBar: { height: 64, flexDirection: 'row', paddingHorizontal: 4, overflow: 'visible', borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
+  tabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  tabIconPill: { width: 48, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
+  tabIconPillSelected: { backgroundColor: C.active },
+  tabLabel: { color: C.muted, fontSize: 11, lineHeight: 14, fontWeight: '600' },
+  tabLabelSelected: { color: C.ink, fontWeight: '800' },
 
   // 좌측 바 바탕은 앱 바깥 셸과 같은 surfaceSoft(#F7F8FD): 햇살 책상(보관함) · 흰 면(공방 · 휴지통 · 내 공간) 어느 화면에서도 같은 색으로 두 공간을 잇는다(앱 디자인 점검 원 페이저 01)
   rail: { width: 218, padding: 20, overflow: 'hidden', backgroundColor: C.canvas, borderRightWidth: 1, borderRightColor: C.line },

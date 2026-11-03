@@ -29,7 +29,7 @@ import DiaryCreateModal from './src/diary/components/DiaryCreateModal';
 import { withPdfPages } from './src/diary/utils/pdfImport';
 import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
-import PhoneTopBand from './src/diary/components/PhoneTopBand';
+import BottomTabs from './src/diary/components/BottomTabs';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
 import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
@@ -897,11 +897,13 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   if (page === 'editor') {
     shell = content;
   } else if (isPhone) {
-    // 폰: 하단 탭 대신 좁은 좌측 바(접힘 60 · 펼침 236). 새 다이어리 시트는 바까지 덮도록 셸 위에 띄운다.
+    // 폰: 화면 전환은 하단 네비게이션 바가 맡는다. 좌측 오버레이 메뉴는 태블릿 이상에서만 쓴다.
     shell = (
-      <View style={s.shell}>
-        <SideRail
-          compact
+      <View style={s.phoneShell}>
+        <View style={s.workspace}>
+          {content}
+        </View>
+        <BottomTabs
           onNotifications={openInvitations}
           notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'}
           notificationCount={authenticatedNotifications?.count}
@@ -910,14 +912,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           filter={filter}
           navigate={navigate}
           bottomInset={insets.bottom}
-          user={previewUser}
-          getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
-          collapsed={railCollapsed}
-          onToggle={() => setRailCollapsed((current) => !current)}
         />
-        <View style={[s.workspace, { paddingBottom: insets.bottom }]}>
-          {content}
-        </View>
         {createModal}
       </View>
     );
@@ -968,8 +963,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       <View style={s.safe}>
         {isPhone && insets.top > 0 && (page === 'editor'
           ? <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />
-          // 전면 카메라 자리: 좌측 바(바탕 + 오른쪽 선)와 본문 바탕이 맨 위까지 이어지게 칠한다. 글자 · 아이콘 위치는 그대로(사용자 결정 2026-11-03)
-          : <PhoneTopBand height={insets.top} collapsed={railCollapsed} bodyColor={page === 'library' ? safeAreaColors.top : C.white} />)}
+          : <View style={{ height: insets.top, backgroundColor: page === 'library' ? safeAreaColors.top : C.white }} />)}
         <View style={s.safeRow}>
           {insets.left > 0 && <View style={{ width: insets.left, backgroundColor: safeAreaColors.left }} />}
           <View style={s.viewport} onLayout={measureViewport}>
