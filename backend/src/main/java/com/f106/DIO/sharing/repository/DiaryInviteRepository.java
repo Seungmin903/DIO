@@ -9,7 +9,7 @@ public interface DiaryInviteRepository extends JpaRepository<DiaryInvite,Long> {
     Optional<DiaryInvite> findFirstByDiaryIdAndInviteTypeAndRevokedAtIsNullOrderByInviteIdDesc(UUID diaryId,String type);
     long countByDiaryIdAndInviteTypeAndCreatedAtAfter(UUID diaryId,String type,Instant since);
     Optional<DiaryInvite> findFirstByDiaryIdAndInviteTypeAndCreatedAtAfterOrderByCreatedAtAsc(UUID diaryId,String type,Instant since);
-    @Query("select i from DiaryInvite i where i.diaryId=:diary and i.inviteeUserId=:recipient and i.inviteType='EMAIL' and i.revokedAt is null and i.useCount=0")
+    @Query("select i from DiaryInvite i where i.diaryId=:diary and i.inviteeUserId=:recipient and i.inviteType='EMAIL' and i.revokedAt is null and i.useCount=0 and i.expiresAt>current_timestamp")
     Optional<DiaryInvite> pendingEmail(UUID diary,Long recipient);
     @Query("select i from DiaryInvite i where i.diaryId=:diary and i.inviteeUserId=:recipient and i.inviteType like 'EMAIL%' and i.createdAt>:since order by i.createdAt,i.inviteId")
     java.util.List<DiaryInvite> recentEmails(UUID diary,Long recipient,Instant since);

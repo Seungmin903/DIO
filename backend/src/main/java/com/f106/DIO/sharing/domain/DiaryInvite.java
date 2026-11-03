@@ -23,15 +23,13 @@ public class DiaryInvite {
         diaryId=diary;inviterUserId=actor;inviteType="LINK";role="EDITOR";createdAt=now;
         expiresAt=now.plusSeconds(SharingPolicy.INVITE_TTL_SECONDS);tokenHash=new byte[32];
     }
-    // No schema change: EMAIL states use invite_type; expires_at remains NOT NULL.
-    public static final Instant NO_EXPIRY = Instant.parse("9999-12-31T23:59:59Z");
     public static DiaryInvite email(UUID diary,Long actor,Long recipient,Instant now) {
         var invite=new DiaryInvite(diary,actor,now);
-        invite.inviteeUserId=recipient;invite.inviteType="EMAIL";invite.expiresAt=NO_EXPIRY;invite.maxUses=1;
+        invite.inviteeUserId=recipient;invite.inviteType="EMAIL";invite.expiresAt=now.plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);invite.maxUses=1;
         return invite;
     }
     public boolean email() {return inviteType.startsWith("EMAIL");}
-    public boolean pendingEmail() {return "EMAIL".equals(inviteType)&&revokedAt==null&&useCount==0;}
+    public boolean pendingEmail() {return "EMAIL".equals(inviteType)&&revokedAt==null&&useCount==0&&expiresAt.isAfter(Instant.now());}
     public Instant publicExpiresAt() {return email()?null:expiresAt;}
     public String status() {
         return switch(inviteType) {
@@ -39,7 +37,7 @@ public class DiaryInvite {
             case "EMAIL_DECLINED" -> "DECLINED";
             case "EMAIL_CANCELLED" -> "CANCELLED";
             case "EMAIL_FAILED" -> "DELIVERY_FAILED";
-            default -> revokedAt!=null?"CANCELLED":(!email()&&!expiresAt.isAfter(Instant.now())?"EXPIRED":"PENDING");
+            default -> revokedAt!=null?"CANCELLED":(!expiresAt.isAfter(Instant.now())?"EXPIRED":"PENDING");
         };
     }
     public void acceptedEmail() {if(pendingEmail()){inviteType="EMAIL_ACCEPTED";useCount=1;}}

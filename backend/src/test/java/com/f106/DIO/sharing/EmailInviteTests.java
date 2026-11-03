@@ -23,7 +23,7 @@ class EmailInviteTests extends SharingTestSupport {
     void send(UUID diary,Actor from,Actor to){emails.send(diary,from.id(),new EmailInviteRequest(address(to)));}
     long notifications(UUID diary,Actor recipient){return jdbc.queryForObject("select count(*) from notifications where diary_id=? and user_id=? and notification_type='DIARY_INVITE'",Long.class,diary,recipient.id());}
     @AfterEach void noInvitationSmtp(){verifyNoInteractions(smtp);}
-    @Test void sendsOnlyToActiveRegisteredUsersAndSuppressesDuplicateWithoutExpiry() throws Exception {
+    @Test void sendsOnlyToActiveRegisteredUsersAndSuppressesDuplicateUntilSevenDayExpiry() throws Exception {
         var owner=actor();var to=actor();var id=diary(owner);
         mvc.perform(post("/api/v1/diaries/"+id+"/invites/email").header("Authorization","Bearer "+owner.token())
             .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\" "+address(to).toUpperCase(Locale.ROOT)+" \"}"))
@@ -31,8 +31,8 @@ class EmailInviteTests extends SharingTestSupport {
         send(id,owner,to);
         assertThat(notifications(id,to)).isEqualTo(1);
         assertThat(invites.recentEmails(id,to.id(),java.time.Instant.now().minusSeconds(300))).hasSize(1);
-        assertThat(pending(id,to).getExpiresAt()).isEqualTo(DiaryInvite.NO_EXPIRY);
-        assertThat(emails.received(to.id(),0,20).items().get(0).expiresAt()).isNull();
+        assertThat(pending(id,to).getExpiresAt()).isAfter(java.time.Instant.now().plusSeconds(6*24*60*60));
+        assertThat(pending(id,to).getExpiresAt()).isBefore(java.time.Instant.now().plusSeconds(8*24*60*60));
         emails.send(id,owner.id(),new EmailInviteRequest("missing@example.com"));
         jdbc.update("update users set status='WITHDRAWN' where user_id=?",to.id());
         send(id,owner,to);assertThat(notifications(id,to)).isEqualTo(1);
