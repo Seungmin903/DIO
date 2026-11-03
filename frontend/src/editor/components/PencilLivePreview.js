@@ -30,16 +30,18 @@ const glSupported = runtime => {
   return glOk
 }
 
-export default function PencilLivePreview({ runtime, preview, zoom, pageWidth, pageHeight }) {
+// onUnavailable: 표면을 만들지 못해 이 캔버스에 그릴 수 없을 때(부르는 쪽이 SVG 미리보기로 바꾼다)
+export default function PencilLivePreview({ runtime, preview, zoom, pageWidth, pageHeight, onUnavailable }) {
   const canvasRef = useRef(null), target = useRef(null), latest = useRef(null), frame = useRef(0)
   const gl = glSupported(runtime)
   const scale = zoom * PixelRatio.get()
   const box = bounds(preview.parts, preview.settings.width)
   // 페이지 안으로 자르고, 크기는 STEP 단위로 올려 갱신마다 표면을 새로 만들지 않게 한다
   const left = Math.max(0, box.left), top = Math.max(0, box.top)
-  const width = Math.ceil((Math.min(pageWidth, box.right) - left) / STEP) * STEP, height = Math.ceil((Math.min(pageHeight, box.bottom) - top) / STEP) * STEP
+  // 획이 페이지 밖에 있어도 크기는 한 칸 이상(0 이면 배율이 무한대가 된다)
+  const width = Math.max(STEP, Math.ceil((Math.min(pageWidth, box.right) - left) / STEP) * STEP), height = Math.max(STEP, Math.ceil((Math.min(pageHeight, box.bottom) - top) / STEP) * STEP)
   const pxW = Math.max(1, Math.round(width * scale)), pxH = Math.max(1, Math.round(height * scale))
-  latest.current = { runtime, preview, scale, left, top, width, height, pxW, pxH }
+  latest.current = { runtime, preview, scale, left, top, width, height, pxW, pxH, onUnavailable }
   const release = () => { target.current?.surface.dispose?.(); target.current = null }
   const draw = () => {
     frame.current = 0
@@ -50,8 +52,9 @@ export default function PencilLivePreview({ runtime, preview, zoom, pageWidth, p
       release()
       // 캔버스 크기를 바꾸면 그리기 버퍼가 새로 잡히므로 표면도 새로 만든다
       node.width = now.pxW; node.height = now.pxH
-      const surface = gl ? rt.liveSurface(node) : rt.makeSurface(now.pxW, now.pxH)
-      if (!surface) return
+      let surface = null
+      try { surface = gl ? rt.liveSurface(node) : rt.makeSurface(now.pxW, now.pxH) } catch { /* 아래에서 함께 처리 */ }
+      if (!surface) { now.onUnavailable?.(); return }
       target.current = { surface, width: now.pxW, height: now.pxH }
     }
     const { surface } = target.current, canvas = surface.getCanvas()

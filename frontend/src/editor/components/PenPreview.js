@@ -1,4 +1,4 @@
-import { Profiler, useLayoutEffect, useSyncExternalStore } from 'react'
+import { Profiler, useLayoutEffect, useState, useSyncExternalStore } from 'react'
 import { Platform, StyleSheet, View } from 'react-native'
 import StrokePreview from './StrokePreview'
 import PencilLivePreview from './PencilLivePreview'
@@ -7,9 +7,10 @@ import { useSkiaRuntime } from '../skia/skiaRuntime'
 function PreviewStroke({ item, zoom, pageWidth, pageHeight, skia }) {
   const measurement = item.measurement
   useLayoutEffect(() => measurement?.previewCommitted?.(), [measurement])
-  // 연필은 CanvasKit 가 준비되면 앱과 같은 Skia 그림으로(준비 전은 SVG)
-  const drawing = skia && item.settings.kind === 'pencil'
-    ? <PencilLivePreview runtime={skia} preview={item} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} />
+  // 연필은 CanvasKit 가 준비되면 앱과 같은 Skia 그림으로(준비 전이나 표면을 못 만들면 SVG)
+  const [liveFailed, setLiveFailed] = useState(false)
+  const drawing = skia && item.settings.kind === 'pencil' && !liveFailed
+    ? <PencilLivePreview runtime={skia} preview={item} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} onUnavailable={() => setLiveFailed(true)} />
     : <StrokePreview preview={item} zoom={zoom} pageWidth={pageWidth} pageHeight={pageHeight} />
   return <View pointerEvents="none" dataSet={Platform.OS === 'web' ? { strokePreviewId: item.strokeId } : undefined} style={StyleSheet.absoluteFill}>
     {measurement ? <Profiler id="pen-preview" onRender={(_id, _phase, duration) => measurement.record('previewReactMs', duration)}>

@@ -218,3 +218,13 @@ test('앱 연필은 그림을 못 만들었을 때만 SVG 를 붙인다: 화면 
   assert.match(source, /raster === false \|\| \(raster && broken === raster\.uri\) \? fallback : null/)
   assert.doesNotMatch(source, /showing \? null : fallback/)
 })
+
+test('웹 연필 미리보기는 표면을 못 만들면 SVG 로 넘기고, 페이지 밖 획도 크기가 0 이 되지 않는다', async () => {
+  const { readFileSync } = await import('node:fs')
+  const read = name => readFileSync(new URL(`../src/editor/components/${name}`, import.meta.url), 'utf8')
+  const live = read('PencilLivePreview.js'), preview = read('PenPreview.js')
+  assert.match(live, /if \(!surface\) \{ now\.onUnavailable\?\.\(\); return \}/)
+  assert.match(live, /Math\.max\(STEP, Math\.ceil/)
+  assert.match(preview, /item\.settings\.kind === 'pencil' && !liveFailed/)
+  assert.match(preview, /onUnavailable=\{\(\) => setLiveFailed\(true\)\}/)
+})

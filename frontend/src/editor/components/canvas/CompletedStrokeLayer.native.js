@@ -125,7 +125,7 @@ function patchPicture(removed, objects, scale) {
 }
 const keptLength = (a, b) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i }
 // 구운 그림은 화면 해상도 크기라 GC 를 기다리면 메모리가 쌓인다 → 화면이 새 그림으로 넘어간 뒤 풀어 준다
-const release = (baked, delay = 1000) => { if (baked) setTimeout(() => baked.image.dispose?.(), delay) }
+const release = baked => { if (baked) setTimeout(() => baked.image.dispose?.(), 1000) }
 const SETTLE_MS = 400
 
 const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
@@ -137,8 +137,11 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   // → 바뀐 자리 앞까지만 한 번 굽고 뒤는 그림으로 그리다가, 바뀜이 SETTLE_MS 동안 멈추면 전부 굽는다.
   const unsettled = useRef(false)
   const [settled, settle] = useReducer(n => n + 1, 0)
-  const keep = (next, delay) => {
-    if (baked.current !== next) release(baked.current, delay)
+  // 렌더 중에는 풀지 않고 모아 뒀다가 화면에 반영된 뒤 푼다: 버려진 렌더가 지금 화면에 있는 그림을 풀면 안 된다
+  const retired = useRef([])
+  const retire = old => { if (old) retired.current.push(old) }
+  const keep = next => {
+    if (baked.current !== next) retire(baked.current)
     return (baked.current = next)
   }
   // 옮기는 중(fade): 안 움직이는 획은 한 장으로 구워 두고 움직이는 획만 매 프레임 그린다
@@ -146,7 +149,6 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
   const settledSeen = useRef(0)
   const plan = useMemo(() => {
     const isSettle = settled !== settledSeen.current
-    settledSeen.current = settled
     const t0 = PENCIL_PROFILE.on ? nowMs() : 0
     try { return planOf() } finally { if (t0) recordProfile('PLAN', nowMs() - t0) }
     function planOf() {
@@ -154,12 +156,12 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
       const moving = objects.filter(object => fade.includes(object.id)), still = objects.filter(object => !fade.includes(object.id))
       let base = dragBase.current
       if (!base || base.scale !== scale || !sameObjects(base.objects, still)) {
-        release(base)
+        retire(base)
         base = dragBase.current = still.length ? bake(null, still, width, height, scale) : null
       }
       return base ? { image: base, rest: moving } : { image: null, rest: objects }
     }
-    if (dragBase.current) { release(dragBase.current); dragBase.current = null }
+    if (dragBase.current) { retire(dragBase.current); dragBase.current = null }
     if (fade || !objects.length) return { image: null, rest: objects }
     let previous = baked.current?.scale === scale ? baked.current : null
     const kept = previous ? keptLength(previous.objects, objects) : 0
@@ -184,7 +186,11 @@ const TailRun = memo(function TailRun({ objects, width, height, zoom, fade }) {
     const timer = setTimeout(() => { unsettled.current = false; settle() }, SETTLE_MS)
     return () => clearTimeout(timer)
   }, [objects, settled])
-  useEffect(() => () => { release(baked.current); release(dragBase.current) }, [])
+  useEffect(() => {
+    settledSeen.current = settled
+    if (retired.current.length) { retired.current.forEach(release); retired.current = [] }
+  })
+  useEffect(() => () => { retired.current.forEach(release); release(baked.current); release(dragBase.current) }, [])
   const patch = useMemo(() => plan.cut ? patchPicture(plan.cut, objects, scale) : null, [plan, scale])
   const strokes = useMemo(() => {
     if (!plan.rest.length) return null
