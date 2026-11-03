@@ -9,6 +9,7 @@ import { C } from '../constants';
 import { toolMaxHeight } from '../../devtools/layout';
 import { styles as shell } from '../styles';
 import SideRail, { RAIL_WIDTH } from '../components/SideRail';
+import BottomTabs from '../components/BottomTabs';
 import DiaryCreateModal from '../components/DiaryCreateModal';
 import LibraryScreen from './LibraryScreen';
 import TrashScreen from './TrashScreen';
@@ -285,7 +286,8 @@ function RemoteLibrary({ account, onSwitchAccount, onOpenNotifications }) {
       onCancel={() => setConfirmation(null)} onConfirm={() => performRemoval()} />
     <View style={shell.viewport} onLayout={({ nativeEvent: { layout } }) => setViewport({ width: layout.width, height: layout.height })}>
       <View style={[shell.app, frame ? { width: frame.width, height: frame.height } : shell.appFill]}>
-        <View style={shell.shell}><SideRail compact={isPhone} page={page} filter={options.filter} navigate={navigate} collapsed={collapsed} onToggle={() => setCollapsed(value => !value)} bottomInset={insets.bottom} />{content}</View>
+        {isPhone ? <View style={shell.phoneShell}><View style={shell.workspace}>{content}</View><BottomTabs page={page} filter={options.filter} navigate={navigate} bottomInset={insets.bottom} /></View>
+          : <View style={shell.shell}><SideRail page={page} filter={options.filter} navigate={navigate} collapsed={collapsed} onToggle={() => setCollapsed(value => !value)} bottomInset={insets.bottom} />{content}</View>}
       </View>
     </View>
     {createMounted && <DiaryCreateModal visible={createOpen} sheet={isPhone} bottomInset={insets.bottom}

@@ -894,6 +894,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
 
   // 다이어리 홈(태블릿)은 단색 책상 바탕 위에 놓인다. 폰은 셸 바탕 그대로다.
   const desk = page === 'library' && loaded && !isPhone;
+  const phoneSurface = page === 'library' ? C.canvas : C.white;
   let shell;
   if (page === 'editor') {
     shell = content;
@@ -901,7 +902,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     // 폰: 화면 전환은 하단 네비게이션 바가 맡는다. 좌측 오버레이 메뉴는 태블릿 이상에서만 쓴다.
     shell = (
       <View style={s.phoneShell}>
-        <View style={s.phoneNavigationHeader}>
+        <View style={[s.phoneNavigationHeader, { backgroundColor: phoneSurface }]}>
           <SharingEntry notifications notificationCount={authenticatedNotifications?.count}
             notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} compact
             count={unreadInvites} onPress={openInvitations} />
@@ -914,6 +915,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           filter={filter}
           navigate={navigate}
           bottomInset={insets.bottom}
+          backgroundColor={phoneSurface}
         />
         {createModal}
       </View>
@@ -965,7 +967,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       <View style={s.safe}>
         {isPhone && insets.top > 0 && (page === 'editor'
           ? <View style={{ height: insets.top, backgroundColor: safeAreaColors.top }} />
-          : <View style={{ height: insets.top, backgroundColor: page === 'library' ? safeAreaColors.top : C.white }} />)}
+          : <View style={{ height: insets.top, backgroundColor: phoneSurface }} />)}
         <View style={s.safeRow}>
           {insets.left > 0 && <View style={{ width: insets.left, backgroundColor: safeAreaColors.left }} />}
           <View style={s.viewport} onLayout={measureViewport}>

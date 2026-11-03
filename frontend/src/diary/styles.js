@@ -45,13 +45,6 @@ export const styles = StyleSheet.create({
   railTogglePressed: {}, // 눌림 효과 없음(사용자 지시)
   railDot: { position: 'absolute', width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: C.white, backgroundColor: C.notifyPink }, // 알림 점은 쿨톤 핑크(사용자 지시, 색 규칙의 유일한 예외). 흰 테두리가 뒤의 아이콘(삼선 · 종)을 살짝 지우듯 가린다
   railMenuDot: { top: 7, right: 7 },
-  // 폰 좌측 바(SideRail compact): 항목 44 · 알림 종 44, 선택 = 44 둥근 사각, 안쪽 여백은 접힘 8 · 펼침 12
-  brandRowPhone: { height: 44, marginBottom: 8 },
-  railTogglePhone: { width: 44, height: 44 },
-  railItemPhone: { minHeight: 44, paddingHorizontal: 11, gap: 12, marginBottom: 4 },
-  railGroupPhone: { marginTop: 4 },
-  railProfileLinePhone: { marginBottom: 8 },
-  railProfilePhone: { paddingHorizontal: 7, marginBottom: 0, marginTop: 0 }, // 프로필 그림 30 이 44 칸 가운데
   railToggleText: { color: C.ink, fontSize: 19, lineHeight: 22, fontWeight: '700' },
   // 새 다이어리: 편집 화면의 주 버튼(내보내기)과 같은 색
   libraryRoot: { flex: 1 },
@@ -64,7 +57,7 @@ export const styles = StyleSheet.create({
   railCreate: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 12, backgroundColor: C.blueStrong },
   railPlus: { color: C.white, fontSize: 23, lineHeight: 25, fontWeight: '300' },
   railCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
-  railGroup: { marginTop: 12 }, // 태블릿 삼선 줄과 첫 항목 사이 = 12 + 12 = 24(항목 피치 48의 절반, 코덱스 안). 폰은 brandRowPhone · railGroupPhone 이 따로 덮는다
+  railGroup: { marginTop: 12 }, // 태블릿 삼선 줄과 첫 항목 사이 = 12 + 12 = 24(항목 피치 48의 절반, 코덱스 안)
   railSectionSlot: { overflow: 'hidden' },
   railSection: { color: C.muted, fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 9, paddingHorizontal: 12 },
   // 접힌 사이드바의 항목 폭은 47(78 - 좌우 15 - 오른쪽 테두리 1)이라 아이콘(20)이 가운데에 오려면 왼쪽 여백이 13.5여야 한다 (12면 1.5px 왼쪽으로 쏠린다)
@@ -74,7 +67,6 @@ export const styles = StyleSheet.create({
   railIconSlot: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   // 고른 메뉴의 라벤더 면(모서리 10, 높이 36): 접힘은 아이콘 뒤 36×36 타일, 펼침은 줄 끝까지 알약. 왼쪽 · 폭은 SideRail 이 메뉴 펼침 값으로 정한다
   railIconTile: { position: 'absolute', top: 6, height: 36, borderRadius: 10, backgroundColor: C.lavender100, zIndex: -1 },
-  railIconTilePhone: { top: 4 }, // 폰 항목 높이 44
   // 내 공간 칸: 구분선 아래가 접힌 메뉴 폭(78)과 같은 정사각형이고 프로필 그림이 그 한가운데에 온다.
   // 구분선 아래 여백 16 + 칸 48 + 메뉴 아래 여백 24 - 10 = 78, 그림 가운데는 바닥에서 39(= 78 / 2)
   railSpacer: { flex: 1 }, // 휴지통·설정을 메뉴 아래쪽(마이페이지 위)으로 미는 빈 칸
