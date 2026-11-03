@@ -1,9 +1,7 @@
 // Existing fields use the email-signup API's input rules.
-export const normalizeEmail = value => value.trim().toLowerCase()
+export { normalizeEmail, emailError } from '../shared/emailInput.js'
+import { emailError } from '../shared/emailInput.js'
 export const normalizeNickname = value => value.trim().normalize('NFKC')
-export function emailError(value) {
-  return value.trim().length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) ? '이메일 주소를 확인해 주세요.' : ''
-}
 export function passwordError(value) {
   return value.length < 8 || value.length > 32 || /[^\x21-\x7e]/.test(value) || !/[a-z]/i.test(value) || !/\d/.test(value) ? '영문·숫자를 포함해 8~32자로 입력해 주세요.' : ''
 }

@@ -1,4 +1,4 @@
-import { normalizeEmail, normalizeNickname, nicknameError, passwordError } from './validation.js';
+import { normalizeEmail, emailError, normalizeNickname, nicknameError, passwordError } from './validation.js';
 import { signupAgreements } from './signupPolicy.js';
 import { developmentAuthorization } from './developmentAccess.js';
 
@@ -30,6 +30,11 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     accessStore?.clear(accessOrigin).catch(() => {});
   };
   const invalidSignupToken = () => Object.assign(new Error('가입 인증이 만료되었거나 유효하지 않아요. 입력한 내용은 유지돼요. 이메일 인증을 다시 진행해 주세요.'), { code: 'INVALID_SIGNUP_TOKEN' });
+  const requireEmail = value => {
+    const error = emailError(value);
+    if (error) throw Object.assign(new Error(error), { code: 'INVALID_EMAIL', status: 400 });
+    return normalizeEmail(value);
+  };
   let signupPending = false;
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
   const acceptSession = result => {
@@ -180,7 +185,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     async login({ email, password }) {
       const attempt = ++revision;
-      const normalized = normalizeEmail(email);
+      const normalized = requireEmail(email);
       const result = await request('login', { email: normalized, password });
       if (attempt !== revision) throw new Error('로그인 요청이 취소되었어요.');
       if (typeof result?.user?.email !== 'string' || normalizeEmail(result.user.email) !== normalized) {
@@ -194,7 +199,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     async signup({ email, password, ageConfirmed }) {
       if (ageConfirmed !== true) throw new Error('만 14세 이상인지 확인해 주세요.');
       const attempt = ++revision;
-      const normalized = normalizeEmail(email);
+      const normalized = requireEmail(email);
       const result = await request('email-availability', { email: normalized });
       if (attempt !== revision) throw new Error('가입 요청이 취소되었어요.');
       if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
@@ -205,15 +210,16 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     async checkEmailAvailability(email) {
       const attempt = revision;
-      const result = await request('email-availability', { email: normalizeEmail(email) });
+      const result = await request('email-availability', { email: requireEmail(email) });
       if (attempt !== revision) throw new Error('이메일 확인 요청이 취소되었어요.');
       if (typeof result?.available !== 'boolean') throw new Error('이메일 확인 정보를 받지 못했어요. 다시 시도해 주세요.');
       if (!result.available) throw new Error('이미 사용 중인 이메일이에요.');
     },
     async sendVerification(email) {
+      const normalized = requireEmail(email);
       const attempt = ++verificationRevision;
       verification = null;
-      const result = await request('email-verifications', { email: normalizeEmail(email) });
+      const result = await request('email-verifications', { email: normalized });
       if (attempt !== verificationRevision) throw new Error('인증번호 발송 요청이 취소되었어요.');
       if (!Number.isSafeInteger(result?.expiresIn) || result.expiresIn <= 0 ||
         !Number.isSafeInteger(result?.resendAfter) || result.resendAfter < 0) {
@@ -222,8 +228,8 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       return { expiresIn: result.expiresIn, retryAfter: result.resendAfter };
     },
     async verifyEmail(email, code) {
+      const normalized = requireEmail(email);
       const attempt = ++verificationRevision;
-      const normalized = normalizeEmail(email);
       verification = null;
       const result = await request('email-verifications/verify', { email: normalized, code });
       if (attempt !== verificationRevision) throw new Error('인증번호 확인 요청이 취소되었어요.');
@@ -237,15 +243,16 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     },
     // 재설정 토큰은 메모리에만 보관한다. 비밀번호 재설정 화면에서만 이어서 사용한다.
     async requestPasswordReset(email) {
-      if (passwordReset?.email === normalizeEmail(email) && passwordReset.expiresAt > now())
+      const normalized = requireEmail(email);
+      if (passwordReset?.email === normalized && passwordReset.expiresAt > now())
         throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
-      if (resetVerifying?.email === normalizeEmail(email))
+      if (resetVerifying?.email === normalized)
         throw new Error('인증번호를 확인하고 있어요. 잠시만 기다려 주세요.');
       resetRevision++; passwordReset = null; resetVerifying = null;
-      return request('password-reset-requests', { email: normalizeEmail(email) });
+      return request('password-reset-requests', { email: normalized });
     },
     async verifyPasswordReset(email, code) {
-      const normalized = normalizeEmail(email);
+      const normalized = requireEmail(email);
       if (passwordReset?.email === normalized && passwordReset.expiresAt > now())
         throw new Error('이메일 인증이 이미 완료됐어요. 새 비밀번호를 입력해 주세요.');
       if (resetVerifying?.email === normalized)

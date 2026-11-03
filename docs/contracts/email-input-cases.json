@@ -1,0 +1,182 @@
+[
+  {
+    "input": "member@example.com",
+    "normalized": "member@example.com",
+    "valid": true
+  },
+  {
+    "input": "a+b@example.co.kr",
+    "normalized": "a+b@example.co.kr",
+    "valid": true
+  },
+  {
+    "input": "first.last@example.com",
+    "normalized": "first.last@example.com",
+    "valid": true
+  },
+  {
+    "input": "user_name@example-domain.com",
+    "normalized": "user_name@example-domain.com",
+    "valid": true
+  },
+  {
+    "input": "사용자@예시.한국",
+    "normalized": "사용자@예시.한국",
+    "valid": true
+  },
+  {
+    "input": "o'connor@example.com",
+    "normalized": "o'connor@example.com",
+    "valid": true
+  },
+  {
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com",
+    "normalized": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com",
+    "valid": true
+  },
+  {
+    "input": "  Member+Tag@EXAMPLE.COM  ",
+    "normalized": "member+tag@example.com",
+    "valid": true
+  },
+  {
+    "input": " Member@EXAMPLE.COM﻿",
+    "normalized": "member@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+    "normalized": "a@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+    "valid": true
+  },
+  {
+    "input": null,
+    "normalized": null,
+    "valid": false
+  },
+  {
+    "input": "",
+    "normalized": "",
+    "valid": false
+  },
+  {
+    "input": "   ",
+    "normalized": "",
+    "valid": false
+  },
+  {
+    "input": "member",
+    "normalized": "member",
+    "valid": false
+  },
+  {
+    "input": "member@localhost",
+    "normalized": "member@localhost",
+    "valid": false
+  },
+  {
+    "input": "@example.com",
+    "normalized": "@example.com",
+    "valid": false
+  },
+  {
+    "input": "user@",
+    "normalized": "user@",
+    "valid": false
+  },
+  {
+    "input": "user@@example.com",
+    "normalized": "user@@example.com",
+    "valid": false
+  },
+  {
+    "input": "user @example.com",
+    "normalized": "user @example.com",
+    "valid": false
+  },
+  {
+    "input": "user@example .com",
+    "normalized": "user@example .com",
+    "valid": false
+  },
+  {
+    "input": "user@example.com\nother@example.com",
+    "normalized": "user@example.com\nother@example.com",
+    "valid": false
+  },
+  {
+    "input": ".user@example.com",
+    "normalized": ".user@example.com",
+    "valid": false
+  },
+  {
+    "input": "user.@example.com",
+    "normalized": "user.@example.com",
+    "valid": false
+  },
+  {
+    "input": "user..name@example.com",
+    "normalized": "user..name@example.com",
+    "valid": false
+  },
+  {
+    "input": "user@-example.com",
+    "normalized": "user@-example.com",
+    "valid": false
+  },
+  {
+    "input": "user@example-.com",
+    "normalized": "user@example-.com",
+    "valid": false
+  },
+  {
+    "input": "user@example..com",
+    "normalized": "user@example..com",
+    "valid": false
+  },
+  {
+    "input": "user@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com",
+    "normalized": "user@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com",
+    "valid": false
+  },
+  {
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com",
+    "normalized": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com",
+    "valid": false
+  },
+  {
+    "input": "user(comment)@example.com",
+    "normalized": "user(comment)@example.com",
+    "valid": false
+  },
+  {
+    "input": "\"quoted user\"@example.com",
+    "normalized": "\"quoted user\"@example.com",
+    "valid": false
+  },
+  {
+    "input": "user@example.com/other",
+    "normalized": "user@example.com/other",
+    "valid": false
+  },
+  {
+    "input": "user@exa_mple.com",
+    "normalized": "user@exa_mple.com",
+    "valid": false
+  },
+  {
+    "input": "user​@example.com",
+    "normalized": "user​@example.com",
+    "valid": false
+  },
+  {
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "normalized": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "valid": true
+  },
+  {
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "normalized": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "valid": false
+  }
+]
