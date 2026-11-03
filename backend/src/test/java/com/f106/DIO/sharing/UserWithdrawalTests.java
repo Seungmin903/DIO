@@ -92,7 +92,7 @@ class UserWithdrawalTests extends SharingTestSupport {
         var used=links.create(shared,editor.id());links.accept(used.token(),joined.id());
         var otherDiary=diary(owner);var otherLink=links.create(otherDiary,owner.id());
         var accepted= com.f106.DIO.sharing.domain.DiaryInvite.email(shared,editor.id(),joined.id(),Instant.now());
-        accepted.acceptedEmail();var acceptedId=invites.saveAndFlush(accepted).getInviteId();
+        accepted.acceptedEmail(Instant.now());var acceptedId=invites.saveAndFlush(accepted).getInviteId();
         mvc.perform(delete("/api/v1/me").header("Authorization","Bearer "+editor.token())).andExpect(status().isNoContent());
         var revoked=invites.findById(Long.parseLong(used.token().split("\\.")[0])).orElseThrow();
         assertThat(revoked.getUseCount()).isEqualTo(1);assertThat(revoked.getRevokedAt()).isNotNull();

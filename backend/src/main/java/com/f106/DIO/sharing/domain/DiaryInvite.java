@@ -16,16 +16,17 @@ public class DiaryInvite {
     private Integer maxUses;
     @Column(nullable=false) private int useCount;
     @Column(nullable=false) private Instant expiresAt;
+    @Column(nullable=false) private Instant retentionUntil;
     private Instant revokedAt;
     @Column(nullable=false) private Instant createdAt;
     protected DiaryInvite() {}
     public DiaryInvite(UUID diary,Long actor,Instant now) {
         diaryId=diary;inviterUserId=actor;inviteType="LINK";role="EDITOR";createdAt=now;
-        expiresAt=now.plusSeconds(SharingPolicy.INVITE_TTL_SECONDS);tokenHash=new byte[32];
+        expiresAt=now.plusSeconds(SharingPolicy.INVITE_TTL_SECONDS);retentionUntil=expiresAt;tokenHash=new byte[32];
     }
     public static DiaryInvite email(UUID diary,Long actor,Long recipient,Instant now) {
         var invite=new DiaryInvite(diary,actor,now);
-        invite.inviteeUserId=recipient;invite.inviteType="EMAIL";invite.expiresAt=now.plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);invite.maxUses=1;
+        invite.inviteeUserId=recipient;invite.inviteType="EMAIL";invite.expiresAt=now.plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);invite.retentionUntil=invite.expiresAt;invite.maxUses=1;
         return invite;
     }
     public boolean email() {return inviteType.startsWith("EMAIL");}
@@ -40,9 +41,9 @@ public class DiaryInvite {
             default -> revokedAt!=null?"CANCELLED":(!expiresAt.isAfter(Instant.now())?"EXPIRED":"PENDING");
         };
     }
-    public void acceptedEmail() {if(pendingEmail()){inviteType="EMAIL_ACCEPTED";useCount=1;}}
-    public void cancel(Instant now) {revokedAt=now;if(email())inviteType="EMAIL_CANCELLED";}
-    public void decline(Instant now) {revokedAt=now;inviteType="EMAIL_DECLINED";}
+    public void acceptedEmail(Instant now) {if(pendingEmail()){inviteType="EMAIL_ACCEPTED";useCount=1;retentionUntil=now.plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);}}
+    public void cancel(Instant now) {revokedAt=now;if(email()){inviteType="EMAIL_CANCELLED";retentionUntil=now.plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);}}
+    public void decline(Instant now) {revokedAt=now;inviteType="EMAIL_DECLINED";retentionUntil=now.plusSeconds(SharingPolicy.EMAIL_INVITE_TTL_SECONDS);}
     public void initializeHash(byte[] hash) {tokenHash=hash.clone();}
     public void used() {useCount++;}
 }

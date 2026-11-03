@@ -20,4 +20,7 @@ public interface DiaryInviteRepository extends JpaRepository<DiaryInvite,Long> {
     @Modifying
     @Query("update DiaryInvite i set i.revokedAt=:now where i.diaryId=:diaryId and i.inviteType='LINK' and i.revokedAt is null")
     int revokeLinks(UUID diaryId,Instant now);
+    @Modifying
+    @Query("delete from DiaryInvite i where i.inviteType like 'EMAIL%' and i.retentionUntil<=:now")
+    int deleteExpiredEmails(Instant now);
 }

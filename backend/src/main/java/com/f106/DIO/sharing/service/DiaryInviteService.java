@@ -70,7 +70,7 @@ public class DiaryInviteService {
         int count=Math.toIntExact(members.countByDiaryIdAndLeftAtIsNull(id));
         if(member!=null&&member.active()) {
             if(!member.supportedRole())throw SharingException.forbidden();
-            if(invite.pendingEmail())invite.acceptedEmail();
+            if(invite.pendingEmail())invite.acceptedEmail(Instant.now());
             return new InviteAcceptResponse(id,member.getRole(),true,count,SharingPolicy.MAX_MEMBERS);
         }
         if(invite.email()&&!invite.pendingEmail())throw new SharingException(HttpStatus.GONE,"INVITE_ALREADY_USED","이미 사용한 이메일 초대예요.");
@@ -79,9 +79,9 @@ public class DiaryInviteService {
         var user=access.activeUser(actor);
         if(member==null)members.save(new DiaryMember(id,actor,"EDITOR",access.cursorColor(id),Instant.now()));
         else member.rejoin(Instant.now());
-        if(invite.email())invite.acceptedEmail();else invite.used();
+        if(invite.email())invite.acceptedEmail(Instant.now());else invite.used();
         // Joining by a shared link also consumes a pending invitation for this recipient.
-        invites.pendingEmail(id,actor).ifPresent(i->i.acceptedEmail());
+        invites.pendingEmail(id,actor).ifPresent(i->i.acceptedEmail(Instant.now()));
         return new InviteAcceptResponse(id,"EDITOR",false,count+1,SharingPolicy.MAX_MEMBERS);
     }
     private DiaryInvite valid(long id,String token,Long actor) {
