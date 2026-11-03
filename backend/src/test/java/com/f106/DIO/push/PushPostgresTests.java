@@ -155,7 +155,7 @@ class PushPostgresTests {
         assertThat(jdbc.queryForObject("select count(*) from push_mutation_requests where installation_id=?",Long.class,old)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from push_mutation_requests where installation_id=?",Long.class,recent)).isEqualTo(1);
         // 설치 삭제가 외래키로 막히지 않도록, 설치를 참조하는 외래키는 CASCADE인 push_deliveries 하나여야 한다.
-        assertThat(jdbc.queryForList("select r.relname||':'||c.confdeltype from pg_constraint c join pg_class r on r.oid=c.conrelid where c.contype='f' and c.confrelid='push_installations'::regclass",String.class))
+        assertThat(jdbc.queryForList("select r.relname::text||':'||c.confdeltype::text from pg_constraint c join pg_class r on r.oid=c.conrelid where c.contype='f' and c.confrelid='push_installations'::regclass",String.class))
             .containsExactly("push_deliveries:c");
     }
     @Test void duplicateTokenCannotTransferOwnershipWithoutInstallationSecret() {

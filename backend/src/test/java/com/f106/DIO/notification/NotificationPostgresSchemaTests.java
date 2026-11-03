@@ -80,8 +80,8 @@ class NotificationPostgresSchemaTests {
     /** 보존 기한이 지난 알림의 물리 삭제가 참조 행 때문에 막히지 않는지 실제 외래키로 확인한다. */
     private void verifyRetentionPurge(JdbcTemplate jdbc, NotificationRepository repository, Instant deletedAt) {
         // notifications를 참조하는 외래키는 모두 CASCADE(c) 또는 SET NULL(n)이어야 한다.
-        assertThat(jdbc.queryForList("select r.relname||':'||c.confdeltype from pg_constraint c join pg_class r on r.oid=c.conrelid where c.contype='f' and c.confrelid='notifications'::regclass", String.class))
-            .containsExactlyInAnyOrder("notification_read_watermarks:c", "invitation_notification_receipts:n", "push_outbox:n");
+        assertThat(jdbc.queryForList("select r.relname::text||':'||c.confdeltype::text from pg_constraint c join pg_class r on r.oid=c.conrelid where c.contype='f' and c.confrelid='notifications'::regclass", String.class))
+            .containsExactlyInAnyOrder("notification_read_watermark_items:c", "invitation_notification_receipts:n", "push_outbox:n");
         UUID outbox = UUID.randomUUID();
         jdbc.update("insert into invitation_notification_receipts(event_id,recipient_user_id,invite_id,event_occurred_at,outcome,notification_id,processed_at) values (?,101,10,now(),'CREATED',1,now())", UUID.randomUUID());
         jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values (?,?,1,101,'DIARY_INVITE','10','COMPLETE',now(),now()+interval '1 hour','development','dio')", outbox, "retention:" + outbox);
