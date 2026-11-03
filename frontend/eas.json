@@ -11,7 +11,7 @@
       "autoIncrement": true
     },
     "preview": {
-      "env": { "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0", "EXPO_PUBLIC_PUSH_ENABLED": "true" },
+      "env": { "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0", "EXPO_PUBLIC_PUSH_ENABLED": "true", "EXPO_PUBLIC_DEVELOPMENT_ACCESS_ENABLED": "true" },
       "distribution": "internal",
       "autoIncrement": true
     },

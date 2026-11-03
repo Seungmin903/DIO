@@ -21,7 +21,7 @@ import EditorModal from '../editor/components/controls/EditorModal';
 import { colors } from '../shared/theme';
 import { useFormFactor } from '../shared/useFormFactor';
 import { useOrientationLock } from '../shared/useOrientationLock';
-import { authService } from './authService';
+import { authService, developmentAccessEnabled } from './authService';
 import {
   canCompleteProfile,
   credentialsErrors,
@@ -79,7 +79,7 @@ export default function AuthScreen({
   const [needsLoginAccess, setNeedsLoginAccess] = useState(false);
   const [accessId, setAccessId] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
-  const canSetDevelopmentAccess = typeof __DEV__ !== 'undefined' && __DEV__ &&
+  const canSetDevelopmentAccess = (developmentAccessEnabled || (typeof __DEV__ !== 'undefined' && __DEV__)) &&
     typeof verificationService?.setDevelopmentAccess === 'function';
   const job = useRef(0);
   const running = useRef(false);

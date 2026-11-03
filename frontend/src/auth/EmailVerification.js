@@ -3,6 +3,7 @@ import { AppState, Keyboard, Pressable, Text, View } from 'react-native';
 import Icon from '../editor/components/controls/Icon';
 import { authStyles as s } from './styles';
 import { remainingSeconds, verificationClock } from './verificationTime';
+import { developmentAccessEnabled } from './authService';
 
 export default function EmailVerification({ email, service, onComplete, Field, primary, focusInput, blurInput }) {
   const [preview] = useState(() => {
@@ -38,7 +39,7 @@ export default function EmailVerification({ email, service, onComplete, Field, p
     try { await task(); }
     catch (reason) {
       if (alive.current) {
-        if (__DEV__ && reason?.code === 'DEVELOPMENT_ACCESS_REQUIRED' && gateway?.setDevelopmentAccess) setNeedsAccess(true);
+        if ((developmentAccessEnabled || __DEV__) && reason?.code === 'DEVELOPMENT_ACCESS_REQUIRED' && gateway?.setDevelopmentAccess) setNeedsAccess(true);
         setError(typeof reason?.message === 'string' && reason.message.trim()
           ? reason.message : '처리하지 못했어요. 다시 시도해 주세요.');
         if (Number.isFinite(reason?.retryAfter) && reason.retryAfter > 0 &&
@@ -82,7 +83,7 @@ export default function EmailVerification({ email, service, onComplete, Field, p
     <Text style={[s.muted, { textAlign: 'center' }]}>{email}</Text>
     {!gateway && <Text style={s.muted}>이메일 인증 서비스 연결을 준비하고 있어요.</Text>}
     {gateway?.preview && !verified && <Text style={s.verificationPreview}>{gateway.notice}</Text>}
-    {__DEV__ && needsAccess && <>
+    {(developmentAccessEnabled || __DEV__) && needsAccess && <>
       <Text style={s.muted}>개발 서버 접속 인증 · 앱을 다시 실행하면 초기화돼요.</Text>
       <Field label="개발 서버 ID" value={accessId} onChange={setAccessId}
         onInputFocus={focusInput} onInputBlur={blurInput} editable={!busy} />
