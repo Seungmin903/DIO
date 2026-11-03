@@ -88,7 +88,7 @@ export function useColorPresets(scope = 'pen') {
  *   저장한 두 색을 누르면 onPick('#바탕/#무늬'). 테이프(scope tape)는 창에서 바탕색 · 무늬색을 함께 골라 onPick('#바탕/#무늬')
  */
 // inline: 다른 가로 줄 안에 한 줄로 이어 붙인다(테이프 보관함 색 줄, 줄바꿈 없음). size: 원 지름(기본 30)
-export default function MyColorPresets({ value, entry = value, onPick, label = '색상', scope = 'pen', onPickerOpenChange, inline = false, size = 30 }) {
+export default function MyColorPresets({ value, entry = value, onPick, label = '색상', scope = 'pen', onPickerOpenChange, inline = false, size = 30, onRequestPicker, pickerVisible = false }) {
   const { presets, loaded, add, remove } = useColorPresets(scope)
   const addRef = useRef(null)
   const [anchor, setAnchor] = useState(null) // 열린 창의 기준(+ 칸 자리). null 이면 닫힘
@@ -122,15 +122,15 @@ export default function MyColorPresets({ value, entry = value, onPick, label = '
             </Pressable>
           </View>
         ))}
-        {!full && (
+        {(!full || onRequestPicker) && (
           <Pressable
             ref={addRef}
             collapsable={false}
             accessibilityRole="button"
             accessibilityLabel={`새 ${label} 고르기`}
-            accessibilityState={{ expanded: Boolean(anchor) }}
-            disabled={!loaded}
-            onPress={open}
+            accessibilityState={{ expanded: onRequestPicker ? pickerVisible : Boolean(anchor) }}
+            disabled={!loaded && !onRequestPicker}
+            onPress={onRequestPicker ?? open}
             style={[styles.swatch, { width: size, height: size, borderRadius: size / 2 }, styles.add, anchor && styles.addOpen]}
           >
             <Icon name="plus" size={14} color={colors.textMuted} />
