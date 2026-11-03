@@ -38,8 +38,11 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
   const cacheOverride = useContext(WebStrokeCacheEnabled)
   // Only the live web writing/eraser layer opts in. Thumbnails/export stay vector.
   const webCache = Platform.OS === 'web' && (cacheOverride ?? cacheStrokes)
-  // 텍스트·사진·스티커의 이동 효과는 개별 객체에 적용하므로 획 묶음을 해제할 필요가 없다.
-  const movingStroke = Boolean(fadeIds?.length && page.objects.some(object => object.type === 'stroke' && fadeIds.includes(object.id)))
+  // Only transformed ink invalidates ink batches. Sticker/photo interaction
+  // changes their own PageObject, not the mounted completed stroke layer.
+  const transformsInk = Boolean(fadeIds?.length || stillIds?.length) && page.objects.some(object =>
+    object.type === 'stroke' && (fadeIds?.includes(object.id) || stillIds?.includes(object.id)))
+  const cacheAllowed = !cropId && !transformsInk
   const renderObject = object => <PageObject key={object.id} object={object} zoom={zoom} areaPreview={areaErasing && Boolean(areaPreviewObjects?.has(object))}
     opacity={objectOpacity(object) * (cropId && object.id !== cropId ? 0.45 : 1) * (fadeIds?.includes(object.id) ? DRAG_OPACITY : 1)}
     still={still || motion.moving || Boolean(fadeIds?.includes(object.id) || stillIds?.includes(object.id)) || offscreen(object, motion.visible)}
@@ -52,9 +55,9 @@ const StaticPage = memo(function StaticPage({ qaPageMeasurement = null, page, zo
       {showBackground && <PageBackground page={page} zoom={zoom} compact />}
       <TextMeasure.Provider value={onTextMeasure}>
       <TextMeasureReady.Provider value={textMeasureReady}>
-      {webCache && !cropId && !fadeIds?.length && !stillIds?.length
+      {webCache && cacheAllowed
         ? <WebStrokeCache objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} areaPreviewObjects={areaPreviewObjects} deferredAreaObjects={deferredAreaObjects} areaErasing={areaErasing} />
-        : cacheStrokes && !cropId && (Platform.OS === 'web' ? !fadeIds?.length && !stillIds?.length : !movingStroke)
+        : cacheStrokes && cacheAllowed
         ? <CompletedStrokeLayer objects={page.objects} width={width} height={height} zoom={zoom} renderObject={renderObject} uncachedObjects={uncachedObjects} />
         : page.objects.filter(object => !object.hidden).map(renderObject)}
       </TextMeasureReady.Provider>

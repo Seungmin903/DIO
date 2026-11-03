@@ -5,9 +5,9 @@ export const STROKES_PER_BATCH = 32
 export const STROKE_CACHE_PIXELS = 4 * 1024 * 1024
 const MAX_TEXTURE_EDGE = 4096
 
-// Keep native completed ink mounted across tool switches. Web keeps its existing cache policy.
+// Keep native completed ink mounted across editing and reading. Web retains its live-tool cache policy.
 export function shouldCacheCompletedStrokes(platform, readOnly, tool) {
-  return !readOnly && (platform !== 'web' || tool === 'pen' || tool === 'highlighter' || tool === 'eraser')
+  return platform !== 'web' || !readOnly && (tool === 'pen' || tool === 'highlighter' || tool === 'eraser')
 }
 
 // 문서와 별개인 표시 계획. 원본 요소·레이어 순서·좌표는 변경하지 않는다.
