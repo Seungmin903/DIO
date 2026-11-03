@@ -41,7 +41,7 @@ function render(platform, settings, onStepper = () => {}) {
       ToolPanelHeader: () => null, toolPanelStyles: {},
     }
     if (id === './controls/NumberStepper') return { __esModule: true, default: props => { onStepper(props); return null } }
-    if (id === './controls/MyColorPresets' || id === './controls/Slider') return { __esModule: true, default: () => null }
+    if (id === './controls/EditablePalette' || id === './controls/Slider') return { __esModule: true, default: () => null }
     // 글꼴 칸은 공용 드롭다운(TextFontDropdown): 지금 글꼴 이름만 그린다
     if (id === './controls/TextFontDropdown') return { __esModule: true, default: props => React.createElement('div', null, text.getTextFonts().find(font => font.id === text.resolveFontId(props.value))?.label) }
     return require(id)

@@ -1,6 +1,6 @@
 import { normalizeHex } from './penSettings.js'
 
-export const RECENT_PEN_COLOR_LIMIT = 7
+export const RECENT_PEN_COLOR_LIMIT = 8
 export const recentPenColorKey = scope => `dio-editor-used-colors-v1:${scope === 'highlighter' ? 'highlighter' : 'pen'}`
 const hex = value => typeof value === 'string' ? normalizeHex(value) : null
 export function normalizeRecentPenColors(value) {
