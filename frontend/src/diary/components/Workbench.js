@@ -1,6 +1,7 @@
 import { createContext, useMemo, useRef } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Icon from '../../editor/components/controls/Icon'
+import FadeScroll, { CANVAS_FADE_RGB } from '../../editor/components/controls/FadeScroll'
 import { colors, DISABLED_OPACITY, shadow } from '../../shared/theme'
 
 /** 옵션 패널 스크롤: 펼친 요소 줄이 화면 밖이면 보이도록 끌어온다 (ElementRow 가 쓴다) */
@@ -46,7 +47,7 @@ export default function Workbench({ title, actionLabel, onCancel, onSubmit, subm
       </Pressable>
     </View>
     <View style={[styles.main, sheet && styles.mainSheet]}>
-      {sheet ? <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsSheetScroll} contentContainerStyle={styles.cardsSheet}>{cards}</ScrollView>
+      {sheet ? <FadeScroll horizontal fadeRgb={CANVAS_FADE_RGB} style={styles.cardsSheetScroll} contentContainerStyle={styles.cardsSheet}>{cards}</FadeScroll>
         : <ScrollView style={styles.cards} contentContainerStyle={styles.cardsBody}>{cards}</ScrollView>}
       <View style={[styles.stage, !sheet && styles.stageWide, sheet && styles.stageSheet, sheet && (roomy ? styles.stageRoomy : styles.stagePhone)]} onLayout={event => { const { width, height } = event.nativeEvent.layout; onStageLayout({ width, height }) }}>
         {stage}
@@ -101,7 +102,7 @@ const styles = StyleSheet.create({
   stage: { flex: 1, minWidth: 0, marginRight: 12, marginBottom: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: colors.surfaceMuted }, // 면 #F0F1F9 · 모서리 12 · 그림자 없음(코덱스 8번)
   // 미리보기 판은 남는 폭 · 높이를 다 채워 오른쪽 설정 패널이 기기 오른쪽 끝에 붙게 한다(판 자체를 620×560으로 줄이면 가운데 정렬된 줄 전체가 좁아져 패널이 끝에서 떨어졌다). 안의 표지 · 속지는 높이 352까지만(DiaryCreateModal)
   stageWide: {},
-  stageSheet: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', marginHorizontal: 16, marginBottom: 0, borderRadius: 12, gap: 8 },
+  stageSheet: { flex: 0, flexGrow: 0, flexShrink: 0, flexBasis: 'auto', marginHorizontal: 16, marginBottom: 0, borderRadius: 12, gap: 8 },
   stagePhone: { height: 240 },
   // 세로 태블릿: 구역 카드와 옵션 사이 남은 높이를 미리보기와 옵션이 나눠 쓴다
   stageRoomy: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 240 },

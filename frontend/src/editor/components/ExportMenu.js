@@ -2,7 +2,7 @@ import EditorModal from './controls/EditorModal'
 import { Segmented, ToolPanelHeader, toolPanelStyles } from './ToolPanel'
 import { ExportButton } from './ExportScreen'
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { colors } from '../../shared/theme'
 import { pageSize } from '../utils/pageGeometry.js'
 import { createMenuPdfSnapshot, menuPdfPolicy, pdfMenuFailure } from '../utils/pdfMenu.js'
@@ -26,6 +26,13 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
   const viewport = useWindowDimensions()
   const Root = mobilePortrait ? View : Fragment
   const [modalHeight, setModalHeight] = useState(null)
+  // 키보드는 창 위로 올라오고 창 크기는 줄지 않아, 페이지 지정 칸을 누르면 형식 · 만들기 버튼이 키보드 뒤로 간다. 가운데 창은 키보드 높이만큼 위로 비켜 서고 안에서 스크롤한다
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (event) => setKeyboardHeight(event.endCoordinates?.height ?? 0))
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0))
+    return () => { show.remove(); hide.remove() }
+  }, [])
   const centered = mobilePortrait || !anchor
   // 내보내기 버튼 바로 아래, 오른쪽 끝을 버튼에 맞춘다. 다른 옵션 창 · 말풍선처럼 꼬리는 두지 않는다
   const panelWidth = Math.min(BUBBLE_WIDTH, viewport.width - 32)
@@ -34,7 +41,7 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
   // 기준 버튼이 없으면(폰) 말풍선 대신 화면 가운데 창으로 띄운다.
   const placement = !centered
     ? { position: 'absolute', width: panelWidth, left: panelLeft, top: panelTop, maxHeight: viewport.height - panelTop - 16 }
-    : { width: panelWidth, maxHeight: Math.max(1, (mobilePortrait ? modalHeight ?? viewport.height : viewport.height) - 32) }
+    : { width: panelWidth, maxHeight: Math.max(1, (mobilePortrait ? modalHeight ?? viewport.height : viewport.height) - 32 - keyboardHeight) }
   const [mode, setMode] = useState('current'), [format, setFormat] = useState('png')
   const number = doc.pages.findIndex((p) => p.id === currentId) + 1
   const [spec, setSpec] = useState(String(number)) // 페이지 지정: '1-3, 5'
@@ -84,7 +91,7 @@ export default function ExportMenu({ mobilePortrait = false, anchor, doc, curren
     <Root {...(mobilePortrait ? { style: styles.portraitRoot, onLayout: (event) => setModalHeight(event.nativeEvent.layout.height) } : {})}>
     {/* 화면을 어둡게 덮지 않는다 (덮으면 뒤의 요소가 반투명해 보였다). 바깥을 누르면 닫는다 */}
     <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="내보내기 닫기" />
-    <View style={mobilePortrait ? styles.portraitCenter : anchor ? StyleSheet.absoluteFill : styles.center} pointerEvents="box-none">
+    <View style={centered && keyboardHeight > 0 ? { ...(mobilePortrait ? styles.portraitCenter : styles.center), paddingBottom: 16 + keyboardHeight } : mobilePortrait ? styles.portraitCenter : anchor ? StyleSheet.absoluteFill : styles.center} pointerEvents="box-none">
     <View style={[toolPanelStyles.card, styles.card, placement]} accessibilityViewIsModal>
       <ToolPanelHeader icon="share" title="내보내기" closeLabel="내보내기 창 닫기" onClose={onClose} />
       <ScrollView contentContainerStyle={toolPanelStyles.content}>

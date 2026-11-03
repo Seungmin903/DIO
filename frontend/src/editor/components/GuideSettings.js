@@ -10,11 +10,11 @@ const GUIDE_LINES = [
 ]
 
 /** 격자·보조선 설정. 화면에 보여 주기만 하고 저장·내보내기에는 들어가지 않는다. 스티커·마테·사진 옵션과 같은 세그먼트 버튼을 쓴다. */
-export default function GuideSettings({ guides, onChange, onClose }) {
+export default function GuideSettings({ guides, onChange, onClose, sheet = false, dragHandlers }) {
   const gridOff = guides.grid === 'none'
   return (
-    <View style={toolPanelStyles.card} accessibilityLabel="격자 가이드 설정">
-      <ToolPanelHeader icon="guides" title="격자 가이드" closeLabel="격자 가이드 설정 닫기" onClose={onClose} />
+    <View style={sheet ? [toolPanelStyles.card, toolPanelStyles.sheetCard] : toolPanelStyles.card} accessibilityLabel="격자 가이드 설정">
+      <ToolPanelHeader icon="guides" title="격자 가이드" closeLabel="격자 가이드 설정 닫기" onClose={onClose} dragHandlers={dragHandlers} />
       <View style={toolPanelStyles.content}>
         {/* 격자는 모눈 하나라 켜고 끄기만 한다 */}
         <View style={styles.switchRow}>

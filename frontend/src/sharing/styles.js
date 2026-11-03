@@ -66,7 +66,7 @@ export const sharingStyles = StyleSheet.create({
   avatar: {
     width: 36,
     height: 36,
-    borderRadius: 16,
+    borderRadius: 18, // 사진 · 기본 프로필이 동그라미라 틀도 동그라미(둥근 네모 틀이 비쳐 어긋났다)
     backgroundColor: c.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -149,7 +149,7 @@ export const sharingStyles = StyleSheet.create({
   profileControl: {
     width: 44,
     height: 44,
-    borderRadius: 16,
+    borderRadius: 22,
     backgroundColor: c.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -249,7 +249,7 @@ export const sharingStyles = StyleSheet.create({
   peopleAvatar: {
     width: 44,
     height: 44,
-    borderRadius: 16,
+    borderRadius: 22,
     backgroundColor: c.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -265,6 +265,7 @@ export const sharingStyles = StyleSheet.create({
   barCounterText: { fontSize: 10, fontWeight: '700', color: c.text },
   barEntry: { height: 44, minWidth: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: radius.md, borderWidth: 1, borderColor: c.cardBorder, backgroundColor: c.surface },
   barEntryIcon: { paddingHorizontal: 0 },
+  barEntryPlain: { width: 40, minWidth: 40, height: 40, borderWidth: 0, backgroundColor: 'transparent' },
   barDotIcon: { top: 10, right: 10 },
   barText: { fontSize: 13, lineHeight: 18, fontWeight: '700', color: c.text },
   // 안 읽음 점: 글자 '공유' 오른쪽 위 모서리 바로 옆(글자가 없으면 아이콘 오른쪽 위)

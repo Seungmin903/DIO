@@ -81,7 +81,7 @@ const ColumnsContext = createContext(4)
  * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다.
  * 사진: 불러오면 틀 없이 붙고, 사진 틀을 누르면 빈 틀이 붙는다(캔버스의 + 로 채운다). 붙인 뒤 틀은 옵션 창의 같은 목록에서 바꾼다.
  */
-export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClose, onPanelWidth }) {
+export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClose, onPanelWidth, sheet = null }) {
   const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]
   const custom = useCustomDecor()
   const loginGate = useLoginGate()
@@ -156,10 +156,12 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
     onTapeInserted?.()
   }
   const [size, setSize] = useState(rememberedSize)
+  // sheet: 폰 세로 하단 시트면 { width, dragHandlers } — 폭 · 높이를 시트가 정하고 크기 조절은 쓰지 않는다
+  const panelWidth = sheet ? sheet.width : size.width
   const [pendingTape, setPendingTape] = useState(null) // 자르기 화면에서 고르는 중인 테이프 사진 { image, folderId }
   const measured = useRef(0)
   const resizeStart = useRef(null)
-  const columns = clamp(Math.floor((size.width - BODY_X * 2) / TILE_MIN_PX), 4, 9)
+  const columns = clamp(Math.floor((panelWidth - BODY_X * 2) / TILE_MIN_PX), 4, 9)
   const resizeHandlers = usePan({
     onStart: () => {
       resizeStart.current = { width: size.width, height: size.height ?? measured.current }
@@ -181,7 +183,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
   const tapePaletteId = tapePreferences.palette ?? TAPE_DEFAULT.palette
   const tapeLib = tapeLibrary(custom.items, custom.items.lastTapeCategory, keyword, tapePaletteId)
   const tapeUserFolder = tapeLib.folder?.folderId ? tapeLib.folder : null
-  const tapeColumns = clamp(Math.floor((size.width - BODY_X * 2) / (TAPE_TILE_MIN + TILE_GAP * 2)), 4, 9)
+  const tapeColumns = clamp(Math.floor((panelWidth - BODY_X * 2) / (TAPE_TILE_MIN + TILE_GAP * 2)), 4, 9)
   const tapePalette = usePalette?.('tape')?.colors ?? TAPE_PALETTES.filter((color) => !color.hidden).map((color) => color.id)
   const tapeLook = tapeColors(tapePaletteId)
   const laceColors = tapeLib.active === 'base:lace'
@@ -359,14 +361,14 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
 
   return (
     <View
-      style={[styles.drawer, toolPanelStyles.card, { width: size.width }, size.height != null && { height: size.height, maxHeight: '100%' }]}
+      style={sheet ? [styles.drawer, toolPanelStyles.card, toolPanelStyles.sheetCard, { height: '100%' }] : [styles.drawer, toolPanelStyles.card, { width: size.width }, size.height != null && { height: size.height, maxHeight: '100%' }]}
       onLayout={(event) => {
         measured.current = event.nativeEvent.layout.height
         onPanelWidth?.(event.nativeEvent.layout.width)
       }}
     >
       {/* 툴바에서 고른 보관함만 보여 준다 (서랍 안에서 스티커·테이프·사진을 오가지 않는다) */}
-      <ToolPanelHeader icon={current.icon} title={current.name} onClose={onClose} closeLabel="보관함 닫기">
+      <ToolPanelHeader icon={current.icon} title={current.name} onClose={onClose} closeLabel="보관함 닫기" dragHandlers={sheet?.dragHandlers}>
         {/* 스티커 · 테이프: 분류·폴더 목록 편집은 제목 줄 오른쪽(닫기 왼쪽)에 */}
         {(tab === 'sticker' || tab === 'tape') && (
           <Pressable
@@ -460,7 +462,9 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
           {/* 색 줄: 기본 색 → 구분선 → 내 색상 → +. 레이스는 한 색(바탕색)만 보인다. 사진 테이프만 있는 내 폴더에서는 숨긴다 */}
           {/* 색 줄은 기본 폴더(무늬 · 레이스)에서만: 즐겨찾기 · 최근 · 내 폴더 · 검색 결과는 담긴 색 그대로 붙는다 */}
           {!editingList && !keyword && tapeLib.folder && !tapeUserFolder && tapePreferencesReady && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.colorScroll} contentContainerStyle={styles.colorRow} keyboardShouldPersistTaps="handled">
+            <View style={styles.colorBlock}>
+              <Text style={styles.colorLabel}>기본 색</Text>
+              <View style={styles.colorRow}>
               {tapePalette.map((entry) => {
                 const color = tapeColors(entry)
                 const name = TAPE_PALETTES.find((item) => item.id === entry)?.name ?? entry.split(':').slice(1).join('/')
@@ -474,7 +478,8 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                   </Pressable>
                 )
               })}
-              <View style={styles.colorDivider} />
+              </View>
+              <Text style={styles.colorLabel}>내 색상</Text>
               <MyColorPresets
                 scope="tape"
                 inline
@@ -484,7 +489,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
                 label="테이프 색"
                 onPick={pickTapeCustom}
               />
-            </ScrollView>
+            </View>
           )}
         </View>
       )}
@@ -747,7 +752,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
           onToast(`${stickers.length}개 스티커를 폴더에 저장했어요.`)
         }} />}
       {cutoutFolder && <StickerCutoutModal folder={cutoutFolder} onClose={() => setCutoutFolder(null)} />}
-      <View
+      {!sheet && <View
         {...resizeHandlers}
         style={styles.resize}
         accessibilityLabel="보관함 크기 조절"
@@ -757,7 +762,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
         <Svg width={GRIP} height={GRIP} pointerEvents="none">
           <Path d={GRIP_ARC} stroke="rgba(11,23,102,0.32)" strokeWidth={4} strokeLinecap="round" fill="none" />
         </Svg>
-      </View>
+      </View>}
     </View>
   )
 }
@@ -1125,13 +1130,14 @@ const styles = StyleSheet.create({
   chipScroll: { flexGrow: 0 },
   chipRow: { gap: 6 },
   // 테이프 색 줄(코덱스 2026-11-02): 터치 44 · 원 28, 기본 색 → 구분선 → 내 색상 → +
-  colorScroll: { flexGrow: 0, marginHorizontal: -BODY_X },
-  colorRow: { alignItems: 'center', paddingHorizontal: BODY_X - 8, gap: 0 },
-  colorCell: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  // 폰 안쪽 폭(≈285)에 기본 7색이 한 줄로 들어가게 칸 40, 라벨 아래 '기본 색' 줄 · '내 색상' 줄을 둔다(스크롤 없음)
+  colorBlock: { flexGrow: 0, gap: 2 },
+  colorLabel: { fontSize: 12, fontWeight: '700', color: colors.textMuted, marginTop: 4 },
+  colorRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginLeft: -6 }, // 칸(40) 안 원(28)의 안쪽 여백 6 만큼 당겨 라벨 왼쪽과 맞춘다
+  colorCell: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
   colorSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.cardBorder },
   colorSwatchOn: { borderWidth: 3, borderColor: colors.primaryStrong },
   colorDot: { position: 'absolute', right: 2, bottom: 2, width: 8, height: 8, borderRadius: 4 },
-  colorDivider: { width: 1, height: 24, marginHorizontal: 8, backgroundColor: colors.cardBorder },
   resize: {
     position: 'absolute',
     left: 0,

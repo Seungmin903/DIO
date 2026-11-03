@@ -157,6 +157,7 @@ test('텍스트 상자 선택 바의 복제 버튼은 문자열 복사를 호출
     '../../constants': { PAGE_WIDTH: 1280, PAGE_HEIGHT: 800 },
     '../../utils/common': { clamp: (value, min, max) => Math.max(min, Math.min(max, value)), unionBounds: () => ({ left: 10, right: 330, top: 10, bottom: 50, cx: 170 }) },
     '../controls/Icon': { __esModule: true, default: 'Icon' },
+    '../controls/FadeScroll': { __esModule: true, default: 'ScrollView' },
     '../LassoSelectionMenu': { __esModule: true, default: 'Lasso' },
     '../../utils/penSettings': { EDITOR_COLORS: [] },
     '../../hooks/usePalettes': {}, // 공방 프리셋 저장소가 없으면 기본 펜 색을 쓴다

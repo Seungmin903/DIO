@@ -16,7 +16,7 @@ import { CompactMenu, placeCompactMenu } from '../components/canvas/ContextBar'
 import PhotoCropper from '../components/panels/PhotoCropper'
 import DecorDrawer from '../components/panels/DecorDrawer'
 import Icon from '../components/controls/Icon'
-import LayerPanel, { LAYER_PANEL_WIDTH } from '../components/panels/LayerPanel'
+import LayerPanel, { LAYER_PANEL_COMPACT_WIDTH, LAYER_PANEL_WIDTH } from '../components/panels/LayerPanel'
 import MorePanel from '../components/panels/MorePanel'
 import PageList, { PAGE_LIST_WIDTH } from '../components/panels/PageList'
 import PageSettingsDialog from '../components/panels/PageSettingsDialog'
@@ -24,6 +24,9 @@ import PagePanelVisibility from '../components/panels/PagePanelVisibility'
 import { createThumbnailWorkQueue } from '../utils/thumbnailWorkQueue.js'
 import { createPageCloseScheduler } from '../utils/pageCloseScheduler.js'
 import Ribbon from '../components/chrome/Ribbon'
+import PhoneSheet from '../components/chrome/PhoneSheet'
+import PhoneSidePanel from '../components/chrome/PhoneSidePanel'
+import PhoneCornerButtons from '../components/chrome/PhoneCornerButtons'
 import PhoneToolbar, { PHONE_TOOLBAR_RAIL, PhoneEditorRail } from '../components/chrome/PhoneToolbar'
 import EyedropperOverlay from '../components/EyedropperOverlay'
 import PenColorPicker from '../components/PenColorPicker'
@@ -173,6 +176,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     return () => { show.remove(); hide.remove() }
   }, [])
   const [ribbonBottom, setRibbonBottom] = useState(OPTIONS_TOP) // 태블릿 툴바 아래 끝 (작업창 좌표)
+  const [sheetHeight, setSheetHeight] = useState(0) // 폰 세로 하단 시트가 열려 있으면 그 높이(되돌리기 막대를 시트 위로 올린다)
   const [phonePanelWidths, setPhonePanelWidths] = useState({ left: 0, right: 0 }) // 폰에서 작업창 위에 띄운 패널 너비
   const toolPopoverStyle = (width = 320) => {
     // 폰: 세로 리본 바로 아래, 가로 리본의 상단 옆에 설정 창을 붙인다.
@@ -507,6 +511,11 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   })
 
   // 스티커·테이프·사진을 넣으면 보관함·옵션 창을 닫는다 (넣은 요소는 선택된 채라 선택 바의 '옵션'으로 바로 열 수 있다)
+  // 하단 시트(폰 세로)의 보관함은 닫으면 선택 도구로 돌아간다. 그 밖은 지금처럼 도구를 그대로 둔다
+  const closeDrawer = () => {
+    setDrawerTab(null)
+    if (compact && !landscape) setActiveTool('select')
+  }
   const closeAfterInsert = () => {
     setDrawerTab(null)
     setMoreOpen(false)
@@ -798,6 +807,16 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const touchInside = useRef(false)
   const pressEvent = Platform.OS === 'web' ? 'onPointerDown' : 'onTouchStart'
   const markInside = { [pressEvent]: () => (touchInside.current = true) }
+  // 폰 세로: 도구 옵션 창은 아래에서 올라오는 하단 시트. 그 밖(태블릿 · 폰 가로)은 기존 떠 있는 창
+  const phoneSheet = compact && !landscape
+  // 폰 세로의 페이지 목록 · 레이어는 가장자리에서 미끄러져 들어오고 끌어 닫는다. 그 밖은 기존 슬롯
+  const renderSlot = ({ side, sideStyle, onWidth, onClose }, children) => phoneSheet
+    ? <PhoneSidePanel side={side} top={8} onWidth={onWidth} onClose={onClose}>{children}</PhoneSidePanel>
+    : <PhonePanelSlot compact={compact} side={sideStyle} onWidth={onWidth}>{children}</PhonePanelSlot>
+  // node: (sheet) => 패널. sheet 는 하단 시트일 때만 { width, dragHandlers }, 아니면 null
+  const renderPanel = (node, wrapStyle, { onClose, fixedHeight = false } = {}) => phoneSheet
+    ? <PhoneSheet bleed={8} fixedHeight={fixedHeight} insideHandlers={markInside} onHeight={setSheetHeight} onClose={onClose}>{(sheet) => node(sheet)}</PhoneSheet>
+    : <View style={wrapStyle} pointerEvents="box-none" {...markInside}>{node(null)}</View>
   const closeBubbles = () => {
     setDrawerTab(null)
     setMoreOpen(false)
@@ -819,7 +838,9 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }, [showPages, zoom, stageSize?.width])
   const showLayers = !readOnly && layersOpen && !focusMode
   // 폰: 페이지 목록(가로에서는 레이어도)은 왼쪽, 세로 레이어는 오른쪽에서 열린다.
-  const undoOnRight = compact && (showPages || (landscape && showLayers))
+  // 폰 세로는 페이지 창을 열면 되돌리기 · 저장됨 막대를 오른쪽으로 옮기지 않고 창 뒤로 가린다(사용자 결정 2026-11-03)
+  const undoOnRight = compact && ((showPages && landscape) || (landscape && showLayers))
+  const hideUndoBar = compact && !landscape && showPages
   // 폰 객체 바의 더보기 메뉴. 페이지 밖까지 터치를 받아야 해서 Canvas 가 아니라 stage 위에 그린다.
   // 다른 요소를 고르거나 페이지·확대·이동이 바뀌면 닫는다 (바 위치가 달라지므로).
   const compactMenuLive = compactMenu && compactMenu.pageId === page.id && compactMenu.key === selectedObjects.map((o) => o.id).join(',')
@@ -1078,7 +1099,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           readOnly={readOnly}
           onHome={goHome}
           onTogglePages={togglePages}
-          onToggleOrientation={toggleOrientation}
           onToggleLayers={switchLayers}
           onExport={openExport}
           exportEnabled={exportEnabled}
@@ -1091,7 +1111,6 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       {!readOnly && !phoneLandscape && !phoneFocus && <TopBar
         compact={compact}
         pageLabel={`PAGE ${pageIndex + 1} / ${state.doc.pages.length}`}
-        onToggleOrientation={toggleOrientation}
         doc={state.doc}
         onRename={diary?.canManage === false ? undefined : async (title) => {
           const accepted = await onRenameDiary?.(title)
@@ -1168,15 +1187,16 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         {/* 패널 사이 틈을 누르면 선택 해제. 패널·목록을 감싸지 않고 뒤에 깔아 둔다. (감싸면 Android 목록 스크롤이 잘 안 먹음) */}
         <TapCatcher onTap={clearSelection} style={StyleSheet.absoluteFill} />
         {showPages && loaded && (
-          <PhonePanelSlot compact={compact} side={styles.phonePanelLeft} onWidth={(left) => setPhonePanelWidths((prev) => ({ ...prev, left }))}>
+          renderSlot({ side: 'left', sideStyle: styles.phonePanelLeft, onWidth: (left) => setPhonePanelWidths((prev) => ({ ...prev, left })), onClose: togglePages },
           <PagePanelVisibility enabled={Platform.OS === 'ios' && !compact} hidden={pagesClosing}>
           <PageList
+            phone={phoneSheet}
             fillHeight={Platform.OS === 'ios' && !compact}
             canUndoDelete={!textSync.enabled}
             qaMeasurement={pagePanelMeasurement.current}
             thumbnailWork={Platform.OS === 'web' ? null : thumbnailWork.current}
             readOnly={readOnly}
-            edge={!compact && !readOnly} // 읽기 화면은 바깥 여백이 없다(readingBody)
+            edge={(!compact || phoneSheet) && !readOnly} // 읽기 화면은 바깥 여백이 없다(readingBody). 폰 세로도 레이어처럼 화면 끝에 붙인다
             pages={deferredPages}
             currentId={page.id}
             cropId={cropTarget?.id ?? null}
@@ -1200,11 +1220,10 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             onRemovePages={removePages}
             onRemove={id=>removePages([id])}
           />
-          </PagePanelVisibility>
-          </PhonePanelSlot>
+          </PagePanelVisibility>)
         )}
 
-        <View ref={stageRef} collapsable={false} style={styles.stage}
+        <View ref={stageRef} collapsable={false} style={[styles.stage, phoneSheet && sheetHeight > 0 && { overflow: 'visible' }]}
           onLayout={() => stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y }))}>
           {/* 선택 바는 페이지 밖(보이는 작업 영역 안)까지 나가므로 페이지가 아니라 작업창 위 층에 그린다. 확대·이동하는 동안은 숨긴다. */}
           <StageOverlayHost hidden={viewMoving}>
@@ -1345,10 +1364,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             />
           </View>}
           {!readOnly && activeTool === 'lasso' && lassoSettingsOpen && !drawerTab && (
-            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <LassoSettings shape={lasso.shape} onClose={() => setLassoSettingsOpen(false)}
-                onShapeChange={(shape) => setLasso(current => ({ ...current, shape }))} />
-            </View>
+            renderPanel((sheet) => <LassoSettings shape={lasso.shape} onClose={() => setLassoSettingsOpen(false)}
+              onShapeChange={(shape) => setLasso(current => ({ ...current, shape }))} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setLassoSettingsOpen(false) })
           )}
           {/* 앱: 고른 글자의 '선택한 글자' 도구줄을 키보드 바로 위(작업 영역 아래 끝)에 둔다. 고른 글자 곁에는 시스템 글자 메뉴가 뜬다 */}
           {!readOnly && textEditing && textPalette?.placement === 'panel' && (
@@ -1378,25 +1395,21 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             showToast(href ? '링크를 걸었어요. 읽기 모드에서 누르면 열려요.' : '링크를 지웠어요.')
           }} />}
           {!readOnly && guidesOpen && !drawerTab && (
-            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <GuideSettings guides={guides} onChange={setGuides} onClose={() => setGuidesOpen(false)} />
-            </View>
+            renderPanel((sheet) => <GuideSettings guides={guides} onChange={setGuides} onClose={() => setGuidesOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setGuidesOpen(false) })
           )}
           {/* 텍스트 서식: 고른 텍스트를 고칠 때는 다른 옵션 창처럼 요소 옆에, 텍스트 도구의 기본값을 정할 때는 툴바 아래에 */}
           {!readOnly && textSettingsOpen && !textEditing && !drawerTab && (
-            <View style={selectedText ? [styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)] : [styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <TextSettings verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
-            </View>
+            (selectedText
+              ? <View style={[styles.optionsWrap, optionsPlacement(selectedObjects, zoom, offset, stageSize)]} pointerEvents="box-none" {...markInside}>
+                  <TextSettings verticalAlignment={selectedText?.type === 'shape'} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} />
+                </View>
+              : renderPanel((sheet) => <TextSettings verticalAlignment={false} settings={currentTextSettings} onChange={changeTextSettings} onClose={() => setTextSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setTextSettingsOpen(false) }))
           )}
           {!readOnly && ['pen', 'highlighter'].includes(activeTool) && penSettingsOpen && !drawerTab && (
-            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <PenSettings onOpenColorPicker={anchor => setColorPicker({ anchor, tool: activeTool, pageId: page.id, screen: { width: colorScreen.width, height: colorScreen.height } })} pickerVisible={Boolean(colorPicker)} key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => { setColorPicker(null); setPenSettingsOpen(false) }} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} />
-            </View>
+            renderPanel((sheet) => <PenSettings onOpenColorPicker={anchor => setColorPicker({ anchor, tool: activeTool, pageId: page.id, screen: { width: colorScreen.width, height: colorScreen.height } })} pickerVisible={Boolean(colorPicker)} key={activeTool} settings={activeTool === 'highlighter' ? highlighterSettings : penSettings} onChange={activeTool === 'highlighter' ? setHighlighterSettings : setPenSettings} onClose={() => { setColorPicker(null); setPenSettingsOpen(false) }} straightAssist={straightAssist} onStraightAssistChange={setStraightAssist} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => { setColorPicker(null); setPenSettingsOpen(false) } })
           )}
           {!readOnly && activeTool === 'eraser' && penSettingsOpen && !drawerTab && (
-            <View style={[styles.penSettingsWrap, toolPopoverStyle()]} pointerEvents="box-none" {...markInside}>
-              <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} target={eraserTarget} onTargetChange={setEraserTarget} onClose={() => setPenSettingsOpen(false)} />
-            </View>
+            renderPanel((sheet) => <EraserSettings size={eraserSize} onChange={setEraserSize} mode={eraserMode} onModeChange={setEraserMode} target={eraserTarget} onTargetChange={setEraserTarget} onClose={() => setPenSettingsOpen(false)} sheet={Boolean(sheet)} dragHandlers={sheet?.dragHandlers} />, [styles.penSettingsWrap, toolPopoverStyle()], { onClose: () => setPenSettingsOpen(false) })
           )}
 
           {showMore && !drawerTab && stageSize && (
@@ -1407,23 +1420,22 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           )}
 
           {drawerTab && (
-            <View style={[styles.drawerWrap, toolPopoverStyle(drawerWidth)]} pointerEvents="box-none" {...markInside}>
-              <DecorDrawer
+            renderPanel((sheet) => <DecorDrawer
                 onPanelWidth={setDrawerWidth}
                 tab={drawerTab}
                 // 테이프를 넣으면 보관함을 닫는다 (옵션 창은 자동으로 열지 않는다)
                 onTapeInserted={closeAfterInsert}
                 onAdd={addDecor}
                 onToast={showToast}
-                onClose={() => setDrawerTab(null)}
-              />
-            </View>
+                onClose={closeDrawer}
+                sheet={sheet}
+              />, [styles.drawerWrap, toolPopoverStyle(drawerWidth)], { onClose: closeDrawer, fixedHeight: true })
           )}
 
           {compactMenuLayout && <CompactMenu {...compactMenuLayout} actions={compactMenu.actions} insideHandlers={markInside} />}
 
           {/* 폰은 패널이 작업창 위를 덮으므로, 되돌리기·저장 상태 막대를 열린 패널의 반대쪽으로 옮긴다. */}
-          {!readOnly && <View style={[styles.floating, undoOnRight ? styles.floatingRight : styles.floatingLeft, undoOnRight && styles.floatingStacked]}>
+          {!readOnly && !hideUndoBar && <View style={[styles.floating, undoOnRight ? styles.floatingRight : styles.floatingLeft, undoOnRight && styles.floatingStacked, phoneSheet && sheetHeight > 0 && { bottom: sheetHeight + 4 }]}>
             <RoundButton icon="undo" label="되돌리기" disabled={readOnly || (textSync.enabled ? textSync.busy || (!localUndo&&!textSync.canUndo) : !state.past.length)} onPress={undo} />
             <View style={styles.floatingDivider} />
             <RoundButton icon="redo" label="다시 실행" disabled={readOnly || (textSync.enabled ? textSync.busy || (!localRedo&&!textSync.canRedo) : !state.future.length)} onPress={redo} />
@@ -1435,6 +1447,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           {/* 맞춤 · 모드 전환은 작업창 안 오른쪽 아래(레이어 창이 열리면 그 왼쪽). 되돌리기 막대와 같은 떠 있는 막대 모양 */}
           {!readOnly && <ReadingModeControls
             controlsRef={modeControlsRef} onLayout={measureModeControls}
+            style={phoneSheet && sheetHeight > 0 ? { bottom: sheetHeight + 4 } : null}
             reading={readOnly} canEdit={!permissionReadOnly} fitted={viewFitted} onFit={fitToScreen} onToggle={toggleReading}
           />}
           {readOnly && readerMenuVisible && <ReadingHeader title={state.doc.title} onHome={goHome} />}
@@ -1499,18 +1512,18 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
         </View>
 
         {showLayers && !readOnly && (
-          <PhonePanelSlot compact={compact} side={phoneLandscape ? styles.phonePanelLeft : styles.phonePanelRight}
-            onWidth={(width) => setPhonePanelWidths((prev) => (phoneLandscape ? { ...prev, left: width } : { ...prev, right: width }))}>
+          renderSlot({ side: 'right', sideStyle: phoneLandscape ? styles.phonePanelLeft : styles.phonePanelRight,
+            onWidth: (width) => setPhonePanelWidths((prev) => (phoneLandscape ? { ...prev, left: width } : { ...prev, right: width })), onClose: () => toggleLayers(false) },
             <LayerPanel
               objects={deferredObjects}
               selectedIds={state.selectedIds}
               dispatch={dispatch}
               onClose={() => toggleLayers(false)}
               onEmptyTap={clearSelection}
-              width={compact ? LAYER_PANEL_WIDTH : layerWidth}
-              />
-          </PhonePanelSlot>
+              width={compact ? (phoneLandscape ? LAYER_PANEL_WIDTH : LAYER_PANEL_COMPACT_WIDTH) : layerWidth}
+              />)
         )}
+        {phoneSheet && !readOnly && !phoneFocus && <PhoneCornerButtons pagesOpen={showPages} layersOpen={showLayers} onTogglePages={togglePages} onToggleLayers={switchLayers} />}
       </View>
       {phoneFocus && (
         <Pressable onPress={() => setFocusMode(false)} accessibilityRole="button" accessibilityLabel="집중 편집 모드 종료" style={[styles.focusExit, !landscape && styles.focusExitPortrait]}>

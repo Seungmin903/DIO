@@ -4,8 +4,9 @@ import Icon from './controls/Icon'
 
 // 도구 옵션·보관함·내보내기가 공유하는 제목과 표면 기준.
 // 스티커·마테·사진 옵션 창(MorePanel)과 같은 느낌: 둥근 유리 카드, 굵은 제목, 작은 회색 구역 제목, 회색 바탕의 세그먼트 버튼.
-export function ToolPanelHeader({ icon, title, onClose, closeLabel, disabled = false, children }) {
-  return <View style={toolPanelStyles.heading}>
+// dragHandlers: 폰 세로 하단 시트(PhoneSheet)가 넘긴다 — 제목 줄을 아래로 끌어 닫는다
+export function ToolPanelHeader({ icon, title, onClose, closeLabel, disabled = false, dragHandlers, children }) {
+  return <View style={toolPanelStyles.heading} {...dragHandlers}>
     <View style={toolPanelStyles.titleRow}><Icon name={icon} size={18} forText={15} /><Text style={toolPanelStyles.title}>{title}</Text></View>
     {children}
     <Pressable accessibilityRole="button" accessibilityLabel={closeLabel ?? `${title} 닫기`} disabled={disabled} onPress={onClose} style={[toolPanelStyles.close, disabled && { opacity: DISABLED_OPACITY }]}><Icon name="close" size={18} /></Pressable>
@@ -59,10 +60,13 @@ export const toolPanelStyles = StyleSheet.create({
     borderColor: colors.cardBorder,
     overflow: 'hidden',
   },
+  // 하단 시트 안: 폭 꽉 · 높이는 시트가 정한다(안에서 스크롤). 윗모서리 · 테두리는 PhoneSheet 가 그린다
+  sheetCard: { width: '100%', maxHeight: '100%', borderRadius: 0, borderWidth: 0, flexShrink: 1 },
   heading: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 16, paddingRight: 8, paddingTop: 6 },
   titleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { color: colors.text, fontSize: 15, fontWeight: '700' },
   close: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  scrollFrame: { flexGrow: 1, flexShrink: 1, minHeight: 0 }, // FadeScroll 바깥 칸: 예전 ScrollView 기본 배치(늘고 줄어듦)를 그대로 잇는다
   content: { paddingHorizontal: 16, paddingBottom: 12, paddingTop: 2, gap: 10 }, // 큰 구역 사이 10(코덱스 2026-11-02, 12 에서 줄여 스크롤 없이 들어가게)
   // 구역 제목 (MorePanel 의 sectionTitle 과 같다)
   label: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
