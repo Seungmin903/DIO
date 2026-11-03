@@ -547,7 +547,7 @@ class PushPostgresTests {
     @Test void retentionDoesNotDeleteOrCancelDeliveryWhileActualWorkerSends() throws Exception {
         var f=retentionFixture("PENDING");var actor=person();UUID diary=UUID.randomUUID();
         jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'retention race')",diary,actor.id());
-        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),f.recipient().id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(?,?,?,'EMAIL',?,?,now()+interval '7 days') returning invite_id",Long.class,diary,actor.id(),f.recipient().id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
         Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,f.recipient().id(),diary);
         jdbc.update("update invitation_notification_receipts set invite_id=? where invite_id=?",invite,f.invite());
         jdbc.update("update push_outbox set reference_id=?,notification_id=?,expires_at=now()+interval '5 seconds' where outbox_id=?",invite.toString(),notification,f.outbox());
@@ -598,7 +598,7 @@ class PushPostgresTests {
             var recipient=person();var actor=person();UUID installation=UUID.randomUUID(),diary=UUID.randomUUID(),outbox=UUID.randomUUID();
             push.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[stale"+installation+"]"));
             jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'stale QA')",diary,actor.id());
-            Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+            Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(?,?,?,'EMAIL',?,?,now()+interval '7 days') returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
             Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id(),diary);
             jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,?,'PENDING',now(),?,'development','dio')",outbox,"stale:"+outbox,notification,recipient.id(),"DIARY_INVITE",invite.toString(),Timestamp.from(Instant.now().plusSeconds(3600)));
             if(joined)jdbc.update("insert into diary_members(diary_id,user_id,role,member_color) values(?,?,'EDITOR','#CED9EE')",diary,recipient.id());
@@ -614,7 +614,7 @@ class PushPostgresTests {
         var recipient=person();var actor=person();UUID installation=UUID.randomUUID(),diary=UUID.randomUUID(),outbox=UUID.randomUUID();
         push.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[expiry"+installation+"]"));
         jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'expiry QA')",diary,actor.id());
-        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(?,?,?,'EMAIL',?,?,now()+interval '7 days') returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
         Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id(),diary);
         jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,?,'PENDING',now(),?,'development','dio')",outbox,"expiry:"+outbox,notification,recipient.id(),"DIARY_INVITE",invite.toString(),Timestamp.from(Instant.now().plusSeconds(3600)));
         jdbc.update("update refresh_tokens set expires_at=? where session_id=?",Timestamp.from(Instant.now().plusSeconds(2)),recipient.sid());
@@ -638,7 +638,7 @@ class PushPostgresTests {
         var recipient=person();var actor=person();UUID installation=UUID.randomUUID(),diary=UUID.randomUUID(),outbox=UUID.randomUUID();
         var registered=push.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[worker"+installation+"]"));
         jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'worker QA')",diary,actor.id());
-        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(?,?,?,'EMAIL',?,?,now()+interval '7 days') returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
         Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id(),diary);
         jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,?,'PENDING',now(),?,'development','dio')",outbox,"qa:"+outbox,notification,recipient.id(),"DIARY_INVITE",invite.toString(),Timestamp.from(Instant.now().plusSeconds(3600)));
         var gateway=org.mockito.Mockito.mock(com.f106.DIO.push.service.ExpoPushGateway.class);
@@ -671,7 +671,7 @@ class PushPostgresTests {
         var isolatedPush=new PushInstallationService(jdbc,sessionLock,Base64.getEncoder().encodeToString(new byte[32]),scope,"dio");
         new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(st->isolatedPush.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[fan"+installation+"]")));
         jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'fan QA')",diary,actor.id());
-        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(?,?,?,'EMAIL',?,?,now()+interval '7 days') returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
         Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id(),diary);
         for(UUID outbox:List.of(first,second))jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,?,'PENDING',?,?,?,'dio')",outbox,"qa:"+outbox,notification,recipient.id(),"DIARY_INVITE",invite.toString(),Timestamp.from(Instant.now().minusSeconds(outbox.equals(first)?20:10)),Timestamp.from(Instant.now().plusSeconds(3600)),scope);
         var failOnce=new java.util.concurrent.atomic.AtomicBoolean(true);
@@ -698,7 +698,7 @@ class PushPostgresTests {
         var isolatedPush=new PushInstallationService(jdbc,sessionLock,Base64.getEncoder().encodeToString(new byte[32]),scope,"dio");
         new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(st->isolatedPush.register(recipient.jwt(),installation,UUID.randomUUID(),input("ExpoPushToken[poison"+installation+"]")));
         jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'queue QA')",diary,actor.id());
-        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
+        Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(?,?,?,'EMAIL',?,?,now()+interval '7 days') returning invite_id",Long.class,diary,actor.id(),recipient.id(),new byte[32],Timestamp.from(Instant.now().plusSeconds(3600)));
         Long notification=jdbc.queryForObject("insert into notifications(user_id,diary_id,notification_type) values(?,?,'DIARY_INVITE') returning notification_id",Long.class,recipient.id(),diary);
         for(UUID outbox:List.of(first,second)) {
             jdbc.update("insert into push_outbox(outbox_id,event_key,notification_id,recipient_user_id,event_type,reference_id,status,created_at,expires_at,environment,app_id) values(?,?,?,?,?,?,'COMPLETE',now(),?,?,'dio')",outbox,"qa:"+outbox,notification,recipient.id(),"DIARY_INVITE",invite.toString(),Timestamp.from(Instant.now().plusSeconds(3600)),scope);

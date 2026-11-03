@@ -77,7 +77,7 @@ class InvitationLookupBootHttpTests {
   long recipient=user("lookup-r@example.com","lookup-r"), actor=user("lookup-a@example.com","lookup-a");
   UUID diary=UUID.randomUUID();
   jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'boot lookup')",diary,actor);
-  Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor,recipient,new byte[32],java.sql.Timestamp.from(Instant.now().minusSeconds(3600)));
+  Long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(?,?,?,'EMAIL',?,?,now()+interval '7 days') returning invite_id",Long.class,diary,actor,recipient,new byte[32],java.sql.Timestamp.from(Instant.now().minusSeconds(3600)));
   jdbc.update("insert into notifications(user_id,diary_id,notification_type,payload_json) values(?,?,'DIARY_INVITE',cast(? as jsonb))",recipient,diary,"{\"inviteId\":\""+invite+"\"}");
   var session=login("lookup-r@example.com"); var other=login("lookup-a@example.com");
   var response=request("GET","/api/v1/notifications",session.accessToken(),null);
@@ -129,7 +129,7 @@ class InvitationLookupBootHttpTests {
   UUID original=jdbc.queryForObject("select event_id from invitation_notification_receipts where invite_id=?",UUID.class,invite);
   assertThatThrownBy(()->tx.execute(status->handler.handle(new com.f106.DIO.notification.event.InvitationConfirmedEvent(original,invite,actor,at)))).isInstanceOf(com.f106.DIO.notification.event.InvitationEventException.class);
   long concurrent=user("event-c@example.com","event-c");
-  long concurrentInvite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor,concurrent,new byte[32],java.sql.Timestamp.valueOf("9999-12-31 23:59:59"));
+  long concurrentInvite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(?,?,?,'EMAIL',?,?,now()+interval '7 days') returning invite_id",Long.class,diary,actor,concurrent,new byte[32],java.sql.Timestamp.valueOf("9999-12-31 23:59:59"));
   var created=jdbc.queryForObject("select created_at from diary_invites where invite_id=?",java.sql.Timestamp.class,concurrentInvite).toInstant();
   var pool=java.util.concurrent.Executors.newFixedThreadPool(4);
   try {
@@ -140,7 +140,7 @@ class InvitationLookupBootHttpTests {
    assertThat(jdbc.queryForObject("select count(*) from push_outbox where recipient_user_id=?",Long.class,concurrent)).isEqualTo(1);
   } finally {pool.shutdownNow();}
   long rollbackUser=user("event-rollback@example.com","event-rollback");
-  long rollbackInvite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor,rollbackUser,new byte[32],java.sql.Timestamp.valueOf("9999-12-31 23:59:59"));
+  long rollbackInvite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(?,?,?,'EMAIL',?,?,now()+interval '7 days') returning invite_id",Long.class,diary,actor,rollbackUser,new byte[32],java.sql.Timestamp.valueOf("9999-12-31 23:59:59"));
   var rollbackAt=jdbc.queryForObject("select created_at from diary_invites where invite_id=?",java.sql.Timestamp.class,rollbackInvite).toInstant();
   tx.execute(status->{handler.handle(new com.f106.DIO.notification.event.InvitationConfirmedEvent(UUID.randomUUID(),rollbackInvite,rollbackUser,rollbackAt));status.setRollbackOnly();return null;});
   assertThat(jdbc.queryForObject("select count(*) from notifications where user_id=?",Long.class,rollbackUser)).isZero();
@@ -194,7 +194,7 @@ class InvitationLookupBootHttpTests {
   for(boolean stateFirst:new boolean[]{false,true}) {
    UUID diary=UUID.randomUUID();
    jdbc.update("insert into diaries(diary_id,owner_user_id,title) values(?,?,'race QA')",diary,actor);
-   long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at) values(?,?,?,'EMAIL',?,?) returning invite_id",Long.class,diary,actor,recipient,new byte[32],java.sql.Timestamp.valueOf("9999-12-31 23:59:59"));
+   long invite=jdbc.queryForObject("insert into diary_invites(diary_id,inviter_user_id,invitee_user_id,invite_type,token_hash,expires_at,retention_until) values(?,?,?,'EMAIL',?,?,now()+interval '7 days') returning invite_id",Long.class,diary,actor,recipient,new byte[32],java.sql.Timestamp.valueOf("9999-12-31 23:59:59"));
    var repo=context.getBean(com.f106.DIO.sharing.repository.DiaryInviteRepository.class);
    var tokenService=context.getBean(com.f106.DIO.sharing.support.InviteTokens.class);
    String token=tx.execute(st->{var value=repo.findById(invite).orElseThrow();String t=tokenService.token(value);value.initializeHash(tokenService.hash(t));return t;});
