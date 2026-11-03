@@ -5,6 +5,7 @@ import {createRequire} from 'node:module'
 import * as mediaModule from '../src/collaboration/canvasMedia.js'
 import * as apiModule from '../src/collaboration/canvasApi.js'
 import * as elementsModule from '../src/collaboration/canvasElements.js'
+import * as diagnosticsModule from '../src/collaboration/collaborationDiagnostics.js'
 import * as writeApiModule from '../src/collaboration/canvasWriteApi.js'
 import * as pagesModule from '../src/collaboration/serverPages.js'
 import * as canvasFetchModule from '../src/collaboration/canvasFetch.js'
@@ -80,6 +81,7 @@ function fixture(failure=null,shared=false,sourceDiaryId=diaryId){
   if(name.endsWith('/canvasMediaFiles'))return {canvasMediaFiles:{cached:async()=>true}}
   if(name.endsWith('/canvasApi.js'))return apiModule
   if(name.endsWith('/canvasElements.js'))return elementsModule
+  if(name.endsWith('/collaborationDiagnostics.js'))return diagnosticsModule
   if(name.endsWith('/canvasWriteApi.js'))return writeApiModule
   if(name.endsWith('/canvasSession.js'))return sessionModule
   if(name.endsWith('/serverPaperFont.js'))return serverPaperFontModule

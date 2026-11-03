@@ -8,6 +8,7 @@ import { memberDocumentKey } from '../../diary/services/memberStorage.js'
 import { createId } from '../utils/common.js'
 import { sameElements } from '../../collaboration/canvasApi.js'
 import { isUuid } from '../../collaboration/canvasElements.js'
+import { createCollaborationDiagnostics } from '../../collaboration/collaborationDiagnostics.js'
 import { createCanvasWriteApi } from '../../collaboration/canvasWriteApi.js'
 import { loadServerPageSnapshot, createServerPage, copyServerPage, deleteServerPage, reorderServerPages, updateServerPage, loadPageSettings } from '../../collaboration/serverPages.js'
 import { createCanvasSession } from '../../collaboration/canvasSession.js'
@@ -46,7 +47,8 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     // for every API path. The legacy collaboration bridge permits only page/WS
     // routes and must not inspect the new /members lookup.
     const fetchImpl=createCanvasHttpFetch({auth:authService,headersFor,accessTokenHeader,fetchImpl:memberFetch})
-    const transport=createAuthenticatedMemberTransport({auth:authService,accountId:diary.memberAccountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl})
+    const diagnostics=createCollaborationDiagnostics({enabled:typeof __DEV__!=='undefined'&&__DEV__&&process.env.EXPO_PUBLIC_COLLABORATION_DIAGNOSTICS==='1'})
+    const transport=diagnostics.transport(createAuthenticatedMemberTransport({auth:authService,accountId:diary.memberAccountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl}))
     const media=createCanvasMedia({request:createMediaRequest({auth:authService,accountId:diary.memberAccountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch}),files:canvasMediaFiles,storage:AsyncStorage,key:`${memberDocumentKey(diary)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}`,isActive:active})
     const api=createCanvasWriteApi(transport,media,diary.id)
     const fetchDocument=(sourceId,mediaFileId)=>media.fetchDocument(sourceId,mediaFileId)
@@ -170,7 +172,10 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     r.sync=(pageId,direction)=>{
       // Coalesce bursts, but always fetch once more if an event arrives in flight.
       if(!direction&&r.pending.has(pageId)){r.again.add(pageId);return r.pending.get(pageId)}
+      const startTiming=diagnostics.startSync()
       const work=async()=>{
+        const finishTiming=startTiming()
+        try {
         if(!active())return
         if(r.removing.has(pageId))return
         if(!r.pageIds)await r.refreshPages()
@@ -197,6 +202,7 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
         }
         if(current.id===pageId&&active())setView(v=>({...v,status:result.rejectedCount?'error':'saved',errorMessage:result.rejectedCount?'서버가 거절한 편집은 기기에 보관했어요. 나머지 편집은 동기화했어요.':null,history:result.history,pageId}))
         return result
+        } finally { finishTiming() }
       }
       const job=r.tail.catch(()=>{}).then(work);r.tail=job
       if(!direction){
@@ -211,16 +217,18 @@ export function useMemberCanvasCollaboration({diary,page,state,loaded,readOnly,d
     }
     const refresh=()=>{if(active()){r.sync(latest.current.page.id);refreshPagesQuietly()}}
     const socket=connectCollaboration({baseUrl:apiBaseUrl,diaryId:diary.id,isActive:active,allowDevelopmentHttp:typeof __DEV__!=='undefined'&&__DEV__,
+      onDiagnostic:diagnostics.socket,
       makeSocket:url=>Platform?.OS==='web'?new globalThis.WebSocket(url):new globalThis.WebSocket(url,[],{headers:headersFor(url)}),
       getAccessToken:({forceRefresh=false}={})=>authService.getAccessToken({userId:diary.memberAccountId,sessionKey,forceRefresh}),
-      onReady:refresh,onPagesChanged:refreshPagesQuietly,onChange:frame=>{
+      onReady:()=>{diagnostics.event('ws-ready');refresh()},onUnavailable:()=>diagnostics.event('ws-unavailable'),onPagesChanged:refreshPagesQuietly,onChange:frame=>{
+        diagnostics.event('ws-change')
         if([...r.loaded.values()].some(engine=>engine.ownsCommand(frame.clientOperationId)))return
         if(frame.pageId===latest.current.page.id)refresh()
         else if(latest.current.state.doc.pages.some(p=>p.id===frame.pageId))r.sync(frame.pageId)
         else refreshPagesQuietly()
       }})
     // Periodic reconciliation also covers an event lost after commit or a proxy without WebSocket support.
-    const timer=setInterval(refresh,5000)
+    const timer=setInterval(()=>{diagnostics.event('poll');refresh()},5000)
     const appState=AppState.addEventListener('change',next=>{if(next==='active')refresh();else dispatch({type:'commitCheckpoint'})})
     return ()=>{r.alive=false;setPdfSourceFetcher(null);media.dispose();socket.close();clearInterval(timer);appState.remove();if(runtime.current===r)runtime.current=null}
   },[enabled,loaded,diary?.id,diary?.memberAccountId,sessionKey])
