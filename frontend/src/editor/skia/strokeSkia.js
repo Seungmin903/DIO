@@ -113,7 +113,10 @@ function drawStrandGrain(canvas, paper, bounds, ribbon, width, seed, zoom) {
   shader.setShader(strandEffect.makeShaderWithChildren(strandUniforms(zoom, width), [strandTile]))
   plus.setBlendMode(BlendMode.Plus)
   plus.setAlphaf(strand)
-  // 겹친 리본은 나중 것이 덮어써서(Src) 결이 두 배로 더해지지 않는다 → 되돌릴 때 Plus 로 합친다. 점(탭)은 리본이 없어 그 자리 사각형으로
+  // 겹친 리본은 결이 두 배로 더해지지 않게 한쪽만 남긴다 → 되돌릴 때 Plus 로 합친다. 점(탭)은 리본이 없어 그 자리 사각형으로
+  // 먼저 그려진 결이 남도록 페인트를 DstOver 로 둔다(2026-11-04 사용자: 쓰는 중 이미 그어진 획의 결이 파동처럼 밀린다). 리본은 굵기 8 에서 절반 폭 17 로 획보다 훨씬 넓어,
+  // 나중 리본이 덮어쓰면 펜이 닿지 않은 옆 획의 결까지 펜을 따라 바뀌었다. drawVertices 의 블렌드 인자는 정점 색과 셰이더를 섞는 값이라 정점 색이 없는 여기선 쓰이지 않는다
+  shader.setBlendMode(BlendMode.DstOver)
   canvas.saveLayer(plus, bounds)
   if (meshes.length) for (const mesh of meshes) canvas.drawVertices(mesh, BlendMode.Src, shader)
   else canvas.drawRect(bounds, shader)
@@ -172,11 +175,11 @@ const TIP_SAMPLING = { filter: FilterMode.Linear, mipmap: MipmapMode.Linear }
 export const PENCIL_PROFILE = { on: process.env.EXPO_PUBLIC_PENCIL_PROFILE === '1' }
 const profiling = () => PENCIL_PROFILE.on
 // 화면 라벨용 통계(console.log 는 logcat 에 안 나옴): globalThis.__PENCIL_PROFILE__ = { label: { n, avg, max, last } }
-const recordProfile = (label, ms) => {
+export const recordProfile = (label, ms) => {
   const all = globalThis.__PENCIL_PROFILE__ ??= {}, one = all[label] ??= { n: 0, sum: 0, max: 0, last: 0 }
   one.n++; one.last = ms; (one.w ??= []).push(ms); if (one.w.length > 60) one.w.shift(); one.avg = one.w.reduce((a, b) => a + b, 0) / one.w.length; one.max = Math.max(...one.w)
 }
-const nowMs = () => typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
+export const nowMs = () => typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
 // 12판 시험(sweep): 쓸어 둔 가로 붓 끝 — 변형 v 장이 위아래로 쌓인 한 장에서 도장 번호 해시로 하나를 고른다(같은 번호는 늘 같은 변형)
 let sweepImg, sweepRects, smallImg
 const sweepVariant = i => Math.abs(Math.imul(i | 0, 2654435761) >>> 7) % PENCIL_SWEEP.v

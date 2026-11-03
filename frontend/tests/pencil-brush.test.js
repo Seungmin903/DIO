@@ -205,3 +205,16 @@ test('48판 끝 뾰족함 · 점: 끝으로 가늘어져도 도장이 촘촘해�
   const long = pencilDabs(stroke(Array.from({ length: 40 }, (_, i) => ({ x: i * 2, y: 0, pressure: 0.85 }))), 16)
   assert.ok(long.at(-1).a <= 1, '긴 획의 끝에는 채움이 없다')
 })
+
+test('겹친 결 리본은 먼저 그려진 결이 남는다(DstOver): 한 획이 자기 앞부분과 겹쳐도 이미 그어진 결이 물결치듯 밀리지 않는다', async () => {
+  const { readFileSync } = await import('node:fs')
+  const source = readFileSync(new URL('../src/editor/skia/strokeSkia.js', import.meta.url), 'utf8')
+  assert.match(source, /shader\.setBlendMode\(BlendMode\.DstOver\)/, '나중 리본이 앞 리본의 결을 덮어쓰지 않게 페인트가 DstOver')
+})
+
+test('앱 연필은 그림을 못 만들었을 때만 SVG 를 붙인다: 화면 밖 썸네일의 SVG 가 남아 Java 힙을 채우지 않는다', async () => {
+  const { readFileSync } = await import('node:fs')
+  const source = readFileSync(new URL('../src/editor/components/PencilSkiaStroke.native.js', import.meta.url), 'utf8')
+  assert.match(source, /raster === false \|\| \(raster && broken === raster\.uri\) \? fallback : null/)
+  assert.doesNotMatch(source, /showing \? null : fallback/)
+})
