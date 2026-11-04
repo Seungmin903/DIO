@@ -1,12 +1,12 @@
 # 인증 기능 배포 환경 계약
 
-개발 배포는 `compose/compose.dev.yml`, release 배포는 `compose/compose.release.yml`, 운영 배포는 `compose/compose.prod.yml`을 사용한다. CI는 각각 `/home/gitlab-runner/dio-env/dev.env`, `/home/gitlab-runner/dio-env/release.env`, `/home/gitlab-runner/dio-env/prod.env`를 읽는다. 이 비공개 파일은 Git에 넣지 않는다. 저장소만으로 실제 서버 값·SMTP 연결·S3 권한이 준비되었다고 판단할 수 없다.
+개발 배포와 release 브랜치 검증 배포는 모두 `compose/compose.dev.yml`과 `/home/gitlab-runner/dio-env/dev.env`를 사용한다. protected `release/*`의 수동 배포는 dev 백엔드 컨테이너를 해당 release 커밋으로 교체한다. 따라서 release 확인 중에는 develop 최신 코드가 아닌 release 코드가 dev 서버에서 실행된다. 운영 배포만 `compose/compose.prod.yml`과 `/home/gitlab-runner/dio-env/prod.env`를 사용한다. 이 비공개 파일은 Git에 넣지 않는다. 저장소만으로 실제 서버 값·SMTP 연결·S3 권한이 준비되었다고 판단할 수 없다.
 
-release는 develop PostgreSQL 컨테이너의 네트워크를 공유하지만, `release.env`의 `POSTGRES_DB`를 반드시 `dio_release`로 고정해 별도 DB와 Flyway 이력을 사용한다. `POSTGRES_USER`/`POSTGRES_PASSWORD`는 반드시 `dio_release`에만 권한을 가진 전용 PostgreSQL 역할의 값으로 설정한다. CI는 env 파일을 직접 읽지 않고 release Compose가 렌더링한 `DB_URL`이 정확히 `jdbc:postgresql://db:5432/dio_release`인지 확인한다. release Compose 서비스명은 `backend-release`로 고정해 공유 네트워크에서 develop의 `backend` DNS 별칭과 겹치지 않게 한다. CI는 다른 DB 이름·`dio_release` DB 부재 시 컨테이너를 교체하지 않는다. DB 존재 확인도 release Compose와 같은 env 파서로 실행된다. 최초 배포 전 운영자는 develop PostgreSQL 컨테이너에 `dio_release`와 전용 역할을 생성해야 한다. release는 S3 저장소만 사용하며, `AUTH_ALLOWED_ORIGINS`도 release 환경 파일에서 명시해야 한다. 배포 이미지는 파이프라인별 고유 태그와 원본 커밋 라벨을 사용한다. health check는 요청당 8초 제한과 전체 90초 재시도 제한을 적용한다. `up -d` 또는 health check가 실패하면 CI는 최근 200줄의 `backend-release` 로그를 남긴다. 이전 이미지의 원본 커밋을 확인할 수 있고 두 커밋 사이에 Flyway migration 파일 변경이 없는 경우에만 그 이미지로 자동 복구하며, 복구 후 health check 실패도 로그에 남긴다. 자동 롤백이 불가능하거나 이전 이미지가 없는 실패 배포는 release 프로젝트를 내려 재시작 루프를 막는다.
+전용 `release` 환경·`deploy-release` 잡·8083 컨테이너는 사용하지 않으며, release 브랜치는 운영 배포 경로가 아니라 공유 dev 환경의 수동 검증 경로다. 따라서 이전 release 전용 compose와 환경/DB 검사 스크립트도 유지하지 않는다. 운영 갱신은 `master`의 `deploy-production`만 사용한다.
 
-`release/*`는 GitLab에서 Protected branches로 지정하고 deploy-release 잡은 protected ref에서만 나타난다. `ec2-deploy` 러너도 protected ref 전용으로 지정한다. 저장소의 rules는 보호 설정을 보완할 뿐, GitLab 설정을 대신하지 않는다.
+`release/*`는 GitLab의 **Protected branches**로 지정해야 하며, `ec2-deploy` 러너도 protected ref에서만 작업하도록 설정한다. CI 규칙의 `$CI_COMMIT_REF_PROTECTED == "true"` 조건은 이 GitLab 보호 설정을 대신하지 않는다. 보호 설정이 없으면 release 코드가 공유 dev DB와 dev 서버에 배포되는 권한을 의도한 담당자로 제한할 수 없다.
 
-컨테이너 이미지 롤백은 Flyway가 적용한 스키마와 이력을 되돌리지 못한다. release 배포에서 이전 이미지부터 현재 커밋까지 `backend/src/main/resources/db/migration` 변경이 있으면 CI는 자동 롤백을 실행하지 않는다. `dio_release` DB 백업 또는 스냅샷을 복원한 뒤, 해당 이전 이미지로 수동 배포한다. 이전 이미지의 커밋 라벨이 없거나 GitLab 작업 공간에서 그 커밋을 확인할 수 없는 경우에도 같은 절차를 따른다. migration이 없는 배포만 자동 롤백 대상이다. release용 마이그레이션은 여전히 이전 애플리케이션 버전과 함께 기동해도 되는 expand/contract 방식으로 작성한다. 즉 새 컬럼·테이블·인덱스 추가와 새 코드 배포를 먼저 하고, 컬럼 삭제·이름 변경·제약 강화 같은 파괴적 변경은 이전 이미지가 더 이상 필요 없어진 후의 후속 배포로 분리한다.
+release 검증 배포는 dev와 **같은 PostgreSQL DB와 Flyway 이력**을 공유한다. release의 migration은 dev DB에도 즉시 적용되며, `deploy-development`는 헬스 체크 실패 시 이전 이미지로 자동 복구하지 않는다. release 파이프라인은 `origin/develop`과 release의 migration 목록이 양방향으로 정확히 같은지 배포 전에 확인한다. 한쪽에만 있는 migration 또는 비교 자체의 Git 오류가 있으면 배포하지 않아 공유 DB에 release 전용 스키마를 적용하거나, release가 dev에 이미 적용된 migration보다 뒤처진 상태로 기동하는 일을 막는다. 따라서 release에 포함하는 migration은 develop의 이전·다음 애플리케이션 버전과 함께 기동할 수 있는 expand/contract 방식으로 작성한다. 새 테이블·컬럼·인덱스 추가와 새 코드 배포를 먼저 하고, 컬럼 삭제·이름 변경·제약 강화처럼 이전 코드와 호환되지 않는 변경은 release 검증과 develop 재배포가 끝난 뒤 별도 후속 배포로 분리한다. 헬스 체크 실패 시에는 컨테이너 로그와 적용된 Flyway 이력을 확인한 뒤, 호환되는 커밋을 수동 재배포한다. 이미 적용된 migration은 이미지 교체만으로 되돌아가지 않으므로 파괴적 변경의 복구에는 DB 백업·스냅샷 복원이 필요하다.
 
 ## 필수 환경변수
 
@@ -47,7 +47,7 @@ CI는 이미지 빌드·컨테이너 교체 **전에** `docker compose ... confi
 만료 로그인 세션 정리 작업은 기본 활성화되어 있으며 원래 만료 시각이 지난 세션만 정리한다. 상세 정책과 실행 간격은 [세션 정리 문서](../docs/auth-session-retention-followup.md)를 참고한다.
 ## 공유 초대 링크 설정
 
-공유 링크 사용 시 `SHARING_INVITE_SECRET`에 별도의 32바이트 이상 Base64 비밀키를 지정한다. release는 이 값을 필수로 요구해 누락 시 컨테이너를 만들지 않는다. Compose dev/prod에서는 미설정이어도 다른 기능은 기동하며 초대 링크 기능만 503을 반환한다. `SHARING_INVITE_BASE_URL`은 실제 초대 화면 URL/딥링크 접두사이며 기본 `/invite/`는 상대 경로다. 프론트 라우팅 준비 후 실제 주소를 설정한다. 키 교체 시 기존 링크는 재발급해야 한다. [공유 API 문서](../docs/diary-sharing.md)를 참고한다.
+공유 링크 사용 시 `SHARING_INVITE_SECRET`에 별도의 32바이트 이상 Base64 비밀키를 지정한다. 운영(production)은 이 값을 필수로 요구해 누락 시 컨테이너를 만들지 않는다. Compose dev/prod에서는 미설정이어도 다른 기능은 기동하며 초대 링크 기능만 503을 반환한다. `SHARING_INVITE_BASE_URL`은 실제 초대 화면 URL/딥링크 접두사이며 기본 `/invite/`는 상대 경로다. 프론트 라우팅 준비 후 실제 주소를 설정한다. 키 교체 시 기존 링크는 재발급해야 한다. [공유 API 문서](../docs/diary-sharing.md)를 참고한다.
 
 이메일 초대 발송은 `SHARING_INVITE_BASE_URL`이 클릭 가능한 절대 주소(http/https 또는 dio 스킴)여야 한다. 기본 상대 경로는 링크 API 확인용이며 메일 발송 시에는 503으로 거부한다. 기존 SMTP 설정을 재사용하며 전용 제한 실행기에서 커밋 후 발송한다. 실제 메일 도착과 프론트 초대 화면 라우팅은 배포 환경에서 확인한다.
 

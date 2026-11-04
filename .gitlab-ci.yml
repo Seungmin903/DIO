@@ -21,20 +21,38 @@ deploy-development:
   stage: deploy
   tags:
     - ec2-deploy
+  variables:
+    # release 검증의 develop과의 migration 비교는 얕은 clone에 의존하지 않는다.
+    GIT_DEPTH: "0"
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+      when: manual
   resource_group: development
   environment:
     name: development
   script:
+    # release 검증은 dev DB의 Flyway 이력을 공유하므로 양쪽 migration 집합이 같아야 한다.
+    - >
+      if printf '%s' "$CI_COMMIT_BRANCH" | grep -Eq '^release/'; then
+        if ! git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop; then
+          echo "Cannot fetch the current origin/develop for the shared-DB migration check." >&2;
+          exit 1;
+        fi;
+        bash infra/scripts/assert-shared-db-migrations.sh origin/develop HEAD;
+      fi
     - export BACKEND_IMAGE="dio-backend:dev-${CI_COMMIT_SHORT_SHA}"
     # 필수 인증·SMTP·프록시 환경변수 누락 시 이미지 빌드/컨테이너 교체 전에 중단한다.
     # 옛 SIGNUP_PHOTO_* 저장소 변수는 더 이상 읽지 않으므로 남아 있으면 배포 전에 중단한다.
     - bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/dev.env
     - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml config --quiet
     - docker build --tag "dio-backend:dev-${CI_COMMIT_SHORT_SHA}" ./backend
-    - docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml up -d --force-recreate
-    - curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8081/actuator/health
+    - >
+      if ! docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml up -d --force-recreate ||
+         ! curl --fail --retry 12 --retry-all-errors --retry-delay 2 http://127.0.0.1:8081/actuator/health; then
+        docker compose --project-name dio-dev-backend --env-file /home/gitlab-runner/dio-env/dev.env -f infra/compose/compose.dev.yml logs --tail=200 backend || true;
+        exit 1;
+      fi
 
 deploy-production:
   stage: deploy
@@ -172,6 +190,7 @@ backend-test:
     - >
       docker run --rm
       --user "$(id -u):$(id -g)"
+      -e JAVA_TOOL_OPTIONS=-Xmx2g
       -e GRADLE_USER_HOME=/workspace/backend/.gradle
       -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/workspace/backend/build/notification-frontend-contract.json
       -v "$CI_PROJECT_DIR/backend:/workspace/backend"
@@ -199,6 +218,20 @@ backend-test:
       - backend/build/reports/tests/test/
       - backend/build/contracts/
     expire_in: 7 days
+
+release-migration-guard-test:
+  stage: quality
+  tags:
+    - ec2-deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+        - infra/scripts/assert-shared-db-migrations.sh
+        - infra/scripts/test-assert-shared-db-migrations.sh
+  script:
+    - bash infra/scripts/test-assert-shared-db-migrations.sh
 
 # PostgreSQL 잡: MR에서는 스키마·해당 테스트 변경에만 자동 실행하고 나머지는 수동, develop 파이프라인에서는 배포 전에 항상 실행한다.
 backend-postgres-auth-test:
@@ -483,73 +516,3 @@ backend-postgres-push-test:
     paths:
       - backend/build/reports/tests/pushPostgresTest/
     expire_in: 7 days
-
-deploy-release:
-  stage: deploy
-  tags:
-    - ec2-deploy
-  rules:
-    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
-      when: manual
-  resource_group: release
-  needs:
-    - job: backend-test
-      artifacts: false
-  environment:
-    name: release
-  script:
-    - bash infra/scripts/assert-no-legacy-photo-env.sh /home/gitlab-runner/dio-env/release.env
-    - bash infra/scripts/assert-release-env.sh /home/gitlab-runner/dio-env/release.env
-    - bash infra/scripts/assert-release-db.sh /home/gitlab-runner/dio-env/release.env
-    - export BACKEND_IMAGE="dio-backend:release-${CI_COMMIT_SHORT_SHA}-${CI_PIPELINE_ID}"
-    - docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml config --quiet
-    - |
-      set -euo pipefail
-      health_check() {
-        curl --fail --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 90 --connect-timeout 3 --max-time 8 http://127.0.0.1:8083/actuator/health
-      }
-      cleanup_release_images() {
-        local keep_image="${1:-}"
-        while IFS= read -r image; do
-          { [ -n "$keep_image" ] && [ "$image" = "$keep_image" ]; } || { [ -n "$previous_image" ] && [ "$image" = "$previous_image" ]; } || docker image rm "$image" >/dev/null 2>&1 || true
-        done < <(docker image ls --filter 'reference=dio-backend:release-*' --format '{{.Repository}}:{{.Tag}}' || true)
-      }
-      previous_container="$(docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml ps -q backend-release 2>/dev/null || true)"
-      previous_image=""
-      previous_revision=""
-      can_auto_rollback=true
-      if [ -n "$previous_container" ]; then
-        previous_image="$(docker inspect --format '{{.Config.Image}}' "$previous_container")"
-        previous_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$previous_image" 2>/dev/null || true)"
-        if [ -z "$previous_revision" ] || ! git cat-file -e "${previous_revision}^{commit}" 2>/dev/null; then
-          can_auto_rollback=false
-          echo "Previous release image has no usable source revision; automatic rollback is disabled." >&2
-        elif ! git diff --quiet "$previous_revision" "$CI_COMMIT_SHA" -- backend/src/main/resources/db/migration; then
-          can_auto_rollback=false
-          echo "Release includes Flyway migration changes; automatic rollback is disabled. Restore the database snapshot before using the previous image." >&2
-        fi
-      fi
-      docker build --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" --tag "$BACKEND_IMAGE" ./backend
-      if ! docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate backend-release || ! health_check; then
-        docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend-release || true
-        if [ -n "$previous_image" ] && [ "$can_auto_rollback" = true ]; then
-          echo "Release health check failed; restoring $previous_image." >&2
-          export BACKEND_IMAGE="$previous_image"
-          if ! docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate backend-release; then
-            echo "Rollback container start failed; release remains unavailable." >&2
-            docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend-release || true
-          elif ! health_check; then
-            echo "Rollback health check failed; release remains unavailable." >&2
-            docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend-release || true
-          fi
-        elif [ -n "$previous_image" ]; then
-          echo "Automatic rollback is disabled; restore the dio_release database snapshot before starting $previous_image manually." >&2
-          docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml down --remove-orphans || true
-        else
-          echo "Initial release deployment failed; removing the unhealthy container." >&2
-          docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml down --remove-orphans || true
-        fi
-        cleanup_release_images "$previous_image"
-        exit 1
-      fi
-      cleanup_release_images "$BACKEND_IMAGE"

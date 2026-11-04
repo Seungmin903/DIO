@@ -14,7 +14,8 @@ import documentStorage from './src/editor/services/documentStorage';
 import EditorScreen from './src/editor/screens/EditorScreen';
 import { editorDocKey, loadEditorDoc, prefetchEditors, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
-import { authService } from './src/auth/authService';
+import { apiConfigurationError, authService } from './src/auth/authService';
+import ApiConfigurationErrorScreen from './src/shared/ApiConfigurationErrorScreen';
 import { guestProfile } from './src/auth/guestProfileDevice';
 import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
 import { useSharing } from './src/sharing/useSharing';
@@ -135,7 +136,7 @@ export default function App() {
     } catch { if (stillCurrent()) setPreviewSession(session); }
   };
   useEffect(() => {
-    if (mockSource) return;
+    if (apiConfigurationError || mockSource) return;
     let active = true;
     (async () => {
       let restored = null;
@@ -151,7 +152,7 @@ export default function App() {
       else await startGuest();
     })();
     return () => { active = false; };
-  }, []);
+  }, [apiConfigurationError, mockSource]);
   // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
   // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아간다.
   // 늦게 온 콜백(비밀번호 재설정 완료 등)이 그사이 바뀐 세션을 지우지 않게, 지금 세션이 지우려던 세션일 때만 끝낸다
@@ -195,8 +196,11 @@ export default function App() {
   useEffect(() => { hideSplash(); }, []);
   // 개발용 목업 화면은 보관함 로딩을 거치지 않으니 글꼴만 준비되면 내린다
   useEffect(() => { if ((fontsLoaded || fontError) && mockSource) finishBoot(); }, [fontsLoaded, fontError, finishBoot]); // eslint-disable-line react-hooks/exhaustive-deps
+  // API 설정 오류도 앱이 그린 안내 화면이므로 네이티브 시작 화면을 즉시 내린다.
+  useEffect(() => { if (apiConfigurationError && (fontsLoaded || fontError)) finishBoot(); }, [apiConfigurationError, fontsLoaded, fontError, finishBoot]);
   const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
   if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider}><BootSplash /></SafeAreaProvider>;
+  if (apiConfigurationError) return <SafeAreaProvider style={s.provider}><ApiConfigurationErrorScreen /></SafeAreaProvider>;
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-sharing') {
     const SharingFixture = require('./tests/fixtures/diary-sharing.fixture').default;
     return <SharingFixture />;
