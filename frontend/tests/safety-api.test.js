@@ -112,3 +112,10 @@ test('웹 증빙 multipart는 실제 원본 바이트와 JSON 파트·여러 파
   assert.equal(image.size, (await (await fetch(uri)).blob()).size);
   await assert.rejects(buildReportBody({}, [{ uri: 'https://outside.test/image.png' }]), /다시 선택/);
 });
+
+
+test('개발 서버 인증 거절은 회원 refresh로 재시도하지 않고 원래 코드를 유지한다', async () => {
+  const f = setup(() => reply({ code: 'DEVELOPMENT_ACCESS_REQUIRED' }, 401));
+  await assert.rejects(f.api.listBlocks(), error => error.code === 'DEVELOPMENT_ACCESS_REQUIRED' && error.status === 401);
+  assert.equal(f.refreshes, 0); assert.equal(f.calls.length, 1);
+});

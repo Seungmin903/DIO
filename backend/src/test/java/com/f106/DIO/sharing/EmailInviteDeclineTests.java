@@ -23,7 +23,7 @@ class EmailInviteDeclineTests {
     private final EntityManager entities=mock(EntityManager.class);
     private EmailInviteService service(){
         var service=new EmailInviteService(access,invites,null,null,tokens,null,null,null,
-            mock(PlatformTransactionManager.class),null);
+            mock(PlatformTransactionManager.class),null,mock(com.f106.DIO.moderation.service.BlockService.class));
         ReflectionTestUtils.setField(service,"entities",entities);
         when(tokens.notFound()).thenAnswer(call->new SharingException(org.springframework.http.HttpStatus.NOT_FOUND,"INVITE_NOT_FOUND","not found"));
         return service;

@@ -15,19 +15,21 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class DiaryMembershipService {
+    private final com.f106.DIO.moderation.service.BlockService blocks;
     private final SharingAccessService access;
     private final DiaryMemberRepository members;
     private final DiaryInviteRepository invites;
     private final MemberProfileResolver views;
     private final DiaryPermanentDeletionRepository deletion;
     public DiaryMembershipService(SharingAccessService access,DiaryMemberRepository members,DiaryInviteRepository invites,
-            MemberProfileResolver views,DiaryPermanentDeletionRepository deletion) {
-        this.access=access;this.members=members;this.invites=invites;this.views=views;this.deletion=deletion;
+            MemberProfileResolver views,DiaryPermanentDeletionRepository deletion,com.f106.DIO.moderation.service.BlockService blocks) {
+        this.blocks=blocks;this.access=access;this.members=members;this.invites=invites;this.views=views;this.deletion=deletion;
     }
     @Transactional(readOnly=true)
     public MemberListResponse list(UUID id,long actor) {
         var diary=access.read(id);access.readMember(diary,actor);
-        var result=access.visibleMembers(diary).stream().map(views::member).toList();
+        var blocked=blocks.targets(actor);
+        var result=access.visibleMembers(diary).stream().map(views::member).map(v->v.withBlockedByMe(blocked.contains(Long.parseLong(v.userId())))).toList();
         return new MemberListResponse(result,result.size(),SharingPolicy.MAX_MEMBERS);
     }
     public void remove(UUID id,long actor,long target) {
