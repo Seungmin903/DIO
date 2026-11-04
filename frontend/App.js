@@ -6,7 +6,8 @@ import { memberLibraryQuery } from './src/diary/services/memberLibraryQuery';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Platform, StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
 import PinScreen from './src/diary/components/PinScreen';
-import { appLockGraceOver, appLockScope, checkAppLock, clearAppLock, hasAppLock } from './src/shared/appLock';
+import { appLockGraceOver, appLockScope, checkAppLockStatus, readAppLockState } from './src/shared/appLock';
+import { appLockRecoveryAction } from './src/diary/components/appLockRecovery';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
 import EditorScreen from './src/editor/screens/EditorScreen';
@@ -262,24 +263,27 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   // 앱 잠금(내 공간 → 보안): 이 계정에 잠금이 있으면 세션을 열 때와 백그라운드에서 1분 넘게 있다 돌아올 때 비밀번호 화면으로 덮는다(null = 읽는 중)
   const lockScope = appLockScope(previewUser);
   const [appLocked, setAppLocked] = useState(null);
+  const [appLockState, setAppLockState] = useState(null); // readAppLockState 결과(게스트 초기화 경로 판단용)
   useEffect(() => {
     let alive = true, awayAt = null;
-    hasAppLock(lockScope).then(value => { if (alive) setAppLocked(value); }).catch(() => { if (alive) setAppLocked(false); });
+    readAppLockState(lockScope).then(state => { if (alive) { setAppLockState(state); setAppLocked(state !== 'off'); } }).catch(() => { if (alive) setAppLocked(false); });
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'background') awayAt ??= Date.now();
       else if (state === 'active' && awayAt != null) {
         const over = appLockGraceOver(awayAt);
         awayAt = null;
-        if (over) hasAppLock(lockScope).then(value => { if (alive && value) setAppLocked(true); }).catch(() => {});
+        if (over) readAppLockState(lockScope).then(value => { if (alive && value !== 'off') { setAppLockState(value); setAppLocked(true); } }).catch(() => {});
       }
     });
     return () => { alive = false; subscription.remove(); };
   }, [lockScope]);
-  // 회원은 비밀번호를 잊으면 로그아웃으로 잠금을 푼다(다시 로그인해야 들어온다). 게스트는 되찾을 길이 없어 두지 않는다
-  const forgotAppLock = previewUser.mode === 'authenticated' ? () => confirmAction({
-    title: '비밀번호를 잊었나요?', message: '로그아웃하면 이 계정의 앱 잠금이 풀려요.', confirmLabel: '로그아웃',
-    onConfirm: async () => { await clearAppLock(lockScope).catch(() => {}); onEndPreview(); },
-  }) : undefined;
+  // 회원은 비밀번호를 잊으면 로그아웃으로 잠금을 푼다(다시 로그인해야 들어온다).
+  // 게스트는 되찾을 계정이 없어, 저장값 손상으로 PIN을 확인할 수 없을 때만 초기화를 연다. 일시적 읽기 오류는 다시 읽기만 한다.
+  const forgotAppLock = appLockRecoveryAction({
+    member: previewUser.mode === 'authenticated', state: appLockState, scope: lockScope, onLogout: onEndPreview,
+    onCleared: () => { setAppLockState('off'); setAppLocked(false); },
+    onStateChange: state => { setAppLockState(state); if (state === 'off') setAppLocked(false); },
+  });
   const [sharingRequest, setSharingRequest] = useState(null);
   // 초대 푸시도 공유 입구(sharingGate)를 거친다. 효과가 다시 걸리지 않게 최신 입구를 ref로 읽는다
   const sharingGateRef = useRef(null);
@@ -1049,7 +1053,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       {libraryToast}
       {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.white }]} />}
       {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
-        check={value => checkAppLock(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}
+        check={value => checkAppLockStatus(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}
       {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} />}
       <DialogHost />
     </>
