@@ -129,7 +129,7 @@ test('로그아웃 이중 실패 안내는 기기 로그인 정보를 지웠다�
   const tree=root(true,undefined,{mode:'authenticated',userId:'7'},null,probe);
   const diary=nodes(tree).find(node=>node.type?.name==='MemberDiaryApp');
   await diary.props.onEndPreview();
-  assert.deepEqual(probe.notices,[['로그아웃',incomplete?message:message+' 이 기기의 로그인 정보는 지웠어요.']]);
+  assert.deepEqual(probe.notices,[['로그아웃',(incomplete?message:message+' 이 기기의 로그인 정보는 지웠어요.')+' 서버에서 로그아웃을 확인하지 못해 이 계정의 알림이 계속 올 수 있어요. 네트워크 연결 후 다시 로그인하고 로그아웃해 주세요.']]);
  }
 });
 
