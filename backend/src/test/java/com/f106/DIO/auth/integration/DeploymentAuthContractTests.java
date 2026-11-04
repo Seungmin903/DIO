@@ -27,7 +27,7 @@ class DeploymentAuthContractTests {
         String guard = Files.readString(Path.of("../infra/scripts/assert-shared-db-migrations.sh"));
         assertThat(guard).contains("git diff --quiet \"$develop_ref\" \"$release_ref\"", "exit 1", "exit 2");
         String guardTest = Files.readString(Path.of("../infra/scripts/test-assert-shared-db-migrations.sh"));
-        assertThat(guardTest).contains("expect_status 1 \"$guard\" develop HEAD", "expect_status 2 \"$guard\" missing-ref HEAD");
+        assertThat(guardTest).contains("expect_status 1 bash \"$guard\" develop HEAD", "expect_status 2 bash \"$guard\" missing-ref HEAD");
     }
     @Test void deploymentOriginsAndWebSocketProxyPreserveExternalPort() throws Exception {
         var loader = new YamlPropertySourceLoader();
