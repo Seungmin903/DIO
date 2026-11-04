@@ -155,7 +155,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
           throw Object.assign(new Error('개발 서버 접근 인증이 필요해요. 서버 담당자에게 앱의 API 접근 방법을 확인해 주세요.'),
             { status: 401, code: 'DEVELOPMENT_ACCESS_REQUIRED' });
         }
-        const error = new Error(data?.detail || '요청을 처리하지 못했어요. 다시 시도해 주세요.');
+        const error = new Error(response.status >= 500 ? '서버에 문제가 있어요. 잠시 후 다시 시도해 주세요.' : data?.detail || '요청을 처리하지 못했어요. 다시 시도해 주세요.');
         error.status = response.status;
         error.code = data?.code;
         const retryAfter = Number(response.headers?.get?.('Retry-After'));
@@ -165,7 +165,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       return data;
     } catch (error) {
       if (error?.status) throw error;
-      throw new Error('서버에 연결하지 못했어요. 서버 주소와 네트워크를 확인해 주세요.');
+      throw Object.assign(new Error('서버에 연결하지 못했어요. 네트워크를 확인하고 다시 시도해 주세요.'), { code: 'NETWORK_ERROR' });
     } finally { clearTimeout(timer); }
   }
   // GET/PATCH /me: one token refresh on 401, then accept only this session's account.

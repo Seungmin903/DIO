@@ -11,8 +11,8 @@ const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url)
 // probe 를 주면 useEffect 를 모아 두고 네이티브 시작 화면을 내린 횟수(hidden) · 예전 예시 다이어리 정리 횟수(cleaned)를 센다
 function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfigurationError=false){
  let calls=0
- const states=[session,probe?.booting??true,loginRequest]
- const mod={exports:{}},mocks={'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const states=[session,probe?.booting??true,loginRequest,probe?.restoreState??{status:'loading',error:null}]
+ const mod={exports:{}},mocks={'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreMock)return probe.restoreMock();if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  Object.assign(mocks['./src/auth/authService'].authService, {
   getSessionKey:()=>probe?.sessionKey??null,
   getMemberSessionKey:userId=>probe?.memberSessionKey??`${userId}:1`,
@@ -36,12 +36,85 @@ function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfiguratio
  return mod.exports.default()
 }
 const nodes=n=>!n||typeof n!=='object'?[]:[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]
+
+async function failStartup(error) {
+ const probe={effects:[],updates:[],hidden:0,restoreError:error};
+ root(false,undefined,null,null,probe);
+ const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
+ let cleanups;
+ try{cleanups=probe.effects.map(fn=>fn())}finally{globalThis.setTimeout=timer}
+ await new Promise(resolve=>setImmediate(resolve));
+ probe.restoreState=probe.updates.filter(update=>update.index===3).at(-1).value;
+ const screen=nodes(root(false,undefined,null,null,probe)).find(node=>node.type==='./src/auth/SessionRestoreScreen');
+ return {probe,screen,cleanup:()=>cleanups.forEach(fn=>{if(typeof fn==='function')fn()})};
+}
+
+test('F-02: 복원 중 네트워크·503·저장소 오류는 게스트를 시작하지 않고 복구 화면을 표시한다',async()=>{
+ for(const error of [{code:'NETWORK_ERROR'},{status:503},{code:'SECURE_STORE_UNAVAILABLE'}]){
+  const {probe,screen,cleanup}=await failStartup(error);
+  try{
+   assert.equal(probe.guestStarts??0,0);assert.ok(screen);assert.equal(screen.props.error,error);
+   assert.equal(screen.props.busy,false);
+   assert.equal(has(root(false,undefined,null,null,probe),'./src/shared/BootSplash'),false);
+   assert.ok(probe.hidden>0);
+  }finally{cleanup()}
+ }
+});
+
+test('F-02: 연결 재시도는 중복 요청을 막고 성공하면 게스트 초기화 없이 회원으로 복귀한다',async()=>{
+ const {probe,screen,cleanup}=await failStartup({code:'NETWORK_ERROR'});
+ try{
+  let finish,calls=0;
+  probe.restoreMock=()=>{calls++;return new Promise(resolve=>{finish=resolve})};
+  const first=screen.props.onRetry(),second=screen.props.onRetry();
+  assert.equal(calls,1);
+  const member={mode:'authenticated',userId:'7',email:'member@example.com'};
+  finish(member);await Promise.all([first,second]);
+  assert.equal(probe.guestStarts??0,0);
+  assert.equal(probe.updates.find(update=>update.index===0)?.value,member);
+  assert.deepEqual(probe.updates.filter(update=>update.index===3).at(-1).value,{status:'done',error:null});
+ }finally{cleanup()}
+});
+
+test('F-02: 실패한 재시도는 복구 화면을 유지하고 로그인 취소도 자동 게스트 전환하지 않는다',async()=>{
+ const {probe,screen,cleanup}=await failStartup({status:503});
+ try{
+  await screen.props.onRetry();
+  assert.equal(probe.guestStarts??0,0);
+  assert.equal(probe.updates.filter(update=>update.index===3).at(-1).value.status,'error');
+  screen.props.onLogin();
+  const request=probe.updates.filter(update=>update.index===2).at(-1).value;
+  const auth=nodes(root(false,undefined,null,request,probe)).find(node=>node.type==='./src/auth/AuthScreen');
+  auth.props.onClose();
+  assert.equal(probe.guestStarts??0,0);
+  assert.ok(nodes(root(false,undefined,null,null,probe)).some(node=>node.type==='./src/auth/SessionRestoreScreen'));
+ }finally{cleanup()}
+});
+
+test('F-02: 게스트로 계속을 명시적으로 선택할 때만 게스트 보관함을 연다',async()=>{
+ const {probe,screen,cleanup}=await failStartup({code:'NETWORK_ERROR'});
+ try{
+  await screen.props.onGuest();
+  assert.equal(probe.guestStarts,1);
+  assert.equal(probe.updates.find(update=>update.index===0)?.value.provider,'guest');
+ }finally{cleanup()}
+});
+
+test('F-02: 화면 이탈 뒤 끝난 복원 요청은 회원 화면을 다시 열지 않는다',async()=>{
+ const {probe,screen,cleanup}=await failStartup({code:'NETWORK_ERROR'});
+ let finish;
+ probe.restoreMock=()=>new Promise(resolve=>{finish=resolve});
+ const retry=screen.props.onRetry();cleanup();
+ finish({mode:'authenticated',userId:'7'});await retry;
+ assert.equal(probe.updates.some(update=>update.index===0),false);
+});
 const has=(tree,name)=>nodes(tree).some(n=>n.type===name||n.type?.name===name)
 
 test('회원 목록·일괄 작업·휴지통은 일반 401을 만료로 표시하지 않고 실제 만료 표식만 구분한다',()=>{
  const render=(file,props)=>{
   const source=babel.transformSync(readFileSync(new URL(`../src/diary/components/${file}.js`,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code;
   const mod={exports:{}},mocks={'react-native':{View:'View',Text:'Text',Pressable:'Pressable',ActivityIndicator:'ActivityIndicator'},'../styles':{styles:{}},'../constants':{C:{}},'../../auth/sessionExpiry.js':sessionExpiry};
+  mocks['../../auth/AuthenticationRecovery']={__esModule:true,default:'AuthenticationRecovery',needsAuthenticationRecovery:error=>error?.status===401&&error.code!=='DEVELOPMENT_ACCESS_REQUIRED'};
   new Function('require','module','exports',source)(id=>id==='react/jsx-runtime'?require(id):mocks[id],mod,mod.exports);
   return nodes(mod.exports.default(props)).filter(node=>node.props?.accessibilityRole==='alert').map(node=>node.props.children);
  };
@@ -322,7 +395,7 @@ test('개발 전용 보관함 목 모드는 기존 경로를 유지한다',()=>{
  assert.ok(has(root(true,'mock-library'),'./src/diary/screens/MockLibraryApp'))
 })
 
-test('부팅 중 첫 화면에 BootSplash 를 그리고, 그린 뒤에야 네이티브 시작 화면을 내린다',()=>{
+test('부팅 중 BootSplash 이미지 준비 완료 뒤에 네이티브 시작 화면을 내린다',()=>{
  const probe={effects:[],hidden:0}
  const first=root(false,undefined,null,null,probe)
  // 로고는 BootSplash 가 그린다(안드로이드 네이티브 시작 화면은 바탕색만). 첫 렌더에 빠지면 로고 없는 빈 화면이 보인다
@@ -331,7 +404,9 @@ test('부팅 중 첫 화면에 BootSplash 를 그리고, 그린 뒤에야 네이
  // 다른 마운트 효과(8초 안전 타이머 등)는 실행만 하고 타이머는 걸지 않는다
  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0
  try{for(const effect of probe.effects){try{effect()}catch{}}}finally{globalThis.setTimeout=timer}
- assert.ok(probe.hidden>=1,'첫 화면이 그려진 뒤(마운트 효과) 네이티브 시작 화면을 내린다')
+ assert.equal(probe.hidden,0,'이미지 준비 전에는 마운트 효과만으로 내리지 않는다')
+ nodes(first).find(node=>node.type==='./src/shared/BootSplash').props.onReady()
+ assert.ok(probe.hidden>=1,'이미지 준비 완료 뒤 네이티브 시작 화면을 내린다')
 })
 
 test('목업 판정은 따로 그리는 세 화면(mock · mock-library · mock-sharing)만: 다른 mock* 값은 게스트로 시작하고, 개발 빌드의 게스트 시작마다 예전 예시 다이어리를 정리한다',async()=>{

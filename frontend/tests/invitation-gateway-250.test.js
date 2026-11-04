@@ -7,7 +7,9 @@ import { canLeaveForInvitation, openCopyIfSafe } from '../src/notifications/edit
 test('실제 공유 gateway가 받은 초대를 조회하고 세션 교체 후 늦은 응답을 거부한다', async () => {
   let key='A', status='PENDING', release;
   const auth={getSessionKey:()=>key,getConnectionOptions:()=>({baseUrl:'https://dio.test/api/v1'}),getAccessToken:async()=> 'token'};
-  const fetchImpl=async()=>({ok:true,status:200,json:async()=>({items:[{inviteId:'7',status,diaryId:'diary',diaryTitle:'초대',token:'private'}],hasNext:false})});
+  const fetchImpl=async url=>({ok:true,status:200,json:async()=>url.includes('/me/invites?')
+    ? {items:[{inviteId:'7',status,diaryId:'diary',diaryTitle:'초대',token:'private'}],hasNext:false}
+    : {diaryId:'diary',title:'초대',status}});
   const runtime=createSharingApi({user:{userId:'1',nickname:'나'},auth,fetchImpl});
   const session=createAuthenticatedNotificationSession({auth,userId:'1',createInvitations:()=>runtime.invitationGateway,fetchImpl});
   assert.equal((await session.invitations.get('7')).canOpen,true);

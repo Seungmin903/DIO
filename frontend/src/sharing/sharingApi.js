@@ -35,7 +35,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       const value = response.status === 204 ? null : await response.json().catch(() => null);
       if (!active || generation !== revision) fail('DISPOSED', '화면을 다시 열어 주세요.');
       if (!response.ok) {
-        const error = new SharingError(value?.code || 'HTTP_ERROR', response.status === 401 ? AUTHENTICATION_FAILED_MESSAGE : value?.detail || '공유 요청을 처리하지 못했어요. 다시 시도해 주세요.');
+        const error = new SharingError(value?.code || 'HTTP_ERROR', response.status === 401 ? AUTHENTICATION_FAILED_MESSAGE : response.status >= 500 ? '서버에 문제가 있어요. 잠시 후 다시 시도해 주세요.' : value?.detail || '공유 요청을 처리하지 못했어요. 다시 시도해 주세요.');
         error.status = response.status;
         const retryAfter = Number(response.headers?.get?.('Retry-After'));
         if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter;
@@ -203,7 +203,7 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
     return getSharing(id);
   }
   return {
-    self, server: true, supportsReadState: false, supportsExportSettings: false, canOpenDiary: false,
+    self, server: true, supportsReadState: false, supportsExportSettings: false, canOpenDiary: true,
     notificationApi: { list: received, async count() {
       let cursor = null, pending = 0;
       do { const result = await received({ cursor }); pending += result.items.filter(row => row.actionable).length; cursor = result.nextCursor; } while (cursor);
@@ -269,10 +269,17 @@ export function createSharingApi({ user, auth, fetchImpl = globalThis.fetch, bui
       const row = invitations.get(id) || await invitation(id);
       const result = await request(`/invites/${encodeURIComponent(row.token)}/accept`, { method: 'POST',
         ...(acknowledgeBlockedMembers === true ? { body: { acknowledgeBlockedMembers: true } } : {}) });
-      await getSharing(result.diaryId);
-      // 가입은 이미 완료됐으므로 프로필 오류를 참여 실패로 표시하지 않는다.
-      try { return await updateProfile(result.diaryId, { nickname, photoUri }); }
-      catch { return { ...diaries.get(result.diaryId), profileWarning: '참여했어요. 프로필은 공유 설정에서 다시 수정해 주세요.' }; }
+      ensureServerId(result.diaryId);
+      // 수락이 끝난 뒤 조회·프로필 저장에 실패해도 수락을 다시 보내지 않는다.
+      try {
+        await getSharing(result.diaryId);
+        return await updateProfile(result.diaryId, { nickname, photoUri });
+      } catch (error) {
+        if (!active || auth.getSessionKey() !== sessionKey || error.code === 'DISPOSED') throw error;
+        return { ...(diaries.get(result.diaryId) || { id: result.diaryId, title: row.diary?.title,
+          members: [{ ...self, role: 'EDITOR' }] }),
+          profileWarning: '참여했어요. 프로필은 공유 설정에서 다시 수정해 주세요.' };
+      }
     },
     async decline(id) { await request(`/me/invites/${encodeURIComponent(id)}/decline`, { method: 'POST' }); },
     async removeMember(id, memberId) { await request(`${path(id)}/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' }); return getSharing(id); },

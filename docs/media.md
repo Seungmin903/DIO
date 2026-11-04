@@ -10,9 +10,11 @@
 | 원본 파일 | `GET /api/v1/media/{mediaFileId}/file` | `200 OK` |
 | 삭제 | `DELETE /api/v1/media/{mediaFileId}` | `204 No Content` |
 
-서버는 파일 시그니처를 직접 검사하여 `mediaType`과 MIME을 저장한다. 지원 형식은 JPEG, PNG, WebP, GIF 및 MP3, M4A/M4B, WAV, OGG, TTF/OTF, PDF다. 이미지·오디오는 최대 5MiB, 폰트와 PDF 원본은 최대 25MiB다. PDF는 첫 1,024바이트 안의 `%PDF-` 헤더가 있어야 하며 `DOCUMENT`·`application/pdf`로 저장한다. PDF 암호화 여부나 페이지 내용은 서버에서 해석하지 않는다. GIF는 `IMAGE`로 저장되고 `mimeType=image/gif`로 구분한다. ISO BMFF 오디오는 `ftyp` major brand가 `M4A ` 또는 `M4B `인 파일만 받는다. `mp42`·`isom`은 영상과 안전하게 구별할 수 없어 거절한다. WebM도 오디오·비디오를 안전하게 구별하는 EBML 트랙 파서를 추가하기 전까지 업로드하지 않는다.
+서버는 파일 시그니처를 직접 검사하여 `mediaType`과 MIME을 저장한다. 지원 형식은 JPEG, PNG, WebP, GIF 및 MP3, M4A/M4B, WAV, OGG, TTF/OTF, PDF다. GIF는 최대 15MiB, 그 밖의 이미지·오디오는 최대 5MiB, 폰트와 PDF 원본은 최대 25MiB다. PDF는 첫 1,024바이트 안의 `%PDF-` 헤더가 있어야 하며 `DOCUMENT`·`application/pdf`로 저장한다. PDF 암호화 여부나 페이지 내용은 서버에서 해석하지 않는다. GIF는 `IMAGE`로 저장되고 `mimeType=image/gif`로 구분한다. ISO BMFF 오디오는 `ftyp` major brand가 `M4A ` 또는 `M4B `인 파일만 받는다. `mp42`·`isom`은 영상과 안전하게 구별할 수 없어 거절한다. WebM도 오디오·비디오를 안전하게 구별하는 EBML 트랙 파서를 추가하기 전까지 업로드하지 않는다.
 
 25MiB PDF·폰트가 서비스에 닿기 전에 막히지 않도록 `backend/src/main/resources/application.yml`의 Spring multipart는 파일당 25MB, 요청당 26MB이고, 업로드 경로의 dev·prod Nginx `client_max_body_size`도 26m이다. `MediaUploadLimitConfigTests`가 이 값을 정확히 검증한다.
+
+`MediaService`는 업로드 원본을 `byte[]`로 보유하므로 `dio.media.upload.max-in-flight-units`로 프로세스별 원본 페이로드 예산을 가중 제한한다. 기본 6 units는 일반 5MiB 업로드 3건 또는 15MiB GIF 2건을 동시에 허용해 원본 합계 약 30MiB를 기준으로 삼는다. 이는 힙 상한이 아니다. `readNBytes`의 임시 버퍼와 저장소 클라이언트 복사본 때문에 실제 피크 힙 사용량은 더 클 수 있으므로 운영 힙은 부하 측정으로 정한다. 25MiB 폰트·PDF를 허용하려면 최소 5 units가 필요하다. 기존 `dio.media.upload.max-concurrent` 또는 `MEDIA_UPLOAD_MAX_CONCURRENT`가 설정된 배포는 한 건을 2 units로 변환해 호환하며, 이전 값 1·2처럼 변환 결과가 5보다 작으면 서버가 경고를 남기고 5 units로 올린다. 신규 설정은 `MEDIA_UPLOAD_MAX_IN_FLIGHT_UNITS`를 사용한다.
 
 `libraryCategory`는 이미지에서 `PHOTO`, `STICKER`, `TAPE`, 오디오에서 `AUDIO`, 폰트에서 `FONT`, PDF 원본에서 `DOCUMENT`만 허용한다. 생략하면 각각 `PHOTO`, `AUDIO`, `FONT`, `DOCUMENT`가 설정된다. `DOCUMENT`는 개인 미디어 목록과 다이어리 공유 보관함에 노출·추가되지 않는다. PDF 원본 파일은 캔버스에서 참조하는 구성원만 다운로드할 수 있다.
 

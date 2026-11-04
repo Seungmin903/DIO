@@ -41,10 +41,12 @@ function enterSocial(ui) {
 const tick=()=>new Promise(resolve=>setImmediate(resolve))
 
 test('세션 만료 재로그인은 기존 이메일·비밀번호 입력과 공통 안내를 표시한다',()=>{
- const ui=setup({},undefined,{sessionExpired:true});
+ const ui=setup({},undefined,{sessionExpired:true,initialEmail:'returning@example.com'});
  try{
   const tree=ui.render();
   assert.ok(find(tree,'이메일'));assert.ok(find(tree,'비밀번호'));
+  assert.equal(find(tree,'이메일').props.value,'returning@example.com');
+  assert.equal(find(tree,'비밀번호').props.value,'');
   assert.ok(nodes(tree).some(node=>node.props?.children===sessionExpiry.SESSION_EXPIRED_MESSAGE));
  }finally{ui.unmount()}
 });

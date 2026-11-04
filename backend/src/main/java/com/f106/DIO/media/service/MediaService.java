@@ -26,8 +26,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class MediaService {
 	private static final Logger log = LoggerFactory.getLogger(MediaService.class);
 	private static final int MAX_FILE_SIZE = 5 * 1024 * 1024;
+	private static final int MAX_GIF_SIZE = 15 * 1024 * 1024;
 	private static final int MAX_FONT_SIZE = 25 * 1024 * 1024;
 	private static final int MAX_DOCUMENT_SIZE = 25 * 1024 * 1024;
+	private static final int MAX_UPLOAD_SIZE = Math.max(MAX_FONT_SIZE, MAX_DOCUMENT_SIZE);
 	private final MediaFiles files;
 	private final MediaFileTransactionService transactions;
 	private final MediaStorageDeletionQueueService deletionQueue;
@@ -38,10 +40,12 @@ public class MediaService {
 	}
 
 	public MediaFileResponse upload(MultipartFile upload, String requestedCategory, Long userId) {
-		try (var permit = admission.acquire()) {
+		long declaredSize = upload == null ? 0 : upload.getSize();
+		if (declaredSize > MAX_UPLOAD_SIZE) throw declaredTooLarge(upload);
+		try (var permit = admission.acquire(declaredSize)) {
 		byte[] content = read(upload);
 		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
-		if (kind.mediaType() != MediaType.FONT && kind.mediaType() != MediaType.DOCUMENT && content.length > MAX_FILE_SIZE) throw MediaRequestException.tooLarge();
+		if (content.length > maxSize(kind)) throw tooLarge(kind);
 		return store(content, kind, category(kind.mediaType(), requestedCategory), MediaSourceType.UPLOAD, filename(upload.getOriginalFilename()), userId);
 		}
 	}
@@ -92,15 +96,37 @@ public class MediaService {
 			in.unread(header);
 			boolean font = MediaUploadInspector.isFontHeader(header);
 			boolean document = MediaUploadInspector.isPdfDocumentHeader(header);
-			int limit = font ? MAX_FONT_SIZE : document ? MAX_DOCUMENT_SIZE : MAX_FILE_SIZE;
-			if (upload.getSize() > limit) throw tooLarge(font, document);
+			boolean gif = MediaUploadInspector.isGifHeader(header);
+			int limit = font ? MAX_FONT_SIZE : document ? MAX_DOCUMENT_SIZE : gif ? MAX_GIF_SIZE : MAX_FILE_SIZE;
+			if (upload.getSize() > limit) throw tooLarge(font, document, gif);
 			byte[] content = in.readNBytes(limit + 1);
-			if (content.length > limit) throw tooLarge(font, document);
+			if (content.length > limit) throw tooLarge(font, document, gif);
 			return content;
 		} catch (IOException error) { throw MediaRequestException.invalidFile(); }
 	}
-	private static MediaRequestException tooLarge(boolean font, boolean document) {
-		return font ? MediaRequestException.fontTooLarge() : document ? MediaRequestException.documentTooLarge() : MediaRequestException.tooLarge();
+	private static MediaRequestException declaredTooLarge(MultipartFile upload) {
+		try (var in = upload.getInputStream()) {
+			if (in == null) return MediaRequestException.uploadTooLarge();
+			byte[] header = in.readNBytes(1024);
+			boolean font = MediaUploadInspector.isFontHeader(header);
+			boolean document = MediaUploadInspector.isPdfDocumentHeader(header);
+			boolean gif = MediaUploadInspector.isGifHeader(header);
+			return font || document || gif ? tooLarge(font, document, gif) : MediaRequestException.uploadTooLarge();
+		} catch (IOException error) { return MediaRequestException.uploadTooLarge(); }
+	}
+	private static int maxSize(MediaUploadInspector.FileKind kind) {
+		if (kind.mediaType() == MediaType.FONT) return MAX_FONT_SIZE;
+		if (kind.mediaType() == MediaType.DOCUMENT) return MAX_DOCUMENT_SIZE;
+		return "image/gif".equals(kind.mimeType()) ? MAX_GIF_SIZE : MAX_FILE_SIZE;
+	}
+	private static MediaRequestException tooLarge(MediaUploadInspector.FileKind kind) {
+		return kind.mediaType() == MediaType.FONT ? MediaRequestException.fontTooLarge()
+			: kind.mediaType() == MediaType.DOCUMENT ? MediaRequestException.documentTooLarge()
+			: "image/gif".equals(kind.mimeType()) ? MediaRequestException.gifTooLarge() : MediaRequestException.tooLarge();
+	}
+	private static MediaRequestException tooLarge(boolean font, boolean document, boolean gif) {
+		return font ? MediaRequestException.fontTooLarge() : document ? MediaRequestException.documentTooLarge()
+			: gif ? MediaRequestException.gifTooLarge() : MediaRequestException.tooLarge();
 	}
 	private static String downloadName(MediaFileTransactionService.StorageReference reference) {
 		if (reference.originalFilename() != null && !reference.originalFilename().isBlank()) return reference.originalFilename();

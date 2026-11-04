@@ -19,6 +19,7 @@ import Cover from '../diary/components/Cover';
 import { FALLBACK_COVER_COLOR } from '../diary/constants';
 import { pickProfilePhoto } from '../auth/profilePhoto';
 import MemberAvatar from './MemberAvatar';
+import AuthenticationRecovery from '../auth/AuthenticationRecovery';
 import { invitationStatusLabel } from '../notifications/NotificationPanel';
 import { notificationSender } from '../notifications/notificationPresentation';
 import { colors } from '../shared/theme';
@@ -96,7 +97,10 @@ export default function SharingHub({
   const [draftPhoto, setDraftPhoto] = useState(null);
   const [photoMenu, setPhotoMenu] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setErrorText] = useState('');
+  const [requestError, setRequestError] = useState(null);
+  const setError = value => { setErrorText(value); setRequestError(null); };
+  const showFailure = failure => { setError(failure.message || '처리하지 못했어요. 다시 시도해 주세요.'); setRequestError(failure); };
   const [question, setQuestion] = useState(null);
   const [toast, setToast] = useState('');
   const [linkInput, setLinkInput] = useState('');
@@ -205,7 +209,7 @@ export default function SharingHub({
           throw new Error('사용할 수 없는 초대예요. 최신 상태를 확인해 주세요.');
         setInvite(value); setScreen('detail');
       }).catch(error => {
-        if (alive.current && pending === job.current) setError(error.message);
+        if (alive.current && pending === job.current) showFailure(error);
       }).finally(() => { if (alive.current && pending === job.current) setBusy(false); });
     } else if (request.diary) {
       try {
@@ -218,11 +222,11 @@ export default function SharingHub({
           runtime.getSharing(registered.id).then(value => {
             if (alive.current && pending === job.current) setDiary(value);
           }).catch(error => {
-            if (alive.current && pending === job.current) { setError(error.message); setScreen('invitations'); }
+            if (alive.current && pending === job.current) { showFailure(error); setScreen('invitations'); }
           }).finally(() => { if (alive.current && pending === job.current) setBusy(false); });
         }
       } catch (error) {
-        setError(error.message);
+        showFailure(error);
         setScreen('invitations');
       }
     } else setScreen('invitations');
@@ -253,10 +257,10 @@ export default function SharingHub({
     setError('');
     try {
       const result = await action();
-      if (alive.current && id === job.current) done(result);
+      if (alive.current && id === job.current) await done(result);
     } catch (error) {
       if (alive.current && id === job.current) {
-        setError(error.message || '처리하지 못했어요. 다시 시도해 주세요.');
+        showFailure(error);
         if (error.code === 'BLOCKED_MEMBER_CONFIRMATION_REQUIRED' && screen === 'nickname') {
           setBlockedAcknowledged(false);
           setQuestion({ kind: 'blocked-members', stage: 'retry' });
@@ -346,7 +350,7 @@ export default function SharingHub({
         try {
           prepareNickname(value);
         } catch (error) {
-          setError(error.message);
+          showFailure(error);
         }
       },
     );
@@ -514,9 +518,12 @@ export default function SharingHub({
     run(() => editingProfile
       ? runtime.updateProfile(diary.id, { nickname, photoUri: draftPhoto })
       : runtime.accept(invite.inviteId, nickname, { photoUri: draftPhoto, ...(acknowledge === true ? { acknowledgeBlockedMembers: true } : {}) }),
-      result => {
+      async result => {
         dismissInput(); setDiary(result); setScreen('sharing'); store.refresh();
         setToast(result.profileWarning || (editingProfile ? '다이어리 프로필을 변경했어요.' : '다이어리에 참여했어요.'));
+        if (!editingProfile && !result.profileWarning && onOpenDiary && runtime.canOpenDiary !== false) {
+          await onOpenDiary(result.id);
+        }
       });
   };
   const content = (
@@ -670,9 +677,11 @@ export default function SharingHub({
                           <Text style={s.label}>초대 링크</Text>
                           <View style={s.linkRow}>
                             <View style={s.link}>
-                              <Text selectable numberOfLines={1} style={[s.text, s.grow]}>
-                                {linkExpired ? '만료된 초대 링크예요.' : diary.link || '초대 링크를 만들어 주세요.'}
-                              </Text>
+                              <View style={s.linkTextContainer}>
+                                <Text numberOfLines={1} ellipsizeMode="tail" style={s.linkText}>
+                                  {linkExpired ? '만료된 초대 링크예요.' : diary.link || '초대 링크를 만들어 주세요.'}
+                                </Text>
+                              </View>
                               {diary.link && (
                                 <Pressable
                                   accessibilityRole="button"
@@ -762,7 +771,7 @@ export default function SharingHub({
                       <Button
                         label={!isOwner && onOpenDiary && runtime.canOpenDiary !== false ? '다이어리 열기' : '완료'}
                         onPress={() => {
-                          if (!isOwner && onOpenDiary && runtime.canOpenDiary !== false) onOpenDiary(diary.id);
+                          if (!isOwner && onOpenDiary && runtime.canOpenDiary !== false) run(() => onOpenDiary(diary.id));
                           else close();
                         }}
                         disabled={busy}
@@ -898,12 +907,14 @@ export default function SharingHub({
                       {(list.status === 'error' || count.status === 'error') && (
                         <View>
                           <Text style={s.error}>{list.error?.message || count.error?.message}</Text>
+                          <AuthenticationRecovery error={list.error?.status === 401 ? list.error : count.error} />
                           <Button label="받은 초대 다시 시도" secondary onPress={store.refresh} />
                         </View>
                       )}
                       {mutation.status === 'error' && (
                         <View>
                           <Text style={s.error}>{mutation.error.message}</Text>
+                          <AuthenticationRecovery error={mutation.error} />
                           <Button
                             label={mutation.canRetry ? '알림 처리 다시 시도' : '알림 오류 닫기'}
                             secondary
@@ -989,7 +1000,7 @@ export default function SharingHub({
                           onPress={store.loadMore}
                         />
                       )}
-                      {more.status === 'error' && <Text style={s.error}>{more.error.message}</Text>}
+                      {more.status === 'error' && <><Text style={s.error}>{more.error.message}</Text><AuthenticationRecovery error={more.error} /></>}
                       <View style={s.linkSection}>
                         <Text style={s.bold}>초대 링크 확인</Text>
                         <View style={s.linkCheck}>
@@ -1149,6 +1160,7 @@ export default function SharingHub({
                       {error}
                     </Text>
                   )}
+                  {!!error && <AuthenticationRecovery error={requestError} />}
                 </View>
               </Pressable>
             </ScrollView>
