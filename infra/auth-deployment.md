@@ -1,12 +1,6 @@
 # 인증 기능 배포 환경 계약
 
-개발 배포는 `compose/compose.dev.yml`, release 배포는 `compose/compose.release.yml`, 운영 배포는 `compose/compose.prod.yml`을 사용한다. CI는 각각 `/home/gitlab-runner/dio-env/dev.env`, `/home/gitlab-runner/dio-env/release.env`, `/home/gitlab-runner/dio-env/prod.env`를 읽는다. 이 비공개 파일은 Git에 넣지 않는다. 저장소만으로 실제 서버 값·SMTP 연결·S3 권한이 준비되었다고 판단할 수 없다.
-
-release는 develop PostgreSQL 컨테이너의 네트워크를 공유하지만, `release.env`의 `POSTGRES_DB`를 반드시 `dio_release`로 고정해 별도 DB와 Flyway 이력을 사용한다. `POSTGRES_USER`/`POSTGRES_PASSWORD`는 반드시 `dio_release`에만 권한을 가진 전용 PostgreSQL 역할의 값으로 설정한다. CI는 env 파일을 직접 읽지 않고 release Compose가 렌더링한 `DB_URL`이 정확히 `jdbc:postgresql://db:5432/dio_release`인지 확인한다. release Compose 서비스명은 `backend-release`로 고정해 공유 네트워크에서 develop의 `backend` DNS 별칭과 겹치지 않게 한다. CI는 다른 DB 이름·`dio_release` DB 부재 시 컨테이너를 교체하지 않는다. DB 존재 확인도 release Compose와 같은 env 파서로 실행된다. 최초 배포 전 운영자는 develop PostgreSQL 컨테이너에 `dio_release`와 전용 역할을 생성해야 한다. release는 S3 저장소만 사용하며, `AUTH_ALLOWED_ORIGINS`도 release 환경 파일에서 명시해야 한다. 배포 이미지는 파이프라인별 고유 태그와 원본 커밋 라벨을 사용한다. health check는 요청당 8초 제한과 전체 90초 재시도 제한을 적용한다. `up -d` 또는 health check가 실패하면 CI는 최근 200줄의 `backend-release` 로그를 남긴다. 이전 이미지의 원본 커밋을 확인할 수 있고 두 커밋 사이에 Flyway migration 파일 변경이 없는 경우에만 그 이미지로 자동 복구하며, 복구 후 health check 실패도 로그에 남긴다. 자동 롤백이 불가능하거나 이전 이미지가 없는 실패 배포는 release 프로젝트를 내려 재시작 루프를 막는다.
-
-`release/*`는 GitLab에서 Protected branches로 지정하고 deploy-release 잡은 protected ref에서만 나타난다. `ec2-deploy` 러너도 protected ref 전용으로 지정한다. 저장소의 rules는 보호 설정을 보완할 뿐, GitLab 설정을 대신하지 않는다.
-
-컨테이너 이미지 롤백은 Flyway가 적용한 스키마와 이력을 되돌리지 못한다. release 배포에서 이전 이미지부터 현재 커밋까지 `backend/src/main/resources/db/migration` 변경이 있으면 CI는 자동 롤백을 실행하지 않는다. `dio_release` DB 백업 또는 스냅샷을 복원한 뒤, 해당 이전 이미지로 수동 배포한다. 이전 이미지의 커밋 라벨이 없거나 GitLab 작업 공간에서 그 커밋을 확인할 수 없는 경우에도 같은 절차를 따른다. migration이 없는 배포만 자동 롤백 대상이다. release용 마이그레이션은 여전히 이전 애플리케이션 버전과 함께 기동해도 되는 expand/contract 방식으로 작성한다. 즉 새 컬럼·테이블·인덱스 추가와 새 코드 배포를 먼저 하고, 컬럼 삭제·이름 변경·제약 강화 같은 파괴적 변경은 이전 이미지가 더 이상 필요 없어진 후의 후속 배포로 분리한다.
+개발 배포와 release 브랜치 검증 배포는 모두 `compose/compose.dev.yml`과 `/home/gitlab-runner/dio-env/dev.env`를 사용한다. protected `release/*`의 수동 배포는 dev 백엔드 컨테이너를 해당 release 커밋으로 교체한다. 따라서 release 확인 중에는 develop 최신 코드가 아닌 release 코드가 dev 서버에서 실행된다. 운영 배포만 `compose/compose.prod.yml`과 `/home/gitlab-runner/dio-env/prod.env`를 사용한다. 이 비공개 파일은 Git에 넣지 않는다. 저장소만으로 실제 서버 값·SMTP 연결·S3 권한이 준비되었다고 판단할 수 없다.
 
 ## 필수 환경변수
 
