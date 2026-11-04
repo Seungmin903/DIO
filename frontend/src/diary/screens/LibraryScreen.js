@@ -10,6 +10,7 @@ import DiaryCard from '../components/DiaryCard';
 import EmptyState from '../components/EmptyState';
 import { toggleSelection, visibleSelection } from '../utils/diarySelection';
 import IconButton from '../components/IconButton';
+import PhoneBell from '../components/PhoneBell';
 import SelectionBar from '../components/SelectionBar';
 import SelectionButton from '../components/SelectionButton';
 import LibrarySearchScreen from '../components/LibrarySearchScreen';
@@ -281,10 +282,11 @@ function LibraryScreen({
   const isGrid = displayView === 'grid';
   const top = (<>
       <View style={[s.libraryHeader, compact && s.libraryHeaderCompact]}>
-        <View style={s.headerTitleRow}>
+        <View style={[s.headerTitleRow, compact && s.headerTitleRowCompact]}>
           <AppIcon name={scope?.icon ?? 'book'} size={compact ? 24 : 27} color={C.ink} strokeWidth={2.4} />
-          <Text accessibilityRole="header" style={[s.libraryTitle, compact && s.libraryTitleCompact]}>{scope?.label ?? '다이어리'}</Text>
+          <Text accessibilityRole="header" numberOfLines={compact ? 1 : undefined} adjustsFontSizeToFit={compact} minimumFontScale={0.75} style={[s.libraryTitle, compact && s.libraryTitleCompact]}>{scope?.label ?? '다이어리'}</Text>
         </View>
+        <View style={compact && s.libraryHeadToolsCompact}>
         <View style={[s.libraryViewSwitch, compact && s.libraryViewSwitchCompact]} accessibilityRole="tablist">
           <Pressable
             accessibilityRole="tab"
@@ -316,6 +318,8 @@ function LibraryScreen({
           >
             <AppIcon name="grid" size={compact ? 16 : 18} color={displayView === 'grid' ? C.blueText : C.blue} />
           </Pressable>
+        </View>
+        {compact && <PhoneBell />}
         </View>
       </View>
 

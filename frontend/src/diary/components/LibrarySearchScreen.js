@@ -4,6 +4,7 @@ import { loadJSON, saveJSON } from '../../editor/services/storage';
 import { C } from '../constants';
 import { styles as s } from '../styles';
 import AppIcon from '../../shared/AppIcon';
+import PhoneBell from './PhoneBell';
 import IconButton from './IconButton';
 import DiaryCard from './DiaryCard';
 import EmptyState from './EmptyState';
@@ -52,6 +53,7 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
       <IconButton label={selecting ? '선택 닫기' : '검색 닫기'} iconName="chevron-left" onPress={onBack} />
       <Text style={[s.libraryTitle, compact && s.libraryTitleCompact, { flex: 1 }]}>다이어리 검색</Text>
       {optionsMenu}
+      {compact && <PhoneBell />}
     </View>
     <View style={[s.librarySearchBar, s.librarySearchPageInput]}>
       <AppIcon name="search" size={20} color={C.muted} />

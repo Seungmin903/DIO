@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   chipTextActive: { fontWeight: '800' },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20 },
   footerRight: { flexDirection: 'row', gap: 8 },
-  // 적용: 흰 바탕에 남색 글씨 (다른 버튼과 같은 모양에 테두리·글씨만 진하게)
-  confirm: { borderColor: colors.text },
-  confirmText: { color: colors.text, fontWeight: '700' },
+  // 적용: 이 창의 유일한 채움 버튼(링크 창의 적용과 같다)
+  confirm: { borderColor: colors.primaryStrong, backgroundColor: colors.primaryStrong },
+  confirmText: { color: colors.surface, fontWeight: '700' },
 })

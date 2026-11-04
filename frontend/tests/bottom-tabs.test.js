@@ -4,7 +4,7 @@ import { BOTTOM_TABS, isBottomTabSelected, navigateBottomTab } from '../src/diar
 
 test('하단 바는 좁은 폰 폭을 위해 다섯 개 목적지로 고정한다', () => {
   assert.equal(BOTTOM_TABS.length, 5);
-  assert.deepEqual(BOTTOM_TABS.map(tab => tab.label), ['내 기록', '공유', '공방', '내 공간', '휴지통']);
+  assert.deepEqual(BOTTOM_TABS.map(tab => tab.label), ['내 기록', '공유', '공방', '마이페이지', '휴지통']);
 });
 
 test('보관함 탭은 현재 범위와 일치할 때만 선택된다', () => {
