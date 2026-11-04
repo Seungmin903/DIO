@@ -107,6 +107,14 @@ test('공통 패널은 서버와 목 모두 읽음과 기본 동작을 제공한
       assert.equal(html.includes('하루님의 초대'), actor === '하루');
       assert.equal(html.includes('다른 사용자님의 초대'), actor === '다른 사용자');
     }
+    // 내부 식별자는 상태 처리와 접근성 구분에만 사용하고 화면에 노출하지 않는다.
+    const snapshot = mockStore.getSnapshot();
+    const row = { ...snapshot.items.find(item => item.status === 'PENDING'), id: 'internal-notification-948271', title: '함께 쓰는 일기' };
+    const rendered = renderToStaticMarkup(createElement(Panel, { model: { ...snapshot, items: [row], store: mockStore } }));
+    const visibleText = rendered.replace(/<[^>]*>/g, ' ');
+    assert.match(visibleText, /함께 쓰는 일기/);
+    assert.match(visibleText, /초대 확인/);
+    assert.doesNotMatch(visibleText, /internal-notification-948271|공유 담당의 수락·거절 화면 연결을 기다리고/);
     await mockStore.readAll();
     assert.equal(mockStore.getSnapshot().mutation.status, 'success');
     assert.equal(mockStore.getSnapshot().count.data.unreadCount, 0);
@@ -146,6 +154,19 @@ test('초대 확인은 열 수 있는 초대면 안쪽 상세 카드 없이 곧�
   };
   const rows = store.getSnapshot().items;
   const pending = rows.find(row => row.status === 'PENDING'), expired = rows.find(row => row.status === 'EXPIRED');
+  const openedFromRow = [];
+  const rowTree = Panel({ model: { ...store.getSnapshot(), items: [pending], store }, onInvitationReady: value => openedFromRow.push(value.inviteId) });
+  const rowLabel = `${pending.title}, ${pending.readAt ? '읽음' : '안 읽음'}, 응답 대기, 초대 확인`;
+  const rowButton = nodes(rowTree).find(node => node.props?.accessibilityLabel === rowLabel);
+  assert.ok(rowButton);
+  assert.equal(rowButton.props.disabled, false);
+  await rowButton.props.onPress();
+  assert.deepEqual(openedFromRow, [pending.inviteId]);
+  const lockedTree = Panel({ model: { ...store.getSnapshot(), items: [pending], mutation: { status: 'saving' }, store }, onInvitationReady: () => {} });
+  assert.equal(nodes(lockedTree).find(node => node.props?.accessibilityLabel?.includes(`${pending.title},`)).props.disabled, true);
+  const general = { ...pending, notificationType: 'FUTURE_TYPE' };
+  const generalTree = Panel({ model: { ...store.getSnapshot(), items: [general], store }, onInvitationReady: () => {} });
+  assert.equal(nodes(generalTree).some(node => node.props?.accessibilityLabel?.endsWith(' 초대 확인')), false);
   for (const callback of [undefined, () => {}]) {
     for (const data of [{ status: 'PENDING', canOpen: true }, { status: 'ACCEPTED', canOpen: false }]) {
       const tree = Panel({ model: { ...store.getSnapshot(), store, invitation: { status: 'success', data } }, onInvitationReady: callback });
