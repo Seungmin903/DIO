@@ -91,12 +91,24 @@ const hideSplash = () => { SplashScreen.hideAsync().catch(() => {}); };
 export default function App() {
   // 앱 UI 글꼴(Pretendard)을 처음 그리기 전에 불러온다. 못 불러오면(fontError) 기본 글꼴로 그대로 연다
   const [fontsLoaded, fontError] = useFonts(PRETENDARD_FILES);
-  const [previewSession, setPreviewSession] = useState(null);
+  const [previewSession, updatePreviewSession] = useState(null);
+  const sessionRef = useRef(previewSession);
+  // All session writes originate in callbacks/effects. Publish the latest
+  // intended session synchronously, without mutating refs during rendering or
+  // waiting for passive effects before rejecting an older callback.
+  const setPreviewSession = useCallback(value => {
+    const next = typeof value === 'function' ? value(sessionRef.current) : value;
+    sessionRef.current = next;
+    updatePreviewSession(next);
+  }, []);
   const authenticatedSession = previewSession?.mode === 'authenticated' ? previewSession : null;
+  const memberSessionKey = authenticatedSession ? authService.getMemberSessionKey(authenticatedSession.userId) : null;
   const [booting, setBooting] = useState(true);
   const finishBoot = useCallback(() => { setBooting(false); hideSplash(); }, []);
   // 로그인이 필요한 기능에서 연 로그인 화면 { feature, action }. 지금 화면 위에 겹쳐 띄워, 닫아도 보던 화면이 그대로 남는다.
   const [loginRequest, setLoginRequest] = useState(null);
+  const openLogin = request => setLoginRequest(current => current?.sessionExpired
+    ? { ...request, sessionExpired: true } : request);
   // 개발용 목업 화면은 세션 없이 그리므로 게스트로 시작하지 않는다. 아래에서 따로 그리는 세 값만 목업으로 본다
   // (다른 mock* 값은 세션 분기로 내려가므로 게스트로 시작해야 빈 화면이 되지 않는다)
   const mockSource = __DEV__ && MOCK_SCREENS.includes(process.env.EXPO_PUBLIC_DIARY_SOURCE || '');
@@ -104,12 +116,20 @@ export default function App() {
   const startSession = async session => setPreviewSession(session?.provider === 'guest' ? await guestProfile.start(session) : session);
   // 로그인 화면 없이 게스트(방문자)로 시작한다. 로그인은 로그인이 필요한 기능을 누를 때만 묻는다(loginGate).
   const startGuest = async () => {
+    const target = sessionRef.current;
+    const targetKey = target?.mode === 'authenticated' ? authService.getMemberSessionKey(target.userId) : null;
+    const stillCurrent = () => sessionRef.current === target && !authService.getSessionKey() &&
+      (targetKey === null || authService.getMemberSessionKey(target.userId) === targetKey);
     const session = { mode: 'preview', provider: 'guest', nickname: '방문자' };
     // 예전 개발자 모드(개발 빌드 전용)가 넣던 예시 다이어리가 개발 기기에 남아 있으면 지운다(사용자 다이어리는 건드리지 않는다).
     // 운영 빌드에는 생길 수 없어 저장소를 건드리지 않는다. 보관함이 정리 전 목록을 읽어 다시 저장하지 않게 끝날 때까지 기다린다
     if (__DEV__) await clearMockLibrary().catch(() => {});
     // 지난 프로필을 못 읽어도 빈 화면에 갇히지 않게 기본 게스트로 시작한다
-    try { await startSession(session); } catch { setPreviewSession(session); }
+    if (!stillCurrent()) return;
+    try {
+      const guest = await guestProfile.start(session);
+      if (stillCurrent()) setPreviewSession(guest);
+    } catch { if (stillCurrent()) setPreviewSession(session); }
   };
   useEffect(() => {
     if (mockSource) return;
@@ -121,6 +141,7 @@ export default function App() {
         // Development gateway credentials intentionally do not survive process restarts.
         // Reuse its existing prompt, then resume refresh without asking for the member password.
         if (active && __DEV__ && error?.code === 'DEVELOPMENT_ACCESS_REQUIRED') setLoginRequest({ restoreSession: true });
+        else if (active && error?.status === 401 && error.code === 'INVALID_TOKEN') setLoginRequest({ sessionExpired: true });
       }
       if (!active) return;
       if (restored) setPreviewSession(restored);
@@ -131,11 +152,18 @@ export default function App() {
   // 비밀번호 재설정 완료는 서버 세션이 이미 폐기됐을 수 있어, 별도 로그아웃 요청 없이
   // 이 기기의 메모리 세션만 지운다. 세션이 끝나면 로그인 화면이 아니라 게스트로 돌아간다.
   // 늦게 온 콜백(비밀번호 재설정 완료 등)이 그사이 바뀐 세션을 지우지 않게, 지금 세션이 지우려던 세션일 때만 끝낸다
-  const sessionRef = useRef(previewSession);
-  sessionRef.current = previewSession;
+  useEffect(() => authService.subscribeSessionExpired?.(expired => {
+    const current = sessionRef.current;
+    if (current?.mode !== 'authenticated' || String(current.userId) !== expired.userId || authService.getSessionKey() ||
+        authService.getMemberSessionKey(current.userId) !== expired.sessionKey) return;
+    // Keep the current document mounted beneath the existing login overlay.
+    setLoginRequest({ sessionExpired: true });
+  }), []);
   const clearSession = () => {
     const target = previewSession, current = sessionRef.current;
     if (!(current === target || (current?.accountId && current.accountId === target?.accountId))) return;
+    if (target?.mode === 'authenticated' && (authService.getSessionKey() ||
+        authService.getMemberSessionKey(target.userId) !== memberSessionKey)) return;
     // 세션을 비우지 않고 게스트 세션으로 바로 바꾼다(그사이 빈 화면이 없다)
     startGuest();
   };
@@ -143,7 +171,8 @@ export default function App() {
     try {
       if (authenticatedSession) await authService.logout();
     } catch (error) {
-      notify('로그아웃', error.code === 'LOGOUT_INCOMPLETE' ? error.message : `${error.message} 이 기기의 로그인 정보는 지웠어요.`);
+      const localMessage = error.code === 'LOGOUT_INCOMPLETE' ? error.message : `${error.message} 이 기기의 로그인 정보는 지웠어요.`;
+      notify('로그아웃', `${localMessage} 서버에서 로그아웃을 확인하지 못해 이 계정의 알림이 계속 올 수 있어요. 네트워크 연결 후 다시 로그인하고 로그아웃해 주세요.`);
     }
     finally { clearSession(); }
   };
@@ -171,12 +200,17 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
+        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession && !loginRequest?.sessionExpired} onLogin={openLogin}><SessionDiaryApp key={authenticatedSession ? `authenticated:${memberSessionKey || authenticatedSession.userId}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} onClearSession={clearSession} onReady={finishBoot} /></LoginGateProvider> : null
       )}
-      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={() => setLoginRequest(null)} /></View>}
+      {loginRequest && <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}><AuthScreen key={loginRequest.sessionExpired ? 'expired' : 'login'} sessionExpired={loginRequest.sessionExpired === true} resumeSession={loginRequest.restoreSession === true} onContinue={continueFromLogin} onClose={() => {
+        setLoginRequest(null);
+        const current = sessionRef.current;
+        if (current?.mode === 'authenticated' && !authService.getSessionKey() &&
+            authService.getMemberSessionKey(current.userId) === memberSessionKey) startGuest();
+      }} /></View>}
       <HandwritingStudio />
       {/* 프로필 사진 자르기(동그라미 틀). 로그인 화면 · 프로필 수정 모두 쓰므로 앱 맨 위에 하나 둔다 */}
       <ProfileCropHost />

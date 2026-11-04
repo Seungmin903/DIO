@@ -1,5 +1,6 @@
 import { createServerNotificationSession } from './serverNotificationApi.js';
 import { NotificationError } from './notificationApi.js';
+import { authenticationErrorMessage } from '../auth/sessionExpiry.js';
 
 // 생성 당시 계정·로그인 세션에 묶는다. 계정 교체 뒤 옛 호출자가 새 계정 토큰을 받지 않는다.
 // describeInvitations(inviteIds, { signal }): 초대 알림에 다이어리 제목 · 보낸 사람을 채울 Map(inviteId → { title, actor }). 실패하면 그대로 둔다.
@@ -10,7 +11,12 @@ export function createAuthenticatedNotificationSession({ auth, userId, invitatio
   const gateway = session.invitations;
   const check = signal => {
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
-    if (auth.getSessionKey() !== sessionKey) throw new NotificationError('AUTHENTICATION_REQUIRED', '로그인이 필요해요.', 401);
+    if (auth.getSessionKey() !== sessionKey) {
+      const error = new NotificationError('AUTHENTICATION_REQUIRED', '', 401);
+      error.sessionExpired = auth.isSessionExpired?.(sessionKey) === true;
+      error.message = authenticationErrorMessage(error);
+      throw error;
+    }
   };
   const list = async (options = {}) => {
     const page = await session.api.list(options);
