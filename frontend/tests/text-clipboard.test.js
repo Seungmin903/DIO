@@ -158,7 +158,6 @@ test('텍스트 상자 선택 바의 복제 버튼은 문자열 복사를 호출
     '../../utils/common': { clamp: (value, min, max) => Math.max(min, Math.min(max, value)), unionBounds: () => ({ left: 10, right: 330, top: 10, bottom: 50, cx: 170 }) },
     '../controls/Icon': { __esModule: true, default: 'Icon' },
     '../controls/FadeScroll': { __esModule: true, default: 'ScrollView' },
-    '../LassoSelectionMenu': { __esModule: true, default: 'Lasso' },
     '../../utils/penSettings': { EDITOR_COLORS: [] },
     '../../hooks/usePalettes': {}, // 공방 프리셋 저장소가 없으면 기본 펜 색을 쓴다
     '../../utils/popoverPlacement': placement,
@@ -172,6 +171,15 @@ test('텍스트 상자 선택 바의 복제 버튼은 문자열 복사를 호출
   assert.equal(find(tree, (n) => n.props?.label === '복사'), undefined)
   find(tree, (n) => n.props?.label === '복제').props.onPress()
   assert.deepEqual(actions, [{ type: 'duplicateObjects', ids: ['text'] }])
+
+  // 올가미로 잡으면 추가 선택 · 선택에서 제외가 같은 바에 있다
+  const modes = []
+  for (const object of [{ id: 'text', type: 'text', text: '원문' }, { id: 'stroke', type: 'stroke', color: '#000000' }, { id: 'sticker', type: 'sticker' }]) {
+    const lasso = ContextBar({ objects: [object], zoom: 1, dispatch() {}, lassoActions: { mode: 'add', onModeChange: mode => modes.push(mode) } })
+    assert.equal(find(lasso, (n) => n.props?.label === '추가 선택').props.active, true)
+    find(lasso, (n) => n.props?.label === '선택에서 제외').props.onPress()
+  }
+  assert.deepEqual(modes, ['subtract', 'subtract', 'subtract'])
 })
 
 test('웹 글 편집은 미지원 클립보드 구독을 호출하지 않고 안전하게 정리된다',async()=>{
