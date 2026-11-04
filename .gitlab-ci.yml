@@ -509,6 +509,9 @@ deploy-release:
             echo "Rollback health check failed; release remains unavailable." >&2
             docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend || true
           fi
+        else
+          echo "Initial release deployment failed; removing the unhealthy container." >&2
+          docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml down --remove-orphans || true
         fi
         exit 1
       fi
