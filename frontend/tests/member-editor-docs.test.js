@@ -18,13 +18,15 @@ function fixture() {
   let persist = async (key, value) => { disk.set(key, JSON.stringify(value)); return true; };
   const storage = { getItem: async key => disk.get(key) ?? null, setItem: async (key, value) => { disk.set(key, value); }, removeItem: async key => { disk.delete(key); } };
   const mocks = {
-    '@react-native-async-storage/async-storage': { __esModule: true, default: storage },
+    './documentStorage': { __esModule: true, default: {
+      loadDocument: key => readStoredDocument(storage, key),
+      saveDocument: async (key, value) => { if (await persist(key, value) === false) throw new Error('save failed'); },
+    } },
     '../../diary/services/memberStorage.js': memberStorage,
     '../state/defaultDoc': { createDefaultDoc, migrateUntouchedAnnualDoc },
     '../templates/catalog.js': { templateReference: () => null }, '../templates/loadTemplate': {}, './mediaStore': {},
     './sessionDocuments.js': session, './editorViewState': { loadViewedPage: async () => null },
-    './readStoredDocument.js': { readStoredDocument },
-    './storage': { STORAGE_KEYS: { doc: 'guest:doc' }, saveJSON: (key, value) => persist(key, value) },
+    './storage': { STORAGE_KEYS: { doc: 'guest:doc' } },
   };
   const code = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/services/editorDocs.js', import.meta.url), 'utf8'),
     { configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')] }).code;

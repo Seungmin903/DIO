@@ -28,6 +28,11 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
     try { return JSON.parse(value) } catch { throw failure('INVALID_LOCAL_CACHE', '이 계정의 저장 자료를 읽지 못했어요. 기존 자료는 유지했어요.') }
   }
   const write = (key, value) => storage.setItem(key, JSON.stringify(value))
+  // 옮겨 온 다이어리의 기기 값. 서버가 받지 않는 값이라 목록에 없으면 이것으로 채운다(이후 사용자가 고친 값이 우선이다).
+  const localMeta = async () => {
+    try { const value = await read(keys.localMeta, {}); return value && typeof value === 'object' && !Array.isArray(value) ? value : {} }
+    catch { return {} }
+  }
   const active = () => { if (disposed) throw failure('STALE_ACCOUNT', '계정이 바뀌어 요청을 중단했어요.') }
   const entry = (result, previous = {}) => ({ ...previous, ...result, source: 'member-api', memberAccountId: accountId,
     type: (result.isShared ?? previous.isShared) ? '공유' : '개인', canManage: result.canEdit, canDelete: result.permissions?.canTrash===true, trashedAt: null })
@@ -126,6 +131,32 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
     })().finally(() => { bulkRunning = null })
     return bulkRunning
   }
+  // 이 기기에서 만들지 않은 다이어리는 방향을 모른다. 서버 페이지 크기로 한 번만 채워 기기에 남긴다.
+  // 목록을 바꾸는 작업이 아니라 표시 값을 채우는 것이라 revision 을 올리지 않는다(진행 중인 목록 요청을 무효로 만들지 않는다).
+  const orientationRequests = new Set()
+  const fillOrientations = () => {
+    if (typeof api.pageOrientation !== 'function') return
+    const targets = state.diaries.filter(row => !row.pageSize && !row.templateConfig?.orientation && !orientationRequests.has(row.id)).map(row => row.id)
+    targets.forEach(id => orientationRequests.add(id))
+    let position = 0
+    const worker = async () => {
+      while (position < targets.length && !disposed) {
+        const id = targets[position++]
+        try {
+          const pageSize = await api.pageOrientation(id)
+          if (!pageSize || disposed) continue
+          await enqueue(async () => {
+            active()
+            const fill = row => row.id === id ? { ...row, pageSize } : row
+            const diaries = state.diaries.map(fill)
+            await write(keys.index, diaries); active()
+            emit({ diaries, library: { ...state.library, items: state.library.items.map(fill) } })
+          })
+        } catch { orientationRequests.delete(id) /* 표시 값이라 실패해도 다음 목록 때 다시 읽는다. */ }
+      }
+    }
+    Promise.all(Array.from({ length: Math.min(3, targets.length) }, worker)).catch(() => {})
+  }
   const store = {
     source: 'member-api', keys,
     toggleFavorite(id) {
@@ -183,10 +214,11 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
           return await enqueue(async () => {
             active()
             if (revision !== startRevision) throw failure('LIST_CHANGED', '목록을 불러오는 중 변경이 있었어요. 다시 확인해 주세요.')
-            const previous = new Map(state.diaries.map(d => [d.id, d]))
-            const diaries = [...rows.values()].map(row => entry(row, previous.get(row.id)))
+            const previous = new Map(state.diaries.map(d => [d.id, d])), meta = await localMeta()
+            const diaries = [...rows.values()].map(row => entry(row, { ...meta[row.id], ...previous.get(row.id) }))
             invalidateDetails(new Set([...previous.keys(), ...rows.keys()]))
             await write(keys.index, diaries); active(); emit({ diaries, error: null })
+            fillOrientations()
             return diaries
           })
         } catch (error) { emit({ error }); throw error }
@@ -220,8 +252,8 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
           if (page.hasNext && (!page.nextCursor || page.nextCursor === cursor || libraryCursors.has(page.nextCursor))) throw failure('INVALID_LIST_CURSOR', '다음 목록을 확인하지 못했어요. 처음부터 다시 확인해 주세요.')
           return await enqueue(async () => {
             current(); if (revision !== startRevision) throw failure('LIST_CHANGED', '목록이 변경됐어요. 다시 확인해 주세요.')
-            const known = new Map(state.diaries.map(row => [row.id, row]))
-            const rows = page.items.map(row => entry(row, known.get(row.id)))
+            const known = new Map(state.diaries.map(row => [row.id, row])), meta = await localMeta()
+            const rows = page.items.map(row => entry(row, { ...meta[row.id], ...known.get(row.id) }))
             for (const row of rows) known.set(row.id, row)
             const items = new Map((more ? state.library.items : []).map(row => [row.id, row]))
             for (const row of rows) items.set(row.id, row)
@@ -231,6 +263,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
             if (page.hasNext) libraryCursors.add(page.nextCursor)
             libraryRetryMore = false
             emit({ diaries, error: null, library: { criteria, items: [...items.values()], ready: true, loading: false, error: null, hasNext: page.hasNext, nextCursor: page.nextCursor } })
+            fillOrientations()
             return [...items.values()]
           })
         } catch (error) {

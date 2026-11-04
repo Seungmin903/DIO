@@ -75,7 +75,7 @@ const ColumnsContext = createContext(4)
  * 검색·분류(스티커) 같은 고르기는 위쪽에 고정해 두고 목록만 스크롤한다.
  * 사진: 불러오면 틀 없이 붙고, 사진 틀을 누르면 빈 틀이 붙는다(캔버스의 + 로 채운다). 붙인 뒤 틀은 옵션 창의 같은 목록에서 바꾼다.
  */
-export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClose, onPanelWidth, sheet = null }) {
+export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClose, onPanelWidth, sheet = null, photoLimit }) {
   const current = DRAWER_TABS.find((item) => item.id === tab) ?? DRAWER_TABS[0]
   const custom = useCustomDecor()
   const loginGate = useLoginGate()
@@ -275,11 +275,11 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
     try {
       // 테이프는 한 장씩 골라 테이프 틀에 들어갈 부분을 먼저 정한 뒤 추가한다.
       if (kind === 'tapes') {
-        const [image] = await pickImages({ multiple: false, usage: 'tape' })
+        const [image] = await pickImages({ ...photoLimit, multiple: false, usage: 'tape' })
         if (image) setPendingTape({ image, folderId })
         return
       }
-      const images = await pickImages({ usage: 'sticker' })
+      const images = await pickImages({ ...photoLimit, usage: 'sticker' })
       const stickers = images.map((image) => ({
         src: image.src,
         mediaFileId: image.mediaFileId,

@@ -49,7 +49,7 @@ const service = createPdfShareService({
     try {
       root().create({ intermediates: true, idempotent: true })
       directory.create()
-      const marker = lease(directory); marker.create(); expiry({ directory }, expiresAt)
+      const marker = lease(directory); marker.create(); await expiry({ directory }, expiresAt)
       const file = new File(directory, result.fileName)
       await source.copy(file)
       if (!file.exists || file.size !== source.size) throw pdfSaveFailure('EXPORT_PDF_SAVE_FAILED', 'Incomplete PDF copy')

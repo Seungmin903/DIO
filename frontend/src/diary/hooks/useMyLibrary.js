@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import documentStorage from '../../editor/services/documentStorage'
 import { STORAGE_KEYS, loadJSON, saveJSON } from '../../editor/services/storage'
 import { collectMediaIds } from '../../editor/utils/mediaReferences'
 import * as mediaRepository from '../../editor/utils/mediaRepository'
@@ -48,7 +48,7 @@ export default function useMyLibrary() {
     let removed = null
     const done = await commit(kind, list => { removed = list.find(item => item.id === id) ?? null; return removeEntry(list, id) })
     if (done && removed) {
-      cleanupRemovedEntry({ entry: removed, storage: AsyncStorage, keys: STORAGE_KEYS, collectMediaIds, collectSourceIds: collectPdfSourceIds,
+      cleanupRemovedEntry({ entry: removed, storage: documentStorage, keys: STORAGE_KEYS, collectMediaIds, collectSourceIds: collectPdfSourceIds,
         removeMedia: mediaRepository.remove, removeSource: removePdfSource }).catch(() => {})
     }
     return done

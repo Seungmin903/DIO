@@ -1,5 +1,6 @@
 // 나의 표지 · 나의 속지를 지우거나 다이어리를 영구 삭제할 때, 더 이상 아무도 쓰지 않는 쪽 그림(미디어 보관함)과 원본 PDF 를 함께 지운다.
 // 같은 PDF 에서 만든 다이어리 · 나의 속지 · 나의 표지가 쪽 그림과 원본을 같이 쓰므로 참조를 세어 남은 곳이 없을 때만 지운다.
+import { findUnusedIds } from './storedScan.js'
 
 /**
  * target 이 쓰는 미디어 · 원본 PDF 중 raws(저장된 다른 값들의 원문) 어디에도 id 가 없는 것.
@@ -26,8 +27,9 @@ export async function cleanupRemovedEntry({ entry, storage, keys, collectMediaId
   let unshared
   try {
     const referenceKeys = (await storage.getAllKeys()).filter(key => isReferenceKey(key, keys))
-    const records = referenceKeys.length ? await storage.multiGet(referenceKeys) : []
-    unshared = findUnshared({ target: entry, raws: records.map(([, raw]) => raw), collectMediaIds, collectSourceIds })
+    const mediaIds = collectMediaIds(entry), sourceIds = collectSourceIds(entry)
+    const unused = await findUnusedIds(storage, referenceKeys, [...mediaIds, ...sourceIds])
+    unshared = { mediaIds: mediaIds.filter(id => unused.has(id)), sourceIds: sourceIds.filter(id => unused.has(id)) }
   } catch { return none }
   await Promise.allSettled([...unshared.mediaIds.map(id => removeMedia(id)), ...unshared.sourceIds.map(id => removeSource(id))])
   return unshared

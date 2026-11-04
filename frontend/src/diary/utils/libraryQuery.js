@@ -19,7 +19,11 @@ export function nextSort(current, key) {
   return now.key === key ? formatSort(key, now.direction === 'asc' ? 'desc' : 'asc') : key;
 }
 const time = value => Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0;
-export const createdTime = diary => time(diary.createdAt) || Number(/^diary-(\d+)$/.exec(diary.id)?.[1]) || 0;
+export const createdTime = diary => time(diary.originalCreatedAt) || time(diary.createdAt) || Number(/^diary-(\d+)$/.exec(diary.id)?.[1]) || 0;
+/** 서버의 생성순 목록에서 옮겨 온 다이어리를 처음 만든 날짜 자리로 보낸다. 서버는 옮긴 시각으로 정렬한다. */
+export const sortMovedByCreated = diaries => diaries.some(diary => diary.originalCreatedAt)
+  ? diaries.map((diary, index) => ({ diary, index })).sort((a, b) => createdTime(b.diary) - createdTime(a.diary) || a.index - b.index).map(({ diary }) => diary)
+  : diaries;
 const titleKey = value => String(value ?? '').normalize('NFC').trim().toLocaleLowerCase('ko');
 export const isSharedDiary = diary => Boolean(diary.sharedDiaryId || diary.isShared);
 // 보관함 필터는 '범위(왼쪽 메뉴: 내 다이어리 · 공유된 다이어리)'와 '즐겨찾기만(화면 위 칩)' 두 가지를 한 문자열로 담는다.

@@ -25,7 +25,7 @@ export async function exportImage({ blob, media, size }) {
     const dispose = () => { if (file.exists) file.delete() }
     try {
       file.create()
-      file.write(png)
+      await file.write(png)
       return { uri: file.uri, dispose }
     } catch (error) { dispose(); throw error }
   }
@@ -52,7 +52,7 @@ export async function readLegacyExportImage(uri) {
   const dispose = () => { if (file.exists) file.delete() }
   try {
     file.create()
-    file.write(data.base64, { encoding: 'base64' })
+    await file.write(data.base64, { encoding: 'base64' })
     return { blob: file, dispose }
   } catch (error) { dispose(); throw error }
 }

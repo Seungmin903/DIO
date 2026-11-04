@@ -98,10 +98,10 @@ function loadModule(source, mocks, plugins = []) {
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8')
 for (const orientation of ['landscape', 'portrait']) test(`${orientation}: 저장 후 캐시를 비우고 복원해도 원본과 복제본의 기록·옵션·속지색을 유지한다`, async () => {
   const disk = new Map()
-  const asyncStorage = { __esModule: true, default: { getItem: async key => disk.get(key) ?? null, setItem: async (key, value) => { disk.set(key, value) } } }
-  const storage = loadModule(read('../src/editor/services/storage.js'), { '@react-native-async-storage/async-storage': asyncStorage, '../utils/storageContract.js': storageContract })
-  const docs = loadModule(read('../src/editor/services/editorDocs.js'), { '../../diary/services/memberStorage.js': memberStorage,
-    '@react-native-async-storage/async-storage': asyncStorage, '../state/defaultDoc': defaultDoc,
+  const asyncStorage = { __esModule: true, default: { getItem: async key => disk.get(key) ?? null, setItem: async (key, value) => { disk.set(key, value) }, loadDocument: async key => { const raw = disk.get(key); return raw ? JSON.parse(raw) : null }, saveDocument: async (key, doc) => { disk.set(key, JSON.stringify(doc)) } } }
+  const storage = loadModule(read('../src/editor/services/storage.js'), { './documentStorage': asyncStorage, '../utils/storageContract.js': storageContract })
+  const docs = loadModule(read('../src/editor/services/editorDocs.js'), { '../../diary/services/memberStorage.js': memberStorage, '../../diary/utils/bookSpread.js': {},
+    './documentStorage': asyncStorage, '../state/defaultDoc': defaultDoc,
     '../templates/catalog.js': {}, '../templates/loadTemplate': {}, './mediaStore': {},
     './sessionDocuments.js': sessionDocuments, './editorViewState': {}, './storage': storage,
   })

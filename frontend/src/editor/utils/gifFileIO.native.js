@@ -15,7 +15,8 @@ function cacheFile(bytes, extension) {
   const dispose = () => { try { if (file.exists) file.delete() } catch {} }
   try {
     file.create()
-    file.write(bytes)
+    // 호출한 쪽이 곧바로 파일을 읽는다.
+    file.writeSync(bytes)
     return { uri: file.uri, dispose }
   } catch (error) { dispose(); throw error }
 }

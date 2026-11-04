@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import documentStorage from '../../editor/services/documentStorage'
 import { fetch as memberFetch } from 'expo/fetch'
 import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authService'
 import { createMemberDiaryApi } from '../services/memberDiaryApi.js'
 import { createAuthenticatedMemberTransport } from '../services/memberTransport.js'
 import { memberKeys } from '../services/memberStorage.js'
-import { createGuestDiaryImporter, declineGuestImport, listGuestImportCandidates, withUploadRetry } from '../services/guestDiaryImport.js'
+import { createGuestDiaryImporter, dismissGuestImport, listGuestImportCandidates, removeGuestOriginal, sweepMovedGuestDiaries, withUploadRetry } from '../services/guestDiaryImport.js'
+import { guestOriginalCleanup } from '../services/guestOriginalCleanup'
 import { createCanvasApi } from '../../collaboration/canvasApi.js'
 import { createCanvasMedia, createMediaRequest } from '../../collaboration/canvasMedia.js'
 import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
@@ -14,11 +15,11 @@ import { createId } from '../../editor/utils/common.js'
 import { notify } from '../../shared/dialogs'
 
 /**
- * 로그인 직후 이 기기의 게스트 다이어리를 회원 보관함으로 가져올지 묻고 가져온다.
+ * 로그인 직후 이 기기의 게스트 다이어리를 회원 보관함으로 옮길지 묻고 옮긴다.
  * phase: null(물을 것 없음) · 'ask' · 'running' · 'done'. 실패한 다이어리는 done 에서 다시 시도할 수 있다.
  */
 export function useGuestDiaryImport(accountId, { enabled = true, onImported } = {}) {
-  const [state, setState] = useState({ phase: null, candidates: [], progress: null, imported: [], failed: [] })
+  const [state, setState] = useState({ phase: null, candidates: [], waiting: [], progress: null, imported: [], failed: [] })
   const [lookupAttempt, setLookupAttempt] = useState(0)
   const sessionKey = authService.getSessionKey()
   const context = useMemo(() => ({ active: true, checked: false }), [accountId, sessionKey])
@@ -26,19 +27,20 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
   const onImportedRef = useRef(onImported)
   onImportedRef.current = onImported
   const active = () => context.active && authService.getSessionKey() === sessionKey
+  const removeOriginal = useCallback(id => removeGuestOriginal(documentStorage, id, guestOriginalCleanup), [])
   const importer = useMemo(() => {
     const active = () => context.active && authService.getSessionKey() === sessionKey
     const transport = createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl, accessTokenHeader, fetchImpl: memberFetch })
     const request = withUploadRetry(createMediaRequest({ auth: authService, accountId, sessionKey, baseUrl: apiBaseUrl, fetchImpl: memberFetch }))
-    return createGuestDiaryImporter({ accountId, storage: AsyncStorage, createId, transport, isActive: active,
+    return createGuestDiaryImporter({ accountId, storage: documentStorage, createId, transport, isActive: active, removeOriginal,
       api: createMemberDiaryApi(transport),
-      // 미디어를 넘기지 않아 응답의 사진을 다시 내려받지 않는다(원본은 이 기기에 있다).
+      // 미디어를 넘기지 않아 옮기는 동안 응답의 사진을 다시 내려받지 않는다.
       canvas: createCanvasApi(transport),
       // 편집기와 같은 기록 자리를 써서, 가져온 다이어리를 열 때 같은 사진을 다시 올리지 않는다.
-      mediaFor: diaryId => createCanvasMedia({ request, files: canvasMediaFiles, storage: AsyncStorage, isActive: active,
+      mediaFor: diaryId => createCanvasMedia({ request, files: canvasMediaFiles, storage: documentStorage, isActive: active,
         key: `${memberKeys(accountId).doc(diaryId)}:media-uploads:v1:${encodeURIComponent(apiBaseUrl)}` }),
       loadGuestDoc: async diary => {
-        const raw = await AsyncStorage.getItem(`${STORAGE_KEYS.doc}:${diary.id}`)
+        const raw = await documentStorage.getItem(`${STORAGE_KEYS.doc}:${diary.id}`)
         try { return raw ? JSON.parse(raw) : null } catch { throw Object.assign(new Error('기기의 다이어리 문서를 읽지 못했어요. 원본은 그대로 남아 있어요.'), { code: 'INVALID_LOCAL_DOCUMENT' }) }
       },
     })
@@ -54,14 +56,16 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
     if (!enabled || context.checked) return
 
     ;(async () => {
-      const [{ diaries, declined }, pending] = await Promise.all([listGuestImportCandidates(AsyncStorage, accountId), importer.pendingIds()])
+      await sweepMovedGuestDiaries(documentStorage, accountId, removeOriginal).catch(() => {})
+      const [{ diaries, unasked }, pending] = await Promise.all([listGuestImportCandidates(documentStorage, accountId), importer.pendingIds()])
       if (cancelled || !active()) return
       context.checked = true
+      setState(current => ({ ...current, waiting: diaries }))
       if (!diaries.length) return
-      // 가져오지 않기로 한 계정도 끝나지 않은 가져오기가 있으면 다시 묻는다.
+      // 나중에를 고른 계정에는 다시 묻지 않는다. 끝나지 않은 옮기기만 이어서 묻는다.
       const unfinished = diaries.filter(diary => pending.includes(diary.id))
-      if (declined && !unfinished.length) return
-      setState(current => current.phase ? current : { ...current, phase: 'ask', candidates: declined ? unfinished : diaries })
+      if (!unasked.length && !unfinished.length) return
+      setState(current => current.phase ? current : { ...current, phase: 'ask', candidates: unasked.length ? diaries : unfinished })
     })().catch(error => {
       if (cancelled || !active()) return
       context.checked = true
@@ -83,7 +87,8 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
         setState(current => ({ ...current, progress: { index, count: targets.length, done, total, title: targets[index]?.title ?? '' } }))
       } })
       if (!active()) return
-      setState(current => ({ ...current, phase: 'done', progress: null, imported: [...current.imported, ...result.imported],
+      const done = new Set(result.imported.map(row => row.guestDiaryId))
+      setState(current => ({ ...current, phase: 'done', progress: null, waiting: current.waiting.filter(diary => !done.has(diary.id)), imported: [...current.imported, ...result.imported],
         failed: result.failed.map(row => ({ ...row, diary: targets.find(diary => diary.id === row.guestDiaryId) })) }))
       if (result.imported.length) onImportedRef.current?.()
     } finally { running.current = false }
@@ -103,15 +108,19 @@ export function useGuestDiaryImport(accountId, { enabled = true, onImported } = 
       }
       return run(state.failed.map(row => row.diary).filter(Boolean))
     },
-    later: () => setState(current => ({ ...current, phase: null })),
-    decline: async () => {
-      if (!enabled || !active() || running.current || context.declining) return
-      context.declining = true
+    open: () => {
+      if (!enabled || !active() || running.current) return
+      setState(current => current.phase || !current.waiting.length ? current : { ...current, phase: 'ask', candidates: current.waiting, imported: [], failed: [] })
+    },
+    later: async () => {
+      if (!enabled || !active() || running.current || context.dismissing) return
+      context.dismissing = true
+      const ids = state.candidates.map(diary => diary.id)
       setState(current => ({ ...current, phase: null }))
-      try { await declineGuestImport(AsyncStorage, accountId) }
+      try { await dismissGuestImport(documentStorage, accountId, ids) }
       catch {
-        if (active()) notify('선택을 저장하지 못했어요', '다음 로그인 때 가져오기 안내가 다시 표시될 수 있어요. 기기의 다이어리 원본은 그대로 남아 있어요.')
-      } finally { context.declining = false }
+        if (active()) notify('선택을 저장하지 못했어요', '다음 로그인 때 가져오기 안내가 다시 표시될 수 있어요. 기기의 다이어리는 그대로 남아 있어요.')
+      } finally { context.dismissing = false }
     },
     close: () => setState(current => ({ ...current, phase: null })),
   }

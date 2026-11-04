@@ -24,7 +24,7 @@ export async function savePdfSourceBytes(id, bytes) {
   const target = fileOf(id)
   try {
     target.create({ overwrite: true })
-    target.write(bytes)
+    await target.write(bytes)
     if (!target.exists) throw new Error('Incomplete PDF write')
     return target.uri
   } catch (error) {

@@ -13,7 +13,7 @@ import { createBlankPage, createTemplatePage } from './defaultDoc.js'
 import { normalizePaperAppearance } from '../templates/appearance.js'
 import { applyPageSettings } from '../../collaboration/pageSettings.js'
 
-const HISTORY_LIMIT = 80
+const HISTORY_LIMIT = 20
 const PASTE_OFFSET = 24
 
 export function createInitialState(doc, viewedPageId) {
@@ -24,6 +24,46 @@ export function createInitialState(doc, viewedPageId) {
     pendingCheckpoint: null,
     pageId: (doc.pages.find((page) => page.id === viewedPageId) ?? doc.pages[0]).id,
     selectedIds: [],
+    ...(doc.pages.some((page) => page.unloaded) ? { pagesLoading: true } : {}),
+  }
+}
+
+// 페이지 내용을 뒤에서 읽는 동안(pagesLoading) 막는 동작.
+// 내용을 모르는 페이지를 복제 · 삭제하면 복사본이 비거나, 되돌렸을 때 지워진 파일을 찾게 된다.
+const NEEDS_ALL_PAGES = new Set(['duplicatePage', 'removePage', 'removePages', 'resetDiary'])
+// 지금 페이지의 내용을 읽기 전에는 그 페이지의 요소를 바꾸지 않는다.
+const NEEDS_CURRENT_PAGE = new Set([
+  'addObjects', 'updateObject', 'updateMany', 'replaceObjects', 'removeObjects', 'duplicateObjects', 'pasteObjects',
+  'align', 'reorder', 'moveLayer', 'group', 'moveLayers', 'ungroup', 'setPlanner', 'checkpoint',
+])
+
+/** 읽어 온 내용을 지금 문서와 되돌리기 기록의 같은 페이지에 채운다. 기록에 넣지 않는다. */
+function hydratePages(state, items, done) {
+  const objectsById = new Map(items.map((item) => [item.id, item.objects]))
+  const fill = (doc) => {
+    let changed = false
+    const pages = doc.pages.map((page) => {
+      if (!page.unloaded || !objectsById.has(page.id)) return page
+      changed = true
+      const { unloaded, ...loaded } = page
+      return { ...loaded, objects: objectsById.get(page.id) }
+    })
+    return changed ? { ...doc, pages } : doc
+  }
+  const { pagesLoading, ...rest } = state
+  const doc = fill(state.doc)
+  return {
+    ...rest,
+    doc,
+    hydratedDoc: doc,
+    past: state.past.map(fill),
+    future: state.future.map(fill),
+    pendingCheckpoint: state.pendingCheckpoint ? {
+      doc: fill(state.pendingCheckpoint.doc),
+      past: state.pendingCheckpoint.past.map(fill),
+      future: state.pendingCheckpoint.future.map(fill),
+    } : null,
+    ...(done ? {} : { pagesLoading }),
   }
 }
 
@@ -218,8 +258,10 @@ function normalizeSelection(state) {
 
 export function editorReducer(state, action) {
   const objects = getCurrentPage(state).objects
+  if (state.pagesLoading && (NEEDS_ALL_PAGES.has(action.type) || (NEEDS_CURRENT_PAGE.has(action.type) && getCurrentPage(state).unloaded))) return state
 
   switch (action.type) {
+    case 'hydratePages': return hydratePages(state, action.items, action.done)
     case 'applyServerPageSettings': return applyPageSettings(state, action.settings)
     case 'reconcileServerPages': {
       const settings = (action.settings ?? []).filter(p => {

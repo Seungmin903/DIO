@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { AppState } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import documentStorage from '../../editor/services/documentStorage'
 import { fetch as memberFetch } from 'expo/fetch'
 import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authService'
 import { createMemberDiaryApi } from '../services/memberDiaryApi.js'
@@ -10,7 +10,7 @@ import { createId } from '../../editor/utils/common.js'
 
 export function useMemberDiaries(accountId) {
   const sessionKey = authService.getMemberSessionKey(accountId)
-  const store = useMemo(() => createMemberAppStore({ accountId, storage: AsyncStorage, makeRequestId: () => createId(), serverLibrary: true,
+  const store = useMemo(() => createMemberAppStore({ accountId, storage: documentStorage, makeRequestId: () => createId(), serverLibrary: true,
     api: createMemberDiaryApi(createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl,
       accessTokenHeader, fetchImpl: memberFetch })) }), [accountId, sessionKey])
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot)

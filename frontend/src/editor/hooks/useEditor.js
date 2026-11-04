@@ -4,7 +4,8 @@ import { AppState } from 'react-native'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { createDefaultDoc } from '../state/defaultDoc'
 import { createInitialState, editorReducer } from '../state/editorReducer'
-import { editorDocKey, loadEditorDoc, peekEditorDoc, rememberEditorDoc, saveEditorDoc } from '../services/editorDocs'
+import { editorDocKey, loadEditorPages, openEditorDoc, peekEditorDoc, rememberEditorDoc, saveEditorDoc } from '../services/editorDocs'
+import { createPageHydrator } from '../utils/pageHydrator.js'
 import { hydrateMedia } from '../services/mediaStore'
 import { scheduleIdleTask } from '../utils/idleTask'
 import { loadViewedPage, peekViewedPage, rememberViewedPage } from '../services/editorViewState'
@@ -46,6 +47,9 @@ export function useEditor(diary) {
   const saving = useRef(false)
   const dirtySince = useRef(null)
   const currentKey = useRef(storageKey)
+  const hydrator = useRef(null)
+  const viewedPage = useRef(state.pageId)
+  viewedPage.current = state.pageId
   const edited = state.past.length > 0 || state.future.length > 0 || state.externalDirty === true
   currentKey.current = storageKey
 
@@ -79,14 +83,30 @@ export function useEditor(diary) {
       return undefined
     }
     let cancelled = false
-    Promise.all([
-      initial ? Promise.resolve(initial.doc) : loadEditorDoc(diaryRef.current),
-      loadViewedPage(storageKey).catch(() => null),
-    ]).then(([saved, pageId]) => {
+    loadViewedPage(storageKey).catch(() => null).then((pageId) => (initial
+      ? { doc: initial.doc, pendingIds: [], pageId }
+      : openEditorDoc(diaryRef.current, pageId).then((opened) => ({ ...opened, pageId })))
+    ).then(({ doc: saved, pendingIds, pageId }) => {
       if (saved) hydrateMedia(saved).catch(() => {})
       if (cancelled) return
       if (saved) dispatch({ type: 'load', doc: withDiary(saved, diaryRef.current), pageId })
       setLoaded(true)
+      if (!pendingIds.length) return
+      // 나머지 페이지를 뒤에서 채운다. 읽지 못한 페이지가 생기면 이번에는 저장하지 않는다.
+      viewedPage.current = saved.pages.some((page) => page.id === pageId) ? pageId : saved.pages[0].id
+      hydrator.current = createPageHydrator({
+        ids: pendingIds,
+        allIds: saved.pages.map((page) => page.id),
+        read: (ids) => loadEditorPages(diaryRef.current, ids),
+        currentId: () => viewedPage.current,
+        onPages: (items, done) => {
+          // 필기에는 사진이 없다. 점까지 훑지 않게 뺀다.
+          hydrateMedia(items.map((item) => item.objects.filter((object) => object.type !== 'stroke'))).catch(() => {})
+          dispatch({ type: 'hydratePages', items, done })
+        },
+        onError: () => setWritable(false),
+      })
+      hydrator.current.start()
     }, () => {
       if (cancelled) return
       setWritable(false)
@@ -94,8 +114,20 @@ export function useEditor(diary) {
     })
     return () => {
       cancelled = true
+      hydrator.current?.stop()
+      hydrator.current = null
     }
   }, [initial, initialPage, storageKey])
+
+  // 페이지를 옮기면 그 근처부터 읽는다.
+  useEffect(() => { hydrator.current?.prioritize() }, [state.pageId])
+
+  // 다 읽었으면 전체 문서를 기억해 다시 열 때 바로 보여 준다.
+  const wasLoading = useRef(false)
+  useEffect(() => {
+    if (state.pagesLoading) { wasLoading.current = true; return }
+    if (wasLoading.current) { wasLoading.current = false; rememberEditorDoc(storageKey, state.doc) }
+  }, [state.pagesLoading, state.doc, storageKey])
 
   // 페이지를 보기만 해도 위치를 기억하되 문서 저장·수정 시각에는 영향을 주지 않는다.
   const viewedPageId = (state.doc.pages.find((item) => item.id === state.pageId) ?? state.doc.pages[0])?.id
@@ -107,11 +139,13 @@ export function useEditor(diary) {
   // 연속 입력은 마지막 변경 1.2초 뒤에 합쳐 저장한다. 편집이 계속되더라도 5초 안에는
   // 한 번 저장을 예약하며, 저장 작업은 메인 스레드의 유휴 시간으로 미룬다.
   useEffect(() => {
-    if (!loaded || !edited || !writable) return undefined
+    if (!loaded || !edited || !writable) { clearSchedule(); return }
     const snapshot = { ...state.doc, updatedAt: new Date().toISOString() }
     rememberEditorDoc(storageKey, snapshot)
     pendingSave.current = { key: storageKey, doc: snapshot, source: state.doc }
     if (!dirtySince.current) dirtySince.current = Date.now()
+    // 뒤에서 읽은 내용을 합친 것뿐이면 이미 잡힌 저장 예약을 미루지 않는다.
+    if (state.hydratedDoc === state.doc && (saveTimer.current || interaction.current)) return
     clearSchedule()
     const elapsed = Date.now() - dirtySince.current
     const delay = Math.max(0, Math.min(SAVE_DELAY_MS, SAVE_MAX_DELAY_MS - elapsed))
@@ -119,8 +153,7 @@ export function useEditor(diary) {
       saveTimer.current = null
       interaction.current = scheduleIdleTask(flushSave, SAVE_INTERACTION_WAIT_MS)
     }, delay)
-    return clearSchedule
-  }, [clearSchedule, edited, flushSave, loaded, state.doc, storageKey, writable])
+  }, [clearSchedule, edited, flushSave, loaded, state.doc, state.hydratedDoc, storageKey, writable])
 
   // 화면 이동·문서 전환·앱 백그라운드에서도 마지막 편집을 잃지 않는다.
   useEffect(() => () => flushSave(), [flushSave, storageKey])
@@ -136,5 +169,11 @@ export function useEditor(diary) {
   else if (lastSave.doc === state.doc) saveStatus = lastSave.ok ? 'saved' : 'error'
   else if (edited) saveStatus = 'saving'
 
-  return { state, dispatch, saveStatus, loaded }
+  // 화면을 누르는 동안(필기 중)에는 뒤쪽 페이지 읽기를 쉰다.
+  const setInputActive = useCallback((active) => {
+    if (active) hydrator.current?.pause()
+    else hydrator.current?.resume()
+  }, [])
+
+  return { state, dispatch, saveStatus, loaded, setInputActive }
 }

@@ -80,6 +80,7 @@ import { clamp, createId, unionBounds } from '../utils/common'
 import { OPTIONS_TOP, OPTIONS_TOP_PHONE, OPTIONS_WIDTH, optionsPlacement, tabletToolPopover } from '../utils/toolPanelPlacement'
 import { automaticPageTurn, centeredOffset, clampOffset as clampViewportOffset, isFitView, panView } from '../utils/viewport.js'
 import { pickImages } from '../services/image'
+import { MEDIA_POLICY } from '../utils/mediaPolicy.js'
 import { discardGeneratedMedia } from '../services/mediaStore'
 import { createObjectFromDecor, emptyPhotoSlots, hasPhotoMedia, photoInnerBox, tapePieceRatio } from '../utils/objects'
 import { isTicketFrame } from '../components/canvas/PhotoFrame'
@@ -90,6 +91,7 @@ import PageAddPicker, { prefetchPageAddPapers } from '../components/PageAddPicke
 import { pageSize, pageTemplateOrientation } from '../utils/pageGeometry.js'
 
 const TOAST_MS = 2000
+const PAGES_LOADING_MESSAGE = '페이지를 모두 불러온 뒤 다시 시도해 주세요.'
 // 태블릿·폰의 내보내기 진입. 정책 결정으로 다시 켰다 (false 로 바꾸면 모든 진입을 숨긴다).
 const exportEnabled = true
 // 태블릿: 페이지를 작업창에 최대한 크게 띄운다(사용자 결정). 되돌리기 · 맞춤 막대는 페이지 위에 겹칠 수 있다
@@ -121,7 +123,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   useEffect(() => { setReadingMode(false); setReaderMenuVisible(true) }, [diary?.id])
   // loaded 전에는 저장 문서가 아니라 임시 기본 문서라서 속지·썸네일을 그리지 않는다.
   const qaHistoryExecutions = useRef(0)
-  const { state, dispatch, saveStatus, loaded } = useEditor(diary)
+  const { state, dispatch, saveStatus, loaded, setInputActive } = useEditor(diary)
   // 내용을 불러온 뒤 상단바 · 패널 폭이 한 번 더 바뀐다. 측정이 잠잠해지면 페이지를 처음 그린다(그 뒤로는 그대로 둔다)
   const [pageReady, setPageReady] = useState(false)
   const page = getCurrentPage(state)
@@ -429,6 +431,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     setExportJob(job)
   }
   const startPageExport = (kind, id) => {
+    if (state.pagesLoading) { showToast(PAGES_LOADING_MESSAGE); return }
     const index = state.doc.pages.findIndex((p) => p.id === id)
     try {
       const fileName = pngFileName(state.doc.title, index + 1).replace(/.png$/, `.${kind}`)
@@ -564,7 +567,14 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       else dispatch({type:'movePages',ids,anchorId,place})
     }catch(error){showToast(error.message||'페이지 순서를 저장하지 못했어요. 다시 확인해 주세요.')}
   }
+  const resetDiary = () => {
+    if(state.pagesLoading){showToast(PAGES_LOADING_MESSAGE);return}
+    if(cropId)finishCrop(false)
+    dispatch({type:'resetDiary'})
+    showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.')
+  }
   const removePages = async ids => {
+    if(state.pagesLoading){showToast(PAGES_LOADING_MESSAGE);return}
     if(cropId)finishCrop(false)
     try{
       if(textSync.enabled){await textSync.removePages(ids);showToast('페이지를 삭제했어요.')}
@@ -572,6 +582,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     }catch(error){showToast(error.message||'페이지를 삭제하지 못했어요. 다시 확인해 주세요.')}
   }
   const copyPage = async id => {
+    if(state.pagesLoading){showToast(PAGES_LOADING_MESSAGE);return}
     try{
       if(textSync.enabled)await textSync.copyPage(id)
       else dispatch({type:'duplicatePage',id})
@@ -587,13 +598,15 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 사진은 스티커·테이프처럼 틀 없이 바로 붙인다 (자르기는 두 번 누르거나 선택 바에서)
   const pickingPhotos = useRef(false)
   const { visible: photoPanelVisible, toggle: togglePhotoPanel, close: closePhotoPanel } = usePhotoPanel(readOnly)
+  // 회원 다이어리의 사진은 서버로 올라간다.
+  const photoLimit = textSync.enabled ? { sharedGifMaxBytes: MEDIA_POLICY.sharedGifMaxBytes } : {}
   const addPhotos = async (selectedImages) => {
     // 고르는 창이 떠 있는 동안 다시 누르면 무시한다
     if (pickingPhotos.current) return
     pickingPhotos.current = true
     try {
       setImportFailure(null)
-      const images = selectedImages ?? await pickImages()
+      const images = selectedImages ?? await pickImages(photoLimit)
       if (!images.length) return
       const center = randomCenter()
       const objects = []
@@ -621,7 +634,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const replacePhoto = async (id) => {
     try {
       setImportFailure(null)
-      const [image] = await pickImages({ multiple: false })
+      const [image] = await pickImages({ ...photoLimit, multiple: false })
       if (!image) return
       const target = pageNow.current.objects.find((o) => o.id === id)
       if (!target) { discardUnused([image]); return }
@@ -654,7 +667,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       const all = emptyPhotoSlots(target)
       const empty = [...all.filter((i) => i >= start), ...all.filter((i) => i < start)]
       if (!empty.length) return
-      const images = await pickImages()
+      const images = await pickImages(photoLimit)
       if (!images.length) return
       const latest = pageNow.current.objects.find((o) => o.id === id)
       if (!latest?.cells) { discardUnused(images); return }
@@ -692,7 +705,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   const replaceCell = async (id, index) => {
     try {
       setImportFailure(null)
-      const [image] = await pickImages({ multiple: false })
+      const [image] = await pickImages({ ...photoLimit, multiple: false })
       if (!image) return
       const target = pageNow.current.objects.find((o) => o.id === id)
       if (!target?.cells) { discardUnused([image]); return }
@@ -952,6 +965,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   }
   const openExport = () => {
     if (!exportEnabled) return
+    if (state.pagesLoading) { showToast(PAGES_LOADING_MESSAGE); return }
     if (textEditing) { showToast('텍스트 편집을 완료한 뒤 내보내 주세요.'); return }
     if (cropId || tapeCropId) { showToast('자르기를 마친 뒤 내보내 주세요.'); return }
     Keyboard.dismiss()
@@ -1181,7 +1195,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
           initialFilter={overviewFilter}
           onSelect={(id) => { if (cropId) finishCrop(false); dispatch({ type: 'selectPage', id }) }}
           onToggleIndex={readOnly ? null : (id) => dispatch({ type: 'togglePageIndex', id })}
-          onReset={readOnly || textSync.enabled ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
+          onReset={readOnly || textSync.enabled ? null : resetDiary}
           onDelete={readOnly ? null : removePages}
           onClose={() => setOverviewFilter(null)}
         />
@@ -1241,14 +1255,18 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             onDuplicate={copyPage}
             onSettings={textSync.enabled && !readOnly ? setSettingsPageId : undefined}
             onToggleIndex={(id) => dispatch({ type: 'togglePageIndex', id })}
-            onReset={readOnly || textSync.enabled ? null : () => { if (cropId) finishCrop(false); dispatch({ type: 'resetDiary' }); showToast('다이어리를 초기화했어요. 되돌리기로 복구할 수 있어요.') }}
+            onReset={readOnly || textSync.enabled ? null : resetDiary}
             onRemovePages={removePages}
             onRemove={id=>removePages([id])}
           />
           </PagePanelVisibility>)
         )}
 
-        <View ref={stageRef} collapsable={false} style={[styles.stage, !compact && !readOnly && styles.stageEdge, phoneSheet && sheetHeight > 0 && { overflow: 'visible' }]}
+        <View ref={stageRef} collapsable={false}
+          onTouchStart={() => setInputActive(true)}
+          onTouchEnd={(event) => { if (!event.nativeEvent.touches?.length) setInputActive(false) }}
+          onTouchCancel={() => setInputActive(false)}
+          style={[styles.stage, !compact && !readOnly && styles.stageEdge, phoneSheet && sheetHeight > 0 && { overflow: 'visible' }]}
           onLayout={() => stageRef.current?.measureInWindow((x, y) => setStageOrigin({ x, y }))}>
           {/* 선택 바는 페이지 밖(보이는 작업 영역 안)까지 나가므로 페이지가 아니라 작업창 위 층에 그린다. 확대·이동하는 동안은 숨긴다. */}
           <StageOverlayHost hidden={viewMoving}>
@@ -1273,6 +1291,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
             {/* 확대·이동 중이거나 화면 밖에 있는 GIF 는 첫 장면으로 멈춘다 (StaticPage) */}
             <ViewportMotion.Provider value={viewportMotion}>
               <View style={{ width: PAGE_WIDTH * zoom, height: PAGE_HEIGHT * zoom }}>
+              {/* 아직 내용을 읽지 못한 페이지: 읽을 때까지 입력을 막는다 */}
+              {page.unloaded && (
+                <Pressable style={styles.pageLoading} accessibilityLabel="페이지 불러오는 중">
+                  <Text style={styles.pageLoadingText}>페이지 불러오는 중…</Text>
+                </Pressable>
+              )}
               {/* 크기가 정해진 뒤 한 번에 그린다(임시 배율 .6 → 측정 크기 → 상단바 · 패널 폭 반영 순서로 세 번 그렸다) */}
               {pageReady && <Canvas
                 onStrokeCommitted={recordPenColorUse}
@@ -1446,6 +1470,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
                 onToast={showToast}
                 onClose={closeDrawer}
                 sheet={sheet}
+                photoLimit={photoLimit}
               />, [styles.drawerWrap, toolPopoverStyle(drawerWidth)], { onClose: closeDrawer, fixedHeight: true })
           )}
 
@@ -1586,6 +1611,8 @@ function RoundButton({ icon, label, disabled, active, onPress }) {
 }
 
 const styles = StyleSheet.create({
+  pageLoading: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 10, alignItems: 'center', justifyContent: 'center' },
+  pageLoadingText: { fontSize: 14, color: colors.textMuted },
   root: { flex: 1, backgroundColor: colors.surfaceSoft },
   // 폰 가로 편집: 양옆 막대만큼 작업창을 비켜 둔다. 읽기는 양쪽 막대를 숨긴다.
   rootBetweenRails: { paddingLeft: PHONE_TOOLBAR_RAIL, paddingRight: PHONE_TOOLBAR_RAIL },

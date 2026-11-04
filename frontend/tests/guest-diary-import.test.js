@@ -5,8 +5,9 @@ import { createCanvasApi } from '../src/collaboration/canvasApi.js'
 import { createCanvasMedia } from '../src/collaboration/canvasMedia.js'
 import { createGuestImportJournalStore } from '../src/diary/services/guestImportJournal.js'
 import { STORAGE_KEYS } from '../src/editor/utils/storageContract.js'
+import { collectMediaIds } from '../src/editor/utils/mediaReferences.js'
 import {
-  planGuestDiary, splitStroke, batchElements, createGuestDiaryImporter, listGuestImportCandidates, declineGuestImport,
+  planGuestDiary, splitStroke, batchElements, createGuestDiaryImporter, listGuestImportCandidates, dismissGuestImport, removeGuestOriginal, sweepMovedGuestDiaries,
   readGuestImportLedger, guestImportJournalKey, skippedSummary, withUploadRetry, ELEMENT_PROPERTIES_LIMIT,
 } from '../src/diary/services/guestDiaryImport.js'
 
@@ -34,7 +35,7 @@ const guestDoc = () => ({ id: 'diary-1', paperAppearance: { backgroundColor: '#F
 
 function memoryStorage(initial = {}) {
   const disk = new Map(Object.entries(initial))
-  return { disk, getItem: async k => disk.get(k) ?? null, setItem: async (k, v) => { disk.set(k, v) }, removeItem: async k => { disk.delete(k) } }
+  return { disk, getItem: async k => disk.get(k) ?? null, setItem: async (k, v) => { disk.set(k, v) }, removeItem: async k => { disk.delete(k) }, getAllKeys: async () => [...disk.keys()] }
 }
 
 // 실제 백엔드 계약(생성 키 재생 · clientOperationId 재생 · 128KiB 한도 · PATCH 로 templateConfig 교체)을 흉내 낸 서버
@@ -98,11 +99,11 @@ function fakeServer({ serverId = ids() } = {}) {
   return { transport, files, mediaRequest, diaries, pages, ops, media, calls, failNext: fn => { failOnce = fn } }
 }
 
-function importer(server, storage, { createId = ids(), isActive = () => true } = {}) {
+function importer(server, storage, { createId = ids(), isActive = () => true, removeOriginal } = {}) {
   const api = createMemberDiaryApi(server.transport)
   const canvas = createCanvasApi(server.transport)
   const mediaFor = diaryId => createCanvasMedia({ request: server.mediaRequest, files: server.files, storage, key: `dio:member:v1:${accountId}:doc:${diaryId}:media-uploads:v1:test` })
-  return createGuestDiaryImporter({ accountId, storage, api, transport: server.transport, canvas, mediaFor, createId, isActive,
+  return createGuestDiaryImporter({ accountId, storage, api, transport: server.transport, canvas, mediaFor, createId, isActive, removeOriginal,
     loadGuestDoc: async diary => JSON.parse(await storage.getItem(`${STORAGE_KEYS.doc}:${diary.id}`) ?? 'null'), now: () => '2026-11-02T01:00:00.000Z' })
 }
 const guestStorage = () => memoryStorage({ [STORAGE_KEYS.diaries]: JSON.stringify([guestDiary, { id: 'diary-2', title: '버린 것', trashedAt: '2026-10-01T00:00:00Z' }]), [`${STORAGE_KEYS.doc}:diary-1`]: JSON.stringify(guestDoc()) })
@@ -116,7 +117,9 @@ test('계획: 속지는 서버 카탈로그로, 날짜 속지는 만년형으로
   assert.deepEqual(plan.pages[2].settings, { canvasWidth: 900, canvasHeight: 700, gridVisible: true, gridColor: '#DCE5F1' })
   assert.equal(plan.create.initialPages[2].templateConfig.blank, true)
   const kinds = skippedSummary(plan.skipped).map(row => row.kind)
-  for (const kind of ['createdAt', 'cover', 'datedText', 'element', 'personalFont']) assert.ok(kinds.includes(kind), kind)
+  for (const kind of ['datedText', 'element', 'personalFont']) assert.ok(kinds.includes(kind), kind)
+  // 표지 · 만든 날짜는 빠지는 항목이 아니다(기기 값으로 잇는다)
+  for (const kind of ['createdAt', 'cover']) assert.equal(kinds.includes(kind), false, kind)
   // 요소 id 는 모두 새 UUID
   const elements = plan.pages.flatMap(p => p.batches.flatMap(b => b.creates))
   assert.ok(elements.every(e => /^00000000-/.test(e.elementId)))
@@ -141,7 +144,7 @@ test('묶음은 100개 · 크기 한도를 넘지 않게 나뉜다', () => {
   assert.deepEqual(batchElements(elements).map(b => b.length), [100, 100, 50])
 })
 
-test('가져오기: 생성 → 페이지 설정 → 업로드 후 id 교체 → 요소 전송 → 즐겨찾기, 원본은 남기고 가져옴만 기록한다', async () => {
+test('가져오기: 생성 → 페이지 설정 → 업로드 후 id 교체 → 요소 전송 → 즐겨찾기, 내용이 빠지면 원본을 지우지 않는다', async () => {
   const server = fakeServer(), storage = guestStorage()
   const before = await listGuestImportCandidates(storage, accountId)
   assert.deepEqual(before.diaries.map(d => d.id), ['diary-1'])
@@ -160,8 +163,14 @@ test('가져오기: 생성 → 페이지 설정 → 업로드 후 id 교체 → 
   assert.ok(server.media.has(first.elements[1].mediaFileId))
   assert.ok(second.elements.length > 1 && second.elements.every(e => e.elementType === 'STROKE'))
   const kinds = skipped.map(s => s.kind)
-  for (const kind of ['media', 'element', 'cover', 'datedText', 'personalFont']) assert.ok(kinds.includes(kind), kind)
+  for (const kind of ['media', 'element', 'datedText', 'personalFont']) assert.ok(kinds.includes(kind), kind)
+  assert.equal(kinds.includes('cover'), false)
   assert.equal(skipped.find(s => s.kind === 'media').count, 2)
+  assert.equal(result.imported[0].removeOriginal, false)
+  // 표지 · 방향 · 처음 만든 날짜는 옮긴 기기의 회원 값으로 남긴다
+  const meta = JSON.parse(storage.disk.get(`dio:member:v1:${accountId}:local-meta`))[diaryId]
+  assert.equal(meta.pageSize, 'landscape'); assert.equal(meta.originalCreatedAt, '2026-05-01T00:00:00.000Z')
+  assert.deepEqual(meta.cover, guestDiary.cover)
   assert.equal(progress.at(-1).done, progress.at(-1).total)
   // 이 기기에서 바로 열 수 있게 회원 문서를 서버 페이지로 채워 둔다
   const cached = JSON.parse(storage.disk.get(`dio:member:v1:${accountId}:doc:${diaryId}`))
@@ -224,11 +233,115 @@ test('로그인이 끝나면 나머지 다이어리도 보내지 않고 실패�
   assert.deepEqual(result.failed.map(f => f.guestDiaryId), ['diary-1', 'diary-3'])
 })
 
-test('가져오지 않기를 고른 계정은 기록된다', async () => {
+test('나중에로 미룬 다이어리는 그 계정에 다시 묻지 않고 입구에는 남는다', async () => {
   const storage = guestStorage()
-  await declineGuestImport(storage, accountId)
-  assert.equal((await listGuestImportCandidates(storage, accountId)).declined, true)
-  assert.equal((await listGuestImportCandidates(storage, '8')).declined, false)
+  const { diaries } = await listGuestImportCandidates(storage, accountId)
+  assert.ok(diaries.length)
+  await dismissGuestImport(storage, accountId, diaries.map(diary => diary.id))
+  const after = await listGuestImportCandidates(storage, accountId)
+  assert.deepEqual(after.unasked, [])
+  assert.deepEqual(after.diaries.map(diary => diary.id), diaries.map(diary => diary.id))
+  assert.equal((await listGuestImportCandidates(storage, '8')).unasked.length, diaries.length)
+})
+
+test('나중에를 고른 계정에는 새로 만든 다이어리도 자동으로 묻지 않는다', async () => {
+  const storage = guestStorage()
+  const { diaries } = await listGuestImportCandidates(storage, accountId)
+  await dismissGuestImport(storage, accountId, ['예전 다이어리'])
+  const after = await listGuestImportCandidates(storage, accountId)
+  assert.deepEqual(after.unasked, [])
+  assert.deepEqual(after.diaries.map(diary => diary.id), diaries.map(diary => diary.id))
+})
+
+const moveCleanup = () => {
+  const removed = []
+  return { removed, cleanup: { forgetDoc() {}, forgetView: async () => true, collectMediaIds: value => collectMediaIds(value), removeMedia: async id => { removed.push(id) } } }
+}
+
+test('다 옮긴 다이어리는 원본을 지우고, 옮긴 표지가 쓰는 사진 파일은 남긴다', async () => {
+  const storage = guestStorage()
+  const coverPhoto = { kind: 'photo', photo: { src: 'media:cover-photo', mediaFileId: 'cover-photo' } }
+  const diary = { id: 'diary-2', title: '세로 일기', color: '#F2A7A0', pageSize: 'portrait', createdAt: '2026-03-01T00:00:00.000Z', cover: coverPhoto }
+  const doc = { pages: [{ id: 'p', canvasWidth: 600, canvasHeight: 800, backgroundAssetId: null, objects: [] }], cover: coverPhoto }
+  await storage.setItem(STORAGE_KEYS.diaries, JSON.stringify([diary]))
+  await storage.setItem(`${STORAGE_KEYS.doc}:diary-2`, JSON.stringify(doc))
+  const { removed, cleanup } = moveCleanup()
+  const server = fakeServer()
+  const run = importer(server, storage, { removeOriginal: id => removeGuestOriginal(storage, id, cleanup) })
+  const result = await run.run([diary])
+  assert.equal(result.failed.length, 0)
+  assert.equal(result.imported[0].removeOriginal, true)
+  assert.deepEqual(result.imported[0].skipped, [])
+  assert.deepEqual(JSON.parse(await storage.getItem(STORAGE_KEYS.diaries)), [])
+  assert.equal(await storage.getItem(`${STORAGE_KEYS.doc}:diary-2`), null)
+  assert.deepEqual(removed, [])
+  const meta = JSON.parse(storage.disk.get(`dio:member:v1:${accountId}:local-meta`))[result.imported[0].diaryId]
+  assert.equal(meta.pageSize, 'portrait'); assert.equal(meta.cover.photo.mediaFileId, 'cover-photo')
+})
+
+test('끊긴 옮기기를 이어서 끝내도 그 사이 게스트에서 더 쓴 원본은 지우지 않는다', async () => {
+  const storage = guestStorage()
+  const diary = { id: 'diary-3', title: '이어 쓰기', color: '#F2A7A0', pageSize: 'portrait' }
+  const docKey = `${STORAGE_KEYS.doc}:diary-3`
+  const doc = { pages: [{ id: 'p', canvasWidth: 600, canvasHeight: 800, backgroundAssetId: null, objects: [] }] }
+  await storage.setItem(STORAGE_KEYS.diaries, JSON.stringify([diary]))
+  await storage.setItem(docKey, JSON.stringify(doc))
+  const server = fakeServer(), removed = []
+  const removeOriginal = async id => { removed.push(id); return true }
+  // 만든 다음 페이지 설정 전에 로그인이 끊긴 상황
+  let active = true
+  const first = importer(server, storage, { removeOriginal, isActive: () => active })
+  const realSetItem = storage.setItem
+  storage.setItem = async (key, value) => { await realSetItem(key, value); if (key.includes('guest-import') && value.includes('"diaryId":"')) active = false }
+  const cut = await first.run([diary])
+  storage.setItem = realSetItem
+  assert.equal(cut.imported.length, 0)
+  await storage.setItem(docKey, JSON.stringify({ pages: [{ ...doc.pages[0], title: '끊긴 뒤에 쓴 내용' }] }))
+  active = true
+  const resumed = await importer(server, storage, { removeOriginal }).run([diary])
+  assert.equal(resumed.failed.length, 0)
+  assert.equal(resumed.imported[0].removeOriginal, false)
+  assert.deepEqual(removed, [])
+})
+
+test('끊겼다 이어도 내용이 그대로면 원본을 지운다', async () => {
+  const storage = guestStorage()
+  const diary = { id: 'diary-3', title: '이어 쓰기', color: '#F2A7A0', pageSize: 'portrait' }
+  const doc = { pages: [{ id: 'p', canvasWidth: 600, canvasHeight: 800, backgroundAssetId: null, objects: [] }] }
+  await storage.setItem(STORAGE_KEYS.diaries, JSON.stringify([diary]))
+  await storage.setItem(`${STORAGE_KEYS.doc}:diary-3`, JSON.stringify(doc))
+  const server = fakeServer(), removed = []
+  const removeOriginal = async id => { removed.push(id); return true }
+  let active = true
+  const realSetItem = storage.setItem
+  storage.setItem = async (key, value) => { await realSetItem(key, value); if (key.includes('guest-import') && value.includes('"diaryId":"')) active = false }
+  await importer(server, storage, { removeOriginal, isActive: () => active }).run([diary])
+  storage.setItem = realSetItem
+  active = true
+  const resumed = await importer(server, storage, { removeOriginal }).run([diary])
+  assert.equal(resumed.imported[0].removeOriginal, true)
+  assert.deepEqual(removed, ['diary-3'])
+})
+
+test('지우기 전에 앱이 꺼진 원본은 다음 로그인 때 지우고, 복사만 한 예전 기록은 건드리지 않는다', async () => {
+  const storage = guestStorage()
+  await storage.setItem('dio:diary:guest-imports:v1', JSON.stringify({ imports: {
+    moved: { [accountId]: { diaryId: 's1', removeOriginal: true } },
+    copied: { [accountId]: { diaryId: 's2' } },
+    other: { 8: { diaryId: 's3', removeOriginal: true } },
+    failing: { [accountId]: { diaryId: 's4', removeOriginal: true } },
+  } }))
+  const removed = []
+  await sweepMovedGuestDiaries(storage, accountId, async id => { removed.push(id); if (id === 'failing') throw new Error('disk') })
+  assert.deepEqual(removed, ['moved', 'failing'])
+})
+
+test('예전 앱에서 가져오지 않기를 고른 계정은 자동으로 묻지 않는다', async () => {
+  const storage = guestStorage()
+  await storage.setItem('dio:diary:guest-imports:v1', JSON.stringify({ imports: {}, declined: { [accountId]: '2026-11-01T00:00:00.000Z' } }))
+  const after = await listGuestImportCandidates(storage, accountId)
+  assert.deepEqual(after.unasked, [])
+  assert.ok(after.diaries.length)
 })
 
 test('업로드가 몰려 503 이면 기다렸다 다시 보낸다', async () => {
@@ -357,8 +470,8 @@ for (const status of [400, 413, 415, 422]) {
     assert.deepEqual(await engine.pendingIds(), [])
     assert.deepEqual(await importer(server, storage).pendingIds(), [])
     assert.equal(server.diaries.size, 0)
-    await declineGuestImport(storage, accountId)
-    assert.equal((await listGuestImportCandidates(storage, accountId)).declined, true)
+    await dismissGuestImport(storage, accountId, [guestDiary.id])
+    assert.deepEqual((await listGuestImportCandidates(storage, accountId)).unasked, [])
     rejected = false
     assert.equal((await engine.run([guestDiary])).imported.length, 1)
     assert.notEqual(keys[0], keys[1])
@@ -486,5 +599,5 @@ test('손상되거나 배열이 아닌 게스트 목록은 빈 목록으로 숨�
 
 test('게스트 목록 키가 없거나 정상 빈 배열이면 오류 없이 후보 없음으로 처리한다', async () => {
   for (const data of [memoryStorage(), memoryStorage({ [STORAGE_KEYS.diaries]: '[]' })])
-    assert.deepEqual(await listGuestImportCandidates(data, accountId), { diaries: [], declined: false })
+    assert.deepEqual(await listGuestImportCandidates(data, accountId), { diaries: [], unasked: [] })
 })

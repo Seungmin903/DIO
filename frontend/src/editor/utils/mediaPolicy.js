@@ -2,6 +2,8 @@ export const MEDIA_POLICY = Object.freeze({
   maxBytes: 50 * 1024 * 1024, maxDimension: 12000, maxPixels: 64000000,
   // GIF 파일 크기는 사진과 같이 50MiB까지. 가로·세로는 내보내기(첫 장면 PNG)가 4096px 까지라 그대로 둔다.
   gifMaxBytes: 50 * 1024 * 1024, gifMaxDimension: 4096,
+  // 회원 다이어리의 사진은 서버로 올린다. GIF 는 변환하면 움직임을 잃으므로 서버 한도를 넘으면 넣기 전에 막는다.
+  sharedGifMaxBytes: 5 * 1024 * 1024,
   // 사진 표시본은 태블릿 화면(2560px)을 꽉 채워도 흐려지지 않게 긴 변 3072px. 캔버스는 이 표시본을 줄이지 않고 그대로 푼다(ObjectView).
   displayMaxDimension: { photo: 3072, sticker: 512, tape: 1400 },
 })
@@ -20,6 +22,10 @@ export function checkSize(size, format) {
   if (!Number.isSafeInteger(size) || size <= 0) throw new MediaError('INVALID_MEDIA', '비어 있거나 읽을 수 없는 파일이에요.')
   const limit = format?.extension === 'gif' ? MEDIA_POLICY.gifMaxBytes : MEDIA_POLICY.maxBytes
   if (size > limit) throw new MediaError('FILE_TOO_LARGE', format?.extension === 'gif' ? 'GIF는 한 장에 50MiB까지 가져올 수 있어요.' : '이미지는 한 장에 50MiB까지 가져올 수 있어요.')
+}
+
+export function checkSharedGifSize(size, format, limit) {
+  if (limit && format?.extension === 'gif' && size > limit) throw new MediaError('SHARED_GIF_TOO_LARGE', `로그인한 다이어리에는 GIF를 ${Math.floor(limit / (1024 * 1024))}MB까지 넣을 수 있어요.`)
 }
 
 export function checkDimensions({ width, height }, format) {

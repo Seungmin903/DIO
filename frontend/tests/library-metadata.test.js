@@ -20,7 +20,7 @@ function fixture(loadEditorDoc, createDefaultDoc = () => ({ pages: [{}] })) {
         }
       },
     },
-    '../../editor/services/editorDocs': { loadEditorDoc },
+    '../../editor/services/editorDocs': { loadEditorSummary: async diary => { const doc = await loadEditorDoc(diary); return doc ? { pageCount: doc.pages.length, updatedAt: doc.updatedAt } : null; } },
     '../../editor/state/defaultDoc': { createDefaultDoc },
   };
   new Function('require', 'module', 'exports', code)(id => mocks[id], module, module.exports);

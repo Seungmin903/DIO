@@ -1,3 +1,5 @@
+import { scanStored } from './storedScan.js';
+
 export const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function trashDeadline(diary) {
@@ -17,6 +19,9 @@ export function markTrashed(diaries, ids, trashedAt) {
   return diaries.map(diary => (targets.has(diary.id) && !diary.trashedAt ? { ...diary, trashedAt } : diary));
 }
 
+// 회원 보관함으로 옮긴 다이어리의 표지(목록 · 기기 값)와 문서도 기기의 사진 파일을 쓴다.
+const MEMBER_REFERENCE_KEY = /^dio:member:v1:\d+:(index|local-meta|doc:[^:]+)$/;
+
 export function trashStatus(diary, now = Date.now()) {
   const deadline = trashDeadline(diary);
   if (diary.purgePending || (deadline !== null && now >= deadline)) return '보관 기한 만료 · 영구 삭제 대기';
@@ -35,25 +40,34 @@ export async function purgeTrashedDiary({ id, storage, keys, getDiaries, updateD
     const marked = getDiaries().map(item => item.id === id ? { ...item, purgePending: true } : item);
     await storage.setItem(keys.diaries, JSON.stringify(marked));
     updateDiaries(current => current.map(item => item.id === id ? { ...item, purgePending: true } : item));
-    const targetRaw = await storage.getItem(targetKey);
     const allKeys = await storage.getAllKeys();
     const referenceKeys = allKeys.filter(key => (
-      (key.startsWith(`${keys.doc}:`) && key !== targetKey) || key === keys.doc || key === keys.customDecor || key === keys.myCovers || key === keys.myPapers
+      (key.startsWith(`${keys.doc}:`) && key !== targetKey) || key === keys.doc || key === keys.customDecor || key === keys.myCovers || key === keys.myPapers || MEMBER_REFERENCE_KEY.test(key)
     ));
-    const references = referenceKeys.length ? await storage.multiGet(referenceKeys) : [];
+    // 큰 문서도 한 조각씩 해석하고 id 만 남긴다.
     // 손상된 참조를 "미사용"으로 해석하지 않는다. 이 경우 미디어 파일은 보수적으로 보존한다.
-    let unshared = [], unsharedSources = [];
-    try {
-      const target = targetRaw ? JSON.parse(targetRaw) : null;
-      const parsed = references.map(([, raw]) => (raw ? JSON.parse(raw) : null));
-      // 다른 다이어리의 표지(다이어리 목록에 들어 있다)가 같은 쪽 그림을 쓸 수 있다. 지우는 다이어리 자신의 표지는 제외한다.
-      parsed.push(getDiaries().filter(item => item.id !== id));
-      const retained = new Set(parsed.flatMap(value => collectMediaIds(value)));
-      unshared = collectMediaIds(target).filter(mediaId => !retained.has(mediaId));
-      // 불러온 PDF 원본도 같은 방식으로: 다른 문서 · 나의 속지가 쓰지 않을 때만 지운다.
-      const retainedSources = new Set(parsed.flatMap(value => collectSourceIds(value)));
-      unsharedSources = collectSourceIds(target).filter(sourceId => !retainedSources.has(sourceId));
-    } catch {}
+    let unreadable = false;
+    const collectInto = (media, sources) => (_, raw) => {
+      if (!raw) return true;
+      try {
+        const value = JSON.parse(raw);
+        collectMediaIds(value).forEach(item => media.add(item));
+        collectSourceIds(value).forEach(item => sources.add(item));
+      } catch { unreadable = true; }
+      return true;
+    };
+    const targetMedia = new Set(), targetSources = new Set(), retained = new Set(), retainedSources = new Set();
+    // 대상 문서가 깨졌으면 쓰는 파일을 알 수 없다. 파일은 남기고 문서는 지워 휴지통에서 비울 수 있게 한다.
+    try { await scanStored(storage, [targetKey], collectInto(targetMedia, targetSources)); }
+    catch { unreadable = true; }
+    await scanStored(storage, referenceKeys, collectInto(retained, retainedSources));
+    // 다른 다이어리의 표지(다이어리 목록에 들어 있다)가 같은 쪽 그림을 쓸 수 있다. 지우는 다이어리 자신의 표지는 제외한다.
+    const otherDiaries = getDiaries().filter(item => item.id !== id);
+    collectMediaIds(otherDiaries).forEach(item => retained.add(item));
+    collectSourceIds(otherDiaries).forEach(item => retainedSources.add(item));
+    // 불러온 PDF 원본도 같은 방식으로: 다른 문서 · 나의 속지가 쓰지 않을 때만 지운다.
+    const unshared = unreadable ? [] : [...targetMedia].filter(mediaId => !retained.has(mediaId));
+    const unsharedSources = unreadable ? [] : [...targetSources].filter(sourceId => !retainedSources.has(sourceId));
     // 열람 기록 삭제가 실패하면 문서를 보존하여 재시도에도 미디어 참조를 읽을 수 있게 한다.
     if (await forgetView(targetKey) === false) throw new Error('열람 기록 삭제 실패');
     await storage.removeItem(targetKey);

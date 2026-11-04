@@ -1,4 +1,4 @@
-import { checkDimensions, checkSize, detectMediaType, MediaError, storageError } from './mediaPolicy.js'
+import { checkDimensions, checkSharedGifSize, checkSize, detectMediaType, MediaError, storageError } from './mediaPolicy.js'
 
 /**
  * 사진 이름(레이어 이름): 파일 이름에서 확장자를 뺀 것. 사람이 붙인 이름이 아니면 null 이다 —
@@ -24,7 +24,7 @@ export async function attachMediaPreviews(items, loadPoster) {
 }
 
 export function createMediaImporter({ readAsset, decode, createDisplay, dispose, save, remove, createId }) {
-  return async function importMany(assets, { usage = 'photo' } = {}) {
+  return async function importMany(assets, { usage = 'photo', sharedGifMaxBytes } = {}) {
     const saved = []
     try {
       // 디코딩·축소·저장을 한 장씩 처리해 여러 고해상도 디코딩 결과가 메모리에 쌓이지 않게 한다.
@@ -35,6 +35,7 @@ export function createMediaImporter({ readAsset, decode, createDisplay, dispose,
           checkSize(input.size)
           const format = detectMediaType(input.header)
           checkSize(input.size, format)
+          checkSharedGifSize(input.size, format, sharedGifMaxBytes)
           if (asset.width > 0 && asset.height > 0) checkDimensions(asset, format)
           let dimensions
           try { dimensions = await decode(input, format) } catch (error) {

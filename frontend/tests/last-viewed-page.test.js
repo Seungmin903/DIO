@@ -157,7 +157,8 @@ function editorHook({ cached = true, viewed, store, diary = { id: 'a' } }) {
     '../state/editorReducer': { createInitialState, editorReducer },
     '../services/editorDocs': {
       editorDocKey: () => key, peekEditorDoc: () => cached ? { doc } : null,
-      loadEditorDoc: async () => doc,
+      openEditorDoc: async () => ({ doc, pendingIds: [] }),
+      loadEditorPages: async () => [],
       rememberEditorDoc: (_, value) => documentSaves.push(value),
       saveEditorDoc: async () => true,
     },
@@ -168,6 +169,7 @@ function editorHook({ cached = true, viewed, store, diary = { id: 'a' } }) {
     },
     '../services/mediaStore': { hydrateMedia: async () => {} },
     '../utils/idleTask': {},
+    '../utils/pageHydrator.js': { createPageHydrator: () => ({ start() {}, stop() {}, prioritize() {} }) },
   };
   const mod = { exports: {} };
   new Function('require', 'module', 'exports', compile('../src/editor/hooks/useEditor.js'))(

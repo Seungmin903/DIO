@@ -10,8 +10,9 @@ import { appLockGraceOver, appLockScope, checkAppLockStatus, readAppLockState } 
 import { appLockRecoveryAction } from './src/diary/components/appLockRecovery';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanupPdfShareCache } from './src/editor/utils/savePdfFile';
+import documentStorage from './src/editor/services/documentStorage';
 import EditorScreen from './src/editor/screens/EditorScreen';
-import { editorDocKey, loadEditorDoc, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
+import { editorDocKey, loadEditorDoc, prefetchEditors, prepareEditor, rememberEditorDoc, saveEditorDoc } from './src/editor/services/editorDocs';
 import AuthScreen from './src/auth/AuthScreen';
 import { apiConfigurationError, authService } from './src/auth/authService';
 import ApiConfigurationErrorScreen from './src/shared/ApiConfigurationErrorScreen';
@@ -40,7 +41,7 @@ import ConnectedDiaryLibrary from './src/diary/screens/ConnectedDiaryLibrary';
 import MockLibraryApp from './src/diary/screens/MockLibraryApp';
 import { clearMockLibrary } from './src/diary/services/legacyMockCleanup';
 import { useLibraryMetadata } from './src/diary/hooks/useLibraryMetadata';
-import { parseSort, queryDiaries } from './src/diary/utils/libraryQuery';
+import { parseSort, queryDiaries, sortMovedByCreated } from './src/diary/utils/libraryQuery';
 import { savedLibraryView } from './src/diary/utils/libraryView';
 import ProfileScreen from './src/diary/screens/ProfileScreen';
 import ProfileCropHost from './src/auth/ProfileCropHost';
@@ -85,6 +86,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // (안드로이드는 네이티브 시작 화면에 로고 없이 바탕색만 둔다: plugins/withSplashWindowBackground.js).
 // 무엇이 실패해도 로고에 갇히지 않도록 SPLASH_LIMIT_MS 뒤에는 내린다.
 const SPLASH_LIMIT_MS = 8000;
+const DOCUMENT_MIGRATION_DELAY_MS = 3000;
 // 개발 빌드의 목업 화면(EXPO_PUBLIC_DIARY_SOURCE): mock = 연결 검증 보관함, mock-library = 보관함 · 알림 모의, mock-sharing = 공유 모의
 const MOCK_SCREENS = ['mock', 'mock-library', 'mock-sharing'];
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -179,10 +181,15 @@ export default function App() {
     finally { clearSession(); }
   };
   // 로그인하면 게스트 보관함(LocalDiaryApp)이 회원 보관함(MemberDiaryApp)으로 통째로 바뀐다. 누른 기능(loginRequest.action)은
-  // 사라진 게스트 화면의 것이라 실행하지 않는다. 게스트가 기기에 만든 다이어리는 회원 보관함에서 가져올지 묻고 복사한다(GuestImportHost, 기기에는 남는다).
+  // 사라진 게스트 화면의 것이라 실행하지 않는다. 게스트가 기기에 만든 다이어리는 회원 보관함에서 옮길지 묻고 옮긴다(GuestImportHost, 다 옮긴 원본은 기기에서 지운다).
   const continueFromLogin = session => { setLoginRequest(null); startSession(session).catch(() => setPreviewSession(session)); };
   // 지난 실행에서 공유하고 남은 PDF 임시 파일을 정리한다. (공유 모듈은 불러오지 않는다)
   useEffect(() => { cleanupPdfShareCache().catch(() => {}) }, []);
+  // 예전 저장소에 남은 다이어리 문서를 페이지별 파일로 옮긴다. 첫 화면과 겹치지 않게 조금 뒤에 시작한다.
+  useEffect(() => {
+    const timer = setTimeout(() => { documentStorage.migrateLegacyDocuments().catch(() => {}) }, DOCUMENT_MIGRATION_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, []);
   useHiddenNavigationBar();
   useEffect(() => { const timer = setTimeout(finishBoot, SPLASH_LIMIT_MS); return () => clearTimeout(timer); }, [finishBoot]);
   // 첫 화면(BootSplash)이 그려졌으니 네이티브 시작 화면을 내린다. 로고는 BootSplash 에서 한 번만 보인다
@@ -244,6 +251,7 @@ function DiaryApp(props) {
 
 function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, onReady, diaryState, sharing, loginOverlayOpen = false }) {
   const member = diaryState.source === 'member-api';
+  const [guestImport, setGuestImport] = useState(null);
   const invitationLeaveGuard = useRef(null);
   const registerInvitationLeaveGuard = useCallback(guard => { invitationLeaveGuard.current = guard; return () => { if (invitationLeaveGuard.current === guard) invitationLeaveGuard.current = null; }; }, []);
   const profileLeaveGuard = useRef(null);
@@ -701,10 +709,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   const fullLoadPending = Boolean(sortReversed && memberLibraryMatches && diaryState.library.hasNext);
   const libraryDiaries = useMemo(() => {
     if (!member) return visibleDiaries;
-    const items = memberLibraryMatches ? diaryState.library.items : [];
+    const received = memberLibraryMatches ? diaryState.library.items : [];
+    const items = parseSort(librarySort).key === 'created' ? sortMovedByCreated(received) : received;
     if (!sortReversed) return items;
     return fullLoadPending ? [] : [...items].reverse();
-  }, [member, memberLibraryMatches, diaryState.library?.items, sortReversed, fullLoadPending, visibleDiaries]);
+  }, [member, memberLibraryMatches, diaryState.library?.items, librarySort, sortReversed, fullLoadPending, visibleDiaries]);
   const libraryReady = diaryState.library?.ready, libraryBusy = diaryState.library?.loading, libraryFailed = diaryState.library?.error, libraryCursor = diaryState.library?.nextCursor;
   useEffect(() => {
     // 한 페이지씩 이어서 불러온다. 오류가 나면 멈추고, 화면의 다시 시도 버튼이 재개한다.
@@ -763,12 +772,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   useEffect(() => {
     if (!loaded || page !== 'library') return undefined;
     let cancelled = false;
-    const timer = setTimeout(async () => {
-      for (const diary of prefetchRef.current) {
-        if (cancelled) return;
-        await prepareEditor(diary, { media: false });
-      }
-    }, PREFETCH_DELAY_MS);
+    const timer = setTimeout(() => { prefetchEditors(prefetchRef.current, { isCancelled: () => cancelled }).catch(() => {}); }, PREFETCH_DELAY_MS);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [loaded, page, prefetchKey]);
 
@@ -776,6 +780,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     <LibraryScreen
       compact={isPhone}
       portrait={tabletPortrait}
+      guestImport={guestImport}
       diaries={libraryDiaries}
       metadata={libraryMetadata}
       sort={librarySort}
@@ -822,7 +827,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         }} /></> : null}
       suppressEmpty={member && Boolean(fullLoadPending || !memberLibraryMatches || diaryState.library.loading || diaryState.library.error || diaryState.error || diaryState.refreshing)}
     />
-  ), [carousel, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
+  ), [guestImport, carousel, changeCarousel, changeFilter, changeView, changeLibrarySort, create, edit, favorite, filter, isPhone, tabletPortrait,libraryMetadata, librarySort, moveDiaryToTrash, moveSelectedToTrash, open, selection, trashing, view, libraryDiaries, member, memberLibraryMatches, remoteQuery, diaryState.library, diaryState.bulkTrash, diaryState.pending, diaryState.error, diaryState.refreshing, diaryState.lifecycle, diaryState.trashLoading, diaryState.trashError, diaryState.store, saving, enterEditor]);
 
   // 보관함(libraryScreen)처럼 요소를 memo 해 둔다. 사이드 메뉴를 여닫느라 App 이 다시 그려져도 휴지통 목록은 다시 그리지 않는다.
   const trashScreen = useMemo(() => (
@@ -1058,7 +1063,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       {appLocked === null && <View style={[StyleSheet.absoluteFill, { zIndex: 100, backgroundColor: C.white }]} />}
       {appLocked && <PinScreen mode="unlock" user={previewUser} getProfilePhotoSource={previewUser.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
         check={value => checkAppLockStatus(lockScope, value)} onDone={() => setAppLocked(false)} onForgot={forgotAppLock} />}
-      {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} />}
+      {member && signedIn && <GuestImportHost key={`${previewUser.userId}:${authService.getSessionKey()}`} accountId={String(previewUser.userId)} enabled={appLocked === false} onImported={() => diaryState.store.reload().catch(() => {})} onEntry={setGuestImport} />}
       <DialogHost />
     </>
   );

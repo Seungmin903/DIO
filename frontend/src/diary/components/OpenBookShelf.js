@@ -9,11 +9,11 @@ import { PAGE_COUNT_ROW } from './DiaryCard';
 import DiaryActionBubble from './DiaryActionBubble';
 import StaticPage from '../../editor/components/canvas/StaticPage';
 import { pageSize } from '../../editor/utils/pageGeometry.js';
-import { editorDocKey, loadEditorDoc, peekEditorDoc, prefetchPageTemplate } from '../../editor/services/editorDocs';
+import { editorDocKey, loadEditorSpread, peekEditorSpread, prefetchPageTemplate } from '../../editor/services/editorDocs';
 import { createDefaultDoc } from '../../editor/state/defaultDoc';
 import { normalizeOrientation } from '../../editor/templates/catalog.js';
 import { bandAutoColor, coverTone, mix, normalizeCover, relativeLuminance } from '../utils/coverDesign';
-import { spreadOf } from '../utils/bookSpread';
+import { spreadAt, spreadOf } from '../utils/bookSpread';
 
 // '펼쳐서' 보기: 책상 가운데 '펼침 자리'에 한 권만 실제 하드커버처럼 펼쳐 두고, 양옆에는 나머지 다이어리가 닫힌 채 순서대로 놓인다.
 // - 움직이는 연출은 없다. 끄는 동안에도 그대로 있다가 놓으면(또는 좌우 화살표 · 옆 책을 누르면) 바로 옆 다이어리가 펼친 모습으로 바뀐다
@@ -83,20 +83,28 @@ function spreadFrom(diary, saved) {
   if (saved && spreads.has(saved)) return spreads.get(saved);
   if (!saved && fallbacks.has(diary)) return fallbacks.get(diary);
   const doc = saved ?? (diary.source === 'member-api' ? null : createDefaultDoc(diary));
-  const value = { pages: doc?.pages ?? [], spread: spreadOf(doc?.pages) };
+  const spread = spreadOf(doc?.pages);
+  const value = { latestPage: spread ? doc.pages[spread.latest - 1] : null, spread };
   if (saved) spreads.set(saved, value); else fallbacks.set(diary, value);
   return value;
 }
+// 일부 쪽만 읽어 온 재료 → 펼침면. { doc } 이면 문서 전체로 계산한다.
+const partials = new WeakMap();
+function spreadFromSource(diary, source) {
+  if (!source.pageAt) return spreadFrom(diary, source.doc);
+  if (!partials.has(source)) partials.set(source, { latestPage: source.pageAt(source.latest), spread: spreadAt(source.pageAt, source.latest, source.total) });
+  return partials.get(source);
+}
 /** 메모리에 이미 읽어 둔 문서가 있으면 기다리지 않고 바로 펼침면을, 아직이면 undefined */
 function peekSpread(diary) {
-  const peek = diary ? peekEditorDoc(editorDocKey(diary)) : null;
-  return peek ? spreadFrom(diary, peek.doc) : undefined;
+  const peek = diary ? peekEditorSpread(editorDocKey(diary)) : null;
+  return peek ? spreadFromSource(diary, peek) : undefined;
 }
 /** 펼침면에 보이는 쪽들의 속지 그림을 미리 해석해 둔다(그릴 때 기다리지 않게) */
 function prefetchSpread(value) {
-  const { spread, pages } = value ?? {};
+  const { spread, latestPage } = value ?? {};
   if (!spread) return;
-  [spread.left, spread.right, pages[spread.latest - 1]].forEach(page => { if (page && typeof page === 'object') prefetchPageTemplate(page); });
+  [spread.left, spread.right, latestPage].forEach(page => { if (page && typeof page === 'object') prefetchPageTemplate(page); });
 }
 /**
  * 옆 다이어리(앞뒤 한 권씩 포함)의 문서와 속지를 미리 읽어 둔다. 다른 보기(스와이프 · 한눈에)에서도 불러
@@ -105,7 +113,7 @@ function prefetchSpread(value) {
 export function preloadOpenBooks(diaries, index) {
   [index - 1, index, index + 1].forEach(at => {
     const diary = diaries?.[at];
-    if (diary) loadEditorDoc(diary).then(saved => prefetchSpread(spreadFrom(diary, saved))).catch(() => {});
+    if (diary) loadEditorSpread(diary).then(source => prefetchSpread(spreadFromSource(diary, source))).catch(() => {});
   });
 }
 
@@ -117,8 +125,8 @@ function useSpread(diary) {
   useEffect(() => {
     if (!diary || ready) return undefined;
     let alive = true;
-    loadEditorDoc(diary)
-      .then(saved => { if (alive) setState({ id: diary.id, value: spreadFrom(diary, saved) }); })
+    loadEditorSpread(diary)
+      .then(source => { if (alive) setState({ id: diary.id, value: spreadFromSource(diary, source) }); })
       .catch(() => { if (alive) setState({ id: diary.id, value: null }); });
     return () => { alive = false; };
   }, [diary, ready]);
@@ -158,7 +166,7 @@ function OpenBook({ diary, size, left: placed, top, shown, compact, peek = null,
   const captionInk = C.ink;
   const headband = mix(cover.enabled ? (cover.band.color !== 'auto' ? cover.band.color : bandAutoColor(cover)) : '#7D88B5', '#8A8FA8', 0.35); // 고무줄 색을 한 단계 탁하게
   const spine = { width: 24, groove: 1.5, band: 18, bandOut: 4 }; // 책등 띠 폭 · 홈 굵기 · 머리띠 폭 · 종이 밖으로 보이는 머리띠 높이
-  const page = side => (!spread ? null : compact ? loaded.pages[spread.latest - 1] : spread[side]);
+  const page = side => (!spread ? null : compact ? loaded.latestPage : spread[side]);
   // 세로로 세운 태블릿(peek = 화면 가운데 x): 양면을 그대로 펼치되 가장 최근 쪽을 화면 가운데에 두고, 마주 보는 쪽은 화면 끝에 잘려 살짝 보인다.
   // 좌철이라 홀수 쪽은 오른쪽 면, 짝수 쪽은 왼쪽 면. 캡션은 화면 가운데에 둔다.
   const left = peek == null ? placed : Math.round(peek - (spread && spread.latest % 2 === 0 ? half / 2 : half * 1.5));
