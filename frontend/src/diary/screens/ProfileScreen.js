@@ -10,7 +10,7 @@ import AppLockSetting from '../components/AppLockSetting';
 import EditSetting from '../components/EditSetting';
 import PinScreen from '../components/PinScreen';
 import EditorModal from '../../editor/components/controls/EditorModal';
-import { appLockScope, checkAppLock, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
+import { appLockScope, appLockSupported, checkAppLock, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
 import { colors } from '../../shared/theme';
 import { notify } from '../../shared/dialogs';
 import DioButton from '../../shared/DioButton';
@@ -151,7 +151,7 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
         {settingsPage ? <>
           <SettingCard compact={compact}>
             <NotificationSetting compact={compact}>{serverNotifications}</NotificationSetting>
-            <AppLockSetting compact={compact} locked={locked} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />
+            {appLockSupported && <AppLockSetting compact={compact} locked={locked} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />}
             <EditSetting compact={compact} />
             <AppInformation />
           </SettingCard>
