@@ -1,6 +1,7 @@
 import EditorModal from './controls/EditorModal'
 import { useState } from 'react'
-import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { SettingSwitch } from '../../diary/components/SettingRow'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { colors, shadow } from '../../shared/theme'
 import { PANEL_RADIUS } from './ToolPanel'
@@ -23,7 +24,7 @@ export default function TextLinkDialog({ initialValue = '', onSave, onCancel, ba
                 {badge && (
                   <View style={styles.badgeToggle}>
                     <Text style={styles.badgeLabel}>배지</Text>
-                    <Switch accessibilityLabel="링크 배지 표시" value={badge.value} onValueChange={badge.onChange} trackColor={{ false: colors.secondary, true: colors.primaryStrong }} thumbColor={colors.surface} activeThumbColor={colors.surface} />
+                    <SettingSwitch label="링크 배지 표시" on={badge.value} onToggle={badge.onChange} />
                   </View>
                 )}
               </View>

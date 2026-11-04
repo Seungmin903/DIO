@@ -17,11 +17,10 @@ export const styles = StyleSheet.create({
   appFill: { flex: 1, alignSelf: 'stretch' },
   // 폰은 본문 아래에 하단 네비게이션 바를 고정 레이아웃으로 쌓는다.
   phoneShell: { flex: 1 },
-  phoneNavigationHeader: { height: 44, paddingHorizontal: 12, alignItems: 'flex-end', justifyContent: 'center', backgroundColor: C.canvas },
-  tabBarWrap: { flexShrink: 0, paddingHorizontal: 12, paddingTop: 6, backgroundColor: C.canvas },
-  tabBar: { height: 64, flexDirection: 'row', paddingHorizontal: 4, overflow: 'visible', borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
+  tabBarWrap: { flexShrink: 0, backgroundColor: C.white, borderTopWidth: 1, borderTopColor: colors.cardBorder },
+  tabBar: { height: 64, flexDirection: 'row', overflow: 'visible', backgroundColor: C.white },
   tabItem: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  tabIconPill: { width: '84%', minWidth: 40, maxWidth: 48, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
+  tabIconPill: { width: 56, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
   tabIconPillSelected: { backgroundColor: colors.primarySoft },
   tabLabel: { color: C.muted, fontSize: 11, lineHeight: 14, fontWeight: '600' },
   tabLabelSelected: { color: C.ink, fontWeight: '800' },
@@ -95,10 +94,11 @@ export const styles = StyleSheet.create({
   libraryGridScrollFabCompact: { paddingBottom: 16 + 44 + 16 },
   libraryScreenCarouselCompact: { flexGrow: 1, paddingBottom: 8 },
   libraryHeader: { minHeight: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  // 제목이 짧으면 보기 전환과 한 줄, 길면 보기 전환이 다음 줄 오른쪽으로 내려간다.
-  // 좌측 바를 뺀 폭이 좁아(360에서 272) 제목이 길면(`공유된 다이어리`) 보기 전환 3칸이 다음 줄 오른쪽으로 내려간다
-  libraryHeaderCompact: { minHeight: 44, flexWrap: 'wrap', columnGap: 8, rowGap: 4 },
-  libraryTitleCompact: { fontSize: 24, letterSpacing: -0.5 },
+  // 폰: 제목 길이(`내 다이어리` · `공유된 다이어리`)와 상관없이 보기 전환 · 알림은 늘 같은 자리(오른쪽 한 줄)다.
+  // 줄바꿈 대신 제목이 줄어든다(한 줄 · 글자 크기 최소 0.75배, 2026-11-05 사용자 지적: 탭마다 버튼 자리가 달라지면 안 된다)
+  libraryHeaderCompact: { minHeight: 44, columnGap: 8 },
+  headerTitleRowCompact: { flexShrink: 1, minWidth: 0 },
+  libraryTitleCompact: { fontSize: 24, letterSpacing: -0.5, flexShrink: 1 },
   libraryViewSwitchCompact: { width: 132, height: 36, marginLeft: 'auto' },
   libraryTitle: { color: C.ink, fontSize: 28, letterSpacing: -0.6, fontWeight: '800' },
   // 보기 전환: 아이콘 셋을 132×36 흰 판 하나(모서리 10)에 묶는다. 고른 칸만 라벤더 면 + primaryText 아이콘, 나머지는 면 · 테두리 없음(원 페이저 03)
@@ -163,9 +163,11 @@ export const styles = StyleSheet.create({
   header: { minHeight: 45, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
   headerTitle: { color: C.ink, fontSize: 28, fontWeight: '800', letterSpacing: -0.6 },
   headerCompact: { minHeight: 44, alignItems: 'center', marginBottom: 16 },
-  headerTitleCompact: { fontSize: 24, letterSpacing: -0.5 },
+  headerTitleCompact: { fontSize: 24, letterSpacing: -0.5, flexShrink: 1 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerRight: { alignItems: 'flex-end' },
+  headerRightCompact: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 },
+  libraryHeadToolsCompact: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto', flexShrink: 0 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: C.white, borderWidth: 1, borderColor: colors.cardBorder }, // 칩 규칙: 흰 면 + #D9DCEF 테두리
   iconButtonPhone: { width: 40, height: 40, borderRadius: 10 }, // 폰 도구줄의 검색 · 더보기(보이는 40 + hitSlop 으로 터치 44)

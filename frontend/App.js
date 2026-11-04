@@ -37,6 +37,7 @@ import { withPdfPages } from './src/diary/utils/pdfImport';
 import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
+import { PhoneBellProvider } from './src/diary/components/PhoneBell';
 import { createProfileSettingsNavigation } from './src/diary/components/profileNavigationModel';
 import SharingEntry from './src/sharing/SharingEntry';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
@@ -1052,13 +1053,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
           collapsed={railCollapsed}          onToggle={() => setRailCollapsed((current) => !current)}
         />}
-        {isPhone ? <View style={[s.phoneNavigationHeader, { backgroundColor: phoneSurface }]}>
-          <SharingEntry notifications notificationCount={authenticatedNotifications?.count}
-            notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} compact
-            count={unreadInvites} onPress={openInvitations} />
-        </View> : null}
         <View style={[s.workspace, !isPhone && { paddingBottom: insets.bottom }, desk && { backgroundColor: DESK_COLOR }]}>
-          {content}
+          <PhoneBellProvider value={isPhone ? <SharingEntry notifications notificationCount={authenticatedNotifications?.count}
+            notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} compact
+            count={unreadInvites} onPress={openInvitations} /> : null}>
+            {content}
+          </PhoneBellProvider>
           {createModal}
         </View>
         {isPhone ? <BottomTabs
@@ -1066,7 +1066,6 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           filter={filter}
           navigate={navigate}
           bottomInset={insets.bottom}
-          backgroundColor={phoneSurface}
         /> : null}
       </View>
     );

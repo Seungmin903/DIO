@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
-import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { SettingSwitch } from './SettingRow'
 import ColorPicker from '../../editor/components/controls/ColorPicker'
 import { useColorWindow } from './PresetColorEditor'
 import Icon from '../../editor/components/controls/Icon'
@@ -23,8 +24,7 @@ export function OptionRow({ label, children }) {
 }
 
 export function Toggle({ value, onChange, label, disabled = false }) {
-  return <Switch accessibilityLabel={label} value={value} disabled={disabled} onValueChange={onChange}
-    trackColor={{ false: colors.border, true: colors.primary }} thumbColor="#FFFFFF" activeThumbColor="#FFFFFF" ios_backgroundColor={colors.border} />
+  return <SettingSwitch label={label} on={value} disabled={disabled} onToggle={onChange} />
 }
 
 /** − [직접 입력] + 단위. 입력 중에는 글자를 그대로 두고, 칸을 떠나면 범위 안의 정수로 맞춘다. */
@@ -143,9 +143,9 @@ export function ColorRow({ value, onChange, swatches, label, active = true, cust
     <SwatchGrid label={label}>
       {lead}
       {swatches.map(([name, color]) => <Swatch key={color} label={`${label} ${name}`} color={color} on={active && color.toUpperCase() === value.toUpperCase()} onPress={() => { onChange(color); setPicking(false) }} />)}
-      {after}
       {custom && <CustomSwatch cellRef={customRef} label={`${label} 직접 고르기`} on={active && !listed} open={picking} color={active && !listed ? value : null} onPress={openCustom} />}
     </SwatchGrid>
+    {after && <SwatchGrid label={`${label} 다른 견본`}>{after}</SwatchGrid>}
     {colorWindow.element}
   </View>
 }
