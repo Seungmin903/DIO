@@ -140,7 +140,7 @@ export function createDocumentStorage({ storage, files }) {
     loadOutline: (key) => store.readOutline(key),
     loadObjects: (key, ids) => store.readObjects(key, ids),
     /**
-     * 앱을 켤 때 한 번. 옛 행을 파일로 옮기고 다시 읽어 확인한다. 옛 행은 다음 실행에서 지운다.
+     * 앱을 켤 때 한 번. 옛 행을 파일로 옮기고 다시 읽어 확인한다. 옛 행은 다음 실행에서 파일을 다시 읽어 본 뒤 지운다.
      * 읽지 못하는 행(약 4MB 초과)은 그대로 둔다.
      */
     async migrateLegacyDocuments() {
@@ -149,6 +149,8 @@ export function createDocumentStorage({ storage, files }) {
       for (const key of keys) {
         await store.exclusive(key, async () => {
           if (await store.readManifest(key)) {
+            // 옛 행은 마지막 사본이다. 파일 쪽을 끝까지 읽을 수 있을 때만 지운다. 읽기에 실패하면 행을 남긴다.
+            await store.readInQueue(key)
             await storage.removeItem(key)
             result.removed += 1
             return

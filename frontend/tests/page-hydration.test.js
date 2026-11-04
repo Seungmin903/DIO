@@ -4,6 +4,7 @@ import { createInitialState, editorReducer } from '../src/editor/state/editorRed
 import { createPageHydrator } from '../src/editor/utils/pageHydrator.js'
 import { createDocumentStore } from '../src/editor/services/documentStore.js'
 import { readFileSync } from 'node:fs'
+import { migrateUntouchedAnnualDoc } from '../src/editor/state/defaultDoc.js'
 
 const loaded = (id, objects = [{ id: `${id}-o`, type: 'sticker', x: 0, y: 0 }]) => ({ id, canvasWidth: 100, canvasHeight: 100, objects })
 const hollow = (id) => ({ id, canvasWidth: 100, canvasHeight: 100, objects: [], unloaded: true })
@@ -289,4 +290,35 @@ test('읽는 중 초기화는 안내만 하고 성공 안내를 띄우지 않는
   const handler = screen.match(/const resetDiary = \(\) => \{([\s\S]*?)\r?\n  \}/)?.[1] ?? ''
   assert.ok(handler.indexOf('state.pagesLoading') >= 0 && handler.indexOf('state.pagesLoading') < handler.indexOf("dispatch({type:'resetDiary'})"))
   assert.equal(screen.match(/dispatch\(\{ ?type: ?'resetDiary' ?\}\)/g).length, 1, '초기화는 이 입구 하나로만 보낸다')
+})
+
+test('지금 페이지가 이미 읽혀 있어도 그 근처부터 읽는다', async () => {
+  const allIds = Array.from({ length: 60 }, (_, index) => `p${index}`)
+  const ids = allIds.filter((id) => !['p39', 'p40', 'p41'].includes(id))
+  const { reads, finished } = await runHydrator({ ids, allIds, currentId: () => 'p40' })
+  assert.equal(finished, true)
+  assert.deepEqual(reads[0].slice(0, 3), ['p42', 'p43', 'p38'])
+  assert.equal(new Set(reads.flat()).size, ids.length)
+})
+
+test('마지막 페이지를 보고 있으면 그 앞쪽부터 읽는다', async () => {
+  const allIds = Array.from({ length: 30 }, (_, index) => `p${index}`)
+  const { reads } = await runHydrator({ ids: allIds.slice(0, 28), allIds, currentId: () => 'p29' })
+  assert.deepEqual(reads[0].slice(0, 2), ['p27', 'p26'])
+})
+
+test('지금 페이지를 문서에서 찾지 못하면 앞에서부터 읽는다', async () => {
+  const ids = ['p0', 'p1', 'p2']
+  const { reads, finished } = await runHydrator({ ids, allIds: ids, currentId: () => 'gone' })
+  assert.equal(finished, true)
+  assert.equal(reads[0][0], 'p0')
+})
+
+test('속지 교체는 아직 읽지 않은 페이지의 표시와 내용을 건드리지 않는다', () => {
+  const { unloaded, objects, id } = hollow('b')
+  const page = { id, unloaded, objects, canvasWidth: 100, canvasHeight: 100, backgroundAssetId: '2026-reusable-daily-portrait' }
+  const doc = { id: 'd', title: 't', pages: [page, hollow('c')] }
+  const migrated = migrateUntouchedAnnualDoc(doc)
+  assert.equal(migrated.pages.length, 2)
+  assert.deepEqual(migrated.pages.map((item) => [item.id, item.unloaded, item.objects]), [['b', true, objects], ['c', true, migrated.pages[1].objects]])
 })

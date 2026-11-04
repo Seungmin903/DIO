@@ -96,6 +96,7 @@ export function useEditor(diary) {
       viewedPage.current = saved.pages.some((page) => page.id === pageId) ? pageId : saved.pages[0].id
       hydrator.current = createPageHydrator({
         ids: pendingIds,
+        allIds: saved.pages.map((page) => page.id),
         read: (ids) => loadEditorPages(diaryRef.current, ids),
         currentId: () => viewedPage.current,
         onPages: (items, done) => {

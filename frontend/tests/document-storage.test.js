@@ -291,3 +291,16 @@ test('파일로 옮긴 두 문서가 같은 사진 · PDF 를 쓰면 한쪽을 �
   assert.equal(await wrapped.getItem(`${docKey}:a`), null)
   assert.ok(await wrapped.getItem(`${docKey}:b`))
 })
+
+test('옮긴 파일을 끝까지 읽지 못하면 다음 실행에도 옛 행을 지우지 않는다', async () => {
+  const raw = JSON.stringify(makeDoc())
+  const storage = memoryStorage({ [KEY]: raw }), files = memoryFiles()
+  await createDocumentStorage({ storage, files }).migrateLegacyDocuments()
+  const [dir] = [...files.dirs.values()]
+  const pageFile = [...dir.keys()].find((name) => name !== 'manifest.json')
+  assert.ok(pageFile)
+  dir.delete(pageFile)
+  const second = await createDocumentStorage({ storage, files }).migrateLegacyDocuments()
+  assert.deepEqual(second, { migrated: 0, removed: 0, failed: 1 })
+  assert.equal(storage.rows.get(KEY), raw)
+})

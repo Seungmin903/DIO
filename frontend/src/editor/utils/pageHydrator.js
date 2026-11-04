@@ -9,19 +9,30 @@ const RETRY_DELAY_MS = 300
 
 /**
  * ids: 읽을 페이지 id (문서 순서)
+ * allIds: 문서의 모든 페이지 id. 지금 페이지가 이미 읽혀 ids 에 없어도 그 근처부터 읽기 위해 쓴다
  * read(ids): [{ id, objects }] 를 돌려준다
  * onPages(items, done): 읽은 내용을 상태에 합친다. done 이면 모두 읽은 것이다
  * onError(error): 읽기 실패. 더 읽지 않는다
  * currentId(): 지금 보고 있는 페이지 id
  */
-export function createPageHydrator({ ids, read, onPages, onError, currentId, resumeDelayMs = RESUME_DELAY_MS, wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }) {
+export function createPageHydrator({ ids, allIds = ids, read, onPages, onError, currentId, resumeDelayMs = RESUME_DELAY_MS, wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }) {
   const order = new Map(ids.map((id, index) => [id, index]))
   const remaining = new Set(ids)
   const flushSize = Math.max(BATCH_PAGES, Math.ceil(ids.length * FLUSH_SHARE))
   let buffer = [], stopped = false, running = false, wake = null, paused = false, resumeTimer = null, wakePause = null
 
+  const documentOrder = new Map(allIds.map((id, index) => [id, index]))
+  // 지금 페이지가 이미 읽혔으면 문서에서 그 바로 뒤의 안 읽은 페이지를 기준으로 삼는다.
+  const centerOf = (id) => {
+    if (order.has(id)) return order.get(id)
+    const at = documentOrder.get(id)
+    if (at === undefined) return 0
+    const next = ids.findIndex((other) => (documentOrder.get(other) ?? -1) > at)
+    return next === -1 ? ids.length - 1 : next
+  }
+
   const nearest = () => {
-    const center = order.get(currentId()) ?? 0
+    const center = centerOf(currentId())
     const picked = []
     if (remaining.has(ids[center])) picked.push(ids[center])
     for (let distance = 1; picked.length < BATCH_PAGES && distance < ids.length; distance += 1) {
