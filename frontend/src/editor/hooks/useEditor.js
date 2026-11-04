@@ -62,7 +62,7 @@ export function useEditor(diary) {
     if (!target || saving.current) return
     pendingSave.current = null
     saving.current = true
-    saveEditorDoc(target.key, target.doc).then((ok) => {
+    saveEditorDoc(target.key, target.doc).catch(() => false).then((ok) => {
       if (target.key === currentKey.current) setLastSave({ doc: target.source ?? target.doc, ok })
     }).finally(() => {
       saving.current = false
@@ -132,7 +132,7 @@ export function useEditor(diary) {
   }, [flushSave])
 
   let saveStatus = 'saved'
-  if (!writable && edited) saveStatus = 'load-error'
+  if (!writable) saveStatus = 'load-error'
   else if (lastSave.doc === state.doc) saveStatus = lastSave.ok ? 'saved' : 'error'
   else if (edited) saveStatus = 'saving'
 

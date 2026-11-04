@@ -5,6 +5,7 @@ import { localTemplateReference } from '../../editor/templates/serverCatalog.js'
 import { createDefaultDoc } from '../../editor/state/defaultDoc.js'
 import { pdfDocPage } from '../utils/pdfImport.js'
 import { normalizeMemberLibraryQuery } from './memberLibraryQuery.js'
+import { readStoredDocument } from '../../editor/services/readStoredDocument.js'
 
 const clone = value => JSON.parse(JSON.stringify(value))
 const failure = (code, message) => Object.assign(new Error(message), { code })
@@ -75,7 +76,7 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
         received = true; active()
         const { diary, doc } = createDocument(result, pending.input)
         if (pending.input.importedPages?.length) { await api.setPageSizes(doc.pages.map(page => ({ pageId: page.id, canvasWidth: page.canvasWidth, canvasHeight: page.canvasHeight }))); active() }
-        const saved = await read(keys.doc(result.id), null)
+        const saved = await readStoredDocument(storage, keys.doc(result.id))
         active()
         if (saved && (saved.id !== result.id || saved.memberAccountId !== accountId || !saved.pages?.length)) throw failure('INVALID_MEMBER_DOCUMENT', '기존 회원 문서를 확인하지 못했어요. 덮어쓰지 않았어요.')
         // 응답 유실/목록 저장 실패 후 재시도에서도 이미 필기한 문서를 덮어쓰지 않는다.
@@ -337,13 +338,13 @@ export function createMemberAppStore({ accountId, api, storage, makeRequestId, s
     },
     async open(id) {
       const diary = await this.refresh(id)
-      let doc = await read(keys.doc(id), null);active()
+      let doc = await readStoredDocument(storage, keys.doc(id));active()
       if (!doc && typeof api.loadPages === 'function') {
         const pages = await api.loadPages(id);active()
         if (!Array.isArray(pages) || !pages.length) throw failure('MISSING_MEMBER_DOCUMENT', '서버의 편집 페이지를 찾지 못했어요.')
         const candidate = {...createDefaultDoc({...diary,pageSize:pages[0].canvasWidth>=pages[0].canvasHeight?'landscape':'portrait'}),memberAccountId:accountId,pages}
         doc = await enqueue(async()=>{
-          active();const existing=await read(keys.doc(id),null);active()
+          active();const existing=await readStoredDocument(storage,keys.doc(id));active()
           if(existing)return existing
           await write(keys.doc(id),candidate);active();return candidate
         })

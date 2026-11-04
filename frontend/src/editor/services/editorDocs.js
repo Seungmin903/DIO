@@ -9,6 +9,7 @@ import { hydrateMedia } from './mediaStore'
 import { saveJSON, STORAGE_KEYS } from './storage'
 import { isSessionDocumentKey, readSessionDocument, writeSessionDocument, forgetSessionDocument } from './sessionDocuments.js'
 import { loadViewedPage } from './editorViewState'
+import { readStoredDocument } from './readStoredDocument.js'
 
 // 홈에서 미리 읽는 다이어리 수(8)와 최근에 연 문서를 담을 만큼만 메모리에 둔다.
 const DOC_CACHE_LIMIT = 12
@@ -56,16 +57,14 @@ export function saveEditorDoc(key, doc) {
 /**
  * 저장된 문서를 읽는다. 비어 있는 연간 문서도 페이지 구성 그대로 보존한다.
  * 저장소 읽기 자체가 실패하면 "문서 없음"으로 착각해 덮어쓰지 않도록 reject하고 기억하지 않는다.
- * (JSON이 손상된 경우는 이전처럼 문서 없음으로 본다)
+ * 손상된 값은 원본을 유지하고 별도 백업을 시도한 뒤 오류로 돌려준다.
  */
 export function loadEditorDoc(diary) {
   const key = editorDocKey(diary)
   if (isSessionDocumentKey(key)) return Promise.resolve(readSessionDocument(key))
   if (docs.has(key)) return Promise.resolve(docs.get(key))
   if (pending.has(key)) return pending.get(key)
-  const request = AsyncStorage.getItem(key).then((raw) => {
-    let saved = null
-    try { saved = raw ? JSON.parse(raw) : null } catch { saved = null }
+  const request = readStoredDocument(AsyncStorage, key).then((saved) => {
     const migrated = migrateUntouchedAnnualDoc(saved, diary)
     if (migrated !== saved) saveJSON(key, migrated)
     // 읽는 사이에 편집기가 더 새로운 문서를 기억했다면 그것을 유지한다.
