@@ -30,6 +30,28 @@ class ModerationMigrationPostgresTests {
    assertThatThrownBy(()->jdbc.update("insert into user_reports(reporter_user_id,reported_user_id,diary_id,client_request_id,request_hash,reason_code) values(101,102,?,?,?,'HARASSMENT')",diary,key,"a".repeat(64))).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
    assertThatThrownBy(()->jdbc.update("insert into user_blocks(blocker_user_id,blocked_user_id) values(101,101)")).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
    jdbc.update("insert into user_blocks(blocker_user_id,blocked_user_id) values(101,102),(102,101)");assertThat(jdbc.queryForObject("select count(*) from user_blocks",Integer.class)).isEqualTo(2);
+   verifyReportQuotaQueriesOnPostgres(source,jdbc,diary);
   }finally{source.setConnectionProperties(new Properties());admin.execute("drop schema if exists "+schema+" cascade");}
+ }
+ private void verifyReportQuotaQueriesOnPostgres(javax.sql.DataSource source,JdbcTemplate jdbc,UUID diary){
+  var configuration=new org.hibernate.cfg.Configuration()
+   .addAnnotatedClass(com.f106.DIO.moderation.domain.UserReport.class)
+   .setProperty("hibernate.physical_naming_strategy","org.hibernate.boot.model.naming.PhysicalNamingStrategySnakeCaseImpl");
+  configuration.getProperties().put("hibernate.connection.datasource",source);
+  try(var factory=configuration.buildSessionFactory();var session=factory.openSession()){
+   var repository=new org.springframework.data.jpa.repository.support.JpaRepositoryFactory(session)
+    .getRepository(com.f106.DIO.moderation.repository.UserReportRepository.class);
+   var limits=new com.f106.DIO.moderation.service.ReportSubmissionLimits(repository);
+   limits.checkAccepted(101,102,java.time.Instant.now());
+   for(int i=0;i<2;i++)jdbc.update("insert into user_reports(reporter_user_id,reported_user_id,diary_id,client_request_id,request_hash,reason_code) values(101,102,?,?,?,'HARASSMENT')",diary,UUID.randomUUID(),"b".repeat(64));
+   assertThatThrownBy(()->limits.checkAccepted(101,102,java.time.Instant.now()))
+    .isInstanceOfSatisfying(com.f106.DIO.moderation.exception.ModerationException.class,e->{
+     assertThat(e.code).isEqualTo("REPORT_RATE_LIMITED");assertThat(e.retryAfter).isBetween(1L,86400L);
+    });
+   // Other targets do not share the target quota; expired rows no longer consume any quota.
+   limits.checkAccepted(101,103,java.time.Instant.now());
+   jdbc.update("update user_reports set created_at=now()-interval '25 hours'");
+   limits.checkAccepted(101,102,java.time.Instant.now());
+  }
  }
 }

@@ -18,11 +18,12 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@TestPropertySource(properties={"spring.datasource.url=jdbc:h2:mem:moderation-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","dio.media.local-directory=build/test-report-media","dio.signup.mail-from=notifications@dio.test","dio.moderation.report-mail.to=ops@dio.test"})
+@TestPropertySource(properties={"spring.datasource.url=jdbc:h2:mem:moderation-tests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","dio.media.local-directory=build/test-report-media","dio.signup.mail-from=notifications@dio.test","dio.moderation.report-mail.to=ops@dio.test","dio.moderation.report-mail.attach-evidence=true"})
 class ModerationTests extends SharingTestSupport {
  @Autowired BlockService blocks;@Autowired ReportService reports;@Autowired UserReportRepository reportRows;
  @Autowired UserBlockRepository blockRows;@Autowired EmailInviteService emails;@Autowired ReportMailDelivery delivery;
  @org.springframework.test.context.bean.override.mockito.MockitoSpyBean MediaStorage evidenceStorage;
+ @org.springframework.test.context.bean.override.mockito.MockitoSpyBean com.f106.DIO.moderation.infrastructure.mail.ReportMailEvidence mailEvidence;
  record Pair(Actor a,Actor b,UUID diary){}
  Pair pair(){var a=actor();var b=actor();var diary=diary(a);links.accept(links.create(diary,a.id()).token(),b.id());return new Pair(a,b,diary);}
  ReportRequest request(Pair p){return new ReportRequest(p.b.id(),p.diary,ReportReason.HARASSMENT,"설명",UUID.randomUUID());}
@@ -112,6 +113,36 @@ class ModerationTests extends SharingTestSupport {
   }
   mvc.perform(options("/api/v1/reports").header("Origin","https://untrusted.example").header("Access-Control-Request-Method","POST"))
     .andExpect(status().isForbidden()).andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+ }
+
+ @Test void reportQuotaRejectsBeforeImageDecodingAndPreservesIdempotentReplay()throws Exception{
+  var p=pair();var original=request(p);var accepted=reports.submit(p.a.id(),original,List.of());
+  reports.submit(p.a.id(),request(p),List.of());reports.submit(p.a.id(),request(p),List.of());
+  assertThat(reports.submit(p.a.id(),original,List.of()).response().reportId()).isEqualTo(accepted.response().reportId());
+  var next=request(p);String body=new tools.jackson.databind.ObjectMapper().writeValueAsString(next);
+  mvc.perform(multipart("/api/v1/reports").file(new MockMultipartFile("report","","application/json",body.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+    .file(new MockMultipartFile("evidenceFiles","invalid.png","image/png","not an image".getBytes())).header("Authorization","Bearer "+p.a.token()))
+    .andExpect(status().isTooManyRequests()).andExpect(header().exists("Retry-After")).andExpect(header().string("Cache-Control","no-store"))
+    .andExpect(jsonPath("code").value("REPORT_RATE_LIMITED"));
+ }
+ @Test void concurrentReportsCannotExceedTargetQuota()throws Exception{
+  var p=pair();reports.submit(p.a.id(),request(p),List.of());reports.submit(p.a.id(),request(p),List.of());
+  var pool=java.util.concurrent.Executors.newFixedThreadPool(2);var start=new java.util.concurrent.CountDownLatch(1);
+  java.util.concurrent.Callable<String> task=()->{start.await();try{reports.submit(p.a.id(),request(p),List.of());return "CREATED";}catch(ModerationException e){return e.code;}};
+  try{var a=pool.submit(task);var b=pool.submit(task);start.countDown();assertThat(List.of(a.get(15,java.util.concurrent.TimeUnit.SECONDS),b.get(15,java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder("CREATED","REPORT_RATE_LIMITED");}
+  finally{pool.shutdownNow();}
+ }
+ @Test void temporaryEvidenceFailureRemainsRetryableUntilAttachmentIsAvailable()throws Exception{
+  var p=pair();var image=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",image);
+  var accepted=reports.submit(p.a.id(),request(p),List.of(new MockMultipartFile("evidenceFiles","proof.png","image/png",image.toByteArray())));long id=accepted.response().reportId();
+  when(smtp.createMimeMessage()).thenAnswer(call->new jakarta.mail.internet.MimeMessage(jakarta.mail.Session.getInstance(new Properties())));
+  doThrow(new IllegalStateException("temporary storage outage")).doCallRealMethod().when(mailEvidence).read(any());
+  delivery.deliver(id);assertThat(reportRows.findById(id).orElseThrow().getNotificationStatus()).isEqualTo("FAILED");
+  verify(smtp,never()).send(any(org.springframework.mail.SimpleMailMessage.class));
+  jdbc.update("update user_reports set notification_next_attempt_at=? where report_id=?",Instant.now().minusSeconds(1),id);
+  delivery.deliver(id);assertThat(reportRows.findById(id).orElseThrow().getNotificationStatus()).isEqualTo("SENT");
+  verify(smtp).send(any(jakarta.mail.internet.MimeMessage.class));
+  verify(smtp,never()).send(any(org.springframework.mail.SimpleMailMessage.class));
  }
 
 }

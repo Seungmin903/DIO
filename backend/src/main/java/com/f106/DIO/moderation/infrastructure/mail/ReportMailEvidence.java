@@ -20,18 +20,20 @@ public class ReportMailEvidence {
  public record Attachment(String name,byte[] bytes,String mime) {}
  public ReportMailEvidence(List<MediaStorage> stores,ObjectMapper json){this.stores=List.copyOf(stores);this.json=json;}
  public List<Attachment> read(UserReport report){
-  var rows=json.readTree(report.getEvidenceJson());
-  if(!rows.isArray()||rows.size()>3)throw new IllegalArgumentException("Invalid report evidence");
+  tools.jackson.databind.JsonNode rows;
+  try{rows=json.readTree(report.getEvidenceJson());}
+  catch(tools.jackson.core.JacksonException e){throw new InvalidReportMailEvidenceException(e);}
+  if(!rows.isArray()||rows.size()>3)throw new InvalidReportMailEvidenceException();
   var attachments=new ArrayList<Attachment>();
   for(var row:rows){
    String key=row.path("storageKey").asText(),provider=row.path("provider").asText();
    String mime=row.path("mimeType").asText();
-   MediaStorageKeys.validate(key);
-   if(!key.startsWith("media/image/")||!(mime.equals("image/png")&&key.endsWith(".png")||mime.equals("image/jpeg")&&key.endsWith(".jpg")))throw new IllegalArgumentException("Invalid report image");
+   try{MediaStorageKeys.validate(key);}catch(IllegalArgumentException e){throw new InvalidReportMailEvidenceException(e);}
+   if(!key.startsWith("media/image/")||!(mime.equals("image/png")&&key.endsWith(".png")||mime.equals("image/jpeg")&&key.endsWith(".jpg")))throw new InvalidReportMailEvidenceException();
    var storage=stores.stream().filter(s->s.provider().equalsIgnoreCase(provider)).findFirst().orElseThrow(()->new IllegalStateException("Evidence storage unavailable"));
    byte[] bytes=storage.read(key);
-   if(bytes.length==0||bytes.length>20*1024*1024||bytes.length!=row.path("size").asLong())throw new IllegalStateException("Evidence size mismatch");
-   try(var input=ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))){
+   if(bytes.length==0||bytes.length>20*1024*1024||bytes.length!=row.path("size").asLong())throw new InvalidReportMailEvidenceException();
+   try(var input=new javax.imageio.stream.MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))){
     if(input==null)throw new IOException("Invalid image");
     var readers=ImageIO.getImageReaders(input);if(!readers.hasNext())throw new IOException("Invalid image");
     var reader=readers.next();
@@ -39,9 +41,9 @@ public class ReportMailEvidence {
      reader.setInput(input,true,true);int w=reader.getWidth(0),h=reader.getHeight(0);
      String format=reader.getFormatName();
      if(!(mime.equals("image/png")&&format.equalsIgnoreCase("png")||mime.equals("image/jpeg")&&(format.equalsIgnoreCase("jpeg")||format.equalsIgnoreCase("jpg")))||w<1||h<1||w>8192||h>8192||(long)w*h>16_000_000)throw new IOException("Invalid image");
+     var original=reader.read(0);if(original==null)throw new IOException("Invalid image");
      boolean preview=bytes.length>MAX_ATTACHMENT_BYTES;
      if(preview){
-      var original=reader.read(0);
       do{
        w=Math.max(1,w/2);h=Math.max(1,h/2);
        var resized=new BufferedImage(w,h,BufferedImage.TYPE_INT_ARGB);
@@ -53,7 +55,7 @@ public class ReportMailEvidence {
      }
      attachments.add(new Attachment("evidence-"+(attachments.size()+1)+(preview?"-preview":"")+(mime.equals("image/png")?".png":".jpg"),bytes,mime));
     }finally{reader.dispose();}
-   }catch(IOException e){throw new IllegalStateException("Evidence image unavailable",e);}
+   }catch(IOException e){throw new InvalidReportMailEvidenceException(e);}
   }
   return List.copyOf(attachments);
  }

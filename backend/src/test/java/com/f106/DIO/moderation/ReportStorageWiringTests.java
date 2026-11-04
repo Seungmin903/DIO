@@ -10,6 +10,7 @@ class ReportStorageWiringTests {
   @Bean UserReportRepository reports(){return mock(UserReportRepository.class);}
   @Bean SharingAccessService access(){return mock(SharingAccessService.class);}
   @Bean ReportEvidence evidence(){return new ReportEvidence();}
+  @Bean ReportSubmissionLimits limits(UserReportRepository reports){return new ReportSubmissionLimits(reports);}
   @Bean ObjectMapper json(){return new ObjectMapper();}
   @Bean JdbcTemplate jdbc(){return mock(JdbcTemplate.class);}
   @Bean org.springframework.transaction.support.TransactionTemplate transactions(){return mock(org.springframework.transaction.support.TransactionTemplate.class);}

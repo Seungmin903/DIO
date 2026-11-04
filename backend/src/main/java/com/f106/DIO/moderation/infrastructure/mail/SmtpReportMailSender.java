@@ -25,7 +25,7 @@ public class SmtpReportMailSender {
   String subject="[DIO] 사용자 신고 접수 #"+report.getReportId();
   String text="신고 번호: "+report.getReportId()+"\n사유: "+report.getReasonCode()+"\n신고자 ID: "+report.getReporterUserId()+"\n신고 대상 ID: "+report.getReportedUserId()+"\n접수 시각: "+report.getCreatedAt();
   var attachments=java.util.List.<ReportMailEvidence.Attachment>of();boolean evidenceUnavailable=false;
-  if(attachEvidence)try{attachments=evidence.read(report);}catch(RuntimeException e){evidenceUnavailable=true;org.slf4j.LoggerFactory.getLogger(SmtpReportMailSender.class).warn("Report evidence attachment unavailable: type={}",e.getClass().getSimpleName());}
+  if(attachEvidence)try{attachments=evidence.read(report);}catch(InvalidReportMailEvidenceException e){evidenceUnavailable=true;org.slf4j.LoggerFactory.getLogger(SmtpReportMailSender.class).warn("Report evidence attachment unavailable: type={}",e.getClass().getSimpleName());}
   if(attachments.isEmpty()){
    var message=new SimpleMailMessage();message.setFrom(from);message.setTo(recipient);message.setSubject(subject);
    message.setText(text+(evidenceUnavailable?"\n증빙 첨부를 준비하지 못했습니다. 권한 있는 운영 절차로 서버 증빙을 확인해 주세요.":"\n비공개 증빙과 상세 내용은 권한 있는 운영 절차로 확인해 주세요."));sender.send(message);return;

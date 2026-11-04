@@ -9,8 +9,8 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class ReportService {
  private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(ReportService.class);
- private final UserReportRepository reports;private final SharingAccessService access;private final ReportEvidence evidence;private final MediaFiles storage;private final String storageProvider;private final ObjectMapper json;private final JdbcTemplate jdbc;private final TransactionTemplate transactions;
- public ReportService(UserReportRepository reports,SharingAccessService access,ReportEvidence evidence,MediaFiles storage,ObjectMapper json,JdbcTemplate jdbc,TransactionTemplate transactions,@org.springframework.beans.factory.annotation.Value("${dio.media.storage:local}") String provider){this.storageProvider=provider.toUpperCase(java.util.Locale.ROOT);this.reports=reports;this.access=access;this.evidence=evidence;this.storage=storage;this.json=json;this.jdbc=jdbc;this.transactions=transactions;}
+ private final UserReportRepository reports;private final SharingAccessService access;private final ReportEvidence evidence;private final MediaFiles storage;private final String storageProvider;private final ObjectMapper json;private final JdbcTemplate jdbc;private final TransactionTemplate transactions;private final ReportSubmissionLimits limits;
+ public ReportService(UserReportRepository reports,SharingAccessService access,ReportEvidence evidence,MediaFiles storage,ObjectMapper json,JdbcTemplate jdbc,TransactionTemplate transactions,ReportSubmissionLimits limits,@org.springframework.beans.factory.annotation.Value("${dio.media.storage:local}") String provider){this.storageProvider=provider.toUpperCase(java.util.Locale.ROOT);this.reports=reports;this.access=access;this.evidence=evidence;this.storage=storage;this.json=json;this.jdbc=jdbc;this.transactions=transactions;this.limits=limits;}
  public record Accepted(ReportResponse response,boolean created){}
  public Accepted submit(long actor,ReportRequest r,List<MultipartFile> files){
   if(r.reportedUserId()==actor)throw ModerationException.invalid("본인은 신고할 수 없어요.");
@@ -18,6 +18,9 @@ public class ReportService {
   if(r.reasonCode()==ReportReason.OTHER&&(description==null||description.isBlank()))throw ModerationException.invalid("기타 사유를 설명해 주세요.");
   // This is deliberately an unlocked preflight. The authoritative check happens again in the short write transaction.
   access.readMember(access.read(r.diaryId()),actor);
+  limits.reserveAttempt(actor,java.time.Instant.now());
+  if(reports.findByReporterUserIdAndClientRequestId(actor,r.clientRequestId()).isEmpty())
+   limits.checkAccepted(actor,r.reportedUserId(),java.time.Instant.now());
   var images=evidence.prepare(files);String hash=hash(r,description,images);
   var keys=new ArrayList<String>();var metadata=new ArrayList<Map<String,Object>>();
   try{
@@ -36,6 +39,7 @@ public class ReportService {
      return new Accepted(ReportResponse.of(previous),false);
     }
     if(access.visibleMembers(diary).stream().noneMatch(m->m.getUserId().equals(r.reportedUserId())))throw ModerationException.missing();
+    limits.checkAccepted(actor,r.reportedUserId(),java.time.Instant.now());
     var saved=reports.saveAndFlush(new UserReport(actor,r.reportedUserId(),r.diaryId(),r.clientRequestId(),hash,r.reasonCode(),description,json.writeValueAsString(metadata)));
     return new Accepted(ReportResponse.of(saved),true);
    });

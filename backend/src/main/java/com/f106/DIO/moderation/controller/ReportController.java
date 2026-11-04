@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;import io.swagger.v3.oas.annotati
 @RestController @RequestMapping("/api/v1/reports") @SecurityRequirement(name="bearerAuth")
 public class ReportController {
  private final ReportService service;public ReportController(ReportService service){this.service=service;}
- @PostMapping(consumes=MediaType.MULTIPART_FORM_DATA_VALUE) @Operation(summary="공유 다이어리 사용자 신고",description="사진 선택: PNG/JPEG 최대 3장, 장당 5MiB. 신고만으로 자동 차단·제재하지 않음. 메일 실패와 무관하게 접수 유지.")
+ @PostMapping(consumes=MediaType.MULTIPART_FORM_DATA_VALUE) @Operation(summary="공유 다이어리 사용자 신고",description="사진 선택: PNG/JPEG 최대 3장, 장당 5MiB. 신고만으로 자동 차단·제재하지 않음. 메일 실패와 무관하게 접수 유지. 신고자당 최근 1시간 10건·24시간 30건, 같은 대상 24시간 3건. 초과 429 및 Retry-After 반환. 동일 요청 ID 재전송은 새 접수로 세지 않음.")
  public ResponseEntity<ReportResponse> submit(@AuthenticationPrincipal Jwt jwt,@Valid @RequestPart("report") ReportRequest request,@RequestPart(value="evidenceFiles",required=false) List<MultipartFile> files){
   var result=service.submit(SharingActor.require(jwt),request,files);return ResponseEntity.status(result.created()?201:200).cacheControl(CacheControl.noStore()).body(result.response());
  }
