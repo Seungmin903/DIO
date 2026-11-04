@@ -7,6 +7,13 @@ import { notePointerDown, notePointerUp, touchKind, stylus, resetStylusPointers 
 const WHEEL_IDLE_MS = 160 // 휠이 이만큼 멈추면 확대·이동을 확정한다
 const LONG_PRESS_MS = 450 // 캔버스 빈 곳 길게 누르기와 같은 시간
 
+// 앱: 끌기를 시작 · 끝낼 때 변형이 붙었다 떨어지면 안쪽 Skia 캔버스(연필 획)가 한두 프레임 비어 깜박였다(2026-11-04 실기기 녹화).
+// 그래서 변형은 늘 걸어 두고 값만 바꾼다. 웹은 변형이 있으면 글자가 흐려질 수 있어 예전 방식(끌 때만 변형) 그대로.
+const IDENTITY_VIEW = Platform.OS === 'web' ? null : { transformOrigin: 'left top', transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }] }
+const viewTransform = (live, offset, zoom) => live
+  ? { transformOrigin: 'left top', transform: [{ translateX: live.x - offset.x }, { translateY: live.y - offset.y }, { scale: live.zoom / zoom }] }
+  : IDENTITY_VIEW
+
 /**
  * 편집 화면의 보는 영역. 페이지를 offset 위치에 zoom 배율로 둔다.
  * - 두 손가락: 벌리고 오므려 확대·축소(손가락 사이 지점 기준), 끌어서 화면 이동
@@ -312,12 +319,7 @@ export default function Viewport({ reading = false, readingLinkRef, onReadingAct
       <View
         style={[
           { position: 'absolute', left: offset.x, top: offset.y },
-          // 앱: 끌기를 시작 · 끝낼 때 변형이 붙었다 떨어지면 안쪽 Skia 캔버스(연필 획)가 한두 프레임 비어 깜박였다(2026-11-04 실기기 녹화).
-          // 그래서 변형은 늘 걸어 두고 값만 바꾼다. 웹은 변형이 있으면 글자가 흐려질 수 있어 예전 방식 그대로.
-          live ? {
-            transformOrigin: 'left top',
-            transform: [{ translateX: live.x - offset.x }, { translateY: live.y - offset.y }, { scale: live.zoom / zoom }],
-          } : Platform.OS !== 'web' ? { transformOrigin: 'left top', transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }] } : null,
+          viewTransform(live, offset, zoom),
         ]}
       >
         {children}
