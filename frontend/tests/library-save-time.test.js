@@ -49,3 +49,31 @@ test('열람은 수정 시각을 만들지 않고 편집 저장은 시각과 저
   assert.equal(saved[0].updatedAt, cached[0].updatedAt);
   assert.equal(render().saveStatus, 'saved');
 });
+
+test('문서 읽기 실패는 편집 전부터 오류를 표시하고 이후 쓰기를 차단한다', async () => {
+  const slots = [], effects = [], saves = [];
+  let cursor = 0, state = { doc: { pages: [{ id: 'p', objects: [] }] }, past: [], future: [] };
+  const same = (a, b) => a?.length === b?.length && a.every((v, i) => Object.is(v, b[i]));
+  const react = {
+    useState(initial) { const i = cursor++; slots[i] ??= { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, v => { slots[i].value = v; }]; },
+    useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial }; },
+    useReducer() { cursor++; return [state, () => {}]; },
+    useCallback(fn, deps) { const i = cursor++; if (!slots[i] || !same(slots[i].deps, deps)) slots[i] = { fn, deps }; return slots[i].fn; },
+    useEffect(fn, deps) { const i = cursor++; if (!slots[i] || !same(slots[i].deps, deps)) { const previous = slots[i]; slots[i] = { deps }; effects.push(() => { previous?.cleanup?.(); slots[i].cleanup = fn(); }); } },
+  };
+  const mocks = {
+    react, 'react-native': { AppState: { addEventListener: () => ({ remove() {} }) } },
+    '../utils/idleTask': { scheduleIdleTask }, '../services/editorViewState': { peekViewedPage: () => undefined, loadViewedPage: async () => null, rememberViewedPage: () => saves.push('view') },
+    '../state/defaultDoc': { createDefaultDoc: () => state.doc }, '../state/editorReducer': {},
+    '../services/editorDocs': { editorDocKey: () => 'doc:a', peekEditorDoc: () => null, loadEditorDoc: async () => { throw new Error('read'); }, rememberEditorDoc: () => saves.push('cache'), saveEditorDoc: () => saves.push('write') },
+    '../services/mediaStore': { hydrateMedia: async () => {} },
+  };
+  const module = { exports: {} };
+  new Function('require', 'module', 'exports', code)(id => mocks[id], module, module.exports);
+  const render = () => { cursor = 0; const result = module.exports.useEditor({ id: 'a' }); effects.splice(0).forEach(fn => fn()); return result; };
+  render(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(render().saveStatus, 'load-error');
+  state = { ...state, past: [state.doc] };
+  assert.equal(render().saveStatus, 'load-error');
+  assert.deepEqual(saves, []);
+});
