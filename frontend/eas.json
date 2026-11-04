@@ -16,7 +16,11 @@
       "autoIncrement": true
     },
     "production": {
-      "env": { "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0", "EXPO_PUBLIC_PUSH_ENABLED": "true" },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://k15f106.p.ssafy.io/api",
+        "EXPO_PUBLIC_PLANNER_TEMPLATES_ENABLED": "0",
+        "EXPO_PUBLIC_PUSH_ENABLED": "true"
+      },
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
