@@ -50,7 +50,8 @@ export default function PinScreen({ mode, user, getProfilePhotoSource, check, on
     else {
       setDigits('');
       const seconds = Math.ceil((typeof result === 'object' ? result?.retryAfterMs : 0) / 1000);
-      setError(seconds > 0 ? `입력 횟수가 많아요. ${seconds}초 뒤에 다시 시도해 주세요` : '비밀번호가 달라요');
+      const storageError = typeof result === 'object' && result?.error;
+      setError(seconds > 0 ? `입력 횟수가 많아요. ${seconds}초 뒤에 다시 시도해 주세요` : storageError ? '앱 잠금을 확인하지 못했어요. 잠시 후 다시 시도해 주세요' : '비밀번호가 달라요');
     }
   };
 

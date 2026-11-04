@@ -9,11 +9,17 @@ const load=(path,mocks)=>{
   const mod={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]??require(id),mod,mod.exports);return mod.exports;
 };
 const memoryStorage=()=>{const data=new Map();return {data,getItem:async key=>data.get(key)??null,setItem:async(key,value)=>{data.set(key,value)},removeItem:async key=>{data.delete(key)}}};
-const secureStore=()=>{const data=new Map();return {data,getItemAsync:async key=>data.get(key)??null,setItemAsync:async(key,value)=>{data.set(key,value)},deleteItemAsync:async key=>{data.delete(key)}}};
+const secureStore=()=>{const data=new Map(),valid=key=>/^[A-Za-z0-9._-]+$/.test(key);return {data,getItemAsync:async key=>{if(!valid(key))throw Error('invalid key');return data.get(key)??null},setItemAsync:async(key,value)=>{if(!valid(key))throw Error('invalid key');data.set(key,value)},deleteItemAsync:async key=>{if(!valid(key))throw Error('invalid key');data.delete(key)}}};
 const nativeLock=(secure=secureStore(),asyncStorage=memoryStorage())=>load('../src/shared/appLock.js',{
   'expo-secure-store':secure,
   '@react-native-async-storage/async-storage':{__esModule:true,default:asyncStorage},
   'react-native':{Platform:{OS:'android'}},
+  'expo-crypto':{CryptoDigestAlgorithm:{SHA256:'SHA-256'},digestStringAsync:async(_algorithm,value)=>createHash('sha256').update(value).digest('hex')},
+});
+const webLock=(asyncStorage=memoryStorage())=>load('../src/shared/appLock.js',{
+  'expo-secure-store':secureStore(),
+  '@react-native-async-storage/async-storage':{__esModule:true,default:asyncStorage},
+  'react-native':{Platform:{OS:'web'}},
   'expo-crypto':{CryptoDigestAlgorithm:{SHA256:'SHA-256'},digestStringAsync:async(_algorithm,value)=>createHash('sha256').update(value).digest('hex')},
 });
 
@@ -88,16 +94,30 @@ test('PIN을 다섯 번 틀리면 재시도 시간이 증가하고, 올바른 PI
   assert.deepEqual(await lock.checkAppLock('user:7','1234',31001),{ok:false,retryAfterMs:59999});
   assert.deepEqual(await lock.checkAppLock('user:7','1234',91000),{ok:true,retryAfterMs:0});
   assert.deepEqual(JSON.parse([...storage.data.values()][0]).lockouts,0);
-  await storage.setItemAsync('dio.appLock.v2.user%3A7',JSON.stringify({version:2,pin:'1234',failedAttempts:4,retryUntil:0,lockouts:7}));
+  await storage.setItemAsync('dio.appLock.v2.s00007500007300006500007200003a000037',JSON.stringify({version:2,pin:'1234',failedAttempts:4,retryUntil:0,lockouts:7}));
   assert.deepEqual(await lock.checkAppLock('user:7','0000',92000),{ok:false,retryAfterMs:30*60*1000});
 });
 
-test('손상된 저장값은 잠금이 아닌 것으로 처리하고, 비정상적으로 긴 제한 시간은 30분으로 제한한다', async()=>{
+test('손상된 저장값과 저장소 오류는 fail-closed로 처리하고, 비정상적으로 긴 제한 시간은 30분으로 제한한다', async()=>{
   const storage=secureStore(),lock=nativeLock(storage),scope='user:7';
-  await storage.setItemAsync('dio.appLock.v2.user%3A7','{not-json');
-  assert.equal(await lock.hasAppLock(scope),false);
+  const key='dio.appLock.v2.s00007500007300006500007200003a000037';
+  await storage.setItemAsync(key,'{not-json');
+  assert.equal(await lock.hasAppLock(scope),true);
+  assert.deepEqual(await lock.checkAppLock(scope,'1234'),{ok:false,retryAfterMs:0,error:'corrupt'});
   await lock.setAppLock(scope,'1234');
   const saved=JSON.parse([...storage.data.values()][0]);
-  await storage.setItemAsync('dio.appLock.v2.user%3A7',JSON.stringify({...saved,retryUntil:99999999999999}));
+  await storage.setItemAsync(key,JSON.stringify({...saved,retryUntil:99999999999999}));
   assert.deepEqual(await lock.checkAppLock(scope,'1234',1000),{ok:false,retryAfterMs:30*60*1000});
+});
+
+test('SecureStore 읽기 오류는 잠금을 유지하고, 웹의 기존 v1 잠금도 조용히 해제하지 않는다', async()=>{
+  const failing={getItemAsync:async()=>{throw Error('keystore unavailable')},setItemAsync:async()=>{},deleteItemAsync:async()=>{}};
+  const native=nativeLock(failing),scope='user:7';
+  assert.equal(await native.hasAppLock(scope),true);
+  assert.deepEqual(await native.checkAppLock(scope,'1234'),{ok:false,retryAfterMs:0,error:'storage'});
+  const asyncStorage=memoryStorage(),web=webLock(asyncStorage),salt='web-salt',hash=createHash('sha256').update(`${salt}:1234`).digest('hex');
+  await asyncStorage.setItem('dio.appLock.v1:user:7',JSON.stringify({salt,hash}));
+  assert.equal(web.appLockSupported,false);
+  assert.equal(await web.hasAppLock(scope),true);
+  assert.deepEqual(await web.checkAppLock(scope,'1234'),{ok:true,retryAfterMs:0});
 });
