@@ -105,7 +105,6 @@ export default function SharingHub({
   const [toast, setToast] = useState('');
   const [linkInput, setLinkInput] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [capacityInfo, setCapacityInfo] = useState(false);
   const [linkExpired, setLinkExpired] = useState(false);
   const [copyTitle, setCopyTitle] = useState('');
   const [createdCopy, setCreatedCopy] = useState(null);
@@ -193,7 +192,6 @@ export default function SharingHub({
     setBlockedAcknowledged(false);
     setLinkInput('');
     setInviteEmail('');
-    setCapacityInfo(false);
     setCreatedCopy(null);
     setCopyTitle('');
     focusedInput.current = null;
@@ -665,9 +663,6 @@ export default function SharingHub({
                       {isFull && (
                         <View style={s.notice}>
                           <Text style={s.bold}>소유자 포함 4명이 함께하고 있어요.</Text>
-                          <Button label="추가 인원 안내" secondary disabled={busy}
-                            onPress={() => setCapacityInfo(value => !value)} />
-                          {capacityInfo && <Text style={s.text}>더 많은 인원이 함께하는 유료 이용은 준비 중이에요.</Text>}
                         </View>
                       )}
                       {emailAvailable && <Button label="이메일로 초대" secondary disabled={busy}

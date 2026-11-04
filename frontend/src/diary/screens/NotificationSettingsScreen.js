@@ -4,6 +4,7 @@ import AppIcon from '../../shared/AppIcon';
 import { colors, radius, DISABLED_OPACITY } from '../../shared/theme';
 import Header from '../components/Header';
 import TermsConsentSection from '../components/TermsConsentSection';
+import { SERVICE_SECTION_ENABLED } from '../../shared/featureFlags';
 
 export default function NotificationSettingsScreen({ compact = false, onClose, userId, accountService }) {
   const [termsReady, setTermsReady] = useState(false);
@@ -37,15 +38,17 @@ export default function NotificationSettingsScreen({ compact = false, onClose, u
         </Pressable>
       )} />
       <View style={[styles.card, compact && styles.phoneCard]}>
-        <Text style={styles.section}>서비스 알림</Text>
-        <View style={styles.row}>
-          <View style={styles.rowCopy}>
-            <Text style={styles.rowLabel}>서비스 알림 받기</Text>
-            <Text style={styles.description}>서비스 알림 설정을 준비하고 있어요.</Text>
+        {SERVICE_SECTION_ENABLED && <>
+          <Text style={styles.section}>서비스 알림</Text>
+          <View style={styles.row}>
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowLabel}>서비스 알림 받기</Text>
+              <Text style={styles.description}>서비스 알림 설정을 준비하고 있어요.</Text>
+            </View>
+            <Text style={styles.description}>준비 중</Text>
           </View>
-          <Text style={styles.description}>준비 중</Text>
-        </View>
-        <View style={styles.divider} />
+          <View style={styles.divider} />
+        </>}
         <Text style={styles.section}>마케팅 정보 수신</Text>
         <TermsConsentSection auth={accountService} userId={userId} saveRef={termsSave} onReadyChange={setTermsReady} onSaveError={setHasError} onSavingChange={setTermsSaving} />
         {hasError && (

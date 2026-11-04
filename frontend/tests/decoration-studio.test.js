@@ -14,7 +14,7 @@ const stickerAction = (ui, text) => {
   find(ui.render(), '스티커 추가').props.onPress()
   return nodes(ui.render()).find(n => n.type === '../components/DiaryActionBubble').props.actions.find(action => action.text === text)
 }
-function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [] } = {}) {
+function fixture({ supported = false, failFonts = false, family = null, failRemove = false, libraryReady = true, entries = [], cutout = false } = {}) {
   const states = [], refs = [], deps = [], cleanups = [], saves = [], removals = []
   let si, ri, ei, studio = null, fontLoads = 0, backHandler = null
   const opened = [], draftRemovals = []
@@ -34,6 +34,8 @@ function fixture({ supported = false, failFonts = false, family = null, failRemo
   }
   const load = id => {
     if (id === 'react') return react
+    if (id.endsWith('/aiDisclosure')) return { AI_FONT_LABEL: 'AI 생성 글꼴', isAiHandwritingFont: () => false }
+    if (id.endsWith('/featureFlags')) return { CUTOUT_ENTRANCE: cutout }
     if (id.endsWith('/useMyLibrary')) return { __esModule: true, default: () => library }
     if (id.endsWith('/useDefaultPaperStyle')) return { __esModule: true, default: () => ({ style: {}, ready: true, save: async () => true }) }
     if (id === 'react/jsx-runtime') return require(id)
@@ -73,16 +75,17 @@ test('폰트 제작 재사용·닫기 후 목록 새로고침과 파일 오류 �
   assert.equal(nodes(failed.render()).some(n=>n.props.children==='private'),false)
   failed.unmount()
 })
-test('미지원 시트 분리는 차단하고 사진 오리기 목업 진입·닫기는 폴더를 만들지 않는다', async () => {
+test('미지원 시트 분리는 차단하고 저장이 미리보기뿐인 사진 오리기 입구는 감춘다', async () => {
   const ui = fixture(); ui.render(); await tick(); ui.tab('stickers')
   assert.equal(stickerAction(ui,'스티커 시트 분리').disabled,true)
-  stickerAction(ui,'사진 속 대상 오리기').onPress()
-  const modal = nodes(ui.render()).find(n=>n.type?.includes?.('StickerCutoutModal'))
-  assert.ok(modal)
-  modal.props.onClose()
-  assert.equal(ui.saves.length,0)
+  assert.equal(stickerAction(ui,'사진 속 대상 오리기'),undefined)
   assert.equal(nodes(ui.render()).some(n=>n.type?.includes?.('StickerCutoutModal')),false)
+  assert.equal(ui.saves.length,0)
   ui.unmount()
+  // 스위치를 켜면 같은 말풍선에 오리기 항목이 돌아온다
+  const on = fixture({ cutout: true }); on.render(); await tick(); on.tab('stickers')
+  assert.equal(stickerAction(on,'사진 속 대상 오리기').text,'사진 속 대상 오리기')
+  on.unmount()
 })
 test('시트 분리 저장은 기존 보관함 함수를 사용하고 삭제는 확인 전까지 반영하지 않는다', async () => {
   const ui=fixture({supported:true}); ui.render(); await tick(); ui.tab('stickers')
