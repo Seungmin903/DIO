@@ -4,7 +4,12 @@ title = "DIO Gitleaks configuration"
 useDefault = true
 
 [[allowlists]]
-description = "Firebase Android public client configuration"
+description = "Firebase Android public client API key"
+condition = "AND"
 paths = [
-  '''(^|/)frontend/google-services\.json$'''
+  '''^/repo/frontend/google-services\.json$'''
+]
+regexTarget = "line"
+regexes = [
+  '''REMOVED_GOOGLE_API_KEY'''
 ]
