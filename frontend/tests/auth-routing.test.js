@@ -42,6 +42,7 @@ test('회원 목록·일괄 작업·휴지통은 일반 401을 만료로 표시�
  const render=(file,props)=>{
   const source=babel.transformSync(readFileSync(new URL(`../src/diary/components/${file}.js`,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code;
   const mod={exports:{}},mocks={'react-native':{View:'View',Text:'Text',Pressable:'Pressable',ActivityIndicator:'ActivityIndicator'},'../styles':{styles:{}},'../constants':{C:{}},'../../auth/sessionExpiry.js':sessionExpiry};
+  mocks['../../auth/AuthenticationRecovery']={__esModule:true,default:'AuthenticationRecovery',needsAuthenticationRecovery:error=>error?.status===401&&error.code!=='DEVELOPMENT_ACCESS_REQUIRED'};
   new Function('require','module','exports',source)(id=>id==='react/jsx-runtime'?require(id):mocks[id],mod,mod.exports);
   return nodes(mod.exports.default(props)).filter(node=>node.props?.accessibilityRole==='alert').map(node=>node.props.children);
  };
@@ -322,7 +323,7 @@ test('개발 전용 보관함 목 모드는 기존 경로를 유지한다',()=>{
  assert.ok(has(root(true,'mock-library'),'./src/diary/screens/MockLibraryApp'))
 })
 
-test('부팅 중 첫 화면에 BootSplash 를 그리고, 그린 뒤에야 네이티브 시작 화면을 내린다',()=>{
+test('부팅 중 BootSplash 이미지 준비 완료 뒤에 네이티브 시작 화면을 내린다',()=>{
  const probe={effects:[],hidden:0}
  const first=root(false,undefined,null,null,probe)
  // 로고는 BootSplash 가 그린다(안드로이드 네이티브 시작 화면은 바탕색만). 첫 렌더에 빠지면 로고 없는 빈 화면이 보인다
@@ -331,7 +332,9 @@ test('부팅 중 첫 화면에 BootSplash 를 그리고, 그린 뒤에야 네이
  // 다른 마운트 효과(8초 안전 타이머 등)는 실행만 하고 타이머는 걸지 않는다
  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0
  try{for(const effect of probe.effects){try{effect()}catch{}}}finally{globalThis.setTimeout=timer}
- assert.ok(probe.hidden>=1,'첫 화면이 그려진 뒤(마운트 효과) 네이티브 시작 화면을 내린다')
+ assert.equal(probe.hidden,0,'이미지 준비 전에는 마운트 효과만으로 내리지 않는다')
+ nodes(first).find(node=>node.type==='./src/shared/BootSplash').props.onReady()
+ assert.ok(probe.hidden>=1,'이미지 준비 완료 뒤 네이티브 시작 화면을 내린다')
 })
 
 test('목업 판정은 따로 그리는 세 화면(mock · mock-library · mock-sharing)만: 다른 mock* 값은 게스트로 시작하고, 개발 빌드의 게스트 시작마다 예전 예시 다이어리를 정리한다',async()=>{

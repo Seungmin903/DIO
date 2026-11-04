@@ -63,6 +63,7 @@ export default function AuthScreen({
   onClose = null,
   resumeSession = false,
   sessionExpired = false,
+  initialEmail = '',
   service = authService,
   photoPicker = pickProfilePhoto,
   verificationService = service.verificationService,
@@ -75,7 +76,7 @@ export default function AuthScreen({
   const [route, setRoute] = useState('welcome');
   const [ageConfirmed, setAgeConfirmed] = useState(null);
   const [enrollmentProvider, setEnrollmentProvider] = useState('email');
-  const [values, setValues] = useState(emptyValues);
+  const [values, setValues] = useState(() => ({ ...emptyValues(), email: initialEmail }));
   const [touched, setTouched] = useState({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(sessionExpired ? SESSION_EXPIRED_MESSAGE : '');
