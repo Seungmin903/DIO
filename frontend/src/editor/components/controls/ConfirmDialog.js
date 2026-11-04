@@ -11,6 +11,13 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = '�
   if (!open) return null
   return (
     <EditorModal transparent animationType="none" onRequestClose={onCancel}>
+      <ConfirmDialogContent title={title} message={message} confirmLabel={confirmLabel} cancelLabel={cancelLabel} danger={danger} showCancel={showCancel} onConfirm={onConfirm} onCancel={onCancel} />
+    </EditorModal>
+  )
+}
+
+export function ConfirmDialogContent({ title, message, confirmLabel = '삭제', cancelLabel = '취소', danger = true, showCancel = true, onConfirm, onCancel }) {
+  return (
       <Pressable style={styles.backdrop} onPress={onCancel} accessibilityLabel="닫기">
         {/* 카드 안을 눌러도 닫히지 않게 터치를 여기서 받는다 */}
         <Pressable style={styles.card} onPress={() => {}} accessibilityRole="alert">
@@ -30,7 +37,6 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = '�
           </View>
         </Pressable>
       </Pressable>
-    </EditorModal>
   )
 }
 
