@@ -1,5 +1,5 @@
 services:
-  backend:
+  backend-release:
     image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
     restart: unless-stopped
     logging:
@@ -57,8 +57,6 @@ services:
     networks:
       development-db:
       proxy:
-        aliases:
-          - backend-release
 
 networks:
   development-db:

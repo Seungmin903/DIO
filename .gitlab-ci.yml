@@ -502,18 +502,22 @@ deploy-release:
           [ "$image" = "$BACKEND_IMAGE" ] || [ "$image" = "$previous_image" ] || docker image rm "$image" >/dev/null 2>&1 || true
         done < <(docker image ls --filter 'reference=dio-backend:release-*' --format '{{.Repository}}:{{.Tag}}' || true)
       }
-      previous_image="$(docker inspect --format '{{.Config.Image}}' dio-release-backend-backend-1 2>/dev/null || true)"
+      previous_container="$(docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml ps -q backend-release 2>/dev/null || true)"
+      previous_image=""
+      if [ -n "$previous_container" ]; then
+        previous_image="$(docker inspect --format '{{.Config.Image}}' "$previous_container")"
+      fi
       docker build --tag "$BACKEND_IMAGE" ./backend
-      docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate
+      docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate backend-release
       if ! health_check; then
-        docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend || true
+        docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend-release || true
         if [ -n "$previous_image" ]; then
           echo "Release health check failed; restoring $previous_image." >&2
           export BACKEND_IMAGE="$previous_image"
-          docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate
+          docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml up -d --force-recreate backend-release
           if ! health_check; then
             echo "Rollback health check failed; release remains unavailable." >&2
-            docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend || true
+            docker compose --project-name dio-release-backend --env-file /home/gitlab-runner/dio-env/release.env -f infra/compose/compose.release.yml logs --tail=200 backend-release || true
           fi
         else
           echo "Initial release deployment failed; removing the unhealthy container." >&2
