@@ -20,7 +20,7 @@ function fixture(platform) {
       }
       if (id === 'react-native') return { Image: 'image', View: 'view', Platform: { OS: platform }, StyleSheet: { create: value => value } }
       if (id === './StaticPage') return { __esModule: true, default: 'static-page' }
-      if (id === './ObjectView') return { TextMeasure: { Provider: 'measure' }, TextMeasureReady: { Provider: 'ready' }, objectOpacity: () => 1 }
+      if (id === './ObjectView') return { TextMeasure: { Provider: 'measure' }, TextMeasureReady: { Provider: 'ready' }, objectOpacity: () => 1, objectDrawOpacity: () => 1 }
       if (id === './viewportMotion') return { ViewportMotion: {} }
       if (id === './WebStrokeCacheContext') return { WebStrokeCacheEnabled: cacheContext }
       if (id.endsWith('/pageGeometry.js')) return { pageSize }
