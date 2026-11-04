@@ -15,9 +15,14 @@ class DeploymentAuthContractTests {
         assertThat(ci.getProperty("deploy-development.variables.GIT_DEPTH")).isEqualTo("0");
         String text = Files.readString(Path.of("../.gitlab-ci.yml"));
         String deploy = block(text, "deploy-development:\n", "\ndeploy-production:");
-        assertThat(deploy).contains("git fetch --no-tags origin develop", "printf '%s' \"$CI_COMMIT_BRANCH\" | grep -Eq '^release/'",
-            "git diff --quiet origin/develop HEAD -- backend/src/main/resources/db/migration",
-            "Release and develop have different migrations", "Could not compare release and develop migrations");
+        assertThat(deploy).contains("git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop",
+            "bash infra/scripts/assert-shared-db-migrations.sh origin/develop HEAD",
+            "backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test",
+            "logs --tail=200 backend");
+        String guard = Files.readString(Path.of("../infra/scripts/assert-shared-db-migrations.sh"));
+        assertThat(guard).contains("git diff --quiet \"$develop_ref\" \"$release_ref\"", "exit 1", "exit 2");
+        String guardTest = Files.readString(Path.of("../infra/scripts/test-assert-shared-db-migrations.sh"));
+        assertThat(guardTest).contains("expect_status 1 \"$guard\" develop HEAD", "expect_status 2 \"$guard\" missing-ref HEAD");
     }
     @Test void deploymentOriginsAndWebSocketProxyPreserveExternalPort() throws Exception {
         var loader = new YamlPropertySourceLoader();
