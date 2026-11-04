@@ -240,10 +240,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     return () => { alive = false; subscription.remove(); };
   }, [lockScope]);
   // 회원은 비밀번호를 잊으면 로그아웃으로 잠금을 푼다(다시 로그인해야 들어온다).
-  // 게스트는 되찾을 계정이 없어, 저장값이 손상·읽기 불가로 PIN을 확인할 수 없을 때만 초기화를 연다.
+  // 게스트는 되찾을 계정이 없어, 저장값 손상으로 PIN을 확인할 수 없을 때만 초기화를 연다. 일시적 읽기 오류는 다시 읽기만 한다.
   const forgotAppLock = appLockRecoveryAction({
     member: previewUser.mode === 'authenticated', state: appLockState, scope: lockScope, onLogout: onEndPreview,
     onCleared: () => { setAppLockState('off'); setAppLocked(false); },
+    onStateChange: state => { setAppLockState(state); if (state === 'off') setAppLocked(false); },
   });
   const [sharingRequest, setSharingRequest] = useState(null);
   // 초대 푸시도 공유 입구(sharingGate)를 거친다. 효과가 다시 걸리지 않게 최신 입구를 ref로 읽는다

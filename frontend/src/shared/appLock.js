@@ -101,15 +101,13 @@ export const hasAppLock = async scope => (await read(scope)).kind !== 'missing'
 
 /**
  * 잠금 상태: 'off'(없음) · 'on'(정상) · 'corrupt'(저장값 손상) · 'storage'(저장소 읽기 오류).
- * corrupt · storage 는 PIN을 확인할 수 없어 잠금으로 보되, 화면이 초기화 경로를 따로 열 수 있게 구분한다.
+ * corrupt · storage 는 PIN을 확인할 수 없어 잠금으로 본다. corrupt 는 다시 읽어도 같아 화면이 초기화를 열 수 있고,
+ * storage 는 재부팅·기기 잠금 직후처럼 일시적일 수 있어 다시 읽기만 허용한다.
  */
 export const readAppLockState = async scope => {
   const { kind } = await read(scope)
   return kind === 'missing' ? 'off' : kind === 'locked' ? 'on' : kind
 }
-
-/** PIN으로는 풀 수 없는(검증 불가) 잠금 상태인지. */
-export const appLockUnreadable = state => state === 'corrupt' || state === 'storage'
 
 /** 비밀번호가 맞는지와 재시도 가능 시각을 돌려준다. 실패 횟수는 앱 재시작 뒤에도 남는다. */
 const checksInFlight = new Map()

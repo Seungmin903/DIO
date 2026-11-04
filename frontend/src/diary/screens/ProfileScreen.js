@@ -55,11 +55,12 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
     readAppLockState(lockScope).then(value => { if (alive) setLockState(value); }).catch(() => { if (alive) setLockState(null); });
     return () => { alive = false; };
   }, [lockScope]);
-  // 지금 비밀번호를 잊었거나 저장소 손상으로 확인할 수 없을 때: 회원은 로그아웃 후 재로그인, 게스트는 손상·읽기 불가일 때만 초기화.
+  // 지금 비밀번호를 잊었거나 저장소 손상으로 확인할 수 없을 때: 회원은 로그아웃 후 재로그인, 게스트는 저장값 손상일 때만 초기화(읽기 오류는 다시 읽기).
   // 새 비밀번호를 정하는 setup 화면에는 두지 않는다(새 비밀번호를 정하다 로그아웃 흐름이 열리지 않게).
   const recoverAppLock = appLockRecoveryAction({
     member: authenticatedUser, state: lockState, scope: lockScope, onLogout: onEndPreview,
     onCleared: () => { setPin(null); reloadLock(); },
+    onStateChange: setLockState,
   });
   // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다. 실패하면 로그인 응답 값을 그대로 보여 주고 다시 들어올 때 재시도한다.
   const userId = authenticatedUser ? previewUser.userId : null;

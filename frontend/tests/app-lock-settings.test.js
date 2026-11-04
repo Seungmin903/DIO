@@ -150,7 +150,7 @@ test('잠금 초기화는 모든 저장소 정리를 시도하고 보안 저장�
   assert.equal(await asyncStorage.getItem('dio.appLock.v1.attempts:user:7'),null);
 });
 
-test('잠금 상태는 없음·정상·손상·저장소 오류를 구분하고, 손상·오류만 PIN 없이 초기화할 수 있는 상태로 본다', async()=>{
+test('잠금 상태는 없음·정상·손상·저장소 오류를 구분한다', async()=>{
   const storage=secureStore(),lock=nativeLock(storage),scope='user:7';
   assert.equal(await lock.readAppLockState(scope),'off');
   await lock.setAppLock(scope,'1234');
@@ -159,13 +159,12 @@ test('잠금 상태는 없음·정상·손상·저장소 오류를 구분하고,
   assert.equal(await lock.readAppLockState(scope),'corrupt');
   const failing=nativeLock({getItemAsync:async()=>{throw Error('keystore unavailable')},setItemAsync:async()=>{},deleteItemAsync:async()=>{}});
   assert.equal(await failing.readAppLockState(scope),'storage');
-  assert.deepEqual(['off','on','corrupt','storage',null].map(lock.appLockUnreadable),[false,false,true,true,false]);
 });
 
-const recovery=({clear=async()=>{}}={})=>{
+const recovery=({clear=async()=>{},reads=[]}={})=>{
   const dialogs=[],notices=[],cleared=[];
   const mod=load('../src/diary/components/appLockRecovery.js',{
-    '../../shared/appLock':{appLockUnreadable:state=>state==='corrupt'||state==='storage',clearAppLock:async scope=>{cleared.push(scope);await clear(scope)}},
+    '../../shared/appLock':{clearAppLock:async scope=>{cleared.push(scope);await clear(scope)},readAppLockState:async()=>{const next=reads.shift();if(next instanceof Error)throw next;return next}},
     '../../shared/dialogs':{confirmAction:options=>dialogs.push(options),notify:(title,message)=>notices.push({title,message})},
   });
   return {...mod,dialogs,notices,cleared};
@@ -187,22 +186,33 @@ test('회원의 잊었어요는 잠금을 지운 뒤 로그아웃하고, 지우�
   assert.equal(ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7'}),undefined); // 로그아웃 수단이 없으면 칸을 비운다
 });
 
-test('게스트는 정상 잠금을 PIN 없이 풀 수 없고, 손상·읽기 오류일 때만 초기화한다', async()=>{
+test('게스트는 정상 잠금을 PIN 없이 풀 수 없고, 저장값이 손상됐을 때만 초기화한다', async()=>{
   const ok=recovery();
   for(const state of ['on','off',null]) assert.equal(ok.appLockRecoveryAction({member:false,state,scope:'guest:g1',onCleared(){}}),undefined);
-  for(const state of ['corrupt','storage']){
-    let done=0;
-    const action=ok.appLockRecoveryAction({member:false,state,scope:'guest:g1',onCleared:()=>{done+=1}});
-    assert.equal(typeof action,'function');
-    action();const dialog=ok.dialogs.at(-1);
-    assert.equal(dialog.confirmLabel,'초기화');assert.match(dialog.message,/일기는 그대로/);
-    await dialog.onConfirm();assert.equal(done,1);
-  }
-  assert.deepEqual(ok.cleared,['guest:g1','guest:g1']);
-  const failed=recovery({clear:async()=>{throw Error('keystore unavailable')}});let done=0;
+  let done=0;
+  const action=ok.appLockRecoveryAction({member:false,state:'corrupt',scope:'guest:g1',onCleared:()=>{done+=1}});
+  assert.equal(typeof action,'function');
+  action();const dialog=ok.dialogs.at(-1);
+  assert.equal(dialog.confirmLabel,'초기화');assert.match(dialog.message,/일기는 그대로/);
+  await dialog.onConfirm();assert.equal(done,1);
+  assert.deepEqual(ok.cleared,['guest:g1']);
+  const failed=recovery({clear:async()=>{throw Error('keystore unavailable')}});
   failed.appLockRecoveryAction({member:false,state:'corrupt',scope:'guest:g1',onCleared:()=>{done+=1}})();
   await failed.dialogs[0].onConfirm();
-  assert.equal(done,0);assert.equal(failed.notices.length,1);
+  assert.equal(done,1);assert.equal(failed.notices.length,1); // 초기화 실패는 onCleared 를 부르지 않는다
+});
+
+test('게스트의 일시적 저장소 읽기 오류는 초기화를 열지 않고 다시 읽기만 한다', async()=>{
+  const ui=recovery({reads:['storage',Error('keystore unavailable'),'on']}),states=[];let cleared=0;
+  const action=ui.appLockRecoveryAction({member:false,state:'storage',scope:'guest:g1',onCleared:()=>{cleared+=1},onStateChange:state=>states.push(state)});
+  assert.equal(typeof action,'function');
+  await action();await action();
+  assert.deepEqual(states,['storage','storage']);
+  assert.equal(ui.notices.length,2);assert.match(ui.notices[0].message,/아직 읽지 못했어요/);
+  await action(); // 다시 읽히면 정상 잠금으로 돌아가 PIN으로만 풀린다
+  assert.deepEqual(states,['storage','storage','on']);
+  assert.equal(ui.notices.length,2);
+  assert.deepEqual(ui.dialogs,[]);assert.deepEqual(ui.cleared,[]);assert.equal(cleared,0);
 });
 
 const loadJsx=(path,mocks)=>{
