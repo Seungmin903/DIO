@@ -674,9 +674,11 @@ export default function SharingHub({
                           <Text style={s.label}>초대 링크</Text>
                           <View style={s.linkRow}>
                             <View style={s.link}>
-                              <Text selectable numberOfLines={1} style={[s.text, s.grow]}>
-                                {linkExpired ? '만료된 초대 링크예요.' : diary.link || '초대 링크를 만들어 주세요.'}
-                              </Text>
+                              <View style={s.linkTextContainer}>
+                                <Text numberOfLines={1} ellipsizeMode="tail" style={s.linkText}>
+                                  {linkExpired ? '만료된 초대 링크예요.' : diary.link || '초대 링크를 만들어 주세요.'}
+                                </Text>
+                              </View>
                               {diary.link && (
                                 <Pressable
                                   accessibilityRole="button"
