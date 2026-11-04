@@ -51,7 +51,13 @@ export function useDiaries() {
         const prefix = `${STORAGE_KEYS.doc}:`;
         const known = new Set(saved.map((diary) => `${prefix}${diary.id}`));
         const keys = (await documentStorage.getAllKeys()).filter((key) => key.startsWith(prefix) && !known.has(key));
-        if (keys.length) entries = await documentStorage.multiGet(keys);
+        // 복구에는 문서 정보만 필요하므로 페이지 내용은 읽지 않는다. 옮기지 않은 옛 행은 그대로 읽는다.
+        for (const key of keys) {
+          try {
+            const outline = await documentStorage.loadOutline(key);
+            entries.push([key, outline ? JSON.stringify(outline) : await documentStorage.getItem(key)]);
+          } catch { /* 읽지 못한 문서만 건너뛴다. */ }
+        }
       } catch {
         // 복구 실패는 목록 표시를 막지 않는다.
       }

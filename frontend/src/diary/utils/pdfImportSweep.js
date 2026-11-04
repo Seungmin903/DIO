@@ -28,10 +28,11 @@ export const removeImportGroup = (groups, sourceId) => normalizeImportGroups(gro
 /**
  * 어디에도 id 가 없는 쪽 그림 · 원본을 고른다.
  * - raws: 이 기록 말고 저장된 모든 값의 원문. id 글자가 한 번이라도 나오면 쓰는 것으로 본다(읽을 수 없는 값은 "쓰는 중"으로 남기는 쪽이 안전해서 JSON 으로 해석하지 않는다).
+ * - isUsed: raws 대신 쓰는 판정. 저장값을 한 조각씩 훑은 결과를 넘긴다.
  * 반환: { mediaIds, sourceIds, remaining(남길 기록) }
  */
-export function sweepGroups({ groups, raws, now = Date.now(), graceMs = SWEEP_GRACE_MS }) {
-  const used = id => raws.some(raw => typeof raw === 'string' && raw.includes(id))
+export function sweepGroups({ groups, raws, isUsed, now = Date.now(), graceMs = SWEEP_GRACE_MS }) {
+  const used = isUsed ?? (id => raws.some(raw => typeof raw === 'string' && raw.includes(id)))
   const mediaIds = [], sourceIds = [], remaining = []
   for (const group of normalizeImportGroups(groups)) {
     if (now - Date.parse(group.createdAt) < graceMs) { remaining.push(group); continue }

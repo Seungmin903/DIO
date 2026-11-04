@@ -36,12 +36,21 @@ async function mapLimited(items, limit, work) {
 // manifest.json 이 있으면 tmp 는 쓰다 만 것일 수 있으므로 무시한다.
 const manifestName = (names) => (names.includes(MANIFEST) ? MANIFEST : names.includes(MANIFEST_TMP) ? MANIFEST_TMP : null)
 
+const parsesAsManifest = (text) => {
+  try { return JSON.parse(text)?.version === FORMAT_VERSION } catch { return false }
+}
+
+const directoryKey = (dir) => dir.replace(/_([0-9a-f]+)_/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+
 const shellOf = ({ objects, unloaded, ...shell }) => shell
 
 export function createDocumentStore({ files }) {
   const queues = new Map() // 키별 작업 줄. 같은 문서의 읽기 · 쓰기 · 지우기가 겹치지 않게 한다.
   const manifests = new Map() // 키 → 최근 목차 (이 프로세스만 쓰므로 쓸 때 함께 갱신한다)
   const fileOfObjects = new WeakMap() // objects 배열 → { key, file }. 내용이 그대로인 페이지를 다시 쓰지 않게 한다.
+  const revisions = new Map() // 키 → 이 프로세스에서 바뀐 횟수. 훑는 동안 저장이 끼어들었는지 본다.
+  const lives = new Map() // 키 → 지워진 횟수.
+  const lifeOf = (key) => lives.get(key) ?? 0
 
   const remember = (key, manifest) => {
     manifests.delete(key)
@@ -64,7 +73,10 @@ export function createDocumentStore({ files }) {
     const dir = documentDirectory(key)
     const name = manifestName(await files.names(dir))
     if (!name) return null
-    const manifest = JSON.parse(await files.read(dir, name))
+    const text = await files.read(dir, name)
+    // 임시 목차만 있는데 해석되지 않으면 첫 저장이 끝나지 못한 것이다. 문서가 아직 없는 것으로 봐서 옛 행과 다시 옮기기로 돌아간다.
+    if (name === MANIFEST_TMP && !parsesAsManifest(text)) return null
+    const manifest = JSON.parse(text)
     if (manifest?.version !== FORMAT_VERSION) throw new Error(`Unsupported document format: ${manifest?.version}`)
     remember(key, manifest)
     return manifest
@@ -80,7 +92,7 @@ export function createDocumentStore({ files }) {
   async function readEntry(key, entry) {
     if (!entry.file) return { ...entry.shell }
     const { objects } = decodePage(JSON.parse(await files.read(documentDirectory(key), entry.file)))
-    fileOfObjects.set(objects, { key, file: entry.file })
+    fileOfObjects.set(objects, { key, file: entry.file, life: lifeOf(key) })
     return { ...entry.shell, objects }
   }
 
@@ -96,7 +108,7 @@ export function createDocumentStore({ files }) {
     const dir = documentDirectory(key)
     await files.ensure(dir)
     // 임시 목차만 남아 있으면 먼저 제자리로 옮긴다. 그대로 두면 아래에서 덮어쓰는 동안 유일한 목차가 깨질 수 있다.
-    if (manifestName(await files.names(dir)) === MANIFEST_TMP) await files.replace(dir, MANIFEST_TMP, MANIFEST)
+    if (manifestName(await files.names(dir)) === MANIFEST_TMP && parsesAsManifest(await files.read(dir, MANIFEST_TMP))) await files.replace(dir, MANIFEST_TMP, MANIFEST)
     const previous = await readManifest(key)
     const previousById = new Map((previous?.pages ?? []).map((entry) => [entry.shell?.id, entry]))
     const fileBytes = new Map((previous?.pages ?? []).filter((entry) => entry.file).map((entry) => [entry.file, entry.bytes])) // 지금 있는 파일 → 크기
@@ -119,14 +131,15 @@ export function createDocumentStore({ files }) {
         }
         const known = fileOfObjects.get(page.objects)
         // 되돌리기로 돌아온 옛 내용은 파일이 이미 지워졌을 수 있다. 지금 있는 파일만 다시 쓴다.
-        let file = known?.key === key && fileBytes.has(known.file) ? known.file : null
+        // 문서를 지우고 같은 키로 다시 만들면 파일 이름이 다시 쓰이므로 그 전 기록은 믿지 않는다.
+        let file = known?.key === key && known.life === lifeOf(key) && fileBytes.has(known.file) ? known.file : null
         if (!file) {
           file = `p${nextFile}.json`
           nextFile += 1
           const text = JSON.stringify(encodePage({ objects: page.objects }))
           await files.write(dir, file, text)
           fileBytes.set(file, text.length)
-          fileOfObjects.set(page.objects, { key, file })
+          fileOfObjects.set(page.objects, { key, file, life: lifeOf(key) })
         }
         manifest.pages.push({ shell: shellOf(page), file, filled: pageHasContent(page), bytes: fileBytes.get(file) ?? 0 })
       }
@@ -137,11 +150,14 @@ export function createDocumentStore({ files }) {
     await files.write(dir, MANIFEST_TMP, JSON.stringify(manifest))
     await files.replace(dir, MANIFEST_TMP, MANIFEST)
     remember(key, manifest)
+    revisions.set(key, (revisions.get(key) ?? 0) + 1)
     await removeUnused(dir, manifest).catch(() => {})
   }
 
   const removeInQueue = async (key) => {
     manifests.delete(key)
+    revisions.set(key, (revisions.get(key) ?? 0) + 1)
+    lives.set(key, lifeOf(key) + 1)
     await files.removeAll(documentDirectory(key))
   }
 
@@ -185,17 +201,46 @@ export function createDocumentStore({ files }) {
         return { id: entry.shell.id, objects }
       })
     }),
+    /**
+     * 목차와 페이지 파일의 원문을 하나씩 visit 에 넘기고 바로 놓는다. 목차가 없으면 false.
+     * 파일은 덮어쓰지 않으므로 줄 밖에서 읽어 저장을 막지 않는다. 그 사이 저장되면 놓친 내용이 있을 수 있어 실패로 알린다.
+     */
+    async scanDocument(key, visit) {
+      const start = await run(key, async () => ({ manifest: await readManifest(key), revision: revisions.get(key) ?? 0 }))
+      if (!start.manifest) return false
+      const { manifest, revision } = start
+      let stopped = visit(JSON.stringify(manifest)) === false
+      const dir = documentDirectory(key)
+      await mapLimited((manifest.pages ?? []).filter((entry) => entry.file), READ_CONCURRENCY, async (entry) => {
+        if (stopped) return
+        const text = await files.read(dir, entry.file)
+        if (!stopped && visit(text) === false) stopped = true
+      })
+      if (!stopped && (revisions.get(key) ?? 0) !== revision) throw new Error(`Document changed during scan: ${key}`)
+      return true
+    },
     removeDocument: (key) => run(key, () => removeInQueue(key)),
-    /** 목차가 있는 문서의 키 목록. 목차가 없거나 깨진 폴더는 목록에서만 뺀다. */
+    /**
+     * 파일로 옮긴 문서의 키 목록. 목차를 읽지 못한 문서도 폴더 이름으로 넣는다.
+     * 빼면 참조 검사가 그 문서의 사진을 "안 쓰는 것"으로 보고 지운다. 넣어 두면 그 문서를 읽을 때 실패해 아무것도 지우지 않는다.
+     */
     async listKeys() {
       const keys = []
       for (const dir of await files.directories()) {
+        let name
         try {
-          const name = manifestName(await files.names(dir))
-          if (name) keys.push(JSON.parse(await files.read(dir, name)).key)
-        } catch { /* 파일은 지우지 않는다. */ }
+          name = manifestName(await files.names(dir))
+          if (!name) continue
+          const text = await files.read(dir, name)
+          if (name === MANIFEST_TMP && !parsesAsManifest(text)) continue
+          const { key } = JSON.parse(text)
+          if (typeof key !== 'string') throw new Error('Manifest has no key')
+          keys.push(key)
+        } catch {
+          keys.push(directoryKey(dir))
+        }
       }
-      return keys.filter((key) => typeof key === 'string')
+      return keys
     },
     /** 같은 키의 다른 작업과 겹치지 않게 task 를 실행한다. task 안에서는 *InQueue 를 쓴다. */
     exclusive: run,

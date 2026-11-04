@@ -342,3 +342,25 @@ test('폴더 이름에 쓸 수 없는 글자를 겹치지 않게 바꾼다', () 
   assert.match(documentDirectory('dio:editor:doc:v4:ab-1'), /^[A-Za-z0-9_-]+$/)
   assert.notEqual(documentDirectory('a:b'), documentDirectory('a_b'))
 })
+
+test('문서를 지우고 같은 키로 다시 만들면 전에 읽은 내용을 새 파일과 연결하지 않는다', async () => {
+  const dirs = new Map()
+  const files = {
+    async directories() { return [...dirs.keys()] },
+    async names(dir) { return [...(dirs.get(dir)?.keys() ?? [])] },
+    async ensure(dir) { if (!dirs.has(dir)) dirs.set(dir, new Map()) },
+    async read(dir, name) { const value = dirs.get(dir)?.get(name); if (value == null) throw new Error('missing'); return value },
+    async write(dir, name, text) { dirs.get(dir).set(name, text) },
+    async replace(dir, from, to) { dirs.get(dir).set(to, dirs.get(dir).get(from)); dirs.get(dir).delete(from) },
+    async remove(dir, name) { dirs.get(dir).delete(name) },
+    async removeAll(dir) { dirs.delete(dir) },
+  }
+  const store = createDocumentStore({ files })
+  const stale = [{ id: '옛 내용', type: 'text' }]
+  await store.writeDocument('k', { id: 'd', pages: [{ id: 'a', objects: stale }] })
+  await store.removeDocument('k')
+  await store.writeDocument('k', { id: 'd', pages: [{ id: 'a', objects: [{ id: '새 내용', type: 'text' }] }] })
+  await store.writeDocument('k', { id: 'd', pages: [{ id: 'a', objects: stale }] })
+  store.forget('k')
+  assert.equal((await store.readDocument('k')).pages[0].objects[0].id, '옛 내용')
+})

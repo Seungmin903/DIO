@@ -5,6 +5,7 @@ import { STORAGE_KEYS } from '../utils/storageContract.js'
 import { createDocumentStore } from './documentStore.js'
 import { documentFiles } from './documentFiles'
 import { readStoredDocument } from './readStoredDocument.js'
+import { samePoints } from '../utils/strokeCodec.js'
 
 const MEMBER_DOC = /^dio:member:v1:\d+:doc:[^:]+$/
 export function isDocumentKey(key) {
@@ -24,16 +25,36 @@ const parseLegacyDocument = (raw) => {
   try { return parseDocument(raw) } catch { return null }
 }
 
-function sameShape(source, restored) {
+function sameValue(a, b) {
+  if (a === b) return true
+  if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((item, index) => sameValue(item, b[index]))
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object' || Array.isArray(b)) return false
+  const keys = Object.keys(a)
+  return keys.length === Object.keys(b).length && keys.every((key) => key in b && sameValue(a[key], b[key]))
+}
+
+// 필기 점만 저장 눈금의 오차를 허용하고 나머지는 값까지 같아야 한다.
+function sameObject(source, restored) {
+  if (source?.type !== 'stroke' || !Array.isArray(source.points) || !Array.isArray(restored?.points)) return sameValue(source, restored)
+  const { points, ...rest } = source
+  const { points: restoredPoints, ...restoredRest } = restored
+  return samePoints(points, restoredPoints) && sameValue(rest, restoredRest)
+}
+
+/** 옛 행을 지워도 되는지 판단한다. 옮긴 사본이 원본과 값까지 같아야 한다. */
+export function sameDocument(source, restored) {
   const pages = source?.pages
-  if (!Array.isArray(pages)) return JSON.stringify(source) === JSON.stringify(restored)
-  if (!Array.isArray(restored?.pages) || restored.pages.length !== pages.length) return false
+  if (!Array.isArray(pages)) return sameValue(source, restored)
+  const { pages: restoredPages, ...restoredRest } = restored ?? {}
+  const { pages: _, ...rest } = source
+  if (!sameValue(rest, restoredRest) || !Array.isArray(restoredPages) || restoredPages.length !== pages.length) return false
   return pages.every((page, pageIndex) => {
-    const other = restored.pages[pageIndex]
-    const objects = page?.objects ?? []
-    if (page?.id !== other?.id || objects.length !== (other?.objects ?? []).length) return false
-    return objects.every((object, index) => object?.id === other.objects[index]?.id
-      && (object?.points?.length ?? 0) === (other.objects[index]?.points?.length ?? 0))
+    const { objects, ...shell } = page ?? {}
+    const { objects: restoredObjects, ...restoredShell } = restoredPages[pageIndex] ?? {}
+    if (!sameValue(shell, restoredShell)) return false
+    if (!Array.isArray(objects)) return sameValue(objects, restoredObjects)
+    return Array.isArray(restoredObjects) && objects.length === restoredObjects.length
+      && objects.every((object, index) => sameObject(object, restoredObjects[index]))
   })
 }
 
@@ -45,6 +66,9 @@ export function createDocumentStorage({ storage, files }) {
       removeItem: (key) => storage.removeItem(key),
       getAllKeys: () => storage.getAllKeys(),
       multiGet: (keys) => storage.multiGet(keys),
+      async scanText(keys, visit) {
+        for (const key of keys) if (visit(key, await storage.getItem(key)) === false) return
+      },
       loadDocument: (key) => readStoredDocument(storage, key),
       saveDocument: (key, doc) => storage.setItem(key, JSON.stringify(doc)),
       loadSummary: async () => null,
@@ -91,6 +115,21 @@ export function createDocumentStorage({ storage, files }) {
       for (const key of keys.filter(isDocumentKey)) values.set(key, await getItem(key))
       return keys.map((key) => [key, values.get(key) ?? null])
     },
+    /**
+     * 참조 검사용. 값을 하나씩 visit(key, 원문) 에 넘기고 놓는다. false 를 돌려주면 멈춘다.
+     * 파일로 옮긴 문서는 목차와 페이지 파일을 따로 넘기므로 원문 하나가 문서 전체가 아니다. 읽기 실패는 그대로 던진다.
+     */
+    async scanText(keys, visit) {
+      for (const key of keys) {
+        let stopped = false
+        const inFiles = isDocumentKey(key) && await store.scanDocument(key, (raw) => {
+          stopped = visit(key, raw) === false
+          return !stopped
+        })
+        if (stopped) return
+        if (!inFiles && visit(key, await storage.getItem(key)) === false) return
+      }
+    },
     async loadDocument(key) {
       return (await store.readDocument(key)) ?? readStoredDocument(storage, key)
     },
@@ -119,7 +158,7 @@ export function createDocumentStorage({ storage, files }) {
           try {
             await store.writeInQueue(key, doc)
             store.forget(key)
-            if (!sameShape(doc, await store.readInQueue(key))) throw new Error('Migrated document differs')
+            if (!sameDocument(doc, await store.readInQueue(key))) throw new Error('Migrated document differs')
             result.migrated += 1
           } catch (error) {
             // 확인에 실패한 사본을 지워 옛 행이 계속 쓰이게 한다.

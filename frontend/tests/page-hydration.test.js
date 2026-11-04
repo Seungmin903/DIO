@@ -237,3 +237,48 @@ test('멈추면 더 읽지 않고 내용을 보내지 않는다', async () => {
   await settle()
   assert.equal(calls.length, 1)
 })
+
+test('돌려받지 못한 페이지가 있으면 다 읽었다고 하지 않고 실패로 알린다', async () => {
+  const done = [], errors = []
+  let reads = 0
+  await new Promise((resolve) => {
+    createPageHydrator({
+      ids: ['a', 'b'],
+      read: async () => { reads += 1; return [{ id: 'a', objects: [] }] },
+      onPages: (_, finished) => done.push(finished),
+      onError: (error) => { errors.push(error.message); resolve() },
+      currentId: () => 'a',
+      wait: async () => {},
+    }).start()
+  })
+  assert.deepEqual(done, [])
+  assert.deepEqual(errors, ['Page content not found: b'])
+  assert.equal(reads, 2)
+})
+
+test('한 번 실패한 읽기는 다시 시도해 이어서 읽는다', async () => {
+  const errors = []
+  let reads = 0
+  const items = await new Promise((resolve) => {
+    createPageHydrator({
+      ids: ['a'],
+      read: async () => { reads += 1; if (reads === 1) throw new Error('잠깐 실패'); return [{ id: 'a', objects: [] }] },
+      onPages: (pages, finished) => { if (finished) resolve(pages) },
+      onError: (error) => errors.push(error),
+      currentId: () => 'a',
+      wait: async () => {},
+    }).start()
+  })
+  assert.deepEqual(items.map((item) => item.id), ['a'])
+  assert.deepEqual(errors, [])
+})
+
+test('되돌리기 기록은 20단계까지 남긴다', () => {
+  let state = partial([loaded('a')], 'a')
+  for (let i = 0; i < 25; i += 1) state = editorReducer(state, { type: 'addObjects', objects: [{ id: `n${i}`, type: 'text' }] })
+  assert.equal(state.past.length, 20)
+  for (let i = 0; i < 20; i += 1) state = editorReducer(state, { type: 'undo' })
+  assert.equal(state.past.length, 0)
+  assert.equal(editorReducer(state, { type: 'undo' }), state)
+  assert.equal(state.doc.pages[0].objects.length, 6)
+})

@@ -5,6 +5,7 @@ const BATCH_PAGES = 24
 const FLUSH_SHARE = 0.1
 // 글자 사이에 펜을 잠깐 떼는 동안에는 쉬는 상태를 유지한다.
 const RESUME_DELAY_MS = 800
+const RETRY_DELAY_MS = 300
 
 /**
  * ids: 읽을 페이지 id (문서 순서)
@@ -45,6 +46,25 @@ export function createPageHydrator({ ids, read, onPages, onError, currentId, res
     wakePause = null
   }
 
+  // 빠진 페이지를 "다 읽음"으로 넘기면 빈 페이지가 복제 · 내보내기로 번지므로 실패로 본다.
+  const readComplete = async (batch) => {
+    const items = await read(batch)
+    const found = new Set(items.map((item) => item.id))
+    const missing = batch.find((id) => !found.has(id))
+    if (missing !== undefined) throw new Error(`Page content not found: ${missing}`)
+    return items
+  }
+  // 일시적인 입출력 실패로 편집을 막지 않도록 한 번 더 읽어 본다.
+  const readBatch = async (batch) => {
+    try {
+      return await readComplete(batch)
+    } catch {
+      await wait(RETRY_DELAY_MS)
+      if (stopped) return []
+      return readComplete(batch)
+    }
+  }
+
   async function loop() {
     running = true
     try {
@@ -53,7 +73,7 @@ export function createPageHydrator({ ids, read, onPages, onError, currentId, res
         if (stopped) return
         const center = currentId()
         const batch = nearest()
-        const items = await read(batch)
+        const items = await readBatch(batch)
         if (stopped) return
         batch.forEach((id) => remaining.delete(id))
         buffer.push(...items)

@@ -3,6 +3,7 @@ import { STORAGE_KEYS } from '../../editor/services/storage'
 import * as mediaRepository from '../../editor/utils/mediaRepository'
 import { addImportGroup, normalizeImportGroups, removeImportGroup, sweepGroups } from './pdfImportSweep.js'
 import { removePdfSource } from './pdfSourceStore'
+import { findUnusedIds } from './storedScan.js'
 
 // 불러온 PDF 기록(어떤 쪽 그림과 원본을 만들었는지)을 기기에 남기고, 앱을 켠 뒤 안 쓰는 것을 정리한다. 읽고 쓰는 일은 한 줄로 처리한다.
 const KEY = STORAGE_KEYS.pdfImports
@@ -27,8 +28,8 @@ export function sweepPdfImports({ now = Date.now() } = {}) {
     const groups = await read()
     if (!groups.length) return null
     const keys = (await documentStorage.getAllKeys()).filter(key => key !== KEY)
-    const raws = keys.length ? (await documentStorage.multiGet(keys)).map(([, raw]) => raw) : []
-    const { mediaIds, sourceIds, remaining } = sweepGroups({ groups, raws, now })
+    const unused = await findUnusedIds(documentStorage, keys, groups.flatMap(group => [...group.mediaFileIds, ...(group.sourceId ? [group.sourceId] : [])]))
+    const { mediaIds, sourceIds, remaining } = sweepGroups({ groups, isUsed: id => !unused.has(id), now })
     await Promise.allSettled([...mediaIds.map(id => mediaRepository.remove(id)), ...sourceIds.map(id => removePdfSource(id))])
     await write(remaining)
     return { mediaIds, sourceIds }

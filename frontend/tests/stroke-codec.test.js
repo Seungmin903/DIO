@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { decodeDocStrokes, decodePage, encodeDocStrokes, encodePage } from '../src/editor/utils/strokeCodec.js'
+import { decodeDocStrokes, decodePage, encodeDocStrokes, encodePage, samePoints } from '../src/editor/utils/strokeCodec.js'
 import { brushSeed } from '../src/editor/utils/pencilSeed.js'
 import { strokePath } from '../src/editor/utils/strokes.js'
 
@@ -93,4 +93,21 @@ test('문서 단위 변환은 페이지가 없는 값도 안전하게 넘긴다'
   const doc = { id: 'd', pages: [page(pencil())] }
   const back = decodeDocStrokes(JSON.parse(JSON.stringify(encodeDocStrokes(doc))))
   assert.equal(back.pages[0].objects[0].points.length, 3)
+})
+
+test('눈금에 맞지 않는 옛 센서 값이 있는 획은 변환하지 않아 손실이 없다', () => {
+  const source = pencil()
+  source.points[1].time = 131.123456
+  const encoded = encodePage(page(source)).objects[0]
+  assert.equal(encoded.packedPoints, undefined)
+  assert.deepEqual(encoded.points, source.points)
+})
+
+test('samePoints 는 좌표 · 필압의 눈금 오차만 허용한다', () => {
+  const point = { x: 1, y: 2, pressure: 0.5, time: 10 }
+  assert.ok(samePoints([point], [{ ...point, x: 1.0005, pressure: 0.50005 }]))
+  assert.equal(samePoints([point], [{ ...point, x: 1.002 }]), false)
+  assert.equal(samePoints([point], [{ ...point, time: 10.1 }]), false)
+  assert.equal(samePoints([point], [{ x: 1, y: 2, pressure: 0.5 }]), false)
+  assert.equal(samePoints([point], []), false)
 })
