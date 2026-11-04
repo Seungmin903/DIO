@@ -41,7 +41,7 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   assert.deepEqual(storeOptions, dev ? { platform: 'android', legacyKeychain: 'keychain' } : null)
  }
 })
-test('운영 빌드는 API 주소가 없을 때 에뮬레이터 주소로 대체하지 않는다', () => {
+test('API 주소가 없는 정적 웹 번들도 모듈 로드 단계에서 중단되지 않는다', () => {
  const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
   configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
  }).code
@@ -49,13 +49,16 @@ test('운영 빌드는 API 주소가 없을 때 에뮬레이터 주소로 대체
  const mocks = { 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
   './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
   './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, 'expo/fetch': { fetch() {} } }
- assert.throws(() => new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} }), /EXPO_PUBLIC_API_BASE_URL/)
+ new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
+ assert.equal(mod.exports.apiBaseUrl, 'http://10.0.2.2:8080/api')
 })
-test('production EAS 프로필은 HTTPS 운영 API 주소를 번들에 주입한다', () => {
+test('배포 EAS 프로필은 HTTPS 운영 API 주소를 번들에 주입한다', () => {
  const eas = JSON.parse(readFileSync(new URL('../eas.json', import.meta.url), 'utf8'))
- const url = eas.build.production.env.EXPO_PUBLIC_API_BASE_URL
- assert.equal(new URL(url).protocol, 'https:')
- assert.notEqual(new URL(url).hostname, '10.0.2.2')
+ for (const profile of ['preview', 'production']) {
+  const url = eas.build[profile].env.EXPO_PUBLIC_API_BASE_URL
+  assert.equal(new URL(url).protocol, 'https:')
+  assert.notEqual(new URL(url).hostname, '10.0.2.2')
+ }
 })
 test('처음 실행은 고르는 화면 없이 게스트로 시작하고, 로그인 화면은 로그인이 필요한 기능에서만 뜬다',()=>{
  // 세션을 만드는 동안은 로그인 화면을 그리지 않는다(게스트로 곧바로 시작)
