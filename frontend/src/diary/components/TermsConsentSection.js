@@ -8,7 +8,7 @@ import { createAuthenticatedMemberTransport } from '../services/memberTransport'
 import { SettingSwitch } from './SettingRow';
 import { colors } from '../../shared/theme';
 
-export default function TermsConsentSection({ auth, userId, saveRef, onReadyChange }) {
+export default function TermsConsentSection({ auth, userId, saveRef, onReadyChange, onSaveError, onSavingChange }) {
   const [rows, setRows] = useState({});
   const [problem, setProblem] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -37,7 +37,7 @@ export default function TermsConsentSection({ auth, userId, saveRef, onReadyChan
           if (current.current === runtime) setProblem('동의 상태를 불러오지 못했어요. 다시 시도해 주세요.');
         }).finally(() => { if (current.current === runtime) setLoading(false); });
     } catch { setLoading(false); setProblem('로그인 상태를 확인한 뒤 다시 열어 주세요.'); }
-    return () => { runtime?.dispose(); if (current.current === runtime) current.current = null; };
+    return () => { runtime?.dispose(); if (current.current === runtime) current.current = null; onSavingChange?.(false); onSaveError?.(false); };
   }, [auth, userId, sessionKey, attempt, onReadyChange]);
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function TermsConsentSection({ auth, userId, saveRef, onReadyChan
       if (!runtime || Object.keys(confirmed.current).length !== optionalTerms.length)
         return Promise.reject(new Error('동의 상태를 먼저 확인해 주세요.'));
       const changes = optionalTerms.filter(item => draft.current[item.termsType]?.agreed !== confirmed.current[item.termsType]?.agreed);
-      setSubmitting(true);
+      setSubmitting(true); onSavingChange?.(true); onSaveError?.(false);
       const task = Promise.allSettled(changes.map(async item => {
         const type = item.termsType, agreed = draft.current[type].agreed;
         try {
@@ -63,11 +63,13 @@ export default function TermsConsentSection({ auth, userId, saveRef, onReadyChan
           throw error;
         }
       })).then(results => {
-        if (current.current !== runtime || results.some(result => result.status === 'rejected'))
+        if (current.current !== runtime || results.some(result => result.status === 'rejected')) {
+          if (current.current === runtime) onSaveError?.(true);
           throw new Error('일부 설정을 저장하지 못했어요. 다시 시도해 주세요.');
+        }
       }).finally(() => {
         if (saving.current === task) saving.current = null;
-        if (current.current === runtime) setSubmitting(false);
+        if (current.current === runtime) { setSubmitting(false); onSavingChange?.(false); }
       });
       saving.current = task;
       return task;
@@ -81,6 +83,8 @@ export default function TermsConsentSection({ auth, userId, saveRef, onReadyChan
     const next = { ...draft.current, [type]: { ...draft.current[type], agreed, error: '' } };
     draft.current = next;
     setRows(next);
+    // 선택 즉시 서버에 반영한다. 실패하면 선택과 오류를 남겨 다시 저장할 수 있다.
+    saveRef?.current?.().catch(() => {});
   };
   const open = async item => {
     try { await Linking.openURL(signupDocuments[item.id]); }
@@ -101,9 +105,9 @@ export default function TermsConsentSection({ auth, userId, saveRef, onReadyChan
           {!!row?.error && <Text accessibilityLiveRegion="polite" style={styles.error}>{row.error}</Text>}
         </View>
         <View style={styles.control}>
-          <Text style={styles.state}>{typeof row?.agreed === 'boolean' ? (row.agreed ? '동의' : '미동의') : '—'}</Text>
+          <Text style={styles.state}>{row?.error ? '미저장' : submitting ? '저장 중' : typeof row?.agreed === 'boolean' ? (row.agreed ? '동의' : '미동의') : '—'}</Text>
           <SettingSwitch label={item.label} on={row?.agreed === true} busy={submitting}
-            accessibilityHint={typeof row?.agreed === 'boolean' ? '아래 저장 버튼을 누르면 저장돼요' : '현재 동의 상태를 확인하기 전에는 변경할 수 없어요'}
+            accessibilityHint={typeof row?.agreed === 'boolean' ? '변경하면 바로 저장해요' : '현재 동의 상태를 확인하기 전에는 변경할 수 없어요'}
             disabled={typeof row?.agreed !== 'boolean' || submitting || !!problem || !sessionKey}
             onToggle={value => change(item.termsType, value)} />
         </View>

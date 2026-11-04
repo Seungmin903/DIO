@@ -37,6 +37,7 @@ test('기기 알림을 꺼도 알림 섹션 안의 서버 알림 설정 진입 �
  assert.ok(entry,'알림을 꺼도 서버 알림 설정 행이 그려진다');
  assert.notEqual(entry.props.disabled,true);
  entry.props.onPress();assert.equal(opened,1);
- // 토글이 막는 것은 기기 알림의 세부 행뿐이다
- assert.equal(find(tree,'다이어리 초대').props.disabled,true);
+ // 미지원 항목은 작동하는 스위치로 표시하지 않는다.
+ assert.equal(find(tree,'다이어리 초대'),null);
+ assert.ok(JSON.stringify(tree).includes('준비 중'));
 });
