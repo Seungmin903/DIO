@@ -149,3 +149,126 @@ test('잠금 초기화는 모든 저장소 정리를 시도하고 보안 저장�
   assert.equal(await asyncStorage.getItem('dio.appLock.v1:user:7'),null);
   assert.equal(await asyncStorage.getItem('dio.appLock.v1.attempts:user:7'),null);
 });
+
+test('잠금 상태는 없음·정상·손상·저장소 오류를 구분하고, 손상·오류만 PIN 없이 초기화할 수 있는 상태로 본다', async()=>{
+  const storage=secureStore(),lock=nativeLock(storage),scope='user:7';
+  assert.equal(await lock.readAppLockState(scope),'off');
+  await lock.setAppLock(scope,'1234');
+  assert.equal(await lock.readAppLockState(scope),'on');
+  await storage.setItemAsync('dio.appLock.v2.s00007500007300006500007200003a000037','{not-json');
+  assert.equal(await lock.readAppLockState(scope),'corrupt');
+  const failing=nativeLock({getItemAsync:async()=>{throw Error('keystore unavailable')},setItemAsync:async()=>{},deleteItemAsync:async()=>{}});
+  assert.equal(await failing.readAppLockState(scope),'storage');
+  assert.deepEqual(['off','on','corrupt','storage',null].map(lock.appLockUnreadable),[false,false,true,true,false]);
+});
+
+const recovery=({clear=async()=>{}}={})=>{
+  const dialogs=[],notices=[],cleared=[];
+  const mod=load('../src/diary/components/appLockRecovery.js',{
+    '../../shared/appLock':{appLockUnreadable:state=>state==='corrupt'||state==='storage',clearAppLock:async scope=>{cleared.push(scope);await clear(scope)}},
+    '../../shared/dialogs':{confirmAction:options=>dialogs.push(options),notify:(title,message)=>notices.push({title,message})},
+  });
+  return {...mod,dialogs,notices,cleared};
+};
+
+test('회원의 잊었어요는 잠금을 지운 뒤 로그아웃하고, 지우기에 실패하면 로그아웃하지 않고 알린다', async()=>{
+  const ok=recovery();let logouts=0;
+  const action=ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7',onLogout:()=>{logouts+=1}});
+  assert.equal(typeof action,'function');
+  action();assert.equal(ok.dialogs.length,1);assert.equal(ok.dialogs[0].confirmLabel,'로그아웃');
+  await ok.dialogs[0].onConfirm();
+  assert.deepEqual(ok.cleared,['user:7']);assert.equal(logouts,1);assert.deepEqual(ok.notices,[]);
+
+  const failed=recovery({clear:async()=>{throw Error('keystore unavailable')}});
+  failed.appLockRecoveryAction({member:true,state:'corrupt',scope:'user:7',onLogout:()=>{logouts+=1}})();
+  await failed.dialogs[0].onConfirm();
+  assert.equal(logouts,1);
+  assert.deepEqual(failed.notices,[{title:'앱 잠금',message:'앱 잠금을 초기화하지 못했어요. 잠시 후 다시 시도해 주세요.'}]);
+  assert.equal(ok.appLockRecoveryAction({member:true,state:'on',scope:'user:7'}),undefined); // 로그아웃 수단이 없으면 칸을 비운다
+});
+
+test('게스트는 정상 잠금을 PIN 없이 풀 수 없고, 손상·읽기 오류일 때만 초기화한다', async()=>{
+  const ok=recovery();
+  for(const state of ['on','off',null]) assert.equal(ok.appLockRecoveryAction({member:false,state,scope:'guest:g1',onCleared(){}}),undefined);
+  for(const state of ['corrupt','storage']){
+    let done=0;
+    const action=ok.appLockRecoveryAction({member:false,state,scope:'guest:g1',onCleared:()=>{done+=1}});
+    assert.equal(typeof action,'function');
+    action();const dialog=ok.dialogs.at(-1);
+    assert.equal(dialog.confirmLabel,'초기화');assert.match(dialog.message,/일기는 그대로/);
+    await dialog.onConfirm();assert.equal(done,1);
+  }
+  assert.deepEqual(ok.cleared,['guest:g1','guest:g1']);
+  const failed=recovery({clear:async()=>{throw Error('keystore unavailable')}});let done=0;
+  failed.appLockRecoveryAction({member:false,state:'corrupt',scope:'guest:g1',onCleared:()=>{done+=1}})();
+  await failed.dialogs[0].onConfirm();
+  assert.equal(done,0);assert.equal(failed.notices.length,1);
+});
+
+const loadJsx=(path,mocks)=>{
+  const code=babel.transformSync(readFileSync(new URL(path,import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code;
+  const mod={exports:{}};new Function('require','module','exports',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports);return mod.exports;
+};
+const tree=node=>!node||typeof node!=='object'?[]:[node,...[node.props?.children].flat(Infinity).flatMap(tree)];
+
+test('앱 잠금을 새로 켤 수 없는 환경(웹)에서는 기존 잠금의 끄기만 두고 켜기·바꾸기를 숨긴다', ()=>{
+  const {default:AppLockSetting}=loadJsx('../src/diary/components/AppLockSetting.js',{
+    '../../shared/DioButton':{__esModule:true,default:'DioButton'},
+    './SettingRow':{__esModule:true,default:'SettingRow',ON_OFF:[],SettingSection:'SettingSection'},
+  });
+  const calls=[];const handlers={onTurnOn:()=>calls.push('on'),onTurnOff:()=>calls.push('off'),onChange:()=>calls.push('change')};
+  const rows=props=>tree(AppLockSetting(props)).filter(node=>node.type==='SettingRow');
+  const switchOf=props=>rows(props).find(node=>node.props.label==='앱 잠금');
+  // 웹·기존 잠금 있음: 끄기는 되고, 비밀번호 바꾸기 줄은 없다
+  assert.equal(rows({...handlers,locked:true,canEnable:false}).some(node=>node.props.label==='비밀번호'),false);
+  switchOf({...handlers,locked:true,canEnable:false}).props.onChange('off');
+  // 웹·잠금 없음: 켜기를 눌러도 아무 흐름도 열지 않는다
+  switchOf({...handlers,locked:false,canEnable:false}).props.onChange('on');
+  // 읽는 중(null)이면 어느 쪽도 열지 않는다
+  switchOf({...handlers,locked:null,canEnable:true}).props.onChange('on');
+  assert.deepEqual(calls,['off']);
+  // 지원 환경: 켜기와 바꾸기 줄이 있다
+  switchOf({...handlers,locked:false}).props.onChange('on');
+  assert.equal(rows({...handlers,locked:true}).some(node=>node.props.label==='비밀번호'),true);
+  assert.deepEqual(calls,['off','on']);
+});
+
+const pinScreen=({check,onForgot}={})=>{
+  const values=[];let cursor=0;const done=[];
+  const {default:PinScreen}=loadJsx('../src/diary/components/PinScreen.js',{
+    react:{useEffect(){},useRef:initial=>({current:initial}),useState:initial=>{const i=cursor++;if(!(i in values))values[i]=initial;return [values[i],next=>{values[i]=typeof next==='function'?next(values[i]):next}]}},
+    'react-native':{BackHandler:{addEventListener:()=>({remove(){}})},Pressable:'Pressable',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:v=>v,absoluteFill:{}},useWindowDimensions:()=>({width:400,height:900})},
+    '../../shared/theme':{colors:{}},
+    '../../shared/appLock':{PIN_LENGTH:4},
+    './pinScreenMessage':load('../src/diary/components/pinScreenMessage.js',{}),
+  });
+  const render=mode=>{cursor=0;return PinScreen({mode,user:{},check,onDone:pin=>done.push(pin),onCancel(){},onForgot})};
+  const type=async(mode,pin)=>{
+    for(const key of pin) tree(render(mode)).find(node=>node.type==='Pressable'&&node.props.accessibilityLabel===key).props.onPress();
+    await new Promise(resolve=>setImmediate(resolve));
+  };
+  const errorText=mode=>tree(render(mode)).find(node=>node.props?.accessibilityLiveRegion==='polite').props.children;
+  return {render,type,errorText,done};
+};
+
+test('PIN 화면은 검증 결과 객체의 ok·재시도 시간·저장소 오류를 구분해 처리한다', async()=>{
+  const results=[{ok:false,retryAfterMs:0},{ok:false,retryAfterMs:30000},{ok:false,retryAfterMs:0,error:'corrupt'},{ok:true,retryAfterMs:0}];
+  const ui=pinScreen({check:async()=>results.shift()});
+  await ui.type('unlock','0000');assert.equal(ui.errorText('unlock'),'비밀번호가 달라요');
+  await ui.type('unlock','0000');assert.equal(ui.errorText('unlock'),'입력 횟수가 많아요. 30초 뒤에 다시 시도해 주세요');
+  await ui.type('unlock','0000');assert.equal(ui.errorText('unlock'),'앱 잠금을 확인하지 못했어요. 잠시 후 다시 시도해 주세요');
+  assert.deepEqual(ui.done,[]);
+  await ui.type('unlock','1234');assert.deepEqual(ui.done,['1234']);
+  // 이전 boolean 계약과 검증 중 예외도 처리한다
+  const legacy=pinScreen({check:async pin=>pin==='1234'});
+  await legacy.type('verify','1234');assert.deepEqual(legacy.done,['1234']);
+  const throwing=pinScreen({check:async()=>{throw Error('boom')}});
+  await throwing.type('verify','1234');assert.deepEqual(throwing.done,[]);assert.equal(throwing.errorText('verify'),'비밀번호가 달라요');
+});
+
+test('PIN 화면은 onForgot이 있을 때만 잊었어요 칸을 연다', ()=>{
+  const forgot=()=>{};
+  const withForgot=tree(pinScreen({onForgot:forgot}).render('verify')).find(node=>node.props?.accessibilityLabel==='비밀번호를 잊었어요');
+  assert.equal(withForgot.props.onPress,forgot);
+  assert.equal(tree(pinScreen().render('setup')).some(node=>node.props?.accessibilityLabel==='비밀번호를 잊었어요'),false);
+});

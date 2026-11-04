@@ -10,7 +10,8 @@ import AppLockSetting from '../components/AppLockSetting';
 import EditSetting from '../components/EditSetting';
 import PinScreen from '../components/PinScreen';
 import EditorModal from '../../editor/components/controls/EditorModal';
-import { appLockScope, appLockSupported, checkAppLockStatus, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
+import { appLockScope, appLockSupported, checkAppLockStatus, clearAppLock, readAppLockState, setAppLock } from '../../shared/appLock';
+import { appLockRecoveryAction } from '../components/appLockRecovery';
 import { colors } from '../../shared/theme';
 import { notify } from '../../shared/dialogs';
 import DioButton from '../../shared/DioButton';
@@ -41,29 +42,25 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
   // 게스트(로그인 전 방문자)는 설정만 연다. 마이페이지는 사이드바에서 로그인으로 대신한다.
   const authenticatedUser = previewUser?.mode === 'authenticated';
   const guest = !authenticatedUser && previewUser?.provider === 'guest';
-  // 저장소 손상 등으로 현재 PIN 검증이 불가능할 때도, 회원은 로그아웃 후 재로그인으로 안전하게 잠금을 초기화할 수 있다.
-  const recoverAppLock = authenticatedUser && onEndPreview ? () => confirmAction({
-    title: '앱 잠금을 초기화할까요?', message: '로그아웃한 뒤 다시 로그인하면 앱 잠금을 새로 설정할 수 있어요.', confirmLabel: '로그아웃',
-    onConfirm: async () => {
-      try {
-        await clearAppLock(appLockScope(previewUser));
-        onEndPreview();
-      } catch {
-        notify('앱 잠금', '앱 잠금을 초기화하지 못했어요. 잠시 후 다시 시도해 주세요.');
-      }
-    },
-  }) : undefined;
   // 앱 잠금: locked 는 이 계정에 잠금이 있는지(null = 읽는 중). pin 은 열려 있는 비밀번호 화면
   // ({ mode: 'setup' } 새로 켜기 · 바꾸기 2단계 | { mode: 'verify', next: 'off' | 'change' })
   const lockScope = appLockScope(previewUser);
-  const [locked, setLocked] = useState(null);
+  const [lockState, setLockState] = useState(null); // readAppLockState 결과(null = 읽는 중 · 읽기 실패)
+  const locked = lockState === null ? null : lockState !== 'off';
   const [pin, setPin] = useState(null);
+  const reloadLock = () => readAppLockState(lockScope).catch(() => null).then(setLockState);
   useEffect(() => {
     let alive = true;
     // 읽기 실패는 '꺼짐'으로 두지 않는다(켜기로 기존 비밀번호를 확인 없이 덮어쓸 수 있다). null 이면 스위치가 눌리지 않고, 다시 들어오면 다시 읽는다
-    hasAppLock(lockScope).then(value => { if (alive) setLocked(value); }).catch(() => { if (alive) setLocked(null); });
+    readAppLockState(lockScope).then(value => { if (alive) setLockState(value); }).catch(() => { if (alive) setLockState(null); });
     return () => { alive = false; };
   }, [lockScope]);
+  // 지금 비밀번호를 잊었거나 저장소 손상으로 확인할 수 없을 때: 회원은 로그아웃 후 재로그인, 게스트는 손상·읽기 불가일 때만 초기화.
+  // 새 비밀번호를 정하는 setup 화면에는 두지 않는다(새 비밀번호를 정하다 로그아웃 흐름이 열리지 않게).
+  const recoverAppLock = appLockRecoveryAction({
+    member: authenticatedUser, state: lockState, scope: lockScope, onLogout: onEndPreview,
+    onCleared: () => { setPin(null); reloadLock(); },
+  });
   // 내 공간에 들어올 때 서버 회원정보(GET /me)로 로그인 시점 값을 갱신한다. 실패하면 로그인 응답 값을 그대로 보여 주고 다시 들어올 때 재시도한다.
   const userId = authenticatedUser ? previewUser.userId : null;
   useEffect(() => {
@@ -87,13 +84,13 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
         if (pin.mode === 'verify') await clearAppLock(lockScope);
         else await setAppLock(lockScope, value);
       } catch { notify('앱 잠금', '앱 잠금을 바꾸지 못했어요. 다시 시도해 주세요.'); }
-      setLocked(await hasAppLock(lockScope).catch(() => null));
+      await reloadLock();
       setPin(null);
     };
     pinScreen = (
       <EditorModal visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPin(null)}>
         <PinScreen key={`${pin.mode}:${pin.next || ''}`} mode={pin.mode} user={previewUser} getProfilePhotoSource={getProfilePhotoSource}
-          check={value => checkAppLockStatus(lockScope, value)} onDone={done} onCancel={() => setPin(null)} onForgot={recoverAppLock} />
+          check={value => checkAppLockStatus(lockScope, value)} onDone={done} onCancel={() => setPin(null)} onForgot={pin.mode === 'verify' ? recoverAppLock : undefined} />
       </EditorModal>
     );
   }
