@@ -21,6 +21,9 @@ deploy-development:
   stage: deploy
   tags:
     - ec2-deploy
+  variables:
+    # release 검증의 develop과의 migration 비교는 얕은 clone에 의존하지 않는다.
+    GIT_DEPTH: "0"
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop"'
     - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
@@ -34,13 +37,22 @@ deploy-development:
   environment:
     name: development
   script:
-    # release 검증은 dev DB의 Flyway 이력을 공유하므로, develop에 아직 없는 migration은 적용하지 않는다.
+    # release 검증은 dev DB의 Flyway 이력을 공유하므로 양쪽 migration 집합이 같아야 한다.
     - >
-      if [[ "$CI_COMMIT_BRANCH" =~ ^release/ ]]; then
+      if printf '%s' "$CI_COMMIT_BRANCH" | grep -Eq '^release/'; then
         git fetch --no-tags origin develop;
-        if ! git diff --quiet origin/develop...HEAD -- backend/src/main/resources/db/migration; then
-          echo "Release verification cannot apply migrations that are not already on develop's shared DB." >&2;
+        if ! git rev-parse --verify --quiet origin/develop >/dev/null; then
+          echo "Cannot resolve origin/develop for the shared-DB migration check." >&2;
           exit 1;
+        fi;
+        git diff --quiet origin/develop HEAD -- backend/src/main/resources/db/migration;
+        migration_status=$?;
+        if [ "$migration_status" -eq 1 ]; then
+          echo "Release and develop have different migrations; shared-DB verification is blocked." >&2;
+          exit 1;
+        elif [ "$migration_status" -ne 0 ]; then
+          echo "Could not compare release and develop migrations (git exit $migration_status)." >&2;
+          exit "$migration_status";
         fi;
       fi
     - export BACKEND_IMAGE="dio-backend:dev-${CI_COMMIT_SHORT_SHA}"

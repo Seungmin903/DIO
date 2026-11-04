@@ -2,7 +2,7 @@
 
 개발 배포와 release 브랜치 검증 배포는 모두 `compose/compose.dev.yml`과 `/home/gitlab-runner/dio-env/dev.env`를 사용한다. protected `release/*`의 수동 배포는 dev 백엔드 컨테이너를 해당 release 커밋으로 교체한다. 따라서 release 확인 중에는 develop 최신 코드가 아닌 release 코드가 dev 서버에서 실행된다. 운영 배포만 `compose/compose.prod.yml`과 `/home/gitlab-runner/dio-env/prod.env`를 사용한다. 이 비공개 파일은 Git에 넣지 않는다. 저장소만으로 실제 서버 값·SMTP 연결·S3 권한이 준비되었다고 판단할 수 없다.
 
-release 검증 배포는 dev와 **같은 PostgreSQL DB와 Flyway 이력**을 공유한다. release의 migration은 dev DB에도 즉시 적용되며, `deploy-development`는 헬스 체크 실패 시 이전 이미지로 자동 복구하지 않는다. release 파이프라인은 `origin/develop`에 아직 없는 migration이 있으면 배포 전에 실패시켜 공유 DB에 release 전용 스키마를 적용하지 않는다. 따라서 release에 포함하는 migration은 develop의 이전·다음 애플리케이션 버전과 함께 기동할 수 있는 expand/contract 방식으로 작성한다. 새 테이블·컬럼·인덱스 추가와 새 코드 배포를 먼저 하고, 컬럼 삭제·이름 변경·제약 강화처럼 이전 코드와 호환되지 않는 변경은 release 검증과 develop 재배포가 끝난 뒤 별도 후속 배포로 분리한다. 헬스 체크 실패 시에는 컨테이너 로그와 적용된 Flyway 이력을 확인한 뒤, 호환되는 커밋을 수동 재배포한다. 이미 적용된 migration은 이미지 교체만으로 되돌아가지 않으므로 파괴적 변경의 복구에는 DB 백업·스냅샷 복원이 필요하다.
+release 검증 배포는 dev와 **같은 PostgreSQL DB와 Flyway 이력**을 공유한다. release의 migration은 dev DB에도 즉시 적용되며, `deploy-development`는 헬스 체크 실패 시 이전 이미지로 자동 복구하지 않는다. release 파이프라인은 `origin/develop`과 release의 migration 목록이 양방향으로 정확히 같은지 배포 전에 확인한다. 한쪽에만 있는 migration 또는 비교 자체의 Git 오류가 있으면 배포하지 않아 공유 DB에 release 전용 스키마를 적용하거나, release가 dev에 이미 적용된 migration보다 뒤처진 상태로 기동하는 일을 막는다. 따라서 release에 포함하는 migration은 develop의 이전·다음 애플리케이션 버전과 함께 기동할 수 있는 expand/contract 방식으로 작성한다. 새 테이블·컬럼·인덱스 추가와 새 코드 배포를 먼저 하고, 컬럼 삭제·이름 변경·제약 강화처럼 이전 코드와 호환되지 않는 변경은 release 검증과 develop 재배포가 끝난 뒤 별도 후속 배포로 분리한다. 헬스 체크 실패 시에는 컨테이너 로그와 적용된 Flyway 이력을 확인한 뒤, 호환되는 커밋을 수동 재배포한다. 이미 적용된 migration은 이미지 교체만으로 되돌아가지 않으므로 파괴적 변경의 복구에는 DB 백업·스냅샷 복원이 필요하다.
 
 ## 필수 환경변수
 
