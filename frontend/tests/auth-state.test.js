@@ -38,6 +38,52 @@ function enterSocial(ui) {
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve))
 
+test('개발 서버 재인증 후 저장된 로그인은 회원 비밀번호 재입력 없이 복원한다', async()=>{
+ let configured=false, logins=0, restores=0;
+ const member={mode:'authenticated',userId:'7',provider:'email'};
+ const ui=setup({login:async()=>{logins++;},restoreSession:async()=>{restores++;assert.equal(configured,true);return member;},
+  verificationService:{setDevelopmentAccess(id,password){assert.equal(id,'tester');assert.equal(password,'secret');configured=true;}}},undefined,
+  {developmentMode:true,resumeSession:true});
+ try {
+  assert.equal(find(ui.render(),'이메일'),undefined);
+  find(ui.render(),'개발 서버 ID').props.onChange('tester');
+  find(ui.render(),'개발 서버 비밀번호').props.onChange('secret');
+  const button=find(ui.render(),'접속 인증 후 로그인 복원');
+  assert.equal(button.props.disabled,false);button.props.onPress();await tick();
+  assert.equal(restores,1);assert.equal(logins,0);assert.deepEqual(ui.sessions,[member]);
+ } finally {ui.unmount();}
+});
+
+test('개발 인증 입력 기능이 없는 복원 설정은 일반 이메일 로그인으로 돌아간다',async()=>{
+ for(const developmentMode of [true,false]){
+  const member={mode:'authenticated',userId:'7',provider:'email'};
+  let logins=0;
+  const ui=setup({login:async()=>{logins++;return member;}},undefined,{developmentMode,resumeSession:true});
+  try{
+   assert.ok(find(ui.render(),'이메일'));assert.ok(find(ui.render(),'비밀번호'));
+   assert.equal(find(ui.render(),'개발 서버 ID'),undefined);
+   find(ui.render(),'이메일').props.onChange('member@example.com');
+   find(ui.render(),'비밀번호').props.onChange('Password123!');
+   const button=find(ui.render(),'로그인');assert.equal(button.props.disabled,false);
+   button.props.onPress();await tick();assert.equal(logins,1);assert.deepEqual(ui.sessions,[member]);
+  }finally{ui.unmount();}
+ }
+});
+
+test('저장 로그인 복원 중 개발 인증 오류는 재입력을 허용하고 만료 토큰은 일반 로그인으로 돌아간다',async()=>{
+ for(const error of [Object.assign(new Error('게이트웨이 인증 필요'),{code:'DEVELOPMENT_ACCESS_REQUIRED',status:401}),
+  Object.assign(new Error('다시 로그인해 주세요.'),{code:'INVALID_REFRESH_TOKEN',status:401}),new Error('네트워크 오류')]){
+  const ui=setup({restoreSession:async()=>{throw error;},verificationService:{setDevelopmentAccess(){}}},undefined,{developmentMode:true,resumeSession:true});
+  try{
+   find(ui.render(),'개발 서버 ID').props.onChange('tester');find(ui.render(),'개발 서버 비밀번호').props.onChange('secret');
+   find(ui.render(),'접속 인증 후 로그인 복원').props.onPress();await tick();
+   assert.equal(ui.sessions.length,0);
+   if(error.code==='INVALID_REFRESH_TOKEN')assert.ok(find(ui.render(),'이메일'));
+   else assert.ok(find(ui.render(),'접속 인증 후 로그인 복원'));
+  }finally{ui.unmount();}
+ }
+});
+
 test('로그인 오버레이 첫 화면의 뒤로가기는 오버레이만 닫고 이벤트를 소비한다', () => {
  let closes=0;
  const ui=setup({},undefined,{onClose:()=>{closes++}});

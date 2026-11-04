@@ -8,9 +8,10 @@ export function authBaseUrl(value) {
   return base.endsWith('/api') ? `${base}/v1` : `${base}/api/v1`;
 }
 
-// Tokens and the optional development-server Basic header stay in memory.
+// Access tokens and development-server Basic credentials stay in memory.
+// Only the injected native secure store persists refresh credentials.
 // Never save passwords or tokens in AsyncStorage.
-export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null }) {
+export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhotoBody, googleSignIn, appleSignIn, now = Date.now, accessTokenHeader = 'Authorization', allowDevelopmentAccess = false, developmentAccessStore = null, sessionStore = null }) {
   if (!['Authorization', 'X-DIO-Access-Token'].includes(accessTokenHeader)) throw new Error('인증 헤더 설정을 확인해 주세요.');
   const base = authBaseUrl(baseUrl);
   const accessOrigin = new URL(base).origin;
@@ -42,7 +43,30 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
   const socialSignIns = { google: googleSignIn, apple: appleSignIn };
   const SOCIAL_NAMES = { google: '구글', apple: '애플' };
   let session = null, draft = null, verification = null, revision = 0, refreshing = null, accessRefreshAt = 0, sessionSequence = 0;
-  const acceptSession = result => {
+  let restoringSession = null, storageWrites = Promise.resolve();
+  const store = (method, value) => {
+    const operation = storageWrites.then(() => sessionStore?.[method]?.(base, value));
+    storageWrites = operation.catch(() => {});
+    return operation;
+  };
+  const clearStoredSession = () => store('clear');
+  // LoginException.token() is the backend's explicit refresh rejection contract.
+  const invalidRefreshToken = error => error?.status === 401 && error.code === 'INVALID_TOKEN';
+  const clearStoredSessionSafely = async () => {
+    try { await clearStoredSession(); return true; }
+    catch { console.warn('[auth] SECURE_SESSION_CLEAR_FAILED'); return false; }
+  };
+  const incompleteLogout = () => Object.assign(new Error('로그아웃을 완료하지 못했어요. 다음 실행에서 로그인이 복원될 수 있어요. 연결 상태를 확인한 뒤 다시 로그인하여 로그아웃해 주세요.'),
+    { code: 'LOGOUT_INCOMPLETE' });
+  const endLocalSession = async () => {
+    // Invalidate in-memory work before touching Keychain/Keystore. A local cleanup
+    // failure must not turn a completed server action into an apparent failure.
+    session = null;
+    accessRefreshAt = 0;
+    api.cancelPending();
+    return clearStoredSessionSafely();
+  };
+  const acceptSession = async (result, { keepSessionOnStorageFailure = false } = {}) => {
     const text = value => typeof value === 'string' && value.trim().length > 0;
     const identifier = value => value != null && String(value).trim().length > 0;
     let validPhoto = result?.user?.profilePhotoUrl == null;
@@ -58,6 +82,28 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
     const lifetime = result.expiresIn * 1000;
     session = { ...result, provider: result.provider || session?.provider || 'email' };
     accessRefreshAt = now() + lifetime - Math.min(30000, lifetime / 2);
+    const accepted = session, acceptedRevision = revision;
+    try {
+      await store('save', { refreshToken: session.refreshToken, provider: session.provider, userId: String(session.user.userId) });
+    } catch {
+      if (keepSessionOnStorageFailure && session === accepted && revision === acceptedRevision) {
+        // Rotation already succeeded. Keep its new tokens in memory so a
+        // temporarily locked secure store does not interrupt the active user.
+        console.warn('[auth] SECURE_SESSION_SAVE_FAILED');
+      } else {
+        if (session === accepted) {
+          session = null;
+          await clearStoredSession().catch(() => {});
+        }
+        throw Object.assign(new Error('로그인 정보를 안전하게 저장하지 못했어요. 다시 시도해 주세요.'), { code: 'SESSION_STORAGE_UNAVAILABLE' });
+      }
+    }
+    if (session !== accepted) throw new Error('로그인 상태가 변경되었어요.');
+    if (revision !== acceptedRevision) {
+      session = null;
+      await clearStoredSession();
+      throw new Error('로그인 요청이 취소되었어요.');
+    }
   };
   const unauthorized = () => Object.assign(new Error('다시 로그인해 주세요.'), { status: 401, code: 'AUTHENTICATION_REQUIRED' });
   let passwordReset = null, resetRevision = 0, resetVerifying = null, verificationRevision = 0;
@@ -79,9 +125,9 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         !developmentAccess && accessTokenHeader === 'Authorization' ? `Bearer ${accessToken}` : accessToken } : {}),
     };
   };
-  async function request(path, body, accessToken, multipart = false, method = 'POST', memberPath = false) {
+  async function request(path, body, accessToken, multipart = false, method = 'POST', memberPath = false, timeoutMs = 15000) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       if (restoringAccess) await restoringAccess;
       const sentAccess = developmentAccess;
@@ -198,7 +244,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         throw Object.assign(new Error('로그인 응답의 계정을 확인하지 못했어요. 다시 로그인해 주세요.'),
           { status: 502, code: 'INVALID_AUTH_RESPONSE' });
       }
-      acceptSession({ ...result, provider: 'email' });
+      await acceptSession({ ...result, provider: 'email' });
       sessionSequence++;
       return userView(result.user);
     },
@@ -289,7 +335,10 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       if (resetAttempt !== resetRevision || authAttempt !== revision ||
           previousSession !== session || passwordReset !== current)
         throw new Error('비밀번호는 재설정되었지만 화면 또는 로그인 상태가 변경되었어요.');
-      session = null; api.cancelPending();
+      // Only the active session identifies which account owns the saved token.
+      // Otherwise retain it: the server revokes the reset account's sessions.
+      if (previousSession && normalizeEmail(previousSession.user.email) === current.email) await endLocalSession();
+      else api.cancelPending();
     },
 
     async completeProfile({ provider, email, nickname, photoUri, terms }) {
@@ -306,7 +355,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
           if(revision!==attempt||socialDraft!==current)throw new Error('가입 요청이 취소되었어요.');
           const result=await request(`oauth/${provider}`,upload?.body ?? body,undefined,!!upload);
           if(revision!==attempt||socialDraft!==current)throw new Error('가입 요청이 취소되었어요.');
-          acceptSession({...result,provider});sessionSequence++;socialDraft=null;
+          await acceptSession({...result,provider});sessionSequence++;socialDraft=null;
           return userView(result.user);
         }catch(error){if(socialDraft===current&&error?.code==='INVALID_SOCIAL_CREDENTIAL')socialDraft=null;throw error;}
         finally {try{await upload?.dispose?.();}catch{}signupPending=false;}
@@ -403,7 +452,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         await request('me/password', { currentPassword, newPassword: password }, current.accessToken, false, 'PATCH', true);
       }
       if (session !== current) throw new Error('로그인 상태가 변경되었어요.');
-      session = null; api.cancelPending();
+      await endLocalSession();
     },
     async withdraw(user) {
       if (!session || String(user?.userId) !== String(session.user.userId)) throw unauthorized();
@@ -422,7 +471,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         }
         withdrawn = true;
       } finally {
-        if (withdrawn && session === current) { session = null; api.cancelPending(); }
+        if (withdrawn && session === current) await endLocalSession();
       }
     },
     async social(provider, {ageConfirmed} = {}) {
@@ -437,7 +486,7 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
       try{
         const result=await request(`oauth/${provider}`,{idToken:credential.idToken});
         if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
-        acceptSession({...result,provider});sessionSequence++;
+        await acceptSession({...result,provider});sessionSequence++;
         return userView(result.user);
       }catch(error){
         if(attempt!==revision)throw new Error('로그인 요청이 취소되었어요.');
@@ -456,21 +505,51 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
         try {
           const result = await request('refresh', { refreshToken: previous.refreshToken });
           if (attempt !== revision || session !== previous) throw new Error('로그인 상태가 변경되었어요.');
-          acceptSession(result);
+          await acceptSession(result, { keepSessionOnStorageFailure: true });
           return userView(result.user);
         } catch (error) {
-          if (session === previous && [401, 403].includes(error.status)) session = null;
+          if (session === previous && invalidRefreshToken(error)) { session = null; await clearStoredSessionSafely(); }
           throw error;
         }
       })();
       refreshing = operation;
       try { return await operation; } finally { if (refreshing === operation) refreshing = null; }
     },
+    // Restore through the existing rotating refresh endpoint, without a stored access token.
+    async restoreSession() {
+      if (session) return userView(session.user);
+      if (restoringSession) return restoringSession;
+      const attempt = revision;
+      const operation = (async () => {
+        const saved = await sessionStore?.load(base);
+        if (!saved || attempt !== revision) return null;
+        try {
+          const result = await request('refresh', { refreshToken: saved.refreshToken });
+          if (attempt !== revision || session) return null;
+          if (String(result?.user?.userId) !== saved.userId) { await clearStoredSessionSafely(); throw unauthorized(); }
+          await acceptSession({ ...result, provider: saved.provider });
+          sessionSequence++;
+          return userView(session.user);
+        } catch (error) {
+          if (attempt === revision && invalidRefreshToken(error)) await clearStoredSessionSafely();
+          throw error;
+        }
+      })();
+      restoringSession = operation;
+      try { return await operation; } finally { if (restoringSession === operation) restoringSession = null; }
+    },
     async logout() {
+      if (restoringSession) revision++;
       // Wait for an ongoing rotation before revoking its current session.
       if (refreshing) await refreshing.catch(() => {});
       let current = session;
-      if (!current) { clearDevelopmentAccess(); api.cancelPending(); return; }
+      const endingRevision = revision;
+      let serverRevoked = false;
+      if (!current) {
+        clearDevelopmentAccess();
+        if (!await endLocalSession()) throw incompleteLogout();
+        return;
+      }
       try {
         try { await request('logout', undefined, current.accessToken); }
         catch (error) {
@@ -479,7 +558,16 @@ export function createAuthApi({ baseUrl, fetchImpl = globalThis.fetch, buildPhot
           current = session;
           await request('logout', undefined, current.accessToken);
         }
-      } finally { session = null; clearDevelopmentAccess(); api.cancelPending(); }
+        serverRevoked = true;
+      } finally {
+        if (session === current || (!session && revision === endingRevision)) {
+          clearDevelopmentAccess();
+          const cleared = await endLocalSession();
+          // Only report incomplete logout when neither server revocation nor
+          // deletion of the saved credential could be confirmed.
+          if (!cleared && !serverRevoked) throw incompleteLogout();
+        }
+      }
     },
   };
   api.verificationService = {

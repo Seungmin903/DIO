@@ -1,3 +1,4 @@
+import { sessionStore } from './sessionStore';
 import { Platform } from 'react-native';
 import { createAuthApi, authBaseUrl } from './authApi';
 import { buildPhotoBody } from './photoUpload';
@@ -12,6 +13,7 @@ export const apiBaseUrl = authBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL || `h
 export const accessTokenHeader = process.env.EXPO_PUBLIC_AUTH_TOKEN_HEADER || 'Authorization';
 export const authService = createAuthApi({
   baseUrl: apiBaseUrl,
+  sessionStore,
   buildPhotoBody,
   googleSignIn: signInWithGoogle,
   appleSignIn: signInWithApple,
