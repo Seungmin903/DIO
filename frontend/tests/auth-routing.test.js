@@ -14,10 +14,23 @@ function root(dev,mode,session=null,loginRequest=null,probe=null){
  const mod={exports:{}},mocks={'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>session}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',StyleSheet:{absoluteFill:{}}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  Object.assign(mocks['./src/auth/authService'].authService, {
   getSessionKey:()=>probe?.sessionKey??null,
-  getMemberSessionKey:()=>probe?.memberSessionKey??null,
+  getMemberSessionKey:userId=>probe?.memberSessionKey??`${userId}:1`,
   subscribeSessionExpired(listener){if(probe)probe.expireSession=listener;return()=>{if(probe)probe.expireSession=null}},
  });
- mocks['./src/auth/guestProfileDevice'].guestProfile.start=async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session};
+ let refIndex=0;
+ mocks.react.useRef=initial=>{
+  if(!probe)return {current:initial};
+  const refs=probe.refs??=[];
+  return refs[refIndex++]??= {current:initial};
+ };
+ mocks.react.useState=()=>{
+  const index=calls++;
+  return [states[index],value=>{
+   const next=typeof value==='function'?value(states[index]):value;
+   states[index]=next;probe?.updates?.push({index,value:next});
+  }];
+ };
+ mocks['./src/auth/guestProfileDevice'].guestProfile.start=async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return probe?.guestStart?probe.guestStart(session):session};
  new Function('require','module','exports','__DEV__','process',code)(id=>mocks[id]??(id==='react/jsx-runtime'?require(id):{__esModule:true,default:id}),mod,mod.exports,dev,{env:{EXPO_PUBLIC_DIARY_SOURCE:mode}})
  return mod.exports.default()
 }
@@ -85,18 +98,28 @@ test('부팅 만료 후 게스트에서 로그인 화면을 닫아도 게스트 
 
 test('실제 세션 만료만 기존 로그인 화면을 열고 구독 해제·계정 교체 뒤 이벤트는 무시한다',()=>{
  const member={mode:'authenticated',userId:'7'},probe={effects:[],updates:[],hidden:0};
- root(false,undefined,member,null,probe);
+ const tree=root(false,undefined,member,{sessionExpired:true},probe);
  const timer=globalThis.setTimeout;globalThis.setTimeout=()=>0;
  let cleanups;
  try{cleanups=probe.effects.map(fn=>fn())}finally{globalThis.setTimeout=timer}
- probe.expireSession({userId:'8'});
+ probe.expireSession({userId:'8',sessionKey:'8:1'});
  assert.equal(probe.updates.some(update=>update.index===2),false);
  probe.sessionKey='7:new';
- probe.expireSession({userId:'7'});
+ probe.expireSession({userId:'7',sessionKey:'7:1'});
  assert.equal(probe.updates.some(update=>update.index===2),false);
  probe.sessionKey=null;
- probe.expireSession({userId:'7'});
+ probe.expireSession({userId:'7',sessionKey:'7:1'});
  assert.ok(probe.updates.some(update=>update.index===2&&update.value.sessionExpired));
+ const renewed={mode:'authenticated',userId:'8'};
+ probe.memberSessionKey='8:2';
+ nodes(tree).find(node=>node.type==='./src/auth/AuthScreen').props.onContinue(renewed);
+ probe.updates.length=0;
+ // No render or passive effects have run since onContinue.
+ probe.expireSession({userId:'8',sessionKey:'8:2'});
+ assert.ok(probe.updates.some(update=>update.index===2&&update.value.sessionExpired));
+ probe.updates.length=0;
+ probe.expireSession({userId:'8',sessionKey:'8:1'});
+ assert.equal(probe.updates.length,0,'an older login generation cannot reopen the current overlay');
  for(const cleanup of cleanups)if(typeof cleanup==='function')cleanup();
  assert.equal(probe.expireSession,null);
 });
@@ -115,7 +138,56 @@ test('만료 안내는 기존 로그인 화면을 재사용하고 닫으면 게�
  probe.updates.length=0;
  auth.props.onClose();
  await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(probe.updates.some(update=>update.index===0),false,'old overlay close cannot replace the new login');
+});
+
+test('이전 세션 종료 콜백은 같은 계정 재로그인 직후 effect 실행 전에도 새 세션을 지우지 않는다',async()=>{
+ const member={mode:'authenticated',userId:'7'},probe={effects:[],updates:[],memberSessionKey:'7:1'};
+ const tree=root(false,undefined,member,{sessionExpired:true},probe);
+ const clear=nodes(tree).find(node=>node.type?.name==='MemberDiaryApp').props.onClearSession;
+ const auth=nodes(tree).find(node=>node.type==='./src/auth/AuthScreen');
+ probe.sessionKey='7:2';probe.memberSessionKey='7:2';
+ auth.props.onContinue(member);
+ probe.updates.length=0;
+ clear();auth.props.onClose();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(probe.guestStarts||0,0);assert.equal(probe.updates.some(update=>update.index===0),false);
+ probe.sessionKey=null;
+ clear();auth.props.onClose();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(probe.guestStarts||0,0,'generation mismatch remains protected even when the newer session expires');
+});
+
+test('만료 중 다른 기능이 로그인을 요청해도 만료 안내를 유지하고 닫으면 회원 화면에서 벗어난다',async()=>{
+ const member={mode:'authenticated',userId:'7'},probe={effects:[],updates:[]};
+ const tree=root(false,undefined,member,{sessionExpired:true},probe);
+ const request={feature:'다이어리 공유',action(){}};
+ nodes(tree).find(node=>node.props?.onLogin).props.onLogin(request);
+ const next=probe.updates.find(update=>update.index===2).value;
+ assert.deepEqual(next,{...request,sessionExpired:true});
+ // Even a caller that replaced the request without the flag cannot strand the member view.
+ const replaced=root(false,undefined,member,request,probe);
+ nodes(replaced).find(node=>node.type==='./src/auth/AuthScreen').props.onClose();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(probe.guestStarts,1);
  assert.ok(probe.updates.some(update=>update.index===0&&update.value.provider==='guest'));
+});
+
+test('게스트 프로필 조회가 늦어도 그사이 완료된 로그인 세션을 덮어쓰지 않는다',async()=>{
+ const member={mode:'authenticated',userId:'7'},probe={effects:[],updates:[]};
+ let finishGuest;
+ probe.guestStart=()=>new Promise(resolve=>{finishGuest=resolve});
+ const tree=root(false,undefined,member,{sessionExpired:true},probe);
+ const auth=nodes(tree).find(node=>node.type==='./src/auth/AuthScreen');
+ auth.props.onClose();
+ await new Promise(resolve=>setImmediate(resolve));
+ const renewed={mode:'authenticated',userId:'8'};
+ probe.sessionKey='8:2';probe.memberSessionKey='8:2';
+ auth.props.onContinue(renewed);
+ probe.updates.length=0;
+ finishGuest({mode:'preview',provider:'guest'});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(probe.updates.some(update=>update.index===0),false);
 });
 
 test('부팅 시 저장 토큰 만료는 재로그인을 열고 프록시·통신 오류는 자동으로 로그인 화면을 열지 않는다',async()=>{
@@ -178,7 +250,7 @@ test('게스트·체험은 로컬 보관함이고 실제 로그인만 회원 API
  assert.ok(has(root(false,undefined,{mode:'registered',userId:'1'}),'LocalDiaryApp'))
  const member=root(false,undefined,{mode:'authenticated',userId:'1'})
  assert.ok(has(member,'MemberDiaryApp'));assert.equal(has(member,'LocalDiaryApp'),false)
- assert.equal(nodes(member).find(n=>n.type?.name==='MemberDiaryApp').key,'authenticated:1')
+ assert.equal(nodes(member).find(n=>n.type?.name==='MemberDiaryApp').key,'authenticated:1:1')
 })
 test('개발 전용 보관함 목 모드는 기존 경로를 유지한다',()=>{
  assert.ok(has(root(true,'mock'),'./src/diary/screens/ConnectedDiaryLibrary'))
