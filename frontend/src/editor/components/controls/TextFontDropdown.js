@@ -41,7 +41,8 @@ export default function TextFontDropdown({ value, onChange, label = '글꼴', st
     </View>
     {/* 말풍선 폭은 칸 폭과 같고, 왼쪽 끝도 칸에 맞춘다(PopoverMenu 는 기준의 오른쪽 끝에 맞춘다) */}
     <PopoverMenu open={open} anchor={anchor} width={anchor?.width ?? 260} height={height} label={`${label} 목록`} style={local.menu} onClose={() => setOpen(false)}>
-      <ScrollView style={{ maxHeight: MAX_HEIGHT }} keyboardShouldPersistTaps="handled">
+      {/* 항목의 미리보기 글꼴(previewFont)은 만드는 순간 그 글꼴 파일을 요청한다. 닫혀 있을 때도 만들면 이 칸이 화면에 올라오는 것만으로 모든 글꼴을 읽으므로, 열렸을 때만 만든다 */}
+      {open && <ScrollView style={{ maxHeight: MAX_HEIGHT }} keyboardShouldPersistTaps="handled">
         {groups.map(group => <View key={group.label}>
           <Text accessibilityRole="header" style={local.group}>{group.label}</Text>
           {group.fonts.map(font => <Pressable key={font.id} accessibilityRole="button" accessibilityLabel={`${fontLabel(font, Platform.OS)}${font.aiGenerated ? ` · ${AI_FONT_LABEL}` : ''}`} accessibilityState={{ selected: current.id === font.id }}
@@ -50,7 +51,7 @@ export default function TextFontDropdown({ value, onChange, label = '글꼴', st
             {font.aiGenerated && <Text style={local.aiLabel}>{AI_FONT_LABEL}</Text>}
           </Pressable>)}
         </View>)}
-      </ScrollView>
+      </ScrollView>}
     </PopoverMenu>
   </View>
 }
