@@ -4,6 +4,7 @@ import { canLeaveForInvitation } from '../../notifications/editorInvitationGuard
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Animated, BackHandler, Easing, Keyboard, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../shared/theme'
+import DioButton from '../../shared/DioButton'
 import MediaNotice from '../components/MediaNotice'
 import { mediaFailureMessage } from '../utils/mediaRecovery.js'
 import { createRegionExportSnapshot } from '../utils/regionExport.js'
@@ -131,8 +132,8 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 앨범을 고르는 동안 동기화로 바뀐 내용을 덮지 않게, await 뒤에는 이 최신 페이지를 읽는다
   const pageNow = useRef(page)
   pageNow.current = page
-  useMemberPagePosition({ diary, pageId: page.id, loaded })
-  const textSync = useMemberCanvasCollaboration({ diary, page, state, loaded, readOnly: permissionReadOnly, dispatch })
+  useMemberPagePosition({ diary, pageId: page.id, loaded: loaded && saveStatus !== 'load-error' })
+  const textSync = useMemberCanvasCollaboration({ diary, page, state, loaded: loaded && saveStatus !== 'load-error', readOnly: permissionReadOnly, dispatch })
   const localUndo=state.past.length>0&&!state.collaborationPast?.at(-1)?.hasCanvas
   const localRedo=state.future.length>0&&!state.collaborationFuture?.[0]?.hasCanvas
   // 페이지 목록·레이어는 캔버스를 먼저 그린 뒤 따라 그린다 (지우개·이동을 끝내고 손을 뗄 때 한꺼번에 다시 그려 멈칫하던 것)
@@ -1022,7 +1023,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     if (Platform.OS !== 'android' || backDisabled) return undefined
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (colorPicker) return false // The topmost inline picker handles back first.
-      if (readOnly) { goHome(); return true }
+      if (readOnly || saveStatus === 'load-error') { goHome(); return true }
       if (photoCropId) { setPhotoCropId(null); return true }
       if (tapeCropId) { setTapeCropId(null); return true }
       if (exportSnapshot) { setExportSnapshot(null); setRegionOpen(false); return true }
@@ -1045,7 +1046,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       return true
     })
     return () => subscription.remove()
-  }, [readOnly, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker, backDisabled])
+  }, [readOnly, saveStatus, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker, backDisabled])
 
   useEffect(() => {
     if (colorPicker && (readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) setColorPicker(null)
@@ -1074,6 +1075,12 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
     />
   ) : null
 
+  if (saveStatus === 'load-error') return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.surfaceSoft }}>
+      <Text accessibilityRole="alert" style={{ color: colors.text, fontSize: 16, textAlign: 'center', marginBottom: 16 }}>저장된 기록을 불러오지 못했어요. 기존 기록을 지키기 위해 편집과 저장을 멈췄어요. 홈으로 돌아간 뒤 다시 열어 주세요.</Text>
+      <DioButton variant="tonal" label="홈으로 돌아가기" onPress={goHome} />
+    </View>
+  )
   return (
     <View
       style={[

@@ -6,6 +6,7 @@ import { createMemberAppStore } from '../src/diary/services/memberAppStore.js';
 import * as memberStorage from '../src/diary/services/memberStorage.js';
 import * as session from '../src/editor/services/sessionDocuments.js';
 import { createDefaultDoc, migrateUntouchedAnnualDoc } from '../src/editor/state/defaultDoc.js';
+import { readStoredDocument } from '../src/editor/services/readStoredDocument.js';
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'));
 const id = '11111111-2222-3333-4444-555555555555', pageId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -22,6 +23,7 @@ function fixture() {
     '../state/defaultDoc': { createDefaultDoc, migrateUntouchedAnnualDoc },
     '../templates/catalog.js': { templateReference: () => null }, '../templates/loadTemplate': {}, './mediaStore': {},
     './sessionDocuments.js': session, './editorViewState': { loadViewedPage: async () => null },
+    './readStoredDocument.js': { readStoredDocument },
     './storage': { STORAGE_KEYS: { doc: 'guest:doc' }, saveJSON: (key, value) => persist(key, value) },
   };
   const code = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/services/editorDocs.js', import.meta.url), 'utf8'),
@@ -83,4 +85,23 @@ test('같은 다이어리 ID의 다른 계정 캐시는 회원 재진입에 사�
   const opened = await f.reopen(current);
   assert.equal(opened.memberAccountId, '202'); assert.equal(opened.pages[0].objects.length, 0);
   assert.equal(f.docs.peekEditorDoc(key1).doc.pages[0].objects[0].id, 'new-stroke');
+});
+
+test('회원 문서가 손상되면 원본과 백업을 유지하고 서버 문서로 덮어쓰지 않는다', async () => {
+  for (const raw of ['{broken', 'null', '{"pages":[]}']) {
+    const f = fixture(), key = memberStorage.memberKeys('101').doc(id), current = f.store('101');
+    f.disk.set(key, raw); await current.load();
+    await assert.rejects(current.open(id), { code: 'EDITOR_DOCUMENT_CORRUPT' });
+    assert.equal(f.disk.get(key), raw);
+    assert.equal(f.disk.get(`${key}:corrupt`), raw);
+  }
+});
+
+test('게스트 문서의 손상 값은 캐시에 빈 문서로 남기지 않는다', async () => {
+  const f = fixture(), diary = { id: 'guest-corrupt' }, key = f.docs.editorDocKey(diary);
+  f.disk.set(key, '{broken');
+  await assert.rejects(f.docs.loadEditorDoc(diary), { code: 'EDITOR_DOCUMENT_CORRUPT' });
+  assert.equal(f.docs.peekEditorDoc(key), null);
+  assert.equal(f.disk.get(key), '{broken');
+  assert.equal(f.disk.get(`${key}:corrupt`), '{broken');
 });
