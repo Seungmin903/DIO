@@ -64,6 +64,19 @@ test('API 주소가 없는 네이티브 릴리스도 시작 설정 오류로 분
  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
  assert.equal(mod.exports.apiConfigurationError, true)
 })
+test('평문 또는 잘못된 API 주소가 주입된 릴리스도 설정 오류로 분기한다', () => {
+ const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+ }).code
+ const mocks = { 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
+  './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
+  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, 'expo/fetch': { fetch() {} } }
+ for (const url of ['http://10.0.2.2:8080/api', 'not a URL']) {
+  const mod = { exports: {} }
+  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: { EXPO_PUBLIC_API_BASE_URL: url } })
+  assert.equal(mod.exports.apiConfigurationError, true)
+ }
+})
 test('설정 오류 플래그가 켜지면 App은 전용 오류 화면을 렌더링하고 빈 상태 스타일을 사용한다', () => {
  const tree = root(false, undefined, null, null, null, true)
  assert.ok(has(tree, './src/shared/ApiConfigurationErrorScreen'))

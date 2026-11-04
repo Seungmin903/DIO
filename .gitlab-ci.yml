@@ -45,8 +45,8 @@ deploy-development:
           echo "Cannot resolve origin/develop for the shared-DB migration check." >&2;
           exit 1;
         fi;
-        git diff --quiet origin/develop HEAD -- backend/src/main/resources/db/migration;
-        migration_status=$?;
+        migration_status=0;
+        git diff --quiet origin/develop HEAD -- backend/src/main/resources/db/migration || migration_status=$?;
         if [ "$migration_status" -eq 1 ]; then
           echo "Release and develop have different migrations; shared-DB verification is blocked." >&2;
           exit 1;
