@@ -7,6 +7,16 @@ import org.springframework.core.io.FileSystemResource;
 import static org.assertj.core.api.Assertions.*;
 
 class DeploymentAuthContractTests {
+    @Test void releaseDeploymentWaitsForBackendTestsAndRejectsReleaseOnlyMigrations() throws Exception {
+        var loader = new YamlPropertySourceLoader();
+        var ci = loader.load("ci", new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
+        assertThat(ci.getProperty("deploy-development.needs[0].job")).isEqualTo("backend-test");
+        assertThat(ci.getProperty("deploy-development.needs[0].optional")).isEqualTo(true);
+        String text = Files.readString(Path.of("../.gitlab-ci.yml"));
+        String deploy = block(text, "deploy-development:\n", "\ndeploy-production:");
+        assertThat(deploy).contains("git fetch --no-tags origin develop",
+            "git diff --quiet origin/develop...HEAD -- backend/src/main/resources/db/migration");
+    }
     @Test void deploymentOriginsAndWebSocketProxyPreserveExternalPort() throws Exception {
         var loader = new YamlPropertySourceLoader();
         for (String environment : new String[]{"dev", "prod"}) {

@@ -25,10 +25,24 @@ deploy-development:
     - if: '$CI_COMMIT_BRANCH == "develop"'
     - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/ && $CI_COMMIT_REF_PROTECTED == "true"'
       when: manual
+  needs:
+    - job: backend-test
+      artifacts: false
+      # release 파이프라인에는 backend-test가 항상 생성되고, develop에는 없을 수 있다.
+      optional: true
   resource_group: development
   environment:
     name: development
   script:
+    # release 검증은 dev DB의 Flyway 이력을 공유하므로, develop에 아직 없는 migration은 적용하지 않는다.
+    - >
+      if [[ "$CI_COMMIT_BRANCH" =~ ^release/ ]]; then
+        git fetch --no-tags origin develop;
+        if ! git diff --quiet origin/develop...HEAD -- backend/src/main/resources/db/migration; then
+          echo "Release verification cannot apply migrations that are not already on develop's shared DB." >&2;
+          exit 1;
+        fi;
+      fi
     - export BACKEND_IMAGE="dio-backend:dev-${CI_COMMIT_SHORT_SHA}"
     # 필수 인증·SMTP·프록시 환경변수 누락 시 이미지 빌드/컨테이너 교체 전에 중단한다.
     # 옛 SIGNUP_PHOTO_* 저장소 변수는 더 이상 읽지 않으므로 남아 있으면 배포 전에 중단한다.
@@ -174,6 +188,7 @@ backend-test:
     - >
       docker run --rm
       --user "$(id -u):$(id -g)"
+      -e JAVA_TOOL_OPTIONS=-Xmx2g
       -e GRADLE_USER_HOME=/workspace/backend/.gradle
       -e DIO_NOTIFICATION_CONTRACT_OUTPUT=/workspace/backend/build/notification-frontend-contract.json
       -v "$CI_PROJECT_DIR/backend:/workspace/backend"
