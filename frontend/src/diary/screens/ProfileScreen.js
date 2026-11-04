@@ -24,7 +24,7 @@ import { useLoginEntry } from '../../auth/loginGate';
 import { shouldShowProfileSettingsButton } from '../components/profileNavigationModel';
 
 // 마이페이지는 프로필·계정, 설정은 알림·보안·편집(그리기 입력)·앱 정보로 분리한다. 두 화면은 잠금·알림 세부 화면만 공통으로 쓴다.
-export default function ProfileScreen({ section = 'profile', compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenSettings }) {
+export default function ProfileScreen({ section = 'profile', compact = false, previewUser, onEndPreview, onClearSession = onEndPreview, onUpdatePreview, registerLeaveGuard, getProfilePhotoSource, accountService, onOpenSettings, onOpenBlockedUsers }) {
   // home · edit(회원정보 수정) · password(비밀번호 재설정 4단계) · notifications(서버 알림 설정, 회원)
   const [route, setRoute] = useState('home');
   const settingsPage = section === 'settings';
@@ -158,6 +158,14 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
         {compact && loginButton}
       </View>}
       <View style={local.cards}>
+        {!settingsPage && authenticatedUser && <SettingCard compact={compact}>
+          <SettingSection title="사용자 관리">
+            <Pressable accessibilityRole="button" accessibilityLabel="차단한 사용자" onPress={onOpenBlockedUsers} disabled={!onOpenBlockedUsers} style={local.linkRow}>
+              <Text style={local.linkLabel}>차단한 사용자</Text>
+              <AppIcon name="chevron-right" size={18} forText={15} color={colors.textMuted} />
+            </Pressable>
+          </SettingSection>
+        </SettingCard>}
         {settingsPage ? <>
           <SettingCard compact={compact}>
             <NotificationSetting compact={compact}>{serverNotifications}</NotificationSetting>

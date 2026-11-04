@@ -51,7 +51,9 @@
     "test:eyedropper": "node --test tests/color-picker-opening.test.js tests/palette-preference.test.js tests/screen-eyedropper.test.js tests/eyedropper.test.js tests/capture-pixels.test.js",
     "qa:palette": "node tests/palette-browser.cjs",
     "qa:eyedropper": "node tests/eyedropper-browser.cjs",
-    "qa:pen-colors": "node tests/recent-pen-colors-browser.cjs"
+    "qa:pen-colors": "node tests/recent-pen-colors-browser.cjs",
+    "test:safety": "node --test tests/safety.test.js",
+    "qa:safety": "node qa/safety-browser.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/nanum-gothic": "^0.4.0",

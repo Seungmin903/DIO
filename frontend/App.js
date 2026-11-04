@@ -20,6 +20,7 @@ import { guestProfile } from './src/auth/guestProfileDevice';
 import { LoginGateProvider, useLoginGate } from './src/auth/loginGate';
 import { useSharing } from './src/sharing/useSharing';
 import SharingHub from './src/sharing/SharingHub';
+import SafetyProvider, { useSafety } from './src/safety/SafetyProvider';
 import { createSharingGate } from './src/sharing/sharingGate';
 import { AuthenticatedNotificationProvider, useOptionalSharedNotifications } from './src/notifications/NotificationProvider';
 import HomeNotificationFlow from './src/notifications/HomeNotificationFlow';
@@ -88,7 +89,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const SPLASH_LIMIT_MS = 8000;
 const DOCUMENT_MIGRATION_DELAY_MS = 3000;
 // 개발 빌드의 목업 화면(EXPO_PUBLIC_DIARY_SOURCE): mock = 연결 검증 보관함, mock-library = 보관함 · 알림 모의, mock-sharing = 공유 모의
-const MOCK_SCREENS = ['mock', 'mock-library', 'mock-sharing'];
+const MOCK_SCREENS = ['mock', 'mock-library', 'mock-sharing', 'mock-safety'];
 SplashScreen.preventAutoHideAsync().catch(() => {});
 const hideSplash = () => { SplashScreen.hideAsync().catch(() => {}); };
 
@@ -201,6 +202,10 @@ export default function App() {
   const SessionDiaryApp = authenticatedSession ? MemberDiaryApp : LocalDiaryApp;
   if (!fontsLoaded && !fontError) return <SafeAreaProvider style={s.provider}><BootSplash /></SafeAreaProvider>;
   if (apiConfigurationError) return <SafeAreaProvider style={s.provider}><ApiConfigurationErrorScreen /></SafeAreaProvider>;
+  if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-safety') {
+    const SafetyPreview = require('./src/safety/SafetyPreview').default;
+    return <SafetyPreview />;
+  }
   if (__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock-sharing') {
     const SharingFixture = require('./tests/fixtures/diary-sharing.fixture').default;
     return <SharingFixture />;
@@ -243,13 +248,17 @@ function DiaryApp(props) {
   const sharing = useSharing(props.previewUser);
   const createInvitations = useCallback(() => sharing.runtime.invitationGateway, [sharing.runtime]);
   const describeInvitations = useCallback((ids, options) => describeSharingInvitations(sharing.runtime.notificationApi, ids, options), [sharing.runtime]);
-  const content = <DiaryAppContent {...props} sharing={sharing} />;
+  const safetySession = props.previewUser?.mode === 'authenticated' ? authService.getSessionKey() : 'guest';
+  const content = <SafetyProvider key={`${props.previewUser?.userId || 'guest'}:${safetySession}`} user={props.previewUser}>
+    <DiaryAppContent {...props} sharing={sharing} />
+  </SafetyProvider>;
   return props.previewUser.mode === 'authenticated'
     ? <AuthenticatedNotificationProvider auth={authService} userId={props.previewUser.userId} createInvitations={createInvitations} describeInvitations={describeInvitations}>{content}</AuthenticatedNotificationProvider>
     : content;
 }
 
 function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, onReady, diaryState, sharing, loginOverlayOpen = false }) {
+  const safety = useSafety();
   const member = diaryState.source === 'member-api';
   const [guestImport, setGuestImport] = useState(null);
   const invitationLeaveGuard = useRef(null);
@@ -297,6 +306,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     onStateChange: state => { setAppLockState(state); if (state === 'off') setAppLocked(false); },
   });
   const [sharingRequest, setSharingRequest] = useState(null);
+  const openSafetyParticipants = (diary, target) => {
+    const previous = sharingRequest;
+    setSharingRequest(null);
+    safety.openParticipants(diary, { target, onClosed: () => setSharingRequest(previous) });
+  };
   // 초대 푸시도 공유 입구(sharingGate)를 거친다. 효과가 다시 걸리지 않게 최신 입구를 ref로 읽는다
   const sharingGateRef = useRef(null);
   const pushWarningShown = useRef(false);
@@ -412,6 +426,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     const request = {};
     opening.current = request;
     try {
+      if (!await safety.canOpenDiary(diary) || opening.current !== request) return;
       if (member) {
         const opened = await diaryState.store.open(diary.id);
         if (opening.current !== request) return;
@@ -432,7 +447,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       opening.current = null;
       notify('다이어리를 열지 못했어요', error.message);
     }
-  }, [member, diaryState.store]);
+  }, [member, diaryState.store, safety.canOpenDiary]);
   const open = enterEditor;
   const openSharedDiary = useCallback((id) => {
     const diary = sharedLibraryRef.current.find(item => item.sharedDiaryId === id);
@@ -920,12 +935,12 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   } else if (page === 'studio') {
     content = <DecorationStudioScreen compact={isPhone} registerBackHandler={registerStudioBackHandler} />;
   } else if (page === 'profile') {
-    content = <ProfileScreen key="profile" compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
+    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="profile" compact={isPhone} diaries={visibleDiaries} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview} registerLeaveGuard={registerProfileLeaveGuard}
       onOpenSettings={createProfileSettingsNavigation(isPhone, navigate)}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   } else if (page === 'settings') {
-    content = <ProfileScreen key="settings" section="settings" compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
+    content = <ProfileScreen onOpenBlockedUsers={safety.openBlocks} key="settings" section="settings" compact={isPhone} previewUser={previewUser} onEndPreview={onEndPreview} onClearSession={onClearSession} onUpdatePreview={onUpdatePreview}
       accountService={previewUser?.mode === 'authenticated' ? authService : undefined}
       getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined} />;
   }
@@ -1040,10 +1055,10 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   return (
     <>
       {authenticatedNotifications && (sharingRequest?.mode === 'notifications' || sharingRequest?.returnToNotifications)
-        ? <HomeNotificationFlow request={sharingRequest} model={authenticatedNotifications} sharing={sharing} onRequest={setSharingRequest}
+        ? <HomeNotificationFlow onOpenParticipants={openSafetyParticipants} request={sharingRequest} model={authenticatedNotifications} sharing={sharing} onRequest={setSharingRequest}
             onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }}
             onOpenDiary={openSharedDiary} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} />
-        : <SharingHub onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} />}
+        : <SharingHub onOpenParticipants={openSafetyParticipants} onOpenCopy={diary => openCopyIfSafe(diary, invitationLeaveGuard.current, () => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }, enterEditor)} onOpenDiary={openSharedDiary} request={sharingRequest} runtime={sharing.runtime} model={sharing.notifications} onClose={() => { setSharingRequest(null); if(member)diaryState.store.reload().catch(error=>notify('공유 목록을 확인하지 못했어요',error.message)); }} />}
       {/* 폰 세로 화면은 노치·다이내믹 아일랜드 아래부터 그린다. 안전 영역은 바로 옆(아래) 화면과 같은 색으로 칠해 경계가 보이지 않게 한다. */}
       <View style={s.safe}>
         {isPhone && insets.top > 0 && (page === 'editor'
