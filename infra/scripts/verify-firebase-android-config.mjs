@@ -38,8 +38,12 @@ export function validateFirebaseAndroidConfigFile(path) {
   let config;
   try {
     raw = readFileSync(path, 'utf8');
+    if (privateKeyPattern.test(raw)) {
+      throw new Error('Service-account credentials must not be committed as Firebase Android config');
+    }
     config = JSON.parse(raw);
   } catch (error) {
+    if (error.message === 'Service-account credentials must not be committed as Firebase Android config') throw error;
     throw new Error(`Invalid Firebase Android JSON: ${error.message}`);
   }
   return { config, raw };
