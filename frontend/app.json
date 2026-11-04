@@ -86,6 +86,7 @@
     },
     "android": {
       "package": "com.f106.DIO",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS"
       ],
