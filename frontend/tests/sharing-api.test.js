@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { AUTHENTICATION_FAILED_MESSAGE } from '../src/auth/sessionExpiry.js';
 import assert from 'node:assert/strict';
 import { createSharingApi } from '../src/sharing/sharingApi.js';
 import { createAuthApi } from '../src/auth/authApi.js';
@@ -31,6 +32,13 @@ function fixture(overrides = {}) {
     buildPhotoBody: async (body, photo, part) => { uploaded.push({ body, photo, part }); return { body: 'multipart', dispose() { uploaded.push('disposed'); } }; } });
   return { runtime, calls, uploaded, logout() { available = false; } };
 }
+
+test('공유 조회의 일반 401은 만료 안내나 서버의 만료 표식으로 오인하지 않는다',async()=>{
+ const auth={getSessionKey:()=> '10:1',getAccessToken:async()=> 'access',getConnectionOptions:()=>({baseUrl:'https://api.example.test/api/v1'})};
+ const runtime=createSharingApi({user:{userId:'10',nickname:'회원'},auth,
+  fetchImpl:async()=>new Response(JSON.stringify({code:'INVALID_TOKEN',sessionExpired:true,detail:'로그인이 만료됐어요.'}),{status:401})});
+ await assert.rejects(runtime.getSharing(diaryId),error=>error.status===401&&error.message===AUTHENTICATION_FAILED_MESSAGE&&error.sessionExpired!==true);
+});
 
 test('서버 공유 조회는 실제 사용자 ID와 권한을 사용하며 로컬 ID는 요청하지 않는다', async () => {
   const f = fixture();

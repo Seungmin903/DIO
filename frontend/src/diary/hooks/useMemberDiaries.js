@@ -9,7 +9,7 @@ import { createMemberAppStore } from '../services/memberAppStore.js'
 import { createId } from '../../editor/utils/common.js'
 
 export function useMemberDiaries(accountId) {
-  const sessionKey = authService.getSessionKey()
+  const sessionKey = authService.getMemberSessionKey(accountId)
   const store = useMemo(() => createMemberAppStore({ accountId, storage: AsyncStorage, makeRequestId: () => createId(), serverLibrary: true,
     api: createMemberDiaryApi(createAuthenticatedMemberTransport({ auth: authService, accountId, baseUrl: apiBaseUrl,
       accessTokenHeader, fetchImpl: memberFetch })) }), [accountId, sessionKey])

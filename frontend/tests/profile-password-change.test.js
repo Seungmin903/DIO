@@ -7,7 +7,7 @@ const require=createRequire(import.meta.url),expo=createRequire(require.resolve(
 const code=expo('@babel/core').transformSync(readFileSync(new URL('../src/diary/screens/ProfileScreen.js',import.meta.url),'utf8'),{
  configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]
 }).code;
-let logins=[];
+let logins=[];let recoveryCalls=[];const recoveryMarker=()=>{};
 function setup(user,onUpdatePreview,onClearSession,extra={}){
  const values=[];let cursor=0;const effects=[];const mod={exports:{}};const PasswordForm=()=>null;const service={changePassword(){}};
  const load=id=>{
@@ -21,7 +21,8 @@ function setup(user,onUpdatePreview,onClearSession,extra={}){
   if(id==='../../auth/PasswordResetScreen')return PasswordForm;
   if(id==='../../auth/authService')return {authService:service};
   if(id==='../../auth/loginGate')return {useLoginEntry:()=>()=>logins.push('login')};
-  if(id==='../../shared/appLock')return {appLockScope:()=>'scope',hasAppLock:async()=>false,checkAppLock:async()=>true,clearAppLock:async()=>{},setAppLock:async()=>{}};
+  if(id==='../../shared/appLock')return {appLockScope:()=>'scope',appLockSupported:true,readAppLockState:async()=>'off',hasAppLock:async()=>false,checkAppLockStatus:async()=>({ok:true,retryAfterMs:0}),clearAppLock:async()=>{},setAppLock:async()=>{}};
+  if(id==='../components/appLockRecovery')return {appLockRecoveryAction:args=>{recoveryCalls.push(args);return recoveryMarker}};
   if(id==='../components/NotificationSetting')return 'NotificationSetting';
   if(id==='../components/AppLockSetting')return 'AppLockSetting';
   if(id==='../components/AppInformation')return 'AppInformation';
@@ -106,3 +107,24 @@ test('게스트 내 공간: 판 안의 로그인 · 회원가입 버튼 하나�
  const member=setup({mode:'authenticated',userId:'7',provider:'email',email:'m@example.com'}).render()
  assert.equal(find(member,'로그인 · 회원가입'),null)
 })
+test('설정의 앱 잠금 PIN 화면: 잊었어요는 지금 비밀번호 확인(verify)에만 두고 새 비밀번호(setup)에는 두지 않는다',()=>{
+ recoveryCalls=[];
+ const user={mode:'authenticated',userId:'7',provider:'email',email:'m@example.com'};
+ const ui=setup(user,undefined,undefined,{section:'settings'});
+ const lockSetting=()=>nodes(ui.render()).find(node=>node.type==='AppLockSetting');
+ const pin=()=>nodes(ui.render()).find(node=>node.props?.mode==='setup'||node.props?.mode==='verify');
+ lockSetting().props.onTurnOff();
+ assert.equal(pin().props.mode,'verify');assert.equal(pin().props.onForgot,recoveryMarker);
+ pin().props.onCancel();
+ lockSetting().props.onTurnOn();
+ assert.equal(pin().props.mode,'setup');assert.equal(pin().props.onForgot,undefined);
+ // 회원은 로그아웃 흐름, 잠금 범위는 이 계정
+ const args=recoveryCalls.at(-1);assert.equal(args.member,true);assert.equal(args.scope,'scope');assert.equal(typeof args.onLogout,'function');
+});
+test('게스트 설정은 회원이 아닌 초기화 경로에 읽은 잠금 상태를 넘긴다',()=>{
+ recoveryCalls=[];
+ const ui=setup({mode:'preview',provider:'guest',accountId:'g1'},undefined,undefined,{section:'settings'});
+ ui.render();
+ assert.equal(recoveryCalls.at(-1).member,false);assert.equal(recoveryCalls.at(-1).state,null);
+ assert.equal(typeof recoveryCalls.at(-1).onCleared,'function');
+});
