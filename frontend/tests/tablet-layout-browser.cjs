@@ -24,7 +24,9 @@ const server = http.createServer((req, res) => {
     ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : { channel: 'msedge' }) });
   try {
     const results = [];
-    for (const [width, height] of [[1280,800],[1366,1024],[2000,1200],[1920,800],[768,1024],[390,844],[844,390]]) {
+    const topBarGaps = {};
+    const sizes = [[1280,800],[1366,1024],[2000,1200],[1920,800],[768,1024],[800,700],[840,700],[833,1100],[834,1100],[390,844],[844,390]]
+    for (const [width, height] of sizes.filter(([w, h]) => process.env.TOPBAR_ONLY ? (w === 833 || w === 834) : (!process.env.TABLET_ONLY || Math.min(w, h) >= 600))) {
       const page = await browser.newPage({ viewport: { width, height } });
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
@@ -65,6 +67,22 @@ const server = http.createServer((req, res) => {
       assert.deepEqual([doc.pages[0].canvasWidth, doc.pages[0].canvasHeight], [1200,800]);
       await page.screenshot({ path: path.join(out, `editor-${width}.png`) });
       if (!phone) {
+        if (width === 833 || width === 834) {
+          const home = await button('다이어리 홈').boundingBox();
+          const pageButton = await button('페이지 목록').boundingBox();
+          const tab = await button('다이어리 이름 바꾸기').boundingBox();
+          topBarGaps[width] = { gap: pageButton.x - home.x - home.width, tabGap: tab.x - pageButton.x - pageButton.width };
+        }
+        const narrow = width < 840 || width <= height;
+        assert.equal(await button('페이지 목록').getAttribute('aria-pressed'), String(!narrow));
+        assert.equal(await button('레이어').getAttribute('aria-pressed'), String(!narrow));
+        if (narrow) {
+          await button('페이지 목록').click();
+          await button('레이어').click();
+          assert.equal(await button('페이지 목록').getAttribute('aria-pressed'), 'false');
+          assert.equal(await button('레이어').getAttribute('aria-pressed'), 'true');
+          await button('레이어').click();
+        }
         const toolBox = () => button('손바닥 (화면 이동)').boundingBox();
         const toolStart = await toolBox();
         await button('페이지 목록').click();
@@ -84,7 +102,9 @@ const server = http.createServer((req, res) => {
       results.push({ width, height, phone, paperRatio: box.width / box.height });
       await page.close();
     }
+    assert.ok(Math.abs(topBarGaps[833].gap - topBarGaps[834].gap) < 2, `label hiding changed the home-to-page gap: ${JSON.stringify(topBarGaps)}`);
+    assert.ok(Math.abs(topBarGaps[833].tabGap - topBarGaps[834].tabGap) < 2, 'label hiding changed the page-to-tab gap');
     fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2));
-    console.log('PASS: 7 viewport sizes, rail edge and height, library navigation, phone rail, unstretched paper and stored page dimensions, no browser errors');
+    console.log(`PASS: ${results.length} viewport sizes, panel layout, library navigation, unstretched paper and stored page dimensions, no browser errors`);
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
