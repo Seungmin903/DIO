@@ -12,7 +12,7 @@ import PinScreen from '../components/PinScreen';
 import EditorModal from '../../editor/components/controls/EditorModal';
 import { appLockScope, checkAppLock, clearAppLock, hasAppLock, setAppLock } from '../../shared/appLock';
 import { colors } from '../../shared/theme';
-import { notify } from '../../shared/dialogs';
+import { confirmAction, notify } from '../../shared/dialogs';
 import DioButton from '../../shared/DioButton';
 import ProfileEditScreen from '../../auth/ProfileEditScreen';
 import PasswordResetScreen from '../../auth/PasswordResetScreen';
@@ -102,7 +102,7 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
   ) : null;
 
   // 로그아웃은 로그인한 사용자만 있다.
-  const logout = onEndPreview && !guest ? <DioButton variant="ghost" outline label="로그아웃" onPress={onEndPreview} block /> : null;
+  const logout = onEndPreview && !guest ? <DioButton variant="ghost" outline label="로그아웃" onPress={() => confirmAction({ title: '로그아웃', message: '로그아웃하시겠어요?', confirmLabel: '로그아웃', danger: false, onConfirm: onEndPreview })} block /> : null;
   // 회원만: 서버 알림 설정(초대 · 댓글 등 받을 알림)으로 가는 줄. 앱 정보 행과 같은 높이 · 구분선 · 오른쪽 화살표
   const serverNotifications = authenticatedUser ? (
     <Pressable accessibilityRole="button" accessibilityLabel="알림 설정" onPress={() => setRoute('notifications')} style={local.linkRow}>
