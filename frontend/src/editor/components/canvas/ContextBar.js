@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, shadow, DISABLED_OPACITY } from '../../../shared/theme'
 import { PAGE_HEIGHT, PAGE_WIDTH } from '../../constants'
 import { clamp, unionBounds } from '../../utils/common'
 import { keepOutBox, placeHorizontal, placeVertical, POPOVER_EDGE } from '../../utils/popoverPlacement'
 import Icon from '../controls/Icon'
+import FadeScroll from '../controls/FadeScroll'
 import { EDITOR_COLORS } from '../../utils/penSettings'
 import { usePalette } from '../../hooks/usePalettes'
 import { normalizeTextLink } from '../../utils/textFormats'
@@ -172,7 +173,7 @@ export default function ContextBar({
   // 텍스트 요소 선택: 문자열 복사는 편집 모드에서, 여기서는 상자 전체를 복제한다.
   if (editingText) return <>
     <View accessibilityLabel="텍스트 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, areaW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
+      <FadeScroll horizontal style={styles.barScroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
         {lassoButtons}
         <BarButton icon="edit" label="수정" onPress={() => onEditText?.(single)} />
         <BarButton icon="text" label="서식" active={textSettingsOpen} onPress={() => onTextSettings?.()} />
@@ -180,7 +181,7 @@ export default function ContextBar({
         <View style={styles.divider} />
         <BarButton icon="duplicate" label="복제" onPress={() => dispatch({ type: 'duplicateObjects', ids })} />
         <BarButton icon="trash" label="삭제" danger onPress={() => dispatch({ type: 'removeObjects', ids })} />
-      </ScrollView>
+      </FadeScroll>
     </View>
     {linkCard}
   </>
@@ -188,7 +189,7 @@ export default function ContextBar({
   // 남은 경우는 필기 편집뿐이다
   return <>
     <View accessibilityLabel="필기 빠른 편집" style={[styles.bar, { top, left, maxWidth: Math.max(120, areaW - EDGE * 2), opacity: barWidth ? 1 : 0 }]} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} {...insideHandlers}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
+      <FadeScroll horizontal style={styles.barScroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.barContent}>
         {lassoButtons}
         {penColors.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`선택 요소 색상 ${color}`} accessibilityState={{ selected: single.color?.toUpperCase() === color.toUpperCase() }}
           onPress={() => dispatch({ type: 'updateObject', id: single.id, record: true, patch: { color } })}
@@ -201,7 +202,7 @@ export default function ContextBar({
         <View style={styles.divider} />
         <BarButton icon="crop" label="잘라내기" onPress={() => onCut?.(objects)} />
         <BarButton icon="more" label="정렬·보정" active={moreOpen} onPress={onToggleMore} />
-      </ScrollView>
+      </FadeScroll>
     </View>
   </>
 }
@@ -384,6 +385,7 @@ const styles = StyleSheet.create({
   divider: { width: 1, height: 22, marginHorizontal: 4, backgroundColor: colors.border },
   chipActive: { backgroundColor: colors.primarySoft },
   // 텍스트·필기 바도 스티커·마테·사진 바(bar)와 같은 모양: 둥글기 16, 테두리 없음, 버튼 간격 2
+  barScroll: { flexShrink: 1 },
   barContent: { alignItems: 'center', gap: 2 },
   kind: { alignSelf: 'stretch', justifyContent: 'center', paddingHorizontal: 12, marginVertical: 5, borderRadius: 20, backgroundColor: colors.text },
   kindText: { color: colors.surface, fontSize: 12, fontWeight: '700' },
