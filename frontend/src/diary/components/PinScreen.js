@@ -43,10 +43,15 @@ export default function PinScreen({ mode, user, getProfilePhotoSource, check, on
       return;
     }
     busy.current = true;
-    const ok = await check(pin).catch(() => false);
+    const result = await check(pin).catch(() => false);
     busy.current = false;
+    const ok = typeof result === 'object' ? result.ok : result;
     if (ok) onDone(pin);
-    else { setDigits(''); setError('비밀번호가 달라요'); }
+    else {
+      setDigits('');
+      const seconds = Math.ceil((typeof result === 'object' ? result.retryAfterMs : 0) / 1000);
+      setError(seconds > 0 ? `입력 횟수가 많아요. ${seconds}초 뒤에 다시 시도해 주세요` : '비밀번호가 달라요');
+    }
   };
 
   const press = key => {

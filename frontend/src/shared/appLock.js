@@ -1,10 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from 'expo-crypto'
+import * as SecureStore from 'expo-secure-store'
 
-// 앱 잠금(내 공간 → 보안): 숫자 4자리 비밀번호. 계정마다 따로 둔다(회원 userId · 게스트 accountId).
-// 비밀번호는 저장하지 않고 소금(무작위 값)을 붙인 SHA-256 만 기기에 둔다.
+// PIN과 실패 횟수는 OS 보안 저장소(Keychain/Keystore)에만 저장한다. AsyncStorage는 백업·복원이나
+// 기기 접근으로 읽힐 수 있으므로 4자리 PIN 검증값을 이곳에 두면 안 된다.
 export const PIN_LENGTH = 4
-const keyOf = scope => `dio.appLock.v1:${scope}`
+const keyOf = scope => `dio.appLock.v2.${encodeURIComponent(scope)}`
+export const MAX_PIN_ATTEMPTS = 5
+export const PIN_RETRY_DELAY_MS = 30 * 1000
+const MAX_PIN_RETRY_DELAY_MS = 30 * 60 * 1000
 
 /** 세션의 잠금 범위. 회원은 userId, 게스트는 accountId. */
 export const appLockScope = user => (user?.mode === 'authenticated' ? `user:${user.userId}` : `guest:${user?.accountId || 'guest'}`)
@@ -16,29 +18,46 @@ export const APP_LOCK_GRACE_MS = 60 * 1000
 /** 백그라운드에 간 시각(awayAt)부터 지금까지 유예를 넘겼는지. */
 export const appLockGraceOver = (awayAt, now = Date.now()) => awayAt != null && now - awayAt >= APP_LOCK_GRACE_MS
 
-const hashPin = (salt, pin) => digestStringAsync(CryptoDigestAlgorithm.SHA256, `${salt}:${pin}`)
+const validPin = pin => typeof pin === 'string' && new RegExp(`^\\d{${PIN_LENGTH}}$`).test(pin)
 
 const read = async scope => {
+  const raw = await SecureStore.getItemAsync(keyOf(scope))
+  if (!raw) return null
   try {
-    const saved = JSON.parse(await AsyncStorage.getItem(keyOf(scope)))
-    return saved?.salt && saved?.hash ? saved : null
-  } catch { return null }
+    const saved = JSON.parse(raw)
+    return validPin(saved?.pin) ? saved : null
+  } catch {
+    return null
+  }
 }
+const write = (scope, saved) => SecureStore.setItemAsync(keyOf(scope), JSON.stringify(saved))
 
 /** 이 계정에 앱 잠금이 켜져 있는지. */
 export const hasAppLock = async scope => Boolean(await read(scope))
 
-/** 비밀번호가 맞는지. 잠금이 없으면 false. */
-export const checkAppLock = async (scope, pin) => {
+/** 비밀번호가 맞는지와 재시도 가능 시각을 돌려준다. 실패 횟수는 앱 재시작 뒤에도 남는다. */
+export const checkAppLock = async (scope, pin, now = Date.now()) => {
   const saved = await read(scope)
-  return Boolean(saved) && (await hashPin(saved.salt, pin)) === saved.hash
+  if (!saved) return { ok: false, retryAfterMs: 0 }
+  const retryUntil = Number(saved.retryUntil) || 0
+  if (retryUntil > now) return { ok: false, retryAfterMs: retryUntil - now }
+  if (pin === saved.pin) {
+    if (saved.failedAttempts || retryUntil || saved.lockouts) await write(scope, { ...saved, failedAttempts: 0, retryUntil: 0, lockouts: 0 })
+    return { ok: true, retryAfterMs: 0 }
+  }
+  const failedAttempts = (Number(saved.failedAttempts) || 0) + 1
+  const blocked = failedAttempts >= MAX_PIN_ATTEMPTS
+  const lockouts = blocked ? Math.min((Number(saved.lockouts) || 0) + 1, 7) : (Number(saved.lockouts) || 0)
+  const retryAfterMs = blocked ? Math.min(PIN_RETRY_DELAY_MS * (2 ** (lockouts - 1)), MAX_PIN_RETRY_DELAY_MS) : 0
+  await write(scope, { ...saved, failedAttempts: blocked ? 0 : failedAttempts, retryUntil: blocked ? now + retryAfterMs : 0, lockouts })
+  return { ok: false, retryAfterMs }
 }
 
 /** 새 비밀번호로 잠근다(바꾸기도 같다). */
 export const setAppLock = async (scope, pin) => {
-  const salt = randomUUID()
-  await AsyncStorage.setItem(keyOf(scope), JSON.stringify({ salt, hash: await hashPin(salt, pin) }))
+  if (!validPin(pin)) throw new Error('앱 잠금 비밀번호는 숫자 4자리여야 해요.')
+  await write(scope, { version: 2, pin, failedAttempts: 0, retryUntil: 0, lockouts: 0 })
 }
 
 /** 앱 잠금을 끈다. */
-export const clearAppLock = scope => AsyncStorage.removeItem(keyOf(scope))
+export const clearAppLock = scope => SecureStore.deleteItemAsync(keyOf(scope))
