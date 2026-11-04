@@ -19,7 +19,7 @@ expect_status() {
 
 init_repo() {
   rm -rf "$workspace/repo"
-  git init -q "$workspace/repo"
+  git init -q -b main "$workspace/repo"
   cd "$workspace/repo"
   git config user.email "ci@example.invalid"
   git config user.name "CI"

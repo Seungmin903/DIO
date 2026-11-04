@@ -11,9 +11,7 @@ const host = Platform.OS === 'android' ? '10.0.2.2' : (globalThis.location?.host
 const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
 // EAS release builds and static web exports must inject a public HTTPS URL.
 // The fallback is kept only for local development, where Expo sets __DEV__.
-const hasSecureConfiguredApi = (() => {
-  try { return new URL(configuredApiBaseUrl).protocol === 'https:'; } catch { return false; }
-})();
+const hasSecureConfiguredApi = /^https:\/\/[^\s/?#]+(?:[/?#]|$)/i.test(configuredApiBaseUrl ?? '');
 export const apiConfigurationError = !__DEV__ && !hasSecureConfiguredApi;
 // Keep authService loadable so App can show the configuration-error screen instead
 // of failing during module initialization when a release URL is invalid.
