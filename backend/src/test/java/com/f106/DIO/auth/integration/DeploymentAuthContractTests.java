@@ -7,6 +7,29 @@ import org.springframework.core.io.FileSystemResource;
 import static org.assertj.core.api.Assertions.*;
 
 class DeploymentAuthContractTests {
+    @Test void deploymentUsesTheQualityStageBarrierAndRunsTheSharedDbMigrationGuard() throws Exception {
+        var loader = new YamlPropertySourceLoader();
+        var ci = loader.load("ci", new FileSystemResource(Path.of("../.gitlab-ci.yml"))).get(0);
+        assertThat(ci.getProperty("deploy-development.stage")).isEqualTo("deploy");
+        assertThat(ci.getProperty("deploy-development.needs[0].job")).isNull();
+        assertThat(ci.getProperty("deploy-development.variables.GIT_DEPTH")).isEqualTo("0");
+        for (String job : new String[]{"backend-test", "release-migration-guard-test", "backend-postgres-auth-test", "backend-postgres-sharing-test", "backend-postgres-diary-test", "backend-postgres-lifecycle-test", "backend-postgres-push-test"}) {
+            assertThat(ci.getProperty(job + ".stage")).isEqualTo("quality");
+        }
+        assertThat(ci.getProperty("backend-test.rules[0].if")).isEqualTo("$CI_COMMIT_BRANCH =~ /^release\\/.+$/");
+        assertThat(ci.getProperty("release-migration-guard-test.rules[0].if")).isEqualTo("$CI_COMMIT_BRANCH =~ /^release\\/.+$/");
+        assertThat(ci.getProperty("release-migration-guard-test.image")).isNull();
+        assertThat(ci.getProperty("release-migration-guard-test.script[0]")).isEqualTo("bash infra/scripts/test-assert-shared-db-migrations.sh");
+        String text = Files.readString(Path.of("../.gitlab-ci.yml"));
+        String deploy = block(text, "deploy-development:\n", "\ndeploy-production:");
+        assertThat(deploy).contains("git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop",
+            "Cannot fetch the current origin/develop", "bash infra/scripts/assert-shared-db-migrations.sh origin/develop HEAD",
+            "logs --tail=200 backend");
+        String guard = Files.readString(Path.of("../infra/scripts/assert-shared-db-migrations.sh"));
+        assertThat(guard).contains("git diff --quiet \"$develop_ref\" \"$release_ref\"", "exit 1", "exit 2");
+        String guardTest = Files.readString(Path.of("../infra/scripts/test-assert-shared-db-migrations.sh"));
+        assertThat(guardTest).contains("expect_status 1 bash \"$guard\" develop HEAD", "expect_status 2 bash \"$guard\" missing-ref HEAD");
+    }
     @Test void deploymentOriginsAndWebSocketProxyPreserveExternalPort() throws Exception {
         var loader = new YamlPropertySourceLoader();
         for (String environment : new String[]{"dev", "prod"}) {

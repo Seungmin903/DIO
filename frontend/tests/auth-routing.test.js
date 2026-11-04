@@ -2,16 +2,17 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
+import * as apiBaseUrlPolicy from '../src/shared/apiBaseUrlPolicy.js'
 import {createAuthApi} from '../src/auth/authApi.js'
 import * as sessionExpiry from '../src/auth/sessionExpiry.js'
 const require=createRequire(import.meta.url),expo=createRequire(require.resolve('expo/package.json')),babel=expo('@babel/core')
 const code=babel.transformSync(readFileSync(new URL('../App.js',import.meta.url),'utf8'),{configFile:false,babelrc:false,plugins:[[expo.resolve('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}],expo.resolve('@babel/plugin-transform-modules-commonjs')]}).code
 // useState 순서: previewSession · booting · loginRequest
 // probe 를 주면 useEffect 를 모아 두고 네이티브 시작 화면을 내린 횟수(hidden) · 예전 예시 다이어리 정리 횟수(cleaned)를 센다
-function root(dev,mode,session=null,loginRequest=null,probe=null){
+function root(dev,mode,session=null,loginRequest=null,probe=null,apiConfigurationError=false){
  let calls=0
  const states=[session,probe?.booting??true,loginRequest]
- const mod={exports:{}},mocks={'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>session}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',StyleSheet:{absoluteFill:{}}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/diary/styles':{styles:{}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
+ const mod={exports:{}},mocks={'./src/shared/dialogs':{notify:(...args)=>probe?.notices?.push(args)},'./src/editor/utils/savePdfFile':{cleanupPdfShareCache:async()=>{}},'./src/auth/authService':{apiConfigurationError,authService:{logout:async()=>{if(probe?.logoutError)throw probe.logoutError},restoreSession:async()=>{if(probe?.restoreError)throw probe.restoreError;return probe?.restored??null}}},react:{useState:()=>{const index=calls++;return [states[index],value=>probe?.updates?.push({index,value})]},useEffect(fn){probe?.effects.push(fn)},useCallback:f=>f,useRef:current=>({current})},'./src/auth/guestProfileDevice':{guestProfile:{start:async session=>{if(probe)probe.guestStarts=(probe.guestStarts||0)+1;return session}}},'./src/diary/services/legacyMockCleanup':{clearMockLibrary:async()=>{if(probe)probe.cleaned=(probe.cleaned||0)+1}},'expo-splash-screen':{preventAutoHideAsync:async()=>{},hideAsync:async()=>{if(probe)probe.hidden++}},'react-native':{Platform:{OS:'web'},StatusBar:'StatusBar',View:'View',Text:'Text',StyleSheet:{absoluteFill:{},create:value=>value}},'react-native-safe-area-context':{SafeAreaProvider:'SafeAreaProvider'},'expo-font':{useFonts:()=>[true,null]},'./src/shared/pretendardFiles':{PRETENDARD_FILES:{}},'./src/editor/services/textFonts':{preloadTextFonts(){}},'./src/diary/styles':{styles:{empty:{},emptyTitle:{},emptyCopy:{}}},'./src/shared/useHiddenNavigationBar':{useHiddenNavigationBar(){}}}
  Object.assign(mocks['./src/auth/authService'].authService, {
   getSessionKey:()=>probe?.sessionKey??null,
   getMemberSessionKey:userId=>probe?.memberSessionKey??`${userId}:1`,
@@ -211,7 +212,7 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   const mod = { exports: {} }
   const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': {
    authBaseUrl: value => `${value}/api/v1`, createAuthApi: options => options,
-  }, './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} }, './appleLogin': { signInWithApple() {} }, 'expo/fetch': { fetch() {} },
+  }, './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} }, './appleLogin': { signInWithApple() {} }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} },
    './developmentAccessStore': { createDevelopmentAccessStore: options => { stores++; storeOptions = options; return 'store'; } },
    './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' } }
   let stores = 0, storeOptions = null
@@ -227,6 +228,70 @@ test('authService 모듈은 공용 주소·헤더를 선언한 뒤 생성 인자
   // 개발 빌드는 예전 빌드가 남긴 Keychain 접속 정보를 지울 수 있게 보안 저장소를 넘긴다
   assert.deepEqual(storeOptions, dev ? { platform: 'android', legacyKeychain: 'keychain' } : null)
  }
+})
+test('API 주소가 없는 정적 웹 릴리스도 모듈 로드 대신 설정 오류 화면으로 분기한다', () => {
+ const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+ }).code
+ const mod = { exports: {} }
+ const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'web' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
+  './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
+  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} } }
+ new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
+ assert.equal(mod.exports.apiConfigurationError, true)
+ assert.equal(mod.exports.apiBaseUrl, 'https://api-configuration.invalid/api')
+})
+test('API 주소가 없는 네이티브 릴리스도 시작 설정 오류로 분기한다', () => {
+ const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+ }).code
+ const mod = { exports: {} }
+ const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
+  './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
+  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} } }
+ new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: {} })
+ assert.equal(mod.exports.apiConfigurationError, true)
+})
+test('평문 또는 잘못된 API 주소가 주입된 릴리스도 설정 오류로 분기한다', () => {
+ const source = babel.transformSync(readFileSync(new URL('../src/auth/authService.js', import.meta.url), 'utf8'), {
+  configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
+ }).code
+ const mocks = { './sessionStore': {sessionStore: null}, 'react-native': { Platform: { OS: 'android' } }, './authApi': { authBaseUrl: value => value, createAuthApi: options => options },
+  './photoUpload': { buildPhotoBody() {} }, './googleLogin': { signInWithGoogle() {} }, './appleLogin': { signInWithApple() {} },
+  './developmentAccessStore': { createDevelopmentAccessStore() {} }, './legacyAccessKeychain': { legacyAccessKeychain: 'keychain' }, '../shared/apiBaseUrlPolicy': apiBaseUrlPolicy, 'expo/fetch': { fetch() {} } }
+ for (const url of ['http://10.0.2.2:8080/api', 'not a URL']) {
+  const mod = { exports: {} }
+  new Function('require', 'module', 'exports', '__DEV__', 'process', source)(id => mocks[id], mod, mod.exports, false, { env: { EXPO_PUBLIC_API_BASE_URL: url } })
+  assert.equal(mod.exports.apiConfigurationError, true)
+ }
+})
+test('설정 오류 플래그가 켜지면 App은 전용 오류 화면을 렌더링하고 빈 상태 스타일을 사용한다', () => {
+ const probe = { effects: [], guestStarts: 0, hidden: 0 }
+ const tree = root(false, undefined, null, null, probe, true)
+ assert.ok(has(tree, './src/shared/ApiConfigurationErrorScreen'))
+ const errorScreen = readFileSync(new URL('../src/shared/ApiConfigurationErrorScreen.js', import.meta.url), 'utf8')
+ const diaryStyles = readFileSync(new URL('../src/diary/styles.js', import.meta.url), 'utf8')
+ assert.match(errorScreen, /styles\.empty(?:Title|Copy)?/)
+ for (const key of ['empty:', 'emptyTitle:', 'emptyCopy:']) assert.ok(diaryStyles.includes(key), `${key} 스타일이 필요해요`)
+ const timer = globalThis.setTimeout
+ globalThis.setTimeout = () => 0
+ try { for (const effect of probe.effects) effect() } finally { globalThis.setTimeout = timer }
+ assert.equal(probe.guestStarts, 0, '설정 오류 화면에서는 게스트 세션을 시작하지 않는다')
+ assert.ok(probe.hidden >= 1, '설정 오류 화면을 보이기 전에 네이티브 시작 화면을 내린다')
+})
+test('배포 EAS 프로필은 HTTPS 운영 API 주소를 번들에 주입한다', () => {
+ const eas = JSON.parse(readFileSync(new URL('../eas.json', import.meta.url), 'utf8'))
+ for (const [profile, origin] of [['preview', 'https://k15f106.p.ssafy.io:8444'], ['production', 'https://k15f106.p.ssafy.io']]) {
+  const url = eas.build[profile].env.EXPO_PUBLIC_API_BASE_URL
+  assert.equal(new URL(url).protocol, 'https:')
+  assert.notEqual(new URL(url).hostname, '10.0.2.2')
+  assert.equal(new URL(url).origin, origin)
+ }
+})
+test('라이선스 웹 export는 production HTTPS API 주소가 없으면 시작하지 않는다', () => {
+ const source = readFileSync(new URL('../scripts/export-licensed-web.cjs', import.meta.url), 'utf8')
+ assert.match(source, /productionEnv\.EXPO_PUBLIC_API_BASE_URL/)
+ assert.match(source, /Web export requires a production HTTPS EXPO_PUBLIC_API_BASE_URL/)
 })
 test('처음 실행은 고르는 화면 없이 게스트로 시작하고, 로그인 화면은 로그인이 필요한 기능에서만 뜬다',()=>{
  // 세션을 만드는 동안은 로그인 화면을 그리지 않는다(게스트로 곧바로 시작)
