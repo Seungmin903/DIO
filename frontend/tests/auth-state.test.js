@@ -38,6 +38,41 @@ function enterSocial(ui) {
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve))
 
+test('로그인 오버레이 첫 화면의 뒤로가기는 오버레이만 닫고 이벤트를 소비한다', () => {
+ let closes=0;
+ const ui=setup({},undefined,{onClose:()=>{closes++}});
+ try { ui.render(); assert.equal(ui.back(),true); assert.equal(closes,1); }
+ finally { ui.unmount(); }
+});
+
+test('독립 로그인 첫 화면은 기존 시스템 뒤로가기 동작에 위임한다', () => {
+ const ui=setup({});
+ try { ui.render(); assert.equal(ui.back(),false); }
+ finally { ui.unmount(); }
+});
+
+test('로그인 요청 중 뒤로가기는 뒤 화면에 전달하지 않고 오버레이를 유지한다', async () => {
+ let closes=0, release;
+ const ui=setup({login:()=>new Promise(resolve=>{release=resolve})},undefined,{onClose:()=>{closes++}});
+ try {
+  find(ui.render(),'이메일').props.onChange('member@example.com');
+  find(ui.render(),'비밀번호').props.onChange('Password123!');
+  find(ui.render(),'로그인').props.onPress();
+  ui.render(); assert.equal(ui.back(),true); assert.equal(closes,0);
+  release({mode:'authenticated',nickname:'회원'}); await tick();
+ } finally { ui.unmount(); }
+});
+
+test('가입 단계에서 뒤로가기는 오버레이를 닫지 않고 이전 인증 화면으로 이동한다', () => {
+ let closes=0;
+ const ui=setup({},undefined,{onClose:()=>{closes++}});
+ try {
+  find(ui.render(),'회원가입').props.onPress();
+  ui.render(); assert.equal(ui.back(),true); assert.equal(closes,0);
+  assert.ok(find(ui.render(),'회원가입'));
+ } finally { ui.unmount(); }
+});
+
 test('가입 전 연령·필수 동의를 받으며 전체 동의가 연령까지 대신 확인하지 않는다', () => {
  const ui=setup({});
  try {

@@ -149,7 +149,7 @@ export default function App() {
     <SafeAreaProvider style={s.provider}>
       <StatusBar hidden />
       {__DEV__ && process.env.EXPO_PUBLIC_DIARY_SOURCE === 'mock' ? <ConnectedDiaryLibrary /> : (
-        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}` : 'preview'} previewUser={previewSession}
+        previewSession ? <LoginGateProvider authenticated={!!authenticatedSession} onLogin={setLoginRequest}><SessionDiaryApp key={authenticatedSession ? `authenticated:${authenticatedSession.userId}` : 'preview'} previewUser={previewSession} loginOverlayOpen={Boolean(loginRequest)}
           onUpdatePreview={updated => setPreviewSession(current => current?.mode === updated.mode &&
             (current?.mode === 'authenticated' ? String(current.userId) === String(updated.userId) : current?.accountId === updated.accountId) ? updated : current)}
           onEndPreview={endSession} onClearSession={clearSession} onReady={finishBoot} /></LoginGateProvider> : null
@@ -181,7 +181,7 @@ function DiaryApp(props) {
     : content;
 }
 
-function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, onReady, diaryState, sharing }) {
+function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePreview, onReady, diaryState, sharing, loginOverlayOpen = false }) {
   const member = diaryState.source === 'member-api';
   const invitationLeaveGuard = useRef(null);
   const registerInvitationLeaveGuard = useCallback(guard => { invitationLeaveGuard.current = guard; return () => { if (invitationLeaveGuard.current === guard) invitationLeaveGuard.current = null; }; }, []);
@@ -409,7 +409,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   // 모든 화면 규격의 Android 시스템 뒤로가기: 시트 → 보조 화면 → 기본 보관함 순서로 한 단계씩 돌아간다.
   // 편집기는 열린 도구·패널을 먼저 닫아야 하므로 EditorScreen에서 별도로 처리한다.
   useEffect(() => {
-    if (Platform.OS !== 'android' || page === 'editor') return undefined;
+    if (Platform.OS !== 'android' || page === 'editor' || loginOverlayOpen) return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (studioBackHandler.current?.()) return true;
       if (profileBackHandler.current) {
@@ -437,7 +437,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
       return false;
     });
     return () => subscription.remove();
-  }, [createOpen, filter, isPhone, navigate, page, railCollapsed, selection]);
+  }, [createOpen, filter, isPhone, navigate, page, railCollapsed, selection, loginOverlayOpen]);
 
   const create = useCallback(() => {
     if (savingRef.current) return;
@@ -821,6 +821,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
     content = (
       <EditorScreen
         key={active?.id || 'new'}
+        backDisabled={loginOverlayOpen}
         diary={active}
         compact={isPhone}
         landscape={isLandscape}

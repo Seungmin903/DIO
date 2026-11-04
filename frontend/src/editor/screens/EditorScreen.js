@@ -113,7 +113,7 @@ function cellCropPhoto(strip, index) {
   return cell && box ? { ...cell, id: `${strip.id}:${index}`, cell: index, x: 0, y: 0, w: box.width, h: box.height, frame: 'shape', shape: 'rect' } : null
 }
 
-export default function EditorScreen({ registerInvitationLeaveGuard, sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly: permissionReadOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, fixedViewportZoom = null, qaController = null }) {
+export default function EditorScreen({ registerInvitationLeaveGuard, sharingMembers = [], onOpenSharing, invitationCount = 0, onHome, onRenameDiary, diary, readOnly: permissionReadOnly = false, onRegionExport, compact = false, landscape = false, bottomInset = 0, onToggleOrientation, tabs, onSelectTab, onCloseTab, fixedViewportZoom = null, qaController = null, backDisabled = false }) {
   const [readingMode, setReadingMode] = useState(false)
   const [readerMenuVisible, setReaderMenuVisible] = useState(true)
   const readOnly = permissionReadOnly || readingMode
@@ -1019,7 +1019,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
   // 모든 화면 규격의 Android 뒤로가기는 현재 편집 상태를 한 단계씩 닫는다.
   // 모달·도구·선택·보조 패널이 모두 닫혀 있을 때만 보관함으로 이동한다.
   useEffect(() => {
-    if (Platform.OS !== 'android') return undefined
+    if (Platform.OS !== 'android' || backDisabled) return undefined
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (colorPicker) return false // The topmost inline picker handles back first.
       if (readOnly) { goHome(); return true }
@@ -1045,7 +1045,7 @@ export default function EditorScreen({ registerInvitationLeaveGuard, sharingMemb
       return true
     })
     return () => subscription.remove()
-  }, [readOnly, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker])
+  }, [readOnly, bubbleOpen, cropId, exportOpen, exportSnapshot, focusMode, frameTextEdit, importFailure, layersOpen, objectLinkTarget, overviewFilter, pagesOpen, photoCropId, regionOpen, state.selectedIds.length, tapeCropId, templatePickerOpen, textEditing, textLinkTarget, colorPicker, backDisabled])
 
   useEffect(() => {
     if (colorPicker && (readOnly || page.id !== colorPicker.pageId || activeTool !== colorPicker.tool || colorScreen.width !== colorPicker.screen.width)) setColorPicker(null)

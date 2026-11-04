@@ -50,6 +50,8 @@ test('처음 실행은 고르는 화면 없이 게스트로 시작하고, 로그
  // 로그인이 필요한 기능에서 연 경우: 지금 화면(보관함)은 그대로 두고 로그인 화면을 위에 겹친다. 나중에가 있다
  const asked=root(true,undefined,guest,{feature:'사진 속 대상 오리기',action(){}}),auth=nodes(asked).find(n=>n.type==='./src/auth/AuthScreen')
  assert.ok(auth);assert.ok(has(asked,'LocalDiaryApp'))
+ assert.equal(nodes(asked).find(n=>n.type?.name==='LocalDiaryApp').props.loginOverlayOpen,true)
+ assert.equal(nodes(root(true,undefined,guest)).find(n=>n.type?.name==='LocalDiaryApp').props.loginOverlayOpen,false)
  assert.equal(typeof auth.props.onClose,'function')
  // 게스트는 로그인이 필요한 기능이 막혀 있다
  const gate=session=>nodes(root(true,undefined,session)).find(n=>n.props?.onLogin)
