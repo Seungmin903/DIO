@@ -29,6 +29,7 @@ public class MediaService {
 	private static final int MAX_GIF_SIZE = 15 * 1024 * 1024;
 	private static final int MAX_FONT_SIZE = 25 * 1024 * 1024;
 	private static final int MAX_DOCUMENT_SIZE = 25 * 1024 * 1024;
+	private static final int MAX_UPLOAD_SIZE = Math.max(MAX_FONT_SIZE, MAX_DOCUMENT_SIZE);
 	private final MediaFiles files;
 	private final MediaFileTransactionService transactions;
 	private final MediaStorageDeletionQueueService deletionQueue;
@@ -39,7 +40,9 @@ public class MediaService {
 	}
 
 	public MediaFileResponse upload(MultipartFile upload, String requestedCategory, Long userId) {
-		try (var permit = admission.acquire(upload == null ? 0 : upload.getSize())) {
+		long declaredSize = upload == null ? 0 : upload.getSize();
+		if (declaredSize > MAX_UPLOAD_SIZE) throw MediaRequestException.uploadTooLarge();
+		try (var permit = admission.acquire(declaredSize)) {
 		byte[] content = read(upload);
 		MediaUploadInspector.FileKind kind = MediaUploadInspector.inspect(content);
 		if (content.length > maxSize(kind)) throw tooLarge(kind);

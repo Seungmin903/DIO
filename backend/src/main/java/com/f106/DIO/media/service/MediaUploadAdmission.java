@@ -19,7 +19,7 @@ public final class MediaUploadAdmission {
  private final Semaphore active, waiters;
  private final int maxInFlightUnits;
  private final long waitMillis;
- /** Byte-weighted admission keeps up to three 5MiB uploads or two 15MiB GIFs in flight (30MiB maximum). */
+ /** Byte-weighted admission budgets source payloads at three 5MiB uploads or two 15MiB GIFs; temporary read buffers can use more heap. */
  @Autowired
  public MediaUploadAdmission(@Value("${dio.media.upload.max-in-flight-units:}") String configuredUnits,
 	 @Value("${dio.media.upload.max-concurrent:}") String legacyMaxConcurrent,

@@ -84,7 +84,7 @@ dio:
     local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-data/media}
     s3-bucket: ${MEDIA_S3_BUCKET:}
     s3-region: ${MEDIA_S3_REGION:ap-northeast-2}
-    # MediaService materializes each accepted upload as a byte array. Six weighted units allow three 5MiB uploads or two 15MiB GIFs, capped at 30MiB per process.
+    # Six weighted units budget source payloads at three 5MiB uploads or two 15MiB GIFs. Temporary read buffers and storage copies can use additional heap.
     upload:
       max-in-flight-units: ${MEDIA_UPLOAD_MAX_IN_FLIGHT_UNITS:}
       # 이전 MEDIA_UPLOAD_MAX_CONCURRENT 값은 5MiB 동시 업로드 수로 해석해 2 units씩 변환한다.

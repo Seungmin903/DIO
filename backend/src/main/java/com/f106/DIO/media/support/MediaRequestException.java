@@ -17,6 +17,9 @@ public class MediaRequestException extends RuntimeException {
 	public static MediaRequestException tooLarge() {
 		return new MediaRequestException(HttpStatus.PAYLOAD_TOO_LARGE, "MEDIA_FILE_TOO_LARGE", "이미지와 오디오 파일은 5MiB 이하로 올려 주세요.");
 	}
+	public static MediaRequestException uploadTooLarge() {
+		return new MediaRequestException(HttpStatus.PAYLOAD_TOO_LARGE, "MEDIA_FILE_TOO_LARGE", "업로드 파일은 25MiB 이하로 올려 주세요.");
+	}
 	public static MediaRequestException gifTooLarge() {
 		return new MediaRequestException(HttpStatus.PAYLOAD_TOO_LARGE, "MEDIA_FILE_TOO_LARGE", "GIF 파일은 15MiB 이하로 올려 주세요.");
 	}
