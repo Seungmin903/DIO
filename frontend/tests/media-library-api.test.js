@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createMediaLibraryApi, mergeMediaPages, mediaLibraryError, canSelectMediaPhoto } from '../src/diary/services/mediaLibraryApi.js'
+import { createMediaLibraryApi, mergeMediaPages, mediaLibraryError, canSelectMediaPhoto, sharedGifMaxBytes } from '../src/diary/services/mediaLibraryApi.js'
 const id='10000000-0000-4000-8000-000000000001',second='10000000-0000-4000-8000-000000000002'
 const row=(mediaFileId=id)=>({mediaFileId,mediaType:'IMAGE',libraryCategory:'PHOTO',originalFilename:'사진.png',mimeType:'image/png',fileSize:100,createdAt:'2026-11-02T00:00:00Z'})
 
@@ -30,6 +30,11 @@ test('이미지 외 오디오·폰트·문서도 목록에 유지하고 겹친 �
 test('권한·파일 없음·업로드 제한의 사용자 안내를 구분한다',()=>{
  for(const status of [401,403,404,413,415])assert.ok(mediaLibraryError({status}).length)
  assert.equal(mediaLibraryError({message:'secret token'}).includes('secret'),false)
+})
+test('GIF만 공유 한도인 15MiB까지 선택한다',()=>{
+ assert.equal(canSelectMediaPhoto({...row(),mimeType:'image/gif',fileSize:sharedGifMaxBytes}),true)
+ assert.equal(canSelectMediaPhoto({...row(),mimeType:'image/gif',fileSize:sharedGifMaxBytes+1}),false)
+ assert.equal(canSelectMediaPhoto({...row(),mimeType:'image/png',fileSize:5*1024*1024+1}),false)
 })
 
 test('새 미디어 유형이 섞여도 사진과 다음 커서를 유지하며 사진 선택 대상에서는 제외한다',async()=>{

@@ -189,6 +189,24 @@ class MediaServiceTests {
 	}
 
 	@Test
+	void gifUsesTheSeparateFifteenMegabyteLimit() {
+		byte[] accepted = new byte[15 * 1024 * 1024];
+		System.arraycopy("GIF89a".getBytes(), 0, accepted, 0, 6);
+		stubPersist();
+
+		var response = service.upload(new MockMultipartFile("file", "animated.gif", "image/gif", accepted), null, 7L);
+
+		assertThat(response.fileSize()).isEqualTo(15L * 1024 * 1024);
+		byte[] rejected = new byte[15 * 1024 * 1024 + 1];
+		System.arraycopy("GIF89a".getBytes(), 0, rejected, 0, 6);
+		assertThatThrownBy(() -> service.upload(new MockMultipartFile("file", "large.gif", "image/gif", rejected), null, 7L))
+			.isInstanceOfSatisfying(MediaRequestException.class, error -> {
+				assertThat(error.status().value()).isEqualTo(413);
+				assertThat(error.getMessage()).contains("15MiB");
+			});
+	}
+
+	@Test
 	void doesNotImmediatelyDeleteStorageWhenPersistenceFails() {
 		when(deletionQueue.reserveUploadCleanup(any(), any())).thenAnswer(invocation ->
 			new MediaStorageDeletionTask(invocation.getArgument(0), invocation.getArgument(1)));

@@ -6,7 +6,7 @@ import { fetch as memberFetch } from 'expo/fetch'
 import { authService, apiBaseUrl, accessTokenHeader } from '../../auth/authService'
 import { createAuthenticatedMemberTransport } from './memberTransport.js'
 import { createMediaRequest } from '../../collaboration/canvasMedia.js'
-import { createMediaLibraryApi, canSelectMediaPhoto } from './mediaLibraryApi.js'
+import { createMediaLibraryApi, canSelectMediaPhoto, mediaLibraryMaxBytes } from './mediaLibraryApi.js'
 import { canvasMediaFiles } from '../../editor/services/canvasMediaFiles'
 
 export function createMediaLibraryRuntime(diary) {
@@ -15,7 +15,7 @@ export function createMediaLibraryRuntime(diary) {
   active()
   const request=createAuthenticatedMemberTransport({auth:authService,accountId,baseUrl:apiBaseUrl,accessTokenHeader,fetchImpl:memberFetch})
   const api=createMediaLibraryApi({transport:async options=>{active();const result=await request(options);active();return result},fileRequest:createMediaRequest({auth:authService,accountId,sessionKey,baseUrl:apiBaseUrl,fetchImpl:memberFetch})})
-  const selectable=row=>{if(!canSelectMediaPhoto(row))throw Object.assign(Error('사진은 5MB 이하만 선택할 수 있어요.'),{status:413,code:'MEDIA_FILE_TOO_LARGE'})}
+  const selectable=row=>{if(!canSelectMediaPhoto(row)){const limit=mediaLibraryMaxBytes(row)/1024/1024;throw Object.assign(Error(`사진은 5MB 이하, GIF는 ${limit}MB 이하만 선택할 수 있어요.`),{status:413,code:'MEDIA_FILE_TOO_LARGE'})}}
   return {
     ...api,
     async previewCached(row) { active();if(!canSelectMediaPhoto(row))return false;const cached=await canvasMediaFiles.cached(row.mediaFileId);active();return cached },

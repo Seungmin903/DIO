@@ -15,7 +15,7 @@ function PhotoRow({row,api,busy,onSelect,columns}) {
   const [failed,setFailed]=useState(false)
   useEffect(()=>{if(!supported)return;let alive=true;api.previewCached(row).catch(()=>{if(alive)setFailed(true)});return()=>{alive=false}},[api,row,supported])
   return <Pressable accessibilityRole="button" accessibilityLabel={`사진 선택: ${row.originalFilename}`} accessibilityState={{disabled:busy||!supported}} disabled={busy||!supported} onPress={()=>onSelect(row)} style={[s.tile,{maxWidth:`${100/columns}%`},(busy||!supported)&&s.disabled]}>
-    <View style={s.thumbnail}>{src&&!failed?<MediaImage source={{uri:src}} animated={row.mimeType==='image/gif'} resizeMode="contain" style={s.image} onError={()=>setFailed(true)}/>:<View style={s.placeholder}><AppIcon name="image" size={28} color={colors.textMuted}/><Text style={s.placeholderText}>{!supported?'5MB 초과':failed?'미리보기 실패':'선택해 불러오기'}</Text></View>}
+    <View style={s.thumbnail}>{src&&!failed?<MediaImage source={{uri:src}} animated={row.mimeType==='image/gif'} resizeMode="contain" style={s.image} onError={()=>setFailed(true)}/>:<View style={s.placeholder}><AppIcon name="image" size={28} color={colors.textMuted}/><Text style={s.placeholderText}>{!supported?(row.mimeType==='image/gif'?'15MB 초과':'5MB 초과'):failed?'미리보기 실패':'선택해 불러오기'}</Text></View>}
       {row.mimeType==='image/gif'&&<View style={s.badge}><Text style={s.badgeText}>GIF</Text></View>}
     </View>
     <Text numberOfLines={1} style={s.name}>{row.originalFilename}</Text>
