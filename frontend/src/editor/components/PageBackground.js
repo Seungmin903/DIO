@@ -5,8 +5,8 @@ import { templateReference } from '../templates/catalog.js'
 import { loadTemplateAst, peekTemplateAst } from '../templates/loadTemplate'
 import { colorTemplateAst, normalizePaperAppearance } from '../templates/appearance.js'
 import { pageSize } from '../utils/pageGeometry.js'
-import { plannerFor } from '../templates/planners.js'
-import { paperPrintsText, swapPaperFont } from '../templates/paperFont.js'
+import { plannerFor, paperDeviceFontIds } from '../templates/planners.js'
+import { swapPaperFont } from '../templates/paperFont.js'
 import { useTextFont } from '../hooks/useTextFont'
 import { KeepFont } from '../../shared/fontScope'
 
@@ -98,13 +98,16 @@ function BackgroundAttempt({ page, zoom, preparedXml, onReady, onError, onRetry,
   </View>
 }
 
+// 속지를 처음부터 다시 그리는 키. 글꼴 상태(printedFont)가 들어 있어, 속지가 쓰는 글꼴을 불러오면 속지를 다시 그린다(SVG 는 글꼴이 늦게 와도 저절로 바뀌지 않는다).
+export const backgroundKey = (page, printedFont, attempt) => [page.id, page.backgroundAssetId, page.templateVersion, normalizePaperAppearance(page.paperAppearance).font ?? '', printedFont, attempt].join(':')
+
 function PageBackground(props) {
   const [attempt, setAttempt] = useState(0)
+  // 데일리 플래너가 비추는 글은 마루부리 글꼴로 그려진다(속지 글꼴을 골라도 같다). 쓰일 때 불러오고, 불러오면 속지를 다시 그린다.
+  const [deviceFont] = paperDeviceFontIds(props.page.backgroundAssetId)
+  const printedFont = useTextFont(deviceFont ?? null, true)
   // 속지 글꼴이 바뀌면 처음부터 다시 불러온다
-  const paperFont = normalizePaperAppearance(props.page.paperAppearance).font
-  // 속지 글꼴을 안 골랐으면 인쇄 글자는 원본 마루부리 글꼴로 그려진다. 쓰일 때 불러오고, 불러오면 속지를 다시 그린다(SVG 는 글꼴이 늦게 와도 저절로 바뀌지 않는다).
-  const printedFont = useTextFont(!paperFont && paperPrintsText(props.page.backgroundAssetId) ? 'maruburi' : null, true)
-  const key = [props.page.id, props.page.backgroundAssetId, props.page.templateVersion, paperFont ?? '', printedFont, attempt].join(':')
+  const key = backgroundKey(props.page, printedFont, attempt)
   return <Keep><BackgroundAttempt key={key} {...props} onRetry={props.preparedXml == null ? () => setAttempt(value => value + 1) : undefined} /></Keep>
 }
 export default memo(PageBackground)

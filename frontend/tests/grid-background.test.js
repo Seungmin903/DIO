@@ -44,12 +44,12 @@ function fixture() {
     if (id.endsWith('/appearance.js')) return { colorTemplateAst, normalizePaperAppearance: a => ({ backgroundColor: a?.backgroundColor ?? '#FFFFFF', layoutColor: '#292929' }) }
     if (id.endsWith('/pageGeometry.js')) return { pageSize: () => ({ width: 1024, height: 768 }) }
     if (id.endsWith('/fontScope')) return { KeepFont: 'keep-font' } // 속지는 정해진 글꼴 구역 안에서 그린다
-    if (id.endsWith('/paperFont.js')) return { swapPaperFont: xml => xml, paperPrintsText: () => false } // 속지 글꼴 바꾸기는 paper-font.test.js 가 본다
-    if (id.endsWith('/useTextFont')) return { useTextFont: () => '' } // 글꼴 불러오기는 text-font-styles.test.js 가 본다
+    if (id.endsWith('/paperFont.js')) return { swapPaperFont: xml => xml } // 속지 글꼴 바꾸기는 paper-font.test.js 가 본다
+    if (id.endsWith('/useTextFont')) return { useTextFont: () => '' } // 글꼴 불러오기 자체는 text-font-styles.test.js 가 본다(여기서는 상태를 문자열로 흉내 낸다)
     return require(id)
   }
   new Function('require', 'module', 'exports', code)(load, module, module.exports)
-  return { render: module.exports.BackgroundAttempt, ast }
+  return { render: module.exports.BackgroundAttempt, backgroundKey: module.exports.backgroundKey, ast }
 }
 
 test('실제 배경 컴포넌트에서 가이드가 바탕 위·속지 SVG 아래에 있고 출력 XML에는 들어가지 않는다', () => {
@@ -73,4 +73,15 @@ test('빈 속지에서도 바탕색과 가이드를 함께 유지하고 가이�
   assert.equal(blank.props.children, guide)
   const plain = f.render({ page: { id: 'p', backgroundAssetId: 'monthly' }, zoom: 1 })
   assert.equal(plain.props.children[1].props.children.props.children.props.ast, f.ast)
+})
+
+test('속지에서 앱 글꼴이 필요한 것은 데일리 플래너가 비추는 글(마루부리)뿐이고, 글꼴 상태가 바뀌면 속지를 다시 그린다', () => {
+  for (const id of ['day-planner-landscape', 'day-planner-portrait']) assert.deepEqual(planners.paperDeviceFontIds(id), ['maruburi'])
+  for (const id of ['monthly', 'study-planner-landscape', undefined, null]) assert.deepEqual(planners.paperDeviceFontIds(id), [], String(id))
+  const f = fixture(), page = { id: 'p', backgroundAssetId: 'day-planner-landscape', paperAppearance: { font: 'nanum-gothic' } }
+  const loading = f.backgroundKey(page, 'MaruBuri:loading|MaruBuriBold:loading', 0)
+  assert.notEqual(loading, f.backgroundKey(page, 'MaruBuri:loaded|MaruBuriBold:loading', 0))
+  assert.notEqual(f.backgroundKey(page, 'MaruBuri:loaded|MaruBuriBold:loaded', 0), f.backgroundKey(page, 'MaruBuri:loaded|MaruBuriBold:error', 0))
+  assert.equal(loading, f.backgroundKey(page, 'MaruBuri:loading|MaruBuriBold:loading', 0)) // 상태가 같으면 다시 그리지 않는다
+  assert.notEqual(loading, f.backgroundKey(page, 'MaruBuri:loading|MaruBuriBold:loading', 1)) // 다시 시도
 })

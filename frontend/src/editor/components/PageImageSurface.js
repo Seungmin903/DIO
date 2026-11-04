@@ -8,6 +8,7 @@ import { exportObjectPosition } from '../utils/regionExport.js'
 import { PageExportError } from '../utils/pageExport.js'
 import { ensurePersonalFonts } from '../../handwriting/library.js'
 import { ensureTextFontsFor } from '../services/textFonts'
+import { paperDeviceFontIds } from '../templates/planners.js'
 import { SkiaPencilScale } from '../skia/skiaPencilScale.js'
 import { isSkiaPencil } from '../skia/pencilRaster.js'
 
@@ -21,8 +22,8 @@ export default function PageImageSurface({ job }) {
   const [fontsReady, setFontsReady] = useState(false)
   useEffect(() => {
     let live = true
-    // 앱 글꼴은 쓰일 때 불러오므로, 찍기 전에 이 페이지가 쓰는 글꼴(속지에 인쇄된 마루부리 포함)을 기다린다
-    Promise.all([ensureTextFontsFor(snapshot.objects, snapshot.template ? ['maruburi'] : []), ensurePersonalFonts(snapshot.objects)]).then(() => { if (live) setFontsReady(true) }).catch(error => { if (live) reject(new PageExportError('EXPORT_FONT_FAILED', error.message, error)) })
+    // 앱 글꼴은 쓰일 때 불러오므로, 찍기 전에 이 페이지가 쓰는 글꼴(데일리 플래너가 비추는 글의 마루부리 포함)을 기다린다
+    Promise.all([ensureTextFontsFor(snapshot.objects, snapshot.template ? paperDeviceFontIds(snapshot.template.backgroundAssetId) : []), ensurePersonalFonts(snapshot.objects)]).then(() => { if (live) setFontsReady(true) }).catch(error => { if (live) reject(new PageExportError('EXPORT_FONT_FAILED', error.message, error)) })
     return () => { live = false }
   }, [snapshot, reject])
   const surface = useRef(null), started = useRef(false), failed = useRef(false)

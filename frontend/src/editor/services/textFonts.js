@@ -36,7 +36,12 @@ function loadFont(font, bold) {
 
 // 글꼴을 찾거나 쓰는 곳(textStyle · loadedFontFamily · useTextFont)이 요청하면 그때 불러온다.
 // 앱이 켜질 때 11개(약 57MB)를 한꺼번에 읽던 것을, 화면에 실제로 쓰이는 글꼴만 읽는 것으로 바꿨다.
-setTextFontRequester((font, bold) => { loadFont(font, bold) })
+// 렌더 경로에서 매번 불릴 수 있어, 이미 요청한 글꼴이면 Promise · 배열을 만들지 않고 Map 조회만 한다.
+const needsLoad = family => FONT_FILES[family] !== undefined && !loads.has(family)
+setTextFontRequester((font, bold) => {
+  if (needsLoad(font.family)) loadFamily(font.family)
+  if (bold && font.boldFamily && needsLoad(font.boldFamily)) loadFamily(font.boldFamily)
+})
 
 /** 글꼴 id 들의 파일을 불러오고 끝날 때까지 기다린다. bold 면 굵은 서체도 함께 */
 export function ensureTextFonts(ids, { bold = false } = {}) {

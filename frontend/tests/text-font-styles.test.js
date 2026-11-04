@@ -8,7 +8,7 @@ import { createExportSnapshot } from '../src/editor/utils/pageExport.js'
 
 const require = createRequire(import.meta.url), expo = createRequire(require.resolve('expo/package.json'))
 
-test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 face를 사용할 수 없는 상태로 알린다', async () => {
+test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 face를 사용할 수 없는 상태로 알린다', async t => {
   const calls = [], pending = new Map()
   const { code } = expo('@babel/core').transformSync(readFileSync(new URL('../src/editor/services/textFonts.js', import.meta.url), 'utf8'), {
     configFile: false, babelrc: false, plugins: [expo.resolve('@babel/plugin-transform-modules-commonjs')],
@@ -23,16 +23,18 @@ test('글꼴 로더는 쓰이는 글꼴만 한 번씩 등록하고 실패한 fac
   }, module, module.exports)
   // 앱이 켜져도 기본 글꼴 하나만 불러온다 (11개를 한꺼번에 읽지 않는다)
   mock.timers.enable({ apis: ['setTimeout'] })
+  t.after(() => mock.timers.reset()) // 중간 assert 가 실패해도 가짜 타이머를 되돌린다
   const job = module.exports.preloadTextFonts()
   assert.equal(module.exports.preloadTextFonts(), job)
   assert.equal(calls.length, 0) // 첫 화면이 그려지기 전에는 아무것도 읽지 않는다
   mock.timers.tick(600)
   await new Promise(resolve => setImmediate(resolve))
-  mock.timers.reset()
   assert.deepEqual(calls.flatMap(Object.keys), ['NanumGothic'])
   // 글꼴을 찾는 순간 그 글꼴(굵게면 굵은 서체까지)만 한 번 불러온다
   text.textStyle({ font: 'maruburi', bold: true }, 1, 'ios'); text.textStyle({ font: 'maruburi', bold: true }, 1, 'ios')
   assert.deepEqual(calls.flatMap(Object.keys), ['NanumGothic', 'MaruBuri', 'MaruBuriBold'])
+  for (let i = 0; i < 200; i++) text.textStyle({ font: 'maruburi', bold: true }, 1, 'ios') // 렌더마다 불려도 다시 등록하지 않는다
+  assert.equal(calls.length, 3)
   assert.equal(text.textStyleReady('nanum-gothic', 'bold'), false)
   assert.deepEqual(calls.flatMap(Object.keys).slice(3), ['NanumGothicBold'])
   const files = Object.assign({}, ...calls)
