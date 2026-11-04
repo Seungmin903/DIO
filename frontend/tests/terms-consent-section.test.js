@@ -44,20 +44,18 @@ test('조회 중에는 네 항목이 비활성화되고 GET 완료 후 서버 �
   assert.equal(controls.length,4);assert.ok(controls.every(n=>n.props.on&&!n.props.disabled));
   assert.deepEqual(ui.calls,[{method:'GET',path:'/me/terms'}]);ui.close();
 });
-test('스위치 변경은 전송하지 않고 저장할 때만 변경분을 전송한다',async()=>{
+test('스위치 변경 즉시 변경한 동의를 서버에 저장한다',async()=>{
  const ui=setup();ui.render();await settle();
  nodes(ui.render()).filter(n=>n.type==='Switch')[1].props.onToggle(false);
  assert.equal(nodes(ui.render()).filter(n=>n.type==='Switch')[1].props.on,false);
- assert.equal(ui.calls.filter(c=>c.method==='PUT').length,0);
- await ui.props.saveRef.current();
+ await settle();
  assert.deepEqual(ui.calls.at(-1),{method:'PUT',path:'/me/terms/AD_EMAIL/v3',body:{agreed:false}});
  await ui.props.saveRef.current();assert.equal(ui.calls.filter(c=>c.method==='PUT').length,1);ui.close();
 });
-test('저장하지 않고 닫으면 전송하지 않고 재진입 시 서버 값으로 돌아온다',async()=>{
+test('스위치를 변경하면 화면을 닫기 전에도 요청이 시작된다',async()=>{
  const ui=setup();ui.render();await settle();
  nodes(ui.render()).filter(n=>n.type==='Switch')[0].props.onToggle(false);ui.close();
- assert.equal(ui.calls.filter(c=>c.method==='PUT').length,0);
- const next=setup();next.render();await settle();assert.equal(nodes(next.render()).filter(n=>n.type==='Switch')[0].props.on,true);next.close();
+ assert.equal(ui.calls.filter(c=>c.method==='PUT').length,1);
 });
 test('저장 실패 시 선택을 보존하고 오류를 표시한다',async()=>{
  const ui=setup();ui.render();await settle();ui.fail();
@@ -80,10 +78,10 @@ test('저장 중 연타와 변경은 추가 전송하지 않는다',async()=>{
  finish();await first;assert.equal(ui.calls.filter(c=>c.method==='PUT').length,1);ui.close();
 });
 
-test('일부 저장 실패 시 재시도는 실패한 항목만 보내고 오류를 지운다',async()=>{
+test('자동 저장 실패 후 재시도는 실패한 항목만 보내고 오류를 지운다',async()=>{
  const ui=setup({failOnceType:'AD_PUSH'});ui.render();await settle();
- const controls=nodes(ui.render()).filter(n=>n.type==='Switch');controls[1].props.onToggle(false);controls[2].props.onToggle(false);
- await assert.rejects(ui.props.saveRef.current());
+ nodes(ui.render()).filter(n=>n.type==='Switch')[1].props.onToggle(false);await settle();
+ nodes(ui.render()).filter(n=>n.type==='Switch')[2].props.onToggle(false);await settle();
  await ui.props.saveRef.current();
  const writes=ui.calls.filter(c=>c.method==='PUT');assert.equal(writes.length,3);
  assert.equal(writes.filter(c=>c.path.includes('AD_EMAIL')).length,1);
