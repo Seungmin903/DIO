@@ -2,6 +2,7 @@
   "expo": {
     "name": "DIO",
     "slug": "dio",
+    "scheme": "dio",
     "owner": "choihans-team",
     "version": "1.0.0",
     "orientation": "default",
