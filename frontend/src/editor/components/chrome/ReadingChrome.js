@@ -11,7 +11,7 @@ export const READING_PADDING = { top: 56, bottom: 52, side: 0 }
 export const READING_PADDING_FULL = { top: 0, bottom: 0, side: 0 }
 
 function Action({ icon, label, onPress, disabled = false, small = false, ...pressProps }) {
-  return <Pressable {...pressProps} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled}
+  return <Pressable {...pressProps} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} hitSlop={small ? 6 : 2}
     onPress={onPress} style={({ pressed }) => [styles.action, small && styles.actionSmall, pressed && styles.pressed, disabled && styles.disabled]}>
     <Icon name={icon} size={small ? 19 : 20} />
   </Pressable>
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   pageNumber: { width: 58, fontSize: 11, fontWeight: '700', color: colors.text, textAlign: 'center', fontVariant: ['tabular-nums'] },
   pager: { flex: 1, minWidth: 0, maxWidth: 520, flexDirection: 'row', alignItems: 'center', marginHorizontal: 'auto' },
   readingActions: { flexDirection: 'row', marginLeft: 4, flexShrink: 0 },
-  modeControls: { position: 'absolute', right: 12, bottom: 12, gap: 2, padding: 4, flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.95)', zIndex: 30, ...shadow.card },
+  modeControls: { position: 'absolute', right: 12, bottom: 12, gap: 6, padding: 4, flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.95)', zIndex: 30, ...shadow.card },
   modeDivider: { width: 1, height: 20, backgroundColor: colors.border },
   action: { width: 44, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   actionSmall: { width: 36, height: 36 },

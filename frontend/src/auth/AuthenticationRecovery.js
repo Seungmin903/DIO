@@ -15,6 +15,6 @@ export default function AuthenticationRecovery({ error }) {
 }
 
 const styles = StyleSheet.create({
-  button: { minHeight: 44, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, alignSelf: 'flex-start', justifyContent: 'center', backgroundColor: colors.primaryStrong },
+  button: { minHeight: 48, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, alignSelf: 'flex-start', justifyContent: 'center', backgroundColor: colors.primaryStrong },
   text: { color: colors.surface, fontWeight: '600', fontSize: 14 },
 });

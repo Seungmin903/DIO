@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View, Pressable } from 'react-native';
 import { fetch as memberFetch } from 'expo/fetch';
 import { apiBaseUrl, accessTokenHeader } from '../../auth/authService';
 import { createTermsConsentApi, createTermsConsentRuntime, optionalTerms } from '../../auth/termsConsent';
@@ -96,12 +96,13 @@ export default function TermsConsentSection({ auth, userId, saveRef, onReadyChan
       return <View key={item.termsType} style={styles.row}>
         <View style={styles.copy}>
           <Text style={styles.label}>
-            {item.label}{'  '}
-            <Text accessibilityRole="link" accessibilityLabel={`${item.label} 내용 보기`}
-              accessibilityState={{ disabled: !signupDocuments[item.id] }}
-              onPress={signupDocuments[item.id] ? () => open(item) : undefined}
-              style={[styles.viewLink, !signupDocuments[item.id] && styles.linkDisabled]}>보기</Text>
+            {item.label}
           </Text>
+          <Pressable accessibilityRole="link" accessibilityLabel={`${item.label} 내용 보기`}
+            accessibilityState={{ disabled: !signupDocuments[item.id] }} disabled={!signupDocuments[item.id]}
+            hitSlop={{ top: 14, bottom: 14, right: 14 }} onPress={() => open(item)} style={styles.viewPress}>
+            <Text style={[styles.viewLink, !signupDocuments[item.id] && styles.linkDisabled]}>보기</Text>
+          </Pressable>
           {!!row?.error && <Text accessibilityLiveRegion="polite" style={styles.error}>{row.error}</Text>}
         </View>
         <View style={styles.control}>
@@ -128,6 +129,7 @@ const styles = StyleSheet.create({
   label: { color: colors.text, fontSize: 15, lineHeight: 22, fontWeight: '700' },
   note: { color: colors.textMuted, fontSize: 13, lineHeight: 20 },
   viewLink: { color: colors.primaryText, fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' },
+  viewPress: { alignSelf: 'flex-start' },
   linkDisabled: { color: colors.textMuted },
   error: { color: colors.dangerStrong, fontSize: 13, lineHeight: 20 },
 });

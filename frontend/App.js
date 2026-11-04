@@ -37,6 +37,7 @@ import { withPdfPages } from './src/diary/utils/pdfImport';
 import { coverTabPaint } from './src/diary/utils/coverDesign';
 import SideRail, { RAIL_WIDTH } from './src/diary/components/SideRail';
 import BottomTabs from './src/diary/components/BottomTabs';
+import { PhoneBellProvider } from './src/diary/components/PhoneBell';
 import { createProfileSettingsNavigation } from './src/diary/components/profileNavigationModel';
 import SharingEntry from './src/sharing/SharingEntry';
 import LibraryScreen from './src/diary/screens/LibraryScreen';
@@ -556,7 +557,7 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
         setEditingDiaryId(null);
         return true;
       }
-      if (!railCollapsed) {
+      if (!isPhone && !railCollapsed) {
         setRailCollapsed(true);
         return true;
       }
@@ -1035,32 +1036,11 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
   let shell;
   if (page === 'editor') {
     shell = content;
-  } else if (isPhone) {
-    // 폰: 화면 전환은 하단 네비게이션 바가 맡는다. 좌측 오버레이 메뉴는 태블릿 이상에서만 쓴다.
-    shell = (
-      <View style={s.phoneShell}>
-        <View style={[s.phoneNavigationHeader, { backgroundColor: phoneSurface }]}>
-          <SharingEntry notifications notificationCount={authenticatedNotifications?.count}
-            notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} compact
-            count={unreadInvites} onPress={openInvitations} />
-        </View>
-        <View style={s.workspace}>
-          {content}
-        </View>
-        <BottomTabs
-          page={page}
-          filter={filter}
-          navigate={navigate}
-          bottomInset={insets.bottom}
-          backgroundColor={phoneSurface}
-        />
-        {createModal}
-      </View>
-    );
   } else {
+    // 폰은 하단 탭, 태블릿은 왼쪽 메뉴. 접이식 · 분할 화면에서 배치가 바뀌어도 쓰던 화면이 새로 그려져 입력이 사라지지 않도록 트리 자리를 같게 둔다.
     shell = (
-      <View style={s.shell}>
-        <SideRail
+      <View style={isPhone ? s.phoneShell : s.shell}>
+        {isPhone ? null : <SideRail
           onNotifications={openInvitations}
           notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'}
           notificationCount={authenticatedNotifications?.count}
@@ -1072,11 +1052,21 @@ function DiaryAppContent({ previewUser, onEndPreview, onClearSession, onUpdatePr
           user={previewUser}
           getProfilePhotoSource={previewUser?.mode === 'authenticated' ? authService.getProfilePhotoSource : undefined}
           collapsed={railCollapsed}          onToggle={() => setRailCollapsed((current) => !current)}
-        />
-        <View style={[s.workspace, { paddingBottom: insets.bottom }, desk && { backgroundColor: DESK_COLOR }]}>
-          {content}
-            {createModal}
+        />}
+        <View style={[s.workspace, !isPhone && { paddingBottom: insets.bottom }, desk && { backgroundColor: DESK_COLOR }]}>
+          <PhoneBellProvider value={isPhone ? <SharingEntry notifications notificationCount={authenticatedNotifications?.count}
+            notificationLabel={authenticatedNotifications ? '알림' : '받은 초대'} compact
+            count={unreadInvites} onPress={openInvitations} /> : null}>
+            {content}
+          </PhoneBellProvider>
+          {createModal}
         </View>
+        {isPhone ? <BottomTabs
+          page={page}
+          filter={filter}
+          navigate={navigate}
+          bottomInset={insets.bottom}
+        /> : null}
       </View>
     );
   }

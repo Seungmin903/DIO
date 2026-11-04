@@ -23,7 +23,7 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
   return <View style={s.box}>
     <View style={s.heading}>
       <Text style={s.label}>{label} 색상</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} onPress={() => setEditing(!editing)} style={s.edit}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label} 팔레트 편집`} accessibilityState={{ selected: editing }} hitSlop={6} onPress={() => setEditing(!editing)} style={s.edit}>
         <Text style={s.editText}>{editing ? '편집 끝내기' : '팔레트 편집'}</Text>
       </Pressable>
     </View>
@@ -36,11 +36,11 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
           })}
           accessibilityRole="button" accessibilityLabel={editing ? `${label} 팔레트 ${index + 1}번 색 편집` : `${label} 색상 ${entry}`}
           accessibilityState={{ selected: value === entry, disabled: editing && !palette.loaded }} disabled={editing && !palette.loaded}
-          onPress={() => editing ? open(index) : onPick?.(entry)} style={paletteSwatchStyles.cell}>
+          hitSlop={1} onPress={() => editing ? open(index) : onPick?.(entry)} style={paletteSwatchStyles.cell}>
           <View style={[paletteSwatchStyles.dot, {backgroundColor:bg}, value === entry && paletteSwatchStyles.chosen, editing && s.editing]}>{fg && <View style={[s.inner,{backgroundColor:fg}]} />}</View>
         </Pressable>
       })}
-      {allowDirect && <Pressable accessibilityRole="button" accessibilityLabel={`${label} 색 직접 지정`} onPress={openDirect} style={paletteSwatchStyles.cell}>
+      {allowDirect && <Pressable accessibilityRole="button" accessibilityLabel={`${label} 색 직접 지정`} hitSlop={1} onPress={openDirect} style={paletteSwatchStyles.cell}>
         <View style={[paletteSwatchStyles.dot,s.direct]}><Icon name="plus" size={17} color={colors.primaryText} /></View>
       </Pressable>}
     </View>
@@ -50,7 +50,7 @@ export default function EditablePalette({ scope, label, value, onPick, onOpenEdi
   </View>
 }
 export const paletteSwatchStyles=StyleSheet.create({
- row:{flexDirection:'row',flexWrap:'wrap'},cell:{width:'12.5%',height:38,alignItems:'center',justifyContent:'center'},
+ row:{flexDirection:'row',flexWrap:'wrap'},cell:{width:'12.5%',height:48,alignItems:'center',justifyContent:'center'},
  dot:{width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.cardBorder},chosen:{borderWidth:3,borderColor:colors.primaryText}
 })
 const s=StyleSheet.create({

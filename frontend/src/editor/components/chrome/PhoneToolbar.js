@@ -131,6 +131,7 @@ function Tool({ icon, label, active, onPress, color }) {
       accessibilityLabel={label}
       accessibilityState={{ selected: Boolean(active) }}
       aria-pressed={Boolean(active)}
+      hitSlop={2}
       style={({ pressed }) => [styles.tool, active && styles.toolActive, pressed && styles.toolPressed]}
     >
       <Icon name={icon} size={21} />
@@ -154,7 +155,7 @@ const styles = StyleSheet.create({
   // 상단 바와의 경계선은 이 막대 위쪽 한 줄만 둔다(상단 바에는 아래선이 없다)
   bar: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 4 },
   barViewport: { overflow: 'hidden' },
-  barRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12 },
   rowDivider: { width: 1, height: 28, marginHorizontal: 5, backgroundColor: 'rgba(11,23,102,0.12)' },
   // 가로 배치의 양옆 막대
   rail: { position: 'absolute', top: 8, width: PHONE_TOOLBAR_RAIL - 8 },
@@ -162,9 +163,9 @@ const styles = StyleSheet.create({
   railRight: { right: 8 },
   // 막대는 위아래 끝까지 세우고, 도구가 많으면 안에서 스크롤한다.
   railBar: { ...card, flex: 1 },
-  railColumn: { alignItems: 'center', gap: 2 },
+  railColumn: { alignItems: 'center', gap: 4 },
   railSpread: { flexGrow: 1, justifyContent: 'space-between' },
-  railGroup: { alignItems: 'center', gap: 2 },
+  railGroup: { alignItems: 'center', gap: 4 },
   // 스크롤 막대 끝의 그라데이션: 막대 안쪽(테두리 1 + 안쪽 여백 4)에 맞추고 모서리 둥글기를 따른다
   fade: { position: 'absolute', left: 1, right: 1, height: 30 },
   fadeTop: { top: 1, borderTopLeftRadius: 15, borderTopRightRadius: 15, overflow: 'hidden' },

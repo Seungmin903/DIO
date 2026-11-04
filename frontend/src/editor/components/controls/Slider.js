@@ -83,7 +83,7 @@ export default function Slider({
   return (
     <View style={[styles.row, name && styles.rowInline]}>
       {name ? <Text style={styles.name} numberOfLines={1}>{name}</Text> : null}
-      <Pressable onPress={() => nudge(-step)} style={[styles.stepButton, name && styles.stepCompact]} accessibilityLabel={minusLabel}>
+      <Pressable onPress={() => nudge(-step)} hitSlop={name ? 6 : 4} style={[styles.stepButton, name && styles.stepCompact]} accessibilityLabel={minusLabel}>
         <Icon name="minus" size={16} />
       </Pressable>
       <View style={styles.track} onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)} {...panHandlers}>
@@ -91,7 +91,7 @@ export default function Slider({
         <View style={[styles.trackFill, { width: THUMB / 2 + ratio * travel }]} pointerEvents="none" />
         <View style={[styles.thumb, { left: ratio * travel }]} pointerEvents="none" />
       </View>
-      <Pressable onPress={() => nudge(step)} style={[styles.stepButton, name && styles.stepCompact]} accessibilityLabel={plusLabel}>
+      <Pressable onPress={() => nudge(step)} hitSlop={name ? 6 : 4} style={[styles.stepButton, name && styles.stepCompact]} accessibilityLabel={plusLabel}>
         <Icon name="plus" size={16} />
       </Pressable>
       <View style={[styles.inputBox, name && styles.inputCompact]}>
@@ -133,6 +133,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     width: 0,
+    height: '100%', // 칸 전체를 눌러도 입력이 열린다
     padding: 0,
     textAlign: 'center',
     fontSize: 13,

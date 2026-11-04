@@ -403,7 +403,7 @@ function ToggleButtons({ show, hidden, locked, onToggle }) {
     <>
       {(show || hidden) && (
         <Pressable
-          hitSlop={6}
+          hitSlop={9}
           onPress={() => onToggle('hidden', !hidden)}
           style={styles.toggle}
           accessibilityLabel={hidden ? '보이기' : '숨기기'}
@@ -413,7 +413,7 @@ function ToggleButtons({ show, hidden, locked, onToggle }) {
       )}
       {(show || locked) && (
         <Pressable
-          hitSlop={6}
+          hitSlop={9}
           onPress={() => onToggle('locked', !locked)}
           style={styles.toggle}
           accessibilityLabel={locked ? '잠금 해제' : '잠그기'}
@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.border, // 페이지 패널 구분선과 같은 값(코덱스 2026-11-02: 8% 는 큰 화면에서 너무 흐렸다)
     backgroundColor: colors.surfaceSoft, // 열린 패널 바탕은 앱 바탕색(#F7F8FD)
   },
-  close: { width: 44, height: 44, marginRight: -10, alignItems: 'center', justifyContent: 'center' }, // 터치 44, 아이콘 자리는 그대로
+  close: { width: 48, height: 48, marginRight: -12, alignItems: 'center', justifyContent: 'center' }, // 터치 48, 아이콘 자리는 그대로
   header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10 }, // 제목 위치를 왼쪽 페이지 패널 탭 높이에 맞춘다
   titleRow: {
     flexDirection: 'row',
@@ -738,5 +738,5 @@ const styles = StyleSheet.create({
   rowName: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: colors.text },
   rowType: { marginTop: 3, fontSize: 12, color: colors.textMuted },
   toggle: { padding: 7 },
-  grip: { width: 44, minHeight: 44, marginRight: -8, alignItems: 'center', justifyContent: 'center' }, // 터치 44
+  grip: { width: 48, minHeight: 48, marginRight: -10, alignItems: 'center', justifyContent: 'center' }, // 터치 48
 })

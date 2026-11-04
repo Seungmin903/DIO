@@ -4,6 +4,7 @@ import { loadJSON, saveJSON } from '../../editor/services/storage';
 import { C } from '../constants';
 import { styles as s } from '../styles';
 import AppIcon from '../../shared/AppIcon';
+import PhoneBell from './PhoneBell';
 import IconButton from './IconButton';
 import DiaryCard from './DiaryCard';
 import EmptyState from './EmptyState';
@@ -52,6 +53,7 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
       <IconButton label={selecting ? '선택 닫기' : '검색 닫기'} iconName="chevron-left" onPress={onBack} />
       <Text style={[s.libraryTitle, compact && s.libraryTitleCompact, { flex: 1 }]}>다이어리 검색</Text>
       {optionsMenu}
+      {compact && <PhoneBell />}
     </View>
     <View style={[s.librarySearchBar, s.librarySearchPageInput]}>
       <AppIcon name="search" size={20} color={C.muted} />
@@ -65,12 +67,12 @@ export default function LibrarySearchScreen({ compact, query, onQueryChange, onB
     {selectionBar}
     {requestNotice}
     {!searching ? <View style={s.librarySearchHistory}>
-      <View style={s.librarySearchHistoryHeading}>
+      {history.length > 0 && <View style={s.librarySearchHistoryHeading}>
         <Text style={s.chipText}>최근 검색어</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="최근 검색어 전체 지우기" disabled={!ready || !history.length} onPress={() => updateHistory([])} style={({ pressed }) => [s.librarySearchHistoryClear, pressed && s.pressed]}>
           <Text style={s.librarySearchHistoryMuted}>전체 지우기</Text>
         </Pressable>
-      </View>
+      </View>}
       {history.map(term => <View key={term} style={s.librarySearchHistoryRow}>
         <Pressable accessibilityRole="button" accessibilityLabel={`${term} 다시 검색`} onPress={() => { onQueryChange(term); remember(term); }} style={s.librarySearchHistoryTerm}>
           <Text style={s.librarySearchHistoryText}>{term}</Text>

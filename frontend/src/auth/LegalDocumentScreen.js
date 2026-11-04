@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, gap: 8,
     borderBottomWidth: 1, borderBottomColor: colors.cardBorder },
   title: { flex: 1, color: colors.text, fontSize: 19, fontWeight: '700' },
-  close: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  close: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   body: { padding: 24, gap: 16 },
   paragraph: { color: colors.text, fontSize: 14, lineHeight: 24, flexShrink: 1 },

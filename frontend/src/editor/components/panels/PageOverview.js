@@ -60,7 +60,7 @@ export default function PageOverview({ pages, currentId, initialFilter = 'all', 
           </HeaderSide>
         </View>
         {onDelete && <View style={{ paddingHorizontal: 20, paddingVertical: 8 }}>
-          <Pressable accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => managing ? finish() : setManaging(true)}><Text style={styles.tabText}>{managing ? '완료' : '편집'}</Text></Pressable>
+          <Pressable accessibilityRole="button" style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => managing ? finish() : setManaging(true)}><Text style={styles.tabText}>{managing ? '완료' : '편집'}</Text></Pressable>
           {managing && <PageBulkDelete pages={pages} ids={picked} onDelete={onDelete} onReset={onReset} canUndoDelete={canUndoDelete} onDone={finish} />}
         </View>}
         {filter === 'bookmarked'  && !shown.length ? (

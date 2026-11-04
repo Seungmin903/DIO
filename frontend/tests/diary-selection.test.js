@@ -84,7 +84,7 @@ for (const layout of ['grid', 'carousel']) test(`${layout}: 관리 모드에서 
   assert.deepEqual(events, [['open', 'd1']]);
   // 즐겨찾기는 왼쪽 위 별 버튼, 수정 · 휴지통은 표지 위 더보기 버튼 뒤(동작 시트)에 있다
   assert.ok(nodes(normal).some((n) => n.props?.accessibilityLabel === '여행 더보기'));
-  assert.ok(nodes(normal).some((n) => n.props?.accessibilityLabel === '즐겨찾기 추가'));
+  assert.ok(nodes(normal).some((n) => n.props?.accessibilityLabel === '여행 즐겨찾기 추가'));
   for (const label of ['여행 수정', '여행 휴지통으로 이동']) assert.ok(!nodes(normal).some((n) => n.props?.accessibilityLabel === label), label);
 
   events.length = 0;
@@ -95,7 +95,7 @@ for (const layout of ['grid', 'carousel']) test(`${layout}: 관리 모드에서 
   assert.deepEqual(card.props.accessibilityState, { checked: false });
   card.props.onPress();
   assert.deepEqual(events, [['toggle', 'd1']]);
-  for (const label of ['여행 더보기', '여행 수정', '즐겨찾기 추가', '여행 휴지통으로 이동']) assert.ok(!nodes(picking).some((n) => n.props?.accessibilityLabel === label), label);
+  for (const label of ['여행 더보기', '여행 수정', '여행 즐겨찾기 추가', '여행 휴지통으로 이동']) assert.ok(!nodes(picking).some((n) => n.props?.accessibilityLabel === label), label);
 
   const chosen = pressable(Card({ ...props, selecting: true, selected: true }));
   assert.deepEqual(chosen.props.accessibilityState, { checked: true });
@@ -149,9 +149,9 @@ test('더보기 시트는 권한 · 콜백이 없는 동작을 숨기거나 끄�
   const noEdit = sheetOf({ diary: { ...diary, canEdit: false }, onEdit() {}, onDelete() {} });
   assert.ok(noEdit.props.actions.find((a) => a.id === 'edit').disabled);
   // 즐겨찾기는 표지 왼쪽 위의 별 버튼이 켜고 끈다(한 별 · 안 한 별 모두 보이고, 누르면 카드는 열지 않는다)
-  const star = (extra) => { resetHooks(); return nodes(Card({ diary: { ...diary, ...extra.diary }, layout: 'grid', onOpen() {}, ...extra.props })).find((n) => n.type === 'button' && n.props.accessibilityLabel?.startsWith('즐겨찾기')); };
-  assert.equal(star({ props: { onFavorite() {} } }).props.accessibilityLabel, '즐겨찾기 추가');
-  assert.equal(star({ diary: { favorite: true }, props: { onFavorite() {} } }).props.accessibilityLabel, '즐겨찾기 해제');
+  const star = (extra) => { resetHooks(); return nodes(Card({ diary: { ...diary, ...extra.diary }, layout: 'grid', onOpen() {}, ...extra.props })).find((n) => n.type === 'button' && n.props.accessibilityLabel?.includes('즐겨찾기')); };
+  assert.equal(star({ props: { onFavorite() {} } }).props.accessibilityLabel, '여행 즐겨찾기 추가');
+  assert.equal(star({ diary: { favorite: true }, props: { onFavorite() {} } }).props.accessibilityLabel, '여행 즐겨찾기 해제');
   const calls = [];
   star({ props: { onFavorite: (id) => calls.push(id) } }).props.onPress({ stopPropagation() { calls.push('stop'); } });
   assert.deepEqual(calls, ['stop', 'd1']);

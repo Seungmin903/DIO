@@ -17,11 +17,10 @@ export const styles = StyleSheet.create({
   appFill: { flex: 1, alignSelf: 'stretch' },
   // 폰은 본문 아래에 하단 네비게이션 바를 고정 레이아웃으로 쌓는다.
   phoneShell: { flex: 1 },
-  phoneNavigationHeader: { height: 44, paddingHorizontal: 12, alignItems: 'flex-end', justifyContent: 'center', backgroundColor: C.canvas },
-  tabBarWrap: { flexShrink: 0, paddingHorizontal: 12, paddingTop: 6, backgroundColor: C.canvas },
-  tabBar: { height: 64, flexDirection: 'row', paddingHorizontal: 4, overflow: 'visible', borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
+  tabBarWrap: { flexShrink: 0, backgroundColor: C.white, borderTopWidth: 1, borderTopColor: colors.cardBorder },
+  tabBar: { height: 64, flexDirection: 'row', overflow: 'visible', backgroundColor: C.white },
   tabItem: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  tabIconPill: { width: '84%', minWidth: 40, maxWidth: 48, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
+  tabIconPill: { width: 56, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
   tabIconPillSelected: { backgroundColor: colors.primarySoft },
   tabLabel: { color: C.muted, fontSize: 11, lineHeight: 14, fontWeight: '600' },
   tabLabelSelected: { color: C.ink, fontWeight: '800' },
@@ -95,16 +94,17 @@ export const styles = StyleSheet.create({
   libraryGridScrollFabCompact: { paddingBottom: 16 + 44 + 16 },
   libraryScreenCarouselCompact: { flexGrow: 1, paddingBottom: 8 },
   libraryHeader: { minHeight: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  // 제목이 짧으면 보기 전환과 한 줄, 길면 보기 전환이 다음 줄 오른쪽으로 내려간다.
-  // 좌측 바를 뺀 폭이 좁아(360에서 272) 제목이 길면(`공유된 다이어리`) 보기 전환 3칸이 다음 줄 오른쪽으로 내려간다
-  libraryHeaderCompact: { minHeight: 44, flexWrap: 'wrap', columnGap: 8, rowGap: 4 },
-  libraryTitleCompact: { fontSize: 24, letterSpacing: -0.5 },
-  libraryViewSwitchCompact: { width: 96, height: 36, marginLeft: 'auto' },
+  // 폰: 제목 길이(`내 다이어리` · `공유된 다이어리`)와 상관없이 보기 전환 · 알림은 늘 같은 자리(오른쪽 한 줄)다.
+  // 줄바꿈 대신 제목이 줄어든다(한 줄 · 글자 크기 최소 0.75배, 2026-11-05 사용자 지적: 탭마다 버튼 자리가 달라지면 안 된다)
+  libraryHeaderCompact: { minHeight: 44, columnGap: 8 },
+  headerTitleRowCompact: { flexShrink: 1, minWidth: 0 },
+  libraryTitleCompact: { fontSize: 24, letterSpacing: -0.5, flexShrink: 1 },
+  libraryViewSwitchCompact: { width: 132, height: 36, marginLeft: 'auto' },
   libraryTitle: { color: C.ink, fontSize: 28, letterSpacing: -0.6, fontWeight: '800' },
-  // 보기 전환: 아이콘 셋을 96×36 흰 판 하나(모서리 10)에 묶는다. 고른 칸만 라벤더 면 + primaryText 아이콘, 나머지는 면 · 테두리 없음(원 페이저 03)
-  // 칸은 보이는 28×28 + hitSlop 으로 터치 44. 폰 · 태블릿 같은 모양이라 390폭에서도 `공유된 다이어리` 제목과 한 줄에 선다
-  // 태블릿: 112×40 판 · 칸 32 · 아이콘 18(코덱스 2026-11-01, 가로에서 검색 · 더보기 40보다 작아 보이던 것을 한 단계 키움). 폰: 96×36 · 칸 28 · 아이콘 16
-  libraryViewSwitch: { width: 112, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, borderRadius: 10, backgroundColor: C.white },
+  // 보기 전환: 아이콘 셋을 132×36 흰 판 하나(모서리 10)에 묶는다. 고른 칸만 라벤더 면 + primaryText 아이콘, 나머지는 면 · 테두리 없음(원 페이저 03)
+  // 칸은 보이는 28×28 + hitSlop 으로 터치 48(칸 사이 20). 폰 · 태블릿 같은 모양이라 390폭에서도 `공유된 다이어리` 제목과 한 줄에 선다
+  // 태블릿: 136×40 판 · 칸 32 · 아이콘 18(칸 크기는 코덱스 2026-11-01, 칸 사이 16은 터치 48 때문). 폰: 132×36 · 칸 28 · 아이콘 16
+  libraryViewSwitch: { width: 136, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, borderRadius: 10, backgroundColor: C.white },
   libraryViewOption: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   libraryViewOptionCompact: { width: 28, height: 28 },
   libraryViewOptionSelected: { backgroundColor: C.lavender100 },
@@ -117,28 +117,28 @@ export const styles = StyleSheet.create({
   librarySortMenu: { ...bubble, position: 'absolute', top: '100%', right: 0, width: 230, padding: 8, gap: 4, zIndex: 20 },
   libraryOptionsDivider: { height: 1, backgroundColor: C.line, marginVertical: 8 },
   // 고른 항목의 파란 테두리(1.5)와 같은 두께를 모든 항목이 갖고(안 고른 건 투명), 체크 자리를 따로 두므로 왼쪽 여백은 줄인다. 그래야 글자가 항목마다 같은 자리에 선다.
-  librarySortOption: { minHeight: 44, alignSelf: 'stretch', alignItems: 'flex-start', paddingHorizontal: 10, borderWidth: 1.5, borderColor: 'transparent', borderRadius: 10 },
+  librarySortOption: { minHeight: 48, alignSelf: 'stretch', alignItems: 'flex-start', paddingHorizontal: 10, borderWidth: 1.5, borderColor: 'transparent', borderRadius: 10 },
   librarySearchHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10 },
   librarySearchPageInput: { height: 48, marginTop: 32, borderWidth: 1, borderColor: C.blueStrong },
   librarySearchClearSlot: { width: 44, height: 44, flexShrink: 0 },
   librarySearchClear: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   librarySearchHistory: { marginTop: 24 },
   librarySearchHistoryHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  librarySearchHistoryClear: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
+  librarySearchHistoryClear: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 8 },
   librarySearchHistoryMuted: { color: C.muted, fontSize: 13, fontWeight: '600' },
   librarySearchHistoryRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: C.line },
   librarySearchHistoryTerm: { flex: 1, minHeight: 56, justifyContent: 'center', paddingHorizontal: 12 },
   librarySearchHistoryText: { color: C.ink, fontSize: 16, fontWeight: '600' },
   librarySearchResults: { marginTop: 24, gap: 16 },
   librarySearchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, borderRadius: 12, paddingHorizontal: 12 },
-  librarySearchInput: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 8, color: C.ink, fontSize: 15, ...Platform.select({ web: { outlineStyle: 'none' } }) }, // 웹이 입력칸 안에 검은 포커스 윤곽(outline: auto)을 그리지 않게(경계는 바깥 검색 바의 1px 선)
+  librarySearchInput: { flex: 1, minWidth: 0, minHeight: 48, paddingHorizontal: 8, color: C.ink, fontSize: 15, ...Platform.select({ web: { outlineStyle: 'none' } }) }, // 웹이 입력칸 안에 검은 포커스 윤곽(outline: auto)을 그리지 않게(경계는 바깥 검색 바의 1px 선)
   libraryToolbar: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24 },
   // 폰: 필터 칩(가로 스크롤) + 검색 · 더보기가 한 줄 44. 제목 줄(48) 아래 8
   libraryToolbarCompact: { marginTop: 8, flexWrap: 'nowrap', gap: 0 },
   // flexBasis 0: 웹에서 가로 ScrollView 가 칩 전체 폭으로 늘어나 검색 · 더보기 밑으로 깔리지 않게 남은 폭만 쓴다
   libraryFilterScroll: { flex: 1, flexBasis: 0, minWidth: 0, flexGrow: 1 },
   libraryFilterScrollContent: { alignItems: 'center', paddingRight: 8 },
-  libraryActionsCompact: { flexShrink: 0, gap: 4, marginLeft: 8 },
+  libraryActionsCompact: { flexShrink: 0, gap: 8, marginLeft: 8 },
   // 선택 모드 도구줄(보관함 · 휴지통 공용, SelectionBar): 선택 개수 + 동작 버튼. 좁은 폰에서는 버튼이 다음 줄로 내려간다.
   // 규격은 같은 화면의 칩과 맞춘다: 버튼 · 칩은 높이 40 · 모서리 10 · cardBorder 1px · 글자 12/700 (터치 44는 hitSlop), 판은 모서리 16(코덱스 2026-10-31)
   selectBar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 14, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
@@ -153,7 +153,7 @@ export const styles = StyleSheet.create({
   selectButtonTextBand: { fontSize: 14, fontWeight: '700' },
   selectCount: { color: C.ink, fontSize: 13, fontWeight: '700' },
   selectActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginLeft: 'auto' },
-  selectButton: { minHeight: 40, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
+  selectButton: { minHeight: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: C.white },
   selectButtonPrimary: { borderColor: C.blueStrong, backgroundColor: C.blueStrong }, // 그 화면의 주 동작(휴지통으로 · 복원). 네이비 채움은 쓰지 않는다
   selectButtonDanger: { borderColor: DANGER_BORDER }, // 영구 삭제(되돌릴 수 없음): 위험색은 윤곽 · 글자에만, 채우지 않는다(휴지통 동작 시트의 영구 삭제와 같은 모양)
   selectButtonDisabled: { opacity: DISABLED_OPACITY },
@@ -163,9 +163,11 @@ export const styles = StyleSheet.create({
   header: { minHeight: 45, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
   headerTitle: { color: C.ink, fontSize: 28, fontWeight: '800', letterSpacing: -0.6 },
   headerCompact: { minHeight: 44, alignItems: 'center', marginBottom: 16 },
-  headerTitleCompact: { fontSize: 24, letterSpacing: -0.5 },
+  headerTitleCompact: { fontSize: 24, letterSpacing: -0.5, flexShrink: 1 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerRight: { alignItems: 'flex-end' },
+  headerRightCompact: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 },
+  libraryHeadToolsCompact: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto', flexShrink: 0 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: C.white, borderWidth: 1, borderColor: colors.cardBorder }, // 칩 규칙: 흰 면 + #D9DCEF 테두리
   iconButtonPhone: { width: 40, height: 40, borderRadius: 10 }, // 폰 도구줄의 검색 · 더보기(보이는 40 + hitSlop 으로 터치 44)
@@ -189,7 +191,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   filterTextSelected: { color: C.ink, fontWeight: '800' },
   filterOptionCompact: { paddingHorizontal: 10 },
   filterTextCompact: { fontSize: 12.5 },
-  chip: { minHeight: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 12, backgroundColor: 'rgba(255,255,255,.58)' },
+  chip: { minHeight: 48, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 12, backgroundColor: 'rgba(255,255,255,.58)' },
   // 고른 칩: 편집 옵션 창의 고른 칩처럼 흰 바탕 + 파란 테두리
   chipSelected: { backgroundColor: C.white, borderColor: C.blueStrong, borderWidth: 1.5 },
   chipText: { color: C.inkSoft, fontSize: 12, fontWeight: '700' },
@@ -257,7 +259,7 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   cardCheckMark: { color: C.white, fontSize: 16, fontWeight: '800', lineHeight: 18 },
   cardFavorite: { position: 'absolute', top: 12, left: 12, zIndex: 3, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }, // 배경 없는 별: 오른쪽 ⋯ 버튼과 같은 여백으로 왼쪽 위 모서리에 붙인다
   cardFavoriteCompact: { top: 6, left: 'auto', right: 6 }, // 폰: 표지 오른쪽 위 모서리(제목표와 겹치지 않게, 2026-11-03 사용자 결정)
-  // 정보 줄 오른쪽 위 더보기 버튼(동작 말풍선을 연다). 배경 없는 28×28 + hitSlop 8 = 터치 44(원 페이저 06). 자리(slot)는 버튼이 숨는 스와이프 옆 카드에도 남겨 제목 줄 높이가 같게 한다
+  // 정보 줄 오른쪽 위 더보기 버튼(동작 말풍선을 연다). 배경 없는 28×28 + hitSlop 10 = 터치 48(원 페이저 06). 자리(slot)는 버튼이 숨는 스와이프 옆 카드에도 남겨 제목 줄 높이가 같게 한다
   cardMoreSlot: { width: 28, height: 28, flexShrink: 0, marginTop: -4, marginRight: -3 },
   cardMore: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   cardHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 },
@@ -473,9 +475,9 @@ headerCreateText: { color: C.white, fontSize: 13, fontWeight: '700' },
   trashSheetPrimaryText: { color: C.white, fontSize: 14, fontWeight: '700' },
   trashSheetDanger: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, borderWidth: 1, borderColor: DANGER_BORDER },
   trashSheetDangerText: { color: C.dangerStrong, fontSize: 14, fontWeight: '700' },
-  trashSheetClose: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 4, borderRadius: 12 },
+  trashSheetClose: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 4, borderRadius: 12 },
   trashSheetCloseText: { color: C.muted, fontSize: 14, fontWeight: '700' },
-  trashRestore: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: C.line },
+  trashRestore: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 11, borderWidth: 1, borderColor: C.line },
   trashRestoreText: { color: C.ink, fontSize: 12, fontWeight: '700' },
   // 이전 폰 휴지통 스와이프 목록 스타일. 저장된 화면과의 호환을 위해 당분간 유지한다.
   trashHint: { color: C.muted, fontSize: 13, lineHeight: 21, marginTop: -8, marginBottom: 14 },

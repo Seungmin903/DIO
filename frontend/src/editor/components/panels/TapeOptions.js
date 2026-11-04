@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
   section: { marginTop: 14 },
   title: { marginBottom: 8, fontSize: 12, fontWeight: '700', color: colors.textMuted },
   segment: { flexDirection: 'row', gap: 6 },
-  segmentItem: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
+  segmentItem: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.surface },
   segmentActive: { borderColor: colors.primaryStrong, borderWidth: 2 },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: colors.textMuted },
   segmentTextActive: { color: colors.text, fontWeight: '800' },

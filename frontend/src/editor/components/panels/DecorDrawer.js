@@ -33,6 +33,7 @@ import { stickerSplit } from '../../services/stickerSplit'
 import { useLoginGate } from '../../../auth/loginGate'
 import SelectionBar from '../../../diary/components/SelectionBar'
 import SelectionButton from '../../../diary/components/SelectionButton'
+import { CUTOUT_ENTRANCE } from '../../../shared/featureFlags'
 
 export const DRAWER_TABS = [
   { id: 'sticker', name: '스티커', icon: 'sticker' },
@@ -93,7 +94,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
   const [cutoutFolder, setCutoutFolder] = useState(null)
   const [widgetChip, setWidgetChip] = useState(rememberedWidgetChip)
   const widgetGroup = WIDGET_CHIPS.find((chip) => chip.id === widgetChip) ?? WIDGET_CHIPS[2]
-  // 위젯 즐겨찾기 · 최근: 누르면 붙이고 최근에 남긴다, 별(또는 길게 누르기)로 즐겨찾기
+  // 위젯 즐겨찾기 · 최근: 누르면 붙이고 최근에 남긴다, 길게 누르기로 즐겨찾기
   const widgetFavorites = custom.items.widgetFavorites ?? []
   const widgetRecents = (custom.items.recentWidgets ?? []).slice(0, RECENT_LIMIT)
   const widgetFavoriteKeys = new Set(widgetFavorites.map(widgetKey))
@@ -362,7 +363,7 @@ export default function DecorDrawer({ tab, onAdd, onTapeInserted, onToast, onClo
         {(tab === 'sticker' || tab === 'tape') && (
           <Pressable
             onPress={() => setEditingList(!editingList)}
-            hitSlop={6}
+            hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={editingList ? '편집 완료' : '목록 편집'}
             accessibilityState={{ selected: editingList }}
@@ -781,6 +782,7 @@ function Pill({ label, icon, dashed, active, onPress }) {
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
+      hitSlop={PILL_SLOP}
       style={({ pressed }) => [styles.pill, icon && styles.pillWithIcon, dashed && styles.pillDashed, active && styles.pillActive, pressed && !active && styles.pressed]}
     >
       {icon && <Icon name={icon} size={13} forText={12} strokeWidth={2} color={active ? colors.text : colors.textMuted} />}
@@ -870,13 +872,14 @@ function FolderView({
         { id: 'image', label: '이미지 그대로 추가', text: '이미지 그대로 추가', icon: 'image', disabled: busy, onPress: () => { setAdding(null); onAdd() } },
         { id: 'split', label: splitAvailable ? '스티커 시트 분리' : `스티커 시트 분리, ${splitReason || '이 기기에서는 쓸 수 없어요'}`, text: '스티커 시트 분리', icon: 'grid',
           disabled: busy || !splitAvailable, onPress: () => { setAdding(null); onSplit() } },
-        { id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors', disabled: busy, onPress: () => { setAdding(null); onCutout() } },
+        // 사진 속 대상 오리기: 저장이 아직 미리보기 단계라 모든 빌드에서 입구를 감춘다
+        ...(CUTOUT_ENTRANCE ? [{ id: 'cutout', label: '사진 속 대상 오리기', text: '사진 속 대상 오리기', icon: 'scissors', disabled: busy, onPress: () => { setAdding(null); onCutout() } }] : []),
       ]} />}
     </View>
   )
 }
 // 타일은 너비를 % 로 나눠 줄 양 끝이 목록 좌우 여백에 딱 맞게 한다. (고정 너비면 오른쪽에 남는 칸이 생긴다)
-// 즐겨찾기 별은 즐겨찾기인 칸에만 둔다(빈 별은 작은 칸에서 소음이라 두지 않는다, 코덱스 2026-11-02). 넣고 빼기는 길게 누르기.
+// 즐겨찾기 별은 칸마다 표시만 한다. 넣고 빼기는 길게 누르기.
 // selecting: 폴더 편집 중. 오른쪽 위 체크 원과 고른 칸의 버터 바탕으로 고른 것을 보인다(윤곽은 두르지 않는다).
 // caption: 칸 아래쪽에 보이는 이름(테이프). 같은 정사각 칸에 위는 그림, 아래는 이름
 function Tile({ onPress, onLongPress, onFavorite, favorite, selecting, selected, label, caption, children }) {
@@ -889,18 +892,20 @@ function Tile({ onPress, onLongPress, onFavorite, favorite, selecting, selected,
         delayLongPress={400}
         accessibilityLabel={label}
         accessibilityHint={onLongPress && !selecting ? '길게 누르면 즐겨찾기' : undefined}
-        accessibilityState={selecting ? { selected: Boolean(selected) } : undefined}
+        accessibilityState={selecting ? { selected: Boolean(selected) } : onFavorite ? { selected: Boolean(favorite) } : undefined}
+        // 스크린리더 · 키보드: 길게 누르기 대신 동작 목록의 '즐겨찾기'로 넣고 뺀다
+        accessibilityActions={onFavorite && !selecting ? [{ name: 'favorite', label: favorite ? '즐겨찾기 해제' : '즐겨찾기' }] : undefined}
+        onAccessibilityAction={onFavorite && !selecting ? (event) => { if (event.nativeEvent.actionName === 'favorite') onFavorite() } : undefined}
         style={({ pressed }) => [styles.tile, caption != null && styles.tileCaption, selected && styles.tileSelected, pressed && styles.pressed]}
       >
         {children}
         {caption != null && <Text numberOfLines={1} style={styles.caption}>{caption}</Text>}
       </Pressable>
-      {/* 즐겨찾기 별: 다이어리 카드처럼 칸마다 왼쪽 위에 두고 누르면 넣고 뺀다(길게 누르기도 같다) */}
+      {/* 즐겨찾기 별: 모양은 칸마다 왼쪽 위에 두되 누르는 곳이 아니다. 넣고 빼기는 칸을 길게 누른다(사용자 결정 2026-11-05, 별을 눌러 넣으면 터치 칸이 칸 가운데까지 온다) */}
       {onFavorite && !selecting && (
-        <Pressable onPress={onFavorite} hitSlop={8} style={styles.favorite} accessibilityRole="button"
-          accessibilityLabel={`${label} ${favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}`} accessibilityState={{ selected: Boolean(favorite) }}>
+        <View pointerEvents="none" style={styles.favorite} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <FavoriteStar filled={Boolean(favorite)} outline={TILE_STAR_OUTLINE} size={16} />
-        </Pressable>
+        </View>
       )}
       {selecting && (
         <View style={[styles.check, selected && styles.checkOn]} pointerEvents="none">
@@ -1067,6 +1072,9 @@ const FRAME_TILE_PREVIEW = 46
 const TILE_STAR_OUTLINE = colors.secondary
 const TILE_GAP = 4 // 칸 사이 8 (코덱스 17번: 셀 64, 간격 8, 안쪽 여백 16)
 
+// 분류 칩: 보이는 높이 34 + 위아래 7 = 터치 48
+const PILL_SLOP = { top: 7, bottom: 7 }
+
 const styles = StyleSheet.create({
   // 앵커 패널: 흰 면 + 1px 테두리, 그림자 없음, 최대 높이 480 (공용 카드 toolPanelStyles.card 가 정한다)
   drawer: {
@@ -1099,7 +1107,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    height: 44,
+    height: 48,
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
@@ -1108,7 +1116,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    height: 44,
+    height: 48,
     fontSize: 13,
     color: colors.text,
     outlineStyle: 'none',
@@ -1117,7 +1125,7 @@ const styles = StyleSheet.create({
   chipScroll: { flexGrow: 0 },
   chipRow: { gap: 6 },
   // 테이프 색 줄(코덱스 2026-11-02): 터치 44 · 원 28, 고정 기본 팔레트와 편집 모드
-  colorCell: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  colorCell: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   colorSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.cardBorder },
   colorSwatchOn: { borderWidth: 3, borderColor: colors.primaryStrong },
   colorDot: { position: 'absolute', right: 2, bottom: 2, width: 8, height: 8, borderRadius: 4 },
@@ -1244,7 +1252,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.primaryStrong,
     color: colors.surface,
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: '700',
   },
   custom: {

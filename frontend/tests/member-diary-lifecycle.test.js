@@ -15,7 +15,7 @@ function fixture(){
   restore:async()=>{restoreCalls++;if(restoreError)throw restoreError;if(trashed){trashed=false;version++}return active()}};
  const storage={getItem:async k=>values.get(k)??null,setItem:async(k,v)=>values.set(k,v),removeItem:async k=>values.delete(k)};
  const store=createMemberAppStore({accountId:'101',api,storage,makeRequestId:()=> 'test-key'});
- return {api,store,values,keys,set lose(x){lose=x},set failList(x){failList=x},set restoreError(x){restoreError=x},get trashCalls(){return trashCalls},get restoreCalls(){return restoreCalls},get version(){return version}};
+ return {api,store,storage,values,keys,set lose(x){lose=x},set failList(x){failList=x},set restoreError(x){restoreError=x},get trashCalls(){return trashCalls},get restoreCalls(){return restoreCalls},get version(){return version}};
 }
 test('이동·복원 후 서버 version과 목록을 갱신하고 로컬 문서는 보존한다',async()=>{
  const f=fixture();await f.store.load();await f.store.lifecycle('trash',id);assert.deepEqual(f.store.getSnapshot().diaries,[]);assert.equal(f.store.getSnapshot().trash[0].version,'2');await f.store.lifecycle('restore',id);assert.equal(f.store.getSnapshot().diaries[0].version,'3');assert.deepEqual(f.store.getSnapshot().trash,[]);assert.equal(f.values.get(f.keys.doc(id)),'local-document-kept');
@@ -48,4 +48,68 @@ test('401·403·404·409는 자동 쓰기 재시도 없이 상태 확인으로 �
 });
 test('명시적 OWNER/복원 권한이 없는 행은 쓰기를 보내지 않는다',async()=>{
  const f=fixture();f.api.list=async()=>({items:[{...row,canEdit:false,permissions:{canTrash:false}}],hasNext:false,nextCursor:null});await f.store.load();await assert.rejects(f.store.lifecycle('trash',id),{code:'FORBIDDEN'});assert.equal(f.trashCalls,0);await assert.rejects(f.store.lifecycle('restore',id),{code:'FORBIDDEN'});assert.equal(f.restoreCalls,0);
+});
+
+
+test('상세 표지와 방향을 단건 이동·재시작·복원 후에도 유지하고 서버 상태가 우선한다', async()=>{
+ for (const pageSize of ['portrait','landscape']) for (const cover of [
+  {enabled:true,kind:'plain',color:'#ABCDEF',plate:'ribbon',band:{on:false}} ,
+  {enabled:true,kind:'photo',photo:{src:'file:///cover.jpg'},plate:'none',band:{on:true,dir:'v',color:'#112233'}},
+  {enabled:false},
+ ]) {
+  const f=fixture();await f.store.load();
+  const appearance={cover,pageSize,templateConfig:{orientation:pageSize},paperAppearance:{color:'#EFEFEF'}};
+  await f.store.setDiaries(rows=>rows.map(row=>({...row,...appearance})));
+  await f.store.lifecycle('trash',id);
+  for(const [key,value] of Object.entries(appearance)) assert.deepEqual(f.store.getSnapshot().trash[0][key],value);
+  f.store.dispose();
+  const fresh=createMemberAppStore({accountId:'101',api:f.api,storage:f.storage,makeRequestId:()=> 'restart-key'});
+  await fresh.load();await fresh.loadTrash();
+  assert.equal(fresh.getSnapshot().trash[0].version,'2');
+  assert.equal(fresh.getSnapshot().trash[0].canRestore,true);
+  for(const [key,value] of Object.entries(appearance)) assert.deepEqual(fresh.getSnapshot().trash[0][key],value);
+  await fresh.lifecycle('restore',id);
+  for(const [key,value] of Object.entries(appearance)) assert.deepEqual(fresh.getSnapshot().diaries[0][key],value);
+  assert.equal(fresh.getSnapshot().diaries[0].trashedAt,null);
+  assert.equal(fresh.getSnapshot().diaries[0].version,'3');
+ }
+});
+
+test('표지 정보 보존 실패 시 서버 삭제를 보내지 않고 기존 자료를 유지한다', async()=>{
+ const f=fixture();await f.store.load();
+ f.storage.setItem=async()=>{throw Error('disk full')};
+ await assert.rejects(f.store.lifecycle('trash',id),/disk full/);
+ assert.equal(f.trashCalls,0);assert.equal(f.store.getSnapshot().diaries.length,1);
+});
+
+
+test('손상된 표지 메타는 덮어쓰지 않고 단건·선택 이동을 차단한다',async()=>{
+ for(const raw of ['{bad json','null','[]','42','"text"']) for(const bulk of [false,true]) {
+  const f=fixture();await f.store.load();f.values.set(f.keys.localMeta,raw);
+  if(bulk){const result=await f.store.bulkTrash([id]);assert.equal(result.failed[0].error.code,'INVALID_LOCAL_CACHE')}
+  else await assert.rejects(f.store.lifecycle('trash',id),{code:'INVALID_LOCAL_CACHE'});
+  assert.equal(f.trashCalls,0);assert.equal(f.values.get(f.keys.localMeta),raw);
+  assert.equal(bulk?f.store.getSnapshot().bulkTrash.canRetry:f.store.getSnapshot().lifecycle.canRetry,false);
+  assert.equal(f.store.getSnapshot().diaries.length,1);
+ }
+});
+
+
+test('ID별 비정상 메타는 문자 인덱스로 펼치지 않고 보존하며 정상 항목은 읽는다',async()=>{
+ for(const item of ['broken',null,[],42,true]) {
+  const f=fixture();await f.store.load();
+  const raw=JSON.stringify({[id]:item,other:{cover:{enabled:false}}});f.values.set(f.keys.localMeta,raw);
+  await assert.rejects(f.store.lifecycle('trash',id),{code:'INVALID_LOCAL_CACHE'});
+  assert.equal(f.trashCalls,0);assert.equal(f.values.get(f.keys.localMeta),raw);
+  await f.store.loadTrash();assert.equal(f.store.getSnapshot().metadataError.code,'LOCAL_METADATA_UNAVAILABLE');
+ }
+});
+
+
+test('단건 422 응답은 기존대로 동일 작업의 재시도를 허용한다',async()=>{
+ const f=fixture();await f.store.load();let first=true;const trash=f.api.trash;
+ f.api.trash=async(...args)=>{if(first){first=false;throw Object.assign(Error('unprocessable'),{status:422})}return trash(...args)};
+ await assert.rejects(f.store.lifecycle('trash',id),{status:422});
+ assert.equal(f.store.getSnapshot().lifecycle.canRetry,true);
+ await f.store.retryLifecycle();assert.equal(f.store.getSnapshot().lifecycle,null);
 });
