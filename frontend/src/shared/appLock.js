@@ -10,6 +10,7 @@ export const PIN_LENGTH = 4
 // 구분자가 없어도 고정 폭이라 충돌 없이 되돌릴 수 있다.
 const keyOf = scope => `dio.appLock.v2.s${Array.from(String(scope), char => char.codePointAt(0).toString(16).padStart(6, '0')).join('')}`
 const legacyKeyOf = scope => `dio.appLock.v1:${scope}`
+const webAttemptsKeyOf = scope => `dio.appLock.v1.attempts:${scope}`
 export const MAX_PIN_ATTEMPTS = 5
 export const PIN_RETRY_DELAY_MS = 30 * 1000
 const MAX_PIN_RETRY_DELAY_MS = 30 * 60 * 1000
@@ -38,7 +39,11 @@ const readLegacy = async scope => {
   if (!legacyRaw) return missing
   let legacy
   try { legacy = JSON.parse(legacyRaw) } catch { return unavailable('corrupt') }
-  return validLegacy(legacy) ? blocked({ version: 1, legacy, failedAttempts: 0, retryUntil: 0, lockouts: 0 }) : unavailable('corrupt')
+  if (!validLegacy(legacy)) return unavailable('corrupt')
+  // 웹은 새 잠금을 만들지 않지만, 기존 v1 잠금의 시도 제한은 별도 AsyncStorage 항목에 유지한다.
+  let attempts = {}
+  try { attempts = JSON.parse(await AsyncStorage.getItem(webAttemptsKeyOf(scope)) || '{}') } catch { attempts = {} }
+  return blocked({ version: 1, legacy, failedAttempts: Number(attempts.failedAttempts) || 0, retryUntil: Number(attempts.retryUntil) || 0, lockouts: Number(attempts.lockouts) || 0 })
 }
 
 const read = async scope => {
@@ -70,6 +75,9 @@ const write = (scope, saved) => {
   if (!appLockSupported) throw new Error('이 환경에서는 앱 잠금을 지원하지 않아요.')
   return SecureStore.setItemAsync(keyOf(scope), JSON.stringify(saved))
 }
+const writeAttemptState = (scope, saved) => appLockSupported
+  ? write(scope, saved)
+  : AsyncStorage.setItem(webAttemptsKeyOf(scope), JSON.stringify({ failedAttempts: saved.failedAttempts, retryUntil: saved.retryUntil, lockouts: saved.lockouts }))
 
 /** 이 계정에 앱 잠금이 켜져 있는지. 저장소·형식 오류도 PIN 없이 열지 않도록 잠금으로 본다. */
 export const hasAppLock = async scope => (await read(scope)).kind !== 'missing'
@@ -80,7 +88,8 @@ export const checkAppLock = async (scope, pin, now = Date.now()) => {
   if (state.kind === 'missing') return { ok: false, retryAfterMs: 0 }
   if (state.kind !== 'locked') return { ok: false, retryAfterMs: 0, error: state.kind }
   const { saved } = state
-  // 벽시계가 과거로 바뀌어도 남은 제한 시간이 최대값보다 길게 남지 않도록 보정한다.
+  // 기기 시계는 신뢰 경계 밖이다. 재부팅 뒤에도 쓸 수 있는 단조 시계가 없어, 로컬 제한은
+  // 편의·억제 용도이며 시계를 앞으로 바꾸는 공격 자체는 막지 못한다. 긴 잠금은 30분으로 보정한다.
   const retryUntil = Math.min(Number(saved.retryUntil) || 0, now + MAX_PIN_RETRY_DELAY_MS)
   if (retryUntil > now) return { ok: false, retryAfterMs: retryUntil - now }
   let valid
@@ -89,7 +98,10 @@ export const checkAppLock = async (scope, pin, now = Date.now()) => {
     // v1 값은 올바른 PIN을 한 번 받은 뒤에만 Keychain/Keystore의 v2 형식으로 완전히 바꾼다.
     try {
       if (saved.legacy && appLockSupported) await write(scope, { version: 2, pin, failedAttempts: 0, retryUntil: 0, lockouts: 0 })
-      else if (saved.failedAttempts || retryUntil || saved.lockouts) await write(scope, { ...saved, failedAttempts: 0, retryUntil: 0, lockouts: 0 })
+      else if (saved.failedAttempts || retryUntil || saved.lockouts) {
+        if (appLockSupported) await write(scope, { ...saved, failedAttempts: 0, retryUntil: 0, lockouts: 0 })
+        else await AsyncStorage.removeItem(webAttemptsKeyOf(scope))
+      }
     } catch { /* PIN 검증은 이미 성공했다. 다음 시도에서 정리 상태를 다시 저장한다. */ }
     return { ok: true, retryAfterMs: 0 }
   }
@@ -97,7 +109,7 @@ export const checkAppLock = async (scope, pin, now = Date.now()) => {
   const blocked = failedAttempts >= MAX_PIN_ATTEMPTS
   const lockouts = blocked ? Math.min((Number(saved.lockouts) || 0) + 1, 7) : (Number(saved.lockouts) || 0)
   const retryAfterMs = blocked ? Math.min(PIN_RETRY_DELAY_MS * (2 ** (lockouts - 1)), MAX_PIN_RETRY_DELAY_MS) : 0
-  try { await write(scope, { ...saved, failedAttempts: blocked ? 0 : failedAttempts, retryUntil: blocked ? now + retryAfterMs : 0, lockouts }) } catch { return { ok: false, retryAfterMs: 0, error: 'storage' } }
+  try { await writeAttemptState(scope, { ...saved, failedAttempts: blocked ? 0 : failedAttempts, retryUntil: blocked ? now + retryAfterMs : 0, lockouts }) } catch { return { ok: false, retryAfterMs: 0, error: 'storage' } }
   return { ok: false, retryAfterMs }
 }
 
@@ -110,5 +122,5 @@ export const setAppLock = async (scope, pin) => {
 /** 앱 잠금을 끈다. */
 export const clearAppLock = async scope => {
   if (appLockSupported) await SecureStore.deleteItemAsync(keyOf(scope))
-  await AsyncStorage.removeItem(legacyKeyOf(scope))
+  await Promise.all([AsyncStorage.removeItem(legacyKeyOf(scope)), AsyncStorage.removeItem(webAttemptsKeyOf(scope))])
 }

@@ -151,7 +151,7 @@ export default function ProfileScreen({ section = 'profile', compact = false, pr
         {settingsPage ? <>
           <SettingCard compact={compact}>
             <NotificationSetting compact={compact}>{serverNotifications}</NotificationSetting>
-            {appLockSupported !== false && <AppLockSetting compact={compact} locked={locked} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />}
+            {(appLockSupported !== false || locked) && <AppLockSetting compact={compact} locked={locked} canEnable={appLockSupported !== false} onTurnOn={() => setPin({ mode: 'setup' })} onTurnOff={() => setPin({ mode: 'verify', next: 'off' })} onChange={() => setPin({ mode: 'verify', next: 'change' })} />}
             <EditSetting compact={compact} />
             <AppInformation />
           </SettingCard>

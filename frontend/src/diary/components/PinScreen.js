@@ -4,6 +4,7 @@ import { colors } from '../../shared/theme';
 import { PIN_LENGTH } from '../../shared/appLock';
 import DioButton from '../../shared/DioButton';
 import ProfileAvatar from './ProfileAvatar';
+import { pinFailureMessage } from './pinScreenMessage';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'forgot', '0', 'erase'];
 
@@ -49,9 +50,7 @@ export default function PinScreen({ mode, user, getProfilePhotoSource, check, on
     if (ok) onDone(pin);
     else {
       setDigits('');
-      const seconds = Math.ceil((typeof result === 'object' ? result?.retryAfterMs : 0) / 1000);
-      const storageError = typeof result === 'object' && result?.error;
-      setError(seconds > 0 ? `입력 횟수가 많아요. ${seconds}초 뒤에 다시 시도해 주세요` : storageError ? '앱 잠금을 확인하지 못했어요. 잠시 후 다시 시도해 주세요' : '비밀번호가 달라요');
+      setError(pinFailureMessage(result));
     }
   };
 

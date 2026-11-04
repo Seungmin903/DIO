@@ -119,5 +119,15 @@ test('SecureStore 읽기 오류는 잠금을 유지하고, 웹의 기존 v1 잠�
   await asyncStorage.setItem('dio.appLock.v1:user:7',JSON.stringify({salt,hash}));
   assert.equal(web.appLockSupported,false);
   assert.equal(await web.hasAppLock(scope),true);
+  assert.deepEqual(await web.checkAppLock(scope,'0000',1000),{ok:false,retryAfterMs:0});
+  for(let attempt=0;attempt<3;attempt++) await web.checkAppLock(scope,'0000',1000);
+  assert.deepEqual(await web.checkAppLock(scope,'0000',1000),{ok:false,retryAfterMs:30000});
   assert.deepEqual(await web.checkAppLock(scope,'1234'),{ok:true,retryAfterMs:0});
+});
+
+test('PIN 화면 오류 문구는 boolean·재시도 제한·저장소 오류 결과를 구분한다', ()=>{
+  const {pinFailureMessage}=load('../src/diary/components/pinScreenMessage.js',{});
+  assert.equal(pinFailureMessage(false),'비밀번호가 달라요');
+  assert.equal(pinFailureMessage({ok:false,retryAfterMs:1250}),'입력 횟수가 많아요. 2초 뒤에 다시 시도해 주세요');
+  assert.equal(pinFailureMessage({ok:false,retryAfterMs:0,error:'storage'}),'앱 잠금을 확인하지 못했어요. 잠시 후 다시 시도해 주세요');
 });
